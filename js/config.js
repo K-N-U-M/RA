@@ -7,6 +7,22 @@
 const GOOGLE_MAPS_API_KEY = 'AIzaSyAj-cG-tvA-WSaQvC6axmHnQK4WM5VDQWA';
 const CESIUM_ION_TOKEN    = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJhYTYwM2YzZC0zZDIwLTQ3YWQtYWQ5OC01MTkyMzkzYzNmMjQiLCJpZCI6NDU4MjA0LCJpc3MiOiJodHRwczovL2FwaS5jZXNpdW0uY29tIiwiYXVkIjoidW5kZWZpbmVkX2RlZmF1bHQiLCJpYXQiOjE3ODQ0OTI0Njl9.DV-6rn9Hp3XsrxH0xZJGQJQddYK-WyRV5ZQ5dJSwqVk';
 
+// [P3] Resiliencia CDN: sin CesiumJS (sin red / CDN caído) esto lanzaba ReferenceError
+// y el usuario se quedaba con pantalla en blanco sin explicación alguna.
+if (typeof Cesium === 'undefined') {
+  const _ldScr = document.getElementById('ra-loading');
+  if (_ldScr && _ldScr.parentNode) _ldScr.parentNode.removeChild(_ldScr);
+  const _fatal = document.createElement('div');
+  _fatal.id = 'ra-fatal-cdn';
+  _fatal.style.cssText = 'position:fixed;inset:0;z-index:999999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#0b1120;color:#e2e8f0;font-family:system-ui,sans-serif;text-align:center;padding:24px;';
+  _fatal.innerHTML = '<div style="font-size:44px;">📡</div>' +
+    '<div style="font-size:19px;font-weight:800;letter-spacing:-0.3px;">No se pudo cargar CesiumJS</div>' +
+    '<div style="font-size:13px;color:#94a3b8;max-width:460px;line-height:1.6;">El visor 3D requiere el CDN de Cesium (cesium.com) y el motor de fotogrametría de Google. Comprueba tu conexión a internet y recarga la página.</div>' +
+    '<button onclick="location.reload()" style="margin-top:8px;background:#2563eb;color:#fff;border:none;border-radius:8px;padding:10px 22px;font-size:13px;font-weight:700;cursor:pointer;">🔄 Recargar</button>';
+  document.body.appendChild(_fatal);
+  return;
+}
+
 Cesium.Ion.defaultAccessToken = CESIUM_ION_TOKEN;
 Cesium.GoogleMaps.defaultApiKey = GOOGLE_MAPS_API_KEY;
 

@@ -1294,6 +1294,18 @@ function obsClearGhost() {
 }
 
 function obsRenderGhost() {
+  // [P3] Coalescing por frame: antes hacía clear + re-add de ~7 entidades en CADA
+  // MOUSE_MOVE. Con rAF solo se redibuja una vez por frame con las últimas coords.
+  if (global._obsGhostRafPending) return;
+  global._obsGhostRafPending = true;
+  const raf = (typeof requestAnimationFrame === 'function') ? requestAnimationFrame : function(fn) { fn(); };
+  raf(function() {
+    global._obsGhostRafPending = false;
+    obsRenderGhostNow();
+  });
+}
+
+function obsRenderGhostNow() {
   obsClearGhost();
   const res = obsComputeUV({ x: obsPlacement.lastX, y: obsPlacement.lastY });
   if (!res) return;
