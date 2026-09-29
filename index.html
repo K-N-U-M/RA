@@ -9539,6 +9539,13 @@ function wpStartInverterPlacement() {
 function get3DElectricalClickPosition(screenPos) {
   if (typeof viewer === 'undefined' || !viewer) return null;
   let pos = null;
+  // [FIX-PLACEMENT] Con requestRenderMode activo, scene.pickPosition lee el buffer de pick
+  // del ÚLTIMO frame renderizado. Si la cámara se movió desde entonces (órbita/zoom), el
+  // píxel apunta a OTRO punto del mundo y el cuadro aparece lejos del clic ("otro sitio").
+  // Forzar un frame síncrono garantiza que el buffer corresponde a la cámara actual.
+  if (viewer.scene && viewer.scene.requestRenderMode && typeof viewer.scene.render === 'function') {
+    try { viewer.scene.render(); } catch (eForce) { window.RA && window.RA.log && window.RA.log.warn('[pick fresco]', eForce); }
+  }
   if (viewer.scene && typeof viewer.scene.pickPosition === 'function') {
     try { pos = viewer.scene.pickPosition(screenPos); } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
   }
@@ -10196,6 +10203,18 @@ function wpCalculateAndRenderInverterCables() {
       const firstPanel = sPanels[0];
       const startPos = firstPanel.center || (firstPanel.corners ? firstPanel.corners[0] : null);
 
+      // [FIX-CABLES] Normal del plano del panel: los cables deben elevarse PERPENDICULARES
+      // a la cubierta. Antes se elevaban +0.28 m en vertical → en cubiertas inclinadas el
+      // cable quedaba medio enterrado tras los propios paneles (invisible).
+      let panelNorm = null;
+      if (firstPanel.corners && firstPanel.corners.length >= 3) {
+        const cA = firstPanel.corners[0], cB = firstPanel.corners[1], cC = firstPanel.corners[firstPanel.corners.length - 1];
+        const e1 = Cesium.Cartesian3.subtract(cB, cA, new Cesium.Cartesian3());
+        const e2 = Cesium.Cartesian3.subtract(cC, cA, new Cesium.Cartesian3());
+        panelNorm = Cesium.Cartesian3.normalize(Cesium.Cartesian3.cross(e1, e2, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+        if (panelNorm.z < 0) panelNorm = Cesium.Cartesian3.negate(panelNorm, new Cesium.Cartesian3());
+      }
+
       // Polo Negativo (DC-): Último módulo de la serie
       const termPanel = sPanels[sPanels.length - 1];
       const termPos = termPanel.center || (termPanel.corners ? termPanel.corners[0] : null);
@@ -10234,6 +10253,7 @@ function wpCalculateAndRenderInverterCables() {
       homerunMetrics.push({
         startPos: startPos,
         termPos: termPos,
+        normal: panelNorm,
         lengthPos: L_dc_pos,
         lengthNeg: L_dc_neg,
         length: totalHomerunLen
@@ -10369,8 +10389,8 @@ function wpCalculateAndRenderInverterCables() {
       const metric = homerunMetrics[sIdx];
       if (!metric || !metric.startPos || !metric.termPos) return;
 
-      const posElevated = elevate3DPoint(metric.startPos, 0.28);
-      const negElevated = elevate3DPoint(metric.termPos, 0.28);
+      const posElevated = elevate3DPoint(metric.startPos, 0.45, metric.normal);
+      const negElevated = elevate3DPoint(metric.termPos, 0.45, metric.normal);
 
       const posPts = hasManualDc ? [posElevated, ...sState.routes.dc, dcTargetElevated] : buildOrganicCatenary(posElevated, dcTargetElevated);
       const negPts = hasManualDc ? [negElevated, ...sState.routes.dc, dcTargetElevated] : buildOrganicCatenary(negElevated, dcTargetElevated);
