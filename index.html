@@ -16159,6 +16159,17 @@ function raExportProjectData() {
 
 // 2. Deserializar e Importar Proyecto Completo
 function raImportProjectData(projectData) {
+  // [AUDIT-SAVE] Carrera de arranque: si el visor o el sistema WP aún no existen, importar
+  // ahora hace que el init posterior purge el estado cargado (proyecto "invisible"). Se
+  // auto-difiere hasta que la app está operativa.
+  if (typeof viewer === 'undefined' || !viewer || typeof WP === 'undefined' || !WP) {
+    if (!projectData.__raImportDeferred) {
+      projectData.__raImportDeferred = true;
+      if (typeof showStatus === 'function') showStatus('ESPERANDO INICIALIZACIÓN DEL VISOR 3D...', 2500);
+      setTimeout(function() { try { raImportProjectData(projectData); } catch (eDef) { window.RA && window.RA.log && window.RA.log.warn('[import diferido]', eDef); } }, 1500);
+      return true;
+    }
+  }
   try {
     if (!projectData || (projectData.format !== 'RA_SOLAR_PROJECT' && !projectData.polylines && !projectData.planes)) {
       throw new Error('El archivo no tiene un formato .raproject válido');
@@ -16392,6 +16403,9 @@ function raImportProjectData(projectData) {
       if (!window.solarProjectConfig) window.solarProjectConfig = {};
       Object.assign(window.solarProjectConfig, projectData.projectConfig);
       if (typeof window.populateStep3EquipmentSelectors === 'function') window.populateStep3EquipmentSelectors();
+      // El layout se regeneró con el módulo default del catálogo (la config se restaura
+      // después): re-renderizar para que los paneles usen el módulo/inversor del proyecto.
+      if (typeof wpFastRenderSimulatedPanels === 'function') wpFastRenderSimulatedPanels();
     }
 
     raSaveToRecentProjects(projectData);
