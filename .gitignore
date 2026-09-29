@@ -1,0 +1,21 @@
+# Copias de seguridad y archivos temporales
+* - copia*.html
+* - copia*.js
+*.tmp
+*.bak
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Entornos y logs
+.agents/
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDEs
+.vscode/
+.idea/

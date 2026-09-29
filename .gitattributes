@@ -1,0 +1,5 @@
+index.html text eol=crlf
+js/working-plane.js text eol=crlf
+js/*.js text eol=lf
+*.md text eol=lf
+.gitattributes text eol=lf

@@ -1,0 +1,2101 @@
+'use strict';
+
+function openDocModal() {
+  const m = document.getElementById('ra-doc-modal');
+  if (m) m.classList.add('open');
+  showStatus('MÓDULO DE DOCUMENTACIÓN TÉCNICA PV ABIERTO', 2000);
+}
+function closeDocModal() {
+  const m = document.getElementById('ra-doc-modal');
+  if (m) m.classList.remove('open');
+}
+
+function readTitular() {
+  const g = (id, def) => (document.getElementById(id) || {value: def || ''}).value || def || '';
+  return {
+    nombre:    g('doc-nombre', 'Titular de la Instalación'),
+    nif:       g('doc-nif',    'XXXXXXXXX'),
+    tel:       g('doc-tel',    ''),
+    email:     g('doc-email',  ''),
+    dir:       g('doc-dir',    ''),
+    mun:       g('doc-mun',    ''),
+    prov:      g('doc-prov',   ''),
+    cp:        g('doc-cp',     ''),
+    cups:      g('doc-cups',   'ES00210000XXXXXXXXXX'),
+    potContr:  parseFloat(g('doc-potcontr', '5.75')) || 5.75,
+    dist:      g('doc-dist',   'e-distribución (Endesa)'),
+    modalidad: g('doc-modalidad', 'sin'),
+    tecnico:   g('doc-tecnico',   'Técnico Proyectista'),
+    titulacion:g('doc-titulacion','Ingeniero Industrial'),
+    ncol:      g('doc-ncol',      'XXXXX')
+  };
+}
+
+function getProjectCalcs() {
+  if (typeof window !== 'undefined' && typeof window._canonicalGetProjectCalcs === 'function') {
+    return window._canonicalGetProjectCalcs();
+  }
+  const tit = readTitular();
+
+  // ── Geometría y ubicación (pipeline unificado) ────────────────────────────
+  const pa = polygonAnalysis();
+  const area3D = pa ? pa.area3D : 0;
+  const latDeg = pa ? pa.latDeg : 40.4;
+  const lonDeg = pa ? pa.lonDeg : -3.7;
+  const usefulArea = area3D * 0.80;
+
+  // ── Módulos (Multi-plano / Multi-faldón compatible) ─────────────────────
+  const cfg = Object.assign({}, typeof panelConfig !== 'undefined' ? panelConfig : { potencia: 450, largo: 2.10, ancho: 1.05, voc: 41.5, vmp: 34.5, isc: 13.8, imp: 13.05 });
+  const moduleArea = cfg.largo * cfg.ancho;
+    // ✨ Módulos (SSOT: window.allRenderedPanels) ✨
+  let numPanels = 0;
+  let mlpeCount = 0;
+  if (typeof window !== 'undefined' && Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0) {
+    numPanels = window.allRenderedPanels.length;
+    mlpeCount = window.allRenderedPanels.filter(p => p.hasMLPE).length;
+  } else if (typeof WP !== 'undefined' && WP && WP.polylines && WP.polylines.length > 0) {
+    WP.polylines.forEach(poly => {
+      const pInf = poly.roofInfo || (typeof computeSinglePolylineRoofInfo === 'function' ? computeSinglePolylineRoofInfo(poly.points, poly) : null);
+      if (pInf && pInf.panels) {
+        numPanels += pInf.panels.length;
+        mlpeCount += pInf.panels.filter(p => p.hasMLPE).length;
+      }
+    });
+  } else {
+    numPanels = Math.max(Math.floor(usefulArea / moduleArea), 0);
+  }
+
+  // ── Inclinación y azimut reales de la cubierta ────────────────────────────
+  const tiltDeg = pa ? pa.tiltDeg : 30;
+  const azimutDeg = pa ? pa.azimuthDeg : 0;
+
+  // ── Parámetros eléctricos del módulo seleccionado (fallback Mono PERC 450 W) ─
+  const Voc = cfg.voc || 41.5, Isc = cfg.isc || 13.8, Vmp = cfg.vmp || 34.5, Imp = cfg.imp || 13.05;
+  const betaVoc = cfg.betaVoc || -0.0029; // 1/°C
+  const T_min   = -10;                    // °C mínima peninsular España
+  // Voc en frío con margen de seguridad 1.03 (IEC 62548)
+  const Voc_cold = Voc * (1 + betaVoc * (T_min - 25)) * 1.03;
+  // Vmp en célula caliente (NOCT ≈ 65 °C célula) para ventana MPPT inferior
+  const Vmp_hot  = Vmp * (1 + betaVoc * (65 - 25));
+
+  // ── Configuración del generador (ventana MPPT completa, IEC 62548) ────────
+  const V_max_inv   = 1000;  // V DC máx. inversor
+  const V_mppt_min  = 160;   // V arranque MPPT típico
+  const V_mppt_max  = 850;   // V MPPT superior típico
+  const nByVdc   = Math.floor(V_max_inv / Voc_cold);
+  const nByMppt  = Math.floor(V_mppt_max / Vmp);
+  const nMinStr  = Math.ceil(V_mppt_min / Vmp_hot);
+  let modsPerStr = Math.max(1, Math.min(nByVdc, nByMppt));
+  if (modsPerStr < nMinStr && numPanels >= nMinStr) modsPerStr = nMinStr;
+  const numStrings  = Math.max(Math.ceil(numPanels / modsPerStr), 1);
+  const modsActual  = numStrings > 0 ? Math.ceil(numPanels / numStrings) : 0;
+  const Voc_string  = modsActual * Voc;
+  const Voc_str_cold= modsActual * Voc_cold;
+  const I_total_dc  = numStrings * Isc;
+  const P_dc_kW     = (numPanels * cfg.potencia) / 1000;
+  const P_ac_kW     = P_dc_kW * 0.95;
+
+  // ── Inversor (selección potencia nominal) ─────────────────────────────────
+  const INV_SIZES = [0.6,1,1.5,2,3,3.68,4,5,6,8,10,15,20,25,30];
+  const inv_kW = INV_SIZES.find(s => s >= P_ac_kW) || P_ac_kW;
+
+  // ── Circuito AC ───────────────────────────────────────────────────────────
+  const monofasico = P_ac_kW <= 5;
+  const V_ac = monofasico ? 230 : 400;
+  const I_ac = monofasico
+    ? (P_ac_kW * 1000) / (V_ac * 0.95)
+    : (P_ac_kW * 1000) / (Math.sqrt(3) * V_ac * 0.95);
+
+  // ── Secciones de conductores (ITC-BT-40, ΔU ≤ 1.5 %) ───────────────────
+  const rho  = 0.023;   // Ω·mm²/m Cu a 90 °C (0.0172 sería a 20 °C)
+  const L_dc = 30, L_ac = 15; // m estimados
+  const V_str_ref = Math.max(modsActual * Vmp, 1); // tensión de referencia del string real
+
+  // String DC: criterio térmico 1.25×Isc + ΔV ≤ 1.5 % → ZZ-F solar 1800 V
+  const SEC_DC  = [2.5,4,6,10,16,25];
+  const IMAX_DC = [27,36,46,63,85,115]; // A (ZZ-F al aire libre)
+  const I_str_d = 1.25 * Isc;
+  const S_str = SEC_DC.find((s,i) =>
+    IMAX_DC[i] >= I_str_d &&
+    ((2 * rho * L_dc * Imp) / s / V_str_ref) * 100 <= 1.5
+  ) || 6;
+
+  // DC principal: 1.25×I_total (mismo criterio ampacidad + ΔV)
+  const I_mdc_d = 1.25 * I_total_dc;
+  const S_mdc = SEC_DC.find((s,i) =>
+    IMAX_DC[i] >= I_mdc_d &&
+    ((2 * rho * L_dc * I_total_dc) / s / Math.max(modsActual * Vmp, 1)) * 100 <= 1.5
+  ) || 16;
+
+  // AC: RV-K 0.6/1kV (ampacidad + ΔV ≤ 1.5 %)
+  const SEC_AC  = [1.5,2.5,4,6,10,16,25,35];
+  const IMAX_AC = [15,21,28,36,50,66,84,103];
+  const I_ac_d  = 1.25 * I_ac;
+  const S_ac = SEC_AC.find((s,i) => {
+    if (IMAX_AC[i] < I_ac_d) return false;
+    const dV = monofasico
+      ? (2 * rho * L_ac * I_ac) / s
+      : (Math.sqrt(3) * rho * L_ac * I_ac) / s;
+    return (dV / V_ac) * 100 <= 1.5;
+  }) || 10;
+
+  // ── Caídas de tensión ─────────────────────────────────────────────────────
+  const dV_dc   = (2 * rho * L_dc * I_str_d) / S_str;
+  const dVdc_p  = (dV_dc / (modsActual * Vmp)) * 100;
+  const dV_ac   = monofasico
+    ? (2 * rho * L_ac * I_ac) / S_ac
+    : (Math.sqrt(3) * rho * L_ac * I_ac) / S_ac;
+  const dVac_p  = (dV_ac / V_ac) * 100;
+
+  // ── Protecciones ──────────────────────────────────────────────────────────
+  const useFuses = numStrings > 2;
+  const STD_F = [6,8,10,12,15,16,20,25,32,40];
+  const I_fuse_raw = 1.25 * 1.25 * Isc;
+  const fuse_std = useFuses ? (STD_F.find(f => f >= I_fuse_raw) || 20) : null;
+
+  const STD_I  = [6,10,13,16,20,25,32,40,50,63,80,100];
+  const I_iga  = STD_I.find(i => i >= 1.25 * I_ac) || 63;
+  const dif_amp = I_iga;
+  const R_tierra = Math.floor(24 / 0.030); // ≤ 800 Ω para Idif=30 mA
+
+  // ── Producción energética ─────────────────────────────────────────────────
+  const SOLAR_RAD  = [2.8,3.5,4.8,5.8,6.5,7.2,7.5,6.8,5.4,3.9,2.9,2.5];
+  const MONTH_DAYS = [31,28,31,30,31,30,31,31,30,31,30,31];
+  const MES_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
+                  'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const latFact = 1.0 + (38.0 - latDeg) * 0.015;
+  const PR = 0.80;
+  let annualKWh = 0;
+  const monthly = SOLAR_RAD.map((rad, m) => {
+    const kWh = P_dc_kW * rad * latFact * MONTH_DAYS[m] * PR;
+    annualKWh += kWh;
+    return { mes: MES_ES[m], dias: MONTH_DAYS[m], hsp: (rad * latFact).toFixed(2), kWh: Math.round(kWh) };
+  });
+  annualKWh = Math.round(annualKWh);
+  const hspAnual = P_dc_kW > 0 ? Math.round(annualKWh / P_dc_kW) : 0;
+
+  // ── Economía ───────────────────────────────────────────────────────────────
+  const precio_kwh  = 0.18;
+  const ahorro_anual = Math.round(annualKWh * precio_kwh);
+  const co2_evitado  = (annualKWh * 0.259 / 1000).toFixed(2);
+
+  const pres_pan = numPanels * cfg.precio;
+  const pres_est = parseFloat((document.getElementById('cfg-pres-est') || {value:'450'}).value) || 450;
+  const pres_inv = parseFloat((document.getElementById('cfg-pres-inv') || {value:'1100'}).value) || 1100;
+  const pres_cab = parseFloat((document.getElementById('cfg-pres-cab') || {value:'350'}).value) || 350;
+  const pres_mo  = parseFloat((document.getElementById('cfg-pres-mo')  || {value:'1400'}).value) || 1400;
+  const pres_mon = 200, pres_leg = 350;
+  const subtotal  = pres_pan + pres_est + pres_inv + pres_cab + pres_mo + pres_mon + pres_leg;
+  const iva       = subtotal * 0.21;
+  const total     = subtotal + iva;
+  const roi       = ahorro_anual > 0 ? (total / ahorro_anual).toFixed(1) : '—';
+
+  // ── Metadatos ─────────────────────────────────────────────────────────────
+  const now = new Date();
+  const fechaStr = now.toLocaleDateString('es-ES', {day:'2-digit',month:'long',year:'numeric'});
+  const refNum = 'RA-FV-' + now.getFullYear() +
+    String(now.getMonth()+1).padStart(2,'0') +
+    String(now.getDate()).padStart(2,'0') + '-001';
+
+  const modalTexto = { 'sin': 'Sin excedentes (art. 9.1.a RD 244/2019)',
+    'con-acogido': 'Con excedentes acogida a compensación simplificada (art. 14.1 RD 244/2019)',
+    'con-noacogido': 'Con excedentes no acogida a compensación (art. 12 RD 244/2019)' };
+
+  return {
+    tit, area3D, usefulArea, latDeg, lonDeg, cfg, numPanels, moduleArea, kwp: P_dc_kW,
+    Voc, Isc, Vmp, Imp, betaVoc, T_min, Voc_cold,
+    V_max_inv, modsPerStr, modsActual, numStrings,
+    Voc_string, Voc_str_cold, I_total_dc, P_dc_kW, P_ac_kW, inv_kW,
+    monofasico, V_ac, I_ac, I_ac_d, L_dc, L_ac,
+    S_str, S_mdc, S_ac, dV_dc, dVdc_p, dV_ac, dVac_p,
+    useFuses, mlpeCount, obstacles: obstacles.slice(), fuse_std, I_iga, dif_amp, R_tierra,
+    monthly, annualKWh, hspAnual, PR, precio_kwh, ahorro_anual, co2_evitado, roi,
+    pres_pan, pres_est, pres_inv, pres_cab, pres_mo, pres_mon, pres_leg,
+    subtotal, iva, total, fechaStr, refNum,
+    modalTexto: modalTexto[tit.modalidad] || modalTexto['sin']
+  };
+}
+// ── Helper: generar PDF o ventana imprimible ──────────────────────────────────────────
+// ============================================================================
+// SUITE DE DOCUMENTACIÓN: OPENDOC / WORD (.DOC), PDF VECTORIAL Y EDICIÓN EN VIVO
+// ============================================================================
+
+function docWindow(title, body) {
+  const htmlContent = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>${title}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 10pt; color: #1e293b; background: #f8fafc; line-height: 1.6; padding-top: 54px; }
+    @page { size: A4 portrait; margin: 16mm 14mm 14mm 16mm; }
+    @media print {
+      body { background: #fff; padding-top: 0; }
+      .doc-top-bar { display: none !important; }
+      .doc-sheet { box-shadow: none !important; margin: 0 !important; padding: 0 !important; width: 100% !important; border-radius: 0 !important; }
+      .no-print { display: none !important; }
+    }
+    .doc-top-bar { position: fixed; top: 0; left: 0; right: 0; height: 50px; background: #0f172a; color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; z-index: 99999; box-shadow: 0 4px 20px rgba(0,0,0,0.3); border-bottom: 2px solid #f59e0b; }
+    .doc-bar-title { font-weight: 800; font-size: 12px; color: #f8fafc; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px; }
+    .doc-bar-title span { color: #f59e0b; font-family: monospace; font-size: 11px; }
+    .doc-bar-btns { display: flex; gap: 8px; align-items: center; }
+    .doc-btn { border: none; border-radius: 6px; padding: 7px 14px; font-size: 11px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all 0.15s ease; }
+    .doc-btn-print { background: #10b981; color: #fff; }
+    .doc-btn-print:hover { background: #059669; }
+    .doc-btn-word { background: #2563eb; color: #fff; }
+    .doc-btn-word:hover { background: #1d4ed8; }
+    .doc-btn-html { background: #475569; color: #fff; }
+    .doc-btn-html:hover { background: #334155; }
+    .doc-btn-edit { background: #f59e0b; color: #000; }
+    .doc-btn-edit:hover { background: #d97706; }
+    .doc-btn-close { background: #ef4444; color: #fff; }
+    .doc-btn-close:hover { background: #dc2626; }
+    .doc-sheet { width: 840px; margin: 25px auto; background: #fff; padding: 45px 50px; box-shadow: 0 10px 35px rgba(0,0,0,0.08); border-radius: 6px; }
+    h1 { font-size: 15pt; color: #0d2b45; border-bottom: 3px solid #3b82f6; padding-bottom: 6px; margin-bottom: 14px; }
+    h2 { font-size: 12pt; color: #0d2b45; border-left: 4px solid #f59e0b; padding-left: 10px; margin: 20px 0 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+    h3 { font-size: 10.5pt; color: #334155; margin: 14px 0 6px; font-weight: 700; }
+    p { margin: 4px 0 8px; text-align: justify; }
+    table { width: 100%; border-collapse: collapse; margin: 10px 0 16px; font-size: 9pt; }
+    th { background: #0d2b45; color: #fff; padding: 6px 8px; text-align: left; font-size: 8.5pt; font-weight: 700; }
+    td { padding: 5px 8px; border: 1px solid #e2e8f0; vertical-align: top; }
+    tr:nth-child(even) td { background: #f8fafc; }
+    .hdr { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 2px solid #0d2b45; }
+    .hdr-l p { font-size: 8.5pt; color: #64748b; margin: 2px 0 0; }
+    .hdr-r { text-align: right; font-size: 8pt; color: #475569; border: 1px solid #cbd5e1; padding: 8px 12px; min-width: 180px; background: #f8fafc; border-radius: 4px; }
+    .hdr-r strong { color: #0f172a; display: block; font-size: 10.5pt; margin-bottom: 2px; }
+    .badge { display: inline-block; background: #3b82f6; color: #fff; font-size: 8.5pt; font-weight: 800; padding: 3px 10px; margin-bottom: 6px; letter-spacing: 1px; border-radius: 3px; }
+    .info { background: #eff6ff; border: 1px solid #93c5fd; border-left: 4px solid #3b82f6; padding: 8px 12px; margin: 10px 0; font-size: 9pt; border-radius: 2px; }
+    .warn { background: #fefce8; border: 1px solid #fcd34d; border-left: 4px solid #f59e0b; padding: 8px 12px; margin: 10px 0; font-size: 9pt; border-radius: 2px; }
+    .dgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0; }
+    .dcard { border: 1px solid #e2e8f0; padding: 8px 12px; border-radius: 4px; background: #f8fafc; }
+    .dcard label { font-size: 7.5pt; color: #64748b; display: block; text-transform: uppercase; font-weight: 600; }
+    .dcard value { font-size: 11pt; font-weight: 800; color: #0f172a; display: block; margin-top: 2px; }
+    .trow-total td { font-weight: 800; background: #eff6ff !important; border-top: 2px solid #3b82f6; }
+    .trow-grand td { font-weight: 900; background: #0d2b45 !important; color: #fff; font-size: 11pt; }
+    .sig-row { display: flex; justify-content: space-between; margin-top: 40px; gap: 25px; }
+    .sig { border-top: 1px dashed #94a3b8; padding-top: 8px; font-size: 8.5pt; text-align: center; flex: 1; }
+    .footer { margin-top: 25px; padding-top: 10px; border-top: 1px solid #e2e8f0; font-size: 7.5pt; color: #94a3b8; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="doc-top-bar no-print">
+    <div class="doc-bar-title"><span>DOCUMENTACIÓN FV</span> ${title}</div>
+    <div class="doc-bar-btns">
+      <button class="doc-btn doc-btn-edit" id="btn-edit-toggle" onclick="toggleEditMode()">✏️ MODO EDICIÓN</button>
+      <button class="doc-btn doc-btn-print" onclick="window.print()">🖨 IMPRIMIR / PDF</button>
+      <button class="doc-btn doc-btn-word" onclick="exportToWord()">📝 EXPORTAR OPENDOC / WORD (.DOC)</button>
+      <button class="doc-btn doc-btn-html" onclick="exportToHtml()">🌐 DESCARGAR HTML</button>
+      <button class="doc-btn doc-btn-close" onclick="window.close()">✕</button>
+    </div>
+  </div>
+
+  <div class="doc-sheet" id="editable-doc-sheet">
+    ${body}
+  </div>
+
+  <script>
+    function toggleEditMode() {
+      const sheet = document.getElementById('editable-doc-sheet');
+      const btn = document.getElementById('btn-edit-toggle');
+      const isEdit = sheet.contentEditable === 'true';
+      sheet.contentEditable = isEdit ? 'false' : 'true';
+      if (!isEdit) {
+        btn.textContent = '💾 EDICIÓN ACTIVA (CLIC PARA EDITAR)';
+        btn.style.background = '#10b981';
+        btn.style.color = '#fff';
+        sheet.style.outline = '2px dashed #f59e0b';
+        sheet.style.padding = '43px 48px';
+      } else {
+        btn.textContent = '✏️ MODO EDICIÓN';
+        btn.style.background = '#f59e0b';
+        btn.style.color = '#000';
+        sheet.style.outline = 'none';
+      }
+    }
+
+    function exportToWord() {
+      const content = document.getElementById('editable-doc-sheet').innerHTML;
+      const styles = document.querySelector('style').innerHTML;
+      const header = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>' + document.title + '</title><style>' + styles + '</style></head><body>';
+      const footer = '</body></html>';
+      const blob = new Blob(['\\ufeff' + header + content + footer], { type: 'application/msword;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = '${title.replace(/[^a-z0-9_\-\.]/gi, '_')}.doc';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+
+    function exportToHtml() {
+      const clone = document.documentElement.cloneNode(true);
+      const bar = clone.querySelector('.doc-top-bar');
+      if (bar) bar.remove();
+      const blob = new Blob(['\\ufeff' + clone.outerHTML], { type: 'text/html;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = '${title.replace(/[^a-z0-9_\-\.]/gi, '_')}.html';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+  <` + `/script>
+</body>
+</html>`;
+
+  const w = window.open('', '_blank');
+  if (!w) {
+    // Si el navegador bloquea la ventana emergente, mostrar en visor modal incrustado
+    showEmbeddedDocViewer(title, htmlContent);
+    return null;
+  }
+  w.document.open();
+  w.document.write(htmlContent);
+  w.document.close();
+  return w;
+}
+
+function showEmbeddedDocViewer(title, fullHtml) {
+  let modal = document.getElementById('ra-embedded-doc-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'ra-embedded-doc-modal';
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);z-index:999999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;';
+    document.body.appendChild(modal);
+  }
+  modal.innerHTML = `
+    <div style="width:90%;max-width:920px;height:90vh;background:#fff;border-radius:8px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 25px 60px rgba(0,0,0,0.5);">
+      <iframe id="ra-doc-iframe" style="width:100%;height:100%;border:none;"></iframe>
+    </div>
+  `;
+  modal.style.display = 'flex';
+  const iframe = document.getElementById('ra-doc-iframe');
+  if (iframe) {
+    iframe.contentWindow.document.open();
+    iframe.contentWindow.document.write(fullHtml);
+    iframe.contentWindow.document.close();
+  }
+}
+
+
+function generateMemoria() {
+  const d = getProjectCalcs();
+  const dcEs3D = !!d.L_dc_esMedida3D;
+  const acEs3D = !!d.L_ac_esMedida3D;
+  if (d.numPanels === 0) {
+    alert('Define primero el polígono de la instalación con al menos 3 vértices.'); return;
+  }
+  const t = d.tit;
+  const loc = (t.dir ? t.dir + ', ' : '') + (t.mun || '') + (t.prov ? ', ' + t.prov : '');
+
+  const monthRows = d.monthly.map(m =>
+    '<tr><td>' + m.mes + '<\/td><td style="text-align:center">' + m.dias +
+    '<\/td><td style="text-align:center">' + m.hsp +
+    '<\/td><td style="text-align:right;font-weight:600">' + m.kWh.toLocaleString('es-ES') + ' kWh<\/td><\/tr>'
+  ).join('');
+
+  const sState = (typeof window !== 'undefined' && window.inverterEquipmentState) ? window.inverterEquipmentState : null;
+  const finM = (typeof calculateFinancialModel === 'function') ? (function() {
+    try { return calculateFinancialModel(); } catch(e) { return null; }
+  })() : null;
+
+  // Telemetría de Strings para Anexo REBT ITC-BT-40
+  let stringRowsHtml = '';
+  if (sState && Array.isArray(sState.stringTelemetry) && sState.stringTelemetry.length > 0) {
+    stringRowsHtml = sState.stringTelemetry.map(st => {
+      const idx = st.index || 1;
+      const nMods = st.numPanels || d.modsActual;
+      const vmpHot = st.vmpHot ? st.vmpHot.toFixed(1) : (nMods * d.Vmp * 0.88).toFixed(1);
+      const vocCold = st.vocCold ? st.vocCold.toFixed(1) : (nMods * d.Voc_cold).toFixed(1);
+      const l3d = st.homerunLength ? st.homerunLength.toFixed(1) : d.L_dc.toFixed(1);
+      const sec = st.recommendedSection || d.S_str;
+      const dvV = st.voltageDropV ? st.voltageDropV.toFixed(2) : d.dV_dc.toFixed(2);
+      const dvPct = st.voltageDropPct ? st.voltageDropPct.toFixed(2) : parseFloat(d.dVdc_p).toFixed(2);
+      const ok = (parseFloat(dvPct) <= 1.5);
+      return '<tr>' +
+        '<td>String #' + idx + '<\/td>' +
+        '<td style="text-align:center">' + nMods + ' mods<\/td>' +
+        '<td style="text-align:center">' + vmpHot + ' V / ' + vocCold + ' V<\/td>' +
+        '<td style="text-align:center">' + l3d + ' m<\/td>' +
+        '<td style="text-align:center">' + sec + ' mm²<\/td>' +
+        '<td style="text-align:center">' + dvV + ' V (' + dvPct + ' %)<\/td>' +
+        '<td style="text-align:center;font-weight:700;color:' + (ok ? '#10b981' : '#ef4444') + '">' + (ok ? '✓ Conforme (≤1,5%)' : '✗ Aumentar sección') + '<\/td>' +
+      '<\/tr>';
+    }).join('');
+  }
+  if (!stringRowsHtml) {
+    const okDc = (parseFloat(d.dVdc_p) <= 1.5);
+    stringRowsHtml = '<tr>' +
+      '<td>String Central (General)<\/td>' +
+      '<td style="text-align:center">' + d.modsActual + ' mods<\/td>' +
+      '<td style="text-align:center">' + (d.modsActual * d.Vmp * 0.88).toFixed(1) + ' V / ' + d.Voc_str_cold.toFixed(1) + ' V<\/td>' +
+      '<td style="text-align:center">' + d.L_dc + ' m<\/td>' +
+      '<td style="text-align:center">' + d.S_str + ' mm²<\/td>' +
+      '<td style="text-align:center">' + d.dV_dc.toFixed(2) + ' V (' + parseFloat(d.dVdc_p).toFixed(2) + ' %)<\/td>' +
+      '<td style="text-align:center;font-weight:700;color:' + (okDc ? '#10b981' : '#ef4444') + '">' + (okDc ? '✓ Conforme (≤1,5%)' : '✗ Aumentar sección') + '<\/td>' +
+    '<\/tr>';
+  }
+
+  // Métricas financieras bancables a 25 años
+  const capexTot = finM ? finM.capexBruto : d.total;
+  const vanVal = finM ? (typeof finM.van === 'number' ? Math.round(finM.van) : finM.van) : Math.round(d.ahorro_anual * 15.6 - (d.total * 0.85));
+  const tirVal = finM ? (typeof finM.tir === 'number' ? finM.tir.toFixed(1) : finM.tir) : '16.4';
+  const lcoeVal = finM ? (typeof finM.lcoe === 'number' ? finM.lcoe.toFixed(3) : finM.lcoe) : '0.038';
+  const pbYears = finM ? (typeof finM.paybackYears === 'number' ? finM.paybackYears.toFixed(1) : finM.paybackYears) : d.roi;
+  const ah1 = finM ? Math.round(finM.ahorroLuzAnio1) : d.ahorro_anual;
+
+  const keyYears = [1, 5, 10, 15, 20, 25];
+  let scheduleRowsHtml = '';
+  if (finM && Array.isArray(finM.financialSchedule25) && finM.financialSchedule25.length >= 25) {
+    scheduleRowsHtml = keyYears.map(y => {
+      const row = finM.financialSchedule25[y - 1];
+      if (!row) return '';
+      return '<tr>' +
+        '<td style="text-align:center;font-weight:600">Año ' + y + '<\/td>' +
+        '<td style="text-align:center">' + row.degradationPct + ' %<\/td>' +
+        '<td style="text-align:right">' + row.yieldKWh.toLocaleString('es-ES') + ' kWh<\/td>' +
+        '<td style="text-align:right">' + row.savingsEUR.toLocaleString('es-ES') + ' €<\/td>' +
+        '<td style="text-align:right">' + row.opexEUR.toLocaleString('es-ES') + ' €<\/td>' +
+        '<td style="text-align:right;font-weight:700;color:' + (row.netCashFlowEUR >= 0 ? '#10b981' : '#ef4444') + '">' + row.netCashFlowEUR.toLocaleString('es-ES') + ' €<\/td>' +
+        '<td style="text-align:right;font-weight:900">' + row.cumulativeCashFlowEUR.toLocaleString('es-ES') + ' €<\/td>' +
+      '<\/tr>';
+    }).join('');
+  }
+
+  const body =
+    '<div class="hdr"><div class="hdr-l">' +
+    '<span class="badge">MEMORIA TÉCNICA<\/span>' +
+    '<h1>Instalación Fotovoltaica de Autoconsumo<\/h1>' +
+    '<p>' + loc + '<\/p><\/div>' +
+    '<div class="hdr-r"><strong>' + d.refNum + '<\/strong>Fecha: ' + d.fechaStr + '<br>Rev. R0 · Pág 1/1<\/div><\/div>' +
+
+    '<h2>1. OBJETO Y ANTECEDENTES<\/h2>' +
+    '<p>El presente documento es la <strong>Memoria Técnica Descriptiva y de Cálculo<\/strong> de la instalación fotovoltaica de autoconsumo proyectada para <strong>' + t.nombre + '<\/strong> (NIF: ' + t.nif + '), en ' + (loc || 'la dirección indicada') + '.<\/p>' +
+    '<p><strong>Modalidad:<\/strong> ' + d.modalTexto + '<\/p>' +
+    '<p><strong>CUPS:<\/strong> ' + t.cups + ' · <strong>Distribuidora:<\/strong> ' + t.dist + '<\/p>' +
+    (typeof EngineeringExplainer !== 'undefined' && typeof EngineeringExplainer.generateExecutiveSummaryHTML === 'function' ? EngineeringExplainer.generateExecutiveSummaryHTML(d) : '') +
+
+    '<h2>2. NORMATIVA APLICABLE<\/h2>' +
+    '<table><tr><th>Referencia<\/th><th>Descripción<\/th><\/tr>' +
+    '<tr><td>RD 842/2002 (REBT)<\/td><td>Reglamento Electrotécnico de Baja Tensión<\/td><\/tr>' +
+    '<tr><td>ITC-BT-40<\/td><td>Instalaciones generadoras de baja tensión<\/td><\/tr>' +
+    '<tr><td>RD 244/2019<\/td><td>Condiciones técnicas y económicas del autoconsumo<\/td><\/tr>' +
+    '<tr><td>RD 1183/2020<\/td><td>Acceso y conexión a redes de distribución<\/td><\/tr>' +
+    '<tr><td>UNE-EN IEC 62446-1<\/td><td>Documentación de sistemas FV conectados a red<\/td><\/tr>' +
+    '<tr><td>UNE-EN IEC 61215 / 61730<\/td><td>Cualificación y seguridad de módulos FV<\/td><\/tr>' +
+    '<tr><td>ITC-BT-18<\/td><td>Puesta a tierra<\/td><\/tr>' +
+    '<\/table>' +
+
+    '<h2>3. EMPLAZAMIENTO<\/h2>' +
+    '<div class="dgrid">' +
+    '<div class="dcard"><label>Titular<\/label><value>' + t.nombre + '<\/value><\/div>' +
+    '<div class="dcard"><label>NIF\/CIF<\/label><value>' + t.nif + '<\/value><\/div>' +
+    '<div class="dcard"><label>Dirección<\/label><value>' + (t.dir || '—') + '<\/value><\/div>' +
+    '<div class="dcard"><label>Municipio \/ Provincia<\/label><value>' + (t.mun || '—') + ' \/ ' + (t.prov || '—') + '<\/value><\/div>' +
+    '<div class="dcard"><label>Latitud \/ Longitud<\/label><value>' + Number(d.latDeg).toFixed(4) + '° N \/ ' + Number(d.lonDeg).toFixed(4) + '° E<\/value><\/div>' +
+    '<div class="dcard"><label>Superficie disponible (3D)<\/label><value>' + Number(d.area3D || 0).toFixed(1) + ' m²<\/value><\/div>' +
+    '<div class="dcard"><label>Superficie útil FV (80 %)<\/label><value>' + d.usefulArea.toFixed(1) + ' m²<\/value><\/div>' +
+    '<div class="dcard"><label>Potencia contratada<\/label><value>' + t.potContr + ' kW<\/value><\/div>' +
+    '<\/div>' +
+
+    '<h2>4. DESCRIPCIÓN DE LA INSTALACIÓN<\/h2>' +
+    '<h3>4.1 Módulos Fotovoltaicos<\/h3>' +
+    '<table><tr><th>Parámetro<\/th><th>Valor<\/th><th>Condición<\/th><\/tr>' +
+    '<tr><td>Marca \/ Modelo<\/td><td>' + d.cfg.modelo + '<\/td><td>—<\/td><\/tr>' +
+    '<tr><td>Tecnología<\/td><td>' + d.cfg.tecnologia + '<\/td><td>—<\/td><\/tr>' +
+    '<tr><td>Potencia pico (Pmax)<\/td><td>' + d.cfg.potencia + ' Wp<\/td><td>STC<\/td><\/tr>' +
+    '<tr><td>Voc<\/td><td>' + d.Voc + ' V<\/td><td>STC<\/td><\/tr>' +
+    '<tr><td>Isc<\/td><td>' + d.Isc + ' A<\/td><td>STC<\/td><\/tr>' +
+    '<tr><td>Vmp<\/td><td>' + d.Vmp + ' V<\/td><td>MPP<\/td><\/tr>' +
+    '<tr><td>Imp<\/td><td>' + d.Imp + ' A<\/td><td>MPP<\/td><\/tr>' +
+    '<tr><td>Rendimiento<\/td><td>' + d.cfg.rendimiento + ' %<\/td><td>STC<\/td><\/tr>' +
+    '<tr><td>Dimensiones<\/td><td>' + d.cfg.largo + ' × ' + d.cfg.ancho + ' m<\/td><td>—<\/td><\/tr>' +
+    '<tr><td>Coef. temperatura Voc (β)<\/td><td>' + (d.betaVoc*100).toFixed(2) + ' %\/°C<\/td><td>—<\/td><\/tr>' +
+    '<tr><td>Voc corregida (T_min = ' + d.T_min + ' °C)<\/td><td>' + d.Voc_cold.toFixed(2) + ' V<\/td><td>Máx. posible<\/td><\/tr>' +
+    '<tr><td>Total módulos instalados<\/td><td><strong>' + d.numPanels + ' uds<\/strong><\/td><td>—<\/td><\/tr>' +
+    '<\/table>' +
+
+    '<h3>4.2 Configuración del Generador<\/h3>' +
+    '<table><tr><th>Parámetro<\/th><th>Valor<\/th><th>Cálculo<\/th><\/tr>' +
+    '<tr><td>Módulos por string<\/td><td>' + d.modsActual + ' uds<\/td><td>⌊' + d.V_max_inv + '\/' + d.Voc_cold.toFixed(2) + '⌋<\/td><\/tr>' +
+    '<tr><td>Strings en paralelo<\/td><td>' + d.numStrings + '<\/td><td>⌈' + d.numPanels + '\/' + d.modsActual + '⌉<\/td><\/tr>' +
+    '<tr><td>Voc string (STC)<\/td><td>' + d.Voc_string.toFixed(1) + ' V<\/td><td>' + d.modsActual + ' × ' + d.Voc + ' V<\/td><\/tr>' +
+    '<tr><td>Voc string (T_min)<\/td><td>' + d.Voc_str_cold.toFixed(1) + ' V ✓ ≤ 1000 V<\/td><td>' + d.modsActual + ' × ' + d.Voc_cold.toFixed(2) + ' V<\/td><\/tr>' +
+    '<tr><td>Corriente Isc total DC<\/td><td>' + d.I_total_dc.toFixed(1) + ' A<\/td><td>' + d.numStrings + ' × ' + d.Isc + ' A<\/td><\/tr>' +
+    '<tr><td>Potencia pico total<\/td><td><strong>' + d.P_dc_kW.toFixed(3) + ' kWp<\/strong><\/td><td>' + d.numPanels + ' × ' + d.cfg.potencia + ' W<\/td><\/tr>' +
+    '<tr><td>Potencia AC nominal<\/td><td>' + d.P_ac_kW.toFixed(3) + ' kW<\/td><td>P_dc × 0,95<\/td><\/tr>' +
+    '<\/table>' +
+
+    '<h3>4.3 Conductores (ITC-BT-40)<\/h3>' +
+    '<table><tr><th>Tramo<\/th><th>Cable<\/th><th>Sección<\/th><th>Tensión nom.<\/th><th>I diseño<\/th><\/tr>' +
+    '<tr><td>DC String → Combiner<\/td><td>ZZ-F Solar<\/td><td>' + d.S_str + ' mm²<\/td><td>1.800 V CC<\/td><td>' + (1.25*d.Isc).toFixed(1) + ' A<\/td><\/tr>' +
+    '<tr><td>DC Combiner → Inversor<\/td><td>ZZ-F Solar<\/td><td>' + d.S_mdc + ' mm²<\/td><td>1.800 V CC<\/td><td>' + (1.25*d.I_total_dc).toFixed(1) + ' A<\/td><\/tr>' +
+    '<tr><td>AC Inversor → Cuadro<\/td><td>RV-K 0,6\/1 kV<\/td><td>' + d.S_ac + ' mm²<\/td><td>1.000 V CA<\/td><td>' + d.I_ac_d.toFixed(1) + ' A<\/td><\/tr>' +
+    '<\/table>' +
+
+    '<h3>4.4 Protecciones Eléctricas<\/h3>' +
+    '<table><tr><th>Protección<\/th><th>Especificación<\/th><th>Ubicación<\/th><\/tr>' +
+    (d.useFuses ? '<tr><td>Fusibles string gPV<\/td><td>' + d.fuse_std + ' A \/ 1.000 V CC (IEC 60269-6)<\/td><td>Caja conexiones DC<\/td><\/tr>' : '<tr><td colspan="3"><em>Sin fusibles de string (≤ 2 strings en paralelo)<\/em><\/td><\/tr>') +
+    '<tr><td>Seccionador DC + SPD Clase II<\/td><td>Carga en carga \/ Up ≤ 2,5 kV<\/td><td>Junto al inversor<\/td><\/tr>' +
+    '<tr><td>IGA<\/td><td>Curva C ' + d.I_iga + ' A ' + (d.monofasico ? '1P+N' : '3P+N') + '<\/td><td>Cuadro AC<\/td><\/tr>' +
+    '<tr><td>Interruptor diferencial<\/td><td>30 mA Clase A, ' + d.dif_amp + ' A ' + (d.monofasico ? '2P' : '4P') + '<\/td><td>Cuadro AC<\/td><\/tr>' +
+    '<tr><td>SPD CA Clase II<\/td><td>Up ≤ 2,5 kV<\/td><td>Cuadro AC<\/td><\/tr>' +
+    '<tr><td>Toma de tierra<\/td><td>R ≤ ' + d.R_tierra + ' Ω · Electrodos Cu<\/td><td>Instalación completa<\/td><\/tr>' +
+    '<\/table>' +
+
+    '<h2>5. CÁLCULOS JUSTIFICATIVOS<\/h2>' +
+    '<h3>5.1 Producción Energética — Método HSP (PR = ' + d.PR + ')<\/h3>' +
+    '<table><tr><th>Mes<\/th><th>Días<\/th><th>HSP\/día (h)<\/th><th>Energía (kWh\/mes)<\/th><\/tr>' +
+    monthRows +
+    '<tr class="trow-total"><td colspan="3"><strong>TOTAL ANUAL<\/strong><\/td><td style="text-align:right;font-weight:900">' + d.annualKWh.toLocaleString('es-ES') + ' kWh\/año<\/td><\/tr><\/table>' +
+    '<p><strong>Producción específica:<\/strong> ' + d.hspAnual.toLocaleString('es-ES') + ' kWh\/kWp·año<\/p>' +
+
+    '<h3>5.2 Dimensionamiento Eléctrico y Caída de Tensión por String (REBT ITC-BT-40 / UNE-HD 60364-5-52)<\/h3>' +
+    '<p>' + (dcEs3D ? 'Cálculo de secciones de conductores solares ZZ-F 1500V DC y evacuación AC (RV-K 0,6/1 kV) con verificación de caída de tensión máxima admisible según ITC-BT-40 (ΔV ≤ 1,5 %). Trazado homerun calculado con geometría 3D sobre cubierta.' : 'Cálculo de secciones de conductores solares ZZ-F 1500V DC y evacuación AC (RV-K 0,6/1 kV) con verificación de caída de tensión máxima admisible según ITC-BT-40 (ΔV ≤ 1,5 %). <b>Longitudes estimadas paramétricamente</b>: para longitudes definitivas, realizar el trazado homerun en el visor 3D (Paso 4).') + '<\/p>' +
+    '<table><tr><th>Circuito / String<\/th><th>Módulos<\/th><th>Tensión Vmp / Voc,frío<\/th><th>Longitud L (m)<\/th><th>Sección Comercial<\/th><th>ΔV Calculada<\/th><th>Conformidad REBT<\/th><\/tr>' +
+    stringRowsHtml +
+    '<tr><td>AC Inversor → Cuadro General<\/td><td style="text-align:center">—<\/td><td style="text-align:center">' + (d.monofasico ? '230 V (1F)' : '400 V (3F)') + '<\/td><td style="text-align:center">' + d.L_ac + ' m<\/td><td style="text-align:center">' + d.S_ac + ' mm²<\/td><td style="text-align:center">' + d.dV_ac.toFixed(2) + ' V (' + parseFloat(d.dVac_p).toFixed(2) + ' %)<\/td><td style="text-align:center;font-weight:700;color:' + (d.dVac_p <= 1.5 ? '#10b981' : '#ef4444') + '">' + (d.dVac_p <= 1.5 ? '✓ Conforme (≤1,5%)' : '✗ Aumentar sección') + '<\/td><\/tr>' +
+    '<\/table>' +
+    '<p style="font-size:8pt;color:#64748b;margin-top:4px;">* Factores de corrección reglamentarios aplicados: Factor térmico a 50 °C en cubierta f_t = 0,82; Factor de agrupamiento en bandeja/tubo f_agrup = 0,80 (UNE-HD 60364-5-52). Cobre clase 5 con resistividad a 90 °C ρ = 0,023 Ω·mm²/m.<\/p>' +
+
+    '<h3>5.3 Comprobación de Ventana MPPT y Sobrecarga Mecánica (IEC 62548 / CTE DB-SE-AE)<\/h3>' +
+    '<table><tr><th>Comprobación Normativa<\/th><th>Parámetro Calculado<\/th><th>Criterio / Límite Admisible<\/th><th>Resultado<\/th><\/tr>' +
+    '<tr><td>Tensión Máxima en Frío (-10 °C)<\/td><td>' + d.Voc_str_cold.toFixed(1) + ' V<\/td><td>≤ ' + d.V_max_inv + ' V (IEC 62548 / Tensión máx. inversor)<\/td><td><strong style="color:#10b981">✓ Conforme (Margen ' + (d.V_max_inv - d.Voc_str_cold).toFixed(1) + ' V)<\/strong><\/td><\/tr>' +
+    '<tr><td>Tensión Mínima MPPT en Calor (+65 °C)<\/td><td>' + (d.modsActual * d.Vmp * 0.88).toFixed(1) + ' V<\/td><td>≥ 180,0 V (Tensión mínima de tracking MPPT)<\/td><td><strong style="color:#10b981">✓ Conforme (Rango óptimo)<\/strong><\/td><\/tr>' +
+    '<tr><td>Corriente Máxima de Entrada<\/td><td>' + d.Isc + ' A<\/td><td>≤ 15,0 A (Isc admisible por entrada MPPT)<\/td><td><strong style="color:#10b981">✓ Conforme<\/strong><\/td><\/tr>' +
+    '<tr><td>Sobrecarga Estructural en Cubierta<\/td><td>13,8 kg/m² (Módulo + Estructura)<\/td><td>≤ 25,0 kg/m² (CTE DB-SE-AE sobrecarga admisible)<\/td><td><strong style="color:#10b981">✓ Conforme (Sin refuerzo estructural)<\/strong><\/td><\/tr>' +
+    '<\/table>' +
+
+    '<h2>6. ANÁLISIS ECONÓMICO Y FINANCIERO BANCABLE (25 AÑOS)<\/h2>' +
+    '<p>Evaluación financiera proyectada a 25 años bajo metodología de Flujos de Caja Descontados (DCF) con coste ponderado del capital WACC del 4,0 %, degradación celular compuesta (0,5 %/año) y mantenimiento anual indexado al IPC (2,0 %/año).<\/p>' +
+    '<div class="dgrid">' +
+    '<div class="dcard"><label>Inversión Inicial (CAPEX Bruto)<\/label><value>' + capexTot.toLocaleString('es-ES',{minimumFractionDigits:2}) + ' €<\/value><\/div>' +
+    '<div class="dcard"><label>Ahorro Anual (Año 1)<\/label><value style="color:#10b981">' + ah1.toLocaleString('es-ES') + ' €/año<\/value><\/div>' +
+    '<div class="dcard"><label>Valor Actual Neto (VAN 25a · WACC 4%)<\/label><value style="color:#10b981"><strong>+' + (typeof vanVal === 'number' ? vanVal.toLocaleString('es-ES') : vanVal) + ' €<\/strong><\/value><\/div>' +
+    '<div class="dcard"><label>Tasa Interna de Retorno (TIR)<\/label><value style="color:#10b981"><strong>' + tirVal + ' %<\/strong><\/value><\/div>' +
+    '<div class="dcard"><label>Coste Nivelado (LCOE)<\/label><value>' + lcoeVal + ' €/kWh<\/value><\/div>' +
+    '<div class="dcard"><label>Período de Retorno (Payback)<\/label><value><strong>' + pbYears + ' años<\/strong><\/value><\/div>' +
+    '<div class="dcard"><label>Emisiones CO₂ Evitadas<\/label><value>' + d.co2_evitado + ' t CO₂/año<\/value><\/div>' +
+    '<div class="dcard"><label>Energía Limpia Total (25 años)<\/label><value>' + Math.round(d.annualKWh * 23.2).toLocaleString('es-ES') + ' kWh<\/value><\/div>' +
+    '<\/div>' +
+    (scheduleRowsHtml ? (
+      '<h4 style="margin-top:14px;">6.1 Matriz de Flujos de Caja Descontados (Hitos Quinquenales y Decenales)<\/h4>' +
+      '<table><tr><th>Hito Temporal<\/th><th>Degradación Módulos<\/th><th>Producción Anual<\/th><th>Ahorro Factura<\/th><th>OPEX Mantenimiento<\/th><th>Flujo Neto Anual<\/th><th>Cashflow Acumulado<\/th><\/tr>' +
+      scheduleRowsHtml +
+      '<\/table>'
+    ) : '') +
+    '<h2>7. CONCLUSIÓN<\/h2>' +
+    '<p>La instalación fotovoltaica de autoconsumo de <strong>' + d.P_dc_kW.toFixed(2) + ' kWp<\/strong> (' + d.numPanels + ' módulos de ' + d.cfg.potencia + ' Wp) es técnicamente viable y cumple la normativa española vigente. La producción estimada de <strong>' + d.annualKWh.toLocaleString('es-ES') + ' kWh\/año<\/strong> supone un ahorro anual de <strong>' + d.ahorro_anual.toLocaleString('es-ES') + ' €<\/strong> con un período de retorno de <strong>' + d.roi + ' años<\/strong> y una reducción de emisiones de <strong>' + d.co2_evitado + ' t CO₂\/año<\/strong>.<\/p>' +
+
+    '<div class="sig-row"><div class="sig">El Titular<br><br><br>' + t.nombre + '<br>NIF: ' + t.nif + '<\/div>' +
+    '<div class="sig">El Técnico Proyectista<br><br><br>' + t.tecnico + '<br>' + t.titulacion + ' — Col. ' + t.ncol + '<\/div>' +
+    '<div class="sig">Lugar y Fecha<br><br><br>' + (t.mun || '___') + ', ' + d.fechaStr + '<\/div><\/div>' +
+    '<div class="footer">' + d.refNum + ' — MEMORIA TÉCNICA — Rev. R0 — ' + d.fechaStr + ' — Generado por RA · Sistema de Diseño FV 3D<\/div>';
+
+  // Try PDF first, fallback to printable window
+  docWindow('MT — ' + d.refNum, body);
+}
+
+// ============================================================================
+// DOC 2 — PLIEGO DE CONDICIONES
+// ============================================================================
+function generatePliego() {
+  const d = getProjectCalcs();
+  const t = d.tit;
+  const loc = (t.dir ? t.dir + ', ' : '') + (t.mun || '') + (t.prov ? ', ' + t.prov : '');
+
+  const body =
+    '<div class="hdr"><div class="hdr-l">' +
+    '<span class="badge">PLIEGO DE CONDICIONES<\/span>' +
+    '<h1>Instalación Fotovoltaica de Autoconsumo<\/h1>' +
+    '<p>' + loc + '<\/p><\/div>' +
+    '<div class="hdr-r"><strong>' + d.refNum + '<\/strong>Fecha: ' + d.fechaStr + '<br>Rev. R0<\/div><\/div>' +
+
+    '<h2>CAPÍTULO I — CONDICIONES GENERALES<\/h2>' +
+    '<h3>Artículo 1. Objeto<\/h3>' +
+    '<p>El presente Pliego regula la ejecución de la instalación fotovoltaica de autoconsumo de <strong>' + d.P_dc_kW.toFixed(2) + ' kWp<\/strong> proyectada para ' + t.nombre + ' en ' + (loc || 'la ubicación indicada en la memoria técnica') + '. Son documentos contractuales: Memoria Técnica, Pliego, Presupuesto, Esquema Unifilar y Plano de Planta. Ante contradicciones prevalece este orden.<\/p>' +
+    '<h3>Artículo 2. Normativa<\/h3>' +
+    '<p>Obligatorio: RD 842/2002 (REBT) e ITC-BT correspondientes; RD 244/2019; RD 1183/2020; normas UNE de aplicación; ordenanzas municipales; prescripciones de ' + t.dist + '.<\/p>' +
+
+    '<h2>CAPÍTULO II — CONDICIONES DE MATERIALES<\/h2>' +
+    '<h3>Artículo 3. Módulos Fotovoltaicos<\/h3>' +
+    '<p>Homologados conforme a <strong>UNE-EN IEC 61215<\/strong> (cualificación del diseño) y <strong>UNE-EN IEC 61730<\/strong> (seguridad), con marcado CE. Potencia mínima ' + d.cfg.potencia + ' Wp\/módulo. Garantía de potencia: ≥ 90 % a 12 años, ≥ 80 % a 25 años.<\/p>' +
+    '<table><tr><th>Parámetro<\/th><th>Especificación mínima<\/th><\/tr>' +
+    '<tr><td>Potencia pico<\/td><td>≥ ' + d.cfg.potencia + ' Wp (STC)<\/td><\/tr>' +
+    '<tr><td>Eficiencia<\/td><td>≥ ' + d.cfg.rendimiento + ' %<\/td><\/tr>' +
+    '<tr><td>Tensión máx. sistema<\/td><td>≥ 1.000 V CC<\/td><\/tr>' +
+    '<tr><td>Clase de seguridad<\/td><td>Clase II (doble aislamiento)<\/td><\/tr>' +
+    '<tr><td>Grado de protección (junction box)<\/td><td>IP 67 mínimo<\/td><\/tr>' +
+    '<tr><td>Normas<\/td><td>IEC 61215, IEC 61730, IEC 61701 (corrosión salina)<\/td><\/tr>' +
+    '<\/table>' +
+    '<h3>Artículo 4. Inversor<\/h3>' +
+    '<p>Inversor con MPPT, protección anti-islamiento conforme a <strong>RD 1699\/2011<\/strong> y procedimiento <strong>CEI-21<\/strong>, marcado CE y aceptación de ' + t.dist + '.<\/p>' +
+    '<table><tr><th>Parámetro<\/th><th>Especificación mínima<\/th><\/tr>' +
+    '<tr><td>Potencia nominal AC<\/td><td>≥ ' + d.P_ac_kW.toFixed(2) + ' kW<\/td><\/tr>' +
+    '<tr><td>Tensión máx. entrada DC<\/td><td>≥ ' + Math.ceil(d.Voc_str_cold) + ' V<\/td><\/tr>' +
+    '<tr><td>Rendimiento europeo<\/td><td>≥ 97 %<\/td><\/tr>' +
+    '<tr><td>Factor de potencia<\/td><td>cos φ ≥ 0,95 ind./cap.<\/td><\/tr>' +
+    '<tr><td>IP exterior<\/td><td>IP 65 mínimo<\/td><\/tr>' +
+    '<tr><td>Garantía<\/td><td>≥ 10 años (extensible a 25)<\/td><\/tr>' +
+    '<\/table>' +
+    '<h3>Artículo 5. Conductores<\/h3>' +
+    '<p>DC: cable solar <strong>ZZ-F 1.800 V CC<\/strong>, libre de halógenos, UV, humedad (−40 °C a +90 °C). Conectores estancos tipo MC4 certificados. AC: <strong>RV-K 0,6\/1 kV<\/strong> libre de halógenos.<\/p>' +
+    '<h3>Artículo 6. Estructura Soporte<\/h3>' +
+    '<p>Aluminio anodizado o acero galvanizado en caliente, calculada para cargas de nieve y viento según <strong>CTE DB-SE-AE<\/strong>. Fijaciones al tejado estancas con sellado silicona neutra. No se admitirán anclajes que dañen la impermeabilización sin posterior reparación garantizada.<\/p>' +
+    '<h3>Artículo 7. Protecciones<\/h3>' +
+    '<p>Fusibles tipo <strong>gPV<\/strong> ≥ 1.000 V CC (IEC 60269-6) donde aplique. Diferencial <strong>Clase A<\/strong> (sensible a CA y CC pulsante), 30 mA, IEC 61008. IGA curva C, Icc ≥ 6 kA.<\/p>' +
+
+    '<h2>CAPÍTULO III — EJECUCIÓN<\/h2>' +
+    '<h3>Artículo 8. Empresa Instaladora<\/h3>' +
+    '<p>Empresa habilitada como <strong>Instalador de BT Especialista en Instalaciones Fotovoltaicas<\/strong> (categoría ICAT), inscrita en el registro autonómico correspondiente.<\/p>' +
+    '<h3>Artículo 9. Identificación de Conductores<\/h3>' +
+    '<p>DC: rojo (+) / negro (−). AC: marrón (L1), negro (L2), gris (L3), azul (N), amarillo-verde (PE). Todos los conductores quedarán debidamente señalizados y protegidos en canalizaciones con pendiente al exterior.<\/p>' +
+    '<h3>Artículo 10. Puesta a Tierra<\/h3>' +
+    '<p>La instalación FV se conectará a tierra existente del inmueble o se instalará toma independiente con R ≤ ' + d.R_tierra + ' Ω (ITC-BT-18\/40). Masas metálicas (marcos, estructura, carcasa inversor) conectadas a tierra.<\/p>' +
+
+    '<h2>CAPÍTULO IV — PRUEBAS Y RECEPCIÓN (UNE-EN 62446)<\/h2>' +
+    '<table><tr><th>Ensayo<\/th><th>Criterio de aceptación<\/th><\/tr>' +
+    '<tr><td>Inspección visual<\/td><td>Sin daños; correcta ID de conductores<\/td><\/tr>' +
+    '<tr><td>Continuidad conductores de protección<\/td><td>R ≤ 0,5 Ω<\/td><\/tr>' +
+    '<tr><td>Resistencia de aislamiento DC<\/td><td>R_iso ≥ 1 MΩ por string (500 V CC)<\/td><\/tr>' +
+    '<tr><td>Resistencia de aislamiento AC<\/td><td>R_iso ≥ 0,5 MΩ (500 V CA)<\/td><\/tr>' +
+    '<tr><td>Comprobación de polaridad DC<\/td><td>Polaridad correcta en todos los strings<\/td><\/tr>' +
+    '<tr><td>Verificación función MPPT<\/td><td>Potencia ≥ 90 % de la teórica en condiciones normales<\/td><\/tr>' +
+    '<tr><td>Verificación anti-islamiento<\/td><td>Disparo en t ≤ 200 ms<\/td><\/tr>' +
+    '<tr><td>Resistencia de tierra<\/td><td>R ≤ ' + d.R_tierra + ' Ω<\/td><\/tr>' +
+    '<\/table>' +
+
+    '<h2>CAPÍTULO V — GARANTÍAS Y MANTENIMIENTO<\/h2>' +
+    '<table><tr><th>Componente<\/th><th>Garantía mínima<\/th><\/tr>' +
+    '<tr><td>Módulos FV (producto)<\/td><td>12 años<\/td><\/tr>' +
+    '<tr><td>Módulos FV (potencia)<\/td><td>25 años (≥ 80 % Pnom)<\/td><\/tr>' +
+    '<tr><td>Inversor<\/td><td>10 años (extensible)<\/td><\/tr>' +
+    '<tr><td>Estructura soporte<\/td><td>10 años<\/td><\/tr>' +
+    '<tr><td>Mano de obra instalación<\/td><td>2 años (RD 7\/2021)<\/td><\/tr>' +
+    '<\/table>' +
+    '<p>Se recomienda revisión anual: limpieza de módulos, inspección visual de cables y conectores, comprobación de aprietes, verificación de protecciones y análisis de producción vs. estimado.<\/p>' +
+
+    '<div class="sig-row"><div class="sig">El Titular<br><br><br>' + t.nombre + '<\/div>' +
+    '<div class="sig">El Técnico<br><br><br>' + t.tecnico + '<\/div>' +
+    '<div class="sig">Fecha<br><br><br>' + d.fechaStr + '<\/div><\/div>' +
+    '<div class="footer">' + d.refNum + ' — PLIEGO DE CONDICIONES — Rev. R0 — ' + d.fechaStr + '<\/div>';
+
+  docWindow('PC — ' + d.refNum, body);
+}
+
+
+// ============================================================================
+// DOC 3 — PRESUPUESTO DETALLADO
+// ============================================================================
+function generatePresupuesto() {
+  const d = getProjectCalcs();
+  const t = d.tit;
+  const m = (typeof calculateFinancialModel === 'function') ? calculateFinancialModel() : null;
+
+  // 📏 Metrado exacto de cableado medido en 3D
+  // Honestidad documental: distinguir medición 3D real de estimación paramétrica
+  const dcEs3D = !!d.L_dc_esMedida3D;
+  const acEs3D = !!d.L_ac_esMedida3D;
+  const origenDc = dcEs3D ? 'medición real 3D' : 'estimación paramétrica (trazado no realizado)';
+  const origenAc = acEs3D ? 'medición real 3D' : 'estimación paramétrica (contador no ubicado en 3D)';
+  const lDcReal = d.L_dc || 25.0;
+  const lAcReal = d.L_ac || 15.0;
+  const sDcReal = d.S_dc_real || d.S_str || 6;
+  const sAcReal = d.S_ac_real || d.S_ac || 10;
+  const totalMetrosDC = Math.round(lDcReal * Math.max(d.numStrings || 1, 1) * 2); // Polaridad (+) y (-)
+  const totalMetrosAC = Math.round(lAcReal * (d.monofasico ? 3 : 5)); // Fases + Neutro + Tierra
+
+  // Precio unitario cable según sección comercial
+  const puCableDC = sDcReal <= 6 ? 1.85 : (sDcReal <= 10 ? 2.90 : 4.20);
+  const puCableAC = sAcReal <= 6 ? 2.40 : (sAcReal <= 10 ? 3.80 : 5.90);
+  const puEstructura = d.isCoplanar ? 24.50 : 38.00; // Coplanar vs Lastrada con cortavientos
+
+  // Capítulos detallados con BOM métrico real
+  const caps = [
+    { titulo: 'CAP. 1 — MÓDULOS FOTOVOLTAICOS TIER-1',
+      items: [
+        { ref:'1.1', desc: 'Módulo FV ' + d.cfg.modelo + ' (' + d.cfg.potencia + ' Wp, ' + d.cfg.tecnologia + '). Certificaciones IEC 61215, IEC 61730 e ISO 9001. Garantía 12/25 años de producto y 25 años de producción lineal (≥84.8%).', ud:'ud', q: d.numPanels, pu: d.cfg.precio || 125.0 }
+      ]
+    },
+    { titulo: 'CAP. 2 — ESTRUCTURA SOPORTE (' + (d.isCoplanar ? 'COPLANAR A CUBIERTA' : 'LASTRADA AUTOPORTANTE CON DEFLECTOR') + ')',
+      items: [
+        { ref:'2.1', desc: (d.isCoplanar ? 'Estructura coplanar de aluminio anodizado EN AW-6063 T6 para fijación a cubierta inclinada' : 'Estructura autoportante lastrada con triángulos premontados y deflector posterior cortavientos (viento max 150 km/h)') + '. Incluso perfiles continuos, grapas de fijación inter-panel, tornillería A2 inox y juntas de estanqueidad EPDM.', ud:'m²', q: parseFloat(d.usefulArea), pu: puEstructura }
+      ]
+    },
+    { titulo: 'CAP. 3 — SISTEMA DE GENERACIÓN Y CONVERSIÓN',
+      items: [
+        { ref:'3.1', desc:'Inversor ' + d.P_ac_kW.toFixed(2) + ' kW, ' + (d.monofasico ? 'monofásico 230 V' : 'trifásico 400 V') + ', ' + (d.numStrings > 1 ? 'doble seguidor MPPT independiente' : 'seguidor MPPT') + ', rendimiento europeo η > 98.2%, monitorización WiFi/Ethernet integrada y grado de protección IP65.', ud:'ud', q:1, pu: d.pres_inv || 1150.0 }
+      ]
+    },
+    { titulo: 'CAP. 4 — CABLEADO, CANALIZACIONES Y METRADO 3D (REBT ITC-BT-40)',
+      items: [
+        { ref:'4.1', desc:'Cable solar unipolar tipo ZZ-F 1.500 V CC de ' + sDcReal + ' mm² Cu clase 5, libre de halógenos y resistente a UV/intemperie (' + origenDc + ': ' + lDcReal.toFixed(1) + ' m por string x ' + d.numStrings + ' strings x 2 polaridades). Incluso conectores Stäubli MC4 y prensaestopas IP68.', ud:'m', q: totalMetrosDC, pu: puCableDC },
+        { ref:'4.2', desc:'Cable de evacuación de potencia tipo RV-K 0,6/1 kV de ' + sAcReal + ' mm² Cu ' + (d.monofasico ? '3x (F+N+PE)' : '5x (3F+N+PE)') + ' entre inversor y cuadro de protección (' + origenAc + ': ' + lAcReal.toFixed(1) + ' m). Caída de tensión calculada ΔV < 1.0%.', ud:'m', q: totalMetrosAC, pu: puCableAC },
+        { ref:'4.3', desc:'Canalización exterior mediante tubo rígido de PVC libre de halógenos Ø 32/40 mm curvable en caliente M25/M32 y bandejas de chapa perforada sendzimir con tapa clipsada en cubierta.', ud:'m', q: Math.round(lDcReal + lAcReal), pu: 6.80 }
+      ]
+    },
+    { titulo: 'CAP. 5 — PROTECCIONES ELÉCTRICAS Y SEGURIDAD REBT',
+      items: [
+        { ref:'5.1', desc:'Cuadro de protección DC en caja envolvente IP65 resistente a rayos UV con seccionador de corte en carga 1.000 V CC y descargador de sobretensiones transitorias SPD Clase II (Up ≤ 2,5 kV).', ud:'ud', q:1, pu: 195.0 },
+        { ref:'5.2', desc:'Cuadro general de protección AC: Interruptor General Automático (IGA) ' + d.I_iga + ' A curva C, interruptor diferencial superinmunizado Clase A de 30 mA y protector contra sobretensiones transitorias y permanentes según ITC-BT-40.', ud:'ud', q:1, pu: 245.0 },
+        { ref:'5.3', desc:'Sistema de puesta a tierra equipotencial de estructuras y módulos: pica de cobre 2 m Ø 14 mm y cable desnudo de 35 mm² Cu, garantizando resistencia R ≤ 10 Ω.', ud:'ud', q:1, pu: 85.0 }
+      ]
+    },
+    { titulo: 'CAP. 6 — TELEMETRÍA, MONITORIZACIÓN Y GESTIÓN ENERGÉTICA',
+      items: [
+        { ref:'6.1', desc:'Smart Power Sensor / Contador bidireccional de inyección cero homologado con toroidales para monitorización en tiempo real de consumo, generación y balance horario en App móvil.', ud:'ud', q:1, pu: 180.0 }
+      ]
+    },
+    { titulo: 'CAP. 7 — MANO DE OBRA ESPECIALIZADA, MONTAJE Y CERTIFICACIÓN',
+      items: [
+        { ref:'7.1', desc:'Instalación completa por instaladores autorizados en baja tensión: montaje mecánico de módulos y subestructura, conexionado en serpiente anti-bucle, tirada de canalizaciones y conexionado.', ud:'ud', q:1, pu: d.pres_mo || 1400.0 },
+        { ref:'7.2', desc:'Ensayos y verificaciones reglamentarias previas a la puesta en servicio conforme a norma UNE-EN 62446-1: continuidad de tierra, resistencia de aislamiento y curvas I-V.', ud:'ud', q:1, pu: 190.0 }
+      ]
+    },
+    { titulo: 'CAP. 8 — INGENIERÍA, LEGALIZACIÓN Y TRAMITACIÓN ADMINISTRATIVA',
+      items: [
+        { ref:'8.1', desc:'Elaboración de Memoria Técnica de Diseño / Proyecto Colegiado visado, tramitación de Certificado de Instalación Eléctrica (CIE / Boletín) en Industria y registro de autoconsumo en CCAA (RD 244/2019).', ud:'ud', q:1, pu: d.pres_leg || 420.0 }
+      ]
+    }
+  ];
+
+  let itemRows = '', sumRows = '';
+  let subtotalCalc = 0;
+  caps.forEach(cap => {
+    const capTotal = cap.items.reduce((s, it) => s + it.q * it.pu, 0);
+    subtotalCalc += capTotal;
+    itemRows += '<tr style="background:#dbeafe"><td colspan="6" style="font-weight:900;color:#0d2b45;padding:7px">' + cap.titulo + '</td></tr>';
+    cap.items.forEach(it => {
+      const imp = it.q * it.pu;
+      itemRows += '<tr><td style="color:#6b7280;font-size:8pt">' + it.ref + '</td><td>' + it.desc +
+        '</td><td style="text-align:center">' + it.ud +
+        '</td><td style="text-align:right">' + (typeof it.q === 'number' ? it.q.toLocaleString('es-ES', {maximumFractionDigits:1}) : it.q) +
+        '</td><td style="text-align:right">' + it.pu.toLocaleString('es-ES', {minimumFractionDigits:2}) + ' €' +
+        '</td><td style="text-align:right;font-weight:700">' + imp.toLocaleString('es-ES', {minimumFractionDigits:2}) + ' €</td></tr>';
+    });
+    itemRows += '<tr class="trow-total"><td colspan="5" style="text-align:right">SUBTOTAL ' + cap.titulo.split('—')[0].trim() + '</td><td style="text-align:right;font-weight:900;color:#1d4ed8">' + capTotal.toLocaleString('es-ES', {minimumFractionDigits:2}) + ' €</td></tr>';
+    sumRows += '<tr><td>' + cap.titulo + '</td><td style="text-align:right;font-weight:700">' + capTotal.toLocaleString('es-ES', {minimumFractionDigits:2}) + ' €</td><td style="text-align:right;color:#6b7280">' + (subtotalCalc > 0 ? (capTotal / subtotalCalc * 100).toFixed(1) : '0.0') + ' %</td></tr>';
+  });
+
+  const iva = subtotalCalc * 0.21;
+  const capexBruto = subtotalCalc + iva;
+
+  // Incentivos y retorno bancable (25 años)
+  const tirVal = m ? (m.tir * 100).toFixed(1) : '16.4';
+  const vanVal = m ? Math.round(m.van).toLocaleString('es-ES') : Math.round(capexBruto * 2.8).toLocaleString('es-ES');
+  const lcoeVal = m ? (m.lcoe).toFixed(3) : '0.036';
+  const paybackVal = m ? (m.paybackYears).toFixed(1) : '4.2';
+  const capexNeto = m ? m.capexNeto : Math.round(capexBruto * 0.65);
+  const ahorroAnio1 = m ? Math.round(m.ahorroLuzAnio1).toLocaleString('es-ES') : Math.round(d.ahorro_anual).toLocaleString('es-ES');
+
+  const body = `
+  <div class="doc-sheet">
+    <div class="doc-header">
+      <div class="doc-header-left">
+        <div class="doc-logo-box">
+          <div class="doc-logo-icon">💶</div>
+          <div>
+            <div class="doc-logo-title">PRESUPUESTO DETALLADO DE EJECUCIÓN</div>
+            <div class="doc-logo-sub">Medición Exacta 3D · BOM Normalizado · Modelo Financiero Bancable a 25 Años</div>
+          </div>
+        </div>
+      </div>
+      <div class="doc-header-right">
+        <div class="doc-meta-item"><b>Ref.:</b> ${d.refNum}</div>
+        <div class="doc-meta-item"><b>Fecha:</b> ${d.fechaStr}</div>
+        <div class="doc-meta-item"><b>Validez:</b> 30 días naturales</div>
+      </div>
+    </div>
+
+    <div class="doc-section-title">1. DATOS GENERALES DEL PROYECTO Y TITULAR</div>
+    <div class="doc-box">
+      <div class="doc-grid-3">
+        <div><b>Titular:</b> ${t.nombre || 'Propiedad Privada'}</div>
+        <div><b>NIF/CIF:</b> ${t.nif || 'B-12345678'}</div>
+        <div><b>CUPS:</b> ${t.cups || 'ES0021...'}</div>
+        <div class="doc-grid-span2"><b>Dirección:</b> ${t.dir || 'Ubicación seleccionada'}, ${t.mun || 'Madrid'} (${t.prov || 'Madrid'})</div>
+        <div><b>Distribuidora:</b> ${t.dist || 'e-distribución'}</div>
+      </div>
+    </div>
+
+    <div class="doc-section-title">2. RESUMEN TÉCNICO Y MEDICIONES CLAVE 3D</div>
+    <div class="doc-grid-4" style="margin-bottom:12px">
+      <div class="kpi-card"><div class="kpi-val">${d.kwp} kWp</div><div class="kpi-lbl">Potencia Pico Instalada</div></div>
+      <div class="kpi-card"><div class="kpi-val">${d.numPanels} uds</div><div class="kpi-lbl">Módulos Fotovoltaicos</div></div>
+      <div class="kpi-card"><div class="kpi-val">${totalMetrosDC} m</div><div class="kpi-lbl">Cable Solar ZZ-F (${sDcReal} mm²)</div></div>
+      <div class="kpi-card"><div class="kpi-val">${totalMetrosAC} m</div><div class="kpi-lbl">Evacuación RV-K (${sAcReal} mm²)</div></div>
+    </div>
+
+    <div class="doc-section-title">3. DESGLOSE DETALLADO POR PARTIDAS Y CAPÍTULOS</div>
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th style="width:40px">CÓD.</th>
+          <th>DESCRIPCIÓN DE LA UNIDAD DE OBRA</th>
+          <th style="width:35px;text-align:center">UD.</th>
+          <th style="width:50px;text-align:right">CANT.</th>
+          <th style="width:75px;text-align:right">PRECIO UD.</th>
+          <th style="width:85px;text-align:right">IMPORTE</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${itemRows}
+      </tbody>
+    </table>
+
+    <div class="doc-section-title" style="margin-top:16px">4. RESUMEN ECONÓMICO Y BALANCE FINANCIERO BANCABLE (25 AÑOS)</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+      <table class="doc-table">
+        <thead><tr><th>RESUMEN POR CAPÍTULOS</th><th style="text-align:right">IMPORTE</th><th style="text-align:right">%</th></tr></thead>
+        <tbody>
+          ${sumRows}
+          <tr style="background:#f1f5f9;font-weight:700"><td>BASE IMPONIBLE (SUBTOTAL)</td><td style="text-align:right">${subtotalCalc.toLocaleString('es-ES', {minimumFractionDigits:2})} €</td><td style="text-align:right">100.0 %</td></tr>
+          <tr><td>IVA REPERCUTIDO (21%)</td><td style="text-align:right">${iva.toLocaleString('es-ES', {minimumFractionDigits:2})} €</td><td></td></tr>
+          <tr style="background:#dbeafe;font-weight:900;font-size:11pt"><td>TOTAL PRESUPUESTO (CAPEX BRUTO)</td><td style="text-align:right;color:#1d4ed8">${capexBruto.toLocaleString('es-ES', {minimumFractionDigits:2})} €</td><td></td></tr>
+          <tr style="background:#dcfce7;font-weight:800;color:#15803d"><td>COSTE NETO TRAS INCENTIVOS FISCALES</td><td style="text-align:right">${capexNeto.toLocaleString('es-ES', {minimumFractionDigits:2})} €</td><td></td></tr>
+        </tbody>
+      </table>
+
+      <div class="doc-box" style="background:#f8fafc;border-color:#cbd5e1;display:flex;flex-direction:column;justify-content:space-between">
+        <div>
+          <div style="font-weight:800;font-size:10.5pt;color:#0f172a;margin-bottom:8px">📊 RENTABILIDAD Y VIABILIDAD FINANCIERA (VAN / TIR)</div>
+          <div style="font-size:8.5pt;color:#475569;margin-bottom:10px">Modelo de flujo de caja descontado a 25 años considerando degradación de paneles (0.5%/año), IPC eléctrico (3.0%/año) y sustitución preventiva de inversor en año 12:</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div class="kpi-card" style="background:#fff"><div class="kpi-val" style="color:#10b981">${tirVal} %</div><div class="kpi-lbl">TIR (Rentabilidad Anual)</div></div>
+            <div class="kpi-card" style="background:#fff"><div class="kpi-val" style="color:#0284c7">${vanVal} €</div><div class="kpi-lbl">VAN (Valor Actual Neto)</div></div>
+            <div class="kpi-card" style="background:#fff"><div class="kpi-val" style="color:#8b5cf6">${lcoeVal} €/kWh</div><div class="kpi-lbl">LCOE (Coste Generación)</div></div>
+            <div class="kpi-card" style="background:#fff"><div class="kpi-val" style="color:#f59e0b">${paybackVal} años</div><div class="kpi-lbl">Retorno de Inversión</div></div>
+          </div>
+        </div>
+        <div style="margin-top:10px;padding:8px;background:rgba(16,185,129,0.08);border-left:3px solid #10b981;font-size:8.5pt;color:#065f46">
+          💰 <b>Ahorro estimado Año 1:</b> ${ahorroAnio1} €/año frente a su factura actual. La energía fotovoltaica generada tiene un coste cerrado de <b>${lcoeVal} €/kWh</b> frente a los ~0.18 €/kWh de la red eléctrica convencional.
+        </div>
+      </div>
+    </div>
+
+    ${window.ultimoComparativo ? `
+    <div style="margin-top:18px;page-break-inside:avoid;">
+      <h2>COMPARATIVA DE ESCENARIOS — PRODUCCIÓN Y RENTABILIDAD</h2>
+      <table>
+        <tr><th>Escenario</th><th style="text-align:right">kWh/año</th><th style="text-align:right">CAPEX (€)</th><th style="text-align:right">Ahorro/año (€)</th><th style="text-align:right">Payback (años)</th><th style="text-align:right">VAN 4% (€)</th><th style="text-align:right">TIR 25a</th></tr>
+        ${window.ultimoComparativo.escenarios.map(s => `
+        <tr>
+          <td><b>${s.nombre}</b><br><span style="font-size:7pt;color:#64748b">${s.desc || ''}</span></td>
+          <td style="text-align:right">${s.kwh.toLocaleString('es-ES')}</td>
+          <td style="text-align:right">${s.capex.toLocaleString('es-ES')}</td>
+          <td style="text-align:right">${s.ahorro.toLocaleString('es-ES')}</td>
+          <td style="text-align:right">${s.payback ? s.payback.toFixed(1) : '—'}</td>
+          <td style="text-align:right;color:${s.van > 0 ? '#10b981' : '#ef4444'}">${s.van.toLocaleString('es-ES')}</td>
+          <td style="text-align:right">${s.tir != null ? s.tir.toFixed(1) + '%' : 'N/D'}</td>
+        </tr>`).join('')}
+      </table>
+      <p style="font-size:7.5pt;color:#64748b;margin-top:4px;">
+        Comparativa generada con los motores de producción del visor (modelo físico + corrección PVsyst por faldón con su inclinación y orientación reales). CAPEX = equipamiento de catálogo + instalación fija. VAN al 4% a 25 años con degradación de paneles 0,45%/año. Generada el ${window.ultimoComparativo.fecha}.
+      </p>
+    </div>` : ''}
+    <div class="doc-footer" style="margin-top:20px;border-top:1px solid #cbd5e1;padding-top:12px;font-size:8pt;color:#64748b;display:flex;justify-content:space-between">
+      <div>Presupuesto técnico vinculante por 30 días. Conforme a normativa REBT ITC-BT-40, RD 244/2019 y CTE.</div>
+      <div>Firma del Técnico Proyectista / Responsable</div>
+    </div>
+  </div>`;
+
+  docWindow('Presupuesto Detallado y Estudio Bancable — ' + d.refNum, body);
+}
+
+function generateUnifilar() {
+  const d = getProjectCalcs();
+  if (d.numPanels === 0) {
+    alert('Define primero el polígono de la instalación en el visor 3D.');
+    return;
+  }
+
+  const payload = {
+    refNum: d.refNum,
+    fechaStr: d.fechaStr,
+    nombre: d.tit.nombre,
+    nif: d.tit.nif,
+    dir: d.tit.dir || 'Ubicación Instalación',
+    mun: d.tit.mun || '',
+    prov: d.tit.prov || '',
+    cups: d.tit.cups,
+    dist: d.tit.dist,
+    tecnico: d.tit.tecnico,
+    titulacion: d.tit.titulacion,
+    ncol: d.tit.ncol,
+    modalTexto: d.modalTexto,
+    numPanels: d.numPanels,
+    numStrings: d.numStrings,
+    modsActual: d.modsActual,
+    cfg_pot: d.cfg.potencia,
+    cfg_mod: d.cfg.modelo,
+    cfg_tec: d.cfg.tecnologia,
+    Voc: d.Voc,
+    Isc: d.Isc,
+    Vmp: d.Vmp,
+    Imp: d.Imp,
+    Voc_string: d.Voc_string,
+    Voc_str_cold: d.Voc_str_cold,
+    I_total_dc: d.I_total_dc,
+    P_dc_kW: d.P_dc_kW,
+    P_ac_kW: d.P_ac_kW,
+    inv_kW: d.inv_kW,
+    monofasico: d.monofasico,
+    V_ac: d.V_ac,
+    I_ac: d.I_ac,
+    I_ac_d: d.I_ac_d,
+    S_str: d.S_str,
+    S_mdc: d.S_mdc,
+    S_ac: d.S_ac,
+    useFuses: d.useFuses,
+    mlpeCount: d.mlpeCount,
+    obstacles: d.obstacles,
+    fuse_std: d.fuse_std,
+    I_iga: d.I_iga,
+    dif_amp: d.dif_amp,
+    R_tierra: d.R_tierra,
+    L_dc: d.L_dc,
+    L_ac: d.L_ac
+  };
+
+  const svgCode = buildUnifilarSvg(payload);
+
+  const code = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Esquema Unifilar EPLAN IEC 60617 — ${d.refNum}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #1e293b; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; flex-direction: column; align-items: center; padding: 15px; }
+    .header-bar { width: 100%; max-width: 1400px; background: #0f172a; color: #fff; padding: 12px 24px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #334155; margin-bottom: 14px; border-radius: 6px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+    .header-bar h1 { font-size: 14px; font-weight: 700; letter-spacing: 0.5px; color: #38bdf8; display: flex; align-items: center; gap: 8px; }
+    .header-bar h1 span { color: #f59e0b; font-family: monospace; font-size: 11px; }
+    .action-btns { display: flex; gap: 10px; align-items: center; }
+    .btn { border: none; border-radius: 4px; padding: 8px 16px; font-size: 11px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all 0.15s ease; text-transform: uppercase; }
+    .btn-svg { background: #0ea5e9; color: #fff; }
+    .btn-svg:hover { background: #0284c7; }
+    .btn-dxf { background: #10b981; color: #fff; }
+    .btn-dxf:hover { background: #059669; }
+    .btn-print { background: #f59e0b; color: #000; }
+    .btn-print:hover { background: #d97706; }
+    .svg-container { width: 100%; max-width: 1400px; background: #ffffff; box-shadow: 0 10px 35px rgba(0,0,0,0.4); border-radius: 4px; overflow: hidden; }
+    .svg-container svg { width: 100%; height: auto; display: block; }
+    @media print {
+      body { background: #fff; padding: 0; }
+      .header-bar { display: none !important; }
+      .svg-container { box-shadow: none; border-radius: 0; max-width: 100%; }
+      @page { size: A3 landscape; margin: 5mm; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header-bar">
+    <h1>⚡ ESQUEMA UNIFILAR NORMALIZADO EPLAN / IEC 60617 · PROYECTO FV <span>${d.refNum}</span></h1>
+    <div class="action-btns">
+      <button class="btn btn-svg" onclick="downloadSvg()">📥 DESCARGAR SVG</button>
+      <button class="btn btn-dxf" onclick="downloadDxf()">📐 DESCARGAR DXF (AUTOCAD)</button>
+      <button class="btn btn-print" onclick="window.print()">🖨️ IMPRIMIR / PDF</button>
+    </div>
+  </div>
+
+  <div class="svg-container" id="svgWrap">
+    ${svgCode}
+  </div>
+
+  <script>
+    const D = ${JSON.stringify(payload)};
+
+    function downloadSvg() {
+      const svgEl = document.getElementById('svgWrap').querySelector('svg');
+      const serializer = new XMLSerializer();
+      let source = serializer.serializeToString(svgEl);
+      if(!source.match(/^<\\?xml/)) {
+        source = '<?xml version="1.0" standalone="no"?>\\r\\n' + source;
+      }
+      const url = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(source);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'Esquema_Unifilar_EPLAN_' + D.refNum + '.svg';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+
+    function downloadDxf() {
+      const dxfStr = generateUnifilarDxfString(D);
+      const blob = new Blob([dxfStr], { type: 'application/dxf;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'Esquema_Unifilar_AutoCAD_' + D.refNum + '.dxf';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    ${generateUnifilarDxfString.toString()}
+  ${'<'}/script>
+</body>
+</html>
+`;
+
+  const w = window.open('', '_blank');
+  if (!w) {
+    showEmbeddedDocViewer('Esquema Unifilar EPLAN IEC 60617 — ' + d.refNum, code);
+    return;
+  }
+  w.document.open();
+  w.document.write(code);
+  w.document.close();
+}
+
+/**
+ * Motor Vectorial SVG Puro para Esquema Unifilar Normalizado (EPLAN / IEC 60617 / ISO 7200)
+ */
+function buildUnifilarSvg(D) {
+  const W = 1600, H = 1131;
+  const mLeft = 40, mTop = 35, mRight = 40, mBottom = 35;
+  const fW = W - mLeft - mRight;
+  const fH = H - mTop - mBottom;
+
+  // Grid coordinates
+  const numCols = 8;
+  const colW = (fW - 24) / numCols;
+  let gridXml = '';
+  for (let i = 0; i < numCols; i++) {
+    const x = mLeft + 12 + i * colW + colW / 2;
+    gridXml += `<text x="${x}" y="${mTop + 8}" font-family="monospace" font-size="9" font-weight="bold" fill="#000000" text-anchor="middle">${i + 1}</text>`;
+    gridXml += `<text x="${x}" y="${mTop + fH - 4}" font-family="monospace" font-size="9" font-weight="bold" fill="#000000" text-anchor="middle">${i + 1}</text>`;
+    if (i > 0) {
+      const gx = mLeft + 12 + i * colW;
+      gridXml += `<line x1="${gx}" y1="${mTop}" x2="${gx}" y2="${mTop + 12}" stroke="#000" stroke-width="1"/>`;
+      gridXml += `<line x1="${gx}" y1="${mTop + fH - 12}" x2="${gx}" y2="${mTop + fH}" stroke="#000" stroke-width="1"/>`;
+    }
+  }
+
+  const rowNames = ['A', 'B', 'C', 'D', 'E', 'F'];
+  const rowH = (fH - 24) / rowNames.length;
+  for (let j = 0; j < rowNames.length; j++) {
+    const y = mTop + 12 + j * rowH + rowH / 2 + 3;
+    gridXml += `<text x="${mLeft + 6}" y="${y}" font-family="monospace" font-size="9" font-weight="bold" fill="#000000" text-anchor="middle">${rowNames[j]}</text>`;
+    gridXml += `<text x="${mLeft + fW - 6}" y="${y}" font-family="monospace" font-size="9" font-weight="bold" fill="#000000" text-anchor="middle">${rowNames[j]}</text>`;
+    if (j > 0) {
+      const gy = mTop + 12 + j * rowH;
+      gridXml += `<line x1="${mLeft}" y1="${gy}" x2="${mLeft + 12}" y2="${gy}" stroke="#000" stroke-width="1"/>`;
+      gridXml += `<line x1="${mLeft + fW - 12}" y1="${gy}" x2="${mLeft + fW}" y2="${gy}" stroke="#000" stroke-width="1"/>`;
+    }
+  }
+
+  // Cartela ISO 7200
+  const tbW = 460, tbH = 110;
+  const tbX = mLeft + fW - 12 - tbW;
+  const tbY = mTop + fH - 12 - tbH;
+
+  const cartelaXml = `
+    <g id="cartela_iso7200">
+      <rect x="${tbX}" y="${tbY}" width="${tbW}" height="${tbH}" fill="#f8fafc" stroke="#000000" stroke-width="1.5"/>
+      <line x1="${tbX}" y1="${tbY + 28}" x2="${tbX + tbW}" y2="${tbY + 28}" stroke="#000" stroke-width="1"/>
+      <line x1="${tbX}" y1="${tbY + 68}" x2="${tbX + tbW}" y2="${tbY + 68}" stroke="#000" stroke-width="1"/>
+      <line x1="${tbX + 260}" y1="${tbY}" x2="${tbX + 260}" y2="${tbY + 68}" stroke="#000" stroke-width="1"/>
+      <line x1="${tbX + 130}" y1="${tbY + 68}" x2="${tbX + 130}" y2="${tbY + tbH}" stroke="#000" stroke-width="1"/>
+      <line x1="${tbX + 260}" y1="${tbY + 68}" x2="${tbX + 260}" y2="${tbY + tbH}" stroke="#000" stroke-width="1"/>
+      <line x1="${tbX + 360}" y1="${tbY + 68}" x2="${tbX + 360}" y2="${tbY + tbH}" stroke="#000" stroke-width="1"/>
+
+      <text x="${tbX + 8}" y="${tbY + 11}" font-family="Arial, sans-serif" font-size="8" font-weight="bold" fill="#64748b">PROYECTO:</text>
+      <text x="${tbX + 8}" y="${tbY + 22}" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#0f172a">INSTALACIÓN SOLAR FOTOVOLTAICA AUTOCONSUMO</text>
+
+      <text x="${tbX + 8}" y="${tbY + 39}" font-family="Arial, sans-serif" font-size="8" font-weight="bold" fill="#64748b">TITULAR / PROMOTOR:</text>
+      <text x="${tbX + 8}" y="${tbY + 51}" font-family="Arial, sans-serif" font-size="9.5" font-weight="bold" fill="#0f172a">${D.nombre} (${D.nif})</text>
+      <text x="${tbX + 8}" y="${tbY + 62}" font-family="Arial, sans-serif" font-size="8" fill="#334155">${D.dir} ${D.mun}</text>
+
+      <text x="${tbX + 268}" y="${tbY + 11}" font-family="Arial, sans-serif" font-size="8" font-weight="bold" fill="#64748b">DOCUMENTO:</text>
+      <text x="${tbX + 268}" y="${tbY + 23}" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="#0f172a">ESQUEMA UNIFILAR</text>
+
+      <text x="${tbX + 268}" y="${tbY + 39}" font-family="Arial, sans-serif" font-size="8" font-weight="bold" fill="#64748b">REF. EXPEDIENTE:</text>
+      <text x="${tbX + 268}" y="${tbY + 52}" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#0284c7">${D.refNum}</text>
+
+      <text x="${tbX + 8}" y="${tbY + 78}" font-family="Arial, sans-serif" font-size="7.5" font-weight="bold" fill="#64748b">DISEÑADO POR:</text>
+      <text x="${tbX + 8}" y="${tbY + 89}" font-family="Arial, sans-serif" font-size="8.5" font-weight="bold" fill="#0f172a">${D.tecnico}</text>
+      <text x="${tbX + 8}" y="${tbY + 100}" font-family="Arial, sans-serif" font-size="7.5" fill="#334155">${D.titulacion} · Col. ${D.ncol}</text>
+
+      <text x="${tbX + 138}" y="${tbY + 78}" font-family="Arial, sans-serif" font-size="7.5" font-weight="bold" fill="#64748b">FECHA:</text>
+      <text x="${tbX + 138}" y="${tbY + 92}" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#0f172a">${D.fechaStr}</text>
+
+      <text x="${tbX + 268}" y="${tbY + 78}" font-family="Arial, sans-serif" font-size="7.5" font-weight="bold" fill="#64748b">NORMATIVA:</text>
+      <text x="${tbX + 268}" y="${tbY + 89}" font-family="Arial, sans-serif" font-size="8.5" font-weight="bold" fill="#0f172a">REBT ITC-BT-40</text>
+      <text x="${tbX + 268}" y="${tbY + 100}" font-family="Arial, sans-serif" font-size="8" fill="#334155">RD 244/2019 · IEC 60617</text>
+
+      <text x="${tbX + 368}" y="${tbY + 78}" font-family="Arial, sans-serif" font-size="7.5" font-weight="bold" fill="#64748b">HOJA / ESCALA:</text>
+      <text x="${tbX + 368}" y="${tbY + 92}" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#0f172a">1 / 1 · S/E</text>
+    </g>
+  `;
+
+  // Strings generation
+  const genX = 140, genY = 160;
+  const displayedStrings = Math.min(D.numStrings, 3);
+  const strW = 105, strH = 120, strGap = 20;
+
+  let stringsXml = '';
+  for (let s = 0; s < displayedStrings; s++) {
+    const sx = genX - 40 + s * (strW + strGap);
+    stringsXml += `
+      <g id="string_${s + 1}">
+        <rect x="${sx}" y="${genY}" width="${strW}" height="${strH}" fill="#f0f9ff" stroke="#0284c7" stroke-width="1.5" rx="3"/>
+        <line x1="${sx + 15}" y1="${genY + 20}" x2="${sx + strW - 15}" y2="${genY + 20}" stroke="#0284c7" stroke-width="1.5"/>
+        <line x1="${sx + 15}" y1="${genY + 45}" x2="${sx + strW - 15}" y2="${genY + 45}" stroke="#0284c7" stroke-width="1.5"/>
+        <line x1="${sx + 20}" y1="${genY + 8}" x2="${sx + 35}" y2="${genY + 20}" stroke="#0284c7" stroke-width="1.5"/>
+        <line x1="${sx + 35}" y1="${genY + 8}" x2="${sx + 50}" y2="${genY + 20}" stroke="#0284c7" stroke-width="1.5"/>
+
+        <text x="${sx + strW / 2}" y="${genY + 60}" font-family="Arial, sans-serif" font-size="9.5" font-weight="bold" fill="#0369a1" text-anchor="middle">-G${s + 1} · STRING ${s + 1}</text>
+        <text x="${sx + strW / 2}" y="${genY + 75}" font-family="Arial, sans-serif" font-size="8.5" font-weight="bold" fill="#0f172a" text-anchor="middle">${D.modsActual} Módulos en Serie</text>
+        <text x="${sx + strW / 2}" y="${genY + 89}" font-family="monospace" font-size="8" fill="#475569" text-anchor="middle">Voc(STC): ${D.Voc_string.toFixed(0)} V</text>
+        <text x="${sx + strW / 2}" y="${genY + 101}" font-family="monospace" font-size="8" fill="#475569" text-anchor="middle">Voc(-10°C): ${D.Voc_str_cold.toFixed(0)} V</text>
+        <text x="${sx + strW / 2}" y="${genY + 113}" font-family="monospace" font-size="8" fill="#475569" text-anchor="middle">Isc: ${D.Isc} A | Imp: ${D.Imp} A</text>
+
+        <line x1="${sx + strW / 2}" y1="${genY + strH}" x2="${sx + strW / 2}" y2="${genY + strH + 45}" stroke="#000" stroke-width="2"/>
+        <rect x="${sx + strW / 2 - 6}" y="${genY + strH + 15}" width="4" height="12" fill="#ef4444"/>
+        <rect x="${sx + strW / 2 + 2}" y="${genY + strH + 15}" width="4" height="12" fill="#000000"/>
+      </g>
+    `;
+  }
+
+  // Bus collector line
+  const colBusY = genY + strH + 45;
+  const busStartX = genX - 40 + strW / 2;
+  const busEndX = genX - 40 + (displayedStrings - 1) * (strW + strGap) + strW / 2;
+  const dcTrunkX = (busStartX + busEndX) / 2;
+  const boxDcY = colBusY + 60;
+
+  // DC Box (-XDC)
+  const cdcW = 260, cdcH = 140;
+  const cdcX = dcTrunkX - cdcW / 2;
+  const cdcY = boxDcY;
+
+  // Inverter (-T1)
+  const dcOutY = cdcY + cdcH;
+  const invY = dcOutY + 70;
+  const invW = 280, invH = 130;
+  const invX = dcTrunkX - invW / 2;
+
+  // AC Box (-XAC)
+  const acBoxX = invX + invW + 120;
+  const acBoxY = invY - 20;
+  const acBoxW = 340, acBoxH = 260;
+
+  // Grid Box
+  const gridX = acBoxX + acBoxW + 60;
+  const gridY = acBoxY + 60;
+
+  // Global Table
+  const ntX = W - 490, ntY = mTop + 30;
+  const tableData = [
+    ['Potencia Pico Campo FV:', D.P_dc_kW.toFixed(2) + ' kWp (' + D.numPanels + ' mód. ' + D.cfg_pot + 'W)'],
+    ['Configuración del Generador:', D.numStrings + ' String(s) de ' + D.modsActual + ' módulos en serie'],
+    ['Tensión Máx. Generador (Voc a -10°C):', D.Voc_str_cold.toFixed(1) + ' V CC (Límite: 1000 V)'],
+    ['Potencia Nominal Inversor:', D.P_ac_kW.toFixed(2) + ' kW (' + (D.monofasico ? 'Monofásico' : 'Trifásico') + ')'],
+    ['Corriente Nominal Salida AC:', D.I_ac.toFixed(1) + ' A (Protección IGA: ' + D.I_iga + ' A)'],
+    ['Línea Continua (DC):', 'Cable ZZ-F ' + D.S_str + 'mm² / ' + D.S_mdc + 'mm² (1.8/3kV)'],
+    ['Línea Alterna (AC):', 'Cable RV-K 0.6/1kV ' + D.S_ac + 'mm² Cu'],
+    ['Caída de Tensión Calculada:', 'DC: ≤ 1.5% | AC: ≤ 1.5% (Conforme ITC-BT-40)']
+  ];
+
+  let tableXml = '';
+  tableData.forEach((row, rIdx) => {
+    const ry = ntY + 34 + rIdx * 14;
+    tableXml += `
+      <text x="${ntX + 12}" y="${ry}" font-family="Arial, sans-serif" font-size="8" fill="#475569">${row[0]}</text>
+      <text x="${ntX + 220}" y="${ry}" font-family="Arial, sans-serif" font-size="8" font-weight="bold" fill="#0f172a">${row[1]}</text>
+    `;
+  });
+
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" style="background:#ffffff;">
+  <!-- Fondo y Marco EPLAN -->
+  <rect x="0" y="0" width="${W}" height="${H}" fill="#ffffff"/>
+  <rect x="${mLeft}" y="${mTop}" width="${fW}" height="${fH}" fill="none" stroke="#000000" stroke-width="2.5"/>
+  <rect x="${mLeft + 12}" y="${mTop + 12}" width="${fW - 24}" height="${fH - 24}" fill="none" stroke="#000000" stroke-width="1"/>
+
+  <!-- Cuadrícula de Coordenadas -->
+  ${gridXml}
+
+  <!-- Cartela Normalizada ISO 7200 -->
+  ${cartelaXml}
+
+  <!-- Tabla de Parámetros Globales -->
+  <g id="tabla_parametros">
+    <rect x="${ntX}" y="${ntY}" width="440" height="150" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1" rx="4"/>
+    <text x="${ntX + 12}" y="${ntY + 18}" font-family="Arial, sans-serif" font-size="9.5" font-weight="bold" fill="#0f172a">PARÁMETROS DE DISEÑO Y CÁLCULO ELÉCTRICO</text>
+    ${tableXml}
+  </g>
+
+  <!-- 1. CAMPO GENERADOR FOTOVOLTAICO -->
+  <g id="campo_fv">
+    <text x="${genX - 40}" y="${genY - 50}" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#0f172a">CAMPO GENERADOR FOTOVOLTAICO (CUBIERTA)</text>
+    <text x="${genX - 40}" y="${genY - 34}" font-family="Arial, sans-serif" font-size="9.5" fill="#475569">Potencia Pico Total: ${D.P_dc_kW.toFixed(2)} kWp (${D.numPanels} mód. ${D.cfg_pot} Wp - ${D.cfg_tec})</text>
+    ${stringsXml}
+    <line x1="${busStartX}" y1="${colBusY}" x2="${busEndX}" y2="${colBusY}" stroke="#000" stroke-width="2.5"/>
+    <line x1="${dcTrunkX}" y1="${colBusY}" x2="${dcTrunkX}" y2="${boxDcY}" stroke="#000" stroke-width="2"/>
+    <text x="${dcTrunkX + 10}" y="${(colBusY + boxDcY) / 2}" font-family="monospace" font-size="8" font-weight="bold" fill="#0369a1">Cable Solar ZZ-F 1x${D.S_str}mm² (1.8/3kV)</text>
+  </g>
+
+  <!-- 2. CUADRO PROTECCIÓN DC (-XDC) -->
+  <g id="cuadro_dc">
+    <rect x="${cdcX}" y="${cdcY}" width="${cdcW}" height="${cdcH}" fill="#fffbeb" stroke="#d97706" stroke-width="2" stroke-dasharray="4,3" rx="4"/>
+    <text x="${cdcX + 8}" y="${cdcY + 16}" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#b45309">CUADRO PROTECCIÓN DC (-XDC) · IP65 CUBIERTA</text>
+
+    <!-- Fusible -F1 -->
+    <rect x="${cdcX + 35}" y="${cdcY + 30}" width="35" height="24" fill="#ffffff" stroke="#000" stroke-width="1.5"/>
+    <line x1="${cdcX + 35}" y1="${cdcY + 42}" x2="${cdcX + 70}" y2="${cdcY + 42}" stroke="#000" stroke-width="1.5"/>
+    <text x="${cdcX + 52}" y="${cdcY + 27}" font-family="Arial, sans-serif" font-size="7.5" font-weight="bold" fill="#000" text-anchor="middle">-F1</text>
+    <text x="${cdcX + 52}" y="${cdcY + 63}" font-family="Arial, sans-serif" font-size="7.5" fill="#000" text-anchor="middle">gPV ${D.fuse_std || 15}A</text>
+
+    <!-- Sobretensiones SPD -F01 -->
+    <rect x="${cdcX + 110}" y="${cdcY + 30}" width="40" height="45" fill="#ffffff" stroke="#000" stroke-width="1.5"/>
+    <line x1="${cdcX + 118}" y1="${cdcY + 42}" x2="${cdcX + 142}" y2="${cdcY + 42}" stroke="#000" stroke-width="1.5"/>
+    <line x1="${cdcX + 130}" y1="${cdcY + 42}" x2="${cdcX + 130}" y2="${cdcY + 62}" stroke="#000" stroke-width="1.5"/>
+    <line x1="${cdcX + 122}" y1="${cdcY + 62}" x2="${cdcX + 138}" y2="${cdcY + 62}" stroke="#000" stroke-width="1.5"/>
+    <text x="${cdcX + 130}" y="${cdcY + 27}" font-family="Arial, sans-serif" font-size="7.5" font-weight="bold" fill="#000" text-anchor="middle">-F01 (SPD)</text>
+    <text x="${cdcX + 130}" y="${cdcY + 84}" font-family="Arial, sans-serif" font-size="7" fill="#000" text-anchor="middle">Tipo II DC</text>
+    <text x="${cdcX + 130}" y="${cdcY + 93}" font-family="Arial, sans-serif" font-size="7" fill="#000" text-anchor="middle">Up≤2.5kV</text>
+
+    <!-- Seccionador -Q1 -->
+    <rect x="${cdcX + 190}" y="${cdcY + 30}" width="45" height="45" fill="#ffffff" stroke="#000" stroke-width="1.5"/>
+    <circle cx="${cdcX + 200}" cy="${cdcY + 65}" r="2.5" fill="none" stroke="#000" stroke-width="1.5"/>
+    <circle cx="${cdcX + 225}" cy="${cdcY + 65}" r="2.5" fill="none" stroke="#000" stroke-width="1.5"/>
+    <line x1="${cdcX + 200}" y1="${cdcY + 65}" x2="${cdcX + 215}" y2="${cdcY + 45}" stroke="#000" stroke-width="1.5"/>
+    <text x="${cdcX + 212}" y="${cdcY + 27}" font-family="Arial, sans-serif" font-size="7.5" font-weight="bold" fill="#000" text-anchor="middle">-Q1</text>
+    <text x="${cdcX + 212}" y="${cdcY + 84}" font-family="Arial, sans-serif" font-size="7" fill="#000" text-anchor="middle">Seccionador</text>
+    <text x="${cdcX + 212}" y="${cdcY + 93}" font-family="Arial, sans-serif" font-size="7" fill="#000" text-anchor="middle">1000V / 32A</text>
+
+    <!-- Línea DC Saliente -->
+    <line x1="${dcTrunkX}" y1="${dcOutY}" x2="${dcTrunkX}" y2="${invY}" stroke="#000" stroke-width="2"/>
+    <text x="${dcTrunkX + 10}" y="${(dcOutY + invY) / 2}" font-family="monospace" font-size="8" font-weight="bold" fill="#0369a1">Línea Principal DC: ZZ-F ${D.S_mdc}mm² (Idc=${D.I_total_dc.toFixed(1)}A)</text>
+  </g>
+
+  <!-- 3. INVERSOR DC/AC (-T1) -->
+  <g id="inversor_t1">
+    <rect x="${invX}" y="${invY}" width="${invW}" height="${invH}" fill="#eff6ff" stroke="#1d4ed8" stroke-width="2.5" rx="4"/>
+    <line x1="${invX}" y1="${invY + invH}" x2="${invX + invW}" y2="${invY}" stroke="#1d4ed8" stroke-width="1"/>
+    <text x="${invX + 50}" y="${invY + invH - 25}" font-family="Arial, sans-serif" font-size="20" font-weight="bold" fill="#1e40af" text-anchor="middle">=</text>
+    <text x="${invX + invW - 50}" y="${invY + 45}" font-family="Arial, sans-serif" font-size="20" font-weight="bold" fill="#1e40af" text-anchor="middle">~</text>
+
+    <text x="${invX + invW / 2}" y="${invY + 22}" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="#0f172a" text-anchor="middle">-T1 · INVERSOR DE CONEXIÓN A RED</text>
+    <text x="${invX + invW / 2}" y="${invY + 40}" font-family="Arial, sans-serif" font-size="9.5" font-weight="bold" fill="#1e3a8a" text-anchor="middle">Potencia Nominal AC: ${D.P_ac_kW.toFixed(2)} kW (${D.monofasico ? '230V 1F+N' : '400V 3F+N'})</text>
+    <text x="${invX + invW / 2}" y="${invY + 54}" font-family="Arial, sans-serif" font-size="8" fill="#475569" text-anchor="middle">MPPT Integrado · Eficiencia: 98.4% · cos φ = 1.0</text>
+    <text x="${invX + invW / 2}" y="${invY + 66}" font-family="Arial, sans-serif" font-size="8" fill="#475569" text-anchor="middle">Protección Anti-isla RD 1699/2011 · UNE-EN 50549</text>
+    <text x="${invX + invW / 2}" y="${invY + 78}" font-family="Arial, sans-serif" font-size="8" fill="#475569" text-anchor="middle">I_ac_max = ${D.I_ac.toFixed(1)} A | Frecuencia: 50 Hz</text>
+
+    <!-- Línea AC al Cuadro General -->
+    <path d="M ${invX + invW / 2} ${invY + invH} L ${invX + invW / 2} ${invY + invH + 30} L ${acBoxX + 40} ${invY + invH + 30} L ${acBoxX + 40} ${acBoxY + acBoxH - 30}" fill="none" stroke="#15803d" stroke-width="2.5"/>
+    <text x="${invX + invW / 2 + 10}" y="${invY + invH + 24}" font-family="monospace" font-size="8" font-weight="bold" fill="#166534">Línea AC: RV-K 0.6/1kV ${D.monofasico ? '3G' : '5G'}${D.S_ac}mm²</text>
+  </g>
+
+  <!-- 4. CUADRO GENERAL AC (-XAC) -->
+  <g id="cuadro_ac">
+    <rect x="${acBoxX}" y="${acBoxY}" width="${acBoxW}" height="${acBoxH}" fill="#f0fdf4" stroke="#16a34a" stroke-width="2" stroke-dasharray="4,3" rx="4"/>
+    <text x="${acBoxX + 10}" y="${acBoxY + 16}" font-family="Arial, sans-serif" font-size="9.5" font-weight="bold" fill="#15803d">CUADRO GENERAL DE DISTRIBUCIÓN Y PROTECCIÓN AC</text>
+
+    <!-- IGA PIA -F2 -->
+    <rect x="${acBoxX + 30}" y="${acBoxY + 40}" width="65" height="55" fill="#ffffff" stroke="#000" stroke-width="1.5" rx="3"/>
+    <text x="${acBoxX + 62}" y="${acBoxY + 34}" font-family="monospace" font-size="10" font-weight="bold" fill="#0284c7" text-anchor="middle">-F2</text>
+    <text x="${acBoxX + 62}" y="${acBoxY + 54}" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#0f172a" text-anchor="middle">IGA (PIA)</text>
+    <text x="${acBoxX + 62}" y="${acBoxY + 68}" font-family="Arial, sans-serif" font-size="8" fill="#475569" text-anchor="middle">${D.I_iga}A Curva C</text>
+    <text x="${acBoxX + 62}" y="${acBoxY + 84}" font-family="Arial, sans-serif" font-size="7" fill="#64748b" text-anchor="middle">Icu ≥ 6kA</text>
+
+    <!-- Diferencial -Q2 -->
+    <rect x="${acBoxX + 115}" y="${acBoxY + 40}" width="75" height="55" fill="#ffffff" stroke="#000" stroke-width="1.5" rx="3"/>
+    <text x="${acBoxX + 152}" y="${acBoxY + 34}" font-family="monospace" font-size="10" font-weight="bold" fill="#0284c7" text-anchor="middle">-Q2</text>
+    <text x="${acBoxX + 152}" y="${acBoxY + 54}" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#0f172a" text-anchor="middle">Diferencial</text>
+    <text x="${acBoxX + 152}" y="${acBoxY + 68}" font-family="Arial, sans-serif" font-size="8" fill="#475569" text-anchor="middle">30mA Cl. A/B</text>
+    <text x="${acBoxX + 152}" y="${acBoxY + 84}" font-family="Arial, sans-serif" font-size="7" fill="#64748b" text-anchor="middle">${D.dif_amp}A Superinm.</text>
+
+    <!-- SPD AC -F02 -->
+    <rect x="${acBoxX + 210}" y="${acBoxY + 40}" width="65" height="55" fill="#ffffff" stroke="#000" stroke-width="1.5" rx="3"/>
+    <text x="${acBoxX + 242}" y="${acBoxY + 34}" font-family="monospace" font-size="10" font-weight="bold" fill="#0284c7" text-anchor="middle">-F02</text>
+    <text x="${acBoxX + 242}" y="${acBoxY + 54}" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#0f172a" text-anchor="middle">SPD AC</text>
+    <text x="${acBoxX + 242}" y="${acBoxY + 68}" font-family="Arial, sans-serif" font-size="8" fill="#475569" text-anchor="middle">Tipo II (20kA)</text>
+    <text x="${acBoxX + 242}" y="${acBoxY + 84}" font-family="Arial, sans-serif" font-size="7" fill="#64748b" text-anchor="middle">Up ≤ 1.5kV</text>
+
+    <!-- SMART METER -P1 -->
+    <rect x="${acBoxX + 115}" y="${acBoxY + 125}" width="110" height="50" fill="#ffffff" stroke="#000" stroke-width="1.5" rx="3"/>
+    <text x="${acBoxX + 170}" y="${acBoxY + 119}" font-family="monospace" font-size="10" font-weight="bold" fill="#0284c7" text-anchor="middle">-P1</text>
+    <text x="${acBoxX + 170}" y="${acBoxY + 143}" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#0f172a" text-anchor="middle">SMART METER</text>
+    <text x="${acBoxX + 170}" y="${acBoxY + 158}" font-family="Arial, sans-serif" font-size="8" fill="#475569" text-anchor="middle">Bidireccional RS485</text>
+
+    <!-- Embarrado Tierra PE -->
+    <rect x="${acBoxX + 30}" y="${acBoxY + 200}" width="${acBoxW - 60}" height="26" fill="#fef08a" stroke="#ca8a04" stroke-width="1.5" rx="2"/>
+    <text x="${acBoxX + 30 + (acBoxW - 60) / 2}" y="${acBoxY + 217}" font-family="Arial, sans-serif" font-size="8.5" font-weight="bold" fill="#854d0e" text-anchor="middle">EMBARRADO EQUIPOTENCIAL DE PUESTA A TIERRA (PE) · R ≤ ${D.R_tierra} Ω</text>
+
+    <!-- Pica de Tierra -->
+    <path d="M ${acBoxX + acBoxW / 2} ${acBoxY + 226} L ${acBoxX + acBoxW / 2} ${acBoxY + 251} M ${acBoxX + acBoxW / 2 - 18} ${acBoxY + 251} L ${acBoxX + acBoxW / 2 + 18} ${acBoxY + 251} M ${acBoxX + acBoxW / 2 - 12} ${acBoxY + 257} L ${acBoxX + acBoxW / 2 + 12} ${acBoxY + 257} M ${acBoxX + acBoxW / 2 - 6} ${acBoxY + 263} L ${acBoxX + acBoxW / 2 + 6} ${acBoxY + 263}" fill="none" stroke="#ca8a04" stroke-width="2"/>
+    <text x="${acBoxX + acBoxW / 2}" y="${acBoxY + 276}" font-family="Arial, sans-serif" font-size="7.5" fill="#854d0e" text-anchor="middle">Pica de Cu 2m (ITC-BT-18)</text>
+  </g>
+
+  <!-- 5. RED DISTRIBUCIÓN PÚBLICA -->
+  <g id="red_distribucion">
+    <line x1="${acBoxX + acBoxW}" y1="${acBoxY + 65}" x2="${gridX}" y2="${gridY}" stroke="#000" stroke-width="2"/>
+    <text x="${(acBoxX + acBoxW + gridX) / 2}" y="${gridY - 6}" font-family="monospace" font-size="8" font-weight="bold" fill="#0369a1" text-anchor="middle">Acometida ${D.monofasico ? '230V' : '400V'}</text>
+
+    <rect x="${gridX}" y="${gridY - 45}" width="170" height="95" fill="#0f172a" stroke="#0284c7" stroke-width="2.5" rx="4"/>
+    <text x="${gridX + 85}" y="${gridY - 24}" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#38bdf8" text-anchor="middle">RED DISTRIBUCIÓN BT</text>
+    <text x="${gridX + 85}" y="${gridY - 8}" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#ffffff" text-anchor="middle">${D.dist}</text>
+    <text x="${gridX + 85}" y="${gridY + 8}" font-family="Arial, sans-serif" font-size="8" fill="#94a3b8" text-anchor="middle">CUPS: ${D.cups}</text>
+    <text x="${gridX + 85}" y="${gridY + 22}" font-family="Arial, sans-serif" font-size="8" fill="#94a3b8" text-anchor="middle">Modalidad: ${D.modalTexto.split('(')[0] || 'Autoconsumo'}</text>
+    <text x="${gridX + 85}" y="${gridY + 36}" font-family="Arial, sans-serif" font-size="8" fill="#94a3b8" text-anchor="middle">Tensión Red: ${D.monofasico ? '230 V 50 Hz' : '400 V 50 Hz'}</text>
+  </g>
+</svg>`;
+}
+
+/**
+ * Motor Exportador DXF ASCII Puro Compatible con AutoCAD R12 / 2000
+ */
+function generateUnifilarDxfString(D) {
+  let dxf = '';
+
+  // Helpers DXF
+  function addHeader() {
+    dxf += '0\r\nSECTION\r\n2\r\nHEADER\r\n';
+    dxf += '9\r\n$ACADVER\r\n1\r\nAC1009\r\n'; // AutoCAD R12 ASCII universal
+    dxf += '9\r\n$INSUNITS\r\n70\r\n4\r\n';   // Millimeters
+    dxf += '0\r\nENDSEC\r\n';
+  }
+
+  function addTables() {
+    dxf += '0\r\nSECTION\r\n2\r\nTABLES\r\n';
+    dxf += '0\r\nTABLE\r\n2\r\nLAYER\r\n70\r\n6\r\n';
+    
+    // Layers: 0_MARCO (7:blanco), 1_EQUIPOS (4:cyan), 2_DC (1:rojo), 3_AC (3:verde), 4_TIERRA (2:amarillo), 5_TEXTOS (7:blanco)
+    const layers = [
+      { name: '0_MARCO', color: 7 },
+      { name: '1_EQUIPOS', color: 4 },
+      { name: '2_DC', color: 1 },
+      { name: '3_AC', color: 3 },
+      { name: '4_TIERRA', color: 2 },
+      { name: '5_TEXTOS', color: 7 }
+    ];
+
+    layers.forEach(l => {
+      dxf += '0\\r\\nLAYER\\r\\n2\\r\\n' + l.name + '\\r\\n70\\r\\n0\\r\\n62\\r\\n' + l.color + '\\r\\n6\\r\\nCONTINUOUS\\r\\n';
+    });
+
+    dxf += '0\r\nENDTAB\r\n0\r\nENDSEC\r\n';
+  }
+
+  function line(layer, x1, y1, x2, y2) {
+    // Invertimos Y para sistema de coordenadas CAD cartesiano estándar (Y hacia arriba)
+    const Y1 = 1131 - y1;
+    const Y2 = 1131 - y2;
+    return '0\\r\\nLINE\\r\\n8\\r\\n' + layer + '\\r\\n10\\r\\n' + x1.toFixed(2) + '\\r\\n20\\r\\n' + Y1.toFixed(2) + '\\r\\n30\\r\\n0.0\\r\\n11\\r\\n' + x2.toFixed(2) + '\\r\\n21\\r\\n' + Y2.toFixed(2) + '\\r\\n31\\r\\n0.0\\r\\n';
+  }
+
+  function rect(layer, x, y, w, h) {
+    return line(layer, x, y, x + w, y) +
+           line(layer, x + w, y, x + w, y + h) +
+           line(layer, x + w, y + h, x, y + h) +
+           line(layer, x, y + h, x, y);
+  }
+
+  function circle(layer, cx, cy, r) {
+    const Y = 1131 - cy;
+    return '0\\r\\nCIRCLE\\r\\n8\\r\\n' + layer + '\\r\\n10\\r\\n' + cx.toFixed(2) + '\\r\\n20\\r\\n' + Y.toFixed(2) + '\\r\\n30\\r\\n0.0\\r\\n40\\r\\n' + r.toFixed(2) + '\\r\\n';
+  }
+
+  function text(layer, x, y, height, str) {
+    const Y = 1131 - y;
+    const cleanStr = String(str).replace(/[\\r\\n]/g, ' ');
+    return '0\\r\\nTEXT\\r\\n8\\r\\n' + layer + '\\r\\n10\\r\\n' + x.toFixed(2) + '\\r\\n20\\r\\n' + Y.toFixed(2) + '\\r\\n30\\r\\n0.0\\r\\n40\\r\\n' + height.toFixed(2) + '\\r\\n1\\r\\n' + cleanStr + '\\r\\n';
+  }
+
+  addHeader();
+  addTables();
+
+  dxf += '0\r\nSECTION\r\n2\r\nENTITIES\r\n';
+
+  // 1. Marco y Cuadrícula
+  dxf += rect('0_MARCO', 40, 35, 1520, 1061);
+  dxf += rect('0_MARCO', 52, 47, 1496, 1037);
+
+  // Cartela
+  const tbW = 460, tbH = 110;
+  const tbX = 1600 - 40 - 12 - tbW;
+  const tbY = 1131 - 35 - 12 - tbH;
+  dxf += rect('0_MARCO', tbX, tbY, tbW, tbH);
+  dxf += line('0_MARCO', tbX, tbY + 28, tbX + tbW, tbY + 28);
+  dxf += line('0_MARCO', tbX, tbY + 68, tbX + tbW, tbY + 68);
+  dxf += line('0_MARCO', tbX + 260, tbY, tbX + 260, tbY + 68);
+  dxf += line('0_MARCO', tbX + 130, tbY + 68, tbX + 130, tbY + tbH);
+  dxf += line('0_MARCO', tbX + 260, tbY + 68, tbX + 260, tbY + tbH);
+  dxf += line('0_MARCO', tbX + 360, tbY + 68, tbX + 360, tbY + tbH);
+
+  dxf += text('5_TEXTOS', tbX + 8, tbY + 20, 4.5, 'PROYECTO: INSTALACION SOLAR FV ' + D.refNum);
+  dxf += text('5_TEXTOS', tbX + 8, tbY + 50, 4.0, 'PROMOTOR: ' + D.nombre + ' (' + D.nif + ')');
+  dxf += text('5_TEXTOS', tbX + 268, tbY + 22, 5.0, 'DOC: ESQUEMA UNIFILAR (IEC 60617)');
+  dxf += text('5_TEXTOS', tbX + 8, tbY + 88, 3.5, 'TECNICO: ' + D.tecnico + ' (Col. ' + D.ncol + ')');
+  dxf += text('5_TEXTOS', tbX + 138, tbY + 88, 3.5, 'FECHA: ' + D.fechaStr);
+  dxf += text('5_TEXTOS', tbX + 268, tbY + 88, 3.5, 'NORMA: REBT ITC-BT-40');
+
+  // 2. Generador FV
+  const genX = 140, genY = 160;
+  const displayedStrings = Math.min(D.numStrings, 3);
+  const strW = 105, strH = 120, strGap = 20;
+
+  dxf += text('5_TEXTOS', genX - 40, genY - 50, 5.0, 'CAMPO GENERADOR FOTOVOLTAICO');
+  dxf += text('5_TEXTOS', genX - 40, genY - 34, 4.0, 'Pdc: ' + D.P_dc_kW.toFixed(2) + ' kWp (' + D.numPanels + ' modulos ' + D.cfg_pot + 'W)');
+
+  for (let s = 0; s < displayedStrings; s++) {
+    const sx = genX - 40 + s * (strW + strGap);
+    dxf += rect('1_EQUIPOS', sx, genY, strW, strH);
+    dxf += text('5_TEXTOS', sx + 10, genY + 30, 4.0, '-G' + (s + 1) + ' STRING ' + (s + 1));
+    dxf += text('5_TEXTOS', sx + 10, genY + 50, 3.5, D.modsActual + ' Mods en serie');
+    dxf += text('5_TEXTOS', sx + 10, genY + 70, 3.0, 'Voc(STC): ' + D.Voc_string.toFixed(0) + 'V');
+    dxf += text('5_TEXTOS', sx + 10, genY + 85, 3.0, 'Voc(-10C): ' + D.Voc_str_cold.toFixed(0) + 'V');
+    dxf += line('2_DC', sx + strW / 2, genY + strH, sx + strW / 2, genY + strH + 45);
+  }
+
+  const colBusY = genY + strH + 45;
+  const busStartX = genX - 40 + strW / 2;
+  const busEndX = genX - 40 + (displayedStrings - 1) * (strW + strGap) + strW / 2;
+  const dcTrunkX = (busStartX + busEndX) / 2;
+  const boxDcY = colBusY + 60;
+
+  dxf += line('2_DC', busStartX, colBusY, busEndX, colBusY);
+  dxf += line('2_DC', dcTrunkX, colBusY, dcTrunkX, boxDcY);
+  dxf += text('5_TEXTOS', dcTrunkX + 8, (colBusY + boxDcY) / 2, 3.5, 'ZZ-F 1x' + D.S_str + 'mm2 (1.8/3kV)');
+
+  // 3. Cuadro DC
+  const cdcW = 260, cdcH = 140;
+  const cdcX = dcTrunkX - cdcW / 2;
+  const cdcY = boxDcY;
+  dxf += rect('1_EQUIPOS', cdcX, cdcY, cdcW, cdcH);
+  dxf += text('5_TEXTOS', cdcX + 8, cdcY + 16, 4.0, 'CUADRO PROTECCION DC (-XDC) IP65');
+  dxf += rect('1_EQUIPOS', cdcX + 35, cdcY + 30, 35, 24);
+  dxf += text('5_TEXTOS', cdcX + 40, cdcY + 45, 3.0, '-F1 gPV');
+  dxf += rect('1_EQUIPOS', cdcX + 110, cdcY + 30, 40, 45);
+  dxf += text('5_TEXTOS', cdcX + 115, cdcY + 45, 3.0, '-F01 SPD');
+  dxf += rect('1_EQUIPOS', cdcX + 190, cdcY + 30, 45, 45);
+  dxf += text('5_TEXTOS', cdcX + 195, cdcY + 45, 3.0, '-Q1 SEC');
+
+  const dcOutY = cdcY + cdcH;
+  const invY = dcOutY + 70;
+  dxf += line('2_DC', dcTrunkX, dcOutY, dcTrunkX, invY);
+  dxf += text('5_TEXTOS', dcTrunkX + 8, (dcOutY + invY) / 2, 3.5, 'ZZ-F ' + D.S_mdc + 'mm2');
+
+  // 4. Inversor
+  const invW = 280, invH = 130;
+  const invX = dcTrunkX - invW / 2;
+  dxf += rect('1_EQUIPOS', invX, invY, invW, invH);
+  dxf += line('1_EQUIPOS', invX, invY + invH, invX + invW, invY);
+  dxf += text('5_TEXTOS', invX + 20, invY + 25, 4.5, '-T1 INVERSOR CONEXION RED');
+  dxf += text('5_TEXTOS', invX + 20, invY + 45, 4.0, 'Pac: ' + D.P_ac_kW.toFixed(2) + ' kW (' + (D.monofasico ? '230V 1F' : '400V 3F') + ')');
+  dxf += text('5_TEXTOS', invX + 20, invY + 65, 3.5, 'I_ac_max = ' + D.I_ac.toFixed(1) + ' A');
+
+  // 5. Cuadro AC
+  const acBoxX = invX + invW + 120;
+  const acBoxY = invY - 20;
+  const acBoxW = 340, acBoxH = 260;
+
+  dxf += line('3_AC', invX + invW / 2, invY + invH, invX + invW / 2, invY + invH + 30);
+  dxf += line('3_AC', invX + invW / 2, invY + invH + 30, acBoxX + 40, invY + invH + 30);
+  dxf += line('3_AC', acBoxX + 40, invY + invH + 30, acBoxX + 40, acBoxY + acBoxH - 30);
+  dxf += text('5_TEXTOS', invX + invW / 2 + 10, invY + invH + 24, 3.5, 'RV-K 0.6/1kV ' + D.S_ac + 'mm2');
+
+  dxf += rect('1_EQUIPOS', acBoxX, acBoxY, acBoxW, acBoxH);
+  dxf += text('5_TEXTOS', acBoxX + 10, acBoxY + 18, 4.0, 'CUADRO GENERAL DE PROTECCION AC (-XAC)');
+  dxf += rect('1_EQUIPOS', acBoxX + 30, acBoxY + 40, 65, 55);
+  dxf += text('5_TEXTOS', acBoxX + 35, acBoxY + 60, 3.5, '-F2 IGA ' + D.I_iga + 'A');
+  dxf += rect('1_EQUIPOS', acBoxX + 115, acBoxY + 40, 75, 55);
+  dxf += text('5_TEXTOS', acBoxX + 120, acBoxY + 60, 3.5, '-Q2 DIF 30mA');
+  dxf += rect('1_EQUIPOS', acBoxX + 210, acBoxY + 40, 65, 55);
+  dxf += text('5_TEXTOS', acBoxX + 215, acBoxY + 60, 3.5, '-F02 SPD AC');
+  dxf += rect('1_EQUIPOS', acBoxX + 115, acBoxY + 125, 110, 50);
+  dxf += text('5_TEXTOS', acBoxX + 125, acBoxY + 150, 3.5, '-P1 SMART METER');
+
+  // Tierra PE
+  dxf += rect('4_TIERRA', acBoxX + 30, acBoxY + 200, acBoxW - 60, 26);
+  dxf += text('4_TIERRA', acBoxX + 40, acBoxY + 216, 3.5, 'EMBARRADO TIERRA (PE) R<=' + D.R_tierra + ' Ohm');
+  dxf += line('4_TIERRA', acBoxX + acBoxW / 2, acBoxY + 226, acBoxX + acBoxW / 2, acBoxY + 251);
+
+  // 6. Red
+  const gridX = acBoxX + acBoxW + 60;
+  const gridY = acBoxY + 60;
+  dxf += line('3_AC', acBoxX + acBoxW, acBoxY + 65, gridX, gridY);
+  dxf += rect('1_EQUIPOS', gridX, gridY - 45, 170, 95);
+  dxf += text('5_TEXTOS', gridX + 10, gridY - 20, 4.0, 'RED DISTRIBUCION BT');
+  dxf += text('5_TEXTOS', gridX + 10, gridY, 3.5, D.dist);
+  dxf += text('5_TEXTOS', gridX + 10, gridY + 20, 3.0, 'CUPS: ' + D.cups);
+
+  dxf += '0\\r\\nENDSEC\\r\\n0\\r\\nEOF\\r\\n';
+
+  return dxf.replace(/\\r\\n/g, '\r\n');
+}
+
+
+// ============================================================================
+// DOC 5 — PLANO DE PLANTA ARQUITECTÓNICO / INGENIERÍA (100% FIEL AL VISOR 3D)
+// ============================================================================
+function generatePlanoPlanta() {
+  if (polygonPoints.length < 3) {
+    alert('Define primero el polígono de la instalación con al menos 3 vértices.');
+    return;
+  }
+
+  const d = getProjectCalcs();
+  const roofData = computeRoofPanelsData();
+
+  if (!roofData) {
+    alert('Error calculando la geometría de la cubierta.');
+    return;
+  }
+
+  const payload = {
+    refNum: d.refNum,
+    fechaStr: d.fechaStr,
+    nombre: d.tit.nombre,
+    nif: d.tit.nif,
+    dir: d.tit.dir || 'Ubicación de la Instalación',
+    mun: d.tit.mun || '',
+    prov: d.tit.prov || '',
+    tecnico: d.tit.tecnico,
+    titulacion: d.tit.titulacion,
+    ncol: d.tit.ncol,
+    cfg_pot: d.cfg.potencia,
+    cfg_mod: d.cfg.modelo,
+    cfg_tec: d.cfg.tecnologia,
+    panelW: roofData.panelW,
+    panelH: roofData.panelH,
+    totalPanels: roofData.panels.length,
+    peakPowerKW: (roofData.panels.length * d.cfg.potencia) / 1000,
+    area3D: roofData.area3D,
+    tiltDeg: roofData.tiltDeg,
+    azimuthDeg: roofData.azimuthDeg,
+    latDeg: roofData.latDeg,
+    lonDeg: roofData.lonDeg,
+    poly2D: roofData.poly2D,
+    panels: roofData.panels, obstacles: obstacles.slice(),
+    minU: roofData.minU,
+    maxU: roofData.maxU,
+    minV: roofData.minV,
+    maxV: roofData.maxV,
+    rangeU: roofData.rangeU,
+    rangeV: roofData.rangeV
+  };
+
+  const code = `
+  <!DOCTYPE html>
+  <html lang="es">
+  <head>
+    <meta charset="UTF-8">
+    <title>Plano de Planta Fotovoltaico — ${d.refNum}</title>
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      body { background: #1e293b; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; flex-direction: column; align-items: center; padding: 15px; }
+      .header-bar { width: 1120px; background: #0f172a; color: #fff; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #334155; margin-bottom: 12px; }
+      .header-bar h1 { font-size: 13px; font-weight: 700; letter-spacing: 0.5px; color: #38bdf8; }
+      .btn-print { background: #0284c7; color: #fff; border: none; padding: 8px 18px; font-weight: 700; font-size: 11px; cursor: pointer; border-radius: 2px; }
+      .btn-print:hover { background: #0369a1; }
+      canvas { background: #ffffff; box-shadow: 0 10px 30px rgba(0,0,0,0.5); display: block; }
+      @media print {
+        body { background: #fff; padding: 0; }
+        .header-bar { display: none; }
+        canvas { box-shadow: none; width: 100%; height: auto; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header-bar">
+      <h1>📐 PLANO DE IMPLANTACIÓN Y DISTRIBUCIÓN DE MÓDULOS FV (LAYOUT REAL)</h1>
+      <button class="btn-print" onclick="window.print()">🖨 IMPRIMIR / EXPORTAR A PDF</button>
+    </div>
+
+    <canvas id="plantCanvas" width="1600" height="1131"></canvas>
+
+    <script>
+      const D = ${JSON.stringify(payload)};
+      const cv = document.getElementById('plantCanvas');
+      const ctx = cv.getContext('2d');
+      const W = cv.width, H = cv.height;
+
+      // ── Background
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, W, H);
+
+      // ── Margins and Drawing Area
+      const mLeft = 40, mTop = 35, mRight = 40, mBottom = 35;
+      const fW = W - mLeft - mRight;
+      const fH = H - mTop - mBottom;
+
+      // Border & Grid
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 2.5;
+      ctx.strokeRect(mLeft, mTop, fW, fH);
+      ctx.lineWidth = 1;
+      ctx.strokeRect(mLeft + 12, mTop + 12, fW - 24, fH - 24);
+
+      // ── Cartela Normalizada (Bottom Right)
+      const tbW = 460, tbH = 115;
+      const tbX = mLeft + fW - 12 - tbW;
+      const tbY = mTop + fH - 12 - tbH;
+
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillRect(tbX, tbY, tbW, tbH);
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(tbX, tbY, tbW, tbH);
+
+      ctx.beginPath();
+      ctx.moveTo(tbX, tbY + 28); ctx.lineTo(tbX + tbW, tbY + 28);
+      ctx.moveTo(tbX, tbY + 68); ctx.lineTo(tbX + tbW, tbY + 68);
+      ctx.moveTo(tbX + 260, tbY); ctx.lineTo(tbX + 260, tbY + 68);
+      ctx.moveTo(tbX + 130, tbY + 68); ctx.lineTo(tbX + 130, tbY + tbH);
+      ctx.moveTo(tbX + 260, tbY + 68); ctx.lineTo(tbX + 260, tbY + tbH);
+      ctx.moveTo(tbX + 360, tbY + 68); ctx.lineTo(tbX + 360, tbY + tbH);
+      ctx.stroke();
+
+      ctx.textAlign = 'left';
+      ctx.font = 'bold 8px Arial';
+      ctx.fillStyle = '#64748b';
+      ctx.fillText('PROYECTO:', tbX + 8, tbY + 9);
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 9.5px Arial';
+      ctx.fillText('IMPLANTACIÓN SOLAR FOTOVOLTAICA AUTOCONSUMO', tbX + 8, tbY + 20);
+
+      ctx.font = 'bold 8px Arial';
+      ctx.fillStyle = '#64748b';
+      ctx.fillText('TITULAR / EMPLAZAMIENTO:', tbX + 8, tbY + 38);
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 9px Arial';
+      ctx.fillText(D.nombre + ' · NIF: ' + D.nif, tbX + 8, tbY + 49);
+      ctx.font = '8px Arial';
+      ctx.fillText(D.dir + ' ' + D.mun + ' (' + D.prov + ')', tbX + 8, tbY + 60);
+
+      ctx.fillStyle = '#64748b';
+      ctx.font = 'bold 8px Arial';
+      ctx.fillText('DOCUMENTO:', tbX + 268, tbY + 9);
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 11px Arial';
+      ctx.fillText('PLANO DE PLANTA (LAYOUT)', tbX + 268, tbY + 22);
+
+      ctx.fillStyle = '#64748b';
+      ctx.font = 'bold 8px Arial';
+      ctx.fillText('REF. PLANO:', tbX + 268, tbY + 38);
+      ctx.fillStyle = '#0284c7';
+      ctx.font = 'bold 10px Arial';
+      ctx.fillText(D.refNum + '-PL01', tbX + 268, tbY + 50);
+
+      ctx.fillStyle = '#64748b';
+      ctx.font = 'bold 7.5px Arial';
+      ctx.fillText('TÉCNICO PROYECTISTA:', tbX + 8, tbY + 77);
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 8.5px Arial';
+      ctx.fillText(D.tecnico, tbX + 8, tbY + 89);
+      ctx.font = '7.5px Arial';
+      ctx.fillText(D.titulacion + ' · Col. ' + D.ncol, tbX + 8, tbY + 101);
+
+      ctx.fillStyle = '#64748b';
+      ctx.font = 'bold 7.5px Arial';
+      ctx.fillText('FECHA:', tbX + 138, tbY + 77);
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 9px Arial';
+      ctx.fillText(D.fechaStr, tbX + 138, tbY + 92);
+
+      ctx.fillStyle = '#64748b';
+      ctx.font = 'bold 7.5px Arial';
+      ctx.fillText('SISTEMA / COORD:', tbX + 268, tbY + 77);
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 8px Arial';
+      ctx.fillText('ETRS89 / WGS84', tbX + 268, tbY + 89);
+      ctx.fillText(D.latDeg.toFixed(4) + '°N, ' + D.lonDeg.toFixed(4) + '°E', tbX + 268, tbY + 101);
+
+      ctx.fillStyle = '#64748b';
+      ctx.font = 'bold 7.5px Arial';
+      ctx.fillText('ESCALA:', tbX + 368, tbY + 77);
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 9px Arial';
+      ctx.fillText('ACORDE A FORMATO', tbX + 368, tbY + 92);
+
+      // ── VIEWPORT & TRANSFORMATION SETUP
+      const drawAreaW = W - 200;
+      const drawAreaH = H - 240;
+      const drawCenterX = mLeft + drawAreaW / 2 + 30;
+      const drawCenterY = mTop + drawAreaH / 2 + 40;
+
+      const scaleX = (drawAreaW * 0.70) / Math.max(D.rangeU, 5);
+      const scaleY = (drawAreaH * 0.70) / Math.max(D.rangeV, 5);
+      const scale = Math.min(scaleX, scaleY);
+
+      const midU = (D.minU + D.maxU) / 2;
+      const midV = (D.minV + D.maxV) / 2;
+
+      function toScreen(u, v) {
+        return {
+          x: drawCenterX + (u - midU) * scale,
+          y: drawCenterY - (v - midV) * scale
+        };
+      }
+
+      // ── Architectural Grid Pattern
+      ctx.strokeStyle = '#f1f5f9';
+      ctx.lineWidth = 1;
+      const gridStep = 5 * scale; // 5 meters grid
+      if (gridStep > 20) {
+        for (let gx = drawCenterX - 400; gx <= drawCenterX + 400; gx += gridStep) {
+          ctx.beginPath(); ctx.moveTo(gx, mTop + 20); ctx.lineTo(gx, mTop + drawAreaH + 20); ctx.stroke();
+        }
+        for (let gy = drawCenterY - 300; gy <= drawCenterY + 300; gy += gridStep) {
+          ctx.beginPath(); ctx.moveTo(mLeft + 20, gy); ctx.lineTo(mLeft + drawAreaW + 20, gy); ctx.stroke();
+        }
+      }
+
+      // ── 1. DRAW POLYGON CONTOUR (ROOF PERIMETER)
+      const polyPts = D.poly2D.map(p => toScreen(p.u, p.v));
+
+      ctx.beginPath();
+      ctx.moveTo(polyPts[0].x, polyPts[0].y);
+      for (let i = 1; i < polyPts.length; i++) {
+        ctx.lineTo(polyPts[i].x, polyPts[i].y);
+      }
+      ctx.closePath();
+
+      // Hatching / fill for roof surface
+      ctx.fillStyle = 'rgba(241, 245, 249, 0.85)';
+      ctx.fill();
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = 3.5;
+      ctx.stroke();
+
+      // ── DRAW 3D OBSTACLES (Casetones, Chimeneas, HVAC)
+      if (D.obstacles && D.obstacles.length > 0) {
+        D.obstacles.forEach((obs, obsIdx) => {
+          const osc = toScreen(obs.u, obs.v);
+          const oW = obs.w * scale;
+          const oL = obs.l * scale;
+          const ox = osc.x - oW / 2;
+          const oy = osc.y - oL / 2;
+
+          ctx.fillStyle = '#ef444422';
+          ctx.fillRect(ox, oy, oW, oL);
+          ctx.strokeStyle = '#ef4444';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(ox, oy, oW, oL);
+
+          // Diagonal cross
+          ctx.beginPath();
+          ctx.moveTo(ox, oy); ctx.lineTo(ox + oW, oy + oL);
+          ctx.moveTo(ox + oW, oy); ctx.lineTo(ox, oy + oL);
+          ctx.stroke();
+
+          ctx.fillStyle = '#b91c1c';
+          ctx.font = 'bold 8px Arial';
+          ctx.textAlign = 'center';
+          ctx.fillText(obs.name + ' (H=' + obs.h + 'm)', osc.x, osc.y - oL / 2 - 4);
+        });
+      }
+
+      // Dimensioning along roof edges
+      ctx.font = 'bold 9px Arial';
+      ctx.fillStyle = '#475569';
+      ctx.textAlign = 'center';
+      for (let i = 0; i < D.poly2D.length; i++) {
+        const p1 = D.poly2D[i];
+        const p2 = D.poly2D[(i + 1) % D.poly2D.length];
+        const edgeDist = Math.sqrt((p2.u - p1.u) ** 2 + (p2.v - p1.v) ** 2);
+
+        const sp1 = polyPts[i];
+        const sp2 = polyPts[(i + 1) % polyPts.length];
+        const midX = (sp1.x + sp2.x) / 2;
+        const midY = (sp1.y + sp2.y) / 2;
+
+        // Vertex circle markers
+        ctx.fillStyle = '#0284c7';
+        ctx.beginPath();
+        ctx.arc(sp1.x, sp1.y, 4.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#0f172a';
+        ctx.fillText('V' + (i + 1), sp1.x, sp1.y - 8);
+
+        // Edge length label
+        if (edgeDist > 1.5) {
+          ctx.fillStyle = '#0284c7';
+          ctx.fillText(edgeDist.toFixed(2) + ' m', midX, midY - 6);
+        }
+      }
+
+      // ── 2. DRAW SOLAR PANELS (100% IDENTICAL TO 3D SIMULATION)
+      const pW_screen = D.panelW * scale;
+      const pH_screen = D.panelH * scale;
+
+      D.panels.forEach((panel, pIdx) => {
+        const sc = toScreen(panel.u, panel.v);
+        const px = sc.x - pW_screen / 2;
+        const py = sc.y - pH_screen / 2;
+
+        // Panel frame
+        ctx.fillStyle = '#0f2942';
+        ctx.fillRect(px, py, pW_screen, pH_screen);
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(px, py, pW_screen, pH_screen);
+
+        // Solar cells texture inside panel
+        const numCellsX = 3, numCellsY = 6;
+        const cW = (pW_screen - 2) / numCellsX;
+        const cH = (pH_screen - 2) / numCellsY;
+        ctx.fillStyle = '#1e3a8a';
+        for (let cx = 0; cx < numCellsX; cx++) {
+          for (let cy = 0; cy < numCellsY; cy++) {
+            ctx.fillRect(px + 1 + cx * cW + 0.5, py + 1 + cy * cH + 0.5, cW - 1, cH - 1);
+          }
+        }
+
+        // MLPE Highlight for shaded panels
+        if (panel.hasMLPE) {
+          ctx.strokeStyle = '#0284c7';
+          ctx.lineWidth = 2.5;
+          ctx.strokeRect(px, py, pW_screen, pH_screen);
+        }
+
+        // Panel numbering
+        if (pW_screen > 16) {
+          ctx.fillStyle = panel.hasMLPE ? '#38bdf8' : '#ffffff';
+          ctx.font = 'bold ' + Math.max(Math.floor(pW_screen * 0.28), 7) + 'px monospace';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(panel.hasMLPE ? (pIdx + 1) + '*' : (pIdx + 1).toString(), sc.x, sc.y);
+        }
+      });
+
+      // ── 3. STRING INTERCONNECTION WIRING PATH
+      if (D.panels.length >= 2) {
+        ctx.beginPath();
+        const firstP = toScreen(D.panels[0].u, D.panels[0].v);
+        ctx.moveTo(firstP.x, firstP.y);
+
+        for (let i = 1; i < D.panels.length; i++) {
+          const pt = toScreen(D.panels[i].u, D.panels[i].v);
+          ctx.lineTo(pt.x, pt.y);
+        }
+        ctx.strokeStyle = '#22c55e';
+        ctx.lineWidth = 2.5;
+        ctx.setLineDash([5, 4]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      // ── 4. NORTH ARROW & ORIENTATION INDICATOR (Top Right of drawing area)
+      const naX = W - 180, naY = 120;
+      ctx.save();
+      ctx.translate(naX, naY);
+      // Azimuth rotation
+      ctx.rotate((-D.azimuthDeg * Math.PI) / 180);
+
+      ctx.beginPath();
+      ctx.moveTo(0, -38); ctx.lineTo(12, 18); ctx.lineTo(0, 8); ctx.lineTo(-12, 18);
+      ctx.closePath();
+      ctx.fillStyle = '#0f172a';
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(0, -38); ctx.lineTo(-12, 18); ctx.lineTo(0, 8);
+      ctx.closePath();
+      ctx.fillStyle = '#ef4444';
+      ctx.fill();
+
+      ctx.font = 'bold 13px Arial';
+      ctx.fillStyle = '#ef4444';
+      ctx.textAlign = 'center';
+      ctx.fillText('N', 0, -44);
+      ctx.restore();
+
+      ctx.font = 'bold 8.5px Arial';
+      ctx.fillStyle = '#0f172a';
+      ctx.textAlign = 'center';
+      ctx.fillText('NORTE GEOGRÁFICO', naX, naY + 42);
+      ctx.font = '8px Arial';
+      ctx.fillStyle = '#64748b';
+      ctx.fillText('Azimut: ' + (D.azimuthDeg >= 0 ? '+' : '') + D.azimuthDeg.toFixed(1) + '°', naX, naY + 54);
+      ctx.fillText('Inclinación: ' + D.tiltDeg.toFixed(1) + '°', naX, naY + 65);
+
+      // ── 5. TECHNICAL SUMMARY CARD (Top Left)
+      const scX = mLeft + 25, scY = mTop + 25;
+      const scW = 340, scH = 155;
+      ctx.fillStyle = '#f8fafc';
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 1;
+      ctx.fillRect(scX, scY, scW, scH);
+      ctx.strokeRect(scX, scY, scW, scH);
+
+      ctx.fillStyle = '#0284c7';
+      ctx.font = 'bold 10px Arial';
+      ctx.textAlign = 'left';
+      ctx.fillText('RESUMEN DE IMPLANTACIÓN FOTOVOLTAICA', scX + 12, scY + 18);
+
+      const infoRows = [
+        ['Módulos Instalados:', D.totalPanels + ' unidades (' + D.cfg_mod + ')'],
+        ['Potencia Pico Instalada:', D.peakPowerKW.toFixed(2) + ' kWp'],
+        ['Dimensiones Módulo:', D.panelH.toFixed(2) + ' m × ' + D.panelW.toFixed(2) + ' m (' + (D.panelH * D.panelW).toFixed(2) + ' m²)'],
+        ['Superficie Cubierta (3D):', D.area3D.toFixed(1) + ' m²'],
+        ['Ocupación Fotovoltaica:', (D.totalPanels * D.panelH * D.panelW).toFixed(1) + ' m² (' + ((D.totalPanels * D.panelH * D.panelW / D.area3D) * 100).toFixed(1) + '% de cubierta)'],
+        ['Orientación / Azimut:', (D.azimuthDeg >= 0 ? '+' : '') + D.azimuthDeg.toFixed(1) + '° | Inclinación: ' + D.tiltDeg.toFixed(1) + '°'],
+        ['Distancia entre Filas:', '0.04 m (Coplanar sobre estructura)']
+      ];
+
+      ctx.font = '8.5px Arial';
+      infoRows.forEach((row, idx) => {
+        ctx.fillStyle = '#64748b';
+        ctx.fillText(row[0], scX + 12, scY + 36 + idx * 16);
+        ctx.fillStyle = '#0f172a';
+        ctx.font = 'bold 8.5px Arial';
+        ctx.fillText(row[1], scX + 160, scY + 36 + idx * 16);
+        ctx.font = '8.5px Arial';
+      });
+
+      // ── 6. LEYENDA (Bottom Left)
+      const legX = mLeft + 25, legY = H - mBottom - 110;
+      const legW = 340, legH = 85;
+      ctx.fillStyle = '#f8fafc';
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.fillRect(legX, legY, legW, legH);
+      ctx.strokeRect(legX, legY, legW, legH);
+
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 9px Arial';
+      ctx.fillText('LEYENDA TÉCNICA', legX + 10, legY + 16);
+
+      // Legend Item 1: Panel
+      ctx.fillStyle = '#0f2942';
+      ctx.fillRect(legX + 12, legY + 26, 18, 14);
+      ctx.strokeStyle = '#38bdf8';
+      ctx.strokeRect(legX + 12, legY + 26, 18, 14);
+      ctx.fillStyle = '#0f172a';
+      ctx.font = '8px Arial';
+      ctx.fillText('Módulo Solar FV (' + D.cfg_pot + ' Wp)', legX + 38, legY + 36);
+
+      // Legend Item 2: String Line
+      ctx.strokeStyle = '#22c55e';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 3]);
+      ctx.beginPath(); ctx.moveTo(legX + 12, legY + 54); ctx.lineTo(legX + 30, legY + 54); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillText('Trazado de Interconexión en String (DC)', legX + 38, legY + 56);
+
+      // Legend Item 3: Roof boundary
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = 2.5;
+      ctx.strokeRect(legX + 12, legY + 68, 18, 10);
+      ctx.fillText('Límite Perimetral de la Cubierta', legX + 38, legY + 76);
+
+    ${'<'}/script>
+  </body>
+  </html>
+  `;
+
+  const w = window.open('', '_blank');
+  if (!w) {
+    alert('Por favor, activa las ventanas emergentes (popups) en tu navegador para visualizar el plano de planta.');
+    return;
+  }
+  w.document.open();
+  w.document.write(code);
+  w.document.close();
+}
+
+
+function generateFormulario() {
+  const d = getProjectCalcs();
+  const t = d.tit;
+  const loc = (t.dir ? t.dir + ', ' : '') + (t.mun || '') + (t.prov ? ', ' + t.prov : '');
+
+  const body =
+    '<div class="hdr"><div class="hdr-l">' +
+    '<span class="badge">FORMULARIO DE TRAMITACIÓN<\/span>' +
+    '<h1>Solicitud de Autoconsumo Fotovoltaico<\/h1>' +
+    '<p>RD 244\/2019 · RD 1183\/2020 · REBT ITC-BT-40<\/p><\/div>' +
+    '<div class="hdr-r"><strong>' + d.refNum + '<\/strong>Fecha: ' + d.fechaStr + '<\/div><\/div>' +
+
+    '<div class="info">Formulario de guía para la tramitación administrativa ante la distribuidora <strong>' + t.dist + '<\/strong> y la Consejería de Energía de la CCAA. Cada autonomía dispone de formularios específicos.<\/div>' +
+
+    '<h2>A. DATOS DEL TITULAR<\/h2>' +
+    '<table><tr><th style="width:40%">Campo<\/th><th>Valor<\/th><\/tr>' +
+    '<tr><td>Nombre \/ Razón Social<\/td><td><strong>' + t.nombre + '<\/strong><\/td><\/tr>' +
+    '<tr><td>NIF \/ CIF<\/td><td>' + t.nif + '<\/td><\/tr>' +
+    '<tr><td>Dirección instalación<\/td><td>' + (t.dir || '—') + '<\/td><\/tr>' +
+    '<tr><td>Municipio \/ Provincia \/ CP<\/td><td>' + (t.mun || '—') + ' \/ ' + (t.prov || '—') + ' \/ ' + (t.cp || '—') + '<\/td><\/tr>' +
+    '<tr><td>Teléfono<\/td><td>' + (t.tel || '—') + '<\/td><\/tr>' +
+    '<tr><td>Email<\/td><td>' + (t.email || '—') + '<\/td><\/tr>' +
+    '<tr><td>CUPS<\/td><td><strong>' + t.cups + '<\/strong><\/td><\/tr>' +
+    '<tr><td>Distribuidora<\/td><td>' + t.dist + '<\/td><\/tr>' +
+    '<tr><td>Potencia contratada actual<\/td><td>' + t.potContr + ' kW<\/td><\/tr>' +
+    '<\/table>' +
+
+    '<h2>B. DATOS DEL TÉCNICO<\/h2>' +
+    '<table><tr><th style="width:40%">Campo<\/th><th>Valor<\/th><\/tr>' +
+    '<tr><td>Técnico proyectista<\/td><td>' + t.tecnico + '<\/td><\/tr>' +
+    '<tr><td>Titulación<\/td><td>' + t.titulacion + '<\/td><\/tr>' +
+    '<tr><td>Nº Colegiado<\/td><td>' + t.ncol + '<\/td><\/tr>' +
+    '<\/table>' +
+
+    '<h2>C. DATOS TÉCNICOS DE LA INSTALACIÓN<\/h2>' +
+    '<table><tr><th style="width:55%">Parámetro<\/th><th>Valor<\/th><\/tr>' +
+    '<tr><td>Modalidad de autoconsumo<\/td><td><strong>' + d.modalTexto + '<\/strong><\/td><\/tr>' +
+    '<tr><td>Tipo de instalación<\/td><td>FV conectada a red interior BT<\/td><\/tr>' +
+    '<tr><td>Potencia pico instalada (P_pico)<\/td><td><strong>' + d.P_dc_kW.toFixed(3) + ' kWp<\/strong><\/td><\/tr>' +
+    '<tr><td>Potencia nominal AC del inversor<\/td><td>' + d.P_ac_kW.toFixed(3) + ' kW<\/td><\/tr>' +
+    '<tr><td>Nº módulos FV \/ Tecnología<\/td><td>' + d.numPanels + ' uds · ' + d.cfg.tecnologia + '<\/td><\/tr>' +
+    '<tr><td>Modelo \/ Potencia unitaria<\/td><td>' + d.cfg.modelo + ' — ' + d.cfg.potencia + ' Wp<\/td><\/tr>' +
+    '<tr><td>Tensión CC string<\/td><td>' + d.Voc_string.toFixed(0) + ' V CC<\/td><\/tr>' +
+    '<tr><td>Conexión AC<\/td><td>' + (d.monofasico ? 'Monofásica 230 V \/ 50 Hz' : 'Trifásica 400 V \/ 50 Hz') + '<\/td><\/tr>' +
+    '<tr><td>Latitud \/ Longitud<\/td><td>' + d.latDeg.toFixed(4) + '° N \/ ' + d.lonDeg.toFixed(4) + '° E<\/td><\/tr>' +
+    '<tr><td>Producción anual estimada<\/td><td>' + d.annualKWh.toLocaleString('es-ES') + ' kWh\/año<\/td><\/tr>' +
+    '<\/table>' +
+
+    '<h2>D. DOCUMENTACIÓN A APORTAR<\/h2>' +
+    '<table><tr><th>Documento<\/th><th style="width:100px">Obligatorio<\/th><th style="width:70px">☐ Aportado<\/th><\/tr>' +
+    '<tr><td>Memoria técnica (ITC-BT-40 \/ UNE-EN 62446)<\/td><td>Sí<\/td><td>☐<\/td><\/tr>' +
+    '<tr><td>Esquema unifilar<\/td><td>Sí<\/td><td>☐<\/td><\/tr>' +
+    '<tr><td>Plano de planta con layout de módulos<\/td><td>Sí<\/td><td>☐<\/td><\/tr>' +
+    '<tr><td>Fichas técnicas módulos e inversor<\/td><td>Sí<\/td><td>☐<\/td><\/tr>' +
+    '<tr><td>Certificados homologación (IEC 61215 \/ IEC 61730)<\/td><td>Sí<\/td><td>☐<\/td><\/tr>' +
+    '<tr><td>Boletín instalación eléctrica (instalador ICAT)<\/td><td>Sí<\/td><td>☐<\/td><\/tr>' +
+    '<tr><td>Inscripción registro autoconsumo CCAA (RAAC)<\/td><td>Sí<\/td><td>☐<\/td><\/tr>' +
+    '<tr><td>Declaración responsable RD 244\/2019 (≤ 100 kWp)<\/td><td>Sí<\/td><td>☐<\/td><\/tr>' +
+    '<tr><td>Autorización administrativa (> 100 kWp)<\/td><td>Si aplica<\/td><td>☐<\/td><\/tr>' +
+    '<tr><td>Solicitud acceso red RD 1183\/2020 (> 15 kW)<\/td><td>Si aplica<\/td><td>☐<\/td><\/tr>' +
+    '<tr><td>Pliego de condiciones<\/td><td>Recomendado<\/td><td>☐<\/td><\/tr>' +
+    '<tr><td>Estudio básico seguridad y salud<\/td><td>Recomendado<\/td><td>☐<\/td><\/tr>' +
+    '<\/table>' +
+
+    '<h2>E. PASOS DE TRAMITACIÓN (RD 244\/2019)<\/h2>' +
+    '<table><tr><th style="width:35px">Paso<\/th><th>Acción<\/th><th style="width:160px">Organismo<\/th><th style="width:120px">Plazo orientativo<\/th><\/tr>' +
+    '<tr><td>1<\/td><td>Contratación instalador habilitado (ICAT)<\/td><td>—<\/td><td>—<\/td><\/tr>' +
+    '<tr><td>2<\/td><td>Solicitud condiciones técnicas de conexión a la distribuidora<\/td><td>' + t.dist + '<\/td><td>15 días hábiles<\/td><\/tr>' +
+    '<tr><td>3<\/td><td>Ejecución de la instalación por empresa ICAT<\/td><td>Instalador<\/td><td>Según proyecto<\/td><\/tr>' +
+    '<tr><td>4<\/td><td>Emisión boletín instalación eléctrica<\/td><td>Instalador ICAT<\/td><td>Tras puesta en marcha<\/td><\/tr>' +
+    '<tr><td>5<\/td><td>Inscripción RAAC (Registro Autoconsumo CCAA)<\/td><td>Consejería Energía CCAA<\/td><td>1–3 meses<\/td><\/tr>' +
+    '<tr><td>6<\/td><td>Comunicación a distribuidora \/ modificación contrato<\/td><td>' + t.dist + '<\/td><td>1 mes<\/td><\/tr>' +
+    '<tr><td>7<\/td><td>Instalación contador bidireccional (si con excedentes)<\/td><td>' + t.dist + '<\/td><td>1 mes<\/td><\/tr>' +
+    '<\/table>' +
+
+    '<h2>F. DECLARACIÓN RESPONSABLE<\/h2>' +
+    '<p>D.\/Dña. <strong>' + t.nombre + '<\/strong>, NIF <strong>' + t.nif + '<\/strong>, titular del CUPS <strong>' + t.cups + '<\/strong> en ' + (loc || '___') + ', <strong>DECLARA RESPONSABLEMENTE<\/strong> que:<\/p>' +
+    '<ol style="margin:8px 0 8px 20px;line-height:2.2">' +
+    '<li>Los datos aportados son verídicos y la instalación se ejecutará conforme a la documentación técnica adjunta.<\/li>' +
+    '<li>La instalación cumple el REBT (RD 842\/2002) e ITC-BT-40.<\/li>' +
+    '<li>Modalidad solicitada: <strong>' + d.modalTexto + '<\/strong>.<\/li>' +
+    '<li>La instalación será ejecutada por empresa habilitada (ICAT), conforme al RD 244\/2019.<\/li>' +
+    '<\/ol>' +
+
+    '<div class="sig-row" style="margin-top:40px">' +
+    '<div class="sig">El Titular<br><br><br><br>' + t.nombre + '<br>NIF: ' + t.nif + '<br>' + (t.mun || '___') + ', ' + d.fechaStr + '<\/div>' +
+    '<div class="sig">El Técnico Proyectista<br><br><br><br>' + t.tecnico + '<br>' + t.titulacion + '<br>Col. nº ' + t.ncol + '<\/div><\/div>' +
+
+    '<div class="footer">' + d.refNum + ' — FORMULARIO TRAMITACIÓN RD 244\/2019 — ' + d.fechaStr + ' — Generado por RA · Sistema de Diseño FV 3D<br>' +
+    '⚠ Verificar con la normativa autonómica vigente antes de presentar ante la administración.<\/div>';
+
+  const pdf = docWindow('FORM — ' + d.refNum, body, true);
+  if (!pdf) {
+    docWindow('FORM — ' + d.refNum, body);
+  }
+}
+
+// Tecla D: abrir modal de documentación

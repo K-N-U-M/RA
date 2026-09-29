@@ -1,0 +1,101 @@
+    const isSelected = (idx === WP.selectedPolyIdx);
+    const modCount = (poly.roofInfo && poly.roofInfo.panels) ? poly.roofInfo.panels.length : 0;
+    const effectiveModId = poly.moduleId || (typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.selectedModuleId) || (typeof equipmentCatalog !== 'undefined' && equipmentCatalog && equipmentCatalog.modules && equipmentCatalog.modules[0] ? equipmentCatalog.modules[0].id : '');
+    let polyModWp = 450;
+    if (typeof equipmentCatalog !== 'undefined' && equipmentCatalog && Array.isArray(equipmentCatalog.modules)) {
+      const foundM = equipmentCatalog.modules.find(m => m.id === effectiveModId);
+      if (foundM && foundM.wp) polyModWp = foundM.wp;
+      else if (typeof panelConfig !== 'undefined' && panelConfig && panelConfig.potencia) polyModWp = panelConfig.potencia;
+    } else if (typeof panelConfig !== 'undefined' && panelConfig && panelConfig.potencia) {
+      polyModWp = panelConfig.potencia;
+    }
+    const kwp = (modCount * polyModWp / 1000).toFixed(2);
+    const orient = poly.orientationPref || userPanelOrientationPref || "portrait";
+    const tilt = poly.modTilt || "auto";
+    const az = (poly.modAzimuth !== undefined) ? poly.modAzimuth : "auto";
+    const planeName = (WP.planes && poly.planeIdx >= 0 && WP.planes[poly.planeIdx]) ? WP.planes[poly.planeIdx].name : ("Plano #" + (poly.planeIdx + 1));
+
+    const moduleOptionsHtml = (typeof equipmentCatalog !== 'undefined' && equipmentCatalog && Array.isArray(equipmentCatalog.modules)) 
+      ? equipmentCatalog.modules.map(m => `<option value="${m.id}" ${m.id === effectiveModId ? 'selected' : ''}>${m.brand} ${m.model} (${m.wp}Wp · ${m.l.toFixed(2)}×${m.w.toFixed(2)}m)</option>`).join('') 
+      : '';
+
+    const arrMode = poly.arrangementMode || ((tilt === 'auto' || tilt === undefined) ? 'coplanar' : ((tilt === 32 || tilt === 'optimal') ? 'solar_optimal' : 'custom'));
+
+    return `
+    <div id="step3-poly-card-${idx}" class="ui-card" style="margin-bottom:8px;border:1px solid ${isSelected ? "var(--amber-400)" : "rgba(255,255,255,0.1)"};background:${isSelected ? "rgba(245,158,11,0.08)" : "rgba(0,0,0,0.3)"};border-radius:8px;padding:8px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;cursor:pointer;" onclick="wpSelectPolylineForStep3(${idx})">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${isSelected ? "var(--amber-400)" : "#10b981"};"></span>
+          <span style="font-size:9.5px;font-weight:bold;color:${isSelected ? "#fff" : "var(--text-slate-200)"};">${poly.name || ("Faldón #" + (idx + 1))}</span>
+        </div>
+        <div style="text-align:right;">
+          <span class="card-mod-count" style="font-size:9.5px;font-weight:bold;color:var(--emerald-400);">${modCount} mods</span>
+          <span style="font-size:8px;color:var(--amber-400);margin-left:4px;">· ${kwp} kWp</span>
+        </div>
+      </div>
+
+      <!-- Selector de Módulo FV por Faldón -->
+      <div style="background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:5px 6px;margin-bottom:6px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+          <span style="font-size:7.5px;color:var(--text-slate-300);font-weight:600;"><i data-lucide=\"zap\" class=\"icon-sm\"></i> PANEL FV INDIVIDUAL:</span>
+          <button type="button" class="doc-mini-btn" style="padding:1px 5px;font-size:7px;font-weight:bold;background:rgba(59,130,246,0.15);color:#60A5FA;border-color:rgba(59,130,246,0.3);cursor:pointer;" onclick="wpApplyPolyModuleToAll(${idx})" title="Propagar este panel a todos los faldones"><i data-lucide=\"globe\" class=\"icon-sm\"></i> A TODOS</button>
+        </div>
+        <select class="doc-input" style="width:100%;font-size:8px;padding:3px 4px;background:#0F172A;color:#F8FAFC;border:1px solid rgba(255,255,255,0.15);border-radius:4px;" onchange="wpSetPolyModule(${idx}, this.value)">
+          ${moduleOptionsHtml}
+        </select>
+      </div>
+
+      <!-- Selector de Estructura de Montaje por Faldn -->
+      <div style="background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:5px 6px;margin-bottom:6px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+          <span style="font-size:7.5px;color:var(--text-slate-300);font-weight:600;"><i data-lucide=\"box\" class=\"icon-sm\"></i> ESTRUCTURA DE MONTAJE:</span>
+        </div>
+        <select class="doc-input" style="width:100%;font-size:8px;padding:3px 4px;background:#0F172A;color:#F8FAFC;border:1px solid rgba(255,255,255,0.15);border-radius:4px;" onchange="wpSetPolyStructure(${idx}, this.value)">
+          <option value="coplanar_teja" ${poly.structureType === 'coplanar_teja' ? 'selected' : ''}>Coplanar (Teja / Salvatejas)</option>
+          <option value="coplanar_chapa" ${poly.structureType === 'coplanar_chapa' ? 'selected' : ''}>Coplanar (Chapa / Sándwich)</option>
+          <option value="triangles_30" ${poly.structureType === 'triangles_30' ? 'selected' : ''}>Triángulos 30º (Cubierta Plana)</option>
+          <option value="triangles_15_ew" ${poly.structureType === 'triangles_15_ew' ? 'selected' : ''}>Estructura 15º Este-Oeste</option>
+        </select>
+      </div>
+
+      <!-- Selector de Disposición Preconfigurada por Faldón -->
+      <div style="background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:5px 6px;margin-bottom:6px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+          <span style="font-size:7.5px;color:var(--text-slate-300);font-weight:600;"><i data-lucide=\"ruler\" class=\"icon-sm\"></i> DISPOSICIÓN SOLAR:</span>
+          <button type="button" class="doc-mini-btn" style="padding:1px 5px;font-size:7px;font-weight:bold;background:rgba(59,130,246,0.15);color:#60A5FA;border-color:rgba(59,130,246,0.3);cursor:pointer;" onclick="wpApplyPanelArrangementToAll(${idx})" title="Propagar esta disposición a todos los faldones"><i data-lucide=\"globe\" class=\"icon-sm\"></i> A TODOS</button>
+        </div>
+        <div style="display:flex;gap:3px;margin-bottom:4px;">
+          <button type="button" class="doc-mini-btn ${arrMode === 'coplanar' ? 'active' : ''}" 
+                  style="flex:1;padding:3px 2px;font-size:7.5px;font-weight:bold;${arrMode === 'coplanar' ? 'border-color:var(--emerald-400);color:var(--emerald-400);background:rgba(16,185,129,0.2);' : ''}" 
+                  onclick="wpApplyPanelArrangement(${idx}, 'coplanar')"><i data-lucide=\"home\" class=\"icon-sm\"></i> COPLANAR</button>
+          <button type="button" class="doc-mini-btn ${arrMode === 'solar_optimal' ? 'active' : ''}" 
+                  style="flex:1.2;padding:3px 2px;font-size:7.5px;font-weight:bold;${arrMode === 'solar_optimal' ? 'border-color:var(--amber-400);color:var(--amber-400);background:rgba(245,158,11,0.25);' : ''}" 
+                  onclick="wpApplyPanelArrangement(${idx}, 'solar_optimal')"><i data-lucide=\"sun\" class=\"icon-sm\"></i> CARA AL SOL</button>
+          <button type="button" class="doc-mini-btn ${arrMode === 'custom' ? 'active' : ''}" 
+                  style="flex:1.1;padding:3px 2px;font-size:7.5px;font-weight:bold;${arrMode === 'custom' ? 'border-color:var(--sky-400);color:var(--sky-400);background:rgba(56,189,248,0.2);' : ''}" 
+                  onclick="wpApplyPanelArrangement(${idx}, 'custom')"><i data-lucide=\"settings\" class=\"icon-sm\"></i> MANUAL</button>
+        </div>
+        <div style="font-size:7px;color:#94A3B8;display:flex;justify-content:space-between;margin-top:2px;">
+          <span>${arrMode === 'coplanar' ? '<i data-lucide=\"home\" class=\"icon-sm\"></i> Paralelo a faldón · Paso 0.04m' : (arrMode === 'solar_optimal' ? '<i data-lucide=\"sun\" class=\"icon-sm\"></i> Óptima: 32° · Sur (180°)' : '<i data-lucide=\"settings\" class=\"icon-sm\"></i> Ajuste personalizado manual')}</span>
+          <span style="color:${(arrMode === 'solar_optimal' || tilt !== 'auto') ? '#34D399' : '#94A3B8'};font-weight:bold;">${(arrMode === 'solar_optimal' || (tilt !== 'auto' && Number(tilt) > 0)) ? '<i data-lucide=\"check-circle\" class=\"icon-sm\"></i> Anti-sombra OK' : 'Coplanar'}</span>
+        </div>
+      </div>
+
+      <!-- Disposicion Vertical / Horizontal -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:6px;">
+        <button class="doc-mini-btn ${orient === "portrait" ? "active" : ""}" 
+                onclick="wpSetPolyOrientation(${idx}, 'portrait')"
+                style="text-align:center;padding:4px 2px;font-size:8.5px;${orient === "portrait" ? "border-color:var(--amber-400);color:var(--amber-400);font-weight:bold;" : ""}">
+          <i data-lucide="smartphone" class="icon-sm"></i> VERTICAL
+        </button>
+        <button class="doc-mini-btn ${orient === "landscape" ? "active" : ""}" 
+                onclick="wpSetPolyOrientation(${idx}, 'landscape')"
+                style="text-align:center;padding:4px 2px;font-size:8.5px;${orient === "landscape" ? "border-color:var(--amber-400);color:var(--amber-400);font-weight:bold;" : ""}">
+          <i data-lucide="monitor" class="icon-sm"></i> HORIZONTAL
+        </button>
+      </div>
+
+      <!-- Sliders interactivos para Ajuste Manual / Personalizado -->
+      <div id="poly-custom-controls-${idx}" style="display:${arrMode === 'custom' ? 'flex' : 'none'};flex-direction:column;gap:5px;margin-bottom:6px;">
+        <!-- Inclinación -->
+        <div style="background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:5px 6px;">
