@@ -2764,7 +2764,12 @@ function wpUpdateStep3UI() {
   if (countBadge) countBadge.textContent = polys.length + (polys.length === 1 ? " FALDON" : " FALDONES");
   if (totalPanelsCountEl) totalPanelsCountEl.textContent = totalModules + " uds";
   if (totalKwpEl) totalKwpEl.textContent = totalKwp + " kWp";
-  if (totalStringsEl) totalStringsEl.textContent = polys.length + (polys.length === 1 ? " String" : " Strings");
+  // [P2] Nº REAL de strings eléctricos (antes mostraba el nº de faldones como "Strings")
+  let _realStringCount = 0;
+  if (typeof window !== 'undefined' && window.allRenderedPanels && window.allRenderedPanels.length > 0) {
+    _realStringCount = new Set(window.allRenderedPanels.filter(p => p && p.stringName).map(p => p.stringName)).size;
+  }
+  if (totalStringsEl) totalStringsEl.textContent = _realStringCount > 0 ? (_realStringCount + (_realStringCount === 1 ? " String" : " Strings")) : "—";
 
   if (!container) return;
 

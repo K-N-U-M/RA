@@ -38,6 +38,7 @@ function render3DBuildingsInCesium() {
     });
   }
   window._buildingEntities = [];
+  window._selectedVtxHandle = null; // [P2] ref al handle del vértice seleccionado (se recrea más abajo)
 
   if (!Array.isArray(buildings) || buildings.length === 0) {
     if (viewer && viewer.scene && typeof viewer.scene.requestRender === 'function') {
@@ -61,11 +62,17 @@ function render3DBuildingsInCesium() {
     const ridgeColor = isSel ? Cesium.Color.fromCssColorString('#000000').withAlpha(0.95) : Cesium.Color.fromCssColorString('#1E293B').withAlpha(0.7);
     const xRayDash = new Cesium.PolylineDashMaterialProperty({ color: isSel ? Cesium.Color.fromCssColorString('#0F172A').withAlpha(0.2) : Cesium.Color.fromCssColorString('#334155').withAlpha(0.1) });
 
-    // Normalizar coordenadas cartográficas y garantizar orientación Antihoraria (CCW)
-    let rawCartoList = bld.points.map(p => {
+    // [P2] Si fromCartesian falla (punto degenerado), antes se dibujaba un vértice en
+    // lat/lon 0 (Golfo de Guinea) en silencio. Ahora se descarta el vértice y se avisa.
+    let _degenerateVtx = false;
+    const rawCartoList = [];
+    bld.points.forEach(p => {
       const c = Cesium.Cartographic.fromCartesian(p);
-      return c || { longitude: 0, latitude: 0, height: 0 };
+      if (c) rawCartoList.push(c); else _degenerateVtx = true;
     });
+    if (_degenerateVtx && typeof window !== 'undefined' && typeof window.showToast === 'function') {
+      window.showToast('GEOMETRÍA INVÁLIDA', (bld.name || 'Edificio') + ' tiene vértices con coordenadas inválidas y fueron descartados. Redibuja la huella si falta geometría.', 'warning', 4500);
+    }
 
     // Filtro estricto anti-colapso WebGL: Eliminar vértices idénticos/coincidentes (distancia < 0.05 metros)
     let cartoList = [];
@@ -638,6 +645,7 @@ function render3DBuildingsInCesium() {
             }
           });
           window._buildingEntities.push(vtxHandle);
+          if (isVtxSel) window._selectedVtxHandle = vtxHandle; // [P2] actualización barata durante drag
         } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
       }
     });

@@ -35,6 +35,7 @@
   <script src="js/solar-materials.js?v=20260928_catenary_fix"></script>
   <script src="js/electrical-engine.js?v=20260927q"></script>
   <script src="js/undo-manager.js?v=20260929_p0"></script>
+  <script src="js/geometry-validate.js?v=20260929_p2"></script>
   <script src="js/docs-generator.js?v=20260927q"></script>
   <script src="js/workflow-orchestrator.js?v=20260927q"></script>
   <script src="js/working-plane.js?v=20260928_wp_shadows"></script>
@@ -4275,6 +4276,11 @@ function finishActiveBuilding() {
     showToast('AVISO', 'Dibuja al menos 3 puntos para cerrar el edificio 3D', 'warning', 2500);
     return;
   }
+  // [P2] Validación de auto-intersección (figura-8) de la huella
+  if (activeBuildingPts.length >= 4 && typeof window.isSimplePolygon === 'function' && !window.isSimplePolygon(activeBuildingPts)) {
+    showToast('HUELLA INVÁLIDA', 'La huella se auto-interseca (figura-8). Corrige los puntos antes de extruir el edificio.', 'warning', 4500);
+    return;
+  }
 
   // Comprobar si estamos redibujando un edificio existente
   if (window._redrawingBuildingId) {
@@ -7588,6 +7594,11 @@ function finishActivePolygon() {
     showStatus('SE REQUIEREN AL MENOS 3 VÉRTICES', 2000);
     return;
   }
+  // [P2] Validación de auto-intersección (figura-8): antes se confirmaba en silencio y WallGeometry fallaba tragado
+  if (polygonPoints.length >= 4 && typeof window.isSimplePolygon === 'function' && !window.isSimplePolygon(polygonPoints)) {
+    showStatus('<i data-lucide="alert-triangle" class="icon-sm"></i> POLÍGONO AUTO-INTERSECADO: CORRIGE LOS VÉRTICES ANTES DE CONFIRMAR', 4000);
+    return;
+  }
   
   setAppMode('edit');
   confirmBar.classList.add('open');
@@ -9067,7 +9078,8 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
           effEnt.orientation = Cesium.Transforms.headingPitchRollQuaternion(effPos, hpr);
         } catch(eRot) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', eRot); }
       }
-      if (typeof wpCalculateAndRenderInverterCables === 'function') wpCalculateAndRenderInverterCables();
+      // [P2] Cables NO se regeneran por frame durante el drag (regla §5): LEFT_UP ya los re-renderiza
+      if (!universalGizmoState.active && typeof wpCalculateAndRenderInverterCables === 'function') wpCalculateAndRenderInverterCables();
       if (typeof wpUpdateSolarMetricsUI === 'function') wpUpdateSolarMetricsUI();
     } else if (target.type === 'obstacle' && target.rawObj) {
       target.rawObj.rot = Math.round(normRot);
@@ -9115,7 +9127,10 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
         const bld = (typeof buildings !== 'undefined') ? buildings.find(b => b.id === selectedBuildingId) : null;
         if (bld && bld.points && bState && bState.selectedVtxIdx >= 0 && bld.points[bState.selectedVtxIdx]) {
           bld.points[bState.selectedVtxIdx] = Cesium.Cartesian3.clone(newPos);
-          if (typeof render3DBuildingsInCesium === 'function') render3DBuildingsInCesium();
+          // [P2] Sin rebuild GPU por frame (regla §5): actualizar solo el handle del vértice;
+          // el edificio completo se reconstruye en LEFT_UP.
+          const _vtxH = window._selectedVtxHandle;
+          if (_vtxH) { try { _vtxH.position = new Cesium.ConstantPositionProperty(Cesium.Cartesian3.clone(newPos)); } catch(eVtxH) { window.RA && window.RA.log && window.RA.log.warn('[vtxHandle]', eVtxH); } }
         }
       } else {
         const vIdx = (typeof WP !== 'undefined' && WP && WP.selectedVtxIdx >= 0) ? WP.selectedVtxIdx : (typeof selectedVertexIndex !== 'undefined' ? selectedVertexIndex : -1);
@@ -9170,7 +9185,8 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
           if (sState.gridMeter.entity.label) sState.gridMeter.entity.label.text = '🔌 CONTADOR DE RED\n' + carto.height.toFixed(1) + ' m';
         }
       }
-      if (typeof wpCalculateAndRenderInverterCables === 'function') wpCalculateAndRenderInverterCables();
+      // [P2] Cables NO se regeneran por frame durante el drag (regla §5): LEFT_UP ya los re-renderiza
+      if (!universalGizmoState.active && typeof wpCalculateAndRenderInverterCables === 'function') wpCalculateAndRenderInverterCables();
     } else if (target.type === 'obstacle' && target.rawObj) {
       const obs = target.rawObj;
       const roofWp = (target.wp && target.wp.roofWp) ? target.wp.roofWp : ((typeof getObstacleActivePlane === 'function') ? getObstacleActivePlane(obs.polyIdx !== undefined ? obs.polyIdx : obs.planeIdx) : null);

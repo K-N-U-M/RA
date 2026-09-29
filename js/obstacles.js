@@ -400,7 +400,8 @@ function pickObstacleUnderCursor(screenPos) {
       if (entId.startsWith('obs_box_') || entId.startsWith('obs_box_prim_') || entId.startsWith('obs_entity_') ||
           entId.startsWith('obs_tree_trunk_prim_') || entId.startsWith('obs_tree_canopy_prim_') ||
           entId.startsWith('obs_label_')) {
-        const found = obstacles.find(o => entId.includes(o.id));
+        // [P2] Coincidencia por sufijo exacto (includes podía cruzar ids con prefijos comunes)
+        const found = obstacles.find(o => entId === o.id || entId.endsWith('_' + o.id));
         if (found) return found;
       }
     }
@@ -1355,7 +1356,7 @@ function obsPlaceAt(screenPos) {
   if (!res) return false;
   const def = OBSTACLE_DEFS[obsPlacement.type] || OBSTACLE_DEFS.custom;
   const obs = {
-    id: "obs_" + Date.now(),
+    id: "obs_" + Date.now() + "-" + (global._obsIdSeq = (global._obsIdSeq || 0) + 1), // [P2] id único garantizado (antes colisionaban ids del mismo ms)
     name: def.name + " #" + (obstacles.length + 1),
     type: obsPlacement.type,
     planeIdx: (typeof WP !== "undefined" ? WP.activePlaneIdx : -1),
