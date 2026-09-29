@@ -8172,7 +8172,7 @@ function wpPlaceGridMeterAtPosition(cartesian, skipRecurse = false) {
         scaleByDistance: new Cesium.NearFarScalar(80, 1.0, 4000, 0.35)
       },
       box: {
-        dimensions: new Cesium.Cartesian3(0.35, 0.20, 0.45),
+        dimensions: wpBoxDimsScaled(new Cesium.Cartesian3(0.35, 0.20, 0.45), meterBoxPos),
         material: Cesium.Color.fromCssColorString('#E2E8F0'), // Gris piedra
         outline: true,
         outlineColor: Cesium.Color.fromCssColorString('#64748B'),
@@ -8210,6 +8210,11 @@ function wpPlaceGridMeterAtPosition(cartesian, skipRecurse = false) {
 function wpCalculateAndRenderACCables() {
   if (!window.inverterEquipmentState || !window.inverterEquipmentState.position || !window.inverterEquipmentState.gridMeter || !window.inverterEquipmentState.gridMeter.position) return;
   if (typeof viewer === 'undefined' || !viewer) return;
+  // [FIX-CABLES] Bandera anti-recursión: la cola de esta función (updateConfigAndSimulate)
+  // puede re-entrar en wpCalculateAndRenderInverterCables, que a su vez llama aquí.
+  if (window.inverterEquipmentState.__accablesRunning) return;
+  window.inverterEquipmentState.__accablesRunning = true;
+  try {
 
   // Limpiar cualquier entidad previa de cable AC huérfana para evitar z-fighting
   if (window.inverterEquipmentState.gridMeter.acCableEntity) {
@@ -8242,6 +8247,9 @@ function wpCalculateAndRenderACCables() {
 
   if (viewer.scene && typeof viewer.scene.requestRender === 'function') {
     viewer.scene.requestRender();
+  }
+  } finally {
+    window.inverterEquipmentState.__accablesRunning = false;
   }
 }
 
@@ -8295,7 +8303,7 @@ function wpPlaceCombinerBoxAtPosition(cartesian) {
         scaleByDistance: new Cesium.NearFarScalar(80, 1.0, 4000, 0.35)
       },
       box: {
-        dimensions: new Cesium.Cartesian3(0.40, 0.20, 0.30),
+        dimensions: wpBoxDimsScaled(new Cesium.Cartesian3(0.40, 0.20, 0.30), cbBoxPos),
         material: Cesium.Color.fromCssColorString('#E2E8F0'), // Gris claro 
         outline: true,
         outlineColor: Cesium.Color.fromCssColorString('#64748B'),
@@ -9592,6 +9600,20 @@ function getSafeSvgDataUri(svgStr) {
   return 'data:image/svg+xml;utf8,' + encodeURIComponent(svgStr);
 }
 
+// [FIX-VIS] Dimensiones de caja de equipo eléctrico ESCALADAS POR DISTANCIA: el equipo es
+// realista (0,3-0,65 m) pero subpíxel a distancia operativa (cámara a cientos de metros).
+// CallbackProperty escala la caja con la distancia de cámara — tamaño real hasta ~120 m,
+// creciendo después hasta ×40 máx — manteniendo las proporciones de la pieza.
+function wpBoxDimsScaled(baseDims, anchorPos) {
+  return new Cesium.CallbackProperty(function() {
+    try {
+      const d = (viewer && viewer.camera) ? Cesium.Cartesian3.distance(viewer.camera.positionWC, anchorPos) : 0;
+      const scale = Math.max(1, Math.min(40, d / 120));
+      return new Cesium.Cartesian3(baseDims.x * scale, baseDims.y * scale, baseDims.z * scale);
+    } catch (e) { return baseDims; }
+  }, false);
+}
+
 function wpPlaceInverterAtPosition(cartesian) {
   if (!cartesian || typeof Cesium === 'undefined' || typeof viewer === 'undefined' || !viewer) return;
 
@@ -9652,7 +9674,7 @@ function wpPlaceInverterAtPosition(cartesian) {
         scaleByDistance: new Cesium.NearFarScalar(80, 1.0, 4000, 0.35)
       },
       box: {
-        dimensions: new Cesium.Cartesian3(0.55, 0.20, 0.65), // Ancho, Profundidad, Alto (en coordenadas locales orientadas por quaternion)
+        dimensions: wpBoxDimsScaled(new Cesium.Cartesian3(0.55, 0.20, 0.65), invBoxPos), // [FIX-VIS] escalado por distancia
         material: Cesium.Color.fromCssColorString('#CBD5E1'), // Gris claro (chapa metálica/poliéster)
         outline: true,
         outlineColor: Cesium.Color.fromCssColorString('#475569'),
@@ -9699,7 +9721,7 @@ function wpPlaceInverterAtPosition(cartesian) {
         verticalOrigin: Cesium.VerticalOrigin.BOTTOM
       },
       box: {
-        dimensions: new Cesium.Cartesian3(0.35, 0.18, 0.45),
+        dimensions: wpBoxDimsScaled(new Cesium.Cartesian3(0.35, 0.18, 0.45), dcCartesian),
         material: Cesium.Color.fromCssColorString('#D97706').withAlpha(0.85),
         outline: true,
         outlineColor: Cesium.Color.WHITE
@@ -10639,6 +10661,16 @@ function wpCalculateAndRenderInverterCables() {
     } catch(eAC) {
       window.RA && window.RA.log && window.RA.log.debug('Error trazando línea AC:', eAC);
     }
+  }
+
+  // [FIX-CABLES] Redibujar la acometida AC si hay contador: el purge inicial de
+  // dcCableEntities también destruye la línea AC, que sólo se redibujaba al recolocar el
+  // contador → cualquier re-render de cables DC (mover paneles, recolocar inversor)
+  // eliminaba la acometida AC permanentemente. accables gestiona su propia bandera
+  // anti-recursión (updateConfigAndSimulate puede re-entrar aquí desde su cola).
+  if (!sState.__accablesRunning && sState.gridMeter && sState.gridMeter.position &&
+      typeof wpCalculateAndRenderACCables === 'function') {
+    wpCalculateAndRenderACCables();
   }
 
   if (viewer.scene && typeof viewer.scene.requestRender === 'function') {
