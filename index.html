@@ -2997,6 +2997,8 @@ const viewer = new Cesium.Viewer('cesiumContainer', {
       maximumRenderTimeChange : Infinity,
 });
 
+window.viewer = viewer; // [CAPTURA] exposición de una línea para módulos (capture-mode necesita el registro de entidades)
+
 const { scene, camera, clock } = viewer;
 if (camera && camera.frustum) camera.frustum.near = 0.5;
 const globe = scene.globe;

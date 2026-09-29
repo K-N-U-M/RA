@@ -21,8 +21,15 @@
 (function (global) {
   'use strict';
 
-  // Grupos de WP.ents que son 100% andamiaje CAD (nunca contienen paneles/obstáculos/edificios)
-  var GROUPS = ['polys', 'activePoly', 'planePreview', 'activePlaneMarker', 'inactivePlanes'];
+  // Grupos de WP.ents que son 100% andamiaje CAD (nunca contienen paneles/obstáculos/edificios).
+  // 'gizmos' = handles de la tríada 3D en el vértice seleccionado (círculos azules).
+  var GROUPS = ['polys', 'activePoly', 'planePreview', 'activePlaneMarker', 'inactivePlanes', 'gizmos'];
+  // [FIX] Barrido por prefijo de ID: caza TODO andamiaje 'wp_*' aunque haya sido creado por
+  // rutas que no lo registran en WP.ents (p.ej. marcadores legacy del bloque inline) y la
+  // forma activa 'ra_active_shape'. Los cables/equipos usan otros prefijos (ra_route_*, sState)
+  // y NO se tocan. Se registra lo oculto para restaurarlo exactamente.
+  var HIDE_ID_PREFIXES = ['wp_', 'ra_active_shape'];
+  var _hiddenById = [];
   var state = { enabled: false, btn: null };
 
   function ensureButton() {
@@ -68,8 +75,30 @@
     if (c) c.style.display = '';
   }
 
+  function sweepHide() {
+    _hiddenById = [];
+    if (!global.viewer || !global.viewer.entities || !Array.isArray(global.viewer.entities.values)) return;
+    global.viewer.entities.values.slice().forEach(function (e) {
+      var id = e.id;
+      if (typeof id !== 'string') return;
+      for (var i = 0; i < HIDE_ID_PREFIXES.length; i++) {
+        if (id.indexOf(HIDE_ID_PREFIXES[i]) === 0) {
+          e.show = false;
+          _hiddenById.push(e);
+          break;
+        }
+      }
+    });
+  }
+
+  function sweepShow() {
+    _hiddenById.forEach(function (e) { try { e.show = true; } catch (err) { /* retirada */ } });
+    _hiddenById = [];
+  }
+
   function apply() {
     eachGroupEntity(function (e) { e.show = false; });
+    sweepHide();
     hideCanvas();
     if (global.viewer && global.viewer.scene && typeof global.viewer.scene.requestRender === 'function') {
       global.viewer.scene.requestRender();
@@ -78,6 +107,7 @@
 
   function restore() {
     eachGroupEntity(function (e) { e.show = true; });
+    sweepShow();
     showCanvas();
     if (global.viewer && global.viewer.scene && typeof global.viewer.scene.requestRender === 'function') {
       global.viewer.scene.requestRender();
