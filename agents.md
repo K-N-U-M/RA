@@ -33,6 +33,7 @@ c:/TRABAJOS/RA/
 ├── js/
 │   ├── workflow-orchestrator.js     # Máquina de estados del stepper (5 pasos)
 │   ├── working-plane.js             # Planos de trabajo, faldones, tríada CAD
+│   ├── capture-mode.js              # Modo captura limpia (oculta andamiaje CAD, tecla C)
 │   ├── buildings.js                 # Edificios 3D y extrusión perimetral
 │   ├── obstacles.js                 # Obstáculos 3D (chimeneas, HVAC, árboles)
 │   ├── solar-engine.js              # Algoritmos astronómicos (Spencer, Perez, Hay-Davies)
@@ -159,6 +160,7 @@ Estado en `window.solarProjectConfig`:
 | :---: | :--- | :--- |
 | `T` | Toggle textura PBR paneles | Paso 2 y 3 |
 | `L` / `H` | Toggle labels 3D de paneles | Global |
+| `C` | Toggle modo CAPTURA LIMPIA (`window.RACapture`): oculta vértices, polilíneas, planos y tríada para screenshots; botón flotante 📷 | Global |
 | `Escape` | Cancelar herramienta / deseleccionar / deshacer punto en dibujo | Global |
 | `Delete/Backspace` | Borrar elemento seleccionado — despachador único: vértice de faldón → obstáculo → objetivo del gizmo universal (edificio/equipo/panel) → panel | Selección activa |
 | `Ctrl+Z` | Deshacer último borrado (`window.RAundo`); si no hay borrados, undo geométrico legacy; en dibujo, quita el último punto | Global |

@@ -839,6 +839,7 @@ function toScreen(pos3D) {
 }
 
 function renderTriad2D() {
+  if (typeof window !== 'undefined' && window.RACapture && window.RACapture.enabled) return; // [CAPTURA] overlay CAD oculto
   try {
     ensureTriadCanvas();
     const scene = typeof viewer !== 'undefined' && viewer ? viewer.scene : (window.viewer ? window.viewer.scene : null);
@@ -1823,6 +1824,7 @@ function wpRenderActivePlaneGizmo() {
       if (lblEnt) WP.ents.activePlaneMarker.push(lblEnt);
     }
   }
+  if (typeof window !== 'undefined' && window.RACapture) window.RACapture.reapply(); // [CAPTURA]
 }
 
 // ─── Selector de Ejes del Plano de Trabajo (Opcion B + D) ───────────────────
@@ -2287,6 +2289,7 @@ function wpRenderAllPolylines() {
     if (fill) WP.ents.polys.push(fill);
   });
   if (typeof viewer !== 'undefined' && viewer && viewer.scene && typeof viewer.scene.requestRender === 'function') viewer.scene.requestRender();
+  if (typeof window !== 'undefined' && window.RACapture) window.RACapture.reapply(); // [CAPTURA] re-ocultar andamiaje tras re-render
 }
 
 function wpClearEntGroup(key) {
