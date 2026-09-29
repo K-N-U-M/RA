@@ -38,7 +38,7 @@
   <script src="js/geometry-validate.js?v=20260929b"></script>
   <script src="js/docs-generator.js?v=20260929b"></script>
   <script src="js/workflow-orchestrator.js?v=20260929b"></script>
-  <script src="js/working-plane.js?v=20260929b"></script>
+  <script src="js/working-plane.js?v=20260930a"></script>
   <script src="js/capture-mode.js?v=20260929b"></script>
   <script src="js/project-hierarchy.js?v=20260929b"></script>
   <script src="js/ui-outliner.js?v=20260929b"></script>
@@ -11812,10 +11812,13 @@ function step3UpdateHardwareSelection() {
 
   if (invSel && invSel.value) window.solarProjectConfig.selectedInverterId = invSel.value;
   if (modSel && modSel.value) {
+    // [FIX-MÓDULOS] Sólo fijar el default GLOBAL del proyecto. Antes este bloque
+    // reescribía poly.moduleId de TODOS los faldones en cada cambio de hardware
+    // (inversor, batería, edición de catálogo...), propagando el módulo de un
+    // faldón al resto y destruyendo la asignación individual. Los faldones sin
+    // moduleId propio heredan el global en tiempo de cálculo
+    // (computeSinglePolylineRoofInfo: poly.moduleId || selectedModuleId).
     window.solarProjectConfig.selectedModuleId = modSel.value;
-    if (typeof WP !== 'undefined' && WP && WP.polylines) {
-      WP.polylines.forEach(poly => { poly.moduleId = modSel.value; });
-    }
 
     if (modSel2 && modSel2.value !== modSel.value) modSel2.value = modSel.value;
     if (typeof wpUpdateStep2ModuleBadge === 'function') wpUpdateStep2ModuleBadge();

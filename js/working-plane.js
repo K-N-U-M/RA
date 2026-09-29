@@ -2928,14 +2928,12 @@ function wpUpdateStep3UI() {
 function wpSetPolyModule(polyIdx, modId) {
   if (!WP.polylines || !WP.polylines[polyIdx]) return;
   WP.polylines[polyIdx].moduleId = modId;
-  
-  // [SINCRONIZACIN] Actualizar el global para que el Paso 2 lo lea
-  if (typeof window.solarProjectConfig !== "undefined") {
-    window.solarProjectConfig.selectedModuleId = modId;
-  }
-  const selStep2 = document.getElementById('step2-sel-module');
-  if (selStep2) selStep2.value = modId;
-  if (typeof wpUpdateStep2ModuleBadge === 'function') wpUpdateStep2ModuleBadge();
+
+  // [FIX-MÓDULOS] Ya NO se toca window.solarProjectConfig.selectedModuleId ni el
+  // selector global: el módulo elegido pertenece SÓLO a este faldón. Actualizar el
+  // global hacía que los faldones sin selección explícita heredasen el módulo del
+  // último faldón editado (propagación reportada por el usuario). El selector
+  // global de Paso 2 (step2SelectModule) sigue existiendo para "aplicar a todos".
 
   WP.selectedPolyIdx = polyIdx;
 
