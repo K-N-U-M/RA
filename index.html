@@ -6804,7 +6804,7 @@ function getObstacleWorldBaseCorners3D(obs, setback) {
 
   let wp = (typeof WP !== "undefined" && WP.planes && obs.planeIdx >= 0 && WP.planes[obs.planeIdx])
     ? WP.planes[obs.planeIdx]
-    : (typeof getObstacleActivePlane === "function" ? getObstacleActivePlane(obs.polyIdx !== undefined ? obs.polyIdx : obs.planeIdx) : null);
+    : (typeof getObstacleActivePlane === "function" ? getObstacleActivePlane(obs) : null);
 
   if (wp && wp.normal && wp.uVec && wp.vVec) {
     normal = Cesium.Cartesian3.normalize(wp.normal, new Cesium.Cartesian3());
@@ -8510,7 +8510,7 @@ function getUniversalSelectedTarget() {
   if (typeof selectedObstacleId !== 'undefined' && selectedObstacleId && typeof getSelectedObstacle === 'function') {
     const obs = getSelectedObstacle();
     if (obs) {
-      const wp = typeof getObstacleActivePlane === 'function' ? getObstacleActivePlane(obs.polyIdx !== undefined ? obs.polyIdx : obs.planeIdx) : null;
+      const wp = typeof getObstacleActivePlane === 'function' ? getObstacleActivePlane(obs) : null;
       let baseCenter = null;
       let normal = null;
       let uVec = null;
@@ -9206,7 +9206,7 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
       if (!universalGizmoState.active && typeof wpCalculateAndRenderInverterCables === 'function') wpCalculateAndRenderInverterCables();
     } else if (target.type === 'obstacle' && target.rawObj) {
       const obs = target.rawObj;
-      const roofWp = (target.wp && target.wp.roofWp) ? target.wp.roofWp : ((typeof getObstacleActivePlane === 'function') ? getObstacleActivePlane(obs.polyIdx !== undefined ? obs.polyIdx : obs.planeIdx) : null);
+      const roofWp = (target.wp && target.wp.roofWp) ? target.wp.roofWp : ((typeof getObstacleActivePlane === 'function') ? getObstacleActivePlane(obs) : null);
       const effWp = roofWp || target.wp;
       const normal = (target.wp && target.wp.normal) ? Cesium.Cartesian3.normalize(target.wp.normal, new Cesium.Cartesian3()) : (universalGizmoState.startZVec || Cesium.Cartesian3.UNIT_Z);
       const isTree = (obs.type === 'tree' || obs.isTree);

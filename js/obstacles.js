@@ -433,7 +433,7 @@ function pickObstacleUnderCursor(screenPos) {
     const obs = obstacles[i];
     let pos3D = obs.cartesian || null;
     if (!pos3D) {
-      const wp = (typeof getObstacleActivePlane === 'function') ? getObstacleActivePlane(obs.polyIdx !== undefined ? obs.polyIdx : obs.planeIdx) : null;
+      const wp = (typeof getObstacleActivePlane === 'function') ? getObstacleActivePlane(obs) : null;
       if (wp && wp.origin && wp.uVec && wp.vVec) {
         pos3D = Cesium.Cartesian3.add(
           wp.origin,
@@ -547,7 +547,7 @@ function computeObstacleRotationMatrix(obs, uVec, vVec, normal) {
 
 function updateObstacleLiveModelMatrix(obs, target) {
   if (!obs || !window._obsPrimitives || !window._obsPrimitives.length) return;
-  const wp = (target && target.wp && target.wp.roofWp) || (target && target.wp) || (typeof getObstacleActivePlane === 'function' ? getObstacleActivePlane(obs.polyIdx !== undefined ? obs.polyIdx : obs.planeIdx) : null);
+  const wp = (target && target.wp && target.wp.roofWp) || (target && target.wp) || (typeof getObstacleActivePlane === 'function' ? getObstacleActivePlane(obs) : null);
   let baseCenter = null, normal = null, uVec = null, vVec = null;
   if (obs.cartesian) {
     baseCenter = (obs.cartesian instanceof Cesium.Cartesian3) ? obs.cartesian : new Cesium.Cartesian3(obs.cartesian.x, obs.cartesian.y, obs.cartesian.z);
