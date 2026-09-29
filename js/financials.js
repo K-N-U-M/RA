@@ -494,7 +494,7 @@ function generatePropuestaComercialPDF() {
   const kwp = (numPanels * (d.cfg.potencia || 450)) / 1000.0;
   const annualYieldKWh = d.annualKWh || (kwp * 1450); // [P0] getProjectCalcs canónico devuelve annualKWh
 
-  const panCost = numPanels * (d.cfg.precio || 135);
+  const panCost = numPanels * (d.cfg.precio || 125); // [P1] fallback único del proyecto (docs-generator usa 125; antes aquí 135 → dos presupuestos distintos)
   const est = parseFloat((document.getElementById('cfg-pres-est') || {value:'450'}).value) || 0;
   const inv = parseFloat((document.getElementById('cfg-pres-inv') || {value:'1100'}).value) || 0;
   const bat = parseFloat((document.getElementById('cfg-pres-bat') || {value:'0'}).value) || 0;
@@ -801,6 +801,8 @@ function generatePropuestaComercialPDF() {
     totalAhorroFiscal: totalAhorroFiscal,
     capexNeto: capexNeto,
     autarquiaPct: Math.round(autarquia * 100),
+    precioRedEUR: precioRed,
+    precioCompensacionEUR: precioCompensacion,
     annualYieldKWh: annualYieldKWh,
     ahorroLuzAnio1: ahorroLuzAnio1,
     paybackYears: paybackYears,

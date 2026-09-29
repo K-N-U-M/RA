@@ -228,19 +228,17 @@
     const gastoAnualActualEUR = bill.totalFacturaEUR > 0 ? (bill.totalFacturaEUR * factorAnual) : (consumoAnualKWh * 0.22);
     const gastoMensualActualEUR = gastoAnualActualEUR / 12.0;
 
-    // [P0] Autarquía: modelo de despacho horario de financials.js cuando esté disponible;
-    // fallback: límite físico producción/consumo. Nunca más constantes fijas por batería
-    // (0.50/0.72/0.82 contradecían al modelo TOU del mismo PDF comercial).
-    let baseAutarquia = Math.min(0.95, annualYieldKWh / Math.max(consumoAnualKWh, 1));
+    // [P1] Modelo financiero propio (despacho horario TOU): única fuente de autarquía y
+    // precio de compensación de excedentes. Fallback: límite físico producción/consumo.
+    let _fin = null;
     if (typeof calculateFinancialModel === 'function') {
-      try {
-        const fin = calculateFinancialModel();
-        if (fin && Number.isFinite(fin.autarquiaPct) && fin.autarquiaPct > 0) {
-          baseAutarquia = Math.max(0.05, Math.min(0.95, fin.autarquiaPct / 100));
-        }
-      } catch (errFin) {
-        if (window.RA && window.RA.log) window.RA.log.warn('Autarquía dinámica no disponible; usando límite físico', errFin);
+      try { _fin = calculateFinancialModel(); } catch (errFin) {
+        if (window.RA && window.RA.log) window.RA.log.warn('calculateFinancialModel no disponible para comparativa', errFin);
       }
+    }
+    let baseAutarquia = Math.min(0.95, annualYieldKWh / Math.max(consumoAnualKWh, 1));
+    if (_fin && Number.isFinite(_fin.autarquiaPct) && _fin.autarquiaPct > 0) {
+      baseAutarquia = Math.max(0.05, Math.min(0.95, _fin.autarquiaPct / 100));
     }
     const autarquiaReal = Math.min(baseAutarquia, annualYieldKWh / Math.max(consumoAnualKWh, 1));
     const autoconsumoAnualKWh = consumoAnualKWh * autarquiaReal;
@@ -249,7 +247,7 @@
     const precioMedioCompra = (bill.consumosKWh.total > 0 && bill.costeEnergiaEUR > 0)
       ? (bill.costeEnergiaEUR / bill.consumosKWh.total)
       : 0.19;
-    const precioCompensacion = 0.08;
+    const precioCompensacion = (_fin && Number.isFinite(_fin.precioCompensacionEUR)) ? _fin.precioCompensacionEUR : 0.09;
 
     const costeTerminoFijoAnual = (bill.costePotenciaEUR > 0 ? (bill.costePotenciaEUR * factorAnual) : 220) + (12 * 10);
     const energiaCompradaRedAnualKWh = Math.max(consumoAnualKWh - autoconsumoAnualKWh, 0);
@@ -268,16 +266,9 @@
 
     let cuotaFinanciacionMensual = 0;
     let balanceNetoConFinanciacion = ahorroMensualEUR;
-    if (typeof calculateFinancialModel === 'function') {
-      try {
-        const fin = calculateFinancialModel();
-        if (fin && fin.cuotaMensual) {
-          cuotaFinanciacionMensual = fin.cuotaMensual;
-          balanceNetoConFinanciacion = ahorroMensualEUR - cuotaFinanciacionMensual;
-        }
-      } catch (err) {
-        if (window.RA && window.RA.log) window.RA.log.warn('No se pudo calcular cuota financiación para comparativa', err);
-      }
+    if (_fin && _fin.cuotaMensual) {
+      cuotaFinanciacionMensual = _fin.cuotaMensual;
+      balanceNetoConFinanciacion = ahorroMensualEUR - cuotaFinanciacionMensual;
     }
 
     return {

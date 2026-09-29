@@ -17,7 +17,7 @@
   // Constantes de ingeniería eléctrica normalizadas (REBT ITC-BT-40 / UNE-HD 60364-5-52)
   const ELEC_CONSTANTS = {
     RHO_CU_20: 0.017241,
-    RHO_CU_90: 0.02244,       // Resistividad del cobre a 90°C en régimen permanente
+    RHO_CU_90: 0.023,         // [P1] Resistividad del cobre a 90°C — valor único del proyecto (antes 0.02244; AGENTS.md §8)
     RHO_AL_90: 0.03620,
     T_MIN_SPAIN: -10,         // Temperatura mínima de diseño peninsular en frío CTE/UNE
     T_AMB_MAX_SPAIN: 40,      // Temperatura ambiente máxima en verano peninsular
@@ -445,7 +445,7 @@
    * Límite normativo reglamentario: ΔV <= 1.5% tanto en continua (CC) como en alterna (CA).
    */
   function calculateVoltageDrop({ lengthM, currentA, sectionMm2, voltageV, isThreePhase = false, conductor = 'Cu', tempC = 90 }) {
-    const rho = (conductor === 'Al') ? 0.036 : (tempC >= 90 ? 0.023 : 0.018);
+    const rho = (conductor === 'Al') ? 0.036 : (tempC >= 90 ? ELEC_CONSTANTS.RHO_CU_90 : 0.018);
     const factorPhase = isThreePhase ? Math.sqrt(3) : 2.0;
     const deltaV = (factorPhase * rho * Math.max(lengthM, 0.1) * Math.max(currentA, 0.01)) / Math.max(sectionMm2, 0.5);
     const pct = (deltaV / Math.max(voltageV, 1.0)) * 100.0;

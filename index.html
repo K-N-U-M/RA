@@ -7975,7 +7975,7 @@ function toggleSidebarCollapse() {
 const SOLAR_ENGINE_CONSTANTS = {
   RHO_CU_20: 0.017241,      // Resistividad Cu a 20°C (Ω·mm²/m)
   ALPHA_CU: 0.00393,        // Coeficiente térmico resistividad Cu (1/K)
-  RHO_CU_90: 0.02244,       // Resistividad Cu a 90°C (UNE-HD 60364-5-52): 0.017241*(1 + 0.00393*70)
+  RHO_CU_90: 0.023,         // [P1] Resistividad Cu a 90°C — valor único del proyecto (antes 0.02244; ρ20=0.017241 con α=0.00393 daría ≈0.0220; 0.023 = margen conservador REBT)
   RHO_AL_90: 0.03620,       // Resistividad Al a 90°C (Ω·mm²/m)
   G_STC: 1000,              // Irradiancia STC (W/m²)
   T_STC: 25,                // Temperatura STC (°C)

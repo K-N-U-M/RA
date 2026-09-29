@@ -12,7 +12,7 @@
   const SOLAR_ENGINE_CONSTANTS = {
     RHO_CU_20: 0.017241,
     ALPHA_CU: 0.00393,
-    RHO_CU_90: 0.02244,
+    RHO_CU_90: 0.023,    // [P1] valor unificado del proyecto (antes 0.02244; AGENTS.md §8)
     RHO_AL_90: 0.03620,
     G_STC: 1000,
     T_STC: 25,
