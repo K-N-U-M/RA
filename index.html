@@ -25,26 +25,26 @@
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
 
-  <script src="js/buildings.js?v=20260927q"></script>
-    <script src="js/solar-heatmap.js?v=20260927q"></script>
-    <script src="js/config.js?v=20260927q"></script>
-    <script src="js/financials.js?v=20260927q"></script>
-  <script src="js/viewer.js?v=20260927q"></script>
-  <script src="js/solar-engine.js?v=20260927q"></script>
-  <script src="js/obstacles.js?v=20260927q"></script>
-  <script src="js/solar-materials.js?v=20260928_catenary_fix"></script>
-  <script src="js/electrical-engine.js?v=20260927q"></script>
-  <script src="js/undo-manager.js?v=20260929_p0"></script>
-  <script src="js/geometry-validate.js?v=20260929_p2"></script>
-  <script src="js/docs-generator.js?v=20260927q"></script>
-  <script src="js/workflow-orchestrator.js?v=20260927q"></script>
-  <script src="js/working-plane.js?v=20260928_wp_shadows"></script>
-  <script src="js/capture-mode.js?v=20260929_p3"></script>
-  <script src="js/project-hierarchy.js?v=20260927q"></script>
-  <script src="js/ui-outliner.js?v=20260927q"></script>
-  <script src="js/bill-auditor.js?v=20260927q"></script>
-  <script src="js/bom-tree.js?v=20260928_catenary_fix"></script>
-  <script src="js/engineering-explainer.js?v=20260927q"></script>
+  <script src="js/buildings.js?v=20260929b"></script>
+    <script src="js/solar-heatmap.js?v=20260929b"></script>
+    <script src="js/config.js?v=20260929b"></script>
+    <script src="js/financials.js?v=20260929b"></script>
+  <script src="js/viewer.js?v=20260929b"></script>
+  <script src="js/solar-engine.js?v=20260929b"></script>
+  <script src="js/obstacles.js?v=20260929b"></script>
+  <script src="js/solar-materials.js?v=20260929b"></script>
+  <script src="js/electrical-engine.js?v=20260929b"></script>
+  <script src="js/undo-manager.js?v=20260929b"></script>
+  <script src="js/geometry-validate.js?v=20260929b"></script>
+  <script src="js/docs-generator.js?v=20260929b"></script>
+  <script src="js/workflow-orchestrator.js?v=20260929b"></script>
+  <script src="js/working-plane.js?v=20260929b"></script>
+  <script src="js/capture-mode.js?v=20260929b"></script>
+  <script src="js/project-hierarchy.js?v=20260929b"></script>
+  <script src="js/ui-outliner.js?v=20260929b"></script>
+  <script src="js/bill-auditor.js?v=20260929b"></script>
+  <script src="js/bom-tree.js?v=20260929b"></script>
+  <script src="js/engineering-explainer.js?v=20260929b"></script>
 
     <link rel="stylesheet" href="css/styles.css">
 
@@ -15780,10 +15780,12 @@ window.toggleSolarHUD = toggleSolarHUD;
     return { x: qx, y: qy, dist: Math.hypot(px - qx, py - qy), t };
   }
 
-  // Actualizar datos de navegación periódicamente con el movimiento de cámara
+  // Actualizar datos de navegación periódicamente con el movimiento de cámara.
+  // [FIX] try/catch: wpUpdateUI corre en CADA frame de cámara — un solo fallo suyo
+  // mataba el bucle de render completo con la pantalla de error de Cesium.
   camera.changed.addEventListener(() => {
     if (document.getElementById('pane-geometria') && document.getElementById('pane-geometria').classList.contains('active')) {
-      wpUpdateUI();
+      try { wpUpdateUI(); } catch (eUI) { window.RA && window.RA.log && window.RA.log.warn('wpUpdateUI falló (render protegido):', eUI); }
     }
   });
 
