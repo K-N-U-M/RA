@@ -383,6 +383,10 @@ function generateMemoria() {
   const d = getProjectCalcs();
   const dcEs3D = !!d.L_dc_esMedida3D;
   const acEs3D = !!d.L_ac_esMedida3D;
+  // [P0] Avisar si la geometría cambió tras el último mapa de calor válido
+  if (typeof window !== 'undefined' && window.solarSimState && window.solarSimState.annualHeatmapDirty && typeof showToast === 'function') {
+    showToast('ANÁLISIS SOLAR OBCOLETO', 'La geometría o los obstáculos han cambiado desde el último cálculo. La memoria usa la producción del último mapa de calor válido: recalcula en el Paso 3 para cifras definitivas.', 'warning', 5500);
+  }
   if (d.numPanels === 0) {
     alert('Define primero el polígono de la instalación con al menos 3 vértices.'); return;
   }

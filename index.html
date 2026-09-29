@@ -34,6 +34,7 @@
   <script src="js/obstacles.js?v=20260927q"></script>
   <script src="js/solar-materials.js?v=20260928_catenary_fix"></script>
   <script src="js/electrical-engine.js?v=20260927q"></script>
+  <script src="js/undo-manager.js?v=20260929_p0"></script>
   <script src="js/docs-generator.js?v=20260927q"></script>
   <script src="js/workflow-orchestrator.js?v=20260927q"></script>
   <script src="js/working-plane.js?v=20260928_wp_shadows"></script>
@@ -42,7 +43,6 @@
   <script src="js/bill-auditor.js?v=20260927q"></script>
   <script src="js/bom-tree.js?v=20260928_catenary_fix"></script>
   <script src="js/engineering-explainer.js?v=20260927q"></script>
-  <script src="js/e2e-demo-runner.js?v=20260927q"></script>
 
     <link rel="stylesheet" href="css/styles.css">
 
@@ -2634,27 +2634,8 @@ addEventListener('keydown', function(e) {
     }
   }
 
-  // 2. Tecla SUPR / DELETE (Eliminar vértice u obstáculo seleccionado)
-  if (e.key === 'Delete' || e.key === 'Del' || e.keyCode === 46) {
-    if (typeof WP !== 'undefined' && WP && (WP.selectedVtxIdx >= 0 || WP.selectedVertexIdx >= 0)) {
-      e.preventDefault();
-      if (typeof wpDeleteSelectedVertexFromList === 'function') {
-        wpDeleteSelectedVertexFromList();
-      } else if (typeof wpDeleteSelectedVtx === 'function') {
-        wpDeleteSelectedVtx();
-      }
-      return;
-    }
-    if (deleteUniversalSelectedObject()) {
-      e.preventDefault();
-      return;
-    }
-    if (typeof selectedObstacleId !== 'undefined' && selectedObstacleId) {
-      e.preventDefault();
-      if (typeof deleteSelectedObstacle === 'function') deleteSelectedObstacle();
-      return;
-    }
-  }
+  // [P0] SUPR/DELETE consolidado en _raKeydown2 (despachador único): antes, tres
+  // listeners solapados procesaban la misma pulsación y borraban 2 objetos de golpe.
 
   // 3. CTRL + Z (Deshacer último punto de polilínea en dibujo)
   if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) {
@@ -4128,11 +4109,20 @@ function redrawSelectedBuildingFootprint() {
 }
 
 window._raIsShiftDown = false;
-window.addEventListener('keydown', function(e) { if (e.key === 'Shift') window._raIsShiftDown = true; });
+window._raOrthoMode = false;
+window.addEventListener('keydown', function(e) { 
+  if (e.key === 'Shift') window._raIsShiftDown = true; 
+  if (e.code === 'KeyO' || e.key === 'o' || e.key === 'O') {
+    if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
+    window._raOrthoMode = !window._raOrthoMode;
+    showToast('MODO ORTOGONAL', window._raOrthoMode ? 'ACTIVADO (Teclado: O)' : 'DESACTIVADO', 'info', 2000);
+  }
+});
 window.addEventListener('keyup', function(e) { if (e.key === 'Shift') window._raIsShiftDown = false; });
 
 function getOrthogonalSnap(cartesian, pts) {
-  if (!cartesian || !pts || pts.length < 2 || !window._raIsShiftDown) return cartesian;
+  if (!cartesian || !pts || pts.length < 2) return cartesian;
+  if (!window._raIsShiftDown && !window._raOrthoMode) return cartesian;
   const pPrev = pts[pts.length - 1];
   const pPrev2 = pts[pts.length - 2];
   
@@ -4491,7 +4481,7 @@ function selectBuilding(bldId) {
   if (pitchVal) pitchVal.textContent = rPitch + '°';
   if (azEl) azEl.value = rAz;
   if (azNum) azNum.value = rAz;
-  if (azVal) azVal.textContent = rAz + '° (' + getAzimuthCardinal(rAz) + ')';
+  if (azVal) azVal.textContent = rAz + '° (' + getAzimuthCardinalShort(rAz) + ')';
   if (parEl) parEl.value = (typeof bld.parapetHeight === 'number') ? bld.parapetHeight : 0.6;
   if (ovhEl) ovhEl.value = (typeof bld.overhang === 'number') ? bld.overhang : 0.2;
   if (colorEl) colorEl.value = bld.facadeColor || '#FFFFFF';
@@ -4530,7 +4520,7 @@ function bldSyncAzimuth(val) {
   const lbl = document.getElementById('bld-roof-azimuth-val');
   if (slider && document.activeElement !== slider) slider.value = norm;
   if (num && document.activeElement !== num) num.value = norm;
-  if (lbl) lbl.textContent = norm + '° (' + getAzimuthCardinal(norm) + ')';
+  if (lbl) lbl.textContent = norm + '° (' + getAzimuthCardinalShort(norm) + ')';
   updateSelectedBuildingProps();
 }
 
@@ -4628,6 +4618,10 @@ function deleteSelectedBuilding() {
     }
     if (typeof simulatedPanelEntities !== 'undefined' && Array.isArray(simulatedPanelEntities)) {
       simulatedPanelEntities = simulatedPanelEntities.filter(pan => pan && pan.bldId !== bldId);
+    }
+    
+    if (typeof window !== 'undefined' && window.solarSimState && window.solarSimState.annualHeatmapData) {
+      window.solarSimState.annualHeatmapData = null; // Invalida el estado térmico al borrar la cubierta
     }
 
     // 4. Limpiar Obstáculos colocados sobre el edificio
@@ -5876,6 +5870,8 @@ function deleteSelectedPanel() {
   const panel = getSelectedPanel();
   if (!panel) return;
 
+  if (window.RAundo && panel.polyIdx !== undefined) window.RAundo.snapPanelDelete(panel.polyIdx);
+
   panel.deleted = true;
   if (panel.rawPanel) {
     panel.rawPanel.deleted = true;
@@ -5901,6 +5897,14 @@ function deleteSelectedPanel() {
 
   if (window.allRenderedPanels && Array.isArray(window.allRenderedPanels)) {
     window.allRenderedPanels.splice(selectedPanelIndex, 1);
+  }
+
+  // Purgar caché del Heatmap para evitar tooltips fantasma
+  if (typeof window !== 'undefined' && window.solarSimState) {
+    if (Array.isArray(window.solarSimState.annualHeatmapData)) {
+      window.solarSimState.annualHeatmapData = window.solarSimState.annualHeatmapData.filter(p => !p.deleted);
+      if (window.solarSimState.annualHeatmapData.length === 0) window.solarSimState.annualHeatmapData = null;
+    }
   }
 
   selectPanel(-1);
@@ -7602,9 +7606,21 @@ function undoLastPoint() {
 // [RA LISTENER — keydown #1: atajos CAD/WP]
 (window.RA && window.RA.addListener ? window.RA.addListener : function(t, ev, fn) { t.addEventListener(ev, fn); })(document, 'keydown', function _raKeydown1(e) {
   if (isTextInputActive(e.target)) return;
+
+  // [P0] Deshacer borrados (RAundo) disponible en CUALQUIER modo — protección de datos.
+  // En draw-poly gana el pop de punto de dibujo gestionado por el handler superior.
+  if ((e.ctrlKey || e.metaKey) && e.code === 'KeyZ' && !e.shiftKey) {
+    const _wpM = (typeof WP !== 'undefined' && WP) ? WP.mode : 'idle';
+    if (_wpM !== 'draw-poly' && window.RAundo && window.RAundo.canUndo()) {
+      e.preventDefault();
+      window.RAundo.undo();
+      return;
+    }
+  }
+
   if (typeof WP !== 'undefined' && WP && WP.mode !== 'idle') return;
 
-  // Undo / Redo (Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z)
+  // Undo / Redo (Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z) — geometría legacy
   if (e.ctrlKey || e.metaKey) {
     if (e.code === 'KeyZ') {
       e.preventDefault();
@@ -7625,10 +7641,6 @@ function undoLastPoint() {
     setAppMode('edit');
   } else if (e.code === 'KeyD') {
     openDocModal();
-  } else if (e.code === 'Delete' || e.code === 'Backspace') {
-    if (appMode === 'edit' && selectedVertexIndex >= 0) {
-      deleteSelectedVertex();
-    }
   } else if (e.code === 'Escape') {
     if (appMode === 'draw') {
       if (polygonPoints.length > 0) undoLastPoint();
@@ -13646,6 +13658,12 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
       }
   // cierre del bucle de faldones (antes forEach)
 
+  // [P0-MPPT] Auto-reasignación balanceada de strings entre canales MPPT:
+  // sustituye la política faldón→canal fijo (polyIdx % mppt) cuando hay inversor con límites reales.
+  if (window.RA && window.RA.Electrical && typeof window.RA.Electrical.rebalanceMPPTAssignment === 'function') {
+    window.RA.Electrical.rebalanceMPPTAssignment(allTargetPanels);
+  }
+
   if (typeof viewer !== "undefined" && viewer) {
     const isHeatmapMode = solarSimState && solarSimState.viewMode === 'heatmap';
     const isPbrMode = !isHeatmapMode && !!window.isPhotorealisticTextureMode;
@@ -14233,7 +14251,8 @@ function handleHeatmapPanelHover(mousePos) {
     const tilt = typeof hoveredPanel.tiltDeg === 'number' ? hoveredPanel.tiltDeg.toFixed(0) : (hoveredPanel.pitch ? hoveredPanel.pitch.toFixed(0) : '0');
     let azStr = 'Sur';
     if (typeof hoveredPanel.azimuthDeg === 'number') {
-      azStr = hoveredPanel.azimuthDeg === 0 ? 'Sur (180°)' : hoveredPanel.azimuthDeg.toFixed(0) + '°';
+      const azN = (180 - hoveredPanel.azimuthDeg + 360) % 360;
+      azStr = (typeof getAzimuthCardinalShort === 'function' ? getAzimuthCardinalShort(azN) + ' (' : '') + azN.toFixed(0) + '°' + (typeof getAzimuthCardinalShort === 'function' ? ')' : '');
     }
     const isMlpe = hoveredPanel.requiresMLPE || loss >= 8;
     const isUnv = hoveredPanel.isUnviable || loss >= 25;
@@ -14750,6 +14769,27 @@ window.toggleSolarHUD = toggleSolarHUD;
 
   // 1. LEFT_DOWN: Detección prioritaria de agarre del Gizmo 3D (bloquea la cámara SOLO mientras se arrastra una maneta o vértice)
   handler.setInputAction(down => {
+    // 🌟 PRIORIDAD ABSOLUTA (BYPASS DE CESIUM): DIBUJO DE HUELLA DE EDIFICIO 3D EN TERRENO
+    if (typeof WP !== "undefined" && WP && WP.mode === "draw-building") {
+      if (activeBuildingPts && activeBuildingPts.length >= 3) {
+        try {
+          const p0Screen = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, activeBuildingPts[0]);
+          if (p0Screen && Math.hypot(down.position.x - p0Screen.x, down.position.y - p0Screen.y) <= 45) {
+            finishActiveBuilding();
+            return;
+          }
+        } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+      }
+      let pos3D = get3DPosition(down.position);
+      if (Cesium.defined(pos3D)) {
+        if (typeof triadState !== "undefined" && triadState && triadState.snapTarget && triadState.snapTarget.pos) {
+          pos3D = Cesium.Cartesian3.clone(triadState.snapTarget.pos);
+        }
+        handleBuildingClick(pos3D);
+      }
+      return;
+    }
+
     // 🌟 PRIORIDAD #1: CAPTURA UNIVERSAL DEL GIZMO 3D (Vértices, Cuadros Eléctricos, Obstáculos, Edificios, Paneles)
     const uTarget = (typeof getUniversalSelectedTarget === 'function') ? getUniversalSelectedTarget() : null;
     if (uTarget && universalGizmoState.screen) {
@@ -14976,28 +15016,7 @@ window.toggleSolarHUD = toggleSolarHUD;
       }
     }
 
-    // ── PRIORIDAD ABSOLUTA: DIBUJO DE HUELLA DE EDIFICIO 3D EN TERRENO
-    if (typeof WP !== "undefined" && WP && WP.mode === "draw-building") {
-      // Cierre directo por clic sobre el 1er vértice (distancia <= 30px en pantalla)
-      if (activeBuildingPts && activeBuildingPts.length >= 3) {
-        try {
-          const p0Screen = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, activeBuildingPts[0]);
-          if (p0Screen && Math.hypot(click.position.x - p0Screen.x, click.position.y - p0Screen.y) <= 45) {
-            finishActiveBuilding();
-            return;
-          }
-        } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
-      }
 
-      let pos3D = get3DPosition(click.position);
-      if (Cesium.defined(pos3D)) {
-        if (typeof triadState !== "undefined" && triadState && triadState.snapTarget && triadState.snapTarget.pos) {
-          pos3D = Cesium.Cartesian3.clone(triadState.snapTarget.pos);
-        }
-        handleBuildingClick(pos3D);
-      }
-      return;
-    }
 
     // ── PRIORIDAD ABSOLUTA: Definir Plano de Cubierta (P1, P2, P3)
     if (typeof WP !== "undefined" && WP && WP.mode === "define-plane") {
@@ -15511,8 +15530,10 @@ window.toggleSolarHUD = toggleSolarHUD;
       if (draggedTargetType === 'vertex') {
         if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
         if (typeof render3DBuildingsInCesium === 'function') render3DBuildingsInCesium();
+        if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Vértice desplazado (faldón o edificio)');
       } else if (draggedTargetType === 'building') {
         if (typeof render3DBuildingsInCesium === 'function') render3DBuildingsInCesium();
+        if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Edificio desplazado');
       } else if (draggedTargetType === 'obstacle') {
         if (typeof render3DObstaclesInCesium === 'function') render3DObstaclesInCesium();
         if (typeof recalculateLayoutAndObstacles === 'function') recalculateLayoutAndObstacles();
@@ -15751,16 +15772,15 @@ window.toggleSolarHUD = toggleSolarHUD;
   (window.RA && window.RA.addListener ? window.RA.addListener : function(t, ev, fn) { t.addEventListener(ev, fn); })(document, 'keydown', function _raKeydown2(e) {
     if (isTextInputActive(e.target)) return;
     if (e.key === 'Delete' || e.key === 'Backspace') {
-      // A0. Eliminar obstáculo 3D seleccionado
-      if (selectedObstacleId) {
-        deleteSelectedObstacle();
-        return;
-      }
-      // A. Eliminar vértice seleccionado de polilínea
+      e.preventDefault();
+      // [P0] DESPACHADOR ÚNICO DE BORRADO (antes: 3 listeners solapados → borrado en cascada).
+      // Prioridad: vértice de faldón (gestión local verificada) → obstáculo → objetivo del
+      // gizmo universal (edificio, equipo eléctrico, panel, vértice de ruta) → panel seleccionado.
       if (WP.selectedPolyIdx >= 0 && WP.selectedVtxIdx >= 0) {
         const poly = WP.polylines[WP.selectedPolyIdx];
         if (poly && poly.points) {
           if (poly.points.length > 3) {
+            if (window.RAundo) window.RAundo.snapVertex(WP.selectedPolyIdx);
             poly.points.splice(WP.selectedVtxIdx, 1);
             WP.selectedVtxIdx = Math.min(WP.selectedVtxIdx, poly.points.length - 1);
             poly.area = wpPolylineArea3D(poly.points);
@@ -15772,8 +15792,9 @@ window.toggleSolarHUD = toggleSolarHUD;
             updateAllVisuals();
             if (typeof wpFastRenderSimulatedPanels === 'function') wpFastRenderSimulatedPanels();
             renderTriad2D();
+            if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Vértice de faldón eliminado');
 
-            showStatus('<i data-lucide=\"trash-2\" class=\"icon-sm\"></i> VÉRTICE ELIMINADO (RESTAN: ' + poly.points.length + ' VÉRTICES)', 2000);
+            showStatus('<i data-lucide=\"trash-2\" class=\"icon-sm\"></i> VÉRTICE ELIMINADO (RESTAN: ' + poly.points.length + ' VÉRTICES) · CTRL+Z DESHACE', 2600);
             return;
           } else {
             showStatus('<i data-lucide=\"alert-triangle\" class=\"icon-sm\"></i> UNA POLILÍNEA DEBE TENER AL MENOS 3 VÉRTICES', 2500);
@@ -15781,12 +15802,15 @@ window.toggleSolarHUD = toggleSolarHUD;
           }
         }
       }
-      if (selectedPanelIndex >= 0) {
-        deleteSelectedPanel();
-        return;
-      }
       if (selectedObstacleId) {
         deleteSelectedObstacle();
+        return;
+      }
+      if (typeof deleteUniversalSelectedObject === 'function' && deleteUniversalSelectedObject()) {
+        return;
+      }
+      if (selectedPanelIndex >= 0) {
+        deleteSelectedPanel();
         return;
       }
     }

@@ -457,6 +457,76 @@
     };
   }
 
+  // [P0-MPPT] Auto-reasignación balanceada de strings entre canales MPPT.
+  // Sustituye la política "faldón entero → canal fijo" (polyIdx % mpptCount) que
+  // concentraba un tejado completo en un solo MPPT y desbordaba entradas físicas.
+  // Estrategia: los strings de un mismo faldón permanecen en un canal si cabe entero
+  // (first-fit); si no, se reparten string a string al canal con más hueco. El aviso de
+  // sobrecarga (index.html, validación 7b) sigue activo cuando el total excede la capacidad.
+  function rebalanceMPPTAssignment(panels) {
+    if (!Array.isArray(panels) || panels.length === 0) return { changed: 0, reason: 'sin_paneles' };
+    const invCfg = (typeof window !== 'undefined' && window.solarProjectConfig &&
+                    window.solarProjectConfig.calculatedLimits &&
+                    window.solarProjectConfig.calculatedLimits.inverter) || null;
+    const mpptCount = (invCfg && Number.isFinite(invCfg.mppt) && invCfg.mppt > 0) ? invCfg.mppt : 0;
+    if (!mpptCount) return { changed: 0, reason: 'sin_inversor' };
+    const capPer = (invCfg && Number.isFinite(invCfg.inputsPerMppt) && invCfg.inputsPerMppt > 0) ? invCfg.inputsPerMppt : 1;
+
+    // 1. Strings en orden de creación (un string pertenece siempre a un solo faldón)
+    const stringOrder = [];
+    const byName = new Map();
+    panels.forEach(p => {
+      if (!p || !p.stringName) return;
+      if (!byName.has(p.stringName)) {
+        byName.set(p.stringName, { name: p.stringName, polyIdx: p.polyIdx });
+        stringOrder.push(p.stringName);
+      }
+    });
+    const totalStrings = stringOrder.length;
+    if (totalStrings === 0) return { changed: 0, reason: 'sin_strings' };
+
+    // 2. Faldones en orden de primera aparición con sus strings
+    const roofOrder = [];
+    const roofStrings = new Map();
+    stringOrder.forEach(n => {
+      const s = byName.get(n);
+      if (!roofStrings.has(s.polyIdx)) { roofStrings.set(s.polyIdx, []); roofOrder.push(s.polyIdx); }
+      roofStrings.get(s.polyIdx).push(s.name);
+    });
+
+    // 3. Asignación balanceada por capacidad
+    const remaining = new Array(mpptCount).fill(capPer);
+    const assign = new Map();
+    roofOrder.forEach(pi => {
+      const strs = roofStrings.get(pi);
+      let ch = remaining.findIndex(r => r >= strs.length);
+      if (ch !== -1) {
+        strs.forEach(n => { assign.set(n, ch + 1); remaining[ch] = Math.max(0, remaining[ch] - 1); });
+      } else {
+        strs.forEach(n => {
+          let best = 0;
+          for (let c = 1; c < mpptCount; c++) if (remaining[c] > remaining[best]) best = c;
+          assign.set(n, best + 1);
+          remaining[best] = Math.max(0, remaining[best] - 1);
+        });
+      }
+    });
+
+    // 4. Aplicar a los paneles (mpptId + etiqueta "MPPTn:...")
+    let changed = 0;
+    panels.forEach(p => {
+      if (!p || !p.stringName) return;
+      const m = assign.get(p.stringName);
+      if (!m) return;
+      if (p.mpptId !== m) { p.mpptId = m; changed++; }
+      if (typeof p.tag === 'string' && p.tag.indexOf(':') !== -1) {
+        p.tag = 'MPPT' + m + ':' + p.tag.slice(p.tag.indexOf(':') + 1);
+      }
+    });
+
+    return { changed, mpptCount, capPer, totalStrings, overflow: totalStrings > mpptCount * capPer };
+  }
+
   // Exportar al ámbito global y Window
   root.ELEC_CONSTANTS = ELEC_CONSTANTS;
   root.getPolylineStringColor = getPolylineStringColor;
@@ -466,6 +536,7 @@
   root.partitionPanelsIntoMPPTStrings = partitionPanelsIntoMPPTStrings;
   root.matchInvertersFromCatalog = matchInvertersFromCatalog;
   root.calculateVoltageDrop = calculateVoltageDrop;
+  root.rebalanceMPPTAssignment = rebalanceMPPTAssignment;
 
   if (!root.RA) root.RA = {};
   root.RA.Electrical = {
@@ -476,7 +547,8 @@
     generateSnakeWiringPositions: generateSnakeWiringPositions,
     partitionPanelsIntoMPPTStrings: partitionPanelsIntoMPPTStrings,
     matchInvertersFromCatalog: matchInvertersFromCatalog,
-    calculateVoltageDrop: calculateVoltageDrop
+    calculateVoltageDrop: calculateVoltageDrop,
+    rebalanceMPPTAssignment: rebalanceMPPTAssignment
   };
 
 })(typeof window !== 'undefined' ? window : globalThis);

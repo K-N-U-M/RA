@@ -56,9 +56,10 @@ function render3DBuildingsInCesium() {
     const facadeColor = Cesium.Color.fromCssColorString(baseHex).withAlpha(0.92);
     const roofColor = Cesium.Color.fromCssColorString(roofHex).withAlpha(0.96);
 
-    // Color contrastado especial para aristas de tejado
-    const edgeColor = isSel ? Cesium.Color.fromCssColorString('#FBBF24') : Cesium.Color.fromCssColorString('#00F0FF');
-    const ridgeColor = isSel ? Cesium.Color.fromCssColorString('#FFE600') : Cesium.Color.fromCssColorString('#F59E0B');
+    // 🎨 ESTILOS CAD: Aristas oscuras y definidas para distinguir planos claramente
+    const edgeColor = isSel ? Cesium.Color.fromCssColorString('#0F172A').withAlpha(0.95) : Cesium.Color.fromCssColorString('#334155').withAlpha(0.6);
+    const ridgeColor = isSel ? Cesium.Color.fromCssColorString('#000000').withAlpha(0.95) : Cesium.Color.fromCssColorString('#1E293B').withAlpha(0.7);
+    const xRayDash = new Cesium.PolylineDashMaterialProperty({ color: isSel ? Cesium.Color.fromCssColorString('#0F172A').withAlpha(0.2) : Cesium.Color.fromCssColorString('#334155').withAlpha(0.1) });
 
     // Normalizar coordenadas cartográficas y garantizar orientación Antihoraria (CCW)
     let rawCartoList = bld.points.map(p => {
@@ -172,7 +173,7 @@ function render3DBuildingsInCesium() {
         });
         const wallPrim = viewer.scene.primitives.add(new Cesium.Primitive({
           geometryInstances: wallInst,
-          appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: true }),
+          appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: true, renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 } }),
           shadows: Cesium.ShadowMode.ENABLED,
           asynchronous: false
         }));
@@ -191,7 +192,7 @@ function render3DBuildingsInCesium() {
         });
         const roofPrim = viewer.scene.primitives.add(new Cesium.Primitive({
           geometryInstances: roofInst,
-          appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: true }),
+          appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: true, renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 } }),
           shadows: Cesium.ShadowMode.ENABLED,
           asynchronous: false
         }));
@@ -234,8 +235,8 @@ function render3DBuildingsInCesium() {
             width: isSel ? 4.5 : 3.5,
             material: edgeColor,
             
-            disableDepthTestDistance: Number.POSITIVE_INFINITY,
-            clampToGround: false
+             arcType: Cesium.ArcType.NONE,
+            clampToGround: false, disableDepthTestDistance: Number.POSITIVE_INFINITY
           }
         });
         window._buildingEntities.push(rOutline);
@@ -314,7 +315,7 @@ function render3DBuildingsInCesium() {
           });
           const prim = viewer.scene.primitives.add(new Cesium.Primitive({
             geometryInstances: inst,
-            appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: true }),
+            appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: true, renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 } }),
             shadows: Cesium.ShadowMode.ENABLED,
             asynchronous: false
           }));
@@ -361,7 +362,7 @@ function render3DBuildingsInCesium() {
         });
         window._buildingPrimitives.push(viewer.scene.primitives.add(new Cesium.Primitive({
           geometryInstances: wi,
-          appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: true }),
+          appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: true, renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 } }),
           shadows: Cesium.ShadowMode.ENABLED, asynchronous: false
         })));
       } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[wall gable]', e); }
@@ -378,20 +379,20 @@ function render3DBuildingsInCesium() {
           name: (bld.name||'Edificio 3D')+' - Cumbrera',
           polyline: { positions:[r1El,r2El], width:5.0, material:ridgeColor,
             
-            disableDepthTestDistance:Number.POSITIVE_INFINITY, clampToGround:false }
+             arcType: Cesium.ArcType.NONE, clampToGround: false, disableDepthTestDistance: Number.POSITIVE_INFINITY }
         }));
         window._buildingEntities.push(viewer.entities.add({
           name: (bld.name||'Edificio 3D')+' - Aristas Alero',
           polyline: { positions:[...pEl,pEl[0]], width: isSel?4.0:3.0, material:edgeColor,
             
-            disableDepthTestDistance:Number.POSITIVE_INFINITY, clampToGround:false }
+             arcType: Cesium.ArcType.NONE, clampToGround: false, disableDepthTestDistance: Number.POSITIVE_INFINITY }
         }));
         pEl.forEach((p, vi) => {
           const nearR1 = Math.abs(projR[vi]-minR) <= Math.abs(projR[vi]-maxR);
           window._buildingEntities.push(viewer.entities.add({
             polyline: { positions:[p, nearR1?r1El:r2El], width:2.5,
               material:edgeColor.withAlpha(0.85),
-              disableDepthTestDistance:Number.POSITIVE_INFINITY, clampToGround:false }
+               arcType: Cesium.ArcType.NONE, clampToGround: false, disableDepthTestDistance: Number.POSITIVE_INFINITY }
           }));
         });
       } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[gable edges]', e); }
@@ -436,7 +437,7 @@ function render3DBuildingsInCesium() {
         });
         const wallPrim = viewer.scene.primitives.add(new Cesium.Primitive({
           geometryInstances: wallInst,
-          appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: true }),
+          appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: true, renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 } }),
           shadows: Cesium.ShadowMode.ENABLED,
           asynchronous: false
         }));
@@ -454,7 +455,7 @@ function render3DBuildingsInCesium() {
         });
         const roofPrim = viewer.scene.primitives.add(new Cesium.Primitive({
           geometryInstances: roofInst,
-          appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: true }),
+          appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: true, renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 } }),
           shadows: Cesium.ShadowMode.ENABLED,
           asynchronous: false
         }));
@@ -473,8 +474,8 @@ function render3DBuildingsInCesium() {
             width: isSel ? 4.5 : 3.5,
             material: edgeColor,
             
-            disableDepthTestDistance: Number.POSITIVE_INFINITY,
-            clampToGround: false
+             arcType: Cesium.ArcType.NONE,
+            clampToGround: false, disableDepthTestDistance: Number.POSITIVE_INFINITY
           }
         });
         window._buildingEntities.push(rOutline);
@@ -518,7 +519,7 @@ function render3DBuildingsInCesium() {
         });
         const wallPrim = viewer.scene.primitives.add(new Cesium.Primitive({
           geometryInstances: wallInst,
-          appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: true }),
+          appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: true, renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 } }),
           shadows: Cesium.ShadowMode.ENABLED,
           asynchronous: false
         }));
@@ -544,7 +545,7 @@ function render3DBuildingsInCesium() {
           });
           const triPrim = viewer.scene.primitives.add(new Cesium.Primitive({
             geometryInstances: triInst,
-            appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: true }),
+            appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: true, renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 } }),
             shadows: Cesium.ShadowMode.ENABLED,
             asynchronous: false
           }));
@@ -564,8 +565,8 @@ function render3DBuildingsInCesium() {
               width: 3.5,
               material: ridgeColor,
               
-              disableDepthTestDistance: Number.POSITIVE_INFINITY,
-              clampToGround: false
+               arcType: Cesium.ArcType.NONE,
+              clampToGround: false, disableDepthTestDistance: Number.POSITIVE_INFINITY
             }
           });
           window._buildingEntities.push(hipLine);
@@ -578,8 +579,8 @@ function render3DBuildingsInCesium() {
             positions: [...elevatedPEaves, elevatedPEaves[0]],
             width: isSel ? 4.0 : 3.0,
             material: edgeColor,
-            disableDepthTestDistance: Number.POSITIVE_INFINITY,
-            clampToGround: false
+             arcType: Cesium.ArcType.NONE,
+            clampToGround: false, disableDepthTestDistance: Number.POSITIVE_INFINITY
           }
         });
         window._buildingEntities.push(eavesOutline);
@@ -592,9 +593,10 @@ function render3DBuildingsInCesium() {
         name: (bld.name || 'Edificio 3D') + ' - Base',
         polyline: {
           positions: [...basePositions, basePositions[0]],
-          width: isSel ? 2.5 : 1.5,
-          material: isSel ? Cesium.Color.WHITE.withAlpha(0.8) : Cesium.Color.fromCssColorString('#64748B'),
-          clampToGround: false
+          width: isSel ? 3.0 : 2.0,
+          material: edgeColor,
+           arcType: Cesium.ArcType.NONE,
+          clampToGround: false, disableDepthTestDistance: Number.POSITIVE_INFINITY
         }
       });
       window._buildingEntities.push(baseOutline);
@@ -609,9 +611,9 @@ function render3DBuildingsInCesium() {
           polyline: {
             positions: [bPos, rPos],
             width: isSel ? 3.0 : 2.0,
-            material: isSel ? Cesium.Color.WHITE : Cesium.Color.fromCssColorString('#38BDF8'),
-            
-            clampToGround: false
+            material: edgeColor,
+             arcType: Cesium.ArcType.NONE,
+            clampToGround: false, disableDepthTestDistance: Number.POSITIVE_INFINITY
           }
         });
         window._buildingEntities.push(colEnt);
@@ -646,11 +648,29 @@ function render3DBuildingsInCesium() {
   }
 }
 
+  // [P0] deleteBuilding: antes no existía en ninguna parte — el despachador universal
+  // (index.html, rama 'building') comprobaba typeof deleteBuilding === 'function', siempre
+  // falso, y los edificios NO se podían borrar con la tecla Supr.
+  function deleteBuilding(bldId) {
+    const arr = (typeof window !== 'undefined' && Array.isArray(window.buildings)) ? window.buildings : [];
+    const idx = arr.findIndex(b => b && b.id === bldId);
+    if (idx === -1) return false;
+    if (window.RAundo) window.RAundo.snapBuildings();
+    arr.splice(idx, 1);
+    if (typeof window.selectedBuildingId !== 'undefined') window.selectedBuildingId = null;
+    if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Edificio eliminado');
+    if (typeof window.render3DBuildingsInCesium === 'function') window.render3DBuildingsInCesium();
+    if (typeof window.recalculateLayoutAndObstacles === 'function') window.recalculateLayoutAndObstacles();
+    if (typeof window.showToast === 'function') window.showToast('EDIFICIO ELIMINADO', 'Edificio eliminado del proyecto. CTRL+Z para deshacer.', 'info', 2600);
+    return true;
+  }
+  window.deleteBuilding = deleteBuilding;
+
   // Exportar al namespace global
   window.render3DBuildingsInCesium = render3DBuildingsInCesium;
 
   // Registrar en RA namespace
   if (window.RA) {
-    window.RA.buildings = { render: render3DBuildingsInCesium };
+    window.RA.buildings = { render: render3DBuildingsInCesium, deleteBuilding: deleteBuilding };
   }
 })();

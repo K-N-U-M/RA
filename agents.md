@@ -38,12 +38,16 @@ c:/TRABAJOS/RA/
 │   ├── solar-engine.js              # Algoritmos astronómicos (Spencer, Perez, Hay-Davies)
 │   ├── solar-heatmap.js             # Simulación anual y diagnóstico MLPE
 │   ├── solar-materials.js           # Shaders y materiales PBR fotovoltaicos
-│   ├── electrical-engine.js         # Secciones REBT y caídas de tensión
+│   ├── electrical-engine.js         # Secciones REBT, strings MPPT y reasignación balanceada
+│   ├── undo-manager.js              # Deshacer borrados (obstáculos/edificios/paneles/vértices)
 │   ├── bill-auditor.js              # Auditoría de facturas eléctricas
 │   ├── financials.js                # CAPEX/OPEX, VAN, TIR, flujo de caja
 │   ├── docs-generator.js            # Exportación de memorias y ofertas en PDF
+│   ├── bom-tree.js                  # Árbol de materiales (BOM)
+│   ├── project-hierarchy.js         # Scene graph jerárquico del proyecto
+│   ├── ui-outliner.js               # Outliner de objetos de escena
+│   ├── engineering-explainer.js     # Explicaciones guiadas de ingeniería
 │   ├── config.js                    # Constantes globales y paletas
-│   ├── ra-engine.js                 # Núcleo de cálculo y exportación
 │   └── viewer.js                    # Configuración del visor Cesium
 ├── scratch/                         # Scripts de verificación automatizados
 └── doc/                             # Documentación canónica de arquitectura
@@ -74,7 +78,7 @@ c:/TRABAJOS/RA/
 ### Reglas de Navegación (Guards)
 - **Paso 1 → 2:** Requiere ≥1 faldón cerrado con área > 0.
 - **Paso 2 → 3:** Requiere ≥1 panel generado en el layout.
-- **Paso 3 → 4:** Requiere objetivo definido (factura cargada o kWh target introducido).
+- **Paso 3 → 4:** Requiere ≥1 panel generado (el objetivo factura/kWh es opcional; así está implementado en `canEnterStep`).
 - **Paso 4 → 5:** Requiere inversor seleccionado del catálogo.
 - **Función de navegación:** `wpGoToStep(n)` donde n ∈ {1, 2, 3, 4, 5}.
 
@@ -84,7 +88,7 @@ c:/TRABAJOS/RA/
 
 Para erradicar parpadeos, moiré, shadow acne y z-fighting:
 
-1. **shadowMap:** size=4096, softShadows=true, cascades=4, _fitNearFar=false, normalOffset=true. Bias físico: depthBias = 0.35m / maximumDistance (despegue constante de la sombra en metros, suelo 0.00015; realDist cuantizado a 10m). Ajuste en vivo: wpShadowDiagnostics() / wpSetShadowBiasMeters(m).
+1. **shadowMap:** size=4096, softShadows=true, cascades=4, _fitNearFar=false, normalOffset=true. Bias físico: depthBias = 0.35m / maximumDistance (despegue constante de la sombra en metros, suelo 0.00015; realDist cuantizado a 10m). Ajuste en vivo: wpShadowDiagnostics() / wpSetShadowBiasMeters(m). **Nota:** la configuración estática inicial usa 0.0006 @ 2000 m (≈1,2 m de despegue) hasta el primer `preUpdate` dinámico (rango real 0.00015–0.000875).
 2. **Z-Buffer:** `camera.frustum.near = 0.5` — nunca usar 0.01 o 0.1 en escenas de cubierta.
 3. **polygonOffset en paneles:** `{ enabled: true, factor: -2.0, units: -2.0 }`.
 4. **UV ortogonal 1:1:** Cada panel es una `Cesium.Geometry` cuadrilátera analítica (no `PolygonGeometry`) con UVs `[0,0],[1,0],[1,1],[0,1]`.
@@ -98,7 +102,7 @@ Para erradicar parpadeos, moiré, shadow acne y z-fighting:
 - **`renderUniversalGizmo2D`** es la única fuente de verdad para el objeto seleccionado.
 - Aplica a: obstáculos, árboles, edificios, inversor, cuadro DC, contador, paneles individuales.
 - **Regla de arrastre:** Durante `MOUSE_MOVE`, NUNCA destruir primitivas GPU. Solo actualizar coordenadas matemáticas. La reconstrucción pesada (sombras, cables, layout) se difiere a `LEFT_UP`.
-- **Supresión de etiquetas:** Al seleccionar un objeto, su label 3D Cesium se oculta (`show=false`). Se restaura al deseleccionar.
+- **Supresión de etiquetas (PENDIENTE DE IMPLEMENTAR):** objetivo documentado, pero hoy NO existe en código (`selectObstacle`/`selectPanel`/`selectBuilding` no tocan `label.show`). No asumir que funciona.
 
 ---
 
@@ -109,6 +113,7 @@ Para erradicar parpadeos, moiré, shadow acne y z-fighting:
 - **Energía Neta Real (Single Source of Truth):** Cada panel calcula su producción anual neta `p.annualKwh` integrando radiación $G_{\text{POA}}$, modelo IAM (Fresnel), factor térmico $T_{\text{célula}}$ y raycast 3D de sombras con filtro de despegue $\delta = 0.35\,\text{m}$. La suma de todos los paneles sincroniza directamente con el balance del proyecto (`recalculateSolarYield`).
 - **Inspección 3D por Hover (Zero Clutter):** La escena 3D se mantiene limpia mostrando solo la gradación cromática del mapa de calor. Al pasar el cursor (*hover*) sobre cualquier panel, se activa el tooltip interactivo con: kWh/año, % sombra, inclinación/acimut y diagnóstico MLPE. Incluye toggle opcional `[🔘 Solo Hover / ⚪ Ver Todas]`.
 - **Activación:** En Paso 3 (Análisis Solar), botón `computeAnnualSolarHeatmap()`.
+- **Invalidación (desde 29/09/2026):** `window.wpInvalidateHeatmap(reason)` se invoca al mutar obstáculos/edificios/vértices/drageos; marca `solarSimState.annualHeatmapDirty`, muestra toast y los PDFs advierten análisis obsoleto.
 
 ---
 
@@ -152,14 +157,15 @@ Estado en `window.solarProjectConfig`:
 
 | Tecla | Acción | Contexto |
 | :---: | :--- | :--- |
-| `H` | Toggle HUD/paneles | Global |
 | `T` | Toggle textura PBR paneles | Paso 2 y 3 |
-| `S` | Toggle snapping magnético | CAD |
-| `Escape` | Cancelar herramienta / deseleccionar | Global |
-| `Delete/Supr` | Borrar elemento seleccionado | Gizmo activo |
-| `Ctrl+Click` | Desplazamiento fino en eje N | Tríada CAD |
-| `Shift+Click` | Snapping ortogonal (0/90/180/270°) | Dibujo |
-| `Ctrl+Z` | Deshacer última acción | Historial geométrico |
+| `L` / `H` | Toggle labels 3D de paneles | Global |
+| `Escape` | Cancelar herramienta / deseleccionar / deshacer punto en dibujo | Global |
+| `Delete/Backspace` | Borrar elemento seleccionado — despachador único: vértice de faldón → obstáculo → objetivo del gizmo universal (edificio/equipo/panel) → panel | Selección activa |
+| `Ctrl+Z` | Deshacer último borrado (`window.RAundo`); si no hay borrados, undo geométrico legacy; en dibujo, quita el último punto | Global |
+| `Ctrl+Shift+Z` / `Ctrl+Y` | Rehacer geometría legacy | Modo idle |
+| `Shift` (mantener clic) | Habilita acciones de ratón con Shift (rotación de gizmo con snap 15°) | Gizmo |
+
+> NOTA: `S` NO activa snapping (es retroceso de cámara WASD); el snapping ortogonal del dibujo de edificios es automático e incondicional. `Ctrl+Click` fino en eje N NO está implementado.
 
 ---
 
@@ -170,6 +176,9 @@ Estado en `window.solarProjectConfig`:
 3. **No tocar código sin aprobación:** Exponer diagnóstico, proponer opciones y esperar `"adelante"`.
 4. **Número de pasos = 5, siempre.** Ignorar cualquier referencia a 6 o 7 pasos en código legacy.
 5. **Normativa:** IEC 62548, REBT ITC-BT-40, UNE-EN 62305, CTE DB-SE-AE. No saltarse límites de tensión en frío (-10°C) ni de caída de tensión.
+6. **Congelación del bloque inline (REGLA DURA, 29/09/2026):** ningún código nuevo en el bloque `<script>` inline de `index.html` (desde ~línea 2230). Toda función nueva va en un módulo `js/*.js` con su `<script>` tag y export a `window`/`RA`. El inline existente solo se toca para corregir bugs o insertar llamadas de una línea a APIs de módulos.
+7. **SSOT de producción:** la producción anual canónica es `getProjectCalcs().annualKWh` (definición canónica en index.html; docs-generator, financials y bill-auditor la consumen por delegación). Ningún documento recalcula producción por su cuenta; `kwp × 1450` es únicamente fallback sin diseño. La asignación de strings a canales MPPT se rebalancea con `RA.Electrical.rebalanceMPPTAssignment` (faldón junto si cabe, reparto si no).
+8. **Invalidación del heatmap:** al mutar geometría (obstáculos, edificios, vértices, drags) se llama `window.wpInvalidateHeatmap(reason)` → `solarSimState.annualHeatmapDirty`. El Paso 3 y los generadores de PDF advierten si el análisis está obsoleto. No reintroducir cálculos sobre heatmap inválido.
 
 ---
 

@@ -216,7 +216,7 @@
       const d = getProjectCalcs();
       if (d && d.numPanels > 0) {
         kwp = (d.numPanels * (d.cfg.potencia || 450)) / 1000.0;
-        annualYieldKWh = d.annualYieldKWh || (kwp * 1450);
+        annualYieldKWh = d.annualKWh || (kwp * 1450); // [P0] getProjectCalcs canónico devuelve annualKWh (antes annualYieldKWh → SIEMPRE caía a kwp×1450)
       }
     }
     const batEl = document.getElementById('cfg-pres-bat-opt');
@@ -228,7 +228,20 @@
     const gastoAnualActualEUR = bill.totalFacturaEUR > 0 ? (bill.totalFacturaEUR * factorAnual) : (consumoAnualKWh * 0.22);
     const gastoMensualActualEUR = gastoAnualActualEUR / 12.0;
 
-    const baseAutarquia = batCap > 0 ? (batCap >= 10 ? 0.82 : 0.72) : 0.50;
+    // [P0] Autarquía: modelo de despacho horario de financials.js cuando esté disponible;
+    // fallback: límite físico producción/consumo. Nunca más constantes fijas por batería
+    // (0.50/0.72/0.82 contradecían al modelo TOU del mismo PDF comercial).
+    let baseAutarquia = Math.min(0.95, annualYieldKWh / Math.max(consumoAnualKWh, 1));
+    if (typeof calculateFinancialModel === 'function') {
+      try {
+        const fin = calculateFinancialModel();
+        if (fin && Number.isFinite(fin.autarquiaPct) && fin.autarquiaPct > 0) {
+          baseAutarquia = Math.max(0.05, Math.min(0.95, fin.autarquiaPct / 100));
+        }
+      } catch (errFin) {
+        if (window.RA && window.RA.log) window.RA.log.warn('Autarquía dinámica no disponible; usando límite físico', errFin);
+      }
+    }
     const autarquiaReal = Math.min(baseAutarquia, annualYieldKWh / Math.max(consumoAnualKWh, 1));
     const autoconsumoAnualKWh = consumoAnualKWh * autarquiaReal;
     const excedenteAnualKWh = Math.max(annualYieldKWh - autoconsumoAnualKWh, 0);

@@ -228,6 +228,11 @@
       const previousStep = this._currentStep;
       this.emit('before_step_change', { from: previousStep, to: step });
 
+      // [P0] Aviso al entrar en Paso 3 si el mapa de calor quedó invalidado por cambios de geometría
+      if (step === 3 && global.solarSimState && global.solarSimState.annualHeatmapDirty && typeof global.showToast === 'function') {
+        global.showToast('ANÁLISIS SOLAR OBCOLETO', 'La geometría, los obstáculos o el módulo han cambiado desde el último cálculo. Recalcula el mapa de calor para actualizar pérdidas y producción.', 'warning', 5000);
+      }
+
       this._currentStep = step;
 
       // Actualizar estado del Stepper HUD

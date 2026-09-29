@@ -27,6 +27,11 @@ function generatePropuestaComercialPDF() {
   }
   const m = calculateFinancialModel();
 
+  // [P0] Avisar si la geometría cambió tras el último mapa de calor válido
+  if (typeof window !== 'undefined' && window.solarSimState && window.solarSimState.annualHeatmapDirty && typeof showToast === 'function') {
+    showToast('ANÁLISIS SOLAR OBCOLETO', 'La geometría o los obstáculos han cambiado desde el último cálculo. El PDF usa la producción del último mapa de calor válido: recalcula en el Paso 3 para cifras definitivas.', 'warning', 5500);
+  }
+
   // ── Leer branding corporativo ─────────────────────────────────────────────
   let branding = {};
   try {
@@ -357,6 +362,7 @@ function generatePropuestaComercialPDF() {
         <tr style="background:${pal.light};font-weight:800;"><td>TOTAL AYUDAS</td><td>Ahorro fiscal total directo estimado</td><td class="text-right" style="color:${pal.primary}">- ${Math.round(m.totalAhorroFiscal).toLocaleString('es-ES')} €</td></tr>
         <tr class="total-row"><td>INVERSIÓN NETA</td><td>COSTE FINAL REAL TRAS BONIFICACIONES</td><td class="text-right" style="color:${pal.dark}">${Math.round(m.capexNeto).toLocaleString('es-ES')} €</td></tr>
       </table>
+      <p style="font-size:8.5px;color:#64748b;margin:4px 0 10px 0;">Nota: bonificaciones y deducciones fiscales son estimaciones comerciales sujetas a vigencia normativa y ordenanzas municipales (la deducción estatal IRPF del 20%/40% expiró el 31/12/2024). Verificar con asesoría fiscal antes de incluirlas en contrato.</p>
 
       <h2>6. Financiación solar 100% (balance positivo desde el mes 1)</h2>
       <div class="hero-grid">
@@ -486,7 +492,7 @@ function generatePropuestaComercialPDF() {
   const d = getProjectCalcs();
   const numPanels = d.numPanels || 1;
   const kwp = (numPanels * (d.cfg.potencia || 450)) / 1000.0;
-  const annualYieldKWh = d.annualYieldKWh || (kwp * 1450);
+  const annualYieldKWh = d.annualKWh || (kwp * 1450); // [P0] getProjectCalcs canónico devuelve annualKWh
 
   const panCost = numPanels * (d.cfg.precio || 135);
   const est = parseFloat((document.getElementById('cfg-pres-est') || {value:'450'}).value) || 0;
@@ -517,7 +523,11 @@ function generatePropuestaComercialPDF() {
   else if (ibiOpt === '0.50_3') ahorroIBITotal = ibiCuota * 0.50 * 3;
   else if (ibiOpt === '0.50_5') ahorroIBITotal = ibiCuota * 0.50 * 5;
 
-  const irpfPct = parseFloat((document.getElementById('tax-irpf-opt') || {value:'0.20'}).value) || 0;
+  // [P0] El elemento 'tax-irpf-opt' no existe en el DOM: leer el select del modal como fuente real.
+  // Default comercial 0: la deducción estatal IRPF expiró el 31/12/2024 — activarla es decisión
+  // explícita del comercial (herramienta comercial, nunca default engañoso).
+  const irpfEl = document.getElementById('tax-irpf-opt') || document.getElementById('modal-tax-irpf-opt');
+  const irpfPct = parseFloat((irpfEl || {value:'0'}).value) || 0;
   const baseIrpf = Math.min(capexBruto, 7500);
   const ahorroIRPF = baseIrpf * irpfPct;
 
@@ -548,8 +558,12 @@ function generatePropuestaComercialPDF() {
   // Curva de consumo doméstico normalizada (kWh por kWh diario consumido)
   const LOAD_PROFILE = [0.030,0.025,0.022,0.020,0.020,0.028,0.040,0.050,0.045,0.035,0.032,0.035,0.038,0.032,0.030,0.038,0.050,0.065,0.070,0.062,0.052,0.048,0.042,0.036];
 
-  // Consumo anual supuesto de vivienda (kWh)
-  const consumoAnual = Math.max(annualYieldKWh * 0.75, 3500);
+  // [P0] Consumo anual: factura auditada del cliente (bill-auditor) cuando exista;
+  // la heurística producción×0.75 queda solo como fallback sin factura.
+  const billComp = (typeof window !== 'undefined' && window.RA && window.RA.billAuditor && window.RA.billAuditor.comparison) ? window.RA.billAuditor.comparison : null;
+  const consumoAnual = (billComp && Number.isFinite(billComp.consumoAnualKWh) && billComp.consumoAnualKWh > 0)
+    ? billComp.consumoAnualKWh
+    : Math.max(annualYieldKWh * 0.75, 3500);
 
   // Despacho horario: simulación de 1 día representativo, escalado a 365
   const dailySolar = annualYieldKWh / 365.0;

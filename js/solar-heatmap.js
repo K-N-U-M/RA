@@ -5,7 +5,7 @@
  *
  * Características del motor:
  *   1. 192 instantes anuales (12 meses × 16 horas, de 6:00 a 21:00)
- *   2. Corte de horizonte astronómico (elevación solar > 10º)
+ *   2. Corte de horizonte astronómico (elevación solar ≥ 3º)
  *   3. Ley del Coseno (ángulo de incidencia real S · N) y derating térmico estacional
  *   4. Modelo de Transposición: Radiación Directa + Difusa Isotrópica (20%) + Albedo Trasero (Bifacial)
  *   5. Time-Slicing asíncrono con presupuesto de 15ms por frame
@@ -777,6 +777,7 @@
     if (!window.solarSimState) window.solarSimState = {};
     solarSimState.viewMode = 'heatmap';
     solarSimState.annualHeatmapData = true;
+    solarSimState.annualHeatmapDirty = false;
 
     if (typeof wpFastRenderSimulatedPanels === 'function') {
       await wpFastRenderSimulatedPanels(true);
@@ -792,16 +793,24 @@
   // ── 5. EXPORTACIÓN CANÓNICA ───────────────────────────────────────────────
   window.wpUpdatePanelShadingAndMLPE = wpUpdatePanelShadingAndMLPE;
   window.wpEvaluateMLPENecessity = wpEvaluateMLPENecessity;
-  window.wpInvalidateHeatmap = function() {
+  let _lastInvalToastTs = 0;
+  window.wpInvalidateHeatmap = function(reason) {
+    const hadResults = !!(window.solarSimState && (window.solarSimState.annualHeatmapData || window.solarSimState.viewMode === 'heatmap'));
     if (window.solarSimState) {
       window.solarSimState.annualHeatmapData = null;
       window.solarSimState.annualHeatmapDirty = true;
+      window.solarSimState.annualHeatmapInvalidatedAt = Date.now();
     }
     const p2LossBadge = document.getElementById('p2-shading-loss-badge');
     if (p2LossBadge) {
-      p2LossBadge.textContent = 'SOMBRAS INVALIDADAS';
+      p2LossBadge.textContent = '⚠ ANÁLISIS OBCOLETO';
       p2LossBadge.style.background = 'rgba(245,158,11,0.2)';
       p2LossBadge.style.color = '#F59E0B';
+    }
+    // Avisar (con throttle) solo si había un heatmap calculado que el usuario pueda creerse vigente
+    if (hadResults && typeof window.showToast === 'function' && (Date.now() - _lastInvalToastTs) > 6000) {
+      _lastInvalToastTs = Date.now();
+      window.showToast('ANÁLISIS SOLAR OBCOLETO', (reason ? reason + '. ' : '') + 'Recalcula el mapa de calor en el Paso 3 para actualizar pérdidas y producción.', 'warning', 4500);
     }
   };
 

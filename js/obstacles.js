@@ -1174,16 +1174,21 @@ function updateSelectedObstacleProps() {
 function deleteSelectedObstacle() {
   if (!selectedObstacleId) return;
   const name = (obstacles.find(o => o.id === selectedObstacleId) || {}).name || 'OBSTÁCULO';
+  if (global.RAundo) global.RAundo.snapObstacles();
   obstacles = obstacles.filter(o => o.id !== selectedObstacleId);
   global.obstacles = obstacles;
   if (typeof window !== 'undefined') window.obstacles = obstacles;
-  selectedObstacleId = obstacles.length > 0 ? obstacles[0].id : null;
-  selectObstacle(selectedObstacleId);
+  // [P0] Sin auto-selección del siguiente obstáculo: con Supr repetido se borraba
+  // toda la lista en cascada sin re-selección explícita del usuario.
+  selectedObstacleId = null;
+  global.selectedObstacleId = null;
+  if (typeof window !== 'undefined') window.selectedObstacleId = null;
+  if (typeof render3DObstaclesInCesium === 'function') render3DObstaclesInCesium();
   recalculateLayoutAndObstacles();
   if (typeof ProjectHierarchy !== 'undefined' && ProjectHierarchy && typeof ProjectHierarchy.notify === 'function') {
     ProjectHierarchy.notify('obstacle_deleted');
   }
-  showStatus('🗑 ' + name.toUpperCase() + ' ELIMINADO', 2000);
+  showStatus('🗑 ' + name.toUpperCase() + ' ELIMINADO · CTRL+Z PARA DESHACER', 2600);
 }
 
 function startObstaclePlacement(type) {
@@ -1417,6 +1422,9 @@ function recalculateLayoutAndObstacles() {
   }
 
   render3DObstaclesInCesium();
+
+  // [P0] La geometría cambió (obstáculo añadido/movido/editado): invalidar el heatmap anual
+  if (typeof global.wpInvalidateHeatmap === 'function') global.wpInvalidateHeatmap('Obstáculos o trazado modificados');
 
   // 🚀 INVALIDACIÓN DE CACHÉ DE PANELES (Garantiza re-filtrado de colisiones 2D/3D con obstáculos)
   if (typeof roofPanelsCache !== 'undefined' && roofPanelsCache) {
