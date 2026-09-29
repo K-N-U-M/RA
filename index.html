@@ -2655,52 +2655,30 @@ addEventListener('keydown', function(e) {
 function wpAutoSaveProject() {
   try {
     if (typeof WP === 'undefined') return;
-    const projectState = {
-      timestamp: Date.now(),
-      planes: WP.planes ? WP.planes.map(p => ({
-        origin: { x: p.origin.x, y: p.origin.y, z: p.origin.z },
-        uVec: { x: p.uVec.x, y: p.uVec.y, z: p.uVec.z },
-        vVec: { x: p.vVec.x, y: p.vVec.y, z: p.vVec.z },
-        normal: { x: p.normal.x, y: p.normal.y, z: p.normal.z },
-        name: p.name
-      })) : [],
-      polylines: WP.polylines ? WP.polylines.map(poly => ({
-        name: poly.name,
-        planeIdx: (typeof poly.planeIdx === 'number') ? poly.planeIdx : null,
-        area: poly.area || 0,
-        modTilt: poly.modTilt,
-        modAzimuth: poly.modAzimuth,
-        orientationPref: poly.orientationPref,
-        estructura: poly.estructura || null,
-        points: poly.points ? poly.points.map(pt => ({ x: pt.x, y: pt.y, z: pt.z })) : []
-      })) : [],
-      obstacles: (typeof obstacles !== 'undefined' && Array.isArray(obstacles)) ? obstacles : [],
-      panelConfig: (typeof panelConfig !== 'undefined') ? panelConfig : null,
-      equipment: (function() {
-        try {
-          const s = window.inverterEquipmentState;
-          const ser = p => p ? { x: p.x, y: p.y, z: p.z } : null;
-          return {
-            inverter: (s && s.position) ? ser(s.position) : null,
-            gridMeter: (s && s.gridMeter && s.gridMeter.position) ? ser(s.gridMeter.position) : null,
-            combinerBox: (s && s.combinerBox && s.combinerBox.position) ? ser(s.combinerBox.position) : null
-          };
-        } catch (e) { return null; }
-      })()
-    };
+    // [AUDIT-SAVE] FORMATO ÚNICO: el autosave usa exactamente el mismo esquema que el
+    // .raproject (raExportProjectData). El formato antiguo (planos sin p1/p2/p3/pts3D,
+    // sin edificios, sin deletedPanels, sin roofInfo) producía restauraciones cojas:
+    // planos sin gizmo ni métricas y faldones huérfanos.
+    if (typeof raExportProjectData !== 'function') return;
+    const projectState = raExportProjectData();
+    projectState.timestamp = Date.now();
 
     // Guardia anti-vaciado: al arrancar, código temprano llama wpUpdateUI con el estado
     // aún vacío y el debounce sobrescribía la sesión guardada con 0 faldones (el usuario
     // perdía el proyecto sin avisar). Nunca guardar vacío si existe autosave con contenido.
-    const tieneContenido = (projectState.planes && projectState.planes.length > 0) ||
+    const tieneContenido = (projectState.workPlanes && projectState.workPlanes.planes && projectState.workPlanes.planes.length > 0) ||
       (projectState.polylines && projectState.polylines.length > 0) ||
-      (projectState.obstacles && projectState.obstacles.length > 0);
+      (projectState.obstacles && projectState.obstacles.length > 0) ||
+      (projectState.buildings && projectState.buildings.length > 0);
     if (!tieneContenido) {
       const prev = localStorage.getItem('ra_solar_project_autosave');
       if (prev) {
         try {
           const p = JSON.parse(prev);
-          if ((p.planes && p.planes.length) || (p.polylines && p.polylines.length) || (p.obstacles && p.obstacles.length)) {
+          if ((p.workPlanes && p.workPlanes.planes && p.workPlanes.planes.length) ||
+              (p.planes && p.planes.length) ||
+              (p.polylines && p.polylines.length) ||
+              (p.obstacles && p.obstacles.length)) {
             window.RA && window.RA.log && window.RA.log.warn('[autosave] Estado vacío: se conserva la sesión previa');
             return;
           }
@@ -2708,7 +2686,7 @@ function wpAutoSaveProject() {
       }
     }
     localStorage.setItem('ra_solar_project_autosave', JSON.stringify(projectState));
-  } catch(err) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', err); }
+  } catch(err) { window.RA && window.RA.log && window.RA.log.warn('[autosave]', err); }
 }
 
 // Autoguardado con debounce: se invoca desde wpUpdateUI (que corre tras cada mutación
@@ -2733,6 +2711,14 @@ function wpRestoreAutosave() {
     if (!saved) return;
 
     if (typeof WP === 'undefined') return;
+
+    // [AUDIT-SAVE] Formato nuevo (esquema .raproject unificado): delegar en el importador
+    // canónico — misma ruta de restauración que abrir un archivo, sin divergencias.
+    if (saved.format === 'RA_SOLAR_PROJECT' && typeof raImportProjectData === 'function') {
+      raImportProjectData(saved);
+      return;
+    }
+    // ── Formato legacy (autosaves anteriores a 29/09/2026): ruta antigua conservada ──
     WP.planes = (saved.planes || []).map(p => ({
       origin: new Cesium.Cartesian3(p.origin.x, p.origin.y, p.origin.z),
       uVec: new Cesium.Cartesian3(p.uVec.x, p.uVec.y, p.uVec.z),
@@ -15939,6 +15925,28 @@ window.toggleSolarHUD = toggleSolarHUD;
 let _raCurrentFileHandle = null;
 let _raCurrentProjectName = 'Proyecto_Solar';
 
+// [AUDIT-SAVE] Sanitizador: elimina referencias GPU/DOM (entity, primitivas, props _*)
+// del estado serializado. Antes JSON.stringify(obstacles) arrastraba el grafo completo
+// del Entity de Cesium (archivos enormes y riesgo de excepción por referencias circulares).
+function _raSanitizeForExport(obj, depth) {
+  if (depth > 10) return null;
+  if (Array.isArray(obj)) return obj.map(v => _raSanitizeForExport(v, depth + 1));
+  if (obj && typeof obj === 'object') {
+    if (obj instanceof Cesium.Cartesian3) return { x: obj.x, y: obj.y, z: obj.z };
+    if (obj instanceof Date) return obj.toISOString();
+    const out = {};
+    for (const k in obj) {
+      if (!Object.prototype.hasOwnProperty.call(obj, k)) continue;
+      if (k === 'entity' || k === 'entities' || k === 'primitive' || k === 'primitives' || k.charAt(0) === '_') continue;
+      const v = obj[k];
+      if (typeof v === 'function') continue;
+      out[k] = _raSanitizeForExport(v, depth + 1);
+    }
+    return out;
+  }
+  return obj;
+}
+
 // 1. Serializar el estado vivo del proyecto
 function raExportProjectData() {
   const currentAddress = (document.getElementById('nav-info-address') ? document.getElementById('nav-info-address').textContent : '') ||
@@ -15960,9 +15968,12 @@ function raExportProjectData() {
 
   const serializedPlanes = (typeof WP !== 'undefined' && WP && Array.isArray(WP.planes))
     ? WP.planes.map(p => ({
+        id: p.id,
+        name: p.name,
         p1: p.p1 ? { x: p.p1.x, y: p.p1.y, z: p.p1.z } : null,
         p2: p.p2 ? { x: p.p2.x, y: p.p2.y, z: p.p2.z } : null,
         p3: p.p3 ? { x: p.p3.x, y: p.p3.y, z: p.p3.z } : null,
+        pts3D: Array.isArray(p.pts3D) ? p.pts3D.map(pt => ({ x: pt.x, y: pt.y, z: pt.z })) : null,
         origin: p.origin ? { x: p.origin.x, y: p.origin.y, z: p.origin.z } : null,
         normal: p.normal ? { x: p.normal.x, y: p.normal.y, z: p.normal.z } : null,
         uVec: p.uVec ? { x: p.uVec.x, y: p.uVec.y, z: p.uVec.z } : null,
@@ -15996,6 +16007,11 @@ function raExportProjectData() {
             tiltDeg: p.tiltDeg,
             azimuthDeg: p.azimuthDeg,
             stringId: p.stringId,
+            isManual: !!p.isManual,
+            rot: p.rot || 0,
+            panelId: p.panelId,
+            hasMLPE: !!p.hasMLPE,
+            isShaded: !!p.isShaded,
             center: p.center ? { x: p.center.x, y: p.center.y, z: p.center.z } : null,
             corners: Array.isArray(p.corners) ? p.corners.map(c => ({ x: c.x, y: c.y, z: c.z })) : []
           })) : []
@@ -16004,12 +16020,52 @@ function raExportProjectData() {
     : [];
 
   const totalPanels = (typeof simulatedPanelEntities !== 'undefined' && simulatedPanelEntities) ? simulatedPanelEntities.length : 0;
-  const modPower = (typeof panelConfig !== 'undefined' && panelConfig && panelConfig.power) ? panelConfig.power : 450;
+
+  // [AUDIT-SAVE] CRÍTICO: el flujo legacy (P1/P2/P3 + trazar + confirmar) genera paneles
+  // SIN crear entradas en WP.polylines — el .raproject guardaba 0 faldones y al cargar el
+  // proyecto no había nada que regenerar ("los elementos no responden"). Si el diseño vivo
+  // es legacy (polygonPoints + lastRoofInfo), sintetizar la polilínea equivalente.
+  if (serializedPolylines.length === 0 && typeof polygonPoints !== 'undefined' &&
+      Array.isArray(polygonPoints) && polygonPoints.length >= 3 &&
+      ((typeof lastRoofInfo !== 'undefined' && lastRoofInfo && Array.isArray(lastRoofInfo.panels) && lastRoofInfo.panels.length > 0) || totalPanels > 0)) {
+    const _lr = (typeof lastRoofInfo !== 'undefined') ? lastRoofInfo : null;
+    serializedPolylines.push({
+      name: 'Faldón #1',
+      planeIdx: (typeof WP !== 'undefined' && WP && typeof WP.activePlaneIdx === 'number' && WP.activePlaneIdx >= 0) ? WP.activePlaneIdx : 0,
+      points: polygonPoints.map(pt => ({ x: pt.x, y: pt.y, z: pt.z })),
+      color: '#38bdf8',
+      orientationPref: (typeof panelConfig !== 'undefined' && panelConfig && panelConfig.orientationPref) || 'portrait',
+      modTilt: (_lr && typeof _lr.modTilt === 'string') ? _lr.modTilt : 'auto',
+      modAzimuth: (_lr && typeof _lr.modAzimuth === 'string') ? _lr.modAzimuth : 'auto',
+      deletedPanels: [],
+      roofInfo: (_lr && Array.isArray(_lr.panels)) ? {
+        area: _lr.area,
+        tilt: _lr.tilt,
+        azimuth: _lr.azimuth,
+        panels: _lr.panels.map(p => ({
+          u: p.u, v: p.v, w: p.w, h: p.h,
+          orientation: p.orientation,
+          tiltDeg: p.tiltDeg,
+          azimuthDeg: p.azimuthDeg,
+          isManual: !!p.isManual,
+          rot: p.rot || 0,
+          panelId: p.panelId,
+          hasMLPE: !!p.hasMLPE,
+          isShaded: !!p.isShaded,
+          center: p.center ? { x: p.center.x, y: p.center.y, z: p.center.z } : null,
+          corners: Array.isArray(p.corners) ? p.corners.map(c => ({ x: c.x, y: c.y, z: c.z })) : []
+        }))
+      } : null
+    });
+  }
+  // [AUDIT-SAVE] panelConfig.power no existe (el campo real es potencia) — el totalKwp
+  // de los metadatos caía siempre al fallback 450 W.
+  const modPower = (typeof panelConfig !== 'undefined' && panelConfig && panelConfig.potencia) ? panelConfig.potencia : 450;
   const totalKwp = (totalPanels * modPower / 1000).toFixed(2);
 
   return {
     format: 'RA_SOLAR_PROJECT',
-    version: '2.0',
+    version: '2.1',
     timestamp: new Date().toISOString(),
     metadata: {
       name: _raCurrentProjectName || 'Instalación Solar',
@@ -16023,9 +16079,24 @@ function raExportProjectData() {
       activePlaneIdx: (typeof WP !== 'undefined' && WP) ? WP.activePlaneIdx : 0
     },
     polylines: serializedPolylines,
-    obstacles: (typeof obstacles !== 'undefined' && Array.isArray(obstacles)) ? JSON.parse(JSON.stringify(obstacles)) : [],
-    buildings: (typeof buildings !== 'undefined' && Array.isArray(buildings)) ? JSON.parse(JSON.stringify(buildings)) : [],
-    panelConfig: (typeof panelConfig !== 'undefined' && panelConfig) ? JSON.parse(JSON.stringify(panelConfig)) : null,
+    obstacles: (typeof obstacles !== 'undefined' && Array.isArray(obstacles)) ? _raSanitizeForExport(obstacles, 0) : [],
+    buildings: (typeof buildings !== 'undefined' && Array.isArray(buildings)) ? _raSanitizeForExport(buildings, 0) : [],
+    panelConfig: (typeof panelConfig !== 'undefined' && panelConfig) ? _raSanitizeForExport(panelConfig, 0) : null,
+    // [AUDIT-SAVE] Selecciones de catálogo y auto-dimensionado: sin esto, tras cargar un
+    // proyecto se perdía el inversor/módulo/batería elegidos → Paso 5 bloqueado por el
+    // guard y motor de strings sin límites reales.
+    projectConfig: (typeof window !== 'undefined' && window.solarProjectConfig) ? {
+      selectedModuleId: window.solarProjectConfig.selectedModuleId || null,
+      selectedInverterId: window.solarProjectConfig.selectedInverterId || null,
+      selectedMicroinverterId: window.solarProjectConfig.selectedMicroinverterId || null,
+      selectedBatteryId: window.solarProjectConfig.selectedBatteryId || null,
+      selectedTopology: window.solarProjectConfig.selectedTopology || null,
+      selectedObjective: window.solarProjectConfig.selectedObjective || null,
+      targetKwp: window.solarProjectConfig.targetKwp || null,
+      autoSizing: window.solarProjectConfig.autoSizing || null,
+      calculatedLimits: window.solarProjectConfig.calculatedLimits || null,
+      inverterCapacityWarning: window.solarProjectConfig.inverterCapacityWarning || null
+    } : null,
     solarSimState: (typeof solarSimState !== 'undefined' && solarSimState) ? {
       monthIdx: solarSimState.monthIdx,
       hour: solarSimState.hour,
@@ -16193,14 +16264,37 @@ function raImportProjectData(projectData) {
       WP.selectedPolyIdx = WP.polylines.length > 0 ? 0 : -1;
     }
 
-    // 5. Restaurar Obstáculos
+    // 5. Restaurar Obstáculos — [AUDIT-SAVE] IN-PLACE: reasignar `obstacles = ...` rompía
+    // el alias del módulo (obstacles.js capturó global.obstacles al cargar) → los obstáculos
+    // cargados no respondían a selección/borrado/picking. Mutar el array compartido.
     if (Array.isArray(projectData.obstacles)) {
-      obstacles = JSON.parse(JSON.stringify(projectData.obstacles));
+      const _obsClean = JSON.parse(JSON.stringify(projectData.obstacles, (k, v) => (k === 'entity' || (k && k.charAt && k.charAt(0) === '_')) ? undefined : v));
+      const _arrObs = (typeof window !== 'undefined' && Array.isArray(window.obstacles)) ? window.obstacles : obstacles;
+      if (Array.isArray(_arrObs)) {
+        _arrObs.length = 0;
+        _obsClean.forEach(o => { if (o) _arrObs.push(o); });
+        obstacles = _arrObs;
+        if (typeof window !== 'undefined') window.obstacles = _arrObs;
+      } else {
+        obstacles = _obsClean;
+        if (typeof window !== 'undefined') window.obstacles = _obsClean;
+      }
+      window.selectedObstacleId = null;
     }
 
-    // 5.b Restaurar Edificios 3D
+    // 5.b Restaurar Edificios 3D — mismo criterio in-place (alias window.buildings)
     if (Array.isArray(projectData.buildings)) {
-      buildings = JSON.parse(JSON.stringify(projectData.buildings));
+      const _bldClean = JSON.parse(JSON.stringify(projectData.buildings, (k, v) => (k === 'entity' || (k && k.charAt && k.charAt(0) === '_')) ? undefined : v));
+      const _arrBld = (typeof window !== 'undefined' && Array.isArray(window.buildings)) ? window.buildings : buildings;
+      if (Array.isArray(_arrBld)) {
+        _arrBld.length = 0;
+        _bldClean.forEach(b => { if (b) _arrBld.push(b); });
+        buildings = _arrBld;
+        if (typeof window !== 'undefined') window.buildings = _arrBld;
+      } else {
+        buildings = _bldClean;
+        if (typeof window !== 'undefined') window.buildings = _bldClean;
+      }
     }
 
     // 6. Restaurar Configuración de Paneles
@@ -16212,15 +16306,26 @@ function raImportProjectData(projectData) {
       _raCurrentProjectName = projectData.metadata.name;
     }
 
+    // [AUDIT-SAVE] Las selecciones de catálogo se restauran al FINAL del import
+    // (ver bloque tras el Gemelo Digital): restaurarlas antes era inútil porque el
+    // pipeline de re-render y el auto-dimensionado las sobrescribían con defaults.
+
     // 7. Re-renderizar Todo y sincronizar con Stepper (Paso 2: Generador)
+    // [AUDIT-SAVE] wpRenderPolylines NO EXISTE (typeof lo saltaba en silencio y los faldones
+    // cargados quedaban sin dibujar) → wpRenderAllPolylines + gizmo del plano + métricas.
     if (typeof isPolygonDesignConfirmed !== 'undefined') isPolygonDesignConfirmed = true;
     if (typeof wpCurrentStep !== 'undefined') wpCurrentStep = 2;
-    if (typeof wpRenderPolylines === 'function') wpRenderPolylines();
+    if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
+    if (typeof wpRenderActivePlaneGizmo === 'function') wpRenderActivePlaneGizmo();
     if (typeof render3DObstaclesInCesium === 'function') render3DObstaclesInCesium();
+    if (typeof render3DBuildingsInCesium === 'function') render3DBuildingsInCesium();
     if (typeof wpFastRenderSimulatedPanels === 'function') wpFastRenderSimulatedPanels();
     if (typeof recalculateSolarYield === 'function') recalculateSolarYield();
+    if (typeof wpUpdateUI === 'function') wpUpdateUI();
     if (typeof wpUpdateAllMetrics === 'function') wpUpdateAllMetrics();
     if (typeof updateBudgetUI === 'function') updateBudgetUI();
+    // [AUDIT-SAVE] El heatmap no se serializa: marcarlo obsoleto para que Paso 3 y PDFs avisen
+    if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Proyecto cargado: recalcular análisis solar');
     if (typeof wpGoToStep === 'function') {
       try { wpGoToStep(2); } catch (eStep) { window.RA && window.RA.log && window.RA.log.debug('Paso 2 activado tras importación:', eStep); }
     }
@@ -16263,6 +16368,17 @@ function raImportProjectData(projectData) {
       if (typeof populateStep3EquipmentSelectors === 'function') {
         populateStep3EquipmentSelectors();
       }
+    }
+
+    // [AUDIT-SAVE] Restaurar selecciones de catálogo / auto-dimensionado / límites AL FINAL:
+    // el pipeline anterior (generación de layout, auto-sizing de equipo, populate de
+    // selectores) sobrescribía selectedInverterId/selectedModuleId con defaults del
+    // catálogo si se restauraban antes → el proyecto cargado "no respondía" con el
+    // equipo que el usuario había elegido.
+    if (projectData.projectConfig && typeof window !== 'undefined') {
+      if (!window.solarProjectConfig) window.solarProjectConfig = {};
+      Object.assign(window.solarProjectConfig, projectData.projectConfig);
+      if (typeof window.populateStep3EquipmentSelectors === 'function') window.populateStep3EquipmentSelectors();
     }
 
     raSaveToRecentProjects(projectData);
