@@ -9071,7 +9071,12 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
       if (!universalGizmoState.active && typeof wpCalculateAndRenderInverterCables === 'function') wpCalculateAndRenderInverterCables();
       if (typeof wpUpdateSolarMetricsUI === 'function') wpUpdateSolarMetricsUI();
     } else if (target.type === 'obstacle' && target.rawObj) {
-      target.rawObj.rot = Math.round(normRot);
+      // [ROT-3D] Aplicar el giro al eje del anillo arrastrado (u/v/z). El motor de matrices
+      // ya soportaba rotU/rotV (computeObstacleRotationMatrix) pero nadie los escribía.
+      const _rotMode = universalGizmoState.mode;
+      if (_rotMode === 'rotate-u') target.rawObj.rotU = Math.round(normRot);
+      else if (_rotMode === 'rotate-v') target.rawObj.rotV = Math.round(normRot);
+      else target.rawObj.rot = Math.round(normRot);
       const fnUpdateRot = (typeof updateObstacleLiveModelMatrix === 'function')
         ? updateObstacleLiveModelMatrix
         : (typeof window !== 'undefined' && typeof window.updateObstacleLiveModelMatrix === 'function' ? window.updateObstacleLiveModelMatrix : null);
@@ -14811,7 +14816,15 @@ window.toggleSolarHUD = toggleSolarHUD;
         universalGizmoState.targetType = uTarget.type;
         universalGizmoState.startMouse = { x: down.position.x, y: down.position.y };
         universalGizmoState.startPos = Cesium.Cartesian3.clone(uTarget.pos);
-        universalGizmoState.startRot = uTarget.rot || 0;
+        // [ROT-3D] Capturar el valor del EJE cuyo anillo se agarra (antes siempre el yaw
+        // `rot` → arrastrar cualquier anillo U/V/Z giraba sobre el mismo eje).
+        let _startRotVal = uTarget.rot || 0;
+        if (uTarget.type === 'obstacle' && uTarget.rawObj) {
+          if (hitUGizmo === 'rotate-u') _startRotVal = uTarget.rawObj.rotU || 0;
+          else if (hitUGizmo === 'rotate-v') _startRotVal = uTarget.rawObj.rotV || 0;
+          else _startRotVal = uTarget.rawObj.rot || 0;
+        }
+        universalGizmoState.startRot = _startRotVal;
         if (uTarget.type === 'panel' && uTarget.rawObj && uTarget.rawObj.corners) {
           universalGizmoState.startCorners = uTarget.rawObj.corners.map(c => Cesium.Cartesian3.clone(c));
           if (activePanelDragEntity && viewer) {
