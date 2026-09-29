@@ -32,7 +32,7 @@
   <script src="js/viewer.js?v=20260929b"></script>
   <script src="js/solar-engine.js?v=20260929b"></script>
   <script src="js/obstacles.js?v=20260929b"></script>
-  <script src="js/solar-materials.js?v=20260929b"></script>
+  <script src="js/solar-materials.js?v=20260930a"></script>
   <script src="js/electrical-engine.js?v=20260929b"></script>
   <script src="js/undo-manager.js?v=20260929b"></script>
   <script src="js/geometry-validate.js?v=20260929b"></script>
@@ -6084,9 +6084,11 @@ function startSolarPanelsSimulation() {
           id: "pv_panel_" + polyIdx + "_" + pIdx + "_" + Math.random().toString(36).substring(2, 7),
           polygon: {
             hierarchy: dynamicHierarchy,
-            material: (typeof solarPanelTextureUrl !== 'undefined' && solarPanelTextureUrl) 
-              ? new Cesium.ImageMaterialProperty({ image: solarPanelTextureUrl, transparent: false }) 
-              : new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#0a1931')),
+            material: (typeof window.solarPanelTextureCanvas !== 'undefined' && window.solarPanelTextureCanvas)
+              ? new Cesium.ImageMaterialProperty({ image: window.solarPanelTextureCanvas, transparent: false })
+              : ((typeof solarPanelTextureUrl !== 'undefined' && solarPanelTextureUrl)
+                ? new Cesium.ImageMaterialProperty({ image: solarPanelTextureUrl, transparent: false })
+                : new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#0a1931'))),
             perPositionHeight: true
           }
         });
@@ -13808,8 +13810,14 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
           })
         : undefined;
 
+      // [FIX-TEXTURA] Pasar el CANVAS (textura síncrona) en vez del data-URI: la carga
+      // asíncrona del data-URI permitía dibujar con textura undefined → crash "_target".
+      const texSource = (typeof window.solarPanelTextureCanvas !== 'undefined' && window.solarPanelTextureCanvas)
+        ? window.solarPanelTextureCanvas
+        : texUrl;
+
       const mat = (texUrl && typeof Cesium.Material.fromType === 'function')
-        ? Cesium.Material.fromType('Image', { image: texUrl })
+        ? Cesium.Material.fromType('Image', { image: texSource })
         : (Cesium.Material && typeof Cesium.Material.fromType === 'function' ? Cesium.Material.fromType('Color', { color: Cesium.Color.fromCssColorString('#0a1931') }) : undefined);
 
       const primitive = new Cesium.Primitive({

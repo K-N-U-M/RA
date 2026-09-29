@@ -155,6 +155,11 @@ function createSolarPanelTexture() {
   ctx.fillStyle = glassMirror;
   ctx.fillRect(laminX, laminY, laminW, laminH);
 
+  // [FIX-TEXTURA] Exponer el CANVAS además del data-URI: Cesium crea la textura de forma
+  // SÍNCRONA desde un canvas dibujable, mientras que con un data-URI la carga es asíncrona
+  // y el primer draw puede ejecutarse con el TextureUniform.value undefined → crash
+  // "reading '_target'" en setUniforms (requestRenderMode dibuja antes de que decodifique).
+  window.solarPanelTextureCanvas = canvas;
   return canvas.toDataURL('image/png');
 }
 
