@@ -494,12 +494,34 @@ function generatePropuestaComercialPDF() {
   const kwp = (numPanels * (d.cfg.potencia || 450)) / 1000.0;
   const annualYieldKWh = d.annualKWh || (kwp * 1450); // [P0] getProjectCalcs canónico devuelve annualKWh
 
-  const panCost = numPanels * (d.cfg.precio || 125); // [P1] fallback único del proyecto (docs-generator usa 125; antes aquí 135 → dos presupuestos distintos)
+  const panCost = numPanels * (d.cfg.precio || 125); // [P1] fallback único del proyecto
   const est = parseFloat((document.getElementById('cfg-pres-est') || {value:'450'}).value) || 0;
-  const inv = parseFloat((document.getElementById('cfg-pres-inv') || {value:'1100'}).value) || 0;
-  const bat = parseFloat((document.getElementById('cfg-pres-bat') || {value:'0'}).value) || 0;
+  // [SSOT] INVERSOR: precio real del catálogo × unidades dimensionadas cuando hay selección
+  // activa. Antes el CAPEX usaba el input crudo cfg-pres-inv (default 1100 €) aunque la
+  // pestaña de ingeniería tuviera un inversor de 2.400 € → la oferta no cuadraba.
+  let inv = parseFloat((document.getElementById('cfg-pres-inv') || {value:'1100'}).value) || 0;
+  const _ssotCat = (typeof equipmentCatalog !== 'undefined') ? equipmentCatalog : null;
+  const _ssotCfg = (typeof window !== 'undefined' && window.solarProjectConfig) ? window.solarProjectConfig : {};
+  let _invSel = null;
+  if (_ssotCat && _ssotCfg.selectedInverterId) {
+    _invSel = (_ssotCat.inverters || []).find(i => i.id === _ssotCfg.selectedInverterId) || null;
+  }
+  if (_invSel && _invSel.price > 0) {
+    const _invCount = (_ssotCfg.autoSizing && _ssotCfg.autoSizing.inverters && _ssotCfg.autoSizing.inverters.count) || 1;
+    inv = _invSel.price * _invCount;
+  }
+  // [SSOT] BATERÍA: precio y capacidad del catálogo × unidades cuando hay selección.
+  let bat = parseFloat((document.getElementById('cfg-pres-bat') || {value:'0'}).value) || 0;
+  let _batSel = null;
+  if (_ssotCat && _ssotCfg.selectedBatteryId) {
+    _batSel = (_ssotCat.batteries || []).find(b => b.id === _ssotCfg.selectedBatteryId) || null;
+  }
+  if (_batSel && _batSel.price > 0) {
+    const _batCount = (_ssotCfg.autoSizing && _ssotCfg.autoSizing.batteries && _ssotCfg.autoSizing.batteries.count) || 1;
+    bat = _batSel.price * _batCount;
+  }
   const cab = parseFloat((document.getElementById('cfg-pres-cab') || {value:'350'}).value) || 0;
-  const mo  = parseFloat((document.getElementById('cfg-pres-mo') || {value:'1400'}).value) || 0;
+  const mo  = parseFloat((document.getElementById('cfg-pres-mo')  || {value:'1400'}).value) || 0;
   const leg = parseFloat((document.getElementById('cfg-pres-leg') || {value:'500'}).value) || 0;
 
   const roofInfo = (typeof computeRoofPanelsData === 'function') ? computeRoofPanelsData() : null;
@@ -539,7 +561,10 @@ function generatePropuestaComercialPDF() {
   const capexNeto = Math.max(capexBruto - totalAhorroFiscal, 100);
 
   // Autarquía según presencia de batería — con despacho horario y TOU
-  const batCap = parseFloat((document.getElementById('cfg-pres-bat-opt') || {value:'0'}).value) || 0;
+  // [SSOT] Capacidad de batería desde el catálogo cuando hay selección (antes sólo el input).
+  const _batCapSel = (_batSel && _batSel.kwh > 0) ? _batSel : null;
+  const _batCapCount = (_batCapSel && _ssotCfg.autoSizing && _ssotCfg.autoSizing.batteries && _ssotCfg.autoSizing.batteries.count) ? _ssotCfg.autoSizing.batteries.count : 1;
+  const batCap = _batCapSel ? (_batCapSel.kwh * _batCapCount) : (parseFloat((document.getElementById('cfg-pres-bat-opt') || {value:'0'}).value) || 0);
   const touTarifa = (document.getElementById('fin-tou-tarifa') || {value:'plana'}).value;
   const batStrategy = (document.getElementById('fin-bat-strategy') || {value:'autoconsumo'}).value;
 

@@ -28,7 +28,7 @@
   <script src="js/buildings.js?v=20260929b"></script>
     <script src="js/solar-heatmap.js?v=20260929b"></script>
     <script src="js/config.js?v=20260929b"></script>
-    <script src="js/financials.js?v=20260929b"></script>
+    <script src="js/financials.js?v=20260929c"></script>
   <script src="js/viewer.js?v=20260929b"></script>
   <script src="js/solar-engine.js?v=20260929b"></script>
   <script src="js/obstacles.js?v=20260929b"></script>
@@ -10822,6 +10822,16 @@ function getProjectCalcs() {
     };
   });
   annualKWh = Math.round(annualKWh);
+  // [SSOT] PRODUCCIÓN DE INGENIERÍA como fuente prioritaria: recalculateSolarYield integra
+  // las pérdidas de sistema, las sombras (raycast por panel) y la suma real p.annualKwh
+  // del heatmap — es el número que el instalador ve en la pestaña de ingeniería. La tabla
+  // SOLAR_RAD queda como estimación fallback sólo cuando aún no hay simulación.
+  const _engStats = (typeof window !== 'undefined' && window.RA && window.RA.solarStats) ? window.RA.solarStats : null;
+  if (_engStats && Number.isFinite(_engStats.annualYieldKWh) && _engStats.annualYieldKWh > 0 && annualKWh > 0) {
+    const _ratio = _engStats.annualYieldKWh / annualKWh;
+    monthly.forEach(m => { m.kWh = Math.round(m.kWh * _ratio); m.hsp = (parseFloat(m.hsp) * _ratio).toFixed(2); });
+    annualKWh = Math.round(_engStats.annualYieldKWh);
+  }
   const hspAnual = eng.P_dc_kW > 0 ? Math.round(annualKWh / eng.P_dc_kW) : 0;
 
   const co2Ton = (annualKWh * SOLAR_ENGINE_CONSTANTS.CO2_FACTOR_SPAIN) / 1000;
@@ -10829,7 +10839,7 @@ function getProjectCalcs() {
   const precio_kwh = 0.18;
   const ahorro_anual = Math.round(annualKWh * precio_kwh);
 
-  const pres_pan = numPanels * (cfg.precio || 120);
+  const pres_pan = numPanels * (cfg.precio || 125); // [SSOT] fallback único 125 € (antes 120 aquí, 135 en financials)
   const pres_est = parseFloat((document.getElementById('cfg-pres-est') || {value:'450'}).value) || 450;
   const pres_inv = parseFloat((document.getElementById('cfg-pres-inv') || {value:'1100'}).value) || 1100;
   const pres_cab = parseFloat((document.getElementById('cfg-pres-cab') || {value:'350'}).value) || 350;
