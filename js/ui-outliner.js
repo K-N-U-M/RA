@@ -360,6 +360,14 @@
           max-height: calc(100vh - 340px);
         }
 
+        /* [FIX-SCROLL] Los hijos flex se comprimían (flex-shrink por defecto) cuando el
+        contenido excedía el max-height: las filas de faldones quedaban reducidas a
+        franjas de unos píxeles y no aparecía scrollbar. Con flex-shrink:0 el contenido
+        desborda el body y activa el scroll vertical. */
+        .outliner-body > * {
+          flex: 0 0 auto;
+        }
+
         .outliner-empty-state {
           display: flex;
           flex-direction: column;
