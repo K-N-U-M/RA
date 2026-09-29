@@ -1510,7 +1510,7 @@ function wpSelectActivePlane(idx, shouldFly) {
       ProjectHierarchy.notify('plane_selected', { index: idx });
     }
 
-    showStatus('<i data-lucide=\"check\" class=\"icon-sm\"></i> ' + pl.name.toUpperCase() + ' ACTIVADO Y ENFOCADO (' + pl.tiltDeg.toFixed(1) + '°)', 2500);
+    showStatus('<i data-lucide=\"check\" class=\"icon-sm\"></i> ' + pl.name.toUpperCase() + ' ACTIVADO Y ENFOCADO (' + (typeof pl.tiltDeg === 'number' ? pl.tiltDeg.toFixed(1) : '—') + '°)', 2500);
   }
 }
 
@@ -3382,7 +3382,7 @@ function wpUpdateUI() {
       if (planesCountBadge) planesCountBadge.textContent = WP.planes.length + (WP.planes.length === 1 ? ' Plano' : ' Planos');
       planesDropdown.innerHTML = WP.planes.map((p, idx) => 
         '<option value="' + idx + '"' + (idx === WP.activePlaneIdx ? ' selected' : '') + '>' +
-          (idx === WP.activePlaneIdx ? '<i data-lucide=\"star\" class=\"icon-sm\"></i> ' : '') + p.name + ' · ' + p.tiltDeg.toFixed(1) + '° (' + getAzimuthCardinal(p.azimuthDeg) + ')' +
+          (idx === WP.activePlaneIdx ? '<i data-lucide=\"star\" class=\"icon-sm\"></i> ' : '') + p.name + ' · ' + (typeof p.tiltDeg === 'number' ? p.tiltDeg.toFixed(1) : '—') + '° (' + getAzimuthCardinal(p.azimuthDeg) + ')' +
         '</option>'
       ).join('');
     } else {
@@ -3397,8 +3397,8 @@ function wpUpdateUI() {
       const tiltLbl = document.getElementById('wp-plane-tilt-lbl');
       const azLbl = document.getElementById('wp-plane-az-lbl');
       if (nameLbl) nameLbl.textContent = plane.name;
-      if (tiltLbl) tiltLbl.textContent = plane.tiltDeg.toFixed(1) + '°';
-      if (azLbl) azLbl.textContent = plane.azimuthDeg.toFixed(1) + '° (' + getAzimuthCardinal(plane.azimuthDeg) + ')';
+      if (tiltLbl) tiltLbl.textContent = (typeof plane.tiltDeg === 'number' ? plane.tiltDeg.toFixed(1) : '—') + '°';
+      if (azLbl) azLbl.textContent = (typeof plane.azimuthDeg === 'number' ? plane.azimuthDeg.toFixed(1) : '—') + '° (' + getAzimuthCardinal(plane.azimuthDeg) + ')';
       
       const vtxToggleBtn = document.getElementById('wp-btn-toggle-plane-vtx');
       if (vtxToggleBtn) {
