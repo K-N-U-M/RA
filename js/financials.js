@@ -495,11 +495,22 @@ function generatePropuestaComercialPDF() {
   const annualYieldKWh = d.annualKWh || (kwp * 1450); // [P0] getProjectCalcs canónico devuelve annualKWh
 
   const panCost = numPanels * (d.cfg.precio || 125); // [P1] fallback único del proyecto
-  const est = parseFloat((document.getElementById('cfg-pres-est') || {value:'450'}).value) || 0;
+  // [SSOT] Lector de parámetros con doble fuente: los inputs del DESGLOSE (modal-cfg-pres-*,
+  // modal-tax-*, modal-fin-*) son la UI real que existe en el DOM; los ids legacy del sidebar
+  // (cfg-pres-*, tax-*, fin-*) no existen y quedan como fallback histórico.
+  const _input = (id, def) => {
+    const el = document.getElementById(id) || document.getElementById('modal-' + id);
+    return el ? (parseFloat(el.value) || def) : def;
+  };
+  const _sel = (id, def) => {
+    const el = document.getElementById(id) || document.getElementById('modal-' + id);
+    return el ? el.value : def;
+  };
+  const est = _input('cfg-pres-est', 450);
   // [SSOT] INVERSOR: precio real del catálogo × unidades dimensionadas cuando hay selección
   // activa. Antes el CAPEX usaba el input crudo cfg-pres-inv (default 1100 €) aunque la
   // pestaña de ingeniería tuviera un inversor de 2.400 € → la oferta no cuadraba.
-  let inv = parseFloat((document.getElementById('cfg-pres-inv') || {value:'1100'}).value) || 0;
+  let inv = _input('cfg-pres-inv', 1100);
   const _ssotCat = (typeof equipmentCatalog !== 'undefined') ? equipmentCatalog : null;
   const _ssotCfg = (typeof window !== 'undefined' && window.solarProjectConfig) ? window.solarProjectConfig : {};
   let _invSel = null;
@@ -511,7 +522,7 @@ function generatePropuestaComercialPDF() {
     inv = _invSel.price * _invCount;
   }
   // [SSOT] BATERÍA: precio y capacidad del catálogo × unidades cuando hay selección.
-  let bat = parseFloat((document.getElementById('cfg-pres-bat') || {value:'0'}).value) || 0;
+  let bat = _input('cfg-pres-bat', 0);
   let _batSel = null;
   if (_ssotCat && _ssotCfg.selectedBatteryId) {
     _batSel = (_ssotCat.batteries || []).find(b => b.id === _ssotCfg.selectedBatteryId) || null;
@@ -520,9 +531,9 @@ function generatePropuestaComercialPDF() {
     const _batCount = (_ssotCfg.autoSizing && _ssotCfg.autoSizing.batteries && _ssotCfg.autoSizing.batteries.count) || 1;
     bat = _batSel.price * _batCount;
   }
-  const cab = parseFloat((document.getElementById('cfg-pres-cab') || {value:'350'}).value) || 0;
-  const mo  = parseFloat((document.getElementById('cfg-pres-mo')  || {value:'1400'}).value) || 0;
-  const leg = parseFloat((document.getElementById('cfg-pres-leg') || {value:'500'}).value) || 0;
+  const cab = _input('cfg-pres-cab', 350);
+  const mo  = _input('cfg-pres-mo', 1400);
+  const leg = _input('cfg-pres-leg', 500);
 
   const roofInfo = (typeof computeRoofPanelsData === 'function') ? computeRoofPanelsData() : null;
   const mlpeCount = (roofInfo && roofInfo.panels) ? roofInfo.panels.filter(p => p.hasMLPE).length : 0;
@@ -538,8 +549,8 @@ function generatePropuestaComercialPDF() {
   const capexBruto = subtotal + iva;
 
   // Fiscalidad
-  const ibiCuota = parseFloat((document.getElementById('tax-ibi-cuota') || {value:'650'}).value) || 650;
-  const ibiOpt = (document.getElementById('tax-ibi-opt') || {value:'0.50_3'}).value;
+  const ibiCuota = _input('tax-ibi-cuota', 650);
+  const ibiOpt = _sel('tax-ibi-opt', '0.50_3');
   let ahorroIBITotal = 0;
   if (ibiOpt === '0.30_3') ahorroIBITotal = ibiCuota * 0.30 * 3;
   else if (ibiOpt === '0.50_3') ahorroIBITotal = ibiCuota * 0.50 * 3;
@@ -553,7 +564,7 @@ function generatePropuestaComercialPDF() {
   const baseIrpf = Math.min(capexBruto, 7500);
   const ahorroIRPF = baseIrpf * irpfPct;
 
-  const icioPct = parseFloat((document.getElementById('tax-icio-opt') || {value:'0.95'}).value) || 0.95;
+  const icioPct = _input('tax-icio-opt', 0.95);
   const tasaICIO = subtotal * 0.04;
   const ahorroICIO = tasaICIO * icioPct;
 
@@ -564,9 +575,9 @@ function generatePropuestaComercialPDF() {
   // [SSOT] Capacidad de batería desde el catálogo cuando hay selección (antes sólo el input).
   const _batCapSel = (_batSel && _batSel.kwh > 0) ? _batSel : null;
   const _batCapCount = (_batCapSel && _ssotCfg.autoSizing && _ssotCfg.autoSizing.batteries && _ssotCfg.autoSizing.batteries.count) ? _ssotCfg.autoSizing.batteries.count : 1;
-  const batCap = _batCapSel ? (_batCapSel.kwh * _batCapCount) : (parseFloat((document.getElementById('cfg-pres-bat-opt') || {value:'0'}).value) || 0);
-  const touTarifa = (document.getElementById('fin-tou-tarifa') || {value:'plana'}).value;
-  const batStrategy = (document.getElementById('fin-bat-strategy') || {value:'autoconsumo'}).value;
+  const batCap = _batCapSel ? (_batCapSel.kwh * _batCapCount) : _input('cfg-pres-bat-opt', 0);
+  const touTarifa = _sel('fin-tou-tarifa', 'plana');
+  const batStrategy = _sel('fin-bat-strategy', 'autoconsumo');
 
   // Perfiles TOU (€/kWh) por hora 0..23 — media peninsular 2024
   const TOU_PROFILES = {
@@ -798,8 +809,8 @@ function generatePropuestaComercialPDF() {
   const lcoe = totalGenerado25 > 0 ? (totalCoste25 / totalGenerado25) : 0.038;
 
   // Financiación
-  const meses = parseInt((document.getElementById('fin-plazo-meses') || {value:'120'}).value) || 120;
-  const tinAnual = (parseFloat((document.getElementById('fin-tin-pct') || {value:'5.95'}).value) || 5.95) / 100.0;
+  const meses = _input('fin-plazo-meses', 120);
+  const tinAnual = _input('fin-tin-pct', 5.95) / 100.0;
   const tinMensual = tinAnual / 12.0;
   const cuotaMensual = (tinMensual > 0)
     ? (capexBruto * (tinMensual * Math.pow(1 + tinMensual, meses))) / (Math.pow(1 + tinMensual, meses) - 1)

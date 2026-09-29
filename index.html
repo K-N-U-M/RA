@@ -2286,27 +2286,28 @@ function syncModalInputToBudget(targetId, val) {
 }
 
 function syncCostModalMetrics() {
-  const mapping = [
-    ['budget-num-panels', 'modal-budget-num-panels'],
-    ['budget-paneles', 'modal-budget-paneles'],
-    ['budget-total', 'modal-budget-total'],
-    ['tax-total-savings', 'modal-tax-total-savings'],
-    ['tax-net-investment', 'modal-tax-net-investment'],
-    ['fin-annual-save', 'modal-fin-annual-save'],
-    ['fin-payback', 'modal-fin-payback'],
-    ['fin-van', 'modal-fin-van'],
-    ['fin-tir', 'modal-fin-tir'],
-    ['fin-lcoe', 'modal-fin-lcoe'],
-    ['fin-autarquia', 'modal-fin-autarquia'],
-    ['fin-cuota-mensual', 'modal-fin-cuota-mensual'],
-    ['fin-ahorro-mensual', 'modal-fin-ahorro-mensual'],
-    ['fin-balance-neto', 'modal-fin-balance-neto']
-  ];
-  mapping.forEach(([srcId, dstId]) => {
-    const src = document.getElementById(srcId);
-    const dst = document.getElementById(dstId);
-    if (src && dst) dst.textContent = src.textContent;
-  });
+  // [SSOT] Escribir las métricas del modal DIRECTAMENTE desde calculateFinancialModel
+  // (fuente de verdad). Antes se copiaban desde elementos del sidebar (budget-*,
+  // fin-*, tax-*) que NO existen en el DOM → el modal mostraba los "0 €" del HTML
+  // estático, nunca los números del diseño.
+  if (typeof calculateFinancialModel !== 'function') return;
+  let m; try { m = calculateFinancialModel(); } catch (e) { return; }
+  if (!m) return;
+  const set = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+  set('modal-budget-num-panels', m.numPanels);
+  set('modal-budget-paneles', Math.round(m.panCost).toLocaleString('es-ES') + ' €');
+  set('modal-budget-total', Math.round(m.capexBruto).toLocaleString('es-ES') + ' €');
+  set('modal-tax-total-savings', Math.round(m.totalAhorroFiscal).toLocaleString('es-ES') + ' €');
+  set('modal-tax-net-investment', Math.round(m.capexNeto).toLocaleString('es-ES') + ' €');
+  set('modal-fin-annual-save', Math.round(m.ahorroLuzAnio1).toLocaleString('es-ES') + ' €/año');
+  set('modal-fin-payback', (m.paybackYears != null && isFinite(m.paybackYears)) ? m.paybackYears.toFixed(1) + ' años' : '—');
+  set('modal-fin-van', Math.round(m.van).toLocaleString('es-ES') + ' €');
+  set('modal-fin-tir', (m.tir != null && isFinite(m.tir)) ? m.tir.toFixed(1) + ' %' : 'N/D');
+  set('modal-fin-lcoe', (m.lcoe != null && isFinite(m.lcoe)) ? m.lcoe.toFixed(3) + ' €/kWh' : '—');
+  set('modal-fin-autarquia', m.autarquiaPct + ' %');
+  set('modal-fin-cuota-mensual', Math.round(m.cuotaMensual) + ' €/mes');
+  set('modal-fin-ahorro-mensual', Math.round(m.ahorroMensualLuz) + ' €/mes');
+  set('modal-fin-balance-neto', (m.balanceNetoMensual >= 0 ? '+' : '') + Math.round(m.balanceNetoMensual) + ' €/mes');
 }
 
 function openCompanyBrandingModal() {
@@ -5054,21 +5055,28 @@ function updateCompanyLogoPreview() {
 
 function saveCompanyBranding() {
   try {
+    // [FIX-BRANDING] Los campos viven en el MODAL (modal-cfg-company-*): los ids del
+    // sidebar (cfg-company-*) no existen en el DOM → lo que el usuario escribía en la
+    // ventana nunca se guardaba (se persistían los defaults). Lector dual modal↔sidebar.
+    const bval = (id) => {
+      const el = document.getElementById('modal-' + id) || document.getElementById(id);
+      return el ? el.value : null;
+    };
     const branding = {
       logo: customCompanyLogoBase64,
-      name: (document.getElementById('cfg-company-name') || {}).value || 'SOLAR 3D PRO',
-      cif: (document.getElementById('cfg-company-cif') || {}).value || '',
-      phone: (document.getElementById('cfg-company-phone') || {}).value || '',
-      web: (document.getElementById('cfg-company-web') || {}).value || '',
-      theme: (document.getElementById('cfg-proposal-theme') || {}).value || 'emerald',
-      status: (document.getElementById('cfg-offer-status') || {}).value || 'vinculante',
-      font: (document.getElementById('cfg-doc-font') || {}).value || 'inter',
-      finTin: (document.getElementById('cfg-fin-tin') || {}).value || '5.95',
-      finEntry: (document.getElementById('cfg-fin-entry') || {}).value || '0',
-      warPower: (document.getElementById('cfg-war-power') || {}).value || '25',
-      warMod: (document.getElementById('cfg-war-mod') || {}).value || '15',
-      warInv: (document.getElementById('cfg-war-inv') || {}).value || '10',
-      warMo: (document.getElementById('cfg-war-mo') || {}).value || '5'
+      name: bval('cfg-company-name') || 'SOLAR 3D PRO',
+      cif: bval('cfg-company-cif') || '',
+      phone: bval('cfg-company-phone') || '',
+      web: bval('cfg-company-web') || '',
+      theme: bval('cfg-proposal-theme') || 'emerald',
+      status: bval('cfg-offer-status') || 'vinculante',
+      font: bval('cfg-doc-font') || 'inter',
+      finTin: bval('cfg-fin-tin') || '5.95',
+      finEntry: bval('cfg-fin-entry') || '0',
+      warPower: bval('cfg-war-power') || '25',
+      warMod: bval('cfg-war-mod') || '15',
+      warInv: bval('cfg-war-inv') || '10',
+      warMo: bval('cfg-war-mo') || '5'
     };
     localStorage.setItem('ra_company_branding', JSON.stringify(branding));
     // Sincronizar en window.RA para acceso desde financials.js sin localStorage
@@ -5087,19 +5095,19 @@ function loadCompanyBranding() {
       window.customCompanyLogoBase64 = b.logo;
       updateCompanyLogoPreview();
     }
-    if (b.name && document.getElementById('cfg-company-name')) document.getElementById('cfg-company-name').value = b.name;
-    if (b.cif && document.getElementById('cfg-company-cif')) document.getElementById('cfg-company-cif').value = b.cif;
-    if (b.phone && document.getElementById('cfg-company-phone')) document.getElementById('cfg-company-phone').value = b.phone;
-    if (b.web && document.getElementById('cfg-company-web')) document.getElementById('cfg-company-web').value = b.web;
-    if (b.theme && document.getElementById('cfg-proposal-theme')) document.getElementById('cfg-proposal-theme').value = b.theme;
-    if (b.status && document.getElementById('cfg-offer-status')) document.getElementById('cfg-offer-status').value = b.status;
+    if (b.name) { const el = document.getElementById('modal-cfg-company-name') || document.getElementById('cfg-company-name'); if (el) el.value = b.name; }
+    if (b.cif) { const el = document.getElementById('modal-cfg-company-cif') || document.getElementById('cfg-company-cif'); if (el) el.value = b.cif; }
+    if (b.phone) { const el = document.getElementById('modal-cfg-company-phone') || document.getElementById('cfg-company-phone'); if (el) el.value = b.phone; }
+    if (b.web) { const el = document.getElementById('modal-cfg-company-web') || document.getElementById('cfg-company-web'); if (el) el.value = b.web; }
+    if (b.theme) { const el = document.getElementById('modal-cfg-proposal-theme') || document.getElementById('cfg-proposal-theme'); if (el) el.value = b.theme; }
+    if (b.status) { const el = document.getElementById('modal-cfg-offer-status') || document.getElementById('cfg-offer-status'); if (el) el.value = b.status; }
     if (b.font && document.getElementById('cfg-doc-font')) document.getElementById('cfg-doc-font').value = b.font;
     if (b.finTin && document.getElementById('cfg-fin-tin')) document.getElementById('cfg-fin-tin').value = b.finTin;
     if (b.finEntry && document.getElementById('cfg-fin-entry')) document.getElementById('cfg-fin-entry').value = b.finEntry;
-    if (b.warPower && document.getElementById('cfg-war-power')) document.getElementById('cfg-war-power').value = b.warPower;
-    if (b.warMod && document.getElementById('cfg-war-mod')) document.getElementById('cfg-war-mod').value = b.warMod;
-    if (b.warInv && document.getElementById('cfg-war-inv')) document.getElementById('cfg-war-inv').value = b.warInv;
-    if (b.warMo && document.getElementById('cfg-war-mo')) document.getElementById('cfg-war-mo').value = b.warMo;
+    if (b.warPower) { const el = document.getElementById('modal-cfg-war-power') || document.getElementById('cfg-war-power'); if (el) el.value = b.warPower; }
+    if (b.warMod) { const el = document.getElementById('modal-cfg-war-mod') || document.getElementById('cfg-war-mod'); if (el) el.value = b.warMod; }
+    if (b.warInv) { const el = document.getElementById('modal-cfg-war-inv') || document.getElementById('cfg-war-inv'); if (el) el.value = b.warInv; }
+    if (b.warMo) { const el = document.getElementById('modal-cfg-war-mo') || document.getElementById('cfg-war-mo'); if (el) el.value = b.warMo; }
     window.RA = window.RA || {};
     window.RA.branding = b;
   } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
