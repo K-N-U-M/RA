@@ -579,8 +579,117 @@
 
               <div id="wp-polyline-list-report" style="margin-top:6px;"></div>
 
-              <!-- CONTENEDOR DINÁMICO DE TARJETAS DE FALDONES CON PRESETS Y PITCH -->
-              <div id="step3-polylines-cards-container" style="display:flex;flex-direction:column;gap:6px;max-height:280px;overflow-y:auto;padding-right:2px;margin-top:8px;"></div>
+              <!-- MASTER-DETAIL: Selector de faldón + tarjeta única de edición -->
+              <div id="faldon-master-detail" style="margin-top:8px;">
+                <!-- Estado vacío -->
+                <div id="faldon-empty-state" style="display:none;padding:12px;text-align:center;color:var(--text-slate-400);font-size:9.5px;background:rgba(0,0,0,0.3);border-radius:8px;border:1px dashed rgba(255,255,255,0.15);">
+                  No hay faldones cerrados todavía. Traza una polilínea y ciérrala para crear un faldón.
+                </div>
+
+                <!-- MASTER: Desplegable selector de faldón -->
+                <div id="faldon-selector-container" style="display:none;background:rgba(0,0,0,0.35);padding:8px 10px;border-radius:8px;border:1px solid var(--border-subtle);margin-bottom:6px;">
+                  <div style="font-size:9px;font-weight:800;color:var(--amber-400);margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;">
+                    <span><i data-lucide="layers" class="icon-sm"></i> FALDÓN ACTIVO</span>
+                    <span class="card-tag" id="faldon-count-badge">0 FALDONES</span>
+                  </div>
+                  <select id="faldon-selector-dropdown" class="cfg-select" style="width:100%;font-size:10px;font-weight:bold;" onchange="wpSelectFaldon(parseInt(this.value, 10))">
+                    <option value="-1">Sin faldones</option>
+                  </select>
+                </div>
+
+                <!-- DETAIL: Tarjeta de edición del faldón seleccionado -->
+                <div id="faldon-edit-card" class="ui-card" style="display:none;border:1px solid var(--amber-400);background:rgba(245,158,11,0.08);border-radius:8px;padding:8px;">
+                  <!-- Cabecera: nombre + estadísticas -->
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                    <div style="display:flex;align-items:center;gap:6px;">
+                      <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--amber-400);"></span>
+                      <span id="faldon-card-name" style="font-size:9.5px;font-weight:bold;color:#fff;">Faldón</span>
+                    </div>
+                    <div style="text-align:right;">
+                      <span id="faldon-card-stats" style="font-size:9.5px;font-weight:bold;color:var(--emerald-400);">0 mods · 0.00 kWp</span>
+                    </div>
+                  </div>
+
+                  <!-- Selector de Módulo FV -->
+                  <div style="background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:5px 6px;margin-bottom:6px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+                      <span style="font-size:7.5px;color:var(--text-slate-300);font-weight:600;"><i data-lucide="zap" class="icon-sm"></i> PANEL FV INDIVIDUAL:</span>
+                      <button type="button" class="doc-mini-btn" style="padding:1px 5px;font-size:7px;font-weight:bold;background:rgba(59,130,246,0.15);color:#60A5FA;border-color:rgba(59,130,246,0.3);cursor:pointer;" onclick="wpApplyPolyModuleToAll(WP.selectedPolyIdx)" title="Propagar este panel a todos los faldones"><i data-lucide="globe" class="icon-sm"></i> A TODOS</button>
+                    </div>
+                    <select id="faldon-module-select" class="doc-input" style="width:100%;font-size:8px;padding:3px 4px;background:#0F172A;color:#F8FAFC;border:1px solid rgba(255,255,255,0.15);border-radius:4px;" onchange="wpSetPolyModule(WP.selectedPolyIdx, this.value)">
+                    </select>
+                  </div>
+
+                  <!-- Selector de Estructura de Montaje -->
+                  <div style="background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:5px 6px;margin-bottom:6px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+                      <span style="font-size:7.5px;color:var(--text-slate-300);font-weight:600;"><i data-lucide="box" class="icon-sm"></i> ESTRUCTURA DE MONTAJE:</span>
+                    </div>
+                    <select id="faldon-structure-select" class="doc-input" style="width:100%;font-size:8px;padding:3px 4px;background:#0F172A;color:#F8FAFC;border:1px solid rgba(255,255,255,0.15);border-radius:4px;" onchange="wpSetPolyStructure(WP.selectedPolyIdx, this.value)">
+                      <option value="coplanar_teja">Coplanar (Teja / Salvatejas)</option>
+                      <option value="coplanar_chapa">Coplanar (Chapa / Sándwich)</option>
+                      <option value="triangles_30">Triángulos 30º (Cubierta Plana)</option>
+                      <option value="triangles_15_ew">Estructura 15º Este-Oeste</option>
+                    </select>
+                  </div>
+
+                  <!-- Disposición Solar Preconfigurada -->
+                  <div style="background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:5px 6px;margin-bottom:6px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                      <span style="font-size:7.5px;color:var(--text-slate-300);font-weight:600;"><i data-lucide="ruler" class="icon-sm"></i> DISPOSICIÓN SOLAR:</span>
+                      <button type="button" class="doc-mini-btn" style="padding:1px 5px;font-size:7px;font-weight:bold;background:rgba(59,130,246,0.15);color:#60A5FA;border-color:rgba(59,130,246,0.3);cursor:pointer;" onclick="wpApplyPanelArrangementToAll(WP.selectedPolyIdx)" title="Propagar esta disposición a todos los faldones"><i data-lucide="globe" class="icon-sm"></i> A TODOS</button>
+                    </div>
+                    <div style="display:flex;gap:3px;margin-bottom:4px;">
+                      <button type="button" id="faldon-arr-coplanar" class="doc-mini-btn" style="flex:1;padding:3px 2px;font-size:7.5px;font-weight:bold;" onclick="wpApplyPanelArrangement(WP.selectedPolyIdx, 'coplanar')"><i data-lucide="home" class="icon-sm"></i> COPLANAR</button>
+                      <button type="button" id="faldon-arr-optimal" class="doc-mini-btn" style="flex:1.2;padding:3px 2px;font-size:7.5px;font-weight:bold;" onclick="wpApplyPanelArrangement(WP.selectedPolyIdx, 'solar_optimal')"><i data-lucide="sun" class="icon-sm"></i> CARA AL SOL</button>
+                      <button type="button" id="faldon-arr-custom" class="doc-mini-btn" style="flex:1.1;padding:3px 2px;font-size:7.5px;font-weight:bold;" onclick="wpApplyPanelArrangement(WP.selectedPolyIdx, 'custom')"><i data-lucide="settings" class="icon-sm"></i> MANUAL</button>
+                    </div>
+                    <div id="faldon-arr-legend" style="font-size:7px;color:#94A3B8;display:flex;justify-content:space-between;margin-top:2px;"></div>
+                  </div>
+
+                  <!-- Orientación Vertical / Horizontal -->
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:6px;">
+                    <button id="faldon-orient-portrait" class="doc-mini-btn" onclick="wpSetPolyOrientation(WP.selectedPolyIdx, 'portrait')" style="text-align:center;padding:4px 2px;font-size:8.5px;">
+                      <i data-lucide="smartphone" class="icon-sm"></i> VERTICAL
+                    </button>
+                    <button id="faldon-orient-landscape" class="doc-mini-btn" onclick="wpSetPolyOrientation(WP.selectedPolyIdx, 'landscape')" style="text-align:center;padding:4px 2px;font-size:8.5px;">
+                      <i data-lucide="monitor" class="icon-sm"></i> HORIZONTAL
+                    </button>
+                  </div>
+
+                  <!-- Sliders de Ajuste Manual (solo visible en modo custom) -->
+                  <div id="faldon-custom-controls" style="display:none;flex-direction:column;gap:5px;margin-bottom:6px;">
+                    <!-- Inclinación βm -->
+                    <div style="background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:5px 6px;">
+                      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+                        <span style="font-size:7.5px;color:var(--text-slate-300);font-weight:600;"><i data-lucide="ruler" class="icon-sm"></i> INCLINACIÓN MÓDULO (βm):</span>
+                        <span id="faldon-tilt-val" style="font-size:9px;font-weight:bold;color:var(--amber-400);font-family:monospace;">Auto (faldón)</span>
+                      </div>
+                      <div style="display:flex;align-items:center;gap:6px;">
+                        <input id="faldon-tilt-slider" type="range" min="0" max="90" step="1" value="0" style="flex:1;accent-color:var(--amber-400);height:4px;cursor:pointer;" oninput="wpSetPolyTiltRealtime(WP.selectedPolyIdx, this.value)" />
+                        <button class="doc-mini-btn" style="padding:2px 5px;font-size:7.5px;" onclick="wpApplyPanelArrangement(WP.selectedPolyIdx, 'coplanar')">AUTO</button>
+                      </div>
+                    </div>
+                    <!-- Azimut -->
+                    <div style="background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:5px 6px;">
+                      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+                        <span style="font-size:7.5px;color:var(--text-slate-300);font-weight:600;">⟳ AZIMUT / GIRO EN PLANO:</span>
+                        <span id="faldon-az-val" style="font-size:9px;font-weight:bold;color:var(--cyan-400,#38bdf8);font-family:monospace;">Auto</span>
+                      </div>
+                      <div style="display:flex;align-items:center;gap:6px;">
+                        <input id="faldon-az-slider" type="range" min="0" max="360" step="1" value="180" style="flex:1;accent-color:var(--cyan-400,#38bdf8);height:4px;cursor:pointer;" oninput="wpSetPolyAzimuthRealtime(WP.selectedPolyIdx, this.value)" />
+                        <button class="doc-mini-btn" style="padding:2px 5px;font-size:7.5px;" onclick="wpApplyPanelArrangement(WP.selectedPolyIdx, 'coplanar')">AUTO</button>
+                      </div>
+                      <div style="display:flex;justify-content:space-between;margin-top:4px;gap:2px;">
+                        <button class="doc-mini-btn" style="padding:1px 2px;font-size:7px;flex:1;" onclick="wpSetPolyAzimuthRealtime(WP.selectedPolyIdx, 0)">0° N</button>
+                        <button class="doc-mini-btn" style="padding:1px 2px;font-size:7px;flex:1;" onclick="wpSetPolyAzimuthRealtime(WP.selectedPolyIdx, 90)">90° E</button>
+                        <button class="doc-mini-btn" style="padding:1px 2px;font-size:7px;flex:1;background:rgba(245,158,11,0.15);color:var(--amber-400);font-weight:bold;" onclick="wpSetPolyAzimuthRealtime(WP.selectedPolyIdx, 180)">180° S</button>
+                        <button class="doc-mini-btn" style="padding:1px 2px;font-size:7px;flex:1;" onclick="wpSetPolyAzimuthRealtime(WP.selectedPolyIdx, 270)">270° O</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             
@@ -773,8 +882,8 @@
                 Selecciona el módulo fotovoltaico y ajusta inclinación, orientación y disposición sobre la cubierta:
               </p>
 
-              <!-- CONTENEDOR DINAMICO DE TARJETAS DE FALDONES (Movidizas) -->
-              
+
+
 
               <!-- MÉTRICAS EN TIEMPO REAL -->
               <div class="stat-grid-3" style="margin-bottom:6px;">

@@ -2340,10 +2340,7 @@ function wpSelectPolyline(polyIdx) {
 }
 
 function wpStep3SelectPolyline(polyIdx) {
-  wpSelectPolyline(polyIdx);
-  if (typeof startSolarPanelsSimulation === 'function' && wpCurrentStep >= 5 && isPolygonDesignConfirmed) {
-    startSolarPanelsSimulation();
-  }
+  wpSelectFaldon(polyIdx);
   wpSyncStep3Metrics();
 }
 
@@ -2735,195 +2732,211 @@ window.wpContinueToObstacles = wpContinueToObstacles;
 
 function wpUpdateStep3UI() {
   const polys = (WP && WP.polylines) ? WP.polylines : [];
-  const container = document.getElementById("step3-polylines-cards-container");
-  const countBadge = document.getElementById("step3-poly-count-badge");
-  const totalPanelsCountEl = document.getElementById("step3-total-panels-count");
-  const totalKwpEl = document.getElementById("step3-total-kwp");
-  const totalStringsEl = document.getElementById("step3-total-strings");
 
-  let totalModules = 0;
-  let totalWp = 0;
+  // ── Métricas globales (badges del Paso 2) ──
+  let totalModules = 0, totalWp = 0;
   polys.forEach(p => {
     const pCount = (p.roofInfo && p.roofInfo.panels) ? p.roofInfo.panels.length : 0;
     totalModules += pCount;
-    let pModWp = 450;
-    const effectiveModId = p.moduleId || (typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.selectedModuleId);
-    if (typeof equipmentCatalog !== 'undefined' && equipmentCatalog && Array.isArray(equipmentCatalog.modules)) {
-      const foundM = equipmentCatalog.modules.find(m => m.id === effectiveModId);
-      if (foundM && foundM.wp) pModWp = foundM.wp;
-      else if (typeof panelConfig !== 'undefined' && panelConfig && panelConfig.potencia) pModWp = panelConfig.potencia;
-    } else if (typeof panelConfig !== 'undefined' && panelConfig && panelConfig.potencia) {
-      pModWp = panelConfig.potencia;
-    }
-    totalWp += pCount * pModWp;
+    totalWp += pCount * wpGetPolyWp(p);
   });
-  if (totalModules === 0 && typeof simulatedPanelEntities !== "undefined") {
+  if (totalModules === 0 && typeof simulatedPanelEntities !== 'undefined') {
     totalModules = simulatedPanelEntities.length;
     const _defWp = (typeof panelConfig !== 'undefined' && panelConfig && panelConfig.potencia) ? panelConfig.potencia : 450;
     totalWp = totalModules * _defWp;
   }
-  const totalKwp = (totalWp / 1000).toFixed(2);
+  const p3Panels = document.getElementById('p3-stat-panels');
+  const p3Kwp = document.getElementById('p3-stat-kwp');
+  const p3Strings = document.getElementById('p3-stat-strings');
+  if (p3Panels) p3Panels.textContent = totalModules;
+  if (p3Kwp) p3Kwp.textContent = (totalWp / 1000).toFixed(2) + ' kWp';
 
-  if (countBadge) countBadge.textContent = polys.length + (polys.length === 1 ? " FALDON" : " FALDONES");
-  if (totalPanelsCountEl) totalPanelsCountEl.textContent = totalModules + " uds";
-  if (totalKwpEl) totalKwpEl.textContent = totalKwp + " kWp";
-  // [P2] Nº REAL de strings eléctricos (antes mostraba el nº de faldones como "Strings")
   let _realStringCount = 0;
   if (typeof window !== 'undefined' && window.allRenderedPanels && window.allRenderedPanels.length > 0) {
     _realStringCount = new Set(window.allRenderedPanels.filter(p => p && p.stringName).map(p => p.stringName)).size;
   }
-  if (totalStringsEl) totalStringsEl.textContent = _realStringCount > 0 ? (_realStringCount + (_realStringCount === 1 ? " String" : " Strings")) : "—";
+  if (p3Strings) p3Strings.textContent = _realStringCount > 0 ? (_realStringCount + (_realStringCount === 1 ? ' String' : ' Strings')) : '—';
 
-  if (!container) return;
+  // ── Sincronizar dropdown selector de faldón ──
+  const dropdown = document.getElementById('faldon-selector-dropdown');
+  if (dropdown) {
+    dropdown.innerHTML = polys.map((poly, idx) => {
+      const pName = poly.name || ('Faldón #' + (idx + 1));
+      const pArea = (typeof poly.area === 'number') ? poly.area : 0;
+      const modCount = (poly.roofInfo && poly.roofInfo.panels) ? poly.roofInfo.panels.length : 0;
+      return '<option value="' + idx + '"' + (idx === WP.selectedPolyIdx ? ' selected' : '') + '>' +
+        pName + ' (' + modCount + ' mods · ' + pArea.toFixed(1) + ' m²)</option>';
+    }).join('');
+  }
+  const countBadge = document.getElementById('faldon-count-badge');
+  if (countBadge) countBadge.textContent = polys.length + (polys.length === 1 ? ' FALDÓN' : ' FALDONES');
 
+  // ── Poblar tarjeta única ──
+  wpPopulateFaldonCard();
+}
+
+// ─────────────────────────────────────────────────────────────────
+// wpPopulateFaldonCard: lee SSOT → rellena la tarjeta estática
+// Función pura de presentación. No muta WP ni dispara simulaciones.
+// ─────────────────────────────────────────────────────────────────
+function wpPopulateFaldonCard() {
+  var card = document.getElementById('faldon-edit-card');
+  var emptyState = document.getElementById('faldon-empty-state');
+  var selectorCtr = document.getElementById('faldon-selector-container');
+  var polys = (WP && WP.polylines) ? WP.polylines : [];
+
+  // ── Estado vacío ──
   if (polys.length === 0) {
-    container.innerHTML = `
-      <div style="padding:12px;text-align:center;color:var(--text-slate-400);font-size:9.5px;background:rgba(0,0,0,0.3);border-radius:8px;border:1px dashed rgba(255,255,255,0.15);">
-        No hay cubiertas o polilíneas cerradas todavía.<br>
-        <button class="doc-mini-btn" onclick="wpGoToStep(1)" style="margin-top:6px;">← IR A PLANO DE TRABAJO PARA TRAZAR</button>
-      </div>`;
+    if (selectorCtr) selectorCtr.style.display = 'none';
+    if (card) card.style.display = 'none';
+    if (emptyState) emptyState.style.display = 'block';
     return;
   }
+  if (selectorCtr) selectorCtr.style.display = 'block';
+  if (emptyState) emptyState.style.display = 'none';
 
-  container.innerHTML = polys.map((poly, idx) => {
-    const isSelected = (idx === WP.selectedPolyIdx);
-    const modCount = (poly.roofInfo && poly.roofInfo.panels) ? poly.roofInfo.panels.length : 0;
-    const effectiveModId = poly.moduleId || (typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.selectedModuleId) || (typeof equipmentCatalog !== 'undefined' && equipmentCatalog && equipmentCatalog.modules && equipmentCatalog.modules[0] ? equipmentCatalog.modules[0].id : '');
-    let polyModWp = 450;
-    if (typeof equipmentCatalog !== 'undefined' && equipmentCatalog && Array.isArray(equipmentCatalog.modules)) {
-      const foundM = equipmentCatalog.modules.find(m => m.id === effectiveModId);
-      if (foundM && foundM.wp) polyModWp = foundM.wp;
-      else if (typeof panelConfig !== 'undefined' && panelConfig && panelConfig.potencia) polyModWp = panelConfig.potencia;
-    } else if (typeof panelConfig !== 'undefined' && panelConfig && panelConfig.potencia) {
-      polyModWp = panelConfig.potencia;
-    }
-    const kwp = (modCount * polyModWp / 1000).toFixed(2);
-    const orient = poly.orientationPref || userPanelOrientationPref || "portrait";
-    const tilt = poly.modTilt || "auto";
-    const az = (poly.modAzimuth !== undefined) ? poly.modAzimuth : "auto";
-    const planeName = (WP.planes && poly.planeIdx >= 0 && WP.planes[poly.planeIdx]) ? WP.planes[poly.planeIdx].name : ("Plano #" + (poly.planeIdx + 1));
+  // Asegurar selección válida
+  if (WP.selectedPolyIdx < 0 || WP.selectedPolyIdx >= polys.length) {
+    WP.selectedPolyIdx = 0;
+  }
+  var poly = polys[WP.selectedPolyIdx];
+  if (!poly) { if (card) card.style.display = 'none'; return; }
+  if (card) card.style.display = 'block';
 
-    const moduleOptionsHtml = (typeof equipmentCatalog !== 'undefined' && equipmentCatalog && Array.isArray(equipmentCatalog.modules)) 
-      ? equipmentCatalog.modules.map(m => `<option value="${m.id}" ${m.id === effectiveModId ? 'selected' : ''}>${m.brand} ${m.model} (${m.wp}Wp · ${m.l.toFixed(2)}×${m.w.toFixed(2)}m)</option>`).join('') 
-      : '';
+  // ── Cabecera ──
+  var nameEl = document.getElementById('faldon-card-name');
+  if (nameEl) nameEl.textContent = poly.name || ('Faldón #' + (WP.selectedPolyIdx + 1));
 
-    const arrMode = poly.arrangementMode || ((tilt === 'auto' || tilt === undefined) ? 'coplanar' : ((tilt === 32 || tilt === 'optimal') ? 'solar_optimal' : 'custom'));
+  var modCount = (poly.roofInfo && poly.roofInfo.panels) ? poly.roofInfo.panels.length : 0;
+  var effectiveModId = poly.moduleId || (window.solarProjectConfig && window.solarProjectConfig.selectedModuleId) || '';
+  var polyModWp = 450;
+  if (typeof equipmentCatalog !== 'undefined' && equipmentCatalog && Array.isArray(equipmentCatalog.modules)) {
+    var foundM = equipmentCatalog.modules.find(function(m) { return m.id === effectiveModId; });
+    if (foundM && foundM.wp) polyModWp = foundM.wp;
+    else if (typeof panelConfig !== 'undefined' && panelConfig && panelConfig.potencia) polyModWp = panelConfig.potencia;
+  } else if (typeof panelConfig !== 'undefined' && panelConfig && panelConfig.potencia) {
+    polyModWp = panelConfig.potencia;
+  }
+  var kwp = (modCount * polyModWp / 1000).toFixed(2);
+  var statsEl = document.getElementById('faldon-card-stats');
+  if (statsEl) statsEl.innerHTML = modCount + ' mods <span style="font-size:8px;color:var(--amber-400);margin-left:4px;">· ' + kwp + ' kWp</span>';
 
-    return `
-    <div id="step3-poly-card-${idx}" class="ui-card" style="margin-bottom:8px;border:1px solid ${isSelected ? "var(--amber-400)" : "rgba(255,255,255,0.1)"};background:${isSelected ? "rgba(245,158,11,0.08)" : "rgba(0,0,0,0.3)"};border-radius:8px;padding:8px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;cursor:pointer;" onclick="wpSelectPolylineForStep3(${idx})">
-        <div style="display:flex;align-items:center;gap:6px;">
-          <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${isSelected ? "var(--amber-400)" : "#10b981"};"></span>
-          <span style="font-size:9.5px;font-weight:bold;color:${isSelected ? "#fff" : "var(--text-slate-200)"};">${poly.name || ("Faldón #" + (idx + 1))}</span>
-        </div>
-        <div style="text-align:right;">
-          <span class="card-mod-count" style="font-size:9.5px;font-weight:bold;color:var(--emerald-400);">${modCount} mods</span>
-          <span style="font-size:8px;color:var(--amber-400);margin-left:4px;">· ${kwp} kWp</span>
-        </div>
-      </div>
+  // ── Selector de módulo FV ──
+  var modSelect = document.getElementById('faldon-module-select');
+  if (modSelect && typeof equipmentCatalog !== 'undefined' && equipmentCatalog && Array.isArray(equipmentCatalog.modules)) {
+    modSelect.innerHTML = equipmentCatalog.modules.map(function(m) {
+      return '<option value="' + m.id + '"' + (m.id === effectiveModId ? ' selected' : '') + '>' +
+        m.brand + ' ' + m.model + ' (' + m.wp + 'Wp · ' + m.l.toFixed(2) + '×' + m.w.toFixed(2) + 'm)</option>';
+    }).join('');
+  }
 
-      <!-- Selector de Módulo FV por Faldón -->
-      <div style="background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:5px 6px;margin-bottom:6px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
-          <span style="font-size:7.5px;color:var(--text-slate-300);font-weight:600;"><i data-lucide=\"zap\" class=\"icon-sm\"></i> PANEL FV INDIVIDUAL:</span>
-          <button type="button" class="doc-mini-btn" style="padding:1px 5px;font-size:7px;font-weight:bold;background:rgba(59,130,246,0.15);color:#60A5FA;border-color:rgba(59,130,246,0.3);cursor:pointer;" onclick="wpApplyPolyModuleToAll(${idx})" title="Propagar este panel a todos los faldones"><i data-lucide=\"globe\" class=\"icon-sm\"></i> A TODOS</button>
-        </div>
-        <select class="doc-input" style="width:100%;font-size:8px;padding:3px 4px;background:#0F172A;color:#F8FAFC;border:1px solid rgba(255,255,255,0.15);border-radius:4px;" onchange="wpSetPolyModule(${idx}, this.value)">
-          ${moduleOptionsHtml}
-        </select>
-      </div>
+  // ── Selector de estructura ──
+  var structSelect = document.getElementById('faldon-structure-select');
+  if (structSelect) structSelect.value = poly.structureType || 'coplanar_teja';
 
-      <!-- Selector de Estructura de Montaje por Faldn -->
-      <div style="background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:5px 6px;margin-bottom:6px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
-          <span style="font-size:7.5px;color:var(--text-slate-300);font-weight:600;"><i data-lucide=\"box\" class=\"icon-sm\"></i> ESTRUCTURA DE MONTAJE:</span>
-        </div>
-        <select class="doc-input" style="width:100%;font-size:8px;padding:3px 4px;background:#0F172A;color:#F8FAFC;border:1px solid rgba(255,255,255,0.15);border-radius:4px;" onchange="wpSetPolyStructure(${idx}, this.value)">
-          <option value="coplanar_teja" ${poly.structureType === 'coplanar_teja' ? 'selected' : ''}>Coplanar (Teja / Salvatejas)</option>
-          <option value="coplanar_chapa" ${poly.structureType === 'coplanar_chapa' ? 'selected' : ''}>Coplanar (Chapa / Sándwich)</option>
-          <option value="triangles_30" ${poly.structureType === 'triangles_30' ? 'selected' : ''}>Triángulos 30º (Cubierta Plana)</option>
-          <option value="triangles_15_ew" ${poly.structureType === 'triangles_15_ew' ? 'selected' : ''}>Estructura 15º Este-Oeste</option>
-        </select>
-      </div>
+  // ── Disposición solar (arrangement) ──
+  var tilt = poly.modTilt || 'auto';
+  var az = (poly.modAzimuth !== undefined) ? poly.modAzimuth : 'auto';
+  var arrMode = poly.arrangementMode || ((tilt === 'auto' || tilt === undefined) ? 'coplanar' : ((tilt === 32 || tilt === 'optimal') ? 'solar_optimal' : 'custom'));
 
-      <!-- Selector de Disposición Preconfigurada por Faldón -->
-      <div style="background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:5px 6px;margin-bottom:6px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-          <span style="font-size:7.5px;color:var(--text-slate-300);font-weight:600;"><i data-lucide=\"ruler\" class=\"icon-sm\"></i> DISPOSICIÓN SOLAR:</span>
-          <button type="button" class="doc-mini-btn" style="padding:1px 5px;font-size:7px;font-weight:bold;background:rgba(59,130,246,0.15);color:#60A5FA;border-color:rgba(59,130,246,0.3);cursor:pointer;" onclick="wpApplyPanelArrangementToAll(${idx})" title="Propagar esta disposición a todos los faldones"><i data-lucide=\"globe\" class=\"icon-sm\"></i> A TODOS</button>
-        </div>
-        <div style="display:flex;gap:3px;margin-bottom:4px;">
-          <button type="button" class="doc-mini-btn ${arrMode === 'coplanar' ? 'active' : ''}" 
-                  style="flex:1;padding:3px 2px;font-size:7.5px;font-weight:bold;${arrMode === 'coplanar' ? 'border-color:var(--emerald-400);color:var(--emerald-400);background:rgba(16,185,129,0.2);' : ''}" 
-                  onclick="wpApplyPanelArrangement(${idx}, 'coplanar')"><i data-lucide=\"home\" class=\"icon-sm\"></i> COPLANAR</button>
-          <button type="button" class="doc-mini-btn ${arrMode === 'solar_optimal' ? 'active' : ''}" 
-                  style="flex:1.2;padding:3px 2px;font-size:7.5px;font-weight:bold;${arrMode === 'solar_optimal' ? 'border-color:var(--amber-400);color:var(--amber-400);background:rgba(245,158,11,0.25);' : ''}" 
-                  onclick="wpApplyPanelArrangement(${idx}, 'solar_optimal')"><i data-lucide=\"sun\" class=\"icon-sm\"></i> CARA AL SOL</button>
-          <button type="button" class="doc-mini-btn ${arrMode === 'custom' ? 'active' : ''}" 
-                  style="flex:1.1;padding:3px 2px;font-size:7.5px;font-weight:bold;${arrMode === 'custom' ? 'border-color:var(--sky-400);color:var(--sky-400);background:rgba(56,189,248,0.2);' : ''}" 
-                  onclick="wpApplyPanelArrangement(${idx}, 'custom')"><i data-lucide=\"settings\" class=\"icon-sm\"></i> MANUAL</button>
-        </div>
-        <div style="font-size:7px;color:#94A3B8;display:flex;justify-content:space-between;margin-top:2px;">
-          <span>${arrMode === 'coplanar' ? '<i data-lucide=\"home\" class=\"icon-sm\"></i> Paralelo a faldón · Paso 0.04m' : (arrMode === 'solar_optimal' ? '<i data-lucide=\"sun\" class=\"icon-sm\"></i> Óptima: 32° · Sur (180°)' : '<i data-lucide=\"settings\" class=\"icon-sm\"></i> Ajuste personalizado manual')}</span>
-          <span style="color:${(arrMode === 'solar_optimal' || tilt !== 'auto') ? '#34D399' : '#94A3B8'};font-weight:bold;">${(arrMode === 'solar_optimal' || (tilt !== 'auto' && Number(tilt) > 0)) ? '<i data-lucide=\"check-circle\" class=\"icon-sm\"></i> Anti-sombra OK' : 'Coplanar'}</span>
-        </div>
-      </div>
+  var arrButtons = {
+    coplanar:      { el: document.getElementById('faldon-arr-coplanar'),  border: 'var(--emerald-400)', color: 'var(--emerald-400)', bg: 'rgba(16,185,129,0.2)' },
+    solar_optimal: { el: document.getElementById('faldon-arr-optimal'),   border: 'var(--amber-400)',   color: 'var(--amber-400)',   bg: 'rgba(245,158,11,0.25)' },
+    custom:        { el: document.getElementById('faldon-arr-custom'),    border: 'var(--sky-400)',     color: 'var(--sky-400)',     bg: 'rgba(56,189,248,0.2)' }
+  };
+  Object.keys(arrButtons).forEach(function(key) {
+    var cfg = arrButtons[key];
+    if (!cfg.el) return;
+    var isActive = (key === arrMode);
+    cfg.el.style.borderColor = isActive ? cfg.border : '';
+    cfg.el.style.color       = isActive ? cfg.color  : '';
+    cfg.el.style.background  = isActive ? cfg.bg     : '';
+  });
 
-      <!-- Disposicion Vertical / Horizontal -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:6px;">
-        <button class="doc-mini-btn ${orient === "portrait" ? "active" : ""}" 
-                onclick="wpSetPolyOrientation(${idx}, 'portrait')"
-                style="text-align:center;padding:4px 2px;font-size:8.5px;${orient === "portrait" ? "border-color:var(--amber-400);color:var(--amber-400);font-weight:bold;" : ""}">
-          <i data-lucide="smartphone" class="icon-sm"></i> VERTICAL
-        </button>
-        <button class="doc-mini-btn ${orient === "landscape" ? "active" : ""}" 
-                onclick="wpSetPolyOrientation(${idx}, 'landscape')"
-                style="text-align:center;padding:4px 2px;font-size:8.5px;${orient === "landscape" ? "border-color:var(--amber-400);color:var(--amber-400);font-weight:bold;" : ""}">
-          <i data-lucide="monitor" class="icon-sm"></i> HORIZONTAL
-        </button>
-      </div>
+  var legendEl = document.getElementById('faldon-arr-legend');
+  if (legendEl) {
+    var leftTxt = arrMode === 'coplanar'
+      ? '<i data-lucide="home" class="icon-sm"></i> Paralelo a faldón · Paso 0.04m'
+      : (arrMode === 'solar_optimal'
+          ? '<i data-lucide="sun" class="icon-sm"></i> Óptima: 32° · Sur (180°)'
+          : '<i data-lucide="settings" class="icon-sm"></i> Ajuste personalizado manual');
+    var isAntiShadow = (arrMode === 'solar_optimal' || (tilt !== 'auto' && Number(tilt) > 0));
+    var rightTxt = isAntiShadow ? '<i data-lucide="check-circle" class="icon-sm"></i> Anti-sombra OK' : 'Coplanar';
+    var rightColor = isAntiShadow ? '#34D399' : '#94A3B8';
+    legendEl.innerHTML = '<span>' + leftTxt + '</span><span style="color:' + rightColor + ';font-weight:bold;">' + rightTxt + '</span>';
+  }
 
-      <!-- Sliders interactivos para Ajuste Manual / Personalizado -->
-      <div id="poly-custom-controls-${idx}" style="display:${arrMode === 'custom' ? 'flex' : 'none'};flex-direction:column;gap:5px;margin-bottom:6px;">
-        <!-- Inclinación -->
-        <div style="background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:5px 6px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
-            <span style="font-size:7.5px;color:var(--text-slate-300);font-weight:600;"><i data-lucide=\"ruler\" class=\"icon-sm\"></i> INCLINACIÓN MÓDULO (βm):</span>
-            <span id="poly-tilt-val-${idx}" style="font-size:9px;font-weight:bold;color:var(--amber-400);font-family:monospace;">${tilt === "auto" ? "Auto (faldón)" : (tilt + "°")}</span>
-          </div>
-          <div style="display:flex;align-items:center;gap:6px;">
-            <input id="poly-tilt-slider-${idx}" type="range" min="0" max="90" step="1" 
-                   value="${tilt === "auto" ? 0 : tilt}" 
-                   style="flex:1;accent-color:var(--amber-400);height:4px;cursor:pointer;"
-                   oninput="wpSetPolyTiltRealtime(${idx}, this.value)" />
-            <button class="doc-mini-btn" style="padding:2px 5px;font-size:7.5px;" onclick="wpApplyPanelArrangement(${idx}, 'coplanar')">AUTO</button>
-          </div>
-        </div>
+  // ── Orientación portrait/landscape ──
+  var orient = poly.orientationPref || (typeof userPanelOrientationPref !== 'undefined' ? userPanelOrientationPref : 'portrait');
+  ['portrait', 'landscape'].forEach(function(dir) {
+    var btn = document.getElementById('faldon-orient-' + dir);
+    if (!btn) return;
+    var isActive = (orient === dir);
+    btn.className = 'doc-mini-btn' + (isActive ? ' active' : '');
+    btn.style.borderColor = isActive ? 'var(--amber-400)' : '';
+    btn.style.color       = isActive ? 'var(--amber-400)' : '';
+    btn.style.fontWeight  = isActive ? 'bold' : '';
+  });
 
-        <!-- Azimut -->
-        <div style="background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:5px 6px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
-            <span style="font-size:7.5px;color:var(--text-slate-300);font-weight:600;">⟳ AZIMUT / GIRO EN PLANO:</span>
-            <span id="poly-az-val-${idx}" style="font-size:9px;font-weight:bold;color:var(--cyan-400,#38bdf8);font-family:monospace;">${az === "auto" ? "Auto" : az + "° · " + (typeof getAzimuthCardinalShort === "function" ? getAzimuthCardinalShort(Number(az)) : "")}</span>
-          </div>
-          <div style="display:flex;align-items:center;gap:6px;">
-            <input id="poly-az-slider-${idx}" type="range" min="0" max="360" step="1" 
-                   value="${az === "auto" ? 180 : az}" 
-                   style="flex:1;accent-color:var(--cyan-400,#38bdf8);height:4px;cursor:pointer;"
-                   oninput="wpSetPolyAzimuthRealtime(${idx}, this.value)" />
-            <button class="doc-mini-btn" style="padding:2px 5px;font-size:7.5px;" onclick="wpApplyPanelArrangement(${idx}, 'coplanar')">AUTO</button>
-          </div>
-          <div style="display:flex;justify-content:space-between;margin-top:4px;gap:2px;">
-            <button class="doc-mini-btn" style="padding:1px 2px;font-size:7px;flex:1;" onclick="wpSetPolyAzimuthRealtime(${idx}, 0)">0° N</button>
-            <button class="doc-mini-btn" style="padding:1px 2px;font-size:7px;flex:1;" onclick="wpSetPolyAzimuthRealtime(${idx}, 90)">90° E</button>
-            <button class="doc-mini-btn" style="padding:1px 2px;font-size:7px;flex:1;background:rgba(245,158,11,0.15);color:var(--amber-400);font-weight:bold;" onclick="wpSetPolyAzimuthRealtime(${idx}, 180)">180° S</button>
-            <button class="doc-mini-btn" style="padding:1px 2px;font-size:7px;flex:1;" onclick="wpSetPolyAzimuthRealtime(${idx}, 270)">270° O</button>
-          </div>
-        </div>
-      </div>
-    </div>`;
-  }).join("");
+  // ── Controles personalizados (sliders) ──
+  var customCtrl = document.getElementById('faldon-custom-controls');
+  if (customCtrl) customCtrl.style.display = arrMode === 'custom' ? 'flex' : 'none';
+
+  var tiltVal = document.getElementById('faldon-tilt-val');
+  if (tiltVal) tiltVal.textContent = (tilt === 'auto' ? 'Auto (faldón)' : (tilt + '°'));
+
+  var tiltSlider = document.getElementById('faldon-tilt-slider');
+  if (tiltSlider) tiltSlider.value = (tilt === 'auto' ? 0 : tilt);
+
+  var azVal = document.getElementById('faldon-az-val');
+  if (azVal) azVal.textContent = (az === 'auto' ? 'Auto' : (az + '° · ' + (typeof getAzimuthCardinalShort === 'function' ? getAzimuthCardinalShort(Number(az)) : '')));
+
+  var azSlider = document.getElementById('faldon-az-slider');
+  if (azSlider) azSlider.value = (az === 'auto' ? 180 : az);
+
+  // Refrescar iconos Lucide
+  if (window.lucide) try { lucide.createIcons(); } catch(_) {}
 }
+window.wpPopulateFaldonCard = wpPopulateFaldonCard;
+
+// ─────────────────────────────────────────────────────────────────
+// wpSelectFaldon: selección unificada (SSOT → escena + tarjeta)
+// Lightweight: no dispara recalculateLayoutAndObstacles ni
+// startSolarPanelsSimulation. Para eso usar wpSelectPolyline().
+// ─────────────────────────────────────────────────────────────────
+function wpSelectFaldon(idx) {
+  if (!WP.polylines || WP.polylines.length === 0) {
+    WP.selectedPolyIdx = -1;
+    WP.selectedVtxIdx = -1;
+    wpUpdateStep3UI();
+    return;
+  }
+  if (idx < 0 || idx >= WP.polylines.length) idx = 0;
+
+  WP.selectedPolyIdx = idx;
+  WP.selectedVtxIdx = -1;
+
+  var poly = WP.polylines[idx];
+  if (poly && typeof poly.planeIdx === 'number') {
+    WP.activePlaneIdx = poly.planeIdx;
+  }
+  if (poly) {
+    polygonPoints = poly.points.map(function(p) { return Cesium.Cartesian3.clone(p); });
+    selectedVertexIndex = -1;
+  }
+
+  wpRenderAllPolylines();
+  wpUpdateUI();
+
+  if (typeof recalculateSolarYield === 'function') recalculateSolarYield();
+
+  if (poly) {
+    showStatus('<i data-lucide="crosshair" class="icon-sm"></i> ' +
+      (poly.name || ('FALDÓN #' + (idx + 1))).toUpperCase() + ' SELECCIONADO (' +
+      poly.points.length + ' vtx · ' + poly.area.toFixed(1) + ' m²)', 2000);
+  }
+}
+window.wpSelectFaldon = wpSelectFaldon;
 
 function wpSetPolyModule(polyIdx, modId) {
   if (!WP.polylines || !WP.polylines[polyIdx]) return;
@@ -3117,10 +3130,10 @@ function wpSetPolyAzimuthRealtime(polyIdx, val) {
   WP.polylines[polyIdx].arrangementMode = (val === "auto" || val === "") ? 'coplanar' : 'custom';
   WP.selectedPolyIdx = polyIdx;
 
-  const lbl = document.getElementById("poly-az-val-" + polyIdx);
+  const lbl = document.getElementById("faldon-az-val");
   if (lbl) lbl.textContent = (val === "auto" || val === "") ? "Auto" : (val + "°");
 
-  const slider = document.getElementById("poly-az-slider-" + polyIdx);
+  const slider = document.getElementById("faldon-az-slider");
   if (slider && val !== "auto") slider.value = val;
 
   if (typeof window !== "undefined" && window.requestAnimationFrame) {
@@ -3135,11 +3148,11 @@ function wpSetPolyAzimuthRealtime(polyIdx, val) {
       if (roofPanelsCache) roofPanelsCache.sig = "";
       wpFastRenderSimulatedPanels();
 
-      const cardModLbl = document.querySelector("#step3-poly-card-" + polyIdx + " .card-mod-count");
+      const cardModLbl = document.getElementById("faldon-card-stats");
       if (cardModLbl && poly && poly.roofInfo && poly.roofInfo.panels) {
         const c = poly.roofInfo.panels.length;
         const kw = (c * wpGetPolyWp(poly) / 1000).toFixed(2);
-        cardModLbl.textContent = `${c} mods · ${kw} kWp`;
+        cardModLbl.innerHTML = c + ' mods <span style="font-size:8px;color:var(--amber-400);margin-left:4px;">· ' + kw + ' kWp</span>';
       }
       if (typeof recalculateSolarYield === "function") recalculateSolarYield();
     });
@@ -3151,25 +3164,18 @@ function wpSetPolyAzimuthRealtime(polyIdx, val) {
     if (roofPanelsCache) roofPanelsCache.sig = "";
     wpFastRenderSimulatedPanels();
 
-    const cardModLbl = document.querySelector("#step3-poly-card-" + polyIdx + " .card-mod-count");
+    const cardModLbl = document.getElementById("faldon-card-stats");
     if (cardModLbl && poly && poly.roofInfo && poly.roofInfo.panels) {
       const c = poly.roofInfo.panels.length;
       const kw = (c * wpGetPolyWp(poly) / 1000).toFixed(2);
-      cardModLbl.textContent = `${c} mods · ${kw} kWp`;
+      cardModLbl.innerHTML = c + ' mods <span style="font-size:8px;color:var(--amber-400);margin-left:4px;">· ' + kw + ' kWp</span>';
     }
   }
 }
 
 function wpSelectPolylineForStep3(polyIdx) {
-  if (!WP.polylines || !WP.polylines[polyIdx]) return;
-  WP.selectedPolyIdx = polyIdx;
-  if (typeof WP.polylines[polyIdx].planeIdx === "number") {
-    WP.activePlaneIdx = WP.polylines[polyIdx].planeIdx;
-  }
-  wpUpdateStep3UI();
-  wpRenderAllPolylines();
-  const card = document.getElementById("step3-poly-card-" + polyIdx);
-  if (card) card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  // Delegado a wpSelectFaldon — mantiene backward compat
+  wpSelectFaldon(polyIdx);
 }
 
 function wpSetPolyOrientation(polyIdx, orientation) {
@@ -3200,14 +3206,14 @@ function wpSetPolyTiltRealtime(polyIdx, val) {
   WP.polylines[polyIdx].arrangementMode = (val === "auto" || val === "") ? 'coplanar' : 'custom';
   WP.selectedPolyIdx = polyIdx;
 
-  const lbl = document.getElementById("poly-tilt-val-" + polyIdx);
+  const lbl = document.getElementById("faldon-tilt-val");
   if (lbl) lbl.textContent = (val === "auto" || val === "") ? "Auto (faldón)" : (val + "°");
 
-  const slider = document.getElementById("poly-tilt-slider-" + polyIdx);
+  const slider = document.getElementById("faldon-tilt-slider");
   if (slider && val !== "auto") slider.value = val;
 
-  const pitchVal = document.getElementById("poly-pitch-val-" + polyIdx);
-  const pitchClean = document.getElementById("poly-pitch-clean-" + polyIdx);
+  const pitchVal = null; // pitch elements removed in master-detail refactor
+  const pitchClean = null;
   if (pitchVal && pitchClean) {
     if (val === "auto" || parseFloat(val) <= 0) {
       pitchVal.textContent = "Auto (Coplanar)";
@@ -3241,11 +3247,11 @@ function wpSetPolyTiltRealtime(polyIdx, val) {
       if (roofPanelsCache) roofPanelsCache.sig = "";
       wpFastRenderSimulatedPanels();
 
-      const cardModLbl = document.querySelector("#step3-poly-card-" + polyIdx + " .card-mod-count");
+      const cardModLbl = document.getElementById("faldon-card-stats");
       if (cardModLbl && poly && poly.roofInfo && poly.roofInfo.panels) {
         const c = poly.roofInfo.panels.length;
         const kw = (c * wpGetPolyWp(poly) / 1000).toFixed(2);
-        cardModLbl.textContent = `${c} mods · ${kw} kWp`;
+        cardModLbl.innerHTML = c + ' mods <span style="font-size:8px;color:var(--amber-400);margin-left:4px;">· ' + kw + ' kWp</span>';
       }
       if (typeof recalculateSolarYield === "function") recalculateSolarYield();
     });
@@ -3477,9 +3483,7 @@ function wpUpdateUI() {
   const polyDropdownContainer = document.getElementById('wp-polylines-selector-container');
   const polyDropdown = document.getElementById('wp-polylines-dropdown');
   const polyCountBadge = document.getElementById('wp-polylines-count-badge');
-  const step3PolyContainer = document.getElementById('step3-poly-selector-container');
-  const step3PolyDropdown = document.getElementById('step3-polylines-dropdown');
-  const step3PolyCountBadge = document.getElementById('step3-poly-count-badge');
+  // [REFACTOR] step3-poly-selector-container/dropdown eliminados en master-detail refactor
   const vtxManagerContainer = document.getElementById('wp-vertices-manager-container');
   const vtxTable = document.getElementById('wp-vertices-list-table');
 
@@ -3502,15 +3506,7 @@ function wpUpdateUI() {
       polyDropdownContainer.style.display = 'none';
     }
 
-    if (step3PolyContainer && step3PolyDropdown) {
-      if (WP.polylines.length > 0) {
-        step3PolyContainer.style.display = 'block';
-        if (step3PolyCountBadge) step3PolyCountBadge.textContent = WP.polylines.length + (WP.polylines.length === 1 ? ' POLILÍNEA' : ' POLILÍNEAS');
-        step3PolyDropdown.innerHTML = optionsHtml;
-      } else {
-        step3PolyContainer.style.display = 'none';
-      }
-    }
+
   }
 
   const selectedPoly = (WP.polylines && WP.selectedPolyIdx >= 0) ? WP.polylines[WP.selectedPolyIdx] : null;
