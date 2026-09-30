@@ -802,11 +802,16 @@
                 </button>
               </div>
 
-              <!-- CONTROLES PARAMÉTRICOS DE INGENIERÍA SOLAR -->
-              <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.07);border-radius:6px;padding:6px;display:flex;flex-direction:column;gap:4px;margin-bottom:6px;">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
-                  <span style="font-size:9.5px;font-weight:bold;color:var(--sky-400);text-transform:uppercase;"><i data-lucide="ruler" class="icon-sm"></i> Disposición y Orientación Solar</span>
-                  <button type="button" class="doc-mini-btn" style="padding:1px 5px;font-size:9px;background:rgba(59,130,246,0.15);color:#60A5FA;border-color:rgba(59,130,246,0.3);cursor:pointer;" onclick="wpApplyActiveArrangementToAll()" title="Propagar esta disposición a todos los faldones"><i data-lucide="globe" class="icon-sm"></i> A TODOS</button>
+              <!-- [UX] AJUSTE FINO colapsado (legacy Paso 6): duplica los controles
+                   per-faldón de las tarjetas; se conserva como acordeón avanzado porque
+                   contiene el único slider fino de azimut y el "A TODOS" de disposición.
+                   Actúa sobre el FALDÓN SELECCIONADO (WP.selectedPolyIdx). -->
+              <details id="p2-advanced-disposition" style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.07);border-radius:6px;padding:6px;margin-bottom:6px;">
+                <summary style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;list-style:none;user-select:none;">
+                  <span style="font-size:9.5px;font-weight:bold;color:var(--sky-400);text-transform:uppercase;"><i data-lucide="ruler" class="icon-sm"></i> Ajuste fino del faldón seleccionado</span>
+                  <button type="button" class="doc-mini-btn" style="padding:1px 5px;font-size:9px;background:rgba(59,130,246,0.15);color:#60A5FA;border-color:rgba(59,130,246,0.3);cursor:pointer;" onclick="event.stopPropagation();wpApplyActiveArrangementToAll()" title="Propagar esta disposición a todos los faldones"><i data-lucide="globe" class="icon-sm"></i> A TODOS</button>
+                </summary>
+                <div style="display:flex;flex-direction:column;gap:4px;margin-top:6px;">
                 </div>
                 
                 <!-- 3 Disposiciones Preconfiguradas Principales -->
@@ -895,6 +900,7 @@
                 </div>
               </div>
 
+              </details>
               
 
               <!-- SIMULACION ANUAL Y HEATMAP DE SOMBRAS (PASO 2) -->
