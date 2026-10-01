@@ -26,6 +26,7 @@
 c:/TRABAJOS/RA/
 ├── index.html                       # Aplicación completa (HTML/CSS/JS monolito cliente)
 ├── AGENTS.md                        # ← ESTE ARCHIVO. Fuente de verdad para agentes IA.
+├── MEMORY.md                        # Memoria viva del proyecto: decisiones, estado, deuda técnica
 ├── PLAN_MAESTRO_REESTRUCTURACION_FLUJO.md  # Plan de implementación por fases
 ├── MIGRATION_PLAN.md                # Riesgos y estrategia de migración técnica
 ├── MANUAL_TECNICO_INGENIERIA_RA.md  # Física solar y formulación matemática
@@ -42,7 +43,7 @@ c:/TRABAJOS/RA/
 │   ├── electrical-engine.js         # Secciones REBT, strings MPPT y reasignación balanceada
 │   ├── undo-manager.js              # Deshacer borrados (obstáculos/edificios/paneles/vértices)
 │   ├── bill-auditor.js              # Auditoría de facturas eléctricas
-│   ├── financials.js                # CAPEX/OPEX, VAN, TIR, flujo de caja
+│   ├── financials.js                # CAPEX/OPEX, VAN, TIR, oferta comercial + resumen IA híbrido
 │   ├── docs-generator.js            # Exportación de memorias y ofertas en PDF
 │   ├── bom-tree.js                  # Árbol de materiales (BOM)
 │   ├── project-hierarchy.js         # Scene graph jerárquico del proyecto
@@ -189,6 +190,7 @@ Estado en `window.solarProjectConfig`:
 | Documento | Contenido |
 | :--- | :--- |
 | `AGENTS.md` | ← Este archivo. Flujo, arquitectura y reglas para IA. |
+| `MEMORY.md` | Memoria viva: decisiones de diseño, estado, SSOT map, deuda técnica. |
 | `PLAN_MAESTRO_REESTRUCTURACION_FLUJO.md` | Hoja de ruta de implementación por fases |
 | `MIGRATION_PLAN.md` | Análisis de riesgo y estrategia de migración técnica |
 | `MANUAL_TECNICO_INGENIERIA_RA.md` | Física solar y formulación matemática detallada |
