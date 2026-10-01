@@ -25,7 +25,7 @@
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
 
-  <script src="js/buildings.js?v=20260929b"></script>
+  <script src="js/buildings.js?v=20260929b"></script>`n
     <script src="js/solar-heatmap.js?v=20260929b"></script>
     <script src="js/config.js?v=20260929b"></script>
     <script src="js/financials.js?v=20260929c"></script>
@@ -4474,6 +4474,20 @@ function finishActiveBuilding() {
     appMode = 'navigate';
   }
 
+  // >>> FIX: Limpieza de herramientas de polígono cruzadas (faldones fantasma) <<<
+  if (typeof isDrawingMode !== 'undefined') isDrawingMode = false;
+  if (typeof activeShapeEntity !== 'undefined' && activeShapeEntity) {
+    try { viewer.entities.remove(activeShapeEntity); } catch(e){}
+    activeShapeEntity = null;
+  }
+  if (typeof vertexEntities !== 'undefined' && Array.isArray(vertexEntities)) {
+    vertexEntities.forEach(e => { try { viewer.entities.remove(e); } catch(e){} });
+    vertexEntities = [];
+  }
+  if (typeof polygonPoints !== 'undefined') {
+    polygonPoints = [];
+  }
+
   const btnDraw = document.getElementById('btn-draw-building');
   if (btnDraw) {
     btnDraw.classList.remove('active');
@@ -4515,6 +4529,21 @@ function cancelActiveBuilding() {
   }
   window._bldCursorPos = null;
   WP.mode = 'idle';
+
+  // >>> FIX: Limpieza cruzada <<<
+  if (typeof isDrawingMode !== 'undefined') isDrawingMode = false;
+  if (typeof activeShapeEntity !== 'undefined' && activeShapeEntity) {
+    try { viewer.entities.remove(activeShapeEntity); } catch(e){}
+    activeShapeEntity = null;
+  }
+  if (typeof vertexEntities !== 'undefined' && Array.isArray(vertexEntities)) {
+    vertexEntities.forEach(e => { try { viewer.entities.remove(e); } catch(e){} });
+    vertexEntities = [];
+  }
+  if (typeof polygonPoints !== 'undefined') {
+    polygonPoints = [];
+  }
+
   const confBar = document.getElementById('ra-confirm-bar');
   if (confBar) confBar.style.display = 'none';
   if (typeof wpUpdateCanvasHUD === 'function') wpUpdateCanvasHUD();
