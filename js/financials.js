@@ -71,6 +71,8 @@ function resolveEquipmentNames() {
 // ═══════════════════════════════════════════════════════════════════════════════
 // RESUMEN COMERCIAL HÍBRIDO (Plantilla determinista + Gemini opcional)
 // Tono: comercial-cercano — vendedor que inspira confianza
+// Devuelve HTML sincrónico con la plantilla. Si hay API Key, lanza
+// enrichSummaryWithGemini() async para reemplazar el contenido.
 // ═══════════════════════════════════════════════════════════════════════════════
 function generateCommercialSummary(d, m, equipment) {
   var kwp = m.kwp || 0;
@@ -116,6 +118,93 @@ function generateCommercialSummary(d, m, equipment) {
 
   return lines.join('<br>');
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ENRIQUECIMIENTO GEMINI ASYNC — Se llama tras abrir la ventana de oferta
+// Reemplaza el contenido del bloque resumen con la respuesta de Gemini.
+// Si falla por cualquier motivo, el resumen de plantilla permanece visible.
+// ═══════════════════════════════════════════════════════════════════════════════
+async function enrichSummaryWithGemini(targetWindow, d, m, equipment) {
+  // ── Obtener API Key ──
+  var apiKey = '';
+  try {
+    apiKey = (window.RA && window.RA.geminiApiKey) ? window.RA.geminiApiKey
+           : (localStorage.getItem('ra_gemini_api_key') || '');
+  } catch(e) { return; }
+  if (!apiKey) return; // Sin key → mantener plantilla
+
+  // ── Buscar el contenedor del resumen en la ventana de oferta ──
+  var container = null;
+  try {
+    container = targetWindow.document.getElementById('ra-ai-summary-content');
+  } catch(e) { return; }
+  if (!container) return;
+
+  // ── Badge "Generando con IA..." ──
+  var badge = null;
+  try { badge = targetWindow.document.getElementById('ra-ai-summary-badge'); } catch(e) {}
+  if (badge) badge.innerHTML = '✨ <em>Generando resumen con Gemini...</em>';
+
+  // ── Construir prompt estructurado ──
+  var kwp = m.kwp || 0;
+  var numPanels = m.numPanels || 0;
+  var annualKWh = d.annualKWh || (kwp * 1450);
+  var ahorro = m.ahorroLuzAnio1 || 0;
+  var payback = m.paybackYears || 0;
+  var autoconsumo = m.pctAutoconsumo || 0;
+  var ciudad = d.tit.mun || d.tit.prov || 'su localidad';
+  var nombre = d.tit.nombre || 'Cliente';
+
+  var prompt = 'Eres un asesor solar comercial profesional redactando una propuesta para un cliente residencial. ' +
+    'Escribe un párrafo de presentación comercial (máx 120 palabras) en español con tono cercano, profesional y que inspire confianza. ' +
+    'NO uses saludo ("Estimado"), NO uses formato markdown. Usa HTML inline simple (<strong> para destacar cifras clave). ' +
+    'Datos del proyecto:\n' +
+    '- Cliente: ' + nombre + '\n' +
+    '- Ubicación: ' + ciudad + '\n' +
+    '- Módulos: ' + numPanels + ' paneles\n' +
+    '- Potencia: ' + kwp.toFixed(2) + ' kWp\n' +
+    '- Producción anual: ' + Math.round(annualKWh).toLocaleString('es-ES') + ' kWh\n' +
+    '- Ahorro año 1: ' + Math.round(ahorro).toLocaleString('es-ES') + ' €\n' +
+    '- Payback: ' + payback.toFixed(1) + ' años\n';
+  if (autoconsumo > 0) prompt += '- Autoconsumo: ' + Math.round(autoconsumo) + '%\n';
+  if (equipment && equipment.hasBat) prompt += '- Batería: ' + equipment.batName + '\n';
+  if (equipment) prompt += '- Inversor: ' + equipment.invName + '\n';
+
+  // ── Llamada REST a Gemini ──
+  try {
+    var url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + encodeURIComponent(apiKey);
+    var resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 300
+        }
+      })
+    });
+    if (!resp.ok) {
+      if (badge) badge.innerHTML = '📋 Resumen del proyecto';
+      return; // Mantener plantilla
+    }
+    var data = await resp.json();
+    var text = '';
+    if (data.candidates && data.candidates[0] && data.candidates[0].content &&
+        data.candidates[0].content.parts && data.candidates[0].content.parts[0]) {
+      text = data.candidates[0].content.parts[0].text || '';
+    }
+    if (text.trim()) {
+      container.innerHTML = text.trim();
+      if (badge) badge.innerHTML = '✨ Resumen generado con IA · Google Gemini';
+    }
+  } catch(err) {
+    // Fallo silencioso — la plantilla permanece visible
+    if (badge) badge.innerHTML = '📋 Resumen del proyecto';
+    if (window.RA && window.RA.log) window.RA.log.warn('[Gemini] Error:', err);
+  }
+}
+
 
 // ============================================================================
 // GENERADOR DE PROPUESTA COMERCIAL & OFERTA ECONÓMICA EN PDF PARA CLIENTE
@@ -429,8 +518,8 @@ function generatePropuestaComercialPDF() {
 
       <!-- RESUMEN COMERCIAL IA HÍBRIDO -->
       <div style="margin:16px 0 12px;padding:14px 18px;background:linear-gradient(135deg,${pal.light},#f8fafc);border-left:4px solid ${pal.primary};border-radius:0 8px 8px 0;font-size:11px;line-height:1.6;color:#334155;">
-        <div style="font-size:8px;text-transform:uppercase;letter-spacing:1px;color:${pal.primary};font-weight:800;margin-bottom:6px;">📋 Resumen del proyecto</div>
-        ${_summaryHTML}
+        <div id="ra-ai-summary-badge" style="font-size:8px;text-transform:uppercase;letter-spacing:1px;color:${pal.primary};font-weight:800;margin-bottom:6px;">📋 Resumen del proyecto</div>
+        <div id="ra-ai-summary-content">${_summaryHTML}</div>
       </div>
 
       <h2>1. Datos del cliente y ubicación</h2>
@@ -610,6 +699,10 @@ function generatePropuestaComercialPDF() {
   w.document.open();
   w.document.write(code);
   w.document.close();
+
+  // ── Enriquecimiento IA async (si hay API Key configurada) ──
+  // La plantilla ya es visible. Gemini reemplaza el texto si responde OK.
+  enrichSummaryWithGemini(w, d, m, _eqp);
 }
 
 // ═════════════════════════════════════════════════════════════════════════════

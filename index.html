@@ -2330,6 +2330,26 @@
         </div>
       </div>
 
+      <!-- Inteligencia Artificial (Gemini) -->
+      <div class="ui-card" style="margin:0;background:rgba(30,41,59,0.5);border:1px solid rgba(255,255,255,0.08);padding:14px;border-radius:8px;">
+        <div style="font-size:11px;font-weight:800;color:#a78bfa;text-transform:uppercase;margin-bottom:12px;">
+          <i data-lucide="sparkles" class="icon-sm"></i> Inteligencia Artificial · Resumen Comercial
+        </div>
+        <div style="font-size:9.5px;color:var(--text-slate-400);margin-bottom:10px;">
+          Si configuras una API Key de Google Gemini, la oferta comercial incluirá un resumen personalizado generado por IA. Sin clave, se usa una plantilla determinista (funciona offline).
+        </div>
+        <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end;">
+          <div class="doc-field">
+            <label style="font-size:10px;color:var(--text-slate-300);font-weight:700;margin-bottom:4px;display:block;">API Key de Google Gemini:</label>
+            <input type="password" id="modal-cfg-gemini-apikey" class="field-input" style="width:100%;font-size:11px;font-family:monospace;" placeholder="AIza... o AQ.Ab8..." oninput="syncModalInputToBranding('cfg-gemini-apikey', this.value)">
+          </div>
+          <button type="button" class="btn-action-subtle" onclick="testGeminiApiKey()" style="padding:6px 12px;font-size:10px;height:32px;white-space:nowrap;color:#a78bfa;border:1px solid rgba(167,139,250,0.3);">
+            <i data-lucide="zap" class="icon-sm"></i> PROBAR
+          </button>
+        </div>
+        <div id="gemini-key-test-result" style="font-size:9px;margin-top:6px;color:var(--text-slate-400);min-height:14px;"></div>
+      </div>
+
     </div>
 
     <!-- Footer -->
@@ -5194,9 +5214,17 @@ function saveCompanyBranding() {
       warMo: bval('cfg-war-mo') || '5'
     };
     localStorage.setItem('ra_company_branding', JSON.stringify(branding));
+    // API Key de Gemini — almacenada por separado por seguridad (no en el JSON exportable)
+    var geminiKey = bval('cfg-gemini-apikey') || '';
+    if (geminiKey) {
+      localStorage.setItem('ra_gemini_api_key', geminiKey);
+    } else {
+      localStorage.removeItem('ra_gemini_api_key');
+    }
     // Sincronizar en window.RA para acceso desde financials.js sin localStorage
     window.RA = window.RA || {};
     window.RA.branding = branding;
+    window.RA.geminiApiKey = geminiKey || '';
   } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
 }
 
@@ -5223,10 +5251,53 @@ function loadCompanyBranding() {
     if (b.warMod) { const el = document.getElementById('modal-cfg-war-mod') || document.getElementById('cfg-war-mod'); if (el) el.value = b.warMod; }
     if (b.warInv) { const el = document.getElementById('modal-cfg-war-inv') || document.getElementById('cfg-war-inv'); if (el) el.value = b.warInv; }
     if (b.warMo) { const el = document.getElementById('modal-cfg-war-mo') || document.getElementById('cfg-war-mo'); if (el) el.value = b.warMo; }
+    // Cargar API Key de Gemini
+    var geminiKey = localStorage.getItem('ra_gemini_api_key') || '';
+    var geminiField = document.getElementById('modal-cfg-gemini-apikey');
+    if (geminiField && geminiKey) geminiField.value = geminiKey;
     window.RA = window.RA || {};
     window.RA.branding = b;
+    window.RA.geminiApiKey = geminiKey;
   } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
 }
+
+// ── Test de conexión Gemini ──
+async function testGeminiApiKey() {
+  var resultEl = document.getElementById('gemini-key-test-result');
+  var keyEl = document.getElementById('modal-cfg-gemini-apikey');
+  var key = keyEl ? keyEl.value.trim() : '';
+  if (!key) {
+    if (resultEl) resultEl.innerHTML = '<span style="color:#ef4444;">⚠ Introduce una API Key primero.</span>';
+    return;
+  }
+  if (resultEl) resultEl.innerHTML = '<span style="color:#a78bfa;">⏳ Conectando con Gemini...</span>';
+  try {
+    var url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + encodeURIComponent(key);
+    var resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: 'Responde solo con: OK' }] }]
+      })
+    });
+    if (!resp.ok) {
+      var errData = await resp.json().catch(function() { return {}; });
+      var errMsg = (errData.error && errData.error.message) ? errData.error.message : ('HTTP ' + resp.status);
+      if (resultEl) resultEl.innerHTML = '<span style="color:#ef4444;">❌ Error: ' + errMsg + '</span>';
+      return;
+    }
+    var data = await resp.json();
+    var txt = (data.candidates && data.candidates[0] && data.candidates[0].content &&
+               data.candidates[0].content.parts && data.candidates[0].content.parts[0])
+              ? data.candidates[0].content.parts[0].text : '';
+    if (resultEl) resultEl.innerHTML = '<span style="color:#34d399;">✅ Conexión exitosa · Gemini respondió: "' + txt.trim().substring(0, 40) + '"</span>';
+    // Guardar inmediatamente
+    if (typeof saveCompanyBranding === 'function') saveCompanyBranding();
+  } catch(err) {
+    if (resultEl) resultEl.innerHTML = '<span style="color:#ef4444;">❌ Error de red: ' + (err.message || err) + '</span>';
+  }
+}
+window.testGeminiApiKey = testGeminiApiKey;
 
 // Inicialización automática de branding de empresa
 try { loadCompanyBranding(); } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
