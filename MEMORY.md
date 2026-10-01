@@ -88,16 +88,25 @@ calculateFinancialModel()  ← Definición canónica en financials.js (~L491)
 
 | Prioridad | Problema | Dónde |
 |---|---|---|
-| 🔴 Alta | Oferta comercial con textos genéricos para inversor/batería | `financials.js:320-340` |
+| ✅ Resuelto | ~~Oferta comercial con textos genéricos para inversor/batería~~ | `financials.js` — `resolveEquipmentNames()` |
 | 🟡 Media | `#wp-polyline-list-report` tiene filas clickables redundantes con el nuevo dropdown | `working-plane.js` (wpUpdateUI) |
 | 🟡 Media | Paso 2 "Ajuste fino" duplica controles de la tarjeta de faldón | `index.html:805-900` |
 | 🟢 Baja | CRLF warning en git para working-plane.js | line endings |
 
 ---
 
-## 6. Integración IA (Pendiente)
+## 6. Integración IA (Gemini)
 
-- **Estado:** No existe integración IA previa en el proyecto.
-- **Plan:** Gemini API client-side (`@google/genai` SDK) para resumen comercial personalizado.
-- **Fallback:** Motor de plantillas condicional que genera resumen sin conexión.
-- **API Key:** Almacenada en `localStorage` por el usuario, nunca hardcodeada.
+- **Estado:** ✅ Implementada (commit `ae75e0f`)
+- **Enfoque:** Híbrido — plantilla determinista por defecto + enriquecimiento Gemini opcional
+- **API:** REST API directa (`fetch()`) a `generativelanguage.googleapis.com/v1beta`
+- **Modelo:** `gemini-2.0-flash` (rápido, económico)
+- **API Key:** Almacenada en `localStorage('ra_gemini_api_key')`, nunca en código fuente
+- **UI:** Campo en modal de branding (`modal-cfg-gemini-apikey`) con botón PROBAR
+- **Flujo:** `generatePropuestaComercialPDF()` → muestra plantilla → `enrichSummaryWithGemini()` async → reemplaza texto si OK → fallo silencioso mantiene plantilla
+- **Funciones clave:**
+  - `resolveEquipmentNames()` — lee SSOT del catálogo
+  - `generateCommercialSummary(d, m, equipment)` — plantilla determinista
+  - `enrichSummaryWithGemini(targetWindow, d, m, equipment)` — llamada async Gemini
+  - `testGeminiApiKey()` — validación de conexión desde el modal
+
