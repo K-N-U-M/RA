@@ -206,44 +206,80 @@ function render3DBuildingsInCesium() {
         window._buildingPrimitives.push(roofPrim);
       } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
 
-      // Peto Perimetral
+      // Peto Perimetral Volumétrico Sólido (Grosor: 25cm)
       if ((bld.parapetHeight || 0) > 0) {
+        const parH = bld.parapetHeight;
         try {
-          const parH = bld.parapetHeight;
-          const parInst = new Cesium.GeometryInstance({
-            geometry: new Cesium.WallGeometry({
-              positions: wallPositions,
-              minimumHeights: wallPositions.map(() => roofHeight),
-              maximumHeights: wallPositions.map(() => roofHeight + parH)
+          const offsetMeters = 0.25;
+          const R_EARTH = 6378137.0;
+          const N = cartoList.length;
+          let innerPositions = [];
+          for (let i = 0; i < N; i++) {
+            const c0 = cartoList[(i - 1 + N) % N], c1 = cartoList[i], c2 = cartoList[(i + 1) % N];
+            const p0x = c0.longitude * R_EARTH * Math.cos(c0.latitude), p0y = c0.latitude * R_EARTH;
+            const p1x = c1.longitude * R_EARTH * Math.cos(c1.latitude), p1y = c1.latitude * R_EARTH;
+            const p2x = c2.longitude * R_EARTH * Math.cos(c2.latitude), p2y = c2.latitude * R_EARTH;
+            const dx1 = p1x - p0x, dy1 = p1y - p0y; const len1 = Math.hypot(dx1, dy1) || 1;
+            const nx1 = -dy1/len1, ny1 = dx1/len1; 
+            const dx2 = p2x - p1x, dy2 = p2y - p1y; const len2 = Math.hypot(dx2, dy2) || 1;
+            const nx2 = -dy2/len2, ny2 = dx2/len2;
+            let nx = nx1 + nx2, ny = ny1 + ny2; const nlen = Math.hypot(nx, ny);
+            if (nlen > 1e-6) {
+              nx /= nlen; ny /= nlen; let dot = nx * nx1 + ny * ny1; if (dot < 0.2) dot = 0.2;
+              const disp = offsetMeters / dot;
+              const ox = p1x + nx * disp, oy = p1y + ny * disp;
+              innerPositions.push(Cesium.Cartesian3.fromRadians(ox / (R_EARTH * Math.cos(c1.latitude)), oy / R_EARTH));
+            } else {
+              innerPositions.push(Cesium.Cartesian3.fromRadians(c1.longitude, c1.latitude));
+            }
+          }
+
+          // Invertimos el orden del agujero para asegurar que Cesium entienda el sentido (CCW exterior vs CW interior)
+          innerPositions.reverse();
+          const outerPositions = cartoList.map(c => Cesium.Cartesian3.fromRadians(c.longitude, c.latitude));
+
+          const solidParapetInst = new Cesium.GeometryInstance({
+            geometry: new Cesium.PolygonGeometry({
+              polygonHierarchy: new Cesium.PolygonHierarchy(
+                outerPositions, 
+                [new Cesium.PolygonHierarchy(innerPositions)] // Hueco interior
+              ),
+              height: roofHeight + parH,    // Altura de coronación
+              extrudedHeight: roofHeight    // Baja hasta tocar el techo
             }),
             attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(facadeColor) }
           });
-          const parPrim = viewer.scene.primitives.add(new Cesium.Primitive({
-            geometryInstances: parInst,
-            appearance: new Cesium.PerInstanceColorAppearance({
-              translucent: false,
-              closed: false,
-              renderState: { cull: { enabled: false } }
+
+          const thickParPrim = viewer.scene.primitives.add(new Cesium.Primitive({
+            geometryInstances: solidParapetInst,
+            appearance: new Cesium.PerInstanceColorAppearance({ 
+              translucent: false, 
+              closed: true, 
+              flat: true,
+              renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 } 
             }),
-            shadows: Cesium.ShadowMode.ENABLED,
+            shadows: Cesium.ShadowMode.ENABLED, 
             asynchronous: false
           }));
-          window._buildingPrimitives.push(parPrim);
-        } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+          window._buildingPrimitives.push(thickParPrim);
+        } catch(e) { window.RA && window.RA.log && window.RA.log.warn('Error Parapet Sólido:', e); }
       }
 
-      // Aristas de Tejado Resaltadas en Color Contrastado Elevadas (+0.08m)
+      // TRATAMIENTO DE ARISTAS Y BORDES (Outlines)
+      const edgeH = roofHeight + (bld.parapetHeight || 0);
+
+      // Entidades Polyline elevadas para acentuar la coronación del edificio
       try {
-        const elevatedRoofPositions = cartoList.map(c => Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, roofHeight + 0.08));
+        const elevatedRoofPositions = cartoList.map(c => Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, edgeH + 0.08));
         const rOutline = viewer.entities.add({
           name: (bld.name || 'Edificio 3D') + ' - Aristas Tejado',
           polyline: {
             positions: [...elevatedRoofPositions, elevatedRoofPositions[0]],
             width: isSel ? 4.5 : 3.5,
             material: edgeColor,
-            
-             arcType: Cesium.ArcType.NONE,
-            clampToGround: false, disableDepthTestDistance: Number.POSITIVE_INFINITY
+            arcType: Cesium.ArcType.NONE, 
+            clampToGround: false
+            // Eliminado disableDepthTestDistance para que no perfore los petos ni el suelo como "Rayos X"
           }
         });
         window._buildingEntities.push(rOutline);
@@ -681,4 +717,5 @@ function render3DBuildingsInCesium() {
   if (window.RA) {
     window.RA.buildings = { render: render3DBuildingsInCesium, deleteBuilding: deleteBuilding };
   }
+
 })();
