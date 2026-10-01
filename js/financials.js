@@ -2,6 +2,121 @@
 // La física solar y simulación energética se calculan exclusivamente en solar-engine.js (v3.0)
 (function() {
   'use strict';
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// RESOLUCIÓN DE EQUIPOS DESDE CATÁLOGO (SSOT → Nombres reales)
+// ═══════════════════════════════════════════════════════════════════════════════
+function resolveEquipmentNames() {
+  var cat = (typeof equipmentCatalog !== 'undefined' && equipmentCatalog) ? equipmentCatalog : {};
+  var cfg = (typeof window !== 'undefined' && window.solarProjectConfig) ? window.solarProjectConfig : {};
+  var result = {
+    // Inversor
+    invName: 'Inversor de Alta Eficiencia (≥98.2%)',
+    invBrand: '', invModel: '', invKw: 0, invCount: 1, invMPPTs: 0,
+    // Batería
+    batName: 'Sin acumulación (Conexión Directa)',
+    batBrand: '', batModel: '', batKwh: 0, batCount: 0, hasBat: false,
+    // Microinversor
+    microName: '', microBrand: '', microModel: '', microCount: 0, hasMicro: false,
+    // Topología
+    topology: cfg.selectedTopology || 'inverter'
+  };
+
+  // ── Inversor ──
+  if (cfg.selectedInverterId && cat.inverters && Array.isArray(cat.inverters)) {
+    var inv = cat.inverters.find(function(i) { return i.id === cfg.selectedInverterId; });
+    if (inv) {
+      result.invBrand = inv.brand || '';
+      result.invModel = inv.model || '';
+      result.invKw = inv.kw || inv.kw_nominal || 0;
+      result.invMPPTs = inv.mppts || inv.nMppt || 0;
+      var sizing = cfg.autoSizing && cfg.autoSizing.inverters;
+      result.invCount = (sizing && sizing.count) ? sizing.count : 1;
+      var mpptTxt = result.invMPPTs > 0 ? (' · ' + result.invMPPTs + ' MPPT') : '';
+      result.invName = result.invBrand + ' ' + result.invModel + ' (' + result.invKw + ' kW' + mpptTxt + ')';
+    }
+  }
+
+  // ── Batería ──
+  if (cfg.selectedBatteryId && cat.batteries && Array.isArray(cat.batteries)) {
+    var bat = cat.batteries.find(function(b) { return b.id === cfg.selectedBatteryId; });
+    if (bat) {
+      result.batBrand = bat.brand || '';
+      result.batModel = bat.model || '';
+      result.batKwh = bat.kwh || bat.capacity || 0;
+      var batSizing = cfg.autoSizing && cfg.autoSizing.batteries;
+      result.batCount = (batSizing && batSizing.count) ? batSizing.count : 1;
+      result.hasBat = true;
+      var totalKwh = (result.batKwh * result.batCount).toFixed(1);
+      result.batName = result.batBrand + ' ' + result.batModel + ' (' + totalKwh + ' kWh)';
+    }
+  }
+
+  // ── Microinversor ──
+  if (cfg.selectedMicroinverterId && cat.microinverters && Array.isArray(cat.microinverters)) {
+    var mic = cat.microinverters.find(function(mi) { return mi.id === cfg.selectedMicroinverterId; });
+    if (mic) {
+      result.microBrand = mic.brand || '';
+      result.microModel = mic.model || '';
+      var micSizing = cfg.autoSizing && cfg.autoSizing.microinverters;
+      result.microCount = (micSizing && micSizing.count) ? micSizing.count : 0;
+      result.hasMicro = true;
+      result.microName = result.microBrand + ' ' + result.microModel;
+    }
+  }
+
+  return result;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// RESUMEN COMERCIAL HÍBRIDO (Plantilla determinista + Gemini opcional)
+// Tono: comercial-cercano — vendedor que inspira confianza
+// ═══════════════════════════════════════════════════════════════════════════════
+function generateCommercialSummary(d, m, equipment) {
+  var kwp = m.kwp || 0;
+  var numPanels = m.numPanels || 0;
+  var annualKWh = d.annualKWh || (kwp * 1450);
+  var ahorro = m.ahorroLuzAnio1 || 0;
+  var payback = m.paybackYears || 0;
+  var autoconsumo = m.pctAutoconsumo || 0;
+  var ciudad = d.tit.mun || d.tit.prov || 'su localidad';
+  var nombre = d.tit.nombre || 'Estimado/a cliente';
+
+  // ── Plantilla determinista ──
+  var lines = [];
+  lines.push('Estimado/a <strong>' + nombre.split(' ')[0] + '</strong>,');
+  lines.push('');
+  lines.push('Hemos diseñado una instalación fotovoltaica a medida para su propiedad en <strong>' + ciudad + '</strong>.');
+
+  // KWp y paneles
+  lines.push('El sistema propuesto consta de <strong>' + numPanels + ' módulos</strong> de última generación con una potencia total de <strong>' + kwp.toFixed(2) + ' kWp</strong>, ' +
+    'que generarán aproximadamente <strong>' + Math.round(annualKWh).toLocaleString('es-ES') + ' kWh al año</strong>.');
+
+  // Ahorro y payback
+  if (ahorro > 0) {
+    lines.push('Esto se traduce en un ahorro estimado de <strong>' + Math.round(ahorro).toLocaleString('es-ES') + ' €</strong> en su primer año, ' +
+      'con una recuperación total de la inversión en tan solo <strong>' + payback.toFixed(1) + ' años</strong>.');
+  }
+
+  // Autoconsumo
+  if (autoconsumo > 0) {
+    lines.push('Podrá cubrir hasta el <strong>' + Math.round(autoconsumo) + '%</strong> de su consumo eléctrico actual directamente con energía solar.');
+  }
+
+  // Batería
+  if (equipment && equipment.hasBat) {
+    lines.push('Además, el sistema incluye almacenamiento con batería <strong>' + equipment.batName + '</strong>, ' +
+      'que le permitirá aprovechar la energía solar incluso en horario nocturno.');
+  }
+
+  // Cierre comercial
+  lines.push('');
+  lines.push('Le invitamos a revisar los detalles técnicos y económicos de esta propuesta. ' +
+    'Quedamos a su disposición para resolver cualquier duda y acompañarle en todo el proceso.');
+
+  return lines.join('<br>');
+}
+
 // ============================================================================
 // GENERADOR DE PROPUESTA COMERCIAL & OFERTA ECONÓMICA EN PDF PARA CLIENTE
 // ============================================================================
@@ -165,6 +280,12 @@ function generatePropuestaComercialPDF() {
     ? buildAmortizationSVG(cashflowData, m.capexBruto, m.paybackYears, pal)
     : '<p style="color:#94a3b8;font-size:10px;text-align:center">Configure los datos financieros para ver la curva de amortización.</p>';
 
+  // ── Resolución de equipos del catálogo (SSOT) ──────────────────────────────
+  const _eqp = resolveEquipmentNames();
+  // ── Resumen comercial para el cliente ──────────────────────────────────────
+  const _summaryHTML = generateCommercialSummary(d, m, _eqp);
+
+
   // ── Logo de empresa ───────────────────────────────────────────────────────
   const logoBlock = logoDataUrl
     ? `<img src="${logoDataUrl}" style="max-height:56px;max-width:160px;object-fit:contain;" alt="Logo empresa"/>`
@@ -306,6 +427,12 @@ function generatePropuestaComercialPDF() {
         </div>
       </div>
 
+      <!-- RESUMEN COMERCIAL IA HÍBRIDO -->
+      <div style="margin:16px 0 12px;padding:14px 18px;background:linear-gradient(135deg,${pal.light},#f8fafc);border-left:4px solid ${pal.primary};border-radius:0 8px 8px 0;font-size:11px;line-height:1.6;color:#334155;">
+        <div style="font-size:8px;text-transform:uppercase;letter-spacing:1px;color:${pal.primary};font-weight:800;margin-bottom:6px;">📋 Resumen del proyecto</div>
+        ${_summaryHTML}
+      </div>
+
       <h2>1. Datos del cliente y ubicación</h2>
       <table>
         <tr><td width="32%"><strong>Cliente / Titular:</strong></td><td>${d.tit.nombre} (${d.tit.nif})</td></tr>
@@ -326,8 +453,9 @@ function generatePropuestaComercialPDF() {
       <table>
         <tr><th>Componente</th><th>Especificación / Modelo</th><th class="text-right">Cantidad</th></tr>
         <tr><td>Módulos Fotovoltaicos</td><td>${d.cfg.modelo} (${d.cfg.potencia} Wp · ${d.cfg.tecnologia})</td><td class="text-right">${m.numPanels} uds</td></tr>
-        <tr><td>Inversor de Conexión a Red</td><td>Inversor de Alta Eficiencia (≥98.2%) con seguidor MPPT y Antivertido</td><td class="text-right">1 ud</td></tr>
-        <tr><td>Sistema de Almacenamiento</td><td>${m.batCost > 0 ? 'Batería Litio LFP de Alta Capacidad' : 'Sin acumulación (Conexión Directa)'}</td><td class="text-right">${m.batCost > 0 ? '1 pack' : '—'}</td></tr>
+        <tr><td>Inversor de Conexión a Red</td><td>${_eqp.invName}</td><td class="text-right">${_eqp.invCount} ud${_eqp.invCount > 1 ? 's' : ''}</td></tr>
+        <tr><td>Sistema de Almacenamiento</td><td>${_eqp.hasBat ? _eqp.batName : 'Sin acumulación (Conexión Directa)'}</td><td class="text-right">${_eqp.hasBat ? (_eqp.batCount + ' ud' + (_eqp.batCount > 1 ? 's' : '')) : '—'}</td></tr>
+        ${_eqp.hasMicro ? '<tr><td>Microinversores / Optimizadores</td><td>' + _eqp.microName + '</td><td class="text-right">' + _eqp.microCount + ' uds</td></tr>' : ''}
         <tr><td>Estructura y Fijaciones</td><td>Aluminio Anodizado AL6005-T5 con tornillería Inox A2</td><td class="text-right">${m.numPanels} uds</td></tr>
         <tr><td>Cableado & Protecciones</td><td>Cable Solar ZZ-F 1.5kV + Cuadro DC/AC con SPD Tipo II e IGA</td><td class="text-right">1 lote</td></tr>
       </table>
