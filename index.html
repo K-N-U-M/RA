@@ -10856,7 +10856,6 @@ function wpCalculateAndRenderInverterCables() {
             width: 5.0,
             arcType: Cesium.ArcType.NONE,
             material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#EF4444')),
-            depthFailMaterial: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#EF4444').withAlpha(0.65)),
             clampToGround: false
           }
         });
@@ -10870,7 +10869,6 @@ function wpCalculateAndRenderInverterCables() {
             width: 5.0,
             arcType: Cesium.ArcType.NONE,
             material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#0284C7')),
-            depthFailMaterial: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#0284C7').withAlpha(0.65)),
             clampToGround: false
           }
         });
@@ -10909,7 +10907,6 @@ function wpCalculateAndRenderInverterCables() {
           width: 6.0,
           arcType: Cesium.ArcType.NONE,
           material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#10B981')),
-          depthFailMaterial: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#10B981').withAlpha(0.65)),
           clampToGround: false
         }
       });
@@ -10975,7 +10972,6 @@ function wpCalculateAndRenderInverterCables() {
           width: 6.0,
           arcType: Cesium.ArcType.NONE,
           material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#38BDF8')),
-          depthFailMaterial: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#38BDF8').withAlpha(0.65)),
           clampToGround: false
         }
       });
@@ -14410,7 +14406,6 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
               positions: wire.positions,
               width: 5.0,
               material: wireColor,
-              depthFailMaterial: wireColor.withAlpha(0.6),
               clampToGround: false
             }
           });
