@@ -1149,7 +1149,7 @@
                   <span style="font-size:9.5px;font-weight:800;color:var(--sky-400);text-transform:uppercase;display:flex;align-items:center;gap:4px;">
                     <i data-lucide="sun" class="icon-sm"></i> 3. Estudio de Sombras & Heatmap 3D
                   </span>
-                  <span class="card-tag" id="p2-shading-loss-badge" style="background:rgba(56,189,248,0.15);color:#38BDF8;font-size:9px;">192 INSTANTES</span>
+                  <span class="card-tag" id="p2-shading-loss-badge" onclick="if(window.toggleSettingsPopover) toggleSettingsPopover(true)" style="background:rgba(56,189,248,0.15);color:#38BDF8;font-size:9px;cursor:pointer;transition:all 0.2s;user-select:none;" title="Ajustar precisión">16 INSTANTES (RÁPIDA)</span>
                 </div>
                 <p style="font-size:9px;color:var(--text-slate-400);line-height:1.2;margin:0;">
                   Calcula la oclusión astronómica anual panel a panel y activa el mapa de calor 3D con pérdidas reales.
@@ -6664,7 +6664,7 @@ function recalculateSolarYield() {
   }
 
   // Apply shadow factor to monthly yields as well
-  monthlyYields = monthlyYields.map(v => Math.round(v * shadowLossFactor * pr));
+  monthlyYields = monthlyYields.map(v => Math.round(v * shadowLossFactor));
 
   const optTilt = Math.max(latDeg - 10, 25.0);
   const tiltFactor = Math.cos(Cesium.Math.toRadians(Math.abs(modTilt - optTilt) * 0.65));
@@ -10608,7 +10608,7 @@ function wpCalculateAndRenderInverterCables() {
   const meterPos = (sState.gridMeter && sState.gridMeter.position) ? sState.gridMeter.position : null;
 
   // 3. MEDIDAS Y DIMENSIONAMIENTO ELÉCTRICO PREVIO (REBT ITC-BT-40 / UNE-EN 50618)
-  const dcTargetPos = cbPos || invPos;
+  const dcTargetPos = cbPos || (sState.dcProtectionPosition ? sState.dcProtectionPosition : invPos);
   let maxLdc = 0;
   const homerunMetrics = [];
 
@@ -10700,6 +10700,15 @@ function wpCalculateAndRenderInverterCables() {
     const L_trunk = Math.max(2.0, (dHorizTrunk + dZTrunk) * 1.15);
     maxLdc += L_trunk;
     trunkMetric = { length: L_trunk };
+  } else if (sState.dcProtectionPosition && invPos) {
+    const dTrunk3D = Cesium.Cartesian3.distance(sState.dcProtectionPosition, invPos);
+    const cbCarto = Cesium.Cartographic.fromCartesian(sState.dcProtectionPosition);
+    const invCarto = Cesium.Cartographic.fromCartesian(invPos);
+    const dZTrunk = Math.abs(cbCarto.height - invCarto.height);
+    const dHorizTrunk = Math.sqrt(Math.max(0, dTrunk3D * dTrunk3D - dZTrunk * dZTrunk));
+    const L_trunk = Math.max(1.0, (dHorizTrunk + dZTrunk) * 1.15);
+    maxLdc += L_trunk;
+    trunkMetric = { length: L_trunk };
   }
 
   let acMetric = null;
@@ -10788,6 +10797,14 @@ function wpCalculateAndRenderInverterCables() {
   if (statSecDcEl) statSecDcEl.textContent = sDcOpt + ' mm² · ΔV ' + dVdcPctOpt.toFixed(1) + '%';
   const statSecAcEl = document.getElementById('inverter-stat-sec-ac');
   if (statSecAcEl) statSecAcEl.textContent = sAcOpt + ' mm² · ΔV ' + dVacPctOpt.toFixed(1) + '%';
+
+  // [SSOT] Alimentar las pérdidas resistivas REALES calculadas (ΔV) al motor de PR
+  if (!window.solarLossConfig) window.solarLossConfig = {};
+  window.solarLossConfig.wiring = (dVdcPctOpt + dVacPctOpt) / 100.0;
+  
+  // Re-lanzar cálculo solar y actualizar HUD y BOM en cascada
+  if (typeof recalculateSolarYield === 'function') recalculateSolarYield();
+  if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') BOMTreeEngine.refresh();
 
   // 4. DIBUJAR LÍNEAS DC HOMERUN BIPOLAR (DC+ Y DC-) Y ETIQUETAS TELEMÉTRICAS (REBT ITC-BT-40)
   // Las interconexiones MC4 intra-string ya se renderizan de forma óptima con catenarias 3D en wpFastRenderSimulatedPanels
@@ -17483,7 +17500,20 @@ window.raImportProjectData = raImportProjectData;
                 document.getElementById('btn-res-medium').classList.remove('active');
                 document.getElementById('btn-res-fast').classList.remove('active');
                 document.getElementById('btn-res-' + res).classList.add('active');
+                
+                const badge = document.getElementById('p2-shading-loss-badge');
+                if (badge) {
+                  if (res === 'ultra') badge.innerText = '192 INSTANTES (ULTRA)';
+                  else if (res === 'medium') badge.innerText = '42 INSTANTES (MEDIA)';
+                  else if (res === 'fast') badge.innerText = '16 INSTANTES (RÁPIDA)';
+                }
               }
+              // Inicializar badge si ya existe
+              setTimeout(() => {
+                if (document.getElementById('p2-shading-loss-badge')) {
+                  setHeatmapResolution(window.raHeatmapResolution);
+                }
+              }, 50);
             </script>
           </div>
         </div>

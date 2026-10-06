@@ -41,14 +41,16 @@
 - **Funciones nuevas:** `wpPopulateFaldonCard()` (presentación pura), `wpSelectFaldon(idx)` (selección unificada).
 - **Commit:** `173121f`
 
-### 2026-10-01: Oferta Comercial — Alineación SSOT + Resumen IA
-- **Problema:** `generatePropuestaComercialPDF()` en `financials.js` usa textos genéricos hardcodeados para inversor/batería en lugar de leer del catálogo.
-- **Decisiones del usuario:**
-  - Enfoque híbrido: plantilla determinista por defecto + enriquecimiento Gemini opcional.
-  - Datos del resumen: kWp, nº paneles, producción anual, ahorro año 1, payback, autoconsumo %.
-  - Tono: comercial-cercano (vendedor que inspira confianza).
-  - Alcance: corregir alineación SSOT + añadir resumen IA.
-- **Estado:** En implementación.
+### 2026-10-06: Sincronización SSOT, Métricas Reactivas y Física de Cables
+- **Problema 1 (Heatmap):** El texto "192 INSTANTES" era estático a pesar de cambiar la calidad en ajustes.
+- **Solución 1:** Sincronización reactiva del UI con `window.raHeatmapResolution`. El badge ahora es interactivo y abre el modal.
+- **Problema 2 (Descuadre Producción):** El HUD (Producción Neta) difería del Histograma BOM (ej. 8698 vs 7287 kWh) por una doble multiplicación errónea del Performance Ratio (`pr`) en el array mensual `monthlyYields`.
+- **Solución 2:** Eliminado el `* pr` sobrante en el `map()` del array mensual (línea 6666 aprox).
+- **Problema 3 (Métricas Estáticas):** Al mover equipos (Cuadro DC, Inversor, Contador AC), no se actualizaban ni los metros en el BOM ni las pérdidas de sistema en el HUD.
+- **Solución 3:**
+  - El enrutamiento de cables DC ahora apunta al Cuadro DC (`dcProtectionPosition`) si existe.
+  - La caída de tensión real (ΔV) calculada en `wpCalculateAndRenderInverterCables` se inyecta dinámicamente en `window.solarLossConfig.wiring`.
+  - Se llama a `recalculateSolarYield()` y `BOMTreeEngine.refresh()` en cascada al evento `LEFT_UP` del Gizmo.
 
 ---
 
@@ -80,7 +82,7 @@ calculateFinancialModel()  ← Definición canónica en financials.js (~L491)
 3. **Hooks globales:** Funciones llamadas desde `onclick` HTML deben estar en `window`.
 4. **Invalidación heatmap:** Mutar geometría → `wpInvalidateHeatmap(reason)`.
 5. **SSOT producción:** `getProjectCalcs().annualKWh` es la producción canónica; `kwp × 1450` solo fallback.
-6. **5 pasos siempre.** Ignorar referencias a 6/7 pasos en código legacy.
+6. **5 pasos siempre (en revisión).** Posible fusión de Paso 1 y Paso 2 debido a duplicación de UI.
 
 ---
 
@@ -89,8 +91,10 @@ calculateFinancialModel()  ← Definición canónica en financials.js (~L491)
 | Prioridad | Problema | Dónde |
 |---|---|---|
 | ✅ Resuelto | ~~Oferta comercial con textos genéricos para inversor/batería~~ | `financials.js` — `resolveEquipmentNames()` |
+| ✅ Resuelto | ~~Descuadre Histograma vs HUD por doble aplicación de PR~~ | `index.html` — `recalculateSolarYield()` |
+| ✅ Resuelto | ~~Pérdidas del sistema y BOM estáticos al arrastrar Cuadros~~ | `index.html` — `wpCalculateAndRenderInverterCables()` |
+| 🔴 Alta | **Paso 2 redundante:** Sus controles (módulo, layout, azimuth) están duplicados en la nueva tarjeta Master-Detail del Faldón (Paso 1). | `index.html` (Flujo Stepper) |
 | 🟡 Media | `#wp-polyline-list-report` tiene filas clickables redundantes con el nuevo dropdown | `working-plane.js` (wpUpdateUI) |
-| 🟡 Media | Paso 2 "Ajuste fino" duplica controles de la tarjeta de faldón | `index.html:805-900` |
 | 🟢 Baja | CRLF warning en git para working-plane.js | line endings |
 
 ---
