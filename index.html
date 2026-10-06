@@ -3450,6 +3450,16 @@ var RA_LOSS_FIELDS = [
   { key: 'bypass', label: 'Bypass diodos (sin MLPE)' },
   { key: 'bypassMlpe', label: 'Bypass diodos (con MLPE)' }
 ];
+function raApplyLossesRealtime() {
+  if (typeof recalculateSolarYield === 'function') {
+    try { recalculateSolarYield(); } catch (e) { console.warn('[RA-Losses] Error recalculando producción:', e); }
+  }
+  if (typeof window.dispatchEvent === 'function') {
+    try { window.dispatchEvent(new CustomEvent('ra-project-changed', { detail: { reason: 'losses_updated' } })); } catch (e) {}
+  }
+}
+window.raApplyLossesRealtime = raApplyLossesRealtime;
+
 function raRenderLossFields() {
   const grid = document.getElementById('loss-fields-grid');
   if (!grid || typeof window.solarLossConfig === 'undefined') return;
@@ -3458,33 +3468,42 @@ function raRenderLossFields() {
     return '<div style="display:flex;align-items:center;justify-content:space-between;gap:4px;">' +
       '<span>' + f.label + '</span>' +
       '<input type="number" min="0" max="30" step="0.1" value="' + pct.toFixed(1) + '" ' +
-        'onchange="raSetLossUI(\'' + f.key + '\', this.value)" ' +
+        'oninput="raSetLossUI(\'' + f.key + '\', this.value, true)" ' +
+        'onchange="raSetLossUI(\'' + f.key + '\', this.value, false)" ' +
         'style="width:52px;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.15);border-radius:4px;color:#FBBF24;font-size:9px;padding:2px 4px;text-align:right;"> %</div>';
   }).join('');
   const total = RA_LOSS_FIELDS.reduce((s, f) => s + (window.solarLossConfig[f.key] || 0), 0);
   const totalEl = document.getElementById('loss-total-pct');
   if (totalEl) { totalEl.textContent = (total * 100).toFixed(1) + ' %'; totalEl.style.color = total > 0.14 ? '#F87171' : '#34D399'; }
 }
-function raSetLossUI(key, valPct) {
+function raSetLossUI(key, valPct, isLive) {
   if (typeof window.solarLossConfig === 'undefined') return;
   const v = parseFloat(valPct);
   if (isNaN(v) || v < 0) return;
   window.solarLossConfig[key] = v / 100;
   if (typeof window.raSaveLossConfig === 'function') window.raSaveLossConfig();
-  raRenderLossFields();
-  if (typeof showToast === 'function') showToast('PÉRDIDAS ACTUALIZADAS', 'Re-ejecuta el análisis energético para aplicarlas.', 'info', 3000);
+  
+  const total = RA_LOSS_FIELDS.reduce((s, f) => s + (window.solarLossConfig[f.key] || 0), 0);
+  const totalEl = document.getElementById('loss-total-pct');
+  if (totalEl) { totalEl.textContent = (total * 100).toFixed(1) + ' %'; totalEl.style.color = total > 0.14 ? '#F87171' : '#34D399'; }
+  
+  raApplyLossesRealtime();
+  if (!isLive && typeof showToast === 'function') showToast('PÉRDIDAS ACTUALIZADAS', 'Sincronizado en tiempo real con visor y cálculos.', 'info', 2000);
 }
 function raApplyLossPresetUI(key) {
   if (!key || typeof window.raApplyLossPreset !== 'function') return;
   window.raApplyLossPreset(key);
   raRenderLossFields();
-  if (typeof showToast === 'function') showToast('PRESET APLICADO', 'Re-ejecuta el análisis energético para aplicarlo.', 'success', 3000);
+  raApplyLossesRealtime();
+  if (typeof showToast === 'function') showToast('PRESET APLICADO', 'Pérdidas del sistema actualizadas en tiempo real.', 'success', 2000);
 }
 function raResetLossesUI() {
   if (typeof window.raGetLossDefaults !== 'function') return;
   Object.assign(window.solarLossConfig, window.raGetLossDefaults());
   if (typeof window.raSaveLossConfig === 'function') window.raSaveLossConfig();
   raRenderLossFields();
+  raApplyLossesRealtime();
+  if (typeof showToast === 'function') showToast('VALORES POR DEFECTO', 'Restauradas pérdidas estándar.', 'info', 2000);
 }
 window.raSetLossUI = raSetLossUI;
 window.raApplyLossPresetUI = raApplyLossPresetUI;
@@ -6549,17 +6568,10 @@ function recalculateSolarYield() {
   const thermalDeratingFactor = Math.max(0.70, 1.0 + gammaPmp * (cellTempC - 25.0));
 
   const latFactor = 1.0 + (38.0 - latDeg) * 0.015;
-  
-  const _lc = (typeof window !== 'undefined' && window.solarLossConfig) ? window.solarLossConfig : {};
-  const _lc_soiling = _lc.soiling !== undefined ? _lc.soiling : 0.020;
-  const _lc_iam = _lc.iam !== undefined ? _lc.iam : 0.025;
-  const _lc_mismatch = _lc.mismatch !== undefined ? _lc.mismatch : 0.018;
-  const _lc_wiring = _lc.wiring !== undefined ? _lc.wiring : 0.015;
-  const _lc_avail = _lc.availability !== undefined ? _lc.availability : 0.005;
-  const _lc_spectral = _lc.spectral !== undefined ? _lc.spectral : 0.010;
-  const _lc_inverter = 0.025;
-  
-  const pr = (1 - _lc_soiling) * (1 - _lc_iam) * (1 - _lc_mismatch) * (1 - _lc_wiring) * (1 - _lc_avail) * (1 - _lc_spectral) * (1 - _lc_inverter) * thermalDeratingFactor;
+  const prObj = (typeof window !== 'undefined' && typeof window.raCalculateSystemPR === 'function')
+    ? window.raCalculateSystemPR(thermalDeratingFactor)
+    : { prTotal: 0.82 * thermalDeratingFactor };
+  const pr = prObj.prTotal;
 
   // <i data-lucide=\"sun\" class=\"icon-sm\"></i> FÍSICA SOLAR ESTACIONAL EN PLANO INCLINADO (POA - HAY-DAVIES / LIU & JORDAN)
   // Declinaciones solares medias mensuales (°), correspondientes a los días representativos del año solar
@@ -6634,35 +6646,24 @@ function recalculateSolarYield() {
   // Aplicar pérdida por sombras al final yield
   const shadowLossFactor = 1.0 - (avgShadowLossPct / 100.0);
   
+  // Desglose canónico puro (SSOT):
   let annualGrossKWh = Math.round(annualGrossYield);
-  let annualSystemLossKWh = Math.round(annualGrossKWh - (annualGrossKWh * pr));
+  let annualShadowLossKWh = Math.round(annualGrossKWh * (avgShadowLossPct / 100.0));
+  let energyAfterShadows = Math.max(0, annualGrossKWh - annualShadowLossKWh);
+  let annualSystemLossKWh = Math.round(energyAfterShadows * (1.0 - pr));
+  annualYieldKWh = Math.max(0, energyAfterShadows - annualSystemLossKWh);
 
-  // Yield descontando el sistema (Yield antes de sombras)
-  let yieldBeforeShadows = annualGrossKWh - annualSystemLossKWh;
-
-  // Pérdida absoluta por sombras
-  let annualShadowLossKWh = Math.round(yieldBeforeShadows * (avgShadowLossPct / 100.0));
-
-  // Final Net Yield
-  annualYieldKWh = Math.round(yieldBeforeShadows - annualShadowLossKWh);
-
-  // Sincronización Single Source of Truth con simulación anual real
-  if (typeof window.allRenderedPanels !== 'undefined' && Array.isArray(window.allRenderedPanels)) {
-    const sumPanelsKwh = window.allRenderedPanels.reduce((sum, p) => sum + (typeof p.annualKwh === 'number' ? p.annualKwh : 0), 0);
-    if (sumPanelsKwh > 0) {
-      const oldAnnualYield = annualYieldKWh;
-      annualYieldKWh = Math.round(sumPanelsKwh);
-      if (oldAnnualYield > 0) {
-        const ratio = annualYieldKWh / oldAnnualYield;
-        annualGrossKWh = Math.round(annualGrossKWh * ratio);
-        annualSystemLossKWh = Math.round(annualSystemLossKWh * ratio);
-        annualShadowLossKWh = annualGrossKWh - annualSystemLossKWh - annualYieldKWh;
-      }
-    }
+  // Sincronizar cada panel individual en 3D con el nuevo PR
+  if (typeof window.allRenderedPanels !== 'undefined' && Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0) {
+    const nPanels = window.allRenderedPanels.length;
+    window.allRenderedPanels.forEach(p => {
+      const pYieldFactor = (typeof p.annualYieldPct === 'number') ? (p.annualYieldPct / 100.0) : shadowLossFactor;
+      p.annualKwh = Math.round((annualGrossKWh / nPanels) * pYieldFactor * pr);
+    });
   }
 
   // Apply shadow factor to monthly yields as well
-  monthlyYields = monthlyYields.map(v => Math.round(v * shadowLossFactor));
+  monthlyYields = monthlyYields.map(v => Math.round(v * shadowLossFactor * pr));
 
   const optTilt = Math.max(latDeg - 10, 25.0);
   const tiltFactor = Math.cos(Cesium.Math.toRadians(Math.abs(modTilt - optTilt) * 0.65));
@@ -11074,15 +11075,19 @@ function computeElectricalSizingEngineering(generator) {
   const dif_amp = I_iga;
   const spdType = "Tipo I+II (1000 V CC / 400 V AC - 40 kA)";
 
-  const loss_soiling = 0.020;
-  const loss_iam = 0.025;
+  const prInfo = (typeof window !== 'undefined' && typeof window.raCalculateSystemPR === 'function')
+    ? window.raCalculateSystemPR(1.0 - 0.075) // derating térmico estándar 7.5%
+    : { prTotal: 0.80, factors: { soiling: 0.025, iamAngular: 0.028, mismatch: 0.020, wiring: 0.015, inverter: 0.025 } };
+
+  const loss_soiling = prInfo.factors.soiling;
+  const loss_iam = prInfo.factors.iamAngular;
   const loss_temp = 0.075;
-  const loss_mismatch = 0.018;
-  const loss_dc_ohmic = dVdc_pct / 100;
-  const loss_inverter = 0.025;
+  const loss_mismatch = prInfo.factors.mismatch;
+  const loss_dc_ohmic = dVdc_pct > 0 ? (dVdc_pct / 100) : prInfo.factors.wiring;
+  const loss_inverter = prInfo.factors.inverter;
   const loss_ac_ohmic = dVac_pct / 100;
 
-  const total_eff = (1 - loss_soiling) * (1 - loss_iam) * (1 - loss_temp) * (1 - loss_mismatch) * (1 - loss_dc_ohmic) * (1 - loss_inverter) * (1 - loss_ac_ohmic);
+  const total_eff = prInfo.prTotal;
   const PR_calc = Math.round(total_eff * 1000) / 1000;
 
   return {

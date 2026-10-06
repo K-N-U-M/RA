@@ -663,7 +663,10 @@
     // 6. Cálculo final de porcentajes, producción anual en kWh y clasificación
     const pNomW = (activeModule && activeModule.wp) || 450;
     const pKwp = pNomW / 1000.0;
-    const prSys = 0.84; // System Performance Ratio (cableado, inversor, térmico)
+    const prCalc = (typeof window !== 'undefined' && typeof window.raCalculateSystemPR === 'function')
+      ? window.raCalculateSystemPR(0.925)
+      : { prTotal: 0.84 };
+    const prSys = prCalc.prTotal; // System Performance Ratio sincronizado con árbol de pérdidas y térmico
 
     let maxNetWh = 0;
     polylines.forEach(poly => {

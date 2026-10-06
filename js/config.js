@@ -144,6 +144,47 @@ let panelConfig = {
     try { localStorage.setItem('ra_solar_loss_config', JSON.stringify(window.solarLossConfig)); } catch (e) {}
   };
 
+  /**
+   * Cálculo canónico del Performance Ratio (PR) del sistema según pérdidas configuradas.
+   * SSOT para HUD, simulación anual, cálculos eléctricos y memorias técnicas.
+   */
+  window.raCalculateSystemPR = function(thermalDeratingFactor) {
+    var lc = (typeof window !== 'undefined' && window.solarLossConfig) ? window.solarLossConfig : {};
+    var soiling = Number(lc.soiling) >= 0 ? Number(lc.soiling) : 0.025;
+    var wiring = Number(lc.wiring) >= 0 ? Number(lc.wiring) : 0.015;
+    var mismatch = Number(lc.mismatch) >= 0 ? Number(lc.mismatch) : 0.020;
+    var availability = Number(lc.availability) >= 0 ? Number(lc.availability) : 0.005;
+    var iamAngular = (Number(lc.iamAngular) >= 0 ? Number(lc.iamAngular) : (Number(lc.iam) >= 0 ? Number(lc.iam) : 0.028));
+    var spectral = Number(lc.spectral) >= 0 ? Number(lc.spectral) : 0.010;
+
+    var hasMLPE = (typeof window.solarProjectConfig !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.selectedTopology === 'microinverter') ||
+                  (typeof window.allRenderedPanels !== 'undefined' && Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.some(function(p) { return p.hasMLPE; }));
+    var bypass = hasMLPE ? (Number(lc.bypassMlpe) >= 0 ? Number(lc.bypassMlpe) : 0.005) : (Number(lc.bypass) >= 0 ? Number(lc.bypass) : 0.025);
+    var inverter = 0.025; // 97.5% rendimiento inversor típico
+
+    // PR eléctrico y óptico base en cascada
+    var prElec = (1 - soiling) * (1 - wiring) * (1 - mismatch) * (1 - availability) * (1 - iamAngular) * (1 - spectral) * (1 - bypass) * (1 - inverter);
+    var tFactor = (typeof thermalDeratingFactor === 'number' && thermalDeratingFactor > 0) ? thermalDeratingFactor : 0.925;
+    var prTotal = prElec * tFactor;
+
+    return {
+      prTotal: Math.max(0.40, Math.min(0.98, prTotal)),
+      prElec: Math.max(0.50, Math.min(0.98, prElec)),
+      totalLossFraction: 1 - prTotal,
+      thermalDeratingFactor: tFactor,
+      factors: {
+        soiling: soiling,
+        wiring: wiring,
+        mismatch: mismatch,
+        availability: availability,
+        iamAngular: iamAngular,
+        spectral: spectral,
+        bypass: bypass,
+        inverter: inverter
+      }
+    };
+  };
+
   // ── Red de seguridad global de promesas (Fase 4 · arquitectura) ────────────
   // Ninguna función async del proyecto tenía .catch: un rechazo silencioso dejaba
   // la app en estado indefinido. Captura cualquier rechazo no gestionado, informa
