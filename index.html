@@ -3176,7 +3176,7 @@ const viewer = new Cesium.Viewer('cesiumContainer', {
   infoBox             : false,
   selectionIndicator  : false,
   shadows             : false,  // Desactivado global para máximo rendimiento
-  terrainShadows      : (typeof Cesium !== 'undefined' && Cesium.ShadowMode) ? Cesium.ShadowMode.DISABLED : undefined,
+  terrainShadows      : (typeof Cesium !== 'undefined' && Cesium.ShadowMode) ? Cesium.ShadowMode.ENABLED : undefined,
   shouldAnimate       : false, // el tick del reloj forzaba re-render continuo (GPU al 100%)
   requestRenderMode   : true,
       maximumRenderTimeChange : Infinity,
@@ -8526,7 +8526,7 @@ function wpPlaceGridMeterAtPosition(cartesian, skipRecurse = false) {
         material: Cesium.Color.fromCssColorString('#E2E8F0'), // Gris piedra
         outline: true,
         outlineColor: Cesium.Color.fromCssColorString('#64748B'),
-        shadows: Cesium.ShadowMode.DISABLED
+        shadows: Cesium.ShadowMode.ENABLED
       }
     });
     window.inverterEquipmentState.gridMeter.entity = meterEntity;
@@ -8664,7 +8664,7 @@ function wpPlaceCombinerBoxAtPosition(cartesian) {
         material: Cesium.Color.fromCssColorString('#E2E8F0'), // Gris claro 
         outline: true,
         outlineColor: Cesium.Color.fromCssColorString('#64748B'),
-        shadows: Cesium.ShadowMode.DISABLED
+        shadows: Cesium.ShadowMode.ENABLED
       }
     });
     window.inverterEquipmentState.combinerBox.entity = cbEntity;
@@ -10035,7 +10035,7 @@ function wpPlaceInverterAtPosition(cartesian) {
         material: Cesium.Color.fromCssColorString('#CBD5E1'), // Gris claro (chapa metálica/poliéster)
         outline: true,
         outlineColor: Cesium.Color.fromCssColorString('#475569'),
-        shadows: Cesium.ShadowMode.DISABLED
+        shadows: Cesium.ShadowMode.ENABLED
       }
     });
     window.inverterEquipmentState.entity = invEntity;
@@ -14204,7 +14204,7 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
           renderState: panelRenderState
         }),
         asynchronous: false,
-        shadows: (typeof Cesium !== 'undefined' && Cesium.ShadowMode ? Cesium.ShadowMode.DISABLED : 1)
+        shadows: (typeof Cesium !== 'undefined' && Cesium.ShadowMode ? Cesium.ShadowMode.ENABLED : 1)
       });
       window.simulatedPanelsPrimitive = viewer.scene.primitives.add(primitive);
       
@@ -14293,7 +14293,7 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
             geometryInstances: instances,
             appearance: appearance,
             asynchronous: false,
-            shadows: (typeof Cesium !== "undefined" && Cesium.ShadowMode ? Cesium.ShadowMode.DISABLED : 1)
+            shadows: (typeof Cesium !== "undefined" && Cesium.ShadowMode ? Cesium.ShadowMode.ENABLED : 1)
           }));
           instancedSuccess = true;
           if (typeof showStatus === 'function') {
@@ -14332,7 +14332,7 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
             hierarchy: panelHierarchy,
             material: matProp,
             perPositionHeight: true,
-            shadows: (typeof Cesium !== "undefined" && Cesium.ShadowMode ? Cesium.ShadowMode.DISABLED : 1)
+            shadows: (typeof Cesium !== "undefined" && Cesium.ShadowMode ? Cesium.ShadowMode.ENABLED : 1)
           }
         });
         simulatedPanelEntities.push(pe);
@@ -14551,7 +14551,7 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
                   length: Math.max(Cesium.Cartesian3.distance(basePos, topPos), 0.05),
                   topRadius: 0.09, bottomRadius: 0.10,
                   material: Cesium.Color.fromCssColorString('#CBD5E1').withAlpha(0.98),
-                  shadows: Cesium.ShadowMode.DISABLED
+                  shadows: Cesium.ShadowMode.ENABLED
                 }
               }));
             });
@@ -14567,7 +14567,7 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
               box: {
                 dimensions: new Cesium.Cartesian3(Math.max(p.w || 1.1, 0.8), 0.30, Math.max(Cesium.Cartesian3.distance(baseF, frontMid), 0.08)),
                 material: Cesium.Color.fromCssColorString('#475569').withAlpha(0.95),
-                shadows: Cesium.ShadowMode.DISABLED
+                shadows: Cesium.ShadowMode.ENABLED
               }
             }));
           }
