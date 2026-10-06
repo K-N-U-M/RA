@@ -242,6 +242,67 @@
         }
       });
 
+      // 4.5 Mapear Equipos Eléctricos y Cuadros (Paso 4)
+      const electricalEquipment = [];
+      const elecState = global.inverterEquipmentState;
+      if (elecState) {
+        // 1. Inversor / Cuadro Central Híbrido
+        if (elecState.position && elecState.entity) {
+          const invObj = (typeof global.getSelectedElectricalObject === 'function' && global.selectedElectricalId === 'inverter')
+            ? global.getSelectedElectricalObject() : null;
+          const invName = (invObj && invObj.name) || 'Cuadro Eléctrico & Inversor Híbrido';
+          electricalEquipment.push({
+            id: 'inverter',
+            type: 'inverter',
+            name: invName,
+            icon: '⚡',
+            position: elecState.position,
+            visible: elecState.entity.show !== false,
+            isSelected: global.selectedElectricalId === 'inverter'
+          });
+        }
+        // 2. Cuadro de Protección DC (SPD II)
+        if (elecState.dcProtectionPosition && elecState.dcProtectionEntity) {
+          const cat = global.equipmentCatalog || global.DEFAULT_EQUIPMENT_CATALOG;
+          const cfg = global.solarProjectConfig || {};
+          const dcPanel = (cat && cat.electricalPanels) ? (cat.electricalPanels.find(p => p.id === cfg.selectedProtectionDcId) || cat.electricalPanels[1]) : null;
+          const dcModelName = dcPanel ? (dcPanel.brand + ' ' + dcPanel.model) : 'Cuadro Protección DC 1000V SPD II';
+          electricalEquipment.push({
+            id: 'dc_protection',
+            type: 'dc_protection',
+            name: dcModelName,
+            icon: '🛡️',
+            position: elecState.dcProtectionPosition,
+            visible: elecState.dcProtectionEntity.show !== false,
+            isSelected: global.selectedElectricalId === 'dc_protection'
+          });
+        }
+        // 3. Combiner Box (si está habilitada)
+        if (elecState.combinerBox && elecState.combinerBox.position && elecState.combinerBox.isEnabled) {
+          electricalEquipment.push({
+            id: 'combiner',
+            type: 'combiner',
+            name: 'Caja de Conexión DC / Combiner Box',
+            icon: '📦',
+            position: elecState.combinerBox.position,
+            visible: elecState.combinerBox.entity ? (elecState.combinerBox.entity.show !== false) : true,
+            isSelected: global.selectedElectricalId === 'combiner'
+          });
+        }
+        // 4. Contador de Red & Cuadro General AC
+        if (elecState.gridMeter && elecState.gridMeter.position) {
+          electricalEquipment.push({
+            id: 'meter',
+            type: 'meter',
+            name: 'Contador de Red & Cuadro General AC',
+            icon: '🔌',
+            position: elecState.gridMeter.position,
+            visible: elecState.gridMeter.entity ? (elecState.gridMeter.entity.show !== false) : true,
+            isSelected: global.selectedElectricalId === 'meter'
+          });
+        }
+      }
+
       // 5. Metrado Total de Proyecto
       let totalPanels = 0, totalKwp = 0.0, totalArea = 0.0;
       bldNodes.forEach(function(b) {
@@ -267,16 +328,44 @@
         planes: indepPlanes,
         standalonePolylines: standalonePolylines,
         obstacles: globalObstacles,
+        electrical: electricalEquipment,
         totals: {
           buildingsCount: buildings.length,
           planesCount: planes.length,
           polylinesCount: polylines.length,
           obstaclesCount: obstacles.length,
+          electricalCount: electricalEquipment.length,
           panelsCount: totalPanels,
           totalKwp: totalKwp,
           totalAreaM2: totalArea
         }
       };
+    },
+
+    selectElectrical: function(elecId, shouldFly) {
+      if (!elecId) return;
+      if (typeof global.selectElectricalObject === 'function') {
+        global.selectElectricalObject(elecId);
+      }
+      const s = global.inverterEquipmentState;
+      if (shouldFly !== false && s && typeof global.viewer !== 'undefined' && global.viewer) {
+        let pos = null;
+        if (elecId === 'inverter') pos = s.position;
+        else if (elecId === 'dc_protection') pos = s.dcProtectionPosition;
+        else if (elecId === 'combiner' && s.combinerBox) pos = s.combinerBox.position;
+        else if (elecId === 'meter' && s.gridMeter) pos = s.gridMeter.position;
+
+        if (pos && typeof pos.x === 'number') {
+          try {
+            const bs = new Cesium.BoundingSphere(pos, 2.5);
+            global.viewer.camera.flyToBoundingSphere(bs, {
+              duration: 1.0,
+              offset: new Cesium.HeadingPitchRange(global.viewer.camera.heading, Cesium.Math.toRadians(-45.0), bs.radius * 2.2)
+            });
+          } catch(eCam) { console.warn('[selectElectrical flyTo]', eCam); }
+        }
+      }
+      this.notify('electrical_selected', { id: elecId });
     },
 
     selectBuilding: function(bldId, shouldFly) {
@@ -408,6 +497,19 @@
           if (typeof global.render3DObstaclesInCesium === 'function') global.render3DObstaclesInCesium();
           if (global.viewer && global.viewer.scene && typeof global.viewer.scene.requestRender === 'function') global.viewer.scene.requestRender();
         }
+      } else if (type === 'electrical') {
+        const s = global.inverterEquipmentState;
+        if (s) {
+          let ent = null;
+          if (idOrIdx === 'inverter') ent = s.entity;
+          else if (idOrIdx === 'dc_protection') ent = s.dcProtectionEntity;
+          else if (idOrIdx === 'combiner' && s.combinerBox) ent = s.combinerBox.entity;
+          else if (idOrIdx === 'meter' && s.gridMeter) ent = s.gridMeter.entity;
+          if (ent) {
+            ent.show = (ent.show === false) ? true : false;
+            if (global.viewer && global.viewer.scene && typeof global.viewer.scene.requestRender === 'function') global.viewer.scene.requestRender();
+          }
+        }
       }
       this.notify('visibility_changed', { type: type, target: idOrIdx });
     },
@@ -445,6 +547,13 @@
           if (typeof global.deleteSelectedObstacle === 'function') {
             global.deleteSelectedObstacle();
           }
+        }
+      } else if (type === 'electrical') {
+        if (typeof global.selectElectricalObject === 'function') {
+          global.selectElectricalObject(idOrIdx);
+        }
+        if (typeof global.deleteSelectedElectricalEquipment === 'function') {
+          global.deleteSelectedElectricalEquipment();
         }
       }
       this.notify('item_deleted', { type: type, target: idOrIdx });

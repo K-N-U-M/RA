@@ -241,11 +241,14 @@
           else if (obs.type === 'ac_unit') tipo = 'Máquina de Clima (HVAC)';
           else if (obs.type === 'electrical_box') tipo = 'Cuadro / Inversor';
           
+          const w = typeof obs.w === 'number' ? obs.w : (typeof obs.width === 'number' ? obs.width : 1.0);
+          const h = typeof obs.h === 'number' ? obs.h : (typeof obs.height === 'number' ? obs.height : 1.0);
+          const l = typeof obs.l === 'number' ? obs.l : (typeof obs.length === 'number' ? obs.length : 1.0);
           tree.obstacles.push({
             id: obs.id,
             type: tipo,
             name: obs.name || tipo,
-            dimensions: `W:${obs.width.toFixed(1)}m x H:${obs.height.toFixed(1)}m`,
+            dimensions: `W:${w.toFixed(1)}m x L:${l.toFixed(1)}m x H:${h.toFixed(1)}m`,
           });
         });
       }
@@ -413,7 +416,7 @@
 
       let invertersHtml = tree.electrical.inverters.length > 0 
         ? tree.electrical.inverters.map(inv => `
-            <div class="bom-subitem">🔄 ${inv.count}x ${inv.brand} ${inv.model} (${inv.kwNominal} kW) · <b>${inv.totalPriceEur} €</b></div>
+            <div class="bom-subitem bom-interactive-item" onclick="BOMTreeEngine.flyToElectrical('inverter')" style="cursor:pointer;" title="Clic para enfocar y seleccionar inversor en 3D">🔄 ${inv.count}x ${inv.brand} ${inv.model} (${inv.kwNominal} kW) · <b>${inv.totalPriceEur} €</b></div>
           `).join('')
         : '<div class="bom-subitem" style="color:var(--text-muted, #94a3b8); font-style:italic;">Sin inversores asignados</div>';
         
@@ -490,6 +493,8 @@
             ${tree.electrical.optimizers ? `<div class="bom-subitem">⚡ ${tree.electrical.optimizers.count}x ${tree.electrical.optimizers.model} · <b>${tree.electrical.optimizers.totalCostEur} €</b></div>` : ''}
 
             <div class="bom-section-title">CABLEADO, CUADROS & TIERRAS</div>
+            ${tree.electrical.dcPanels && tree.electrical.dcPanels.length > 0 ? tree.electrical.dcPanels.map(p => `<div class="bom-subitem bom-interactive-item" onclick="BOMTreeEngine.flyToElectrical('dc_protection')" style="cursor:pointer;" title="Clic para enfocar y seleccionar Cuadro DC en 3D">🔌 ${p.count}x ${p.model} — <b>${p.price} €</b></div>`).join('') : ''}
+            ${tree.electrical.acPanels && tree.electrical.acPanels.length > 0 ? tree.electrical.acPanels.map(p => `<div class="bom-subitem bom-interactive-item" onclick="BOMTreeEngine.flyToElectrical('meter')" style="cursor:pointer;" title="Clic para enfocar y seleccionar Cuadro AC / Contador en 3D">🔌 ${p.count}x ${p.model} — <b>${p.price} €</b></div>`).join('') : ''}
             <div class="bom-subitem">📏 Cable DC: ${tree.electrical.cables[0] ? tree.electrical.cables[0].meters + 'm (' + tree.electrical.cables[0].secMm2 + 'mm²)' : '0m'}</div>
             <div class="bom-subitem">🔌 Evacuación AC: ${tree.electrical.cables[1] ? tree.electrical.cables[1].meters + 'm (' + tree.electrical.cables[1].secMm2 + 'mm²)' : '0m'}</div>
           `}
@@ -553,6 +558,30 @@
       }
     },
 
+    flyToElectrical: function(elecId) {
+      if (typeof window !== 'undefined' && typeof window.selectElectricalObject === 'function') {
+        window.selectElectricalObject(elecId);
+      }
+      const s = (typeof window !== 'undefined') ? window.inverterEquipmentState : null;
+      if (s && window.viewer) {
+        let pos = null;
+        if (elecId === 'inverter') pos = s.position;
+        else if (elecId === 'dc_protection') pos = s.dcProtectionPosition;
+        else if (elecId === 'combiner' && s.combinerBox) pos = s.combinerBox.position;
+        else if (elecId === 'meter' && s.gridMeter) pos = s.gridMeter.position;
+
+        if (pos && typeof pos.x === 'number') {
+          try {
+            const bs = new window.Cesium.BoundingSphere(pos, 2.5);
+            window.viewer.camera.flyToBoundingSphere(bs, {
+              duration: 1.2,
+              offset: new window.Cesium.HeadingPitchRange(window.viewer.camera.heading, window.Cesium.Math.toRadians(-45.0), bs.radius * 2.2)
+            });
+          } catch(e) {}
+        }
+      }
+    },
+
     minimize: function() {
       if (typeof document === 'undefined') return;
       const hudEl = document.getElementById('ra-bom-tree-hud');
@@ -583,3 +612,5 @@
   }
 
 })(typeof window !== 'undefined' ? window : global);
+
+

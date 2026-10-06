@@ -78,7 +78,7 @@
         }
       }
 
-      const hasElements = (tree.buildings.length > 0 || tree.planes.length > 0 || tree.standalonePolylines.length > 0 || tree.obstacles.length > 0);
+      const hasElements = (tree.buildings.length > 0 || tree.planes.length > 0 || tree.standalonePolylines.length > 0 || tree.obstacles.length > 0 || (tree.electrical && tree.electrical.length > 0));
 
       if (!hasElements) {
         treeContent.innerHTML = `
@@ -277,6 +277,26 @@
               <div class="node-meta">
                 <span class="badge-dim">${obs.w}×${obs.l}×${obs.h}m</span>
                 <button type="button" class="node-action-btn delete-btn" title="Eliminar obstáculo" onclick="event.stopPropagation();ProjectHierarchy.deleteItem('obstacle', '${obs.id}');">🗑️</button>
+              </div>
+            </div>
+          `;
+        });
+      }
+
+      // ── 5. EQUIPOS ELÉCTRICOS & CUADROS (PASO 4) ──
+      if (tree.electrical && tree.electrical.length > 0) {
+        html += `<div class="outliner-group-title">⚡ CUADROS & EQUIPOS ELÉCTRICOS (${tree.electrical.length})</div>`;
+        tree.electrical.forEach(function(eq) {
+          const eqSel = eq.isSelected ? 'selected-obs active-node' : '';
+          html += `
+            <div class="outliner-obs-item ${eqSel}" onclick="ProjectHierarchy.selectElectrical('${eq.id}', true)">
+              <div style="display:flex;align-items:center;gap:4px;flex:1;overflow:hidden;">
+                <span class="node-icon">${eq.icon}</span>
+                <span class="node-label obs-name" title="${eq.name}">${eq.name}</span>
+              </div>
+              <div class="node-meta">
+                <button type="button" class="node-action-btn" title="Alternar visibilidad" onclick="event.stopPropagation();ProjectHierarchy.toggleVisibility('electrical', '${eq.id}');">${eq.visible ? '👁️' : '🙈'}</button>
+                <button type="button" class="node-action-btn delete-btn" title="Eliminar equipo" onclick="event.stopPropagation();ProjectHierarchy.deleteItem('electrical', '${eq.id}');">🗑️</button>
               </div>
             </div>
           `;

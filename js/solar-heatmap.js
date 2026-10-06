@@ -798,19 +798,19 @@
     const hadResults = !!(window.solarSimState && (window.solarSimState.annualHeatmapData || window.solarSimState.viewMode === 'heatmap'));
     if (window.solarSimState) {
       window.solarSimState.annualHeatmapData = null;
-      window.solarSimState.annualHeatmapDirty = true;
+      if (hadResults) { window.solarSimState.annualHeatmapDirty = true; }
       window.solarSimState.annualHeatmapInvalidatedAt = Date.now();
     }
     const p2LossBadge = document.getElementById('p2-shading-loss-badge');
-    if (p2LossBadge) {
-      p2LossBadge.textContent = '⚠ ANÁLISIS OBCOLETO';
+    if (p2LossBadge && hadResults) {
+      p2LossBadge.textContent = '⚠ ANÁLISIS OBSOLETO';
       p2LossBadge.style.background = 'rgba(245,158,11,0.2)';
       p2LossBadge.style.color = '#F59E0B';
     }
     // Avisar (con throttle) solo si había un heatmap calculado que el usuario pueda creerse vigente
     if (hadResults && typeof window.showToast === 'function' && (Date.now() - _lastInvalToastTs) > 6000) {
       _lastInvalToastTs = Date.now();
-      window.showToast('ANÁLISIS SOLAR OBCOLETO', (reason ? reason + '. ' : '') + 'Recalcula el mapa de calor en el Paso 3 para actualizar pérdidas y producción.', 'warning', 4500);
+      window.showToast('ANÁLISIS SOLAR OBSOLETO', (reason ? reason + '. ' : '') + 'Recalcula el mapa de calor en el Paso 3 para actualizar pérdidas y producción.', 'warning', 4500);
     }
   };
 

@@ -3607,10 +3607,13 @@ function wpUpdateControlsAvailability() {
     solarFab.title = 'Expandir Simulación Solar y Sombras 3D [H]';
   }
 
-  // 2. Botón Flotante Árbol BIM: Requiere al menos un plano de trabajo o cubierta
+  // 2. Botón Flotante Árbol BIM: Requiere al menos un plano de trabajo, cubierta, edificio o paneles
+  const hasBuildings = (typeof buildings !== 'undefined' && Array.isArray(buildings) && buildings.length > 0);
+  const hasObstacles = (typeof obstacles !== 'undefined' && Array.isArray(obstacles) && obstacles.length > 0);
+
   const bomFab = document.getElementById('ra-bom-fab-btn');
   if (bomFab) {
-    if (hasPlane || hasPolys) {
+    if (hasPlane || hasPolys || hasBuildings || hasPanels || hasObstacles) {
       bomFab.classList.remove('hud-btn-disabled');
       bomFab.title = 'Árbol de Proyecto BIM & Mediciones [BOM]';
     } else {

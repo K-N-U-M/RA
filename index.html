@@ -3440,7 +3440,7 @@ window.wpShadowDiagnostics = function() {
   };
 };
 window.wpSetShadowBiasMeters = function(m) {
-  window.wpShadowBiasMeters = Math.max(0.05, Math.min(2.0, Number(m) || 0.35));
+  window.wpShadowBiasMeters = Math.max(0.05, Math.min(2.0, Number(m) || 0.05));
   // aplicar inmediatamente (el preUpdate solo reaplica si el span cambia >= 25m)
   if (typeof scene !== 'undefined' && scene.shadowMap) {
     const bias = Math.max(0.00015, window.wpShadowBiasMeters / (scene.shadowMap.maximumDistance || 400));
@@ -3476,7 +3476,7 @@ if (scene && scene.preUpdate) {
     // anulaba requestRenderMode (GPU al 100% permanente). Ahora solo se aplica si el
     // valor objetivo cambia de verdad (delta >= 25m de span).
     const dynamicMaxDist = Math.max(400.0, Math.min(3000.0, Math.round(realDist / 10.0) * 10.0 * 4.0));
-    window.wpShadowBiasMeters = (typeof window.wpShadowBiasMeters === 'number') ? window.wpShadowBiasMeters : 0.35;
+    window.wpShadowBiasMeters = (typeof window.wpShadowBiasMeters === 'number') ? window.wpShadowBiasMeters : 0.05;
     const dynamicDepthBias = Math.max(0.00015, window.wpShadowBiasMeters / dynamicMaxDist);
     const spanDelta = Math.abs(dynamicMaxDist - (sm.maximumDistance || 0));
     if (spanDelta >= 25.0) {
@@ -6563,15 +6563,15 @@ function recalculateSolarYield() {
   // Aplicar pérdida por sombras al final yield
   const shadowLossFactor = 1.0 - (avgShadowLossPct / 100.0);
   
-  const annualGrossKWh = Math.round(annualGrossYield);
-  const annualSystemLossKWh = Math.round(annualGrossKWh - (annualGrossKWh * pr));
-  
+  let annualGrossKWh = Math.round(annualGrossYield);
+  let annualSystemLossKWh = Math.round(annualGrossKWh - (annualGrossKWh * pr));
+
   // Yield descontando el sistema (Yield antes de sombras)
-  const yieldBeforeShadows = annualGrossKWh - annualSystemLossKWh;
-  
+  let yieldBeforeShadows = annualGrossKWh - annualSystemLossKWh;
+
   // Pérdida absoluta por sombras
-  const annualShadowLossKWh = Math.round(yieldBeforeShadows * (avgShadowLossPct / 100.0));
-  
+  let annualShadowLossKWh = Math.round(yieldBeforeShadows * (avgShadowLossPct / 100.0));
+
   // Final Net Yield
   annualYieldKWh = Math.round(yieldBeforeShadows - annualShadowLossKWh);
 
@@ -6579,7 +6579,14 @@ function recalculateSolarYield() {
   if (typeof window.allRenderedPanels !== 'undefined' && Array.isArray(window.allRenderedPanels)) {
     const sumPanelsKwh = window.allRenderedPanels.reduce((sum, p) => sum + (typeof p.annualKwh === 'number' ? p.annualKwh : 0), 0);
     if (sumPanelsKwh > 0) {
-      annualYieldKWh = sumPanelsKwh;
+      const oldAnnualYield = annualYieldKWh;
+      annualYieldKWh = Math.round(sumPanelsKwh);
+      if (oldAnnualYield > 0) {
+        const ratio = annualYieldKWh / oldAnnualYield;
+        annualGrossKWh = Math.round(annualGrossKWh * ratio);
+        annualSystemLossKWh = Math.round(annualSystemLossKWh * ratio);
+        annualShadowLossKWh = annualGrossKWh - annualSystemLossKWh - annualYieldKWh;
+      }
     }
   }
 
@@ -9928,7 +9935,7 @@ function wpPlaceInverterAtPosition(cartesian) {
 
     // Desplazar cota horizontal 45cm para ubicar el cuadro DC a la derecha del inversor
     const dcPosCarto = Cesium.Cartographic.fromCartesian(cartesian);
-    const dcCartesian = Cesium.Cartesian3.fromRadians(dcPosCarto.longitude + 0.000007, dcPosCarto.latitude + 0.000005, dcPosCarto.height + 0.23);
+    const dcCartesian = Cesium.Cartesian3.fromRadians(dcPosCarto.longitude + 0.00000007, dcPosCarto.latitude + 0.00000005, dcPosCarto.height + 0.23);
 
     const dcBoxSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 24 24" fill="#0F172A" stroke="#F59E0B" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2" fill="#1e293b"/><path d="M12 7v10M8 12h8" stroke="#F59E0B"/></svg>';
     const dcEntity = viewer.entities.add({
@@ -9952,7 +9959,7 @@ function wpPlaceInverterAtPosition(cartesian) {
     });
     window.inverterEquipmentState.dcProtectionEntity = dcEntity;
     window.inverterEquipmentState.dcProtectionPosition = dcCartesian;
-    window.inverterEquipmentState.dcProtectionCarto = { latitude: Cesium.Math.toDegrees(dcPosCarto.latitude + 0.000005), longitude: Cesium.Math.toDegrees(dcPosCarto.longitude + 0.000007), height: dcPosCarto.height };
+    window.inverterEquipmentState.dcProtectionCarto = { latitude: Cesium.Math.toDegrees(dcPosCarto.latitude + 0.00000005), longitude: Cesium.Math.toDegrees(dcPosCarto.longitude + 0.00000007), height: dcPosCarto.height };
     if (typeof window.inverterEquipmentState.dcProtectionRotation === 'undefined') window.inverterEquipmentState.dcProtectionRotation = 0;
 
     if (window.inverterEquipmentState.dcProtectionLabel2D) {
@@ -10442,9 +10449,9 @@ function wpCalculateAndRenderInverterCables() {
     if (invPos) {
       const invCarto = Cesium.Cartographic.fromCartesian(invPos);
       // Desplazamiento horizontal relativo ~4.5m Este / ~2.0m Sur a nivel de suelo para situar el contador junto a fachada/acometida
-      const offsetEastRad = 4.5 / 6371000;
-      const offsetNorthRad = -2.0 / 6371000;
-      const meterHeight = Math.max(0, invCarto.height - 4.5);
+      const offsetEastRad = 0.85 / 6371000;
+      const offsetNorthRad = 0;
+      const meterHeight = invCarto.height;
       const meterLonRad = invCarto.longitude + offsetEastRad;
       const meterLatRad = invCarto.latitude + offsetNorthRad;
       const meterCartoPt = Cesium.Cartesian3.fromRadians(meterLonRad, meterLatRad, meterHeight);
@@ -14493,6 +14500,12 @@ function isPanelOccludedBy3DEnvironment(panelCenter, norm, sunDirWorld) {
       if (scene.skyBox) toExclude.push(scene.skyBox);
       if (scene.skyAtmosphere) toExclude.push(scene.skyAtmosphere);
       if (window._solarHeatmapLabelCollection) toExclude.push(window._solarHeatmapLabelCollection);
+      if (window.simulatedPanelsPrimitive) toExclude.push(window.simulatedPanelsPrimitive);
+      if (window.simulatedStringsPolylineCollection) toExclude.push(window.simulatedStringsPolylineCollection);
+      if (window.inverterEntity) toExclude.push(window.inverterEntity);
+      if (window.dcBoxEntity) toExclude.push(window.dcBoxEntity);
+      if (window.gridMeterEntity) toExclude.push(window.gridMeterEntity);
+      if (window.acometidaACEntity) toExclude.push(window.acometidaACEntity);
 
       const hit = scene.pickFromRay(ray, toExclude);
       if (hit && Cesium.defined(hit.position) && hit.object) {
@@ -17311,9 +17324,9 @@ window.raImportProjectData = raImportProjectData;
             <div style="display:flex; flex-direction:column; gap:6px;">
               <div style="display:flex; justify-content:space-between; align-items:center;">
                 <span style="font-size:11px; font-weight:600; color:#e2e8f0;">Shadow Bias (Z-Fighting)</span>
-                <span id="bias-val-display" style="font-size:11px; color:#94a3b8;">0.35 m</span>
+                <span id="bias-val-display" style="font-size:11px; color:#94a3b8;">0.05 m</span>
               </div>
-              <input type="range" id="shadow-bias-slider" min="0.05" max="2.0" step="0.05" value="0.35" style="width:100%; accent-color:var(--rose-500);" oninput="document.getElementById('bias-val-display').innerText = this.value + ' m'; if(typeof window.wpSetShadowBiasMeters === 'function') window.wpSetShadowBiasMeters(this.value);">
+              <input type="range" id="shadow-bias-slider" min="0.05" max="2.0" step="0.05" value="0.05" style="width:100%; accent-color:var(--rose-500);" oninput="document.getElementById('bias-val-display').innerText = this.value + ' m'; if(typeof window.wpSetShadowBiasMeters === 'function') window.wpSetShadowBiasMeters(this.value);">
               <span style="font-size:9.5px; color:#64748b; line-height:1.2;">Ajusta el despegue físico para evitar parpadeos en 3D Tiles.</span>
             </div>
             
@@ -17322,7 +17335,7 @@ window.raImportProjectData = raImportProjectData;
             <div style="display:flex; flex-direction:column; gap:6px;">
               <span style="font-size:11px; font-weight:600; color:#e2e8f0; margin-bottom: 2px;">Precisión del Ray-Tracing Anual</span>
               <div class="engine-cards-group">
-                <div class="engine-card-opt active" id="btn-res-ultra" onclick="setHeatmapResolution('ultra')">
+                <div class="engine-card-opt" id="btn-res-ultra" onclick="setHeatmapResolution('ultra')">
                   <div class="engine-card-title">
                     <span>1. ULTRA (Documental)</span>
                     <span style="font-size:9.5px;background:var(--emerald-500);color:#000;padding:1px 4px;border-radius:3px;font-weight:900;">192 RAYOS</span>
@@ -17338,7 +17351,7 @@ window.raImportProjectData = raImportProjectData;
                   <div class="engine-card-desc">Análisis balanceado de solsticios y equinoccios. Útil para iterar rápidamente en la cubierta.</div>
                 </div>
 
-                <div class="engine-card-opt" id="btn-res-fast" onclick="setHeatmapResolution('fast')">
+                <div class="engine-card-opt active" id="btn-res-fast" onclick="setHeatmapResolution('fast')">
                   <div class="engine-card-title">
                     <span>3. RÁPIDA (Boceto)</span>
                     <span style="font-size:9.5px;background:var(--amber-500);color:#000;padding:1px 4px;border-radius:3px;font-weight:900;">16 RAYOS</span>
@@ -17348,7 +17361,7 @@ window.raImportProjectData = raImportProjectData;
               </div>
             </div>
             <script>
-              window.raHeatmapResolution = 'ultra';
+              window.raHeatmapResolution = 'fast';
               function setHeatmapResolution(res) {
                 window.raHeatmapResolution = res;
                 document.getElementById('btn-res-ultra').classList.remove('active');
