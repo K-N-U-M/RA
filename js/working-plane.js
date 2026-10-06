@@ -1668,15 +1668,9 @@ function wpAddPlanePoint(pos3D) {
         positions: [WP.planePts[0], WP.planePts[1]],
         width: 4.0,
         arcType: (typeof Cesium !== "undefined" && Cesium.ArcType) ? Cesium.ArcType.NONE : undefined,
-        material: new Cesium.PolylineGlowMaterialProperty({
-          glowPower: 0.25,
-          taperPower: 0.85,
-          color: Cesium.Color.fromCssColorString('#38BDF8')
-        }),
-        depthFailMaterial: new Cesium.PolylineDashMaterialProperty({
-          color: Cesium.Color.fromCssColorString('#38BDF8').withAlpha(0.95),
-          dashLength: 12.0
-        }),
+        material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#38BDF8')
+        ),
+        // depthFailMaterial removed,
         disableDepthTestDistance: Number.POSITIVE_INFINITY
       }
     });
@@ -2216,11 +2210,8 @@ function wpRenderAllPolylines() {
         polyline: {
           positions: closedElevatedPts,
           width: 12.0,
-          material: new Cesium.PolylineGlowMaterialProperty({
-            glowPower: 0.35,
-            taperPower: 0.7,
-            color: Cesium.Color.fromCssColorString('#00F0FF')
-          }),
+          material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#00F0FF')
+          ),
           clampToGround: false,
           arcType: Cesium.ArcType.NONE
         }
