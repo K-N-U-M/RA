@@ -3182,7 +3182,43 @@ const viewer = new Cesium.Viewer('cesiumContainer', {
       maximumRenderTimeChange : Infinity,
 });
 
-window.viewer = viewer; // [CAPTURA] exposición de una línea para módulos (capture-mode necesita el registro de entidades)
+window.viewer = viewer; // [CAPTURA] exposicion de una linea para modulos (capture-mode necesita el registro de entidades)
+
+// [WATCHDOG] Parche a bajo nivel para evitar el crash de texturas _target en Cesium
+function installCesiumWatchdog(v) {
+  if (!v || !v.scene || !v.scene.context) return;
+  const ctx = v.scene.context;
+  if (!ctx.shaderCache || !ctx.shaderCache._shaders) return;
+  
+  let patched = false;
+  const shaders = Object.values(ctx.shaderCache._shaders);
+  for (let i = 0; i < shaders.length; i++) {
+    const shader = shaders[i];
+    if (shader._uniformsByName) {
+      for (const name in shader._uniformsByName) {
+        const uniform = shader._uniformsByName[name];
+        if (uniform && typeof uniform.set === 'function') {
+          const setStr = uniform.set.toString();
+          if (setStr.includes('bindTexture') && setStr.includes('_target')) {
+            const proto = Object.getPrototypeOf(uniform);
+            if (proto && !proto.__patchedWatchdog) {
+              const originalSet = proto.set;
+              proto.set = function() {
+                if (!this.value && ctx.defaultTexture) {
+                  this.value = ctx.defaultTexture; // Fallback to 1x1 default texture
+                }
+                return originalSet.apply(this, arguments);
+              };
+              proto.__patchedWatchdog = true;
+              patched = true;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+setInterval(() => installCesiumWatchdog(viewer), 2000);
 
 const { scene, camera, clock } = viewer;
 if (camera && camera.frustum) camera.frustum.near = 0.5;
@@ -17539,6 +17575,7 @@ window.raImportProjectData = raImportProjectData;
 
 </body>
 </html>
+
 
 
 
