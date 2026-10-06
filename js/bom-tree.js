@@ -330,8 +330,13 @@
         tree.electrical.acPanels.push({ model: acPanelSpec.model, count: 1, price: acPanelCost });
 
         // ── 6. CABLEADO SOLAR DC & EVACUACIÓN AC ────────────────────────────────
-        const estDcLengthM = Math.max(25, tree.summary.totalPanels * 3.5);
-        const estAcLengthM = 20.0;
+        const sState = (typeof window !== 'undefined' && window.inverterEquipmentState) ? window.inverterEquipmentState : null;
+        const estDcLengthM = (sState && typeof sState.L_dc_measured === 'number' && sState.L_dc_measured > 0)
+          ? sState.L_dc_measured
+          : Math.max(25, Math.round(tree.summary.totalPanels * 3.5));
+        const estAcLengthM = (sState && typeof sState.L_ac_measured === 'number' && sState.L_ac_measured > 0)
+          ? sState.L_ac_measured
+          : 20.0;
         const dcCableItem = (catalog.cables && catalog.cables.find(c => c.id === (projectConfig.selectedCableDcId || 'cable_dc_zzf_6'))) || { pricePerMeter: 1.85, sec: 6 };
         const acCableItem = (catalog.cables && catalog.cables.find(c => c.id === (projectConfig.selectedCableAcId || 'cable_ac_rvk_5g10'))) || { pricePerMeter: 6.20, sec: 10 };
 
@@ -340,8 +345,8 @@
         tree.summary.subtotalEur += (dcCableCost + acCableCost);
 
         tree.electrical.cables.push(
-          { type: 'DC ZZ-F 1500V', secMm2: dcCableItem.sec || 6, meters: estDcLengthM, unitPrice: dcCableItem.pricePerMeter, totalEur: parseFloat(dcCableCost.toFixed(2)) },
-          { type: 'AC RV-K 0.6/1kV', secMm2: acCableItem.sec || 10, meters: estAcLengthM, unitPrice: acCableItem.pricePerMeter, totalEur: parseFloat(acCableCost.toFixed(2)) }
+          { type: 'DC ZZ-F 1500V', secMm2: (sState && sState.S_dc_recommended) ? sState.S_dc_recommended : (dcCableItem.sec || 6), meters: estDcLengthM, unitPrice: dcCableItem.pricePerMeter, totalEur: parseFloat(dcCableCost.toFixed(2)) },
+          { type: 'AC RV-K 0.6/1kV', secMm2: (sState && sState.S_ac_recommended) ? sState.S_ac_recommended : (acCableItem.sec || 10), meters: estAcLengthM, unitPrice: acCableItem.pricePerMeter, totalEur: parseFloat(acCableCost.toFixed(2)) }
         );
 
         // ── 7. PUESTA A TIERRA & AUXILIARES ────────────────────────────────────

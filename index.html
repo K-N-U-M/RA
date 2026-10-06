@@ -6536,11 +6536,14 @@ function recalculateSolarYield() {
   }
 
   const roofInfo = dominantRoofInfo || computeRoofPanelsData();
-  const numPanels = totalPanelsCount > 0
-    ? totalPanelsCount
-    : ((roofInfo && roofInfo.panels && roofInfo.panels.length > 0)
-        ? roofInfo.panels.length
-        : Math.max(Math.floor(usefulArea / moduleArea), 0));
+  const renderedPanelsCount = (typeof window.allRenderedPanels !== 'undefined' && Array.isArray(window.allRenderedPanels)) ? window.allRenderedPanels.length : 0;
+  const numPanels = renderedPanelsCount > 0
+    ? renderedPanelsCount
+    : (totalPanelsCount > 0
+        ? totalPanelsCount
+        : ((roofInfo && roofInfo.panels && roofInfo.panels.length > 0)
+            ? roofInfo.panels.length
+            : Math.max(Math.floor(usefulArea / moduleArea), 0)));
 
   const modTilt = (roofInfo && roofInfo.moduleTiltDeg !== undefined) ? roofInfo.moduleTiltDeg : (tiltDeg >= 8 ? tiltDeg : 30);
   const modAzimuth = (roofInfo && roofInfo.moduleAzimuthDeg !== undefined) ? roofInfo.moduleAzimuthDeg : azimuthDeg;
@@ -6703,24 +6706,24 @@ function recalculateSolarYield() {
     
     // Update NEW HUD
     const hudEnergy = document.getElementById('ra-hud-energy');
-    if (hudEnergy && numPanels > 0) {
-      hudEnergy.style.display = 'block';
-      setElemText('hud-val-neta', annualYieldKWh.toLocaleString('es-ES') + ' kWh');
-      setElemText('hud-val-bruta', annualGrossKWh.toLocaleString('es-ES') + ' kWh');
-      setElemText('hud-val-sombras', '-' + annualShadowLossKWh.toLocaleString('es-ES') + ' kWh');
-      setElemText('hud-val-sistema', '-' + annualSystemLossKWh.toLocaleString('es-ES') + ' kWh');
-      
-      const hudBadge = document.getElementById('hud-val-badge');
-      if (hudBadge) {
-        if (window.solarSimState && window.solarSimState.annualHeatmapData) {
-          hudBadge.style.display = 'flex';
-        } else {
-          hudBadge.style.display = 'none';
+    if (hudEnergy) {
+      if (numPanels > 0) {
+        hudEnergy.style.display = 'block';
+        setElemText('hud-val-neta', annualYieldKWh.toLocaleString('es-ES') + ' kWh');
+        setElemText('hud-val-bruta', annualGrossKWh.toLocaleString('es-ES') + ' kWh');
+        const shadowPctStr = avgShadowLossPct > 0 ? (' (' + avgShadowLossPct.toFixed(1) + '%)') : '';
+        setElemText('hud-val-sombras', '-' + annualShadowLossKWh.toLocaleString('es-ES') + ' kWh' + shadowPctStr);
+        const sysLossPct = ((1.0 - pr) * 100).toFixed(1);
+        setElemText('hud-val-sistema', '-' + annualSystemLossKWh.toLocaleString('es-ES') + ' kWh (' + sysLossPct + '%)');
+        
+        const hudBadge = document.getElementById('hud-val-badge');
+        if (hudBadge) {
+          hudBadge.style.display = (window.solarSimState && window.solarSimState.annualHeatmapData) ? 'flex' : 'none';
         }
+        if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
+      } else {
+        hudEnergy.style.display = 'none';
       }
-      if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
-    } else if (hudEnergy) {
-      hudEnergy.style.display = 'none';
     }
 
     setElemText('yb-sistema', '-' + annualSystemLossKWh.toLocaleString('es-ES') + ' kWh');
@@ -8594,6 +8597,13 @@ function wpCalculateAndRenderACCables() {
   }
   const statLac = document.getElementById('inverter-stat-lac');
   if (statLac) statLac.textContent = window.inverterEquipmentState.L_ac_measured.toFixed(1) + ' m';
+
+  if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') {
+    BOMTreeEngine.refresh();
+  }
+  if (typeof ProjectHierarchy !== 'undefined' && typeof ProjectHierarchy.notify === 'function') {
+    ProjectHierarchy.notify('electrical_updated');
+  }
 
   if (viewer.scene && typeof viewer.scene.requestRender === 'function') {
     viewer.scene.requestRender();
@@ -10469,7 +10479,7 @@ function buildOrganicCatenary(pA, pB, sagMeters = 0.12, segments = 8) {
       const t = i / segments;
       const lerpPt = Cesium.Cartesian3.lerp(pA, pB, t, new Cesium.Cartesian3());
       const sag = 4.0 * t * (1.0 - t) * sagMeters;
-      const sagOffset = Cesium.Cartesian3.multiplyByScalar(surfaceNormal, -sag, new Cesium.Cartesian3());
+      const sagOffset = Cesium.Cartesian3.multiplyByScalar(surfaceNormal, sag * 0.25, new Cesium.Cartesian3());
       points.push(Cesium.Cartesian3.add(lerpPt, sagOffset, new Cesium.Cartesian3()));
     }
     return points;
@@ -10540,17 +10550,33 @@ function wpCalculateAndRenderInverterCables() {
     }
   }
 
+  // Fallback directo a paneles renderizados globales (SSOT)
+  if (allStrings.length === 0 && typeof window.allRenderedPanels !== 'undefined' && Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0) {
+    const strList = (typeof partitionPanelsIntoMPPTStrings === 'function')
+      ? partitionPanelsIntoMPPTStrings(window.allRenderedPanels)
+      : [{ panels: window.allRenderedPanels }];
+    allStrings = allStrings.concat(strList);
+  }
+
   if (allStrings.length === 0 && !sState.position && !hasPolys) return;
 
   // 2. AUTO-UBICAR CUADRO E INVERSOR POR DEFECTO SI AÚN NO SE HA COLOCADO MANUALMENTE (SÓLO EN FASE DE EQUIPOS / INGENIERÍA: PASOS >= 4)
   const isEligibleStepForEquipment = (typeof wpCurrentStep === 'undefined') || (wpCurrentStep >= 4);
-  if (isEligibleStepForEquipment && !sState.position && hasPolys && WP.polylines[0] && WP.polylines[0].points && WP.polylines[0].points.length > 0) {
-    const firstPt = WP.polylines[0].points[0];
-    const carto = Cesium.Cartographic.fromCartesian(firstPt);
-    sState.position = Cesium.Cartesian3.clone(firstPt);
-    sState.carto = { latitude: Cesium.Math.toDegrees(carto.latitude), longitude: Cesium.Math.toDegrees(carto.longitude), height: carto.height };
-    if (typeof wpPlaceInverterAtPosition === 'function') {
-      wpPlaceInverterAtPosition(firstPt);
+  if (isEligibleStepForEquipment && !sState.position) {
+    let defaultPt = null;
+    if (hasPolys && WP.polylines[0] && WP.polylines[0].points && WP.polylines[0].points.length > 0) {
+      defaultPt = WP.polylines[0].points[0];
+    } else if (allStrings.length > 0 && allStrings[0].panels && allStrings[0].panels.length > 0) {
+      const p0 = allStrings[0].panels[0];
+      defaultPt = p0.center || (p0.corners ? p0.corners[0] : null);
+    }
+    if (defaultPt) {
+      const carto = Cesium.Cartographic.fromCartesian(defaultPt);
+      sState.position = Cesium.Cartesian3.clone(defaultPt);
+      sState.carto = { latitude: Cesium.Math.toDegrees(carto.latitude), longitude: Cesium.Math.toDegrees(carto.longitude), height: carto.height };
+      if (typeof wpPlaceInverterAtPosition === 'function') {
+        wpPlaceInverterAtPosition(defaultPt);
+      }
     }
   }
 
@@ -10807,27 +10833,31 @@ function wpCalculateAndRenderInverterCables() {
           pipeShape.push(new Cesium.Cartesian2(Math.cos(angle) * 0.03, Math.sin(angle) * 0.03));
         }
 
-        // Acometida DC+ (Positivo - Rojo Solar)
+        // Acometida DC+ (Positivo - Rojo Solar AAA con depthFailMaterial)
         const posCableLine = viewer.entities.add({
-          name: 'Acometida DC+ (Positivo) String #' + (sIdx + 1) + (cbPos ? ' (<i data-lucide="arrow-right" class="icon-sm"></i> Combiner Box)' : ' (<i data-lucide="arrow-right" class="icon-sm"></i> Inversor)'),
-          polylineVolume: {
-              positions: posPts,
-              shape: pipeShape,
-              material: Cesium.Color.fromCssColorString('#EF4444'),
-              cornerType: Cesium.CornerType.ROUNDED
-            }
+          name: 'Acometida DC+ (Positivo) String #' + (sIdx + 1) + (cbPos ? ' (➔ Combiner Box)' : ' (➔ Inversor)'),
+          polyline: {
+            positions: posPts,
+            width: 5.0,
+            arcType: Cesium.ArcType.NONE,
+            material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#EF4444')),
+            depthFailMaterial: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#EF4444').withAlpha(0.65)),
+            clampToGround: false
+          }
         });
         sState.dcCableEntities.push(posCableLine);
 
-        // Acometida DC- (Negativo - Negro grafito de alto contraste con resplandor)
+        // Acometida DC- (Negativo - Azul Grafito de alto contraste con depthFailMaterial)
         const negCableLine = viewer.entities.add({
-          name: 'Acometida DC- (Negativo) String #' + (sIdx + 1) + (cbPos ? ' (<i data-lucide="arrow-right" class="icon-sm"></i> Combiner Box)' : ' (<i data-lucide="arrow-right" class="icon-sm"></i> Inversor)'),
-          polylineVolume: {
-              positions: negPts,
-              shape: pipeShape,
-              material: Cesium.Color.fromCssColorString('#1E293B'),
-              cornerType: Cesium.CornerType.ROUNDED
-            }
+          name: 'Acometida DC- (Negativo) String #' + (sIdx + 1) + (cbPos ? ' (➔ Combiner Box)' : ' (➔ Inversor)'),
+          polyline: {
+            positions: negPts,
+            width: 5.0,
+            arcType: Cesium.ArcType.NONE,
+            material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#0284C7')),
+            depthFailMaterial: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#0284C7').withAlpha(0.65)),
+            clampToGround: false
+          }
         });
         sState.dcCableEntities.push(negCableLine);
 
@@ -10858,13 +10888,15 @@ function wpCalculateAndRenderInverterCables() {
 
     try {
       const trunkLine = viewer.entities.add({
-        name: 'Troncal DC Bajante (Combiner Box <i data-lucide=\"arrow-right\" class=\"icon-sm\"></i> Inversor)',
-        polylineVolume: {
-            positions: buildOrganicCatenary(cbElevated, invElevated),
-            shape: pipeShape,
-            material: Cesium.Color.fromCssColorString('#10B981'),
-            cornerType: Cesium.CornerType.ROUNDED
-          }
+        name: 'Troncal DC Bajante (Combiner Box ➔ Inversor)',
+        polyline: {
+          positions: buildOrganicCatenary(cbElevated, invElevated),
+          width: 6.0,
+          arcType: Cesium.ArcType.NONE,
+          material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#10B981')),
+          depthFailMaterial: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#10B981').withAlpha(0.65)),
+          clampToGround: false
+        }
       });
       sState.dcCableEntities.push(trunkLine);
 
@@ -10922,22 +10954,15 @@ function wpCalculateAndRenderInverterCables() {
       }
 
       const acLine = viewer.entities.add({
-        name: 'Línea de Evacuación AC (Inversor <i data-lucide="arrow-right" class="icon-sm"></i> Contador / Acometida)',
-        ...(hasManualAc ? {
-          polylineVolume: {
-            positions: acPts,
-            shape: pipeShapeAc,
-            material: Cesium.Color.fromCssColorString('#38BDF8'),
-            cornerType: Cesium.CornerType.ROUNDED
-          }
-        } : {
-          polylineVolume: {
-              positions: acPts,
-              shape: pipeShape,
-              material: Cesium.Color.fromCssColorString('#38BDF8'),
-              cornerType: Cesium.CornerType.ROUNDED
-            }
-        })
+        name: 'Línea de Evacuación AC (Inversor ➔ Contador / Acometida)',
+        polyline: {
+          positions: acPts,
+          width: 6.0,
+          arcType: Cesium.ArcType.NONE,
+          material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#38BDF8')),
+          depthFailMaterial: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#38BDF8').withAlpha(0.65)),
+          clampToGround: false
+        }
       });
       sState.dcCableEntities.push(acLine);
 
@@ -10968,6 +10993,13 @@ function wpCalculateAndRenderInverterCables() {
   if (!sState.__accablesRunning && sState.gridMeter && sState.gridMeter.position &&
       typeof wpCalculateAndRenderACCables === 'function') {
     wpCalculateAndRenderACCables();
+  }
+
+  if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') {
+    BOMTreeEngine.refresh();
+  }
+  if (typeof ProjectHierarchy !== 'undefined' && typeof ProjectHierarchy.notify === 'function') {
+    ProjectHierarchy.notify('electrical_updated');
   }
 
   if (viewer.scene && typeof viewer.scene.requestRender === 'function') {
@@ -16088,9 +16120,13 @@ window.toggleSolarHUD = toggleSolarHUD;
       if (typeof recalculateSolarYield === 'function') recalculateSolarYield();
       if (typeof wpCalculateAndRenderInverterCables === 'function') wpCalculateAndRenderInverterCables();
 
+      if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') {
+        BOMTreeEngine.refresh();
+      }
       if (typeof wpUpdateUI === 'function') wpUpdateUI();
       if (typeof ProjectHierarchy !== 'undefined' && ProjectHierarchy && typeof ProjectHierarchy.notify === 'function') {
         ProjectHierarchy.notify('transform_committed');
+        ProjectHierarchy.notify('electrical_updated');
       }
       showStatus('<i data-lucide="check" class="icon-sm"></i> POSICIÓN Y ROTACIÓN FIJADAS', 1200);
     }

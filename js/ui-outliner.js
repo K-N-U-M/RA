@@ -288,18 +288,29 @@
         html += `<div class="outliner-group-title">⚡ CUADROS & EQUIPOS ELÉCTRICOS (${tree.electrical.length})</div>`;
         tree.electrical.forEach(function(eq) {
           const eqSel = eq.isSelected ? 'selected-obs active-node' : '';
-          html += `
-            <div class="outliner-obs-item ${eqSel}" onclick="ProjectHierarchy.selectElectrical('${eq.id}', true)">
-              <div style="display:flex;align-items:center;gap:4px;flex:1;overflow:hidden;">
-                <span class="node-icon">${eq.icon}</span>
-                <span class="node-label obs-name" title="${eq.name}">${eq.name}</span>
+          if (eq.isCableMetric) {
+            html += `
+              <div class="outliner-obs-item" style="background:rgba(56,189,248,0.08);border-left:2px solid #38BDF8;cursor:default;">
+                <div style="display:flex;align-items:center;gap:4px;flex:1;overflow:hidden;">
+                  <span class="node-icon">${eq.icon}</span>
+                  <span class="node-label obs-name" style="color:#BAE6FD;font-weight:700;" title="${eq.name}">${eq.name}</span>
+                </div>
               </div>
-              <div class="node-meta">
-                <button type="button" class="node-action-btn" title="Alternar visibilidad" onclick="event.stopPropagation();ProjectHierarchy.toggleVisibility('electrical', '${eq.id}');">${eq.visible ? '👁️' : '🙈'}</button>
-                <button type="button" class="node-action-btn delete-btn" title="Eliminar equipo" onclick="event.stopPropagation();ProjectHierarchy.deleteItem('electrical', '${eq.id}');">🗑️</button>
+            `;
+          } else {
+            html += `
+              <div class="outliner-obs-item ${eqSel}" onclick="ProjectHierarchy.selectElectrical('${eq.id}', true)">
+                <div style="display:flex;align-items:center;gap:4px;flex:1;overflow:hidden;">
+                  <span class="node-icon">${eq.icon}</span>
+                  <span class="node-label obs-name" title="${eq.name}">${eq.name}</span>
+                </div>
+                <div class="node-meta">
+                  <button type="button" class="node-action-btn" title="Alternar visibilidad" onclick="event.stopPropagation();ProjectHierarchy.toggleVisibility('electrical', '${eq.id}');">${eq.visible ? '👁️' : '🙈'}</button>
+                  <button type="button" class="node-action-btn delete-btn" title="Eliminar equipo" onclick="event.stopPropagation();ProjectHierarchy.deleteItem('electrical', '${eq.id}');">🗑️</button>
+                </div>
               </div>
-            </div>
-          `;
+            `;
+          }
         });
       }
 

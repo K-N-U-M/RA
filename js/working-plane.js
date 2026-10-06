@@ -2632,6 +2632,9 @@ async function wpGoToStep(step) {
     if (typeof wpUpdateCableRoutesUI === 'function') {
       wpUpdateCableRoutesUI();
     }
+    if (typeof raRenderLossFields === 'function') {
+      raRenderLossFields();
+    }
     if (typeof window !== 'undefined' && window.lucide) {
       window.lucide.createIcons();
     }

@@ -301,6 +301,23 @@
             isSelected: global.selectedElectricalId === 'meter'
           });
         }
+        // 5. Tiradas de Cable Medidas (DC & AC)
+        if (elecState.L_dc_measured > 0 || elecState.L_ac_measured > 0) {
+          const lDc = (elecState.L_dc_measured || 0).toFixed(1);
+          const lAc = (elecState.L_ac_measured || 0).toFixed(1);
+          electricalEquipment.push({
+            id: 'cables_run',
+            type: 'cables_run',
+            name: `Cableado: DC ${lDc}m · AC ${lAc}m`,
+            icon: '📏',
+            position: elecState.position || (elecState.gridMeter ? elecState.gridMeter.position : null),
+            visible: true,
+            isSelected: false,
+            isCableMetric: true,
+            L_dc: elecState.L_dc_measured || 0,
+            L_ac: elecState.L_ac_measured || 0
+          });
+        }
       }
 
       // 5. Metrado Total de Proyecto
