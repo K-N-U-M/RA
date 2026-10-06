@@ -71,6 +71,51 @@
   <!-- VISOR CESIUM 3D -->
   <div id="cesiumContainer"></div>
 
+  <style>
+    #ra-hud-energy:hover #ra-hud-dropdown {
+      opacity: 1 !important;
+      pointer-events: auto !important;
+      transform: translateX(-50%) translateY(0) !important;
+    }
+    #ra-hud-energy:hover #ra-hud-pill {
+      background: rgba(30,41,59,0.95) !important;
+      border-color: rgba(16,185,129,0.8) !important;
+    }
+  </style>
+  <div id="ra-hud-energy" style="display:none; position:absolute; top:16px; left:50%; transform:translateX(-50%); z-index:100; font-family:'Inter', sans-serif; pointer-events:auto;">
+    <!-- Pill (Always visible when active) -->
+    <div id="ra-hud-pill" style="background:rgba(15,23,42,0.85); backdrop-filter:blur(8px); border:1px solid rgba(16,185,129,0.4); border-radius:24px; padding:6px 16px; color:#fff; display:flex; align-items:center; gap:8px; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,0.5); transition:all 0.2s;">
+      <i data-lucide="leaf" class="icon-sm" style="color:#10B981;"></i>
+      <span style="font-size:12px; font-weight:800; letter-spacing:0.5px; text-transform:uppercase;">Producci&oacute;n Neta:</span>
+      <b id="hud-val-neta" style="font-family:'JetBrains Mono', monospace; font-size:14.5px; color:#10B981;">-- kWh</b>
+      <i data-lucide="chevron-down" class="icon-sm" style="color:#94a3b8; margin-left:4px;"></i>
+    </div>
+    
+    <!-- Dropdown (Visible on hover of container) -->
+    <div id="ra-hud-dropdown" style="opacity:0; pointer-events:none; position:absolute; top:100%; left:50%; transform:translateX(-50%) translateY(10px); background:rgba(15,23,42,0.95); backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,0.1); border-radius:8px; width:280px; padding:12px; margin-top:8px; box-shadow:0 10px 25px rgba(0,0,0,0.5); transition:all 0.3s; display:flex; flex-direction:column; gap:8px;">
+      
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#cbd5e1;">
+        <span style="display:flex;align-items:center;gap:4px;"><i data-lucide="sun" class="icon-sm" style="color:#F59E0B;"></i> Prod. Bruta Te&oacute;rica:</span>
+        <b id="hud-val-bruta" style="font-family:'JetBrains Mono', monospace; color:#fff;">-- kWh</b>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#f87171;">
+        <span style="display:flex;align-items:center;gap:4px;"><i data-lucide="cloud" class="icon-sm"></i> P&eacute;rdidas Sombras:</span>
+        <b id="hud-val-sombras" style="font-family:'JetBrains Mono', monospace;">-- kWh</b>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#f87171;">
+        <span style="display:flex;align-items:center;gap:4px;"><i data-lucide="zap" class="icon-sm"></i> P&eacute;rdidas Sistema (PR):</span>
+        <b id="hud-val-sistema" style="font-family:'JetBrains Mono', monospace;">-- kWh</b>
+      </div>
+      
+      <div style="border-top:1px dashed rgba(255,255,255,0.2); padding-top:8px; margin-top:4px; display:flex; justify-content:center; align-items:center;">
+         <div id="hud-val-badge" style="font-size:9px;background:#10B981;color:#fff;padding:3px 6px;border-radius:4px;font-weight:bold; display:none; align-items:center; gap:4px; box-shadow:0 0 5px rgba(16,185,129,0.5);">
+            <i data-lucide="check-circle-2" style="width:10px;height:10px;"></i> RECALIBRADO CON SIMULACI&Oacute;N 3D
+         </div>
+      </div>
+    </div>
+  </div>
+
+
 
 
   <!-- NOTIFICACIONES Y STATUS FLOTANTE -->
@@ -1041,6 +1086,7 @@
                     <span><i data-lucide="sun" class="icon-sm"></i> Prod. Bruta Teórica:</span>
                     <b id="yb-bruta" style="font-family:monospace;font-size:10.5px;">-- kWh</b>
                   </div>
+                    
                   <div style="display:flex;justify-content:space-between;align-items:center;font-size:9.5px;color:#F87171;opacity:0;transition:opacity 0.5s;" id="yb-row-sombras">
                     <span><i data-lucide="cloud" class="icon-sm"></i> Pérdidas Sombras:</span>
                     <b id="yb-sombras" style="font-family:monospace;font-size:10.5px;">-- kWh</b>
@@ -4356,7 +4402,7 @@ function handleBuildingClick(cartesian) {
             positions: dynamicPositions,
             width: 3.5,
             material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#38BDF8')),
-            depthFailMaterial: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#38BDF8').withAlpha(0.85)),
+            // depthFailMaterial removed,
             clampToGround: false,
             arcType: (typeof Cesium !== "undefined" && Cesium.ArcType) ? Cesium.ArcType.NONE : undefined
           }
@@ -5635,7 +5681,7 @@ function updateAllVisuals() {
         }, false),
         width: 4,
         material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#F7A520')),
-        depthFailMaterial: new Cesium.PolylineDashMaterialProperty({ color: Cesium.Color.fromCssColorString('#F7A520').withAlpha(0.6), dashLength: 16 }),
+        // depthFailMaterial removed,
         clampToGround: false
       },
       polygon: isClosed ? {
@@ -6344,12 +6390,8 @@ function startSolarPanelsSimulation() {
           polyline: {
             positions: new Cesium.CallbackProperty(() => wirePositions, false),
             width: 4.0,
-            material: new Cesium.PolylineGlowMaterialProperty({ glowPower: 0.3, taperPower: 0.8,
-              color: Cesium.Color.fromCssColorString(strColorHex),
-              gapColor: Cesium.Color.fromCssColorString("#0D2B45"),
-              dashLength: 20.0
-            }),
-            depthFailMaterial: new Cesium.PolylineDashMaterialProperty({ color: Cesium.Color.fromCssColorString('#F7A520').withAlpha(0.7), dashLength: 16 }),
+            material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString(strColorHex)),
+            // depthFailMaterial removed,
             clampToGround: false
           }
         });
@@ -6622,12 +6664,35 @@ function recalculateSolarYield() {
   // Update Breakdown UI
   const panelEl = document.getElementById('yield-breakdown-panel');
   if (panelEl && numPanels > 0) {
-    if (panelEl.style.display === 'none') {
-      panelEl.style.display = 'flex';
-    }
+    panelEl.style.display = 'none';
     
     // Animate numbers if they changed significantly, or just set them
+    
+    // Update old elements (just in case they exist)
     setElemText('yb-bruta', annualGrossKWh.toLocaleString('es-ES') + ' kWh');
+    
+    // Update NEW HUD
+    const hudEnergy = document.getElementById('ra-hud-energy');
+    if (hudEnergy && numPanels > 0) {
+      hudEnergy.style.display = 'block';
+      setElemText('hud-val-neta', annualYieldKWh.toLocaleString('es-ES') + ' kWh');
+      setElemText('hud-val-bruta', annualGrossKWh.toLocaleString('es-ES') + ' kWh');
+      setElemText('hud-val-sombras', '-' + annualShadowLossKWh.toLocaleString('es-ES') + ' kWh');
+      setElemText('hud-val-sistema', '-' + annualSystemLossKWh.toLocaleString('es-ES') + ' kWh');
+      
+      const hudBadge = document.getElementById('hud-val-badge');
+      if (hudBadge) {
+        if (window.solarSimState && window.solarSimState.annualHeatmapData) {
+          hudBadge.style.display = 'flex';
+        } else {
+          hudBadge.style.display = 'none';
+        }
+      }
+      if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
+    } else if (hudEnergy) {
+      hudEnergy.style.display = 'none';
+    }
+
     setElemText('yb-sistema', '-' + annualSystemLossKWh.toLocaleString('es-ES') + ' kWh');
     setElemText('yb-sombras', '-' + annualShadowLossKWh.toLocaleString('es-ES') + ' kWh');
     setElemText('yb-neta', annualYieldKWh.toLocaleString('es-ES') + ' kWh');
@@ -6637,7 +6702,32 @@ function recalculateSolarYield() {
     const rowSistema = document.getElementById('yb-row-sistema');
     const rowNeta = document.getElementById('yb-row-neta');
     
-    // Si ya se ha calculado la sombra al menos una vez
+    // Badge dinámico y robusto
+      let badgeEl = document.getElementById('yb-bruta-badge');
+      if (!badgeEl) {
+        badgeEl = document.createElement('div');
+        badgeEl.id = 'yb-bruta-badge';
+        badgeEl.innerHTML = '✓ Recalibrado por Simulación 3D';
+        badgeEl.style.cssText = 'display:none; font-size:9px; background:#10B981; color:#ffffff; padding:3px 6px; border-radius:3px; font-weight:bold; margin-top:2px; margin-bottom: 4px; cursor:help; align-self:flex-end; box-shadow: 0 0 5px rgba(16,185,129,0.5);';
+        badgeEl.title = 'La estimación teórica ha sido recalibrada usando la inclinación, orientación y sombras exactas.';
+        const ybBrutaContainer = document.getElementById('yb-bruta').parentNode;
+        ybBrutaContainer.parentNode.insertBefore(badgeEl, ybBrutaContainer.nextSibling);
+      }
+      
+      if (window.solarSimState && window.solarSimState.annualHeatmapData) {
+        badgeEl.style.display = 'inline-block';
+        
+        // Animacion llamativa
+        badgeEl.animate([
+          { transform: 'scale(0.8)', opacity: 0 },
+          { transform: 'scale(1.1)', opacity: 1 },
+          { transform: 'scale(1)', opacity: 1 }
+        ], { duration: 500, easing: 'ease-out' });
+      } else {
+        badgeEl.style.display = 'none';
+      }
+      
+      // Si ya se ha calculado la sombra al menos una vez
     if (avgShadowLossPct > 0 || (window.solarSimState && window.solarSimState.annualHeatmapData)) {
       setTimeout(() => { if (rowSombras) rowSombras.style.opacity = '1'; }, 100);
       setTimeout(() => { if (rowSistema) rowSistema.style.opacity = '1'; }, 300);
@@ -10151,16 +10241,9 @@ function wpAddCableRoutePoint(pos3D) {
           positions: new Cesium.CallbackProperty(() => window.cableRoutingState.points, false),
           width: 5.0,
           arcType: (typeof Cesium !== 'undefined' && Cesium.ArcType) ? Cesium.ArcType.NONE : undefined,
-          material: new Cesium.PolylineGlowMaterialProperty({
-            glowPower: 0.35,
-            taperPower: 0.75,
-            color: Cesium.Color.fromCssColorString(colorHex)
-          }),
-          depthFailMaterial: new Cesium.PolylineGlowMaterialProperty({
-            glowPower: 0.25,
-            taperPower: 0.75,
-            color: Cesium.Color.fromCssColorString(colorHex).withAlpha(0.8)
-          })
+          material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString(colorHex)
+          ),
+          // depthFailMaterial removed
         }
       });
       window.cableRoutingState.previewEntities.push(window.cableRoutingState.previewLine);
@@ -10697,60 +10780,24 @@ function wpCalculateAndRenderInverterCables() {
         // Acometida DC+ (Positivo - Rojo Solar)
         const posCableLine = viewer.entities.add({
           name: 'Acometida DC+ (Positivo) String #' + (sIdx + 1) + (cbPos ? ' (<i data-lucide="arrow-right" class="icon-sm"></i> Combiner Box)' : ' (<i data-lucide="arrow-right" class="icon-sm"></i> Inversor)'),
-          ...(hasManualDc ? {
-            polylineVolume: {
+          polylineVolume: {
               positions: posPts,
               shape: pipeShape,
               material: Cesium.Color.fromCssColorString('#EF4444'),
               cornerType: Cesium.CornerType.ROUNDED
             }
-          } : {
-            polyline: {
-              positions: posPts,
-              width: 8.0,
-              arcType: (typeof Cesium !== 'undefined' && Cesium.ArcType) ? Cesium.ArcType.NONE : undefined,
-              material: new Cesium.PolylineGlowMaterialProperty({
-                glowPower: 0.45,
-                taperPower: 0.75,
-                color: Cesium.Color.fromCssColorString('#EF4444') // Rojo vivo DC+
-              }),
-              depthFailMaterial: new Cesium.PolylineGlowMaterialProperty({
-                glowPower: 0.25,
-                taperPower: 0.75,
-                color: Cesium.Color.fromCssColorString('#DC2626').withAlpha(0.85)
-              })
-            }
-          })
         });
         sState.dcCableEntities.push(posCableLine);
 
         // Acometida DC- (Negativo - Negro grafito de alto contraste con resplandor)
         const negCableLine = viewer.entities.add({
           name: 'Acometida DC- (Negativo) String #' + (sIdx + 1) + (cbPos ? ' (<i data-lucide="arrow-right" class="icon-sm"></i> Combiner Box)' : ' (<i data-lucide="arrow-right" class="icon-sm"></i> Inversor)'),
-          ...(hasManualDc ? {
-            polylineVolume: {
+          polylineVolume: {
               positions: negPts,
               shape: pipeShape,
               material: Cesium.Color.fromCssColorString('#1E293B'),
               cornerType: Cesium.CornerType.ROUNDED
             }
-          } : {
-            polyline: {
-              positions: negPts,
-              width: 8.0,
-              arcType: (typeof Cesium !== 'undefined' && Cesium.ArcType) ? Cesium.ArcType.NONE : undefined,
-              material: new Cesium.PolylineGlowMaterialProperty({
-                glowPower: 0.45,
-                taperPower: 0.75,
-                color: Cesium.Color.fromCssColorString('#1E293B') // Negro grafito industrial DC-
-              }),
-              depthFailMaterial: new Cesium.PolylineGlowMaterialProperty({
-                glowPower: 0.25,
-                taperPower: 0.75,
-                color: Cesium.Color.fromCssColorString('#0F172A').withAlpha(0.9)
-              })
-            }
-          })
         });
         sState.dcCableEntities.push(negCableLine);
 
@@ -10782,17 +10829,12 @@ function wpCalculateAndRenderInverterCables() {
     try {
       const trunkLine = viewer.entities.add({
         name: 'Troncal DC Bajante (Combiner Box <i data-lucide=\"arrow-right\" class=\"icon-sm\"></i> Inversor)',
-        polyline: {
-          positions: buildOrganicCatenary(cbElevated, invElevated),
-          width: 5.5,
-          arcType: (typeof Cesium !== 'undefined' && Cesium.ArcType) ? Cesium.ArcType.NONE : undefined,
-          material: new Cesium.PolylineGlowMaterialProperty({ glowPower: 0.3, taperPower: 0.8,
-            color: Cesium.Color.fromCssColorString('#10B981'),
-            gapColor: Cesium.Color.fromCssColorString('#064E3B').withAlpha(0.6),
-            dashLength: 16
-          }),
-          depthFailMaterial: new Cesium.PolylineDashMaterialProperty({ color: Cesium.Color.fromCssColorString('#10B981').withAlpha(0.85), dashLength: 16 })
-        }
+        polylineVolume: {
+            positions: buildOrganicCatenary(cbElevated, invElevated),
+            shape: pipeShape,
+            material: Cesium.Color.fromCssColorString('#10B981'),
+            cornerType: Cesium.CornerType.ROUNDED
+          }
       });
       sState.dcCableEntities.push(trunkLine);
 
@@ -10859,17 +10901,12 @@ function wpCalculateAndRenderInverterCables() {
             cornerType: Cesium.CornerType.ROUNDED
           }
         } : {
-          polyline: {
-            positions: acPts,
-            width: 8.0,
-            arcType: (typeof Cesium !== 'undefined' && Cesium.ArcType) ? Cesium.ArcType.NONE : undefined,
-            material: new Cesium.PolylineGlowMaterialProperty({
-              glowPower: 0.45,
-              taperPower: 0.85,
-              color: Cesium.Color.fromCssColorString('#38BDF8')
-            }),
-            depthFailMaterial: new Cesium.PolylineDashMaterialProperty({ color: Cesium.Color.fromCssColorString('#38BDF8').withAlpha(0.9), dashLength: 16 })
-          }
+          polylineVolume: {
+              positions: acPts,
+              shape: pipeShape,
+              material: Cesium.Color.fromCssColorString('#38BDF8'),
+              cornerType: Cesium.CornerType.ROUNDED
+            }
         })
       });
       sState.dcCableEntities.push(acLine);
