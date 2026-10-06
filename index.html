@@ -5457,7 +5457,6 @@ function addPolylineEntity(positions, colorHex, width, depthAlpha, mainAlpha, id
       positions: positions,
       width: width || 3.5,
       material: mat,
-      depthFailMaterial: depthMat,
       clampToGround: false,
       arcType: (typeof Cesium !== "undefined" && Cesium.ArcType) ? Cesium.ArcType.NONE : undefined,
       shadows: (typeof Cesium !== "undefined" && Cesium.ShadowMode) ? Cesium.ShadowMode.DISABLED : 0

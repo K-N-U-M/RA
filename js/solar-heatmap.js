@@ -220,7 +220,6 @@
             polygon: {
               hierarchy: new Cesium.PolygonHierarchy(shadowCorners),
               material: shadowMatOverlay,
-              depthFailMaterial: shadowMatOverlay,
               perPositionHeight: true,
               arcType: (typeof Cesium !== 'undefined' && Cesium.ArcType && Cesium.ArcType.NONE) ? Cesium.ArcType.NONE : undefined
             }

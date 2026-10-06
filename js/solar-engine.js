@@ -1779,7 +1779,6 @@ function wpRenderDynamicObstacleShadows(solarPos) {
             polygon: {
               hierarchy: new Cesium.PolygonHierarchy(ccwWorldPts),
               material: shadowMatObs,
-              depthFailMaterial: shadowMatObs,
               perPositionHeight: true,
               arcType: (typeof Cesium !== 'undefined' && Cesium.ArcType && Cesium.ArcType.NONE) ? Cesium.ArcType.NONE : undefined,
               zIndex: 15
@@ -1821,7 +1820,6 @@ function wpRenderDynamicObstacleShadows(solarPos) {
               polygon: {
                 hierarchy: new Cesium.PolygonHierarchy(ccwWorldPts),
                 material: shadowMatBld,
-                depthFailMaterial: shadowMatBld,
                 perPositionHeight: true,
                 arcType: (typeof Cesium !== 'undefined' && Cesium.ArcType && Cesium.ArcType.NONE) ? Cesium.ArcType.NONE : undefined,
                 zIndex: 15
