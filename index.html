@@ -1071,68 +1071,18 @@
                     <button type="button" class="doc-mini-btn" onclick="restoreSelectedPanel()" style="padding:3px 8px;font-size:9.5px;" title="Restaurar a orientación original">↩ Restaurar</button>
                   </div>
                 </div>
-              </div>
-
               </details>
-              
-
-              <!-- SIMULACION ANUAL Y HEATMAP DE SOMBRAS (PASO 2) -->
-              <div style="border-top:1px solid rgba(255,255,255,0.07);padding-top:8px;margin-top:6px;display:flex;flex-direction:column;gap:6px;">
-                <div style="display:flex;justify-content:space-between;align-items:center;">
-                  <span style="font-size:9.5px;font-weight:800;color:var(--sky-400);text-transform:uppercase;display:flex;align-items:center;gap:4px;">
-                    <i data-lucide="sun" class="icon-sm"></i> Estudio de Sombras & Heatmap
-                  </span>
-                  <span class="card-tag" id="p2-shading-loss-badge" style="background:rgba(56,189,248,0.15);color:#38BDF8;font-size:9px;">192 INSTANTES</span>
-                </div>
-                <p style="font-size:9px;color:var(--text-slate-400);line-height:1.2;margin:0;">
-                  Calcula la oclusion astronomica anual panel a panel y actualiza la produccion neta con perdidas reales.
-                </p>
-                <button type="button" class="btn-action-primary" onclick="if(typeof window.computeAnnualSolarHeatmap === 'function') window.computeAnnualSolarHeatmap()" style="background:rgba(56, 189, 248, 0.15);border:1px solid rgba(56, 189, 248, 0.4);color:#38BDF8;font-size:9.5px;font-weight:bold;padding:7px;width:100%;">
-                  <i data-lucide="play" class="icon-sm"></i> SIMULAR SOMBRAS & ACTUALIZAR PRODUCCION
-                </button>
-                <div style="display:flex;gap:4px;margin-top:4px;">
-                  <button type="button" id="btn-toggle-heatmap-labels" class="doc-mini-btn" onclick="wpToggleHeatmapLabelsMode()" style="flex:1;text-align:center;padding:4px 6px;font-size:8.5px;color:var(--text-slate-300);" title="Alternar entre modo limpio (hover) y ver todas las etiquetas 3D fijas">
-                    <i data-lucide="eye" class="icon-sm"></i> <span id="label-mode-text">Etiquetas: Solo al pasar ratón</span>
-                  </button>
-                </div>
-                <div id="heatmap-progress-bar" style="display:none;width:100%;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden;margin-top:2px;">
-                  <div id="heatmap-progress-fill" style="width:0%;height:100%;background:var(--amber-400);transition:width 0.1s;"></div>
-                </div>
-
-                <!-- BREAKDOWN PANEL ANIMADO -->
-                <div id="yield-breakdown-panel" style="display:none;background:rgba(15,23,42,0.9);border:1px solid rgba(56,189,248,0.3);border-radius:6px;padding:8px;margin-top:6px;flex-direction:column;gap:4px;">
-                  <div style="display:flex;justify-content:space-between;align-items:center;font-size:9.5px;color:var(--text-slate-300);">
-                    <span><i data-lucide="sun" class="icon-sm"></i> Prod. Bruta Teórica:</span>
-                    <b id="yb-bruta" style="font-family:monospace;font-size:10.5px;">-- kWh</b>
-                  </div>
-                    
-                  <div style="display:flex;justify-content:space-between;align-items:center;font-size:9.5px;color:#F87171;opacity:0;transition:opacity 0.5s;" id="yb-row-sombras">
-                    <span><i data-lucide="cloud" class="icon-sm"></i> Pérdidas Sombras:</span>
-                    <b id="yb-sombras" style="font-family:monospace;font-size:10.5px;">-- kWh</b>
-                  </div>
-                  <div style="display:flex;justify-content:space-between;align-items:center;font-size:9.5px;color:#F87171;opacity:0;transition:opacity 0.5s;" id="yb-row-sistema">
-                    <span><i data-lucide="zap" class="icon-sm"></i> Pérdidas Sistema (PR):</span>
-                    <b id="yb-sistema" style="font-family:monospace;font-size:10.5px;">-- kWh</b>
-                  </div>
-                  <div style="border-top:1px dashed rgba(255,255,255,0.15);margin-top:2px;padding-top:4px;display:flex;justify-content:space-between;align-items:center;font-size:10px;color:var(--emerald-400);font-weight:900;opacity:0;transition:opacity 0.5s;" id="yb-row-neta">
-                    <span><i data-lucide="leaf" class="icon-sm"></i> PRODUCCIÓN NETA:</span>
-                    <b id="yb-neta" style="font-family:monospace;font-size:11px;">-- kWh</b>
-                  </div>
-                </div>
-                <button type="button" id="btn-open-pfv-audit" class="btn-action-secondary" onclick="if(typeof window.wpOpenPFVAuditModal === 'function') window.wpOpenPFVAuditModal()" style="display:none;background:rgba(16, 185, 129, 0.15);border:1px solid rgba(16, 185, 129, 0.4);color:#34D399;font-size:9px;font-weight:bold;padding:6px;width:100%;margin-top:4px;align-items:center;justify-content:center;gap:4px;">
-                  <i data-lucide="table" class="icon-sm"></i> VER AUDITORIA MATEMATICA PFV
-                </button>
-              </div>
 
               <div style="display:flex;gap:4px;margin-top:8px;">
                 <button type="button" class="btn-action-primary" onclick="step5RegenerateLayout()" style="flex:1;padding:8px;font-size:10px;">
                   <span>RECALCULAR</span>
                 </button>
                 <button type="button" class="btn-action-primary" onclick="wpGoToStep(3)" style="flex:1.6;padding:8px;font-size:10px;background:linear-gradient(135deg, #0284c7, #0369a1);color:#fff;font-weight:900;border:none;">
-                  <span><i data-lucide="sliders-horizontal" class="icon-sm"></i> CONTINUAR A OPTIMIZACION (3) <i data-lucide="arrow-right" class="icon-sm"></i></span>
+                  <span><i data-lucide="sliders-horizontal" class="icon-sm"></i> CONTINUAR A ANÁLISIS SOLAR (3) <i data-lucide="arrow-right" class="icon-sm"></i></span>
                 </button>
               </div>
 
+            </div>
           </div>
           <!-- ═════════════════════════════════════════════════════════════════ -->
           <!-- PASO 5: ENTREGA (PRESUPUESTO & DOCUMENTACIÓN TÉCNICA) -->
@@ -1193,6 +1143,54 @@
               </div>
 
               
+              <!-- 3. SIMULACIÓN ANUAL Y HEATMAP DE SOMBRAS (PASO 3 CANÓNICO) -->
+              <div style="border-top:1px solid rgba(255,255,255,0.07);padding-top:8px;margin-top:6px;display:flex;flex-direction:column;gap:6px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <span style="font-size:9.5px;font-weight:800;color:var(--sky-400);text-transform:uppercase;display:flex;align-items:center;gap:4px;">
+                    <i data-lucide="sun" class="icon-sm"></i> 3. Estudio de Sombras & Heatmap 3D
+                  </span>
+                  <span class="card-tag" id="p2-shading-loss-badge" style="background:rgba(56,189,248,0.15);color:#38BDF8;font-size:9px;">192 INSTANTES</span>
+                </div>
+                <p style="font-size:9px;color:var(--text-slate-400);line-height:1.2;margin:0;">
+                  Calcula la oclusión astronómica anual panel a panel y activa el mapa de calor 3D con pérdidas reales.
+                </p>
+                <button type="button" class="btn-action-primary" id="btn-run-annual-heatmap" onclick="if(typeof window.wpRunHeatmapAndActivateView === 'function') window.wpRunHeatmapAndActivateView(); else if(typeof window.computeAnnualSolarHeatmap === 'function') window.computeAnnualSolarHeatmap();" style="background:rgba(56, 189, 248, 0.15);border:1px solid rgba(56, 189, 248, 0.4);color:#38BDF8;font-size:9.5px;font-weight:bold;padding:7px;width:100%;">
+                  <i data-lucide="flame" class="icon-sm"></i> SIMULAR SOMBRAS & ACTIVAR MAPA DE CALOR 3D
+                </button>
+                <div style="display:flex;gap:4px;margin-top:4px;">
+                  <button type="button" id="btn-toggle-heatmap-labels" class="doc-mini-btn" onclick="wpToggleHeatmapLabelsMode()" style="flex:1;text-align:center;padding:4px 6px;font-size:8.5px;color:var(--text-slate-300);" title="Alternar entre modo limpio (hover) y ver todas las etiquetas 3D fijas">
+                    <i data-lucide="eye" class="icon-sm"></i> <span id="label-mode-text">Etiquetas: Solo al pasar ratón</span>
+                  </button>
+                </div>
+                <div id="heatmap-progress-bar" style="display:none;width:100%;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden;margin-top:2px;">
+                  <div id="heatmap-progress-fill" style="width:0%;height:100%;background:var(--amber-400);transition:width 0.1s;"></div>
+                </div>
+
+                <!-- BREAKDOWN PANEL ANIMADO -->
+                <div id="yield-breakdown-panel" style="display:none;background:rgba(15,23,42,0.9);border:1px solid rgba(56,189,248,0.3);border-radius:6px;padding:8px;margin-top:6px;flex-direction:column;gap:4px;">
+                  <div style="display:flex;justify-content:space-between;align-items:center;font-size:9.5px;color:var(--text-slate-300);">
+                    <span><i data-lucide="sun" class="icon-sm"></i> Prod. Bruta Teórica:</span>
+                    <b id="yb-bruta" style="font-family:monospace;font-size:10.5px;">-- kWh</b>
+                  </div>
+                    
+                  <div style="display:flex;justify-content:space-between;align-items:center;font-size:9.5px;color:#F87171;opacity:0;transition:opacity 0.5s;" id="yb-row-sombras">
+                    <span><i data-lucide="cloud" class="icon-sm"></i> Pérdidas Sombras:</span>
+                    <b id="yb-sombras" style="font-family:monospace;font-size:10.5px;">-- kWh</b>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;font-size:9.5px;color:#F87171;opacity:0;transition:opacity 0.5s;" id="yb-row-sistema">
+                    <span><i data-lucide="zap" class="icon-sm"></i> Pérdidas Sistema (PR):</span>
+                    <b id="yb-sistema" style="font-family:monospace;font-size:10.5px;">-- kWh</b>
+                  </div>
+                  <div style="border-top:1px dashed rgba(255,255,255,0.15);margin-top:2px;padding-top:4px;display:flex;justify-content:space-between;align-items:center;font-size:10px;color:var(--emerald-400);font-weight:900;opacity:0;transition:opacity 0.5s;" id="yb-row-neta">
+                    <span><i data-lucide="leaf" class="icon-sm"></i> PRODUCCIÓN NETA:</span>
+                    <b id="yb-neta" style="font-family:monospace;font-size:11px;">-- kWh</b>
+                  </div>
+                </div>
+                <button type="button" id="btn-open-pfv-audit" class="btn-action-secondary" onclick="if(typeof window.wpOpenPFVAuditModal === 'function') window.wpOpenPFVAuditModal()" style="display:none;background:rgba(16, 185, 129, 0.15);border:1px solid rgba(16, 185, 129, 0.4);color:#34D399;font-size:9px;font-weight:bold;padding:6px;width:100%;margin-top:4px;align-items:center;justify-content:center;gap:4px;">
+                  <i data-lucide="table" class="icon-sm"></i> VER AUDITORIA MATEMATICA PFV
+                </button>
+              </div>
+
               <!-- [NUEVA] TARJETA: DIAGNÓSTICO MLPE -->
               <div id="mlpe-diagnostic-panel" style="display:none;border-top:1px solid rgba(255,255,255,0.07);padding-top:8px;margin-top:4px;flex-direction:column;gap:6px;">
                 <div style="font-size:9px;font-weight:800;color:var(--text-slate-300);text-transform:uppercase;display:flex;align-items:center;gap:4px;">
@@ -15029,6 +15027,16 @@ async function wpSetShadowViewMode(mode) {
     showStatus(mode === "mlpe" ? "<i data-lucide=\"zap\" class=\"icon-sm\"></i> ANÁLISIS DE OPTIMIZADORES MLPE ACTIVO" : "<i data-lucide=\"sun\" class=\"icon-sm\"></i> MODO SOL INSTANTÁNEO ACTIVO", 2000);
   }
 }
+
+async function wpRunHeatmapAndActivateView() {
+  if (typeof wpSetShadowViewMode === 'function') {
+    await wpSetShadowViewMode('heatmap');
+  } else if (typeof computeAnnualSolarHeatmap === 'function') {
+    await computeAnnualSolarHeatmap();
+    if (typeof wpRenderHeatmapVisuals === 'function') wpRenderHeatmapVisuals();
+  }
+}
+window.wpRunHeatmapAndActivateView = wpRunHeatmapAndActivateView;
 
 // ── PRESETS DE DÍAS CRÍTICOS (SOLSTICIOS Y EQUINOCCIOS) ──────────────────────
 function wpSetCriticalDayPreset(preset) {

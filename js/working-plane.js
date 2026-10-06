@@ -2553,8 +2553,8 @@ async function wpGoToStep(step) {
   const bannerTitle = document.getElementById('wp-banner-step-title');
   const stepTitles = {
     1: { phase: 'FASE I · EMPLAZAMIENTO', title: 'Paso 1: Emplazamiento - Plano, Faldones & Obstáculos' },
-    2: { phase: 'FASE II · CAMPO SOLAR & SOMBRAS', title: 'Paso 2: Campo Solar - Módulos FV, Sombras & Heatmap 3D' },
-    3: { phase: 'FASE III · OPTIMIZACIÓN & MLPE', title: 'Paso 3: Optimización - Poda de Sombras, MLPE & Objetivos' },
+    2: { phase: 'FASE II · CAMPO SOLAR', title: 'Paso 2: Campo Solar - Módulos FV, Disposición & Orientación' },
+    3: { phase: 'FASE III · ANÁLISIS SOLAR', title: 'Paso 3: Análisis Solar - Sombras 3D, Heatmap & Factura' },
     4: { phase: 'FASE IV · INGENIERÍA ELÉCTRICA', title: 'Paso 4: Ingeniería - Inversores, Strings & Cableado' },
     5: { phase: 'FASE V · ENTREGA & MEDICIONES', title: 'Paso 5: Entrega - Viabilidad, Presupuesto & Memoria PDF' }
   };
