@@ -1,0 +1,17 @@
+
+          outlineColor: Cesium.Color.fromCssColorString('#64748B'),
+>         shadows: Cesium.ShadowMode.ENABLED
+        }
+          outlineColor: Cesium.Color.fromCssColorString('#64748B'),
+>         shadows: Cesium.ShadowMode.ENABLED
+        }
+          outlineColor: Cesium.Color.fromCssColorString('#475569'),
+>         shadows: Cesium.ShadowMode.ENABLED
+        }
+                    material: Cesium.Color.fromCssColorString('#CBD5E1').withAlpha(0.98),
+>                   shadows: Cesium.ShadowMode.ENABLED
+                  }
+                  material: Cesium.Color.fromCssColorString('#475569').withAlpha(0.95),
+>                 shadows: Cesium.ShadowMode.ENABLED
+                }
+

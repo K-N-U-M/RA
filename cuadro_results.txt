@@ -1,0 +1,182 @@
+
+                  <span><i data-lucide="edit-2" class="icon-sm"></i> DIBUJAR POLILÍNEA EN PLANO</span>
+                </button>
+  
+>               <!-- Botón Ubicar Inversor / Cuadro Eléctrico en Dibujo -->
+                
+  
+                <div class="stat-grid-3" style="margin-bottom:6px;">
+                    <button type="button" class="btn-action-primary" onclick="wpStartGridMeterPlacement()" style="padding:6px 4px;font-size:9.5px;background:rgba(56,189,248,0.2);border:1px solid #38BDF8;color:#38BDF8;font-weight:800;">
+                      <span><i data-lucide="plug" class="icon-sm"></i> SITUAR CONTADOR AC</span>
+                    </button>
+>                 <button type="button" class="btn-action-primary" onclick="wpStartCombinerBoxPlacement()" title="Cuadro de agrupacion de strings DC (opcional en residencial, habitual con >=3 strings)" style="padding:6px 4px;font-size:9.5px;background:rgba(217,119,6,0.2);border:1px solid #D97706;color:#FBBF24;font-weight:800;grid-column:1 / -1;">
+>                     <span><i data-lucide="box" class="icon-sm"></i> SITUAR CUADRO DC</span>
+                    </button>
+                  </div>
+  
+                          <button type="button" class="solar-mode-btn" onclick="wpCapturaInforme().then(c => { if (c && typeof showToast === 'function') showToast('CAPTURAS LISTAS', 'Se incluirán en el próximo PDF de memoria.', 'success', 3500); });" title="Captura dron realista + irradiación para el presupuesto">
+                            <span><i data-lucide="image" class="icon-sm"></i> CAPTURA INFORME</span>
+                          </button>
+>                         <button id="btn-place-inverter" class="solar-mode-btn" onclick="wpStartInverterPlacement()" title="Ubicar Inversor Híbrido, Baterías y Cuadro Eléctrico en 3D para calcular tirada métrica de cable">
+          <span><i data-lucide="zap" class="icon-sm"></i> UBICAR INVERSOR 3D</span>
+        </button>
+      </div>
+  
+  
+  // ============================================================================
+> // <i data-lucide=\"zap\" class=\"icon-sm\"></i> MOTOR DE UBICACIÓN 3D DE INVERSOR, CUADRO ELÉCTRICO Y TIRADA DE CABLE
+  // ============================================================================
+  
+  window.inverterEquipmentState = {
+        return {
+          type: 'electrical',
+          id: 'inverter',
+>         name: 'Cuadro Eléctrico & Inversor',
+          pos: s.position,
+          rot: s.rotation || 0,
+          height: (s.carto ? s.carto.height : 0),
+        return {
+          type: 'electrical',
+          id: 'dc_protection',
+>         name: 'Cuadro Protección DC (SPD II)',
+          pos: s.dcProtectionPosition,
+          rot: s.dcProtectionRotation || 0,
+          height: (s.dcProtectionCarto ? s.dcProtectionCarto.height : 0),
+          sState.carto = { latitude: latDeg, longitude: lonDeg, height: carto.height };
+          if (sState.entity) {
+            sState.entity.position = posProp;
+>           if (sState.entity.label) sState.entity.label.text = '⚡ CUADRO & INVERSOR\n' + carto.height.toFixed(1) + ' m';
+          }
+        } else if (target.id === 'combiner' && sState.combinerBox) {
+          sState.combinerBox.position = newPos;
+          sState.dcProtectionCarto = { latitude: latDeg, longitude: lonDeg, height: carto.height };
+          if (sState.dcProtectionEntity) {
+            sState.dcProtectionEntity.position = posProp;
+>           if (sState.dcProtectionEntity.label) sState.dcProtectionEntity.label.text = '🛡️ CUADRO DC (SPD II)\n' + carto.height.toFixed(1) + ' m';
+          }
+        } else if (target.id === 'meter' && sState.gridMeter) {
+          sState.gridMeter.position = newPos;
+    if (selectedElectricalId === 'inverter' && s.position) {
+      return {
+        id: 'inverter',
+>       name: 'Cuadro Eléctrico & Inversor',
+        type: 'inverter',
+        pos: s.position,
+        carto: s.carto,
+    if (selectedElectricalId === 'dc_protection' && s.dcProtectionPosition && s.dcProtectionEntity) {
+      return {
+        id: 'dc_protection',
+>       name: 'Cuadro Protección DC (SPD II)',
+        type: 'dc_protection',
+        pos: s.dcProtectionPosition,
+        carto: s.dcProtectionCarto,
+      if (typeof updateBudgetUI === 'function') updateBudgetUI();
+      if (typeof populateStep3EquipmentSelectors === 'function') populateStep3EquipmentSelectors();
+      if (typeof showToast === 'function') {
+>       showToast('EQUIPO ELIMINADO', 'Cuadro eléctrico e inversor eliminados.', 'info', 3000);
+      }
+    } else if (selectedElectricalId === 'combiner') {
+      if (s.combinerBox && s.combinerBox.entity && viewer) {
+      selectedElectricalId = null;
+      wpCalculateAndRenderInverterCables();
+      if (typeof showToast === 'function') {
+>       showToast('EQUIPO ELIMINADO', 'Cuadro de protección DC eliminado.', 'info', 3000);
+      }
+    } else if (selectedElectricalId === 'meter') {
+      if (s.gridMeter && s.gridMeter.entity && viewer) {
+    const btn = document.getElementById('btn-place-inverter');
+    if (btn) btn.classList.add('active');
+    if (typeof showToast === 'function') {
+>     showToast('UBICACIÓN DE CUADRO E INVERSOR', 'Haz clic en cualquier pared, suelo o fachada 3D para posicionar el inversor/cuadro eléctrico.', 'info', 4000);
+    }
+>   showStatus('<i data-lucide=\"zap\" class=\"icon-sm\"></i> HAZ CLIC EN EL MODELO 3D PARA UBICAR EL CUADRO ELÉCTRICO / INVERSOR', 4000);
+  }
+  
+  
+    let pos = null;
+    // [FIX-PLACEMENT] Con requestRenderMode activo, scene.pickPosition lee el buffer de pick
+    // del ÚLTIMO frame renderizado. Si la cámara se movió desde entonces (órbita/zoom), el
+>   // píxel apunta a OTRO punto del mundo y el cuadro aparece lejos del clic ("otro sitio").
+    // Forzar un frame síncrono garantiza que el buffer corresponde a la cámara actual.
+    if (viewer.scene && viewer.scene.requestRenderMode && typeof viewer.scene.render === 'function') {
+      try { viewer.scene.render(); } catch (eForce) { window.RA && window.RA.log && window.RA.log.warn('[pick fresco]', eForce); }
+      try { viewer.entities.remove(window.inverterEquipmentState.entity); } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+    }
+  
+>   // Crear Marcador 3D del Inversor / Cuadro
+    try {
+      // Orientación: Z = Normal al globo terráqueo en este punto.
+      const transform = Cesium.Transforms.eastNorthUpToFixedFrame(cartesian);
+      const invMarkerSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="#0F172A" stroke="#F59E0B" stroke-width="2"><path d="M13 2L4.5 12.5H11L9.5 22L19.5 9.5H12.5L13 2Z" fill="#F59E0B" stroke="#78350F"/></svg>';
+      const invEntity = viewer.entities.add({
+        id: 'ra_inverter_main_box',
+>       name: 'Cuadro Eléctrico & Inversor Híbrido',
+        position: invBoxPos,
+        orientation: quat,
+        billboard: {
+      if (window.inverterEquipmentState.label2D) {
+        removeLabel2DEntity(window.inverterEquipmentState.label2D);
+      }
+>     const invLabelText = '⚡ CUADRO & INVERSOR\n' + heightM.toFixed(1) + ' m';
+      window.inverterEquipmentState.label2D = addLabelEntity(cartesian, invLabelText, -52, {
+        bg: 'rgba(15, 23, 42, 0.92)',
+        borderColor: '#F59E0B',
+        font: "bold 10px 'JetBrains Mono', monospace"
+      });
+  
+>     // <i data-lucide=\"rocket\" class=\"icon-sm\"></i> GEMELO DIGITAL 3D: CUADRO DE PROTECCIÓN DC ACOPLADO
+      if (window.inverterEquipmentState.dcProtectionEntity) {
+        try { viewer.entities.remove(window.inverterEquipmentState.dcProtectionEntity); } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+      }
+      const cat = (typeof equipmentCatalog !== 'undefined') ? equipmentCatalog : (typeof DEFAULT_EQUIPMENT_CATALOG !== 'undefined' ? DEFAULT_EQUIPMENT_CATALOG : null);
+      const cfg = window.solarProjectConfig || {};
+      const dcPanel = (cat && cat.electricalPanels) ? (cat.electricalPanels.find(p => p.id === cfg.selectedProtectionDcId) || cat.electricalPanels[1]) : null;
+>     const dcModelName = dcPanel ? (dcPanel.brand + ' ' + dcPanel.model) : 'Cuadro Protección DC 1000V SPD II';
+  
+>     // Desplazar cota horizontal 45cm para ubicar el cuadro DC a la derecha del inversor
+      const dcPosCarto = Cesium.Cartographic.fromCartesian(cartesian);
+      const dcCartesian = Cesium.Cartesian3.fromRadians(dcPosCarto.longitude + 0.00000007, dcPosCarto.latitude + 0.00000005, dcPosCarto.height + 0.23);
+  
+      const dcBoxSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 24 24" fill="#0F172A" stroke="#F59E0B" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2" fill="#1e293b"/><path d="M12 7v10M8 12h8" stroke="#F59E0B"/></svg>';
+      const dcEntity = viewer.entities.add({
+        id: 'ra_dc_protection_box_3d',
+>       name: 'Cuadro de Protecciones DC (' + dcModelName + ')',
+        position: dcCartesian,
+        billboard: {
+          image: getSafeSvgDataUri(dcBoxSvg),
+      if (window.inverterEquipmentState.dcProtectionLabel2D) {
+        removeLabel2DEntity(window.inverterEquipmentState.dcProtectionLabel2D);
+      }
+>     const dcLabelText = '🛡️ CUADRO DC (SPD II + SECC.)\n' + (dcPanel ? (dcPanel.model.split('(')[0].trim()) : '1000V DC');
+      window.inverterEquipmentState.dcProtectionLabel2D = addLabelEntity(dcCartesian, dcLabelText, -42, {
+        bg: 'rgba(15, 23, 42, 0.92)',
+        borderColor: '#D97706',
+    if (typeof updateConfigAndSimulate === 'function') updateConfigAndSimulate();
+    if (typeof updateBudgetUI === 'function') updateBudgetUI();
+    if (typeof showToast === 'function') {
+>     showToast('INVERSOR Y CUADRO UBICADO', 'Tirada de cable DC calculada a ' + (window.inverterEquipmentState.L_dc_measured || 0).toFixed(1) + ' m con holguras reglamentarias.', 'success', 3500);
+    }
+  }
+  
+  
+    if (allStrings.length === 0 && !sState.position && !hasPolys) return;
+  
+>   // 2. AUTO-UBICAR CUADRO E INVERSOR POR DEFECTO SI AÚN NO SE HA COLOCADO MANUALMENTE (SÓLO EN FASE DE EQUIPOS / INGENIERÍA: PASOS >= 4)
+    const isEligibleStepForEquipment = (typeof wpCurrentStep === 'undefined') || (wpCurrentStep >= 4);
+    if (isEligibleStepForEquipment && !sState.position) {
+      let defaultPt = null;
+        return;
+      }
+  
+>     // 🌟 PRIORIDAD #1: CAPTURA UNIVERSAL DEL GIZMO 3D (Vértices, Cuadros Eléctricos, Obstáculos, Edificios, Paneles)
+      const uTarget = (typeof getUniversalSelectedTarget === 'function') ? getUniversalSelectedTarget() : null;
+      if (uTarget && universalGizmoState.screen) {
+        const hitUGizmo = checkUniversalGizmoHit(down.position.x, down.position.y);
+        ProjectHierarchy.notify('project_loaded');
+      }
+  
+>     // 8. Restaurar Gemelo Digital Eléctrico (Inversor, Cuadros, Contador, Cables)
+      if (projectData.electricalInfrastructure && typeof window !== 'undefined') {
+        const elec = projectData.electricalInfrastructure;
+        if (!window.inverterEquipmentState) window.inverterEquipmentState = {};
+

@@ -1,0 +1,67 @@
+
+    selectionIndicator  : false,
+    shadows             : false,  // Desactivado global para máximo rendimiento
+>   terrainShadows      : (typeof Cesium !== 'undefined' && Cesium.ShadowMode) ? Cesium.ShadowMode.ENABLED : undefined,
+    shouldAnimate       : false, // el tick del reloj forzaba re-render continuo (GPU al 100%)
+    requestRenderMode   : true,
+  globe.depthTestAgainstTerrain = true;
+  // Sombra: desactivada completamente para máximo rendimiento GPU
+> globe.shadows = Cesium.ShadowMode.DISABLED;
+  scene.pickTranslucentDepth = true;
+  globe.baseColor = Cesium.Color.fromCssColorString('#14213d');
+        clampToGround: false,
+        arcType: (typeof Cesium !== "undefined" && Cesium.ArcType) ? Cesium.ArcType.NONE : undefined,
+>       shadows: (typeof Cesium !== "undefined" && Cesium.ShadowMode) ? Cesium.ShadowMode.DISABLED : 0
+      }
+    });
+    if (window.simulatedPanelsPrimitive && typeof viewer !== "undefined" && viewer && viewer.scene && viewer.scene.primitives) {
+      try {
+>       window.simulatedPanelsPrimitive.shadows = (typeof Cesium !== "undefined" && Cesium.ShadowMode) ? Cesium.ShadowMode.DISABLED : 0;
+        viewer.scene.primitives.remove(window.simulatedPanelsPrimitive);
+      } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+          outline: true,
+          outlineColor: Cesium.Color.fromCssColorString('#64748B'),
+>         shadows: Cesium.ShadowMode.ENABLED
+        }
+      });
+          outline: true,
+          outlineColor: Cesium.Color.fromCssColorString('#64748B'),
+>         shadows: Cesium.ShadowMode.ENABLED
+        }
+      });
+          outline: true,
+          outlineColor: Cesium.Color.fromCssColorString('#475569'),
+>         shadows: Cesium.ShadowMode.ENABLED
+        }
+      });
+      if (window.simulatedPanelsPrimitive && viewer.scene && viewer.scene.primitives) {
+        try {
+>         window.simulatedPanelsPrimitive.shadows = (typeof Cesium !== "undefined" && Cesium.ShadowMode) ? Cesium.ShadowMode.DISABLED : 0;
+          viewer.scene.primitives.remove(window.simulatedPanelsPrimitive);
+        } catch(ePrim) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', ePrim); }
+          }),
+          asynchronous: false,
+>         shadows: (typeof Cesium !== 'undefined' && Cesium.ShadowMode ? Cesium.ShadowMode.ENABLED : 1)
+        });
+        window.simulatedPanelsPrimitive = viewer.scene.primitives.add(primitive);
+              appearance: appearance,
+              asynchronous: false,
+>             shadows: (typeof Cesium !== "undefined" && Cesium.ShadowMode ? Cesium.ShadowMode.ENABLED : 1)
+            }));
+            instancedSuccess = true;
+              material: matProp,
+              perPositionHeight: true,
+>             shadows: (typeof Cesium !== "undefined" && Cesium.ShadowMode ? Cesium.ShadowMode.ENABLED : 1)
+            }
+          });
+                    topRadius: 0.09, bottomRadius: 0.10,
+                    material: Cesium.Color.fromCssColorString('#CBD5E1').withAlpha(0.98),
+>                   shadows: Cesium.ShadowMode.ENABLED
+                  }
+                }));
+                  dimensions: new Cesium.Cartesian3(Math.max(p.w || 1.1, 0.8), 0.30, Math.max(Cesium.Cartesian3.distance(baseF, frontMid), 0.08)),
+                  material: Cesium.Color.fromCssColorString('#475569').withAlpha(0.95),
+>                 shadows: Cesium.ShadowMode.ENABLED
+                }
+              }));
+
