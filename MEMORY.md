@@ -114,3 +114,17 @@ calculateFinancialModel()  ← Definición canónica en financials.js (~L491)
   - `enrichSummaryWithGemini(targetWindow, d, m, equipment)` — llamada async Gemini
   - `testGeminiApiKey()` — validación de conexión desde el modal
 
+---
+
+## 7. Motor de Cableado Ortogonal 3D y Sombras (`RACableEngine` — Octubre 2026)
+
+- **Estado:** ✅ Implementado y modularizado en `js/cable-engine.js`.
+- **Cero Catenarias:** Sustitución de curvas catenarias irreales por trazado ortogonal estricto a 90° (Manhattan 3D) descompuesto en los ejes U, V y N de la cubierta y bajantes verticales por fachada.
+- **Geometría 3D Volumétrica con Sombras:** Uso de `Cesium.PolylineVolumeGraphics` con perfiles extruidos (tubo cilíndrico r=1.8cm para DC, r=2.5cm para AC y bandeja en U 8x3cm) con `shadows: Cesium.ShadowMode.ENABLED`. Proyecta sombras físicas reales en tiempo real según la posición solar sobre tejas y fachadas.
+- **Cotas Reglamentarias:** +0.35m (DC+) y +0.45m (DC- / retorno compensado) sobre el faldón.
+- **Colores Planos Sólidos:** `#EF4444` (DC+), `#0284C7` (DC-), `#10B981` (Combiner troncal), `#38BDF8` (AC), `#64748B` (Bandeja), sin shaders procedurales ni efectos glow inestables.
+- **Tipologías Soportadas:** Serie pura (1S), Paralelo en cubierta con conectores Y (2S), Combiner Box y Línea de Evacuación AC.
+- **Snapping Magnético y Auto-Trazado Zero-Click:** Generación automática al entrar en Paso 4 con codos editables y enganche a terminales de string.
+- **Limpieza Inline:** ~26.000 caracteres de código legacy retirados de `index.html`, delegando limpiamente en `RACableEngine`.
+- **Verificación:** Suite de pruebas en `tests/test-cable-engine.html` y consola `window.RACableEngine.runSelfTests()`.
+

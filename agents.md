@@ -142,16 +142,23 @@ Estado en `window.solarProjectConfig`:
 
 ---
 
-## 8. ⚡ Cableado REBT (ITC-BT-40)
+## 8. ⚡ Cableado REBT (ITC-BT-40) y Motor 3D Volumétrico (`RACableEngine`)
 
-| Tramo | Cable | Secciones | ΔV max |
-|---|---|---|---|
-| DC (módulos → inversor) | ZZ-F 1500V Cu clase 5 | 4, 6, 10, 16, 25 mm² | 1.5% |
-| AC (inversor → cuadro) | RV-K 0.6/1kV | 2.5, 4, 6, 10, 16, 25, 35, 50 mm² | 1.5% |
+| Tramo | Cable | Secciones | ΔV max | Cota y Geometría |
+|---|---|---|---|---|
+| DC+ (módulos → inversor) | ZZ-F 1500V Cu clase 5 | 4, 6, 10, 16, 25 mm² | 1.5% | +0.35m sobre plano · Tubo 3D cilíndrico r=1.8cm (`#EF4444`) |
+| DC- (retorno compensado) | ZZ-F 1500V Cu clase 5 | 4, 6, 10, 16, 25 mm² | 1.5% | +0.45m sobre plano · Tubo 3D cilíndrico r=1.8cm (`#0284C7`) |
+| Troncal Combiner / Y | ZZ-F 1500V Cu clase 5 | 10, 16, 25 mm² | 1.5% | +0.40m sobre plano · Bandeja en U 8x3cm (`#10B981` / `#64748B`) |
+| AC (inversor → contador) | RV-K 0.6/1kV | 2.5, 4, 6, 10, 16, 25, 35, 50 mm² | 1.5% | +0.35m sobre paramento · Tubo 3D r=2.5cm (`#38BDF8`) |
 
+- **Motor Modular Canónico:** `js/cable-engine.js` (`window.RACableEngine`).
+- **Geometría 3D Volumétrica con Sombras:** Toda conducción usa `Cesium.PolylineVolumeGraphics` con `shadows: Cesium.ShadowMode.ENABLED`, generando mallas reales con normales 3D que proyectan sombras solares físicas sobre tejas y fachadas.
+- **Trazado Ortogonal 90° (Manhattan Routing 3D):** Descompuesto en los ejes U, V y N del faldón activo y bajantes verticales por fachada. Cero catenarias ni cables volando en el aire.
+- **Colores Planos Sólidos:** Sin shaders procedurales ni efectos glow que desincronicen el render WebGL.
+- **Tipologías Eléctricas:** Serie pura (1S por MPPT), Paralelo en cubierta con Conectores Y (2S), Combiner Box (cuadro de strings) y Línea de Evacuación AC.
+- **Snapping Magnético y Auto-Trazado:** Snapping al terminal de string o nodo Y en trazado manual, y auto-generación zero-click con codos editables (`ra_route_handle_*`).
 - Corriente de diseño DC: Id = 1.25 × Isc.
 - Resistividad Cu a 90°C: ρ = 0.023 Ω·mm²/m.
-- Visibilidad 3D: +0.35m sobre cubierta con `PolylineGlowMaterialProperty`.
 
 ---
 

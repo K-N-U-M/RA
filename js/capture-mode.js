@@ -41,6 +41,7 @@
     btn.textContent = '📷 CAPTURA LIMPIA (C)';
     btn.title = 'Oculta vértices, polilíneas, planos de trabajo y tríada CAD para capturas de pantalla limpias. Tecla: C';
     Object.assign(btn.style, {
+      display: 'none', // Oculto por petición del usuario, pero la tecla C sigue funcionando
       position: 'fixed', right: '14px', bottom: '46px', zIndex: '9998',
       background: 'rgba(10,16,29,0.85)', color: '#E2E8F0',
       border: '1px solid rgba(56,189,248,0.35)', borderRadius: '8px',

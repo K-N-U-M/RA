@@ -1,4 +1,4 @@
-# ☀️ MEMORIA TÉCNICA Y MANUAL DE INGENIERÍA: SIMULADOR SOLAR 3D (RA)
+﻿# ☀️ MEMORIA TÉCNICA Y MANUAL DE INGENIERÍA: SIMULADOR SOLAR 3D (RA)
 **Documento Técnico de Arquitectura, Algoritmos, Física Solar y Operación Industrial**  
 *Versión: 3.0-AAA Industrial Grade*  
 *Fecha: Agosto 2026*  
@@ -250,3 +250,93 @@ for (let mIdx = 0; mIdx < 12; mIdx++) {
 | **IEC 62548** | *Photovoltaic (PV) arrays - Design requirements* | Ventana de tensión MPPT ($V_{\text{oc}} \le 1000\,\text{V}$), balance de strings y segregación Este-Oeste. |
 | **UNE-EN 62305** | Protección contra el rayo: Riesgo e impacto electromagnético | Trazado de strings en serpiente (*Snake Routing*) para anulación de bucle inductivo. |
 | **IEC 61724-1** | *Photovoltaic system performance monitoring* | Modelos de transposición de irradiancia, cálculo de Performance Ratio ($PR$) y degradación térmica de celda. |
+
+---
+
+## 7. ⚡ INFRAESTRUCTURA ELÉCTRICA, CANALIZACIONES 3D Y MANUAL DE USO DE CABLEADO
+
+### 7.1. Fundamentos en la Industria Real (IRL) vs Gemelo Digital AAA
+
+En una instalación fotovoltaica real bajo normativas **REBT ITC-BT-40**, **UNE-EN 62305** e **IEC 62548**, los conductores eléctricos jamás van suspendidos por el aire formando catenarias:
+
+1. **Bandejas y Conducciones Rígidas en Cubierta**:
+   - Los cables solares de corriente continua (tipo ZZ-F / H1Z2Z2-K 1x4 mm² / 1x6 mm² con aislamiento de 1500V) discurren confinados en **bandejas portacables perforadas / rejilla metálica (tipo Rejiband / Pemsa)** o canaletas de PVC protegidas contra radiación UV.
+   - Estas bandejas se fijan a la cubierta sobre soportes a una cota de **35 a 45 cm sobre el plano del tejado**, enrasándose con los carriles de la estructura de soporte de los paneles y librando acumulación de agua pluvial o suciedad.
+2. **Trazado Estrictamente Ortogonal (90°)**:
+   - Los recorridos avanzan paralelos a las cumbreras/aleros (eje horizontal de la cubierta) o en la línea de máxima pendiente.
+   - Al llegar a los límites del faldón, giran en **escuadra a 90°** hacia los pasamuros o bajantes de fachada.
+3. **Bajantes Verticales por Fachada**:
+   - El descenso hacia la sala técnica o inversor se efectúa mediante **tubos rígidos blindados de PVC o acero galvanizado** (M25 / M32) fijados al paramento vertical en ángulo recto.
+4. **Interconexiones entre Equipos y Evacuación AC**:
+   - Del inversor hacia el cuadro de protecciones de alterna y el contador de red, el cable de evacuación (RV-K o RZ1-K 0.6/1kV) discurre igualmente por tubo rígido vertical y horizontal con quiebros a 90°.
+
+```
+[Strings FV en Cubierta] ──(90° sobre faldón +0.35/+0.45m)──► [Bandeja Alero]
+                                                                     │
+                                                                  (90° Bajante)
+                                                                     ▼
+[Contador Red / CGMP] <──(90° Tubo AC)── [Cuadro AC] <──(90°)── [Inversor]
+```
+
+---
+
+### 7.2. Tipologías Eléctricas de Conexionado Soportadas
+
+El simulador contempla las tipologías habituales de diseño fotovoltaico:
+
+* **Topología 1: Serie Pura (1 String ➔ 1 Canal MPPT)**:
+  - Cada serie de paneles cuenta con su propio par de acometidas independientes: polo positivo (+) a cota $+0.35\,\text{m}$ (rojo) y polo negativo (-) a cota $+0.45\,\text{m}$ (azul).
+  - Ambos conductores discurren en paralelo para cancelar bucles inductivos magnéticos conforme a UNE-EN 62305.
+
+* **Topología 2: Strings en Paralelo en Cubierta con Conectores en Y (2S)**:
+  - Cuando dos strings con idéntica orientación e inclinación comparten una sola entrada MPPT de alta corriente.
+  - En la realidad, para no duplicar tiradas de cable por la fachada, ambos strings confluyen en cubierta en un par de **ramificadores en Y (conectores MC4)**.
+  - Desde el nodo de unión Y parte una **única línea troncal bipolar** de mayor sección hacia el inversor.
+
+* **Topología 3: Cuadro de Agrupación (Combiner Box en Cubierta)**:
+  - Típica en instalaciones comerciales o industriales con $\ge 3$ strings.
+  - Los strings individuales llegan a la Combiner Box (dotada de fusibles de string gPV y descargador de sobretensiones transitorias).
+  - De la caja parte una línea troncal de gran sección (verde esmeralda `#10B981`) a 90° hacia el inversor.
+
+* **Topología 4: Línea de Evacuación AC**:
+  - Trazado de tubo rígido en fachada entre el Inversor y el Contador de Red / CGMP con quiebros a 90° (celeste `#38BDF8`).
+
+---
+
+### 7.3. Formulación del Motor Manhattan 3D y Sombras Físicas
+
+1. **Descomposición en Ejes Locales del Faldón ($\vec{U}, \vec{V}, \vec{N}$)**:
+   A partir de la tríada CAD del plano de trabajo (`working-plane.js`), cualquier trayectoria se descompone en:
+   $$\vec{P}(t) = \vec{P}_{\text{inicio}} + h_{\text{offset}} \cdot \vec{N} + \Delta u \cdot \vec{U} + \Delta v \cdot \vec{V} + \Delta z \cdot \vec{k}$$
+   - $h_{\text{offset}} = +0.35\,\text{m}$ (DC+) o $+0.45\,\text{m}$ (DC- / bandeja).
+   - $\Delta u = (\vec{P}_{\text{fin}} - \vec{P}_{\text{inicio}}) \cdot \vec{U}$ (avance en hilera).
+   - $\Delta v = (\vec{P}_{\text{fin}} - \vec{P}_{\text{inicio}}) \cdot \vec{V}$ (quiebro a alero).
+   - $\Delta z$: descenso vertical a 90° por fachada.
+
+2. **Geometría 3D Volumétrica con Proyección de Sombras**:
+   - Se emplea `Cesium.PolylineVolumeGraphics` con perfiles cilíndricos ($r = 1.8\,\text{cm}$) o prismáticos en U ($8 \times 3\,\text{cm}$).
+   - Con la propiedad `shadows: Cesium.ShadowMode.ENABLED`, Cesium genera mallas triangulares completas que proyectan sombras reales en el `shadowMap` de 4096 px según la posición solar astronómica.
+   - Colores planos sólidos sin shaders procedurales para garantizar cero errores en WebGL.
+
+---
+
+### 7.4. Manual de Operación y Uso para el Instalador
+
+#### A. Generación Automática Zero-Click
+Al entrar en el **Paso 4 (Ingeniería)** o al recolocar equipos (inversor o contador), el sistema genera **automáticamente** el trazado ortogonal completo a 90° sin necesidad de hacer clics manuales.
+
+#### B. Barra Lateral: Herramientas de Canalización
+* **🔴 TRAZAR BANDEJA DC**: Activa el modo para dibujar una ruta personalizada de bandeja en cubierta y fachada.
+  - **Snapping Magnético**: El primer clic se imanta automáticamente a los terminales (+) o (-) del string más próximo o al nodo Y.
+  - **Vértices Interactivos**: Cada clic crea un codo a 90°.
+* **🔵 TRAZAR TUBO AC**: Permite dibujar la canalización de alterna desde el inversor hasta el contador.
+* **Barra Flotante de Trazado**:
+  - **✔ (OK / Terminar)**: Guarda la ruta y recalcula la sección y caída de tensión.
+  - **↺ (Deshacer punto)**: Elimina el último codo marcado.
+  - **❌ (Cancelar)**: Descarta el dibujo y restaura la ruta ortogonal automática.
+
+#### C. Telemetría y Dimensionamiento en Tiempo Real
+El panel lateral actualiza instantáneamente:
+* **Longitud Medida ($L_{\text{dc}}$ y $L_{\text{ac}}$)** en metros exactos de recorrido ortogonal.
+* **Sección Recomendada ($S_{\text{dc}}$ y $S_{\text{ac}}$)** en mm² cumpliendo límite de caída de tensión $\Delta V \le 1.5\%$ (REBT ITC-BT-40).
+* **Impacto en Pérdidas Óhmicas (PR)** transmitido automáticamente al motor de producción solar.

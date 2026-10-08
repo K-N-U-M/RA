@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -23,9 +23,10 @@
     window.CESIUM_BASE_URL = 'https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/';
   </script>
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/Cesium.js"></script>
+  <script src="js/cesium-safety.js?v=20261007a"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
 
-  <script src="js/buildings.js?v=20260929b"></script>`n
+  <script src="js/buildings.js?v=20260929b"></script>
     <script src="js/solar-heatmap.js?v=20260929b"></script>
     <script src="js/config.js?v=20260929b"></script>
     <script src="js/financials.js?v=20260929c"></script>
@@ -39,6 +40,7 @@
   <script src="js/docs-generator.js?v=20260929b"></script>
   <script src="js/workflow-orchestrator.js?v=20260929b"></script>
   <script src="js/working-plane.js?v=20260930a"></script>
+  <script src="js/cable-engine.js?v=20261008a"></script>
   <script src="js/capture-mode.js?v=20260929b"></script>
   <script src="js/project-hierarchy.js?v=20260929b"></script>
   <script src="js/ui-outliner.js?v=20260930a"></script>
@@ -3184,41 +3186,6 @@ const viewer = new Cesium.Viewer('cesiumContainer', {
 
 window.viewer = viewer; // [CAPTURA] exposicion de una linea para modulos (capture-mode necesita el registro de entidades)
 
-// [WATCHDOG] Parche a bajo nivel para evitar el crash de texturas _target en Cesium
-function installCesiumWatchdog(v) {
-  if (!v || !v.scene || !v.scene.context) return;
-  const ctx = v.scene.context;
-  if (!ctx.shaderCache || !ctx.shaderCache._shaders) return;
-  
-  let patched = false;
-  const shaders = Object.values(ctx.shaderCache._shaders);
-  for (let i = 0; i < shaders.length; i++) {
-    const shader = shaders[i];
-    if (shader._uniformsByName) {
-      for (const name in shader._uniformsByName) {
-        const uniform = shader._uniformsByName[name];
-        if (uniform && typeof uniform.set === 'function') {
-          const setStr = uniform.set.toString();
-          if (setStr.includes('bindTexture') && setStr.includes('_target')) {
-            const proto = Object.getPrototypeOf(uniform);
-            if (proto && !proto.__patchedWatchdog) {
-              const originalSet = proto.set;
-              proto.set = function() {
-                if (!this.value && ctx.defaultTexture) {
-                  this.value = ctx.defaultTexture; // Fallback to 1x1 default texture
-                }
-                return originalSet.apply(this, arguments);
-              };
-              proto.__patchedWatchdog = true;
-              patched = true;
-            }
-          }
-        }
-      }
-    }
-  }
-}
-setInterval(() => installCesiumWatchdog(viewer), 2000);
 
 const { scene, camera, clock } = viewer;
 if (camera && camera.frustum) camera.frustum.near = 0.5;
@@ -10281,6 +10248,18 @@ function wpAddCableRoutePoint(pos3D) {
   if (!window.cableRoutingState || !window.cableRoutingState.active) return;
   if (!pos3D || typeof viewer === 'undefined' || !viewer) return;
 
+  // [SNAP INTELIGENTE] Si es el primer punto de trazado DC, imantar al terminal de string o nodo Y
+  if (window.cableRoutingState.points.length === 0 && window.cableRoutingState.type === 'dc' &&
+      window.RACableEngine && typeof window.RACableEngine.findSnapTarget === 'function') {
+    const snapPt = window.RACableEngine.findSnapTarget(pos3D, 3.0);
+    if (snapPt) {
+      pos3D = snapPt;
+      if (typeof showToast === 'function') {
+        showToast('ORIGEN FIJADO', 'Conectado magnéticamente al string de paneles.', 'info', 2000);
+      }
+    }
+  }
+
   // Elevar ligeramente el punto sobre la superficie de la pared o fachada para visibilidad total
   let elevated = pos3D;
   try {
@@ -10503,555 +10482,20 @@ window.wpUpdateCableRoutesUI = wpUpdateCableRoutesUI;
  * Generador de curvatura catenaria orgánica gravitatoria para cables
  */
 function buildOrganicCatenary(pA, pB, sagMeters = 0.12, segments = 8) {
-  if (!pA || !pB || typeof Cesium === 'undefined') return [pA, pB].filter(Boolean);
-  try {
-    const mid = Cesium.Cartesian3.midpoint(pA, pB, new Cesium.Cartesian3());
-    const surfaceNormal = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(mid, new Cesium.Cartesian3()) || new Cesium.Cartesian3(0, 0, 1);
-    const points = [];
-    for (let i = 0; i <= segments; i++) {
-      const t = i / segments;
-      const lerpPt = Cesium.Cartesian3.lerp(pA, pB, t, new Cesium.Cartesian3());
-      const sag = 4.0 * t * (1.0 - t) * sagMeters;
-      const sagOffset = Cesium.Cartesian3.multiplyByScalar(surfaceNormal, sag * 0.25, new Cesium.Cartesian3());
-      points.push(Cesium.Cartesian3.add(lerpPt, sagOffset, new Cesium.Cartesian3()));
-    }
-    return points;
-  } catch(e) {
-    return [pA, pB];
+  // [MIGRACIÓN AAA] Delegación al motor 3D ortogonal RACableEngine (js/cable-engine.js)
+  if (typeof RACableEngine !== 'undefined' && typeof RACableEngine.buildOrthogonalManhattanPath3D === 'function') {
+    return RACableEngine.buildOrthogonalManhattanPath3D(pA, pB);
   }
+  return [pA, pB].filter(Boolean);
 }
 window.buildOrganicCatenary = buildOrganicCatenary;
 
 function wpCalculateAndRenderInverterCables() {
-  if (typeof wpCurrentStep !== 'undefined' && wpCurrentStep < 4 && !isPolygonDesignConfirmed) {
-    return;
-  }
-  if (!window.inverterEquipmentState) return;
-  if (typeof viewer === 'undefined' || !viewer) return;
-
-  const sState = window.inverterEquipmentState;
-
-  // Limpiar entidades de cable y etiquetas anteriores
-  if (sState.dcCableEntities && Array.isArray(sState.dcCableEntities)) {
-    sState.dcCableEntities.forEach(e => {
-      try {
-        if (typeof removeLabel2DEntity === 'function') removeLabel2DEntity(e);
-        viewer.entities.remove(e);
-      } catch(err) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', err); }
-    });
-  }
-  sState.dcCableEntities = [];
-
-  // Helper robusto para elevar punto 3D sobre la cubierta para visibilidad total sin z-fighting
-  function elevate3DPoint(pos, offsetMeters = 0.35, normVec = null) {
-    if (!pos) return pos;
-    try {
-      if (normVec && Cesium.Cartesian3 && typeof Cesium.Cartesian3.multiplyByScalar === 'function') {
-        return Cesium.Cartesian3.add(pos, Cesium.Cartesian3.multiplyByScalar(normVec, offsetMeters, new Cesium.Cartesian3()), new Cesium.Cartesian3());
-      }
-      const carto = Cesium.Cartographic.fromCartesian(pos);
-      return Cesium.Cartesian3.fromRadians(carto.longitude, carto.latitude, carto.height + offsetMeters);
-    } catch(e) {
-      return pos;
-    }
-  }
-
-  // 1. RECOLECTAR TODOS LOS PANELES Y STRINGS ACTIVOS
-  let allStrings = [];
-  const hasPolys = typeof WP !== 'undefined' && WP && WP.polylines && WP.polylines.length > 0;
-
-  if (hasPolys) {
-    WP.polylines.forEach((poly, polyIdx) => {
-      const pInfo = poly.roofInfo || (typeof computeSinglePolylineRoofInfo === 'function' ? computeSinglePolylineRoofInfo(poly.points, poly) : null);
-      if (pInfo && pInfo.panels && pInfo.panels.length > 0) {
-        const strList = (typeof partitionPanelsIntoMPPTStrings === 'function')
-          ? partitionPanelsIntoMPPTStrings(pInfo.panels)
-          : [{ panels: pInfo.panels }];
-        allStrings = allStrings.concat(strList);
-      }
-    });
-  }
-
-  // Si no hay polilíneas pero sí lastRoofInfo o paneles generados
-  if (allStrings.length === 0) {
-    const fallbackRoof = (typeof lastRoofInfo !== 'undefined' && lastRoofInfo) ? lastRoofInfo : (typeof computeRoofPanelsData === 'function' ? computeRoofPanelsData() : null);
-    if (fallbackRoof && fallbackRoof.panels && fallbackRoof.panels.length > 0) {
-      const strList = (typeof partitionPanelsIntoMPPTStrings === 'function')
-        ? partitionPanelsIntoMPPTStrings(fallbackRoof.panels)
-        : [{ panels: fallbackRoof.panels }];
-      allStrings = allStrings.concat(strList);
-    }
-  }
-
-  // Fallback directo a paneles renderizados globales (SSOT)
-  if (allStrings.length === 0 && typeof window.allRenderedPanels !== 'undefined' && Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0) {
-    const strList = (typeof partitionPanelsIntoMPPTStrings === 'function')
-      ? partitionPanelsIntoMPPTStrings(window.allRenderedPanels)
-      : [{ panels: window.allRenderedPanels }];
-    allStrings = allStrings.concat(strList);
-  }
-
-  if (allStrings.length === 0 && !sState.position && !hasPolys) return;
-
-  // 2. AUTO-UBICAR CUADRO E INVERSOR POR DEFECTO SI AÚN NO SE HA COLOCADO MANUALMENTE (SÓLO EN FASE DE EQUIPOS / INGENIERÍA: PASOS >= 4)
-  const isEligibleStepForEquipment = (typeof wpCurrentStep === 'undefined') || (wpCurrentStep >= 4);
-  if (isEligibleStepForEquipment && !sState.position) {
-    let defaultPt = null;
-    if (hasPolys && WP.polylines[0] && WP.polylines[0].points && WP.polylines[0].points.length > 0) {
-      defaultPt = WP.polylines[0].points[0];
-    } else if (allStrings.length > 0 && allStrings[0].panels && allStrings[0].panels.length > 0) {
-      const p0 = allStrings[0].panels[0];
-      defaultPt = p0.center || (p0.corners ? p0.corners[0] : null);
-    }
-    if (defaultPt) {
-      const carto = Cesium.Cartographic.fromCartesian(defaultPt);
-      sState.position = Cesium.Cartesian3.clone(defaultPt);
-      sState.carto = { latitude: Cesium.Math.toDegrees(carto.latitude), longitude: Cesium.Math.toDegrees(carto.longitude), height: carto.height };
-      if (typeof wpPlaceInverterAtPosition === 'function') {
-        wpPlaceInverterAtPosition(defaultPt);
-      }
-    }
-  }
-
-  const invPos = sState.position;
-  const cbPos = (sState.combinerBox && sState.combinerBox.position && sState.combinerBox.isEnabled) ? sState.combinerBox.position : null;
-
-  // Auto-ubicar Contador de Red cerca del suelo si no existe (sólo en pasos >= 4)
-  if (isEligibleStepForEquipment && (!sState.gridMeter || !sState.gridMeter.position)) {
-    if (invPos) {
-      const invCarto = Cesium.Cartographic.fromCartesian(invPos);
-      // Desplazamiento horizontal relativo ~4.5m Este / ~2.0m Sur a nivel de suelo para situar el contador junto a fachada/acometida
-      const offsetEastRad = 0.85 / 6371000;
-      const offsetNorthRad = 0;
-      const meterHeight = invCarto.height;
-      const meterLonRad = invCarto.longitude + offsetEastRad;
-      const meterLatRad = invCarto.latitude + offsetNorthRad;
-      const meterCartoPt = Cesium.Cartesian3.fromRadians(meterLonRad, meterLatRad, meterHeight);
-      if (!sState.gridMeter) sState.gridMeter = {};
-      sState.gridMeter.position = meterCartoPt;
-      sState.gridMeter.carto = {
-        latitude: Cesium.Math.toDegrees(meterLatRad),
-        longitude: Cesium.Math.toDegrees(meterLonRad),
-        height: meterHeight
-      };
-      if (typeof wpPlaceGridMeterAtPosition === 'function') {
-        wpPlaceGridMeterAtPosition(meterCartoPt, true);
-      }
-    }
-  }
-
-  const meterPos = (sState.gridMeter && sState.gridMeter.position) ? sState.gridMeter.position : null;
-
-  // 3. MEDIDAS Y DIMENSIONAMIENTO ELÉCTRICO PREVIO (REBT ITC-BT-40 / UNE-EN 50618)
-  const dcTargetPos = cbPos || (sState.dcProtectionPosition ? sState.dcProtectionPosition : invPos);
-  let maxLdc = 0;
-  const homerunMetrics = [];
-
-  if (dcTargetPos) {
-    const targetCarto = Cesium.Cartographic.fromCartesian(dcTargetPos);
-    const hasManualDc = (sState.routes && sState.routes.dc && sState.routes.dc.length > 0);
-    let manualDcTrayLen = 0;
-    if (hasManualDc) {
-      for (let k = 0; k < sState.routes.dc.length - 1; k++) {
-        manualDcTrayLen += Cesium.Cartesian3.distance(sState.routes.dc[k], sState.routes.dc[k + 1]);
-      }
-    }
-
-    allStrings.forEach((strObj, sIdx) => {
-      const sPanels = strObj.panels || [];
-      if (sPanels.length === 0) {
-        homerunMetrics.push(null);
-        return;
-      }
-      // Polo Positivo (DC+): Primer módulo de la serie
-      const firstPanel = sPanels[0];
-      const startPos = firstPanel.center || (firstPanel.corners ? firstPanel.corners[0] : null);
-
-      // [FIX-CABLES] Normal del plano del panel: los cables deben elevarse PERPENDICULARES
-      // a la cubierta. Antes se elevaban +0.28 m en vertical → en cubiertas inclinadas el
-      // cable quedaba medio enterrado tras los propios paneles (invisible).
-      let panelNorm = null;
-      if (firstPanel.corners && firstPanel.corners.length >= 3) {
-        const cA = firstPanel.corners[0], cB = firstPanel.corners[1], cC = firstPanel.corners[firstPanel.corners.length - 1];
-        const e1 = Cesium.Cartesian3.subtract(cB, cA, new Cesium.Cartesian3());
-        const e2 = Cesium.Cartesian3.subtract(cC, cA, new Cesium.Cartesian3());
-        panelNorm = Cesium.Cartesian3.normalize(Cesium.Cartesian3.cross(e1, e2, new Cesium.Cartesian3()), new Cesium.Cartesian3());
-        if (panelNorm.z < 0) panelNorm = Cesium.Cartesian3.negate(panelNorm, new Cesium.Cartesian3());
-      }
-
-      // Polo Negativo (DC-): Último módulo de la serie
-      const termPanel = sPanels[sPanels.length - 1];
-      const termPos = termPanel.center || (termPanel.corners ? termPanel.corners[0] : null);
-
-      if (!startPos || !termPos) {
-        homerunMetrics.push(null);
-        return;
-      }
-
-      let L_dc_pos = 0;
-      let L_dc_neg = 0;
-
-      if (hasManualDc) {
-        const dStartToTray = Cesium.Cartesian3.distance(startPos, sState.routes.dc[0]);
-        const dTermToTray = Cesium.Cartesian3.distance(termPos, sState.routes.dc[0]);
-        const dTrayToTarget = Cesium.Cartesian3.distance(sState.routes.dc[sState.routes.dc.length - 1], dcTargetPos);
-        L_dc_pos = Math.max(2.0, dStartToTray + manualDcTrayLen + dTrayToTarget);
-        L_dc_neg = Math.max(2.0, dTermToTray + manualDcTrayLen + dTrayToTarget);
-      } else {
-        const startCarto = Cesium.Cartographic.fromCartesian(startPos);
-        const d3DStart = Cesium.Cartesian3.distance(startPos, dcTargetPos);
-        const dZStart = Math.abs(startCarto.height - targetCarto.height);
-        const dHorizStart = Math.sqrt(Math.max(0, d3DStart * d3DStart - dZStart * dZStart));
-        L_dc_pos = Math.max(3.0, (dHorizStart + dZStart) * 1.25);
-
-        const termCarto = Cesium.Cartographic.fromCartesian(termPos);
-        const d3DTerm = Cesium.Cartesian3.distance(termPos, dcTargetPos);
-        const dZTerm = Math.abs(termCarto.height - targetCarto.height);
-        const dHorizTerm = Math.sqrt(Math.max(0, d3DTerm * d3DTerm - dZTerm * dZTerm));
-        L_dc_neg = Math.max(3.0, (dHorizTerm + dZTerm) * 1.25);
-      }
-
-      const totalHomerunLen = L_dc_pos + L_dc_neg;
-      if (Math.max(L_dc_pos, L_dc_neg) > maxLdc) maxLdc = Math.max(L_dc_pos, L_dc_neg);
-
-      homerunMetrics.push({
-        startPos: startPos,
-        termPos: termPos,
-        normal: panelNorm,
-        lengthPos: L_dc_pos,
-        lengthNeg: L_dc_neg,
-        length: totalHomerunLen
-      });
-    });
-  }
-
-  let trunkMetric = null;
-  if (cbPos && invPos) {
-    const dTrunk3D = Cesium.Cartesian3.distance(cbPos, invPos);
-    const cbCarto = Cesium.Cartographic.fromCartesian(cbPos);
-    const invCarto = Cesium.Cartographic.fromCartesian(invPos);
-    const dZTrunk = Math.abs(cbCarto.height - invCarto.height);
-    const dHorizTrunk = Math.sqrt(Math.max(0, dTrunk3D * dTrunk3D - dZTrunk * dZTrunk));
-    const L_trunk = Math.max(2.0, (dHorizTrunk + dZTrunk) * 1.15);
-    maxLdc += L_trunk;
-    trunkMetric = { length: L_trunk };
-  } else if (sState.dcProtectionPosition && invPos) {
-    const dTrunk3D = Cesium.Cartesian3.distance(sState.dcProtectionPosition, invPos);
-    const cbCarto = Cesium.Cartographic.fromCartesian(sState.dcProtectionPosition);
-    const invCarto = Cesium.Cartographic.fromCartesian(invPos);
-    const dZTrunk = Math.abs(cbCarto.height - invCarto.height);
-    const dHorizTrunk = Math.sqrt(Math.max(0, dTrunk3D * dTrunk3D - dZTrunk * dZTrunk));
-    const L_trunk = Math.max(1.0, (dHorizTrunk + dZTrunk) * 1.15);
-    maxLdc += L_trunk;
-    trunkMetric = { length: L_trunk };
-  }
-
-  let acMetric = null;
-  if (invPos && meterPos) {
-    let L_ac_measured = 0;
-    if (sState.routes && sState.routes.ac && sState.routes.ac.length > 0) {
-      let manualAcLen = Cesium.Cartesian3.distance(invPos, sState.routes.ac[0]);
-      for (let k = 0; k < sState.routes.ac.length - 1; k++) {
-        manualAcLen += Cesium.Cartesian3.distance(sState.routes.ac[k], sState.routes.ac[k + 1]);
-      }
-      manualAcLen += Cesium.Cartesian3.distance(sState.routes.ac[sState.routes.ac.length - 1], meterPos);
-      L_ac_measured = Math.round(Math.max(2.0, manualAcLen) * 10) / 10;
-    } else {
-      const dAC3D = Cesium.Cartesian3.distance(invPos, meterPos);
-      const invCarto = Cesium.Cartographic.fromCartesian(invPos);
-      const meterCarto = Cesium.Cartographic.fromCartesian(meterPos);
-      const dZAC = Math.abs(invCarto.height - meterCarto.height);
-      const dACHoriz = Math.sqrt(Math.max(0, dAC3D * dAC3D - dZAC * dZAC));
-      L_ac_measured = Math.round(Math.max(2.0, (dACHoriz + dZAC) * 1.15) * 10) / 10;
-    }
-    sState.L_ac_measured = L_ac_measured;
-    acMetric = { length: L_ac_measured };
-  }
-
-  sState.L_dc_measured = Math.round(maxLdc * 10) / 10;
-
-  // Cálculo de sección recomendada y caída de tensión
-  const modCfg = (typeof panelConfig !== 'undefined') ? panelConfig : { potencia: 450, isc: 13.8, imp: 13.05, vmp: 34.5 };
-  const invCfg = (window.solarProjectConfig && window.solarProjectConfig.calculatedLimits && window.solarProjectConfig.calculatedLimits.inverter)
-    ? window.solarProjectConfig.calculatedLimits.inverter
-    : { kw: 10.0, type: 'Trifásico' };
-  const rho90 = 0.023; // Cobre a 90°C en régimen permanente
-  const Ldc = sState.L_dc_measured || 30;
-  const Lac = sState.L_ac_measured || 15;
-  const imp = modCfg.imp || 13.05;
-  // Módulos por string reales (caso conservador para ΔV: el string más corto).
-  // Fallback: límites calculados o mínimo normativo de arranque MPPT.
-  const liveStrLens = (Array.isArray(allStrings) ? allStrings : [])
-    .map(s => (s && Array.isArray(s.panels)) ? s.panels.length : 0).filter(n => n > 0);
-  const vmpStr = (modCfg.vmp || 34.5) * (liveStrLens.length ? Math.min(...liveStrLens) : 12);
-  const iDcDesign = 1.25 * (modCfg.isc || 13.8);
-
-  const secDcAvail = [4, 6, 10, 16, 25];
-  const imaxDcZZF  = [44, 58, 80, 107, 138];
-  let sDcOpt = 6, dVdcPctOpt = 1.0;
-  for (let i = 0; i < secDcAvail.length; i++) {
-    const s = secDcAvail[i];
-    const dV = (2 * rho90 * Ldc * imp) / s;
-    const dVpct = (dV / vmpStr) * 100;
-    if (imaxDcZZF[i] >= iDcDesign && dVpct <= 1.5) {
-      sDcOpt = s;
-      dVdcPctOpt = dVpct;
-      break;
-    }
-  }
-  sState.S_dc_recommended = sDcOpt;
-  sState.dV_dc_pct = dVdcPctOpt;
-
-  const pAcKw = (invCfg.kw || 10.0);
-  const isMono = (invCfg.type || '').toLowerCase().includes('mono');
-  const vAc = isMono ? 230 : 400;
-  const iAc = isMono ? (pAcKw * 1000) / (vAc * 0.95) : (pAcKw * 1000) / (Math.sqrt(3) * vAc * 0.95);
-  const iAcDesign = 1.25 * iAc;
-  const secAcAvail = [2.5, 4, 6, 10, 16, 25, 35, 50];
-  const imaxAcRVK  = [29, 38, 49, 68, 91, 119, 146, 178];
-  let sAcOpt = 10, dVacPctOpt = 0.8;
-  for (let i = 0; i < secAcAvail.length; i++) {
-    const s = secAcAvail[i];
-    const dV = isMono ? (2 * rho90 * Lac * iAc * 0.95) / s : (Math.sqrt(3) * rho90 * Lac * iAc * 0.95) / s;
-    const dVpct = (dV / vAc) * 100;
-    if (imaxAcRVK[i] >= iAcDesign && dVpct <= 1.5) {
-      sAcOpt = s;
-      dVacPctOpt = dVpct;
-      break;
-    }
-  }
-  sState.S_ac_recommended = sAcOpt;
-  sState.dV_ac_pct = dVacPctOpt;
-
-  // Actualizar telemetría en HUD / panel lateral
-  const statLdcEl = document.getElementById('inverter-stat-ldc');
-  if (statLdcEl) statLdcEl.textContent = (sState.L_dc_measured || 0).toFixed(1) + ' m';
-  const statLacEl = document.getElementById('inverter-stat-lac');
-  if (statLacEl) statLacEl.textContent = (sState.L_ac_measured || 0).toFixed(1) + ' m';
-  const statSecDcEl = document.getElementById('inverter-stat-sec-dc');
-  if (statSecDcEl) statSecDcEl.textContent = sDcOpt + ' mm² · ΔV ' + dVdcPctOpt.toFixed(1) + '%';
-  const statSecAcEl = document.getElementById('inverter-stat-sec-ac');
-  if (statSecAcEl) statSecAcEl.textContent = sAcOpt + ' mm² · ΔV ' + dVacPctOpt.toFixed(1) + '%';
-
-  // [SSOT] Alimentar las pérdidas resistivas REALES calculadas (ΔV) al motor de PR
-  if (!window.solarLossConfig) window.solarLossConfig = {};
-  window.solarLossConfig.wiring = (dVdcPctOpt + dVacPctOpt) / 100.0;
-  
-  // Re-lanzar cálculo solar y actualizar HUD y BOM en cascada
-  if (typeof recalculateSolarYield === 'function') recalculateSolarYield();
-  if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') BOMTreeEngine.refresh();
-
-  // 4. DIBUJAR LÍNEAS DC HOMERUN BIPOLAR (DC+ Y DC-) Y ETIQUETAS TELEMÉTRICAS (REBT ITC-BT-40)
-  // Las interconexiones MC4 intra-string ya se renderizan de forma óptima con catenarias 3D en wpFastRenderSimulatedPanels
-  if (dcTargetPos) {
-    const dcTargetElevated = elevate3DPoint(dcTargetPos, 0.30);
-    const hasManualDc = (sState.routes && sState.routes.dc && sState.routes.dc.length > 0);
-
-    // Dibujar codos / cajas de empalme interactivas de la canalización DC manual
-    if (hasManualDc) {
-      sState.routes.dc.forEach((pt, pIdx) => {
-        const node = viewer.entities.add({
-          id: 'ra_route_handle_dc_' + pIdx,
-          name: 'Codo de Bandeja DC #' + (pIdx + 1),
-          position: pt,
-          point: {
-            pixelSize: 9,
-            color: Cesium.Color.fromCssColorString('#F59E0B'),
-            outlineColor: Cesium.Color.WHITE,
-            outlineWidth: 2,
-            disableDepthTestDistance: Number.POSITIVE_INFINITY
-          }
-        });
-        sState.dcCableEntities.push(node);
-      });
-    }
-
-    allStrings.forEach((strObj, sIdx) => {
-      const metric = homerunMetrics[sIdx];
-      if (!metric || !metric.startPos || !metric.termPos) return;
-
-      const posElevated = elevate3DPoint(metric.startPos, 0.45, metric.normal);
-      const negElevated = elevate3DPoint(metric.termPos, 0.45, metric.normal);
-
-      const posPts = hasManualDc ? [posElevated, ...sState.routes.dc, dcTargetElevated] : buildOrganicCatenary(posElevated, dcTargetElevated);
-      const negPts = hasManualDc ? [negElevated, ...sState.routes.dc, dcTargetElevated] : buildOrganicCatenary(negElevated, dcTargetElevated);
-
-      try {
-        const pipeShape = [];
-        for (let i = 0; i < 16; i++) {
-          const angle = (i / 16) * Math.PI * 2;
-          pipeShape.push(new Cesium.Cartesian2(Math.cos(angle) * 0.03, Math.sin(angle) * 0.03));
-        }
-
-        // Acometida DC+ (Positivo - Rojo Solar AAA con depthFailMaterial)
-        const posCableLine = viewer.entities.add({
-          name: 'Acometida DC+ (Positivo) String #' + (sIdx + 1) + (cbPos ? ' (➔ Combiner Box)' : ' (➔ Inversor)'),
-          polyline: {
-            positions: posPts,
-            width: 5.0,
-            arcType: Cesium.ArcType.NONE,
-            material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#EF4444')),
-            clampToGround: false
-          }
-        });
-        sState.dcCableEntities.push(posCableLine);
-
-        // Acometida DC- (Negativo - Azul Grafito de alto contraste con depthFailMaterial)
-        const negCableLine = viewer.entities.add({
-          name: 'Acometida DC- (Negativo) String #' + (sIdx + 1) + (cbPos ? ' (➔ Combiner Box)' : ' (➔ Inversor)'),
-          polyline: {
-            positions: negPts,
-            width: 5.0,
-            arcType: Cesium.ArcType.NONE,
-            material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#0284C7')),
-            clampToGround: false
-          }
-        });
-        sState.dcCableEntities.push(negCableLine);
-
-        // Etiqueta 2D Acometida DC Bipolar (+ y -) con metros de tirada y sección recomendada
-        const labelBasePt = hasManualDc ? sState.routes.dc[Math.floor(sState.routes.dc.length / 2)] : dcTargetElevated;
-        const midDC = Cesium.Cartesian3.midpoint(negElevated, labelBasePt, new Cesium.Cartesian3());
-        const labelPosDC = elevate3DPoint(midDC, 0.35);
-        const dcLabelText = '⚡ String ' + (sIdx + 1) + ' (DC+/DC-) · ' + metric.length.toFixed(1) + ' m · ' + sDcOpt + ' mm²' + (hasManualDc ? ' [Bandeja]' : '');
-        const dcLabel = addLabelEntity(labelPosDC, dcLabelText, -6, {
-          bg: 'rgba(15, 23, 42, 0.90)',
-          borderColor: '#EF4444',
-          textColor: '#FFFFFF',
-          font: "bold 10px 'JetBrains Mono', monospace",
-          inspectOnHover: true,
-          category: 'cable'
-        });
-        sState.dcCableEntities.push(dcLabel);
-      } catch(eCable) {
-        window.RA && window.RA.log && window.RA.log.debug('Error trazando cables DC o etiqueta:', eCable);
-      }
-    });
-  }
-
-  // 6. DIBUJAR TRONCAL DC (COMBINER BOX <i data-lucide=\"arrow-right\" class=\"icon-sm\"></i> INVERSOR) Y ETIQUETA SI AMBOS EXISTEN
-  if (cbPos && invPos && trunkMetric) {
-    const cbElevated = elevate3DPoint(cbPos, 0.35);
-    const invElevated = elevate3DPoint(invPos, 0.35);
-
-    try {
-      const trunkLine = viewer.entities.add({
-        name: 'Troncal DC Bajante (Combiner Box ➔ Inversor)',
-        polyline: {
-          positions: buildOrganicCatenary(cbElevated, invElevated),
-          width: 6.0,
-          arcType: Cesium.ArcType.NONE,
-          material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#10B981')),
-          clampToGround: false
-        }
-      });
-      sState.dcCableEntities.push(trunkLine);
-
-      // Etiqueta 2D Troncal DC
-      const sTrunkOpt = Math.max(10, sDcOpt);
-      const midTrunk = Cesium.Cartesian3.midpoint(cbElevated, invElevated, new Cesium.Cartesian3());
-      const labelPosTrunk = elevate3DPoint(midTrunk, 0.40);
-      const trunkLabelText = '⚡ Troncal DC · ' + trunkMetric.length.toFixed(1) + ' m · ' + sTrunkOpt + ' mm²';
-      const trunkLabel = addLabelEntity(labelPosTrunk, trunkLabelText, -6, {
-        bg: 'rgba(15, 23, 42, 0.90)',
-        borderColor: '#10B981',
-        textColor: '#FFFFFF',
-        font: "bold 10.5px 'JetBrains Mono', monospace",
-        inspectOnHover: true,
-        category: 'cable'
-      });
-      sState.dcCableEntities.push(trunkLabel);
-    } catch(eTrunk) {
-      window.RA && window.RA.log && window.RA.log.debug('Error trazando troncal DC:', eTrunk);
-    }
-  }
-
-  // 7. DIBUJAR LÍNEA AC (INVERSOR <i data-lucide=\"arrow-right\" class=\"icon-sm\"></i> CONTADOR DE RED / CGMP) Y ETIQUETA SI AMBOS EXISTEN
-  if (invPos && meterPos && acMetric) {
-    const invElevated = elevate3DPoint(invPos, 0.35);
-    const meterElevated = elevate3DPoint(meterPos, 0.35);
-    const hasManualAc = (sState.routes && sState.routes.ac && sState.routes.ac.length > 0);
-
-    // Dibujar codos / cajas de empalme interactivas de la canalización AC manual
-    if (hasManualAc) {
-      sState.routes.ac.forEach((pt, pIdx) => {
-        const node = viewer.entities.add({
-          id: 'ra_route_handle_ac_' + pIdx,
-          name: 'Codo de Tubo AC #' + (pIdx + 1),
-          position: pt,
-          point: {
-            pixelSize: 9,
-            color: Cesium.Color.fromCssColorString('#38BDF8'),
-            outlineColor: Cesium.Color.WHITE,
-            outlineWidth: 2,
-            disableDepthTestDistance: Number.POSITIVE_INFINITY
-          }
-        });
-        sState.dcCableEntities.push(node);
-      });
-    }
-
-    const acPts = hasManualAc ? [invElevated, ...sState.routes.ac, meterElevated] : buildOrganicCatenary(invElevated, meterElevated);
-
-    try {
-      const pipeShapeAc = [];
-      for (let i = 0; i < 16; i++) {
-        const angle = (i / 16) * Math.PI * 2;
-        pipeShapeAc.push(new Cesium.Cartesian2(Math.cos(angle) * 0.04, Math.sin(angle) * 0.04));
-      }
-
-      const acLine = viewer.entities.add({
-        name: 'Línea de Evacuación AC (Inversor ➔ Contador / Acometida)',
-        polyline: {
-          positions: acPts,
-          width: 6.0,
-          arcType: Cesium.ArcType.NONE,
-          material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#38BDF8')),
-          clampToGround: false
-        }
-      });
-      sState.dcCableEntities.push(acLine);
-
-      // Etiqueta 2D Línea AC con metros y sección
-      const labelBaseAC = hasManualAc ? sState.routes.ac[Math.floor(sState.routes.ac.length / 2)] : meterElevated;
-      const midAC = Cesium.Cartesian3.midpoint(invElevated, labelBaseAC, new Cesium.Cartesian3());
-      const labelPosAC = elevate3DPoint(midAC, 0.40);
-      const acLabelText = '🔌 Evacuación AC · ' + acMetric.length.toFixed(1) + ' m · ' + sAcOpt + ' mm²' + (hasManualAc ? ' [Tubo]' : '');
-      const acLabel = addLabelEntity(labelPosAC, acLabelText, -6, {
-        bg: 'rgba(15, 23, 42, 0.90)',
-        borderColor: '#0284C7',
-        textColor: '#FFFFFF',
-        font: "bold 10.5px 'JetBrains Mono', monospace",
-        inspectOnHover: true,
-        category: 'cable'
-      });
-      sState.dcCableEntities.push(acLabel);
-    } catch(eAC) {
-      window.RA && window.RA.log && window.RA.log.debug('Error trazando línea AC:', eAC);
-    }
-  }
-
-  // [FIX-CABLES] Redibujar la acometida AC si hay contador: el purge inicial de
-  // dcCableEntities también destruye la línea AC, que sólo se redibujaba al recolocar el
-  // contador → cualquier re-render de cables DC (mover paneles, recolocar inversor)
-  // eliminaba la acometida AC permanentemente. accables gestiona su propia bandera
-  // anti-recursión (updateConfigAndSimulate puede re-entrar aquí desde su cola).
-  if (!sState.__accablesRunning && sState.gridMeter && sState.gridMeter.position &&
-      typeof wpCalculateAndRenderACCables === 'function') {
-    wpCalculateAndRenderACCables();
-  }
-
-  if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') {
-    BOMTreeEngine.refresh();
-  }
-  if (typeof ProjectHierarchy !== 'undefined' && typeof ProjectHierarchy.notify === 'function') {
-    ProjectHierarchy.notify('electrical_updated');
-  }
-
-  if (viewer.scene && typeof viewer.scene.requestRender === 'function') {
-    viewer.scene.requestRender();
+  if (typeof RACableEngine !== 'undefined' && typeof RACableEngine.renderAllCables === 'function') {
+    return RACableEngine.renderAllCables();
   }
 }
+window.wpCalculateAndRenderInverterCables = wpCalculateAndRenderInverterCables;
 
 function computeElectricalSizingEngineering(generator) {
   const { numPanels, cfg, tiltDeg, azimutDeg, latDeg } = generator;
