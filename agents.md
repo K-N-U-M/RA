@@ -144,6 +144,10 @@ Estado en `window.solarProjectConfig`:
 
 ## 8. ⚡ Cableado REBT (ITC-BT-40) y Motor 3D Volumétrico (`RACableEngine`)
 
+> **Arquitectura de Enrutamiento Híbrido:**
+> - **Micro-enrutamiento (Inter-módulo):** Los latiguillos que conectan un panel con el siguiente dentro del string (el "cosido") MANTIENEN el renderizado visual legacy de curvas de Bézier orgánicas y shaders de flujo animado (`index.html`). NO extirpar este código visual, es una decisión estética consolidada.
+> - **Macro-enrutamiento (Troncal "Home Runs"):** Las tiradas principales (DC+ y DC- de retorno) que bajan del inicio y fin del string (IN/OUT) hacia el Cuadro DC/Inversor, y la Evacuación AC, DEBEN usar el trazado físico ortogonal Manhattan 3D, controlado en exclusiva por `RACableEngine`.
+
 | Tramo | Cable | Secciones | ΔV max | Cota y Geometría |
 |---|---|---|---|---|
 | DC+ (módulos → inversor) | ZZ-F 1500V Cu clase 5 | 4, 6, 10, 16, 25 mm² | 1.5% | +0.35m sobre plano · Tubo 3D cilíndrico r=1.8cm (`#EF4444`) |
@@ -153,8 +157,8 @@ Estado en `window.solarProjectConfig`:
 
 - **Motor Modular Canónico:** `js/cable-engine.js` (`window.RACableEngine`).
 - **Geometría 3D Volumétrica con Sombras:** Toda conducción usa `Cesium.PolylineVolumeGraphics` con `shadows: Cesium.ShadowMode.ENABLED`, generando mallas reales con normales 3D que proyectan sombras solares físicas sobre tejas y fachadas.
-- **Trazado Ortogonal 90° (Manhattan Routing 3D):** Descompuesto en los ejes U, V y N del faldón activo y bajantes verticales por fachada. Cero catenarias ni cables volando en el aire.
-- **Colores Planos Sólidos:** Sin shaders procedurales ni efectos glow que desincronicen el render WebGL.
+- **Trazado Ortogonal 90° (Manhattan Routing 3D):** Aplica al cableado troncal. Descompuesto en los ejes U, V y N del faldón activo y bajantes verticales por fachada.
+- **Colores Planos Sólidos:** Para los tubos ortogonales (sin shaders procedurales que desincronicen el render WebGL).
 - **Tipologías Eléctricas:** Serie pura (1S por MPPT), Paralelo en cubierta con Conectores Y (2S), Combiner Box (cuadro de strings) y Línea de Evacuación AC.
 - **Snapping Magnético y Auto-Trazado:** Snapping al terminal de string o nodo Y en trazado manual, y auto-generación zero-click con codos editables (`ra_route_handle_*`).
 - Corriente de diseño DC: Id = 1.25 × Isc.
