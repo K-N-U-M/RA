@@ -133,9 +133,6 @@
           normal = Cesium.Cartesian3.clone(pl.normal);
           uVec = Cesium.Cartesian3.clone(pl.uVec);
           vVec = Cesium.Cartesian3.clone(pl.vVec);
-          Cesium.Cartesian3.normalize(normal, normal);
-          Cesium.Cartesian3.normalize(uVec, uVec);
-          Cesium.Cartesian3.normalize(vVec, vVec);
         }
       }
 
@@ -244,47 +241,46 @@
      * 2. PolylineVolume con perfiles extruidos y shadows: ENABLED (sombras físicas reales)
      */
     createVolumetricEntity: function (viewer, positions, options) {
-      if (!viewer || !viewer.entities || !Array.isArray(positions) || positions.length < 2) return [];
-
+      if (!viewer || !viewer.scene || !Array.isArray(positions) || positions.length < 2) return [];
+      
       var opts = options || {};
       var colorHex = opts.colorHex || this.CONFIG.COLOR_DC_POS;
       var isTray = !!opts.isTray;
-      var name = opts.name || 'Canalizacion 3D';
-
+      
       var sanitized = this.sanitizePositions(positions);
       if (sanitized.length < 2) return [];
-
+      
+      var color = Cesium.Color.fromCssColorString(colorHex);
       var createdList = [];
-
+      
       try {
-        var cesiumColor = function (hex, alpha) {
-          var c = Cesium.Color.fromCssColorString(hex);
-          if (alpha !== undefined) c.alpha = alpha;
-          return c;
-        };
-        var mainAlpha = 1.0;
-        var depthAlpha = 0.90;
+        if (!window._raCableEnginePrimitives) {
+          window._raCableEnginePrimitives = viewer.scene.primitives.add(new Cesium.PolylineCollection());
+        }
         
-        var mat = new Cesium.ColorMaterialProperty(cesiumColor(colorHex, mainAlpha));
-        var failAlpha = Math.max(depthAlpha, 0.85);
-        var depthMat = new Cesium.ColorMaterialProperty(cesiumColor(colorHex, failAlpha));
-
-        var lineEnt = viewer.entities.add({
-          name: name,
-          polyline: {
-            positions: sanitized,
-            width: isTray ? 10.0 : 5.0,
-            material: mat,
-            clampToGround: false,
-            depthFailMaterial: depthMat,
-            arcType: Cesium.ArcType.NONE
-          }
+        var poly = window._raCableEnginePrimitives.add({
+          positions: sanitized,
+          width: isTray ? 8.0 : 6.0,
+          show: true
         });
-        if (lineEnt) createdList.push(lineEnt);
+        
+        // Use PVFlow material to show direction like strings, or solid color
+        poly.material = Cesium.Material.fromType('Color', {
+          color: color
+        });
+        
+        // Wrap the primitive in a mock entity object so existing cleanup code works
+        // or just add a flag so we know it's a primitive
+        var mockEntity = {
+          isCablePrimitive: true,
+          primitive: poly,
+          id: 'cable_prim_' + Math.random().toString(36).substring(2)
+        };
+        createdList.push(mockEntity);
+        
       } catch (eLine) {
-        if (global.RA && global.RA.log) global.RA.log.warn('[RACableEngine] Error en polyline:', eLine);
+        if (global.RA && global.RA.log) global.RA.log.warn('[RACableEngine] Error en PolylineCollection:', eLine);
       }
-
       return createdList;
     },
 
@@ -424,8 +420,12 @@
       if (Array.isArray(sState.dcCableEntities)) {
         sState.dcCableEntities.forEach(function (e) {
           try {
-            if (typeof global.removeLabel2DEntity === 'function') global.removeLabel2DEntity(e);
-            viewer.entities.remove(e);
+            if (e.isCablePrimitive) {
+              if (window._raCableEnginePrimitives) window._raCableEnginePrimitives.remove(e.primitive);
+            } else {
+              if (typeof global.removeLabel2DEntity === 'function') global.removeLabel2DEntity(e);
+              viewer.entities.remove(e);
+            }
           } catch (err) {}
         });
       }
@@ -497,17 +497,8 @@
 
         var firstPanel = sPanels[0];
         var termPanel = sPanels[sPanels.length - 1];
-        var getCenter = function(p) {
-          if (p.center) return p.center;
-          if (p.corners && p.corners.length > 0) {
-            var c = new Cesium.Cartesian3(0,0,0);
-            for(var i=0; i<p.corners.length; i++) Cesium.Cartesian3.add(c, p.corners[i], c);
-            return Cesium.Cartesian3.divideByScalar(c, p.corners.length, new Cesium.Cartesian3());
-          }
-          return null;
-        };
-        var startPos = self.toCartesian3(getCenter(firstPanel));
-        var termPos = self.toCartesian3(getCenter(termPanel));
+        var startPos = self.toCartesian3(firstPanel.center || (firstPanel.corners ? firstPanel.corners[0] : null));
+        var termPos = self.toCartesian3(termPanel.center || (termPanel.corners ? termPanel.corners[termPanel.corners.length - 1] : null));
         if (!startPos || !termPos || !dcTargetPos) return;
 
         var basis = self.getRoofOrthonormalBasis(startPos);

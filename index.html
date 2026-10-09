@@ -90,7 +90,7 @@
       border-color: rgba(16,185,129,0.8) !important;
     }
   </style>
-  <div id="ra-hud-energy" style="display:none; position:absolute; top:16px; left:50%; transform:translateX(-50%); z-index:100; font-family:'Inter', sans-serif; pointer-events:auto;">
+  <div id="ra-hud-energy" style="display:none; position:absolute; top:16px; left:50%; transform:translateX(-50%); z-index:100; font-family:'Inter', sans-serif; pointer-events:auto; transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);">
     <!-- Pill (Always visible when active) -->
     <div id="ra-hud-pill" style="background:rgba(15,23,42,0.85); backdrop-filter:blur(8px); border:1px solid rgba(16,185,129,0.4); border-radius:24px; padding:6px 16px; color:#fff; display:flex; align-items:center; gap:8px; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,0.5); transition:all 0.2s;">
       <i data-lucide="leaf" class="icon-sm" style="color:#10B981;"></i>
@@ -3064,15 +3064,23 @@ let statusTimer;
 
 function showStatus(msg, ms) {
   if (!statusEl) return;
-  statusEl.innerHTML = msg;
+  const duration = 5000; // Forzado a 5 segundos según requerimiento
+  const closeBtn = '<span onclick="hideStatus()" style="cursor:pointer; margin-left: 14px; padding-left: 14px; border-left: 1px solid rgba(245,158,11,0.3); font-size: 18px; line-height: 1; opacity: 0.8; display: flex; align-items: center;" title="Cerrar">&times;</span>';
+  statusEl.innerHTML = '<div style="display:flex; align-items:center;">' + msg + closeBtn + '</div>';
   statusEl.classList.add('visible');
+  
+  const hud = document.getElementById('ra-hud-energy');
+  if (hud) hud.style.transform = 'translateX(-50%) translateY(45px)';
+
   if(window.lucide) lucide.createIcons();
   clearTimeout(statusTimer);
-  if (ms) statusTimer = setTimeout(hideStatus, ms);
+  statusTimer = setTimeout(hideStatus, duration);
 }
 
 function hideStatus() {
   if (statusEl) statusEl.classList.remove('visible');
+  const hud = document.getElementById('ra-hud-energy');
+  if (hud) hud.style.transform = 'translateX(-50%) translateY(0)';
 }
 
 // Fallback de seguridad para pantalla de bienvenida completa
@@ -10133,8 +10141,12 @@ function wpClearInverterAndCables() {
     if (s.dcCableEntities && Array.isArray(s.dcCableEntities)) {
       s.dcCableEntities.forEach(e => {
         try {
-          if (typeof removeLabel2DEntity === 'function') removeLabel2DEntity(e);
-          viewer.entities.remove(e);
+          if (e.isCablePrimitive) {
+            if (window._raCableEnginePrimitives) window._raCableEnginePrimitives.remove(e.primitive);
+          } else {
+            if (typeof removeLabel2DEntity === 'function') removeLabel2DEntity(e);
+            viewer.entities.remove(e);
+          }
         } catch(err) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', err); }
       });
     }
