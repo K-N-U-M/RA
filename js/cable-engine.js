@@ -497,8 +497,24 @@
 
         var firstPanel = sPanels[0];
         var termPanel = sPanels[sPanels.length - 1];
-        var startPos = self.toCartesian3(firstPanel.center || (firstPanel.corners ? firstPanel.corners[0] : null));
-        var termPos = self.toCartesian3(termPanel.center || (termPanel.corners ? termPanel.corners[termPanel.corners.length - 1] : null));
+
+        function getJunctionBoxPos(panel) {
+          if (!panel) return null;
+          var center = panel.center;
+          if (!center && panel.corners && panel.corners.length > 0) center = panel.corners[0];
+          if (!center) return null;
+          if (panel.v && panel.h) {
+            try {
+              var vNorm = Cesium.Cartesian3.normalize(panel.v, new Cesium.Cartesian3());
+              // Desplazamiento del 45% de la altura hacia el borde superior (Caja de Conexiones)
+              return Cesium.Cartesian3.add(center, Cesium.Cartesian3.multiplyByScalar(vNorm, panel.h * 0.45, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+            } catch (e) { return center; }
+          }
+          return center;
+        }
+
+        var startPos = self.toCartesian3(getJunctionBoxPos(firstPanel));
+        var termPos = self.toCartesian3(getJunctionBoxPos(termPanel));
         if (!startPos || !termPos || !dcTargetPos) return;
 
         var basis = self.getRoofOrthonormalBasis(startPos);
