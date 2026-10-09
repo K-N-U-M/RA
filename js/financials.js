@@ -727,7 +727,30 @@ function generatePropuestaComercialPDF() {
     const el = document.getElementById(id) || document.getElementById('modal-' + id);
     return el ? el.value : def;
   };
-  const est = _input('cfg-pres-est', 450);
+  let est = _input('cfg-pres-est', 450);
+  // [SSOT] ESTRUCTURA: Calcular dinámicamente desde el BOM paramétrico (Opción A)
+  if (typeof BOMTreeEngine !== 'undefined') {
+    const tree = BOMTreeEngine.computeBOMTree();
+    if (tree && tree.roofs && tree.summary.totalPanels > 0) {
+      let totalEst = 0;
+      tree.roofs.forEach(r => {
+        if (r.structure && r.structure.costEur) totalEst += r.structure.costEur;
+      });
+      if (totalEst > 0) {
+        est = totalEst;
+        const estEl = document.getElementById('cfg-pres-est');
+        if (estEl && document.getElementById('modal-cfg-pres-est')) {
+           estEl.value = Math.round(est);
+           estEl.setAttribute('readonly', 'true');
+           estEl.style.backgroundColor = 'rgba(16, 185, 129, 0.1)';
+           estEl.style.border = '1px solid #10b981';
+           estEl.title = "Calculado automáticamente por el Árbol BIM";
+           document.getElementById('modal-cfg-pres-est').value = Math.round(est);
+           document.getElementById('modal-cfg-pres-est').setAttribute('readonly', 'true');
+        }
+      }
+    }
+  }
   // [SSOT] INVERSOR: precio real del catálogo × unidades dimensionadas cuando hay selección
   // activa. Antes el CAPEX usaba el input crudo cfg-pres-inv (default 1100 €) aunque la
   // pestaña de ingeniería tuviera un inversor de 2.400 € → la oferta no cuadraba.
