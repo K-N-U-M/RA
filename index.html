@@ -94,8 +94,8 @@
     <!-- Pill (Always visible when active) -->
     <div id="ra-hud-pill" style="background:rgba(15,23,42,0.85); backdrop-filter:blur(8px); border:1px solid rgba(16,185,129,0.4); border-radius:24px; padding:6px 16px; color:#fff; display:flex; align-items:center; gap:8px; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,0.5); transition:all 0.2s;">
       <i data-lucide="leaf" class="icon-sm" style="color:#10B981;"></i>
-      <span style="font-size:12px; font-weight:800; letter-spacing:0.5px; text-transform:uppercase;">Producci&oacute;n Neta:</span>
-      <b id="hud-val-neta" style="font-family:'JetBrains Mono', monospace; font-size:14.5px; color:#10B981;">-- kWh</b>
+      <span style="font-size:12px; font-weight:800; letter-spacing:0.5px; text-transform:uppercase;">Producci&oacute;n Neta Anual:</span>
+      <b id="hud-val-neta" style="font-family:'JetBrains Mono', monospace; font-size:14.5px; color:#10B981;">-- kWh/a&ntilde;o</b>
         <div class="tooltip-container" style="position:relative; display:inline-flex; align-items:center; margin-left:4px;">
            <i data-lucide="help-circle" style="width:14px;height:14px;color:#cbd5e1;cursor:help;"></i>
            <div class="tooltip-content" style="opacity:0; visibility:hidden; position:absolute; top:50%; left:calc(100% + 20px); transform:translateY(-50%) translateX(-10px); width:320px; background:rgba(15,23,42,0.95); backdrop-filter:blur(8px); border:1px solid rgba(56,189,248,0.4); border-radius:6px; padding:12px; color:#f1f5f9; font-size:10px; font-weight:normal; line-height:1.4; box-shadow:0 10px 25px rgba(0,0,0,0.5); transition:all 0.2s; z-index:200; text-transform:none; letter-spacing:normal; text-align:left;">
@@ -1184,8 +1184,8 @@
                     <b id="yb-sistema" style="font-family:monospace;font-size:10.5px;">-- kWh</b>
                   </div>
                   <div style="border-top:1px dashed rgba(255,255,255,0.15);margin-top:2px;padding-top:4px;display:flex;justify-content:space-between;align-items:center;font-size:10px;color:var(--emerald-400);font-weight:900;opacity:0;transition:opacity 0.5s;" id="yb-row-neta">
-                    <span><i data-lucide="leaf" class="icon-sm"></i> PRODUCCIÓN NETA:</span>
-                    <b id="yb-neta" style="font-family:monospace;font-size:11px;">-- kWh</b>
+                    <span><i data-lucide="leaf" class="icon-sm"></i> PRODUCCI&Oacute;N NETA ANUAL:</span>
+                    <b id="yb-neta" style="font-family:monospace;font-size:11px;">-- kWh/a&ntilde;o</b>
                   </div>
                 </div>
                 <button type="button" id="btn-open-pfv-audit" class="btn-action-secondary" onclick="if(typeof window.wpOpenPFVAuditModal === 'function') window.wpOpenPFVAuditModal()" style="display:none;background:rgba(16, 185, 129, 0.15);border:1px solid rgba(16, 185, 129, 0.4);color:#34D399;font-size:9px;font-weight:bold;padding:6px;width:100%;margin-top:4px;align-items:center;justify-content:center;gap:4px;">
@@ -6717,7 +6717,7 @@ function recalculateSolarYield() {
     if (hudEnergy) {
       if (numPanels > 0) {
         hudEnergy.style.display = 'block';
-        setElemText('hud-val-neta', annualYieldKWh.toLocaleString('es-ES') + ' kWh');
+        setElemText('hud-val-neta', annualYieldKWh.toLocaleString('es-ES') + ' kWh/a\u00f1o');
         setElemText('hud-val-bruta', annualGrossKWh.toLocaleString('es-ES') + ' kWh');
         const shadowPctStr = avgShadowLossPct > 0 ? (' (' + avgShadowLossPct.toFixed(1) + '%)') : '';
         setElemText('hud-val-sombras', '-' + annualShadowLossKWh.toLocaleString('es-ES') + ' kWh' + shadowPctStr);
@@ -6736,7 +6736,7 @@ function recalculateSolarYield() {
 
     setElemText('yb-sistema', '-' + annualSystemLossKWh.toLocaleString('es-ES') + ' kWh');
     setElemText('yb-sombras', '-' + annualShadowLossKWh.toLocaleString('es-ES') + ' kWh');
-    setElemText('yb-neta', annualYieldKWh.toLocaleString('es-ES') + ' kWh');
+    setElemText('yb-neta', annualYieldKWh.toLocaleString('es-ES') + ' kWh/a\u00f1o');
 
     // Reveal animation logic
     const rowSombras = document.getElementById('yb-row-sombras');
@@ -14231,7 +14231,7 @@ function handleHeatmapPanelHover(mousePos) {
         <span style="color:#94a3b8;font-weight:600;">${tilt}° · ${azStr}</span>
       </div>
       <div style="display:flex;justify-content:space-between;margin-bottom:2px;gap:12px;">
-        <span style="color:#cbd5e1;">Producción Neta:</span>
+        <span style="color:#cbd5e1;">Producci&oacute;n Neta Anual:</span>
         <span style="font-weight:800;color:#10b981;">${kwh} kWh/año</span>
       </div>
       <div style="display:flex;justify-content:space-between;margin-bottom:2px;gap:12px;">
