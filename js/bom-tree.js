@@ -293,7 +293,9 @@
       }
 
       // ── 4. INVERSORES, CUADROS, CABLES, TIERRAS Y M.O. (PASO 4 EN ADELANTE) ──
-      const isEngineeringStep = (typeof wpCurrentStep === 'undefined' || wpCurrentStep >= 4);
+      const currentStep = (typeof window !== 'undefined' && typeof window.wpCurrentStep !== 'undefined') ? window.wpCurrentStep : (typeof wpCurrentStep !== 'undefined' ? wpCurrentStep : 4);
+      const hasElectricalObjects = typeof window !== 'undefined' && window.inverterEquipmentState != null;
+      const isEngineeringStep = (currentStep >= 4 || hasElectricalObjects);
       if (tree.summary.totalPanels > 0 && isEngineeringStep) {
         // ── 4. INVERSORES DE POTENCIA ──────────────────────────────────────────
         const invCount = (projectConfig.autoSizing && projectConfig.autoSizing.inverters && projectConfig.autoSizing.inverters.count) || 1;
