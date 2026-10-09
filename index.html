@@ -13845,6 +13845,93 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
       }
     }
 
+    // 3.5. Estructuras de Soporte (Raíles y Lastres)
+    if (viewer.entities) {
+      window.simulatedSupportEntities = window.simulatedSupportEntities || [];
+      const railColor = Cesium.Color.fromCssColorString('#9CA3AF');
+      const ballastColor = Cesium.Color.fromCssColorString('#6B7280');
+      
+      for (let i = 0; i < allTargetPanels.length; i++) {
+        const pData = allTargetPanels[i];
+        if (!pData.corners || pData.corners.length < 4) continue;
+        
+        const poly = polylinesList[pData.polyIdx] || {};
+        const stType = poly.structureType || 'coplanar_teja';
+        const isTriangular = stType.includes('triangle');
+        
+        const v1 = Cesium.Cartesian3.subtract(pData.corners[1], pData.corners[0], new Cesium.Cartesian3());
+        const v2 = Cesium.Cartesian3.subtract(pData.corners[3], pData.corners[0], new Cesium.Cartesian3());
+        const norm = Cesium.Cartesian3.cross(v1, v2, new Cesium.Cartesian3());
+        Cesium.Cartesian3.normalize(norm, norm);
+
+        if (!isTriangular) {
+           // Raíles coplanares bajo el panel
+           const drop = Cesium.Cartesian3.multiplyByScalar(norm, -0.02, new Cesium.Cartesian3());
+           
+           const offset1 = Cesium.Cartesian3.multiplyByScalar(v2, 0.25, new Cesium.Cartesian3());
+           const r1Start = Cesium.Cartesian3.add(Cesium.Cartesian3.add(pData.corners[0], offset1, new Cesium.Cartesian3()), drop, new Cesium.Cartesian3());
+           const r1End = Cesium.Cartesian3.add(Cesium.Cartesian3.add(pData.corners[1], offset1, new Cesium.Cartesian3()), drop, new Cesium.Cartesian3());
+           
+           const offset2 = Cesium.Cartesian3.multiplyByScalar(v2, 0.75, new Cesium.Cartesian3());
+           const r2Start = Cesium.Cartesian3.add(Cesium.Cartesian3.add(pData.corners[0], offset2, new Cesium.Cartesian3()), drop, new Cesium.Cartesian3());
+           const r2End = Cesium.Cartesian3.add(Cesium.Cartesian3.add(pData.corners[1], offset2, new Cesium.Cartesian3()), drop, new Cesium.Cartesian3());
+           
+           const rShape = [
+             new Cesium.Cartesian2(-0.02, -0.02),
+             new Cesium.Cartesian2(0.02, -0.02),
+             new Cesium.Cartesian2(0.02, 0.02),
+             new Cesium.Cartesian2(-0.02, 0.02)
+           ];
+           
+           window.simulatedSupportEntities.push(viewer.entities.add({
+             polylineVolume: {
+               positions: [r1Start, r1End],
+               shape: rShape,
+               material: railColor,
+               shadows: Cesium.ShadowMode.ENABLED
+             }
+           }));
+           window.simulatedSupportEntities.push(viewer.entities.add({
+             polylineVolume: {
+               positions: [r2Start, r2End],
+               shape: rShape,
+               material: railColor,
+               shadows: Cesium.ShadowMode.ENABLED
+             }
+           }));
+        } else {
+           // Lastres de hormigón (prismas anchos transversales bajo el centro del panel)
+           const drop = Cesium.Cartesian3.multiplyByScalar(norm, -0.10, new Cesium.Cartesian3());
+           
+           const offsetMid = Cesium.Cartesian3.multiplyByScalar(v2, 0.50, new Cesium.Cartesian3());
+           // Retranqueo lateral para que el lastre no asome por los lados
+           const shrink = Cesium.Cartesian3.multiplyByScalar(v1, 0.1, new Cesium.Cartesian3());
+           
+           const bStart = Cesium.Cartesian3.add(Cesium.Cartesian3.add(pData.corners[0], offsetMid, new Cesium.Cartesian3()), shrink, new Cesium.Cartesian3());
+           const bStartDrop = Cesium.Cartesian3.add(bStart, drop, new Cesium.Cartesian3());
+           
+           const bEnd = Cesium.Cartesian3.subtract(Cesium.Cartesian3.add(pData.corners[1], offsetMid, new Cesium.Cartesian3()), shrink, new Cesium.Cartesian3());
+           const bEndDrop = Cesium.Cartesian3.add(bEnd, drop, new Cesium.Cartesian3());
+           
+           const bShape = [
+             new Cesium.Cartesian2(-0.15, -0.10),
+             new Cesium.Cartesian2(0.15, -0.10),
+             new Cesium.Cartesian2(0.12, 0.10),
+             new Cesium.Cartesian2(-0.12, 0.10)
+           ];
+           
+           window.simulatedSupportEntities.push(viewer.entities.add({
+             polylineVolume: {
+               positions: [bStartDrop, bEndDrop],
+               shape: bShape,
+               material: ballastColor,
+               shadows: Cesium.ShadowMode.ENABLED
+             }
+           }));
+        }
+      }
+    }
+
     // 4. Líneas de cableado de String en serie agrupadas
     if (!isHeatmapMode) {
       let wiresBatched = false;
