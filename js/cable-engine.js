@@ -130,19 +130,12 @@
         var pIdx = (WP.activePlaneIdx >= 0 && WP.activePlaneIdx < WP.planes.length) ? WP.activePlaneIdx : 0;
         var pl = WP.planes[pIdx];
         if (pl && pl.normal && pl.uVec && pl.vVec) {
-          var tf = pl.transform || (pl.center ? Cesium.Transforms.eastNorthUpToFixedFrame(pl.center) : Cesium.Transforms.eastNorthUpToFixedFrame(pos));
-            if (typeof Cesium.Matrix4.multiplyByPointAsVector === 'function') {
-              normal = Cesium.Matrix4.multiplyByPointAsVector(tf, pl.normal, new Cesium.Cartesian3());
-              uVec = Cesium.Matrix4.multiplyByPointAsVector(tf, pl.uVec, new Cesium.Cartesian3());
-              vVec = Cesium.Matrix4.multiplyByPointAsVector(tf, pl.vVec, new Cesium.Cartesian3());
-            } else {
-              normal = Cesium.Matrix4.multiplyByPoint(tf, pl.normal, new Cesium.Cartesian3());
-              uVec = Cesium.Matrix4.multiplyByPoint(tf, pl.uVec, new Cesium.Cartesian3());
-              vVec = Cesium.Matrix4.multiplyByPoint(tf, pl.vVec, new Cesium.Cartesian3());
-            }
-            Cesium.Cartesian3.normalize(normal, normal);
-            Cesium.Cartesian3.normalize(uVec, uVec);
-            Cesium.Cartesian3.normalize(vVec, vVec);
+          normal = Cesium.Cartesian3.clone(pl.normal);
+          uVec = Cesium.Cartesian3.clone(pl.uVec);
+          vVec = Cesium.Cartesian3.clone(pl.vVec);
+          Cesium.Cartesian3.normalize(normal, normal);
+          Cesium.Cartesian3.normalize(uVec, uVec);
+          Cesium.Cartesian3.normalize(vVec, vVec);
         }
       }
 
@@ -283,7 +276,8 @@
             width: isTray ? 10.0 : 5.0,
             material: mat,
             clampToGround: false,
-            depthFailMaterial: depthMat
+            depthFailMaterial: depthMat,
+            arcType: Cesium.ArcType.NONE
           }
         });
         if (lineEnt) createdList.push(lineEnt);
@@ -503,8 +497,17 @@
 
         var firstPanel = sPanels[0];
         var termPanel = sPanels[sPanels.length - 1];
-        var startPos = self.toCartesian3(firstPanel.center || (firstPanel.corners ? firstPanel.corners[0] : null));
-        var termPos = self.toCartesian3(termPanel.center || (termPanel.corners ? termPanel.corners[termPanel.corners.length - 1] : null));
+        var getCenter = function(p) {
+          if (p.center) return p.center;
+          if (p.corners && p.corners.length > 0) {
+            var c = new Cesium.Cartesian3(0,0,0);
+            for(var i=0; i<p.corners.length; i++) Cesium.Cartesian3.add(c, p.corners[i], c);
+            return Cesium.Cartesian3.divideByScalar(c, p.corners.length, new Cesium.Cartesian3());
+          }
+          return null;
+        };
+        var startPos = self.toCartesian3(getCenter(firstPanel));
+        var termPos = self.toCartesian3(getCenter(termPanel));
         if (!startPos || !termPos || !dcTargetPos) return;
 
         var basis = self.getRoofOrthonormalBasis(startPos);
