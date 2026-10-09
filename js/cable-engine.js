@@ -244,14 +244,9 @@
       if (!viewer || !viewer.entities || !Array.isArray(positions) || positions.length < 2) return [];
 
       var opts = options || {};
-      var radius = opts.radius || this.CONFIG.CABLE_RADIUS_DC;
       var colorHex = opts.colorHex || this.CONFIG.COLOR_DC_POS;
       var isTray = !!opts.isTray;
-      var name = opts.name || 'Canalización 3D';
-
-      var shape = isTray
-        ? (this._shapes.tray || (this._shapes.tray = this.getTrayProfile(this.CONFIG.TRAY_WIDTH, this.CONFIG.TRAY_HEIGHT)))
-        : this.getCircleProfile(radius, 10);
+      var name = opts.name || 'Canalizacion 3D';
 
       var sanitized = this.sanitizePositions(positions);
       if (sanitized.length < 2) return [];
@@ -259,39 +254,19 @@
       var color = Cesium.Color.fromCssColorString(colorHex);
       var createdList = [];
 
-      // A. LÍNEA VISUAL 3D DE ALTO CONTRASTE CON DEPTH-FAIL (Visible en cualquier ángulo o zoom)
       try {
         var lineEnt = viewer.entities.add({
           name: name,
           polyline: {
             positions: sanitized,
-            width: isTray ? 8.0 : 6.0,
-            arcType: Cesium.ArcType.NONE,
+            width: isTray ? 10.0 : 8.0,
             material: new Cesium.ColorMaterialProperty(color),
-            depthFailMaterial: new Cesium.ColorMaterialProperty(color.withAlpha(0.70)),
-            clampToGround: false
+            clampToGround: true
           }
         });
         if (lineEnt) createdList.push(lineEnt);
       } catch (eLine) {
         if (global.RA && global.RA.log) global.RA.log.warn('[RACableEngine] Error en polyline:', eLine);
-      }
-
-      // B. VOLUMEN 3D CON SOMBRAS FÍSICAS (Genera sombras solares reales en cubierta)
-      try {
-        var volEnt = viewer.entities.add({
-          name: name + ' (Volumen Sombras)',
-          polylineVolume: {
-            positions: sanitized,
-            shape: shape,
-            cornerType: Cesium.CornerType.ROUNDED,
-            material: new Cesium.ColorMaterialProperty(color),
-            shadows: Cesium.ShadowMode.ENABLED
-          }
-        });
-        if (volEnt) createdList.push(volEnt);
-      } catch (eVol) {
-        if (global.RA && global.RA.log) global.RA.log.warn('[RACableEngine] Error en polylineVolume:', eVol);
       }
 
       return createdList;
