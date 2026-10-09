@@ -90,35 +90,26 @@
    * de instalador profesional: recorre fila a fila o columna a columna de forma contigua
    * minimizando saltos y longitud de conductores MC4 (UNE-EN 62305 / IEC 62548).
    */
-  function getSnakeOrderedPanels(panels) {
-    if (!panels || panels.length <= 1) return panels || [];
+  const getU = (p) => (typeof p.gridB === 'number') ? p.gridB : ((p.center2D && typeof p.center2D.u === 'number') ? p.center2D.u : (p.u || 0));
+  const getV = (p) => (typeof p.gridA === 'number') ? p.gridA : ((p.center2D && typeof p.center2D.v === 'number') ? p.center2D.v : (p.v || 0));
 
-    const getU = (p) => (typeof p.gridB === 'number') ? p.gridB : ((p.center2D && typeof p.center2D.u === 'number') ? p.center2D.u : (p.u || 0));
-    const getV = (p) => (typeof p.gridA === 'number') ? p.gridA : ((p.center2D && typeof p.center2D.v === 'number') ? p.center2D.v : (p.v || 0));
-    
-    // 1. Clustering Espacial: Agrupar paneles cercanos (islas) para evitar saltos caóticos
+  function clusterPanels(panels) {
     const pW = panels[0].w || 1.05;
     const pH = panels[0].h || 2.10;
     const threshold = Math.max(pW, pH) * 1.8; 
-
     const clusters = [];
     const visited = new Set();
-
     panels.forEach(p => {
       if (visited.has(p)) return;
-      
       const cluster = [];
       const queue = [p];
       visited.add(p);
-
       while (queue.length > 0) {
         const curr = queue.shift();
         cluster.push(curr);
-
         panels.forEach(other => {
           if (!visited.has(other)) {
-            const dist = Math.hypot(getU(curr) - getU(other), getV(curr) - getV(other));
-            if (dist <= threshold) {
+            if (Math.hypot(getU(curr) - getU(other), getV(curr) - getV(other)) <= threshold) {
               visited.add(other);
               queue.push(other);
             }
@@ -127,88 +118,81 @@
       }
       clusters.push(cluster);
     });
+    return clusters;
+  }
 
-    // 2. Ordenar DENTRO de cada cluster (Snake clásico)
-    const snakeCluster = (clusterPanels) => {
-        const sortedByV = [...clusterPanels].sort((a, b) => getV(b) - getV(a));
-        const rows = [];
-        const rowTol = Math.min(pW, pH) * 0.45;
-        sortedByV.forEach(p => {
-          let foundRow = rows.find(r => Math.abs(r.vKey - getV(p)) <= rowTol);
-          if (!foundRow) {
-            foundRow = { vKey: getV(p), panels: [] };
-            rows.push(foundRow);
-          }
-          foundRow.panels.push(p);
-          foundRow.vKey = foundRow.panels.reduce((sum, item) => sum + getV(item), 0) / foundRow.panels.length;
-        });
-        
-        rows.sort((a, b) => b.vKey - a.vKey);
-        
-        let ordered = [];
-        rows.forEach((rObj, idx) => {
-          const isL2R = (idx % 2 === 0);
-          const pList = [...rObj.panels].sort((a, b) => isL2R ? (getU(a) - getU(b)) : (getU(b) - getU(a)));
-          ordered.push(...pList);
-        });
-        return ordered;
-    };
+  function applyRowBasedLeapfrog(clusterPanels) {
+    const pW = clusterPanels[0].w || 1.05;
+    const pH = clusterPanels[0].h || 2.10;
+    const sortedByV = [...clusterPanels].sort((a, b) => getV(b) - getV(a));
+    const rows = [];
+    const rowTol = Math.min(pW, pH) * 0.45;
+    
+    sortedByV.forEach(p => {
+      let foundRow = rows.find(r => Math.abs(r.vKey - getV(p)) <= rowTol);
+      if (!foundRow) {
+        foundRow = { vKey: getV(p), panels: [] };
+        rows.push(foundRow);
+      }
+      foundRow.panels.push(p);
+      foundRow.vKey = foundRow.panels.reduce((sum, item) => sum + getV(item), 0) / foundRow.panels.length;
+    });
+    rows.sort((a, b) => b.vKey - a.vKey);
+    
+    let ordered = [];
+    rows.forEach(rObj => {
+      // Ordenamos SIEMPRE de Izquierda a Derecha para el Leapfrog
+      const pList = [...rObj.panels].sort((a, b) => getU(a) - getU(b));
+      if (pList.length > 2) {
+        const evens = [];
+        const odds = [];
+        for (let i = 0; i < pList.length; i++) {
+          if (i % 2 === 0) evens.push(pList[i]);
+          else odds.push(pList[i]);
+        }
+        ordered.push(...evens, ...odds.reverse());
+      } else {
+        ordered.push(...pList);
+      }
+    });
+    return ordered;
+  }
 
-    const orderedClusters = clusters.map(c => snakeCluster(c));
-
-    // 3. Conectar los clusters mediante Nearest Neighbor
+  function connectClustersTSP(orderedClusters) {
     const finalOrder = [];
-    if (orderedClusters.length > 0) {
-      orderedClusters.sort((a, b) => getV(b[0]) - getV(a[0]));
-      
-      let currentCluster = orderedClusters[0];
-      finalOrder.push(...currentCluster);
-      const unvisitedClusters = new Set(orderedClusters.slice(1));
+    if (orderedClusters.length === 0) return finalOrder;
+    
+    orderedClusters.sort((a, b) => getV(b[0]) - getV(a[0]));
+    finalOrder.push(...orderedClusters[0]);
+    const unvisitedClusters = new Set(orderedClusters.slice(1));
 
-      while (unvisitedClusters.size > 0) {
-        let nearestCluster = null;
-        let minDist = Infinity;
-        let reverseNearest = false;
+    while (unvisitedClusters.size > 0) {
+      let nearestCluster = null;
+      let minDist = Infinity;
+      let reverseNearest = false;
+      const lastPanel = finalOrder[finalOrder.length - 1];
 
-        const lastPanel = finalOrder[finalOrder.length - 1];
-
-        unvisitedClusters.forEach(candCluster => {
-          const firstCand = candCluster[0];
-          const lastCand = candCluster[candCluster.length - 1];
-          
-          const dToFirst = Math.hypot(getU(lastPanel) - getU(firstCand), getV(lastPanel) - getV(firstCand));
-          const dToLast = Math.hypot(getU(lastPanel) - getU(lastCand), getV(lastPanel) - getV(lastCand));
-          
-          if (dToFirst < minDist) {
-            minDist = dToFirst;
-            nearestCluster = candCluster;
-            reverseNearest = false;
-          }
-          if (dToLast < minDist) {
-            minDist = dToLast;
-            nearestCluster = candCluster;
-            reverseNearest = true;
-          }
-        });
-
-        if (reverseNearest) nearestCluster.reverse();
-        finalOrder.push(...nearestCluster);
-        unvisitedClusters.delete(nearestCluster);
-      }
+      unvisitedClusters.forEach(candCluster => {
+        const firstCand = candCluster[0];
+        const lastCand = candCluster[candCluster.length - 1];
+        const dToFirst = Math.hypot(getU(lastPanel) - getU(firstCand), getV(lastPanel) - getV(firstCand));
+        const dToLast = Math.hypot(getU(lastPanel) - getU(lastCand), getV(lastPanel) - getV(lastCand));
+        
+        if (dToFirst < minDist) { minDist = dToFirst; nearestCluster = candCluster; reverseNearest = false; }
+        if (dToLast < minDist) { minDist = dToLast; nearestCluster = candCluster; reverseNearest = true; }
+      });
+      if (reverseNearest) nearestCluster.reverse();
+      finalOrder.push(...nearestCluster);
+      unvisitedClusters.delete(nearestCluster);
     }
-
-    // 4. Leapfrog Routing (UNE-EN 62305)
-    if (finalOrder.length > 2) {
-      const evens = [];
-      const odds = [];
-      for (let i = 0; i < finalOrder.length; i++) {
-        if (i % 2 === 0) evens.push(finalOrder[i]);
-        else odds.push(finalOrder[i]);
-      }
-      return [...evens, ...odds.reverse()];
-    }
-
     return finalOrder;
+  }
+
+  function getSnakeOrderedPanels(panels) {
+    if (!panels || panels.length <= 1) return panels || [];
+    const clusters = clusterPanels(panels);
+    const orderedClusters = clusters.map(c => applyRowBasedLeapfrog(c));
+    return connectClustersTSP(orderedClusters);
   }
 
   function generateSnakeWiringPositions(panels) {
