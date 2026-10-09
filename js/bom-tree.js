@@ -476,6 +476,16 @@
             <div class="bom-kpi"><span>MÓDULOS:</span> <b>${tree.summary.totalPanels} u.</b></div>
           </div>
           
+          ${tree.summary.loadWarning ? `
+            <div style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.5); padding: 8px 12px; margin-bottom: 12px; border-radius: 4px; display: flex; align-items: flex-start; gap: 8px;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; margin-top:1px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>
+              <div style="font-size: 11px; line-height: 1.4; color: #fca5a5;">
+                <b style="color: #ef4444; display: block; margin-bottom: 2px;">ALERTA DE SOBRECARGA ESTRUCTURAL</b>
+                Uno o más faldones exceden la carga máxima permitida por la cubierta (Pico: ${tree.summary.maxLoadKgM2} kg/m²). Revise los lastres o el modelo estructural.
+              </div>
+            </div>
+          ` : ''}
+          
           ${isEmptyProject ? `
             <div style="padding: 24px 16px; text-align: center; color: var(--text-muted, #94a3b8);">
               <div style="margin-bottom: 8px; display: flex; justify-content: center;">
