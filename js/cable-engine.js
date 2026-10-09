@@ -251,17 +251,29 @@
       var sanitized = this.sanitizePositions(positions);
       if (sanitized.length < 2) return [];
 
-      var color = Cesium.Color.fromCssColorString(colorHex);
       var createdList = [];
 
       try {
+        var cesiumColor = function (hex, alpha) {
+          var c = Cesium.Color.fromCssColorString(hex);
+          if (alpha !== undefined) c.alpha = alpha;
+          return c;
+        };
+        var mainAlpha = 1.0;
+        var depthAlpha = 0.90;
+        
+        var mat = new Cesium.ColorMaterialProperty(cesiumColor(colorHex, mainAlpha));
+        var failAlpha = Math.max(depthAlpha, 0.85);
+        var depthMat = new Cesium.ColorMaterialProperty(cesiumColor(colorHex, failAlpha));
+
         var lineEnt = viewer.entities.add({
           name: name,
           polyline: {
             positions: sanitized,
-            width: isTray ? 10.0 : 8.0,
-            material: new Cesium.ColorMaterialProperty(color),
-            clampToGround: true
+            width: isTray ? 10.0 : 5.0,
+            material: mat,
+            clampToGround: false,
+            depthFailMaterial: depthMat
           }
         });
         if (lineEnt) createdList.push(lineEnt);
