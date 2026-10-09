@@ -502,13 +502,21 @@
           if (!panel) return null;
           var center = panel.center;
           if (!center && panel.corners && panel.corners.length > 0) center = panel.corners[0];
-          if (!center) return null;
-          if (panel.v && panel.h) {
+          if (!center || typeof center.x !== 'number' || isNaN(center.x)) return null;
+          
+          if (panel.v && typeof panel.h === 'number' && !isNaN(panel.h)) {
             try {
-              var vNorm = Cesium.Cartesian3.normalize(panel.v, new Cesium.Cartesian3());
-              // Desplazamiento del 45% de la altura hacia el borde superior (Caja de Conexiones)
-              return Cesium.Cartesian3.add(center, Cesium.Cartesian3.multiplyByScalar(vNorm, panel.h * 0.45, new Cesium.Cartesian3()), new Cesium.Cartesian3());
-            } catch (e) { return center; }
+              var v3 = new Cesium.Cartesian3(panel.v.x || 0, panel.v.y || 0, panel.v.z || 0);
+              var mag = Cesium.Cartesian3.magnitude(v3);
+              if (mag > 0.001 && !isNaN(mag)) {
+                var vNorm = Cesium.Cartesian3.normalize(v3, new Cesium.Cartesian3());
+                var offset = Cesium.Cartesian3.multiplyByScalar(vNorm, panel.h * 0.45, new Cesium.Cartesian3());
+                var result = Cesium.Cartesian3.add(center, offset, new Cesium.Cartesian3());
+                if (!isNaN(result.x) && !isNaN(result.y) && !isNaN(result.z)) {
+                  return result;
+                }
+              }
+            } catch (e) {}
           }
           return center;
         }
