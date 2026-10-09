@@ -130,9 +130,19 @@
         var pIdx = (WP.activePlaneIdx >= 0 && WP.activePlaneIdx < WP.planes.length) ? WP.activePlaneIdx : 0;
         var pl = WP.planes[pIdx];
         if (pl && pl.normal && pl.uVec && pl.vVec) {
-          normal = Cesium.Cartesian3.clone(pl.normal);
-          uVec = Cesium.Cartesian3.clone(pl.uVec);
-          vVec = Cesium.Cartesian3.clone(pl.vVec);
+          var tf = pl.transform || (pl.center ? Cesium.Transforms.eastNorthUpToFixedFrame(pl.center) : Cesium.Transforms.eastNorthUpToFixedFrame(pos));
+            if (typeof Cesium.Matrix4.multiplyByPointAsVector === 'function') {
+              normal = Cesium.Matrix4.multiplyByPointAsVector(tf, pl.normal, new Cesium.Cartesian3());
+              uVec = Cesium.Matrix4.multiplyByPointAsVector(tf, pl.uVec, new Cesium.Cartesian3());
+              vVec = Cesium.Matrix4.multiplyByPointAsVector(tf, pl.vVec, new Cesium.Cartesian3());
+            } else {
+              normal = Cesium.Matrix4.multiplyByPoint(tf, pl.normal, new Cesium.Cartesian3());
+              uVec = Cesium.Matrix4.multiplyByPoint(tf, pl.uVec, new Cesium.Cartesian3());
+              vVec = Cesium.Matrix4.multiplyByPoint(tf, pl.vVec, new Cesium.Cartesian3());
+            }
+            Cesium.Cartesian3.normalize(normal, normal);
+            Cesium.Cartesian3.normalize(uVec, uVec);
+            Cesium.Cartesian3.normalize(vVec, vVec);
         }
       }
 
