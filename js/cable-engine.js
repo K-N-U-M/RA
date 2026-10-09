@@ -575,16 +575,16 @@
         yTrunkEntities.forEach(function (e) { sState.dcCableEntities.push(e); });
       }
 
-      // 6. Troncal Combiner Box ➔ Inversor
-      if (cbPos && invPos) {
-        var trunkPath = self.buildOrthogonalManhattanPath3D(cbPos, invPos, {
+      // 6. Troncal Cuadro DC / Combiner Box ➔ Inversor
+      if (dcTargetPos && invPos && Cesium.Cartesian3.distance(dcTargetPos, invPos) > 0.05) {
+        var trunkPath = self.buildOrthogonalManhattanPath3D(dcTargetPos, invPos, {
           normalOffset: self.CONFIG.TRAY_OFFSET
         });
         var lTrunk = self.computePathLength(trunkPath);
         maxLdc += lTrunk;
 
         var trunkEntities = self.createVolumetricEntity(viewer, trunkPath, {
-          name: 'Troncal DC Combiner Box ➔ Inversor (90° Manhattan 3D)',
+          name: 'Troncal DC Cuadro ➔ Inversor (90° Manhattan 3D)',
           colorHex: self.CONFIG.COLOR_COMBINER,
           isTray: true
         });

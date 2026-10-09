@@ -9559,7 +9559,7 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
           sState.entity.position = posProp;
           if (sState.entity.label) sState.entity.label.text = '⚡ CUADRO & INVERSOR\n' + carto.height.toFixed(1) + ' m';
         }
-          if (sState.label2D) sState.label2D.position = newPos;
+          if (sState.label2D) sState.label2D.position = posProp;
       } else if (target.id === 'combiner' && sState.combinerBox) {
         sState.combinerBox.position = newPos;
         sState.combinerBox.carto = { latitude: latDeg, longitude: lonDeg, height: carto.height };
@@ -9567,7 +9567,7 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
           sState.combinerBox.entity.position = posProp;
           if (sState.combinerBox.entity.label) sState.combinerBox.entity.label.text = '📦 COMBINER BOX\n' + carto.height.toFixed(1) + ' m';
         }
-          if (sState.combinerBox.label2D) sState.combinerBox.label2D.position = newPos;
+          if (sState.combinerBox.label2D) sState.combinerBox.label2D.position = posProp;
       } else if (target.id === 'dc_protection') {
         sState.dcProtectionPosition = newPos;
         sState.dcProtectionCarto = { latitude: latDeg, longitude: lonDeg, height: carto.height };
@@ -9575,7 +9575,7 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
           sState.dcProtectionEntity.position = posProp;
           if (sState.dcProtectionEntity.label) sState.dcProtectionEntity.label.text = '🛡️ CUADRO DC (SPD II)\n' + carto.height.toFixed(1) + ' m';
         }
-          if (sState.dcProtectionLabel2D) sState.dcProtectionLabel2D.position = newPos;
+          if (sState.dcProtectionLabel2D) sState.dcProtectionLabel2D.position = posProp;
       } else if (target.id === 'meter' && sState.gridMeter) {
         sState.gridMeter.position = newPos;
         sState.gridMeter.carto = { latitude: latDeg, longitude: lonDeg, height: carto.height };
@@ -9583,7 +9583,7 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
           sState.gridMeter.entity.position = posProp;
           if (sState.gridMeter.entity.label) sState.gridMeter.entity.label.text = '🔌 CONTADOR DE RED\n' + carto.height.toFixed(1) + ' m';
         }
-          if (sState.gridMeter.label2D) sState.gridMeter.label2D.position = newPos;
+          if (sState.gridMeter.label2D) sState.gridMeter.label2D.position = posProp;
       }
       // [P2] Cables NO se regeneran por frame durante el drag (regla §5): LEFT_UP ya los re-renderiza
       if (!universalGizmoState.active && typeof wpCalculateAndRenderInverterCables === 'function') wpCalculateAndRenderInverterCables();
