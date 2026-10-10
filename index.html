@@ -1229,12 +1229,12 @@ window.RA_App = window.RA_App || {};
             <div class="ui-card" style="border: 1px solid rgba(245, 158, 11, 0.4); background: linear-gradient(135deg, rgba(15,23,42,0.95), rgba(30,41,59,0.85));">
               
               <!-- Cabecera con enlace directo al catálogo -->
-              <div class="ui-card-head" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                <div style="display:flex;align-items:center;gap:6px;">
-                  <span style="color:#F59E0B;font-weight:900;"><i data-lucide="zap" class="icon-sm"></i> Paso 4: Ingeniería Eléctrica &amp; Equipamiento</span>
-                  <span class="card-tag" style="background:#F59E0B;color:#0F172A;font-weight:900;">REBT / IEC 62548</span>
+              <div class="ui-card-head" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;">
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;">
+                  <span style="color:#F59E0B;font-weight:900;line-height:1.2;font-size:11px;flex:1;"><i data-lucide="zap" class="icon-sm"></i> PASO 4.<br>INGENIERÍA ELÉCTRICA &amp; EQUIPAMIENTO</span>
+                  <span class="card-tag" style="background:#F59E0B;color:#0F172A;font-weight:900;margin-left:4px;white-space:nowrap;align-self:flex-start;">REBT / IEC 62548</span>
                 </div>
-                <div style="display:flex;gap:4px;">
+                <div style="display:flex;gap:4px;justify-content:flex-end;">
                   <button type="button" class="doc-mini-btn" onclick="wpQuickPreview3DFromStep3()" style="font-size:9px;border-color:var(--emerald-400);color:var(--emerald-400);background:rgba(16,185,129,0.12);padding:3px 7px;cursor:pointer;font-weight:700;" title="Genera una vista previa 3D de la disposición con los módulos seleccionados">
                     <i data-lucide="eye" class="icon-sm"></i> PREVER 3D
                   </button>
@@ -7876,85 +7876,105 @@ function renderSolarBarChart(data) {
   chartTargets.forEach(tgt => {
     const svg = document.getElementById(tgt.svgId);
     if (!svg) return;
-    svg.innerHTML = '';
-
-    // Línea guía de referencia de escala máxima del eje Y
-    const refLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-    refLine.setAttribute('x1', '10');
-    refLine.setAttribute('y1', '15');
-    refLine.setAttribute('x2', '394');
-    refLine.setAttribute('y2', '15');
-    refLine.setAttribute('stroke', 'rgba(255,255,255,0.08)');
-    refLine.setAttribute('stroke-dasharray', '2,2');
-    svg.appendChild(refLine);
-
-    // Cota de valor máximo en el eje Y
-    const yMaxLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    yMaxLabel.setAttribute('x', '10');
-    yMaxLabel.setAttribute('y', '12');
-    yMaxLabel.setAttribute('text-anchor', 'start');
-    yMaxLabel.setAttribute('fill', 'rgba(255,255,255,0.4)');
-    yMaxLabel.setAttribute('font-size', '8px');
-    yMaxLabel.setAttribute('font-family', 'monospace');
-    yMaxLabel.textContent = `${yMax.toLocaleString('es-ES')} kWh`;
-    svg.appendChild(yMaxLabel);
-
-    // Eje X base
-    const axisLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-    axisLine.setAttribute('x1', '10');
-    axisLine.setAttribute('y1', chartHeight + 10);
-    axisLine.setAttribute('x2', '394');
-    axisLine.setAttribute('y2', chartHeight + 10);
-    axisLine.setAttribute('stroke', 'rgba(247,165,32,0.4)');
-    axisLine.setAttribute('stroke-width', '1');
-    svg.appendChild(axisLine);
-
+    
+    const isInitialized = svg.getAttribute('data-initialized') === 'true';
     const defaultInfoText = totalAnnual > 0 ? `TOTAL: ${totalAnnual.toLocaleString('es-ES')} KWH/AÑO<br>(MEDIA: ${avgMonthly} KWH/MES)` : 'PASA EL RATÓN<br>POR LAS BARRAS';
+    
     const infoEl = document.getElementById(tgt.infoId);
-    if (infoEl) infoEl.innerHTML = defaultInfoText;
+    if (infoEl) {
+      infoEl.dataset.defaultText = defaultInfoText;
+      infoEl.innerHTML = defaultInfoText;
+    }
+
+    if (!isInitialized) {
+      svg.innerHTML = '';
+
+      // Línea guía de referencia de escala máxima del eje Y
+      const refLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      refLine.setAttribute('x1', '10');
+      refLine.setAttribute('y1', '15');
+      refLine.setAttribute('x2', '394');
+      refLine.setAttribute('y2', '15');
+      refLine.setAttribute('stroke', 'rgba(255,255,255,0.08)');
+      refLine.setAttribute('stroke-dasharray', '2,2');
+      svg.appendChild(refLine);
+
+      // Cota de valor máximo en el eje Y
+      const yMaxLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      yMaxLabel.id = tgt.svgId + '-ymax';
+      yMaxLabel.setAttribute('x', '10');
+      yMaxLabel.setAttribute('y', '12');
+      yMaxLabel.setAttribute('text-anchor', 'start');
+      yMaxLabel.setAttribute('fill', 'rgba(255,255,255,0.4)');
+      yMaxLabel.setAttribute('font-size', '11px');
+      yMaxLabel.setAttribute('font-family', 'monospace');
+      svg.appendChild(yMaxLabel);
+
+      // Eje X base
+      const axisLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      axisLine.setAttribute('x1', '10');
+      axisLine.setAttribute('y1', chartHeight + 10);
+      axisLine.setAttribute('x2', '394');
+      axisLine.setAttribute('y2', chartHeight + 10);
+      axisLine.setAttribute('stroke', 'rgba(247,165,32,0.4)');
+      axisLine.setAttribute('stroke-width', '1');
+      svg.appendChild(axisLine);
+      
+      // Crear barras pre-inicializadas
+      for(let i=0; i<12; i++) {
+        const x = startX + i * (barWidth + gap);
+        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.id = tgt.svgId + '-bar-' + i;
+        rect.setAttribute('class', 'bar-rect');
+        rect.setAttribute('x', x);
+        rect.setAttribute('width', barWidth);
+        rect.setAttribute('rx', '0');
+        rect.style.transition = 'height 0.25s ease-out, y 0.25s ease-out';
+        
+        rect.addEventListener('mouseenter', (e) => {
+          if (!infoEl) return;
+          const val = parseFloat(e.target.dataset.val);
+          const total = parseFloat(e.target.dataset.total);
+          infoEl.style.transition = 'opacity 100ms ease';
+          infoEl.style.opacity = '1';
+          infoEl.innerHTML = `${MONTH_NAMES[i].toUpperCase()}: ${val.toLocaleString('es-ES')} KWH<br>(${total > 0 ? ((val / total) * 100).toFixed(1) : 0}% DEL TOTAL)`;
+        });
+        rect.addEventListener('mouseleave', () => {
+          if (!infoEl) return;
+          infoEl.style.transition = 'opacity 100ms ease';
+          infoEl.style.opacity = '1';
+          infoEl.innerHTML = infoEl.dataset.defaultText;
+        });
+
+        svg.appendChild(rect);
+
+        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        text.setAttribute('class', 'bar-label');
+        text.setAttribute('x', x + barWidth / 2);
+        text.setAttribute('y', chartHeight + 20);
+        text.textContent = MONTH_NAMES[i];
+        svg.appendChild(text);
+      }
+      
+      svg.setAttribute('data-initialized', 'true');
+    }
+    
+    // Actualizar datos
+    const yMaxLabel = document.getElementById(tgt.svgId + '-ymax');
+    if (yMaxLabel) {
+      yMaxLabel.textContent = `${yMax.toLocaleString('es-ES')} kWh`;
+    }
 
     data.forEach((val, i) => {
-      const x = startX + i * (barWidth + gap);
       const h = (val / yMax) * (chartHeight - 15);
       const y = chartHeight + 10 - h;
-
-      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-      rect.setAttribute('class', 'bar-rect');
-      rect.setAttribute('x', x);
-      rect.setAttribute('y', y);
-      rect.setAttribute('width', barWidth);
-      rect.setAttribute('height', Math.max(h, 2));
-      rect.setAttribute('rx', '0');
-
-      rect.addEventListener('mouseenter', () => {
-        if (!infoEl) return;
-        infoEl.style.transition = 'opacity 100ms ease';
-        infoEl.style.opacity = '0';
-        if (infoEl._hoverTimeout) clearTimeout(infoEl._hoverTimeout);
-        infoEl._hoverTimeout = setTimeout(() => {
-          infoEl.innerHTML = `${MONTH_NAMES[i].toUpperCase()}: ${val.toLocaleString('es-ES')} KWH<br>(${totalAnnual > 0 ? ((val / totalAnnual) * 100).toFixed(1) : 0}% DEL TOTAL)`;
-          infoEl.style.opacity = '1';
-        }, 100);
-      });
-      rect.addEventListener('mouseleave', () => {
-        if (!infoEl) return;
-        infoEl.style.transition = 'opacity 100ms ease';
-        infoEl.style.opacity = '0';
-        if (infoEl._hoverTimeout) clearTimeout(infoEl._hoverTimeout);
-        infoEl._hoverTimeout = setTimeout(() => {
-          infoEl.innerHTML = defaultInfoText;
-          infoEl.style.opacity = '1';
-        }, 100);
-      });
-
-      svg.appendChild(rect);
-
-      const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      text.setAttribute('class', 'bar-label');
-      text.setAttribute('x', x + barWidth / 2);
-      text.setAttribute('y', chartHeight + 20);
-      text.textContent = MONTH_NAMES[i];
-      svg.appendChild(text);
+      const rect = document.getElementById(tgt.svgId + '-bar-' + i);
+      if (rect) {
+        rect.setAttribute('height', Math.max(h, 2));
+        rect.setAttribute('y', y);
+        rect.dataset.val = val;
+        rect.dataset.total = totalAnnual;
+      }
     });
   });
 }

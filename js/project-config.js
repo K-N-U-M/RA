@@ -446,14 +446,14 @@ function step3RenderAutoSizingUI(count, totalKwp, mod, inv, mi, bat, maxKwInput,
   const invIsMan = cfg.autoSizing.inverters.isManual;
 
   if (inputInv) inputInv.value = invCount;
-  if (btnAutoInv) btnAutoInv.style.display = invIsMan ? 'inline-block' : 'none';
+  if (btnAutoInv) { btnAutoInv.style.display = 'inline-block'; btnAutoInv.style.opacity = invIsMan ? '1' : '0.4'; btnAutoInv.title = invIsMan ? 'Restaurar cálculo automático' : 'El cálculo ya es automático'; }
   if (explainInv) {
     const panelsPerInv = Math.ceil(count / Math.max(1, invCount));
     const totalMppts = (inv.mppt || 2) * invCount;
     if (invIsMan) {
       explainInv.innerHTML = '<span style="color:var(--sky-400);font-weight:bold;"><i data-lucide=\"edit-2\" class=\"icon-sm\"></i> MANUAL: ' + invCount + ' uds</span> (Auto calculó ' + invAuto + ' uds · ' + panelsPerInv + ' placas/inv en ' + totalMppts + ' MPPTs)';
     } else {
-      explainInv.innerHTML = '<span style="color:var(--emerald-400);font-weight:bold;"><i data-lucide=\"zap\" class=\"icon-sm\"></i> AUTO: ' + invCount + ' ' + (invCount === 1 ? 'inversor' : 'inversores') + '</span> (' + totalKwp.toFixed(1) + ' kWp / ' + (maxKwInput || 6.5).toFixed(1) + ' kWp máx · ' + panelsPerInv + ' placas/inv en ' + totalMppts + ' MPPTs)';
+      explainInv.innerHTML = '<span style="color:var(--emerald-400);font-weight:bold;"><i data-lucide=\"zap\" class=\"icon-sm\"></i> AUTO: ' + invCount + ' ' + (invCount === 1 ? 'inversor' : 'inversores') + '</span> (' + totalKwp.toFixed(2) + ' kWp / ' + (maxKwInput || 6.5).toFixed(2) + ' kWp máx · ' + panelsPerInv + ' placas/inv en ' + totalMppts + ' MPPTs)';
     }
   }
 
@@ -467,7 +467,7 @@ function step3RenderAutoSizingUI(count, totalKwp, mod, inv, mi, bat, maxKwInput,
   const miIsMan = cfg.autoSizing.microinverters.isManual;
 
   if (inputMi) inputMi.value = miCount;
-  if (btnAutoMi) btnAutoMi.style.display = miIsMan ? 'inline-block' : 'none';
+  if (btnAutoMi) { btnAutoMi.style.display = 'inline-block'; btnAutoMi.style.opacity = miIsMan ? '1' : '0.4'; btnAutoMi.title = miIsMan ? 'Restaurar cálculo automático' : 'El cálculo ya es automático'; }
   if (explainMi) {
     if (miIsMan) {
       explainMi.innerHTML = '<span style="color:var(--sky-400);font-weight:bold;"><i data-lucide=\"edit-2\" class=\"icon-sm\"></i> MANUAL: ' + miCount + ' uds</span> (Auto calculó ' + miAuto + ' uds)';
@@ -486,7 +486,7 @@ function step3RenderAutoSizingUI(count, totalKwp, mod, inv, mi, bat, maxKwInput,
   const batIsMan = cfg.autoSizing.batteries.isManual;
 
   if (inputBat) inputBat.value = batCount;
-  if (btnAutoBat) btnAutoBat.style.display = batIsMan ? 'inline-block' : 'none';
+  if (btnAutoBat) { btnAutoBat.style.display = 'inline-block'; btnAutoBat.style.opacity = batIsMan ? '1' : '0.4'; btnAutoBat.title = batIsMan ? 'Restaurar cálculo automático' : 'El cálculo ya es automático'; }
   if (explainBat) {
     if (!bat || bat.kwh === 0) {
       explainBat.innerHTML = '<span style="color:var(--text-slate-400);">Sin acumulación electroquímica seleccionada (0 kWh).</span>';
