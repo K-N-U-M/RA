@@ -54,6 +54,10 @@
 
 ---
 
+### 2026-10-07: Solucion a Crash WebGL en Zoom Extremo (_target)
+- **Problema:** Al hacer zoom extremo sobre un cuadro electrico u obstaculo, el motor de sombras de Cesium JS (v1.118) perdia referencias a texturas internas. Esto provocaba un cuelgue critico.
+- **Solucion Final:** Inyeccion de un *Watchdog* de bajo nivel en index.html que intercepta el prototipo UniformSampler en los shaders de la GPU. Si Cesium intenta usar una textura undefined, el watchdog inyecta ctx.defaultTexture (fallback 1x1 blanco), previniendo el cuelgue sin afectar la fidelidad visual.
+
 ## 3. Fuentes de Verdad (SSOT Map)
 
 ```
@@ -127,4 +131,6 @@ calculateFinancialModel()  ← Definición canónica en financials.js (~L491)
 - **Snapping Magnético y Auto-Trazado Zero-Click:** Generación automática al entrar en Paso 4 con codos editables y enganche a terminales de string.
 - **Limpieza Inline:** ~26.000 caracteres de código legacy retirados de `index.html`, delegando limpiamente en `RACableEngine`.
 - **Verificación:** Suite de pruebas en `tests/test-cable-engine.html` y consola `window.RACableEngine.runSelfTests()`.
+
+
 
