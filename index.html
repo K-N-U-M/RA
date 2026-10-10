@@ -6517,6 +6517,9 @@ const SOLAR_RAD_MONTHLY_BASE = [
 ];
 
 function recalculateSolarYield() {
+  if (typeof window.wpInvalidateHeatmap === 'function') {
+    window.wpInvalidateHeatmap('Configuración de faldón o paneles modificada');
+  }
   const pa = polygonAnalysis();
   if (!pa && (!WP || !WP.polylines || WP.polylines.length === 0)) {
     resetSolarDashboard();
