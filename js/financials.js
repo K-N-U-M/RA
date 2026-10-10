@@ -199,9 +199,8 @@ async function enrichSummaryWithGemini(targetWindow, d, m, equipment) {
       if (badge) badge.innerHTML = '✨ Resumen generado con IA · Google Gemini';
     }
   } catch(err) {
-    // Fallo silencioso — la plantilla permanece visible
     if (badge) badge.innerHTML = '📋 Resumen del proyecto';
-    if (window.RA && window.RA.log) window.RA.log.warn('[Gemini] Error:', err);
+    if (window.RA_ErrorHandler) window.RA_ErrorHandler.handleAsyncAPI(err, 'Gemini AI');
   }
 }
 

@@ -20,12 +20,15 @@
 
 
 <script>
+// [ARQUITECTURA CANONICA v3] Namespace global
+window.RA_App = window.RA_App || {};
     window.CESIUM_BASE_URL = 'https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/';
   </script>
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/Cesium.js"></script>
   <script src="js/cesium-safety.js?v=20261007a"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
 
+  <script src="js/error-handler.js"></script>
   <script src="js/buildings.js?v=20260929b"></script>
     <script src="js/solar-heatmap.js?v=20260929b"></script>
     <script src="js/config.js?v=20260929b"></script>
@@ -966,15 +969,6 @@
                   <span class="stat-pill-value" id="p3-stat-strings">0</span>
                 </div>
               </div>
-
-                <button type="button" class="btn-action-secondary" id="btn-toggle-pbr-texture" onclick="togglePhotorealisticPanelsTexture()" style="width:100%;padding:6px 8px;font-size:9.5px;margin-top:4px;border:1px solid rgba(56,189,248,0.4);display:flex;justify-content:space-between;align-items:center;background:rgba(15,23,42,0.6);" title="Alternar entre modo analítico (strings/sombras) y textura fotorrealista PBR para renders comerciales (Atajo de teclado: T)">
-                  <span><i data-lucide="camera" class="icon-sm"></i> TEXTURA FOTORREALISTA PBR</span>
-                  <span id="tag-pbr-texture-status" class="card-tag" style="background:rgba(255,255,255,0.08);color:var(--text-slate-300);font-size:9.5px;">[T] OFF</span>
-                </button>
-                <button type="button" class="btn-action-secondary" id="btn-toggle-labels-visibility" onclick="toggleLabelsVisibility()" style="width:100%;padding:6px 8px;font-size:9.5px;margin-top:4px;border:1px solid rgba(245,158,11,0.4);display:flex;justify-content:space-between;align-items:center;background:rgba(15,23,42,0.6);" title="Ocultar o mostrar todas las etiquetas 3D de faldones, planos, cables y numeración (Atajo de teclado: L)">
-                  <span><i data-lucide="tag" class="icon-sm"></i> ETIQUETAS Y COTAS 3D</span>
-                  <span id="tag-labels-status" class="card-tag" style="background:rgba(16,185,129,0.2);color:#34D399;font-size:9.5px;font-weight:900;">[L] ON</span>
-                </button>
               </div>
 
               <!-- [UX] AJUSTE FINO colapsado (legacy Paso 6): duplica los controles
@@ -1188,9 +1182,7 @@
                     <b id="yb-neta" style="font-family:monospace;font-size:11px;">-- kWh/a&ntilde;o</b>
                   </div>
                 </div>
-                <button type="button" id="btn-open-pfv-audit" class="btn-action-secondary" onclick="if(typeof window.wpOpenPFVAuditModal === 'function') window.wpOpenPFVAuditModal()" style="display:none;background:rgba(16, 185, 129, 0.15);border:1px solid rgba(16, 185, 129, 0.4);color:#34D399;font-size:9px;font-weight:bold;padding:6px;width:100%;margin-top:4px;align-items:center;justify-content:center;gap:4px;">
-                  <i data-lucide="table" class="icon-sm"></i> VER AUDITORIA MATEMATICA PFV
-                </button>
+                
               </div>
 
               <!-- [NUEVA] TARJETA: DIAGNÓSTICO MLPE -->
@@ -1233,40 +1225,6 @@
                 </div>
               </div>
 
-              <button type="button" class="btn-action-primary" onclick="wpGoToStep(4)" style="width:100%;padding:9px;font-size:11px;background:linear-gradient(135deg, #F59E0B, #D97706);color:#0F172A;font-weight:900;border:none;margin-top:8px;">
-                <span><i data-lucide="zap" class="icon-sm"></i> CONTINUAR A INGENIERÍA (PASO 4) <i data-lucide="arrow-right" class="icon-sm"></i></span>
-              </button>
-            </div>
-          </div>
-          <!-- ═════════════════════════════════════════════════════════════════ -->
-          <!-- ═════════════════════════════════════════════════════════════════ -->
-          <!-- PASO 4 CANÓNICO: INGENIERÍA ELÉCTRICA & EQUIPOS -->
-          <!-- ═════════════════════════════════════════════════════════════════ -->
-          <div id="wp-step-4-content" style="display:none;flex-direction:column;gap:8px;">
-
-              <!-- ═══ ÁRBOL DE PÉRDIDAS CONFIGURABLE (PR justificable) ═══ -->
-              <div class="ui-card" style="border:1px solid rgba(56,189,248,0.35);background:rgba(15,23,42,0.85);border-radius:8px;padding:8px;">
-                <div class="ui-card-head" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                  <span style="color:#38BDF8;font-weight:900;font-size:10px;"><i data-lucide="sliders-horizontal" class="icon-sm"></i> PÉRDIDAS DEL SISTEMA (ÁRBOL PR)</span>
-                  <span class="card-tag" style="background:rgba(56,189,248,0.15);color:#38BDF8;font-size:9.5px;">PVsyst</span>
-                </div>
-                <div style="display:flex;gap:4px;margin-bottom:8px;">
-                  <select id="loss-preset-select" onchange="raApplyLossPresetUI(this.value)" style="flex:1;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:#E2E8F0;font-size:9.5px;padding:4px 6px;">
-                    <option value="">— Preset —</option>
-                    <option value="estandar">Estándar (limpio, suburbano)</option>
-                    <option value="urbano">Urbano (polvo moderado)</option>
-                    <option value="rural">Rural / agrícola (suciedad alta)</option>
-                    <option value="optimo">Óptimo (mantenimiento intensivo)</option>
-                  </select>
-                  <button type="button" onclick="raResetLossesUI()" title="Restaurar valores por defecto" style="background:rgba(239,68,68,0.18);border:1px solid rgba(239,68,68,0.4);border-radius:6px;color:#F87171;font-size:9.5px;padding:4px 8px;cursor:pointer;font-weight:800;">↺</button>
-                </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 8px;font-size:9px;color:var(--text-slate-300);" id="loss-fields-grid"></div>
-                <div id="loss-total-row" style="margin-top:6px;padding-top:5px;border-top:1px solid rgba(255,255,255,0.08);font-size:9.5px;display:flex;justify-content:space-between;">
-                  <span style="color:var(--text-slate-300);">Suma de pérdidas aplicada:</span>
-                  <b id="loss-total-pct" style="color:#FBBF24;">—</b>
-                </div>
-                <div style="font-size:9.5px;color:#64748b;margin-top:4px;">Se aplican al re-ejecutar el análisis energético. Se guardan automáticamente en este navegador.</div>
-              </div>
             <div class="ui-card" style="border: 1px solid rgba(245, 158, 11, 0.4); background: linear-gradient(135deg, rgba(15,23,42,0.95), rgba(30,41,59,0.85));">
               
               <!-- Cabecera con enlace directo al catálogo -->
@@ -1313,7 +1271,7 @@
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
                   <span style="font-size:9.5px;font-weight:700;color:var(--amber-400);"><i data-lucide="zap" class="icon-sm"></i> Inversor de Red:</span>
                   <div style="display:flex;gap:4px;">
-                    <button type="button" class="doc-mini-btn" onclick="wpOpenSmartInverterMatchingModal()" style="font-size:9.5px;padding:2px 6px;color:#38BDF8;border-color:rgba(56,189,248,0.4);background:rgba(56,189,248,0.12);font-weight:700;" title="Compara opciones de catálogo óptimas por tensión, MPPT y sobrecarga"><i data-lucide="zap" class="icon-sm"></i> CASACIÓN INTELIGENTE</button>
+                    
                     <button type="button" class="doc-mini-btn" onclick="step3EditCurrentEquipment('inverters')" style="font-size:9.5px;padding:2px 5px;color:var(--amber-400);"><i data-lucide="edit-2" class="icon-sm"></i> Editar</button>
                   </div>
                 </div>
@@ -1433,69 +1391,123 @@
                   <b id="step3-spec-roof-load" style="color:#38BDF8;">~14.5 kg/m² (Admisible)</b>
                 </div>
                             </div>
+              </div>
+              <!-- ═══ ÁRBOL DE PÉRDIDAS CONFIGURABLE (PR justificable) ═══ -->
+              <div class="ui-card" style="border:1px solid rgba(56,189,248,0.35);background:rgba(15,23,42,0.85);border-radius:8px;padding:8px;">
+                <div class="ui-card-head" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                  <span style="color:#38BDF8;font-weight:900;font-size:10px;"><i data-lucide="sliders-horizontal" class="icon-sm"></i> PÉRDIDAS DEL SISTEMA (ÁRBOL PR)</span>
+                  <span class="card-tag" style="background:rgba(56,189,248,0.15);color:#38BDF8;font-size:9.5px;">PVsyst</span>
+                </div>
+                <div style="display:flex;gap:4px;margin-bottom:8px;">
+                  <select id="loss-preset-select" onchange="raApplyLossPresetUI(this.value)" style="flex:1;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:#E2E8F0;font-size:9.5px;padding:4px 6px;">
+                    <option value="">— Preset —</option>
+                    <option value="estandar">Estándar (limpio, suburbano)</option>
+                    <option value="urbano">Urbano (polvo moderado)</option>
+                    <option value="rural">Rural / agrícola (suciedad alta)</option>
+                    <option value="optimo">Óptimo (mantenimiento intensivo)</option>
+                  </select>
+                  <button type="button" onclick="raResetLossesUI()" title="Restaurar valores por defecto" style="background:rgba(239,68,68,0.18);border:1px solid rgba(239,68,68,0.4);border-radius:6px;color:#F87171;font-size:9.5px;padding:4px 8px;cursor:pointer;font-weight:800;">↺</button>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 8px;font-size:9px;color:var(--text-slate-300);" id="loss-fields-grid"></div>
+                <div id="loss-total-row" style="margin-top:6px;padding-top:5px;border-top:1px solid rgba(255,255,255,0.08);font-size:9.5px;display:flex;justify-content:space-between;">
+                  <span style="color:var(--text-slate-300);">Suma de pérdidas aplicada:</span>
+                  <b id="loss-total-pct" style="color:#FBBF24;">—</b>
+                </div>
+                <div style="font-size:9.5px;color:#64748b;margin-top:4px;">Se aplican al re-ejecutar el análisis energético. Se guardan automáticamente en este navegador.</div>
+              </div>
+<!-- <i data-lucide="lightbulb" class="icon-sm"></i> Tarjeta Reactiva de Razonamiento y Justificación de Equipos -->
+              <div id="step3-engineering-explainer-container"></div>
+<button type="button" class="btn-action-primary" onclick="wpGoToStep(4)" style="width:100%;padding:9px;font-size:11px;background:linear-gradient(135deg, #F59E0B, #D97706);color:#0F172A;font-weight:900;border:none;margin-top:8px;">
+                <span><i data-lucide="zap" class="icon-sm"></i> CONTINUAR A INGENIERÍA (PASO 4) <i data-lucide="arrow-right" class="icon-sm"></i></span>
+              </button>
+            </div>
+          </div>
+          <!-- ═════════════════════════════════════════════════════════════════ -->
+          <!-- ═════════════════════════════════════════════════════════════════ -->
+          <!-- PASO 4 CANÓNICO: INGENIERÍA ELÉCTRICA & EQUIPOS -->
+          <!-- ═════════════════════════════════════════════════════════════════ -->
+          <div id="wp-step-4-content" style="display:none;flex-direction:column;gap:8px;">
+
+              
 
               <!-- ═════════════════════════════════════════════════════════════ -->
-              <!-- INFRAESTRUCTURA 3D Y CABLEADO REBT (ITC-BT-40)               -->
+              <!-- 1. TOPOLOGÍA LÓGICA Y STRINGS                                  -->
+              <!-- ═════════════════════════════════════════════════════════════ -->
+              <div class="ui-card" style="border:1px solid rgba(56,189,248,0.35);background:rgba(15,23,42,0.85);border-radius:8px;padding:8px;margin-top:6px;">
+                <div class="ui-card-head" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                  <span style="color:#38BDF8;font-weight:900;font-size:10px;"><i data-lucide="share-2" class="icon-sm"></i> TOPOLOGÍA ELÉCTRICA</span>
+                  <span class="card-tag" style="background:rgba(56,189,248,0.15);color:#38BDF8;font-size:9.5px;">IEC 62548</span>
+                </div>
+                <div style="font-size:9px;color:var(--text-slate-300);margin-bottom:6px;line-height:1.4;">
+                  Asignación de strings a canales MPPT. El motor de físicas calcula límites de tensión en frío (-10°C) y caliente (65°C) contra el inversor seleccionado.
+                </div>
+                <button type="button" class="btn-action-primary" onclick="wpOpenSmartInverterMatchingModal()" style="width:100%;padding:6px;font-size:9.5px;background:rgba(56,189,248,0.15);border:1px solid #38BDF8;color:#38BDF8;font-weight:800;">
+                  <i data-lucide="zap" class="icon-sm"></i> CASACIÓN INTELIGENTE MPPT
+                </button>
+              </div>
+
+              <!-- ═════════════════════════════════════════════════════════════ -->
+              <!-- 2. EMPLAZAMIENTO FÍSICO 3D                                   -->
               <!-- ═════════════════════════════════════════════════════════════ -->
               <div class="ui-card" style="background:rgba(0,0,0,0.35);border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:8px;margin-top:6px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:4px;">
-                  <span style="font-weight:900;color:var(--amber-400);font-size:10px;"><i data-lucide="zap" class="icon-sm"></i> INFRAESTRUCTURA 3D &amp; CABLEADO REBT</span>
-                  <span class="card-tag" style="background:rgba(16,185,129,0.2);color:#10B981;font-size:9.5px;">ITC-BT-40</span>
+                  <span style="font-weight:900;color:var(--amber-400);font-size:10px;"><i data-lucide="box" class="icon-sm"></i> EMPLAZAMIENTO FÍSICO 3D</span>
                 </div>
-
-                <!-- Botones de Colocación en Escena 3D -->
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:8px;">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:4px;">
                   <button type="button" class="btn-action-primary" onclick="wpStartInverterPlacement()" style="padding:6px 4px;font-size:9.5px;background:linear-gradient(135deg, #F59E0B, #D97706);color:#0F172A;font-weight:900;border:none;">
-                    <span><i data-lucide="zap" class="icon-sm"></i> SITUAR INVERSOR 3D</span>
+                    <span><i data-lucide="zap" class="icon-sm"></i> SITUAR INVERSOR</span>
                   </button>
                   <button type="button" class="btn-action-primary" onclick="wpStartGridMeterPlacement()" style="padding:6px 4px;font-size:9.5px;background:rgba(56,189,248,0.2);border:1px solid #38BDF8;color:#38BDF8;font-weight:800;">
-                    <span><i data-lucide="plug" class="icon-sm"></i> SITUAR CONTADOR AC</span>
+                    <span><i data-lucide="plug" class="icon-sm"></i> SITUAR CONTADOR</span>
                   </button>
-                <button type="button" class="btn-action-primary" onclick="wpStartCombinerBoxPlacement()" title="Cuadro de agrupacion de strings DC (opcional en residencial, habitual con >=3 strings)" style="padding:6px 4px;font-size:9.5px;background:rgba(217,119,6,0.2);border:1px solid #D97706;color:#FBBF24;font-weight:800;grid-column:1 / -1;">
-                    <span><i data-lucide="box" class="icon-sm"></i> SITUAR CUADRO DC</span>
+                  <button type="button" class="btn-action-primary" onclick="wpStartCombinerBoxPlacement()" title="Cuadro de agrupacion de strings DC (opcional)" style="padding:6px 4px;font-size:9.5px;background:rgba(217,119,6,0.2);border:1px solid #D97706;color:#FBBF24;font-weight:800;grid-column:1 / -1;">
+                    <span><i data-lucide="layout-grid" class="icon-sm"></i> SITUAR CUADRO DC</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- ═════════════════════════════════════════════════════════════ -->
+              <!-- 3. TRAZADO DE RUTAS & REBT (ITC-BT-40)                       -->
+              <!-- ═════════════════════════════════════════════════════════════ -->
+              <div class="ui-card" style="background:rgba(0,0,0,0.35);border:1px solid rgba(16,185,129,0.3);border-radius:8px;padding:8px;margin-top:6px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:4px;">
+                  <span style="font-weight:900;color:#10B981;font-size:10px;"><i data-lucide="route" class="icon-sm"></i> TRAZADO DE RUTAS &amp; REBT</span>
+                  <span class="card-tag" style="background:rgba(16,185,129,0.2);color:#10B981;font-size:9.5px;">ITC-BT-40</span>
+                </div>
+                
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
+                  <button type="button" id="btn-route-dc" class="btn-action-primary" onclick="wpToggleCableRouting('dc')" style="padding:5px 4px;font-size:9px;background:rgba(239,68,68,0.15);border:1px solid #EF4444;color:#FCA5A5;font-weight:700;">
+                    <span><i data-lucide="route" class="icon-sm"></i> TRAZAR BANDEJA DC</span>
+                  </button>
+                  <button type="button" id="btn-route-ac" class="btn-action-primary" onclick="wpToggleCableRouting('ac')" style="padding:5px 4px;font-size:9px;background:rgba(56,189,248,0.15);border:1px solid #38BDF8;color:#7DD3FC;font-weight:700;">
+                    <span><i data-lucide="route" class="icon-sm"></i> TRAZAR TUBO AC</span>
                   </button>
                 </div>
 
-                <!-- Trazado de Canalizaciones 3D (Bandejas y Tubos de Fachada) -->
-                <div style="margin-bottom:8px;padding-top:6px;border-top:1px dashed rgba(255,255,255,0.1);">
-                  <div style="font-size:9px;font-weight:700;color:var(--text-slate-400);text-transform:uppercase;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;">
-                    <span><i data-lucide="route" class="icon-sm"></i> Canalizaciones &amp; Trazado</span>
-                    <span style="font-size:8px;color:var(--amber-400);">Líneas Rectas / Fachada</span>
+                <!-- Barra de acciones en vivo mientras se dibuja la ruta -->
+                <div id="cable-routing-toolbar" style="display:none;margin-top:5px;background:rgba(15,23,42,0.95);border:1px solid var(--amber-500);border-radius:6px;padding:6px;flex-direction:column;gap:4px;">
+                  <div style="display:flex;justify-content:space-between;align-items:center;font-size:9.5px;color:#FDE68A;">
+                    <span id="cable-routing-title"><b>DIBUJANDO RUTA</b></span>
+                    <span id="cable-routing-count" style="font-weight:bold;color:#fff;">0 pts</span>
                   </div>
-                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
-                    <button type="button" id="btn-route-dc" class="btn-action-primary" onclick="wpToggleCableRouting('dc')" style="padding:5px 4px;font-size:9px;background:rgba(239,68,68,0.15);border:1px solid #EF4444;color:#FCA5A5;font-weight:700;">
-                      <span><i data-lucide="route" class="icon-sm"></i> TRAZAR BANDEJA DC</span>
+                  <div style="display:flex;gap:4px;">
+                    <button type="button" onclick="wpFinishCableRouting()" class="btn-action-primary" style="flex:2;padding:4px;font-size:9px;background:#10B981;color:#000;font-weight:900;border:none;">
+                      <span><i data-lucide="check" class="icon-sm"></i> FIJAR RUTA</span>
                     </button>
-                    <button type="button" id="btn-route-ac" class="btn-action-primary" onclick="wpToggleCableRouting('ac')" style="padding:5px 4px;font-size:9px;background:rgba(56,189,248,0.15);border:1px solid #38BDF8;color:#7DD3FC;font-weight:700;">
-                      <span><i data-lucide="route" class="icon-sm"></i> TRAZAR TUBO AC</span>
+                    <button type="button" onclick="wpUndoLastCableRoutePoint()" class="doc-mini-btn" style="flex:1;padding:4px;font-size:9px;text-align:center;">
+                      DESHACER
+                    </button>
+                    <button type="button" onclick="wpCancelCableRouting()" class="doc-mini-btn" style="padding:4px 6px;font-size:9px;color:#EF4444;border-color:rgba(239,68,68,0.4);">
+                      ✕
                     </button>
                   </div>
-
-                  <!-- Barra de acciones en vivo mientras se dibuja la ruta -->
-                  <div id="cable-routing-toolbar" style="display:none;margin-top:5px;background:rgba(15,23,42,0.95);border:1px solid var(--amber-500);border-radius:6px;padding:6px;flex-direction:column;gap:4px;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;font-size:9.5px;color:#FDE68A;">
-                      <span id="cable-routing-title"><b>DIBUJANDO RUTA</b></span>
-                      <span id="cable-routing-count" style="font-weight:bold;color:#fff;">0 pts</span>
-                    </div>
-                    <div style="display:flex;gap:4px;">
-                      <button type="button" onclick="wpFinishCableRouting()" class="btn-action-primary" style="flex:2;padding:4px;font-size:9px;background:#10B981;color:#000;font-weight:900;border:none;">
-                        <span><i data-lucide="check" class="icon-sm"></i> FIJAR RUTA</span>
-                      </button>
-                      <button type="button" onclick="wpUndoLastCableRoutePoint()" class="doc-mini-btn" style="flex:1;padding:4px;font-size:9px;text-align:center;">
-                        DESHACER
-                      </button>
-                      <button type="button" onclick="wpCancelCableRouting()" class="doc-mini-btn" style="padding:4px 6px;font-size:9px;color:#EF4444;border-color:rgba(239,68,68,0.4);">
-                        ✕
-                      </button>
-                    </div>
-                  </div>
-
-                  <!-- Resumen de rutas manuales fijadas -->
-                  <div id="cable-routes-summary" style="display:flex;flex-direction:column;gap:3px;margin-top:4px;"></div>
                 </div>
+
+                <!-- Resumen de rutas manuales fijadas -->
+                <div id="cable-routes-summary" style="display:flex;flex-direction:column;gap:3px;margin-top:4px;"></div>
 
                 <!-- Telemetría de Tiradas y Secciones Eléctricas -->
-                <div style="background:rgba(15,23,42,0.6);border:1px solid rgba(255,255,255,0.06);border-radius:6px;padding:6px;font-size:9px;line-height:1.6;">
+                <div style="background:rgba(15,23,42,0.6);border:1px solid rgba(255,255,255,0.06);border-radius:6px;padding:6px;font-size:9px;line-height:1.6;margin-top:8px;">
                   <div style="display:flex;justify-content:space-between;color:var(--text-slate-300);">
                     <span><i data-lucide="git-commit" class="icon-sm"></i> Tirada DC Homerun:</span>
                     <b id="inverter-stat-ldc" style="color:#38BDF8;">0.0 m</b>
@@ -1519,12 +1531,10 @@
                 </div>
               </div>
 
-              <!-- <i data-lucide="lightbulb" class="icon-sm"></i> Tarjeta Reactiva de Razonamiento y Justificación de Equipos -->
-              <div id="step3-engineering-explainer-container"></div>
+              
               <button type="button" class="btn-action-primary" onclick="wpGoToStep(5)" style="width:100%;padding:8px;font-size:10.5px;background:linear-gradient(135deg, #10B981, #059669);color:#fff;font-weight:900;border:none;margin-top:8px;">
                 <span><i data-lucide="file-text" class="icon-sm"></i> CONTINUAR A ENTREGA &amp; MEMORIA (PASO 5) <i data-lucide="arrow-right" class="icon-sm"></i></span>
               </button>
-            </div>
           </div>
 
           <!-- ═════════════════════════════════════════════════════════════════ -->
@@ -1569,6 +1579,9 @@
                 </button>
                 <button type="button" class="btn-action-primary" onclick="if(window.openBillAuditorModal) openBillAuditorModal();" style="width:100%;padding:8px;font-size:10.5px;background:linear-gradient(135deg, rgba(245,158,11,0.25), rgba(217,119,6,0.35));border:1px solid #F59E0B;color:#FBBF24;font-weight:800;">
                   <span><i data-lucide="receipt" class="icon-sm"></i> AUDITAR FACTURA &amp; COMPARATIVA DE AHORRO</span>
+                </button>
+                <button type="button" id="btn-open-pfv-audit" class="btn-action-secondary" onclick="if(typeof window.wpOpenPFVAuditModal === 'function') window.wpOpenPFVAuditModal()" style="display:flex;background:rgba(16, 185, 129, 0.15);border:1px solid rgba(16, 185, 129, 0.4);color:#34D399;font-size:9px;font-weight:bold;padding:6px;width:100%;margin-top:4px;align-items:center;justify-content:center;gap:4px;">
+                  <i data-lucide="table" class="icon-sm"></i> VER AUDITORIA MATEMATICA PFV
                 </button>
               </div>
               <!-- Expediente Técnico Oficial Directo (REBT / RD 244) -->
@@ -2887,7 +2900,7 @@ function wpAutoSaveProject() {
       }
     }
     localStorage.setItem('ra_solar_project_autosave', JSON.stringify(projectState));
-  } catch(err) { window.RA && window.RA.log && window.RA.log.warn('[autosave]', err); }
+  } catch(err) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(err, 'autosave'); }
 }
 
 // Autoguardado con debounce: se invoca desde wpUpdateUI (que corre tras cada mutación
@@ -2960,7 +2973,7 @@ function wpRestoreAutosave() {
         if (eq.gridMeter && typeof wpPlaceGridMeterAtPosition === 'function') wpPlaceGridMeterAtPosition(toC3(eq.gridMeter), true);
         if (eq.combinerBox && typeof wpPlaceCombinerBoxAtPosition === 'function') wpPlaceCombinerBoxAtPosition(toC3(eq.combinerBox));
         if (typeof wpCalculateAndRenderInverterCables === 'function') wpCalculateAndRenderInverterCables();
-      } catch (e) { window.RA && window.RA.log && window.RA.log.warn('[restore equipo]', e); }
+      } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'restore equipo'); }
     }
     if (WP.polylines.length > 0) {
       polygonPoints = WP.polylines[0].points.map(p => Cesium.Cartesian3.clone(p));
@@ -2998,7 +3011,7 @@ function wpCheckSavedProject() {
       document.body.appendChild(banner);
       setTimeout(() => { if (banner.parentNode) banner.remove(); }, 20000);
     }
-  } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+  } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
 }
 window.wpCheckSavedProject = wpCheckSavedProject;
 // Comprobar sesión previa una vez cargado el visor (con retardo para no competir con el arranque)
@@ -3779,8 +3792,8 @@ if (sscc) {
   function _initTriadOnce() {
     if (_initTriadDone) return;
     _initTriadDone = true;
-    try { ensureTriadCanvas(); } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
-    try { initTriad3DEntities(); } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+    try { ensureTriadCanvas(); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
+    try { initTriad3DEntities(); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
     if (_initTriadRemove) { _initTriadRemove(); _initTriadRemove = null; }
   }
   // scene.postRender.addEventListener devuelve una funcion de baja en Cesium >= 1.100
@@ -3805,7 +3818,7 @@ function setAntialiasingMode(mode) {
     if (scene.postProcessStages && scene.postProcessStages.fxaa) {
       scene.postProcessStages.fxaa.enabled = false;
     }
-    try { scene.msaaSamples = 1; } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+    try { scene.msaaSamples = 1; } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
     viewer.resolutionScale = 1.0;
     if (badge) badge.textContent = 'RENDIMIENTO';
     showToast('PERFIL GRÁFICO', 'Modo Rendimiento: SSE 24 · Sin AA.', 'info', 2000);
@@ -3814,7 +3827,7 @@ function setAntialiasingMode(mode) {
     if (scene.postProcessStages && scene.postProcessStages.fxaa) {
       scene.postProcessStages.fxaa.enabled = true;
     }
-    try { scene.msaaSamples = 1; } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+    try { scene.msaaSamples = 1; } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
     viewer.resolutionScale = 1.0;
     if (badge) badge.textContent = 'EQUILIBRADO';
     showToast('PERFIL GRÁFICO', 'Modo Equilibrado: SSE 16 · FXAA.', 'info', 2000);
@@ -3823,7 +3836,7 @@ function setAntialiasingMode(mode) {
     if (scene.postProcessStages && scene.postProcessStages.fxaa) {
       scene.postProcessStages.fxaa.enabled = true;
     }
-    try { scene.msaaSamples = 4; } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+    try { scene.msaaSamples = 4; } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
     viewer.resolutionScale = 1.0;
     if (badge) badge.textContent = 'ALTA FIDELIDAD';
     showToast('PERFIL GRÁFICO', 'Alta Fidelidad (CAD): SSE 8 · MSAA 4x · Sin cortes.', 'success', 2000);
@@ -3835,7 +3848,7 @@ function setAntialiasingMode(mode) {
     try {
       scene.msaaSamples = 8;
     } catch(e) {
-      try { scene.msaaSamples = 4; } catch(e2) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e2); }
+      try { scene.msaaSamples = 4; } catch(e2) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e2, 'Entidad/Primitiva Cesium'); }
     }
     viewer.resolutionScale = Math.min(window.devicePixelRatio || 1.25, 1.5);
     if (badge) badge.textContent = 'ULTRA HD';
@@ -3871,9 +3884,7 @@ function setAntialiasingMode(mode) {
         targetTileset.loadSiblings = true;
         targetTileset.cullRequestsWhileMoving = false;
       }
-    } catch(eTiles) {
-      window.RA && window.RA.log && window.RA.log.warn('[Tileset Fidelity Sync Error]', eTiles);
-    }
+    } catch(eTiles) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eTiles, 'Tileset Fidelity Sync Error'); }
   }
 
   ['off', 'fxaa', 'msaa4', 'ultra'].forEach(m => {
@@ -3889,7 +3900,7 @@ function setAntialiasingMode(mode) {
 // Inicializar en MODO RENDIMIENTO (MSAA 1x, sin atmósfera, sombra optimizada)
 try {
   scene.msaaSamples = 1;
-} catch(eMsaa) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', eMsaa); }
+} catch(eMsaa) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eMsaa, 'Entidad/Primitiva Cesium'); }
 scene.fxaa = true;
 globe.show = true;
 globe.enableLighting = false;
@@ -4377,11 +4388,11 @@ function startDrawingBuilding() {
 
   // Limpiar entidades temporales previas
   if (window._tempBuildingEntities) {
-    window._tempBuildingEntities.forEach(e => { try { viewer.entities.remove(e); } catch(err) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', err); } });
+    window._tempBuildingEntities.forEach(e => { try { viewer.entities.remove(e); } catch(err) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(err, 'Entidad/Primitiva Cesium'); } });
     window._tempBuildingEntities = [];
   }
   if (window._tempBuildingLineEntity) {
-    try { viewer.entities.remove(window._tempBuildingLineEntity); } catch(err) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', err); }
+    try { viewer.entities.remove(window._tempBuildingLineEntity); } catch(err) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(err, 'Entidad/Primitiva Cesium'); }
     window._tempBuildingLineEntity = null;
   }
   
@@ -4424,7 +4435,7 @@ function handleBuildingClick(cartesian) {
   // Renderizar o actualizar polilínea de trazado con línea elástica reutilizando addPolylineEntity
   if (activeBuildingPts.length >= 1) {
     if (window._tempBuildingLineEntity) {
-      try { viewer.entities.remove(window._tempBuildingLineEntity); } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+      try { viewer.entities.remove(window._tempBuildingLineEntity); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
     }
     const dynamicPositions = new Cesium.CallbackProperty(() => {
       if (!activeBuildingPts || activeBuildingPts.length === 0) return [];
@@ -4470,10 +4481,10 @@ function undoLastBuildingPoint() {
     activeBuildingPts.pop();
     if (window._tempBuildingEntities && window._tempBuildingEntities.length > 0) {
       const ent = window._tempBuildingEntities.pop();
-      try { viewer.entities.remove(ent); } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+      try { viewer.entities.remove(ent); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
     }
     if (activeBuildingPts.length < 1 && window._tempBuildingLineEntity) {
-      try { viewer.entities.remove(window._tempBuildingLineEntity); } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+      try { viewer.entities.remove(window._tempBuildingLineEntity); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
       window._tempBuildingLineEntity = null;
     }
     showStatus('ÚLTIMO VÉRTICE DESHECHO (' + activeBuildingPts.length + ' pts)', 1200);
@@ -4508,11 +4519,11 @@ function finishActiveBuilding() {
       window._redrawingBuildingId = null;
       activeBuildingPts = [];
       if (window._tempBuildingEntities) {
-        window._tempBuildingEntities.forEach(e => { try { viewer.entities.remove(e); } catch(err) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', err); } });
+        window._tempBuildingEntities.forEach(e => { try { viewer.entities.remove(e); } catch(err) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(err, 'Entidad/Primitiva Cesium'); } });
         window._tempBuildingEntities = [];
       }
       if (window._tempBuildingLineEntity) {
-        try { viewer.entities.remove(window._tempBuildingLineEntity); } catch(err) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', err); }
+        try { viewer.entities.remove(window._tempBuildingLineEntity); } catch(err) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(err, 'Entidad/Primitiva Cesium'); }
         window._tempBuildingLineEntity = null;
       }
       window._bldCursorPos = null;
@@ -4550,12 +4561,12 @@ function finishActiveBuilding() {
   // Limpiar entidades temporales
   if (window._tempBuildingEntities) {
     window._tempBuildingEntities.forEach(e => {
-      try { viewer.entities.remove(e); } catch(err) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', err); }
+      try { viewer.entities.remove(e); } catch(err) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(err, 'Entidad/Primitiva Cesium'); }
     });
     window._tempBuildingEntities = [];
   }
   if (window._tempBuildingLineEntity) {
-    try { viewer.entities.remove(window._tempBuildingLineEntity); } catch(err) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', err); }
+    try { viewer.entities.remove(window._tempBuildingLineEntity); } catch(err) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(err, 'Entidad/Primitiva Cesium'); }
     window._tempBuildingLineEntity = null;
   }
   window._bldCursorPos = null;
@@ -4596,14 +4607,10 @@ function finishActiveBuilding() {
   try {
     if (typeof render3DBuildingsInCesium === 'function') render3DBuildingsInCesium();
     if (viewer.scene && typeof viewer.scene.requestRender === 'function') viewer.scene.requestRender();
-  } catch(e) {
-    window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e);
-  }
+  } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
   try {
     if (typeof wpUpdateUI === 'function') wpUpdateUI();
-  } catch(e) {
-    window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e);
-  }
+  } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
   if (typeof ProjectHierarchy !== 'undefined' && ProjectHierarchy && typeof ProjectHierarchy.notify === 'function') {
     ProjectHierarchy.notify('building_added', { building: newBld });
   }
@@ -4613,11 +4620,11 @@ function finishActiveBuilding() {
 function cancelActiveBuilding() {
   activeBuildingPts = [];
   if (window._tempBuildingEntities) {
-    window._tempBuildingEntities.forEach(e => { try { viewer.entities.remove(e); } catch(err) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', err); } });
+    window._tempBuildingEntities.forEach(e => { try { viewer.entities.remove(e); } catch(err) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(err, 'Entidad/Primitiva Cesium'); } });
     window._tempBuildingEntities = [];
   }
   if (window._tempBuildingLineEntity) {
-    try { viewer.entities.remove(window._tempBuildingLineEntity); } catch(err) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', err); }
+    try { viewer.entities.remove(window._tempBuildingLineEntity); } catch(err) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(err, 'Entidad/Primitiva Cesium'); }
     window._tempBuildingLineEntity = null;
   }
   window._bldCursorPos = null;
@@ -5347,7 +5354,7 @@ function saveCompanyBranding() {
     window.RA = window.RA || {};
     window.RA.branding = branding;
     window.RA.geminiApiKey = geminiKey || '';
-  } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+  } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
 }
 
 function loadCompanyBranding() {
@@ -5380,7 +5387,7 @@ function loadCompanyBranding() {
     window.RA = window.RA || {};
     window.RA.branding = b;
     window.RA.geminiApiKey = geminiKey;
-  } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+  } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
 }
 
 // ── Test de conexión Gemini ──
@@ -5422,7 +5429,7 @@ async function testGeminiApiKey() {
 window.testGeminiApiKey = testGeminiApiKey;
 
 // Inicialización automática de branding de empresa
-try { loadCompanyBranding(); } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+try { loadCompanyBranding(); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', loadCompanyBranding);
 }
@@ -5571,14 +5578,14 @@ function getRaw3DPosition(windowPosition) {
         }
       }
     }
-  } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+  } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
 
   // 1. Deteccion fisica directa sobre la cara del 3D Tileset
   if (scene.pickPositionSupported) {
     try {
       const pos = scene.pickPosition(windowPosition);
       if (Cesium.defined(pos) && isFinite(pos.x) && isFinite(pos.y) && isFinite(pos.z)) return pos;
-    } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+    } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
   }
 
   // 2. Raycast matematico contra geometria 3D especifica
@@ -5592,7 +5599,7 @@ function getRaw3DPosition(windowPosition) {
           if (hit && Cesium.defined(hit.position) && isFinite(hit.position.x)) return hit.position;
         }
       }
-    } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+    } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
 
     // 3. Raycast contra el terreno/globo
     try {
@@ -5600,7 +5607,7 @@ function getRaw3DPosition(windowPosition) {
         const pos = scene.globe.pick(ray, scene);
         if (Cesium.defined(pos)) return pos;
       }
-    } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+    } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
   }
 
   // 4. Fallback: proyeccion sobre el elipsoide WGS84
@@ -5612,7 +5619,7 @@ function getRaw3DPosition(windowPosition) {
         if (pos && Cesium.defined(pos) && isFinite(pos.x)) return pos;
       }
     }
-  } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+  } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
   return null;
 }
 
@@ -5651,7 +5658,7 @@ function get3DPosition(windowPosition, options = {}) {
             return hit;
           }
         }
-      } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+      } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
     }
   }
 
@@ -5999,7 +6006,7 @@ function clearSimulatedPV() {
     try {
       window.simulatedPanelsPrimitive.shadows = (typeof Cesium !== "undefined" && Cesium.ShadowMode) ? Cesium.ShadowMode.DISABLED : 0;
       viewer.scene.primitives.remove(window.simulatedPanelsPrimitive);
-    } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+    } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
     window.simulatedPanelsPrimitive = null;
   }
 
@@ -6013,7 +6020,7 @@ function clearSimulatedPV() {
   if (window.simulatedStringsPolylineCollection && typeof viewer !== "undefined" && viewer && viewer.scene && viewer.scene.primitives) {
     try {
       viewer.scene.primitives.remove(window.simulatedStringsPolylineCollection);
-    } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+    } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
     window.simulatedStringsPolylineCollection = null;
   }
 
@@ -6135,7 +6142,7 @@ function updatePanelSelectionUI() {
     panelOutlineEntity = null;
   }
   if (activePanelDragEntity && viewer) {
-    try { viewer.entities.remove(activePanelDragEntity); } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+    try { viewer.entities.remove(activePanelDragEntity); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
     activePanelDragEntity = null;
   }
   if (panel && panel.corners && panel.corners.length === 4) {
@@ -8509,7 +8516,7 @@ function wpPlaceGridMeterAtPosition(cartesian, skipRecurse = false) {
   window.inverterEquipmentState.gridMeter.isPlacing = false;
 
   if (window.inverterEquipmentState.gridMeter.entity) {
-    try { viewer.entities.remove(window.inverterEquipmentState.gridMeter.entity); } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+    try { viewer.entities.remove(window.inverterEquipmentState.gridMeter.entity); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
   }
 
   // Marcador 3D del Contador de Red
@@ -8582,7 +8589,7 @@ function wpCalculateAndRenderACCables() {
     }
   // Limpiar cualquier entidad previa de cable AC huérfana para evitar z-fighting
   if (window.inverterEquipmentState.gridMeter.acCableEntity) {
-    try { viewer.entities.remove(window.inverterEquipmentState.gridMeter.acCableEntity); } catch(err) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', err); }
+    try { viewer.entities.remove(window.inverterEquipmentState.gridMeter.acCableEntity); } catch(err) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(err, 'Entidad/Primitiva Cesium'); }
   }
   window.inverterEquipmentState.gridMeter.acCableEntity = null;
 
@@ -8652,7 +8659,7 @@ function wpPlaceCombinerBoxAtPosition(cartesian) {
   window.inverterEquipmentState.combinerBox.isPlacing = false;
 
   if (window.inverterEquipmentState.combinerBox.entity) {
-    try { viewer.entities.remove(window.inverterEquipmentState.combinerBox.entity); } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+    try { viewer.entities.remove(window.inverterEquipmentState.combinerBox.entity); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
   }
   try {
     const transform = Cesium.Transforms.eastNorthUpToFixedFrame(cartesian);
@@ -9467,7 +9474,7 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
         try {
           const hpr = new Cesium.HeadingPitchRoll(Cesium.Math.toRadians(normRot), 0, 0);
           effEnt.orientation = Cesium.Transforms.headingPitchRollQuaternion(effPos, hpr);
-        } catch(eRot) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', eRot); }
+        } catch(eRot) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eRot, 'Entidad/Primitiva Cesium'); }
       }
       // [P2] Cables NO se regeneran por frame durante el drag (regla §5): LEFT_UP ya los re-renderiza
       if (!universalGizmoState.active && typeof wpCalculateAndRenderInverterCables === 'function') wpCalculateAndRenderInverterCables();
@@ -9483,7 +9490,7 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
         ? updateObstacleLiveModelMatrix
         : (typeof window !== 'undefined' && typeof window.updateObstacleLiveModelMatrix === 'function' ? window.updateObstacleLiveModelMatrix : null);
       if (typeof fnUpdateRot === 'function') {
-        try { fnUpdateRot(target.rawObj, target); } catch(eObsM) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', eObsM); }
+        try { fnUpdateRot(target.rawObj, target); } catch(eObsM) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eObsM, 'Entidad/Primitiva Cesium'); }
       }
     } else if (target.type === 'building' && target.rawObj) {
       target.rawObj.roofAzimuth = Math.round(normRot);
@@ -9526,7 +9533,7 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
           // [P2] Sin rebuild GPU por frame (regla §5): actualizar solo el handle del vértice;
           // el edificio completo se reconstruye en LEFT_UP.
           const _vtxH = window._selectedVtxHandle;
-          if (_vtxH) { try { _vtxH.position = new Cesium.ConstantPositionProperty(Cesium.Cartesian3.clone(newPos)); } catch(eVtxH) { window.RA && window.RA.log && window.RA.log.warn('[vtxHandle]', eVtxH); } }
+          if (_vtxH) { try { _vtxH.position = new Cesium.ConstantPositionProperty(Cesium.Cartesian3.clone(newPos)); } catch(eVtxH) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eVtxH, 'vtxHandle'); } }
         }
       } else {
         const vIdx = (typeof WP !== 'undefined' && WP && WP.selectedVtxIdx >= 0) ? WP.selectedVtxIdx : (typeof selectedVertexIndex !== 'undefined' ? selectedVertexIndex : -1);
@@ -9544,7 +9551,7 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
                 ? wpElevatePointsForVisuals(poly.points, poly.planeIdx, 0.04)
                 : poly.points;
               poly.lineEnt.polyline.positions = [...elevatedPts, elevatedPts[0]];
-            } catch(ePolyPos) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', ePolyPos); }
+            } catch(ePolyPos) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(ePolyPos, 'Entidad/Primitiva Cesium'); }
           }
           if (typeof wpSyncVertexInputs === 'function') wpSyncVertexInputs();
         }
@@ -9630,7 +9637,7 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
         ? updateObstacleLiveModelMatrix
         : (typeof window !== 'undefined' && typeof window.updateObstacleLiveModelMatrix === 'function' ? window.updateObstacleLiveModelMatrix : null);
       if (typeof fnUpdate === 'function') {
-        try { fnUpdate(obs, target); } catch(eObsT) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', eObsT); }
+        try { fnUpdate(obs, target); } catch(eObsT) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eObsT, 'Entidad/Primitiva Cesium'); }
       }
     } else if (target.type === 'building' && target.rawObj) {
       const diff = Cesium.Cartesian3.subtract(newPos, universalGizmoState.startPos, new Cesium.Cartesian3());
@@ -9820,7 +9827,7 @@ function pickElectricalObjectUnderCursor(screenPos) {
       if (entId.includes('ra_combiner_box')) return { id: 'combiner' };
       if (entId.includes('ra_grid_meter_box')) return { id: 'meter' };
     }
-  } catch(err) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', err); }
+  } catch(err) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(err, 'Entidad/Primitiva Cesium'); }
 
   // B. Fallback: Proximidad de Proyección en Pantalla (28px de radio)
   const candidates = [
@@ -9838,7 +9845,7 @@ function pickElectricalObjectUnderCursor(screenPos) {
         const d = Math.hypot(screenPos.x - pWin.x, screenPos.y - pWin.y);
         if (d <= 28) return c;
       }
-    } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+    } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
   }
 
   return null;
@@ -9854,11 +9861,11 @@ function deleteSelectedElectricalEquipment() {
 
   if (selectedElectricalId === 'inverter') {
     if (s.entity && viewer) {
-      try { viewer.entities.remove(s.entity); } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+      try { viewer.entities.remove(s.entity); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
     }
     if (s.dcCableEntities && Array.isArray(s.dcCableEntities) && viewer) {
       s.dcCableEntities.forEach(ent => {
-        try { viewer.entities.remove(ent); } catch(err) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', err); }
+        try { viewer.entities.remove(ent); } catch(err) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(err, 'Entidad/Primitiva Cesium'); }
       });
       s.dcCableEntities = [];
     }
@@ -9888,7 +9895,7 @@ function deleteSelectedElectricalEquipment() {
     }
   } else if (selectedElectricalId === 'combiner') {
     if (s.combinerBox && s.combinerBox.entity && viewer) {
-      try { viewer.entities.remove(s.combinerBox.entity); } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+      try { viewer.entities.remove(s.combinerBox.entity); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
     }
     if (s.combinerBox) {
       s.combinerBox.isEnabled = false;
@@ -9902,7 +9909,7 @@ function deleteSelectedElectricalEquipment() {
     }
   } else if (selectedElectricalId === 'dc_protection') {
     if (s.dcProtectionEntity && viewer) {
-      try { viewer.entities.remove(s.dcProtectionEntity); } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+      try { viewer.entities.remove(s.dcProtectionEntity); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
     }
     s.dcProtectionEntity = null;
     s.dcProtectionPosition = null;
@@ -9914,7 +9921,7 @@ function deleteSelectedElectricalEquipment() {
     }
   } else if (selectedElectricalId === 'meter') {
     if (s.gridMeter && s.gridMeter.entity && viewer) {
-      try { viewer.entities.remove(s.gridMeter.entity); } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+      try { viewer.entities.remove(s.gridMeter.entity); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
     }
     if (s.gridMeter) {
       s.gridMeter.position = null;
@@ -9950,16 +9957,16 @@ function get3DElectricalClickPosition(screenPos) {
   // píxel apunta a OTRO punto del mundo y el cuadro aparece lejos del clic ("otro sitio").
   // Forzar un frame síncrono garantiza que el buffer corresponde a la cámara actual.
   if (viewer.scene && viewer.scene.requestRenderMode && typeof viewer.scene.render === 'function') {
-    try { viewer.scene.render(); } catch (eForce) { window.RA && window.RA.log && window.RA.log.warn('[pick fresco]', eForce); }
+    try { viewer.scene.render(); } catch(eForce) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eForce, 'pick fresco'); }
   }
   if (viewer.scene && typeof viewer.scene.pickPosition === 'function') {
-    try { pos = viewer.scene.pickPosition(screenPos); } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+    try { pos = viewer.scene.pickPosition(screenPos); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
   }
   if (!pos && typeof get3DPosition === 'function') {
-    try { pos = get3DPosition(screenPos); } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+    try { pos = get3DPosition(screenPos); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
   }
   if (!pos && viewer.camera && viewer.scene && viewer.scene.globe) {
-    try { pos = viewer.camera.pickEllipsoid(screenPos, viewer.scene.globe.ellipsoid); } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+    try { pos = viewer.camera.pickEllipsoid(screenPos, viewer.scene.globe.ellipsoid); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
   }
   return pos;
 }
@@ -10023,7 +10030,7 @@ function wpPlaceInverterAtPosition(cartesian) {
 
   // Eliminar entidad previa si existe
   if (window.inverterEquipmentState.entity) {
-    try { viewer.entities.remove(window.inverterEquipmentState.entity); } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+    try { viewer.entities.remove(window.inverterEquipmentState.entity); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
   }
 
   // Crear Marcador 3D del Inversor / Cuadro
@@ -10071,7 +10078,7 @@ function wpPlaceInverterAtPosition(cartesian) {
 
     // <i data-lucide=\"rocket\" class=\"icon-sm\"></i> GEMELO DIGITAL 3D: CUADRO DE PROTECCIÓN DC ACOPLADO
     if (window.inverterEquipmentState.dcProtectionEntity) {
-      try { viewer.entities.remove(window.inverterEquipmentState.dcProtectionEntity); } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+      try { viewer.entities.remove(window.inverterEquipmentState.dcProtectionEntity); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
     }
     const cat = (typeof equipmentCatalog !== 'undefined') ? equipmentCatalog : (typeof DEFAULT_EQUIPMENT_CATALOG !== 'undefined' ? DEFAULT_EQUIPMENT_CATALOG : null);
     const cfg = window.solarProjectConfig || {};
@@ -10147,41 +10154,41 @@ function wpClearInverterAndCables() {
             if (typeof removeLabel2DEntity === 'function') removeLabel2DEntity(e);
             viewer.entities.remove(e);
           }
-        } catch(err) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', err); }
+        } catch(err) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(err, 'Entidad/Primitiva Cesium'); }
       });
     }
     if (s.entity) {
-      try { viewer.entities.remove(s.entity); } catch(err) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', err); }
+      try { viewer.entities.remove(s.entity); } catch(err) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(err, 'Entidad/Primitiva Cesium'); }
       s.entity = null;
     }
     if (s.label2D) {
-      try { if (typeof removeLabel2DEntity === 'function') removeLabel2DEntity(s.label2D); } catch(err) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', err); }
+      try { if (typeof removeLabel2DEntity === 'function') removeLabel2DEntity(s.label2D); } catch(err) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(err, 'Entidad/Primitiva Cesium'); }
       s.label2D = null;
     }
     if (s.dcProtectionEntity) {
-      try { viewer.entities.remove(s.dcProtectionEntity); } catch(err) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', err); }
+      try { viewer.entities.remove(s.dcProtectionEntity); } catch(err) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(err, 'Entidad/Primitiva Cesium'); }
       s.dcProtectionEntity = null;
     }
     if (s.dcProtectionLabel2D) {
-      try { if (typeof removeLabel2DEntity === 'function') removeLabel2DEntity(s.dcProtectionLabel2D); } catch(err) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', err); }
+      try { if (typeof removeLabel2DEntity === 'function') removeLabel2DEntity(s.dcProtectionLabel2D); } catch(err) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(err, 'Entidad/Primitiva Cesium'); }
       s.dcProtectionLabel2D = null;
     }
     s.dcProtectionPosition = null;
     s.dcProtectionCarto = null;
     if (s.gridMeter) {
       if (s.gridMeter.entity) {
-        try { viewer.entities.remove(s.gridMeter.entity); } catch(err) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', err); }
+        try { viewer.entities.remove(s.gridMeter.entity); } catch(err) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(err, 'Entidad/Primitiva Cesium'); }
         s.gridMeter.entity = null;
       }
       if (s.gridMeter.acCableEntity) {
-        try { viewer.entities.remove(s.gridMeter.acCableEntity); } catch(err) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', err); }
+        try { viewer.entities.remove(s.gridMeter.acCableEntity); } catch(err) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(err, 'Entidad/Primitiva Cesium'); }
         s.gridMeter.acCableEntity = null;
       }
       s.gridMeter.position = null;
     }
     if (s.combinerBox) {
       if (s.combinerBox.entity) {
-        try { viewer.entities.remove(s.combinerBox.entity); } catch(err) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', err); }
+        try { viewer.entities.remove(s.combinerBox.entity); } catch(err) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(err, 'Entidad/Primitiva Cesium'); }
         s.combinerBox.entity = null;
       }
       s.combinerBox.position = null;
@@ -11853,7 +11860,7 @@ function wpComputeAutoSizing(forcedCount) {
     count = simulatedPanelEntities.length;
   }
   if (count === 0) {
-    count = window.solarProjectConfig.lastEstimatedPanels || 50;
+    count = window.solarProjectConfig.lastEstimatedPanels || 1;
   } else {
     window.solarProjectConfig.lastEstimatedPanels = count;
   }
@@ -11895,17 +11902,27 @@ function wpComputeAutoSizing(forcedCount) {
   if (!cfg.autoSizing.batteries) cfg.autoSizing.batteries = { count: 0, autoCount: 0, isManual: false };
 
   cfg.autoSizing.inverters.autoCount = autoInverters;
-  if (!cfg.autoSizing.inverters.isManual) {
+  if (!cfg.autoSizing.inverters.isManual || cfg.autoSizing.inverters.count > autoInverters * 2 || autoInverters > cfg.autoSizing.inverters.count * 3) {
+    if (cfg.autoSizing.inverters.isManual && cfg.autoSizing.inverters.count !== autoInverters) {
+      console.log('[RA-AutoSizing] Auto-resetting manual inverter count due to drastic layout change');
+      cfg.autoSizing.inverters.isManual = false;
+    }
     cfg.autoSizing.inverters.count = autoInverters;
   }
 
   cfg.autoSizing.microinverters.autoCount = autoMicros;
-  if (!cfg.autoSizing.microinverters.isManual) {
+  if (!cfg.autoSizing.microinverters.isManual || cfg.autoSizing.microinverters.count > autoMicros * 2 || autoMicros > cfg.autoSizing.microinverters.count * 3) {
+    if (cfg.autoSizing.microinverters.isManual && cfg.autoSizing.microinverters.count !== autoMicros) {
+      cfg.autoSizing.microinverters.isManual = false;
+    }
     cfg.autoSizing.microinverters.count = autoMicros;
   }
 
   cfg.autoSizing.batteries.autoCount = autoBats;
-  if (!cfg.autoSizing.batteries.isManual) {
+  if (!cfg.autoSizing.batteries.isManual || cfg.autoSizing.batteries.count > autoBats * 2 || autoBats > cfg.autoSizing.batteries.count * 3) {
+    if (cfg.autoSizing.batteries.isManual && cfg.autoSizing.batteries.count !== autoBats) {
+      cfg.autoSizing.batteries.isManual = false;
+    }
     cfg.autoSizing.batteries.count = autoBats;
   }
 
@@ -12624,7 +12641,7 @@ function generatePdfReport() {
           doc.setFontSize(9);
           doc.text('Las pérdidas anuales por sombreado se calculan con ray-tracing 3D sobre la fotogrametría (192 instantes).', margen, 292);
         }
-      } catch (eAnexo) { window.RA && window.RA.log && window.RA.log.warn('[anexo fotografico]', eAnexo); }
+      } catch(eAnexo) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eAnexo, 'anexo fotografico'); }
 
       // ── ANEXO COMPARATIVA DE ESCENARIOS ──
       try {
@@ -12667,7 +12684,7 @@ function generatePdfReport() {
           doc.text('Mejor VAN: ' + mejor.nombre + '. CAPEX = equipamiento de catalogo + instalacion fija.', 14, yy + 3);
           doc.text('VAN al 4% a 25 anos con degradacion de paneles 0,45%/ano. Generada el ' + comp.fecha + '.', 14, yy + 8);
         }
-      } catch (eCompPdf) { window.RA && window.RA.log && window.RA.log.warn('[anexo comparativa]', eCompPdf); }
+      } catch(eCompPdf) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eCompPdf, 'anexo comparativa'); }
 
       doc.save('Memoria_Tecnica_Solar_RA_' + new Date().toISOString().substring(0, 10) + '.pdf');
       if (typeof showToast === 'function') {
@@ -13115,13 +13132,13 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
   if (typeof viewer !== "undefined" && viewer) {
     if (viewer.entities && Array.isArray(simulatedPanelEntities)) {
       simulatedPanelEntities.forEach(e => {
-        if (e && typeof e === 'object' && e._id) try { viewer.entities.remove(e); } catch(err) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', err); }
+        if (e && typeof e === 'object' && e._id) try { viewer.entities.remove(e); } catch(err) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(err, 'Entidad/Primitiva Cesium'); }
       });
     }
     simulatedPanelEntities = [];
 
     if (window.simulatedSupportEntities && Array.isArray(window.simulatedSupportEntities)) {
-      window.simulatedSupportEntities.forEach(e => { try { viewer.entities.remove(e); } catch(err) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', err); } });
+      window.simulatedSupportEntities.forEach(e => { try { viewer.entities.remove(e); } catch(err) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(err, 'Entidad/Primitiva Cesium'); } });
     }
     window.simulatedSupportEntities = [];
 
@@ -13129,28 +13146,28 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
       try {
         window.simulatedPanelsPrimitive.shadows = (typeof Cesium !== "undefined" && Cesium.ShadowMode) ? Cesium.ShadowMode.DISABLED : 0;
         viewer.scene.primitives.remove(window.simulatedPanelsPrimitive);
-      } catch(ePrim) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', ePrim); }
+      } catch(ePrim) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(ePrim, 'Entidad/Primitiva Cesium'); }
       window.simulatedPanelsPrimitive = null;
     }
 
     if (window.simulatedStringsPolylineCollection && viewer.scene && viewer.scene.primitives) {
-      try { viewer.scene.primitives.remove(window.simulatedStringsPolylineCollection); } catch(eWires) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', eWires); }
+      try { viewer.scene.primitives.remove(window.simulatedStringsPolylineCollection); } catch(eWires) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eWires, 'Entidad/Primitiva Cesium'); }
       window.simulatedStringsPolylineCollection = null;
     }
 
     if (window._panelNumberLabelCollection && viewer.scene && viewer.scene.primitives) {
-      try { viewer.scene.primitives.remove(window._panelNumberLabelCollection); } catch(eLbl) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', eLbl); }
+      try { viewer.scene.primitives.remove(window._panelNumberLabelCollection); } catch(eLbl) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eLbl, 'Entidad/Primitiva Cesium'); }
       window._panelNumberLabelCollection = null;
     }
 
     if (window._panelNumberEntities && Array.isArray(window._panelNumberEntities)) {
-      window._panelNumberEntities.forEach(e => { try { viewer.entities.remove(e); } catch(err) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', err); } });
+      window._panelNumberEntities.forEach(e => { try { viewer.entities.remove(e); } catch(err) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(err, 'Entidad/Primitiva Cesium'); } });
       window._panelNumberEntities = [];
     }
 
     if (Array.isArray(simulatedStringEntities)) {
       simulatedStringEntities.forEach(e => {
-        if (viewer.entities && e && e._id) try { viewer.entities.remove(e); } catch(err) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', err); }
+        if (viewer.entities && e && e._id) try { viewer.entities.remove(e); } catch(err) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(err, 'Entidad/Primitiva Cesium'); }
       });
       simulatedStringEntities = [];
     }
@@ -13978,7 +13995,7 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
             }
           window.simulatedStringsPolylineCollection = viewer.scene.primitives.add(wireCol);
           wiresBatched = true;
-        } catch(eWireCol) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', eWireCol); }
+        } catch(eWireCol) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eWireCol, 'Entidad/Primitiva Cesium'); }
       }
 
       if (!wiresBatched && viewer.entities) {
@@ -14157,7 +14174,7 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
               }
             }));
           }
-        } catch (eSup) { window.RA && window.RA.log && window.RA.log.warn('[soportes]', eSup); }
+        } catch(eSup) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eSup, 'soportes'); }
       });
     });
     if (viewer.scene && typeof viewer.scene.requestRender === 'function') viewer.scene.requestRender();
@@ -14222,7 +14239,7 @@ function isPanelOccludedBy3DEnvironment(panelCenter, norm, sunDirWorld) {
         }
       }
     }
-  } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+  } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
 
   return false;
 }
@@ -14413,7 +14430,7 @@ function hideSolarCalcHUD() {
 }
 
 // [ARQUITECTURA CANÓNICA v3] Delegado al motor modular asíncrono js/solar-heatmap.js
-async function computeAnnualSolarHeatmap(onProgressCallback) {
+async function wpTriggerAnnualSolarHeatmapWrapper(onProgressCallback) {
   if (typeof window.RA !== 'undefined' && window.RA.solarHeatmap && typeof window.RA.solarHeatmap.computeHeatmap === 'function') {
     return await window.RA.solarHeatmap.computeHeatmap(onProgressCallback);
   } else if (typeof window.wpComputeAnnualSolarHeatmapCanonical === 'function') {
@@ -14425,7 +14442,7 @@ async function computeAnnualSolarHeatmap(onProgressCallback) {
 function wpRenderHeatmapVisuals() {
   if (!solarSimState) window.solarSimState = {};
   if (!solarSimState.annualHeatmapData) {
-    computeAnnualSolarHeatmap();
+    wpTriggerAnnualSolarHeatmapWrapper();
   }
 
   // Limpiar badges MLPE y máscaras de sombra instantánea
@@ -14458,7 +14475,7 @@ function wpRenderHeatmapVisuals() {
     }
   }
   if (window._solarHeatmapLabelCollection) {
-    try { window._solarHeatmapLabelCollection.removeAll(); } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+    try { window._solarHeatmapLabelCollection.removeAll(); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
   }
 
   const hasPolys = typeof WP !== "undefined" && WP && WP.polylines && WP.polylines.length > 0;
@@ -14593,7 +14610,7 @@ async function wpSetShadowViewMode(mode) {
       showStatus("<i data-lucide=\"flame\" class=\"icon-sm\"></i> SIMULANDO RADIACIÓN ANUAL CON RAY-TRACING 3D...", 4000);
 
       try {
-        await computeAnnualSolarHeatmap(null, true);
+        await wpTriggerAnnualSolarHeatmapWrapper(null, true);
       } catch(eCalc) {
         console.error("Error calculating annual solar heatmap:", eCalc);
       } finally {
@@ -14628,8 +14645,8 @@ async function wpSetShadowViewMode(mode) {
 async function wpRunHeatmapAndActivateView() {
   if (typeof wpSetShadowViewMode === 'function') {
     await wpSetShadowViewMode('heatmap');
-  } else if (typeof computeAnnualSolarHeatmap === 'function') {
-    await computeAnnualSolarHeatmap();
+  } else if (typeof wpTriggerAnnualSolarHeatmapWrapper === 'function') {
+    await wpTriggerAnnualSolarHeatmapWrapper();
     if (typeof wpRenderHeatmapVisuals === 'function') wpRenderHeatmapVisuals();
   }
 }
@@ -14785,7 +14802,7 @@ window.toggleSolarHUD = toggleSolarHUD;
     window._raScreenHandlerInitialized = true;
   }
   ensureTriadCanvas();
-  try { initTriad3DEntities(); } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+  try { initTriad3DEntities(); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
   // ── CONFIGURACIÓN ERGONÓMICA DE CÁMARA CAD / GOOGLE EARTH (PAN FLUIDO + ÓRBITA FIABLE) ──
   if (scene && scene.screenSpaceCameraController && typeof Cesium !== "undefined" && Cesium.CameraEventType) {
     const sscc = scene.screenSpaceCameraController;
@@ -14843,7 +14860,7 @@ window.toggleSolarHUD = toggleSolarHUD;
             finishActiveBuilding();
             return;
           }
-        } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+        } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
       }
       let pos3D = get3DPosition(down.position);
       if (Cesium.defined(pos3D)) {
@@ -14883,7 +14900,7 @@ window.toggleSolarHUD = toggleSolarHUD;
         if (uTarget.type === 'panel' && uTarget.rawObj && uTarget.rawObj.corners) {
           universalGizmoState.startCorners = uTarget.rawObj.corners.map(c => Cesium.Cartesian3.clone(c));
           if (activePanelDragEntity && viewer) {
-            try { viewer.entities.remove(activePanelDragEntity); } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+            try { viewer.entities.remove(activePanelDragEntity); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
             activePanelDragEntity = null;
           }
           try {
@@ -14901,7 +14918,7 @@ window.toggleSolarHUD = toggleSolarHUD;
                 perPositionHeight: true
               }
             });
-          } catch(eDragEnt) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', eDragEnt); }
+          } catch(eDragEnt) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eDragEnt, 'Entidad/Primitiva Cesium'); }
         }
         if (uTarget.wp) {
           universalGizmoState.wp = uTarget.wp;
@@ -15064,13 +15081,13 @@ window.toggleSolarHUD = toggleSolarHUD;
           clickPos3D = get3DElectricalClickPosition(click.position);
         } else {
           if (viewer.scene && typeof viewer.scene.pickPosition === 'function') {
-            try { clickPos3D = viewer.scene.pickPosition(click.position); } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+            try { clickPos3D = viewer.scene.pickPosition(click.position); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
           }
           if (!clickPos3D && typeof get3DPosition === 'function') {
-            try { clickPos3D = get3DPosition(click.position); } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+            try { clickPos3D = get3DPosition(click.position); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
           }
           if (!clickPos3D && viewer.camera && viewer.scene && viewer.scene.globe) {
-            try { clickPos3D = viewer.camera.pickEllipsoid(click.position, viewer.scene.globe.ellipsoid); } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+            try { clickPos3D = viewer.camera.pickEllipsoid(click.position, viewer.scene.globe.ellipsoid); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
           }
         }
 
@@ -15111,7 +15128,7 @@ window.toggleSolarHUD = toggleSolarHUD;
               if (Cesium.defined(_gPos) && isFinite(_gPos.x)) pos3D = _gPos;
             }
           }
-        } catch(_e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', _e); }
+        } catch(_e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(_e, 'Entidad/Primitiva Cesium'); }
       }
 
       // 🛡️ NUNCA usar pickEllipsoid en definición de plano: proyecta a nivel del mar (0m) y crea puntos en el aire/infinito
@@ -15155,7 +15172,7 @@ window.toggleSolarHUD = toggleSolarHUD;
             wpCloseActivePolyline();
             return;
           }
-        } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+        } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
       }
 
       let pos3D = get3DPosition(click.position);
@@ -15179,7 +15196,7 @@ window.toggleSolarHUD = toggleSolarHUD;
             finishActivePolygon();
             return;
           }
-        } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+        } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
       }
 
       let pos3D = get3DPosition(click.position);
@@ -15395,6 +15412,23 @@ window.toggleSolarHUD = toggleSolarHUD;
       }
     }
   }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+  // --- DIRTY FLAG / RAF PATTERN PARA GIZMO (60 FPS LOCK) ---
+  let _isGizmoDirty = false;
+  let _pendingGizmoUpdate = null;
+  function flushGizmoUpdate() {
+    if (!_isGizmoDirty || !_pendingGizmoUpdate) return;
+    const p = _pendingGizmoUpdate;
+    updateUniversalTargetTransform(p.target, p.newPos, p.newRotDeg, p.deltaDeg, p.rotAxis);
+    _isGizmoDirty = false;
+    _pendingGizmoUpdate = null;
+  }
+  function queueGizmoUpdate(target, newPos, newRotDeg, deltaDeg, rotAxis) {
+    _pendingGizmoUpdate = { target, newPos, newRotDeg, deltaDeg, rotAxis };
+    if (!_isGizmoDirty) {
+      _isGizmoDirty = true;
+      requestAnimationFrame(flushGizmoUpdate);
+    }
+  }
 
   // 3. MOVIMIENTO DEL RATÓN: Arrastre interactivo de Gizmos, Órbita de Cámara y HUD
   handler.setInputAction(movement => {
@@ -15448,7 +15482,7 @@ window.toggleSolarHUD = toggleSolarHUD;
             rotAxis = universalGizmoState.startZVec || (s && s.zVec) || (uTarget.wp && uTarget.wp.normal) || new Cesium.Cartesian3(0, 0, 1);
           }
 
-          updateUniversalTargetTransform(uTarget, null, newRot, deltaDeg, rotAxis);
+          queueGizmoUpdate(uTarget, null, newRot, deltaDeg, rotAxis);
         }
         // B. MODO TRASLACIÓN Y ARRASTRE (Centroide, U, V, Z)
         else {
@@ -15469,7 +15503,7 @@ window.toggleSolarHUD = toggleSolarHUD;
               try {
                 const ray = viewer.camera.getPickRay(movement.endPosition);
                 if (ray) newPos = wpRayPlane(ray, wp.plane);
-              } catch(eRay) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', eRay); }
+              } catch(eRay) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eRay, 'Entidad/Primitiva Cesium'); }
             }
             if (!newPos) {
               newPos = (typeof get3DElectricalClickPosition === 'function' ? get3DElectricalClickPosition(movement.endPosition) : null) || get3DPosition(movement.endPosition);
@@ -15497,7 +15531,7 @@ window.toggleSolarHUD = toggleSolarHUD;
           }
 
           if (newPos) {
-            updateUniversalTargetTransform(uTarget, newPos, null);
+            queueGizmoUpdate(uTarget, newPos, null, null, null);
           }
         }
       }
@@ -15540,27 +15574,47 @@ window.toggleSolarHUD = toggleSolarHUD;
       scene.canvas.style.cursor = (isDefiningPlane || isDrawingBuilding || isRoutingCable) ? 'crosshair' : 'default';
     }
 
-    if (isDrawingBuilding) {
-      let cPos = (typeof get3DPosition === 'function') ? get3DPosition(movement.endPosition) : null;
-      if (cPos) cPos = getOrthogonalSnap(cPos, activeBuildingPts);
-      if (cPos && typeof activeBuildingPts !== 'undefined' && activeBuildingPts.length >= 2) {
-        const p0Screen = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, activeBuildingPts[0]);
-        if (p0Screen && Math.hypot(movement.endPosition.x - p0Screen.x, movement.endPosition.y - p0Screen.y) <= 45) {
-          cPos = Cesium.Cartesian3.clone(activeBuildingPts[0]);
+
+    // --- DIRTY FLAG PARA CURSOR CAD Y EDIFICIOS (60 FPS) ---
+    let _isCursorDirty = false;
+    let _cursorUpdateData = null;
+    function flushCursorUpdate() {
+      if (!_isCursorDirty || !_cursorUpdateData) return;
+      const d = _cursorUpdateData;
+      
+      if (d.isDrawingBuilding) {
+        let cPos = (typeof get3DPosition === 'function') ? get3DPosition(d.endPos) : null;
+        if (cPos && typeof getOrthogonalSnap === 'function') cPos = getOrthogonalSnap(cPos, activeBuildingPts);
+        if (cPos && typeof activeBuildingPts !== 'undefined' && activeBuildingPts.length >= 2) {
+          const p0Screen = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, activeBuildingPts[0]);
+          if (p0Screen && Math.hypot(d.endPos.x - p0Screen.x, d.endPos.y - p0Screen.y) <= 45) {
+            cPos = Cesium.Cartesian3.clone(activeBuildingPts[0]);
+          }
         }
+        window._bldCursorPos = cPos;
+        if (scene && typeof scene.requestRender === 'function') scene.requestRender();
       }
-      window._bldCursorPos = cPos;
-      if (scene && typeof scene.requestRender === 'function') {
-        scene.requestRender();
+
+      if (typeof updateTriadAtMouse === 'function') {
+        updateTriadAtMouse(d.endPos.x, d.endPos.y, scene.canvas);
+      }
+
+      _isCursorDirty = false;
+      _cursorUpdateData = null;
+    }
+    
+    function queueCursorUpdate(endPos, isDrawingBuilding) {
+      _cursorUpdateData = { endPos, isDrawingBuilding };
+      if (!_isCursorDirty) {
+        _isCursorDirty = true;
+        requestAnimationFrame(flushCursorUpdate);
       }
     }
 
-    // Cursor global CAD (solo procesa si está en define-plane)
-    _triadMouseX = movement.endPosition.x;
-    _triadMouseY = movement.endPosition.y;
-    if (typeof updateTriadAtMouse === 'function') {
-      updateTriadAtMouse(movement.endPosition.x, movement.endPosition.y, scene.canvas);
+    if (isDrawingBuilding || typeof updateTriadAtMouse === 'function') {
+      queueCursorUpdate(movement.endPosition, isDrawingBuilding);
     }
+
 
     // Inspección interactiva on-hover de módulos solares (Zero Clutter)
     if (typeof handleHeatmapPanelHover === 'function') {
@@ -15701,7 +15755,7 @@ window.toggleSolarHUD = toggleSolarHUD;
 
       // Limpiar entidad de arrastre al soltar el ratón SIEMPRE
       if (activePanelDragEntity && viewer) {
-        try { viewer.entities.remove(activePanelDragEntity); } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+        try { viewer.entities.remove(activePanelDragEntity); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
         activePanelDragEntity = null;
       }
       
@@ -15748,7 +15802,7 @@ window.toggleSolarHUD = toggleSolarHUD;
           activeBuildingPts.pop();
           if (window._tempBuildingEntities && window._tempBuildingEntities.length > 0) {
             const ent = window._tempBuildingEntities.pop();
-            try { viewer.entities.remove(ent); } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+            try { viewer.entities.remove(ent); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
           }
         }
       }
@@ -15984,7 +16038,7 @@ window.toggleSolarHUD = toggleSolarHUD;
       wpSetSolarMonth(solarSimState.monthIdx);
       wpSetSolarHour(solarSimState.hourFloat);
     }
-  } catch(eInitSolar) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', eInitSolar); }
+  } catch(eInitSolar) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eInitSolar, 'Entidad/Primitiva Cesium'); }
 })();
 
 
@@ -16225,7 +16279,7 @@ function raImportProjectData(projectData) {
     if (!projectData.__raImportDeferred) {
       projectData.__raImportDeferred = true;
       if (typeof showStatus === 'function') showStatus('ESPERANDO INICIALIZACIÓN DEL VISOR 3D...', 2500);
-      setTimeout(function() { try { raImportProjectData(projectData); } catch (eDef) { window.RA && window.RA.log && window.RA.log.warn('[import diferido]', eDef); } }, 1500);
+      setTimeout(function() { try { raImportProjectData(projectData); } catch(eDef) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eDef, 'import diferido'); } }, 1500);
       return true;
     }
   }
@@ -16598,7 +16652,7 @@ function raSaveToRecentProjects(projectData) {
 
     localStorage.setItem(RA_RECENT_PROJECTS_KEY, JSON.stringify(trimmed));
     raRenderRecentProjectsList();
-  } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+  } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
 }
 
 function raRenderRecentProjectsList() {
@@ -17099,6 +17153,20 @@ window.raImportProjectData = raImportProjectData;
         </div>
         
   </div>
+  
+  <div id="ra-floating-tools-container" style="position:fixed; bottom:20px; right:76px; z-index:9500; display:flex; gap:8px;">
+    <button type="button" class="btn-action-secondary" id="btn-toggle-labels-visibility" onclick="toggleLabelsVisibility()" style="padding:0 12px; height:48px; border-radius:24px; font-size:10px; border:1px solid rgba(245,158,11,0.4); display:flex; gap:6px; align-items:center; background:rgba(15,23,42,0.88); backdrop-filter:blur(16px); color:#fff; cursor:pointer; box-shadow:0 4px 16px rgba(0,0,0,0.4);" title="Ocultar o mostrar etiquetas 3D y cotas (Atajo: L)">
+      <i data-lucide="tag" class="icon-sm"></i>
+      <span style="font-weight:700;">ETIQUETAS</span>
+      <span id="tag-labels-status" class="card-tag" style="background:rgba(16,185,129,0.2);color:#34D399;font-size:9.5px;font-weight:900;padding:2px 4px;border-radius:4px;">ON</span>
+    </button>
+    <button type="button" class="btn-action-secondary" id="btn-toggle-pbr-texture" onclick="togglePhotorealisticPanelsTexture()" style="padding:0 12px; height:48px; border-radius:24px; font-size:10px; border:1px solid rgba(56,189,248,0.4); display:flex; gap:6px; align-items:center; background:rgba(15,23,42,0.88); backdrop-filter:blur(16px); color:#fff; cursor:pointer; box-shadow:0 4px 16px rgba(0,0,0,0.4);" title="Alternar textura fotorrealista PBR (Atajo: T)">
+      <i data-lucide="camera" class="icon-sm"></i>
+      <span style="font-weight:700;">TEXTURA PBR</span>
+      <span id="tag-pbr-texture-status" class="card-tag" style="background:rgba(255,255,255,0.08);color:var(--text-slate-300);font-size:9.5px;font-weight:700;padding:2px 4px;border-radius:4px;">OFF</span>
+    </button>
+  </div>
+  
   <button id="ra-floating-settings-btn" onclick="toggleSettingsPopover()" title="Ajustes de Renderizado y Motores 3D" style="position:fixed; bottom:20px; right:20px; z-index:9500; width:48px; height:48px; border-radius:50%; background:rgba(15,23,42,0.88); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border:1px solid rgba(255,255,255,0.15); color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 4px 16px rgba(0,0,0,0.4);">
     <i data-lucide="settings" style="width:24px;height:24px;opacity:0.9;"></i>
   </button>

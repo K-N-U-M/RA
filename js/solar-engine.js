@@ -675,6 +675,7 @@ async function runPVGISCalc(kwp, latDeg, lonDeg, tiltDeg, azimutDeg, lossPercent
       } catch(e) {
         clearTimeout(timer);
         lastErr = e.name === 'AbortError' ? 'Timeout (8s)' : 'CORS / ' + (e.message || 'red');
+        if (window.RA_ErrorHandler) window.RA_ErrorHandler.handleAsyncAPI(e, 'PVGIS API');
       }
     }
   }
