@@ -474,6 +474,20 @@
           </div>
           
           
+          
+          ${!isEmptyProject ? `
+          <div class="bom-section-title" style="margin-top: 12px;">PRODUCCIÓN ANUAL ESTIMADA</div>
+          <div style="background:rgba(0,0,0,0.35);border:1px solid rgba(16,185,129,0.25);border-radius:6px;padding:10px;margin-bottom:12px;margin-top:6px;">
+            <div class="chart-head-bar" style="display:flex;justify-content:space-between;align-items:flex-start;font-size:11px;margin-bottom:8px;min-height:28px;">
+              <span style="color:var(--emerald-400);font-weight:bold;width:45%;line-height:1.2;display:block;">HISTOGRAMA DE<br>GENERACIÓN (kWh)</span>
+              <span id="bom-chart-hover-info" style="color:var(--text-slate-400);text-align:right;width:55%;line-height:1.2;display:flex;flex-direction:column;">PASA EL RATÓN<br>POR LAS BARRAS</span>
+            </div>
+            <div class="solar-chart-wrap" style="background:rgba(15,23,42,0.6);border-radius:4px;padding:6px;border:1px solid rgba(255,255,255,0.05);">
+              <svg class="solar-bar-chart" id="bom-solar-svg-chart" viewBox="0 0 400 120" style="width:100%;height:120px;display:block;"></svg>
+            </div>
+          </div>
+          ` : ''}
+
           ${isEmptyProject ? `
             <div style="padding: 24px 16px; text-align: center; color: var(--text-muted, #94a3b8);">
               <div style="margin-bottom: 8px; display: flex; justify-content: center;">
@@ -503,17 +517,6 @@
             <div class="bom-subitem">📏 Cable DC: ${tree.electrical.cables[0] ? tree.electrical.cables[0].meters + 'm (' + tree.electrical.cables[0].secMm2 + 'mm²)' : '0m'}</div>
             <div class="bom-subitem">🔌 Evacuación AC: ${tree.electrical.cables[1] ? tree.electrical.cables[1].meters + 'm (' + tree.electrical.cables[1].secMm2 + 'mm²)' : '0m'}</div>
           `}
-
-          <div class="bom-section-title">PRODUCCIÓN ANUAL ESTIMADA</div>
-          <div style="background:rgba(0,0,0,0.35);border:1px solid rgba(16,185,129,0.25);border-radius:6px;padding:10px;margin-bottom:12px;margin-top:6px;">
-            <div class="chart-head-bar" style="display:flex;justify-content:space-between;align-items:center;font-size:11px;margin-bottom:8px;">
-              <span style="color:var(--emerald-400);font-weight:bold;"><i data-lucide="bar-chart-2" class="icon-sm"></i> HISTOGRAMA DE GENERACIÓN (kWh)</span>
-              <span id="bom-chart-hover-info" style="color:var(--text-slate-400);">Pasa el ratón</span>
-            </div>
-            <div class="solar-chart-wrap" style="background:rgba(15,23,42,0.6);border-radius:4px;padding:6px;border:1px solid rgba(255,255,255,0.05);">
-              <svg class="solar-bar-chart" id="bom-solar-svg-chart" viewBox="0 0 400 120" style="width:100%;height:120px;display:block;"></svg>
-            </div>
-          </div>
           <div class="bom-total-footer">
             <span>PRESUPUESTO TOTAL (BOM + M.O.):</span>
             <span class="bom-total-price">${tree.summary.subtotalEur.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</span>

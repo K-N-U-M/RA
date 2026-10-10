@@ -7911,9 +7911,9 @@ function renderSolarBarChart(data) {
     axisLine.setAttribute('stroke-width', '1');
     svg.appendChild(axisLine);
 
-    const defaultInfoText = totalAnnual > 0 ? `Total: ${totalAnnual.toLocaleString('es-ES')} kWh/año (Media: ${avgMonthly} kWh/mes)` : 'Pasa el ratón por las barras';
+    const defaultInfoText = totalAnnual > 0 ? `TOTAL: ${totalAnnual.toLocaleString('es-ES')} KWH/AÑO<br>(MEDIA: ${avgMonthly} KWH/MES)` : 'PASA EL RATÓN<br>POR LAS BARRAS';
     const infoEl = document.getElementById(tgt.infoId);
-    if (infoEl) infoEl.textContent = defaultInfoText;
+    if (infoEl) infoEl.innerHTML = defaultInfoText;
 
     data.forEach((val, i) => {
       const x = startX + i * (barWidth + gap);
@@ -7929,10 +7929,10 @@ function renderSolarBarChart(data) {
       rect.setAttribute('rx', '0');
 
       rect.addEventListener('mouseenter', () => {
-        if (infoEl) infoEl.textContent = `${MONTH_NAMES[i]}: ${val.toLocaleString('es-ES')} kWh (${totalAnnual > 0 ? ((val / totalAnnual) * 100).toFixed(1) : 0}%)`;
+        if (infoEl) infoEl.innerHTML = `${MONTH_NAMES[i].toUpperCase()}: ${val.toLocaleString('es-ES')} KWH<br>(${totalAnnual > 0 ? ((val / totalAnnual) * 100).toFixed(1) : 0}% DEL TOTAL)`;
       });
       rect.addEventListener('mouseleave', () => {
-        if (infoEl) infoEl.textContent = defaultInfoText;
+        if (infoEl) infoEl.innerHTML = defaultInfoText;
       });
 
       svg.appendChild(rect);
