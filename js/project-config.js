@@ -450,10 +450,18 @@ function step3RenderAutoSizingUI(count, totalKwp, mod, inv, mi, bat, maxKwInput,
   if (explainInv) {
     const panelsPerInv = Math.ceil(count / Math.max(1, invCount));
     const totalMppts = (inv.mppt || 2) * invCount;
-    if (invIsMan) {
-      explainInv.innerHTML = '<span style="color:var(--sky-400);font-weight:bold;"><i data-lucide=\"edit-2\" class=\"icon-sm\"></i> MANUAL: ' + invCount + ' uds</span> (Auto calculó ' + invAuto + ' uds · ' + panelsPerInv + ' placas/inv en ' + totalMppts + ' MPPTs)';
+    let warningHtml = '';
+    const maxTotalInput = (maxKwInput || 6.5) * invCount;
+    if (totalKwp > maxTotalInput) {
+      warningHtml = '<br><span style="color:var(--rose-400);font-size:9.5px;font-weight:bold;margin-top:2px;display:inline-block;"><i data-lucide="alert-triangle" class="icon-sm"></i> PELIGRO REBT/IEC: Sobrecarga DC/AC (' + totalKwp.toFixed(2) + ' kWp &gt; ' + maxTotalInput.toFixed(2) + ' kW máx). ¡Añada inversores!</span>';
+      if (inputInv) { inputInv.style.borderColor = 'var(--rose-500)'; inputInv.style.color = 'var(--rose-400)'; }
     } else {
-      explainInv.innerHTML = '<span style="color:var(--emerald-400);font-weight:bold;"><i data-lucide=\"zap\" class=\"icon-sm\"></i> AUTO: ' + invCount + ' ' + (invCount === 1 ? 'inversor' : 'inversores') + '</span> (' + totalKwp.toFixed(2) + ' kWp / ' + (maxKwInput || 6.5).toFixed(2) + ' kWp máx · ' + panelsPerInv + ' placas/inv en ' + totalMppts + ' MPPTs)';
+      if (inputInv) { inputInv.style.borderColor = ''; inputInv.style.color = ''; }
+    }
+    if (invIsMan) {
+      explainInv.innerHTML = '<span style="color:var(--sky-400);font-weight:bold;"><i data-lucide=\"edit-2\" class=\"icon-sm\"></i> MANUAL: ' + invCount + ' uds</span> (Auto calculó ' + invAuto + ' uds · ' + panelsPerInv + ' placas/inv en ' + totalMppts + ' MPPTs)' + warningHtml;
+    } else {
+      explainInv.innerHTML = '<span style="color:var(--emerald-400);font-weight:bold;"><i data-lucide=\"zap\" class=\"icon-sm\"></i> AUTO: ' + invCount + ' ' + (invCount === 1 ? 'inversor' : 'inversores') + '</span> (' + totalKwp.toFixed(2) + ' kWp / ' + (maxKwInput || 6.5).toFixed(2) + ' kWp máx · ' + panelsPerInv + ' placas/inv en ' + totalMppts + ' MPPTs)' + warningHtml;
     }
   }
 
@@ -469,10 +477,18 @@ function step3RenderAutoSizingUI(count, totalKwp, mod, inv, mi, bat, maxKwInput,
   if (inputMi) inputMi.value = miCount;
   if (btnAutoMi) { btnAutoMi.style.display = 'inline-block'; btnAutoMi.style.opacity = miIsMan ? '1' : '0.4'; btnAutoMi.title = miIsMan ? 'Restaurar cálculo automático' : 'El cálculo ya es automático'; }
   if (explainMi) {
-    if (miIsMan) {
-      explainMi.innerHTML = '<span style="color:var(--sky-400);font-weight:bold;"><i data-lucide=\"edit-2\" class=\"icon-sm\"></i> MANUAL: ' + miCount + ' uds</span> (Auto calculó ' + miAuto + ' uds)';
+    let miWarningHtml = '';
+    const maxPanels = miCount * ratio;
+    if (count > maxPanels) {
+      miWarningHtml = '<br><span style="color:var(--rose-400);font-size:9.5px;font-weight:bold;margin-top:2px;display:inline-block;"><i data-lucide="alert-triangle" class="icon-sm"></i> PELIGRO IEC: Faltan entradas (' + count + ' placas &gt; ' + maxPanels + ' permitidas). ¡Añada equipos!</span>';
+      if (inputMi) { inputMi.style.borderColor = 'var(--rose-500)'; inputMi.style.color = 'var(--rose-400)'; }
     } else {
-      explainMi.innerHTML = '<span style="color:var(--emerald-400);font-weight:bold;"><i data-lucide=\"zap\" class=\"icon-sm\"></i> AUTO: ' + miCount + ' uds</span> (' + ratio + ' placas por microinversor)';
+      if (inputMi) { inputMi.style.borderColor = ''; inputMi.style.color = ''; }
+    }
+    if (miIsMan) {
+      explainMi.innerHTML = '<span style="color:var(--sky-400);font-weight:bold;"><i data-lucide=\"edit-2\" class=\"icon-sm\"></i> MANUAL: ' + miCount + ' uds</span> (Auto calculó ' + miAuto + ' uds)' + miWarningHtml;
+    } else {
+      explainMi.innerHTML = '<span style="color:var(--emerald-400);font-weight:bold;"><i data-lucide=\"zap\" class=\"icon-sm\"></i> AUTO: ' + miCount + ' uds</span> (' + ratio + ' placas por microinversor)' + miWarningHtml;
     }
   }
 
