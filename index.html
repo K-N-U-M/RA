@@ -7869,9 +7869,9 @@ function renderSolarBarChart(data) {
   const totalAnnual = data.reduce((s, v) => s + v, 0);
   const avgMonthly = Math.round(totalAnnual / 12);
   const chartHeight = 90;
-  const barWidth = 18;
-  const gap = 8;
-  const startX = 14;
+  const barWidth = 24;
+  const gap = 6;
+  const startX = 40;
 
   chartTargets.forEach(tgt => {
     const svg = document.getElementById(tgt.svgId);
@@ -7882,7 +7882,7 @@ function renderSolarBarChart(data) {
     const refLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
     refLine.setAttribute('x1', '10');
     refLine.setAttribute('y1', '15');
-    refLine.setAttribute('x2', '315');
+    refLine.setAttribute('x2', '394');
     refLine.setAttribute('y2', '15');
     refLine.setAttribute('stroke', 'rgba(255,255,255,0.08)');
     refLine.setAttribute('stroke-dasharray', '2,2');
@@ -7894,7 +7894,7 @@ function renderSolarBarChart(data) {
     yMaxLabel.setAttribute('y', '12');
     yMaxLabel.setAttribute('text-anchor', 'start');
     yMaxLabel.setAttribute('fill', 'rgba(255,255,255,0.4)');
-    yMaxLabel.setAttribute('font-size', '7px');
+    yMaxLabel.setAttribute('font-size', '8px');
     yMaxLabel.setAttribute('font-family', 'monospace');
     yMaxLabel.textContent = `${yMax.toLocaleString('es-ES')} kWh`;
     svg.appendChild(yMaxLabel);
@@ -7903,7 +7903,7 @@ function renderSolarBarChart(data) {
     const axisLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
     axisLine.setAttribute('x1', '10');
     axisLine.setAttribute('y1', chartHeight + 10);
-    axisLine.setAttribute('x2', '315');
+    axisLine.setAttribute('x2', '394');
     axisLine.setAttribute('y2', chartHeight + 10);
     axisLine.setAttribute('stroke', 'rgba(247,165,32,0.4)');
     axisLine.setAttribute('stroke-width', '1');
@@ -7927,10 +7927,24 @@ function renderSolarBarChart(data) {
       rect.setAttribute('rx', '0');
 
       rect.addEventListener('mouseenter', () => {
-        if (infoEl) infoEl.innerHTML = `${MONTH_NAMES[i].toUpperCase()}: ${val.toLocaleString('es-ES')} KWH<br>(${totalAnnual > 0 ? ((val / totalAnnual) * 100).toFixed(1) : 0}% DEL TOTAL)`;
+        if (!infoEl) return;
+        infoEl.style.transition = 'opacity 100ms ease';
+        infoEl.style.opacity = '0';
+        if (infoEl._hoverTimeout) clearTimeout(infoEl._hoverTimeout);
+        infoEl._hoverTimeout = setTimeout(() => {
+          infoEl.innerHTML = `${MONTH_NAMES[i].toUpperCase()}: ${val.toLocaleString('es-ES')} KWH<br>(${totalAnnual > 0 ? ((val / totalAnnual) * 100).toFixed(1) : 0}% DEL TOTAL)`;
+          infoEl.style.opacity = '1';
+        }, 100);
       });
       rect.addEventListener('mouseleave', () => {
-        if (infoEl) infoEl.innerHTML = defaultInfoText;
+        if (!infoEl) return;
+        infoEl.style.transition = 'opacity 100ms ease';
+        infoEl.style.opacity = '0';
+        if (infoEl._hoverTimeout) clearTimeout(infoEl._hoverTimeout);
+        infoEl._hoverTimeout = setTimeout(() => {
+          infoEl.innerHTML = defaultInfoText;
+          infoEl.style.opacity = '1';
+        }, 100);
       });
 
       svg.appendChild(rect);
