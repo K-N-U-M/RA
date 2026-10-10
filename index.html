@@ -4820,6 +4820,7 @@ function updateSelectedBuildingProps() {
   if (parRow) parRow.style.display = (rType === 'flat') ? 'flex' : 'none';
   if (ovhRow) ovhRow.style.display = (rType === 'flat') ? 'none' : 'flex';
 
+  if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Configuración de edificio modificada');
   render3DBuildingsInCesium();
 }
 
@@ -6517,9 +6518,6 @@ const SOLAR_RAD_MONTHLY_BASE = [
 ];
 
 function recalculateSolarYield() {
-  if (typeof window.wpInvalidateHeatmap === 'function') {
-    window.wpInvalidateHeatmap('Configuración de faldón o paneles modificada');
-  }
   const pa = polygonAnalysis();
   if (!pa && (!WP || !WP.polylines || WP.polylines.length === 0)) {
     resetSolarDashboard();
@@ -15110,6 +15108,7 @@ window.toggleSolarHUD = toggleSolarHUD;
         }
       }
       
+      if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Panel movido manualmente');
       if (typeof recalculateSolarYield === 'function') recalculateSolarYield();
       if (typeof wpCalculateAndRenderInverterCables === 'function') wpCalculateAndRenderInverterCables();
 

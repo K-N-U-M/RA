@@ -2303,6 +2303,7 @@ function wpSelectPolyline(polyIdx) {
     WP.selectedPolyIdx = 0;
   } else {
     WP.selectedPolyIdx = polyIdx;
+  if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Inclinación de faldón modificada');
   }
   WP.selectedVtxIdx = -1;
 

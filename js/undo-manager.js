@@ -141,7 +141,7 @@
         if (typeof global.wpRenderAllPolylines === 'function') global.wpRenderAllPolylines();
         if (typeof global.wpSyncVertexInputs === 'function') global.wpSyncVertexInputs();
         if (typeof global.wpFastRenderSimulatedPanels === 'function') global.wpFastRenderSimulatedPanels();
-        if (typeof global.wpInvalidateHeatmap === 'function') global.wpInvalidateHeatmap('Vértice restaurado');
+        if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Vértice restaurado');
       } else if (e.kind === 'panel_delete') {
         var WPp = global.WP;
         var polyP = (WPp && WPp.polylines && WPp.polylines[e.polyIdx]) ? WPp.polylines[e.polyIdx] : null;

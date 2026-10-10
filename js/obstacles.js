@@ -1437,7 +1437,7 @@ function recalculateLayoutAndObstacles() {
   render3DObstaclesInCesium();
 
   // [P0] La geometría cambió (obstáculo añadido/movido/editado): invalidar el heatmap anual
-  if (typeof global.wpInvalidateHeatmap === 'function') global.wpInvalidateHeatmap('Obstáculos o trazado modificados');
+  if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Obstáculos o trazado modificados');
 
   // 🚀 INVALIDACIÓN DE CACHÉ DE PANELES (Garantiza re-filtrado de colisiones 2D/3D con obstáculos)
   if (typeof roofPanelsCache !== 'undefined' && roofPanelsCache) {
