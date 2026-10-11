@@ -37,6 +37,7 @@ window.RA_App = window.RA_App || {};
   <script src="js/viewer.js?v=20260929b"></script>
   <script src="js/solar-engine.js?v=20260929b"></script>
   <script src="js/obstacles.js?v=20260929b"></script>
+  <script src="js/wind-turbine.js?v=20261011a"></script>
   <script src="js/solar-materials.js?v=20260930a"></script>
   <script src="js/electrical-engine.js?v=20260929b"></script>
   <script src="js/undo-manager.js?v=20260929b"></script>
@@ -700,6 +701,7 @@ window.RA_App = window.RA_App || {};
                       <option value="coplanar_chapa">Coplanar (Chapa / Sándwich)</option>
                       <option value="triangles_30">Triángulos 30º (Cubierta Plana)</option>
                       <option value="triangles_15_ew">Estructura 15º Este-Oeste</option>
+                      <option value="triangles_custom">Triángulos Ángulo Adaptable (Personalizado)</option>
                     </select>
                   </div>
 
@@ -807,6 +809,9 @@ window.RA_App = window.RA_App || {};
                 </button>
                 <button class="doc-mini-btn" id="obs-btn-tree" onclick="startObstaclePlacement('tree')" style="text-align:center;">
                   <span class="doc-icon"><i data-lucide="tree-deciduous" class="icon-sm"></i></span><span>+ ÁRBOL TIPO</span><span class="doc-sub">3.0×3.0×5.0m</span>
+                </button>
+                <button class="doc-mini-btn" id="obs-btn-wind-turbine" onclick="startObstaclePlacement('wind_turbine')" style="text-align:center;">
+                  <span class="doc-icon"><i data-lucide="wind" class="icon-sm"></i></span><span>+ EÓLICA</span><span class="doc-sub">Aerogenerador</span>
                 </button>
               </div>
 
@@ -6675,11 +6680,25 @@ function recalculateSolarYield() {
 
   // Sincronizar cada panel individual en 3D con el nuevo PR
   if (typeof window.allRenderedPanels !== 'undefined' && Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0) {
+    const hasDetailedHeatmap = !!(window.solarSimState && window.solarSimState.annualHeatmapData && !window.solarSimState.annualHeatmapDirty);
     const nPanels = window.allRenderedPanels.length;
-    window.allRenderedPanels.forEach(p => {
-      const pYieldFactor = (typeof p.annualYieldPct === 'number') ? (p.annualYieldPct / 100.0) : shadowLossFactor;
-      p.annualKwh = Math.round((annualGrossKWh / nPanels) * pYieldFactor * pr);
-    });
+
+    if (hasDetailedHeatmap && window.allRenderedPanels.some(p => typeof p.annualKwh === 'number' && p.annualKwh > 0)) {
+      // SSOT: Si la simulación física detallada ya calculó la energía por panel (raycast + POA por faldón),
+      // sumamos directamente la energía de los paneles para el balance general del proyecto
+      let simulatedTotalKWh = 0;
+      window.allRenderedPanels.forEach(p => {
+        simulatedTotalKWh += (p.annualKwh || 0);
+      });
+      if (simulatedTotalKWh > 0) {
+        annualYieldKWh = simulatedTotalKWh;
+      }
+    } else {
+      window.allRenderedPanels.forEach(p => {
+        const pYieldFactor = (typeof p.annualYieldPct === 'number') ? (p.annualYieldPct / 100.0) : shadowLossFactor;
+        p.annualKwh = Math.round((annualGrossKWh / nPanels) * pYieldFactor * pr);
+      });
+    }
   }
 
   // Apply shadow factor to monthly yields as well
@@ -7905,12 +7924,23 @@ function renderSolarBarChart(data) {
       yMaxLabel.setAttribute('x', '10');
       yMaxLabel.setAttribute('y', '12');
       yMaxLabel.setAttribute('text-anchor', 'start');
-      yMaxLabel.setAttribute('fill', 'rgba(255,255,255,0.4)');
-      yMaxLabel.setAttribute('font-size', '11px');
+      yMaxLabel.setAttribute('fill', 'rgba(255,255,255,0.7)');
+      yMaxLabel.setAttribute('font-size', '13px'); // AUMENTADO 2 PUNTOS
+      yMaxLabel.setAttribute('font-weight', 'bold');
       yMaxLabel.setAttribute('font-family', 'monospace');
       svg.appendChild(yMaxLabel);
 
-      // Eje X base
+      // Eje Y base (Línea vertical)
+      const yAxisLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      yAxisLine.setAttribute('x1', '35');
+      yAxisLine.setAttribute('y1', '15');
+      yAxisLine.setAttribute('x2', '35');
+      yAxisLine.setAttribute('y2', chartHeight + 10);
+      yAxisLine.setAttribute('stroke', 'rgba(247,165,32,0.4)');
+      yAxisLine.setAttribute('stroke-width', '1');
+      svg.appendChild(yAxisLine);
+
+      // Eje X base (Línea horizontal)
       const axisLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
       axisLine.setAttribute('x1', '10');
       axisLine.setAttribute('y1', chartHeight + 10);
@@ -11680,9 +11710,12 @@ function wpApplyStep6Tilt(val, isFinal = false) {
 
     // Coherencia cinemática: Inclinación -> Estructura de montaje
     if (!WP.polylines[pIdx].estructura) WP.polylines[pIdx].estructura = { tipo: 'coplanar', clearance: 0 };
+    const structSel = document.getElementById('faldon-structure-select');
     if (isAuto || targetTilt === 0) {
       if (WP.polylines[pIdx].estructura.tipo !== 'pergola') {
         WP.polylines[pIdx].estructura.tipo = 'coplanar';
+        WP.polylines[pIdx].structureType = 'coplanar_teja';
+        if (structSel) structSel.value = 'coplanar_teja';
       }
     } else {
       // Ángulo propio inclinado requiere balasto/triángulo
@@ -11690,12 +11723,25 @@ function wpApplyStep6Tilt(val, isFinal = false) {
         WP.polylines[pIdx].estructura.tipo = 'balasto';
         if (!WP.polylines[pIdx].estructura.clearance) WP.polylines[pIdx].estructura.clearance = 0.20;
       }
+      if (targetTilt === 30) {
+        WP.polylines[pIdx].structureType = 'triangles_30';
+        if (structSel) structSel.value = 'triangles_30';
+      } else if (targetTilt === 15 && WP.polylines[pIdx].modAzimuth === 90) {
+        WP.polylines[pIdx].structureType = 'triangles_15_ew';
+        if (structSel) structSel.value = 'triangles_15_ew';
+      } else {
+        WP.polylines[pIdx].structureType = 'triangles_custom';
+        if (structSel) structSel.value = 'triangles_custom';
+      }
     }
     if (typeof wpSyncEstructuraUI === 'function') wpSyncEstructuraUI();
     WP.selectedPolyIdx = pIdx;
     if (typeof roofPanelsCache !== 'undefined' && roofPanelsCache) roofPanelsCache.sig = '';
     if (typeof computeSinglePolylineRoofInfo === 'function') {
       WP.polylines[pIdx].roofInfo = computeSinglePolylineRoofInfo(WP.polylines[pIdx].points, WP.polylines[pIdx]);
+    }
+    if (typeof window.wpInvalidateHeatmap === 'function') {
+      window.wpInvalidateHeatmap('Inclinación de módulos modificada (' + targetTilt + '°)');
     }
   }
 
@@ -11757,6 +11803,9 @@ function wpApplyStep6Azimuth(val, isFinal = false) {
     if (typeof roofPanelsCache !== 'undefined' && roofPanelsCache) roofPanelsCache.sig = '';
     if (typeof computeSinglePolylineRoofInfo === 'function') {
       WP.polylines[pIdx].roofInfo = computeSinglePolylineRoofInfo(WP.polylines[pIdx].points, WP.polylines[pIdx]);
+    }
+    if (typeof window.wpInvalidateHeatmap === 'function') {
+      window.wpInvalidateHeatmap('Azimut de módulos modificado (' + val + '°)');
     }
   }
 
@@ -12516,6 +12565,11 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
       window.simulatedPanelsPrimitive = null;
     }
 
+    if (window.simulatedSupportsPolylineCollection && viewer.scene && viewer.scene.primitives) {
+      try { viewer.scene.primitives.remove(window.simulatedSupportsPolylineCollection); } catch(eSupCol) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eSupCol, 'Entidad/Primitiva Cesium'); }
+      window.simulatedSupportsPolylineCollection = null;
+    }
+
     if (window.simulatedStringsPolylineCollection && viewer.scene && viewer.scene.primitives) {
       try { viewer.scene.primitives.remove(window.simulatedStringsPolylineCollection); } catch(eWires) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eWires, 'Entidad/Primitiva Cesium'); }
       window.simulatedStringsPolylineCollection = null;
@@ -13228,8 +13282,8 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
       }
     }
 
-    // 3.5. Estructuras de Soporte (Raíles y Lastres)
-    if (viewer.entities) {
+    // 3.5. Estructuras de Soporte (Raíles y Lastres) - [Desactivado: delegado al nuevo motor 7b]
+    if (false && viewer.entities) {
       window.simulatedSupportEntities = window.simulatedSupportEntities || [];
       const railColor = Cesium.Color.fromCssColorString('#9CA3AF');
       const ballastColor = Cesium.Color.fromCssColorString('#6B7280');
@@ -13487,63 +13541,176 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
     orientation: (roofInfo && roofInfo.orientation) || 'portrait'
   };
 
-  // 7b. SOPORTES 3D DE ESTRUCTURAS PARAMÉTRICAS (pérgola: pilares; balasto: pies)
-  // Límite de seguridad: máx 80 soportes por faldón (muestreo espacial) para no saturar entidades.
-  if (typeof viewer !== "undefined" && viewer && viewer.entities && typeof WP !== "undefined" && WP && WP.polylines) {
-    window.simulatedSupportEntities = window.simulatedSupportEntities || [];
-    WP.polylines.forEach((poly, polyIdx) => {
-      const pInfo = poly.roofInfo;
-      const est = (poly.estructura && poly.estructura.tipo !== 'coplanar') ? poly.estructura : null;
-      if (!pInfo || !pInfo.panels || pInfo.panels.length === 0 || !est) return;
-      const panels = pInfo.panels;
-      const maxSoportes = 80;
-      const pasoMuestra = Math.max(1, Math.ceil(panels.length / maxSoportes));
-      const esPergola = est.tipo === 'pergola';
+  // 7b. SOPORTES 3D DE ESTRUCTURAS PARAMÉTRICAS (Raíles coplanares, Balastos triangulares y Pérgolas)
+  // MIGRACIÓN AAA: Renderizado directo en GPU via viewer.scene.primitives (PolylineCollection)
+  // idéntico a RACableEngine y simulatedStringsPolylineCollection para garantizar visibilidad al 100%.
+  if (typeof viewer !== "undefined" && viewer && viewer.scene && viewer.scene.primitives && typeof WP !== "undefined" && WP && WP.polylines) {
+    try {
+      const supportCol = new Cesium.PolylineCollection();
+      const railMat = Cesium.Material.fromType('Color', { color: Cesium.Color.fromCssColorString('#CBD5E1') });
+      const balastoMat = Cesium.Material.fromType('Color', { color: Cesium.Color.fromCssColorString('#475569') });
+      const pergolaMat = Cesium.Material.fromType('Color', { color: Cesium.Color.fromCssColorString('#E2E8F0') });
+      let totalLinesAdded = 0;
 
-      panels.forEach((p, idx) => {
-        if (idx % pasoMuestra !== 0 || !p.corners || p.corners.length < 4) return;
-        try {
-          if (esPergola) {
-            // Pérgola: pilares verticales bajo las 2 aristas inferiores (viento y carga a cubierta)
-            const lowCorners = p.corners.slice(0, 2);
-            lowCorners.forEach((cornerPos, ci) => {
-              const topPos = cornerPos.clone();
-              // proyectar la base del pilar sobre la cubierta: usar la altura del panel sin clearance
-              const carto = Cesium.Cartographic.fromCartesian(cornerPos);
-              const baseZ = carto.height - (p.h ? (p.h / 2) * 0 : 0);
-              const roofZ = (typeof pInfo.center === 'object') ? Cesium.Cartographic.fromCartesian(pInfo.center).height : (carto.height - est.clearance);
-              const basePos = Cesium.Cartesian3.fromRadians(carto.longitude, carto.latitude, Math.min(roofZ, carto.height - est.clearance));
-              window.simulatedSupportEntities.push(viewer.entities.add({
-                name: 'PERGOLA-PILAR ' + (polyIdx + 1) + '-' + idx + '-' + ci,
-                position: Cesium.Cartesian3.midpoint(basePos, topPos, new Cesium.Cartesian3()),
-                cylinder: {
-                  length: Math.max(Cesium.Cartesian3.distance(basePos, topPos), 0.05),
-                  topRadius: 0.09, bottomRadius: 0.10,
-                  material: Cesium.Color.fromCssColorString('#CBD5E1').withAlpha(0.98),
-                  shadows: Cesium.ShadowMode.ENABLED
-                }
-              }));
-            });
+      WP.polylines.forEach((poly, polyIdx) => {
+        const pInfo = poly.roofInfo;
+        if (!pInfo || !pInfo.panels || pInfo.panels.length === 0) return;
+        const panels = pInfo.panels;
+        
+        let est = poly.estructura || null;
+        const roofTilt = pInfo.tiltDeg || 0;
+        const panelTilt = (panels[0] && panels[0].tiltDeg !== undefined) ? panels[0].tiltDeg : roofTilt;
+        
+        // Auto-detección solo si no hay estructura definida explícitamente en el faldón
+        if (!est || !est.tipo) {
+          if (Math.abs(panelTilt - roofTilt) > 3 || (poly.structureType && poly.structureType.includes('triangle'))) {
+            est = { tipo: 'balasto', clearance: 0.20 };
           } else {
-            // Balasto: pie triangular frontal — caja de lastre bajo la arista inferior
-            const frontMid = Cesium.Cartesian3.midpoint(p.corners[0], p.corners[1], new Cesium.Cartesian3());
-            const cartoF = Cesium.Cartographic.fromCartesian(frontMid);
-            const roofZF = (pInfo.center) ? Cesium.Cartographic.fromCartesian(pInfo.center).height : cartoF.height - est.clearance;
-            const baseF = Cesium.Cartesian3.fromRadians(cartoF.longitude, cartoF.latitude, Math.min(roofZF, cartoF.height - est.clearance));
-            window.simulatedSupportEntities.push(viewer.entities.add({
-              name: 'BALASTO-PIE ' + (polyIdx + 1) + '-' + idx,
-              position: Cesium.Cartesian3.midpoint(baseF, frontMid, new Cesium.Cartesian3()),
-              box: {
-                dimensions: new Cesium.Cartesian3(Math.max(p.w || 1.1, 0.8), 0.30, Math.max(Cesium.Cartesian3.distance(baseF, frontMid), 0.08)),
-                material: Cesium.Color.fromCssColorString('#475569').withAlpha(0.95),
-                shadows: Cesium.ShadowMode.ENABLED
-              }
-            }));
+            est = { tipo: 'coplanar', clearance: 0.05 };
           }
-        } catch(eSup) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eSup, 'soportes'); }
+        }
+        
+        const esPergola = est.tipo === 'pergola';
+        const esCoplanar = (est.tipo === 'coplanar') || (poly.structureType && poly.structureType.startsWith('coplanar'));
+        const maxSoportes = 80;
+        const pasoMuestra = Math.max(1, Math.ceil(panels.length / maxSoportes));
+
+        panels.forEach((p, idx) => {
+          if (idx % pasoMuestra !== 0 || !p.corners || p.corners.length < 4) return;
+          try {
+            // Identificar aristas por altura/pendiente relativa
+            // C0 y C3 suelen ser aristas altas o bajas según la orientación
+            // Obtenemos las cotas barométricas/elipsoidales de cada vértice
+            const cInfo = p.corners.map((c, ci) => {
+              const carto = Cesium.Cartographic.fromCartesian(c);
+              return { pos: c, carto: carto, h: carto.height, idx: ci };
+            });
+
+            // Ordenar de menor a mayor altura
+            cInfo.sort((a, b) => a.h - b.h);
+            const low1 = cInfo[0]; // Esquina inferior delantera 1
+            const low2 = cInfo[1]; // Esquina inferior delantera 2
+            const high1 = cInfo[2]; // Esquina superior trasera 1
+            const high2 = cInfo[3]; // Esquina superior trasera 2
+
+            // Distancia vectorial entre baja y alta correspondiente (los lados inclinados del panel)
+            // Emparejar cada esquina inferior con la superior más cercana
+            const d1_to_h1 = Cesium.Cartesian3.distance(low1.pos, high1.pos);
+            const d1_to_h2 = Cesium.Cartesian3.distance(low1.pos, high2.pos);
+            const pair1 = (d1_to_h1 < d1_to_h2) ? { low: low1.pos, high: high1.pos } : { low: low1.pos, high: high2.pos };
+            const pair2 = (d1_to_h1 < d1_to_h2) ? { low: low2.pos, high: high2.pos } : { low: low2.pos, high: high1.pos };
+
+            if (esPergola) {
+              // PÉRGOLA: Pilares en las 4 esquinas del módulo hacia la cubierta
+              const clearH = est.clearance || 1.80;
+              p.corners.forEach((cornerPos) => {
+                const carto = Cesium.Cartographic.fromCartesian(cornerPos);
+                const groundPos = Cesium.Cartesian3.fromRadians(carto.longitude, carto.latitude, carto.height - clearH);
+                const line = supportCol.add({
+                  positions: [cornerPos, groundPos],
+                  width: 6.0,
+                  show: true
+                });
+                line.material = pergolaMat;
+                totalLinesAdded++;
+              });
+            } else if (!esCoplanar) {
+              // BALASTO / ESTRUCTURA TRIANGULAR INCLINADA PROFESIONAL (A-Frame solar):
+              // Por cada lateral (izquierdo y derecho del módulo):
+              // 1. Apoyo frontal descansando en el suelo
+              // 2. Travesaño horizontal en el suelo (zapata de lastre)
+              // 3. Montante vertical trasero levantando la esquina alta
+              // 4. Arista inclinada cerrando el triángulo estructural
+
+              [pair1, pair2].forEach((pair) => {
+                const cartoLow = Cesium.Cartographic.fromCartesian(pair.low);
+                const cartoHigh = Cesium.Cartographic.fromCartesian(pair.high);
+
+                // La cota de la cubierta bajo la arista baja (despegue mínimo de pie: 5 a 10 cm)
+                const footDrop = (est.clearance && est.clearance > 0) ? Math.min(est.clearance, 0.15) : 0.08;
+                const groundZ = cartoLow.height - footDrop;
+
+                const groundFront = Cesium.Cartesian3.fromRadians(cartoLow.longitude, cartoLow.latitude, groundZ);
+                const groundBack = Cesium.Cartesian3.fromRadians(cartoHigh.longitude, cartoHigh.latitude, groundZ);
+
+                // Triángulo estructural cerrado A-Frame:
+                // Arista baja -> Zapata suelo frontal -> Zapata suelo trasera -> Montante alto -> Arista baja
+                const triLeg = supportCol.add({
+                  positions: [pair.low, groundFront, groundBack, pair.high, pair.low],
+                  width: 5.5,
+                  show: true
+                });
+                triLeg.material = balastoMat;
+                totalLinesAdded++;
+
+                // Zapata de lastre de hormigón: prisma/barra gruesa en la base sobre la cubierta
+                const ballastFoot = supportCol.add({
+                  positions: [groundFront, groundBack],
+                  width: 9.0,
+                  show: true
+                });
+                ballastFoot.material = balastoMat;
+                totalLinesAdded++;
+              });
+
+              // Barra transversal estabilizadora entre ambos apoyos en el suelo (arriostramiento)
+              const cartoLow1 = Cesium.Cartographic.fromCartesian(pair1.low);
+              const cartoLow2 = Cesium.Cartographic.fromCartesian(pair2.low);
+              const groundZRef = cartoLow1.height - 0.08;
+              const gFront1 = Cesium.Cartesian3.fromRadians(cartoLow1.longitude, cartoLow1.latitude, groundZRef);
+              const gFront2 = Cesium.Cartesian3.fromRadians(cartoLow2.longitude, cartoLow2.latitude, groundZRef);
+
+              const tieBar = supportCol.add({
+                positions: [gFront1, gFront2],
+                width: 4.0,
+                show: true
+              });
+              tieBar.material = railMat;
+              totalLinesAdded++;
+
+            } else {
+              // COPLANAR: Raíles longitudinales de aluminio bajo el módulo
+              const v1 = Cesium.Cartesian3.subtract(p.corners[1], p.corners[0], new Cesium.Cartesian3());
+              const v2 = Cesium.Cartesian3.subtract(p.corners[3], p.corners[0], new Cesium.Cartesian3());
+              const norm = Cesium.Cartesian3.normalize(Cesium.Cartesian3.cross(v1, v2, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+              const drop = Cesium.Cartesian3.multiplyByScalar(norm, -0.025, new Cesium.Cartesian3());
+              const off1 = Cesium.Cartesian3.multiplyByScalar(v2, 0.25, new Cesium.Cartesian3());
+              const off2 = Cesium.Cartesian3.multiplyByScalar(v2, 0.75, new Cesium.Cartesian3());
+
+              const r1S = Cesium.Cartesian3.add(Cesium.Cartesian3.add(p.corners[0], off1, new Cesium.Cartesian3()), drop, new Cesium.Cartesian3());
+              const r1E = Cesium.Cartesian3.add(Cesium.Cartesian3.add(p.corners[1], off1, new Cesium.Cartesian3()), drop, new Cesium.Cartesian3());
+              const r2S = Cesium.Cartesian3.add(Cesium.Cartesian3.add(p.corners[0], off2, new Cesium.Cartesian3()), drop, new Cesium.Cartesian3());
+              const r2E = Cesium.Cartesian3.add(Cesium.Cartesian3.add(p.corners[1], off2, new Cesium.Cartesian3()), drop, new Cesium.Cartesian3());
+
+              const rail1 = supportCol.add({
+                positions: [r1S, r1E],
+                width: 6.0,
+                show: true
+              });
+              rail1.material = railMat;
+              totalLinesAdded++;
+
+              const rail2 = supportCol.add({
+                positions: [r2S, r2E],
+                width: 6.0,
+                show: true
+              });
+              rail2.material = railMat;
+              totalLinesAdded++;
+            }
+          } catch (ePanelSup) {
+            console.error('[RA-SOPORTES] Error en panel', idx, ePanelSup);
+          }
+        });
       });
-    });
-    if (viewer.scene && typeof viewer.scene.requestRender === 'function') viewer.scene.requestRender();
+
+      if (totalLinesAdded > 0) {
+        window.simulatedSupportsPolylineCollection = viewer.scene.primitives.add(supportCol);
+        console.warn(`[RA-SOPORTES] GPU Primitive exitosa: ${totalLinesAdded} líneas de soporte renderizadas.`);
+      }
+    } catch (eSupGPU) {
+      console.error('[RA-SOPORTES] Error al crear PolylineCollection de soportes:', eSupGPU);
+    }
   }
 
   // 8. Actualizar y conectar dinámicamente líneas de cableado 3D (Strings, Combiner, Inversor, Contador)
@@ -13828,7 +13995,13 @@ function wpRenderHeatmapVisuals() {
   solarSimState.obstacleShadowSurfaceEntities = [];
 
   if (solarSimState.heatmapLabelEntities) {
-    solarSimState.heatmapLabelEntities.forEach(e => viewer.entities.remove(e));
+    solarSimState.heatmapLabelEntities.forEach(e => {
+      if (e && e.id && viewer.entities) {
+        viewer.entities.remove(e);
+      } else if (e && e.label && window._solarHeatmapLabelCollection) {
+        try { window._solarHeatmapLabelCollection.remove(e.label); } catch(_) {}
+      }
+    });
   }
   solarSimState.heatmapLabelEntities = [];
 
@@ -13990,6 +14163,13 @@ async function wpSetShadowViewMode(mode) {
     }
     wpFastRenderSimulatedPanels();
     wpRenderHeatmapVisuals();
+    const btnP3Heatmap = document.getElementById('btn-run-annual-heatmap');
+    if (btnP3Heatmap) {
+      btnP3Heatmap.style.borderColor = 'rgba(56, 189, 248, 0.4)';
+      btnP3Heatmap.style.color = '#38BDF8';
+      btnP3Heatmap.innerHTML = '<i data-lucide="flame" class="icon-sm"></i> SIMULAR SOMBRAS & ACTIVAR MAPA DE CALOR 3D';
+      if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
+    }
     if (typeof showToast === 'function') {
       showToast('MAPA DE CALOR DISPONIBLE', 'Cálculo de irradiancia anual y pérdidas completado con éxito.', 'success', 3500);
     }
@@ -13997,8 +14177,17 @@ async function wpSetShadowViewMode(mode) {
   } else {
     // Restaurar texturas normales y limpiar etiquetas de mapa de calor
     if (solarSimState.heatmapLabelEntities) {
-      solarSimState.heatmapLabelEntities.forEach(e => viewer.entities.remove(e));
+      solarSimState.heatmapLabelEntities.forEach(e => {
+        if (e && e.id && viewer.entities) {
+          viewer.entities.remove(e);
+        } else if (e && e.label && window._solarHeatmapLabelCollection) {
+          try { window._solarHeatmapLabelCollection.remove(e.label); } catch(_) {}
+        }
+      });
       solarSimState.heatmapLabelEntities = [];
+    }
+    if (window._solarHeatmapLabelCollection) {
+      try { window._solarHeatmapLabelCollection.removeAll(); } catch(_) {}
     }
     wpFastRenderSimulatedPanels();
     if (solarSimState.currentSolarPos) {
@@ -14008,7 +14197,11 @@ async function wpSetShadowViewMode(mode) {
   }
 }
 
-async function wpRunHeatmapAndActivateView() {
+async function wpRunHeatmapAndActivateView(forceRecalculate = true) {
+  if (forceRecalculate && window.solarSimState) {
+    window.solarSimState.annualHeatmapData = null;
+    window.solarSimState.annualHeatmapDirty = false;
+  }
   if (typeof wpSetShadowViewMode === 'function') {
     await wpSetShadowViewMode('heatmap');
   } else if (typeof wpTriggerAnnualSolarHeatmapWrapper === 'function') {
@@ -15030,6 +15223,7 @@ window.toggleSolarHUD = toggleSolarHUD;
       } else if (draggedTargetType === 'obstacle') {
         if (typeof render3DObstaclesInCesium === 'function') render3DObstaclesInCesium();
         if (typeof recalculateLayoutAndObstacles === 'function') recalculateLayoutAndObstacles();
+        if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Obstáculo desplazado');
       } else if (draggedTargetType === 'panel') {
         // [Option A] Traslación manual de panel: persistir en arrays y dejar que wpFastRender reconstruya el batch.
         const _pIdx = (typeof selectedPanelIndex !== 'undefined') ? selectedPanelIndex : -1;

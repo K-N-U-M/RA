@@ -112,7 +112,8 @@ Para erradicar parpadeos, moiré, shadow acne y z-fighting:
 
 - **192 instantes:** 12 meses × 16 horas. Asíncrono no bloqueante a 60 FPS con time-slicing.
 - **Física Vectorial Real por Panel:** Cálculo del ángulo de incidencia $\cos\theta = \vec{s}_{\text{sol}} \cdot \vec{n}_{\text{panel}}$ usando la normal 3D individual de cada módulo ($\beta, \gamma$), diferenciando estructuras inclinadas (ej. $37^\circ$ Sur) de paneles coplanares ($0^\circ$).
-- **Energía Neta Real (Single Source of Truth):** Cada panel calcula su producción anual neta `p.annualKwh` integrando radiación $G_{\text{POA}}$, modelo IAM (Fresnel), factor térmico $T_{\text{célula}}$ y raycast 3D de sombras con filtro de despegue $\delta = 0.35\,\text{m}$. La suma de todos los paneles sincroniza directamente con el balance del proyecto (`recalculateSolarYield`).
+- **Energía Neta Real (Single Source of Truth):** Cada panel calcula su producción anual neta `p.annualKwh` integrando radiación $G_{\text{POA}}$, modelo IAM (Fresnel), factor térmico $T_{\text{célula}}$ y raycast 3D de sombras con filtro de despegue $\delta = 0.35\,\text{m}$. La suma de todos los paneles sincroniza directamente con el balance del proyecto (`recalculateSolarYield`), preservando la simulación frente a sobreescrituras promediadas.
+- **Cancelación Atómica y Eficiencia AABB:** Bucle asíncrono gobernado por `_activeSimGenerationId` para anular corrutinas huérfanas en concurrencia. Sombreado 2D optimizado con descarte AABB broadphase antes de colisión polinomial. Normalización temporal por $\Delta t$ (`hourStepDt`) en todos los modos de calidad.
 - **Inspección 3D por Hover (Zero Clutter):** La escena 3D se mantiene limpia mostrando solo la gradación cromática del mapa de calor. Al pasar el cursor (*hover*) sobre cualquier panel, se activa el tooltip interactivo con: kWh/año, % sombra, inclinación/acimut y diagnóstico MLPE. Incluye toggle opcional `[🔘 Solo Hover / ⚪ Ver Todas]`.
 - **Activación:** En Paso 3 (Análisis Solar), botón `computeAnnualSolarHeatmap()`.
 - **Invalidación (desde 29/09/2026):** `window.wpInvalidateHeatmap(reason)` se invoca al mutar obstáculos/edificios/vértices/drageos; marca `solarSimState.annualHeatmapDirty`, muestra toast y los PDFs advierten análisis obsoleto.
@@ -163,6 +164,23 @@ Estado en `window.solarProjectConfig`:
 - **Snapping Magnético y Auto-Trazado:** Snapping al terminal de string o nodo Y en trazado manual, y auto-generación zero-click con codos editables (`ra_route_handle_*`).
 - Corriente de diseño DC: Id = 1.25 × Isc.
 - Resistividad Cu a 90°C: ρ = 0.023 Ω·mm²/m.
+
+---
+
+## 8.1 🏗️ Motor de Estructuras 3D Paramétricas y Ángulo Adaptativo
+
+- **Pipeline GPU:** Renderizado directo mediante primitivas WebGL iewer.scene.primitives.add(new Cesium.PolylineCollection()) con material Cesium.Material.fromType('Color') (idéntico a RACableEngine), asegurando visibilidad incondicional sobre Google Photorealistic 3D Tiles y mallas DTM.
+- **Geometría A-Frame Cerrada:**
+  - Clasificación altimétrica barométrica de los 4 vértices del panel para desacoplar aristas inferiores de superiores.
+  - Escuadras triangulares cerradas por cada lateral del módulo: Arista baja $\\rightarrow$ Zapata de lastre en suelo $\\rightarrow$ Zapata de lastre trasera $\\rightarrow$ Montante trasero $\\rightarrow$ Arista baja.
+  - Viga riostra horizontal frontal conectando los apoyos de base en suelo para arriostramiento contra viento.
+- **Tipologías Soportadas e Inclinación Adaptativa:**
+  - coplanar_teja / coplanar_chapa: Doble perfil longitudinal de aluminio bajo el panel (al 25% y 75% del módulo, cota -2.5cm). Inclinación y azimut acoplados al faldón.
+  - 	riangles_30: Triángulos fijos a 30° orientación Sur (180°).
+  - 	riangles_15_ew: Estructura simétrica a 15° con orientación Este-Oeste (90° / 270°).
+  - 	riangles_custom: Triángulos A-Frame paramétricos con ángulo adaptable (1°–60°) gobernados dinámicamente por el slider de inclinación (cfg-p2-tilt-slider).
+  - pergola: Pórtico de pilares verticales en las 4 esquinas del módulo descendiendo a la cota exacta de cubierta con altura libre configurable (default 1.80m).
+- **Sincronización Cinemática Bidireccional:** El selector aldon-structure-select y el slider de inclinación se sincronizan recíprocamente, recalculando la geometría 3D, el caché analítico y el desglose de materiales BOM de forma reactiva.
 
 ---
 

@@ -146,12 +146,18 @@
       }
 
       let normWorld = new Cesium.Cartesian3();
-      if (typeof Cesium.Matrix4.multiplyByPointAsVector === "function") {
-        normWorld = Cesium.Matrix4.multiplyByPointAsVector(transform, norm, normWorld);
-      } else if (typeof Cesium.Matrix4.multiplyByPoint === "function") {
-        normWorld = Cesium.Matrix4.multiplyByPoint(transform, norm, normWorld);
+      if (norm && Cesium.Cartesian3.magnitude(norm) > 0.5) {
+        normWorld = Cesium.Cartesian3.clone(norm);
+      } else if (transform && norm) {
+        if (typeof Cesium.Matrix4.multiplyByPointAsVector === "function") {
+          normWorld = Cesium.Matrix4.multiplyByPointAsVector(transform, norm, normWorld);
+        } else if (typeof Cesium.Matrix4.multiplyByPoint === "function") {
+          normWorld = Cesium.Matrix4.multiplyByPoint(transform, norm, normWorld);
+        }
+        Cesium.Cartesian3.normalize(normWorld, normWorld);
+      } else {
+        normWorld = new Cesium.Cartesian3(0, 0, 1);
       }
-      Cesium.Cartesian3.normalize(normWorld, normWorld);
 
       const polyShadowQuads2D = [];
       if (solarPos.isDaylight && typeof obstacles !== "undefined" && obstacles && obstacles.length > 0) {
@@ -366,10 +372,27 @@
     };
   }
 
-  // ── 4. MOTOR HÍBRIDO DE SIMULACIÓN ANUAL ASÍNCRONA (TIME-SLICED 60 FPS) ──────
+  // Token de generación para cancelación atómica de simulaciones obsoletas/concurrentes
+  let _activeSimGenerationId = 0;
+
   async function computeAnnualSolarHeatmap(onProgressCallback) {
+    const simGenerationId = ++_activeSimGenerationId;
+    if (typeof window !== 'undefined' && window.solarSimState) {
+      window.solarSimState.currentSimGenerationId = simGenerationId;
+    }
+
     const wpState = (typeof window !== 'undefined' && window.WP ? window.WP : null);
     const polylines = (wpState && Array.isArray(wpState.polylines)) ? wpState.polylines : [];
+
+    // Sincronizar y enlazar referencias de paneles antes de iniciar el cómputo
+    polylines.forEach(poly => {
+      if (!poly.roofInfo && typeof computeSinglePolylineRoofInfo === 'function') {
+        poly.roofInfo = computeSinglePolylineRoofInfo(poly.points, poly);
+      }
+      if (poly.roofInfo && Array.isArray(poly.roofInfo.panels)) {
+        poly.panels = poly.roofInfo.panels;
+      }
+    });
 
     // Localizar módulo activo para verificar bifacialidad
     let activeModule = null;
@@ -381,6 +404,8 @@
 
     // 1. Verificación Pre-Flight de Bifacialidad
     const bifacialConfig = await wpEnsureBifacialConfig(activeModule);
+    if (simGenerationId !== _activeSimGenerationId) return; // Abortado por nuevo cálculo concurrente
+
     const isBifacial = bifacialConfig.isBifacial;
     const bifacialityFactor = bifacialConfig.bifacialityFactor;
 
@@ -436,44 +461,56 @@
     let monthsDoy = [15, 45, 74, 105, 135, 166, 196, 227, 258, 288, 319, 349];
     let monthDaysW = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
     let hours = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21];
+    let hourStepDt = 1.0; // Anchura del intervalo horario en horas (16 horas evaluadas)
     
     if (window.raHeatmapResolution === 'medium') {
       monthsDoy = [15, 74, 135, 196, 258, 319];
       monthDaysW = [59, 61, 61, 62, 61, 61]; 
       hours = [7, 9, 11, 13, 15, 17, 19];
+      hourStepDt = 16.0 / hours.length; // ~2.28h
     } else if (window.raHeatmapResolution === 'fast') {
       monthsDoy = [45, 135, 227, 319]; 
       monthDaysW = [90, 92, 92, 91];
       hours = [8, 11, 14, 17];
+      hourStepDt = 16.0 / hours.length; // 4.0h
     }
     const year = new Date().getFullYear();
 
     const lat = (window.solarProjectConfig && window.solarProjectConfig.lat) ? window.solarProjectConfig.lat : 40.4168;
     const lng = (window.solarProjectConfig && window.solarProjectConfig.lng) ? window.solarProjectConfig.lng : -3.7038;
 
-    const totalSteps = monthsDoy.length * hours.length; // 192 instantes
+    const totalSteps = monthsDoy.length * hours.length; // 192 instantes en calidad estándar
     let currentStep = 0;
     let frameStartTime = performance.now();
+
+    const _scratchV1 = new Cesium.Cartesian3();
+    const _scratchV2 = new Cesium.Cartesian3();
+    const _scratchUp = new Cesium.Cartesian3();
 
     function getPanelNormalWorld(pData, roofNorm, transform) {
       if (pData.corners && pData.corners.length >= 3) {
         const c0 = pData.corners[0];
         const c1 = pData.corners[1];
         const c3 = pData.corners[3];
-        const v1 = Cesium.Cartesian3.subtract(c1, c0, new Cesium.Cartesian3());
-        const v2 = Cesium.Cartesian3.subtract(c3, c0, new Cesium.Cartesian3());
-        const n = Cesium.Cartesian3.cross(v1, v2, new Cesium.Cartesian3());
+        Cesium.Cartesian3.subtract(c1, c0, _scratchV1);
+        Cesium.Cartesian3.subtract(c3, c0, _scratchV2);
+        const n = Cesium.Cartesian3.cross(_scratchV1, _scratchV2, new Cesium.Cartesian3());
         if (Cesium.Cartesian3.magnitude(n) > 1e-6) {
           Cesium.Cartesian3.normalize(n, n);
-          const up = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(pData.center || c0, new Cesium.Cartesian3());
+          const up = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(pData.center || c0, _scratchUp);
           if (Cesium.Cartesian3.dot(n, up) < 0) {
             Cesium.Cartesian3.negate(n, n);
           }
           return n;
         }
       }
+      // Si roofNorm ya tiene magnitud normalizada y está en ECEF
+      if (roofNorm) {
+        const mag = Cesium.Cartesian3.magnitude(roofNorm);
+        if (mag > 0.5) return Cesium.Cartesian3.clone(roofNorm);
+      }
       let nWorld = new Cesium.Cartesian3();
-      if (transform) {
+      if (transform && roofNorm) {
         if (typeof Cesium.Matrix4.multiplyByPointAsVector === "function") {
           nWorld = Cesium.Matrix4.multiplyByPointAsVector(transform, roofNorm, nWorld);
         } else {
@@ -481,7 +518,7 @@
         }
         return Cesium.Cartesian3.normalize(nWorld, nWorld);
       }
-      return roofNorm;
+      return roofNorm || new Cesium.Cartesian3(0, 0, 1);
     }
 
     // 5. Bucle Time-Sliced con presupuesto de 15ms
@@ -603,25 +640,44 @@
             const G_diffuse = G_dhi * svf;
             const G_albedo = GHI_instant * 0.20 * ((1 - cosSlope) / 2);
 
-            // Bifacialidad
-            const rearViewFactor = Math.pow(Math.sin(tiltRad / 2), 2);
+            // Bifacialidad: factor de vista hacia cubierta/suelo con difusión perimetral mínima (0.04) para coplanares
+            const rearViewFactor = Math.max(0.04, Math.pow(Math.sin(tiltRad / 2), 2));
             const albedoGain = isBifacial ? (GHI_instant * 0.20 * rearViewFactor * bifacialityFactor) : 0;
 
             const instantPotentialW = (G_beam + G_diffuse + G_albedo + albedoGain) * tempFactor;
-            pData.annualTotalPotential += instantPotentialW * mw;
+            pData.annualTotalPotential += instantPotentialW * mw * hourStepDt;
 
             // 4. Sombreado 2D (obstáculos) y 3D (Google 3D Tiles)
             let isShaded = false;
-            if (polyShadowQuads2D.length > 0) {
+            if (polyShadowQuads2D.length > 0 && typeof pData.u === 'number' && typeof pData.v === 'number') {
               const halfW = (pData.w || 1.05) / 2;
               const halfH = (pData.h || 2.10) / 2;
+              const uMin = pData.u - halfW;
+              const uMax = pData.u + halfW;
+              const vMin = pData.v - halfH;
+              const vMax = pData.v + halfH;
+              
               const panelPoly2D = [
-                { u: pData.u - halfW, v: pData.v - halfH },
-                { u: pData.u + halfW, v: pData.v - halfH },
-                { u: pData.u + halfW, v: pData.v + halfH },
-                { u: pData.u - halfW, v: pData.v + halfH }
+                { u: uMin, v: vMin },
+                { u: uMax, v: vMin },
+                { u: uMax, v: vMax },
+                { u: uMin, v: vMax }
               ];
               for (const quad of polyShadowQuads2D) {
+                if (!quad || quad.length === 0) continue;
+                // AABB Broadphase check: si la caja envolvente de la sombra no toca la del panel, descartar inmediatamente
+                let qUMin = Infinity, qUMax = -Infinity, qVMin = Infinity, qVMax = -Infinity;
+                for (let qi = 0; qi < quad.length; qi++) {
+                  const qpt = quad[qi];
+                  if (qpt.u < qUMin) qUMin = qpt.u;
+                  if (qpt.u > qUMax) qUMax = qpt.u;
+                  if (qpt.v < qVMin) qVMin = qpt.v;
+                  if (qpt.v > qVMax) qVMax = qpt.v;
+                }
+                if (uMax < qUMin || uMin > qUMax || vMax < qVMin || vMin > qVMax) {
+                  continue; // Sin solapamiento en bounding box
+                }
+
                 if (typeof polygonsIntersect2D === "function" && polygonsIntersect2D(panelPoly2D, quad)) {
                   isShaded = true;
                   break;
@@ -636,15 +692,20 @@
             }
 
             if (isShaded) {
-              pData.shadowHits = (pData.shadowHits || 0) + mw;
-              const instantLossW = G_beam * 0.85 * tempFactor;
-              pData.annualShadedLoss += instantLossW * mw;
+              pData.shadowHits = (pData.shadowHits || 0) + mw * hourStepDt;
+              // La sombra bloquea la componente de radiación directa incidente (G_beam), preservando la difusa
+              const instantLossW = G_beam * tempFactor;
+              pData.annualShadedLoss += instantLossW * mw * hourStepDt;
             }
           });
         });
 
         // ⏱️ TIME-SLICING: Ceder control al navegador si se supera el presupuesto de 15ms
         if (performance.now() - frameStartTime > 15) {
+          if (simGenerationId !== _activeSimGenerationId) {
+            // Abortar silenciosamente esta tarea en segundo plano porque se lanzó una nueva
+            return;
+          }
           const progressPct = Math.min(100, Math.round((currentStep / totalSteps) * 100));
           if (typeof updateSolarCalcHUD === 'function') {
             updateSolarCalcHUD(progressPct, mIdx, totalPanelsCount);
@@ -654,6 +715,7 @@
             onProgressCallback(progressPct, mIdx, totalPanelsCount);
           }
           await new Promise(resolve => setTimeout(resolve, 0));
+          if (simGenerationId !== _activeSimGenerationId) return;
           frameStartTime = performance.now();
         }
       }
@@ -797,22 +859,41 @@
   window.wpEvaluateMLPENecessity = wpEvaluateMLPENecessity;
   let _lastInvalToastTs = 0;
   window.wpInvalidateHeatmap = function(reason) {
-    const hadResults = !!(window.solarSimState && (window.solarSimState.annualHeatmapData || window.solarSimState.viewMode === 'heatmap'));
+    const hasSimState = !!(window.solarSimState && (window.solarSimState.annualHeatmapData || window.solarSimState.viewMode === 'heatmap'));
+    // Verificar también si algún panel ya tiene datos de irradiancia calculados
+    let hasPanelsCalculated = false;
+    if (window.WP && Array.isArray(window.WP.polylines)) {
+      hasPanelsCalculated = window.WP.polylines.some(pl => pl.roofInfo && Array.isArray(pl.roofInfo.panels) && pl.roofInfo.panels.some(p => p.annualKwh > 0 || p.annualShadedLoss > 0));
+    }
+    const hadResults = hasSimState || hasPanelsCalculated;
+
     if (window.solarSimState) {
       window.solarSimState.annualHeatmapData = null;
-      if (hadResults) { window.solarSimState.annualHeatmapDirty = true; }
+      window.solarSimState.annualHeatmapDirty = true;
       window.solarSimState.annualHeatmapInvalidatedAt = Date.now();
     }
+
     const p2LossBadge = document.getElementById('p2-shading-loss-badge');
-    if (p2LossBadge && hadResults) {
+    if (p2LossBadge) {
       p2LossBadge.textContent = '⚠ ANÁLISIS OBSOLETO';
       p2LossBadge.style.background = 'rgba(245,158,11,0.2)';
       p2LossBadge.style.color = '#F59E0B';
     }
-    // Avisar (con throttle) solo si había un heatmap calculado que el usuario pueda creerse vigente
-    if (hadResults && typeof window.showToast === 'function' && (Date.now() - _lastInvalToastTs) > 6000) {
+
+    const btnHeatmap = document.getElementById('btn-run-annual-heatmap');
+    if (btnHeatmap) {
+      btnHeatmap.style.borderColor = '#F59E0B';
+      btnHeatmap.style.color = '#F59E0B';
+      btnHeatmap.innerHTML = '<i data-lucide="refresh-cw" class="icon-sm"></i> ⚠ RECALCULAR MAPA DE CALOR 3D (DATOS OBSOLETOS)';
+      if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
+    }
+
+    // Avisar visualmente al usuario
+    if (typeof window.showToast === 'function' && (Date.now() - _lastInvalToastTs) > 3000) {
       _lastInvalToastTs = Date.now();
-      window.showToast('ANÁLISIS SOLAR OBSOLETO', (reason ? reason + '. ' : '') + 'Recalcula el mapa de calor en el Paso 3 para actualizar pérdidas y producción.', 'warning', 4500);
+      window.showToast('ANÁLISIS SOLAR OBSOLETO', (reason ? reason + '. ' : '') + 'Pulsa en "Recalcular Mapa de Calor" en el Paso 3 para actualizar la irradiancia y sombras.', 'warning', 4000);
+    } else if (typeof showStatus === 'function') {
+      showStatus('<i data-lucide="alert-triangle" class="icon-sm"></i> ' + (reason ? reason.toUpperCase() + ': ' : '') + 'ANÁLISIS SOLAR DESACTUALIZADO', 2500);
     }
   };
 

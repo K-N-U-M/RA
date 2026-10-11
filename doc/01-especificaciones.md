@@ -28,7 +28,7 @@ El producto está estructurado como un asistente secuencial controlado por `wpGo
 
 | Paso | Nombre | Funcionalidad |
 | :---: | :--- | :--- |
-| **1** | 🏠 EMPLAZAMIENTO | Definir plano de trabajo (3 clics P1/P2/P3), trazar faldones poligonales, colocar obstáculos 3D (chimeneas, HVAC, árboles). |
+| **1** | 🏠 EMPLAZAMIENTO | Definir plano de trabajo (3 clics P1/P2/P3), trazar faldones poligonales, colocar obstáculos 3D (chimeneas, HVAC, árboles, aerogeneradores). |
 | **2** | ☀️ CAMPO SOLAR | Seleccionar módulo FV del catálogo, generar layout booleano, ajustar inclinación β y azimut, portrait/landscape, visualización 3D de la malla. |
 | **3** | 🌤️ ANÁLISIS SOLAR | Importar factura eléctrica del cliente, definir objetivo kWh/kWp, lanzar simulación anual (156 instantes), visualizar heatmap y diagnóstico MLPE. |
 | **4** | ⚡ INGENIERÍA | Dimensionar inversor y batería, validar strings MPPT, calcular y trazar cableado DC/AC, comprobación IEC 62548 y CTE. |

@@ -240,6 +240,7 @@
           else if (obs.type === 'chimney') tipo = 'Chimenea';
           else if (obs.type === 'ac_unit') tipo = 'Máquina de Clima (HVAC)';
           else if (obs.type === 'electrical_box') tipo = 'Cuadro / Inversor';
+          else if (obs.type === 'wind_turbine') tipo = 'Aerogenerador Eólico';
           
           const w = typeof obs.w === 'number' ? obs.w : (typeof obs.width === 'number' ? obs.width : 1.0);
           const h = typeof obs.h === 'number' ? obs.h : (typeof obs.height === 'number' ? obs.height : 1.0);
@@ -395,6 +396,15 @@
     renderHUD: function() {
       if (typeof document === 'undefined') return;
       let hudEl = document.getElementById('ra-bom-tree-hud');
+      
+      let existingChartWrap = null;
+      if (hudEl) {
+        const wrapEl = hudEl.querySelector('.solar-chart-wrap');
+        if (wrapEl) {
+          existingChartWrap = wrapEl; // Guardar referencia al nodo existente
+        }
+      }
+
       if (!hudEl) {
         hudEl = document.createElement('div');
         hudEl.id = 'ra-bom-tree-hud';
@@ -482,8 +492,8 @@
               <span style="color:var(--emerald-400);font-weight:bold;width:45%;line-height:1.2;display:block;">HISTOGRAMA DE<br>GENERACIÓN (kWh)</span>
               <span id="bom-chart-hover-info" style="color:var(--text-slate-400);text-align:right;width:55%;line-height:1.2;display:flex;flex-direction:column;">PASA EL RATÓN<br>POR LAS BARRAS</span>
             </div>
-            <div class="solar-chart-wrap" style="background:rgba(15,23,42,0.6);border-radius:4px;padding:6px;border:1px solid rgba(255,255,255,0.05);">
-              <svg class="solar-bar-chart" id="bom-solar-svg-chart" viewBox="0 0 400 120" style="width:100%;height:120px;display:block;"></svg>
+            <div id="bom-chart-placeholder">
+              <!-- Placeholder for chart -->
             </div>
           </div>
           ` : ''}
@@ -523,6 +533,32 @@
           </div>
         </div>
       `;
+      
+      // Re-inyectar el SVG existente para no perder el estado y las transiciones
+      if (existingChartWrap) {
+        const placeholder = hudEl.querySelector('#bom-chart-placeholder');
+        if (placeholder) {
+          placeholder.appendChild(existingChartWrap);
+        }
+      } else if (!isEmptyProject) {
+        // Si no existía, creamos la estructura base para que renderSolarBarChart lo llene
+        const placeholder = hudEl.querySelector('#bom-chart-placeholder');
+        if (placeholder) {
+          const wrap = document.createElement('div');
+          wrap.className = 'solar-chart-wrap';
+          wrap.style.cssText = 'background:rgba(15,23,42,0.6);border-radius:4px;padding:6px;border:1px solid rgba(255,255,255,0.05);';
+          
+          const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+          svg.setAttribute('class', 'solar-bar-chart');
+          svg.setAttribute('id', 'bom-solar-svg-chart');
+          svg.setAttribute('viewBox', '0 0 400 120');
+          svg.style.cssText = 'width:100%;height:120px;display:block;';
+          
+          wrap.appendChild(svg);
+          placeholder.appendChild(wrap);
+        }
+      }
+
       if (typeof window.renderSolarBarChart === 'function') {
         setTimeout(() => window.renderSolarBarChart(window.lastMonthlyYields), 50);
       }

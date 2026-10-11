@@ -30,6 +30,7 @@
 | `bom-tree.js` | Árbol de materiales (BOM) | `BOMTreeEngine` |
 | `project-hierarchy.js` | Scene graph jerárquico | — |
 | `ui-outliner.js` | Outliner de objetos | — |
+| `wind-turbine.js` | Generadores eólicos 3D (HAWT/VAWT) paramétricos | `window.RAWindTurbine` |
 
 ---
 
@@ -57,6 +58,13 @@
 ### 2026-10-07: Solucion a Crash WebGL en Zoom Extremo (_target)
 - **Problema:** Al hacer zoom extremo sobre un cuadro electrico u obstaculo, el motor de sombras de Cesium JS (v1.118) perdia referencias a texturas internas. Esto provocaba un cuelgue critico.
 - **Solucion Final:** Inyeccion de un *Watchdog* de bajo nivel en index.html que intercepta el prototipo UniformSampler en los shaders de la GPU. Si Cesium intenta usar una textura undefined, el watchdog inyecta ctx.defaultTexture (fallback 1x1 blanco), previniendo el cuelgue sin afectar la fidelidad visual.
+
+### 2026-10-10/11: Aerogeneradores 3D y Transiciones UI
+- **Problema 1 (Flickering SVG):** Al actualizar la inclinación/producción, el histograma se destruía repintando un SVG en negro (DOM replacement).
+- **Solución 1:** Reescritura del `renderSolarBarChart()` para mantener nodos SVG e inyectar `style.transition`. Modificación en `bom-tree.js` para extraer el node SVG, actualizar el DOM del panel, y reinyectarlo (preservando estado y CSS). Etiqueta del eje Y optimizada en tamaño (13px, negrita).
+- **Problema 2 (Obstáculos Paramétricos):** Añadir aerogeneradores requería parámetros dinámicos (radio, altura, HAWT/VAWT) distintos al cubo/árbol, pero con mismo comportamiento UI de inserción.
+- **Solución 2:** Patrón de Módulo Aislado (`wind-turbine.js`). En lugar de alterar la lógica central en `obstacles.js`, se aplican function wrappers sobre métodos clave de render/arrastre (`render3DObstaclesInCesium`, `updateObstacleLiveModelMatrix`) interceptando el tipo `wind_turbine` y calculando su propia geometría Cesium, e inyectando un bloque UI propio dinámicamente en `#obstacle-selected-editor`.
+
 
 ## 3. Fuentes de Verdad (SSOT Map)
 
@@ -131,6 +139,38 @@ calculateFinancialModel()  ← Definición canónica en financials.js (~L491)
 - **Snapping Magnético y Auto-Trazado Zero-Click:** Generación automática al entrar en Paso 4 con codos editables y enganche a terminales de string.
 - **Limpieza Inline:** ~26.000 caracteres de código legacy retirados de `index.html`, delegando limpiamente en `RACableEngine`.
 - **Verificación:** Suite de pruebas en `tests/test-cable-engine.html` y consola `window.RACableEngine.runSelfTests()`.
+
+
+
+
+
+---
+
+## 8. Motor de Estructuras 3D Parametricas y Angulo Adaptativo (Octubre 2026)
+
+- **Estado:** Implementado y sincronizado con WP.polylines[i].structureType y WP.polylines[i].modTilt.
+- **Migracion a GPU Primitive:** Renderizado directo en GPU via viewer.scene.primitives (Cesium.PolylineCollection), garantizando visibilidad incondicional frente a 3D Tiles fotogrametricos.
+- **Geometria A-Frame Cerrada:** Escuadras triangulares cerradas por lateral: Arista baja -> Zapata de lastre en suelo -> Montante trasero vertical -> Cierre inclinado, con travesano de arriostramiento horizontal frontal.
+- **Inclinacion Adaptativa al Angulo Seleccionado:**
+  - 	riangles_30: Fijo a 30 grados orientacion Sur (180 grados).
+  - 	riangles_15_ew: Fijo a 15 grados Este-Oeste (90 grados / 270 grados).
+  - 	riangles_custom: Triangulo A-Frame adaptable a cualquier angulo elegido (1 a 60 grados) dinamicamente mediante el slider de inclinacion o el selector de estructura.
+  - coplanar_teja / coplanar_chapa: Railes de aluminio longitudinales paralelos al plano de cubierta (-0.025m del modulo).
+  - pergola: Pilares verticales en las 4 esquinas descendiendo a cubierta.
+- **Sincronizacion Bidireccional:** El slider de inclinacion sincroniza el selector de estructuras y viceversa, regenerando el layout 3D y el desglose BOM en tiempo real.
+
+---
+
+## 9. Auditoría de Simulación Anual y Heatmap Solar (Octubre 2026)
+
+- **Estado:** ✅ Auditado y corregido en `js/solar-heatmap.js` e `index.html`.
+- **Cancelación Atómica (Race Condition):** Introducido `_activeSimGenerationId` que aborta inmediatamente simulaciones obsoletas cuando el usuario modifica la escena o relanza el cálculo, evitando acumulaciones dobles en `p.annualTotalPotential`.
+- **Preservación SSOT de Paneles (`poly.roofInfo`):** Asegurada la sincronización de referencias antes del cómputo para garantizar que los paneles en memoria coincidan con los paneles renderizados en Cesium.
+- **Integración Temporal Dimensional ($\Delta t$):** Corregido el escalado de irradiancia en calidades Media y Rápida multiplicando por `hourStepDt`, evitando subestimaciones de producción anual al variar la densidad de muestreo.
+- **Normales 3D ECEF y Optimización GC:** Eliminada la doble rotación matricial en `getPanelNormalWorld` y reutilizados vectores temporales Cesium scratch para mitigar la presión del recolector de basura de JavaScript.
+- **Pérdida por Sombra Directa Rigurosa:** La pérdida instantánea en paneles sombreados bloquea la componente de haz directo (`G_beam * tempFactor`) conservando la captación difusa de cielo.
+- **AABB Broadphase en Sombras 2D:** Implementado descarte previo por caja envolvente que reduce las evaluaciones polinomiales en un ~50% por iteración.
+- **Armonización SSOT de Producción:** Cuando existe un cálculo de heatmap activo y válido, `recalculateSolarYield()` respeta y suma los `p.annualKwh` individuales del raycasting en lugar de sobreescribirlos con promedios planos globales.
 
 
 

@@ -15,8 +15,8 @@ La aplicación es un **monolito cliente** organizado en capas lógicas accesible
 │                     Máquina de estados (5 pasos), guards     │
 ├──────────────────────────────────────────────────────────────┤
 │  Motores JS         js/*.js  (working-plane, buildings,      │
-│                     obstacles, solar-engine, electrical,      │
-│                     financials, docs-generator, …)            │
+│                     obstacles, wind-turbine, solar-engine,   │
+│                     electrical, financials, docs-generator)  │
 ├──────────────────────────────────────────────────────────────┤
 │  Núcleo matemático  src/*.ts  (coords ENU/WGS84, vector3,    │
 │                     quaternion, polygon2d, solar, shading)    │

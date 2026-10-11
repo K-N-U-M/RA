@@ -3267,19 +3267,72 @@ function wpSetPolyTilt(polyIdx, val) {
 
 function wpSetPolyStructure(polyIdx, val) {
   if (!WP.polylines || !WP.polylines[polyIdx]) return;
-  WP.polylines[polyIdx].structureType = val;
-  const isTri = val.includes('triangle');
-  const h = isTri ? 0.25 : 0;
-  WP.polylines[polyIdx].estructura = { tipo: isTri ? 'balasto' : 'coplanar', clearance: h };
+  const poly = WP.polylines[polyIdx];
+  poly.structureType = val;
   WP.selectedPolyIdx = polyIdx;
-  
-  const currentMode = WP.polylines[polyIdx].arrangementMode || 'coplanar';
-  if (isTri && currentMode === 'coplanar') {
-    wpApplyPanelArrangement(polyIdx, 'solar_optimal');
-  } else if (!isTri && currentMode !== 'coplanar') {
-    wpApplyPanelArrangement(polyIdx, 'coplanar');
+
+  const isTri30 = (val === 'triangles_30');
+  const isTri15EW = (val === 'triangles_15_ew');
+  const isTriCustom = (val === 'triangles_custom');
+  const isTri = isTri30 || isTri15EW || isTriCustom || val.includes('triangle');
+  const isCoplanar = !isTri;
+
+  if (isCoplanar) {
+    poly.estructura = { tipo: 'coplanar', clearance: 0.05 };
+    poly.arrangementMode = 'coplanar';
+    poly.modTilt = 'auto';
+    poly.modAzimuth = 'auto';
+  } else if (isTri15EW) {
+    poly.estructura = { tipo: 'balasto', clearance: 0.20, subtype: 'east_west' };
+    poly.arrangementMode = 'custom';
+    poly.modTilt = 15;
+    poly.modAzimuth = 90;
+  } else if (isTriCustom) {
+    // Triángulos con ángulo adaptable: preserva la inclinación elegida o usa el valor actual del slider
+    const currentTilt = (typeof poly.modTilt === 'number' && poly.modTilt > 0) ? poly.modTilt : 20;
+    poly.estructura = { tipo: 'balasto', clearance: 0.25, subtype: 'custom_tilt' };
+    poly.arrangementMode = 'custom';
+    poly.modTilt = currentTilt;
+    if (poly.modAzimuth === 'auto' || poly.modAzimuth === undefined) poly.modAzimuth = 180;
   } else {
-    if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') BOMTreeEngine.refresh();
+    // Triángulos 30º Cubierta Plana
+    poly.estructura = { tipo: 'balasto', clearance: 0.25, subtype: 'south' };
+    poly.arrangementMode = 'solar_optimal';
+    poly.modTilt = 30;
+    poly.modAzimuth = 180;
+  }
+
+  // Purgar caché de geometría de paneles y regenerar
+  if (typeof roofPanelsCache !== 'undefined' && roofPanelsCache) {
+    roofPanelsCache.sig = '';
+    roofPanelsCache.data = null;
+  }
+
+  if (typeof computeSinglePolylineRoofInfo === 'function') {
+    poly.roofInfo = computeSinglePolylineRoofInfo(poly.points, poly);
+  }
+
+  if (typeof wpFastRenderSimulatedPanels === 'function') {
+    wpFastRenderSimulatedPanels();
+  }
+
+  if (typeof recalculateSolarYield === 'function') recalculateSolarYield();
+  if (typeof wpUpdateStep3UI === 'function') wpUpdateStep3UI();
+  if (typeof wpSyncStep6Controls === 'function') wpSyncStep6Controls();
+  if (typeof wpSyncEstructuraUI === 'function') wpSyncEstructuraUI();
+  if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') {
+    BOMTreeEngine.refresh();
+  }
+
+  const names = {
+    coplanar_teja: 'COPLANAR TEJA',
+    coplanar_chapa: 'COPLANAR CHAPA / SÁNDWICH',
+    triangles_30: 'TRIÁNGULOS 30º SUR',
+    triangles_15_ew: 'ESTRUCTURA 15º ESTE-OESTE',
+    triangles_custom: `TRIÁNGULOS ADAPTABLES (${poly.modTilt}°)`
+  };
+  if (typeof showStatus === 'function') {
+    showStatus(`<i data-lucide="check" class="icon-sm"></i> ESTRUCTURA APLICADA: ${names[val] || val.toUpperCase()} (Tilt: ${poly.modTilt}°)`, 3000);
   }
 }
 
