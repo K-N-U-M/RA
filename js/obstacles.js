@@ -705,6 +705,9 @@ function render3DObstaclesInCesium() {
 
   // 2. Reconciliar o instanciar primitivas para cada obstáculo
   obstacles.forEach((obs, idx) => {
+    // Obstáculos especiales delegados a submódulos dedicados
+    if (obs.type === 'wind_turbine') return;
+
     let wp = (typeof getObstacleActivePlane === 'function') ? getObstacleActivePlane(obs) : null;
     
     // Obtener centro base (directo desde obs.cartesian o proyectado en el plano de trabajo)

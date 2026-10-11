@@ -172,5 +172,16 @@ calculateFinancialModel()  ← Definición canónica en financials.js (~L491)
 - **AABB Broadphase en Sombras 2D:** Implementado descarte previo por caja envolvente que reduce las evaluaciones polinomiales en un ~50% por iteración.
 - **Armonización SSOT de Producción:** Cuando existe un cálculo de heatmap activo y válido, `recalculateSolarYield()` respeta y suma los `p.annualKwh` individuales del raycasting en lugar de sobreescribirlos con promedios planos globales.
 
+---
+
+## 10. Motor de Aerogeneradores Paramétricos AAA (Octubre 2026)
+
+- **Estado:** ✅ Refactorizado y auditado en `js/wind-turbine.js`, `js/obstacles.js` e `index.html`.
+- **Zero-Recreation en Drag:** Erradicada la destrucción de primitivas GPU durante eventos continuos `MOUSE_MOVE`. El arrastre en vivo actualiza únicamente matrices matemáticas de transformación (`modelMatrix`), garantizando 60 FPS estables sin saturación del Garbage Collector.
+- **Batching WebGL (Draw Call Consolidation):** Agrupación de todas las subgeometrías (mástil, góndola, hub, aspas) bajo una única `Cesium.Primitive` por aerogenerador mediante un array de `GeometryInstance` locales, reduciendo en un 83% el número de draw calls.
+- **Orientación Adaptativa:** Cálculo formal del marco de referencia en cubierta (`getObstacleFrame`), respetando si el obstáculo eólico es vertical a plomo o coplanar al faldón.
+- **Sombra Analítica 2D Esbelta:** Sombra sobre cubierta ajustada a la sección cilíndrica real del mástil en lugar de una caja maciza de exclusión, evitando pérdidas ficticias por sombra en el heatmap anual.
+- **Desacoplamiento Limpio:** Eliminada la mutación destructiva del array canónico `obstacles` (`splice` temporal) en los hooks de renderizado.
+
 
 

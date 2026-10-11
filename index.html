@@ -7420,7 +7420,9 @@ function getBuildingShadowPolygons2DForRoof(building, roof, sU, sV, shadowLenPer
 }
 
 function getObstacleShadowPolygons2DForRoof(obs, roof, sU, sV, shadowLenPerM) {
-  const h = Math.max(obs.h || 1.2, 0.2);
+  // Para aerogeneradores, la sombra sobre cubierta proviene del fuste/mástil cilíndrico esbelto
+  const isTurbine = (obs.type === 'wind_turbine');
+  const h = isTurbine ? (Math.max(obs.mastHeight || 6.0, 1.0)) : Math.max(obs.h || 1.2, 0.2);
   const shadowLen = h * (shadowLenPerM || 0);
   
   // <i data-lucide=\"zap\" class=\"icon-sm\"></i> SEPARACIÓN DE SEGURIDAD (5 cm): Iniciar la sombra a 0.05m del obstáculo para erradicar artefactos y shadow acne
