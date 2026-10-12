@@ -1943,6 +1943,17 @@ function wpDeleteActivePlane() {
 
   // Evitar que variables legacy resuciten la polilínea borrada en updateAllVisuals
   if (typeof polygonPoints !== 'undefined') window.polygonPoints = [];
+
+  if (typeof roofPanelsCache !== 'undefined' && roofPanelsCache) {
+    roofPanelsCache.sig = "";
+    roofPanelsCache.data = null;
+  }
+
+  if (WP.polylines.length === 0) {
+    window.allRenderedPanels = [];
+    if (typeof lastRoofInfo !== 'undefined') window.lastRoofInfo = null;
+    if (typeof wpClearInverterAndCables === 'function') wpClearInverterAndCables();
+  }
   
   // ── Actualizar UI y Renderizar estado ───────────────────────────────────
   wpClearEntGroup('activePlaneMarker');
@@ -1955,8 +1966,18 @@ function wpDeleteActivePlane() {
   if (typeof render3DObstaclesInCesium === 'function') render3DObstaclesInCesium();
   if (typeof updateAllVisuals === 'function') updateAllVisuals();
   
+  if (typeof window.wpInvalidateHeatmap === 'function') {
+    window.wpInvalidateHeatmap('Plano de trabajo eliminado');
+  }
+
+  if (typeof step5RegenerateLayout === 'function') step5RegenerateLayout();
+  if (typeof recalculateSolarYield === 'function') recalculateSolarYield();
+  if (typeof wpUpdateStep3UI === 'function') wpUpdateStep3UI();
+  if (typeof wpPopulateFaldonCard === 'function') wpPopulateFaldonCard();
+  if (typeof wpUpdateControlsAvailability === 'function') wpUpdateControlsAvailability();
+
   wpUpdateUI();
-  showStatus('<i data-lucide=\"trash-2\" class=\"icon-sm\"></i> "' + planeName + '" ELIMINADO — polilíneas y obstáculos borrados', 2500);
+  showStatus('<i data-lucide="trash-2" class="icon-sm"></i> "' + planeName + '" ELIMINADO — polilíneas y obstáculos borrados', 2500);
 }
 
 
