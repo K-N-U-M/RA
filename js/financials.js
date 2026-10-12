@@ -232,7 +232,7 @@ function generatePropuestaComercialPDF() {
 
   // [P0] Avisar si la geometría cambió tras el último mapa de calor válido
   if (typeof window !== 'undefined' && window.solarSimState && window.solarSimState.annualHeatmapDirty && typeof showToast === 'function') {
-    showToast('ANÁLISIS SOLAR OBCOLETO', 'La geometría o los obstáculos han cambiado desde el último cálculo. El PDF usa la producción del último mapa de calor válido: recalcula en el Paso 3 para cifras definitivas.', 'warning', 5500);
+    showToast('ANÁLISIS SOLAR OBSOLETO', 'La geometría o los obstáculos han cambiado desde el último cálculo. El PDF usa la producción del último mapa de calor válido: recalcula en el Paso 3 para cifras definitivas.', 'warning', 5500);
   }
 
   // ── Leer branding corporativo ─────────────────────────────────────────────

@@ -2606,8 +2606,10 @@ async function wpGoToStep(step) {
     // NOTA: isPolygonDesignConfirmed NO se fuerza aquí. Lo activa step5RegenerateLayout /
     // wpFastRenderSimulatedPanels cuando el layout se genera de verdad (evita desbloquear
     // pasos 3-5 con 0 paneles).
-    // Await del pipeline asíncrono: los cables se redibujan dentro del pipeline al terminar
-    if (typeof step5RegenerateLayout === 'function') {
+    // Await del pipeline asíncrono: solo regenerar desde cero si no hay paneles aún en memoria
+    const hasExistingPanels = (Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.some(p => p && !p.deleted)) ||
+                              (typeof WP !== 'undefined' && WP && Array.isArray(WP.polylines) && WP.polylines.some(p => p && ((p.panels && p.panels.length > 0) || (p.roofInfo && p.roofInfo.panels && p.roofInfo.panels.length > 0))));
+    if (!hasExistingPanels && typeof step5RegenerateLayout === 'function') {
       await step5RegenerateLayout();
     } else if (typeof wpFastRenderSimulatedPanels === 'function') {
       await wpFastRenderSimulatedPanels();
@@ -3906,7 +3908,7 @@ function resetEquipmentCatalogToDefault() {
 }
 
 function populateModuleDropdown() {
-  const sel = document.getElementById('cfg-modulo-select');
+  const sel = document.getElementById('faldon-module-select') || document.getElementById('cfg-modulo-select');
   if (!sel) return;
 
   const currentModName = (panelConfig && panelConfig.modelo) ? panelConfig.modelo : '';
@@ -3917,7 +3919,7 @@ function populateModuleDropdown() {
     '</option>';
   }).join('');
 
-  optionsHtml += '<option value="__custom__"><i data-lucide=\"settings\" class=\"icon-sm\"></i> Personalizado / Otro modelo…</option>';
+  optionsHtml += '<option value="__custom__"><i data-lucide="settings" class="icon-sm"></i> Personalizado / Otro modelo…</option>';
   sel.innerHTML = optionsHtml;
 }
 
@@ -3962,7 +3964,7 @@ function onSelectModuleFromDropdown(modId) {
   if (window.solarProjectConfig) {
     window.solarProjectConfig.selectedModuleId = m.id;
   }
-  const modSel = document.getElementById('step3-sel-module');
+  const modSel = document.getElementById('faldon-module-select') || document.getElementById('step3-sel-module');
   if (modSel) modSel.value = m.id;
 
   if (typeof step3UpdateHardwareSelection === 'function') {
