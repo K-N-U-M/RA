@@ -183,5 +183,14 @@ calculateFinancialModel()  ← Definición canónica en financials.js (~L491)
 - **Sombra Analítica 2D Esbelta:** Sombra sobre cubierta ajustada a la sección cilíndrica real del mástil en lugar de una caja maciza de exclusión, evitando pérdidas ficticias por sombra en el heatmap anual.
 - **Desacoplamiento Limpio:** Eliminada la mutación destructiva del array canónico `obstacles` (`splice` temporal) en los hooks de renderizado.
 
+---
+
+## 11. Máxima Canónica de Comunicación con el Usuario (Obligatoria)
+
+- **Estilo de Respuesta:** Explicaciones sencillas, directas y conceptuales, SIN referencias a nombres de archivos, rutas de código ni jerga técnica innecesaria.
+- **Sin Tests en el Chat:** No ejecutar ni volcar baterías de pruebas, salidas de terminal o scripts de verificación en la respuesta al usuario.
+- **Rol Permanente:** Arquitecto e ingeniero senior de software y director de proyectos de herramientas globales de la competencia (calidad AAA): implacable para encontrar fallos, incoherencias operativas e ineficiencias de negocio/diseño, verificando siempre la exactitud de los objetivos de la aplicación.
+
+
 
 

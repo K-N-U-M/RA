@@ -658,6 +658,9 @@ function updateObstacleLiveModelMatrix(obs, target) {
       }
     }
   }
+  if (typeof wpCheckObstacleInsideRoof === 'function') {
+    wpCheckObstacleInsideRoof(obs);
+  }
 }
 global.updateObstacleLiveModelMatrix = updateObstacleLiveModelMatrix;
 if (typeof window !== 'undefined') window.updateObstacleLiveModelMatrix = updateObstacleLiveModelMatrix;
@@ -1161,6 +1164,7 @@ function selectObstacle(obsId) {
 
   render3DObstaclesInCesium();
   if (typeof renderTriad2D === 'function') renderTriad2D();
+  if (typeof wpCheckObstacleInsideRoof === 'function') wpCheckObstacleInsideRoof(obs);
   showStatus('OBSTÁCULO "' + (obs.name || '').toUpperCase() + '" SELECCIONADO', 1800);
 }
 
@@ -1495,6 +1499,170 @@ function recalculateLayoutAndObstacles() {
       updateBudgetUI();
     }
   }
+
+  if (selectedObstacleId) {
+    const curObs = obstacles.find(o => o.id === selectedObstacleId);
+    if (curObs && typeof wpCheckObstacleInsideRoof === 'function') {
+      wpCheckObstacleInsideRoof(curObs);
+    }
+  }
+}
+
+function updateObstacleInsideRoofBadge(isInside, roofName) {
+  const badge = document.getElementById('obs-inside-roof-badge');
+  const snapBtn = document.getElementById('obs-snap-roof-btn');
+  if (badge) {
+    if (isInside) {
+      badge.textContent = '✓ En cubierta' + (roofName ? ' (' + roofName + ')' : '');
+      badge.style.background = 'rgba(16, 185, 129, 0.2)';
+      badge.style.color = '#34D399';
+      badge.style.border = '1px solid rgba(16, 185, 129, 0.4)';
+      badge.title = 'El obstáculo está correctamente situado dentro del perímetro de la cubierta.';
+    } else {
+      badge.textContent = '⚠️ Fuera de cubierta';
+      badge.style.background = 'rgba(239, 68, 68, 0.2)';
+      badge.style.color = '#F87171';
+      badge.style.border = '1px solid rgba(239, 68, 68, 0.4)';
+      badge.title = 'Aviso: el obstáculo se encuentra fuera del perímetro del tejado.';
+    }
+  }
+  if (snapBtn) {
+    snapBtn.style.display = isInside ? 'none' : 'block';
+  }
+}
+
+function wpCheckObstacleInsideRoof(optObs, notifyIfOutside) {
+  const curSelId = (typeof selectedObstacleId !== 'undefined' ? selectedObstacleId : (typeof window !== 'undefined' ? window.selectedObstacleId : null));
+  const obs = optObs || (curSelId ? obstacles.find(o => o.id === curSelId) : null);
+  if (!obs) return { isInside: false, polyName: null, polyIdx: -1 };
+
+  if (typeof WP === 'undefined' || !WP || !Array.isArray(WP.polylines) || WP.polylines.length === 0) {
+    updateObstacleInsideRoofBadge(false, null);
+    return { isInside: false, polyName: null, polyIdx: -1 };
+  }
+
+  function ptInPoly(pt, poly) {
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const xi = poly[i].u, yi = poly[i].v;
+      const xj = poly[j].u, yj = poly[j].v;
+      const intersect = ((yi > pt.v) !== (yj > pt.v)) && (pt.u < (xj - xi) * (pt.v - yi) / (yj - yi) + xi);
+      if (intersect) inside = !inside;
+    }
+    return inside;
+  }
+
+  let insideResult = false;
+  let matchingPoly = null;
+  let matchingPolyIdx = -1;
+
+  for (let idx = 0; idx < WP.polylines.length; idx++) {
+    const poly = WP.polylines[idx];
+    if (!poly || !poly.points || poly.points.length < 3) continue;
+
+    const planeIdx = (typeof poly.planeIdx === 'number' && poly.planeIdx >= 0 && WP.planes && WP.planes[poly.planeIdx])
+      ? poly.planeIdx
+      : (typeof WP.activePlaneIdx === 'number' ? WP.activePlaneIdx : 0);
+    const plane = (WP.planes && WP.planes[planeIdx]) ? WP.planes[planeIdx] : null;
+
+    let poly2D = (poly.roofInfo && Array.isArray(poly.roofInfo.poly2D) && poly.roofInfo.poly2D.length >= 3)
+      ? poly.roofInfo.poly2D
+      : null;
+
+    if (!poly2D && plane && plane.origin && plane.uVec && plane.vVec) {
+      poly2D = poly.points.map(pt => {
+        const rel = Cesium.Cartesian3.subtract(pt, plane.origin, new Cesium.Cartesian3());
+        return {
+          u: Cesium.Cartesian3.dot(rel, plane.uVec),
+          v: Cesium.Cartesian3.dot(rel, plane.vVec)
+        };
+      });
+    }
+
+    if (!poly2D || poly2D.length < 3) continue;
+
+    let obsU = obs.u;
+    let obsV = obs.v;
+
+    if (plane && plane.origin && plane.uVec && plane.vVec && obs.cartesian) {
+      const relObs = Cesium.Cartesian3.subtract(obs.cartesian, plane.origin, new Cesium.Cartesian3());
+      obsU = Cesium.Cartesian3.dot(relObs, plane.uVec);
+      obsV = Cesium.Cartesian3.dot(relObs, plane.vVec);
+    }
+
+    if (typeof obsU === 'number' && typeof obsV === 'number' && !isNaN(obsU) && !isNaN(obsV)) {
+      if (ptInPoly({ u: obsU, v: obsV }, poly2D)) {
+        insideResult = true;
+        matchingPoly = poly;
+        matchingPolyIdx = idx;
+        break;
+      }
+    }
+  }
+
+  if (!obs.id || obs.id === curSelId) {
+    updateObstacleInsideRoofBadge(insideResult, matchingPoly ? (matchingPoly.name || ('Faldón #' + (matchingPolyIdx + 1))) : null);
+  }
+
+  if (notifyIfOutside && !insideResult && typeof showToast === 'function') {
+    showToast('OBSTÁCULO FUERA', 'El obstáculo ha quedado fuera del tejado. Pulsa "Atraer a Cubierta" para devolverlo.', 'warning', 3500);
+  }
+
+  return {
+    isInside: insideResult,
+    polyName: matchingPoly ? (matchingPoly.name || ('Faldón #' + (matchingPolyIdx + 1))) : null,
+    polyIdx: matchingPolyIdx
+  };
+}
+
+function wpSnapObstacleToRoof(obsId) {
+  const targetId = obsId || (typeof selectedObstacleId !== 'undefined' ? selectedObstacleId : (typeof window !== 'undefined' ? window.selectedObstacleId : null));
+  if (!targetId) return;
+  const obs = obstacles.find(o => o.id === targetId);
+  if (!obs) return;
+
+  let targetPoly = null;
+  if (typeof WP !== 'undefined' && WP && Array.isArray(WP.polylines) && WP.polylines.length > 0) {
+    if (typeof WP.selectedPolyIdx === 'number' && WP.selectedPolyIdx >= 0 && WP.polylines[WP.selectedPolyIdx]) {
+      targetPoly = WP.polylines[WP.selectedPolyIdx];
+    } else {
+      targetPoly = WP.polylines[0];
+    }
+  }
+
+  if (!targetPoly || !targetPoly.points || targetPoly.points.length < 3) {
+    if (typeof showToast === 'function') {
+      showToast('SIN CUBIERTA', 'No hay ningún faldón cerrado sobre el que situar el obstáculo.', 'warning', 3000);
+    }
+    return;
+  }
+
+  let centroid = new Cesium.Cartesian3(0, 0, 0);
+  targetPoly.points.forEach(pt => {
+    centroid = Cesium.Cartesian3.add(centroid, pt, centroid);
+  });
+  centroid = Cesium.Cartesian3.multiplyByScalar(centroid, 1.0 / targetPoly.points.length, centroid);
+
+  const planeIdx = (typeof targetPoly.planeIdx === 'number' && targetPoly.planeIdx >= 0 && WP.planes && WP.planes[targetPoly.planeIdx])
+    ? targetPoly.planeIdx
+    : (typeof WP.activePlaneIdx === 'number' ? WP.activePlaneIdx : 0);
+  const plane = (WP.planes && WP.planes[planeIdx]) ? WP.planes[planeIdx] : null;
+
+  obs.cartesian = Cesium.Cartesian3.clone(centroid);
+  if (plane && plane.origin && plane.uVec && plane.vVec) {
+    const rel = Cesium.Cartesian3.subtract(centroid, plane.origin, new Cesium.Cartesian3());
+    obs.u = Cesium.Cartesian3.dot(rel, plane.uVec);
+    obs.v = Cesium.Cartesian3.dot(rel, plane.vVec);
+  }
+  obs.planeIdx = planeIdx;
+  obs.polyIdx = (WP.polylines.indexOf(targetPoly) >= 0) ? WP.polylines.indexOf(targetPoly) : 0;
+
+  recalculateLayoutAndObstacles();
+  selectObstacle(obs.id);
+  if (typeof renderTriad2D === 'function') renderTriad2D();
+  if (typeof showToast === 'function') {
+    showToast('IMÁN A CUBIERTA', 'El obstáculo ha sido atraído al centro del faldón.', 'success', 3000);
+  }
 }
 
   // ── EXPORTACIÓN AL NAMESPACE GLOBAL Y WINDOW.RA ─────────────────────────────
@@ -1524,7 +1692,10 @@ function recalculateLayoutAndObstacles() {
     obsPlaceAt: obsPlaceAt,
     setSelectedObstacleAlignment: setSelectedObstacleAlignment,
     getObstacleOrientationAxes: getObstacleOrientationAxes,
-    recalculateLayoutAndObstacles: recalculateLayoutAndObstacles
+    recalculateLayoutAndObstacles: recalculateLayoutAndObstacles,
+    wpCheckObstacleInsideRoof: wpCheckObstacleInsideRoof,
+    updateObstacleInsideRoofBadge: updateObstacleInsideRoofBadge,
+    wpSnapObstacleToRoof: wpSnapObstacleToRoof
   };
 
   global.getObstacleActivePlane = getObstacleActivePlane;
@@ -1550,5 +1721,8 @@ function recalculateLayoutAndObstacles() {
   global.setSelectedObstacleAlignment = setSelectedObstacleAlignment;
   global.getObstacleOrientationAxes = getObstacleOrientationAxes;
   global.recalculateLayoutAndObstacles = recalculateLayoutAndObstacles;
+  global.wpCheckObstacleInsideRoof = wpCheckObstacleInsideRoof;
+  global.updateObstacleInsideRoofBadge = updateObstacleInsideRoofBadge;
+  global.wpSnapObstacleToRoof = wpSnapObstacleToRoof;
 
 })(typeof window !== 'undefined' ? window : globalThis);

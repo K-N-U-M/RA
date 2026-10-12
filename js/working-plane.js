@@ -1875,6 +1875,77 @@ function wpEditActivePlane() {
   wpStartDefinePlane();
 }
 
+function wpSetPlaneTilt(targetTiltDeg) {
+  const plane = wpGetActivePlane();
+  if (!plane || !plane.origin) {
+    if (typeof showToast === 'function') showToast('SIN PLANO', 'Crea o selecciona un plano de cubierta primero.', 'warning', 2500);
+    return;
+  }
+  const tilt = Math.max(0, Math.min(85, targetTiltDeg));
+  const betaRad = Cesium.Math.toRadians(tilt);
+  const radial = Cesium.Cartesian3.normalize(plane.origin, new Cesium.Cartesian3());
+  
+  let slopeDir = null;
+  if (plane.normal) {
+    const dotN = Cesium.Cartesian3.dot(plane.normal, radial);
+    const horizComp = Cesium.Cartesian3.subtract(
+      plane.normal,
+      Cesium.Cartesian3.multiplyByScalar(radial, dotN, new Cesium.Cartesian3()),
+      new Cesium.Cartesian3()
+    );
+    if (Cesium.Cartesian3.magnitude(horizComp) > 1e-4) {
+      slopeDir = Cesium.Cartesian3.normalize(horizComp, new Cesium.Cartesian3());
+    }
+  }
+  if (!slopeDir) {
+    const east = Cesium.Cartesian3.normalize(Cesium.Cartesian3.cross(Cesium.Cartesian3.UNIT_Z, radial, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+    const north = Cesium.Cartesian3.normalize(Cesium.Cartesian3.cross(radial, east, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+    slopeDir = Cesium.Cartesian3.negate(north, new Cesium.Cartesian3());
+  }
+
+  const newNormal = Cesium.Cartesian3.add(
+    Cesium.Cartesian3.multiplyByScalar(radial, Math.cos(betaRad), new Cesium.Cartesian3()),
+    Cesium.Cartesian3.multiplyByScalar(slopeDir, Math.sin(betaRad), new Cesium.Cartesian3()),
+    new Cesium.Cartesian3()
+  );
+  plane.normal = Cesium.Cartesian3.normalize(newNormal, new Cesium.Cartesian3());
+  plane.tiltDeg = tilt;
+
+  let uVec = Cesium.Cartesian3.cross(plane.normal, Cesium.Cartesian3.UNIT_Z, new Cesium.Cartesian3());
+  if (Cesium.Cartesian3.magnitude(uVec) < 1e-3) {
+    uVec = Cesium.Cartesian3.cross(plane.normal, Cesium.Cartesian3.UNIT_X, new Cesium.Cartesian3());
+  }
+  plane.uVec = Cesium.Cartesian3.normalize(uVec, new Cesium.Cartesian3());
+  plane.vVec = Cesium.Cartesian3.normalize(Cesium.Cartesian3.cross(plane.normal, plane.uVec, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+  plane.name = 'Plano Cubierta #' + (WP.activePlaneIdx + 1) + ' (' + tilt.toFixed(0) + '°)';
+
+  if (WP.polylines) {
+    WP.polylines.forEach(poly => {
+      if (poly && poly.planeIdx === WP.activePlaneIdx) {
+        if (poly.modTilt === 'auto' || poly.modTilt === undefined) {
+          if (poly.roofInfo) poly.roofInfo.moduleTiltDeg = tilt;
+        }
+      }
+    });
+  }
+
+  wpRenderActivePlaneGizmo();
+  wpUpdateUI();
+  if (typeof wpUpdateStep3UI === 'function') wpUpdateStep3UI();
+  if (typeof wpPopulateFaldonCard === 'function') wpPopulateFaldonCard();
+  if (typeof step5RegenerateLayout === 'function') step5RegenerateLayout();
+  if (typeof recalculateSolarYield === 'function') recalculateSolarYield();
+  if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Pendiente de cubierta fijada a ' + tilt + '°');
+
+  showStatus('<i data-lucide="compass" class="icon-sm"></i> PENDIENTE DE CUBIERTA ENDEREZADA A ' + tilt + '°', 2500);
+  if (typeof showToast === 'function') {
+    showToast('PENDIENTE ENDEREZADA', 'El plano de cubierta se ha fijado exactamente a ' + tilt + '°.', 'success', 3000);
+  }
+  const curViewer = (typeof viewer !== 'undefined' && viewer) ? viewer : (window.viewer || null);
+  if (curViewer && curViewer.scene && typeof curViewer.scene.requestRender === 'function') curViewer.scene.requestRender();
+}
+window.wpSetPlaneTilt = wpSetPlaneTilt;
+
 function wpDeleteActivePlane() {
   if (WP.activePlaneIdx < 0 || !WP.planes[WP.activePlaneIdx]) return;
 

@@ -351,6 +351,18 @@ window.RA_App = window.RA_App || {};
                   <div style="font-size:9.5px;color:var(--text-slate-300);">Inclinación: <b id="wp-plane-tilt-lbl" style="color:#fff;">0.0°</b></div>
                   <div style="font-size:9.5px;color:var(--text-slate-300);">Azimut: <b id="wp-plane-az-lbl" style="color:#fff;">180.0° (Sur)</b></div>
                 </div>
+                <div id="wp-plane-tilt-quickfix-box" style="margin-top:6px;background:rgba(255,255,255,0.04);padding:5px 7px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);">
+                  <div style="font-size:9px;color:var(--text-slate-300);margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;">
+                    <span><i data-lucide="compass" class="icon-sm"></i> Enderezar Pendiente:</span>
+                    <span style="font-size:8.5px;color:var(--amber-400);">Ajuste 1 clic</span>
+                  </div>
+                  <div style="display:flex;gap:4px;">
+                    <button type="button" class="doc-mini-btn" onclick="wpSetPlaneTilt(0)" style="flex:1;text-align:center;padding:3px 2px;font-size:9px;" title="Plano horizontal (0°)">0° Plana</button>
+                    <button type="button" class="doc-mini-btn" onclick="wpSetPlaneTilt(15)" style="flex:1;text-align:center;padding:3px 2px;font-size:9px;" title="Pendiente suave de nave industrial (15°)">15° Nave</button>
+                    <button type="button" class="doc-mini-btn" onclick="wpSetPlaneTilt(25)" style="flex:1;text-align:center;padding:3px 2px;font-size:9px;" title="Teja estándar (25°)">25° Teja</button>
+                    <button type="button" class="doc-mini-btn" onclick="wpSetPlaneTilt(30)" style="flex:1;text-align:center;padding:3px 2px;font-size:9px;" title="Teja tradicional pronunciada (30°)">30° Tradic.</button>
+                  </div>
+                </div>
                 <div class="stat-grid-2" style="margin-top:6px;">
                   <button class="doc-mini-btn" onclick="wpEditActivePlane()" style="text-align:center;"><i data-lucide="edit-2" class="icon-sm"></i> REPETIR 3 PTOS</button>
                   <button class="doc-mini-btn" onclick="wpDeleteActivePlane()" style="text-align:center;color:var(--rose-500);"><i data-lucide="trash-2" class="icon-sm"></i> BORRAR PLANO</button>
@@ -718,10 +730,14 @@ window.RA_App = window.RA_App || {};
 
                 <!-- Editor y Transformación del Obstáculo Seleccionado -->
                 <div id="obstacle-selected-editor" style="display:none;flex-direction:column;gap:6px;border-top:1px solid rgba(255,255,255,0.08);padding-top:6px;">
-                  <div style="font-size:9.5px;font-weight:800;color:var(--text-slate-300);display:flex;justify-content:space-between;">
+                  <div style="font-size:9.5px;font-weight:800;color:var(--text-slate-300);display:flex;justify-content:space-between;align-items:center;">
                     <span id="obs-selected-title">CHIMENEA #1</span>
+                    <span id="obs-inside-roof-badge" style="font-size:8.5px;padding:1px 6px;border-radius:4px;background:rgba(16,185,129,0.2);color:#34D399;font-weight:bold;">✓ En cubierta</span>
                     <span id="obs-selected-rot-lbl" style="color:var(--amber-400);">Giro: 0°</span>
                   </div>
+                  <button type="button" id="obs-snap-roof-btn" class="doc-mini-btn" style="display:none;width:100%;text-align:center;font-size:9px;color:var(--amber-400);background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.35);padding:4px;" onclick="wpSnapObstacleToRoof()" title="Atraer y centrar el obstáculo en el faldón de la cubierta">
+                    <i data-lucide="magnet" class="icon-sm"></i> Atraer y Centrar en Cubierta
+                  </button>
 
                   <!-- Selector de Alineación: A Plomo (Vertical) vs Coplanar -->
                   <div style="display:flex;justify-content:space-between;align-items:center;background:rgba(15,23,42,0.45);padding:4px 6px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);margin-top:2px;">
@@ -15329,6 +15345,7 @@ window.toggleSolarHUD = toggleSolarHUD;
         if (typeof render3DObstaclesInCesium === 'function') render3DObstaclesInCesium();
         if (typeof recalculateLayoutAndObstacles === 'function') recalculateLayoutAndObstacles();
         if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Obstáculo desplazado');
+        if (typeof wpCheckObstacleInsideRoof === 'function') wpCheckObstacleInsideRoof(null, true);
       } else if (draggedTargetType === 'panel') {
         // [Option A] Traslación manual de panel: persistir en arrays y dejar que wpFastRender reconstruya el batch.
         const _pIdx = (typeof selectedPanelIndex !== 'undefined') ? selectedPanelIndex : -1;
