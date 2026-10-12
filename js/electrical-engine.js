@@ -511,6 +511,222 @@
     return { changed, mpptCount, capPer, totalStrings, overflow: totalStrings > mpptCount * capPer };
   }
 
+  // ── 7. ASISTENTE PROACTIVO DE INVERSORES Y GUÍA VISUAL DEL CONTADOR ─────────
+
+  /**
+   * Actualiza el asistente proactivo de inversores en el Paso 4
+   * Revisa si el inversor se queda corto o largo respecto al número real de placas,
+   * y ofrece la sustitución directa en 1 clic.
+   */
+  function wpUpdateInverterSmartAssistantUI() {
+    const container = document.getElementById('step4-inverter-smart-assistant');
+    if (!container) return;
+
+    const catalog = (typeof root.equipmentCatalog !== 'undefined' && root.equipmentCatalog && root.equipmentCatalog.inverters)
+      ? root.equipmentCatalog.inverters
+      : [];
+    if (catalog.length === 0) {
+      container.style.display = 'none';
+      return;
+    }
+
+    const cfg = root.solarProjectConfig || {};
+    const selectedInvId = cfg.selectedInverterId || (catalog[0] ? catalog[0].id : null);
+    const currentInv = catalog.find(i => i.id === selectedInvId) || catalog[0];
+
+    // Conteo real de módulos
+    let totalPanels = 0;
+    if (Array.isArray(root.allRenderedPanels) && root.allRenderedPanels.length > 0) {
+      totalPanels = root.allRenderedPanels.filter(p => p && !p.deleted).length;
+    }
+    if (totalPanels === 0 && root.WP && Array.isArray(root.WP.polylines)) {
+      root.WP.polylines.forEach(p => {
+        if (p && p.roofInfo && Array.isArray(p.roofInfo.panels)) {
+          totalPanels += p.roofInfo.panels.filter(x => !x.deleted).length;
+        }
+      });
+    }
+
+    if (totalPanels === 0) {
+      container.style.display = 'none';
+      return;
+    }
+
+    const pCfg = (typeof root.panelConfig !== 'undefined' && root.panelConfig) ? root.panelConfig : {};
+    const modWp = pCfg.potencia || pCfg.wp || 450;
+    const totalKwp = (totalPanels * modWp) / 1000.0;
+
+    const invNomKw = currentInv.kw || 5.0;
+    const maxOverloadRatio = currentInv.maxOverload || 1.30;
+    const maxCapacityKwp = invNomKw * maxOverloadRatio;
+    const autoInverters = Math.max(1, Math.ceil(totalKwp / maxCapacityKwp));
+
+    // Evaluar si se queda corto (potencia total supera la capacidad con margen del 5%)
+    const isUndersized = totalKwp > (maxCapacityKwp * 1.05);
+
+    // Evaluar si está sobredimensionado en exceso (potencia total < 50% del inversor)
+    const isOversized = totalKwp < (invNomKw * 0.50) && totalKwp >= 1.0;
+
+    if (isUndersized) {
+      // Buscar el mejor inversor de 1 unidad que admita esta potencia
+      const candidates = catalog.filter(inv => {
+        const cap = (inv.kw || 5.0) * (inv.maxOverload || 1.30);
+        return cap >= totalKwp;
+      });
+
+      // Ordenar por cercanía al 115-125% de sobrecarga
+      candidates.sort((a, b) => {
+        const ratioA = totalKwp / a.kw;
+        const ratioB = totalKwp / b.kw;
+        return Math.abs(ratioA - 1.20) - Math.abs(ratioB - 1.20);
+      });
+
+      const best = candidates[0];
+      if (best && best.id !== currentInv.id) {
+        container.style.display = 'block';
+        container.innerHTML = `
+          <div style="background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.45);border-radius:7px;padding:8px;display:flex;flex-direction:column;gap:5px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <span style="font-size:10px;font-weight:900;color:#F59E0B;display:flex;align-items:center;gap:4px;">
+                <i data-lucide="alert-triangle" class="icon-sm"></i> Inversor Insuficiente para ${totalPanels} Placas
+              </span>
+              <span class="card-tag" style="background:rgba(245,158,11,0.25);color:#FBBF24;font-size:8px;font-weight:800;">
+                ${totalKwp.toFixed(1)} kWp / ${invNomKw} kW AC
+              </span>
+            </div>
+            <div style="font-size:8.5px;color:var(--text-slate-200);line-height:1.3;">
+              El modelo actual de <b>${invNomKw} kW</b> se queda corto para esta cubierta y obligaría a colocar <b>${autoInverters} aparatos</b>. Te recomendamos el modelo <b>${best.brand} ${best.model} (${best.kw} kW)</b> para abastecer toda la vivienda con un único equipo.
+            </div>
+            <button type="button" onclick="wpApplyRecommendedInverter('${best.id}')" style="background:linear-gradient(135deg,#F59E0B,#D97706);border:none;color:#0F172A;font-size:9.5px;font-weight:900;padding:6px 10px;border-radius:5px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;box-shadow:0 0 10px rgba(245,158,11,0.3);margin-top:2px;">
+              <i data-lucide="zap" class="icon-sm"></i> Cambiar a ${best.brand} ${best.kw} kW en 1 Clic
+            </button>
+          </div>
+        `;
+        if (root.lucide && typeof root.lucide.createIcons === 'function') root.lucide.createIcons();
+        return;
+      }
+    } else if (isOversized) {
+      // Buscar el inversor más ajustado y económico
+      const candidates = catalog.filter(inv => {
+        const cap = (inv.kw || 5.0) * (inv.maxOverload || 1.30);
+        return cap >= totalKwp && inv.kw < currentInv.kw;
+      });
+
+      candidates.sort((a, b) => {
+        const ratioA = totalKwp / a.kw;
+        const ratioB = totalKwp / b.kw;
+        return Math.abs(ratioA - 1.20) - Math.abs(ratioB - 1.20);
+      });
+
+      const best = candidates[0];
+      if (best && best.id !== currentInv.id) {
+        container.style.display = 'block';
+        container.innerHTML = `
+          <div style="background:rgba(56,189,248,0.1);border:1px solid rgba(56,189,248,0.4);border-radius:7px;padding:8px;display:flex;flex-direction:column;gap:5px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <span style="font-size:10px;font-weight:900;color:var(--sky-400);display:flex;align-items:center;gap:4px;">
+                <i data-lucide="info" class="icon-sm"></i> Inversor Más Grande de lo Necesario
+              </span>
+              <span class="card-tag" style="background:rgba(56,189,248,0.2);color:#38BDF8;font-size:8px;font-weight:800;">
+                ${totalKwp.toFixed(1)} kWp / ${invNomKw} kW AC
+              </span>
+            </div>
+            <div style="font-size:8.5px;color:var(--text-slate-200);line-height:1.3;">
+              Para solo <b>${totalPanels} placas (${totalKwp.toFixed(1)} kWp)</b>, el modelo de <b>${invNomKw} kW</b> encarece el presupuesto sin necesidad. Con el modelo <b>${best.brand} ${best.model} (${best.kw} kW)</b> ahorras costes de equipo.
+            </div>
+            <button type="button" onclick="wpApplyRecommendedInverter('${best.id}')" style="background:rgba(56,189,248,0.25);border:1px solid #38BDF8;color:#BAE6FD;font-size:9.5px;font-weight:900;padding:5px 10px;border-radius:5px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;margin-top:2px;">
+              <i data-lucide="check" class="icon-sm"></i> Ajustar a ${best.brand} ${best.kw} kW en 1 Clic
+            </button>
+          </div>
+        `;
+        if (root.lucide && typeof root.lucide.createIcons === 'function') root.lucide.createIcons();
+        return;
+      }
+    }
+
+    // Si está perfectamente ajustado
+    container.style.display = 'block';
+    container.innerHTML = `
+      <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.3);border-radius:6px;padding:5px 8px;display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:9px;font-weight:800;color:#34D399;display:flex;align-items:center;gap:4px;">
+          <i data-lucide="check-circle" class="icon-sm"></i> Inversor perfectamente ajustado
+        </span>
+        <span style="font-size:8.5px;color:rgba(255,255,255,0.7);">
+          ${totalKwp.toFixed(1)} kWp · ${((totalKwp / invNomKw) * 100).toFixed(0)}% carga
+        </span>
+      </div>
+    `;
+    if (root.lucide && typeof root.lucide.createIcons === 'function') root.lucide.createIcons();
+  }
+  root.wpUpdateInverterSmartAssistantUI = wpUpdateInverterSmartAssistantUI;
+
+  /**
+   * Aplica directamente el inversor recomendado en 1 clic
+   */
+  function wpApplyRecommendedInverter(invId) {
+    const sel = document.getElementById('step3-sel-inverter');
+    if (sel) sel.value = invId;
+    if (root.solarProjectConfig) root.solarProjectConfig.selectedInverterId = invId;
+    if (typeof root.step3UpdateHardwareSelection === 'function') root.step3UpdateHardwareSelection();
+    wpUpdateInverterSmartAssistantUI();
+    if (typeof root.showToast === 'function') {
+      const catalog = (root.equipmentCatalog && root.equipmentCatalog.inverters) ? root.equipmentCatalog.inverters : [];
+      const inv = catalog.find(i => i.id === invId);
+      const name = inv ? `${inv.brand} ${inv.kw} kW` : invId;
+      root.showToast('INVERSOR ACTUALIZADO', `Se ha seleccionado el modelo ${name} para un ajuste perfecto con tus paneles.`, 'success', 3500);
+    }
+  }
+  root.wpApplyRecommendedInverter = wpApplyRecommendedInverter;
+
+  /**
+   * Actualiza la guía visual del contador / acometida de la vivienda
+   */
+  function wpUpdateMeterPlacementGuideUI() {
+    const container = document.getElementById('step4-meter-placement-guide');
+    if (!container) return;
+
+    const s = root.inverterEquipmentState || {};
+    const hasMeter = !!(s.gridMeter && s.gridMeter.position);
+    const measuredM = (typeof s.L_ac_measured === 'number' && s.L_ac_measured > 0) ? s.L_ac_measured : 0;
+
+    if (hasMeter) {
+      container.innerHTML = `
+        <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.35);border-radius:7px;padding:7px 9px;display:flex;flex-direction:column;gap:3px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:9.5px;font-weight:900;color:#34D399;display:flex;align-items:center;gap:4px;">
+              <i data-lucide="check-circle-2" class="icon-sm"></i> Contador Ubicado en Fachada
+            </span>
+            <button type="button" onclick="wpStartGridMeterPlacement()" class="doc-mini-btn" style="font-size:8px;padding:2px 6px;color:#38BDF8;border-color:rgba(56,189,248,0.4);">
+              <i data-lucide="move" class="icon-sm"></i> Recolocar
+            </button>
+          </div>
+          <div style="font-size:8.5px;color:var(--text-slate-300);line-height:1.3;">
+            Tirada real al inversor: <b>${measuredM > 0 ? measuredM.toFixed(1) + ' m' : 'calculada en 3D'}</b>. El cable de evacuación AC y los costes de materiales están medidos al centímetro.
+          </div>
+        </div>
+      `;
+    } else {
+      container.innerHTML = `
+        <div style="background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.35);border-radius:7px;padding:8px 9px;display:flex;flex-direction:column;gap:4px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:9.5px;font-weight:900;color:var(--sky-400);display:flex;align-items:center;gap:4px;">
+              <i data-lucide="map-pin" class="icon-sm"></i> Paso Guiado: Ubicar el Contador de Luz
+            </span>
+            <span class="card-tag" style="background:rgba(56,189,248,0.2);color:#38BDF8;font-size:8px;font-weight:800;">PENDIENTE</span>
+          </div>
+          <div style="font-size:8.5px;color:var(--text-slate-300);line-height:1.3;">
+            Toca en la fachada de la vivienda donde se encuentra el contador o cuadro general para medir los metros exactos de cable hasta el inversor.
+          </div>
+          <button type="button" onclick="wpStartGridMeterPlacement()" style="background:rgba(56,189,248,0.2);border:1px solid #38BDF8;color:#BAE6FD;font-size:9px;font-weight:900;padding:5px 8px;border-radius:5px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;margin-top:2px;">
+            <i data-lucide="plug" class="icon-sm"></i> Tocar en la Pared para Situar el Contador
+          </button>
+        </div>
+      `;
+    }
+    if (root.lucide && typeof root.lucide.createIcons === 'function') root.lucide.createIcons();
+  }
+  root.wpUpdateMeterPlacementGuideUI = wpUpdateMeterPlacementGuideUI;
+
   // Exportar al ámbito global y Window
   root.ELEC_CONSTANTS = ELEC_CONSTANTS;
   root.getPolylineStringColor = getPolylineStringColor;
@@ -532,7 +748,10 @@
     partitionPanelsIntoMPPTStrings: partitionPanelsIntoMPPTStrings,
     matchInvertersFromCatalog: matchInvertersFromCatalog,
     calculateVoltageDrop: calculateVoltageDrop,
-    rebalanceMPPTAssignment: rebalanceMPPTAssignment
+    rebalanceMPPTAssignment: rebalanceMPPTAssignment,
+    updateInverterAssistant: wpUpdateInverterSmartAssistantUI,
+    applyRecommendedInverter: wpApplyRecommendedInverter,
+    updateMeterPlacementGuide: wpUpdateMeterPlacementGuideUI
   };
 
 })(typeof window !== 'undefined' ? window : globalThis);

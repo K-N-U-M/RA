@@ -347,6 +347,9 @@ function step3UpdateHardwareSelection() {
   if (typeof EngineeringExplainer !== 'undefined' && typeof EngineeringExplainer.renderEquipmentJustificationUI === 'function') {
     EngineeringExplainer.renderEquipmentJustificationUI('step3-engineering-explainer-container');
   }
+  if (typeof wpUpdateInverterSmartAssistantUI === 'function') {
+    wpUpdateInverterSmartAssistantUI();
+  }
 }
 window.step3UpdateHardwareSelection = step3UpdateHardwareSelection;
 window.wpUpdateEngineeringHardware = step3UpdateHardwareSelection;

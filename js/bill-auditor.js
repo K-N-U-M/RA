@@ -792,6 +792,12 @@
       }
     }
 
+    if (typeof wpSelectCommercialPath === 'function') {
+      wpSelectCommercialPath('just_saving');
+    } else if (typeof wpUpdateCommercialPathsUI === 'function') {
+      wpUpdateCommercialPathsUI();
+    }
+
     if (typeof updateBudgetUI === 'function') {
       updateBudgetUI();
     }

@@ -905,6 +905,15 @@
     if (typeof recalculateSolarYield === 'function') {
       recalculateSolarYield();
     }
+    if (typeof wpUpdateStep3DirtyAlert === 'function') {
+      wpUpdateStep3DirtyAlert();
+    }
+    if (typeof wpUpdateShadedCleanupUI === 'function') {
+      wpUpdateShadedCleanupUI();
+    }
+    if (typeof wpUpdateCommercialPathsUI === 'function') {
+      wpUpdateCommercialPathsUI();
+    }
   }
 
   // ── 5. EXPORTACIÓN CANÓNICA ───────────────────────────────────────────────
@@ -916,6 +925,7 @@
     if (window.solarSimState) {
       window.solarSimState.annualHeatmapData = null;
       window.solarSimState.annualHeatmapDirty = true;
+      window.solarSimState._lastInvalReason = reason || 'Cubierta modificada';
       window.solarSimState.annualHeatmapInvalidatedAt = Date.now();
       window.solarSimState.isCalculatingHeatmap = false;
       window.solarSimState.viewMode = 'normal';
@@ -1017,16 +1027,264 @@
     if (wasHeatmapMode && typeof wpFastRenderSimulatedPanels === 'function') {
       wpFastRenderSimulatedPanels();
     }
+
+    if (typeof wpUpdateStep3DirtyAlert === 'function') {
+      wpUpdateStep3DirtyAlert(reason);
+    }
+    if (typeof wpUpdateShadedCleanupUI === 'function') {
+      wpUpdateShadedCleanupUI();
+    }
   };
 
   window.computeAnnualSolarHeatmap = computeAnnualSolarHeatmap;
+
+  // ── 6. ESTRATEGIA COMERCIAL, LIMPIEZA DE SOMBRAS & ALERTAS ──────────────────
+
+  /**
+   * Actualiza el banner de alerta de cálculo de sombras desactualizado
+   */
+  function wpUpdateStep3DirtyAlert(reason) {
+    const alertEl = document.getElementById('step3-heatmap-dirty-alert');
+    if (!alertEl) return;
+    const isDirty = !!(window.solarSimState && window.solarSimState.annualHeatmapDirty);
+    if (isDirty) {
+      alertEl.style.display = 'block';
+      const reasonBadge = document.getElementById('step3-dirty-reason-badge');
+      if (reasonBadge) {
+        if (reason) reasonBadge.textContent = reason;
+        else if (window.solarSimState && window.solarSimState._lastInvalReason) reasonBadge.textContent = window.solarSimState._lastInvalReason;
+        else reasonBadge.textContent = 'Cubierta modificada';
+      }
+    } else {
+      alertEl.style.display = 'none';
+    }
+    if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
+  }
+  window.wpUpdateStep3DirtyAlert = wpUpdateStep3DirtyAlert;
+
+  /**
+   * Conmuta la estrategia comercial entre Camino A (Ahorro Justo) y Camino B (Tejado Completo)
+   */
+  function wpSelectCommercialPath(pathKey) {
+    if (!window.solarProjectConfig) window.solarProjectConfig = {};
+
+    if (pathKey === 'just_saving') {
+      const billAuditorState = (typeof window.RABillAuditor !== 'undefined' && window.RABillAuditor.getState) ? window.RABillAuditor.getState() : null;
+      const hasBill = !!(billAuditorState && billAuditorState.currentBill);
+      const hasTargetKwp = !!(window.solarProjectConfig.targetKwp && window.solarProjectConfig.targetKwp > 0);
+
+      // Sincronizar radio buttons
+      const radios = document.getElementsByName('project_objective');
+      for (let r of radios) {
+        r.checked = (r.value === 'target_kwh');
+      }
+      window.solarProjectConfig.selectedObjective = 'target_kwh';
+
+      if (!hasBill && !hasTargetKwp && typeof window.openBillAuditorModal === 'function') {
+        window.openBillAuditorModal();
+      }
+    } else {
+      // Máxima producción / Tejado completo
+      const radios = document.getElementsByName('project_objective');
+      for (let r of radios) {
+        r.checked = (r.value === 'max_roof');
+      }
+      window.solarProjectConfig.selectedObjective = 'max_roof';
+    }
+
+    if (typeof step4UpdateObjective === 'function') {
+      step4UpdateObjective();
+    }
+    wpUpdateCommercialPathsUI();
+  }
+  window.wpSelectCommercialPath = wpSelectCommercialPath;
+
+  /**
+   * Refresca la apariencia y valores de las tarjetas de los dos caminos comerciales
+   */
+  function wpUpdateCommercialPathsUI() {
+    const cardJustSaving = document.getElementById('path-card-just-saving');
+    const cardMaxProd = document.getElementById('path-card-max-prod');
+    const badgeJustSaving = document.getElementById('badge-path-just-saving');
+    const badgeMaxProd = document.getElementById('badge-path-max-prod');
+    const valJustSaving = document.getElementById('path-val-just-saving');
+    const valMaxProd = document.getElementById('path-val-max-prod');
+
+    const curObj = (window.solarProjectConfig && window.solarProjectConfig.selectedObjective) || 'optimal_inv';
+    const isJustSaving = (curObj === 'target_kwh');
+
+    if (cardJustSaving) {
+      if (isJustSaving) {
+        cardJustSaving.style.borderColor = '#c084fc';
+        cardJustSaving.style.background = 'rgba(168,85,247,0.18)';
+        cardJustSaving.style.boxShadow = '0 0 10px rgba(168,85,247,0.25)';
+        if (badgeJustSaving) badgeJustSaving.style.display = 'inline-block';
+      } else {
+        cardJustSaving.style.borderColor = 'rgba(168,85,247,0.3)';
+        cardJustSaving.style.background = 'rgba(168,85,247,0.05)';
+        cardJustSaving.style.boxShadow = 'none';
+        if (badgeJustSaving) badgeJustSaving.style.display = 'none';
+      }
+    }
+
+    if (cardMaxProd) {
+      if (!isJustSaving) {
+        cardMaxProd.style.borderColor = '#38BDF8';
+        cardMaxProd.style.background = 'rgba(56,189,248,0.18)';
+        cardMaxProd.style.boxShadow = '0 0 10px rgba(56,189,248,0.25)';
+        if (badgeMaxProd) badgeMaxProd.style.display = 'inline-block';
+      } else {
+        cardMaxProd.style.borderColor = 'rgba(56,189,248,0.3)';
+        cardMaxProd.style.background = 'rgba(56,189,248,0.05)';
+        cardMaxProd.style.boxShadow = 'none';
+        if (badgeMaxProd) badgeMaxProd.style.display = 'none';
+      }
+    }
+
+    // Valores dinámicos
+    if (valJustSaving) {
+      const billAuditorState = (typeof window.RABillAuditor !== 'undefined' && window.RABillAuditor.getState) ? window.RABillAuditor.getState() : null;
+      if (billAuditorState && billAuditorState.comparison && billAuditorState.comparison.consumoAnualKWh) {
+        valJustSaving.textContent = Math.round(billAuditorState.comparison.consumoAnualKWh).toLocaleString() + ' kWh/año';
+      } else if (window.solarProjectConfig && window.solarProjectConfig.targetKwp) {
+        valJustSaving.textContent = (window.solarProjectConfig.targetKwp * 1450).toFixed(0) + ' kWh/año (estimado)';
+      } else {
+        valJustSaving.textContent = 'Sin factura (importar)';
+      }
+    }
+
+    if (valMaxProd) {
+      let kwp = 0;
+      if (typeof getProjectCalcs === 'function') {
+        const calcs = getProjectCalcs();
+        kwp = calcs.totalKwp || (calcs.totalWp ? (calcs.totalWp / 1000) : 0);
+      }
+      if (kwp > 0) {
+        valMaxProd.textContent = kwp.toFixed(2) + ' kWp';
+      } else {
+        valMaxProd.textContent = '-- kWp';
+      }
+    }
+    if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
+  }
+  window.wpUpdateCommercialPathsUI = wpUpdateCommercialPathsUI;
+
+  /**
+   * Obtiene la lista de paneles con pérdida crítica por sombra (≥ 15% o inviables)
+   */
+  function wpGetCriticalShadedPanels() {
+    const critical = [];
+    if (window.WP && Array.isArray(window.WP.polylines)) {
+      window.WP.polylines.forEach((poly, polyIdx) => {
+        if (poly && poly.roofInfo && Array.isArray(poly.roofInfo.panels)) {
+          poly.roofInfo.panels.forEach((p, pIdx) => {
+            if (!p.deleted && (p.isUnviable || (typeof p.annualLossPct === 'number' && p.annualLossPct >= 15.0))) {
+              critical.push({ poly, polyIdx, panel: p, panelIdx: pIdx });
+            }
+          });
+        }
+      });
+    }
+    return critical;
+  }
+  window.wpGetCriticalShadedPanels = wpGetCriticalShadedPanels;
+
+  /**
+   * Actualiza el badge y visibilidad del limpiador de paneles sombreados
+   */
+  function wpUpdateShadedCleanupUI() {
+    const box = document.getElementById('step3-shade-cleanup-box');
+    const badge = document.getElementById('step3-shaded-count-badge');
+    if (!box) return;
+
+    // Solo se evalúa si hay simulación de sombras ejecutada
+    const hasSim = !!(window.solarSimState && window.solarSimState.annualHeatmapData && !window.solarSimState.annualHeatmapDirty);
+    if (!hasSim) {
+      box.style.display = 'none';
+      return;
+    }
+
+    const critical = wpGetCriticalShadedPanels();
+    if (critical.length > 0) {
+      box.style.display = 'block';
+      if (badge) badge.textContent = critical.length + (critical.length === 1 ? ' PANEL' : ' PANELES');
+    } else {
+      box.style.display = 'none';
+    }
+    if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
+  }
+  window.wpUpdateShadedCleanupUI = wpUpdateShadedCleanupUI;
+
+  /**
+   * Retira de la cubierta todos los paneles con sombra crítica (≥ 15%) en 1 clic
+   */
+  async function wpCleanCriticalShadedPanels() {
+    const critical = wpGetCriticalShadedPanels();
+    if (critical.length === 0) {
+      if (typeof showToast === 'function') {
+        showToast('SOMBRAS ÓPTIMAS', 'No hay ningún panel con pérdidas críticas por sombra (≥15%).', 'success', 3000);
+      }
+      return;
+    }
+
+    const count = critical.length;
+    // Registrar exclusiones persistentes en cada faldón
+    critical.forEach(item => {
+      const poly = item.poly;
+      const p = item.panel;
+      p.deleted = true;
+      if (p.rawPanel) p.rawPanel.deleted = true;
+
+      if (poly) {
+        if (!Array.isArray(poly.deletedPanels)) poly.deletedPanels = [];
+        poly.deletedPanels.push({
+          u: (typeof p.u === 'number') ? p.u : (p.rawPanel && p.rawPanel.u),
+          v: (typeof p.v === 'number') ? p.v : (p.rawPanel && p.rawPanel.v),
+          center: p.center ? Cesium.Cartesian3.clone(p.center) : null
+        });
+        if (poly.roofInfo && Array.isArray(poly.roofInfo.panels)) {
+          poly.roofInfo.panels = poly.roofInfo.panels.filter(x => x !== p && !x.deleted);
+        }
+      }
+    });
+
+    // Limpiar de allRenderedPanels
+    if (Array.isArray(window.allRenderedPanels)) {
+      window.allRenderedPanels = window.allRenderedPanels.filter(p => !p.deleted);
+    }
+
+    // Re-renderizado de paneles
+    if (typeof wpFastRenderSimulatedPanels === 'function') {
+      await wpFastRenderSimulatedPanels();
+    }
+    if (typeof recalculateSolarYield === 'function') {
+      recalculateSolarYield();
+    }
+    if (typeof wpUpdateStep3UI === 'function') {
+      wpUpdateStep3UI();
+    }
+
+    wpUpdateShadedCleanupUI();
+    wpUpdateCommercialPathsUI();
+
+    if (typeof showToast === 'function') {
+      showToast('CUBIERTA OPTIMIZADA', 'Se han retirado ' + count + (count === 1 ? ' panel sombreado' : ' paneles sombreados') + ' para maximizar la producción neta.', 'success', 4000);
+    }
+  }
+  window.wpCleanCriticalShadedPanels = wpCleanCriticalShadedPanels;
 
   if (!window.RA) window.RA = {};
   window.RA.solarHeatmap = {
     update: wpUpdatePanelShadingAndMLPE,
     evaluateMLPE: wpEvaluateMLPENecessity,
     computeHeatmap: computeAnnualSolarHeatmap,
-    invalidate: window.wpInvalidateHeatmap
+    invalidate: window.wpInvalidateHeatmap,
+    updateDirtyAlert: wpUpdateStep3DirtyAlert,
+    selectCommercialPath: wpSelectCommercialPath,
+    updateCommercialPathsUI: wpUpdateCommercialPathsUI,
+    getCriticalShadedPanels: wpGetCriticalShadedPanels,
+    updateShadedCleanupUI: wpUpdateShadedCleanupUI,
+    cleanCriticalShadedPanels: wpCleanCriticalShadedPanels
   };
 
 })();

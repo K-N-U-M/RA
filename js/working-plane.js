@@ -2768,7 +2768,7 @@ async function wpGoToStep(step) {
       wpRenderMonthlyProductionChart();
     }
   } else if (step === 3) {
-    // <i data-lucide=\"cloud-sun\" class=\"icon-sm\"></i> PASO 3: ANÁLISIS SOLAR (Factura, Demanda, Heatmap Sombras)
+    // <i data-lucide="cloud-sun" class="icon-sm"></i> PASO 3: ANÁLISIS SOLAR (Factura, Demanda, Heatmap Sombras)
     const c3 = document.getElementById('wp-step-3-content');
     if (c3) c3.style.display = 'flex';
     // Sincronizar visualmente el criterio técnico sin disparar eventos de recálculo ni invalidación
@@ -2779,6 +2779,9 @@ async function wpGoToStep(step) {
         r.checked = (r.value === activeObj);
       }
     }
+    if (typeof wpUpdateStep3DirtyAlert === 'function') wpUpdateStep3DirtyAlert();
+    if (typeof wpUpdateCommercialPathsUI === 'function') wpUpdateCommercialPathsUI();
+    if (typeof wpUpdateShadedCleanupUI === 'function') wpUpdateShadedCleanupUI();
   } else if (step === 4) {
     // <i data-lucide="zap" class="icon-sm"></i> PASO 4: INGENIERÍA ELÉCTRICA (Inversor, Batería, Strings, Cableado)
     const c4 = document.getElementById('wp-step-4-content');
@@ -2795,6 +2798,12 @@ async function wpGoToStep(step) {
     if (typeof raRenderLossFields === 'function') {
       raRenderLossFields();
     }
+    if (typeof wpUpdateInverterSmartAssistantUI === 'function') {
+      wpUpdateInverterSmartAssistantUI();
+    }
+    if (typeof wpUpdateMeterPlacementGuideUI === 'function') {
+      wpUpdateMeterPlacementGuideUI();
+    }
   } else if (step === 5) {
     // <i data-lucide=\"file-text\" class=\"icon-sm\"></i> PASO 5: ENTREGA, PRESUPUESTO & MEMORIA PDF
     const c5 = document.getElementById('wp-step-5-content');
@@ -2810,6 +2819,9 @@ async function wpGoToStep(step) {
     if (typeof updateBudgetUI === 'function') updateBudgetUI();
     if (typeof wpRenderMonthlyProductionChart === 'function') {
       wpRenderMonthlyProductionChart();
+    }
+    if (typeof wpUpdateStep5PricingBadge === 'function') {
+      wpUpdateStep5PricingBadge();
     }
   }
 
