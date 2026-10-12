@@ -105,6 +105,7 @@ Para erradicar parpadeos, moiré, shadow acne y z-fighting:
 - **`renderUniversalGizmo2D`** es la única fuente de verdad para el objeto seleccionado.
 - Aplica a: obstáculos, árboles, edificios, inversor, cuadro DC, contador, paneles individuales.
 - **Regla de arrastre:** Durante `MOUSE_MOVE`, NUNCA destruir primitivas GPU. Solo actualizar coordenadas matemáticas. La reconstrucción pesada (sombras, cables, layout) se difiere a `LEFT_UP`.
+- **Detección e Imán de Obstáculos:** Durante el arrastre con gizmo y al soltar (`LEFT_UP`), `wpCheckObstacleInsideRoof` evalúa en tiempo real si el obstáculo permanece dentro de un faldón cerrado. Si se sale, conmuta el badge `#obs-inside-roof-badge` a `⚠️ Fuera de cubierta`, alerta con toast y activa el botón `#obs-snap-roof-btn` (`wpSnapObstacleToRoof`) para atraerlo y centrarlo de nuevo en la cubierta.
 - **Supresión de etiquetas (PENDIENTE DE IMPLEMENTAR):** objetivo documentado, pero hoy NO existe en código (`selectObstacle`/`selectPanel`/`selectBuilding` no tocan `label.show`). No asumir que funciona.
 
 ---
