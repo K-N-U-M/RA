@@ -1254,7 +1254,7 @@ window.RA_App = window.RA_App || {};
                   <span class="card-tag" style="background:#F59E0B;color:#0F172A;font-weight:900;margin-left:4px;white-space:nowrap;align-self:flex-start;">REBT / IEC 62548</span>
                 </div>
                 <div style="display:flex;gap:4px;justify-content:flex-end;">
-                  <button type="button" class="doc-mini-btn" onclick="wpQuickPreview3DFromStep3()" style="font-size:9px;border-color:var(--emerald-400);color:var(--emerald-400);background:rgba(16,185,129,0.12);padding:3px 7px;cursor:pointer;font-weight:700;" title="Genera una vista previa 3D de la disposición con los módulos seleccionados">
+                  <button type="button" class="doc-mini-btn" onclick="wpQuickPreview3DFromStep4()" style="font-size:9px;border-color:var(--emerald-400);color:var(--emerald-400);background:rgba(16,185,129,0.12);padding:3px 7px;cursor:pointer;font-weight:700;" title="Genera una vista previa 3D de la disposición con los módulos seleccionados">
                     <i data-lucide="eye" class="icon-sm"></i> PREVER 3D
                   </button>
                   <button type="button" class="doc-mini-btn" onclick="openEquipmentCatalogModal()" style="font-size:9px;border-color:var(--amber-400);color:var(--amber-400);padding:3px 7px;cursor:pointer;">
@@ -6744,8 +6744,10 @@ function recalculateSolarYield() {
 
   // Update Breakdown UI
   const panelEl = document.getElementById('yield-breakdown-panel');
+  if (panelEl) {
+    panelEl.style.display = (numPanels > 0) ? 'flex' : 'none';
+  }
   if (panelEl && numPanels > 0) {
-    panelEl.style.display = 'none';
     
     // Animate numbers if they changed significantly, or just set them
     
@@ -14257,18 +14259,21 @@ async function wpRunHeatmapAndActivateView(forceRecalculate = true) {
     window.solarSimState.annualHeatmapDirty = false;
     window.solarSimState.isCalculatingHeatmap = false;
   }
-  // Ejecutar el motor de cálculo directamente
+  // Ejecutar el motor de cálculo directamente (ya renderiza mallas y visuales)
   if (typeof wpTriggerAnnualSolarHeatmapWrapper === 'function') {
     await wpTriggerAnnualSolarHeatmapWrapper();
   } else if (typeof window.computeAnnualSolarHeatmap === 'function') {
     await window.computeAnnualSolarHeatmap();
   }
-  // Sincronizar la vista y controles al modo heatmap
-  if (typeof wpSetShadowViewMode === 'function') {
-    await wpSetShadowViewMode('heatmap');
-  } else if (typeof wpRenderHeatmapVisuals === 'function') {
-    wpRenderHeatmapVisuals();
-  }
+  // Sincronizar botones de modo y leyenda sin forzar un segundo renderizado GPU redundante
+  const btnInstant = document.getElementById("btn-shadow-mode-instant");
+  const btnHeatmap = document.getElementById("btn-shadow-mode-heatmap");
+  const btnMlpe = document.getElementById("btn-shadow-mode-mlpe");
+  const heatLegend = document.getElementById("solar-heatmap-legend");
+  if (btnInstant) btnInstant.classList.remove("active");
+  if (btnHeatmap) btnHeatmap.classList.add("active");
+  if (btnMlpe) btnMlpe.classList.remove("active");
+  if (heatLegend) heatLegend.style.display = "flex";
 }
 window.wpRunHeatmapAndActivateView = wpRunHeatmapAndActivateView;
 

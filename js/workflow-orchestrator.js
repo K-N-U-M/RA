@@ -140,8 +140,16 @@
      * Comprueba si se ha generado un campo de paneles fotovoltaicos
      */
     hasGeneratedPanels() {
+      if (Array.isArray(global.allRenderedPanels) && global.allRenderedPanels.filter(p => p && !p.deleted).length > 0) {
+        return true;
+      }
       if (global.WP && Array.isArray(global.WP.polylines)) {
-        const hasPolyPanels = global.WP.polylines.some(p => p && Array.isArray(p.panels) && p.panels.length > 0);
+        const hasPolyPanels = global.WP.polylines.some(p => {
+          if (!p) return false;
+          if (Array.isArray(p.panels) && p.panels.length > 0) return true;
+          if (p.roofInfo && Array.isArray(p.roofInfo.panels) && p.roofInfo.panels.length > 0) return true;
+          return false;
+        });
         if (hasPolyPanels) return true;
       }
       if (global.WP && Array.isArray(global.WP.panelPool) && global.WP.panelPool.length > 0) {
@@ -193,13 +201,13 @@
             reason: 'Requiere completar el diseño solar en los pasos anteriores'
           };
         }
-        // minPrerequisite: 'inverter' — el presupuesto/memoria exigen inversor del catálogo
+        // minPrerequisite: 'inverter' — el presupuesto/memoria exigen inversor o microinversor del catálogo
         const cfg = global.solarProjectConfig;
-        const hasInverter = !!(cfg && cfg.selectedInverterId);
+        const hasInverter = !!(cfg && (cfg.selectedInverterId || (cfg.selectedTopology === 'microinverter' && cfg.selectedMicroinverterId)));
         if (!hasInverter) {
           return {
             allowed: false,
-            reason: 'Requiere seleccionar un inversor del catálogo en el Paso 4 (Ingeniería)'
+            reason: 'Requiere seleccionar un inversor o microinversor del catálogo en el Paso 4 (Ingeniería)'
           };
         }
       }
