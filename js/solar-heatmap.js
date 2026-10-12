@@ -912,11 +912,13 @@
   window.wpEvaluateMLPENecessity = wpEvaluateMLPENecessity;
   let _lastInvalToastTs = 0;
   window.wpInvalidateHeatmap = function(reason) {
+    const wasHeatmapMode = !!(window.solarSimState && window.solarSimState.viewMode === 'heatmap');
     if (window.solarSimState) {
       window.solarSimState.annualHeatmapData = null;
       window.solarSimState.annualHeatmapDirty = true;
       window.solarSimState.annualHeatmapInvalidatedAt = Date.now();
       window.solarSimState.isCalculatingHeatmap = false;
+      window.solarSimState.viewMode = 'normal';
     }
 
     // 1. Purgar caché de rendimiento e irradiancia de TODOS los paneles en memoria
@@ -1011,8 +1013,8 @@
       showStatus('<i data-lucide="alert-triangle" class="icon-sm"></i> ' + (reason ? reason.toUpperCase() + ': ' : '') + 'ANÁLISIS SOLAR DESACTUALIZADO', 2500);
     }
 
-    // 6. Si estaba en modo heatmap, forzar un refresco visual de los paneles
-    if (window.solarSimState && window.solarSimState.viewMode === 'heatmap' && typeof wpFastRenderSimulatedPanels === 'function') {
+    // 6. Si estaba en modo heatmap, forzar un refresco visual para volver al tinte normal de strings
+    if (wasHeatmapMode && typeof wpFastRenderSimulatedPanels === 'function') {
       wpFastRenderSimulatedPanels();
     }
   };

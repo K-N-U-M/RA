@@ -341,6 +341,9 @@ function step3UpdateHardwareSelection() {
 
 function wpComputeAutoSizing(forcedCount) {
   let count = (typeof forcedCount === 'number' && forcedCount > 0) ? forcedCount : 0;
+  if (count === 0 && typeof window !== 'undefined' && Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0) {
+    count = window.allRenderedPanels.filter(p => p && !p.deleted).length;
+  }
   if (count === 0) {
     if (typeof WP !== 'undefined' && WP && WP.polylines && WP.polylines.length > 0) {
       WP.polylines.forEach(p => {
@@ -536,6 +539,10 @@ function step3RenderAutoSizingUI(count, totalKwp, mod, inv, mi, bat, maxKwInput,
     }
     costEl.textContent = Math.round(totCost).toLocaleString('es-ES') + ' €';
   }
+
+  if (typeof window !== 'undefined' && window.lucide && typeof window.lucide.createIcons === 'function') {
+    window.lucide.createIcons();
+  }
 }
 
 function wpStepQuantity(type, delta) {
@@ -606,12 +613,12 @@ function step3SyncBudgetHardwareCosts(inv, mi, bat) {
   }
 }
 
-// <i data-lucide=\"rocket\" class=\"icon-sm\"></i> PREVISUALIZACIÓN RÁPIDA 3D DESDE EL PASO 3 (SIN CAMBIAR EL STEP ACTIVO)
+// <i data-lucide=\"rocket\" class=\"icon-sm\"></i> PREVISUALIZACIÓN RÁPIDA 3D DESDE EL PASO 3 Y 4
 function wpQuickPreview3DFromStep3() {
   const hasPolys = typeof WP !== 'undefined' && WP && WP.polylines && WP.polylines.length > 0;
   if (!hasPolys && (!polygonPoints || polygonPoints.length < 3)) {
-    showStatus('<i data-lucide=\"alert-triangle\" class=\"icon-sm\"></i> TRAZA PRIMERO UN FALDÓN O CONTORNO EN EL PASO 2', 3000);
-    if (typeof showToast === 'function') showToast('SIN CONTORNO', 'Dibuja al menos una polilínea en el Paso 2 para previsualizar en 3D.', 'warning', 3000);
+    showStatus('<i data-lucide=\"alert-triangle\" class=\"icon-sm\"></i> TRAZA PRIMERO UN FALDÓN EN EL PASO 1 (EMPLAZAMIENTO)', 3000);
+    if (typeof showToast === 'function') showToast('SIN CONTORNO', 'Dibuja al menos un faldón en el Paso 1 (Emplazamiento) para previsualizar en 3D.', 'warning', 3000);
     return;
   }
 
@@ -638,19 +645,24 @@ function wpQuickPreview3DFromStep3() {
   }
 }
 window.wpQuickPreview3DFromStep3 = wpQuickPreview3DFromStep3;
+window.wpQuickPreview3DFromStep4 = wpQuickPreview3DFromStep3;
 
 function step4UpdateObjective() {
+  const prevObj = window.solarProjectConfig ? window.solarProjectConfig.selectedObjective : null;
   const radios = document.getElementsByName('project_objective');
+  let newObj = 'optimal_inv';
   for (let r of radios) {
     if (r.checked) {
-      window.solarProjectConfig.selectedObjective = r.value;
+      newObj = r.value;
       break;
     }
   }
-  const obj = window.solarProjectConfig.selectedObjective;
-  showStatus('CRITERIO TÉCNICO FV ACTUALIZADO: ' + obj.toUpperCase(), 2000);
+  if (!window.solarProjectConfig) window.solarProjectConfig = {};
+  if (prevObj === newObj) return; // Si no ha cambiado, no invalidar ni recalcular
+  window.solarProjectConfig.selectedObjective = newObj;
+  showStatus('CRITERIO TÉCNICO FV ACTUALIZADO: ' + newObj.toUpperCase(), 2000);
   if (typeof window.wpInvalidateHeatmap === 'function') {
-    window.wpInvalidateHeatmap('Criterio técnico FV modificado (' + obj + ')');
+    window.wpInvalidateHeatmap('Criterio técnico FV modificado (' + newObj + ')');
   }
   // Auto-refresh: regenerar distribución de paneles al cambiar criterio
   if (typeof isPolygonDesignConfirmed !== 'undefined') isPolygonDesignConfirmed = true;

@@ -24,17 +24,17 @@
     2: {
       id: 2,
       key: 'field',
-      name: 'Campo Solar & Sombras',
-      phase: 'FASE II · CAMPO SOLAR & SOMBRAS',
-      title: 'Paso 2: Campo Solar - Módulos FV, Sombras & Heatmap Anual',
+      name: 'Campo Solar',
+      phase: 'FASE II · CAMPO SOLAR',
+      title: 'Paso 2: Campo Solar - Módulos FV, Disposición & Orientación',
       minPrerequisite: 'roof'
     },
     3: {
       id: 3,
       key: 'analysis',
-      name: 'Optimización & MLPE',
-      phase: 'FASE III · OPTIMIZACIÓN & MLPE',
-      title: 'Paso 3: Optimización - Poda de Sombras, MLPE & Estrategia',
+      name: 'Análisis Solar & Demanda',
+      phase: 'FASE III · ANÁLISIS SOLAR',
+      title: 'Paso 3: Análisis Solar - Sombras 3D, Heatmap & Factura',
       minPrerequisite: 'panels'
     },
     4: {

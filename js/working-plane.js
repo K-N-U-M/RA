@@ -2619,7 +2619,14 @@ async function wpGoToStep(step) {
     // <i data-lucide=\"cloud-sun\" class=\"icon-sm\"></i> PASO 3: ANÁLISIS SOLAR (Factura, Demanda, Heatmap Sombras)
     const c3 = document.getElementById('wp-step-3-content');
     if (c3) c3.style.display = 'flex';
-    if (typeof step4UpdateObjective === 'function') step4UpdateObjective();
+    // Sincronizar visualmente el criterio técnico sin disparar eventos de recálculo ni invalidación
+    if (window.solarProjectConfig && window.solarProjectConfig.selectedObjective) {
+      const activeObj = window.solarProjectConfig.selectedObjective;
+      const radios = document.getElementsByName('project_objective');
+      for (let r of radios) {
+        r.checked = (r.value === activeObj);
+      }
+    }
   } else if (step === 4) {
     // <i data-lucide="zap" class="icon-sm"></i> PASO 4: INGENIERÍA ELÉCTRICA (Inversor, Batería, Strings, Cableado)
     const c4 = document.getElementById('wp-step-4-content');
@@ -2635,9 +2642,6 @@ async function wpGoToStep(step) {
     }
     if (typeof raRenderLossFields === 'function') {
       raRenderLossFields();
-    }
-    if (typeof window !== 'undefined' && window.lucide) {
-      window.lucide.createIcons();
     }
   } else if (step === 5) {
     // <i data-lucide=\"file-text\" class=\"icon-sm\"></i> PASO 5: ENTREGA, PRESUPUESTO & MEMORIA PDF
@@ -2659,6 +2663,11 @@ async function wpGoToStep(step) {
 
   if (typeof wpUpdateControlsAvailability === 'function') {
     wpUpdateControlsAvailability();
+  }
+
+  // Renderizar iconos SVG de Lucide en todos los pasos
+  if (typeof window !== 'undefined' && window.lucide && typeof window.lucide.createIcons === 'function') {
+    window.lucide.createIcons();
   }
 
   const currentViewer = typeof viewer !== 'undefined' && viewer ? viewer : (window.viewer || null);
