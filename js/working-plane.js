@@ -3022,8 +3022,34 @@ function wpPopulateFaldonCard() {
     legendEl.innerHTML = '<span>' + leftTxt + '</span><span style="color:' + rightColor + ';font-weight:bold;">' + rightTxt + '</span>';
   }
 
-  // ── Orientación portrait/landscape ──
+  // ── Orientación y Comparador Vertical vs Horizontal ──
   var orient = poly.orientationPref || (typeof userPanelOrientationPref !== 'undefined' ? userPanelOrientationPref : 'portrait');
+  var comp = (typeof wpGetFaldonOrientationComparison === 'function') ? wpGetFaldonOrientationComparison(poly) : null;
+
+  var pLbl = document.getElementById('faldon-orient-portrait-lbl');
+  var lLbl = document.getElementById('faldon-orient-landscape-lbl');
+  var recBadge = document.getElementById('faldon-orient-recommend-badge');
+
+  if (comp) {
+    if (pLbl) pLbl.textContent = comp.portrait.count + ' mods · ' + comp.portrait.kwp + ' kWp';
+    if (lLbl) lLbl.textContent = comp.landscape.count + ' mods · ' + comp.landscape.kwp + ' kWp';
+    if (recBadge) {
+      if (comp.recommended === 'landscape') {
+        recBadge.textContent = '💡 Horizontal gana: +' + comp.diff + ' mods (+' + comp.diffKwp + ' kWp)';
+        recBadge.style.color = '#34D399';
+        recBadge.style.background = 'rgba(16,185,129,0.15)';
+      } else if (comp.recommended === 'portrait') {
+        recBadge.textContent = '💡 Vertical gana: +' + Math.abs(comp.diff) + ' mods (+' + comp.diffKwp + ' kWp)';
+        recBadge.style.color = '#34D399';
+        recBadge.style.background = 'rgba(16,185,129,0.15)';
+      } else {
+        recBadge.textContent = '⚖️ Igual rendimiento (' + comp.portrait.count + ' mods)';
+        recBadge.style.color = 'var(--text-slate-300)';
+        recBadge.style.background = 'rgba(255,255,255,0.06)';
+      }
+    }
+  }
+
   ['portrait', 'landscape'].forEach(function(dir) {
     var btn = document.getElementById('faldon-orient-' + dir);
     if (!btn) return;
@@ -3031,8 +3057,19 @@ function wpPopulateFaldonCard() {
     btn.className = 'doc-mini-btn' + (isActive ? ' active' : '');
     btn.style.borderColor = isActive ? 'var(--amber-400)' : '';
     btn.style.color       = isActive ? 'var(--amber-400)' : '';
+    btn.style.background  = isActive ? 'rgba(245,158,11,0.2)' : '';
     btn.style.fontWeight  = isActive ? 'bold' : '';
   });
+
+  // ── Pasillo Central de Mantenimiento ──
+  var walkwayBtn = document.getElementById('faldon-walkway-toggle-btn');
+  if (walkwayBtn) {
+    var hasW = !!poly.hasWalkway;
+    walkwayBtn.textContent = hasW ? '✓ SÍ (Pasillo 0.80m)' : 'NO (Cobertura total)';
+    walkwayBtn.style.color = hasW ? '#34D399' : 'var(--text-slate-400)';
+    walkwayBtn.style.background = hasW ? 'rgba(16,185,129,0.2)' : 'rgba(255,255,255,0.05)';
+    walkwayBtn.style.borderColor = hasW ? 'rgba(16,185,129,0.4)' : '';
+  }
 
   // ── Controles personalizados (sliders) ──
   var customCtrl = document.getElementById('faldon-custom-controls');
@@ -3378,7 +3415,106 @@ function wpSetPolyOrientation(polyIdx, orientation) {
   if (typeof wpSyncStep6Controls === 'function') wpSyncStep6Controls();
 
   showStatus("DISPOSICIÓN " + (orientation === "landscape" ? "HORIZONTAL" : "VERTICAL") + " EN " + (WP.polylines[polyIdx].name || ("FALDÓN #" + (polyIdx + 1))), 2000);
+  if (typeof wpPopulateFaldonCard === 'function') wpPopulateFaldonCard();
 }
+
+function wpGetFaldonOrientationComparison(poly) {
+  if (!poly || !poly.points || poly.points.length < 3) return null;
+  var fnInfo = (typeof computeSinglePolylineRoofInfo === 'function')
+    ? computeSinglePolylineRoofInfo
+    : (typeof window !== 'undefined' && typeof window.computeSinglePolylineRoofInfo === 'function' ? window.computeSinglePolylineRoofInfo : null);
+  if (!fnInfo) return null;
+
+  try {
+    var optP = Object.assign({}, poly, { orientationPref: 'portrait' });
+    var infoP = fnInfo(poly.points, optP);
+    var countP = (infoP && infoP.panels) ? infoP.panels.length : 0;
+
+    var optL = Object.assign({}, poly, { orientationPref: 'landscape' });
+    var infoL = fnInfo(poly.points, optL);
+    var countL = (infoL && infoL.panels) ? infoL.panels.length : 0;
+
+    var modWp = 450;
+    var effModId = poly.moduleId || (window.solarProjectConfig && window.solarProjectConfig.selectedModuleId) || '';
+    if (typeof equipmentCatalog !== 'undefined' && equipmentCatalog && Array.isArray(equipmentCatalog.modules)) {
+      var foundM = equipmentCatalog.modules.find(function(m) { return m.id === effModId; });
+      if (foundM && foundM.wp) modWp = foundM.wp;
+    } else if (typeof panelConfig !== 'undefined' && panelConfig && panelConfig.potencia) {
+      modWp = panelConfig.potencia;
+    }
+
+    var kwpP = (countP * modWp / 1000).toFixed(2);
+    var kwpL = (countL * modWp / 1000).toFixed(2);
+    var diff = countL - countP;
+    var diffKwp = (Math.abs(diff) * modWp / 1000).toFixed(2);
+
+    return {
+      portrait: { count: countP, kwp: kwpP },
+      landscape: { count: countL, kwp: kwpL },
+      diff: diff,
+      diffKwp: diffKwp,
+      recommended: diff > 0 ? 'landscape' : (diff < 0 ? 'portrait' : 'equal')
+    };
+  } catch(eComp) {
+    return null;
+  }
+}
+window.wpGetFaldonOrientationComparison = wpGetFaldonOrientationComparison;
+
+function wpTogglePolyWalkway(polyIdx) {
+  var pIdx = (typeof polyIdx === 'number' && polyIdx >= 0) ? polyIdx : WP.selectedPolyIdx;
+  if (!WP.polylines || !WP.polylines[pIdx]) return;
+  var poly = WP.polylines[pIdx];
+  poly.hasWalkway = !poly.hasWalkway;
+  if (poly.hasWalkway && !poly.walkwayWidth) poly.walkwayWidth = 0.80;
+
+  if (typeof roofPanelsCache !== 'undefined' && roofPanelsCache) {
+    roofPanelsCache.sig = '';
+  }
+  var fnInfo = (typeof computeSinglePolylineRoofInfo === 'function')
+    ? computeSinglePolylineRoofInfo
+    : (typeof window !== 'undefined' && typeof window.computeSinglePolylineRoofInfo === 'function' ? window.computeSinglePolylineRoofInfo : null);
+  if (fnInfo) {
+    poly.roofInfo = fnInfo(poly.points, poly);
+  }
+  if (typeof window.wpInvalidateHeatmap === 'function') {
+    window.wpInvalidateHeatmap(poly.hasWalkway ? 'Pasillo de mantenimiento activado (0.80m)' : 'Pasillo de mantenimiento desactivado');
+  }
+  if (typeof wpFastRenderSimulatedPanels === 'function') wpFastRenderSimulatedPanels();
+  wpPopulateFaldonCard();
+  if (typeof wpUpdateStep3UI === 'function') wpUpdateStep3UI();
+
+  showStatus(poly.hasWalkway ? '🚶 PASILLO CENTRAL DE MANTENIMIENTO (0.80m) ACTIVADO' : 'PASILLO CENTRAL DESACTIVADO (COBERTURA TOTAL)', 2200);
+}
+window.wpTogglePolyWalkway = wpTogglePolyWalkway;
+
+function wpApplyPolyWalkwayToAll(polyIdx) {
+  var pIdx = (typeof polyIdx === 'number' && polyIdx >= 0) ? polyIdx : WP.selectedPolyIdx;
+  if (!WP.polylines || !WP.polylines[pIdx]) return;
+  var state = !!WP.polylines[pIdx].hasWalkway;
+  var width = WP.polylines[pIdx].walkwayWidth || 0.80;
+  var fnInfo = (typeof computeSinglePolylineRoofInfo === 'function')
+    ? computeSinglePolylineRoofInfo
+    : (typeof window !== 'undefined' && typeof window.computeSinglePolylineRoofInfo === 'function' ? window.computeSinglePolylineRoofInfo : null);
+
+  WP.polylines.forEach(function(p) {
+    if (p) {
+      p.hasWalkway = state;
+      p.walkwayWidth = width;
+      if (fnInfo) {
+        p.roofInfo = fnInfo(p.points, p);
+      }
+    }
+  });
+  if (typeof roofPanelsCache !== 'undefined' && roofPanelsCache) roofPanelsCache.sig = '';
+  if (typeof wpFastRenderSimulatedPanels === 'function') wpFastRenderSimulatedPanels();
+  wpPopulateFaldonCard();
+  if (typeof wpUpdateStep3UI === 'function') wpUpdateStep3UI();
+  if (typeof showToast === 'function') {
+    showToast('PASILLOS PROPAGADOS', (state ? 'Pasillo de 0.80m aplicado a todos los faldones.' : 'Pasillos desactivados en todos los faldones.'), 'info', 2500);
+  }
+}
+window.wpApplyPolyWalkwayToAll = wpApplyPolyWalkwayToAll;
 
 let wpTiltRafId = null;
 
@@ -4507,6 +4643,9 @@ function initUnifiedWorkPlaneSystem() {
   if (typeof wpClearEntGroup !== 'undefined') window.wpClearEntGroup = wpClearEntGroup;
   if (typeof wpEnsureCounterClockwisePoints !== 'undefined') window.wpEnsureCounterClockwisePoints = wpEnsureCounterClockwisePoints;
   if (typeof wpSetPolyOrientation !== 'undefined') window.wpSetPolyOrientation = wpSetPolyOrientation;
+  if (typeof wpGetFaldonOrientationComparison !== 'undefined') window.wpGetFaldonOrientationComparison = wpGetFaldonOrientationComparison;
+  if (typeof wpTogglePolyWalkway !== 'undefined') window.wpTogglePolyWalkway = wpTogglePolyWalkway;
+  if (typeof wpApplyPolyWalkwayToAll !== 'undefined') window.wpApplyPolyWalkwayToAll = wpApplyPolyWalkwayToAll;
   if (typeof wpSetPolyTilt !== 'undefined') window.wpSetPolyTilt = wpSetPolyTilt;
   if (typeof wpSetPolyTiltRealtime !== 'undefined') window.wpSetPolyTiltRealtime = wpSetPolyTiltRealtime;
   if (typeof wpSetPolyAzimuthRealtime !== 'undefined') window.wpSetPolyAzimuthRealtime = wpSetPolyAzimuthRealtime;

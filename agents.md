@@ -12,7 +12,7 @@
 - **CesiumJS & WebGL:** Renderizado 3D sobre fotogrametría fotorrealista (Google Photorealistic 3D Tiles) y modelos de terreno digital (DTM/OSM).
 - **Física Solar y Sombras AAA:** Posicionamiento astronómico en tiempo real (altura solar α, acimut γ, vector solar ENU), sombras GPU ultra-nítidas y overlays analíticos con `depthFailMaterial`.
 - **Diseño CAD Asistido en Cubierta:** Planos de trabajo en 3 puntos (P1, P2, P3), faldones poligonales, snapping magnético, tríada ortonormal CAD (ejes U, V, N) y Gizmo Universal 2D/3D.
-- **Empaquetamiento de Paneles:** Algoritmos booleano-geométricos, retranqueos euclídeos, paso inter-filas anti-autosombreado (solsticio de invierno) y orientaciones este-oeste (V-Dome).
+- **Empaquetamiento de Paneles:** Algoritmos booleano-geométricos, retranqueos euclídeos, paso inter-filas anti-autosombreado (solsticio de invierno), orientaciones este-oeste (V-Dome), comparador visual de orientación (vertical/horizontal con kWp en vivo) y pasillos automáticos de mantenimiento (0.80 m).
 - **Ingeniería Eléctrica REBT:** Strings por MPPT, enrutamiento leapfrog (UNE-EN 62305), secciones ZZ-F DC y RV-K AC, caída de tensión ≤1.5% (REBT ITC-BT-40).
 - **Catálogo de Equipos:** CRUD de módulos, inversores, baterías, microinversores; singleton `window.equipmentCatalog` con persistencia `localStorage`.
 - **Simulación Anual:** 192 instantes solares asíncrono no bloqueante, heatmap por panel, diagnóstico MLPE.
@@ -73,7 +73,7 @@ c:/TRABAJOS/RA/
 | Paso | ID Canónico | Nombre | Contenido | Pasos Antiguos Fusionados |
 | :---: | :--- | :--- | :--- | :--- |
 | **1** | `step-1` | 🏠 EMPLAZAMIENTO | Definir plano de trabajo (P1/P2/P3), trazar faldones/polilíneas, colocar obstáculos 3D | Pasos 1 + 2 + 3 del flujo anterior |
-| **2** | `step-2` | ☀️ CAMPO SOLAR | Seleccionar módulo FV, generar layout booleano, ajustar inclinación β y azimut, portrait/landscape | Parte del Paso 6 anterior |
+| **2** | `step-2` | ☀️ CAMPO SOLAR | Seleccionar módulo FV, generar layout booleano, ajustar inclinación β y azimut, portrait/landscape, comparador visual de orientación (módulos/kWp en vivo) y pasillo central de mantenimiento (0.80 m) | Parte del Paso 6 anterior |
 | **3** | `step-3` | 🌤️ ANÁLISIS SOLAR | Auditar factura del cliente, definir objetivo kWh/kWp, lanzar simulación anual (heatmap 192 instantes) | Pasos 4 + parte del 6 anterior |
 | **4** | `step-4` | ⚡ INGENIERÍA | Dimensionar inversor/batería, validar strings MPPT, trazar cableado DC/AC, comprobación IEC 62548 | Paso 5 anterior |
 | **5** | `step-5` | 📄 ENTREGA | Balance financiero (CAPEX/OPEX, VAN, TIR), memoria técnica y oferta comercial en PDF | Paso 7 anterior |

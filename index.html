@@ -948,14 +948,38 @@ window.RA_App = window.RA_App || {};
                     <div id="faldon-arr-legend" style="font-size:7px;color:#94A3B8;display:flex;justify-content:space-between;margin-top:2px;"></div>
                   </div>
 
-                  <!-- Orientación Vertical / Horizontal -->
-                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:6px;">
-                    <button id="faldon-orient-portrait" class="doc-mini-btn" onclick="wpSetPolyOrientation(WP.selectedPolyIdx, 'portrait')" style="text-align:center;padding:4px 2px;font-size:8.5px;">
-                      <i data-lucide="smartphone" class="icon-sm"></i> VERTICAL
-                    </button>
-                    <button id="faldon-orient-landscape" class="doc-mini-btn" onclick="wpSetPolyOrientation(WP.selectedPolyIdx, 'landscape')" style="text-align:center;padding:4px 2px;font-size:8.5px;">
-                      <i data-lucide="monitor" class="icon-sm"></i> HORIZONTAL
-                    </button>
+                  <!-- Comparador de Orientación Vertical / Horizontal -->
+                  <div id="faldon-orient-compare-box" style="background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:5px 6px;margin-bottom:6px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                      <span style="font-size:7.5px;color:var(--text-slate-300);font-weight:600;"><i data-lucide="compass" class="icon-sm"></i> COMPARADOR DE ORIENTACIÓN:</span>
+                      <span id="faldon-orient-recommend-badge" style="font-size:7.5px;padding:1px 5px;border-radius:4px;background:rgba(16,185,129,0.15);color:#34D399;font-weight:bold;">Analizando...</span>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
+                      <button id="faldon-orient-portrait" type="button" class="doc-mini-btn" onclick="wpSetPolyOrientation(WP.selectedPolyIdx, 'portrait')" style="text-align:center;padding:4px 2px;font-size:8px;display:flex;flex-direction:column;align-items:center;gap:1px;">
+                        <span style="display:flex;align-items:center;gap:3px;"><i data-lucide="smartphone" class="icon-sm"></i> VERTICAL</span>
+                        <span id="faldon-orient-portrait-lbl" style="font-size:7.5px;color:var(--text-slate-400);">-- mods</span>
+                      </button>
+                      <button id="faldon-orient-landscape" type="button" class="doc-mini-btn" onclick="wpSetPolyOrientation(WP.selectedPolyIdx, 'landscape')" style="text-align:center;padding:4px 2px;font-size:8px;display:flex;flex-direction:column;align-items:center;gap:1px;">
+                        <span style="display:flex;align-items:center;gap:3px;"><i data-lucide="monitor" class="icon-sm"></i> HORIZONTAL</span>
+                        <span id="faldon-orient-landscape-lbl" style="font-size:7.5px;color:var(--text-slate-400);">-- mods</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Pasillo Central de Mantenimiento (0.80m) -->
+                  <div id="faldon-walkway-box" style="background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:5px 6px;margin-bottom:6px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                      <span style="font-size:7.5px;color:var(--text-slate-300);font-weight:600;"><i data-lucide="footprints" class="icon-sm"></i> PASILLO MANTENIMIENTO:</span>
+                      <div style="display:flex;gap:3px;align-items:center;">
+                        <button type="button" id="faldon-walkway-toggle-btn" class="doc-mini-btn" style="padding:2px 6px;font-size:7.5px;font-weight:bold;" onclick="wpTogglePolyWalkway(WP.selectedPolyIdx)">
+                          NO (Cobertura total)
+                        </button>
+                        <button type="button" class="doc-mini-btn" style="padding:1px 5px;font-size:7px;font-weight:bold;background:rgba(59,130,246,0.15);color:#60A5FA;border-color:rgba(59,130,246,0.3);cursor:pointer;" onclick="wpApplyPolyWalkwayToAll(WP.selectedPolyIdx)" title="Propagar pasillos a todos los faldones"><i data-lucide="globe" class="icon-sm"></i> A TODOS</button>
+                      </div>
+                    </div>
+                    <div id="faldon-walkway-desc" style="font-size:7px;color:#94A3B8;margin-top:2px;">
+                      Divide las placas con un pasillo libre de 80 cm para paso y limpieza.
+                    </div>
                   </div>
 
                   <!-- Sliders de Ajuste Manual (solo visible en modo custom) -->
@@ -7752,8 +7776,14 @@ function evaluateModuleLayouts(roof, module, cfg) {
       const startA = aMin + setback + halfA_base + poA * rowPitch;
       const startB = bMin + setback + halfB_base + poB * colPitch;
 
+      const hasWalkway = !!cfg.hasWalkway;
+      const walkwayWidth = (typeof cfg.walkwayWidth === 'number') ? cfg.walkwayWidth : 0.80;
+      const midB = (bMin + bMax) / 2;
+      const canHaveWalkway = hasWalkway && ((bMax - bMin) > (walkwayWidth + 2 * (dims.wid || 1.0)));
+
       for (let a = startA; a <= aMax - setback - halfA_base; a += rowPitch) {
         for (let b = startB; b <= bMax - setback - halfB_base; b += colPitch) {
+          if (canHaveWalkway && Math.abs(b - midB) < (walkwayWidth / 2 + halfB_base - 0.01)) continue;
           if (isEastWest) {
             for (const ewSign of [-0.5, 0.5]) {
               const cu = (a + ewSign * halfA_base) * AuvN.x + b * BuvN.x;
@@ -11155,6 +11185,8 @@ function computeSinglePolylineRoofInfo(ptsIn, polyOpts) {
     moduleAzimuthGeo: opts.modAzimuth,
     orientations: orientList,
     panelFilter: defaultPanelFilter,
+    hasWalkway: !!opts.hasWalkway,
+    walkwayWidth: (typeof opts.walkwayWidth === 'number') ? opts.walkwayWidth : 0.80,
     filterCtx: {
       obstacles: obstacles,
       obsSetback: obsSetback,

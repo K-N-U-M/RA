@@ -60,6 +60,8 @@ El producto está estructurado como un asistente secuencial controlado por `wpGo
 - Contención 2D estricta (sin invasión de patios ni aristas cóncavas).
 - Retranqueos euclídeos perimetrales y paso inter-filas anti-autosombreado (solsticio de invierno).
 - Orientaciones este-oeste (V-Dome) y estrategias: `optimal_inv`, `max_roof`, `zero_shades`, `target_kwh`.
+- Comparador visual inmediato de orientación: evaluación simultánea vertical vs horizontal con recuento de módulos, potencia kWp y recomendación automática de mayor aprovechamiento.
+- Pasillos de mantenimiento en 1 clic: pasillo central despejado de 0.80 m por faldón o replicado globalmente para accesibilidad y seguridad en obra.
 
 ### 4.4 Análisis solar y factura (Paso 3)
 - Simulación asíncrona en 156 instantes solares con heatmap de irradiancia por panel.

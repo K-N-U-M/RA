@@ -208,6 +208,21 @@ calculateFinancialModel()  ← Definición canónica en financials.js (~L491)
   - Botón `#obs-snap-roof-btn` de recuperación automática cuando el obstáculo queda fuera del tejado.
   - Calcula el centroide 3D del faldón activo, proyecta las coordenadas locales `(u, v)` y recoloca instantáneamente el objeto en el tejado, actualizando primitivas GPU y evitando objetos flotando en el vacío.
 
+---
+
+## 13. Soluciones del Bloque 2 de Producto: Campo Solar y Paneles (Octubre 2026)
+
+- **Estado:** ✅ Implementado y verificado en `js/working-plane.js` e `index.html`.
+- **Pasillos Centrales de Mantenimiento (`wpTogglePolyWalkway`, `wpApplyPolyWalkwayToAll`):**
+  - Botón interactivo por faldón y acción global "A TODOS" para reservar un pasillo libre de 0.80 m (normativa de seguridad y limpieza en obra).
+  - Integrado en el empaquetado de `evaluateModuleLayouts`: evalúa el eje mediano de las columnas y excluye las placas que invaden la franja central `[midB - 0.40m, midB + 0.40m]`, dividiendo el campo en dos bloques geométricamente accesibles.
+  - Reactivo con invalidación de caché de paneles, renderizado GPU instantáneo e invalidación del mapa de calor solar.
+- **Comparador Visual Inmediato Vertical vs Horizontal (`wpGetFaldonOrientationComparison`):**
+  - Evaluación analítica instantánea de ambas alternativas (portrait y landscape) sin obligar al usuario a hacer pruebas a ciegas.
+  - Tarjeta `#faldon-orient-compare-box` con recuento de módulos y potencia kWp en cada botón (`X mods · P.P kWp`).
+  - Badge de recomendación comercial (`#faldon-orient-recommend-badge`) destacando la orientación que aprovecha mejor el espacio (ej. `💡 Horizontal gana: +2 mods (+0.90 kWp)`).
+  - Conmutación y resaltado del botón activo en 1 clic con refresco bidireccional de toda la interfaz.
+
 
 
 
