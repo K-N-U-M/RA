@@ -428,8 +428,10 @@
       var viewer = global.viewer;
       var sState = global.inverterEquipmentState;
       if (!viewer || !sState) return;
-
-      // 1. Limpiar entidades anteriores
+      if (sState.__isRenderingCables) return;
+      sState.__isRenderingCables = true;
+      try {
+        // 1. Limpiar entidades anteriores
       if (Array.isArray(sState.dcCableEntities)) {
         sState.dcCableEntities.forEach(function (e) {
           try {
@@ -679,8 +681,11 @@
 
       console.info('[RACableEngine] ⚡ Cables generados con éxito: ' + allStrings.length + ' string(s), maxLdc=' + maxLdc.toFixed(1) + 'm, Lac=' + (sState.L_ac_measured || 0).toFixed(1) + 'm');
 
-      if (viewer.scene && typeof viewer.scene.requestRender === 'function') {
-        viewer.scene.requestRender();
+        if (viewer.scene && typeof viewer.scene.requestRender === 'function') {
+          viewer.scene.requestRender();
+        }
+      } finally {
+        sState.__isRenderingCables = false;
       }
     },
 

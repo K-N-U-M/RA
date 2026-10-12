@@ -2354,7 +2354,9 @@ function wpSelectPolyline(polyIdx) {
 
   if (typeof recalculateSolarYield === 'function') recalculateSolarYield();
   if (typeof recalculateLayoutAndObstacles === 'function') recalculateLayoutAndObstacles();
-  if (typeof startSolarPanelsSimulation === 'function' && wpCurrentStep >= 5 && isPolygonDesignConfirmed) {
+  if (typeof wpFastRenderSimulatedPanels === 'function' && wpCurrentStep >= 2 && isPolygonDesignConfirmed) {
+    wpFastRenderSimulatedPanels();
+  } else if (typeof startSolarPanelsSimulation === 'function' && wpCurrentStep >= 2 && isPolygonDesignConfirmed) {
     startSolarPanelsSimulation();
   }
 
