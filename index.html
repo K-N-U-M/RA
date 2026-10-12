@@ -907,6 +907,7 @@ window.RA_App = window.RA_App || {};
                   <div style="background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:5px 6px;margin-bottom:6px;">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
                       <span style="font-size:7.5px;color:var(--text-slate-300);font-weight:600;"><i data-lucide="box" class="icon-sm"></i> ESTRUCTURA DE MONTAJE:</span>
+                      <button type="button" class="doc-mini-btn" style="padding:1px 5px;font-size:7px;font-weight:bold;background:rgba(59,130,246,0.15);color:#60A5FA;border-color:rgba(59,130,246,0.3);cursor:pointer;" onclick="wpApplyPolyStructureToAll(WP.selectedPolyIdx)" title="Propagar esta estructura a todos los faldones"><i data-lucide="globe" class="icon-sm"></i> A TODOS</button>
                     </div>
                     <select id="faldon-structure-select" class="doc-input" style="width:100%;font-size:8px;padding:3px 4px;background:#0F172A;color:#F8FAFC;border:1px solid rgba(255,255,255,0.15);border-radius:4px;" onchange="wpSetPolyStructure(WP.selectedPolyIdx, this.value)">
                       <option value="coplanar_teja">Coplanar (Teja / Salvatejas)</option>
@@ -12651,9 +12652,14 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
 
   if (!roofInfo || !roofInfo.panels || roofInfo.panels.length === 0) {
     if (typeof showStatus === 'function') {
-      showStatus(`<i data-lucide=\"alert-triangle\" class=\"icon-sm\"></i> EL TRAZADO TIENE ÁREA INSUFICIENTE O 0 PANELES CALCULADOS (Paso: ${wpCurrentStep})`, 3500);
+      showStatus(`<i data-lucide="alert-triangle" class="icon-sm"></i> EL TRAZADO TIENE ÁREA INSUFICIENTE O 0 PANELES CALCULADOS (Paso: ${wpCurrentStep})`, 3500);
     }
     lastRoofInfo = null;
+    window.allRenderedPanels = [];
+    if (typeof wpClearInverterAndCables === 'function') wpClearInverterAndCables();
+    if (typeof recalculateSolarYield === 'function') recalculateSolarYield();
+    if (typeof wpUpdateStep3UI === 'function') wpUpdateStep3UI();
+    if (typeof wpUpdateControlsAvailability === 'function') wpUpdateControlsAvailability();
     if (viewer && viewer.scene && typeof viewer.scene.requestRender === "function") {
       viewer.scene.requestRender();
     }

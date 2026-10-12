@@ -2056,6 +2056,10 @@ function wpCloseActivePolyline() {
   wpUpdateUI();
 
   if (roofPanelsCache) roofPanelsCache.sig = "";
+  if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Nuevo faldón añadido');
+  if (typeof wpUpdateStep3UI === 'function') wpUpdateStep3UI();
+  if (typeof wpPopulateFaldonCard === 'function') wpPopulateFaldonCard();
+  if (typeof wpSyncStep6Controls === 'function') wpSyncStep6Controls();
   if (typeof recalculateSolarYield === "function") recalculateSolarYield();
   if (typeof wpFastRenderSimulatedPanels === "function") wpFastRenderSimulatedPanels();
   if (typeof ProjectHierarchy !== 'undefined' && ProjectHierarchy.notify) {
@@ -2297,6 +2301,7 @@ function wpSelectPolyline(polyIdx) {
     WP.selectedPolyIdx = -1;
     WP.selectedVtxIdx = -1;
     wpUpdateUI();
+    if (typeof wpUpdateStep3UI === 'function') wpUpdateStep3UI();
     return;
   }
   if (polyIdx < 0 || polyIdx >= WP.polylines.length) {
@@ -2315,8 +2320,15 @@ function wpSelectPolyline(polyIdx) {
     selectedVertexIndex = -1;
   }
 
+  const dropdownP1 = document.getElementById('wp-polylines-dropdown');
+  if (dropdownP1 && dropdownP1.value !== String(WP.selectedPolyIdx)) dropdownP1.value = String(WP.selectedPolyIdx);
+  const dropdownP2 = document.getElementById('faldon-selector-dropdown');
+  if (dropdownP2 && dropdownP2.value !== String(WP.selectedPolyIdx)) dropdownP2.value = String(WP.selectedPolyIdx);
+
   wpRenderAllPolylines();
   wpUpdateUI();
+  if (typeof wpPopulateFaldonCard === 'function') wpPopulateFaldonCard();
+  if (typeof wpSyncStep6Controls === 'function') wpSyncStep6Controls();
   // updateAllVisuals();
 
   if (typeof recalculateSolarYield === 'function') recalculateSolarYield();
@@ -2326,7 +2338,7 @@ function wpSelectPolyline(polyIdx) {
   }
 
   if (poly) {
-    showStatus('<i data-lucide=\"crosshair\" class=\"icon-sm\"></i> ' + poly.name.toUpperCase() + ' SELECCIONADA (' + poly.points.length + ' VÉRTICES · ' + poly.area.toFixed(1) + ' m²)', 2000);
+    showStatus('<i data-lucide="crosshair" class="icon-sm"></i> ' + poly.name.toUpperCase() + ' SELECCIONADA (' + poly.points.length + ' VÉRTICES · ' + poly.area.toFixed(1) + ' m²)', 2000);
   }
 }
 
@@ -2431,14 +2443,23 @@ function wpApplySelectedVtxCoords() {
   poly.area = wpPolylineArea3D(poly.points);
   polygonPoints = poly.points.map(p => Cesium.Cartesian3.clone(p));
 
+  if (typeof roofPanelsCache !== 'undefined' && roofPanelsCache) {
+    roofPanelsCache.sig = "";
+  }
+  if (typeof window.wpInvalidateHeatmap === 'function') {
+    window.wpInvalidateHeatmap('Coordenadas de vértice modificadas');
+  }
+
   wpRenderAllPolylines();
   wpUpdateUI();
+  if (typeof wpUpdateStep3UI === 'function') wpUpdateStep3UI();
+  if (typeof wpPopulateFaldonCard === 'function') wpPopulateFaldonCard();
   // updateAllVisuals();
 
   if (typeof recalculateSolarYield === 'function') recalculateSolarYield();
   if (typeof recalculateLayoutAndObstacles === 'function') recalculateLayoutAndObstacles();
 
-  showStatus('<i data-lucide=\"check\" class=\"icon-sm\"></i> VÉRTICE #' + (WP.selectedVtxIdx + 1) + ' ACTUALIZADO', 1800);
+  showStatus('<i data-lucide="check" class="icon-sm"></i> VÉRTICE #' + (WP.selectedVtxIdx + 1) + ' ACTUALIZADO', 1800);
 }
 
 function wpDeleteSelectedVertexFromList() {
@@ -2450,6 +2471,10 @@ function wpDeleteSelectedVertexFromList() {
     return;
   }
 
+  if (typeof window.RAundo !== 'undefined' && window.RAundo && typeof window.RAundo.snapVertex === 'function') {
+    window.RAundo.snapVertex(WP.selectedPolyIdx);
+  }
+
   const deletedIdx = WP.selectedVtxIdx;
   poly.points.splice(deletedIdx, 1);
   poly.area = wpPolylineArea3D(poly.points);
@@ -2458,14 +2483,23 @@ function wpDeleteSelectedVertexFromList() {
   WP.selectedVtxIdx = Math.min(deletedIdx, poly.points.length - 1);
   selectedVertexIndex = WP.selectedVtxIdx;
 
+  if (typeof roofPanelsCache !== 'undefined' && roofPanelsCache) {
+    roofPanelsCache.sig = "";
+  }
+  if (typeof window.wpInvalidateHeatmap === 'function') {
+    window.wpInvalidateHeatmap('Vértice de faldón eliminado');
+  }
+
   wpRenderAllPolylines();
   wpUpdateUI();
+  if (typeof wpUpdateStep3UI === 'function') wpUpdateStep3UI();
+  if (typeof wpPopulateFaldonCard === 'function') wpPopulateFaldonCard();
   // updateAllVisuals();
 
   if (typeof recalculateSolarYield === 'function') recalculateSolarYield();
   if (typeof recalculateLayoutAndObstacles === 'function') recalculateLayoutAndObstacles();
 
-  showStatus('<i data-lucide=\"trash-2\" class=\"icon-sm\"></i> VÉRTICE #' + (deletedIdx + 1) + ' ELIMINADO (' + poly.points.length + ' RESTANTES)', 2000);
+  showStatus('<i data-lucide="trash-2" class="icon-sm"></i> VÉRTICE #' + (deletedIdx + 1) + ' ELIMINADO (' + poly.points.length + ' RESTANTES)', 2000);
 }
 
 function wpInsertPointInSelectedPoly() {
@@ -2495,15 +2529,38 @@ function wpDeleteSelectedPolyline() {
     ? WP.polylines[WP.selectedPolyIdx].points.map(p => Cesium.Cartesian3.clone(p))
     : [];
 
+  if (typeof roofPanelsCache !== 'undefined' && roofPanelsCache) {
+    roofPanelsCache.sig = "";
+    roofPanelsCache.data = null;
+  }
+
+  if (WP.polylines.length === 0) {
+    window.allRenderedPanels = [];
+    if (typeof lastRoofInfo !== 'undefined') window.lastRoofInfo = null;
+    if (typeof wpClearInverterAndCables === 'function') wpClearInverterAndCables();
+  }
+
   wpRenderAllPolylines();
   wpUpdateUI();
-  // updateAllVisuals();
+  if (typeof wpUpdateStep3UI === 'function') wpUpdateStep3UI();
+  if (typeof wpPopulateFaldonCard === 'function') wpPopulateFaldonCard();
+  if (typeof wpSyncStep6Controls === 'function') wpSyncStep6Controls();
+
+  if (typeof window.wpInvalidateHeatmap === 'function') {
+    window.wpInvalidateHeatmap('Faldón eliminado');
+  }
 
   if (typeof step5RegenerateLayout === 'function') step5RegenerateLayout();
   if (typeof recalculateSolarYield === 'function') recalculateSolarYield();
   if (typeof recalculateLayoutAndObstacles === 'function') recalculateLayoutAndObstacles();
 
-  showStatus('<i data-lucide=\"trash-2\" class=\"icon-sm\"></i> ' + name.toUpperCase() + ' ELIMINADA', 2000);
+  if (typeof ProjectHierarchy !== 'undefined' && ProjectHierarchy.notify) {
+    ProjectHierarchy.notify('polyline_deleted', { name: name, index: WP.selectedPolyIdx });
+  }
+
+  if (typeof wpUpdateControlsAvailability === 'function') wpUpdateControlsAvailability();
+
+  showStatus('<i data-lucide="trash-2" class="icon-sm"></i> ' + name.toUpperCase() + ' ELIMINADA', 2000);
 }
 
 
@@ -3383,6 +3440,59 @@ function wpSetPolyStructure(polyIdx, val) {
     showStatus(`<i data-lucide="check" class="icon-sm"></i> ESTRUCTURA APLICADA: ${names[val] || val.toUpperCase()} (Tilt: ${poly.modTilt}°)`, 3000);
   }
 }
+
+function wpApplyPolyStructureToAll(sourcePolyIdx) {
+  if (!WP.polylines || !WP.polylines[sourcePolyIdx]) return;
+  const srcPoly = WP.polylines[sourcePolyIdx];
+  const targetStructureType = srcPoly.structureType || 'coplanar_teja';
+  const targetEstructura = srcPoly.estructura ? JSON.parse(JSON.stringify(srcPoly.estructura)) : { tipo: 'coplanar', clearance: 0.05 };
+  const targetArrangementMode = srcPoly.arrangementMode || 'coplanar';
+  const targetModTilt = srcPoly.modTilt !== undefined ? srcPoly.modTilt : 'auto';
+  const targetModAzimuth = srcPoly.modAzimuth !== undefined ? srcPoly.modAzimuth : 'auto';
+
+  if (typeof roofPanelsCache !== "undefined" && roofPanelsCache) {
+    roofPanelsCache.sig = "";
+    roofPanelsCache.data = null;
+  }
+
+  WP.polylines.forEach(poly => {
+    poly.structureType = targetStructureType;
+    poly.estructura = JSON.parse(JSON.stringify(targetEstructura));
+    poly.arrangementMode = targetArrangementMode;
+    poly.modTilt = targetModTilt;
+    poly.modAzimuth = targetModAzimuth;
+    if (typeof computeSinglePolylineRoofInfo === "function") {
+      poly.roofInfo = computeSinglePolylineRoofInfo(poly.points, poly);
+    }
+  });
+
+  if (typeof window.wpInvalidateHeatmap === 'function') {
+    window.wpInvalidateHeatmap('Estructura de montaje aplicada a todos los faldones');
+  }
+  if (typeof wpFastRenderSimulatedPanels === 'function') {
+    wpFastRenderSimulatedPanels();
+  }
+  if (typeof recalculateSolarYield === 'function') recalculateSolarYield();
+  if (typeof wpUpdateStep3UI === 'function') wpUpdateStep3UI();
+  if (typeof wpPopulateFaldonCard === 'function') wpPopulateFaldonCard();
+  if (typeof wpSyncStep6Controls === 'function') wpSyncStep6Controls();
+  if (typeof wpSyncEstructuraUI === 'function') wpSyncEstructuraUI();
+  if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') {
+    BOMTreeEngine.refresh();
+  }
+
+  const names = {
+    coplanar_teja: 'COPLANAR TEJA',
+    coplanar_chapa: 'COPLANAR CHAPA / SÁNDWICH',
+    triangles_30: 'TRIÁNGULOS 30º SUR',
+    triangles_15_ew: 'ESTRUCTURA 15º ESTE-OESTE',
+    triangles_custom: 'TRIÁNGULOS ADAPTABLES'
+  };
+  if (typeof showStatus === 'function') {
+    showStatus(`<i data-lucide="check" class="icon-sm"></i> ESTRUCTURA ${names[targetStructureType] || targetStructureType.toUpperCase()} APLICADA A TODOS LOS FALDONES`, 3000);
+  }
+}
+window.wpApplyPolyStructureToAll = wpApplyPolyStructureToAll;
 
 function wpSetPolyAzimuth(polyIdx, val) {
   wpSetPolyAzimuthRealtime(polyIdx, val);
@@ -4518,6 +4628,7 @@ function wpApplyMLPERecommendationAction() {
   if (typeof wpApplyMLPERecommendationAction !== 'undefined') window.wpApplyMLPERecommendationAction = wpApplyMLPERecommendationAction;
   if (typeof wpApplyPanelArrangement !== 'undefined') window.wpApplyPanelArrangement = wpApplyPanelArrangement;
   if (typeof wpApplyPanelArrangementToAll !== 'undefined') window.wpApplyPanelArrangementToAll = wpApplyPanelArrangementToAll;
+  if (typeof wpApplyPolyStructureToAll !== 'undefined') window.wpApplyPolyStructureToAll = wpApplyPolyStructureToAll;
 
   if (window.RA) {
     window.RA.wpState = WP;
