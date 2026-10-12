@@ -50,7 +50,10 @@ El producto está estructurado como un asistente secuencial controlado por `wpGo
 
 ### 4.2 CAD asistido en cubierta (Paso 1)
 - Planos de trabajo en 3 clics con snapping magnético y ortogonal (Shift).
+- Enderezador rápido de pendiente en 1 clic: fijación directa a 0° (plana), 15° (nave), 25° (teja) y 30° (tradicional) con recálculo de la normal geocéntrica.
 - Tríada ortonormal U/V/N y gizmo universal de manipulación con arrastre en 3 ejes.
+- Detección de contorno de obstáculos en cubierta: comprobación en tiempo real de si un obstáculo permanece dentro de un faldón cerrado (`✓ En cubierta` / `⚠️ Fuera de cubierta`).
+- Imán de obstáculos a cubierta: centrado automático en el faldón activo para evitar elementos flotantes en el vacío.
 - Edición de vértices de edificios: selección por proximidad ≤24 px, gizmo ámbar, borrado con Supr.
 
 ### 4.3 Generación de campo solar (Paso 2)

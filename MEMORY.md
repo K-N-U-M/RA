@@ -191,6 +191,24 @@ calculateFinancialModel()  ← Definición canónica en financials.js (~L491)
 - **Sin Tests en el Chat:** No ejecutar ni volcar baterías de pruebas, salidas de terminal o scripts de verificación en la respuesta al usuario.
 - **Rol Permanente:** Arquitecto e ingeniero senior de software y director de proyectos de herramientas globales de la competencia (calidad AAA): implacable para encontrar fallos, incoherencias operativas e ineficiencias de negocio/diseño, verificando siempre la exactitud de los objetivos de la aplicación.
 
+---
+
+## 12. Soluciones del Bloque 1 de Producto: Tejado y Obstáculos (Octubre 2026)
+
+- **Estado:** ✅ Implementado y verificado en `js/working-plane.js`, `js/obstacles.js` e `index.html`.
+- **Enderezador Rápido de Pendiente en 1 Clic (`wpSetPlaneTilt`):**
+  - Botones directos de nivelación a estándares constructivos reales: 0° (Plana / Azotea), 15° (Nave industrial), 25° (Teja estándar) y 30° (Tejado tradicional).
+  - Recálculo vectorial riguroso de la normal geocéntrica proyectando sobre el vector radial terrestre y el rumbo de caída original, regenerando la base ortonormal `uVec` y `vVec`.
+  - Sincronización reactiva con faldones coplanares (`poly.roofInfo.moduleTiltDeg`), regeneración del layout, recálculo de producción e invalidación automática del heatmap solar anual (`wpInvalidateHeatmap`).
+- **Detección de Contorno de Cubierta (`wpCheckObstacleInsideRoof`):**
+  - Algoritmo de contención 2D (punto en polígono sobre faldones de `WP.polylines`) ejecutado reactivamente al seleccionar, editar o arrastrar obstáculos.
+  - Actualización del indicador visual `#obs-inside-roof-badge` (`✓ En cubierta` en verde esmeralda con nombre de faldón / `⚠️ Fuera de cubierta` en rojo).
+  - Alerta inmediata en pantalla si se suelta un obstáculo fuera del perímetro de la cubierta en `LEFT_UP`.
+- **Imán a Cubierta (`wpSnapObstacleToRoof`):**
+  - Botón `#obs-snap-roof-btn` de recuperación automática cuando el obstáculo queda fuera del tejado.
+  - Calcula el centroide 3D del faldón activo, proyecta las coordenadas locales `(u, v)` y recoloca instantáneamente el objeto en el tejado, actualizando primitivas GPU y evitando objetos flotando en el vacío.
+
+
 
 
 
