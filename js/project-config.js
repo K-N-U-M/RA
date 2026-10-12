@@ -39,6 +39,9 @@ function populateStep3EquipmentSelectors() {
   const modSel = document.getElementById('step3-sel-module');
   if (modSel) modSel.innerHTML = modOptionsHtml;
 
+  const faldonModSel = document.getElementById('faldon-module-select');
+  if (faldonModSel) faldonModSel.innerHTML = modOptionsHtml;
+
   const modSel2 = document.getElementById('step2-sel-module');
   if (modSel2) {
     modSel2.innerHTML = modOptionsHtml;
@@ -157,6 +160,9 @@ function step2SelectModule(id) {
     }
   }
 
+  if (typeof window.wpInvalidateHeatmap === 'function') {
+    window.wpInvalidateHeatmap('Módulo FV global modificado');
+  }
   if (typeof step3UpdateHardwareSelection === 'function') {
     step3UpdateHardwareSelection();
   }
@@ -177,7 +183,7 @@ function wpUpdateStep2ModuleBadge() {
   if (!catalog || !badge) return;
   const mod = catalog.modules.find(m => m.id === cfg.selectedModuleId) || catalog.modules[0];
   if (mod) {
-    badge.innerHTML = '<span><i data-lucide=\"ruler\" class=\"icon-sm\"></i> ' + (mod.l || 2.1).toFixed(2) + '×' + (mod.w || 1.05).toFixed(2) + 'm · ' + (mod.wp || 450) + ' Wp</span><span style="color:#38BDF8;font-weight:bold;">' + (mod.eff ? (mod.eff + '%') : '') + ' · ' + (mod.price || 115) + ' €</span>';
+    badge.innerHTML = '<span><i data-lucide="ruler" class="icon-sm"></i> ' + (mod.l || 2.1).toFixed(2) + '×' + (mod.w || 1.05).toFixed(2) + 'm · ' + (mod.wp || 450) + ' Wp</span><span style="color:#38BDF8;font-weight:bold;">' + (mod.eff ? (mod.eff + '%') : '') + ' · ' + (mod.price || 115) + ' €</span>';
   }
 }
 window.wpUpdateStep2ModuleBadge = wpUpdateStep2ModuleBadge;
@@ -185,6 +191,7 @@ window.wpUpdateStep2ModuleBadge = wpUpdateStep2ModuleBadge;
 function step3UpdateHardwareSelection() {
   const invSel = document.getElementById('step3-sel-inverter');
   const modSel = document.getElementById('step3-sel-module');
+  const faldonModSel = document.getElementById('faldon-module-select');
   const modSel2 = document.getElementById('step2-sel-module');
   const miSel  = document.getElementById('step3-sel-microinverter');
   const batSel = document.getElementById('step3-sel-battery');
@@ -199,6 +206,7 @@ function step3UpdateHardwareSelection() {
     // (computeSinglePolylineRoofInfo: poly.moduleId || selectedModuleId).
     window.solarProjectConfig.selectedModuleId = modSel.value;
 
+    if (faldonModSel && faldonModSel.value !== modSel.value) faldonModSel.value = modSel.value;
     if (modSel2 && modSel2.value !== modSel.value) modSel2.value = modSel.value;
     if (typeof wpUpdateStep2ModuleBadge === 'function') wpUpdateStep2ModuleBadge();
     

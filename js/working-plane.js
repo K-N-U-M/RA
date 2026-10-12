@@ -2303,7 +2303,6 @@ function wpSelectPolyline(polyIdx) {
     WP.selectedPolyIdx = 0;
   } else {
     WP.selectedPolyIdx = polyIdx;
-  if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Inclinación de faldón modificada');
   }
   WP.selectedVtxIdx = -1;
 
@@ -2931,8 +2930,16 @@ function wpSelectFaldon(idx) {
     selectedVertexIndex = -1;
   }
 
+  // Sincronizar selectores desplegables si difieren
+  var dropdown = document.getElementById('faldon-selector-dropdown');
+  if (dropdown && dropdown.value !== String(idx)) dropdown.value = String(idx);
+  var dropdownP1 = document.getElementById('wp-polylines-dropdown');
+  if (dropdownP1 && dropdownP1.value !== String(idx)) dropdownP1.value = String(idx);
+
   wpRenderAllPolylines();
   wpUpdateUI();
+  wpPopulateFaldonCard();
+  if (typeof wpSyncStep6Controls === 'function') wpSyncStep6Controls();
 
   if (typeof recalculateSolarYield === 'function') recalculateSolarYield();
 
@@ -2964,6 +2971,7 @@ function wpSetPolyModule(polyIdx, modId) {
     WP.polylines[polyIdx].roofInfo = computeSinglePolylineRoofInfo(WP.polylines[polyIdx].points, WP.polylines[polyIdx]);
   }
 
+  if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Módulo FV modificado');
   if (typeof wpFastRenderSimulatedPanels === "function") wpFastRenderSimulatedPanels();
   if (typeof recalculateSolarYield === "function") recalculateSolarYield();
   wpUpdateStep3UI();
@@ -2999,6 +3007,7 @@ function wpApplyPolyModuleToAll(sourcePolyIdx) {
     onSelectModuleFromDropdown(targetModId);
   }
 
+  if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Módulo FV aplicado a todos los faldones');
   if (typeof wpFastRenderSimulatedPanels === "function") wpFastRenderSimulatedPanels();
   if (typeof recalculateSolarYield === "function") recalculateSolarYield();
   wpUpdateStep3UI();
@@ -3066,6 +3075,7 @@ function wpApplyPanelArrangement(polyIdx, mode) {
     poly.roofInfo = computeSinglePolylineRoofInfo(poly.points, poly);
   }
 
+  if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Disposición de paneles modificada');
   if (typeof wpFastRenderSimulatedPanels === 'function') wpFastRenderSimulatedPanels();
   if (typeof recalculateSolarYield === 'function') recalculateSolarYield();
 
@@ -3080,7 +3090,7 @@ function wpApplyPanelArrangement(polyIdx, mode) {
     solar_optimal: isSouthFav ? `CARA AL SOL (ACOPLADO AL FALDÓN · ${poly.modTilt}°)` : `CARA AL SOL (SUR ESTRICTO · ${optimalTilt}° · 180°)`,
     custom: 'PERSONALIZADA (MANUAL)'
   };
-  showStatus(`<i data-lucide=\"check\" class=\"icon-sm\"></i> DISPOSICIÓN ${modeNames[mode] || mode.toUpperCase()} EN ${poly.name || ('FALDÓN #' + (polyIdx + 1))}`, 2500);
+  showStatus(`<i data-lucide="check" class="icon-sm"></i> DISPOSICIÓN ${modeNames[mode] || mode.toUpperCase()} EN ${poly.name || ('FALDÓN #' + (polyIdx + 1))}`, 2500);
 }
 
 function wpApplyPanelArrangementToAll(sourcePolyIdx) {
@@ -3104,13 +3114,14 @@ function wpApplyPanelArrangementToAll(sourcePolyIdx) {
     }
   });
 
+  if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Disposición propagada a todos los faldones');
   if (typeof wpFastRenderSimulatedPanels === 'function') wpFastRenderSimulatedPanels();
   if (typeof recalculateSolarYield === 'function') recalculateSolarYield();
 
   wpUpdateStep3UI();
   if (typeof wpSyncStep6Controls === 'function') wpSyncStep6Controls();
 
-  showStatus(`<i data-lucide=\"check\" class=\"icon-sm\"></i> DISPOSICIÓN PROPAGADA A TODOS LOS FALDONES (${WP.polylines.length} CUBIERTAS)`, 3000);
+  showStatus(`<i data-lucide="check" class="icon-sm"></i> DISPOSICIÓN PROPAGADA A TODOS LOS FALDONES (${WP.polylines.length} CUBIERTAS)`, 3000);
 }
 
 window.wpApplyPanelArrangement = wpApplyPanelArrangement;
@@ -3161,6 +3172,7 @@ function wpSetPolyAzimuthRealtime(polyIdx, val) {
         cardModLbl.innerHTML = c + ' mods <span style="font-size:8px;color:var(--amber-400);margin-left:4px;">· ' + kw + ' kWp</span>';
       }
       if (typeof recalculateSolarYield === "function") recalculateSolarYield();
+      if (typeof wpSyncStep6Controls === "function") wpSyncStep6Controls();
     });
   } else {
     const poly = WP.polylines[polyIdx];
@@ -3176,8 +3188,17 @@ function wpSetPolyAzimuthRealtime(polyIdx, val) {
       const kw = (c * wpGetPolyWp(poly) / 1000).toFixed(2);
       cardModLbl.innerHTML = c + ' mods <span style="font-size:8px;color:var(--amber-400);margin-left:4px;">· ' + kw + ' kWp</span>';
     }
+    if (typeof wpSyncStep6Controls === "function") wpSyncStep6Controls();
   }
 }
+
+function wpCommitPolyAzimuth(polyIdx) {
+  if (typeof window.wpInvalidateHeatmap === 'function') {
+    window.wpInvalidateHeatmap('Azimut de módulo fijado');
+  }
+  if (typeof wpSyncStep6Controls === 'function') wpSyncStep6Controls();
+}
+window.wpCommitPolyAzimuth = wpCommitPolyAzimuth;
 
 function wpSelectPolylineForStep3(polyIdx) {
   // Delegado a wpSelectFaldon — mantiene backward compat
@@ -3198,8 +3219,12 @@ function wpSetPolyOrientation(polyIdx, orientation) {
     WP.polylines[polyIdx].roofInfo = computeSinglePolylineRoofInfo(WP.polylines[polyIdx].points, WP.polylines[polyIdx]);
   }
 
-  wpFastRenderSimulatedPanels();
+  if (typeof window.wpInvalidateHeatmap === 'function') {
+    window.wpInvalidateHeatmap('Orientación modificada (' + (orientation === 'landscape' ? 'horizontal' : 'vertical') + ')');
+  }
+  if (typeof wpFastRenderSimulatedPanels === "function") wpFastRenderSimulatedPanels();
   wpUpdateStep3UI();
+  if (typeof wpSyncStep6Controls === 'function') wpSyncStep6Controls();
 
   showStatus("DISPOSICIÓN " + (orientation === "landscape" ? "HORIZONTAL" : "VERTICAL") + " EN " + (WP.polylines[polyIdx].name || ("FALDÓN #" + (polyIdx + 1))), 2000);
 }
@@ -3260,11 +3285,20 @@ function wpSetPolyTiltRealtime(polyIdx, val) {
         cardModLbl.innerHTML = c + ' mods <span style="font-size:8px;color:var(--amber-400);margin-left:4px;">· ' + kw + ' kWp</span>';
       }
       if (typeof recalculateSolarYield === "function") recalculateSolarYield();
+      if (typeof wpSyncStep6Controls === "function") wpSyncStep6Controls();
     });
   } else {
     wpSetPolyTilt(polyIdx, val);
   }
 }
+
+function wpCommitPolyTilt(polyIdx) {
+  if (typeof window.wpInvalidateHeatmap === 'function') {
+    window.wpInvalidateHeatmap('Inclinación de módulo fijada');
+  }
+  if (typeof wpSyncStep6Controls === 'function') wpSyncStep6Controls();
+}
+window.wpCommitPolyTilt = wpCommitPolyTilt;
 
 function wpSetPolyTilt(polyIdx, val) {
   if (!WP.polylines || !WP.polylines[polyIdx]) return;
@@ -3323,6 +3357,9 @@ function wpSetPolyStructure(polyIdx, val) {
     poly.roofInfo = computeSinglePolylineRoofInfo(poly.points, poly);
   }
 
+  if (typeof window.wpInvalidateHeatmap === 'function') {
+    window.wpInvalidateHeatmap('Estructura de montaje modificada');
+  }
   if (typeof wpFastRenderSimulatedPanels === 'function') {
     wpFastRenderSimulatedPanels();
   }

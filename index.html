@@ -950,7 +950,7 @@ window.RA_App = window.RA_App || {};
                         <span id="faldon-tilt-val" style="font-size:9px;font-weight:bold;color:var(--amber-400);font-family:monospace;">Auto (faldón)</span>
                       </div>
                       <div style="display:flex;align-items:center;gap:6px;">
-                        <input id="faldon-tilt-slider" type="range" min="0" max="90" step="1" value="0" style="flex:1;accent-color:var(--amber-400);height:4px;cursor:pointer;" oninput="wpSetPolyTiltRealtime(WP.selectedPolyIdx, this.value)" />
+                        <input id="faldon-tilt-slider" type="range" min="0" max="90" step="1" value="0" style="flex:1;accent-color:var(--amber-400);height:4px;cursor:pointer;" oninput="wpSetPolyTiltRealtime(WP.selectedPolyIdx, this.value)" onchange="if (typeof wpCommitPolyTilt === 'function') wpCommitPolyTilt(WP.selectedPolyIdx);" />
                         <button class="doc-mini-btn" style="padding:2px 5px;font-size:7.5px;" onclick="wpApplyPanelArrangement(WP.selectedPolyIdx, 'coplanar')">AUTO</button>
                       </div>
                     </div>
@@ -961,14 +961,14 @@ window.RA_App = window.RA_App || {};
                         <span id="faldon-az-val" style="font-size:9px;font-weight:bold;color:var(--cyan-400,#38bdf8);font-family:monospace;">Auto</span>
                       </div>
                       <div style="display:flex;align-items:center;gap:6px;">
-                        <input id="faldon-az-slider" type="range" min="0" max="360" step="1" value="180" style="flex:1;accent-color:var(--cyan-400,#38bdf8);height:4px;cursor:pointer;" oninput="wpSetPolyAzimuthRealtime(WP.selectedPolyIdx, this.value)" />
+                        <input id="faldon-az-slider" type="range" min="0" max="360" step="1" value="180" style="flex:1;accent-color:var(--cyan-400,#38bdf8);height:4px;cursor:pointer;" oninput="wpSetPolyAzimuthRealtime(WP.selectedPolyIdx, this.value)" onchange="if (typeof wpCommitPolyAzimuth === 'function') wpCommitPolyAzimuth(WP.selectedPolyIdx);" />
                         <button class="doc-mini-btn" style="padding:2px 5px;font-size:7.5px;" onclick="wpApplyPanelArrangement(WP.selectedPolyIdx, 'coplanar')">AUTO</button>
                       </div>
                       <div style="display:flex;justify-content:space-between;margin-top:4px;gap:2px;">
-                        <button class="doc-mini-btn" style="padding:1px 2px;font-size:7px;flex:1;" onclick="wpSetPolyAzimuthRealtime(WP.selectedPolyIdx, 0)">0° N</button>
-                        <button class="doc-mini-btn" style="padding:1px 2px;font-size:7px;flex:1;" onclick="wpSetPolyAzimuthRealtime(WP.selectedPolyIdx, 90)">90° E</button>
-                        <button class="doc-mini-btn" style="padding:1px 2px;font-size:7px;flex:1;background:rgba(245,158,11,0.15);color:var(--amber-400);font-weight:bold;" onclick="wpSetPolyAzimuthRealtime(WP.selectedPolyIdx, 180)">180° S</button>
-                        <button class="doc-mini-btn" style="padding:1px 2px;font-size:7px;flex:1;" onclick="wpSetPolyAzimuthRealtime(WP.selectedPolyIdx, 270)">270° O</button>
+                        <button class="doc-mini-btn" style="padding:1px 2px;font-size:7px;flex:1;" onclick="wpSetPolyAzimuthRealtime(WP.selectedPolyIdx, 0); if (typeof wpCommitPolyAzimuth === 'function') wpCommitPolyAzimuth(WP.selectedPolyIdx);">0° N</button>
+                        <button class="doc-mini-btn" style="padding:1px 2px;font-size:7px;flex:1;" onclick="wpSetPolyAzimuthRealtime(WP.selectedPolyIdx, 90); if (typeof wpCommitPolyAzimuth === 'function') wpCommitPolyAzimuth(WP.selectedPolyIdx);">90° E</button>
+                        <button class="doc-mini-btn" style="padding:1px 2px;font-size:7px;flex:1;background:rgba(245,158,11,0.15);color:var(--amber-400);font-weight:bold;" onclick="wpSetPolyAzimuthRealtime(WP.selectedPolyIdx, 180); if (typeof wpCommitPolyAzimuth === 'function') wpCommitPolyAzimuth(WP.selectedPolyIdx);">180° S</button>
+                        <button class="doc-mini-btn" style="padding:1px 2px;font-size:7px;flex:1;" onclick="wpSetPolyAzimuthRealtime(WP.selectedPolyIdx, 270); if (typeof wpCommitPolyAzimuth === 'function') wpCommitPolyAzimuth(WP.selectedPolyIdx);">270° O</button>
                       </div>
                     </div>
                   </div>
@@ -6332,7 +6332,10 @@ function rotateSelectedPanel() {
   p.centerN = newCenterN;
   p.w = newW; p.h = newH;
   p.orientation = p.orientation === 'landscape' ? 'portrait' : 'landscape';
+  p.isManual = true;
   updatePanelSelectionUI();
+  if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Panel girado individualmente');
+  if (typeof wpFastRenderSimulatedPanels === 'function') wpFastRenderSimulatedPanels();
   showStatus(`PANEL #${selectedPanelIndex + 1} · ${p.orientation === 'landscape' ? 'HORIZONTAL (LANDSCAPE)' : 'VERTICAL (PORTRAIT)'}`, 2500);
 }
 
@@ -6346,9 +6349,12 @@ function restoreSelectedPanel() {
   if (!s || !p) return;
   p.u = s.u; p.v = s.v; p.w = s.w; p.h = s.h;
   p.orientation = s.orientation;
+  p.isManual = false;
   Cesium.Cartesian3.clone(s.center, p.center);
   p.corners = s.corners.map(c => Cesium.Cartesian3.clone(c));
   updatePanelSelectionUI();
+  if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Panel restaurado');
+  if (typeof wpFastRenderSimulatedPanels === 'function') wpFastRenderSimulatedPanels();
   showStatus(`PANEL #${selectedPanelIndex + 1} RESTAURADO A SU POSICIÓN Y ORIENTACIÓN ORIGINALES`, 2500);
 }
 
