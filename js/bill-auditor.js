@@ -758,12 +758,46 @@
       if (titularCups) titularCups.value = bill.cups;
     }
 
+    // Sincronizar targetKwp en solarProjectConfig según el consumo anual auditado
+    if (!window.solarProjectConfig) window.solarProjectConfig = {};
+    const hspEst = (window.solarYieldResults && window.solarYieldResults.hsp) || 1450;
+    const targetKwp = Math.max(0.5, Math.round((comp.consumoAnualKWh / hspEst) * 100) / 100);
+    window.solarProjectConfig.targetKwp = targetKwp;
+
+    // Si el usuario tiene activo el criterio de ajuste por consumo, regenerar layout con la nueva meta
+    const radios = document.getElementsByName('project_objective');
+    let isTargetKwh = false;
+    for (let r of radios) {
+      if (r.checked && r.value === 'target_kwh') {
+        isTargetKwh = true;
+        break;
+      }
+    }
+
+    if (isTargetKwh || window.solarProjectConfig.selectedObjective === 'target_kwh') {
+      if (typeof roofPanelsCache !== 'undefined' && roofPanelsCache) {
+        roofPanelsCache.sig = "";
+        roofPanelsCache.data = null;
+      }
+      if (typeof wpFastRenderSimulatedPanels === 'function') {
+        wpFastRenderSimulatedPanels();
+      } else if (typeof step5RegenerateLayout === 'function') {
+        step5RegenerateLayout();
+      }
+      if (typeof recalculateSolarYield === 'function') {
+        recalculateSolarYield();
+      }
+      if (typeof wpUpdateStep3UI === 'function') {
+        wpUpdateStep3UI();
+      }
+    }
+
     if (typeof updateBudgetUI === 'function') {
       updateBudgetUI();
     }
 
     if (typeof showToast === 'function') {
-      showToast('¡Datos de la factura sincronizados con el presupuesto y cálculo financiero!', 'success');
+      showToast('¡Datos de la factura sincronizados! Meta: ' + targetKwp + ' kWp (' + Math.round(comp.consumoAnualKWh) + ' kWh/año).', 'success', 4000);
     }
   }
 

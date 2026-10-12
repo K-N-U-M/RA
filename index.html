@@ -6742,8 +6742,30 @@ function recalculateSolarYield() {
   setElemText('sol-efficiency-ratio', (orientationEfficiency * 100).toFixed(1) + '%');
   setElemText('sol-economic-savings', annualSavingsEUR.toLocaleString('es-ES') + ' €/año');
   setElemText('sol-co2-savings', co2AvoidedTons + ' t/año');
-  setElemText('sol-string-voc', `${(numPanels * 41.5).toFixed(1)} V CC`);
-  setElemText('sol-string-imp', '13.05 A');
+  const limits = (typeof calculateDynamicMPPTStringLimits === 'function')
+    ? calculateDynamicMPPTStringLimits()
+    : { Ns_max: 18, Ns_min: 6, Voc_Tmin: 54.0 };
+  const modVoc = pCfg.voc || (pCfg.potencia >= 500 ? 50.0 : 49.5);
+  const modImp = pCfg.imp || (pCfg.potencia >= 500 ? 13.5 : 10.8);
+  let maxModPerString = 0;
+  if (window.allRenderedPanels && window.allRenderedPanels.length > 0) {
+    const stringMap = {};
+    window.allRenderedPanels.forEach(p => {
+      const sId = p.stringId || p.stringName || 'S1';
+      stringMap[sId] = (stringMap[sId] || 0) + 1;
+    });
+    const counts = Object.values(stringMap);
+    if (counts.length > 0) {
+      maxModPerString = Math.max(...counts);
+    }
+  }
+  if (!maxModPerString && numPanels > 0) {
+    const nsMax = limits.Ns_max || 18;
+    maxModPerString = Math.min(numPanels, nsMax);
+  }
+  const stringVocEst = maxModPerString > 0 ? (maxModPerString * (limits.Voc_Tmin || (modVoc * 1.12))) : 0;
+  setElemText('sol-string-voc', maxModPerString > 0 ? `${stringVocEst.toFixed(1)} V CC` : '— V CC');
+  setElemText('sol-string-imp', `${modImp.toFixed(2)} A`);
   setElemText('p2-prod-annual-badge', `${annualYieldKWh.toLocaleString('es-ES')} kWh/año`);
 
   renderSolarBarChart(monthlyYields);
@@ -11233,6 +11255,9 @@ function computeRoofPanelsData() {
     ? WP.polylines.map((pl, pi) => "P" + pi + ":" + (pl.points || []).filter(p => p && typeof p.x === "number").map(p => p.x.toFixed(3) + "," + p.y.toFixed(3) + "," + p.z.toFixed(3)).join(";") + ":mod=" + (pl.moduleId || "def") + ":arr=" + (pl.arrangementMode || "def") + ":az=" + (pl.modAzimuth || "auto") + ":t=" + (pl.modTilt || "auto") + ":or=" + (pl.orientationPref || "portrait")).join("|")
     : (polygonPoints || []).filter(p => p && typeof p.x === "number").map(p => p.x.toFixed(3) + "," + p.y.toFixed(3) + "," + p.z.toFixed(3)).join(";");
 
+  const curObj = (typeof window !== "undefined" && window.solarProjectConfig && window.solarProjectConfig.selectedObjective) ? window.solarProjectConfig.selectedObjective : "optimal_inv";
+  const curTargetKwp = (typeof window !== "undefined" && window.solarProjectConfig && window.solarProjectConfig.targetKwp) ? window.solarProjectConfig.targetKwp : 0;
+
   const sig = polySig
     + "|obs:" + obstacles.map(o => o.id + ":" + (o.u || 0).toFixed(3) + ":" + (o.v || 0).toFixed(3) + ":" + (o.w || 0) + ":" + (o.l || 0) + ":" + (o.h || 0) + ":" + (o.rot || 0) + (o.cartesian ? ":" + (o.cartesian.x || 0).toFixed(2) + "," + (o.cartesian.y || 0).toFixed(2) + "," + (o.cartesian.z || 0).toFixed(2) : "")).join(",")
     + "|shd:" + shadingStrategy
@@ -11241,6 +11266,8 @@ function computeRoofPanelsData() {
     + "|ma:" + ((typeof getModuleAzimuthSur === "function") ? getModuleAzimuthSur() : ((document.getElementById("cfg-mod-azimuth") || { value: "auto" }).value))
     + "|pref:" + orientPref
     + "|pc:" + (panelConfig.ancho || 1.05) + "x" + (panelConfig.largo || 2.10) + "x" + (panelConfig.potencia || 450)
+    + "|obj:" + curObj
+    + "|tKwp:" + curTargetKwp
     + "|wpIdx:" + (typeof WP !== "undefined" ? WP.activePlaneIdx : -1);
 
   if (roofPanelsCache.sig === sig && roofPanelsCache.data) {

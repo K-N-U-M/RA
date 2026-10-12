@@ -674,13 +674,27 @@ function step4UpdateObjective() {
   }
   // Auto-refresh: regenerar distribución de paneles al cambiar criterio
   if (typeof isPolygonDesignConfirmed !== 'undefined') isPolygonDesignConfirmed = true;
+  if (typeof roofPanelsCache !== 'undefined' && roofPanelsCache) {
+    roofPanelsCache.sig = "";
+    roofPanelsCache.data = null;
+  }
   if (typeof wpFastRenderSimulatedPanels === 'function') {
     wpFastRenderSimulatedPanels();
   } else if (typeof step5RegenerateLayout === 'function') {
     step5RegenerateLayout();
   }
+  if (typeof recalculateSolarYield === 'function') {
+    recalculateSolarYield();
+  }
+  if (typeof wpUpdateStep3UI === 'function') {
+    wpUpdateStep3UI();
+  }
+  if (typeof wpPopulateFaldonCard === 'function') {
+    wpPopulateFaldonCard();
+  }
 }
 window.step4UpdateObjective = step4UpdateObjective;
+window.wpUpdateDesignObjective = step4UpdateObjective;
 
 function step4ApplyFinancialProfile(profileKey) {
   window.solarProjectConfig.financialProfile = profileKey;
