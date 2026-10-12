@@ -49,6 +49,7 @@ c:/TRABAJOS/RA/
 │   ├── project-hierarchy.js         # Scene graph jerárquico del proyecto
 │   ├── ui-outliner.js               # Outliner de objetos de escena
 │   ├── engineering-explainer.js     # Explicaciones guiadas de ingeniería
+│   ├── wind-turbine.js              # Generadores eólicos 3D (HAWT/VAWT) paramétricos AAA
 │   ├── config.js                    # Constantes globales y paletas
 │   └── viewer.js                    # Configuración del visor Cesium
 ├── scratch/                         # Scripts de verificación automatizados
@@ -181,6 +182,15 @@ Estado en `window.solarProjectConfig`:
   - 	riangles_custom: Triángulos A-Frame paramétricos con ángulo adaptable (1°–60°) gobernados dinámicamente por el slider de inclinación (cfg-p2-tilt-slider).
   - pergola: Pórtico de pilares verticales en las 4 esquinas del módulo descendiendo a la cota exacta de cubierta con altura libre configurable (default 1.80m).
 - **Sincronización Cinemática Bidireccional:** El selector aldon-structure-select y el slider de inclinación se sincronizan recíprocamente, recalculando la geometría 3D, el caché analítico y el desglose de materiales BOM de forma reactiva.
+
+---
+
+## 8.2 🌬️ Motor de Aerogeneradores 3D Paramétricos (`RAWindTurbine`)
+
+- **Pipeline GPU Consolidado (1 Draw Call):** Cada turbina (mástil, góndola, hub y 3 aspas en HAWT; mástil, palas y brazos en VAWT) se empaqueta en una única `Cesium.Primitive` (`geometryInstances: [...]`), reduciendo drásticamente las draw calls WebGL de 6 a 1 por máquina.
+- **Zero-Allocation en Arrastre (`MOUSE_MOVE`):** `updateObstacleLiveModelMatrix` actualiza directamente el `modelMatrix` de la primitiva existente en la GPU. Queda terminantemente prohibido destruir o recrear primitivas durante el arrastre con el gizmo.
+- **Orientación Adaptativa:** Cálculo dinámico de marco de referencia (`getObstacleFrame`) con soporte para faldones inclinados (alineación coplanar o a plomo vertical).
+- **Sombras Analíticas Precisas:** Sombra analítica 2D en cubierta ajustada a la cota y esbeltez cilíndrica del fuste/mástil ($r \approx 0.15\text{ m}$), erradicando penalizaciones irreales de bloques macizos en el heatmap solar anual.
 
 ---
 

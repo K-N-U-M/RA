@@ -385,9 +385,21 @@
     const polylines = (wpState && Array.isArray(wpState.polylines)) ? wpState.polylines : [];
 
     // Sincronizar y enlazar referencias de paneles antes de iniciar el cómputo
-    polylines.forEach(poly => {
+    const livePanels = (typeof window !== 'undefined' && Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0)
+      ? window.allRenderedPanels
+      : null;
+
+    polylines.forEach((poly, polyIdx) => {
       if (!poly.roofInfo && typeof computeSinglePolylineRoofInfo === 'function') {
         poly.roofInfo = computeSinglePolylineRoofInfo(poly.points, poly);
+      }
+      if (livePanels) {
+        const matchingLive = livePanels.filter(lp => lp && (lp.polyIdx === polyIdx || (!lp.polyIdx && polyIdx === 0)));
+        if (matchingLive.length > 0) {
+          if (!poly.roofInfo) poly.roofInfo = {};
+          poly.roofInfo.panels = matchingLive;
+          poly.panels = matchingLive;
+        }
       }
       if (poly.roofInfo && Array.isArray(poly.roofInfo.panels)) {
         poly.panels = poly.roofInfo.panels;
@@ -649,38 +661,56 @@
 
             // 4. Sombreado 2D (obstáculos) y 3D (Google 3D Tiles)
             let isShaded = false;
-            if (polyShadowQuads2D.length > 0 && typeof pData.u === 'number' && typeof pData.v === 'number') {
-              const halfW = (pData.w || 1.05) / 2;
-              const halfH = (pData.h || 2.10) / 2;
-              const uMin = pData.u - halfW;
-              const uMax = pData.u + halfW;
-              const vMin = pData.v - halfH;
-              const vMax = pData.v + halfH;
-              
-              const panelPoly2D = [
-                { u: uMin, v: vMin },
-                { u: uMax, v: vMin },
-                { u: uMax, v: vMax },
-                { u: uMin, v: vMax }
-              ];
-              for (const quad of polyShadowQuads2D) {
-                if (!quad || quad.length === 0) continue;
-                // AABB Broadphase check: si la caja envolvente de la sombra no toca la del panel, descartar inmediatamente
-                let qUMin = Infinity, qUMax = -Infinity, qVMin = Infinity, qVMax = -Infinity;
-                for (let qi = 0; qi < quad.length; qi++) {
-                  const qpt = quad[qi];
-                  if (qpt.u < qUMin) qUMin = qpt.u;
-                  if (qpt.u > qUMax) qUMax = qpt.u;
-                  if (qpt.v < qVMin) qVMin = qpt.v;
-                  if (qpt.v > qVMax) qVMax = qpt.v;
-                }
-                if (uMax < qUMin || uMin > qUMax || vMax < qVMin || vMin > qVMax) {
-                  continue; // Sin solapamiento en bounding box
+            if (polyShadowQuads2D.length > 0) {
+              let panelPoly2D = null;
+              if (Array.isArray(pData.corners) && pData.corners.length === 4 && pInfo && pInfo.invTransform && pInfo.uVec && pInfo.vVec) {
+                panelPoly2D = pData.corners.map(c => {
+                  const loc = Cesium.Matrix4.multiplyByPoint(pInfo.invTransform, c, new Cesium.Cartesian3());
+                  return {
+                    u: Cesium.Cartesian3.dot(loc, pInfo.uVec),
+                    v: Cesium.Cartesian3.dot(loc, pInfo.vVec)
+                  };
+                });
+              } else if (typeof pData.u === 'number' && typeof pData.v === 'number') {
+                const halfW = (pData.w || 1.05) / 2;
+                const halfH = (pData.h || 2.10) / 2;
+                panelPoly2D = [
+                  { u: pData.u - halfW, v: pData.v - halfH },
+                  { u: pData.u + halfW, v: pData.v - halfH },
+                  { u: pData.u + halfW, v: pData.v + halfH },
+                  { u: pData.u - halfW, v: pData.v + halfH }
+                ];
+              }
+
+              if (panelPoly2D && panelPoly2D.length >= 3) {
+                let uMin = Infinity, uMax = -Infinity, vMin = Infinity, vMax = -Infinity;
+                for (let pi = 0; pi < panelPoly2D.length; pi++) {
+                  const ppt = panelPoly2D[pi];
+                  if (ppt.u < uMin) uMin = ppt.u;
+                  if (ppt.u > uMax) uMax = ppt.u;
+                  if (ppt.v < vMin) vMin = ppt.v;
+                  if (ppt.v > vMax) vMax = ppt.v;
                 }
 
-                if (typeof polygonsIntersect2D === "function" && polygonsIntersect2D(panelPoly2D, quad)) {
-                  isShaded = true;
-                  break;
+                for (const quad of polyShadowQuads2D) {
+                  if (!quad || quad.length === 0) continue;
+                  // AABB Broadphase check: si la caja envolvente de la sombra no toca la del panel, descartar inmediatamente
+                  let qUMin = Infinity, qUMax = -Infinity, qVMin = Infinity, qVMax = -Infinity;
+                  for (let qi = 0; qi < quad.length; qi++) {
+                    const qpt = quad[qi];
+                    if (qpt.u < qUMin) qUMin = qpt.u;
+                    if (qpt.u > qUMax) qUMax = qpt.u;
+                    if (qpt.v < qVMin) qVMin = qpt.v;
+                    if (qpt.v > qVMax) qVMax = qpt.v;
+                  }
+                  if (uMax < qUMin || uMin > qUMax || vMax < qVMin || vMin > qVMax) {
+                    continue; // Sin solapamiento en bounding box
+                  }
+
+                  if (typeof polygonsIntersect2D === "function" && polygonsIntersect2D(panelPoly2D, quad)) {
+                    isShaded = true;
+                    break;
+                  }
                 }
               }
             }
@@ -800,6 +830,29 @@
       });
     }
 
+    // Sincronizar métricas de calor calculadas hacia window.allRenderedPanels si difieren
+    if (typeof window !== 'undefined' && Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0) {
+      polylines.forEach(poly => {
+        const panels = Array.isArray(poly.panels) ? poly.panels : [];
+        panels.forEach(p => {
+          const match = window.allRenderedPanels.find(lp => lp.panelId === p.panelId || (lp.layoutIndex === p.layoutIndex && lp.polyIdx === p.polyIdx));
+          if (match && match !== p) {
+            match.annualLossPct = p.annualLossPct;
+            match.annualYieldPct = p.annualYieldPct;
+            match.annualKwh = p.annualKwh;
+            match.relativeYieldPct = p.relativeYieldPct;
+            match.heatmapColor = p.heatmapColor;
+            match.annualTotalPotential = p.annualTotalPotential;
+            match.annualShadedLoss = p.annualShadedLoss;
+            match.annualTotalInsolation = p.annualTotalInsolation;
+            match.isNormal = p.isNormal;
+            match.requiresMLPE = p.requiresMLPE;
+            match.isUnviable = p.isUnviable;
+          }
+        });
+      });
+    }
+
     // 7. Evaluar diagnóstico y actualizar telemetría
     const diag = wpEvaluateMLPENecessity();
     const p2LossBadge = document.getElementById('p2-shading-loss-badge');
@@ -859,20 +912,64 @@
   window.wpEvaluateMLPENecessity = wpEvaluateMLPENecessity;
   let _lastInvalToastTs = 0;
   window.wpInvalidateHeatmap = function(reason) {
-    const hasSimState = !!(window.solarSimState && (window.solarSimState.annualHeatmapData || window.solarSimState.viewMode === 'heatmap'));
-    // Verificar también si algún panel ya tiene datos de irradiancia calculados
-    let hasPanelsCalculated = false;
-    if (window.WP && Array.isArray(window.WP.polylines)) {
-      hasPanelsCalculated = window.WP.polylines.some(pl => pl.roofInfo && Array.isArray(pl.roofInfo.panels) && pl.roofInfo.panels.some(p => p.annualKwh > 0 || p.annualShadedLoss > 0));
-    }
-    const hadResults = hasSimState || hasPanelsCalculated;
-
     if (window.solarSimState) {
       window.solarSimState.annualHeatmapData = null;
       window.solarSimState.annualHeatmapDirty = true;
       window.solarSimState.annualHeatmapInvalidatedAt = Date.now();
+      window.solarSimState.isCalculatingHeatmap = false;
     }
 
+    // 1. Purgar caché de rendimiento e irradiancia de TODOS los paneles en memoria
+    const purgePanel = function(p) {
+      if (!p) return;
+      delete p.annualLossPct;
+      delete p.annualYieldPct;
+      delete p.annualKwh;
+      delete p.relativeYieldPct;
+      delete p.heatmapColor;
+      delete p.annualTotalPotential;
+      delete p.annualShadedLoss;
+      delete p.annualTotalInsolation;
+      delete p.annualShadedInsolation;
+      delete p.shadowHits;
+      delete p.heatmapSample;
+      delete p.heatmapInterpolated;
+      p.isNormal = true;
+      p.requiresMLPE = false;
+      p.isUnviable = false;
+    };
+
+    if (window.WP && Array.isArray(window.WP.polylines)) {
+      window.WP.polylines.forEach(pl => {
+        if (pl && pl.roofInfo && Array.isArray(pl.roofInfo.panels)) pl.roofInfo.panels.forEach(purgePanel);
+        if (pl && Array.isArray(pl.panels)) pl.panels.forEach(purgePanel);
+      });
+    }
+    if (typeof lastRoofInfo !== 'undefined' && lastRoofInfo && Array.isArray(lastRoofInfo.panels)) {
+      lastRoofInfo.panels.forEach(purgePanel);
+    }
+    if (Array.isArray(window.allRenderedPanels)) {
+      window.allRenderedPanels.forEach(purgePanel);
+    }
+
+    // 2. Si estaba en modo heatmap visual, limpiar las etiquetas 3D de producción
+    if (window.solarSimState && window.solarSimState.heatmapLabelEntities && Array.isArray(window.solarSimState.heatmapLabelEntities)) {
+      if (typeof viewer !== 'undefined' && viewer && viewer.entities) {
+        window.solarSimState.heatmapLabelEntities.forEach(e => {
+          if (e && e.id) {
+            try { viewer.entities.remove(e); } catch(_) {}
+          } else if (e && e.label && window._solarHeatmapLabelCollection) {
+            try { window._solarHeatmapLabelCollection.remove(e.label); } catch(_) {}
+          }
+        });
+      }
+      window.solarSimState.heatmapLabelEntities = [];
+    }
+    if (window._solarHeatmapLabelCollection) {
+      try { window._solarHeatmapLabelCollection.removeAll(); } catch(_) {}
+    }
+
+    // 3. Actualizar la UI y badges de pérdidas a estado pendiente/obsoleto
     const p2LossBadge = document.getElementById('p2-shading-loss-badge');
     if (p2LossBadge) {
       p2LossBadge.textContent = '⚠ ANÁLISIS OBSOLETO';
@@ -888,12 +985,35 @@
       if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
     }
 
-    // Avisar visualmente al usuario
-    if (typeof window.showToast === 'function' && (Date.now() - _lastInvalToastTs) > 3000) {
+    const diagText = document.getElementById('mlpe-diagnostic-text');
+    if (diagText) {
+      diagText.innerHTML = `
+        <div style="font-weight:700;color:#F59E0B;margin-bottom:4px;">
+          ⚠ Análisis solar desactualizado
+        </div>
+        <div style="font-size:8.5px;line-height:1.35;color:var(--text-slate-300);">
+          ${reason ? reason + '. ' : ''}La geometría o parámetros han cambiado. Pulsa en <b>Recalcular Mapa de Calor</b> para computar sombras y kWh reales.
+        </div>
+      `;
+      if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
+    }
+
+    // 4. Refrescar producción en el balance global
+    if (typeof recalculateSolarYield === 'function') {
+      recalculateSolarYield();
+    }
+
+    // 5. Avisar visualmente al usuario con mensaje claro
+    if (typeof window.showToast === 'function' && (Date.now() - _lastInvalToastTs) > 2500) {
       _lastInvalToastTs = Date.now();
       window.showToast('ANÁLISIS SOLAR OBSOLETO', (reason ? reason + '. ' : '') + 'Pulsa en "Recalcular Mapa de Calor" en el Paso 3 para actualizar la irradiancia y sombras.', 'warning', 4000);
     } else if (typeof showStatus === 'function') {
       showStatus('<i data-lucide="alert-triangle" class="icon-sm"></i> ' + (reason ? reason.toUpperCase() + ': ' : '') + 'ANÁLISIS SOLAR DESACTUALIZADO', 2500);
+    }
+
+    // 6. Si estaba en modo heatmap, forzar un refresco visual de los paneles
+    if (window.solarSimState && window.solarSimState.viewMode === 'heatmap' && typeof wpFastRenderSimulatedPanels === 'function') {
+      wpFastRenderSimulatedPanels();
     }
   };
 

@@ -308,16 +308,29 @@
       var allStrings = [];
 
       // 1. PRIORIDAD ABSOLUTA: allRenderedPanels (paneles instanciados en pantalla)
+      // Agrupamos respetando el stringName y el orden exacto en que fueron serializados con [+ IN] y [- OUT]
       if (Array.isArray(global.allRenderedPanels) && global.allRenderedPanels.length > 0) {
         var activePanels = global.allRenderedPanels.filter(function (p) {
           return p && (p.center || (p.corners && p.corners.length > 0));
         });
         if (activePanels.length > 0) {
-          var strList = (typeof global.partitionPanelsIntoMPPTStrings === 'function')
-            ? global.partitionPanelsIntoMPPTStrings(activePanels)
-            : [{ panels: activePanels }];
-          if (Array.isArray(strList) && strList.length > 0) {
-            return strList;
+          var stringMap = {};
+          var stringOrder = [];
+          activePanels.forEach(function (p) {
+            var sKey = p.stringName || ('S' + ((p.polyIdx || 0) + 1));
+            if (!stringMap[sKey]) {
+              stringMap[sKey] = [];
+              stringOrder.push(sKey);
+            }
+            stringMap[sKey].push(p);
+          });
+          if (stringOrder.length > 0) {
+            return stringOrder.map(function (sKey) {
+              return {
+                stringName: sKey,
+                panels: stringMap[sKey]
+              };
+            });
           }
         }
       }

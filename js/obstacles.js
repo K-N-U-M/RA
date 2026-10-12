@@ -1011,6 +1011,11 @@ function scaleSelectedObstacleAxis(axis, factor) {
   const obs = obstacles.find(o => o.id === selectedObstacleId);
   if (!obs) return;
 
+  if (obs.type === 'wind_turbine' && typeof window !== 'undefined' && window.RAWindTurbine && typeof window.RAWindTurbine.applyScaleAxis === 'function') {
+    window.RAWindTurbine.applyScaleAxis(obs, axis, factor);
+    return;
+  }
+
   if (axis === 'x') {
     obs.w = Math.max(0.2, Math.round((obs.w || 1.0) * factor * 10) / 10);
   } else if (axis === 'y') {
@@ -1031,6 +1036,9 @@ function scaleSelectedObstacleAxis(axis, factor) {
 
   render3DObstaclesInCesium();
   if (typeof wpUpdateSolarSimulation === 'function') wpUpdateSolarSimulation();
+  if (typeof window !== 'undefined' && typeof window.wpInvalidateHeatmap === 'function') {
+    window.wpInvalidateHeatmap('Escala de obstáculo modificada');
+  }
   showStatus('ESCALA ' + axis.toUpperCase() + ' AJUSTADA: ' + (axis === 'x' ? obs.w : (axis === 'y' ? obs.l : obs.h)).toFixed(2) + 'm', 1200);
 }
 
@@ -1038,6 +1046,11 @@ function nudgeSelectedObstacleDim(dim, delta) {
   if (!selectedObstacleId) return;
   const obs = obstacles.find(o => o.id === selectedObstacleId);
   if (!obs) return;
+
+  if (obs.type === 'wind_turbine' && typeof window !== 'undefined' && window.RAWindTurbine && typeof window.RAWindTurbine.applyNudgeDim === 'function') {
+    window.RAWindTurbine.applyNudgeDim(obs, dim, delta);
+    return;
+  }
 
   if (dim === 'w') {
     obs.w = Math.max(0.2, Math.round(((obs.w || 1.0) + delta) * 10) / 10);
@@ -1059,6 +1072,9 @@ function nudgeSelectedObstacleDim(dim, delta) {
 
   render3DObstaclesInCesium();
   if (typeof wpUpdateSolarSimulation === 'function') wpUpdateSolarSimulation();
+  if (typeof window !== 'undefined' && typeof window.wpInvalidateHeatmap === 'function') {
+    window.wpInvalidateHeatmap('Dimensión de obstáculo ajustada');
+  }
   showStatus('DIMENSIÓN ' + dim.toUpperCase() + ' AJUSTADA: ' + (dim === 'w' ? obs.w : (dim === 'l' ? obs.l : obs.h)).toFixed(2) + 'm', 1200);
 }
 
@@ -1165,12 +1181,21 @@ function updateSelectedObstacleProps() {
   const obs = obstacles.find(o => o.id === selectedObstacleId);
   if (!obs) return;
 
+  if (obs.type === 'wind_turbine' && typeof window !== 'undefined' && window.RAWindTurbine && typeof window.RAWindTurbine.onGeneralDimInput === 'function') {
+    window.RAWindTurbine.onGeneralDimInput(obs);
+    return;
+  }
+
   const wEl = document.getElementById('obs-width');
   const lEl = document.getElementById('obs-length');
   const hEl = document.getElementById('obs-height');
   if (wEl) obs.w = Math.max(parseFloat(wEl.value) || 0.5, 0.1);
   if (lEl) obs.l = Math.max(parseFloat(lEl.value) || 0.5, 0.1);
   if (hEl) obs.h = Math.max(parseFloat(hEl.value) || 1.0, 0.1);
+
+  if (typeof window !== 'undefined' && typeof window.wpInvalidateHeatmap === 'function') {
+    window.wpInvalidateHeatmap('Dimensiones de obstáculo modificadas');
+  }
 
   recalculateLayoutAndObstacles();
 }

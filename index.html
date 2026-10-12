@@ -3294,6 +3294,9 @@ function wpOnEstructuraChange(tipo, hVal) {
   if (typeof computeSinglePolylineRoofInfo === 'function') {
     poly.roofInfo = computeSinglePolylineRoofInfo(poly.points, poly);
   }
+  if (typeof window.wpInvalidateHeatmap === 'function') {
+    window.wpInvalidateHeatmap('Estructura de montaje modificada (' + tipo + ')');
+  }
   if (typeof step5RegenerateLayout === 'function') {
     step5RegenerateLayout();
   } else if (typeof wpFastRenderSimulatedPanels === 'function') {
@@ -3382,11 +3385,12 @@ function wpCompararEscenarios() {
   const miCount = Math.ceil(totalPaneles / miRatio);
   const capexInversores = invCountActual * (inv.price || 1100);
   const capexMicros = miCount * (mi.price || 175);
-  const capexBase = totalPaneles * (mod.price || 135) + capexInversores;
+  const modPrecio = mod.price || d.cfg.precio || 125;
+  const capexBase = totalPaneles * modPrecio + capexInversores;
 
   const scenarios = [
     { nombre: 'E1 · Diseño actual', desc: invCountActual + '× ' + inv.model, paneles: totalPaneles, kwp: totalPaneles * kwpPorPanel, kwh: producir('actual'), capexEq: capexBase },
-    { nombre: 'E2 · Microinversores', desc: miCount + '× ' + mi.model, paneles: totalPaneles, kwp: totalPaneles * kwpPorPanel, kwh: producir('micros'), capexEq: totalPaneles * (mod.price || 135) + capexMicros },
+    { nombre: 'E2 · Microinversores', desc: miCount + '× ' + mi.model, paneles: totalPaneles, kwp: totalPaneles * kwpPorPanel, kwh: producir('micros'), capexEq: totalPaneles * modPrecio + capexMicros },
     { nombre: 'E3 · Ángulo óptimo', desc: 'todos los faldones a ' + tiltOptimal + '° sur', paneles: totalPaneles, kwp: totalPaneles * kwpPorPanel, kwh: producir('optimo'), capexEq: capexBase }
   ];
 
@@ -3395,8 +3399,11 @@ function wpCompararEscenarios() {
   const ahorroBase = fin ? fin.ahorroLuzAnio1 : 0;
   const kWhBase = scenarios[0].kwh || 1;
   // instalación fija (igual en todos los escenarios): est + cab + mo + leg del presupuesto
-  const val = (id, def) => parseFloat((document.getElementById(id) || { value: def }).value) || def;
-  const instalacionFija = val('cfg-pres-est', 450) + val('cfg-pres-cab', 350) + val('cfg-pres-mo', 1400) + val('cfg-pres-leg', 500);
+  const val = (id, def) => {
+    const el = document.getElementById('modal-' + id) || document.getElementById(id);
+    return el ? (parseFloat(el.value) || def) : def;
+  };
+  const instalacionFija = (fin ? fin.estCost : val('cfg-pres-est', 450)) + val('cfg-pres-cab', 350) + val('cfg-pres-mo', 1400) + val('cfg-pres-leg', 500);
 
   scenarios.forEach(s => {
     s.ahorro = ahorroBase > 0 ? Math.round(ahorroBase * (s.kwh / kWhBase)) : Math.round(s.kwh * 0.15);
@@ -9724,19 +9731,14 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
       p.gridA = undefined;
       p.gridB = undefined;
 
-      // Proyectar newPos en el plano de cubierta para actualizar coordenadas locales (u, v)
+      // Proyectar newPos en el plano de cubierta para actualizar coordenadas locales (u, v) con invTransform
       const roofPoly = (typeof WP !== 'undefined' && WP.polylines && typeof p.polyIdx !== 'undefined') ? WP.polylines[p.polyIdx] : null;
       const roofInfo = roofPoly ? (roofPoly.roofInfo || (typeof computeSinglePolylineRoofInfo === 'function' ? computeSinglePolylineRoofInfo(roofPoly.points, roofPoly) : null)) : null;
-      const uVec = (target.wp && target.wp.uVec) || (roofInfo && roofInfo.uVec);
-      const vVec = (target.wp && target.wp.vVec) || (roofInfo && roofInfo.vVec);
-      const origin = (target.wp && target.wp.origin) || (roofInfo && roofInfo.origin) || (roofPoly && roofPoly.points ? roofPoly.points[0] : null);
 
-      if (uVec && vVec && origin) {
-        const uNorm = Cesium.Cartesian3.normalize(uVec, new Cesium.Cartesian3());
-        const vNorm = Cesium.Cartesian3.normalize(vVec, new Cesium.Cartesian3());
-        const rel = Cesium.Cartesian3.subtract(newPos, origin, new Cesium.Cartesian3());
-        p.u = Cesium.Cartesian3.dot(rel, uNorm);
-        p.v = Cesium.Cartesian3.dot(rel, vNorm);
+      if (roofInfo && roofInfo.invTransform && roofInfo.uVec && roofInfo.vVec) {
+        const locPt = Cesium.Matrix4.multiplyByPoint(roofInfo.invTransform, newPos, new Cesium.Cartesian3());
+        p.u = Cesium.Cartesian3.dot(locPt, roofInfo.uVec);
+        p.v = Cesium.Cartesian3.dot(locPt, roofInfo.vVec);
       }
 
       if (p.rawPanel) {
@@ -10828,13 +10830,47 @@ function getProjectCalcs() {
   const precio_kwh = 0.18;
   const ahorro_anual = Math.round(annualKWh * precio_kwh);
 
-  const pres_pan = numPanels * (cfg.precio || 125); // [SSOT] fallback único 125 € (antes 120 aquí, 135 en financials)
-  const pres_est = parseFloat((document.getElementById('cfg-pres-est') || {value:'450'}).value) || 450;
-  const pres_inv = parseFloat((document.getElementById('cfg-pres-inv') || {value:'1100'}).value) || 1100;
-  const pres_cab = parseFloat((document.getElementById('cfg-pres-cab') || {value:'350'}).value) || 350;
-  const pres_mo  = parseFloat((document.getElementById('cfg-pres-mo')  || {value:'1400'}).value) || 1400;
-  const pres_mon = 200, pres_leg = 350;
-  const subtotal = pres_pan + pres_est + pres_inv + pres_cab + pres_mo + pres_mon + pres_leg;
+  const _inputVal = (id, def) => {
+    const el = document.getElementById('modal-' + id) || document.getElementById(id);
+    return el ? (parseFloat(el.value) || def) : def;
+  };
+
+  const pres_pan = numPanels * (cfg.precio || 125); // [SSOT] fallback único 125 €
+  let pres_est = _inputVal('cfg-pres-est', 450);
+  if (typeof BOMTreeEngine !== 'undefined') {
+    const tree = BOMTreeEngine.computeBOMTree();
+    if (tree && tree.roofs && tree.summary.totalPanels > 0) {
+      let totalEst = 0;
+      tree.roofs.forEach(r => { if (r.structure && r.structure.costEur) totalEst += r.structure.costEur; });
+      if (totalEst > 0) pres_est = totalEst;
+    }
+  }
+
+  let pres_inv = _inputVal('cfg-pres-inv', 1100);
+  const _scCat = window.equipmentCatalog;
+  const _scCfg = window.solarProjectConfig;
+  if (_scCat && _scCfg && _scCfg.selectedInverterId) {
+    const _invItem = (_scCat.inverters || []).find(i => i.id === _scCfg.selectedInverterId);
+    if (_invItem && _invItem.price > 0) {
+      const _invCnt = (_scCfg.autoSizing && _scCfg.autoSizing.inverters && _scCfg.autoSizing.inverters.count) || 1;
+      pres_inv = _invItem.price * _invCnt;
+    }
+  }
+
+  let pres_bat = 0;
+  if (_scCat && _scCfg && _scCfg.selectedBatteryId) {
+    const _batItem = (_scCat.batteries || []).find(b => b.id === _scCfg.selectedBatteryId);
+    if (_batItem && _batItem.price > 0) {
+      const _batCnt = (_scCfg.autoSizing && _scCfg.autoSizing.batteries && _scCfg.autoSizing.batteries.count) || 1;
+      pres_bat = _batItem.price * _batCnt;
+    }
+  }
+  if (pres_bat === 0) pres_bat = _inputVal('cfg-pres-bat', 0);
+
+  const pres_cab = _inputVal('cfg-pres-cab', 350);
+  const pres_mo  = _inputVal('cfg-pres-mo', 1400);
+  const pres_mon = 200, pres_leg = _inputVal('cfg-pres-leg', 350);
+  const subtotal = pres_pan + pres_est + pres_inv + pres_bat + pres_cab + pres_mo + pres_mon + pres_leg;
   const iva = subtotal * 0.21;
   const total_pres = subtotal + iva;
   const payback = ahorro_anual > 0 ? (total_pres / ahorro_anual).toFixed(1) : '—';
@@ -12616,6 +12652,9 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
   const hasPolys = typeof WP !== "undefined" && WP && WP.polylines && WP.polylines.length > 0;
   const polylinesList = hasPolys ? WP.polylines : [{ points: polygonPoints, roofInfo: roofInfo, name: "Polilínea #1" }];
 
+  const existingRenderedPanels = (Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0)
+    ? [...window.allRenderedPanels]
+    : [];
   window.allRenderedPanels = []; // Expuesto globalmente para picking/selección multi-faldón
   const allTargetPanels = window.allRenderedPanels;
   const allTargetWires = [];
@@ -12630,7 +12669,9 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
     const poly = polylinesList[polyIdx];
     // Cesión entre faldones: el navegador respira y las cascadas de sombra se reajustan
     if (polyIdx > 0) await new Promise(r => setTimeout(r, 0));
-    const prevPanelsMap = (poly.roofInfo && poly.roofInfo.panels) ? poly.roofInfo.panels : [];
+    const prevPanelsMap = (existingRenderedPanels.length > 0)
+      ? existingRenderedPanels.filter(op => op && (op.polyIdx === polyIdx || (!op.polyIdx && polyIdx === 0)))
+      : ((poly.roofInfo && poly.roofInfo.panels) ? poly.roofInfo.panels : []);
     // Reutilizar roofInfo recién computado por computeRoofPanelsData (mismas entradas):
     // recomputar duplicaba el coste completo del layout por faldón (OOM en grandes plantas).
     let pInfo = poly.roofInfo || ((typeof computeSinglePolylineRoofInfo === "function") ? computeSinglePolylineRoofInfo(poly.points, poly) : null);
@@ -12643,12 +12684,15 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
 
         if (prevPanelsMap && prevPanelsMap.length > 0) {
           let prev = null;
-          // 🚀 MATCHING ESPACIAL ROBUSTO (Inmune a ordenaciones y filtrados por obstáculos)
-          if (typeof p.u === 'number' && typeof p.v === 'number') {
-            prev = prevPanelsMap.find(op => typeof op.u === 'number' && typeof op.v === 'number' && Math.abs(op.u - p.u) < 0.05 && Math.abs(op.v - p.v) < 0.05);
+          // 🚀 MATCHING ROBUSTO POR ID, ÍNDICE O ESPACIO
+          if (p.panelId) {
+            prev = prevPanelsMap.find(op => op.panelId === p.panelId || (op.rawPanel && op.rawPanel.panelId === p.panelId));
           }
-          if (!prev && p.panelId) {
-            prev = prevPanelsMap.find(op => op.panelId === p.panelId);
+          if (!prev && typeof p.layoutIndex === 'number') {
+            prev = prevPanelsMap.find(op => op.layoutIndex === p.layoutIndex || op.localIdx === p.layoutIndex);
+          }
+          if (!prev && typeof p.u === 'number' && typeof p.v === 'number') {
+            prev = prevPanelsMap.find(op => typeof op.u === 'number' && typeof op.v === 'number' && Math.abs(op.u - p.u) < 0.05 && Math.abs(op.v - p.v) < 0.05);
           }
           if (!prev && p.center) {
             prev = prevPanelsMap.find(op => op.center && Cesium.Cartesian3.distance(op.center, p.center) < 0.10);
@@ -12657,7 +12701,9 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
             prev = prevPanelsMap[idx];
           }
 
-          if (prev && (typeof prev.annualLossPct !== 'undefined' || typeof prev.annualKwh !== 'undefined')) {
+          // Solo heredar métricas de energía previas si la simulación anual sigue vigente (no dirty)
+          const isSimStillValid = !!(window.solarSimState && window.solarSimState.annualHeatmapData && !window.solarSimState.annualHeatmapDirty);
+          if (isSimStillValid && prev && (typeof prev.annualLossPct !== 'undefined' || typeof prev.annualKwh !== 'undefined')) {
             p.annualLossPct = prev.annualLossPct;
             p.annualYieldPct = prev.annualYieldPct;
             
@@ -14200,15 +14246,23 @@ async function wpSetShadowViewMode(mode) {
 }
 
 async function wpRunHeatmapAndActivateView(forceRecalculate = true) {
-  if (forceRecalculate && window.solarSimState) {
+  if (!window.solarSimState) window.solarSimState = {};
+  if (forceRecalculate) {
     window.solarSimState.annualHeatmapData = null;
     window.solarSimState.annualHeatmapDirty = false;
+    window.solarSimState.isCalculatingHeatmap = false;
   }
+  // Ejecutar el motor de cálculo directamente
+  if (typeof wpTriggerAnnualSolarHeatmapWrapper === 'function') {
+    await wpTriggerAnnualSolarHeatmapWrapper();
+  } else if (typeof window.computeAnnualSolarHeatmap === 'function') {
+    await window.computeAnnualSolarHeatmap();
+  }
+  // Sincronizar la vista y controles al modo heatmap
   if (typeof wpSetShadowViewMode === 'function') {
     await wpSetShadowViewMode('heatmap');
-  } else if (typeof wpTriggerAnnualSolarHeatmapWrapper === 'function') {
-    await wpTriggerAnnualSolarHeatmapWrapper();
-    if (typeof wpRenderHeatmapVisuals === 'function') wpRenderHeatmapVisuals();
+  } else if (typeof wpRenderHeatmapVisuals === 'function') {
+    wpRenderHeatmapVisuals();
   }
 }
 window.wpRunHeatmapAndActivateView = wpRunHeatmapAndActivateView;

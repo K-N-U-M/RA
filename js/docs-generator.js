@@ -548,54 +548,65 @@ function generatePresupuesto() {
   const puCableAC = sAcReal <= 6 ? 2.40 : (sAcReal <= 10 ? 3.80 : 5.90);
   const puEstructura = d.isCoplanar ? 24.50 : 38.00; // Coplanar vs Lastrada con cortavientos
 
-  // Capítulos detallados con BOM métrico real
+  // Capítulos detallados con BOM métrico real y alineación con Modelo Financiero
+  const estCostTotal = (m && m.estCost > 0) ? m.estCost : (d.pres_est || (d.numPanels * 45.0));
+  const puEstructuraPorModulo = d.numPanels > 0 ? (estCostTotal / d.numPanels) : 45.0;
+
   const caps = [
     { titulo: 'CAP. 1 — MÓDULOS FOTOVOLTAICOS TIER-1',
       items: [
-        { ref:'1.1', desc: 'Módulo FV ' + d.cfg.modelo + ' (' + d.cfg.potencia + ' Wp, ' + d.cfg.tecnologia + '). Certificaciones IEC 61215, IEC 61730 e ISO 9001. Garantía 12/25 años de producto y 25 años de producción lineal (≥84.8%).', ud:'ud', q: d.numPanels, pu: d.cfg.precio || 125.0 }
+        { ref:'1.1', desc: 'Módulo FV ' + d.cfg.modelo + ' (' + d.cfg.potencia + ' Wp, ' + d.cfg.tecnologia + '). Certificaciones IEC 61215, IEC 61730 e ISO 9001. Garantía 12/25 años de producto y 25 años de producción lineal (≥84.8%).', ud:'ud', q: d.numPanels, pu: (m && m.panCost ? (m.panCost / d.numPanels) : (d.cfg.precio || 125.0)) }
       ]
     },
-    { titulo: 'CAP. 2 — ESTRUCTURA SOPORTE (' + (d.isCoplanar ? 'COPLANAR A CUBIERTA' : 'LASTRADA AUTOPORTANTE CON DEFLECTOR') + ')',
+    { titulo: 'CAP. 2 — ESTRUCTURA SOPORTE (' + (d.isCoplanar ? 'COPLANAR A CUBIERTA' : 'PARAMÉTRICA / LASTRADA') + ')',
       items: [
-        { ref:'2.1', desc: (d.isCoplanar ? 'Estructura coplanar de aluminio anodizado EN AW-6063 T6 para fijación a cubierta inclinada' : 'Estructura autoportante lastrada con triángulos premontados y deflector posterior cortavientos (viento max 150 km/h)') + '. Incluso perfiles continuos, grapas de fijación inter-panel, tornillería A2 inox y juntas de estanqueidad EPDM.', ud:'m²', q: parseFloat(d.usefulArea), pu: puEstructura }
+        { ref:'2.1', desc: (d.isCoplanar ? 'Estructura coplanar de aluminio anodizado EN AW-6063 T6 para fijación a cubierta inclinada' : 'Estructura soporte autoportante con perfilería continua de aluminio y fijaciones inox A2') + '. Incluso perfiles continuos, grapas de fijación inter-panel, tornillería A2 inox y juntas de estanqueidad EPDM calculadas por Árbol BIM.', ud:'ud mod', q: d.numPanels, pu: puEstructuraPorModulo }
       ]
     },
     { titulo: 'CAP. 3 — SISTEMA DE GENERACIÓN Y CONVERSIÓN',
       items: [
-        { ref:'3.1', desc:'Inversor ' + d.P_ac_kW.toFixed(2) + ' kW, ' + (d.monofasico ? 'monofásico 230 V' : 'trifásico 400 V') + ', ' + (d.numStrings > 1 ? 'doble seguidor MPPT independiente' : 'seguidor MPPT') + ', rendimiento europeo η > 98.2%, monitorización WiFi/Ethernet integrada y grado de protección IP65.', ud:'ud', q:1, pu: d.pres_inv || 1150.0 }
-      ]
-    },
-    { titulo: 'CAP. 4 — CABLEADO, CANALIZACIONES Y METRADO 3D (REBT ITC-BT-40)',
-      items: [
-        { ref:'4.1', desc:'Cable solar unipolar tipo ZZ-F 1.500 V CC de ' + sDcReal + ' mm² Cu clase 5, libre de halógenos y resistente a UV/intemperie (' + origenDc + ': ' + lDcReal.toFixed(1) + ' m por string x ' + d.numStrings + ' strings x 2 polaridades). Incluso conectores Stäubli MC4 y prensaestopas IP68.', ud:'m', q: totalMetrosDC, pu: puCableDC },
-        { ref:'4.2', desc:'Cable de evacuación de potencia tipo RV-K 0,6/1 kV de ' + sAcReal + ' mm² Cu ' + (d.monofasico ? '3x (F+N+PE)' : '5x (3F+N+PE)') + ' entre inversor y cuadro de protección (' + origenAc + ': ' + lAcReal.toFixed(1) + ' m). Caída de tensión calculada ΔV < 1.0%.', ud:'m', q: totalMetrosAC, pu: puCableAC },
-        { ref:'4.3', desc:'Canalización exterior mediante tubo rígido de PVC libre de halógenos Ø 32/40 mm curvable en caliente M25/M32 y bandejas de chapa perforada sendzimir con tapa clipsada en cubierta.', ud:'m', q: Math.round(lDcReal + lAcReal), pu: 6.80 }
-      ]
-    },
-    { titulo: 'CAP. 5 — PROTECCIONES ELÉCTRICAS Y SEGURIDAD REBT',
-      items: [
-        { ref:'5.1', desc:'Cuadro de protección DC en caja envolvente IP65 resistente a rayos UV con seccionador de corte en carga 1.000 V CC y descargador de sobretensiones transitorias SPD Clase II (Up ≤ 2,5 kV).', ud:'ud', q:1, pu: 195.0 },
-        { ref:'5.2', desc:'Cuadro general de protección AC: Interruptor General Automático (IGA) ' + d.I_iga + ' A curva C, interruptor diferencial superinmunizado Clase A de 30 mA y protector contra sobretensiones transitorias y permanentes según ITC-BT-40.', ud:'ud', q:1, pu: 245.0 },
-        { ref:'5.3', desc:'Sistema de puesta a tierra equipotencial de estructuras y módulos: pica de cobre 2 m Ø 14 mm y cable desnudo de 35 mm² Cu, garantizando resistencia R ≤ 10 Ω.', ud:'ud', q:1, pu: 85.0 }
-      ]
-    },
-    { titulo: 'CAP. 6 — TELEMETRÍA, MONITORIZACIÓN Y GESTIÓN ENERGÉTICA',
-      items: [
-        { ref:'6.1', desc:'Smart Power Sensor / Contador bidireccional de inyección cero homologado con toroidales para monitorización en tiempo real de consumo, generación y balance horario en App móvil.', ud:'ud', q:1, pu: 180.0 }
-      ]
-    },
-    { titulo: 'CAP. 7 — MANO DE OBRA ESPECIALIZADA, MONTAJE Y CERTIFICACIÓN',
-      items: [
-        { ref:'7.1', desc:'Instalación completa por instaladores autorizados en baja tensión: montaje mecánico de módulos y subestructura, conexionado en serpiente anti-bucle, tirada de canalizaciones y conexionado.', ud:'ud', q:1, pu: d.pres_mo || 1400.0 },
-        { ref:'7.2', desc:'Ensayos y verificaciones reglamentarias previas a la puesta en servicio conforme a norma UNE-EN 62446-1: continuidad de tierra, resistencia de aislamiento y curvas I-V.', ud:'ud', q:1, pu: 190.0 }
-      ]
-    },
-    { titulo: 'CAP. 8 — INGENIERÍA, LEGALIZACIÓN Y TRAMITACIÓN ADMINISTRATIVA',
-      items: [
-        { ref:'8.1', desc:'Elaboración de Memoria Técnica de Diseño / Proyecto Colegiado visado, tramitación de Certificado de Instalación Eléctrica (CIE / Boletín) en Industria y registro de autoconsumo en CCAA (RD 244/2019).', ud:'ud', q:1, pu: d.pres_leg || 420.0 }
+        { ref:'3.1', desc:'Inversor ' + d.P_ac_kW.toFixed(2) + ' kW, ' + (d.monofasico ? 'monofásico 230 V' : 'trifásico 400 V') + ', ' + (d.numStrings > 1 ? 'doble seguidor MPPT independiente' : 'seguidor MPPT') + ', rendimiento europeo η > 98.2%, monitorización WiFi/Ethernet integrada y grado de protección IP65.', ud:'ud', q:1, pu: (m && m.invCost ? m.invCost : (d.pres_inv || 1100.0)) }
       ]
     }
   ];
+
+  // Si existe sistema de almacenamiento (Batería LFP), incorporar su capítulo
+  if (m && m.batCost > 0) {
+    const batKwh = m.batCap || 5.12;
+    caps.push({
+      titulo: 'CAP. 4 — SISTEMA DE ALMACENAMIENTO ELECTROQUÍMICO (BATERÍA LFP)',
+      items: [
+        { ref:'4.1', desc:'Sistema de acumulación modular de litio-ferrofosfato (LiFePO4) de ' + batKwh.toFixed(1) + ' kWh de capacidad útil, BMS integrado, DoD 90% y >6.000 ciclos de vida útil con comunicación CAN/RS485.', ud:'ud', q: 1, pu: m.batCost }
+      ]
+    });
+  }
+
+  // Capítulos de cableado, mano de obra y legalización
+  const capIdxOffset = (m && m.batCost > 0) ? 1 : 0;
+  const numCap = (n) => 'CAP. ' + (n + capIdxOffset);
+
+  const cabCostReal = (m && m.cabCost > 0) ? m.cabCost : (d.pres_cab || 350.0);
+  const moCostReal  = (m && m.moCost > 0)  ? m.moCost  : (d.pres_mo  || 1400.0);
+  const legCostReal = (m && m.legCost > 0) ? m.legCost : (d.pres_leg || 350.0);
+
+  caps.push(
+    { titulo: numCap(4) + ' — CABLEADO, CANALIZACIONES Y PROTECCIONES (REBT ITC-BT-40)',
+      items: [
+        { ref:'4.1', desc:'Líneas solares DC tipo ZZ-F 1.500 V CC de ' + sDcReal + ' mm² (' + origenDc + ': ' + totalMetrosDC + ' m acumulados) y evacuación RV-K 0,6/1 kV (' + origenAc + ': ' + totalMetrosAC + ' m). Incluso conectores MC4 y canalizaciones.', ud:'partida', q: 1, pu: cabCostReal * 0.40 },
+        { ref:'4.2', desc:'Cuadros de protección normalizados DC (SPD Clase II + seccionador) y AC (IGA ' + d.I_iga + ' A + diferencial clase A superinmunizado + sobretensiones permanentes/transitorias) y puesta a tierra.', ud:'partida', q: 1, pu: cabCostReal * 0.60 }
+      ]
+    },
+    { titulo: numCap(5) + ' — MANO DE OBRA ESPECIALIZADA, MONTAJE Y CERTIFICACIÓN',
+      items: [
+        { ref:'5.1', desc:'Montaje mecánico completo de subestructura y módulos, tendido de conducciones, conexionado eléctrico bajo normativa de seguridad en altura y puesta en servicio conforme a UNE-EN 62446-1.', ud:'ud', q:1, pu: moCostReal }
+      ]
+    },
+    { titulo: numCap(6) + ' — INGENIERÍA, LEGALIZACIÓN Y TRAMITACIÓN ADMINISTRATIVA',
+      items: [
+        { ref:'6.1', desc:'Elaboración de Memoria Técnica de Diseño / Proyecto de Ejecución, tramitación del Certificado de Instalación Eléctrica (CIE / Boletín) en Industria y registro de autoconsumo en CCAA (RD 244/2019).', ud:'ud', q:1, pu: legCostReal }
+      ]
+    }
+  );
 
   let itemRows = '', sumRows = '';
   let subtotalCalc = 0;

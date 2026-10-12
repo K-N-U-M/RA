@@ -774,7 +774,24 @@ function generatePropuestaComercialPDF() {
     const _batCount = (_ssotCfg.autoSizing && _ssotCfg.autoSizing.batteries && _ssotCfg.autoSizing.batteries.count) || 1;
     bat = _batSel.price * _batCount;
   }
-  const cab = _input('cfg-pres-cab', 350);
+  let cab = _input('cfg-pres-cab', 350);
+  // [SSOT] Cableado 3D medido: Si el gemelo digital tiene trazado real de cables, calcular con metrado
+  const _sState = (typeof window !== 'undefined' && window.inverterEquipmentState) ? window.inverterEquipmentState : null;
+  if (_sState && (typeof _sState.L_dc_measured === 'number' || typeof _sState.L_ac_measured === 'number')) {
+    const _lDc = _sState.L_dc_measured || 25.0;
+    const _lAc = _sState.L_ac_measured || 15.0;
+    const _nStr = d.numStrings || 1;
+    const _mDc = Math.round(_lDc * _nStr * 2);
+    const _mAc = Math.round(_lAc * (d.monofasico ? 3 : 5));
+    const _sDc = d.S_dc_real || d.S_str || 6;
+    const _sAc = d.S_ac_real || d.S_ac || 10;
+    const _puDc = _sDc <= 6 ? 1.85 : (_sDc <= 10 ? 2.90 : 4.20);
+    const _puAc = _sAc <= 6 ? 2.40 : (_sAc <= 10 ? 3.80 : 5.90);
+    const _cableCostReal = Math.round((_mDc * _puDc) + (_mAc * _puAc) + ((_lDc + _lAc) * 6.80) + 195 + 245 + 85);
+    if (_cableCostReal > 0) {
+      cab = _cableCostReal;
+    }
+  }
   const mo  = _input('cfg-pres-mo', 1400);
   const leg = _input('cfg-pres-leg', 500);
 

@@ -312,6 +312,9 @@ function step3UpdateHardwareSelection() {
         }
       });
     }
+    if (typeof window.wpInvalidateHeatmap === 'function') {
+      window.wpInvalidateHeatmap('Módulo o hardware modificado');
+    }
     const prevConfirmed = (typeof isPolygonDesignConfirmed !== 'undefined') ? isPolygonDesignConfirmed : false;
     isPolygonDesignConfirmed = true; // Habilita temporalmente el paso de renderizado
     if (typeof wpFastRenderSimulatedPanels === 'function') {
@@ -646,6 +649,9 @@ function step4UpdateObjective() {
   }
   const obj = window.solarProjectConfig.selectedObjective;
   showStatus('CRITERIO TÉCNICO FV ACTUALIZADO: ' + obj.toUpperCase(), 2000);
+  if (typeof window.wpInvalidateHeatmap === 'function') {
+    window.wpInvalidateHeatmap('Criterio técnico FV modificado (' + obj + ')');
+  }
   // Auto-refresh: regenerar distribución de paneles al cambiar criterio
   if (typeof isPolygonDesignConfirmed !== 'undefined') isPolygonDesignConfirmed = true;
   if (typeof wpFastRenderSimulatedPanels === 'function') {
