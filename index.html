@@ -12563,22 +12563,16 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
     if (!pInfo || !pInfo.panels || pInfo.panels.length === 0) return;
 
     let polyPanels = [...pInfo.panels];
-    if (obj === 'zero_shades') {
+    if (typeof window.wpFilterPanelsForPolyline === 'function') {
+      polyPanels = window.wpFilterPanelsForPolyline(poly, polyIdx, polylinesList, obj, {
+        polyPanels,
+        maxTotalModules,
+        targetKwp: (window.solarProjectConfig && window.solarProjectConfig.targetKwp) || 5.0,
+        modWp: (typeof panelConfig !== 'undefined' && panelConfig.potencia) ? panelConfig.potencia : 450,
+        isAnalyzingSolar: (typeof wpCurrentStep !== 'undefined' && wpCurrentStep <= 3) || (typeof solarSimState !== 'undefined' && solarSimState && solarSimState.viewMode === 'heatmap')
+      });
+    } else if (obj === 'zero_shades') {
       polyPanels = polyPanels.filter(p => !p.isShaded && (!p.annualLossPct || p.annualLossPct <= 5.0));
-    } else if (obj === 'target_kwh') {
-      const targetKwp = (window.solarProjectConfig && window.solarProjectConfig.targetKwp) || 5.0;
-      const modWp = (typeof panelConfig !== 'undefined' && panelConfig.potencia) ? panelConfig.potencia : 450;
-      const targetModules = Math.max(1, Math.round((targetKwp * 1000) / modWp));
-      if (polyPanels.length > targetModules) {
-        polyPanels.sort((a, b) => (a.annualLossPct || 0) - (b.annualLossPct || 0));
-        polyPanels = polyPanels.slice(0, targetModules);
-      }
-    } else if (obj === 'optimal_inv' && Number.isFinite(maxTotalModules) && maxTotalModules > 0) {
-      const isAnalyzingSolar = (typeof wpCurrentStep !== 'undefined' && wpCurrentStep <= 3) || (typeof solarSimState !== 'undefined' && solarSimState && solarSimState.viewMode === 'heatmap');
-      if (!isAnalyzingSolar && polyPanels.length > maxTotalModules) {
-        polyPanels.sort((a, b) => (a.annualLossPct || 0) - (b.annualLossPct || 0));
-        polyPanels = polyPanels.slice(0, maxTotalModules);
-      }
     }
     poly.panels = polyPanels;
     if (polyPanels.length === 0) return;

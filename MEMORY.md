@@ -327,3 +327,23 @@ calculateFinancialModel()  ← Definición canónica en financials.js (~L491)
   - Ciclo de renderizado activo a 60 FPS gobernado por equestAnimationFrame solo mientras existan transiciones activas (0.0 < alpha < 1.0).
   - Desconexión total del ciclo de animación una vez estabilizadas las opacidades en 0.0 o 1.0 (cero impacto en CPU/GPU durante el reposo).
   - Las etiquetas invisibles (alpha <= 0.005) no se dibujan ni reservan espacio en el resolvedor de colisiones AABB (_drawnAABBs), permitiendo que solo los rótulos activos ocupen su espacio natural.
+
+---
+
+## 19. Soluciones del Bloque 3 de Producto: Inteligencia Solar y Estrategia Comercial de Factura (Paso 3) (Octubre 2026)
+
+- **Estado:** ✅ Implementado y verificado en `js/solar-heatmap.js`, `js/project-config.js` e `index.html`.
+- **Refresco Solar en 1 Clic (`wpUpdateStep3DirtyAlert`, `wpRunHeatmapAndActivateView`):**
+  - Detección inmediata en tiempo real tras cualquier cambio en el gemelo digital (desplazamiento de obstáculos, alteración de inclinación/azimut, edición de faldones o cambio de modelo de panel).
+  - Alerta prominente con motivo dinámico del cambio (`#step3-dirty-reason-badge`) y botón reactivo de actualización instantánea ("Actualizar Estudio de Sombras y Sol Ahora").
+  - Al pulsar, recalcula la simulación de sombras anual en tiempo real (192 instantes), regenera el mapa de calor 3D, actualiza la producción neta del proyecto y oculta la alerta.
+- **Estrategia Comercial de Autoconsumo Guiada por Factura (`wpSelectCommercialPath`, `wpUpdateCommercialPathsUI`):**
+  - Dos caminos comerciales claros y diferenciados en tarjetas visuales interactivas:
+    - **Camino A (Ahorro Justo / Autoconsumo Óptimo):** Ajusta los paneles estrictamente a la demanda anual auditada (`target_kwh`), podando los módulos con mayor sombra para maximizar la rentabilidad sin sobredimensionar la inversión. Si no hay factura vinculada, abre el auditor con llamada a la acción guiada.
+    - **Camino B (Tejado Completo / Máxima Producción):** Llena el 100% de la superficie útil de la cubierta (`max_roof`) para maximizar la venta de excedentes a la red eléctrica.
+  - Métricas dinámicas en vivo en ambas tarjetas: reflejan en tiempo real kWh/año, número de módulos recomendados y potencia pico (kWp).
+  - Sincronización bidireccional inmediata con los selectores de criterios técnicos del proyecto y el presupuesto económico.
+- **Poda Equitativa y Distribución Multi-Faldón (`wpFilterPanelsForPolyline`):**
+  - Resuelto el problema de asignación per-faldón en proyectos con múltiples cubiertas: el límite de módulos de la factura se aplica de forma coordinada a nivel global de la vivienda.
+  - Ordenación inteligente por calidad solar: clasifica todos los módulos de todos los faldones priorizando menor pérdida por sombra (`annualLossPct`) y mayor rendimiento (`annualKwh`), garantizando que se conserven siempre las mejores posiciones fotovoltaicas del tejado.
+

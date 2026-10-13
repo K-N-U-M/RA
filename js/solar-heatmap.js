@@ -1072,33 +1072,48 @@
   function wpSelectCommercialPath(pathKey) {
     if (!window.solarProjectConfig) window.solarProjectConfig = {};
 
+    const prevObj = window.solarProjectConfig.selectedObjective;
+    const targetObj = (pathKey === 'just_saving') ? 'target_kwh' : 'max_roof';
+
     if (pathKey === 'just_saving') {
       const billAuditorState = (typeof window.RABillAuditor !== 'undefined' && window.RABillAuditor.getState) ? window.RABillAuditor.getState() : null;
       const hasBill = !!(billAuditorState && billAuditorState.currentBill);
       const hasTargetKwp = !!(window.solarProjectConfig.targetKwp && window.solarProjectConfig.targetKwp > 0);
 
-      // Sincronizar radio buttons
-      const radios = document.getElementsByName('project_objective');
-      for (let r of radios) {
-        r.checked = (r.value === 'target_kwh');
-      }
-      window.solarProjectConfig.selectedObjective = 'target_kwh';
-
+      // Si no hay factura ni meta de potencia, abrir el auditor modal para guiar al usuario
       if (!hasBill && !hasTargetKwp && typeof window.openBillAuditorModal === 'function') {
         window.openBillAuditorModal();
       }
-    } else {
-      // Máxima producción / Tejado completo
-      const radios = document.getElementsByName('project_objective');
-      for (let r of radios) {
-        r.checked = (r.value === 'max_roof');
-      }
-      window.solarProjectConfig.selectedObjective = 'max_roof';
     }
 
-    if (typeof step4UpdateObjective === 'function') {
-      step4UpdateObjective();
+    // Sincronizar radio buttons del formulario técnico
+    const radios = document.getElementsByName('project_objective');
+    for (let r of radios) {
+      r.checked = (r.value === targetObj);
     }
+
+    if (prevObj !== targetObj) {
+      if (typeof step4UpdateObjective === 'function') {
+        step4UpdateObjective();
+      } else {
+        window.solarProjectConfig.selectedObjective = targetObj;
+        if (typeof wpFastRenderSimulatedPanels === 'function') wpFastRenderSimulatedPanels();
+        if (typeof recalculateSolarYield === 'function') recalculateSolarYield();
+      }
+    } else {
+      // Si ya era el mismo objetivo pero se volvió a pulsar (o se actualizó la factura), forzar refresco
+      if (typeof roofPanelsCache !== 'undefined' && roofPanelsCache) {
+        roofPanelsCache.sig = "";
+        roofPanelsCache.data = null;
+      }
+      if (typeof wpFastRenderSimulatedPanels === 'function') {
+        wpFastRenderSimulatedPanels();
+      }
+      if (typeof recalculateSolarYield === 'function') {
+        recalculateSolarYield();
+      }
+    }
+
     wpUpdateCommercialPathsUI();
   }
   window.wpSelectCommercialPath = wpSelectCommercialPath;
@@ -1116,13 +1131,17 @@
 
     const curObj = (window.solarProjectConfig && window.solarProjectConfig.selectedObjective) || 'optimal_inv';
     const isJustSaving = (curObj === 'target_kwh');
+    const isMaxProd = (curObj === 'max_roof');
 
     if (cardJustSaving) {
       if (isJustSaving) {
         cardJustSaving.style.borderColor = '#c084fc';
         cardJustSaving.style.background = 'rgba(168,85,247,0.18)';
-        cardJustSaving.style.boxShadow = '0 0 10px rgba(168,85,247,0.25)';
-        if (badgeJustSaving) badgeJustSaving.style.display = 'inline-block';
+        cardJustSaving.style.boxShadow = '0 0 12px rgba(168,85,247,0.3)';
+        if (badgeJustSaving) {
+          badgeJustSaving.style.display = 'inline-block';
+          badgeJustSaving.textContent = 'ACTIVO';
+        }
       } else {
         cardJustSaving.style.borderColor = 'rgba(168,85,247,0.3)';
         cardJustSaving.style.background = 'rgba(168,85,247,0.05)';
@@ -1132,11 +1151,14 @@
     }
 
     if (cardMaxProd) {
-      if (!isJustSaving) {
+      if (isMaxProd) {
         cardMaxProd.style.borderColor = '#38BDF8';
         cardMaxProd.style.background = 'rgba(56,189,248,0.18)';
-        cardMaxProd.style.boxShadow = '0 0 10px rgba(56,189,248,0.25)';
-        if (badgeMaxProd) badgeMaxProd.style.display = 'inline-block';
+        cardMaxProd.style.boxShadow = '0 0 12px rgba(56,189,248,0.3)';
+        if (badgeMaxProd) {
+          badgeMaxProd.style.display = 'inline-block';
+          badgeMaxProd.textContent = 'ACTIVO';
+        }
       } else {
         cardMaxProd.style.borderColor = 'rgba(56,189,248,0.3)';
         cardMaxProd.style.background = 'rgba(56,189,248,0.05)';
@@ -1145,26 +1167,45 @@
       }
     }
 
-    // Valores dinámicos
+    const modWp = (typeof panelConfig !== 'undefined' && panelConfig.potencia) ? panelConfig.potencia : 450;
+
+    // Valores dinámicos Camino A: Ahorro Justo
     if (valJustSaving) {
       const billAuditorState = (typeof window.RABillAuditor !== 'undefined' && window.RABillAuditor.getState) ? window.RABillAuditor.getState() : null;
-      if (billAuditorState && billAuditorState.comparison && billAuditorState.comparison.consumoAnualKWh) {
-        valJustSaving.textContent = Math.round(billAuditorState.comparison.consumoAnualKWh).toLocaleString() + ' kWh/año';
-      } else if (window.solarProjectConfig && window.solarProjectConfig.targetKwp) {
-        valJustSaving.textContent = (window.solarProjectConfig.targetKwp * 1450).toFixed(0) + ' kWh/año (estimado)';
+      const comp = billAuditorState && billAuditorState.comparison;
+      const hasBill = !!(comp && comp.consumoAnualKWh);
+      const targetKwp = (window.solarProjectConfig && window.solarProjectConfig.targetKwp) || (hasBill ? (comp.consumoAnualKWh / 1450) : 0);
+
+      if (hasBill || targetKwp > 0) {
+        const demandKwh = hasBill ? Math.round(comp.consumoAnualKWh) : Math.round(targetKwp * 1450);
+        const reqModules = Math.max(1, Math.round((targetKwp * 1000) / modWp));
+        const realTargetKwp = (reqModules * modWp) / 1000;
+        valJustSaving.innerHTML = `${demandKwh.toLocaleString()} kWh/año <span style="font-size:7.5px;color:#c084fc;font-weight:normal;">(${reqModules} mods · ${realTargetKwp.toFixed(2)} kWp)</span>`;
       } else {
-        valJustSaving.textContent = 'Sin factura (importar)';
+        valJustSaving.innerHTML = '<span style="color:#d8b4fe;">Sin factura (importar)</span>';
       }
     }
 
+    // Valores dinámicos Camino B: Tejado Completo
     if (valMaxProd) {
-      let kwp = 0;
-      if (typeof getProjectCalcs === 'function') {
-        const calcs = getProjectCalcs();
-        kwp = calcs.totalKwp || (calcs.totalWp ? (calcs.totalWp / 1000) : 0);
+      let totalMaxModules = 0;
+      if (window.WP && Array.isArray(window.WP.polylines) && window.WP.polylines.length > 0) {
+        window.WP.polylines.forEach(pl => {
+          if (pl && pl.roofInfo && Array.isArray(pl.roofInfo.panels)) {
+            totalMaxModules += pl.roofInfo.panels.length;
+          } else if (pl && Array.isArray(pl.panels)) {
+            totalMaxModules += pl.panels.length;
+          }
+        });
       }
-      if (kwp > 0) {
-        valMaxProd.textContent = kwp.toFixed(2) + ' kWp';
+      if (totalMaxModules === 0 && Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0) {
+        totalMaxModules = window.allRenderedPanels.length;
+      }
+
+      if (totalMaxModules > 0) {
+        const fullKwp = (totalMaxModules * modWp) / 1000;
+        const estKwh = Math.round(fullKwp * 1450);
+        valMaxProd.innerHTML = `${fullKwp.toFixed(2)} kWp <span style="font-size:7.5px;color:#7dd3fc;font-weight:normal;">(${totalMaxModules} mods · ${estKwh.toLocaleString()} kWh)</span>`;
       } else {
         valMaxProd.textContent = '-- kWp';
       }
@@ -1172,6 +1213,95 @@
     if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
   }
   window.wpUpdateCommercialPathsUI = wpUpdateCommercialPathsUI;
+
+  /**
+   * Filtra los módulos de un faldón de acuerdo con el objetivo del proyecto (target_kwh, optimal_inv, zero_shades, max_roof).
+   * Para target_kwh y optimal_inv con múltiples faldones, realiza una distribución global equitativa y ordenada por menor sombra.
+   */
+  function wpFilterPanelsForPolyline(poly, polyIdx, polylinesList, obj, options = {}) {
+    const polyPanels = options.polyPanels || (poly && poly.roofInfo && poly.roofInfo.panels) || [];
+    if (!Array.isArray(polyPanels) || polyPanels.length === 0) return [];
+
+    if (obj === 'max_roof') {
+      return [...polyPanels];
+    }
+
+    if (obj === 'zero_shades') {
+      return polyPanels.filter(p => !p.isShaded && (!p.annualLossPct || p.annualLossPct <= 5.0));
+    }
+
+    const modWp = options.modWp || ((typeof panelConfig !== 'undefined' && panelConfig.potencia) ? panelConfig.potencia : 450);
+    const targetKwp = options.targetKwp || ((window.solarProjectConfig && window.solarProjectConfig.targetKwp) || 5.0);
+    const maxTotalModules = options.maxTotalModules;
+    const isAnalyzingSolar = !!options.isAnalyzingSolar;
+
+    let limitModules = Infinity;
+    if (obj === 'target_kwh') {
+      limitModules = Math.max(1, Math.round((targetKwp * 1000) / modWp));
+    } else if (obj === 'optimal_inv' && Number.isFinite(maxTotalModules) && maxTotalModules > 0 && !isAnalyzingSolar) {
+      limitModules = maxTotalModules;
+    }
+
+    if (!Number.isFinite(limitModules) || limitModules <= 0) {
+      return [...polyPanels];
+    }
+
+    // Caso A: Único faldón
+    const listLen = Array.isArray(polylinesList) ? polylinesList.length : 1;
+    if (listLen <= 1) {
+      if (polyPanels.length > limitModules) {
+        const sorted = [...polyPanels].sort((a, b) => (a.annualLossPct || 0) - (b.annualLossPct || 0));
+        return sorted.slice(0, limitModules);
+      }
+      return [...polyPanels];
+    }
+
+    // Caso B: Múltiples faldones — Selección global coordinada
+    if (polyIdx === 0 || !window._raGlobalObjectiveSelectedIds) {
+      const allCandidates = [];
+      polylinesList.forEach((pl, plIdx) => {
+        const pList = (pl && pl.roofInfo && Array.isArray(pl.roofInfo.panels)) ? pl.roofInfo.panels : (pl && Array.isArray(pl.panels) ? pl.panels : []);
+        pList.forEach(p => {
+          if (!p.deleted) {
+            allCandidates.push({ p, plIdx, panelId: p.panelId || ('pan_' + plIdx + '_' + (p.layoutIndex ?? p.localIdx ?? 0)) });
+          }
+        });
+      });
+
+      if (allCandidates.length > limitModules) {
+        allCandidates.sort((a, b) => {
+          const lossA = a.p.annualLossPct || 0;
+          const lossB = b.p.annualLossPct || 0;
+          if (Math.abs(lossA - lossB) > 0.05) return lossA - lossB;
+          const kwhA = a.p.annualKwh || 0;
+          const kwhB = b.p.annualKwh || 0;
+          if (kwhA !== kwhB) return kwhB - kwhA;
+          return a.plIdx - b.plIdx || (a.p.layoutIndex || 0) - (b.p.layoutIndex || 0);
+        });
+        const selected = allCandidates.slice(0, limitModules);
+        window._raGlobalObjectiveSelectedIds = new Set(selected.map(x => x.panelId));
+      } else {
+        window._raGlobalObjectiveSelectedIds = new Set(allCandidates.map(x => x.panelId));
+      }
+    }
+
+    const selectedSet = window._raGlobalObjectiveSelectedIds;
+    let filtered = polyPanels;
+    if (selectedSet) {
+      filtered = polyPanels.filter(p => {
+        const id = p.panelId || ('pan_' + polyIdx + '_' + (p.layoutIndex ?? p.localIdx ?? 0));
+        return selectedSet.has(id);
+      });
+    }
+
+    // Limpieza al terminar el último faldón
+    if (polyIdx === listLen - 1) {
+      delete window._raGlobalObjectiveSelectedIds;
+    }
+
+    return filtered;
+  }
+  window.wpFilterPanelsForPolyline = wpFilterPanelsForPolyline;
 
   /**
    * Obtiene la lista de paneles con pérdida crítica por sombra (≥ 15% o inviables)
@@ -1288,7 +1418,8 @@
     updateCommercialPathsUI: wpUpdateCommercialPathsUI,
     getCriticalShadedPanels: wpGetCriticalShadedPanels,
     updateShadedCleanupUI: wpUpdateShadedCleanupUI,
-    cleanCriticalShadedPanels: wpCleanCriticalShadedPanels
+    cleanCriticalShadedPanels: wpCleanCriticalShadedPanels,
+    filterPanelsForPolyline: wpFilterPanelsForPolyline
   };
 
 })();

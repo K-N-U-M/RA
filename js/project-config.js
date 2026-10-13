@@ -699,6 +699,9 @@ function step4UpdateObjective() {
   if (typeof wpPopulateFaldonCard === 'function') {
     wpPopulateFaldonCard();
   }
+  if (typeof wpUpdateCommercialPathsUI === 'function') {
+    wpUpdateCommercialPathsUI();
+  }
 }
 window.step4UpdateObjective = step4UpdateObjective;
 window.wpUpdateDesignObjective = step4UpdateObjective;
