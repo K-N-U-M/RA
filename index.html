@@ -9992,6 +9992,7 @@ function wpPlaceInverterAtPosition(cartesian) {
   }
   if (typeof updateConfigAndSimulate === 'function') updateConfigAndSimulate();
   if (typeof updateBudgetUI === 'function') updateBudgetUI();
+  if (typeof wpUpdateMeterPlacementGuideUI === 'function') wpUpdateMeterPlacementGuideUI();
   if (typeof showToast === 'function') {
     showToast('INVERSOR Y CUADRO UBICADO', 'Tirada de cable DC calculada a ' + (window.inverterEquipmentState.L_dc_measured || 0).toFixed(1) + ' m con holguras reglamentarias.', 'success', 3500);
   }

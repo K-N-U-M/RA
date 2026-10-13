@@ -347,3 +347,20 @@ calculateFinancialModel()  ← Definición canónica en financials.js (~L491)
   - Resuelto el problema de asignación per-faldón en proyectos con múltiples cubiertas: el límite de módulos de la factura se aplica de forma coordinada a nivel global de la vivienda.
   - Ordenación inteligente por calidad solar: clasifica todos los módulos de todos los faldones priorizando menor pérdida por sombra (`annualLossPct`) y mayor rendimiento (`annualKwh`), garantizando que se conserven siempre las mejores posiciones fotovoltaicas del tejado.
 
+---
+
+## 20. Soluciones del Bloque 4 de Producto: Asistente Eléctrico y Emplazamiento 3D (Paso 4) (Octubre 2026)
+
+- **Estado:** ✅ Implementado y verificado en `js/electrical-engine.js` e `index.html`.
+- **Asistente Proactivo de Sustitución de Inversor (`wpUpdateInverterSmartAssistantUI`, `wpApplyRecommendedInverter`):**
+  - Evalúa la potencia pico total instalada contra la capacidad nominal y sobrecarga del inversor seleccionado.
+  - **Inversor Insuficiente:** Si la cubierta sobrecarga el equipo (>130% DC/AC), el asistente busca en el catálogo el inversor de mayor potencia que optimice la ratio a 115-125% y ofrece el botón de sustitución directa en 1 clic ("Cambiar a X kW en 1 Clic").
+  - **Sobredimensionamiento Evitado:** Si el inversor seleccionado supera en exceso la potencia de las placas (<50% carga), recomienda el modelo inferior adecuado para evitar sobrecostes innecesarios en la oferta.
+  - **Multi-Inversor Auto:** Si la planta excede la capacidad del mayor inversor individual del catálogo, alerta de la necesidad de configuración multi-equipo en paralelo y calcula el reparto de unidades.
+  - **Soporte Microinversores MLPE:** Evalúa la topología descentralizada computando las unidades requeridas según el número de entradas del microinversor (1, 2 o 4 módulos/ud).
+- **Guía Visual de Emplazamiento de Infraestructura Eléctrica (`wpUpdateMeterPlacementGuideUI`):**
+  - Diagnostica el estado de ubicación física del inversor y del contador/acometida (CGMP) en fachada.
+  - Cuando están pendientes, muestra pasos guiados interactivos para tocar en la pared del modelo 3D y fijar su cota exacta.
+  - Cuando ambos están ubicados, valida la medición con tarjeta de confirmación en verde indicando las tiradas reales medidas en 3D (metros de cable DC de bajante y cable de evacuación AC), garantizando presupuesto y caída de tensión REBT (ITC-BT-40) exactos al centímetro.
+
+
