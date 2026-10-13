@@ -282,36 +282,38 @@ window.RA_App = window.RA_App || {};
       <div id="ra-results"></div>
     </div>
 
+    <!-- Stepper 5 Pasos Canónicos FIJO (Flujo de Ingeniería Fotovoltaica v3.0) -->
+    <div class="wp-stepper-container" id="wp-stepper-fixed-container" style="background:rgba(10,16,29,0.92);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid var(--border-subtle);padding:8px 12px;flex-shrink:0;">
+      <div class="wp-stepper-header" style="display:grid;grid-template-columns:repeat(5,1fr);gap:3px;margin:0;">
+        <button class="wp-step-btn active" id="wp-step-1-btn" onclick="wpGoToStep(1)" style="padding:6px 2px;font-size:9.5px;" title="Paso 1: Emplazamiento (Plano, Faldones y Obstáculos)">
+          <span class="wp-step-num">1</span>
+          <span class="wp-step-title"><i data-lucide="home" class="icon-sm"></i> EMPLAZ.</span>
+        </button>
+        <button class="wp-step-btn" id="wp-step-2-btn" onclick="wpGoToStep(2)" style="padding:6px 2px;font-size:9.5px;" title="Paso 2: Campo Solar (Layout de Módulos FV)">
+          <span class="wp-step-num">2</span>
+          <span class="wp-step-title"><i data-lucide="sun" class="icon-sm"></i> CAMPO</span>
+        </button>
+        <button class="wp-step-btn" id="wp-step-3-btn" onclick="wpGoToStep(3)" style="padding:6px 2px;font-size:9.5px;" title="Paso 3: Análisis Solar (Factura, Demanda y Sombras)">
+          <span class="wp-step-num">3</span>
+          <span class="wp-step-title"><i data-lucide="cloud-sun" class="icon-sm"></i> ANÁLISIS</span>
+        </button>
+        <button class="wp-step-btn" id="wp-step-4-btn" onclick="wpGoToStep(4)" style="padding:6px 2px;font-size:9.5px;" title="Paso 4: Ingeniería (Inversores, Baterías y Cableado)">
+          <span class="wp-step-num">4</span>
+          <span class="wp-step-title"><i data-lucide="zap" class="icon-sm"></i> INGENIERÍA</span>
+        </button>
+        <button class="wp-step-btn" id="wp-step-5-btn" onclick="wpGoToStep(5)" style="padding:6px 2px;font-size:9.5px;" title="Paso 5: Entrega (Presupuesto, Memoria y PDF)">
+          <span class="wp-step-num">5</span>
+          <span class="wp-step-title"><i data-lucide="file-text" class="icon-sm"></i> ENTREGA</span>
+        </button>
+      </div>
+    </div>
+
     <div class="sb-tab-content">
       <!-- ── FLUJO PRINCIPAL 5 PASOS ── -->
       <div class="sb-pane active" id="pane-geometria">
         
         <!-- Contenedor Principal del Flujo de Trabajo (5 Pasos Maestros AAA) -->
         <div class="only-draw" style="display:flex;flex-direction:column;gap:8px;">
-
-          <!-- Stepper 5 Pasos Canónicos (Flujo de Ingeniería Fotovoltaica v3.0) -->
-          <div class="wp-stepper-header" style="display:grid;grid-template-columns:repeat(5,1fr);gap:3px;margin-bottom:8px;">
-            <button class="wp-step-btn active" id="wp-step-1-btn" onclick="wpGoToStep(1)" style="padding:6px 2px;font-size:9.5px;" title="Paso 1: Emplazamiento (Plano, Faldones y Obstáculos)">
-              <span class="wp-step-num">1</span>
-              <span class="wp-step-title"><i data-lucide="home" class="icon-sm"></i> EMPLAZ.</span>
-            </button>
-            <button class="wp-step-btn" id="wp-step-2-btn" onclick="wpGoToStep(2)" style="padding:6px 2px;font-size:9.5px;" title="Paso 2: Campo Solar (Layout de Módulos FV)">
-              <span class="wp-step-num">2</span>
-              <span class="wp-step-title"><i data-lucide="sun" class="icon-sm"></i> CAMPO</span>
-            </button>
-            <button class="wp-step-btn" id="wp-step-3-btn" onclick="wpGoToStep(3)" style="padding:6px 2px;font-size:9.5px;" title="Paso 3: Análisis Solar (Factura, Demanda y Sombras)">
-              <span class="wp-step-num">3</span>
-              <span class="wp-step-title"><i data-lucide="cloud-sun" class="icon-sm"></i> ANÁLISIS</span>
-            </button>
-            <button class="wp-step-btn" id="wp-step-4-btn" onclick="wpGoToStep(4)" style="padding:6px 2px;font-size:9.5px;" title="Paso 4: Ingeniería (Inversores, Baterías y Cableado)">
-              <span class="wp-step-num">4</span>
-              <span class="wp-step-title"><i data-lucide="zap" class="icon-sm"></i> INGENIERÍA</span>
-            </button>
-            <button class="wp-step-btn" id="wp-step-5-btn" onclick="wpGoToStep(5)" style="padding:6px 2px;font-size:9.5px;" title="Paso 5: Entrega (Presupuesto, Memoria y PDF)">
-              <span class="wp-step-num">5</span>
-              <span class="wp-step-title"><i data-lucide="file-text" class="icon-sm"></i> ENTREGA</span>
-            </button>
-          </div>
           <!-- ═════════════════════════════════════════════════════════════════ -->
           <!-- PASO 1: PLANO DE TRABAJO (WORKING PLANE) -->
           <!-- ═════════════════════════════════════════════════════════════════ -->
