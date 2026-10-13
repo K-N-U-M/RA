@@ -561,12 +561,16 @@
             Math.cos(elevRad_) * Math.cos(azNRad),
             Math.sin(elevRad_)
           );
+          const sDirHorizontal = new Cesium.Cartesian3(-sunENU.x, -sunENU.y, 0);
+          if (Cesium.Cartesian3.magnitudeSquared(sDirHorizontal) > 1e-6) {
+            Cesium.Cartesian3.normalize(sDirHorizontal, sDirHorizontal);
+          }
           solarPos = {
             elevationDeg: sp.elevDeg,
             elevDeg: sp.elevDeg,
             isDaylight: sp.isDay,
             sunVecENU: sunENU,
-            sDirENU: new Cesium.Cartesian3(-sunENU.x, -sunENU.y, 0),
+            sDirENU: sDirHorizontal,
             shadowLenPerM: sp.elevDeg > 0.5 ? (1 / Math.tan(elevRad_)) : 100
           };
         } else if (typeof computeSolarPosition === 'function') {

@@ -7571,25 +7571,74 @@ function getBuildingShadowPolygons2DForRoof(building, roof, sU, sV, shadowLenPer
   if (!building || !building.points || building.points.length < 3) return null;
   if (!roof) return null;
 
-  const isSameBuilding = (roof.buildingId && roof.buildingId === building.id);
-  const effectiveHeight = isSameBuilding ? (building.parapetHeight || 0) : (building.height || 6.0);
+  const rawCartoList = [];
+  building.points.forEach(p => {
+    if (p) {
+      const c = Cesium.Cartographic.fromCartesian(p);
+      if (c) rawCartoList.push(c);
+    }
+  });
+  if (rawCartoList.length < 3) return null;
 
-  // <i data-lucide=\"zap\" class=\"icon-sm\"></i> SEPARACIÓN DE SEGURIDAD (5 cm): Iniciar la sombra a 0.05m del obstáculo/edificio
+  let avgBaseHeight = 0;
+  rawCartoList.forEach(c => { avgBaseHeight += (c.height || 0); });
+  avgBaseHeight /= rawCartoList.length;
+
+  const bldHeight = Math.max(building.height || 6.0, 1.0);
+  const roofHeight = avgBaseHeight + bldHeight;
+
+  let roofZ = avgBaseHeight;
+  if (roof.carto && typeof roof.carto.height === 'number') {
+    roofZ = roof.carto.height;
+  } else if (roof.center) {
+    const c = Cesium.Cartographic.fromCartesian(roof.center);
+    if (c) roofZ = c.height;
+  } else if (roof.origin) {
+    const c = Cesium.Cartographic.fromCartesian(roof.origin);
+    if (c) roofZ = c.height;
+  }
+
+  const isSameBuilding = (roof.buildingId && roof.buildingId === building.id);
+  let effectiveHeight = 0;
+  if (isSameBuilding) {
+    effectiveHeight = building.parapetHeight || 0.6;
+  } else {
+    // Para un edificio colindante, la altura que arroja sombra sobre este tejado
+    // es la diferencia entre la coronación del edificio vecino y la cota de la cubierta baja
+    effectiveHeight = roofHeight - roofZ;
+  }
+
   const SHADOW_OFFSET_START_M = 0.05;
   if (effectiveHeight <= SHADOW_OFFSET_START_M) return null;
   const shadowLen = effectiveHeight * (shadowLenPerM || 0);
   if (shadowLen <= SHADOW_OFFSET_START_M) return null;
 
-  const roofOrigin = roof.origin || roof.center || (roof.points && roof.points[0]) || (building.points && building.points[0]);
   const uVec = roof.uVec || new Cesium.Cartesian3(1, 0, 0);
   const vVec = roof.vVec || new Cesium.Cartesian3(0, 1, 0);
+  const invT = roof.invTransform || (roof.transform && typeof Cesium !== 'undefined' && Cesium.Matrix4
+    ? Cesium.Matrix4.inverse(roof.transform, new Cesium.Matrix4())
+    : (roof.center && typeof Cesium !== 'undefined' && Cesium.Transforms
+      ? Cesium.Matrix4.inverse(Cesium.Transforms.eastNorthUpToFixedFrame(roof.center), new Cesium.Matrix4())
+      : null));
 
-  const basePoly = building.points.map(pt => {
-    const diff = Cesium.Cartesian3.subtract(pt, roofOrigin, new Cesium.Cartesian3());
-    return {
-      u: Cesium.Cartesian3.dot(diff, uVec),
-      v: Cesium.Cartesian3.dot(diff, vVec)
-    };
+  const roofOrigin = roof.origin || roof.center || (roof.points && roof.points[0]) || building.points[0];
+
+  // Proyectar la huella del muro a la cota exacta de la cubierta en el plano (U, V)
+  const basePoly = rawCartoList.map(c => {
+    const wallAtRoofZ = Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, roofZ);
+    if (invT) {
+      const locPt = Cesium.Matrix4.multiplyByPoint(invT, wallAtRoofZ, new Cesium.Cartesian3());
+      return {
+        u: Cesium.Cartesian3.dot(locPt, uVec),
+        v: Cesium.Cartesian3.dot(locPt, vVec)
+      };
+    } else {
+      const diff = Cesium.Cartesian3.subtract(wallAtRoofZ, roofOrigin, new Cesium.Cartesian3());
+      return {
+        u: Cesium.Cartesian3.dot(diff, uVec),
+        v: Cesium.Cartesian3.dot(diff, vVec)
+      };
+    }
   });
 
   const deltaUStart = sU * SHADOW_OFFSET_START_M;
@@ -7600,12 +7649,15 @@ function getBuildingShadowPolygons2DForRoof(building, roof, sU, sV, shadowLenPer
   const deltaV = sV * shadowLen;
   const topShadowPoly = basePoly.map(p => ({ u: p.u + deltaU, v: p.v + deltaV }));
 
-  // Silueta unificada convexa: Elimina solapamientos internos, costuras dobles y artefactos de alpha blending
-  const unifiedShadow = convexHull2D([...startShadowPoly, ...topShadowPoly]);
+  // Silueta unificada convexa: Elimina solapamientos internos y artefactos
+  const unifiedShadow = (typeof convexHull2D === 'function')
+    ? convexHull2D([...startShadowPoly, ...topShadowPoly])
+    : null;
   if (!unifiedShadow || unifiedShadow.length < 3) return null;
 
   return [unifiedShadow];
 }
+window.getBuildingShadowPolygons2DForRoof = getBuildingShadowPolygons2DForRoof;
 
 function getObstacleShadowPolygons2DForRoof(obs, roof, sU, sV, shadowLenPerM) {
   // Para aerogeneradores, la sombra sobre cubierta proviene del fuste/mástil cilíndrico esbelto
