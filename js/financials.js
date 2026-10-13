@@ -519,24 +519,31 @@ function generatePropuestaComercialPDF(skipPricingModal) {
     showToast('ANÁLISIS SOLAR OBSOLETO', 'La geometría o los obstáculos han cambiado desde el último cálculo. El PDF usa la producción del último mapa de calor válido: recalcula en el Paso 3 para cifras definitivas.', 'warning', 5500);
   }
 
-  // ── Leer branding corporativo ─────────────────────────────────────────────
+  // ── Leer branding corporativo (SSOT) ───────────────────────────────────────
   let branding = {};
   try {
-    const raw = (window.RA && window.RA.branding) ? window.RA.branding
-              : JSON.parse(localStorage.getItem('ra_company_branding') || '{}');
-    branding = raw || {};
+    if (window.RACompanyBranding && typeof window.RACompanyBranding.getBranding === 'function') {
+      branding = window.RACompanyBranding.getBranding();
+    } else if (window.RA && window.RA.branding) {
+      branding = window.RA.branding;
+    } else {
+      branding = JSON.parse(localStorage.getItem('ra_company_branding') || '{}');
+    }
   } catch(e) { branding = {}; }
 
-  const companyName  = branding.name  || 'SOLAR 3D PRO';
-  const companyCIF   = branding.cif   || '';
-  const companyPhone = branding.phone || '';
-  const companyWeb   = branding.web   || '';
+  const companyName  = (branding.name || 'SOLAR 3D PRO').trim();
+  const companyCIF   = (branding.cif  || '').trim();
+  const companyPhone = (branding.phone || '').trim();
+  const companyWeb   = (branding.web   || '').trim();
   let logoDataUrl = window.customCompanyLogoBase64 || branding.logo || '';
   if (!logoDataUrl) {
     try {
-      const storedBranding = JSON.parse(localStorage.getItem('ra_company_branding') || '{}');
-      if (storedBranding && storedBranding.logo) {
-        logoDataUrl = storedBranding.logo;
+      logoDataUrl = localStorage.getItem('ra_company_logo') || '';
+      if (!logoDataUrl) {
+        const storedBranding = JSON.parse(localStorage.getItem('ra_company_branding') || '{}');
+        if (storedBranding && storedBranding.logo) {
+          logoDataUrl = storedBranding.logo;
+        }
       }
     } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
   }

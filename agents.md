@@ -44,12 +44,16 @@ c:/TRABAJOS/RA/
 │   ├── undo-manager.js              # Deshacer borrados (obstáculos/edificios/paneles/vértices)
 │   ├── bill-auditor.js              # Auditoría de facturas eléctricas
 │   ├── financials.js                # CAPEX/OPEX, VAN, TIR, oferta comercial + resumen IA híbrido
+│   ├── company-branding.js          # Identidad corporativa, gestión y persistencia de logotipo y Gemini API
 │   ├── docs-generator.js            # Exportación de memorias y ofertas en PDF
 │   ├── bom-tree.js                  # Árbol de materiales (BOM)
 │   ├── project-hierarchy.js         # Scene graph jerárquico del proyecto
+│   ├── project-storage.js           # Almacenamiento, exportación e importación de proyectos (.raproject)
+│   ├── ui-viewport-controls.js      # Alertas toast, pantalla de carga y controles de visualización 3D
 │   ├── ui-outliner.js               # Outliner de objetos de escena
 │   ├── engineering-explainer.js     # Explicaciones guiadas de ingeniería
 │   ├── wind-turbine.js              # Generadores eólicos 3D (HAWT/VAWT) paramétricos AAA
+│   ├── measure-tool.js              # Cinta métrica 3D con desglose físico y snap magnético
 │   ├── config.js                    # Constantes globales y paletas
 │   └── viewer.js                    # Configuración del visor Cesium
 ├── scratch/                         # Scripts de verificación automatizados

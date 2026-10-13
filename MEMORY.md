@@ -31,6 +31,9 @@
 | `project-hierarchy.js` | Scene graph jerárquico | — |
 | `ui-outliner.js` | Outliner de objetos | — |
 | `wind-turbine.js` | Generadores eólicos 3D (HAWT/VAWT) paramétricos | `window.RAWindTurbine` |
+| `measure-tool.js` | Cinta métrica 3D con desglose físico y snap magnético | `window.RAMeasureTool` |
+| `ui-viewport-controls.js` | Alertas toast, carga y controles de visualización 3D | `window.UIViewportControls` |
+| `company-branding.js` | Identidad corporativa, logo y Gemini API | `window.RACompanyBranding` |
 
 ---
 
@@ -264,6 +267,23 @@ calculateFinancialModel()  ← Definición canónica en financials.js (~L491)
   - Extraídas más de 200 líneas de lógica del bloque inline principal.
   - Eliminado el último bloque `<script>` inline huérfano al final del archivo (`toggleSettingsPopover`).
   - Carga temprana en `<head>` previa a motores y capas Cesium para erradicar condiciones de carrera en toasts y estados de carga.
+
+---
+
+## 16. Modularización SSOT: Identidad Corporativa y Persistencia de Logotipo (Octubre 2026)
+
+- **Estado:** ✅ Implementado y verificado en `js/company-branding.js`, `js/financials.js` e `index.html`.
+- **Diagnóstico de Bugs Erradicados:**
+  1. *Fuga de Logo en Carga Dual:* `handleModalCompanyLogoUpload` persistía en clave aislada `ra_company_logo` sin actualizar la estructura principal `ra_company_branding` ni la variable en memoria. Al editar cualquier campo de texto, el guardado de branding sobreescribía la propiedad `logo` con cadena vacía.
+  2. *Desfase de IDs de DOM:* Funciones de lectura leían de identificadores prefijados de sidebar inexistentes (`cfg-company-*`), mientras el modal usaba `modal-cfg-company-*`, impidiendo la recarga del logo y previsualización.
+  3. *Lector Roto en Generación PDF:* El generador de la oferta comercial (`generatePropuestaComercialPDF`) no disponía de fallback a la clave directa `ra_company_logo` cuando el objeto de branding estaba presente pero con logotipo en blanco.
+  4. *Duplicación de Código Inline:* Existían dos implementaciones concurrentes y desfasadas para la subida y borrado del logotipo en el código inline de `index.html`.
+- **Módulo Autónomo (`RACompanyBranding` / `RA.branding` / `RA.companyBranding`):**
+  - Ubicación: `js/company-branding.js`.
+  - Encapsula: `DEFAULT_BRANDING`, `getBranding()`, `loadCompanyBranding()`, `saveCompanyBranding()`, `handleLogoUpload()`, `clearLogo()`, `openModal()`, `closeModal()`, `syncModalInput()`, `updateLogoPreview()` y `testGeminiApiKey()`.
+  - Conexión reactiva instantánea: subida de logotipo sincroniza simultáneamente la memoria en vivo (`window.customCompanyLogoBase64`), la clave de rescate `ra_company_logo` y la estructura `ra_company_branding`.
+  - Fallbacks canónicos jerárquicos en `js/financials.js` garantizan que cualquier propuesta comercial cuente siempre con los datos e imagen corporativa configurados por el usuario.
+- **Congelación Inline:** Retiradas más de 200 líneas de código legacy del bloque inline de `index.html`, delegando limpiamente en el nuevo módulo.
 
 
 

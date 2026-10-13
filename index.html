@@ -51,6 +51,7 @@ window.RA_App = window.RA_App || {};
   <script src="js/measure-tool.js?v=20261013a"></script>
   <script src="js/project-hierarchy.js?v=20260929b"></script>
   <script src="js/project-storage.js?v=20261013a"></script>
+  <script src="js/company-branding.js?v=20261013a"></script>
   <script src="js/ui-outliner.js?v=20260930a"></script>
   <script src="js/bill-auditor.js?v=20260929b"></script>
   <script src="js/bom-tree.js?v=20260929b"></script>
@@ -2672,90 +2673,10 @@ function syncCostModalMetrics() {
   set('modal-fin-balance-neto', (m.balanceNetoMensual >= 0 ? '+' : '') + Math.round(m.balanceNetoMensual) + ' €/mes');
 }
 
-function openCompanyBrandingModal() {
-  const modal = document.getElementById('ra-company-branding-modal');
-  if (!modal) return;
-
-  const syncFields = [
-    'cfg-company-name', 'cfg-company-cif', 'cfg-company-phone', 'cfg-company-web',
-    'cfg-proposal-theme', 'cfg-offer-status', 'cfg-war-power', 'cfg-war-mod',
-    'cfg-war-inv', 'cfg-war-mo'
-  ];
-  syncFields.forEach(id => {
-    const src = document.getElementById(id);
-    const dst = document.getElementById('modal-' + id);
-    if (src && dst) dst.value = src.value;
-  });
-
-  // Sincronizar previsualización de logo
-  const logoPreviewSrc = document.getElementById('company-logo-preview');
-  const logoPreviewDst = document.getElementById('modal-company-logo-preview');
-  if (logoPreviewSrc && logoPreviewDst) {
-    logoPreviewDst.innerHTML = logoPreviewSrc.innerHTML;
-  }
-
-  modal.style.display = 'flex';
-}
-
-function closeCompanyBrandingModal() {
-  const modal = document.getElementById('ra-company-branding-modal');
-  if (modal) modal.style.display = 'none';
-  if (typeof saveCompanyBranding === 'function') saveCompanyBranding();
-}
-
-function syncModalInputToBranding(targetId, val) {
-  const target = document.getElementById(targetId);
-  if (target) {
-    target.value = val;
-    if (target.oninput) target.oninput();
-    if (target.onchange) target.onchange();
-  }
-  if (typeof saveCompanyBranding === 'function') saveCompanyBranding();
-}
-
-function handleModalCompanyLogoUpload(event) {
-  const file = event.target.files && event.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const dataUrl = e.target.result;
-    const imgHtml = '<img src="' + dataUrl + '" style="max-width:100%;max-height:100%;object-fit:contain;">';
-    
-    const previewModal = document.getElementById('modal-company-logo-preview');
-    if (previewModal) previewModal.innerHTML = imgHtml;
-    const previewSidebar = document.getElementById('company-logo-preview');
-    if (previewSidebar) previewSidebar.innerHTML = imgHtml;
-
-    try {
-      localStorage.setItem('ra_company_logo', dataUrl);
-    } catch (err) {
-      if (typeof RA !== 'undefined' && RA.log) RA.log.warn('No se pudo persistir el logo en localStorage:', err);
-    }
-  };
-  reader.readAsDataURL(file);
-}
-
-function clearModalCompanyLogo() {
-  const defaultHtml = '<span style="font-size:26px;color:var(--text-slate-500);"><i data-lucide=\"building\" class=\"icon-sm\"></i></span>';
-  const previewModal = document.getElementById('modal-company-logo-preview');
-  if (previewModal) previewModal.innerHTML = defaultHtml;
-  const previewSidebar = document.getElementById('company-logo-preview');
-  if (previewSidebar) previewSidebar.innerHTML = '<span style="font-size:18px;color:var(--text-slate-500);"><i data-lucide=\"building\" class=\"icon-sm\"></i></span>';
-  try {
-    localStorage.removeItem('ra_company_logo');
-  } catch (err) {
-    if (typeof RA !== 'undefined' && RA.log) RA.log.warn('Error al limpiar ra_company_logo', err);
-  }
-}
-
+// [MODULARIZACION SSOT] Modal de identidad corporativa y logotipo delegado a js/company-branding.js
 window.openCostBreakdownModal = openCostBreakdownModal;
 window.closeCostBreakdownModal = closeCostBreakdownModal;
-window.openCompanyBrandingModal = openCompanyBrandingModal;
-window.closeCompanyBrandingModal = closeCompanyBrandingModal;
 window.syncModalInputToBudget = syncModalInputToBudget;
-window.syncModalInputToBranding = syncModalInputToBranding;
-window.handleModalCompanyLogoUpload = handleModalCompanyLogoUpload;
-window.clearModalCompanyLogo = clearModalCompanyLogo;
 
 window.RA = window.RA || {
   version: '2.0.0',
@@ -5285,160 +5206,7 @@ function renderCashflowChart(data) {
 // GENERADOR DE PROPUESTA COMERCIAL & OFERTA ECONÓMICA EN PDF PARA CLIENTE
 // ============================================================================
 
-// ── §20. IDENTIDAD CORPORATIVA, LOGOTIPO Y BRANDING DE OFERTAS ─────────────
-let customCompanyLogoBase64 = '';
-window.customCompanyLogoBase64 = customCompanyLogoBase64; // export para financials.js
-
-function handleCompanyLogoUpload(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    customCompanyLogoBase64 = e.target.result;
-    window.customCompanyLogoBase64 = customCompanyLogoBase64;
-    updateCompanyLogoPreview();
-    saveCompanyBranding();
-    showToast('LOGOTIPO ACTUALIZADO', 'El logotipo corporativo se ha guardado correctamente.', 'success', 3000);
-  };
-  reader.readAsDataURL(file);
-}
-
-function clearCompanyLogo() {
-  customCompanyLogoBase64 = '';
-  window.customCompanyLogoBase64 = '';
-  updateCompanyLogoPreview();
-  saveCompanyBranding();
-  showToast('LOGOTIPO ELIMINADO', 'Se utilizará el logotipo tipográfico por defecto.', 'info', 2500);
-}
-
-function updateCompanyLogoPreview() {
-  const prevEl = document.getElementById('company-logo-preview');
-  if (!prevEl) return;
-  if (customCompanyLogoBase64) {
-    prevEl.innerHTML = '<img src="' + customCompanyLogoBase64 + '" style="width:100%;height:100%;object-fit:contain;">';
-    prevEl.style.border = '1px solid var(--emerald-500)';
-  } else {
-    prevEl.innerHTML = '<span style="font-size:18px;color:var(--text-slate-500);"><i data-lucide=\"building\" class=\"icon-sm\"></i></span>';
-    prevEl.style.border = '1px dashed var(--border-subtle)';
-  }
-}
-
-function saveCompanyBranding() {
-  try {
-    // [FIX-BRANDING] Los campos viven en el MODAL (modal-cfg-company-*): los ids del
-    // sidebar (cfg-company-*) no existen en el DOM → lo que el usuario escribía en la
-    // ventana nunca se guardaba (se persistían los defaults). Lector dual modal↔sidebar.
-    const bval = (id) => {
-      const el = document.getElementById('modal-' + id) || document.getElementById(id);
-      return el ? el.value : null;
-    };
-    const branding = {
-      logo: customCompanyLogoBase64,
-      name: bval('cfg-company-name') || 'SOLAR 3D PRO',
-      cif: bval('cfg-company-cif') || '',
-      phone: bval('cfg-company-phone') || '',
-      web: bval('cfg-company-web') || '',
-      theme: bval('cfg-proposal-theme') || 'emerald',
-      status: bval('cfg-offer-status') || 'vinculante',
-      font: bval('cfg-doc-font') || 'inter',
-      finTin: bval('cfg-fin-tin') || '5.95',
-      finEntry: bval('cfg-fin-entry') || '0',
-      warPower: bval('cfg-war-power') || '25',
-      warMod: bval('cfg-war-mod') || '15',
-      warInv: bval('cfg-war-inv') || '10',
-      warMo: bval('cfg-war-mo') || '5'
-    };
-    localStorage.setItem('ra_company_branding', JSON.stringify(branding));
-    // API Key de Gemini — almacenada por separado por seguridad (no en el JSON exportable)
-    var geminiKey = bval('cfg-gemini-apikey') || '';
-    if (geminiKey) {
-      localStorage.setItem('ra_gemini_api_key', geminiKey);
-    } else {
-      localStorage.removeItem('ra_gemini_api_key');
-    }
-    // Sincronizar en window.RA para acceso desde financials.js sin localStorage
-    window.RA = window.RA || {};
-    window.RA.branding = branding;
-    window.RA.geminiApiKey = geminiKey || '';
-  } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
-}
-
-function loadCompanyBranding() {
-  try {
-    const raw = localStorage.getItem('ra_company_branding');
-    if (!raw) return;
-    const b = JSON.parse(raw);
-    if (b.logo) {
-      customCompanyLogoBase64 = b.logo;
-      window.customCompanyLogoBase64 = b.logo;
-      updateCompanyLogoPreview();
-    }
-    if (b.name) { const el = document.getElementById('modal-cfg-company-name') || document.getElementById('cfg-company-name'); if (el) el.value = b.name; }
-    if (b.cif) { const el = document.getElementById('modal-cfg-company-cif') || document.getElementById('cfg-company-cif'); if (el) el.value = b.cif; }
-    if (b.phone) { const el = document.getElementById('modal-cfg-company-phone') || document.getElementById('cfg-company-phone'); if (el) el.value = b.phone; }
-    if (b.web) { const el = document.getElementById('modal-cfg-company-web') || document.getElementById('cfg-company-web'); if (el) el.value = b.web; }
-    if (b.theme) { const el = document.getElementById('modal-cfg-proposal-theme') || document.getElementById('cfg-proposal-theme'); if (el) el.value = b.theme; }
-    if (b.status) { const el = document.getElementById('modal-cfg-offer-status') || document.getElementById('cfg-offer-status'); if (el) el.value = b.status; }
-    if (b.font && document.getElementById('cfg-doc-font')) document.getElementById('cfg-doc-font').value = b.font;
-    if (b.finTin && document.getElementById('cfg-fin-tin')) document.getElementById('cfg-fin-tin').value = b.finTin;
-    if (b.finEntry && document.getElementById('cfg-fin-entry')) document.getElementById('cfg-fin-entry').value = b.finEntry;
-    if (b.warPower) { const el = document.getElementById('modal-cfg-war-power') || document.getElementById('cfg-war-power'); if (el) el.value = b.warPower; }
-    if (b.warMod) { const el = document.getElementById('modal-cfg-war-mod') || document.getElementById('cfg-war-mod'); if (el) el.value = b.warMod; }
-    if (b.warInv) { const el = document.getElementById('modal-cfg-war-inv') || document.getElementById('cfg-war-inv'); if (el) el.value = b.warInv; }
-    if (b.warMo) { const el = document.getElementById('modal-cfg-war-mo') || document.getElementById('cfg-war-mo'); if (el) el.value = b.warMo; }
-    // Cargar API Key de Gemini
-    var geminiKey = localStorage.getItem('ra_gemini_api_key') || '';
-    var geminiField = document.getElementById('modal-cfg-gemini-apikey');
-    if (geminiField && geminiKey) geminiField.value = geminiKey;
-    window.RA = window.RA || {};
-    window.RA.branding = b;
-    window.RA.geminiApiKey = geminiKey;
-  } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
-}
-
-// ── Test de conexión Gemini ──
-async function testGeminiApiKey() {
-  var resultEl = document.getElementById('gemini-key-test-result');
-  var keyEl = document.getElementById('modal-cfg-gemini-apikey');
-  var key = keyEl ? keyEl.value.trim() : '';
-  if (!key) {
-    if (resultEl) resultEl.innerHTML = '<span style="color:#ef4444;">⚠ Introduce una API Key primero.</span>';
-    return;
-  }
-  if (resultEl) resultEl.innerHTML = '<span style="color:#a78bfa;">⏳ Conectando con Gemini...</span>';
-  try {
-    var url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + encodeURIComponent(key);
-    var resp = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: 'Responde solo con: OK' }] }]
-      })
-    });
-    if (!resp.ok) {
-      var errData = await resp.json().catch(function() { return {}; });
-      var errMsg = (errData.error && errData.error.message) ? errData.error.message : ('HTTP ' + resp.status);
-      if (resultEl) resultEl.innerHTML = '<span style="color:#ef4444;">❌ Error: ' + errMsg + '</span>';
-      return;
-    }
-    var data = await resp.json();
-    var txt = (data.candidates && data.candidates[0] && data.candidates[0].content &&
-               data.candidates[0].content.parts && data.candidates[0].content.parts[0])
-              ? data.candidates[0].content.parts[0].text : '';
-    if (resultEl) resultEl.innerHTML = '<span style="color:#34d399;">✅ Conexión exitosa · Gemini respondió: "' + txt.trim().substring(0, 40) + '"</span>';
-    // Guardar inmediatamente
-    if (typeof saveCompanyBranding === 'function') saveCompanyBranding();
-  } catch(err) {
-    if (resultEl) resultEl.innerHTML = '<span style="color:#ef4444;">❌ Error de red: ' + (err.message || err) + '</span>';
-  }
-}
-window.testGeminiApiKey = testGeminiApiKey;
-
-// Inicialización automática de branding de empresa
-try { loadCompanyBranding(); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', loadCompanyBranding);
-}
+// [MODULARIZACION SSOT] Identidad corporativa, logotipo y branding delegados canónicamente a js/company-branding.js
 
 // [ARQUITECTURA AAA] generatePropuestaComercialPDF delegada al módulo js/financials.js
 const confirmBar    = document.getElementById('ra-confirm-bar');
