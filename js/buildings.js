@@ -15,6 +15,11 @@
 (function() {
   'use strict';
 
+  // Asegurar registro defensivo de selección de edificios en window
+  if (typeof window !== 'undefined') {
+    window.selectedBuildingId = (typeof window.selectedBuildingId !== 'undefined') ? window.selectedBuildingId : null;
+  }
+
 function render3DBuildingsInCesium() {
   // 1. Limpiar Primitivas WebGL directas previas
   if (window._buildingPrimitives && Array.isArray(window._buildingPrimitives)) {
@@ -40,16 +45,19 @@ function render3DBuildingsInCesium() {
   window._buildingEntities = [];
   window._selectedVtxHandle = null; // [P2] ref al handle del vértice seleccionado (se recrea más abajo)
 
-  if (!Array.isArray(buildings) || buildings.length === 0) {
+  const bldList = (typeof buildings !== 'undefined' && Array.isArray(buildings)) ? buildings : (typeof window !== 'undefined' && Array.isArray(window.buildings) ? window.buildings : []);
+  if (bldList.length === 0) {
     if (viewer && viewer.scene && typeof viewer.scene.requestRender === 'function') {
       viewer.scene.requestRender();
     }
     return;
   }
 
-  buildings.forEach(bld => {
+  const curSelBldId = (typeof selectedBuildingId !== 'undefined') ? selectedBuildingId : (typeof window !== 'undefined' ? window.selectedBuildingId : null);
+
+  bldList.forEach(bld => {
     if (!bld.points || bld.points.length < 3 || bld.visible === false) return;
-    const isSel = (bld.id === selectedBuildingId);
+    const isSel = (bld && bld.id === curSelBldId);
     const baseHex = bld.facadeColor || '#FFFFFF';
     const roofHex = bld.roofColor || '#FF6400';
 

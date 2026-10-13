@@ -4158,10 +4158,11 @@ function setAppMode(mode) {
 }
 window.setAppMode = setAppMode;
 
-// [AAA] `buildings` no se declara con let/var/const en este proyecto; se asegura
-// como array global desde el arranque para que finishActiveBuilding/render nunca
-// encuentren un valor indefinido en una sesión nueva sin proyecto cargado.
+// [AAA] `buildings` y `selectedBuildingId` se aseguran en el scope global y en window
+// para que el renderizado y la carga de proyectos nunca encuentren valores indefinidos.
 window.buildings = (typeof window.buildings !== 'undefined' && Array.isArray(window.buildings)) ? window.buildings : [];
+var selectedBuildingId = null;
+window.selectedBuildingId = null;
 
 let polygonPoints = [];       // Array de Cesium.Cartesian3
 var isPolygonDesignConfirmed = false; // Flag de confirmación del diseño
