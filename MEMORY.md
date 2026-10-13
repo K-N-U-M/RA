@@ -230,7 +230,7 @@ calculateFinancialModel()  ← Definición canónica en financials.js (~L491)
 - **Estado:** ✅ Implementado y verificado en `js/measure-tool.js` e `index.html`.
 - **Módulo Autónomo y Desacoplado (`RAMeasureTool`):**
   - Ubicación: `js/measure-tool.js`. Singleton `window.RAMeasureTool` / `window.RA.measureTool`, función global `toggleMeasureTool()`.
-  - Botón flotante `#btn-toggle-measure-tool` en la botonera inferior derecha del visor 3D (`#ra-floating-tools-container`), conservando la estética HUD de la aplicación.
+  - Botón flotante `#btn-toggle-measure-tool` en la botonera inferior derecha del visor 3D (`#ra-floating-tools-container`): botón circular con icono SVG exclusivo (sin texto), con conmutación dinámica de color (slate en reposo, cian brillante con resplandor activo).
   - Atajos de teclado: `M` para alternar la herramienta de medición, `S` para conmutar el snapping magnético mientras está activa, y `Escape` para cancelar tramo o salir.
 - **Desglose Físico en 3 Componentes:**
   - Distancia 3D Real (en línea sobre la pendiente del tejado o fachada).
@@ -240,9 +240,11 @@ calculateFinancialModel()  ← Definición canónica en financials.js (~L491)
   - Atracción en pantalla a $\le 24\text{ px}$ sobre vértices de faldones (`WP.polylines`), planos (`WP.planes`), esquinas de módulos solares (`corners`), obstáculos (`obstacles`), edificios (`buildings`) y cuadros/inversores.
   - Conmutador interactivo con badge en mini-HUD (`🧲 SNAP: [ON / OFF]`) o tecla `S`.
   - Modo sin snap: medición libre por raycast sobre cualquier punto de la superficie 3D.
-- **Renderizado Técnico No Destructivo:**
-  - Cotas con `depthFailMaterial` y etiquetas orientadas a cámara sin z-fighting.
-  - Botón de purga inmediata (`🗑️ Limpiar cotas`) y soporte para medición continua por tramos.
+- **Renderizado Técnico No Destructivo y Visibilidad sobre 3D Tiles:**
+  - Trazado de cota elevado a cota rasante (+0.12 m) con `Cesium.ArcType.NONE` y `clampToGround: false` para evitar oclusión por fotogrametría.
+  - Puntos terminales con `disableDepthTestDistance: Number.POSITIVE_INFINITY` para visualización garantizada de extremos.
+  - Sincronización explícita con el motor de renderizado mediante `requestRender()` en movimiento y clics (`requestRenderMode`).
+  - Botón de purga inmediata (`🗑️ Limpiar`) y soporte para medición continua por tramos.
 
 
 

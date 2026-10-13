@@ -39,6 +39,27 @@
     return global.viewer || (typeof viewer !== 'undefined' ? viewer : null);
   }
 
+  function requestSceneRender() {
+    var v = getViewer();
+    if (v && v.scene && typeof v.scene.requestRender === 'function') {
+      try {
+        v.scene.requestRender();
+      } catch(e) {}
+    }
+  }
+
+  function elevatePoint(pt, offsetM) {
+    if (!pt) return pt;
+    var offset = (typeof offsetM === 'number') ? offsetM : 0.12;
+    try {
+      var normalUp = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(pt, new Cesium.Cartesian3());
+      if (normalUp && isFinite(normalUp.x)) {
+        return Cesium.Cartesian3.add(pt, Cesium.Cartesian3.multiplyByScalar(normalUp, offset, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+      }
+    } catch(e) {}
+    return pt;
+  }
+
   function get3DPosition(screenPos) {
     var v = getViewer();
     if (!v || !v.scene || !screenPos) return null;
@@ -224,6 +245,7 @@
       try { v.entities.remove(ent); } catch(e) {}
     });
     _state.previewEntities = [];
+    requestSceneRender();
   }
 
   function updateDynamicPreview(ptStart, ptEnd, snapMeta) {
@@ -236,46 +258,65 @@
 
     // Elevar ligeramente el punto de la etiqueta para evitar colisiones
     var normalUp = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(mid, new Cesium.Cartesian3());
-    var labelPos = Cesium.Cartesian3.add(mid, Cesium.Cartesian3.multiplyByScalar(normalUp, 0.25, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+    var labelPos = Cesium.Cartesian3.add(mid, Cesium.Cartesian3.multiplyByScalar(normalUp, 0.35, new Cesium.Cartesian3()), new Cesium.Cartesian3());
 
-    // Línea de vista previa (cian punteada / continua de alto contraste)
+    var visualStart = elevatePoint(ptStart, 0.12);
+    var visualEnd = elevatePoint(ptEnd, 0.12);
+
+    // 1. Línea de vista previa (cian continuo de alto contraste sobre 3D Tiles)
     var lineEnt = v.entities.add({
       polyline: {
-        positions: [ptStart, ptEnd],
-        width: 3.0,
-        material: new Cesium.PolylineDashMaterialProperty({
-          color: Cesium.Color.fromCssColorString('#38BDF8'),
-          gapColor: Cesium.Color.fromCssColorString('rgba(15,23,42,0.6)'),
-          dashLength: 16.0
-        }),
-        depthFailMaterial: Cesium.Color.fromCssColorString('#38BDF8').withAlpha(0.6)
+        positions: [visualStart, visualEnd],
+        width: 4.0,
+        arcType: Cesium.ArcType.NONE,
+        clampToGround: false,
+        material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#38BDF8'))
       }
     });
     _state.previewEntities.push(lineEnt);
 
-    // Esfera terminal en el punto de cursor
+    // 2. Punto inicial (Punto A - verde esmeralda)
+    var startPin = v.entities.add({
+      position: visualStart,
+      point: {
+        pixelSize: 10,
+        color: Cesium.Color.fromCssColorString('#10B981'),
+        outlineColor: Cesium.Color.fromCssColorString('#0F172A'),
+        outlineWidth: 2,
+        disableDepthTestDistance: Number.POSITIVE_INFINITY
+      }
+    });
+    _state.previewEntities.push(startPin);
+
+    // 3. Punto terminal en el cursor (Punto B)
     var endPin = v.entities.add({
-      position: ptEnd,
-      ellipsoid: {
-        radii: new Cesium.Cartesian3(0.08, 0.08, 0.08),
-        material: Cesium.Color.fromCssColorString('#F59E0B')
+      position: visualEnd,
+      point: {
+        pixelSize: 10,
+        color: snapMeta ? Cesium.Color.fromCssColorString('#10B981') : Cesium.Color.fromCssColorString('#F59E0B'),
+        outlineColor: Cesium.Color.fromCssColorString('#0F172A'),
+        outlineWidth: 2,
+        disableDepthTestDistance: Number.POSITIVE_INFINITY
       }
     });
     _state.previewEntities.push(endPin);
 
-    // Si hay snapping activo, anillo resaltador sobre el vértice magnético
+    // 4. Si hay snapping activo, halo magnético adicional
     if (snapMeta) {
       var snapRing = v.entities.add({
-        position: ptEnd,
-        ellipsoid: {
-          radii: new Cesium.Cartesian3(0.18, 0.18, 0.18),
-          material: Cesium.Color.fromCssColorString('#10B981').withAlpha(0.7)
+        position: visualEnd,
+        point: {
+          pixelSize: 18,
+          color: Cesium.Color.fromCssColorString('#10B981').withAlpha(0.35),
+          outlineColor: Cesium.Color.fromCssColorString('#34D399'),
+          outlineWidth: 2,
+          disableDepthTestDistance: Number.POSITIVE_INFINITY
         }
       });
       _state.previewEntities.push(snapRing);
     }
 
-    // Etiqueta flotante con desglose 3D, 2D y desnivel
+    // 5. Etiqueta flotante con desglose 3D, 2D y desnivel
     var labelText = '📏 3D: ' + metrics.d3D.toFixed(2) + ' m' +
                     '\n↔ 2D: ' + metrics.d2D.toFixed(2) + ' m' +
                     '  |  ↕ ΔH: ' + metrics.dZ.toFixed(2) + ' m (' + metrics.slopeDeg.toFixed(1) + '°)';
@@ -304,6 +345,7 @@
 
     // Actualizar también la lectura en vivo del HUD flotante
     updateLiveHUDReadout(metrics, snapMeta);
+    requestSceneRender();
   }
 
   function commitMeasurementSegment(ptA, ptB) {
@@ -313,37 +355,46 @@
     var metrics = calculateDistanceMetrics(ptA, ptB);
     var mid = Cesium.Cartesian3.midpoint(ptA, ptB, new Cesium.Cartesian3());
     var normalUp = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(mid, new Cesium.Cartesian3());
-    var labelPos = Cesium.Cartesian3.add(mid, Cesium.Cartesian3.multiplyByScalar(normalUp, 0.22, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+    var labelPos = Cesium.Cartesian3.add(mid, Cesium.Cartesian3.multiplyByScalar(normalUp, 0.30, new Cesium.Cartesian3()), new Cesium.Cartesian3());
 
+    var visualA = elevatePoint(ptA, 0.12);
+    var visualB = elevatePoint(ptB, 0.12);
     var measId = 'ra_meas_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
 
-    // Línea de cota permanente
+    // Línea de cota permanente (ámbar CAD)
     ds.entities.add({
       id: measId + '_line',
       polyline: {
-        positions: [ptA, ptB],
-        width: 3.0,
-        material: Cesium.Color.fromCssColorString('#F59E0B'),
-        depthFailMaterial: Cesium.Color.fromCssColorString('#F59E0B').withAlpha(0.65)
+        positions: [visualA, visualB],
+        width: 3.5,
+        arcType: Cesium.ArcType.NONE,
+        clampToGround: false,
+        material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#F59E0B'))
       }
     });
 
-    // Puntos extremos con zapatas esféricas
+    // Puntos extremos permanentes
     ds.entities.add({
       id: measId + '_pinA',
-      position: ptA,
-      ellipsoid: {
-        radii: new Cesium.Cartesian3(0.09, 0.09, 0.09),
-        material: Cesium.Color.fromCssColorString('#10B981')
+      position: visualA,
+      point: {
+        pixelSize: 10,
+        color: Cesium.Color.fromCssColorString('#10B981'),
+        outlineColor: Cesium.Color.fromCssColorString('#0F172A'),
+        outlineWidth: 2,
+        disableDepthTestDistance: Number.POSITIVE_INFINITY
       }
     });
 
     ds.entities.add({
       id: measId + '_pinB',
-      position: ptB,
-      ellipsoid: {
-        radii: new Cesium.Cartesian3(0.09, 0.09, 0.09),
-        material: Cesium.Color.fromCssColorString('#EF4444')
+      position: visualB,
+      point: {
+        pixelSize: 10,
+        color: Cesium.Color.fromCssColorString('#EF4444'),
+        outlineColor: Cesium.Color.fromCssColorString('#0F172A'),
+        outlineWidth: 2,
+        disableDepthTestDistance: Number.POSITIVE_INFINITY
       }
     });
 
@@ -375,6 +426,8 @@
       ptB: ptB,
       metrics: metrics
     });
+
+    requestSceneRender();
 
     if (typeof global.showToast === 'function') {
       global.showToast('COTA FIJADA', 'Distancia 3D: ' + metrics.d3D.toFixed(2) + ' m (Horiz: ' + metrics.d2D.toFixed(2) + ' m)', 'info', 2200);
@@ -500,28 +553,28 @@
   }
 
   function updateFABVisuals() {
-    var fabBadge = document.getElementById('tag-measure-status');
     var fabBtn = document.getElementById('btn-toggle-measure-tool');
+    if (!fabBtn) return;
 
-    if (fabBadge) {
-      if (_state.active) {
-        fabBadge.textContent = 'ON';
-        fabBadge.style.background = 'rgba(56,189,248,0.25)';
-        fabBadge.style.color = '#38BDF8';
-      } else {
-        fabBadge.textContent = 'OFF';
-        fabBadge.style.background = 'rgba(255,255,255,0.08)';
-        fabBadge.style.color = 'var(--text-slate-300, #cbd5e1)';
+    var icon = fabBtn.querySelector('svg, i');
+
+    if (_state.active) {
+      fabBtn.style.background = 'rgba(56, 189, 248, 0.22)';
+      fabBtn.style.borderColor = '#38BDF8';
+      fabBtn.style.color = '#38BDF8';
+      fabBtn.style.boxShadow = '0 0 20px rgba(56, 189, 248, 0.55), 0 4px 16px rgba(0,0,0,0.4)';
+      if (icon) {
+        icon.style.stroke = '#38BDF8';
+        icon.style.color = '#38BDF8';
       }
-    }
-
-    if (fabBtn) {
-      if (_state.active) {
-        fabBtn.style.borderColor = '#38BDF8';
-        fabBtn.style.boxShadow = '0 0 16px rgba(56,189,248,0.45)';
-      } else {
-        fabBtn.style.borderColor = 'rgba(56,189,248,0.4)';
-        fabBtn.style.boxShadow = '0 4px 16px rgba(0,0,0,0.4)';
+    } else {
+      fabBtn.style.background = 'rgba(15, 23, 42, 0.88)';
+      fabBtn.style.borderColor = 'rgba(255, 255, 255, 0.18)';
+      fabBtn.style.color = '#94a3b8';
+      fabBtn.style.boxShadow = '0 4px 16px rgba(0,0,0,0.4)';
+      if (icon) {
+        icon.style.stroke = '#94a3b8';
+        icon.style.color = '#94a3b8';
       }
     }
   }
@@ -553,17 +606,24 @@
         var vScene = getViewer();
         if (vScene) {
           var dot = vScene.entities.add({
-            position: snapTarget.pos,
-            ellipsoid: {
-              radii: new Cesium.Cartesian3(0.14, 0.14, 0.14),
-              material: Cesium.Color.fromCssColorString('#10B981').withAlpha(0.85)
+            position: elevatePoint(snapTarget.pos, 0.12),
+            point: {
+              pixelSize: 14,
+              color: Cesium.Color.fromCssColorString('#10B981').withAlpha(0.85),
+              outlineColor: Cesium.Color.fromCssColorString('#34D399'),
+              outlineWidth: 2,
+              disableDepthTestDistance: Number.POSITIVE_INFINITY
             }
           });
           _state.previewEntities.push(dot);
+          requestSceneRender();
         }
       } else {
-        clearPreviewEntities();
+        if (_state.previewEntities.length > 0) {
+          clearPreviewEntities();
+        }
       }
+      requestSceneRender();
     }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
 
     // LEFT_CLICK: Fijar puntos de medición
@@ -589,6 +649,7 @@
         // Continuidad encadenada: el punto B queda como nuevo inicio
         _state.points = [pos3D];
       }
+      requestSceneRender();
     }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
     // RIGHT_CLICK: Cancelar tramo actual
@@ -597,6 +658,7 @@
         _state.points = [];
         clearPreviewEntities();
         updateLiveHUDReadout(null, null);
+        requestSceneRender();
         if (typeof global.showToast === 'function') {
           global.showToast('MEDICIÓN', 'Tramo cancelado.', 'info', 1500);
         }
@@ -622,6 +684,7 @@
     attachMouseHandler();
     updateHUDVisuals();
     updateFABVisuals();
+    requestSceneRender();
     if (typeof global.showToast === 'function') {
       global.showToast('CINTA MÉTRICA 3D', 'Herramienta activa. Haz clic sobre el modelo para medir [Esc para salir].', 'info', 3000);
     }
@@ -633,6 +696,7 @@
     detachMouseHandler();
     updateHUDVisuals();
     updateFABVisuals();
+    requestSceneRender();
   }
 
   function toggle() {
@@ -664,6 +728,7 @@
       _state.dataSource.entities.removeAll();
     }
     updateLiveHUDReadout(null, null);
+    requestSceneRender();
     if (typeof global.showToast === 'function') {
       global.showToast('COTAS BORRADAS', 'Se han limpiado todas las mediciones.', 'info', 1800);
     }
@@ -700,6 +765,7 @@
           _state.points = [];
           clearPreviewEntities();
           updateLiveHUDReadout(null, null);
+          requestSceneRender();
           if (typeof global.showToast === 'function') global.showToast('MEDICIÓN', 'Tramo cancelado.', 'info', 1500);
         } else {
           deactivate();
@@ -733,10 +799,12 @@
       document.addEventListener('DOMContentLoaded', function() {
         setupKeyboardShortcuts();
         ensureHUD();
+        updateFABVisuals();
       });
     } else {
       setupKeyboardShortcuts();
       ensureHUD();
+      updateFABVisuals();
     }
   }
 

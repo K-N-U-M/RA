@@ -195,20 +195,37 @@ Estado en `window.solarProjectConfig`:
 
 ---
 
+## 8.3 📏 Cinta Métrica y Medición 3D Inteligente (`RAMeasureTool`)
+
+- **Motor Desacoplado y Escalable:** `js/measure-tool.js` (`window.RAMeasureTool`, `window.toggleMeasureTool()`).
+- **Desglose Físico Tridimensional en 3 Componentes:**
+  - **Distancia 3D Real:** Longitud real en pendiente sobre la teja o fachada.
+  - **Distancia Horizontal 2D:** Proyección en planta (útil para retranqueos y lindes).
+  - **Desnivel Vertical ($\Delta H$):** Diferencia barométrica/altimétrica y ángulo de inclinación ($\alpha^\circ$).
+- **Imán Magnético Conmutable (Snapping ON/OFF):**
+  - Atracción en pantalla a $\le 24\text{ px}$ sobre: vértices de faldones (`WP.polylines`), planos CAD (`WP.planes`), esquinas de módulos fotovoltaicos (`simulatedPanelEntities`, `corners`), obstáculos 3D (`obstacles`), edificios (`buildings`) e infraestructura eléctrica.
+  - Conmutador interactivo en mini-HUD flotante o mediante atajo de teclado (`S` mientras la cinta métrica está activa).
+- **Cotas Técnicas Visibles:** Renderizado elevado sobre fotogrametría (+0.12 m) con `Cesium.ArcType.NONE`, puntos extremos con `disableDepthTestDistance: Number.POSITIVE_INFINITY` y etiquetas orientadas a cámara para legibilidad absoluta sin z-fighting ni oclusión.
+- **Botón Flotante Reactivo:** Botón circular únicamente con el icono SVG de regla, con conmutación dinámica de color (apagado en slate neutro / activo en cian brillante con resplandor).
+
+---
+
 ## 9. ⌨️ Atajos de Teclado
 
 | Tecla | Acción | Contexto |
 | :---: | :--- | :--- |
+| `M` | Toggle CINTA MÉTRICA 3D (`RAMeasureTool`): medición física 3D, 2D y desnivel ΔH | Global |
+| `S` | Toggle SNAP MAGNÉTICO (ON / OFF) de cinta métrica | Cinta métrica activa |
 | `T` | Toggle textura PBR paneles | Paso 2 y 3 |
 | `L` / `H` | Toggle labels 3D de paneles | Global |
 | `C` | Toggle modo CAPTURA LIMPIA (`window.RACapture`): oculta vértices, polilíneas, planos y tríada para screenshots; botón flotante 📷 | Global |
-| `Escape` | Cancelar herramienta / deseleccionar / deshacer punto en dibujo | Global |
+| `Escape` | Cancelar herramienta / deseleccionar / deshacer punto en dibujo / cancelar tramo de cota | Global |
 | `Delete/Backspace` | Borrar elemento seleccionado — despachador único: vértice de faldón → obstáculo → objetivo del gizmo universal (edificio/equipo/panel) → panel | Selección activa |
 | `Ctrl+Z` | Deshacer último borrado (`window.RAundo`); si no hay borrados, undo geométrico legacy; en dibujo, quita el último punto | Global |
 | `Ctrl+Shift+Z` / `Ctrl+Y` | Rehacer geometría legacy | Modo idle |
 | `Shift` (mantener clic) | Habilita acciones de ratón con Shift (rotación de gizmo con snap 15°) | Gizmo |
 
-> NOTA: `S` NO activa snapping (es retroceso de cámara WASD); el snapping ortogonal del dibujo de edificios es automático e incondicional. `Ctrl+Click` fino en eje N NO está implementado.
+> NOTA: `S` en modo idle es retroceso de cámara WASD; con la cinta métrica activa (`M`), conmuta el imán magnético (ON/OFF). `Ctrl+Click` fino en eje N NO está implementado.
 
 ---
 
