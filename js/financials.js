@@ -272,7 +272,7 @@ function wpOpenPricingReviewModal(onConfirm) {
             '<span style="font-size:18px;">🏷️</span>' +
             '<div>' +
               '<div style="font-weight:900;font-size:13px;color:#fff;letter-spacing:0.5px;">REVISIÓN DE PRECIOS Y MARGEN COMERCIAL</div>' +
-              '<div style="font-size:9.5px;color:#94a3b8;">Confirma costes unitarios y margen de beneficio antes de emitir la oferta</div>' +
+              '<div id="pricing-modal-subtitle" style="font-size:9.5px;color:#94a3b8;">Confirma costes unitarios y margen de beneficio antes de emitir la oferta</div>' +
             '</div>' +
           '</div>' +
           '<button type="button" id="btn-close-pricing-review" style="background:transparent;border:none;color:#94a3b8;font-size:18px;cursor:pointer;padding:4px 8px;">✕</button>' +
@@ -350,7 +350,7 @@ function wpOpenPricingReviewModal(onConfirm) {
         '</div>' +
         '<div style="padding:12px 20px;background:rgba(0,0,0,0.5);border-top:1px solid rgba(255,255,255,0.08);display:flex;justify-content:flex-end;gap:10px;">' +
           '<button type="button" id="btn-cancel-pricing-review" style="padding:7px 14px;background:transparent;border:1px solid #475569;border-radius:6px;color:#cbd5e1;font-size:11px;font-weight:700;cursor:pointer;">CANCELAR</button>' +
-          '<button type="button" id="btn-confirm-pricing-review" style="padding:7px 18px;background:linear-gradient(135deg,#059669,#10B981);border:none;border-radius:6px;color:#fff;font-size:11px;font-weight:900;cursor:pointer;display:flex;align-items:gap:6px;box-shadow:0 0 12px rgba(16,185,129,0.3);">' +
+          '<button type="button" id="btn-confirm-pricing-review" style="padding:7px 18px;background:linear-gradient(135deg,#059669,#10B981);border:none;border-radius:6px;color:#fff;font-size:11px;font-weight:900;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 0 12px rgba(16,185,129,0.3);">' +
             '🚀 EMITIR OFERTA CON ESTOS PRECIOS' +
           '</button>' +
         '</div>' +
@@ -363,12 +363,26 @@ function wpOpenPricingReviewModal(onConfirm) {
   }
 
   var pricing = RAPricing.getDefaults();
+  var initialPricing = Object.assign({}, pricing);
   var pInput = document.getElementById('pricing-input-panel-price');
   var moInput = document.getElementById('pricing-input-mo-price');
   var mgInput = document.getElementById('pricing-input-margin-pct');
   var checkSave = document.getElementById('pricing-check-save-defaults');
   var checkSkip = document.getElementById('pricing-check-skip-future');
   var modInfo = document.getElementById('pricing-modal-module-info');
+  var subTitle = document.getElementById('pricing-modal-subtitle');
+  var confirmBtn = document.getElementById('btn-confirm-pricing-review');
+
+  if (subTitle) {
+    subTitle.textContent = (typeof onConfirm === 'function')
+      ? 'Confirma costes unitarios y margen de beneficio antes de emitir la oferta'
+      : 'Ajusta los costes unitarios y margen comercial aplicados al presupuesto del proyecto';
+  }
+  if (confirmBtn) {
+    confirmBtn.innerHTML = (typeof onConfirm === 'function')
+      ? '🚀 EMITIR OFERTA CON ESTOS PRECIOS'
+      : '💾 APLICAR PRECIOS &amp; MARGEN';
+  }
 
   var d = (typeof getProjectCalcs === 'function') ? getProjectCalcs() : { numPanels: 0, cfg: { potencia: 450 } };
   var numPanels = d.numPanels || (window.allRenderedPanels ? window.allRenderedPanels.length : 0) || 1;
@@ -425,16 +439,18 @@ function wpOpenPricingReviewModal(onConfirm) {
     };
   });
 
-  var closeModal = function() {
+  var closeModal = function(restoreInitial) {
+    if (restoreInitial) {
+      RAPricing.currentSessionPricing = initialPricing;
+    }
     pModal.style.display = 'none';
   };
 
   var closeBtn = document.getElementById('btn-close-pricing-review');
-  if (closeBtn) closeBtn.onclick = closeModal;
+  if (closeBtn) closeBtn.onclick = function() { closeModal(true); };
   var cancelBtn = document.getElementById('btn-cancel-pricing-review');
-  if (cancelBtn) cancelBtn.onclick = closeModal;
+  if (cancelBtn) cancelBtn.onclick = function() { closeModal(true); };
 
-  var confirmBtn = document.getElementById('btn-confirm-pricing-review');
   if (confirmBtn) {
     confirmBtn.onclick = function() {
       var pPrice = parseFloat(pInput ? pInput.value : 125) || 125;
@@ -455,8 +471,24 @@ function wpOpenPricingReviewModal(onConfirm) {
         RAPricing.currentSessionPricing = newCfg;
       }
 
+      // Sincronizar input del modal de desglose si existe en el DOM
+      var moModal = document.getElementById('modal-cfg-pres-mo');
+      if (moModal) moModal.value = moPrice;
+
       wpUpdateStep5PricingBadge();
-      closeModal();
+      if (typeof updateBudgetUI === 'function') updateBudgetUI();
+
+      var sumContainer = document.getElementById('step5-executive-summary-container');
+      if (sumContainer && typeof EngineeringExplainer !== 'undefined' && typeof EngineeringExplainer.generateExecutiveSummaryHTML === 'function') {
+        var pCalcs = (typeof getProjectCalcs === 'function') ? getProjectCalcs() : {};
+        sumContainer.innerHTML = EngineeringExplainer.generateExecutiveSummaryHTML(pCalcs);
+      }
+
+      if (typeof showToast === 'function') {
+        showToast('PRECIOS ACTUALIZADOS', 'Precios y margen comercial aplicados correctamente.', 'success', 3000);
+      }
+
+      closeModal(false);
       if (typeof onConfirm === 'function') {
         onConfirm();
       }
@@ -1175,7 +1207,7 @@ function generatePropuestaComercialPDF(skipPricingModal) {
       cab = _cableCostReal;
     }
   }
-  const mo  = _input('cfg-pres-mo', (pricing && pricing.moPrice != null) ? pricing.moPrice : 1400);
+  const mo  = (pricing && pricing.moPrice != null) ? pricing.moPrice : _input('cfg-pres-mo', 1400);
   const leg = _input('cfg-pres-leg', 500);
 
   const roofInfo = (typeof computeRoofPanelsData === 'function') ? computeRoofPanelsData() : null;
@@ -1556,6 +1588,14 @@ function generatePropuestaComercialPDF(skipPricingModal) {
     window.RAPricing = RAPricing;
   if (typeof wpOpenPricingReviewModal !== 'undefined')
     window.wpOpenPricingReviewModal = wpOpenPricingReviewModal;
-  if (typeof wpUpdateStep5PricingBadge !== 'undefined')
+  if (typeof wpUpdateStep5PricingBadge !== 'undefined') {
     window.wpUpdateStep5PricingBadge = wpUpdateStep5PricingBadge;
+    if (typeof document !== 'undefined') {
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', wpUpdateStep5PricingBadge);
+      } else {
+        wpUpdateStep5PricingBadge();
+      }
+    }
+  }
 })();

@@ -363,4 +363,30 @@ calculateFinancialModel()  ← Definición canónica en financials.js (~L491)
   - Cuando están pendientes, muestra pasos guiados interactivos para tocar en la pared del modelo 3D y fijar su cota exacta.
   - Cuando ambos están ubicados, valida la medición con tarjeta de confirmación en verde indicando las tiradas reales medidas en 3D (metros de cable DC de bajante y cable de evacuación AC), garantizando presupuesto y caída de tensión REBT (ITC-BT-40) exactos al centímetro.
 
+---
+
+## 21. Soluciones del Bloque 5 de Producto: Presupuesto y Oferta Final (Paso 5: Entrega) (Octubre 2026)
+
+- **Estado:** ✅ Implementado y verificado en `js/financials.js` e `index.html`.
+- **Página de Cierre Comercial para el Cliente Final (`generatePropuestaComercialPDF`):**
+  - **Página 1 (Decisión Ejecutiva de Alto Impacto):**
+    - Responde directamente en letras grandes y diseño ultra limpio a las 4 preguntas determinantes del comprador:
+      1. *Ahorro Anual en Factura (€/año y €/mes).*
+      2. *Nueva Factura Mensual Proyectada (~€/mes vs gasto anterior).*
+      3. *Retorno de Inversión (Payback en años y energía gratuita durante 20+ años).*
+      4. *Garantías Oficiales (25 años en módulos, 10 años en inversor).*
+    - Comparativa de decisión de pago: *Opción A (Llave en Mano con bonificaciones fiscales IBI/ICIO/IRPF)* frente a *Opción B (Financiación 100% sin entrada con balance neto mensual positivo desde el primer día)*.
+    - Cuadro de aceptación inmediata con reserva de instalación y firma del cliente en la primera hoja.
+    - Resumen ejecutivo del proyecto enriquecible vía IA Gemini multimodal / local determinista y huella ambiental (CO₂ evitado y árboles equivalentes).
+  - **Páginas 2 y 3 (Especificación Técnica e Ingeniería EPC):**
+    - Todo el detalle técnico, catálogo de equipos instalados, desglose económico por capítulos EPC, subvenciones fiscales, histograma mensual SVG, curva de amortización a 25 años y sellos normativos (REBT ITC-BT-40, RD 244/2019, IEC 61215).
+- **Revisión Previa Interactiva de Precios y Margen (`wpOpenPricingReviewModal`, `RAPricing`):**
+  - Modal rápido accesible desde la tarjeta de precios en el Paso 5 o interceptor previo a la emisión de la oferta comercial.
+  - Permite validar o reajustar en segundos: *Precio unitario del módulo (€/ud)*, *Mano de obra estimada (€)* y *Margen comercial deseado (%)* con botones de acceso rápido (15%, 20%, 25%, 30%).
+  - Cálculo en vivo no bloqueante de coste directo, beneficio comercial neto, base imponible y total llave en mano con IVA (21%).
+  - Persistencia segura en `localStorage('ra_pricing_defaults')` para fijar los precios habituales del instalador y evitar ofertas a pérdidas.
+  - Sincronización reactiva inmediata con el badge del Paso 5 (`#step5-pricing-badge`), el presupuesto general (`updateBudgetUI()`), el resumen ejecutivo de ingeniería y los inputs del desglose.
+
+
+
 
