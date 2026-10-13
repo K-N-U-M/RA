@@ -203,6 +203,112 @@ async function loadArcGIS3D() {
   hide3DTilesLoading(1000);
 }
 
+function getSearchHistory() {
+  try {
+    return JSON.parse(localStorage.getItem('ra_search_history')) || [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveToHistory(place) {
+  if (!place || !place.display_name) return;
+  let history = getSearchHistory();
+  history = history.filter(p => p.display_name !== place.display_name);
+  history.unshift(place);
+  if (history.length > 5) history = history.slice(0, 5);
+  try {
+    localStorage.setItem('ra_search_history', JSON.stringify(history));
+  } catch (e) {}
+}
+
+function showHistory() {
+  const resultsEl = document.getElementById('ra-results');
+  if (!resultsEl) return;
+  const history = getSearchHistory();
+  if (history.length === 0) return;
+
+  resultsEl.innerHTML = '<div style="padding: 4px 10px; font-size: 10px; color: #94a3b8; font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.05);"><i data-lucide="history" class="icon-sm"></i> BÚSQUEDAS RECIENTES</div>';
+
+  history.forEach(p => {
+    const d = document.createElement('div');
+    d.className = 'result-item';
+    d.innerHTML = `<span style="color:#64748b; margin-right:6px;">🕒</span>${p.display_name}`;
+    d.addEventListener('click', () => flyToPlace(p, false));
+    resultsEl.appendChild(d);
+  });
+
+  if (window.lucide && typeof window.lucide.createIcons === 'function') {
+    window.lucide.createIcons();
+  }
+
+  resultsEl.classList.add('open');
+}
+
+async function doSearch() {
+  const searchInput = document.getElementById('ra-search-input');
+  const resultsEl = document.getElementById('ra-results');
+  if (!searchInput || !resultsEl) return;
+  const q = searchInput.value.trim();
+  if (!q) return;
+
+  if (typeof showStatus === 'function') showStatus('BUSCANDO...');
+  resultsEl.innerHTML = '';
+  resultsEl.classList.remove('open');
+
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=5`, {
+      headers: { 'Accept-Language': 'es' }
+    });
+    const data = await res.json();
+
+    if (!data.length) {
+      if (typeof showStatus === 'function') showStatus('NO ENCONTRADO', 2500);
+      return;
+    }
+
+    if (typeof hideStatus === 'function') hideStatus();
+
+    data.forEach(p => {
+      const d = document.createElement('div');
+      d.className = 'result-item';
+      d.textContent = p.display_name;
+      d.addEventListener('click', () => flyToPlace(p, true));
+      resultsEl.appendChild(d);
+    });
+
+    resultsEl.classList.add('open');
+    if (data.length === 1) flyToPlace(data[0], true);
+  } catch (e) {
+    if (typeof showStatus === 'function') showStatus('ERROR DE CONEXIÓN', 2500);
+  }
+}
+
+function flyToPlace(p, save = true) {
+  if (!p) return;
+  const searchInput = document.getElementById('ra-search-input');
+  const resultsEl = document.getElementById('ra-results');
+  if (save) saveToHistory(p);
+  if (resultsEl) resultsEl.classList.remove('open');
+  if (searchInput && p.display_name) {
+    searchInput.value = p.display_name.split(',')[0];
+  }
+
+  const curCam = (typeof camera !== 'undefined' && camera) ? camera : (window.viewer ? window.viewer.camera : null);
+  if (!curCam || typeof Cesium === 'undefined') return;
+
+  const lon = parseFloat(p.lon);
+  const lat = parseFloat(p.lat);
+  const h = (curCam.positionCartographic && curCam.positionCartographic.height) ? curCam.positionCartographic.height : 2500;
+
+  curCam.flyTo({
+    destination: Cesium.Cartesian3.fromDegrees(lon, lat, Math.max(h * 0.25, 800)),
+    duration: 2.8,
+    easingFunction: Cesium.EasingFunction.QUADRATIC_IN_OUT,
+    orientation: { heading: 0, pitch: Cesium.Math.toRadians(-35), roll: 0 }
+  });
+}
+
 function executeSearch() {
   doSearch();
 }
@@ -278,6 +384,11 @@ function _initTriadOnce() {
     loadCesium3D: loadCesium3D,
     loadArcGIS3D: loadArcGIS3D,
     executeSearch: executeSearch,
+    doSearch: doSearch,
+    flyToPlace: flyToPlace,
+    getSearchHistory: getSearchHistory,
+    saveToHistory: saveToHistory,
+    showHistory: showHistory,
     resetNorth: resetNorth,
     updateWindRose: updateWindRose,
     toggle2D3D: toggle2D3D,
@@ -290,6 +401,11 @@ function _initTriadOnce() {
   global.loadCesium3D = loadCesium3D;
   global.loadArcGIS3D = loadArcGIS3D;
   global.executeSearch = executeSearch;
+  global.doSearch = doSearch;
+  global.flyToPlace = flyToPlace;
+  global.getSearchHistory = getSearchHistory;
+  global.saveToHistory = saveToHistory;
+  global.showHistory = showHistory;
   global.resetNorth = resetNorth;
   global.updateWindRose = updateWindRose;
   global.toggle2D3D = toggle2D3D;

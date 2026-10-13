@@ -8419,122 +8419,40 @@ setupHoldBtn('btn-rt', () => { const h = camera.positionCartographic.height; cam
 setupHoldBtn('btn-zi', () => zoomCam(+1));
 setupHoldBtn('btn-zo', () => zoomCam(-1));
 
-// ── Buscador Nominatim & Historial ──────────────────────────────────────────
+// ── Buscador Nominatim & Historial (Lógica delegada a js/viewer.js) ───────────
 const searchInput = document.getElementById('ra-search-input');
 const resultsEl   = document.getElementById('ra-results');
 
-function getSearchHistory() {
-  try {
-    return JSON.parse(localStorage.getItem('ra_search_history')) || [];
-  } catch (e) {
-    return [];
-  }
-}
-
-function saveToHistory(place) {
-  let history = getSearchHistory();
-  // Filter out duplicates (by display_name)
-  history = history.filter(p => p.display_name !== place.display_name);
-  // Add to top
-  history.unshift(place);
-  // Keep only 5
-  if (history.length > 5) history = history.slice(0, 5);
-  localStorage.setItem('ra_search_history', JSON.stringify(history));
-}
-
-function showHistory() {
-  const history = getSearchHistory();
-  if (history.length === 0) return;
-  
-  resultsEl.innerHTML = '<div style="padding: 4px 10px; font-size: 10px; color: #94a3b8; font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.05);"><i data-lucide="history" class="icon-sm"></i> BÚSQUEDAS RECIENTES</div>';
-  
-  history.forEach(p => {
-    const d = document.createElement('div');
-    d.className = 'result-item';
-    d.innerHTML = `<span style="color:#64748b; margin-right:6px;">🕒</span>${p.display_name}`;
-    d.addEventListener('click', () => flyToPlace(p, false));
-    resultsEl.appendChild(d);
-  });
-  
-  // Re-renderizar iconos (opcional si lucide está disponible globalmente)
-  if (window.lucide) window.lucide.createIcons();
-  
-  resultsEl.classList.add('open');
-}
-
-searchInput.addEventListener('focus', () => {
-  if (searchInput.value.trim() === '') {
-    showHistory();
-  }
-});
-
-searchInput.addEventListener('input', () => {
-  if (searchInput.value.trim() === '') {
-    showHistory();
-  } else {
-    resultsEl.classList.remove('open');
-  }
-});
-
-document.getElementById('ra-search-btn').addEventListener('click', doSearch);
-searchInput.addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
-
-async function doSearch() {
-  const q = searchInput.value.trim();
-  if (!q) return;
-
-  showStatus('BUSCANDO...');
-  resultsEl.innerHTML = '';
-  resultsEl.classList.remove('open');
-
-  try {
-    const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=5`, {
-      headers: { 'Accept-Language': 'es' }
-    });
-    const data = await res.json();
-
-    if (!data.length) {
-      showStatus('NO ENCONTRADO', 2500);
-      return;
+if (searchInput) {
+  searchInput.addEventListener('focus', () => {
+    if (searchInput.value.trim() === '' && typeof showHistory === 'function') {
+      showHistory();
     }
+  });
 
-    hideStatus();
+  searchInput.addEventListener('input', () => {
+    if (searchInput.value.trim() === '') {
+      if (typeof showHistory === 'function') showHistory();
+    } else if (resultsEl) {
+      resultsEl.classList.remove('open');
+    }
+  });
 
-    data.forEach(p => {
-      const d = document.createElement('div');
-      d.className = 'result-item';
-      d.textContent = p.display_name;
-      d.addEventListener('click', () => flyToPlace(p, true));
-      resultsEl.appendChild(d);
-    });
-
-    resultsEl.classList.add('open');
-    if (data.length === 1) flyToPlace(data[0], true);
-  } catch (e) {
-    showStatus('ERROR DE CONEXIÓN', 2500);
-  }
+  searchInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && typeof doSearch === 'function') doSearch();
+  });
 }
 
-function flyToPlace(p, save = true) {
-  if (save) saveToHistory(p);
-  resultsEl.classList.remove('open');
-  searchInput.value = p.display_name.split(',')[0]; // Auto-fill with shortest name
-  
-  const lon = parseFloat(p.lon);
-  const lat = parseFloat(p.lat);
-  const h   = camera.positionCartographic.height;
-
-  camera.flyTo({
-    destination: Cesium.Cartesian3.fromDegrees(lon, lat, Math.max(h * 0.25, 800)),
-    duration: 2.8,
-    easingFunction: Cesium.EasingFunction.QUADRATIC_IN_OUT,
-    orientation: { heading: 0, pitch: Cesium.Math.toRadians(-35), roll: 0 }
+const searchBtn = document.getElementById('ra-search-btn');
+if (searchBtn) {
+  searchBtn.addEventListener('click', () => {
+    if (typeof doSearch === 'function') doSearch();
   });
 }
 
 document.addEventListener('click', e => {
   if (!e.target.closest('#ra-search') && !e.target.closest('#ra-results')) {
-    resultsEl.classList.remove('open');
+    if (resultsEl) resultsEl.classList.remove('open');
   }
 });
 
