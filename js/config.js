@@ -26,33 +26,32 @@ if (typeof Cesium === 'undefined') {
 Cesium.Ion.defaultAccessToken = CESIUM_ION_TOKEN;
 Cesium.GoogleMaps.defaultApiKey = GOOGLE_MAPS_API_KEY;
 
-// ── Pantalla de Carga e Indicadores de Geometría 3D ─────────────────────────
-const ldBar    = document.getElementById('ld-bar');
-const ldMsg    = document.getElementById('ld-msg');
-const ldScreen = document.getElementById('ra-loading');
-const tilesLoadingEl = document.getElementById('ra-3d-tiles-loading');
-const tilesMsgEl = document.getElementById('ra-3d-tiles-msg');
-const tilesCountEl = document.getElementById('ra-3d-tiles-count');
-
+// ── Pantalla de Carga e Indicadores de Geometría 3D (Consulta Dinámica) ─────
 function setLoad(pct, msg) {
-  if (ldBar) ldBar.style.width = pct + '%';
-  if (ldMsg && msg) ldMsg.textContent = msg;
+  const bar = document.getElementById('ld-bar');
+  const txt = document.getElementById('ld-msg');
+  if (bar) bar.style.width = pct + '%';
+  if (txt && msg) txt.textContent = msg;
 }
 
 let loadingHidden = false;
 function hideLoading() {
   if (loadingHidden) return;
   loadingHidden = true;
-  if (ldScreen) {
-    ldScreen.classList.add('fade-out');
+  const screen = document.getElementById('ra-loading');
+  if (screen) {
+    screen.classList.add('fade-out');
     setTimeout(() => {
-      if (ldScreen.parentNode) ldScreen.remove();
+      if (screen.parentNode) screen.remove();
     }, 600);
   }
 }
 
 let tilesLoadHideTimer = null;
 function show3DTilesLoading(msg, pendingCount) {
+  const tilesLoadingEl = document.getElementById('ra-3d-tiles-loading');
+  const tilesMsgEl = document.getElementById('ra-3d-tiles-msg');
+  const tilesCountEl = document.getElementById('ra-3d-tiles-count');
   if (!tilesLoadingEl) return;
   if (tilesMsgEl && msg) tilesMsgEl.textContent = msg;
   if (tilesCountEl) {
@@ -63,18 +62,18 @@ function show3DTilesLoading(msg, pendingCount) {
 }
 
 function hide3DTilesLoading(delayMs) {
-  if (!tilesLoadingEl) return;
   clearTimeout(tilesLoadHideTimer);
   tilesLoadHideTimer = setTimeout(() => {
+    const tilesLoadingEl = document.getElementById('ra-3d-tiles-loading');
     if (tilesLoadingEl) tilesLoadingEl.classList.remove('visible');
   }, delayMs || 600);
 }
 
 // ── Estado y Notificaciones ────────────────────────────────────────────────
-const statusEl = document.getElementById('ra-status');
 let statusTimer;
 
 function showStatus(msg, ms) {
+  const statusEl = document.getElementById('ra-status');
   if (!statusEl) return;
   statusEl.textContent = msg;
   statusEl.classList.add('visible');
@@ -83,6 +82,7 @@ function showStatus(msg, ms) {
 }
 
 function hideStatus() {
+  const statusEl = document.getElementById('ra-status');
   if (statusEl) statusEl.classList.remove('visible');
 }
 
@@ -100,15 +100,15 @@ let panelConfig = {
   precio: 135
 };
 
-  // Exportar solo si no existen ya en window
-  if (typeof window.showStatus === 'undefined' && typeof showStatus === 'function')
-    window.showStatus = showStatus;
-  if (typeof window.hideLoading === 'undefined' && typeof hideLoading === 'function')
-    window.hideLoading = hideLoading;
-  if (typeof window.show3DTilesLoading === 'undefined' && typeof show3DTilesLoading === 'function')
-    window.show3DTilesLoading = show3DTilesLoading;
-  if (typeof window.hide3DTilesLoading === 'undefined' && typeof hide3DTilesLoading === 'function')
-    window.hide3DTilesLoading = hide3DTilesLoading;
+  // Exportar utilidades sólo si no existen en window (respetando definiciones prioritarias)
+  if (typeof window !== 'undefined') {
+    if (typeof window.setLoad === 'undefined') window.setLoad = setLoad;
+    if (typeof window.hideLoading === 'undefined') window.hideLoading = hideLoading;
+    if (typeof window.show3DTilesLoading === 'undefined') window.show3DTilesLoading = show3DTilesLoading;
+    if (typeof window.hide3DTilesLoading === 'undefined') window.hide3DTilesLoading = hide3DTilesLoading;
+    if (typeof window.showStatus === 'undefined') window.showStatus = showStatus;
+    if (typeof window.hideStatus === 'undefined') window.hideStatus = hideStatus;
+  }
 
   // ── Pérdidas del sistema configurables (árbol de pérdidas tipo PVsyst) ──
   // Valores en FRACCIÓN (0.025 = 2.5%). El ingeniero debe poder justificar el PR:

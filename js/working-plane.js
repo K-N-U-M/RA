@@ -49,6 +49,11 @@ window.RA_STRING_PALETTE = window.RA_STRING_PALETTE || [
 ];
 
 function getPolylineStringColor(polyIdx) {
+  if (typeof window !== 'undefined' && window.RA && window.RA.Electrical && typeof window.RA.Electrical.getPolylineStringColor === 'function') {
+    try {
+      return window.RA.Electrical.getPolylineStringColor(polyIdx);
+    } catch (e) {}
+  }
   const item = RA_STRING_PALETTE[polyIdx % RA_STRING_PALETTE.length];
   return item ? item.hex : "#00F0FF";
 }

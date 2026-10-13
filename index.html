@@ -7191,7 +7191,12 @@ function isPanelFullyContainedInPolygon2D(corners, poly, minSetback = 0) {
 // ── §19.3 PARTICIÓN AUTOMÁTICA DE STRINGS POR VENTANA MPPT (IEC 62548 / REBT) ─
 function calculateDynamicMPPTStringLimits(modParams = {}, invParams = {}, climParams = {}) {
   if (typeof window !== 'undefined' && window.RA && window.RA.Electrical && typeof window.RA.Electrical.calculateDynamicMPPTStringLimits === 'function') {
-    return window.RA.Electrical.calculateDynamicMPPTStringLimits(modParams, invParams, climParams);
+    try {
+      const res = window.RA.Electrical.calculateDynamicMPPTStringLimits(modParams, invParams, climParams);
+      if (res && typeof res.Ns_max === 'number' && typeof res.Ns_min === 'number') return res;
+    } catch (e) {
+      console.warn('[Electrical Engine] Fallback local seguro en cálculo de límites MPPT:', e);
+    }
   }
   // Parámetros Módulo FV (UNE-EN 62548 / Tier-1 Monocristalino / N-Type / TOPCon)
   const pCfg = (typeof panelConfig !== 'undefined' && panelConfig) ? panelConfig : {};
@@ -7242,7 +7247,12 @@ function calculateDynamicMPPTStringLimits(modParams = {}, invParams = {}, climPa
 
 function partitionPanelsIntoMPPTStrings(panels, userMax = null, userMin = null) {
   if (typeof window !== 'undefined' && window.RA && window.RA.Electrical && typeof window.RA.Electrical.partitionPanelsIntoMPPTStrings === 'function') {
-    return window.RA.Electrical.partitionPanelsIntoMPPTStrings(panels, userMax, userMin);
+    try {
+      const res = window.RA.Electrical.partitionPanelsIntoMPPTStrings(panels, userMax, userMin);
+      if (Array.isArray(res) && res.length > 0) return res;
+    } catch (e) {
+      console.warn('[Electrical Engine] Fallback local seguro en partición de strings:', e);
+    }
   }
   if (!panels || panels.length === 0) return [];
 
@@ -12421,7 +12431,12 @@ function calculateTotalPathLength(panels) {
 
 function getSnakeOrderedPanels(panels) {
   if (typeof window !== 'undefined' && window.RA && window.RA.Electrical && typeof window.RA.Electrical.getSnakeOrderedPanels === 'function') {
-    return window.RA.Electrical.getSnakeOrderedPanels(panels);
+    try {
+      const res = window.RA.Electrical.getSnakeOrderedPanels(panels);
+      if (Array.isArray(res) && res.length > 0) return res;
+    } catch (e) {
+      console.warn('[Electrical Engine] Fallback local seguro en ordenación snake:', e);
+    }
   }
   if (!panels || panels.length <= 1) return panels || [];
 

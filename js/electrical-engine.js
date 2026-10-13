@@ -94,13 +94,15 @@
   const getV = (p) => (typeof p.gridA === 'number') ? p.gridA : ((p.center2D && typeof p.center2D.v === 'number') ? p.center2D.v : (p.v || 0));
 
   function clusterPanels(panels) {
-    const pW = panels[0].w || 1.05;
-    const pH = panels[0].h || 2.10;
+    if (!panels || panels.length === 0) return [];
+    const firstP = panels[0] || {};
+    const pW = firstP.w || 1.05;
+    const pH = firstP.h || 2.10;
     const threshold = Math.max(pW, pH) * 1.8; 
     const clusters = [];
     const visited = new Set();
     panels.forEach(p => {
-      if (visited.has(p)) return;
+      if (!p || visited.has(p)) return;
       const cluster = [];
       const queue = [p];
       visited.add(p);
@@ -108,7 +110,7 @@
         const curr = queue.shift();
         cluster.push(curr);
         panels.forEach(other => {
-          if (!visited.has(other)) {
+          if (other && !visited.has(other)) {
             if (Math.hypot(getU(curr) - getU(other), getV(curr) - getV(other)) <= threshold) {
               visited.add(other);
               queue.push(other);
@@ -122,9 +124,12 @@
   }
 
   function applyRowBasedLeapfrog(clusterPanels) {
-    const pW = clusterPanels[0].w || 1.05;
-    const pH = clusterPanels[0].h || 2.10;
-    const sortedByV = [...clusterPanels].sort((a, b) => getV(b) - getV(a));
+    if (!clusterPanels || clusterPanels.length === 0) return [];
+    const firstP = clusterPanels[0] || {};
+    const pW = firstP.w || 1.05;
+    const pH = firstP.h || 2.10;
+    const sortedByV = [...clusterPanels].filter(Boolean).sort((a, b) => getV(b) - getV(a));
+    if (sortedByV.length === 0) return [];
     const rows = [];
     const rowTol = Math.min(pW, pH) * 0.45;
     
@@ -160,11 +165,13 @@
 
   function connectClustersTSP(orderedClusters) {
     const finalOrder = [];
-    if (orderedClusters.length === 0) return finalOrder;
+    if (!orderedClusters || orderedClusters.length === 0) return finalOrder;
+    const validClusters = orderedClusters.filter(c => Array.isArray(c) && c.length > 0);
+    if (validClusters.length === 0) return finalOrder;
     
-    orderedClusters.sort((a, b) => getV(b[0]) - getV(a[0]));
-    finalOrder.push(...orderedClusters[0]);
-    const unvisitedClusters = new Set(orderedClusters.slice(1));
+    validClusters.sort((a, b) => (getV(b[0]) || 0) - (getV(a[0]) || 0));
+    finalOrder.push(...validClusters[0]);
+    const unvisitedClusters = new Set(validClusters.slice(1));
 
     while (unvisitedClusters.size > 0) {
       let nearestCluster = null;
@@ -175,24 +182,41 @@
       unvisitedClusters.forEach(candCluster => {
         const firstCand = candCluster[0];
         const lastCand = candCluster[candCluster.length - 1];
+        if (!firstCand || !lastCand) return;
         const dToFirst = Math.hypot(getU(lastPanel) - getU(firstCand), getV(lastPanel) - getV(firstCand));
         const dToLast = Math.hypot(getU(lastPanel) - getU(lastCand), getV(lastPanel) - getV(lastCand));
         
         if (dToFirst < minDist) { minDist = dToFirst; nearestCluster = candCluster; reverseNearest = false; }
         if (dToLast < minDist) { minDist = dToLast; nearestCluster = candCluster; reverseNearest = true; }
       });
-      if (reverseNearest) nearestCluster.reverse();
-      finalOrder.push(...nearestCluster);
-      unvisitedClusters.delete(nearestCluster);
+      if (nearestCluster) {
+        if (reverseNearest) nearestCluster.reverse();
+        finalOrder.push(...nearestCluster);
+        unvisitedClusters.delete(nearestCluster);
+      } else {
+        const fallback = unvisitedClusters.values().next().value;
+        if (fallback) {
+          finalOrder.push(...fallback);
+          unvisitedClusters.delete(fallback);
+        } else {
+          break;
+        }
+      }
     }
     return finalOrder;
   }
 
   function getSnakeOrderedPanels(panels) {
     if (!panels || panels.length <= 1) return panels || [];
-    const clusters = clusterPanels(panels);
-    const orderedClusters = clusters.map(c => applyRowBasedLeapfrog(c));
-    return connectClustersTSP(orderedClusters);
+    try {
+      const clusters = clusterPanels(panels);
+      const orderedClusters = clusters.map(c => applyRowBasedLeapfrog(c));
+      const res = connectClustersTSP(orderedClusters);
+      return (res && res.length > 0) ? res : panels;
+    } catch (err) {
+      console.warn('[RA.Electrical] Error en getSnakeOrderedPanels, retornando lista original:', err);
+      return panels;
+    }
   }
 
   function generateSnakeWiringPositions(panels) {
@@ -209,10 +233,11 @@
   function partitionPanelsIntoMPPTStrings(panels, userMax = null, userMin = null) {
     if (!panels || panels.length === 0) return [];
 
-    const total = panels.length;
-    const limits = calculateDynamicMPPTStringLimits();
-    const maxPerString = (typeof userMax === 'number' && userMax > 0) ? userMax : limits.Ns_max;
-    const minPerString = (typeof userMin === 'number' && userMin > 0) ? userMin : limits.Ns_min;
+    try {
+      const total = panels.length;
+      const limits = calculateDynamicMPPTStringLimits();
+      const maxPerString = (typeof userMax === 'number' && userMax > 0) ? userMax : limits.Ns_max;
+      const minPerString = (typeof userMin === 'number' && userMin > 0) ? userMin : limits.Ns_min;
 
     if (total <= maxPerString) {
       const orderedAll = getSnakeOrderedPanels(panels);
@@ -355,6 +380,16 @@
       startIndex += stringSize;
     }
     return strings;
+    } catch (err) {
+      console.warn('[RA.Electrical] Error en partición de strings, aplicando fallback seguro:', err);
+      return [{
+        stringSuffix: '',
+        stringName: 'S1',
+        panels: panels || [],
+        numPanels: (panels && panels.length) || 0,
+        isCompliant: true
+      }];
+    }
   }
 
   function matchInvertersFromCatalog(options = {}) {
