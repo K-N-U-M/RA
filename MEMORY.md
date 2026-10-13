@@ -245,9 +245,25 @@ calculateFinancialModel()  ← Definición canónica en financials.js (~L491)
   - Puntos terminales con `disableDepthTestDistance: Number.POSITIVE_INFINITY` para visualización garantizada de extremos.
   - Sincronización explícita con el motor de renderizado mediante `requestRender()` en movimiento y clics (`requestRenderMode`).
   - Botón de purga inmediata (`🗑️ Limpiar`) y soporte para medición continua por tramos.
+---
 
+## 15. Modularización Fase 2 — Bloque 2.3: Alertas, Pantalla de Carga y Controles de Visor (Octubre 2026)
 
-
+- **Estado:** ✅ Implementado y verificado en `js/ui-viewport-controls.js` e `index.html`.
+- **Módulo Autónomo (`UIViewportControls` / `RA.UI`):**
+  - Ubicación: `js/ui-viewport-controls.js`.
+  - Exportaciones: `global.UIViewportControls`, `global.RA.UI`, `global.RA.viewportControls`.
+  - Hooks canónicos globales preservados en `window`:
+    - Notificaciones Toast: `showToast(title, message, type, duration)`.
+    - Indicadores de carga y geometría 3D: `setLoad(pct, msg)`, `hideLoading()`, `show3DTilesLoading(msg, count)`, `hide3DTilesLoading(delay)`.
+    - Banners superiores y HUD: `showStatus(msg, ms)`, `hideStatus()`.
+    - Conmutador de texturas de paneles: `togglePhotorealisticPanelsTexture()`.
+    - Conmutador de etiquetas 3D/2D: `toggleLabelsVisibility()`.
+    - Popover flotante de configuración y motores: `toggleSettingsPopover(force)`.
+- **Aligeramiento de `index.html`:**
+  - Extraídas más de 200 líneas de lógica del bloque inline principal.
+  - Eliminado el último bloque `<script>` inline huérfano al final del archivo (`toggleSettingsPopover`).
+  - Carga temprana en `<head>` previa a motores y capas Cesium para erradicar condiciones de carrera en toasts y estados de carga.
 
 
 
