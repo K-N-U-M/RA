@@ -223,6 +223,28 @@ calculateFinancialModel()  ← Definición canónica en financials.js (~L491)
   - Badge de recomendación comercial (`#faldon-orient-recommend-badge`) destacando la orientación que aprovecha mejor el espacio (ej. `💡 Horizontal gana: +2 mods (+0.90 kWp)`).
   - Conmutación y resaltado del botón activo en 1 clic con refresco bidireccional de toda la interfaz.
 
+---
+
+## 14. Cinta Métrica 3D y Medición Física con Snap Conmutable (Octubre 2026)
+
+- **Estado:** ✅ Implementado y verificado en `js/measure-tool.js` e `index.html`.
+- **Módulo Autónomo y Desacoplado (`RAMeasureTool`):**
+  - Ubicación: `js/measure-tool.js`. Singleton `window.RAMeasureTool` / `window.RA.measureTool`, función global `toggleMeasureTool()`.
+  - Botón flotante `#btn-toggle-measure-tool` en la botonera inferior derecha del visor 3D (`#ra-floating-tools-container`), conservando la estética HUD de la aplicación.
+  - Atajos de teclado: `M` para alternar la herramienta de medición, `S` para conmutar el snapping magnético mientras está activa, y `Escape` para cancelar tramo o salir.
+- **Desglose Físico en 3 Componentes:**
+  - Distancia 3D Real (en línea sobre la pendiente del tejado o fachada).
+  - Distancia Horizontal 2D (proyección en plano horizontal, útil para retranqueos y lindes).
+  - Desnivel Vertical $\Delta H$ y ángulo de inclinación $\alpha^\circ$ (diferencia de cota barométrica/altimétrica).
+- **Imán Magnético Conmutable (Snapping ON/OFF):**
+  - Atracción en pantalla a $\le 24\text{ px}$ sobre vértices de faldones (`WP.polylines`), planos (`WP.planes`), esquinas de módulos solares (`corners`), obstáculos (`obstacles`), edificios (`buildings`) y cuadros/inversores.
+  - Conmutador interactivo con badge en mini-HUD (`🧲 SNAP: [ON / OFF]`) o tecla `S`.
+  - Modo sin snap: medición libre por raycast sobre cualquier punto de la superficie 3D.
+- **Renderizado Técnico No Destructivo:**
+  - Cotas con `depthFailMaterial` y etiquetas orientadas a cámara sin z-fighting.
+  - Botón de purga inmediata (`🗑️ Limpiar cotas`) y soporte para medición continua por tramos.
+
+
 
 
 

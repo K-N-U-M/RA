@@ -47,6 +47,7 @@ window.RA_App = window.RA_App || {};
   <script src="js/working-plane.js?v=20260930a"></script>
   <script src="js/cable-engine.js?v=20261009d"></script>
   <script src="js/capture-mode.js?v=20260929b"></script>
+  <script src="js/measure-tool.js?v=20261013a"></script>
   <script src="js/project-hierarchy.js?v=20260929b"></script>
   <script src="js/project-storage.js?v=20261013a"></script>
   <script src="js/ui-outliner.js?v=20260930a"></script>
@@ -16191,6 +16192,11 @@ window.toggleSolarHUD = toggleSolarHUD;
   </div>
   
   <div id="ra-floating-tools-container" style="position:fixed; bottom:20px; right:76px; z-index:9500; display:flex; gap:8px;">
+    <button type="button" class="btn-action-secondary" id="btn-toggle-measure-tool" onclick="toggleMeasureTool()" style="padding:0 12px; height:48px; border-radius:24px; font-size:10px; border:1px solid rgba(56,189,248,0.4); display:flex; gap:6px; align-items:center; background:rgba(15,23,42,0.88); backdrop-filter:blur(16px); color:#fff; cursor:pointer; box-shadow:0 4px 16px rgba(0,0,0,0.4);" title="Cinta métrica 3D con snapping magnético (Atajo: M)">
+      <i data-lucide="ruler" class="icon-sm"></i>
+      <span style="font-weight:700;">MEDIR</span>
+      <span id="tag-measure-status" class="card-tag" style="background:rgba(255,255,255,0.08);color:var(--text-slate-300);font-size:9.5px;font-weight:700;padding:2px 4px;border-radius:4px;">OFF</span>
+    </button>
     <button type="button" class="btn-action-secondary" id="btn-toggle-labels-visibility" onclick="toggleLabelsVisibility()" style="padding:0 12px; height:48px; border-radius:24px; font-size:10px; border:1px solid rgba(245,158,11,0.4); display:flex; gap:6px; align-items:center; background:rgba(15,23,42,0.88); backdrop-filter:blur(16px); color:#fff; cursor:pointer; box-shadow:0 4px 16px rgba(0,0,0,0.4);" title="Ocultar o mostrar etiquetas 3D y cotas (Atajo: L)">
       <i data-lucide="tag" class="icon-sm"></i>
       <span style="font-weight:700;">ETIQUETAS</span>
