@@ -834,12 +834,20 @@
       });
     }
 
-    // Sincronizar métricas de calor calculadas hacia window.allRenderedPanels si difieren
+    // Sincronizar métricas de calor calculadas hacia window.allRenderedPanels si difieren (O(1) Map Lookup)
     if (typeof window !== 'undefined' && Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0) {
+      const liveMap = new Map();
+      window.allRenderedPanels.forEach(lp => {
+        if (!lp) return;
+        if (lp.panelId) liveMap.set(lp.panelId, lp);
+        if (lp.layoutIndex !== undefined && lp.polyIdx !== undefined) {
+          liveMap.set(lp.polyIdx + '_' + lp.layoutIndex, lp);
+        }
+      });
       polylines.forEach(poly => {
         const panels = Array.isArray(poly.panels) ? poly.panels : [];
         panels.forEach(p => {
-          const match = window.allRenderedPanels.find(lp => lp.panelId === p.panelId || (lp.layoutIndex === p.layoutIndex && lp.polyIdx === p.polyIdx));
+          const match = liveMap.get(p.panelId) || liveMap.get(p.polyIdx + '_' + p.layoutIndex);
           if (match && match !== p) {
             match.annualLossPct = p.annualLossPct;
             match.annualYieldPct = p.annualYieldPct;

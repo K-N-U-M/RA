@@ -448,7 +448,12 @@
 
       // 2. Recolectar strings y asegurar equipos
       var allStrings = this.gatherAllStrings();
-      if (!allStrings || allStrings.length === 0) return;
+      if (!allStrings || allStrings.length === 0) {
+        sState.L_dc_measured = 0;
+        sState.L_ac_measured = 0;
+        this.updateElectricalSizingAndHUD(0, 0);
+        return;
+      }
 
       this.ensureDefaultEquipmentPositions(allStrings);
 
@@ -461,7 +466,12 @@
         : null;
       var dcTargetPos = cbPos || (sState.dcProtectionPosition ? this.toCartesian3(sState.dcProtectionPosition) : invPos);
 
-      if (!dcTargetPos) return;
+      if (!dcTargetPos) {
+        sState.L_dc_measured = 0;
+        sState.L_ac_measured = 0;
+        this.updateElectricalSizingAndHUD(0, 0);
+        return;
+      }
 
       var hasManualDc = (sState.routes && Array.isArray(sState.routes.dc) && sState.routes.dc.length > 0);
       var maxLdc = 0;

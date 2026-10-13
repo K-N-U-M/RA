@@ -1722,12 +1722,44 @@ function wpRenderDynamicObstacleShadows(solarPos) {
   if (typeof viewer === "undefined" || !viewer || !viewer.entities) return;
 
   if (!solarSimState) window.solarSimState = {};
-  if (solarSimState.dynamicShadowEntities) {
-    solarSimState.dynamicShadowEntities.forEach(e => viewer.entities.remove(e));
-  }
-  solarSimState.dynamicShadowEntities = [];
+  if (!solarSimState.dynamicShadowEntities) solarSimState.dynamicShadowEntities = [];
+  const activeShadowIds = new Set();
 
-  if (!solarPos || !solarPos.isDaylight || typeof obstacles === "undefined" || !obstacles || obstacles.length === 0) return;
+  if (!solarPos || !solarPos.isDaylight || typeof obstacles === "undefined" || !obstacles || obstacles.length === 0) {
+    if (solarSimState.dynamicShadowEntities.length > 0) {
+      solarSimState.dynamicShadowEntities.forEach(e => {
+        try { viewer.entities.remove(e); } catch(err) {}
+      });
+      solarSimState.dynamicShadowEntities = [];
+    }
+    return;
+  }
+
+  const shadowMatObs = Cesium.Color.fromCssColorString('#0B0F19').withAlpha(0.68);
+  const shadowMatBld = shadowMatObs;
+
+  function _syncShadowEntity(entId, pts) {
+    activeShadowIds.add(entId);
+    let shadowEnt = viewer.entities.getById(entId);
+    if (shadowEnt) {
+      if (shadowEnt.polygon) {
+        shadowEnt.polygon.hierarchy = new Cesium.PolygonHierarchy(pts);
+      }
+      shadowEnt.show = true;
+    } else {
+      shadowEnt = viewer.entities.add({
+        id: entId,
+        polygon: {
+          hierarchy: new Cesium.PolygonHierarchy(pts),
+          material: shadowMatObs,
+          perPositionHeight: true,
+          arcType: (typeof Cesium !== 'undefined' && Cesium.ArcType && Cesium.ArcType.NONE) ? Cesium.ArcType.NONE : undefined,
+          zIndex: 15
+        }
+      });
+      solarSimState.dynamicShadowEntities.push(shadowEnt);
+    }
+  }
 
   const hasPolys = typeof WP !== "undefined" && WP && WP.polylines && WP.polylines.length > 0;
   const polylinesList = hasPolys ? WP.polylines : (lastRoofInfo ? [{ points: polygonPoints, roofInfo: lastRoofInfo }] : []);
@@ -1773,19 +1805,7 @@ function wpRenderDynamicObstacleShadows(solarPos) {
             ? wpEnsureCounterClockwisePoints(worldPts, normWorld)
             : worldPts;
 
-          // En faldones 3D usar perPositionHeight y ArcType.NONE (SIN ClassificationType) para erradicar z-fighting y desgarros verticales en muros
-          const shadowMatObs = Cesium.Color.fromCssColorString('#0B0F19').withAlpha(0.68);
-          const shadowEnt = viewer.entities.add({
-            id: "dyn_obs_shadow_" + polyIdx + "_" + obsIdx + "_" + qIdx + "_" + Math.random().toString(36).substring(2, 6),
-            polygon: {
-              hierarchy: new Cesium.PolygonHierarchy(ccwWorldPts),
-              material: shadowMatObs,
-              perPositionHeight: true,
-              arcType: (typeof Cesium !== 'undefined' && Cesium.ArcType && Cesium.ArcType.NONE) ? Cesium.ArcType.NONE : undefined,
-              zIndex: 15
-            }
-          });
-          solarSimState.dynamicShadowEntities.push(shadowEnt);
+          _syncShadowEntity("dyn_obs_shadow_" + polyIdx + "_" + obsIdx + "_" + qIdx, ccwWorldPts);
         });
       });
 
@@ -1815,18 +1835,7 @@ function wpRenderDynamicObstacleShadows(solarPos) {
               ? wpEnsureCounterClockwisePoints(worldPts, normWorld)
               : worldPts;
 
-            const shadowMatBld = Cesium.Color.fromCssColorString('#0B0F19').withAlpha(0.68);
-            const shadowEnt = viewer.entities.add({
-              id: "dyn_bld_shadow_" + polyIdx + "_" + bldIdx + "_" + qIdx + "_" + Math.random().toString(36).substring(2, 6),
-              polygon: {
-                hierarchy: new Cesium.PolygonHierarchy(ccwWorldPts),
-                material: shadowMatBld,
-                perPositionHeight: true,
-                arcType: (typeof Cesium !== 'undefined' && Cesium.ArcType && Cesium.ArcType.NONE) ? Cesium.ArcType.NONE : undefined,
-                zIndex: 15
-              }
-            });
-            solarSimState.dynamicShadowEntities.push(shadowEnt);
+            _syncShadowEntity("dyn_bld_shadow_" + polyIdx + "_" + bldIdx + "_" + qIdx, ccwWorldPts);
           });
         });
       }
@@ -1917,18 +1926,22 @@ function wpRenderDynamicObstacleShadows(solarPos) {
         ? wpEnsureCounterClockwisePoints(worldShadowPts, normal)
         : worldShadowPts;
 
-      const shadowEnt = viewer.entities.add({
-        id: "dyn_obs_terrain_shadow_" + obsIdx + "_" + Math.random().toString(36).substring(2, 6),
-        polygon: {
-          hierarchy: new Cesium.PolygonHierarchy(ccwShadowPts),
-          material: Cesium.Color.fromCssColorString('#0B0F19').withAlpha(0.68),
-          perPositionHeight: true,
-          arcType: (typeof Cesium !== 'undefined' && Cesium.ArcType && Cesium.ArcType.NONE) ? Cesium.ArcType.NONE : undefined,
-          zIndex: 15
-        }
-      });
-      solarSimState.dynamicShadowEntities.push(shadowEnt);
+      _syncShadowEntity("dyn_obs_terrain_shadow_" + obsIdx, ccwShadowPts);
     });
+  }
+
+  // Purgar únicamente sombras que dejaron de existir en este frame
+  if (solarSimState.dynamicShadowEntities.length > 0) {
+    const retained = [];
+    for (let i = 0; i < solarSimState.dynamicShadowEntities.length; i++) {
+      const e = solarSimState.dynamicShadowEntities[i];
+      if (e && e.id && activeShadowIds.has(e.id)) {
+        retained.push(e);
+      } else if (e) {
+        try { viewer.entities.remove(e); } catch(errRem) {}
+      }
+    }
+    solarSimState.dynamicShadowEntities = retained;
   }
 }
 

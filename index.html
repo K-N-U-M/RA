@@ -13636,9 +13636,29 @@ function wpToggleHeatmapLabelsMode() {
 }
 window.wpToggleHeatmapLabelsMode = wpToggleHeatmapLabelsMode;
 
+const _hoverC2D = (typeof Cesium !== 'undefined' && Cesium.Cartesian2) ? new Cesium.Cartesian2() : { x: 0, y: 0 };
+let _isHoverRafPending = false;
+let _pendingHoverMousePos = null;
+
 function handleHeatmapPanelHover(mousePos) {
+  _pendingHoverMousePos = mousePos;
+  if (!_isHoverRafPending) {
+    _isHoverRafPending = true;
+    requestAnimationFrame(_flushHeatmapPanelHover);
+  }
+}
+
+function _flushHeatmapPanelHover() {
+  _isHoverRafPending = false;
+  if (!_pendingHoverMousePos) return;
+  const mousePos = _pendingHoverMousePos;
+
   const tooltip = document.getElementById('ra-panel-hover-tooltip');
   if (!tooltip || typeof viewer === 'undefined' || !viewer || !viewer.scene) return;
+  if (typeof universalGizmoState !== 'undefined' && universalGizmoState && universalGizmoState.active) {
+    tooltip.style.display = 'none';
+    return;
+  }
 
   const panels = (window.allRenderedPanels && window.allRenderedPanels.length > 0)
     ? window.allRenderedPanels
@@ -13656,13 +13676,22 @@ function handleHeatmapPanelHover(mousePos) {
 
   let hoveredPanel = null;
   let hoveredIdx = -1;
-  const c2D = new Cesium.Cartesian2();
   let minDistanceSq = 900; // Radio de detección: 30px en pantalla
+
+  const camPos = viewer.camera ? viewer.camera.position : null;
+  const camDir = viewer.camera ? viewer.camera.direction : null;
 
   for (let i = 0; i < panels.length; i++) {
     const p = panels[i];
     if (!p.center) continue;
-    const sPos = Cesium.SceneTransforms.wgs84ToWindowCoordinates(viewer.scene, p.center, c2D);
+
+    // Descarte ultrarrápido: paneles a espaldas de la cámara (dot product <= 0)
+    if (camPos && camDir) {
+      const dotCam = (p.center.x - camPos.x) * camDir.x + (p.center.y - camPos.y) * camDir.y + (p.center.z - camPos.z) * camDir.z;
+      if (dotCam <= 0) continue;
+    }
+
+    const sPos = Cesium.SceneTransforms.wgs84ToWindowCoordinates(viewer.scene, p.center, _hoverC2D);
     if (!sPos) continue;
     const dx = sPos.x - screenX;
     const dy = sPos.y - screenY;
