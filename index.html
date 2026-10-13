@@ -5150,12 +5150,18 @@ function updateBudgetUI() {
   // Despacho batería y TOU — info resumida
   const touInfoEl = document.getElementById('fin-tou-info');
   if (touInfoEl) {
-    touInfoEl.textContent = m.touNombre + ' · ' +
-      'Autoconsumo directo: ' + m.autoconsumoDirecto.toLocaleString('es-ES') + ' kWh · ' +
-      'Batería: ' + m.bateriaKWh.toLocaleString('es-ES') + ' kWh · ' +
-      'Excedentes: ' + m.excedenteKWh.toLocaleString('es-ES') + ' kWh · ' +
-      'Red: ' + m.costeRedAnual.toLocaleString('es-ES') + ' kWh · ' +
-      'Ingreso exced.: ' + m.ingresoExcedente.toLocaleString('es-ES') + ' €';
+    const _touNom = m.touNombre || 'Tarifa Plana';
+    const _dirKwh = (m.autoconsumoDirecto != null ? m.autoconsumoDirecto : 0).toLocaleString('es-ES');
+    const _batKwh = (m.bateriaKWh != null ? m.bateriaKWh : 0).toLocaleString('es-ES');
+    const _excKwh = (m.excedenteKWh != null ? m.excedenteKWh : 0).toLocaleString('es-ES');
+    const _redKwh = (m.costeRedAnual != null ? m.costeRedAnual : 0).toLocaleString('es-ES');
+    const _ingExc = (m.ingresoExcedente != null ? m.ingresoExcedente : 0).toLocaleString('es-ES');
+    touInfoEl.textContent = _touNom + ' · ' +
+      'Autoconsumo directo: ' + _dirKwh + ' kWh · ' +
+      'Batería: ' + _batKwh + ' kWh · ' +
+      'Excedentes: ' + _excKwh + ' kWh · ' +
+      'Red: ' + _redKwh + ' kWh · ' +
+      'Ingreso exced.: ' + _ingExc + ' €';
   }
 
   setElemText('fin-cuota-mensual', Math.round(m.cuotaMensual) + ' €/mes');

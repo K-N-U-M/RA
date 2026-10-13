@@ -28,8 +28,21 @@
     entity: true, entities: true, primitive: true, primitives: true,
     label: true, billboard: true, point: true, polygon: true, polyline: true,
     material: true, appearance: true, geometry: true, modelMatrix: true,
-    lineEnt: true, fillEnt: true, activePanelDragEntity: true
+    lineEnt: true, fillEnt: true, activePanelDragEntity: true,
+    dcCableEntities: true, simulatedPanelEntities: true, simulatedSupportEntities: true,
+    simulatedStringEntities: true, _obsEntities: true, _bldEntities: true,
+    _panelNumberEntities: true, _panelNumberLabelCollection: true,
+    simulatedPanelsPrimitive: true, simulatedSupportsPolylineCollection: true,
+    simulatedStringsPolylineCollection: true
   };
+
+  function isCesiumGPUObject(v) {
+    if (!v || typeof v !== 'object') return false;
+    if (v._entityCollection || (v._id !== undefined && v._definitionChanged !== undefined)) return true;
+    if (typeof Cesium !== 'undefined' && Cesium.Entity && (v instanceof Cesium.Entity)) return true;
+    if (v.isDestroyed && typeof v.isDestroyed === 'function') return true;
+    return false;
+  }
 
   function isCartesianLike(v) {
     return v && typeof v === 'object' &&
@@ -38,8 +51,9 @@
 
   function deepClone(v, depth) {
     if (depth > 14) return null;
+    if (isCesiumGPUObject(v)) return null;
     if (Array.isArray(v)) {
-      return v.map(function (item) { return deepClone(item, depth + 1); });
+      return v.map(function (item) { return deepClone(item, depth + 1); }).filter(function(item) { return item !== null; });
     }
     if (v && typeof v === 'object') {
       if (v instanceof Date) return new Date(v.getTime());
@@ -49,7 +63,7 @@
         if (!Object.prototype.hasOwnProperty.call(v, k)) continue;
         if (k.charAt(0) === '_' || SKIP_KEYS[k]) continue;
         var val = v[k];
-        if (typeof val === 'function') continue;
+        if (typeof val === 'function' || isCesiumGPUObject(val)) continue;
         o[k] = deepClone(val, depth + 1);
       }
       return o;
@@ -243,7 +257,13 @@
     if (kind === 'electrical') {
       if (data.inverterEquipmentState && global.inverterEquipmentState) {
         var revInv = revive(data.inverterEquipmentState);
-        for (var k in revInv) global.inverterEquipmentState[k] = revInv[k];
+        var liveCableEntities = global.inverterEquipmentState.dcCableEntities || [];
+        for (var k in revInv) {
+          if (k !== 'dcCableEntities') {
+            global.inverterEquipmentState[k] = revInv[k];
+          }
+        }
+        global.inverterEquipmentState.dcCableEntities = liveCableEntities;
       }
       if (data.cableRoutingState && global.cableRoutingState) {
         var revCr = revive(data.cableRoutingState);

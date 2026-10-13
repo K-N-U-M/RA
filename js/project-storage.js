@@ -244,17 +244,34 @@ function raExportProjectData() {
 
 // 2. Deserializar e Importar Proyecto Completo
 function raImportProjectData(projectData) {
-  // [AUDIT-SAVE] Carrera de arranque: si el visor o el sistema WP aún no existen, importar
-  // ahora hace que el init posterior purge el estado cargado (proyecto "invisible"). Se
-  // auto-difiere hasta que la app está operativa.
+  // [P0.2] Carrera de arranque y espera determinista: si el visor Cesium o el subsistema WP
+  // aún no existen o están inicializándose, reintentar de forma controlada hasta 25 veces (5 segundos).
   if (typeof viewer === 'undefined' || !viewer || typeof WP === 'undefined' || !WP) {
-    if (!projectData.__raImportDeferred) {
-      projectData.__raImportDeferred = true;
-      if (typeof showStatus === 'function') showStatus('ESPERANDO INICIALIZACIÓN DEL VISOR 3D...', 2500);
-      setTimeout(function() { try { raImportProjectData(projectData); } catch(eDef) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eDef, 'import diferido'); } }, 1500);
+    var _retryCount = (projectData.__raImportRetryCount || 0) + 1;
+    projectData.__raImportRetryCount = _retryCount;
+    if (_retryCount <= 25) {
+      if (typeof showStatus === 'function') {
+        showStatus('ESPERANDO INICIALIZACIÓN DEL VISOR 3D (' + _retryCount + '/25)...', 1500);
+      }
+      setTimeout(function() {
+        try {
+          raImportProjectData(projectData);
+        } catch(eDef) {
+          if (window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eDef, 'import diferido');
+        }
+      }, 200);
       return true;
+    } else {
+      delete projectData.__raImportRetryCount;
+      console.error('[RA Storage] Timeout: El visor 3D o WP no se inicializaron a tiempo.');
+      if (typeof showToast === 'function') {
+        showToast('ERROR AL ABRIR', 'El visor 3D no respondió a tiempo. Intente de nuevo tras cargar el mapa.', 'error', 5000);
+      }
+      return false;
     }
   }
+  delete projectData.__raImportRetryCount;
+  delete projectData.__raImportDeferred;
   try {
     if (!projectData || (projectData.format !== 'RA_SOLAR_PROJECT' && !projectData.polylines && !projectData.planes)) {
       throw new Error('El archivo no tiene un formato .raproject válido');
@@ -262,11 +279,22 @@ function raImportProjectData(projectData) {
 
     if (typeof showStatus === 'function') showStatus('RESTAURANDO PROYECTO 3D...', 3000);
 
-    // 1. Limpieza de estado previo
+    // 1. Limpieza de estado previo segura
     if (typeof clearSimulatedPV === 'function') clearSimulatedPV();
-    if (window._obsEntities) {
-      window._obsEntities.forEach(e => viewer.entities.remove(e));
+    if (window._obsEntities && typeof viewer !== 'undefined' && viewer && viewer.entities) {
+      window._obsEntities.forEach(e => {
+        try { viewer.entities.remove(e); } catch(errRemove) {}
+      });
       window._obsEntities = [];
+    }
+    if (window._bldEntities && typeof viewer !== 'undefined' && viewer && viewer.entities) {
+      window._bldEntities.forEach(e => {
+        try { viewer.entities.remove(e); } catch(errRemove) {}
+      });
+      window._bldEntities = [];
+    }
+    if (typeof wpClearInverterAndCables === 'function') {
+      try { wpClearInverterAndCables(); } catch(eClr) {}
     }
 
     // 2. Restaurar Cámara
