@@ -2667,7 +2667,7 @@ function syncCostModalMetrics() {
   set('modal-fin-annual-save', Math.round(m.ahorroLuzAnio1).toLocaleString('es-ES') + ' €/año');
   set('modal-fin-payback', (m.paybackYears != null && isFinite(m.paybackYears)) ? m.paybackYears.toFixed(1) + ' años' : '—');
   set('modal-fin-van', Math.round(m.van).toLocaleString('es-ES') + ' €');
-  set('modal-fin-tir', (m.tir != null && isFinite(m.tir)) ? m.tir.toFixed(1) + ' %' : 'N/D');
+  set('modal-fin-tir', m.tirString || ((m.tir != null && isFinite(m.tir)) ? m.tir.toFixed(1) + ' %' : 'N/D'));
   set('modal-fin-lcoe', (m.lcoe != null && isFinite(m.lcoe)) ? m.lcoe.toFixed(3) + ' €/kWh' : '—');
   set('modal-fin-autarquia', m.autarquiaPct + ' %');
   set('modal-fin-cuota-mensual', Math.round(m.cuotaMensual) + ' €/mes');
@@ -3352,15 +3352,19 @@ function wpCompararEscenarios() {
     s.capex = Math.round(s.capexEq + instalacionFija);
     // flujo 25 años con degradación 0.45%/año; VAN al 4%
     let van = -s.capex, flujo = s.ahorro;
-    let npvLow = -0.1, npvHigh = 1.0, tir = null;
+    let npvLow = -0.1, npvHigh = 5.0, tir = null;
     const npv = (r) => { let v = -s.capex; for (let t = 1; t <= 25; t++) v += (s.ahorro * Math.pow(0.9955, t)) / Math.pow(1 + r, t); return v; };
     van = npv(0.04);
-    if (npv(-0.1) * npv(1.0) < 0) {
-      let lo = -0.1, hi = 1.0;
+    const vLo = npv(npvLow), vHi = npv(npvHigh);
+    if (vLo * vHi < 0) {
+      let lo = npvLow, hi = npvHigh;
       for (let i = 0; i < 40; i++) { const mid = (lo + hi) / 2; const v = npv(mid); if (v > 0) lo = mid; else hi = mid; tir = (lo + hi) / 2; }
+    } else if (vHi > 0) {
+      tir = 5.0; // Rentabilidad extraordinaria > 500%
     }
     s.van = Math.round(van);
     s.tir = tir != null ? (tir * 100) : null;
+    s.tirString = tir != null ? (tir >= 5.0 ? '> 500%' : (tir * 100).toFixed(1) + '%') : (vHi > 0 ? '> 100%' : 'N/D');
     s.payback = s.ahorro > 0 ? (s.capex / s.ahorro) : Infinity;
   });
 
@@ -3374,7 +3378,7 @@ function wpCompararEscenarios() {
       <td style="padding:5px 6px;text-align:right;color:var(--text-slate-300);">${s.ahorro.toLocaleString('es-ES')} €</td>
       <td style="padding:5px 6px;text-align:right;color:${s.payback < 8 ? '#34D399' : '#FBBF24'};">${isFinite(s.payback) ? s.payback.toFixed(1) + ' a' : '—'}</td>
       <td style="padding:5px 6px;text-align:right;color:${s.van > 0 ? '#34D399' : '#F87171'};">${s.van.toLocaleString('es-ES')} €</td>
-      <td style="padding:5px 6px;text-align:right;color:var(--text-slate-300);">${s.tir != null ? s.tir.toFixed(1) + '%' : 'N/D'}</td>
+      <td style="padding:5px 6px;text-align:right;color:var(--text-slate-300);">${s.tirString || (s.tir != null ? s.tir.toFixed(1) + '%' : 'N/D')}</td>
     </tr>`;
   container.innerHTML = `
     <table style="width:100%;border-collapse:collapse;font-size:9.5px;">
@@ -5143,7 +5147,7 @@ function updateBudgetUI() {
   setElemText('fin-annual-save', Math.round(m.ahorroLuzAnio1).toLocaleString('es-ES') + ' €/año');
   setElemText('fin-payback', m.paybackYears.toFixed(1) + ' años');
   setElemText('fin-van', Math.round(m.van).toLocaleString('es-ES') + ' €');
-  setElemText('fin-tir', (m.tir != null && isFinite(m.tir)) ? m.tir.toFixed(1) + ' %' : 'N/D');
+  setElemText('fin-tir', m.tirString || ((m.tir != null && isFinite(m.tir)) ? m.tir.toFixed(1) + ' %' : 'N/D'));
   setElemText('fin-lcoe', m.lcoe.toFixed(3) + ' €/kWh');
   setElemText('fin-autarquia', m.autarquiaPct + ' %');
 
@@ -10439,12 +10443,19 @@ function computeElectricalSizingEngineering(generator) {
   const Voc_cold = Voc * (1 + betaVoc * (T_min - 25));
 
   const T_cell_max = computeCellTemperature(SOLAR_ENGINE_CONSTANTS.T_AMB_MAX_SPAIN, 1000, true, 1.0);
-  const Vmp_hot = Vmp * (1 + betaVoc * (T_cell_max - 25));
-  const Vmp_cold = Vmp * (1 + betaVoc * (T_min - 25));
+  const betaVmp = cfg.betaVmp || gammaPmp || -0.0035;
+  const Vmp_hot = Vmp * (1 + betaVmp * (T_cell_max - 25));
+  const Vmp_cold = Vmp * (1 + betaVmp * (T_min - 25));
 
-  const V_dc_max = 1000;
-  const V_mppt_min = 160;
-  const V_mppt_max = 850;
+  // [P0.1] Desacoplar inversor: usar el inversor seleccionado del catálogo en lugar de 1000/160/850 fijos
+  let activeInv = null;
+  if (typeof window !== 'undefined' && window.solarProjectConfig && window.equipmentCatalog && Array.isArray(window.equipmentCatalog.inverters)) {
+    const invId = window.solarProjectConfig.selectedInverterId;
+    activeInv = window.equipmentCatalog.inverters.find(i => i && i.id === invId);
+  }
+  const V_dc_max   = (activeInv && (activeInv.vMax || activeInv.vMaxDc)) ? (activeInv.vMax || activeInv.vMaxDc) : 1000;
+  const V_mppt_min = (activeInv && activeInv.vMpptMin) ? activeInv.vMpptMin : 160;
+  const V_mppt_max = (activeInv && activeInv.vMpptMax) ? activeInv.vMpptMax : 850;
 
   const N_max_dc   = Math.floor(V_dc_max / Voc_cold);
   const N_max_mppt = Math.floor(V_mppt_max / Vmp_cold);
@@ -10508,7 +10519,11 @@ function computeElectricalSizingEngineering(generator) {
   for (let i = 0; i < SEC_AC_AVAIL.length; i++) {
     const s = SEC_AC_AVAIL[i];
     const imax = IMAX_AC_RVK[i];
-    const dV = monofasico ? (2 * rho90 * L_ac * I_ac * 0.95) / s : (Math.sqrt(3) * rho90 * L_ac * I_ac * 0.95) / s;
+    const xMeterAc = 0.08 / 1000.0;
+    const cosPAc = 0.95;
+    const sinPAc = Math.sqrt(Math.max(0, 1.0 - cosPAc * cosPAc));
+    const factorPhase = monofasico ? 2.0 : Math.sqrt(3);
+    const dV = factorPhase * I_ac * L_ac * ((rho90 / s) * cosPAc + xMeterAc * sinPAc);
     const dV_pct = (dV / V_ac) * 100;
     if (imax >= I_ac_design && dV_pct <= 1.5) {
       S_ac_opt = s;
@@ -10516,7 +10531,11 @@ function computeElectricalSizingEngineering(generator) {
     }
   }
 
-  const dV_ac = monofasico ? (2 * rho90 * L_ac * I_ac * 0.95) / S_ac_opt : (Math.sqrt(3) * rho90 * L_ac * I_ac * 0.95) / S_ac_opt;
+  const xMeterAcOpt = 0.08 / 1000.0;
+  const cosPAcOpt = 0.95;
+  const sinPAcOpt = Math.sqrt(Math.max(0, 1.0 - cosPAcOpt * cosPAcOpt));
+  const factorPhaseOpt = monofasico ? 2.0 : Math.sqrt(3);
+  const dV_ac = factorPhaseOpt * I_ac * L_ac * ((rho90 / S_ac_opt) * cosPAcOpt + xMeterAcOpt * sinPAcOpt);
   const dVac_pct = (dV_ac / V_ac) * 100;
 
   const STD_IGA = [16, 20, 25, 32, 40, 50, 63, 80, 100, 125];
@@ -10608,7 +10627,7 @@ function getProjectCalcs() {
     const roofInfo = (typeof computeRoofPanelsData === 'function') ? computeRoofPanelsData() : null;
     numPanels = (roofInfo && roofInfo.panels && roofInfo.panels.length > 0)
       ? roofInfo.panels.length
-      : ((typeof simulatedPanelEntities !== 'undefined' && simulatedPanelEntities.length) || Math.max(Math.floor(usefulArea / moduleArea), 0));
+      : ((typeof simulatedPanelEntities !== 'undefined' && simulatedPanelEntities.length) || 0);
     mlpeCount = (roofInfo && roofInfo.panels) ? roofInfo.panels.filter(p => p.hasMLPE).length : 0;
   }
 
@@ -10648,8 +10667,10 @@ function getProjectCalcs() {
   // las pérdidas de sistema, las sombras (raycast por panel) y la suma real p.annualKwh
   // del heatmap — es el número que el instalador ve en la pestaña de ingeniería. La tabla
   // SOLAR_RAD queda como estimación fallback sólo cuando aún no hay simulación.
+  // [P0.4] Si la geometría o los módulos cambiaron (annualHeatmapDirty), anular el caché obsoleto
   const _engStats = (typeof window !== 'undefined' && window.RA && window.RA.solarStats) ? window.RA.solarStats : null;
-  if (_engStats && Number.isFinite(_engStats.annualYieldKWh) && _engStats.annualYieldKWh > 0 && annualKWh > 0) {
+  const _isHeatmapDirty = !!(typeof window !== 'undefined' && window.solarSimState && window.solarSimState.annualHeatmapDirty);
+  if (_engStats && !_isHeatmapDirty && Number.isFinite(_engStats.annualYieldKWh) && _engStats.annualYieldKWh > 0 && annualKWh > 0) {
     const _ratio = _engStats.annualYieldKWh / annualKWh;
     monthly.forEach(m => { m.kWh = Math.round(m.kWh * _ratio); m.hsp = (parseFloat(m.hsp) * _ratio).toFixed(2); });
     annualKWh = Math.round(_engStats.annualYieldKWh);
@@ -12336,7 +12357,7 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
   isSimulationRunning = false;
 
   // ── Gating AAA (PRIMERO, antes de purgar GPU) ────────────────────────────
-  // Regla: si hay diseño válido, preservar paneles aunque step < 5
+  // Regla: si hay diseño válido, preservar paneles aunque step < 2 (Campo Solar arranca en Paso 2)
   const _hasExistingDesign = (
     isPolygonDesignConfirmed === true ||
     (typeof WP !== 'undefined' && WP && WP.polylines && WP.polylines.length > 0 &&
@@ -12347,8 +12368,8 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
   const polyCount = (typeof WP !== 'undefined' && WP && WP.polylines) ? WP.polylines.length : 0;
   window.RA && window.RA.log && window.RA.log.warn(`[TELEMETRÍA FV] Entrando a wpFastRender. Paso: ${typeof wpCurrentStep !== 'undefined' ? wpCurrentStep : 'indef'}, Polilíneas: ${polyCount}, Diseño confirmado: ${_hasExistingDesign}`);
 
-  if (typeof wpCurrentStep !== 'undefined' && wpCurrentStep < 5 && !_hasExistingDesign) {
-    window.RA && window.RA.log && window.RA.log.warn('[TELEMETRÍA FV] ABORTO EN GATING: Paso < 5 sin diseño confirmado.');
+  if (typeof wpCurrentStep !== 'undefined' && wpCurrentStep < 2 && !_hasExistingDesign) {
+    window.RA && window.RA.log && window.RA.log.warn('[TELEMETRÍA FV] ABORTO EN GATING: Paso < 2 sin diseño confirmado.');
     lastRoofInfo = null;
     if (typeof wpClearInverterAndCables === 'function') wpClearInverterAndCables();
     if (typeof viewer !== 'undefined' && viewer && viewer.scene &&
@@ -12485,25 +12506,30 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
 
           // Solo heredar métricas de energía previas si la simulación anual sigue vigente (no dirty)
           const isSimStillValid = !!(window.solarSimState && window.solarSimState.annualHeatmapData && !window.solarSimState.annualHeatmapDirty);
-          if (isSimStillValid && prev && (typeof prev.annualLossPct !== 'undefined' || typeof prev.annualKwh !== 'undefined')) {
-            p.annualLossPct = prev.annualLossPct;
-            p.annualYieldPct = prev.annualYieldPct;
+          const cachedMetric = (isSimStillValid && window.solarSimState && window.solarSimState.panelCache)
+            ? (window.solarSimState.panelCache.get(p.panelId) || window.solarSimState.panelCache.get(polyIdx + '_' + idx))
+            : null;
+
+          if (isSimStillValid && (cachedMetric || (prev && (typeof prev.annualLossPct !== 'undefined' || typeof prev.annualKwh !== 'undefined')))) {
+            const src = cachedMetric || prev;
+            p.annualLossPct = src.annualLossPct;
+            p.annualYieldPct = src.annualYieldPct;
             
             let scale = 1.0;
-            if (prev.moduleId && p.moduleId && prev.moduleId !== p.moduleId && window.equipmentCatalog) {
+            if (prev && prev.moduleId && p.moduleId && prev.moduleId !== p.moduleId && window.equipmentCatalog) {
               const pM = window.equipmentCatalog.modules.find(m => m.id === prev.moduleId);
               const cM = window.equipmentCatalog.modules.find(m => m.id === p.moduleId);
               if (pM && cM && pM.wp && cM.wp) scale = cM.wp / pM.wp;
             }
             
-            p.annualKwh = typeof prev.annualKwh === 'number' ? Math.round(prev.annualKwh * scale) : prev.annualKwh;
-            p.relativeYieldPct = prev.relativeYieldPct;
-            p.heatmapColor = prev.heatmapColor;
-            p.annualTotalInsolation = typeof prev.annualTotalInsolation === 'number' ? (prev.annualTotalInsolation * scale) : prev.annualTotalInsolation;
-            p.annualShadedInsolation = typeof prev.annualShadedInsolation === 'number' ? (prev.annualShadedInsolation * scale) : prev.annualShadedInsolation;
-            p.isNormal = prev.isNormal;
-            p.requiresMLPE = prev.requiresMLPE;
-            p.isUnviable = prev.isUnviable;
+            p.annualKwh = typeof src.annualKwh === 'number' ? Math.round(src.annualKwh * scale) : src.annualKwh;
+            p.relativeYieldPct = src.relativeYieldPct;
+            p.heatmapColor = src.heatmapColor;
+            p.annualTotalInsolation = typeof src.annualTotalInsolation === 'number' ? (src.annualTotalInsolation * scale) : src.annualTotalInsolation;
+            p.annualShadedInsolation = typeof src.annualShadedInsolation === 'number' ? (src.annualShadedInsolation * scale) : src.annualShadedInsolation;
+            p.isNormal = src.isNormal;
+            p.requiresMLPE = src.requiresMLPE;
+            p.isUnviable = src.isUnviable;
           }
           if (prev && prev.isManual) {
             p.isManual = true;
@@ -13992,30 +14018,43 @@ async function wpSetShadowViewMode(mode) {
   if (heatLegend) heatLegend.style.display = (mode === "heatmap") ? "flex" : "none";
 
   if (mode === "heatmap") {
-    if (!solarSimState.annualHeatmapData) {
-      solarSimState.isCalculatingHeatmap = true;
-      if (typeof showSolarCalcHUD === 'function') showSolarCalcHUD();
-      if (btnHeatmap) {
-        btnHeatmap.style.pointerEvents = 'none';
-        btnHeatmap.innerHTML = '<span><i data-lucide="hourglass" class="icon-sm"></i> CALCULANDO...</span>';
-      }
-      showStatus("<i data-lucide=\"flame\" class=\"icon-sm\"></i> SIMULANDO RADIACIÓN ANUAL CON RAY-TRACING 3D...", 4000);
-
-      try {
-        await wpTriggerAnnualSolarHeatmapWrapper(null, true);
-      } catch(eCalc) {
-        console.error("Error calculating annual solar heatmap:", eCalc);
-      } finally {
-        solarSimState.isCalculatingHeatmap = false;
-        if (typeof hideSolarCalcHUD === 'function') hideSolarCalcHUD();
+    const hasValidHeatmap = !!(solarSimState.annualHeatmapData && !solarSimState.annualHeatmapDirty);
+    if (!hasValidHeatmap) {
+      if (typeof wpRunHeatmapAndActivateView === 'function') {
+        await wpRunHeatmapAndActivateView(true);
+      } else {
+        solarSimState.isCalculatingHeatmap = true;
+        if (typeof showSolarCalcHUD === 'function') showSolarCalcHUD();
         if (btnHeatmap) {
-          btnHeatmap.style.pointerEvents = 'auto';
-          btnHeatmap.innerHTML = '<span><i data-lucide=\"flame\" class=\"icon-sm\"></i> MAPA DE CALOR ANUAL</span>';
+          btnHeatmap.style.pointerEvents = 'none';
+          btnHeatmap.innerHTML = '<span><i data-lucide="hourglass" class="icon-sm"></i> CALCULANDO...</span>';
+        }
+        showStatus("<i data-lucide=\"flame\" class=\"icon-sm\"></i> SIMULANDO RADIACIÓN ANUAL CON RAY-TRACING 3D...", 4000);
+
+        try {
+          await wpTriggerAnnualSolarHeatmapWrapper(null, true);
+        } catch(eCalc) {
+          console.error("Error calculating annual solar heatmap:", eCalc);
+        } finally {
+          solarSimState.isCalculatingHeatmap = false;
+          if (typeof hideSolarCalcHUD === 'function') hideSolarCalcHUD();
+          if (btnHeatmap) {
+            btnHeatmap.style.pointerEvents = 'auto';
+            btnHeatmap.innerHTML = '<span><i data-lucide=\"flame\" class=\"icon-sm\"></i> MAPA DE CALOR ANUAL</span>';
+          }
         }
       }
+    } else {
+      if (typeof wpFastRenderSimulatedPanels === 'function') {
+        await wpFastRenderSimulatedPanels(true);
+      }
+      if (typeof wpRenderHeatmapVisuals === 'function') {
+        wpRenderHeatmapVisuals();
+      }
+      if (typeof viewer !== 'undefined' && viewer && viewer.scene && typeof viewer.scene.requestRender === 'function') {
+        viewer.scene.requestRender();
+      }
     }
-    wpFastRenderSimulatedPanels();
-    wpRenderHeatmapVisuals();
     const btnP3Heatmap = document.getElementById('btn-run-annual-heatmap');
     if (btnP3Heatmap) {
       btnP3Heatmap.style.borderColor = 'rgba(56, 189, 248, 0.4)';
@@ -14042,13 +14081,19 @@ async function wpSetShadowViewMode(mode) {
     if (window._solarHeatmapLabelCollection) {
       try { window._solarHeatmapLabelCollection.removeAll(); } catch(_) {}
     }
-    wpFastRenderSimulatedPanels();
-    if (solarSimState.currentSolarPos) {
+    if (typeof wpFastRenderSimulatedPanels === 'function') {
+      await wpFastRenderSimulatedPanels(true);
+    }
+    if (solarSimState.currentSolarPos && typeof wpUpdatePanelShadingAndMLPE === 'function') {
       wpUpdatePanelShadingAndMLPE(solarSimState.currentSolarPos);
+    }
+    if (typeof viewer !== 'undefined' && viewer && viewer.scene && typeof viewer.scene.requestRender === 'function') {
+      viewer.scene.requestRender();
     }
     showStatus(mode === "mlpe" ? "<i data-lucide=\"zap\" class=\"icon-sm\"></i> ANÁLISIS DE OPTIMIZADORES MLPE ACTIVO" : "<i data-lucide=\"sun\" class=\"icon-sm\"></i> MODO SOL INSTANTÁNEO ACTIVO", 2000);
   }
 }
+window.wpSetShadowViewMode = wpSetShadowViewMode;
 
 async function wpRunHeatmapAndActivateView(forceRecalculate = true) {
   if (!window.solarSimState) window.solarSimState = {};

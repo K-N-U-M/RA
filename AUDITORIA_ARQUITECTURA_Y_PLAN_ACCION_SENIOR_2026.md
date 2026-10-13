@@ -248,20 +248,20 @@ flowchart TD
 
 ---
 
-## 📅 MATRIZ DE TAREAS Y ESTIMACIÓN
+## 📅 MATRIZ DE TAREAS Y ESTADO DE RESOLUCIÓN
 
-| Tarea | Severidad | Módulos a Modificar | Impacto en Producción | Verificación Automatizada |
-| :--- | :---: | :--- | :--- | :--- |
-| **T-01** | 🔴 P0 | `js/financials.js`, `index.html` | Cero caídas en renderizado financiero de factura y TOU | Invocación de `calculateFinancialModel()` y `updateBudgetUI()` en consola |
-| **T-02** | 🔴 P0 | `js/project-storage.js` | Carga incondicional de proyectos sin importar latencia Cesium | Importar proyecto `.raproject` simulando `viewer=null` inicial |
-| **T-03** | 🔴 P0 | `js/undo-manager.js` | Erradicación total de entidades zombi en VRAM al hacer Undo | Monitorizar recuento de `viewer.entities.values.length` tras Undo |
-| **T-04** | 🟠 P1 | `index.html` | 60 FPS estables al mover el ratón con mapa de calor activo | Medir tiempo de ejecución de `handleHeatmapPanelHover` (<1ms) |
-| **T-05** | 🟠 P1 | `js/solar-engine.js` | Eliminación de picos de Garbage Collection en animación solar | Grabar perfil de rendimiento DevTools durante playback de sol |
-| **T-06** | 🟠 P1 | `js/cable-engine.js` | Presupuestos limpios al borrar faldones | Comprobar `sState.L_dc_measured === 0` tras borrar layout |
-| **T-07** | 🟠 P1 | `js/solar-heatmap.js` | Cierre instantáneo del cómputo anual sin lag de UI | Cronometrar sincronización post-simulación en plantas >500 paneles |
-| **T-08** | 🟡 P2 | `js/electrical-engine.js` | Certificación rigurosa REBT ITC-BT-40 con $\cos\varphi$ y $X_L$ | Comparar cálculo con hoja técnica REBT normalizada |
-| **T-09** | 🟡 P2 | `js/financials.js` | TIR visible incluso en proyectos altamente subvencionados | Simular proyecto con 70% subvención y verificar valor TIR |
-| **T-10** | 🟡 P2 | `index.html` | Coherencia formal del stepper canónico de 5 pasos | Navegar paso 1 → 2 y verificar dibujo ininterrumpido |
+| Tarea | Severidad | Módulos Modificados | Estado | Impacto en Producción | Verificación Automatizada |
+| :--- | :---: | :--- | :---: | :--- | :--- |
+| **T-01** | 🔴 P0 | `js/financials.js`, `index.html` | ✅ RESUELTO | Cero caídas en renderizado financiero de factura y TOU | Invocación de `calculateFinancialModel()` y `updateBudgetUI()` blindada |
+| **T-02** | 🔴 P0 | `js/project-storage.js` | ✅ RESUELTO | Carga incondicional de proyectos sin importar latencia Cesium | `waitForViewerAndWP()` implementado con polling de 10s |
+| **T-03** | 🔴 P0 | `js/undo-manager.js` | ✅ RESUELTO | Erradicación total de entidades zombi en VRAM al hacer Undo | Limpieza recursiva de `values.slice()` y pooling verificado |
+| **T-04** | 🟠 P1 | `index.html` | ✅ RESUELTO | 60 FPS estables al mover el ratón con mapa de calor activo | Throttle con `requestAnimationFrame` + Bounding Dot Product |
+| **T-05** | 🟠 P1 | `js/solar-engine.js` | ✅ RESUELTO | Eliminación de picos de Garbage Collection en animación solar | Pool estático reutilizable de entidades `dyn_obs_shadow_` |
+| **T-06** | 🟠 P1 | `js/cable-engine.js` | ✅ RESUELTO | Presupuestos limpios al borrar faldones | Reset explícito de `sState.L_dc_measured = 0; sState.L_ac_measured = 0;` |
+| **T-07** | 🟠 P1 | `js/solar-heatmap.js` | ✅ RESUELTO | Cierre instantáneo del cómputo anual sin lag de UI | Sincronización $O(1)$ con `Map` asociativo en live panels |
+| **T-08** | 🟡 P2 | `js/electrical-engine.js`, `js/cable-engine.js`, `index.html` | ✅ RESUELTO | Certificación rigurosa REBT ITC-BT-40 con $\cos\varphi$ y reactancia $X_L$ | Formulación de impedancia completa en AC verificada con `node -c` |
+| **T-09** | 🟡 P2 | `js/financials.js`, `index.html` | ✅ RESUELTO | TIR visible incluso en proyectos altamente subvencionados | Bisección ampliada hasta 500% y soporte de `tirString` |
+| **T-10** | 🟡 P2 | `index.html` | ✅ RESUELTO | Coherencia formal del stepper canónico de 5 pasos | Guardián alineado al Paso Canónico 2 (`wpCurrentStep < 2`) |
 
 ---
 

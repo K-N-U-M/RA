@@ -1996,10 +1996,6 @@ function wpSetSolarMonth(monthIdx) {
     else badge.textContent = "📅 21 " + monthNames[monthIdx];
   }
 
-  if (solarSimState.viewMode === "heatmap") {
-    solarSimState.annualHeatmapData = null;
-  }
-
   wpUpdateSolarSimulation();
 }
 

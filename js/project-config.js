@@ -198,23 +198,25 @@ function step3UpdateHardwareSelection() {
   const miSel  = document.getElementById('step3-sel-microinverter');
   const batSel = document.getElementById('step3-sel-battery');
 
-  if (invSel && invSel.value) window.solarProjectConfig.selectedInverterId = invSel.value;
-  if (modSel && modSel.value) {
-    // [FIX-MÓDULOS] Sólo fijar el default GLOBAL del proyecto. Antes este bloque
-    // reescribía poly.moduleId de TODOS los faldones en cada cambio de hardware
-    // (inversor, batería, edición de catálogo...), propagando el módulo de un
-    // faldón al resto y destruyendo la asignación individual. Los faldones sin
-    // moduleId propio heredan el global en tiempo de cálculo
-    // (computeSinglePolylineRoofInfo: poly.moduleId || selectedModuleId).
-    window.solarProjectConfig.selectedModuleId = modSel.value;
+  const prevModuleId = (window.solarProjectConfig && window.solarProjectConfig.selectedModuleId) ? window.solarProjectConfig.selectedModuleId : null;
+  let moduleActuallyChanged = false;
 
-    if (faldonModSel && faldonModSel.value !== modSel.value) faldonModSel.value = modSel.value;
-    if (modSel2 && modSel2.value !== modSel.value) modSel2.value = modSel.value;
+  if (invSel && invSel.value) window.solarProjectConfig.selectedInverterId = invSel.value;
+  const newModValue = (modSel && modSel.value) || (modSel2 && modSel2.value) || (faldonModSel && faldonModSel.value);
+  if (newModValue) {
+    if (prevModuleId && prevModuleId !== newModValue) {
+      moduleActuallyChanged = true;
+    }
+    window.solarProjectConfig.selectedModuleId = newModValue;
+
+    if (faldonModSel && faldonModSel.value !== newModValue) faldonModSel.value = newModValue;
+    if (modSel2 && modSel2.value !== newModValue) modSel2.value = newModValue;
+    if (modSel && modSel.value !== newModValue) modSel.value = newModValue;
     if (typeof wpUpdateStep2ModuleBadge === 'function') wpUpdateStep2ModuleBadge();
     
     // SSOT Sync: Actualizar panelConfig global automáticamente
     if (typeof equipmentCatalog !== 'undefined' && equipmentCatalog && Array.isArray(equipmentCatalog.modules)) {
-      const m = equipmentCatalog.modules.find(x => x.id === modSel.value);
+      const m = equipmentCatalog.modules.find(x => x.id === newModValue);
       if (m && typeof panelConfig !== 'undefined') {
         panelConfig.potencia = m.wp || 450;
         panelConfig.largo = m.l || 2.10;
@@ -279,27 +281,27 @@ function step3UpdateHardwareSelection() {
   if (elNmin) elNmin.textContent = 'Mín. ' + window.solarProjectConfig.calculatedLimits.nMinString + ' placas';
   if (elTot)  elTot.textContent  = window.solarProjectConfig.calculatedLimits.nMaxTotalModules + ' placas (' + ((window.solarProjectConfig.calculatedLimits.nMaxTotalModules * (mod.wp || 450)) / 1000).toFixed(1) + ' kWp)';
 
-  // <i data-lucide=\"rocket\" class=\"icon-sm\"></i> Verificación de Corriente Operativa Máxima Imp vs MPPT (Prevención de Clipping)
+  // <i data-lucide="rocket" class="icon-sm"></i> Verificación de Corriente Operativa Máxima Imp vs MPPT (Prevención de Clipping)
   const elImp = document.getElementById('step3-spec-imp-check');
   if (elImp) {
     const modImp = mod.imp || 13.0;
     const invImaxOper = inv.iMaxOperA || (inv.iMaxScA ? Math.round(inv.iMaxScA * 0.75 * 10) / 10 : 15.0);
     const hasClipping = modImp > invImaxOper;
-    elImp.textContent = modImp.toFixed(1) + ' A ≤ ' + invImaxOper.toFixed(1) + ' A (' + (hasClipping ? '<i data-lucide=\"alert-triangle\" class=\"icon-sm\"></i> CLIPPING' : 'Óptimo') + ')';
+    elImp.textContent = modImp.toFixed(1) + ' A ≤ ' + invImaxOper.toFixed(1) + ' A (' + (hasClipping ? '<i data-lucide="alert-triangle" class="icon-sm"></i> CLIPPING' : 'Óptimo') + ')';
     elImp.style.color = hasClipping ? '#F59E0B' : '#10B981';
   }
 
-  // <i data-lucide=\"rocket\" class=\"icon-sm\"></i> Verificación de Seguridad de Intensidad de Cortocircuito (Isc vs Imax_inversor)
+  // <i data-lucide="rocket" class="icon-sm"></i> Verificación de Seguridad de Intensidad de Cortocircuito (Isc vs Imax_inversor)
   const elIsc = document.getElementById('step3-spec-isc-check');
   if (elIsc) {
     const modIsc = mod.isc || 14.0;
     const invImaxSc = inv.iMaxScA || 30.0;
     const isSafe = modIsc <= invImaxSc;
-    elIsc.textContent = modIsc.toFixed(1) + ' A ≤ ' + invImaxSc.toFixed(1) + ' A (' + (isSafe ? 'OK' : '<i data-lucide=\"alert-triangle\" class=\"icon-sm\"></i> ATENCIÓN') + ')';
+    elIsc.textContent = modIsc.toFixed(1) + ' A ≤ ' + invImaxSc.toFixed(1) + ' A (' + (isSafe ? 'OK' : '<i data-lucide="alert-triangle" class="icon-sm"></i> ATENCIÓN') + ')';
     elIsc.style.color = isSafe ? '#10B981' : '#EF4444';
   }
 
-  // <i data-lucide=\"rocket\" class=\"icon-sm\"></i> Estimación de Sobrecarga Estructural en Cubierta (Normativa CTE DB-SE-AE)
+  // <i data-lucide="rocket" class="icon-sm"></i> Estimación de Sobrecarga Estructural en Cubierta (Normativa CTE DB-SE-AE)
   const elLoad = document.getElementById('step3-spec-roof-load');
   if (elLoad) {
     const modArea = (mod.l || 2.10) * (mod.w || 1.05);
@@ -310,10 +312,10 @@ function step3UpdateHardwareSelection() {
     elLoad.style.color = kgPerM2 < 25 ? '#38BDF8' : '#F59E0B';
   }
 
-  // <i data-lucide=\"rocket\" class=\"icon-sm\"></i> Reactividad 3D Inmediata: Si hay cubiertas/faldones definidos, regenerar el campo 3D con el nuevo módulo
+  // <i data-lucide="rocket" class="icon-sm"></i> Reactividad 3D: Sólo regenerar layout y faldones si el módulo fotovoltaico ha cambiado realmente
   const hasPolys = typeof WP !== 'undefined' && WP && WP.polylines && WP.polylines.some(pl => pl && pl.points && pl.points.length >= 3);
   const hasPolyPoints = typeof polygonPoints !== 'undefined' && polygonPoints && polygonPoints.length >= 3;
-  if (hasPolys || hasPolyPoints) {
+  if (moduleActuallyChanged && (hasPolys || hasPolyPoints)) {
     if (typeof roofPanelsCache !== 'undefined' && roofPanelsCache) roofPanelsCache.sig = "";
     if (hasPolys && typeof computeSinglePolylineRoofInfo === 'function') {
       WP.polylines.forEach(poly => {
@@ -323,7 +325,7 @@ function step3UpdateHardwareSelection() {
       });
     }
     if (typeof window.wpInvalidateHeatmap === 'function') {
-      window.wpInvalidateHeatmap('Módulo o hardware modificado');
+      window.wpInvalidateHeatmap('Módulo FV modificado');
     }
     const prevConfirmed = (typeof isPolygonDesignConfirmed !== 'undefined') ? isPolygonDesignConfirmed : false;
     isPolygonDesignConfirmed = true; // Habilita temporalmente el paso de renderizado
@@ -334,6 +336,15 @@ function step3UpdateHardwareSelection() {
       wpCalculateAndRenderInverterCables();
     }
     isPolygonDesignConfirmed = prevConfirmed;
+    if (typeof wpUpdateStep3UI === 'function') {
+      wpUpdateStep3UI();
+    }
+  } else {
+    // Si no cambió el módulo (ej. cambio de inversor/batería o navegación a Paso 4),
+    // preservamos íntegramente poly.roofInfo y la caché del mapa de calor anual.
+    if (typeof wpCalculateAndRenderInverterCables === 'function') {
+      wpCalculateAndRenderInverterCables();
+    }
     if (typeof wpUpdateStep3UI === 'function') {
       wpUpdateStep3UI();
     }

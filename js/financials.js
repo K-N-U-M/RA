@@ -1029,7 +1029,7 @@ function generatePropuestaComercialPDF(skipPricingModal) {
 
       <h2>Curva de amortización y retorno de inversión acumulado (25 años)</h2>
       <div class="chart-box">
-        <div class="chart-title">📈 Cashflow Acumulado — Payback en ${m.paybackYears.toFixed(1)} años · VAN ${Math.round(m.van).toLocaleString('es-ES')} € · TIR ${(m.tir != null && isFinite(m.tir)) ? m.tir.toFixed(1) + "%" : "N/D"}</div>
+        <div class="chart-title">📈 Cashflow Acumulado — Payback en ${m.paybackYears.toFixed(1)} años · VAN ${Math.round(m.van).toLocaleString('es-ES')} € · TIR ${m.tirString || ((m.tir != null && isFinite(m.tir)) ? m.tir.toFixed(1) + "%" : "N/D")}</div>
         ${amortSVG}
       </div>
 
@@ -1345,9 +1345,14 @@ function generatePropuestaComercialPDF(skipPricingModal) {
   // Precio medio ponderado de la tarifa y compensación
   const precioRed = tou.horas.reduce((a, b) => a + b, 0) / tou.horas.length;
   const precioCompensacion = tou.compensacion;
+
+  // [P0.3 - RD 244/2019] Techo legal en compensación simplificada: el saldo del término de energía nunca puede ser negativo
+  const hasVirtualBattery = !!(typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.hasVirtualBattery);
+  const ingresoExcedenteEfectivo = hasVirtualBattery ? ingresoExcedente : Math.min(ingresoExcedente, costeRed);
+
   // El coste de carga desde red (arbitraje) se resta del ahorro: sin esto la energía
   // comprada en valle y revendida como "desde batería" se computaba a precio completo.
-  const ahorroLuzAnio1 = ((totalAutoconsumo + totalBateria) * precioRed + ingresoExcedente) * 365 - costeCargaRed;
+  const ahorroLuzAnio1 = ((totalAutoconsumo + totalBateria) * precioRed + ingresoExcedenteEfectivo) * 365 - costeCargaRed;
 
   const autarquia = Math.min((totalAutoconsumo + totalBateria) / dailyLoad, 1);
 
@@ -1409,7 +1414,10 @@ function generatePropuestaComercialPDF(skipPricingModal) {
 
     const priceY = precioRed * Math.pow(1 + inflacion, y - 1);
     const compY = precioCompensacion * Math.pow(1 + inflacion, y - 1);
-    const saveY = (yieldY * autarquia * priceY) + (yieldY * (1 - autarquia) * compY);
+    const surplusValY = yieldY * (1 - autarquia) * compY;
+    const gridBuyCostY = Math.max(0, (consumoAnual - yieldY * autarquia)) * priceY;
+    const compEfectivaY = hasVirtualBattery ? surplusValY : Math.min(surplusValY, gridBuyCostY);
+    const saveY = (yieldY * autarquia * priceY) + compEfectivaY;
     annualSavings25.push(Math.round(saveY));
 
     // OPEX indexado anualmente por IPC de servicios
@@ -1469,17 +1477,39 @@ function generatePropuestaComercialPDF(skipPricingModal) {
     }
     return npv;
   }
-  let low = -0.1, high = 1.0, tir = null;
-  // Verificación de bracketing: si el VAN no cambia de signo en [-10%, 100%],
-  // la TIR está fuera de rango y la bisección devolvería un valor inventado.
-  const npvLow = calcNPV(low), npvHigh = calcNPV(high);
-  if (isFinite(npvLow) && isFinite(npvHigh) && npvLow * npvHigh < 0) {
-    for (let iter = 0; iter < 40; iter++) {
-      const mid = (low + high) / 2;
-      const vMid = calcNPV(mid);
-      if (Math.abs(vMid) < 1) { tir = mid; break; }
-      if (vMid > 0) low = mid; else high = mid;
-      tir = mid;
+  let low = -0.1, high = 1.0, tir = null, tirString = 'N/D';
+  // Verificación de bracketing ampliada (Nivel P2.2):
+  // Soporta proyectos hiperrentables (subvenciones IRPF/IBI/NextGen amortizadas en año 1)
+  let npvLow = calcNPV(low);
+  let npvHigh = calcNPV(high);
+
+  if (isFinite(npvLow) && isFinite(npvHigh)) {
+    if (npvHigh > 0) {
+      // Proyecto extraordinariamente rentable: ampliar rango de búsqueda a 500%
+      high = 5.0;
+      npvHigh = calcNPV(high);
+      if (npvHigh > 0) {
+        tir = 5.0;
+        tirString = '> 500 %';
+      }
+    }
+
+    if (tir === null) {
+      if (npvLow * npvHigh < 0) {
+        for (let iter = 0; iter < 45; iter++) {
+          const mid = (low + high) / 2;
+          const vMid = calcNPV(mid);
+          if (Math.abs(vMid) < 1) { tir = mid; break; }
+          if (vMid > 0) low = mid; else high = mid;
+          tir = mid;
+        }
+        if (tir != null && isFinite(tir)) {
+          tirString = (tir * 100).toFixed(1) + ' %';
+        }
+      } else if (npvLow < 0 && npvHigh < 0) {
+        tir = null;
+        tirString = 'No rentable';
+      }
     }
   }
 
@@ -1525,7 +1555,8 @@ function generatePropuestaComercialPDF(skipPricingModal) {
     ahorroLuzAnio1: ahorroLuzAnio1,
     paybackYears: paybackYears,
     van: van,
-    tir: (tir != null && isFinite(tir)) ? tir * 100 : null,
+    tir: (tir != null && isFinite(tir)) ? tir * 100 : (tirString.startsWith('>') ? 100.0 : null),
+    tirString: tirString,
     lcoe: lcoe,
     mesesFin: meses,
     tinAnualPct: tinAnual * 100,
@@ -1542,6 +1573,9 @@ function generatePropuestaComercialPDF(skipPricingModal) {
     excedenteKWh: Math.round((totalExcedente || 0) * 365),
     costeRedAnual: Math.round((costeRed || 0) * 365),
     ingresoExcedente: Math.round((ingresoExcedente || 0) * 365),
+    ingresoExcedenteEfectivo: Math.round((ingresoExcedenteEfectivo || 0) * 365),
+    ingresoExcedenteTechoAplicado: !hasVirtualBattery && (ingresoExcedente > costeRed),
+    hasVirtualBattery: hasVirtualBattery,
     // Series anuales con degradación compuesta a 25 años (Fase 2.1)
     annualYields25: annualYields25,
     annualSavings25: annualSavings25,

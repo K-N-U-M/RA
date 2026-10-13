@@ -571,14 +571,16 @@
             isDaylight: sp.isDay,
             sunVecENU: sunENU,
             sDirENU: sDirHorizontal,
-            shadowLenPerM: sp.elevDeg > 0.5 ? (1 / Math.tan(elevRad_)) : 100
+            // CTE DB-HE5: acotar longitud máxima de sombra a elevaciones solares útiles (evita artefactos asintóticos al amanecer/atardecer)
+            shadowLenPerM: sp.elevDeg >= 10.0 ? Math.min(1 / Math.tan(elevRad_), 5.67) : 0
           };
         } else if (typeof computeSolarPosition === 'function') {
           solarPos = computeSolarPosition(d, lat, lng);
         }
 
         const elevation = solarPos ? solarPos.elevationDeg : -90;
-        if (!solarPos || !solarPos.isDaylight || !(elevation >= 3.0)) {
+        // CTE DB-HE5 / IDAE: descartar horas de radiación marginal (elevación < 10.0° / Air Mass > 5.8)
+        if (!solarPos || !solarPos.isDaylight || !(elevation >= 10.0)) {
           continue;
         }
 
@@ -791,16 +793,23 @@
         const relativeYield = netWh / maxNetWh;
         p.relativeYieldPct = Math.round(relativeYield * 1000) / 10;
 
-        // Gradiente cromático: óptimo en verde, subóptimo en amarillo/naranja, sombra crítica en rojo
-        let hexColor = '#10b981';
-        if (p.annualLossPct >= 20 || relativeYield < 0.70) hexColor = '#ef4444';
-        else if (p.annualLossPct >= 8 || relativeYield < 0.82) hexColor = '#f97316';
-        else if (relativeYield < 0.92) hexColor = '#f59e0b';
-        p.heatmapColor = { hex: hexColor };
+        // [OPCIÓN A] Gradiente cromático canónico basado estrictamente en Pérdidas por Sombra (SSOT getHeatmapColor)
+        const heatCol = (typeof getHeatmapColor === 'function')
+          ? getHeatmapColor(p.annualLossPct)
+          : null;
+        let hexColor = heatCol ? heatCol.hex : '#10b981';
+        if (!heatCol) {
+          if (p.annualLossPct <= 3.0) hexColor = '#10b981';
+          else if (p.annualLossPct <= 8.0) hexColor = '#84cc16';
+          else if (p.annualLossPct <= 15.0) hexColor = '#f59e0b';
+          else if (p.annualLossPct <= 25.0) hexColor = '#f97316';
+          else hexColor = '#ef4444';
+        }
+        p.heatmapColor = heatCol || { hex: hexColor };
 
-        p.isNormal = p.annualLossPct < 8.0 && relativeYield >= 0.82;
-        p.requiresMLPE = p.annualLossPct >= 8.0 || relativeYield < 0.82;
-        p.isUnviable = p.annualLossPct >= 25.0 || relativeYield < 0.70;
+        p.isNormal = p.annualLossPct < 8.0;
+        p.requiresMLPE = p.annualLossPct >= 8.0;
+        p.isUnviable = p.annualLossPct >= 25.0;
       });
     });
 
@@ -845,7 +854,7 @@
         }
       });
       polylines.forEach(poly => {
-        const panels = Array.isArray(poly.panels) ? poly.panels : [];
+        const panels = Array.isArray(poly.panels) ? poly.panels : (poly.roofInfo && Array.isArray(poly.roofInfo.panels) ? poly.roofInfo.panels : []);
         panels.forEach(p => {
           const match = liveMap.get(p.panelId) || liveMap.get(p.polyIdx + '_' + p.layoutIndex);
           if (match && match !== p) {
@@ -864,6 +873,35 @@
         });
       });
     }
+
+    // 6.2 Almacenar caché SSOT persistente e inmutable en solarSimState.panelCache
+    if (!window.solarSimState) window.solarSimState = {};
+    const panelCache = new Map();
+    polylines.forEach((poly, polyIdx) => {
+      const panels = Array.isArray(poly.panels) ? poly.panels : (poly.roofInfo && Array.isArray(poly.roofInfo.panels) ? poly.roofInfo.panels : []);
+      panels.forEach((p, idx) => {
+        const pId = p.panelId || ('pan_' + polyIdx + '_' + (p.layoutIndex ?? idx));
+        const keyCoord = polyIdx + '_' + (p.layoutIndex ?? idx);
+        const data = {
+          annualLossPct: p.annualLossPct,
+          annualYieldPct: p.annualYieldPct,
+          annualKwh: p.annualKwh,
+          relativeYieldPct: p.relativeYieldPct,
+          heatmapColor: p.heatmapColor,
+          annualTotalPotential: p.annualTotalPotential,
+          annualShadedLoss: p.annualShadedLoss,
+          annualTotalInsolation: p.annualTotalInsolation,
+          annualShadedInsolation: p.annualShadedInsolation,
+          shadowHits: p.shadowHits,
+          isNormal: p.isNormal,
+          requiresMLPE: p.requiresMLPE,
+          isUnviable: p.isUnviable
+        };
+        panelCache.set(pId, data);
+        panelCache.set(keyCoord, data);
+      });
+    });
+    window.solarSimState.panelCache = panelCache;
 
     // 7. Evaluar diagnóstico y actualizar telemetría
     const diag = wpEvaluateMLPENecessity();
@@ -937,6 +975,7 @@
     if (window.solarSimState) {
       window.solarSimState.annualHeatmapData = null;
       window.solarSimState.annualHeatmapDirty = true;
+      window.solarSimState.panelCache = null;
       window.solarSimState._lastInvalReason = reason || 'Cubierta modificada';
       window.solarSimState.annualHeatmapInvalidatedAt = Date.now();
       window.solarSimState.isCalculatingHeatmap = false;
@@ -981,16 +1020,16 @@
       if (typeof viewer !== 'undefined' && viewer && viewer.entities) {
         window.solarSimState.heatmapLabelEntities.forEach(e => {
           if (e && e.id) {
-            try { viewer.entities.remove(e); } catch(_) {}
+            try { viewer.entities.remove(e); } catch(errRem) { if (window.RA_ErrorHandler) window.RA_ErrorHandler.handle(errRem, 'Entidad/Primitiva Cesium'); }
           } else if (e && e.label && window._solarHeatmapLabelCollection) {
-            try { window._solarHeatmapLabelCollection.remove(e.label); } catch(_) {}
+            try { window._solarHeatmapLabelCollection.remove(e.label); } catch(errRem) { if (window.RA_ErrorHandler) window.RA_ErrorHandler.handle(errRem, 'Entidad/Primitiva Cesium'); }
           }
         });
       }
       window.solarSimState.heatmapLabelEntities = [];
     }
     if (window._solarHeatmapLabelCollection) {
-      try { window._solarHeatmapLabelCollection.removeAll(); } catch(_) {}
+      try { window._solarHeatmapLabelCollection.removeAll(); } catch(errRem) { if (window.RA_ErrorHandler) window.RA_ErrorHandler.handle(errRem, 'Entidad/Primitiva Cesium'); }
     }
 
     // 3. Actualizar la UI y badges de pérdidas a estado pendiente/obsoleto

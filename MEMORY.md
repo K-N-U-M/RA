@@ -69,6 +69,20 @@
 - **Solución 2:** Patrón de Módulo Aislado (`wind-turbine.js`). En lugar de alterar la lógica central en `obstacles.js`, se aplican function wrappers sobre métodos clave de render/arrastre (`render3DObstaclesInCesium`, `updateObstacleLiveModelMatrix`) interceptando el tipo `wind_turbine` y calculando su propia geometría Cesium, e inyectando un bloque UI propio dinámicamente en `#obstacle-selected-editor`.
 
 
+### 2026-10-14: Auditoría Integral AAA y Resolución de Desviaciones P0 (Fase 1)
+- **Problema 1 (Límites Inversor):** `computeElectricalSizingEngineering` hardcodeaba 1000V/850V ignorando el catálogo activo (riesgo sobretensión IEC 62548).
+- **Solución 1:** Desacoplado dinámico desde `solarProjectConfig.selectedInverterId` y `equipmentCatalog.inverters`.
+- **Problema 2 (Coeficiente Térmico):** `Vmp_hot` usaba `betaVoc` en vez del coeficiente térmico de potencia/tensión en caliente.
+- **Solución 2:** Inyección de `cfg.betaVmp || cfg.gammaPmp || -0.0035`.
+- **Problema 3 (Techo Legal Excedentes):** `financials.js` liquidaba excedentes sin el límite mensual del término de energía facturado (RD 244/2019).
+- **Solución 3:** Techo regulatorio aplicado (`Math.min(ingresoExcedente, costeRed)`) con conmutación para Batería Virtual (`hasVirtualBattery`).
+- **Problema 4 (Heatmap Dirty):** `getProjectCalcs()` utilizaba caché de producción obsoleto aunque `annualHeatmapDirty` estuviera activo.
+- **Solución 4:** Detección estricta de `solarSimState.annualHeatmapDirty` y bypass de caché desactualizado.
+- **Problema 5 (Paneles Fantasma):** Sin paneles trazados, `getProjectCalcs()` sintetizaba módulos ficticios dividiendo área útil.
+- **Solución 5:** Fallback a 0 paneles estricto sin layout CAD.
+- **Problema 6 (Clobbering UI):** `config.js` sobreescribía 6 funciones UI de `ui-viewport-controls.js`.
+- **Solución 6:** Eliminación de funciones duplicadas en `config.js`.
+
 ## 3. Fuentes de Verdad (SSOT Map)
 
 ```

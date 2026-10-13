@@ -745,9 +745,13 @@
       var imaxAcRVK  = [29, 38, 49, 68, 91, 119, 146, 178];
       var sAcOpt = 10, dVacPctOpt = 0.8;
 
+      var xMeterAc = 0.08 / 1000.0; // Reactancia inductiva normalizada 0.08 Ohm/km (REBT ITC-BT-40)
+      var cosPAc = 0.95;
+      var sinPAc = Math.sqrt(Math.max(0, 1.0 - cosPAc * cosPAc));
       for (var j = 0; j < secAcAvail.length; j++) {
         var sa = secAcAvail[j];
-        var dVa = isMono ? (2 * rho90 * lAcVal * iAc * 0.95) / sa : (Math.sqrt(3) * rho90 * lAcVal * iAc * 0.95) / sa;
+        var factorPhase = isMono ? 2.0 : Math.sqrt(3);
+        var dVa = factorPhase * iAc * lAcVal * ((rho90 / sa) * cosPAc + xMeterAc * sinPAc);
         var dVapct = (dVa / vAc) * 100;
         if (imaxAcRVK[j] >= iAcDesign && dVapct <= 1.5) {
           sAcOpt = sa;

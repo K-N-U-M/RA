@@ -26,70 +26,7 @@ if (typeof Cesium === 'undefined') {
 Cesium.Ion.defaultAccessToken = CESIUM_ION_TOKEN;
 Cesium.GoogleMaps.defaultApiKey = GOOGLE_MAPS_API_KEY;
 
-// ── Pantalla de Carga e Indicadores de Geometría 3D (Consulta Dinámica) ─────
-function setLoad(pct, msg) {
-  const bar = document.getElementById('ld-bar');
-  const txt = document.getElementById('ld-msg');
-  if (bar) bar.style.width = pct + '%';
-  if (txt && msg) txt.textContent = msg;
-}
-
-let loadingHidden = false;
-function hideLoading() {
-  if (loadingHidden) return;
-  loadingHidden = true;
-  const screen = document.getElementById('ra-loading');
-  if (screen) {
-    screen.classList.add('fade-out');
-    setTimeout(() => {
-      if (screen.parentNode) screen.remove();
-    }, 600);
-  }
-}
-
-let tilesLoadHideTimer = null;
-function show3DTilesLoading(msg, pendingCount) {
-  const tilesLoadingEl = document.getElementById('ra-3d-tiles-loading');
-  const tilesMsgEl = document.getElementById('ra-3d-tiles-msg');
-  const tilesCountEl = document.getElementById('ra-3d-tiles-count');
-  if (!tilesLoadingEl) return;
-  if (tilesMsgEl && msg) tilesMsgEl.textContent = msg;
-  if (tilesCountEl) {
-    tilesCountEl.textContent = (typeof pendingCount === 'number' && pendingCount > 0) ? (pendingCount + ' tiles') : 'Renderizando 3D';
-  }
-  clearTimeout(tilesLoadHideTimer);
-  tilesLoadingEl.classList.add('visible');
-}
-
-function hide3DTilesLoading(delayMs) {
-  clearTimeout(tilesLoadHideTimer);
-  tilesLoadHideTimer = setTimeout(() => {
-    const tilesLoadingEl = document.getElementById('ra-3d-tiles-loading');
-    if (tilesLoadingEl) tilesLoadingEl.classList.remove('visible');
-  }, delayMs || 600);
-}
-
-// ── Estado y Notificaciones ────────────────────────────────────────────────
-let statusTimer;
-
-function showStatus(msg, ms) {
-  const statusEl = document.getElementById('ra-status');
-  if (!statusEl) return;
-  statusEl.textContent = msg;
-  statusEl.classList.add('visible');
-  clearTimeout(statusTimer);
-  if (ms) statusTimer = setTimeout(hideStatus, ms);
-}
-
-function hideStatus() {
-  const statusEl = document.getElementById('ra-status');
-  if (statusEl) statusEl.classList.remove('visible');
-}
-
-// Fallback de seguridad para pantalla de bienvenida completa
-setTimeout(hideLoading, 8000);
-
-// Configuración Global del Módulo Fotovoltaico Activo
+// ── Configuración Global del Módulo Fotovoltaico Activo ──────────────────────
 let panelConfig = {
   modelo: 'Tier 1 Mono PERC 450W',
   tecnologia: 'Monocristalino',
@@ -99,16 +36,9 @@ let panelConfig = {
   rendimiento: 21.5,
   precio: 135
 };
-
-  // Exportar utilidades sólo si no existen en window (respetando definiciones prioritarias)
-  if (typeof window !== 'undefined') {
-    if (typeof window.setLoad === 'undefined') window.setLoad = setLoad;
-    if (typeof window.hideLoading === 'undefined') window.hideLoading = hideLoading;
-    if (typeof window.show3DTilesLoading === 'undefined') window.show3DTilesLoading = show3DTilesLoading;
-    if (typeof window.hide3DTilesLoading === 'undefined') window.hide3DTilesLoading = hide3DTilesLoading;
-    if (typeof window.showStatus === 'undefined') window.showStatus = showStatus;
-    if (typeof window.hideStatus === 'undefined') window.hideStatus = hideStatus;
-  }
+if (typeof window !== 'undefined' && typeof window.panelConfig === 'undefined') {
+  window.panelConfig = panelConfig;
+}
 
   // ── Pérdidas del sistema configurables (árbol de pérdidas tipo PVsyst) ──
   // Valores en FRACCIÓN (0.025 = 2.5%). El ingeniero debe poder justificar el PR:

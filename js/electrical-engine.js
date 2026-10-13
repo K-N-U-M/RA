@@ -463,10 +463,25 @@
    * Calcula la caída de tensión y valida el cumplimiento según REBT ITC-BT-40 e IEC 62548.
    * Límite normativo reglamentario: ΔV <= 1.5% tanto en continua (CC) como en alterna (CA).
    */
-  function calculateVoltageDrop({ lengthM, currentA, sectionMm2, voltageV, isThreePhase = false, conductor = 'Cu', tempC = 90 }) {
+  function calculateVoltageDrop({ lengthM, currentA, sectionMm2, voltageV, isThreePhase = false, isAC = false, conductor = 'Cu', tempC = 90, cosPhi = 0.98, reactancePerKm = 0.08 }) {
     const rho = (conductor === 'Al') ? 0.036 : (tempC >= 90 ? ELEC_CONSTANTS.RHO_CU_90 : 0.018);
     const factorPhase = isThreePhase ? Math.sqrt(3) : 2.0;
-    const deltaV = (factorPhase * rho * Math.max(lengthM, 0.1) * Math.max(currentA, 0.01)) / Math.max(sectionMm2, 0.5);
+    const l = Math.max(lengthM, 0.1);
+    const i = Math.max(currentA, 0.01);
+    const s = Math.max(sectionMm2, 0.5);
+
+    let deltaV;
+    if (isAC) {
+      // Alterna AC: impedancia Z = (rho/S)*cosPhi + X*sinPhi (REBT ITC-BT-40)
+      const cosP = Math.min(Math.max(cosPhi, 0.70), 1.0);
+      const sinP = Math.sqrt(Math.max(0, 1.0 - cosP * cosP));
+      const xMeter = (reactancePerKm || 0.08) / 1000.0;
+      deltaV = factorPhase * i * l * ((rho / s) * cosP + xMeter * sinP);
+    } else {
+      // Continua DC: puramente resistiva óhmica
+      deltaV = (factorPhase * rho * l * i) / s;
+    }
+
     const pct = (deltaV / Math.max(voltageV, 1.0)) * 100.0;
     return {
       deltaV: Math.round(deltaV * 100) / 100,
