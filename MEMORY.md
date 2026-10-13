@@ -26,7 +26,7 @@
 | `buildings.js` | Edificios 3D y extrusión | `window.WP.buildings` |
 | `obstacles.js` | Obstáculos 3D | `window.WP.obstacles` |
 | `capture-mode.js` | Modo captura limpia (tecla C) | `window.RACapture` |
-| `undo-manager.js` | Deshacer borrados | `window.RAundo` |
+| `undo-manager.js` | Sistema universal Undo/Redo (Ctrl+Z / Ctrl+Y) con arrastres Gizmo, creaciones y borrados | `window.RAundo` |
 | `bom-tree.js` | Árbol de materiales (BOM) | `BOMTreeEngine` |
 | `project-hierarchy.js` | Scene graph jerárquico | — |
 | `ui-outliner.js` | Outliner de objetos | — |

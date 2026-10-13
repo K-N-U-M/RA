@@ -225,8 +225,8 @@ Estado en `window.solarProjectConfig`:
 | `C` | Toggle modo CAPTURA LIMPIA (`window.RACapture`): oculta vértices, polilíneas, planos y tríada para screenshots; botón flotante 📷 | Global |
 | `Escape` | Cancelar herramienta / deseleccionar / deshacer punto en dibujo / cancelar tramo de cota | Global |
 | `Delete/Backspace` | Borrar elemento seleccionado — despachador único: vértice de faldón → obstáculo → objetivo del gizmo universal (edificio/equipo/panel) → panel | Selección activa |
-| `Ctrl+Z` | Deshacer último borrado (`window.RAundo`); si no hay borrados, undo geométrico legacy; en dibujo, quita el último punto | Global |
-| `Ctrl+Shift+Z` / `Ctrl+Y` | Rehacer geometría legacy | Modo idle |
+| `Ctrl+Z` | Deshacer universal (`window.RAundo.undo()`): creación/eliminación de obstáculos, edificios, planos, faldones, transformaciones Gizmo/Tríada, edición de vértices y paneles; en dibujo interactivo, deshace el último punto | Global |
+| `Ctrl+Shift+Z` / `Ctrl+Y` | Rehacer universal (`window.RAundo.redo()`): restaura la última acción deshecha | Global |
 | `Shift` (mantener clic) | Habilita acciones de ratón con Shift (rotación de gizmo con snap 15°) | Gizmo |
 
 > NOTA: `S` en modo idle es retroceso de cámara WASD; con la cinta métrica activa (`M`), conmuta el imán magnético (ON/OFF). `Ctrl+Click` fino en eje N NO está implementado.

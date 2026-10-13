@@ -2843,14 +2843,42 @@ addEventListener('keydown', function(e) {
   // [P0] SUPR/DELETE consolidado en _raKeydown2 (despachador único): antes, tres
   // listeners solapados procesaban la misma pulsación y borraban 2 objetos de golpe.
 
-  // 3. CTRL + Z (Deshacer último punto de polilínea en dibujo)
-  if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) {
-    if (typeof WP !== 'undefined' && WP && WP.mode === 'draw-poly' && WP.activePolyPoints && WP.activePolyPoints.length > 0) {
-      e.preventDefault();
-      WP.activePolyPoints.pop();
-      if (typeof wpRenderActivePolylineGhost === 'function') wpRenderActivePolylineGhost();
-      showToast('DESHACER', 'Último punto eliminado.', 'info', 1500);
-      return;
+  // 3. CTRL + Z / CTRL + Y / CTRL + SHIFT + Z (Sistema Universal de Deshacer / Rehacer)
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z' || e.key === 'y' || e.key === 'Y' || e.code === 'KeyZ' || e.code === 'KeyY')) {
+    const isRedo = (e.key === 'y' || e.key === 'Y' || e.code === 'KeyY' || e.shiftKey);
+
+    // Prioridad A: Modos de dibujo interactivo activos (sólo para deshacer)
+    if (!isRedo && typeof WP !== 'undefined' && WP) {
+      if (WP.mode === 'draw-poly' && typeof wpUndoLastPolylinePoint === 'function' && wpUndoLastPolylinePoint()) {
+        e.preventDefault();
+        return;
+      }
+      if (WP.mode === 'draw-building' && typeof undoLastBuildingPoint === 'function' && typeof activeBuildingPts !== 'undefined' && activeBuildingPts.length > 0) {
+        e.preventDefault();
+        undoLastBuildingPoint();
+        return;
+      }
+      if (WP.mode === 'define-plane' && typeof wpUndoLastPlanePoint === 'function' && wpUndoLastPlanePoint()) {
+        e.preventDefault();
+        return;
+      }
+    }
+
+    // Prioridad B: Deshacer / Rehacer universal del proyecto (RAundo)
+    if (window.RAundo) {
+      if (isRedo) {
+        if (window.RAundo.canRedo()) {
+          e.preventDefault();
+          window.RAundo.redo();
+          return;
+        }
+      } else {
+        if (window.RAundo.canUndo()) {
+          e.preventDefault();
+          window.RAundo.undo();
+          return;
+        }
+      }
     }
   }
 });
@@ -3968,6 +3996,9 @@ function pushUndoState() {
 }
 
 function undoGeometry() {
+  if (window.RAundo && window.RAundo.canUndo()) {
+    return window.RAundo.undo();
+  }
   if (undoStack.length === 0) {
     showStatus('NADA QUE DESHACER', 1500);
     return;
@@ -3981,6 +4012,9 @@ function undoGeometry() {
 }
 
 function redoGeometry() {
+  if (window.RAundo && window.RAundo.canRedo()) {
+    return window.RAundo.redo();
+  }
   if (redoStack.length === 0) {
     showStatus('NADA QUE REHACER', 1500);
     return;
@@ -3994,6 +4028,10 @@ function redoGeometry() {
 }
 
 function updateUndoRedoButtons() {
+  if (window.RAundo && typeof window.RAundo.updateUIButtons === 'function') {
+    window.RAundo.updateUIButtons();
+    return;
+  }
   const btnUndo = document.getElementById('btn-undo');
   const btnRedo = document.getElementById('btn-redo');
   if (btnUndo) btnUndo.style.opacity = undoStack.length > 0 ? '1' : '0.35';
@@ -4483,6 +4521,9 @@ function finishActiveBuilding() {
     points: [...activeBuildingPts]
   };
 
+  if (window.RAundo && typeof window.RAundo.snapBuildings === 'function') {
+    window.RAundo.snapBuildings('Crear ' + bldName);
+  }
   buildings.push(newBld);
   activeBuildingPts = [];
 
@@ -7912,33 +7953,28 @@ function undoLastPoint() {
 (window.RA && window.RA.addListener ? window.RA.addListener : function(t, ev, fn) { t.addEventListener(ev, fn); })(document, 'keydown', function _raKeydown1(e) {
   if (isTextInputActive(e.target)) return;
 
-  // [P0] Deshacer borrados (RAundo) disponible en CUALQUIER modo — protección de datos.
-  // En draw-poly gana el pop de punto de dibujo gestionado por el handler superior.
-  if ((e.ctrlKey || e.metaKey) && e.code === 'KeyZ' && !e.shiftKey) {
-    const _wpM = (typeof WP !== 'undefined' && WP) ? WP.mode : 'idle';
-    if (_wpM !== 'draw-poly' && window.RAundo && window.RAundo.canUndo()) {
-      e.preventDefault();
-      window.RAundo.undo();
-      return;
+  // [P0] Deshacer / Rehacer universal (RAundo) disponible en CUALQUIER modo
+  if ((e.ctrlKey || e.metaKey) && (e.code === 'KeyZ' || e.code === 'KeyY' || e.key === 'z' || e.key === 'Z' || e.key === 'y' || e.key === 'Y')) {
+    if (e.defaultPrevented) return;
+    const isRedo = (e.code === 'KeyY' || e.key === 'y' || e.key === 'Y' || e.shiftKey);
+    if (window.RAundo) {
+      if (isRedo) {
+        if (window.RAundo.canRedo()) {
+          e.preventDefault();
+          window.RAundo.redo();
+          return;
+        }
+      } else {
+        if (window.RAundo.canUndo()) {
+          e.preventDefault();
+          window.RAundo.undo();
+          return;
+        }
+      }
     }
   }
 
   if (typeof WP !== 'undefined' && WP && WP.mode !== 'idle') return;
-
-  // Undo / Redo (Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z) — geometría legacy
-  if (e.ctrlKey || e.metaKey) {
-    if (e.code === 'KeyZ') {
-      e.preventDefault();
-      if (e.shiftKey) redoGeometry();
-      else undoGeometry();
-      return;
-    }
-    if (e.code === 'KeyY') {
-      e.preventDefault();
-      redoGeometry();
-      return;
-    }
-  }
 
   if (e.code === 'KeyP') {
     setAppMode('draw');
@@ -14238,6 +14274,7 @@ window.toggleSolarHUD = toggleSolarHUD;
         universalGizmoState.wasDragging = false;
         universalGizmoState.mode = hitUGizmo;
         universalGizmoState.targetType = uTarget.type;
+        if (window.RAundo && typeof window.RAundo.beginDrag === 'function') window.RAundo.beginDrag(uTarget.type);
         universalGizmoState.startMouse = { x: down.position.x, y: down.position.y };
         universalGizmoState.startPos = Cesium.Cartesian3.clone(uTarget.pos);
         // [ROT-3D] Capturar el valor del EJE cuyo anillo se agarra (antes siempre el yaw
@@ -14339,6 +14376,7 @@ window.toggleSolarHUD = toggleSolarHUD;
         universalGizmoState.wasDragging = false;
         universalGizmoState.mode = 'center-drag';
         universalGizmoState.targetType = 'vertex';
+        if (window.RAundo && typeof window.RAundo.beginDrag === 'function') window.RAundo.beginDrag('vertex');
         universalGizmoState.startMouse = { x: down.position.x, y: down.position.y };
         universalGizmoState.startPos = _bldPt ? Cesium.Cartesian3.clone(_bldPt) : null;
         universalGizmoState.startRot = 0;
@@ -14387,6 +14425,7 @@ window.toggleSolarHUD = toggleSolarHUD;
           universalGizmoState.wasDragging = false;
           universalGizmoState.mode = 'center-drag';
           universalGizmoState.targetType = 'vertex';
+          if (window.RAundo && typeof window.RAundo.beginDrag === 'function') window.RAundo.beginDrag('vertex');
           universalGizmoState.startMouse = { x: down.position.x, y: down.position.y };
           universalGizmoState.startPos = Cesium.Cartesian3.clone(poly.points[nearestVtxIdx]);
           universalGizmoState.startRot = 0;
@@ -14993,6 +15032,7 @@ window.toggleSolarHUD = toggleSolarHUD;
     }
     if (universalGizmoState.active) {
       const draggedTargetType = universalGizmoState.targetType;
+      const _gizmoWasDragging = !!universalGizmoState.wasDragging;
       universalGizmoState.active = false;
       universalGizmoState.mode = null;
       if (scene && scene.screenSpaceCameraController) {
@@ -15148,6 +15188,11 @@ window.toggleSolarHUD = toggleSolarHUD;
         ProjectHierarchy.notify('electrical_updated');
       }
       showStatus('<i data-lucide="check" class="icon-sm"></i> POSICIÓN Y ROTACIÓN FIJADAS', 1200);
+      if (_gizmoWasDragging && window.RAundo && typeof window.RAundo.commitDrag === 'function') {
+        window.RAundo.commitDrag();
+      } else if (window.RAundo && typeof window.RAundo.cancelDrag === 'function') {
+        window.RAundo.cancelDrag();
+      }
     }
   }, Cesium.ScreenSpaceEventType.LEFT_UP);
 
@@ -15210,6 +15255,9 @@ window.toggleSolarHUD = toggleSolarHUD;
         const v = Cesium.Cartesian3.subtract(p2_3D, p1_3D, new Cesium.Cartesian3());
         const newPt3D = Cesium.Cartesian3.add(p1_3D, Cesium.Cartesian3.multiplyByScalar(v, bestT, new Cesium.Cartesian3()), new Cesium.Cartesian3());
 
+        if (window.RAundo && typeof window.RAundo.snapVertex === 'function') {
+          window.RAundo.snapVertex(WP.selectedPolyIdx, 'Insertar vértice');
+        }
         poly.points.splice(bestSegmentIdx + 1, 0, newPt3D);
         poly.area = wpPolylineArea3D(poly.points);
         polygonPoints = poly.points.map(p => Cesium.Cartesian3.clone(p));

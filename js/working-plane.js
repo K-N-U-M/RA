@@ -1809,6 +1809,31 @@ function wpStartDefinePlane() {
   showStatus('<i data-lucide=\"target\" class=\"icon-sm\"></i> CREACIÓN DE PLANO: HAZ CLIC EN 3 PUNTOS SOBRE LA CUBIERTA (P1, P2, P3)', 4000);
 }
 
+function wpUndoLastPlanePoint() {
+  if (typeof WP === 'undefined' || !WP) return false;
+  if (WP.mode === 'define-plane' && Array.isArray(WP.planePts) && WP.planePts.length > 0) {
+    WP.planePts.pop();
+    wpClearEntGroup('planePreview');
+    const curViewer = (typeof viewer !== 'undefined' && viewer) ? viewer : (window.viewer || null);
+    if (curViewer && curViewer.entities) {
+      if (curViewer.entities.getById('wp_plane_preview_pt_1')) curViewer.entities.removeById('wp_plane_preview_pt_1');
+      if (curViewer.entities.getById('wp_plane_preview_pt_2')) curViewer.entities.removeById('wp_plane_preview_pt_2');
+      if (curViewer.entities.getById('wp_plane_preview_line_1_2')) curViewer.entities.removeById('wp_plane_preview_line_1_2');
+    }
+    if (WP.planePts.length === 1) {
+      const ptEnt = (getAddPointEntity() || addPointEntity)(WP.planePts[0], '#F59E0B', 12, '#FFFFFF', 2.5, 'wp_plane_preview_pt_1');
+      WP.ents.planePreview.push(ptEnt);
+      showStatus('<i data-lucide="target" class="icon-sm"></i> PUNTO P2 DESHECHO · HAZ CLIC EN EL 2º PUNTO (P2)', 2500);
+    } else {
+      showStatus('<i data-lucide="target" class="icon-sm"></i> PUNTO P1 DESHECHO · HAZ CLIC EN EL 1er PUNTO (P1)', 2500);
+    }
+    wpUpdateUI();
+    return true;
+  }
+  return false;
+}
+window.wpUndoLastPlanePoint = wpUndoLastPlanePoint;
+
 function wpAddPlanePoint(pos3D) {
   if (!pos3D || !Cesium.defined(pos3D)) return;
   const radial = Cesium.Cartesian3.normalize(pos3D, new Cesium.Cartesian3());
@@ -1875,6 +1900,7 @@ function wpAddPlanePoint(pos3D) {
       azimuthDeg: planeData.azimuthDeg
     }, planeData);
 
+    if (window.RAundo && typeof window.RAundo.snapPlanes === 'function') window.RAundo.snapPlanes('Crear ' + planeObj.name);
     WP.planes.push(planeObj);
     WP.activePlaneIdx = WP.planes.length - 1;
     WP.planePts = [];
@@ -2149,10 +2175,14 @@ function wpDeleteActivePlane(skipConfirm = false) {
     if (affectedPolys > 0) msg += '\n  • ' + affectedPolys + ' polilínea(s) / faldón(es)';
     if (affectedObs   > 0) msg += '\n  • ' + affectedObs   + ' obstáculo(s)';
     msg += '\n  • Todos los paneles simulados asociados';
-    msg += '\n\nEsta acción no se puede deshacer.';
+    msg += '\n\nPuedes pulsar CTRL+Z para deshacer si lo borras por error.';
   }
 
   if (!skipConfirm && !window.confirm(msg)) return; // ← el usuario canceló
+
+  if (window.RAundo && typeof window.RAundo.snapProject === 'function') {
+    window.RAundo.snapProject('Eliminar plano ' + planeName);
+  }
 
   // Paso 2 eliminado - delegado al regenerador central
 
@@ -2369,6 +2399,24 @@ function wpAddPolylinePoint(cartesianPos) {
   showStatus('POLILÍNEA #' + (WP.polylines.length + 1) + ' · VÉRTICE #' + WP.activePolyPts.length + ' AÑADIDO', 1200);
 }
 
+function wpUndoLastPolylinePoint() {
+  if (typeof WP === 'undefined' || !WP) return false;
+  if (WP.mode === 'draw-poly' && Array.isArray(WP.activePolyPts) && WP.activePolyPts.length > 0) {
+    WP.activePolyPts.pop();
+    if (typeof polygonPoints !== 'undefined') {
+      polygonPoints = WP.activePolyPts.map(p => Cesium.Cartesian3.clone(p));
+    }
+    if (typeof wpRenderActivePolylineVisuals === 'function') wpRenderActivePolylineVisuals();
+    if (typeof wpUpdateUI === 'function') wpUpdateUI();
+    if (typeof showStatus === 'function') {
+      showStatus('ÚLTIMO VÉRTICE DESHECHO (' + WP.activePolyPts.length + ' RESTANTES)', 1500);
+    }
+    return true;
+  }
+  return false;
+}
+window.wpUndoLastPolylinePoint = wpUndoLastPolylinePoint;
+
 function wpCloseActivePolyline() {
   if (WP.activePolyPts.length < 3) {
     showStatus("SE REQUIEREN AL MENOS 3 VERTICES PARA CERRAR LA POLILINEA", 2000);
@@ -2392,6 +2440,9 @@ function wpCloseActivePolyline() {
     fillEnt: null
   };
 
+  if (window.RAundo && typeof window.RAundo.snapPolylines === 'function') {
+    window.RAundo.snapPolylines('Crear ' + polyObj.name);
+  }
   WP.polylines.push(polyObj);
   WP.selectedPolyIdx = WP.polylines.length - 1;
 
@@ -2886,6 +2937,9 @@ function wpInsertPointInSelectedPoly() {
 function wpDeleteSelectedPolyline() {
   if (WP.selectedPolyIdx < 0 || WP.selectedPolyIdx >= WP.polylines.length) return;
   const name = WP.polylines[WP.selectedPolyIdx].name;
+  if (window.RAundo && typeof window.RAundo.snapPolylines === 'function') {
+    window.RAundo.snapPolylines('Eliminar ' + name);
+  }
   WP.polylines.splice(WP.selectedPolyIdx, 1);
   WP.selectedPolyIdx = WP.polylines.length > 0 ? WP.polylines.length - 1 : -1;
   WP.selectedVtxIdx = -1;
@@ -4447,6 +4501,9 @@ function getAzimuthCardinal(deg) {
 
 function clearActivePolyline() {
   if (WP.selectedPolyIdx >= 0 && WP.selectedPolyIdx < WP.polylines.length) {
+    if (window.RAundo && typeof window.RAundo.snapPolylines === 'function') {
+      window.RAundo.snapPolylines('Eliminar polilínea');
+    }
     WP.polylines.splice(WP.selectedPolyIdx, 1);
     WP.selectedPolyIdx = WP.polylines.length > 0 ? WP.polylines.length - 1 : 0;
     polygonPoints = WP.polylines.length > 0 ? WP.polylines[WP.selectedPolyIdx].points.map(p => Cesium.Cartesian3.clone(p)) : [];

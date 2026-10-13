@@ -1414,6 +1414,9 @@ function obsPlaceAt(screenPos) {
     rot: 0,
     alignment: def.alignment || 'vertical'
   };
+  if (global.RAundo && typeof global.RAundo.snapObstacles === 'function') {
+    global.RAundo.snapObstacles('Añadir ' + (def.name || 'obstáculo'));
+  }
   obstacles.push(obs);
   selectedObstacleId = obs.id;
   recalculateLayoutAndObstacles();
