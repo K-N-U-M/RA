@@ -1,35 +1,48 @@
 /**
  * ============================================================================
- * 📷 RA · CAPTURE MODE (Modo captura limpia — P3 UX, 29/09/2026)
+ * 📷 RA · CAPTURE MODE (Modo captura limpia — P3 UX, 29/09/2026 / Actualizado Octubre 2026)
  * ============================================================================
- * Oculta el andamiaje CAD del visor 3D (vértices, polilíneas de faldones,
- * rellenos de planos de trabajo, badges flotantes, tríada/gizmo 2D) para
- * obtener capturas de pantalla limpias con solo la disposición de paneles,
- * obstáculos y edificios.
+ * Oculta TODO el andamiaje CAD y auxiliar del visor 3D:
+ * - Vértices y polilíneas perimetrales de faldones (WP.ents.polys, activePoly)
+ * - Rellenos de planos de trabajo 3D (planePreview, activePlaneMarker, inactivePlanes)
+ * - Tríada y Gizmo Universal 2D/3D (canvas #ra-triad-overlay, WP.ents.gizmos, gizmoEntities)
+ * - Cinta Métrica 3D (líneas WebGL, pines A/B, halo magnético, rótulos de cotas y mini-HUD)
+ * - Vértices de control de huella de edificios 3D (bld_vtx_handle_*)
+ * - Nodos interactivos de codo de cableado ortogonal (ra_route_handle_*)
+ * - Terminales de strings (+/-) y previsualización de cableado manual en trazado
+ * - Contorno de selección de paneles y entidades fantasma de arrastre
+ * - Rótulos 3D de paneles y mapa de calor (pv_label_*, pv_heatmap_label_, colecciones GPU)
+ * - Badges y tooltips HTML flotantes en pantalla (body.ra-capture-mode-active)
  *
- * Uso: tecla `C` (fuera de campos de texto y de modos de dibujo) o el botón
- * flotante "📷 CAPTURA LIMPIA". En modo activo el botón se atenúa (0.15 de
- * opacidad) para no aparecer en la captura; recupera opacidad al pasar el ratón.
+ * Mantiene intactos los elementos físicos: fotogrametría 3D, cubiertas, edificios,
+ * obstáculos 3D, turbinas eólicas, módulos solares con sus texturas PBR,
+ * estructuras de soporte (raíles y zapatas) y tubos volumétricos de cableado.
  *
- * Técnica: los grupos WP.ents.* contienen EXCLUSIVAMENTE andamiaje CAD, así
- * que el toggle muta `entity.show` (no destruye entidades ni primitivas GPU)
- * y oculta el canvas overlay `#ra-triad-overlay`. `renderTriad2D` hace
- * early-return mientras el modo está activo, y wpRenderAllPolylines /
- * wpRenderActivePlaneGizmo re-aplican el ocultado si algo re-renderiza.
+ * Técnica reversible: solo conmuta `entity.show` y primitivas GPU sin destruir nada,
+ * registrando cada entidad para restaurarla fielmente al pulsar 'C' de nuevo.
  * ============================================================================
  */
 (function (global) {
   'use strict';
 
-  // Grupos de WP.ents que son 100% andamiaje CAD (nunca contienen paneles/obstáculos/edificios).
-  // 'gizmos' = handles de la tríada 3D en el vértice seleccionado (círculos azules).
+  // Grupos de WP.ents que son 100% andamiaje CAD (nunca contienen paneles/obstáculos/edificios)
   var GROUPS = ['polys', 'activePoly', 'planePreview', 'activePlaneMarker', 'inactivePlanes', 'gizmos'];
-  // [FIX] Barrido por prefijo de ID: caza TODO andamiaje 'wp_*' aunque haya sido creado por
-  // rutas que no lo registran en WP.ents (p.ej. marcadores legacy del bloque inline) y la
-  // forma activa 'ra_active_shape'. Los cables/equipos usan otros prefijos (ra_route_*, sState)
-  // y NO se tocan. Se registra lo oculto para restaurarlo exactamente.
-  var HIDE_ID_PREFIXES = ['wp_', 'ra_active_shape'];
-  var _hiddenById = [];
+
+  // Prefijos de ID de entidades CAD/auxiliares en viewer.entities
+  var HIDE_ID_PREFIXES = [
+    'wp_',                     // Faldones, vértices, planos, cotas, glow
+    'ra_active_shape',         // Forma elástica en trazado activo
+    'bld_vtx_handle_',         // Esferas de manipulación de vértices de edificios 3D
+    'ra_route_handle_',        // Nodos interactivos de codo de cableado ortogonal
+    'meas_',                   // Pines y etiquetas de la cinta métrica
+    'pv_label_',               // Rótulos 3D de paneles
+    'pv_heatmap_label_',       // Etiquetas 3D de producción solar / heatmap
+    'pv_panel_active_drag_',   // Vista previa de arrastre de panel
+    'pv_panel_outline'         // Contorno de panel seleccionado
+  ];
+
+  var _hiddenEntities = [];
+  var _savedPrimitiveStates = {};
   var state = { enabled: false, btn: null };
 
   function ensureButton() {
@@ -39,9 +52,9 @@
     btn.id = 'ra-capture-mode-btn';
     btn.type = 'button';
     btn.textContent = '📷 CAPTURA LIMPIA (C)';
-    btn.title = 'Oculta vértices, polilíneas, planos de trabajo y tríada CAD para capturas de pantalla limpias. Tecla: C';
+    btn.title = 'Oculta vértices, polilíneas, planos de trabajo, cotas y tríada CAD para capturas de pantalla limpias. Tecla: C';
     Object.assign(btn.style, {
-      display: 'none', // Oculto por petición del usuario, pero la tecla C sigue funcionando
+      display: 'none', // La tecla C sigue siendo el atajo principal
       position: 'fixed', right: '14px', bottom: '46px', zIndex: '9998',
       background: 'rgba(10,16,29,0.85)', color: '#E2E8F0',
       border: '1px solid rgba(56,189,248,0.35)', borderRadius: '8px',
@@ -53,6 +66,18 @@
     document.body.appendChild(btn);
     state.btn = btn;
     return btn;
+  }
+
+  function trackAndHide(e) {
+    if (!e) return;
+    try {
+      if (e.show !== false) {
+        if (_hiddenEntities.indexOf(e) === -1) {
+          _hiddenEntities.push(e);
+        }
+        e.show = false;
+      }
+    } catch (err) { /* entidad no modificable */ }
   }
 
   function eachGroupEntity(fn) {
@@ -76,40 +101,114 @@
     if (c) c.style.display = '';
   }
 
-  function sweepHide() {
-    _hiddenById = [];
+  function sweepEntities() {
     if (!global.viewer || !global.viewer.entities || !Array.isArray(global.viewer.entities.values)) return;
-    global.viewer.entities.values.slice().forEach(function (e) {
+    var list = global.viewer.entities.values.slice();
+    for (var i = 0; i < list.length; i++) {
+      var e = list[i];
+      if (!e) continue;
       var id = e.id;
-      if (typeof id !== 'string') return;
-      for (var i = 0; i < HIDE_ID_PREFIXES.length; i++) {
-        if (id.indexOf(HIDE_ID_PREFIXES[i]) === 0) {
-          e.show = false;
-          _hiddenById.push(e);
-          break;
+      if (typeof id === 'string') {
+        for (var p = 0; p < HIDE_ID_PREFIXES.length; p++) {
+          if (id.indexOf(HIDE_ID_PREFIXES[p]) === 0) {
+            trackAndHide(e);
+            break;
+          }
         }
       }
-    });
-  }
+    }
 
-  function sweepShow() {
-    _hiddenById.forEach(function (e) { try { e.show = true; } catch (err) { /* retirada */ } });
-    _hiddenById = [];
+    // Entidades auxiliares globales específicas
+    if (global.panelOutlineEntity) trackAndHide(global.panelOutlineEntity);
+    if (global.activePanelDragEntity) trackAndHide(global.activePanelDragEntity);
+
+    if (Array.isArray(global.gizmoEntities)) {
+      global.gizmoEntities.forEach(function (g) { trackAndHide(g); });
+    }
+
+    if (global.cableRoutingState && Array.isArray(global.cableRoutingState.previewEntities)) {
+      global.cableRoutingState.previewEntities.forEach(function (cp) { trackAndHide(cp); });
+    }
+
+    if (Array.isArray(global.simulatedStringEntities)) {
+      global.simulatedStringEntities.forEach(function (se) {
+        // Ocultar terminales esféricos (+ / -) de string, manteniendo los cables de string
+        if (se && se.point) trackAndHide(se);
+      });
+    }
+
+    if (global.obsPlacement) {
+      if (Array.isArray(global.obsPlacement.ghost)) {
+        global.obsPlacement.ghost.forEach(function (gh) { trackAndHide(gh); });
+      }
+      if (Array.isArray(global.obsPlacement.cursor)) {
+        global.obsPlacement.cursor.forEach(function (cu) { trackAndHide(cu); });
+      }
+    }
   }
 
   function apply() {
-    eachGroupEntity(function (e) { e.show = false; });
-    sweepHide();
+    // 1. Entidades del plano de trabajo (vértices, líneas, planos P1/P2/P3)
+    eachGroupEntity(function (e) { trackAndHide(e); });
+
+    // 2. Barrido universal de entities (edificios, cables, cinta métrica, paneles)
+    sweepEntities();
+
+    // 3. Cinta métrica 3D (RAMeasureTool)
+    if (global.RAMeasureTool && typeof global.RAMeasureTool.setVisible === 'function') {
+      try { global.RAMeasureTool.setVisible(false); } catch (eM) {}
+    }
+
+    // 4. Colecciones de etiquetas 3D GPU
+    if (global._panelNumberLabelCollection && !global._panelNumberLabelCollection.isDestroyed()) {
+      _savedPrimitiveStates.panelLabels = global._panelNumberLabelCollection.show;
+      global._panelNumberLabelCollection.show = false;
+    }
+    if (global._solarHeatmapLabelCollection && !global._solarHeatmapLabelCollection.isDestroyed()) {
+      _savedPrimitiveStates.heatmapLabels = global._solarHeatmapLabelCollection.show;
+      global._solarHeatmapLabelCollection.show = false;
+    }
+
+    // 5. Overlays 2D y badges flotantes HTML
     hideCanvas();
+    if (document.body) {
+      document.body.classList.add('ra-capture-mode-active');
+    }
+
+    // 6. Solicitar repintado de escena
     if (global.viewer && global.viewer.scene && typeof global.viewer.scene.requestRender === 'function') {
       global.viewer.scene.requestRender();
     }
   }
 
   function restore() {
-    eachGroupEntity(function (e) { e.show = true; });
-    sweepShow();
+    // 1. Restaurar visibilidad de todas las entidades ocultadas
+    _hiddenEntities.forEach(function (e) {
+      try { e.show = true; } catch (err) { /* entidad retirada */ }
+    });
+    _hiddenEntities = [];
+
+    // 2. Cinta métrica 3D
+    if (global.RAMeasureTool && typeof global.RAMeasureTool.setVisible === 'function') {
+      try { global.RAMeasureTool.setVisible(true); } catch (eM) {}
+    }
+
+    // 3. Colecciones de etiquetas 3D GPU
+    if (global._panelNumberLabelCollection && !global._panelNumberLabelCollection.isDestroyed()) {
+      global._panelNumberLabelCollection.show = (_savedPrimitiveStates.panelLabels !== false);
+    }
+    if (global._solarHeatmapLabelCollection && !global._solarHeatmapLabelCollection.isDestroyed()) {
+      global._solarHeatmapLabelCollection.show = (_savedPrimitiveStates.heatmapLabels !== false);
+    }
+    _savedPrimitiveStates = {};
+
+    // 4. Overlays 2D y badges HTML
     showCanvas();
+    if (document.body) {
+      document.body.classList.remove('ra-capture-mode-active');
+    }
+
+    // 5. Solicitar repintado de escena
     if (global.viewer && global.viewer.scene && typeof global.viewer.scene.requestRender === 'function') {
       global.viewer.scene.requestRender();
     }
@@ -145,7 +244,7 @@
       apply();
       updateBtn();
       if (typeof global.showToast === 'function') {
-        global.showToast('CAPTURA LIMPIA', 'Andamiaje CAD oculto (vértices, polilíneas, planos, tríada). Pulsa C o el botón para restaurar.', 'info', 3500);
+        global.showToast('CAPTURA LIMPIA', 'Andamiaje CAD, cotas y vértices ocultos. Pulsa C para restaurar.', 'info', 3500);
       }
     },
     disable: function () {

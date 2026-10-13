@@ -2423,4 +2423,16 @@
   transition: transform 0.2s ease;
 }
 
-
+/* ==========================================================================
+   MODO CAPTURA LIMPIA (TECLA C) - SILENCIADO TOTAL DE OVERLAYS Y BADGES HTML
+   ========================================================================== */
+body.ra-capture-mode-active .ra-plane-badge,
+body.ra-capture-mode-active .ra-poly-badge,
+body.ra-capture-mode-active .ra-equipment-badge,
+body.ra-capture-mode-active #ra-measure-hud,
+body.ra-capture-mode-active #ra-heatmap-panel-tooltip,
+body.ra-capture-mode-active #ra-triad-overlay {
+  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}

@@ -777,6 +777,31 @@
     }
   }
 
+  // Control de visibilidad reversible para modo captura limpia (tecla C)
+  function setVisible(visible) {
+    var isVisible = !!visible;
+    if (_state.polylineCollection && !_state.polylineCollection.isDestroyed()) {
+      _state.polylineCollection.show = isVisible;
+    }
+    if (Array.isArray(_state.fixedEntities)) {
+      _state.fixedEntities.forEach(function(ent) {
+        try { ent.show = isVisible; } catch(e) {}
+      });
+    }
+    if (Array.isArray(_state.previewEntities)) {
+      _state.previewEntities.forEach(function(ent) {
+        try { ent.show = isVisible; } catch(e) {}
+      });
+    }
+    if (_state.snapIndicatorEntity) {
+      try { _state.snapIndicatorEntity.show = isVisible; } catch(e) {}
+    }
+    if (_state.hudElement) {
+      _state.hudElement.style.display = (isVisible && _state.active) ? 'block' : 'none';
+    }
+    requestSceneRender();
+  }
+
   // ── ATAJOS DE TECLADO GLOBALES ([M], [S], [Escape]) ───────────────────────
   function setupKeyboardShortcuts() {
     if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') return;
@@ -822,6 +847,7 @@
     activate: activate,
     deactivate: deactivate,
     toggle: toggle,
+    setVisible: setVisible,
     setSnapping: setSnapping,
     toggleSnapping: toggleSnapping,
     clearMeasurements: clearMeasurements,
