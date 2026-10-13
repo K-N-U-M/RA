@@ -1951,7 +1951,7 @@ function wpSetPlaneTilt(targetTiltDeg) {
 }
 window.wpSetPlaneTilt = wpSetPlaneTilt;
 
-function wpDeleteActivePlane() {
+function wpDeleteActivePlane(skipConfirm = false) {
   if (WP.activePlaneIdx < 0 || !WP.planes[WP.activePlaneIdx]) return;
 
   // ── Paso 1: Confirmación ──────────────────────────────────────────────────
@@ -1974,17 +1974,18 @@ function wpDeleteActivePlane() {
     msg += '\n\nEsta acción no se puede deshacer.';
   }
 
-  if (!window.confirm(msg)) return; // ← el usuario canceló
+  if (!skipConfirm && !window.confirm(msg)) return; // ← el usuario canceló
 
   // Paso 2 eliminado - delegado al regenerador central
 
   // ── Paso 3: Borrar polilíneas del plano eliminado ─────────────────────────
   if (Array.isArray(WP.polylines)) {
     // BUG FIX: Explícitamente eliminar entidades 3D antes de perder su referencia
+    const curViewer = (typeof viewer !== 'undefined' && viewer) ? viewer : (window.viewer || null);
     WP.polylines.forEach(p => {
-      if (p && p.planeIdx === deletedIdx) {
-        if (p.lineEnt && typeof viewer !== 'undefined') viewer.entities.remove(p.lineEnt);
-        if (p.fillEnt && typeof viewer !== 'undefined') viewer.entities.remove(p.fillEnt);
+      if (p && p.planeIdx === deletedIdx && curViewer && curViewer.entities) {
+        if (p.lineEnt) try { curViewer.entities.remove(p.lineEnt); } catch(e){}
+        if (p.fillEnt) try { curViewer.entities.remove(p.fillEnt); } catch(e){}
       }
     });
 
@@ -2031,11 +2032,72 @@ function wpDeleteActivePlane() {
     if (typeof wpClearInverterAndCables === 'function') wpClearInverterAndCables();
   }
   
-  // ── Actualizar UI y Renderizar estado ───────────────────────────────────
+  // ── Actualizar UI y Renderizar estado (BARRIDO INTEGRAL DE 4 FASES) ────────
   wpClearEntGroup('activePlaneMarker');
   wpClearEntGroup('inactivePlanes');
+  wpClearEntGroup('planePreview');
+
+  // Fase 1: Purga explícita de entidades fijas por ID en el visor Cesium
+  const curViewer = (typeof viewer !== 'undefined' && viewer) ? viewer : (window.viewer || null);
+  if (curViewer && curViewer.entities) {
+    const fixedIds = [
+      'wp_active_plane_mesh',
+      'wp_active_plane_border',
+      'wp_active_plane_origin_dot',
+      'wp_active_plane_vtx_0',
+      'wp_active_plane_vtx_1',
+      'wp_active_plane_vtx_2',
+      'wp_plane_preview_pt_1',
+      'wp_plane_preview_pt_2',
+      'wp_plane_preview_pt_3',
+      'wp_plane_preview_line_1_2'
+    ];
+    fixedIds.forEach(id => {
+      try {
+        if (curViewer.entities.getById(id)) curViewer.entities.removeById(id);
+      } catch (eId) {}
+    });
+    for (let pi = 0; pi <= 25; pi++) {
+      try {
+        if (curViewer.entities.getById('wp_inactive_plane_mesh_' + pi)) curViewer.entities.removeById('wp_inactive_plane_mesh_' + pi);
+        if (curViewer.entities.getById('wp_inactive_plane_border_' + pi)) curViewer.entities.removeById('wp_inactive_plane_border_' + pi);
+        for (let vi = 0; vi <= 5; vi++) {
+          if (curViewer.entities.getById('wp_inactive_plane_vtx_' + pi + '_' + vi)) curViewer.entities.removeById('wp_inactive_plane_vtx_' + pi + '_' + vi);
+        }
+      } catch (eInact) {}
+    }
+  }
+
+  // Fase 2: Purga garantizada de etiquetas 2D asociadas al plano
+  if (typeof window !== 'undefined') {
+    if (Array.isArray(window.labels2DRegistry)) {
+      window.labels2DRegistry = window.labels2DRegistry.filter(l => {
+        if (!l) return false;
+        const txt = typeof l.text === 'function' ? l.text() : (l.text || '');
+        return !txt.includes('🎯 PLANO') && !txt.includes('🎯 Plano') && !txt.includes(planeName);
+      });
+    }
+    if (Array.isArray(window.LabelEntities)) {
+      window.LabelEntities = window.LabelEntities.filter(l => {
+        if (!l) return false;
+        const txt = (l.label && l.label.text) || '';
+        return !txt.includes('🎯 PLANO') && !txt.includes('🎯 Plano') && !txt.includes(planeName);
+      });
+    }
+  }
+
+  // Fase 3: Si queda otro plano, activarlo; si no, limpiar overlay transparente
   if (wpGetActivePlane()) {
     wpRenderActivePlaneGizmo();
+  } else {
+    if (typeof triadCtx !== 'undefined' && triadCtx && typeof triadCanvas !== 'undefined' && triadCanvas) {
+      try { triadCtx.clearRect(0, 0, triadCanvas.width, triadCanvas.height); } catch (eCl) {}
+    }
+  }
+
+  // Fase 4: Sincronización y refresco completo
+  if (typeof renderTriad2D === 'function') {
+    try { renderTriad2D(); } catch (eTriad) {}
   }
   
   if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
@@ -2052,8 +2114,21 @@ function wpDeleteActivePlane() {
   if (typeof wpPopulateFaldonCard === 'function') wpPopulateFaldonCard();
   if (typeof wpUpdateControlsAvailability === 'function') wpUpdateControlsAvailability();
 
+  if (typeof ProjectHierarchy !== 'undefined' && ProjectHierarchy.notify) {
+    try { ProjectHierarchy.notify('plane_removed', { index: deletedIdx }); } catch (ePH) {}
+  }
+  if (typeof renderUiOutliner === 'function') {
+    try { renderUiOutliner(); } catch (eOut) {}
+  }
+
   wpUpdateUI();
   showStatus('<i data-lucide="trash-2" class="icon-sm"></i> "' + planeName + '" ELIMINADO — polilíneas y obstáculos borrados', 2500);
+}
+
+function wpDeletePlane(planeIdx, skipConfirm = false) {
+  if (typeof planeIdx !== 'number' || planeIdx < 0 || !WP.planes || !WP.planes[planeIdx]) return;
+  WP.activePlaneIdx = planeIdx;
+  wpDeleteActivePlane(skipConfirm);
 }
 
 
@@ -2385,9 +2460,20 @@ function wpRenderAllPolylines() {
 }
 
 function wpClearEntGroup(key) {
-  (WP.ents[key] || []).forEach(e => viewer.entities.remove(e));
+  const curViewer = (typeof viewer !== 'undefined' && viewer) ? viewer : (window.viewer || null);
+  if (curViewer && curViewer.entities) {
+    (WP.ents[key] || []).forEach(e => {
+      if (e) {
+        try {
+          curViewer.entities.remove(e);
+        } catch (err) {}
+      }
+    });
+  }
   WP.ents[key] = [];
-  if (typeof viewer !== 'undefined' && viewer && viewer.scene && typeof viewer.scene.requestRender === 'function') viewer.scene.requestRender();
+  if (curViewer && curViewer.scene && typeof curViewer.scene.requestRender === 'function') {
+    try { curViewer.scene.requestRender(); } catch (eR) {}
+  }
 }
 
 // ── Actualización de la Interfaz del Módulo 1 ────────────────────────────────
@@ -4638,6 +4724,7 @@ function initUnifiedWorkPlaneSystem() {
   if (typeof wpSelectActivePlane !== 'undefined') window.wpSelectActivePlane = wpSelectActivePlane;
   if (typeof wpEditActivePlane !== 'undefined') window.wpEditActivePlane = wpEditActivePlane;
   if (typeof wpDeleteActivePlane !== 'undefined') window.wpDeleteActivePlane = wpDeleteActivePlane;
+  if (typeof wpDeletePlane !== 'undefined') window.wpDeletePlane = wpDeletePlane;
   if (typeof wpTogglePlaneVertices !== 'undefined') window.wpTogglePlaneVertices = wpTogglePlaneVertices;
   if (typeof wpSetAxisMode !== 'undefined') window.wpSetAxisMode = wpSetAxisMode;
   if (typeof wpProjectPointToActivePlane !== 'undefined') window.wpProjectPointToActivePlane = wpProjectPointToActivePlane;

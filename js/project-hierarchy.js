@@ -544,6 +544,9 @@
       } else if (type === 'plane' && wp && wp.planes && wp.planes[idOrIdx]) {
         if (typeof global.wpDeletePlane === 'function') {
           global.wpDeletePlane(idOrIdx);
+        } else if (typeof global.wpDeleteActivePlane === 'function') {
+          wp.activePlaneIdx = idOrIdx;
+          global.wpDeleteActivePlane();
         } else {
           wp.planes.splice(idOrIdx, 1);
           if (wp.activePlaneIdx >= wp.planes.length) wp.activePlaneIdx = wp.planes.length - 1;
