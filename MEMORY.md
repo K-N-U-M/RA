@@ -308,5 +308,22 @@ calculateFinancialModel()  ← Definición canónica en financials.js (~L491)
   - Tarjetas destacadas de diagnóstico IA y de histórico anual detectado.
   - Sincronización inmediata con el estudio solar (`applyBillToBudget`): inyecta el consumo anual y la factura media en el presupuesto y dimensionamiento de paneles.
 
+---
 
+## 18. Etiquetas 2D On-Hover con Fade In (150ms) y Fade Out (300ms) (Zero Clutter Architecture) (Octubre 2026)
 
+- **Estado:** ✅ Implementado y verificado en js/working-plane.js e index.html.
+- **Objetivo y Filosofía Zero Clutter:**
+  - Erradicado el apiñamiento visual de múltiples rótulos técnicos simultáneos en la cubierta 3D (planos de trabajo, faldón activo, cuadro DC, inversor, combiner box, contador CGMP).
+  - En reposo, la escena se mantiene 100% limpia sin textos superpuestos sobre fotogrametría ni paneles fotovoltaicos.
+- **Cinemática Temporal de Alta Precisión:**
+  - **Aparición (*Fade In*):** 150 ms (dt / 0.15), con respuesta instantánea y táctil al posar el cursor sobre el elemento o su rótulo.
+  - **Desvanecimiento (*Fade Out*):** 300 ms (dt / 0.30), ofreciendo una salida progresiva y suave sin cortes bruscos.
+- **Detección Dual Inteligente:**
+  - Detección espacial sobre el objeto 3D proyectado (polígono de faldón, triángulo de plano o proximidad a equipo eléctrico en pared/cubierta <= 42 px).
+  - Detección en la caja delimitadora 2D de la propia etiqueta con margen de holgura (+8 px), garantizando lectura cómoda y continua sin parpadeos.
+- **Bucle de Animación Autónomo y Cero Consumo en Reposo:**
+  - Gestión centralizada de estados de opacidad interpolada _labelHoverStates (Map).
+  - Ciclo de renderizado activo a 60 FPS gobernado por equestAnimationFrame solo mientras existan transiciones activas (0.0 < alpha < 1.0).
+  - Desconexión total del ciclo de animación una vez estabilizadas las opacidades en 0.0 o 1.0 (cero impacto en CPU/GPU durante el reposo).
+  - Las etiquetas invisibles (alpha <= 0.005) no se dibujan ni reservan espacio en el resolvedor de colisiones AABB (_drawnAABBs), permitiendo que solo los rótulos activos ocupen su espacio natural.
