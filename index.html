@@ -8408,7 +8408,9 @@ function wpPlaceGridMeterAtPosition(cartesian, skipRecurse = false) {
       bg: 'rgba(15, 23, 42, 0.92)',
       borderColor: '#0284C7',
       textColor: '#FFFFFF',
-      font: "bold 10px 'JetBrains Mono', monospace"
+      font: "bold 10px 'JetBrains Mono', monospace",
+      category: 'electrical',
+      equipmentType: 'meter'
     });
   } catch(eEnt) {
     window.RA && window.RA.log && window.RA.log.debug('Error al renderizar marcador de contador:', eEnt);
@@ -8550,7 +8552,9 @@ function wpPlaceCombinerBoxAtPosition(cartesian) {
       bg: 'rgba(15, 23, 42, 0.92)',
       borderColor: '#10B981',
       textColor: '#FFFFFF',
-      font: "bold 10px 'JetBrains Mono', monospace"
+      font: "bold 10px 'JetBrains Mono', monospace",
+      category: 'electrical',
+      equipmentType: 'combinerBox'
     });
   } catch(eEnt) {
     window.RA && window.RA.log && window.RA.log.debug('Error renderizando Combiner Box:', eEnt);
@@ -9921,7 +9925,9 @@ function wpPlaceInverterAtPosition(cartesian) {
       bg: 'rgba(15, 23, 42, 0.92)',
       borderColor: '#F59E0B',
       textColor: '#FFFFFF',
-      font: "bold 10px 'JetBrains Mono', monospace"
+      font: "bold 10px 'JetBrains Mono', monospace",
+      category: 'electrical',
+      equipmentType: 'inverter'
     });
 
     // <i data-lucide=\"rocket\" class=\"icon-sm\"></i> GEMELO DIGITAL 3D: CUADRO DE PROTECCIÓN DC ACOPLADO
@@ -9970,7 +9976,9 @@ function wpPlaceInverterAtPosition(cartesian) {
       bg: 'rgba(15, 23, 42, 0.92)',
       borderColor: '#D97706',
       textColor: '#FFFFFF',
-      font: "bold 9.5px 'JetBrains Mono', monospace"
+      font: "bold 9.5px 'JetBrains Mono', monospace",
+      category: 'electrical',
+      equipmentType: 'dcProtection'
     });
   } catch(eEnt) {
     window.RA && window.RA.log && window.RA.log.debug('Error al renderizar marcador de inversor:', eEnt);

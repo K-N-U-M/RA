@@ -112,8 +112,8 @@ window.triadState = triadState;
 
 // ── Variables de seguimiento del ratón para cursor de fallback ──────────
 // -- Tracking global del raton y activacion inteligente de la Triada 3D --
-var _triadMouseX = window.innerWidth / 2;
-var _triadMouseY = window.innerHeight / 2;
+var _triadMouseX = -9999;
+var _triadMouseY = -9999;
 
 function cursorGizmoClear() {
   triadState.active = false;
@@ -843,6 +843,73 @@ function toScreen(pos3D) {
   return null;
 }
 
+// ── GESTIÓN DE ANIMACIÓN Y FADE IN / FADE OUT ON-HOVER (ZERO CLUTTER) ────────
+var _labelHoverStates = (typeof _labelHoverStates !== 'undefined') ? _labelHoverStates : new Map();
+var _hoverFadeRafId = null;
+var _hasHoverFadeTransitions = false;
+
+function _requestHoverFadeNextFrame() {
+  if (_hoverFadeRafId) return;
+  if (typeof requestAnimationFrame !== 'function') return;
+  _hoverFadeRafId = requestAnimationFrame(() => {
+    _hoverFadeRafId = null;
+    if (typeof renderTriad2D === 'function') renderTriad2D();
+    const scene = typeof viewer !== 'undefined' && viewer ? viewer.scene : (window.viewer ? window.viewer.scene : null);
+    if (scene && typeof scene.requestRender === 'function') {
+      scene.requestRender();
+    }
+  });
+}
+
+function _isCursorInBox(mx, my, box, pad) {
+  if (!box || typeof mx !== 'number' || typeof my !== 'number') return false;
+  const p = (pad !== undefined) ? pad : 8;
+  return mx >= box.x - p && mx <= box.x + box.w + p &&
+         my >= box.y - p && my <= box.y + box.h + p;
+}
+
+function _isPointInScreenPolygon(px, py, screenPts) {
+  if (!screenPts || screenPts.length < 3) return false;
+  let inside = false;
+  for (let i = 0, j = screenPts.length - 1; i < screenPts.length; j = i++) {
+    const xi = screenPts[i].x, yi = screenPts[i].y;
+    const xj = screenPts[j].x, yj = screenPts[j].y;
+    const intersect = ((yi > py) !== (yj > py)) && (px < (xj - xi) * (py - yi) / (yj - yi) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+function _updateLabelHoverAlpha(key, isHovered, now) {
+  let state = _labelHoverStates.get(key);
+  if (!state) {
+    state = {
+      alpha: 0.0,
+      targetAlpha: 0.0,
+      lastTime: now,
+      box: null
+    };
+    _labelHoverStates.set(key, state);
+  }
+  const dt = Math.min(0.1, Math.max(0.001, (now - (state.lastTime || now)) / 1000.0));
+  state.lastTime = now;
+  state.targetAlpha = isHovered ? 1.0 : 0.0;
+
+  if (state.alpha < state.targetAlpha) {
+    // Fade in: 150 ms (0.15 s)
+    state.alpha = Math.min(1.0, state.alpha + dt / 0.15);
+  } else if (state.alpha > state.targetAlpha) {
+    // Fade out: 300 ms (0.30 s)
+    state.alpha = Math.max(0.0, state.alpha - dt / 0.30);
+  }
+
+  if (Math.abs(state.alpha - state.targetAlpha) > 0.002) {
+    _hasHoverFadeTransitions = true;
+  }
+
+  return state;
+}
+
 function renderTriad2D() {
   if (typeof window !== 'undefined' && window.RACapture && window.RACapture.enabled) return; // [CAPTURA] overlay CAD oculto
   try {
@@ -851,6 +918,11 @@ function renderTriad2D() {
     if (!triadCtx || !triadCanvas || !scene) return;
     const camera = scene ? scene.camera : (typeof viewer !== 'undefined' && viewer ? viewer.camera : (window.viewer ? window.viewer.camera : null));
     triadCtx.clearRect(0, 0, triadCanvas.width, triadCanvas.height);
+
+    _hasHoverFadeTransitions = false;
+    const animNow = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    const hoverMouseX = (typeof _triadMouseX === 'number') ? _triadMouseX : -9999;
+    const hoverMouseY = (typeof _triadMouseY === 'number') ? _triadMouseY : -9999;
 
     // ── LÍNEA GUÍA ELÁSTICA EN TIEMPO REAL (RUBBER-BAND 2D SCREEN-SPACE AUTÓNOMA) ──
     if (typeof WP !== 'undefined' && WP && WP.mode === 'define-plane' && WP.planePts && WP.planePts.length > 0) {
@@ -1079,11 +1151,11 @@ function renderTriad2D() {
 
     const _drawnAABBs = []; // Cajas 2D delimitadoras para evitar pisado entre etiquetas
 
-    // ── ETIQUETAS 2D DE PLANOS DE TRABAJO (SIEMPRE VISIBLES SOBRE LA GEOMETRÍA) ──
+    // ── ETIQUETAS 2D DE PLANOS DE TRABAJO (VISIBLES ON-HOVER CON FADE IN 150ms / FADE OUT 300ms) ──
     if (typeof window !== "undefined" && window.areLabelsVisible !== false && typeof WP !== "undefined" && WP && Array.isArray(WP.planes) && WP.planes.length > 0) {
       try {
         const currentCamera = typeof viewer !== 'undefined' && viewer ? viewer.camera : (window.viewer ? window.viewer.camera : null);
-  const camPos = (currentCamera && currentCamera.positionWC) ? currentCamera.positionWC : ((currentCamera && currentCamera.position) ? currentCamera.position : null);
+        const camPos = (currentCamera && currentCamera.positionWC) ? currentCamera.positionWC : ((currentCamera && currentCamera.position) ? currentCamera.position : null);
         WP.planes.forEach((pl, idx) => {
           if (!pl || !pl.pts3D || pl.pts3D.length < 3) return;
           const isActive = (idx === WP.activePlaneIdx);
@@ -1107,6 +1179,31 @@ function renderTriad2D() {
           if (!sPt || typeof sPt.x !== "number") return;
           if (sPt.x < -100 || sPt.x > window.innerWidth + 100 || sPt.y < -50 || sPt.y > window.innerHeight + 50) return;
 
+          // ── EVALUACIÓN HOVER DEL PLANO DE TRABAJO ──
+          const plKey = 'wp_plane_' + (pl.id || idx);
+          let isHovered = false;
+          if (window.forceShowAllLabels) {
+            isHovered = true;
+          } else {
+            // 1. Cursor dentro del triángulo proyectado del plano en pantalla
+            const p1s = toScreen(p1), p2s = toScreen(p2), p3s = toScreen(p3);
+            if (p1s && p2s && p3s && _isPointInScreenPolygon(hoverMouseX, hoverMouseY, [p1s, p2s, p3s])) {
+              isHovered = true;
+            }
+            // 2. Proximidad al centroide del plano
+            if (!isHovered && Math.hypot(hoverMouseX - sPt.x, hoverMouseY - sPt.y) <= 45) {
+              isHovered = true;
+            }
+            // 3. Cursor sobre la caja de la propia etiqueta
+            const prevState = _labelHoverStates.get(plKey);
+            if (!isHovered && prevState && prevState.box && _isCursorInBox(hoverMouseX, hoverMouseY, prevState.box, 8)) {
+              isHovered = true;
+            }
+          }
+
+          const hState = _updateLabelHoverAlpha(plKey, isHovered, animNow);
+          if (hState.alpha <= 0.005) return; // Zero Clutter en reposo
+
           const tiltStr = (typeof pl.tiltDeg === "number" ? pl.tiltDeg.toFixed(1) : "0.0") + "°";
           const cardStr = (typeof getAzimuthCardinal === "function" && typeof pl.azimuthDeg === "number") 
             ? getAzimuthCardinal(pl.azimuthDeg) 
@@ -1116,6 +1213,7 @@ function renderTriad2D() {
             : ("Plano #" + (idx + 1) + " · " + tiltStr);
 
           triadCtx.save();
+          triadCtx.globalAlpha = hState.alpha;
           triadCtx.font = isActive ? "bold 11px sans-serif" : "bold 10px sans-serif";
           const textW = triadCtx.measureText(titleStr).width;
           const padX = 8;
@@ -1133,7 +1231,10 @@ function renderTriad2D() {
               boxY = prev.y - boxH - 4; // Desplazar hacia arriba para no pisarse
             }
           }
-          _drawnAABBs.push({ x: boxX, y: boxY, w: boxW, h: boxH });
+          if (hState.alpha > 0.1) {
+            _drawnAABBs.push({ x: boxX, y: boxY, w: boxW, h: boxH });
+          }
+          hState.box = { x: boxX, y: boxY, w: boxW, h: boxH };
 
           // Fondo badge translúcido AAA
           triadCtx.fillStyle = isActive ? "rgba(15, 23, 42, 0.88)" : "rgba(15, 23, 42, 0.72)";
@@ -1168,7 +1269,7 @@ function renderTriad2D() {
     if (typeof window !== "undefined" && window.areLabelsVisible !== false && Array.isArray(window.labels2DRegistry) && window.labels2DRegistry.length > 0) {
       try {
         const currentCamera = typeof viewer !== 'undefined' && viewer ? viewer.camera : (window.viewer ? window.viewer.camera : null);
-  const camPos = (currentCamera && currentCamera.positionWC) ? currentCamera.positionWC : ((currentCamera && currentCamera.position) ? currentCamera.position : null);
+        const camPos = (currentCamera && currentCamera.positionWC) ? currentCamera.positionWC : ((currentCamera && currentCamera.position) ? currentCamera.position : null);
         const curStep = (typeof wpCurrentStep !== "undefined") ? wpCurrentStep : ((typeof currentStep !== "undefined") ? currentStep : 1);
 
         window.labels2DRegistry.forEach(item => {
@@ -1194,17 +1295,85 @@ function renderTriad2D() {
           const offY = (item.pixelOffsetY !== undefined) ? item.pixelOffsetY : -18;
           const anchorY = sPt.y + offY;
 
-          // 2. Modo "Inspect On Hover": Si la etiqueta es secundaria/cable, solo mostrar si el puntero está cerca (< 40px)
-          if (item.opts && item.opts.inspectOnHover) {
-            const dMouse = Math.hypot((typeof _triadMouseX !== 'undefined' ? _triadMouseX : 0) - sPt.x, (typeof _triadMouseY !== 'undefined' ? _triadMouseY : 0) - anchorY);
-            if (dMouse > 40) return;
-          }
-
           const text = (typeof item.text === "function") ? item.text() : (item.text || "");
           if (!text) return;
 
+          // ── DETERMINAR SI LA ETIQUETA ES DE TIPO HOVER (FALDÓN, CUADRO ELÉCTRICO, PLANO, CABLE) ──
+          const itemCat = (item.opts && item.opts.category) ? item.opts.category : '';
+          const isRoof = itemCat === 'roof' || /FALD[OÓ]N/i.test(text);
+          const isElectrical = itemCat === 'electrical' || /CUADRO|INVERSOR|COMBINER|CONTADOR|CGMP|PROTECCI[OÓ]N/i.test(text);
+          const isPlane = itemCat === 'plane' || /PLANO ACTIVO/i.test(text);
+          const isCable = itemCat === 'cable';
+          const isHoverOnly = isRoof || isElectrical || isPlane || isCable || (item.opts && item.opts.inspectOnHover);
+
+          const itemKey = item.id || ('lbl_' + text.substring(0, 16));
+          let isHovered = false;
+
+          if (window.forceShowAllLabels || !isHoverOnly) {
+            isHovered = true;
+          } else {
+            const prevState = _labelHoverStates.get(itemKey);
+
+            // A) Si el cursor está sobre la propia caja de la etiqueta
+            if (prevState && prevState.box && _isCursorInBox(hoverMouseX, hoverMouseY, prevState.box, 8)) {
+              isHovered = true;
+            }
+
+            // B) Detección según categoría
+            if (!isHovered && isRoof) {
+              // 1. Proximidad al punto ancla del badge del faldón
+              if (Math.hypot(hoverMouseX - sPt.x, hoverMouseY - anchorY) <= 45 || Math.hypot(hoverMouseX - sPt.x, hoverMouseY - sPt.y) <= 45) {
+                isHovered = true;
+              }
+              // 2. O cursor dentro del polígono del faldón en pantalla
+              if (!isHovered && typeof WP !== 'undefined' && WP && WP.polylines) {
+                let targetPoly = null;
+                if (item.opts && item.opts.polyIdx !== undefined && WP.polylines[item.opts.polyIdx]) {
+                  targetPoly = WP.polylines[item.opts.polyIdx];
+                } else {
+                  const m = text.match(/FALD[OÓ]N\s*#(\d+)/i);
+                  if (m) {
+                    const idx = parseInt(m[1], 10) - 1;
+                    targetPoly = WP.polylines[idx];
+                  }
+                }
+                if (targetPoly && (targetPoly.pts3D || targetPoly.pts)) {
+                  const pts = targetPoly.pts3D || targetPoly.pts;
+                  const sPolyPts = pts.map(p => toScreen(p)).filter(Boolean);
+                  if (sPolyPts.length >= 3 && _isPointInScreenPolygon(hoverMouseX, hoverMouseY, sPolyPts)) {
+                    isHovered = true;
+                  }
+                }
+              }
+            } else if (!isHovered && isElectrical) {
+              // Proximidad al equipo 3D o al ancla de su etiqueta o al pasillo entre ambos
+              const dBase = Math.hypot(hoverMouseX - sPt.x, hoverMouseY - sPt.y);
+              const dAnchor = Math.hypot(hoverMouseX - sPt.x, hoverMouseY - anchorY);
+              const inCorridor = Math.abs(hoverMouseX - sPt.x) <= 32 &&
+                hoverMouseY >= Math.min(sPt.y, anchorY) - 12 &&
+                hoverMouseY <= Math.max(sPt.y, anchorY) + 12;
+              if (dBase <= 42 || dAnchor <= 36 || inCorridor) {
+                isHovered = true;
+              }
+            } else if (!isHovered && isPlane) {
+              // Proximidad al origen del plano
+              if (Math.hypot(hoverMouseX - sPt.x, hoverMouseY - sPt.y) <= 45) {
+                isHovered = true;
+              }
+            } else if (!isHovered && isCable) {
+              // Proximidad al tramo del cable (40px)
+              if (Math.hypot(hoverMouseX - sPt.x, hoverMouseY - anchorY) <= 40) {
+                isHovered = true;
+              }
+            }
+          }
+
+          const hState = _updateLabelHoverAlpha(itemKey, isHovered, animNow);
+          if (hState.alpha <= 0.005) return; // Zero Clutter en reposo
+
           const lines = text.split("\n");
           triadCtx.save();
+          triadCtx.globalAlpha = hState.alpha;
           const font = (item.opts && item.opts.font) ? item.opts.font : "bold 10px 'JetBrains Mono', monospace";
           triadCtx.font = font;
 
@@ -1223,7 +1392,7 @@ function renderTriad2D() {
           let boxX = sPt.x - boxW / 2;
           let boxY = anchorY - boxH / 2;
 
-          // 3. Comprobación AABB anti-solapamiento (evitar que se pisen)
+          // Comprobación AABB anti-solapamiento (evitar que se pisen entre sí las etiquetas visibles)
           for (let b = 0; b < _drawnAABBs.length; b++) {
             const prev = _drawnAABBs[b];
             if (boxX < prev.x + prev.w && boxX + boxW > prev.x &&
@@ -1231,7 +1400,10 @@ function renderTriad2D() {
               boxY = prev.y - boxH - 4; // Desplazar hacia arriba para no pisar la etiqueta anterior
             }
           }
-          _drawnAABBs.push({ x: boxX, y: boxY, w: boxW, h: boxH });
+          if (hState.alpha > 0.1) {
+            _drawnAABBs.push({ x: boxX, y: boxY, w: boxW, h: boxH });
+          }
+          hState.box = { x: boxX, y: boxY, w: boxW, h: boxH };
 
           // Fondo
           triadCtx.fillStyle = (item.opts && item.opts.bg) ? item.opts.bg : "rgba(15, 23, 42, 0.90)";
@@ -1273,6 +1445,11 @@ function renderTriad2D() {
           window.renderUniversalGizmo2D();
         }
       } catch(_e) { console.warn("[Triad] renderUniversalGizmo2D error:", _e); }
+    }
+
+    // 🔄 REFRESH AUTOMÁTICO rAF SI HAY TRANSICIONES ACTIVAS (FADE IN 150ms / FADE OUT 300ms)
+    if (_hasHoverFadeTransitions) {
+      _requestHoverFadeNextFrame();
     }
   } catch(err) {
     console.error("[Triad] renderTriad2D error:", err);
@@ -1818,7 +1995,8 @@ function wpRenderActivePlaneGizmo() {
         bg: 'rgba(245, 158, 11, 0.90)', // Color ámbar corporativo de plano
         borderColor: '#FCD34D',
         textColor: '#FFFFFF',
-        font: "bold 11px 'JetBrains Mono', monospace"
+        font: "bold 11px 'JetBrains Mono', monospace",
+        category: 'plane'
       });
       if (lblEnt) WP.ents.activePlaneMarker.push(lblEnt);
     }
@@ -2430,7 +2608,9 @@ function wpRenderAllPolylines() {
           bg: 'rgba(2, 132, 199, 0.90)',
           borderColor: '#38BDF8',
           textColor: '#FFFFFF',
-          font: "bold 10.5px 'JetBrains Mono', monospace"
+          font: "bold 10.5px 'JetBrains Mono', monospace",
+          category: 'roof',
+          polyIdx: i
         });
         if (badgeEnt) WP.ents.polys.push(badgeEnt);
       }
