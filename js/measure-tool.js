@@ -28,8 +28,10 @@
     hoverSnapTarget: null,   // Metadatos del objeto al que se ha hecho snap
     measurements: [],        // Historial de cotas finalizadas [{ id, pts, d3D, d2D, dZ }]
     handler: null,           // Cesium.ScreenSpaceEventHandler
-    dataSource: null,        // Cesium.CustomDataSource para cotas fijas
-    previewEntities: []      // Entidades de la cota dinámica en tiempo real
+    polylineCollection: null,// Cesium.PolylineCollection (renderizado WebGL directo en primitives)
+    previewPolyline: null,   // Cesium.Polyline para la línea elástica viva
+    fixedEntities: [],       // Entidades Cesium fijas (pines y etiquetas en viewer.entities)
+    previewEntities: []      // Entidades Cesium dinámicas (pines y etiqueta en viewer.entities)
   };
 
   var SNAP_THRESHOLD_PX = 24; // Radio de atracción magnética en píxeles de pantalla
@@ -50,8 +52,16 @@
 
   function elevatePoint(pt, offsetM) {
     if (!pt) return pt;
-    var offset = (typeof offsetM === 'number') ? offsetM : 0.12;
+    var offset = (typeof offsetM === 'number') ? offsetM : 0.15;
     try {
+      // 1. Si hay plano de trabajo activo en WP, elevar en la dirección de su normal 3D
+      if (global.WP && Array.isArray(global.WP.planes) && global.WP.activePlaneIdx >= 0) {
+        var pl = global.WP.planes[global.WP.activePlaneIdx];
+        if (pl && pl.normal && isFinite(pl.normal.x)) {
+          return Cesium.Cartesian3.add(pt, Cesium.Cartesian3.multiplyByScalar(pl.normal, offset, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+        }
+      }
+      // 2. Fallback: normal geodésica del elipsoide WGS84
       var normalUp = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(pt, new Cesium.Cartesian3());
       if (normalUp && isFinite(normalUp.x)) {
         return Cesium.Cartesian3.add(pt, Cesium.Cartesian3.multiplyByScalar(normalUp, offset, new Cesium.Cartesian3()), new Cesium.Cartesian3());
@@ -228,54 +238,69 @@
   }
 
   // ── RENDERIZADO VISUAL DE COTAS Y PREVIEWS EN CESIUM ──────────────────────
-  function ensureDataSource() {
+  function ensurePolylineCollection() {
     var v = getViewer();
-    if (!v) return null;
-    if (!_state.dataSource) {
-      _state.dataSource = new Cesium.CustomDataSource('ra_measurements_ds');
-      v.dataSources.add(_state.dataSource);
+    if (!v || !v.scene || !v.scene.primitives) return null;
+    if (!_state.polylineCollection || _state.polylineCollection.isDestroyed()) {
+      _state.polylineCollection = v.scene.primitives.add(new Cesium.PolylineCollection());
     }
-    return _state.dataSource;
+    return _state.polylineCollection;
   }
 
   function clearPreviewEntities() {
     var v = getViewer();
-    if (!v) return;
-    _state.previewEntities.forEach(function(ent) {
-      try { v.entities.remove(ent); } catch(e) {}
-    });
+    if (v && v.entities) {
+      _state.previewEntities.forEach(function(ent) {
+        try { v.entities.remove(ent); } catch(e) {}
+      });
+    }
     _state.previewEntities = [];
+    if (_state.previewPolyline) {
+      _state.previewPolyline.show = false;
+    }
     requestSceneRender();
   }
 
   function updateDynamicPreview(ptStart, ptEnd, snapMeta) {
-    clearPreviewEntities();
     var v = getViewer();
     if (!v || !ptStart || !ptEnd) return;
 
     var metrics = calculateDistanceMetrics(ptStart, ptEnd);
     var mid = Cesium.Cartesian3.midpoint(ptStart, ptEnd, new Cesium.Cartesian3());
 
-    // Elevar ligeramente el punto de la etiqueta para evitar colisiones
     var normalUp = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(mid, new Cesium.Cartesian3());
     var labelPos = Cesium.Cartesian3.add(mid, Cesium.Cartesian3.multiplyByScalar(normalUp, 0.35, new Cesium.Cartesian3()), new Cesium.Cartesian3());
 
-    var visualStart = elevatePoint(ptStart, 0.12);
-    var visualEnd = elevatePoint(ptEnd, 0.12);
+    var visualStart = elevatePoint(ptStart, 0.15);
+    var visualEnd = elevatePoint(ptEnd, 0.15);
 
-    // 1. Línea de vista previa (cian continuo de alto contraste sobre 3D Tiles)
-    var lineEnt = v.entities.add({
-      polyline: {
-        positions: [visualStart, visualEnd],
-        width: 4.0,
-        arcType: Cesium.ArcType.NONE,
-        clampToGround: false,
-        material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#38BDF8'))
+    // 1. Línea elástica directa mediante PolylineCollection (visibilidad instantánea WebGL 60 FPS)
+    var col = ensurePolylineCollection();
+    if (col) {
+      if (!_state.previewPolyline) {
+        _state.previewPolyline = col.add({
+          positions: [visualStart, visualEnd],
+          width: 5.0,
+          show: true,
+          material: Cesium.Material.fromType('Color', {
+            color: Cesium.Color.fromCssColorString('#38BDF8')
+          })
+        });
+      } else {
+        _state.previewPolyline.positions = [visualStart, visualEnd];
+        _state.previewPolyline.show = true;
       }
-    });
-    _state.previewEntities.push(lineEnt);
+    }
 
-    // 2. Punto inicial (Punto A - verde esmeralda)
+    // 2. Limpiar entidades previas de puntos/etiquetas antes de recrear
+    if (v.entities) {
+      _state.previewEntities.forEach(function(ent) {
+        try { v.entities.remove(ent); } catch(e) {}
+      });
+    }
+    _state.previewEntities = [];
+
+    // Punto inicial (Punto A - verde esmeralda)
     var startPin = v.entities.add({
       position: visualStart,
       point: {
@@ -288,7 +313,7 @@
     });
     _state.previewEntities.push(startPin);
 
-    // 3. Punto terminal en el cursor (Punto B)
+    // Punto terminal en cursor (Punto B)
     var endPin = v.entities.add({
       position: visualEnd,
       point: {
@@ -301,7 +326,7 @@
     });
     _state.previewEntities.push(endPin);
 
-    // 4. Si hay snapping activo, halo magnético adicional
+    // Si hay snapping activo, halo magnético adicional
     if (snapMeta) {
       var snapRing = v.entities.add({
         position: visualEnd,
@@ -316,7 +341,7 @@
       _state.previewEntities.push(snapRing);
     }
 
-    // 5. Etiqueta flotante con desglose 3D, 2D y desnivel
+    // Etiqueta flotante con desglose 3D, 2D y desnivel
     var labelText = '📏 3D: ' + metrics.d3D.toFixed(2) + ' m' +
                     '\n↔ 2D: ' + metrics.d2D.toFixed(2) + ' m' +
                     '  |  ↕ ΔH: ' + metrics.dZ.toFixed(2) + ' m (' + metrics.slopeDeg.toFixed(1) + '°)';
@@ -343,38 +368,40 @@
     });
     _state.previewEntities.push(labelEnt);
 
-    // Actualizar también la lectura en vivo del HUD flotante
+    // Actualizar lectura en vivo del HUD flotante
     updateLiveHUDReadout(metrics, snapMeta);
     requestSceneRender();
   }
 
   function commitMeasurementSegment(ptA, ptB) {
-    var ds = ensureDataSource();
-    if (!ds || !ptA || !ptB) return;
+    var v = getViewer();
+    if (!v || !ptA || !ptB) return;
 
     var metrics = calculateDistanceMetrics(ptA, ptB);
     var mid = Cesium.Cartesian3.midpoint(ptA, ptB, new Cesium.Cartesian3());
     var normalUp = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(mid, new Cesium.Cartesian3());
     var labelPos = Cesium.Cartesian3.add(mid, Cesium.Cartesian3.multiplyByScalar(normalUp, 0.30, new Cesium.Cartesian3()), new Cesium.Cartesian3());
 
-    var visualA = elevatePoint(ptA, 0.12);
-    var visualB = elevatePoint(ptB, 0.12);
+    var visualA = elevatePoint(ptA, 0.15);
+    var visualB = elevatePoint(ptB, 0.15);
     var measId = 'ra_meas_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
 
-    // Línea de cota permanente (ámbar CAD)
-    ds.entities.add({
-      id: measId + '_line',
-      polyline: {
+    // 1. Línea permanente en PolylineCollection (áureo / ámbar CAD con visibilidad garantizada sobre 3D Tiles)
+    var col = ensurePolylineCollection();
+    var fixedPoly = null;
+    if (col) {
+      fixedPoly = col.add({
         positions: [visualA, visualB],
-        width: 3.5,
-        arcType: Cesium.ArcType.NONE,
-        clampToGround: false,
-        material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#F59E0B'))
-      }
-    });
+        width: 4.5,
+        show: true,
+        material: Cesium.Material.fromType('Color', {
+          color: Cesium.Color.fromCssColorString('#F59E0B')
+        })
+      });
+    }
 
-    // Puntos extremos permanentes
-    ds.entities.add({
+    // 2. Puntos extremos permanentes en viewer.entities
+    var pinA = v.entities.add({
       id: measId + '_pinA',
       position: visualA,
       point: {
@@ -385,8 +412,9 @@
         disableDepthTestDistance: Number.POSITIVE_INFINITY
       }
     });
+    _state.fixedEntities.push(pinA);
 
-    ds.entities.add({
+    var pinB = v.entities.add({
       id: measId + '_pinB',
       position: visualB,
       point: {
@@ -397,12 +425,13 @@
         disableDepthTestDistance: Number.POSITIVE_INFINITY
       }
     });
+    _state.fixedEntities.push(pinB);
 
-    // Etiqueta permanente
+    // 3. Etiqueta permanente en viewer.entities
     var labelText = '📏 ' + metrics.d3D.toFixed(2) + ' m' +
                     '\n↔ ' + metrics.d2D.toFixed(2) + ' m · ↕ ' + metrics.dZ.toFixed(2) + ' m';
 
-    ds.entities.add({
+    var labelEnt = v.entities.add({
       id: measId + '_label',
       position: labelPos,
       label: {
@@ -419,12 +448,14 @@
         verticalOrigin: Cesium.VerticalOrigin.BOTTOM
       }
     });
+    _state.fixedEntities.push(labelEnt);
 
     _state.measurements.push({
       id: measId,
       ptA: ptA,
       ptB: ptB,
-      metrics: metrics
+      metrics: metrics,
+      primitive: fixedPoly
     });
 
     requestSceneRender();
@@ -680,7 +711,7 @@
   function activate() {
     _state.active = true;
     _state.points = [];
-    ensureDataSource();
+    ensurePolylineCollection();
     attachMouseHandler();
     updateHUDVisuals();
     updateFABVisuals();
@@ -694,6 +725,7 @@
     _state.active = false;
     _state.points = [];
     detachMouseHandler();
+    clearPreviewEntities();
     updateHUDVisuals();
     updateFABVisuals();
     requestSceneRender();
@@ -721,12 +753,23 @@
   }
 
   function clearMeasurements() {
+    var v = getViewer();
     _state.points = [];
     _state.measurements = [];
     clearPreviewEntities();
-    if (_state.dataSource) {
-      _state.dataSource.entities.removeAll();
+
+    if (v && v.entities) {
+      _state.fixedEntities.forEach(function(ent) {
+        try { v.entities.remove(ent); } catch(e) {}
+      });
     }
+    _state.fixedEntities = [];
+
+    if (_state.polylineCollection) {
+      _state.polylineCollection.removeAll();
+      _state.previewPolyline = null;
+    }
+
     updateLiveHUDReadout(null, null);
     requestSceneRender();
     if (typeof global.showToast === 'function') {
