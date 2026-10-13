@@ -1,8 +1,10 @@
 // ============================================================================
 // RA-BILL-AUDITOR — MÓDULO INDEPENDIENTE DE AUDITORÍA Y COMPARATIVA DE FACTURAS
-// Calidad AAA: Regex multiformato (Iberdrola, Endesa, Naturgy, PVPC, TotalEnergies),
-// soporte CSV (Datadis), UI Modal Glassmorphic, Gráficos comparativos SVG interactivos,
-// sincronización no invasiva con el motor financiero (calculateFinancialModel / PDF).
+// Doble Motor Canónico:
+// 1. Motor Local Determinista (Regex multiformato, CSV Curvas Datadis, JSON).
+// 2. Motor IA Multimodal (Google Gemini API: PDFs digitales/escaneados, fotos móviles y texto).
+// Calidad AAA: Selector de motor inteligente, UI Glassmorphic, Gráficos comparativos SVG,
+// diagnóstico IA y sincronización no invasiva con el modelo financiero y presupuesto.
 // ============================================================================
 (function() {
   'use strict';
@@ -13,15 +15,18 @@
   const BILL_AUDITOR_STATE = {
     currentBill: null,       // Datos de la factura analizada
     comparison: null,        // Comparativa técnica/económica con el sistema FV
-    modalOpen: false
+    modalOpen: false,
+    activeEngine: 'auto',    // 'auto' | 'ai' | 'local'
+    isAnalyzing: false,      // Estado de carga durante análisis IA
+    pendingFile: null        // Archivo en espera si se requiere API Key
   };
 
   /**
-   * 1. PARSER MULTIFORMATO DE FACTURAS ELÉCTRICAS (ESPAÑA)
+   * 1. PARSER DETERMINISTA LOCAL DE FACTURAS ELÉCTRICAS (ESPAÑA)
    */
   const BillParser = {
     cleanText(raw) {
-      return raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+      return (raw || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
     },
 
     parseText(text) {
@@ -34,7 +39,7 @@
         periodoInicio: null,
         periodoFin: null,
         diasFactura: 30,
-        potenciasContratadasKW: { p1: 0, p2: 0 },
+        potenciasContratadasKW: { p1: 0, p2: 0, p3: 0 },
         costePotenciaEUR: 0,
         consumosKWh: { p1: 0, p2: 0, p3: 0, total: 0 },
         preciosEnergiaEURKWh: { p1: 0, p2: 0, p3: 0 },
@@ -43,6 +48,10 @@
         alquilerContadorEUR: 0,
         ivaEUR: 0,
         totalFacturaEUR: 0,
+        historicoMensualKWh: null,
+        consumoAnualEstimadoKWh: null,
+        diagnosticoIA: null,
+        fuente: 'local',
         rawSnippet: clean.slice(0, 300)
       };
 
@@ -58,6 +67,7 @@
       else if (/naturgy/i.test(clean)) data.comercializadora = 'Naturgy';
       else if (/totalenergies/i.test(clean)) data.comercializadora = 'TotalEnergies';
       else if (/repsol/i.test(clean)) data.comercializadora = 'Repsol';
+      else if (/octopus/i.test(clean)) data.comercializadora = 'Octopus Energy';
       else if (/curenergia|energia\s*xxi|gas\s*&\s*power|baser/i.test(clean) || /pvpc/i.test(clean)) data.comercializadora = 'Mercado Regulado (PVPC)';
 
       // 3. Tarifa de Acceso
@@ -160,7 +170,7 @@
         comercializadora: 'Archivo Horario CSV',
         tarifaAcceso: '2.0TD',
         diasFactura: days,
-        potenciasContratadasKW: { p1: 4.6, p2: 4.6 },
+        potenciasContratadasKW: { p1: 4.6, p2: 4.6, p3: 0 },
         costePotenciaEUR: parseFloat((days * 0.85).toFixed(2)),
         consumosKWh: {
           p1: parseFloat((totalKwh * 0.35).toFixed(2)),
@@ -173,7 +183,11 @@
         impuestoElectricoEUR: parseFloat((totalEur * 0.05112).toFixed(2)),
         alquilerContadorEUR: 0.85,
         ivaEUR: parseFloat((totalEur * 0.21).toFixed(2)),
-        totalFacturaEUR: parseFloat(totalEur.toFixed(2))
+        totalFacturaEUR: parseFloat(totalEur.toFixed(2)),
+        historicoMensualKWh: null,
+        consumoAnualEstimadoKWh: null,
+        diagnosticoIA: null,
+        fuente: 'local'
       };
     },
 
@@ -186,7 +200,7 @@
           comercializadora: obj.comercializadora || 'Importado JSON',
           tarifaAcceso: obj.tarifaAcceso || '2.0TD',
           diasFactura: obj.diasFactura || 30,
-          potenciasContratadasKW: obj.potenciasContratadasKW || { p1: 4.6, p2: 4.6 },
+          potenciasContratadasKW: obj.potenciasContratadasKW || { p1: 4.6, p2: 4.6, p3: 0 },
           costePotenciaEUR: obj.costePotenciaEUR || 20,
           consumosKWh: obj.consumosKWh || { total: obj.consumoTotal || 350, p1: 120, p2: 110, p3: 120 },
           preciosEnergiaEURKWh: obj.preciosEnergiaEURKWh || { p1: 0.22, p2: 0.17, p3: 0.11 },
@@ -194,11 +208,223 @@
           impuestoElectricoEUR: obj.impuestoElectricoEUR || 4,
           alquilerContadorEUR: obj.alquilerContadorEUR || 0.85,
           ivaEUR: obj.ivaEUR || 18,
-          totalFacturaEUR: obj.totalFacturaEUR || 102.85
+          totalFacturaEUR: obj.totalFacturaEUR || 102.85,
+          historicoMensualKWh: obj.historicoMensualKWh || null,
+          consumoAnualEstimadoKWh: obj.consumoAnualEstimadoKWh || null,
+          diagnosticoIA: obj.diagnosticoIA || null,
+          fuente: 'local'
         };
       } catch (e) {
         return null;
       }
+    }
+  };
+
+  /**
+   * 1.1 MOTOR INTELIGENTE IA (GOOGLE GEMINI MULTIMODAL)
+   */
+  const AIBillParser = {
+    getApiKey() {
+      let key = '';
+      try {
+        key = (window.RA && window.RA.geminiApiKey)
+          ? window.RA.geminiApiKey
+          : (localStorage.getItem('ra_gemini_api_key') || '');
+      } catch (e) { key = ''; }
+      return (key || '').trim();
+    },
+
+    setApiKey(key) {
+      const cleanKey = (key || '').trim();
+      try {
+        if (cleanKey) {
+          localStorage.setItem('ra_gemini_api_key', cleanKey);
+        } else {
+          localStorage.removeItem('ra_gemini_api_key');
+        }
+      } catch (e) {}
+      window.RA = window.RA || {};
+      window.RA.geminiApiKey = cleanKey;
+      return cleanKey;
+    },
+
+    async analyzeDocument({ base64Data, mimeType, textData, fileName }) {
+      const apiKey = this.getApiKey();
+      if (!apiKey) {
+        const err = new Error('No se ha configurado la API Key de Google Gemini.');
+        err.code = 'NO_API_KEY';
+        throw err;
+      }
+
+      const prompt = `Eres un auditor energético experto en el mercado eléctrico español (tarifas 2.0TD, 3.0TD, 6.1TD, PVPC y mercado libre).
+Analiza minuciosamente este documento de factura eléctrica (PDF, imagen fotográfica o texto).
+Extrae todos los datos técnicos, contractuales y económicos con precisión.
+
+Devuelve EXCLUSIVAMENTE un objeto JSON válido con la siguiente estructura exacta:
+{
+  "cups": "Código CUPS (e.g. ES0021000000000000XX) o null si no figura",
+  "distribuidora": "Nombre de la distribuidora (i-DE, E-Distribución, UFD, E-Redes, etc.) o null",
+  "comercializadora": "Nombre comercial de la comercializadora (Iberdrola, Endesa, Naturgy, TotalEnergies, Repsol, Octopus, Curenergía, etc.)",
+  "tarifaAcceso": "2.0TD",
+  "periodoInicio": "YYYY-MM-DD o null",
+  "periodoFin": "YYYY-MM-DD o null",
+  "diasFactura": 30,
+  "potenciasContratadasKW": {
+    "p1": 4.6,
+    "p2": 4.6,
+    "p3": 0.0
+  },
+  "costePotenciaEUR": 25.40,
+  "consumosKWh": {
+    "p1": 120.0,
+    "p2": 95.0,
+    "p3": 140.0,
+    "total": 355.0
+  },
+  "preciosEnergiaEURKWh": {
+    "p1": 0.185,
+    "p2": 0.142,
+    "p3": 0.098
+  },
+  "costeEnergiaEUR": 55.30,
+  "impuestoElectricoEUR": 2.80,
+  "alquilerContadorEUR": 0.85,
+  "ivaEUR": 17.50,
+  "totalFacturaEUR": 101.85,
+  "historicoMensualKWh": null,
+  "consumoAnualEstimadoKWh": null,
+  "diagnosticoIA": "Diagnóstico breve (máx 35 palabras) evaluando si la potencia está sobredimensionada y la competitividad del precio por kWh para amortización solar."
+}
+
+Normas estrictas:
+1. Si detectas el gráfico de barras de consumo mensual (los últimos 12 meses), extrae los 12 números de kWh en 'historicoMensualKWh' y su suma en 'consumoAnualEstimadoKWh'.
+2. Si la factura indica expresamente el dato de 'Consumo acumulado último año' o similar, asígnalo a 'consumoAnualEstimadoKWh'.
+3. Los importes y consumos deben ser números flotantes limpios (no strings con símbolos).
+4. No inventes cifras. Si un dato no figura, usa 0 o null.
+5. Devuelve solo el JSON puro sin bloques markdown ni texto conversational.`;
+
+      const parts = [];
+      if (base64Data) {
+        parts.push({
+          inlineData: {
+            mimeType: mimeType || 'application/pdf',
+            data: base64Data
+          }
+        });
+      }
+      if (textData) {
+        parts.push({
+          text: (base64Data ? 'Texto auxiliar:\n' : '') + textData
+        });
+      }
+      parts.push({ text: prompt });
+
+      const requestBody = {
+        contents: [{ role: 'user', parts: parts }],
+        generationConfig: {
+          temperature: 0.1,
+          responseMimeType: 'application/json'
+        }
+      };
+
+      const models = ['gemini-2.0-flash', 'gemini-1.5-flash'];
+      let lastError = null;
+
+      for (const model of models) {
+        try {
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+          const resp = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody)
+          });
+
+          if (!resp.ok) {
+            const errData = await resp.json().catch(() => ({}));
+            const errMsg = (errData.error && errData.error.message) ? errData.error.message : `HTTP ${resp.status}`;
+            throw new Error(errMsg);
+          }
+
+          const resData = await resp.json();
+          let rawText = '';
+          if (resData.candidates && resData.candidates[0] && resData.candidates[0].content &&
+              resData.candidates[0].content.parts && resData.candidates[0].content.parts[0]) {
+            rawText = resData.candidates[0].content.parts[0].text || '';
+          }
+
+          if (!rawText.trim()) throw new Error('Respuesta vacía del servicio de IA');
+
+          const cleaned = rawText.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
+          const parsed = JSON.parse(cleaned);
+
+          return this.normalizeAIData(parsed);
+        } catch (e) {
+          lastError = e;
+          continue;
+        }
+      }
+
+      throw lastError || new Error('No se pudo completar el análisis con IA.');
+    },
+
+    normalizeAIData(d) {
+      const p1Pot = (d.potenciasContratadasKW && d.potenciasContratadasKW.p1) || 4.6;
+      const p2Pot = (d.potenciasContratadasKW && d.potenciasContratadasKW.p2) || p1Pot;
+      const p3Pot = (d.potenciasContratadasKW && d.potenciasContratadasKW.p3) || 0;
+
+      const p1Kwh = (d.consumosKWh && d.consumosKWh.p1) || 0;
+      const p2Kwh = (d.consumosKWh && d.consumosKWh.p2) || 0;
+      const p3Kwh = (d.consumosKWh && d.consumosKWh.p3) || 0;
+      let totalKwh = (d.consumosKWh && d.consumosKWh.total) || (p1Kwh + p2Kwh + p3Kwh);
+
+      const totalEur = parseFloat(d.totalFacturaEUR) || 0;
+      if (!totalKwh && totalEur > 0) totalKwh = Math.round((totalEur * 0.70) / 0.18);
+
+      let histArray = null;
+      if (Array.isArray(d.historicoMensualKWh) && d.historicoMensualKWh.length >= 6) {
+        histArray = d.historicoMensualKWh.map(v => parseFloat(v) || 0);
+      }
+
+      let consumoAnualEst = parseFloat(d.consumoAnualEstimadoKWh) || 0;
+      if (!consumoAnualEst && histArray && histArray.length === 12) {
+        consumoAnualEst = histArray.reduce((acc, curr) => acc + curr, 0);
+      }
+
+      return {
+        cups: d.cups ? String(d.cups).replace(/\s+/g, '').toUpperCase() : null,
+        distribuidora: d.distribuidora || 'Distribuidora',
+        comercializadora: d.comercializadora || 'Comercializadora Detectada',
+        tarifaAcceso: (d.tarifaAcceso || '2.0TD').toUpperCase(),
+        periodoInicio: d.periodoInicio || null,
+        periodoFin: d.periodoFin || null,
+        diasFactura: parseInt(d.diasFactura) || 30,
+        potenciasContratadasKW: {
+          p1: parseFloat(p1Pot) || 4.6,
+          p2: parseFloat(p2Pot) || 4.6,
+          p3: parseFloat(p3Pot) || 0
+        },
+        costePotenciaEUR: parseFloat(d.costePotenciaEUR) || parseFloat((totalEur * 0.25).toFixed(2)),
+        consumosKWh: {
+          p1: parseFloat(p1Kwh) || parseFloat((totalKwh * 0.35).toFixed(2)),
+          p2: parseFloat(p2Kwh) || parseFloat((totalKwh * 0.30).toFixed(2)),
+          p3: parseFloat(p3Kwh) || parseFloat((totalKwh * 0.35).toFixed(2)),
+          total: parseFloat(totalKwh) || 350
+        },
+        preciosEnergiaEURKWh: {
+          p1: parseFloat((d.preciosEnergiaEURKWh && d.preciosEnergiaEURKWh.p1) || 0.20),
+          p2: parseFloat((d.preciosEnergiaEURKWh && d.preciosEnergiaEURKWh.p2) || 0.15),
+          p3: parseFloat((d.preciosEnergiaEURKWh && d.preciosEnergiaEURKWh.p3) || 0.10)
+        },
+        costeEnergiaEUR: parseFloat(d.costeEnergiaEUR) || parseFloat((totalEur * 0.65).toFixed(2)),
+        impuestoElectricoEUR: parseFloat(d.impuestoElectricoEUR) || parseFloat((totalEur * 0.05).toFixed(2)),
+        alquilerContadorEUR: parseFloat(d.alquilerContadorEUR) || 0.85,
+        ivaEUR: parseFloat(d.ivaEUR) || parseFloat((totalEur * 0.21).toFixed(2)),
+        totalFacturaEUR: totalEur,
+        historicoMensualKWh: histArray,
+        consumoAnualEstimadoKWh: consumoAnualEst > 0 ? Math.round(consumoAnualEst) : null,
+        diagnosticoIA: d.diagnosticoIA || null,
+        fuente: 'ia'
+      };
     }
   };
 
@@ -216,7 +442,7 @@
       const d = getProjectCalcs();
       if (d && d.numPanels > 0) {
         kwp = (d.numPanels * (d.cfg.potencia || 450)) / 1000.0;
-        annualYieldKWh = d.annualKWh || (kwp * 1450); // [P0] getProjectCalcs canónico devuelve annualKWh (antes annualYieldKWh → SIEMPRE caía a kwp×1450)
+        annualYieldKWh = d.annualKWh || (kwp * 1450);
       }
     }
     const batEl = document.getElementById('cfg-pres-bat-opt');
@@ -224,12 +450,15 @@
 
     const days = bill.diasFactura || 30;
     const factorAnual = 365.0 / Math.max(days, 1);
-    const consumoAnualKWh = bill.consumosKWh.total > 0 ? (bill.consumosKWh.total * factorAnual) : 4500;
+
+    // [SSOT Precisión]: Si la IA o factura extrajo consumo anual histórico real, usarlo directamente
+    const consumoAnualKWh = (bill.consumoAnualEstimadoKWh && bill.consumoAnualEstimadoKWh > 0)
+      ? bill.consumoAnualEstimadoKWh
+      : (bill.consumosKWh.total > 0 ? (bill.consumosKWh.total * factorAnual) : 4500);
+
     const gastoAnualActualEUR = bill.totalFacturaEUR > 0 ? (bill.totalFacturaEUR * factorAnual) : (consumoAnualKWh * 0.22);
     const gastoMensualActualEUR = gastoAnualActualEUR / 12.0;
 
-    // [P1] Modelo financiero propio (despacho horario TOU): única fuente de autarquía y
-    // precio de compensación de excedentes. Fallback: límite físico producción/consumo.
     let _fin = null;
     if (typeof calculateFinancialModel === 'function') {
       try { _fin = calculateFinancialModel(); } catch (errFin) {
@@ -299,51 +528,124 @@
     if (modal) return modal;
 
     const modalHTML = `
-      <div id="ra-bill-auditor-modal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(5,10,20,0.82);backdrop-filter:blur(8px);z-index:999999;align-items:center;justify-content:center;font-family:var(--font-sans, system-ui, -apple-system, sans-serif);">
-        <div style="width:920px;max-width:95vw;max-height:92vh;background:linear-gradient(135deg, rgba(15,23,42,0.96) 0%, rgba(30,41,59,0.94) 100%);border:1px solid rgba(245,158,11,0.35);box-shadow:0 25px 60px rgba(0,0,0,0.6), 0 0 30px rgba(245,158,11,0.15);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;color:#fff;">
+      <div id="ra-bill-auditor-modal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(5,10,20,0.85);backdrop-filter:blur(10px);z-index:999999;align-items:center;justify-content:center;font-family:var(--font-sans, system-ui, -apple-system, sans-serif);">
+        <div style="width:960px;max-width:96vw;max-height:94vh;background:linear-gradient(135deg, rgba(15,23,42,0.98) 0%, rgba(30,41,59,0.96) 100%);border:1px solid rgba(245,158,11,0.35);box-shadow:0 25px 60px rgba(0,0,0,0.7), 0 0 35px rgba(245,158,11,0.18);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;color:#fff;">
           
           <!-- Header -->
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 24px;border-bottom:1px solid rgba(255,255,255,0.08);background:rgba(0,0,0,0.25);">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 24px;border-bottom:1px solid rgba(255,255,255,0.08);background:rgba(0,0,0,0.3);">
             <div style="display:flex;align-items:center;gap:12px;">
-              <div style="width:36px;height:36px;border-radius:8px;background:linear-gradient(135deg,#f59e0b,#d97706);display:flex;align-items:center;justify-content:center;box-shadow:0 0 12px rgba(245,158,11,0.4);">
-                <span style="font-size:18px;">📄</span>
+              <div style="width:38px;height:38px;border-radius:9px;background:linear-gradient(135deg,#f59e0b,#d97706);display:flex;align-items:center;justify-content:center;box-shadow:0 0 14px rgba(245,158,11,0.45);">
+                <span style="font-size:20px;">📄</span>
               </div>
               <div>
                 <h3 style="margin:0;font-size:15px;font-weight:800;letter-spacing:-0.3px;color:#fff;text-transform:uppercase;">Auditoría de Factura Eléctrica &amp; Comparativa de Ahorro</h3>
-                <span style="font-size:10px;color:rgba(255,255,255,0.6);font-weight:600;">Contraste de consumo y coste real del cliente vs producción fotovoltaica 3D</span>
+                <span style="font-size:10.5px;color:rgba(255,255,255,0.65);font-weight:600;">Doble motor: IA Multimodal (PDF / Fotos) + Motor Local Offline (CSV / Reglas)</span>
               </div>
             </div>
-            <button id="btn-close-bill-modal" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;width:32px;height:32px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;transition:all 0.2s;">✕</button>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div id="bill-ai-key-pill" style="display:flex;align-items:center;gap:6px;background:rgba(168,85,247,0.15);border:1px solid rgba(168,85,247,0.35);padding:4px 10px;border-radius:20px;font-size:10px;cursor:pointer;transition:all 0.2s;">
+                <span id="bill-ai-key-dot" style="width:7px;height:7px;border-radius:50%;background:#a855f7;"></span>
+                <span id="bill-ai-key-text" style="color:#d8b4fe;font-weight:700;">IA Gemini</span>
+              </div>
+              <button id="btn-close-bill-modal" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;width:32px;height:32px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;transition:all 0.2s;">✕</button>
+            </div>
           </div>
 
           <!-- Body (Grid 2 columnas) -->
-          <div style="display:grid;grid-template-columns:1.05fr 1fr;gap:20px;padding:20px 24px;overflow-y:auto;flex:1;">
+          <div style="display:grid;grid-template-columns:1.08fr 1fr;gap:20px;padding:20px 24px;overflow-y:auto;flex:1;">
             
-            <!-- Columna Izquierda: Subida y Datos Factura -->
+            <!-- Columna Izquierda: Controles y Extracción -->
             <div style="display:flex;flex-direction:column;gap:14px;">
               
-              <!-- Dropzone -->
-              <div id="bill-dropzone" style="border:2px dashed rgba(245,158,11,0.45);background:rgba(245,158,11,0.04);border-radius:10px;padding:18px;text-align:center;cursor:pointer;transition:all 0.2s;display:flex;flex-direction:column;align-items:center;gap:6px;">
-                <input type="file" id="bill-file-input" accept=".txt,.csv,.json,.pdf,.xml" style="display:none;">
-                <span style="font-size:26px;">⚡</span>
-                <span style="font-size:12px;font-weight:800;color:#f59e0b;">Arrastra tu factura eléctrica aquí o haz clic para subir</span>
-                <span style="font-size:9.5px;color:rgba(255,255,255,0.6);">Formatos soportados: TXT / CSV (Curvas Datadis) / JSON / Facturas digitales</span>
+              <!-- Selector de Motor (Tabs Segmentados) -->
+              <div style="display:flex;flex-direction:column;gap:6px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <span style="font-size:10px;font-weight:800;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:0.5px;">Motor de Procesamiento:</span>
+                  <span id="engine-hint-label" style="font-size:9.5px;color:#a855f7;font-weight:700;">Recomendado para PDFs y fotos</span>
+                </div>
+                <div style="display:grid;grid-template-columns:1.2fr 1.3fr 1.1fr;gap:6px;background:rgba(0,0,0,0.35);padding:4px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);">
+                  <button id="engine-tab-auto" type="button" style="background:rgba(245,158,11,0.25);border:1px solid #f59e0b;color:#fbbf24;font-size:10px;font-weight:800;padding:6px;border-radius:6px;cursor:pointer;transition:all 0.2s;">
+                    🔄 Auto (Inteligente)
+                  </button>
+                  <button id="engine-tab-ai" type="button" style="background:transparent;border:1px solid transparent;color:rgba(255,255,255,0.6);font-size:10px;font-weight:700;padding:6px;border-radius:6px;cursor:pointer;transition:all 0.2s;">
+                    🧠 Motor IA (Gemini)
+                  </button>
+                  <button id="engine-tab-local" type="button" style="background:transparent;border:1px solid transparent;color:rgba(255,255,255,0.6);font-size:10px;font-weight:700;padding:6px;border-radius:6px;cursor:pointer;transition:all 0.2s;">
+                    ⚡ Local (CSV/Reglas)
+                  </button>
+                </div>
+              </div>
+
+              <!-- Mini Diálogo de Configuración de API Key (Oculto por defecto) -->
+              <div id="bill-api-key-box" style="display:none;background:rgba(168,85,247,0.12);border:1px solid rgba(168,85,247,0.35);border-radius:8px;padding:10px;flex-direction:column;gap:6px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <span style="font-size:10px;font-weight:800;color:#d8b4fe;">🔑 Configuración de Google Gemini API Key</span>
+                  <button id="btn-close-key-box" type="button" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:11px;">✕</button>
+                </div>
+                <div style="font-size:9.5px;color:rgba(255,255,255,0.75);">
+                  Introduce tu clave para habilitar la extracción multimodal (PDFs y fotos):
+                </div>
+                <div style="display:flex;gap:6px;">
+                  <input type="password" id="bill-gemini-key-input" placeholder="AIzaSy..." style="flex:1;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:10px;padding:5px 8px;border-radius:4px;">
+                  <button id="btn-save-bill-gemini-key" type="button" style="background:#a855f7;border:none;color:#fff;font-size:10px;font-weight:800;padding:5px 12px;border-radius:4px;cursor:pointer;">Guardar</button>
+                </div>
+              </div>
+
+              <!-- Dropzone Dual -->
+              <div id="bill-dropzone" style="border:2px dashed rgba(245,158,11,0.45);background:rgba(245,158,11,0.04);border-radius:10px;padding:18px;text-align:center;cursor:pointer;transition:all 0.2s;display:flex;flex-direction:column;align-items:center;gap:6px;position:relative;">
+                <input type="file" id="bill-file-input" accept=".pdf,.png,.jpg,.jpeg,.webp,.txt,.csv,.json" style="display:none;">
+                
+                <div id="dropzone-idle-content" style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+                  <span style="font-size:28px;">📄⚡</span>
+                  <span style="font-size:12px;font-weight:800;color:#f59e0b;">Arrastra tu factura aquí o haz clic para subir</span>
+                  <span style="font-size:9.5px;color:rgba(255,255,255,0.7);">Soporta: <b>PDF oficial</b> · <b>Fotos del móvil (JPG/PNG)</b> · <b>CSV Datadis</b> · <b>TXT</b></span>
+                </div>
+
+                <div id="dropzone-loading-content" style="display:none;flex-direction:column;align-items:center;gap:10px;padding:6px 0;">
+                  <div style="width:26px;height:26px;border:3px solid rgba(168,85,247,0.3);border-top-color:#c084fc;border-radius:50%;animation:billSpin 0.8s linear infinite;"></div>
+                  <span id="dropzone-loading-msg" style="font-size:11.5px;font-weight:800;color:#d8b4fe;">Analizando factura con IA de Google Gemini...</span>
+                  <span style="font-size:9.5px;color:rgba(255,255,255,0.65);">Extrayendo CUPS, potencias contratadas, consumos horarios y términos económicos...</span>
+                </div>
               </div>
 
               <!-- Pegar texto directo opcional -->
               <div style="display:flex;flex-direction:column;gap:6px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;">
-                  <span style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.7);text-transform:uppercase;">O pega el texto de la factura / datos rápidos:</span>
-                  <button id="btn-parse-pasted-text" style="font-size:9px;background:rgba(14,165,233,0.2);border:1px solid #0ea5e9;color:#38bdf8;padding:2px 8px;border-radius:4px;cursor:pointer;">Analizar Texto</button>
+                  <span style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.7);text-transform:uppercase;">O pega el texto copiado de la factura:</span>
+                  <div style="display:flex;gap:6px;">
+                    <button id="btn-parse-pasted-local" type="button" style="font-size:9px;background:rgba(245,158,11,0.18);border:1px solid #f59e0b;color:#fbbf24;padding:2px 8px;border-radius:4px;cursor:pointer;font-weight:700;">⚡ Analizar Local</button>
+                    <button id="btn-parse-pasted-ai" type="button" style="font-size:9px;background:rgba(168,85,247,0.22);border:1px solid #a855f7;color:#d8b4fe;padding:2px 8px;border-radius:4px;cursor:pointer;font-weight:800;">🧠 Analizar con IA</button>
+                  </div>
                 </div>
-                <textarea id="bill-raw-textarea" rows="3" placeholder="Pega aquí el texto copiado de tu factura (Endesa, Iberdrola, Naturgy, etc.)..." style="width:100%;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.1);border-radius:6px;color:#fff;font-size:9.5px;font-family:monospace;padding:8px;resize:none;box-sizing:border-box;"></textarea>
+                <textarea id="bill-raw-textarea" rows="2" placeholder="Pega aquí el texto copiado de tu factura (Endesa, Iberdrola, Naturgy, etc.)..." style="width:100%;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.1);border-radius:6px;color:#fff;font-size:9.5px;font-family:monospace;padding:8px;resize:none;box-sizing:border-box;"></textarea>
               </div>
 
               <!-- Formulario de Campos Auditados / Editables -->
               <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:8px;">
-                <div style="font-size:10px;font-weight:800;color:#f59e0b;text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:4px;display:flex;justify-content:space-between;">
+                <div style="font-size:10px;font-weight:800;color:#f59e0b;text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
                   <span>Datos Extraídos de la Factura</span>
-                  <span id="bill-detected-company" style="color:#38bdf8;font-weight:700;">Sin factura</span>
+                  <div style="display:flex;align-items:center;gap:6px;">
+                    <span id="bill-detected-source-badge" style="display:none;background:rgba(16,185,129,0.2);border:1px solid #10b981;color:#34d399;font-size:9px;font-weight:800;padding:1px 6px;border-radius:4px;">🧠 IA</span>
+                    <span id="bill-detected-company" style="color:#38bdf8;font-weight:700;">Sin factura</span>
+                  </div>
+                </div>
+
+                <!-- Tarjeta de Diagnóstico Inteligente IA -->
+                <div id="bill-ai-diag-card" style="display:none;background:linear-gradient(135deg, rgba(168,85,247,0.15), rgba(99,102,241,0.1));border:1px solid rgba(168,85,247,0.35);border-radius:6px;padding:8px 10px;gap:6px;align-items:flex-start;">
+                  <span style="font-size:14px;">💡</span>
+                  <div style="display:flex;flex-direction:column;gap:2px;">
+                    <span style="font-size:9.5px;font-weight:800;color:#d8b4fe;text-transform:uppercase;">Diagnóstico Inteligente:</span>
+                    <span id="bill-ai-diag-text" style="font-size:9.5px;color:rgba(255,255,255,0.9);line-height:1.35;">-</span>
+                  </div>
+                </div>
+
+                <!-- Tarjeta de Histórico Anual Proyectado -->
+                <div id="bill-ai-history-card" style="display:none;background:linear-gradient(135deg, rgba(14,165,233,0.15), rgba(16,185,129,0.1));border:1px solid rgba(14,165,233,0.35);border-radius:6px;padding:6px 10px;justify-content:space-between;align-items:center;">
+                  <div style="display:flex;align-items:center;gap:6px;">
+                    <span style="font-size:12px;">📊</span>
+                    <span style="font-size:9.5px;font-weight:700;color:#7dd3fc;">Histórico Anual Detectado en Factura:</span>
+                  </div>
+                  <span id="bill-ai-history-kwh" style="font-size:11px;font-weight:900;color:#38bdf8;">0 kWh/año</span>
                 </div>
 
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
@@ -370,7 +672,7 @@
 
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
                   <div>
-                    <label style="font-size:9px;color:rgba(255,255,255,0.6);display:block;margin-bottom:2px;">Días Periodo Facturado:</label>
+                    <label style="font-size:9px;color:rgba(255,255,255,0.6);display:block;margin-bottom:2px;">Días Facturados:</label>
                     <input type="number" id="bill-edit-days" value="30" step="1" style="width:100%;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:10px;padding:4px 6px;border-radius:4px;box-sizing:border-box;">
                   </div>
                   <div>
@@ -379,7 +681,18 @@
                   </div>
                 </div>
 
-                <button id="btn-recalculate-bill" style="background:rgba(245,158,11,0.2);border:1px solid #f59e0b;color:#fbbf24;font-size:10px;font-weight:800;padding:6px;border-radius:5px;cursor:pointer;margin-top:4px;">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                  <div>
+                    <label style="font-size:9px;color:rgba(255,255,255,0.6);display:block;margin-bottom:2px;">Precio Energía P1 (€/kWh):</label>
+                    <input type="number" id="bill-edit-price-p1" value="0.20" step="0.01" style="width:100%;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:10px;padding:4px 6px;border-radius:4px;box-sizing:border-box;">
+                  </div>
+                  <div>
+                    <label style="font-size:9px;color:rgba(255,255,255,0.6);display:block;margin-bottom:2px;">Precio Energía Valle P3 (€/kWh):</label>
+                    <input type="number" id="bill-edit-price-p3" value="0.11" step="0.01" style="width:100%;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:10px;padding:4px 6px;border-radius:4px;box-sizing:border-box;">
+                  </div>
+                </div>
+
+                <button id="btn-recalculate-bill" style="background:rgba(245,158,11,0.2);border:1px solid #f59e0b;color:#fbbf24;font-size:10px;font-weight:800;padding:6px;border-radius:5px;cursor:pointer;margin-top:2px;">
                   🔄 Actualizar Comparativa de Ahorro
                 </button>
               </div>
@@ -470,6 +783,9 @@
 
         </div>
       </div>
+      <style>
+        @keyframes billSpin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+      </style>
     `;
 
     document.body.insertAdjacentHTML('beforeend', modalHTML);
@@ -540,8 +856,55 @@
   function updateModalUI(bill, comp) {
     if (!bill) return;
 
+    // Badge comercializadora y tarifa
     const companyEl = document.getElementById('bill-detected-company');
     if (companyEl) companyEl.textContent = bill.comercializadora + (bill.tarifaAcceso ? ' (' + bill.tarifaAcceso + ')' : '');
+
+    // Badge origen (IA / Local / Manual)
+    const sourceBadge = document.getElementById('bill-detected-source-badge');
+    if (sourceBadge) {
+      sourceBadge.style.display = 'inline-block';
+      if (bill.fuente === 'ia') {
+        sourceBadge.textContent = '🧠 IA Gemini 2.0';
+        sourceBadge.style.background = 'rgba(168,85,247,0.2)';
+        sourceBadge.style.borderColor = '#a855f7';
+        sourceBadge.style.color = '#d8b4fe';
+      } else if (bill.fuente === 'local') {
+        sourceBadge.textContent = '⚡ Motor Local';
+        sourceBadge.style.background = 'rgba(245,158,11,0.2)';
+        sourceBadge.style.borderColor = '#f59e0b';
+        sourceBadge.style.color = '#fbbf24';
+      } else {
+        sourceBadge.textContent = '✏️ Manual';
+        sourceBadge.style.background = 'rgba(148,163,184,0.2)';
+        sourceBadge.style.borderColor = '#94a3b8';
+        sourceBadge.style.color = '#cbd5e1';
+      }
+    }
+
+    // Tarjeta Diagnóstico IA
+    const diagCard = document.getElementById('bill-ai-diag-card');
+    const diagText = document.getElementById('bill-ai-diag-text');
+    if (diagCard && diagText) {
+      if (bill.diagnosticoIA) {
+        diagText.textContent = bill.diagnosticoIA;
+        diagCard.style.display = 'flex';
+      } else {
+        diagCard.style.display = 'none';
+      }
+    }
+
+    // Tarjeta Histórico 12 Meses
+    const histCard = document.getElementById('bill-ai-history-card');
+    const histText = document.getElementById('bill-ai-history-kwh');
+    if (histCard && histText) {
+      if (bill.consumoAnualEstimadoKWh && bill.consumoAnualEstimadoKWh > 0) {
+        histText.textContent = bill.consumoAnualEstimadoKWh.toLocaleString('es-ES') + ' kWh/año';
+        histCard.style.display = 'flex';
+      } else {
+        histCard.style.display = 'none';
+      }
+    }
 
     const cupsEl = document.getElementById('bill-edit-cups');
     if (cupsEl && bill.cups) cupsEl.value = bill.cups;
@@ -560,6 +923,16 @@
 
     const potEl = document.getElementById('bill-edit-pot');
     if (potEl) potEl.value = (bill.potenciasContratadasKW.p1 || 4.6) + ' kW';
+
+    const priceP1El = document.getElementById('bill-edit-price-p1');
+    if (priceP1El && bill.preciosEnergiaEURKWh && bill.preciosEnergiaEURKWh.p1) {
+      priceP1El.value = bill.preciosEnergiaEURKWh.p1.toFixed(3);
+    }
+
+    const priceP3El = document.getElementById('bill-edit-price-p3');
+    if (priceP3El && bill.preciosEnergiaEURKWh && bill.preciosEnergiaEURKWh.p3) {
+      priceP3El.value = bill.preciosEnergiaEURKWh.p3.toFixed(3);
+    }
 
     if (comp) {
       const ahorroAnualEl = document.getElementById('bill-resumen-ahorro-anual');
@@ -600,16 +973,104 @@
   }
 
   /**
-   * 6. EVENTOS DEL MODAL
+   * 6. ACTUALIZAR ESTADO DE LA API KEY EN LA UI
+   */
+  function refreshApiKeyIndicator() {
+    const key = AIBillParser.getApiKey();
+    const pill = document.getElementById('bill-ai-key-pill');
+    const dot = document.getElementById('bill-ai-key-dot');
+    const txt = document.getElementById('bill-ai-key-text');
+    if (!pill || !dot || !txt) return;
+
+    if (key) {
+      dot.style.background = '#10b981';
+      dot.style.boxShadow = '0 0 8px #10b981';
+      txt.textContent = 'IA Gemini Conectada';
+      txt.style.color = '#6ee7b7';
+      pill.style.background = 'rgba(16,185,129,0.12)';
+      pill.style.borderColor = 'rgba(16,185,129,0.35)';
+      pill.title = 'Haz clic para cambiar tu API Key de Gemini';
+    } else {
+      dot.style.background = '#f59e0b';
+      dot.style.boxShadow = 'none';
+      txt.textContent = 'Conectar IA Gemini';
+      txt.style.color = '#fde68a';
+      pill.style.background = 'rgba(245,158,11,0.12)';
+      pill.style.borderColor = 'rgba(245,158,11,0.35)';
+      pill.title = 'Haz clic para introducir tu API Key de Gemini';
+    }
+  }
+
+  /**
+   * 7. ESTADO DE CARGA DEL DROPZONE
+   */
+  function setDropzoneLoading(loading, message) {
+    BILL_AUDITOR_STATE.isAnalyzing = loading;
+    const idleEl = document.getElementById('dropzone-idle-content');
+    const loadEl = document.getElementById('dropzone-loading-content');
+    const msgEl = document.getElementById('dropzone-loading-msg');
+    const dropzone = document.getElementById('bill-dropzone');
+
+    if (idleEl) idleEl.style.display = loading ? 'none' : 'flex';
+    if (loadEl) loadEl.style.display = loading ? 'flex' : 'none';
+    if (msgEl && message) msgEl.textContent = message;
+
+    if (dropzone) {
+      if (loading) {
+        dropzone.style.borderColor = '#c084fc';
+        dropzone.style.background = 'rgba(168,85,247,0.1)';
+        dropzone.style.cursor = 'wait';
+      } else {
+        dropzone.style.borderColor = 'rgba(245,158,11,0.45)';
+        dropzone.style.background = 'rgba(245,158,11,0.04)';
+        dropzone.style.cursor = 'pointer';
+      }
+    }
+  }
+
+  /**
+   * 8. CONVERTIDOR DE ARCHIVO A BASE64
+   */
+  function readFileAsBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result || '';
+        const commaIdx = result.indexOf(',');
+        if (commaIdx !== -1) {
+          resolve(result.slice(commaIdx + 1));
+        } else {
+          resolve(result);
+        }
+      };
+      reader.onerror = (err) => reject(err);
+      reader.readAsDataURL(file);
+    });
+  }
+
+  /**
+   * 9. EVENTOS DEL MODAL
    */
   function setupModalEvents(modal) {
     const closeBtn = document.getElementById('btn-close-bill-modal');
     const cancelBtn = document.getElementById('btn-cancel-bill-modal');
     const dropzone = document.getElementById('bill-dropzone');
     const fileInput = document.getElementById('bill-file-input');
-    const parsePastedBtn = document.getElementById('btn-parse-pasted-text');
+    const parseLocalBtn = document.getElementById('btn-parse-pasted-local');
+    const parseAIBtn = document.getElementById('btn-parse-pasted-ai');
     const recalculateBtn = document.getElementById('btn-recalculate-bill');
     const applyBtn = document.getElementById('btn-apply-bill-data');
+
+    const keyPill = document.getElementById('bill-ai-key-pill');
+    const keyBox = document.getElementById('bill-api-key-box');
+    const closeKeyBoxBtn = document.getElementById('btn-close-key-box');
+    const saveKeyBtn = document.getElementById('btn-save-bill-gemini-key');
+    const keyInput = document.getElementById('bill-gemini-key-input');
+
+    const tabAuto = document.getElementById('engine-tab-auto');
+    const tabAI = document.getElementById('engine-tab-ai');
+    const tabLocal = document.getElementById('engine-tab-local');
+    const engineHint = document.getElementById('engine-hint-label');
 
     const closeModal = () => {
       modal.style.display = 'none';
@@ -619,20 +1080,88 @@
     if (closeBtn) closeBtn.onclick = closeModal;
     if (cancelBtn) cancelBtn.onclick = closeModal;
 
+    // Selector de motor
+    const setEngine = (engine) => {
+      BILL_AUDITOR_STATE.activeEngine = engine;
+      const tabs = [
+        { btn: tabAuto, id: 'auto', text: '🔄 Auto: Enruta fotos/PDFs a IA y CSV a Local' },
+        { btn: tabAI, id: 'ai', text: '🧠 IA Forzada: Todo documento o texto pasa por Gemini' },
+        { btn: tabLocal, id: 'local', text: '⚡ Local: 100% offline (CSV Datadis / Reglas)' }
+      ];
+      tabs.forEach(t => {
+        if (!t.btn) return;
+        if (t.id === engine) {
+          t.btn.style.background = 'rgba(245,158,11,0.25)';
+          t.btn.style.borderColor = '#f59e0b';
+          t.btn.style.color = '#fbbf24';
+          t.btn.style.fontWeight = '800';
+          if (engineHint) engineHint.textContent = t.text;
+        } else {
+          t.btn.style.background = 'transparent';
+          t.btn.style.borderColor = 'transparent';
+          t.btn.style.color = 'rgba(255,255,255,0.6)';
+          t.btn.style.fontWeight = '700';
+        }
+      });
+    };
+
+    if (tabAuto) tabAuto.onclick = () => setEngine('auto');
+    if (tabAI) tabAI.onclick = () => setEngine('ai');
+    if (tabLocal) tabLocal.onclick = () => setEngine('local');
+
+    // Configuración interactiva de la clave API
+    if (keyPill && keyBox) {
+      keyPill.onclick = () => {
+        const isVisible = keyBox.style.display === 'flex';
+        keyBox.style.display = isVisible ? 'none' : 'flex';
+        if (!isVisible && keyInput) {
+          keyInput.value = AIBillParser.getApiKey();
+          keyInput.focus();
+        }
+      };
+    }
+    if (closeKeyBoxBtn && keyBox) {
+      closeKeyBoxBtn.onclick = () => { keyBox.style.display = 'none'; };
+    }
+    if (saveKeyBtn && keyInput) {
+      saveKeyBtn.onclick = () => {
+        const val = keyInput.value.trim();
+        AIBillParser.setApiKey(val);
+        refreshApiKeyIndicator();
+        if (keyBox) keyBox.style.display = 'none';
+        if (typeof showToast === 'function') {
+          showToast('CLAVE GUARDADA', val ? 'API Key de Gemini sincronizada.' : 'Clave de Gemini eliminada.', 'success', 2500);
+        }
+        if (BILL_AUDITOR_STATE.pendingFile) {
+          const pending = BILL_AUDITOR_STATE.pendingFile;
+          BILL_AUDITOR_STATE.pendingFile = null;
+          handleUploadedFile(pending);
+        }
+      };
+    }
+
+    // Dropzone
     if (dropzone && fileInput) {
-      dropzone.onclick = () => fileInput.click();
+      dropzone.onclick = () => {
+        if (!BILL_AUDITOR_STATE.isAnalyzing) fileInput.click();
+      };
 
       dropzone.ondragover = (e) => {
         e.preventDefault();
-        dropzone.style.background = 'rgba(245,158,11,0.12)';
-        dropzone.style.borderColor = '#fbbf24';
+        if (!BILL_AUDITOR_STATE.isAnalyzing) {
+          dropzone.style.background = 'rgba(245,158,11,0.12)';
+          dropzone.style.borderColor = '#fbbf24';
+        }
       };
       dropzone.ondragleave = () => {
-        dropzone.style.background = 'rgba(245,158,11,0.04)';
-        dropzone.style.borderColor = 'rgba(245,158,11,0.45)';
+        if (!BILL_AUDITOR_STATE.isAnalyzing) {
+          dropzone.style.background = 'rgba(245,158,11,0.04)';
+          dropzone.style.borderColor = 'rgba(245,158,11,0.45)';
+        }
       };
       dropzone.ondrop = (e) => {
         e.preventDefault();
+        if (BILL_AUDITOR_STATE.isAnalyzing) return;
         dropzone.style.background = 'rgba(245,158,11,0.04)';
         dropzone.style.borderColor = 'rgba(245,158,11,0.45)';
         if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
@@ -647,15 +1176,52 @@
       };
     }
 
-    if (parsePastedBtn) {
-      parsePastedBtn.onclick = () => {
+    // Botones de análisis de texto pegado
+    if (parseLocalBtn) {
+      parseLocalBtn.onclick = () => {
         const area = document.getElementById('bill-raw-textarea');
         if (area && area.value.trim().length > 0) {
-          processRawContent(area.value, 'pasted-bill.txt');
+          processRawContent(area.value, 'pasted-bill.txt', false, false);
         }
       };
     }
 
+    if (parseAIBtn) {
+      parseAIBtn.onclick = async () => {
+        const area = document.getElementById('bill-raw-textarea');
+        const text = area ? area.value.trim() : '';
+        if (!text) {
+          alert('Pega primero el texto de la factura en el cuadro de texto.');
+          return;
+        }
+        const apiKey = AIBillParser.getApiKey();
+        if (!apiKey) {
+          if (keyBox) {
+            keyBox.style.display = 'flex';
+            if (keyInput) keyInput.focus();
+          }
+          alert('Para analizar con IA necesitas configurar tu Google Gemini API Key.');
+          return;
+        }
+
+        setDropzoneLoading(true, 'Analizando texto con IA de Google Gemini...');
+        try {
+          const bill = await AIBillParser.analyzeDocument({ textData: text, fileName: 'texto-factura.txt' });
+          BILL_AUDITOR_STATE.currentBill = bill;
+          BILL_AUDITOR_STATE.comparison = computeComparison(bill);
+          updateModalUI(bill, BILL_AUDITOR_STATE.comparison);
+          if (typeof showToast === 'function') {
+            showToast('Texto analizado con IA: ' + bill.comercializadora + ' · ' + bill.totalFacturaEUR + ' €', 'success', 3500);
+          }
+        } catch (err) {
+          alert('Error en análisis IA: ' + (err.message || err));
+        } finally {
+          setDropzoneLoading(false);
+        }
+      };
+    }
+
+    // Recalcular manualmente
     if (recalculateBtn) {
       recalculateBtn.onclick = () => {
         const total = parseFloat(document.getElementById('bill-edit-total').value) || 0;
@@ -663,19 +1229,28 @@
         const days = parseInt(document.getElementById('bill-edit-days').value) || 30;
         const cups = document.getElementById('bill-edit-cups').value || '';
         const tarifa = document.getElementById('bill-edit-tarifa').value || '2.0TD';
+        const priceP1 = parseFloat(document.getElementById('bill-edit-price-p1').value) || 0.20;
+        const priceP3 = parseFloat(document.getElementById('bill-edit-price-p3').value) || 0.11;
+
+        // Conservar diagnóstico y consumo anual previo si existían
+        const prev = BILL_AUDITOR_STATE.currentBill || {};
 
         BILL_AUDITOR_STATE.currentBill = {
           cups: cups,
-          distribuidora: 'Ajuste Manual',
-          comercializadora: 'Personalizado',
+          distribuidora: prev.distribuidora || 'Ajuste Manual',
+          comercializadora: prev.comercializadora || 'Personalizado',
           tarifaAcceso: tarifa,
           diasFactura: days,
-          potenciasContratadasKW: { p1: 4.6, p2: 4.6 },
+          potenciasContratadasKW: { p1: 4.6, p2: 4.6, p3: 0 },
           costePotenciaEUR: parseFloat((total * 0.25).toFixed(2)),
           consumosKWh: { total: kwh, p1: kwh * 0.35, p2: kwh * 0.30, p3: kwh * 0.35 },
-          preciosEnergiaEURKWh: { p1: 0.22, p2: 0.17, p3: 0.11 },
+          preciosEnergiaEURKWh: { p1: priceP1, p2: (priceP1 + priceP3) / 2, p3: priceP3 },
           costeEnergiaEUR: parseFloat((total * 0.65).toFixed(2)),
-          totalFacturaEUR: total
+          totalFacturaEUR: total,
+          historicoMensualKWh: prev.historicoMensualKWh || null,
+          consumoAnualEstimadoKWh: prev.consumoAnualEstimadoKWh || null,
+          diagnosticoIA: prev.diagnosticoIA || null,
+          fuente: 'manual'
         };
 
         BILL_AUDITOR_STATE.comparison = computeComparison(BILL_AUDITOR_STATE.currentBill);
@@ -683,6 +1258,7 @@
       };
     }
 
+    // Aplicar al presupuesto
     if (applyBtn) {
       applyBtn.onclick = () => {
         applyBillToBudget();
@@ -692,19 +1268,99 @@
   }
 
   /**
-   * 7. PROCESAMIENTO DE ARCHIVO SUBIDO
+   * 10. ENRUTADOR Y PROCESADOR DE ARCHIVOS SUBIDOS
    */
-  function handleUploadedFile(file) {
-    const reader = new FileReader();
+  async function handleUploadedFile(file) {
+    if (!file) return;
+
     const fileName = file.name || '';
-    const isJSON = fileName.toLowerCase().endsWith('.json');
-    const isCSV = fileName.toLowerCase().endsWith('.csv');
+    const lowerName = fileName.toLowerCase();
+    const isJSON = lowerName.endsWith('.json');
+    const isCSV = lowerName.endsWith('.csv');
+    const isPDF = lowerName.endsWith('.pdf') || (file.type === 'application/pdf');
+    const isImage = file.type.startsWith('image/') || /\.(png|jpe?g|webp|bmp)$/i.test(lowerName);
 
-    reader.onload = (e) => {
+    const mode = BILL_AUDITOR_STATE.activeEngine; // 'auto' | 'ai' | 'local'
+
+    // Caso A: Tabulares estructurados (CSV / JSON) → siempre motor local instantáneo
+    if (isCSV || isJSON) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        processRawContent(e.target.result, fileName, isJSON, isCSV);
+      };
+      reader.readAsText(file);
+      return;
+    }
+
+    // Caso B: Documentos visuales / multimodales (PDF o Fotos)
+    if (isPDF || isImage) {
+      if (mode === 'local') {
+        alert('Los documentos en formato PDF o fotos requieren el Motor IA. Cambia al modo "🔄 Auto" o "🧠 Motor IA" para procesarlos.');
+        return;
+      }
+
+      const apiKey = AIBillParser.getApiKey();
+      if (!apiKey) {
+        BILL_AUDITOR_STATE.pendingFile = file;
+        const keyBox = document.getElementById('bill-api-key-box');
+        if (keyBox) {
+          keyBox.style.display = 'flex';
+          const keyIn = document.getElementById('bill-gemini-key-input');
+          if (keyIn) keyIn.focus();
+        }
+        alert('Para procesar facturas en PDF o fotos con IA es necesario conectar tu API Key de Google Gemini. Introdúcela en la ventana emergente.');
+        return;
+      }
+
+      setDropzoneLoading(true, isPDF ? 'Analizando PDF de factura con IA de Google Gemini...' : 'Procesando foto de factura con visión artificial...');
+      try {
+        const base64Data = await readFileAsBase64(file);
+        const mimeType = file.type || (isPDF ? 'application/pdf' : 'image/jpeg');
+        const bill = await AIBillParser.analyzeDocument({
+          base64Data,
+          mimeType,
+          fileName
+        });
+
+        BILL_AUDITOR_STATE.currentBill = bill;
+        BILL_AUDITOR_STATE.comparison = computeComparison(bill);
+        updateModalUI(bill, BILL_AUDITOR_STATE.comparison);
+
+        if (typeof showToast === 'function') {
+          showToast('Factura analizada con IA: ' + bill.comercializadora + ' · ' + bill.totalFacturaEUR + ' € · ' + bill.consumosKWh.total + ' kWh', 'success', 4000);
+        }
+      } catch (err) {
+        console.error('Error en análisis IA de factura:', err);
+        alert('No se pudo analizar el archivo con IA: ' + (err.message || err) + '\n\nPuedes ingresar los datos manualmente o usar el motor local.');
+      } finally {
+        setDropzoneLoading(false);
+      }
+      return;
+    }
+
+    // Caso C: Archivos de texto (.txt u otros)
+    const reader = new FileReader();
+    reader.onload = async (e) => {
       const content = e.target.result;
-      processRawContent(content, fileName, isJSON, isCSV);
+      if (mode === 'ai' && AIBillParser.getApiKey()) {
+        setDropzoneLoading(true, 'Analizando texto con IA de Google Gemini...');
+        try {
+          const bill = await AIBillParser.analyzeDocument({ textData: content, fileName });
+          BILL_AUDITOR_STATE.currentBill = bill;
+          BILL_AUDITOR_STATE.comparison = computeComparison(bill);
+          updateModalUI(bill, BILL_AUDITOR_STATE.comparison);
+          if (typeof showToast === 'function') {
+            showToast('Factura analizada con IA: ' + bill.comercializadora + ' · ' + bill.totalFacturaEUR + ' €', 'success', 4000);
+          }
+        } catch (err) {
+          processRawContent(content, fileName, false, false);
+        } finally {
+          setDropzoneLoading(false);
+        }
+      } else {
+        processRawContent(content, fileName, false, false);
+      }
     };
-
     reader.readAsText(file);
   }
 
@@ -729,12 +1385,12 @@
     updateModalUI(bill, BILL_AUDITOR_STATE.comparison);
 
     if (typeof showToast === 'function') {
-      showToast('Factura procesada: ' + bill.totalFacturaEUR + ' € · ' + bill.consumosKWh.total + ' kWh', 'success');
+      showToast('Factura procesada (Local): ' + bill.totalFacturaEUR + ' € · ' + bill.consumosKWh.total + ' kWh', 'success', 3500);
     }
   }
 
   /**
-   * 8. APLICAR DATOS DE FACTURA AL PRESUPUESTO & ESTUDIO DE LA APLICACIÓN
+   * 11. APLICAR DATOS DE FACTURA AL PRESUPUESTO & ESTUDIO DE LA APLICACIÓN
    */
   function applyBillToBudget() {
     const bill = BILL_AUDITOR_STATE.currentBill;
@@ -803,17 +1459,20 @@
     }
 
     if (typeof showToast === 'function') {
-      showToast('¡Datos de la factura sincronizados! Meta: ' + targetKwp + ' kWp (' + Math.round(comp.consumoAnualKWh) + ' kWh/año).', 'success', 4000);
+      const detailStr = (bill.consumoAnualEstimadoKWh ? ' [Histórico 12m]' : '');
+      showToast('¡Datos de factura aplicados al presupuesto! Meta: ' + targetKwp + ' kWp (' + Math.round(comp.consumoAnualKWh) + ' kWh/año)' + detailStr, 'success', 4500);
     }
   }
 
   /**
-   * 9. APERTURA Y CONTROL EXTERNO DEL MODAL
+   * 12. APERTURA Y CONTROL EXTERNO DEL MODAL
    */
   function openBillAuditorModal() {
     const modal = ensureModalDOM();
     modal.style.display = 'flex';
     BILL_AUDITOR_STATE.modalOpen = true;
+
+    refreshApiKeyIndicator();
 
     if (!BILL_AUDITOR_STATE.currentBill) {
       const curFactura = parseFloat((document.getElementById('cfg-pres-factura-mes') || {}).value) || 125;
@@ -824,26 +1483,33 @@
         comercializadora: 'Mercado Libre / Regulado',
         tarifaAcceso: '2.0TD',
         diasFactura: 30,
-        potenciasContratadasKW: { p1: 4.6, p2: 4.6 },
+        potenciasContratadasKW: { p1: 4.6, p2: 4.6, p3: 0 },
         costePotenciaEUR: 28.50,
         consumosKWh: { total: Math.round(curConsumo / 12), p1: 150, p2: 120, p3: 180 },
         preciosEnergiaEURKWh: { p1: 0.22, p2: 0.17, p3: 0.11 },
         costeEnergiaEUR: curFactura * 0.65,
-        totalFacturaEUR: curFactura
+        totalFacturaEUR: curFactura,
+        historicoMensualKWh: null,
+        consumoAnualEstimadoKWh: null,
+        diagnosticoIA: null,
+        fuente: 'manual'
       };
     }
     BILL_AUDITOR_STATE.comparison = computeComparison(BILL_AUDITOR_STATE.currentBill);
     updateModalUI(BILL_AUDITOR_STATE.currentBill, BILL_AUDITOR_STATE.comparison);
   }
 
+  // API pública canónica
   window.RA.billAuditor = {
     openModal: openBillAuditorModal,
     parseText: (txt) => BillParser.parseText(txt),
     parseCSV: (csv) => BillParser.parseCSV(csv),
     parseJSON: (j) => BillParser.parseJSON(j),
+    analyzeWithAI: (params) => AIBillParser.analyzeDocument(params),
     computeComparison: computeComparison,
     getState: () => BILL_AUDITOR_STATE,
     applyToBudget: applyBillToBudget,
+    setEngine: (eng) => { BILL_AUDITOR_STATE.activeEngine = eng; },
     get currentBill() { return BILL_AUDITOR_STATE.currentBill; },
     get comparison() { return BILL_AUDITOR_STATE.comparison; }
   };

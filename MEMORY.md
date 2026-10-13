@@ -22,7 +22,7 @@
 | `electrical-engine.js` | Strings MPPT, cableado REBT | `getProjectCalcs()` |
 | `financials.js` | CAPEX/OPEX, VAN, TIR, oferta comercial PDF | `calculateFinancialModel()` |
 | `docs-generator.js` | Memoria técnica, presupuesto BOE, unifilar | `getProjectCalcs()` |
-| `bill-auditor.js` | Auditoría de facturas | `window.RA.billAuditor` |
+| `bill-auditor.js` | Doble motor auditoría (IA multimodal Gemini + Local Datadis/Regex) | `window.RA.billAuditor` |
 | `buildings.js` | Edificios 3D y extrusión | `window.WP.buildings` |
 | `obstacles.js` | Obstáculos 3D | `window.WP.obstacles` |
 | `capture-mode.js` | Modo captura limpia (tecla C) | `window.RACapture` |
@@ -284,6 +284,29 @@ calculateFinancialModel()  ← Definición canónica en financials.js (~L491)
   - Conexión reactiva instantánea: subida de logotipo sincroniza simultáneamente la memoria en vivo (`window.customCompanyLogoBase64`), la clave de rescate `ra_company_logo` y la estructura `ra_company_branding`.
   - Fallbacks canónicos jerárquicos en `js/financials.js` garantizan que cualquier propuesta comercial cuente siempre con los datos e imagen corporativa configurados por el usuario.
 - **Congelación Inline:** Retiradas más de 200 líneas de código legacy del bloque inline de `index.html`, delegando limpiamente en el nuevo módulo.
+
+---
+
+## 17. Auditoría de Facturas Eléctricas — Doble Motor (IA Multimodal + Local Offline) (Octubre 2026)
+
+- **Estado:** ✅ Implementado y verificado en `js/bill-auditor.js` e `index.html`.
+- **Arquitectura de Doble Motor Canónico:**
+  1. **Motor IA Multimodal (`AIBillParser`):**
+     - Alimentado por Google Gemini API (`gemini-2.0-flash` con degradación a `gemini-1.5-flash`).
+     - Extracción nativa de documentos PDF oficiales (digitales y escaneados) e imágenes fotográficas tomadas con smartphone (JPG, PNG, WebP) mediante carga en base64 `inlineData`.
+     - Extracción profunda y estructurada en JSON garantizado (`responseMimeType: "application/json"`): CUPS, distribuidora, comercializadora, tarifa de acceso, días facturados, potencias contratadas por periodo (P1/P2/P3), consumos por periodo (P1/P2/P3), precios unitarios reales de energía (€/kWh), término fijo, término variable, impuestos y total.
+     - **Extracción de Histórico Anual de 12 Meses:** Detecta la gráfica de barras del último año presente en las facturas españolas, calculando el consumo anual real acumulado `consumoAnualEstimadoKWh` para erradicar el error de estacionalidad (1 mes $\times$ 12).
+     - **Diagnóstico Comercial Inteligente:** Evalúa si la potencia contratada está sobredimensionada o si el precio del kWh es ventajoso frente al mercado solar.
+  2. **Motor Local Determinista (`BillParser`):**
+     - 100% offline, local y de ejecución instantánea (<5 ms).
+     - Procesamiento de curvas horarias de distribuidora Datadis (CSV), volcados JSON y texto copiado directo mediante expresiones regulares multiformato (Iberdrola, Endesa, Naturgy, PVPC, Repsol, TotalEnergies, Octopus).
+- **Experiencia de Usuario Glassmorphic:**
+  - Selector segmentado en cabecera: `[🔄 Auto (Recomendado)]`, `[🧠 Motor IA (Gemini)]` y `[⚡ Local (CSV / Reglas)]`.
+  - Enrutamiento inteligente: arrastrar un PDF o foto activa automáticamente el motor IA; arrastrar un CSV activa el motor local.
+  - Indicador interactivo de conexión de clave de IA (`✨ IA Gemini Conectada` / `⚠️ Conectar IA Gemini`) con mini panel desplegable para introducir o modificar la API Key sin salir del visor ni interrumpir el flujo de trabajo.
+  - Animación de carga y progreso con micro-spinner durante el análisis de documentos IA.
+  - Tarjetas destacadas de diagnóstico IA y de histórico anual detectado.
+  - Sincronización inmediata con el estudio solar (`applyBillToBudget`): inyecta el consumo anual y la factura media en el presupuesto y dimensionamiento de paneles.
 
 
 

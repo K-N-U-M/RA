@@ -42,7 +42,7 @@ c:/TRABAJOS/RA/
 │   ├── solar-materials.js           # Shaders y materiales PBR fotovoltaicos
 │   ├── electrical-engine.js         # Secciones REBT, strings MPPT y reasignación balanceada
 │   ├── undo-manager.js              # Deshacer borrados (obstáculos/edificios/paneles/vértices)
-│   ├── bill-auditor.js              # Auditoría de facturas eléctricas
+│   ├── bill-auditor.js              # Auditoría de facturas eléctricas (doble motor: IA multimodal Gemini + local Datadis)
 │   ├── financials.js                # CAPEX/OPEX, VAN, TIR, oferta comercial + resumen IA híbrido
 │   ├── company-branding.js          # Identidad corporativa, gestión y persistencia de logotipo y Gemini API
 │   ├── docs-generator.js            # Exportación de memorias y ofertas en PDF
