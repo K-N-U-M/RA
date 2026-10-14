@@ -7,6 +7,11 @@
 const GOOGLE_MAPS_API_KEY = 'AIzaSyAj-cG-tvA-WSaQvC6axmHnQK4WM5VDQWA';
 const CESIUM_ION_TOKEN    = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJhYTYwM2YzZC0zZDIwLTQ3YWQtYWQ5OC01MTkyMzkzYzNmMjQiLCJpZCI6NDU4MjA0LCJpc3MiOiJodHRwczovL2FwaS5jZXNpdW0uY29tIiwiYXVkIjoidW5kZWZpbmVkX2RlZmF1bHQiLCJpYXQiOjE3ODQ0OTI0Njl9.DV-6rn9Hp3XsrxH0xZJGQJQddYK-WyRV5ZQ5dJSwqVk';
 
+// ── Fuente única de verdad de claves/tokens ─────────────────────────────────
+// index.html delega aquí (window.RA_CONFIG_KEYS) para no duplicar secretos en
+// el bundle. Rotar una clave = editar SOLO este módulo.
+window.RA_CONFIG_KEYS = { googleMaps: GOOGLE_MAPS_API_KEY, cesiumIon: CESIUM_ION_TOKEN };
+
 // [P3] Resiliencia CDN: sin CesiumJS (sin red / CDN caído) esto lanzaba ReferenceError
 // y el usuario se quedaba con pantalla en blanco sin explicación alguna.
 if (typeof Cesium === 'undefined') {

@@ -5112,6 +5112,7 @@ function initUnifiedWorkPlaneSystem() {
   if (typeof wpClearEntGroup !== 'undefined') window.wpClearEntGroup = wpClearEntGroup;
   if (typeof wpEnsureCounterClockwisePoints !== 'undefined') window.wpEnsureCounterClockwisePoints = wpEnsureCounterClockwisePoints;
   if (typeof wpSetPolyOrientation !== 'undefined') window.wpSetPolyOrientation = wpSetPolyOrientation;
+  if (typeof wpSetPolyStructure !== 'undefined') window.wpSetPolyStructure = wpSetPolyStructure;
   if (typeof wpGetFaldonOrientationComparison !== 'undefined') window.wpGetFaldonOrientationComparison = wpGetFaldonOrientationComparison;
   if (typeof wpTogglePolyWalkway !== 'undefined') window.wpTogglePolyWalkway = wpTogglePolyWalkway;
   if (typeof wpApplyPolyWalkwayToAll !== 'undefined') window.wpApplyPolyWalkwayToAll = wpApplyPolyWalkwayToAll;

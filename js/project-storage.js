@@ -371,6 +371,11 @@ function raImportProjectData(projectData) {
               tiltDeg: p.tiltDeg,
               azimuthDeg: p.azimuthDeg,
               stringId: p.stringId,
+              isManual: !!p.isManual,
+              rot: p.rot || 0,
+              panelId: p.panelId,
+              hasMLPE: !!p.hasMLPE,
+              isShaded: !!p.isShaded,
               center: p.center ? new Cesium.Cartesian3(p.center.x, p.center.y, p.center.z) : null,
               corners: Array.isArray(p.corners) ? p.corners.map(c => new Cesium.Cartesian3(c.x, c.y, c.z)) : []
             })) : []

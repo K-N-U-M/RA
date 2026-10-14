@@ -279,7 +279,7 @@ function generateMemoria() {
   const vanVal = finM ? (typeof finM.van === 'number' ? Math.round(finM.van) : finM.van) : Math.round(d.ahorro_anual * 15.6 - (d.total * 0.85));
   const tirVal = finM ? (typeof finM.tir === 'number' ? finM.tir.toFixed(1) : finM.tir) : '16.4';
   const lcoeVal = finM ? (typeof finM.lcoe === 'number' ? finM.lcoe.toFixed(3) : finM.lcoe) : '0.038';
-  const pbYears = finM ? (typeof finM.paybackYears === 'number' ? finM.paybackYears.toFixed(1) : finM.paybackYears) : d.roi;
+  const pbYears = finM ? (typeof finM.paybackYears === 'number' ? finM.paybackYears.toFixed(1) : finM.paybackYears) : (d.ahorro_anual > 0 ? (d.total / d.ahorro_anual).toFixed(1) : 'N/D');
   const ah1 = finM ? Math.round(finM.ahorroLuzAnio1) : d.ahorro_anual;
 
   const keyYears = [1, 5, 10, 15, 20, 25];
@@ -630,7 +630,7 @@ function generatePresupuesto() {
   const capexBruto = subtotalCalc + iva;
 
   // Incentivos y retorno bancable (25 años)
-  const tirVal = m ? (m.tir * 100).toFixed(1) : '16.4';
+  const tirVal = m ? (typeof m.tir === 'number' ? m.tir.toFixed(1) : m.tir) : '16.4';
   const vanVal = m ? Math.round(m.van).toLocaleString('es-ES') : Math.round(capexBruto * 2.8).toLocaleString('es-ES');
   const lcoeVal = m ? (m.lcoe).toFixed(3) : '0.036';
   const paybackVal = m ? (m.paybackYears).toFixed(1) : '4.2';
