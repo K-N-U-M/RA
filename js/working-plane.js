@@ -2348,9 +2348,35 @@ function wpDeletePlane(planeIdx, skipConfirm = false) {
 
 // ── 2.2. FLUJO DE DIBUJO DE POLILÍNEAS COPLANARES ───────────────────────────
 function startPolylineDrawMode() {
-  const plane = wpGetActivePlane();
+  let plane = wpGetActivePlane();
   if (!plane) {
-    alert('Es obligatorio crear primero el plano de trabajo tocando 3 puntos sobre la superficie.');
+    // Si hay un edificio 3D seleccionado o existente, convertir automáticamente su cubierta en plano solar
+    if (typeof selectedBuildingId !== 'undefined' && selectedBuildingId) {
+      const bld = (typeof buildings !== 'undefined' && Array.isArray(buildings)) ? buildings.find(b => b.id === selectedBuildingId) : null;
+      if (bld && bld.points && bld.points.length >= 3 && typeof createSolarPlaneFromBuildingRoof === 'function') {
+        if (typeof showToast === 'function') {
+          showToast('PLANO DE CUBIERTA CREADO', 'Superficie de ' + bld.name + ' convertida automáticamente en plano solar.', 'success', 3500);
+        }
+        createSolarPlaneFromBuildingRoof();
+        return;
+      }
+    }
+    if (typeof buildings !== 'undefined' && Array.isArray(buildings) && buildings.length > 0) {
+      const bld = buildings[0];
+      if (bld && bld.points && bld.points.length >= 3 && typeof createSolarPlaneFromBuildingRoof === 'function') {
+        if (typeof selectBuilding === 'function') selectBuilding(bld.id);
+        if (typeof showToast === 'function') {
+          showToast('PLANO DE CUBIERTA CREADO', 'Superficie de ' + bld.name + ' convertida automáticamente en plano solar.', 'success', 3500);
+        }
+        createSolarPlaneFromBuildingRoof();
+        return;
+      }
+    }
+    if (typeof showToast === 'function') {
+      showToast('PLANO REQUERIDO', 'Toca 3 puntos sobre el tejado para definir el plano de trabajo antes de dibujar polilíneas.', 'warning', 4500);
+    } else {
+      alert('Es obligatorio crear primero el plano de trabajo tocando 3 puntos sobre la superficie.');
+    }
     return;
   }
   WP.activePolyPts = [];
@@ -2425,7 +2451,23 @@ window.wpUndoLastPolylinePoint = wpUndoLastPolylinePoint;
 
 function wpCloseActivePolyline() {
   if (WP.activePolyPts.length < 3) {
-    showStatus("SE REQUIEREN AL MENOS 3 VERTICES PARA CERRAR LA POLILINEA", 2000);
+    const confBar = document.getElementById('ra-confirm-bar');
+    if (confBar) {
+      confBar.style.display = 'none';
+      confBar.classList.remove('open');
+    }
+    if (typeof bldFootprintState !== 'undefined' && bldFootprintState && bldFootprintState.editing) {
+      if (typeof toggleBuildingFootprintEdit === 'function') toggleBuildingFootprintEdit(false);
+      if (typeof showToast === 'function') {
+        showToast('EDICIÓN FINALIZADA', 'Modo de edición de huella cerrado. Pulsa "Convertir Faldones en Planos Solares" para generar la cubierta.', 'info', 4000);
+      }
+      return;
+    }
+    if (typeof showToast === 'function') {
+      showToast('AVISO', 'No hay ningún dibujo de polilínea activo. Pulsa "Dibujar Polilínea en Plano" o "Convertir Faldones en Planos Solares".', 'warning', 3500);
+    } else {
+      showStatus("SE REQUIEREN AL MENOS 3 VERTICES PARA CERRAR LA POLILINEA", 2000);
+    }
     return;
   }
 
@@ -4210,11 +4252,12 @@ function wpUpdateUI() {
       });
     }
   }
-  // Habilitar o deshabilitar botón de polilíneas
+  // Habilitar botón de polilíneas (siempre clicable para auto-crear plano o guiar)
   if (btnDraw) {
-    btnDraw.disabled = !plane;
-    btnDraw.style.opacity = plane ? '1' : '0.4';
-    btnDraw.style.cursor = plane ? 'pointer' : 'not-allowed';
+    const hasBuilding = (typeof buildings !== 'undefined' && Array.isArray(buildings) && buildings.length > 0);
+    btnDraw.disabled = false;
+    btnDraw.style.opacity = (plane || hasBuilding) ? '1' : '0.65';
+    btnDraw.style.cursor = 'pointer';
     if (WP.mode === 'draw-poly') {
       btnDraw.innerHTML = '<i data-lucide=\"edit-2\" class=\"icon-sm\"></i> DIBUJANDO... (CLIC EN EL PLANO)'; if(window.lucide) lucide.createIcons();
       btnDraw.style.background = 'var(--grad-emerald)';
@@ -4222,6 +4265,13 @@ function wpUpdateUI() {
       btnDraw.innerHTML = '<i data-lucide=\"edit-2\" class=\"icon-sm\"></i> DIBUJAR POLILÍNEA EN PLANO'; if(window.lucide) lucide.createIcons();
       btnDraw.style.background = 'var(--grad-amber)';
     }
+  }
+
+  // Actualizar estado de botones Cerrar / Deshacer polilínea
+  const btnClosePoly = document.getElementById('btn-close-polyline');
+  const isPolyDrawing = (WP.mode === 'draw-poly' || WP.mode === 'draw-building');
+  if (btnClosePoly) {
+    btnClosePoly.style.opacity = (isPolyDrawing || (typeof bldFootprintState !== 'undefined' && bldFootprintState && bldFootprintState.editing)) ? '1' : '0.5';
   }
 
   // Actualizar contadores y reporte de polilíneas

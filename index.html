@@ -628,8 +628,8 @@ window.RA_App = window.RA_App || {};
               </div>
 
               <div class="stat-grid-2" style="margin-bottom:6px;">
-                <button class="btn-action-primary" onclick="if (WP.mode === 'draw-building') finishActiveBuilding(); else wpCloseActivePolyline();" style="padding:7px;"><i data-lucide="check" class="icon-sm"></i> CERRAR POLILÍNEA</button>
-                <button class="doc-mini-btn" onclick="if (WP.mode === 'draw-building') undoLastBuildingPoint(); else undoLastPoint();" style="text-align:center;">↶ DESHACER PTO</button>
+                <button class="btn-action-primary" id="btn-close-polyline" onclick="if (typeof WP !== 'undefined' && WP.mode === 'draw-building') finishActiveBuilding(); else wpCloseActivePolyline();" style="padding:7px;"><i data-lucide="check" class="icon-sm"></i> CERRAR POLILÍNEA</button>
+                <button class="doc-mini-btn" id="btn-undo-polyline-pt" onclick="if (typeof WP !== 'undefined' && WP.mode === 'draw-building') undoLastBuildingPoint(); else undoLastPoint();" style="text-align:center;">↶ DESHACER PTO</button>
               </div>
 
               <!-- Selector Desplegable de Polilíneas de Cubierta -->
@@ -1808,7 +1808,7 @@ window.RA_App = window.RA_App || {};
 
   <div id="ra-confirm-bar">
     <span class="confirm-msg" id="confirm-meta-text"><i data-lucide="check" class="icon-sm"></i> DISEÑO DE POLÍGONO COMPLETADO · LISTO PARA CONFIRMAR</span>
-    <button class="confirm-btn-ok" onclick="if (typeof WP !== 'undefined' && WP.mode === 'draw-building') finishActiveBuilding(); else confirmPolygonDesign();"><i data-lucide="check" class="icon-sm"></i> CONFIRMAR DISEÑO</button>
+    <button class="confirm-btn-ok" onclick="confirmPolygonDesign();"><i data-lucide="check" class="icon-sm"></i> CONFIRMAR DISEÑO</button>
   </div>
 
       <!-- ── PESTAÑA: ANÁLISIS ENERGÉTICO COMPARATIVO ────────────────────────── -->
@@ -4572,6 +4572,12 @@ function finishActiveBuilding() {
     btnDraw.style.borderColor = '';
   }
 
+  const confBar = document.getElementById('ra-confirm-bar');
+  if (confBar) {
+    confBar.style.display = 'none';
+    confBar.classList.remove('open');
+  }
+
   try {
     selectBuilding(bldId);
   } catch(e) {
@@ -4618,7 +4624,10 @@ function cancelActiveBuilding() {
   }
 
   const confBar = document.getElementById('ra-confirm-bar');
-  if (confBar) confBar.style.display = 'none';
+  if (confBar) {
+    confBar.style.display = 'none';
+    confBar.classList.remove('open');
+  }
   if (typeof wpUpdateCanvasHUD === 'function') wpUpdateCanvasHUD();
   showStatus('Creación de edificio cancelada', 1500);
 }
@@ -5774,13 +5783,31 @@ function computeApproximateArea(positions) {
 
 // ── Confirmación de Diseño de Cubierta ─────────────────────────────────────
 function confirmRoofDesignAndSimulate() {
+  const confBar = document.getElementById('ra-confirm-bar');
+  if (confBar) {
+    confBar.style.display = 'none';
+    confBar.classList.remove('open');
+  }
+
+  if (typeof WP !== 'undefined' && WP) {
+    if (WP.mode === 'draw-poly' && WP.activePolyPts && WP.activePolyPts.length >= 3) {
+      if (typeof wpCloseActivePolyline === 'function') wpCloseActivePolyline();
+    }
+    if (WP.polylines && WP.polylines.length > 0) {
+      isPolygonDesignConfirmed = true;
+      setAppMode('navigate');
+      showStatus('<i data-lucide=\"check\" class=\"icon-sm\"></i> DISEÑO DE CUBIERTA CONFIRMADO', 3000);
+      if (typeof wpGoToStep === 'function') wpGoToStep(2);
+      return;
+    }
+  }
+
   if (polygonPoints.length < 3) {
     showStatus('EL POLÍGONO DEBE TENER AL MENOS 3 PUNTOS PARA SIMULAR', 2500);
     return;
   }
 
   isPolygonDesignConfirmed = true;
-  confirmBar.classList.remove('open');
   setAppMode('navigate');
 
   showStatus('<i data-lucide=\"check\" class=\"icon-sm\"></i> DISEÑO DE CUBIERTA CONFIRMADO · INICIANDO SIMULACIÓN 3D', 3000);
@@ -8203,6 +8230,29 @@ function toggleFullscreen() {
 }
 
 function confirmPolygonDesign() {
+  const confBar = document.getElementById('ra-confirm-bar');
+  if (confBar) {
+    confBar.style.display = 'none';
+    confBar.classList.remove('open');
+  }
+  if (typeof bldFootprintState !== 'undefined' && bldFootprintState && bldFootprintState.editing) {
+    if (typeof toggleBuildingFootprintEdit === 'function') toggleBuildingFootprintEdit(false);
+  }
+  if (typeof WP !== 'undefined' && WP) {
+    if (WP.mode === 'draw-building' && typeof finishActiveBuilding === 'function') {
+      finishActiveBuilding();
+      return;
+    }
+    if (WP.mode === 'draw-poly' && WP.activePolyPts && WP.activePolyPts.length >= 3) {
+      if (typeof wpCloseActivePolyline === 'function') wpCloseActivePolyline();
+      return;
+    }
+    if (WP.polylines && WP.polylines.length > 0) {
+      isPolygonDesignConfirmed = true;
+      if (typeof wpGoToStep === 'function') wpGoToStep(2);
+      return;
+    }
+  }
   confirmRoofDesignAndSimulate();
 }
 
