@@ -2217,8 +2217,16 @@ function wpDeleteActivePlane(skipConfirm = false) {
   }
 
   // ── Paso 4: Borrar obstáculos del plano eliminado ─────────────────────────
+  // [C4/G3] Mutamos la MISMA lista compartida (splice in-place) en vez de reasignar el array
+  // global: los demás módulos (obstacles.js) guardan un alias y, si reasignábamos, seguían
+  // viendo la copia antigua → obstáculos fantasma en el 3D.
   if (typeof obstacles !== 'undefined' && Array.isArray(obstacles)) {
-    obstacles = obstacles.filter(o => !(o && o.planeIdx === deletedIdx));
+    for (let _oi = obstacles.length - 1; _oi >= 0; _oi--) {
+      const _ob = obstacles[_oi];
+      if (_ob && typeof _ob.planeIdx === 'number' && _ob.planeIdx === deletedIdx) {
+        obstacles.splice(_oi, 1);
+      }
+    }
     // Reindexar también los obstáculos restantes
     obstacles.forEach(o => {
       if (o && typeof o.planeIdx === 'number' && o.planeIdx > deletedIdx) {
@@ -4636,12 +4644,12 @@ const DEFAULT_EQUIPMENT_CATALOG = {
     { id: 'tier1_std_450', brand: 'Genérico Tier 1', model: 'Mono PERC 450W', tec: 'Monocristalino', l: 2.10, w: 1.05, wp: 450, eff: 21.5, price: 135, voc: 41.5, isc: 11.8, vmp: 34.5, imp: 13.05, tier: 'Tier 1' }
   ],
   inverters: [
-    { id: 'inv_huawei_5k', brand: 'Huawei', model: 'SUN2000-5KTL-L1', kw: 5.0, type: 'Monofásico Híbrido (1F+N)', mppt: 2, inputsPerMppt: 1, vDcMax: 600, vMpptMin: 90, vMpptMax: 560, vMpptNomMin: 180, vMpptNomMax: 480, vStart: 100, iMaxOperA: 12.5, iMaxScA: 18.0, maxOverload: 1.30, eff: 98.4, price: 1080 },
-    { id: 'inv_huawei_10k', brand: 'Huawei', model: 'SUN2000-10KTL-M1', kw: 10.0, type: 'Trifásico Híbrido (3F+N)', mppt: 2, inputsPerMppt: 2, vDcMax: 1100, vMpptMin: 140, vMpptMax: 980, vMpptNomMin: 320, vMpptNomMax: 800, vStart: 200, iMaxOperA: 26.0, iMaxScA: 30.0, maxOverload: 1.35, eff: 98.6, price: 1750 },
-    { id: 'inv_fronius_6k', brand: 'Fronius', model: 'Primo GEN24 6.0 Plus', kw: 6.0, type: 'Monofásico Híbrido (1F+N)', mppt: 2, inputsPerMppt: 1, vDcMax: 1000, vMpptMin: 65, vMpptMax: 800, vMpptNomMin: 210, vMpptNomMax: 800, vStart: 80, iMaxOperA: 16.0, iMaxScA: 22.0, maxOverload: 1.25, eff: 97.6, price: 1950 },
-    { id: 'inv_sungrow_10k', brand: 'Sungrow', model: 'SG10RT', kw: 10.0, type: 'Trifásico Red (3F+N)', mppt: 2, inputsPerMppt: 2, vDcMax: 1100, vMpptMin: 160, vMpptMax: 1000, vMpptNomMin: 350, vMpptNomMax: 850, vStart: 180, iMaxOperA: 25.0, iMaxScA: 32.0, maxOverload: 1.30, eff: 98.5, price: 1450 },
-    { id: 'inv_kostal_8k', brand: 'Kostal', model: 'PLENTICORE plus 8.5', kw: 8.5, type: 'Trifásico Híbrido (3 MPPT)', mppt: 3, inputsPerMppt: 1, vDcMax: 1000, vMpptMin: 120, vMpptMax: 900, vMpptNomMin: 290, vMpptNomMax: 720, vStart: 150, iMaxOperA: 13.0, iMaxScA: 24.0, maxOverload: 1.25, eff: 97.5, price: 1820 },
-    { id: 'inv_sma_5k', brand: 'SMA', model: 'Sunny Boy 5.0', kw: 5.0, type: 'Monofásico Red (1F+N)', mppt: 2, inputsPerMppt: 1, vDcMax: 600, vMpptMin: 100, vMpptMax: 550, vMpptNomMin: 175, vMpptNomMax: 480, vStart: 125, iMaxOperA: 12.0, iMaxScA: 15.0, maxOverload: 1.25, eff: 97.0, price: 1150 }
+    { id: 'inv_huawei_5k', brand: 'Huawei', model: 'SUN2000-5KTL-L1', kw: 5.0, phases: 1, type: 'Monofásico Híbrido (1F+N)', mppt: 2, inputsPerMppt: 1, vDcMax: 600, vMpptMin: 90, vMpptMax: 560, vMpptNomMin: 180, vMpptNomMax: 480, vStart: 100, iMaxOperA: 12.5, iMaxScA: 18.0, maxOverload: 1.30, eff: 98.4, price: 1080 },
+    { id: 'inv_huawei_10k', brand: 'Huawei', model: 'SUN2000-10KTL-M1', kw: 10.0, phases: 3, type: 'Trifásico Híbrido (3F+N)', mppt: 2, inputsPerMppt: 2, vDcMax: 1100, vMpptMin: 140, vMpptMax: 980, vMpptNomMin: 320, vMpptNomMax: 800, vStart: 200, iMaxOperA: 26.0, iMaxScA: 30.0, maxOverload: 1.35, eff: 98.6, price: 1750 },
+    { id: 'inv_fronius_6k', brand: 'Fronius', model: 'Primo GEN24 6.0 Plus', kw: 6.0, phases: 1, type: 'Monofásico Híbrido (1F+N)', mppt: 2, inputsPerMppt: 1, vDcMax: 1000, vMpptMin: 65, vMpptMax: 800, vMpptNomMin: 210, vMpptNomMax: 800, vStart: 80, iMaxOperA: 16.0, iMaxScA: 22.0, maxOverload: 1.25, eff: 97.6, price: 1950 },
+    { id: 'inv_sungrow_10k', brand: 'Sungrow', model: 'SG10RT', kw: 10.0, phases: 3, type: 'Trifásico Red (3F+N)', mppt: 2, inputsPerMppt: 2, vDcMax: 1100, vMpptMin: 160, vMpptMax: 1000, vMpptNomMin: 350, vMpptNomMax: 850, vStart: 180, iMaxOperA: 25.0, iMaxScA: 32.0, maxOverload: 1.30, eff: 98.5, price: 1450 },
+    { id: 'inv_kostal_8k', brand: 'Kostal', model: 'PLENTICORE plus 8.5', kw: 8.5, phases: 3, type: 'Trifásico Híbrido (3 MPPT)', mppt: 3, inputsPerMppt: 1, vDcMax: 1000, vMpptMin: 120, vMpptMax: 900, vMpptNomMin: 290, vMpptNomMax: 720, vStart: 150, iMaxOperA: 13.0, iMaxScA: 24.0, maxOverload: 1.25, eff: 97.5, price: 1820 },
+    { id: 'inv_sma_5k', brand: 'SMA', model: 'Sunny Boy 5.0', kw: 5.0, phases: 1, type: 'Monofásico Red (1F+N)', mppt: 2, inputsPerMppt: 1, vDcMax: 600, vMpptMin: 100, vMpptMax: 550, vMpptNomMin: 175, vMpptNomMax: 480, vStart: 125, iMaxOperA: 12.0, iMaxScA: 15.0, maxOverload: 1.25, eff: 97.0, price: 1150 }
   ],
   batteries: [
     { id: 'bat_none', brand: 'Ninguna', model: 'Sin Almacenamiento (0 kWh)', kwh: 0, type: 'Directo Red', price: 0 },

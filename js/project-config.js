@@ -282,12 +282,20 @@ function step3UpdateHardwareSelection() {
   if (elTot)  elTot.textContent  = window.solarProjectConfig.calculatedLimits.nMaxTotalModules + ' placas (' + ((window.solarProjectConfig.calculatedLimits.nMaxTotalModules * (mod.wp || 450)) / 1000).toFixed(1) + ' kWp)';
 
   // <i data-lucide="rocket" class="icon-sm"></i> Verificación de Corriente Operativa Máxima Imp vs MPPT (Prevención de Clipping)
+  // [C2/G2] Se suma la corriente de TODOS los grupos/strings que entran por la misma entrada DC,
+  // no se compara la corriente de un único módulo contra el límite del inversor.
+  const _modPanels = (typeof simulatedPanelEntities !== 'undefined' && Array.isArray(simulatedPanelEntities)) ? simulatedPanelEntities.length : 0;
+  const _modsPerStr = Math.max(3, (window.solarProjectConfig.calculatedLimits && window.solarProjectConfig.calculatedLimits.nMinString) || 12);
+  const _nStr = _modPanels > 0 ? Math.max(1, Math.ceil(_modPanels / _modsPerStr)) : 1;
+  const _groupsPerInput = Math.max(1, Math.ceil(_nStr / Math.max(1, (inv.mppt || 2) * (inv.inputsPerMppt || 1))));
+
   const elImp = document.getElementById('step3-spec-imp-check');
   if (elImp) {
     const modImp = mod.imp || 13.0;
+    const totalImp = modImp * _groupsPerInput;
     const invImaxOper = inv.iMaxOperA || (inv.iMaxScA ? Math.round(inv.iMaxScA * 0.75 * 10) / 10 : 15.0);
-    const hasClipping = modImp > invImaxOper;
-    elImp.textContent = modImp.toFixed(1) + ' A ≤ ' + invImaxOper.toFixed(1) + ' A (' + (hasClipping ? '<i data-lucide="alert-triangle" class="icon-sm"></i> CLIPPING' : 'Óptimo') + ')';
+    const hasClipping = totalImp > invImaxOper;
+    elImp.textContent = totalImp.toFixed(1) + ' A (' + _groupsPerInput + ' grupos) ≤ ' + invImaxOper.toFixed(1) + ' A (' + (hasClipping ? '<i data-lucide="alert-triangle" class="icon-sm"></i> CLIPPING' : 'Óptimo') + ')';
     elImp.style.color = hasClipping ? '#F59E0B' : '#10B981';
   }
 
@@ -295,9 +303,10 @@ function step3UpdateHardwareSelection() {
   const elIsc = document.getElementById('step3-spec-isc-check');
   if (elIsc) {
     const modIsc = mod.isc || 14.0;
+    const totalIsc = modIsc * _groupsPerInput;
     const invImaxSc = inv.iMaxScA || 30.0;
-    const isSafe = modIsc <= invImaxSc;
-    elIsc.textContent = modIsc.toFixed(1) + ' A ≤ ' + invImaxSc.toFixed(1) + ' A (' + (isSafe ? 'OK' : '<i data-lucide="alert-triangle" class="icon-sm"></i> ATENCIÓN') + ')';
+    const isSafe = totalIsc <= invImaxSc;
+    elIsc.textContent = totalIsc.toFixed(1) + ' A (' + _groupsPerInput + ' grupos) ≤ ' + invImaxSc.toFixed(1) + ' A (' + (isSafe ? 'OK' : '<i data-lucide="alert-triangle" class="icon-sm"></i> ATENCIÓN') + ')';
     elIsc.style.color = isSafe ? '#10B981' : '#EF4444';
   }
 

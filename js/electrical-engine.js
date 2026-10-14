@@ -392,6 +392,19 @@
     }
   }
 
+  /**
+   * [C3/G4] Fase real del inversor como DATO propio (NO adivinada del texto del tipo).
+   * Prioridad: inv.phases (1|3) → potencia nominal (umbral legal habitual 6 kW) → texto del tipo.
+   * Así un inversor importado con otro nombre no fuerza un cálculo trifásico erróneo.
+   */
+  function raInverterPhases(inv) {
+    if (inv && (inv.phases === 1 || inv.phases === 3)) return inv.phases;
+    if (inv && typeof inv.kw === 'number' && isFinite(inv.kw)) return inv.kw <= 6.0 ? 1 : 3;
+    var t = (inv && inv.type) ? String(inv.type).toLowerCase() : '';
+    if (t.indexOf('mono') !== -1 || t.indexOf('1f') !== -1 || t.indexOf('1p') !== -1) return 1;
+    return 3;
+  }
+
   function matchInvertersFromCatalog(options = {}) {
     const catalog = options.invertersCatalog || [];
     const moduleSpec = options.module || {};
@@ -413,7 +426,16 @@
       const maxAllowedOverload = inv.maxOverload || 1.35;
       const invCount = Math.max(1, Math.round(totalKwp / (inv.kw * 1.15)));
       const actualOverload = totalKwp / (invCount * inv.kw);
-      const isCurrentSafe = !inv.iMaxScA || ((moduleSpec.isc || 14.0) <= inv.iMaxScA);
+      // [C2/G2] La corriente de diseño se SUMA por cada grupo/string que entra por la misma
+      // entrada DC del inversor (paralelo en cubierta), no se compara la de un único módulo.
+      const _modsPerString = options.modulesPerString || 12;
+      const _nStrings = Math.max(1, Math.ceil(totalPanels / _modsPerString));
+      const _inputsPerMppt = inv.inputsPerMppt || 1;
+      const _mpptCount = inv.mppt || inv.mpptCount || 2;
+      const _totalInputs = Math.max(1, _mpptCount * _inputsPerMppt);
+      const _stringsPerInput = Math.max(1, Math.ceil(_nStrings / _totalInputs));
+      const _iscPerInput = (moduleSpec.isc || 14.0) * _stringsPerInput;
+      const isCurrentSafe = !inv.iMaxScA || (_iscPerInput <= inv.iMaxScA);
       const hasPhaseUnbalance = (gridSupply === 'three_phase' && isInvSinglePhase && (inv.kw * invCount) > 5.0);
 
       const isMatch = actualOverload >= 0.80 && actualOverload <= (maxAllowedOverload + 0.10) && isCurrentSafe && !hasPhaseUnbalance;
@@ -915,6 +937,7 @@
   root.matchInvertersFromCatalog = matchInvertersFromCatalog;
   root.calculateVoltageDrop = calculateVoltageDrop;
   root.rebalanceMPPTAssignment = rebalanceMPPTAssignment;
+  root.raInverterPhases = raInverterPhases;
 
   if (!root.RA) root.RA = {};
   root.RA.Electrical = {
@@ -927,6 +950,7 @@
     matchInvertersFromCatalog: matchInvertersFromCatalog,
     calculateVoltageDrop: calculateVoltageDrop,
     rebalanceMPPTAssignment: rebalanceMPPTAssignment,
+    raInverterPhases: raInverterPhases,
     updateInverterAssistant: wpUpdateInverterSmartAssistantUI,
     applyRecommendedInverter: wpApplyRecommendedInverter,
     updateMeterPlacementGuide: wpUpdateMeterPlacementGuideUI

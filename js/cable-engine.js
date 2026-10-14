@@ -498,9 +498,10 @@
         });
       }
 
-      // 4. Determinar Topología (Serie pura vs Paralelo Y)
+      // 4. Determinar Topología (Serie pura vs Paralelo Y) — [C1/G1] fuente única
       var cfg = global.solarProjectConfig || {};
-      var isParallelY = cfg.selectedTopology === 'parallel_y' || (allStrings.length >= 2 && cfg.selectedTopology === 'parallel');
+      var _dcTopo = this.getDcTopologyInfo(allStrings.length);
+      var isParallelY = _dcTopo.isParallel && allStrings.length >= 2;
 
       // Si la topología es Paralelo Y: unir strings en un nodo intermedio en cubierta
       var yBranchNode = null;
@@ -700,6 +701,21 @@
     },
 
     /**
+     * [C1/G1] Fuente ÚNICA de la topología DC y conteo REAL de grupos en paralelo.
+     * Etiqueta canónica: solarProjectConfig.dcTopology (retrocompatible con selectedTopology).
+     * En 'parallel'/'parallel_y' el conductor troncal suma la corriente de los grupos que
+     * realmente convergen (nº real de strings), en vez de asumir un 2 fijo o leer un campo inexistente.
+     */
+    getDcTopologyInfo: function (nStrings) {
+      var cfg = global.solarProjectConfig || {};
+      var label = cfg.dcTopology || cfg.selectedTopology || 'inverter';
+      var isParallel = (label === 'parallel' || label === 'parallel_y');
+      var n = (typeof nStrings === 'number') ? nStrings : 0;
+      if (!n) { try { n = this.gatherAllStrings().length; } catch (e) { n = 0; } }
+      return { label: label, isParallel: isParallel, groups: isParallel ? Math.max(2, n) : 1, strings: n };
+    },
+
+    /**
      * Dimensionamiento de sección y caída de tensión según REBT ITC-BT-40
      */
     updateElectricalSizingAndHUD: function (Ldc, Lac) {
@@ -730,13 +746,18 @@
       }
       var vmpStr = (modCfg.vmp || 34.5) * Math.max(1, minModPerStr);
 
-      // Si la tipología usa conectores en 'Y' (paralelo en cubierta), la corriente del conductor troncal se duplica:
-      var numParallel = (sState && sState.dcTopology === 'parallel_y') ? 2 : 1;
+      // [C1/G1] La corriente del troncal se multiplica por el número REAL de grupos en paralelo
+      // (fuente única getDcTopologyInfo). Ya no se lee un campo inexistente (dcTopology) que
+      // provocaba que nunca se doblara la sección del conductor troncal.
+      var numParallel = this.getDcTopologyInfo(strList.length).groups;
       var iDcDesign = numParallel * 1.25 * (modCfg.isc || 13.8);
       var iDcWorking = numParallel * imp;
 
       var secDcAvail = [4, 6, 10, 16, 25];
       var imaxDcZZF  = [44, 58, 80, 107, 138];
+      // [C6/M6] Corrección de ampacidad por temperatura ambiente y agrupamiento
+      // (REBT ITC-BT-19 / UNE 20460-5-523): 0.90 (40–45 °C) × 0.85 (bandeja/conducto).
+      var kAmpacity = 0.90 * 0.85;
       var sDcOpt = 6, dVdcPctOpt = 1.0;
       var dcCompliant = false;
 
@@ -744,7 +765,7 @@
         var s = secDcAvail[i];
         var dV = (2 * rho90 * lDcVal * iDcWorking) / s;
         var dVpct = (dV / vmpStr) * 100;
-        if (imaxDcZZF[i] >= iDcDesign && dVpct <= 1.5) {
+        if ((imaxDcZZF[i] * kAmpacity) >= iDcDesign && dVpct <= 1.5) {
           sDcOpt = s;
           dVdcPctOpt = dVpct;
           dcCompliant = true;
@@ -767,7 +788,10 @@
       var invCount = (global.solarProjectConfig && global.solarProjectConfig.autoSizing && global.solarProjectConfig.autoSizing.inverters && Number.isFinite(global.solarProjectConfig.autoSizing.inverters.count))
         ? Math.max(1, global.solarProjectConfig.autoSizing.inverters.count) : 1;
       var pAcKw = (invCfg.kw || 10.0) * invCount;
-      var isMono = (invCfg.type || '').toLowerCase().includes('mono');
+      // [C3/G4] Fase como DATO propio del inversor (helper canónico), no adivinada del texto.
+      var isMono = (typeof global.raInverterPhases === 'function'
+        ? global.raInverterPhases(invCfg)
+        : ((invCfg.type || '').toLowerCase().indexOf('mono') !== -1 ? 1 : 3)) === 1;
       var vAc = isMono ? 230 : 400;
       var iAc = isMono ? (pAcKw * 1000) / (vAc * 0.95) : (pAcKw * 1000) / (Math.sqrt(3) * vAc * 0.95);
       var iAcDesign = 1.25 * iAc;
@@ -784,7 +808,7 @@
         var factorPhase = isMono ? 2.0 : Math.sqrt(3);
         var dVa = factorPhase * iAc * lAcVal * ((rho90 / sa) * cosPAc + xMeterAc * sinPAc);
         var dVapct = (dVa / vAc) * 100;
-        if (imaxAcRVK[j] >= iAcDesign && dVapct <= 1.5) {
+        if ((imaxAcRVK[j] * kAmpacity) >= iAcDesign && dVapct <= 1.5) {
           sAcOpt = sa;
           dVacPctOpt = dVapct;
           acCompliant = true;

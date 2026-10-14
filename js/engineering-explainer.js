@@ -98,16 +98,29 @@
           status: (panelsPerMppt >= nMinMppt && panelsPerMppt <= nMaxCold) ? 'OK' : 'VERIFICAR',
           note: `Ventana MPPT recomendada: ${nMinMppt} a ${nMaxCold} módulos/string (Voc en frío @ -10°C: ${(panelsPerMppt * vocCold).toFixed(1)}V ≤ ${inv.vDcMax || 1000}V).`
         },
-        currentCheck: {
-          modImp: (mod.imp || 13.0).toFixed(1),
-          modIsc: (mod.isc || 14.0).toFixed(1),
-          invMaxOper: (inv.iMaxOperA || (inv.iMaxScA ? Math.round(inv.iMaxScA * 0.75 * 10) / 10 : 15.0)).toFixed(1),
-          invMaxIsc: (inv.iMaxScA || 30.0).toFixed(1),
-          inputsPerMppt: inv.inputsPerMppt || 1,
-          hasClipping: (mod.imp || 13.0) > (inv.iMaxOperA || (inv.iMaxScA ? inv.iMaxScA * 0.75 : 15.0)),
-          isSafe: (mod.isc || 14.0) <= (inv.iMaxScA || 30.0),
-          rule: 'IEC 62548: Isc_módulo ≤ Imax_inversor y verificación de corriente operativa Imp.'
-        },
+        currentCheck: (() => {
+          // [C2/G2] Suma de corrientes de los grupos (strings) que entran por la misma entrada DC.
+          const _modsPerString = nMinMppt || 12;
+          const _stringsPerMppt = Math.max(1, Math.ceil(panelsPerMppt / _modsPerString));
+          const _stringsPerInput = Math.max(1, Math.ceil(_stringsPerMppt / (inv.inputsPerMppt || 1)));
+          const _invMaxOper = inv.iMaxOperA || (inv.iMaxScA ? inv.iMaxScA * 0.75 : 15.0);
+          const _invMaxIsc = inv.iMaxScA || 30.0;
+          const _totalImp = (mod.imp || 13.0) * _stringsPerInput;
+          const _totalIsc = (mod.isc || 14.0) * _stringsPerInput;
+          return {
+            modImp: (mod.imp || 13.0).toFixed(1),
+            modIsc: (mod.isc || 14.0).toFixed(1),
+            groupsPerInput: _stringsPerInput,
+            totalImp: _totalImp.toFixed(1),
+            totalIsc: _totalIsc.toFixed(1),
+            invMaxOper: _invMaxOper.toFixed(1),
+            invMaxIsc: _invMaxIsc.toFixed(1),
+            inputsPerMppt: inv.inputsPerMppt || 1,
+            hasClipping: _totalImp > _invMaxOper,
+            isSafe: _totalIsc <= _invMaxIsc,
+            rule: 'IEC 62548: Isc_módulo × grupos_en_paralelo ≤ Imax_inversor y verificación de corriente operativa Imp.'
+          };
+        })(),
         structuralCheck: {
           kgPerM2: kgM2.toFixed(1),
           limitKgM2: 25.0,

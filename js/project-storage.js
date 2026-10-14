@@ -165,7 +165,7 @@ function raExportProjectData() {
 
   return {
     format: 'RA_SOLAR_PROJECT',
-    version: '2.1',
+    version: '2.2',
     timestamp: new Date().toISOString(),
     metadata: {
       name: _raCurrentProjectName || 'Instalación Solar',
@@ -245,6 +245,58 @@ function raExportProjectData() {
 }
 
 // 2. Deserializar e Importar Proyecto Completo
+const RA_PROJECT_CURRENT_VERSION = '2.2';
+
+/**
+ * [C5/M9] Migración de esquema de los archivos .raproject (retrocompatibilidad al abrir).
+ * Aplica valores por defecto seguros a los campos que faltan según la versión del archivo,
+ * de modo que un proyecto viejo se cargue sin romper el flujo de 5 pasos.
+ */
+function raMigrateProjectData(projectData) {
+  if (!projectData || typeof projectData !== 'object') return projectData;
+  const fromVer = parseFloat(projectData.version) || 1.0;
+  const toVer = parseFloat(RA_PROJECT_CURRENT_VERSION);
+
+  // v1.x → contenedores normalizados
+  if (fromVer < 2.0) {
+    if (!projectData.workPlanes && Array.isArray(projectData.planes)) {
+      projectData.workPlanes = { planes: projectData.planes, activePlaneIdx: projectData.activePlaneIdx || 0 };
+    }
+    if (!Array.isArray(projectData.polylines)) projectData.polylines = [];
+    if (!Array.isArray(projectData.obstacles)) projectData.obstacles = [];
+    if (!Array.isArray(projectData.buildings)) projectData.buildings = [];
+  }
+
+  // v2.0 → v2.1: faldones/paneles con estructura, orientación y MLPE
+  if (fromVer < 2.1) {
+    (Array.isArray(projectData.polylines) ? projectData.polylines : []).forEach(poly => {
+      if (!poly || typeof poly !== 'object') return;
+      if (!poly.structureType) poly.structureType = 'coplanar_teja';
+      if (!poly.orientationPref) poly.orientationPref = 'portrait';
+      if (!Array.isArray(poly.deletedPanels)) poly.deletedPanels = [];
+      const panels = (poly.roofInfo && Array.isArray(poly.roofInfo.panels)) ? poly.roofInfo.panels : [];
+      panels.forEach(p => {
+        if (!p || typeof p !== 'object') return;
+        if (typeof p.isManual !== 'boolean') p.isManual = false;
+        if (typeof p.rot !== 'number') p.rot = 0;
+        if (typeof p.hasMLPE !== 'boolean') p.hasMLPE = false;
+        if (typeof p.isShaded !== 'boolean') p.isShaded = false;
+      });
+    });
+  }
+
+  // v2.1 → v2.2: estado de simulación unificado
+  if (fromVer < 2.2) {
+    if (!projectData.solarSimState || typeof projectData.solarSimState !== 'object') {
+      projectData.solarSimState = { monthIdx: 5, hour: 12, viewMode: 'heatmap' };
+    }
+  }
+
+  projectData.__migratedFrom = (isFinite(fromVer) && fromVer < toVer) ? fromVer : undefined;
+  projectData.version = RA_PROJECT_CURRENT_VERSION;
+  return projectData;
+}
+
 function raImportProjectData(projectData) {
   // [P0.2] Carrera de arranque y espera determinista: si el visor Cesium o el subsistema WP
   // aún no existen o están inicializándose, reintentar de forma controlada hasta 25 veces (5 segundos).
@@ -278,6 +330,9 @@ function raImportProjectData(projectData) {
     if (!projectData || (projectData.format !== 'RA_SOLAR_PROJECT' && !projectData.polylines && !projectData.planes)) {
       throw new Error('El archivo no tiene un formato .raproject válido');
     }
+
+    // [C5/M9] Migrar esquema de versiones antiguas antes de restaurar
+    projectData = raMigrateProjectData(projectData);
 
     if (typeof showStatus === 'function') showStatus('RESTAURANDO PROYECTO 3D...', 3000);
 

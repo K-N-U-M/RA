@@ -171,12 +171,12 @@ Hay funciones que existen pero no están conectadas a ningún control (cambiar a
 - [x] **B6.** Extraer el reparto mensual del PDF de la simulación real (M2).
 
 ### Fase C — Seguridad eléctrica y datos (P1).
-- [ ] **C1.** Sumar corriente en paralelo en cable troncal y unificar la etiqueta de topología (G1).
-- [ ] **C2.** Sumar corrientes en la elección automática de inversor (G2).
-- [ ] **C3.** Fase del inversor como dato propio, no adivinada por texto (G4).
-- [ ] **C4.** Fuente única de la lista de obstáculos (G3).
-- [ ] **C5.** Migración de versiones de `.raproject` (M9).
-- [ ] **C6.** Corrección térmica/agrupamiento de cables (M6).
+- [x] **C1.** Sumar corriente en paralelo en cable troncal y unificar la etiqueta de topología (G1).
+- [x] **C2.** Sumar corrientes en la elección automática de inversor (G2).
+- [x] **C3.** Fase del inversor como dato propio, no adivinada por texto (G4).
+- [x] **C4.** Fuente única de la lista de obstáculos (G3).
+- [x] **C5.** Migración de versiones de `.raproject` (M9).
+- [x] **C6.** Corrección térmica/agrupamiento de cables (M6).
 
 ### Fase D — Robustez e IA (P1–P2).
 - [ ] **D1.** Clave IA en cabecera y almacenamiento no en claro (G9).

@@ -4890,8 +4890,14 @@ function deleteSelectedBuilding() {
     }
 
     // 4. Limpiar Obstáculos colocados sobre el edificio
+    // [C4/G3] Borrado in-place sobre la MISMA lista compartida (evita obstáculos fantasma).
     if (typeof obstacles !== 'undefined' && Array.isArray(obstacles)) {
-      obstacles = obstacles.filter(obs => obs && obs.buildingId !== bldId && (!obs.planeId || !obs.planeId.includes(bldId)));
+      for (let _oi = obstacles.length - 1; _oi >= 0; _oi--) {
+        const obs = obstacles[_oi];
+        if (obs && (obs.buildingId === bldId || (obs.planeId && obs.planeId.includes(bldId)))) {
+          obstacles.splice(_oi, 1);
+        }
+      }
     }
 
     // 5. Limpiar polígono activo
@@ -10593,7 +10599,8 @@ function computeElectricalSizingEngineering(generator) {
   const P_ac_kW = P_dc_kW / 1.15;
   const INV_SIZES = [0.6, 1.0, 1.5, 2.0, 3.0, 3.68, 4.0, 5.0, 6.0, 8.0, 10.0, 12.0, 15.0, 20.0, 25.0, 30.0, 50.0, 100.0];
   const inv_kW = INV_SIZES.find(s => s >= P_ac_kW) || Math.ceil(P_ac_kW);
-  const monofasico = inv_kW <= 5.0;
+  const _selInv = (window.solarProjectConfig && window.solarProjectConfig.calculatedLimits && window.solarProjectConfig.calculatedLimits.inverter) || null;
+  const monofasico = (typeof window.raInverterPhases === 'function' && _selInv) ? (window.raInverterPhases(_selInv) === 1) : (inv_kW <= 5.0);
   const V_ac = monofasico ? 230 : 400;
   const I_ac = monofasico ? (inv_kW * 1000) / (V_ac * 0.95) : (inv_kW * 1000) / (Math.sqrt(3) * V_ac * 0.95);
 
@@ -10609,6 +10616,10 @@ function computeElectricalSizingEngineering(generator) {
   const SEC_DC_AVAIL = [4, 6, 10, 16, 25];
   const IMAX_DC_ZZF  = [44, 58, 80, 107, 138];
 
+  // [C6/M6] Factores de corrección de ampacidad (REBT ITC-BT-19 / UNE 20460-5-523):
+  // temperatura ambiente 40–45 °C × agrupamiento en bandeja/conducto.
+  const K_AMPACITY = 0.90 * 0.85;
+
   let S_str_opt = 6;
   for (let i = 0; i < SEC_DC_AVAIL.length; i++) {
     const s = SEC_DC_AVAIL[i];
@@ -10616,7 +10627,7 @@ function computeElectricalSizingEngineering(generator) {
     const dV = (2 * rho90 * L_dc * Imp) / s;
     const vStrBase = Math.max(modsPerString * Vmp, 1.0);
     const dV_pct = (dV / vStrBase) * 100;
-    if (imax >= I_dc_design && dV_pct <= 1.5) {
+    if ((imax * K_AMPACITY) >= I_dc_design && dV_pct <= 1.5) {
       S_str_opt = s;
       break;
     }
@@ -10639,7 +10650,7 @@ function computeElectricalSizingEngineering(generator) {
     const factorPhase = monofasico ? 2.0 : Math.sqrt(3);
     const dV = factorPhase * I_ac * L_ac * ((rho90 / s) * cosPAc + xMeterAc * sinPAc);
     const dV_pct = (dV / V_ac) * 100;
-    if (imax >= I_ac_design && dV_pct <= 1.5) {
+    if ((imax * K_AMPACITY) >= I_ac_design && dV_pct <= 1.5) {
       S_ac_opt = s;
       break;
     }
