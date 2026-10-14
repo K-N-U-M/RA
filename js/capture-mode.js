@@ -38,7 +38,11 @@
     'pv_label_',               // Rótulos 3D de paneles
     'pv_heatmap_label_',       // Etiquetas 3D de producción solar / heatmap
     'pv_panel_active_drag_',   // Vista previa de arrastre de panel
-    'pv_panel_outline'         // Contorno de panel seleccionado
+    'pv_panel_outline',        // Contorno de panel seleccionado
+    'pv_string_wire_',         // Conexiones de cableado entre paneles individuales
+    'cable_prim_',             // Primitivas de cableado envueltas
+    'inverter_cable_label_',   // Rótulos técnicos de cableado
+    'ra_cable_'                // Entidades auxiliares de cables
   ];
 
   var _hiddenEntities = [];
@@ -132,8 +136,20 @@
 
     if (Array.isArray(global.simulatedStringEntities)) {
       global.simulatedStringEntities.forEach(function (se) {
-        // Ocultar terminales esféricos (+ / -) de string, manteniendo los cables de string
-        if (se && se.point) trackAndHide(se);
+        trackAndHide(se);
+      });
+    }
+
+    if (global.inverterEquipmentState && Array.isArray(global.inverterEquipmentState.dcCableEntities)) {
+      global.inverterEquipmentState.dcCableEntities.forEach(function (ce) {
+        trackAndHide(ce);
+        if (ce && ce.isCablePrimitive && ce.primitive && typeof ce.primitive.show !== 'undefined') {
+          if (!_savedPrimitiveStates.hiddenCablePrimitives) _savedPrimitiveStates.hiddenCablePrimitives = [];
+          if (ce.primitive.show !== false) {
+            _savedPrimitiveStates.hiddenCablePrimitives.push(ce.primitive);
+            ce.primitive.show = false;
+          }
+        }
       });
     }
 
@@ -169,6 +185,16 @@
       global._solarHeatmapLabelCollection.show = false;
     }
 
+    // 4b. Colecciones GPU de cableado: inter-módulo (strings) y acometidas (RACableEngine)
+    if (global.simulatedStringsPolylineCollection && !global.simulatedStringsPolylineCollection.isDestroyed()) {
+      _savedPrimitiveStates.stringWires = global.simulatedStringsPolylineCollection.show;
+      global.simulatedStringsPolylineCollection.show = false;
+    }
+    if (global._raCableEnginePrimitives && !global._raCableEnginePrimitives.isDestroyed()) {
+      _savedPrimitiveStates.cableEnginePrimitives = global._raCableEnginePrimitives.show;
+      global._raCableEnginePrimitives.show = false;
+    }
+
     // 5. Overlays 2D y badges flotantes HTML
     hideCanvas();
     if (document.body) {
@@ -199,6 +225,20 @@
     }
     if (global._solarHeatmapLabelCollection && !global._solarHeatmapLabelCollection.isDestroyed()) {
       global._solarHeatmapLabelCollection.show = (_savedPrimitiveStates.heatmapLabels !== false);
+    }
+
+    // 3b. Restaurar colecciones GPU de cableado
+    if (global.simulatedStringsPolylineCollection && !global.simulatedStringsPolylineCollection.isDestroyed()) {
+      global.simulatedStringsPolylineCollection.show = (_savedPrimitiveStates.stringWires !== false);
+    }
+    if (global._raCableEnginePrimitives && !global._raCableEnginePrimitives.isDestroyed()) {
+      global._raCableEnginePrimitives.show = (_savedPrimitiveStates.cableEnginePrimitives !== false);
+    }
+    if (Array.isArray(_savedPrimitiveStates.hiddenCablePrimitives)) {
+      _savedPrimitiveStates.hiddenCablePrimitives.forEach(function (prim) {
+        try { prim.show = true; } catch (errPrim) {}
+      });
+      _savedPrimitiveStates.hiddenCablePrimitives = [];
     }
     _savedPrimitiveStates = {};
 
