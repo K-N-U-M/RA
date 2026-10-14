@@ -1026,7 +1026,7 @@ window.RA_App = window.RA_App || {};
                    per-faldón de las tarjetas; se conserva como acordeón avanzado porque
                    contiene el único slider fino de azimut y el "A TODOS" de disposición.
                    Actúa sobre el FALDÓN SELECCIONADO (WP.selectedPolyIdx). -->
-              <details id="p2-advanced-disposition" style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.07);border-radius:6px;padding:6px;margin-bottom:6px;">
+              <details id="p2-advanced-disposition" style="display:none !important;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.07);border-radius:6px;padding:6px;margin-bottom:6px;">
                 <summary style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;list-style:none;user-select:none;">
                   <span style="font-size:9.5px;font-weight:bold;color:var(--sky-400);text-transform:uppercase;"><i data-lucide="ruler" class="icon-sm"></i> Ajuste fino del faldón seleccionado</span>
                   <button type="button" class="doc-mini-btn" style="padding:1px 5px;font-size:9px;background:rgba(59,130,246,0.15);color:#60A5FA;border-color:rgba(59,130,246,0.3);cursor:pointer;" onclick="event.stopPropagation();wpApplyActiveArrangementToAll()" title="Propagar esta disposición a todos los faldones"><i data-lucide="globe" class="icon-sm"></i> A TODOS</button>
@@ -1717,7 +1717,7 @@ window.RA_App = window.RA_App || {};
 
                             <!-- ACCIONES DE DESCARGA DIRECTA -->
               <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:8px;">
-                <button type="button" class="btn-action-primary" onclick="generatePdfReport()" style="width:100%;padding:9px;font-size:11px;background:linear-gradient(135deg, #10B981, #059669);color:#fff;font-weight:900;border:none;box-shadow:0 0 10px rgba(16,185,129,0.3);">
+                <button type="button" class="btn-action-primary" onclick="generateMemoria()" style="width:100%;padding:9px;font-size:11px;background:linear-gradient(135deg, #10B981, #059669);color:#fff;font-weight:900;border:none;box-shadow:0 0 10px rgba(16,185,129,0.3);">
                   <span><i data-lucide="file-text" class="icon-sm"></i> EXPORTAR MEMORIA TÉCNICA (PDF)</span>
                 </button>
                 <button type="button" class="btn-action-primary" onclick="generatePropuestaComercialPDF()" style="width:100%;padding:8px;font-size:10.5px;background:linear-gradient(135deg, #0284C7, #0369A1);color:#fff;font-weight:800;border:none;">
@@ -10410,16 +10410,18 @@ window.wpUpdateCableRoutesUI = wpUpdateCableRoutesUI;
 
 
 /**
- * Generador de curvatura catenaria orgánica gravitatoria para cables
+ * Generador de curvatura catenaria orgánica gravitatoria para cables inter-panel
+ * [CANÓNICO] Definida en js/solar-materials.js. Preservar la función canónica.
  */
-function buildOrganicCatenary(pA, pB, sagMeters = 0.12, segments = 8) {
-  // [MIGRACIÓN AAA] Delegación al motor 3D ortogonal RACableEngine (js/cable-engine.js)
-  if (typeof RACableEngine !== 'undefined' && typeof RACableEngine.buildOrthogonalManhattanPath3D === 'function') {
-    return RACableEngine.buildOrthogonalManhattanPath3D(pA, pB);
-  }
-  return [pA, pB].filter(Boolean);
+if (typeof window.buildOrganicCatenary !== 'function') {
+  window.buildOrganicCatenary = function(pA, pB, sagMeters = 0.12, segments = 8) {
+    if (typeof RACableEngine !== 'undefined' && typeof RACableEngine.buildOrthogonalManhattanPath3D === 'function') {
+      return RACableEngine.buildOrthogonalManhattanPath3D(pA, pB);
+    }
+    return [pA, pB].filter(Boolean);
+  };
 }
-window.buildOrganicCatenary = buildOrganicCatenary;
+var buildOrganicCatenary = window.buildOrganicCatenary;
 
 function wpCalculateAndRenderInverterCables() {
   if (typeof RACableEngine !== 'undefined' && typeof RACableEngine.renderAllCables === 'function') {
@@ -11867,6 +11869,10 @@ window.wpSyncStep6Controls = wpSyncStep6Controls;
 
 // ── EXPORTACIÓN DE INFORME TÉCNICO PDF PROFESIONAL (PASO 5) ──
 function generatePdfReport() {
+  // [CANÓNICO v3.0] Delegación unificada a docs-generator.js
+  if (typeof window.generateMemoria === 'function') {
+    return window.generateMemoria();
+  }
   const sConf = (window.solarProjectConfig && window.solarProjectConfig.calculatedLimits) ? window.solarProjectConfig : {
     calculatedLimits: { inverter: { model: 'Inversor Central FV' }, module: { model: 'Módulo Tier-1 450W', wp: 450 } }
   };

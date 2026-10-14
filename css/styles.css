@@ -1458,7 +1458,7 @@
     /* ── Barra de Confirmación Flotante ──────────────────────────────────── */
     #ra-confirm-bar {
       position: fixed;
-      bottom: 24px;
+      bottom: 96px;
       left: 50%;
       transform: translateX(-50%) translateY(80px);
       background: rgba(15, 23, 42, 0.95);
@@ -2184,13 +2184,13 @@
    ══════════════════════════════════════════════════════════════════════════ */
 #ra-bom-tree-hud {
   position: fixed;
-  top: 70px;
+  top: 170px;
   right: 20px;
   bottom: auto;
   z-index: 9990;
   width: 380px;
   max-width: 90vw;
-  max-height: calc(100vh - 90px);
+  max-height: calc(100vh - 195px);
   display: flex;
   flex-direction: column;
   background: rgba(11, 17, 32, 0.94);

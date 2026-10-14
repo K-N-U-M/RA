@@ -408,11 +408,11 @@ calculateFinancialModel()  ← Definición canónica en financials.js (~L491)
 - **Diagnóstico General:** Despliegue de 4 subagentes especializados para auditar UI/UX, motor 3D/física solar, ingeniería eléctrica/finanzas y código muerto.
 - **Limpieza del Repositorio:**
   - Purgados y eliminados 60 ficheros huérfanos/temporales de la raíz (36 scripts `.py` desechables, `add_script.js`, directorio `__pycache__/` y 23 ficheros `.txt`).
-- **Hallazgos Clave Formalizados en `PLAN_DE_ACCION_AUDITORIA_INTEGRAL_2026.md`:**
-  - *Física 3D:* Corrección del acimut astronómico en `working-plane.js` por desnormalización del vector Este (desviación de ~8° en España).
-  - *Ingeniería Eléctrica:* Corrección de propiedad `vDcMax` en inversores para evitar violación IEC 62548; protección contra divisiones por cero en instalaciones con 0 paneles; soporte multi-inversor acumulativo en MPPTs y cable AC.
-  - *Rendimiento Gráfico:* Optimización de hover en mapa de calor con broadphase 2D; pool persistente de sombras dinámicas; cancelación atómica de simulación anual ante mutación de escena.
-  - *UI/UX:* Unificación del botón de Memoria Técnica PDF (eliminación de versión legacy redundante); resolución de solapamientos entre HUD solar, confirmación y ventana de materiales BOM; saneamiento de controles duplicados en Paso 2.
+- **Ejecución del Plan por Fases:**
+  - **Fase 1 (P0 - Críticos) [Commit `0714a96`]:** Normalización del vector Este en `wpComputePlaneFrom3Points` y `cursorGizmoShowAt` (eliminación de ~8° de error de acimut); corrección de `vDcMax` en inversores para cumplimiento IEC 62548; blindaje de división por cero con 0 paneles; sincronización de hardware seleccionado con catálogo; inversión de rayo solar en `rayCastingIsShaded`; corrección de batería fantasma.
+  - **Fase 2 (P1 - Rendimiento y Multi-Inversor) [Commit `0c06465`]:** Broadphase 2D por faldón en `_flushHeatmapPanelHover` a 60 FPS; pool de entidades reutilizables `panelShadowOverlayPool` erradicando churn de GC; cancelación atómica en `wpInvalidateHeatmap` con `_activeSimGenerationId++`; dimensionamiento acumulado multi-inversor en cable AC (`RACableEngine`); balance de MPPTs multi-inversor (`electrical-engine.js`); límite de longitud de sombra CTE DB-HE5.
+  - **Fase 3 (P2/P3 - Ergonomía Visual, Unificación y Limpieza):** Unificación de botones de Memoria Técnica en Paso 5 apuntando canónicamente a `docs-generator.js` (`generateMemoria()`); ocultación del bloque redundante `#p2-advanced-disposition` en Paso 2 para evitar controles compitiendo; resolución de colisiones visuales CSS (`#ra-confirm-bar` a `bottom: 96px;` y `#ra-bom-tree-hud` a `top: 170px;` despejando la rosa de los vientos `#ra-rosa`); preservación de la catenaria canónica inter-panel en `buildOrganicCatenary` y delegación limpia de ordenación de strings.
+
 
 
 

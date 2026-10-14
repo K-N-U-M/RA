@@ -125,19 +125,19 @@ La plataforma **RA (Visor 3D Fotovoltaico)** cuenta con un potencial tecnológic
 
 ```mermaid
 flowchart TD
-    subgraph Fase 1: Corrección de Física y Seguridad (P0)
+    subgraph Fase 1: Corrección de Física y Seguridad (P0) [COMPLETADA]
         A1["Normalizar vector Este en acimut (8° corregidos)"]
         A2["Corregir voltaje del inversor (vDcMax)"]
         A3["Blindar división por cero con 0 paneles"]
         A4["Invertir rayo de sombra hacia el Sol"]
     end
-    subgraph Fase 2: Rendimiento Gráfico y Multi-Inversor (P1)
+    subgraph Fase 2: Rendimiento Gráfico y Multi-Inversor (P1) [COMPLETADA]
         B1["Optimizar cursor sobre mapa de calor (broadphase)"]
         B2["Reutilización de entidades de sombras sin recreación"]
         B3["Cálculo de cable AC acumulado para multi-inversores"]
         B4["Cancelación atómica de simulación al mutar escena"]
     end
-    subgraph Fase 3: Ergonomía Visual y Unificación (P2 / P3)
+    subgraph Fase 3: Ergonomía Visual y Unificación (P2 / P3) [COMPLETADA]
         C1["Unificar en un solo botón de Memoria Técnica"]
         C2["Eliminar controles duplicados en Paso 2"]
         C3["Resolver colisiones de ventanas flotantes"]
@@ -145,6 +145,12 @@ flowchart TD
     end
     Fase 1 --> Fase 2 --> Fase 3
 ```
+
+### ✅ Registro de Ejecución Integral:
+- **Fase 1 (P0 - Críticos):** Ejecutada y validada (Commit `0714a96`). Acimut corregido a 0.00° de desviación; límites de voltaje del inversor según catálogo; blindaje contra cero paneles; rayo solar positivo hacia el Sol.
+- **Fase 2 (P1 - Rendimiento y Multi-Inversor):** Ejecutada y validada (Commit `0c06465`). Descarte rápido de cursor sobre mapa de calor a 60 FPS; pool de sombras reutilizables sin saturar memoria; sección de cable AC multi-inversor; cancelación de simulaciones viejas.
+- **Fase 3 (P2/P3 - Ergonomía Visual y Limpieza):** Ejecutada y validada. Botones de Memoria Técnica unificados apuntando al generador oficial; controles compitiendo en Paso 2 ocultos de la vista; ventanas flotantes (#ra-confirm-bar y árbol de materiales) reubicadas sin tapar la brújula ni la barra de sol; preservación de curvas suaves en cables inter-paneles.
+
 
 ---
 
