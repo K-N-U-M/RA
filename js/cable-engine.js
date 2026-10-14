@@ -736,7 +736,9 @@
       sState.S_dc_recommended = sDcOpt;
       sState.dV_dc_pct = dVdcPctOpt;
 
-      var pAcKw = invCfg.kw || 10.0;
+      var invCount = (global.solarProjectConfig && global.solarProjectConfig.autoSizing && global.solarProjectConfig.autoSizing.inverters && Number.isFinite(global.solarProjectConfig.autoSizing.inverters.count))
+        ? Math.max(1, global.solarProjectConfig.autoSizing.inverters.count) : 1;
+      var pAcKw = (invCfg.kw || 10.0) * invCount;
       var isMono = (invCfg.type || '').toLowerCase().includes('mono');
       var vAc = isMono ? 230 : 400;
       var iAc = isMono ? (pAcKw * 1000) / (vAc * 0.95) : (pAcKw * 1000) / (Math.sqrt(3) * vAc * 0.95);

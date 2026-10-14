@@ -502,7 +502,12 @@
     const invCfg = (typeof window !== 'undefined' && window.solarProjectConfig &&
                     window.solarProjectConfig.calculatedLimits &&
                     window.solarProjectConfig.calculatedLimits.inverter) || null;
-    const mpptCount = (invCfg && Number.isFinite(invCfg.mppt) && invCfg.mppt > 0) ? invCfg.mppt : 0;
+    const invCount = (typeof window !== 'undefined' && window.solarProjectConfig &&
+                      window.solarProjectConfig.autoSizing && window.solarProjectConfig.autoSizing.inverters &&
+                      Number.isFinite(window.solarProjectConfig.autoSizing.inverters.count))
+                      ? Math.max(1, window.solarProjectConfig.autoSizing.inverters.count) : 1;
+    const mpptPerInv = (invCfg && Number.isFinite(invCfg.mppt) && invCfg.mppt > 0) ? invCfg.mppt : 0;
+    const mpptCount = mpptPerInv * invCount;
     if (!mpptCount) return { changed: 0, reason: 'sin_inversor' };
     const capPer = (invCfg && Number.isFinite(invCfg.inputsPerMppt) && invCfg.inputsPerMppt > 0) ? invCfg.inputsPerMppt : 1;
 

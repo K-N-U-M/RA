@@ -106,10 +106,11 @@
     }
     solarSimState.mlpeBadgeEntities = [];
 
-    if (solarSimState.panelShadowOverlayEntities) {
-      solarSimState.panelShadowOverlayEntities.forEach(e => viewer.entities.remove(e));
+    if (!solarSimState.panelShadowOverlayPool) {
+      solarSimState.panelShadowOverlayPool = new Map();
     }
-    solarSimState.panelShadowOverlayEntities = [];
+    const overlayPool = solarSimState.panelShadowOverlayPool;
+    const activeOverlayIds = new Set();
 
     if (solarSimState.obstacleShadowSurfaceEntities) {
       solarSimState.obstacleShadowSurfaceEntities.forEach(e => viewer.entities.remove(e));
@@ -220,17 +221,27 @@
           });
 
           const shadowMatOverlay = Cesium.Color.fromCssColorString('#0f172a').withAlpha(0.75);
-          const shadowOverlay = viewer.entities.add({
-            id: "pv_panel_shadow_overlay_" + entIdx + "_" + Math.random().toString(36).substring(2, 6),
-            show: true,
-            polygon: {
-              hierarchy: new Cesium.PolygonHierarchy(shadowCorners),
-              material: shadowMatOverlay,
-              perPositionHeight: true,
-              arcType: (typeof Cesium !== 'undefined' && Cesium.ArcType && Cesium.ArcType.NONE) ? Cesium.ArcType.NONE : undefined
+          const entId = "pv_panel_shadow_overlay_" + polyIdx + "_" + (pData.layoutIndex !== undefined ? pData.layoutIndex : (pData.panelId || entIdx));
+          activeOverlayIds.add(entId);
+          let shadowOverlay = overlayPool.get(entId);
+          if (!shadowOverlay) {
+            shadowOverlay = viewer.entities.add({
+              id: entId,
+              show: true,
+              polygon: {
+                hierarchy: new Cesium.PolygonHierarchy(shadowCorners),
+                material: shadowMatOverlay,
+                perPositionHeight: true,
+                arcType: (typeof Cesium !== 'undefined' && Cesium.ArcType && Cesium.ArcType.NONE) ? Cesium.ArcType.NONE : undefined
+              }
+            });
+            overlayPool.set(entId, shadowOverlay);
+          } else {
+            if (shadowOverlay.polygon) {
+              shadowOverlay.polygon.hierarchy = new Cesium.PolygonHierarchy(shadowCorners);
             }
-          });
-          solarSimState.panelShadowOverlayEntities.push(shadowOverlay);
+            shadowOverlay.show = true;
+          }
 
           if (requiresMLPE) {
             const badgePos = Cesium.Cartesian3.add(
@@ -257,6 +268,12 @@
           }
         }
       });
+    });
+
+    overlayPool.forEach((ent, id) => {
+      if (!activeOverlayIds.has(id)) {
+        ent.show = false;
+      }
     });
 
     const shadedCountEl = document.getElementById("solar-telemetry-shaded") || document.getElementById("hud-shaded-count");
@@ -757,6 +774,8 @@
       }
     }
 
+    if (simGenerationId !== _activeSimGenerationId) return;
+
     // 6. Cálculo final de porcentajes, producción anual en kWh y clasificación
     const pNomW = (activeModule && activeModule.wp) || 450;
     const pKwp = pNomW / 1000.0;
@@ -971,6 +990,8 @@
   window.wpEvaluateMLPENecessity = wpEvaluateMLPENecessity;
   let _lastInvalToastTs = 0;
   window.wpInvalidateHeatmap = function(reason) {
+    _activeSimGenerationId++; // Cancelación atómica inmediata de cualquier simulación asíncrona en curso
+    if (typeof hideSolarCalcHUD === 'function') hideSolarCalcHUD();
     const wasHeatmapMode = !!(window.solarSimState && window.solarSimState.viewMode === 'heatmap');
     if (window.solarSimState) {
       window.solarSimState.annualHeatmapData = null;
@@ -980,6 +1001,14 @@
       window.solarSimState.annualHeatmapInvalidatedAt = Date.now();
       window.solarSimState.isCalculatingHeatmap = false;
       window.solarSimState.viewMode = 'normal';
+      if (window.solarSimState.panelShadowOverlayPool) {
+        if (typeof viewer !== 'undefined' && viewer && viewer.entities) {
+          window.solarSimState.panelShadowOverlayPool.forEach(e => {
+            try { viewer.entities.remove(e); } catch(_) {}
+          });
+        }
+        window.solarSimState.panelShadowOverlayPool.clear();
+      }
     }
 
     // 1. Purgar caché de rendimiento e irradiancia de TODOS los paneles en memoria

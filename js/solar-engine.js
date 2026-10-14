@@ -222,7 +222,11 @@ function computeTiltYieldCurve(lat, lon, azimuthDeg) {
 }
 
 function obstacleShadowLength(heightM, solarElevationDeg) {
-  return heightM / Math.max(Math.tan(degToRad(solarElevationDeg)), GE_EPSILON);
+  if (solarElevationDeg < 0.5) return 0;
+  const tanElev = Math.tan(degToRad(solarElevationDeg));
+  // Acotado a ratio máximo 5.67 (CTE DB-HE5 / elevación útil >= 10°) para evitar sombras de 300m al amanecer/atardecer
+  const shadowRatio = Math.min(1.0 / Math.max(tanElev, GE_EPSILON), 5.67);
+  return heightM * shadowRatio;
 }
 
 function obstacleShadowVector(heightM, solarElevationDeg, solarAzimuthDeg) {

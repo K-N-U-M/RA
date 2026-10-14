@@ -13747,9 +13747,39 @@ function _flushHeatmapPanelHover() {
   const camPos = viewer.camera ? viewer.camera.position : null;
   const camDir = viewer.camera ? viewer.camera.direction : null;
 
+  // Broadphase 2D por faldón: si el cursor está lejos del polígono del faldón, descartar todos sus paneles de golpe
+  const polyBBoxes = [];
+  if (typeof WP !== 'undefined' && WP && Array.isArray(WP.polylines) && WP.polylines.length > 0) {
+    for (let plIdx = 0; plIdx < WP.polylines.length; plIdx++) {
+      const pl = WP.polylines[plIdx];
+      if (!pl || !pl.points || pl.points.length < 3) continue;
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      for (let ptIdx = 0; ptIdx < pl.points.length; ptIdx++) {
+        const scPt = Cesium.SceneTransforms.wgs84ToWindowCoordinates(viewer.scene, pl.points[ptIdx], _hoverC2D);
+        if (scPt) {
+          if (scPt.x < minX) minX = scPt.x;
+          if (scPt.x > maxX) maxX = scPt.x;
+          if (scPt.y < minY) minY = scPt.y;
+          if (scPt.y > maxY) maxY = scPt.y;
+        }
+      }
+      if (isFinite(minX)) {
+        polyBBoxes[plIdx] = { minX: minX - 45, maxX: maxX + 45, minY: minY - 45, maxY: maxY + 45 };
+      }
+    }
+  }
+
   for (let i = 0; i < panels.length; i++) {
     const p = panels[i];
     if (!p.center) continue;
+
+    // Descarte broadphase: panel perteneciente a un faldón que no contiene el cursor
+    if (polyBBoxes.length > 0 && typeof p.polyIdx === 'number' && polyBBoxes[p.polyIdx]) {
+      const bb = polyBBoxes[p.polyIdx];
+      if (screenX < bb.minX || screenX > bb.maxX || screenY < bb.minY || screenY > bb.maxY) {
+        continue;
+      }
+    }
 
     // Descarte ultrarrápido: paneles a espaldas de la cámara (dot product <= 0)
     if (camPos && camDir) {
