@@ -179,27 +179,34 @@ async function enrichSummaryWithGemini(targetWindow, d, m, equipment) {
 
   // ── Llamada REST a Gemini ──
   try {
-    var url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + encodeURIComponent(apiKey);
-    var resp = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 300
+    var modelsToTry = ['gemini-3.8-flash', 'gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-2.0-flash'];
+    var text = '';
+    for (var mIdx = 0; mIdx < modelsToTry.length; mIdx++) {
+      var currentModel = modelsToTry[mIdx];
+      var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + currentModel + ':generateContent?key=' + encodeURIComponent(apiKey);
+      var resp = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 300
+          }
+        })
+      });
+      if (resp.ok) {
+        var data = await resp.json();
+        if (data.candidates && data.candidates[0] && data.candidates[0].content &&
+            data.candidates[0].content.parts && data.candidates[0].content.parts[0]) {
+          text = data.candidates[0].content.parts[0].text || '';
+          if (text.trim()) break;
         }
-      })
-    });
-    if (!resp.ok) {
+      }
+    }
+    if (!text.trim()) {
       if (badge) badge.innerHTML = '📋 Resumen del proyecto';
       return; // Mantener plantilla
-    }
-    var data = await resp.json();
-    var text = '';
-    if (data.candidates && data.candidates[0] && data.candidates[0].content &&
-        data.candidates[0].content.parts && data.candidates[0].content.parts[0]) {
-      text = data.candidates[0].content.parts[0].text || '';
     }
     if (text.trim()) {
       container.innerHTML = text.trim();

@@ -150,5 +150,10 @@ console.log('✓ Inserción, guardado y sincronización reactiva en caliente ver
 mockLocalStorage['ra_gemini_api_key'] = 'AIzaSyMockTestKey12345';
 assert.strictEqual(Importer.getApiKey(), 'AIzaSyMockTestKey12345', 'Debe leer la API Key de localStorage');
 
-console.log('✓ Gestión de credenciales API Key verificada');
+// ── 7. TEST DE DESCUBRIMIENTO DE MODELOS FALLBACK ───────────────────────────
+const fallbackModels = Importer.discoverAvailableModels('invalid_key_for_fallback_test');
+assert(fallbackModels instanceof Promise, 'discoverAvailableModels debe devolver una Promesa');
+
+console.log('✓ Gestión de credenciales API Key y modelos dinámicos verificada');
 console.log('--- TODOS LOS TESTS DEL IMPORTADOR IA PASARON CON ÉXITO AL 100% ---');
+

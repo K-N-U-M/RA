@@ -341,7 +341,20 @@
     }
     if (resultEl) resultEl.innerHTML = '<span style="color:#a78bfa;">⏳ Conectando con Gemini...</span>';
     try {
-      const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + encodeURIComponent(key);
+      const modelsToTry = ['gemini-3.8-flash', 'gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-2.0-flash'];
+      let activeModel = 'gemini-3.8-flash';
+      try {
+        const listResp = await fetch('https://generativelanguage.googleapis.com/v1beta/models?key=' + encodeURIComponent(key));
+        if (listResp.ok) {
+          const listData = await listResp.json();
+          if (Array.isArray(listData.models)) {
+            const found = listData.models.find(m => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'));
+            if (found) activeModel = found.name.replace(/^models\//, '');
+          }
+        }
+      } catch (e) {}
+
+      const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + activeModel + ':generateContent?key=' + encodeURIComponent(key);
       const resp = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

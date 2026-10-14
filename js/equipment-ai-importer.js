@@ -135,6 +135,47 @@ NORMAS ESTRICTAS DE EXTRACCIÓN:
     },
 
     /**
+     * Descubre dinámicamente los modelos compatibles disponibles para esta API Key
+     */
+    discoverAvailableModels: async function (apiKey) {
+      if (this._cachedAvailableModels && this._cachedAvailableModels.length > 0) {
+        return this._cachedAvailableModels;
+      }
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`;
+        const resp = await fetch(url);
+        if (resp.ok) {
+          const data = await resp.json();
+          if (Array.isArray(data.models)) {
+            const valid = data.models
+              .filter(m => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'))
+              .map(m => m.name.replace(/^models\//, ''));
+
+            const flash = valid.filter(n => /flash/i.test(n));
+            const other = valid.filter(n => !/flash/i.test(n));
+
+            flash.sort((a, b) => b.localeCompare(a, undefined, { numeric: true, sensitivity: 'base' }));
+            const ordered = [...flash, ...other];
+            if (ordered.length > 0) {
+              this._cachedAvailableModels = ordered;
+              return ordered;
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('[RAEquipmentAIImporter] No se pudo listar modelos dinámicamente:', e);
+      }
+      return [
+        'gemini-3.8-flash',
+        'gemini-3.5-flash',
+        'gemini-3.5-flash-lite',
+        'gemini-2.5-flash',
+        'gemini-2.5-flash-lite',
+        'gemini-2.0-flash'
+      ];
+    },
+
+    /**
      * Llama al endpoint multimodal de Gemini
      */
     callGeminiAPI: async function ({ base64Data, mimeType, fileName }) {
@@ -166,9 +207,19 @@ NORMAS ESTRICTAS DE EXTRACCIÓN:
         }
       };
 
-      // Modelos soportados con fallback automático
-      const models = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+      // Obtener lista de modelos compatibles para esta cuenta/clave
+      let models = await this.discoverAvailableModels(apiKey);
+      if (!Array.isArray(models) || models.length === 0) {
+        models = ['gemini-3.8-flash', 'gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-2.0-flash'];
+      }
+
+      // Si el usuario configuró un modelo manual en window.RA, priorizarlo
+      if (root.RA && root.RA.geminiModel && !models.includes(root.RA.geminiModel)) {
+        models.unshift(root.RA.geminiModel);
+      }
+
       let lastError = null;
+      const attemptErrors = [];
 
       for (const model of models) {
         try {
@@ -182,7 +233,7 @@ NORMAS ESTRICTAS DE EXTRACCIÓN:
           if (!resp.ok) {
             const errData = await resp.json().catch(() => ({}));
             const errMsg = (errData.error && errData.error.message) ? errData.error.message : `HTTP ${resp.status}`;
-            throw new Error(errMsg);
+            throw new Error(`[${model}] ${errMsg}`);
           }
 
           const resData = await resp.json();
@@ -192,19 +243,20 @@ NORMAS ESTRICTAS DE EXTRACCIÓN:
             rawText = resData.candidates[0].content.parts[0].text || '';
           }
 
-          if (!rawText.trim()) throw new Error('Respuesta vacía de la IA.');
+          if (!rawText.trim()) throw new Error(`[${model}] Respuesta vacía de la IA.`);
 
           const cleaned = rawText.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
           const parsed = JSON.parse(cleaned);
 
           return this.sanitizeAndValidate(parsed, fileName);
         } catch (e) {
+          attemptErrors.push(e.message);
           lastError = e;
           continue;
         }
       }
 
-      throw lastError || new Error('No se pudo procesar la ficha técnica con IA.');
+      throw lastError || new Error('No se pudo procesar la ficha técnica con ningún modelo disponible.');
     },
 
     /**
