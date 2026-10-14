@@ -281,6 +281,71 @@
     }
   }
 
+  // ── 7. GESTIÓN UNIVERSAL DE MODALES (ESCAPE & CLIC EXTERIOR) ───────────────
+  function closeAnyActiveModal() {
+    if (typeof document === 'undefined') return false;
+
+    const modalDefinitions = [
+      { id: 'ra-equipment-catalog-modal', close: function() { if (typeof global.closeEquipmentCatalogModal === 'function') global.closeEquipmentCatalogModal(); } },
+      { id: 'ra-cost-breakdown-modal', close: function() { if (typeof global.closeCostBreakdownModal === 'function') global.closeCostBreakdownModal(); } },
+      { id: 'ra-company-branding-modal', close: function() { if (typeof global.closeCompanyBrandingModal === 'function') global.closeCompanyBrandingModal(); } },
+      { id: 'ra-projects-modal', close: function() { if (typeof global.raCloseProjectsModal === 'function') global.raCloseProjectsModal(); } },
+      { id: 'ra-doc-modal', close: function() { if (typeof global.closeDocModal === 'function') global.closeDocModal(); } },
+      { id: 'ra-pricing-review-modal', close: function() { var btn = document.getElementById('btn-close-pricing-review') || document.getElementById('btn-cancel-pricing-review'); if (btn) btn.click(); } },
+      { id: 'ra-bill-auditor-modal', close: function() { var btn = document.getElementById('btn-close-bill-modal') || document.getElementById('btn-cancel-bill-modal'); if (btn) btn.click(); } }
+    ];
+
+    for (var i = 0; i < modalDefinitions.length; i++) {
+      var def = modalDefinitions[i];
+      var el = document.getElementById(def.id);
+      if (el && (el.classList.contains('open') || (el.style.display && el.style.display !== 'none'))) {
+        try { def.close(); } catch(e) {}
+        el.style.display = 'none';
+        el.classList.remove('open');
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function initUniversalModalHandlers() {
+    if (typeof document === 'undefined') return;
+
+    // 1. Cierre con tecla Escape en fase de captura (para priorizar sobre herramientas de dibujo 3D)
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' || e.keyCode === 27) {
+        if (closeAnyActiveModal()) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }
+    }, true);
+
+    // 2. Cierre al hacer clic en el backdrop exterior del diálogo
+    document.addEventListener('click', function(e) {
+      var backdropIds = [
+        'ra-equipment-catalog-modal',
+        'ra-cost-breakdown-modal',
+        'ra-company-branding-modal',
+        'ra-projects-modal',
+        'ra-doc-modal',
+        'ra-pricing-review-modal',
+        'ra-bill-auditor-modal'
+      ];
+      if (e.target && backdropIds.indexOf(e.target.id) !== -1) {
+        closeAnyActiveModal();
+      }
+    });
+  }
+
+  if (typeof document !== 'undefined') {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initUniversalModalHandlers);
+    } else {
+      initUniversalModalHandlers();
+    }
+  }
+
   // Fallback de seguridad para ocultar pantalla de bienvenida
   if (typeof global.setTimeout === 'function') {
     global.setTimeout(hideLoading, 8000);

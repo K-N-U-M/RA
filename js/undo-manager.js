@@ -181,6 +181,8 @@
       if (typeof window !== 'undefined') window.selectedObstacleId = global.selectedObstacleId;
       if (typeof global.render3DObstaclesInCesium === 'function') global.render3DObstaclesInCesium();
       if (typeof global.recalculateLayoutAndObstacles === 'function') global.recalculateLayoutAndObstacles();
+      if (global.ProjectHierarchy && typeof global.ProjectHierarchy.notify === 'function') global.ProjectHierarchy.notify('obstacle_restored');
+      if (typeof global.renderUniversalGizmo2D === 'function') global.renderUniversalGizmo2D();
       if (typeof global.wpInvalidateHeatmap === 'function') global.wpInvalidateHeatmap('Obstáculos restaurados');
       return true;
     }
@@ -195,6 +197,8 @@
       if (typeof window !== 'undefined') window.selectedBuildingId = global.selectedBuildingId;
       if (typeof global.render3DBuildingsInCesium === 'function') global.render3DBuildingsInCesium();
       if (typeof global.recalculateLayoutAndObstacles === 'function') global.recalculateLayoutAndObstacles();
+      if (global.ProjectHierarchy && typeof global.ProjectHierarchy.notify === 'function') global.ProjectHierarchy.notify('building_restored');
+      if (typeof global.renderUniversalGizmo2D === 'function') global.renderUniversalGizmo2D();
       if (typeof global.wpInvalidateHeatmap === 'function') global.wpInvalidateHeatmap('Edificios restaurados');
       return true;
     }
@@ -247,8 +251,9 @@
       if (WPpln && Array.isArray(WPpln.planes)) {
         replaceInPlace(WPpln.planes, revive(data.planes));
         WPpln.activePlaneIdx = (typeof data.activePlaneIdx === 'number') ? data.activePlaneIdx : (WPpln.planes.length > 0 ? 0 : -1);
-        if (typeof global.wpRenderAllWorkingPlanes === 'function') global.wpRenderAllWorkingPlanes();
+        if (typeof global.wpRenderActivePlaneGizmo === 'function') global.wpRenderActivePlaneGizmo();
         if (typeof global.wpUpdateUI === 'function') global.wpUpdateUI();
+        if (global.ProjectHierarchy && typeof global.ProjectHierarchy.notify === 'function') global.ProjectHierarchy.notify('plane_restored');
         if (typeof global.wpInvalidateHeatmap === 'function') global.wpInvalidateHeatmap('Planos restaurados');
         return true;
       }

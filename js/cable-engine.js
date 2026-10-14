@@ -715,22 +715,50 @@
       var lDcVal = Ldc || 25;
       var lAcVal = Lac || 15;
       var imp = modCfg.imp || 13.05;
-      var vmpStr = (modCfg.vmp || 34.5) * 12;
-      var iDcDesign = 1.25 * (modCfg.isc || 13.8);
+
+      // Obtener el número real de paneles del circuito para la tensión de trabajo (Vmp real)
+      var strList = this.gatherAllStrings();
+      var minModPerStr = 12; // fallback prudente
+      if (Array.isArray(strList) && strList.length > 0) {
+        var validLengths = strList.map(function(s) { return (s.panels && s.panels.length) || 0; }).filter(function(n) { return n > 0; });
+        if (validLengths.length > 0) {
+          // Usamos el string más corto para evaluar el caso más desfavorable (menor Vdc => mayor % ΔV)
+          minModPerStr = Math.min.apply(null, validLengths);
+        }
+      } else if (global.solarProjectConfig && global.solarProjectConfig.calculatedLimits && global.solarProjectConfig.calculatedLimits.nMinString) {
+        minModPerStr = global.solarProjectConfig.calculatedLimits.nMinString;
+      }
+      var vmpStr = (modCfg.vmp || 34.5) * Math.max(1, minModPerStr);
+
+      // Si la tipología usa conectores en 'Y' (paralelo en cubierta), la corriente del conductor troncal se duplica:
+      var numParallel = (sState && sState.dcTopology === 'parallel_y') ? 2 : 1;
+      var iDcDesign = numParallel * 1.25 * (modCfg.isc || 13.8);
+      var iDcWorking = numParallel * imp;
 
       var secDcAvail = [4, 6, 10, 16, 25];
       var imaxDcZZF  = [44, 58, 80, 107, 138];
       var sDcOpt = 6, dVdcPctOpt = 1.0;
+      var dcCompliant = false;
 
       for (var i = 0; i < secDcAvail.length; i++) {
         var s = secDcAvail[i];
-        var dV = (2 * rho90 * lDcVal * imp) / s;
+        var dV = (2 * rho90 * lDcVal * iDcWorking) / s;
         var dVpct = (dV / vmpStr) * 100;
         if (imaxDcZZF[i] >= iDcDesign && dVpct <= 1.5) {
           sDcOpt = s;
           dVdcPctOpt = dVpct;
+          dcCompliant = true;
           break;
         }
+      }
+
+      if (!dcCompliant) {
+        sDcOpt = secDcAvail[secDcAvail.length - 1]; // 25 mm²
+        var dVMax = (2 * rho90 * lDcVal * iDcWorking) / sDcOpt;
+        dVdcPctOpt = (dVMax / vmpStr) * 100;
+        sState.dcNonCompliantWarning = true;
+      } else {
+        sState.dcNonCompliantWarning = false;
       }
 
       sState.S_dc_recommended = sDcOpt;
@@ -746,6 +774,7 @@
       var secAcAvail = [2.5, 4, 6, 10, 16, 25, 35, 50];
       var imaxAcRVK  = [29, 38, 49, 68, 91, 119, 146, 178];
       var sAcOpt = 10, dVacPctOpt = 0.8;
+      var acCompliant = false;
 
       var xMeterAc = 0.08 / 1000.0; // Reactancia inductiva normalizada 0.08 Ohm/km (REBT ITC-BT-40)
       var cosPAc = 0.95;
@@ -758,8 +787,19 @@
         if (imaxAcRVK[j] >= iAcDesign && dVapct <= 1.5) {
           sAcOpt = sa;
           dVacPctOpt = dVapct;
+          acCompliant = true;
           break;
         }
+      }
+
+      if (!acCompliant) {
+        sAcOpt = secAcAvail[secAcAvail.length - 1]; // 50 mm²
+        var factorPhaseMax = isMono ? 2.0 : Math.sqrt(3);
+        var dVaMax = factorPhaseMax * iAc * lAcVal * ((rho90 / sAcOpt) * cosPAc + xMeterAc * sinPAc);
+        dVacPctOpt = (dVaMax / vAc) * 100;
+        sState.acNonCompliantWarning = true;
+      } else {
+        sState.acNonCompliantWarning = false;
       }
 
       sState.S_ac_recommended = sAcOpt;
@@ -771,9 +811,17 @@
       var statLacEl = document.getElementById('inverter-stat-lac');
       if (statLacEl) statLacEl.textContent = (sState.L_ac_measured || 0).toFixed(1) + ' m';
       var statSecDcEl = document.getElementById('inverter-stat-sec-dc');
-      if (statSecDcEl) statSecDcEl.textContent = sDcOpt + ' mm² · ΔV ' + dVdcPctOpt.toFixed(1) + '%';
+      if (statSecDcEl) {
+        statSecDcEl.textContent = sDcOpt + ' mm² · ΔV ' + dVdcPctOpt.toFixed(1) + '%' + (sState.dcNonCompliantWarning ? ' ⚠️ >1.5%' : '');
+        if (sState.dcNonCompliantWarning) statSecDcEl.style.color = '#ef4444';
+        else statSecDcEl.style.color = '';
+      }
       var statSecAcEl = document.getElementById('inverter-stat-sec-ac');
-      if (statSecAcEl) statSecAcEl.textContent = sAcOpt + ' mm² · ΔV ' + dVacPctOpt.toFixed(1) + '%';
+      if (statSecAcEl) {
+        statSecAcEl.textContent = sAcOpt + ' mm² · ΔV ' + dVacPctOpt.toFixed(1) + '%' + (sState.acNonCompliantWarning ? ' ⚠️ >1.5%' : '');
+        if (sState.acNonCompliantWarning) statSecAcEl.style.color = '#ef4444';
+        else statSecAcEl.style.color = '';
+      }
 
       if (!global.solarLossConfig) global.solarLossConfig = {};
       global.solarLossConfig.wiring = (dVdcPctOpt + dVacPctOpt) / 100.0;

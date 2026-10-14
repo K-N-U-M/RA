@@ -1527,9 +1527,13 @@ function generatePropuestaComercialPDF(skipPricingModal) {
   const meses = _input('fin-plazo-meses', 120);
   const tinAnual = _input('fin-tin-pct', 5.95) / 100.0;
   const tinMensual = tinAnual / 12.0;
-  const cuotaMensual = (tinMensual > 0)
-    ? (capexBruto * (tinMensual * Math.pow(1 + tinMensual, meses))) / (Math.pow(1 + tinMensual, meses) - 1)
-    : capexBruto / meses;
+  let cuotaMensual = 0;
+  if (meses > 0 && capexBruto > 0) {
+    cuotaMensual = (tinMensual > 0)
+      ? (capexBruto * (tinMensual * Math.pow(1 + tinMensual, meses))) / (Math.pow(1 + tinMensual, meses) - 1)
+      : capexBruto / meses;
+    if (!Number.isFinite(cuotaMensual)) cuotaMensual = 0;
+  }
   const ahorroMensualLuz = ahorroLuzAnio1 / 12.0;
   const balanceNetoMensual = ahorroMensualLuz - cuotaMensual;
 

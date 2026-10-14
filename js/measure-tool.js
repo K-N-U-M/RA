@@ -30,6 +30,12 @@
     handler: null,           // Cesium.ScreenSpaceEventHandler
     polylineCollection: null,// Cesium.PolylineCollection (renderizado WebGL directo en primitives)
     previewPolyline: null,   // Cesium.Polyline para la línea elástica viva
+    previewPinA: null,       // Entidad Pin A persistente reutilizable
+    previewPinB: null,       // Entidad Pin B persistente reutilizable
+    previewRing: null,       // Entidad Halo magnético persistente reutilizable
+    previewLabel: null,      // Entidad Etiqueta de cota persistente reutilizable
+    cachedCandidates: null,  // Caché espacial de candidatos de snapping
+    candidatesDirty: true,   // Flag de invalidación de candidatos
     fixedEntities: [],       // Entidades Cesium fijas (pines y etiquetas en viewer.entities)
     previewEntities: []      // Entidades Cesium dinámicas (pines y etiqueta en viewer.entities)
   };
@@ -99,13 +105,14 @@
   }
 
   function calculateDistanceMetrics(ptA, ptB) {
-    if (!ptA || !ptB) return { d3D: 0, d2D: 0, dZ: 0, slopeDeg: 0 };
+    if (!ptA || !ptB) return { d3D: 0, d2D: 0, dZ: 0, dZSigned: 0, slopeDeg: 0 };
     var d3D = Cesium.Cartesian3.distance(ptA, ptB);
 
     var cartA = Cesium.Cartographic.fromCartesian(ptA);
     var cartB = Cesium.Cartographic.fromCartesian(ptB);
 
-    var dZ = Math.abs((cartB.height || 0) - (cartA.height || 0));
+    var dZSigned = (cartB.height || 0) - (cartA.height || 0);
+    var dZ = Math.abs(dZSigned);
     var d2D = Math.sqrt(Math.max(0, d3D * d3D - dZ * dZ));
     var slopeDeg = (d2D > 0.01) ? Cesium.Math.toDegrees(Math.atan2(dZ, d2D)) : (dZ > 0 ? 90 : 0);
 
@@ -113,12 +120,21 @@
       d3D: d3D,
       d2D: d2D,
       dZ: dZ,
+      dZSigned: dZSigned,
       slopeDeg: slopeDeg
     };
   }
 
   // ── MOTOR DE SNAPPING MAGNÉTICO MULTI-OBJETO ──────────────────────────────
+  function invalidateSnapCandidates() {
+    _state.candidatesDirty = true;
+    _state.cachedCandidates = null;
+  }
+
   function collectCandidateSnapPoints() {
+    if (!_state.candidatesDirty && Array.isArray(_state.cachedCandidates) && _state.cachedCandidates.length > 0) {
+      return _state.cachedCandidates;
+    }
     var candidates = [];
 
     // 1. Vértices de Planos de Trabajo y Faldones
@@ -145,14 +161,28 @@
               if (pt) candidates.push({ pos: pt, type: 'Vértice Cubierta #' + (polyIdx + 1) });
             });
           }
-          // Esquinas de paneles calculados en el faldón
-          if (poly.roofInfo && Array.isArray(poly.roofInfo.panels)) {
-            poly.roofInfo.panels.forEach(function(pData) {
+          // Esquinas de paneles calculados en el faldón o panels directos
+          var panelsArr = (poly.roofInfo && Array.isArray(poly.roofInfo.panels) && poly.roofInfo.panels.length > 0)
+            ? poly.roofInfo.panels
+            : ((Array.isArray(poly.panels) && poly.panels.length > 0) ? poly.panels : null);
+          if (panelsArr) {
+            panelsArr.forEach(function(pData) {
               if (Array.isArray(pData.corners)) {
                 pData.corners.forEach(function(c) {
                   if (c) candidates.push({ pos: c, type: 'Esquina de Módulo' });
                 });
               }
+            });
+          }
+        });
+      }
+
+      // Esquinas de paneles en allRenderedPanels global si existen
+      if (Array.isArray(global.allRenderedPanels) && global.allRenderedPanels.length > 0) {
+        global.allRenderedPanels.forEach(function(pData) {
+          if (Array.isArray(pData.corners)) {
+            pData.corners.forEach(function(c) {
+              if (c) candidates.push({ pos: c, type: 'Esquina de Módulo' });
             });
           }
         });
@@ -204,13 +234,15 @@
       });
     }
 
+    _state.cachedCandidates = candidates;
+    _state.candidatesDirty = false;
     return candidates;
   }
 
   function findSnapPoint(screenPos) {
     if (!_state.snappingEnabled) return null;
     var v = getViewer();
-    if (!v || !v.scene || !screenPos) return null;
+    if (!v || !v.scene || !v.scene.camera || !screenPos) return null;
 
     var candidates = collectCandidateSnapPoints();
     if (!candidates.length) return null;
@@ -219,10 +251,17 @@
     var bestTarget = null;
 
     var scratchScrPos = new Cesium.Cartesian2();
+    var camPos = v.scene.camera.positionWC || v.scene.camera.position;
+    var camDir = v.scene.camera.directionWC || v.scene.camera.direction;
+    var scratchVec = new Cesium.Cartesian3();
 
     for (var i = 0; i < candidates.length; i++) {
       var item = candidates[i];
       if (!item.pos) continue;
+
+      // Descarte rápido en 3D: el punto debe estar delante del plano de la cámara
+      Cesium.Cartesian3.subtract(item.pos, camPos, scratchVec);
+      if (Cesium.Cartesian3.dot(scratchVec, camDir) <= 0.0) continue;
 
       var scr = Cesium.SceneTransforms.wgs84ToWindowCoordinates(v.scene, item.pos, scratchScrPos);
       if (!scr) continue;
@@ -247,16 +286,80 @@
     return _state.polylineCollection;
   }
 
-  function clearPreviewEntities() {
+  function ensurePreviewEntities() {
     var v = getViewer();
-    if (v && v.entities) {
+    if (!v || !v.entities) return false;
+
+    if (!_state.previewPinA) {
+      _state.previewPinA = v.entities.add({
+        show: false,
+        point: {
+          pixelSize: 10,
+          color: Cesium.Color.fromCssColorString('#10B981'),
+          outlineColor: Cesium.Color.fromCssColorString('#0F172A'),
+          outlineWidth: 2,
+          disableDepthTestDistance: Number.POSITIVE_INFINITY
+        }
+      });
+    }
+    if (!_state.previewPinB) {
+      _state.previewPinB = v.entities.add({
+        show: false,
+        point: {
+          pixelSize: 10,
+          color: Cesium.Color.fromCssColorString('#F59E0B'),
+          outlineColor: Cesium.Color.fromCssColorString('#0F172A'),
+          outlineWidth: 2,
+          disableDepthTestDistance: Number.POSITIVE_INFINITY
+        }
+      });
+    }
+    if (!_state.previewRing) {
+      _state.previewRing = v.entities.add({
+        show: false,
+        point: {
+          pixelSize: 18,
+          color: Cesium.Color.fromCssColorString('#10B981').withAlpha(0.35),
+          outlineColor: Cesium.Color.fromCssColorString('#34D399'),
+          outlineWidth: 2,
+          disableDepthTestDistance: Number.POSITIVE_INFINITY
+        }
+      });
+    }
+    if (!_state.previewLabel) {
+      _state.previewLabel = v.entities.add({
+        show: false,
+        label: {
+          text: '',
+          font: '700 11.5px Inter, system-ui, sans-serif',
+          fillColor: Cesium.Color.WHITE,
+          outlineColor: Cesium.Color.fromCssColorString('#0F172A'),
+          outlineWidth: 3,
+          style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+          showBackground: true,
+          backgroundColor: Cesium.Color.fromCssColorString('rgba(15,23,42,0.92)'),
+          backgroundPadding: new Cesium.Cartesian2(8, 6),
+          disableDepthTestDistance: Number.POSITIVE_INFINITY,
+          verticalOrigin: Cesium.VerticalOrigin.BOTTOM
+        }
+      });
+    }
+    return true;
+  }
+
+  function clearPreviewEntities() {
+    if (_state.previewPinA) _state.previewPinA.show = false;
+    if (_state.previewPinB) _state.previewPinB.show = false;
+    if (_state.previewRing) _state.previewRing.show = false;
+    if (_state.previewLabel) _state.previewLabel.show = false;
+    if (_state.previewPolyline) _state.previewPolyline.show = false;
+
+    var v = getViewer();
+    if (v && v.entities && Array.isArray(_state.previewEntities) && _state.previewEntities.length > 0) {
       _state.previewEntities.forEach(function(ent) {
         try { v.entities.remove(ent); } catch(e) {}
       });
-    }
-    _state.previewEntities = [];
-    if (_state.previewPolyline) {
-      _state.previewPolyline.show = false;
+      _state.previewEntities = [];
     }
     requestSceneRender();
   }
@@ -292,81 +395,50 @@
       }
     }
 
-    // 2. Limpiar entidades previas de puntos/etiquetas antes de recrear
-    if (v.entities) {
-      _state.previewEntities.forEach(function(ent) {
-        try { v.entities.remove(ent); } catch(e) {}
-      });
-    }
-    _state.previewEntities = [];
+    // 2. Entidades persistentes reutilizables (zero GC allocation por frame)
+    ensurePreviewEntities();
 
     // Punto inicial (Punto A - verde esmeralda)
-    var startPin = v.entities.add({
-      position: visualStart,
-      point: {
-        pixelSize: 10,
-        color: Cesium.Color.fromCssColorString('#10B981'),
-        outlineColor: Cesium.Color.fromCssColorString('#0F172A'),
-        outlineWidth: 2,
-        disableDepthTestDistance: Number.POSITIVE_INFINITY
-      }
-    });
-    _state.previewEntities.push(startPin);
-
-    // Punto terminal en cursor (Punto B)
-    var endPin = v.entities.add({
-      position: visualEnd,
-      point: {
-        pixelSize: 10,
-        color: snapMeta ? Cesium.Color.fromCssColorString('#10B981') : Cesium.Color.fromCssColorString('#F59E0B'),
-        outlineColor: Cesium.Color.fromCssColorString('#0F172A'),
-        outlineWidth: 2,
-        disableDepthTestDistance: Number.POSITIVE_INFINITY
-      }
-    });
-    _state.previewEntities.push(endPin);
-
-    // Si hay snapping activo, halo magnético adicional
-    if (snapMeta) {
-      var snapRing = v.entities.add({
-        position: visualEnd,
-        point: {
-          pixelSize: 18,
-          color: Cesium.Color.fromCssColorString('#10B981').withAlpha(0.35),
-          outlineColor: Cesium.Color.fromCssColorString('#34D399'),
-          outlineWidth: 2,
-          disableDepthTestDistance: Number.POSITIVE_INFINITY
-        }
-      });
-      _state.previewEntities.push(snapRing);
+    if (_state.previewPinA) {
+      _state.previewPinA.position = visualStart;
+      _state.previewPinA.show = true;
     }
 
-    // Etiqueta flotante con desglose 3D, 2D y desnivel
+    // Punto terminal en cursor (Punto B - ámbar o verde magnético)
+    if (_state.previewPinB) {
+      _state.previewPinB.position = visualEnd;
+      _state.previewPinB.point.color = snapMeta ? Cesium.Color.fromCssColorString('#10B981') : Cesium.Color.fromCssColorString('#F59E0B');
+      _state.previewPinB.show = true;
+    }
+
+    // Si hay snapping activo, halo magnético adicional
+    if (_state.previewRing) {
+      if (snapMeta) {
+        _state.previewRing.position = visualEnd;
+        _state.previewRing.show = true;
+      } else {
+        _state.previewRing.show = false;
+      }
+    }
+
+    // Etiqueta flotante con desglose 3D, 2D y desnivel con indicador de pendiente (sube/baja)
+    var arrow = '';
+    if (Math.abs(metrics.dZSigned || 0) > 0.02) {
+      arrow = (metrics.dZSigned > 0) ? ' ↑ (sube)' : ' ↓ (baja)';
+    }
     var labelText = '📏 3D: ' + metrics.d3D.toFixed(2) + ' m' +
                     '\n↔ 2D: ' + metrics.d2D.toFixed(2) + ' m' +
-                    '  |  ↕ ΔH: ' + metrics.dZ.toFixed(2) + ' m (' + metrics.slopeDeg.toFixed(1) + '°)';
+                    '  |  ↕ ΔH: ' + metrics.dZ.toFixed(2) + ' m' + arrow + ' (' + metrics.slopeDeg.toFixed(1) + '°)';
 
     if (snapMeta && snapMeta.type) {
       labelText += '\n🧲 [' + snapMeta.type + ']';
     }
 
-    var labelEnt = v.entities.add({
-      position: labelPos,
-      label: {
-        text: labelText,
-        font: '700 11.5px Inter, system-ui, sans-serif',
-        fillColor: Cesium.Color.WHITE,
-        outlineColor: Cesium.Color.fromCssColorString('#0F172A'),
-        outlineWidth: 3,
-        style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-        showBackground: true,
-        backgroundColor: Cesium.Color.fromCssColorString('rgba(15,23,42,0.92)'),
-        backgroundPadding: new Cesium.Cartesian2(8, 6),
-        disableDepthTestDistance: Number.POSITIVE_INFINITY,
-        verticalOrigin: Cesium.VerticalOrigin.BOTTOM
-      }
-    });
-    _state.previewEntities.push(labelEnt);
+    if (_state.previewLabel) {
+      _state.previewLabel.position = labelPos;
+      _state.previewLabel.label.text = labelText;
+      _state.previewLabel.show = true;
+    }
 
     // Actualizar lectura en vivo del HUD flotante
     updateLiveHUDReadout(metrics, snapMeta);
@@ -578,9 +650,13 @@
       el.textContent = _state.points.length > 0 ? 'Mueve el ratón para medir' : 'Haz clic para iniciar';
       return;
     }
+    var sign = '';
+    if (Math.abs(metrics.dZSigned || 0) > 0.02) {
+      sign = (metrics.dZSigned > 0) ? ' ↑' : ' ↓';
+    }
     el.innerHTML = '<span style="color:#38BDF8;">3D: ' + metrics.d3D.toFixed(2) + 'm</span> · ' +
                    '<span style="color:#94A3B8;">2D: ' + metrics.d2D.toFixed(2) + 'm</span> · ' +
-                   '<span style="color:#F59E0B;">ΔH: ' + metrics.dZ.toFixed(2) + 'm</span>';
+                   '<span style="color:#F59E0B;">ΔH: ' + metrics.dZ.toFixed(2) + 'm' + sign + '</span>';
   }
 
   function updateFABVisuals() {
@@ -611,6 +687,8 @@
   }
 
   // ── GESTIÓN DE EVENTOS DE RATÓN (SCREEN SPACE EVENT HANDLER) ──────────────
+  var _rafMeasureMouseMove = null;
+
   function attachMouseHandler() {
     var v = getViewer();
     if (!v || !v.canvas) return;
@@ -618,43 +696,43 @@
 
     _state.handler = new Cesium.ScreenSpaceEventHandler(v.canvas);
 
-    // MOUSE_MOVE: Detección continua de snap y actualización de cota en vivo
+    // MOUSE_MOVE: Detección continua de snap y actualización de cota en vivo (throttled vía requestAnimationFrame)
     _state.handler.setInputAction(function(movement) {
       if (!_state.active) return;
+      if (_rafMeasureMouseMove) return;
 
-      var snapTarget = findSnapPoint(movement.endPosition);
-      var pos3D = (snapTarget && snapTarget.pos) ? snapTarget.pos : get3DPosition(movement.endPosition);
+      var endPos = movement.endPosition;
+      _rafMeasureMouseMove = (typeof window !== 'undefined' && window.requestAnimationFrame)
+        ? window.requestAnimationFrame(function() {
+            _rafMeasureMouseMove = null;
+            if (!_state.active) return;
 
-      _state.hoverPoint = pos3D;
-      _state.hoverSnapTarget = snapTarget;
+            var snapTarget = findSnapPoint(endPos);
+            var pos3D = (snapTarget && snapTarget.pos) ? snapTarget.pos : get3DPosition(endPos);
 
-      if (_state.points.length > 0 && pos3D) {
-        var lastPt = _state.points[_state.points.length - 1];
-        updateDynamicPreview(lastPt, pos3D, snapTarget);
-      } else if (snapTarget && snapTarget.pos) {
-        // Resaltar vértice magnetizado antes del primer clic
-        clearPreviewEntities();
-        var vScene = getViewer();
-        if (vScene) {
-          var dot = vScene.entities.add({
-            position: elevatePoint(snapTarget.pos, 0.12),
-            point: {
-              pixelSize: 14,
-              color: Cesium.Color.fromCssColorString('#10B981').withAlpha(0.85),
-              outlineColor: Cesium.Color.fromCssColorString('#34D399'),
-              outlineWidth: 2,
-              disableDepthTestDistance: Number.POSITIVE_INFINITY
+            _state.hoverPoint = pos3D;
+            _state.hoverSnapTarget = snapTarget;
+
+            if (_state.points.length > 0 && pos3D) {
+              var lastPt = _state.points[_state.points.length - 1];
+              updateDynamicPreview(lastPt, pos3D, snapTarget);
+            } else if (snapTarget && snapTarget.pos) {
+              // Resaltar vértice magnetizado antes del primer clic usando halo magnético persistente
+              ensurePreviewEntities();
+              if (_state.previewRing) {
+                _state.previewRing.position = elevatePoint(snapTarget.pos, 0.12);
+                _state.previewRing.show = true;
+              }
+              if (_state.previewPinA) _state.previewPinA.show = false;
+              if (_state.previewPinB) _state.previewPinB.show = false;
+              if (_state.previewLabel) _state.previewLabel.show = false;
+              if (_state.previewPolyline) _state.previewPolyline.show = false;
+              requestSceneRender();
+            } else {
+              clearPreviewEntities();
             }
-          });
-          _state.previewEntities.push(dot);
-          requestSceneRender();
-        }
-      } else {
-        if (_state.previewEntities.length > 0) {
-          clearPreviewEntities();
-        }
-      }
-      requestSceneRender();
+          })
+        : null;
     }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
 
     // LEFT_CLICK: Fijar puntos de medición
@@ -700,6 +778,12 @@
   }
 
   function detachMouseHandler() {
+    if (_rafMeasureMouseMove) {
+      if (typeof window !== 'undefined' && window.cancelAnimationFrame) {
+        window.cancelAnimationFrame(_rafMeasureMouseMove);
+      }
+      _rafMeasureMouseMove = null;
+    }
     if (_state.handler && !_state.handler.isDestroyed()) {
       _state.handler.destroy();
       _state.handler = null;

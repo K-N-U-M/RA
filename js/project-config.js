@@ -342,8 +342,14 @@ function step3UpdateHardwareSelection() {
   } else {
     // Si no cambió el módulo (ej. cambio de inversor/batería o navegación a Paso 4),
     // preservamos íntegramente poly.roofInfo y la caché del mapa de calor anual.
+    if (typeof rebalanceMPPTAssignment === 'function') {
+      rebalanceMPPTAssignment();
+    }
     if (typeof wpCalculateAndRenderInverterCables === 'function') {
       wpCalculateAndRenderInverterCables();
+    }
+    if (window.RACableEngine && typeof window.RACableEngine.redrawAll === 'function') {
+      window.RACableEngine.redrawAll();
     }
     if (typeof wpUpdateStep3UI === 'function') {
       wpUpdateStep3UI();
@@ -397,10 +403,10 @@ function wpComputeAutoSizing(forcedCount) {
   if (!catalog) return;
 
   const cfg = window.solarProjectConfig;
-  const mod = catalog.modules.find(m => m.id === cfg.selectedModuleId) || catalog.modules[0];
-  const inv = catalog.inverters.find(i => i.id === cfg.selectedInverterId) || catalog.inverters[0];
-  const mi  = catalog.microinverters.find(m => m.id === cfg.selectedMicroinverterId) || catalog.microinverters[0];
-  const bat = catalog.batteries.find(b => b.id === cfg.selectedBatteryId) || catalog.batteries[0];
+  const mod = (catalog.modules && catalog.modules.find(m => m.id === cfg.selectedModuleId)) || (catalog.modules && catalog.modules[0]) || { wp: 450, brand: 'Tier-1', model: 'Mono' };
+  const inv = (catalog.inverters && catalog.inverters.find(i => i.id === cfg.selectedInverterId)) || (catalog.inverters && catalog.inverters[0]) || { kw: 5.0, maxOverload: 1.30 };
+  const mi  = (catalog.microinverters && catalog.microinverters.find(m => m.id === cfg.selectedMicroinverterId)) || (catalog.microinverters && catalog.microinverters[0]) || { model: '', type: '' };
+  const bat = (catalog.batteries && catalog.batteries.find(b => b.id === cfg.selectedBatteryId)) || (catalog.batteries && catalog.batteries[0]) || { kwh: 0 };
 
   const totalKwp = (count * (mod.wp || 450)) / 1000.0;
 
@@ -412,7 +418,7 @@ function wpComputeAutoSizing(forcedCount) {
 
   // 2. Microinversores MLPE:
   let ratio = 1;
-  const miTxt = ((mi.model || '') + ' ' + (mi.type || '')).toLowerCase();
+  const miTxt = ((mi && mi.model ? mi.model : '') + ' ' + (mi && mi.type ? mi.type : '')).toLowerCase();
   if (miTxt.includes('2-en-1') || miTxt.includes('2 módulos') || miTxt.includes('800')) ratio = 2;
   else if (miTxt.includes('4-en-1') || miTxt.includes('4 módulos') || miTxt.includes('1600')) ratio = 4;
   const autoMicros = Math.max(1, Math.ceil(count / ratio));

@@ -9,14 +9,17 @@
 
 ## 1. 📋 RESUMEN EJECUTIVO PARA LA DIRECCIÓN
 
-La plataforma **RA (Visor 3D Fotovoltaico)** cuenta con un potencial tecnológico y visual extraordinario. Sin embargo, el análisis multidisciplinar llevado a cabo por el equipo de auditoría revela **problemas de cálculo ocultos, saturación de la memoria gráfica, solapamientos en pantalla y duplicidad de funciones** derivados de la convivencia entre el archivo histórico principal y los nuevos módulos independientes.
+La plataforma **RA (Visor 3D Fotovoltaico)** cuenta con un potencial tecnológico y visual extraordinario. Tras una auditoría exhaustiva realizada por un equipo de cuatro auditores especializados (UI/UX y Flujo, Motor 3D y Física, Ingeniería Eléctrica y Finanzas, Estabilidad y Repositorio), se ha completado la radiografía definitiva del sistema.
 
-### Diagnóstico en Cifras:
-- **60 archivos temporales y huérfanos** eliminados de la raíz del proyecto (scripts de búsqueda antiguos y volcados de texto).
-- **11 funciones esenciales duplicadas** que existen en dos sitios a la vez y compiten entre sí.
-- **22 funciones abandonadas (código muerto)** que ya no se usan en ningún lugar.
-- **5 colisiones visuales graves** donde unas ventanas flotantes tapan a otras.
-- **4 errores de cálculo crítico** que alteran la orientación del tejado, permiten configuraciones eléctricas peligrosas o cuelgan la aplicación.
+### Diagnóstico Global Consolidado:
+- **23 archivos temporales y desechables eliminados** del directorio de trabajo (`scratch/`).
+- **5 documentos de auditorías pasadas archivados** en `doc/historico_auditorias/` para dejar la raíz limpia y canónica.
+- **2 errores graves en física solar:** un factor multiplicador incorrecto de 1.000x en la radiación instantánea que colapsaba la producción anual a niveles absurdos, y una inversión de 180° en el ángulo de incidencia que evaluaba tejados orientados al Sur como si estuvieran al Norte.
+- **3 infracciones críticas en el cálculo de cableado REBT:** cálculo de voltaje fijado artificialmente a 12 paneles falseando la caída de tensión, falta de alarma si ninguna sección comercial cumple el 1.5% de caída, e intensidad de corriente no sumada en bajantes con conectores en Y paralelos.
+- **2 fallos críticos en guardado y recuperación de proyectos (.raproject):** pérdida silenciosa del faldón asignado a cada plano y pérdida de la estructura de soporte elegida (teja, chapa, triángulos a 30°, pérgolas).
+- **Entidades 3D "zombi"** al deshacer la creación de planos por llamada a una función no existente en el visor.
+- **Bloqueos de interfaz:** la tecla `Escape` no cancela el dibujo de tejados por error de nomenclatura, y las herramientas activas no se apagan al navegar entre pasos del flujo.
+- **Modales sin acceso visual:** el panel de datos oficiales del titular y CUPS no tiene botón en la interfaz y queda tapado por la brújula y el árbol de materiales.
 
 ---
 
@@ -24,150 +27,205 @@ La plataforma **RA (Visor 3D Fotovoltaico)** cuenta con un potencial tecnológic
 
 ---
 
-### 🔴 NIVEL P0: ERRORES CRÍTICOS (Física Solar, Seguridad Eléctrica y Bloqueos)
+### 🔴 NIVEL P0: ERRORES CRÍTICOS (Física Solar, Seguridad Eléctrica, Pérdida de Datos y Bloqueos)
 
-#### 1. Desviación de 8° en la orientación astronómica del tejado (Acimut)
-- **Qué ocurre:** Al calcular la orientación del tejado con los 3 puntos guía, la fórmula olvida normalizar el vector Este en el espacio tridimensional.
-- **Consecuencia:** En España, la orientación del tejado hacia el Sureste o Suroeste se desvía entre 7,5° y 8,0° respecto a la realidad. Como este dato se traslada a todos los paneles, **los cálculos de cuánta luz reciben las placas y los ahorros económicos del cliente nacen falseados desde el inicio**.
-- **Solución:** Normalizar de forma explícita el vector Este antes de calcular el ángulo con la función matemática correspondiente.
+#### 1. Factor multiplicador 1.000x erróneo en radiación solar instantánea
+- **Qué ocurre:** En el modelo de cálculo físico anual de radiación, el sistema multiplica por 1.000 un valor que ya venía expresado en vatios-hora por metro cuadrado.
+- **Consecuencia:** La radiación instantánea se dispara a casi 1.000.000 W/m² (800 veces el sol real en la Tierra). Esto sobrecarga el modelo del inversor hasta el punto de hundir su eficiencia al 3%, haciendo que una instalación doméstica de 5 kWp en Madrid produzca entre 90 y 600 kWh al año en lugar de los 7.500 a 8.000 kWh reales.
+- **Solución:** Eliminar el factor `* 1000` redundante y normalizar correctamente por la duración solar del día.
 
-#### 2. Riesgo de destrucción de inversores por sobretensión (Violación IEC 62548)
-- **Qué ocurre:** En el cálculo de ingeniería de los paneles, la aplicación busca el voltaje máximo del inversor con un nombre erróneo. Al no encontrarlo, asume siempre por defecto 1000 Voltios.
-- **Consecuencia:** Si el instalador elige un inversor doméstico de 600 Voltios, el sistema le permite conectar hasta 17 placas en serie en lugar de pararlo en 10. En una mañana fría de invierno, las placas generarán más de 900 Voltios y **el inversor se quemará por sobretensión en la vida real**.
-- **Solución:** Corregir el nombre de la propiedad del catálogo de inversores y comprobar siempre el límite real del fabricante.
+#### 2. Inversión Norte/Sur en el ángulo de incidencia astronómica
+- **Qué ocurre:** La fórmula clásica de radiación solar asume que el Sur está a 0° de acimut. Sin embargo, la brújula y los faldones de la aplicación utilizan el estándar náutico donde el Norte es 0° y el Sur es 180°.
+- **Consecuencia:** Al introducir 180° de acimut Sur, la fórmula matemática invierte el signo y evalúa la cubierta como si estuviera inclinada hacia el Norte sombrío, recortando artificialmente un 65% de la energía solar recibida a mediodía.
+- **Solución:** Adaptar el ángulo de acimut a la convención de la fórmula restando 180° antes del cálculo trigonométrico.
 
-#### 3. Inversión del rayo de sombra de obstáculos
-- **Qué ocurre:** En el algoritmo de comprobación de sombras, el rayo de luz que sale de la placa solar se multiplica por `-1`, apuntando en dirección contraria al Sol (hacia el suelo o la noche).
-- **Consecuencia:** Evalúa sombras que estarían detrás del panel en lugar de comprobar qué objetos tapan la luz directa.
-- **Solución:** Trazar el rayo siempre en dirección positiva hacia el vector solar.
+#### 3. Caída de tensión en cables calculada con 12 paneles fijos en lugar de los reales
+- **Qué ocurre:** Al calcular la caída de tensión reglamentaria en los cables de corriente continua, la fórmula divide siempre entre el voltaje de 12 paneles fijos, con independencia de cuántos paneles tenga la serie real.
+- **Consecuencia:** En un circuito pequeño de 5 o 6 paneles, divide entre el doble de voltaje, ocultando caídas de tensión ilegales que superan con creces el límite del 1.5% exigido por el Reglamento Electrotécnico de Baja Tensión (REBT ITC-BT-40).
+- **Solución:** Usar el voltaje real del circuito multiplicando los paneles exactos de esa serie por su tensión de trabajo.
 
-#### 4. Bloqueo y cuelgue por división entre cero con 0 paneles
-- **Qué ocurre:** Si el usuario no ha puesto paneles todavía o borra los faldones, el cálculo de caída de tensión divide entre cero (`0 placas × Voltios = 0`), produciendo valores infinitos (`Infinity`).
-- **Consecuencia:** Los cuadros de texto muestran datos corruptos y los generadores de informes PDF fallan o se congelan.
-- **Solución:** Incluir una guarda que devuelva 0% de caída de tensión y 0 € cuando no haya placas en cubierta.
+#### 4. Disimulo silencioso ante sobrecalentamiento de cable sin sección comercial válida
+- **Qué ocurre:** Si la distancia entre el tejado y el inversor es tan larga que ninguna sección de cable comercial cumple simultáneamente el límite térmico y la caída de tensión inferior al 1.5%, la aplicación no avisa al usuario.
+- **Consecuencia:** El sistema asigna por defecto un cable de 6 mm² simulando que cumple con una caída ficticia del 1.0%, generando memorias técnicas con falsedad reglamentaria que pondrían en peligro la instalación real.
+- **Solución:** Mostrar una advertencia visible en rojo con aviso de "Distancia excesiva: sección insuficiente para cumplir caída ≤1.5%".
 
----
+#### 5. Corriente no sumada en bajantes troncales con conectores en "Y"
+- **Qué ocurre:** Cuando dos series de paneles se unen en cubierta en paralelo mediante conectores "Y", el cable común bajante se dimensiona únicamente con la corriente de una serie.
+- **Consecuencia:** El cable transporta el doble de amperios de los calculados, provocando riesgo de sobrecalentamiento y fusión del aislante.
+- **Solución:** Multiplicar la corriente de diseño por el número de series en paralelo conectadas al mismo conductor.
 
-### 🟠 NIVEL P1: RENDIMIENTO GRÁFICO, CUENTAS FANTASMA Y CONCURRENCIA
+#### 6. Pérdida de faldones y tipos de estructura al guardar proyectos (.raproject)
+- **Qué ocurre:** Al exportar el archivo de proyecto, el sistema omite guardar a qué plano pertenecía cada faldón y qué estructura tenía seleccionada (teja, chapa, triángulos a 30°, pérgola).
+- **Consecuencia:** Al reabrir el proyecto, todos los faldones se amontonan forzosamente en el primer plano y vuelven a la estructura coplanar plana por defecto, perdiendo el trabajo de diseño tridimensional del instalador.
+- **Solución:** Serializar explícitamente el identificador del plano y la estructura en el archivo de guardado y restaurarlos íntegramente al abrirlo.
 
-#### 5. Tirones en el ratón al pasar sobre el mapa de calor de las placas
-- **Qué ocurre:** Cada vez que el cursor se mueve un solo milímetro sobre el tejado, el ordenador recalcula cientos de fórmulas tridimensionales pesadas para cada placa de la instalación.
-- **Consecuencia:** En instalaciones de más de 100 placas, la navegación 3D se traba, el cursor se congela y la tasa de imágenes por segundo cae en picado.
-- **Solución:** Comprobar primero si el cursor está sobre el tejado antes de recorrer los paneles y limitar el cálculo a un solo refresco por fotograma.
+#### 7. Objetos 3D "zombi" al pulsar Deshacer (Ctrl+Z) tras crear un plano
+- **Qué ocurre:** Al pulsar `Ctrl+Z` para deshacer un plano de trabajo, el gestor de deshacer invoca una función inexistente en el visor Cesium.
+- **Consecuencia:** El plano se borra de la lista interna, pero su representación gráfica tridimensional (malla y bordes) permanece flotando en pantalla como un "objeto zombi" imposible de borrar o interactuar.
+- **Solución:** Llamar a la función correcta de refresco de planos y destruir las entidades 3D Cesium del plano revocado.
 
-#### 6. Micro-parones y consumo excesivo de memoria al mover la barra del Sol
-- **Qué ocurre:** Al mover el deslizador de las horas del día para ver cómo avanzan las sombras, el visor borra y vuelve a crear decenas de objetos 3D en cada milisegundo en lugar de mover los existentes.
-- **Consecuencia:** Saturación continua de la memoria del navegador y pequeños tirones visuales cada 40 milisegundos.
-- **Solución:** Reutilizar un grupo fijo de sombras donde únicamente se encienda o apague su visibilidad sin destruir nada.
+#### 8. Bloqueo al pulsar la tecla `Escape` durante el trazado de tejados
+- **Qué ocurre:** Si el usuario pulsa `Escape` para cancelar mientras dibuja una cubierta, el código llama a una función que no existe en el proyecto.
+- **Consecuencia:** Se produce un error silencioso en el navegador, el modo de dibujo no se cancela y el cursor continúa soltando líneas y puntos al hacer clic, transmitiendo la sensación de que el teclado o la app se han congelado.
+- **Solución:** Enlazar la pulsación de `Escape` con la función canónica de cancelación de dibujo.
 
-#### 7. Sombras negras gigantes volando por el aire al amanecer y atardecer
-- **Qué ocurre:** Cuando el Sol está muy bajo en el horizonte (a ras de suelo), la sombra de una chimenea de 2 metros se calcula con una longitud matemática de más de 300 metros sin límite de corte.
-- **Consecuencia:** Aparecen polígonos negros gigantescos que flotan en el aire y atraviesan calles y edificios vecinos.
-- **Solución:** Poner un tope máximo a la longitud de la sombra (límite físico útil según la normativa CTE).
-
-#### 8. Cable general de corriente alterna calculado para un solo inversor
-- **Qué ocurre:** En proyectos grandes con varios inversores (por ejemplo, 3 inversores de 10 kW = 30 kW), el cable que va hacia el contador solo calcula la corriente de 1 solo equipo.
-- **Consecuencia:** Recomienda un cable demasiado fino que provocaría que las protecciones saltaran continuamente o el cable se sobrecalentara.
-- **Solución:** Multiplicar la potencia por el número total de inversores de la instalación.
-
-#### 9. Simulación de sombras que sigue trabajando a ciegas sobre datos viejos
-- **Qué ocurre:** Si el usuario pulsa simular sombras anuales y, mientras la barra avanza, mueve un obstáculo o cambia el tejado, la simulación de fondo no se cancela.
-- **Consecuencia:** Al terminar la barra de carga, la aplicación da por buenos los resultados del tejado anterior, mostrando un mapa de calor desfasado.
-- **Solución:** Cancelar de inmediato cualquier simulación en curso si el usuario toca o modifica cualquier elemento de la escena.
+#### 9. Herramientas activas que contaminan la escena al cambiar de paso
+- **Qué ocurre:** Si el usuario está colocando una chimenea, marcando un plano o trazando un cable y hace clic en la barra superior para ir a otro paso, el modo de herramienta previo no se desactiva.
+- **Consecuencia:** Al llegar al nuevo paso e interactuar con los paneles, de repente se coloca una chimenea no deseada o se añade un punto de plano flotante en mitad del visor.
+- **Solución:** Limpiar y cancelar de forma obligatoria cualquier modo de herramienta o dibujo activo dentro de la función de cambio de paso.
 
 ---
 
-### 🟡 NIVEL P2: ERRORES DE INTERFAZ, CONFUSIÓN Y EXPERIENCIA DE USUARIO (UI/UX)
+### ⚠️ NIVEL P1: RENDIMIENTO GRÁFICO, CONCURRENCIA Y ERGONOMÍA (Alta Prioridad)
 
-#### 10. Dos botones para generar dos memorias técnicas PDF completamente distintas
-- **Qué ocurre:** En el Paso 5 (Entrega) hay dos botones diferentes: uno llamado `EXPORTAR MEMORIA TÉCNICA (PDF)` y otro llamado `MEMORIA TÉCNICA`.
-- **Consecuencia:** Uno de los botones genera un documento antiguo con fórmulas aproximadas que no cuadran con el proyecto, y el otro genera el informe oficial de ingeniería. El usuario no sabe cuál entregar al cliente final y se generan desconfianzas comerciales.
-- **Solución:** Dejar un único botón claro que use siempre el motor oficial de ingeniería.
+#### 10. Fuga continua de memoria gráfica en el redibujado de faldones
+- **Qué ocurre:** Cada vez que se mueve un vértice o se ajusta un tejado, las líneas y rellenos se generan con nombres aleatorios y no se guardan en el grupo de limpieza de Cesium.
+- **Consecuencia:** Las mallas viejas nunca se destruyen, saturando la memoria de la tarjeta gráfica y provocando parpadeos y pérdida progresiva de fluidez.
+- **Solución:** Registrar todas las entidades en el grupo de limpieza del visor y destruirlas antes de cada redibujado.
 
-#### 11. Controles duplicados en la misma pantalla que compiten entre sí (Paso 2)
-- **Qué ocurre:** En el Paso 2 (Campo Solar) existen dos sitios para cambiar la inclinación y la orientación de las placas: la tarjeta principal del tejado y un desplegable inferior llamado "Disposición global".
-- **Consecuencia:** Si el usuario mueve un control, el otro marca un número diferente y los paneles en 3D se comportan de forma caótica.
-- **Solución:** Ocultar el bloque redundante y dejar únicamente la tarjeta de edición por faldón.
+#### 11. Tirones en la cinta métrica 3D por recreación de entidades y proyección masiva
+- **Qué ocurre:** Cada píxel que se mueve el cursor con la cinta métrica activa (`M`), se destruyen y recrean cuatro entidades Cesium y se proyectan miles de esquinas de paneles a coordenadas de pantalla sin ningún filtro espacial.
+- **Consecuencia:** Tirones visuales, micro-congelaciones y caídas a menos de 20 FPS en cubiertas con más de 100 paneles.
+- **Solución:** Reutilizar entidades fijas actualizando solo su posición tridimensional e implementar un filtro espacial que solo evalúe puntos cercanos al cursor.
 
-#### 12. Solapamiento de ventanas y botones en pantalla
-- **Conflictos detectados:**
-  1. La barra para confirmar el tejado aparece exactamente en el mismo sitio que la barra de las horas del Sol, tapándola por completo.
-  2. En pantallas de ordenadores portátiles, la barra de atajos de teclado choca físicamente contra el reproductor solar.
-  3. La ventana del listado de materiales (BOM) se abre encima de la brújula y tapa el botón que la abrió.
-  4. Los mensajes de aviso (toasts) nacen tapando la regla de medir y los ajustes.
-- **Solución:** Reubicar las ventanas flotantes con márgenes inteligentes y asegurar que nunca coincidan en la misma coordenada de pantalla.
+#### 12. Doble descuento de pérdidas térmicas y angulares en el mapa de calor
+- **Qué ocurre:** En la simulación anual de 192 instantes, las pérdidas por temperatura y por ángulo de incidencia de la luz ya se descuentan en el cálculo horario. Luego, al totalizar la energía anual, se vuelve a multiplicar por un factor de rendimiento que descuenta esas mismas pérdidas una segunda vez.
+- **Consecuencia:** El mapa de calor y la energía anual por panel salen castigados con un 10% menos de producción de la real.
+- **Solución:** Eliminar el doble descuento en el balance final anual.
 
-#### 13. Detección falsa de batería en presupuestos sin almacenamiento
-- **Qué ocurre:** Cuando el cliente selecciona "Sin batería", el sistema detecta que existe el registro y marca que sí tiene almacenamiento.
-- **Consecuencia:** Las ofertas y los textos automáticos de inteligencia artificial incluyen frases como *"Sistema de batería: Ninguna (0 kWh) instalada con éxito"*, lo que transmite poca seriedad al cliente final.
-- **Solución:** Exigir que la capacidad sea mayor que cero antes de activar el almacenamiento en los informes.
+#### 13. Falta de sincronización al cambiar de inversor en ingeniería
+- **Qué ocurre:** Si en el Paso 4 el usuario selecciona un inversor más potente o con más canales independientes (MPPT), la aplicación no redistribuye automáticamente las series de paneles para aprovechar las nuevas entradas.
+- **Consecuencia:** El instalador ve canales vacíos y sobrecarga en otros sin que el sistema equilibre la instalación.
+- **Solución:** Disparar el rebalanceo automático de series y canales MPPT cada vez que cambie el equipo inversor seleccionado.
 
-#### 14. Jerga matemática y técnica incomprensible para un comercial o instalador
-- **Qué ocurre:** En varios pasos aparecen términos como *"Tríada ortonormal CAD (ejes U, V, N)"*, *"P1-P2=X"*, *"Diagnóstico MLPE"*, *"Modelo Spencer/Perez"* o *"Shadow Bias Z-Fighting"*.
-- **Consecuencia:** El instalador siente que la herramienta es compleja de usar y tiene miedo a cometer errores.
-- **Solución:** Traducir todos los textos a lenguaje cotidiano de obra: *"Alinear con alero"*, *"Orientar al Sur"*, *"¿Necesita optimizadores para sombra?"*, *"Calidad gráfica (Rápida / Alta)"*.
+#### 14. Error matemático (NaN) por división entre cero en financiación a 0 meses
+- **Qué ocurre:** Si en el estudio económico se introduce un plazo de amortización de 0 meses (pago al contado), la fórmula de cuota mensual divide entre cero.
+- **Consecuencia:** Todos los totales económicos muestran "NaN €" (error de cálculo) y los balances mensuales se corrompen.
+- **Solución:** Comprobar si el plazo es cero o nulo y fijar la cuota mensual a 0 € sin calcular intereses.
+
+#### 15. "Callejón sin salida" visual al dibujar edificios 3D
+- **Qué ocurre:** Al pulsar "+ Dibujar Huella" para crear un edificio, el panel lateral oculta el botón de cancelar y la barra inferior muestra un botón confuso de "Confirmar diseño" pensado para paneles solares.
+- **Consecuencia:** Si el usuario no conoce el atajo de teclado, no encuentra forma visual de salir del modo de dibujo de edificios.
+- **Solución:** Añadir un botón explícito de "Cancelar huella" y sincronizar la barra inferior para edificios.
+
+#### 16. Generación de informes PDF mientras la simulación solar está en marcha
+- **Qué ocurre:** La simulación de sombras anual se calcula en segundo plano a lo largo de 192 instantes. Si el usuario pulsa generar Memoria u Oferta mientras la barra avanza, el documento se imprime con paneles a cero y gráficos vacíos.
+- **Consecuencia:** El instalador entrega al cliente una propuesta con métricas financieras y balances energéticos truncados.
+- **Solución:** Desactivar temporalmente los botones de generación de informes y mostrar un indicador de "Calculando..." hasta que la simulación finalice por completo.
+
+#### 17. Ventana de Datos Oficiales y Titular (`#ra-doc-modal`) inaccesible
+- **Qué ocurre:** El formulario donde se registran los datos oficiales del cliente (titular, CUPS, distribuidora, potencia contratada) no tiene ningún botón en la pantalla; solo se puede abrir pulsando la letra `D` en el teclado. Además, al abrirse, la brújula y el árbol de materiales flotan por encima tapando los campos.
+- **Consecuencia:** Un usuario que no conozca el atajo jamás podrá rellenar la memoria técnica oficial, y si lo pulsa, el formulario queda parcialmente tapado.
+- **Solución:** Añadir un botón visible en el Paso 5 ("Datos Oficiales de Legalización") y corregir las capas visuales para que el modal quede por encima de los elementos flotantes.
 
 ---
 
-### 🟢 NIVEL P3: CÓDIGO DUPLICADO, CÓDIGO MUERTO Y MANTENIMIENTO
+### 💡 NIVEL P2: ERGONOMÍA, DISCREPANCIAS NORMATIVAS Y FLUIDEZ DE INTERFAZ
 
-#### 15. Once funciones esenciales duplicadas entre archivos
-- Las funciones que reparten los paneles en circuitos (strings), ordenan el recorrido en zigzag o calculan las curvas de los cables están escritas en dos sitios a la vez, sobreescribiéndose de manera impredecible.
-- **Solución:** Borrar las copias antiguas del archivo principal y dejar únicamente los módulos independientes como única fuente de verdad.
+#### 18. Separación entre filas de paneles insuficiente en invierno
+- **Qué ocurre:** El cálculo de distancia entre filas para evitar sombras solo evalúa el mediodía exacto en invierno, en vez de asegurar las 4 horas libres de sombra (de 10:00 a 14:00) que exige el Código Técnico de la Edificación y el IDAE.
+- **Consecuencia:** Los paneles sufrirán sombras directas entre filas durante dos horas al día en los meses invernales.
+- **Solución:** Evaluar el ángulo solar a las 10:00/14:00 del solsticio de invierno para calcular la separación anti-autosombreado.
 
-#### 16. Veintidós funciones abandonadas (código muerto)
-- Existen funciones antiguas de rotación automática, atajos a pantalla completa que nadie llama y botones viejos de insertar puntos que han quedado como peso muerto.
-- **Solución:** Eliminar estas funciones para reducir el tamaño del proyecto y acelerar el tiempo de carga.
+#### 19. Facturas eléctricas con consumos mínimos forzados
+- **Qué ocurre:** La herramienta inyecta consumos mínimos artificiales al analizar facturas, impidiendo simular segundas residencias desocupadas o instalaciones de vertido íntegro a red.
+- **Solución:** Permitir consumos de 0 kWh reales sin inyección artificial.
+
+#### 20. Las ventanas emergentes no se pueden cerrar con la tecla `Escape` ni clic fuera
+- **Qué ocurre:** Ningún modal de la aplicación responde al cierre por `Escape` ni al clic en el fondo oscuro exterior.
+- **Solución:** Habilitar el cierre estándar con `Escape` y con clic en el fondo oscuro para todos los modales.
+
+#### 21. El botón de Casación Inteligente MPPT parece no responder
+- **Qué ocurre:** El botón situado en la sección inferior de topología inyecta sus resultados en un contenedor situado muy arriba en el panel, fuera de la vista de pantalla.
+- **Consecuencia:** Al hacer clic, el usuario no ve ningún cambio bajo su cursor y asume que el botón está averiado.
+- **Solución:** Desplazar suavemente la vista hacia el resultado o inyectarlo directamente debajo del botón presionado.
+
+#### 22. Botón decorativo inútil en el Paso 5 ("VER AUDITORIA MATEMATICA PFV")
+- **Qué ocurre:** El botón llama a una función que no existe en ningún archivo del proyecto.
+- **Solución:** Retirar el botón muerto de la interfaz para no generar confusión.
 
 ---
 
-## 3. 🛠️ PLAN DE ACCIÓN POR FASES DE IMPLEMENTACIÓN
+### 🟢 NIVEL P3: CÓDIGO DUPLICADO, CÓDIGO MUERTO Y PULIDO VISUAL
+
+#### 23. Acordeón duplicado e invisible en el Paso 2
+- Existe un bloque de más de 100 líneas con controles de inclinación y orientación forzado a ocultarse por CSS (`display:none !important;`) que ya no se utiliza.
+- **Solución:** Eliminarlo del árbol de elementos para aligerar la página.
+
+#### 24. Cinta métrica sin indicación de sentido en desnivel vertical
+- El desnivel vertical siempre se muestra como valor absoluto positivo, sin reflejar si el punto medido está por encima o por debajo del punto de inicio.
+- **Solución:** Mostrar si la cota sube o baja con signos y colores intuitivos.
+
+---
+
+## 3. 🛠️ HOJA DE RUTA DE IMPLEMENTACIÓN POR FASES
 
 ```mermaid
 flowchart TD
-    subgraph Fase 1: Corrección de Física y Seguridad (P0) [COMPLETADA]
-        A1["Normalizar vector Este en acimut (8° corregidos)"]
-        A2["Corregir voltaje del inversor (vDcMax)"]
-        A3["Blindar división por cero con 0 paneles"]
-        A4["Invertir rayo de sombra hacia el Sol"]
+    subgraph Fases Previas [COMPLETADAS]
+        F1["Fase 1: Corrección de Acimut y Voltajes (Commit 0714a96)"]
+        F2["Fase 2: Rendimiento Gráfico y Multi-Inversor (Commit 0c06465)"]
+        F3["Fase 3: Ergonomía Visual y HUDs Despejados (Commit ff1c204)"]
+        F4["Fase 4: Lenguaje de Obra y Pantallas Portátiles (Commit 5ca3db6)"]
     end
-    subgraph Fase 2: Rendimiento Gráfico y Multi-Inversor (P1) [COMPLETADA]
-        B1["Optimizar cursor sobre mapa de calor (broadphase)"]
-        B2["Reutilización de entidades de sombras sin recreación"]
-        B3["Cálculo de cable AC acumulado para multi-inversores"]
-        B4["Cancelación atómica de simulación al mutar escena"]
+
+    subgraph Fase 5: Física Solar, Seguridad Eléctrica y Guardado [COMPLETADA]
+        P1["Corregir factor 1000x y acimut en física solar (P0)"]
+        P2["Blindar cálculo de cableado REBT: voltaje real y bypass (P0)"]
+        P3["Sumar corriente en bajantes con conectores Y (P0)"]
+        P4["Persistir faldones, planos y estructuras en .raproject (P0)"]
+        P5["Erradicar entidades zombi en Deshacer (Ctrl+Z) de planos (P0)"]
     end
-    subgraph Fase 3: Ergonomía Visual y Unificación (P2 / P3) [COMPLETADA]
-        C1["Unificar en un solo botón de Memoria Técnica"]
-        C2["Eliminar controles duplicados en Paso 2"]
-        C3["Resolver colisiones de ventanas flotantes"]
-        C4["Extirpar código muerto y funciones duplicadas"]
+
+    subgraph Fase 6: Estabilidad 3D Cesium y Fugas de Memoria [COMPLETADA]
+        Q1["Eliminar fuga de entidades Cesium en redibujado de faldones (P1)"]
+        Q2["Optimizar cinta métrica 3D: batching y filtro espacial (P1)"]
+        Q3["Corregir doble descuento térmico e IAM en mapa de calor (P1)"]
+        Q4["Separación entre filas según ventana CTE 4h en solsticio (P2)"]
     end
-    subgraph Fase 4: Lenguaje Claro y Pantallas de Obra (P2) [COMPLETADA]
-        D1["Humanización de etiquetas técnicas a lenguaje de instalador"]
-        D2["Sustitución de MLPE por Optimizadores / Microinversores"]
-        D3["Cambio de Tríada CAD por Tamaño de Ejes 3D"]
-        D4["Adaptación para portátiles (<1400px) sin colisión en HUD"]
+
+    subgraph Fase 7: Ergonomía de Flujo, Modales y Desbloqueos [COMPLETADA]
+        R1["Botón cancelar en huella de edificios y Escape en tejados (P0/P1)"]
+        R2["Apagado de herramientas activas al cambiar de paso (P0)"]
+        R3["Botón visible para datos de legalización y capas z-index (P1)"]
+        R4["Cierre universal de modales con Escape y clic exterior (P2)"]
+        R5["Retirar botón muerto de auditoría matemática (P2)"]
     end
-    Fase 1 --> Fase 2 --> Fase 3 --> Fase 4
+
+    Fases Previas --> Fase 5 --> Fase 6 --> Fase 7
 ```
 
 ### ✅ Registro de Ejecución Integral:
-- **Fase 1 (P0 - Críticos):** Ejecutada y validada (Commit `0714a96`). Acimut corregido a 0.00° de desviación; límites de voltaje del inversor según catálogo; blindaje contra cero paneles; rayo solar positivo hacia el Sol.
-- **Fase 2 (P1 - Rendimiento y Multi-Inversor):** Ejecutada y validada (Commit `0c06465`). Descarte rápido de cursor sobre mapa de calor a 60 FPS; pool de sombras reutilizables sin saturar memoria; sección de cable AC multi-inversor; cancelación de simulaciones viejas.
-- **Fase 3 (P2/P3 - Ergonomía Visual y Limpieza):** Ejecutada y validada (Commit `ff1c204`). Botones de Memoria Técnica unificados apuntando al generador oficial; controles compitiendo en Paso 2 ocultos de la vista; ventanas flotantes (#ra-confirm-bar y árbol de materiales) reubicadas sin tapar la brújula ni la barra de sol; preservación de curvas suaves en cables inter-paneles.
-- **Fase 4 (P2 - Lenguaje de Instalador y Portátiles de Obra):** Ejecutada y validada. Jerga matemática y técnica agresiva ("Tríada CAD", "Diagnóstico MLPE", "Shadow Bias") traducida a expresiones cotidianas de instalador ("Tamaño de Ejes 3D", "Ver Optimizadores", "Despegue de Sombras Anti-Parpadeo"); adaptación de pantalla en portátiles (<1400px) para evitar colisión física entre la barra de atajos y la línea de tiempo solar.
-
+- **Fase 1 (P0 - Críticos) [Commit `0714a96`]:** Acimut corregido a 0.00° de desviación; límites de voltaje del inversor según catálogo; blindaje contra cero paneles; rayo solar positivo hacia el Sol.
+- **Fase 2 (P1 - Rendimiento y Multi-Inversor) [Commit `0c06465`]:** Descarte rápido de cursor sobre mapa de calor a 60 FPS; pool de sombras reutilizables sin saturar memoria; sección de cable AC multi-inversor; cancelación de simulaciones viejas.
+- **Fase 3 (P2/P3 - Ergonomía Visual y Limpieza) [Commit `ff1c204`]:** Botones de Memoria Técnica unificados apuntando al generador oficial; controles compitiendo en Paso 2 ocultos de la vista; ventanas flotantes (#ra-confirm-bar y árbol de materiales) reubicadas sin tapar la brújula ni la barra de sol; preservación de curvas suaves en cables inter-paneles.
+- **Fase 4 (P2 - Lenguaje de Instalador y Portátiles de Obra) [Commit `5ca3db6`]:** Humanización de textos en UI ("Tríada CAD" → "Tamaño de Ejes 3D", "Diagnóstico MLPE" → "Ver Optimizadores / Mitigación", "Shadow Bias" → "Despegue de Sombras Anti-Parpadeo"); ajuste responsivo `@media (max-width: 1400px)` en `#ra-shortcuts-hud` para erradicar solapamiento con el control solar en pantallas de portátiles.
+- **Fase 5 (P0 - Física Solar, Seguridad Eléctrica y Guardado) [Ejecutada y Verificada]:**
+  - **Física Solar:** Factor `* 1000` erróneo eliminado en radiación instantánea diurna; convención de acimut en `calcPOA` corregida restando 180° para alinear la convención náutica de la brújula con Duffie & Beckman (un tejado Sur ahora produce 8.441 kWh/año frente a 595 kWh/año anteriores con PR 84.8%).
+  - **Seguridad en Cables REBT:** Caída de tensión calculada con el número exacto de paneles por serie; corriente duplicada en bajantes con conectores en Y (aumentando la sección recomendada de 6 a 10 mm² para garantizar $\le 1.5\%$); telemetría de alarma en rojo si ninguna sección comercial cumple.
+  - **Guardado y Apertura de Proyectos:** Serialización y recuperación de `planeIdx` y `structureType` en `.raproject`; `raNewProjectConfirm` limpia en el sitio sin romper referencias compartidas y cancela el autoguardado previo.
+  - **Erradicación de Objetos Zombi:** Función real de repintado de planos conectada al pulsar `Ctrl+Z`; actualización del árbol jerárquico y del Gizmo Universal al deshacer obstáculos y edificios.
+  - **Blindaje Financiero:** Cuota mensual protegida contra división por cero en plazos de 0 meses (pago al contado) erradicando valores `NaN`.
+- **Fase 6 (P1/P2 - Estabilidad 3D Cesium, Memoria y Física de Separación CTE) [Ejecutada y Verificada]:**
+  - **Cero Fugas en Redibujado de Faldones:** Registro estricto de las entidades de contorno y relleno (`line` y `fill`) en la colección de entidades del plano de trabajo, eliminando la fuga de memoria y acumulación de geometrías fantasma en WebGL.
+  - **Cinta Métrica 3D a 60 FPS:** Erradicada la destrucción y recreación constante de entidades gráficas al mover el ratón; reutilización de pines, anillo magnético y etiqueta con visibilidad condicional (`show`); limitación de tasa de refresco a pantalla mediante `requestAnimationFrame`; filtrado visual descartando puntos situados a espaldas de la cámara; e indicación clara de sentido de desnivel con flechas visuales (`↑ (sube)` / `↓ (baja)`).
+  - **Erradicación del Doble Descuento en Mapa de Calor:** Desacoplamiento del factor de rendimiento de balance de planta (`prBOS`) en el cálculo del Performance Ratio del sistema para evitar penalizar dos veces las pérdidas térmicas y angulares que el motor por instantes ya computa paso a paso.
+  - **Separación de Filas según CTE DB-HE5:** Algoritmo de paso inter-filas actualizado para garantizar la ventana de 4 horas libres de sombra en el solsticio de invierno (10:00 a 14:00 hora solar, elevación $\sim 20.3^\circ$ en Madrid), evitando autosombrados invernales entre hileras de paneles.
+- **Fase 7 (P0/P1/P2 - Ergonomía de Flujo, Modales Accesibles y Desbloqueos) [Ejecutada y Verificada]:**
+  - **Cancelación Universal con Escape y Botón Visible:** Implementada y exportada `wpCancelDrawPoly` / `wpCancelCurrentMode` para abortar limpiamente el trazado de tejados sin errores de script; añadido botón visible `#btn-cancel-building-panel` en el panel de edificios 3D para cancelar la huella perimetral en 1 clic.
+  - **Apagado Limpio al Cambiar de Paso:** `wpGoToStep` desactiva de forma atómica la cinta métrica 3D, el dibujo de polilíneas, la extrusión de edificios y la colocación de obstáculos, garantizando que el visor 3D nunca quede en un estado de cursor bloqueado al navegar por el stepper.
+  - **Gestor Universal de Modales:** Implementado listener global de teclado (`Escape`) y clics en el fondo exterior (backdrop) que cierra cualquier modal abierto en la aplicación sin interferir con las herramientas de dibujo 3D.
+  - **Accesibilidad del Generador Oficial de Legalización:** Elevado el z-index de `#ra-doc-modal` a `999999` para que nunca quede tapado por botones flotantes; sustituido el botón inoperativo ("VER AUDITORIA MATEMATICA PFV") por el acceso directo a los datos de legalización, titular, CUPS y proyectista colegiado (`#btn-open-doc-modal`), con enlace directo en el encabezado de expediente oficial.
 
 ---
 
-## 4. 💡 PROPUESTAS DE MEJORA ESTRATÉGICA PARA LA APLICACIÓN
+## 4. 💡 PROPUESTAS DE MEJORA ESTRATÉGICA PARA EL PRODUCTO
 
-1. **Modo Asistente "1 Clic" (Dimensionamiento Inteligente):**
-   - Que tras subir la factura eléctrica, el sistema recomiende automáticamente el número ideal de placas, la marca del inversor y si conviene o no poner batería, colocándolo todo en cubierta con un solo botón.
-2. **Comparador Instantáneo de Rentabilidad:**
-   - Un botón que permita al instalador alternar en vivo entre *"Máxima potencia en tejado"* frente a *"Ajustado a la factura"*, viendo en pantalla cómo varía el coste, la cuota mensual y el dinero ahorrado al año.
-3. **Plantilla de Diseño Responsivo para Portátiles de Obra:**
-   - Crear una disposición automática donde, si la pantalla mide menos de 1400 píxeles de ancho (portátil estándar), las barras de sol y atajos se agrupen de forma compacta para no tapar el tejado 3D.
-4. **Exportación Comercial Rápida para WhatsApp:**
-   - Además del PDF completo de 10 páginas, incluir un botón que genere una ficha resumen de 1 sola página en imagen o PDF ligero, lista para enviar al cliente por teléfono móvil.
+1. **Asistente de Dimensionamiento en 1 Clic ("Autopilot Solar"):**
+   - Diseñar un flujo automatizado donde, con solo seleccionar el tejado y cargar la factura mensual, el sistema elija la orientación óptima, coloque el número idóneo de paneles, seleccione el inversor más adecuado del catálogo y deje la propuesta lista para entregar al cliente.
+2. **Integración con Datos Climáticos Satelitales Oficiales (PVGIS / ERA5):**
+   - Conectar la aplicación mediante consulta satelital a las bases de datos de radiación europea (PVGIS) para que el mapa de calor y la producción anual utilicen datos meteorológicos horarios reales de las coordenadas exactas de la vivienda, elevando la precisión al nivel de herramientas bancarias internacionales.
+3. **Comparador Comercial de Alternativas para el Cliente:**
+   - Permitir guardar en un mismo proyecto dos opciones comerciales (por ejemplo: "Opción Básica sin Batería" frente a "Opción Autonomía Total con Batería"), generando un informe comparativo que demuestre al cliente la rentabilidad y el periodo de amortización de cada una.
+4. **Exportación Universal a Planos Técnicos (CAD / BIM):**
+   - Añadir la descarga de la escena en formatos estándar de ingeniería (DXF tridimensional y esquemas unifilares en PDF vectorial) para facilitar la legalización directa en colegios oficiales de ingenieros.

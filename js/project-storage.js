@@ -86,6 +86,8 @@ function raExportProjectData() {
     ? WP.polylines.map(poly => ({
         points: Array.isArray(poly.points) ? poly.points.map(pt => ({ x: pt.x, y: pt.y, z: pt.z })) : [],
         color: poly.color,
+        planeIdx: (typeof poly.planeIdx === 'number') ? poly.planeIdx : 0,
+        structureType: poly.structureType || 'coplanar_teja',
         orientationPref: poly.orientationPref || 'portrait',
         modTilt: poly.modTilt || 'auto',
         modAzimuth: poly.modAzimuth || 'auto',
@@ -384,6 +386,7 @@ function raImportProjectData(projectData) {
           id: poly.id || ('wp_poly_' + Date.now() + '_' + pIdx),
           name: poly.name || ('Faldon #' + (pIdx + 1)),
           planeIdx: (typeof poly.planeIdx === 'number') ? poly.planeIdx : (WP.activePlaneIdx || 0),
+          structureType: poly.structureType || 'coplanar_teja',
           points: pts,
           area: polyArea,
           color: poly.color || '#38bdf8',
@@ -729,17 +732,31 @@ window.raCloseProjectsModal = raCloseProjectsModal;
 
 function raNewProjectConfirm() {
   if (confirm('¿Deseas iniciar un nuevo proyecto? Se limpiará la geometría y paneles actuales.')) {
+    // 1. Cancelar autosave pendiente para evitar que sobreescriba el nuevo proyecto
+    if (typeof _wpAutoSaveTimer !== 'undefined' && _wpAutoSaveTimer) {
+      clearTimeout(_wpAutoSaveTimer);
+      _wpAutoSaveTimer = null;
+    }
     if (typeof clearSimulatedPV === 'function') clearSimulatedPV();
     if (typeof WP !== 'undefined') {
       WP.planes = [];
       WP.polylines = [];
       WP.activePlaneIdx = -1;
       WP.selectedPolyIdx = -1;
-      if (typeof wpRenderPolylines === 'function') wpRenderPolylines();
+      if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
+      if (typeof wpRenderActivePlaneGizmo === 'function') wpRenderActivePlaneGizmo();
     }
-    if (typeof obstacles !== 'undefined') {
-      obstacles = [];
+    // Mutación in-place para no romper la referencia compartida de obstacles
+    var _arrObs = (typeof window !== 'undefined' && Array.isArray(window.obstacles)) ? window.obstacles : (typeof obstacles !== 'undefined' ? obstacles : null);
+    if (Array.isArray(_arrObs)) {
+      _arrObs.length = 0;
       if (typeof render3DObstaclesInCesium === 'function') render3DObstaclesInCesium();
+    }
+    // Mutación in-place para edificios
+    var _arrBld = (typeof window !== 'undefined' && Array.isArray(window.buildings)) ? window.buildings : (typeof buildings !== 'undefined' ? buildings : null);
+    if (Array.isArray(_arrBld)) {
+      _arrBld.length = 0;
+      if (typeof render3DBuildingsInCesium === 'function') render3DBuildingsInCesium();
     }
     try { localStorage.removeItem('ra_solar_project_autosave'); } catch(e) {}
     _raCurrentFileHandle = null;

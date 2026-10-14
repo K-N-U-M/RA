@@ -498,7 +498,21 @@
   // (first-fit); si no, se reparten string a string al canal con más hueco. El aviso de
   // sobrecarga (index.html, validación 7b) sigue activo cuando el total excede la capacidad.
   function rebalanceMPPTAssignment(panels) {
-    if (!Array.isArray(panels) || panels.length === 0) return { changed: 0, reason: 'sin_paneles' };
+    let targetPanels = Array.isArray(panels) && panels.length > 0 ? panels : null;
+    if (!targetPanels && typeof window !== 'undefined') {
+      if (Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0) {
+        targetPanels = window.allRenderedPanels;
+      } else if (window.WP && Array.isArray(window.WP.polylines)) {
+        const collected = [];
+        window.WP.polylines.forEach(pl => {
+          const arr = (pl && pl.roofInfo && Array.isArray(pl.roofInfo.panels)) ? pl.roofInfo.panels : (pl && Array.isArray(pl.panels) ? pl.panels : null);
+          if (arr) arr.forEach(p => collected.push(p));
+        });
+        if (collected.length > 0) targetPanels = collected;
+      }
+    }
+    if (!Array.isArray(targetPanels) || targetPanels.length === 0) return { changed: 0, reason: 'sin_paneles' };
+    panels = targetPanels;
     const invCfg = (typeof window !== 'undefined' && window.solarProjectConfig &&
                     window.solarProjectConfig.calculatedLimits &&
                     window.solarProjectConfig.calculatedLimits.inverter) || null;

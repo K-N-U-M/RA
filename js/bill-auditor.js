@@ -201,8 +201,8 @@
           tarifaAcceso: obj.tarifaAcceso || '2.0TD',
           diasFactura: obj.diasFactura || 30,
           potenciasContratadasKW: obj.potenciasContratadasKW || { p1: 4.6, p2: 4.6, p3: 0 },
-          costePotenciaEUR: obj.costePotenciaEUR || 20,
-          consumosKWh: obj.consumosKWh || { total: obj.consumoTotal || 350, p1: 120, p2: 110, p3: 120 },
+          costePotenciaEUR: (typeof obj.costePotenciaEUR === 'number') ? obj.costePotenciaEUR : 20,
+          consumosKWh: obj.consumosKWh || { total: (typeof obj.consumoTotal === 'number') ? obj.consumoTotal : 350, p1: 120, p2: 110, p3: 120 },
           preciosEnergiaEURKWh: obj.preciosEnergiaEURKWh || { p1: 0.22, p2: 0.17, p3: 0.11 },
           costeEnergiaEUR: obj.costeEnergiaEUR || 60,
           impuestoElectricoEUR: obj.impuestoElectricoEUR || 4,
@@ -408,7 +408,7 @@ Normas estrictas:
           p1: parseFloat(p1Kwh) || parseFloat((totalKwh * 0.35).toFixed(2)),
           p2: parseFloat(p2Kwh) || parseFloat((totalKwh * 0.30).toFixed(2)),
           p3: parseFloat(p3Kwh) || parseFloat((totalKwh * 0.35).toFixed(2)),
-          total: parseFloat(totalKwh) || 350
+          total: Number.isFinite(parseFloat(totalKwh)) ? parseFloat(totalKwh) : 350
         },
         preciosEnergiaEURKWh: {
           p1: parseFloat((d.preciosEnergiaEURKWh && d.preciosEnergiaEURKWh.p1) || 0.20),

@@ -459,6 +459,9 @@ window.RA_App = window.RA_App || {};
                 <button type="button" class="btn-action-primary" id="btn-finish-building-panel" onclick="finishActiveBuilding()" style="flex:1;padding:8px 4px;font-size:9px;background:linear-gradient(135deg, #10b981, #059669);border-color:#34d399;" aria-label="Cerrar y Extruir">
                   <span><i data-lucide="check" class="icon-sm"></i> EXTRUIR 3D</span>
                 </button>
+                <button type="button" class="btn-action-primary" id="btn-cancel-building-panel" onclick="cancelActiveBuilding()" style="display:none;padding:8px 6px;font-size:9px;background:rgba(239,68,68,0.2);border-color:#ef4444;color:#fca5a5;" aria-label="Cancelar Huella" title="Cancelar dibujo de edificio (Esc)">
+                  <span><i data-lucide="x" class="icon-sm"></i> CANCELAR</span>
+                </button>
               </div>
 
               <!-- Selector Desplegable de Edificios Creados -->
@@ -1726,14 +1729,15 @@ window.RA_App = window.RA_App || {};
                 <button type="button" class="btn-action-primary" onclick="if(window.openBillAuditorModal) openBillAuditorModal();" style="width:100%;padding:8px;font-size:10.5px;background:linear-gradient(135deg, rgba(245,158,11,0.25), rgba(217,119,6,0.35));border:1px solid #F59E0B;color:#FBBF24;font-weight:800;">
                   <span><i data-lucide="receipt" class="icon-sm"></i> AUDITAR FACTURA &amp; COMPARATIVA DE AHORRO</span>
                 </button>
-                <button type="button" id="btn-open-pfv-audit" class="btn-action-secondary" onclick="if(typeof window.wpOpenPFVAuditModal === 'function') window.wpOpenPFVAuditModal()" style="display:flex;background:rgba(16, 185, 129, 0.15);border:1px solid rgba(16, 185, 129, 0.4);color:#34D399;font-size:9px;font-weight:bold;padding:6px;width:100%;margin-top:4px;align-items:center;justify-content:center;gap:4px;">
-                  <i data-lucide="table" class="icon-sm"></i> VER AUDITORIA MATEMATICA PFV
+                <button type="button" id="btn-open-doc-modal" class="btn-action-secondary" onclick="if(typeof window.openDocModal === 'function') window.openDocModal();" style="display:flex;background:rgba(56, 189, 248, 0.15);border:1px solid rgba(56, 189, 248, 0.4);color:#38BDF8;font-size:9.5px;font-weight:800;padding:7px;width:100%;margin-top:4px;align-items:center;justify-content:center;gap:5px;border-radius:6px;cursor:pointer;">
+                  <i data-lucide="user-check" class="icon-sm"></i> DATOS DE LEGALIZACIÓN &amp; PROYECTISTA (CUPS, TITULAR...)
                 </button>
               </div>
               <!-- Expediente Técnico Oficial Directo (REBT / RD 244) -->
               <div style="background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:6px;margin-bottom:8px;">
-                <div style="font-size:9.5px;font-weight:bold;color:var(--sky-400);text-transform:uppercase;margin-bottom:5px;display:flex;align-items:center;gap:4px;">
-                  <i data-lucide="folder-check" class="icon-sm"></i> Expediente Técnico de Legalización (Colegio Oficial / Industria)
+                <div style="font-size:9.5px;font-weight:bold;color:var(--sky-400);text-transform:uppercase;margin-bottom:5px;display:flex;align-items:center;justify-content:space-between;">
+                  <span style="display:flex;align-items:center;gap:4px;"><i data-lucide="folder-check" class="icon-sm"></i> Expediente Técnico de Legalización (Colegio Oficial / Industria)</span>
+                  <button type="button" onclick="if(typeof window.openDocModal === 'function') window.openDocModal();" style="background:none;border:none;color:var(--sky-400);font-size:9px;cursor:pointer;text-decoration:underline;padding:0;">Editar datos</button>
                 </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
                   <button type="button" class="doc-mini-btn" onclick="generateMemoria()" style="padding:6px 4px;font-size:9px;font-weight:700;display:flex;align-items:center;gap:4px;justify-content:center;">
@@ -4372,6 +4376,9 @@ function startDrawingBuilding() {
     setElemText('confirm-bar-text', '<i data-lucide=\"building\" class=\"icon-sm\"></i> DIBUJANDO EDIFICIO 3D: Haz clics en el terreno para marcar las esquinas. [Doble Clic o ENTER] para extruir.');
   }
 
+  const cancelBldBtn = document.getElementById('btn-cancel-building-panel');
+  if (cancelBldBtn) cancelBldBtn.style.display = 'inline-flex';
+
   if (typeof wpUpdateCanvasHUD === 'function') wpUpdateCanvasHUD();
   showStatus('<i data-lucide=\"building\" class=\"icon-sm\"></i> MODO EDIFICIO 3D ACTIVO: Haz clic en el terreno para marcar esquinas', 3000);
 }
@@ -4593,6 +4600,8 @@ function finishActiveBuilding() {
   if (typeof ProjectHierarchy !== 'undefined' && ProjectHierarchy && typeof ProjectHierarchy.notify === 'function') {
     ProjectHierarchy.notify('building_added', { building: newBld });
   }
+  const cancelBtnFinish = document.getElementById('btn-cancel-building-panel');
+  if (cancelBtnFinish) cancelBtnFinish.style.display = 'none';
   showToast('EDIFICIO 3D CREADO', 'Se ha generado el volumen sólido de ' + bldName + ' (' + newBld.height + 'm de altura). Recuerda definir un Plano de Trabajo para dibujar polilíneas o colocar módulos.', 'success', 4000);
 }
 
@@ -4628,6 +4637,8 @@ function cancelActiveBuilding() {
     confBar.style.display = 'none';
     confBar.classList.remove('open');
   }
+  const cancelBldBtn = document.getElementById('btn-cancel-building-panel');
+  if (cancelBldBtn) cancelBldBtn.style.display = 'none';
   if (typeof wpUpdateCanvasHUD === 'function') wpUpdateCanvasHUD();
   showStatus('Creación de edificio cancelada', 1500);
 }

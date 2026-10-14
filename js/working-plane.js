@@ -2645,6 +2645,7 @@ function wpRenderAllPolylines() {
       1.0,
       'wp_poly_line_' + i + '_' + Math.random().toString(36).substring(2, 6)
     );
+    if (line) WP.ents.polys.push(line);
     
     // 2. Superficie sólida semitransparente generada sobre la cubierta (CCW garantizado)
     const fill = addPolygonEntity(
@@ -2654,6 +2655,7 @@ function wpRenderAllPolylines() {
       0,
       'wp_poly_fill_' + i + '_' + Math.random().toString(36).substring(2, 6)
     );
+    if (fill) WP.ents.polys.push(fill);
 
     // 3. Aura Perimetral Neón (PolylineGlowMaterial) y Floating Badge 3D si es el faldón seleccionado
     if (isSel && typeof Cesium !== 'undefined' && viewer && viewer.entities) {
@@ -3055,6 +3057,29 @@ async function wpGoToStep(step) {
 
   wpCurrentStep = step;
   if (typeof window !== 'undefined') window.wpCurrentStep = step;
+
+  // 1.2 Apagado seguro de herramientas interactivas al cambiar de paso
+  if (typeof window.RAMeasureTool !== 'undefined' && typeof window.RAMeasureTool.deactivate === 'function') {
+    window.RAMeasureTool.deactivate();
+  }
+  if (typeof wpCancelCurrentMode === 'function') {
+    wpCancelCurrentMode();
+  }
+  if (typeof cancelObstaclePlacement === 'function') {
+    cancelObstaclePlacement();
+  }
+  if (typeof wpCancelCableRouting === 'function') {
+    wpCancelCableRouting();
+  }
+  if (typeof selectObstacle === 'function') {
+    selectObstacle(null);
+  }
+  if (typeof selectBuilding === 'function') {
+    selectBuilding(null);
+  }
+  if (typeof selectElectricalObject === 'function') {
+    selectElectricalObject(null);
+  }
 
   // 2. Conmutar botones activos del Stepper (1..5)
   for (let i = 1; i <= 5; i++) {
@@ -4166,16 +4191,41 @@ function wpUpdateCanvasHUD() {
 }
 
 function wpCancelCurrentMode() {
-  if (WP.mode !== 'idle') {
+  if (WP.mode !== 'idle' || (Array.isArray(WP.activePolyPts) && WP.activePolyPts.length > 0)) {
     wpSetMode('idle');
     wpClearEntGroup('planePreview');
     wpClearEntGroup('activePoly');
     WP.planePts = [];
     WP.activePolyPts = [];
+    if (typeof polygonPoints !== 'undefined') polygonPoints = [];
+    if (typeof window !== 'undefined') window.polygonPoints = [];
+
+    // Si se estaba dibujando huella de edificio
+    if (typeof cancelActiveBuilding === 'function' && (WP.mode === 'draw-building' || (typeof activeBuildingPts !== 'undefined' && activeBuildingPts && activeBuildingPts.length > 0))) {
+      try { cancelActiveBuilding(); } catch(e) {}
+    }
+
+    const confBar = document.getElementById('ra-confirm-bar');
+    if (confBar) {
+      confBar.style.display = 'none';
+      confBar.classList.remove('open');
+    }
+
+    const cancelBldBtn = document.getElementById('btn-cancel-building-panel');
+    if (cancelBldBtn) cancelBldBtn.style.display = 'none';
+
+    if (typeof bldFootprintState !== 'undefined' && bldFootprintState && bldFootprintState.editing) {
+      if (typeof toggleBuildingFootprintEdit === 'function') toggleBuildingFootprintEdit(false);
+      bldFootprintState.editing = false;
+    }
+
     wpUpdateUI();
-    showStatus('OPERACIÓN CANCELADA', 1500);
+    if (typeof showStatus === 'function') showStatus('OPERACIÓN CANCELADA', 1500);
+    if (typeof viewer !== 'undefined' && viewer.scene) viewer.scene.requestRender();
   }
 }
+window.wpCancelCurrentMode = wpCancelCurrentMode;
+window.wpCancelDrawPoly = wpCancelCurrentMode;
 
 function wpUpdateUI() {
   const plane = wpGetActivePlane();

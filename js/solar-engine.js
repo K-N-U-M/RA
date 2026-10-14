@@ -164,14 +164,47 @@ function computeInterRowPitch(params = {}) {
   const azDeg = params.azimuthDeg !== undefined ? params.azimuthDeg : 180.0;
   const lat = params.latitude !== undefined ? params.latitude : 40.41;
   const margin = params.safetyMarginM !== undefined ? params.safetyMarginM : 0.10;
+  const useCTEWindow = params.useCTEWindow !== false; // CTE DB-HE5 / IDAE ventana 4h solsticio invierno (10:00 - 14:00 solar)
 
   const declinationWinter = -23.45;
-  const solarElevationWinter = Math.max(5.0, 90.0 - Math.abs(lat) + declinationWinter);
+  const declRad = degToRad(declinationWinter);
+  const latRad = degToRad(lat);
+
+  // 1. Elevación solar a mediodía (12:00 solar)
+  const solarElevationNoon = Math.max(5.0, 90.0 - Math.abs(lat) + declinationWinter);
+
+  // 2. Cálculo según normativa CTE DB-HE5 e IDAE:
+  // Se dimensiona la distancia inter-filas para garantizar al menos 4 horas libres de sombra
+  // centradas en el mediodía solar (de 10:00 a 14:00 hora solar, ángulo horario omega = ±30°)
+  // en el día más desfavorable del año (Solsticio de invierno, 21 de diciembre).
+  let solarElevationDesign = solarElevationNoon;
+  let shadowFactor = 1.0 / Math.max(Math.tan(degToRad(solarElevationNoon)), GE_EPSILON);
+
+  if (useCTEWindow) {
+    const omegaRad = degToRad(30.0); // 2 horas antes/después del mediodía solar (10:00 ó 14:00)
+    const sinAlpha = Math.sin(latRad) * Math.sin(declRad) + Math.cos(latRad) * Math.cos(declRad) * Math.cos(omegaRad);
+    const alphaRad = Math.asin(Math.max(-1, Math.min(1, sinAlpha)));
+    const alphaDeg = radToDeg(alphaRad);
+    solarElevationDesign = Math.max(5.0, alphaDeg);
+
+    // Azimut solar en la ventana de las 10:00 / 14:00:
+    // cos(delta_gamma) = (sin(alpha) * sin(lat) - sin(decl)) / (cos(alpha) * cos(lat))
+    const cosDeltaGamma = (sinAlpha * Math.sin(latRad) - Math.sin(declRad)) / Math.max(Math.cos(alphaRad) * Math.cos(latRad), GE_EPSILON);
+    const deltaGammaRad = Math.acos(Math.max(-1, Math.min(1, cosDeltaGamma))); // Desviación del sol respecto al Sur (~±29.3° en España)
+
+    // Desviación entre la orientación de los paneles y el sol
+    const azPanelDevRad = degToRad(Math.abs(azDeg - 180.0));
+    const effectiveAngleRad = Math.abs(deltaGammaRad - azPanelDevRad);
+    const cosProjection = Math.max(0.20, Math.cos(effectiveAngleRad));
+
+    // Distancia perpendicular mínima según fórmula canónica CTE / IDAE: d = h * cos(delta_gamma) / tan(alpha)
+    shadowFactor = cosProjection / Math.max(Math.tan(alphaRad), GE_EPSILON);
+  }
 
   const modHeight = modLen * Math.sin(degToRad(tiltDeg));
   const modProjWidth = modLen * Math.cos(degToRad(tiltDeg));
 
-  const shadowLen = modHeight / Math.max(Math.tan(degToRad(solarElevationWinter)), GE_EPSILON);
+  const shadowLen = modHeight * shadowFactor;
   const totalPitch = modProjWidth + shadowLen + margin;
   const clearSpacing = shadowLen + margin;
   const selfCleaningWarning = (tiltDeg < 10.0);
@@ -179,12 +212,14 @@ function computeInterRowPitch(params = {}) {
   return {
     moduleLengthM: modLen,
     tiltDeg: tiltDeg,
-    solarElevationWinterDeg: parseFloat(solarElevationWinter.toFixed(1)),
+    solarElevationWinterDeg: parseFloat(solarElevationDesign.toFixed(1)),
+    solarElevationNoonDeg: parseFloat(solarElevationNoon.toFixed(1)),
     moduleHeightM: parseFloat(modHeight.toFixed(3)),
     projectedWidthM: parseFloat(modProjWidth.toFixed(3)),
     shadowLengthM: parseFloat(shadowLen.toFixed(3)),
     clearSpacingM: parseFloat(clearSpacing.toFixed(3)),
     totalPitchM: parseFloat(totalPitch.toFixed(3)),
+    standard: useCTEWindow ? 'CTE DB-HE5 / IDAE (Ventana 4h Solsticio Invierno 10:00-14:00)' : 'Solsticio Mediodía Solar',
     selfCleaningWarning: selfCleaningWarning,
     warningMsg: selfCleaningWarning ? '⚠️ Inclinación < 10°: Riesgo de sedimentación de polvo, acumulación de fango y puntos calientes (hot spots). Se recomienda mínimo 10° salvo coplanar.' : null
   };
@@ -418,7 +453,10 @@ function calcPOA(GHI, DHI, latDeg, tiltDeg, azimutPanelDeg, dayOfYear, hourSolar
   const lat  = latDeg * Math.PI / 180;
 
   // Incidence angle on tilted plane
-  const azPanel = azimutPanelDeg * Math.PI / 180;
+  // Convención Duffie & Beckman: gamma = 0° es Sur, +90° Oeste, -90° Este, 180° Norte.
+  // La aplicación utiliza la convención náutica / brújula: 0° Norte, 90° Este, 180° Sur, 270° Oeste.
+  // Transformación canónica: gamma_Duffie = azimutPanelDeg - 180°.
+  const azPanel = (azimutPanelDeg - 180) * Math.PI / 180;
   const cosTheta = (
     Math.sin(decl)*Math.sin(lat)*Math.cos(tilt)
     - Math.sin(decl)*Math.cos(lat)*Math.sin(tilt)*Math.cos(azPanel)
@@ -484,7 +522,8 @@ function getClimaticZone(latDeg, lonDeg) {
 function estimateMonthlyGHI(latDeg, monthIdx) {
   // Simplified monthly clearness index model (Kt) for Spain
   const KT_BASE = [0.55,0.58,0.60,0.60,0.60,0.64,0.68,0.68,0.62,0.57,0.52,0.50];
-  const latFactor = 1 + (latDeg - 40) * 0.008;
+  // En el hemisferio norte, la radiación solar horizontal decrece con la latitud (+Norte)
+  const latFactor = 1 - (latDeg - 40) * 0.008;
   const extraterrestrial = []; // Extraterrestrial on horizontal
   const midDay = [17,47,75,105,135,162,198,228,258,288,318,344];
   for (let m = 0; m < 12; m++) {
@@ -547,9 +586,9 @@ function runPhysicalModel(kwp, latDeg, lonDeg, tiltDeg, azimutDeg, cfg) {
       if (altDeg <= 0) continue;
 
       const sinAlt = Math.sin(altDeg * Math.PI / 180);
-      // Estimate instantaneous GHI from daily total (sinusoidal profile)
-      const dayLen = sunsetHour - sunriseHour;
-      const GHI_instant = Math.max(GHI_monthly / (dayLen * 0.5 * Math.PI / 2) * Math.PI / 2 * sinAlt * 1000, 0); // W/m²
+      // GHI_monthly está en Wh/m²/día. Distribución sinusoidal diurna (integral diurna = GHI_monthly):
+      const dayLen = Math.max(sunsetHour - sunriseHour, 1);
+      const GHI_instant = Math.max((GHI_monthly / dayLen) * (Math.PI / 2) * sinAlt, 0); // W/m²
       const DHI_instant = GHI_instant * DHI_fraction;
 
       const GPOA = calcPOA(GHI_instant, DHI_instant, latDeg, tiltDeg, azimutDeg, doy, h);
@@ -571,8 +610,8 @@ function runPhysicalModel(kwp, latDeg, lonDeg, tiltDeg, azimutDeg, cfg) {
       }
 
       monthlyWh += P_ac;
-      totalGPOA += GPOA;
-      totalGSTC += 1000;
+      totalGPOA += GPOA * nDays;
+      totalGSTC += 1000 * nDays;
       if (GHI_instant > 10) {
         mTempLoss += tempLossW;
         mIAMLoss += P_raw * (1 - iam);

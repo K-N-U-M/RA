@@ -93,13 +93,15 @@ if (typeof window !== 'undefined' && typeof window.panelConfig === 'undefined') 
     var inverter = 0.025; // 97.5% rendimiento inversor típico
 
     // PR eléctrico y óptico base en cascada
-    var prElec = (1 - soiling) * (1 - wiring) * (1 - mismatch) * (1 - availability) * (1 - iamAngular) * (1 - spectral) * (1 - bypass) * (1 - inverter);
+    var prBOS = (1 - soiling) * (1 - wiring) * (1 - mismatch) * (1 - availability) * (1 - spectral) * (1 - bypass) * (1 - inverter);
+    var prElec = prBOS * (1 - iamAngular);
     var tFactor = (typeof thermalDeratingFactor === 'number' && thermalDeratingFactor > 0) ? thermalDeratingFactor : 0.925;
     var prTotal = prElec * tFactor;
 
     return {
       prTotal: Math.max(0.40, Math.min(0.98, prTotal)),
       prElec: Math.max(0.50, Math.min(0.98, prElec)),
+      prBOS: Math.max(0.50, Math.min(0.98, prBOS)),
       totalLossFraction: 1 - prTotal,
       thermalDeratingFactor: tFactor,
       factors: {
