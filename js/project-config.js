@@ -90,7 +90,6 @@ function populateStep3EquipmentSelectors() {
   }
 }
 window.populateStep3EquipmentSelectors = populateStep3EquipmentSelectors;
-window.wpPopulateEngineeringEquipment = populateStep3EquipmentSelectors;
 
 function step3SetTopology(topo) {
   if (!window.solarProjectConfig) window.solarProjectConfig = {};
@@ -378,7 +377,6 @@ function step3UpdateHardwareSelection() {
   }
 }
 window.step3UpdateHardwareSelection = step3UpdateHardwareSelection;
-window.wpUpdateEngineeringHardware = step3UpdateHardwareSelection;
 
 function wpComputeAutoSizing(forcedCount) {
   let count = (typeof forcedCount === 'number' && forcedCount > 0) ? forcedCount : 0;
@@ -730,7 +728,6 @@ function step4UpdateObjective() {
   }
 }
 window.step4UpdateObjective = step4UpdateObjective;
-window.wpUpdateDesignObjective = step4UpdateObjective;
 
 function step4ApplyFinancialProfile(profileKey) {
   window.solarProjectConfig.financialProfile = profileKey;

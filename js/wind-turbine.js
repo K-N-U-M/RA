@@ -693,6 +693,4 @@
     updateLiveModelMatrix: updateLiveModelMatrix
   };
 
-  console.log('[RAWindTurbine] Módulo de aerogeneradores 3D v2.0 AAA cargado con Batching y Zero-Drag-Recreation.');
-
 })(window);

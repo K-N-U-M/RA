@@ -192,7 +192,7 @@ async function enrichSummaryWithGemini(targetWindow, d, m, equipment) {
 
   // ── Llamada REST a Gemini ──
   try {
-    var modelsToTry = ['gemini-3.8-flash', 'gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-2.0-flash'];
+    var modelsToTry = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-3.8-flash', 'gemini-3.5-flash'];
     var text = '';
     for (var mIdx = 0; mIdx < modelsToTry.length; mIdx++) {
       var currentModel = modelsToTry[mIdx];

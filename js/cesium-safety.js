@@ -97,9 +97,5 @@
     return originalSetUniforms.apply(this, arguments);
   };
 
-  window.RA = window.RA || {};
-  window.RA.CesiumSafety = {
-    stats: function () { return JSON.parse(JSON.stringify(stats)); }
-  };
   console.info('[cesium-safety] Protección de texturas instalada.');
 })();

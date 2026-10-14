@@ -3998,66 +3998,6 @@ let activeGizmoAxis = null;
 let dragStartMouse = null;
 let dragStartCartesian = null;
 
-// ── Historial de Deshacer / Rehacer (Undo / Redo) ───────────────────────────
-let undoStack = [];      // Estados previos (snapshots de polygonPoints)
-let redoStack = [];      // Estados para rehacer
-const MAX_UNDO_STEPS = 25;
-
-function snapshotGeometry() {
-  return polygonPoints.map(p => Cesium.Cartesian3.clone(p));
-}
-
-function pushUndoState() {
-  if (polygonPoints.length === 0 && undoStack.length === 0) return;
-  undoStack.push(snapshotGeometry());
-  if (undoStack.length > MAX_UNDO_STEPS) undoStack.shift();
-  redoStack = [];
-  updateUndoRedoButtons();
-}
-
-function undoGeometry() {
-  if (window.RAundo && window.RAundo.canUndo()) {
-    return window.RAundo.undo();
-  }
-  if (undoStack.length === 0) {
-    showStatus('NADA QUE DESHACER', 1500);
-    return;
-  }
-  redoStack.push(snapshotGeometry());
-  polygonPoints = undoStack.pop();
-  if (selectedVertexIndex >= polygonPoints.length) selectedVertexIndex = -1;
-  updateAllVisuals();
-  showStatus('↩ DESHECHO · ' + polygonPoints.length + ' PUNTOS', 1500);
-  updateUndoRedoButtons();
-}
-
-function redoGeometry() {
-  if (window.RAundo && window.RAundo.canRedo()) {
-    return window.RAundo.redo();
-  }
-  if (redoStack.length === 0) {
-    showStatus('NADA QUE REHACER', 1500);
-    return;
-  }
-  undoStack.push(snapshotGeometry());
-  polygonPoints = redoStack.pop();
-  if (selectedVertexIndex >= polygonPoints.length) selectedVertexIndex = -1;
-  updateAllVisuals();
-  showStatus('↪ REHECHO · ' + polygonPoints.length + ' PUNTOS', 1500);
-  updateUndoRedoButtons();
-}
-
-function updateUndoRedoButtons() {
-  if (window.RAundo && typeof window.RAundo.updateUIButtons === 'function') {
-    window.RAundo.updateUIButtons();
-    return;
-  }
-  const btnUndo = document.getElementById('btn-undo');
-  const btnRedo = document.getElementById('btn-redo');
-  if (btnUndo) btnUndo.style.opacity = undoStack.length > 0 ? '1' : '0.35';
-  if (btnRedo) btnRedo.style.opacity = redoStack.length > 0 ? '1' : '0.35';
-}
-
 let activeShapeEntity = null;
 let vertexEntities = [];
 let gizmoEntities = [];
@@ -5050,7 +4990,7 @@ function createSolarPlaneFromBuildingRoof() {
       ProjectHierarchy.notify('solar_roof_created', { buildingId: bld.id });
     }
     showToast('CUBIERTA SOLAR CREADA', 'La superficie superior de ' + bld.name + ' ha sido convertida en plano de trabajo solar.', 'success', 3500);
-    wpNavStep(2); // Ir a Configuración FV
+    if (typeof wpGoToStep === 'function') wpGoToStep(2); // Ir a Configuración FV
   }
 }
 
@@ -5752,7 +5692,6 @@ function syncVertexCoordInputs() {
 
 function deleteSelectedVertex() {
   if (selectedVertexIndex < 0 || selectedVertexIndex >= polygonPoints.length) return;
-  pushUndoState();
   polygonPoints.splice(selectedVertexIndex, 1);
   if (polygonPoints.length === 0) selectedVertexIndex = -1;
   else selectedVertexIndex = Math.min(selectedVertexIndex, polygonPoints.length - 1);
@@ -5992,9 +5931,6 @@ function getPanelIndexFromPick(picked) {
     const polyIdx = parseInt(parts[0], 10);
     const pIdx = parseInt(parts[1], 10);
     if (!isNaN(polyIdx) && !isNaN(pIdx)) {
-      if (typeof wpSelectPolylineForStep3 === "function") {
-        wpSelectPolylineForStep3(polyIdx);
-      }
       return pIdx;
     }
   }
@@ -8012,7 +7948,6 @@ function finishActivePolygon() {
 
 function undoLastPoint() {
   if (polygonPoints.length === 0) return;
-  pushUndoState();
   polygonPoints.pop();
   updateAllVisuals();
   showStatus('ÚLTIMO VÉRTICE DESHECHO', 1500);
@@ -8269,7 +8204,7 @@ function confirmPolygonDesign() {
     confBar.classList.remove('open');
   }
   if (typeof bldFootprintState !== 'undefined' && bldFootprintState && bldFootprintState.editing) {
-    if (typeof toggleBuildingFootprintEdit === 'function') toggleBuildingFootprintEdit(false);
+    if (typeof toggleBuildingFootprintEditing === 'function') toggleBuildingFootprintEditing(false);
   }
   if (typeof WP !== 'undefined' && WP) {
     if (WP.mode === 'draw-building' && typeof finishActiveBuilding === 'function') {
@@ -10491,21 +10426,6 @@ function wpUpdateCableRoutesUI() {
 }
 window.wpUpdateCableRoutesUI = wpUpdateCableRoutesUI;
 
-
-/**
- * Generador de curvatura catenaria orgánica gravitatoria para cables inter-panel
- * [CANÓNICO] Definida en js/solar-materials.js. Preservar la función canónica.
- */
-if (typeof window.buildOrganicCatenary !== 'function') {
-  window.buildOrganicCatenary = function(pA, pB, sagMeters = 0.12, segments = 8) {
-    if (typeof RACableEngine !== 'undefined' && typeof RACableEngine.buildOrthogonalManhattanPath3D === 'function') {
-      return RACableEngine.buildOrthogonalManhattanPath3D(pA, pB);
-    }
-    return [pA, pB].filter(Boolean);
-  };
-}
-var buildOrganicCatenary = window.buildOrganicCatenary;
-
 function wpCalculateAndRenderInverterCables() {
   if (typeof RACableEngine !== 'undefined' && typeof RACableEngine.renderAllCables === 'function') {
     return RACableEngine.renderAllCables();
@@ -11379,13 +11299,9 @@ window.deleteCatalogItem = deleteCatalogItem;
 window.applyInverterFromCatalog = applyInverterFromCatalog;
 window.applyBatteryFromCatalog = applyBatteryFromCatalog;
 window.populateStep3EquipmentSelectors = populateStep3EquipmentSelectors;
-window.populateEngineeringEquipmentSelectors = populateStep3EquipmentSelectors;
 window.step3SetTopology = step3SetTopology;
-window.step4SetTopology = step3SetTopology;
 window.step3EditCurrentEquipment = step3EditCurrentEquipment;
-window.step4EditCurrentEquipment = step3EditCurrentEquipment;
 window.step3UpdateHardwareSelection = step3UpdateHardwareSelection;
-window.step4UpdateHardwareSelection = step3UpdateHardwareSelection;
 window.wpComputeAutoSizing = wpComputeAutoSizing;
 window.wpStepQuantity = wpStepQuantity;
 window.wpSetManualQuantity = wpSetManualQuantity;
@@ -11595,26 +11511,8 @@ function saveEditedEquipment() {
 // ── STEPPER 1-2-3 WORKFLOW & CANVAS HUD CONTROLLER ────────────────────────────
 wpCurrentStep = 1;
 
-window.solarProjectConfig = {
-  selectedModuleId: 'ja_550',
-  selectedInverterId: 'inv_huawei_10k',
-  selectedMicroinverterId: 'mlpe_hoymiles_800',
-  selectedBatteryId: 'bat_none',
-  selectedProtectionDcId: 'panel_dc_2mppt',
-  selectedProtectionAcId: 'panel_ac_tri_25a',
-  selectedCableDcId: 'cable_dc_zzf_6',
-  selectedCableAcId: 'cable_ac_rvk_5g10',
-  selectedTopology: 'inverter', // 'inverter' | 'microinverter' | 'optimizer'
-  selectedObjective: 'optimal_inv',
-  targetKwp: 5.0,
-  lastEstimatedPanels: 50,
-  autoSizing: {
-    inverters: { count: 2, autoCount: 2, isManual: false },
-    microinverters: { count: 0, autoCount: 0, isManual: false },
-    batteries: { count: 0, autoCount: 0, isManual: false }
-  },
-  calculatedLimits: { nMinString: 5, nMaxString: 13, nMaxTotalModules: 22 }
-};
+// Defaults canónicos definidos en js/project-config.js (evita doble literal divergente).
+window.solarProjectConfig = window.solarProjectConfig || {};
 // ── window.RA alias (Arquitectura v2) ────────────────────────────────────
 window.RA.projectConfig = window.solarProjectConfig;
 
@@ -11880,22 +11778,6 @@ function wpApplyActiveArrangementToAll() {
 }
 window.wpApplyActiveArrangementToAll = wpApplyActiveArrangementToAll;
 
-// Compatibilidad canónica v3.0 (Paso 2: Campo Solar)
-window.wpSetTilt = wpApplyStep6Tilt;
-window.wpSetAzimuth = wpApplyStep6Azimuth;
-window.wpResetTiltAuto = wpResetStep6TiltAuto;
-window.wpResetAzimuthAuto = wpResetStep6AzimuthAuto;
-window.wpOnTiltSliderInput = wpOnStep6TiltSliderInput;
-window.wpOnTiltSliderChange = wpOnStep6TiltSliderChange;
-window.wpOnAzimuthSliderInput = wpOnStep6AzimuthSliderInput;
-window.wpOnAzimuthSliderChange = wpOnStep6AzimuthSliderChange;
-window.wpSyncFieldControls = wpSyncStep6Controls;
-window.wpSyncStep2Controls = wpSyncStep6Controls;
-
-// Compatibilidad legacy
-window.wpSetStep6Tilt = wpApplyStep6Tilt;
-window.wpSetStep6Azimuth = wpApplyStep6Azimuth;
-
 function wpSyncStep6Controls() {
   const sliderTilt = document.getElementById('cfg-p2-tilt-slider');
   const sliderAz = document.getElementById('cfg-p2-azimuth-slider');
@@ -12086,7 +11968,7 @@ function generatePdfReport() {
           addPaginaImagen(caps.realista, 'ANEXO I — IMAGEN DE DRON: PANELES MONTADOS EN CUBIERTA');
           if (caps.heatmap) addPaginaImagen(caps.heatmap, 'ANEXO II — MAPA DE IRRADIACIÓN ANUAL POR PANEL');
           doc.setFontSize(9);
-          doc.text('Las pérdidas anuales por sombreado se calculan con ray-tracing 3D sobre la fotogrametría (192 instantes).', margen, 292);
+          doc.text('Las pérdidas anuales por sombreado se calculan con ray-tracing 3D sobre la fotogrametría (192 instantes nominales, sol ≥ 10°).', margen, 292);
         }
       } catch(eAnexo) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eAnexo, 'anexo fotografico'); }
 
@@ -12462,11 +12344,6 @@ function getClusterOrderedPanels(panels) {
   });
 
   return bestCandidate.path;
-}
-
-function generateSnakeWiringPositions(panels) {
-  const ordered = getSnakeOrderedPanels(panels);
-  return ordered.map(p => p.center).filter(Boolean);
 }
 
 // [MODULARIZACION FASE 2 - BLOQUE 2.3] togglePhotorealisticPanelsTexture y toggleLabelsVisibility delegados canónicamente a js/ui-viewport-controls.js

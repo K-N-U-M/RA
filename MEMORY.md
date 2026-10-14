@@ -252,7 +252,7 @@ calculateFinancialModel()  ← Definición canónica en financials.js (~L491)
 
 - **Estado:** ✅ Implementado y verificado en `js/measure-tool.js` e `index.html`.
 - **Módulo Autónomo y Desacoplado (`RAMeasureTool`):**
-  - Ubicación: `js/measure-tool.js`. Singleton `window.RAMeasureTool` / `window.RA.measureTool`, función global `toggleMeasureTool()`.
+  - Ubicación: `js/measure-tool.js`. Singleton `window.RAMeasureTool`, función global `toggleMeasureTool()`.
   - Botón flotante `#btn-toggle-measure-tool` en la botonera inferior derecha del visor 3D (`#ra-floating-tools-container`): botón circular con icono SVG exclusivo (sin texto), con conmutación dinámica de color (slate en reposo, cian brillante con resplandor activo).
   - Atajos de teclado: `M` para alternar la herramienta de medición, `S` para conmutar el snapping magnético mientras está activa, y `Escape` para cancelar tramo o salir.
 - **Desglose Físico en 3 Componentes:**
@@ -275,7 +275,7 @@ calculateFinancialModel()  ← Definición canónica en financials.js (~L491)
 - **Estado:** ✅ Implementado y verificado en `js/ui-viewport-controls.js` e `index.html`.
 - **Módulo Autónomo (`UIViewportControls` / `RA.UI`):**
   - Ubicación: `js/ui-viewport-controls.js`.
-  - Exportaciones: `global.UIViewportControls`, `global.RA.UI`, `global.RA.viewportControls`.
+  - Exportaciones: `global.UIViewportControls`, `global.RA.UI`.
   - Hooks canónicos globales preservados en `window`:
     - Notificaciones Toast: `showToast(title, message, type, duration)`.
     - Indicadores de carga y geometría 3D: `setLoad(pct, msg)`, `hideLoading()`, `show3DTilesLoading(msg, count)`, `hide3DTilesLoading(delay)`.
@@ -298,7 +298,7 @@ calculateFinancialModel()  ← Definición canónica en financials.js (~L491)
   2. *Desfase de IDs de DOM:* Funciones de lectura leían de identificadores prefijados de sidebar inexistentes (`cfg-company-*`), mientras el modal usaba `modal-cfg-company-*`, impidiendo la recarga del logo y previsualización.
   3. *Lector Roto en Generación PDF:* El generador de la oferta comercial (`generatePropuestaComercialPDF`) no disponía de fallback a la clave directa `ra_company_logo` cuando el objeto de branding estaba presente pero con logotipo en blanco.
   4. *Duplicación de Código Inline:* Existían dos implementaciones concurrentes y desfasadas para la subida y borrado del logotipo en el código inline de `index.html`.
-- **Módulo Autónomo (`RACompanyBranding` / `RA.branding` / `RA.companyBranding`):**
+- **Módulo Autónomo (`RACompanyBranding` / `RA.branding`):**
   - Ubicación: `js/company-branding.js`.
   - Encapsula: `DEFAULT_BRANDING`, `getBranding()`, `loadCompanyBranding()`, `saveCompanyBranding()`, `handleLogoUpload()`, `clearLogo()`, `openModal()`, `closeModal()`, `syncModalInput()`, `updateLogoPreview()` y `testGeminiApiKey()`.
   - Conexión reactiva instantánea: subida de logotipo sincroniza simultáneamente la memoria en vivo (`window.customCompanyLogoBase64`), la clave de rescate `ra_company_logo` y la estructura `ra_company_branding`.
@@ -457,6 +457,26 @@ calculateFinancialModel()  ← Definición canónica en financials.js (~L491)
   - Archivados 4 planes superados en `doc/historico_auditorias/` (`PLAN_MAESTRO_REESTRUCTURACION_FLUJO`, `MIGRATION_PLAN`, `PLAN_DE_ACCION_AUDITORIA_INTEGRAL_2026`, `PLAN_IMPLEMENTACION_IMPORTADOR_DATASHEETS_IA`).
   - Renombrado `agents.md` → `AGENTS.md` (coincidencia exacta con las referencias; portabilidad Linux).
 - **Documentación corregida:** `doc/01` (13→16 h, 156→192 instantes), `doc/02` y `doc/03` (eliminada capa inexistente `src/*.ts` y Three.js; inventario de 30 módulos; rutas de pruebas), `doc/04` (script names), `README.md` (módulos y atajos), `AGENTS.md` (referencias a documentación).
+
+## 24. Resolución de la Auditoría Integral v3.0 — Fases A–E (Octubre 2026)
+
+- **Fase A (P0):** publicado `wpSetPolyStructure` en `window`; corregido el ×100 doble de la TIR en la oferta; leído el campo correcto del plazo de retorno; restaurados los campos de panel/faldón al abrir; claves centralizadas fuera del código.
+- **Fase B (P0–P1):** duración del día por mes + curva diaria; migración de versiones `.raproject`; **motor de radiación único** `js/radiation-engine.js` (`RA.Radiation`: Erbs + Hay-Davies + IAM ASHRAE) consumido por comparador de escenarios y mapa de calor (anual canónico 6033 → 6044 kWh/año, **+0.18%**; paridad exacta verificada, Δ=0 en vivo).
+- **Fase C (P1):** corriente en paralelo y etiqueta de topología, elección de inversor por suma de corrientes, fase del inversor como dato propio, fuente única de obstáculos, migración de `.raproject`, corrección térmica/agrupamiento de cables.
+- **Fase D (P1–P2):** clave IA en cabecera `x-goog-api-key` con almacenamiento ofuscado (prefijo `enc:`) y helper `RA.getGeminiApiKey`; timeout + cancelación en llamadas IA; anti-doble-fire del mapa de calor; estado unificado del mapa de calor; distinguir "0 real" de "vacío" en costes.
+- **Fase E — E1 (P2–P3, alcance Grupo A = solo código muerto):** eliminados el historial de deshacer inline duplicado de 25 pasos en `index.html` (pila write-only, `window.RAundo` de 30 es el real) y sus llamadas `pushUndoState()`; stacks muertos de `js/obstacles.js`; clones locales sin llamantes `generateSnakeWiringPositions` (`index.html`) y `buildOrganicCatenary` (guard inline): se conservan las exportaciones canónicas de `js/electrical-engine.js` y `js/solar-materials.js`; eliminado el doble literal de `window.solarProjectConfig` (SSOT en `js/project-config.js`; inline con guard de una línea). Verificado: **31/31 sintaxis + 15/15 workflow + IA importer 100%**.
+  - **Deuda pendiente (Grupo B, divergencias de comportamiento):** unificar constantes de tensión (`Tmax` 70 °C/γVoc −0.0027 vs 65 °C/−0.0028; recomendado **70 °C/−0.0027** con ventana real de Vmppt del inversor); `window.panelConfig` (módulo, nunca mutado) vs `panelConfig` léxico de `index.html` (mutado) → posibles Voc/Vmp obsoletos en límites MPPT; indexado de color de serie (`polyIdx*10+sIdx` vs `strIdx++`); `computeOptimalStringRouting` reimplementa partición/serpiente en vez de consumir `RA.Electrical`.
+- **Fase E — E2 (M15, fachadas y llamadas muertas):** eliminadas las exportaciones-ventana sin consumidores (`RA.bomEngine`, `RA.CesiumSafety`, `RA.companyBranding`, `RA.viewportControls`, `RA.viewerUtils`, `RA.projectStorage`, `RA.measureTool`, `toggleMeasureSnapping`, `handleCompanyLogoUpload`, `clearCompanyLogo`, `updateCompanyLogoPreview`, `wpPopulateEngineeringEquipment`, `wpUpdateEngineeringHardware`, `wpUpdateDesignObjective`) y el bloque de alias `step4*`/`populateEngineeringEquipmentSelectors` de `index.html`. Corregidos crash `wpNavStep(2)` → `wpGoToStep(2)` guardado y typo `toggleBuildingFootprintEdit`→`toggleBuildingFootprintEditing`.
+- **Fase E — E3 (G11):** eliminada la gemela inerte `wpSelectPolylineForStep3` (+ llamada guardada) y exportaciones sin uso `wpApplyRoofPreset`/`wpApplyMLPERecommendationAction`/`wpTogglePolyOrientation`; expuesta `RAMeasureTool.invalidateSnapCandidates()` y enganchada a `window.wpInvalidateHeatmap` para limpiar el caché del imán al mutar geometría.
+- **Fase E — E4 (M16):** `package.json` sin dependencias; `npm run lint` (gate de sintaxis) y `npm test` (sintaxis + motores + importador IA).
+- **Fase E — E5 (m1–m9, pulido):** **m1** orden de argumentos de `showToast` corregido en `error-handler.js`; **m2** proyectos recientes con guardado resistente a cuota + aviso; **m3** comentario de `geometry-validate.js` corregido ("menor rango"); **m4** retirados `console.log` de arranque (`wind-turbine.js`, `workflow-orchestrator.js`); **m8** listas de modelos Gemini reordenadas a reales primero (`gemini-2.5-flash`…); **m9** etiqueta "192 instantes" → "192 instantes nominales, sol ≥ 10°". Revisados sin cambio: **m5** (a11y de botones icono), **m6** (botón "Memoria Técnica" duplicado en Paso 5, decisión de UI), **m7** (bloques ocultos, mayormente legítimos). Verificado: **31/31 + 15/15 + IA 100%**.
+
+## 25. Autocompletado de datos del cliente/titular desde la factura (Octubre 2026)
+
+- **`js/bill-auditor.js`:** el esquema del prompt IA (`analyzeDocument`) y el parser local (`extractBillFromText`/`parseText`) ahora extraen la identidad del titular (`titularNombre`, `titularNIF`, `direccionSuministro`, `codigoPostal`, `municipio`, `provincia`, `telefono`, `email`), normalizada por `normalizeAIData` como `currentBill.titular = { nombre, nif, direccion, cp, municipio, provincia, telefono, email }` (viaja en el `.raproject` exportado y en los recientes). `parseJSON` acepta `obj.titular` o claves planas equivalentes.
+- **Vista previa editable** en el modal auditor (`#bill-titular-block`, inputs `bill-edit-tit-*`); recogida al vuelo por `collectTitularFromModal()` (botón aplicar y botón recalcular).
+- **`applyBillToBudget()`** vuelca a los campos de documentación `#doc-cups`, `#doc-nombre`, `#doc-nif`, `#doc-tel`, `#doc-email`, `#doc-dir`, `#doc-mun`, `#doc-prov`, `#doc-cp`, y a `#doc-potcontr` (P1+P2) y `#doc-dist` (select casado por texto), **solo si el campo está vacío o conserva su valor por defecto** (comparación con `HTMLInputElement.defaultValue`) — nunca sobrescribe datos ya introducidos. Corregido el id inexistente `#tit-cups` → `#doc-cups` (auto-relleno de CUPS roto). No modifica el nombre del proyecto.
+- **Verificado:** 31/31 sintaxis, 15/15 workflow, importador IA 100%.
 
 
 

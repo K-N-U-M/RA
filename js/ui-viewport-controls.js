@@ -369,7 +369,6 @@
   if (!global.RA) global.RA = {};
   if (!global.RA.UI) global.RA.UI = {};
   Object.assign(global.RA.UI, UIViewportControls);
-  global.RA.viewportControls = UIViewportControls;
 
   // Hooks globales en window requeridos para eventos HTML y módulos existentes
   global.showToast = showToast;

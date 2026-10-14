@@ -711,11 +711,24 @@ function raSaveToRecentProjects(projectData) {
     // Evitar duplicados por dirección o nombre
     const filtered = recents.filter(r => r.address !== item.address || r.name !== item.name);
     filtered.unshift(item);
-    const trimmed = filtered.slice(0, 6); // Mantener últimos 6
+    let trimmed = filtered.slice(0, 6); // Mantener últimos 6
 
-    localStorage.setItem(RA_RECENT_PROJECTS_KEY, JSON.stringify(trimmed));
+    // [m2] Cuota de localStorage: con diseños grandes puede fallar en silencio.
+    // Recortar el historial de recientes y avisar al usuario si el diseño no cabe.
+    let saved = false;
+    while (trimmed.length > 0 && !saved) {
+      try {
+        localStorage.setItem(RA_RECENT_PROJECTS_KEY, JSON.stringify(trimmed));
+        saved = true;
+      } catch (eQuota) {
+        trimmed = trimmed.slice(0, trimmed.length - 1);
+      }
+    }
+    if (!saved && typeof showToast === 'function') {
+      showToast('HISTORIAL NO GUARDADO', 'El diseño supera la cuota del navegador. Expórtalo a archivo .raproject para conservarlo.', 'warning', 6000);
+    }
     raRenderRecentProjectsList();
-  } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
+  } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Almacenamiento local (proyectos recientes)'); }
 }
 
 function raRenderRecentProjectsList() {
@@ -910,7 +923,6 @@ function raNewProjectConfirm() {
 
   global.RAProjectStorage = RAProjectStorage;
   if (!global.RA) global.RA = {};
-  global.RA.projectStorage = RAProjectStorage;
 
   // Hooks requeridos en window para interacción inline y compatibilidad total
   global.raExportProjectData = raExportProjectData;

@@ -298,7 +298,6 @@
     setBypassGating(enabled) {
       this._bypassGating = Boolean(enabled);
       this.refreshGating();
-      console.log(`[WorkflowOrchestrator] Bypass gating: ${this._bypassGating}`);
     }
   }
 

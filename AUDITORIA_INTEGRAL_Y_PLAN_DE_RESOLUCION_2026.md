@@ -186,11 +186,12 @@ Hay funciones que existen pero no están conectadas a ningún control (cambiar a
 - [x] **D5.** Distinguir "0 real" de "vacío" en costes (M10).
 
 ### Fase E — Limpieza y consistencia (P2–P3).
-- [ ] **E1.** Eliminar/duplicar código: config de panel, utilidades repetidas, historial duplicado (M14, M8).
-- [ ] **E2.** Retirar "fachadas" y llamadas muertas (M15).
-- [ ] **E3.** Conectar o eliminar funciones gemelas y limpiar caché del imán (G11).
-- [ ] **E4.** Añadir `package.json` con linter y ejecución de `tests/` (M16).
-- [ ] **E5.** Pulido: toasts, proyectos recientes, accesibilidad, botones duplicados, consoles (m1–m9).
+- [x] **E1.** Eliminar/duplicar código: config de panel, utilidades repetidas, historial duplicado (M14, M8). *Ejecutado con alcance Grupo A (solo código muerto, sin cambio de comportamiento):* eliminado el historial de deshacer inline duplicado (`index.html`, 25 pasos, pila write-only sin consumidores) y las llamadas `pushUndoState()`; eliminados los stacks muertos de `js/obstacles.js`; eliminados los clones locales sin llamantes `generateSnakeWiringPositions` y `buildOrganicCatenary` (se conservan las exportaciones canónicas en `electrical-engine.js` y `solar-materials.js`); eliminado el doble literal de `window.solarProjectConfig` (SSOT única en `js/project-config.js`, inline con guard de una línea). Verificado: 31/31 sintaxis, 15/15 motores, importador IA 100%.
+  - *Deuda pendiente — Grupo B (divergencias de comportamiento, requieren decisión de dominio):* unificar constantes de tensión (`Tmax` 70 vs 65 °C, `γVoc` −0.0027 vs −0.0028; recomendado **70 °C / −0.0027** con ventana real de Vmppt del inversor); `window.panelConfig` (módulo, nunca mutado) vs `panelConfig` léxico de `index.html` (mutado) → límites MPPT pueden leer Voc/Vmp obsoletos; indexado de color de serie `polyIdx*10+sIdx` vs `strIdx++`; `computeOptimalStringRouting` reimplementa partición/serpiente en vez de consumir `RA.Electrical`.
+- [x] **E2.** Retirar "fachadas" y llamadas muertas (M15). *Ejecutado:* eliminadas las exportaciones-ventana sin consumidores (`RA.bomEngine`, `RA.CesiumSafety`, `RA.companyBranding`, `RA.viewportControls`, `RA.viewerUtils`, `RA.projectStorage`, `RA.measureTool`, `toggleMeasureSnapping`, `handleCompanyLogoUpload`, `clearCompanyLogo`, `updateCompanyLogoPreview`, `wpPopulateEngineeringEquipment`, `wpUpdateEngineeringHardware`, `wpUpdateDesignObjective`) y el bloque de alias `step4*`/`populateEngineeringEquipmentSelectors` en `index.html`. Corregidos en la misma pasada: crash `wpNavStep(2)` → `wpGoToStep(2)` guardado y typo `toggleBuildingFootprintEdit`→`toggleBuildingFootprintEditing`. Verificado: no quedan referencias.
+- [x] **E3.** Conectar o eliminar funciones gemelas y limpiar caché del imán (G11). *Ejecutado:* eliminada la gemela inerte `wpSelectPolylineForStep3` (+ su llamada guardada) y las exportaciones sin uso `wpApplyRoofPreset`/`wpApplyMLPERecommendationAction`/`wpTogglePolyOrientation`; expuesta `RAMeasureTool.invalidateSnapCandidates()` y enganchada a `window.wpInvalidateHeatmap` para limpiar el caché del imán al mutar geometría.
+- [x] **E4.** Añadir `package.json` con linter y ejecución de `tests/` (M16). *Ejecutado:* `package.json` sin dependencias con `npm run lint` (gate de sintaxis) y `npm test` (sintaxis + motores + importador IA).
+- [x] **E5.** Pulido: toasts, proyectos recientes, accesibilidad, botones duplicados, consoles (m1–m9). *Ejecutado:* **m1** corregido orden de argumentos en `showToast` de `error-handler.js` (mostraba literal "warning"/"error"); **m2** guardado de proyectos recientes resistente a cuota (`localStorage`) con recorte de historial + aviso al usuario; **m3** corregido comentario de `geometry-validate.js` (decía "mayor rango", el código descarta el **menor**); **m4** eliminados `console.log` informativos de arranque (`wind-turbine.js`, `workflow-orchestrator.js`); **m8** reordenadas las listas de modelos Gemini para probar primero modelos reales (`gemini-2.5-flash`…) y dejar los especulativos al final (`bill-auditor.js`, `financials.js`, `company-branding.js`, `equipment-ai-importer.js`); **m9** matizada la etiqueta "192 instantes" → "192 instantes nominales, sol ≥ 10°" en UI, docstring y PDF. *Revisados sin cambio (criterio conservador):* **m5** (12 botones icon-only sin `aria-label`: requiere pasada de accesibilidad dedicada), **m6** (dos botones "Memoria Técnica" en el panel del Paso 5: redundancia de diseño, se deja como está para no alterar el layout sin decisión de producto), **m7** (~82 bloques ocultos por estilos: revisados, mayoritariamente legítimos; sin huérfanos accionables detectados).
 
 ---
 
@@ -240,6 +241,16 @@ Hay funciones que existen pero no están conectadas a ningún control (cambiar a
 - **Física:** comprobar que la suma de los 12 meses coincide con el total anual y que el perfil estacional es coherente (más en verano que en invierno, sin saltos de +40 %/−60 %).
 - **Eléctrico:** montar un caso con dos grupos en paralelo y comprobar que la sección del cable vuelve a calcularse con el doble de corriente.
 - **Consola:** no debe aparecer ningún error rojo al cambiar la estructura del faldón.
+
+---
+
+## 7. Mejoras post-auditoría (features)
+
+### F1 — Autocompletado de datos del cliente/titular desde la factura (Octubre 2026)
+- **Objetivo:** al auditar la factura eléctrica, extraer también la identidad del cliente (nombre/razón social, NIF/CIF, dirección de suministro, C.P., municipio, provincia, teléfono, email) y volcarla a la documentación técnica (`#doc-*`) y al presupuesto.
+- **`js/bill-auditor.js`:** ampliado el esquema del prompt IA (`analyzeDocument`) y el parser local (`extractBillFromText`/`parseJSON`) con los campos de titular; `normalizeAIData` los normaliza en `currentBill.titular = { nombre, nif, direccion, cp, municipio, provincia, telefono, email }` (persistido en `.raproject`/recientes).
+- **Vista previa editable** en el modal auditor (`#bill-titular-block`, inputs `bill-edit-tit-*`), recogida por `collectTitularFromModal()`.
+- **`applyBillToBudget()`:** vuelca `#doc-cups`, `#doc-nombre`, `#doc-nif`, `#doc-tel`, `#doc-email`, `#doc-dir`, `#doc-mun`, `#doc-prov`, `#doc-cp`, `#doc-potcontr` (P1+P2) y `#doc-dist`, **solo si el campo está vacío o aún en su valor por defecto** (comparación con `defaultValue`), sin sobrescribir datos introducidos. Corregido el id inexistente `#tit-cups` → `#doc-cups` (bug latente de auto-relleno de CUPS). No se toca el nombre del proyecto.
 
 ---
 

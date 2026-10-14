@@ -14,7 +14,7 @@
       if (errStr.includes('webgl') || errStr.includes('context lost') || errStr.includes('destroy')) {
         console.error('Error crítico de WebGL/Cesium detectado. Posible fuga de memoria o entidad zombi.');
         if (typeof global.showToast === 'function') {
-          global.showToast('Error gráfico leve. Se recomienda guardar el proyecto.', 'warning');
+          global.showToast('AVISO GRÁFICO', 'Error gráfico leve. Se recomienda guardar el proyecto.', 'warning');
         }
       }
     },
@@ -22,7 +22,7 @@
     handleAsyncAPI: function(error, serviceName) {
       console.error(`[RA_ErrorHandler] Fallo en la API externa (${serviceName}):`, error);
       if (typeof global.showToast === 'function') {
-        global.showToast(`Error de conexión con ${serviceName}. Verifica tu red o reintenta.`, 'error');
+        global.showToast('ERROR DE CONEXIÓN', `No se pudo contactar con ${serviceName}. Verifica tu red o reintenta.`, 'error');
       }
       
       // Asegurar que el loader global se oculta si la llamada falla

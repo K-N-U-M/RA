@@ -937,14 +937,13 @@
     clearMeasurements: clearMeasurements,
     isActive: function() { return _state.active; },
     isSnappingEnabled: function() { return _state.snappingEnabled; },
+    invalidateSnapCandidates: invalidateSnapCandidates,
     getMeasurements: function() { return _state.measurements.slice(); }
   };
 
   global.RAMeasureTool = RAMeasureTool;
   if (!global.RA) global.RA = {};
-  global.RA.measureTool = RAMeasureTool;
   global.toggleMeasureTool = toggle;
-  global.toggleMeasureSnapping = toggleSnapping;
 
   // Inicialización defensiva
   if (typeof document !== 'undefined') {

@@ -7,7 +7,7 @@
  * lanzaban errores tragados por catch silenciados (edificio invisible).
  *
  * Uso: window.isSimplePolygon(points) — acepta Cesium.Cartesian3[] o {x,y,z}[].
- * Proyecta a 2D descartando el eje de mayor rango y detecta cruces propios
+ * Proyecta a 2D descartando el eje de menor rango y detecta cruces propios
  * (proper crossings) O(n²). Polígonos <4 puntos no pueden auto-intersecarse.
  * ============================================================================
  */

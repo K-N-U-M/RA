@@ -11,8 +11,6 @@
   // ── ESTADO GLOBAL COMPARTIDO DE OBSTÁCULOS Y GEOMETRÍA ─────────────────────
   global.obstacles = global.obstacles || [];
   global.polygonPoints = global.polygonPoints || [];
-  global.undoStack = global.undoStack || [];
-  global.redoStack = global.redoStack || [];
   global._obsPrimitives = global._obsPrimitives || [];
   global._obsLabelCollection = global._obsLabelCollection || null;
   global.selectedObstacleIndex = typeof global.selectedObstacleIndex !== 'undefined' ? global.selectedObstacleIndex : -1;
@@ -22,9 +20,6 @@
   var obstacles = global.obstacles;
   var selectedObstacleId = global.selectedObstacleId;
   var polygonPoints = global.polygonPoints;
-  var undoStack = global.undoStack;
-  var redoStack = global.redoStack;
-  var MAX_UNDO_STEPS = 25;
 
   global.obsPlacement = global.obsPlacement || {
     active: false,

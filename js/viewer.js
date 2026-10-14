@@ -377,23 +377,6 @@ function _initTriadOnce() {
 
   // ── EXPORTACIÓN AL NAMESPACE GLOBAL Y WINDOW.RA ─────────────────────────────
   global.RA = global.RA || {};
-  global.RA.viewerUtils = {
-    switchEngine: switchEngine,
-    attachTilesetLoadMonitor: attachTilesetLoadMonitor,
-    loadGoogle3D: loadGoogle3D,
-    loadCesium3D: loadCesium3D,
-    loadArcGIS3D: loadArcGIS3D,
-    executeSearch: executeSearch,
-    doSearch: doSearch,
-    flyToPlace: flyToPlace,
-    getSearchHistory: getSearchHistory,
-    saveToHistory: saveToHistory,
-    showHistory: showHistory,
-    resetNorth: resetNorth,
-    updateWindRose: updateWindRose,
-    toggle2D3D: toggle2D3D,
-    _initTriadOnce: _initTriadOnce
-  };
 
   global.switchEngine = switchEngine;
   global.attachTilesetLoadMonitor = attachTilesetLoadMonitor;

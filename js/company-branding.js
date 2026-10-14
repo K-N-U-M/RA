@@ -427,7 +427,7 @@
     }
     if (resultEl) resultEl.innerHTML = '<span style="color:#a78bfa;">⏳ Conectando con Gemini...</span>';
     try {
-      let activeModel = 'gemini-3.8-flash';
+      let activeModel = 'gemini-2.5-flash';
       try {
         const listResp = await geminiFetch('https://generativelanguage.googleapis.com/v1beta/models', {}, 20000, key);
         if (listResp.ok) {
@@ -490,7 +490,6 @@
 
   global.RACompanyBranding = RACompanyBranding;
   if (!global.RA) global.RA = {};
-  global.RA.companyBranding = RACompanyBranding;
   global.RA.branding = _currentBranding;
 
   // [D1+D2] API IA canónica compartida por todos los módulos
@@ -503,13 +502,10 @@
   global.openCompanyBrandingModal = openModal;
   global.closeCompanyBrandingModal = closeModal;
   global.handleModalCompanyLogoUpload = handleLogoUpload;
-  global.handleCompanyLogoUpload = handleLogoUpload;
   global.clearModalCompanyLogo = clearLogo;
-  global.clearCompanyLogo = clearLogo;
   global.saveCompanyBranding = saveCompanyBranding;
   global.loadCompanyBranding = loadCompanyBranding;
   global.syncModalInputToBranding = syncModalInput;
-  global.updateCompanyLogoPreview = refreshAllLogoPreviews;
   global.testGeminiApiKey = testGeminiApiKey;
   global.cancelGeminiAnalysis = cancelGemini;
 

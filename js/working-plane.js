@@ -2465,7 +2465,7 @@ function wpCloseActivePolyline() {
       confBar.classList.remove('open');
     }
     if (typeof bldFootprintState !== 'undefined' && bldFootprintState && bldFootprintState.editing) {
-      if (typeof toggleBuildingFootprintEdit === 'function') toggleBuildingFootprintEdit(false);
+      if (typeof toggleBuildingFootprintEditing === 'function') toggleBuildingFootprintEditing(false);
       if (typeof showToast === 'function') {
         showToast('EDICIÓN FINALIZADA', 'Modo de edición de huella cerrado. Pulsa "Convertir Faldones en Planos Solares" para generar la cubierta.', 'info', 4000);
       }
@@ -3806,11 +3806,6 @@ function wpCommitPolyAzimuth(polyIdx) {
 }
 window.wpCommitPolyAzimuth = wpCommitPolyAzimuth;
 
-function wpSelectPolylineForStep3(polyIdx) {
-  // Delegado a wpSelectFaldon — mantiene backward compat
-  wpSelectFaldon(polyIdx);
-}
-
 function wpSetPolyOrientation(polyIdx, orientation) {
   if (!WP.polylines || !WP.polylines[polyIdx]) return;
   WP.polylines[polyIdx].orientationPref = orientation;
@@ -4223,7 +4218,7 @@ function wpCancelCurrentMode() {
     if (cancelBldBtn) cancelBldBtn.style.display = 'none';
 
     if (typeof bldFootprintState !== 'undefined' && bldFootprintState && bldFootprintState.editing) {
-      if (typeof toggleBuildingFootprintEdit === 'function') toggleBuildingFootprintEdit(false);
+      if (typeof toggleBuildingFootprintEditing === 'function') toggleBuildingFootprintEditing(false);
       bldFootprintState.editing = false;
     }
 
@@ -5127,7 +5122,6 @@ function initUnifiedWorkPlaneSystem() {
   if (typeof wpSetPolyTilt !== 'undefined') window.wpSetPolyTilt = wpSetPolyTilt;
   if (typeof wpSetPolyTiltRealtime !== 'undefined') window.wpSetPolyTiltRealtime = wpSetPolyTiltRealtime;
   if (typeof wpSetPolyAzimuthRealtime !== 'undefined') window.wpSetPolyAzimuthRealtime = wpSetPolyAzimuthRealtime;
-  if (typeof wpTogglePolyOrientation !== 'undefined') window.wpTogglePolyOrientation = wpTogglePolyOrientation;
   if (typeof wpUpdatePanelShadingAndMLPE !== 'undefined') window.wpUpdatePanelShadingAndMLPE = wpUpdatePanelShadingAndMLPE;
 
   // Tríada CAD y Gizmos
@@ -5333,10 +5327,8 @@ function wpApplyMLPERecommendationAction() {
   if (typeof wpUpdateUI !== 'undefined') window.wpUpdateUI = wpUpdateUI;
   if (typeof wpCancelCurrentMode !== 'undefined') window.wpCancelCurrentMode = wpCancelCurrentMode;
   if (typeof initUnifiedWorkPlaneSystem !== 'undefined') window.initUnifiedWorkPlaneSystem = initUnifiedWorkPlaneSystem;
-  if (typeof wpApplyRoofPreset !== 'undefined') window.wpApplyRoofPreset = wpApplyRoofPreset;
   if (typeof wpOpenSmartInverterMatchingModal !== 'undefined') window.wpOpenSmartInverterMatchingModal = wpOpenSmartInverterMatchingModal;
   if (typeof wpApplyInverterScenario !== 'undefined') window.wpApplyInverterScenario = wpApplyInverterScenario;
-  if (typeof wpApplyMLPERecommendationAction !== 'undefined') window.wpApplyMLPERecommendationAction = wpApplyMLPERecommendationAction;
   if (typeof wpApplyPanelArrangement !== 'undefined') window.wpApplyPanelArrangement = wpApplyPanelArrangement;
   if (typeof wpApplyPanelArrangementToAll !== 'undefined') window.wpApplyPanelArrangementToAll = wpApplyPanelArrangementToAll;
   if (typeof wpApplyPolyStructureToAll !== 'undefined') window.wpApplyPolyStructureToAll = wpApplyPolyStructureToAll;

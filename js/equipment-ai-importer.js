@@ -185,11 +185,11 @@ NORMAS ESTRICTAS DE EXTRACCIÓN:
       }
       return [
         'gemini-2.5-flash',
+        'gemini-2.5-flash-lite',
         'gemini-2.0-flash',
         'gemini-1.5-flash',
         'gemini-3.8-flash',
-        'gemini-3.5-flash',
-        'gemini-2.5-flash-lite'
+        'gemini-3.5-flash'
       ];
     },
 
@@ -228,7 +228,7 @@ NORMAS ESTRICTAS DE EXTRACCIÓN:
       // Obtener lista de modelos compatibles para esta cuenta/clave
       let models = await this.discoverAvailableModels(apiKey);
       if (!Array.isArray(models) || models.length === 0) {
-        models = ['gemini-3.8-flash', 'gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-2.0-flash'];
+        models = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-3.8-flash', 'gemini-3.5-flash'];
       }
 
       // Si el usuario configuró un modelo manual en window.RA, priorizarlo

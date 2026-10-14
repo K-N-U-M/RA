@@ -59,6 +59,7 @@
         historicoMensualKWh: null,
         consumoAnualEstimadoKWh: null,
         diagnosticoIA: null,
+        titular: { nombre: null, nif: null, direccion: null, cp: null, municipio: null, provincia: null, telefono: null, email: null },
         fuente: 'local',
         rawSnippet: clean.slice(0, 300)
       };
@@ -83,6 +84,25 @@
       if (peajeMatch) {
         data.tarifaAcceso = peajeMatch[1].toUpperCase();
       }
+
+      // 3b. Datos identificativos del titular / cliente (best-effort para documentación)
+      const nifMatch = clean.match(/\b([A-Z]\d{7}[A-Z0-9]|\d{8}[A-Z])\b/);
+      if (nifMatch) data.titular.nif = nifMatch[1].toUpperCase();
+
+      const cpMatch = clean.match(/\b(0[1-9]\d{3}|[1-5]\d{4})\b/);
+      if (cpMatch) data.titular.cp = cpMatch[1];
+
+      const dirMatch = clean.match(/((?:c\/|calle|avda\.?|avenida|plaza|pza\.?|pol[íi]gono|ctra\.?|carretera|ronda|camino)[ \t]+[^\n]{3,60})/i);
+      if (dirMatch) data.titular.direccion = dirMatch[1].replace(/\s+/g, ' ').trim();
+
+      const telMatch = clean.match(/(?:\+34[\s.\-]?)?\b([6789]\d{8})\b/);
+      if (telMatch) data.titular.telefono = telMatch[1];
+
+      const emailMatch = clean.match(/[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}/);
+      if (emailMatch) data.titular.email = emailMatch[0];
+
+      const nombreMatch = clean.match(/(?:titular|cliente|nombre(?:\s+y\s+apellidos)?)[:\s]+([A-ZÁÉÍÓÚÑ][^\n]{2,60})/i);
+      if (nombreMatch) data.titular.nombre = nombreMatch[1].replace(/\s{2,}/g, ' ').trim();
 
       // 4. Importe Total de la Factura (€)
       const totalMatch = clean.match(/(?:TOTAL\s*FACTURA|TOTAL\s*IMPORTE|IMPORTE\s*TOTAL|TOTAL\s*A\s*PAGAR)[^0-9\n]{0,30}([0-9]{1,4}[,.]\d{2})\s*€?/i) ||
@@ -195,6 +215,7 @@
         historicoMensualKWh: null,
         consumoAnualEstimadoKWh: null,
         diagnosticoIA: null,
+        titular: { nombre: null, nif: null, direccion: null, cp: null, municipio: null, provincia: null, telefono: null, email: null },
         fuente: 'local'
       };
     },
@@ -220,6 +241,16 @@
           historicoMensualKWh: obj.historicoMensualKWh || null,
           consumoAnualEstimadoKWh: obj.consumoAnualEstimadoKWh || null,
           diagnosticoIA: obj.diagnosticoIA || null,
+          titular: obj.titular || {
+            nombre: obj.titularNombre || null,
+            nif: obj.titularNIF || null,
+            direccion: obj.direccionSuministro || null,
+            cp: obj.codigoPostal || null,
+            municipio: obj.municipio || null,
+            provincia: obj.provincia || null,
+            telefono: obj.telefono || null,
+            email: obj.email || null
+          },
           fuente: 'local'
         };
       } catch (e) {
@@ -283,6 +314,14 @@ Devuelve EXCLUSIVAMENTE un objeto JSON válido con la siguiente estructura exact
   "distribuidora": "Nombre de la distribuidora (i-DE, E-Distribución, UFD, E-Redes, etc.) o null",
   "comercializadora": "Nombre comercial de la comercializadora (Iberdrola, Endesa, Naturgy, TotalEnergies, Repsol, Octopus, Curenergía, etc.)",
   "tarifaAcceso": "2.0TD",
+  "titularNombre": "Nombre completo o razón social del titular/cliente de la factura o null",
+  "titularNIF": "NIF/DNI/CIF del titular (e.g. 12345678Z o B12345678) o null",
+  "direccionSuministro": "Dirección del punto de suministro (calle, número, piso) o null",
+  "codigoPostal": "Código postal de 5 dígitos o null",
+  "municipio": "Municipio/localidad o null",
+  "provincia": "Provincia o null",
+  "telefono": "Teléfono de contacto del titular o null",
+  "email": "Email de contacto del titular o null",
   "periodoInicio": "YYYY-MM-DD o null",
   "periodoFin": "YYYY-MM-DD o null",
   "diasFactura": 30,
@@ -344,7 +383,7 @@ Normas estrictas:
         }
       };
 
-      const models = ['gemini-3.8-flash', 'gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+      const models = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-3.8-flash', 'gemini-3.5-flash'];
       let lastError = null;
 
       for (const model of models) {
@@ -440,6 +479,16 @@ Normas estrictas:
         historicoMensualKWh: histArray,
         consumoAnualEstimadoKWh: consumoAnualEst > 0 ? Math.round(consumoAnualEst) : null,
         diagnosticoIA: d.diagnosticoIA || null,
+        titular: {
+          nombre: d.titularNombre ? String(d.titularNombre).trim() : null,
+          nif: d.titularNIF ? String(d.titularNIF).replace(/\s+/g, '').toUpperCase() : null,
+          direccion: d.direccionSuministro ? String(d.direccionSuministro).trim() : null,
+          cp: d.codigoPostal ? String(d.codigoPostal).trim() : null,
+          municipio: d.municipio ? String(d.municipio).trim() : null,
+          provincia: d.provincia ? String(d.provincia).trim() : null,
+          telefono: d.telefono ? String(d.telefono).trim() : null,
+          email: d.email ? String(d.email).trim() : null
+        },
         fuente: 'ia'
       };
     }
@@ -644,6 +693,21 @@ Normas estrictas:
                   <div style="display:flex;align-items:center;gap:6px;">
                     <span id="bill-detected-source-badge" style="display:none;background:rgba(16,185,129,0.2);border:1px solid #10b981;color:#34d399;font-size:9px;font-weight:800;padding:1px 6px;border-radius:4px;">🧠 IA</span>
                     <span id="bill-detected-company" style="color:#38bdf8;font-weight:700;">Sin factura</span>
+                  </div>
+                </div>
+
+                <!-- Datos del Titular / Cliente detectados (vista previa editable → documentación) -->
+                <div id="bill-titular-block" style="display:none;background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.28);border-radius:6px;padding:8px 10px;">
+                  <div style="font-size:9.5px;font-weight:800;color:#7dd3fc;text-transform:uppercase;margin-bottom:6px;">Datos del Titular / Cliente (se aplican a la documentación si están vacíos)</div>
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+                    <input type="text" id="bill-edit-tit-nombre" placeholder="Nombre / Razón social" style="width:100%;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:10px;padding:4px 6px;border-radius:4px;box-sizing:border-box;">
+                    <input type="text" id="bill-edit-tit-nif" placeholder="NIF / CIF" style="width:100%;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:10px;padding:4px 6px;border-radius:4px;box-sizing:border-box;">
+                    <input type="text" id="bill-edit-tit-tel" placeholder="Teléfono" style="width:100%;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:10px;padding:4px 6px;border-radius:4px;box-sizing:border-box;">
+                    <input type="text" id="bill-edit-tit-email" placeholder="Email" style="width:100%;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:10px;padding:4px 6px;border-radius:4px;box-sizing:border-box;">
+                    <input type="text" id="bill-edit-tit-dir" placeholder="Dirección de suministro" style="grid-column:1 / -1;width:100%;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:10px;padding:4px 6px;border-radius:4px;box-sizing:border-box;">
+                    <input type="text" id="bill-edit-tit-cp" placeholder="C.P." style="width:100%;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:10px;padding:4px 6px;border-radius:4px;box-sizing:border-box;">
+                    <input type="text" id="bill-edit-tit-mun" placeholder="Municipio" style="width:100%;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:10px;padding:4px 6px;border-radius:4px;box-sizing:border-box;">
+                    <input type="text" id="bill-edit-tit-prov" placeholder="Provincia" style="grid-column:1 / -1;width:100%;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:10px;padding:4px 6px;border-radius:4px;box-sizing:border-box;">
                   </div>
                 </div>
 
@@ -922,6 +986,20 @@ Normas estrictas:
         histCard.style.display = 'none';
       }
     }
+
+    const tit = bill.titular || {};
+    const titBlock = document.getElementById('bill-titular-block');
+    const hasTitular = !!(tit.nombre || tit.nif || tit.direccion || tit.cp || tit.municipio || tit.provincia || tit.telefono || tit.email);
+    if (titBlock) titBlock.style.display = hasTitular ? 'block' : 'none';
+    const fillTit = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+    fillTit('bill-edit-tit-nombre', tit.nombre);
+    fillTit('bill-edit-tit-nif', tit.nif);
+    fillTit('bill-edit-tit-tel', tit.telefono);
+    fillTit('bill-edit-tit-email', tit.email);
+    fillTit('bill-edit-tit-dir', tit.direccion);
+    fillTit('bill-edit-tit-cp', tit.cp);
+    fillTit('bill-edit-tit-mun', tit.municipio);
+    fillTit('bill-edit-tit-prov', tit.provincia);
 
     const cupsEl = document.getElementById('bill-edit-cups');
     if (cupsEl && bill.cups) cupsEl.value = bill.cups;
@@ -1267,6 +1345,7 @@ Normas estrictas:
           historicoMensualKWh: prev.historicoMensualKWh || null,
           consumoAnualEstimadoKWh: prev.consumoAnualEstimadoKWh || null,
           diagnosticoIA: prev.diagnosticoIA || null,
+          titular: collectTitularFromModal(),
           fuente: 'manual'
         };
 
@@ -1278,6 +1357,11 @@ Normas estrictas:
     // Aplicar al presupuesto
     if (applyBtn) {
       applyBtn.onclick = () => {
+        if (BILL_AUDITOR_STATE.currentBill) {
+          BILL_AUDITOR_STATE.currentBill.titular = collectTitularFromModal();
+          const cupsIn = document.getElementById('bill-edit-cups');
+          if (cupsIn && cupsIn.value.trim()) BILL_AUDITOR_STATE.currentBill.cups = cupsIn.value.trim();
+        }
         applyBillToBudget();
         closeModal();
       };
@@ -1407,6 +1491,26 @@ Normas estrictas:
   }
 
   /**
+   * 10.b RECOGER DATOS DEL TITULAR DESDE LA VISTA PREVIA EDITABLE DEL MODAL
+   */
+  function collectTitularFromModal() {
+    const read = (id) => {
+      const el = document.getElementById(id);
+      return el && el.value ? el.value.trim() : '';
+    };
+    return {
+      nombre: read('bill-edit-tit-nombre') || null,
+      nif: read('bill-edit-tit-nif').toUpperCase() || null,
+      direccion: read('bill-edit-tit-dir') || null,
+      cp: read('bill-edit-tit-cp') || null,
+      municipio: read('bill-edit-tit-mun') || null,
+      provincia: read('bill-edit-tit-prov') || null,
+      telefono: read('bill-edit-tit-tel') || null,
+      email: read('bill-edit-tit-email') || null
+    };
+  }
+
+  /**
    * 11. APLICAR DATOS DE FACTURA AL PRESUPUESTO & ESTUDIO DE LA APLICACIÓN
    */
   function applyBillToBudget() {
@@ -1426,9 +1530,47 @@ Normas estrictas:
       consumoInput.dispatchEvent(new Event('input', { bubbles: true }));
     }
 
-    if (bill.cups) {
-      const titularCups = document.getElementById('tit-cups');
-      if (titularCups) titularCups.value = bill.cups;
+    // Volcar datos del titular/cliente a la documentación técnica (#doc-*).
+    // Solo si el campo está vacío o aún conserva su valor por defecto (no sobrescribe datos ya introducidos).
+    const fillIfUntouched = (id, value) => {
+      if (!value) return;
+      const el = document.getElementById(id);
+      if (!el) return;
+      const cur = String(el.value || '');
+      if (!cur.trim() || cur === el.defaultValue) {
+        el.value = value;
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    };
+
+    fillIfUntouched('doc-cups', bill.cups);
+    const tit = bill.titular || {};
+    fillIfUntouched('doc-nombre', tit.nombre);
+    fillIfUntouched('doc-nif', tit.nif);
+    fillIfUntouched('doc-tel', tit.telefono);
+    fillIfUntouched('doc-email', tit.email);
+    fillIfUntouched('doc-dir', tit.direccion);
+    fillIfUntouched('doc-mun', tit.municipio);
+    fillIfUntouched('doc-prov', tit.provincia);
+    fillIfUntouched('doc-cp', tit.cp);
+
+    // Potencia contratada (P1 + P2) → #doc-potcontr
+    const potP1 = (bill.potenciasContratadasKW && bill.potenciasContratadasKW.p1) || 0;
+    const potP2 = (bill.potenciasContratadasKW && bill.potenciasContratadasKW.p2) || 0;
+    if (potP1 + potP2 > 0) fillIfUntouched('doc-potcontr', String(Math.round((potP1 + potP2) * 100) / 100));
+
+    // Distribuidora → #doc-dist (select): casar por texto, solo si sigue en su opción por defecto
+    if (bill.distribuidora && bill.distribuidora !== 'Desconocida') {
+      const distEl = document.getElementById('doc-dist');
+      if (distEl && distEl.tagName === 'SELECT' && distEl.selectedIndex === 0) {
+        const needle = String(bill.distribuidora).toLowerCase();
+        let matched = false;
+        for (let i = 0; i < distEl.options.length; i++) {
+          const text = distEl.options[i].text.toLowerCase();
+          if (text.includes(needle) || needle.includes(text.split(' ')[0])) { distEl.selectedIndex = i; matched = true; break; }
+        }
+        if (!matched && distEl.options.length > 0) distEl.selectedIndex = distEl.options.length - 1;
+      }
     }
 
     // Sincronizar targetKwp en solarProjectConfig según el consumo anual auditado
@@ -1509,6 +1651,7 @@ Normas estrictas:
         historicoMensualKWh: null,
         consumoAnualEstimadoKWh: null,
         diagnosticoIA: null,
+        titular: { nombre: null, nif: null, direccion: null, cp: null, municipio: null, provincia: null, telefono: null, email: null },
         fuente: 'manual'
       };
     }

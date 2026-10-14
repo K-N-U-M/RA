@@ -651,9 +651,6 @@
 
   // Exportar al ámbito global
   root.BOMTreeEngine = BOMTreeEngine;
-  if (typeof root.RA !== 'undefined') {
-    root.RA.bomEngine = BOMTreeEngine;
-  }
 
 })(typeof window !== 'undefined' ? window : global);
 

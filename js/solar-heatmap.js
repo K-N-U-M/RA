@@ -4,7 +4,7 @@
  * Física solar rigurosa, Time-Slicing dinámico (60 FPS sin congelación) y Diagnóstico MLPE.
  *
  * Características del motor:
- *   1. 192 instantes anuales (12 meses × 16 horas, de 6:00 a 21:00)
+ *   1. Hasta 192 instantes anuales (12 meses × 16 horas, de 6:00 a 21:00; se omiten los de sol < 10°)
  *   2. Corte de horizonte astronómico (elevación solar ≥ 3º)
  *   3. Ley del Coseno (ángulo de incidencia real S · N) y derating térmico estacional
  *   4. Modelo de Transposición: Directa + Difusa Hay-Davies anisotrópica + Albedo Trasero (Bifacial) — motor único RA.Radiation
@@ -450,7 +450,7 @@
     if (progressBar) progressBar.style.display = 'block';
     if (progressFill) progressFill.style.width = '0%';
     if (diagText) {
-      diagText.textContent = "Calculando modelo astronómico de 192 instantes (6:00 - 21:00)...";
+      diagText.textContent = "Calculando modelo astronómico (192 instantes nominales, 6:00-21:00; sol ≥ 10°)...";
       diagText.style.color = "var(--sky-400)";
     }
 
@@ -1021,7 +1021,7 @@
 
       diagText.innerHTML = `
         <div style="font-weight:700;color:${iconColor};margin-bottom:4px;">
-          ✓ Simulación anual completada (192 instantes${heatmapStride > 1 ? ', muestreo 1 de ' + heatmapStride + ' paneles' : ''} analizados)
+          ✓ Simulación anual completada (192 instantes nominales, 6:00-21:00; sol ≥ 10°${heatmapStride > 1 ? ', muestreo 1 de ' + heatmapStride + ' paneles' : ''})
         </div>
         <div style="font-size:8.5px;line-height:1.35;color:var(--text-slate-300);">
           ${diag.recommendationMsg}
@@ -1121,6 +1121,10 @@
     }
     if (Array.isArray(window.allRenderedPanels)) {
       window.allRenderedPanels.forEach(purgePanel);
+    }
+
+    if (window.RAMeasureTool && typeof window.RAMeasureTool.invalidateSnapCandidates === 'function') {
+      window.RAMeasureTool.invalidateSnapCandidates();
     }
 
     // 2. Si estaba en modo heatmap visual, limpiar las etiquetas 3D de producción
