@@ -448,7 +448,10 @@ function cursorGizmoShowAt(pos, explicitNormal, windowPos) {
   const cosTilt = Math.abs(Cesium.Cartesian3.dot(normal, radial));
   const tiltDeg = Cesium.Math.toDegrees(Math.acos(Cesium.Math.clamp(cosTilt, 0, 1)));
 
-  const east = Cesium.Cartesian3.cross(Cesium.Cartesian3.UNIT_Z, radial, new Cesium.Cartesian3());
+  const east = Cesium.Cartesian3.normalize(
+    Cesium.Cartesian3.cross(Cesium.Cartesian3.UNIT_Z, radial, new Cesium.Cartesian3()),
+    new Cesium.Cartesian3()
+  );
   const northVec = Cesium.Cartesian3.normalize(
     Cesium.Cartesian3.cross(radial, east, new Cesium.Cartesian3()),
     new Cesium.Cartesian3()
@@ -1712,7 +1715,10 @@ function wpComputePlaneFrom3Points(p1, p2, p3, axisMode) {
   }
 
   // Inclinacion y azimut (solo dependen de la normal — invariantes)
-  const east = Cesium.Cartesian3.cross(Cesium.Cartesian3.UNIT_Z, radial, new Cesium.Cartesian3());
+  const east = Cesium.Cartesian3.normalize(
+    Cesium.Cartesian3.cross(Cesium.Cartesian3.UNIT_Z, radial, new Cesium.Cartesian3()),
+    new Cesium.Cartesian3()
+  );
   const cosTilt = Math.abs(Cesium.Cartesian3.dot(normal, radial));
   const tiltDeg = Cesium.Math.toDegrees(Math.acos(Cesium.Math.clamp(cosTilt, 0, 1)));
   const northVec = Cesium.Cartesian3.normalize(
@@ -4828,15 +4834,29 @@ function populateEquipmentModalUI() {
 function applyInverterFromCatalog(invId) {
   const inv = equipmentCatalog.inverters.find(i => i.id === invId);
   if (!inv) return;
+  if (typeof window !== 'undefined' && window.solarProjectConfig) {
+    window.solarProjectConfig.selectedInverterId = invId;
+  }
+  const selInv = document.getElementById('step3-sel-inverter');
+  if (selInv) selInv.value = invId;
   const invCostEl = document.getElementById('cfg-pres-inv');
   if (invCostEl) invCostEl.value = inv.price;
-  updateBudgetUI();
+  if (typeof step3UpdateHardwareSelection === 'function') {
+    step3UpdateHardwareSelection();
+  } else {
+    updateBudgetUI();
+  }
   showStatus('INVERSOR ASIGNADO: ' + inv.brand + ' ' + inv.model + ' (' + inv.kw + ' kW)', 2500);
 }
 
 function applyBatteryFromCatalog(batId) {
   const bat = equipmentCatalog.batteries.find(b => b.id === batId);
   if (!bat) return;
+  if (typeof window !== 'undefined' && window.solarProjectConfig) {
+    window.solarProjectConfig.selectedBatteryId = batId;
+  }
+  const selBatId = document.getElementById('step3-sel-battery');
+  if (selBatId) selBatId.value = batId;
   const batCostEl = document.getElementById('cfg-pres-bat');
   const rowBat = document.getElementById('row-bat-cost');
   const selBat = document.getElementById('cfg-pres-bat-opt');
@@ -4848,7 +4868,11 @@ function applyBatteryFromCatalog(batId) {
     else if (bat.kwh <= 10.5) selBat.value = '10';
     else selBat.value = '15';
   }
-  updateBudgetUI();
+  if (typeof step3UpdateHardwareSelection === 'function') {
+    step3UpdateHardwareSelection();
+  } else {
+    updateBudgetUI();
+  }
   showStatus('BATERÍA ASIGNADA: ' + bat.brand + ' ' + bat.model + ' (' + bat.kwh + ' kWh)', 2500);
 }
 

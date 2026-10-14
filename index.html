@@ -10430,6 +10430,45 @@ window.wpCalculateAndRenderInverterCables = wpCalculateAndRenderInverterCables;
 
 function computeElectricalSizingEngineering(generator) {
   const { numPanels, cfg, tiltDeg, azimutDeg, latDeg } = generator;
+  if (!numPanels || numPanels <= 0) {
+    return {
+      P_dc_kW: 0,
+      P_ac_kW: 0,
+      inv_kW: 0,
+      monofasico: true,
+      V_ac: 230,
+      I_ac: 0,
+      I_ac_design: 0,
+      numStrings: 0,
+      modsPerString: 0,
+      minModsPerString: 0,
+      maxModsPerString: 0,
+      Voc_str_stc: 0,
+      Voc_str_max: 0,
+      Vmp_str_hot: 0,
+      I_total_dc: 0,
+      S_str: 6,
+      dVdc_pct: 0,
+      dV_dc: 0,
+      dV_ac: 0,
+      S_ac: 10,
+      dVac_pct: 0,
+      I_iga: 16,
+      dif_amp: 16,
+      spdType: "Tipo I+II (1000 V CC / 400 V AC - 40 kA)",
+      PR: 0.80,
+      lossTree: {
+        soiling: 2.5,
+        iam: 2.8,
+        thermal: 7.5,
+        mismatch: 2.0,
+        dc_ohmic: 1.5,
+        inverter: 2.5,
+        ac_ohmic: 0.8,
+        net_PR: 80.0
+      }
+    };
+  }
   const P_dc_kW = (numPanels * cfg.potencia) / 1000;
 
   const Voc = cfg.voc || 41.5;
@@ -10453,7 +10492,7 @@ function computeElectricalSizingEngineering(generator) {
     const invId = window.solarProjectConfig.selectedInverterId;
     activeInv = window.equipmentCatalog.inverters.find(i => i && i.id === invId);
   }
-  const V_dc_max   = (activeInv && (activeInv.vMax || activeInv.vMaxDc)) ? (activeInv.vMax || activeInv.vMaxDc) : 1000;
+  const V_dc_max   = (activeInv && (activeInv.vDcMax || activeInv.vMax || activeInv.vMaxDc)) ? (activeInv.vDcMax || activeInv.vMax || activeInv.vMaxDc) : 1000;
   const V_mppt_min = (activeInv && activeInv.vMpptMin) ? activeInv.vMpptMin : 160;
   const V_mppt_max = (activeInv && activeInv.vMpptMax) ? activeInv.vMpptMax : 850;
 
@@ -10501,7 +10540,8 @@ function computeElectricalSizingEngineering(generator) {
     const s = SEC_DC_AVAIL[i];
     const imax = IMAX_DC_ZZF[i];
     const dV = (2 * rho90 * L_dc * Imp) / s;
-    const dV_pct = (dV / (modsPerString * Vmp)) * 100;
+    const vStrBase = Math.max(modsPerString * Vmp, 1.0);
+    const dV_pct = (dV / vStrBase) * 100;
     if (imax >= I_dc_design && dV_pct <= 1.5) {
       S_str_opt = s;
       break;
@@ -10509,7 +10549,7 @@ function computeElectricalSizingEngineering(generator) {
   }
 
   const dV_dc = (2 * rho90 * L_dc * Imp) / S_str_opt;
-  const dVdc_pct = (dV_dc / (modsPerString * Vmp)) * 100;
+  const dVdc_pct = (dV_dc / Math.max(modsPerString * Vmp, 1.0)) * 100;
 
   const I_ac_design = 1.25 * I_ac;
   const SEC_AC_AVAIL = [2.5, 4, 6, 10, 16, 25, 35, 50, 70];

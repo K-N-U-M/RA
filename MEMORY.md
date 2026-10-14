@@ -401,6 +401,20 @@ calculateFinancialModel()  ← Definición canónica en financials.js (~L491)
   - Persistencia segura en `localStorage('ra_pricing_defaults')` para fijar los precios habituales del instalador y evitar ofertas a pérdidas.
   - Sincronización reactiva inmediata con el badge del Paso 5 (`#step5-pricing-badge`), el presupuesto general (`updateBudgetUI()`), el resumen ejecutivo de ingeniería y los inputs del desglose.
 
+---
+
+## 22. Auditoría Integral de Arquitectura, Código y UI/UX (Octubre 2026)
+
+- **Diagnóstico General:** Despliegue de 4 subagentes especializados para auditar UI/UX, motor 3D/física solar, ingeniería eléctrica/finanzas y código muerto.
+- **Limpieza del Repositorio:**
+  - Purgados y eliminados 60 ficheros huérfanos/temporales de la raíz (36 scripts `.py` desechables, `add_script.js`, directorio `__pycache__/` y 23 ficheros `.txt`).
+- **Hallazgos Clave Formalizados en `PLAN_DE_ACCION_AUDITORIA_INTEGRAL_2026.md`:**
+  - *Física 3D:* Corrección del acimut astronómico en `working-plane.js` por desnormalización del vector Este (desviación de ~8° en España).
+  - *Ingeniería Eléctrica:* Corrección de propiedad `vDcMax` en inversores para evitar violación IEC 62548; protección contra divisiones por cero en instalaciones con 0 paneles; soporte multi-inversor acumulativo en MPPTs y cable AC.
+  - *Rendimiento Gráfico:* Optimización de hover en mapa de calor con broadphase 2D; pool persistente de sombras dinámicas; cancelación atómica de simulación anual ante mutación de escena.
+  - *UI/UX:* Unificación del botón de Memoria Técnica PDF (eliminación de versión legacy redundante); resolución de solapamientos entre HUD solar, confirmación y ventana de materiales BOM; saneamiento de controles duplicados en Paso 2.
+
+
 
 
 

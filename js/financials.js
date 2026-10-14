@@ -40,7 +40,7 @@ function resolveEquipmentNames() {
   // ── Batería ──
   if (cfg.selectedBatteryId && cat.batteries && Array.isArray(cat.batteries)) {
     var bat = cat.batteries.find(function(b) { return b.id === cfg.selectedBatteryId; });
-    if (bat) {
+    if (bat && bat.id !== 'bat_none' && ((bat.kwh || bat.capacity || 0) > 0)) {
       result.batBrand = bat.brand || '';
       result.batModel = bat.model || '';
       result.batKwh = bat.kwh || bat.capacity || 0;
@@ -49,6 +49,13 @@ function resolveEquipmentNames() {
       result.hasBat = true;
       var totalKwh = (result.batKwh * result.batCount).toFixed(1);
       result.batName = result.batBrand + ' ' + result.batModel + ' (' + totalKwh + ' kWh)';
+    } else {
+      result.hasBat = false;
+      result.batBrand = '';
+      result.batModel = '';
+      result.batKwh = 0;
+      result.batCount = 0;
+      result.batName = 'Sin batería';
     }
   }
 

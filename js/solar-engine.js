@@ -262,7 +262,7 @@ function rayHitsAABB(origin, dir, minP, maxP) {
 }
 
 function rayCastingIsShaded(modulePoint, sunVec, obstacleBoxes) {
-  const dir = v3Scale(v3Norm(sunVec), -1); // rayo opuesto al Sol
+  const dir = v3Norm(sunVec); // rayo trazado desde el panel hacia el Sol
   for (const box of obstacleBoxes) {
     if (rayHitsAABB(modulePoint, dir, box.min, box.max)) return true;
   }
