@@ -147,15 +147,20 @@ NORMAS ESTRICTAS DE EXTRACCIÓN:
         if (resp.ok) {
           const data = await resp.json();
           if (Array.isArray(data.models)) {
+            // Filtrar únicamente modelos que soporten generación y excluir modelos especiales/pesados
+            const blacklist = /deep-research|tts|transcribe|image|live|audio|embed/i;
             const valid = data.models
               .filter(m => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'))
-              .map(m => m.name.replace(/^models\//, ''));
+              .map(m => m.name.replace(/^models\//, ''))
+              .filter(name => !blacklist.test(name));
 
             const flash = valid.filter(n => /flash/i.test(n));
-            const other = valid.filter(n => !/flash/i.test(n));
+            const pro = valid.filter(n => !/flash/i.test(n) && /pro/i.test(n));
 
             flash.sort((a, b) => b.localeCompare(a, undefined, { numeric: true, sensitivity: 'base' }));
-            const ordered = [...flash, ...other];
+            pro.sort((a, b) => b.localeCompare(a, undefined, { numeric: true, sensitivity: 'base' }));
+
+            const ordered = [...flash, ...pro];
             if (ordered.length > 0) {
               this._cachedAvailableModels = ordered;
               return ordered;
@@ -166,12 +171,12 @@ NORMAS ESTRICTAS DE EXTRACCIÓN:
         console.warn('[RAEquipmentAIImporter] No se pudo listar modelos dinámicamente:', e);
       }
       return [
+        'gemini-2.5-flash',
+        'gemini-2.0-flash',
+        'gemini-1.5-flash',
         'gemini-3.8-flash',
         'gemini-3.5-flash',
-        'gemini-3.5-flash-lite',
-        'gemini-2.5-flash',
-        'gemini-2.5-flash-lite',
-        'gemini-2.0-flash'
+        'gemini-2.5-flash-lite'
       ];
     },
 
@@ -651,20 +656,43 @@ NORMAS ESTRICTAS DE EXTRACCIÓN:
     },
 
     /**
-     * Muestra error de lectura
+     * Muestra error de lectura o aviso de cuota
      */
     renderError: function (errMsg) {
       const pane = document.getElementById('cat-pane-ai_import');
       if (!pane) return;
 
-      pane.innerHTML = `
-        <div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:24px;max-width:550px;margin:30px auto;text-align:center;">
-          <i data-lucide="alert-triangle" style="width:32px;height:32px;color:var(--rose-500);margin-bottom:10px;"></i>
-          <div style="font-size:13px;font-weight:bold;color:var(--rose-400);margin-bottom:8px;">No se pudo extraer la información</div>
-          <div style="font-size:11px;color:var(--text-slate-300);margin-bottom:20px;line-height:1.5;">${errMsg}</div>
-          <button class="doc-mini-btn" onclick="RAEquipmentAIImporter.renderInitialUI(document.getElementById('cat-pane-ai_import'))" style="border-color:var(--sky-400);color:var(--sky-400);padding:6px 14px;font-size:11px;">Intentar de nuevo</button>
-        </div>
-      `;
+      const isQuota = /quota|exceeded|rate.?limit|429/i.test(errMsg);
+
+      if (isQuota) {
+        pane.innerHTML = `
+          <div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:10px;padding:24px;max-width:580px;margin:25px auto;text-align:center;">
+            <i data-lucide="clock" style="width:36px;height:36px;color:var(--amber-400);margin-bottom:12px;"></i>
+            <div style="font-size:14px;font-weight:bold;color:var(--amber-400);margin-bottom:8px;">Límite de cuota gratuita alcanzado temporalmente</div>
+            <p style="font-size:11px;color:var(--text-slate-300);line-height:1.5;margin-bottom:14px;">
+              Google limita las peticiones por minuto en su plan gratuito. Espera unos <b>20 segundos</b> antes de reintentar.
+            </p>
+            <div style="background:rgba(0,0,0,0.3);border-radius:6px;padding:10px 12px;margin-bottom:16px;font-size:10px;color:var(--text-slate-400);text-align:left;">
+              💡 <b>¿Cómo evitar límites de cuota?</b><br>
+              En <b>Google AI Studio</b> puedes activar el plan de <i>pago por uso (Pay-as-you-go)</i> vinculando una tarjeta. El coste es de apenas <b>~0,0003 € por ficha técnica</b> (1 € rinde para más de 3.000 fichas) y te da más de 1.000 peticiones por minuto sin esperas.
+            </div>
+            <div style="display:flex;justify-content:center;gap:10px;">
+              <button class="doc-mini-btn" onclick="RAEquipmentAIImporter.renderInitialUI(document.getElementById('cat-pane-ai_import'))" style="border-color:var(--sky-400);color:var(--sky-400);padding:7px 16px;font-size:11px;font-weight:bold;">
+                <i data-lucide="rotate-cw" class="icon-sm"></i> Reintentar ahora
+              </button>
+            </div>
+          </div>
+        `;
+      } else {
+        pane.innerHTML = `
+          <div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:24px;max-width:550px;margin:30px auto;text-align:center;">
+            <i data-lucide="alert-triangle" style="width:32px;height:32px;color:var(--rose-500);margin-bottom:10px;"></i>
+            <div style="font-size:13px;font-weight:bold;color:var(--rose-400);margin-bottom:8px;">No se pudo extraer la información</div>
+            <div style="font-size:11px;color:var(--text-slate-300);margin-bottom:20px;line-height:1.5;">${errMsg}</div>
+            <button class="doc-mini-btn" onclick="RAEquipmentAIImporter.renderInitialUI(document.getElementById('cat-pane-ai_import'))" style="border-color:var(--sky-400);color:var(--sky-400);padding:6px 14px;font-size:11px;">Intentar de nuevo</button>
+          </div>
+        `;
+      }
       if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
     },
 
