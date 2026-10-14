@@ -11,7 +11,7 @@
 - Diseño CAD asistido sobre cubierta (planos de trabajo, faldones, obstáculos).
 - Empaquetado automático de paneles con algoritmos geométricos de contención 2D.
 - Ingeniería eléctrica DC/AC conforme a REBT / IEC 62548 / CTE.
-- Simulación anual (12 meses × 13 horas), diagnóstico MLPE y generación de informe/presupuesto PDF.
+- Simulación anual (12 meses × 16 horas = 192 instantes), diagnóstico MLPE y generación de informe/presupuesto PDF.
 
 La aplicación opera **100% en el navegador, sin backend**. La persistencia se realiza en `localStorage`.
 
@@ -30,7 +30,7 @@ El producto está estructurado como un asistente secuencial controlado por `wpGo
 | :---: | :--- | :--- |
 | **1** | 🏠 EMPLAZAMIENTO | Definir plano de trabajo (3 clics P1/P2/P3), trazar faldones poligonales, colocar obstáculos 3D (chimeneas, HVAC, árboles, aerogeneradores). |
 | **2** | ☀️ CAMPO SOLAR | Seleccionar módulo FV del catálogo, generar layout booleano, ajustar inclinación β y azimut, portrait/landscape, visualización 3D de la malla. |
-| **3** | 🌤️ ANÁLISIS SOLAR | Importar factura eléctrica del cliente, definir objetivo kWh/kWp, lanzar simulación anual (156 instantes), visualizar heatmap y diagnóstico MLPE. |
+| **3** | 🌤️ ANÁLISIS SOLAR | Importar factura eléctrica del cliente, definir objetivo kWh/kWp, lanzar simulación anual (192 instantes), visualizar heatmap y diagnóstico MLPE. |
 | **4** | ⚡ INGENIERÍA | Dimensionar inversor y batería, validar strings MPPT, calcular y trazar cableado DC/AC, comprobación IEC 62548 y CTE. |
 | **5** | 📄 ENTREGA | Balance financiero (CAPEX/OPEX, VAN, TIR), exportación de Memoria Técnica y Oferta Comercial en PDF. |
 
@@ -64,7 +64,7 @@ El producto está estructurado como un asistente secuencial controlado por `wpGo
 - Pasillos de mantenimiento en 1 clic: pasillo central despejado de 0.80 m por faldón o replicado globalmente para accesibilidad y seguridad en obra.
 
 ### 4.4 Análisis solar y factura (Paso 3)
-- Simulación asíncrona en 156 instantes solares con heatmap de irradiancia por panel.
+- Simulación asíncrona en 192 instantes solares con heatmap de irradiancia por panel.
 - Diagnóstico MLPE: umbral de sombra heterogénea para recomendar optimizadores/microinversores.
 - Importación de factura: PDF/CSV/JSON → curva de consumo horario y objetivo de autoconsumo.
 

@@ -18,8 +18,7 @@ Este documento define las **reglas obligatorias** de desarrollo para cualquier a
 | :--- | :--- |
 | **CRLF en `index.html`** | Usa saltos de línea Windows `\r\n`. **NUNCA** reemplazos multilínea ingenuos con solo `\n`; usa regex `\r?\n` o scripts Node con buffers/UTF-8. |
 | **`js/*.js`** | Mantener el estilo existente (puntos y coma, comillas, 2 espacios). |
-| **`src/*.ts`** | Capa de referencia matemática: funciones puras, sin estado. |
-| **`scratch/`** | Scripts de parche/verificación desechables o reutilizables; no forman parte del runtime. |
+| **`tests/`** | Scripts de verificación reutilizables; no forman parte del runtime. |
 
 ## 3. Estructura y modularidad
 
@@ -44,11 +43,12 @@ El usuario comprueba manualmente. Aun así:
 1. **Validación de sintaxis** de `js/*.js` y de cada `<script>` de `index.html`:
    ```bash
    node --check "js/working-plane.js"
-   node "scratch/check_js_syntax.js"
+   node "tests/test-js-syntax.js"
    ```
 2. **Suite de verificación** (si se toca cálculo eléctrico, sombras, catálogo o cableado):
    ```bash
-   node "scratch/run_full_verification.js"
+   node "tests/test-ra-full-workflow.js"
+   node "tests/test-equipment-ai-importer.js"
    ```
 3. **No ejecutar pruebas del usuario.** Las pruebas manuales las realiza el usuario con su navegador.
 
@@ -64,8 +64,8 @@ El usuario comprueba manualmente. Aun así:
 
 ## 7. Umbrales de calidad (definition of done)
 
-- [ ] Sintaxis validada (`node --check` + `check_js_syntax.js`) sin errores.
+- [ ] Sintaxis validada (`node --check` + `tests/test-js-syntax.js`) sin errores.
 - [ ] Sin código muerto añadido al diff.
 - [ ] Nombres y comentarios consistentes con el dominio.
 - [ ] Si se tocó manipulación 3D: gizmo redibujado en `postRender` (aunque el cursor no esté sobre Cesium).
-- [ ] Si se tocó un dominio con verificador: suite `run_full_verification.js` en 100 % PASS.
+- [ ] Si se tocó un dominio con verificador: suite `tests/test-ra-full-workflow.js` en 100 % PASS.

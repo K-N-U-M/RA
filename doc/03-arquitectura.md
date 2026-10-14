@@ -18,10 +18,7 @@ La aplicación es un **monolito cliente** organizado en capas lógicas accesible
 │                     obstacles, wind-turbine, solar-engine,   │
 │                     electrical, financials, docs-generator)  │
 ├──────────────────────────────────────────────────────────────┤
-│  Núcleo matemático  src/*.ts  (coords ENU/WGS84, vector3,    │
-│                     quaternion, polygon2d, solar, shading)    │
-├──────────────────────────────────────────────────────────────┤
-│  Render 3D          CesiumJS (WebGL) + Three.js               │
+│  Render 3D          CesiumJS (WebGL) — único motor 3D         │
 │  Overlay 2D         canvas#ra-triad-overlay (z-index 999999)  │
 ├──────────────────────────────────────────────────────────────┤
 │  Persistencia       localStorage                             │
@@ -42,11 +39,8 @@ La aplicación es un **monolito cliente** organizado en capas lógicas accesible
 ### 2.3 Motores JS (`js/`)
 Funciones y objetos modulares por dominio. Interactúan con Cesium a través del visor global `viewer`/`viewer.scene`/`viewer.camera` (nunca referencias directas a `scene` o `camera` declaradas en otro scope) y se registran en `window` para interoperar con `index.html`.
 
-### 2.4 Núcleo matemático (`src/`)
-Funciones **puras e inmutables** (sin estado ni efectos): convierten coordenadas, operan vectores/quaterniones y miden geometría. Fuente de verdad algorítmica ante discrepancias entre motores.
-
 ### 2.4 Render
-- **CesiumJS:** globos, tiles, terreno, primitivas 3D (edificios, obstáculos, paneles, sombras).
+- **CesiumJS:** globos, tiles, terreno, primitivas 3D (edificios, obstáculos, paneles, sombras). Es el **único motor 3D**; no hay Three.js.
 - **Overlay 2D:** `canvas#ra-triad-overlay` con `position:fixed`, `100vw×100vh`, `pointer-events:none`. En este canvas se dibujan: cursor CAD/fallback, tríada ortogonal, gizmo de vértice y **gizmo universal**.
 
 ## 3. Estado global clave
@@ -56,18 +50,19 @@ Funciones **puras e inmutables** (sin estado ni efectos): convierten coordenadas
 | `viewer`, `scene`, `camera` | `js/viewer.js` | Singleton del visor Cesium. |
 | `WP` | `js/working-plane.js` | Planos de trabajo, polilíneas, modo (`mode`), paso activo, cursor. |
 | `triadState` | `js/working-plane.js` | Estado de la tríada del cursor (pos3D, ejes U/V/N, escala, snapTarget). |
-| `window.solarProjectConfig` | `index.html` | Equipos seleccionados y auto-dimensionamiento (catálogo). |
-| `buildings[]` | `index.html` | Edificios con `points`, huella, extrusión y tipologías. |
-| `bldFootprintState` | `index.html` | Edición de huella: vértice seleccionado (`selectedVtxIdx`), modo edición. |
-| `universalGizmoState` | `index.html` | Gizmo universal: `active`, `mode`, `screen`, `startPos`, `startMouse`, `wp`. |
-| `selectedObstacleId`, `selectedPanelIndex`, `selectedElectricalId` | `index.html` | Selección activa de objetos 3D. |
-| `obstacles[]` / paneles / equipos | dominios | Mallas de datos 3D de escena. |
+| `window.solarProjectConfig` | `js/project-config.js` | Equipos seleccionados y auto-dimensionamiento (catálogo). |
+| `buildings[]` | `js/buildings.js` | Edificios con `points`, huella, extrusión y tipologías. |
+| `bldFootprintState` | `js/buildings.js` | Edición de huella: vértice seleccionado (`selectedVtxIdx`), modo edición. |
+| `universalGizmoState` | `index.html` (inline) | Gizmo universal: `active`, `mode`, `screen`, `startPos`, `startMouse`, `wp`. |
+| `selectedObstacleId`, `selectedPanelIndex`, `selectedElectricalId` | `index.html` (inline) | Selección activa de objetos 3D. |
+| `obstacles[]` | `js/obstacles.js` | Mallas de datos 3D de los obstáculos de escena. |
+| paneles / equipos | dominios | Mallas de datos 3D de escena. |
 
 ## 4. Patrones arquitectónicos
 
 1. **Namespace global explícito.** Todo lo invocable desde HTML o entre módulos se expone en `window` (p. ej. `window.selectBuildingVertex`, `window.renderUniversalGizmo2D`).
 2. **Módulos por dominio.** Un archivo JS = un dominio (planos, edificios, obstáculos, eléctrico…).
-3. **Funciones puras en el núcleo TS.** Cálculo aislado, testeable y reusable.
+3. **Funciones puras y aisladas.** El cálculo geométrico/matemático se mantiene en funciones puras dentro de los módulos, testeable y reusable.
 4. **Render por overlays.** El canvas 2D por encima de WebGL separa el HUD/manipuladores (baja frecuencia) del render 3D (alta frecuencia).
 5. **Throttling de GPU.** Los `pick` del ratón se limitan (~32 ms, máx ~30/s) y se saltan durante `panning` para mantener 60 FPS.
 

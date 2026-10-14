@@ -68,7 +68,20 @@ c:/TRABAJOS/RA/
     ├── project-hierarchy.js     # Árbol de proyecto Scene Graph y gestión relacional
     ├── ui-outliner.js           # Panel flotante HUD del Árbol BIM del proyecto
     ├── bom-tree.js              # Estructura de desglose de materiales (BOM) y cargas
-    └── engineering-explainer.js # Diagnóstico inteligente y explicaciones técnicas
+    ├── engineering-explainer.js # Diagnóstico inteligente y explicaciones técnicas
+    ├── project-config.js        # Configuración del proyecto, equipos y auto-dimensionamiento
+    ├── project-storage.js       # Exportación/importación .raproject y autoguardado
+    ├── cable-engine.js          # Enrutado físico 3D de cableado DC/AC (RACableEngine)
+    ├── equipment-ai-importer.js # Importador de fichas técnicas con IA multimodal
+    ├── company-branding.js      # Identidad corporativa, logotipo y clave Gemini
+    ├── measure-tool.js          # Cinta métrica 3D con snap magnético (RAMeasureTool)
+    ├── capture-mode.js          # Modo captura limpia para screenshots (RACapture)
+    ├── undo-manager.js          # Deshacer/rehacer universal (RAundo)
+    ├── ui-viewport-controls.js  # Alertas toast, carga y controles de visualización 3D
+    ├── wind-turbine.js          # Aerogeneradores 3D paramétricos (RAWindTurbine)
+    ├── cesium-safety.js         # Red de seguridad anti-crash sobre Cesium
+    ├── geometry-validate.js     # Validación de polígonos simples
+    └── error-handler.js         # Gestor central de errores de runtime
 ```
 
 ---
@@ -77,12 +90,15 @@ c:/TRABAJOS/RA/
 
 | Tecla | Acción | Contexto |
 | :---: | :--- | :--- |
-| `H` | Alternar visibilidad de paneles y HUD | General |
-| `T` | Alternar textura PBR fotorrealista en módulos FV | Campo Solar / 3D |
-| `S` | Conmutar snapping magnético de aristas | CAD / Trazado |
-| `Supr / Del` | Eliminar elemento seleccionado (vértice, obstáculo, módulo) | Gizmo Activo |
-| `Escape` | Cancelar herramienta activa o deseleccionar elemento | General |
-| `Ctrl + Z` | Deshacer última acción geométrica | Trazado |
+| `M` | Alternar la cinta métrica 3D (medición física 3D, 2D y desnivel) | Global |
+| `S` | Conmutar el snap magnético de la cinta métrica (con `M` activa) | Cinta métrica |
+| `T` | Alternar textura PBR fotorrealista en módulos FV | Paso 2 / 3 |
+| `L` / `H` | Alternar etiquetas 3D / visibilidad de paneles | Global |
+| `C` | Alternar modo captura limpia (screenshots) | Global |
+| `Escape` | Cancelar herramienta activa o deseleccionar elemento | Global |
+| `Supr / Del` | Eliminar elemento seleccionado (vértice, obstáculo, módulo) | Selección activa |
+| `Ctrl + Z` | Deshacer universal | Global |
+| `Ctrl + Shift + Z` / `Ctrl + Y` | Rehacer | Global |
 
 ---
 

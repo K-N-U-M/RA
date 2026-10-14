@@ -27,8 +27,7 @@ c:/TRABAJOS/RA/
 ├── index.html                       # Aplicación completa (HTML/CSS/JS monolito cliente)
 ├── AGENTS.md                        # ← ESTE ARCHIVO. Fuente de verdad para agentes IA.
 ├── MEMORY.md                        # Memoria viva del proyecto: decisiones, estado, deuda técnica
-├── PLAN_MAESTRO_REESTRUCTURACION_FLUJO.md  # Plan de implementación por fases
-├── MIGRATION_PLAN.md                # Riesgos y estrategia de migración técnica
+├── AUDITORIA_INTEGRAL_Y_PLAN_DE_RESOLUCION_2026.md  # Auditoría vigente y plan por gravedad
 ├── MANUAL_TECNICO_INGENIERIA_RA.md  # Física solar y formulación matemática
 ├── css/styles.css                   # Estilos complementarios
 ├── js/
@@ -56,7 +55,7 @@ c:/TRABAJOS/RA/
 │   ├── measure-tool.js              # Cinta métrica 3D con desglose físico y snap magnético
 │   ├── config.js                    # Constantes globales y paletas
 │   └── viewer.js                    # Configuración del visor Cesium
-├── scratch/                         # Scripts de verificación automatizados
+├── tests/                           # Scripts de verificación automatizados
 └── doc/                             # Documentación canónica de arquitectura
 ```
 
@@ -252,9 +251,9 @@ Estado en `window.solarProjectConfig`:
 | :--- | :--- |
 | `AGENTS.md` | ← Este archivo. Flujo, arquitectura y reglas para IA. |
 | `MEMORY.md` | Memoria viva: decisiones de diseño, estado, SSOT map, deuda técnica. |
-| `PLAN_MAESTRO_REESTRUCTURACION_FLUJO.md` | Hoja de ruta de implementación por fases |
-| `MIGRATION_PLAN.md` | Análisis de riesgo y estrategia de migración técnica |
+| `AUDITORIA_INTEGRAL_Y_PLAN_DE_RESOLUCION_2026.md` | Auditoría vigente y plan de resolución ordenado por gravedad |
 | `MANUAL_TECNICO_INGENIERIA_RA.md` | Física solar y formulación matemática detallada |
+| `doc/historico_auditorias/` | Auditorías y planes históricos ya superados |
 | `doc/01-especificaciones.md` | Especificaciones funcionales y no funcionales |
 | `doc/02-tecnologia.md` | Stack tecnológico y módulos |
 | `doc/03-arquitectura.md` | Arquitectura, estado global y renderizado |

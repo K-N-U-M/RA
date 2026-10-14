@@ -441,6 +441,23 @@ calculateFinancialModel()  ← Definición canónica en financials.js (~L491)
     - Cumplimiento estricto de la ventana de 4 horas en solsticio de invierno (10:00 a 14:00 hora solar) según CTE DB-HE5 / IDAE en `computeInterRowPitch` (`solar-engine.js`), garantizando que la separación entre filas no produzca autosombreados invernales (paso total $\sim 4.60\text{ m}$ para módulos de $2.20\text{ m}$ a $30^\circ$ en latitud $40.4^\circ$).
   - **Próximas Fases Programadas:** Fase 7 (Ergonomía de Flujo, Modales Accesibles y Desbloqueos).
 
+---
+
+## 23. Auditoría Integral v3.0 y Limpieza de Repositorio (Octubre 2026)
+
+- **Diagnóstico:** nueva auditoría multi-agente sobre 5 dominios (UI/UX y flujo, física solar, ingeniería eléctrica y persistencia, finanzas/IA/documentos, repositorio y documentación). Plan vigente en `AUDITORIA_INTEGRAL_Y_PLAN_DE_RESOLUCION_2026.md`.
+- **Hallazgos verificados más graves:**
+  - El desplegable "Estructura de Montaje" del faldón llama a `wpSetPolyStructure`, **no publicada en `window`** (el módulo `working-plane.js` es una IIFE): el `onchange` lanza error y no aplica cambios.
+  - La TIR de la **Oferta Comercial** se multiplica **×100 dos veces** (`docs-generator.js` aplica `m.tir * 100` sobre un valor que `financials.js` ya devuelve en %), mostrando cifras absurdas (p. ej. 1500 %); la Memoria Técnica sí la muestra correcta.
+  - La conclusión de la Memoria Técnica lee `d.roi` (campo **inexistente**) → imprime siempre "undefined años".
+  - Copia de respaldo de cálculo eléctrico y de configuraciones de panel duplicada entre `index.html` (inline) y los módulos; claves de Google/Cesium **duplicadas** en `index.html` y `js/config.js`.
+- **Limpieza ejecutada:**
+  - Eliminados 6 scripts de verificación de un solo uso en `scratch/` (fases 1/5/6/7, dirty-state, model-discovery).
+  - Movidas 3 pruebas reutilizables de `scratch/` a `tests/` (`test-js-syntax.js`, `test-ra-full-workflow.js`, `test-equipment-ai-importer.js`).
+  - Archivados 4 planes superados en `doc/historico_auditorias/` (`PLAN_MAESTRO_REESTRUCTURACION_FLUJO`, `MIGRATION_PLAN`, `PLAN_DE_ACCION_AUDITORIA_INTEGRAL_2026`, `PLAN_IMPLEMENTACION_IMPORTADOR_DATASHEETS_IA`).
+  - Renombrado `agents.md` → `AGENTS.md` (coincidencia exacta con las referencias; portabilidad Linux).
+- **Documentación corregida:** `doc/01` (13→16 h, 156→192 instantes), `doc/02` y `doc/03` (eliminada capa inexistente `src/*.ts` y Three.js; inventario de 30 módulos; rutas de pruebas), `doc/04` (script names), `README.md` (módulos y atajos), `AGENTS.md` (referencias a documentación).
+
 
 
 
