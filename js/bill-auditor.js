@@ -21,6 +21,14 @@
     pendingFile: null        // Archivo en espera si se requiere API Key
   };
 
+  // [D1+D2] Cliente IA unificado (cabecera x-goog-api-key, timeout y cancelación).
+  function _aiFetch(url, opts, timeoutMs) {
+    if (window.RA && typeof window.RA.geminiFetch === 'function') {
+      return window.RA.geminiFetch(url, opts, timeoutMs);
+    }
+    return fetch(url, opts);
+  }
+
   /**
    * 1. PARSER DETERMINISTA LOCAL DE FACTURAS ELÉCTRICAS (ESPAÑA)
    */
@@ -227,9 +235,14 @@
     getApiKey() {
       let key = '';
       try {
-        key = (window.RA && window.RA.geminiApiKey)
-          ? window.RA.geminiApiKey
-          : (localStorage.getItem('ra_gemini_api_key') || '');
+        if (window.RA && typeof window.RA.getGeminiApiKey === 'function') {
+          key = window.RA.getGeminiApiKey();
+        }
+        if (!key) {
+          key = (window.RA && window.RA.geminiApiKey)
+            ? window.RA.geminiApiKey
+            : (localStorage.getItem('ra_gemini_api_key') || '');
+        }
       } catch (e) { key = ''; }
       return (key || '').trim();
     },
@@ -237,6 +250,10 @@
     setApiKey(key) {
       const cleanKey = (key || '').trim();
       try {
+        if (window.RA && typeof window.RA.setGeminiApiKey === 'function') {
+          window.RA.setGeminiApiKey(cleanKey);
+          return cleanKey;
+        }
         if (cleanKey) {
           localStorage.setItem('ra_gemini_api_key', cleanKey);
         } else {
@@ -333,11 +350,11 @@ Normas estrictas:
       for (const model of models) {
         try {
           const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
-          const resp = await fetch(url, {
+          const resp = await _aiFetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestBody)
-          });
+          }, 90000);
 
           if (!resp.ok) {
             const errData = await resp.json().catch(() => ({}));

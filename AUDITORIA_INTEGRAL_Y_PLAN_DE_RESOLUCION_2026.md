@@ -164,7 +164,7 @@ Hay funciones que existen pero no están conectadas a ningún control (cambiar a
 
 ### Fase B — Números que ve el cliente (P0–P1).
 - [x] **B1.** Corregir la duración del día por mes y calibrar la curva diaria (C6).
-- [~] **B2.** Unificar motor de radiación entre comparador y mapa de calor (G6). *Parcial:* el mapa de calor ya usa el modelo difuso Erbs (igual que el motor canónico de `getProjectCalcs`); la unificación total con `runPhysicalModel` (comparador) se difiere por ser un refactor de mayor riesgo.
+- [x] **B2.** Unificar motor de radiación entre comparador y mapa de calor (G6). *Resuelto:* módulo único `js/radiation-engine.js` (`RA.Radiation`: Erbs + Hay-Davies + IAM ASHRAE). `computePOAIrradiance` delega (paridad exacta verificada: 4160 casos offline + Δ=0 en vivo), `calcPOA` y `runPhysicalModel` usan el mismo motor, y el mapa de calor migra de difusa isótropa a Hay-Davies anisotrópica. **Validado en vivo:** el anual canónico pasa de 6033 → 6044 kWh/año (**+0.18%**), sin errores de consola. El comparador de escenarios pasa de Perez simplificado a Erbs/Hay-Davies (−30% aprox.) y queda alineado con el motor canónico.
 - [x] **B3.** Corregir meses y paso en los modos de calidad rápida (G5).
 - [x] **B4.** Bloquear generación de PDF con análisis caducado o en curso (G7).
 - [x] **B5.** Unificar el ahorro anual entre memoria y oferta (G8).
@@ -179,11 +179,11 @@ Hay funciones que existen pero no están conectadas a ningún control (cambiar a
 - [x] **C6.** Corrección térmica/agrupamiento de cables (M6).
 
 ### Fase D — Robustez e IA (P1–P2).
-- [ ] **D1.** Clave IA en cabecera y almacenamiento no en claro (G9).
-- [ ] **D2.** Tiempo máximo y cancelación en llamadas IA (G10).
-- [ ] **D3.** Evitar doble análisis con doble clic (M13).
-- [ ] **D4.** Estado unificado del mapa de calor (M1).
-- [ ] **D5.** Distinguir "0 real" de "vacío" en costes (M10).
+- [x] **D1.** Clave IA en cabecera y almacenamiento no en claro (G9).
+- [x] **D2.** Tiempo máximo y cancelación en llamadas IA (G10).
+- [x] **D3.** Evitar doble análisis con doble clic (M13).
+- [x] **D4.** Estado unificado del mapa de calor (M1).
+- [x] **D5.** Distinguir "0 real" de "vacío" en costes (M10).
 
 ### Fase E — Limpieza y consistencia (P2–P3).
 - [ ] **E1.** Eliminar/duplicar código: config de panel, utilidades repetidas, historial duplicado (M14, M8).

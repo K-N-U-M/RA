@@ -357,6 +357,11 @@ function computeHighPrecisionSolarPosition(latDeg, lonDeg, doy, solarDecimalHour
 }
 
 function computePOAIrradiance(G_ghi, latDeg, tiltDeg, azSurDeg, sunElevDeg, sunAzSurDeg, albedo = 0.20) {
+  // [B2] Motor único de radiación (Erbs + Hay-Davies) — SSOT en js/radiation-engine.js
+  if (typeof global !== 'undefined' && global.RA && global.RA.Radiation && typeof global.RA.Radiation.poa === 'function') {
+    return global.RA.Radiation.poa(G_ghi, latDeg, tiltDeg, azSurDeg, sunElevDeg, sunAzSurDeg, albedo);
+  }
+  // Fallback para entornos sin el módulo (p. ej. tests aislados)
   if (sunElevDeg <= 0 || G_ghi <= 0) return { G_poa: 0, G_b: 0, G_d: 0, G_r: 0, iamFactor: 1 };
 
   const tiltRad = (tiltDeg * Math.PI) / 180;
@@ -445,6 +450,20 @@ function solarAzimuth(latDeg, declDeg, haDeg, altDeg) {
 
 function calcPOA(GHI, DHI, latDeg, tiltDeg, azimutPanelDeg, dayOfYear, hourSolar) {
   if (GHI <= 0) return 0;
+  // [B2] Motor único de radiación: calcular geometría solar y delegar en RA.Radiation.poa
+  if (typeof global !== 'undefined' && global.RA && global.RA.Radiation && typeof global.RA.Radiation.poa === 'function') {
+    const decl = solarDeclination(dayOfYear);
+    const ha = hourAngle(hourSolar);
+    const altDeg = solarAltitude(latDeg, decl, ha);
+    if (altDeg <= 0) return 0;
+    const azFromNorth = solarAzimuthAtan2(latDeg, decl, ha);
+    // Compass (0°=N, 180°=S) → convención Sur del motor (0°=S, -90°=E, +90°=O). Rango [-180,180).
+    const sunAzSur = azFromNorth - 180;
+    // azimutPanelDeg llega en convención brújula (180°=Sur); el motor usa 0°=Sur
+    const panelAzSur = azimutPanelDeg - 180;
+    return global.RA.Radiation.poa(GHI, latDeg, tiltDeg, panelAzSur, altDeg, sunAzSur, 0.20).G_poa;
+  }
+  // Fallback legacy (Perez simplificado) para entornos sin el módulo
   const DNI = Math.max((GHI - DHI) / Math.max(Math.sin(solarAltitude(latDeg, solarDeclination(dayOfYear), hourAngle(hourSolar)) * Math.PI / 180), 0.01), 0);
 
   const tilt = tiltDeg * Math.PI / 180;
@@ -571,34 +590,36 @@ function runPhysicalModel(kwp, latDeg, lonDeg, tiltDeg, azimutDeg, cfg) {
     const doy = midDay[m];
     const nDays = MONTH_DAYS_SIM[m];
     const GHI_monthly = estimateMonthlyGHI(latDeg, m);
-    const DHI_fraction = 0.30 + 0.05 * Math.sin((m / 12) * 2 * Math.PI); // DHI ≈ 30-35% of GHI
-    const DHI_avg = GHI_monthly * DHI_fraction / SOLAR_CONST; // normalize
+    const decl = solarDeclination(doy);
 
     let monthlyWh = 0;
     let mTempLoss = 0, mIAMLoss = 0;
 
     // Simplified hourly integration using sine approximation for month
-    const sunriseHour = 12 - (Math.acos(-Math.tan(latDeg * Math.PI / 180) * Math.tan(solarDeclination(doy) * Math.PI / 180)) * 180 / Math.PI) / 15;
+    const sunriseHour = 12 - (Math.acos(-Math.tan(latDeg * Math.PI / 180) * Math.tan(decl * Math.PI / 180)) * 180 / Math.PI) / 15;
     const sunsetHour = 24 - sunriseHour;
 
     for (let h = Math.floor(sunriseHour); h <= Math.ceil(sunsetHour); h++) {
-      const altDeg = solarAltitude(latDeg, solarDeclination(doy), hourAngle(h));
+      const ha = hourAngle(h);
+      const altDeg = solarAltitude(latDeg, decl, ha);
       if (altDeg <= 0) continue;
 
       const sinAlt = Math.sin(altDeg * Math.PI / 180);
       // GHI_monthly está en Wh/m²/día. Distribución sinusoidal diurna (integral diurna = GHI_monthly):
       const dayLen = Math.max(sunsetHour - sunriseHour, 1);
       const GHI_instant = Math.max((GHI_monthly / dayLen) * (Math.PI / 2) * sinAlt, 0); // W/m²
-      const DHI_instant = GHI_instant * DHI_fraction;
 
-      const GPOA = calcPOA(GHI_instant, DHI_instant, latDeg, tiltDeg, azimutDeg, doy, h);
+      // [B2] Motor único de radiación (Erbs + Hay-Davies). Geometría del azimut solar desde el Sur.
+      const azFromNorth = solarAzimuthAtan2(latDeg, decl, ha);
+      // Compass (0°=N, 180°=S) → convención Sur del motor (0°=S, -90°=E, +90°=O). Rango [-180,180).
+      const azSur = azFromNorth - 180;
+      // azimutDeg llega en convención brújula (180°=Sur); el motor usa 0°=Sur
+      const poa = computePOAIrradiance(GHI_instant, latDeg, tiltDeg, azimutDeg - 180, altDeg, azSur, 0.20);
+      const GPOA = poa.G_poa;
+      const iamFactor = poa.iamFactor;
       const Tcell = calcTcell(tAmb[m], GPOA, NOCT);
 
-      // IAM
-      const cosTheta = GPOA > 0 ? Math.min(GPOA / Math.max(GHI_instant, 1), 1.2) : 0;
-      const iam = calcIAM(cosTheta);
-
-      const P_raw = calcPpanel(Pstc * kwp * 1000 / Pstc, GPOA * iam, Tcell, gamma);
+      const P_raw = calcPpanel(Pstc * kwp * 1000 / Pstc, GPOA, Tcell, gamma);
       const tempLossW = calcPpanel(Pstc * kwp * 1000 / Pstc, GPOA, 25, gamma) - P_raw;
 
       const loadFrac = P_raw / (kwp * 1000 * 1.1);
@@ -614,7 +635,7 @@ function runPhysicalModel(kwp, latDeg, lonDeg, tiltDeg, azimutDeg, cfg) {
       totalGSTC += 1000 * nDays;
       if (GHI_instant > 10) {
         mTempLoss += tempLossW;
-        mIAMLoss += P_raw * (1 - iam);
+        mIAMLoss += P_raw * (1 - iamFactor);
       }
     }
 

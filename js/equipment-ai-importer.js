@@ -12,6 +12,15 @@
 (function (root) {
   'use strict';
 
+  // [D1+D2] Cliente IA unificado (cabecera x-goog-api-key, timeout y cancelación).
+  // Delega en RA.geminiFetch cuando está disponible; si no, usa fetch nativo.
+  function _aiFetch(url, opts, timeoutMs) {
+    if (root.RA && typeof root.RA.geminiFetch === 'function') {
+      return root.RA.geminiFetch(url, opts, timeoutMs);
+    }
+    return fetch(url, opts);
+  }
+
   const RAEquipmentAIImporter = {
     state: {
       isProcessing: false,
@@ -24,6 +33,10 @@
      */
     getApiKey: function () {
       try {
+        if (root.RA && typeof root.RA.getGeminiApiKey === 'function') {
+          const unified = root.RA.getGeminiApiKey();
+          if (unified && unified.trim()) return unified.trim();
+        }
         if (root.RA && root.RA.geminiApiKey) return root.RA.geminiApiKey;
         const local = localStorage.getItem('ra_gemini_api_key');
         if (local && local.trim()) return local.trim();
@@ -143,7 +156,7 @@ NORMAS ESTRICTAS DE EXTRACCIÓN:
       }
       try {
         const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`;
-        const resp = await fetch(url);
+        const resp = await _aiFetch(url, {}, 20000);
         if (resp.ok) {
           const data = await resp.json();
           if (Array.isArray(data.models)) {
@@ -229,11 +242,11 @@ NORMAS ESTRICTAS DE EXTRACCIÓN:
       for (const model of models) {
         try {
           const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
-          const resp = await fetch(url, {
+          const resp = await _aiFetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestBody)
-          });
+          }, 90000);
 
           if (!resp.ok) {
             const errData = await resp.json().catch(() => ({}));
@@ -441,6 +454,8 @@ NORMAS ESTRICTAS DE EXTRACCIÓN:
      * Procesa un archivo físico (PDF o Imagen)
      */
     processFile: async function (file) {
+      // [D3/M13] Guardia anti doble análisis (doble clic / doble drop)
+      if (this.state.isProcessing) return;
       if (!file) throw new Error('No se ha proporcionado ningún archivo.');
 
       const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
@@ -469,6 +484,11 @@ NORMAS ESTRICTAS DE EXTRACCIÓN:
         this.renderReviewCard(result);
       } catch (err) {
         this.state.isProcessing = false;
+        // [D2/G10] Cancelación del usuario: volver al estado inicial sin mostrar error
+        if (err && (err.name === 'AbortError' || /abort/i.test(err.message || ''))) {
+          this.renderInitialUI(document.getElementById('cat-pane-ai_import'));
+          return;
+        }
         this.renderError(err.message || 'Error al procesar el documento con IA.');
       }
     },
@@ -651,6 +671,7 @@ NORMAS ESTRICTAS DE EXTRACCIÓN:
           <div class="ra-spinner" style="width:36px;height:36px;border:3px solid rgba(56,189,248,0.2);border-top-color:var(--sky-400);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 16px auto;"></div>
           <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:6px;">Analizando ficha técnica con IA</div>
           <div style="font-size:11px;color:var(--text-slate-400);line-height:1.4;">${msg || 'Extrayendo parámetros de ingeniería...'}</div>
+          <button class="doc-mini-btn" onclick="if(window.cancelGeminiAnalysis) window.cancelGeminiAnalysis();" style="margin-top:18px;border-color:var(--text-slate-400);color:var(--text-slate-400);padding:6px 14px;font-size:11px;">Cancelar</button>
         </div>
       `;
     },

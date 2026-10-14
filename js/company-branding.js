@@ -19,6 +19,94 @@
   const STORAGE_KEY_LOGO = 'ra_company_logo';
   const STORAGE_KEY_GEMINI = 'ra_gemini_api_key';
 
+  // [D1/G9] La clave nunca se guarda en claro en el navegador: se ofusca (base64 con prefijo)
+  // y se envía SIEMPRE en la cabecera 'x-goog-api-key' (no en la URL). Nota: en un cliente
+  // puramente estático no existe cifrado real; restringe la clave en Google Cloud Console.
+  const GEMINI_KEY_PREFIX = 'enc:';
+  const GEMINI_DEFAULT_TIMEOUT_MS = 45000;
+
+  function _obfuscateKey(k) {
+    try { return GEMINI_KEY_PREFIX + global.btoa(unescape(encodeURIComponent(k))); }
+    catch (e) { return k; }
+  }
+
+  function _deobfuscateKey(v) {
+    if (typeof v === 'string' && v.indexOf(GEMINI_KEY_PREFIX) === 0) {
+      try { return decodeURIComponent(escape(global.atob(v.slice(GEMINI_KEY_PREFIX.length)))); }
+      catch (e) { return v.slice(GEMINI_KEY_PREFIX.length); }
+    }
+    return v; // Compatibilidad con claves antiguas guardadas en claro
+  }
+
+  /**
+   * [D1] Lectura canónica de la clave Gemini (memoria → almacén ofuscado).
+   */
+  function getGeminiApiKey() {
+    try {
+      if (global.RA && global.RA.geminiApiKey) return global.RA.geminiApiKey;
+      const raw = global.localStorage ? global.localStorage.getItem(STORAGE_KEY_GEMINI) : '';
+      const key = raw ? _deobfuscateKey(raw) : '';
+      if (!global.RA) global.RA = {};
+      global.RA.geminiApiKey = key;
+      return key;
+    } catch (e) { return ''; }
+  }
+
+  /**
+   * [D1] Escritura canónica de la clave Gemini (memoria + almacén ofuscado).
+   */
+  function setGeminiApiKey(key) {
+    const clean = (key || '').trim();
+    if (!global.RA) global.RA = {};
+    global.RA.geminiApiKey = clean;
+    try {
+      if (!global.localStorage) return clean;
+      if (clean) global.localStorage.setItem(STORAGE_KEY_GEMINI, _obfuscateKey(clean));
+      else global.localStorage.removeItem(STORAGE_KEY_GEMINI);
+    } catch (e) {}
+    return clean;
+  }
+
+  // [D2/G10] Cancelación atómica de la última petición IA en curso
+  let _geminiAbortController = null;
+
+  function cancelGemini() {
+    if (_geminiAbortController) {
+      try { _geminiAbortController.abort(); } catch (e) {}
+      _geminiAbortController = null;
+    }
+  }
+
+  /**
+   * [D1+D2] Cliente HTTP unificado para Google Gemini:
+   *  - Inyecta la clave en la cabecera 'x-goog-api-key' y ELIMINA cualquier '?key=' de la URL.
+   *  - Aplica un tiempo máximo (AbortController) y permite cancelación (cancelGemini()).
+   */
+  async function geminiFetch(url, options, timeoutMs, apiKeyOverride) {
+    const cleanUrl = String(url)
+      .replace(/([?&])key=[^&]*/g, '$1')
+      .replace(/[?&]$/, '');
+    const opts = Object.assign({}, options || {});
+    const headers = Object.assign({}, opts.headers || {});
+    const key = apiKeyOverride || getGeminiApiKey();
+    if (key) headers['x-goog-api-key'] = key;
+    opts.headers = headers;
+
+    cancelGemini();
+    const ctrl = new AbortController();
+    _geminiAbortController = ctrl;
+    opts.signal = ctrl.signal;
+
+    const ms = (typeof timeoutMs === 'number' && timeoutMs > 0) ? timeoutMs : GEMINI_DEFAULT_TIMEOUT_MS;
+    const timer = setTimeout(() => { try { ctrl.abort(); } catch (e) {} }, ms);
+    try {
+      return await fetch(cleanUrl, opts);
+    } finally {
+      clearTimeout(timer);
+      if (_geminiAbortController === ctrl) _geminiAbortController = null;
+    }
+  }
+
   const DEFAULT_BRANDING = {
     name: 'SOLAR 3D PRO',
     cif: '',
@@ -125,7 +213,7 @@
       setVal('cfg-war-mo', _currentBranding.warMo);
 
       // Cargar API Key de Gemini
-      const geminiKey = global.localStorage.getItem(STORAGE_KEY_GEMINI) || '';
+      const geminiKey = getGeminiApiKey();
       const geminiEl = document.getElementById('modal-cfg-gemini-apikey') || document.getElementById('cfg-gemini-apikey');
       if (geminiEl && geminiKey) geminiEl.value = geminiKey;
       global.RA.geminiApiKey = geminiKey;
@@ -181,17 +269,15 @@
       // API Key de Gemini
       const geminiEl = document.getElementById('modal-cfg-gemini-apikey') || document.getElementById('cfg-gemini-apikey');
       const geminiKey = geminiEl ? geminiEl.value.trim() : '';
-      if (global.localStorage) {
-        if (geminiKey) {
-          global.localStorage.setItem(STORAGE_KEY_GEMINI, geminiKey);
-        } else if (geminiEl) {
-          global.localStorage.removeItem(STORAGE_KEY_GEMINI);
-        }
+      if (geminiEl) {
+        setGeminiApiKey(geminiKey);
+      } else if (geminiKey) {
+        setGeminiApiKey(geminiKey);
       }
 
       if (!global.RA) global.RA = {};
       global.RA.branding = _currentBranding;
-      global.RA.geminiApiKey = geminiKey || (global.localStorage ? global.localStorage.getItem(STORAGE_KEY_GEMINI) : '') || '';
+      global.RA.geminiApiKey = getGeminiApiKey();
 
       refreshAllLogoPreviews();
       return _currentBranding;
@@ -341,10 +427,9 @@
     }
     if (resultEl) resultEl.innerHTML = '<span style="color:#a78bfa;">⏳ Conectando con Gemini...</span>';
     try {
-      const modelsToTry = ['gemini-3.8-flash', 'gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-2.0-flash'];
       let activeModel = 'gemini-3.8-flash';
       try {
-        const listResp = await fetch('https://generativelanguage.googleapis.com/v1beta/models?key=' + encodeURIComponent(key));
+        const listResp = await geminiFetch('https://generativelanguage.googleapis.com/v1beta/models', {}, 20000, key);
         if (listResp.ok) {
           const listData = await listResp.json();
           if (Array.isArray(listData.models)) {
@@ -354,14 +439,14 @@
         }
       } catch (e) {}
 
-      const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + activeModel + ':generateContent?key=' + encodeURIComponent(key);
-      const resp = await fetch(url, {
+      const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + activeModel + ':generateContent';
+      const resp = await geminiFetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ role: 'user', parts: [{ text: 'Responde solo con: OK' }] }]
         })
-      });
+      }, 20000, key);
       if (!resp.ok) {
         const errData = await resp.json().catch(() => ({}));
         const errMsg = (errData.error && errData.error.message) ? errData.error.message : ('HTTP ' + resp.status);
@@ -408,6 +493,12 @@
   global.RA.companyBranding = RACompanyBranding;
   global.RA.branding = _currentBranding;
 
+  // [D1+D2] API IA canónica compartida por todos los módulos
+  global.RA.getGeminiApiKey = getGeminiApiKey;
+  global.RA.setGeminiApiKey = setGeminiApiKey;
+  global.RA.geminiFetch = geminiFetch;
+  global.RA.cancelGemini = cancelGemini;
+
   // Hooks globales para eventos inline del HTML
   global.openCompanyBrandingModal = openModal;
   global.closeCompanyBrandingModal = closeModal;
@@ -420,5 +511,6 @@
   global.syncModalInputToBranding = syncModalInput;
   global.updateCompanyLogoPreview = refreshAllLogoPreviews;
   global.testGeminiApiKey = testGeminiApiKey;
+  global.cancelGeminiAnalysis = cancelGemini;
 
 })(typeof window !== 'undefined' ? window : this);

@@ -32,6 +32,7 @@ window.RA_App = window.RA_App || {};
   <script src="js/error-handler.js"></script>
   <script src="js/project-config.js"></script>
   <script src="js/buildings.js?v=20260929b"></script>
+    <script src="js/radiation-engine.js?v=20261014a"></script>
     <script src="js/solar-heatmap.js?v=20260929b"></script>
     <script src="js/config.js?v=20260929b"></script>
     <script src="js/financials.js?v=20260929c"></script>
@@ -6100,9 +6101,13 @@ function deleteSelectedPanel() {
 
   // Purgar caché del Heatmap para evitar tooltips fantasma
   if (typeof window !== 'undefined' && window.solarSimState) {
-    if (Array.isArray(window.solarSimState.annualHeatmapData)) {
-      window.solarSimState.annualHeatmapData = window.solarSimState.annualHeatmapData.filter(p => !p.deleted);
-      if (window.solarSimState.annualHeatmapData.length === 0) window.solarSimState.annualHeatmapData = null;
+    // [D4/M1] Representación única del estado: boolean (true=válido, null=no calculado) + flag dirty.
+    // Se delega en la API canónica de invalidación en lugar de tratar annualHeatmapData como array.
+    if (typeof window.wpInvalidateHeatmap === 'function') {
+      window.wpInvalidateHeatmap('panel_eliminado');
+    } else {
+      window.solarSimState.annualHeatmapData = null;
+      window.solarSimState.annualHeatmapDirty = true;
     }
   }
 
@@ -14256,6 +14261,8 @@ window.wpSetShadowViewMode = wpSetShadowViewMode;
 
 async function wpRunHeatmapAndActivateView(forceRecalculate = true) {
   if (!window.solarSimState) window.solarSimState = {};
+  // [D3/M13] Guardia anti doble disparo: ignorar si ya hay un cálculo anual en curso
+  if (window.solarSimState.isCalculatingHeatmap) return;
   if (forceRecalculate) {
     window.solarSimState.annualHeatmapData = null;
     window.solarSimState.annualHeatmapDirty = false;

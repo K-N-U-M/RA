@@ -7,7 +7,7 @@
  *   1. 192 instantes anuales (12 meses × 16 horas, de 6:00 a 21:00)
  *   2. Corte de horizonte astronómico (elevación solar ≥ 3º)
  *   3. Ley del Coseno (ángulo de incidencia real S · N) y derating térmico estacional
- *   4. Modelo de Transposición: Radiación Directa + Difusa Isotrópica (20%) + Albedo Trasero (Bifacial)
+ *   4. Modelo de Transposición: Directa + Difusa Hay-Davies anisotrópica + Albedo Trasero (Bifacial) — motor único RA.Radiation
  *   5. Time-Slicing asíncrono con presupuesto de 15ms por frame
  *   6. HUD cinematográfico Glassmorphism con indicador mensual y barra fluida
  *   7. Diagnóstico tri-nivel: Óptimo (<8%) | MLPE Recomendado (8-25%) | Inviable (≥25%)
@@ -629,15 +629,21 @@
 
         // [C6] Insolación instantánea conservando la energía diaria real del mes (integral = GHI_daily_Wh)
         const GHI_instant = Math.max(0, (GHI_daily_Wh / (_sinAltSum * hourStepDt)) * sinAlt);
-        // [B2] Fracción difusa por el modelo Erbs (idéntico a computePOAIrradiance) — antes 0.32 FIJO,
-        // lo que hacía que el mapa de calor y el comparador de orientación dieran cifras distintas.
-        const _kt = Math.min(0.85, Math.max(0.1, GHI_instant / (1367 * sinAlt + 1e-3)));
-        let DHI_fraction;
-        if (_kt < 0.22) DHI_fraction = 1.0 - 0.09 * _kt;
-        else if (_kt < 0.80) DHI_fraction = 0.9511 - 0.1604 * _kt + 4.388 * _kt * _kt - 16.638 * Math.pow(_kt, 3) + 12.336 * Math.pow(_kt, 4);
-        else DHI_fraction = 0.165;
-        const G_dhi = GHI_instant * DHI_fraction;
-        const G_dni = Math.max(0, (GHI_instant - G_dhi) / Math.max(sinAlt, 0.05));
+        // [B2] Desagregación Erbs vía motor único de radiación (RA.Radiation). Fallback inline si el módulo no está.
+        let G_dhi, G_dni;
+        if (typeof window !== 'undefined' && window.RA && window.RA.Radiation && typeof window.RA.Radiation.decomposeErbs === 'function') {
+          const _dec = window.RA.Radiation.decomposeErbs(GHI_instant, elevation);
+          G_dhi = _dec.dhi;
+          G_dni = _dec.dni;
+        } else {
+          const _kt = Math.min(0.85, Math.max(0.1, GHI_instant / (1367 * sinAlt + 1e-3)));
+          let DHI_fraction;
+          if (_kt < 0.22) DHI_fraction = 1.0 - 0.09 * _kt;
+          else if (_kt < 0.80) DHI_fraction = 0.9511 - 0.1604 * _kt + 4.388 * _kt * _kt - 16.638 * Math.pow(_kt, 3) + 12.336 * Math.pow(_kt, 4);
+          else DHI_fraction = 0.165;
+          G_dhi = GHI_instant * DHI_fraction;
+          G_dni = Math.max(0, (GHI_instant - G_dhi) / Math.max(sinAlt, 0.05));
+        }
 
         polylines.forEach(poly => {
           const pInfo = poly.roofInfo || (typeof computeSinglePolylineRoofInfo === "function" ? computeSinglePolylineRoofInfo(poly.points, poly) : null);
@@ -695,14 +701,27 @@
             // 2. Ángulo de incidencia panel-sol
             const cosIncidence = sunDirWorld ? Cesium.Cartesian3.dot(sunDirWorld, panelNormWorld) : 0;
 
-            // 3. Transposición física POA (W/m²) por módulo
-            let G_beam = 0;
-            if (cosIncidence > 0.005) {
-              const iam = Math.max(0, 1 - 0.05 * (1 / Math.max(cosIncidence, 0.01) - 1));
-              G_beam = G_dni * cosIncidence * iam;
+            // 3. Transposición física POA (W/m²) por módulo — motor único RA.Radiation (Erbs + Hay-Davies)
+            let G_beam = 0, G_diffuse = 0, G_albedo = 0;
+            if (typeof window !== 'undefined' && window.RA && window.RA.Radiation && typeof window.RA.Radiation.transposeComponents === 'function') {
+              const _tp = window.RA.Radiation.transposeComponents({
+                ghi: GHI_instant, dhi: G_dhi, dni: G_dni,
+                cosTheta: cosIncidence, tiltRad: tiltRad,
+                albedo: 0.20, iamB0: 0.05, sunElevDeg: elevation
+              });
+              // G_beam/G_diffuse/G_albedo con el IAM (blend) ya aplicado, consistente con computePOAIrradiance
+              G_beam = _tp.G_b * _tp.iamBlend;
+              G_diffuse = _tp.G_d * _tp.iamBlend;
+              G_albedo = _tp.G_r * _tp.iamBlend;
+            } else {
+              // Fallback legacy: difusa isótropa + IAM solo en haz
+              if (cosIncidence > 0.005) {
+                const iam = Math.max(0, 1 - 0.05 * (1 / Math.max(cosIncidence, 0.01) - 1));
+                G_beam = G_dni * cosIncidence * iam;
+              }
+              G_diffuse = G_dhi * svf;
+              G_albedo = GHI_instant * 0.20 * ((1 - cosSlope) / 2);
             }
-            const G_diffuse = G_dhi * svf;
-            const G_albedo = GHI_instant * 0.20 * ((1 - cosSlope) / 2);
 
             // Bifacialidad: factor de vista hacia cubierta/suelo con difusión perimetral mínima (0.04) para coplanares
             const rearViewFactor = Math.max(0.04, Math.pow(Math.sin(tiltRad / 2), 2));

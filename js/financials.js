@@ -3,6 +3,14 @@
 (function() {
   'use strict';
 
+  // [D1+D2] Cliente IA unificado (cabecera x-goog-api-key, timeout y cancelación).
+  function _aiFetch(url, opts, timeoutMs) {
+    if (window.RA && typeof window.RA.geminiFetch === 'function') {
+      return window.RA.geminiFetch(url, opts, timeoutMs);
+    }
+    return fetch(url, opts);
+  }
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // RESOLUCIÓN DE EQUIPOS DESDE CATÁLOGO (SSOT → Nombres reales)
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -135,8 +143,13 @@ async function enrichSummaryWithGemini(targetWindow, d, m, equipment) {
   // ── Obtener API Key ──
   var apiKey = '';
   try {
-    apiKey = (window.RA && window.RA.geminiApiKey) ? window.RA.geminiApiKey
-           : (localStorage.getItem('ra_gemini_api_key') || '');
+    if (window.RA && typeof window.RA.getGeminiApiKey === 'function') {
+      apiKey = window.RA.getGeminiApiKey();
+    }
+    if (!apiKey) {
+      apiKey = (window.RA && window.RA.geminiApiKey) ? window.RA.geminiApiKey
+             : (localStorage.getItem('ra_gemini_api_key') || '');
+    }
   } catch(e) { return; }
   if (!apiKey) return; // Sin key → mantener plantilla
 
@@ -184,7 +197,7 @@ async function enrichSummaryWithGemini(targetWindow, d, m, equipment) {
     for (var mIdx = 0; mIdx < modelsToTry.length; mIdx++) {
       var currentModel = modelsToTry[mIdx];
       var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + currentModel + ':generateContent?key=' + encodeURIComponent(apiKey);
-      var resp = await fetch(url, {
+      var resp = await _aiFetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -194,7 +207,7 @@ async function enrichSummaryWithGemini(targetWindow, d, m, equipment) {
             maxOutputTokens: 300
           }
         })
-      });
+      }, 30000);
       if (resp.ok) {
         var data = await resp.json();
         if (data.candidates && data.candidates[0] && data.candidates[0].content &&
@@ -1153,7 +1166,12 @@ function generatePropuestaComercialPDF(skipPricingModal) {
   // (cfg-pres-*, tax-*, fin-*) no existen y quedan como fallback histórico.
   const _input = (id, def) => {
     const el = document.getElementById(id) || document.getElementById('modal-' + id);
-    return el ? (parseFloat(el.value) || def) : def;
+    if (!el) return def;
+    // [D5/M10] Distinguir campo vacío de un valor 0 real: "" → default, "0" → 0
+    const raw = (el.value == null ? '' : String(el.value)).trim();
+    if (raw === '') return def;
+    const v = parseFloat(raw);
+    return isFinite(v) ? v : def;
   };
   const _sel = (id, def) => {
     const el = document.getElementById(id) || document.getElementById('modal-' + id);
