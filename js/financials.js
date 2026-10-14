@@ -611,7 +611,11 @@ function generatePropuestaComercialPDF(skipPricingModal) {
 
   // ── Datos de producción (motor preciso si disponible, fallback a docs-generator) ──
   const solarStats = (window.RA && window.RA.solarStats) ? window.RA.solarStats : null;
-  const monthlyYields = solarStats ? solarStats.monthlyYields : d.monthly.map(mo => mo.kWh);
+  // [B6] Preferir el reparto mensual de la SIMULACIÓN REAL (mapa de calor) si está vigente y válido,
+  // de modo que las barras mensuales cuadren con la producción anual y con la memoria técnica.
+  const _simMK = (window.solarSimState && !window.solarSimState.annualHeatmapDirty && Array.isArray(window.solarSimState.monthlyKwh) && window.solarSimState.monthlyKwh.length === 12 && window.solarSimState.monthlyKwh.some(v => v > 0))
+    ? window.solarSimState.monthlyKwh : null;
+  const monthlyYields = _simMK || (solarStats ? solarStats.monthlyYields : d.monthly.map(mo => mo.kWh));
   const annualYieldKWh = solarStats ? solarStats.annualYieldKWh : d.annualKWh;
   const MES_CORTOS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 

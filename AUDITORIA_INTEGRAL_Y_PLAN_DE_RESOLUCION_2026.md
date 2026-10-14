@@ -156,19 +156,19 @@ Hay funciones que existen pero no están conectadas a ningún control (cambiar a
 ## 2. Plan de resolución por fases
 
 ### Fase A — Sangrado (P0). Sin riesgo, cambios de 1–2 líneas.
-- [ ] **A1.** Publicar la función del desplegable de estructura (C1).
-- [ ] **A2.** Quitar la multiplicación ×100 de la TIR en la oferta (C2).
-- [ ] **A3.** Leer el campo correcto del plazo de retorno en la memoria (C3).
-- [ ] **A4.** Restaurar en la apertura los campos de panel y faldón omitidos (C4).
-- [ ] **A5.** Centralizar las claves en una sola fuente y sacarlas del código (C5).
+- [x] **A1.** Publicar la función del desplegable de estructura (C1).
+- [x] **A2.** Quitar la multiplicación ×100 de la TIR en la oferta (C2).
+- [x] **A3.** Leer el campo correcto del plazo de retorno en la memoria (C3).
+- [x] **A4.** Restaurar en la apertura los campos de panel y faldón omitidos (C4).
+- [x] **A5.** Centralizar las claves en una sola fuente y sacarlas del código (C5).
 
 ### Fase B — Números que ve el cliente (P0–P1).
-- [ ] **B1.** Corregir la duración del día por mes y calibrar la curva diaria (C6).
-- [ ] **B2.** Unificar motor de radiación entre comparador y mapa de calor (G6).
-- [ ] **B3.** Corregir meses y paso en los modos de calidad rápida (G5).
-- [ ] **B4.** Bloquear generación de PDF con análisis caducado o en curso (G7).
-- [ ] **B5.** Unificar el ahorro anual entre memoria y oferta (G8).
-- [ ] **B6.** Extraer el reparto mensual del PDF de la simulación real (M2).
+- [x] **B1.** Corregir la duración del día por mes y calibrar la curva diaria (C6).
+- [~] **B2.** Unificar motor de radiación entre comparador y mapa de calor (G6). *Parcial:* el mapa de calor ya usa el modelo difuso Erbs (igual que el motor canónico de `getProjectCalcs`); la unificación total con `runPhysicalModel` (comparador) se difiere por ser un refactor de mayor riesgo.
+- [x] **B3.** Corregir meses y paso en los modos de calidad rápida (G5).
+- [x] **B4.** Bloquear generación de PDF con análisis caducado o en curso (G7).
+- [x] **B5.** Unificar el ahorro anual entre memoria y oferta (G8).
+- [x] **B6.** Extraer el reparto mensual del PDF de la simulación real (M2).
 
 ### Fase C — Seguridad eléctrica y datos (P1).
 - [ ] **C1.** Sumar corriente en paralelo en cable troncal y unificar la etiqueta de topología (G1).

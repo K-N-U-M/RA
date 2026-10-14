@@ -10,6 +10,31 @@ function closeDocModal() {
   if (m) m.classList.remove('open');
 }
 
+// [B4] Bloquea la entrega (PDF) si la simulación anual está en curso o si la geometría
+// cambió desde el último mapa de calor válido (evita emitir documentos con cifras caducas).
+function raEnsureAnalysisReadyForDoc() {
+  const ss = (typeof window !== 'undefined') ? window.solarSimState : null;
+  if (ss && ss.isCalculatingHeatmap) {
+    if (typeof showToast === 'function') showToast('ANÁLISIS EN CURSO', 'La simulación anual está calculándose. Espera a que termine antes de generar documentos.', 'warning', 5000);
+    return false;
+  }
+  if (ss && ss.annualHeatmapDirty && ss.annualHeatmapData) {
+    if (typeof showToast === 'function') showToast('ANÁLISIS OBSOLETO', 'La cubierta cambió desde el último mapa de calor. Recalcula en el Paso 3 antes de generar documentos para evitar cifras antiguas.', 'warning', 6000);
+    return false;
+  }
+  return true;
+}
+
+// [B6] Devuelve el reparto mensual real (12 kWh) de la simulación si está disponible y es válido.
+function raGetSimulatedMonthlyKwh() {
+  const ss = (typeof window !== 'undefined') ? window.solarSimState : null;
+  if (!ss || ss.annualHeatmapDirty) return null;
+  const mk = ss.monthlyKwh;
+  if (!Array.isArray(mk) || mk.length !== 12) return null;
+  if (!mk.some(v => typeof v === 'number' && v > 0)) return null;
+  return mk;
+}
+
 function readTitular() {
   const g = (id, def) => (document.getElementById(id) || {value: def || ''}).value || def || '';
   return {
@@ -213,24 +238,25 @@ function showEmbeddedDocViewer(title, fullHtml) {
 
 
 function generateMemoria() {
+  // [B4] Bloquear entrega si el análisis solar está en curso u obsoleto
+  if (typeof raEnsureAnalysisReadyForDoc === 'function' && !raEnsureAnalysisReadyForDoc()) return;
   const d = getProjectCalcs();
   const dcEs3D = !!d.L_dc_esMedida3D;
   const acEs3D = !!d.L_ac_esMedida3D;
-  // [P0] Avisar si la geometría cambió tras el último mapa de calor válido
-  if (typeof window !== 'undefined' && window.solarSimState && window.solarSimState.annualHeatmapDirty && typeof showToast === 'function') {
-    showToast('ANÁLISIS SOLAR OBSOLETO', 'La geometría o los obstáculos han cambiado desde el último cálculo. La memoria usa la producción del último mapa de calor válido: recalcula en el Paso 3 para cifras definitivas.', 'warning', 5500);
-  }
   if (d.numPanels === 0) {
     alert('Define primero el polígono de la instalación con al menos 3 vértices.'); return;
   }
   const t = d.tit;
   const loc = (t.dir ? t.dir + ', ' : '') + (t.mun || '') + (t.prov ? ', ' + t.prov : '');
 
-  const monthRows = d.monthly.map(m =>
+  // [B6] El reparto mensual del PDF se toma de la SIMULACIÓN REAL si está disponible.
+  const _simMonthly = (typeof raGetSimulatedMonthlyKwh === 'function') ? raGetSimulatedMonthlyKwh() : null;
+  const monthRows = d.monthly.map((m, i) =>
     '<tr><td>' + m.mes + '<\/td><td style="text-align:center">' + m.dias +
     '<\/td><td style="text-align:center">' + m.hsp +
-    '<\/td><td style="text-align:right;font-weight:600">' + m.kWh.toLocaleString('es-ES') + ' kWh<\/td><\/tr>'
+    '<\/td><td style="text-align:right;font-weight:600">' + (_simMonthly ? _simMonthly[i] : m.kWh).toLocaleString('es-ES') + ' kWh<\/td><\/tr>'
   ).join('');
+  const _monthlyTotal = _simMonthly ? _simMonthly.reduce((a, b) => a + b, 0) : d.annualKWh;
 
   const sState = (typeof window !== 'undefined' && window.inverterEquipmentState) ? window.inverterEquipmentState : null;
   const finM = (typeof calculateFinancialModel === 'function') ? (function() {
@@ -385,7 +411,7 @@ function generateMemoria() {
     '<h3>5.1 Producción Energética — Método HSP (PR = ' + d.PR + ')<\/h3>' +
     '<table><tr><th>Mes<\/th><th>Días<\/th><th>HSP\/día (h)<\/th><th>Energía (kWh\/mes)<\/th><\/tr>' +
     monthRows +
-    '<tr class="trow-total"><td colspan="3"><strong>TOTAL ANUAL<\/strong><\/td><td style="text-align:right;font-weight:900">' + d.annualKWh.toLocaleString('es-ES') + ' kWh\/año<\/td><\/tr><\/table>' +
+    '<tr class="trow-total"><td colspan="3"><strong>TOTAL ANUAL<\/strong><\/td><td style="text-align:right;font-weight:900">' + _monthlyTotal.toLocaleString('es-ES') + ' kWh\/año<\/td><\/tr><\/table>' +
     '<p><strong>Producción específica:<\/strong> ' + d.hspAnual.toLocaleString('es-ES') + ' kWh\/kWp·año<\/p>' +
 
     '<h3>5.2 Dimensionamiento Eléctrico y Caída de Tensión por String (REBT ITC-BT-40 / UNE-HD 60364-5-52)<\/h3>' +
@@ -423,7 +449,7 @@ function generateMemoria() {
       '<\/table>'
     ) : '') +
     '<h2>7. CONCLUSIÓN<\/h2>' +
-    '<p>La instalación fotovoltaica de autoconsumo de <strong>' + d.P_dc_kW.toFixed(2) + ' kWp<\/strong> (' + d.numPanels + ' módulos de ' + d.cfg.potencia + ' Wp) es técnicamente viable y cumple la normativa española vigente. La producción estimada de <strong>' + d.annualKWh.toLocaleString('es-ES') + ' kWh\/año<\/strong> supone un ahorro anual de <strong>' + d.ahorro_anual.toLocaleString('es-ES') + ' €<\/strong> con un período de retorno de <strong>' + d.roi + ' años<\/strong> y una reducción de emisiones de <strong>' + d.co2_evitado + ' t CO₂\/año<\/strong>.<\/p>' +
+    '<p>La instalación fotovoltaica de autoconsumo de <strong>' + d.P_dc_kW.toFixed(2) + ' kWp<\/strong> (' + d.numPanels + ' módulos de ' + d.cfg.potencia + ' Wp) es técnicamente viable y cumple la normativa española vigente. La producción estimada de <strong>' + d.annualKWh.toLocaleString('es-ES') + ' kWh\/año<\/strong> supone un ahorro anual de <strong>' + ah1.toLocaleString('es-ES') + ' €<\/strong> con un período de retorno de <strong>' + pbYears + ' años<\/strong> y una reducción de emisiones de <strong>' + d.co2_evitado + ' t CO₂\/año<\/strong>.<\/p>' +
 
     '<div class="sig-row"><div class="sig">El Titular<br><br><br>' + t.nombre + '<br>NIF: ' + t.nif + '<\/div>' +
     '<div class="sig">El Técnico Proyectista<br><br><br>' + t.tecnico + '<br>' + t.titulacion + ' — Col. ' + t.ncol + '<\/div>' +
@@ -438,6 +464,7 @@ function generateMemoria() {
 // DOC 2 — PLIEGO DE CONDICIONES
 // ============================================================================
 function generatePliego() {
+  if (typeof raEnsureAnalysisReadyForDoc === 'function' && !raEnsureAnalysisReadyForDoc()) return;
   const d = getProjectCalcs();
   const t = d.tit;
   const loc = (t.dir ? t.dir + ', ' : '') + (t.mun || '') + (t.prov ? ', ' + t.prov : '');
@@ -526,6 +553,7 @@ function generatePliego() {
 // DOC 3 — PRESUPUESTO DETALLADO
 // ============================================================================
 function generatePresupuesto() {
+  if (typeof raEnsureAnalysisReadyForDoc === 'function' && !raEnsureAnalysisReadyForDoc()) return;
   const d = getProjectCalcs();
   const t = d.tit;
   const m = (typeof calculateFinancialModel === 'function') ? calculateFinancialModel() : null;

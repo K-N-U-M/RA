@@ -396,6 +396,8 @@
     const simGenerationId = ++_activeSimGenerationId;
     if (typeof window !== 'undefined' && window.solarSimState) {
       window.solarSimState.currentSimGenerationId = simGenerationId;
+      // [B4] Marca global de "simulación en curso" para bloquear la generación de PDF en falso.
+      window.solarSimState.isCalculatingHeatmap = true;
     }
 
     const wpState = (typeof window !== 'undefined' && window.WP ? window.WP : null);
@@ -483,6 +485,7 @@
       if (typeof hideSolarCalcHUD === 'function') hideSolarCalcHUD();
       if (progressBar) progressBar.style.display = 'none';
       if (diagText) diagText.textContent = "No hay paneles generados en la cubierta.";
+      if (typeof window !== 'undefined' && window.solarSimState) window.solarSimState.isCalculatingHeatmap = false;
       return;
     }
 
@@ -490,19 +493,25 @@
     let monthsDoy = [15, 45, 74, 105, 135, 166, 196, 227, 258, 288, 319, 349];
     let monthDaysW = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
     let hours = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21];
-    let hourStepDt = 1.0; // Anchura del intervalo horario en horas (16 horas evaluadas)
-    
+
     if (window.raHeatmapResolution === 'medium') {
       monthsDoy = [15, 74, 135, 196, 258, 319];
       monthDaysW = [59, 61, 61, 62, 61, 61]; 
       hours = [7, 9, 11, 13, 15, 17, 19];
-      hourStepDt = 16.0 / hours.length; // ~2.28h
     } else if (window.raHeatmapResolution === 'fast') {
       monthsDoy = [45, 135, 227, 319]; 
       monthDaysW = [90, 92, 92, 91];
       hours = [8, 11, 14, 17];
-      hourStepDt = 16.0 / hours.length; // 4.0h
     }
+    // [B3] Paso de integración = intervalo REAL entre muestras (antes 16/N desajustaba el peso temporal).
+    const hourStepDt = (hours.length > 1) ? (hours[hours.length - 1] - hours[0]) / (hours.length - 1) : 1.0;
+    // [B3] Mes calendario real (0-11) de cada instante muestreado: en calidad media/rápida se
+    // usaba el índice de bloque (mIdx) como si fuese el mes, falseando GHI y derating térmico.
+    const _MONTH_START_DOY = [1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335];
+    const doyToMonthIdx = (doy) => { let mi = 11; for (let k = 0; k < 12; k++) { if (doy >= _MONTH_START_DOY[k]) mi = k; } return mi; };
+    const monthsReal = monthsDoy.map(doyToMonthIdx);
+    // [B6] Acumulador de energía neta real por mes calendario (reparto mensual de los documentos).
+    const _monthlyNetWh = new Array(12).fill(0);
     const year = new Date().getFullYear();
 
     const lat = (window.solarProjectConfig && window.solarProjectConfig.lat) ? window.solarProjectConfig.lat : 40.4168;
@@ -552,12 +561,26 @@
 
     // 5. Bucle Time-Sliced con presupuesto de 15ms
     for (let mIdx = 0; mIdx < monthsDoy.length; mIdx++) {
-      const m = mIdx;
-      // Derating térmico estacional
-      const tempFactor = (mIdx >= 4 && mIdx <= 8) ? 0.93 : 0.98;
+      const m = monthsReal[mIdx];
+      // Derating térmico estacional (según el mes calendario REAL)
+      const tempFactor = (m >= 4 && m <= 8) ? 0.93 : 0.98;
       const GHI_daily_Wh = (typeof estimateMonthlyGHI === 'function')
-        ? estimateMonthlyGHI(lat, mIdx)
-        : (4600 * (1 + 0.32 * Math.sin((mIdx - 2) * Math.PI / 6)));
+        ? estimateMonthlyGHI(lat, m)
+        : (4600 * (1 + 0.32 * Math.sin((m - 2) * Math.PI / 6)));
+
+      // [C6] Distribución diurna específica del mes: se normaliza la curva seno para que la
+      // energía integrada del mes sea EXACTAMENTE la insolación diaria real (antes se asumía
+      // un día fijo de ~12 h → verano sobrestimado ~40% e invierno subestimado ~60%).
+      let _sinAltSum = 0;
+      if (typeof computeHighPrecisionSolarPosition === 'function') {
+        for (let _hs = 0; _hs < hours.length; _hs++) {
+          const _hsv = hours[_hs];
+          const _dPre = new Date(year, m, 21, _hsv, 0, 0);
+          const _spPre = computeHighPrecisionSolarPosition(lat, lng, monthsDoy[mIdx], _hsv + _dPre.getTimezoneOffset() / 60);
+          if (_spPre && _spPre.isDay && _spPre.elevDeg >= 10.0) _sinAltSum += Math.sin(_spPre.elevDeg * Math.PI / 180);
+        }
+      }
+      if (_sinAltSum <= 0) _sinAltSum = 1; // guarda ante latitudes polares / día nulo
 
       for (let hIdx = 0; hIdx < hours.length; hIdx++) {
         const h = hours[hIdx];
@@ -604,9 +627,15 @@
         const elevRad = Cesium.Math.toRadians(elevation);
         const sinAlt = Math.sin(elevRad);
 
-        // Modelo de radiación astronómica instantánea (W/m²)
-        const GHI_instant = Math.max(0, (GHI_daily_Wh / (dayLen * 0.5 * Math.PI / 2)) * (Math.PI / 2) * sinAlt);
-        const DHI_fraction = 0.32;
+        // [C6] Insolación instantánea conservando la energía diaria real del mes (integral = GHI_daily_Wh)
+        const GHI_instant = Math.max(0, (GHI_daily_Wh / (_sinAltSum * hourStepDt)) * sinAlt);
+        // [B2] Fracción difusa por el modelo Erbs (idéntico a computePOAIrradiance) — antes 0.32 FIJO,
+        // lo que hacía que el mapa de calor y el comparador de orientación dieran cifras distintas.
+        const _kt = Math.min(0.85, Math.max(0.1, GHI_instant / (1367 * sinAlt + 1e-3)));
+        let DHI_fraction;
+        if (_kt < 0.22) DHI_fraction = 1.0 - 0.09 * _kt;
+        else if (_kt < 0.80) DHI_fraction = 0.9511 - 0.1604 * _kt + 4.388 * _kt * _kt - 16.638 * Math.pow(_kt, 3) + 12.336 * Math.pow(_kt, 4);
+        else DHI_fraction = 0.165;
         const G_dhi = GHI_instant * DHI_fraction;
         const G_dni = Math.max(0, (GHI_instant - G_dhi) / Math.max(sinAlt, 0.05));
 
@@ -750,6 +779,9 @@
               const instantLossW = G_beam * tempFactor;
               pData.annualShadedLoss += instantLossW * mw * hourStepDt;
             }
+
+            // [B6] Energía neta real del mes calendario (para el reparto mensual de la memoria/oferta).
+            _monthlyNetWh[m] += (instantPotentialW - (isShaded ? (G_beam * tempFactor) : 0)) * mw * hourStepDt;
           });
         });
 
@@ -833,6 +865,30 @@
         p.isUnviable = p.annualLossPct >= 25.0;
       });
     });
+
+    // [B6] Reparto mensual canónico (kWh) derivado de la SIMULACIÓN REAL. En calidad media/rápida
+    // se muestrean bloques multi-mes; cada bloque se reparte entre sus meses según el modelo de
+    // radiación, de modo que Σ meses = producción anual y la memoria/oferta cuadran entre sí.
+    try {
+      const _ghiW = new Array(12).fill(0);
+      for (let _k = 0; _k < 12; _k++) {
+        const _days = (typeof MONTH_DAYS !== 'undefined' && MONTH_DAYS[_k]) ? MONTH_DAYS[_k] : [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][_k];
+        _ghiW[_k] = ((typeof estimateMonthlyGHI === 'function') ? estimateMonthlyGHI(lat, _k) : 1) * _days;
+      }
+      const _monthlyKwhOut = new Array(12).fill(0);
+      for (let _i = 0; _i < monthsReal.length; _i++) {
+        const _start = (_i === 0) ? 0 : monthsReal[_i];
+        const _end = (_i + 1 < monthsReal.length) ? monthsReal[_i + 1] : 12;
+        const _blockVal = _monthlyNetWh[monthsReal[_i]] / 1000.0 * pKwp * prSys;
+        let _wSum = 0;
+        for (let _k = _start; _k < _end; _k++) _wSum += _ghiW[_k];
+        if (_wSum <= 0) _wSum = (_end - _start) || 1;
+        for (let _k = _start; _k < _end; _k++) _monthlyKwhOut[_k] = Math.round(_blockVal * _ghiW[_k] / _wSum);
+      }
+      if (!window.solarSimState) window.solarSimState = {};
+      window.solarSimState.monthlyKwh = _monthlyKwhOut;
+      window.solarSimState.monthlyKwhAt = Date.now();
+    } catch (eMonthly) { /* reparto mensual opcional: nunca bloquear la simulación */ }
 
     // ── Interpolación de paneles no muestreados: heredan del panel muestreado más
     // cercano dentro de su mismo faldón (misma retícula ⇒ sombreado similar) ──
@@ -966,6 +1022,7 @@
     solarSimState.viewMode = 'heatmap';
     solarSimState.annualHeatmapData = true;
     solarSimState.annualHeatmapDirty = false;
+    solarSimState.isCalculatingHeatmap = false; // [B4] fin de simulación: desbloquear documentos
 
     if (typeof wpFastRenderSimulatedPanels === 'function') {
       await wpFastRenderSimulatedPanels(true);
@@ -1002,6 +1059,7 @@
       window.solarSimState._lastInvalReason = reason || 'Cubierta modificada';
       window.solarSimState.annualHeatmapInvalidatedAt = Date.now();
       window.solarSimState.isCalculatingHeatmap = false;
+      window.solarSimState.monthlyKwh = null; // [B6] invalidar reparto mensual derivado
       window.solarSimState.viewMode = 'normal';
       if (window.solarSimState.panelShadowOverlayPool) {
         if (typeof viewer !== 'undefined' && viewer && viewer.entities) {
