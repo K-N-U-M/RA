@@ -450,17 +450,26 @@
       if (!resp.ok) {
         const errData = await resp.json().catch(() => ({}));
         const errMsg = (errData.error && errData.error.message) ? errData.error.message : ('HTTP ' + resp.status);
-        if (resultEl) resultEl.innerHTML = '<span style="color:#ef4444;">❌ Error: ' + errMsg + '</span>';
+        if (resultEl) {
+          resultEl.textContent = '❌ Error: ' + errMsg;
+          resultEl.style.color = '#ef4444';
+        }
         return;
       }
       const data = await resp.json();
       const txt = (data.candidates && data.candidates[0] && data.candidates[0].content &&
                    data.candidates[0].content.parts && data.candidates[0].content.parts[0])
                   ? data.candidates[0].content.parts[0].text : '';
-      if (resultEl) resultEl.innerHTML = '<span style="color:#34d399;">✅ Conexión exitosa · Gemini respondió: "' + txt.trim().substring(0, 40) + '"</span>';
+      if (resultEl) {
+        resultEl.textContent = '✅ Conexión exitosa · Gemini respondió: "' + txt.trim().substring(0, 40) + '"';
+        resultEl.style.color = '#34d399';
+      }
       saveCompanyBranding();
     } catch (err) {
-      if (resultEl) resultEl.innerHTML = '<span style="color:#ef4444;">❌ Error de red: ' + (err.message || err) + '</span>';
+      if (resultEl) {
+        resultEl.textContent = '❌ Error de red: ' + (err.message || err);
+        resultEl.style.color = '#ef4444';
+      }
     }
   }
 

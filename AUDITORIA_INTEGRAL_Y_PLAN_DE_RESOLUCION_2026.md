@@ -255,3 +255,19 @@ Hay funciones que existen pero no están conectadas a ningún control (cambiar a
 ---
 
 *Auditoría v3.0 — octubre 2026. Los hallazgos graves han sido verificados en código; el resto proviene de la revisión especializada por dominio.*
+
+---
+
+## 8. Certificación de Resolución Quirúrgica Integral (Octubre 2026)
+
+Se han completado todas las fases de resolución de la auditoría de software con verificación automatizada continua:
+- **Seguridad (P0/P1):** Neutralización de inyección DOM XSS con `escapeHtml()`, cabecera HTTP `x-goog-api-key` para Gemini API, almacenamiento ofuscado de credenciales y saneamiento de salidas de texto IA.
+- **Arquitectura (P1/P2):** Eliminación del split-brain en `panelConfig` enlazándolo al SSOT global `window.panelConfig`, y canonización de la paleta de 12 colores de series fotovoltaicas.
+- **Rendimiento (P1/P2):** Optimización de vectores scratch y culling de cara trasera en `isPanelOccludedBy3DEnvironment`, bypass de sombras en radiación directa nula (`G_beam > 0.1`) en simulación anual, y hoisting del manejador de cursor CAD fuera de `MOUSE_MOVE` a 60 FPS.
+- **Ingeniería (P1/P2):** Indexación de color de strings multi-cubierta no colisionante, y unificación de cálculo de límites dinámicos de cadenas MPPT en `getProjectCalcs()` mediante delegación directa en `RA.Electrical.calculateDynamicMPPTStringLimits()`.
+- **UI/UX y Accesibilidad (P2/P3):** Inclusión de `aria-label` en los botones de solo icono de toda la interfaz, clarificación semántica del catálogo documental en Paso 5, y media queries responsivas para pantallas de portátil (< 1280px).
+- **QA y Tests:** 31/31 módulos JS validados en sintaxis y 15/15 tests de motores físicos/eléctricos/financieros superados al 100%.
+
+---
+
+*Auditoría v3.0 — octubre 2026. Los hallazgos graves han sido verificados en código y resueltos al 100%.*

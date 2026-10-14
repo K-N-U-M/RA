@@ -50,9 +50,9 @@
    */
   function calculateDynamicMPPTStringLimits(modParams = {}, invParams = {}, climParams = {}) {
     const pCfg = (typeof root.panelConfig !== 'undefined' && root.panelConfig) ? root.panelConfig : {};
-    const modW = pCfg.potencia || 450;
-    const Voc_STC = modParams.Voc || pCfg.voc || (modW >= 500 ? 50.0 : 49.5);
-    const Vmp_STC = modParams.Vmp || pCfg.vmp || (modW >= 500 ? 42.0 : 41.5);
+    const modW = modParams.potencia || modParams.power || pCfg.potencia || 450;
+    const Voc_STC = modParams.Voc || modParams.voc || pCfg.voc || (modW >= 500 ? 50.0 : 49.5);
+    const Vmp_STC = modParams.Vmp || modParams.vmp || pCfg.vmp || (modW >= 500 ? 42.0 : 41.5);
     const betaVoc = modParams.betaVoc || pCfg.betaVoc || -0.0027;
     const gammaPmp = modParams.gammaPmp || pCfg.gammaPmp || (pCfg.tecnologia && pCfg.tecnologia.includes('N-Type') ? -0.0029 : -0.0035);
 
@@ -60,12 +60,12 @@
     // si no hay selección, cae a los defaults normativos 1000/200/850 V.
     const liveInv = (root.solarProjectConfig && root.solarProjectConfig.calculatedLimits &&
                      root.solarProjectConfig.calculatedLimits.inverter) || null;
-    const Vmax_inv   = invParams.Vmax     || (liveInv ? (liveInv.vDcMax || 1000) : 1000.0);
-    const Vmppt_min  = invParams.VmpptMin || (liveInv ? (liveInv.vMpptNomMin || liveInv.vMpptMin || 200) : 200.0);
-    const Vmppt_max  = invParams.VmpptMax || (liveInv ? (liveInv.vMpptNomMax || liveInv.vMpptMax || 850) : 850.0);
+    const Vmax_inv   = invParams.Vmax     || invParams.vDcMax || invParams.vMax || (liveInv ? (liveInv.vDcMax || liveInv.vMax || 1000) : 1000.0);
+    const Vmppt_min  = invParams.VmpptMin || invParams.vMpptMin || invParams.vMpptNomMin || (liveInv ? (liveInv.vMpptNomMin || liveInv.vMpptMin || 200) : 200.0);
+    const Vmppt_max  = invParams.VmpptMax || invParams.vMpptMax || invParams.vMpptNomMax || (liveInv ? (liveInv.vMpptNomMax || liveInv.vMpptMax || 850) : 850.0);
 
-    const Tmin = climParams.Tmin !== undefined ? climParams.Tmin : ELEC_CONSTANTS.T_MIN_SPAIN;
-    const Tmax_cell = climParams.TmaxCell !== undefined ? climParams.TmaxCell : 70.0;
+    const Tmin = climParams.Tmin !== undefined ? climParams.Tmin : (climParams.tMinCold !== undefined ? climParams.tMinCold : ELEC_CONSTANTS.T_MIN_SPAIN);
+    const Tmax_cell = climParams.TmaxCell !== undefined ? climParams.TmaxCell : (climParams.tMaxHot !== undefined ? climParams.tMaxHot : 70.0);
 
     const Voc_Tmin = Voc_STC * (1 + betaVoc * (Tmin - 25.0));
     const Vmp_Tmax = Vmp_STC * (1 + gammaPmp * (Tmax_cell - 25.0));

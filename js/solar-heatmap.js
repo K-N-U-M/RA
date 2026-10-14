@@ -786,7 +786,7 @@
               }
             }
 
-            if (!isShaded && sunDirWorld && pData.center) {
+            if (!isShaded && G_beam > 0.1 && sunDirWorld && pData.center) {
               if (typeof isPanelOccludedBy3DEnvironment === "function" && isPanelOccludedBy3DEnvironment(pData.center, panelNormWorld, sunDirWorld)) {
                 isShaded = true;
               }

@@ -2436,3 +2436,32 @@ body.ra-capture-mode-active #ra-triad-overlay {
   opacity: 0 !important;
   pointer-events: none !important;
 }
+
+/* ==========================================================================
+   DISEÑO RESPONSIVO (VIEWPORTS < 1280px Y PANTALLAS DE PORTÁTILES)
+   ========================================================================== */
+@media (max-width: 1280px) {
+  #ra-sidebar {
+    width: 350px;
+  }
+  .doc-modal-box {
+    max-width: 94vw;
+    max-height: 92vh;
+  }
+  #equipment-catalog-modal,
+  #cost-breakdown-modal,
+  #company-branding-modal {
+    max-width: 95vw !important;
+    max-height: 92vh !important;
+  }
+  #ra-floating-tools-container {
+    right: 70px;
+    bottom: 16px;
+    gap: 6px;
+  }
+  #ra-floating-settings-btn {
+    right: 16px;
+    bottom: 16px;
+  }
+}
+

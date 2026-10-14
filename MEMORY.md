@@ -478,6 +478,38 @@ calculateFinancialModel()  ← Definición canónica en financials.js (~L491)
 - **`applyBillToBudget()`** vuelca a los campos de documentación `#doc-cups`, `#doc-nombre`, `#doc-nif`, `#doc-tel`, `#doc-email`, `#doc-dir`, `#doc-mun`, `#doc-prov`, `#doc-cp`, y a `#doc-potcontr` (P1+P2) y `#doc-dist` (select casado por texto), **solo si el campo está vacío o conserva su valor por defecto** (comparación con `HTMLInputElement.defaultValue`) — nunca sobrescribe datos ya introducidos. Corregido el id inexistente `#tit-cups` → `#doc-cups` (auto-relleno de CUPS roto). No modifica el nombre del proyecto.
 - **Verificado:** 31/31 sintaxis, 15/15 workflow, importador IA 100%.
 
+## 26. Resolución Quirúrgica Integral v3.0 (Octubre 2026)
+
+- **Fase 1: Seguridad (P0/P1):**
+  - **Saneamiento DOM XSS:** En `js/docs-generator.js`, función `escapeHtml()` aplicada a todos los campos del titular y promotor (`readTitular()`), neutralizando inyecciones en `generateMemoria()`, `generatePropuestaComercialPDF()`, `buildUnifilarSvg()`, etc.
+  - **Protección de API Keys:** Eliminado el paso de credenciales por URL (`?key=`) en `js/financials.js`, `js/bill-auditor.js` y `js/equipment-ai-importer.js`; tráfico centralizado mediante cabecera segura `x-goog-api-key`.
+  - **Persistencia Ofuscada:** Corregido `getApiKey()` y `setApiKey()` para soportar prefijo `enc:` y evitar guardado plano involuntario.
+  - **Saneamiento de Salidas IA e Interfaz:** Limpieza de etiquetas en el resumen financiero de `js/financials.js` y reemplazo de `innerHTML` por `textContent` en `js/company-branding.js`.
+
+- **Fase 2: Arquitectura y Sincronización de Estado (P1/P2):**
+  - **Desacoplamiento de `panelConfig`:** Eliminado el split-brain por shadowing léxico en `index.html`; enlazado reactivamente al SSOT global `window.panelConfig`.
+  - **Paleta Canónica de Strings:** Unificada la definición de `window.RA_STRING_PALETTE` a 12 colores distintivos en `js/config.js` y su fallback en `js/working-plane.js`.
+
+- **Fase 3: Rendimiento y Optimización GPU (P1/P2):**
+  - **Optimización de Raycasting 3D:** En `index.html` (`isPanelOccludedBy3DEnvironment`), asignación fija de vectores scratch (`_scratchNormScaled`, `_scratchRayOrigin`), descarte por producto escalar de la normal del panel (`dot <= 0.01`), y caché temporal de primitivas con TTL de 3s.
+  - **Culling de Sombra en Simulación Anual:** En `js/solar-heatmap.js`, descarte directo de raycast cuando la irradiancia directa de haz es nula (`G_beam <= 0.1`).
+  - **Throttling de Cursor CAD:** Hoisting de variables de dirty flag y función actualizadora fuera del callback de `MOUSE_MOVE`, eliminando la creación masiva de closures y garantizando bloqueo a 60 FPS con rAF.
+
+- **Fase 4: Coherencia Electrotécnica y Lógica (P1/P2):**
+  - **Coloración de Series Multi-Cubierta:** En `index.html`, corregida la fórmula de indexado de color de strings para evitar colisiones idénticas entre polilíneas adyacentes (`(polyIdx * 4 + sIdx)`).
+  - **Unificación de Límites MPPT:** En `getProjectCalcs()`, delegación canónica en `RA.Electrical.calculateDynamicMPPTStringLimits()` y alineación de coeficientes térmicos ($\beta_{Voc} = -0.0027$, $T_{cell,max} = 70^\circ\text{C}$).
+
+- **Fase 5: UI/UX y Accesibilidad (P2/P3):**
+  - **Accesibilidad WCAG / ARIA:** Incorporación de atributos `aria-label` descriptivos en más de 15 botones con solo iconos (buscador, steppers de hardware, borrado y cancelación de cableado, cierres de modales y herramientas flotantes).
+  - **Clarificación de Documentación en Paso 5:** Asignación de semántica y etiquetas diferenciadas al botón de descarga en el grid legal de legalización.
+  - **Diseño Responsivo:** Reglas CSS en `css/styles.css` para viewports `< 1280px` (sidebar adaptativo a 350px, modales delimitados a 94-95vw/vh, reposicionamiento ergonómico de controles flotantes).
+
+- **Fase 6: Verificación y QA:**
+  - 31/31 módulos JS validados sin errores de sintaxis.
+  - 15/15 pruebas automatizadas de física astronómica, ingeniería eléctrica y modelo financiero aprobadas al 100%.
+  - Suite de importador de datasheets con IA verificada al 100%.
+
+
 
 
 

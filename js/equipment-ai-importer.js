@@ -13,12 +13,15 @@
   'use strict';
 
   // [D1+D2] Cliente IA unificado (cabecera x-goog-api-key, timeout y cancelación).
-  // Delega en RA.geminiFetch cuando está disponible; si no, usa fetch nativo.
-  function _aiFetch(url, opts, timeoutMs) {
+  // Delega en RA.geminiFetch cuando está disponible; si no, usa fetch nativo con cabecera.
+  function _aiFetch(url, opts, timeoutMs, apiKey) {
     if (root.RA && typeof root.RA.geminiFetch === 'function') {
-      return root.RA.geminiFetch(url, opts, timeoutMs);
+      return root.RA.geminiFetch(url, opts, timeoutMs, apiKey);
     }
-    return fetch(url, opts);
+    const cleanOpts = Object.assign({}, opts || {});
+    cleanOpts.headers = Object.assign({}, cleanOpts.headers || {});
+    if (apiKey) cleanOpts.headers['x-goog-api-key'] = apiKey;
+    return fetch(url, cleanOpts);
   }
 
   const RAEquipmentAIImporter = {
@@ -38,7 +41,10 @@
           if (unified && unified.trim()) return unified.trim();
         }
         if (root.RA && root.RA.geminiApiKey) return root.RA.geminiApiKey;
-        const local = localStorage.getItem('ra_gemini_api_key');
+        const local = localStorage.getItem('ra_gemini_api_key') || '';
+        if (local.startsWith('enc:')) {
+          try { return decodeURIComponent(escape(atob(local.slice(4)))).trim(); } catch (e) { return local.slice(4).trim(); }
+        }
         if (local && local.trim()) return local.trim();
       } catch (e) {}
       return '';
@@ -155,8 +161,8 @@ NORMAS ESTRICTAS DE EXTRACCIÓN:
         return this._cachedAvailableModels;
       }
       try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`;
-        const resp = await _aiFetch(url, {}, 20000);
+        const url = 'https://generativelanguage.googleapis.com/v1beta/models';
+        const resp = await _aiFetch(url, {}, 20000, apiKey);
         if (resp.ok) {
           const data = await resp.json();
           if (Array.isArray(data.models)) {
@@ -241,12 +247,12 @@ NORMAS ESTRICTAS DE EXTRACCIÓN:
 
       for (const model of models) {
         try {
-          const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
           const resp = await _aiFetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestBody)
-          }, 90000);
+          }, 90000, apiKey);
 
           if (!resp.ok) {
             const errData = await resp.json().catch(() => ({}));

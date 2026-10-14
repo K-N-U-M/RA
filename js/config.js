@@ -45,6 +45,24 @@ if (typeof window !== 'undefined' && typeof window.panelConfig === 'undefined') 
   window.panelConfig = panelConfig;
 }
 
+// ── PALETA DE COLORES PROFESIONAL PARA STRINGS INDEPENDIENTES (12 Colores) ──
+if (typeof window !== 'undefined' && typeof window.RA_STRING_PALETTE === 'undefined') {
+  window.RA_STRING_PALETTE = [
+    { name: "String #1", hex: "#00F0FF", rgb: [0, 240, 255], css: "#00F0FF" },   // Cyan Eléctrico
+    { name: "String #2", hex: "#A855F7", rgb: [168, 85, 247], css: "#A855F7" }, // Violeta Neón
+    { name: "String #3", hex: "#10B981", rgb: [16, 185, 129], css: "#10B981" }, // Verde Esmeralda
+    { name: "String #4", hex: "#F59E0B", rgb: [245, 158, 11], css: "#F59E0B" }, // Ámbar Solar
+    { name: "String #5", hex: "#F43F5E", rgb: [244, 63, 94], css: "#F43F5E" },   // Rosa / Fucsia
+    { name: "String #6", hex: "#3B82F6", rgb: [59, 130, 246], css: "#3B82F6" }, // Azul Cobalto
+    { name: "String #7", hex: "#84CC16", rgb: [132, 204, 22], css: "#84CC16" }, // Lima Neón
+    { name: "String #8", hex: "#FF6B00", rgb: [255, 107, 0], css: "#FF6B00" },   // Naranja Fuego
+    { name: "String #9", hex: "#14B8A6", rgb: [20, 184, 166], css: "#14B8A6" }, // Turquesa
+    { name: "String #10", hex: "#EAB308", rgb: [234, 179, 8], css: "#EAB308" }, // Oro Brillante
+    { name: "String #11", hex: "#EF4444", rgb: [239, 68, 68], css: "#EF4444" }, // Rojo Carmín
+    { name: "String #12", hex: "#8B5CF6", rgb: [139, 92, 246], css: "#8B5CF6" } // Púrpura Imperial
+  ];
+}
+
   // ── Pérdidas del sistema configurables (árbol de pérdidas tipo PVsyst) ──
   // Valores en FRACCIÓN (0.025 = 2.5%). El ingeniero debe poder justificar el PR:
   // antes estaban hardcodeadas en los motores de energía.

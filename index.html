@@ -262,16 +262,16 @@ window.RA_App = window.RA_App || {};
           <span class="sb-subtitle" id="active-engine-badge">GOOGLE 3D</span>
         </div>
       </div>
-      <button class="doc-mini-btn" id="btn-save-project-hdr" onclick="raSaveProjectToFile(false)" title="Guardar Proyecto (.raproject) [Ctrl+S]" style="padding:4px 8px;border-color:var(--emerald-500);background:rgba(16,185,129,0.18);color:var(--emerald-400);font-size:12px;margin-right:4px;cursor:pointer;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;transition:all 0.2s ease;">
+      <button class="doc-mini-btn" id="btn-save-project-hdr" onclick="raSaveProjectToFile(false)" title="Guardar Proyecto (.raproject) [Ctrl+S]" aria-label="Guardar proyecto en archivo local" style="padding:4px 8px;border-color:var(--emerald-500);background:rgba(16,185,129,0.18);color:var(--emerald-400);font-size:12px;margin-right:4px;cursor:pointer;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;transition:all 0.2s ease;">
         <i data-lucide="save" class="icon-sm"></i>
       </button>
-      <button class="doc-mini-btn" id="btn-open-project-hdr" onclick="raShowProjectsModal()" title="Abrir Proyecto (.raproject) o Recientes" style="padding:4px 8px;border-color:var(--blue-500);background:rgba(59,130,246,0.18);color:var(--blue-400);font-size:12px;margin-right:4px;cursor:pointer;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;transition:all 0.2s ease;">
+      <button class="doc-mini-btn" id="btn-open-project-hdr" onclick="raShowProjectsModal()" title="Abrir Proyecto (.raproject) o Recientes" aria-label="Abrir proyecto o recientes" style="padding:4px 8px;border-color:var(--blue-500);background:rgba(59,130,246,0.18);color:var(--blue-400);font-size:12px;margin-right:4px;cursor:pointer;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;transition:all 0.2s ease;">
         <i data-lucide="folder-open" style="width:24px;height:24px;color:var(--sky-400);"></i>
       </button>
-      <button class="doc-mini-btn" id="btn-open-catalog-hdr" onclick="openEquipmentCatalogModal()" title="Configuración y Catálogo de Equipos FV" style="padding:4px 8px;border-color:var(--amber-400);background:rgba(245,158,11,0.18);color:var(--amber-400);font-size:12px;margin-right:6px;cursor:pointer;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;transition:all 0.2s ease;">
+      <button class="doc-mini-btn" id="btn-open-catalog-hdr" onclick="openEquipmentCatalogModal()" title="Configuración y Catálogo de Equipos FV" aria-label="Catálogo de equipos fotovoltaicos" style="padding:4px 8px;border-color:var(--amber-400);background:rgba(245,158,11,0.18);color:var(--amber-400);font-size:12px;margin-right:6px;cursor:pointer;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;transition:all 0.2s ease;">
         <i data-lucide="settings" class="icon-sm"></i>
       </button>
-      <button class="sb-collapse-btn" id="btn-sidebar-toggle" onclick="toggleSidebarCollapse()" title="Colapsar barra lateral (Tab)">◀</button>
+      <button class="sb-collapse-btn" id="btn-sidebar-toggle" onclick="toggleSidebarCollapse()" title="Colapsar barra lateral (Tab)" aria-label="Colapsar barra lateral">◀</button>
     </div>
 
     <!-- Buscador Universal -->
@@ -279,7 +279,7 @@ window.RA_App = window.RA_App || {};
       <div class="sb-search-box">
         <span class="sb-search-icon" onclick="executeSearch()">⌕</span>
         <input class="sb-search-input" id="ra-search-input" type="text" placeholder="Buscar ciudad, dirección, coordenadas..." autocomplete="off" spellcheck="false">
-        <button id="ra-search-btn" style="display:none;"></button>
+        <button id="ra-search-btn" style="display:none;" aria-label="Buscar ubicación"></button>
       </div>
       <div id="ra-results"></div>
     </div>
@@ -1456,9 +1456,9 @@ window.RA_App = window.RA_App || {};
                   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
                     <span style="color:var(--text-slate-200);font-weight:bold;"><i data-lucide="zap" class="icon-sm"></i> Inversores Necesarios:</span>
                     <div style="display:flex;align-items:center;gap:3px;">
-                      <button type="button" class="gizmo-btn" onclick="wpStepQuantity('inverters', -1)" style="padding:2px 6px;font-weight:bold;">-</button>
+                      <button type="button" class="gizmo-btn" onclick="wpStepQuantity('inverters', -1)" style="padding:2px 6px;font-weight:bold;" aria-label="Disminuir inversores">-</button>
                       <input id="step3-qty-inverters" type="number" min="1" max="100" value="1" onchange="wpSetManualQuantity('inverters', this.value)" style="width:38px;text-align:center;background:rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.2);color:#fff;font-size:10px;font-weight:bold;border-radius:4px;">
-                      <button type="button" class="gizmo-btn" onclick="wpStepQuantity('inverters', 1)" style="padding:2px 6px;font-weight:bold;">+</button>
+                      <button type="button" class="gizmo-btn" onclick="wpStepQuantity('inverters', 1)" style="padding:2px 6px;font-weight:bold;" aria-label="Aumentar inversores">+</button>
                       <span style="font-size:9.5px;color:var(--text-slate-400);margin-left:2px;">uds</span>
                       <button id="step3-auto-btn-inverters" type="button" class="doc-mini-btn" onclick="wpResetAutoSizing('inverters')" style="display:none;padding:1px 4px;font-size:9.5px;margin-left:4px;border-color:var(--emerald-400);color:var(--emerald-400);"><i data-lucide="refresh-cw" class="icon-sm"></i> Auto</button>
                     </div>
@@ -1473,9 +1473,9 @@ window.RA_App = window.RA_App || {};
                   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
                     <span style="color:var(--text-slate-200);font-weight:bold;"><i data-lucide="cpu" class="icon-sm"></i> Microinversores Necesarios:</span>
                     <div style="display:flex;align-items:center;gap:3px;">
-                      <button type="button" class="gizmo-btn" onclick="wpStepQuantity('microinverters', -1)" style="padding:2px 6px;font-weight:bold;">-</button>
+                      <button type="button" class="gizmo-btn" onclick="wpStepQuantity('microinverters', -1)" style="padding:2px 6px;font-weight:bold;" aria-label="Disminuir microinversores">-</button>
                       <input id="step3-qty-microinverters" type="number" min="0" max="1000" value="0" onchange="wpSetManualQuantity('microinverters', this.value)" style="width:38px;text-align:center;background:rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.2);color:#fff;font-size:10px;font-weight:bold;border-radius:4px;">
-                      <button type="button" class="gizmo-btn" onclick="wpStepQuantity('microinverters', 1)" style="padding:2px 6px;font-weight:bold;">+</button>
+                      <button type="button" class="gizmo-btn" onclick="wpStepQuantity('microinverters', 1)" style="padding:2px 6px;font-weight:bold;" aria-label="Aumentar microinversores">+</button>
                       <span style="font-size:9.5px;color:var(--text-slate-400);margin-left:2px;">uds</span>
                       <button id="step3-auto-btn-microinverters" type="button" class="doc-mini-btn" onclick="wpResetAutoSizing('microinverters')" style="display:none;padding:1px 4px;font-size:9.5px;margin-left:4px;border-color:var(--emerald-400);color:var(--emerald-400);"><i data-lucide="refresh-cw" class="icon-sm"></i> Auto</button>
                     </div>
@@ -1490,9 +1490,9 @@ window.RA_App = window.RA_App || {};
                   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
                     <span style="color:var(--text-slate-200);font-weight:bold;"><i data-lucide="battery-charging" class="icon-sm"></i> Módulos de Batería LFP:</span>
                     <div style="display:flex;align-items:center;gap:3px;">
-                      <button type="button" class="gizmo-btn" onclick="wpStepQuantity('batteries', -1)" style="padding:2px 6px;font-weight:bold;">-</button>
+                      <button type="button" class="gizmo-btn" onclick="wpStepQuantity('batteries', -1)" style="padding:2px 6px;font-weight:bold;" aria-label="Disminuir baterías">-</button>
                       <input id="step3-qty-batteries" type="number" min="0" max="50" value="0" onchange="wpSetManualQuantity('batteries', this.value)" style="width:38px;text-align:center;background:rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.2);color:#fff;font-size:10px;font-weight:bold;border-radius:4px;">
-                      <button type="button" class="gizmo-btn" onclick="wpStepQuantity('batteries', 1)" style="padding:2px 6px;font-weight:bold;">+</button>
+                      <button type="button" class="gizmo-btn" onclick="wpStepQuantity('batteries', 1)" style="padding:2px 6px;font-weight:bold;" aria-label="Aumentar baterías">+</button>
                       <span style="font-size:9.5px;color:var(--text-slate-400);margin-left:2px;">uds</span>
                       <button id="step3-auto-btn-batteries" type="button" class="doc-mini-btn" onclick="wpResetAutoSizing('batteries')" style="display:none;padding:1px 4px;font-size:9.5px;margin-left:4px;border-color:var(--emerald-400);color:var(--emerald-400);"><i data-lucide="refresh-cw" class="icon-sm"></i> Auto</button>
                     </div>
@@ -1630,7 +1630,7 @@ window.RA_App = window.RA_App || {};
                   <button type="button" onclick="wpUndoLastCableRoutePoint()" class="doc-mini-btn" style="flex:1;padding:4px;font-size:9px;text-align:center;">
                     DESHACER
                   </button>
-                  <button type="button" onclick="wpCancelCableRouting()" class="doc-mini-btn" style="padding:4px 6px;font-size:9px;color:#EF4444;border-color:rgba(239,68,68,0.4);">
+                  <button type="button" onclick="wpCancelCableRouting()" class="doc-mini-btn" style="padding:4px 6px;font-size:9px;color:#EF4444;border-color:rgba(239,68,68,0.4);" aria-label="Cancelar trazado de cableado">
                     ✕
                   </button>
                 </div>
@@ -1748,7 +1748,7 @@ window.RA_App = window.RA_App || {};
                   <button type="button" onclick="if(typeof window.openDocModal === 'function') window.openDocModal();" style="background:none;border:none;color:var(--sky-400);font-size:9px;cursor:pointer;text-decoration:underline;padding:0;">Editar datos</button>
                 </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
-                  <button type="button" class="doc-mini-btn" onclick="generateMemoria()" style="padding:6px 4px;font-size:9px;font-weight:700;display:flex;align-items:center;gap:4px;justify-content:center;">
+                  <button type="button" class="doc-mini-btn" onclick="generateMemoria()" style="padding:6px 4px;font-size:9px;font-weight:700;display:flex;align-items:center;gap:4px;justify-content:center;" title="Descargar Memoria Técnica Oficial (ITC-BT-40)" aria-label="Descargar Memoria Técnica Oficial">
                     <i data-lucide="clipboard" class="icon-sm"></i><span>MEMORIA TÉCNICA</span>
                   </button>
                   <button type="button" class="doc-mini-btn" onclick="generatePliego()" style="padding:6px 4px;font-size:9px;font-weight:700;display:flex;align-items:center;gap:4px;justify-content:center;">
@@ -1846,7 +1846,7 @@ window.RA_App = window.RA_App || {};
           <span class="solar-tel-item">Sombras: <b id="solar-telemetry-shaded" style="color:var(--rose-400);">0 mods</b></span>
           <span class="solar-tel-item">Optimizadores: <b id="solar-telemetry-mlpe" style="color:#10b981;">0 uds</b></span>
         </div>
-        <button class="solar-hud-min-btn" onclick="toggleSolarHUD(false)" title="Minimizar panel solar (se coloca bajo la Rosa de los Vientos)">
+        <button class="solar-hud-min-btn" onclick="toggleSolarHUD(false)" title="Minimizar panel solar (se coloca bajo la Rosa de los Vientos)" aria-label="Minimizar panel solar">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
         </button>
       </div>
@@ -1912,7 +1912,7 @@ window.RA_App = window.RA_App || {};
 
     <!-- Controles de Reproducción y Slider Horario -->
     <div class="solar-hud-controls">
-      <button id="solar-play-btn" class="solar-play-btn" onclick="wpToggleSolarPlay()">
+      <button id="solar-play-btn" class="solar-play-btn" onclick="wpToggleSolarPlay()" aria-label="Reproducir o pausar simulación solar">
         <span id="solar-play-icon">▶</span>
         <span id="solar-play-text">PLAY</span>
       </button>
@@ -1961,7 +1961,7 @@ window.RA_App = window.RA_App || {};
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
         <button class="doc-mini-btn" onclick="resetEquipmentCatalogToDefault()" style="font-size:9px;color:var(--text-slate-400);">↩ RESTAURAR FÁBRICA</button>
-        <button class="doc-modal-close" onclick="closeEquipmentCatalogModal()"><i data-lucide="x" class="icon-sm"></i></button>
+        <button class="doc-modal-close" onclick="closeEquipmentCatalogModal()" aria-label="Cerrar catálogo de equipos"><i data-lucide="x" class="icon-sm"></i></button>
       </div>
     </div>
 
@@ -2215,7 +2215,7 @@ window.RA_App = window.RA_App || {};
           <div style="font-size:10px;color:var(--text-slate-400);">Parámetros de inversión, subvenciones IBI/IRPF, simulación de cuota bancaria y retorno</div>
         </div>
       </div>
-      <button class="doc-modal-close" onclick="closeCostBreakdownModal()" style="background:transparent;border:none;color:#94a3b8;font-size:18px;cursor:pointer;padding:4px 8px;"><i data-lucide="x" class="icon-sm"></i></button>
+      <button class="doc-modal-close" onclick="closeCostBreakdownModal()" style="background:transparent;border:none;color:#94a3b8;font-size:18px;cursor:pointer;padding:4px 8px;" aria-label="Cerrar desglose de costes"><i data-lucide="x" class="icon-sm"></i></button>
     </div>
 
     <!-- Body (2 Columnas) -->
@@ -2455,7 +2455,7 @@ window.RA_App = window.RA_App || {};
           <div style="font-size:10px;color:var(--text-slate-400);">Personalización de la Memoria Técnica Oficial y Propuesta Comercial PDF</div>
         </div>
       </div>
-      <button class="doc-modal-close" onclick="closeCompanyBrandingModal()" style="background:transparent;border:none;color:#94a3b8;font-size:18px;cursor:pointer;padding:4px 8px;"><i data-lucide="x" class="icon-sm"></i></button>
+      <button class="doc-modal-close" onclick="closeCompanyBrandingModal()" style="background:transparent;border:none;color:#94a3b8;font-size:18px;cursor:pointer;padding:4px 8px;" aria-label="Cerrar identidad corporativa"><i data-lucide="x" class="icon-sm"></i></button>
     </div>
 
     <!-- Body -->
@@ -4021,7 +4021,8 @@ let isSimulationRunning = false;
 const configPanel    = document.getElementById('ra-config-panel');
 const budgetPanel    = document.getElementById('ra-budget-panel');
 
-let panelConfig = {
+// [ARQ-01] SSOT única: window.panelConfig (inicializado en config.js y sincronizado con catálogo)
+window.panelConfig = window.panelConfig || {
   modelo: 'Tier 1 Mono PERC 450W',
   tecnologia: 'Monocristalino',
   largo: 2.10,
@@ -4030,6 +4031,7 @@ let panelConfig = {
   rendimiento: 21.5,
   precio: 135
 };
+var panelConfig = window.panelConfig;
 
 
 // ── Orientación exacta del módulo (ángulo libre) ─────────────────────────────
@@ -6264,7 +6266,7 @@ function startSolarPanelsSimulation() {
         let wirePositions = strObj.panels.map(p => p.center);
         if (wirePositions.length === 1) wirePositions.push(Cesium.Cartesian3.clone(wirePositions[0]));
 
-        const strColorHex = getPolylineStringColor(routedStrings.length > 1 ? (polyIdx * 10 + sIdx) : polyIdx);
+        const strColorHex = getPolylineStringColor(routedStrings.length > 1 ? (polyIdx * 4 + sIdx) : polyIdx);
 
         // Línea 3D del string en serpentina
         const stringLineEntity = viewer.entities.add({
@@ -10401,7 +10403,7 @@ function wpUpdateCableRoutesUI() {
         <span><i data-lucide="check" class="icon-sm"></i> <b>Bandeja DC:</b> ${routes.dc.length} codos (${dcL.toFixed(1)} m)</span>
         <div style="display:flex;gap:3px;">
           <button type="button" onclick="wpStartCableRouting('dc')" class="doc-mini-btn" style="padding:1px 4px;font-size:8.5px;" title="Retrazar">✎ Retrazar</button>
-          <button type="button" onclick="wpClearCableRoute('dc')" class="doc-mini-btn" style="padding:1px 4px;font-size:8.5px;color:#EF4444;" title="Borrar">✕</button>
+          <button type="button" onclick="wpClearCableRoute('dc')" class="doc-mini-btn" style="padding:1px 4px;font-size:8.5px;color:#EF4444;" title="Borrar" aria-label="Borrar ruta DC">✕</button>
         </div>
       </div>
     `;
@@ -10415,7 +10417,7 @@ function wpUpdateCableRoutesUI() {
         <span><i data-lucide="check" class="icon-sm"></i> <b>Tubo AC:</b> ${routes.ac.length} codos (${acL.toFixed(1)} m)</span>
         <div style="display:flex;gap:3px;">
           <button type="button" onclick="wpStartCableRouting('ac')" class="doc-mini-btn" style="padding:1px 4px;font-size:8.5px;" title="Retrazar">✎ Retrazar</button>
-          <button type="button" onclick="wpClearCableRoute('ac')" class="doc-mini-btn" style="padding:1px 4px;font-size:8.5px;color:#EF4444;" title="Borrar">✕</button>
+          <button type="button" onclick="wpClearCableRoute('ac')" class="doc-mini-btn" style="padding:1px 4px;font-size:8.5px;color:#EF4444;" title="Borrar" aria-label="Borrar ruta AC">✕</button>
         </div>
       </div>
     `;
@@ -10480,16 +10482,12 @@ function computeElectricalSizingEngineering(generator) {
   const Vmp = cfg.vmp || 34.5;
   const Isc = cfg.isc || 13.8;
   const Imp = cfg.imp || 13.05;
-  const betaVoc = cfg.betaVoc || -0.0028;
+  const betaVoc = cfg.betaVoc || -0.0027;
   const gammaPmp = cfg.gammaPmp || -0.0035;
 
   const T_min = SOLAR_ENGINE_CONSTANTS.T_MIN_SPAIN;
-  const Voc_cold = Voc * (1 + betaVoc * (T_min - 25));
-
   const T_cell_max = computeCellTemperature(SOLAR_ENGINE_CONSTANTS.T_AMB_MAX_SPAIN, 1000, true, 1.0);
   const betaVmp = cfg.betaVmp || gammaPmp || -0.0035;
-  const Vmp_hot = Vmp * (1 + betaVmp * (T_cell_max - 25));
-  const Vmp_cold = Vmp * (1 + betaVmp * (T_min - 25));
 
   // [P0.1] Desacoplar inversor: usar el inversor seleccionado del catálogo en lugar de 1000/160/850 fijos
   let activeInv = null;
@@ -10501,12 +10499,30 @@ function computeElectricalSizingEngineering(generator) {
   const V_mppt_min = (activeInv && activeInv.vMpptMin) ? activeInv.vMpptMin : 160;
   const V_mppt_max = (activeInv && activeInv.vMpptMax) ? activeInv.vMpptMax : 850;
 
-  const N_max_dc   = Math.floor(V_dc_max / Voc_cold);
-  const N_max_mppt = Math.floor(V_mppt_max / Vmp_cold);
-  const N_min_mppt = Math.ceil(V_mppt_min / Vmp_hot);
+  let maxModsPerString = 20;
+  let minModsPerString = 6;
+  let Voc_cold = Voc * (1 + betaVoc * (T_min - 25));
+  let Vmp_hot = Vmp * (1 + betaVmp * (T_cell_max - 25));
+  let Vmp_cold = Vmp * (1 + betaVmp * (T_min - 25));
 
-  const maxModsPerString = Math.min(N_max_dc, N_max_mppt);
-  const minModsPerString = N_min_mppt;
+  if (typeof window !== 'undefined' && window.RA && window.RA.Electrical && typeof window.RA.Electrical.calculateDynamicMPPTStringLimits === 'function') {
+    const limits = window.RA.Electrical.calculateDynamicMPPTStringLimits(
+      { Voc, Vmp, betaVoc, gammaPmp },
+      { Vmax: V_dc_max, VmpptMin: V_mppt_min, VmpptMax: V_mppt_max },
+      { Tmin: T_min, TmaxCell: T_cell_max }
+    );
+    maxModsPerString = limits.Ns_max;
+    minModsPerString = limits.Ns_min;
+    Voc_cold = limits.Voc_Tmin;
+    Vmp_hot = limits.Vmp_Tmax;
+    Vmp_cold = limits.Vmp_Tmin;
+  } else {
+    const N_max_dc   = Math.floor(V_dc_max / Voc_cold);
+    const N_max_mppt = Math.floor(V_mppt_max / Vmp_cold);
+    const N_min_mppt = Math.ceil(V_mppt_min / Vmp_hot);
+    maxModsPerString = Math.min(N_max_dc, N_max_mppt);
+    minModsPerString = N_min_mppt;
+  }
 
   let numStrings = Math.max(1, Math.ceil(numPanels / maxModsPerString));
   let modsPerString = Math.ceil(numPanels / numStrings);
@@ -13583,54 +13599,75 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
   }
 }
 
+let _scratchNormScaled = null;
+let _scratchRayOrigin = null;
+let _occlusionExcludeList = null;
+let _occlusionExcludeListTs = 0;
+
+function _getOcclusionExcludeList(scene) {
+  const now = Date.now();
+  if (_occlusionExcludeList && (now - _occlusionExcludeListTs < 3000)) {
+    return _occlusionExcludeList;
+  }
+  const toExclude = [];
+  if (scene.skyBox) toExclude.push(scene.skyBox);
+  if (scene.skyAtmosphere) toExclude.push(scene.skyAtmosphere);
+  if (window._solarHeatmapLabelCollection) toExclude.push(window._solarHeatmapLabelCollection);
+  if (window.simulatedPanelsPrimitive) toExclude.push(window.simulatedPanelsPrimitive);
+  if (window.simulatedStringsPolylineCollection) toExclude.push(window.simulatedStringsPolylineCollection);
+  if (window.inverterEntity) toExclude.push(window.inverterEntity);
+  if (window.dcBoxEntity) toExclude.push(window.dcBoxEntity);
+  if (window.gridMeterEntity) toExclude.push(window.gridMeterEntity);
+  if (window.acometidaACEntity) toExclude.push(window.acometidaACEntity);
+  _occlusionExcludeList = toExclude;
+  _occlusionExcludeListTs = now;
+  return toExclude;
+}
+
 function isPanelOccludedBy3DEnvironment(panelCenter, norm, sunDirWorld) {
   if (typeof viewer === "undefined" || !viewer || !viewer.scene) return false;
   const scene = viewer.scene;
 
-  const normVec = norm || new Cesium.Cartesian3(0, 0, 1);
+  // Raycast contra 3D Tilesets (Google 3D Photorealistic Tiles, Cesium OSM Buildings)
+  const hasTileset = (typeof google3DTileset !== "undefined" && google3DTileset) ||
+                     (typeof cesiumOsmBuildings !== "undefined" && cesiumOsmBuildings);
+  if (!hasTileset) return false;
+  if (typeof scene.pickFromRay !== "function" || typeof Cesium.Ray !== "function") return false;
+
+  const normVec = norm || Cesium.Cartesian3.UNIT_Z;
+
+  // [PERF] Descarte rápido: si el sol está a la espalda del panel, no incide sol directo
+  if (Cesium.Cartesian3.dot(normVec, sunDirWorld) <= 0.01) return false;
+
+  if (!_scratchNormScaled && typeof Cesium !== 'undefined' && Cesium.Cartesian3) {
+    _scratchNormScaled = new Cesium.Cartesian3();
+    _scratchRayOrigin = new Cesium.Cartesian3();
+  }
+
   const rayOrigin = Cesium.Cartesian3.add(
     panelCenter,
-    Cesium.Cartesian3.multiplyByScalar(normVec, 0.35, new Cesium.Cartesian3()), // Lift 35cm perpendicular al plano del módulo
-    new Cesium.Cartesian3()
+    Cesium.Cartesian3.multiplyByScalar(normVec, 0.35, _scratchNormScaled || new Cesium.Cartesian3()),
+    _scratchRayOrigin || new Cesium.Cartesian3()
   );
 
-  if (typeof Cesium.Ray !== "function") return false;
   const ray = new Cesium.Ray(rayOrigin, sunDirWorld);
 
-  // Raycast contra 3D Tilesets (Google 3D Photorealistic Tiles, Cesium OSM Buildings)
   try {
-    const hasTileset = (typeof google3DTileset !== "undefined" && google3DTileset) ||
-                       (typeof cesiumOsmBuildings !== "undefined" && cesiumOsmBuildings);
-    if (!hasTileset) return false;
+    const toExclude = _getOcclusionExcludeList(scene);
+    const hit = scene.pickFromRay(ray, toExclude);
+    if (hit && Cesium.defined(hit.position) && hit.object) {
+      // VERIFICACIÓN ESTRICTA: El impacto TIENE que pertenecer al tileset 3D (Google Photorealistic o Cesium OSM)
+      const is3DTile = (
+        (typeof Cesium.Cesium3DTileFeature !== "undefined" && hit.object instanceof Cesium.Cesium3DTileFeature) ||
+        (hit.object.primitive && (hit.object.primitive === google3DTileset || hit.object.primitive === cesiumOsmBuildings)) ||
+        (hit.object.tileset && (hit.object.tileset === google3DTileset || hit.object.tileset === cesiumOsmBuildings))
+      );
 
-    if (typeof scene.pickFromRay === "function") {
-      // Excluir atmósfera, cielo y badges para no interferir con la bóveda celeste
-      const toExclude = [];
-      if (scene.skyBox) toExclude.push(scene.skyBox);
-      if (scene.skyAtmosphere) toExclude.push(scene.skyAtmosphere);
-      if (window._solarHeatmapLabelCollection) toExclude.push(window._solarHeatmapLabelCollection);
-      if (window.simulatedPanelsPrimitive) toExclude.push(window.simulatedPanelsPrimitive);
-      if (window.simulatedStringsPolylineCollection) toExclude.push(window.simulatedStringsPolylineCollection);
-      if (window.inverterEntity) toExclude.push(window.inverterEntity);
-      if (window.dcBoxEntity) toExclude.push(window.dcBoxEntity);
-      if (window.gridMeterEntity) toExclude.push(window.gridMeterEntity);
-      if (window.acometidaACEntity) toExclude.push(window.acometidaACEntity);
-
-      const hit = scene.pickFromRay(ray, toExclude);
-      if (hit && Cesium.defined(hit.position) && hit.object) {
-        // VERIFICACIÓN ESTRICTA: El impacto TIENE que pertenecer al tileset 3D (Google Photorealistic o Cesium OSM)
-        const is3DTile = (
-          (typeof Cesium.Cesium3DTileFeature !== "undefined" && hit.object instanceof Cesium.Cesium3DTileFeature) ||
-          (hit.object.primitive && (hit.object.primitive === google3DTileset || hit.object.primitive === cesiumOsmBuildings)) ||
-          (hit.object.tileset && (hit.object.tileset === google3DTileset || hit.object.tileset === cesiumOsmBuildings))
-        );
-
-        if (is3DTile) {
-          const dist = Cesium.Cartesian3.distance(rayOrigin, hit.position);
-          // Si el impacto está a menos de 4m, es la propia cubierta/parapeto del edificio donde estamos apoyados.
-          // Solo obstáculos externos (>4m) proyectan sombras reales de entorno.
-          if (dist > 4.0 && dist < 1200.0) return true;
-        }
+      if (is3DTile) {
+        const dist = Cesium.Cartesian3.distance(rayOrigin, hit.position);
+        // Si el impacto está a menos de 4m, es la propia cubierta/parapeto del edificio donde estamos apoyados.
+        // Solo obstáculos externos (>4m) proyectan sombras reales de entorno.
+        if (dist > 4.0 && dist < 1200.0) return true;
       }
     }
   } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
@@ -14944,6 +14981,42 @@ window.toggleSolarHUD = toggleSolarHUD;
     }
   }
 
+  // --- DIRTY FLAG PARA CURSOR CAD Y EDIFICIOS (60 FPS) ---
+  let _isCursorDirty = false;
+  let _cursorUpdateData = null;
+  function flushCursorUpdate() {
+    if (!_isCursorDirty || !_cursorUpdateData) return;
+    const d = _cursorUpdateData;
+    
+    if (d.isDrawingBuilding) {
+      let cPos = (typeof get3DPosition === 'function') ? get3DPosition(d.endPos) : null;
+      if (cPos && typeof getOrthogonalSnap === 'function') cPos = getOrthogonalSnap(cPos, activeBuildingPts);
+      if (cPos && typeof activeBuildingPts !== 'undefined' && activeBuildingPts.length >= 2) {
+        const p0Screen = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, activeBuildingPts[0]);
+        if (p0Screen && Math.hypot(d.endPos.x - p0Screen.x, d.endPos.y - p0Screen.y) <= 45) {
+          cPos = Cesium.Cartesian3.clone(activeBuildingPts[0]);
+        }
+      }
+      window._bldCursorPos = cPos;
+      if (scene && typeof scene.requestRender === 'function') scene.requestRender();
+    }
+
+    if (typeof updateTriadAtMouse === 'function') {
+      updateTriadAtMouse(d.endPos.x, d.endPos.y, scene.canvas);
+    }
+
+    _isCursorDirty = false;
+    _cursorUpdateData = null;
+  }
+  
+  function queueCursorUpdate(endPos, isDrawingBuilding) {
+    _cursorUpdateData = { endPos, isDrawingBuilding };
+    if (!_isCursorDirty) {
+      _isCursorDirty = true;
+      requestAnimationFrame(flushCursorUpdate);
+    }
+  }
+
   // 3. MOVIMIENTO DEL RATÓN: Arrastre interactivo de Gizmos, Órbita de Cámara y HUD
   handler.setInputAction(movement => {
 
@@ -15089,42 +15162,7 @@ window.toggleSolarHUD = toggleSolarHUD;
     }
 
 
-    // --- DIRTY FLAG PARA CURSOR CAD Y EDIFICIOS (60 FPS) ---
-    let _isCursorDirty = false;
-    let _cursorUpdateData = null;
-    function flushCursorUpdate() {
-      if (!_isCursorDirty || !_cursorUpdateData) return;
-      const d = _cursorUpdateData;
-      
-      if (d.isDrawingBuilding) {
-        let cPos = (typeof get3DPosition === 'function') ? get3DPosition(d.endPos) : null;
-        if (cPos && typeof getOrthogonalSnap === 'function') cPos = getOrthogonalSnap(cPos, activeBuildingPts);
-        if (cPos && typeof activeBuildingPts !== 'undefined' && activeBuildingPts.length >= 2) {
-          const p0Screen = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, activeBuildingPts[0]);
-          if (p0Screen && Math.hypot(d.endPos.x - p0Screen.x, d.endPos.y - p0Screen.y) <= 45) {
-            cPos = Cesium.Cartesian3.clone(activeBuildingPts[0]);
-          }
-        }
-        window._bldCursorPos = cPos;
-        if (scene && typeof scene.requestRender === 'function') scene.requestRender();
-      }
-
-      if (typeof updateTriadAtMouse === 'function') {
-        updateTriadAtMouse(d.endPos.x, d.endPos.y, scene.canvas);
-      }
-
-      _isCursorDirty = false;
-      _cursorUpdateData = null;
-    }
-    
-    function queueCursorUpdate(endPos, isDrawingBuilding) {
-      _cursorUpdateData = { endPos, isDrawingBuilding };
-      if (!_isCursorDirty) {
-        _isCursorDirty = true;
-        requestAnimationFrame(flushCursorUpdate);
-      }
-    }
-
+    // --- ACTUALIZACIÓN DE CURSOR CAD Y EDIFICIOS (60 FPS THROTTLED) ---
     if (isDrawingBuilding || typeof updateTriadAtMouse === 'function') {
       queueCursorUpdate(movement.endPosition, isDrawingBuilding);
     }
@@ -15587,7 +15625,7 @@ window.toggleSolarHUD = toggleSolarHUD;
   <div class="doc-modal-box">
     <div class="doc-modal-head">
       <span><i data-lucide="file-text" class="icon-sm"></i> GENERADOR DE DOCUMENTACIÓN TÉCNICA PV · REBT + RD 244/2019</span>
-      <button class="doc-modal-close" onclick="closeDocModal()"><i data-lucide="x" class="icon-sm"></i></button>
+      <button class="doc-modal-close" onclick="closeDocModal()" aria-label="Cerrar documentación técnica"><i data-lucide="x" class="icon-sm"></i></button>
     </div>
 
     <div class="doc-modal-section">
@@ -15686,7 +15724,7 @@ window.toggleSolarHUD = toggleSolarHUD;
             <div style="font-size:9.5px;color:var(--text-slate-400);">Archivos locales (.raproject), guardado rápido y proyectos recientes</div>
           </div>
         </div>
-        <button class="doc-modal-close" onclick="raCloseProjectsModal()" style="background:transparent;border:none;color:#94a3b8;font-size:18px;cursor:pointer;padding:4px 8px;"><i data-lucide="x" class="icon-sm"></i></button>
+        <button class="doc-modal-close" onclick="raCloseProjectsModal()" style="background:transparent;border:none;color:#94a3b8;font-size:18px;cursor:pointer;padding:4px 8px;" aria-label="Cerrar gestión de proyectos"><i data-lucide="x" class="icon-sm"></i></button>
       </div>
 
       <!-- Contenido del Modal -->
@@ -15772,7 +15810,7 @@ window.toggleSolarHUD = toggleSolarHUD;
   <div id="ra-floating-settings-popover">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.05);padding-bottom:8px;">
       <span style="font-size:12px;font-weight:700;color:#fff;letter-spacing:0.05em;">⚙️ AJUSTES DE RENDERIZADO</span>
-      <button onclick="toggleSettingsPopover(false)" style="background:none;border:none;color:#94a3b8;cursor:pointer;"><i data-lucide="x" class="icon-sm"></i></button>
+      <button onclick="toggleSettingsPopover(false)" style="background:none;border:none;color:#94a3b8;cursor:pointer;" aria-label="Cerrar panel de ajustes"><i data-lucide="x" class="icon-sm"></i></button>
     </div>
     <div class="ui-card">
           <div class="ui-card-head">
@@ -15918,7 +15956,7 @@ window.toggleSolarHUD = toggleSolarHUD;
   </div>
   
   <div id="ra-floating-tools-container" style="position:fixed; bottom:20px; right:76px; z-index:9500; display:flex; gap:8px;">
-    <button type="button" class="btn-action-secondary" id="btn-toggle-measure-tool" onclick="toggleMeasureTool()" style="width:48px; height:48px; border-radius:50%; padding:0; border:1px solid rgba(255,255,255,0.18); display:flex; align-items:center; justify-content:center; background:rgba(15,23,42,0.88); backdrop-filter:blur(16px); color:#94a3b8; cursor:pointer; box-shadow:0 4px 16px rgba(0,0,0,0.4); transition:all 0.2s cubic-bezier(0.16,1,0.3,1);" title="Cinta métrica 3D (Atajo: M)">
+    <button type="button" class="btn-action-secondary" id="btn-toggle-measure-tool" onclick="toggleMeasureTool()" style="width:48px; height:48px; border-radius:50%; padding:0; border:1px solid rgba(255,255,255,0.18); display:flex; align-items:center; justify-content:center; background:rgba(15,23,42,0.88); backdrop-filter:blur(16px); color:#94a3b8; cursor:pointer; box-shadow:0 4px 16px rgba(0,0,0,0.4); transition:all 0.2s cubic-bezier(0.16,1,0.3,1);" title="Cinta métrica 3D (Atajo: M)" aria-label="Cinta métrica 3D">
       <i data-lucide="ruler" style="width:20px; height:20px;"></i>
     </button>
     <button type="button" class="btn-action-secondary" id="btn-toggle-labels-visibility" onclick="toggleLabelsVisibility()" style="padding:0 12px; height:48px; border-radius:24px; font-size:10px; border:1px solid rgba(245,158,11,0.4); display:flex; gap:6px; align-items:center; background:rgba(15,23,42,0.88); backdrop-filter:blur(16px); color:#fff; cursor:pointer; box-shadow:0 4px 16px rgba(0,0,0,0.4);" title="Ocultar o mostrar etiquetas 3D y cotas (Atajo: L)">
@@ -15933,7 +15971,7 @@ window.toggleSolarHUD = toggleSolarHUD;
     </button>
   </div>
   
-  <button id="ra-floating-settings-btn" onclick="toggleSettingsPopover()" title="Ajustes de Renderizado y Motores 3D" style="position:fixed; bottom:20px; right:20px; z-index:9500; width:48px; height:48px; border-radius:50%; background:rgba(15,23,42,0.88); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border:1px solid rgba(255,255,255,0.15); color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 4px 16px rgba(0,0,0,0.4);">
+  <button id="ra-floating-settings-btn" onclick="toggleSettingsPopover()" title="Ajustes de Renderizado y Motores 3D" aria-label="Ajustes de renderizado y motores 3D" style="position:fixed; bottom:20px; right:20px; z-index:9500; width:48px; height:48px; border-radius:50%; background:rgba(15,23,42,0.88); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border:1px solid rgba(255,255,255,0.15); color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 4px 16px rgba(0,0,0,0.4);">
     <i data-lucide="settings" style="width:24px;height:24px;opacity:0.9;"></i>
   </button>
 

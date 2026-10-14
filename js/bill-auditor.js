@@ -22,11 +22,14 @@
   };
 
   // [D1+D2] Cliente IA unificado (cabecera x-goog-api-key, timeout y cancelación).
-  function _aiFetch(url, opts, timeoutMs) {
+  function _aiFetch(url, opts, timeoutMs, apiKey) {
     if (window.RA && typeof window.RA.geminiFetch === 'function') {
-      return window.RA.geminiFetch(url, opts, timeoutMs);
+      return window.RA.geminiFetch(url, opts, timeoutMs, apiKey);
     }
-    return fetch(url, opts);
+    const cleanOpts = Object.assign({}, opts || {});
+    cleanOpts.headers = Object.assign({}, cleanOpts.headers || {});
+    if (apiKey) cleanOpts.headers['x-goog-api-key'] = apiKey;
+    return fetch(url, cleanOpts);
   }
 
   /**
@@ -270,9 +273,16 @@
           key = window.RA.getGeminiApiKey();
         }
         if (!key) {
-          key = (window.RA && window.RA.geminiApiKey)
-            ? window.RA.geminiApiKey
-            : (localStorage.getItem('ra_gemini_api_key') || '');
+          if (window.RA && window.RA.geminiApiKey) {
+            key = window.RA.geminiApiKey;
+          } else {
+            const raw = localStorage.getItem('ra_gemini_api_key') || '';
+            if (raw.startsWith('enc:')) {
+              try { key = decodeURIComponent(escape(atob(raw.slice(4)))); } catch (e) { key = raw.slice(4); }
+            } else {
+              key = raw;
+            }
+          }
         }
       } catch (e) { key = ''; }
       return (key || '').trim();
@@ -286,7 +296,8 @@
           return cleanKey;
         }
         if (cleanKey) {
-          localStorage.setItem('ra_gemini_api_key', cleanKey);
+          const enc = 'enc:' + btoa(unescape(encodeURIComponent(cleanKey)));
+          localStorage.setItem('ra_gemini_api_key', enc);
         } else {
           localStorage.removeItem('ra_gemini_api_key');
         }
@@ -388,12 +399,12 @@ Normas estrictas:
 
       for (const model of models) {
         try {
-          const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
           const resp = await _aiFetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestBody)
-          }, 90000);
+          }, 90000, apiKey);
 
           if (!resp.ok) {
             const errData = await resp.json().catch(() => ({}));

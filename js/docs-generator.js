@@ -35,24 +35,37 @@ function raGetSimulatedMonthlyKwh() {
   return mk;
 }
 
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+if (typeof window !== 'undefined' && !window.escapeHtml) {
+  window.escapeHtml = escapeHtml;
+}
+
 function readTitular() {
   const g = (id, def) => (document.getElementById(id) || {value: def || ''}).value || def || '';
   return {
-    nombre:    g('doc-nombre', 'Titular de la Instalación'),
-    nif:       g('doc-nif',    'XXXXXXXXX'),
-    tel:       g('doc-tel',    ''),
-    email:     g('doc-email',  ''),
-    dir:       g('doc-dir',    ''),
-    mun:       g('doc-mun',    ''),
-    prov:      g('doc-prov',   ''),
-    cp:        g('doc-cp',     ''),
-    cups:      g('doc-cups',   'ES00210000XXXXXXXXXX'),
+    nombre:    escapeHtml(g('doc-nombre', 'Titular de la Instalación')),
+    nif:       escapeHtml(g('doc-nif',    'XXXXXXXXX')),
+    tel:       escapeHtml(g('doc-tel',    '')),
+    email:     escapeHtml(g('doc-email',  '')),
+    dir:       escapeHtml(g('doc-dir',    '')),
+    mun:       escapeHtml(g('doc-mun',    '')),
+    prov:      escapeHtml(g('doc-prov',   '')),
+    cp:        escapeHtml(g('doc-cp',     '')),
+    cups:      escapeHtml(g('doc-cups',   'ES00210000XXXXXXXXXX')),
     potContr:  parseFloat(g('doc-potcontr', '5.75')) || 5.75,
-    dist:      g('doc-dist',   'e-distribución (Endesa)'),
-    modalidad: g('doc-modalidad', 'sin'),
-    tecnico:   g('doc-tecnico',   'Técnico Proyectista'),
-    titulacion:g('doc-titulacion','Ingeniero Industrial'),
-    ncol:      g('doc-ncol',      'XXXXX')
+    dist:      escapeHtml(g('doc-dist',   'e-distribución (Endesa)')),
+    modalidad: escapeHtml(g('doc-modalidad', 'sin')),
+    tecnico:   escapeHtml(g('doc-tecnico',   'Técnico Proyectista')),
+    titulacion:escapeHtml(g('doc-titulacion','Ingeniero Industrial')),
+    ncol:      escapeHtml(g('doc-ncol',      'XXXXX'))
   };
 }
 

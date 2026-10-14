@@ -4,11 +4,14 @@
   'use strict';
 
   // [D1+D2] Cliente IA unificado (cabecera x-goog-api-key, timeout y cancelación).
-  function _aiFetch(url, opts, timeoutMs) {
+  function _aiFetch(url, opts, timeoutMs, apiKey) {
     if (window.RA && typeof window.RA.geminiFetch === 'function') {
-      return window.RA.geminiFetch(url, opts, timeoutMs);
+      return window.RA.geminiFetch(url, opts, timeoutMs, apiKey);
     }
-    return fetch(url, opts);
+    const cleanOpts = Object.assign({}, opts || {});
+    cleanOpts.headers = Object.assign({}, cleanOpts.headers || {});
+    if (apiKey) cleanOpts.headers['x-goog-api-key'] = apiKey;
+    return fetch(url, cleanOpts);
   }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -196,7 +199,7 @@ async function enrichSummaryWithGemini(targetWindow, d, m, equipment) {
     var text = '';
     for (var mIdx = 0; mIdx < modelsToTry.length; mIdx++) {
       var currentModel = modelsToTry[mIdx];
-      var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + currentModel + ':generateContent?key=' + encodeURIComponent(apiKey);
+      var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + currentModel + ':generateContent';
       var resp = await _aiFetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -207,7 +210,7 @@ async function enrichSummaryWithGemini(targetWindow, d, m, equipment) {
             maxOutputTokens: 300
           }
         })
-      }, 30000);
+      }, 30000, apiKey);
       if (resp.ok) {
         var data = await resp.json();
         if (data.candidates && data.candidates[0] && data.candidates[0].content &&
@@ -222,7 +225,12 @@ async function enrichSummaryWithGemini(targetWindow, d, m, equipment) {
       return; // Mantener plantilla
     }
     if (text.trim()) {
-      container.innerHTML = text.trim();
+      var sanitized = String(text.trim())
+        .replace(/<\s*(?:script|iframe|object|embed|style|link|meta)[^>]*>[\s\S]*?<\s*\/\s*(?:script|iframe|object|embed|style|link|meta)\s*>/gi, '')
+        .replace(/<\s*(?:script|iframe|object|embed|style|link|meta)[^>]*>/gi, '')
+        .replace(/\bon\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+        .replace(/href\s*=\s*['"]?javascript:[^'">\s]*/gi, '');
+      container.innerHTML = sanitized;
       if (badge) badge.innerHTML = '✨ Resumen generado con IA · Google Gemini';
     }
   } catch(err) {
