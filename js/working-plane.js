@@ -4830,13 +4830,17 @@ function switchCatalogTab(tabName) {
   if (editTabBtn) {
     editTabBtn.style.display = (tabName === 'edit') ? 'inline-flex' : 'none';
   }
-  ['modules', 'inverters', 'batteries', 'microinverters', 'add_new', 'edit'].forEach(t => {
+  ['modules', 'inverters', 'batteries', 'microinverters', 'add_new', 'edit', 'ai_import'].forEach(t => {
     const btn = document.getElementById('cat-tab-btn-' + t);
     const pane = document.getElementById('cat-pane-' + t);
     if (btn) btn.classList.toggle('active', t === tabName);
     if (pane) pane.style.display = (t === tabName) ? 'block' : 'none';
   });
-  if (tabName !== 'edit') {
+  if (tabName === 'ai_import') {
+    if (typeof window !== 'undefined' && window.RAEquipmentAIImporter && typeof window.RAEquipmentAIImporter.renderInitialUI === 'function') {
+      window.RAEquipmentAIImporter.renderInitialUI(document.getElementById('cat-pane-ai_import'));
+    }
+  } else if (tabName !== 'edit') {
     populateEquipmentModalUI();
   }
 }

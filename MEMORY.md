@@ -34,6 +34,7 @@
 | `measure-tool.js` | Cinta métrica 3D con desglose físico y snap magnético | `window.RAMeasureTool` |
 | `ui-viewport-controls.js` | Alertas toast, carga y controles de visualización 3D | `window.UIViewportControls` |
 | `company-branding.js` | Identidad corporativa, logo y Gemini API | `window.RACompanyBranding` |
+| `equipment-ai-importer.js` | Importador inteligente de fichas técnicas con IA Multimodal | `window.RAEquipmentAIImporter` |
 
 ---
 
@@ -65,6 +66,11 @@
 ### 2026-10-10/11: Aerogeneradores 3D y Transiciones UI
 - **Problema 1 (Flickering SVG):** Al actualizar la inclinación/producción, el histograma se destruía repintando un SVG en negro (DOM replacement).
 - **Solución 1:** Reescritura del `renderSolarBarChart()` para mantener nodos SVG e inyectar `style.transition`. Modificación en `bom-tree.js` para extraer el node SVG, actualizar el DOM del panel, y reinyectarlo (preservando estado y CSS). Etiqueta del eje Y optimizada en tamaño (13px, negrita).
+
+### 2026-10-14: Importador Modular de Datasheets con IA Multimodal (`RAEquipmentAIImporter`)
+- **Problema:** La introducción manual de módulos, inversores y baterías al catálogo requería transcribir decenas de parámetros técnicos propensos a errores humanos.
+- **Solución:** Módulo independiente `js/equipment-ai-importer.js` que procesa PDFs e imágenes con Gemini Multimodal API con esquema JSON estricto, inspector de coherencia física (normalización mm a m, comprobación Voc > Vmp, potencias y límites) y revisión interactiva.
+- **Integración:** Pestaña `✨ IMPORTAR CON IA` en el modal de catálogo oficial y botones de acceso directo en Paso 2 y Paso 4.
 - **Problema 2 (Obstáculos Paramétricos):** Añadir aerogeneradores requería parámetros dinámicos (radio, altura, HAWT/VAWT) distintos al cubo/árbol, pero con mismo comportamiento UI de inserción.
 - **Solución 2:** Patrón de Módulo Aislado (`wind-turbine.js`). En lugar de alterar la lógica central en `obstacles.js`, se aplican function wrappers sobre métodos clave de render/arrastre (`render3DObstaclesInCesium`, `updateObstacleLiveModelMatrix`) interceptando el tipo `wind_turbine` y calculando su propia geometría Cesium, e inyectando un bloque UI propio dinámicamente en `#obstacle-selected-editor`.
 

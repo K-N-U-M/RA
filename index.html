@@ -56,6 +56,7 @@ window.RA_App = window.RA_App || {};
   <script src="js/bill-auditor.js?v=20260929b"></script>
   <script src="js/bom-tree.js?v=20260929b"></script>
   <script src="js/engineering-explainer.js?v=20260929b"></script>
+  <script src="js/equipment-ai-importer.js?v=20261014a"></script>
 
     <link rel="stylesheet" href="css/styles.css">
 
@@ -922,7 +923,10 @@ window.RA_App = window.RA_App || {};
                   <div style="background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:5px 6px;margin-bottom:6px;">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
                       <span style="font-size:7.5px;color:var(--text-slate-300);font-weight:600;"><i data-lucide="zap" class="icon-sm"></i> PANEL FV INDIVIDUAL:</span>
-                      <button type="button" class="doc-mini-btn" style="padding:1px 5px;font-size:7px;font-weight:bold;background:rgba(59,130,246,0.15);color:#60A5FA;border-color:rgba(59,130,246,0.3);cursor:pointer;" onclick="wpApplyPolyModuleToAll(WP.selectedPolyIdx)" title="Propagar este panel a todos los faldones"><i data-lucide="globe" class="icon-sm"></i> A TODOS</button>
+                      <div style="display:flex;gap:3px;align-items:center;">
+                        <button type="button" class="doc-mini-btn" style="padding:1px 5px;font-size:7px;font-weight:bold;background:rgba(56,189,248,0.15);color:var(--sky-400);border-color:rgba(56,189,248,0.3);cursor:pointer;" onclick="openEquipmentCatalogModal('ai_import')" title="Importar ficha técnica de módulo FV con IA"><i data-lucide="sparkles" class="icon-sm"></i> PDF IA</button>
+                        <button type="button" class="doc-mini-btn" style="padding:1px 5px;font-size:7px;font-weight:bold;background:rgba(59,130,246,0.15);color:#60A5FA;border-color:rgba(59,130,246,0.3);cursor:pointer;" onclick="wpApplyPolyModuleToAll(WP.selectedPolyIdx)" title="Propagar este panel a todos los faldones"><i data-lucide="globe" class="icon-sm"></i> A TODOS</button>
+                      </div>
                     </div>
                     <select id="faldon-module-select" class="doc-input" style="width:100%;font-size:8px;padding:3px 4px;background:#0F172A;color:#F8FAFC;border:1px solid rgba(255,255,255,0.15);border-radius:4px;" onchange="wpSetPolyModule(WP.selectedPolyIdx, this.value)">
                     </select>
@@ -1377,6 +1381,9 @@ window.RA_App = window.RA_App || {};
                 <div style="display:flex;gap:4px;justify-content:flex-end;">
                   <button type="button" class="doc-mini-btn" onclick="wpQuickPreview3DFromStep4()" style="font-size:9px;border-color:var(--emerald-400);color:var(--emerald-400);background:rgba(16,185,129,0.12);padding:3px 7px;cursor:pointer;font-weight:700;" title="Genera una vista previa 3D de la disposición con los módulos seleccionados">
                     <i data-lucide="eye" class="icon-sm"></i> PREVER 3D
+                  </button>
+                  <button type="button" class="doc-mini-btn" onclick="openEquipmentCatalogModal('ai_import')" style="font-size:9px;border-color:var(--sky-400);color:var(--sky-400);background:rgba(56,189,248,0.12);padding:3px 7px;cursor:pointer;" title="Importar ficha técnica de inversor o batería con IA">
+                    <i data-lucide="sparkles" class="icon-sm"></i> IMPORTAR PDF IA
                   </button>
                   <button type="button" class="doc-mini-btn" onclick="openEquipmentCatalogModal()" style="font-size:9px;border-color:var(--amber-400);color:var(--amber-400);padding:3px 7px;cursor:pointer;">
                     <i data-lucide="settings" class="icon-sm"></i> CATÁLOGO
@@ -1963,7 +1970,8 @@ window.RA_App = window.RA_App || {};
       <button class="sb-tab-btn" id="cat-tab-btn-inverters" onclick="switchCatalogTab('inverters')" style="padding:6px 12px;font-size:10.5px;border-radius:6px;"><i data-lucide="zap" class="icon-sm"></i> INVERSORES</button>
       <button class="sb-tab-btn" id="cat-tab-btn-batteries" onclick="switchCatalogTab('batteries')" style="padding:6px 12px;font-size:10.5px;border-radius:6px;"><i data-lucide="battery-charging" class="icon-sm"></i> BATERÍAS LFP</button>
       <button class="sb-tab-btn" id="cat-tab-btn-microinverters" onclick="switchCatalogTab('microinverters')" style="padding:6px 12px;font-size:10.5px;border-radius:6px;"><i data-lucide="cpu" class="icon-sm"></i> MICROINVERSORES</button>
-      <button class="sb-tab-btn" id="cat-tab-btn-add_new" onclick="switchCatalogTab('add_new')" style="padding:6px 12px;font-size:10.5px;border-radius:6px;color:var(--amber-400);border:1px dashed var(--amber-400);"><i data-lucide="plus" class="icon-sm"></i> AÑADIR EQUIPO</button>
+      <button class="sb-tab-btn" id="cat-tab-btn-add_new" onclick="switchCatalogTab('add_new')" style="padding:6px 12px;font-size:10.5px;border-radius:6px;color:var(--amber-400);border:1px dashed var(--amber-400);"><i data-lucide="plus" class="icon-sm"></i> AÑADIR MANUAL</button>
+      <button class="sb-tab-btn" id="cat-tab-btn-ai_import" onclick="switchCatalogTab('ai_import')" style="padding:6px 12px;font-size:10.5px;border-radius:6px;color:var(--sky-400);border:1px solid rgba(56,189,248,0.5);background:rgba(56,189,248,0.1);"><i data-lucide="sparkles" class="icon-sm"></i> ✨ IMPORTAR CON IA</button>
       <button class="sb-tab-btn" id="cat-tab-btn-edit" onclick="switchCatalogTab('edit')" style="display:none;padding:6px 12px;font-size:10.5px;border-radius:6px;color:var(--sky-400);border:1px dashed var(--sky-400);"><i data-lucide="edit-2" class="icon-sm"></i> EDITAR EQUIPO</button>
     </div>
 
@@ -2175,6 +2183,9 @@ window.RA_App = window.RA_App || {};
           </div>
         </div>
       </div>
+      
+      <!-- Panel 7: Importador con IA -->
+      <div id="cat-pane-ai_import" style="display:none;"></div>
 
     </div>
 
