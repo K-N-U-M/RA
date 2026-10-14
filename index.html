@@ -411,11 +411,11 @@ window.RA_App = window.RA_App || {};
 
               <!-- Controles de Tamaño de Tríada de Ejes Vectoriales -->
               <div style="display:flex;justify-content:space-between;align-items:center;background:rgba(0,0,0,0.35);padding:5px 8px;border-radius:6px;margin-bottom:6px;border:1px solid rgba(255,255,255,0.06);">
-                <span style="font-size:9px;color:var(--text-slate-300);font-weight:bold;"><i data-lucide="ruler" class="icon-sm"></i> Escala Tríada CAD (RGB):</span>
+                <span style="font-size:9px;color:var(--text-slate-300);font-weight:bold;"><i data-lucide="ruler" class="icon-sm"></i> Tamaño de Ejes 3D (RGB):</span>
                 <div style="display:flex;gap:4px;align-items:center;">
-                  <button class="gizmo-btn" onclick="changeTriadScale(-0.25)" title="Reducir tamaño tríada (-)" style="padding:2px 8px;font-size:11px;font-weight:bold;">−</button>
+                  <button class="gizmo-btn" onclick="changeTriadScale(-0.25)" title="Reducir tamaño de ejes (-)" style="padding:2px 8px;font-size:11px;font-weight:bold;">−</button>
                   <span id="wp-triad-scale-lbl" style="font-size:9px;color:var(--amber-400);font-weight:bold;min-width:32px;text-align:center;">100%</span>
-                  <button class="gizmo-btn" onclick="changeTriadScale(+0.25)" title="Aumentar tamaño tríada (+)" style="padding:2px 8px;font-size:11px;font-weight:bold;">+</button>
+                  <button class="gizmo-btn" onclick="changeTriadScale(+0.25)" title="Aumentar tamaño de ejes (+)" style="padding:2px 8px;font-size:11px;font-weight:bold;">+</button>
                 </div>
               </div>
 
@@ -581,7 +581,7 @@ window.RA_App = window.RA_App || {};
                         <span><i data-lucide="trash-2" class="icon-sm"></i> Eliminar Vértice</span>
                       </button>
                     </div>
-                    <span style="font-size:9px;color:#94a3b8;"><i data-lucide="lightbulb" class="icon-sm"></i> Arrastra la Tríada 3D en el visor para mover la esquina. Doble clic en una arista para añadir un vértice.</span>
+                    <span style="font-size:9px;color:#94a3b8;"><i data-lucide="lightbulb" class="icon-sm"></i> Arrastra las flechas 3D en el visor para mover la esquina. Doble clic en una arista para añadir un punto.</span>
                   </div>
                 </div>
 
@@ -1263,7 +1263,7 @@ window.RA_App = window.RA_App || {};
                   <div class="field-row" style="margin-bottom:2px;">
                     <span style="font-size:9px;">Gestión de Sombras:</span>
                     <select id="cfg-shading-strategy" onchange="updateShadingStrategy()" style="width:160px;background:#000;border:1px solid var(--border-subtle);color:#fff;font-size:9px;padding:3px 6px;border-radius:5px;outline:none;">
-                      <option value="mlpe" selected>Mitigar con MLPE (Microinv./Optimizador)</option>
+                      <option value="mlpe" selected>Mitigar con Optimizadores / Microinversores</option>
                       <option value="exclude">Exclusión Estricta (Omitir panel)</option>
                     </select>
                   </div>
@@ -1339,7 +1339,7 @@ window.RA_App = window.RA_App || {};
               <!-- 3.3 DIAGNÓSTICO MLPE -->
               <div id="mlpe-diagnostic-panel" style="display:none;border-top:1px solid rgba(255,255,255,0.07);padding-top:8px;margin-top:4px;flex-direction:column;gap:6px;">
                 <div style="font-size:9px;font-weight:800;color:var(--text-slate-300);text-transform:uppercase;display:flex;align-items:center;gap:4px;">
-                  <span><i data-lucide="activity" class="icon-sm"></i></span> 3.3 Diagnóstico MLPE &amp; Mitigación
+                  <span><i data-lucide="activity" class="icon-sm"></i></span> 3.3 Diagnóstico de Optimizadores Anti-Sombra
                 </div>
                 <div style="background:rgba(245, 158, 11, 0.1);border:1px solid rgba(245, 158, 11, 0.3);padding:6px;border-radius:6px;">
                   <span id="mlpe-diagnostic-text" style="font-size:9.5px;color:var(--amber-400);line-height:1.3;">Resultados pendientes de simulación...</span>
@@ -1418,7 +1418,7 @@ window.RA_App = window.RA_App || {};
               <!-- Selector de Microinversor (para topología Microinversores) -->
               <div id="step3-row-microinverter" style="display:none;background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:6px;margin-bottom:6px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
-                  <span style="font-size:9.5px;font-weight:700;color:#10b981;"><i data-lucide="cpu" class="icon-sm"></i> Microinversor MLPE:</span>
+                  <span style="font-size:9.5px;font-weight:700;color:#10b981;"><i data-lucide="cpu" class="icon-sm"></i> Microinversor / Optimizador:</span>
                   <button type="button" class="doc-mini-btn" onclick="step3EditCurrentEquipment('microinverters')" style="font-size:9.5px;padding:2px 5px;color:#10b981);"><i data-lucide="edit-2" class="icon-sm"></i> Editar</button>
                 </div>
                 <select id="step3-sel-microinverter" class="field-input" onchange="step3UpdateHardwareSelection()" style="width:100%;font-size:10px;font-weight:700;"></select>
@@ -1832,7 +1832,7 @@ window.RA_App = window.RA_App || {};
           <span class="solar-tel-item">Elevación: <b id="solar-telemetry-alt" style="color:var(--amber-400);">28.5°</b></span>
           <span class="solar-tel-item">Azimut: <b id="solar-telemetry-az" style="color:#38bdf8;">180° (Sur)</b></span>
           <span class="solar-tel-item">Sombras: <b id="solar-telemetry-shaded" style="color:var(--rose-400);">0 mods</b></span>
-          <span class="solar-tel-item">MLPE: <b id="solar-telemetry-mlpe" style="color:#10b981;">0 uds</b></span>
+          <span class="solar-tel-item">Optimizadores: <b id="solar-telemetry-mlpe" style="color:#10b981;">0 uds</b></span>
         </div>
         <button class="solar-hud-min-btn" onclick="toggleSolarHUD(false)" title="Minimizar panel solar (se coloca bajo la Rosa de los Vientos)">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
@@ -1849,7 +1849,7 @@ window.RA_App = window.RA_App || {};
         <span><i data-lucide="flame" class="icon-sm"></i> MAPA DE CALOR ANUAL</span>
       </button>
       <button id="btn-shadow-mode-mlpe" class="solar-mode-btn" onclick="wpSetShadowViewMode('mlpe')" title="Diagnóstico de microinversores y optimizadores de potencia requeridos">
-        <span><i data-lucide="zap" class="icon-sm"></i> DIAGNÓSTICO MLPE</span>
+        <span><i data-lucide="zap" class="icon-sm"></i> VER OPTIMIZADORES</span>
       </button>
       <button type="button" class="solar-mode-btn" onclick="wpEnfoqueDron();" title="Encuadre 3/4 tipo dron de los faldones">
                           <span><i data-lucide="camera" class="icon-sm"></i> CÁMARA DRON</span>
@@ -1944,7 +1944,7 @@ window.RA_App = window.RA_App || {};
         <span style="font-size:18px;"><i data-lucide="settings" class="icon-sm"></i></span>
         <div>
           <div style="font-weight:900;font-size:13px;color:#fff;letter-spacing:0.5px;">CATÁLOGO OFICIAL DE EQUIPOS FOTOVOLTAICOS</div>
-          <div style="font-size:9.5px;color:var(--text-slate-400);">Módulos Tier 1, Inversores, Baterías LFP y Electrónica MLPE</div>
+          <div style="font-size:9.5px;color:var(--text-slate-400);">Módulos Tier 1, Inversores, Baterías y Optimizadores / Microinversores</div>
         </div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
@@ -15885,7 +15885,7 @@ window.toggleSolarHUD = toggleSolarHUD;
           <div class="engine-cards-group" style="padding:12px; display:flex; flex-direction:column; gap:12px;">
             <div style="display:flex; flex-direction:column; gap:6px;">
               <div style="display:flex; justify-content:space-between; align-items:center;">
-                <span style="font-size:11px; font-weight:600; color:#e2e8f0;">Shadow Bias (Z-Fighting)</span>
+                <span style="font-size:11px; font-weight:600; color:#e2e8f0;">Despegue de Sombras (Anti-Parpadeo)</span>
                 <span id="bias-val-display" style="font-size:11px; color:#94a3b8;">0.05 m</span>
               </div>
               <input type="range" id="shadow-bias-slider" min="0.05" max="2.0" step="0.05" value="0.05" style="width:100%; accent-color:var(--rose-500);" oninput="document.getElementById('bias-val-display').innerText = this.value + ' m'; if(typeof window.wpSetShadowBiasMeters === 'function') window.wpSetShadowBiasMeters(this.value);">

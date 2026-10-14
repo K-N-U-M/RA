@@ -1542,7 +1542,7 @@
     body:has(#ra-sidebar.collapsed) #ra-shortcuts-hud {
       left: 20px;
     }
-    @media (max-width: 900px) {
+    @media (max-width: 1400px) {
       #ra-shortcuts-hud {
         display: none;
       }

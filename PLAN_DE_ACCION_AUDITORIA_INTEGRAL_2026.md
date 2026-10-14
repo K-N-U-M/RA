@@ -143,13 +143,20 @@ flowchart TD
         C3["Resolver colisiones de ventanas flotantes"]
         C4["Extirpar código muerto y funciones duplicadas"]
     end
-    Fase 1 --> Fase 2 --> Fase 3
+    subgraph Fase 4: Lenguaje Claro y Pantallas de Obra (P2) [COMPLETADA]
+        D1["Humanización de etiquetas técnicas a lenguaje de instalador"]
+        D2["Sustitución de MLPE por Optimizadores / Microinversores"]
+        D3["Cambio de Tríada CAD por Tamaño de Ejes 3D"]
+        D4["Adaptación para portátiles (<1400px) sin colisión en HUD"]
+    end
+    Fase 1 --> Fase 2 --> Fase 3 --> Fase 4
 ```
 
 ### ✅ Registro de Ejecución Integral:
 - **Fase 1 (P0 - Críticos):** Ejecutada y validada (Commit `0714a96`). Acimut corregido a 0.00° de desviación; límites de voltaje del inversor según catálogo; blindaje contra cero paneles; rayo solar positivo hacia el Sol.
 - **Fase 2 (P1 - Rendimiento y Multi-Inversor):** Ejecutada y validada (Commit `0c06465`). Descarte rápido de cursor sobre mapa de calor a 60 FPS; pool de sombras reutilizables sin saturar memoria; sección de cable AC multi-inversor; cancelación de simulaciones viejas.
-- **Fase 3 (P2/P3 - Ergonomía Visual y Limpieza):** Ejecutada y validada. Botones de Memoria Técnica unificados apuntando al generador oficial; controles compitiendo en Paso 2 ocultos de la vista; ventanas flotantes (#ra-confirm-bar y árbol de materiales) reubicadas sin tapar la brújula ni la barra de sol; preservación de curvas suaves en cables inter-paneles.
+- **Fase 3 (P2/P3 - Ergonomía Visual y Limpieza):** Ejecutada y validada (Commit `ff1c204`). Botones de Memoria Técnica unificados apuntando al generador oficial; controles compitiendo en Paso 2 ocultos de la vista; ventanas flotantes (#ra-confirm-bar y árbol de materiales) reubicadas sin tapar la brújula ni la barra de sol; preservación de curvas suaves en cables inter-paneles.
+- **Fase 4 (P2 - Lenguaje de Instalador y Portátiles de Obra):** Ejecutada y validada. Jerga matemática y técnica agresiva ("Tríada CAD", "Diagnóstico MLPE", "Shadow Bias") traducida a expresiones cotidianas de instalador ("Tamaño de Ejes 3D", "Ver Optimizadores", "Despegue de Sombras Anti-Parpadeo"); adaptación de pantalla en portátiles (<1400px) para evitar colisión física entre la barra de atajos y la línea de tiempo solar.
 
 
 ---
