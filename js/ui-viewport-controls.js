@@ -343,15 +343,17 @@
     if (typeof window === 'undefined') return;
     const isMobile = window.innerWidth <= 768;
 
+    const sb = document.getElementById('ra-sidebar');
+    const btn = document.getElementById('btn-sidebar-toggle');
+    const toggleIcon = document.getElementById('sidebar-toggle-icon');
+
     if (isMobile) {
-      // 1. Sidebar colapsado al inicio
-      const sb = document.getElementById('ra-sidebar');
+      // 1. Sidebar colapsado al inicio en móvil
       if (sb) {
         sb.classList.add('collapsed');
-        const btn = document.getElementById('btn-sidebar-toggle');
-        if (btn) btn.textContent = '▶';
-        const toggleIcon = document.getElementById('sidebar-toggle-icon');
-        if (toggleIcon) toggleIcon.textContent = '▶';
+        document.body.classList.remove('sb-open');
+        if (btn) btn.textContent = '✕';
+        if (toggleIcon) toggleIcon.textContent = '☰';
       }
 
       // 2. Panel solar minimizado al inicio
@@ -365,6 +367,35 @@
       // 3. Árbol de proyecto (Outliner) cerrado al inicio
       if (global.UIOutliner && typeof global.UIOutliner.close === 'function') {
         global.UIOutliner.close();
+      }
+
+      // 4. Auto-cerrar sidebar al pulsar cualquier botón de acción de dibujo o CAD en móvil
+      const tabContent = document.querySelector('.sb-tab-content');
+      if (tabContent) {
+        tabContent.addEventListener('click', function(e) {
+          const target = e.target.closest('button, .wp-step-btn');
+          if (target && !target.classList.contains('sb-collapse-btn')) {
+            // Si pulsa un botón de acción como 'DEFINIR PLANO', 'TRAZAR', 'UBICAR', cerrar sidebar para ver el 3D
+            const isActionBtn = target.classList.contains('btn-action-primary') ||
+                                target.classList.contains('btn-action-blue') ||
+                                target.classList.contains('btn-action-emerald') ||
+                                target.id.indexOf('create') !== -1 ||
+                                target.id.indexOf('btn-p1-') !== -1;
+            if (isActionBtn && sb && !sb.classList.contains('collapsed')) {
+              if (typeof global.toggleSidebarCollapse === 'function') {
+                global.toggleSidebarCollapse();
+              }
+            }
+          }
+        }, { passive: true });
+      }
+    } else {
+      // En desktop, mantener abierto por defecto
+      if (sb) {
+        sb.classList.remove('collapsed');
+        document.body.classList.remove('sb-open');
+        if (btn) btn.textContent = '◀';
+        if (toggleIcon) toggleIcon.textContent = '◀';
       }
     }
 

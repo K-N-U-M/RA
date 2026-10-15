@@ -2504,48 +2504,100 @@ body.ra-capture-mode-active #ra-triad-overlay {
 
 /* ==========================================================================
    DISEÑO RESPONSIVO: SMARTPHONES Y TABLETS VERTICALES (<= 768px)
+   Limpieza radical: Un único contexto a la vez, cero ventanas superpuestas.
    ========================================================================== */
 @media (max-width: 768px) {
-  /* ── 1. Drawer Lateral Deslizable ──────────────────────────────────────── */
-  #ra-mobile-sidebar-backdrop {
-    display: block;
+  /* ── 1. Erradicación de Paneles Flotantes Superpuestos ─────────────────── */
+  /* El Árbol de Proyecto (Outliner) y el HUD de estado se ocultan en móvil */
+  #ra-cad-outliner-panel,
+  .ra-cad-outliner {
+    display: none !important;
   }
-  #ra-mobile-sidebar-backdrop.active {
-    opacity: 1;
-    pointer-events: auto;
+  #ra-cad-outliner-panel.mobile-active,
+  .ra-cad-outliner.mobile-active {
+    display: flex !important;
+    position: fixed !important;
+    top: 60px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: min(340px, calc(100vw - 24px)) !important;
+    max-height: calc(100vh - 100px) !important;
+    z-index: 100005 !important;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9) !important;
   }
 
+  /* HUD de Potencia superior derecho: Oculto en móvil para no tapar la Rosa ni la UI */
+  #ra-project-status-hud {
+    display: none !important;
+  }
+
+  /* ── 2. Sidebar Modo Pantalla Completa / Drawer Opaco ──────────────────── */
   #ra-sidebar {
-    width: min(88vw, 360px) !important;
+    width: 100vw !important;
     max-width: 100vw !important;
-    z-index: 10000 !important;
-    box-shadow: 10px 0 40px rgba(0, 0, 0, 0.85) !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    background: #0B1120 !important; /* 100% SÓLIDO Y OPACO */
+    z-index: 100000 !important;
+    box-shadow: none !important;
+    transform: translateX(0) !important;
+    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
   }
 
   #ra-sidebar.collapsed {
     transform: translateX(-100%) !important;
+    pointer-events: none !important;
   }
 
-  #ra-sidebar-toggle-btn {
-    top: 64px !important;
-    right: -42px !important;
-    width: 42px !important;
-    height: 48px !important;
-    font-size: 16px !important;
-    border-radius: 0 10px 10px 0 !important;
-    box-shadow: 6px 4px 16px rgba(0, 0, 0, 0.7) !important;
+  /* Botón Flotante para Abrir Menú cuando el sidebar está colapsado */
+  #ra-sidebar.collapsed #ra-sidebar-toggle-btn {
+    position: fixed !important;
+    top: 14px !important;
+    left: 14px !important;
+    right: auto !important;
+    width: 44px !important;
+    height: 44px !important;
+    border-radius: 12px !important;
+    background: rgba(15, 23, 42, 0.94) !important;
+    backdrop-filter: blur(12px) !important;
+    border: 1px solid rgba(245, 158, 11, 0.45) !important;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6) !important;
+    color: var(--amber-400) !important;
+    font-size: 20px !important;
+    z-index: 9500 !important;
+    pointer-events: auto !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  /* Botón en cabecera para cerrar el sidebar cuando está abierto */
+  #ra-sidebar:not(.collapsed) #ra-sidebar-toggle-btn {
+    display: none !important;
   }
 
   .sb-tab-content {
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
     overscroll-behavior: contain !important;
-    padding-bottom: calc(env(safe-area-inset-bottom, 16px) + 28px) !important;
+    padding-bottom: calc(env(safe-area-inset-bottom, 16px) + 32px) !important;
   }
 
-  /* ── 2. Stepper de 5 Pasos Compacto ───────────────────────────────────── */
+  /* ── 3. Aislamiento Total: Cuando el Sidebar está ABIERTO ──────────────── */
+  /* Ocultar botones flotantes inferiores, rosa y Fabs para que no tapen formularios */
+  body.sb-open #ra-floating-tools-container,
+  body.sb-open #ra-floating-settings-btn,
+  body.sb-open #ra-rosa,
+  body.sb-open #ra-bom-fab-btn,
+  body.sb-open #ra-solar-fab-btn,
+  body.sb-open #ra-hud-energy,
+  body.sb-open #ra-solar-time-hud {
+    display: none !important;
+  }
+
+  /* ── 4. Stepper de 5 Pasos Ultra-Compacto ──────────────────────────────── */
   .wp-stepper-container {
-    padding: 6px 6px !important;
+    padding: 6px 4px !important;
   }
   .wp-stepper-header {
     gap: 2px !important;
@@ -2562,10 +2614,12 @@ body.ra-capture-mode-active #ra-triad-overlay {
     letter-spacing: -0.2px !important;
   }
 
-  /* ── 3. HUD Superior de Energía ────────────────────────────────────────── */
+  /* ── 5. HUD Superior de Energía (Solo si sidebar está cerrado) ─────────── */
   #ra-hud-energy {
-    top: 10px !important;
-    max-width: 95vw !important;
+    top: 14px !important;
+    left: calc(50% + 20px) !important;
+    transform: translateX(-50%) !important;
+    max-width: calc(100vw - 120px) !important;
     z-index: 900 !important;
   }
   #ra-hud-pill {
@@ -2575,7 +2629,7 @@ body.ra-capture-mode-active #ra-triad-overlay {
     border-radius: 20px !important;
   }
   #hud-val-neta {
-    font-size: 12.5px !important;
+    font-size: 12px !important;
   }
   #ra-hud-dropdown {
     width: min(92vw, 290px) !important;
@@ -2583,107 +2637,71 @@ body.ra-capture-mode-active #ra-triad-overlay {
     padding: 10px !important;
   }
 
-  /* ── 4. Rosa de los Vientos y Botones Flotantes Superiores ─────────────── */
+  /* ── 6. Rosa de los Vientos Compacta ───────────────────────────────────── */
   #ra-rosa {
     top: 10px !important;
     right: 10px !important;
-    width: 62px !important;
-    height: 62px !important;
-    transform: scale(0.72) !important;
+    width: 52px !important;
+    height: 52px !important;
+    transform: scale(0.65) !important;
     transform-origin: top right !important;
     z-index: 850 !important;
   }
   #ra-rosa-rumbo {
-    font-size: 9px !important;
+    font-size: 8.5px !important;
   }
 
   #ra-bom-fab-btn {
-    top: 84px !important;
-    right: 10px !important;
-    padding: 4px 10px 4px 8px !important;
-    transform: scale(0.88) !important;
-    transform-origin: top right !important;
-    z-index: 850 !important;
+    display: none !important; /* Ocultar en móvil para no saturar la pantalla */
   }
   #ra-solar-fab-btn {
-    top: 126px !important;
+    top: 76px !important;
     right: 10px !important;
-    transform: scale(0.88) !important;
+    transform: scale(0.82) !important;
     transform-origin: top right !important;
     z-index: 850 !important;
   }
 
-  /* ── 5. Barra Inferior de Herramientas Flotantes ────────────────────────── */
+  /* ── 7. Barra Inferior de Herramientas Flotantes (Solo Iconos 40px) ───── */
   #ra-floating-tools-container {
-    right: 58px !important;
-    bottom: 12px !important;
-    gap: 5px !important;
+    right: 56px !important;
+    bottom: 14px !important;
+    gap: 6px !important;
     z-index: 9100 !important;
   }
   #btn-toggle-measure-tool {
-    width: 42px !important;
-    height: 42px !important;
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
   }
   #btn-toggle-labels-visibility,
   #btn-toggle-pbr-texture {
-    height: 42px !important;
-    padding: 0 8px !important;
-    gap: 4px !important;
-    font-size: 9px !important;
-    border-radius: 21px !important;
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    justify-content: center !important;
   }
-  #btn-toggle-labels-visibility span:not(.card-tag),
-  #btn-toggle-pbr-texture span:not(.card-tag) {
+  /* Ocultar texto largo ETIQUETAS y TEXTURA PBR en móvil */
+  #btn-toggle-labels-visibility span,
+  #btn-toggle-pbr-texture span {
     display: none !important;
   }
 
   #ra-floating-settings-btn {
-    right: 12px !important;
-    bottom: 12px !important;
-    width: 42px !important;
-    height: 42px !important;
+    right: 10px !important;
+    bottom: 14px !important;
+    width: 40px !important;
+    height: 40px !important;
     z-index: 9100 !important;
   }
   #ra-floating-settings-popover {
-    width: min(310px, calc(100vw - 24px)) !important;
-    right: 12px !important;
+    width: min(300px, calc(100vw - 20px)) !important;
+    right: 10px !important;
     bottom: 60px !important;
     padding: 12px !important;
     max-height: calc(100vh - 80px) !important;
-  }
-
-  /* ── 6. Árbol de Proyecto (Outliner) en Móvil (Modal Centrado) ───────── */
-  .ra-cad-outliner {
-    position: fixed !important;
-    top: 70px !important;
-    left: 50% !important;
-    right: auto !important;
-    transform: translateX(-50%) !important;
-    width: min(340px, calc(100vw - 24px)) !important;
-    max-height: calc(100vh - 120px) !important;
-    z-index: 10005 !important;
-    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.85) !important;
-  }
-
-  /* ── 7. HUD de Estado del Proyecto (Compacto y sin solapar) ─────────────── */
-  #ra-project-status-hud {
-    top: 10px !important;
-    right: 64px !important;
-    max-width: 200px !important;
-    z-index: 840 !important;
-  }
-  #ra-hud-pill-box {
-    padding: 4px 8px !important;
-  }
-  #ra-hud-kwp-text {
-    font-size: 11px !important;
-  }
-  #ra-hud-sub-text {
-    font-size: 8.5px !important;
-  }
-  #ra-hud-energy-text,
-  #ra-hud-ratio-badge {
-    display: none !important;
   }
 
   /* ── 8. HUD Solar Temporal & Sombras (Bottom Sheet Deslizable) ──────────── */
@@ -2708,61 +2726,6 @@ body.ra-capture-mode-active #ra-triad-overlay {
     display: none !important;
     pointer-events: none !important;
   }
-  .solar-hud-telemetry {
-    display: flex !important;
-    flex-wrap: wrap !important;
-    gap: 4px 8px !important;
-    font-size: 9.5px !important;
-  }
-  .solar-modes-bar {
-    display: flex !important;
-    flex-wrap: wrap !important;
-    gap: 4px !important;
-  }
-  .solar-mode-btn {
-    font-size: 9.5px !important;
-    padding: 4px 6px !important;
-    flex: 1 1 calc(50% - 4px) !important;
-  }
-
-  /* ── 9. HUD de Cinta Métrica ───────────────────────────────────────────── */
-  #ra-measure-hud {
-    top: 52px !important;
-    left: 50% !important;
-    transform: translateX(-50%) !important;
-    max-width: 96vw !important;
-    padding: 4px 10px !important;
-    font-size: 9.5px !important;
-    gap: 6px !important;
-    z-index: 9999 !important;
-  }
-
-  /* ── 8. Modales en Pantalla Táctil Móvil ─────────────────────────────────── */
-  .doc-modal-box,
-  #equipment-catalog-modal,
-  #cost-breakdown-modal,
-  #company-branding-modal,
-  #ra-projects-modal,
-  #ra-pricing-review-modal,
-  #ra-bill-auditor-modal {
-    width: 96vw !important;
-    max-width: 96vw !important;
-    max-height: 94vh !important;
-    padding: 12px 10px !important;
-    border-radius: 10px !important;
-  }
-  .modal-grid-2,
-  .branding-grid,
-  .catalog-form-grid {
-    grid-template-columns: 1fr !important;
-    gap: 8px !important;
-  }
-  table {
-    display: block !important;
-    width: 100% !important;
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch !important;
-  }
 
   /* ── 9. Accesibilidad Táctil & Prevenir Auto-Zoom en iOS ─────────────────── */
   button, select, input[type="text"], input[type="number"], .wp-step-btn, .hud-btn {
@@ -2778,10 +2741,6 @@ body.ra-capture-mode-active #ra-triad-overlay {
    DISEÑO RESPONSIVO: SMARTPHONES ULTRA-COMPACTOS (<= 480px)
    ========================================================================== */
 @media (max-width: 480px) {
-  #ra-sidebar {
-    width: calc(100vw - 38px) !important;
-  }
-
   .wp-step-title {
     display: none !important;
   }
@@ -2791,15 +2750,6 @@ body.ra-capture-mode-active #ra-triad-overlay {
   .wp-step-num {
     font-size: 12px !important;
   }
-
-  #ra-hud-pill {
-    padding: 4px 8px !important;
-    font-size: 9.5px !important;
-  }
-  #hud-val-neta {
-    font-size: 11.5px !important;
-  }
-
   .solar-calc-months-row {
     display: grid !important;
     grid-template-columns: repeat(6, 1fr) !important;
