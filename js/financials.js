@@ -249,26 +249,35 @@ var RAPricing = {
 
   getDefaults: function() {
     if (this.currentSessionPricing) return this.currentSessionPricing;
+    var base = {
+      panelPrice: 125,
+      estPrice: null,
+      invPrice: null,
+      batPrice: null,
+      cabPrice: null,
+      moPrice: 1400,
+      legPrice: 500,
+      marginPct: 20,
+      skipReview: false
+    };
     try {
       var saved = localStorage.getItem(this.STORAGE_KEY);
       if (saved) {
         var parsed = JSON.parse(saved);
         if (parsed && typeof parsed === 'object') {
-          return {
-            panelPrice: (typeof parsed.panelPrice === 'number' && parsed.panelPrice > 0) ? parsed.panelPrice : 125,
-            moPrice: (typeof parsed.moPrice === 'number' && parsed.moPrice >= 0) ? parsed.moPrice : 1400,
-            marginPct: (typeof parsed.marginPct === 'number' && parsed.marginPct >= 0) ? parsed.marginPct : 20,
-            skipReview: !!parsed.skipReview
-          };
+          if (typeof parsed.panelPrice === 'number' && parsed.panelPrice > 0) base.panelPrice = parsed.panelPrice;
+          if (typeof parsed.estPrice === 'number' && parsed.estPrice >= 0) base.estPrice = parsed.estPrice;
+          if (typeof parsed.invPrice === 'number' && parsed.invPrice >= 0) base.invPrice = parsed.invPrice;
+          if (typeof parsed.batPrice === 'number' && parsed.batPrice >= 0) base.batPrice = parsed.batPrice;
+          if (typeof parsed.cabPrice === 'number' && parsed.cabPrice >= 0) base.cabPrice = parsed.cabPrice;
+          if (typeof parsed.moPrice === 'number' && parsed.moPrice >= 0) base.moPrice = parsed.moPrice;
+          if (typeof parsed.legPrice === 'number' && parsed.legPrice >= 0) base.legPrice = parsed.legPrice;
+          if (typeof parsed.marginPct === 'number' && parsed.marginPct >= 0) base.marginPct = parsed.marginPct;
+          base.skipReview = !!parsed.skipReview;
         }
       }
     } catch(e) {}
-    return {
-      panelPrice: 125,
-      moPrice: 1400,
-      marginPct: 20,
-      skipReview: false
-    };
+    return base;
   },
 
   saveDefaults: function(cfg) {
@@ -301,92 +310,156 @@ function wpOpenPricingReviewModal(onConfirm) {
   var pModal = document.getElementById('ra-pricing-review-modal');
   if (!pModal) {
     var modalHtml = '<div id="ra-pricing-review-modal" role="dialog" aria-modal="true" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,0.85);backdrop-filter:blur(8px);z-index:999999;align-items:center;justify-content:center;padding:16px;">' +
-      '<div style="background:#0f172a;border:1px solid #334155;border-radius:12px;width:560px;max-width:96vw;display:flex;flex-direction:column;box-shadow:0 25px 50px -12px rgba(0,0,0,0.85);overflow:hidden;color:#fff;font-family:Inter,system-ui,sans-serif;">' +
-        '<div style="padding:14px 20px;background:rgba(0,0,0,0.4);border-bottom:1px solid rgba(255,255,255,0.08);display:flex;justify-content:space-between;align-items:center;">' +
+      '<div style="background:#0f172a;border:1px solid #334155;border-radius:12px;width:660px;max-width:96vw;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 25px 50px -12px rgba(0,0,0,0.85);overflow:hidden;color:#fff;font-family:Inter,system-ui,sans-serif;">' +
+        '<div style="padding:14px 20px;background:rgba(0,0,0,0.4);border-bottom:1px solid rgba(255,255,255,0.08);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">' +
           '<div style="display:flex;align-items:center;gap:10px;">' +
-            '<span style="font-size:18px;">🏷️</span>' +
+            '<span style="font-size:20px;">🏷️</span>' +
             '<div>' +
-              '<div style="font-weight:900;font-size:13px;color:#fff;letter-spacing:0.5px;">REVISIÓN DE PRECIOS Y MARGEN COMERCIAL</div>' +
-              '<div id="pricing-modal-subtitle" style="font-size:9.5px;color:#94a3b8;">Confirma costes unitarios y margen de beneficio antes de emitir la oferta</div>' +
+              '<div style="font-weight:900;font-size:13px;color:#fff;letter-spacing:0.5px;">REVISIÓN DE PRECIOS &amp; PRESUPUESTO FINAL</div>' +
+              '<div id="pricing-modal-subtitle" style="font-size:9.5px;color:#94a3b8;">Verifica o ajusta los importes de cada partida antes de emitir la entrega final</div>' +
             '</div>' +
           '</div>' +
           '<button type="button" id="btn-close-pricing-review" style="background:transparent;border:none;color:#94a3b8;font-size:18px;cursor:pointer;padding:4px 8px;">✕</button>' +
         '</div>' +
-        '<div style="padding:18px 20px;display:flex;flex-direction:column;gap:14px;">' +
-          '<div style="background:rgba(30,41,59,0.5);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:10px;">' +
-            '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+        '<div style="padding:16px 20px;display:flex;flex-direction:column;gap:12px;overflow-y:auto;">' +
+          '<div style="background:rgba(15,23,42,0.6);border:1px solid rgba(56,189,248,0.25);border-radius:8px;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;font-size:10px;">' +
+            '<div style="display:flex;align-items:center;gap:6px;color:#38BDF8;font-weight:800;">' +
+              '<span>⚡</span>' +
+              '<span id="pricing-modal-project-info">Proyecto: 0 paneles (0.00 kWp)</span>' +
+            '</div>' +
+            '<div id="pricing-modal-equip-info" style="color:#94a3b8;font-size:9.5px;text-align:right;">Inversor / Batería</div>' +
+          '</div>' +
+          '<div style="background:rgba(30,41,59,0.5);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:9px;">' +
+            '<div style="font-size:10px;font-weight:900;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px;">' +
+              'Partidas de Coste Directo (Instalación Llave en Mano)' +
+            '</div>' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05);">' +
               '<div>' +
-                '<div style="font-size:11px;font-weight:800;color:#f8fafc;">Módulos Fotovoltaicos</div>' +
-                '<div id="pricing-modal-module-info" style="font-size:9.5px;color:#94a3b8;">Proyecto actual: 0 paneles</div>' +
+                '<div style="font-size:11px;font-weight:800;color:#f8fafc;display:flex;align-items:center;gap:5px;"><span>🟦</span> Módulos Fotovoltaicos Tier-1</div>' +
+                '<div id="pricing-subtext-panels" style="font-size:9px;color:#94a3b8;">0 módulos en cubierta</div>' +
               '</div>' +
-              '<div style="display:flex;align-items:center;gap:6px;">' +
-                '<input type="number" id="pricing-input-panel-price" min="50" max="1000" step="5" style="width:85px;padding:5px 8px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:6px;color:#fff;font-size:11px;font-weight:700;text-align:right;">' +
-                '<span style="font-size:10.5px;color:#cbd5e1;">€/ud</span>' +
+              '<div style="display:flex;align-items:center;gap:8px;">' +
+                '<div style="display:flex;align-items:center;gap:4px;">' +
+                  '<input type="number" id="pricing-input-panel-price" min="40" max="1000" step="1" style="width:75px;padding:4px 6px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:6px;color:#fff;font-size:11px;font-weight:700;text-align:right;">' +
+                  '<span style="font-size:10px;color:#94a3b8;">€/ud</span>' +
+                '</div>' +
+                '<span id="pricing-row-panel-subtotal" style="font-size:11px;font-weight:800;color:#38BDF8;min-width:65px;text-align:right;">0 €</span>' +
               '</div>' +
             '</div>' +
-            '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05);">' +
               '<div>' +
-                '<div style="font-size:11px;font-weight:800;color:#f8fafc;">Mano de Obra & Montaje</div>' +
-                '<div style="font-size:9.5px;color:#94a3b8;">Instalación completa en cubierta</div>' +
+                '<div style="font-size:11px;font-weight:800;color:#f8fafc;display:flex;align-items:center;gap:5px;"><span>🏗️</span> Estructura Soporte &amp; Perfilería</div>' +
+                '<div id="pricing-subtext-est" style="font-size:9px;color:#94a3b8;">Perfilería continua de aluminio y fijaciones A2</div>' +
               '</div>' +
-              '<div style="display:flex;align-items:center;gap:6px;">' +
-                '<input type="number" id="pricing-input-mo-price" min="0" max="20000" step="50" style="width:85px;padding:5px 8px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:6px;color:#fff;font-size:11px;font-weight:700;text-align:right;">' +
-                '<span style="font-size:10.5px;color:#cbd5e1;">€</span>' +
+              '<div style="display:flex;align-items:center;gap:4px;">' +
+                '<input type="number" id="pricing-input-est-price" min="0" max="50000" step="25" style="width:90px;padding:4px 6px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:6px;color:#fff;font-size:11px;font-weight:700;text-align:right;">' +
+                '<span style="font-size:10px;color:#94a3b8;">€</span>' +
+              '</div>' +
+            '</div>' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05);">' +
+              '<div>' +
+                '<div style="font-size:11px;font-weight:800;color:#f8fafc;display:flex;align-items:center;gap:5px;"><span>⚡</span> Inversor / Microinversores</div>' +
+                '<div id="pricing-subtext-inv" style="font-size:9px;color:#94a3b8;">Sistema de conversión eléctrica y monitorización</div>' +
+              '</div>' +
+              '<div style="display:flex;align-items:center;gap:4px;">' +
+                '<input type="number" id="pricing-input-inv-price" min="0" max="50000" step="50" style="width:90px;padding:4px 6px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:6px;color:#fff;font-size:11px;font-weight:700;text-align:right;">' +
+                '<span style="font-size:10px;color:#94a3b8;">€</span>' +
+              '</div>' +
+            '</div>' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05);">' +
+              '<div>' +
+                '<div style="font-size:11px;font-weight:800;color:#f8fafc;display:flex;align-items:center;gap:5px;"><span>🔋</span> Batería de Acumulación (LiFePO4)</div>' +
+                '<div id="pricing-subtext-bat" style="font-size:9px;color:#94a3b8;">Almacenamiento modular (0 € si no aplica)</div>' +
+              '</div>' +
+              '<div style="display:flex;align-items:center;gap:4px;">' +
+                '<input type="number" id="pricing-input-bat-price" min="0" max="50000" step="50" style="width:90px;padding:4px 6px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:6px;color:#fff;font-size:11px;font-weight:700;text-align:right;">' +
+                '<span style="font-size:10px;color:#94a3b8;">€</span>' +
+              '</div>' +
+            '</div>' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05);">' +
+              '<div>' +
+                '<div style="font-size:11px;font-weight:800;color:#f8fafc;display:flex;align-items:center;gap:5px;"><span>🔌</span> Cableado, Conducciones &amp; Cuadros</div>' +
+                '<div id="pricing-subtext-cab" style="font-size:9px;color:#94a3b8;">Líneas solares ZZ-F, cuadro DC/AC, protecciones SPD y tierras</div>' +
+              '</div>' +
+              '<div style="display:flex;align-items:center;gap:4px;">' +
+                '<input type="number" id="pricing-input-cab-price" min="0" max="25000" step="25" style="width:90px;padding:4px 6px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:6px;color:#fff;font-size:11px;font-weight:700;text-align:right;">' +
+                '<span style="font-size:10px;color:#94a3b8;">€</span>' +
+              '</div>' +
+            '</div>' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05);">' +
+              '<div>' +
+                '<div style="font-size:11px;font-weight:800;color:#f8fafc;display:flex;align-items:center;gap:5px;"><span>👷</span> Mano de Obra &amp; Montaje</div>' +
+                '<div style="font-size:9px;color:#94a3b8;">Instalación completa, seguridad en altura y puesta en marcha</div>' +
+              '</div>' +
+              '<div style="display:flex;align-items:center;gap:4px;">' +
+                '<input type="number" id="pricing-input-mo-price" min="0" max="30000" step="50" style="width:90px;padding:4px 6px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:6px;color:#fff;font-size:11px;font-weight:700;text-align:right;">' +
+                '<span style="font-size:10px;color:#94a3b8;">€</span>' +
+              '</div>' +
+            '</div>' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;">' +
+              '<div>' +
+                '<div style="font-size:11px;font-weight:800;color:#f8fafc;display:flex;align-items:center;gap:5px;"><span>📑</span> Legalización, Proyecto &amp; CIE</div>' +
+                '<div style="font-size:9px;color:#94a3b8;">Memoria técnica / proyecto, tasas de Industria y boletín oficial</div>' +
+              '</div>' +
+              '<div style="display:flex;align-items:center;gap:4px;">' +
+                '<input type="number" id="pricing-input-leg-price" min="0" max="15000" step="25" style="width:90px;padding:4px 6px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:6px;color:#fff;font-size:11px;font-weight:700;text-align:right;">' +
+                '<span style="font-size:10px;color:#94a3b8;">€</span>' +
               '</div>' +
             '</div>' +
           '</div>' +
-          '<div style="background:rgba(30,41,59,0.5);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:10px;">' +
+          '<div style="background:rgba(30,41,59,0.5);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:8px;">' +
             '<div style="display:flex;justify-content:space-between;align-items:center;">' +
               '<div>' +
                 '<div style="font-size:11px;font-weight:800;color:#FBBF24;">Margen Comercial Deseado</div>' +
-                '<div style="font-size:9.5px;color:#94a3b8;">Beneficio bruto aplicado sobre costes directos</div>' +
+                '<div style="font-size:9px;color:#94a3b8;">Beneficio bruto aplicado sobre la suma de costes directos</div>' +
               '</div>' +
-              '<div style="display:flex;align-items:center;gap:6px;">' +
-                '<input type="number" id="pricing-input-margin-pct" min="0" max="100" step="1" style="width:70px;padding:5px 8px;background:rgba(0,0,0,0.4);border:1px solid #F59E0B;border-radius:6px;color:#FBBF24;font-size:11px;font-weight:800;text-align:right;">' +
+              '<div style="display:flex;align-items:center;gap:4px;">' +
+                '<input type="number" id="pricing-input-margin-pct" min="0" max="100" step="1" style="width:65px;padding:4px 6px;background:rgba(0,0,0,0.4);border:1px solid #F59E0B;border-radius:6px;color:#FBBF24;font-size:11px;font-weight:800;text-align:right;">' +
                 '<span style="font-size:11px;color:#FBBF24;font-weight:800;">%</span>' +
               '</div>' +
             '</div>' +
             '<div style="display:flex;gap:6px;">' +
+              '<button type="button" class="btn-preset-margin" data-margin="10" style="flex:1;padding:4px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:4px;color:#cbd5e1;font-size:10px;font-weight:700;cursor:pointer;">10%</button>' +
               '<button type="button" class="btn-preset-margin" data-margin="15" style="flex:1;padding:4px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:4px;color:#cbd5e1;font-size:10px;font-weight:700;cursor:pointer;">15%</button>' +
               '<button type="button" class="btn-preset-margin" data-margin="20" style="flex:1;padding:4px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:4px;color:#cbd5e1;font-size:10px;font-weight:700;cursor:pointer;">20%</button>' +
               '<button type="button" class="btn-preset-margin" data-margin="25" style="flex:1;padding:4px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:4px;color:#cbd5e1;font-size:10px;font-weight:700;cursor:pointer;">25%</button>' +
               '<button type="button" class="btn-preset-margin" data-margin="30" style="flex:1;padding:4px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:4px;color:#cbd5e1;font-size:10px;font-weight:700;cursor:pointer;">30%</button>' +
             '</div>' +
           '</div>' +
-          '<div style="background:linear-gradient(135deg,rgba(16,185,129,0.12),rgba(5,150,105,0.06));border:1px solid rgba(16,185,129,0.3);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:6px;">' +
+          '<div style="background:linear-gradient(135deg,rgba(16,185,129,0.12),rgba(5,150,105,0.06));border:1px solid rgba(16,185,129,0.3);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:5px;">' +
             '<div style="display:flex;justify-content:space-between;font-size:10.5px;color:#94a3b8;">' +
-              '<span>Coste Directo (Materiales + MO):</span>' +
+              '<span>Coste Directo Total:</span>' +
               '<b id="pricing-preview-direct" style="color:#f8fafc;">0 €</b>' +
             '</div>' +
             '<div style="display:flex;justify-content:space-between;font-size:10.5px;color:#34D399;">' +
-              '<span>Beneficio Comercial Estimado:</span>' +
+              '<span>Beneficio Comercial:</span>' +
               '<b id="pricing-preview-margin">+0 €</b>' +
             '</div>' +
             '<div style="display:flex;justify-content:space-between;font-size:10.5px;color:#94a3b8;">' +
-              '<span>Subtotal Venta (Base Imponible):</span>' +
+              '<span>Base Imponible (Venta sin IVA):</span>' +
               '<b id="pricing-preview-subtotal" style="color:#f8fafc;">0 €</b>' +
             '</div>' +
-            '<hr style="border:0;border-top:1px solid rgba(16,185,129,0.2);margin:4px 0;">' +
+            '<div style="display:flex;justify-content:space-between;font-size:10.5px;color:#94a3b8;">' +
+              '<span>IVA (21%):</span>' +
+              '<b id="pricing-preview-iva" style="color:#cbd5e1;">0 €</b>' +
+            '</div>' +
+            '<hr style="border:0;border-top:1px solid rgba(16,185,129,0.25);margin:4px 0;">' +
             '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-              '<span style="font-size:11px;font-weight:900;color:#34D399;text-transform:uppercase;">TOTAL LLAVE EN MANO (IVA 21%):</span>' +
-              '<b id="pricing-preview-total" style="font-size:16px;color:#fff;font-weight:900;">0 €</b>' +
+              '<span style="font-size:11px;font-weight:900;color:#34D399;text-transform:uppercase;">TOTAL LLAVE EN MANO:</span>' +
+              '<b id="pricing-preview-total" style="font-size:17px;color:#fff;font-weight:900;">0 €</b>' +
             '</div>' +
           '</div>' +
-          '<div style="display:flex;flex-direction:column;gap:6px;">' +
+          '<div style="display:flex;flex-direction:column;gap:4px;">' +
             '<label style="display:flex;align-items:center;gap:8px;font-size:10px;color:#cbd5e1;cursor:pointer;">' +
               '<input type="checkbox" id="pricing-check-save-defaults" checked style="accent-color:#10b981;">' +
-              'Guardar como mis precios habituales para futuros proyectos' +
-            '</label>' +
-            '<label style="display:flex;align-items:center;gap:8px;font-size:10px;color:#94a3b8;cursor:pointer;">' +
-              '<input type="checkbox" id="pricing-check-skip-future" style="accent-color:#10b981;">' +
-              'No volver a mostrar esta confirmación en esta sesión (emitir directo)' +
+              'Guardar estos costes y margen como mis valores habituales para futuros proyectos' +
             '</label>' +
           '</div>' +
         '</div>' +
-        '<div style="padding:12px 20px;background:rgba(0,0,0,0.5);border-top:1px solid rgba(255,255,255,0.08);display:flex;justify-content:flex-end;gap:10px;">' +
+        '<div style="padding:12px 20px;background:rgba(0,0,0,0.5);border-top:1px solid rgba(255,255,255,0.08);display:flex;justify-content:flex-end;gap:10px;flex-shrink:0;">' +
           '<button type="button" id="btn-cancel-pricing-review" style="padding:7px 14px;background:transparent;border:1px solid #475569;border-radius:6px;color:#cbd5e1;font-size:11px;font-weight:700;cursor:pointer;">CANCELAR</button>' +
           '<button type="button" id="btn-confirm-pricing-review" style="padding:7px 18px;background:linear-gradient(135deg,#059669,#10B981);border:none;border-radius:6px;color:#fff;font-size:11px;font-weight:900;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 0 12px rgba(16,185,129,0.3);">' +
-            '🚀 EMITIR OFERTA CON ESTOS PRECIOS' +
+            '🚀 CONFIRMAR Y EMITIR PRESUPUESTO' +
           '</button>' +
         '</div>' +
       '</div>' +
@@ -399,71 +472,130 @@ function wpOpenPricingReviewModal(onConfirm) {
 
   var pricing = RAPricing.getDefaults();
   var initialPricing = Object.assign({}, pricing);
+
   var pInput = document.getElementById('pricing-input-panel-price');
+  var estInput = document.getElementById('pricing-input-est-price');
+  var invInput = document.getElementById('pricing-input-inv-price');
+  var batInput = document.getElementById('pricing-input-bat-price');
+  var cabInput = document.getElementById('pricing-input-cab-price');
   var moInput = document.getElementById('pricing-input-mo-price');
+  var legInput = document.getElementById('pricing-input-leg-price');
   var mgInput = document.getElementById('pricing-input-margin-pct');
-  var checkSave = document.getElementById('pricing-check-save-defaults');
-  var checkSkip = document.getElementById('pricing-check-skip-future');
-  var modInfo = document.getElementById('pricing-modal-module-info');
+
   var subTitle = document.getElementById('pricing-modal-subtitle');
   var confirmBtn = document.getElementById('btn-confirm-pricing-review');
+  var checkSave = document.getElementById('pricing-check-save-defaults');
+
+  var projInfo = document.getElementById('pricing-modal-project-info');
+  var equipInfo = document.getElementById('pricing-modal-equip-info');
+  var subtextPanels = document.getElementById('pricing-subtext-panels');
+  var subtextInv = document.getElementById('pricing-subtext-inv');
+  var subtextBat = document.getElementById('pricing-subtext-bat');
+
+  var d = (typeof getProjectCalcs === 'function') ? getProjectCalcs() : { numPanels: 0, cfg: { potencia: 450, precio: 125 } };
+  var numPanels = d.numPanels || (window.allRenderedPanels ? window.allRenderedPanels.length : 0) || 1;
+  var kwp = (numPanels * (d.cfg && d.cfg.potencia ? d.cfg.potencia : 450)) / 1000.0;
+  var eq = (typeof resolveEquipmentNames === 'function') ? resolveEquipmentNames() : null;
+
+  if (projInfo) {
+    projInfo.textContent = 'Proyecto: ' + numPanels + ' módulos (' + kwp.toFixed(2) + ' kWp)';
+  }
+  if (equipInfo) {
+    var invDesc = eq ? (eq.invBrand ? (eq.invBrand + ' ' + eq.invModel) : eq.invName) : 'Inversor principal';
+    var batDesc = (eq && eq.hasBat) ? (eq.batBrand ? (eq.batBrand + ' ' + eq.batModel) : eq.batName) : 'Sin batería';
+    equipInfo.textContent = invDesc + ' · ' + batDesc;
+  }
+  if (subtextPanels) {
+    subtextPanels.textContent = numPanels + ' módulos de ' + (d.cfg && d.cfg.potencia ? d.cfg.potencia : 450) + ' Wp instalados en cubierta';
+  }
+  if (subtextInv && eq) {
+    subtextInv.textContent = eq.invName || 'Sistema de conversión e inversor';
+  }
+  if (subtextBat && eq) {
+    subtextBat.textContent = eq.hasBat ? eq.batName : 'Sin sistema de acumulación electroquímica';
+  }
+
+  // Pre-cargar valores actuales
+  var initialPanelPrice = (pricing.panelPrice > 0) ? pricing.panelPrice : (d.cfg && d.cfg.precio ? d.cfg.precio : 125);
+  var initialEstPrice = (typeof pricing.estPrice === 'number' && pricing.estPrice >= 0) ? pricing.estPrice : ((d.pres_est && d.pres_est > 0) ? d.pres_est : 450);
+  var initialInvPrice = (typeof pricing.invPrice === 'number' && pricing.invPrice >= 0) ? pricing.invPrice : ((d.pres_inv && d.pres_inv > 0) ? d.pres_inv : 1100);
+  var initialBatPrice = (typeof pricing.batPrice === 'number' && pricing.batPrice >= 0) ? pricing.batPrice : (d.pres_bat || 0);
+  var initialCabPrice = (typeof pricing.cabPrice === 'number' && pricing.cabPrice >= 0) ? pricing.cabPrice : ((d.pres_cab && d.pres_cab > 0) ? d.pres_cab : 350);
+  var initialMoPrice = (typeof pricing.moPrice === 'number' && pricing.moPrice >= 0) ? pricing.moPrice : ((d.pres_mo && d.pres_mo > 0) ? d.pres_mo : 1400);
+  var initialLegPrice = (typeof pricing.legPrice === 'number' && pricing.legPrice >= 0) ? pricing.legPrice : ((d.pres_leg && d.pres_leg > 0) ? d.pres_leg : 500);
+  var initialMarginPct = (typeof pricing.marginPct === 'number' && pricing.marginPct >= 0) ? pricing.marginPct : 20;
+
+  if (pInput) pInput.value = initialPanelPrice;
+  if (estInput) estInput.value = Math.round(initialEstPrice);
+  if (invInput) invInput.value = Math.round(initialInvPrice);
+  if (batInput) batInput.value = Math.round(initialBatPrice);
+  if (cabInput) cabInput.value = Math.round(initialCabPrice);
+  if (moInput) moInput.value = Math.round(initialMoPrice);
+  if (legInput) legInput.value = Math.round(initialLegPrice);
+  if (mgInput) mgInput.value = initialMarginPct;
 
   if (subTitle) {
     subTitle.textContent = (typeof onConfirm === 'function')
-      ? 'Confirma costes unitarios y margen de beneficio antes de emitir la oferta'
+      ? 'Verifica o ajusta los importes de cada partida antes de emitir la entrega final'
       : 'Ajusta los costes unitarios y margen comercial aplicados al presupuesto del proyecto';
   }
   if (confirmBtn) {
     confirmBtn.innerHTML = (typeof onConfirm === 'function')
-      ? '🚀 EMITIR OFERTA CON ESTOS PRECIOS'
+      ? '🚀 CONFIRMAR Y EMITIR PRESUPUESTO'
       : '💾 APLICAR PRECIOS &amp; MARGEN';
   }
 
-  var d = (typeof getProjectCalcs === 'function') ? getProjectCalcs() : { numPanels: 0, cfg: { potencia: 450 } };
-  var numPanels = d.numPanels || (window.allRenderedPanels ? window.allRenderedPanels.length : 0) || 1;
-  var kwp = (numPanels * (d.cfg && d.cfg.potencia ? d.cfg.potencia : 450)) / 1000.0;
-  if (modInfo) {
-    modInfo.textContent = 'Proyecto actual: ' + numPanels + ' módulos (' + kwp.toFixed(2) + ' kWp)';
-  }
-
-  if (pInput) pInput.value = pricing.panelPrice;
-  if (moInput) moInput.value = pricing.moPrice;
-  if (mgInput) mgInput.value = pricing.marginPct;
-  if (checkSave) checkSave.checked = true;
-  if (checkSkip) checkSkip.checked = !!pricing.skipReview;
-
   function recalculateLive() {
-    var pPrice = parseFloat(pInput ? pInput.value : 125) || 125;
-    var moPrice = parseFloat(moInput ? moInput.value : 1400) || 0;
+    var pPrice = parseFloat(pInput ? pInput.value : 125) || 0;
+    var estPrice = parseFloat(estInput ? estInput.value : 0) || 0;
+    var invPrice = parseFloat(invInput ? invInput.value : 0) || 0;
+    var batPrice = parseFloat(batInput ? batInput.value : 0) || 0;
+    var cabPrice = parseFloat(cabInput ? cabInput.value : 0) || 0;
+    var moPrice = parseFloat(moInput ? moInput.value : 0) || 0;
+    var legPrice = parseFloat(legInput ? legInput.value : 0) || 0;
     var mgPct = parseFloat(mgInput ? mgInput.value : 20) || 0;
 
-    // Temporal override to calculate live
-    var currentDef = RAPricing.currentSessionPricing || RAPricing.getDefaults();
+    var panelTotal = numPanels * pPrice;
+    var rowPanSub = document.getElementById('pricing-row-panel-subtotal');
+    if (rowPanSub) rowPanSub.textContent = Math.round(panelTotal).toLocaleString('es-ES') + ' €';
+
+    var directCost = panelTotal + estPrice + invPrice + batPrice + cabPrice + moPrice + legPrice;
+    var marginEur = directCost * (mgPct / 100.0);
+    var subtotal = directCost + marginEur;
+    var iva = subtotal * 0.21;
+    var capexBruto = subtotal + iva;
+
+    // Temporal override en sesión para cálculo fiel
     RAPricing.currentSessionPricing = {
       panelPrice: pPrice,
+      estPrice: estPrice,
+      invPrice: invPrice,
+      batPrice: batPrice,
+      cabPrice: cabPrice,
       moPrice: moPrice,
+      legPrice: legPrice,
       marginPct: mgPct,
-      skipReview: currentDef.skipReview
+      skipReview: false
     };
 
-    var m = (typeof calculateFinancialModel === 'function') ? calculateFinancialModel() : null;
-    if (m) {
-      var dEl = document.getElementById('pricing-preview-direct');
-      var mEl = document.getElementById('pricing-preview-margin');
-      var sEl = document.getElementById('pricing-preview-subtotal');
-      var tEl = document.getElementById('pricing-preview-total');
-      if (dEl) dEl.textContent = Math.round(m.directCost || (m.subtotal - (m.marginEur || 0))).toLocaleString('es-ES') + ' €';
-      if (mEl) mEl.textContent = '+' + Math.round(m.marginEur || 0).toLocaleString('es-ES') + ' € (' + mgPct + '%)';
-      if (sEl) sEl.textContent = Math.round(m.subtotal).toLocaleString('es-ES') + ' €';
-      if (tEl) tEl.textContent = Math.round(m.capexBruto).toLocaleString('es-ES') + ' €';
-    }
+    var dEl = document.getElementById('pricing-preview-direct');
+    var mEl = document.getElementById('pricing-preview-margin');
+    var sEl = document.getElementById('pricing-preview-subtotal');
+    var iEl = document.getElementById('pricing-preview-iva');
+    var tEl = document.getElementById('pricing-preview-total');
+
+    if (dEl) dEl.textContent = Math.round(directCost).toLocaleString('es-ES') + ' €';
+    if (mEl) mEl.textContent = '+' + Math.round(marginEur).toLocaleString('es-ES') + ' € (' + mgPct + '%)';
+    if (sEl) sEl.textContent = Math.round(subtotal).toLocaleString('es-ES') + ' €';
+    if (iEl) iEl.textContent = Math.round(iva).toLocaleString('es-ES') + ' €';
+    if (tEl) tEl.textContent = Math.round(capexBruto).toLocaleString('es-ES') + ' €';
   }
 
   recalculateLive();
 
-  if (pInput) pInput.oninput = recalculateLive;
-  if (moInput) moInput.oninput = recalculateLive;
-  if (mgInput) mgInput.oninput = recalculateLive;
+  [pInput, estInput, invInput, batInput, cabInput, moInput, legInput, mgInput].forEach(function(inp) {
+    if (inp) inp.oninput = recalculateLive;
+  });
 
   var presetBtns = pModal.querySelectorAll('.btn-preset-margin');
   presetBtns.forEach(function(btn) {
@@ -488,16 +620,25 @@ function wpOpenPricingReviewModal(onConfirm) {
 
   if (confirmBtn) {
     confirmBtn.onclick = function() {
-      var pPrice = parseFloat(pInput ? pInput.value : 125) || 125;
-      var moPrice = parseFloat(moInput ? moInput.value : 1400) || 0;
+      var pPrice = parseFloat(pInput ? pInput.value : 125) || 0;
+      var estPrice = parseFloat(estInput ? estInput.value : 0) || 0;
+      var invPrice = parseFloat(invInput ? invInput.value : 0) || 0;
+      var batPrice = parseFloat(batInput ? batInput.value : 0) || 0;
+      var cabPrice = parseFloat(cabInput ? cabInput.value : 0) || 0;
+      var moPrice = parseFloat(moInput ? moInput.value : 0) || 0;
+      var legPrice = parseFloat(legInput ? legInput.value : 0) || 0;
       var mgPct = parseFloat(mgInput ? mgInput.value : 20) || 0;
-      var skip = checkSkip ? checkSkip.checked : false;
 
       var newCfg = {
         panelPrice: pPrice,
+        estPrice: estPrice,
+        invPrice: invPrice,
+        batPrice: batPrice,
+        cabPrice: cabPrice,
         moPrice: moPrice,
+        legPrice: legPrice,
         marginPct: mgPct,
-        skipReview: skip
+        skipReview: false
       };
 
       if (checkSave && checkSave.checked) {
@@ -506,9 +647,19 @@ function wpOpenPricingReviewModal(onConfirm) {
         RAPricing.currentSessionPricing = newCfg;
       }
 
-      // Sincronizar input del modal de desglose si existe en el DOM
-      var moModal = document.getElementById('modal-cfg-pres-mo');
-      if (moModal) moModal.value = moPrice;
+      // Sincronizar inputs del desglose DOM si existen
+      var setVal = function(id, val) {
+        var el1 = document.getElementById(id);
+        if (el1) el1.value = val;
+        var el2 = document.getElementById('modal-' + id);
+        if (el2) el2.value = val;
+      };
+      setVal('cfg-pres-est', estPrice);
+      setVal('cfg-pres-inv', invPrice);
+      setVal('cfg-pres-bat', batPrice);
+      setVal('cfg-pres-cab', cabPrice);
+      setVal('cfg-pres-mo', moPrice);
+      setVal('cfg-pres-leg', legPrice);
 
       wpUpdateStep5PricingBadge();
       if (typeof updateBudgetUI === 'function') updateBudgetUI();
@@ -520,7 +671,7 @@ function wpOpenPricingReviewModal(onConfirm) {
       }
 
       if (typeof showToast === 'function') {
-        showToast('PRECIOS ACTUALIZADOS', 'Precios y margen comercial aplicados correctamente.', 'success', 3000);
+        showToast('PRESUPUESTO ACTUALIZADO', 'Precios y margen comercial aplicados correctamente.', 'success', 3000);
       }
 
       closeModal(false);
@@ -562,8 +713,7 @@ function generatePropuestaComercialPDF(skipPricingModal) {
   }
 
   // Interceptar para revisión de precios y margen si no se ha saltado explícitamente
-  const pricing = (typeof RAPricing !== 'undefined') ? RAPricing.getDefaults() : null;
-  if (!skipPricingModal && pricing && !pricing.skipReview && typeof wpOpenPricingReviewModal === 'function') {
+  if (!skipPricingModal && typeof wpOpenPricingReviewModal === 'function') {
     wpOpenPricingReviewModal(function() {
       generatePropuestaComercialPDF(true);
     });
@@ -1251,8 +1401,18 @@ function generatePropuestaComercialPDF(skipPricingModal) {
       cab = _cableCostReal;
     }
   }
-  const mo  = (pricing && pricing.moPrice != null) ? pricing.moPrice : _input('cfg-pres-mo', 1400);
-  const leg = _input('cfg-pres-leg', 500);
+  let mo  = (pricing && pricing.moPrice != null) ? pricing.moPrice : _input('cfg-pres-mo', 1400);
+  let leg = (pricing && pricing.legPrice != null) ? pricing.legPrice : _input('cfg-pres-leg', 500);
+
+  // [SSOT] Si el usuario ha ajustado precios en RAPricing, tienen prioridad máxima:
+  if (pricing) {
+    if (typeof pricing.estPrice === 'number' && pricing.estPrice >= 0) est = pricing.estPrice;
+    if (typeof pricing.invPrice === 'number' && pricing.invPrice >= 0) inv = pricing.invPrice;
+    if (typeof pricing.batPrice === 'number' && pricing.batPrice >= 0) bat = pricing.batPrice;
+    if (typeof pricing.cabPrice === 'number' && pricing.cabPrice >= 0) cab = pricing.cabPrice;
+    if (typeof pricing.moPrice === 'number' && pricing.moPrice >= 0) mo = pricing.moPrice;
+    if (typeof pricing.legPrice === 'number' && pricing.legPrice >= 0) leg = pricing.legPrice;
+  }
 
   const roofInfo = (typeof computeRoofPanelsData === 'function') ? computeRoofPanelsData() : null;
   const mlpeCount = (roofInfo && roofInfo.panels) ? roofInfo.panels.filter(p => p.hasMLPE).length : 0;

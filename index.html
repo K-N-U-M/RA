@@ -55,6 +55,7 @@ window.RA_App = window.RA_App || {};
   <script src="js/company-branding.js?v=20261013a"></script>
   <script src="js/ui-outliner.js?v=20260930a"></script>
   <script src="js/bill-auditor.js?v=20260929b"></script>
+  <script src="js/structure-catalog.js?v=20261015a"></script>
   <script src="js/bom-tree.js?v=20260929b"></script>
   <script src="js/engineering-explainer.js?v=20260929b"></script>
   <script src="js/equipment-ai-importer.js?v=20261014a"></script>
@@ -947,6 +948,16 @@ window.RA_App = window.RA_App || {};
                       <option value="triangles_15_ew">Estructura 15º Este-Oeste</option>
                       <option value="triangles_custom">Triángulos Ángulo Adaptable (Personalizado)</option>
                     </select>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;gap:4px;">
+                      <span style="font-size:7px;color:var(--text-slate-400);"><i data-lucide="tag" class="icon-sm"></i> Fabricante:</span>
+                      <select id="faldon-structure-mfg-select" class="doc-input" style="flex:1;font-size:7.5px;padding:2px 4px;background:#0F172A;color:#38BDF8;border:1px solid rgba(56,189,248,0.3);border-radius:4px;" onchange="if(window.RAStructureCatalog) window.RAStructureCatalog.setPolyManufacturer(WP.selectedPolyIdx, this.value)">
+                        <option value="sunfer">Sunfer Energy</option>
+                        <option value="k2">K2 Systems</option>
+                        <option value="fischer">Fischer Solar-Fix</option>
+                        <option value="custom">Personalizado</option>
+                      </select>
+                      <button type="button" class="doc-mini-btn" style="padding:1px 5px;font-size:7px;color:#38BDF8;border-color:rgba(56,189,248,0.3);" onclick="openEquipmentCatalogModal('structures')" title="Abrir catálogo y editar precios de estructura"><i data-lucide="settings" class="icon-sm"></i></button>
+                    </div>
                   </div>
 
                   <!-- Disposición Solar Preconfigurada -->
@@ -1972,11 +1983,13 @@ window.RA_App = window.RA_App || {};
     </div>
 
     <!-- Pestañas de Navegación del Catálogo -->
-    <div style="display:flex;gap:4px;padding:8px 16px;background:rgba(0,0,0,0.25);border-bottom:1px solid var(--border-subtle);">
+    <div style="display:flex;gap:4px;padding:8px 16px;background:rgba(0,0,0,0.25);border-bottom:1px solid var(--border-subtle);flex-wrap:wrap;">
       <button class="sb-tab-btn active" id="cat-tab-btn-modules" onclick="switchCatalogTab('modules')" style="padding:6px 12px;font-size:10.5px;border-radius:6px;"><i data-lucide="sun" class="icon-sm"></i> MÓDULOS FV</button>
       <button class="sb-tab-btn" id="cat-tab-btn-inverters" onclick="switchCatalogTab('inverters')" style="padding:6px 12px;font-size:10.5px;border-radius:6px;"><i data-lucide="zap" class="icon-sm"></i> INVERSORES</button>
       <button class="sb-tab-btn" id="cat-tab-btn-batteries" onclick="switchCatalogTab('batteries')" style="padding:6px 12px;font-size:10.5px;border-radius:6px;"><i data-lucide="battery-charging" class="icon-sm"></i> BATERÍAS LFP</button>
       <button class="sb-tab-btn" id="cat-tab-btn-microinverters" onclick="switchCatalogTab('microinverters')" style="padding:6px 12px;font-size:10.5px;border-radius:6px;"><i data-lucide="cpu" class="icon-sm"></i> MICROINVERSORES</button>
+      <button class="sb-tab-btn" id="cat-tab-btn-structures" onclick="switchCatalogTab('structures')" style="padding:6px 12px;font-size:10.5px;border-radius:6px;color:#38BDF8;border:1px solid rgba(56,189,248,0.4);"><i data-lucide="layers" class="icon-sm"></i> ESTRUCTURAS</button>
+      <button class="sb-tab-btn" id="cat-tab-btn-installation_costs" onclick="switchCatalogTab('installation_costs')" style="padding:6px 12px;font-size:10.5px;border-radius:6px;color:#34D399;border:1px solid rgba(52,211,153,0.4);"><i data-lucide="wrench" class="icon-sm"></i> INSTALACIÓN &amp; SOFT COSTS</button>
       <button class="sb-tab-btn" id="cat-tab-btn-add_new" onclick="switchCatalogTab('add_new')" style="padding:6px 12px;font-size:10.5px;border-radius:6px;color:var(--amber-400);border:1px dashed var(--amber-400);"><i data-lucide="plus" class="icon-sm"></i> AÑADIR MANUAL</button>
       <button class="sb-tab-btn" id="cat-tab-btn-ai_import" onclick="switchCatalogTab('ai_import')" style="padding:6px 12px;font-size:10.5px;border-radius:6px;color:var(--sky-400);border:1px solid rgba(56,189,248,0.5);background:rgba(56,189,248,0.1);"><i data-lucide="sparkles" class="icon-sm"></i> ✨ IMPORTAR CON IA</button>
       <button class="sb-tab-btn" id="cat-tab-btn-edit" onclick="switchCatalogTab('edit')" style="display:none;padding:6px 12px;font-size:10.5px;border-radius:6px;color:var(--sky-400);border:1px dashed var(--sky-400);"><i data-lucide="edit-2" class="icon-sm"></i> EDITAR EQUIPO</button>
@@ -2193,6 +2206,12 @@ window.RA_App = window.RA_App || {};
       
       <!-- Panel 7: Importador con IA -->
       <div id="cat-pane-ai_import" style="display:none;"></div>
+
+      <!-- Panel 8: Estructuras y Fijaciones Comerciales -->
+      <div id="cat-pane-structures" style="display:none;"></div>
+
+      <!-- Panel 9: Costes de Instalación, Mano de Obra e Ingeniería -->
+      <div id="cat-pane-installation_costs" style="display:none;"></div>
 
     </div>
 
@@ -3484,6 +3503,7 @@ function raSetLossUI(key, valPct, isLive) {
   const v = parseFloat(valPct);
   if (isNaN(v) || v < 0) return;
   window.solarLossConfig[key] = v / 100;
+  if (key === 'wiring') window.solarLossConfig.userCustomizedWiring = true;
   if (typeof window.raSaveLossConfig === 'function') window.raSaveLossConfig();
   
   const total = RA_LOSS_FIELDS.reduce((s, f) => s + (window.solarLossConfig[f.key] || 0), 0);
@@ -5954,8 +5974,16 @@ function updatePanelSelectionUI() {
     ? window.allRenderedPanels
     : (lastRoofInfo ? lastRoofInfo.panels : null);
   const panel = (selectedPanelIndex >= 0 && panelsArray) ? panelsArray[selectedPanelIndex] : null;
+
+  const multiCount = (Array.isArray(window.selectedPanelIndices) && window.selectedPanelIndices.length > 1) 
+    ? window.selectedPanelIndices.length 
+    : 0;
+
   if (lbl) {
-    if (!panel) {
+    if (multiCount > 1) {
+      lbl.textContent = `${multiCount} MÓDULOS SELECCIONADOS · Shift+Clic sumar`;
+      lbl.style.color = '#38BDF8';
+    } else if (!panel) {
       lbl.textContent = 'NINGUNO';
       lbl.style.color = 'var(--text-slate-400)';
     } else {
@@ -5964,30 +5992,66 @@ function updatePanelSelectionUI() {
       lbl.style.color = 'var(--amber-400)';
     }
   }
+
+  if (!Array.isArray(window.panelOutlineEntities)) window.panelOutlineEntities = [];
+  window.panelOutlineEntities.forEach(ent => {
+    try { if (viewer && viewer.entities) viewer.entities.remove(ent); } catch(e) {}
+  });
+  window.panelOutlineEntities = [];
+
   if (panelOutlineEntity) {
-    viewer.entities.remove(panelOutlineEntity);
+    try { if (viewer && viewer.entities) viewer.entities.remove(panelOutlineEntity); } catch(e) {}
     panelOutlineEntity = null;
   }
   if (activePanelDragEntity && viewer) {
     try { viewer.entities.remove(activePanelDragEntity); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
     activePanelDragEntity = null;
   }
-  if (panel && panel.corners && panel.corners.length === 4) {
-    panelOutlineEntity = viewer.entities.add({
-      polyline: {
-        positions: [panel.corners[0], panel.corners[1], panel.corners[2], panel.corners[3], Cesium.Cartesian3.clone(panel.corners[0])],
-        width: 4,
-        material: Cesium.Color.fromCssColorString('#F7A520'),
-        clampToGround: false
+
+  const indicesToHighlight = (Array.isArray(window.selectedPanelIndices) && window.selectedPanelIndices.length > 0)
+    ? window.selectedPanelIndices
+    : (selectedPanelIndex >= 0 ? [selectedPanelIndex] : []);
+
+  if (viewer && viewer.entities && panelsArray) {
+    indicesToHighlight.forEach(pIdx => {
+      const p = panelsArray[pIdx];
+      if (p && p.corners && p.corners.length === 4) {
+        const isAnchor = (pIdx === selectedPanelIndex);
+        const outlineEnt = viewer.entities.add({
+          polyline: {
+            positions: [p.corners[0], p.corners[1], p.corners[2], p.corners[3], Cesium.Cartesian3.clone(p.corners[0])],
+            width: isAnchor ? 4 : 3,
+            material: Cesium.Color.fromCssColorString(isAnchor ? '#F7A520' : '#38BDF8'),
+            clampToGround: false
+          }
+        });
+        window.panelOutlineEntities.push(outlineEnt);
+        if (isAnchor) panelOutlineEntity = outlineEnt;
       }
     });
   }
 }
 
-function selectPanel(idx) {
-  selectedPanelIndex = idx;
-  if (typeof window !== 'undefined') window.selectedPanelIndex = idx;
-  if (idx >= 0) {
+function selectPanel(idx, isMulti = false) {
+  if (!Array.isArray(window.selectedPanelIndices)) window.selectedPanelIndices = [];
+  if (idx < 0) {
+    selectedPanelIndex = -1;
+    window.selectedPanelIndices = [];
+  } else {
+    if (isMulti) {
+      const pos = window.selectedPanelIndices.indexOf(idx);
+      if (pos >= 0) {
+        window.selectedPanelIndices.splice(pos, 1);
+      } else {
+        window.selectedPanelIndices.push(idx);
+      }
+      selectedPanelIndex = window.selectedPanelIndices.length > 0 
+        ? window.selectedPanelIndices[window.selectedPanelIndices.length - 1] 
+        : -1;
+    } else {
+      window.selectedPanelIndices = [idx];
+      selectedPanelIndex = idx;
+    }
     if (typeof selectedObstacleId !== 'undefined') selectedObstacleId = null;
     if (typeof window !== 'undefined') window.selectedObstacleId = null;
     if (typeof selectedElectricalId !== 'undefined') selectedElectricalId = null;
@@ -5995,9 +6059,36 @@ function selectPanel(idx) {
     if (typeof selectedBuildingId !== 'undefined') selectedBuildingId = null;
     if (typeof window !== 'undefined') window.selectedBuildingId = null;
   }
+  if (typeof window !== 'undefined') window.selectedPanelIndex = selectedPanelIndex;
   updatePanelSelectionUI();
   if (typeof renderTriad2D === 'function') renderTriad2D();
 }
+
+window.selectPanel = selectPanel;
+window.selectPanelRow = function(panelIdx) {
+  const panelsArray = window.allRenderedPanels;
+  if (!panelsArray || panelIdx < 0 || panelIdx >= panelsArray.length) return;
+  const targetP = panelsArray[panelIdx];
+  if (!targetP) return;
+  const targetV = (typeof targetP.v === 'number') ? targetP.v : null;
+  const targetH = targetP.h || 2.10;
+  const rowIndices = [];
+  panelsArray.forEach((p, i) => {
+    if (p.polyIdx === targetP.polyIdx) {
+      if (targetV !== null && typeof p.v === 'number') {
+        if (Math.abs(p.v - targetV) < targetH * 0.40) rowIndices.push(i);
+      } else {
+        rowIndices.push(i);
+      }
+    }
+  });
+  window.selectedPanelIndices = rowIndices.length > 0 ? rowIndices : [panelIdx];
+  selectedPanelIndex = panelIdx;
+  if (typeof window !== 'undefined') window.selectedPanelIndex = selectedPanelIndex;
+  updatePanelSelectionUI();
+  if (typeof renderTriad2D === 'function') renderTriad2D();
+  if (typeof showStatus === 'function') showStatus(`FILA COMPLETA (${window.selectedPanelIndices.length} PANELES) SELECCIONADA`, 2500);
+};
 
 function getSelectedPanel() {
   if (typeof selectedPanelIndex === 'undefined' || selectedPanelIndex < 0) return null;
@@ -6395,7 +6486,17 @@ function recalculateSolarYield() {
         ? totalPanelsCount
         : ((roofInfo && roofInfo.panels && roofInfo.panels.length > 0)
             ? roofInfo.panels.length
-            : Math.max(Math.floor(usefulArea / moduleArea), 0)));
+            : 0));
+
+  if (numPanels === 0) {
+    resetSolarDashboard();
+    if (typeof ProjectStatusHUD !== 'undefined' && ProjectStatusHUD && typeof ProjectStatusHUD.update === 'function') {
+      ProjectStatusHUD.update();
+    } else if (typeof RAProjectStatusHUD !== 'undefined' && RAProjectStatusHUD && typeof RAProjectStatusHUD.update === 'function') {
+      RAProjectStatusHUD.update();
+    }
+    return;
+  }
 
   const modTilt = (roofInfo && roofInfo.moduleTiltDeg !== undefined) ? roofInfo.moduleTiltDeg : (tiltDeg >= 8 ? tiltDeg : 30);
   const modAzimuth = (roofInfo && roofInfo.moduleAzimuthDeg !== undefined) ? roofInfo.moduleAzimuthDeg : azimuthDeg;
@@ -6511,7 +6612,6 @@ function recalculateSolarYield() {
 
   // Sincronizar reactivamente cada panel individual en 3D con el nuevo PR
   if (typeof window.allRenderedPanels !== 'undefined' && Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0) {
-    const hasDetailedHeatmap = !!(window.solarSimState && window.solarSimState.annualHeatmapData && !window.solarSimState.annualHeatmapDirty);
     const nPanels = window.allRenderedPanels.length;
     const prSys = (typeof prObj.prBOS === 'number') ? prObj.prBOS : (pr / (0.925 * (1 - 0.028)));
 
@@ -6520,15 +6620,16 @@ function recalculateSolarYield() {
       (typeof p.annualKwh === 'number' && p.annualKwh > 0)
     );
 
-    if (hasDetailedHeatmap && hasSimulatedPanels) {
-      // SSOT: Si la simulación física detallada ya calculó la energía por panel (raycast + POA por faldón),
-      // reescalamos reactivamente la producción con el nuevo PR del sistema
+    if (hasSimulatedPanels) {
+      // SSOT: Si los paneles ya disponen de radiación calculada (por heatmap detallado o layout previo),
+      // reescalamos reactivamente la producción con el nuevo PR del sistema conservando estrictamente la energía bruta inmutable
       let simulatedTotalKWh = 0;
       let simulatedGrossKWh = 0;
       window.allRenderedPanels.forEach(p => {
+        const pYieldFactor = (typeof p.annualYieldPct === 'number') ? (p.annualYieldPct / 100.0) : shadowLossFactor;
         const gross = (typeof p.annualGrossKwh === 'number' && p.annualGrossKwh > 0)
           ? p.annualGrossKwh
-          : (p.annualKwh ? (p.annualKwh / (p._lastPrSys || 0.885)) : 0);
+          : (p.annualKwh ? (p.annualKwh / (p._lastPrSys || prSys || 0.885)) : ((annualGrossKWh / nPanels) * pYieldFactor));
         p.annualGrossKwh = gross;
         p._lastPrSys = prSys;
         p.annualKwh = Math.round(gross * prSys);
@@ -6544,10 +6645,20 @@ function recalculateSolarYield() {
         annualShadowLossKWh = Math.max(0, Math.round((annualGrossKWh / Math.max(0.01, 1 - avgShadowLossPct / 100)) * (avgShadowLossPct / 100)));
       }
     } else {
+      let simulatedTotalKWh = 0;
+      let simulatedGrossKWh = 0;
       window.allRenderedPanels.forEach(p => {
         const pYieldFactor = (typeof p.annualYieldPct === 'number') ? (p.annualYieldPct / 100.0) : shadowLossFactor;
-        p.annualKwh = Math.round((annualGrossKWh / nPanels) * pYieldFactor * pr);
+        const gross = (annualGrossKWh / nPanels) * pYieldFactor;
+        p.annualGrossKwh = gross;
+        p._lastPrSys = prSys;
+        p.annualKwh = Math.round(gross * prSys);
+        simulatedGrossKWh += gross;
+        simulatedTotalKWh += p.annualKwh;
       });
+      if (simulatedTotalKWh > 0) {
+        annualYieldKWh = simulatedTotalKWh;
+      }
     }
   }
 
@@ -7807,6 +7918,21 @@ function resetSolarDashboard() {
   setElemText('sol-string-voc', '0.0 V');
   setElemText('sol-string-imp', '0.0 A');
   renderSolarBarChart([0,0,0,0,0,0,0,0,0,0,0,0]);
+
+  const hudEnergy = document.getElementById('ra-hud-energy');
+  if (hudEnergy) hudEnergy.style.display = 'none';
+
+  const panelEl = document.getElementById('yield-breakdown-panel');
+  if (panelEl) panelEl.style.display = 'none';
+
+  window.RA = window.RA || {};
+  window.RA.solarStats = {
+    annualYieldKWh: 0,
+    monthlyYields: [0,0,0,0,0,0,0,0,0,0,0,0],
+    peakPowerKW: 0,
+    hsp: 0,
+    annualSavingsEUR: 0
+  };
 }
 
 function renderSolarBarChart(data) {
@@ -9630,7 +9756,51 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
         if (typeof p.u === 'number') p.rawPanel.u = p.u;
         if (typeof p.v === 'number') p.rawPanel.v = p.v;
       }
-      if (panelOutlineEntity && p.corners && p.corners.length === 4) {
+
+      // 🌟 Mover simultáneamente todos los demás paneles seleccionados con el mismo delta
+      if (Array.isArray(window.selectedPanelIndices) && window.selectedPanelIndices.length > 1) {
+        const panelsArr = (window.allRenderedPanels && window.allRenderedPanels.length > 0)
+          ? window.allRenderedPanels
+          : (typeof lastRoofInfo !== 'undefined' && lastRoofInfo ? lastRoofInfo.panels : null);
+
+        if (panelsArr) {
+          window.selectedPanelIndices.forEach(oIdx => {
+            if (oIdx === selectedPanelIndex) return;
+            const otherP = panelsArr[oIdx];
+            if (!otherP || !otherP.center) return;
+            otherP.center = Cesium.Cartesian3.add(otherP.center, delta, new Cesium.Cartesian3());
+            if (otherP.corners) {
+              otherP.corners = otherP.corners.map(c => Cesium.Cartesian3.add(c, delta, new Cesium.Cartesian3()));
+            }
+            otherP.isManual = true;
+            otherP.gridA = undefined;
+            otherP.gridB = undefined;
+            if (otherP.rawPanel) {
+              otherP.rawPanel.center = Cesium.Cartesian3.clone(otherP.center);
+              otherP.rawPanel.corners = otherP.corners;
+              otherP.rawPanel.isManual = true;
+              otherP.rawPanel.gridA = undefined;
+              otherP.rawPanel.gridB = undefined;
+            }
+          });
+        }
+      }
+
+      if (Array.isArray(window.panelOutlineEntities) && window.panelOutlineEntities.length > 0) {
+        const panelsArr = (window.allRenderedPanels && window.allRenderedPanels.length > 0)
+          ? window.allRenderedPanels
+          : (typeof lastRoofInfo !== 'undefined' && lastRoofInfo ? lastRoofInfo.panels : null);
+        const indices = (Array.isArray(window.selectedPanelIndices) && window.selectedPanelIndices.length > 0)
+          ? window.selectedPanelIndices
+          : [selectedPanelIndex];
+        window.panelOutlineEntities.forEach((ent, i) => {
+          const idx = indices[i];
+          const pan = panelsArr ? panelsArr[idx] : null;
+          if (ent && ent.polyline && pan && pan.corners && pan.corners.length === 4) {
+            ent.polyline.positions = [pan.corners[0], pan.corners[1], pan.corners[2], pan.corners[3], Cesium.Cartesian3.clone(pan.corners[0])];
+          }
+        });
+      } else if (panelOutlineEntity && p.corners && p.corners.length === 4) {
         panelOutlineEntity.polyline.positions = [p.corners[0], p.corners[1], p.corners[2], p.corners[3], Cesium.Cartesian3.clone(p.corners[0])];
       }
     }
@@ -10764,10 +10934,8 @@ function getProjectCalcs() {
   // las pérdidas de sistema, las sombras (raycast por panel) y la suma real p.annualKwh
   // del heatmap — es el número que el instalador ve en la pestaña de ingeniería. La tabla
   // SOLAR_RAD queda como estimación fallback sólo cuando aún no hay simulación.
-  // [P0.4] Si la geometría o los módulos cambiaron (annualHeatmapDirty), anular el caché obsoleto
   const _engStats = (typeof window !== 'undefined' && window.RA && window.RA.solarStats) ? window.RA.solarStats : null;
-  const _isHeatmapDirty = !!(typeof window !== 'undefined' && window.solarSimState && window.solarSimState.annualHeatmapDirty);
-  if (_engStats && !_isHeatmapDirty && Number.isFinite(_engStats.annualYieldKWh) && _engStats.annualYieldKWh > 0 && annualKWh > 0) {
+  if (_engStats && Number.isFinite(_engStats.annualYieldKWh) && _engStats.annualYieldKWh > 0 && annualKWh > 0) {
     const _ratio = _engStats.annualYieldKWh / annualKWh;
     monthly.forEach(m => { m.kWh = Math.round(m.kWh * _ratio); m.hsp = (parseFloat(m.hsp) * _ratio).toFixed(2); });
     annualKWh = Math.round(_engStats.annualYieldKWh);
@@ -10784,7 +10952,7 @@ function getProjectCalcs() {
     return el ? (parseFloat(el.value) || def) : def;
   };
 
-  const pres_pan = numPanels * (cfg.precio || 125); // [SSOT] fallback único 125 €
+  let pres_pan = numPanels * (cfg.precio || 125); // [SSOT] fallback único 125 €
   let pres_est = _inputVal('cfg-pres-est', 450);
   if (typeof BOMTreeEngine !== 'undefined') {
     const tree = BOMTreeEngine.computeBOMTree();
@@ -10816,9 +10984,22 @@ function getProjectCalcs() {
   }
   if (pres_bat === 0) pres_bat = _inputVal('cfg-pres-bat', 0);
 
-  const pres_cab = _inputVal('cfg-pres-cab', 350);
-  const pres_mo  = _inputVal('cfg-pres-mo', 1400);
-  const pres_mon = 200, pres_leg = _inputVal('cfg-pres-leg', 350);
+  let pres_cab = _inputVal('cfg-pres-cab', 350);
+  let pres_mo  = _inputVal('cfg-pres-mo', 1400);
+  let pres_mon = 200, pres_leg = _inputVal('cfg-pres-leg', 350);
+
+  const _effPricing = (typeof window !== 'undefined' && window.RAPricing && typeof window.RAPricing.getEffectivePricing === 'function')
+    ? window.RAPricing.getEffectivePricing()
+    : null;
+  if (_effPricing) {
+    if (typeof _effPricing.panelPrice === 'number' && _effPricing.panelPrice > 0) pres_pan = numPanels * _effPricing.panelPrice;
+    if (typeof _effPricing.estPrice === 'number' && _effPricing.estPrice >= 0) pres_est = _effPricing.estPrice;
+    if (typeof _effPricing.invPrice === 'number' && _effPricing.invPrice >= 0) pres_inv = _effPricing.invPrice;
+    if (typeof _effPricing.batPrice === 'number' && _effPricing.batPrice >= 0) pres_bat = _effPricing.batPrice;
+    if (typeof _effPricing.cabPrice === 'number' && _effPricing.cabPrice >= 0) pres_cab = _effPricing.cabPrice;
+    if (typeof _effPricing.moPrice === 'number' && _effPricing.moPrice >= 0) pres_mo = _effPricing.moPrice;
+    if (typeof _effPricing.legPrice === 'number' && _effPricing.legPrice >= 0) pres_leg = _effPricing.legPrice;
+  }
   const subtotal = pres_pan + pres_est + pres_inv + pres_bat + pres_cab + pres_mo + pres_mon + pres_leg;
   const iva = subtotal * 0.21;
   const total_pres = subtotal + iva;
@@ -14864,9 +15045,11 @@ window.toggleSolarHUD = toggleSolarHUD;
     if (panelIdx >= 0) {
       if (typeof selectObstacle === 'function') selectObstacle(null);
       if (typeof selectElectricalObject === 'function') selectElectricalObject(null);
-      selectPanel(panelIdx);
+      const isShift = !!(window._raIsShiftDown || (typeof window.event !== 'undefined' && window.event && window.event.shiftKey));
+      selectPanel(panelIdx, isShift);
       renderTriad2D();
-      showStatus('MÓDULO FV #' + (panelIdx + 1) + ' SELECCIONADO', 2000);
+      const count = (window.selectedPanelIndices && window.selectedPanelIndices.length) || 1;
+      showStatus(count > 1 ? `${count} MÓDULOS FV SELECCIONADOS (Shift+Clic para añadir/quitar)` : ('MÓDULO FV #' + (panelIdx + 1) + ' SELECCIONADO'), 2000);
       return;
     }
 
@@ -15254,6 +15437,7 @@ window.toggleSolarHUD = toggleSolarHUD;
       renderTriad2D();
 
       let _draggedPanelId = null;
+      let _affectedPanelIds = [];
       if (draggedTargetType === 'vertex') {
         if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
         if (typeof render3DBuildingsInCesium === 'function') render3DBuildingsInCesium();
@@ -15267,12 +15451,23 @@ window.toggleSolarHUD = toggleSolarHUD;
         if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Obstáculo desplazado');
         if (typeof wpCheckObstacleInsideRoof === 'function') wpCheckObstacleInsideRoof(null, true);
       } else if (draggedTargetType === 'panel') {
-        // [Option A] Traslación manual de panel: persistir en arrays y dejar que wpFastRender reconstruya el batch.
-        const _pIdx = (typeof selectedPanelIndex !== 'undefined') ? selectedPanelIndex : -1;
-        const _dp = (_pIdx >= 0 && window.allRenderedPanels) ? window.allRenderedPanels[_pIdx] : null;
-        if (_dp) {
-          _draggedPanelId = _dp.panelId;
-          const _cloneCorners = function(corners) { return corners.map(function(c) { return Cesium.Cartesian3.clone(c); }); };
+        // [Option A] Traslación manual de panel / multi-panel: persistir en arrays y dejar que wpFastRender reconstruya el batch.
+        const _cloneCorners = function(corners) { return corners.map(function(c) { return Cesium.Cartesian3.clone(c); }); };
+        const _affectedIndices = (Array.isArray(window.selectedPanelIndices) && window.selectedPanelIndices.length > 0)
+          ? window.selectedPanelIndices
+          : ((typeof selectedPanelIndex !== 'undefined' && selectedPanelIndex >= 0) ? [selectedPanelIndex] : []);
+
+        const panelsArr = (window.allRenderedPanels && window.allRenderedPanels.length > 0)
+          ? window.allRenderedPanels
+          : (typeof lastRoofInfo !== 'undefined' && lastRoofInfo ? lastRoofInfo.panels : null);
+
+        _affectedIndices.forEach(pIdx => {
+          const _dp = (panelsArr && pIdx >= 0 && pIdx < panelsArr.length) ? panelsArr[pIdx] : null;
+          if (!_dp) return;
+          if (_dp.panelId) _affectedPanelIds.push(_dp.panelId);
+          if (pIdx === selectedPanelIndex) {
+            _draggedPanelId = _dp.panelId;
+          }
 
           // 1. Mutar directamente el objeto de panel en memoria por referencia (Single Source of Truth)
           if (_dp.rawPanel) {
@@ -15346,7 +15541,7 @@ window.toggleSolarHUD = toggleSolarHUD;
               }
             }
           }
-        }
+        });
       } else {
         if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
         if (typeof render3DObstaclesInCesium === 'function') render3DObstaclesInCesium();
@@ -15376,12 +15571,18 @@ window.toggleSolarHUD = toggleSolarHUD;
       // RECONSTRUIMOS el batch visual de paneles (esto lee el isManual que acabamos de guardar)
       if (typeof wpFastRenderSimulatedPanels === 'function') wpFastRenderSimulatedPanels();
 
-      if (draggedTargetType === 'panel' && _draggedPanelId && window.allRenderedPanels) {
-        const _newIdx = window.allRenderedPanels.findIndex(p => p && p.panelId === _draggedPanelId);
-        if (_newIdx >= 0) {
-          selectedPanelIndex = _newIdx;
-          if (typeof window !== 'undefined') window.selectedPanelIndex = _newIdx;
+      if (draggedTargetType === 'panel' && window.allRenderedPanels) {
+        if (_affectedPanelIds && _affectedPanelIds.length > 0) {
+          window.selectedPanelIndices = _affectedPanelIds.map(id => window.allRenderedPanels.findIndex(p => p && p.panelId === id)).filter(idx => idx >= 0);
         }
+        if (_draggedPanelId) {
+          const _newIdx = window.allRenderedPanels.findIndex(p => p && p.panelId === _draggedPanelId);
+          if (_newIdx >= 0) {
+            selectedPanelIndex = _newIdx;
+            if (typeof window !== 'undefined') window.selectedPanelIndex = _newIdx;
+          }
+        }
+        if (typeof updatePanelSelectionUI === 'function') updatePanelSelectionUI();
       }
       
       if (typeof recalculateSolarYield === 'function') recalculateSolarYield();

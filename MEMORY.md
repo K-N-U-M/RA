@@ -35,6 +35,7 @@
 | `ui-viewport-controls.js` | Alertas toast, carga y controles de visualización 3D | `window.UIViewportControls` |
 | `company-branding.js` | Identidad corporativa, logo y Gemini API | `window.RACompanyBranding` |
 | `equipment-ai-importer.js` | Importador inteligente de fichas técnicas con IA Multimodal | `window.RAEquipmentAIImporter` |
+| `structure-catalog.js` | Catálogo comercial de estructuras (Sunfer, K2, Fischer) y costes de instalación (MO, ingeniería, permisos) | `window.RAStructureCatalog` |
 
 ---
 
@@ -56,6 +57,40 @@
   - El enrutamiento de cables DC ahora apunta al Cuadro DC (`dcProtectionPosition`) si existe.
   - La caída de tensión real (ΔV) calculada en `wpCalculateAndRenderInverterCables` se inyecta dinámicamente en `window.solarLossConfig.wiring`.
   - Se llama a `recalculateSolarYield()` y `BOMTreeEngine.refresh()` en cascada al evento `LEFT_UP` del Gizmo.
+
+### 2026-10-15: Cinemática Multi-Panel, Adaptación 3D de Estructuras y Motor de Presupuestos (BOM) Comercial
+- **Problema 1 (Movimiento y Estructura 3D):**
+  - Mover un panel o grupo de paneles dejaba las estructuras 3D (escuadras A-Frame, zapatas, riostras y raíles coplanares) huérfanas en la posición original.
+  - No existía selección múltiple en pantalla con Gizmo universal para reubicar arrays o filas enteras.
+- **Solución 1:**
+  - Soporte multi-selección con `Shift + Clic` en la escena 3D y `window.selectPanelRow(idx)` para seleccionar filas completas.
+  - Sincronización continua de contornos en vivo (`window.panelOutlineEntities`) durante el arrastre con Gizmo.
+  - En `LEFT_UP`, persistencia atómica de `corners`, `center`, `u`, `v` y flag `isManual = true` para todos los paneles en `window.selectedPanelIndices`.
+  - Reconstrucción GPU reactiva (`wpFastRenderSimulatedPanels`) que recrea las primitivas de soporte (`simulatedSupportsPolylineCollection`) directamente sobre las nuevas cotas 3D de los paneles trasladados.
+- **Problema 2 (Presupuesto de Estructuras y Materiales):**
+  - El árbol BOM anterior estimaba la estructura como un precio fijo por panel o kWp genérico, sin reflejar el estándar real de mercado (Sunfer, K2 Systems, Fischer).
+- **Solución 2:**
+  - Desglose físico riguroso en `js/bom-tree.js`:
+    - Perfilería de aluminio: 2 líneas de carril continuo por fila geométrica de módulos, metros totales con 5% de solape/merma, conversión a barras comerciales de 3.15 m con optimización de corte y empalmes de carril con tornillería.
+    - Fijaciones a cubierta: Salvatejas regulables Inox A2 para teja (1.2 por panel), tornillería autorroscante bimetálica con arandela EPDM para cubierta de chapa grecada/sándwich (2.5 por panel), o bloques de hormigón de 45 kg como lastre en cubierta plana/triángulos.
+    - Clamps de aluminio: Grapas finales dobles (`end clamps`) en los extremos de fila y grapas intermedias (`mid clamps`) entre paneles contiguos.
+    - Mano de obra de montaje: Parametrizada a 1.40 h/módulo con tarifa de mercado oficial de 1ª especialista solar (32.00 €/h).
+    - Presupuesto desglosado visible en el acordeón "Estructura soporte y perfiles" del árbol de materiales.
+- **Implementación de Opción 1 (Catálogos Comerciales y Costes Indirectos):**
+  - Módulo independiente `js/structure-catalog.js` (`window.RAStructureCatalog`) con persistencia en `localStorage('ra_structure_catalog')` y `localStorage('ra_installation_costs')`.
+  - Presets de fabricantes de referencia: **Sunfer Energy** (España), **K2 Systems** (Alemania), **Fischer Solar-Fix** (Alemania) y **Personalizado** (instalador).
+  - Pestañas `ESTRUCTURAS` e `INSTALACIÓN & SOFT COSTS` añadidas al modal oficial de equipos (`#ra-equipment-catalog-modal`) con tablas editables y recálculo en vivo.
+  - Selector de fabricante integrado en la tarjeta de faldón del Paso 2 (`#faldon-structure-mfg-select`) con acceso directo al catálogo.
+  - Metrado en `js/bom-tree.js` enriquecido con desglose granular de:
+    1. Montaje mecánico de estructura y módulos.
+    2. Conexionado eléctrico DC/AC y cableado.
+    3. Puesta en marcha, ensayos y verificación REBT.
+    4. Proyecto de ingeniería visado o Memoria Técnica de Diseño (MTD).
+    5. Dirección facultativa y coordinación de seguridad.
+    6. Legalización administrativa y boletín CIE.
+    7. Licencia urbanística municipal / ICIO y fianza de residuos.
+    8. Medios auxiliares (andamio homologado / elevador) y líneas de vida.
+    9. Pequeño material eléctrico, canalizaciones y puesta a tierra.
 
 ---
 
@@ -559,9 +594,12 @@ calculateFinancialModel()  ← Definición canónica en financials.js (~L491)
   - En `js/docs-generator.js`, función `generateDeliveryPack()` (`window.generateDeliveryPack` / `window.RA.generateDeliveryPack`).
   - Botón de entrega unificado en el Paso 5 de `index.html`: emite de forma coordinada la Memoria Técnica Oficial (ITC-BT-40), la Oferta Comercial Bancable, la Tramitación RD 244/2019 y el Análisis Comparativo Energético.
 - **Verificación y QA:**
-  - 32/32 módulos JS validados sin errores de sintaxis (`node tests/test-js-syntax.js`).
+  - 33/33 módulos JS validados sin errores de sintaxis (`node tests/test-js-syntax.js`).
   - 22/22 pruebas unitarias y de integración end-to-end aprobadas al 100% (`tests/test-ra-full-workflow.js`).
   - Batería de pruebas del importador de equipos con IA al 100%.
+- **Hito 11 — Erradicación de Mediciones Fantasma en HUD (Paso 1 sin faldones ni módulos):**
+  - En `index.html` (`recalculateSolarYield`): erradicado el fallback legacy `Math.max(Math.floor(usefulArea / moduleArea), 0)` que generaba paneles teóricos ficticios en cubiertas sin faldón ni módulos. Si `numPanels === 0`, invoca `resetSolarDashboard()`, refresca `RAProjectStatusHUD` y retorna de inmediato sin cómputo de radiación.
+  - En `resetSolarDashboard()`: oculta el HUD flotante de energía (`#ra-hud-energy`), oculta `#yield-breakdown-panel` y resetea las estadísticas del proyecto en `window.RA.solarStats` a 0.
 
 
 

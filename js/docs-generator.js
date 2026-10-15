@@ -250,9 +250,15 @@ function showEmbeddedDocViewer(title, fullHtml) {
 }
 
 
-function generateMemoria() {
+function generateMemoria(skipPricingModal) {
   // [B4] Bloquear entrega si el análisis solar está en curso u obsoleto
   if (typeof raEnsureAnalysisReadyForDoc === 'function' && !raEnsureAnalysisReadyForDoc()) return;
+  if (!skipPricingModal && typeof wpOpenPricingReviewModal === 'function') {
+    wpOpenPricingReviewModal(function() {
+      generateMemoria(true);
+    });
+    return;
+  }
   const d = getProjectCalcs();
   const dcEs3D = !!d.L_dc_esMedida3D;
   const acEs3D = !!d.L_ac_esMedida3D;
@@ -565,8 +571,14 @@ function generatePliego() {
 // ============================================================================
 // DOC 3 — PRESUPUESTO DETALLADO
 // ============================================================================
-function generatePresupuesto() {
+function generatePresupuesto(skipPricingModal) {
   if (typeof raEnsureAnalysisReadyForDoc === 'function' && !raEnsureAnalysisReadyForDoc()) return;
+  if (!skipPricingModal && typeof wpOpenPricingReviewModal === 'function') {
+    wpOpenPricingReviewModal(function() {
+      generatePresupuesto(true);
+    });
+    return;
+  }
   const d = getProjectCalcs();
   const t = d.tit;
   const m = (typeof calculateFinancialModel === 'function') ? calculateFinancialModel() : null;
@@ -606,7 +618,7 @@ function generatePresupuesto() {
     },
     { titulo: 'CAP. 3 — SISTEMA DE GENERACIÓN Y CONVERSIÓN',
       items: [
-        { ref:'3.1', desc:'Inversor ' + d.P_ac_kW.toFixed(2) + ' kW, ' + (d.monofasico ? 'monofásico 230 V' : 'trifásico 400 V') + ', ' + (d.numStrings > 1 ? 'doble seguidor MPPT independiente' : 'seguidor MPPT') + ', rendimiento europeo η > 98.2%, monitorización WiFi/Ethernet integrada y grado de protección IP65.', ud:'ud', q:1, pu: (m && m.invCost ? m.invCost : (d.pres_inv || 1100.0)) }
+        { ref:'3.1', desc:'Inversor ' + ((typeof d.P_ac_kW === 'number') ? d.P_ac_kW.toFixed(2) : '5.00') + ' kW, ' + (d.monofasico ? 'monofásico 230 V' : 'trifásico 400 V') + ', ' + (d.numStrings > 1 ? 'doble seguidor MPPT independiente' : 'seguidor MPPT') + ', rendimiento europeo η > 98.2%, monitorización WiFi/Ethernet integrada y grado de protección IP65.', ud:'ud', q:1, pu: (m && m.invCost ? m.invCost : (d.pres_inv || 1100.0)) }
       ]
     }
   ];
@@ -1995,8 +2007,14 @@ function generateFormulario() {
  * 3. Formulario Administrativo RD 244/2019
  * 4. Análisis Comparativo Energético
  */
-async function generateDeliveryPack() {
+async function generateDeliveryPack(skipPricingModal) {
   if (typeof raEnsureAnalysisReadyForDoc === 'function' && !raEnsureAnalysisReadyForDoc()) {
+    return;
+  }
+  if (!skipPricingModal && typeof wpOpenPricingReviewModal === 'function') {
+    wpOpenPricingReviewModal(function() {
+      generateDeliveryPack(true);
+    });
     return;
   }
 
@@ -2006,7 +2024,11 @@ async function generateDeliveryPack() {
 
   // 1. Memoria Técnica
   try {
-    if (typeof docMemoriaTecnica === 'function') docMemoriaTecnica();
+    if (typeof docMemoriaTecnica === 'function') {
+      docMemoriaTecnica();
+    } else if (typeof generateMemoria === 'function') {
+      generateMemoria(true);
+    }
   } catch(e1) { console.warn('Error en Memoria Técnica:', e1); }
 
   await new Promise(r => setTimeout(r, 450));
@@ -2017,6 +2039,8 @@ async function generateDeliveryPack() {
       docOfertaComercial();
     } else if (typeof generateCommercialOfferDoc === 'function') {
       generateCommercialOfferDoc();
+    } else if (typeof generatePropuestaComercialPDF === 'function') {
+      generatePropuestaComercialPDF(true);
     }
   } catch(e2) { console.warn('Error en Oferta Comercial:', e2); }
 
@@ -2040,7 +2064,11 @@ async function generateDeliveryPack() {
 }
 
 if (typeof window !== 'undefined') {
+  window.generateMemoria = generateMemoria;
+  window.generatePresupuesto = generatePresupuesto;
   window.generateDeliveryPack = generateDeliveryPack;
   if (!window.RA) window.RA = {};
+  window.RA.generateMemoria = generateMemoria;
+  window.RA.generatePresupuesto = generatePresupuesto;
   window.RA.generateDeliveryPack = generateDeliveryPack;
 }

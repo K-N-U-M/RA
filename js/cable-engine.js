@@ -848,7 +848,10 @@
       }
 
       if (!global.solarLossConfig) global.solarLossConfig = {};
-      global.solarLossConfig.wiring = (dVdcPctOpt + dVacPctOpt) / 100.0;
+      global.solarLossConfig.wiringCalculated = (dVdcPctOpt + dVacPctOpt) / 100.0;
+      if (!global.solarLossConfig.userCustomizedWiring && typeof global.solarLossConfig.wiring === 'undefined') {
+        global.solarLossConfig.wiring = global.solarLossConfig.wiringCalculated;
+      }
 
       if (typeof global.recalculateSolarYield === 'function') global.recalculateSolarYield();
       if (global.BOMTreeEngine && typeof global.BOMTreeEngine.refresh === 'function') global.BOMTreeEngine.refresh();

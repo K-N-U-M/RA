@@ -176,11 +176,22 @@
     // Heatmap dirty check
     const isHeatmapDirty = !!(typeof solarSimState !== 'undefined' && solarSimState && solarSimState.annualHeatmapDirty);
 
-    // Inclinación mínima
+    // Inclinación mínima real de las placas sobre su estructura
     let minTilt = 30;
     if (typeof WP !== 'undefined' && WP && Array.isArray(WP.polylines) && WP.polylines.length > 0) {
       minTilt = WP.polylines.reduce((min, p) => {
-        const t = (p.roofInfo && typeof p.roofInfo.tiltDeg === 'number') ? p.roofInfo.tiltDeg : 30;
+        let t = 30;
+        if (p.roofInfo) {
+          if (typeof p.roofInfo.moduleTiltDeg === 'number') {
+            t = p.roofInfo.moduleTiltDeg;
+          } else if (p.roofInfo.structureType === 'triangles_30') {
+            t = 30;
+          } else if (p.roofInfo.structureType === 'triangles_15_ew') {
+            t = 15;
+          } else if (typeof p.roofInfo.tiltDeg === 'number') {
+            t = p.roofInfo.tiltDeg;
+          }
+        }
         return Math.min(min, t);
       }, 90);
     }

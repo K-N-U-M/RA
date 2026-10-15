@@ -77,10 +77,10 @@ if (typeof window !== 'undefined' && typeof window.RA_STRING_PALETTE === 'undefi
     bypassMlpe: 0.005     // diodos de bypass CON optimizadores/microinversores
   };
   var PRESETS_PERDIDAS = {
-    estandar: { soiling: 0.025, wiring: 0.015, mismatch: 0.020, availability: 0.005, iamAngular: 0.028, spectral: 0.010 },
-    urbano:   { soiling: 0.035, wiring: 0.015, mismatch: 0.020, availability: 0.005, iamAngular: 0.030, spectral: 0.011 },
-    rural:    { soiling: 0.050, wiring: 0.020, mismatch: 0.022, availability: 0.008, iamAngular: 0.028, spectral: 0.010 },
-    optimo:   { soiling: 0.015, wiring: 0.010, mismatch: 0.015, availability: 0.003, iamAngular: 0.025, spectral: 0.008 }
+    estandar: { soiling: 0.025, wiring: 0.015, mismatch: 0.020, availability: 0.005, iamAngular: 0.028, spectral: 0.010, bypass: 0.025, bypassMlpe: 0.005 },
+    urbano:   { soiling: 0.035, wiring: 0.015, mismatch: 0.020, availability: 0.005, iamAngular: 0.030, spectral: 0.011, bypass: 0.025, bypassMlpe: 0.005 },
+    rural:    { soiling: 0.050, wiring: 0.020, mismatch: 0.022, availability: 0.008, iamAngular: 0.028, spectral: 0.010, bypass: 0.025, bypassMlpe: 0.005 },
+    optimo:   { soiling: 0.015, wiring: 0.010, mismatch: 0.015, availability: 0.003, iamAngular: 0.025, spectral: 0.008, bypass: 0.020, bypassMlpe: 0.005 }
   };
   var savedLosses = null;
   try { savedLosses = JSON.parse(localStorage.getItem('ra_solar_loss_config')); } catch (e) {}
@@ -88,7 +88,7 @@ if (typeof window !== 'undefined' && typeof window.RA_STRING_PALETTE === 'undefi
   window.raGetLossDefaults = function() { return Object.assign({}, LOSS_DEFAULTS); };
   window.raApplyLossPreset = function(key) {
     if (PRESETS_PERDIDAS[key]) {
-      Object.assign(window.solarLossConfig, PRESETS_PERDIDAS[key]);
+      Object.assign(window.solarLossConfig, PRESETS_PERDIDAS[key], { userCustomizedWiring: true });
       try { localStorage.setItem('ra_solar_loss_config', JSON.stringify(window.solarLossConfig)); } catch (e) {}
     }
     return window.solarLossConfig;

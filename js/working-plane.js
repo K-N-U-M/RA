@@ -3417,6 +3417,12 @@ function wpPopulateFaldonCard() {
   var structSelect = document.getElementById('faldon-structure-select');
   if (structSelect) structSelect.value = poly.structureType || 'coplanar_teja';
 
+  var structMfgSelect = document.getElementById('faldon-structure-mfg-select');
+  if (structMfgSelect) {
+    var effectiveMfg = poly.structureManufacturer || (window.RAStructureCatalog ? window.RAStructureCatalog.getActiveManufacturer(WP.selectedPolyIdx) : 'sunfer');
+    structMfgSelect.value = effectiveMfg;
+  }
+
   // ── Disposición solar (arrangement) ──
   var tilt = poly.modTilt || 'auto';
   var az = (poly.modAzimuth !== undefined) ? poly.modAzimuth : 'auto';
@@ -4842,7 +4848,7 @@ function switchCatalogTab(tabName) {
   if (editTabBtn) {
     editTabBtn.style.display = (tabName === 'edit') ? 'inline-flex' : 'none';
   }
-  ['modules', 'inverters', 'batteries', 'microinverters', 'add_new', 'edit', 'ai_import'].forEach(t => {
+  ['modules', 'inverters', 'batteries', 'microinverters', 'structures', 'installation_costs', 'add_new', 'edit', 'ai_import'].forEach(t => {
     const btn = document.getElementById('cat-tab-btn-' + t);
     const pane = document.getElementById('cat-pane-' + t);
     if (btn) btn.classList.toggle('active', t === tabName);
@@ -4851,6 +4857,14 @@ function switchCatalogTab(tabName) {
   if (tabName === 'ai_import') {
     if (typeof window !== 'undefined' && window.RAEquipmentAIImporter && typeof window.RAEquipmentAIImporter.renderInitialUI === 'function') {
       window.RAEquipmentAIImporter.renderInitialUI(document.getElementById('cat-pane-ai_import'));
+    }
+  } else if (tabName === 'structures') {
+    if (typeof window !== 'undefined' && window.RAStructureCatalog && typeof window.RAStructureCatalog.renderStructuresCatalogUI === 'function') {
+      window.RAStructureCatalog.renderStructuresCatalogUI(document.getElementById('cat-pane-structures'));
+    }
+  } else if (tabName === 'installation_costs') {
+    if (typeof window !== 'undefined' && window.RAStructureCatalog && typeof window.RAStructureCatalog.renderInstallationCostsUI === 'function') {
+      window.RAStructureCatalog.renderInstallationCostsUI(document.getElementById('cat-pane-installation_costs'));
     }
   } else if (tabName !== 'edit') {
     populateEquipmentModalUI();

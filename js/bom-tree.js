@@ -15,17 +15,26 @@
 (function(root) {
   'use strict';
 
-  // Ratios paramétricos de ingeniería de montaje (estándar UNE/CTE)
+  // Ratios paramétricos de ingeniería de montaje (estándar UNE/CTE y mercado comercial)
   const BOM_DEFAULTS = {
     CLAMPS_PER_ROW_END: 4,               // 2 por cada extremo de fila
     VARILLAS_PER_PANEL_COPLANAR: 2.2,    // Fijaciones sándwich / salva-tejas por panel
-    PERFIL_METERS_PER_PANEL: 1.15,       // Metros lineales de guía de aluminio por panel (ancho + solape)
+    PERFIL_METERS_PER_PANEL: 2.25,       // Metros lineales de guía de aluminio por panel (2 raíles por fila)
+    BAR_LENGTH_M: 3.15,                  // Longitud estándar de barra comercial de perfil aluminio (m)
+    PERFIL_PRICE_PER_METER: 8.50,        // Precio mercado perfil de aluminio 40x40 EN AW-6063 T6 (€/m)
+    SPLICE_PRICE_UNIT: 3.20,             // Conector de empalme de carril (€/ud)
+    SALVATEJAS_PRICE_UNIT: 7.50,         // Salvateja regulable Inox A2 para teja con tornillería (€/ud)
+    CHAPA_SCREW_PRICE_UNIT: 1.80,        // Tornillo autorroscante bimetálico con arandela EPDM (€/ud)
+    A_FRAME_TRIANGLE_PRICE: 24.50,       // Escuadra A-frame de aluminio premontada (€/ud)
+    BALLAST_BLOCK_PRICE: 9.50,           // Bloque prefabricado de hormigón para lastre (€/ud)
     BALLAST_BLOCKS_PER_PANEL_15: 2,      // Bloques de hormigón por soporte a 15°
     BALLAST_BLOCKS_PER_PANEL_30: 3,      // Bloques de hormigón por soporte a 30°
     BALLAST_WEIGHT_KG: 25.0,             // Masa unitaria de bloque de hormigón estándar
     MC4_PAIRS_PER_STRING: 2,             // Pares de conectores MC4 por string (positivo y negativo)
     EARTH_RODS_PER_25KWP: 1,             // Picas de tierra de cobre por cada 25 kWp
-    EARTH_WIRE_PER_PANEL_M: 1.2          // Conductor de tierra desnudo o 1x16mm² por panel
+    EARTH_WIRE_PER_PANEL_M: 1.2,         // Conductor de tierra desnudo o 1x16mm² por panel
+    LABOR_HOURLY_RATE: 32.0,             // Tarifa oficial de cuadrilla instaladora (€/h)
+    LABOR_HOURS_PER_PANEL: 1.4           // Horas totales montaje mecánico + fijación + strings por panel
   };
 
   /**
@@ -135,50 +144,117 @@
           }
         });
 
-        // Estructura y tornillería paramétrica
-        // isTriangular and estType already defined above
-        // Cost mappings based on structure type
-        const structPriceMap = {
-          'coplanar_teja': 28.0,
-          'coplanar_chapa': 22.0,
-          'triangles_30': 45.0,
-          'triangles_15_ew': 48.0
-        };
+        // Estructura y tornillería paramétrica según mercado comercial
         const structWeightMap = {
           'coplanar_teja': 3.5,
           'coplanar_chapa': 2.5,
           'triangles_30': 6.5,
-          'triangles_15_ew': 7.0
+          'triangles_15_ew': 7.0,
+          'triangles_custom': 6.5
         };
 
+        // ── Detección analítica de filas de módulos en cubierta ───────────────────
+        let estRows = Math.max(1, Math.ceil(Math.sqrt(panelCount)));
+        if (panels.length > 0 && typeof panels[0].v === 'number') {
+          const panelH = panels[0].h || 2.10;
+          const rowGroups = [];
+          panels.forEach(p => {
+            const pv = (typeof p.v === 'number') ? p.v : 0;
+            let group = rowGroups.find(g => Math.abs(g.meanV - pv) < panelH * 0.40);
+            if (group) {
+              group.count++;
+              group.meanV = (group.meanV + pv) / 2;
+            } else {
+              rowGroups.push({ meanV: pv, count: 1 });
+            }
+          });
+          if (rowGroups.length > 0) estRows = rowGroups.length;
+        }
 
-        // Clamps: estimación por filas
-        const estRows = Math.max(1, Math.ceil(Math.sqrt(panelCount)));
+        // Fabricante de estructura para este faldón (Sunfer, K2, Fischer, Personalizado)
+        const mfgId = poly.structureManufacturer || (root.RAStructureCatalog ? root.RAStructureCatalog.getActiveManufacturer(polyIdx) : 'sunfer');
+        const mfg = (root.RAStructureCatalog && typeof root.RAStructureCatalog.getStructure === 'function')
+          ? root.RAStructureCatalog.getStructure(mfgId)
+          : {
+              brand: 'Sunfer Energy',
+              railPricePerMeter: BOM_DEFAULTS.PERFIL_PRICE_PER_METER,
+              barLengthM: BOM_DEFAULTS.BAR_LENGTH_M,
+              splicePrice: BOM_DEFAULTS.SPLICE_PRICE_UNIT,
+              tileHookPrice: BOM_DEFAULTS.SALVATEJAS_PRICE_UNIT,
+              sheetScrewPrice: BOM_DEFAULTS.CHAPA_SCREW_PRICE_UNIT,
+              trianglePrice: BOM_DEFAULTS.A_FRAME_TRIANGLE_PRICE,
+              ballastBlockPrice: BOM_DEFAULTS.BALLAST_BLOCK_PRICE,
+              endClampPrice: 1.65,
+              midClampPrice: 1.45,
+              tieBarPrice: 8.00
+            };
+
+        // Grapas (Clamps): 2 intermedias por panel entre módulos, 4 en extremos de cada fila
         const midClamps = Math.max(0, (panelCount - estRows) * 2);
         const endClamps = estRows * BOM_DEFAULTS.CLAMPS_PER_ROW_END;
 
-        // Lastres de hormigón (si aplica)
+        // Metrado de perfilería de aluminio (2 carriles guía paralelos por cada fila de módulos)
+        const avgModWidth = (panels[0] && panels[0].orientation === 'landscape') ? (panels[0].h || 2.10) : (panels[0].w || 1.05);
+        const railLengthPerRow = (panelCount / estRows) * (avgModWidth + 0.02) + 0.10;
+        const totalProfileMeters = Math.max(panelCount * 1.5, parseFloat((estRows * 2 * railLengthPerRow).toFixed(1)));
+        const standardBarsCount = Math.ceil(totalProfileMeters / (mfg.barLengthM || BOM_DEFAULTS.BAR_LENGTH_M));
+        const railSplicesCount = Math.max(0, standardBarsCount - (estRows * 2));
+
+        // Fijaciones y anclajes según tipo de soporte
+        let fixingsCount = 0;
+        let fixingsType = 'Salvatejas Inox A2 regulables';
+        let fixingsUnitCost = mfg.tileHookPrice || BOM_DEFAULTS.SALVATEJAS_PRICE_UNIT;
         let ballastBlocks = 0;
         let ballastWeightKg = 0;
-        if (isTriangular) {
+
+        if (stType === 'coplanar_chapa') {
+          fixingsType = 'Tornillos autorroscantes bimetálicos EPDM';
+          fixingsCount = panelCount * 4;
+          fixingsUnitCost = mfg.sheetScrewPrice || BOM_DEFAULTS.CHAPA_SCREW_PRICE_UNIT;
+        } else if (isTriangular) {
           const is30Deg = (structCfg.tiltDeg || 0) >= 20 || (estType && estType.includes('30'));
           const ratio = is30Deg ? BOM_DEFAULTS.BALLAST_BLOCKS_PER_PANEL_30 : BOM_DEFAULTS.BALLAST_BLOCKS_PER_PANEL_15;
           ballastBlocks = panelCount * ratio;
           ballastWeightKg = ballastBlocks * BOM_DEFAULTS.BALLAST_WEIGHT_KG;
+          fixingsType = 'Bloques prefabricados de hormigón (Lastre)';
+          fixingsCount = ballastBlocks;
+          fixingsUnitCost = mfg.ballastBlockPrice || BOM_DEFAULTS.BALLAST_BLOCK_PRICE;
+        } else {
+          // Coplanar teja: 1 salvateja cada 1.15 m de perfil
+          fixingsType = 'Salvatejas Inox A2 regulables';
+          fixingsCount = Math.ceil(totalProfileMeters / 1.15);
+          fixingsUnitCost = mfg.tileHookPrice || BOM_DEFAULTS.SALVATEJAS_PRICE_UNIT;
         }
 
-        // Peso y coste de estructura
-        const structItem = (catalog.structures && catalog.structures.find(s => s.type === estType)) || {
-          pricePerModule: structPriceMap[estType] || 30.0,
-          weightKgPerModule: structWeightMap[estType] || 4.0
-        };
-        const structCostEur = panelCount * (structItem.pricePerModule || 30.0);
-        const structWeightKg = panelCount * (structItem.weightKgPerModule || 4.0);
+        // Coste desglosado de materiales de estructura según mercado:
+        let structMaterialsCostEur = 0;
+        if (isTriangular) {
+          // Escuadras A-frame de aluminio premontadas (2 por módulo) + riostras + zapatas/lastres
+          const aFramesCost = panelCount * 2 * (mfg.trianglePrice || BOM_DEFAULTS.A_FRAME_TRIANGLE_PRICE);
+          const ballastCost = ballastBlocks * (mfg.ballastBlockPrice || BOM_DEFAULTS.BALLAST_BLOCK_PRICE);
+          const tieBarsCost = panelCount * (mfg.tieBarPrice || 8.0);
+          structMaterialsCostEur = aFramesCost + ballastCost + tieBarsCost;
+        } else if (stType === 'coplanar_chapa') {
+          // Perfil aluminio + tornillería chapa + empalmes
+          const profileCost = totalProfileMeters * (mfg.railPricePerMeter || BOM_DEFAULTS.PERFIL_PRICE_PER_METER);
+          const splicesCost = railSplicesCount * (mfg.splicePrice || BOM_DEFAULTS.SPLICE_PRICE_UNIT);
+          const fixCost = fixingsCount * fixingsUnitCost;
+          structMaterialsCostEur = profileCost + splicesCost + fixCost;
+        } else {
+          // Coplanar teja: Perfil aluminio 40x40 + salvatejas regulables Inox + empalmes
+          const profileCost = totalProfileMeters * (mfg.railPricePerMeter || BOM_DEFAULTS.PERFIL_PRICE_PER_METER);
+          const splicesCost = railSplicesCount * (mfg.splicePrice || BOM_DEFAULTS.SPLICE_PRICE_UNIT);
+          const fixCost = fixingsCount * fixingsUnitCost;
+          structMaterialsCostEur = profileCost + splicesCost + fixCost;
+        }
 
-        // Clamps y tornillos
-        const midClampItem = (catalog.fasteners && catalog.fasteners.find(f => f.id === 'clamp_mid')) || { price: 0.85 };
-        const endClampItem = (catalog.fasteners && catalog.fasteners.find(f => f.id === 'clamp_end')) || { price: 0.95 };
-        const fastenersCostEur = (midClamps * midClampItem.price) + (endClamps * endClampItem.price);
+        const structCostEur = parseFloat(structMaterialsCostEur.toFixed(2));
+        const structWeightKg = parseFloat((panelCount * (structWeightMap[estType] || 4.0)).toFixed(1));
+
+        // Clamps y tornillos de sujeción de módulos (del fabricante o catálogo)
+        const midClampPrice = mfg.midClampPrice || 1.45;
+        const endClampPrice = mfg.endClampPrice || 1.65;
+        const fastenersCostEur = (midClamps * midClampPrice) + (endClamps * endClampPrice);
 
         // Carga por metro cuadrado estimada
         const approxAreaM2 = panelCount * 2.2;
@@ -194,10 +270,19 @@
           moduleDistribution: moduleCounts,
           optimizersCount: optimizersInRoof,
           structure: {
+            manufacturer: mfg.brand,
+            manufacturerId: mfg.id,
             type: estType,
-            tiltDeg: structCfg.tiltDeg || 15.0,
-            costEur: parseFloat(structCostEur.toFixed(2)),
-            weightKg: parseFloat(structWeightKg.toFixed(2))
+            tiltDeg: structCfg.tiltDeg || (isTriangular ? 30.0 : 0.0),
+            costEur: structCostEur,
+            weightKg: structWeightKg,
+            profileMeters: totalProfileMeters,
+            standardBarsCount: standardBarsCount,
+            railSplicesCount: railSplicesCount,
+            fixingsType: fixingsType,
+            fixingsCount: fixingsCount,
+            fixingsUnitCost: fixingsUnitCost,
+            rowsCount: estRows
           },
           clamps: {
             midCount: midClamps,
@@ -364,20 +449,83 @@
           totalEur: parseFloat(earthCost.toFixed(2))
         });
 
-        // ── 8. MANO DE OBRA, MEDIOS AUXILIARES Y TASAS ─────────────────────────
-        const laborCostPerModule = 45.0; // Media de mercado de instalación llave en mano
-        const engineeringAndPermits = tree.summary.totalKwp > 10 ? 1200.0 : 650.0;
-        const craneAndSafety = tree.summary.totalPanels > 30 ? 600.0 : 0.0;
-        const totalLabor = (tree.summary.totalPanels * laborCostPerModule) + engineeringAndPermits + craneAndSafety;
+        // ── 8. MANO DE OBRA, INGENIERÍA, PERMISOS Y MEDIOS AUXILIARES ──────────
+        const instCosts = (root.RAStructureCatalog && typeof root.RAStructureCatalog.getInstallationCosts === 'function')
+          ? root.RAStructureCatalog.getInstallationCosts()
+          : null;
 
-        tree.summary.subtotalEur += totalLabor;
+        const laborCfg = (instCosts && instCosts.labor) || {
+          mechanicalHoursPerPanel: 0.85,
+          electricalHoursPerPanel: 0.55,
+          commissioningHoursFixed: 4.0,
+          hourlyRate: 32.00
+        };
+        const engCfg = (instCosts && instCosts.engineering) || {
+          technicalProject: 450.00,
+          siteSupervision: 250.00,
+          adminCIE: 180.00
+        };
+        const permitsCfg = (instCosts && instCosts.permits) || {
+          urbanPermitRatePct: 3.5,
+          urbanPermitFixed: 85.00,
+          wasteDeposit: 120.00
+        };
+        const auxCfg = (instCosts && instCosts.auxiliary) || {
+          lifelineSafety: 280.00,
+          scaffoldingLift: 350.00
+        };
+        const smallMatCfg = (instCosts && instCosts.smallMaterials) || {
+          perPanelSmallMaterials: 6.50
+        };
+
+        const totalP = tree.summary.totalPanels;
+        const totalKwp = tree.summary.totalKwp;
+
+        // Horas desglosadas
+        const mechH = parseFloat((totalP * (laborCfg.mechanicalHoursPerPanel || 0.85)).toFixed(1));
+        const elecH = parseFloat((totalP * (laborCfg.electricalHoursPerPanel || 0.55)).toFixed(1));
+        const commH = laborCfg.commissioningHoursFixed || 4.0;
+        const rate = laborCfg.hourlyRate || 32.00;
+
+        const costMech = parseFloat((mechH * rate).toFixed(2));
+        const costElec = parseFloat((elecH * rate).toFixed(2));
+        const costComm = parseFloat((commH * rate).toFixed(2));
+
+        // Ingeniería
+        const costProj = totalKwp > 10 ? Math.max(engCfg.technicalProject, 950.0) : engCfg.technicalProject;
+        const costSup = engCfg.siteSupervision;
+        const costCie = engCfg.adminCIE;
+
+        // Permisos y tasas
+        const costUrban = permitsCfg.urbanPermitFixed;
+        const costWaste = permitsCfg.wasteDeposit;
+        const costIcio = parseFloat((tree.summary.subtotalEur * ((permitsCfg.urbanPermitRatePct || 3.5) / 100)).toFixed(2));
+
+        // Medios auxiliares y seguridad
+        const costLifeline = auxCfg.lifelineSafety;
+        const costScaffold = (totalP > 25) ? auxCfg.scaffoldingLift : Math.round(auxCfg.scaffoldingLift * 0.6);
+
+        // Pequeño material
+        const costSmallMat = parseFloat((totalP * (smallMatCfg.perPanelSmallMaterials || 6.50)).toFixed(2));
+
+        const subtotalInstallation = costMech + costElec + costComm + costProj + costSup + costCie + costUrban + costWaste + costIcio + costLifeline + costScaffold + costSmallMat;
+
+        tree.summary.subtotalEur += subtotalInstallation;
+
         tree.laborAndSoftCosts.push(
-          { description: `Montaje mecánico y conexionado eléctrico (${tree.summary.totalPanels} mód.)`, totalEur: tree.summary.totalPanels * laborCostPerModule },
-          { description: tree.summary.totalKwp > 10 ? 'Proyecto Técnico de Ingeniero y Dirección de Obra' : 'Memoria Técnica de Diseño (MTD) y Boletín', totalEur: engineeringAndPermits }
+          { category: 'labor', description: `Montaje mecánico de estructuras y paneles (${mechH} h @ ${rate} €/h)`, totalEur: costMech },
+          { category: 'labor', description: `Conexionado eléctrico DC/AC y cableado (${elecH} h @ ${rate} €/h)`, totalEur: costElec },
+          { category: 'labor', description: `Puesta en marcha, ensayos y verificación REBT (${commH} h fijas @ ${rate} €/h)`, totalEur: costComm },
+          { category: 'engineering', description: (totalKwp > 10 ? 'Proyecto Técnico Visado de Ingeniero Colegiado' : 'Memoria Técnica de Diseño (MTD)'), totalEur: costProj },
+          { category: 'engineering', description: 'Dirección Facultativa y Coordinación de Seguridad', totalEur: costSup },
+          { category: 'engineering', description: 'Legalización Administrativa y Tramitación Boletín CIE', totalEur: costCie },
+          { category: 'permits', description: 'Tasa Municipal de Comunicación Previa / Urbanística', totalEur: costUrban },
+          { category: 'permits', description: `Impuesto ICIO (${permitsCfg.urbanPermitRatePct}% sobre ejecución material)`, totalEur: costIcio },
+          { category: 'permits', description: 'Fianza de Gestión de Residuos de Construcción (RCD)', totalEur: costWaste },
+          { category: 'auxiliary', description: 'Línea de vida provisional, anclajes y EPIs homologados', totalEur: costLifeline },
+          { category: 'auxiliary', description: 'Medios auxiliares (Plataforma elevadora / Andamio)', totalEur: costScaffold },
+          { category: 'small_materials', description: `Pequeño material eléctrico, canalizaciones y tierra (${totalP} mód. @ ${smallMatCfg.perPanelSmallMaterials || 6.50} €/mód.)`, totalEur: costSmallMat }
         );
-        if (craneAndSafety > 0) {
-          tree.laborAndSoftCosts.push({ description: 'Medios auxiliares (Líneas de vida provisionales y elevador)', totalEur: craneAndSafety });
-        }
       } else {
         tree.summary.totalAcKw = 0;
         tree.summary.totalInverters = 0;
@@ -421,9 +569,11 @@
             <span class="bom-price-badge">${r.subtotalEur} €</span>
           </div>
           <div id="bom-roof-${i}" class="bom-node-children" style="display:none; padding-left:14px;">
-            <div class="bom-subitem">📐 Estructura: <i> (${r.structure.tiltDeg}°)</i> · ${r.structure.costEur} €</div>
-            <div class="bom-subitem">🔩 Clamps: ${r.clamps.midCount} mid + ${r.clamps.endCount} end · ${r.clamps.costEur} €</div>
-            ${r.ballast.blocksCount > 0 ? `<div class="bom-subitem">🧱 Lastre: ${r.ballast.blocksCount} bloques (${r.ballast.totalWeightKg} kg)</div>` : ''}
+            <div class="bom-subitem">📐 <b>Estructura:</b> ${r.structure.manufacturer ? r.structure.manufacturer + ' · ' : ''}${r.structure.type ? r.structure.type.toUpperCase() : 'ESTÁNDAR'} (${r.structure.tiltDeg}°) · <b>${r.structure.costEur} €</b></div>
+            ${r.structure.profileMeters ? `<div class="bom-subitem" style="font-size:8px;color:#94a3b8;padding-left:12px;">• Perfil aluminio: <b>${r.structure.profileMeters} m</b> (${r.structure.standardBarsCount} barras 3.15m + ${r.structure.railSplicesCount} empalmes)</div>` : ''}
+            ${r.structure.fixingsCount ? `<div class="bom-subitem" style="font-size:8px;color:#94a3b8;padding-left:12px;">• Fijaciones: <b>${r.structure.fixingsCount}x</b> ${r.structure.fixingsType}</div>` : ''}
+            <div class="bom-subitem">🔩 <b>Grapas (Clamps):</b> ${r.clamps.midCount} intermedias + ${r.clamps.endCount} finales · <b>${r.clamps.costEur} €</b></div>
+            ${r.ballast.blocksCount > 0 ? `<div class="bom-subitem">🧱 <b>Lastres hormigón:</b> ${r.ballast.blocksCount} bloques (${r.ballast.totalWeightKg} kg)</div>` : ''}
           </div>
         </div>
       `).join('');
@@ -526,6 +676,14 @@
             ${tree.electrical.acPanels && tree.electrical.acPanels.length > 0 ? tree.electrical.acPanels.map(p => `<div class="bom-subitem bom-interactive-item" onclick="BOMTreeEngine.flyToElectrical('meter')" style="cursor:pointer;" title="Clic para enfocar y seleccionar Cuadro AC / Contador en 3D">🔌 ${p.count}x ${p.model} — <b>${p.price} €</b></div>`).join('') : ''}
             <div class="bom-subitem">📏 Cable DC: ${tree.electrical.cables[0] ? tree.electrical.cables[0].meters + 'm (' + tree.electrical.cables[0].secMm2 + 'mm²)' : '0m'}</div>
             <div class="bom-subitem">🔌 Evacuación AC: ${tree.electrical.cables[1] ? tree.electrical.cables[1].meters + 'm (' + tree.electrical.cables[1].secMm2 + 'mm²)' : '0m'}</div>
+
+            <div class="bom-section-title">INSTALACIÓN, INGENIERÍA & MEDIOS</div>
+            ${tree.laborAndSoftCosts && tree.laborAndSoftCosts.length > 0 ? tree.laborAndSoftCosts.map(item => `
+              <div class="bom-subitem" style="display:flex;justify-content:space-between;align-items:center;padding:2px 0;">
+                <span style="font-size:8.5px;color:#CBD5E1;">${item.description}</span>
+                <b style="font-size:9px;color:#F8FAFC;margin-left:6px;">${item.totalEur.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</b>
+              </div>
+            `).join('') : ''}
           `}
           <div class="bom-total-footer">
             <span>PRESUPUESTO TOTAL (BOM + M.O.):</span>
