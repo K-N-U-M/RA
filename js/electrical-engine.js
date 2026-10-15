@@ -488,7 +488,11 @@
       // Comprobación de canales MPPT mínimos frente a orientaciones distintas de cubierta
       const hasEnoughMppts = _totalMppts >= distinctOrientations;
 
-      const isMatch = actualOverload >= 0.75 && actualOverload <= (maxAllowedOverload + 0.12) && isCurrentSafe && !hasPhaseUnbalance;
+      // Criterio de fragmentación máxima admisible según potencia unitaria
+      const maxUnitsAllowed = inv.kw <= 8.0 ? 2 : (inv.kw <= 15.0 ? 4 : (inv.kw <= 35.0 ? 6 : 8));
+      const isExcessiveFragmentation = invCount > maxUnitsAllowed;
+
+      const isMatch = !isExcessiveFragmentation && actualOverload >= 0.75 && actualOverload <= (maxAllowedOverload + 0.12) && isCurrentSafe && !hasPhaseUnbalance;
 
       if (isMatch) {
         compatible.push({
@@ -503,6 +507,136 @@
       }
     });
 
+    // Helper de modelos comerciales recomendados segun potencia y fase
+    function getSuggestedCommercialModels(targetKw, phase) {
+      if (phase === 'single_phase' || targetKw <= 6.0) {
+        const kwR = Math.min(6, Math.max(2, Math.round(targetKw)));
+        return [
+          { brand: 'Huawei', model: `SUN2000-${kwR}KTL-L1`, kw: kwR, mppt: 2 },
+          { brand: 'Fronius', model: `Primo GEN24 ${kwR}.0 Plus`, kw: kwR, mppt: 2 },
+          { brand: 'SMA', model: `Sunny Boy ${Math.min(5, kwR)}.0`, kw: Math.min(5, kwR), mppt: 2 },
+          { brand: 'SolarEdge', model: `Home Wave SE${kwR}000H`, kw: kwR, mppt: 1 }
+        ];
+      } else if (targetKw <= 20.0) {
+        const kwR = Math.min(20, Math.max(8, Math.round(targetKw / 2) * 2));
+        return [
+          { brand: 'Huawei', model: `SUN2000-${kwR}KTL-M2`, kw: kwR, mppt: 2 },
+          { brand: 'Fronius', model: `Symo GEN24 10.0 Plus`, kw: 10, mppt: 2 },
+          { brand: 'Sungrow', model: `SG${kwR}RT`, kw: kwR, mppt: 2 },
+          { brand: 'SMA', model: `Sunny Tripower X ${Math.min(20, Math.max(12, kwR))}`, kw: Math.min(20, Math.max(12, kwR)), mppt: 3 }
+        ];
+      } else if (targetKw <= 60.0) {
+        const kwR = Math.min(50, Math.max(25, Math.round(targetKw / 5) * 5));
+        return [
+          { brand: 'Huawei', model: `SUN2000-${kwR}KTL-M3`, kw: kwR, mppt: 4 },
+          { brand: 'Sungrow', model: `SG${Math.min(50, Math.max(33, kwR))}CX-P2`, kw: Math.min(50, Math.max(33, kwR)), mppt: 3 },
+          { brand: 'SMA', model: 'Sunny Tripower CORE1 (50 kW)', kw: 50, mppt: 6 },
+          { brand: 'Kostal', model: 'PIKO CI 50/60', kw: 50, mppt: 4 }
+        ];
+      } else {
+        return [
+          { brand: 'Huawei', model: 'SUN2000-100KTL-M2 (100 kW)', kw: 100, mppt: 10 },
+          { brand: 'Sungrow', model: 'SG110CX (110 kW)', kw: 110, mppt: 9 },
+          { brand: 'SMA', model: 'Sunny Tripower CORE2 (110 kW)', kw: 110, mppt: 12 },
+          { brand: 'Ingeteam', model: 'Ingecon Sun 100TL (100 kW)', kw: 100, mppt: 1 }
+        ];
+      }
+    }
+
+    let bottleneckReason = null;
+    let virtualInverterMatch = null;
+    let suggestedCommercialModels = [];
+
+    if (compatible.length === 0) {
+      // Diagnóstico físico de cuello de botella:
+      if (!catalog || catalog.length === 0) {
+        bottleneckReason = 'El catálogo de inversores está vacío. No hay ningún inversor registrado en la base de datos.';
+      } else {
+        let countPhaseMismatch = 0;
+        let countCurrentMismatch = 0;
+        catalog.forEach(inv => {
+          const isInvThreePhase = inv.type && inv.type.includes('Trifásico');
+          if (gridSupply === 'single_phase' && isInvThreePhase) countPhaseMismatch++;
+          const _modsPerString = options.modulesPerString || 12;
+          const _nStrings = Math.max(1, Math.ceil(totalPanels / _modsPerString));
+          const _mpptCount = inv.mppt || inv.mpptCount || 2;
+          const _invCount = Math.max(1, Math.round(totalKwp / (inv.kw * 1.15)));
+          const _stringsPerMppt = Math.max(1, Math.ceil(_nStrings / (_mpptCount * _invCount)));
+          const _isc = (moduleSpec.isc || 14.0) * _stringsPerMppt;
+          if (inv.iMaxScA && _isc > inv.iMaxScA * 1.10) countCurrentMismatch++;
+        });
+
+        if (countPhaseMismatch === catalog.length) {
+          bottleneckReason = 'Todos los inversores del catálogo son trifásicos, pero el suministro configurado es monofásico (≤6 kWp).';
+        } else if (countCurrentMismatch >= Math.ceil(catalog.length / 2)) {
+          bottleneckReason = `La corriente Isc acumulada por MPPT (${((moduleSpec.isc || 14.0) * 2).toFixed(1)} A) excede la capacidad de entrada admisible de los inversores en catálogo.`;
+        } else if (totalKwp > 80.0) {
+          bottleneckReason = `Potencia instalada de ${totalKwp.toFixed(1)} kWp superior al rango unitario de los inversores disponibles en catálogo (requiere potencia industrial).`;
+        } else {
+          bottleneckReason = `Potencia (${totalKwp.toFixed(1)} kWp) u orientaciones (${distinctOrientations}) fuera de la envolvente de sobrecarga o canales MPPT de los equipos del catálogo.`;
+        }
+      }
+
+      // Generar Inversor Paramétrico Virtual Ideal
+      const isThreePhase = (gridSupply === 'three_phase' || totalKwp > 6.0);
+      const targetOverload = 1.18;
+      let idealKw = Math.max(1.0, Math.round((totalKwp / targetOverload) * 10) / 10);
+      let invCount = 1;
+      let unitKw = idealKw;
+
+      if (idealKw > 120.0) {
+        invCount = Math.ceil(idealKw / 100.0);
+        unitKw = Math.round((idealKw / invCount) * 10) / 10;
+      }
+
+      const mpptReq = Math.max(distinctOrientations, isThreePhase ? (unitKw >= 25 ? 4 : 2) : 2);
+      const _modsPerString = options.modulesPerString || 14;
+      const _nStrings = Math.max(1, Math.ceil(totalPanels / _modsPerString));
+      const inputsPerMppt = Math.max(1, Math.ceil(_nStrings / (mpptReq * invCount)));
+
+      const estimatedUnitPrice = isThreePhase
+        ? Math.round(unitKw * (unitKw >= 50 ? 45 : (unitKw >= 20 ? 55 : 75)))
+        : Math.round(200 + unitKw * 110);
+
+      suggestedCommercialModels = getSuggestedCommercialModels(unitKw, isThreePhase ? 'three_phase' : 'single_phase');
+
+      const virtualInv = {
+        id: `inv_virtual_ideal_${Math.round(unitKw)}kw`,
+        brand: 'Paramétrico (Auto-Generado)',
+        model: `Inversor Ideal ${unitKw} kW (${mpptReq} MPPT)`,
+        kw: unitKw,
+        type: isThreePhase ? 'Trifásico Industrial' : 'Monofásico Residencial',
+        mppt: mpptReq,
+        inputsPerMppt: inputsPerMppt,
+        vDcMax: isThreePhase ? 1100 : 600,
+        vStart: isThreePhase ? 200 : 100,
+        vMpptNomMin: isThreePhase ? 250 : 120,
+        vMpptNomMax: isThreePhase ? 850 : 500,
+        iMaxOperA: Math.round((moduleSpec.imp || 13.0) * inputsPerMppt * 1.15 * 10) / 10,
+        iMaxScA: Math.round((moduleSpec.isc || 14.0) * inputsPerMppt * 1.35 * 10) / 10,
+        maxOverload: 1.35,
+        eff: 98.6,
+        price: estimatedUnitPrice,
+        isVirtual: true,
+        suggestedCommercialModels: suggestedCommercialModels
+      };
+
+      const actualOverload = totalKwp / (unitKw * invCount);
+
+      virtualInverterMatch = {
+        inverter: virtualInv,
+        count: invCount,
+        overloadPct: parseFloat((actualOverload * 100).toFixed(1)),
+        totalAcKw: Math.round(unitKw * invCount * 10) / 10,
+        mpptCount: mpptReq * invCount,
+        hasEnoughMppts: true,
+        totalCostEur: estimatedUnitPrice * invCount,
+        isVirtual: true,
+        bottleneckReason: bottleneckReason,
+        suggestedCommercialModels: suggestedCommercialModels
+      };
+    }
+
     // Ordenar priorizando:
     // 1. Que cubra los MPPTs requeridos para las orientaciones de cubierta
     // 2. Cercanía a sobrecarga óptima (118%)
@@ -514,15 +648,16 @@
       return scoreA - scoreB;
     });
 
-    const singleInvMatch = compatible.find(c => c.count === 1 && c.hasEnoughMppts) || compatible.find(c => c.count === 1) || compatible[0] || null;
-    const multiInvMatch = compatible.find(c => c.count >= 2 && c.hasEnoughMppts) || compatible.find(c => c.count >= 2) || (singleInvMatch ? {
+    const singleInvMatch = compatible.find(c => c.count === 1 && c.hasEnoughMppts) || compatible.find(c => c.count === 1) || compatible[0] || (virtualInverterMatch && virtualInverterMatch.count === 1 ? virtualInverterMatch : null);
+    const multiInvMatch = compatible.find(c => c.count >= 2 && c.hasEnoughMppts) || compatible.find(c => c.count >= 2) || (virtualInverterMatch && virtualInverterMatch.count > 1 ? virtualInverterMatch : null) || (singleInvMatch ? {
       inverter: singleInvMatch.inverter,
       count: Math.max(2, Math.ceil(singleInvMatch.count * 2)),
       overloadPct: parseFloat((singleInvMatch.overloadPct / 2).toFixed(1)),
       totalAcKw: singleInvMatch.totalAcKw * 2,
       mpptCount: singleInvMatch.mpptCount * 2,
       hasEnoughMppts: true,
-      totalCostEur: singleInvMatch.totalCostEur * 2
+      totalCostEur: singleInvMatch.totalCostEur * 2,
+      isVirtual: !!singleInvMatch.isVirtual
     } : null);
 
     const scenarioC = {
@@ -557,6 +692,10 @@
       totalKwp: totalKwp,
       distinctOrientations: distinctOrientations,
       compatible: compatible,
+      hasCatalogMatch: compatible.length > 0,
+      virtualInverterMatch: virtualInverterMatch,
+      bottleneckReason: bottleneckReason,
+      suggestedCommercialModels: suggestedCommercialModels,
       recommendedTopology: recommendedTopology,
       topologyRationale: topologyRationale,
       recommendedScenarioA: singleInvMatch,
