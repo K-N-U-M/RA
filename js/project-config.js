@@ -280,33 +280,48 @@ function step3UpdateHardwareSelection() {
   if (elNmin) elNmin.textContent = 'Mín. ' + window.solarProjectConfig.calculatedLimits.nMinString + ' placas';
   if (elTot)  elTot.textContent  = window.solarProjectConfig.calculatedLimits.nMaxTotalModules + ' placas (' + ((window.solarProjectConfig.calculatedLimits.nMaxTotalModules * (mod.wp || 450)) / 1000).toFixed(1) + ' kWp)';
 
-  // <i data-lucide="rocket" class="icon-sm"></i> Verificación de Corriente Operativa Máxima Imp vs MPPT (Prevención de Clipping)
-  // [C2/G2] Se suma la corriente de TODOS los grupos/strings que entran por la misma entrada DC,
-  // no se compara la corriente de un único módulo contra el límite del inversor.
+  // Verificación de Corriente Operativa Máxima Imp vs MPPT (Prevención de Clipping)
+  // Se evalúa la corriente real que ingresa al canal MPPT más cargado (reparto entre MPPTs e inversores)
   const _modPanels = (typeof simulatedPanelEntities !== 'undefined' && Array.isArray(simulatedPanelEntities)) ? simulatedPanelEntities.length : 0;
   const _modsPerStr = Math.max(3, (window.solarProjectConfig.calculatedLimits && window.solarProjectConfig.calculatedLimits.nMinString) || 12);
-  const _nStr = _modPanels > 0 ? Math.max(1, Math.ceil(_modPanels / _modsPerStr)) : 1;
-  const _groupsPerInput = Math.max(1, Math.ceil(_nStr / Math.max(1, (inv.mppt || 2) * (inv.inputsPerMppt || 1))));
+  const _realStrings = (typeof electricalStrings !== 'undefined' && Array.isArray(electricalStrings) && electricalStrings.length > 0)
+    ? electricalStrings.length
+    : ((typeof window.electricalStrings !== 'undefined' && Array.isArray(window.electricalStrings) && window.electricalStrings.length > 0)
+      ? window.electricalStrings.length
+      : (_modPanels > 0 ? Math.max(1, Math.ceil(_modPanels / _modsPerStr)) : 1));
+
+  const _invCount = (window.solarProjectConfig && window.solarProjectConfig.autoSizing && window.solarProjectConfig.autoSizing.inverters && window.solarProjectConfig.autoSizing.inverters.count)
+    ? Math.max(1, window.solarProjectConfig.autoSizing.inverters.count)
+    : 1;
+  const _mpptChannelsPerInv = Math.max(1, inv.mppt || 2);
+  const _totalMpptChannels = _invCount * _mpptChannelsPerInv;
+  const _stringsPerMppt = Math.max(1, Math.ceil(_realStrings / _totalMpptChannels));
 
   const elImp = document.getElementById('step3-spec-imp-check');
   if (elImp) {
     const modImp = mod.imp || 13.0;
-    const totalImp = modImp * _groupsPerInput;
+    const totalImp = modImp * _stringsPerMppt;
     const invImaxOper = inv.iMaxOperA || (inv.iMaxScA ? Math.round(inv.iMaxScA * 0.75 * 10) / 10 : 15.0);
     const hasClipping = totalImp > invImaxOper;
-    elImp.textContent = totalImp.toFixed(1) + ' A (' + _groupsPerInput + ' grupos) ≤ ' + invImaxOper.toFixed(1) + ' A (' + (hasClipping ? '<i data-lucide="alert-triangle" class="icon-sm"></i> CLIPPING' : 'Óptimo') + ')';
+    const strLabel = _stringsPerMppt === 1 ? '1 string/MPPT' : (_stringsPerMppt + ' strings/MPPT');
+    elImp.innerHTML = totalImp.toFixed(1) + ' A (' + strLabel + ') ≤ ' + invImaxOper.toFixed(1) + ' A (' + (hasClipping ? '<i data-lucide="alert-triangle" class="icon-sm"></i> CLIPPING' : 'Óptimo') + ')';
     elImp.style.color = hasClipping ? '#F59E0B' : '#10B981';
   }
 
-  // <i data-lucide="rocket" class="icon-sm"></i> Verificación de Seguridad de Intensidad de Cortocircuito (Isc vs Imax_inversor)
+  // Verificación de Seguridad de Intensidad de Cortocircuito (Isc vs Imax_inversor)
   const elIsc = document.getElementById('step3-spec-isc-check');
   if (elIsc) {
     const modIsc = mod.isc || 14.0;
-    const totalIsc = modIsc * _groupsPerInput;
+    const totalIsc = modIsc * _stringsPerMppt;
     const invImaxSc = inv.iMaxScA || 30.0;
     const isSafe = totalIsc <= invImaxSc;
-    elIsc.textContent = totalIsc.toFixed(1) + ' A (' + _groupsPerInput + ' grupos) ≤ ' + invImaxSc.toFixed(1) + ' A (' + (isSafe ? 'OK' : '<i data-lucide="alert-triangle" class="icon-sm"></i> ATENCIÓN') + ')';
+    const strLabel = _stringsPerMppt === 1 ? '1 string/MPPT' : (_stringsPerMppt + ' strings/MPPT');
+    elIsc.innerHTML = totalIsc.toFixed(1) + ' A (' + strLabel + ') ≤ ' + invImaxSc.toFixed(1) + ' A (' + (isSafe ? 'OK' : '<i data-lucide="alert-triangle" class="icon-sm"></i> ATENCIÓN') + ')';
     elIsc.style.color = isSafe ? '#10B981' : '#EF4444';
+  }
+
+  if (window.lucide && typeof window.lucide.createIcons === 'function') {
+    try { window.lucide.createIcons(); } catch (e) {}
   }
 
   // <i data-lucide="rocket" class="icon-sm"></i> Estimación de Sobrecarga Estructural en Cubierta (Normativa CTE DB-SE-AE)

@@ -11355,7 +11355,10 @@ function openEditEquipmentModal(category, id) {
 
   const catNames = { modules: 'MÓDULO SOLAR', inverters: 'INVERSOR DE RED', batteries: 'BATERÍA LFP', microinverters: 'MICROINVERSOR MLPE' };
   if (badgeEl) badgeEl.textContent = catNames[category] || category.toUpperCase();
-  if (titleEl) titleEl.textContent = '<i data-lucide=\"edit-2\" class=\"icon-sm\"></i> MODIFICAR ' + (catNames[category] || 'EQUIPO') + ': ' + (item.brand || '') + ' ' + (item.model || '');
+  if (titleEl) {
+    titleEl.innerHTML = '<i data-lucide="edit-2" class="icon-sm"></i> MODIFICAR ' + (catNames[category] || 'EQUIPO') + ': ' + (item.brand || '') + ' ' + (item.model || '');
+    if (window.lucide && typeof window.lucide.createIcons === 'function') try { window.lucide.createIcons(); } catch(e) {}
+  }
 
   // Ocultar todas las secciones específicas
   ['mod', 'inv', 'bat', 'mi'].forEach(k => {
@@ -14213,7 +14216,10 @@ function wpSetCriticalDayPreset(preset) {
     showStatus('<i data-lucide="snowflake" class="icon-sm"></i> PRESET: SOLSTICIO DE INVIERNO (MÁXIMA SOMBRA · CTE DB-HE5)', 2500);
   } else if (preset === "summer") {
     wpSetSolarMonth(5); // 21 Jun (Solsticio Verano)
-    if (badge) badge.textContent = "<i data-lucide=\"sun\" class=\"icon-sm\"></i> SOLSTICIO VERANO (21 JUN)";
+    if (badge) {
+      badge.innerHTML = '<i data-lucide="sun" class="icon-sm"></i> SOLSTICIO VERANO (21 JUN)';
+      if (window.lucide && typeof window.lucide.createIcons === 'function') try { window.lucide.createIcons(); } catch(e) {}
+    }
     showStatus("<i data-lucide=\"sun\" class=\"icon-sm\"></i> PRESET: SOLSTICIO DE VERANO (MÁXIMA RADIACIÓN)", 2500);
   } else if (preset === "equinox") {
     wpSetSolarMonth(2); // 21 Mar (Equinoccio Primavera)
