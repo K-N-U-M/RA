@@ -532,6 +532,37 @@ calculateFinancialModel()  ← Definición canónica en financials.js (~L491)
   - 22/22 pruebas unitarias y de integración end-to-end superadas con 100% de éxito (`tests/test-ra-full-workflow.js`), incluyendo validación física de Perez 1990 ($G_{\text{poa}} = 964.7\,\text{W/m}^2$), snap de strings, homogeneidad MPPT, clipping ($P_{\text{clip}} = 1642\,\text{W}$) y balance horario de autarquía.
   - Test suite de importador de datasheets con IA al 100%.
 
+## 28. Implementación Plan Maestro v5.0 — Física Continua, Fallback NASA, IAM Selectivo, Self-Shading, Degradación y UX Proactivo (Octubre 2026)
+
+- **Hito 1 — GHI Satelital NASA POWER como Fallback Offline Robusto:**
+  - En `js/solar-engine.js`, `getRobustMonthlyGHI(lat, lon, monthIdx, customGHIList)`: prioriza datos satelitales directos, caché persistente en `localStorage` (`ra_nasa_ghi_LAT_LON`, 30 días) y como último recurso fallback a `estimateMonthlyGHI`.
+  - En `runEnergyComparison()`, pasa `nasaResult.monthlyGHI_kWhm2` a `runPhysicalModel()`, indicando en el resultado el origen del recurso solar (`ghiSource`).
+- **Hito 2 — Temperatura de Célula Continua y Derating Térmico Físico:**
+  - En `js/solar-heatmap.js`, erradicado el escalón binario `tempFactor = 0.93/0.98`.
+  - Integrada la temperatura ambiente mensual de la zona climática (`T_AMB_MONTHLY`) y el modelo físico NOCT/Faiman (`calcTcell`) para cada panel e instante según su radiación real incidente, calculando un factor de pérdida térmica continuo ($1 + \gamma_{\text{Pmp}} \cdot (T_{\text{cell}} - 25)$).
+- **Hito 3 — Modelo Físico de IAM Selectivo por Componente (Ashrae / Duffie & Beckman):**
+  - En `js/radiation-engine.js` (`transposeComponents`), sustituida la mezcla empírica `iamBlend = 0.85 + 0.15 * iamFactor` por transmitancias angulares diferenciadas: IAM puntual sobre el haz directo ($G_{b,\text{eff}} = G_b \cdot \text{IAM}(\theta)$), transmitancia integrada sobre difusa celeste ($\text{IAM}_{\text{diff}} \approx 0.95$ a 60°) y sobre albedo ($\text{IAM}_{\text{alb}} \approx 0.90$ a 68°).
+  - Parámetro $b_0$ adaptable según el recubrimiento antirreflejante del módulo activo.
+- **Hito 4 — Modelo de Autosombreado Inter-Filas (Self-Shading):**
+  - En `js/solar-heatmap.js`, `generateInterRowShadowQuads2D`: para módulos con elevación sobre plano (triángulos 15°/30° o custom), proyecta los cuadriláteros de sombra de la arista superior hacia las filas adyacentes según el vector solar y elevación, integrándose en el AABB broadphase y diodos de bypass sin sobrecoste computacional.
+- **Hito 5 — Degradación Acumulada de Catálogo y Factor Soiling en Cashflow:**
+  - En `js/financials.js`, lectura de coeficientes de degradación primer año ($d_1$) y anual ($d_{\text{ann}}$) directamente del módulo activo del catálogo, con fallback por tecnología (TOPCon vs PERC), y consideración del factor de suciedad/soiling configurable en el flujo de caja a 25 años.
+- **Hito 6 — Zonificación Térmica Peninsular CTE para Tmin y Voc en Frío:**
+  - En `js/electrical-engine.js`, `getCTEZonificationTmin(lat, lng, altitud)`: adapta la temperatura mínima de diseño según la zona climática CTE peninsular (costa mediterránea -4°C, cornisa cantábrica -6°C, meseta interior -14°C) para el dimensionamiento exacto de tensión en frío $V_{oc}(T_{\min}) \le V_{\max,\text{inv}}$.
+- **Hito 7 — Semilla Pseudo-Aleatoria Determinista por Proyecto en Monte Carlo:**
+  - En `js/solar-engine.js` (`runMonteCarloP50P90`), semilla de generación pseudo-aleatoria derivada de las coordenadas y potencia del proyecto (`seed = f(lat, lon, kwp)`), garantizando resultados reproducibles y coherentes por instalación en P50/P90.
+- **Hito 8 y 9 — Panel de Estado Activo Global y Validación Proactiva en Tiempo Real:**
+  - Creado módulo desacoplado `js/project-status-hud.js` (`RAProjectStatusHUD`), enlazado en `index.html`.
+  - HUD flotante con métricas en vivo (kWp, módulos, inversor, ratio DC/AC, producción anual y estado del análisis).
+  - Alertas proactivas contextuales inmediatas: advertencia de sobrecarga DC/AC (>1.40) o subdimensionado (<0.75), incompatibilidad de strings para ventana MPPT, advertencia de sedimentación de polvo en pendientes <10°, y aviso de invalidación de heatmap tras mutar geometría.
+- **Hito 10 — Pack de Entrega Unificado:**
+  - En `js/docs-generator.js`, función `generateDeliveryPack()` (`window.generateDeliveryPack` / `window.RA.generateDeliveryPack`).
+  - Botón de entrega unificado en el Paso 5 de `index.html`: emite de forma coordinada la Memoria Técnica Oficial (ITC-BT-40), la Oferta Comercial Bancable, la Tramitación RD 244/2019 y el Análisis Comparativo Energético.
+- **Verificación y QA:**
+  - 32/32 módulos JS validados sin errores de sintaxis (`node tests/test-js-syntax.js`).
+  - 22/22 pruebas unitarias y de integración end-to-end aprobadas al 100% (`tests/test-ra-full-workflow.js`).
+  - Batería de pruebas del importador de equipos con IA al 100%.
+
 
 
 
