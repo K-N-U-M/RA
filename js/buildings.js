@@ -170,93 +170,6 @@ function render3DBuildingsInCesium() {
     }
 
     // ─────────────────────────────────────────────────────────────────
-    // MOTOR DE SHADING ARQUITECTÓNICO (ENU & CONTACT AMBIENT OCCLUSION)
-    // ─────────────────────────────────────────────────────────────────
-    // Helper para generar muros verticales segmentados con modulación de orientación (Baking ENU)
-    // y franja de contacto oclusivo (sombra de alero) justo bajo la coronación.
-    function addSegmentedBuildingWalls(wallCartoPts, wallBaseH, wallTopHeights, bldIdPrefix) {
-      const M = wallCartoPts.length;
-      for (let i = 0; i < M; i++) {
-        const nextI = (i + 1) % M;
-        const cA = wallCartoPts[i];
-        const cB = wallCartoPts[nextI];
-        const topHA = Array.isArray(wallTopHeights) ? wallTopHeights[i] : wallTopHeights;
-        const topHB = Array.isArray(wallTopHeights) ? wallTopHeights[nextI] : wallTopHeights;
-        const avgTopH = (topHA + topHB) / 2;
-
-        // Vector director del muro en plano equirectangular local
-        const pAx = cA.longitude * R_EARTH * Math.cos(cA.latitude), pAy = cA.latitude * R_EARTH;
-        const pBx = cB.longitude * R_EARTH * Math.cos(cB.latitude), pBy = cB.latitude * R_EARTH;
-        const eX = pBx - pAx, eY = pBy - pAy;
-        const eLen = Math.hypot(eX, eY) || 1.0;
-
-        // Normal exterior derecha hacia afuera (polígono CCW): [eY/eLen, -eX/eLen]
-        // En coordenadas locales: X = Este, Y = Norte
-        const wallNormE = eY / eLen;
-        const wallNormN = -eX / eLen;
-
-        // Modulación suave de luz según orientación (Baking ENU):
-        // Fachadas Sur reciben mayor luminosidad ambiental (+5%), fachadas Norte menor (-10%),
-        // fachadas Este y Oeste equilibrio arquitectónico.
-        let enuFactor = 1.0 + (wallNormN * -0.09) + (wallNormE * 0.04);
-        enuFactor = Math.max(0.85, Math.min(1.10, enuFactor));
-
-        const wallColor = Cesium.Color.multiplyByScalar(facadeColor, enuFactor, new Cesium.Color());
-        wallColor.alpha = facadeColor.alpha;
-
-        const pA_base = Cesium.Cartesian3.fromRadians(cA.longitude, cA.latitude, wallBaseH);
-        const pB_base = Cesium.Cartesian3.fromRadians(cB.longitude, cB.latitude, wallBaseH);
-        const pA_top  = Cesium.Cartesian3.fromRadians(cA.longitude, cA.latitude, topHA);
-        const pB_top  = Cesium.Cartesian3.fromRadians(cB.longitude, cB.latitude, topHB);
-
-        // 1. Muro principal con modulación de orientación
-        try {
-          const segInst = new Cesium.GeometryInstance({
-            geometry: new Cesium.WallGeometry({
-              positions: [pA_base, pB_base],
-              minimumHeights: [wallBaseH, wallBaseH],
-              maximumHeights: [topHA, topHB]
-            }),
-            attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(wallColor) },
-            id: (bld.id || 'bld') + '_' + bldIdPrefix + '_seg_' + i
-          });
-          const segPrim = viewer.scene.primitives.add(new Cesium.Primitive({
-            geometryInstances: segInst,
-            appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: false, renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 } }),
-            shadows: Cesium.ShadowMode.ENABLED,
-            asynchronous: false
-          }));
-          window._buildingPrimitives.push(segPrim);
-        } catch(eWall) { window.RA && window.RA.log && window.RA.log.warn('[wall seg]', eWall); }
-
-        // 2. Franja de sombra de contacto (Ambient Occlusion simulada bajo el alero/peto)
-        // Franja estrecha de 28cm justo bajo la coronación para generar relieve volumétrico de contacto
-        const aoDrop = Math.min(0.28, (avgTopH - wallBaseH) * 0.12);
-        if (aoDrop > 0.05) {
-          const aoColor = Cesium.Color.fromCssColorString('#0F172A').withAlpha(0.35); // Penumbra de contacto
-          try {
-            const aoInst = new Cesium.GeometryInstance({
-              geometry: new Cesium.WallGeometry({
-                positions: [pA_base, pB_base],
-                minimumHeights: [topHA - aoDrop, topHB - aoDrop],
-                maximumHeights: [topHA, topHB]
-              }),
-              attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(aoColor) },
-              id: (bld.id || 'bld') + '_' + bldIdPrefix + '_ao_' + i
-            });
-            const aoPrim = viewer.scene.primitives.add(new Cesium.Primitive({
-              geometryInstances: aoInst,
-              appearance: new Cesium.PerInstanceColorAppearance({ translucent: true, closed: false, flat: true, renderState: { polygonOffset: true, polygonOffsetFactor: -1.0, polygonOffsetUnits: -1.0 } }),
-              shadows: Cesium.ShadowMode.DISABLED,
-              asynchronous: false
-            }));
-            window._buildingPrimitives.push(aoPrim);
-          } catch(eAo) {}
-        }
-      }
-    }
-
-    // ─────────────────────────────────────────────────────────────────
     // A. CUBIERTA PLANA (FLAT)
     // ─────────────────────────────────────────────────────────────────
     if (rType === 'flat') {
@@ -265,8 +178,25 @@ function render3DBuildingsInCesium() {
       const minHeights = wallPositions.map(() => avgBaseHeight);
       const maxHeights = wallPositions.map(() => roofHeight);
 
-      // Muros Verticales con Shading ENU y Sombra de Contacto
-      addSegmentedBuildingWalls(cartoList, avgBaseHeight, roofHeight, 'flat');
+      // Muros Verticales
+      try {
+        const wallInst = new Cesium.GeometryInstance({
+          geometry: new Cesium.WallGeometry({
+            positions: wallPositions,
+            minimumHeights: minHeights,
+            maximumHeights: maxHeights
+          }),
+          attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(facadeColor) },
+          id: (bld.id || 'bld') + '_wall_prim'
+        });
+        const wallPrim = viewer.scene.primitives.add(new Cesium.Primitive({
+          geometryInstances: wallInst,
+          appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: false, renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 } }),
+          shadows: Cesium.ShadowMode.ENABLED,
+          asynchronous: false
+        }));
+        window._buildingPrimitives.push(wallPrim);
+      } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
 
       // Tapa de Cubierta
       try {
@@ -473,8 +403,23 @@ function render3DBuildingsInCesium() {
       fanTriangles([...hastialMinPts, r1], hastialColor);
       fanTriangles([...hastialMaxPts, r2], hastialColor);
 
-      // ── Muros verticales con Shading ENU y Sombra de Contacto ────
-      addSegmentedBuildingWalls(cartoList, avgBaseHeight, roofHeight, 'gable');
+      // ── Muros verticales ─────────────────────────────────────────
+      const wallPosGable = [...basePositions, basePositions[0]];
+      try {
+        const wi = new Cesium.GeometryInstance({
+          geometry: new Cesium.WallGeometry({
+            positions: wallPosGable,
+            minimumHeights: wallPosGable.map(() => avgBaseHeight),
+            maximumHeights: wallPosGable.map(() => roofHeight)
+          }),
+          attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(facadeColor) }
+        });
+        window._buildingPrimitives.push(viewer.scene.primitives.add(new Cesium.Primitive({
+          geometryInstances: wi,
+          appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: false, renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 } }),
+          shadows: Cesium.ShadowMode.ENABLED, asynchronous: false
+        })));
+      } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[wall gable]', e); }
 
       // ── Cumbrera + aristas ────────────────────────────────────────
       try {
@@ -532,8 +477,26 @@ function render3DBuildingsInCesium() {
         return Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, Math.max(vHeight, avgBaseHeight + 1.0));
       });
 
-      const slopeHeights = slopePositions.map(p => Cesium.Cartographic.fromCartesian(p).height);
-      addSegmentedBuildingWalls(cartoList, avgBaseHeight, slopeHeights, 'shed');
+      const wallPositions = [...basePositions, basePositions[0]];
+      const maxHeights = [...slopePositions.map(p => Cesium.Cartographic.fromCartesian(p).height), Cesium.Cartographic.fromCartesian(slopePositions[0]).height];
+
+      try {
+        const wallInst = new Cesium.GeometryInstance({
+          geometry: new Cesium.WallGeometry({
+            positions: wallPositions,
+            minimumHeights: wallPositions.map(() => avgBaseHeight),
+            maximumHeights: maxHeights
+          }),
+          attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(facadeColor) }
+        });
+        const wallPrim = viewer.scene.primitives.add(new Cesium.Primitive({
+          geometryInstances: wallInst,
+          appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: false, renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 } }),
+          shadows: Cesium.ShadowMode.ENABLED,
+          asynchronous: false
+        }));
+        window._buildingPrimitives.push(wallPrim);
+      } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
 
       try {
         const roofInst = new Cesium.GeometryInstance({
@@ -598,8 +561,24 @@ function render3DBuildingsInCesium() {
       const apex = Cesium.Cartesian3.fromRadians(cLon, cLat, apexHeight);
       const pEaves = roofCartoList.map(c => Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, roofHeight));
 
-      // Muros Verticales con Shading ENU y Sombra de Contacto
-      addSegmentedBuildingWalls(cartoList, avgBaseHeight, roofHeight, 'hip');
+      const wallPositions = [...basePositions, basePositions[0]];
+      try {
+        const wallInst = new Cesium.GeometryInstance({
+          geometry: new Cesium.WallGeometry({
+            positions: wallPositions,
+            minimumHeights: wallPositions.map(() => avgBaseHeight),
+            maximumHeights: wallPositions.map(() => roofHeight)
+          }),
+          attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(facadeColor) }
+        });
+        const wallPrim = viewer.scene.primitives.add(new Cesium.Primitive({
+          geometryInstances: wallInst,
+          appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: false, renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 } }),
+          shadows: Cesium.ShadowMode.ENABLED,
+          asynchronous: false
+        }));
+        window._buildingPrimitives.push(wallPrim);
+      } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
 
       for (let i = 0; i < pEaves.length; i++) {
         const nextI = (i + 1) % pEaves.length;

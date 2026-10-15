@@ -604,8 +604,9 @@ calculateFinancialModel()  ← Definición canónica en financials.js (~L491)
   - En `js/buildings.js`: conmutadas todas las apariencias de `flat: true` a `flat: false` en `PerInstanceColorAppearance` (muros verticales y cubiertas planas, a dos aguas, shed e hip). Ahora Cesium calcula el producto escalar $\vec{N} \cdot \vec{L}$ con el Sol real, diferenciando caras en sol y en sombra.
   - Frontones/hastiales triangulares diferenciados con `facadeColor.darken(0.08)` para simular oclusión de contacto bajo el alero.
   - Aristas verticales y perimetrales CAD reforzadas (`width: 3.5/2.5`, opacidad 0.85/0.90 en `#334155`/`#1E293B`) para perfilar con nitidez cada cambio de plano vertical.
-- **Hito 13 — Motor de Shading Arquitectónico ENU y Ambient Occlusion de Contacto en Edificios:**
-  - En `js/buildings.js`, implementación de `addSegmentedBuildingWalls`: segmentación paramétrica de los muros perimetrales según su vector normal exterior en el plano local ENU (Este-Norte-Arriba). Modulación sutil de reflectancia ambiental (fachadas Sur +5%, Norte -10%, Este/Oeste intermedias) para garantizar diferenciación visual de fachadas adyacentes incluso con iluminación cenital.
+- **Hito 13 — Reversión de AO/ENU Experimental a Render Sólido Phong (Hito 12):**
+  - Revertida la segmentación de muros individuales y tiras de Ambient Occlusion en `js/buildings.js` debido a problemas de visibilidad (backface culling en polígonos abiertos de 2 vértices y colapso de ámbito en `R_EARTH`).
+  - Restablecido el método canónico de renderizado de edificios 3D: muros continuos closed-loop `[...basePositions, basePositions[0]]` con `PerInstanceColorAppearance` (`flat: false`), sombreado dinámico Phong con el Sol de Cesium, y aristas vectoriales CAD nítidas. Visibilidad y solidez 100% garantizadas.
 - **Hito 14 — Infraestructura y Módulo de Integración Firebase (Cloud Sync & Storage):**
   - Creados archivos de configuración canónicos de despliegue: `firebase.json` (Hosting, rewrites SPA y caching de assets/WASM), `firestore.rules` (seguridad multi-usuario y roles), `firestore.indexes.json` y `storage.rules` (persistencia segura de proyectos y PDFs).
   - Creado módulo desacoplado `js/firebase-service.js` (`RAFirebaseService` / `window.RA.Firebase`), cargado en `index.html`.
