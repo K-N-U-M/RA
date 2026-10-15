@@ -2453,6 +2453,10 @@ body.ra-capture-mode-active #ra-triad-overlay {
   transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+#ra-mobile-menu-btn {
+  display: none;
+}
+
 /* ==========================================================================
    DISEÑO RESPONSIVO: PANTALLAS DE PORTÁTILES Y TABLETS GRANDES (<= 1280px)
    ========================================================================== */
@@ -2549,31 +2553,58 @@ body.ra-capture-mode-active #ra-triad-overlay {
     pointer-events: none !important;
   }
 
-  /* Botón Flotante para Abrir Menú cuando el sidebar está colapsado */
-  #ra-sidebar.collapsed #ra-sidebar-toggle-btn {
+  /* Botón Flotante Menú Hamburguesa Móvil (Fijo e independiente en pantalla) */
+  #ra-mobile-menu-btn {
+    display: flex !important;
     position: fixed !important;
     top: 14px !important;
     left: 14px !important;
-    right: auto !important;
-    width: 44px !important;
-    height: 44px !important;
+    width: 48px !important;
+    height: 48px !important;
     border-radius: 12px !important;
     background: rgba(15, 23, 42, 0.94) !important;
-    backdrop-filter: blur(12px) !important;
-    border: 1px solid rgba(245, 158, 11, 0.45) !important;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6) !important;
-    color: var(--amber-400) !important;
-    font-size: 20px !important;
-    z-index: 9500 !important;
-    pointer-events: auto !important;
+    backdrop-filter: blur(14px) !important;
+    -webkit-backdrop-filter: blur(14px) !important;
+    border: 1.5px solid rgba(245, 158, 11, 0.65) !important;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.75), 0 0 15px rgba(245, 158, 11, 0.25) !important;
+    color: #F59E0B !important;
+    font-size: 26px !important;
+    font-weight: 900 !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    z-index: 99990 !important;
+    user-select: none !important;
+    -webkit-tap-highlight-color: transparent !important;
+    transition: transform 0.15s ease, background 0.15s ease !important;
+  }
+  #ra-mobile-menu-btn:active {
+    transform: scale(0.92) !important;
+    background: rgba(30, 41, 59, 0.98) !important;
+  }
+  body.sb-open #ra-mobile-menu-btn {
+    display: none !important;
+  }
+
+  /* Ocultar el tirador tradicional de desktop en móvil */
+  #ra-sidebar-toggle-btn {
+    display: none !important;
+  }
+
+  /* Botón de cierre en la cabecera del sidebar */
+  .sb-collapse-btn {
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 8px !important;
+    font-size: 18px !important;
+    font-weight: bold !important;
+    background: rgba(239, 68, 68, 0.18) !important;
+    border: 1px solid rgba(239, 68, 68, 0.45) !important;
+    color: #FCA5A5 !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-  }
-
-  /* Botón en cabecera para cerrar el sidebar cuando está abierto */
-  #ra-sidebar:not(.collapsed) #ra-sidebar-toggle-btn {
-    display: none !important;
+    cursor: pointer !important;
   }
 
   .sb-tab-content {

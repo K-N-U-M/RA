@@ -28,7 +28,7 @@ window.RA_App = window.RA_App || {};
   <script src="js/cesium-safety.js?v=20261007a"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
 
-  <script src="js/ui-viewport-controls.js?v=20261015c"></script>
+  <script src="js/ui-viewport-controls.js?v=20261015d"></script>
   <script src="js/error-handler.js"></script>
   <script src="js/project-config.js"></script>
   <script src="js/buildings.js?v=20260929b"></script>
@@ -53,16 +53,16 @@ window.RA_App = window.RA_App || {};
   <script src="js/project-hierarchy.js?v=20260929b"></script>
   <script src="js/project-storage.js?v=20261013a"></script>
   <script src="js/company-branding.js?v=20261013a"></script>
-  <script src="js/ui-outliner.js?v=20261015c"></script>
+  <script src="js/ui-outliner.js?v=20261015d"></script>
   <script src="js/bill-auditor.js?v=20260929b"></script>
   <script src="js/structure-catalog.js?v=20261015a"></script>
   <script src="js/bom-tree.js?v=20260929b"></script>
   <script src="js/engineering-explainer.js?v=20260929b"></script>
   <script src="js/equipment-ai-importer.js?v=20261014a"></script>
-  <script src="js/project-status-hud.js?v=20261015c"></script>
-  <script src="js/firebase-service.js?v=20261015c"></script>
+  <script src="js/project-status-hud.js?v=20261015d"></script>
+  <script src="js/firebase-service.js?v=20261015d"></script>
 
-    <link rel="stylesheet" href="css/styles.css?v=20261015c">
+    <link rel="stylesheet" href="css/styles.css?v=20261015d">
 
   <!-- Lucide SVG Icons -->
   <script src="https://unpkg.com/lucide@1.48.0" integrity="sha384-Hh7C333mXel+qppGoFs4qAOXp7h67eur4XsQVF2bvHAM3MQ4DX4cQI7oRCzb98J4" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
@@ -247,8 +247,10 @@ window.RA_App = window.RA_App || {};
   <!-- TOOLTIP 3D DE CURSOR -->
   <div id="ra-cursor-tip"></div>
 
-  <!-- BACKDROP MÓVIL PARA CERRAR EL SIDEBAR EN TOUCH -->
-  <div id="ra-mobile-sidebar-backdrop" onclick="toggleSidebarCollapse()" aria-label="Cerrar panel lateral"></div>
+  <!-- BOTÓN FLOTANTE MENÚ HAMBURGUESA PARA MÓVIL (FUERA DEL TRANSFORM DEL SIDEBAR) -->
+  <button type="button" id="ra-mobile-menu-btn" onclick="toggleSidebarCollapse()" title="Abrir Menú de Diseño Fotovoltaico" aria-label="Abrir menú de diseño">
+    <span class="mobile-menu-icon">☰</span>
+  </button>
 
   <!-- ========================================================================
        BARRA LATERAL INTEGRAL (SIDEBAR WORKSPACE)
