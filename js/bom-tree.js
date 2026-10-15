@@ -736,6 +736,19 @@
       if (hudEl) {
         hudEl.style.display = 'flex';
         hudEl.classList.remove('minimized');
+        hudEl.classList.add('mobile-active');
+        if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+          const sb = document.getElementById('ra-sidebar');
+          if (sb && !sb.classList.contains('collapsed') && typeof window.toggleSidebarCollapse === 'function') {
+            window.toggleSidebarCollapse();
+          }
+          if (typeof window.UIOutliner !== 'undefined' && typeof window.UIOutliner.close === 'function') {
+            window.UIOutliner.close();
+          }
+          if (typeof window.toggleSolarHUD === 'function') {
+            window.toggleSolarHUD(false);
+          }
+        }
       }
     },
 
@@ -744,6 +757,7 @@
       const hudEl = document.getElementById('ra-bom-tree-hud');
       if (hudEl) {
         hudEl.style.display = 'none';
+        hudEl.classList.remove('mobile-active');
       }
     },
 
@@ -795,7 +809,7 @@
     toggleVisibility: function() {
       if (typeof document === 'undefined') return;
       const hudEl = document.getElementById('ra-bom-tree-hud');
-      if (!hudEl || hudEl.style.display === 'none') {
+      if (!hudEl || hudEl.style.display === 'none' || (typeof window !== 'undefined' && window.innerWidth <= 768 && !hudEl.classList.contains('mobile-active'))) {
         this.open();
       } else {
         this.close();

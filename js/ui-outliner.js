@@ -57,6 +57,7 @@
       if (!container) this.init();
       if (!container) return;
       container.style.display = 'flex';
+      container.classList.add('mobile-active');
       if (typeof window !== 'undefined' && window.innerWidth <= 768) {
         const sb = document.getElementById('ra-sidebar');
         if (sb && !sb.classList.contains('collapsed') && typeof global.toggleSidebarCollapse === 'function') {
@@ -65,18 +66,24 @@
         if (typeof global.toggleSolarHUD === 'function') {
           global.toggleSolarHUD(false);
         }
+        if (global.BOMTreeEngine && typeof global.BOMTreeEngine.close === 'function') {
+          global.BOMTreeEngine.close();
+        }
       }
       this.render();
     },
 
     close: function() {
-      if (container) container.style.display = 'none';
+      if (container) {
+        container.style.display = 'none';
+        container.classList.remove('mobile-active');
+      }
     },
 
     toggle: function() {
       if (!container) this.init();
       if (!container) return;
-      if (container.style.display === 'none' || !container.style.display) {
+      if (container.style.display === 'none' || !container.style.display || !container.classList.contains('mobile-active')) {
         this.open();
       } else {
         this.close();

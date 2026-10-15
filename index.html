@@ -28,7 +28,7 @@ window.RA_App = window.RA_App || {};
   <script src="js/cesium-safety.js?v=20261007a"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
 
-  <script src="js/ui-viewport-controls.js?v=20261015d"></script>
+  <script src="js/ui-viewport-controls.js?v=20261015f"></script>
   <script src="js/error-handler.js"></script>
   <script src="js/project-config.js"></script>
   <script src="js/buildings.js?v=20261015f"></script>
@@ -53,16 +53,16 @@ window.RA_App = window.RA_App || {};
   <script src="js/project-hierarchy.js?v=20260929b"></script>
   <script src="js/project-storage.js?v=20261013a"></script>
   <script src="js/company-branding.js?v=20261013a"></script>
-  <script src="js/ui-outliner.js?v=20261015d"></script>
+  <script src="js/ui-outliner.js?v=20261015f"></script>
   <script src="js/bill-auditor.js?v=20260929b"></script>
   <script src="js/structure-catalog.js?v=20261015a"></script>
-  <script src="js/bom-tree.js?v=20260929b"></script>
+  <script src="js/bom-tree.js?v=20261015f"></script>
   <script src="js/engineering-explainer.js?v=20260929b"></script>
   <script src="js/equipment-ai-importer.js?v=20261014a"></script>
   <script src="js/project-status-hud.js?v=20261015d"></script>
   <script src="js/firebase-service.js?v=20261015d"></script>
 
-    <link rel="stylesheet" href="css/styles.css?v=20261015e">
+    <link rel="stylesheet" href="css/styles.css?v=20261015f">
 
   <!-- Lucide SVG Icons -->
   <script src="https://unpkg.com/lucide@1.48.0" integrity="sha384-Hh7C333mXel+qppGoFs4qAOXp7h67eur4XsQVF2bvHAM3MQ4DX4cQI7oRCzb98J4" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
@@ -210,12 +210,40 @@ window.RA_App = window.RA_App || {};
     <span class="solar-fab-expand"><i data-lucide="maximize"></i></span>
   </button>
 
-  <!-- BOTÓN FLOTANTE ÁRBOL DE PROYECTO BIM (BOM & MEDICIONES) -->
-  <button id="ra-bom-fab-btn" onclick="if (typeof BOMTreeEngine !== 'undefined') { BOMTreeEngine.toggleVisibility(); }" title="Árbol de Proyecto BIM & Mediciones [BOM]" style="position:fixed;top:202px;right:20px;z-index:9500;display:flex;align-items:center;gap:8px;background:rgba(15,23,42,0.88);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(16,185,129,0.45);border-radius:9999px;padding:6px 14px 6px 10px;color:#fff;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,0.65),0 0 16px rgba(16,185,129,0.25);transition:all 0.25s cubic-bezier(0.4, 0, 0.2, 1);user-select:none;">
-    <span style="display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 0 4px rgba(16,185,129,0.5));"><i data-lucide="tree-pine" class="icon-sm"></i></span>
+  <!-- BOTÓN FLOTANTE 1: ÁRBOL DE PROYECTO (OBJETOS DE ESCENA BIM / CAD) -->
+  <button id="ra-outliner-fab-btn" onclick="if (typeof UIOutliner !== 'undefined') { UIOutliner.toggle(); }" title="Árbol de Proyecto (Edificios 3D, Faldones, Obstáculos y Equipos)" style="position:fixed;top:198px;right:20px;z-index:9500;display:flex;align-items:center;gap:8px;background:rgba(15,23,42,0.90);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(56,189,248,0.45);border-radius:9999px;padding:6px 14px 6px 10px;color:#fff;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,0.65),0 0 16px rgba(56,189,248,0.25);transition:all 0.25s cubic-bezier(0.4, 0, 0.2, 1);user-select:none;">
+    <span style="display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 0 4px rgba(56,189,248,0.5));">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#38BDF8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+        <polyline points="2 17 12 22 22 17"></polyline>
+        <polyline points="2 12 12 17 22 12"></polyline>
+      </svg>
+    </span>
     <div style="display:flex;flex-direction:column;align-items:flex-start;line-height:1.15;">
-      <span style="font-size:9.5px;font-weight:800;letter-spacing:0.06em;color:#34D399;text-transform:uppercase;">ÁRBOL BIM</span>
-      <span style="font-size:9.5px;color:#CBD5E1;font-weight:700;">MEDICIONES &amp; BOM</span>
+      <span style="font-size:9.5px;font-weight:800;letter-spacing:0.06em;color:#38BDF8;text-transform:uppercase;">ÁRBOL PROYECTO</span>
+      <span style="font-size:9.5px;color:#94A3B8;font-weight:700;">OBJETOS BIM</span>
+    </div>
+  </button>
+
+  <!-- BOTÓN FLOTANTE 2: ÁRBOL DE MEDICIONES (BOM & PRESUPUESTO EN VIVO) -->
+  <button id="ra-bom-fab-btn" onclick="if (typeof BOMTreeEngine !== 'undefined') { BOMTreeEngine.toggleVisibility(); }" title="Árbol de Mediciones (Metrado BIM, Estructuras, Cableado y Presupuesto)" style="position:fixed;top:254px;right:20px;z-index:9500;display:flex;align-items:center;gap:8px;background:rgba(15,23,42,0.90);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(16,185,129,0.45);border-radius:9999px;padding:6px 14px 6px 10px;color:#fff;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,0.65),0 0 16px rgba(16,185,129,0.25);transition:all 0.25s cubic-bezier(0.4, 0, 0.2, 1);user-select:none;">
+    <span style="display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 0 4px rgba(16,185,129,0.5));">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#34D399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="4" y="2" width="16" height="20" rx="2"></rect>
+        <line x1="8" y1="6" x2="16" y2="6"></line>
+        <line x1="16" y1="14" x2="16" y2="18"></line>
+        <path d="M16 10h.01"></path>
+        <path d="M12 10h.01"></path>
+        <path d="M8 10h.01"></path>
+        <path d="M12 14h.01"></path>
+        <path d="M8 14h.01"></path>
+        <path d="M12 18h.01"></path>
+        <path d="M8 18h.01"></path>
+      </svg>
+    </span>
+    <div style="display:flex;flex-direction:column;align-items:flex-start;line-height:1.15;">
+      <span style="font-size:9.5px;font-weight:800;letter-spacing:0.06em;color:#34D399;text-transform:uppercase;">ÁRBOL MEDICIONES</span>
+      <span style="font-size:9.5px;color:#CBD5E1;font-weight:700;">PRESUPUESTO &amp; BOM</span>
     </div>
   </button>
 

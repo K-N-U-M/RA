@@ -399,14 +399,23 @@
       }
     }
 
-    // Vincular botón flotante del Árbol BIM con UIOutliner
+    // Vincular botón flotante del Árbol de Proyecto (UIOutliner)
+    const outlinerFab = document.getElementById('ra-outliner-fab-btn');
+    if (outlinerFab) {
+      outlinerFab.onclick = function(e) {
+        if (e) e.stopPropagation();
+        if (global.UIOutliner && typeof global.UIOutliner.toggle === 'function') {
+          global.UIOutliner.toggle();
+        }
+      };
+    }
+
+    // Vincular botón flotante del Árbol de Mediciones (BOMTreeEngine)
     const bomFab = document.getElementById('ra-bom-fab-btn');
     if (bomFab) {
       bomFab.onclick = function(e) {
         if (e) e.stopPropagation();
-        if (global.UIOutliner && typeof global.UIOutliner.toggle === 'function') {
-          global.UIOutliner.toggle();
-        } else if (typeof global.BOMTreeEngine !== 'undefined' && global.BOMTreeEngine.toggleVisibility) {
+        if (typeof global.BOMTreeEngine !== 'undefined' && typeof global.BOMTreeEngine.toggleVisibility === 'function') {
           global.BOMTreeEngine.toggleVisibility();
         }
       };
@@ -423,6 +432,9 @@
           }
           if (global.UIOutliner && typeof global.UIOutliner.close === 'function') {
             global.UIOutliner.close();
+          }
+          if (typeof global.BOMTreeEngine !== 'undefined' && typeof global.BOMTreeEngine.close === 'function') {
+            global.BOMTreeEngine.close();
           }
         }
       }, { passive: true });
