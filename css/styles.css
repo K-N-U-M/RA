@@ -2652,15 +2652,61 @@ body.ra-capture-mode-active #ra-triad-overlay {
     max-height: calc(100vh - 80px) !important;
   }
 
-  /* ── 6. HUD Solar Temporal & Sombras ───────────────────────────────────── */
-  #ra-solar-time-hud {
-    min-width: unset !important;
-    width: 95vw !important;
-    max-width: 95vw !important;
+  /* ── 6. Árbol de Proyecto (Outliner) en Móvil (Modal Centrado) ───────── */
+  .ra-cad-outliner {
+    position: fixed !important;
+    top: 70px !important;
     left: 50% !important;
-    bottom: 10px !important;
-    padding: 8px 10px !important;
-    font-size: 10.5px !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    width: min(340px, calc(100vw - 24px)) !important;
+    max-height: calc(100vh - 120px) !important;
+    z-index: 10005 !important;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.85) !important;
+  }
+
+  /* ── 7. HUD de Estado del Proyecto (Compacto y sin solapar) ─────────────── */
+  #ra-project-status-hud {
+    top: 10px !important;
+    right: 64px !important;
+    max-width: 200px !important;
+    z-index: 840 !important;
+  }
+  #ra-hud-pill-box {
+    padding: 4px 8px !important;
+  }
+  #ra-hud-kwp-text {
+    font-size: 11px !important;
+  }
+  #ra-hud-sub-text {
+    font-size: 8.5px !important;
+  }
+  #ra-hud-energy-text,
+  #ra-hud-ratio-badge {
+    display: none !important;
+  }
+
+  /* ── 8. HUD Solar Temporal & Sombras (Bottom Sheet Deslizable) ──────────── */
+  #ra-solar-time-hud {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    border-radius: 16px 16px 0 0 !important;
+    max-height: 48vh !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    z-index: 10002 !important;
+    padding: 10px 14px calc(env(safe-area-inset-bottom, 10px) + 8px) !important;
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.85) !important;
+    transform: translateY(0) !important;
+  }
+  #ra-solar-time-hud.solar-hud-minimized {
+    transform: translateY(110%) !important;
+    display: none !important;
+    pointer-events: none !important;
   }
   .solar-hud-telemetry {
     display: flex !important;
@@ -2679,7 +2725,7 @@ body.ra-capture-mode-active #ra-triad-overlay {
     flex: 1 1 calc(50% - 4px) !important;
   }
 
-  /* ── 7. HUD de Cinta Métrica ───────────────────────────────────────────── */
+  /* ── 9. HUD de Cinta Métrica ───────────────────────────────────────────── */
   #ra-measure-hud {
     top: 52px !important;
     left: 50% !important;

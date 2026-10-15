@@ -233,6 +233,15 @@
 
     const s = inspectProjectState();
 
+    // En pantallas móviles (<= 768px), si no hay paneles diseñados (0 kWp), ocultar para no saturar la pantalla
+    const isMobile = (typeof window !== 'undefined' && window.innerWidth <= 768);
+    if (isMobile && s.numPanels === 0) {
+      hudContainer.style.display = 'none';
+      return;
+    } else {
+      hudContainer.style.display = 'flex';
+    }
+
     // Fingerprint para evitar renders innecesarios
     const currentFingerprint = `${s.numPanels}_${s.kwp.toFixed(2)}_${s.invKw.toFixed(1)}_${s.isHeatmapDirty}_${s.annualKWh}`;
     if (currentFingerprint === lastStateFingerprint) return;

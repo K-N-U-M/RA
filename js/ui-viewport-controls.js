@@ -342,15 +342,62 @@
   function initMobileResponsiveBehavior() {
     if (typeof window === 'undefined') return;
     const isMobile = window.innerWidth <= 768;
-    const sb = document.getElementById('ra-sidebar');
-    if (sb && isMobile) {
-      sb.classList.add('collapsed');
-      const btn = document.getElementById('btn-sidebar-toggle');
-      if (btn) btn.textContent = '▶';
-      const toggleIcon = document.getElementById('sidebar-toggle-icon');
-      if (toggleIcon) toggleIcon.textContent = '▶';
+
+    if (isMobile) {
+      // 1. Sidebar colapsado al inicio
+      const sb = document.getElementById('ra-sidebar');
+      if (sb) {
+        sb.classList.add('collapsed');
+        const btn = document.getElementById('btn-sidebar-toggle');
+        if (btn) btn.textContent = '▶';
+        const toggleIcon = document.getElementById('sidebar-toggle-icon');
+        if (toggleIcon) toggleIcon.textContent = '▶';
+      }
+
+      // 2. Panel solar minimizado al inicio
+      if (typeof global.toggleSolarHUD === 'function') {
+        global.toggleSolarHUD(false);
+      } else {
+        const solarHud = document.getElementById('ra-solar-time-hud');
+        if (solarHud) solarHud.classList.add('solar-hud-minimized');
+      }
+
+      // 3. Árbol de proyecto (Outliner) cerrado al inicio
+      if (global.UIOutliner && typeof global.UIOutliner.close === 'function') {
+        global.UIOutliner.close();
+      }
     }
 
+    // Vincular botón flotante del Árbol BIM con UIOutliner
+    const bomFab = document.getElementById('ra-bom-fab-btn');
+    if (bomFab) {
+      bomFab.onclick = function(e) {
+        if (e) e.stopPropagation();
+        if (global.UIOutliner && typeof global.UIOutliner.toggle === 'function') {
+          global.UIOutliner.toggle();
+        } else if (typeof global.BOMTreeEngine !== 'undefined' && global.BOMTreeEngine.toggleVisibility) {
+          global.BOMTreeEngine.toggleVisibility();
+        }
+      };
+    }
+
+    // Al tocar el visor 3D en móvil, replegar paneles abiertos para dejar la vista limpia
+    const cesiumCont = document.getElementById('cesiumContainer');
+    if (cesiumCont) {
+      cesiumCont.addEventListener('pointerdown', function() {
+        if (window.innerWidth <= 768) {
+          const sb = document.getElementById('ra-sidebar');
+          if (sb && !sb.classList.contains('collapsed') && typeof global.toggleSidebarCollapse === 'function') {
+            global.toggleSidebarCollapse();
+          }
+          if (global.UIOutliner && typeof global.UIOutliner.close === 'function') {
+            global.UIOutliner.close();
+          }
+        }
+      }, { passive: true });
+    }
+
+    // Listener para orientación y redimensión
     let resizeTimer = null;
     window.addEventListener('resize', function() {
       clearTimeout(resizeTimer);

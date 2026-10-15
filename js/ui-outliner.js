@@ -22,8 +22,9 @@
       container = document.createElement('div');
       container.id = 'ra-cad-outliner-panel';
       container.className = 'ra-cad-outliner';
+      container.style.display = 'none';
       container.innerHTML = `
-        <div class="outliner-header" onclick="UIOutliner.toggleCollapse()">
+        <div class="outliner-header" onclick="UIOutliner.toggleCollapse(event)">
           <div style="display:flex;align-items:center;gap:6px;">
             <span class="outliner-icon">🗂️</span>
             <span class="outliner-title">ÁRBOL DE PROYECTO</span>
@@ -31,6 +32,7 @@
           <div style="display:flex;align-items:center;gap:4px;">
             <span id="outliner-badge-totals" class="outliner-badge">0 kWp</span>
             <button type="button" class="outliner-toggle-btn" id="outliner-collapse-btn">▼</button>
+            <button type="button" class="outliner-toggle-btn" onclick="UIOutliner.close(); event.stopPropagation();" style="font-weight:bold;font-size:11px;padding:2px 6px;margin-left:2px;color:#f87171;" title="Cerrar Árbol de Proyecto">✕</button>
           </div>
         </div>
         <div class="outliner-body" id="outliner-tree-content">
@@ -49,6 +51,36 @@
       }
 
       this.render();
+    },
+
+    open: function() {
+      if (!container) this.init();
+      if (!container) return;
+      container.style.display = 'flex';
+      if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+        const sb = document.getElementById('ra-sidebar');
+        if (sb && !sb.classList.contains('collapsed') && typeof global.toggleSidebarCollapse === 'function') {
+          global.toggleSidebarCollapse();
+        }
+        if (typeof global.toggleSolarHUD === 'function') {
+          global.toggleSolarHUD(false);
+        }
+      }
+      this.render();
+    },
+
+    close: function() {
+      if (container) container.style.display = 'none';
+    },
+
+    toggle: function() {
+      if (!container) this.init();
+      if (!container) return;
+      if (container.style.display === 'none' || !container.style.display) {
+        this.open();
+      } else {
+        this.close();
+      }
     },
 
     toggleCollapse: function(e) {
