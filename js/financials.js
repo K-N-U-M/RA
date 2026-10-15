@@ -1473,17 +1473,29 @@ function generatePropuestaComercialPDF(skipPricingModal) {
   const inflacion = 0.03; // Inflación luz 3%/año
 
   // ── FASE 2.1: Degradación Anual Acumulativa Rigurosa (IEC 61215 / BloombergNEF Tier-1) ──
-  const modTech = (d.cfg && d.cfg.modelo && (d.cfg.modelo.includes('N-Type') || d.cfg.modelo.includes('TOPCon'))) ? 'TOPCON' : 'PERC';
-  const degYear1 = modTech === 'TOPCON' ? 0.010 : 0.015; // 1.0% TOPCon vs 1.5% PERC en Año 1 (LID inicial)
-  const degAnnual = modTech === 'TOPCON' ? 0.0040 : 0.0050; // 0.40%/año TOPCon vs 0.50%/año PERC (años 2-25)
+  const catalog = (typeof equipmentCatalog !== 'undefined') ? equipmentCatalog : null;
+  const projCfg = (typeof window !== 'undefined' && window.solarProjectConfig) ? window.solarProjectConfig : {};
+  const activeModObj = (catalog && catalog.modules && projCfg.selectedModuleId)
+    ? catalog.modules.find(m => m.id === projCfg.selectedModuleId)
+    : null;
+
+  const modTech = (activeModObj && activeModObj.tecnologia && (activeModObj.tecnologia.includes('N-Type') || activeModObj.tecnologia.includes('TOPCon')))
+    ? 'TOPCON'
+    : ((d.cfg && d.cfg.modelo && (d.cfg.modelo.includes('N-Type') || d.cfg.modelo.includes('TOPCon'))) ? 'TOPCON' : 'PERC');
+
+  const catDegY1 = (activeModObj && (activeModObj.degradationYear1 || activeModObj.degYear1)) || null;
+  const catDegAnn = (activeModObj && (activeModObj.degradationAnnual || activeModObj.degAnnual)) || null;
+  const degYear1 = (catDegY1 != null) ? (catDegY1 > 0.05 ? catDegY1 / 100 : catDegY1) : (modTech === 'TOPCON' ? 0.010 : 0.015);
+  const degAnnual = (catDegAnn != null) ? (catDegAnn > 0.05 ? catDegAnn / 100 : catDegAnn) : (modTech === 'TOPCON' ? 0.0040 : 0.0050);
+
+  const _lossCfg = (typeof window !== 'undefined' && window.solarLossConfig) ? window.solarLossConfig : null;
+  const soilingFactor = (_lossCfg && typeof _lossCfg.soiling === 'number') ? _lossCfg.soiling : 0.025;
 
   const annualYields25 = [];
   const annualSavings25 = [];
   const degradationFactors25 = [];
 
   // ── FASE 2.2: OPEX Indexado a IPC y Reemplazo de Inversor Dinámico por Potencia ──
-  const catalog = (typeof equipmentCatalog !== 'undefined') ? equipmentCatalog : null;
-  const projCfg = (typeof window !== 'undefined' && window.solarProjectConfig) ? window.solarProjectConfig : {};
   let curInvObj = null;
   if (catalog && projCfg.selectedInverterId) {
     curInvObj = (catalog.inverters && Array.isArray(catalog.inverters))
