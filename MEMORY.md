@@ -604,7 +604,9 @@ calculateFinancialModel()  ← Definición canónica en financials.js (~L491)
   - En `js/buildings.js`: conmutadas todas las apariencias de `flat: true` a `flat: false` en `PerInstanceColorAppearance` (muros verticales y cubiertas planas, a dos aguas, shed e hip). Ahora Cesium calcula el producto escalar $\vec{N} \cdot \vec{L}$ con el Sol real, diferenciando caras en sol y en sombra.
   - Frontones/hastiales triangulares diferenciados con `facadeColor.darken(0.08)` para simular oclusión de contacto bajo el alero.
   - Aristas verticales y perimetrales CAD reforzadas (`width: 3.5/2.5`, opacidad 0.85/0.90 en `#334155`/`#1E293B`) para perfilar con nitidez cada cambio de plano vertical.
-  - Paleta arquitectónica por defecto actualizada en `index.html` y `js/buildings.js` a blanco roto industrial `#F1F5F9` y cubierta técnica `#E2E8F0`, eliminando el quemado blanco absoluto.
+- **Hito 13 — Motor de Shading Arquitectónico ENU y Ambient Occlusion de Contacto en Edificios:**
+  - En `js/buildings.js`, implementación de `addSegmentedBuildingWalls`: segmentación paramétrica de los muros perimetrales según su vector normal exterior en el plano local ENU (Este-Norte-Arriba). Modulación sutil de reflectancia ambiental (fachadas Sur +5%, Norte -10%, Este/Oeste intermedias) para garantizar diferenciación visual de fachadas adyacentes incluso con iluminación cenital.
+  - Franja de Ambient Occlusion (AO) simulada de 28 cm con atenuación translúcida (`#0F172A`, alfa 0.35) inmediatamente bajo el alero, peto perimetral y limatesas, proyectando sombra de contacto física de alta fidelidad arquitectónica.
 
 
 
