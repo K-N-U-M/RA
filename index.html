@@ -62,7 +62,7 @@ window.RA_App = window.RA_App || {};
   <script src="js/project-status-hud.js?v=20261015d"></script>
   <script src="js/firebase-service.js?v=20261015d"></script>
 
-    <link rel="stylesheet" href="css/styles.css?v=20261015d">
+    <link rel="stylesheet" href="css/styles.css?v=20261015e">
 
   <!-- Lucide SVG Icons -->
   <script src="https://unpkg.com/lucide@1.48.0" integrity="sha384-Hh7C333mXel+qppGoFs4qAOXp7h67eur4XsQVF2bvHAM3MQ4DX4cQI7oRCzb98J4" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
@@ -14629,10 +14629,11 @@ window.toggleSolarHUD = toggleSolarHUD;
       Cesium.CameraEventType.LEFT_DRAG
     ];
 
-    // 🖱️ 2. ÓRBITA 3D PURA (Botón derecho, botón central o Shift/Ctrl + Click Izquierdo)
+    // 🖱️ 2. ÓRBITA 3D PURA (Botón derecho, botón central, Shift/Ctrl + Click Izquierdo, y Gesto Multitáctil PINCH de 2 Dedos)
     sscc.tiltEventTypes = [
       Cesium.CameraEventType.MIDDLE_DRAG,
       Cesium.CameraEventType.RIGHT_DRAG,
+      Cesium.CameraEventType.PINCH,
       { eventType: Cesium.CameraEventType.LEFT_DRAG, modifier: (Cesium.KeyboardEventModifier ? Cesium.KeyboardEventModifier.SHIFT : undefined) },
       { eventType: Cesium.CameraEventType.LEFT_DRAG, modifier: (Cesium.KeyboardEventModifier ? Cesium.KeyboardEventModifier.CTRL : undefined) }
     ].filter(Boolean);
