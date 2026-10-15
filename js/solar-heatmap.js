@@ -598,6 +598,47 @@
       }
     }
 
+    /**
+     * Calcula los polígonos de sombra 2D arrojados por las aristas superiores de paneles elevados
+     * sobre las filas adyacentes (Autosombreado Inter-Filas / Self-shading).
+     */
+    function generateInterRowShadowQuads2D(pInfo, sU, sV, shadowLenPerM) {
+      if (!pInfo || !Array.isArray(pInfo.panels) || pInfo.panels.length < 2) return [];
+      if (shadowLenPerM <= 0) return [];
+
+      let hMod = 0;
+      if (typeof pInfo.moduleTiltDeg === 'number' && pInfo.moduleTiltDeg > 5) {
+        const deltaTilt = Math.max(0, pInfo.moduleTiltDeg - (pInfo.tiltDeg || 0));
+        hMod = (pInfo.panels[0].h || 2.10) * Math.sin(deltaTilt * Math.PI / 180);
+      } else if (pInfo.structureType && (pInfo.structureType.includes('triangle') || pInfo.structureType.includes('east_west'))) {
+        hMod = (pInfo.panels[0].h || 2.10) * Math.sin(15 * Math.PI / 180);
+      }
+      if (hMod < 0.05) return []; // Coplanar adosado a cubierta: sin elevación inter-filas
+
+      const dU = sU * hMod * shadowLenPerM;
+      const dV = sV * hMod * shadowLenPerM;
+      if (Math.hypot(dU, dV) < 0.04) return [];
+
+      const quads = [];
+      pInfo.panels.forEach(p => {
+        const halfW = (p.w || 1.05) / 2;
+        const halfH = (p.h || 2.10) / 2;
+        // Arista cumbrera superior del módulo
+        const topU1 = p.u - halfW;
+        const topV1 = p.v + halfH;
+        const topU2 = p.u + halfW;
+        const topV2 = p.v + halfH;
+
+        quads.push([
+          { u: topU1, v: topV1 },
+          { u: topU2, v: topV2 },
+          { u: topU2 + dU, v: topV2 + dV },
+          { u: topU1 + dU, v: topV1 + dV }
+        ]);
+      });
+      return quads;
+    }
+
     // 5. Bucle Time-Sliced con presupuesto de 15ms
     const _T_AMB_TABLE = {
       costal_med: [11.0, 12.0, 14.0, 16.0, 20.0, 25.0, 28.0, 28.5, 24.0, 19.0, 14.0, 11.0],
@@ -734,6 +775,11 @@
                 if (quads && quads.length > 0) polyShadowQuads2D.push(...quads);
               }
             });
+          }
+          // Sombra inter-filas entre paneles de la misma cubierta (Self-Shading)
+          const interRowQuads = generateInterRowShadowQuads2D(pInfo, sU, sV, solarPos.shadowLenPerM);
+          if (interRowQuads.length > 0) {
+            polyShadowQuads2D.push(...interRowQuads);
           }
 
           pInfo.panels.forEach(pData => {
