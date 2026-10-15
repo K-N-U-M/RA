@@ -247,9 +247,13 @@ window.RA_App = window.RA_App || {};
   <!-- TOOLTIP 3D DE CURSOR -->
   <div id="ra-cursor-tip"></div>
 
-  <!-- BOTÓN FLOTANTE MENÚ HAMBURGUESA PARA MÓVIL (FUERA DEL TRANSFORM DEL SIDEBAR) -->
-  <button type="button" id="ra-mobile-menu-btn" onclick="toggleSidebarCollapse()" title="Abrir Menú de Diseño Fotovoltaico" aria-label="Abrir menú de diseño">
-    <span class="mobile-menu-icon">☰</span>
+  <!-- BOTÓN FLOTANTE MENÚ HAMBURGUESA INDEPENDIENTE (FUERA DEL TRANSFORM DEL SIDEBAR) -->
+  <button type="button" id="ra-mobile-menu-btn" onclick="toggleSidebarCollapse()" title="Abrir Menú de Diseño Fotovoltaico" aria-label="Abrir menú de diseño" style="position:fixed; top:16px; left:16px; z-index:999999; width:48px; height:48px; border-radius:12px; background:rgba(15,23,42,0.94); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border:1.5px solid rgba(245,158,11,0.65); box-shadow:0 6px 20px rgba(0,0,0,0.75), 0 0 15px rgba(245,158,11,0.25); color:#F59E0B; display:flex; align-items:center; justify-content:center; cursor:pointer; user-select:none; -webkit-tap-highlight-color:transparent; padding:0;">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <line x1="4" y1="6" x2="20" y2="6"></line>
+      <line x1="4" y1="12" x2="20" y2="12"></line>
+      <line x1="4" y1="18" x2="20" y2="18"></line>
+    </svg>
   </button>
 
   <!-- ========================================================================
@@ -8409,6 +8413,10 @@ function toggleSidebarCollapse() {
   sb.classList.toggle('collapsed');
   const isCollapsed = sb.classList.contains('collapsed');
   document.body.classList.toggle('sb-open', !isCollapsed);
+  const mobBtn = document.getElementById('ra-mobile-menu-btn');
+  if (mobBtn) {
+    mobBtn.style.display = isCollapsed ? 'flex' : 'none';
+  }
   const btn = document.getElementById('btn-sidebar-toggle');
   if (btn) {
     btn.textContent = isCollapsed ? '▶' : '✕';
