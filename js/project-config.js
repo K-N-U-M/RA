@@ -794,4 +794,212 @@ function step4ApplyFinancialProfile(profileKey) {
 }
 window.step4ApplyFinancialProfile = step4ApplyFinancialProfile;
 
-// Alias retrocompatible
+/**
+ * 🤖 MOTOR DE AUTO-INGENIERÍA ZERO-CLICK
+ * Evalúa en tiempo real: número de módulos, kWp, sombras 3D (Heatmap) y orientaciones
+ * para seleccionar de forma proactiva la topología, inversor y acumulación óptimos.
+ */
+function wpAutoSelectOptimalEngineering(force = false) {
+  const cfg = window.solarProjectConfig;
+  if (!cfg) return null;
+
+  // Si el usuario ya seleccionó manualmente un equipo y no está forzando re-optimización, respetar su decisión
+  if (!force && cfg.userManuallySelectedInverter) {
+    wpRenderAutoEngineeringBanner(null, true);
+    return null;
+  }
+
+  const catalog = (typeof equipmentCatalog !== 'undefined') ? equipmentCatalog : null;
+  if (!catalog || !Array.isArray(catalog.inverters) || catalog.inverters.length === 0) return null;
+
+  // 1. Obtener conteo real de módulos y potencia
+  let totalPanels = (Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0)
+    ? window.allRenderedPanels.filter(p => p && !p.deleted).length
+    : 0;
+  if (totalPanels === 0 && typeof WP !== 'undefined' && Array.isArray(WP.polylines)) {
+    WP.polylines.forEach(p => {
+      const pInfo = p.roofInfo || (typeof computeSinglePolylineRoofInfo === 'function' ? computeSinglePolylineRoofInfo(p.points, p) : null);
+      if (pInfo && pInfo.panels) totalPanels += pInfo.panels.length;
+    });
+  }
+  if (totalPanels === 0) totalPanels = cfg.lastEstimatedPanels || 24;
+
+  const mod = (catalog.modules && catalog.modules.find(m => m.id === cfg.selectedModuleId)) || (catalog.modules && catalog.modules[0]) || { wp: 450, isc: 13.8, voc: 41.5 };
+  const totalKwp = (totalPanels * (mod.wp || 450)) / 1000.0;
+
+  // 2. Analizar orientaciones distintas de faldones
+  let distinctOrientations = 1;
+  const orientations = [];
+  if (typeof WP !== 'undefined' && Array.isArray(WP.polylines) && WP.polylines.length > 0) {
+    WP.polylines.forEach(poly => {
+      if (poly && poly.points && poly.points.length >= 3) {
+        const pInfo = poly.roofInfo || (typeof computeSinglePolylineRoofInfo === 'function' ? computeSinglePolylineRoofInfo(poly.points, poly) : null);
+        const az = pInfo ? (pInfo.moduleAzimuthDeg ?? pInfo.azimuthDeg ?? 0) : 0;
+        const tilt = pInfo ? (pInfo.moduleTiltDeg ?? pInfo.tiltDeg ?? 30) : 30;
+        const isDupe = orientations.some(o => Math.abs(o.az - az) < 10 && Math.abs(o.tilt - tilt) < 5);
+        if (!isDupe) orientations.push({ az, tilt });
+      }
+    });
+    distinctOrientations = Math.max(1, orientations.length);
+  }
+
+  // 3. Obtener diagnóstico de sombras 3D (Paso 3)
+  const shading = (typeof wpEvaluateMLPENecessity === 'function') ? wpEvaluateMLPENecessity() : null;
+
+  // 4. Tipo de red (suministro)
+  const gridSupply = (totalKwp > 6.0) ? 'three_phase' : 'single_phase';
+
+  // 5. Casación de inversor desde el motor electrotécnico
+  if (typeof matchInvertersFromCatalog !== 'function') return null;
+
+  const match = matchInvertersFromCatalog({
+    invertersCatalog: catalog.inverters,
+    module: mod,
+    totalPanels: totalPanels,
+    totalKwp: totalKwp,
+    gridSupply: gridSupply,
+    distinctOrientations: distinctOrientations,
+    shadingDiagnostics: shading
+  });
+
+  const bestScenario = match.recommendedScenarioA || match.recommendedScenarioB;
+  const bestTopology = match.recommendedTopology || 'inverter';
+
+  // 6. Aplicar la decisión técnica
+  cfg.selectedTopology = bestTopology;
+
+  if (bestTopology === 'microinverter') {
+    if (Array.isArray(catalog.microinverters) && catalog.microinverters.length > 0) {
+      cfg.selectedMicroinverterId = catalog.microinverters[0].id;
+    }
+  } else {
+    if (bestScenario && bestScenario.inverter) {
+      cfg.selectedInverterId = bestScenario.inverter.id;
+      if (!cfg.autoSizing) cfg.autoSizing = {};
+      if (!cfg.autoSizing.inverters) cfg.autoSizing.inverters = {};
+      cfg.autoSizing.inverters.count = bestScenario.count;
+      cfg.autoSizing.inverters.isManual = false;
+    }
+  }
+
+  // Auto-dimensionar batería LFP si procede (residencial / híbrido <= 15 kWp)
+  if (totalKwp <= 15.0 && Array.isArray(catalog.batteries) && catalog.batteries.length > 0) {
+    const targetKwh = Math.max(5.0, totalKwp * 1.0);
+    const sortedBats = [...catalog.batteries].filter(b => b && b.kwh > 0).sort((a, b) => Math.abs(a.kwh - targetKwh) - Math.abs(b.kwh - targetKwh));
+    if (sortedBats.length > 0) {
+      cfg.selectedBatteryId = sortedBats[0].id;
+      if (!cfg.autoSizing.batteries) cfg.autoSizing.batteries = {};
+      cfg.autoSizing.batteries.count = 1;
+      cfg.autoSizing.batteries.isManual = false;
+    }
+  }
+
+  // 7. Sincronizar selectores del DOM
+  const invSel = document.getElementById('step3-sel-inverter');
+  if (invSel && cfg.selectedInverterId) invSel.value = cfg.selectedInverterId;
+  const miSel = document.getElementById('step3-sel-microinverter');
+  if (miSel && cfg.selectedMicroinverterId) miSel.value = cfg.selectedMicroinverterId;
+  const batSel = document.getElementById('step3-sel-battery');
+  if (batSel && cfg.selectedBatteryId) batSel.value = cfg.selectedBatteryId;
+
+  // Actualizar topología visual (botones)
+  ['inverter', 'micro', 'optim'].forEach(k => {
+    const btn = document.getElementById('step3-topo-' + k);
+    if (btn) btn.classList.toggle('active', (k === 'inverter' && bestTopology === 'inverter') || (k === 'micro' && bestTopology === 'microinverter') || (k === 'optim' && bestTopology === 'optimizer'));
+  });
+
+  const rowInv = document.getElementById('step3-row-inverter');
+  const rowMi = document.getElementById('step3-row-microinverter');
+  if (bestTopology === 'microinverter') {
+    if (rowInv) rowInv.style.display = 'none';
+    if (rowMi) rowMi.style.display = 'block';
+  } else {
+    if (rowInv) rowInv.style.display = 'block';
+    if (rowMi) rowMi.style.display = 'none';
+  }
+
+  // Si se recomiendan optimizadores selectivos, aplicarlos a los paneles afectados
+  if (bestTopology === 'optimizer' && shading && typeof shading.applySelectiveOptimizers === 'function') {
+    try { shading.applySelectiveOptimizers(); } catch (e) {}
+  }
+
+  // Actualizar recálculo de ingeniería y límites
+  if (typeof step3UpdateHardwareSelection === 'function') step3UpdateHardwareSelection();
+  if (typeof wpComputeAutoSizing === 'function') wpComputeAutoSizing(totalPanels);
+
+  // 8. Renderizar Banner informativo
+  wpRenderAutoEngineeringBanner({
+    topology: bestTopology,
+    scenario: bestScenario,
+    totalKwp: totalKwp,
+    totalPanels: totalPanels,
+    distinctOrientations: distinctOrientations,
+    rationale: match.topologyRationale,
+    shading: shading
+  }, false);
+
+  return match;
+}
+
+function wpRenderAutoEngineeringBanner(info, isManualOverride = false) {
+  const banner = document.getElementById('step4-auto-engineering-banner');
+  if (!banner) return;
+
+  if (isManualOverride) {
+    banner.innerHTML = `
+      <div style="background:rgba(30,41,59,0.7);border:1px solid rgba(148,163,184,0.3);border-radius:8px;padding:8px;display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-size:9.5px;color:#94A3B8;">
+          <b style="color:#FBBF24;">⚡ Equipo manual seleccionado.</b> Puedes restablecer la auto-casación inteligente según sombras y faldones.
+        </div>
+        <button type="button" class="doc-mini-btn" onclick="wpAutoSelectOptimalEngineering(true)" style="background:rgba(56,189,248,0.15);border:1px solid #38BDF8;color:#38BDF8;font-size:9px;font-weight:bold;padding:3px 6px;cursor:pointer;">
+          <i data-lucide="sparkles" class="icon-sm"></i> AUTO-OPTIMIZAR
+        </button>
+      </div>
+    `;
+    banner.style.display = 'block';
+    if (window.lucide && typeof window.lucide.createIcons === 'function') try { window.lucide.createIcons(); } catch(e) {}
+    return;
+  }
+
+  if (!info || !info.scenario) {
+    banner.style.display = 'none';
+    return;
+  }
+
+  const sc = info.scenario;
+  const topoLabels = {
+    inverter: 'Inversor String Multi-MPPT',
+    optimizer: 'Inversor String + Optimizadores DC Selectivos',
+    microinverter: 'Microinversores MLPE Descentralizados'
+  };
+
+  const topoColors = {
+    inverter: '#38BDF8',
+    optimizer: '#F59E0B',
+    microinverter: '#10B981'
+  };
+
+  banner.innerHTML = `
+    <div style="background:linear-gradient(135deg, rgba(15,23,42,0.92), rgba(30,41,59,0.88));border:1px solid ${topoColors[info.topology] || '#38BDF8'};border-radius:8px;padding:8px;box-shadow:0 0 10px rgba(56,189,248,0.15);margin-bottom:6px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:3px;">
+        <span style="font-size:10px;font-weight:900;color:${topoColors[info.topology] || '#38BDF8'};">
+          <i data-lucide="cpu" class="icon-sm"></i> AUTO-INGENIERÍA INTELIGENTE: ${topoLabels[info.topology] || info.topology}
+        </span>
+        <span class="card-tag" style="background:rgba(16,185,129,0.2);color:#34D399;font-size:9px;font-weight:bold;">
+          ✓ CASACIÓN ÓPTIMA
+        </span>
+      </div>
+      <div style="font-size:9px;color:#E2E8F0;line-height:1.35;margin-bottom:4px;">
+        <b>Equipo Asignado:</b> ${sc.count}× ${sc.inverter.brand} ${sc.inverter.model} (${sc.totalAcKw} kW AC · ${sc.mpptCount} MPPTs · Sobrecarga: ${sc.overloadPct}%)
+      </div>
+      <div style="font-size:8.5px;color:#94A3B8;line-height:1.3;">
+        <b>Criterio Físico:</b> ${info.rationale} (${info.distinctOrientations} ${info.distinctOrientations === 1 ? 'orientación' : 'orientaciones distintas'}, ${info.totalPanels} placas · ${info.totalKwp.toFixed(1)} kWp).
+      </div>
+    </div>
+  `;
+  banner.style.display = 'block';
+  if (window.lucide && typeof window.lucide.createIcons === 'function') try { window.lucide.createIcons(); } catch(e) {}
+}
+
+window.wpAutoSelectOptimalEngineering = wpAutoSelectOptimalEngineering;
+window.wpRenderAutoEngineeringBanner = wpRenderAutoEngineeringBanner;

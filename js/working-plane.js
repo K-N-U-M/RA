@@ -3194,9 +3194,13 @@ async function wpGoToStep(step) {
     if (typeof wpUpdateCommercialPathsUI === 'function') wpUpdateCommercialPathsUI();
     if (typeof wpUpdateShadedCleanupUI === 'function') wpUpdateShadedCleanupUI();
   } else if (step === 4) {
-    // <i data-lucide="zap" class="icon-sm"></i> PASO 4: INGENIERÍA ELÉCTRICA (Inversor, Batería, Strings, Cableado)
+    // PASO 4: INGENIERÍA ELÉCTRICA (Inversor, Batería, Strings, Cableado)
     const c4 = document.getElementById('wp-step-4-content');
     if (c4) c4.style.display = 'flex';
+    // Auto-Ingeniería Fotovoltaica Zero-Click: selecciona la electrónica óptima según sombras, orientaciones y potencia
+    if (typeof wpAutoSelectOptimalEngineering === 'function') {
+      try { wpAutoSelectOptimalEngineering(false); } catch(eEng) { console.warn('[Auto-Engineering] Error:', eEng); }
+    }
     if (typeof populateStep3EquipmentSelectors === 'function') populateStep3EquipmentSelectors();
     if (typeof step3UpdateHardwareSelection === 'function') step3UpdateHardwareSelection();
     if (typeof wpComputeAutoSizing === 'function') wpComputeAutoSizing();

@@ -458,6 +458,9 @@
     const roofs = options.roofs || [];
     const gridSupply = options.gridSupply || 'three_phase';
 
+    const distinctOrientations = Math.max(1, options.distinctOrientations || 1);
+    const shading = options.shadingDiagnostics || null;
+
     const compatible = [];
 
     catalog.forEach(inv => {
@@ -471,19 +474,21 @@
       const maxAllowedOverload = inv.maxOverload || 1.35;
       const invCount = Math.max(1, Math.round(totalKwp / (inv.kw * 1.15)));
       const actualOverload = totalKwp / (invCount * inv.kw);
-      // [C2/G2] La corriente de diseño se SUMA por cada grupo/string que entra por la misma
-      // entrada DC del inversor (paralelo en cubierta), no se compara la de un único módulo.
+      // La corriente de diseño se calcula por cada canal MPPT disponible
       const _modsPerString = options.modulesPerString || 12;
       const _nStrings = Math.max(1, Math.ceil(totalPanels / _modsPerString));
       const _inputsPerMppt = inv.inputsPerMppt || 1;
       const _mpptCount = inv.mppt || inv.mpptCount || 2;
-      const _totalInputs = Math.max(1, _mpptCount * _inputsPerMppt);
-      const _stringsPerInput = Math.max(1, Math.ceil(_nStrings / _totalInputs));
-      const _iscPerInput = (moduleSpec.isc || 14.0) * _stringsPerInput;
-      const isCurrentSafe = !inv.iMaxScA || (_iscPerInput <= inv.iMaxScA);
+      const _totalMppts = _mpptCount * invCount;
+      const _stringsPerMppt = Math.max(1, Math.ceil(_nStrings / _totalMppts));
+      const _iscPerMppt = (moduleSpec.isc || 14.0) * _stringsPerMppt;
+      const isCurrentSafe = !inv.iMaxScA || (_iscPerMppt <= inv.iMaxScA * 1.10);
       const hasPhaseUnbalance = (gridSupply === 'three_phase' && isInvSinglePhase && (inv.kw * invCount) > 5.0);
 
-      const isMatch = actualOverload >= 0.80 && actualOverload <= (maxAllowedOverload + 0.10) && isCurrentSafe && !hasPhaseUnbalance;
+      // Comprobación de canales MPPT mínimos frente a orientaciones distintas de cubierta
+      const hasEnoughMppts = _totalMppts >= distinctOrientations;
+
+      const isMatch = actualOverload >= 0.75 && actualOverload <= (maxAllowedOverload + 0.12) && isCurrentSafe && !hasPhaseUnbalance;
 
       if (isMatch) {
         compatible.push({
@@ -491,21 +496,32 @@
           count: invCount,
           overloadPct: parseFloat((actualOverload * 100).toFixed(1)),
           totalAcKw: invCount * inv.kw,
-          mpptCount: (inv.mppt || 2) * invCount,
+          mpptCount: _totalMppts,
+          hasEnoughMppts: hasEnoughMppts,
           totalCostEur: invCount * (inv.price || 1500)
         });
       }
     });
 
-    compatible.sort((a, b) => Math.abs(a.overloadPct - 118) - Math.abs(b.overloadPct - 118));
+    // Ordenar priorizando:
+    // 1. Que cubra los MPPTs requeridos para las orientaciones de cubierta
+    // 2. Cercanía a sobrecarga óptima (118%)
+    // 3. Menor número de inversores (preferir 1 inversor robusto antes que múltiples si la potencia lo permite)
+    compatible.sort((a, b) => {
+      if (a.hasEnoughMppts !== b.hasEnoughMppts) return a.hasEnoughMppts ? -1 : 1;
+      const scoreA = Math.abs(a.overloadPct - 118) + (a.count > 1 ? 5 : 0);
+      const scoreB = Math.abs(b.overloadPct - 118) + (b.count > 1 ? 5 : 0);
+      return scoreA - scoreB;
+    });
 
-    const singleInvMatch = compatible.find(c => c.count === 1) || compatible[0] || null;
-    const multiInvMatch = compatible.find(c => c.count >= 2) || (singleInvMatch ? {
+    const singleInvMatch = compatible.find(c => c.count === 1 && c.hasEnoughMppts) || compatible.find(c => c.count === 1) || compatible[0] || null;
+    const multiInvMatch = compatible.find(c => c.count >= 2 && c.hasEnoughMppts) || compatible.find(c => c.count >= 2) || (singleInvMatch ? {
       inverter: singleInvMatch.inverter,
       count: Math.max(2, Math.ceil(singleInvMatch.count * 2)),
       overloadPct: parseFloat((singleInvMatch.overloadPct / 2).toFixed(1)),
       totalAcKw: singleInvMatch.totalAcKw * 2,
       mpptCount: singleInvMatch.mpptCount * 2,
+      hasEnoughMppts: true,
       totalCostEur: singleInvMatch.totalCostEur * 2
     } : null);
 
@@ -517,9 +533,32 @@
       estimatedCostEur: Math.ceil(totalPanels / 2) * 175
     };
 
+    // Matriz de decisión de Topología según Física Solar y Sombras:
+    let recommendedTopology = 'inverter';
+    let topologyRationale = 'Campo solar despejado: Inversor central de alta eficiencia con strings balanceados.';
+
+    if (shading) {
+      if (shading.recommendation === 'microinverters_or_full_mlpe') {
+        recommendedTopology = 'microinverter';
+        topologyRationale = 'Sombreado severo en >35% del campo: Topología descentralizada con Microinversores para desacoplar el sombreado mutuo.';
+      } else if (shading.recommendation === 'selective_optimizers') {
+        recommendedTopology = 'optimizer';
+        topologyRationale = `Sombreado parcial en ${shading.criticalLossPanelsCount || 'varios'} módulos: Inversor de red con Optimizadores DC selectivos (Tigo / Huawei).`;
+      } else if (distinctOrientations >= 3) {
+        recommendedTopology = 'microinverter';
+        topologyRationale = `Cubierta compleja con ${distinctOrientations} orientaciones distintas: Los microinversores proporcionan seguimiento MPPT individual por módulo.`;
+      }
+    } else if (distinctOrientations >= 3) {
+      recommendedTopology = 'microinverter';
+      topologyRationale = `Cubierta con ${distinctOrientations} faldones de orientación distinta: Microinversores recomendados para evitar pérdidas por mismatch de string.`;
+    }
+
     return {
       totalKwp: totalKwp,
+      distinctOrientations: distinctOrientations,
       compatible: compatible,
+      recommendedTopology: recommendedTopology,
+      topologyRationale: topologyRationale,
       recommendedScenarioA: singleInvMatch,
       recommendedScenarioB: multiInvMatch,
       recommendedScenarioC: scenarioC
