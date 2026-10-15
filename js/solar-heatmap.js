@@ -617,10 +617,16 @@
 
       const dU = sU * hMod * shadowLenPerM;
       const dV = sV * hMod * shadowLenPerM;
-      if (Math.hypot(dU, dV) < 0.04) return [];
+      const dLen = Math.hypot(dU, dV);
+      if (dLen < 0.04) return [];
+
+      // Vector unitario de sombra y offset de despegue (6cm) para no tocar la arista emisora
+      const dirU = dU / dLen;
+      const dirV = dV / dLen;
+      const offset = 0.06;
 
       const quads = [];
-      pInfo.panels.forEach(p => {
+      pInfo.panels.forEach((p, pIdx) => {
         const halfW = (p.w || 1.05) / 2;
         const halfH = (p.h || 2.10) / 2;
         // Arista cumbrera superior del módulo
@@ -629,12 +635,17 @@
         const topU2 = p.u + halfW;
         const topV2 = p.v + halfH;
 
-        quads.push([
-          { u: topU1, v: topV1 },
-          { u: topU2, v: topV2 },
+        const quad = [
+          { u: topU1 + dirU * offset, v: topV1 + dirV * offset },
+          { u: topU2 + dirU * offset, v: topV2 + dirV * offset },
           { u: topU2 + dU, v: topV2 + dV },
           { u: topU1 + dU, v: topV1 + dV }
-        ]);
+        ];
+        // Metadatos de panel emisor para evitar auto-sombreado
+        quad.sourcePanelIdx = (p.layoutIndex !== undefined) ? p.layoutIndex : pIdx;
+        quad.sourceU = p.u;
+        quad.sourceV = p.v;
+        quads.push(quad);
       });
       return quads;
     }
@@ -782,7 +793,7 @@
             polyShadowQuads2D.push(...interRowQuads);
           }
 
-          pInfo.panels.forEach(pData => {
+          pInfo.panels.forEach((pData, pIdx) => {
             const mw = monthDaysW[mIdx] || 30;
             if (!pData.heatmapSample) return;
 
@@ -876,6 +887,16 @@
 
                 for (const quad of polyShadowQuads2D) {
                   if (!quad || quad.length === 0) continue;
+
+                  // DESCARTE DE AUTO-SOMBREADO INTER-FILAS:
+                  if (quad.sourcePanelIdx !== undefined) {
+                    const curIdx = (pData.layoutIndex !== undefined) ? pData.layoutIndex : pIdx;
+                    if (quad.sourcePanelIdx === curIdx) continue; // Un panel jamás se hace sombra a sí mismo
+
+                    // Si ambos paneles están en la misma fila (misma cota V dentro del 40% de la altura del panel)
+                    if (Math.abs(quad.sourceV - pData.v) < (pData.h || 2.10) * 0.40) continue;
+                  }
+
                   // AABB Broadphase check: si la caja envolvente de la sombra no toca la del panel, descartar inmediatamente
                   let qUMin = Infinity, qUMax = -Infinity, qVMin = Infinity, qVMax = -Infinity;
                   for (let qi = 0; qi < quad.length; qi++) {
