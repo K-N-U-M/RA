@@ -557,15 +557,43 @@ function estimateMonthlyGHI(latDeg, monthIdx) {
   return extraterrestrial[monthIdx] * KT_BASE[monthIdx] * latFactor;
 }
 
-function runPhysicalModel(kwp, latDeg, lonDeg, tiltDeg, azimutDeg, cfg) {
+/**
+ * Resuelve la radiación GHI diaria (Wh/m²/día) priorizando:
+ * 1. Lista mensual explícita (p. ej. NASA POWER o PVGIS en ejecución activa).
+ * 2. Caché local persistente de NASA POWER (30 días de validez offline).
+ * 3. Fallback al modelo sintético Kt estático por latitud.
+ */
+function getRobustMonthlyGHI(latDeg, lonDeg, monthIdx, customGHIList) {
+  if (Array.isArray(customGHIList) && customGHIList.length === 12 && typeof customGHIList[monthIdx] === 'number' && customGHIList[monthIdx] > 0) {
+    const val = customGHIList[monthIdx];
+    return val < 25 ? val * 1000 : val; // Convierte de kWh/m²/día a Wh/m²/día si viene en kWh
+  }
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const cacheKey = `ra_nasa_ghi_${Number(latDeg).toFixed(2)}_${Number(lonDeg).toFixed(2)}`;
+      const item = localStorage.getItem(cacheKey);
+      if (item) {
+        const parsed = JSON.parse(item);
+        if (parsed && Array.isArray(parsed.data) && typeof parsed.data[monthIdx] === 'number') {
+          const val = parsed.data[monthIdx];
+          return val < 25 ? val * 1000 : val;
+        }
+      }
+    }
+  } catch(e) {}
+  return estimateMonthlyGHI(latDeg, monthIdx);
+}
+
+function runPhysicalModel(kwp, latDeg, lonDeg, tiltDeg, azimutDeg, cfg, customMonthlyGHI) {
   // Clipping: techo de potencia AC en el inversor (cfg.pAcNominalW). Sin esto, los
   // ratios DC/AC > 1.2 sobrestiman la producción en horas de sol pleno.
   const pAcNominal = (cfg && cfg.pAcNominalW > 0) ? cfg.pAcNominalW : 0;
   const zone = getClimaticZone(latDeg, lonDeg);
   const tAmb = T_AMB_MONTHLY_ESP[zone];
-  const gamma = cfg.tecnologia && cfg.tecnologia.includes('N-Type') ? -0.0028 : -0.0034;
+  const gamma = cfg && cfg.tecnologia && cfg.tecnologia.includes('N-Type') ? -0.0028 : -0.0034;
   const NOCT = 45;
-  const Pstc = (cfg.potencia || 450);
+  const Pstc = (cfg && cfg.potencia) || 450;
+  const targetGHIList = (cfg && cfg.monthlyGHI) || customMonthlyGHI || null;
 
   // System losses (cascade)
   // Árbol de pérdidas configurable (Paso 4 · ventana Pérdidas del Sistema)
@@ -586,10 +614,18 @@ function runPhysicalModel(kwp, latDeg, lonDeg, tiltDeg, azimutDeg, cfg) {
   const HOURS_PER_DAY = 24;
   const midDay = [17,47,75,105,135,162,198,228,258,288,318,344]; // representative day of each month
 
+  let usedNasaCache = false;
   for (let m = 0; m < 12; m++) {
     const doy = midDay[m];
     const nDays = MONTH_DAYS_SIM[m];
-    const GHI_monthly = estimateMonthlyGHI(latDeg, m);
+    const GHI_monthly = getRobustMonthlyGHI(latDeg, lonDeg, m, targetGHIList);
+    if (!targetGHIList && typeof localStorage !== 'undefined') {
+      try {
+        if (localStorage.getItem(`ra_nasa_ghi_${Number(latDeg).toFixed(2)}_${Number(lonDeg).toFixed(2)}`)) {
+          usedNasaCache = true;
+        }
+      } catch(e) {}
+    }
     const decl = solarDeclination(doy);
 
     let monthlyWh = 0;
@@ -672,7 +708,8 @@ function runPhysicalModel(kwp, latDeg, lonDeg, tiltDeg, azimutDeg, cfg) {
     cascadeLosses: cascadeLosses,
     clippingKWh: Math.round(totalClippedWh / 1000),
     clippingPct: (annualKWh + totalClippedWh / 1000) > 0 ? Math.round((totalClippedWh / 1000) / (annualKWh + totalClippedWh / 1000) * 1000) / 10 : 0,
-    sigma: annualKWh * 0.07 // ±7% physical uncertainty
+    sigma: annualKWh * 0.07, // ±7% physical uncertainty
+    ghiSource: targetGHIList ? 'NASA POWER (Satelital Directo)' : (usedNasaCache ? 'NASA POWER (Caché Offline)' : 'Modelo Sintético (Kt Estático)')
   };
 }
 
@@ -779,6 +816,13 @@ async function runNASAPower(latDeg, lonDeg) {
     });
     monthlyGHI = monthlyGHI.map((v, i) => yearCount[i] > 0 ? v / yearCount[i] : 0);
 
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const cacheKey = `ra_nasa_ghi_${Number(latDeg).toFixed(2)}_${Number(lonDeg).toFixed(2)}`;
+        localStorage.setItem(cacheKey, JSON.stringify({ data: monthlyGHI, ts: Date.now() }));
+      }
+    } catch(e) {}
+
     return { monthlyGHI_kWhm2: monthlyGHI, source: 'NASA POWER (20 años)' };
   } catch(e) {
     clearTimeout(timer);
@@ -840,7 +884,8 @@ async function runEnergyComparison() {
     runNASAPower(latDeg, lonDeg)
   ]);
 
-  const physicalResult = runPhysicalModel(kwp, latDeg, lonDeg, tiltDeg, azimutDeg, cfg);
+  const nasaGHI = (nasaResult && !nasaResult.error && Array.isArray(nasaResult.monthlyGHI_kWhm2)) ? nasaResult.monthlyGHI_kWhm2 : null;
+  const physicalResult = runPhysicalModel(kwp, latDeg, lonDeg, tiltDeg, azimutDeg, cfg, nasaGHI);
   const pvsystResult = runPVsystCompatible(kwp, latDeg, lonDeg, tiltDeg, azimutDeg, cfg, physicalResult);
 
   // Current motor (existing simple model)
@@ -2249,6 +2294,7 @@ function wpSetSolarSpeed(spd) {
   global.invEfficiency = invEfficiency;
   global.getClimaticZone = getClimaticZone;
   global.estimateMonthlyGHI = estimateMonthlyGHI;
+  global.getRobustMonthlyGHI = getRobustMonthlyGHI;
   global.runPhysicalModel = runPhysicalModel;
   global.runPVGISCalc = runPVGISCalc;
   global.runNASAPower = runNASAPower;
