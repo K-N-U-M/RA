@@ -606,7 +606,11 @@ calculateFinancialModel()  ← Definición canónica en financials.js (~L491)
   - Aristas verticales y perimetrales CAD reforzadas (`width: 3.5/2.5`, opacidad 0.85/0.90 en `#334155`/`#1E293B`) para perfilar con nitidez cada cambio de plano vertical.
 - **Hito 13 — Motor de Shading Arquitectónico ENU y Ambient Occlusion de Contacto en Edificios:**
   - En `js/buildings.js`, implementación de `addSegmentedBuildingWalls`: segmentación paramétrica de los muros perimetrales según su vector normal exterior en el plano local ENU (Este-Norte-Arriba). Modulación sutil de reflectancia ambiental (fachadas Sur +5%, Norte -10%, Este/Oeste intermedias) para garantizar diferenciación visual de fachadas adyacentes incluso con iluminación cenital.
-  - Franja de Ambient Occlusion (AO) simulada de 28 cm con atenuación translúcida (`#0F172A`, alfa 0.35) inmediatamente bajo el alero, peto perimetral y limatesas, proyectando sombra de contacto física de alta fidelidad arquitectónica.
+- **Hito 14 — Infraestructura y Módulo de Integración Firebase (Cloud Sync & Storage):**
+  - Creados archivos de configuración canónicos de despliegue: `firebase.json` (Hosting, rewrites SPA y caching de assets/WASM), `firestore.rules` (seguridad multi-usuario y roles), `firestore.indexes.json` y `storage.rules` (persistencia segura de proyectos y PDFs).
+  - Creado módulo desacoplado `js/firebase-service.js` (`RAFirebaseService` / `window.RA.Firebase`), cargado en `index.html`.
+  - Soporte de autenticación (Google OAuth, Email/Password), guardado/descarga en Firestore (`projects/{projectId}`) con persistencia offline tolerante a fallos, y subida de memorias técnicas a Cloud Storage.
+  - Añadido botón interactivo en la barra lateral superior `#ra-cloud-sync-btn` para gestionar credenciales y estado de conexión en la nube sin comprometer el modo local offline.
 
 
 

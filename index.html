@@ -60,6 +60,7 @@ window.RA_App = window.RA_App || {};
   <script src="js/engineering-explainer.js?v=20260929b"></script>
   <script src="js/equipment-ai-importer.js?v=20261014a"></script>
   <script src="js/project-status-hud.js?v=20261015a"></script>
+  <script src="js/firebase-service.js?v=20261015a"></script>
 
     <link rel="stylesheet" href="css/styles.css">
 
@@ -266,6 +267,9 @@ window.RA_App = window.RA_App || {};
       </div>
       <button class="doc-mini-btn" id="btn-save-project-hdr" onclick="raSaveProjectToFile(false)" title="Guardar Proyecto (.raproject) [Ctrl+S]" aria-label="Guardar proyecto en archivo local" style="padding:4px 8px;border-color:var(--emerald-500);background:rgba(16,185,129,0.18);color:var(--emerald-400);font-size:12px;margin-right:4px;cursor:pointer;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;transition:all 0.2s ease;">
         <i data-lucide="save" class="icon-sm"></i>
+      </button>
+      <button class="doc-mini-btn" id="ra-cloud-sync-btn" onclick="if (window.RAFirebaseService) window.RAFirebaseService.openConfigModal();" title="Conectar con Firebase (Cloud Sync)" aria-label="Sincronización en la nube con Firebase" style="padding:4px 8px;border-color:rgba(56,189,248,0.4);background:rgba(2,132,199,0.18);color:#38BDF8;font-size:12px;margin-right:4px;cursor:pointer;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;transition:all 0.2s ease;">
+        <i data-lucide="cloud" class="icon-sm"></i>
       </button>
       <button class="doc-mini-btn" id="btn-open-project-hdr" onclick="raShowProjectsModal()" title="Abrir Proyecto (.raproject) o Recientes" aria-label="Abrir proyecto o recientes" style="padding:4px 8px;border-color:var(--blue-500);background:rgba(59,130,246,0.18);color:var(--blue-400);font-size:12px;margin-right:4px;cursor:pointer;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;transition:all 0.2s ease;">
         <i data-lucide="folder-open" style="width:24px;height:24px;color:var(--sky-400);"></i>
