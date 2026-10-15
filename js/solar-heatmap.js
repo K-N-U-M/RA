@@ -599,13 +599,23 @@
     }
 
     // 5. Bucle Time-Sliced con presupuesto de 15ms
+    const _T_AMB_TABLE = {
+      costal_med: [11.0, 12.0, 14.0, 16.0, 20.0, 25.0, 28.0, 28.5, 24.0, 19.0, 14.0, 11.0],
+      interior:   [5.0,  7.0,  10.0, 12.0, 17.0, 23.0, 27.0, 27.0, 22.0, 15.0,  9.0,  5.0],
+      atlantico:  [9.0,  10.0, 12.0, 13.0, 16.0, 19.0, 21.0, 21.5, 19.0, 15.0, 11.0,  9.0]
+    };
+    const climaticZone = (typeof getClimaticZone === 'function') ? getClimaticZone(lat, lng) : 'interior';
+    const noctModule = (activeModule && (activeModule.noct || activeModule.NOCT)) || 45;
+    const rawGamma = (activeModule && (activeModule.tempCoeffPmax || activeModule.gammaPmp || (activeModule.tecnologia && activeModule.tecnologia.includes('N-Type') ? -0.0028 : -0.0034))) || -0.0034;
+    const gammaCoeff = (Math.abs(rawGamma) > 0.05) ? rawGamma / 100.0 : rawGamma; // normaliza si viene en %/°C
+
     for (let mIdx = 0; mIdx < monthsDoy.length; mIdx++) {
       const m = monthsReal[mIdx];
-      // Derating térmico estacional (según el mes calendario REAL)
-      const tempFactor = (m >= 4 && m <= 8) ? 0.93 : 0.98;
-      const GHI_daily_Wh = (typeof estimateMonthlyGHI === 'function')
-        ? estimateMonthlyGHI(lat, m)
-        : (4600 * (1 + 0.32 * Math.sin((m - 2) * Math.PI / 6)));
+      // Temperatura ambiente de diseño según zona climática y mes calendario REAL
+      const tAmbMonth = (_T_AMB_TABLE[climaticZone] || _T_AMB_TABLE.interior)[m];
+      const GHI_daily_Wh = (typeof getRobustMonthlyGHI === 'function')
+        ? getRobustMonthlyGHI(lat, lng, m)
+        : ((typeof estimateMonthlyGHI === 'function') ? estimateMonthlyGHI(lat, m) : (4600 * (1 + 0.32 * Math.sin((m - 2) * Math.PI / 6))));
 
       // [C6] Distribución diurna específica del mes: se normaliza la curva seno para que la
       // energía integrada del mes sea EXACTAMENTE la insolación diaria real (antes se asumía
@@ -766,6 +776,13 @@
             // Bifacialidad: factor de vista hacia cubierta/suelo con difusión perimetral mínima (0.04) para coplanares
             const rearViewFactor = Math.max(0.04, Math.pow(Math.sin(tiltRad / 2), 2));
             const albedoGain = isBifacial ? (GHI_instant * 0.20 * rearViewFactor * bifacialityFactor) : 0;
+
+            // Derating térmico físico continuo según radiación incidente sobre el módulo y temperatura ambiente (NOCT/IEC 61215)
+            const G_poa_total = G_beam + G_diffuse + G_albedo;
+            const tCellInst = (typeof calcTcell === 'function')
+              ? calcTcell(tAmbMonth, G_poa_total, noctModule)
+              : (tAmbMonth + (noctModule - 20) * (G_poa_total / 800));
+            const tempFactor = Math.max(0.65, Math.min(1.05, 1 + gammaCoeff * (tCellInst - 25)));
 
             const instantPotentialW = (G_beam + G_diffuse + G_albedo + albedoGain) * tempFactor;
             pData.annualTotalPotential += instantPotentialW * mw * hourStepDt;
