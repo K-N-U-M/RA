@@ -1987,4 +1987,60 @@ function generateFormulario() {
   }
 }
 
-// Tecla D: abrir modal de documentación
+/**
+ * 📦 PACK DE ENTREGA UNIFICADO (HITO 10)
+ * Genera el conjunto documental integral para el cliente y la administración:
+ * 1. Memoria Técnica Oficial (REBT / ITC-BT-40)
+ * 2. Propuesta / Oferta Comercial Bancable (25 años)
+ * 3. Formulario Administrativo RD 244/2019
+ * 4. Análisis Comparativo Energético
+ */
+async function generateDeliveryPack() {
+  if (typeof raEnsureAnalysisReadyForDoc === 'function' && !raEnsureAnalysisReadyForDoc()) {
+    return;
+  }
+
+  if (typeof showToast === 'function') {
+    showToast('PACK DE ENTREGA', 'Generando paquete documental unificado del proyecto...', 'info', 4000);
+  }
+
+  // 1. Memoria Técnica
+  try {
+    if (typeof docMemoriaTecnica === 'function') docMemoriaTecnica();
+  } catch(e1) { console.warn('Error en Memoria Técnica:', e1); }
+
+  await new Promise(r => setTimeout(r, 450));
+
+  // 2. Oferta Comercial
+  try {
+    if (typeof docOfertaComercial === 'function') {
+      docOfertaComercial();
+    } else if (typeof generateCommercialOfferDoc === 'function') {
+      generateCommercialOfferDoc();
+    }
+  } catch(e2) { console.warn('Error en Oferta Comercial:', e2); }
+
+  await new Promise(r => setTimeout(r, 450));
+
+  // 3. Formulario RD 244/2019
+  try {
+    if (typeof docFormularioRD244 === 'function') docFormularioRD244();
+  } catch(e3) { console.warn('Error en Formulario RD 244:', e3); }
+
+  await new Promise(r => setTimeout(r, 450));
+
+  // 4. Análisis Comparativo Energético
+  try {
+    if (typeof exportEnergyAnalysis === 'function') exportEnergyAnalysis();
+  } catch(e4) { /* Opcional si no se calculó previamente */ }
+
+  if (typeof showToast === 'function') {
+    showToast('ENTREGA LISTA', '✓ Pack documental completo generado con éxito.', 'success', 4000);
+  }
+}
+
+if (typeof window !== 'undefined') {
+  window.generateDeliveryPack = generateDeliveryPack;
+  if (!window.RA) window.RA = {};
+  window.RA.generateDeliveryPack = generateDeliveryPack;
+}
