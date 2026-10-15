@@ -138,7 +138,27 @@
       }
     }
     const invCount = (cfg.autoSizing && cfg.autoSizing.inverters && cfg.autoSizing.inverters.count) ? cfg.autoSizing.inverters.count : 1;
-    const totalInvKw = invKw * invCount;
+    let totalInvKw = invKw * invCount;
+
+    // Si el usuario no ha fijado manualmente un inversor y la potencia DC difiere enormemente
+    // de la potencia del inversor residual (ej. ratio < 0.65 o > 1.50), sincronizar proactivamente:
+    if (numPanels > 0 && !cfg.userManuallySelectedInverter && typeof wpAutoSelectOptimalEngineering === 'function') {
+      const currentRatio = totalInvKw > 0 ? (kwp / totalInvKw) : 0;
+      if (currentRatio < 0.65 || currentRatio > 1.50) {
+        try {
+          const reMatch = wpAutoSelectOptimalEngineering(false);
+          if (reMatch) {
+            const newBest = reMatch.recommendedScenarioA || reMatch.recommendedScenarioB;
+            if (newBest && newBest.inverter) {
+              invObj = newBest.inverter;
+              invKw = invObj.kw || 0;
+              totalInvKw = newBest.totalAcKw || (invKw * (newBest.count || 1));
+              invName = `${invObj.brand || ''} ${invObj.model || ''} (${invKw} kW)`;
+            }
+          }
+        } catch(eAuto) {}
+      }
+    }
 
     // Ratio DC/AC
     const ratioDcAc = totalInvKw > 0 ? (kwp / totalInvKw) : 0;
@@ -256,37 +276,42 @@
 
     // Alertas proactivas automáticas (Hito 9)
     if (alertBox && alertText) {
+      const alertIcon = document.getElementById('ra-hud-alert-icon');
       let alertMsg = null;
       let alertLevel = 'warning';
 
       if (s.numPanels > 0 && s.invKw > 0) {
         if (s.ratioDcAc > 1.40) {
-          alertMsg = `⚠️ Ratio DC/AC excesivo (${s.ratioDcAc.toFixed(2)}): riesgo de clipping severo. Recomendado inversor superior.`;
+          alertMsg = `Ratio DC/AC excesivo (${s.ratioDcAc.toFixed(2)}): riesgo de clipping severo. Recomendado inversor superior.`;
           alertLevel = 'error';
         } else if (s.ratioDcAc < 0.75) {
-          alertMsg = `⚠️ Inversor sobredimensionado (Ratio ${s.ratioDcAc.toFixed(2)}): opera a baja eficiencia a carga parcial.`;
+          alertMsg = `Inversor sobredimensionado (Ratio ${s.ratioDcAc.toFixed(2)}): opera a baja eficiencia a carga parcial.`;
           alertLevel = 'warning';
         } else if (s.stringNotice) {
-          alertMsg = `⚡ ${s.stringNotice}`;
+          alertMsg = s.stringNotice;
           alertLevel = 'info';
         }
       }
 
       if (!alertMsg && s.minTilt < 9.5 && s.numPanels > 0) {
-        alertMsg = `💧 Inclinación < 10°: requiere previsión de limpieza por sedimentación de polvo.`;
+        alertMsg = `Inclinación < 10°: requiere previsión de limpieza por sedimentación de polvo.`;
         alertLevel = 'info';
       }
 
       if (!alertMsg && s.isHeatmapDirty && s.numPanels > 0) {
-        alertMsg = `🔄 Geometría modificada: recalcula el análisis solar en el Paso 3.`;
+        alertMsg = `Geometría modificada: recalcula el análisis solar en el Paso 3.`;
         alertLevel = 'info';
       }
 
       if (alertMsg) {
         alertBox.style.display = 'flex';
         alertText.textContent = alertMsg;
+        if (alertIcon) {
+          alertIcon.textContent = (alertLevel === 'error') ? '⛔' : (alertLevel === 'warning' ? '⚠️' : 'ℹ️');
+        }
         if (alertLevel === 'error') {
           alertBox.style.background = 'rgba(239, 68, 68, 0.94)';
+          alertBox.style.color = '#fff';
         } else if (alertLevel === 'warning') {
           alertBox.style.background = 'rgba(245, 158, 11, 0.94)';
           alertBox.style.color = '#000';
