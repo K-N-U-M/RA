@@ -153,20 +153,33 @@
     // Componente reflejada (albedo)
     const G_r = ghi * albedo * ((1 - Math.cos(tiltRad)) / 2);
 
-    // Modificador de ángulo de incidencia (IAM ASHRAE)
+    // Modificador de ángulo de incidencia físico por componente (ASHRAE / Duffie & Beckman)
     const iamFactor = (cosTheta > 0.01) ? Math.max(0, 1 - b0 * ((1 / cosTheta) - 1)) : 0;
-    const iamBlend = 0.85 + 0.15 * iamFactor;
+    // Transmitancia angular integrada para difusa celeste (ángulo medio incidente ~60°)
+    const iamDiff = Math.max(0, 1 - b0 * (1 / Math.cos(60 * Math.PI / 180) - 1));
+    // Transmitancia angular integrada para albedo del suelo (ángulo medio incidente ~68°)
+    const iamAlb = Math.max(0, 1 - b0 * (1 / Math.cos(68 * Math.PI / 180) - 1));
+
+    const G_b_eff = G_b * iamFactor;
+    const G_d_eff = G_d * iamDiff;
+    const G_r_eff = G_r * iamAlb;
 
     const G_poa_raw = G_b + G_d + G_r;
-    const G_poa = G_poa_raw * iamBlend;
+    const G_poa = G_b_eff + G_d_eff + G_r_eff;
+    const iamBlend = G_poa_raw > 0 ? G_poa / G_poa_raw : 1.0;
 
     return {
       G_b: G_b,
       G_d: G_d,
       G_r: G_r,
+      G_b_eff: G_b_eff,
+      G_d_eff: G_d_eff,
+      G_r_eff: G_r_eff,
       G_poa_raw: G_poa_raw,
       G_poa: G_poa,
       iamFactor: iamFactor,
+      iamDiff: iamDiff,
+      iamAlb: iamAlb,
       iamBlend: iamBlend
     };
   }

@@ -751,18 +751,19 @@
             const cosIncidence = sunDirWorld ? Cesium.Cartesian3.dot(sunDirWorld, panelNormWorld) : 0;
 
             // 3. Transposición física POA (W/m²) por módulo — motor único RA.Radiation (Perez 1990 anisotrópico)
+            const moduleB0 = (activeModule && (activeModule.iamB0 || activeModule.b0)) || 0.05;
             let G_beam = 0, G_diffuse = 0, G_albedo = 0;
             if (typeof window !== 'undefined' && window.RA && window.RA.Radiation && typeof window.RA.Radiation.transposeComponents === 'function') {
               const _tp = window.RA.Radiation.transposeComponents({
                 ghi: GHI_instant, dhi: G_dhi, dni: G_dni,
                 cosTheta: cosIncidence, tiltRad: tiltRad,
-                albedo: 0.20, iamB0: 0.05, sunElevDeg: elevation,
+                albedo: 0.20, iamB0: moduleB0, sunElevDeg: elevation,
                 diffuseModel: 'perez'
               });
-              // G_beam/G_diffuse/G_albedo con el IAM (blend) ya aplicado, consistente con computePOAIrradiance
-              G_beam = _tp.G_b * _tp.iamBlend;
-              G_diffuse = _tp.G_d * _tp.iamBlend;
-              G_albedo = _tp.G_r * _tp.iamBlend;
+              // Componentes físicas con IAM selectivo (haz, difusa celeste y albedo)
+              G_beam = (_tp.G_b_eff !== undefined) ? _tp.G_b_eff : (_tp.G_b * _tp.iamBlend);
+              G_diffuse = (_tp.G_d_eff !== undefined) ? _tp.G_d_eff : (_tp.G_d * _tp.iamBlend);
+              G_albedo = (_tp.G_r_eff !== undefined) ? _tp.G_r_eff : (_tp.G_r * _tp.iamBlend);
             } else {
               // Fallback legacy: difusa isótropa + IAM solo en haz
               if (cosIncidence > 0.005) {
