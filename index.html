@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>RA — Visor Planetario Fotogramétrico, Editor 3D & Simulación Solar</title>
   <meta name="description" content="RA — Sistema de visualización planetaria 3D con fotogrametría real de Google Earth, editor de polígonos 3D, validación de diseño y simulación de instalación fotovoltaica.">
 
@@ -246,6 +246,9 @@ window.RA_App = window.RA_App || {};
 
   <!-- TOOLTIP 3D DE CURSOR -->
   <div id="ra-cursor-tip"></div>
+
+  <!-- BACKDROP MÓVIL PARA CERRAR EL SIDEBAR EN TOUCH -->
+  <div id="ra-mobile-sidebar-backdrop" onclick="toggleSidebarCollapse()" aria-label="Cerrar panel lateral"></div>
 
   <!-- ========================================================================
        BARRA LATERAL INTEGRAL (SIDEBAR WORKSPACE)
@@ -8405,9 +8408,18 @@ function toggleSidebarCollapse() {
   const sb = document.getElementById('ra-sidebar');
   if (!sb) return;
   sb.classList.toggle('collapsed');
+  const isCollapsed = sb.classList.contains('collapsed');
   const btn = document.getElementById('btn-sidebar-toggle');
   if (btn) {
-    btn.textContent = sb.classList.contains('collapsed') ? '▶' : '◀';
+    btn.textContent = isCollapsed ? '▶' : '◀';
+  }
+  const toggleIcon = document.getElementById('sidebar-toggle-icon');
+  if (toggleIcon) {
+    toggleIcon.textContent = isCollapsed ? '▶' : '◀';
+  }
+  const backdrop = document.getElementById('ra-mobile-sidebar-backdrop');
+  if (backdrop) {
+    backdrop.classList.toggle('active', !isCollapsed);
   }
 }
 

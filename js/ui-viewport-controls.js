@@ -338,11 +338,41 @@
     });
   }
 
+  // ── INICIALIZACIÓN RESPONSIVE PARA DISPOSITIVOS MÓVILES / TÁCTILES ───────────
+  function initMobileResponsiveBehavior() {
+    if (typeof window === 'undefined') return;
+    const isMobile = window.innerWidth <= 768;
+    const sb = document.getElementById('ra-sidebar');
+    if (sb && isMobile) {
+      sb.classList.add('collapsed');
+      const btn = document.getElementById('btn-sidebar-toggle');
+      if (btn) btn.textContent = '▶';
+      const toggleIcon = document.getElementById('sidebar-toggle-icon');
+      if (toggleIcon) toggleIcon.textContent = '▶';
+    }
+
+    let resizeTimer = null;
+    window.addEventListener('resize', function() {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(function() {
+        const currentlyMobile = window.innerWidth <= 768;
+        const backdrop = document.getElementById('ra-mobile-sidebar-backdrop');
+        if (backdrop && !currentlyMobile) {
+          backdrop.classList.remove('active');
+        }
+      }, 150);
+    }, { passive: true });
+  }
+
   if (typeof document !== 'undefined') {
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', initUniversalModalHandlers);
+      document.addEventListener('DOMContentLoaded', function() {
+        initUniversalModalHandlers();
+        initMobileResponsiveBehavior();
+      });
     } else {
       initUniversalModalHandlers();
+      initMobileResponsiveBehavior();
     }
   }
 

@@ -2438,7 +2438,23 @@ body.ra-capture-mode-active #ra-triad-overlay {
 }
 
 /* ==========================================================================
-   DISEÑO RESPONSIVO (VIEWPORTS < 1280px Y PANTALLAS DE PORTÁTILES)
+   BACKDROP MÓVIL Y OVERLAYS TÁCTILES
+   ========================================================================== */
+#ra-mobile-sidebar-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(3, 7, 18, 0.70);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ==========================================================================
+   DISEÑO RESPONSIVO: PANTALLAS DE PORTÁTILES Y TABLETS GRANDES (<= 1280px)
    ========================================================================== */
 @media (max-width: 1280px) {
   #ra-sidebar {
@@ -2464,4 +2480,285 @@ body.ra-capture-mode-active #ra-triad-overlay {
     bottom: 16px;
   }
 }
+
+/* ==========================================================================
+   DISEÑO RESPONSIVO: TABLETS Y PANTALLAS MEDIANAS (<= 1024px)
+   ========================================================================== */
+@media (max-width: 1024px) {
+  #ra-sidebar {
+    width: 330px;
+  }
+  #ra-hud-energy {
+    max-width: 88vw;
+  }
+  #ra-floating-tools-container {
+    right: 64px;
+    bottom: 14px;
+    gap: 6px;
+  }
+  #ra-floating-settings-btn {
+    right: 14px;
+    bottom: 14px;
+  }
+}
+
+/* ==========================================================================
+   DISEÑO RESPONSIVO: SMARTPHONES Y TABLETS VERTICALES (<= 768px)
+   ========================================================================== */
+@media (max-width: 768px) {
+  /* ── 1. Drawer Lateral Deslizable ──────────────────────────────────────── */
+  #ra-mobile-sidebar-backdrop {
+    display: block;
+  }
+  #ra-mobile-sidebar-backdrop.active {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  #ra-sidebar {
+    width: min(88vw, 360px) !important;
+    max-width: 100vw !important;
+    z-index: 10000 !important;
+    box-shadow: 10px 0 40px rgba(0, 0, 0, 0.85) !important;
+  }
+
+  #ra-sidebar.collapsed {
+    transform: translateX(-100%) !important;
+  }
+
+  #ra-sidebar-toggle-btn {
+    top: 64px !important;
+    right: -42px !important;
+    width: 42px !important;
+    height: 48px !important;
+    font-size: 16px !important;
+    border-radius: 0 10px 10px 0 !important;
+    box-shadow: 6px 4px 16px rgba(0, 0, 0, 0.7) !important;
+  }
+
+  .sb-tab-content {
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior: contain !important;
+    padding-bottom: calc(env(safe-area-inset-bottom, 16px) + 28px) !important;
+  }
+
+  /* ── 2. Stepper de 5 Pasos Compacto ───────────────────────────────────── */
+  .wp-stepper-container {
+    padding: 6px 6px !important;
+  }
+  .wp-stepper-header {
+    gap: 2px !important;
+  }
+  .wp-step-btn {
+    padding: 5px 2px !important;
+    min-width: 0 !important;
+  }
+  .wp-step-num {
+    font-size: 11px !important;
+  }
+  .wp-step-title {
+    font-size: 8px !important;
+    letter-spacing: -0.2px !important;
+  }
+
+  /* ── 3. HUD Superior de Energía ────────────────────────────────────────── */
+  #ra-hud-energy {
+    top: 10px !important;
+    max-width: 95vw !important;
+    z-index: 900 !important;
+  }
+  #ra-hud-pill {
+    padding: 4px 10px !important;
+    font-size: 10px !important;
+    gap: 5px !important;
+    border-radius: 20px !important;
+  }
+  #hud-val-neta {
+    font-size: 12.5px !important;
+  }
+  #ra-hud-dropdown {
+    width: min(92vw, 290px) !important;
+    font-size: 10px !important;
+    padding: 10px !important;
+  }
+
+  /* ── 4. Rosa de los Vientos y Botones Flotantes Superiores ─────────────── */
+  #ra-rosa {
+    top: 10px !important;
+    right: 10px !important;
+    width: 62px !important;
+    height: 62px !important;
+    transform: scale(0.72) !important;
+    transform-origin: top right !important;
+    z-index: 850 !important;
+  }
+  #ra-rosa-rumbo {
+    font-size: 9px !important;
+  }
+
+  #ra-bom-fab-btn {
+    top: 84px !important;
+    right: 10px !important;
+    padding: 4px 10px 4px 8px !important;
+    transform: scale(0.88) !important;
+    transform-origin: top right !important;
+    z-index: 850 !important;
+  }
+  #ra-solar-fab-btn {
+    top: 126px !important;
+    right: 10px !important;
+    transform: scale(0.88) !important;
+    transform-origin: top right !important;
+    z-index: 850 !important;
+  }
+
+  /* ── 5. Barra Inferior de Herramientas Flotantes ────────────────────────── */
+  #ra-floating-tools-container {
+    right: 58px !important;
+    bottom: 12px !important;
+    gap: 5px !important;
+    z-index: 9100 !important;
+  }
+  #btn-toggle-measure-tool {
+    width: 42px !important;
+    height: 42px !important;
+  }
+  #btn-toggle-labels-visibility,
+  #btn-toggle-pbr-texture {
+    height: 42px !important;
+    padding: 0 8px !important;
+    gap: 4px !important;
+    font-size: 9px !important;
+    border-radius: 21px !important;
+  }
+  #btn-toggle-labels-visibility span:not(.card-tag),
+  #btn-toggle-pbr-texture span:not(.card-tag) {
+    display: none !important;
+  }
+
+  #ra-floating-settings-btn {
+    right: 12px !important;
+    bottom: 12px !important;
+    width: 42px !important;
+    height: 42px !important;
+    z-index: 9100 !important;
+  }
+  #ra-floating-settings-popover {
+    width: min(310px, calc(100vw - 24px)) !important;
+    right: 12px !important;
+    bottom: 60px !important;
+    padding: 12px !important;
+    max-height: calc(100vh - 80px) !important;
+  }
+
+  /* ── 6. HUD Solar Temporal & Sombras ───────────────────────────────────── */
+  #ra-solar-time-hud {
+    min-width: unset !important;
+    width: 95vw !important;
+    max-width: 95vw !important;
+    left: 50% !important;
+    bottom: 10px !important;
+    padding: 8px 10px !important;
+    font-size: 10.5px !important;
+  }
+  .solar-hud-telemetry {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 4px 8px !important;
+    font-size: 9.5px !important;
+  }
+  .solar-modes-bar {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 4px !important;
+  }
+  .solar-mode-btn {
+    font-size: 9.5px !important;
+    padding: 4px 6px !important;
+    flex: 1 1 calc(50% - 4px) !important;
+  }
+
+  /* ── 7. HUD de Cinta Métrica ───────────────────────────────────────────── */
+  #ra-measure-hud {
+    top: 52px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    max-width: 96vw !important;
+    padding: 4px 10px !important;
+    font-size: 9.5px !important;
+    gap: 6px !important;
+    z-index: 9999 !important;
+  }
+
+  /* ── 8. Modales en Pantalla Táctil Móvil ─────────────────────────────────── */
+  .doc-modal-box,
+  #equipment-catalog-modal,
+  #cost-breakdown-modal,
+  #company-branding-modal,
+  #ra-projects-modal,
+  #ra-pricing-review-modal,
+  #ra-bill-auditor-modal {
+    width: 96vw !important;
+    max-width: 96vw !important;
+    max-height: 94vh !important;
+    padding: 12px 10px !important;
+    border-radius: 10px !important;
+  }
+  .modal-grid-2,
+  .branding-grid,
+  .catalog-form-grid {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+  table {
+    display: block !important;
+    width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  /* ── 9. Accesibilidad Táctil & Prevenir Auto-Zoom en iOS ─────────────────── */
+  button, select, input[type="text"], input[type="number"], .wp-step-btn, .hud-btn {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  input[type="text"], input[type="number"], select {
+    font-size: 16px !important;
+  }
+}
+
+/* ==========================================================================
+   DISEÑO RESPONSIVO: SMARTPHONES ULTRA-COMPACTOS (<= 480px)
+   ========================================================================== */
+@media (max-width: 480px) {
+  #ra-sidebar {
+    width: calc(100vw - 38px) !important;
+  }
+
+  .wp-step-title {
+    display: none !important;
+  }
+  .wp-step-btn {
+    padding: 6px 2px !important;
+  }
+  .wp-step-num {
+    font-size: 12px !important;
+  }
+
+  #ra-hud-pill {
+    padding: 4px 8px !important;
+    font-size: 9.5px !important;
+  }
+  #hud-val-neta {
+    font-size: 11.5px !important;
+  }
+
+  .solar-calc-months-row {
+    display: grid !important;
+    grid-template-columns: repeat(6, 1fr) !important;
+    gap: 2px !important;
+  }
+}
+
 
