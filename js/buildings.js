@@ -58,16 +58,19 @@ function render3DBuildingsInCesium() {
   bldList.forEach(bld => {
     if (!bld.points || bld.points.length < 3 || bld.visible === false) return;
     const isSel = (bld && bld.id === curSelBldId);
-    const baseHex = bld.facadeColor || '#FFFFFF';
-    const roofHex = bld.roofColor || '#FF6400';
+    const baseHex = bld.facadeColor || '#F1F5F9'; // Blanco roto / panel arquitectónico por defecto
+    const roofHex = bld.roofColor || '#E2E8F0';   // Cubierta técnica clara por defecto (evita quemado)
 
     // Usar SIEMPRE el color real elegido por el usuario para fachada y cubierta
-    const facadeColor = Cesium.Color.fromCssColorString(baseHex).withAlpha(0.92);
-    const roofColor = Cesium.Color.fromCssColorString(roofHex).withAlpha(0.96);
+    const facadeColor = Cesium.Color.fromCssColorString(baseHex).withAlpha(0.96);
+    const roofColor = Cesium.Color.fromCssColorString(roofHex).withAlpha(0.98);
+
+    // Matiz arquitectónico para frontones/hastiales (ligeramente sombreado para dar profundidad de contacto bajo el tejado)
+    const hastialColor = facadeColor.darken(0.08, new Cesium.Color());
 
     // 🎨 ESTILOS CAD: Aristas oscuras y definidas para distinguir planos claramente
-    const edgeColor = isSel ? Cesium.Color.fromCssColorString('#0F172A').withAlpha(0.95) : Cesium.Color.fromCssColorString('#334155').withAlpha(0.6);
-    const ridgeColor = isSel ? Cesium.Color.fromCssColorString('#000000').withAlpha(0.95) : Cesium.Color.fromCssColorString('#1E293B').withAlpha(0.7);
+    const edgeColor = isSel ? Cesium.Color.fromCssColorString('#0284C7').withAlpha(0.95) : Cesium.Color.fromCssColorString('#334155').withAlpha(0.85);
+    const ridgeColor = isSel ? Cesium.Color.fromCssColorString('#0284C7').withAlpha(0.95) : Cesium.Color.fromCssColorString('#1E293B').withAlpha(0.90);
     const xRayDash = new Cesium.PolylineDashMaterialProperty({ color: isSel ? Cesium.Color.fromCssColorString('#0F172A').withAlpha(0.2) : Cesium.Color.fromCssColorString('#334155').withAlpha(0.1) });
 
     // [P2] Si fromCartesian falla (punto degenerado), antes se dibujaba un vértice en
@@ -188,7 +191,7 @@ function render3DBuildingsInCesium() {
         });
         const wallPrim = viewer.scene.primitives.add(new Cesium.Primitive({
           geometryInstances: wallInst,
-          appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: true, renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 } }),
+          appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: false, renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 } }),
           shadows: Cesium.ShadowMode.ENABLED,
           asynchronous: false
         }));
@@ -207,7 +210,7 @@ function render3DBuildingsInCesium() {
         });
         const roofPrim = viewer.scene.primitives.add(new Cesium.Primitive({
           geometryInstances: roofInst,
-          appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: true, renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 } }),
+          appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: false, renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 } }),
           shadows: Cesium.ShadowMode.ENABLED,
           asynchronous: false
         }));
@@ -366,7 +369,7 @@ function render3DBuildingsInCesium() {
           });
           const prim = viewer.scene.primitives.add(new Cesium.Primitive({
             geometryInstances: inst,
-            appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: true, renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 } }),
+            appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: false, renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 } }),
             shadows: Cesium.ShadowMode.ENABLED,
             asynchronous: false
           }));
@@ -397,8 +400,8 @@ function render3DBuildingsInCesium() {
       const eps = ridgeSpan * 0.05;
       const hastialMinPts = pEaves.filter((_, i) => projR[i] <= minR + eps);
       const hastialMaxPts = pEaves.filter((_, i) => projR[i] >= maxR - eps);
-      fanTriangles([...hastialMinPts, r1], facadeColor);
-      fanTriangles([...hastialMaxPts, r2], facadeColor);
+      fanTriangles([...hastialMinPts, r1], hastialColor);
+      fanTriangles([...hastialMaxPts, r2], hastialColor);
 
       // ── Muros verticales ─────────────────────────────────────────
       const wallPosGable = [...basePositions, basePositions[0]];
@@ -413,7 +416,7 @@ function render3DBuildingsInCesium() {
         });
         window._buildingPrimitives.push(viewer.scene.primitives.add(new Cesium.Primitive({
           geometryInstances: wi,
-          appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: true, renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 } }),
+          appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: false, renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 } }),
           shadows: Cesium.ShadowMode.ENABLED, asynchronous: false
         })));
       } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[wall gable]', e); }
@@ -488,7 +491,7 @@ function render3DBuildingsInCesium() {
         });
         const wallPrim = viewer.scene.primitives.add(new Cesium.Primitive({
           geometryInstances: wallInst,
-          appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: true, renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 } }),
+          appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: false, renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 } }),
           shadows: Cesium.ShadowMode.ENABLED,
           asynchronous: false
         }));
@@ -506,7 +509,7 @@ function render3DBuildingsInCesium() {
         });
         const roofPrim = viewer.scene.primitives.add(new Cesium.Primitive({
           geometryInstances: roofInst,
-          appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: true, renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 } }),
+          appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: false, renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 } }),
           shadows: Cesium.ShadowMode.ENABLED,
           asynchronous: false
         }));
@@ -570,7 +573,7 @@ function render3DBuildingsInCesium() {
         });
         const wallPrim = viewer.scene.primitives.add(new Cesium.Primitive({
           geometryInstances: wallInst,
-          appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: true, renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 } }),
+          appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: false, renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 } }),
           shadows: Cesium.ShadowMode.ENABLED,
           asynchronous: false
         }));
@@ -596,7 +599,7 @@ function render3DBuildingsInCesium() {
           });
           const triPrim = viewer.scene.primitives.add(new Cesium.Primitive({
             geometryInstances: triInst,
-            appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: true, renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 } }),
+            appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: false, renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 } }),
             shadows: Cesium.ShadowMode.ENABLED,
             asynchronous: false
           }));
@@ -661,9 +664,9 @@ function render3DBuildingsInCesium() {
           name: (bld.name || 'Edificio 3D') + ' - Columna #' + (vi + 1),
           polyline: {
             positions: [bPos, rPos],
-            width: isSel ? 3.0 : 2.0,
+            width: isSel ? 3.5 : 2.5,
             material: edgeColor,
-             arcType: Cesium.ArcType.NONE,
+            arcType: Cesium.ArcType.NONE,
             clampToGround: false, disableDepthTestDistance: Number.POSITIVE_INFINITY
           }
         });

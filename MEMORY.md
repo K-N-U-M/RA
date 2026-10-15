@@ -600,6 +600,11 @@ calculateFinancialModel()  ← Definición canónica en financials.js (~L491)
 - **Hito 11 — Erradicación de Mediciones Fantasma en HUD (Paso 1 sin faldones ni módulos):**
   - En `index.html` (`recalculateSolarYield`): erradicado el fallback legacy `Math.max(Math.floor(usefulArea / moduleArea), 0)` que generaba paneles teóricos ficticios en cubiertas sin faldón ni módulos. Si `numPanels === 0`, invoca `resetSolarDashboard()`, refresca `RAProjectStatusHUD` y retorna de inmediato sin cómputo de radiación.
   - En `resetSolarDashboard()`: oculta el HUD flotante de energía (`#ra-hud-energy`), oculta `#yield-breakdown-panel` y resetea las estadísticas del proyecto en `window.RA.solarStats` a 0.
+- **Hito 12 — Sombreado Dinámico Phong y Aristas Arquitectónicas CAD en Edificios 3D:**
+  - En `js/buildings.js`: conmutadas todas las apariencias de `flat: true` a `flat: false` en `PerInstanceColorAppearance` (muros verticales y cubiertas planas, a dos aguas, shed e hip). Ahora Cesium calcula el producto escalar $\vec{N} \cdot \vec{L}$ con el Sol real, diferenciando caras en sol y en sombra.
+  - Frontones/hastiales triangulares diferenciados con `facadeColor.darken(0.08)` para simular oclusión de contacto bajo el alero.
+  - Aristas verticales y perimetrales CAD reforzadas (`width: 3.5/2.5`, opacidad 0.85/0.90 en `#334155`/`#1E293B`) para perfilar con nitidez cada cambio de plano vertical.
+  - Paleta arquitectónica por defecto actualizada en `index.html` y `js/buildings.js` a blanco roto industrial `#F1F5F9` y cubierta técnica `#E2E8F0`, eliminando el quemado blanco absoluto.
 
 
 
