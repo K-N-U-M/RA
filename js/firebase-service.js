@@ -25,6 +25,15 @@
   let _currentUser = null;
   let _initialized = false;
 
+  const DEFAULT_FIREBASE_CONFIG = {
+    apiKey: "AIzaSyA96UjIJVDIxEZV4KN38Oax0faOPXaeuF4",
+    authDomain: "ra-solar-3d.firebaseapp.com",
+    projectId: "ra-solar-3d",
+    storageBucket: "ra-solar-3d.firebasestorage.app",
+    messagingSenderId: "611795919942",
+    appId: "1:611795919942:web:198920f0f7903723ed1647"
+  };
+
   function getStoredConfig() {
     if (global.RA_FIREBASE_CONFIG && typeof global.RA_FIREBASE_CONFIG === 'object') {
       return global.RA_FIREBASE_CONFIG;
@@ -33,7 +42,7 @@
       const stored = localStorage.getItem(CONFIG_STORAGE_KEY);
       if (stored) return JSON.parse(stored);
     } catch(e) {}
-    return null;
+    return DEFAULT_FIREBASE_CONFIG;
   }
 
   function setStoredConfig(cfg) {

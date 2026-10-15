@@ -19,3 +19,7 @@ yarn-error.log*
 # IDEs
 .vscode/
 .idea/
+
+# Firebase cache
+.firebase/
+
