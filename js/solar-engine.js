@@ -1036,7 +1036,10 @@ function renderAnalysisResults(r) {
     aggregateSigma *= sourceFactor;
 
     // Monte Carlo draws with correlated random values
-    let seed = 42;
+    const pLat = (r && r.latDeg) || 40.41;
+    const pLon = (r && r.lonDeg) || -3.70;
+    const pKwp = (r && r.kwp) || 5.0;
+    let seed = Math.abs(Math.floor(pLat * 10000 + pLon * 1000 + pKwp * 100)) || 42;
     function mulberry32(a) {
       return function() {
         a |= 0; a = a + 0x6D2B79F5 | 0;
