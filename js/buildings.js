@@ -174,23 +174,25 @@ function render3DBuildingsInCesium() {
     // ─────────────────────────────────────────────────────────────────
     if (rType === 'flat') {
       const roofPositions = roofCartoList.map(c => Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, roofHeight));
-      const wallPositions = [...basePositions, basePositions[0]];
-      const minHeights = wallPositions.map(() => avgBaseHeight);
-      const maxHeights = wallPositions.map(() => roofHeight);
-
-      // Muros Verticales
+      // Muros Verticales segmentados por cara plana (evita curvatura y pinzado de normales en esquinas a 90°)
       try {
-        const wallInst = new Cesium.GeometryInstance({
-          geometry: new Cesium.WallGeometry({
-            positions: wallPositions,
-            minimumHeights: minHeights,
-            maximumHeights: maxHeights
-          }),
-          attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(facadeColor) },
-          id: (bld.id || 'bld') + '_wall_prim'
-        });
+        const wallInstances = [];
+        const nWalls = basePositions.length;
+        for (let i = 0; i < nWalls; i++) {
+          const pA = basePositions[i];
+          const pB = basePositions[(i + 1) % nWalls];
+          wallInstances.push(new Cesium.GeometryInstance({
+            geometry: new Cesium.WallGeometry({
+              positions: [pA, pB],
+              minimumHeights: [avgBaseHeight, avgBaseHeight],
+              maximumHeights: [roofHeight, roofHeight]
+            }),
+            attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(facadeColor) },
+            id: (bld.id || 'bld') + '_wall_' + i
+          }));
+        }
         const wallPrim = viewer.scene.primitives.add(new Cesium.Primitive({
-          geometryInstances: wallInst,
+          geometryInstances: wallInstances,
           appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: false, renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 } }),
           shadows: Cesium.ShadowMode.ENABLED,
           asynchronous: false
@@ -266,7 +268,7 @@ function render3DBuildingsInCesium() {
             appearance: new Cesium.PerInstanceColorAppearance({ 
               translucent: false, 
               closed: true, 
-              flat: true,
+              flat: false,
               renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 } 
             }),
             shadows: Cesium.ShadowMode.ENABLED, 
@@ -403,19 +405,25 @@ function render3DBuildingsInCesium() {
       fanTriangles([...hastialMinPts, r1], hastialColor);
       fanTriangles([...hastialMaxPts, r2], hastialColor);
 
-      // ── Muros verticales ─────────────────────────────────────────
-      const wallPosGable = [...basePositions, basePositions[0]];
+      // ── Muros verticales segmentados por cara plana ───────────────
       try {
-        const wi = new Cesium.GeometryInstance({
-          geometry: new Cesium.WallGeometry({
-            positions: wallPosGable,
-            minimumHeights: wallPosGable.map(() => avgBaseHeight),
-            maximumHeights: wallPosGable.map(() => roofHeight)
-          }),
-          attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(facadeColor) }
-        });
+        const wallInstances = [];
+        const nWalls = basePositions.length;
+        for (let i = 0; i < nWalls; i++) {
+          const pA = basePositions[i];
+          const pB = basePositions[(i + 1) % nWalls];
+          wallInstances.push(new Cesium.GeometryInstance({
+            geometry: new Cesium.WallGeometry({
+              positions: [pA, pB],
+              minimumHeights: [avgBaseHeight, avgBaseHeight],
+              maximumHeights: [roofHeight, roofHeight]
+            }),
+            attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(facadeColor) },
+            id: (bld.id || 'bld') + '_gable_wall_' + i
+          }));
+        }
         window._buildingPrimitives.push(viewer.scene.primitives.add(new Cesium.Primitive({
-          geometryInstances: wi,
+          geometryInstances: wallInstances,
           appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: false, renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 } }),
           shadows: Cesium.ShadowMode.ENABLED, asynchronous: false
         })));
@@ -477,20 +485,26 @@ function render3DBuildingsInCesium() {
         return Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, Math.max(vHeight, avgBaseHeight + 1.0));
       });
 
-      const wallPositions = [...basePositions, basePositions[0]];
-      const maxHeights = [...slopePositions.map(p => Cesium.Cartographic.fromCartesian(p).height), Cesium.Cartographic.fromCartesian(slopePositions[0]).height];
-
       try {
-        const wallInst = new Cesium.GeometryInstance({
-          geometry: new Cesium.WallGeometry({
-            positions: wallPositions,
-            minimumHeights: wallPositions.map(() => avgBaseHeight),
-            maximumHeights: maxHeights
-          }),
-          attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(facadeColor) }
-        });
+        const wallInstances = [];
+        const nWalls = basePositions.length;
+        for (let i = 0; i < nWalls; i++) {
+          const pA = basePositions[i];
+          const pB = basePositions[(i + 1) % nWalls];
+          const hA = Cesium.Cartographic.fromCartesian(slopePositions[i]).height;
+          const hB = Cesium.Cartographic.fromCartesian(slopePositions[(i + 1) % nWalls]).height;
+          wallInstances.push(new Cesium.GeometryInstance({
+            geometry: new Cesium.WallGeometry({
+              positions: [pA, pB],
+              minimumHeights: [avgBaseHeight, avgBaseHeight],
+              maximumHeights: [hA, hB]
+            }),
+            attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(facadeColor) },
+            id: (bld.id || 'bld') + '_shed_wall_' + i
+          }));
+        }
         const wallPrim = viewer.scene.primitives.add(new Cesium.Primitive({
-          geometryInstances: wallInst,
+          geometryInstances: wallInstances,
           appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: false, renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 } }),
           shadows: Cesium.ShadowMode.ENABLED,
           asynchronous: false
@@ -561,18 +575,24 @@ function render3DBuildingsInCesium() {
       const apex = Cesium.Cartesian3.fromRadians(cLon, cLat, apexHeight);
       const pEaves = roofCartoList.map(c => Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, roofHeight));
 
-      const wallPositions = [...basePositions, basePositions[0]];
       try {
-        const wallInst = new Cesium.GeometryInstance({
-          geometry: new Cesium.WallGeometry({
-            positions: wallPositions,
-            minimumHeights: wallPositions.map(() => avgBaseHeight),
-            maximumHeights: wallPositions.map(() => roofHeight)
-          }),
-          attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(facadeColor) }
-        });
+        const wallInstances = [];
+        const nWalls = basePositions.length;
+        for (let i = 0; i < nWalls; i++) {
+          const pA = basePositions[i];
+          const pB = basePositions[(i + 1) % nWalls];
+          wallInstances.push(new Cesium.GeometryInstance({
+            geometry: new Cesium.WallGeometry({
+              positions: [pA, pB],
+              minimumHeights: [avgBaseHeight, avgBaseHeight],
+              maximumHeights: [roofHeight, roofHeight]
+            }),
+            attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(facadeColor) },
+            id: (bld.id || 'bld') + '_hip_wall_' + i
+          }));
+        }
         const wallPrim = viewer.scene.primitives.add(new Cesium.Primitive({
-          geometryInstances: wallInst,
+          geometryInstances: wallInstances,
           appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: false, renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 } }),
           shadows: Cesium.ShadowMode.ENABLED,
           asynchronous: false
