@@ -2458,7 +2458,14 @@ body.ra-capture-mode-active #ra-triad-overlay {
 }
 
 #ra-mobile-menu-btn {
-  display: none;
+  display: none !important;
+}
+
+#ra-project-status-hud {
+  position: fixed !important;
+  top: 16px !important;
+  right: 145px !important;
+  z-index: 9400 !important;
 }
 
 /* ==========================================================================

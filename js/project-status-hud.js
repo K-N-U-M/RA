@@ -36,9 +36,9 @@
       hudContainer.id = 'ra-project-status-hud';
       hudContainer.style.cssText = `
         position: fixed;
-        top: 60px;
-        right: 20px;
-        z-index: 9999;
+        top: 16px;
+        right: 145px;
+        z-index: 9400;
         display: flex;
         flex-direction: column;
         gap: 6px;
@@ -233,9 +233,9 @@
 
     const s = inspectProjectState();
 
-    // En pantallas móviles (<= 768px), si no hay paneles diseñados (0 kWp), ocultar para no saturar la pantalla
+    // Ocultar si no hay paneles diseñados (0 kWp) o en pantallas móviles (<= 768px)
     const isMobile = (typeof window !== 'undefined' && window.innerWidth <= 768);
-    if (isMobile && s.numPanels === 0) {
+    if (isMobile || s.numPanels === 0) {
       hudContainer.style.display = 'none';
       return;
     } else {

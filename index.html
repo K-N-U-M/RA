@@ -59,10 +59,10 @@ window.RA_App = window.RA_App || {};
   <script src="js/bom-tree.js?v=20261015f"></script>
   <script src="js/engineering-explainer.js?v=20260929b"></script>
   <script src="js/equipment-ai-importer.js?v=20261014a"></script>
-  <script src="js/project-status-hud.js?v=20261015d"></script>
+  <script src="js/project-status-hud.js?v=20261015g"></script>
   <script src="js/firebase-service.js?v=20261015d"></script>
 
-    <link rel="stylesheet" href="css/styles.css?v=20261015f">
+    <link rel="stylesheet" href="css/styles.css?v=20261015g">
 
   <!-- Lucide SVG Icons -->
   <script src="https://unpkg.com/lucide@1.48.0" integrity="sha384-Hh7C333mXel+qppGoFs4qAOXp7h67eur4XsQVF2bvHAM3MQ4DX4cQI7oRCzb98J4" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
@@ -275,8 +275,8 @@ window.RA_App = window.RA_App || {};
   <!-- TOOLTIP 3D DE CURSOR -->
   <div id="ra-cursor-tip"></div>
 
-  <!-- BOTÓN FLOTANTE MENÚ HAMBURGUESA INDEPENDIENTE (FUERA DEL TRANSFORM DEL SIDEBAR) -->
-  <button type="button" id="ra-mobile-menu-btn" onclick="toggleSidebarCollapse()" title="Abrir Menú de Diseño Fotovoltaico" aria-label="Abrir menú de diseño" style="position:fixed; top:16px; left:16px; z-index:999999; width:48px; height:48px; border-radius:12px; background:rgba(15,23,42,0.94); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border:1.5px solid rgba(245,158,11,0.65); box-shadow:0 6px 20px rgba(0,0,0,0.75), 0 0 15px rgba(245,158,11,0.25); color:#F59E0B; display:flex; align-items:center; justify-content:center; cursor:pointer; user-select:none; -webkit-tap-highlight-color:transparent; padding:0;">
+  <!-- BOTÓN FLOTANTE MENÚ HAMBURGUESA INDEPENDIENTE (SÓLO MÓVIL <= 768px) -->
+  <button type="button" id="ra-mobile-menu-btn" onclick="toggleSidebarCollapse()" title="Abrir Menú de Diseño Fotovoltaico" aria-label="Abrir menú de diseño">
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <line x1="4" y1="6" x2="20" y2="6"></line>
       <line x1="4" y1="12" x2="20" y2="12"></line>
