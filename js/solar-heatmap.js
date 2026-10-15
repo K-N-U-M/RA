@@ -985,8 +985,10 @@
         p.annualYieldPct = Math.max(0, Math.round((100 - p.annualLossPct) * 10) / 10);
 
         const netWh = Math.max(0, p.annualTotalPotential - (p.annualShadedLoss || 0));
-        // Generación neta anual en kWh por panel
-        p.annualKwh = Math.round((netWh / 1000.0) * pKwp * prSys);
+        // Generación bruta anual fotovoltaica y generación neta tras PR de sistema
+        p.annualGrossKwh = (netWh / 1000.0) * pKwp;
+        p._lastPrSys = prSys;
+        p.annualKwh = Math.round(p.annualGrossKwh * prSys);
         p.annualTotalInsolation = Math.round(netWh / 1000.0);
 
         // Rendimiento comparativo relativo al módulo óptimo de la instalación
@@ -1084,6 +1086,8 @@
           if (match && match !== p) {
             match.annualLossPct = p.annualLossPct;
             match.annualYieldPct = p.annualYieldPct;
+            match.annualGrossKwh = p.annualGrossKwh;
+            match._lastPrSys = p._lastPrSys;
             match.annualKwh = p.annualKwh;
             match.relativeYieldPct = p.relativeYieldPct;
             match.heatmapColor = p.heatmapColor;
@@ -1109,6 +1113,8 @@
         const data = {
           annualLossPct: p.annualLossPct,
           annualYieldPct: p.annualYieldPct,
+          annualGrossKwh: p.annualGrossKwh,
+          _lastPrSys: p._lastPrSys,
           annualKwh: p.annualKwh,
           relativeYieldPct: p.relativeYieldPct,
           heatmapColor: p.heatmapColor,

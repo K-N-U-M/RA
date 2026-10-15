@@ -6457,7 +6457,8 @@ function recalculateSolarYield() {
     // Factor de radiación en plano inclinado POA / GHI (Directa + Difusa celeste + Reflejada del suelo albedo 0.2)
     const poaFactor = (dniFrac * rbMid) + (dhiFrac * (1.0 + Math.cos(tiltRad)) / 2.0) + (0.20 * (1.0 - Math.cos(tiltRad)) / 2.0);
 
-    const dailyPoa = SOLAR_RAD_MONTHLY_BASE[m] * Math.max(0.15, poaFactor) * latFactor;
+    // Calibración climatológica estándar CTE DB-HE5 / PVGIS para radiación en plano inclinado
+    const dailyPoa = SOLAR_RAD_MONTHLY_BASE[m] * Math.max(0.15, poaFactor) * latFactor * 0.88;
     // Producción bruta (sin sistema ni sombras)
     const monthlyGrossKWh = peakPowerKW * dailyPoa * MONTH_DAYS[m];
     annualGrossYield += monthlyGrossKWh;
@@ -6506,20 +6507,39 @@ function recalculateSolarYield() {
   let annualSystemLossKWh = Math.round(energyAfterShadows * (1.0 - pr));
   annualYieldKWh = Math.max(0, energyAfterShadows - annualSystemLossKWh);
 
-  // Sincronizar cada panel individual en 3D con el nuevo PR
+  // Sincronizar reactivamente cada panel individual en 3D con el nuevo PR
   if (typeof window.allRenderedPanels !== 'undefined' && Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0) {
     const hasDetailedHeatmap = !!(window.solarSimState && window.solarSimState.annualHeatmapData && !window.solarSimState.annualHeatmapDirty);
     const nPanels = window.allRenderedPanels.length;
+    const prSys = (typeof prObj.prBOS === 'number') ? prObj.prBOS : (pr / (0.925 * (1 - 0.028)));
 
-    if (hasDetailedHeatmap && window.allRenderedPanels.some(p => typeof p.annualKwh === 'number' && p.annualKwh > 0)) {
+    const hasSimulatedPanels = window.allRenderedPanels.some(p =>
+      (typeof p.annualGrossKwh === 'number' && p.annualGrossKwh > 0) ||
+      (typeof p.annualKwh === 'number' && p.annualKwh > 0)
+    );
+
+    if (hasDetailedHeatmap && hasSimulatedPanels) {
       // SSOT: Si la simulación física detallada ya calculó la energía por panel (raycast + POA por faldón),
-      // sumamos directamente la energía de los paneles para el balance general del proyecto
+      // reescalamos reactivamente la producción con el nuevo PR del sistema
       let simulatedTotalKWh = 0;
+      let simulatedGrossKWh = 0;
       window.allRenderedPanels.forEach(p => {
-        simulatedTotalKWh += (p.annualKwh || 0);
+        const gross = (typeof p.annualGrossKwh === 'number' && p.annualGrossKwh > 0)
+          ? p.annualGrossKwh
+          : (p.annualKwh ? (p.annualKwh / (p._lastPrSys || 0.885)) : 0);
+        p.annualGrossKwh = gross;
+        p._lastPrSys = prSys;
+        p.annualKwh = Math.round(gross * prSys);
+        simulatedGrossKWh += gross;
+        simulatedTotalKWh += p.annualKwh;
       });
+
       if (simulatedTotalKWh > 0) {
         annualYieldKWh = simulatedTotalKWh;
+        annualGrossKWh = Math.round(simulatedGrossKWh);
+        annualSystemLossKWh = Math.max(0, Math.round(annualGrossKWh * (1.0 - prSys)));
+        energyAfterShadows = annualYieldKWh + annualSystemLossKWh;
+        annualShadowLossKWh = Math.max(0, Math.round((annualGrossKWh / Math.max(0.01, 1 - avgShadowLossPct / 100)) * (avgShadowLossPct / 100)));
       }
     } else {
       window.allRenderedPanels.forEach(p => {
@@ -6529,8 +6549,13 @@ function recalculateSolarYield() {
     }
   }
 
-  // Apply shadow factor to monthly yields as well
+  // Apply shadow factor to monthly yields as well and scale to match annualYieldKWh
   monthlyYields = monthlyYields.map(v => Math.round(v * shadowLossFactor));
+  const sumMonthly = monthlyYields.reduce((a, b) => a + b, 0);
+  if (sumMonthly > 0 && annualYieldKWh > 0) {
+    const ratio = annualYieldKWh / sumMonthly;
+    monthlyYields = monthlyYields.map(v => Math.round(v * ratio));
+  }
 
   const optTilt = Math.max(latDeg - 10, 25.0);
   const tiltFactor = Math.cos(Cesium.Math.toRadians(Math.abs(modTilt - optTilt) * 0.65));
@@ -12556,6 +12581,12 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
               if (pM && cM && pM.wp && cM.wp) scale = cM.wp / pM.wp;
             }
             
+            p.annualGrossKwh = (typeof src.annualGrossKwh === 'number')
+              ? src.annualGrossKwh * scale
+              : ((typeof src.annualTotalPotential === 'number')
+                  ? Math.max(0, src.annualTotalPotential - (src.annualShadedLoss || 0)) / 1000.0 * (((window.solarProjectConfig && window.solarProjectConfig.selectedModule && window.solarProjectConfig.selectedModule.wp) || 450) / 1000.0)
+                  : (typeof src.annualKwh === 'number' ? src.annualKwh / 0.885 : undefined));
+            p._lastPrSys = src._lastPrSys || 0.885;
             p.annualKwh = typeof src.annualKwh === 'number' ? Math.round(src.annualKwh * scale) : src.annualKwh;
             p.relativeYieldPct = src.relativeYieldPct;
             p.heatmapColor = src.heatmapColor;
@@ -12731,6 +12762,8 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
               hasMLPE: !!panelData.hasMLPE,
               annualLossPct: panelData.annualLossPct || 0,
               annualYieldPct: panelData.annualYieldPct,
+              annualGrossKwh: panelData.annualGrossKwh,
+              _lastPrSys: panelData._lastPrSys,
               annualKwh: panelData.annualKwh,
               relativeYieldPct: panelData.relativeYieldPct,
               isNormal: panelData.isNormal,
@@ -12800,6 +12833,8 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
             hasMLPE: !!panelData.hasMLPE,
             annualLossPct: panelData.annualLossPct || 0,
             annualYieldPct: panelData.annualYieldPct,
+            annualGrossKwh: panelData.annualGrossKwh,
+            _lastPrSys: panelData._lastPrSys,
             annualKwh: panelData.annualKwh,
             relativeYieldPct: panelData.relativeYieldPct,
             isNormal: panelData.isNormal,
