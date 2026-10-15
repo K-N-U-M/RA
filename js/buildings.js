@@ -20,6 +20,41 @@
     window.selectedBuildingId = (typeof window.selectedBuildingId !== 'undefined') ? window.selectedBuildingId : null;
   }
 
+  // ── SHADER ARQUITECTÓNICO MATE (Zero-Specular / Físico Solar) ───────────────
+  // Erradica los artefactos Phong (reflejos plásticos, bandas diagonales de brillo y luz de linterna)
+  const BUILDINGS_MATTE_FS = `
+    in vec3 v_positionEC;
+    in vec3 v_normalEC;
+    in vec4 v_color;
+
+    void main()
+    {
+        vec3 normalEC = normalize(v_normalEC);
+    #ifdef FACE_FORWARD
+        normalEC = faceforward(normalEC, vec3(0.0, 0.0, 1.0), -normalEC);
+    #endif
+
+        vec4 color = czm_gammaCorrect(v_color);
+
+        // Iluminación solar arquitectónica mate (sin reflejo especular plástico)
+        float nDotL = max(dot(normalEC, czm_sunDirectionEC), 0.0);
+        float ambient = 0.40 + 0.15 * max(normalEC.z, 0.0);
+        vec3 litColor = color.rgb * (ambient + 0.55 * nDotL * czm_lightColor);
+
+        out_FragColor = vec4(litColor, color.a);
+    }
+  `;
+
+  function createBuildingMatteAppearance(closed) {
+    return new Cesium.PerInstanceColorAppearance({
+      translucent: false,
+      closed: (closed !== false),
+      flat: false,
+      renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 },
+      fragmentShaderSource: BUILDINGS_MATTE_FS
+    });
+  }
+
 function render3DBuildingsInCesium() {
   // 1. Limpiar Primitivas WebGL directas previas
   if (window._buildingPrimitives && Array.isArray(window._buildingPrimitives)) {
@@ -193,7 +228,7 @@ function render3DBuildingsInCesium() {
         }
         const wallPrim = viewer.scene.primitives.add(new Cesium.Primitive({
           geometryInstances: wallInstances,
-          appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: false, renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 } }),
+          appearance: createBuildingMatteAppearance(true),
           shadows: Cesium.ShadowMode.ENABLED,
           asynchronous: false
         }));
@@ -212,7 +247,7 @@ function render3DBuildingsInCesium() {
         });
         const roofPrim = viewer.scene.primitives.add(new Cesium.Primitive({
           geometryInstances: roofInst,
-          appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: false, renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 } }),
+          appearance: createBuildingMatteAppearance(true),
           shadows: Cesium.ShadowMode.ENABLED,
           asynchronous: false
         }));
@@ -265,12 +300,7 @@ function render3DBuildingsInCesium() {
 
           const thickParPrim = viewer.scene.primitives.add(new Cesium.Primitive({
             geometryInstances: solidParapetInst,
-            appearance: new Cesium.PerInstanceColorAppearance({ 
-              translucent: false, 
-              closed: true, 
-              flat: false,
-              renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 } 
-            }),
+            appearance: createBuildingMatteAppearance(true),
             shadows: Cesium.ShadowMode.ENABLED, 
             asynchronous: false
           }));
@@ -371,7 +401,7 @@ function render3DBuildingsInCesium() {
           });
           const prim = viewer.scene.primitives.add(new Cesium.Primitive({
             geometryInstances: inst,
-            appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: false, renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 } }),
+            appearance: createBuildingMatteAppearance(true),
             shadows: Cesium.ShadowMode.ENABLED,
             asynchronous: false
           }));
@@ -424,7 +454,7 @@ function render3DBuildingsInCesium() {
         }
         window._buildingPrimitives.push(viewer.scene.primitives.add(new Cesium.Primitive({
           geometryInstances: wallInstances,
-          appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: false, renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 } }),
+          appearance: createBuildingMatteAppearance(true),
           shadows: Cesium.ShadowMode.ENABLED, asynchronous: false
         })));
       } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[wall gable]', e); }
@@ -505,7 +535,7 @@ function render3DBuildingsInCesium() {
         }
         const wallPrim = viewer.scene.primitives.add(new Cesium.Primitive({
           geometryInstances: wallInstances,
-          appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: false, renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 } }),
+          appearance: createBuildingMatteAppearance(true),
           shadows: Cesium.ShadowMode.ENABLED,
           asynchronous: false
         }));
@@ -523,7 +553,7 @@ function render3DBuildingsInCesium() {
         });
         const roofPrim = viewer.scene.primitives.add(new Cesium.Primitive({
           geometryInstances: roofInst,
-          appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: false, renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 } }),
+          appearance: createBuildingMatteAppearance(true),
           shadows: Cesium.ShadowMode.ENABLED,
           asynchronous: false
         }));
@@ -593,7 +623,7 @@ function render3DBuildingsInCesium() {
         }
         const wallPrim = viewer.scene.primitives.add(new Cesium.Primitive({
           geometryInstances: wallInstances,
-          appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: false, renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 } }),
+          appearance: createBuildingMatteAppearance(true),
           shadows: Cesium.ShadowMode.ENABLED,
           asynchronous: false
         }));
@@ -619,7 +649,7 @@ function render3DBuildingsInCesium() {
           });
           const triPrim = viewer.scene.primitives.add(new Cesium.Primitive({
             geometryInstances: triInst,
-            appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true, flat: false, renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 } }),
+            appearance: createBuildingMatteAppearance(true),
             shadows: Cesium.ShadowMode.ENABLED,
             asynchronous: false
           }));
