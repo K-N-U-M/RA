@@ -64,7 +64,21 @@
     const Vmppt_min  = invParams.VmpptMin || invParams.vMpptMin || invParams.vMpptNomMin || (liveInv ? (liveInv.vMpptNomMin || liveInv.vMpptMin || 200) : 200.0);
     const Vmppt_max  = invParams.VmpptMax || invParams.vMpptMax || invParams.vMpptNomMax || (liveInv ? (liveInv.vMpptNomMax || liveInv.vMpptMax || 850) : 850.0);
 
-    const Tmin = climParams.Tmin !== undefined ? climParams.Tmin : (climParams.tMinCold !== undefined ? climParams.tMinCold : ELEC_CONSTANTS.T_MIN_SPAIN);
+    // Zonificación térmica peninsular de diseño en frío (CTE DB-HE1 / UNE 206007 / IDAE)
+    function getCTEZonificationTmin(lat, lng, altitudM) {
+      if (typeof lat !== 'number') return ELEC_CONSTANTS.T_MIN_SPAIN;
+      const altitude = (typeof altitudM === 'number') ? altitudM : 600;
+      if ((lat < 39.0 && lng > -4.5) || (lng > -0.5 && lat < 42.0)) return -4.0; // Costal Mediterráneo / Sur
+      if (lat > 42.8 && lng < -1.5 && altitude < 400) return -6.0;               // Cornisa Cantábrica
+      if (altitude > 900 || (lat > 40.0 && lat < 42.5 && lng > -5.5 && lng < -1.5)) return -14.0; // Meseta Central elevada
+      return ELEC_CONSTANTS.T_MIN_SPAIN;
+    }
+
+    const projLat = climParams.lat || (root.solarProjectConfig && root.solarProjectConfig.lat);
+    const projLng = climParams.lng || (root.solarProjectConfig && root.solarProjectConfig.lng);
+    const defaultTmin = (projLat != null) ? getCTEZonificationTmin(Number(projLat), Number(projLng)) : ELEC_CONSTANTS.T_MIN_SPAIN;
+
+    const Tmin = climParams.Tmin !== undefined ? climParams.Tmin : (climParams.tMinCold !== undefined ? climParams.tMinCold : defaultTmin);
     const Tmax_cell = climParams.TmaxCell !== undefined ? climParams.TmaxCell : (climParams.tMaxHot !== undefined ? climParams.tMaxHot : 70.0);
 
     const Voc_Tmin = Voc_STC * (1 + betaVoc * (Tmin - 25.0));
