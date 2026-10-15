@@ -86,6 +86,37 @@
   }
 
   /**
+   * Ajusta un número objetivo de módulos al múltiplo válido más cercano
+   * que cumpla la ventana de strings admisibles [Ns_min, Ns_max] sin dejar cadenas fuera de rango.
+   * @param {number} targetCount Número de módulos deseado
+   * @param {number} [nsMin=6] Mínimo de módulos por string (Vmp caliente >= Vmppt_min)
+   * @param {number} [nsMax=18] Máximo de módulos por string (Voc frío <= Vmax_inv)
+   * @param {number} [maxStrings=4] Capacidad máxima de strings del inversor
+   * @returns {number} Número óptimo de módulos que forma strings válidos
+   */
+  function getNearestValidStringModuleCount(targetCount, nsMin = 6, nsMax = 18, maxStrings = 4) {
+    if (!targetCount || targetCount <= 0) return 0;
+    const minM = Math.max(1, nsMin || 6);
+    const maxM = Math.max(minM, nsMax || 18);
+    const limitStrings = Math.max(1, maxStrings || 4);
+
+    let bestCount = targetCount;
+    let minDiff = Infinity;
+
+    for (let s = 1; s <= limitStrings; s++) {
+      const minPossible = s * minM;
+      const maxPossible = s * maxM;
+      const clamped = Math.max(minPossible, Math.min(maxPossible, targetCount));
+      const diff = Math.abs(clamped - targetCount);
+      if (diff < minDiff) {
+        minDiff = diff;
+        bestCount = clamped;
+      }
+    }
+    return bestCount;
+  }
+
+  /**
    * Ordena un conjunto de paneles en una secuencia física continua Snake (boustrophedon)
    * de instalador profesional: recorre fila a fila o columna a columna de forma contigua
    * minimizando saltos y longitud de conductores MC4 (UNE-EN 62305 / IEC 62548).
@@ -599,7 +630,148 @@
       }
     });
 
-    return { changed, mpptCount, capPer, totalStrings, overflow: totalStrings > mpptCount * capPer };
+    const homogeneity = validateMPPTHomogeneity(panels);
+    if (!homogeneity.valid && typeof window !== 'undefined' && typeof window.showToast === 'function') {
+      window.showToast('⚠️ ' + homogeneity.violations[0].msg, 'warning');
+    }
+
+    return {
+      changed,
+      mpptCount,
+      capPer,
+      totalStrings,
+      overflow: totalStrings > mpptCount * capPer,
+      valid: homogeneity.valid,
+      violations: homogeneity.violations
+    };
+  }
+
+  /**
+   * Valida la homogeneidad de orientación de strings en paralelo sobre el mismo canal MPPT.
+   * Regla dura IEC 62548:
+   * Si dos strings en paralelo en el mismo MPPT difieren en inclinación (|Δβ| > 5°)
+   * o azimut (|Δγ| > 10°), genera alerta y marca valid: false.
+   */
+  function validateMPPTHomogeneity(panels) {
+    let targetPanels = Array.isArray(panels) && panels.length > 0 ? panels : null;
+    if (!targetPanels && typeof window !== 'undefined') {
+      if (Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0) {
+        targetPanels = window.allRenderedPanels;
+      } else if (window.WP && Array.isArray(window.WP.polylines)) {
+        const collected = [];
+        window.WP.polylines.forEach(pl => {
+          const arr = (pl && pl.roofInfo && Array.isArray(pl.roofInfo.panels)) ? pl.roofInfo.panels : (pl && Array.isArray(pl.panels) ? pl.panels : null);
+          if (arr) arr.forEach(p => collected.push(p));
+        });
+        if (collected.length > 0) targetPanels = collected;
+      }
+    }
+    if (!Array.isArray(targetPanels) || targetPanels.length === 0) {
+      return { valid: true, violations: [] };
+    }
+
+    // Agrupar strings por canal MPPT
+    const mpptGroups = new Map();
+    targetPanels.forEach(p => {
+      if (!p || !p.stringName || !p.mpptId) return;
+      if (!mpptGroups.has(p.mpptId)) mpptGroups.set(p.mpptId, new Map());
+      const strMap = mpptGroups.get(p.mpptId);
+      if (!strMap.has(p.stringName)) {
+        let tilt = typeof p.tiltDeg === 'number' ? p.tiltDeg : null;
+        let az = typeof p.azimuthDeg === 'number' ? p.azimuthDeg : null;
+        if ((tilt == null || az == null) && typeof window !== 'undefined' && window.WP && Array.isArray(window.WP.polylines)) {
+          const poly = window.WP.polylines[p.polyIdx];
+          if (poly) {
+            if (tilt == null) tilt = (poly.roofInfo && typeof poly.roofInfo.tiltDeg === 'number') ? poly.roofInfo.tiltDeg : (poly.tiltDeg || 0);
+            if (az == null) az = (poly.roofInfo && typeof poly.roofInfo.azimuthDeg === 'number') ? poly.roofInfo.azimuthDeg : (poly.azimuthDeg || 0);
+          }
+        }
+        strMap.set(p.stringName, {
+          tilt: tilt || 0,
+          az: az || 0,
+          polyIdx: p.polyIdx
+        });
+      }
+    });
+
+    const violations = [];
+    mpptGroups.forEach((strMap, mpptId) => {
+      const strings = Array.from(strMap.entries());
+      if (strings.length <= 1) return;
+      for (let i = 0; i < strings.length; i++) {
+        for (let j = i + 1; j < strings.length; j++) {
+          const [nameA, dataA] = strings[i];
+          const [nameB, dataB] = strings[j];
+          const deltaTilt = Math.abs(dataA.tilt - dataB.tilt);
+          let deltaAz = Math.abs(dataA.az - dataB.az);
+          if (deltaAz > 180) deltaAz = 360 - deltaAz;
+
+          if (deltaTilt > 5.0 || deltaAz > 10.0) {
+            const msg = `Incompatibilidad MPPT en Canal ${mpptId}: Strings '${nameA}' y '${nameB}' en paralelo difieren en orientación (Δβ = ${deltaTilt.toFixed(1)}°, Δγ = ${deltaAz.toFixed(1)}°). Produce recirculación y pérdida de tracking (IEC 62548).`;
+            violations.push({
+              mpptId,
+              stringA: nameA,
+              stringB: nameB,
+              deltaTilt,
+              deltaAz,
+              msg
+            });
+          }
+        }
+      }
+    });
+
+    return {
+      valid: violations.length === 0,
+      violations
+    };
+  }
+
+  /**
+   * Modela la curva de rendimiento del inversor y recorte dinámico de potencia (Clipping).
+   * @param {Object} opts
+   * @param {number} opts.pDcW Potencia DC instantánea total (W)
+   * @param {number} opts.pAcNomW Potencia nominal AC del inversor (W)
+   * @param {number} [opts.pAcMaxW] Potencia máxima AC de salida admisible (W)
+   * @param {number} [opts.euroEfficiency] Rendimiento pico/europeo (default 0.975)
+   */
+  function calculateInverterEfficiencyAndClipping(opts) {
+    const pDc = Math.max(0, (opts && opts.pDcW) || 0);
+    const pAcNom = Math.max(100, (opts && opts.pAcNomW) || 5000);
+    const pAcMax = Math.max(pAcNom, (opts && opts.pAcMaxW) || pAcNom);
+    const etaEuro = (opts && typeof opts.euroEfficiency === 'number' && opts.euroEfficiency > 0) ? opts.euroEfficiency : 0.975;
+
+    if (pDc <= 0) {
+      return { eta: 0, pAcTeorica: 0, pAcNet: 0, pClipping: 0, isClipping: false };
+    }
+
+    const pr = pDc / pAcNom;
+    let eta = etaEuro;
+    if (pr < 0.05) {
+      eta = 0; // Umbral de arranque (cut-in)
+    } else if (pr <= 0.10) {
+      eta = etaEuro * (0.80 + 2.0 * (pr - 0.05));
+    } else if (pr <= 0.20) {
+      eta = etaEuro * 0.94;
+    } else if (pr <= 0.50) {
+      eta = etaEuro * 0.985;
+    } else if (pr <= 1.00) {
+      eta = etaEuro * 1.0;
+    } else {
+      eta = etaEuro * 0.995; // Saturación térmica
+    }
+
+    const pAcTeorica = pDc * eta;
+    const pAcNet = Math.min(pAcTeorica, pAcMax);
+    const pClipping = Math.max(0, pAcTeorica - pAcMax);
+
+    return {
+      eta,
+      pAcTeorica,
+      pAcNet,
+      pClipping,
+      isClipping: pClipping > 0
+    };
   }
 
   // ── 7. ASISTENTE PROACTIVO DE INVERSORES Y GUÍA VISUAL DEL CONTADOR ─────────
@@ -931,12 +1103,15 @@
   root.ELEC_CONSTANTS = ELEC_CONSTANTS;
   root.getPolylineStringColor = getPolylineStringColor;
   root.calculateDynamicMPPTStringLimits = calculateDynamicMPPTStringLimits;
+  root.getNearestValidStringModuleCount = getNearestValidStringModuleCount;
   root.getSnakeOrderedPanels = getSnakeOrderedPanels;
   root.generateSnakeWiringPositions = generateSnakeWiringPositions;
   root.partitionPanelsIntoMPPTStrings = partitionPanelsIntoMPPTStrings;
   root.matchInvertersFromCatalog = matchInvertersFromCatalog;
   root.calculateVoltageDrop = calculateVoltageDrop;
   root.rebalanceMPPTAssignment = rebalanceMPPTAssignment;
+  root.validateMPPTHomogeneity = validateMPPTHomogeneity;
+  root.calculateInverterEfficiencyAndClipping = calculateInverterEfficiencyAndClipping;
   root.raInverterPhases = raInverterPhases;
 
   if (!root.RA) root.RA = {};
@@ -944,12 +1119,15 @@
     constants: ELEC_CONSTANTS,
     getPolylineStringColor: getPolylineStringColor,
     calculateDynamicMPPTStringLimits: calculateDynamicMPPTStringLimits,
+    getNearestValidStringModuleCount: getNearestValidStringModuleCount,
     getSnakeOrderedPanels: getSnakeOrderedPanels,
     generateSnakeWiringPositions: generateSnakeWiringPositions,
     partitionPanelsIntoMPPTStrings: partitionPanelsIntoMPPTStrings,
     matchInvertersFromCatalog: matchInvertersFromCatalog,
     calculateVoltageDrop: calculateVoltageDrop,
     rebalanceMPPTAssignment: rebalanceMPPTAssignment,
+    validateMPPTHomogeneity: validateMPPTHomogeneity,
+    calculateInverterEfficiencyAndClipping: calculateInverterEfficiencyAndClipping,
     raInverterPhases: raInverterPhases,
     updateInverterAssistant: wpUpdateInverterSmartAssistantUI,
     applyRecommendedInverter: wpApplyRecommendedInverter,

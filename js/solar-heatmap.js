@@ -559,6 +559,45 @@
       return roofNorm || new Cesium.Cartesian3(0, 0, 1);
     }
 
+    /**
+     * Discretiza un cuadrilátero 2D de panel en 3 sub-cadenas (sub-strings S1, S2, S3)
+     * representativas de las 3 ramas de diodos de bypass de un módulo comercial estándar / half-cut.
+     * @param {Array<{u:number,v:number}>} quad 4 vértices del módulo
+     * @returns {Array<Array<{u:number,v:number}>>} 3 sub-polígonos
+     */
+    function dividePanelIntoSubstrings2D(quad) {
+      if (!quad || quad.length !== 4) return quad ? [quad] : [];
+      const p0 = quad[0], p1 = quad[1], p2 = quad[2], p3 = quad[3];
+      const d01 = Math.hypot(p1.u - p0.u, p1.v - p0.v);
+      const d12 = Math.hypot(p2.u - p1.u, p2.v - p1.v);
+
+      const lerp = (a, b, t) => ({ u: a.u + (b.u - a.u) * t, v: a.v + (b.v - a.v) * t });
+
+      if (d12 >= d01) {
+        // Dimensión longitudinal a lo largo de aristas (p0->p3) y (p1->p2)
+        const a0 = p0, b0 = p1;
+        const a1 = lerp(p0, p3, 1 / 3), b1 = lerp(p1, p2, 1 / 3);
+        const a2 = lerp(p0, p3, 2 / 3), b2 = lerp(p1, p2, 2 / 3);
+        const a3 = p3, b3 = p2;
+        return [
+          [a0, b0, b1, a1],
+          [a1, b1, b2, a2],
+          [a2, b2, b3, a3]
+        ];
+      } else {
+        // Dimensión longitudinal a lo largo de aristas (p0->p1) y (p3->p2)
+        const a0 = p0, b0 = p3;
+        const a1 = lerp(p0, p1, 1 / 3), b1 = lerp(p3, p2, 1 / 3);
+        const a2 = lerp(p0, p1, 2 / 3), b2 = lerp(p3, p2, 2 / 3);
+        const a3 = p1, b3 = p2;
+        return [
+          [a0, a1, b1, b0],
+          [a1, a2, b2, b1],
+          [a2, a3, b3, b2]
+        ];
+      }
+    }
+
     // 5. Bucle Time-Sliced con presupuesto de 15ms
     for (let mIdx = 0; mIdx < monthsDoy.length; mIdx++) {
       const m = monthsReal[mIdx];
@@ -701,13 +740,14 @@
             // 2. Ángulo de incidencia panel-sol
             const cosIncidence = sunDirWorld ? Cesium.Cartesian3.dot(sunDirWorld, panelNormWorld) : 0;
 
-            // 3. Transposición física POA (W/m²) por módulo — motor único RA.Radiation (Erbs + Hay-Davies)
+            // 3. Transposición física POA (W/m²) por módulo — motor único RA.Radiation (Perez 1990 anisotrópico)
             let G_beam = 0, G_diffuse = 0, G_albedo = 0;
             if (typeof window !== 'undefined' && window.RA && window.RA.Radiation && typeof window.RA.Radiation.transposeComponents === 'function') {
               const _tp = window.RA.Radiation.transposeComponents({
                 ghi: GHI_instant, dhi: G_dhi, dni: G_dni,
                 cosTheta: cosIncidence, tiltRad: tiltRad,
-                albedo: 0.20, iamB0: 0.05, sunElevDeg: elevation
+                albedo: 0.20, iamB0: 0.05, sunElevDeg: elevation,
+                diffuseModel: 'perez'
               });
               // G_beam/G_diffuse/G_albedo con el IAM (blend) ya aplicado, consistente con computePOAIrradiance
               G_beam = _tp.G_b * _tp.iamBlend;
@@ -730,8 +770,9 @@
             const instantPotentialW = (G_beam + G_diffuse + G_albedo + albedoGain) * tempFactor;
             pData.annualTotalPotential += instantPotentialW * mw * hourStepDt;
 
-            // 4. Sombreado 2D (obstáculos) y 3D (Google 3D Tiles)
+            // 4. Sombreado 2D (obstáculos) y 3D (Google 3D Tiles) con modelo de 3 sub-strings y diodos de bypass
             let isShaded = false;
+            let shadedSubstringsCount = 0;
             if (polyShadowQuads2D.length > 0) {
               let panelPoly2D = null;
               if (Array.isArray(pData.corners) && pData.corners.length === 4 && pInfo && pInfo.invTransform && pInfo.uVec && pInfo.vVec) {
@@ -763,6 +804,12 @@
                   if (ppt.v > vMax) vMax = ppt.v;
                 }
 
+                // Discretización física en 3 sub-cadenas (diodos de bypass IEC 61215)
+                const subStrings = (panelPoly2D.length === 4)
+                  ? dividePanelIntoSubstrings2D(panelPoly2D)
+                  : [panelPoly2D];
+                const subShaded = new Array(subStrings.length).fill(false);
+
                 for (const quad of polyShadowQuads2D) {
                   if (!quad || quad.length === 0) continue;
                   // AABB Broadphase check: si la caja envolvente de la sombra no toca la del panel, descartar inmediatamente
@@ -778,29 +825,46 @@
                     continue; // Sin solapamiento en bounding box
                   }
 
-                  if (typeof polygonsIntersect2D === "function" && polygonsIntersect2D(panelPoly2D, quad)) {
-                    isShaded = true;
-                    break;
+                  if (typeof polygonsIntersect2D === "function") {
+                    for (let sIdx = 0; sIdx < subStrings.length; sIdx++) {
+                      if (!subShaded[sIdx] && polygonsIntersect2D(subStrings[sIdx], quad)) {
+                        subShaded[sIdx] = true;
+                      }
+                    }
+                    if (subShaded.every(s => s)) break;
                   }
+                }
+
+                shadedSubstringsCount = subShaded.filter(Boolean).length;
+                if (shadedSubstringsCount > 0) {
+                  isShaded = true;
                 }
               }
             }
 
-            if (!isShaded && G_beam > 0.1 && sunDirWorld && pData.center) {
+            if (shadedSubstringsCount < 3 && G_beam > 0.1 && sunDirWorld && pData.center) {
               if (typeof isPanelOccludedBy3DEnvironment === "function" && isPanelOccludedBy3DEnvironment(pData.center, panelNormWorld, sunDirWorld)) {
                 isShaded = true;
+                shadedSubstringsCount = 3;
               }
             }
 
-            if (isShaded) {
+            // Fracción física de pérdida de haz según sub-strings bajo sombra
+            const beamShadedFraction = (shadedSubstringsCount > 0)
+              ? (shadedSubstringsCount / 3.0)
+              : (isShaded ? 1.0 : 0.0);
+
+            if (isShaded && beamShadedFraction > 0) {
               pData.shadowHits = (pData.shadowHits || 0) + mw * hourStepDt;
-              // La sombra bloquea la componente de radiación directa incidente (G_beam), preservando la difusa
-              const instantLossW = G_beam * tempFactor;
+              pData.activeDiodesHits = (pData.activeDiodesHits || 0) + shadedSubstringsCount * mw * hourStepDt;
+              // Pérdida proporcional a los diodos de bypass activados
+              const instantLossW = G_beam * tempFactor * beamShadedFraction;
               pData.annualShadedLoss += instantLossW * mw * hourStepDt;
             }
 
             // [B6] Energía neta real del mes calendario (para el reparto mensual de la memoria/oferta).
-            _monthlyNetWh[m] += (instantPotentialW - (isShaded ? (G_beam * tempFactor) : 0)) * mw * hourStepDt;
+            const effectiveLossW = (isShaded && beamShadedFraction > 0) ? (G_beam * tempFactor * beamShadedFraction) : 0;
+            _monthlyNetWh[m] += (instantPotentialW - effectiveLossW) * mw * hourStepDt;
           });
         });
 
@@ -1396,7 +1460,20 @@
 
     let limitModules = Infinity;
     if (obj === 'target_kwh') {
-      limitModules = Math.max(1, Math.round((targetKwp * 1000) / modWp));
+      const rawModules = Math.max(1, Math.round((targetKwp * 1000) / modWp));
+      const limits = (window.solarProjectConfig && window.solarProjectConfig.calculatedLimits) || {};
+      const nsMin = limits.nMinString || 6;
+      const nsMax = limits.nMaxString || 18;
+      const invCount = (window.solarProjectConfig && window.solarProjectConfig.autoSizing && window.solarProjectConfig.autoSizing.inverters && window.solarProjectConfig.autoSizing.inverters.count) || 1;
+      const mpptCount = (limits.inverter && limits.inverter.mppt ? limits.inverter.mppt : 2) * invCount;
+      const maxStrings = mpptCount * (limits.inverter && limits.inverter.inputsPerMppt ? limits.inverter.inputsPerMppt : 1);
+      
+      const snapHelper = (typeof getNearestValidStringModuleCount === 'function')
+        ? getNearestValidStringModuleCount
+        : ((typeof window !== 'undefined' && window.RA && window.RA.Electrical && window.RA.Electrical.getNearestValidStringModuleCount) || null);
+      limitModules = (typeof snapHelper === 'function')
+        ? snapHelper(rawModules, nsMin, nsMax, maxStrings)
+        : rawModules;
     } else if (obj === 'optimal_inv' && Number.isFinite(maxTotalModules) && maxTotalModules > 0 && !isAnalyzingSolar) {
       limitModules = maxTotalModules;
     }

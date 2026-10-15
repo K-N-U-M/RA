@@ -62,8 +62,61 @@
          + Math.cos(elev) * Math.sin(tilt) * Math.cos(dAz);
   }
 
+  const PEREZ_BINS = [
+    { maxEps: 1.065, f: [-0.008,  0.588, -0.062, -0.060,  0.072, -0.022] },
+    { maxEps: 1.230, f: [ 0.130,  0.683, -0.151, -0.019,  0.066, -0.029] },
+    { maxEps: 1.500, f: [ 0.330,  0.487, -0.221,  0.055, -0.064, -0.026] },
+    { maxEps: 1.950, f: [ 0.568,  0.187, -0.295,  0.109, -0.152, -0.014] },
+    { maxEps: 2.800, f: [ 0.873, -0.392, -0.362,  0.226, -0.462,  0.001] },
+    { maxEps: 4.500, f: [ 1.132, -1.237, -0.412,  0.288, -0.823,  0.056] },
+    { maxEps: 6.200, f: [ 1.060, -1.600, -0.359,  0.264, -1.127,  0.131] },
+    { maxEps: Infinity, f: [ 0.678, -0.327, -0.250, 0.156, -1.377,  0.251] }
+  ];
+
   /**
-   * Transposición física de componentes (Hay-Davies anisotrópica + IAM ASHRAE).
+   * Modelo de difusa anisotrópica de Perez (1990) con abrillantamiento circunsolar y de horizonte.
+   */
+  function getPerezDiffuse(dhi, dni, ghi, sunElevDeg, tiltRad, cosTheta) {
+    if (dhi <= 0) return 0;
+    const elevRad = Math.max(0.01, (sunElevDeg || 0) * Math.PI / 180);
+    const thetaZRad = Math.PI / 2 - elevRad;
+
+    // Masa de aire óptica relativa (Kasten-Young 1989)
+    const airMass = 1 / (Math.sin(elevRad) + 0.50572 * Math.pow(Math.max(0, (sunElevDeg || 0) + 6.07995), -1.6364));
+
+    // Parámetro de brillo cenital Delta
+    const delta = (dhi * airMass) / SOLAR_CONST_WM2;
+
+    // Parámetro de claridad atmosférica Epsilon
+    const kappa = 1.041;
+    const thetaZ3 = Math.pow(thetaZRad, 3);
+    const eps = ((dhi + dni) / (dhi + 1e-4) + kappa * thetaZ3) / (1 + kappa * thetaZ3);
+
+    // Selección de coeficientes de brillo según bin de claridad
+    let fCoeffs = PEREZ_BINS[PEREZ_BINS.length - 1].f;
+    for (let i = 0; i < PEREZ_BINS.length; i++) {
+      if (eps <= PEREZ_BINS[i].maxEps) {
+        fCoeffs = PEREZ_BINS[i].f;
+        break;
+      }
+    }
+
+    // Factores F1 (circunsolar) y F2 (horizonte)
+    const f1 = Math.max(0, fCoeffs[0] + fCoeffs[1] * delta + fCoeffs[2] * thetaZRad);
+    const f2 = fCoeffs[3] + fCoeffs[4] * delta + fCoeffs[5] * thetaZRad;
+
+    const a = Math.max(0, cosTheta);
+    const b = Math.max(Math.cos(85 * Math.PI / 180), Math.sin(elevRad));
+
+    const termIso = (1 - f1) * ((1 + Math.cos(tiltRad)) / 2);
+    const termCirc = f1 * (a / b);
+    const termHoriz = f2 * Math.sin(tiltRad);
+
+    return dhi * Math.max(0, termIso + termCirc + termHoriz);
+  }
+
+  /**
+   * Transposición física de componentes (Hay-Davies / Perez 1990 anisotrópica + IAM ASHRAE).
    * @param {Object} o
    * @param {number} o.ghi       Irradiancia global horizontal (W/m²)
    * @param {number} o.dhi       Irradiancia difusa horizontal (W/m²)
@@ -72,6 +125,7 @@
    * @param {number} o.tiltRad   Inclinación del plano en radianes
    * @param {number} [o.albedo]  Albedo del entorno (default 0.20)
    * @param {number} [o.iamB0]   Coeficiente ASHRAE (default 0.05)
+   * @param {string} [o.diffuseModel] 'hay-davies' (default) o 'perez' (Perez 1990)
    * @returns {{G_b:number,G_d:number,G_r:number,G_poa:number,G_poa_raw:number,iamFactor:number,iamBlend:number}}
    */
   function transposeComponents(o) {
@@ -87,9 +141,14 @@
     // Componente directa (beam)
     const G_b = Math.max(0, dni * cosTheta);
 
-    // Componente difusa anisotrópica (Hay-Davies)
-    const Ai = dni / SOLAR_CONST_WM2;
-    const G_d = dhi * (Ai * (cosTheta / sinElev) + (1 - Ai) * ((1 + Math.cos(tiltRad)) / 2));
+    // Componente difusa anisotrópica: Perez 1990 o Hay-Davies
+    let G_d = 0;
+    if (o.diffuseModel === 'perez') {
+      G_d = getPerezDiffuse(dhi, dni, ghi, o.sunElevDeg || 0, tiltRad, cosTheta);
+    } else {
+      const Ai = dni / SOLAR_CONST_WM2;
+      G_d = dhi * (Ai * (cosTheta / Math.max(sinElev, 1e-4)) + (1 - Ai) * ((1 + Math.cos(tiltRad)) / 2));
+    }
 
     // Componente reflejada (albedo)
     const G_r = ghi * albedo * ((1 - Math.cos(tiltRad)) / 2);
@@ -138,10 +197,20 @@
     };
   }
 
+  /**
+   * Transposición directa usando el modelo anisotrópico de Perez (1990).
+   */
+  function transposePerez(o) {
+    return transposeComponents(Object.assign({}, o, { diffuseModel: 'perez' }));
+  }
+
   const RARadiation = {
     decomposeErbs,
     incidenceCos,
     transposeComponents,
+    transposePerez,
+    getPerezDiffuse,
+    PEREZ_BINS,
     poa,
     SOLAR_CONST_WM2
   };

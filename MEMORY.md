@@ -509,6 +509,30 @@ calculateFinancialModel()  ← Definición canónica en financials.js (~L491)
   - 15/15 pruebas automatizadas de física astronómica, ingeniería eléctrica y modelo financiero aprobadas al 100%.
   - Suite de importador de datasheets con IA verificada al 100%.
 
+## 27. Implementación Plan Maestro v4.0 — Física Solar y Despacho Bancable (Octubre 2026)
+
+- **Hito 1 — Dimensionamiento Proactivo y Snap de Strings:**
+  - En `js/electrical-engine.js`, función `getNearestValidStringModuleCount(targetCount, nsMin, nsMax, maxStrings)` que calcula la combinación de módulos que respeta la ventana térmica de tensión MPPT $[N_{s,\min}, N_{s,\max}]$.
+  - Enlazado en `js/solar-heatmap.js` (`filterPanelsByObjective`) para que al definir objetivos en Paso 2 / Paso 3 el layout se ajuste automáticamente a strings válidos sin dejar cadenas fuera de normativa.
+- **Hito 2 — Modelo Anisotrópico de Radiación Perez (1990):**
+  - Implementado en `js/radiation-engine.js` (`getPerezDiffuse`, `transposePerez`, `transposeComponents` con `diffuseModel: 'perez'`) con los 8 bins de claridad atmosférica $\varepsilon$, brillo cenital $\Delta$ y masa de aire óptica relativa (Kasten-Young 1989).
+  - Activado en la simulación anual de `js/solar-heatmap.js` (192 instantes) para transposición de componentes directa, difusa circunsolar y de horizonte.
+- **Hito 3 — Microfísica de Sub-módulos y Diodos de Bypass (IEC 61215):**
+  - En `js/solar-heatmap.js`, función `dividePanelIntoSubstrings2D()` que divide el cuadrilátero del panel en 3 sub-cadenas independientes correspondientes a las ramas de diodos de bypass de paneles estándar y half-cut.
+  - La oclusión de sombra evalúa cada tercio independientemente: si se sombrea 1 sub-cadena, el diodo entra en conducción y el panel mantiene el 66.7% de su radiación de haz; si se sombrean 2, mantiene el 33.3%; solo oclusiones completas pierden el 100% del haz, eliminando penalizaciones irreales por sombras puntuales.
+- **Hito 4 — Inversor Dinámico, Curvas de Carga, Clipping y Homogeneidad MPPT:**
+  - En `js/electrical-engine.js`, `calculateInverterEfficiencyAndClipping()` modela la curva de eficiencia a carga parcial (umbral cut-in al 5%, rendimiento europeo nominal y saturación térmica) y calcula el recorte físico de potencia (*clipping*) cuando $P_{\text{ac,teorica}} > P_{\text{ac,max}}$.
+  - `validateMPPTHomogeneity()` comprueba strings en paralelo sobre el mismo MPPT: si difieren en inclinación ($|\Delta\beta| > 5^\circ$) o azimut ($|\Delta\gamma| > 10^\circ$), emite advertencia técnica crítica y marca `valid: false` según IEC 62548.
+- **Hito 5 — Matriz de Despacho Horario Anual (288h) y Batería Física:**
+  - En `js/financials.js`, sustitución del día medio estático por simulación horaria en los 12 meses del año (288 instantes) con estacionalidad de demanda peninsular y horas solares reales (salida/puesta de sol variables según latitud 40°N).
+  - Modelo de batería con límite de potencia C-rate ($P_{\max} = C/2$), eficiencia de ciclo completo (92%) y profundidad de descarga ($DOD = 90\%$).
+  - Ahorro de factura anual Año 1 calculado rigurosamente como $\Delta\text{Factura} = \text{CosteSinFV} - \text{CosteConFV}$.
+- **Verificación y QA:**
+  - 31/31 módulos JS validados sin errores de sintaxis (`node tests/test-js-syntax.js`).
+  - 22/22 pruebas unitarias y de integración end-to-end superadas con 100% de éxito (`tests/test-ra-full-workflow.js`), incluyendo validación física de Perez 1990 ($G_{\text{poa}} = 964.7\,\text{W/m}^2$), snap de strings, homogeneidad MPPT, clipping ($P_{\text{clip}} = 1642\,\text{W}$) y balance horario de autarquía.
+  - Test suite de importador de datasheets con IA al 100%.
+
+
 
 
 

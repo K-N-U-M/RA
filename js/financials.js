@@ -1323,68 +1323,138 @@ function generatePropuestaComercialPDF(skipPricingModal) {
     ? billComp.consumoAnualKWh
     : Math.max(annualYieldKWh * 0.75, 3500);
 
-  // Despacho horario: simulación de 1 día representativo, escalado a 365
-  const dailySolar = annualYieldKWh / 365.0;
-  const dailyLoad = consumoAnual / 365.0;
-  const dailySolarH = SOLAR_PROFILE.map(v => v * dailySolar);
-  const dailyLoadH = LOAD_PROFILE.map(v => v * dailyLoad);
+  // ── FASE 5: Despacho Multi-horario Estacional Bancable (12 meses × 24h = 288 horas) ──
+  const MONTH_DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  const MONTH_LOAD_WEIGHTS = [1.18, 1.12, 1.02, 0.92, 0.84, 0.88, 1.06, 1.02, 0.94, 0.94, 1.02, 1.16]; // Climatización estacional peninsular
 
-  let batSoC = 0.0;                 // Estado de carga (kWh)
-  const batEff = 0.92;              // Eficiencia ida y vuelta
-  const maxBatCap = batCap;         // kWh útiles
-  let totalAutoconsumo = 0;         // kWh autoconsumidos directos
-  let totalBateria = 0;             // kWh desde batería
-  let totalExcedente = 0;           // kWh vertidos a red
-  let costeRed = 0;                 // € comprados a la red
-  let costeCargaRed = 0;            // € de carga de batería desde red (arbitraje) — se descuenta del ahorro
-  let ingresoExcedente = 0;         // € por excedentes
-
-  const PUNTA = 17, VALLE = 0;
-
-  for (let h = 0; h < 24; h++) {
-    const pv = dailySolarH[h];
-    const load = dailyLoadH[h];
-    const price = tou.horas[h];
-    const isValley = price <= Math.min(...tou.horas) * 1.15;
-    const isPeak = price >= Math.max(...tou.horas) * 0.88;
-
-    let direct = Math.min(pv, load);
-    let surplus = pv - direct;
-    let fromBattery = 0;
-    let gridBuy = 0;
-
-    if (surplus > 0 && maxBatCap > 0 && batSoC < maxBatCap) {
-      const charge = Math.min(surplus, maxBatCap - batSoC);
-      batSoC += charge * batEff;
-      surplus -= charge;
-    }
-
-    // Estrategia arbitraje: cargar batería desde red en horas valle
-    if (batStrategy === 'arbitraje' && maxBatCap > 0 && batSoC < maxBatCap && isValley && h >= 2 && h <= 6) {
-      const gridCharge = Math.min(maxBatCap - batSoC, load * 0.5);
-      batSoC += gridCharge * batEff;
-      costeRed += gridCharge * price;
-      costeCargaRed += gridCharge * price; // se descuenta del ahorro (energia pagada a red y revendida como bateria)
-    }
-
-    if (direct < load) {
-      const need = load - direct;
-      if (batSoC > 0.01) {
-        const discharge = Math.min(need, batSoC);
-        batSoC -= discharge;
-        fromBattery = discharge;
-      }
-      gridBuy = Math.max(need - fromBattery, 0);
-    } else if (surplus > 0) {
-      // Si no hay batería o está llena → excedente a red
-      totalExcedente += surplus;
-      ingresoExcedente += surplus * tou.compensacion;
-    }
-
-    totalAutoconsumo += direct;
-    totalBateria += fromBattery;
-    costeRed += gridBuy * price;
+  // Producción mensual en kWh (SSOT: solarSimState.monthlyKwh si existe, o desglose estacional)
+  let monthlySolarKwh = new Array(12).fill(0);
+  if (typeof window !== 'undefined' && window.solarSimState && Array.isArray(window.solarSimState.monthlyKwh) && window.solarSimState.monthlyKwh.length === 12) {
+    monthlySolarKwh = window.solarSimState.monthlyKwh.slice();
+  } else {
+    const solarWeights = [0.045, 0.058, 0.082, 0.098, 0.118, 0.126, 0.132, 0.120, 0.095, 0.068, 0.046, 0.032];
+    monthlySolarKwh = solarWeights.map(w => w * annualYieldKWh);
   }
+
+  // Normalización del perfil solar para cada mes según horas solares reales (latitud ~40°N)
+  const getMonthlySolarProfile = (m) => {
+    const sunrise = 7.8 - 1.8 * Math.sin((m - 2) * Math.PI / 6);
+    const sunset = 17.2 + 2.8 * Math.sin((m - 2) * Math.PI / 6);
+    const profile = new Array(24).fill(0);
+    let sum = 0;
+    for (let h = 0; h < 24; h++) {
+      if (h + 0.5 > sunrise && h + 0.5 < sunset) {
+        const val = Math.sin(Math.PI * (h + 0.5 - sunrise) / (sunset - sunrise));
+        if (val > 0) {
+          profile[h] = Math.pow(val, 1.2);
+          sum += profile[h];
+        }
+      }
+    }
+    return sum > 0 ? profile.map(v => v / sum) : SOLAR_PROFILE;
+  };
+
+  // Parámetros físicos de batería (IEC 62619 / LFP residencial)
+  const batEff = 0.92;                      // Eficiencia roundtrip (92%)
+  const batDOD = 0.90;                      // Profundidad de descarga (90%)
+  const maxBatCap = batCap * batDOD;         // Capacidad útil real (kWh)
+  const pBatMaxKw = Math.max(3.0, batCap * 0.5); // Límite de potencia C/2 (kW)
+  let batSoC = 0.0;                         // SoC inicial (kWh útiles)
+
+  let annualAutoconsumoDirecto = 0;
+  let annualBateriaKWh = 0;
+  let annualExcedenteKWh = 0;
+  let annualCosteRed = 0;
+  let annualCosteCargaRed = 0;
+  let annualIngresoExcedente = 0;
+  let annualCosteSinFV = 0;
+
+  for (let m = 0; m < 12; m++) {
+    const daysInMonth = MONTH_DAYS[m];
+    const solarMonthKwh = monthlySolarKwh[m];
+    const solarDailyKwh = solarMonthKwh / daysInMonth;
+    const solarHourlyProfile = getMonthlySolarProfile(m);
+
+    const loadMonthWeight = MONTH_LOAD_WEIGHTS[m];
+    const loadDailyKwh = (consumoAnual / 365.0) * loadMonthWeight;
+
+    let monthDirect = 0;
+    let monthBattery = 0;
+    let monthSurplus = 0;
+    let monthGridBuy = 0;
+    let monthCostGrid = 0;
+    let monthGridChargeCost = 0;
+    let monthSurplusIncome = 0;
+    let monthCostSinFV = 0;
+
+    for (let h = 0; h < 24; h++) {
+      const pv = solarDailyKwh * solarHourlyProfile[h];
+      const load = loadDailyKwh * LOAD_PROFILE[h];
+      const price = tou.horas[h];
+      const isValley = price <= Math.min(...tou.horas) * 1.15;
+
+      monthCostSinFV += load * price;
+
+      let direct = Math.min(pv, load);
+      let surplus = pv - direct;
+      let fromBattery = 0;
+      let gridBuy = 0;
+
+      // Carga de batería con excedente solar (limitada por espacio y potencia máxima)
+      if (surplus > 0 && maxBatCap > 0 && batSoC < maxBatCap) {
+        const space = maxBatCap - batSoC;
+        const maxCharge = pBatMaxKw * 1.0;
+        const charge = Math.min(surplus, space, maxCharge);
+        batSoC += charge * batEff;
+        surplus -= charge;
+      }
+
+      // Arbitraje en valle (si está activo)
+      if (batStrategy === 'arbitraje' && maxBatCap > 0 && batSoC < maxBatCap && isValley && h >= 2 && h <= 6) {
+        const space = maxBatCap - batSoC;
+        const gridCharge = Math.min(space, pBatMaxKw * 1.0, load * 0.5);
+        batSoC += gridCharge * batEff;
+        monthCostGrid += gridCharge * price;
+        monthGridChargeCost += gridCharge * price;
+      }
+
+      // Descarga de batería si hay déficit
+      if (direct < load) {
+        const need = load - direct;
+        if (batSoC > 0.01) {
+          const maxDischarge = pBatMaxKw * 1.0;
+          const discharge = Math.min(need, batSoC, maxDischarge);
+          batSoC -= discharge;
+          fromBattery = discharge;
+        }
+        gridBuy = Math.max(need - fromBattery, 0);
+      } else if (surplus > 0) {
+        monthSurplus += surplus;
+        monthSurplusIncome += surplus * tou.compensacion;
+      }
+
+      monthDirect += direct;
+      monthBattery += fromBattery;
+      monthGridBuy += gridBuy;
+      monthCostGrid += gridBuy * price;
+    }
+
+    annualAutoconsumoDirecto += monthDirect * daysInMonth;
+    annualBateriaKWh += monthBattery * daysInMonth;
+    annualExcedenteKWh += monthSurplus * daysInMonth;
+    annualCosteRed += monthCostGrid * daysInMonth;
+    annualCosteCargaRed += monthGridChargeCost * daysInMonth;
+    annualIngresoExcedente += monthSurplusIncome * daysInMonth;
+    annualCosteSinFV += monthCostSinFV * daysInMonth;
+  }
+
+  // Desglose medio diario equivalente para compatibilidad y telemetría
+  const totalAutoconsumo = annualAutoconsumoDirecto / 365.0;
+  const totalBateria = annualBateriaKWh / 365.0;
+  const totalExcedente = annualExcedenteKWh / 365.0;
+  const costeRed = annualCosteRed / 365.0;
+  const costeCargaRed = annualCosteCargaRed / 365.0;
+  const ingresoExcedente = annualIngresoExcedente / 365.0;
 
   // Precio medio ponderado de la tarifa y compensación
   const precioRed = tou.horas.reduce((a, b) => a + b, 0) / tou.horas.length;
@@ -1392,13 +1462,12 @@ function generatePropuestaComercialPDF(skipPricingModal) {
 
   // [P0.3 - RD 244/2019] Techo legal en compensación simplificada: el saldo del término de energía nunca puede ser negativo
   const hasVirtualBattery = !!(typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.hasVirtualBattery);
-  const ingresoExcedenteEfectivo = hasVirtualBattery ? ingresoExcedente : Math.min(ingresoExcedente, costeRed);
+  const annualIngresoExcedenteEfectivo = hasVirtualBattery ? annualIngresoExcedente : Math.min(annualIngresoExcedente, annualCosteRed);
+  const ingresoExcedenteEfectivo = annualIngresoExcedenteEfectivo / 365.0;
 
-  // El coste de carga desde red (arbitraje) se resta del ahorro: sin esto la energía
-  // comprada en valle y revendida como "desde batería" se computaba a precio completo.
-  const ahorroLuzAnio1 = ((totalAutoconsumo + totalBateria) * precioRed + ingresoExcedenteEfectivo) * 365 - costeCargaRed;
-
-  const autarquia = Math.min((totalAutoconsumo + totalBateria) / dailyLoad, 1);
+  // El ahorro anual en factura eléctrica compara el coste anual de red sin FV vs con FV
+  const ahorroLuzAnio1 = Math.max(0, annualCosteSinFV - (annualCosteRed - annualIngresoExcedenteEfectivo + annualCosteCargaRed));
+  const autarquia = Math.min((annualAutoconsumoDirecto + annualBateriaKWh) / Math.max(1, consumoAnual), 1.0);
 
   // Flujo de Caja a 25 años
   const inflacion = 0.03; // Inflación luz 3%/año
@@ -1616,13 +1685,13 @@ function generatePropuestaComercialPDF(skipPricingModal) {
     batCap: batCap,
     batSoCdiaria: Math.round(batSoC * 10) / 10,
     consumoAnual: Math.round(consumoAnual || 0),
-    autoconsumoDirecto: Math.round((totalAutoconsumo || 0) * 365),
-    bateriaKWh: Math.round((totalBateria || 0) * 365),
-    excedenteKWh: Math.round((totalExcedente || 0) * 365),
-    costeRedAnual: Math.round((costeRed || 0) * 365),
-    ingresoExcedente: Math.round((ingresoExcedente || 0) * 365),
-    ingresoExcedenteEfectivo: Math.round((ingresoExcedenteEfectivo || 0) * 365),
-    ingresoExcedenteTechoAplicado: !hasVirtualBattery && (ingresoExcedente > costeRed),
+    autoconsumoDirecto: Math.round(annualAutoconsumoDirecto || 0),
+    bateriaKWh: Math.round(annualBateriaKWh || 0),
+    excedenteKWh: Math.round(annualExcedenteKWh || 0),
+    costeRedAnual: Math.round(annualCosteRed || 0),
+    ingresoExcedente: Math.round(annualIngresoExcedente || 0),
+    ingresoExcedenteEfectivo: Math.round(annualIngresoExcedenteEfectivo || 0),
+    ingresoExcedenteTechoAplicado: !hasVirtualBattery && (annualIngresoExcedente > annualCosteRed),
     hasVirtualBattery: hasVirtualBattery,
     // Series anuales con degradación compuesta a 25 años (Fase 2.1)
     annualYields25: annualYields25,
