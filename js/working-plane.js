@@ -3592,13 +3592,20 @@ function wpPopulateFaldonCard() {
 
   var pLbl = document.getElementById('faldon-orient-portrait-lbl');
   var lLbl = document.getElementById('faldon-orient-landscape-lbl');
+  var hLbl = document.getElementById('faldon-orient-hybrid-lbl');
   var recBadge = document.getElementById('faldon-orient-recommend-badge');
 
   if (comp) {
     if (pLbl) pLbl.textContent = comp.portrait.count + ' mods · ' + comp.portrait.kwp + ' kWp';
     if (lLbl) lLbl.textContent = comp.landscape.count + ' mods · ' + comp.landscape.kwp + ' kWp';
+    if (hLbl && comp.hybrid) hLbl.textContent = comp.hybrid.count + ' mods · ' + comp.hybrid.kwp + ' kWp';
     if (recBadge) {
-      if (comp.recommended === 'landscape') {
+      if (comp.recommended === 'hybrid') {
+        var extraH = comp.hybrid.count - Math.max(comp.portrait.count, comp.landscape.count);
+        recBadge.textContent = '💡 Híbrido Mixto gana: +' + extraH + ' mods (' + comp.hybrid.kwp + ' kWp)';
+        recBadge.style.color = '#C084FC';
+        recBadge.style.background = 'rgba(168,85,247,0.18)';
+      } else if (comp.recommended === 'landscape') {
         recBadge.textContent = '💡 Horizontal gana: +' + comp.diff + ' mods (+' + comp.diffKwp + ' kWp)';
         recBadge.style.color = '#34D399';
         recBadge.style.background = 'rgba(16,185,129,0.15)';
@@ -3614,14 +3621,14 @@ function wpPopulateFaldonCard() {
     }
   }
 
-  ['portrait', 'landscape'].forEach(function(dir) {
+  ['portrait', 'landscape', 'hybrid'].forEach(function(dir) {
     var btn = document.getElementById('faldon-orient-' + dir);
     if (!btn) return;
     var isActive = (orient === dir);
     btn.className = 'doc-mini-btn' + (isActive ? ' active' : '');
-    btn.style.borderColor = isActive ? 'var(--amber-400)' : '';
-    btn.style.color       = isActive ? 'var(--amber-400)' : '';
-    btn.style.background  = isActive ? 'rgba(245,158,11,0.2)' : '';
+    btn.style.borderColor = isActive ? (dir === 'hybrid' ? '#C084FC' : 'var(--amber-400)') : '';
+    btn.style.color       = isActive ? (dir === 'hybrid' ? '#C084FC' : 'var(--amber-400)') : '';
+    btn.style.background  = isActive ? (dir === 'hybrid' ? 'rgba(168,85,247,0.2)' : 'rgba(245,158,11,0.2)') : '';
     btn.style.fontWeight  = isActive ? 'bold' : '';
   });
 
@@ -3973,7 +3980,8 @@ function wpSetPolyOrientation(polyIdx, orientation) {
   wpUpdateStep3UI();
   if (typeof wpSyncStep6Controls === 'function') wpSyncStep6Controls();
 
-  showStatus("DISPOSICIÓN " + (orientation === "landscape" ? "HORIZONTAL" : "VERTICAL") + " EN " + (WP.polylines[polyIdx].name || ("FALDÓN #" + (polyIdx + 1))), 2000);
+  var orientName = orientation === "landscape" ? "HORIZONTAL" : (orientation === "hybrid" ? "HÍBRIDA MIXTA (V+H)" : "VERTICAL");
+  showStatus("DISPOSICIÓN " + orientName + " EN " + (WP.polylines[polyIdx].name || ("FALDÓN #" + (polyIdx + 1))), 2000);
   if (typeof wpPopulateFaldonCard === 'function') wpPopulateFaldonCard();
 }
 
@@ -3993,6 +4001,10 @@ function wpGetFaldonOrientationComparison(poly) {
     var infoL = fnInfo(poly.points, optL);
     var countL = (infoL && infoL.panels) ? infoL.panels.length : 0;
 
+    var optH = Object.assign({}, poly, { orientationPref: 'hybrid' });
+    var infoH = fnInfo(poly.points, optH);
+    var countH = (infoH && infoH.panels) ? infoH.panels.length : 0;
+
     var modWp = 450;
     var effModId = poly.moduleId || (window.solarProjectConfig && window.solarProjectConfig.selectedModuleId) || '';
     if (typeof equipmentCatalog !== 'undefined' && equipmentCatalog && Array.isArray(equipmentCatalog.modules)) {
@@ -4004,15 +4016,28 @@ function wpGetFaldonOrientationComparison(poly) {
 
     var kwpP = (countP * modWp / 1000).toFixed(2);
     var kwpL = (countL * modWp / 1000).toFixed(2);
+    var kwpH = (countH * modWp / 1000).toFixed(2);
+
+    var maxPure = Math.max(countP, countL);
     var diff = countL - countP;
     var diffKwp = (Math.abs(diff) * modWp / 1000).toFixed(2);
+
+    var recommended = 'portrait';
+    if (countH > maxPure) {
+      recommended = 'hybrid';
+    } else if (countL > countP) {
+      recommended = 'landscape';
+    } else if (countP === countL) {
+      recommended = 'equal';
+    }
 
     return {
       portrait: { count: countP, kwp: kwpP },
       landscape: { count: countL, kwp: kwpL },
+      hybrid: { count: countH, kwp: kwpH },
       diff: diff,
       diffKwp: diffKwp,
-      recommended: diff > 0 ? 'landscape' : (diff < 0 ? 'portrait' : 'equal')
+      recommended: recommended
     };
   } catch(eComp) {
     return null;

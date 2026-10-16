@@ -38,6 +38,7 @@ window.RA_App = window.RA_App || {};
     <script src="js/financials.js?v=20260929c"></script>
   <script src="js/viewer.js?v=20260929b"></script>
   <script src="js/solar-engine.js?v=20260929b"></script>
+  <script src="js/solar-optimizer.js?v=20261016a"></script>
   <script src="js/obstacles.js?v=20260929b"></script>
   <script src="js/wind-turbine.js?v=20261011a"></script>
   <script src="js/solar-materials.js?v=20260930a"></script>
@@ -46,7 +47,7 @@ window.RA_App = window.RA_App || {};
   <script src="js/geometry-validate.js?v=20260929b"></script>
   <script src="js/docs-generator.js?v=20260929b"></script>
   <script src="js/workflow-orchestrator.js?v=20260929b"></script>
-  <script src="js/working-plane.js?v=20261016c"></script>
+  <script src="js/working-plane.js?v=20261016d"></script>
   <script src="js/cable-engine.js?v=20261009d"></script>
   <script src="js/capture-mode.js?v=20260929b"></script>
   <script src="js/measure-tool.js?v=20261013a"></script>
@@ -1038,13 +1039,18 @@ window.RA_App = window.RA_App || {};
                     <div id="faldon-arr-legend" style="font-size:7px;color:#94A3B8;display:flex;justify-content:space-between;margin-top:2px;"></div>
                   </div>
 
-                  <!-- Comparador de Orientación Vertical / Horizontal -->
+                  <!-- Botón de Auto-Optimización Multivariable Solar (kWh/año) -->
+                  <button type="button" class="btn-action-primary" onclick="if(window.RASolarOptimizer) window.RASolarOptimizer.openOptimizerModal(WP.selectedPolyIdx);" style="width:100%;margin-bottom:6px;padding:6px 8px;font-size:9.5px;background:linear-gradient(135deg, rgba(16,185,129,0.25), rgba(6,78,59,0.35));border:1px solid #10B981;color:#A7F3D0;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;border-radius:6px;box-shadow:0 2px 10px rgba(16,185,129,0.15);" title="Sondeo automático de combinaciones (Inclinación × Orientación × Pitch) para maximizar la producción neta anual en kWh">
+                    <i data-lucide="zap" class="icon-sm"></i> ⚡ AUTO-OPTIMIZAR CAMPO SOLAR (kWh/año)
+                  </button>
+
+                  <!-- Comparador de Orientación Vertical / Horizontal / Híbrido Mixto -->
                   <div id="faldon-orient-compare-box" style="background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:5px 6px;margin-bottom:6px;">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
                       <span style="font-size:7.5px;color:var(--text-slate-300);font-weight:600;"><i data-lucide="compass" class="icon-sm"></i> COMPARADOR DE ORIENTACIÓN:</span>
                       <span id="faldon-orient-recommend-badge" style="font-size:7.5px;padding:1px 5px;border-radius:4px;background:rgba(16,185,129,0.15);color:#34D399;font-weight:bold;">Analizando...</span>
                     </div>
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;">
                       <button id="faldon-orient-portrait" type="button" class="doc-mini-btn" onclick="wpSetPolyOrientation(WP.selectedPolyIdx, 'portrait')" style="text-align:center;padding:4px 2px;font-size:8px;display:flex;flex-direction:column;align-items:center;gap:1px;">
                         <span style="display:flex;align-items:center;gap:3px;"><i data-lucide="smartphone" class="icon-sm"></i> VERTICAL</span>
                         <span id="faldon-orient-portrait-lbl" style="font-size:7.5px;color:var(--text-slate-400);">-- mods</span>
@@ -1052,6 +1058,10 @@ window.RA_App = window.RA_App || {};
                       <button id="faldon-orient-landscape" type="button" class="doc-mini-btn" onclick="wpSetPolyOrientation(WP.selectedPolyIdx, 'landscape')" style="text-align:center;padding:4px 2px;font-size:8px;display:flex;flex-direction:column;align-items:center;gap:1px;">
                         <span style="display:flex;align-items:center;gap:3px;"><i data-lucide="monitor" class="icon-sm"></i> HORIZONTAL</span>
                         <span id="faldon-orient-landscape-lbl" style="font-size:7.5px;color:var(--text-slate-400);">-- mods</span>
+                      </button>
+                      <button id="faldon-orient-hybrid" type="button" class="doc-mini-btn" onclick="wpSetPolyOrientation(WP.selectedPolyIdx, 'hybrid')" style="text-align:center;padding:4px 2px;font-size:8px;display:flex;flex-direction:column;align-items:center;gap:1px;" title="Combina vertical y horizontal en el mismo faldón para aprovechar esquinas y remanentes">
+                        <span style="display:flex;align-items:center;gap:3px;"><i data-lucide="layers" class="icon-sm"></i> HÍBRIDO (V+H)</span>
+                        <span id="faldon-orient-hybrid-lbl" style="font-size:7.5px;color:var(--text-slate-400);">-- mods</span>
                       </button>
                     </div>
                   </div>
@@ -7761,7 +7771,8 @@ function evaluateModuleLayouts(roof, module, cfg) {
     }
   });
 
-  const orientations = cfg.orientations || ["portrait", "landscape"];
+  const wantHybridOnly = Array.isArray(cfg.orientations) && cfg.orientations.length === 1 && cfg.orientations[0] === 'hybrid';
+  const orientations = wantHybridOnly ? ["portrait", "landscape"] : (cfg.orientations || ["portrait", "landscape"]).filter(o => o !== 'hybrid');
   const layouts = [];
 
   // ── FASE 3 · Búsqueda en dos etapas para cubiertas grandes (>800 m²) ──
@@ -7925,6 +7936,18 @@ function evaluateModuleLayouts(roof, module, cfg) {
       centers: bestAngleCenters,
       frame: { Lu: bestAuvN.x, Lv: bestAuvN.y, Ln: 0, Wu: bestBuvN.x, Wv: bestBuvN.y, nMod, W, Ldir }
     });
+  }
+
+  // Generación de layout híbrido mixto (Vertical + Horizontal)
+  const allowHybrid = wantHybridOnly || !cfg.orientations || cfg.orientations.includes('hybrid') || cfg.orientations.includes('auto');
+  if (allowHybrid && typeof window.RASolarOptimizer !== 'undefined' && typeof window.RASolarOptimizer.generateHybridLayout === 'function') {
+    const hybridLayout = window.RASolarOptimizer.generateHybridLayout(roof, module, cfg, layouts);
+    if (hybridLayout) {
+      if (wantHybridOnly) {
+        return { layouts: [hybridLayout], best: hybridLayout };
+      }
+      layouts.push(hybridLayout);
+    }
   }
 
   layouts.sort((x, y) => y.moduleCount - x.moduleCount || (x.footprintA - y.footprintA));
@@ -11298,7 +11321,7 @@ function computeSinglePolylineRoofInfo(ptsIn, polyOpts) {
   const modTiltSel = (opts.modTilt !== undefined && opts.modTilt !== "") ? opts.modTilt : (document.getElementById("cfg-mod-tilt") || { value: "auto" }).value;
   const modAzSel = (opts.modAzimuth !== undefined && opts.modAzimuth !== "") ? opts.modAzimuth : getModuleAzimuthSur();
   const orientPref = (opts.orientationPref !== undefined && opts.orientationPref !== "") ? opts.orientationPref : ((typeof userPanelOrientationPref !== "undefined" && userPanelOrientationPref) ? userPanelOrientationPref : "auto");
-  const orientList = (orientPref === "portrait") ? ["portrait"] : ((orientPref === "landscape") ? ["landscape"] : ["portrait", "landscape"]);
+  const orientList = (orientPref === "portrait") ? ["portrait"] : ((orientPref === "landscape") ? ["landscape"] : ((orientPref === "hybrid") ? ["hybrid"] : ["portrait", "landscape", "hybrid"]));
 
   const res = evaluateModuleLayouts({
     latDeg: latDeg,
@@ -11358,8 +11381,13 @@ function computeSinglePolylineRoofInfo(ptsIn, polyOpts) {
     const baseElev = estructura ? clearance : (roofOffset + (best.coplanar ? 0.02 : 0.05));
 
     for (const c of best.centers) {
+      const pOrient = c.orient || (best.orientation === 'hybrid' ? 'portrait' : best.orientation);
+      const isLand = (pOrient === 'landscape');
+      const curModLen = isLand ? panelW : panelH;
+      const curModWid = isLand ? panelH : panelW;
+
       // Centro 3D en el espacio
-      const centerH = baseElev + (best.coplanar ? 0 : (modLen / 2) * sinDelta);
+      const centerH = baseElev + (best.coplanar ? 0 : (curModLen / 2) * sinDelta);
       const localCenter = Cesium.Cartesian3.add(
         Cesium.Cartesian3.multiplyByScalar(uVec, c.u, new Cesium.Cartesian3()),
         Cesium.Cartesian3.multiplyByScalar(vVec, c.v, new Cesium.Cartesian3()),
@@ -11371,9 +11399,9 @@ function computeSinglePolylineRoofInfo(ptsIn, polyOpts) {
       // 4 Vértices 3D con orientación Anti-Horaria (CCW estricta) para apuntar la normal al cielo
       const cornerConfigs = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
       const worldCorners = cornerConfigs.map(([sx, sy]) => {
-        const du = (sx * (modLen / 2) * cosDelta) * AuvN.x + (sy * (modWidth / 2)) * BuvN.x;
-        const dv = (sx * (modLen / 2) * cosDelta) * AuvN.y + (sy * (modWidth / 2)) * BuvN.y;
-        const dh = baseElev + (sx <= 0 ? (modLen * sinDelta) : 0);
+        const du = (sx * (curModLen / 2) * cosDelta) * AuvN.x + (sy * (curModWid / 2)) * BuvN.x;
+        const dv = (sx * (curModLen / 2) * cosDelta) * AuvN.y + (sy * (curModWid / 2)) * BuvN.y;
+        const dh = baseElev + (sx <= 0 ? (curModLen * sinDelta) : 0);
 
         const lp = Cesium.Cartesian3.add(
           Cesium.Cartesian3.multiplyByScalar(uVec, c.u + du, new Cesium.Cartesian3()),
@@ -11392,9 +11420,10 @@ function computeSinglePolylineRoofInfo(ptsIn, polyOpts) {
         v: c.v,
         gridA: (typeof c.a === 'number' ? c.a : c.v),
         gridB: (typeof c.b === 'number' ? c.b : c.u),
-        w: modWidth,
-        h: modLen,
-        orientation: best.orientation,
+        w: curModWid,
+        h: curModLen,
+        orientation: pOrient,
+        isHybridResidual: !!c.isHybridResidual,
         moduleId: effectiveModId,
         tiltDeg: best.moduleTiltDeg,
         azimuthDeg: best.moduleAzimuthSur,
