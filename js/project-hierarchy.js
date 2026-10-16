@@ -277,6 +277,22 @@
             isSelected: global.selectedElectricalId === 'dc_protection'
           });
         }
+        // 2b. Sistema de Almacenamiento / Batería LFP
+        if (elecState.batteryPosition && elecState.batteryEntity) {
+          const cat = global.equipmentCatalog || global.DEFAULT_EQUIPMENT_CATALOG;
+          const cfg = global.solarProjectConfig || {};
+          const batItem = (cat && cat.batteries && cfg.selectedBatteryId) ? cat.batteries.find(b => b.id === cfg.selectedBatteryId) : null;
+          const batName = batItem ? (batItem.brand + ' ' + batItem.model) : 'Sistema de Baterías LFP';
+          electricalEquipment.push({
+            id: 'battery',
+            type: 'battery',
+            name: batName,
+            icon: '🔋',
+            position: elecState.batteryPosition,
+            visible: elecState.batteryEntity.show !== false,
+            isSelected: global.selectedElectricalId === 'battery'
+          });
+        }
         // 3. Combiner Box (si está habilitada)
         if (elecState.combinerBox && elecState.combinerBox.position && elecState.combinerBox.isEnabled) {
           electricalEquipment.push({
@@ -369,6 +385,7 @@
         let pos = null;
         if (elecId === 'inverter') pos = s.position;
         else if (elecId === 'dc_protection') pos = s.dcProtectionPosition;
+        else if (elecId === 'battery') pos = s.batteryPosition;
         else if (elecId === 'combiner' && s.combinerBox) pos = s.combinerBox.position;
         else if (elecId === 'meter' && s.gridMeter) pos = s.gridMeter.position;
 
@@ -520,6 +537,7 @@
           let ent = null;
           if (idOrIdx === 'inverter') ent = s.entity;
           else if (idOrIdx === 'dc_protection') ent = s.dcProtectionEntity;
+          else if (idOrIdx === 'battery') ent = s.batteryEntity;
           else if (idOrIdx === 'combiner' && s.combinerBox) ent = s.combinerBox.entity;
           else if (idOrIdx === 'meter' && s.gridMeter) ent = s.gridMeter.entity;
           if (ent) {

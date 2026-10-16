@@ -50,14 +50,14 @@ window.RA_App = window.RA_App || {};
   <script src="js/working-plane.js?v=20261016f"></script>
   <script src="js/cable-engine.js?v=20261016a"></script>
   <script src="js/capture-mode.js?v=20260929b"></script>
-  <script src="js/measure-tool.js?v=20261013a"></script>
-  <script src="js/project-hierarchy.js?v=20260929b"></script>
-  <script src="js/project-storage.js?v=20261016a"></script>
+  <script src="js/measure-tool.js?v=20261016a"></script>
+  <script src="js/project-hierarchy.js?v=20261016a"></script>
+  <script src="js/project-storage.js?v=20261016b"></script>
   <script src="js/company-branding.js?v=20261016a"></script>
   <script src="js/ui-outliner.js?v=20261015f"></script>
   <script src="js/bill-auditor.js?v=20260929b"></script>
   <script src="js/structure-catalog.js?v=20261015a"></script>
-  <script src="js/bom-tree.js?v=20261016a"></script>
+  <script src="js/bom-tree.js?v=20261016b"></script>
   <script src="js/engineering-explainer.js?v=20260929b"></script>
   <script src="js/equipment-ai-importer.js?v=20261014a"></script>
   <script src="js/project-status-hud.js?v=20261016b"></script>
@@ -9706,6 +9706,10 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
         window.inverterEquipmentState.gridMeter.rotation = normRot;
         effEnt = window.inverterEquipmentState.gridMeter.entity;
         effPos = window.inverterEquipmentState.gridMeter.position;
+      } else if (target.id === 'battery') {
+        window.inverterEquipmentState.batteryRotation = normRot;
+        effEnt = window.inverterEquipmentState.batteryEntity;
+        effPos = window.inverterEquipmentState.batteryPosition;
       }
       if (effEnt && effPos) {
         try {
@@ -9828,7 +9832,16 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
           if (sState.gridMeter.entity.label) sState.gridMeter.entity.label.text = '🔌 CONTADOR DE RED\n' + carto.height.toFixed(1) + ' m';
         }
           if (sState.gridMeter.label2D) sState.gridMeter.label2D.position = posProp;
+      } else if (target.id === 'battery') {
+        sState.batteryPosition = newPos;
+        sState.batteryCarto = { latitude: latDeg, longitude: lonDeg, height: carto.height };
+        if (sState.batteryEntity) {
+          sState.batteryEntity.position = posProp;
+          if (sState.batteryEntity.label) sState.batteryEntity.label.text = '🔋 BATERÍA LFP\n' + carto.height.toFixed(1) + ' m';
+        }
+        if (sState.batteryLabel2D) sState.batteryLabel2D.position = newPos;
       }
+      target.pos = Cesium.Cartesian3.clone(newPos);
       // [P2] Cables NO se regeneran por frame durante el drag (regla §5): LEFT_UP ya los re-renderiza
       if (!universalGizmoState.active && typeof wpCalculateAndRenderInverterCables === 'function') wpCalculateAndRenderInverterCables();
     } else if (target.type === 'obstacle' && target.rawObj) {

@@ -212,6 +212,11 @@ function raExportProjectData() {
           carto: s.carto || null,
           rotation: s.rotation || 0
         },
+        battery: {
+          position: s.batteryPosition ? { x: s.batteryPosition.x, y: s.batteryPosition.y, z: s.batteryPosition.z } : null,
+          carto: s.batteryCarto || null,
+          rotation: s.batteryRotation || 0
+        },
         gridMeter: {
           position: (s.gridMeter && s.gridMeter.position) ? { x: s.gridMeter.position.x, y: s.gridMeter.position.y, z: s.gridMeter.position.z } : null,
           carto: (s.gridMeter && s.gridMeter.carto) || null
@@ -688,6 +693,15 @@ async function raImportProjectData(projectData) {
       if (elec.inverter && elec.inverter.position && typeof Cesium !== 'undefined') {
         const invPt = new Cesium.Cartesian3(elec.inverter.position.x, elec.inverter.position.y, elec.inverter.position.z);
         if (typeof wpPlaceInverterAtPosition === 'function') wpPlaceInverterAtPosition(invPt);
+      }
+      if (elec.battery && elec.battery.position && typeof Cesium !== 'undefined' && window.inverterEquipmentState) {
+        const s = window.inverterEquipmentState;
+        const batPt = new Cesium.Cartesian3(elec.battery.position.x, elec.battery.position.y, elec.battery.position.z);
+        s.batteryPosition = batPt;
+        if (elec.battery.carto) s.batteryCarto = elec.battery.carto;
+        if (typeof elec.battery.rotation === 'number') s.batteryRotation = elec.battery.rotation;
+        if (s.batteryEntity) s.batteryEntity.position = new Cesium.ConstantPositionProperty(batPt);
+        if (s.batteryLabel2D) s.batteryLabel2D.position = batPt;
       }
       if (elec.gridMeter && elec.gridMeter.position && typeof Cesium !== 'undefined') {
         const meterPt = new Cesium.Cartesian3(elec.gridMeter.position.x, elec.gridMeter.position.y, elec.gridMeter.position.z);

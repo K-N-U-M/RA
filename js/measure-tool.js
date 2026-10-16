@@ -224,14 +224,14 @@
       }
     });
 
-    // 4. Equipos eléctricos (inversor, contador, cuadro DC)
+    // 4. Equipos eléctricos (inversor, batería, contador, cuadros)
     var eqState = global.inverterEquipmentState;
     if (eqState) {
-      ['inverter', 'gridMeter', 'combinerBox'].forEach(function(k) {
-        if (eqState[k] && eqState[k].position) {
-          candidates.push({ pos: eqState[k].position, type: 'Equipo (' + k + ')' });
-        }
-      });
+      if (eqState.position) candidates.push({ pos: eqState.position, type: 'Inversor / Cuadro' });
+      if (eqState.dcProtectionPosition) candidates.push({ pos: eqState.dcProtectionPosition, type: 'Cuadro DC' });
+      if (eqState.batteryPosition) candidates.push({ pos: eqState.batteryPosition, type: 'Batería LFP' });
+      if (eqState.gridMeter && eqState.gridMeter.position) candidates.push({ pos: eqState.gridMeter.position, type: 'Contador de Red' });
+      if (eqState.combinerBox && eqState.combinerBox.position) candidates.push({ pos: eqState.combinerBox.position, type: 'Combiner Box' });
     }
 
     _state.cachedCandidates = candidates;

@@ -784,6 +784,7 @@
         let pos = null;
         if (elecId === 'inverter') pos = s.position;
         else if (elecId === 'dc_protection') pos = s.dcProtectionPosition;
+        else if (elecId === 'battery') pos = s.batteryPosition;
         else if (elecId === 'combiner' && s.combinerBox) pos = s.combinerBox.position;
         else if (elecId === 'meter' && s.gridMeter) pos = s.gridMeter.position;
 
