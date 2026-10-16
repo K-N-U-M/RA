@@ -31,7 +31,7 @@ window.RA_App = window.RA_App || {};
   <script src="js/ui-viewport-controls.js?v=20261015f"></script>
   <script src="js/error-handler.js"></script>
   <script src="js/project-config.js"></script>
-  <script src="js/buildings.js?v=20261016b"></script>
+  <script src="js/buildings.js?v=20261016d"></script>
     <script src="js/radiation-engine.js?v=20261014a"></script>
     <script src="js/solar-heatmap.js?v=20260929b"></script>
     <script src="js/config.js?v=20260929b"></script>
@@ -46,7 +46,7 @@ window.RA_App = window.RA_App || {};
   <script src="js/geometry-validate.js?v=20260929b"></script>
   <script src="js/docs-generator.js?v=20260929b"></script>
   <script src="js/workflow-orchestrator.js?v=20260929b"></script>
-  <script src="js/working-plane.js?v=20260930a"></script>
+  <script src="js/working-plane.js?v=20261016c"></script>
   <script src="js/cable-engine.js?v=20261009d"></script>
   <script src="js/capture-mode.js?v=20260929b"></script>
   <script src="js/measure-tool.js?v=20261013a"></script>
@@ -56,7 +56,7 @@ window.RA_App = window.RA_App || {};
   <script src="js/ui-outliner.js?v=20261015f"></script>
   <script src="js/bill-auditor.js?v=20260929b"></script>
   <script src="js/structure-catalog.js?v=20261015a"></script>
-  <script src="js/bom-tree.js?v=20261015f"></script>
+  <script src="js/bom-tree.js?v=20261016a"></script>
   <script src="js/engineering-explainer.js?v=20260929b"></script>
   <script src="js/equipment-ai-importer.js?v=20261014a"></script>
   <script src="js/project-status-hud.js?v=20261015g"></script>
@@ -598,8 +598,13 @@ window.RA_App = window.RA_App || {};
 
                 <!-- Peto Perimetral (para cubiertas planas) -->
                 <div class="field-row" id="bld-parapet-row" style="display:flex;justify-content:space-between;align-items:center;">
-                  <span style="font-size:9.5px;color:var(--text-slate-300);">Peto Perimetral (m):</span>
-                  <input type="number" id="bld-parapet-height" min="0" max="2.5" step="0.1" value="0.6" class="field-input" style="width:65px;font-size:9px;padding:3px 6px;text-align:right;" onchange="updateSelectedBuildingProps()">
+                  <span style="font-size:9.5px;color:var(--text-slate-300);">Peto Altura (m):</span>
+                  <input type="number" id="bld-parapet-height" min="0" max="2.5" step="0.05" value="0.6" class="field-input" style="width:65px;font-size:9px;padding:3px 6px;text-align:right;" onchange="updateSelectedBuildingProps()">
+                </div>
+
+                <div class="field-row" id="bld-parapet-width-row" style="display:flex;justify-content:space-between;align-items:center;">
+                  <span style="font-size:9.5px;color:var(--text-slate-300);">Peto Ancho / Grosor (m):</span>
+                  <input type="number" id="bld-parapet-width" min="0.05" max="1.0" step="0.05" value="0.25" class="field-input" style="width:65px;font-size:9px;padding:3px 6px;text-align:right;" onchange="updateSelectedBuildingProps()">
                 </div>
 
                 <!-- Voladizo / Alero (Overhang para cubiertas inclinadas) -->
@@ -608,12 +613,13 @@ window.RA_App = window.RA_App || {};
                   <input type="number" id="bld-overhang" min="0" max="1.5" step="0.05" value="0.2" class="field-input" style="width:65px;font-size:9px;padding:3px 6px;text-align:right;" onchange="updateSelectedBuildingProps()">
                 </div>
 
-                <!-- Color y Acabado de Tejado y Fachadas -->
+                <!-- Color y Acabado de Tejado, Fachadas y Aristas -->
                 <div class="field-row" style="display:flex;justify-content:space-between;align-items:center;">
-                  <span style="font-size:9.5px;color:var(--text-slate-300);">Color Fachada / Tejado:</span>
-                  <div style="display:flex;gap:6px;align-items:center;">
-                    <input type="color" id="bld-facade-color" value="#F1F5F9" title="Color Fachadas" style="width:26px;height:20px;border:none;border-radius:3px;cursor:pointer;background:transparent;" onchange="updateSelectedBuildingProps()">
-                    <input type="color" id="bld-roof-color" value="#E2E8F0" title="Color Tejado" style="width:26px;height:20px;border:none;border-radius:3px;cursor:pointer;background:transparent;" onchange="updateSelectedBuildingProps()">
+                  <span style="font-size:9.5px;color:var(--text-slate-300);">Fachada / Tejado / Aristas:</span>
+                  <div style="display:flex;gap:5px;align-items:center;">
+                    <input type="color" id="bld-facade-color" value="#F1F5F9" title="Color Fachadas" style="width:24px;height:20px;border:none;border-radius:3px;cursor:pointer;background:transparent;" onchange="updateSelectedBuildingProps()">
+                    <input type="color" id="bld-roof-color" value="#E2E8F0" title="Color Tejado" style="width:24px;height:20px;border:none;border-radius:3px;cursor:pointer;background:transparent;" onchange="updateSelectedBuildingProps()">
+                    <input type="color" id="bld-edge-color" value="#334155" title="Color Aristas" style="width:24px;height:20px;border:none;border-radius:3px;cursor:pointer;background:transparent;" onchange="updateSelectedBuildingProps()">
                   </div>
                 </div>
 
@@ -997,7 +1003,15 @@ window.RA_App = window.RA_App || {};
                       <option value="triangles_30">Triángulos 30º (Cubierta Plana)</option>
                       <option value="triangles_15_ew">Estructura 15º Este-Oeste</option>
                       <option value="triangles_custom">Triángulos Ángulo Adaptable (Personalizado)</option>
+                      <option value="pergola">Pérgola elevada</option>
                     </select>
+                    <div id="faldon-pergola-row" style="display:none;justify-content:space-between;align-items:center;margin-top:4px;padding:3px 5px;background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.25);border-radius:4px;">
+                      <span style="font-size:7px;color:#38BDF8;font-weight:600;"><i data-lucide="arrow-up" class="icon-sm"></i> Altura libre pérgola:</span>
+                      <div style="display:flex;align-items:center;gap:3px;">
+                        <input type="number" id="faldon-pergola-h" min="0.5" max="5.0" step="0.1" value="1.80" style="width:48px;font-size:7.5px;padding:2px 4px;background:#0F172A;color:#FBBF24;border:1px solid rgba(255,255,255,0.2);border-radius:4px;text-align:right;" onchange="wpSetPolyPergolaHeight(WP.selectedPolyIdx, this.value)">
+                        <span style="font-size:7px;color:#94A3B8;">m</span>
+                      </div>
+                    </div>
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;gap:4px;">
                       <span style="font-size:7px;color:var(--text-slate-400);"><i data-lucide="tag" class="icon-sm"></i> Fabricante:</span>
                       <select id="faldon-structure-mfg-select" class="doc-input" style="flex:1;font-size:7.5px;padding:2px 4px;background:#0F172A;color:#38BDF8;border:1px solid rgba(56,189,248,0.3);border-radius:4px;" onchange="if(window.RAStructureCatalog) window.RAStructureCatalog.setPolyManufacturer(WP.selectedPolyIdx, this.value)">
@@ -4553,9 +4567,11 @@ function finishActiveBuilding() {
     roofPitch: 25,
     roofAzimuth: 180,
     parapetHeight: 0.6,
+    parapetWidth: 0.25,
     overhang: 0.2,
     facadeColor: '#F1F5F9',
     roofColor: '#E2E8F0',
+    edgeColor: '#334155',
     points: [...activeBuildingPts]
   };
 
@@ -4744,10 +4760,13 @@ function selectBuilding(bldId) {
   const azRow      = document.getElementById('bld-azimuth-row');
   const parEl      = document.getElementById('bld-parapet-height');
   const parRow     = document.getElementById('bld-parapet-row');
+  const parWEl     = document.getElementById('bld-parapet-width');
+  const parWRow    = document.getElementById('bld-parapet-width-row');
   const ovhEl      = document.getElementById('bld-overhang');
   const ovhRow     = document.getElementById('bld-overhang-row');
   const colorEl    = document.getElementById('bld-facade-color');
   const roofColEl  = document.getElementById('bld-roof-color');
+  const edgeColEl  = document.getElementById('bld-edge-color');
 
   const rType = bld.roofType || 'flat';
   const rPitch = (typeof bld.roofPitch === 'number') ? bld.roofPitch : 25;
@@ -4763,15 +4782,18 @@ function selectBuilding(bldId) {
   if (azNum) azNum.value = rAz;
   if (azVal) azVal.textContent = rAz + '° (' + getAzimuthCardinalShort(rAz) + ')';
   if (parEl) parEl.value = (typeof bld.parapetHeight === 'number') ? bld.parapetHeight : 0.6;
+  if (parWEl) parWEl.value = (typeof bld.parapetWidth === 'number') ? bld.parapetWidth : 0.25;
   if (ovhEl) ovhEl.value = (typeof bld.overhang === 'number') ? bld.overhang : 0.2;
-  if (colorEl) colorEl.value = bld.facadeColor || '#FFFFFF';
-  if (roofColEl) roofColEl.value = bld.roofColor || '#FF6400';
+  if (colorEl) colorEl.value = bld.facadeColor || '#F1F5F9';
+  if (roofColEl) roofColEl.value = bld.roofColor || '#E2E8F0';
+  if (edgeColEl) edgeColEl.value = bld.edgeColor || '#334155';
 
   const isPitched = (rType === 'gable' || rType === 'shed' || rType === 'hip');
   if (pitchRow) pitchRow.style.display = isPitched ? 'flex' : 'none';
   if (azRow) azRow.style.display = isPitched ? 'flex' : 'none';
   if (ovhRow) ovhRow.style.display = isPitched ? 'flex' : 'none';
   if (parRow) parRow.style.display = (rType === 'flat') ? 'flex' : 'none';
+  if (parWRow) parWRow.style.display = (rType === 'flat') ? 'flex' : 'none';
 
   render3DBuildingsInCesium();
   if (typeof renderTriad2D === 'function') renderTriad2D();
@@ -4818,10 +4840,13 @@ function updateSelectedBuildingProps() {
   const azRow     = document.getElementById('bld-azimuth-row');
   const parEl     = document.getElementById('bld-parapet-height');
   const parRow    = document.getElementById('bld-parapet-row');
+  const parWEl    = document.getElementById('bld-parapet-width');
+  const parWRow   = document.getElementById('bld-parapet-width-row');
   const ovhEl     = document.getElementById('bld-overhang');
   const ovhRow    = document.getElementById('bld-overhang-row');
   const colorEl   = document.getElementById('bld-facade-color');
   const roofColEl = document.getElementById('bld-roof-color');
+  const edgeColEl = document.getElementById('bld-edge-color');
 
   if (nameEl) bld.name = nameEl.value;
   if (hEl) bld.height = parseFloat(hEl.value) || 6.0;
@@ -4829,14 +4854,17 @@ function updateSelectedBuildingProps() {
   if (pitchEl) bld.roofPitch = parseFloat(pitchEl.value) || 25;
   if (azEl) bld.roofAzimuth = parseFloat(azEl.value) ?? 180;
   if (parEl) bld.parapetHeight = parseFloat(parEl.value) || 0;
+  if (parWEl) bld.parapetWidth = parseFloat(parWEl.value) || 0.25;
   if (ovhEl) bld.overhang = parseFloat(ovhEl.value) || 0;
   if (colorEl) bld.facadeColor = colorEl.value;
   if (roofColEl) bld.roofColor = roofColEl.value;
+  if (edgeColEl) bld.edgeColor = edgeColEl.value;
 
   const rType = bld.roofType || 'flat';
   if (pitchRow) pitchRow.style.display = (rType === 'flat') ? 'none' : 'flex';
   if (azRow) azRow.style.display = (rType === 'shed' || rType === 'gable') ? 'flex' : 'none';
   if (parRow) parRow.style.display = (rType === 'flat') ? 'flex' : 'none';
+  if (parWRow) parWRow.style.display = (rType === 'flat') ? 'flex' : 'none';
   if (ovhRow) ovhRow.style.display = (rType === 'flat') ? 'none' : 'flex';
 
   if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Configuración de edificio modificada');
@@ -13726,17 +13754,45 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
         
         // Auto-detección solo si no hay estructura definida explícitamente en el faldón
         if (!est || !est.tipo) {
-          if (Math.abs(panelTilt - roofTilt) > 3 || (poly.structureType && poly.structureType.includes('triangle'))) {
+          if (poly.structureType === 'pergola') {
+            est = { tipo: 'pergola', clearance: 1.80 };
+          } else if (Math.abs(panelTilt - roofTilt) > 3 || (poly.structureType && poly.structureType.includes('triangle'))) {
             est = { tipo: 'balasto', clearance: 0.20 };
           } else {
             est = { tipo: 'coplanar', clearance: 0.05 };
           }
         }
         
-        const esPergola = est.tipo === 'pergola';
-        const esCoplanar = (est.tipo === 'coplanar') || (poly.structureType && poly.structureType.startsWith('coplanar'));
-        const maxSoportes = 80;
+        const esPergola = (est.tipo === 'pergola') || (poly.structureType === 'pergola');
+        const esCoplanar = !esPergola && ((est.tipo === 'coplanar') || (poly.structureType && poly.structureType.startsWith('coplanar')));
+        const maxSoportes = esPergola ? 200 : 80;
         const pasoMuestra = Math.max(1, Math.ceil(panels.length / maxSoportes));
+
+        // Proyección analítica exacta de puntos 3D sobre el plano del faldón
+        const paRoof = (pInfo && pInfo.transform && pInfo.invTransform && pInfo.normal)
+          ? { transform: pInfo.transform, invTransform: pInfo.invTransform, normal: pInfo.normal, localPoints: pInfo.localPoints || [new Cesium.Cartesian3(0,0,0)] }
+          : (typeof polygonAnalysis === 'function' ? polygonAnalysis(poly.points) : null);
+        const p0Roof = (paRoof && paRoof.localPoints && paRoof.localPoints[0]) || new Cesium.Cartesian3(0, 0, 0);
+        const normRoof = paRoof ? paRoof.normal : new Cesium.Cartesian3(0, 0, 1);
+        const planeDRoof = -(normRoof.x * p0Roof.x + normRoof.y * p0Roof.y + normRoof.z * p0Roof.z);
+
+        const projectPointToRoof = function(worldPos) {
+          if (!paRoof || !paRoof.invTransform || !paRoof.transform) {
+            const c = Cesium.Cartographic.fromCartesian(worldPos);
+            const clH = (est && est.clearance > 0) ? est.clearance : 1.80;
+            return Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, c.height - clH);
+          }
+          const loc = Cesium.Matrix4.multiplyByPoint(paRoof.invTransform, worldPos, new Cesium.Cartesian3());
+          let gLoc;
+          if (Math.abs(normRoof.z) > 0.05) {
+            const gz = -(normRoof.x * loc.x + normRoof.y * loc.y + planeDRoof) / normRoof.z;
+            gLoc = new Cesium.Cartesian3(loc.x, loc.y, gz);
+          } else {
+            const dist = normRoof.x * loc.x + normRoof.y * loc.y + normRoof.z * loc.z + planeDRoof;
+            gLoc = new Cesium.Cartesian3(loc.x - dist * normRoof.x, loc.y - dist * normRoof.y, loc.z - dist * normRoof.z);
+          }
+          return Cesium.Matrix4.multiplyByPoint(paRoof.transform, gLoc, new Cesium.Cartesian3());
+        };
 
         panels.forEach((p, idx) => {
           if (idx % pasoMuestra !== 0 || !p.corners || p.corners.length < 4) return;
@@ -13764,19 +13820,42 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
             const pair2 = (d1_to_h1 < d1_to_h2) ? { low: low2.pos, high: high2.pos } : { low: low2.pos, high: high1.pos };
 
             if (esPergola) {
-              // PÉRGOLA: Pilares en las 4 esquinas del módulo hacia la cubierta
-              const clearH = est.clearance || 1.80;
-              p.corners.forEach((cornerPos) => {
-                const carto = Cesium.Cartographic.fromCartesian(cornerPos);
-                const groundPos = Cesium.Cartesian3.fromRadians(carto.longitude, carto.latitude, carto.height - clearH);
-                const line = supportCol.add({
-                  positions: [cornerPos, groundPos],
+              // PÉRGOLA ELEVADA: Pórtico 3D completo con 4 pilares a cubierta y vigas de dintel
+              // 1. Proyectar matemáticamente cada esquina a la superficie exacta del faldón/tejado
+              const gCorners = p.corners.map(c => projectPointToRoof(c));
+
+              // 2. Pilares verticales / a plomo desde cada esquina del módulo hasta la cubierta
+              for (let ci = 0; ci < 4; ci++) {
+                const leg = supportCol.add({
+                  positions: [p.corners[ci], gCorners[ci]],
                   width: 6.0,
                   show: true
                 });
-                line.material = pergolaMat;
+                leg.material = pergolaMat;
                 totalLinesAdded++;
+              }
+
+              // 3. Vigas de dintel superiores: Unen los 4 pilares bajo el módulo formando el bastidor estructural
+              // Lintel perimetral cerrado [C0 -> C1 -> C2 -> C3 -> C0]
+              const dintelLoop = supportCol.add({
+                positions: [p.corners[0], p.corners[1], p.corners[2], p.corners[3], p.corners[0]],
+                width: 5.5,
+                show: true
               });
+              dintelLoop.material = pergolaMat;
+              totalLinesAdded++;
+
+              // Travesaño intermedio de refuerzo bajo el panel
+              const midA = Cesium.Cartesian3.midpoint(p.corners[0], p.corners[3], new Cesium.Cartesian3());
+              const midB = Cesium.Cartesian3.midpoint(p.corners[1], p.corners[2], new Cesium.Cartesian3());
+              const crossBeam = supportCol.add({
+                positions: [midA, midB],
+                width: 4.5,
+                show: true
+              });
+              crossBeam.material = railMat;
+              totalLinesAdded++;
+
             } else if (!esCoplanar) {
               // BALASTO / ESTRUCTURA TRIANGULAR INCLINADA PROFESIONAL (A-Frame solar):
               // Por cada lateral (izquierdo y derecho del módulo):
@@ -15297,6 +15376,11 @@ window.toggleSolarHUD = toggleSolarHUD;
       updateTriadAtMouse(d.endPos.x, d.endPos.y, scene.canvas);
     }
 
+    const isDrawingPoly = (typeof WP !== 'undefined' && WP && WP.mode === 'draw-poly');
+    if (isDrawingPoly && scene && typeof scene.requestRender === 'function') {
+      scene.requestRender();
+    }
+
     _isCursorDirty = false;
     _cursorUpdateData = null;
   }
@@ -15448,9 +15532,12 @@ window.toggleSolarHUD = toggleSolarHUD;
     // Cursor estándar de navegación vs Cursor CAD / Dibujo de edificio / Trazado de canalizaciones
     const isDefiningPlane = (typeof WP !== 'undefined' && WP && WP.mode === 'define-plane');
     const isDrawingBuilding = (typeof WP !== 'undefined' && WP && WP.mode === 'draw-building');
+    const isDrawingPoly = (typeof WP !== 'undefined' && WP && WP.mode === 'draw-poly');
     const isRoutingCable = (typeof window.cableRoutingState !== 'undefined' && window.cableRoutingState && window.cableRoutingState.active);
     if (scene && scene.canvas) {
-      scene.canvas.style.cursor = (isDefiningPlane || isDrawingBuilding || isRoutingCable) ? 'crosshair' : 'default';
+      if (!isDrawingPoly || scene.canvas.style.cursor !== 'pointer') {
+        scene.canvas.style.cursor = (isDefiningPlane || isDrawingBuilding || isDrawingPoly || isRoutingCable) ? 'crosshair' : 'default';
+      }
     }
 
 

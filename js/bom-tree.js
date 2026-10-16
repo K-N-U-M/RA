@@ -150,7 +150,8 @@
           'coplanar_chapa': 2.5,
           'triangles_30': 6.5,
           'triangles_15_ew': 7.0,
-          'triangles_custom': 6.5
+          'triangles_custom': 6.5,
+          'pergola': 12.0
         };
 
         // ── Detección analítica de filas de módulos en cubierta ───────────────────

@@ -29,17 +29,29 @@
 
     void main()
     {
-        vec3 normalEC = normalize(v_normalEC);
+        // Flat Shading analítico estricto por cara plana (BIM / CAD):
+        // Elimina al 100% pliegues diagonales, arrugas de triangulación y sombras falsas
+        vec3 dX = dFdx(v_positionEC);
+        vec3 dY = dFdy(v_positionEC);
+        vec3 faceNormalEC = cross(dX, dY);
+        float lenSq = dot(faceNormalEC, faceNormalEC);
+        vec3 normalEC = (lenSq > 1e-8) ? normalize(faceNormalEC) : normalize(v_normalEC);
+
     #ifdef FACE_FORWARD
         normalEC = faceforward(normalEC, vec3(0.0, 0.0, 1.0), -normalEC);
     #endif
 
+        // Asegurar orientación hacia el observador
+        if (dot(normalEC, -v_positionEC) < 0.0) {
+            normalEC = -normalEC;
+        }
+
         vec4 color = czm_gammaCorrect(v_color);
 
-        // Iluminación solar arquitectónica mate (sin reflejo especular plástico)
+        // Iluminación solar arquitectónica mate limpia
         float nDotL = max(dot(normalEC, czm_sunDirectionEC), 0.0);
-        float ambient = 0.40 + 0.15 * max(normalEC.z, 0.0);
-        vec3 litColor = color.rgb * (ambient + 0.55 * nDotL * czm_lightColor);
+        float ambient = 0.45 + 0.15 * max(normalEC.z, 0.0);
+        vec3 litColor = color.rgb * (ambient + 0.50 * nDotL * czm_lightColor);
 
         out_FragColor = vec4(litColor, color.a);
     }
@@ -103,10 +115,11 @@ function render3DBuildingsInCesium() {
     // Matiz arquitectónico para frontones/hastiales (ligeramente sombreado para dar profundidad de contacto bajo el tejado)
     const hastialColor = facadeColor.darken(0.08, new Cesium.Color());
 
-    // 🎨 ESTILOS CAD: Aristas oscuras y definidas para distinguir planos claramente
-    const edgeColor = isSel ? Cesium.Color.fromCssColorString('#0284C7').withAlpha(0.95) : Cesium.Color.fromCssColorString('#334155').withAlpha(0.85);
-    const ridgeColor = isSel ? Cesium.Color.fromCssColorString('#0284C7').withAlpha(0.95) : Cesium.Color.fromCssColorString('#1E293B').withAlpha(0.90);
-    const xRayDash = new Cesium.PolylineDashMaterialProperty({ color: isSel ? Cesium.Color.fromCssColorString('#0F172A').withAlpha(0.2) : Cesium.Color.fromCssColorString('#334155').withAlpha(0.1) });
+    // 🎨 ESTILOS CAD: Respetar fielmente el color de aristas elegido por el usuario
+    const customEdgeHex = bld.edgeColor || '#334155';
+    const edgeColor = Cesium.Color.fromCssColorString(customEdgeHex).withAlpha(0.95);
+    const ridgeColor = Cesium.Color.fromCssColorString(customEdgeHex).withAlpha(0.95);
+    const xRayDash = new Cesium.PolylineDashMaterialProperty({ color: Cesium.Color.fromCssColorString(customEdgeHex).withAlpha(0.15) });
 
     // [P2] Si fromCartesian falla (punto degenerado), antes se dibujaba un vértice en
     // lat/lon 0 (Golfo de Guinea) en silencio. Ahora se descarta el vértice y se avisa.
@@ -208,11 +221,15 @@ function render3DBuildingsInCesium() {
     // A. CUBIERTA PLANA (FLAT)
     // ─────────────────────────────────────────────────────────────────
     if (rType === 'flat') {
+      const parH = (typeof bld.parapetHeight === 'number' && bld.parapetHeight > 0) ? bld.parapetHeight : 0;
+      const parW = (typeof bld.parapetWidth === 'number' && bld.parapetWidth > 0) ? bld.parapetWidth : 0.25;
+      const wallTopHeight = roofHeight + parH;
       const roofPositions = roofCartoList.map(c => Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, roofHeight));
-      // Muros Verticales segmentados por cara plana (evita curvatura y pinzado de normales en esquinas a 90°)
+      const nWalls = basePositions.length;
+
+      // 1. Muros Exteriores Monolíticos (desde avgBaseHeight hasta wallTopHeight en una sola pieza continua)
       try {
         const wallInstances = [];
-        const nWalls = basePositions.length;
         for (let i = 0; i < nWalls; i++) {
           const pA = basePositions[i];
           const pB = basePositions[(i + 1) % nWalls];
@@ -220,7 +237,7 @@ function render3DBuildingsInCesium() {
             geometry: new Cesium.WallGeometry({
               positions: [pA, pB],
               minimumHeights: [avgBaseHeight, avgBaseHeight],
-              maximumHeights: [roofHeight, roofHeight]
+              maximumHeights: [wallTopHeight, wallTopHeight]
             }),
             attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(facadeColor) },
             id: (bld.id || 'bld') + '_wall_' + i
@@ -235,11 +252,103 @@ function render3DBuildingsInCesium() {
         window._buildingPrimitives.push(wallPrim);
       } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
 
-      // Tapa de Cubierta
+      // 2. Pretil: Coronación superior plana y muros interiores con sombras de contacto
+      let innerRoofPositions = null;
+      let innerTopPositions = null;
+      const outerTopPositions = cartoList.map(c => Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, wallTopHeight));
+
+      if (parH > 0) {
+        try {
+          const R_EARTH = 6378137.0;
+          const N = cartoList.length;
+          const innerCartoList = [];
+          for (let i = 0; i < N; i++) {
+            const c0 = cartoList[(i - 1 + N) % N], c1 = cartoList[i], c2 = cartoList[(i + 1) % N];
+            const p0x = c0.longitude * R_EARTH * Math.cos(c0.latitude), p0y = c0.latitude * R_EARTH;
+            const p1x = c1.longitude * R_EARTH * Math.cos(c1.latitude), p1y = c1.latitude * R_EARTH;
+            const p2x = c2.longitude * R_EARTH * Math.cos(c2.latitude), p2y = c2.latitude * R_EARTH;
+            const dx1 = p1x - p0x, dy1 = p1y - p0y; const len1 = Math.hypot(dx1, dy1) || 1;
+            const nx1 = -dy1/len1, ny1 = dx1/len1; // Normal interior para polígono CCW
+            const dx2 = p2x - p1x, dy2 = p2y - p1y; const len2 = Math.hypot(dx2, dy2) || 1;
+            const nx2 = -dy2/len2, ny2 = dx2/len2;
+            let nx = nx1 + nx2, ny = ny1 + ny2; const nlen = Math.hypot(nx, ny);
+            if (nlen > 1e-6) {
+              nx /= nlen; ny /= nlen; let dot = nx * nx1 + ny * ny1; if (dot < 0.2) dot = 0.2;
+              const disp = parW / dot;
+              const ox = p1x + nx * disp, oy = p1y + ny * disp;
+              innerCartoList.push({
+                longitude: ox / (R_EARTH * Math.cos(c1.latitude)),
+                latitude: oy / R_EARTH
+              });
+            } else {
+              innerCartoList.push({ longitude: c1.longitude, latitude: c1.latitude });
+            }
+          }
+
+          innerRoofPositions = innerCartoList.map(c => Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, roofHeight));
+          innerTopPositions  = innerCartoList.map(c => Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, wallTopHeight));
+
+          // A) Coronación superior horizontal (Coping) entre outerTop e innerTop
+          const copingInstances = [];
+          for (let i = 0; i < N; i++) {
+            const nextI = (i + 1) % N;
+            copingInstances.push(new Cesium.GeometryInstance({
+              geometry: Cesium.PolygonGeometry.fromPositions({
+                positions: [
+                  outerTopPositions[i],
+                  outerTopPositions[nextI],
+                  innerTopPositions[nextI],
+                  innerTopPositions[i]
+                ],
+                perPositionHeight: true
+              }),
+              attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(facadeColor) },
+              id: (bld.id || 'bld') + '_coping_' + i
+            }));
+          }
+          const copingPrim = viewer.scene.primitives.add(new Cesium.Primitive({
+            geometryInstances: copingInstances,
+            appearance: createBuildingMatteAppearance(true),
+            shadows: Cesium.ShadowMode.ENABLED,
+            asynchronous: false
+          }));
+          window._buildingPrimitives.push(copingPrim);
+
+          // B) Muros interiores del pretil (con normal apuntando hacia la azotea y matiz hastialColor para sombra de contacto)
+          const innerWallInstances = [];
+          for (let i = 0; i < N; i++) {
+            const nextI = (i + 1) % N;
+            // Orden inverso [nextI, i] para que la normal de WallGeometry mire al interior de la azotea
+            innerWallInstances.push(new Cesium.GeometryInstance({
+              geometry: new Cesium.WallGeometry({
+                positions: [innerRoofPositions[nextI], innerRoofPositions[i]],
+                minimumHeights: [roofHeight, roofHeight],
+                maximumHeights: [wallTopHeight, wallTopHeight]
+              }),
+              attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(hastialColor) },
+              id: (bld.id || 'bld') + '_inner_wall_' + i
+            }));
+          }
+          const innerWallPrim = viewer.scene.primitives.add(new Cesium.Primitive({
+            geometryInstances: innerWallInstances,
+            appearance: createBuildingMatteAppearance(true),
+            shadows: Cesium.ShadowMode.DISABLED, // Desactivado para eliminar shadow acne y moiré interior
+            asynchronous: false
+          }));
+          window._buildingPrimitives.push(innerWallPrim);
+
+        } catch(e) { window.RA && window.RA.log && window.RA.log.warn('Error Pretil Monolítico:', e); }
+      }
+
+      // 3. Suelo de Cubierta (dentro del pretil si parH > 0)
       try {
+        const floorPositions = (parH > 0 && innerRoofPositions && innerRoofPositions.length >= 3)
+          ? innerRoofPositions
+          : roofPositions;
+
         const roofInst = new Cesium.GeometryInstance({
           geometry: Cesium.PolygonGeometry.fromPositions({
-            positions: roofPositions,
+            positions: floorPositions,
             perPositionHeight: true
           }),
           attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(roofColor) },
@@ -248,84 +357,103 @@ function render3DBuildingsInCesium() {
         const roofPrim = viewer.scene.primitives.add(new Cesium.Primitive({
           geometryInstances: roofInst,
           appearance: createBuildingMatteAppearance(true),
-          shadows: Cesium.ShadowMode.ENABLED,
+          shadows: (parH > 0) ? Cesium.ShadowMode.DISABLED : Cesium.ShadowMode.ENABLED,
           asynchronous: false
         }));
         window._buildingPrimitives.push(roofPrim);
       } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
 
-      // Peto Perimetral Volumétrico Sólido (Grosor: 25cm)
-      if ((bld.parapetHeight || 0) > 0) {
-        const parH = bld.parapetHeight;
-        try {
-          const offsetMeters = 0.25;
-          const R_EARTH = 6378137.0;
-          const N = cartoList.length;
-          let innerPositions = [];
-          for (let i = 0; i < N; i++) {
-            const c0 = cartoList[(i - 1 + N) % N], c1 = cartoList[i], c2 = cartoList[(i + 1) % N];
-            const p0x = c0.longitude * R_EARTH * Math.cos(c0.latitude), p0y = c0.latitude * R_EARTH;
-            const p1x = c1.longitude * R_EARTH * Math.cos(c1.latitude), p1y = c1.latitude * R_EARTH;
-            const p2x = c2.longitude * R_EARTH * Math.cos(c2.latitude), p2y = c2.latitude * R_EARTH;
-            const dx1 = p1x - p0x, dy1 = p1y - p0y; const len1 = Math.hypot(dx1, dy1) || 1;
-            const nx1 = -dy1/len1, ny1 = dx1/len1; 
-            const dx2 = p2x - p1x, dy2 = p2y - p1y; const len2 = Math.hypot(dx2, dy2) || 1;
-            const nx2 = -dy2/len2, ny2 = dx2/len2;
-            let nx = nx1 + nx2, ny = ny1 + ny2; const nlen = Math.hypot(nx, ny);
-            if (nlen > 1e-6) {
-              nx /= nlen; ny /= nlen; let dot = nx * nx1 + ny * ny1; if (dot < 0.2) dot = 0.2;
-              const disp = offsetMeters / dot;
-              const ox = p1x + nx * disp, oy = p1y + ny * disp;
-              innerPositions.push(Cesium.Cartesian3.fromRadians(ox / (R_EARTH * Math.cos(c1.latitude)), oy / R_EARTH));
-            } else {
-              innerPositions.push(Cesium.Cartesian3.fromRadians(c1.longitude, c1.latitude));
-            }
-          }
-
-          // Invertimos el orden del agujero para asegurar que Cesium entienda el sentido (CCW exterior vs CW interior)
-          innerPositions.reverse();
-          const outerPositions = cartoList.map(c => Cesium.Cartesian3.fromRadians(c.longitude, c.latitude));
-
-          const solidParapetInst = new Cesium.GeometryInstance({
-            geometry: new Cesium.PolygonGeometry({
-              polygonHierarchy: new Cesium.PolygonHierarchy(
-                outerPositions, 
-                [new Cesium.PolygonHierarchy(innerPositions)] // Hueco interior
-              ),
-              height: roofHeight + parH,    // Altura de coronación
-              extrudedHeight: roofHeight    // Baja hasta tocar el techo
-            }),
-            attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(facadeColor) }
-          });
-
-          const thickParPrim = viewer.scene.primitives.add(new Cesium.Primitive({
-            geometryInstances: solidParapetInst,
-            appearance: createBuildingMatteAppearance(true),
-            shadows: Cesium.ShadowMode.ENABLED, 
-            asynchronous: false
-          }));
-          window._buildingPrimitives.push(thickParPrim);
-        } catch(e) { window.RA && window.RA.log && window.RA.log.warn('Error Parapet Sólido:', e); }
-      }
-
-      // TRATAMIENTO DE ARISTAS Y BORDES (Outlines)
-      const edgeH = roofHeight + (bld.parapetHeight || 0);
-
-      // Entidades Polyline elevadas para acentuar la coronación del edificio
+      // 4. Aristas y Bordes CAD (Outlines)
       try {
-        const elevatedRoofPositions = cartoList.map(c => Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, edgeH + 0.08));
+        const lineW = isSel ? 3.5 : 2.5;
+
+        // A) Arista exterior en coronación
+        const outerEdgePos = outerTopPositions.map(p => {
+          const c = Cesium.Cartographic.fromCartesian(p);
+          return Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, c.height + 0.05);
+        });
         const rOutline = viewer.entities.add({
-          name: (bld.name || 'Edificio 3D') + ' - Aristas Tejado',
+          name: (bld.name || 'Edificio 3D') + ' - Aristas Coronación',
           polyline: {
-            positions: [...elevatedRoofPositions, elevatedRoofPositions[0]],
-            width: isSel ? 4.5 : 3.5,
+            positions: [...outerEdgePos, outerEdgePos[0]],
+            width: lineW,
             material: edgeColor,
-            arcType: Cesium.ArcType.NONE, 
+            arcType: Cesium.ArcType.NONE,
             clampToGround: false
-            // Eliminado disableDepthTestDistance para que no perfore los petos ni el suelo como "Rayos X"
           }
         });
         window._buildingEntities.push(rOutline);
+
+        // B) Aristas verticales en las esquinas de fachada
+        const nVtx = cartoList.length;
+        for (let i = 0; i < nVtx; i++) {
+          const cB = Cesium.Cartographic.fromCartesian(basePositions[i]);
+          const cT = Cesium.Cartographic.fromCartesian(outerTopPositions[i]);
+          const vBottom = Cesium.Cartesian3.fromRadians(cB.longitude, cB.latitude, cB.height + 0.04);
+          const vTop    = Cesium.Cartesian3.fromRadians(cT.longitude, cT.latitude, cT.height + 0.04);
+          const vCorner = viewer.entities.add({
+            name: (bld.name || 'Edificio 3D') + ' - Esquina Fachada ' + i,
+            polyline: {
+              positions: [vBottom, vTop],
+              width: lineW,
+              material: edgeColor,
+              arcType: Cesium.ArcType.NONE,
+              clampToGround: false
+            }
+          });
+          window._buildingEntities.push(vCorner);
+        }
+
+        // C) Si hay pretil: arista interior, ingletes de coronación y encuentro azotea
+        if (parH > 0 && innerTopPositions && innerRoofPositions) {
+          const innerTopEdgePos = innerTopPositions.map(p => {
+            const c = Cesium.Cartographic.fromCartesian(p);
+            return Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, c.height + 0.05);
+          });
+          const innerTopOutline = viewer.entities.add({
+            name: (bld.name || 'Edificio 3D') + ' - Aristas Pretil Interior',
+            polyline: {
+              positions: [...innerTopEdgePos, innerTopEdgePos[0]],
+              width: lineW,
+              material: edgeColor,
+              arcType: Cesium.ArcType.NONE,
+              clampToGround: false
+            }
+          });
+          window._buildingEntities.push(innerTopOutline);
+
+          // Ingletes en las esquinas de la corona superior
+          for (let i = 0; i < nVtx; i++) {
+            const miterOutline = viewer.entities.add({
+              name: (bld.name || 'Edificio 3D') + ' - Inglete Coronación ' + i,
+              polyline: {
+                positions: [outerEdgePos[i], innerTopEdgePos[i]],
+                width: lineW,
+                material: edgeColor,
+                arcType: Cesium.ArcType.NONE,
+                clampToGround: false
+              }
+            });
+            window._buildingEntities.push(miterOutline);
+          }
+
+          // Línea de encuentro perimetral en la base del pretil sobre el suelo de la azotea
+          const innerBaseEdgePos = innerRoofPositions.map(p => {
+            const c = Cesium.Cartographic.fromCartesian(p);
+            return Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, c.height + 0.03);
+          });
+          const innerBaseOutline = viewer.entities.add({
+            name: (bld.name || 'Edificio 3D') + ' - Aristas Encuentro Azotea',
+            polyline: {
+              positions: [...innerBaseEdgePos, innerBaseEdgePos[0]],
+              width: 1.5,
+              material: edgeColor.withAlpha(0.40),
+              arcType: Cesium.ArcType.NONE,
+              clampToGround: false
+            }
+          });
+          window._buildingEntities.push(innerBaseOutline);
+        }
       } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
 
     // ─────────────────────────────────────────────────────────────────

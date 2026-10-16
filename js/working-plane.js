@@ -1040,6 +1040,136 @@ function renderTriad2D() {
       } catch(eRubber) { console.warn("[RubberBand] error:", eRubber); }
     }
 
+    // ── LÍNEA GUÍA ELÁSTICA Y DIANA DE SNAP EN CIERRE DE POLILÍNEA (OPCIÓN 1 SIN BADGE) ──
+    if (typeof WP !== 'undefined' && WP && WP.mode === 'draw-poly' && WP.activePolyPts && WP.activePolyPts.length > 0) {
+      try {
+        const polyCount = WP.activePolyPts.length;
+        const pLast = WP.activePolyPts[polyCount - 1];
+        const pLastScreen = toScreen(pLast);
+        const camPosWC = (camera && camera.positionWC) ? camera.positionWC : ((camera && camera.position) ? camera.position : null);
+        const camDirWC = (camera && camera.directionWC) ? camera.directionWC : ((camera && camera.direction) ? camera.direction : null);
+        const isLastFront = pLastScreen && camPosWC && camDirWC && Cesium.Cartesian3.dot(Cesium.Cartesian3.subtract(pLast, camPosWC, new Cesium.Cartesian3()), camDirWC) > 0;
+
+        const curMouseX = (typeof _triadMouseX === 'number') ? _triadMouseX : (triadState.x || (window.innerWidth / 2));
+        const curMouseY = (typeof _triadMouseY === 'number') ? _triadMouseY : (triadState.y || (window.innerHeight / 2));
+
+        let isSnapClose = false;
+        let snapTargetX = curMouseX;
+        let snapTargetY = curMouseY;
+        let p0Screen = null;
+
+        if (polyCount >= 3) {
+          const p0 = WP.activePolyPts[0];
+          p0Screen = toScreen(p0);
+          const isP0Front = p0Screen && camPosWC && camDirWC && Cesium.Cartesian3.dot(Cesium.Cartesian3.subtract(p0, camPosWC, new Cesium.Cartesian3()), camDirWC) > 0;
+          if (isP0Front && p0Screen) {
+            const distToP0 = Math.hypot(curMouseX - p0Screen.x, curMouseY - p0Screen.y);
+            if (distToP0 <= 30) {
+              isSnapClose = true;
+              snapTargetX = p0Screen.x;
+              snapTargetY = p0Screen.y;
+            }
+          }
+        }
+
+        // Actualizar snapTarget en triadState para compatibilidad directa de clics en escena
+        if (typeof triadState !== 'undefined' && triadState) {
+          if (isSnapClose) {
+            triadState.snapTarget = { pos: WP.activePolyPts[0], type: 'CLOSE_VTX' };
+          } else if (triadState.snapTarget && triadState.snapTarget.type === 'CLOSE_VTX') {
+            triadState.snapTarget = null;
+          }
+        }
+
+        // Conmutar cursor visual del canvas de Cesium: pointer si hace snap de cierre, crosshair si dibuja normal
+        if (scene && scene.canvas) {
+          scene.canvas.style.cursor = isSnapClose ? 'pointer' : 'crosshair';
+        }
+
+        // 1. Línea elástica viva (rubber-band) desde el último vértice
+        if (isLastFront) {
+          triadCtx.save();
+          triadCtx.beginPath();
+          triadCtx.moveTo(pLastScreen.x, pLastScreen.y);
+          triadCtx.lineTo(snapTargetX, snapTargetY);
+
+          if (isSnapClose) {
+            // Imantación a P0 para cierre de polilínea: verde esmeralda brillante sólido
+            triadCtx.strokeStyle = "#10B981";
+            triadCtx.lineWidth = 3.5;
+            triadCtx.shadowColor = "#10B981";
+            triadCtx.shadowBlur = 10;
+            triadCtx.setLineDash([]);
+          } else {
+            // Guía al cursor: ámbar discreto punteado
+            triadCtx.strokeStyle = "#F59E0B";
+            triadCtx.lineWidth = 2.5;
+            triadCtx.shadowColor = "#F59E0B";
+            triadCtx.shadowBlur = 6;
+            triadCtx.setLineDash([6, 4]);
+          }
+          triadCtx.stroke();
+          triadCtx.restore();
+        }
+
+        // 2. Diana de Snap Magnético sobre el punto de inicio P0 (Opción 1: sin mini-badge ni textos flotantes)
+        if (isSnapClose && p0Screen) {
+          triadCtx.save();
+
+          // Halo circular exterior pulsante con resplandor
+          const pulseR = 16 + 2.5 * Math.sin(animNow * 0.008);
+          triadCtx.beginPath();
+          triadCtx.arc(p0Screen.x, p0Screen.y, pulseR, 0, Math.PI * 2);
+          triadCtx.fillStyle = "rgba(16, 185, 129, 0.22)";
+          triadCtx.fill();
+          triadCtx.strokeStyle = "#10B981";
+          triadCtx.lineWidth = 2.5;
+          triadCtx.shadowColor = "#10B981";
+          triadCtx.shadowBlur = 12;
+          triadCtx.stroke();
+
+          // Anillo interior blanco de contraste CAD
+          triadCtx.beginPath();
+          triadCtx.arc(p0Screen.x, p0Screen.y, 7, 0, Math.PI * 2);
+          triadCtx.strokeStyle = "#FFFFFF";
+          triadCtx.lineWidth = 2.0;
+          triadCtx.shadowBlur = 0;
+          triadCtx.stroke();
+
+          // Núcleo central sólido esmeralda
+          triadCtx.beginPath();
+          triadCtx.arc(p0Screen.x, p0Screen.y, 3.5, 0, Math.PI * 2);
+          triadCtx.fillStyle = "#10B981";
+          triadCtx.fill();
+
+          // Cruz reticular sutil de precisión
+          triadCtx.beginPath();
+          triadCtx.moveTo(p0Screen.x - pulseR - 4, p0Screen.y);
+          triadCtx.lineTo(p0Screen.x - 8, p0Screen.y);
+          triadCtx.moveTo(p0Screen.x + 8, p0Screen.y);
+          triadCtx.lineTo(p0Screen.x + pulseR + 4, p0Screen.y);
+          triadCtx.moveTo(p0Screen.x, p0Screen.y - pulseR - 4);
+          triadCtx.lineTo(p0Screen.x, p0Screen.y - 8);
+          triadCtx.moveTo(p0Screen.x, p0Screen.y + 8);
+          triadCtx.lineTo(p0Screen.x, p0Screen.y + pulseR + 4);
+          triadCtx.strokeStyle = "#10B981";
+          triadCtx.lineWidth = 1.5;
+          triadCtx.stroke();
+
+          triadCtx.restore();
+
+          // Mantener la animación pulsante fluida mientras el cursor permanezca en snap
+          if (typeof requestAnimationFrame === 'function') {
+            requestAnimationFrame(() => {
+              if (typeof renderTriad2D === 'function') renderTriad2D();
+            });
+          }
+        }
+      } catch(ePolyRubber) {
+        console.warn("[PolyRubberBand] error:", ePolyRubber);
+      }
+    }
+
     if (triadState.active && triadState.pos3D) {
     try {
       const origin3D = triadState.pos3D;
@@ -1597,6 +1727,9 @@ function wpSetMode(mode) {
     const sscc = currentScene.screenSpaceCameraController;
     if (mode === 'idle') {
       cursorGizmoHide();
+      if (currentScene && currentScene.canvas) {
+        currentScene.canvas.style.cursor = 'default';
+      }
       sscc.enableRotate = true;
       sscc.enableTranslate = true;
       sscc.enableZoom = true;
@@ -2649,11 +2782,12 @@ function wpRenderAllPolylines() {
     const elevatedPts = wpElevatePointsForVisuals(poly.points, poly.planeIdx, 0.12);
     const closedElevatedPts = [...elevatedPts, elevatedPts[0]];
     
-    // 1. Contorno perimetral nítido con color de String
+    // 1. Contorno perimetral nítido y discreto en color naranja/ámbar
+    const polyColor = isSel ? '#F59E0B' : '#D97706';
     const line = (getAddPolylineEntity() || addPolylineEntity)(
       closedElevatedPts,
-      isSel ? '#38BDF8' : strColor,
-      isSel ? 6.0 : 2.5,
+      polyColor,
+      isSel ? 3.0 : 2.0,
       1.0,
       1.0,
       'wp_poly_line_' + i + '_' + Math.random().toString(36).substring(2, 6)
@@ -2663,29 +2797,15 @@ function wpRenderAllPolylines() {
     // 2. Superficie sólida semitransparente generada sobre la cubierta (CCW garantizado)
     const fill = addPolygonEntity(
       elevatedPts,
-      isSel ? '#38BDF8' : strColor,
-      isSel ? 0.35 : 0.15,
+      polyColor,
+      isSel ? 0.18 : 0.08,
       0,
       'wp_poly_fill_' + i + '_' + Math.random().toString(36).substring(2, 6)
     );
     if (fill) WP.ents.polys.push(fill);
 
-    // 3. Aura Perimetral Neón (PolylineGlowMaterial) y Floating Badge 3D si es el faldón seleccionado
+    // 3. Floating Badge 3D si es el faldón seleccionado
     if (isSel && typeof Cesium !== 'undefined' && viewer && viewer.entities) {
-      // Glow exterior vivo para foco visual inmediato
-      const glowEnt = viewer.entities.add({
-        id: 'wp_poly_glow_' + i + '_' + Math.random().toString(36).substring(2, 6),
-        polyline: {
-          positions: closedElevatedPts,
-          width: 12.0,
-          material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#00F0FF')
-          ),
-          clampToGround: false,
-          arcType: Cesium.ArcType.NONE
-        }
-      });
-      WP.ents.polys.push(glowEnt);
-
       // Calcular centroide 3D para anclar el Floating Badge
       let cX = 0, cY = 0, cZ = 0;
       poly.points.forEach(p => { cX += p.x; cY += p.y; cZ += p.z; });
@@ -2719,8 +2839,8 @@ function wpRenderAllPolylines() {
         const badgeText = `🎯 FALDÓN #${i + 1} ACTIVO\n${pTilt.toFixed(1)}° · ${cardAz} (${pAz.toFixed(0)}°) · ${poly.area.toFixed(1)}m²${panelCount > 0 ? ' · ' + panelCount + ' Módulos' : ''}`;
 
         const badgeEnt = (getAddLabelEntity() || addLabelEntity)(badgePos, badgeText, -10, {
-          bg: 'rgba(2, 132, 199, 0.90)',
-          borderColor: '#38BDF8',
+          bg: 'rgba(217, 119, 6, 0.90)',
+          borderColor: '#F59E0B',
           textColor: '#FFFFFF',
           font: "bold 10.5px 'JetBrains Mono', monospace",
           category: 'roof',
@@ -2735,10 +2855,10 @@ function wpRenderAllPolylines() {
       const isVtxSel = isSel && vi === WP.selectedVtxIdx;
       const ptEnt = (getAddPointEntity() || addPointEntity)(
         p,
-        isVtxSel ? '#FFFFFF' : (isSel ? '#38BDF8' : strColor),
-        isVtxSel ? 13 : (isSel ? 9 : 7),
+        isVtxSel ? '#FFFFFF' : polyColor,
+        isVtxSel ? 11 : 7,
         '#000000',
-        isVtxSel ? 3 : 1.5,
+        isVtxSel ? 2.5 : 1.5,
         'wp_saved_vtx_' + i + '_' + vi + '_' + Math.random().toString(36).substring(2, 6)
       );
       WP.ents.polys.push(ptEnt);
@@ -3415,7 +3535,18 @@ function wpPopulateFaldonCard() {
 
   // ── Selector de estructura ──
   var structSelect = document.getElementById('faldon-structure-select');
-  if (structSelect) structSelect.value = poly.structureType || 'coplanar_teja';
+  var effStruct = poly.structureType || (poly.estructura && poly.estructura.tipo === 'pergola' ? 'pergola' : 'coplanar_teja');
+  if (structSelect) structSelect.value = effStruct;
+
+  var pergolaRow = document.getElementById('faldon-pergola-row');
+  if (pergolaRow) {
+    var isPerg = (effStruct === 'pergola' || (poly.estructura && poly.estructura.tipo === 'pergola'));
+    pergolaRow.style.display = isPerg ? 'flex' : 'none';
+    if (isPerg) {
+      var hInput = document.getElementById('faldon-pergola-h');
+      if (hInput) hInput.value = (poly.estructura && poly.estructura.clearance) ? poly.estructura.clearance : 1.80;
+    }
+  }
 
   var structMfgSelect = document.getElementById('faldon-structure-mfg-select');
   if (structMfgSelect) {
@@ -4035,9 +4166,16 @@ function wpSetPolyStructure(polyIdx, val) {
   const isTri15EW = (val === 'triangles_15_ew');
   const isTriCustom = (val === 'triangles_custom');
   const isTri = isTri30 || isTri15EW || isTriCustom || val.includes('triangle');
-  const isCoplanar = !isTri;
+  const isPergola = (val === 'pergola');
+  const isCoplanar = !isTri && !isPergola;
 
-  if (isCoplanar) {
+  if (isPergola) {
+    const curH = (poly.estructura && poly.estructura.clearance > 0) ? poly.estructura.clearance : 1.80;
+    poly.estructura = { tipo: 'pergola', clearance: curH };
+    poly.structureType = 'pergola';
+    if (poly.modTilt === undefined || poly.modTilt === null) poly.modTilt = 'auto';
+    if (poly.modAzimuth === undefined) poly.modAzimuth = 'auto';
+  } else if (isCoplanar) {
     poly.estructura = { tipo: 'coplanar', clearance: 0.05 };
     poly.arrangementMode = 'coplanar';
     poly.modTilt = 'auto';
@@ -4060,6 +4198,16 @@ function wpSetPolyStructure(polyIdx, val) {
     poly.arrangementMode = 'solar_optimal';
     poly.modTilt = 30;
     poly.modAzimuth = 180;
+  }
+
+  // Sincronizar UI de altura de pérgola en el panel de faldón
+  const pergolaRow = document.getElementById('faldon-pergola-row');
+  if (pergolaRow) {
+    pergolaRow.style.display = isPergola ? 'flex' : 'none';
+    if (isPergola) {
+      const hInput = document.getElementById('faldon-pergola-h');
+      if (hInput) hInput.value = (poly.estructura && poly.estructura.clearance) ? poly.estructura.clearance : 1.80;
+    }
   }
 
   // Purgar caché de geometría de paneles y regenerar
@@ -4092,12 +4240,47 @@ function wpSetPolyStructure(polyIdx, val) {
     coplanar_chapa: 'COPLANAR CHAPA / SÁNDWICH',
     triangles_30: 'TRIÁNGULOS 30º SUR',
     triangles_15_ew: 'ESTRUCTURA 15º ESTE-OESTE',
-    triangles_custom: `TRIÁNGULOS ADAPTABLES (${poly.modTilt}°)`
+    triangles_custom: `TRIÁNGULOS ADAPTABLES (${poly.modTilt}°)`,
+    pergola: 'PÉRGOLA ELEVADA'
   };
   if (typeof showStatus === 'function') {
     showStatus(`<i data-lucide="check" class="icon-sm"></i> ESTRUCTURA APLICADA: ${names[val] || val.toUpperCase()} (Tilt: ${poly.modTilt}°)`, 3000);
   }
 }
+
+function wpSetPolyPergolaHeight(polyIdx, val) {
+  if (!WP.polylines || !WP.polylines[polyIdx]) return;
+  const poly = WP.polylines[polyIdx];
+  const h = Math.max(0.5, Math.min(5.0, parseFloat(val) || 1.80));
+  if (!poly.estructura) poly.estructura = { tipo: 'pergola', clearance: h };
+  else {
+    poly.estructura.tipo = 'pergola';
+    poly.estructura.clearance = h;
+  }
+  poly.structureType = 'pergola';
+
+  const p2H = document.getElementById('cfg-p2-estructura-h');
+  if (p2H) p2H.value = h.toFixed(2);
+  const p1H = document.getElementById('faldon-pergola-h');
+  if (p1H) p1H.value = h.toFixed(2);
+
+  if (typeof roofPanelsCache !== 'undefined' && roofPanelsCache) {
+    roofPanelsCache.sig = '';
+    roofPanelsCache.data = null;
+  }
+  if (typeof computeSinglePolylineRoofInfo === 'function') {
+    poly.roofInfo = computeSinglePolylineRoofInfo(poly.points, poly);
+  }
+  if (typeof window.wpInvalidateHeatmap === 'function') {
+    window.wpInvalidateHeatmap('Altura de pérgola modificada');
+  }
+  if (typeof wpFastRenderSimulatedPanels === 'function') {
+    wpFastRenderSimulatedPanels();
+  }
+  if (typeof recalculateSolarYield === 'function') recalculateSolarYield();
+  if (typeof showToast === 'function') showToast('PÉRGOLA ELEVADA', `Altura libre actualizada a ${h.toFixed(2)} m.`, 'info', 2000);
+}
+window.wpSetPolyPergolaHeight = wpSetPolyPergolaHeight;
 
 function wpApplyPolyStructureToAll(sourcePolyIdx) {
   if (!WP.polylines || !WP.polylines[sourcePolyIdx]) return;
@@ -4144,7 +4327,8 @@ function wpApplyPolyStructureToAll(sourcePolyIdx) {
     coplanar_chapa: 'COPLANAR CHAPA / SÁNDWICH',
     triangles_30: 'TRIÁNGULOS 30º SUR',
     triangles_15_ew: 'ESTRUCTURA 15º ESTE-OESTE',
-    triangles_custom: 'TRIÁNGULOS ADAPTABLES'
+    triangles_custom: 'TRIÁNGULOS ADAPTABLES',
+    pergola: 'PÉRGOLA ELEVADA'
   };
   if (typeof showStatus === 'function') {
     showStatus(`<i data-lucide="check" class="icon-sm"></i> ESTRUCTURA ${names[targetStructureType] || targetStructureType.toUpperCase()} APLICADA A TODOS LOS FALDONES`, 3000);
