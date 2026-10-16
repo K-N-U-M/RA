@@ -18,6 +18,7 @@
   const STORAGE_KEY_BRANDING = 'ra_company_branding';
   const STORAGE_KEY_LOGO = 'ra_company_logo';
   const STORAGE_KEY_GEMINI = 'ra_gemini_api_key';
+  const DEFAULT_GEMINI_API_KEY = 'AQ.Ab8RN6JKDJ6lCpCMsc8ehaFbiaet5bCPK5gfd8MP1ZiHA3aFRg';
 
   // [D1/G9] La clave nunca se guarda en claro en el navegador: se ofusca (base64 con prefijo)
   // y se envía SIEMPRE en la cabecera 'x-goog-api-key' (no en la URL). Nota: en un cliente
@@ -45,11 +46,17 @@
     try {
       if (global.RA && global.RA.geminiApiKey) return global.RA.geminiApiKey;
       const raw = global.localStorage ? global.localStorage.getItem(STORAGE_KEY_GEMINI) : '';
-      const key = raw ? _deobfuscateKey(raw) : '';
+      let key = raw ? _deobfuscateKey(raw) : '';
+      if (!key && DEFAULT_GEMINI_API_KEY) {
+        key = DEFAULT_GEMINI_API_KEY;
+        if (global.localStorage) {
+          try { global.localStorage.setItem(STORAGE_KEY_GEMINI, _obfuscateKey(key)); } catch (e) {}
+        }
+      }
       if (!global.RA) global.RA = {};
       global.RA.geminiApiKey = key;
       return key;
-    } catch (e) { return ''; }
+    } catch (e) { return DEFAULT_GEMINI_API_KEY || ''; }
   }
 
   /**
@@ -506,6 +513,7 @@
   global.RA.setGeminiApiKey = setGeminiApiKey;
   global.RA.geminiFetch = geminiFetch;
   global.RA.cancelGemini = cancelGemini;
+  global.RA.geminiApiKey = getGeminiApiKey();
 
   // Hooks globales para eventos inline del HTML
   global.openCompanyBrandingModal = openModal;

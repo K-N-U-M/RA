@@ -315,7 +315,7 @@ function raEnsureLoadingHUDElements() {
 
   hud = document.createElement('div');
   hud.id = 'ra-project-loading-hud';
-  hud.style.cssText = 'display:none;position:fixed;inset:0;width:100vw;height:100vh;background:rgba(8,14,26,0.82);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);z-index:100000;align-items:center;justify-content:center;font-family:var(--font-sans,system-ui,-apple-system,sans-serif);opacity:0;transition:opacity 0.25s ease-out;pointer-events:auto;user-select:none;';
+  hud.style.cssText = 'display:none;position:fixed;inset:0;width:100vw;height:100vh;background:rgba(8,14,26,0.82);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);z-index:10000000;align-items:center;justify-content:center;font-family:var(--font-sans,system-ui,-apple-system,sans-serif);opacity:0;transition:opacity 0.25s ease-out;pointer-events:auto;user-select:none;';
 
   hud.innerHTML = `
     <div style="background:linear-gradient(145deg,rgba(15,23,42,0.96),rgba(30,41,59,0.92));border:1px solid rgba(56,189,248,0.35);border-radius:16px;box-shadow:0 25px 60px -15px rgba(0,0,0,0.7),0 0 35px rgba(56,189,248,0.18);padding:32px 36px;width:440px;max-width:90vw;display:flex;flex-direction:column;align-items:center;gap:20px;box-sizing:border-box;position:relative;overflow:hidden;">
@@ -456,8 +456,8 @@ async function raImportProjectData(projectData) {
     }
 
     // Fase 1: Migración y verificación de esquema
-    raUpdateProjectLoadingProgress(12, 'Validando estructura del archivo .raproject...', 'Comprobando esquema y versión ' + (projectData.version || '1.0'));
-    await new Promise(r => setTimeout(r, 60));
+    raUpdateProjectLoadingProgress(15, 'Validando estructura del archivo .raproject...', 'Comprobando esquema y versión ' + (projectData.version || '1.0'));
+    await new Promise(r => setTimeout(r, 160));
 
     // [C5/M9] Migrar esquema de versiones antiguas antes de restaurar
     projectData = raMigrateProjectData(projectData);
@@ -465,8 +465,8 @@ async function raImportProjectData(projectData) {
     if (typeof showStatus === 'function') showStatus('RESTAURANDO PROYECTO 3D...', 3000);
 
     // Fase 2: Limpieza de escena previa y cámara 3D
-    raUpdateProjectLoadingProgress(32, 'Limpiando escena y orientando cámara 3D...', 'Posicionando vista y frustum');
-    await new Promise(r => setTimeout(r, 60));
+    raUpdateProjectLoadingProgress(35, 'Limpiando escena y orientando cámara 3D...', 'Posicionando vista y frustum');
+    await new Promise(r => setTimeout(r, 180));
 
     // 1. Limpieza de estado previo segura
     if (typeof clearSimulatedPV === 'function') clearSimulatedPV();
@@ -503,8 +503,8 @@ async function raImportProjectData(projectData) {
     }
 
     // Fase 3: Restaurar Planos de Trabajo, Faldones y Obstáculos 3D
-    raUpdateProjectLoadingProgress(55, 'Reconstruyendo faldones y obstáculos 3D...', 'Cargando planos CAD y geometría volumétrica');
-    await new Promise(r => setTimeout(r, 60));
+    raUpdateProjectLoadingProgress(58, 'Reconstruyendo faldones y obstáculos 3D...', 'Cargando planos CAD y geometría volumétrica');
+    await new Promise(r => setTimeout(r, 180));
 
     // 3. Restaurar Planos de Trabajo
     if (typeof WP !== 'undefined') {
@@ -643,8 +643,8 @@ async function raImportProjectData(projectData) {
     }
 
     // Fase 4: Re-renderizado de escena y módulos fotovoltaicos
-    raUpdateProjectLoadingProgress(76, 'Renderizando módulos fotovoltaicos...', 'Generando layout, sombras y métricas');
-    await new Promise(r => setTimeout(r, 60));
+    raUpdateProjectLoadingProgress(78, 'Renderizando módulos fotovoltaicos...', 'Generando layout, sombras y métricas');
+    await new Promise(r => setTimeout(r, 180));
 
     // [AUDIT-SAVE] Las selecciones de catálogo se restauran al FINAL del import
     // (ver bloque tras el Gemelo Digital): restaurarlas antes era inútil porque el
@@ -676,7 +676,7 @@ async function raImportProjectData(projectData) {
 
     // Fase 5: Restaurar Gemelo Digital Eléctrico (Inversor, Cuadros, Contador, Cables)
     raUpdateProjectLoadingProgress(92, 'Generando gemelo digital eléctrico y cableado...', 'Restaurando inversor, protecciones y REBT');
-    await new Promise(r => setTimeout(r, 60));
+    await new Promise(r => setTimeout(r, 180));
 
     // 8. Restaurar Gemelo Digital Eléctrico (Inversor, Cuadros, Contador, Cables)
     if (projectData.electricalInfrastructure && typeof window !== 'undefined') {
@@ -737,7 +737,7 @@ async function raImportProjectData(projectData) {
 
     // Fase 6: Carga completa
     raUpdateProjectLoadingProgress(100, '¡Proyecto cargado con éxito!', 'Sincronización completada');
-    await new Promise(r => setTimeout(r, 350));
+    await new Promise(r => setTimeout(r, 550));
     raHideProjectLoadingHUD();
 
     if (typeof showToast === 'function') {
@@ -762,25 +762,24 @@ async function raSaveProjectToFile(saveAs = false) {
   const jsonStr = JSON.stringify(projectData, null, 2);
   const defaultFileName = (_raCurrentProjectName || 'Proyecto_Solar').replace(/[^a-zA-Z0-9_-]/g, '_') + '.raproject';
 
-  // Opción A: File System Access API nativa (Guardado directo sin duplicados)
-  if (typeof window.showSaveFilePicker === 'function' && (!saveAs && _raCurrentFileHandle || saveAs)) {
+  // Opción A: File System Access API nativa (Ventana modal de selección de carpeta/archivo)
+  if (typeof window.showSaveFilePicker === 'function') {
     try {
-      if (!_raCurrentFileHandle || saveAs) {
-        _raCurrentFileHandle = await window.showSaveFilePicker({
-          suggestedName: defaultFileName,
-          types: [{
-            description: 'Proyecto Solar RA (*.raproject)',
-            accept: { 'application/json': ['.raproject', '.json'] }
-          }]
-        });
-      }
+      _raCurrentFileHandle = await window.showSaveFilePicker({
+        suggestedName: defaultFileName,
+        types: [{
+          description: 'Proyecto Solar RA (*.raproject)',
+          accept: { 'application/json': ['.raproject', '.json'] }
+        }]
+      });
       const writable = await _raCurrentFileHandle.createWritable();
       await writable.write(jsonStr);
       await writable.close();
 
       raSaveToRecentProjects(projectData);
+      if (typeof raCloseProjectsModal === 'function') raCloseProjectsModal();
       if (typeof showToast === 'function') {
-        showToast('GUARDADO CON ÉXITO', 'Proyecto guardado en tu disco local.', 'success', 2500);
+        showToast('GUARDADO CON ÉXITO', 'Proyecto guardado en la carpeta seleccionada.', 'success', 2500);
       }
       return;
     } catch (ePicker) {
@@ -819,6 +818,7 @@ function raHandleFileSelect(event) {
 
   const fileName = file.name.replace(/\.[^/.]+$/, '');
   _raCurrentProjectName = fileName;
+  raCloseProjectsModal();
   raShowProjectLoadingHUD(file.name);
   raUpdateProjectLoadingProgress(5, 'Leyendo archivo de proyecto...', file.name);
 
@@ -927,6 +927,7 @@ function raLoadRecentProjectByIndex(idx) {
   const recents = raGetRecentProjects();
   if (recents[idx] && recents[idx].data) {
     const projName = recents[idx].name || 'Proyecto Reciente';
+    raCloseProjectsModal();
     raShowProjectLoadingHUD(projName);
     raUpdateProjectLoadingProgress(5, 'Cargando proyecto desde almacenamiento local...', projName);
     raImportProjectData(recents[idx].data);

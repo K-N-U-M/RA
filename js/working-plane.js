@@ -505,6 +505,9 @@ function getSelectedVertexData() {
   if (poly.planeId && WP.planes && WP.planes.length > 0) {
     wpPlane = WP.planes.find(p => p.id === poly.planeId) || null;
   }
+  if (!wpPlane && typeof poly.planeIdx === 'number' && WP.planes && WP.planes[poly.planeIdx]) {
+    wpPlane = WP.planes[poly.planeIdx];
+  }
   if (!wpPlane) wpPlane = wpGetActivePlane();
   if (!wpPlane && typeof getObstacleActivePlane === 'function') wpPlane = getObstacleActivePlane();
 
@@ -569,81 +572,9 @@ function checkVertexGizmoHit(mx, my) {
 }
 
 function renderVertexGizmo2D() {
-  if (!triadCtx || !triadCanvas || !scene) return;
-  const vtxData = getSelectedVertexData();
-  if (!vtxData) {
-    vtxGizmoState.screen = null;
-    return;
-  }
-
-  const wp = vtxData.wp;
-  const pt3D = vtxData.pt;
-  const pCenter = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, pt3D);
-  if (!pCenter || typeof pCenter.x !== 'number') {
-    vtxGizmoState.screen = null;
-    return;
-  }
-
-  const currentCamera = typeof viewer !== 'undefined' && viewer ? viewer.camera : (window.viewer ? window.viewer.camera : null);
-  const camPos = (currentCamera && currentCamera.positionWC) ? currentCamera.positionWC : ((currentCamera && currentCamera.position) ? currentCamera.position : null);
-  const dist = camPos ? Cesium.Cartesian3.distance(camPos, pt3D) : 100;
-  const distScale = Math.min(2.5, Math.max(0.7, Math.sqrt(dist / 50.0)));
-  const scale = distScale * (triadState.scale || 1.0);
-
-  const armLen = Math.max(dist * 0.04, 1.8) * scale;
-  const tipU3D = Cesium.Cartesian3.add(pt3D, Cesium.Cartesian3.multiplyByScalar(wp.uVec, armLen, new Cesium.Cartesian3()), new Cesium.Cartesian3());
-  const tipV3D = Cesium.Cartesian3.add(pt3D, Cesium.Cartesian3.multiplyByScalar(wp.vVec, armLen, new Cesium.Cartesian3()), new Cesium.Cartesian3());
-
-  const pU = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, tipU3D);
-  const pV = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, tipV3D);
-
-  const ox = pCenter.x;
-  const oy = pCenter.y;
-
-  vtxGizmoState.screen = {
-    ox, oy, scale,
-    pU: pU || { x: ox + 50 * scale, y: oy },
-    pV: pV || { x: ox, y: oy - 50 * scale }
-  };
-
-  const hPart = vtxGizmoState.active ? vtxGizmoState.mode : vtxGizmoState.hoveredPart;
-
-  // 1. Flechas de Ejes U (Rojo) y V (Verde)
-  drawProjectedTriadAxis(ox, oy, vtxGizmoState.screen.pU, (hPart === 'u-axis') ? '#FF2E2E' : '#EF4444', 'U', scale * ((hPart === 'u-axis') ? 1.2 : 1.0));
-  drawProjectedTriadAxis(ox, oy, vtxGizmoState.screen.pV, (hPart === 'v-axis') ? '#10B981' : '#22C55E', 'V', scale * ((hPart === 'v-axis') ? 1.2 : 1.0));
-
-  // 2. Diana Central de Arrastre Libre
-  triadCtx.beginPath();
-  triadCtx.arc(ox, oy, 14 * scale, 0, 2 * Math.PI);
-  triadCtx.fillStyle = (hPart === 'center-drag') ? 'rgba(56, 189, 248, 0.45)' : 'rgba(56, 189, 248, 0.15)';
-  triadCtx.fill();
-  triadCtx.strokeStyle = (hPart === 'center-drag') ? '#38BDF8' : '#0284C7';
-  triadCtx.lineWidth = (hPart === 'center-drag') ? 3.0 : 1.5;
-  triadCtx.stroke();
-
-  triadCtx.beginPath();
-  triadCtx.arc(ox, oy, 4.5 * scale, 0, 2 * Math.PI);
-  triadCtx.fillStyle = '#38BDF8';
-  triadCtx.fill();
-
-  // 3. Badge HUD Flotante
-  const badgeText = vtxData.poly.name + ' · Vértice #' + (WP.selectedVtxIdx + 1) + ' · U:' + vtxData.u.toFixed(2) + 'm V:' + vtxData.v.toFixed(2) + 'm';
-  triadCtx.font = 'bold ' + Math.round(10 * Math.max(scale, 0.9)) + 'px sans-serif';
-  const tw = triadCtx.measureText(badgeText).width;
-  const bx = ox - tw / 2 - 8;
-  const by = oy - 26 * scale;
-
-  triadCtx.fillStyle = 'rgba(15, 23, 42, 0.92)';
-  triadCtx.strokeStyle = '#38BDF8';
-  triadCtx.lineWidth = 1.5;
-  triadCtx.beginPath();
-  if (triadCtx.roundRect) triadCtx.roundRect(bx, by, tw + 16, 20 * scale + 4, 4);
-  else triadCtx.rect(bx, by, tw + 16, 20 * scale + 4);
-  triadCtx.fill();
-  triadCtx.stroke();
-
-  triadCtx.fillStyle = '#38BDF8';
-  triadCtx.fillText(badgeText, bx + 8, by + 14 * scale);
+  // [SSOT §5 AGENTS.md] La manipulación de ejes e interacción en vértices la gestiona exclusivamente renderUniversalGizmo2D
+  if (typeof vtxGizmoState !== 'undefined' && vtxGizmoState) vtxGizmoState.screen = null;
+  return;
 }
 
 let panelGizmoState = (typeof window !== 'undefined' && window.panelGizmoState) ? window.panelGizmoState : {
@@ -715,92 +646,9 @@ function checkPanelGizmoHit(mx, my) {
 }
 
 function renderPanelGizmo2D() {
-  if (!triadCtx || selectedPanelIndex < 0 || !lastRoofInfo) return;
-  const panel = getSelectedPanel();
-  if (!panel || !panel.center) return;
-
-  const wp = lastRoofInfo;
-  const currentScene = typeof viewer !== 'undefined' && viewer ? viewer.scene : (window.viewer ? window.viewer.scene : null);
-  if (!currentScene) return;
-  const cPos = Cesium.SceneTransforms.wgs84ToWindowCoordinates(currentScene, panel.center);
-  if (!cPos || !Number.isFinite(cPos.x) || !Number.isFinite(cPos.y)) {
-    panelGizmoState.screen = null;
-    return;
-  }
-
-  const ox = cPos.x;
-  const oy = cPos.y;
-
-  const distCam = Cesium.Cartesian3.distance(currentScene.camera.positionWC, panel.center);
-  const scale = Math.max(0.6, Math.min(2.0, 75.0 / Math.max(distCam, 1.0))) * (triadState.scaleMultiplier || 1.0);
-  const rRad = 46 * scale;
-  const axisLen = 65 * scale;
-
-  const u3D = Cesium.Cartesian3.add(panel.center, Cesium.Cartesian3.multiplyByScalar(wp.uVec, 1.5, new Cesium.Cartesian3()), new Cesium.Cartesian3());
-  const v3D = Cesium.Cartesian3.add(panel.center, Cesium.Cartesian3.multiplyByScalar(wp.vVec, 1.5, new Cesium.Cartesian3()), new Cesium.Cartesian3());
-  const pUWin = Cesium.SceneTransforms.wgs84ToWindowCoordinates(currentScene, u3D);
-  const pVWin = Cesium.SceneTransforms.wgs84ToWindowCoordinates(currentScene, v3D);
-
-  let dirU = { x: 1, y: 0 }, dirV = { x: 0, y: -1 };
-  if (pUWin) {
-    const du = pUWin.x - ox, dv = pUWin.y - oy;
-    const len = Math.sqrt(du * du + dv * dv);
-    if (len > 1) dirU = { x: du / len, y: dv / len };
-  }
-  if (pVWin) {
-    const du = pVWin.x - ox, dv = pVWin.y - oy;
-    const len = Math.sqrt(du * du + dv * dv);
-    if (len > 1) dirV = { x: du / len, y: dv / len };
-  }
-
-  const pU = { x: ox + dirU.x * axisLen, y: oy + dirU.y * axisLen };
-  const pV = { x: ox + dirV.x * axisLen, y: oy + dirV.y * axisLen };
-
-  panelGizmoState.screen = { ox, oy, pU, pV, ringRadius: rRad, scale };
-
-  const hPart = panelGizmoState.active ? panelGizmoState.mode : panelGizmoState.hoveredPart;
-
-  // Anillo de rotación (Azul eléctrico / Cian)
-  triadCtx.beginPath();
-  triadCtx.arc(ox, oy, rRad, 0, 2 * Math.PI);
-  triadCtx.strokeStyle = (hPart === 'rotate-ring') ? '#38BDF8' : 'rgba(56, 189, 248, 0.6)';
-  triadCtx.lineWidth = (hPart === 'rotate-ring') ? 3.5 : 2.0;
-  triadCtx.setLineDash([4 * scale, 3 * scale]);
-  triadCtx.stroke();
-  triadCtx.setLineDash([]);
-
-  // Flechas de ejes U y V
-  drawProjectedTriadAxis(ox, oy, pU, (hPart === 'u-axis') ? '#FF3B30' : '#EF4444', 'U', scale);
-  drawProjectedTriadAxis(ox, oy, pV, (hPart === 'v-axis') ? '#34C759' : '#22C55E', 'V', scale);
-
-  // Diana Central
-  triadCtx.beginPath();
-  triadCtx.arc(ox, oy, 14 * scale, 0, 2 * Math.PI);
-  triadCtx.fillStyle = (hPart === 'center-drag') ? 'rgba(245, 158, 11, 0.45)' : 'rgba(255, 255, 255, 0.15)';
-  triadCtx.fill();
-  triadCtx.strokeStyle = (hPart === 'center-drag') ? '#F59E0B' : 'rgba(255, 255, 255, 0.8)';
-  triadCtx.lineWidth = (hPart === 'center-drag') ? 3.0 : 1.5;
-  triadCtx.stroke();
-
-  // Badge HUD Flotante
-  const mlpeStr = panel.hasMLPE ? ' · <i data-lucide=\"zap\" class=\"icon-sm\"></i> MLPE (Microinversor)' : '';
-  const badgeText = 'MÓDULO #' + (selectedPanelIndex + 1) + ' · ' + (panel.orientation === 'landscape' ? 'LANDSCAPE' : 'PORTRAIT') + mlpeStr;
-  triadCtx.font = 'bold ' + Math.round(10 * Math.max(scale, 0.9)) + 'px sans-serif';
-  const tw = triadCtx.measureText(badgeText).width;
-  const bx = ox - tw / 2 - 8;
-  const by = oy - rRad - 26 * scale;
-
-  triadCtx.fillStyle = 'rgba(15, 23, 42, 0.92)';
-  triadCtx.strokeStyle = panel.hasMLPE ? '#10B981' : '#38BDF8';
-  triadCtx.lineWidth = 1.5;
-  triadCtx.beginPath();
-  if (triadCtx.roundRect) triadCtx.roundRect(bx, by, tw + 16, 20 * scale + 4, 4);
-  else triadCtx.rect(bx, by, tw + 16, 20 * scale + 4);
-  triadCtx.fill();
-  triadCtx.stroke();
-
-  triadCtx.fillStyle = panel.hasMLPE ? '#34D399' : '#38BDF8';
-  triadCtx.fillText(badgeText, bx + 8, by + 14 * scale);
+  // [SSOT §5 AGENTS.md] La manipulación e interacción de paneles la gestiona exclusivamente renderUniversalGizmo2D
+  if (typeof panelGizmoState !== 'undefined' && panelGizmoState) panelGizmoState.screen = null;
+  return;
 }
 
 function deleteSelectedPanel() {
@@ -1170,7 +1018,8 @@ function renderTriad2D() {
       }
     }
 
-    if (triadState.active && triadState.pos3D) {
+    const hasUniversalTarget = (typeof window.getUniversalSelectedTarget === "function") && !!window.getUniversalSelectedTarget();
+    if (triadState.active && triadState.pos3D && !hasUniversalTarget) {
     try {
       const origin3D = triadState.pos3D;
       let pOrigin = toScreen(origin3D);
@@ -1218,9 +1067,6 @@ function renderTriad2D() {
       drawProjectedTriadAxis(ox, oy, pX, "#EF4444", "X", userScale);
       drawProjectedTriadAxis(ox, oy, pY, "#22C55E", "Y", userScale);
       drawProjectedTriadAxis(ox, oy, pZ, "#3B82F6", "Z", userScale);
-
-      try { if (typeof renderVertexGizmo2D === "function") renderVertexGizmo2D(); } catch(e){}
-      try { if (typeof renderPanelGizmo2D === "function") renderPanelGizmo2D(); } catch(e){}
 
       // Centroide / Punto de contacto
       triadCtx.beginPath();
@@ -3055,7 +2901,6 @@ function wpApplySelectedVtxCoords() {
   if (typeof wpPopulateFaldonCard === 'function') wpPopulateFaldonCard();
   // updateAllVisuals();
 
-  if (typeof recalculateSolarYield === 'function') recalculateSolarYield();
   if (typeof recalculateLayoutAndObstacles === 'function') recalculateLayoutAndObstacles();
 
   showStatus('<i data-lucide="check" class="icon-sm"></i> VÉRTICE #' + (WP.selectedVtxIdx + 1) + ' ACTUALIZADO', 1800);

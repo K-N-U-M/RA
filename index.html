@@ -33,13 +33,13 @@ window.RA_App = window.RA_App || {};
   <script src="js/project-config.js"></script>
   <script src="js/buildings.js?v=20261016d"></script>
     <script src="js/radiation-engine.js?v=20261014a"></script>
-    <script src="js/solar-heatmap.js?v=20260929b"></script>
+    <script src="js/solar-heatmap.js?v=20261016a"></script>
     <script src="js/config.js?v=20260929b"></script>
     <script src="js/financials.js?v=20260929c"></script>
   <script src="js/viewer.js?v=20260929b"></script>
   <script src="js/solar-engine.js?v=20260929b"></script>
   <script src="js/solar-optimizer.js?v=20261016a"></script>
-  <script src="js/obstacles.js?v=20260929b"></script>
+  <script src="js/obstacles.js?v=20261016a"></script>
   <script src="js/wind-turbine.js?v=20261011a"></script>
   <script src="js/solar-materials.js?v=20260930a"></script>
   <script src="js/electrical-engine.js?v=20260929b"></script>
@@ -47,20 +47,20 @@ window.RA_App = window.RA_App || {};
   <script src="js/geometry-validate.js?v=20260929b"></script>
   <script src="js/docs-generator.js?v=20260929b"></script>
   <script src="js/workflow-orchestrator.js?v=20260929b"></script>
-  <script src="js/working-plane.js?v=20261016d"></script>
-  <script src="js/cable-engine.js?v=20261009d"></script>
+  <script src="js/working-plane.js?v=20261016e"></script>
+  <script src="js/cable-engine.js?v=20261016a"></script>
   <script src="js/capture-mode.js?v=20260929b"></script>
   <script src="js/measure-tool.js?v=20261013a"></script>
   <script src="js/project-hierarchy.js?v=20260929b"></script>
-  <script src="js/project-storage.js?v=20261013a"></script>
-  <script src="js/company-branding.js?v=20261013a"></script>
+  <script src="js/project-storage.js?v=20261016a"></script>
+  <script src="js/company-branding.js?v=20261016a"></script>
   <script src="js/ui-outliner.js?v=20261015f"></script>
   <script src="js/bill-auditor.js?v=20260929b"></script>
   <script src="js/structure-catalog.js?v=20261015a"></script>
   <script src="js/bom-tree.js?v=20261016a"></script>
   <script src="js/engineering-explainer.js?v=20260929b"></script>
   <script src="js/equipment-ai-importer.js?v=20261014a"></script>
-  <script src="js/project-status-hud.js?v=20261015g"></script>
+  <script src="js/project-status-hud.js?v=20261016a"></script>
   <script src="js/firebase-service.js?v=20261015d"></script>
 
     <link rel="stylesheet" href="css/styles.css?v=20261016b">
@@ -107,10 +107,10 @@ window.RA_App = window.RA_App || {};
   </style>
   <div id="ra-hud-energy" style="display:none; position:absolute; top:16px; left:50%; transform:translateX(-50%); z-index:100; font-family:'Inter', sans-serif; pointer-events:auto; transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);">
     <!-- Pill (Always visible when active) -->
-    <div id="ra-hud-pill" style="background:rgba(15,23,42,0.85); backdrop-filter:blur(8px); border:1px solid rgba(16,185,129,0.4); border-radius:24px; padding:6px 16px; color:#fff; display:flex; align-items:center; gap:8px; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,0.5); transition:all 0.2s;">
-      <i data-lucide="leaf" class="icon-sm" style="color:#10B981;"></i>
-      <span style="font-size:12px; font-weight:800; letter-spacing:0.5px; text-transform:uppercase;">Producci&oacute;n Neta Anual:</span>
-      <b id="hud-val-neta" style="font-family:'JetBrains Mono', monospace; font-size:14.5px; color:#10B981;">-- kWh/a&ntilde;o</b>
+    <div id="ra-hud-pill" style="background:rgba(15,23,42,0.85); backdrop-filter:blur(8px); border:1px solid rgba(56,189,248,0.4); border-radius:24px; padding:6px 16px; color:#fff; display:flex; align-items:center; gap:8px; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,0.5); transition:all 0.2s;">
+      <i id="hud-icon-status" data-lucide="leaf" class="icon-sm" style="color:#38BDF8;"></i>
+      <span id="hud-title-label" style="font-size:12px; font-weight:800; letter-spacing:0.5px; text-transform:uppercase;">Prod. Anual Estimada:</span>
+      <b id="hud-val-neta" style="font-family:'JetBrains Mono', monospace; font-size:14.5px; color:#38BDF8;">-- kWh/a&ntilde;o</b>
         <div class="tooltip-container" style="position:relative; display:inline-flex; align-items:center; margin-left:4px;">
            <i data-lucide="help-circle" style="width:14px;height:14px;color:#cbd5e1;cursor:help;"></i>
            <div class="tooltip-content" style="opacity:0; visibility:hidden; position:absolute; top:50%; left:calc(100% + 20px); transform:translateY(-50%) translateX(-10px); width:320px; background:rgba(15,23,42,0.95); backdrop-filter:blur(8px); border:1px solid rgba(56,189,248,0.4); border-radius:6px; padding:12px; color:#f1f5f9; font-size:10px; font-weight:normal; line-height:1.4; box-shadow:0 10px 25px rgba(0,0,0,0.5); transition:all 0.2s; z-index:200; text-transform:none; letter-spacing:normal; text-align:left;">
@@ -118,8 +118,8 @@ window.RA_App = window.RA_App || {};
                Potencia (kW) &times; Horas de Sol &times; Rendimiento
              </div>
              <div style="display:flex; flex-direction:column; gap:6px;">
-               <div><b style="color:#F59E0B;">&#9728; El Sol (HSP):</b> Calculado astron&oacute;micamente (modelo Kt) para tu latitud exacta usando &iacute;ndices clim&aacute;ticos ib&eacute;ricos.</div>
-               <div><b style="color:#F87171;">&#9729; Sombras:</b> Medidas en tiempo real por el esc&aacute;ner 3D bloqueando el sol.</div>
+               <div><b style="color:#F59E0B;">&#9728; El Sol (HSP):</b> Calculado astron&oacute;micamente (modelo Kt / Sat&eacute;lite) para las coordenadas terrestres exactas del fald&oacute;n.</div>
+               <div><b style="color:#F87171;">&#9729; Sombras:</b> Medidas preliminarmente por geometr&iacute;a y recalibradas en el Paso 3 con trazado de rayos 3D.</div>
                <div><b style="color:#F87171;">&#9889; Mermas (PR):</b> P&eacute;rdidas f&iacute;sicas por calor, cableado e inversor.</div>
              </div>
            </div>
@@ -128,8 +128,13 @@ window.RA_App = window.RA_App || {};
     </div>
     
     <!-- Dropdown (Visible on hover of container) -->
-    <div id="ra-hud-dropdown" style="opacity:0; pointer-events:none; position:absolute; top:100%; left:50%; transform:translateX(-50%) translateY(10px); background:rgba(15,23,42,0.95); backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,0.1); border-radius:8px; width:280px; padding:12px; margin-top:8px; box-shadow:0 10px 25px rgba(0,0,0,0.5); transition:all 0.3s; display:flex; flex-direction:column; gap:8px;">
+    <div id="ra-hud-dropdown" style="opacity:0; pointer-events:none; position:absolute; top:100%; left:50%; transform:translateX(-50%) translateY(10px); background:rgba(15,23,42,0.95); backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,0.1); border-radius:8px; width:290px; padding:12px; margin-top:8px; box-shadow:0 10px 25px rgba(0,0,0,0.5); transition:all 0.3s; display:flex; flex-direction:column; gap:8px;">
       
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#94a3b8;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:6px;">
+        <span style="display:flex;align-items:center;gap:4px;"><i data-lucide="map-pin" class="icon-sm" style="color:#38BDF8;"></i> Punto terrestre:</span>
+        <b id="hud-val-coords" style="font-family:'JetBrains Mono', monospace; color:#38BDF8; font-weight:600;">--</b>
+      </div>
+
       <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#cbd5e1;">
         <span style="display:flex;align-items:center;gap:4px;"><i data-lucide="sun" class="icon-sm" style="color:#F59E0B;"></i> Prod. Bruta Te&oacute;rica:</span>
         <b id="hud-val-bruta" style="font-family:'JetBrains Mono', monospace; color:#fff;">-- kWh</b>
@@ -144,7 +149,10 @@ window.RA_App = window.RA_App || {};
       </div>
       
       <div style="border-top:1px dashed rgba(255,255,255,0.2); padding-top:8px; margin-top:4px; display:flex; justify-content:center; align-items:center;">
-         <div id="hud-val-badge" style="font-size:9px;background:#10B981;color:#fff;padding:3px 6px;border-radius:4px;font-weight:bold; display:none; align-items:center; gap:4px; box-shadow:0 0 5px rgba(16,185,129,0.5);">
+         <div id="hud-pre-badge" style="font-size:9px;background:rgba(56,189,248,0.12);color:#38BDF8;border:1px solid rgba(56,189,248,0.35);padding:3px 8px;border-radius:4px;font-weight:700;display:flex;align-items:center;gap:5px;box-shadow:0 0 8px rgba(56,189,248,0.15);letter-spacing:0.3px;">
+            <i data-lucide="clock" style="width:10px;height:10px;"></i> ESTIMACI&Oacute;N PREVIA (SIN HEATMAP 3D)
+         </div>
+         <div id="hud-val-badge" style="font-size:9px;background:#10B981;color:#fff;padding:3px 8px;border-radius:4px;font-weight:700;display:none;align-items:center;gap:5px;box-shadow:0 0 8px rgba(16,185,129,0.4);letter-spacing:0.3px;">
             <i data-lucide="check-circle-2" style="width:10px;height:10px;"></i> RECALIBRADO CON SIMULACI&Oacute;N 3D
          </div>
       </div>
@@ -5700,72 +5708,13 @@ function gizmoAxisLength() {
 }
 
 function update3DGizmo() {
-  gizmoEntities.forEach(e => viewer.entities.remove(e));
-  gizmoEntities = [];
-
-  if (appMode !== 'edit' || selectedVertexIndex < 0 || selectedVertexIndex >= polygonPoints.length) return;
-
-  const origin = polygonPoints[selectedVertexIndex];
-  if (!origin) return;
-
-  const transform = Cesium.Transforms.eastNorthUpToFixedFrame(origin);
-  const eastVec  = Cesium.Matrix4.getColumn(transform, 0, new Cesium.Cartesian3());
-  const northVec = Cesium.Matrix4.getColumn(transform, 1, new Cesium.Cartesian3());
-  const upVec    = Cesium.Matrix4.getColumn(transform, 2, new Cesium.Cartesian3());
-
-  const axisLen = gizmoAxisLength();
-  const quadLen = axisLen * 0.38;
-  const width   = 4.5;
-  const tipSize = 12;
-
-  const addAxis = (dirVec, color, axisName) => {
-    const tip = Cesium.Cartesian3.add(origin, Cesium.Cartesian3.multiplyByScalar(dirVec, axisLen, new Cesium.Cartesian3()), new Cesium.Cartesian3());
-    const line = viewer.entities.add({
-      polyline: { positions: [origin, tip], width: width, material: new Cesium.ColorMaterialProperty(cesiumColor(color)), disableDepthTestDistance: Number.POSITIVE_INFINITY },
-      gizmoAxis: axisName
+  if (Array.isArray(gizmoEntities)) {
+    gizmoEntities.forEach(e => {
+      try { if (viewer && viewer.entities) viewer.entities.remove(e); } catch(_) {}
     });
-    gizmoEntities.push(line);
-  };
-
-  addAxis(eastVec,  UI_C.red,   'x');
-  addAxis(northVec, UI_C.green, 'y');
-  addAxis(upVec,    UI_C.blue,  'z');
-
-  // Plano XY (agarre para mover en horizontal)
-  const pXY_E = Cesium.Cartesian3.add(origin, Cesium.Cartesian3.multiplyByScalar(eastVec, quadLen, new Cesium.Cartesian3()), new Cesium.Cartesian3());
-  const pXY_N = Cesium.Cartesian3.add(origin, Cesium.Cartesian3.multiplyByScalar(northVec, quadLen, new Cesium.Cartesian3()), new Cesium.Cartesian3());
-  const pXY_C = Cesium.Cartesian3.add(pXY_E, Cesium.Cartesian3.multiplyByScalar(northVec, quadLen, new Cesium.Cartesian3()), new Cesium.Cartesian3());
-
-  const planeXY = viewer.entities.add({
-    polygon: {
-      hierarchy: new Cesium.PolygonHierarchy([origin, pXY_E, pXY_C, pXY_N]),
-      material: cesiumColor(UI_C.amber, 0.55),
-      perPositionHeight: true
-    },
-    gizmoAxis: 'xy'
-  });
-  const borderXY = viewer.entities.add({
-    polyline: {
-      positions: [origin, pXY_E, pXY_C, pXY_N, origin],
-      width: 2,
-      material: new Cesium.ColorMaterialProperty(Cesium.Color.WHITE.withAlpha(0.85)),
-      disableDepthTestDistance: Number.POSITIVE_INFINITY
-    },
-    gizmoAxis: 'xy'
-  });
-  const centerDot = viewer.entities.add({
-    position: origin,
-    point: {
-      pixelSize: 11,
-      color: cesiumColor(UI_C.amber),
-      outlineColor: Cesium.Color.WHITE,
-      outlineWidth: 2,
-      disableDepthTestDistance: Number.POSITIVE_INFINITY
-    },
-    gizmoAxis: 'xy'
-  });
-
-  gizmoEntities.push(planeXY, borderXY, centerDot);
+    gizmoEntities = [];
+  }
+  // [SSOT §5 AGENTS.md] La manipulación de ejes e interacción en vértices la gestiona exclusivamente renderUniversalGizmo2D
 }
 
 function selectVertex(index) {
@@ -6529,12 +6478,20 @@ const SOLAR_RAD_MONTHLY_BASE = [
 ];
 
 function recalculateSolarYield() {
-  const pa = polygonAnalysis();
+  let pa = polygonAnalysis();
+  if (!pa && typeof WP !== 'undefined' && WP && WP.polylines && WP.polylines.length > 0) {
+    const selIdx = (WP.selectedPolyIdx >= 0 && WP.selectedPolyIdx < WP.polylines.length) ? WP.selectedPolyIdx : 0;
+    const selPoly = WP.polylines[selIdx] || WP.polylines[0];
+    if (selPoly && selPoly.points && selPoly.points.length >= 3) {
+      pa = polygonAnalysis(selPoly.points);
+    }
+  }
   if (!pa && (!WP || !WP.polylines || WP.polylines.length === 0)) {
     resetSolarDashboard();
     return;
   }
   const latDeg = pa ? pa.latDeg : 40.4168;
+  const lonDeg = pa ? (pa.lonDeg !== undefined ? pa.lonDeg : -3.7038) : -3.7038;
   const azimuthDeg = pa ? pa.azimuthDeg : 0;
   const tiltDeg = pa ? pa.tiltDeg : 30;
   const area3D = pa ? pa.area3D : 0;
@@ -6645,8 +6602,11 @@ function recalculateSolarYield() {
     // Factor de radiación en plano inclinado POA / GHI (Directa + Difusa celeste + Reflejada del suelo albedo 0.2)
     const poaFactor = (dniFrac * rbMid) + (dhiFrac * (1.0 + Math.cos(tiltRad)) / 2.0) + (0.20 * (1.0 - Math.cos(tiltRad)) / 2.0);
 
-    // Calibración climatológica estándar CTE DB-HE5 / PVGIS para radiación en plano inclinado
-    const dailyPoa = SOLAR_RAD_MONTHLY_BASE[m] * Math.max(0.15, poaFactor) * latFactor * 0.88;
+    // Recurso solar geolocalizado SSOT (getRobustMonthlyGHI): integra radiación horizontal real del emplazamiento
+    const baseGHI_Wh = (typeof getRobustMonthlyGHI === 'function')
+      ? getRobustMonthlyGHI(latDeg, (pa && pa.lonDeg !== undefined ? pa.lonDeg : -3.7), m)
+      : (SOLAR_RAD_MONTHLY_BASE[m] * 1000);
+    const dailyPoa = (baseGHI_Wh / 1000.0) * Math.max(0.15, poaFactor);
     // Producción bruta (sin sistema ni sombras)
     const monthlyGrossKWh = peakPowerKW * dailyPoa * MONTH_DAYS[m];
     annualGrossYield += monthlyGrossKWh;
@@ -6690,6 +6650,7 @@ function recalculateSolarYield() {
   
   // Desglose canónico puro (SSOT):
   let annualGrossKWh = Math.round(annualGrossYield);
+  let theoreticalAnnualKWh = Math.round(annualGrossYield * pr);
   let annualShadowLossKWh = Math.round(annualGrossKWh * (avgShadowLossPct / 100.0));
   let energyAfterShadows = Math.max(0, annualGrossKWh - annualShadowLossKWh);
   let annualSystemLossKWh = Math.round(energyAfterShadows * (1.0 - pr));
@@ -6820,6 +6781,25 @@ function recalculateSolarYield() {
     if (hudEnergy) {
       if (numPanels > 0) {
         hudEnergy.style.display = 'block';
+        const isSimulated = Boolean(window.solarSimState && window.solarSimState.annualHeatmapData && !window.solarSimState.annualHeatmapDirty);
+
+        const hudTitleLabel = document.getElementById('hud-title-label');
+        if (hudTitleLabel) {
+          hudTitleLabel.textContent = isSimulated ? 'Producci\u00f3n Neta Anual:' : 'Prod. Anual Estimada:';
+        }
+        const hudValNeta = document.getElementById('hud-val-neta');
+        if (hudValNeta) {
+          hudValNeta.style.color = isSimulated ? '#10B981' : '#38BDF8';
+        }
+        const hudIcon = document.getElementById('hud-icon-status');
+        if (hudIcon) {
+          hudIcon.style.color = isSimulated ? '#10B981' : '#38BDF8';
+        }
+        const hudPill = document.getElementById('ra-hud-pill');
+        if (hudPill) {
+          hudPill.style.borderColor = isSimulated ? 'rgba(16,185,129,0.4)' : 'rgba(56,189,248,0.45)';
+        }
+
         setElemText('hud-val-neta', annualYieldKWh.toLocaleString('es-ES') + ' kWh/a\u00f1o');
         setElemText('hud-val-bruta', annualGrossKWh.toLocaleString('es-ES') + ' kWh');
         const shadowPctStr = avgShadowLossPct > 0 ? (' (' + avgShadowLossPct.toFixed(1) + '%)') : '';
@@ -6827,9 +6807,18 @@ function recalculateSolarYield() {
         const sysLossPct = ((1.0 - pr) * 100).toFixed(1);
         setElemText('hud-val-sistema', '-' + annualSystemLossKWh.toLocaleString('es-ES') + ' kWh (' + sysLossPct + '%)');
         
+        // Punto terrestre
+        const latStr = Math.abs(latDeg).toFixed(2) + '\u00b0' + (latDeg >= 0 ? 'N' : 'S');
+        const lonStr = Math.abs(lonDeg).toFixed(2) + '\u00b0' + (lonDeg >= 0 ? 'E' : 'O');
+        setElemText('hud-val-coords', `${latStr}, ${lonStr}`);
+
         const hudBadge = document.getElementById('hud-val-badge');
+        const hudPreBadge = document.getElementById('hud-pre-badge');
         if (hudBadge) {
-          hudBadge.style.display = (window.solarSimState && window.solarSimState.annualHeatmapData) ? 'flex' : 'none';
+          hudBadge.style.display = isSimulated ? 'flex' : 'none';
+        }
+        if (hudPreBadge) {
+          hudPreBadge.style.display = isSimulated ? 'none' : 'flex';
         }
         if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
       } else {
@@ -6886,8 +6875,13 @@ function recalculateSolarYield() {
 
   // Persistir en window.RA para consumo por financials.js (histograma PDF)
   window.RA = window.RA || {};
+  const _hasSimPanels = (typeof window !== 'undefined' && Array.isArray(window.allRenderedPanels)) && window.allRenderedPanels.some(p => (typeof p.annualGrossKwh === 'number' && p.annualGrossKwh > 0) || (typeof p.annualKwh === 'number' && p.annualKwh > 0));
   window.RA.solarStats = {
     annualYieldKWh: annualYieldKWh,
+    theoreticalAnnualKWh: theoreticalAnnualKWh,
+    simulatedNetKWh: _hasSimPanels ? annualYieldKWh : null,
+    hasSimulation: _hasSimPanels,
+    avgShadowLossPct: avgShadowLossPct,
     monthlyYields: monthlyYields.slice(),
     peakPowerKW: peakPowerKW,
     hsp: hsp,
@@ -9083,6 +9077,19 @@ function getUniversalSelectedTarget() {
         accentColor: 'rgba(217, 119, 6, 0.4)'
       };
     }
+    if (selectedElectricalId === 'battery' && s.batteryPosition && s.batteryEntity) {
+      return {
+        type: 'electrical',
+        id: 'battery',
+        name: 'Sistema de Baterías LFP',
+        pos: s.batteryPosition,
+        rot: s.batteryRotation || 0,
+        height: (s.batteryCarto ? s.batteryCarto.height : 0),
+        entity: s.batteryEntity,
+        color: '#10B981',
+        accentColor: 'rgba(16, 185, 129, 0.4)'
+      };
+    }
   }
 
   // B. Obstáculos 3D
@@ -9316,13 +9323,39 @@ function renderUniversalGizmo2D() {
   const tipV3D = Cesium.Cartesian3.add(target.pos, Cesium.Cartesian3.multiplyByScalar(vVec, armLen, new Cesium.Cartesian3()), new Cesium.Cartesian3());
   const tipZ3D = Cesium.Cartesian3.add(target.pos, Cesium.Cartesian3.multiplyByScalar(zVec, armLen * 0.9, new Cesium.Cartesian3()), new Cesium.Cartesian3());
 
-  const pU = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, tipU3D);
-  const pV = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, tipV3D);
-  const pZ = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, tipZ3D);
+  let pU = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, tipU3D);
+  let pV = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, tipV3D);
+  let pZ = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, tipZ3D);
 
   const ox = pCenter.x;
   const oy = pCenter.y;
   const ringRadius = 48 * scale;
+
+  // [CAD PROJECTION FIX] Limitar la longitud visual en pantalla a una escala ergonómica (~52px * scale)
+  // para mantener las flechas y sus cabezas compactas y legibles independientemente del zoom
+  const targetArmPx = 52 * scale;
+  let armLenU = armLen, armLenV = armLen, armLenZ = armLen * 0.9;
+  function clampScreenTip(pTip, baseArm) {
+    if (!pTip || typeof pTip.x !== 'number') return { p: pTip, arm: baseArm };
+    const dx = pTip.x - ox;
+    const dy = pTip.y - oy;
+    const len = Math.hypot(dx, dy);
+    if (len > targetArmPx && len > 0.5) {
+      const ratio = targetArmPx / len;
+      return {
+        p: { x: ox + dx * ratio, y: oy + dy * ratio },
+        arm: baseArm * ratio
+      };
+    }
+    return { p: pTip, arm: baseArm };
+  }
+
+  const cU = clampScreenTip(pU, armLen);
+  const cV = clampScreenTip(pV, armLen);
+  const cZ = clampScreenTip(pZ, armLen * 0.9);
+  pU = cU.p; armLenU = cU.arm;
+  pV = cV.p; armLenV = cV.arm;
+  pZ = cZ.p; armLenZ = cZ.arm;
 
   universalGizmoState.screen = {
     ox, oy,
@@ -9335,6 +9368,9 @@ function renderUniversalGizmo2D() {
     ringRadius,
     scale,
     armLen,
+    armLenU,
+    armLenV,
+    armLenZ,
     color: target.color,
     targetType: target.type
   };
@@ -9995,6 +10031,19 @@ function getSelectedElectricalObject() {
     };
   }
 
+  if (selectedElectricalId === 'battery' && s.batteryPosition && s.batteryEntity) {
+    return {
+      id: 'battery',
+      name: 'Sistema de Baterías LFP',
+      type: 'battery',
+      pos: s.batteryPosition,
+      carto: s.batteryCarto,
+      entity: s.batteryEntity,
+      color: '#10B981',
+      accentColor: 'rgba(16, 185, 129, 0.4)'
+    };
+  }
+
   return null;
 }
 
@@ -10017,6 +10066,7 @@ function selectElectricalObject(id) {
     const s = window.inverterEquipmentState;
     if (s.entity && s.entity.label) s.entity.label.show = (id !== 'inverter');
     if (s.dcProtectionEntity && s.dcProtectionEntity.label) s.dcProtectionEntity.label.show = (id !== 'inverter' && id !== 'dc_protection');
+    if (s.batteryEntity && s.batteryEntity.label) s.batteryEntity.label.show = (id !== 'inverter' && id !== 'battery');
     if (s.gridMeter && s.gridMeter.entity && s.gridMeter.entity.label) s.gridMeter.entity.label.show = (id !== 'meter');
     if (s.combinerBox && s.combinerBox.entity && s.combinerBox.entity.label) s.combinerBox.entity.label.show = (id !== 'combiner');
   }
@@ -10056,6 +10106,7 @@ function pickElectricalObjectUnderCursor(screenPos) {
       }
       if (entId.includes('ra_inverter_main_box')) return { id: 'inverter' };
       if (entId.includes('ra_dc_protection_box')) return { id: 'dc_protection' };
+      if (entId.includes('ra_battery_storage_box')) return { id: 'battery' };
       if (entId.includes('ra_combiner_box')) return { id: 'combiner' };
       if (entId.includes('ra_grid_meter_box')) return { id: 'meter' };
     }
@@ -10065,6 +10116,7 @@ function pickElectricalObjectUnderCursor(screenPos) {
   const candidates = [
     { id: 'inverter', pos: s.position },
     { id: 'dc_protection', pos: (s.dcProtectionEntity && s.dcProtectionPosition) ? s.dcProtectionPosition : null },
+    { id: 'battery', pos: (s.batteryEntity && s.batteryPosition) ? s.batteryPosition : null },
     { id: 'combiner', pos: (s.combinerBox && s.combinerBox.isEnabled) ? s.combinerBox.position : null },
     { id: 'meter', pos: (s.gridMeter && s.gridMeter.position) ? s.gridMeter.position : null }
   ];
@@ -10150,6 +10202,22 @@ function deleteSelectedElectricalEquipment() {
     wpCalculateAndRenderInverterCables();
     if (typeof showToast === 'function') {
       showToast('EQUIPO ELIMINADO', 'Cuadro de protección DC eliminado.', 'info', 3000);
+    }
+  } else if (selectedElectricalId === 'battery') {
+    if (s.batteryEntity && viewer) {
+      try { viewer.entities.remove(s.batteryEntity); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
+    }
+    if (s.batteryLabel2D) {
+      try { if (typeof removeLabel2DEntity === 'function') removeLabel2DEntity(s.batteryLabel2D); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
+    }
+    s.batteryEntity = null;
+    s.batteryLabel2D = null;
+    s.batteryPosition = null;
+    s.batteryCarto = null;
+    selectedElectricalId = null;
+    wpCalculateAndRenderInverterCables();
+    if (typeof showToast === 'function') {
+      showToast('EQUIPO ELIMINADO', 'Sistema de baterías eliminado de la escena 3D.', 'info', 3000);
     }
   } else if (selectedElectricalId === 'meter') {
     if (s.gridMeter && s.gridMeter.entity && viewer) {
@@ -10341,7 +10409,8 @@ function wpPlaceInverterAtPosition(cartesian) {
         dimensions: wpBoxDimsScaled(new Cesium.Cartesian3(0.35, 0.18, 0.45), dcCartesian),
         material: Cesium.Color.fromCssColorString('#D97706').withAlpha(0.85),
         outline: true,
-        outlineColor: Cesium.Color.WHITE
+        outlineColor: Cesium.Color.WHITE,
+        shadows: Cesium.ShadowMode.ENABLED
       }
     });
     window.inverterEquipmentState.dcProtectionEntity = dcEntity;
@@ -10361,6 +10430,62 @@ function wpPlaceInverterAtPosition(cartesian) {
       category: 'electrical',
       equipmentType: 'dcProtection'
     });
+    // <i data-lucide=\"battery-charging\" class=\"icon-sm\"></i> GEMELO DIGITAL 3D: SISTEMA DE ALMACENAMIENTO LFP ACOPLADO
+    if (window.inverterEquipmentState.batteryEntity) {
+      try { viewer.entities.remove(window.inverterEquipmentState.batteryEntity); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
+      window.inverterEquipmentState.batteryEntity = null;
+    }
+    if (window.inverterEquipmentState.batteryLabel2D) {
+      try { removeLabel2DEntity(window.inverterEquipmentState.batteryLabel2D); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
+      window.inverterEquipmentState.batteryLabel2D = null;
+    }
+
+    const batItem = (cat && cat.batteries && cfg.selectedBatteryId) ? cat.batteries.find(b => b.id === cfg.selectedBatteryId) : null;
+    const batCount = (cfg.autoSizing && cfg.autoSizing.batteries && typeof cfg.autoSizing.batteries.count === 'number') ? cfg.autoSizing.batteries.count : 1;
+    if (batItem && batCount > 0) {
+      const batModelName = batItem.brand ? (batItem.brand + ' ' + batItem.model) : (batItem.model || 'Batería LFP 5kWh');
+      const batTotalKWh = (batItem.kwh || 5.0) * batCount;
+      // Desplazar 65cm a la izquierda del inversor (-longitude / -latitude)
+      const batPosCarto = Cesium.Cartographic.fromCartesian(cartesian);
+      const batHeight = Math.min(1.4, 0.65 + (batCount - 1) * 0.20);
+      const batCartesian = Cesium.Cartesian3.fromRadians(batPosCarto.longitude - 0.00000009, batPosCarto.latitude - 0.00000006, batPosCarto.height + (batHeight / 2.0));
+
+      const batSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 24 24" fill="#0F172A" stroke="#10B981" stroke-width="2"><rect x="6" y="7" width="12" height="14" rx="2" fill="#1e293b"/><line x1="9" y1="3" x2="15" y2="3"/><line x1="9" y1="11" x2="15" y2="11"/><line x1="9" y1="15" x2="15" y2="15"/></svg>';
+      const batEntity = viewer.entities.add({
+        id: 'ra_battery_storage_box_3d',
+        name: 'Sistema de Baterías LFP (' + batModelName + ')',
+        position: batCartesian,
+        billboard: {
+          image: getSafeSvgDataUri(batSvg),
+          scale: 0.85,
+          heightReference: Cesium.HeightReference.NONE,
+          disableDepthTestDistance: Number.POSITIVE_INFINITY,
+          eyeOffset: new Cesium.Cartesian3(0, 0, -10.0),
+          verticalOrigin: Cesium.VerticalOrigin.BOTTOM
+        },
+        box: {
+          dimensions: wpBoxDimsScaled(new Cesium.Cartesian3(0.60, 0.25, batHeight), batCartesian),
+          material: Cesium.Color.fromCssColorString('#0F172A'),
+          outline: true,
+          outlineColor: Cesium.Color.fromCssColorString('#10B981'),
+          shadows: Cesium.ShadowMode.ENABLED
+        }
+      });
+      window.inverterEquipmentState.batteryEntity = batEntity;
+      window.inverterEquipmentState.batteryPosition = batCartesian;
+      window.inverterEquipmentState.batteryCarto = { latitude: Cesium.Math.toDegrees(batPosCarto.latitude - 0.00000006), longitude: Cesium.Math.toDegrees(batPosCarto.longitude - 0.00000009), height: batPosCarto.height };
+      if (typeof window.inverterEquipmentState.batteryRotation === 'undefined') window.inverterEquipmentState.batteryRotation = 0;
+
+      const batLabelText = '🔋 BATERÍA LFP (' + batTotalKWh.toFixed(1) + ' kWh)\n' + batCount + 'x ' + (batItem.brand || 'LFP');
+      window.inverterEquipmentState.batteryLabel2D = addLabelEntity(batCartesian, batLabelText, -46, {
+        bg: 'rgba(15, 23, 42, 0.92)',
+        borderColor: '#10B981',
+        textColor: '#FFFFFF',
+        font: "bold 9.5px 'JetBrains Mono', monospace",
+        category: 'electrical',
+        equipmentType: 'battery'
+      });
+    }
   } catch(eEnt) {
     window.RA && window.RA.log && window.RA.log.debug('Error al renderizar marcador de inversor:', eEnt);
   }
@@ -10413,6 +10538,16 @@ function wpClearInverterAndCables() {
     }
     s.dcProtectionPosition = null;
     s.dcProtectionCarto = null;
+    if (s.batteryEntity) {
+      try { viewer.entities.remove(s.batteryEntity); } catch(err) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(err, 'Entidad/Primitiva Cesium'); }
+      s.batteryEntity = null;
+    }
+    if (s.batteryLabel2D) {
+      try { if (typeof removeLabel2DEntity === 'function') removeLabel2DEntity(s.batteryLabel2D); } catch(err) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(err, 'Entidad/Primitiva Cesium'); }
+      s.batteryLabel2D = null;
+    }
+    s.batteryPosition = null;
+    s.batteryCarto = null;
     if (s.gridMeter) {
       if (s.gridMeter.entity) {
         try { viewer.entities.remove(s.gridMeter.entity); } catch(err) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(err, 'Entidad/Primitiva Cesium'); }
@@ -11197,6 +11332,9 @@ function getProjectCalcs() {
     PR: eng.PR,
     lossTree: eng.lossTree,
     annualKWh,
+    theoreticalAnnualKWh: (_engStats && _engStats.theoreticalAnnualKWh) ? _engStats.theoreticalAnnualKWh : annualKWh,
+    hasSimulation: _engStats ? !!_engStats.hasSimulation : false,
+    shadowLossPct: (_engStats && typeof _engStats.avgShadowLossPct === 'number') ? _engStats.avgShadowLossPct : 0,
     hspAnual,
     monthly,
     co2Ton: co2Ton.toFixed(2),
@@ -15513,17 +15651,20 @@ window.toggleSolarHUD = toggleSolarHUD;
               const duX = s.pU.x - s.ox, duY = s.pU.y - s.oy;
               const lenU2 = duX * duX + duY * duY;
               const proj = (mouseDx * duX + mouseDy * duY) / (lenU2 || 1);
-              newPos = Cesium.Cartesian3.add(universalGizmoState.startPos, Cesium.Cartesian3.multiplyByScalar(uVec, proj * armLen, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+              const effArm = s.armLenU || armLen;
+              newPos = Cesium.Cartesian3.add(universalGizmoState.startPos, Cesium.Cartesian3.multiplyByScalar(uVec, proj * effArm, new Cesium.Cartesian3()), new Cesium.Cartesian3());
             } else if (universalGizmoState.mode === 'v-axis' && s.pV) {
               const dvX = s.pV.x - s.ox, dvY = s.pV.y - s.oy;
               const lenV2 = dvX * dvX + dvY * dvY;
               const proj = (mouseDx * dvX + mouseDy * dvY) / (lenV2 || 1);
-              newPos = Cesium.Cartesian3.add(universalGizmoState.startPos, Cesium.Cartesian3.multiplyByScalar(vVec, proj * armLen, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+              const effArm = s.armLenV || armLen;
+              newPos = Cesium.Cartesian3.add(universalGizmoState.startPos, Cesium.Cartesian3.multiplyByScalar(vVec, proj * effArm, new Cesium.Cartesian3()), new Cesium.Cartesian3());
             } else if (universalGizmoState.mode === 'z-axis' && s.pZ) {
               const dzX = s.pZ.x - s.ox, dzY = s.pZ.y - s.oy;
               const lenZ2 = dzX * dzX + dzY * dzY;
               const proj = (mouseDx * dzX + mouseDy * dzY) / (lenZ2 || 1);
-              newPos = Cesium.Cartesian3.add(universalGizmoState.startPos, Cesium.Cartesian3.multiplyByScalar(zVec, proj * armLen, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+              const effArm = s.armLenZ || armLen;
+              newPos = Cesium.Cartesian3.add(universalGizmoState.startPos, Cesium.Cartesian3.multiplyByScalar(zVec, proj * effArm, new Cesium.Cartesian3()), new Cesium.Cartesian3());
             }
           }
 
@@ -15629,10 +15770,7 @@ window.toggleSolarHUD = toggleSolarHUD;
         if (typeof render3DBuildingsInCesium === 'function') render3DBuildingsInCesium();
         if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Edificio desplazado');
       } else if (draggedTargetType === 'obstacle') {
-        if (typeof render3DObstaclesInCesium === 'function') render3DObstaclesInCesium();
         if (typeof recalculateLayoutAndObstacles === 'function') recalculateLayoutAndObstacles();
-        if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Obstáculo desplazado');
-        if (typeof wpCheckObstacleInsideRoof === 'function') wpCheckObstacleInsideRoof(null, true);
       } else if (draggedTargetType === 'panel') {
         // [Option A] Traslación manual de panel / multi-panel: persistir en arrays y dejar que wpFastRender reconstruya el batch.
         const _cloneCorners = function(corners) { return corners.map(function(c) { return Cesium.Cartesian3.clone(c); }); };
@@ -15745,14 +15883,15 @@ window.toggleSolarHUD = toggleSolarHUD;
         recalculateLayoutAndObstacles();
       }
       
-      // Invalidar simulación solar y purgar cachés ANTES de reconstruir el batch GPU
-      if (typeof window.wpInvalidateHeatmap === 'function') {
-        const _invalReason = (draggedTargetType === 'panel') ? 'Panel movido manualmente' : 'Obstáculo desplazado';
-        window.wpInvalidateHeatmap(_invalReason);
+      // RECONSTRUIMOS el batch visual de paneles solo para arrastre manual de panel (para otros tipos ya lo reconstruye recalculateLayoutAndObstacles)
+      if (draggedTargetType === 'panel') {
+        if (typeof window.wpInvalidateHeatmap === 'function') {
+          window.wpInvalidateHeatmap('Panel movido manualmente');
+        }
+        if (typeof wpFastRenderSimulatedPanels === 'function') {
+          wpFastRenderSimulatedPanels();
+        }
       }
-
-      // RECONSTRUIMOS el batch visual de paneles (esto lee el isManual que acabamos de guardar)
-      if (typeof wpFastRenderSimulatedPanels === 'function') wpFastRenderSimulatedPanels();
 
       if (draggedTargetType === 'panel' && window.allRenderedPanels) {
         if (_affectedPanelIds && _affectedPanelIds.length > 0) {

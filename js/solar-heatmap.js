@@ -1333,12 +1333,16 @@
       recalculateSolarYield();
     }
 
-    // 5. Avisar visualmente al usuario con mensaje claro
-    if (typeof window.showToast === 'function' && (Date.now() - _lastInvalToastTs) > 2500) {
-      _lastInvalToastTs = Date.now();
-      window.showToast('ANÁLISIS SOLAR OBSOLETO', (reason ? reason + '. ' : '') + 'Pulsa en "Recalcular Mapa de Calor" en el Paso 3 para actualizar la irradiancia y sombras.', 'warning', 4000);
-    } else if (typeof showStatus === 'function') {
-      showStatus('<i data-lucide="alert-triangle" class="icon-sm"></i> ' + (reason ? reason.toUpperCase() + ': ' : '') + 'ANÁLISIS SOLAR DESACTUALIZADO', 2500);
+    // 5. Avisar visualmente al usuario SOLO si ya existía una simulación previa de heatmap y no estamos en fase de diseño inicial (Paso 1)
+    const currentStep = (typeof wpCurrentStep !== 'undefined') ? wpCurrentStep : 1;
+    const shouldNotify = wasHeatmapMode || (currentStep >= 3);
+    if (shouldNotify) {
+      if (typeof window.showToast === 'function' && (Date.now() - _lastInvalToastTs) > 6000) {
+        _lastInvalToastTs = Date.now();
+        window.showToast('ANÁLISIS SOLAR OBSOLETO', (reason ? reason + '. ' : '') + 'Pulsa en "Recalcular Mapa de Calor" en el Paso 3 para actualizar.', 'warning', 3500);
+      } else if (typeof showStatus === 'function') {
+        showStatus('<i data-lucide="alert-triangle" class="icon-sm"></i> ' + (reason ? reason.toUpperCase() + ': ' : '') + 'ANÁLISIS SOLAR DESACTUALIZADO', 2500);
+      }
     }
 
     // 6. Si estaba en modo heatmap, forzar un refresco visual para volver al tinte normal de strings

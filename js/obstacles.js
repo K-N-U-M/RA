@@ -1175,6 +1175,8 @@ function setSelectedObstacleAlignment(alignment) {
 global.setSelectedObstacleAlignment = setSelectedObstacleAlignment;
 if (typeof window !== 'undefined') window.setSelectedObstacleAlignment = setSelectedObstacleAlignment;
 
+let _obsPropsDebounceTimer = null;
+
 function updateSelectedObstacleProps() {
   if (!selectedObstacleId) return;
   const obs = obstacles.find(o => o.id === selectedObstacleId);
@@ -1192,11 +1194,22 @@ function updateSelectedObstacleProps() {
   if (lEl) obs.l = Math.max(parseFloat(lEl.value) || 0.5, 0.1);
   if (hEl) obs.h = Math.max(parseFloat(hEl.value) || 1.0, 0.1);
 
-  if (typeof window !== 'undefined' && typeof window.wpInvalidateHeatmap === 'function') {
-    window.wpInvalidateHeatmap('Dimensiones de obstáculo modificadas');
+  // 1. Actualización visual inmediata y ligera del modelo 3D del obstáculo
+  if (typeof render3DObstaclesInCesium === 'function') {
+    render3DObstaclesInCesium();
   }
 
-  recalculateLayoutAndObstacles();
+  // 2. Debounce del recálculo pesado de layout de paneles e invalidación solar (180ms)
+  if (_obsPropsDebounceTimer) {
+    clearTimeout(_obsPropsDebounceTimer);
+  }
+  _obsPropsDebounceTimer = setTimeout(() => {
+    _obsPropsDebounceTimer = null;
+    if (typeof window !== 'undefined' && typeof window.wpInvalidateHeatmap === 'function') {
+      window.wpInvalidateHeatmap('Dimensiones de obstáculo modificadas');
+    }
+    recalculateLayoutAndObstacles();
+  }, 180);
 }
 
 function deleteSelectedObstacle() {
@@ -1482,19 +1495,21 @@ function recalculateLayoutAndObstacles() {
   const hasPolygonPts = typeof polygonPoints !== 'undefined' && Array.isArray(polygonPoints) && polygonPoints.length >= 3;
 
   if (hasPolys || hasPolygonPts) {
-    if (typeof recalculateSolarYield === 'function') {
-      recalculateSolarYield();
-    }
     const hasPanelsInScene = (typeof simulatedPanelEntities !== 'undefined' && Array.isArray(simulatedPanelEntities) && simulatedPanelEntities.length > 0) ||
                              (typeof window !== 'undefined' && window.simulatedPanelsPrimitive);
-    if (hasPanelsInScene || isPolygonDesignConfirmed || (typeof wpCurrentStep !== 'undefined' && wpCurrentStep >= 2)) {
+    const shouldSimulatePanels = hasPanelsInScene || (typeof isPolygonDesignConfirmed !== 'undefined' && isPolygonDesignConfirmed) || (typeof wpCurrentStep !== 'undefined' && wpCurrentStep >= 2);
+
+    if (shouldSimulatePanels) {
+      if (typeof recalculateSolarYield === 'function') {
+        recalculateSolarYield();
+      }
       if (typeof wpFastRenderSimulatedPanels === 'function') {
         wpFastRenderSimulatedPanels();
       } else if (typeof startSolarPanelsSimulation === 'function') {
         startSolarPanelsSimulation();
       }
     } else {
-      updateBudgetUI();
+      if (typeof updateBudgetUI === 'function') updateBudgetUI();
     }
   }
 

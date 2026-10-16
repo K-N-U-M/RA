@@ -22,6 +22,49 @@
   let hudContainer = null;
   let validationBanner = null;
   let lastStateFingerprint = '';
+  let _cachedAddress = '';
+  let _lastGeocodeCoord = '';
+  let _isGeocoding = false;
+
+  function getApproximateAddress(lat, lng) {
+    const searchInput = (typeof document !== 'undefined') ? document.getElementById('ra-search-input') : null;
+    if (searchInput && searchInput.value && searchInput.value.trim().length > 1) {
+      return searchInput.value.trim();
+    }
+    if (typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.address && window.solarProjectConfig.address !== 'Ubicación' && window.solarProjectConfig.address !== 'Ubicación Solar') {
+      return window.solarProjectConfig.address;
+    }
+    if (_cachedAddress) return _cachedAddress;
+
+    if (typeof lat === 'number' && typeof lng === 'number' && !_isGeocoding && typeof fetch === 'function') {
+      const coordKey = `${lat.toFixed(2)},${lng.toFixed(2)}`;
+      if (coordKey !== _lastGeocodeCoord) {
+        _lastGeocodeCoord = coordKey;
+        _isGeocoding = true;
+        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=14`, {
+          headers: { 'Accept-Language': 'es' }
+        })
+        .then(r => r.json())
+        .then(d => {
+          _isGeocoding = false;
+          if (d && d.address) {
+            const city = d.address.city || d.address.town || d.address.village || d.address.municipality || d.address.county || d.name || '';
+            const prov = d.address.province || d.address.state || '';
+            _cachedAddress = city ? (prov && prov !== city ? `${city}, ${prov}` : city) : (d.display_name ? d.display_name.split(',')[0] : '');
+            if (_cachedAddress && typeof RAProjectStatusHUD !== 'undefined' && typeof RAProjectStatusHUD.update === 'function') {
+              RAProjectStatusHUD.update();
+            }
+          }
+        })
+        .catch(() => { _isGeocoding = false; });
+      }
+    }
+
+    if (typeof lat === 'number' && typeof lng === 'number' && !isNaN(lat) && !isNaN(lng)) {
+      return `${lat.toFixed(3)}° N, ${Math.abs(lng).toFixed(3)}° ${lng >= 0 ? 'E' : 'O'}`;
+    }
+    return 'Ubicación';
+  }
 
   /**
    * Crea e inyecta el contenedor del HUD en el DOM si no existe.
@@ -44,36 +87,57 @@
         gap: 6px;
         pointer-events: none;
         font-family: 'Inter', system-ui, -apple-system, sans-serif;
-        max-width: 380px;
+        max-width: 420px;
         transition: opacity 0.25s ease, transform 0.25s ease;
       `;
 
       hudContainer.innerHTML = `
         <div id="ra-hud-pill-box" style="
           pointer-events: auto;
-          background: rgba(15, 23, 42, 0.88);
-          backdrop-filter: blur(10px);
-          -webkit-backdrop-filter: blur(10px);
+          background: rgba(15, 23, 42, 0.90);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           border: 1px solid rgba(56, 189, 248, 0.35);
           box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6), 0 0 15px rgba(56, 189, 248, 0.15);
           border-radius: 10px;
           padding: 8px 14px;
           color: #fff;
           display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
+          flex-direction: column;
+          gap: 6px;
         ">
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <div style="width: 8px; height: 8px; border-radius: 50%; background: #10B981; box-shadow: 0 0 8px #10B981;" id="ra-hud-status-dot"></div>
-            <div>
-              <div style="font-size: 11px; font-weight: 900; letter-spacing: 0.4px; color: #f8fafc;" id="ra-hud-kwp-text">0.00 kWp</div>
-              <div style="font-size: 9.5px; color: #94a3b8;" id="ra-hud-sub-text">0 paneles · Sin inversor</div>
+          <!-- Fila de Ubicación y Estado de Sombra -->
+          <div id="ra-hud-location-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 9.5px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 4px;">
+            <div style="display: flex; align-items: center; gap: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+              <span style="color: #38BDF8;">📍</span>
+              <span id="ra-hud-location-text" style="font-weight: 600; color: #cbd5e1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 250px;">Ubicación: —</span>
+            </div>
+            <div id="ra-hud-shadow-badge" style="font-size: 8.5px; font-weight: 700; padding: 1px 6px; border-radius: 4px; background: rgba(56, 189, 248, 0.15); color: #38BDF8; white-space: nowrap;">
+              🌤️ Preliminar
             </div>
           </div>
-          <div style="text-align: right;">
-            <div style="font-size: 11px; font-weight: 800; font-family: monospace; color: #38BDF8;" id="ra-hud-energy-text">— kWh/año</div>
-            <div style="font-size: 9px; font-weight: 700;" id="ra-hud-ratio-badge">Ratio DC/AC —</div>
+
+          <!-- Métricas principales (kWp, Inversor, Desglose Teórico vs Neto) -->
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 14px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <div style="width: 8px; height: 8px; border-radius: 50%; background: #10B981; box-shadow: 0 0 8px #10B981;" id="ra-hud-status-dot"></div>
+              <div>
+                <div style="font-size: 11.5px; font-weight: 900; letter-spacing: 0.3px; color: #f8fafc;" id="ra-hud-kwp-text">0.00 kWp</div>
+                <div style="font-size: 9.5px; color: #94a3b8;" id="ra-hud-sub-text">0 paneles · Sin inversor</div>
+                <div style="font-size: 9px; font-weight: 700;" id="ra-hud-ratio-badge">Ratio DC/AC —</div>
+              </div>
+            </div>
+            <div style="text-align: right; display: flex; flex-direction: column; gap: 1px;">
+              <div style="font-size: 9px; color: #94a3b8; font-family: monospace;">
+                Teórico: <span id="ra-hud-theo-energy" style="color: #cbd5e1; font-weight: 700;">— kWh/a</span>
+              </div>
+              <div style="font-size: 11px; font-weight: 800; font-family: monospace; color: #38BDF8;">
+                Neto 3D: <span id="ra-hud-energy-text">— kWh/año</span>
+              </div>
+              <div id="ra-hud-shadow-detail" style="font-size: 8.5px; font-weight: 600; color: #94a3b8;">
+                Sin simulación
+              </div>
+            </div>
           </div>
         </div>
 
@@ -163,15 +227,37 @@
     // Ratio DC/AC
     const ratioDcAc = totalInvKw > 0 ? (kwp / totalInvKw) : 0;
 
-    // Producción anual
+    // Producción anual y desglose dual (Teórico vs Neto 3D)
     let annualKWh = 0;
+    let theoreticalAnnualKWh = 0;
+    let hasSimulation = false;
+    let shadowLossPct = 0;
+
     if (typeof getProjectCalcs === 'function') {
       const pc = getProjectCalcs();
-      if (pc && pc.annualKWh) annualKWh = pc.annualKWh;
+      if (pc) {
+        if (pc.annualKWh) annualKWh = pc.annualKWh;
+        if (pc.theoreticalAnnualKWh) theoreticalAnnualKWh = pc.theoreticalAnnualKWh;
+        if (pc.hasSimulation !== undefined) hasSimulation = pc.hasSimulation;
+        if (typeof pc.shadowLossPct === 'number') shadowLossPct = pc.shadowLossPct;
+      }
+    }
+    const _engStats = (typeof window !== 'undefined' && window.RA && window.RA.solarStats) ? window.RA.solarStats : null;
+    if (_engStats) {
+      if (_engStats.theoreticalAnnualKWh) theoreticalAnnualKWh = _engStats.theoreticalAnnualKWh;
+      if (_engStats.hasSimulation !== undefined) hasSimulation = _engStats.hasSimulation;
+      if (typeof _engStats.avgShadowLossPct === 'number') shadowLossPct = _engStats.avgShadowLossPct;
+    }
+    if (!theoreticalAnnualKWh && kwp > 0) {
+      theoreticalAnnualKWh = Math.round(kwp * 1550);
     }
     if (!annualKWh && kwp > 0) {
-      annualKWh = kwp * 1450;
+      annualKWh = theoreticalAnnualKWh || (kwp * 1450);
     }
+
+    const projLat = (typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.lat) || 40.4168;
+    const projLng = (typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.lng) || -3.7038;
+    const approxAddress = getApproximateAddress(projLat, projLng);
 
     // Heatmap dirty check
     const isHeatmapDirty = !!(typeof solarSimState !== 'undefined' && solarSimState && solarSimState.annualHeatmapDirty);
@@ -217,6 +303,10 @@
       invName,
       ratioDcAc,
       annualKWh,
+      theoreticalAnnualKWh,
+      hasSimulation,
+      shadowLossPct,
+      approxAddress,
       isHeatmapDirty,
       minTilt,
       stringNotice,
@@ -243,7 +333,7 @@
     }
 
     // Fingerprint para evitar renders innecesarios
-    const currentFingerprint = `${s.numPanels}_${s.kwp.toFixed(2)}_${s.invKw.toFixed(1)}_${s.isHeatmapDirty}_${s.annualKWh}`;
+    const currentFingerprint = `${s.numPanels}_${s.kwp.toFixed(2)}_${s.invKw.toFixed(1)}_${s.isHeatmapDirty}_${s.annualKWh}_${s.theoreticalAnnualKWh}_${s.hasSimulation}_${s.approxAddress}_${s.shadowLossPct}`;
     if (currentFingerprint === lastStateFingerprint) return;
     lastStateFingerprint = currentFingerprint;
 
@@ -255,10 +345,57 @@
     const dotEl = document.getElementById('ra-hud-status-dot');
     const alertBox = document.getElementById('ra-hud-validation-alert');
     const alertText = document.getElementById('ra-hud-alert-text');
+    const locationEl = document.getElementById('ra-hud-location-text');
+    const shadowBadgeEl = document.getElementById('ra-hud-shadow-badge');
+    const theoEnergyEl = document.getElementById('ra-hud-theo-energy');
+    const shadowDetailEl = document.getElementById('ra-hud-shadow-detail');
+
+    if (locationEl) locationEl.textContent = s.approxAddress || 'Ubicación';
 
     if (kwpEl) kwpEl.textContent = `${s.kwp.toFixed(2)} kWp`;
     if (subEl) subEl.textContent = `${s.numPanels} paneles · ${s.invKw > 0 ? (s.invKw.toFixed(1) + ' kW AC') : 'Sin inversor'}`;
-    if (energyEl) energyEl.textContent = s.annualKWh > 0 ? `${Math.round(s.annualKWh).toLocaleString('es-ES')} kWh/a` : '— kWh/año';
+
+    if (theoEnergyEl) {
+      theoEnergyEl.textContent = s.theoreticalAnnualKWh > 0 ? `${Math.round(s.theoreticalAnnualKWh).toLocaleString('es-ES')} kWh/a` : '— kWh/a';
+    }
+
+    if (energyEl) {
+      energyEl.textContent = s.annualKWh > 0 ? `${Math.round(s.annualKWh).toLocaleString('es-ES')} kWh/a` : '— kWh/año';
+      if (s.hasSimulation && !s.isHeatmapDirty) {
+        energyEl.style.color = '#10B981';
+      } else {
+        energyEl.style.color = '#38BDF8';
+      }
+    }
+
+    if (shadowBadgeEl) {
+      if (s.isHeatmapDirty) {
+        shadowBadgeEl.textContent = '⚠️ Recálculo pendiente';
+        shadowBadgeEl.style.background = 'rgba(245, 158, 11, 0.20)';
+        shadowBadgeEl.style.color = '#F59E0B';
+      } else if (s.hasSimulation) {
+        shadowBadgeEl.textContent = `🎯 3D Simulado (${s.shadowLossPct > 0 ? '-' + s.shadowLossPct.toFixed(1) + '%' : '0%'} sombra)`;
+        shadowBadgeEl.style.background = 'rgba(16, 185, 129, 0.20)';
+        shadowBadgeEl.style.color = '#10B981';
+      } else {
+        shadowBadgeEl.textContent = '🌤️ Teórico preliminar';
+        shadowBadgeEl.style.background = 'rgba(56, 189, 248, 0.15)';
+        shadowBadgeEl.style.color = '#38BDF8';
+      }
+    }
+
+    if (shadowDetailEl) {
+      if (s.isHeatmapDirty) {
+        shadowDetailEl.textContent = 'Sombras desactualizadas';
+        shadowDetailEl.style.color = '#F59E0B';
+      } else if (s.hasSimulation) {
+        shadowDetailEl.textContent = s.shadowLossPct > 0 ? `Pérdida sombras: -${s.shadowLossPct.toFixed(1)}%` : 'Cubierta libre de sombras';
+        shadowDetailEl.style.color = '#34D399';
+      } else {
+        shadowDetailEl.textContent = 'Paso 3 para simular sombras';
+        shadowDetailEl.style.color = '#94a3b8';
+      }
+    }
 
     // Badge Ratio DC/AC
     if (ratioEl) {

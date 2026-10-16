@@ -625,16 +625,19 @@
         yTrunkEntities.forEach(function (e) { sState.dcCableEntities.push(e); });
       }
 
-      // 6. Troncal Cuadro DC / Combiner Box ➔ Inversor
-      if (dcTargetPos && invPos && Cesium.Cartesian3.distance(dcTargetPos, invPos) > 0.05) {
-        var trunkPath = self.buildOrthogonalManhattanPath3D(dcTargetPos, invPos, {
+      // 6. Troncal DC: Si existe Combiner Box y además Cuadro DC, la troncal de cubierta baja al Cuadro DC y de ahí al Inversor
+      var dcBoxPos = (sState.dcProtectionPosition && sState.dcProtectionEntity) ? this.toCartesian3(sState.dcProtectionPosition) : null;
+      var intermediateTarget = (cbPos && dcBoxPos) ? dcBoxPos : invPos;
+
+      if (cbPos && intermediateTarget && Cesium.Cartesian3.distance(cbPos, intermediateTarget) > 0.05) {
+        var trunkPath = self.buildOrthogonalManhattanPath3D(cbPos, intermediateTarget, {
           normalOffset: self.CONFIG.TRAY_OFFSET
         });
         var lTrunk = self.computePathLength(trunkPath);
         maxLdc += lTrunk;
 
         var trunkEntities = self.createVolumetricEntity(viewer, trunkPath, {
-          name: 'Troncal DC Cuadro ➔ Inversor (90° Manhattan 3D)',
+          name: 'Troncal DC Combiner ➔ Cuadro/Inversor (90° Manhattan 3D)',
           colorHex: self.CONFIG.COLOR_COMBINER,
           isTray: true
         });
@@ -651,6 +654,65 @@
             category: 'cable'
           });
           if (trunkLbl) sState.dcCableEntities.push(trunkLbl);
+        }
+      } else if (!cbPos && dcBoxPos && invPos && Cesium.Cartesian3.distance(dcBoxPos, invPos) > 0.05) {
+        // Sin combiner box: strings van directo al Cuadro DC
+        var dcToInvPath = self.buildOrthogonalManhattanPath3D(dcBoxPos, invPos, {
+          normalOffset: self.CONFIG.TRAY_OFFSET
+        });
+        var lDcInv = self.computePathLength(dcToInvPath);
+        maxLdc += lDcInv;
+
+        var dcToInvEntities = self.createVolumetricEntity(viewer, dcToInvPath, {
+          name: 'Puente DC Cuadro ➔ Inversor (90° Manhattan 3D)',
+          colorHex: self.CONFIG.COLOR_COMBINER,
+          isTray: true
+        });
+        dcToInvEntities.forEach(function (e) { sState.dcCableEntities.push(e); });
+      }
+
+      // 6.b Latiguillo de interconexión directa Cuadro DC ➔ Inversor (cuando ambos están presentes con Combiner Box)
+      if (cbPos && dcBoxPos && invPos && Cesium.Cartesian3.distance(dcBoxPos, invPos) > 0.05) {
+        var bridgePath = self.buildOrthogonalManhattanPath3D(dcBoxPos, invPos, {
+          normalOffset: self.CONFIG.TRAY_OFFSET
+        });
+        var lBridge = self.computePathLength(bridgePath);
+        maxLdc += lBridge;
+
+        var bridgeEntities = self.createVolumetricEntity(viewer, bridgePath, {
+          name: 'Puente DC Cuadro ➔ Inversor (90° Manhattan 3D)',
+          colorHex: self.CONFIG.COLOR_COMBINER,
+          isTray: true
+        });
+        bridgeEntities.forEach(function (e) { sState.dcCableEntities.push(e); });
+      }
+
+      // 6.c Bus de Batería DC: Batería LFP ➔ Inversor Híbrido
+      var batPos = (sState.batteryPosition && sState.batteryEntity) ? this.toCartesian3(sState.batteryPosition) : null;
+      if (batPos && invPos && Cesium.Cartesian3.distance(batPos, invPos) > 0.05) {
+        var batBusPath = self.buildOrthogonalManhattanPath3D(batPos, invPos, {
+          normalOffset: self.CONFIG.TRAY_OFFSET
+        });
+        var lBatBus = self.computePathLength(batBusPath);
+
+        var batEntities = self.createVolumetricEntity(viewer, batBusPath, {
+          name: 'Bus DC Batería ➔ Inversor (90° Manhattan 3D)',
+          colorHex: '#10B981',
+          radius: self.CONFIG.CABLE_RADIUS_DC
+        });
+        batEntities.forEach(function (e) { sState.dcCableEntities.push(e); });
+
+        if (typeof global.addLabelEntity === 'function' && batBusPath.length >= 2) {
+          var midBat = batBusPath[Math.floor(batBusPath.length / 2)];
+          var batLbl = global.addLabelEntity(midBat, '🔋 Bus Batería · ' + lBatBus.toFixed(1) + ' m', -6, {
+            bg: 'rgba(15, 23, 42, 0.90)',
+            borderColor: '#10B981',
+            textColor: '#FFFFFF',
+            font: "bold 10px 'JetBrains Mono', monospace",
+            inspectOnHover: true,
+            category: 'cable'
+          });
+          if (batLbl) sState.dcCableEntities.push(batLbl);
         }
       }
 
