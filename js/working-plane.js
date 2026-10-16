@@ -3992,6 +3992,19 @@ function wpGetFaldonOrientationComparison(poly) {
     : (typeof window !== 'undefined' && typeof window.computeSinglePolylineRoofInfo === 'function' ? window.computeSinglePolylineRoofInfo : null);
   if (!fnInfo) return null;
 
+  // Memoización reactiva para evitar congelar el hilo UI con 3 cálculos espaciales síncronos
+  var sig = (poly.id || 'poly') + '_' +
+            poly.points.length + '_' +
+            (poly.points[0] ? poly.points[0].x.toFixed(2) + '_' + poly.points[0].y.toFixed(2) : '') + '_' +
+            (poly.modTilt || '') + '_' +
+            (poly.modAzimuth || '') + '_' +
+            (poly.moduleId || '') + '_' +
+            ((poly.estructura && poly.estructura.tipo) || '');
+
+  if (poly._orientCompCache && poly._orientCompCache.sig === sig && (Date.now() - poly._orientCompCache.ts < 4000)) {
+    return poly._orientCompCache.data;
+  }
+
   try {
     var optP = Object.assign({}, poly, { orientationPref: 'portrait' });
     var infoP = fnInfo(poly.points, optP);
@@ -4031,7 +4044,7 @@ function wpGetFaldonOrientationComparison(poly) {
       recommended = 'equal';
     }
 
-    return {
+    var compData = {
       portrait: { count: countP, kwp: kwpP },
       landscape: { count: countL, kwp: kwpL },
       hybrid: { count: countH, kwp: kwpH },
@@ -4039,6 +4052,9 @@ function wpGetFaldonOrientationComparison(poly) {
       diffKwp: diffKwp,
       recommended: recommended
     };
+
+    poly._orientCompCache = { sig: sig, ts: Date.now(), data: compData };
+    return compData;
   } catch(eComp) {
     return null;
   }

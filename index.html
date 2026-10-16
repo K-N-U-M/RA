@@ -13302,7 +13302,10 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
             pData.corners[2].x, pData.corners[2].y, pData.corners[2].z,
             pData.corners[3].x, pData.corners[3].y, pData.corners[3].z
         ]);
-        const st = new Float32Array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 0.0]);
+        const isLand = (pData.orientation === 'landscape');
+        const st = isLand
+          ? new Float32Array([0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0])
+          : new Float32Array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 0.0]);
         const v1 = Cesium.Cartesian3.subtract(pData.corners[1], pData.corners[0], new Cesium.Cartesian3()); // Length
         const v2 = Cesium.Cartesian3.subtract(pData.corners[3], pData.corners[0], new Cesium.Cartesian3()); // Width
         let norm = Cesium.Cartesian3.cross(v1, v2, new Cesium.Cartesian3()); // Length x Width -> UP
@@ -13380,7 +13383,9 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
         const instances = [];
         for (let i = 0; i < allTargetPanels.length; i++) {
           const pData = allTargetPanels[i];
-          const positions = new Float64Array([  pData.corners[0].x, pData.corners[0].y, pData.corners[0].z,  pData.corners[1].x, pData.corners[1].y, pData.corners[1].z,  pData.corners[2].x, pData.corners[2].y, pData.corners[2].z,  pData.corners[3].x, pData.corners[3].y, pData.corners[3].z]);const st = new Float32Array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 0.0]);
+          const positions = new Float64Array([  pData.corners[0].x, pData.corners[0].y, pData.corners[0].z,  pData.corners[1].x, pData.corners[1].y, pData.corners[1].z,  pData.corners[2].x, pData.corners[2].y, pData.corners[2].z,  pData.corners[3].x, pData.corners[3].y, pData.corners[3].z]);
+          const isLandInst = (pData.orientation === 'landscape');
+          const st = isLandInst ? new Float32Array([0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0]) : new Float32Array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 0.0]);
         const v1 = Cesium.Cartesian3.subtract(pData.corners[1], pData.corners[0], new Cesium.Cartesian3()); // Length
         const v2 = Cesium.Cartesian3.subtract(pData.corners[3], pData.corners[0], new Cesium.Cartesian3()); // Width
         let norm = Cesium.Cartesian3.cross(v1, v2, new Cesium.Cartesian3()); // Length x Width -> UP

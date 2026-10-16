@@ -168,13 +168,26 @@
         ? global.isPanelFullyContainedInPolygon2D
         : function() { return true; };
 
-      const residualCenters = [];
 
-      // Muestreo con desfases de fase (0.0 y 0.50) para explorar intersticios
-      const phaseShifts = [0.0, 0.50];
+      // Muestreo con desfases de fase para explorar intersticios y seleccionar la mejor combinación
+      const phaseShifts = [
+        [0.0, 0.0],
+        [0.5, 0.0],
+        [0.0, 0.5],
+        [0.5, 0.5]
+      ];
 
-      for (const poA of phaseShifts) {
-        for (const poB of phaseShifts) {
+      // Probar cada fase de inicio para evitar bloqueo voraz temprano y maximizar el empaquetamiento
+      let bestResidualSet = [];
+
+      for (const [initPoA, initPoB] of phaseShifts) {
+        const currentPlaced = [...placedPanels];
+        const currentResiduals = [];
+
+        // Evaluar las fases empezando por la fase seleccionada
+        const orderedPhases = [[initPoA, initPoB], ...phaseShifts.filter(([a, b]) => a !== initPoA || b !== initPoB)];
+
+        for (const [poA, poB] of orderedPhases) {
           const startA = aMin + setback + resHalfA + poA * resRowPitch;
           const startB = bMin + setback + resHalfB + poB * resColPitch;
 
@@ -202,8 +215,8 @@
 
               // 3. Comprobar colisión contra TODOS los paneles ya colocados (base + residuales previos)
               let collides = false;
-              for (let i = 0; i < placedPanels.length; i++) {
-                if (RASolarOptimizer.doRectanglesOverlap2D(candCorners, placedPanels[i].corners, gap)) {
+              for (let i = 0; i < currentPlaced.length; i++) {
+                if (RASolarOptimizer.doRectanglesOverlap2D(candCorners, currentPlaced[i].corners, gap)) {
                   collides = true;
                   break;
                 }
@@ -219,16 +232,21 @@
                   orient: residualOrient,
                   isHybridResidual: true
                 };
-                residualCenters.push(newPanel);
-                placedPanels.push(newPanel);
+                currentResiduals.push(newPanel);
+                currentPlaced.push(newPanel);
               }
             }
           }
         }
+
+        if (currentResiduals.length > bestResidualSet.length) {
+          bestResidualSet = currentResiduals;
+        }
       }
 
       // Si no cupo ningún panel residual adicional, el híbrido no aporta ventaja
-      if (residualCenters.length === 0) return null;
+      if (bestResidualSet.length === 0) return null;
+      const residualCenters = bestResidualSet;
 
       const allCenters = [...baseLayout.centers.map(c => Object.assign({}, c, { orient: baseOrient })), ...residualCenters];
 
@@ -337,12 +355,17 @@
             const kwp = parseFloat(((count * modWp) / 1000.0).toFixed(2));
             const rowPitch = (info && typeof info.rowPitch === 'number') ? info.rowPitch : 0;
 
-            // Factor de rendimiento según inclinación y orientación
+            // Factor de rendimiento físico según inclinación y acimut real
             let yieldFactor = 1.0;
             if (sc.id === 'coplanar') {
-              const roofSlope = (info && info.tiltDeg) ? info.tiltDeg : 0;
+              const roofSlope = (info && typeof info.tiltDeg === 'number') ? info.tiltDeg : (poly.slopeDeg || 0);
+              const roofAzSur = (info && typeof info.azimuthSur === 'number') ? info.azimuthSur : (poly.azimuthSur || 0); // 0 = Sur, ±90 = E/W, 180 = Norte
               const deltaB = roofSlope - optimalTilt;
-              yieldFactor = Math.max(0.75, 1.0 - (0.016 * Math.pow(deltaB, 2)) / 100.0);
+              const tiltLoss = (0.016 * Math.pow(deltaB, 2)) / 100.0;
+              // Factor azimutal: Sur (0°) = 1.0, Este/Oeste (±90°) ~ 0.88, Norte (180°) ~ 0.62
+              const deltaAzRad = (roofAzSur * Math.PI) / 180.0;
+              const azFactor = Math.max(0.55, 1.0 - (0.38 * Math.pow(Math.sin(deltaAzRad / 2.0), 2)));
+              yieldFactor = Math.max(0.50, (1.0 - tiltLoss) * azFactor);
             } else if (sc.id === 'east_west_12') {
               yieldFactor = 0.915; // Pérdida geométrica simétrica ~8.5%
             } else {
@@ -424,6 +447,10 @@
       const bP = benchmark.bestPower;
       const bEf = benchmark.bestEfficiency;
 
+      const bEIndex = benchmark.allScenarios.indexOf(bE);
+      const bPIndex = benchmark.allScenarios.indexOf(bP);
+      const bEfIndex = benchmark.allScenarios.indexOf(bEf);
+
       modal.innerHTML = `
         <div style="background:linear-gradient(135deg, rgba(15,23,42,0.98), rgba(30,41,59,0.98));border:1px solid rgba(56,189,248,0.3);box-shadow:0 20px 50px rgba(0,0,0,0.8), 0 0 30px rgba(56,189,248,0.15);border-radius:12px;width:100%;max-width:880px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;font-family:system-ui,-apple-system,sans-serif;color:#E2E8F0;">
           
@@ -461,7 +488,7 @@
                     <b>${bE.modules} placas</b> · <b style="color:#FBBF24;">${bE.kwp} kWp</b> · ${bE.specificYield} kWh/kWp
                   </div>
                 </div>
-                <button type="button" onclick="RASolarOptimizer.applyByIndex(${pIdx}, 0)" style="margin-top:10px;background:#10B981;color:#0F172A;border:none;border-radius:6px;padding:7px;font-size:10px;font-weight:900;cursor:pointer;width:100%;transition:all 0.2s;">
+                <button type="button" onclick="RASolarOptimizer.applyByIndex(${pIdx}, ${bEIndex >= 0 ? bEIndex : 0})" style="margin-top:10px;background:#10B981;color:#0F172A;border:none;border-radius:6px;padding:7px;font-size:10px;font-weight:900;cursor:pointer;width:100%;transition:all 0.2s;">
                   ✓ APLICAR GANADORA
                 </button>
               </div>
@@ -480,7 +507,7 @@
                     <b>${bP.modules} placas</b> · ${bP.kwhYear.toLocaleString()} kWh/año
                   </div>
                 </div>
-                <button type="button" onclick="RASolarOptimizer.applyScenario(${pIdx}, ${JSON.stringify(bP).replace(/"/g, '&quot;')})" style="margin-top:8px;background:rgba(56,189,248,0.2);color:#38BDF8;border:1px solid rgba(56,189,248,0.4);border-radius:6px;padding:6px;font-size:9.5px;font-weight:bold;cursor:pointer;width:100%;">
+                <button type="button" onclick="RASolarOptimizer.applyByIndex(${pIdx}, ${bPIndex >= 0 ? bPIndex : 0})" style="margin-top:8px;background:rgba(56,189,248,0.2);color:#38BDF8;border:1px solid rgba(56,189,248,0.4);border-radius:6px;padding:6px;font-size:9.5px;font-weight:bold;cursor:pointer;width:100%;">
                   Aplicar esta
                 </button>
               </div>
@@ -499,7 +526,7 @@
                     <b>${bEf.modules} placas</b> (${bEf.kwp} kWp) · ${bEf.kwhYear.toLocaleString()} kWh/a
                   </div>
                 </div>
-                <button type="button" onclick="RASolarOptimizer.applyScenario(${pIdx}, ${JSON.stringify(bEf).replace(/"/g, '&quot;')})" style="margin-top:8px;background:rgba(245,158,11,0.2);color:#F59E0B;border:1px solid rgba(245,158,11,0.4);border-radius:6px;padding:6px;font-size:9.5px;font-weight:bold;cursor:pointer;width:100%;">
+                <button type="button" onclick="RASolarOptimizer.applyByIndex(${pIdx}, ${bEfIndex >= 0 ? bEfIndex : 0})" style="margin-top:8px;background:rgba(245,158,11,0.2);color:#F59E0B;border:1px solid rgba(245,158,11,0.4);border-radius:6px;padding:6px;font-size:9.5px;font-weight:bold;cursor:pointer;width:100%;">
                   Aplicar esta
                 </button>
               </div>
@@ -543,7 +570,7 @@
                         <td style="padding:6px 10px;text-align:right;color:#38BDF8;">${s.specificYield}</td>
                         <td style="padding:6px 10px;text-align:right;font-weight:bold;color:${idx === 0 ? '#10B981' : '#F8FAFC'};font-family:'JetBrains Mono',monospace;">${s.kwhYear.toLocaleString()}</td>
                         <td style="padding:6px 10px;text-align:center;">
-                          <button type="button" onclick="RASolarOptimizer.applyScenario(${pIdx}, ${JSON.stringify(s).replace(/"/g, '&quot;')})" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#E2E8F0;border-radius:4px;padding:2px 6px;font-size:8.5px;cursor:pointer;">
+                          <button type="button" onclick="RASolarOptimizer.applyByIndex(${pIdx}, ${idx})" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#E2E8F0;border-radius:4px;padding:2px 6px;font-size:8.5px;cursor:pointer;">
                             Aplicar
                           </button>
                         </td>
@@ -593,10 +620,18 @@
       poly.modAzimuth = scenario.azimuth;
       poly.orientationPref = scenario.orientation;
 
+      // 1. Sincronizar estructura para motor 3D Cesium y cálculo geométrico de cubierta
+      const tipoEst = (scenario.structureType === 'pergola') ? 'pergola' : ((scenario.structureType === 'coplanar') ? 'coplanar' : 'balasto');
+      poly.estructura = poly.estructura || {};
+      poly.estructura.tipo = tipoEst;
+      poly.estructura.clearance = (tipoEst === 'coplanar') ? 0 : 0.20;
+
+      // 2. Sincronizar structureConfig para BOMTreeEngine y catálogo
       poly.structureConfig = poly.structureConfig || {};
       poly.structureConfig.type = scenario.structureType || 'coplanar';
       poly.structureConfig.tiltDeg = scenario.numTilt || 0;
       poly.structureConfig.pitchMeters = scenario.rowPitchM || 0;
+      poly.structureType = scenario.structureType || 'coplanar';
 
       // Cerrar modal
       const modal = document.getElementById('ra-solar-optimizer-modal');

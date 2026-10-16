@@ -313,7 +313,9 @@
     const physicalRows = [];
     sortedByV.forEach(p => {
       const pv = (typeof p.gridA === 'number') ? p.gridA : ((p.center2D && typeof p.center2D.v === 'number') ? p.center2D.v : (p.v || 0));
-      let foundRow = physicalRows.find(r => Math.abs(r.vKey - pv) <= rowTol);
+      const curH = (p.orientation === 'landscape' || (p.w && p.h && p.w > p.h)) ? (p.w || pW) : (p.h || pH);
+      const effTol = Math.max(0.30, Math.min(rowTol, curH * 0.45));
+      let foundRow = physicalRows.find(r => Math.abs(r.vKey - pv) <= effTol);
       if (!foundRow) {
         foundRow = { vKey: pv, panels: [] };
         physicalRows.push(foundRow);
