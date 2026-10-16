@@ -357,7 +357,7 @@ function render3DBuildingsInCesium() {
         const roofPrim = viewer.scene.primitives.add(new Cesium.Primitive({
           geometryInstances: roofInst,
           appearance: createBuildingMatteAppearance(true),
-          shadows: (parH > 0) ? Cesium.ShadowMode.DISABLED : Cesium.ShadowMode.ENABLED,
+          shadows: Cesium.ShadowMode.ENABLED,
           asynchronous: false
         }));
         window._buildingPrimitives.push(roofPrim);

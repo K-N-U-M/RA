@@ -297,13 +297,132 @@ function raMigrateProjectData(projectData) {
   return projectData;
 }
 
-function raImportProjectData(projectData) {
+// ─────────────────────────────────────────────────────────────────────────────
+// ⏳ HUD Y CONTADOR VISUAL DE CARGA DE PROYECTOS (.raproject)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function raEnsureLoadingHUDElements() {
+  if (typeof document === 'undefined') return null;
+  let hud = document.getElementById('ra-project-loading-hud');
+  if (hud) return hud;
+
+  if (!document.getElementById('ra-hud-spin-keyframes')) {
+    const st = document.createElement('style');
+    st.id = 'ra-hud-spin-keyframes';
+    st.textContent = '@keyframes raHudSpin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }';
+    document.head.appendChild(st);
+  }
+
+  hud = document.createElement('div');
+  hud.id = 'ra-project-loading-hud';
+  hud.style.cssText = 'display:none;position:fixed;inset:0;width:100vw;height:100vh;background:rgba(8,14,26,0.82);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);z-index:100000;align-items:center;justify-content:center;font-family:var(--font-sans,system-ui,-apple-system,sans-serif);opacity:0;transition:opacity 0.25s ease-out;pointer-events:auto;user-select:none;';
+
+  hud.innerHTML = `
+    <div style="background:linear-gradient(145deg,rgba(15,23,42,0.96),rgba(30,41,59,0.92));border:1px solid rgba(56,189,248,0.35);border-radius:16px;box-shadow:0 25px 60px -15px rgba(0,0,0,0.7),0 0 35px rgba(56,189,248,0.18);padding:32px 36px;width:440px;max-width:90vw;display:flex;flex-direction:column;align-items:center;gap:20px;box-sizing:border-box;position:relative;overflow:hidden;">
+      <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#38bdf8,#818cf8,#f59e0b);"></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;">
+        <div style="position:relative;width:52px;height:52px;display:flex;align-items:center;justify-content:center;">
+          <svg viewBox="0 0 52 52" style="width:100%;height:100%;animation:raHudSpin 3s linear infinite;">
+            <circle cx="26" cy="26" r="22" fill="none" stroke="rgba(56,189,248,0.18)" stroke-width="3"></circle>
+            <circle cx="26" cy="26" r="22" fill="none" stroke="#38bdf8" stroke-width="3" stroke-dasharray="35 110" stroke-linecap="round"></circle>
+          </svg>
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#38bdf8;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+            </svg>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#38bdf8;">CARGANDO PROYECTO SOLAR</div>
+          <div id="ra-load-hud-title" style="font-size:15px;font-weight:700;color:#f8fafc;margin-top:2px;max-width:360px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Cargando...</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:baseline;gap:4px;">
+        <span id="ra-load-hud-pct" style="font-size:44px;font-weight:800;font-family:var(--font-mono,monospace);color:#38bdf8;text-shadow:0 0 20px rgba(56,189,248,0.45);line-height:1;">0</span>
+        <span style="font-size:22px;font-weight:700;color:rgba(56,189,248,0.7);font-family:var(--font-mono,monospace);">%</span>
+      </div>
+      <div style="width:100%;display:flex;flex-direction:column;gap:8px;">
+        <div style="width:100%;height:8px;background:rgba(255,255,255,0.06);border-radius:999px;overflow:hidden;border:1px solid rgba(255,255,255,0.08);box-shadow:inset 0 1px 3px rgba(0,0,0,0.5);">
+          <div id="ra-load-hud-bar" style="width:0%;height:100%;background:linear-gradient(90deg,#0284c7,#38bdf8,#818cf8);border-radius:999px;transition:width 0.12s ease-out;box-shadow:0 0 12px rgba(56,189,248,0.75);"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;width:100%;">
+          <span id="ra-load-hud-status" style="font-size:12px;font-weight:600;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px;">Iniciando carga...</span>
+          <span id="ra-load-hud-detail" style="font-size:10.5px;color:#94a3b8;font-family:var(--font-mono,monospace);flex-shrink:0;">Fase 1/6</span>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(hud);
+  return hud;
+}
+
+function raShowProjectLoadingHUD(projectName) {
+  if (typeof document === 'undefined') return;
+  const hud = raEnsureLoadingHUDElements();
+  if (!hud) return;
+
+  const titleEl = document.getElementById('ra-load-hud-title');
+  const pctEl = document.getElementById('ra-load-hud-pct');
+  const barEl = document.getElementById('ra-load-hud-bar');
+  const statusEl = document.getElementById('ra-load-hud-status');
+  const detailEl = document.getElementById('ra-load-hud-detail');
+
+  if (titleEl) titleEl.textContent = projectName || 'Proyecto Solar';
+  if (pctEl) pctEl.textContent = '0';
+  if (barEl) barEl.style.width = '0%';
+  if (statusEl) statusEl.textContent = 'Iniciando carga...';
+  if (detailEl) detailEl.textContent = 'Preparando entorno...';
+
+  hud.style.display = 'flex';
+  setTimeout(() => {
+    if (hud) hud.style.opacity = '1';
+  }, 10);
+}
+
+function raUpdateProjectLoadingProgress(percent, statusText, detailText) {
+  if (typeof document === 'undefined') return;
+  raEnsureLoadingHUDElements();
+
+  const clamped = Math.max(0, Math.min(100, Math.round(percent)));
+  const pctEl = document.getElementById('ra-load-hud-pct');
+  const barEl = document.getElementById('ra-load-hud-bar');
+  const statusEl = document.getElementById('ra-load-hud-status');
+  const detailEl = document.getElementById('ra-load-hud-detail');
+
+  if (pctEl) pctEl.textContent = String(clamped);
+  if (barEl) barEl.style.width = clamped + '%';
+  if (statusEl && statusText) statusEl.textContent = statusText;
+  if (detailEl && detailText) detailEl.textContent = detailText;
+}
+
+function raHideProjectLoadingHUD() {
+  if (typeof document === 'undefined') return;
+  const hud = document.getElementById('ra-project-loading-hud');
+  if (!hud) return;
+
+  hud.style.opacity = '0';
+  setTimeout(() => {
+    if (hud && hud.style.opacity === '0') {
+      hud.style.display = 'none';
+    }
+  }, 260);
+}
+
+async function raImportProjectData(projectData) {
   // [P0.2] Carrera de arranque y espera determinista: si el visor Cesium o el subsistema WP
   // aún no existen o están inicializándose, reintentar de forma controlada hasta 25 veces (5 segundos).
   if (typeof viewer === 'undefined' || !viewer || typeof WP === 'undefined' || !WP) {
     var _retryCount = (projectData.__raImportRetryCount || 0) + 1;
     projectData.__raImportRetryCount = _retryCount;
     if (_retryCount <= 25) {
+      raEnsureLoadingHUDElements();
+      raShowProjectLoadingHUD(projectData.metadata && projectData.metadata.name);
+      raUpdateProjectLoadingProgress(
+        Math.min(25, _retryCount * 2),
+        'ESPERANDO INICIALIZACIÓN DEL VISOR 3D (' + _retryCount + '/25)...',
+        'Iniciando motor CesiumJS'
+      );
       if (typeof showStatus === 'function') {
         showStatus('ESPERANDO INICIALIZACIÓN DEL VISOR 3D (' + _retryCount + '/25)...', 1500);
       }
@@ -317,6 +436,7 @@ function raImportProjectData(projectData) {
       return true;
     } else {
       delete projectData.__raImportRetryCount;
+      raHideProjectLoadingHUD();
       console.error('[RA Storage] Timeout: El visor 3D o WP no se inicializaron a tiempo.');
       if (typeof showToast === 'function') {
         showToast('ERROR AL ABRIR', 'El visor 3D no respondió a tiempo. Intente de nuevo tras cargar el mapa.', 'error', 5000);
@@ -326,15 +446,27 @@ function raImportProjectData(projectData) {
   }
   delete projectData.__raImportRetryCount;
   delete projectData.__raImportDeferred;
+
+  const projName = (projectData && projectData.metadata && projectData.metadata.name) || _raCurrentProjectName || 'Proyecto Solar';
+  raShowProjectLoadingHUD(projName);
+
   try {
     if (!projectData || (projectData.format !== 'RA_SOLAR_PROJECT' && !projectData.polylines && !projectData.planes)) {
       throw new Error('El archivo no tiene un formato .raproject válido');
     }
 
+    // Fase 1: Migración y verificación de esquema
+    raUpdateProjectLoadingProgress(12, 'Validando estructura del archivo .raproject...', 'Comprobando esquema y versión ' + (projectData.version || '1.0'));
+    await new Promise(r => setTimeout(r, 60));
+
     // [C5/M9] Migrar esquema de versiones antiguas antes de restaurar
     projectData = raMigrateProjectData(projectData);
 
     if (typeof showStatus === 'function') showStatus('RESTAURANDO PROYECTO 3D...', 3000);
+
+    // Fase 2: Limpieza de escena previa y cámara 3D
+    raUpdateProjectLoadingProgress(32, 'Limpiando escena y orientando cámara 3D...', 'Posicionando vista y frustum');
+    await new Promise(r => setTimeout(r, 60));
 
     // 1. Limpieza de estado previo segura
     if (typeof clearSimulatedPV === 'function') clearSimulatedPV();
@@ -369,6 +501,10 @@ function raImportProjectData(projectData) {
         window.RA && window.RA.log && window.RA.log.debug('Error restaurando cámara:', eCam);
       }
     }
+
+    // Fase 3: Restaurar Planos de Trabajo, Faldones y Obstáculos 3D
+    raUpdateProjectLoadingProgress(55, 'Reconstruyendo faldones y obstáculos 3D...', 'Cargando planos CAD y geometría volumétrica');
+    await new Promise(r => setTimeout(r, 60));
 
     // 3. Restaurar Planos de Trabajo
     if (typeof WP !== 'undefined') {
@@ -506,6 +642,10 @@ function raImportProjectData(projectData) {
       _raCurrentProjectName = projectData.metadata.name;
     }
 
+    // Fase 4: Re-renderizado de escena y módulos fotovoltaicos
+    raUpdateProjectLoadingProgress(76, 'Renderizando módulos fotovoltaicos...', 'Generando layout, sombras y métricas');
+    await new Promise(r => setTimeout(r, 60));
+
     // [AUDIT-SAVE] Las selecciones de catálogo se restauran al FINAL del import
     // (ver bloque tras el Gemelo Digital): restaurarlas antes era inútil porque el
     // pipeline de re-render y el auto-dimensionado las sobrescribían con defaults.
@@ -533,6 +673,10 @@ function raImportProjectData(projectData) {
     if (typeof ProjectHierarchy !== 'undefined' && ProjectHierarchy.notify) {
       ProjectHierarchy.notify('project_loaded');
     }
+
+    // Fase 5: Restaurar Gemelo Digital Eléctrico (Inversor, Cuadros, Contador, Cables)
+    raUpdateProjectLoadingProgress(92, 'Generando gemelo digital eléctrico y cableado...', 'Restaurando inversor, protecciones y REBT');
+    await new Promise(r => setTimeout(r, 60));
 
     // 8. Restaurar Gemelo Digital Eléctrico (Inversor, Cuadros, Contador, Cables)
     if (projectData.electricalInfrastructure && typeof window !== 'undefined') {
@@ -591,6 +735,11 @@ function raImportProjectData(projectData) {
       viewer.scene.requestRender();
     }
 
+    // Fase 6: Carga completa
+    raUpdateProjectLoadingProgress(100, '¡Proyecto cargado con éxito!', 'Sincronización completada');
+    await new Promise(r => setTimeout(r, 350));
+    raHideProjectLoadingHUD();
+
     if (typeof showToast === 'function') {
       const pName = (projectData.metadata && projectData.metadata.name) ? projectData.metadata.name : 'Proyecto';
       showToast('PROYECTO CARGADO', pName + ' cargado correctamente.', 'success', 3500);
@@ -598,6 +747,7 @@ function raImportProjectData(projectData) {
 
     return true;
   } catch (err) {
+    raHideProjectLoadingHUD();
     console.error('Error importando proyecto:', err);
     if (typeof showToast === 'function') {
       showToast('ERROR AL ABRIR', err.message || 'No se pudo leer el archivo.', 'error', 5000);
@@ -667,16 +817,27 @@ function raHandleFileSelect(event) {
   const file = event.target.files && event.target.files[0];
   if (!file) return;
 
+  const fileName = file.name.replace(/\.[^/.]+$/, '');
+  _raCurrentProjectName = fileName;
+  raShowProjectLoadingHUD(file.name);
+  raUpdateProjectLoadingProgress(5, 'Leyendo archivo de proyecto...', file.name);
+
   const reader = new FileReader();
   reader.onload = function(e) {
     try {
       const parsed = JSON.parse(e.target.result);
-      _raCurrentProjectName = file.name.replace(/\.[^/.]+$/, '');
       raImportProjectData(parsed);
     } catch (err) {
+      raHideProjectLoadingHUD();
       if (typeof showToast === 'function') {
         showToast('ERROR DE ARCHIVO', 'El archivo no contiene un JSON válido.', 'error', 4000);
       }
+    }
+  };
+  reader.onerror = function() {
+    raHideProjectLoadingHUD();
+    if (typeof showToast === 'function') {
+      showToast('ERROR DE LECTURA', 'No se pudo leer el archivo seleccionado.', 'error', 4000);
     }
   };
   reader.readAsText(file);
@@ -748,12 +909,12 @@ function raRenderRecentProjectsList() {
       <div style="background:rgba(255,255,255,0.04);border:1px solid var(--border-subtle);border-radius:6px;padding:8px 10px;display:flex;justify-content:space-between;align-items:center;transition:all 0.15s ease;">
         <div style="display:flex;flex-direction:column;gap:2px;overflow:hidden;margin-right:8px;">
           <span style="font-size:11px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${proj.name}</span>
-          <span style="font-size:9.5px;color:var(--text-slate-400);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><i data-lucide=\"map-pin\" class=\"icon-sm\"></i> ${proj.address}</span>
-          <span style="font-size:9px;color:var(--amber-400);font-family:var(--font-mono);"><i data-lucide=\"zap\" class=\"icon-sm\"></i> ${proj.totalKwp} kWp (${proj.totalPanels} paneles) · ${dStr}</span>
+          <span style="font-size:9.5px;color:var(--text-slate-400);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><i data-lucide="map-pin" class="icon-sm"></i> ${proj.address}</span>
+          <span style="font-size:9px;color:var(--amber-400);font-family:var(--font-mono);"><i data-lucide="zap" class="icon-sm"></i> ${proj.totalKwp} kWp (${proj.totalPanels} paneles) · ${dStr}</span>
         </div>
         <div style="display:flex;gap:4px;flex-shrink:0;">
           <button onclick="raLoadRecentProjectByIndex(${idx})" class="doc-mini-btn" style="padding:4px 8px;font-size:9.5px;border-color:var(--emerald-500);color:var(--emerald-400);">Cargar</button>
-          <button onclick="raDeleteRecentProjectByIndex(${idx})" style="background:none;border:none;color:var(--text-slate-500);font-size:12px;cursor:pointer;padding:2px 4px;" title="Eliminar de recientes"><i data-lucide=\"x\" class=\"icon-sm\"></i></button>
+          <button onclick="raDeleteRecentProjectByIndex(${idx})" style="background:none;border:none;color:var(--text-slate-500);font-size:12px;cursor:pointer;padding:2px 4px;" title="Eliminar de recientes"><i data-lucide="x" class="icon-sm"></i></button>
         </div>
       </div>
     `;
@@ -765,6 +926,9 @@ function raRenderRecentProjectsList() {
 function raLoadRecentProjectByIndex(idx) {
   const recents = raGetRecentProjects();
   if (recents[idx] && recents[idx].data) {
+    const projName = recents[idx].name || 'Proyecto Reciente';
+    raShowProjectLoadingHUD(projName);
+    raUpdateProjectLoadingProgress(5, 'Cargando proyecto desde almacenamiento local...', projName);
     raImportProjectData(recents[idx].data);
   }
 }
@@ -839,7 +1003,6 @@ function raNewProjectConfirm() {
   }
 }
 
-// 7. Drag & Drop Global sobre el Visor 3D
 // 7. Drag & Drop Global sobre el Visor 3D y Atajos de Teclado
 (function setupDragAndDrop() {
   if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') return;
@@ -867,15 +1030,23 @@ function raNewProjectConfirm() {
     if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const file = e.dataTransfer.files[0];
       if (file.name.endsWith('.raproject') || file.name.endsWith('.json')) {
+        const fileName = file.name.replace(/\.[^/.]+$/, '');
+        _raCurrentProjectName = fileName;
+        raShowProjectLoadingHUD(file.name);
+        raUpdateProjectLoadingProgress(5, 'Leyendo archivo soltado...', file.name);
+
         const reader = new FileReader();
         reader.onload = (ev) => {
           try {
             const data = JSON.parse(ev.target.result);
-            _raCurrentProjectName = file.name.replace(/\.[^/.]+$/, '');
             raImportProjectData(data);
           } catch (err) {
+            raHideProjectLoadingHUD();
             if (typeof showToast === 'function') showToast('ERROR', 'Archivo JSON no válido.', 'error', 3000);
           }
+        };
+        reader.onerror = () => {
+          raHideProjectLoadingHUD();
         };
         reader.readAsText(file);
       } else {
@@ -908,6 +1079,10 @@ function raNewProjectConfirm() {
     importProjectData: raImportProjectData,
     saveProjectToFile: raSaveProjectToFile,
     handleFileSelect: raHandleFileSelect,
+    ensureLoadingHUDElements: raEnsureLoadingHUDElements,
+    showProjectLoadingHUD: raShowProjectLoadingHUD,
+    updateProjectLoadingProgress: raUpdateProjectLoadingProgress,
+    hideProjectLoadingHUD: raHideProjectLoadingHUD,
     getRecentProjects: raGetRecentProjects,
     saveToRecentProjects: raSaveToRecentProjects,
     renderRecentProjectsList: raRenderRecentProjectsList,
@@ -929,6 +1104,10 @@ function raNewProjectConfirm() {
   global.raImportProjectData = raImportProjectData;
   global.raSaveProjectToFile = raSaveProjectToFile;
   global.raHandleFileSelect = raHandleFileSelect;
+  global.raEnsureLoadingHUDElements = raEnsureLoadingHUDElements;
+  global.raShowProjectLoadingHUD = raShowProjectLoadingHUD;
+  global.raUpdateProjectLoadingProgress = raUpdateProjectLoadingProgress;
+  global.raHideProjectLoadingHUD = raHideProjectLoadingHUD;
   global.raGetRecentProjects = raGetRecentProjects;
   global.raSaveToRecentProjects = raSaveToRecentProjects;
   global.raRenderRecentProjectsList = raRenderRecentProjectsList;
