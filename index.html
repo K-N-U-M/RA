@@ -1472,7 +1472,7 @@ window.RA_App = window.RA_App || {};
               <!-- Cabecera con enlace directo al catálogo -->
               <div class="ui-card-head" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;">
                 <div style="display:flex;align-items:flex-start;justify-content:space-between;">
-                  <span style="color:#F59E0B;font-weight:900;line-height:1.2;font-size:11px;flex:1;"><i data-lucide="zap" class="icon-sm"></i> Paso 4: Ingeniería Eléctrica &amp; Equipamiento</span>
+                  <span style="color:#F59E0B;font-weight:900;line-height:1.2;font-size:11px;flex:1;"><i data-lucide="zap" class="icon-sm"></i> 4.1 Equipamiento Eléctrico &amp; Conversión</span>
                   <span class="card-tag" style="background:#F59E0B;color:#0F172A;font-weight:900;margin-left:4px;white-space:nowrap;align-self:flex-start;">REBT / IEC 62548</span>
                 </div>
                 <div style="display:flex;gap:4px;justify-content:flex-end;">
@@ -1494,7 +1494,7 @@ window.RA_App = window.RA_App || {};
 
               <!-- Selector de Topología de Conversión -->
               <div style="background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:6px;margin-bottom:6px;">
-                <span style="font-size:9.5px;font-weight:700;color:var(--amber-400);display:block;margin-bottom:4px;"><i data-lucide="plug" class="icon-sm"></i> 4.1 Topología del Sistema:</span>
+                <span style="font-size:9.5px;font-weight:700;color:var(--amber-400);display:block;margin-bottom:4px;"><i data-lucide="plug" class="icon-sm"></i> Topología del Sistema:</span>
                 <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;">
                   <button type="button" id="step3-topo-inverter" class="doc-mini-btn active" onclick="step3SetTopology('inverter')" style="padding:4px 2px;font-size:9.5px;text-align:center;">
                     ⚡ String Central
@@ -1517,9 +1517,6 @@ window.RA_App = window.RA_App || {};
                   </div>
                 </div>
                 <select id="step3-sel-inverter" class="field-input" onchange="if(window.solarProjectConfig) window.solarProjectConfig.userManuallySelectedInverter=true; step3UpdateHardwareSelection();" style="width:100%;font-size:10px;font-weight:700;"></select>
-                <!-- ASISTENTE INTELIGENTE DE SUSTITUCIÓN DE INVERSOR -->
-                <div id="step4-inverter-smart-assistant" style="display:none;margin-top:6px;"></div>
-                <div id="step3-smart-inverter-recommendations" style="display:none;margin-top:6px;"></div>
               </div>
 
               <!-- Selector de Microinversor (para topología Microinversores) -->
@@ -1532,18 +1529,36 @@ window.RA_App = window.RA_App || {};
               </div>
 
               <!-- Selector de Batería / Almacenamiento -->
-              <div style="background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:6px;margin-bottom:6px;">
+              <div style="background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:6px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
                   <span style="font-size:9.5px;font-weight:700;color:var(--emerald-400);"><i data-lucide="battery-charging" class="icon-sm"></i> Batería / Acumulación LFP:</span>
                   <button type="button" class="doc-mini-btn" onclick="step3EditCurrentEquipment('batteries')" style="font-size:9.5px;padding:2px 5px;color:var(--emerald-400);"><i data-lucide="edit-2" class="icon-sm"></i> Editar</button>
                 </div>
                 <select id="step3-sel-battery" class="field-input" onchange="step3UpdateHardwareSelection()" style="width:100%;font-size:10px;font-weight:700;"></select>
               </div>
+            </div>
 
-              <!-- 4.2 TARJETA DE DIMENSIONAMIENTO AUTOMÁTICO -->
-              <div id="step3-autosizing-card" style="background:rgba(0,0,0,0.4);border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:8px;margin-top:6px;font-size:9.5px;">
+            <!-- 4.2 DIMENSIONAMIENTO & STRINGS MPPT -->
+            <div class="ui-card" style="border: 1px solid rgba(56,189,248,0.35); background: rgba(15,23,42,0.85); border-radius:8px; padding:8px;">
+              <div class="ui-card-head" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <span style="color:#38BDF8;font-weight:900;font-size:10px;"><i data-lucide="share-2" class="icon-sm"></i> 4.2 DIMENSIONAMIENTO &amp; STRINGS MPPT</span>
+                <span class="card-tag" style="background:rgba(56,189,248,0.15);color:#38BDF8;font-size:9.5px;">IEC 62548</span>
+              </div>
+
+              <!-- Botón Casación Inteligente MPPT con su contenedor in-situ -->
+              <div style="margin-bottom:8px;">
+                <button type="button" class="btn-action-primary" onclick="wpOpenSmartInverterMatchingModal()" style="width:100%;padding:6px;font-size:9.5px;background:rgba(56,189,248,0.15);border:1px solid #38BDF8;color:#38BDF8;font-weight:800;display:flex;align-items:center;justify-content:center;gap:6px;">
+                  <i data-lucide="sparkles" class="icon-sm"></i> CASACIÓN INTELIGENTE MPPT &amp; INVERSORES
+                </button>
+                <!-- ASISTENTE INTELIGENTE Y RECOMENDACIONES DE INVERSOR DESPLEGADAS IN-SITU -->
+                <div id="step3-smart-inverter-recommendations" style="display:none;margin-top:6px;"></div>
+                <div id="step4-inverter-smart-assistant" style="display:none;margin-top:6px;"></div>
+              </div>
+
+              <!-- TARJETA DE DIMENSIONAMIENTO MULTI-EQUIPO -->
+              <div id="step3-autosizing-card" style="background:rgba(0,0,0,0.4);border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:8px;margin-bottom:6px;font-size:9.5px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:4px;">
-                  <span style="font-weight:900;color:var(--amber-400);"><i data-lucide="calculator" class="icon-sm"></i> 4.2 DIMENSIONAMIENTO MULTI-EQUIPO</span>
+                  <span style="font-weight:900;color:var(--amber-400);"><i data-lucide="calculator" class="icon-sm"></i> CÁLCULO MULTI-EQUIPO</span>
                   <span id="step3-autosize-panels-badge" class="card-tag" style="background:rgba(56,189,248,0.2);color:#38BDF8;">50 Placas · 22.5 kWp</span>
                 </div>
 
@@ -1606,7 +1621,7 @@ window.RA_App = window.RA_App || {};
               </div>
 
               <!-- Ficha Técnica y Límites Eléctricos de String Calculados -->
-              <div id="step3-hardware-specs-card" style="background:rgba(0,0,0,0.35);border:1px solid rgba(245,158,11,0.25);border-radius:6px;padding:8px;margin-top:6px;font-size:9.5px;line-height:1.5;">
+              <div id="step3-hardware-specs-card" style="background:rgba(0,0,0,0.35);border:1px solid rgba(245,158,11,0.25);border-radius:6px;padding:8px;margin-bottom:6px;font-size:9.5px;line-height:1.5;">
                 <div style="display:flex;justify-content:space-between;color:var(--text-slate-300);">
                   <span>Límite String en Frío (-10°C):</span>
                   <b id="step3-spec-nmax" class="amber">Máx. 13 placas</b>
@@ -1633,53 +1648,14 @@ window.RA_App = window.RA_App || {};
                 </div>
               </div>
 
-              <!-- 4.3 ÁRBOL DE PÉRDIDAS CONFIGURABLE (PR justificable) -->
-              <div class="ui-card" style="border:1px solid rgba(56,189,248,0.35);background:rgba(15,23,42,0.85);border-radius:8px;padding:8px;margin-top:6px;">
-                <div class="ui-card-head" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                  <span style="color:#38BDF8;font-weight:900;font-size:10px;"><i data-lucide="sliders-horizontal" class="icon-sm"></i> 4.3 PÉRDIDAS DEL SISTEMA (ÁRBOL PR)</span>
-                  <span class="card-tag" style="background:rgba(56,189,248,0.15);color:#38BDF8;font-size:9.5px;">PVsyst</span>
-                </div>
-                <div style="display:flex;gap:4px;margin-bottom:8px;">
-                  <select id="loss-preset-select" onchange="raApplyLossPresetUI(this.value)" style="flex:1;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:#E2E8F0;font-size:9.5px;padding:4px 6px;">
-                    <option value="">— Preset —</option>
-                    <option value="estandar">Estándar (limpio, suburbano)</option>
-                    <option value="urbano">Urbano (polvo moderado)</option>
-                    <option value="rural">Rural / agrícola (suciedad alta)</option>
-                    <option value="optimo">Óptimo (mantenimiento intensivo)</option>
-                  </select>
-                  <button type="button" onclick="raResetLossesUI()" title="Restaurar valores por defecto" style="background:rgba(239,68,68,0.18);border:1px solid rgba(239,68,68,0.4);border-radius:6px;color:#F87171;font-size:9.5px;padding:4px 8px;cursor:pointer;font-weight:800;">↺</button>
-                </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 8px;font-size:9px;color:var(--text-slate-300);" id="loss-fields-grid"></div>
-                <div id="loss-total-row" style="margin-top:6px;padding-top:5px;border-top:1px solid rgba(255,255,255,0.08);font-size:9.5px;display:flex;justify-content:space-between;">
-                  <span style="color:var(--text-slate-300);">Suma de pérdidas aplicada:</span>
-                  <b id="loss-total-pct" style="color:#FBBF24;">—</b>
-                </div>
-                <div style="font-size:9.5px;color:#64748b;margin-top:4px;">Se aplican al re-ejecutar el análisis energético. Se guardan automáticamente en este navegador.</div>
-              </div>
-
               <!-- Tarjeta Reactiva de Razonamiento y Justificación de Equipos -->
-              <div id="step3-engineering-explainer-container" style="margin-top:6px;"></div>
-
+              <div id="step3-engineering-explainer-container"></div>
             </div>
 
-            <!-- 4.4 TOPOLOGÍA LÓGICA Y STRINGS -->
-            <div class="ui-card" style="border:1px solid rgba(56,189,248,0.35);background:rgba(15,23,42,0.85);border-radius:8px;padding:8px;margin-top:6px;">
-              <div class="ui-card-head" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                <span style="color:#38BDF8;font-weight:900;font-size:10px;"><i data-lucide="share-2" class="icon-sm"></i> 4.4 TOPOLOGÍA ELÉCTRICA &amp; STRINGS</span>
-                <span class="card-tag" style="background:rgba(56,189,248,0.15);color:#38BDF8;font-size:9.5px;">IEC 62548</span>
-              </div>
-              <div style="font-size:9px;color:var(--text-slate-300);margin-bottom:6px;line-height:1.4;">
-                Asignación de strings a canales MPPT. El motor de físicas calcula límites de tensión en frío (-10°C) y caliente (65°C) contra el inversor seleccionado.
-              </div>
-              <button type="button" class="btn-action-primary" onclick="wpOpenSmartInverterMatchingModal()" style="width:100%;padding:6px;font-size:9.5px;background:rgba(56,189,248,0.15);border:1px solid #38BDF8;color:#38BDF8;font-weight:800;">
-                <i data-lucide="zap" class="icon-sm"></i> CASACIÓN INTELIGENTE MPPT
-              </button>
-            </div>
-
-            <!-- 4.5 EMPLAZAMIENTO FÍSICO 3D -->
+            <!-- 4.3 EMPLAZAMIENTO FÍSICO 3D -->
             <div class="ui-card" style="background:rgba(0,0,0,0.35);border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:8px;margin-top:6px;">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:4px;">
-                <span style="font-weight:900;color:var(--amber-400);font-size:10px;"><i data-lucide="box" class="icon-sm"></i> 4.5 EMPLAZAMIENTO FÍSICO 3D</span>
+                <span style="font-weight:900;color:var(--amber-400);font-size:10px;"><i data-lucide="box" class="icon-sm"></i> 4.3 EMPLAZAMIENTO FÍSICO 3D</span>
               </div>
 
               <!-- GUÍA VISUAL ASISTIDA PARA EL CONTADOR / CUADRO GENERAL -->
@@ -1697,10 +1673,10 @@ window.RA_App = window.RA_App || {};
               </div>
             </div>
 
-            <!-- 4.6 TRAZADO DE RUTAS & REBT (ITC-BT-40) -->
+            <!-- 4.4 TRAZADO DE RUTAS & REBT (ITC-BT-40) -->
             <div class="ui-card" style="background:rgba(0,0,0,0.35);border:1px solid rgba(16,185,129,0.3);border-radius:8px;padding:8px;margin-top:6px;">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:4px;">
-                <span style="font-weight:900;color:#10B981;font-size:10px;"><i data-lucide="route" class="icon-sm"></i> 4.6 TRAZADO DE RUTAS &amp; REBT</span>
+                <span style="font-weight:900;color:#10B981;font-size:10px;"><i data-lucide="route" class="icon-sm"></i> 4.4 TRAZADO DE RUTAS &amp; REBT</span>
                 <span class="card-tag" style="background:rgba(16,185,129,0.2);color:#10B981;font-size:9.5px;">ITC-BT-40</span>
               </div>
               
@@ -1758,6 +1734,30 @@ window.RA_App = window.RA_App || {};
                   <span style="color:#10B981;font-weight:900;background:rgba(16,185,129,0.15);padding:1px 6px;border-radius:4px;border:1px solid rgba(16,185,129,0.3);">ΔV ≤ 1.5% CONFORME</span>
                 </div>
               </div>
+            </div>
+
+            <!-- 4.5 ÁRBOL DE PÉRDIDAS CONFIGURABLE (PR justificable) -->
+            <div class="ui-card" style="border:1px solid rgba(56,189,248,0.35);background:rgba(15,23,42,0.85);border-radius:8px;padding:8px;margin-top:6px;">
+              <div class="ui-card-head" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <span style="color:#38BDF8;font-weight:900;font-size:10px;"><i data-lucide="sliders-horizontal" class="icon-sm"></i> 4.5 PÉRDIDAS DEL SISTEMA (ÁRBOL PR)</span>
+                <span class="card-tag" style="background:rgba(56,189,248,0.15);color:#38BDF8;font-size:9.5px;">PVsyst</span>
+              </div>
+              <div style="display:flex;gap:4px;margin-bottom:8px;">
+                <select id="loss-preset-select" onchange="raApplyLossPresetUI(this.value)" style="flex:1;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:#E2E8F0;font-size:9.5px;padding:4px 6px;">
+                  <option value="">— Preset —</option>
+                  <option value="estandar">Estándar (limpio, suburbano)</option>
+                  <option value="urbano">Urbano (polvo moderado)</option>
+                  <option value="rural">Rural / agrícola (suciedad alta)</option>
+                  <option value="optimo">Óptimo (mantenimiento intensivo)</option>
+                </select>
+                <button type="button" onclick="raResetLossesUI()" title="Restaurar valores por defecto" style="background:rgba(239,68,68,0.18);border:1px solid rgba(239,68,68,0.4);border-radius:6px;color:#F87171;font-size:9.5px;padding:4px 8px;cursor:pointer;font-weight:800;">↺</button>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 8px;font-size:9px;color:var(--text-slate-300);" id="loss-fields-grid"></div>
+              <div id="loss-total-row" style="margin-top:6px;padding-top:5px;border-top:1px solid rgba(255,255,255,0.08);font-size:9.5px;display:flex;justify-content:space-between;">
+                <span style="color:var(--text-slate-300);">Suma de pérdidas aplicada:</span>
+                <b id="loss-total-pct" style="color:#FBBF24;">—</b>
+              </div>
+              <div style="font-size:9.5px;color:#64748b;margin-top:4px;">Se aplican al re-ejecutar el análisis energético. Se guardan automáticamente en este navegador.</div>
             </div>
 
             <!-- BOTONERA DE NAVEGACIÓN PASO 4 -->

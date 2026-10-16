@@ -5421,35 +5421,78 @@ function wpOpenSmartInverterMatchingModal() {
   if (!container) return;
 
   const catalog = (typeof equipmentCatalog !== 'undefined' && equipmentCatalog && equipmentCatalog.inverters) ? equipmentCatalog.inverters : [];
-  const pCfg = (typeof panelConfig !== 'undefined' && panelConfig) ? panelConfig : { wp: 450, isc: 11.8, voc: 41.5 };
-  
-      let totalPanels = (window.allRenderedPanels && window.allRenderedPanels.length > 0) ? window.allRenderedPanels.length : 0;
-  if (totalPanels === 0) totalPanels = 24;
+  const cfg = window.solarProjectConfig || {};
+  const allModules = (typeof equipmentCatalog !== 'undefined' && equipmentCatalog && Array.isArray(equipmentCatalog.modules)) ? equipmentCatalog.modules : [];
+  const selectedMod = allModules.find(m => m.id === cfg.selectedModuleId) || allModules[0] || (typeof panelConfig !== 'undefined' ? panelConfig : { wp: 450, isc: 13.8, voc: 41.5, vmp: 34.5, imp: 13.05 });
 
-  const totalKwp = (totalPanels * (pCfg.potencia || pCfg.wp || 450)) / 1000.0;
+  let totalPanels = (Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0)
+    ? window.allRenderedPanels.filter(p => p && !p.deleted).length
+    : 0;
+  if (totalPanels === 0 && typeof WP !== 'undefined' && Array.isArray(WP.polylines)) {
+    WP.polylines.forEach(p => {
+      const pInfo = p.roofInfo || (typeof computeSinglePolylineRoofInfo === 'function' ? computeSinglePolylineRoofInfo(p.points, p) : null);
+      if (pInfo && pInfo.panels) totalPanels += pInfo.panels.length;
+    });
+  }
+  if (totalPanels === 0) totalPanels = cfg.lastEstimatedPanels || 24;
+
+  const totalKwp = (totalPanels * (selectedMod.wp || selectedMod.potencia || 450)) / 1000.0;
+
+  // Analizar orientaciones distintas de faldones
+  let distinctOrientations = 1;
+  const orientations = [];
+  if (typeof WP !== 'undefined' && Array.isArray(WP.polylines) && WP.polylines.length > 0) {
+    WP.polylines.forEach(poly => {
+      if (poly && poly.points && poly.points.length >= 3) {
+        const pInfo = poly.roofInfo || (typeof computeSinglePolylineRoofInfo === 'function' ? computeSinglePolylineRoofInfo(poly.points, poly) : null);
+        const az = pInfo ? (pInfo.moduleAzimuthDeg ?? pInfo.azimuthDeg ?? 0) : 0;
+        const tilt = pInfo ? (pInfo.moduleTiltDeg ?? pInfo.tiltDeg ?? 30) : 30;
+        const isDupe = orientations.some(o => Math.abs(o.az - az) < 10 && Math.abs(o.tilt - tilt) < 5);
+        if (!isDupe) orientations.push({ az, tilt });
+      }
+    });
+    distinctOrientations = Math.max(1, orientations.length);
+  }
+
+  // Diagnóstico de sombras 3D y suministro de red (monofásico ≤ 6 kWp / trifásico > 6 kWp)
+  const shading = (typeof wpEvaluateMLPENecessity === 'function') ? wpEvaluateMLPENecessity() : null;
+  const gridSupply = (totalKwp > 6.0) ? 'three_phase' : 'single_phase';
 
   if (typeof matchInvertersFromCatalog !== 'function') {
-    showStatus('<i data-lucide=\"alert-triangle\" class=\"icon-sm\"></i> Motor de casación no disponible temporalmente', 3000);
+    showStatus('<i data-lucide="alert-triangle" class="icon-sm"></i> Motor de casación no disponible temporalmente', 3000);
     return;
   }
 
   const match = matchInvertersFromCatalog({
     invertersCatalog: catalog,
-    module: { wp: pCfg.potencia || 450, isc: pCfg.isc || 12.0, voc: pCfg.voc || 42.0 },
+    module: {
+      wp: selectedMod.wp || selectedMod.potencia || 450,
+      isc: selectedMod.isc || 13.8,
+      voc: selectedMod.voc || 41.5,
+      vmp: selectedMod.vmp || 34.5,
+      imp: selectedMod.imp || 13.05
+    },
     totalPanels: totalPanels,
     totalKwp: totalKwp,
-    gridSupply: 'three_phase'
+    gridSupply: gridSupply,
+    distinctOrientations: distinctOrientations,
+    shadingDiagnostics: shading
   });
 
   const scA = match.recommendedScenarioA;
   const scB = match.recommendedScenarioB;
   const scC = match.recommendedScenarioC;
 
+  const catalogMicros = (typeof equipmentCatalog !== 'undefined' && equipmentCatalog && Array.isArray(equipmentCatalog.microinverters)) ? equipmentCatalog.microinverters : [];
+  const microId = (scC && scC.inverter && scC.inverter.id)
+    ? scC.inverter.id
+    : (catalogMicros.length > 0 ? catalogMicros[0].id : 'mlpe_hoymiles_800');
+
   container.innerHTML = `
     <div style="background:rgba(15,23,42,0.95);border:1px solid rgba(14,165,233,0.4);border-radius:8px;padding:8px;margin-bottom:8px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:3px;">
-        <span style="font-weight:900;color:#38BDF8;font-size:10px;"><i data-lucide=\"zap\" class=\"icon-sm\"></i> ALTERNATIVAS DE INVERSOR (${totalKwp.toFixed(1)} kWp)</span>
-        <button type="button" class="doc-mini-btn" onclick="document.getElementById('step3-smart-inverter-recommendations').style.display='none'"><i data-lucide=\"x\" class=\"icon-sm\"></i></button>
+        <span style="font-weight:900;color:#38BDF8;font-size:10px;"><i data-lucide="zap" class="icon-sm"></i> ALTERNATIVAS DE INVERSOR (${totalKwp.toFixed(1)} kWp · ${gridSupply === 'single_phase' ? 'Monofásico 230V' : 'Trifásico 400V'})</span>
+        <button type="button" class="doc-mini-btn" onclick="document.getElementById('step3-smart-inverter-recommendations').style.display='none'"><i data-lucide="x" class="icon-sm"></i></button>
       </div>
 
       <!-- Opción A -->
@@ -5461,7 +5504,7 @@ function wpOpenSmartInverterMatchingModal() {
         </div>
         <div style="font-size:8.5px;color:#CBD5E1;margin:2px 0;">${scA.count}x ${scA.inverter.brand} ${scA.inverter.model} (${scA.totalAcKw} kW AC · Sobrecarga: ${scA.overloadPct}%)</div>
         <button type="button" class="doc-mini-btn" style="background:#0284C7;border-color:#0284C7;color:#fff;width:100%;margin-top:3px;font-weight:bold;padding:3px;" onclick="wpApplyInverterScenario('${scA.inverter.id}', ${scA.count}, 'inverter')">
-          <i data-lucide=\"check\" class=\"icon-sm\"></i> APLICAR ESTA OPCIÓN
+          <i data-lucide="check" class="icon-sm"></i> APLICAR ESTA OPCIÓN
         </button>
       </div>` : ''}
 
@@ -5474,7 +5517,7 @@ function wpOpenSmartInverterMatchingModal() {
         </div>
         <div style="font-size:8.5px;color:#CBD5E1;margin:2px 0;">${scB.count}x ${scB.inverter.brand} ${scB.inverter.model} (${scB.totalAcKw} kW AC)</div>
         <button type="button" class="doc-mini-btn" style="background:#059669;border-color:#059669;color:#fff;width:100%;margin-top:3px;font-weight:bold;padding:3px;" onclick="wpApplyInverterScenario('${scB.inverter.id}', ${scB.count}, 'inverter')">
-          <i data-lucide=\"check\" class=\"icon-sm\"></i> APLICAR ESTA OPCIÓN
+          <i data-lucide="check" class="icon-sm"></i> APLICAR ESTA OPCIÓN
         </button>
       </div>` : ''}
 
@@ -5485,15 +5528,21 @@ function wpOpenSmartInverterMatchingModal() {
           <span style="font-size:9.5px;font-weight:bold;color:#34D399;">OPCIÓN C: Microinversores / MLPE</span>
           <span style="font-size:9px;color:#34D399;font-weight:bold;">${scC.estimatedCostEur} €</span>
         </div>
-        <div style="font-size:8.5px;color:#CBD5E1;margin:2px 0;">${scC.estimatedUnits}x Microinversores 2-en-1 (${scC.totalAcKw.toFixed(1)} kW AC)</div>
-        <button type="button" class="doc-mini-btn" style="background:#10B981;border-color:#10B981;color:#fff;width:100%;margin-top:3px;font-weight:bold;padding:3px;" onclick="wpApplyInverterScenario('mlpe_hoymiles_800', ${scC.estimatedUnits}, 'microinverter')">
-          <i data-lucide=\"check\" class=\"icon-sm\"></i> APLICAR ESTA OPCIÓN
+        <div style="font-size:8.5px;color:#CBD5E1;margin:2px 0;">${scC.estimatedUnits}x Microinversores (${scC.totalAcKw.toFixed(1)} kW AC)</div>
+        <button type="button" class="doc-mini-btn" style="background:#10B981;border-color:#10B981;color:#fff;width:100%;margin-top:3px;font-weight:bold;padding:3px;" onclick="wpApplyInverterScenario('${microId}', ${scC.estimatedUnits}, 'microinverter')">
+          <i data-lucide="check" class="icon-sm"></i> APLICAR ESTA OPCIÓN
         </button>
       </div>` : ''}
     </div>
   `;
 
   container.style.display = 'block';
+  if (typeof container.scrollIntoView === 'function') {
+    container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+  if (window.lucide && typeof window.lucide.createIcons === 'function') {
+    try { window.lucide.createIcons(); } catch(e) {}
+  }
 }
 
 function wpApplyInverterScenario(invId, count, topology) {
