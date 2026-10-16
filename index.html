@@ -47,7 +47,7 @@ window.RA_App = window.RA_App || {};
   <script src="js/geometry-validate.js?v=20260929b"></script>
   <script src="js/docs-generator.js?v=20260929b"></script>
   <script src="js/workflow-orchestrator.js?v=20260929b"></script>
-  <script src="js/working-plane.js?v=20261016e"></script>
+  <script src="js/working-plane.js?v=20261016f"></script>
   <script src="js/cable-engine.js?v=20261016a"></script>
   <script src="js/capture-mode.js?v=20260929b"></script>
   <script src="js/measure-tool.js?v=20261013a"></script>
@@ -5627,7 +5627,9 @@ function updateAllVisuals() {
     activeShapeEntity = null;
   }
 
-  if (polygonPoints.length >= 2) {
+  const wpManaged = (typeof WP !== 'undefined' && WP && (WP.mode === 'draw-poly' || (WP.polylines && WP.polylines.length > 0)));
+
+  if (!wpManaged && polygonPoints.length >= 2) {
     const isClosed = polygonPoints.length >= 3;
     const pts = [];
 
@@ -5674,7 +5676,6 @@ function updateAllVisuals() {
   vertexEntities.forEach(e => viewer.entities.remove(e));
   vertexEntities = [];
 
-  const wpManaged = (typeof WP !== 'undefined' && WP && (WP.mode === 'draw-poly' || (WP.polylines && WP.polylines.length > 0)));
   if (!wpManaged) {
     polygonPoints.forEach((pt, idx) => {
     const isSelected = idx === selectedVertexIndex && appMode === 'edit';

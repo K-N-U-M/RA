@@ -2621,6 +2621,17 @@ function wpRenderActivePolylineVisuals() {
 
 function wpRenderAllPolylines() {
   wpClearEntGroup('polys');
+  const curViewer = (typeof viewer !== 'undefined' && viewer) ? viewer : (window.viewer || null);
+  if (curViewer && curViewer.entities) {
+    const oldShape = curViewer.entities.getById('ra_active_shape');
+    if (oldShape) {
+      try { curViewer.entities.remove(oldShape); } catch(_) {}
+    }
+    if (typeof activeShapeEntity !== 'undefined' && activeShapeEntity) {
+      try { curViewer.entities.remove(activeShapeEntity); } catch(_) {}
+      activeShapeEntity = null;
+    }
+  }
   WP.polylines.forEach((poly, i) => {
     const isSel = i === WP.selectedPolyIdx;
     const strColor = getPolylineStringColor(i);
@@ -2712,8 +2723,6 @@ function wpRenderAllPolylines() {
 
     poly.lineEnt = line;
     poly.fillEnt = fill;
-    if (line) WP.ents.polys.push(line);
-    if (fill) WP.ents.polys.push(fill);
   });
   if (typeof viewer !== 'undefined' && viewer && viewer.scene && typeof viewer.scene.requestRender === 'function') viewer.scene.requestRender();
   if (typeof window !== 'undefined' && window.RACapture) window.RACapture.reapply(); // [CAPTURA] re-ocultar andamiaje tras re-render
