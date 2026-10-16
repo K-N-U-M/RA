@@ -28,7 +28,7 @@ window.RA_App = window.RA_App || {};
   <script src="js/cesium-safety.js?v=20261007a"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
 
-  <script src="js/ui-viewport-controls.js?v=20261015f"></script>
+  <script src="js/ui-viewport-controls.js?v=20261016a"></script>
   <script src="js/error-handler.js"></script>
   <script src="js/project-config.js"></script>
   <script src="js/buildings.js?v=20261016d"></script>
@@ -62,7 +62,7 @@ window.RA_App = window.RA_App || {};
   <script src="js/project-status-hud.js?v=20261015g"></script>
   <script src="js/firebase-service.js?v=20261015d"></script>
 
-    <link rel="stylesheet" href="css/styles.css?v=20261016a">
+    <link rel="stylesheet" href="css/styles.css?v=20261016b">
 
   <!-- Lucide SVG Icons -->
   <script src="https://unpkg.com/lucide@1.48.0" integrity="sha384-Hh7C333mXel+qppGoFs4qAOXp7h67eur4XsQVF2bvHAM3MQ4DX4cQI7oRCzb98J4" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
@@ -299,7 +299,7 @@ window.RA_App = window.RA_App || {};
   <aside id="ra-sidebar" class="collapsed">
     <!-- Botón Tirador de Colapso/Expansión Animado -->
     <button type="button" id="ra-sidebar-toggle-btn" onclick="toggleSidebarCollapse()" title="Ocultar / Mostrar Barra Lateral [Ctrl+B]" aria-label="Alternar barra lateral">
-      <span id="sidebar-toggle-icon">☰</span>
+      <span id="sidebar-toggle-icon">◀</span>
     </button>
     
     <!-- Cabecera de Marca -->
@@ -8488,7 +8488,7 @@ function toggleSidebarCollapse() {
   }
   const toggleIcon = document.getElementById('sidebar-toggle-icon');
   if (toggleIcon) {
-    toggleIcon.textContent = isCollapsed ? '☰' : '✕';
+    toggleIcon.textContent = isCollapsed ? '▶' : '◀';
   }
   const backdrop = document.getElementById('ra-mobile-sidebar-backdrop');
   if (backdrop) {

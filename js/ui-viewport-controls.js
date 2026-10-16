@@ -353,7 +353,7 @@
         sb.classList.add('collapsed');
         document.body.classList.remove('sb-open');
         if (btn) btn.textContent = '✕';
-        if (toggleIcon) toggleIcon.textContent = '☰';
+        if (toggleIcon) toggleIcon.textContent = '▶';
       }
 
       // 2. Panel solar minimizado al inicio
