@@ -873,6 +873,15 @@ function raGetRecentProjects() {
 function raSaveToRecentProjects(projectData) {
   try {
     const recents = raGetRecentProjects();
+    // Sanitizar datos del proyecto para almacenamiento local: omitir cachés pesadas que se recalculan en vivo
+    let storageData = projectData;
+    try {
+      storageData = JSON.parse(JSON.stringify(projectData));
+      if (storageData.simulationCache) delete storageData.simulationCache;
+      if (storageData.solarSimState) delete storageData.solarSimState;
+      if (storageData.annualHeatmapData) delete storageData.annualHeatmapData;
+    } catch (_) { storageData = projectData; }
+
     const item = {
       id: 'proj_' + Date.now(),
       name: (projectData.metadata && projectData.metadata.name) || 'Proyecto Solar',
@@ -880,13 +889,13 @@ function raSaveToRecentProjects(projectData) {
       totalKwp: (projectData.metadata && projectData.metadata.totalKwp) || 0,
       totalPanels: (projectData.metadata && projectData.metadata.totalPanels) || 0,
       timestamp: new Date().toISOString(),
-      data: projectData
+      data: storageData
     };
 
     // Evitar duplicados por dirección o nombre
     const filtered = recents.filter(r => r.address !== item.address || r.name !== item.name);
     filtered.unshift(item);
-    let trimmed = filtered.slice(0, 6); // Mantener últimos 6
+    let trimmed = filtered.slice(0, 4); // Mantener últimos 4 proyectos optimizados
 
     // [m2] Cuota de localStorage: con diseños grandes puede fallar en silencio.
     // Recortar el historial de recientes y avisar al usuario si el diseño no cabe.

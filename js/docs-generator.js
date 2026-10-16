@@ -869,7 +869,9 @@ function generateUnifilar() {
     dif_amp: d.dif_amp,
     R_tierra: d.R_tierra,
     L_dc: d.L_dc,
-    L_ac: d.L_ac
+    L_ac: d.L_ac,
+    dVdc_p: d.dVdc_p,
+    dVac_p: d.dVac_p
   };
 
   const svgCode = buildUnifilarSvg(payload);
@@ -1075,10 +1077,35 @@ function buildUnifilarSvg(D) {
     `;
   }
 
+  // Si la instalación tiene más de 3 strings, representar los adicionales de forma explícita
+  const hasExtraStrings = D.numStrings > 3;
+  const remCount = D.numStrings - 3;
+  if (hasExtraStrings) {
+    const sx = genX - 40 + 3 * (strW + strGap);
+    stringsXml += `
+      <g id="string_additional">
+        <rect x="${sx}" y="${genY}" width="${strW}" height="${strH}" fill="#f8fafc" stroke="#0284c7" stroke-width="1.5" stroke-dasharray="4 3" rx="3"/>
+        <line x1="${sx + 15}" y1="${genY + 20}" x2="${sx + strW - 15}" y2="${genY + 20}" stroke="#0284c7" stroke-width="1.5" stroke-dasharray="3 2"/>
+        <line x1="${sx + 15}" y1="${genY + 45}" x2="${sx + strW - 15}" y2="${genY + 45}" stroke="#0284c7" stroke-width="1.5" stroke-dasharray="3 2"/>
+
+        <text x="${sx + strW / 2}" y="${genY + 60}" font-family="Arial, sans-serif" font-size="9.5" font-weight="bold" fill="#0369a1" text-anchor="middle">-G4..-G${D.numStrings} (+${remCount} STR)</text>
+        <text x="${sx + strW / 2}" y="${genY + 75}" font-family="Arial, sans-serif" font-size="8.5" font-weight="bold" fill="#0f172a" text-anchor="middle">${remCount} Strings idénticos</text>
+        <text x="${sx + strW / 2}" y="${genY + 89}" font-family="monospace" font-size="8" fill="#475569" text-anchor="middle">${D.modsActual} Mód/str (${remCount * D.modsActual} mód)</text>
+        <text x="${sx + strW / 2}" y="${genY + 101}" font-family="monospace" font-size="8" fill="#475569" text-anchor="middle">Voc(-10°C): ${D.Voc_str_cold.toFixed(0)} V</text>
+        <text x="${sx + strW / 2}" y="${genY + 113}" font-family="monospace" font-size="8" fill="#475569" text-anchor="middle">Isc total: ${(D.Isc * remCount).toFixed(1)} A</text>
+
+        <line x1="${sx + strW / 2}" y1="${genY + strH}" x2="${sx + strW / 2}" y2="${genY + strH + 45}" stroke="#000" stroke-width="2" stroke-dasharray="4 2"/>
+        <rect x="${sx + strW / 2 - 6}" y="${genY + strH + 15}" width="4" height="12" fill="#ef4444"/>
+        <rect x="${sx + strW / 2 + 2}" y="${genY + strH + 15}" width="4" height="12" fill="#000000"/>
+      </g>
+    `;
+  }
+
   // Bus collector line
+  const totalSlots = hasExtraStrings ? 4 : displayedStrings;
   const colBusY = genY + strH + 45;
   const busStartX = genX - 40 + strW / 2;
-  const busEndX = genX - 40 + (displayedStrings - 1) * (strW + strGap) + strW / 2;
+  const busEndX = genX - 40 + (totalSlots - 1) * (strW + strGap) + strW / 2;
   const dcTrunkX = (busStartX + busEndX) / 2;
   const boxDcY = colBusY + 60;
 
@@ -1112,7 +1139,7 @@ function buildUnifilarSvg(D) {
     ['Corriente Nominal Salida AC:', D.I_ac.toFixed(1) + ' A (Protección IGA: ' + D.I_iga + ' A)'],
     ['Línea Continua (DC):', 'Cable ZZ-F ' + D.S_str + 'mm² / ' + D.S_mdc + 'mm² (1.8/3kV)'],
     ['Línea Alterna (AC):', 'Cable RV-K 0.6/1kV ' + D.S_ac + 'mm² Cu'],
-    ['Caída de Tensión Calculada:', 'DC: ≤ 1.5% | AC: ≤ 1.5% (Conforme ITC-BT-40)']
+    ['Caída de Tensión Calculada:', 'DC: ' + (D.dVdc_p ? parseFloat(D.dVdc_p).toFixed(2) + '%' : '≤1.5%') + ' | AC: ' + (D.dVac_p ? parseFloat(D.dVac_p).toFixed(2) + '%' : '≤1.5%') + ' (ITC-BT-40)']
   ];
 
   let tableXml = '';

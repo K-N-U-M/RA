@@ -677,12 +677,16 @@
       // [C6] Distribución diurna específica del mes: se normaliza la curva seno para que la
       // energía integrada del mes sea EXACTAMENTE la insolación diaria real (antes se asumía
       // un día fijo de ~12 h → verano sobrestimado ~40% e invierno subestimado ~60%).
+      // [B3] Hora solar astronómica determinista independiente de la zona horaria del PC del usuario
+      const _gammaM = (2 * Math.PI / 365) * (monthsDoy[mIdx] - 1);
+      const _EtM = 229.18 * (0.000075 + 0.001868 * Math.cos(_gammaM) - 0.032077 * Math.sin(_gammaM) - 0.014615 * Math.cos(2 * _gammaM) - 0.040849 * Math.sin(2 * _gammaM));
+
       let _sinAltSum = 0;
       if (typeof computeHighPrecisionSolarPosition === 'function') {
         for (let _hs = 0; _hs < hours.length; _hs++) {
           const _hsv = hours[_hs];
-          const _dPre = new Date(year, m, 21, _hsv, 0, 0);
-          const _spPre = computeHighPrecisionSolarPosition(lat, lng, monthsDoy[mIdx], _hsv + _dPre.getTimezoneOffset() / 60);
+          const _utcPre = _hsv - (4 * lng + _EtM) / 60;
+          const _spPre = computeHighPrecisionSolarPosition(lat, lng, monthsDoy[mIdx], _utcPre);
           if (_spPre && _spPre.isDay && _spPre.elevDeg >= 10.0) _sinAltSum += Math.sin(_spPre.elevDeg * Math.PI / 180);
         }
       }
@@ -692,9 +696,8 @@
         const h = hours[hIdx];
         currentStep++;
 
-        // Hora local → hora UTC → hora solar vía EoT dentro del motor
-        const d = new Date(year, m, 21, h, 0, 0);
-        const utcHour = h + d.getTimezoneOffset() / 60;
+        // Hora solar nominal garantizada en el meridiano del proyecto (independiente de getTimezoneOffset del cliente)
+        const utcHour = h - (4 * lng + _EtM) / 60;
         let solarPos = null;
         let dayLen = 12;
         if (typeof computeHighPrecisionSolarPosition === 'function') {

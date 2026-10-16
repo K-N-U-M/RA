@@ -1688,6 +1688,8 @@ function generatePropuestaComercialPDF(skipPricingModal) {
 
   const ibiYears = ibiOpt.includes('_5') ? 5 : (ibiOpt.includes('_3') ? 3 : 0);
   const ibiAnnualBonus = (ibiYears > 0) ? (ahorroIBITotal / ibiYears) : 0;
+  // Fracción real de la energía solar generada que se autoconsume (directo + batería)
+  const selfConsumptionFraction = annualYieldKWh > 0 ? Math.min(1.0, (annualAutoconsumoDirecto + annualBateriaKWh) / annualYieldKWh) : 0;
 
   for (let y = 1; y <= 25; y++) {
     // Factor de degradación acumulado compuesto normativo
@@ -1699,10 +1701,13 @@ function generatePropuestaComercialPDF(skipPricingModal) {
 
     const priceY = precioRed * Math.pow(1 + inflacion, y - 1);
     const compY = precioCompensacion * Math.pow(1 + inflacion, y - 1);
-    const surplusValY = yieldY * (1 - autarquia) * compY;
-    const gridBuyCostY = Math.max(0, (consumoAnual - yieldY * autarquia)) * priceY;
+    // Autoconsumo acotado por la demanda real del cliente y excedentes reales vertidos a red
+    const selfConsumedKwhY = Math.min(yieldY * selfConsumptionFraction, consumoAnual);
+    const surplusKwhY = Math.max(0, yieldY - selfConsumedKwhY);
+    const surplusValY = surplusKwhY * compY;
+    const gridBuyCostY = Math.max(0, consumoAnual - selfConsumedKwhY) * priceY;
     const compEfectivaY = hasVirtualBattery ? surplusValY : Math.min(surplusValY, gridBuyCostY);
-    const saveY = (yieldY * autarquia * priceY) + compEfectivaY;
+    const saveY = (selfConsumedKwhY * priceY) + compEfectivaY;
     annualSavings25.push(Math.round(saveY));
 
     // OPEX indexado anualmente por IPC de servicios

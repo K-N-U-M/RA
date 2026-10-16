@@ -257,10 +257,14 @@
         const endClampPrice = mfg.endClampPrice || 1.65;
         const fastenersCostEur = (midClamps * midClampPrice) + (endClamps * endClampPrice);
 
-        // Carga por metro cuadrado estimada
-        const approxAreaM2 = panelCount * 2.2;
+        // Carga por metro cuadrado estimada según CTE DB-SE-AE (reparto sobre faldón soporte)
+        const roofAreaM2 = (typeof poly.area === 'number' && poly.area > 0)
+          ? poly.area
+          : (poly.roofInfo && typeof poly.roofInfo.area === 'number' && poly.roofInfo.area > 0)
+            ? poly.roofInfo.area
+            : (panelCount * 2.2);
         const totalRoofLoadKg = roofPanelsWeightKg + structWeightKg + ballastWeightKg;
-        const loadKgM2 = approxAreaM2 > 0 ? (totalRoofLoadKg / approxAreaM2) : 0;
+        const loadKgM2 = roofAreaM2 > 0 ? (totalRoofLoadKg / roofAreaM2) : 0;
 
         const roofNode = {
           id: polyId,

@@ -47,7 +47,8 @@
       dhiFraction = 0.165;
     }
     const dhi = ghi * dhiFraction;
-    const dni = (ghi - dhi) / (sinElev + 1e-4);
+    const maxDni = 1150; // Límite físico en superficie terrestre bajo cielo despejado (CTE/ASHRAE)
+    const dni = Math.max(0, Math.min(maxDni, (ghi - dhi) / Math.max(sinElev, 0.05)));
     return { kt, dhiFraction, dhi, dni };
   }
 
@@ -146,8 +147,10 @@
     if (o.diffuseModel === 'perez') {
       G_d = getPerezDiffuse(dhi, dni, ghi, o.sunElevDeg || 0, tiltRad, cosTheta);
     } else {
-      const Ai = dni / SOLAR_CONST_WM2;
-      G_d = dhi * (Ai * (cosTheta / Math.max(sinElev, 1e-4)) + (1 - Ai) * ((1 + Math.cos(tiltRad)) / 2));
+      const Ai = Math.max(0, Math.min(1.0, dni / SOLAR_CONST_WM2));
+      const termCirc = Ai * (cosTheta / Math.max(sinElev, 0.05));
+      const termIso = (1 - Ai) * ((1 + Math.cos(tiltRad)) / 2);
+      G_d = Math.max(0, dhi * (termCirc + termIso));
     }
 
     // Componente reflejada (albedo)

@@ -883,8 +883,11 @@
         strMap.set(p.stringName, {
           tilt: tilt || 0,
           az: az || 0,
-          polyIdx: p.polyIdx
+          polyIdx: p.polyIdx,
+          panelCount: 1
         });
+      } else {
+        strMap.get(p.stringName).panelCount++;
       }
     });
 
@@ -899,8 +902,20 @@
           const deltaTilt = Math.abs(dataA.tilt - dataB.tilt);
           let deltaAz = Math.abs(dataA.az - dataB.az);
           if (deltaAz > 180) deltaAz = 360 - deltaAz;
+          const deltaCount = Math.abs(dataA.panelCount - dataB.panelCount);
 
-          if (deltaTilt > 5.0 || deltaAz > 10.0) {
+          if (deltaCount > 0 && dataA.panelCount > 1 && dataB.panelCount > 1) {
+            const msg = `Incompatibilidad MPPT en Canal ${mpptId}: Strings '${nameA}' (${dataA.panelCount} módulos) y '${nameB}' (${dataB.panelCount} módulos) en paralelo tienen diferente longitud (ΔN = ${deltaCount}). Provoca desbalance de tensión y corrientes inversas (IEC 62548).`;
+            violations.push({
+              mpptId,
+              stringA: nameA,
+              stringB: nameB,
+              deltaTilt,
+              deltaAz,
+              deltaCount,
+              msg
+            });
+          } else if (deltaTilt > 5.0 || deltaAz > 10.0) {
             const msg = `Incompatibilidad MPPT en Canal ${mpptId}: Strings '${nameA}' y '${nameB}' en paralelo difieren en orientación (Δβ = ${deltaTilt.toFixed(1)}°, Δγ = ${deltaAz.toFixed(1)}°). Produce recirculación y pérdida de tracking (IEC 62548).`;
             violations.push({
               mpptId,
@@ -908,6 +923,7 @@
               stringB: nameB,
               deltaTilt,
               deltaAz,
+              deltaCount: 0,
               msg
             });
           }

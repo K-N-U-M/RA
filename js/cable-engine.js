@@ -397,13 +397,26 @@
         }
       }
 
-      // Contador de red
+      // Contador de red (CGMP / Acometida en cota de calle / planta baja)
       if (sState.position && (!sState.gridMeter || !sState.gridMeter.position)) {
         var invC3 = this.toCartesian3(sState.position);
         if (invC3) {
           var invCarto = Cesium.Cartographic.fromCartesian(invC3);
-          var offsetEastRad = 0.85 / 6371000;
-          var meterHeight = invCarto.height;
+
+          // Estimar altura del edificio y cota de suelo para el CGMP/Contador
+          var bldList = (typeof buildings !== 'undefined' && Array.isArray(buildings))
+            ? buildings
+            : (typeof window !== 'undefined' && Array.isArray(window.buildings) ? window.buildings : []);
+          var bldHeight = 6.0; // Altura estándar de edificación (2 plantas / 6m)
+          if (bldList && bldList.length > 0 && typeof bldList[0].height === 'number' && bldList[0].height > 0) {
+            bldHeight = Math.max(3.0, bldList[0].height);
+          }
+          // Bajada vertical de cubierta a cota de calle (cuadro a ~1.2m del suelo)
+          var dropHeight = Math.max(3.0, bldHeight - 1.2);
+          var meterHeight = invCarto.height - dropHeight;
+
+          // Desplazamiento horizontal realista hacia la fachada / lindero (~8.5 m)
+          var offsetEastRad = 8.5 / 6371000;
           var meterLonRad = invCarto.longitude + offsetEastRad;
           var meterLatRad = invCarto.latitude;
           var meterPt = Cesium.Cartesian3.fromRadians(meterLonRad, meterLatRad, meterHeight);

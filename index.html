@@ -2887,6 +2887,9 @@ function isTextInputActive(target) {
 }
 
 addEventListener('keydown', function(e) {
+  // No capturar teclas si el usuario está escribiendo en un campo de texto activo
+  if (isTextInputActive(e.target)) return;
+
   // Atajo de cierre inmediato para dibujo de canalizaciones 3D (Bandeja DC / Tubo AC)
   if (window.cableRoutingState && window.cableRoutingState.active) {
     if (e.key === 'Enter') {
@@ -2923,9 +2926,6 @@ addEventListener('keydown', function(e) {
       return;
     }
   }
-
-  // No capturar teclas si el usuario está escribiendo en un campo de texto activo
-  if (isTextInputActive(e.target)) return;
 
   // 1. Tecla ESCAPE (Cancelar colocación / deseleccionar)
   if (e.key === 'Escape' || e.keyCode === 27) {
@@ -6941,11 +6941,15 @@ function polygonAnalysis(ptsIn) {
   const tiltRad = Math.acos(Math.min(Math.max(normal.z, 0.0), 1.0));
   const tiltDeg = Cesium.Math.toDegrees(tiltRad);
 
-  let azimuthDeg = 0; // convencion Sur = 0 (Este = 90, Norte = 180, Oeste = 270)
+  // Convención náutica canónica de brújula: Norte = 0°, Este = 90°, Sur = 180°, Oeste = 270°
+  let azimuthN = 180;
   if (Math.sin(tiltRad) > 0.01) {
-    azimuthDeg = Cesium.Math.toDegrees(Math.atan2(normal.x, -normal.y));
+    azimuthN = normalizeAzimuth(Cesium.Math.toDegrees(Math.atan2(normal.x, normal.y)));
   }
-  const azimuthN = normalizeAzimuth(180 - azimuthDeg); // convencion N = 0 (documento)
+  // Convención física solar (Duffie-Beckman / RA.Radiation): Sur = 0°, Este = -90°, Oeste = +90°
+  let azimuthDeg = azimuthN - 180;
+  if (azimuthDeg > 180) azimuthDeg -= 360;
+  if (azimuthDeg <= -180) azimuthDeg += 360;
 
   let uVec = new Cesium.Cartesian3(-normal.y, normal.x, 0);
   if (Cesium.Cartesian3.magnitude(uVec) < 0.001) uVec = new Cesium.Cartesian3(1, 0, 0);
@@ -16480,6 +16484,9 @@ window.toggleSolarHUD = toggleSolarHUD;
                   if (res === 'ultra') badge.innerText = '192 INSTANTES (ULTRA)';
                   else if (res === 'medium') badge.innerText = '42 INSTANTES (MEDIA)';
                   else if (res === 'fast') badge.innerText = '16 INSTANTES (RÁPIDA)';
+                }
+                if (typeof window.wpInvalidateHeatmap === 'function') {
+                  window.wpInvalidateHeatmap('Resolución de simulación solar cambiada a ' + res);
                 }
               }
               // Inicializar badge si ya existe
