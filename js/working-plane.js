@@ -5103,8 +5103,123 @@ function applyBatteryFromCatalog(batId) {
   } else {
     updateBudgetUI();
   }
+  if (typeof wpRenderBattery3D === 'function') {
+    wpRenderBattery3D();
+  }
   showStatus('BATERÍA ASIGNADA: ' + bat.brand + ' ' + bat.model + ' (' + bat.kwh + ' kWh)', 2500);
 }
+
+function wpRenderBattery3D(inverterCartesian) {
+  if (typeof viewer === 'undefined' || !viewer || !window.inverterEquipmentState) return;
+  const s = window.inverterEquipmentState;
+  const basePos = inverterCartesian || s.position;
+  if (!basePos) return;
+
+  const cat = (typeof equipmentCatalog !== 'undefined') ? equipmentCatalog : (typeof DEFAULT_EQUIPMENT_CATALOG !== 'undefined' ? DEFAULT_EQUIPMENT_CATALOG : null);
+  const cfg = window.solarProjectConfig || {};
+
+  // Si no hay batería configurada o es 'bat_none', purgar entidad y etiqueta 3D
+  if (!cfg.selectedBatteryId || cfg.selectedBatteryId === 'bat_none') {
+    if (s.batteryEntity) {
+      try { viewer.entities.remove(s.batteryEntity); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
+      s.batteryEntity = null;
+    }
+    if (s.batteryLabel2D) {
+      try { if (typeof removeLabel2DEntity === 'function') removeLabel2DEntity(s.batteryLabel2D); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
+      s.batteryLabel2D = null;
+    }
+    s.batteryPosition = null;
+    s.batteryCarto = null;
+    if (typeof wpCalculateAndRenderInverterCables === 'function') wpCalculateAndRenderInverterCables();
+    return;
+  }
+
+  const batItem = (cat && cat.batteries) ? cat.batteries.find(b => b.id === cfg.selectedBatteryId) : null;
+  if (!batItem || batItem.id === 'bat_none' || (typeof batItem.kwh === 'number' && batItem.kwh <= 0)) {
+    if (s.batteryEntity) {
+      try { viewer.entities.remove(s.batteryEntity); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
+      s.batteryEntity = null;
+    }
+    if (s.batteryLabel2D) {
+      try { if (typeof removeLabel2DEntity === 'function') removeLabel2DEntity(s.batteryLabel2D); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
+      s.batteryLabel2D = null;
+    }
+    s.batteryPosition = null;
+    s.batteryCarto = null;
+    if (typeof wpCalculateAndRenderInverterCables === 'function') wpCalculateAndRenderInverterCables();
+    return;
+  }
+
+  const batCount = Math.max(1, (cfg.autoSizing && cfg.autoSizing.batteries && cfg.autoSizing.batteries.count) || 1);
+  const batModelName = batItem.brand ? (batItem.brand + ' ' + batItem.model) : (batItem.model || 'Batería LFP 5kWh');
+  const batTotalKWh = (batItem.kwh || 5.0) * batCount;
+  const batHeight = Math.min(1.4, 0.65 + (batCount - 1) * 0.20);
+
+  // Si ya tiene posición personalizada en la escena, conservarla; si no, colocarla 65cm a la izquierda del inversor
+  let batCartesian = s.batteryPosition;
+  let batPosCarto = null;
+  if (!batCartesian) {
+    batPosCarto = Cesium.Cartographic.fromCartesian(basePos);
+    batCartesian = Cesium.Cartesian3.fromRadians(batPosCarto.longitude - 0.00000009, batPosCarto.latitude - 0.00000006, batPosCarto.height + (batHeight / 2.0));
+    s.batteryPosition = batCartesian;
+    s.batteryCarto = { latitude: Cesium.Math.toDegrees(batPosCarto.latitude - 0.00000006), longitude: Cesium.Math.toDegrees(batPosCarto.longitude - 0.00000009), height: batPosCarto.height };
+  } else {
+    batPosCarto = Cesium.Cartographic.fromCartesian(batCartesian);
+  }
+
+  // Purgar entidad anterior antes de crear la actualizada
+  if (s.batteryEntity) {
+    try { viewer.entities.remove(s.batteryEntity); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
+    s.batteryEntity = null;
+  }
+  if (s.batteryLabel2D) {
+    try { if (typeof removeLabel2DEntity === 'function') removeLabel2DEntity(s.batteryLabel2D); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
+    s.batteryLabel2D = null;
+  }
+
+  const fnSvgUri = (typeof getSafeSvgDataUri === 'function') ? getSafeSvgDataUri : function(svg) { return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); };
+  const fnScaleDims = (typeof wpBoxDimsScaled === 'function') ? wpBoxDimsScaled : function(d) { return d; };
+  const batSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 24 24" fill="#0F172A" stroke="#10B981" stroke-width="2"><rect x="6" y="7" width="12" height="14" rx="2" fill="#1e293b"/><line x1="9" y1="3" x2="15" y2="3"/><line x1="9" y1="11" x2="15" y2="11"/><line x1="9" y1="15" x2="15" y2="15"/></svg>';
+  const batEntity = viewer.entities.add({
+    id: 'ra_battery_storage_box_3d',
+    name: 'Sistema de Baterías LFP (' + batModelName + ')',
+    position: batCartesian,
+    billboard: {
+      image: fnSvgUri(batSvg),
+      scale: 0.85,
+      heightReference: Cesium.HeightReference.NONE,
+      disableDepthTestDistance: Number.POSITIVE_INFINITY,
+      eyeOffset: new Cesium.Cartesian3(0, 0, -10.0),
+      verticalOrigin: Cesium.VerticalOrigin.BOTTOM
+    },
+    box: {
+      dimensions: fnScaleDims(new Cesium.Cartesian3(0.60, 0.25, batHeight), batCartesian),
+      material: Cesium.Color.fromCssColorString('#0F172A'),
+      outline: true,
+      outlineColor: Cesium.Color.fromCssColorString('#10B981'),
+      shadows: Cesium.ShadowMode.ENABLED
+    }
+  });
+  s.batteryEntity = batEntity;
+  if (typeof s.batteryRotation === 'undefined') s.batteryRotation = 0;
+
+  const batLabelText = '🔋 BATERÍA LFP (' + batTotalKWh.toFixed(1) + ' kWh)\n' + batCount + 'x ' + (batItem.brand || 'LFP');
+  if (typeof addLabelEntity === 'function') {
+    s.batteryLabel2D = addLabelEntity(batCartesian, batLabelText, -46, {
+      bg: 'rgba(15, 23, 42, 0.92)',
+      borderColor: '#10B981',
+      textColor: '#FFFFFF',
+      font: "bold 9.5px 'JetBrains Mono', monospace",
+      category: 'electrical',
+      equipmentType: 'battery'
+    });
+  }
+
+  if (typeof wpCalculateAndRenderInverterCables === 'function') {
+    wpCalculateAndRenderInverterCables();
+  }
+}
+window.wpRenderBattery3D = wpRenderBattery3D;
 
 function deleteCatalogItem(category, id) {
   if (!equipmentCatalog[category]) return;

@@ -2,7 +2,7 @@ window.solarProjectConfig = {
   selectedModuleId: 'ja_550',
   selectedInverterId: 'inv_huawei_10k',
   selectedMicroinverterId: 'mlpe_hoymiles_800',
-  selectedBatteryId: 'bat_none',
+  selectedBatteryId: 'bat_huawei_5k',
   selectedProtectionDcId: 'panel_dc_2mppt',
   selectedProtectionAcId: 'panel_ac_tri_25a',
   selectedCableDcId: 'cable_dc_zzf_6',
@@ -14,7 +14,7 @@ window.solarProjectConfig = {
   autoSizing: {
     inverters: { count: 2, autoCount: 2, isManual: false },
     microinverters: { count: 0, autoCount: 0, isManual: false },
-    batteries: { count: 0, autoCount: 0, isManual: false }
+    batteries: { count: 1, autoCount: 1, isManual: false }
   },
   calculatedLimits: { nMinString: 5, nMaxString: 13, nMaxTotalModules: 22 }
 };
@@ -385,6 +385,11 @@ function step3UpdateHardwareSelection() {
     if (typeof wpUpdateStep3UI === 'function') {
       wpUpdateStep3UI();
     }
+  }
+
+  // Actualizar batería 3D si el inversor ya está colocado en la escena
+  if (typeof window.wpRenderBattery3D === 'function') {
+    window.wpRenderBattery3D();
   }
 
   // Ejecutar motor de dimensionamiento automático multi-equipo

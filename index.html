@@ -30,7 +30,7 @@ window.RA_App = window.RA_App || {};
 
   <script src="js/ui-viewport-controls.js?v=20261016a"></script>
   <script src="js/error-handler.js"></script>
-  <script src="js/project-config.js"></script>
+  <script src="js/project-config.js?v=20261016a"></script>
   <script src="js/buildings.js?v=20261016d"></script>
     <script src="js/radiation-engine.js?v=20261014a"></script>
     <script src="js/solar-heatmap.js?v=20261016b"></script>
@@ -47,7 +47,7 @@ window.RA_App = window.RA_App || {};
   <script src="js/geometry-validate.js?v=20260929b"></script>
   <script src="js/docs-generator.js?v=20261016a"></script>
   <script src="js/workflow-orchestrator.js?v=20260929b"></script>
-  <script src="js/working-plane.js?v=20261016f"></script>
+  <script src="js/working-plane.js?v=20261016g"></script>
   <script src="js/cable-engine.js?v=20261016a"></script>
   <script src="js/capture-mode.js?v=20260929b"></script>
   <script src="js/measure-tool.js?v=20261016a"></script>
@@ -10452,60 +10452,8 @@ function wpPlaceInverterAtPosition(cartesian) {
       equipmentType: 'dcProtection'
     });
     // <i data-lucide=\"battery-charging\" class=\"icon-sm\"></i> GEMELO DIGITAL 3D: SISTEMA DE ALMACENAMIENTO LFP ACOPLADO
-    if (window.inverterEquipmentState.batteryEntity) {
-      try { viewer.entities.remove(window.inverterEquipmentState.batteryEntity); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
-      window.inverterEquipmentState.batteryEntity = null;
-    }
-    if (window.inverterEquipmentState.batteryLabel2D) {
-      try { removeLabel2DEntity(window.inverterEquipmentState.batteryLabel2D); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
-      window.inverterEquipmentState.batteryLabel2D = null;
-    }
-
-    const batItem = (cat && cat.batteries && cfg.selectedBatteryId) ? cat.batteries.find(b => b.id === cfg.selectedBatteryId) : null;
-    const batCount = (cfg.autoSizing && cfg.autoSizing.batteries && typeof cfg.autoSizing.batteries.count === 'number') ? cfg.autoSizing.batteries.count : 1;
-    if (batItem && batCount > 0) {
-      const batModelName = batItem.brand ? (batItem.brand + ' ' + batItem.model) : (batItem.model || 'Batería LFP 5kWh');
-      const batTotalKWh = (batItem.kwh || 5.0) * batCount;
-      // Desplazar 65cm a la izquierda del inversor (-longitude / -latitude)
-      const batPosCarto = Cesium.Cartographic.fromCartesian(cartesian);
-      const batHeight = Math.min(1.4, 0.65 + (batCount - 1) * 0.20);
-      const batCartesian = Cesium.Cartesian3.fromRadians(batPosCarto.longitude - 0.00000009, batPosCarto.latitude - 0.00000006, batPosCarto.height + (batHeight / 2.0));
-
-      const batSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 24 24" fill="#0F172A" stroke="#10B981" stroke-width="2"><rect x="6" y="7" width="12" height="14" rx="2" fill="#1e293b"/><line x1="9" y1="3" x2="15" y2="3"/><line x1="9" y1="11" x2="15" y2="11"/><line x1="9" y1="15" x2="15" y2="15"/></svg>';
-      const batEntity = viewer.entities.add({
-        id: 'ra_battery_storage_box_3d',
-        name: 'Sistema de Baterías LFP (' + batModelName + ')',
-        position: batCartesian,
-        billboard: {
-          image: getSafeSvgDataUri(batSvg),
-          scale: 0.85,
-          heightReference: Cesium.HeightReference.NONE,
-          disableDepthTestDistance: Number.POSITIVE_INFINITY,
-          eyeOffset: new Cesium.Cartesian3(0, 0, -10.0),
-          verticalOrigin: Cesium.VerticalOrigin.BOTTOM
-        },
-        box: {
-          dimensions: wpBoxDimsScaled(new Cesium.Cartesian3(0.60, 0.25, batHeight), batCartesian),
-          material: Cesium.Color.fromCssColorString('#0F172A'),
-          outline: true,
-          outlineColor: Cesium.Color.fromCssColorString('#10B981'),
-          shadows: Cesium.ShadowMode.ENABLED
-        }
-      });
-      window.inverterEquipmentState.batteryEntity = batEntity;
-      window.inverterEquipmentState.batteryPosition = batCartesian;
-      window.inverterEquipmentState.batteryCarto = { latitude: Cesium.Math.toDegrees(batPosCarto.latitude - 0.00000006), longitude: Cesium.Math.toDegrees(batPosCarto.longitude - 0.00000009), height: batPosCarto.height };
-      if (typeof window.inverterEquipmentState.batteryRotation === 'undefined') window.inverterEquipmentState.batteryRotation = 0;
-
-      const batLabelText = '🔋 BATERÍA LFP (' + batTotalKWh.toFixed(1) + ' kWh)\n' + batCount + 'x ' + (batItem.brand || 'LFP');
-      window.inverterEquipmentState.batteryLabel2D = addLabelEntity(batCartesian, batLabelText, -46, {
-        bg: 'rgba(15, 23, 42, 0.92)',
-        borderColor: '#10B981',
-        textColor: '#FFFFFF',
-        font: "bold 9.5px 'JetBrains Mono', monospace",
-        category: 'electrical',
-        equipmentType: 'battery'
-      });
+    if (typeof wpRenderBattery3D === 'function') {
+      wpRenderBattery3D(cartesian);
     }
   } catch(eEnt) {
     window.RA && window.RA.log && window.RA.log.debug('Error al renderizar marcador de inversor:', eEnt);
