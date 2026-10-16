@@ -7938,8 +7938,8 @@ function evaluateModuleLayouts(roof, module, cfg) {
     });
   }
 
-  // Generación de layout híbrido mixto (Vertical + Horizontal)
-  const allowHybrid = wantHybridOnly || !cfg.orientations || cfg.orientations.includes('hybrid') || cfg.orientations.includes('auto');
+  // Generación de layout híbrido mixto (Vertical + Horizontal): EXCLUSIVO para montaje coplanar (deltaTilt < 1)
+  const allowHybrid = (coplanar || deltaTilt < 1.0) && (wantHybridOnly || !cfg.orientations || cfg.orientations.includes('hybrid') || cfg.orientations.includes('auto'));
   if (allowHybrid && typeof window.RASolarOptimizer !== 'undefined' && typeof window.RASolarOptimizer.generateHybridLayout === 'function') {
     const hybridLayout = window.RASolarOptimizer.generateHybridLayout(roof, module, cfg, layouts);
     if (hybridLayout) {

@@ -3621,6 +3621,23 @@ function wpPopulateFaldonCard() {
     }
   }
 
+  var isCoplanarPoly = (!poly.estructura || poly.estructura.tipo === 'coplanar') && (poly.modTilt === 'coplanar' || poly.modTilt === 0 || poly.modTilt === 'auto');
+  var hBtn = document.getElementById('faldon-orient-hybrid');
+  if (hBtn) {
+    if (!isCoplanarPoly) {
+      hBtn.disabled = true;
+      hBtn.style.opacity = '0.35';
+      hBtn.style.cursor = 'not-allowed';
+      hBtn.title = 'Híbrido (V+H) no disponible con triángulos inclinados (evita autosombreado)';
+      if (hLbl) hLbl.textContent = 'Solo coplanar';
+    } else {
+      hBtn.disabled = false;
+      hBtn.style.opacity = '1.0';
+      hBtn.style.cursor = 'pointer';
+      hBtn.title = 'Combina vertical y horizontal en el mismo faldón para aprovechar esquinas y remanentes';
+    }
+  }
+
   ['portrait', 'landscape', 'hybrid'].forEach(function(dir) {
     var btn = document.getElementById('faldon-orient-' + dir);
     if (!btn) return;
@@ -4014,9 +4031,13 @@ function wpGetFaldonOrientationComparison(poly) {
     var infoL = fnInfo(poly.points, optL);
     var countL = (infoL && infoL.panels) ? infoL.panels.length : 0;
 
-    var optH = Object.assign({}, poly, { orientationPref: 'hybrid' });
-    var infoH = fnInfo(poly.points, optH);
-    var countH = (infoH && infoH.panels) ? infoH.panels.length : 0;
+    var isCoplanar = (!poly.estructura || poly.estructura.tipo === 'coplanar') && (poly.modTilt === 'coplanar' || poly.modTilt === 0 || poly.modTilt === 'auto');
+    var countH = 0;
+    if (isCoplanar) {
+      var optH = Object.assign({}, poly, { orientationPref: 'hybrid' });
+      var infoH = fnInfo(poly.points, optH);
+      countH = (infoH && infoH.panels) ? infoH.panels.length : 0;
+    }
 
     var modWp = 450;
     var effModId = poly.moduleId || (window.solarProjectConfig && window.solarProjectConfig.selectedModuleId) || '';
@@ -4036,7 +4057,7 @@ function wpGetFaldonOrientationComparison(poly) {
     var diffKwp = (Math.abs(diff) * modWp / 1000).toFixed(2);
 
     var recommended = 'portrait';
-    if (countH > maxPure) {
+    if (isCoplanar && countH > maxPure) {
       recommended = 'hybrid';
     } else if (countL > countP) {
       recommended = 'landscape';

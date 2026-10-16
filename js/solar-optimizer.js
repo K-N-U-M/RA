@@ -108,6 +108,15 @@
       const baseLayout = sorted[0];
       if (!baseLayout || !baseLayout.centers || baseLayout.centers.length === 0) return null;
 
+      // ⚠️ REGLA FÍSICA INQUEBRANTABLE (CTE DB-HE5):
+      // El empaquetamiento híbrido mixto (V+H) SOLO es físicamente admisible en cubiertas COPLANARES
+      // (sin elevación relativa inter-filas, deltaTilt = 0).
+      // En estructuras triangulares o balasto (deltaTilt >= 1), empaquetar paneles en orientación
+      // perpendicular dentro del pasillo de sombra provoca un autosombreado severo e inaceptable.
+      if (baseLayout.deltaTilt && baseLayout.deltaTilt >= 1.0 && !baseLayout.coplanar) {
+        return null;
+      }
+
       const baseOrient = baseLayout.orientation || 'portrait';
       const residualOrient = (baseOrient === 'portrait') ? 'landscape' : 'portrait';
 
@@ -339,7 +348,14 @@
       const baseSolarResource = 1520; 
 
       for (const sc of scenariosToTest) {
-        for (const orient of orientationsToTest) {
+        // En cubiertas con inclinación sobre estructura (triángulos/balasto/E-W), SOLO
+        // se permiten orientaciones puras (portrait o landscape) para respetar estrictamente
+        // el paso inter-filas anti-sombra normativo (CTE DB-HE5).
+        const allowedOrientations = (sc.id === 'coplanar')
+          ? ['portrait', 'landscape', 'hybrid']
+          : ['portrait', 'landscape'];
+
+        for (const orient of allowedOrientations) {
           try {
             const testPolyOpts = Object.assign({}, poly, {
               modTilt: sc.tilt,
@@ -373,8 +389,12 @@
               yieldFactor = Math.max(0.80, 1.0 - (0.016 * Math.pow(deltaB, 2)) / 100.0);
             }
 
+            // Descontar pérdidas reales por sombreado si existen obstáculos
+            const shadedCount = (info && info.panels) ? info.panels.filter(p => p.isShaded).length : 0;
+            const effectiveModules = Math.max(0, count - shadedCount * 0.70);
+            const effectiveKwp = parseFloat(((effectiveModules * modWp) / 1000.0).toFixed(2));
             const specificKwhPerKwp = Math.round(baseSolarResource * yieldFactor);
-            const totalKwhYear = Math.round(kwp * specificKwhPerKwp);
+            const totalKwhYear = Math.round(effectiveKwp * specificKwhPerKwp);
 
             const orientLabel = orient === 'portrait' ? 'Vertical' : (orient === 'landscape' ? 'Horizontal' : 'Híbrido (V+H)');
 
@@ -406,10 +426,38 @@
       // 1. Ordenar por Producción Neta Anual (kWh/año) descendente
       results.sort((a, b) => b.kwhYear - a.kwhYear);
 
-      // 2. Identificar ganadores
-      const bestEnergy = results[0]; // 🥇 Máxima Producción Anual
-      const bestPower = [...results].sort((a, b) => b.kwp - a.kwp)[0]; // 🥈 Máxima Potencia
-      const bestEfficiency = [...results].sort((a, b) => b.specificYield - a.specificYield)[0]; // 🥉 Máxima Eficiencia
+      // 🥇 1º Puesto: Máxima Producción Anual Absoluta (kWh/año)
+      const bestEnergy = results[0];
+
+      // Función auxiliar para comparar si dos escenarios representan la misma solución
+      const isSameConfig = (s1, s2) => {
+        if (!s1 || !s2) return false;
+        return s1.scenarioId === s2.scenarioId &&
+               s1.orientation === s2.orientation &&
+               s1.modules === s2.modules;
+      };
+
+      // 🥈 2º Puesto: Máxima Potencia (kWp) / Mayor Densidad ALTERNATIVA
+      // Buscamos el escenario de mayor kWp que sea DISTINTO de bestEnergy
+      const byPower = [...results].sort((a, b) => b.kwp - a.kwp || b.kwhYear - a.kwhYear);
+      let bestPower = byPower.find(s => !isSameConfig(s, bestEnergy));
+
+      if (!bestPower && results.length > 1) {
+        bestPower = results[1];
+      } else if (!bestPower) {
+        bestPower = bestEnergy;
+      }
+
+      // 🥉 3º Puesto: Máxima Eficiencia Unitaria (kWh/kWp) ALTERNATIVA
+      // Buscamos el escenario de mayor rendimiento unitario que sea DISTINTO de bestEnergy y de bestPower
+      const byEfficiency = [...results].sort((a, b) => b.specificYield - a.specificYield || b.kwhYear - a.kwhYear);
+      let bestEfficiency = byEfficiency.find(s => !isSameConfig(s, bestEnergy) && !isSameConfig(s, bestPower));
+
+      if (!bestEfficiency && results.length > 2) {
+        bestEfficiency = results.find(s => !isSameConfig(s, bestEnergy) && !isSameConfig(s, bestPower)) || results[2];
+      } else if (!bestEfficiency) {
+        bestEfficiency = (bestPower !== bestEnergy) ? bestPower : bestEnergy;
+      }
 
       return {
         polyIdx: polyIdx,
