@@ -27,19 +27,21 @@
   let _isGeocoding = false;
 
   function getApproximateAddress(lat, lng) {
-    const searchInput = (typeof document !== 'undefined') ? document.getElementById('ra-search-input') : null;
-    if (searchInput && searchInput.value && searchInput.value.trim().length > 1) {
-      return searchInput.value.trim();
+    if (typeof lat !== 'number' || typeof lng !== 'number' || isNaN(lat) || isNaN(lng)) {
+      return 'Ubicación';
     }
-    if (typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.address && window.solarProjectConfig.address !== 'Ubicación' && window.solarProjectConfig.address !== 'Ubicación Solar') {
-      return window.solarProjectConfig.address;
-    }
-    if (_cachedAddress) return _cachedAddress;
 
-    if (typeof lat === 'number' && typeof lng === 'number' && !_isGeocoding && typeof fetch === 'function') {
-      const coordKey = `${lat.toFixed(2)},${lng.toFixed(2)}`;
+    const coordKey = `${lat.toFixed(2)},${lng.toFixed(2)}`;
+
+    // Si ya disponemos de la dirección geocodificada para estas coordenadas exactas, devolverla
+    if (_cachedAddress && _lastGeocodeCoord === coordKey) {
+      return _cachedAddress;
+    }
+
+    if (!_isGeocoding && typeof fetch === 'function') {
       if (coordKey !== _lastGeocodeCoord) {
         _lastGeocodeCoord = coordKey;
+        _cachedAddress = '';
         _isGeocoding = true;
         fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=14`, {
           headers: { 'Accept-Language': 'es' }
@@ -51,6 +53,15 @@
             const city = d.address.city || d.address.town || d.address.village || d.address.municipality || d.address.county || d.name || '';
             const prov = d.address.province || d.address.state || '';
             _cachedAddress = city ? (prov && prov !== city ? `${city}, ${prov}` : city) : (d.display_name ? d.display_name.split(',')[0] : '');
+            if (typeof window !== 'undefined' && window.solarProjectConfig) {
+              window.solarProjectConfig.address = _cachedAddress;
+            }
+            if (typeof document !== 'undefined') {
+              const munInput = document.getElementById('doc-mun');
+              const provInput = document.getElementById('doc-prov');
+              if (munInput && (!munInput.value || munInput.value === 'Madrid')) munInput.value = city || _cachedAddress;
+              if (provInput && (!provInput.value || provInput.value === 'Madrid')) provInput.value = prov || city;
+            }
             if (_cachedAddress && typeof RAProjectStatusHUD !== 'undefined' && typeof RAProjectStatusHUD.update === 'function') {
               RAProjectStatusHUD.update();
             }
@@ -60,10 +71,8 @@
       }
     }
 
-    if (typeof lat === 'number' && typeof lng === 'number' && !isNaN(lat) && !isNaN(lng)) {
-      return `${lat.toFixed(3)}° N, ${Math.abs(lng).toFixed(3)}° ${lng >= 0 ? 'E' : 'O'}`;
-    }
-    return 'Ubicación';
+    // Mientras se resuelve la geocodificación inversa o si falla la red, mostrar coordenadas reales
+    return `${lat.toFixed(2)}° N, ${Math.abs(lng).toFixed(2)}° ${lng >= 0 ? 'E' : 'O'}`;
   }
 
   /**
@@ -255,8 +264,46 @@
       annualKWh = theoreticalAnnualKWh || (kwp * 1450);
     }
 
-    const projLat = (typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.lat) || 40.4168;
-    const projLng = (typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.lng) || -3.7038;
+    let projLat = null, projLng = null;
+    if (typeof polygonAnalysis === 'function') {
+      if (typeof WP !== 'undefined' && WP && Array.isArray(WP.polylines) && WP.polylines.length > 0) {
+        const selIdx = (WP.selectedPolyIdx >= 0 && WP.selectedPolyIdx < WP.polylines.length) ? WP.selectedPolyIdx : 0;
+        const selPoly = WP.polylines[selIdx] || WP.polylines[0];
+        if (selPoly && Array.isArray(selPoly.points) && selPoly.points.length >= 3) {
+          const pa = polygonAnalysis(selPoly.points);
+          if (pa && typeof pa.latDeg === 'number' && !isNaN(pa.latDeg)) {
+            projLat = pa.latDeg;
+            projLng = pa.lonDeg;
+          }
+        }
+      } else if (typeof polygonPoints !== 'undefined' && Array.isArray(polygonPoints) && polygonPoints.length >= 3) {
+        const pa = polygonAnalysis(polygonPoints);
+        if (pa && typeof pa.latDeg === 'number' && !isNaN(pa.latDeg)) {
+          projLat = pa.latDeg;
+          projLng = pa.lonDeg;
+        }
+      }
+    }
+    if (projLat === null) {
+      if (typeof window !== 'undefined' && window.solarProjectConfig && typeof window.solarProjectConfig.lat === 'number') {
+        projLat = window.solarProjectConfig.lat;
+        projLng = window.solarProjectConfig.lng;
+      } else if (typeof viewer !== 'undefined' && viewer && viewer.camera && viewer.camera.positionCartographic) {
+        projLat = Cesium.Math.toDegrees(viewer.camera.positionCartographic.latitude);
+        projLng = Cesium.Math.toDegrees(viewer.camera.positionCartographic.longitude);
+      } else {
+        projLat = 41.3851;
+        projLng = 2.1734;
+      }
+    }
+
+    if (typeof window !== 'undefined' && window.solarProjectConfig) {
+      window.solarProjectConfig.lat = projLat;
+      window.solarProjectConfig.lng = projLng;
+      window.solarProjectConfig.latitude = projLat;
+      window.solarProjectConfig.longitude = projLng;
+    }
+
     const approxAddress = getApproximateAddress(projLat, projLng);
 
     // Heatmap dirty check

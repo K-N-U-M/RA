@@ -299,6 +299,20 @@ function flyToPlace(p, save = true) {
 
   const lon = parseFloat(p.lon);
   const lat = parseFloat(p.lat);
+
+  if (typeof window !== 'undefined' && window.solarProjectConfig) {
+    window.solarProjectConfig.lat = lat;
+    window.solarProjectConfig.lng = lon;
+    window.solarProjectConfig.latitude = lat;
+    window.solarProjectConfig.longitude = lon;
+    if (p.display_name) {
+      window.solarProjectConfig.address = p.display_name.split(',')[0];
+    }
+  }
+  if (typeof RAProjectStatusHUD !== 'undefined' && typeof RAProjectStatusHUD.update === 'function') {
+    RAProjectStatusHUD.update();
+  }
+
   const h = (curCam.positionCartographic && curCam.positionCartographic.height) ? curCam.positionCartographic.height : 2500;
 
   curCam.flyTo({

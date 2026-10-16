@@ -514,8 +514,13 @@
     const _monthlyNetWh = new Array(12).fill(0);
     const year = new Date().getFullYear();
 
-    const lat = (window.solarProjectConfig && window.solarProjectConfig.lat) ? window.solarProjectConfig.lat : 40.4168;
-    const lng = (window.solarProjectConfig && window.solarProjectConfig.lng) ? window.solarProjectConfig.lng : -3.7038;
+    let lat = (window.solarProjectConfig && typeof window.solarProjectConfig.lat === 'number') ? window.solarProjectConfig.lat : null;
+    let lng = (window.solarProjectConfig && typeof window.solarProjectConfig.lng === 'number') ? window.solarProjectConfig.lng : null;
+    if (lat === null && typeof polygonAnalysis === 'function') {
+      const pa = polygonAnalysis();
+      if (pa && typeof pa.latDeg === 'number') { lat = pa.latDeg; lng = pa.lonDeg; }
+    }
+    if (lat === null) { lat = 41.3851; lng = 2.1734; }
 
     const totalSteps = monthsDoy.length * hours.length; // 192 instantes en calidad estándar
     let currentStep = 0;

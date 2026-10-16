@@ -3,6 +3,19 @@
 function openDocModal() {
   const m = document.getElementById('ra-doc-modal');
   if (m) m.classList.add('open');
+  if (typeof document !== 'undefined') {
+    const munInput = document.getElementById('doc-mun');
+    const provInput = document.getElementById('doc-prov');
+    if (munInput && provInput && (!munInput.value || munInput.value === 'Madrid') && window.solarProjectConfig && window.solarProjectConfig.address) {
+      const parts = window.solarProjectConfig.address.split(',').map(s => s.trim());
+      if (parts.length >= 2) {
+        munInput.value = parts[0];
+        provInput.value = parts[1];
+      } else if (parts.length === 1 && parts[0]) {
+        munInput.value = parts[0];
+      }
+    }
+  }
   showStatus('MÓDULO DE DOCUMENTACIÓN TÉCNICA PV ABIERTO', 2000);
 }
 function closeDocModal() {

@@ -33,10 +33,10 @@ window.RA_App = window.RA_App || {};
   <script src="js/project-config.js"></script>
   <script src="js/buildings.js?v=20261016d"></script>
     <script src="js/radiation-engine.js?v=20261014a"></script>
-    <script src="js/solar-heatmap.js?v=20261016a"></script>
+    <script src="js/solar-heatmap.js?v=20261016b"></script>
     <script src="js/config.js?v=20260929b"></script>
     <script src="js/financials.js?v=20260929c"></script>
-  <script src="js/viewer.js?v=20260929b"></script>
+  <script src="js/viewer.js?v=20261016a"></script>
   <script src="js/solar-engine.js?v=20260929b"></script>
   <script src="js/solar-optimizer.js?v=20261016a"></script>
   <script src="js/obstacles.js?v=20261016a"></script>
@@ -45,7 +45,7 @@ window.RA_App = window.RA_App || {};
   <script src="js/electrical-engine.js?v=20260929b"></script>
   <script src="js/undo-manager.js?v=20260929b"></script>
   <script src="js/geometry-validate.js?v=20260929b"></script>
-  <script src="js/docs-generator.js?v=20260929b"></script>
+  <script src="js/docs-generator.js?v=20261016a"></script>
   <script src="js/workflow-orchestrator.js?v=20260929b"></script>
   <script src="js/working-plane.js?v=20261016f"></script>
   <script src="js/cable-engine.js?v=20261016a"></script>
@@ -60,7 +60,7 @@ window.RA_App = window.RA_App || {};
   <script src="js/bom-tree.js?v=20261016a"></script>
   <script src="js/engineering-explainer.js?v=20260929b"></script>
   <script src="js/equipment-ai-importer.js?v=20261014a"></script>
-  <script src="js/project-status-hud.js?v=20261016a"></script>
+  <script src="js/project-status-hud.js?v=20261016b"></script>
   <script src="js/firebase-service.js?v=20261015d"></script>
 
     <link rel="stylesheet" href="css/styles.css?v=20261016b">
@@ -6491,8 +6491,15 @@ function recalculateSolarYield() {
     resetSolarDashboard();
     return;
   }
-  const latDeg = pa ? pa.latDeg : 40.4168;
-  const lonDeg = pa ? (pa.lonDeg !== undefined ? pa.lonDeg : -3.7038) : -3.7038;
+  const latDeg = pa ? pa.latDeg : ((typeof window.solarProjectConfig !== 'undefined' && typeof window.solarProjectConfig.lat === 'number') ? window.solarProjectConfig.lat : 41.3851);
+  const lonDeg = pa ? (pa.lonDeg !== undefined ? pa.lonDeg : ((typeof window.solarProjectConfig !== 'undefined' && typeof window.solarProjectConfig.lng === 'number') ? window.solarProjectConfig.lng : 2.1734)) : 2.1734;
+
+  if (pa && typeof window !== 'undefined' && window.solarProjectConfig) {
+    window.solarProjectConfig.lat = latDeg;
+    window.solarProjectConfig.lng = lonDeg;
+    window.solarProjectConfig.latitude = latDeg;
+    window.solarProjectConfig.longitude = lonDeg;
+  }
   const azimuthDeg = pa ? pa.azimuthDeg : 0;
   const tiltDeg = pa ? pa.tiltDeg : 30;
   const area3D = pa ? pa.area3D : 0;
