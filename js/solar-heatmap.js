@@ -417,7 +417,7 @@
 
     const lossEl = document.getElementById("hud-loss-val");
     if (lossEl) {
-      const lossPct = (totalPanels > 0) ? ((shadedCount / totalPanels) * 35).toFixed(1) : "0.0";
+      const lossPct = (totalPanels > 0) ? ((shadedCount / totalPanels) * 100).toFixed(1) : "0.0";
       lossEl.textContent = "-" + lossPct + "%";
     }
 
@@ -841,9 +841,15 @@
           }
 
           // Polígonos 2D de sombra de obstáculos
+          const effClearance = (poly.estructura && typeof poly.estructura.clearance === 'number')
+            ? poly.estructura.clearance
+            : (poly.modStructure === 'pergola' ? 1.80 : 0);
+
           const polyShadowQuads2D = [];
           if (typeof obstacles !== "undefined" && obstacles && obstacles.length > 0) {
             obstacles.forEach(obs => {
+              const obsH = typeof obs.h === 'number' ? obs.h : (obs.height || 0.5);
+              if (effClearance > 0 && obsH <= effClearance + 0.10) return;
               if (typeof getObstacleShadowPolygons2DForRoof === "function") {
                 const quads = getObstacleShadowPolygons2DForRoof(obs, pInfo, sU, sV, solarPos.shadowLenPerM);
                 if (quads && quads.length > 0) polyShadowQuads2D.push(...quads);
@@ -1321,6 +1327,22 @@
           });
         }
         window.solarSimState.panelShadowOverlayPool.clear();
+      }
+      if (window.solarSimState.obstacleShadowSurfaceEntities && Array.isArray(window.solarSimState.obstacleShadowSurfaceEntities)) {
+        if (typeof viewer !== 'undefined' && viewer && viewer.entities) {
+          window.solarSimState.obstacleShadowSurfaceEntities.forEach(e => {
+            try { viewer.entities.remove(e); } catch(_) {}
+          });
+        }
+        window.solarSimState.obstacleShadowSurfaceEntities = [];
+      }
+      if (window.solarSimState.mlpeBadgeEntities && Array.isArray(window.solarSimState.mlpeBadgeEntities)) {
+        if (typeof viewer !== 'undefined' && viewer && viewer.entities) {
+          window.solarSimState.mlpeBadgeEntities.forEach(e => {
+            try { viewer.entities.remove(e); } catch(_) {}
+          });
+        }
+        window.solarSimState.mlpeBadgeEntities = [];
       }
     }
 

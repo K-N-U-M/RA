@@ -6682,30 +6682,34 @@ function recalculateSolarYield() {
   
   // Calcular porcentaje de sombra medio de los paneles reales renderizados
   let avgShadowLossPct = 0;
+  let sumPotentialWh = 0;
+  let sumShadedLossWh = 0;
   let totalShadowLoss = 0;
   let totalPanelsCountForShadows = 0;
-  
+
+  const gatherPanelLoss = p => {
+    if (typeof p.annualTotalPotential === 'number' && p.annualTotalPotential > 0) {
+      sumPotentialWh += p.annualTotalPotential;
+      sumShadedLossWh += (p.annualShadedLoss || 0);
+    }
+    totalShadowLoss += (typeof p.annualLossPct === 'number' ? p.annualLossPct : 0);
+    totalPanelsCountForShadows++;
+  };
+
   if (typeof window.allRenderedPanels !== 'undefined' && Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0) {
-    window.allRenderedPanels.forEach(p => {
-      totalShadowLoss += (typeof p.annualLossPct === 'number' ? p.annualLossPct : 0);
-      totalPanelsCountForShadows++;
-    });
+    window.allRenderedPanels.forEach(gatherPanelLoss);
   } else if (typeof window.WP !== 'undefined' && window.WP && window.WP.polylines) {
     window.WP.polylines.forEach(poly => {
       const panels = Array.isArray(poly.panels) ? poly.panels : (poly.roofInfo && Array.isArray(poly.roofInfo.panels) ? poly.roofInfo.panels : []);
-      panels.forEach(p => {
-        totalShadowLoss += (typeof p.annualLossPct === 'number' ? p.annualLossPct : 0);
-        totalPanelsCountForShadows++;
-      });
+      panels.forEach(gatherPanelLoss);
     });
   } else if (roofInfo && roofInfo.panels) {
-    roofInfo.panels.forEach(p => {
-      totalShadowLoss += (typeof p.annualLossPct === 'number' ? p.annualLossPct : 0);
-      totalPanelsCountForShadows++;
-    });
+    roofInfo.panels.forEach(gatherPanelLoss);
   }
-  
-  if (totalPanelsCountForShadows > 0) {
+
+  if (sumPotentialWh > 0) {
+    avgShadowLossPct = (sumShadedLossWh / sumPotentialWh) * 100.0;
+  } else if (totalPanelsCountForShadows > 0) {
     avgShadowLossPct = totalShadowLoss / totalPanelsCountForShadows;
   }
   
@@ -7448,8 +7452,8 @@ function getObstaclePolygon2D(obs, setback) {
   const w = Math.max(obs.w || 1.0, 0.2);
   const l = Math.max(obs.l || 1.0, 0.2);
   const sb = typeof setback === "number" ? setback : 0.50;
-  const hw = (w / 2) + sb;
-  const hl = (l / 2) + sb;
+  const hw = Math.max(0.05, (w / 2) + Math.max(-w / 2 + 0.05, sb));
+  const hl = Math.max(0.05, (l / 2) + Math.max(-l / 2 + 0.05, sb));
   const u = obs.u || 0;
   const v = obs.v || 0;
   const rotDeg = obs.rot || 0;
@@ -14036,27 +14040,21 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
         panels.forEach((p, idx) => {
           if (idx % pasoMuestra !== 0 || !p.corners || p.corners.length < 4) return;
           try {
-            // Identificar aristas por altura/pendiente relativa
-            // C0 y C3 suelen ser aristas altas o bajas según la orientación
-            // Obtenemos las cotas barométricas/elipsoidales de cada vértice
-            const cInfo = p.corners.map((c, ci) => {
-              const carto = Cesium.Cartographic.fromCartesian(c);
-              return { pos: c, carto: carto, h: carto.height, idx: ci };
-            });
+            // Identificar los dos laterales paralelos de la estructura sin riesgo de cruce en aspa (X)
+            // Evaluamos la pendiente diferencial a lo largo de las aristas topológicas del módulo
+            const h0 = Cesium.Cartographic.fromCartesian(p.corners[0]).height;
+            const h1 = Cesium.Cartographic.fromCartesian(p.corners[1]).height;
+            const h2 = Cesium.Cartographic.fromCartesian(p.corners[2]).height;
+            const h3 = Cesium.Cartographic.fromCartesian(p.corners[3]).height;
 
-            // Ordenar de menor a mayor altura
-            cInfo.sort((a, b) => a.h - b.h);
-            const low1 = cInfo[0]; // Esquina inferior delantera 1
-            const low2 = cInfo[1]; // Esquina inferior delantera 2
-            const high1 = cInfo[2]; // Esquina superior trasera 1
-            const high2 = cInfo[3]; // Esquina superior trasera 2
-
-            // Distancia vectorial entre baja y alta correspondiente (los lados inclinados del panel)
-            // Emparejar cada esquina inferior con la superior más cercana
-            const d1_to_h1 = Cesium.Cartesian3.distance(low1.pos, high1.pos);
-            const d1_to_h2 = Cesium.Cartesian3.distance(low1.pos, high2.pos);
-            const pair1 = (d1_to_h1 < d1_to_h2) ? { low: low1.pos, high: high1.pos } : { low: low1.pos, high: high2.pos };
-            const pair2 = (d1_to_h1 < d1_to_h2) ? { low: low2.pos, high: high2.pos } : { low: low2.pos, high: high1.pos };
+            let pair1, pair2;
+            if (Math.abs(h0 - h3) >= Math.abs(h0 - h1)) {
+              pair1 = (h0 <= h3) ? { low: p.corners[0], high: p.corners[3] } : { low: p.corners[3], high: p.corners[0] };
+              pair2 = (h1 <= h2) ? { low: p.corners[1], high: p.corners[2] } : { low: p.corners[2], high: p.corners[1] };
+            } else {
+              pair1 = (h0 <= h1) ? { low: p.corners[0], high: p.corners[1] } : { low: p.corners[1], high: p.corners[0] };
+              pair2 = (h3 <= h2) ? { low: p.corners[3], high: p.corners[2] } : { low: p.corners[2], high: p.corners[3] };
+            }
 
             if (esPergola) {
               // PÉRGOLA ELEVADA: Pórtico 3D completo con 4 pilares a cubierta y vigas de dintel
@@ -14109,7 +14107,17 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
 
                 // Cota real de cubierta bajo los apoyos (proyectada con precisión milimétrica al plano del faldón)
                 const groundFront = projectPointToRoof(pair.low);
-                const groundBack = projectPointToRoof(pair.high);
+                let groundBack = projectPointToRoof(pair.high);
+
+                // Brazo resistente de lastre contra vuelco por viento (CTE DB-SE-AE):
+                // En ángulos elevados (>35°), la proyección directa se reduce demasiado;
+                // extendemos la zapata hacia atrás para garantizar un apoyo mínimo de 1.40m
+                const baseVec = Cesium.Cartesian3.subtract(groundBack, groundFront, new Cesium.Cartesian3());
+                const baseLen = Cesium.Cartesian3.magnitude(baseVec);
+                if (baseLen > 0.05 && baseLen < 1.40) {
+                  const dir = Cesium.Cartesian3.normalize(baseVec, new Cesium.Cartesian3());
+                  groundBack = Cesium.Cartesian3.add(groundFront, Cesium.Cartesian3.multiplyByScalar(dir, 1.40, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+                }
 
                 // Triángulo estructural cerrado A-Frame:
                 // Arista baja -> Zapata suelo frontal -> Zapata suelo trasera -> Montante alto -> Arista baja

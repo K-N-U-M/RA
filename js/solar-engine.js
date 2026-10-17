@@ -338,11 +338,14 @@ function computeHighPrecisionSolarPosition(latDeg, lonDeg, doy, solarDecimalHour
 
   // Acimut Solar (0° = Sur, Este = -90°, Oeste = +90°)
   let azRad = 0;
-  if (elevDeg > 0.01) {
-    const cosAz = (Math.sin(declRad) * Math.cos(latRad) - Math.cos(declRad) * Math.sin(latRad) * Math.cos(omegaRad)) / Math.cos(elevRad);
+  const cosElev = Math.cos(elevRad);
+  if (elevDeg > 0.01 && cosElev > 1e-5) {
+    const cosAz = (Math.sin(declRad) * Math.cos(latRad) - Math.cos(declRad) * Math.sin(latRad) * Math.cos(omegaRad)) / cosElev;
     const safeCos = Math.max(-1, Math.min(1, cosAz));
     azRad = Math.acos(safeCos);
     if (Math.sin(omegaRad) > 0) azRad = 2 * Math.PI - azRad;
+  } else if (cosElev <= 1e-5) {
+    azRad = Math.PI; // En el cenit exacto (elev = 90°), acimut neutral hacia el Sur
   }
   const azDegFromNorth = (azRad * 180) / Math.PI;
   let azDegFromSouth = azDegFromNorth - 180;
@@ -420,7 +423,12 @@ function computeCellTemperature(T_amb, G_poa, isRoofMounted = true, windSpeed = 
   const u0 = isRoofMounted ? 26.0 : 29.0;
   const u1 = isRoofMounted ? 1.3 : 1.5;
   const eta_stc = 0.215;
-  return T_amb + (G_poa / (u0 + u1 * windSpeed)) * (1 - eta_stc / 0.9);
+  const safeWind = Math.max(0, Number.isFinite(windSpeed) ? windSpeed : 1.5);
+  const denom = Math.max(10.0, u0 + u1 * safeWind);
+  const safeG = (Number.isFinite(G_poa) && G_poa > 0) ? Math.min(1500, G_poa) : 0;
+  const safeTamb = Number.isFinite(T_amb) ? T_amb : 25;
+  const tCell = safeTamb + (safeG / denom) * (1 - eta_stc / 0.9);
+  return Math.max(-20, Math.min(95, tCell));
 }
 
 function solarDeclination(dayOfYear) {
@@ -445,8 +453,9 @@ function solarAzimuth(latDeg, declDeg, haDeg, altDeg) {
   const decl = declDeg * Math.PI / 180;
   const ha = haDeg * Math.PI / 180;
   const alt = altDeg * Math.PI / 180;
-  if (Math.cos(alt) < 0.001) return 0;
-  let cosAz = (Math.sin(decl) - Math.sin(alt)*Math.sin(lat)) / (Math.cos(alt)*Math.cos(lat));
+  const denom = Math.cos(alt) * Math.cos(lat);
+  if (Math.abs(denom) < 1e-4) return (ha > 0 ? 270 : 90);
+  let cosAz = (Math.sin(decl) - Math.sin(alt)*Math.sin(lat)) / denom;
   cosAz = Math.max(Math.min(cosAz, 1), -1);
   let az = Math.acos(cosAz) * 180 / Math.PI;
   if (ha > 0) az = 360 - az;
@@ -506,7 +515,8 @@ function calcPOA(GHI, DHI, latDeg, tiltDeg, azimutPanelDeg, dayOfYear, hourSolar
   const F2 = 0.012 * (eps - 1) - 0.011 * Delta;
 
   const a = Math.max(cosTheta, 0);
-  const b = Math.max(Math.cos(85 * Math.PI / 180), 0.087);
+  const sinAlphaDeg = Math.sin(Math.max(0, alphaDeg) * Math.PI / 180);
+  const b = Math.max(Math.cos(85 * Math.PI / 180), sinAlphaDeg);
   const skyDiffuse = DHI * ((1 - F1) * (1 + Math.cos(tilt)) / 2 + F1 * (a / b) + F2 * Math.sin(tilt));
 
   const albedo = 0.20;
@@ -523,13 +533,17 @@ function calcIAM(cosTheta) {
 }
 
 function calcTcell(Tamb, GPOA, NOCT=45) {
-  return Tamb + (NOCT - 20) * GPOA / 800;
+  const safeG = (Number.isFinite(GPOA) && GPOA > 0) ? Math.min(1500, GPOA) : 0;
+  const safeTamb = Number.isFinite(Tamb) ? Tamb : 25;
+  const tCell = safeTamb + (NOCT - 20) * safeG / 800;
+  return Math.max(-20, Math.min(95, tCell));
 }
 
 function calcPpanel(Pstc, GPOA, Tcell, gamma=-0.0034) {
-  if (GPOA <= 10) return 0;
-  const kT = 1 + gamma * (Tcell - 25);
-  const kG = GPOA / 1000;
+  if (!Number.isFinite(GPOA) || GPOA <= 10) return 0;
+  const safeT = Number.isFinite(Tcell) ? Tcell : 25;
+  const kT = Math.max(0.65, Math.min(1.20, 1 + gamma * (safeT - 25)));
+  const kG = Math.min(1.5, GPOA / 1000);
   return Math.max(Pstc * kG * kT, 0);
 }
 
@@ -1635,7 +1649,10 @@ function wpComputeInstantSolarPosition(monthIdx, hourFloat) {
   const h = Math.max(6.0, Math.min(20.0, hourFloat !== undefined ? hourFloat : solarSimState.hourFloat));
   const doy = SOLAR_MONTH_DAYS[m];
 
-  let latDeg = 40.4168, lngDeg = -3.7038;
+  let latDeg = (typeof window !== "undefined" && window.solarProjectConfig && typeof window.solarProjectConfig.lat === 'number')
+    ? window.solarProjectConfig.lat : 40.4168;
+  let lngDeg = (typeof window !== "undefined" && window.solarProjectConfig && typeof window.solarProjectConfig.lng === 'number')
+    ? window.solarProjectConfig.lng : -3.7038;
   if (typeof WP !== "undefined" && WP && WP.planes && WP.planes.length > 0 && WP.planes[0].centerCarto) {
     latDeg = Cesium.Math.toDegrees(WP.planes[0].centerCarto.latitude);
     lngDeg = Cesium.Math.toDegrees(WP.planes[0].centerCarto.longitude);
@@ -1647,14 +1664,15 @@ function wpComputeInstantSolarPosition(monthIdx, hourFloat) {
     }
   }
 
-  // Hora local del slider → hora UTC → hora solar (EoT + longitud) en el motor
-  // de alta precisión. Antes se usaba la hora local como si fuera solar: las
-  // sombras del visor podían desplazarse ~1h solar respecto a la hora mostrada.
+  // Hora local del slider → hora UTC astronómica determinista según huso geográfico y horario de verano
   let alt, azN, decl;
   if (typeof computeHighPrecisionSolarPosition === "function") {
-    const year = new Date().getFullYear();
-    const dLocal = new Date(year, m, 21, Math.floor(h), Math.round((h % 1) * 60), 0);
-    const utcHour = h + dLocal.getTimezoneOffset() / 60;
+    const baseTz = Math.round(lngDeg / 15);
+    const isDst = (m >= 2 && m <= 9);
+    const tzHours = (lngDeg >= -18.5 && lngDeg <= 4.5 && latDeg >= 27.5 && latDeg <= 44.0)
+      ? (lngDeg < -10 ? (isDst ? 1 : 0) : (isDst ? 2 : 1))
+      : (baseTz + (isDst ? 1 : 0));
+    const utcHour = h - tzHours;
     const sp = computeHighPrecisionSolarPosition(latDeg, lngDeg, doy, utcHour);
     alt = sp.elevDeg;
     azN = sp.azDegFromNorth;

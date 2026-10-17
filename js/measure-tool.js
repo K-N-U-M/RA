@@ -60,14 +60,25 @@
     if (!pt) return pt;
     var offset = (typeof offsetM === 'number') ? offsetM : 0.15;
     try {
-      // 1. Si hay plano de trabajo activo en WP, elevar en la dirección de su normal 3D
-      if (global.WP && Array.isArray(global.WP.planes) && global.WP.activePlaneIdx >= 0) {
-        var pl = global.WP.planes[global.WP.activePlaneIdx];
-        if (pl && pl.normal && isFinite(pl.normal.x)) {
-          return Cesium.Cartesian3.add(pt, Cesium.Cartesian3.multiplyByScalar(pl.normal, offset, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+      // 1. Buscar el plano de trabajo más cercano a la ubicación del punto medido
+      var bestNormal = null;
+      if (global.WP && Array.isArray(global.WP.planes) && global.WP.planes.length > 0) {
+        var minDist = Infinity;
+        for (var i = 0; i < global.WP.planes.length; i++) {
+          var pl = global.WP.planes[i];
+          if (pl && pl.origin && pl.normal && isFinite(pl.normal.x)) {
+            var d = Cesium.Cartesian3.distance(pt, pl.origin);
+            if (d < minDist) {
+              minDist = d;
+              bestNormal = pl.normal;
+            }
+          }
         }
       }
-      // 2. Fallback: normal geodésica del elipsoide WGS84
+      if (bestNormal && minDist < 60.0) {
+        return Cesium.Cartesian3.add(pt, Cesium.Cartesian3.multiplyByScalar(bestNormal, offset, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+      }
+      // 2. Fallback: normal geodésica del elipsoide WGS84 propia del punto
       var normalUp = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(pt, new Cesium.Cartesian3());
       if (normalUp && isFinite(normalUp.x)) {
         return Cesium.Cartesian3.add(pt, Cesium.Cartesian3.multiplyByScalar(normalUp, offset, new Cesium.Cartesian3()), new Cesium.Cartesian3());

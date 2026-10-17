@@ -354,15 +354,20 @@ function step3UpdateHardwareSelection() {
     try { window.lucide.createIcons(); } catch (e) {}
   }
 
-  // <i data-lucide="rocket" class="icon-sm"></i> Estimación de Sobrecarga Estructural en Cubierta (Normativa CTE DB-SE-AE)
+  // Estimación de Sobrecarga Estructural en Cubierta (Normativa CTE DB-SE-AE)
   const elLoad = document.getElementById('step3-spec-roof-load');
   if (elLoad) {
-    const modArea = (mod.l || 2.10) * (mod.w || 1.05);
-    const modWeightKg = 24.5; // Peso promedio panel Tier-1 72/54 celdas con marco de aluminio
-    const ballastAndStructKg = 12.0; // Estructura coplanar o lastrada de aluminio / hormigón
-    const kgPerM2 = (modWeightKg + ballastAndStructKg) / modArea;
-    elLoad.textContent = '~' + kgPerM2.toFixed(1) + ' kg/m² (' + (kgPerM2 < 25 ? 'Admisible' : 'Verificar Techo') + ')';
-    elLoad.style.color = kgPerM2 < 25 ? '#38BDF8' : '#F59E0B';
+    const modArea = Math.max((mod.l || 2.10) * (mod.w || 1.05), 1.0);
+    const modWeightKg = (typeof mod.weightKg === 'number' && mod.weightKg > 0) ? mod.weightKg : 24.5;
+    let hasBallast = false;
+    if (typeof WP !== 'undefined' && WP && Array.isArray(WP.polylines)) {
+      hasBallast = WP.polylines.some(pl => pl && pl.modStructure && (pl.modStructure.indexOf('triangle') !== -1 || pl.modStructure === 'ballasted'));
+    }
+    const structWeightPerMod = hasBallast ? (90.0 + 6.5) : 6.5; // Lastre hormigón 2x45kg + perfiles vs coplanar
+    const kgPerM2 = (modWeightKg + structWeightPerMod) / modArea;
+    const isSafe = kgPerM2 <= 25.0;
+    elLoad.textContent = '~' + kgPerM2.toFixed(1) + ' kg/m² (' + (isSafe ? 'Admisible' : '⚠️ Requiere Verificación CTE') + ')';
+    elLoad.style.color = isSafe ? '#38BDF8' : '#F59E0B';
   }
 
   // <i data-lucide="rocket" class="icon-sm"></i> Reactividad 3D: Sólo regenerar layout y faldones si el módulo fotovoltaico ha cambiado realmente

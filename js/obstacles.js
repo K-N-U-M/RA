@@ -419,8 +419,10 @@ function pickObstacleUnderCursor(screenPos) {
   // B. Proyección de rayo al plano UV de cubierta
   const res = obsComputeUV(screenPos);
   if (res) {
+    const activePlIdx = (typeof WP !== 'undefined' && WP) ? WP.activePlaneIdx : -1;
     for (let i = obstacles.length - 1; i >= 0; i--) {
       const obs = obstacles[i];
+      if (obs.planeIdx !== undefined && activePlIdx >= 0 && obs.planeIdx !== activePlIdx) continue;
       const du = res.u - (obs.u || 0);
       const dv = res.v - (obs.v || 0);
       const rotRad = Cesium.Math.toRadians(obs.rot || 0);
@@ -437,7 +439,9 @@ function pickObstacleUnderCursor(screenPos) {
     }
   }
 
-  // C. Fallback por proximidad en pantalla a los centros de los obstáculos
+  // C. Fallback por proximidad en pantalla con prioridad por tamaño (sin enmascaramiento de obstáculos pequeños)
+  let bestCandidate = null;
+  let bestScore = Infinity;
   for (let i = obstacles.length - 1; i >= 0; i--) {
     const obs = obstacles[i];
     let pos3D = obs.cartesian || null;
@@ -459,13 +463,19 @@ function pickObstacleUnderCursor(screenPos) {
       const pWin = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, pos3D);
       if (pWin) {
         const d = Math.hypot(screenPos.x - pWin.x, screenPos.y - pWin.y);
-        const radiusPx = Math.max(25, Math.min(65, (obs.w || 1.0) * 15));
+        const radiusPx = Math.max(20, Math.min(50, (obs.w || 1.0) * 12));
         if (d <= radiusPx) {
-          return obs;
+          const areaScore = (obs.w || 1.0) * (obs.l || 1.0);
+          const score = d + areaScore * 2.0;
+          if (score < bestScore) {
+            bestScore = score;
+            bestCandidate = obs;
+          }
         }
       }
     }
   }
+  if (bestCandidate) return bestCandidate;
 
   return null;
 }

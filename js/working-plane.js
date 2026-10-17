@@ -401,7 +401,9 @@ function cursorGizmoShowAt(pos, explicitNormal, windowPos) {
     }
   }
 
-  const radial = Cesium.Cartesian3.normalize(effectivePos, new Cesium.Cartesian3());
+  const radial = (typeof Cesium !== "undefined" && Cesium.Ellipsoid && Cesium.Ellipsoid.WGS84)
+    ? Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(effectivePos, new Cesium.Cartesian3())
+    : Cesium.Cartesian3.normalize(effectivePos, new Cesium.Cartesian3());
   if (!normal || Cesium.Cartesian3.magnitude(normal) < 1e-4) {
     normal = Cesium.Cartesian3.clone(radial);
   } else {
@@ -1539,8 +1541,10 @@ function cursorGizmoSurfaceNormal(winPos, anchor) {
   const activePl = (typeof wpGetActivePlane === "function") ? wpGetActivePlane() : null;
   if (activePl && activePl.normal) return Cesium.Cartesian3.clone(activePl.normal);
 
-  // 3. Fallback: normal radial del elipsoide
-  return Cesium.Cartesian3.normalize(pCenter, new Cesium.Cartesian3());
+  // 3. Fallback: normal geodésica del elipsoide WGS84
+  return (typeof Cesium !== "undefined" && Cesium.Ellipsoid && Cesium.Ellipsoid.WGS84)
+    ? Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(pCenter, new Cesium.Cartesian3())
+    : Cesium.Cartesian3.normalize(pCenter, new Cesium.Cartesian3());
 }
 
 function wpRayPlane(ray, plane) {
@@ -1551,7 +1555,7 @@ function wpRayPlane(ray, plane) {
     Cesium.Cartesian3.subtract(plane.origin, ray.origin, new Cesium.Cartesian3()),
     plane.normal
   ) / denom;
-  if (t < 0) return null; // El rayo solo viaja hacia adelante (descartar detrás de la cámara)
+  if (t < 0 || t > 10000.0) return null; // El rayo solo viaja hacia adelante dentro del horizonte local (max 10 km)
   return Cesium.Cartesian3.add(
     ray.origin,
     Cesium.Cartesian3.multiplyByScalar(ray.direction, t, new Cesium.Cartesian3()),
@@ -1718,7 +1722,9 @@ function wpComputePlaneFrom3Points(p1, p2, p3, axisMode) {
   }
   let normal = Cesium.Cartesian3.multiplyByScalar(cross, 1.0 / magCross, new Cesium.Cartesian3());
 
-  const radial = Cesium.Cartesian3.normalize(p1, new Cesium.Cartesian3());
+  const radial = (typeof Cesium !== "undefined" && Cesium.Ellipsoid && Cesium.Ellipsoid.WGS84)
+    ? Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(p1, new Cesium.Cartesian3())
+    : Cesium.Cartesian3.normalize(p1, new Cesium.Cartesian3());
   if (Cesium.Cartesian3.dot(normal, radial) < 0) {
     normal = Cesium.Cartesian3.negate(normal, new Cesium.Cartesian3());
   }
@@ -3045,6 +3051,10 @@ function wpDeleteSelectedPolyline() {
     window.allRenderedPanels = [];
     if (typeof lastRoofInfo !== 'undefined') window.lastRoofInfo = null;
     if (typeof wpClearInverterAndCables === 'function') wpClearInverterAndCables();
+    if (typeof clearSimulatedPV === 'function') clearSimulatedPV();
+  } else {
+    // Si quedan faldones, limpiar primitivas previas en GPU para que se regeneren limpias
+    if (typeof clearSimulatedPV === 'function') clearSimulatedPV();
   }
 
   wpRenderAllPolylines();
@@ -4363,6 +4373,7 @@ function wpUpdateCanvasHUD() {
 }
 
 function wpCancelCurrentMode() {
+  WP.selectedVtxIdx = -1;
   if (WP.mode !== 'idle' || (Array.isArray(WP.activePolyPts) && WP.activePolyPts.length > 0)) {
     wpSetMode('idle');
     wpClearEntGroup('planePreview');
@@ -4371,6 +4382,15 @@ function wpCancelCurrentMode() {
     WP.activePolyPts = [];
     if (typeof polygonPoints !== 'undefined') polygonPoints = [];
     if (typeof window !== 'undefined') window.polygonPoints = [];
+
+    // Limpieza de entidad dinámica CallbackProperty activa en dibujo
+    if (typeof activeShapeEntity !== 'undefined' && activeShapeEntity) {
+      try {
+        if (typeof viewer !== 'undefined' && viewer && viewer.entities) viewer.entities.remove(activeShapeEntity);
+      } catch(e) {}
+      activeShapeEntity = undefined;
+      if (typeof window !== 'undefined') window.activeShapeEntity = undefined;
+    }
 
     // Si se estaba dibujando huella de edificio
     if (typeof cancelActiveBuilding === 'function' && (WP.mode === 'draw-building' || (typeof activeBuildingPts !== 'undefined' && activeBuildingPts && activeBuildingPts.length > 0))) {
