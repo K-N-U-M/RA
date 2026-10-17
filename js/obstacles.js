@@ -1592,11 +1592,8 @@ function wpCheckObstacleInsideRoof(optObs, notifyIfOutside) {
       : (typeof WP.activePlaneIdx === 'number' ? WP.activePlaneIdx : 0);
     const plane = (WP.planes && WP.planes[planeIdx]) ? WP.planes[planeIdx] : null;
 
-    let poly2D = (poly.roofInfo && Array.isArray(poly.roofInfo.poly2D) && poly.roofInfo.poly2D.length >= 3)
-      ? poly.roofInfo.poly2D
-      : null;
-
-    if (!poly2D && plane && plane.origin && plane.uVec && plane.vVec) {
+    let poly2D = null;
+    if (plane && plane.origin && plane.uVec && plane.vVec && Array.isArray(poly.points)) {
       poly2D = poly.points.map(pt => {
         const rel = Cesium.Cartesian3.subtract(pt, plane.origin, new Cesium.Cartesian3());
         return {
@@ -1604,6 +1601,8 @@ function wpCheckObstacleInsideRoof(optObs, notifyIfOutside) {
           v: Cesium.Cartesian3.dot(rel, plane.vVec)
         };
       });
+    } else if (poly.roofInfo && Array.isArray(poly.roofInfo.poly2D) && poly.roofInfo.poly2D.length >= 3) {
+      poly2D = poly.roofInfo.poly2D;
     }
 
     if (!poly2D || poly2D.length < 3) continue;

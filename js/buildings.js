@@ -504,7 +504,10 @@ function render3DBuildingsInCesium() {
 
       // ── Extremos de la cumbrera (Cartesian3) ────────────────────
       const mkRidge = (pr) => Cesium.Cartesian3.fromRadians(
-        cLon + pr*rX/(R_EARTH * cosLat), cLat + pr*rY/R_EARTH, ridgeHeight);
+        cLon + (midS * sX + pr * rX) / (R_EARTH * cosLat),
+        cLat + (midS * sY + pr * rY) / R_EARTH,
+        ridgeHeight
+      );
       const r1 = mkRidge(minR), r2 = mkRidge(maxR);
 
       const pEaves = roofCartoList.map(c =>
@@ -519,6 +522,9 @@ function render3DBuildingsInCesium() {
         if (Cesium.Cartesian3.distance(A, B) < 0.01 || 
             Cesium.Cartesian3.distance(B, C) < 0.01 || 
             Cesium.Cartesian3.distance(A, C) < 0.01) return; // Fix: Prevenir triángulos degenerados (_target error)
+        const ab = Cesium.Cartesian3.subtract(B, A, new Cesium.Cartesian3());
+        const ac = Cesium.Cartesian3.subtract(C, A, new Cesium.Cartesian3());
+        if (Cesium.Cartesian3.magnitude(Cesium.Cartesian3.cross(ab, ac, new Cesium.Cartesian3())) < 1e-4) return;
         try {
           const inst = new Cesium.GeometryInstance({
             geometry: Cesium.PolygonGeometry.fromPositions({

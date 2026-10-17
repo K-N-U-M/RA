@@ -108,10 +108,12 @@
     if (!ptA || !ptB) return { d3D: 0, d2D: 0, dZ: 0, dZSigned: 0, slopeDeg: 0 };
     var d3D = Cesium.Cartesian3.distance(ptA, ptB);
 
-    var cartA = Cesium.Cartographic.fromCartesian(ptA);
-    var cartB = Cesium.Cartographic.fromCartesian(ptB);
+    var cartA = ptA ? Cesium.Cartographic.fromCartesian(ptA) : null;
+    var cartB = ptB ? Cesium.Cartographic.fromCartesian(ptB) : null;
+    var hA = (cartA && typeof cartA.height === 'number') ? cartA.height : 0;
+    var hB = (cartB && typeof cartB.height === 'number') ? cartB.height : 0;
 
-    var dZSigned = (cartB.height || 0) - (cartA.height || 0);
+    var dZSigned = hB - hA;
     var dZ = Math.abs(dZSigned);
     var d2D = Math.sqrt(Math.max(0, d3D * d3D - dZ * dZ));
     var slopeDeg = (d2D > 0.01) ? Cesium.Math.toDegrees(Math.atan2(dZ, d2D)) : (dZ > 0 ? 90 : 0);

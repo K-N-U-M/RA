@@ -1532,6 +1532,7 @@ function wpRayPlane(ray, plane) {
     Cesium.Cartesian3.subtract(plane.origin, ray.origin, new Cesium.Cartesian3()),
     plane.normal
   ) / denom;
+  if (t < 0) return null; // El rayo solo viaja hacia adelante (descartar detrás de la cámara)
   return Cesium.Cartesian3.add(
     ray.origin,
     Cesium.Cartesian3.multiplyByScalar(ray.direction, t, new Cesium.Cartesian3()),
@@ -1688,10 +1689,15 @@ function wpComputePlaneFrom3Points(p1, p2, p3, axisMode) {
   // Vector normal del plano (geometria pura — siempre igual independiente del modo de ejes)
   const v1 = Cesium.Cartesian3.subtract(p2, p1, new Cesium.Cartesian3());
   const v2 = Cesium.Cartesian3.subtract(p3, p1, new Cesium.Cartesian3());
-  let normal = Cesium.Cartesian3.normalize(
-    Cesium.Cartesian3.cross(v1, v2, new Cesium.Cartesian3()),
-    new Cesium.Cartesian3()
-  );
+  const cross = Cesium.Cartesian3.cross(v1, v2, new Cesium.Cartesian3());
+  const magCross = Cesium.Cartesian3.magnitude(cross);
+  if (magCross < 1e-4) {
+    if (typeof showToast === 'function') {
+      showToast('PUNTOS COLINEALES', 'Los 3 puntos seleccionados están en línea recta o son idénticos. Selecciona un punto no colineal.', 'warning', 3500);
+    }
+    return null;
+  }
+  let normal = Cesium.Cartesian3.multiplyByScalar(cross, 1.0 / magCross, new Cesium.Cartesian3());
 
   const radial = Cesium.Cartesian3.normalize(p1, new Cesium.Cartesian3());
   if (Cesium.Cartesian3.dot(normal, radial) < 0) {
@@ -1878,6 +1884,10 @@ function wpAddPlanePoint(pos3D) {
     }
   } else if (WP.planePts.length >= 3) {
     const planeData = wpComputePlaneFrom3Points(WP.planePts[0], WP.planePts[1], WP.planePts[2]);
+    if (!planeData) {
+      WP.planePts.pop(); // Retirar P3 colineal para permitir al usuario hacer clic en un punto válido
+      return;
+    }
     const planeObj = Object.assign({
       id: 'plane_' + Date.now(),
       name: 'Plano Cubierta #' + (WP.planes.length + 1) + ' (' + planeData.tiltDeg.toFixed(0) + '°)',
@@ -2464,7 +2474,10 @@ function wpCloseActivePolyline() {
   }
 
   const plane = wpGetActivePlane();
-  const pts = WP.activePolyPts.map(p => Cesium.Cartesian3.clone(p));
+  const rawPts = WP.activePolyPts.map(p => Cesium.Cartesian3.clone(p));
+  const pts = (typeof wpEnsureCounterClockwisePoints === 'function')
+    ? wpEnsureCounterClockwisePoints(rawPts, plane ? plane.normal : null)
+    : rawPts;
   const area = wpPolylineArea3D(pts);
 
   const polyObj = {
