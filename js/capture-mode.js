@@ -307,6 +307,11 @@
     var t = e.target;
     if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName || '')) return;
     if (t && t.isContentEditable) return;
+    if (state.enabled) {
+      e.preventDefault();
+      api.disable();
+      return;
+    }
     if (global.WP && global.WP.mode && global.WP.mode !== 'idle') return;
     e.preventDefault();
     api.toggle();

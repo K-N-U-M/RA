@@ -1005,6 +1005,8 @@ function raNewProjectConfirm() {
       _wpAutoSaveTimer = null;
     }
     if (typeof clearSimulatedPV === 'function') clearSimulatedPV();
+    if (typeof wpClearInverterAndCables === 'function') wpClearInverterAndCables();
+    if (typeof window !== 'undefined') window.allRenderedPanels = [];
     if (typeof WP !== 'undefined') {
       WP.planes = [];
       WP.polylines = [];
@@ -1028,6 +1030,13 @@ function raNewProjectConfirm() {
     try { localStorage.removeItem('ra_solar_project_autosave'); } catch(e) {}
     if (window.RAundo && typeof window.RAundo.clear === 'function') {
       window.RAundo.clear();
+    }
+    if (typeof window !== 'undefined' && window.ProjectHierarchy && typeof window.ProjectHierarchy.notify === 'function') {
+      window.ProjectHierarchy.notify('project_reset');
+    }
+    if (typeof window !== 'undefined' && window.WorkflowOrchestrator) {
+      if (typeof window.WorkflowOrchestrator.goToStep === 'function') window.WorkflowOrchestrator.goToStep(1, true);
+      if (typeof window.WorkflowOrchestrator.refreshGating === 'function') window.WorkflowOrchestrator.refreshGating();
     }
     _raCurrentFileHandle = null;
     _raCurrentProjectName = 'Nuevo_Proyecto_Solar';

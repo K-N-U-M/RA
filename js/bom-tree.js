@@ -66,6 +66,7 @@
         electrical: {
           inverters: [],
           microinverters: [],
+          batteries: [],
           dcPanels: [],
           acPanels: [],
           cables: [],
@@ -407,6 +408,27 @@
             unitPrice: invSpec.price,
             totalPriceEur: parseFloat(totalInvCost.toFixed(2))
           });
+        }
+
+        // ── 4.1 BATERÍAS DE ALMACENAMIENTO ──────────────────────────────────────
+        const batCount = (projectConfig.autoSizing && projectConfig.autoSizing.batteries && projectConfig.autoSizing.batteries.count) || 0;
+        const batId = projectConfig.selectedBatteryId;
+        if (batId && catalog.batteries) {
+          const batSpec = catalog.batteries.find(b => b.id === batId);
+          if (batSpec) {
+            const finalBatCount = Math.max(1, batCount);
+            const totalBatCost = finalBatCount * (batSpec.price || 3500);
+            tree.summary.subtotalEur += totalBatCost;
+            tree.electrical.batteries.push({
+              id: batSpec.id,
+              brand: batSpec.brand,
+              model: batSpec.model,
+              kwhCapacity: batSpec.kwh,
+              count: finalBatCount,
+              unitPrice: batSpec.price,
+              totalPriceEur: parseFloat(totalBatCost.toFixed(2))
+            });
+          }
         }
 
         // ── 5. CUADROS DE PROTECCIÓN DC Y AC ────────────────────────────────────

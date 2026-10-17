@@ -1479,8 +1479,10 @@ function generatePropuestaComercialPDF(skipPricingModal) {
   // Perfil solar horario normalizado (kWh por kWh diario producido)
   const SOLAR_PROFILE = [0.00,0.00,0.00,0.00,0.00,0.00,0.02,0.05,0.08,0.10,0.11,0.11,0.10,0.09,0.08,0.06,0.04,0.02,0.00,0.00,0.00,0.00,0.00,0.00];
 
-  // Curva de consumo doméstico normalizada (kWh por kWh diario consumido)
-  const LOAD_PROFILE = [0.030,0.025,0.022,0.020,0.020,0.028,0.040,0.050,0.045,0.035,0.032,0.035,0.038,0.032,0.030,0.038,0.050,0.065,0.070,0.062,0.052,0.048,0.042,0.036];
+  // Curva de consumo doméstico normalizada (kWh por kWh diario consumido, suma exacta 1.000)
+  const rawLoadProfile = [0.030,0.025,0.022,0.020,0.020,0.028,0.040,0.050,0.045,0.035,0.032,0.035,0.038,0.032,0.030,0.038,0.050,0.065,0.070,0.062,0.052,0.048,0.042,0.036];
+  const sumRawLoad = rawLoadProfile.reduce((a, b) => a + b, 0);
+  const LOAD_PROFILE = rawLoadProfile.map(v => v / sumRawLoad);
 
   // [P0] Consumo anual: factura auditada del cliente (bill-auditor) cuando exista;
   // la heurística producción×0.75 queda solo como fallback sin factura.
@@ -1526,6 +1528,7 @@ function generatePropuestaComercialPDF(skipPricingModal) {
   const maxBatCap = batCap * batDOD;         // Capacidad útil real (kWh)
   const pBatMaxKw = Math.max(3.0, batCap * 0.5); // Límite de potencia C/2 (kW)
   let batSoC = 0.0;                         // SoC inicial (kWh útiles)
+  const hasVirtualBattery = !!(typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.hasVirtualBattery);
 
   let annualAutoconsumoDirecto = 0;
   let annualBateriaKWh = 0;
@@ -1533,6 +1536,7 @@ function generatePropuestaComercialPDF(skipPricingModal) {
   let annualCosteRed = 0;
   let annualCosteCargaRed = 0;
   let annualIngresoExcedente = 0;
+  let annualIngresoExcedenteEfectivo = 0;
   let annualCosteSinFV = 0;
 
   for (let m = 0; m < 12; m++) {
@@ -1605,12 +1609,17 @@ function generatePropuestaComercialPDF(skipPricingModal) {
       monthCostGrid += gridBuy * price;
     }
 
+    const monthCostGridTotal = monthCostGrid * daysInMonth;
+    const monthSurplusIncomeTotal = monthSurplusIncome * daysInMonth;
+    const monthEffectiveSurplusIncome = hasVirtualBattery ? monthSurplusIncomeTotal : Math.min(monthSurplusIncomeTotal, monthCostGridTotal);
+
     annualAutoconsumoDirecto += monthDirect * daysInMonth;
     annualBateriaKWh += monthBattery * daysInMonth;
     annualExcedenteKWh += monthSurplus * daysInMonth;
-    annualCosteRed += monthCostGrid * daysInMonth;
+    annualCosteRed += monthCostGridTotal;
     annualCosteCargaRed += monthGridChargeCost * daysInMonth;
-    annualIngresoExcedente += monthSurplusIncome * daysInMonth;
+    annualIngresoExcedente += monthSurplusIncomeTotal;
+    annualIngresoExcedenteEfectivo += monthEffectiveSurplusIncome;
     annualCosteSinFV += monthCostSinFV * daysInMonth;
   }
 
@@ -1626,9 +1635,7 @@ function generatePropuestaComercialPDF(skipPricingModal) {
   const precioRed = tou.horas.reduce((a, b) => a + b, 0) / tou.horas.length;
   const precioCompensacion = tou.compensacion;
 
-  // [P0.3 - RD 244/2019] Techo legal en compensación simplificada: el saldo del término de energía nunca puede ser negativo
-  const hasVirtualBattery = !!(typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.hasVirtualBattery);
-  const annualIngresoExcedenteEfectivo = hasVirtualBattery ? annualIngresoExcedente : Math.min(annualIngresoExcedente, annualCosteRed);
+  // [P0.3 - RD 244/2019] Techo legal en compensación simplificada mensual: el saldo de energía no es negativo por ciclo
   const ingresoExcedenteEfectivo = annualIngresoExcedenteEfectivo / 365.0;
 
   // El ahorro anual en factura eléctrica compara el coste anual de red sin FV vs con FV

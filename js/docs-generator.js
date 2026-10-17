@@ -631,10 +631,21 @@ function generatePresupuesto(skipPricingModal) {
     },
     { titulo: 'CAP. 3 — SISTEMA DE GENERACIÓN Y CONVERSIÓN',
       items: [
-        { ref:'3.1', desc:'Inversor ' + ((typeof d.P_ac_kW === 'number') ? d.P_ac_kW.toFixed(2) : '5.00') + ' kW, ' + (d.monofasico ? 'monofásico 230 V' : 'trifásico 400 V') + ', ' + (d.numStrings > 1 ? 'doble seguidor MPPT independiente' : 'seguidor MPPT') + ', rendimiento europeo η > 98.2%, monitorización WiFi/Ethernet integrada y grado de protección IP65.', ud:'ud', q:1, pu: (m && m.invCost ? m.invCost : (d.pres_inv || 1100.0)) }
+        { ref:'3.1', desc:'Inversor ' + ((typeof d.P_ac_kW === 'number') ? d.P_ac_kW.toFixed(2) : '5.00') + ' kW, ' + (d.monofasico ? 'monofásico 230 V' : 'trifásico 400 V') + ', ' + (d.numStrings > 1 ? 'doble seguidor MPPT independiente' : 'seguidor MPPT') + ', rendimiento europeo η > 98.2%, monitorización WiFi/Ethernet integrada y grado de protección IP65.', ud:'ud', q: (m && m.invCount && m.invCount > 0) ? m.invCount : 1, pu: (m && m.invCost ? (m.invCost / ((m.invCount && m.invCount > 0) ? m.invCount : 1)) : (d.pres_inv || 1100.0)) }
       ]
     }
   ];
+
+  // Si existen optimizadores de potencia MLPE, incorporar su capítulo
+  if (m && m.mlpeCost > 0) {
+    const mlpeCount = m.mlpeCount || d.mlpeCount || 1;
+    caps.push({
+      titulo: 'CAP. OPT — OPTIMIZADORES DE POTENCIA A NIVEL DE MÓDULO (MLPE)',
+      items: [
+        { ref: 'OPT.1', desc: 'Optimizadores DC de punto de máxima potencia a nivel de módulo individual (MLPE) para mitigación de sombras y monitorización granular.', ud: 'ud', q: mlpeCount, pu: m.mlpeCost / mlpeCount }
+      ]
+    });
+  }
 
   // Si existe sistema de almacenamiento (Batería LFP), incorporar su capítulo
   if (m && m.batCost > 0) {
@@ -642,7 +653,7 @@ function generatePresupuesto(skipPricingModal) {
     caps.push({
       titulo: 'CAP. 4 — SISTEMA DE ALMACENAMIENTO ELECTROQUÍMICO (BATERÍA LFP)',
       items: [
-        { ref:'4.1', desc:'Sistema de acumulación modular de litio-ferrofosfato (LiFePO4) de ' + batKwh.toFixed(1) + ' kWh de capacidad útil, BMS integrado, DoD 90% y >6.000 ciclos de vida útil con comunicación CAN/RS485.', ud:'ud', q: 1, pu: m.batCost }
+        { ref:'4.1', desc:'Sistema de acumulación modular de litio-ferrofosfato (LiFePO4) de ' + batKwh.toFixed(1) + ' kWh de capacidad útil, BMS integrado, DoD 90% y >6.000 ciclos de vida útil con comunicación CAN/RS485.', ud:'ud', q: (m.batCount || 1), pu: m.batCost / (m.batCount || 1) }
       ]
     });
   }
