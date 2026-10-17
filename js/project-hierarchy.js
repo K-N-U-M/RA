@@ -49,9 +49,9 @@
               function getPolylineStats(poly, polyIdx) {
           let pCount = 0;
           if (renderedPanels.length > 0) {
-            pCount = renderedPanels.filter(function(p) { return p && p.polyIdx === polyIdx; }).length;
+            pCount = renderedPanels.filter(function(p) { return p && p.polyIdx === polyIdx && !p.deleted; }).length;
           } else if (poly && poly.roofInfo && Array.isArray(poly.roofInfo.panels)) {
-            pCount = poly.roofInfo.panels.length;
+            pCount = poly.roofInfo.panels.filter(function(p) { return p && !p.deleted; }).length;
           }
           let modW = (poly && poly.moduleConfig && poly.moduleConfig.potencia);
           if (!modW && global.solarProjectConfig && global.solarProjectConfig.selectedModuleId && global.equipmentCatalog && typeof global.equipmentCatalog.getModule === 'function') {
@@ -521,8 +521,17 @@
         if (typeof global.wpRenderActivePlaneGizmo === 'function') global.wpRenderActivePlaneGizmo();
         if (global.viewer && global.viewer.scene && typeof global.viewer.scene.requestRender === 'function') global.viewer.scene.requestRender();
       } else if (type === 'polyline' && wp && wp.polylines && wp.polylines[idOrIdx]) {
-        wp.polylines[idOrIdx].visible = (wp.polylines[idOrIdx].visible === false) ? true : false;
+        const isVis = (wp.polylines[idOrIdx].visible === false) ? true : false;
+        wp.polylines[idOrIdx].visible = isVis;
         if (typeof global.wpRenderAllPolylines === 'function') global.wpRenderAllPolylines();
+        if (Array.isArray(global.simulatedPanelEntities)) {
+          global.simulatedPanelEntities.forEach(function(pe) {
+            if (pe && pe.polyIdx === idOrIdx) pe.show = isVis;
+          });
+        }
+        if (global.viewer && global.viewer.scene && typeof global.viewer.scene.requestRender === 'function') global.viewer.scene.requestRender();
+      } else if (type === 'wind_turbine' && global.RAWindTurbine && typeof global.RAWindTurbine.toggleVisibility === 'function') {
+        global.RAWindTurbine.toggleVisibility(idOrIdx);
         if (global.viewer && global.viewer.scene && typeof global.viewer.scene.requestRender === 'function') global.viewer.scene.requestRender();
       } else if (type === 'obstacle' && Array.isArray(global.obstacles)) {
         const o = (typeof idOrIdx === 'string') ? global.obstacles.find(function(item) { return item.id === idOrIdx; }) : global.obstacles[idOrIdx];

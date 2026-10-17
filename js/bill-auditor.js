@@ -50,10 +50,10 @@
         periodoInicio: null,
         periodoFin: null,
         diasFactura: 30,
-        potenciasContratadasKW: { p1: 0, p2: 0, p3: 0 },
+        potenciasContratadasKW: { p1: 0, p2: 0, p3: 0, p4: 0, p5: 0, p6: 0 },
         costePotenciaEUR: 0,
-        consumosKWh: { p1: 0, p2: 0, p3: 0, total: 0 },
-        preciosEnergiaEURKWh: { p1: 0, p2: 0, p3: 0 },
+        consumosKWh: { p1: 0, p2: 0, p3: 0, p4: 0, p5: 0, p6: 0, total: 0 },
+        preciosEnergiaEURKWh: { p1: 0, p2: 0, p3: 0, p4: 0, p5: 0, p6: 0 },
         costeEnergiaEUR: 0,
         impuestoElectricoEUR: 0,
         alquilerContadorEUR: 0,
@@ -128,22 +128,38 @@
         data.consumosKWh.total = parseFloat(kwhMatches[1].replace(',', '.'));
       }
 
-      // Consumos por periodo
-      const p1Match = clean.match(/P1[^0-9\n]{0,20}([0-9]{1,4}(?:[,.]\d{1,2})?)\s*kWh/i);
-      const p2Match = clean.match(/P2[^0-9\n]{0,20}([0-9]{1,4}(?:[,.]\d{1,2})?)\s*kWh/i);
-      const p3Match = clean.match(/P3[^0-9\n]{0,20}([0-9]{1,4}(?:[,.]\d{1,2})?)\s*kWh/i);
+      // Consumos por periodo (P1 a P6 para 2.0TD / 3.0TD / 6.1TD)
+      const p1Match = clean.match(/P1[^0-9\n]{0,20}([0-9]{1,5}(?:[,.]\d{1,2})?)\s*kWh/i);
+      const p2Match = clean.match(/P2[^0-9\n]{0,20}([0-9]{1,5}(?:[,.]\d{1,2})?)\s*kWh/i);
+      const p3Match = clean.match(/P3[^0-9\n]{0,20}([0-9]{1,5}(?:[,.]\d{1,2})?)\s*kWh/i);
+      const p4Match = clean.match(/P4[^0-9\n]{0,20}([0-9]{1,5}(?:[,.]\d{1,2})?)\s*kWh/i);
+      const p5Match = clean.match(/P5[^0-9\n]{0,20}([0-9]{1,5}(?:[,.]\d{1,2})?)\s*kWh/i);
+      const p6Match = clean.match(/P6[^0-9\n]{0,20}([0-9]{1,5}(?:[,.]\d{1,2})?)\s*kWh/i);
       if (p1Match) data.consumosKWh.p1 = parseFloat(p1Match[1].replace(',', '.'));
       if (p2Match) data.consumosKWh.p2 = parseFloat(p2Match[1].replace(',', '.'));
       if (p3Match) data.consumosKWh.p3 = parseFloat(p3Match[1].replace(',', '.'));
-      if (!data.consumosKWh.total && (data.consumosKWh.p1 || data.consumosKWh.p2 || data.consumosKWh.p3)) {
-        data.consumosKWh.total = data.consumosKWh.p1 + data.consumosKWh.p2 + data.consumosKWh.p3;
+      if (p4Match) data.consumosKWh.p4 = parseFloat(p4Match[1].replace(',', '.'));
+      if (p5Match) data.consumosKWh.p5 = parseFloat(p5Match[1].replace(',', '.'));
+      if (p6Match) data.consumosKWh.p6 = parseFloat(p6Match[1].replace(',', '.'));
+      const sumP = (data.consumosKWh.p1 || 0) + (data.consumosKWh.p2 || 0) + (data.consumosKWh.p3 || 0) +
+                   (data.consumosKWh.p4 || 0) + (data.consumosKWh.p5 || 0) + (data.consumosKWh.p6 || 0);
+      if (!data.consumosKWh.total && sumP > 0) {
+        data.consumosKWh.total = sumP;
       }
 
       // 6. Potencias Contratadas (kW)
-      const potP1 = clean.match(/(?:potencia|punta|p1)[^0-9\n]{0,20}([0-9]{1,2}(?:[,.]\d{1,3})?)\s*kW/i);
-      const potP2 = clean.match(/(?:valle|p2)[^0-9\n]{0,20}([0-9]{1,2}(?:[,.]\d{1,3})?)\s*kW/i);
+      const potP1 = clean.match(/(?:potencia|punta|p1)[^0-9\n]{0,20}([0-9]{1,3}(?:[,.]\d{1,3})?)\s*kW/i);
+      const potP2 = clean.match(/(?:valle|p2)[^0-9\n]{0,20}([0-9]{1,3}(?:[,.]\d{1,3})?)\s*kW/i);
+      const potP3 = clean.match(/(?:p3)[^0-9\n]{0,20}([0-9]{1,3}(?:[,.]\d{1,3})?)\s*kW/i);
+      const potP4 = clean.match(/(?:p4)[^0-9\n]{0,20}([0-9]{1,3}(?:[,.]\d{1,3})?)\s*kW/i);
+      const potP5 = clean.match(/(?:p5)[^0-9\n]{0,20}([0-9]{1,3}(?:[,.]\d{1,3})?)\s*kW/i);
+      const potP6 = clean.match(/(?:p6)[^0-9\n]{0,20}([0-9]{1,3}(?:[,.]\d{1,3})?)\s*kW/i);
       if (potP1) data.potenciasContratadasKW.p1 = parseFloat(potP1[1].replace(',', '.'));
       if (potP2) data.potenciasContratadasKW.p2 = parseFloat(potP2[1].replace(',', '.'));
+      if (potP3) data.potenciasContratadasKW.p3 = parseFloat(potP3[1].replace(',', '.'));
+      if (potP4) data.potenciasContratadasKW.p4 = parseFloat(potP4[1].replace(',', '.'));
+      if (potP5) data.potenciasContratadasKW.p5 = parseFloat(potP5[1].replace(',', '.'));
+      if (potP6) data.potenciasContratadasKW.p6 = parseFloat(potP6[1].replace(',', '.'));
       if (!data.potenciasContratadasKW.p2 && data.potenciasContratadasKW.p1) {
         data.potenciasContratadasKW.p2 = data.potenciasContratadasKW.p1;
       }
@@ -339,19 +355,28 @@ Devuelve EXCLUSIVAMENTE un objeto JSON válido con la siguiente estructura exact
   "potenciasContratadasKW": {
     "p1": 4.6,
     "p2": 4.6,
-    "p3": 0.0
+    "p3": 0.0,
+    "p4": 0.0,
+    "p5": 0.0,
+    "p6": 0.0
   },
   "costePotenciaEUR": 25.40,
   "consumosKWh": {
     "p1": 120.0,
     "p2": 95.0,
     "p3": 140.0,
+    "p4": 0.0,
+    "p5": 0.0,
+    "p6": 0.0,
     "total": 355.0
   },
   "preciosEnergiaEURKWh": {
     "p1": 0.185,
     "p2": 0.142,
-    "p3": 0.098
+    "p3": 0.098,
+    "p4": 0.0,
+    "p5": 0.0,
+    "p6": 0.0
   },
   "costeEnergiaEUR": 55.30,
   "impuestoElectricoEUR": 2.80,
@@ -438,11 +463,17 @@ Normas estrictas:
       const p1Pot = (d.potenciasContratadasKW && d.potenciasContratadasKW.p1) || 4.6;
       const p2Pot = (d.potenciasContratadasKW && d.potenciasContratadasKW.p2) || p1Pot;
       const p3Pot = (d.potenciasContratadasKW && d.potenciasContratadasKW.p3) || 0;
+      const p4Pot = (d.potenciasContratadasKW && d.potenciasContratadasKW.p4) || 0;
+      const p5Pot = (d.potenciasContratadasKW && d.potenciasContratadasKW.p5) || 0;
+      const p6Pot = (d.potenciasContratadasKW && d.potenciasContratadasKW.p6) || 0;
 
       const p1Kwh = (d.consumosKWh && d.consumosKWh.p1) || 0;
       const p2Kwh = (d.consumosKWh && d.consumosKWh.p2) || 0;
       const p3Kwh = (d.consumosKWh && d.consumosKWh.p3) || 0;
-      let totalKwh = (d.consumosKWh && d.consumosKWh.total) || (p1Kwh + p2Kwh + p3Kwh);
+      const p4Kwh = (d.consumosKWh && d.consumosKWh.p4) || 0;
+      const p5Kwh = (d.consumosKWh && d.consumosKWh.p5) || 0;
+      const p6Kwh = (d.consumosKWh && d.consumosKWh.p6) || 0;
+      let totalKwh = (d.consumosKWh && d.consumosKWh.total) || (p1Kwh + p2Kwh + p3Kwh + p4Kwh + p5Kwh + p6Kwh);
 
       const totalEur = parseFloat(d.totalFacturaEUR) || 0;
       if (!totalKwh && totalEur > 0) totalKwh = Math.round((totalEur * 0.70) / 0.18);
@@ -468,19 +499,28 @@ Normas estrictas:
         potenciasContratadasKW: {
           p1: parseFloat(p1Pot) || 4.6,
           p2: parseFloat(p2Pot) || 4.6,
-          p3: parseFloat(p3Pot) || 0
+          p3: parseFloat(p3Pot) || 0,
+          p4: parseFloat(p4Pot) || 0,
+          p5: parseFloat(p5Pot) || 0,
+          p6: parseFloat(p6Pot) || 0
         },
         costePotenciaEUR: parseFloat(d.costePotenciaEUR) || parseFloat((totalEur * 0.25).toFixed(2)),
         consumosKWh: {
           p1: parseFloat(p1Kwh) || parseFloat((totalKwh * 0.35).toFixed(2)),
           p2: parseFloat(p2Kwh) || parseFloat((totalKwh * 0.30).toFixed(2)),
           p3: parseFloat(p3Kwh) || parseFloat((totalKwh * 0.35).toFixed(2)),
+          p4: parseFloat(p4Kwh) || 0,
+          p5: parseFloat(p5Kwh) || 0,
+          p6: parseFloat(p6Kwh) || 0,
           total: Number.isFinite(parseFloat(totalKwh)) ? parseFloat(totalKwh) : 350
         },
         preciosEnergiaEURKWh: {
           p1: parseFloat((d.preciosEnergiaEURKWh && d.preciosEnergiaEURKWh.p1) || 0.20),
           p2: parseFloat((d.preciosEnergiaEURKWh && d.preciosEnergiaEURKWh.p2) || 0.15),
-          p3: parseFloat((d.preciosEnergiaEURKWh && d.preciosEnergiaEURKWh.p3) || 0.10)
+          p3: parseFloat((d.preciosEnergiaEURKWh && d.preciosEnergiaEURKWh.p3) || 0.10),
+          p4: parseFloat((d.preciosEnergiaEURKWh && d.preciosEnergiaEURKWh.p4) || 0.12),
+          p5: parseFloat((d.preciosEnergiaEURKWh && d.preciosEnergiaEURKWh.p5) || 0.10),
+          p6: parseFloat((d.preciosEnergiaEURKWh && d.preciosEnergiaEURKWh.p6) || 0.08)
         },
         costeEnergiaEUR: parseFloat(d.costeEnergiaEUR) || parseFloat((totalEur * 0.65).toFixed(2)),
         impuestoElectricoEUR: parseFloat(d.impuestoElectricoEUR) || parseFloat((totalEur * 0.05).toFixed(2)),

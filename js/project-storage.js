@@ -490,6 +490,9 @@ async function raImportProjectData(projectData) {
     if (typeof wpClearInverterAndCables === 'function') {
       try { wpClearInverterAndCables(); } catch(eClr) {}
     }
+    if (window.RAWindTurbine && typeof window.RAWindTurbine.cleanAll === 'function') {
+      try { window.RAWindTurbine.cleanAll(); } catch(eWt) {}
+    }
     if (window.RAundo && typeof window.RAundo.clear === 'function') {
       window.RAundo.clear();
     }
@@ -1006,6 +1009,9 @@ function raNewProjectConfirm() {
     }
     if (typeof clearSimulatedPV === 'function') clearSimulatedPV();
     if (typeof wpClearInverterAndCables === 'function') wpClearInverterAndCables();
+    if (window.RAWindTurbine && typeof window.RAWindTurbine.cleanAll === 'function') {
+      try { window.RAWindTurbine.cleanAll(); } catch(eWt) {}
+    }
     if (typeof window !== 'undefined') window.allRenderedPanels = [];
     if (typeof WP !== 'undefined') {
       WP.planes = [];

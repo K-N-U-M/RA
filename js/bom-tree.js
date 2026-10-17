@@ -372,7 +372,7 @@
       if (tree.summary.totalOptimizers > 0) {
         const optSpec = (catalog.microinverters && catalog.microinverters.find(mi => mi.type && mi.type.includes('Optimizador'))) || {
           model: 'Optimizador DC Tigo TS4 / Huawei',
-          price: 55.0
+          price: 60.0
         };
         const optCost = tree.summary.totalOptimizers * optSpec.price;
         tree.summary.subtotalEur += optCost;

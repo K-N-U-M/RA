@@ -1006,8 +1006,13 @@ function generatePropuestaComercialPDF(skipPricingModal) {
       @media print {
         body { background: #fff; padding: 0; padding-top: 0; }
         .doc-top-bar { display: none !important; }
-        .page-sheet { box-shadow: none; padding: 28px 36px; margin: 0; page-break-after: always; width: 100%; }
+        .page-sheet { box-shadow: none; padding: 22px 30px; margin: 0; page-break-after: always; width: 100%; }
         .page-sheet:last-child { page-break-after: avoid; }
+        thead { display: table-header-group; }
+        tr, .hero-card, .closer-hero-card, .decision-card, .sig-card, .chart-box { page-break-inside: avoid; break-inside: avoid; }
+        h2 { page-break-after: avoid; break-after: avoid; margin: 12px 0 6px; }
+        table { margin: 6px 0 12px; }
+        td, th { padding: 5px 8px; }
       }
     </style>
   </head>
@@ -1427,7 +1432,10 @@ function generatePropuestaComercialPDF(skipPricingModal) {
   const pa = (typeof polygonAnalysis === 'function') ? polygonAnalysis() : null;
   const tiltDeg = pa ? pa.tiltDeg : 30;
   const azimutDeg = pa ? pa.azimuthDeg : 0;
-  const mlpeCost = mlpeCount * 95; // 95 € por microinversor/optimizador
+  const _projCfg = (typeof window !== 'undefined' && window.solarProjectConfig) ? window.solarProjectConfig : {};
+  const isOptimizerTopology = (_projCfg && _projCfg.selectedTopology === 'optimizer');
+  const mlpeUnitPrice = isOptimizerTopology ? 60.0 : ((_projCfg && _projCfg.selectedTopology === 'microinverter') ? 125.0 : 60.0);
+  const mlpeCost = mlpeCount * mlpeUnitPrice;
 
   const directCost = panCost + est + inv + bat + mlpeCost + cab + mo + leg;
   const marginPct = (pricing && typeof pricing.marginPct === 'number') ? pricing.marginPct : 20;
@@ -1449,7 +1457,8 @@ function generatePropuestaComercialPDF(skipPricingModal) {
   // explícita del comercial (herramienta comercial, nunca default engañoso).
   const irpfEl = document.getElementById('tax-irpf-opt') || document.getElementById('modal-tax-irpf-opt');
   const irpfPct = parseFloat((irpfEl || {value:'0'}).value) || 0;
-  const baseIrpf = Math.min(capexBruto, 7500);
+  const maxBaseIrpf = irpfPct >= 0.50 ? 15000 : (irpfPct >= 0.30 ? 7500 : 5000);
+  const baseIrpf = Math.min(capexBruto, maxBaseIrpf);
   const ahorroIRPF = baseIrpf * irpfPct;
 
   const icioPct = _input('tax-icio-opt', 0.95);
@@ -1698,6 +1707,8 @@ function generatePropuestaComercialPDF(skipPricingModal) {
   let van = -capexDesembolsoInicial;
   let totalGenerado25 = 0;
   let totalCoste25 = capexDesembolsoInicial;
+  let discountedCostsSum = 0;
+  let discountedYieldSum = 0;
 
   const ibiYears = ibiOpt.includes('_5') ? 5 : (ibiOpt.includes('_3') ? 3 : 0);
   const ibiAnnualBonus = (ibiYears > 0) ? (ahorroIBITotal / ibiYears) : 0;
@@ -1712,15 +1723,12 @@ function generatePropuestaComercialPDF(skipPricingModal) {
     annualYields25.push(Math.round(yieldY));
     totalGenerado25 += yieldY;
 
+    // Ahorro año 1 anclado estrictamente a ahorroLuzAnio1 (despacho horario 288h / TOU / batería)
+    // Años 2 a 25 proyectados por degradación acumulada de módulos y escalado de inflación eléctrica
     const priceY = precioRed * Math.pow(1 + inflacion, y - 1);
-    const compY = precioCompensacion * Math.pow(1 + inflacion, y - 1);
-    // Autoconsumo acotado por la demanda real del cliente y excedentes reales vertidos a red
-    const selfConsumedKwhY = Math.min(yieldY * selfConsumptionFraction, consumoAnual);
-    const surplusKwhY = Math.max(0, yieldY - selfConsumedKwhY);
-    const surplusValY = surplusKwhY * compY;
-    const gridBuyCostY = Math.max(0, consumoAnual - selfConsumedKwhY) * priceY;
-    const compEfectivaY = hasVirtualBattery ? surplusValY : Math.min(surplusValY, gridBuyCostY);
-    const saveY = (selfConsumedKwhY * priceY) + compEfectivaY;
+    const saveY = (y === 1)
+      ? ahorroLuzAnio1
+      : (ahorroLuzAnio1 * (yieldY / Math.max(annualYieldKWh, 1)) * Math.pow(1 + inflacion, y - 1));
     annualSavings25.push(Math.round(saveY));
 
     // OPEX indexado anualmente por IPC de servicios
@@ -1732,6 +1740,10 @@ function generatePropuestaComercialPDF(skipPricingModal) {
     // Inversor replacement en año 12 (según potencia nominal e IPC tecnológico)
     const replY = (y === 12) ? invReplacementCost12 : 0;
     totalCoste25 += replY;
+
+    // Acumular flujos descontados para LCOE bancable (WACC 4%)
+    discountedCostsSum += (omY + replY) / Math.pow(1 + r, y);
+    discountedYieldSum += yieldY / Math.pow(1 + r, y);
 
     // Aportación fiscal real sin duplicidad: IRPF en año 1, IBI en años 1 a N_ibi
     let fiscalY = 0;
@@ -1816,8 +1828,9 @@ function generatePropuestaComercialPDF(skipPricingModal) {
     }
   }
 
-  // LCOE (€/kWh)
-  const lcoe = totalGenerado25 > 0 ? (totalCoste25 / totalGenerado25) : 0.038;
+  // LCOE (€/kWh) Bancable Descontado con coste de capital (WACC al 4.0% anual según NREL / IRENA)
+  const totalCosteDescontado = capexDesembolsoInicial + discountedCostsSum;
+  const lcoe = (discountedYieldSum > 0) ? (totalCosteDescontado / discountedYieldSum) : (totalCoste25 > 0 ? (totalCoste25 / Math.max(totalGenerado25, 1)) : 0.038);
 
   // Financiación
   const meses = _input('fin-plazo-meses', 120);

@@ -425,6 +425,9 @@ function step3UpdateHardwareSelection() {
   if (typeof wpUpdateInverterSmartAssistantUI === 'function') {
     wpUpdateInverterSmartAssistantUI();
   }
+  if (typeof WorkflowOrchestrator !== 'undefined' && typeof WorkflowOrchestrator.refreshGating === 'function') {
+    WorkflowOrchestrator.refreshGating();
+  }
 }
 window.step3UpdateHardwareSelection = step3UpdateHardwareSelection;
 

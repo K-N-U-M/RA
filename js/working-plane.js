@@ -1969,7 +1969,7 @@ function wpRenderActivePlaneGizmo() {
   if (Array.isArray(WP.planes)) {
     const showVtx = (WP.showPlaneVertices !== false);
     WP.planes.forEach((p, idx) => {
-      if (idx === WP.activePlaneIdx) return; // El plano activo se renderiza con tríada completa abajo
+      if (idx === WP.activePlaneIdx || p.visible === false) return; // El plano activo se renderiza con tríada completa abajo
       if (!p || !p.pts3D || p.pts3D.length < 3) return;
 
       // Superficie sutil translúcida
@@ -1992,7 +1992,7 @@ function wpRenderActivePlaneGizmo() {
   }
 
   // 2. Renderizar el plano activo con máxima fidelidad
-  if (!activePlane || !activePlane.pts3D || activePlane.pts3D.length < 3) return;
+  if (!activePlane || !activePlane.pts3D || activePlane.pts3D.length < 3 || activePlane.visible === false) return;
 
   const showVtx = (WP.showPlaneVertices !== false);
 
@@ -2676,6 +2676,7 @@ function wpRenderAllPolylines() {
     }
   }
   WP.polylines.forEach((poly, i) => {
+    if (poly.visible === false) return;
     const isSel = i === WP.selectedPolyIdx;
     const strColor = getPolylineStringColor(i);
     // Faldón a cota rasante limpia (+0.12m) para evitar que la fotogrametría 3D ocluya la línea o el relleno
