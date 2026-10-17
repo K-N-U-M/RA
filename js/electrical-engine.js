@@ -595,8 +595,8 @@
       const _mpptCount = inv.mppt || inv.mpptCount || 2;
       const _totalMppts = _mpptCount * invCount;
       const _stringsPerMppt = Math.max(1, Math.ceil(_nStrings / _totalMppts));
-      const _iscPerMppt = (moduleSpec.isc || 14.0) * _stringsPerMppt;
-      const isCurrentSafe = !inv.iMaxScA || (_iscPerMppt <= inv.iMaxScA * 1.10);
+      const _iscPerMppt = (moduleSpec.isc || 14.0) * 1.25 * _stringsPerMppt;
+      const isCurrentSafe = !inv.iMaxScA || (_iscPerMppt <= inv.iMaxScA);
       const hasPhaseUnbalance = (gridSupply === 'three_phase' && isInvSinglePhase && (inv.kw * invCount) > 5.0);
 
       // Comprobación de canales MPPT mínimos frente a orientaciones distintas de cubierta
@@ -676,8 +676,8 @@
           const _mpptCount = inv.mppt || inv.mpptCount || 2;
           const _invCount = Math.max(1, Math.round(totalKwp / (inv.kw * 1.15)));
           const _stringsPerMppt = Math.max(1, Math.ceil(_nStrings / (_mpptCount * _invCount)));
-          const _isc = (moduleSpec.isc || 14.0) * _stringsPerMppt;
-          if (inv.iMaxScA && _isc > inv.iMaxScA * 1.10) countCurrentMismatch++;
+          const _isc = (moduleSpec.isc || 14.0) * 1.25 * _stringsPerMppt;
+          if (inv.iMaxScA && _isc > inv.iMaxScA) countCurrentMismatch++;
         });
 
         if (countPhaseMismatch === catalog.length) {
@@ -887,12 +887,15 @@
     // 1. Strings en orden de creación (un string pertenece siempre a un solo faldón)
     const stringOrder = [];
     const byName = new Map();
+    const stringPanels = new Map();
     panels.forEach(p => {
       if (!p || !p.stringName) return;
       if (!byName.has(p.stringName)) {
         byName.set(p.stringName, { name: p.stringName, polyIdx: p.polyIdx });
         stringOrder.push(p.stringName);
       }
+      if (!stringPanels.has(p.stringName)) stringPanels.set(p.stringName, []);
+      stringPanels.get(p.stringName).push(p);
     });
     const totalStrings = stringOrder.length;
     if (totalStrings === 0) return { changed: 0, reason: 'sin_strings' };

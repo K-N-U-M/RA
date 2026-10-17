@@ -227,11 +227,8 @@
       // Codo 2: Tramo a lo largo del eje V a 90° (hacia la arista de cumbrera o alero)
       var corner2 = Cesium.Cartesian3.add(corner1, Cesium.Cartesian3.multiplyByScalar(V, deltaV, new Cesium.Cartesian3()), new Cesium.Cartesian3());
 
-      // Codo 3: Transición vertical por fachada a 90° hacia el inversor
-      var pTarget = this.elevatePoint(pEnd, 0.20, N);
-
-      // Bajante vertical recta
-      var path = [p0, corner1, corner2, pTarget];
+      // Codo 3: Transición vertical hacia el equipo destino
+      var path = [p0, corner1, corner2, pEnd];
       return this.sanitizePositions(path);
     },
 
@@ -516,15 +513,27 @@
       var _dcTopo = this.getDcTopologyInfo(allStrings.length);
       var isParallelY = _dcTopo.isParallel && allStrings.length >= 2;
 
-      // Si la topología es Paralelo Y: unir strings en un nodo intermedio en cubierta
+      // Si la topología es Paralelo Y: desacoplar nodos Y positivo y negativo en cubierta
+      var yBranchNodePos = null;
+      var yBranchNodeNeg = null;
       var yBranchNode = null;
       if (isParallelY && allStrings.length >= 2) {
         var str1 = allStrings[0], str2 = allStrings[1];
         if (str1.panels && str2.panels && str1.panels.length > 0 && str2.panels.length > 0) {
-          var pA = self.toCartesian3(str1.panels[str1.panels.length - 1].center);
-          var pB = self.toCartesian3(str2.panels[0].center);
-          if (pA && pB) {
-            yBranchNode = Cesium.Cartesian3.midpoint(pA, pB, new Cesium.Cartesian3());
+          var p1Start = self.toCartesian3(str1.panels[0].center);
+          var p2Start = self.toCartesian3(str2.panels[0].center);
+          var p1End = self.toCartesian3(str1.panels[str1.panels.length - 1].center);
+          var p2End = self.toCartesian3(str2.panels[str2.panels.length - 1].center);
+          if (p1Start && p2Start) {
+            yBranchNodePos = Cesium.Cartesian3.midpoint(p1Start, p2Start, new Cesium.Cartesian3());
+          }
+          if (p1End && p2End) {
+            yBranchNodeNeg = Cesium.Cartesian3.midpoint(p1End, p2End, new Cesium.Cartesian3());
+          }
+          if (yBranchNodePos && yBranchNodeNeg) {
+            yBranchNode = Cesium.Cartesian3.midpoint(yBranchNodePos, yBranchNodeNeg, new Cesium.Cartesian3());
+          } else {
+            yBranchNode = yBranchNodePos || yBranchNodeNeg;
           }
         }
       }
@@ -575,9 +584,9 @@
 
         var basis = self.getRoofOrthonormalBasis(startPos);
 
-        // Si hay nodo Y en cubierta para este par de strings:
-        var targetForStringPos = (yBranchNode && sIdx < 2) ? yBranchNode : dcTargetPos;
-        var targetForStringNeg = (yBranchNode && sIdx < 2) ? yBranchNode : dcTargetPos;
+        // Si hay nodo Y en cubierta para este par de strings (conectores desacoplados para DC+ y DC-):
+        var targetForStringPos = (yBranchNodePos && sIdx < 2) ? yBranchNodePos : dcTargetPos;
+        var targetForStringNeg = (yBranchNodeNeg && sIdx < 2) ? yBranchNodeNeg : dcTargetPos;
 
         // Trazado DC+ (Rojo, cota +0.35m sobre faldón)
         var posPath = self.buildOrthogonalManhattanPath3D(startPos, targetForStringPos, {
@@ -840,8 +849,10 @@
       var secDcAvail = [4, 6, 10, 16, 25];
       var imaxDcZZF  = [44, 58, 80, 107, 138];
       // [C6/M6] Corrección de ampacidad por temperatura ambiente y agrupamiento
-      // (REBT ITC-BT-19 / UNE 20460-5-523): 0.90 (40–45 °C) × 0.85 (bandeja/conducto).
-      var kAmpacity = 0.90 * 0.85;
+      // (REBT ITC-BT-19 / UNE 20460-5-523 / UNE-HD 60364-5-52): 0.90 (40–45 °C) × kGroup (según circuitos).
+      var nCirc = Math.max(1, strList.length);
+      var kGroup = nCirc === 1 ? 1.0 : (nCirc === 2 ? 0.80 : (nCirc === 3 ? 0.70 : (nCirc <= 5 ? 0.65 : 0.55)));
+      var kAmpacity = 0.90 * kGroup;
       var sDcOpt = 6, dVdcPctOpt = 1.0;
       var dcCompliant = false;
 
