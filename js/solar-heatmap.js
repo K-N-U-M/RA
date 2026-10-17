@@ -94,6 +94,88 @@
     });
   }
 
+  /**
+   * Calcula los polígonos de sombra 2D arrojados por las aristas superiores de paneles elevados
+   * sobre las filas adyacentes (Autosombreado Inter-Filas / Self-shading).
+   * Soporta cualquier orientación, rotación de gizmo, estructuras Este-Oeste y cubiertas inclinadas
+   * extrayendo la arista cumbrera física a partir de la cota real de sus vértices.
+   */
+  function generateInterRowShadowQuads2D(pInfo, sU, sV, shadowLenPerM) {
+    if (!pInfo || !Array.isArray(pInfo.panels) || pInfo.panels.length < 2) return [];
+    if (shadowLenPerM <= 0) return [];
+
+    let hModGlobal = 0;
+    if (typeof pInfo.moduleTiltDeg === 'number' && pInfo.moduleTiltDeg > 5) {
+      const deltaTilt = Math.max(0, pInfo.moduleTiltDeg - (pInfo.tiltDeg || 0));
+      hModGlobal = (pInfo.panels[0].h || 2.10) * Math.sin(deltaTilt * Math.PI / 180);
+    } else if (pInfo.structureType && (pInfo.structureType.includes('triangle') || pInfo.structureType.includes('east_west'))) {
+      hModGlobal = (pInfo.panels[0].h || 2.10) * Math.sin(15 * Math.PI / 180);
+    }
+
+    const quads = [];
+    const offset = 0.06;
+
+    pInfo.panels.forEach((p, pIdx) => {
+      let topU1, topV1, topU2, topV2;
+      let effHMod = hModGlobal;
+
+      // [AAA FÍSICA SOLAR] Detección geométrica exacta de la cumbrera superior a partir de los 4 vértices 3D
+      if (Array.isArray(p.corners) && p.corners.length === 4 && pInfo.center && pInfo.uVec && pInfo.vVec && pInfo.normal) {
+        const pts = p.corners.map(c => {
+          const rel = Cesium.Cartesian3.subtract(c, pInfo.center, new Cesium.Cartesian3());
+          return {
+            u: Cesium.Cartesian3.dot(rel, pInfo.uVec),
+            v: Cesium.Cartesian3.dot(rel, pInfo.vVec),
+            h: Cesium.Cartesian3.dot(rel, pInfo.normal)
+          };
+        });
+        // Ordenar vértices por elevación normal h decreciente
+        pts.sort((a, b) => b.h - a.h);
+        const hTop = (pts[0].h + pts[1].h) / 2;
+        const hBot = (pts[2].h + pts[3].h) / 2;
+        effHMod = hTop - hBot;
+
+        topU1 = pts[0].u;
+        topV1 = pts[0].v;
+        topU2 = pts[1].u;
+        topV2 = pts[1].v;
+      } else {
+        const halfW = (p.w || 1.05) / 2;
+        const halfH = (p.h || 2.10) / 2;
+        topU1 = p.u - halfW;
+        topV1 = p.v + halfH;
+        topU2 = p.u + halfW;
+        topV2 = p.v + halfH;
+      }
+
+      if (effHMod < 0.04) return; // Panel coplanar o rasante: sin autosombreado elevado inter-filas
+
+      const dU = sU * effHMod * shadowLenPerM;
+      const dV = sV * effHMod * shadowLenPerM;
+      const dLen = Math.hypot(dU, dV);
+      if (dLen < 0.04) return;
+
+      const dirU = dU / dLen;
+      const dirV = dV / dLen;
+
+      const quad = [
+        { u: topU1 + dirU * offset, v: topV1 + dirV * offset },
+        { u: topU2 + dirU * offset, v: topV2 + dirV * offset },
+        { u: topU2 + dU, v: topV2 + dV },
+        { u: topU1 + dU, v: topV1 + dV }
+      ];
+      quad.sourcePanelIdx = (p.layoutIndex !== undefined) ? p.layoutIndex : pIdx;
+      quad.sourceU = p.u;
+      quad.sourceV = p.v;
+      quads.push(quad);
+    });
+
+    return quads;
+  }
+  if (typeof window !== 'undefined') {
+    window.generateInterRowShadowQuads2D = generateInterRowShadowQuads2D;
+  }
+
   // ── 2. ACTUALIZACIÓN VISUAL INSTANTÁNEA DE SOMBRAS Y MLPE ──────────────────
   function wpUpdatePanelShadingAndMLPE(solarPos) {
     if (typeof viewer === "undefined" || !viewer || !viewer.entities) return;
@@ -177,6 +259,10 @@
           }
         });
       }
+      if (solarPos.isDaylight && typeof generateInterRowShadowQuads2D === "function") {
+        const interRowQuads = generateInterRowShadowQuads2D(pInfo, sU, sV, solarPos.shadowLenPerM);
+        if (interRowQuads && interRowQuads.length > 0) polyShadowQuads2D.push(...interRowQuads);
+      }
 
       pInfo.panels.forEach((pData) => {
         totalPanels++;
@@ -184,16 +270,30 @@
 
         let isShaded = false;
         if (polyShadowQuads2D.length > 0) {
-          const halfW = (pData.w || 1.05) / 2;
-          const halfH = (pData.h || 2.10) / 2;
-          const panelPoly2D = [
-            { u: pData.u - halfW, v: pData.v - halfH },
-            { u: pData.u + halfW, v: pData.v - halfH },
-            { u: pData.u + halfW, v: pData.v + halfH },
-            { u: pData.u - halfW, v: pData.v + halfH }
-          ];
+          let panelPoly2D = null;
+          if (Array.isArray(pData.corners) && pData.corners.length === 4 && pInfo.center && pInfo.uVec && pInfo.vVec) {
+            panelPoly2D = pData.corners.map(c => {
+              const rel = Cesium.Cartesian3.subtract(c, pInfo.center, new Cesium.Cartesian3());
+              return {
+                u: Cesium.Cartesian3.dot(rel, pInfo.uVec),
+                v: Cesium.Cartesian3.dot(rel, pInfo.vVec)
+              };
+            });
+          } else {
+            const halfW = (pData.w || 1.05) / 2;
+            const halfH = (pData.h || 2.10) / 2;
+            panelPoly2D = [
+              { u: pData.u - halfW, v: pData.v - halfH },
+              { u: pData.u + halfW, v: pData.v - halfH },
+              { u: pData.u + halfW, v: pData.v + halfH },
+              { u: pData.u - halfW, v: pData.v + halfH }
+            ];
+          }
 
+          const myIndex = (pData.layoutIndex !== undefined) ? pData.layoutIndex : null;
           for (const quad of polyShadowQuads2D) {
+            // Evitar que el panel se auto-sombre con su propia sombra arrojada
+            if (myIndex !== null && quad.sourcePanelIdx === myIndex) continue;
             if (typeof polygonsIntersect2D === "function" && polygonsIntersect2D(panelPoly2D, quad)) {
               isShaded = true;
               break;
@@ -610,63 +710,13 @@
       }
     }
 
-    /**
-     * Calcula los polígonos de sombra 2D arrojados por las aristas superiores de paneles elevados
-     * sobre las filas adyacentes (Autosombreado Inter-Filas / Self-shading).
-     */
-    function generateInterRowShadowQuads2D(pInfo, sU, sV, shadowLenPerM) {
-      if (!pInfo || !Array.isArray(pInfo.panels) || pInfo.panels.length < 2) return [];
-      if (shadowLenPerM <= 0) return [];
-
-      let hMod = 0;
-      if (typeof pInfo.moduleTiltDeg === 'number' && pInfo.moduleTiltDeg > 5) {
-        const deltaTilt = Math.max(0, pInfo.moduleTiltDeg - (pInfo.tiltDeg || 0));
-        hMod = (pInfo.panels[0].h || 2.10) * Math.sin(deltaTilt * Math.PI / 180);
-      } else if (pInfo.structureType && (pInfo.structureType.includes('triangle') || pInfo.structureType.includes('east_west'))) {
-        hMod = (pInfo.panels[0].h || 2.10) * Math.sin(15 * Math.PI / 180);
-      }
-      if (hMod < 0.05) return []; // Coplanar adosado a cubierta: sin elevación inter-filas
-
-      const dU = sU * hMod * shadowLenPerM;
-      const dV = sV * hMod * shadowLenPerM;
-      const dLen = Math.hypot(dU, dV);
-      if (dLen < 0.04) return [];
-
-      // Vector unitario de sombra y offset de despegue (6cm) para no tocar la arista emisora
-      const dirU = dU / dLen;
-      const dirV = dV / dLen;
-      const offset = 0.06;
-
-      const quads = [];
-      pInfo.panels.forEach((p, pIdx) => {
-        const halfW = (p.w || 1.05) / 2;
-        const halfH = (p.h || 2.10) / 2;
-        // Arista cumbrera superior del módulo
-        const topU1 = p.u - halfW;
-        const topV1 = p.v + halfH;
-        const topU2 = p.u + halfW;
-        const topV2 = p.v + halfH;
-
-        const quad = [
-          { u: topU1 + dirU * offset, v: topV1 + dirV * offset },
-          { u: topU2 + dirU * offset, v: topV2 + dirV * offset },
-          { u: topU2 + dU, v: topV2 + dV },
-          { u: topU1 + dU, v: topV1 + dV }
-        ];
-        // Metadatos de panel emisor para evitar auto-sombreado
-        quad.sourcePanelIdx = (p.layoutIndex !== undefined) ? p.layoutIndex : pIdx;
-        quad.sourceU = p.u;
-        quad.sourceV = p.v;
-        quads.push(quad);
-      });
-      return quads;
-    }
-
     // 5. Bucle Time-Sliced con presupuesto de 15ms
     const _T_AMB_TABLE = {
       costal_med: [11.0, 12.0, 14.0, 16.0, 20.0, 25.0, 28.0, 28.5, 24.0, 19.0, 14.0, 11.0],
+      costa_med:  [11.0, 12.0, 14.0, 16.0, 20.0, 25.0, 28.0, 28.5, 24.0, 19.0, 14.0, 11.0],
       interior:   [5.0,  7.0,  10.0, 12.0, 17.0, 23.0, 27.0, 27.0, 22.0, 15.0,  9.0,  5.0],
-      atlantico:  [9.0,  10.0, 12.0, 13.0, 16.0, 19.0, 21.0, 21.5, 19.0, 15.0, 11.0,  9.0]
+      atlantico:  [9.0,  10.0, 12.0, 13.0, 16.0, 19.0, 21.0, 21.5, 19.0, 15.0, 11.0,  9.0],
+      canarias:   [18.0, 18.5, 19.0, 20.0, 21.5, 23.5, 25.0, 26.0, 25.5, 23.5, 21.0, 19.0]
     };
     const climaticZone = (typeof getClimaticZone === 'function') ? getClimaticZone(lat, lng) : 'interior';
     const noctModule = (activeModule && (activeModule.noct || activeModule.NOCT)) || 45;
@@ -1312,6 +1362,14 @@
     }
     if (window._solarHeatmapLabelCollection) {
       try { window._solarHeatmapLabelCollection.removeAll(); } catch(errRem) { if (window.RA_ErrorHandler) window.RA_ErrorHandler.handle(errRem, 'Entidad/Primitiva Cesium'); }
+    }
+    if (window.solarSimState && window.solarSimState.mlpeBadgeEntities && Array.isArray(window.solarSimState.mlpeBadgeEntities)) {
+      if (typeof viewer !== 'undefined' && viewer && viewer.entities) {
+        window.solarSimState.mlpeBadgeEntities.forEach(e => {
+          try { viewer.entities.remove(e); } catch(_) {}
+        });
+      }
+      window.solarSimState.mlpeBadgeEntities = [];
     }
 
     // 3. Actualizar la UI y badges de pérdidas a estado pendiente/obsoleto

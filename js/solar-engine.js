@@ -28,8 +28,10 @@
   const MONTH_DAYS_SIM = [31,28,31,30,31,30,31,31,30,31,30,31];
   const T_AMB_MONTHLY_ESP = {
     costal_med: [11.0,12.0,14.0,16.0,20.0,25.0,28.0,28.5,24.0,19.0,14.0,11.0],
+    costa_med:  [11.0,12.0,14.0,16.0,20.0,25.0,28.0,28.5,24.0,19.0,14.0,11.0],
     interior:   [5.0, 7.0,10.0,12.0,17.0,23.0,27.0,27.0,22.0,15.0, 9.0, 5.0],
-    atlantico:  [9.0,10.0,12.0,13.0,16.0,19.0,21.0,21.5,19.0,15.0,11.0, 9.0]
+    atlantico:  [9.0,10.0,12.0,13.0,16.0,19.0,21.0,21.5,19.0,15.0,11.0, 9.0],
+    canarias:   [18.0,18.5,19.0,20.0,21.5,23.5,25.0,26.0,25.5,23.5,21.0,19.0]
   };
   const PVGIS_PROXIES = {
     allorigins: 'https://api.allorigins.win/raw?url=',
@@ -533,6 +535,7 @@ function invEfficiency(loadFraction) {
 }
 
 function getClimaticZone(latDeg, lonDeg) {
+  if (latDeg < 30) return 'canarias';
   if (lonDeg > -2 && latDeg < 42) return 'costal_med';
   if (lonDeg > -5 && latDeg < 40) return 'interior';
   return 'atlantico';
@@ -542,7 +545,8 @@ function estimateMonthlyGHI(latDeg, monthIdx) {
   // Simplified monthly clearness index model (Kt) for Spain
   const KT_BASE = [0.55,0.58,0.60,0.60,0.60,0.64,0.68,0.68,0.62,0.57,0.52,0.50];
   // En el hemisferio norte, la radiación solar horizontal decrece con la latitud (+Norte)
-  const latFactor = 1 - (latDeg - 40) * 0.008;
+  const rawLatFactor = 1 - (latDeg - 40) * 0.008;
+  const latFactor = Math.max(0.80, Math.min(1.25, rawLatFactor));
   const extraterrestrial = []; // Extraterrestrial on horizontal
   const midDay = [17,47,75,105,135,162,198,228,258,288,318,344];
   for (let m = 0; m < 12; m++) {
