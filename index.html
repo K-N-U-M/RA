@@ -7872,7 +7872,7 @@ function evaluateModuleLayouts(roof, module, cfg) {
       const hasWalkway = !!cfg.hasWalkway;
       const walkwayWidth = (typeof cfg.walkwayWidth === 'number') ? cfg.walkwayWidth : 0.80;
       const midB = (bMin + bMax) / 2;
-      const canHaveWalkway = hasWalkway && ((bMax - bMin) > (walkwayWidth + 2 * (dims.wid || 1.0)));
+      const canHaveWalkway = hasWalkway && ((bMax - bMin - 2 * setback) >= (walkwayWidth + 2 * halfB_base));
 
       for (let a = startA; a <= aMax - setback - halfA_base; a += rowPitch) {
         for (let b = startB; b <= bMax - setback - halfB_base; b += colPitch) {
@@ -13166,7 +13166,7 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
     }
 
     poly.roofInfo = pInfo;
-    if (!pInfo || !pInfo.panels || pInfo.panels.length === 0) return;
+    if (!pInfo || !pInfo.panels || pInfo.panels.length === 0) continue;
 
     let polyPanels = [...pInfo.panels];
     if (typeof window.wpFilterPanelsForPolyline === 'function') {
@@ -13181,7 +13181,7 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
       polyPanels = polyPanels.filter(p => !p.isShaded && (!p.annualLossPct || p.annualLossPct <= 5.0));
     }
     poly.panels = polyPanels;
-    if (polyPanels.length === 0) return;
+    if (polyPanels.length === 0) continue;
 
     const hasEW = polyPanels.some(p => p.isEastWest);
 

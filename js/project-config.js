@@ -210,14 +210,31 @@ function step3UpdateHardwareSelection() {
   let moduleActuallyChanged = false;
 
   if (invSel && invSel.value) window.solarProjectConfig.selectedInverterId = invSel.value;
-  const newModValue = (modSel && modSel.value) || (modSel2 && modSel2.value) || (faldonModSel && faldonModSel.value);
+  let newModValue = null;
+  if (typeof document !== 'undefined' && document.activeElement === faldonModSel && faldonModSel && faldonModSel.value) {
+    newModValue = faldonModSel.value;
+    if (typeof WP !== 'undefined' && WP && WP.polylines && WP.selectedPolyIdx >= 0 && WP.polylines[WP.selectedPolyIdx]) {
+      WP.polylines[WP.selectedPolyIdx].moduleId = newModValue;
+    }
+  } else {
+    newModValue = (modSel && modSel.value) || (modSel2 && modSel2.value) || (faldonModSel && faldonModSel.value);
+  }
+
   if (newModValue) {
     if (prevModuleId && prevModuleId !== newModValue) {
       moduleActuallyChanged = true;
     }
     window.solarProjectConfig.selectedModuleId = newModValue;
 
-    if (faldonModSel && faldonModSel.value !== newModValue) faldonModSel.value = newModValue;
+    // Respetar módulo específico del faldón activo en faldonModSel
+    const activePoly = (typeof WP !== 'undefined' && WP && WP.polylines && WP.selectedPolyIdx >= 0 && WP.polylines[WP.selectedPolyIdx]) ? WP.polylines[WP.selectedPolyIdx] : null;
+    if (faldonModSel) {
+      if (activePoly && activePoly.moduleId) {
+        if (faldonModSel.value !== activePoly.moduleId) faldonModSel.value = activePoly.moduleId;
+      } else if (faldonModSel.value !== newModValue) {
+        faldonModSel.value = newModValue;
+      }
+    }
     if (modSel2 && modSel2.value !== newModValue) modSel2.value = newModValue;
     if (modSel && modSel.value !== newModValue) modSel.value = newModValue;
     if (typeof wpUpdateStep2ModuleBadge === 'function') wpUpdateStep2ModuleBadge();
