@@ -40,7 +40,7 @@ function resolveEquipmentNames() {
       result.invBrand = inv.brand || '';
       result.invModel = inv.model || '';
       result.invKw = inv.kw || inv.kw_nominal || 0;
-      result.invMPPTs = inv.mppts || inv.nMppt || 0;
+      result.invMPPTs = inv.mppt || inv.mpptCount || inv.mppts || inv.nMppt || 0;
       var sizing = cfg.autoSizing && cfg.autoSizing.inverters;
       result.invCount = (sizing && sizing.count) ? sizing.count : 1;
       var mpptTxt = result.invMPPTs > 0 ? (' · ' + result.invMPPTs + ' MPPT') : '';
@@ -99,8 +99,9 @@ function generateCommercialSummary(d, m, equipment) {
   var ahorro = m.ahorroLuzAnio1 || 0;
   var payback = m.paybackYears || 0;
   var autoconsumo = m.pctAutoconsumo || 0;
-  var ciudad = d.tit.mun || d.tit.prov || 'su localidad';
-  var nombre = d.tit.nombre || 'Estimado/a cliente';
+  var tit = (d && d.tit) ? d.tit : {};
+  var ciudad = tit.mun || tit.prov || 'su localidad';
+  var nombre = tit.nombre || 'Estimado/a cliente';
 
   // ── Plantilla determinista ──
   var lines = [];

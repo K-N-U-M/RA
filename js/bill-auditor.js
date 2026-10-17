@@ -1565,10 +1565,11 @@ Normas estrictas:
     fillIfUntouched('doc-prov', tit.provincia);
     fillIfUntouched('doc-cp', tit.cp);
 
-    // Potencia contratada (P1 + P2) → #doc-potcontr
+    // Potencia contratada nominal (P1 punta / P2 valle: RD 244/2019 usa el máximo) → #doc-potcontr
     const potP1 = (bill.potenciasContratadasKW && bill.potenciasContratadasKW.p1) || 0;
     const potP2 = (bill.potenciasContratadasKW && bill.potenciasContratadasKW.p2) || 0;
-    if (potP1 + potP2 > 0) fillIfUntouched('doc-potcontr', String(Math.round((potP1 + potP2) * 100) / 100));
+    const potContrReal = Math.max(potP1, potP2);
+    if (potContrReal > 0) fillIfUntouched('doc-potcontr', String(Math.round(potContrReal * 100) / 100));
 
     // Distribuidora → #doc-dist (select): casar por texto, solo si sigue en su opción por defecto
     if (bill.distribuidora && bill.distribuidora !== 'Desconocida') {

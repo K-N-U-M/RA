@@ -433,12 +433,21 @@
         const dcCableItem = (catalog.cables && catalog.cables.find(c => c.id === (projectConfig.selectedCableDcId || 'cable_dc_zzf_6'))) || { pricePerMeter: 1.85, sec: 6 };
         const acCableItem = (catalog.cables && catalog.cables.find(c => c.id === (projectConfig.selectedCableAcId || 'cable_ac_rvk_5g10'))) || { pricePerMeter: 6.20, sec: 10 };
 
-        const dcCableCost = estDcLengthM * dcCableItem.pricePerMeter;
+        // El cable solar DC ZZ-F es unipolar (2 conductores DC+ y DC- por string)
+        const allStrList = (typeof RACableEngine !== 'undefined' && typeof RACableEngine.gatherAllStrings === 'function')
+          ? RACableEngine.gatherAllStrings()
+          : null;
+        const numStrings = (allStrList && allStrList.length > 0)
+          ? allStrList.length
+          : Math.max(1, Math.ceil(tree.summary.totalPanels / 12));
+        const totalDcMeters = Math.round(estDcLengthM * 2 * numStrings);
+
+        const dcCableCost = totalDcMeters * dcCableItem.pricePerMeter;
         const acCableCost = estAcLengthM * acCableItem.pricePerMeter;
         tree.summary.subtotalEur += (dcCableCost + acCableCost);
 
         tree.electrical.cables.push(
-          { type: 'DC ZZ-F 1500V', secMm2: (sState && sState.S_dc_recommended) ? sState.S_dc_recommended : (dcCableItem.sec || 6), meters: estDcLengthM, unitPrice: dcCableItem.pricePerMeter, totalEur: parseFloat(dcCableCost.toFixed(2)) },
+          { type: 'DC ZZ-F 1500V', secMm2: (sState && sState.S_dc_recommended) ? sState.S_dc_recommended : (dcCableItem.sec || 6), meters: totalDcMeters, unitPrice: dcCableItem.pricePerMeter, totalEur: parseFloat(dcCableCost.toFixed(2)) },
           { type: 'AC RV-K 0.6/1kV', secMm2: (sState && sState.S_ac_recommended) ? sState.S_ac_recommended : (acCableItem.sec || 10), meters: estAcLengthM, unitPrice: acCableItem.pricePerMeter, totalEur: parseFloat(acCableCost.toFixed(2)) }
         );
 
