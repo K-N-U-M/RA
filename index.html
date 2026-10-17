@@ -8279,27 +8279,6 @@ function undoLastPoint() {
 (window.RA && window.RA.addListener ? window.RA.addListener : function(t, ev, fn) { t.addEventListener(ev, fn); })(document, 'keydown', function _raKeydown1(e) {
   if (isTextInputActive(e.target)) return;
 
-  // [P0] Deshacer / Rehacer universal (RAundo) disponible en CUALQUIER modo
-  if ((e.ctrlKey || e.metaKey) && (e.code === 'KeyZ' || e.code === 'KeyY' || e.key === 'z' || e.key === 'Z' || e.key === 'y' || e.key === 'Y')) {
-    if (e.defaultPrevented) return;
-    const isRedo = (e.code === 'KeyY' || e.key === 'y' || e.key === 'Y' || e.shiftKey);
-    if (window.RAundo) {
-      if (isRedo) {
-        if (window.RAundo.canRedo()) {
-          e.preventDefault();
-          window.RAundo.redo();
-          return;
-        }
-      } else {
-        if (window.RAundo.canUndo()) {
-          e.preventDefault();
-          window.RAundo.undo();
-          return;
-        }
-      }
-    }
-  }
-
   if (typeof WP !== 'undefined' && WP && WP.mode !== 'idle') return;
 
   if (e.code === 'KeyP') {

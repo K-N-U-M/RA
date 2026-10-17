@@ -743,6 +743,9 @@ async function raImportProjectData(projectData) {
       // El layout se regeneró con el módulo default del catálogo (la config se restaura
       // después): re-renderizar para que los paneles usen el módulo/inversor del proyecto.
       if (typeof wpFastRenderSimulatedPanels === 'function') wpFastRenderSimulatedPanels();
+      if (typeof window !== 'undefined' && window.WorkflowOrchestrator && typeof window.WorkflowOrchestrator.refreshGating === 'function') {
+        window.WorkflowOrchestrator.refreshGating();
+      }
     }
 
     raSaveToRecentProjects(projectData);

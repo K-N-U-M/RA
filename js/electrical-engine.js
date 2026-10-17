@@ -53,8 +53,10 @@
     const modW = modParams.potencia || modParams.power || pCfg.potencia || 450;
     const Voc_STC = modParams.Voc || modParams.voc || pCfg.voc || (modW >= 500 ? 50.0 : 49.5);
     const Vmp_STC = modParams.Vmp || modParams.vmp || pCfg.vmp || (modW >= 500 ? 42.0 : 41.5);
-    const betaVoc = modParams.betaVoc || pCfg.betaVoc || -0.0027;
-    const gammaPmp = modParams.gammaPmp || pCfg.gammaPmp || (pCfg.tecnologia && pCfg.tecnologia.includes('N-Type') ? -0.0029 : -0.0035);
+    const rawBeta = modParams.betaVoc || modParams.tempCoeffVoc || pCfg.betaVoc || pCfg.tempCoeffVoc || -0.0027;
+    const betaVoc = Math.abs(rawBeta) > 0.05 ? rawBeta / 100.0 : rawBeta;
+    const rawGamma = modParams.gammaPmp || modParams.tempCoeffPmax || pCfg.gammaPmp || pCfg.tempCoeffPmax || (pCfg.tecnologia && pCfg.tecnologia.includes('N-Type') ? -0.0029 : -0.0035);
+    const gammaPmp = Math.abs(rawGamma) > 0.05 ? rawGamma / 100.0 : rawGamma;
 
     // Inversor real del catálogo (calculatedLimits se puebla en el Paso 3/4);
     // si no hay selección, cae a los defaults normativos 1000/200/850 V.
@@ -83,7 +85,7 @@
 
     const Voc_Tmin = Voc_STC * (1 + betaVoc * (Tmin - 25.0));
     const Vmp_Tmax = Vmp_STC * (1 + gammaPmp * (Tmax_cell - 25.0));
-    const Vmp_Tmin = Vmp_STC * (1 + betaVoc * (Tmin - 25.0));
+    const Vmp_Tmin = Vmp_STC * (1 + gammaPmp * (Tmin - 25.0));
 
     const Ns_max_voc = Math.floor(Vmax_inv / Voc_Tmin);
     const Ns_max_mppt = Math.floor(Vmppt_max / Vmp_Tmin);
@@ -909,7 +911,9 @@
     const assign = new Map();
     roofOrder.forEach(pi => {
       const strs = roofStrings.get(pi);
-      let ch = remaining.findIndex(r => r >= strs.length);
+      const strLens = strs.map(n => (stringPanels.get(n) || []).length);
+      const isHomogeneous = strLens.every(len => len === strLens[0]);
+      let ch = (isHomogeneous || mpptCount === 1) ? remaining.findIndex(r => r >= strs.length) : -1;
       if (ch !== -1) {
         strs.forEach(n => { assign.set(n, ch + 1); remaining[ch] = Math.max(0, remaining[ch] - 1); });
       } else {

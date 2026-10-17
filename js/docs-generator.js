@@ -674,6 +674,15 @@ function generatePresupuesto(skipPricingModal) {
     }
   );
 
+  if (m && m.marginEur > 0) {
+    caps.push({
+      titulo: numCap(caps.length + 1) + ' — GASTOS GENERALES, BENEFICIO INDUSTRIAL Y MARGEN COMERCIAL',
+      items: [
+        { ref: (caps.length + 1) + '.1', desc: 'Gastos de gestión, coordinación de seguridad y salud, beneficio industrial y garantía comercial instalador.', ud: 'partida', q: 1, pu: m.marginEur }
+      ]
+    });
+  }
+
   let itemRows = '', sumRows = '';
   let subtotalCalc = 0;
   caps.forEach(cap => {

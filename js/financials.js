@@ -1093,7 +1093,7 @@ function generatePropuestaComercialPDF(skipPricingModal) {
             <span style="font-size:16px;color:${pal.primary};">${Math.round(m.capexNeto).toLocaleString('es-ES')} €</span>
           </div>
           <div style="font-size:8.5px;color:#64748b;margin-top:6px;">
-            Ahorro neto acumulado a 25 años: <b>${Math.round(m.van + m.capexBruto).toLocaleString('es-ES')} €</b>
+            Ganancia neta acumulada (VAN 25a): <b>${Math.round(m.van).toLocaleString('es-ES')} €</b>
           </div>
         </div>
 
@@ -1343,7 +1343,12 @@ function generatePropuestaComercialPDF(skipPricingModal) {
     if (tree && tree.roofs && tree.summary.totalPanels > 0) {
       let totalEst = 0;
       tree.roofs.forEach(r => {
-        if (r.structure && r.structure.costEur) totalEst += r.structure.costEur;
+        if (typeof r.subtotalEur === 'number' && r.subtotalEur > 0) {
+          totalEst += r.subtotalEur;
+        } else {
+          if (r.structure && r.structure.costEur) totalEst += r.structure.costEur;
+          if (r.clamps && r.clamps.costEur) totalEst += r.clamps.costEur;
+        }
       });
       if (totalEst > 0) {
         est = totalEst;

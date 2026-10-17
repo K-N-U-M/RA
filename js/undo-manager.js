@@ -210,6 +210,9 @@
       if (!poly) return false;
       poly.points = revive(data.points);
       poly.area = data.area;
+      if (WPn && WPn.selectedPolyIdx === pIdx && Array.isArray(global.polygonPoints)) {
+        replaceInPlace(global.polygonPoints, poly.points.map(p => Cesium.Cartesian3.clone(p)));
+      }
       if (typeof global.wpRenderAllPolylines === 'function') global.wpRenderAllPolylines();
       if (typeof global.wpSyncVertexInputs === 'function') global.wpSyncVertexInputs();
       if (typeof global.wpFastRenderSimulatedPanels === 'function') global.wpFastRenderSimulatedPanels();
@@ -225,6 +228,7 @@
       polyP.deletedPanels = revive(data.deletedPanels);
       if (typeof global.wpFastRenderSimulatedPanels === 'function') global.wpFastRenderSimulatedPanels();
       if (typeof global.recalculateSolarYield === 'function') global.recalculateSolarYield();
+      if (typeof global.wpInvalidateHeatmap === 'function') global.wpInvalidateHeatmap('Paneles restaurados');
       return true;
     }
 
