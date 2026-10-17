@@ -162,6 +162,23 @@ const testPanelsIncompatible = [
 const checkIncompat = context.window.RA.Electrical.validateMPPTHomogeneity(testPanelsIncompatible);
 assert(checkIncompat.valid === false && checkIncompat.violations.length > 0, 'Bloqueo normativo MPPT: strings en paralelo con distinta orientación', `Violación detectada: Δβ > 5° o Δγ > 10°`);
 
+// Topología de cableado y orientación optimizada hacia el cuadro
+context.window.RA.Electrical.setStringWiringTopology('daisy_chain');
+assert(context.window.solarProjectConfig.stringWiringTopology === 'daisy_chain', 'Selector de técnica de cableado conmuta a Daisy-Chain', 'daisy_chain');
+context.window.RA.Electrical.setStringWiringTopology('leapfrog');
+assert(context.window.solarProjectConfig.stringWiringTopology === 'leapfrog', 'Selector de técnica de cableado conmuta a Salto de Rana (Leapfrog)', 'leapfrog');
+
+// Verificación de inicio de string orientado hacia la cota del cuadro eléctrico
+context.window.inverterEquipmentState = { position: { x: 25, y: 0, z: 10 } };
+const orientedStrings = context.window.RA.Electrical.partitionPanelsIntoMPPTStrings(panels, limits.Ns_max, limits.Ns_min);
+const firstPanelOfStr = orientedStrings[0].panels[0];
+const lastPanelOfStr = orientedStrings[0].panels[orientedStrings[0].panels.length - 1];
+const pPos1 = firstPanelOfStr.center || firstPanelOfStr.center3D || { x: 0, y: 0 };
+const pPos2 = lastPanelOfStr.center || lastPanelOfStr.center3D || { x: 0, y: 0 };
+const dFirst = Math.hypot(pPos1.x - 25, pPos1.y - 0);
+const dLast = Math.hypot(pPos2.x - 25, pPos2.y - 0);
+assert(dFirst <= dLast, 'Terminal [+ IN] de string orientado hacia el inversor/cuadro más cercano', `dFirst=${dFirst.toFixed(1)}m <= dLast=${dLast.toFixed(1)}m`);
+
 // Rendimiento dinámico del inversor y Clipping
 const clipNormal = context.window.RA.Electrical.calculateInverterEfficiencyAndClipping({ pDcW: 8000, pAcNomW: 10000 });
 assert(clipNormal.isClipping === false && clipNormal.eta > 0.95, 'Eficiencia del inversor a carga parcial (8kW en 10kW)', `η = ${(clipNormal.eta * 100).toFixed(1)}%`);

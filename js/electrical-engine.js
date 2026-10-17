@@ -168,7 +168,41 @@
     return clusters;
   }
 
-  function applyRowBasedLeapfrog(clusterPanels) {
+  /**
+   * Obtiene la posición 3D objetivo del equipo DC (Inversor o Cuadro DC) para optimizar
+   * el inicio/fin de strings minimizando tiradas de cable homerun en el tejado.
+   */
+  function getDCEquipmentTargetPosition() {
+    try {
+      const sState = (typeof window !== 'undefined' && window.inverterEquipmentState) ? window.inverterEquipmentState : null;
+      if (!sState) return null;
+      if (sState.combinerBox && sState.combinerBox.position && sState.combinerBox.isEnabled) {
+        return sState.combinerBox.position;
+      }
+      if (sState.dcProtectionPosition) {
+        return sState.dcProtectionPosition;
+      }
+      if (sState.position) {
+        return sState.position;
+      }
+      const WP = (typeof window !== 'undefined') ? window.WP : null;
+      if (WP && Array.isArray(WP.polylines) && WP.polylines.length > 0 && WP.polylines[0] && Array.isArray(WP.polylines[0].points) && WP.polylines[0].points.length > 0) {
+        return WP.polylines[0].points[0];
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  function getPanelDistanceToTarget(panel, targetPos) {
+    if (!panel || !targetPos) return 0;
+    const pPos = panel.center || panel.center3D || (panel.corners && panel.corners[0]);
+    if (pPos && typeof pPos.x === 'number' && typeof targetPos.x === 'number') {
+      return Math.hypot(pPos.x - targetPos.x, pPos.y - targetPos.y, (pPos.z || 0) - (targetPos.z || 0));
+    }
+    return 0;
+  }
+
+  function applyRowBasedLeapfrog(clusterPanels, options = {}) {
     if (!clusterPanels || clusterPanels.length === 0) return [];
     const firstP = clusterPanels[0] || {};
     const pW = firstP.w || 1.05;
@@ -188,21 +222,56 @@
       foundRow.vKey = foundRow.panels.reduce((sum, item) => sum + getV(item), 0) / foundRow.panels.length;
     });
     rows.sort((a, b) => b.vKey - a.vKey);
+
+    // Optimización: Orientar el orden de hileras hacia el equipo DC más cercano
+    const eqPos = (options && options.targetPosition) || getDCEquipmentTargetPosition();
+    if (eqPos && rows.length > 1) {
+      const dFirstRow = getPanelDistanceToTarget(rows[0].panels[0], eqPos);
+      const dLastRow = getPanelDistanceToTarget(rows[rows.length - 1].panels[0], eqPos);
+      if (dLastRow < dFirstRow) {
+        rows.reverse();
+      }
+    }
+
+    const wiringTopology = (options && options.wiringTopology) ||
+      ((typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.stringWiringTopology) ? window.solarProjectConfig.stringWiringTopology : 'leapfrog');
     
     let ordered = [];
-    rows.forEach(rObj => {
-      // Ordenamos SIEMPRE de Izquierda a Derecha para el Leapfrog
+    rows.forEach((rObj, rIdx) => {
       const pList = [...rObj.panels].sort((a, b) => getU(a) - getU(b));
-      if (pList.length > 2) {
-        const evens = [];
-        const odds = [];
-        for (let i = 0; i < pList.length; i++) {
-          if (i % 2 === 0) evens.push(pList[i]);
-          else odds.push(pList[i]);
+      if (pList.length === 0) return;
+
+      // Determinar qué extremo de la hilera está más cercano al equipo DC
+      let startFromLeft = true;
+      if (eqPos && pList.length > 1) {
+        const dLeft = getPanelDistanceToTarget(pList[0], eqPos);
+        const dRight = getPanelDistanceToTarget(pList[pList.length - 1], eqPos);
+        if (dRight < dLeft) {
+          startFromLeft = false;
         }
-        ordered.push(...evens, ...odds.reverse());
+      }
+      const pRow = startFromLeft ? pList : [...pList].reverse();
+
+      if (wiringTopology === 'daisy_chain') {
+        // Guirnalda continua: conectar secuencialmente (boustrophedon alterna para minimizar puente entre filas)
+        if (rIdx % 2 === 0) {
+          ordered.push(...pRow);
+        } else {
+          ordered.push(...[...pRow].reverse());
+        }
       } else {
-        ordered.push(...pList);
+        // Salto de Rana (Leapfrog UNE-EN 62305 anti-bucle): pares ida, impares vuelta
+        if (pRow.length > 2) {
+          const evens = [];
+          const odds = [];
+          for (let i = 0; i < pRow.length; i++) {
+            if (i % 2 === 0) evens.push(pRow[i]);
+            else odds.push(pRow[i]);
+          }
+          ordered.push(...evens, ...odds.reverse());
+        } else {
+          ordered.push(...pRow);
+        }
       }
     });
     return ordered;
@@ -214,7 +283,12 @@
     const validClusters = orderedClusters.filter(c => Array.isArray(c) && c.length > 0);
     if (validClusters.length === 0) return finalOrder;
     
-    validClusters.sort((a, b) => (getV(b[0]) || 0) - (getV(a[0]) || 0));
+    const eqPos = getDCEquipmentTargetPosition();
+    if (eqPos) {
+      validClusters.sort((a, b) => getPanelDistanceToTarget(a[0], eqPos) - getPanelDistanceToTarget(b[0], eqPos));
+    } else {
+      validClusters.sort((a, b) => (getV(b[0]) || 0) - (getV(a[0]) || 0));
+    }
     finalOrder.push(...validClusters[0]);
     const unvisitedClusters = new Set(validClusters.slice(1));
 
@@ -251,11 +325,11 @@
     return finalOrder;
   }
 
-  function getSnakeOrderedPanels(panels) {
+  function getSnakeOrderedPanels(panels, options = {}) {
     if (!panels || panels.length <= 1) return panels || [];
     try {
       const clusters = clusterPanels(panels);
-      const orderedClusters = clusters.map(c => applyRowBasedLeapfrog(c));
+      const orderedClusters = clusters.map(c => applyRowBasedLeapfrog(c, options));
       const res = connectClustersTSP(orderedClusters);
       return (res && res.length > 0) ? res : panels;
     } catch (err) {
@@ -285,7 +359,15 @@
       const minPerString = (typeof userMin === 'number' && userMin > 0) ? userMin : limits.Ns_min;
 
     if (total <= maxPerString) {
-      const orderedAll = getSnakeOrderedPanels(panels);
+      let orderedAll = getSnakeOrderedPanels(panels);
+      const eqPos = getDCEquipmentTargetPosition();
+      if (eqPos && orderedAll.length > 1) {
+        const dStart = getPanelDistanceToTarget(orderedAll[0], eqPos);
+        const dEnd = getPanelDistanceToTarget(orderedAll[orderedAll.length - 1], eqPos);
+        if (dEnd < dStart) {
+          orderedAll = [...orderedAll].reverse();
+        }
+      }
       return [{
         stringSuffix: '',
         stringName: 'S1',
@@ -328,12 +410,23 @@
     });
     physicalRows.sort((a, b) => b.vKey - a.vKey);
 
+    // Optimización: Si el equipo DC está más cerca del borde inferior del tejado,
+    // procesamos las hileras empezando por la más cercana al inversor.
+    const eqPos = getDCEquipmentTargetPosition();
+    if (eqPos && physicalRows.length > 1) {
+      const dFirst = getPanelDistanceToTarget(physicalRows[0].panels[0], eqPos);
+      const dLast = getPanelDistanceToTarget(physicalRows[physicalRows.length - 1].panels[0], eqPos);
+      if (dLast < dFirst) {
+        physicalRows.reverse();
+      }
+    }
+
     // Ordenar paneles dentro de cada hilera en serpentina alterna (boustrophedon)
     physicalRows.forEach((rObj, rIdx) => {
       const isL2R = (rIdx % 2 === 0);
       rObj.panels.sort((a, b) => {
         const uA = (typeof a.gridB === 'number') ? a.gridB : ((a.center2D && typeof a.center2D.u === 'number') ? a.center2D.u : (a.u || 0));
-        const uB = (typeof b.gridB === 'number') ? b.gridB : ((b.center2D && typeof b.center2D.u === 'number') ? b.center2D.u : (b.u || 0));
+        const uB = (typeof b.gridB === 'number') ? b.gridB : ((b.center2D && typeof b.center2D.u === 'number') ? b.center2D.u : (b.v || 0));
         return isL2R ? (uA - uB) : (uB - uA);
       });
     });
@@ -393,13 +486,23 @@
     // 3. Si las hileras completas encajan limpiamente en la ventana MPPT, usar la agrupación por filas
     if (canKeepRowsIntact && stringRowBuckets.length === numStrings && stringRowBuckets.every(b => b.length >= minPerString && b.length <= maxPerString)) {
       stringRowBuckets.forEach((bucketPanels, s) => {
+        let finalBucket = applyRowBasedLeapfrog(bucketPanels);
+        if (!finalBucket || finalBucket.length === 0) finalBucket = bucketPanels;
+        // Orientar el string para que [+ IN] (panel 0) nazca en el extremo más cercano al cuadro
+        if (eqPos && finalBucket.length > 1) {
+          const dStart = getPanelDistanceToTarget(finalBucket[0], eqPos);
+          const dEnd = getPanelDistanceToTarget(finalBucket[finalBucket.length - 1], eqPos);
+          if (dEnd < dStart) {
+            finalBucket = [...finalBucket].reverse();
+          }
+        }
         strings.push({
           stringSuffix: '.' + (s + 1),
           stringName: 'S' + (s + 1),
-          panels: bucketPanels,
-          numPanels: bucketPanels.length,
-          Voc_Tmin: bucketPanels.length * limits.Voc_Tmin,
-          Vmp_Tmax: bucketPanels.length * limits.Vmp_Tmax,
+          panels: finalBucket,
+          numPanels: finalBucket.length,
+          Voc_Tmin: finalBucket.length * limits.Voc_Tmin,
+          Vmp_Tmax: finalBucket.length * limits.Vmp_Tmax,
           isCompliant: true
         });
       });
@@ -414,7 +517,14 @@
 
     for (let s = 0; s < numStrings; s++) {
       const stringSize = baseSize + (s < remainder ? 1 : 0);
-      const slice = orderedAll.slice(startIndex, startIndex + stringSize);
+      let slice = orderedAll.slice(startIndex, startIndex + stringSize);
+      if (eqPos && slice.length > 1) {
+        const dStart = getPanelDistanceToTarget(slice[0], eqPos);
+        const dEnd = getPanelDistanceToTarget(slice[slice.length - 1], eqPos);
+        if (dEnd < dStart) {
+          slice = [...slice].reverse();
+        }
+      }
       strings.push({
         stringSuffix: '.' + (s + 1),
         stringName: 'S' + (s + 1),
@@ -1307,7 +1417,36 @@
     }
     if (root.lucide && typeof root.lucide.createIcons === 'function') root.lucide.createIcons();
   }
+  function wpSetStringWiringTopology(topology) {
+    if (typeof root === 'undefined') return;
+    if (!root.solarProjectConfig) root.solarProjectConfig = {};
+    root.solarProjectConfig.stringWiringTopology = topology;
+
+    const descEl = (typeof document !== 'undefined') ? document.getElementById('step4-string-wiring-desc') : null;
+    if (descEl) {
+      if (topology === 'leapfrog') {
+        descEl.textContent = 'Conecta paneles alternos (pares a la ida, impares a la vuelta). Cancela bucles inductivos frente a rayos (UNE-EN 62305). Requiere latiguillos alargadores MC4 presupuestados en el BOM.';
+      } else {
+        descEl.textContent = 'Conexión secuencial placa a placa en línea directa (1-2-3...). Requiere tender un cable de retorno compensado paralelo pegado a la fila para cerrar el circuito.';
+      }
+    }
+
+    if (typeof root.updateConfigAndSimulate === 'function') {
+      root.updateConfigAndSimulate();
+    } else if (typeof root.wpFastRenderSimulatedPanels === 'function') {
+      root.wpFastRenderSimulatedPanels();
+    }
+
+    if (root.RACableEngine && typeof root.RACableEngine.renderAllCables === 'function') {
+      root.RACableEngine.renderAllCables();
+    }
+    if (root.BOMTreeEngine && typeof root.BOMTreeEngine.refresh === 'function') {
+      root.BOMTreeEngine.refresh();
+    }
+  }
+
   root.wpUpdateMeterPlacementGuideUI = wpUpdateMeterPlacementGuideUI;
+  root.wpSetStringWiringTopology = wpSetStringWiringTopology;
 
   // Exportar al ámbito global y Window
   root.ELEC_CONSTANTS = ELEC_CONSTANTS;
@@ -1341,7 +1480,8 @@
     raInverterPhases: raInverterPhases,
     updateInverterAssistant: wpUpdateInverterSmartAssistantUI,
     applyRecommendedInverter: wpApplyRecommendedInverter,
-    updateMeterPlacementGuide: wpUpdateMeterPlacementGuideUI
+    updateMeterPlacementGuide: wpUpdateMeterPlacementGuideUI,
+    setStringWiringTopology: wpSetStringWiringTopology
   };
 
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -442,6 +442,27 @@
           { type: 'AC RV-K 0.6/1kV', secMm2: (sState && sState.S_ac_recommended) ? sState.S_ac_recommended : (acCableItem.sec || 10), meters: estAcLengthM, unitPrice: acCableItem.pricePerMeter, totalEur: parseFloat(acCableCost.toFixed(2)) }
         );
 
+        // ── 6.5 LATIGUILLOS ALARGADORES MC4 PARA SALTO DE RANA (UNE-EN 62305) ──
+        const stringWiringTopology = (projectConfig && projectConfig.stringWiringTopology) || 'leapfrog';
+        if (stringWiringTopology === 'leapfrog') {
+          const allStrings = (typeof RACableEngine !== 'undefined' && typeof RACableEngine.gatherAllStrings === 'function')
+            ? RACableEngine.gatherAllStrings()
+            : null;
+          const numStrings = (allStrings && allStrings.length > 0) ? allStrings.length : Math.max(1, Math.ceil(tree.summary.totalPanels / 14));
+          const jumpersCount = Math.max(0, tree.summary.totalPanels - (2 * numStrings));
+          if (jumpersCount > 0) {
+            const jumperUnitPrice = 5.20; // 5.20 € por latiguillo MC4 1.5m 6mm² preensamblado
+            const totalJumpersCost = parseFloat((jumpersCount * jumperUnitPrice).toFixed(2));
+            tree.summary.subtotalEur += totalJumpersCost;
+            tree.electrical.mc4Jumpers = {
+              count: jumpersCount,
+              type: 'Latiguillos Alargadores MC4 1.5m (Salto de Rana)',
+              unitPrice: jumperUnitPrice,
+              totalEur: totalJumpersCost
+            };
+          }
+        }
+
         // ── 7. PUESTA A TIERRA & AUXILIARES ────────────────────────────────────
         const earthRods = Math.max(1, Math.ceil(tree.summary.totalKwp / 25.0));
         const earthWireM = Math.round(tree.summary.totalPanels * BOM_DEFAULTS.EARTH_WIRE_PER_PANEL_M);
@@ -681,6 +702,7 @@
             ${tree.electrical.acPanels && tree.electrical.acPanels.length > 0 ? tree.electrical.acPanels.map(p => `<div class="bom-subitem bom-interactive-item" onclick="BOMTreeEngine.flyToElectrical('meter')" style="cursor:pointer;" title="Clic para enfocar y seleccionar Cuadro AC / Contador en 3D">🔌 ${p.count}x ${p.model} — <b>${p.price} €</b></div>`).join('') : ''}
             <div class="bom-subitem">📏 Cable DC: ${tree.electrical.cables[0] ? tree.electrical.cables[0].meters + 'm (' + tree.electrical.cables[0].secMm2 + 'mm²)' : '0m'}</div>
             <div class="bom-subitem">🔌 Evacuación AC: ${tree.electrical.cables[1] ? tree.electrical.cables[1].meters + 'm (' + tree.electrical.cables[1].secMm2 + 'mm²)' : '0m'}</div>
+            ${tree.electrical.mc4Jumpers ? `<div class="bom-subitem">🔗 Latiguillos MC4 (Salto de Rana): <b>${tree.electrical.mc4Jumpers.count}x</b> 1.5m · <b>${tree.electrical.mc4Jumpers.totalEur.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</b></div>` : ''}
 
             <div class="bom-section-title">INSTALACIÓN, INGENIERÍA & MEDIOS</div>
             ${tree.laborAndSoftCosts && tree.laborAndSoftCosts.length > 0 ? tree.laborAndSoftCosts.map(item => `

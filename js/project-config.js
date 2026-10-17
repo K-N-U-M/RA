@@ -16,6 +16,7 @@ window.solarProjectConfig = {
     microinverters: { count: 0, autoCount: 0, isManual: false },
     batteries: { count: 1, autoCount: 1, isManual: false }
   },
+  stringWiringTopology: 'leapfrog', // 'leapfrog' (Salto de rana anti-bucle UNE-EN 62305) | 'daisy_chain' (Guirnalda continua + retorno compensado)
   calculatedLimits: { nMinString: 5, nMaxString: 13, nMaxTotalModules: 22 }
 };
 // ── window.RA alias (Arquitectura v2) ────────────────────────────────────
