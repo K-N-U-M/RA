@@ -11054,7 +11054,7 @@ function computeElectricalSizingEngineering(generator) {
     const s = SEC_DC_AVAIL[i];
     const imax = IMAX_DC_ZZF[i];
     const dV = (2 * rho90 * L_dc * Imp) / s;
-    const vStrBase = Math.max(modsPerString * Vmp, 1.0);
+    const vStrBase = Math.max(Vmp_str_hot, 1.0);
     const dV_pct = (dV / vStrBase) * 100;
     if ((imax * K_AMPACITY) >= I_dc_design && dV_pct <= 1.5) {
       S_str_opt = s;
@@ -11063,7 +11063,7 @@ function computeElectricalSizingEngineering(generator) {
   }
 
   const dV_dc = (2 * rho90 * L_dc * Imp) / S_str_opt;
-  const dVdc_pct = (dV_dc / Math.max(modsPerString * Vmp, 1.0)) * 100;
+  const dVdc_pct = (dV_dc / Math.max(Vmp_str_hot, 1.0)) * 100;
 
   const I_ac_design = 1.25 * I_ac;
   const SEC_AC_AVAIL = [2.5, 4, 6, 10, 16, 25, 35, 50, 70];

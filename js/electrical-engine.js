@@ -55,6 +55,8 @@
     const Vmp_STC = modParams.Vmp || modParams.vmp || pCfg.vmp || (modW >= 500 ? 42.0 : 41.5);
     const rawBeta = modParams.betaVoc || modParams.tempCoeffVoc || pCfg.betaVoc || pCfg.tempCoeffVoc || -0.0027;
     const betaVoc = Math.abs(rawBeta) > 0.05 ? rawBeta / 100.0 : rawBeta;
+    const rawBetaVmp = modParams.betaVmp || modParams.tempCoeffVmp || pCfg.betaVmp || (rawBeta * 0.95);
+    const betaVmp = Math.abs(rawBetaVmp) > 0.05 ? rawBetaVmp / 100.0 : rawBetaVmp;
     const rawGamma = modParams.gammaPmp || modParams.tempCoeffPmax || pCfg.gammaPmp || pCfg.tempCoeffPmax || (pCfg.tecnologia && pCfg.tecnologia.includes('N-Type') ? -0.0029 : -0.0035);
     const gammaPmp = Math.abs(rawGamma) > 0.05 ? rawGamma / 100.0 : rawGamma;
 
@@ -84,8 +86,8 @@
     const Tmax_cell = climParams.TmaxCell !== undefined ? climParams.TmaxCell : (climParams.tMaxHot !== undefined ? climParams.tMaxHot : 70.0);
 
     const Voc_Tmin = Voc_STC * (1 + betaVoc * (Tmin - 25.0));
-    const Vmp_Tmax = Vmp_STC * (1 + gammaPmp * (Tmax_cell - 25.0));
-    const Vmp_Tmin = Vmp_STC * (1 + gammaPmp * (Tmin - 25.0));
+    const Vmp_Tmax = Vmp_STC * (1 + betaVmp * (Tmax_cell - 25.0));
+    const Vmp_Tmin = Vmp_STC * (1 + betaVmp * (Tmin - 25.0));
 
     const Ns_max_voc = Math.floor(Vmax_inv / Voc_Tmin);
     const Ns_max_mppt = Math.floor(Vmppt_max / Vmp_Tmin);
@@ -599,6 +601,12 @@
       const isCurrentSafe = !inv.iMaxScA || (_iscPerMppt <= inv.iMaxScA);
       const hasPhaseUnbalance = (gridSupply === 'three_phase' && isInvSinglePhase && (inv.kw * invCount) > 5.0);
 
+      // Comprobación de límites de tensión MPPT y Voc en frío (-10°C / 70°C)
+      const limits = calculateDynamicMPPTStringLimits(moduleSpec, inv, options.climParams || {});
+      const isVoltageSafe = options.modulesPerString ?
+        (options.modulesPerString <= limits.Ns_max && options.modulesPerString >= limits.Ns_min) :
+        (limits.Ns_max >= limits.Ns_min && (totalPanels === 0 || Math.ceil(totalPanels / _totalMppts) >= limits.Ns_min));
+
       // Comprobación de canales MPPT mínimos frente a orientaciones distintas de cubierta
       const hasEnoughMppts = _totalMppts >= distinctOrientations;
 
@@ -606,7 +614,7 @@
       const maxUnitsAllowed = inv.kw <= 8.0 ? 2 : (inv.kw <= 15.0 ? 4 : (inv.kw <= 35.0 ? 6 : 8));
       const isExcessiveFragmentation = invCount > maxUnitsAllowed;
 
-      const isMatch = !isExcessiveFragmentation && actualOverload >= 0.75 && actualOverload <= (maxAllowedOverload + 0.12) && isCurrentSafe && !hasPhaseUnbalance;
+      const isMatch = !isExcessiveFragmentation && actualOverload >= 0.75 && actualOverload <= (maxAllowedOverload + 0.12) && isCurrentSafe && isVoltageSafe && !hasPhaseUnbalance;
 
       if (isMatch) {
         compatible.push({
@@ -815,6 +823,168 @@
       recommendedScenarioA: singleInvMatch,
       recommendedScenarioB: multiInvMatch,
       recommendedScenarioC: scenarioC
+    };
+  }
+
+  /**
+   * Dimensiona las protecciones eléctricas de continua (DC) y alterna (AC)
+   * según REBT ITC-BT-40, ITC-BT-24, IEC 60947-3, IEC 61643-31, IEC 62548 y UNE-EN 50550.
+   * @param {Object} params Parámetros de la instalación fotovoltaica
+   * @returns {Object} Desglose completo de protecciones de continua y alterna
+   */
+  function calculateElectricalProtections(params = {}) {
+    const mod = params.module || {};
+    const inv = params.inverter || {};
+    const clim = params.climParams || {};
+
+    const stringModules = params.stringModules || params.ns || 12;
+    const parallelStrings = Math.max(1, params.parallelStrings || params.stringsPerMppt || 1);
+    const isc = params.isc || mod.isc || 14.0;
+    const voc = params.voc || mod.voc || 49.5;
+
+    // Tensión Voc en frío (-10°C / zonificación CTE)
+    let vocCold = params.vocCold || params.voc_cold;
+    if (!vocCold) {
+      const limits = calculateDynamicMPPTStringLimits(mod, inv, clim);
+      vocCold = (limits && limits.Voc_Tmin) ? (limits.Voc_Tmin * stringModules) : (voc * 1.10 * stringModules);
+    } else if (params.vocColdPerModule) {
+      vocCold = params.vocCold * stringModules;
+    }
+
+    // 1. PROTECCIONES DC (Por cada entrada / canal MPPT)
+    // Seccionador de corte en carga DC (IEC 60947-3 DC-PV2):
+    // Ue >= 1.20 * Voc_cold (coeficiente de seguridad 1.20)
+    const ueVocMin = vocCold * 1.20;
+    const DC_VOLT_RATINGS = [600, 1000, 1200, 1500];
+    const dcSwitchUe = DC_VOLT_RATINGS.find(v => v >= ueVocMin) || 1500;
+
+    // Ie >= 1.25 * Isc * N_strings_paralelo
+    const ieMin = isc * 1.25 * parallelStrings;
+    const DC_CURR_RATINGS = [16, 25, 32, 40, 63, 80, 100];
+    const dcSwitchIe = DC_CURR_RATINGS.find(a => a >= ieMin) || Math.ceil(ieMin);
+
+    const dcSwitch = {
+      tipo: 'Seccionador de corte en carga DC',
+      categoria: 'DC-PV2 (IEC 60947-3)',
+      ueV: dcSwitchUe,
+      ieA: dcSwitchIe,
+      polos: '2P (bipolar)',
+      descripcion: `Seccionador DC 2P ${dcSwitchIe}A / ${dcSwitchUe}V DC-PV2`
+    };
+
+    // Descargador de sobretensiones transitorias DC (SPD Clase II / Tipo 2 según IEC 61643-31 / UNE-EN 50539-11):
+    // Ucpv >= 1.20 * Voc_cold
+    const spdDcUcpv = DC_VOLT_RATINGS.find(v => v >= ueVocMin) || 1200;
+    const dcSpd = {
+      tipo: 'Descargador de sobretensiones transitorias DC (SPD)',
+      clase: 'Clase II (Tipo 2) según IEC 61643-31',
+      ucpvV: spdDcUcpv,
+      inKa: 20,
+      imaxKa: 40,
+      polos: '2P + Tierra (Y-configuration)',
+      descripcion: `SPD DC Clase II Ucpv ${spdDcUcpv}V (In=20kA / Imax=40kA)`
+    };
+
+    // Fusibles gPV de protección contra corrientes inversas (IEC 62548):
+    // Solo requeridos si hay >= 3 strings en paralelo por MPPT
+    let dcFuses = null;
+    if (parallelStrings >= 3) {
+      const fuseInMin = isc * 1.4;
+      const FUSE_RATINGS = [12, 15, 16, 20, 25, 30, 32];
+      const fuseRating = FUSE_RATINGS.find(f => f >= fuseInMin) || Math.ceil(fuseInMin);
+      dcFuses = {
+        requerido: true,
+        tipo: 'Fusibles gPV cilíndricos 10x38',
+        inA: fuseRating,
+        ueV: dcSwitchUe,
+        cantidad: parallelStrings * 2, // en polo positivo y polo negativo
+        norma: 'IEC 60269-6 / IEC 62548',
+        descripcion: `Fusibles gPV 10x38 ${fuseRating}A / ${dcSwitchUe}V (ambos polos)`
+      };
+    } else {
+      dcFuses = {
+        requerido: false,
+        motivo: 'No requerido: <= 2 strings en paralelo por MPPT (corriente inversa admisible segura según IEC 62548)',
+        descripcion: 'Sin fusibles (configuración <= 2 strings en paralelo)'
+      };
+    }
+
+    // 2. PROTECCIONES AC (Lado de evacuación / conexión a red)
+    const gridSupply = params.gridSupply || (params.isThreePhase ? 'three_phase' : (inv.type && inv.type.includes('Trifásico') ? 'three_phase' : 'single_phase'));
+    const isThreePhase = gridSupply === 'three_phase';
+    const vac = isThreePhase ? 400 : 230;
+
+    let iacMax = params.iacMax || inv.iAcMax || inv.maxAcCurrent;
+    if (!iacMax) {
+      const pNomKw = params.pAcNomKw || inv.kw || 5.0;
+      iacMax = isThreePhase
+        ? (pNomKw * 1000.0) / (Math.sqrt(3) * vac * 0.95)
+        : (pNomKw * 1000.0) / (vac * 0.95);
+    }
+
+    // Interruptor General Automático (IGA AC / MCB según UNE-EN 60898-1):
+    // In >= 1.25 * Iac_max
+    const igaInMin = iacMax * 1.25;
+    const AC_CURR_RATINGS = [10, 16, 20, 25, 32, 40, 50, 63, 80, 100, 125];
+    const igaIn = AC_CURR_RATINGS.find(a => a >= igaInMin) || Math.ceil(igaInMin);
+    const poderCorteKa = isThreePhase && igaIn >= 32 ? 10 : 6;
+    const polosAc = isThreePhase ? '4P (3F+N)' : '2P (1F+N)';
+
+    const acIga = {
+      tipo: 'Interruptor General Automático (IGA)',
+      curva: 'C',
+      inA: igaIn,
+      polos: polosAc,
+      poderCorteKa: poderCorteKa,
+      norma: 'UNE-EN 60898-1 / UNE-EN 60947-2',
+      descripcion: `IGA Curva C ${polosAc} ${igaIn}A / ${poderCorteKa}kA`
+    };
+
+    // Interruptor Diferencial (RCD AC según REBT ITC-BT-40 e IEC 62109-2):
+    // Si el inversor es sin transformador y no tiene separación galvánica:
+    // Requiere Tipo B, O Tipo A Superinmunizado (A-SI / F) si el fabricante certifica que no inyecta CC > 6mA (RCMU).
+    const rcmuCertified = params.rcmuCertified !== undefined ? params.rcmuCertified : true; // Inversores modernos (Huawei/Fronius/SMA/etc.)
+    const rcdType = rcmuCertified ? 'Tipo A Superinmunizado (A-SI / Hpi / Si)' : 'Tipo B';
+    const sensibilidadMa = (params.esIndustrial || (isThreePhase && igaIn >= 63)) ? 300 : 30;
+
+    const acRcd = {
+      tipo: 'Interruptor Diferencial (RCD)',
+      clase: rcdType,
+      inA: Math.max(igaIn, 25), // El diferencial debe ser de calibre igual o superior al IGA
+      sensibilidadMa: sensibilidadMa,
+      polos: polosAc,
+      norma: 'REBT ITC-BT-40 / IEC 62109-2 / UNE-EN 61008-1',
+      descripcion: `Diferencial ${polosAc} ${Math.max(igaIn, 25)}A / ${sensibilidadMa}mA ${rcdType}`
+    };
+
+    // Descargador de sobretensiones AC (SPD Clase II + POP según UNE-EN 50550 / REBT ITC-BT-23):
+    const acSpd = {
+      tipo: 'Protección contra sobretensiones transitorias y permanentes (SPD + POP)',
+      clase: 'Clase II (Tipo 2) transitorias + Bobina de disparo POP permanentes',
+      ucV: isThreePhase ? 440 : 275,
+      inKa: 20,
+      imaxKa: 40,
+      polos: polosAc,
+      asociadoA: 'Bobina de emisión conectada al IGA para desenganche automático',
+      norma: 'UNE-EN 50550 / UNE-EN 61643-11 / REBT ITC-BT-23',
+      descripcion: `SPD AC Clase II ${polosAc} (In=20kA / Imax=40kA) + Protector Permanente (POP)`
+    };
+
+    return {
+      dc: {
+        seccionador: dcSwitch,
+        spd: dcSpd,
+        fusibles: dcFuses,
+        vocCold: parseFloat(vocCold.toFixed(1)),
+        iscString: parseFloat(isc.toFixed(2))
+      },
+      ac: {
+        iga: acIga,
+        rcd: acRcd,
+        spdPop: acSpd,
+        iacMax: parseFloat(iacMax.toFixed(2)),
+        isThreePhase: isThreePhase
+      }
     };
   }
 
@@ -1467,6 +1637,7 @@
   root.partitionPanelsIntoMPPTStrings = partitionPanelsIntoMPPTStrings;
   root.matchInvertersFromCatalog = matchInvertersFromCatalog;
   root.calculateVoltageDrop = calculateVoltageDrop;
+  root.calculateElectricalProtections = calculateElectricalProtections;
   root.rebalanceMPPTAssignment = rebalanceMPPTAssignment;
   root.validateMPPTHomogeneity = validateMPPTHomogeneity;
   root.calculateInverterEfficiencyAndClipping = calculateInverterEfficiencyAndClipping;
@@ -1483,6 +1654,8 @@
     partitionPanelsIntoMPPTStrings: partitionPanelsIntoMPPTStrings,
     matchInvertersFromCatalog: matchInvertersFromCatalog,
     calculateVoltageDrop: calculateVoltageDrop,
+    calculateElectricalProtections: calculateElectricalProtections,
+    calculateProtections: calculateElectricalProtections,
     rebalanceMPPTAssignment: rebalanceMPPTAssignment,
     validateMPPTHomogeneity: validateMPPTHomogeneity,
     calculateInverterEfficiencyAndClipping: calculateInverterEfficiencyAndClipping,

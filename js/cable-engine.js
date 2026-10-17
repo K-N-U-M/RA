@@ -227,8 +227,16 @@
       // Codo 2: Tramo a lo largo del eje V a 90° (hacia la arista de cumbrera o alero)
       var corner2 = Cesium.Cartesian3.add(corner1, Cesium.Cartesian3.multiplyByScalar(V, deltaV, new Cesium.Cartesian3()), new Cesium.Cartesian3());
 
-      // Codo 3: Transición vertical hacia el equipo destino
-      var path = [p0, corner1, corner2, pEnd];
+      // Codo 3: Transición vertical hacia el equipo destino (bajante vertical de fachada a plomo)
+      var up = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(pEnd, new Cesium.Cartesian3());
+      var heightDiff = Cesium.Cartesian3.dot(Cesium.Cartesian3.subtract(corner2, pEnd, new Cesium.Cartesian3()), up);
+      var path;
+      if (heightDiff > 0.3) {
+        var cornerDown = Cesium.Cartesian3.add(pEnd, Cesium.Cartesian3.multiplyByScalar(up, heightDiff, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+        path = [p0, corner1, corner2, cornerDown, pEnd];
+      } else {
+        path = [p0, corner1, corner2, pEnd];
+      }
       return this.sanitizePositions(path);
     },
 

@@ -198,6 +198,19 @@ const vDropDC = context.window.RA.Electrical.calculateVoltageDrop({
 assert(vDropDC.pct < 1.5, 'Caída de tensión CC cumple límite REBT ITC-BT-40 (<= 1.5%)', `ΔV = ${vDropDC.pct.toFixed(2)}%`);
 assert(vDropDC.valid === true, 'Flag de validación normativa activa', `valid: ${vDropDC.valid}`);
 
+// Validación de protecciones eléctricas REBT (ITC-BT-40 / ITC-BT-24)
+const protections = context.window.RA.Electrical.calculateProtections({
+  module: mod,
+  stringModules: 12,
+  parallelStrings: 1,
+  pAcNomKw: 10,
+  gridSupply: 'three_phase'
+});
+assert(protections.dc && protections.dc.seccionador && protections.dc.seccionador.ueV >= 600, 'Dimensionamiento seccionador DC-PV2', `${protections.dc.seccionador.descripcion}`);
+assert(protections.dc.spd && protections.dc.spd.ucpvV >= 600, 'Dimensionamiento SPD DC Clase II', `${protections.dc.spd.descripcion}`);
+assert(protections.ac.iga && protections.ac.iga.inA >= 16, 'Dimensionamiento IGA AC curva C', `${protections.ac.iga.descripcion}`);
+assert(protections.ac.rcd && protections.ac.rcd.clase.includes('Tipo A'), 'Dimensionamiento Diferencial AC Tipo A SI', `${protections.ac.rcd.descripcion}`);
+
 console.log('\n--- 3. PRUEBAS DE MODELO FINANCIERO Y RENTABILIDAD BANCABLE (Despacho 288h) ---');
 // Mock de cálculo de proyecto
 const sampleProjectCalcs = () => ({
