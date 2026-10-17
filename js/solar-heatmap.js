@@ -202,7 +202,10 @@
         }
 
         if (!isShaded && solarPos.isDaylight && sunDirWorld && pData.center) {
-          if (typeof isPanelOccludedBy3DEnvironment === "function" && isPanelOccludedBy3DEnvironment(pData.center, normWorld, sunDirWorld)) {
+          // [AAA FÍSICA SOLAR] Si el sol incide por la espalda del plano/panel (espalda al sol), sombra propia directa
+          if (normWorld && Cesium.Cartesian3.dot(normWorld, sunDirWorld) <= 0.001) {
+            isShaded = true;
+          } else if (typeof isPanelOccludedBy3DEnvironment === "function" && isPanelOccludedBy3DEnvironment(pData.center, normWorld, sunDirWorld)) {
             isShaded = true;
           }
         }
@@ -231,6 +234,7 @@
               polygon: {
                 hierarchy: new Cesium.PolygonHierarchy(shadowCorners),
                 material: shadowMatOverlay,
+                depthFailMaterial: shadowMatOverlay,
                 perPositionHeight: true,
                 arcType: (typeof Cesium !== 'undefined' && Cesium.ArcType && Cesium.ArcType.NONE) ? Cesium.ArcType.NONE : undefined
               }
@@ -239,6 +243,9 @@
           } else {
             if (shadowOverlay.polygon) {
               shadowOverlay.polygon.hierarchy = new Cesium.PolygonHierarchy(shadowCorners);
+              if (!shadowOverlay.polygon.depthFailMaterial) {
+                shadowOverlay.polygon.depthFailMaterial = shadowMatOverlay;
+              }
             }
             shadowOverlay.show = true;
           }

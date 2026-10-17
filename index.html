@@ -6519,7 +6519,21 @@ function recalculateSolarYield() {
   }
   const azimuthDeg = pa ? pa.azimuthDeg : 0;
   const tiltDeg = pa ? pa.tiltDeg : 30;
-  const area3D = pa ? pa.area3D : 0;
+  let area3D = 0;
+  if (typeof WP !== 'undefined' && WP && Array.isArray(WP.polylines) && WP.polylines.length > 0) {
+    WP.polylines.forEach(poly => {
+      const pInf = poly.roofInfo || (typeof computeSinglePolylineRoofInfo === 'function' ? computeSinglePolylineRoofInfo(poly.points, poly) : null);
+      if (pInf && typeof pInf.area3D === 'number' && pInf.area3D > 0) {
+        area3D += pInf.area3D;
+      } else if (typeof polygonAnalysis === 'function' && Array.isArray(poly.points) && poly.points.length >= 3) {
+        const polyAnalysis = polygonAnalysis(poly.points);
+        if (polyAnalysis && polyAnalysis.area3D) area3D += polyAnalysis.area3D;
+      }
+    });
+  }
+  if (area3D <= 0) {
+    area3D = pa ? pa.area3D : 0;
+  }
   const usefulArea = area3D * 0.80;
   const pCfg = (typeof panelConfig !== 'undefined' && panelConfig) ? panelConfig : {};
   const modulePowerW = pCfg.potencia || 450;
@@ -11105,7 +11119,21 @@ function getProjectCalcs() {
   const tit = (typeof readTitular === 'function') ? readTitular() : {};
 
   const pa = (typeof polygonAnalysis === 'function') ? polygonAnalysis() : null;
-  const area3D = pa ? pa.area3D : 0;
+  let area3D = 0;
+  if (typeof WP !== 'undefined' && WP && Array.isArray(WP.polylines) && WP.polylines.length > 0) {
+    WP.polylines.forEach(poly => {
+      const pInf = poly.roofInfo || (typeof computeSinglePolylineRoofInfo === 'function' ? computeSinglePolylineRoofInfo(poly.points, poly) : null);
+      if (pInf && typeof pInf.area3D === 'number' && pInf.area3D > 0) {
+        area3D += pInf.area3D;
+      } else if (typeof polygonAnalysis === 'function' && Array.isArray(poly.points) && poly.points.length >= 3) {
+        const polyAnalysis = polygonAnalysis(poly.points);
+        if (polyAnalysis && polyAnalysis.area3D) area3D += polyAnalysis.area3D;
+      }
+    });
+  }
+  if (area3D <= 0) {
+    area3D = pa ? pa.area3D : 0;
+  }
   const latDeg = pa ? pa.latDeg : 40.4;
   const lonDeg = pa ? pa.lonDeg : -3.7;
   const usefulArea = area3D * 0.80;
@@ -14143,10 +14171,15 @@ function _getOcclusionExcludeList(scene) {
   if (window._solarHeatmapLabelCollection) toExclude.push(window._solarHeatmapLabelCollection);
   if (window.simulatedPanelsPrimitive) toExclude.push(window.simulatedPanelsPrimitive);
   if (window.simulatedStringsPolylineCollection) toExclude.push(window.simulatedStringsPolylineCollection);
+  if (window.simulatedSupportsPolylineCollection) toExclude.push(window.simulatedSupportsPolylineCollection);
+  if (window._raCableEnginePrimitives) toExclude.push(window._raCableEnginePrimitives);
   if (window.inverterEntity) toExclude.push(window.inverterEntity);
   if (window.dcBoxEntity) toExclude.push(window.dcBoxEntity);
   if (window.gridMeterEntity) toExclude.push(window.gridMeterEntity);
   if (window.acometidaACEntity) toExclude.push(window.acometidaACEntity);
+  if (window.inverterEquipmentState && window.inverterEquipmentState.dcProtectionEntity) {
+    toExclude.push(window.inverterEquipmentState.dcProtectionEntity);
+  }
   _occlusionExcludeList = toExclude;
   _occlusionExcludeListTs = now;
   return toExclude;
