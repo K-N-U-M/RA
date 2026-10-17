@@ -85,28 +85,42 @@ function getObstacleActivePlane(optPolyOrPlaneIdx) {
     return { origin, normal, uVec, vVec, plane: { origin, normal } };
   }
 
-  // 2. Fallback a polilínea activa o especificada en WP.polylines
+  // 4. Fallback a polilínea activa o especificada en WP.polylines
   if (typeof WP !== "undefined" && WP && Array.isArray(WP.polylines) && WP.polylines.length > 0) {
-    const pIdx = (typeof optPolyIdx === 'number' && optPolyIdx >= 0 && optPolyIdx < WP.polylines.length)
-      ? optPolyIdx
-      : ((WP.selectedPolyIdx >= 0 && WP.selectedPolyIdx < WP.polylines.length) ? WP.selectedPolyIdx : 0);
+    let pIdx = -1;
+    if (typeof optPolyOrPlaneIdx === 'number' && optPolyOrPlaneIdx >= 0 && optPolyOrPlaneIdx < WP.polylines.length) {
+      pIdx = optPolyOrPlaneIdx;
+    } else if (optPolyOrPlaneIdx && typeof optPolyOrPlaneIdx === 'object' && typeof optPolyOrPlaneIdx.polyIdx === 'number' && optPolyOrPlaneIdx.polyIdx >= 0 && optPolyOrPlaneIdx.polyIdx < WP.polylines.length) {
+      pIdx = optPolyOrPlaneIdx.polyIdx;
+    } else {
+      pIdx = (WP.selectedPolyIdx >= 0 && WP.selectedPolyIdx < WP.polylines.length) ? WP.selectedPolyIdx : 0;
+    }
     const poly = WP.polylines[pIdx];
-    if (poly && poly.points && poly.points.length >= 3 && typeof polygonAnalysis === 'function') {
-      const pa = polygonAnalysis(poly.points);
-      if (pa && pa.center && pa.normal) {
-        const worldNormal = Cesium.Cartesian3.normalize(
-          Cesium.Matrix4.multiplyByPointAsVector(pa.transform, pa.normal, new Cesium.Cartesian3()),
-          new Cesium.Cartesian3()
-        );
-        const uVec = Cesium.Cartesian3.normalize(
-          Cesium.Matrix4.multiplyByPointAsVector(pa.transform, pa.uVec, new Cesium.Cartesian3()),
-          new Cesium.Cartesian3()
-        );
-        const vVec = Cesium.Cartesian3.normalize(
-          Cesium.Matrix4.multiplyByPointAsVector(pa.transform, pa.vVec, new Cesium.Cartesian3()),
-          new Cesium.Cartesian3()
-        );
-        return { origin: pa.center, normal: worldNormal, uVec, vVec, plane: { origin: pa.center, normal: worldNormal } };
+    if (poly) {
+      if (poly.roofInfo && poly.roofInfo.normal && poly.roofInfo.origin && poly.roofInfo.uVec && poly.roofInfo.vVec) {
+        const origin = Cesium.Cartesian3.clone(poly.roofInfo.origin);
+        const normal = Cesium.Cartesian3.normalize(poly.roofInfo.normal, new Cesium.Cartesian3());
+        const uVec = Cesium.Cartesian3.normalize(poly.roofInfo.uVec, new Cesium.Cartesian3());
+        const vVec = Cesium.Cartesian3.normalize(poly.roofInfo.vVec, new Cesium.Cartesian3());
+        return { origin, normal, uVec, vVec, plane: { origin, normal } };
+      }
+      if (poly.points && poly.points.length >= 3 && typeof polygonAnalysis === 'function') {
+        const pa = polygonAnalysis(poly.points);
+        if (pa && pa.center && pa.normal) {
+          const worldNormal = Cesium.Cartesian3.normalize(
+            Cesium.Matrix4.multiplyByPointAsVector(pa.transform, pa.normal, new Cesium.Cartesian3()),
+            new Cesium.Cartesian3()
+          );
+          const uVec = Cesium.Cartesian3.normalize(
+            Cesium.Matrix4.multiplyByPointAsVector(pa.transform, pa.uVec, new Cesium.Cartesian3()),
+            new Cesium.Cartesian3()
+          );
+          const vVec = Cesium.Cartesian3.normalize(
+            Cesium.Matrix4.multiplyByPointAsVector(pa.transform, pa.vVec, new Cesium.Cartesian3()),
+            new Cesium.Cartesian3()
+          );
+          return { origin: pa.center, normal: worldNormal, uVec, vVec, plane: { origin: pa.center, normal: worldNormal } };
+        }
       }
     }
   }
@@ -1662,13 +1676,19 @@ function wpSnapObstacleToRoof(obsId) {
   const plane = (WP.planes && WP.planes[planeIdx]) ? WP.planes[planeIdx] : null;
 
   obs.cartesian = Cesium.Cartesian3.clone(centroid);
-  if (plane && plane.origin && plane.uVec && plane.vVec) {
+  obs.planeIdx = planeIdx;
+  obs.polyIdx = (WP.polylines.indexOf(targetPoly) >= 0) ? WP.polylines.indexOf(targetPoly) : 0;
+
+  const wp = (typeof getObstacleActivePlane === 'function') ? getObstacleActivePlane(obs) : null;
+  if (wp && wp.origin && wp.uVec && wp.vVec) {
+    const rel = Cesium.Cartesian3.subtract(centroid, wp.origin, new Cesium.Cartesian3());
+    obs.u = Cesium.Cartesian3.dot(rel, wp.uVec);
+    obs.v = Cesium.Cartesian3.dot(rel, wp.vVec);
+  } else if (plane && plane.origin && plane.uVec && plane.vVec) {
     const rel = Cesium.Cartesian3.subtract(centroid, plane.origin, new Cesium.Cartesian3());
     obs.u = Cesium.Cartesian3.dot(rel, plane.uVec);
     obs.v = Cesium.Cartesian3.dot(rel, plane.vVec);
   }
-  obs.planeIdx = planeIdx;
-  obs.polyIdx = (WP.polylines.indexOf(targetPoly) >= 0) ? WP.polylines.indexOf(targetPoly) : 0;
 
   recalculateLayoutAndObstacles();
   selectObstacle(obs.id);

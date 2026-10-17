@@ -206,8 +206,9 @@
           }
         } catch(e) {}
       }
-      if (obs.center && Cesium.defined(obs.center)) {
-        candidates.push({ pos: obs.center, type: 'Centro Obstáculo' });
+      var obsCenterPos = obs.cartesian || obs.center;
+      if (obsCenterPos && Cesium.defined(obsCenterPos)) {
+        candidates.push({ pos: obsCenterPos, type: 'Centro Obstáculo' });
       }
     });
 

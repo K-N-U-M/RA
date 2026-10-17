@@ -9210,8 +9210,16 @@ function getUniversalSelectedTarget() {
   // C. Edificios 3D
   if (typeof selectedBuildingId !== 'undefined' && selectedBuildingId && Array.isArray(buildings)) {
     const bld = buildings.find(b => b.id === selectedBuildingId);
-    if (bld && bld.polygon && bld.polygon.length > 0) {
-      const center = (typeof computeBuildingCenter3D === 'function') ? computeBuildingCenter3D(bld) : bld.polygon[0];
+    const bldPts = (bld && (bld.points || bld.polygon)) || null;
+    if (bld && Array.isArray(bldPts) && bldPts.length > 0) {
+      let center = null;
+      if (typeof computeBuildingCenter3D === 'function') {
+        center = computeBuildingCenter3D(bld);
+      } else {
+        let sum = new Cesium.Cartesian3(0, 0, 0);
+        bldPts.forEach(p => { sum = Cesium.Cartesian3.add(sum, p, sum); });
+        center = Cesium.Cartesian3.multiplyByScalar(sum, 1.0 / bldPts.length, new Cesium.Cartesian3());
+      }
       return {
         type: 'building',
         id: bld.id,
@@ -9770,6 +9778,7 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
       }
     } else if (target.type === 'building' && target.rawObj) {
       target.rawObj.roofAzimuth = Math.round(normRot);
+      if (typeof render3DBuildingsInCesium === 'function') render3DBuildingsInCesium();
     } else if (target.type === 'panel' && target.rawObj) {
       const p = target.rawObj;
       p.rot = Math.round(normRot);
@@ -9926,10 +9935,14 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
       }
     } else if (target.type === 'building' && target.rawObj) {
       const diff = Cesium.Cartesian3.subtract(newPos, universalGizmoState.startPos, new Cesium.Cartesian3());
-      if (Array.isArray(target.rawObj.polygon)) {
-        target.rawObj.polygon = target.rawObj.polygon.map(p => Cesium.Cartesian3.add(p, diff, new Cesium.Cartesian3()));
+      const ptsArr = target.rawObj.points || target.rawObj.polygon;
+      if (Array.isArray(ptsArr)) {
+        for (let i = 0; i < ptsArr.length; i++) {
+          ptsArr[i] = Cesium.Cartesian3.add(ptsArr[i], diff, new Cesium.Cartesian3());
+        }
       }
       universalGizmoState.startPos = Cesium.Cartesian3.clone(newPos);
+      if (typeof render3DBuildingsInCesium === 'function') render3DBuildingsInCesium();
     } else if (target.type === 'panel' && target.rawObj) {
       const p = target.rawObj;
       const delta = Cesium.Cartesian3.subtract(newPos, p.center, new Cesium.Cartesian3());
