@@ -542,21 +542,30 @@
           var center = panel.center;
           if (!center && panel.corners && panel.corners.length > 0) center = panel.corners[0];
           if (!center || typeof center.x !== 'number' || isNaN(center.x)) return null;
-          
-          if (panel.v && typeof panel.h === 'number' && !isNaN(panel.h)) {
+
+          // 1. Si disponemos de las 4 esquinas 3D (panel.corners), ubicar la caja en la arista longitudinal superior
+          if (Array.isArray(panel.corners) && panel.corners.length === 4) {
             try {
-              var v3 = new Cesium.Cartesian3(panel.v.x || 0, panel.v.y || 0, panel.v.z || 0);
-              var mag = Cesium.Cartesian3.magnitude(v3);
-              if (mag > 0.001 && !isNaN(mag)) {
-                var vNorm = Cesium.Cartesian3.normalize(v3, new Cesium.Cartesian3());
-                var offset = Cesium.Cartesian3.multiplyByScalar(vNorm, panel.h * 0.45, new Cesium.Cartesian3());
-                var result = Cesium.Cartesian3.add(center, offset, new Cesium.Cartesian3());
-                if (!isNaN(result.x) && !isNaN(result.y) && !isNaN(result.z)) {
-                  return result;
-                }
+              var topEdgeMid = Cesium.Cartesian3.midpoint(panel.corners[2], panel.corners[3], new Cesium.Cartesian3());
+              var jPos = Cesium.Cartesian3.lerp(center, topEdgeMid, 0.82, new Cesium.Cartesian3());
+              if (!isNaN(jPos.x) && !isNaN(jPos.y) && !isNaN(jPos.z)) {
+                return jPos;
               }
-            } catch (e) {}
+            } catch (_) {}
           }
+
+          // 2. Fallback usando el vector V de la base ortonormal del tejado
+          try {
+            var basis = self.getRoofOrthonormalBasis(center);
+            if (basis && basis.vVec && typeof panel.h === 'number' && !isNaN(panel.h)) {
+              var offset = Cesium.Cartesian3.multiplyByScalar(basis.vVec, panel.h * 0.40, new Cesium.Cartesian3());
+              var jPos2 = Cesium.Cartesian3.add(center, offset, new Cesium.Cartesian3());
+              if (!isNaN(jPos2.x) && !isNaN(jPos2.y) && !isNaN(jPos2.z)) {
+                return jPos2;
+              }
+            }
+          } catch (_) {}
+
           return center;
         }
 
@@ -819,7 +828,7 @@
       } else if (global.solarProjectConfig && global.solarProjectConfig.calculatedLimits && global.solarProjectConfig.calculatedLimits.nMinString) {
         minModPerStr = global.solarProjectConfig.calculatedLimits.nMinString;
       }
-      var vmpStr = (modCfg.vmp || 34.5) * Math.max(1, minModPerStr);
+      var vmpStr = Math.max(12.0, (modCfg.vmp || 34.5) * Math.max(1, minModPerStr));
 
       // [C1/G1] La corriente del troncal se multiplica por el número REAL de grupos en paralelo
       // (fuente única getDcTopologyInfo). Ya no se lee un campo inexistente (dcTopology) que
@@ -839,7 +848,7 @@
       for (var i = 0; i < secDcAvail.length; i++) {
         var s = secDcAvail[i];
         var dV = (2 * rho90 * lDcVal * iDcWorking) / s;
-        var dVpct = (dV / vmpStr) * 100;
+        var dVpct = (dV / Math.max(vmpStr, 12.0)) * 100;
         if ((imaxDcZZF[i] * kAmpacity) >= iDcDesign && dVpct <= 1.5) {
           sDcOpt = s;
           dVdcPctOpt = dVpct;
@@ -851,7 +860,7 @@
       if (!dcCompliant) {
         sDcOpt = secDcAvail[secDcAvail.length - 1]; // 25 mm²
         var dVMax = (2 * rho90 * lDcVal * iDcWorking) / sDcOpt;
-        dVdcPctOpt = (dVMax / vmpStr) * 100;
+        dVdcPctOpt = (dVMax / Math.max(vmpStr, 12.0)) * 100;
         sState.dcNonCompliantWarning = true;
       } else {
         sState.dcNonCompliantWarning = false;

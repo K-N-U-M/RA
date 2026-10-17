@@ -426,7 +426,7 @@
       const isL2R = (rIdx % 2 === 0);
       rObj.panels.sort((a, b) => {
         const uA = (typeof a.gridB === 'number') ? a.gridB : ((a.center2D && typeof a.center2D.u === 'number') ? a.center2D.u : (a.u || 0));
-        const uB = (typeof b.gridB === 'number') ? b.gridB : ((b.center2D && typeof b.center2D.u === 'number') ? b.center2D.u : (b.v || 0));
+        const uB = (typeof b.gridB === 'number') ? b.gridB : ((b.center2D && typeof b.center2D.u === 'number') ? b.center2D.u : (b.u || 0));
         return isL2R ? (uA - uB) : (uB - uA);
       });
     });
@@ -1437,7 +1437,9 @@
       root.wpFastRenderSimulatedPanels();
     }
 
-    if (root.RACableEngine && typeof root.RACableEngine.renderAllCables === 'function') {
+    if (root.RACableEngine && typeof root.RACableEngine.redrawAll === 'function') {
+      root.RACableEngine.redrawAll();
+    } else if (root.RACableEngine && typeof root.RACableEngine.renderAllCables === 'function') {
       root.RACableEngine.renderAllCables();
     }
     if (root.BOMTreeEngine && typeof root.BOMTreeEngine.refresh === 'function') {
