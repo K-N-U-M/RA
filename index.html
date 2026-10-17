@@ -6281,25 +6281,29 @@ function rotateSelectedPanel() {
     return;
   }
   const p = lastRoofInfo.panels[selectedPanelIndex];
-  if (!p || !p.frame) return;
-  const f = p.frame;
+  if (!p) return;
+  const f = p.frame || { Lu: 0, Lv: 1, Ln: 0, Wu: 1, Wv: 0, Wn: 0 };
+  const uVec = p.uVec || lastRoofInfo.uVec;
+  const vVec = p.vVec || lastRoofInfo.vVec;
+  const normal = p.normal || lastRoofInfo.normal;
+  const transform = p.transform || lastRoofInfo.transform;
   const newW = p.h, newH = p.w;
   const modLen = newH, modWidth = newW;
-  const newCenterN = p.centerN + ((newH - p.h) / 2) * Math.abs(f.Ln);
-  const frameOrigin = Cesium.Matrix4.getTranslation(p.transform, new Cesium.Cartesian3());
+  const newCenterN = (p.centerN || 0) + ((newH - p.h) / 2) * (f.Ln ? Math.abs(f.Ln) : 0);
+  const frameOrigin = Cesium.Matrix4.getTranslation(transform, new Cesium.Cartesian3());
   const newCorners = [];
   for (const [sx, sy] of [[-1, -1], [-1, 1], [1, 1], [1, -1]]) {
     const lp = Cesium.Cartesian3.add(
-      Cesium.Cartesian3.multiplyByScalar(p.uVec, p.u + (sx * modLen / 2) * f.Lu + (sy * modWidth / 2) * f.Wu, new Cesium.Cartesian3()),
-      Cesium.Cartesian3.multiplyByScalar(p.vVec, p.v + (sx * modLen / 2) * f.Lv + (sy * modWidth / 2) * f.Wv, new Cesium.Cartesian3()),
+      Cesium.Cartesian3.multiplyByScalar(uVec, p.u + (sx * modLen / 2) * f.Lu + (sy * modWidth / 2) * f.Wu, new Cesium.Cartesian3()),
+      Cesium.Cartesian3.multiplyByScalar(vVec, p.v + (sx * modLen / 2) * f.Lv + (sy * modWidth / 2) * f.Wv, new Cesium.Cartesian3()),
       new Cesium.Cartesian3()
     );
-    Cesium.Cartesian3.add(lp, Cesium.Cartesian3.multiplyByScalar(p.normal, newCenterN + (sx * modLen / 2) * f.Ln, new Cesium.Cartesian3()), lp);
-    newCorners.push(Cesium.Matrix4.multiplyByPoint(p.transform, lp, new Cesium.Cartesian3()));
+    Cesium.Cartesian3.add(lp, Cesium.Cartesian3.multiplyByScalar(normal, newCenterN + (sx * modLen / 2) * f.Ln, new Cesium.Cartesian3()), lp);
+    newCorners.push(Cesium.Matrix4.multiplyByPoint(transform, lp, new Cesium.Cartesian3()));
   }
-  const fits = newCorners.every(c => {
+  const fits = !lastRoofInfo.poly2D || newCorners.every(c => {
     const r = Cesium.Cartesian3.subtract(c, frameOrigin, new Cesium.Cartesian3());
-    return isPointInPolygon2D({ u: Cesium.Cartesian3.dot(r, p.uVec), v: Cesium.Cartesian3.dot(r, p.vVec) }, lastRoofInfo.poly2D);
+    return isPointInPolygon2D({ u: Cesium.Cartesian3.dot(r, uVec), v: Cesium.Cartesian3.dot(r, vVec) }, lastRoofInfo.poly2D);
   });
   if (!fits) {
     showStatus('GIRADO DENEGADO · EL PANEL SALDRÍA DEL POLÍGONO DE CUBIERTA', 2500);
@@ -7289,9 +7293,10 @@ function calculatePVsystRowPitch(moduleLengthM, deltaTiltDeg, roofSlopeDeg, modu
   const shadowDist = hVert * (cosAzDiff / Math.max(Math.tan(altRad), 0.15));
 
   const footprintA = moduleLengthM * Math.cos(degToRad(deltaTiltDeg));
-  const cosRoof = Math.cos(degToRad(roofSlopeDeg || 0)) || 1;
+  const cosRoof = Math.max(0.15, Math.cos(degToRad(Math.min(85, Math.abs(roofSlopeDeg || 0)))));
+  const minPitch = footprintA + (safetyMarginM || 0.05);
 
-  return (footprintA + shadowDist + (safetyMarginM || 0.20)) / cosRoof;
+  return Math.max(minPitch, (footprintA + shadowDist + (safetyMarginM || 0.20)) / cosRoof);
 }
 
 // [DEDUP] rowSpacing -> solar-engine.js
@@ -7899,9 +7904,10 @@ function evaluateModuleLayouts(roof, module, cfg) {
         for (let b = startB; b <= bMax - setback - halfB_base; b += colPitch) {
           if (canHaveWalkway && Math.abs(b - midB) < (walkwayWidth / 2 + halfB_base - 0.01)) continue;
           if (isEastWest) {
-            for (const ewSign of [-0.5, 0.5]) {
-              const cu = (a + ewSign * halfA_base) * AuvN.x + b * BuvN.x;
-              const cv = (a + ewSign * halfA_base) * AuvN.y + b * BuvN.y;
+            for (const ewSign of [-1, 1]) {
+              const ridgeOffset = ewSign * (halfA_base + 0.02);
+              const cu = (a + ridgeOffset) * AuvN.x + b * BuvN.x;
+              const cv = (a + ridgeOffset) * AuvN.y + b * BuvN.y;
               const corners = [];
               for (const [sx, sy] of [[-1, -1], [-1, 1], [1, 1], [1, -1]]) {
                 corners.push({
@@ -11591,7 +11597,11 @@ function computeSinglePolylineRoofInfo(ptsIn, polyOpts) {
       const worldCorners = cornerConfigs.map(([sx, sy]) => {
         const du = (sx * (curModLen / 2) * cosDelta) * AuvN.x + (sy * (curModWid / 2)) * BuvN.x;
         const dv = (sx * (curModLen / 2) * cosDelta) * AuvN.y + (sy * (curModWid / 2)) * BuvN.y;
-        const dh = baseElev + (sx <= 0 ? (curModLen * sinDelta) : 0);
+        const isEW = !!c.isEastWest;
+        const isWest = c.ewSide === 'W';
+        // En Este-Oeste, la arista alta está en la cumbrera de unión central
+        const isHighEdge = isEW ? (isWest ? (sx >= 0) : (sx <= 0)) : (sx <= 0);
+        const dh = baseElev + (isHighEdge ? (curModLen * sinDelta) : 0);
 
         const lp = Cesium.Cartesian3.add(
           Cesium.Cartesian3.multiplyByScalar(uVec, c.u + du, new Cesium.Cartesian3()),
@@ -11614,10 +11624,18 @@ function computeSinglePolylineRoofInfo(ptsIn, polyOpts) {
         h: curModLen,
         orientation: pOrient,
         isHybridResidual: !!c.isHybridResidual,
+        isEastWest: !!c.isEastWest,
+        ewSide: c.ewSide || null,
         moduleId: effectiveModId,
         tiltDeg: best.moduleTiltDeg,
         azimuthDeg: best.moduleAzimuthSur,
-        hasMLPE: !!(c.isShaded && (shadingStrategy === "mlpe" || shadingStrategy === "microinverter"))
+        hasMLPE: !!(c.isShaded && (shadingStrategy === "mlpe" || shadingStrategy === "microinverter")),
+        frame: best.frame,
+        uVec: pa.uVec,
+        vVec: pa.vVec,
+        normal: pa.normal,
+        transform: pa.transform,
+        polyIdx: (typeof poly !== 'undefined' && WP && WP.polylines) ? WP.polylines.indexOf(poly) : 0
       });
     }
   }
@@ -14093,12 +14111,9 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
                 const cartoLow = Cesium.Cartographic.fromCartesian(pair.low);
                 const cartoHigh = Cesium.Cartographic.fromCartesian(pair.high);
 
-                // La cota de la cubierta bajo la arista baja (despegue mínimo de pie: 5 a 10 cm)
-                const footDrop = (est.clearance && est.clearance > 0) ? Math.min(est.clearance, 0.15) : 0.08;
-                const groundZ = cartoLow.height - footDrop;
-
-                const groundFront = Cesium.Cartesian3.fromRadians(cartoLow.longitude, cartoLow.latitude, groundZ);
-                const groundBack = Cesium.Cartesian3.fromRadians(cartoHigh.longitude, cartoHigh.latitude, groundZ);
+                // Cota real de cubierta bajo los apoyos (proyectada con precisión milimétrica al plano del faldón)
+                const groundFront = projectPointToRoof(pair.low);
+                const groundBack = projectPointToRoof(pair.high);
 
                 // Triángulo estructural cerrado A-Frame:
                 // Arista baja -> Zapata suelo frontal -> Zapata suelo trasera -> Montante alto -> Arista baja

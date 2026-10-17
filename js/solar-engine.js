@@ -345,7 +345,9 @@ function computeHighPrecisionSolarPosition(latDeg, lonDeg, doy, solarDecimalHour
     if (Math.sin(omegaRad) > 0) azRad = 2 * Math.PI - azRad;
   }
   const azDegFromNorth = (azRad * 180) / Math.PI;
-  const azDegFromSouth = azDegFromNorth > 180 ? azDegFromNorth - 360 : azDegFromNorth;
+  let azDegFromSouth = azDegFromNorth - 180;
+  if (azDegFromSouth > 180) azDegFromSouth -= 360;
+  if (azDegFromSouth <= -180) azDegFromSouth += 360;
 
   return {
     elevDeg: Math.max(0, elevDeg),
@@ -553,7 +555,8 @@ function estimateMonthlyGHI(latDeg, monthIdx) {
     const doy = midDay[m];
     const decl = solarDeclination(doy) * Math.PI / 180;
     const lat = latDeg * Math.PI / 180;
-    const ws = Math.acos(-Math.tan(lat) * Math.tan(decl));
+    const wsArg = Math.max(-1, Math.min(1, -Math.tan(lat) * Math.tan(decl)));
+    const ws = Math.acos(wsArg);
     const Ho = (24 / Math.PI) * SOLAR_CONST * (1 + 0.033 * Math.cos(2 * Math.PI * doy / 365))
               * (ws * Math.sin(lat) * Math.sin(decl) + Math.cos(lat) * Math.cos(decl) * Math.sin(ws));
     extraterrestrial.push(Ho);
@@ -636,8 +639,17 @@ function runPhysicalModel(kwp, latDeg, lonDeg, tiltDeg, azimutDeg, cfg, customMo
     let mTempLoss = 0, mIAMLoss = 0;
 
     // Simplified hourly integration using sine approximation for month
-    const sunriseHour = 12 - (Math.acos(-Math.tan(latDeg * Math.PI / 180) * Math.tan(decl * Math.PI / 180)) * 180 / Math.PI) / 15;
+    const wsArg = Math.max(-1, Math.min(1, -Math.tan(latDeg * Math.PI / 180) * Math.tan(decl * Math.PI / 180)));
+    const sunriseHour = 12 - (Math.acos(wsArg) * 180 / Math.PI) / 15;
     const sunsetHour = 24 - sunriseHour;
+
+    // Normalización de la curva de insolación diaria: integral horaria = GHI_monthly
+    let sinAltSum = 0;
+    for (let h = Math.floor(sunriseHour); h <= Math.ceil(sunsetHour); h++) {
+      const alt = solarAltitude(latDeg, decl, hourAngle(h));
+      if (alt > 0) sinAltSum += Math.sin(alt * Math.PI / 180);
+    }
+    if (sinAltSum <= 0) sinAltSum = 1;
 
     for (let h = Math.floor(sunriseHour); h <= Math.ceil(sunsetHour); h++) {
       const ha = hourAngle(h);
@@ -645,9 +657,8 @@ function runPhysicalModel(kwp, latDeg, lonDeg, tiltDeg, azimutDeg, cfg, customMo
       if (altDeg <= 0) continue;
 
       const sinAlt = Math.sin(altDeg * Math.PI / 180);
-      // GHI_monthly está en Wh/m²/día. Distribución sinusoidal diurna (integral diurna = GHI_monthly):
-      const dayLen = Math.max(sunsetHour - sunriseHour, 1);
-      const GHI_instant = Math.max((GHI_monthly / dayLen) * (Math.PI / 2) * sinAlt, 0); // W/m²
+      // GHI_monthly está en Wh/m²/día. Distribución normalizada para que la suma horaria sea exactamente GHI_monthly:
+      const GHI_instant = Math.max(0, (GHI_monthly / sinAltSum) * sinAlt); // W/m²
 
       // [B2] Motor único de radiación (Erbs + Hay-Davies). Geometría del azimut solar desde el Sur.
       const azFromNorth = solarAzimuthAtan2(latDeg, decl, ha);

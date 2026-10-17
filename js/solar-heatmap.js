@@ -654,13 +654,9 @@
           return n;
         }
       }
-      // Si roofNorm ya tiene magnitud normalizada y está en ECEF
-      if (roofNorm) {
-        const mag = Cesium.Cartesian3.magnitude(roofNorm);
-        if (mag > 0.5) return Cesium.Cartesian3.clone(roofNorm);
-      }
-      let nWorld = new Cesium.Cartesian3();
+      // Si disponemos de la matriz de transformación del faldón, transformar el vector normal a ECEF
       if (transform && roofNorm) {
+        let nWorld = new Cesium.Cartesian3();
         if (typeof Cesium.Matrix4.multiplyByPointAsVector === "function") {
           nWorld = Cesium.Matrix4.multiplyByPointAsVector(transform, roofNorm, nWorld);
         } else {
@@ -668,12 +664,17 @@
         }
         return Cesium.Cartesian3.normalize(nWorld, nWorld);
       }
-      return roofNorm || new Cesium.Cartesian3(0, 0, 1);
+      if (roofNorm) {
+        return Cesium.Cartesian3.clone(roofNorm);
+      }
+      return new Cesium.Cartesian3(0, 0, 1);
     }
 
     /**
      * Discretiza un cuadrilátero 2D de panel en 3 sub-cadenas (sub-strings S1, S2, S3)
      * representativas de las 3 ramas de diodos de bypass de un módulo comercial estándar / half-cut.
+     * En módulos fotovoltaicos comerciales estándar (IEC 61215), los 3 diodos dividen el ancho del
+     * panel en 3 columnas que recorren toda la longitud larga del módulo.
      * @param {Array<{u:number,v:number}>} quad 4 vértices del módulo
      * @returns {Array<Array<{u:number,v:number}>>} 3 sub-polígonos
      */
@@ -686,18 +687,8 @@
       const lerp = (a, b, t) => ({ u: a.u + (b.u - a.u) * t, v: a.v + (b.v - a.v) * t });
 
       if (d12 >= d01) {
-        // Dimensión longitudinal a lo largo de aristas (p0->p3) y (p1->p2)
-        const a0 = p0, b0 = p1;
-        const a1 = lerp(p0, p3, 1 / 3), b1 = lerp(p1, p2, 1 / 3);
-        const a2 = lerp(p0, p3, 2 / 3), b2 = lerp(p1, p2, 2 / 3);
-        const a3 = p3, b3 = p2;
-        return [
-          [a0, b0, b1, a1],
-          [a1, b1, b2, a2],
-          [a2, b2, b3, a3]
-        ];
-      } else {
-        // Dimensión longitudinal a lo largo de aristas (p0->p1) y (p3->p2)
+        // La dimensión larga es p1->p2 y p0->p3. Los diodos dividen la dimensión corta (p0->p1 y p3->p2)
+        // generando 3 columnas longitudinales completas a lo largo de la altura del módulo.
         const a0 = p0, b0 = p3;
         const a1 = lerp(p0, p1, 1 / 3), b1 = lerp(p3, p2, 1 / 3);
         const a2 = lerp(p0, p1, 2 / 3), b2 = lerp(p3, p2, 2 / 3);
@@ -706,6 +697,17 @@
           [a0, a1, b1, b0],
           [a1, a2, b2, b1],
           [a2, a3, b3, b2]
+        ];
+      } else {
+        // La dimensión larga es p0->p1 y p3->p2. Los diodos dividen la dimensión corta (p0->p3 y p1->p2).
+        const a0 = p0, b0 = p1;
+        const a1 = lerp(p0, p3, 1 / 3), b1 = lerp(p1, p2, 1 / 3);
+        const a2 = lerp(p0, p3, 2 / 3), b2 = lerp(p1, p2, 2 / 3);
+        const a3 = p3, b3 = p2;
+        return [
+          [a0, b0, b1, a1],
+          [a1, b1, b2, a2],
+          [a2, b2, b3, a3]
         ];
       }
     }
@@ -1114,7 +1116,7 @@
       for (let _i = 0; _i < monthsReal.length; _i++) {
         const _start = (_i === 0) ? 0 : monthsReal[_i];
         const _end = (_i + 1 < monthsReal.length) ? monthsReal[_i + 1] : 12;
-        const _blockVal = _monthlyNetWh[monthsReal[_i]] / 1000.0 * pKwp * prSys;
+        const _blockVal = (_monthlyNetWh[monthsReal[_i]] * (heatmapStride || 1)) / 1000.0 * pKwp * prSys;
         let _wSum = 0;
         for (let _k = _start; _k < _end; _k++) _wSum += _ghiW[_k];
         if (_wSum <= 0) _wSum = (_end - _start) || 1;
