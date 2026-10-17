@@ -4420,7 +4420,7 @@ function getOrthogonalSnap(cartesian, pts) {
   const newAngle = anglePrev + snapDiff;
   
   const dist = Math.hypot(vCurr.x, vCurr.y);
-  const snappedLocal = new Cesium.Cartesian3(Math.cos(newAngle) * dist, Math.sin(newAngle) * dist, 0);
+  const snappedLocal = new Cesium.Cartesian3(Math.cos(newAngle) * dist, Math.sin(newAngle) * dist, (typeof vCurr.z === 'number') ? vCurr.z : 0);
   
   return Cesium.Matrix4.multiplyByPoint(enu, snappedLocal, new Cesium.Cartesian3());
 }
@@ -7879,7 +7879,14 @@ function evaluateModuleLayouts(roof, module, cfg) {
       : calculatePVsystRowPitch(modLen, deltaTilt, slopeDeg, moduleAzSur, lat, safety);
 
     if (isEastWest) {
-      rowPitch = (2 * footprintA) + 0.35;
+      // Cálculo astronómico de sombra en solsticio de invierno (CTE DB-HE5 / UNE-EN 62446)
+      const ridgeHeight = modLen * Math.sin(degToRad(deltaTilt || 15));
+      const latRad = degToRad(lat || 40.0);
+      const sinElevWin = Math.sin(latRad) * Math.sin(degToRad(-23.45)) + Math.cos(latRad) * Math.cos(degToRad(-23.45)) * Math.cos(degToRad(30));
+      const elevWinRad = Math.max(0.174, Math.asin(Math.max(0.01, sinElevWin)));
+      const shadowValley = (ridgeHeight / Math.tan(elevWinRad)) * 0.50;
+      const minValleyGap = Math.max(0.35, Math.min(0.85, shadowValley));
+      rowPitch = (2 * footprintA) + minValleyGap;
     }
 
     const colPitch = modWidth + gap;
@@ -7912,7 +7919,7 @@ function evaluateModuleLayouts(roof, module, cfg) {
 
       for (let a = startA; a <= aMax - setback - halfA_base; a += rowPitch) {
         for (let b = startB; b <= bMax - setback - halfB_base; b += colPitch) {
-          if (canHaveWalkway && Math.abs(b - midB) < (walkwayWidth / 2 + halfB_base - 0.01)) continue;
+          if (canHaveWalkway && Math.abs(b - midB) < (walkwayWidth / 2 + halfB_base * 0.80)) continue;
           if (isEastWest) {
             for (const ewSign of [-1, 1]) {
               const ridgeOffset = ewSign * (halfA_base + 0.02);
@@ -9794,7 +9801,7 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
       }
     } else if (target.type === 'building' && target.rawObj) {
       target.rawObj.roofAzimuth = Math.round(normRot);
-      if (typeof render3DBuildingsInCesium === 'function') render3DBuildingsInCesium();
+      // Reconstrucción GPU pesada diferida a LEFT_UP (index.html:15829) para garantizar 60 FPS
     } else if (target.type === 'panel' && target.rawObj) {
       const p = target.rawObj;
       p.rot = Math.round(normRot);
@@ -14136,6 +14143,20 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
               tieBar.material = railMat;
               totalLinesAdded++;
 
+              // Raíles longitudinales transversales de aluminio conectando ambos pórticos A-Frame a cota de módulo
+              const leg1Dir = Cesium.Cartesian3.subtract(pair1.high, pair1.low, new Cesium.Cartesian3());
+              const leg2Dir = Cesium.Cartesian3.subtract(pair2.high, pair2.low, new Cesium.Cartesian3());
+              const rA_S = Cesium.Cartesian3.add(pair1.low, Cesium.Cartesian3.multiplyByScalar(leg1Dir, 0.25, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+              const rA_E = Cesium.Cartesian3.add(pair2.low, Cesium.Cartesian3.multiplyByScalar(leg2Dir, 0.25, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+              const rB_S = Cesium.Cartesian3.add(pair1.low, Cesium.Cartesian3.multiplyByScalar(leg1Dir, 0.75, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+              const rB_E = Cesium.Cartesian3.add(pair2.low, Cesium.Cartesian3.multiplyByScalar(leg2Dir, 0.75, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+
+              const railA = supportCol.add({ positions: [rA_S, rA_E], width: 5.0, show: true });
+              railA.material = railMat;
+              const railB = supportCol.add({ positions: [rB_S, rB_E], width: 5.0, show: true });
+              railB.material = railMat;
+              totalLinesAdded += 2;
+
             } else {
               // COPLANAR: Raíles longitudinales de aluminio bajo el módulo
               const v1 = Cesium.Cartesian3.subtract(p.corners[1], p.corners[0], new Cesium.Cartesian3());
@@ -14999,6 +15020,11 @@ window.toggleSolarHUD = toggleSolarHUD;
 
   // 1. LEFT_DOWN: Detección prioritaria de agarre del Gizmo 3D (bloquea la cámara SOLO mientras se arrastra una maneta o vértice)
   handler.setInputAction(down => {
+    // 🌟 BYPASS CINTA MÉTRICA 3D: Si la herramienta de medición está activa, ceder control exclusivo
+    if (typeof window.RAMeasureTool !== 'undefined' && window.RAMeasureTool && typeof window.RAMeasureTool.isActive === 'function' && window.RAMeasureTool.isActive()) {
+      return;
+    }
+
     // 🌟 PRIORIDAD ABSOLUTA (BYPASS DE CESIUM): DIBUJO DE HUELLA DE EDIFICIO 3D EN TERRENO
     if (typeof WP !== "undefined" && WP && WP.mode === "draw-building") {
       if (activeBuildingPts && activeBuildingPts.length >= 3) {
@@ -15205,6 +15231,11 @@ window.toggleSolarHUD = toggleSolarHUD;
 
   // 2. LEFT_CLICK: Selección y deselección interactiva
   handler.setInputAction(click => {
+    // 🌟 BYPASS CINTA MÉTRICA 3D: Si la herramienta de medición está activa, ceder control exclusivo
+    if (typeof window.RAMeasureTool !== 'undefined' && window.RAMeasureTool && typeof window.RAMeasureTool.isActive === 'function' && window.RAMeasureTool.isActive()) {
+      return;
+    }
+
     // ── PRIORIDAD ABSOLUTA #0A: TRAZADO INTERACTIVO DE CANALIZACIONES 3D (BANDEJAS Y TUBOS DE FACHADA)
     if (window.cableRoutingState && window.cableRoutingState.active) {
       let routeClickPos = null;
@@ -15626,6 +15657,10 @@ window.toggleSolarHUD = toggleSolarHUD;
 
   // 3. MOVIMIENTO DEL RATÓN: Arrastre interactivo de Gizmos, Órbita de Cámara y HUD
   handler.setInputAction(movement => {
+    // 🌟 BYPASS CINTA MÉTRICA 3D: Si la herramienta de medición está activa, ceder control exclusivo
+    if (typeof window.RAMeasureTool !== 'undefined' && window.RAMeasureTool && typeof window.RAMeasureTool.isActive === 'function' && window.RAMeasureTool.isActive()) {
+      return;
+    }
 
     _triadMouseX = movement.endPosition.x;
     _triadMouseY = movement.endPosition.y;
@@ -15642,6 +15677,10 @@ window.toggleSolarHUD = toggleSolarHUD;
 
     // 🌟 ARRASTRE Y ROTACIÓN DEL GIZMO UNIVERSAL UNIFICADO
     if (universalGizmoState.active && universalGizmoState.mode) {
+      if (universalGizmoState.startMouse) {
+        const _dMouse = Math.hypot(movement.endPosition.x - universalGizmoState.startMouse.x, movement.endPosition.y - universalGizmoState.startMouse.y);
+        if (_dMouse > 3) universalGizmoState.wasDragging = true;
+      }
       const uTarget = getUniversalSelectedTarget();
       if (uTarget && universalGizmoState.startPos) {
         const s = universalGizmoState.screen;
@@ -15661,7 +15700,8 @@ window.toggleSolarHUD = toggleSolarHUD;
           let deltaDeg = Cesium.Math.toDegrees(currentAngleRad - universalGizmoState.startAngleRad);
           let newRot = ((universalGizmoState.startRot + deltaDeg) % 360 + 360) % 360;
 
-          if (movement.shiftKey) {
+          const isShift = !!(window._raIsShiftDown || (typeof window.event !== 'undefined' && window.event && window.event.shiftKey) || (movement && movement.shiftKey));
+          if (isShift) {
             newRot = Math.round(newRot / 15) * 15;
             deltaDeg = newRot - universalGizmoState.startRot;
           }

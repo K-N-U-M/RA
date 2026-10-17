@@ -323,13 +323,26 @@ function cursorGizmoHide() {
 function wpFindSnapTarget(cursorPos) {
   if (!cursorPos || !magneticSnapActive) return null;
   let best = null;
-  const closeSnapDistance = 2.5; // Radio exclusivo de cierre milimétrico (2.5m)
 
   // Únicamente snapping al primer vértice (P0) de la polilínea activa para facilitar cierre limpio
   if (WP.mode === 'draw-poly' && WP.activePolyPts && WP.activePolyPts.length >= 3) {
     const firstPt = WP.activePolyPts[0];
-    const d = Cesium.Cartesian3.distance(cursorPos, firstPt);
-    if (d < closeSnapDistance) {
+    let isSnapped = false;
+    if (typeof scene !== 'undefined' && scene && typeof Cesium !== 'undefined' && Cesium.SceneTransforms) {
+      try {
+        const p0Screen = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, firstPt);
+        const curMouseX = (typeof _triadMouseX === 'number') ? _triadMouseX : (triadState.x || (window.innerWidth / 2));
+        const curMouseY = (typeof _triadMouseY === 'number') ? _triadMouseY : (triadState.y || (window.innerHeight / 2));
+        if (p0Screen && Math.hypot(curMouseX - p0Screen.x, curMouseY - p0Screen.y) <= 24) {
+          isSnapped = true;
+        }
+      } catch (e) {}
+    }
+    if (!isSnapped) {
+      const d = Cesium.Cartesian3.distance(cursorPos, firstPt);
+      if (d < 1.0) isSnapped = true;
+    }
+    if (isSnapped) {
       best = { pos: firstPt, type: 'CLOSE_VTX', label: '<i data-lucide=\"magnet\" class=\"icon-sm\"></i> SNAP: Cerrar Cubierta (Punto Inicial)' };
     }
   }
@@ -2484,6 +2497,17 @@ function wpCloseActivePolyline() {
   const pts = (typeof wpEnsureCounterClockwisePoints === 'function')
     ? wpEnsureCounterClockwisePoints(rawPts, plane ? plane.normal : null)
     : rawPts;
+
+  // Validación rigurosa de polígono simple (sin auto-intersecciones ni figuras en 8)
+  if (typeof window.isSimplePolygon === 'function' && !window.isSimplePolygon(pts)) {
+    if (typeof showToast === 'function') {
+      showToast('POLÍGONO NO VÁLIDO', 'El contorno de la cubierta se cruza consigo mismo o tiene forma degenerada. Corrige los vértices.', 'error', 4500);
+    } else {
+      showStatus("POLÍGONO NO VÁLIDO: CRUCE PROPIO DETECTADO", 3000);
+    }
+    return;
+  }
+
   const area = wpPolylineArea3D(pts);
 
   const polyObj = {
@@ -3896,6 +3920,9 @@ function wpGetFaldonOrientationComparison(poly) {
             (poly.modTilt || '') + '_' +
             (poly.modAzimuth || '') + '_' +
             (poly.moduleId || '') + '_' +
+            (poly.hasWalkway ? 'w1' : 'w0') + '_' +
+            (poly.walkwayWidth || 0.8) + '_' +
+            (poly.obstacleSetback || 0) + '_' +
             ((poly.estructura && poly.estructura.tipo) || '');
 
   if (poly._orientCompCache && poly._orientCompCache.sig === sig && (Date.now() - poly._orientCompCache.ts < 4000)) {
@@ -3911,7 +3938,7 @@ function wpGetFaldonOrientationComparison(poly) {
     var infoL = fnInfo(poly.points, optL);
     var countL = (infoL && infoL.panels) ? infoL.panels.length : 0;
 
-    var isCoplanar = (!poly.estructura || poly.estructura.tipo === 'coplanar') && (poly.modTilt === 'coplanar' || poly.modTilt === 0 || poly.modTilt === 'auto');
+    var isCoplanar = (!poly.estructura || poly.estructura.tipo === 'coplanar') && (poly.modTilt === 'coplanar' || parseFloat(poly.modTilt) === 0 || poly.modTilt === 'auto' || !poly.modTilt);
     var countH = 0;
     if (isCoplanar) {
       var optH = Object.assign({}, poly, { orientationPref: 'hybrid' });

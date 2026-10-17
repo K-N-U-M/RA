@@ -750,7 +750,7 @@
           const _hsv = hours[_hs];
           const _utcPre = _hsv - (4 * lng + _EtM) / 60;
           const _spPre = computeHighPrecisionSolarPosition(lat, lng, monthsDoy[mIdx], _utcPre);
-          if (_spPre && _spPre.isDay && _spPre.elevDeg >= 10.0) _sinAltSum += Math.sin(_spPre.elevDeg * Math.PI / 180);
+          if (_spPre && _spPre.isDay && _spPre.elevDeg > 0.0) _sinAltSum += Math.sin(_spPre.elevDeg * Math.PI / 180);
         }
       }
       if (_sinAltSum <= 0) _sinAltSum = 1; // guarda ante latitudes polares / día nulo
@@ -911,7 +911,7 @@
             const tCellInst = (typeof calcTcell === 'function')
               ? calcTcell(tAmbMonth, G_poa_total, noctModule)
               : (tAmbMonth + (noctModule - 20) * (G_poa_total / 800));
-            const tempFactor = Math.max(0.65, Math.min(1.05, 1 + gammaCoeff * (tCellInst - 25)));
+            const tempFactor = Math.max(0.65, Math.min(1.18, 1 + gammaCoeff * (tCellInst - 25)));
 
             const instantPotentialW = (G_beam + G_diffuse + G_albedo + albedoGain) * tempFactor;
             pData.annualTotalPotential += instantPotentialW * mw * hourStepDt;
@@ -1013,13 +1013,13 @@
             if (isShaded && beamShadedFraction > 0) {
               pData.shadowHits = (pData.shadowHits || 0) + mw * hourStepDt;
               pData.activeDiodesHits = (pData.activeDiodesHits || 0) + shadedSubstringsCount * mw * hourStepDt;
-              // Pérdida proporcional a los diodos de bypass activados
-              const instantLossW = G_beam * tempFactor * beamShadedFraction;
+              // Pérdida proporcional a los diodos de bypass activados según IEC 61215
+              const instantLossW = instantPotentialW * beamShadedFraction;
               pData.annualShadedLoss += instantLossW * mw * hourStepDt;
             }
 
             // [B6] Energía neta real del mes calendario (para el reparto mensual de la memoria/oferta).
-            const effectiveLossW = (isShaded && beamShadedFraction > 0) ? (G_beam * tempFactor * beamShadedFraction) : 0;
+            const effectiveLossW = (isShaded && beamShadedFraction > 0) ? (instantPotentialW * beamShadedFraction) : 0;
             _monthlyNetWh[m] += (instantPotentialW - effectiveLossW) * mw * hourStepDt;
           });
         });

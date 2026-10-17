@@ -386,14 +386,15 @@ function computePOAIrradiance(G_ghi, latDeg, tiltDeg, azSurDeg, sunElevDeg, sunA
   else df = 0.165;
 
   const G_dhi = G_ghi * df;
-  const G_dni = (G_ghi - G_dhi) / (Math.sin(sunElevRad) + 1e-4);
+  const sinElevFloor = Math.max(Math.sin(sunElevRad), 0.087); // Límite inferior a ~5° para evitar asíntota
+  const G_dni = (G_ghi - G_dhi) / (sinElevFloor + 1e-4);
 
   // Componente Directa (Beam)
   const G_b_poa = Math.max(0, G_dni * cosTheta);
 
   // Componente Difusa Anisotrópica (Hay-Davies)
   const Ai = G_dni / 1367;
-  const G_d_poa = G_dhi * (Ai * (cosTheta / Math.sin(sunElevRad)) + (1 - Ai) * ((1 + Math.cos(tiltRad)) / 2));
+  const G_d_poa = G_dhi * (Ai * (cosTheta / sinElevFloor) + (1 - Ai) * ((1 + Math.cos(tiltRad)) / 2));
 
   // Componente Reflejada (Albedo)
   const G_r_poa = G_ghi * albedo * ((1 - Math.cos(tiltRad)) / 2);
@@ -494,8 +495,12 @@ function calcPOA(GHI, DHI, latDeg, tiltDeg, azimutPanelDeg, dayOfYear, hourSolar
   // se mantiene corregido como referencia del ratio de haz.
   const Rb = Math.max(cosTheta, 0) / Math.max(Math.sin(lat)*Math.sin(decl) + Math.cos(lat)*Math.cos(decl)*Math.cos(ha), 0.01);
 
-  // Perez diffuse model (simplified F1/F2 coefficients)
-  const eps = (DNI > 1) ? (DHI + DNI) / DHI + 5.535e-6 * Math.pow(hourAngle(hourSolar), 3) : 1.0;
+  // Perez diffuse model (1990 standard formulation: clearness epsilon depends on zenith angle theta_z^3)
+  const sinAlpha = Math.sin(lat) * Math.sin(decl) + Math.cos(lat) * Math.cos(decl) * Math.cos(ha);
+  const alphaDeg = Math.asin(Math.max(-1, Math.min(1, sinAlpha))) * 180 / Math.PI;
+  const thetaZDeg = Math.max(0, 90 - alphaDeg);
+  const thetaZ3 = 5.535e-6 * Math.pow(thetaZDeg, 3);
+  const eps = (DHI > 1e-2 && DNI > 1) ? (((DHI + DNI) / DHI + thetaZ3) / (1 + thetaZ3)) : 1.0;
   const Delta = DHI / SOLAR_CONST * (1 + 0.033 * Math.cos(2 * Math.PI * dayOfYear / 365));
   const F1 = Math.max(0.041 * (eps - 1) - 0.002 * Delta, 0);
   const F2 = 0.012 * (eps - 1) - 0.011 * Delta;

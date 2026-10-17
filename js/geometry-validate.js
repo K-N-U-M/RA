@@ -16,25 +16,71 @@
 
   function toXY(points) {
     if (!Array.isArray(points) || points.length < 3) return null;
-    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, minZ = Infinity, maxZ = -Infinity;
     const pts = [];
+    let cx = 0, cy = 0, cz = 0;
     for (let i = 0; i < points.length; i++) {
       const p = points[i];
       if (!p || typeof p.x !== 'number' || typeof p.y !== 'number' || typeof p.z !== 'number') return null;
       pts.push(p);
-      if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x;
-      if (p.y < minY) minY = p.y; if (p.y > maxY) maxY = p.y;
-      if (p.z < minZ) minZ = p.z; if (p.z > maxZ) maxZ = p.z;
+      cx += p.x; cy += p.y; cz += p.z;
     }
-    const rx = maxX - minX, ry = maxY - minY, rz = maxZ - minZ;
-    // Proyección plana: descartar el eje de MENOR rango (dirección normal al plano del polígono).
-    // Descartar el de mayor rango colapsaría polígonos planos en ese eje (p.ej. z constante).
-    let drop;
-    if (rx <= ry && rx <= rz) drop = 'x'; else if (ry <= rz) drop = 'y'; else drop = 'z';
-    const xy = pts.map(p => drop === 'x' ? { x: p.y, y: p.z } : (drop === 'y' ? { x: p.x, y: p.z } : { x: p.x, y: p.y }));
+    const n = pts.length;
+    cx /= n; cy /= n; cz /= n;
+
+    let xy = null;
+    // 1. Proyección ortonormal exacta mediante ENU local si Cesium está presente
+    if (typeof Cesium !== 'undefined' && Cesium.Transforms && typeof Cesium.Transforms.eastNorthUpToFixedFrame === 'function') {
+      try {
+        const center = new Cesium.Cartesian3(cx, cy, cz);
+        const enu = Cesium.Transforms.eastNorthUpToFixedFrame(center);
+        const inv = Cesium.Matrix4.inverse(enu, new Cesium.Matrix4());
+        xy = pts.map(p => {
+          const loc = Cesium.Matrix4.multiplyByPoint(inv, p, new Cesium.Cartesian3());
+          return { x: loc.x, y: loc.y };
+        });
+      } catch (e) {
+        xy = null;
+      }
+    }
+
+    // 2. Fallback algebraico con normal de Newell y base ortonormal tangencial
+    if (!xy) {
+      let nx = 0, ny = 0, nz = 0;
+      for (let i = 0; i < n; i++) {
+        const cur = pts[i];
+        const next = pts[(i + 1) % n];
+        nx += (cur.y - next.y) * (cur.z + next.z);
+        ny += (cur.z - next.z) * (cur.x + next.x);
+        nz += (cur.x - next.x) * (cur.y + next.y);
+      }
+      const len = Math.hypot(nx, ny, nz);
+      if (len < 1e-9) return null;
+      nx /= len; ny /= len; nz /= len;
+
+      let ux = (Math.abs(nz) < 0.9) ? -ny : 0;
+      let uy = (Math.abs(nz) < 0.9) ? nx : -nz;
+      let uz = (Math.abs(nz) < 0.9) ? 0 : ny;
+      const uLen = Math.hypot(ux, uy, uz) || 1;
+      ux /= uLen; uy /= uLen; uz /= uLen;
+
+      const vx = ny * uz - nz * uy;
+      const vy = nz * ux - nx * uz;
+      const vz = nx * uy - ny * ux;
+
+      xy = pts.map(p => {
+        const dx = p.x - cx, dy = p.y - cy, dz = p.z - cz;
+        return {
+          x: dx * ux + dy * uy + dz * uz,
+          y: dx * vx + dy * vy + dz * vz
+        };
+      });
+    }
+
     // Aceptar anillo cerrado (primer punto == último) sin falsos positivos
-    const n = xy.length;
-    if (n > 1 && Math.abs(xy[0].x - xy[n - 1].x) < 1e-9 && Math.abs(xy[0].y - xy[n - 1].y) < 1e-9) xy.pop();
+    const count = xy.length;
+    if (count > 1 && Math.hypot(xy[0].x - xy[count - 1].x, xy[0].y - xy[count - 1].y) < 1e-4) {
+      xy.pop();
+    }
     return xy;
   }
 
@@ -46,20 +92,43 @@
     if (Math.abs(denom) < 1e-12) return false;
     const t = ((b1.x - a1.x) * d2y - (b1.y - a1.y) * d2x) / denom;
     const u = ((b1.x - a1.x) * d1y - (b1.y - a1.y) * d1x) / denom;
-    const E = 1e-9;
+    const E = 1e-5;
     return t > E && t < 1 - E && u > E && u < 1 - E;
   }
 
   function isSimplePolygon(points) {
     const xy = toXY(points);
-    if (!xy || xy.length < 4) return true;
+    if (!xy || xy.length < 3) return false;
     const n = xy.length;
+
+    // 1. Detección de vértices no consecutivos coincidentes (pinzamiento en 8 / lazo interior)
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 2; j < n; j++) {
+        if (i === 0 && j === n - 1) continue;
+        if (Math.hypot(xy[i].x - xy[j].x, xy[i].y - xy[j].y) < 0.05) {
+          return false; // Vértice coincidente no consecutivo
+        }
+      }
+    }
+
+    // 2. Cruces propios entre aristas
     for (let i = 0; i < n; i++) {
       for (let j = i + 2; j < n; j++) {
         if (i === 0 && j === n - 1) continue; // aristas adyacentes por el cierre
         if (properCross(xy[i], xy[(i + 1) % n], xy[j], xy[(j + 1) % n])) return false;
       }
     }
+
+    // 3. Verificación de área mínima no degenerada (fórmula de Shoelace)
+    let area2D = 0;
+    for (let i = 0; i < n; i++) {
+      const cur = xy[i], next = xy[(i + 1) % n];
+      area2D += (cur.x * next.y - next.x * cur.y);
+    }
+    if (Math.abs(area2D) * 0.5 < 0.10) {
+      return false; // Área menor a 0.10 m² (polígono colapsado)
+    }
+
     return true;
   }
 

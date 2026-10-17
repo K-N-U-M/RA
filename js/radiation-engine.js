@@ -35,7 +35,10 @@
    * @param {number} sunElevDeg  Elevación solar (grados)
    */
   function decomposeErbs(ghi, sunElevDeg) {
-    const sinElev = Math.sin(sunElevDeg * Math.PI / 180);
+    if (!sunElevDeg || sunElevDeg <= 0 || !ghi || ghi <= 0) {
+      return { kt: 0, dhiFraction: 1.0, dhi: 0, dni: 0 };
+    }
+    const sinElev = Math.max(0.017, Math.sin(sunElevDeg * Math.PI / 180));
     const kt = Math.min(0.85, Math.max(0.1, ghi / (SOLAR_CONST_WM2 * sinElev + 1e-3)));
     let dhiFraction;
     if (kt < 0.22) {

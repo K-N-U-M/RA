@@ -152,6 +152,7 @@ function step2SelectModule(id) {
   if (typeof WP !== 'undefined' && WP && WP.polylines) {
     WP.polylines.forEach(poly => {
       poly.moduleId = id;
+      poly._orientCompCache = null;
     });
   }
 
@@ -177,6 +178,9 @@ function step2SelectModule(id) {
     step3UpdateHardwareSelection();
   }
   wpUpdateStep2ModuleBadge();
+  if (typeof wpPopulateFaldonCard === 'function') {
+    wpPopulateFaldonCard();
+  }
   if (typeof step5RegenerateLayout === 'function') {
     step5RegenerateLayout();
   }
