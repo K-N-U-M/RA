@@ -2474,7 +2474,11 @@ body.ra-capture-mode-active .ra-poly-badge,
 body.ra-capture-mode-active .ra-equipment-badge,
 body.ra-capture-mode-active #ra-measure-hud,
 body.ra-capture-mode-active #ra-heatmap-panel-tooltip,
-body.ra-capture-mode-active #ra-triad-overlay {
+body.ra-capture-mode-active #ra-triad-overlay,
+body.ra-capture-mode-active #ra-toast-container,
+body.ra-capture-mode-active #status-msg,
+body.ra-capture-mode-active #ra-viewport-status-banner,
+body.ra-capture-mode-active .ra-status-hud {
   display: none !important;
   opacity: 0 !important;
   pointer-events: none !important;

@@ -11,6 +11,7 @@
   // ── ESTADO DEL MOTOR 3D Y VARIABLES COMPARTIDAS ────────────────────────────
   var _initTriadDone = false;
   var _initTriadRemove = null;
+  var isPitchCenital = false;
 
 async function switchEngine(engine) {
   currentEngine = engine;

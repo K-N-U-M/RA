@@ -490,6 +490,9 @@ async function raImportProjectData(projectData) {
     if (typeof wpClearInverterAndCables === 'function') {
       try { wpClearInverterAndCables(); } catch(eClr) {}
     }
+    if (window.RAundo && typeof window.RAundo.clear === 'function') {
+      window.RAundo.clear();
+    }
 
     // 2. Restaurar Cámara
     if (projectData.camera && typeof viewer !== 'undefined' && viewer && viewer.camera) {
@@ -1020,6 +1023,9 @@ function raNewProjectConfirm() {
       if (typeof render3DBuildingsInCesium === 'function') render3DBuildingsInCesium();
     }
     try { localStorage.removeItem('ra_solar_project_autosave'); } catch(e) {}
+    if (window.RAundo && typeof window.RAundo.clear === 'function') {
+      window.RAundo.clear();
+    }
     _raCurrentFileHandle = null;
     _raCurrentProjectName = 'Nuevo_Proyecto_Solar';
     raCloseProjectsModal();

@@ -224,9 +224,12 @@
       global.labels2DRegistry.forEach(item => { if (item) item.show = isVis; });
     }
 
-    // 2. Conmutar colección de números de paneles 3D
+    // 2. Conmutar colección de números de paneles 3D y etiquetas de heatmap solar
     if (global._panelNumberLabelCollection && typeof global._panelNumberLabelCollection.show !== 'undefined') {
       global._panelNumberLabelCollection.show = isVis;
+    }
+    if (global._solarHeatmapLabelCollection && typeof global._solarHeatmapLabelCollection.show !== 'undefined') {
+      global._solarHeatmapLabelCollection.show = isVis;
     }
 
     // 3. Forzar repintado del canvas de badges y tríada (Triad2D)

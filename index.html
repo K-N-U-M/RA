@@ -5926,6 +5926,27 @@ function clearSimulatedPV() {
     window.simulatedStringsPolylineCollection = null;
   }
 
+  if (window.simulatedSupportsPolylineCollection && typeof viewer !== "undefined" && viewer && viewer.scene && viewer.scene.primitives) {
+    try {
+      viewer.scene.primitives.remove(window.simulatedSupportsPolylineCollection);
+    } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
+    window.simulatedSupportsPolylineCollection = null;
+  }
+
+  if (window._panelNumberLabelCollection && typeof viewer !== "undefined" && viewer && viewer.scene && viewer.scene.primitives) {
+    try {
+      viewer.scene.primitives.remove(window._panelNumberLabelCollection);
+    } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
+    window._panelNumberLabelCollection = null;
+  }
+
+  if (window._solarHeatmapLabelCollection && typeof viewer !== "undefined" && viewer && viewer.scene && viewer.scene.primitives) {
+    try {
+      viewer.scene.primitives.remove(window._solarHeatmapLabelCollection);
+    } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
+    window._solarHeatmapLabelCollection = null;
+  }
+
   selectedPanelIndex = -1;
   isDraggingPanel = false;
   if (typeof panelOutlineEntity !== "undefined" && panelOutlineEntity && typeof viewer !== "undefined" && viewer && viewer.entities) {
