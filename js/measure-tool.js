@@ -80,28 +80,39 @@
     var v = getViewer();
     if (!v || !v.scene || !screenPos) return null;
 
-    if (typeof global.getRaw3DPosition === 'function') {
-      try {
-        var pRaw = global.getRaw3DPosition(screenPos);
-        if (pRaw && Cesium.defined(pRaw) && isFinite(pRaw.x)) return pRaw;
-      } catch (e) {}
+    var pinBPrev = (_state && _state.previewPinB) ? _state.previewPinB.show : null;
+    var linePrev = (_state && _state.previewPolyline) ? _state.previewPolyline.show : null;
+    if (_state && _state.previewPinB) _state.previewPinB.show = false;
+    if (_state && _state.previewPolyline) _state.previewPolyline.show = false;
+
+    var pos = null;
+    try {
+      if (typeof global.getRaw3DPosition === 'function') {
+        try {
+          var pRaw = global.getRaw3DPosition(screenPos);
+          if (pRaw && Cesium.defined(pRaw) && isFinite(pRaw.x)) pos = pRaw;
+        } catch (e) {}
+      }
+
+      if (!pos && v.scene.pickPositionSupported) {
+        try {
+          var pPick = v.scene.pickPosition(screenPos);
+          if (Cesium.defined(pPick) && isFinite(pPick.x)) pos = pPick;
+        } catch (e) {}
+      }
+
+      if (!pos && v.camera && v.scene.globe) {
+        try {
+          var pEll = v.camera.pickEllipsoid(screenPos, v.scene.globe.ellipsoid);
+          if (Cesium.defined(pEll) && isFinite(pEll.x)) pos = pEll;
+        } catch (e) {}
+      }
+    } finally {
+      if (_state && _state.previewPinB && pinBPrev !== null) _state.previewPinB.show = pinBPrev;
+      if (_state && _state.previewPolyline && linePrev !== null) _state.previewPolyline.show = linePrev;
     }
 
-    if (v.scene.pickPositionSupported) {
-      try {
-        var pPick = v.scene.pickPosition(screenPos);
-        if (Cesium.defined(pPick) && isFinite(pPick.x)) return pPick;
-      } catch (e) {}
-    }
-
-    if (v.camera && v.scene.globe) {
-      try {
-        var pEll = v.camera.pickEllipsoid(screenPos, v.scene.globe.ellipsoid);
-        if (Cesium.defined(pEll) && isFinite(pEll.x)) return pEll;
-      } catch (e) {}
-    }
-
-    return null;
+    return pos;
   }
 
   function calculateDistanceMetrics(ptA, ptB) {

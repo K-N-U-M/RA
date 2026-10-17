@@ -159,6 +159,7 @@ function render3DBuildingsInCesium() {
     }
     if (signedArea < 0) {
       cartoList.reverse();
+      if (Array.isArray(bld.points)) bld.points.reverse();
     }
 
     let avgBaseHeight = 0;

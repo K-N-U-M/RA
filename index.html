@@ -6292,7 +6292,7 @@ function rotateSelectedPanel() {
   const newCenterN = (p.centerN || 0) + ((newH - p.h) / 2) * (f.Ln ? Math.abs(f.Ln) : 0);
   const frameOrigin = Cesium.Matrix4.getTranslation(transform, new Cesium.Cartesian3());
   const newCorners = [];
-  for (const [sx, sy] of [[-1, -1], [-1, 1], [1, 1], [1, -1]]) {
+  for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
     const lp = Cesium.Cartesian3.add(
       Cesium.Cartesian3.multiplyByScalar(uVec, p.u + (sx * modLen / 2) * f.Lu + (sy * modWidth / 2) * f.Wu, new Cesium.Cartesian3()),
       Cesium.Cartesian3.multiplyByScalar(vVec, p.v + (sx * modLen / 2) * f.Lv + (sy * modWidth / 2) * f.Wv, new Cesium.Cartesian3()),
@@ -7137,6 +7137,16 @@ function isPanelFullyContainedInPolygon2D(corners, poly, minSetback = 0) {
         const p1 = poly[j];
         const p2 = poly[(j + 1) % poly.length];
         if (distancePointToSegment2D(pt, p1, p2) < minSetback - 1e-4) {
+          return false;
+        }
+      }
+    }
+    // Comprobación recíproca: distancia de vértices del faldón a las 4 aristas del panel
+    for (let j = 0; j < poly.length; j++) {
+      const pVertex = poly[j];
+      for (let i = 0; i < corners.length; i++) {
+        const c1 = corners[i], c2 = corners[(i + 1) % corners.length];
+        if (distancePointToSegment2D(pVertex, c1, c2) < minSetback - 1e-4) {
           return false;
         }
       }
@@ -13257,7 +13267,7 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
               isNormal: panelData.isNormal,
               requiresMLPE: panelData.requiresMLPE,
               isUnviable: panelData.isUnviable,
-              heatmapColor: panelData.heatmapColor || getHeatmapColor(0)
+              heatmapColor: panelData.heatmapColor || (window.solarSimState && window.solarSimState.annualHeatmapDirty ? '#64748B' : getHeatmapColor(0))
             });
           });
 
@@ -14115,11 +14125,8 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
               });
 
               // Barra transversal estabilizadora entre ambos apoyos en el suelo (arriostramiento)
-              const cartoLow1 = Cesium.Cartographic.fromCartesian(pair1.low);
-              const cartoLow2 = Cesium.Cartographic.fromCartesian(pair2.low);
-              const groundZRef = cartoLow1.height - 0.08;
-              const gFront1 = Cesium.Cartesian3.fromRadians(cartoLow1.longitude, cartoLow1.latitude, groundZRef);
-              const gFront2 = Cesium.Cartesian3.fromRadians(cartoLow2.longitude, cartoLow2.latitude, groundZRef);
+              const gFront1 = projectPointToRoof(pair1.low);
+              const gFront2 = projectPointToRoof(pair2.low);
 
               const tieBar = supportCol.add({
                 positions: [gFront1, gFront2],
@@ -14254,9 +14261,9 @@ function isPanelOccludedBy3DEnvironment(panelCenter, norm, sunDirWorld) {
 
       if (is3DTile) {
         const dist = Cesium.Cartesian3.distance(rayOrigin, hit.position);
-        // Si el impacto está a menos de 4m, es la propia cubierta/parapeto del edificio donde estamos apoyados.
-        // Solo obstáculos externos (>4m) proyectan sombras reales de entorno.
-        if (dist > 4.0 && dist < 1200.0) return true;
+        // Despegue de 0.50m (el origen ya está elevado 0.35m sobre la normal del panel para evitar auto-impacto).
+        // Detecta parapetos, casetones y edificios colindantes entre 0.5m y 1200m.
+        if (dist > 0.50 && dist < 1200.0) return true;
       }
     }
   } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }

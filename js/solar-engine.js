@@ -1537,14 +1537,21 @@ function showDailyCurve(mode) {
   const production = [];
   const consumption = [];
 
+  const lonDeg = d.lonDeg || -3.7;
+  const tzOffset = mode === 'summer' ? 2 : 1; // España CET/CEST (UTC+1 invierno, UTC+2 verano)
+  const gammaDoy = (2 * Math.PI / 365) * (doy - 1);
+  const Et = 229.18 * (0.000075 + 0.001868 * Math.cos(gammaDoy) - 0.032077 * Math.sin(gammaDoy) - 0.014615 * Math.cos(2 * gammaDoy) - 0.040849 * Math.sin(2 * gammaDoy));
+
   for (let h = 5; h <= 21; h++) {
     hours.push(h);
-    const altDeg = solarAltitude(latDeg, decl, hourAngle(h));
+    const utcH = h - tzOffset;
+    const hSolar = utcH + (4 * lonDeg + Et) / 60;
+    const altDeg = solarAltitude(latDeg, decl, hourAngle(hSolar));
     let powerKW = 0;
     if (altDeg > 0) {
       const GHI = Math.max(kwp * 1000 * 1.15 * Math.sin(altDeg * Math.PI / 180), 0);
       const DHI = GHI * 0.30;
-      const GPOA = calcPOA(GHI, DHI, latDeg, tiltDeg, azimutDeg, doy, h);
+      const GPOA = calcPOA(GHI, DHI, latDeg, tiltDeg, azimutDeg, doy, hSolar);
       const Tcell = calcTcell(mode === 'summer' ? 28 : 8, GPOA);
       const P = calcPpanel(kwp * 1000, GPOA, Tcell);
       powerKW = P * 0.92 / 1000; // With system losses

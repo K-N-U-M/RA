@@ -545,6 +545,10 @@ function computeObstacleRotationMatrix(obs, uVec, vVec, normal) {
   Cesium.Cartesian3.normalize(uRot, uRot);
   Cesium.Cartesian3.normalize(vRot, vRot);
   Cesium.Cartesian3.cross(uRot, vRot, normVec);
+  if (Cesium.Cartesian3.dot(normVec, normal) < 0) {
+    Cesium.Cartesian3.negate(vRot, vRot);
+    Cesium.Cartesian3.cross(uRot, vRot, normVec);
+  }
   Cesium.Cartesian3.normalize(normVec, normVec);
 
   return new Cesium.Matrix3(
@@ -1612,6 +1616,10 @@ function wpCheckObstacleInsideRoof(optObs, notifyIfOutside) {
 
     if (plane && plane.origin && plane.uVec && plane.vVec && obs.cartesian) {
       const relObs = Cesium.Cartesian3.subtract(obs.cartesian, plane.origin, new Cesium.Cartesian3());
+      if (plane.normal) {
+        const distToPlane = Math.abs(Cesium.Cartesian3.dot(relObs, plane.normal));
+        if (distToPlane > 0.40) continue; // Descartar si el obstáculo dista más de 40 cm del plano 3D del faldón
+      }
       obsU = Cesium.Cartesian3.dot(relObs, plane.uVec);
       obsV = Cesium.Cartesian3.dot(relObs, plane.vVec);
     }

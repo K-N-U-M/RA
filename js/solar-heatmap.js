@@ -120,13 +120,15 @@
       let effHMod = hModGlobal;
 
       // [AAA FÍSICA SOLAR] Detección geométrica exacta de la cumbrera superior a partir de los 4 vértices 3D
-      if (Array.isArray(p.corners) && p.corners.length === 4 && pInfo.center && pInfo.uVec && pInfo.vVec && pInfo.normal) {
+      if (Array.isArray(p.corners) && p.corners.length === 4 && pInfo.uVec && pInfo.vVec && pInfo.normal) {
         const pts = p.corners.map(c => {
-          const rel = Cesium.Cartesian3.subtract(c, pInfo.center, new Cesium.Cartesian3());
+          const loc = pInfo.invTransform
+            ? Cesium.Matrix4.multiplyByPoint(pInfo.invTransform, c, new Cesium.Cartesian3())
+            : (pInfo.center ? Cesium.Cartesian3.subtract(c, pInfo.center, new Cesium.Cartesian3()) : c);
           return {
-            u: Cesium.Cartesian3.dot(rel, pInfo.uVec),
-            v: Cesium.Cartesian3.dot(rel, pInfo.vVec),
-            h: Cesium.Cartesian3.dot(rel, pInfo.normal)
+            u: Cesium.Cartesian3.dot(loc, pInfo.uVec),
+            v: Cesium.Cartesian3.dot(loc, pInfo.vVec),
+            h: Cesium.Cartesian3.dot(loc, pInfo.normal)
           };
         });
         // Ordenar vértices por elevación normal h decreciente
@@ -548,9 +550,10 @@
     const bifacialityFactor = bifacialConfig.bifacialityFactor;
 
     // 2. Activar HUD Cinematográfico de progreso
-    if (typeof showSolarCalcHUD === 'function') {
-      showSolarCalcHUD('Simulación Térmico-Astronómica', 'Escaneando radiación directa, difusa y sombras...');
-    }
+    try {
+      if (typeof showSolarCalcHUD === 'function') {
+        showSolarCalcHUD('Simulación Térmico-Astronómica', 'Escaneando radiación directa, difusa y sombras...');
+      }
     const progressBar = document.getElementById('heatmap-progress-bar');
     const progressFill = document.getElementById('heatmap-progress-fill');
     const diagText = document.getElementById('mlpe-diagnostic-text');
@@ -572,6 +575,7 @@
         p.annualLossPct = 0;
         p.annualYieldPct = 100;
         p.shadowHits = 0;
+        p.activeDiodesHits = 0;
       });
     });
     // ── FASE 4 · Muestreo representativo en plantas grandes ──
@@ -1282,6 +1286,14 @@
     }
     if (typeof wpUpdateCommercialPathsUI === 'function') {
       wpUpdateCommercialPathsUI();
+    }
+    } finally {
+      if (simGenerationId === _activeSimGenerationId) {
+        if (typeof window !== 'undefined' && window.solarSimState) {
+          window.solarSimState.isCalculatingHeatmap = false;
+        }
+        if (typeof hideSolarCalcHUD === 'function') hideSolarCalcHUD();
+      }
     }
   }
 

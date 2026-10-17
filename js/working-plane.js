@@ -668,8 +668,14 @@ function deleteSelectedPanel() {
     const poly = WP.polylines[panel.polyIdx];
     if (poly) {
       if (!Array.isArray(poly.deletedPanels)) poly.deletedPanels = [];
-      const pKey = `${panel.polyIdx}_${panel.u !== undefined ? panel.u.toFixed(2) : ''}_${panel.v !== undefined ? panel.v.toFixed(2) : ''}`;
-      if (!poly.deletedPanels.includes(pKey)) poly.deletedPanels.push(pKey);
+      poly.deletedPanels.push({
+        u: (typeof panel.u === 'number') ? panel.u : (panel.rawPanel && panel.rawPanel.u),
+        v: (typeof panel.v === 'number') ? panel.v : (panel.rawPanel && panel.rawPanel.v),
+        center: panel.center ? Cesium.Cartesian3.clone(panel.center) : (panel.rawPanel && panel.rawPanel.center ? Cesium.Cartesian3.clone(panel.rawPanel.center) : null)
+      });
+      if (poly.roofInfo && Array.isArray(poly.roofInfo.panels)) {
+        poly.roofInfo.panels = poly.roofInfo.panels.filter(p => p !== panel && p !== panel.rawPanel && !p.deleted);
+      }
     }
   }
 
@@ -2693,9 +2699,16 @@ function wpRenderAllPolylines() {
         if (!planeNorm && poly.points.length >= 3) {
           const v1 = Cesium.Cartesian3.subtract(poly.points[1], poly.points[0], new Cesium.Cartesian3());
           const v2 = Cesium.Cartesian3.subtract(poly.points[2], poly.points[0], new Cesium.Cartesian3());
-          planeNorm = Cesium.Cartesian3.normalize(Cesium.Cartesian3.cross(v1, v2, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+          const cr = Cesium.Cartesian3.cross(v1, v2, new Cesium.Cartesian3());
+          if (Cesium.Cartesian3.magnitude(cr) > 1e-4) {
+            planeNorm = Cesium.Cartesian3.normalize(cr, new Cesium.Cartesian3());
+          }
         }
-        if (!planeNorm) planeNorm = new Cesium.Cartesian3(0, 0, 1);
+        if (!planeNorm) {
+          planeNorm = (Cesium.Ellipsoid && Cesium.Ellipsoid.WGS84)
+            ? Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(centroid, new Cesium.Cartesian3())
+            : new Cesium.Cartesian3(0, 0, 1);
+        }
 
         // Elevar el badge +0.9m sobre la superficie para lectura limpia
         const badgePos = Cesium.Cartesian3.add(
