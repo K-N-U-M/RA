@@ -455,6 +455,18 @@ async function raImportProjectData(projectData, options = {}) {
   const projName = (projectData && projectData.metadata && projectData.metadata.name) || _raCurrentProjectName || 'Proyecto Solar';
   raShowProjectLoadingHUD(projName);
 
+  // Snapshot previo para rollback transaccional ante archivos corruptos o excepciones
+  let preImportSnapshot = null;
+  if (!options || !options.isRollback) {
+    try {
+      if (typeof raExportProjectData === 'function') {
+        preImportSnapshot = raExportProjectData();
+      }
+    } catch (eSnap) {
+      console.warn('[RA Storage] No se pudo generar snapshot previo:', eSnap);
+    }
+  }
+
   try {
     if (!projectData || (projectData.format !== 'RA_SOLAR_PROJECT' && !projectData.polylines && !projectData.planes)) {
       throw new Error('El archivo no tiene un formato .raproject válido');
@@ -772,6 +784,18 @@ async function raImportProjectData(projectData, options = {}) {
   } catch (err) {
     raHideProjectLoadingHUD();
     console.error('Error importando proyecto:', err);
+    if (preImportSnapshot && (!options || !options.isRollback)) {
+      try {
+        console.warn('[RA Storage] Error en importación. Ejecutando rollback transaccional al proyecto previo...');
+        raImportProjectData(preImportSnapshot, { isRollback: true });
+        if (typeof showToast === 'function') {
+          showToast('IMPORTACIÓN FALLIDA · RESTAURADO', 'El archivo no es válido. Se ha restaurado el proyecto anterior intacto.', 'warning', 6000);
+        }
+        return false;
+      } catch (eRoll) {
+        console.error('[RA Storage] Error crítico durante rollback:', eRoll);
+      }
+    }
     if (typeof showToast === 'function') {
       showToast('ERROR AL ABRIR', err.message || 'No se pudo leer el archivo.', 'error', 5000);
     }
@@ -1122,14 +1146,13 @@ function raNewProjectConfirm() {
         raShowProjectLoadingHUD(file.name);
         raUpdateProjectLoadingProgress(5, 'Leyendo archivo soltado...', file.name);
 
-        const reader = new FileReader();
-        reader.onload = (ev) => {
+        reader.onload = async (ev) => {
           try {
             const data = JSON.parse(ev.target.result);
-            raImportProjectData(data);
+            await raImportProjectData(data);
           } catch (err) {
             raHideProjectLoadingHUD();
-            if (typeof showToast === 'function') showToast('ERROR', 'Archivo JSON no válido.', 'error', 3000);
+            if (typeof showToast === 'function') showToast('ERROR', 'Archivo JSON no válido: ' + (err.message || ''), 'error', 4000);
           }
         };
         reader.onerror = () => {

@@ -54,11 +54,11 @@
     const Voc_STC = modParams.Voc || modParams.voc || pCfg.voc || (modW >= 500 ? 50.0 : 49.5);
     const Vmp_STC = modParams.Vmp || modParams.vmp || pCfg.vmp || (modW >= 500 ? 42.0 : 41.5);
     const rawBeta = modParams.betaVoc || modParams.tempCoeffVoc || pCfg.betaVoc || pCfg.tempCoeffVoc || -0.0027;
-    const betaVoc = Math.abs(rawBeta) > 0.05 ? rawBeta / 100.0 : rawBeta;
-    const rawBetaVmp = modParams.betaVmp || modParams.tempCoeffVmp || pCfg.betaVmp || (rawBeta * 0.95);
-    const betaVmp = Math.abs(rawBetaVmp) > 0.05 ? rawBetaVmp / 100.0 : rawBetaVmp;
+    const betaVoc = -Math.abs(Math.abs(rawBeta) > 0.05 ? rawBeta / 100.0 : rawBeta);
+    const rawBetaVmp = modParams.betaVmp || modParams.tempCoeffVmp || pCfg.betaVmp || (rawBeta * 1.05);
+    const betaVmp = -Math.abs(Math.abs(rawBetaVmp) > 0.05 ? rawBetaVmp / 100.0 : rawBetaVmp);
     const rawGamma = modParams.gammaPmp || modParams.tempCoeffPmax || pCfg.gammaPmp || pCfg.tempCoeffPmax || (pCfg.tecnologia && pCfg.tecnologia.includes('N-Type') ? -0.0029 : -0.0035);
-    const gammaPmp = Math.abs(rawGamma) > 0.05 ? rawGamma / 100.0 : rawGamma;
+    const gammaPmp = -Math.abs(Math.abs(rawGamma) > 0.05 ? rawGamma / 100.0 : rawGamma);
 
     // Inversor real del catálogo (calculatedLimits se puebla en el Paso 3/4);
     // si no hay selección, cae a los defaults normativos 1000/200/850 V.

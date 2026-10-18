@@ -432,8 +432,12 @@ function computeCellTemperature(T_amb, G_poa, isRoofMounted = true, windSpeed = 
 }
 
 function solarDeclination(dayOfYear) {
-  const B = (2 * Math.PI / 365) * (dayOfYear - 1);
-  return 23.45 * Math.sin((2 * Math.PI / 365) * (284 + dayOfYear));
+  const gamma = (2 * Math.PI / 365) * (dayOfYear - 1);
+  const declRad = 0.006918 -
+    0.399912 * Math.cos(gamma) + 0.070257 * Math.sin(gamma) -
+    0.006758 * Math.cos(2 * gamma) + 0.000907 * Math.sin(2 * gamma) -
+    0.002697 * Math.cos(3 * gamma) + 0.00148 * Math.sin(3 * gamma);
+  return (declRad * 180) / Math.PI;
 }
 
 function hourAngle(hourSolar) {

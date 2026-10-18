@@ -273,6 +273,17 @@
           }
         }
         global.inverterEquipmentState.dcCableEntities = liveCableEntities;
+
+        // Sincronizar entidad 3D en Cesium
+        if (global.inverterEquipmentState.position && !global.inverterEquipmentState.entity) {
+          if (typeof global.wpPlaceInverterAtPosition === 'function') {
+            global.wpPlaceInverterAtPosition(global.inverterEquipmentState.position);
+          }
+        } else if (!global.inverterEquipmentState.position && global.inverterEquipmentState.entity) {
+          if (typeof global.wpClearInverterAndCables === 'function') {
+            global.wpClearInverterAndCables();
+          }
+        }
       }
       if (data.cableRoutingState && global.cableRoutingState) {
         var revCr = revive(data.cableRoutingState);
@@ -281,6 +292,7 @@
       if (typeof global.wpCalculateAndRenderInverterCables === 'function') global.wpCalculateAndRenderInverterCables();
       if (global.RACableEngine && typeof global.RACableEngine.redrawAll === 'function') global.RACableEngine.redrawAll();
       if (typeof global.wpUpdateStep4UI === 'function') global.wpUpdateStep4UI();
+      if (global.ProjectHierarchy && typeof global.ProjectHierarchy.notify === 'function') global.ProjectHierarchy.notify('electrical_restored');
       return true;
     }
 

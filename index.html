@@ -11061,7 +11061,7 @@ function computeElectricalSizingEngineering(generator) {
   // temperatura ambiente 40–45 °C × agrupamiento en bandeja/conducto.
   const K_AMPACITY = 0.90 * 0.85;
 
-  let S_str_opt = 6;
+  let S_str_opt = null;
   for (let i = 0; i < SEC_DC_AVAIL.length; i++) {
     const s = SEC_DC_AVAIL[i];
     const imax = IMAX_DC_ZZF[i];
@@ -11073,6 +11073,8 @@ function computeElectricalSizingEngineering(generator) {
       break;
     }
   }
+  const isDcCompliant = (S_str_opt !== null);
+  if (!S_str_opt) S_str_opt = SEC_DC_AVAIL[SEC_DC_AVAIL.length - 1];
 
   const dV_dc = (2 * rho90 * L_dc * Imp) / S_str_opt;
   const dVdc_pct = (dV_dc / Math.max(Vmp_str_hot, 1.0)) * 100;
@@ -11081,7 +11083,7 @@ function computeElectricalSizingEngineering(generator) {
   const SEC_AC_AVAIL = [2.5, 4, 6, 10, 16, 25, 35, 50, 70];
   const IMAX_AC_RVK  = [29, 38, 49, 68, 91, 119, 146, 178, 226];
 
-  let S_ac_opt = 10;
+  let S_ac_opt = null;
   for (let i = 0; i < SEC_AC_AVAIL.length; i++) {
     const s = SEC_AC_AVAIL[i];
     const imax = IMAX_AC_RVK[i];
@@ -11096,6 +11098,8 @@ function computeElectricalSizingEngineering(generator) {
       break;
     }
   }
+  const isAcCompliant = (S_ac_opt !== null);
+  if (!S_ac_opt) S_ac_opt = SEC_AC_AVAIL[SEC_AC_AVAIL.length - 1];
 
   const xMeterAcOpt = 0.08 / 1000.0;
   const cosPAcOpt = 0.95;
@@ -11103,6 +11107,8 @@ function computeElectricalSizingEngineering(generator) {
   const factorPhaseOpt = monofasico ? 2.0 : Math.sqrt(3);
   const dV_ac = factorPhaseOpt * I_ac * L_ac * ((rho90 / S_ac_opt) * cosPAcOpt + xMeterAcOpt * sinPAcOpt);
   const dVac_pct = (dV_ac / V_ac) * 100;
+
+  const isCompliantREBT = isDcCompliant && (dVdc_pct <= 1.5) && isAcCompliant && (dVac_pct <= 1.5);
 
   const STD_IGA = [16, 20, 25, 32, 40, 50, 63, 80, 100, 125];
   const I_iga = STD_IGA.find(i => i >= I_ac_design) || 63;
@@ -11146,6 +11152,14 @@ function computeElectricalSizingEngineering(generator) {
     dV_ac: dV_ac,
     S_ac: S_ac_opt,
     dVac_pct: Math.round(dVac_pct * 100) / 100,
+    isCompliantREBT,
+    isDcCompliant: isDcCompliant && (dVdc_pct <= 1.5),
+    isAcCompliant: isAcCompliant && (dVac_pct <= 1.5),
+    rebtWarning: !isCompliantREBT ? (
+      (dVdc_pct > 1.5)
+        ? `REBT ITC-BT-40: Caída de tensión DC (${dVdc_pct.toFixed(2)}%) supera el 1.5% máximo permitido.`
+        : `REBT ITC-BT-40: Caída de tensión AC (${dVac_pct.toFixed(2)}%) supera el 1.5% máximo permitido.`
+    ) : null,
     I_iga,
     dif_amp,
     spdType,
