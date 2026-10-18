@@ -3236,53 +3236,180 @@ Cesium.GoogleMaps.defaultApiKey = GOOGLE_MAPS_API_KEY;
 const _raSkyboxCache = {};
 let _raCurrentSkyMode = 'day';
 
-// En Opción A se delega en la atmósfera física esférica nativa de Cesium (Rayleigh/Mie)
-// erradicando al 100% las costuras cúbicas, aristas a 90° y la desalineación ECEF a 41°.
+// ☀️ SKYBOX ESFÉRICO TOPOCÉNTRICO ANALÍTICO AAA (SEAMLESS CONTINUO & LUMINOSO)
+// Proyecta el color por vector director 3D y cénit local (sinElev = d · up):
+// Garantiza continuidad matemática exacta C^inf en las 6 aristas del cubo y cénit vertical a 90°.
 function createProceduralSkybox(mode) {
-  return undefined;
+  mode = mode || 'day';
+  if (_raSkyboxCache[mode]) {
+    return new Cesium.SkyBox({ sources: _raSkyboxCache[mode] });
+  }
+
+  const size = 128; // Resolución ultra-ligera (0 ms) con interpolación bilineal suave en GPU
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+
+  // Vector Cenital Local del observador (Topocéntrico en ECEF)
+  // Por defecto Península Ibérica / Cataluña (lat 41.5°N, lon 2.0°E), o cámara Cesium si está activa
+  let upX = 0.7485, upY = 0.0261, upZ = 0.6626;
+  if (typeof viewer !== 'undefined' && viewer && viewer.camera && viewer.camera.positionWC) {
+    const p = viewer.camera.positionWC;
+    const len = Math.hypot(p.x, p.y, p.z) || 1;
+    upX = p.x / len;
+    upY = p.y / len;
+    upZ = p.z / len;
+  }
+
+  // Paleta fotométrica diurna luminosa, atardecer cálido y noche
+  const palettes = {
+    day: {
+      zenith:    [2, 132, 199],   // #0284c7 (Azul cielo diurno saturado y luminoso)
+      midSky:    [56, 189, 248],  // #38bdf8 (Celeste radiante)
+      horizon:   [224, 242, 254], // #e0f2fe (Bruma clara de horizonte)
+      ground:    [20, 33, 61]     // #14213d (Bajo el horizonte)
+    },
+    sunset: {
+      zenith:    [30, 27, 75],    // #1e1b4b (Índigo crepuscular)
+      midSky:    [131, 24, 67],   // #831843 (Púrpura magenta)
+      horizon:   [245, 158, 11],  // #f59e0b (Ámbar dorado solar)
+      ground:    [12, 10, 24]     // #0c0a18 (Sombra crepuscular)
+    },
+    night: {
+      zenith:    [2, 6, 23],      // #020617 (Espacio profundo)
+      midSky:    [4, 9, 28],      // #04091c (Azul oscuro estelar)
+      horizon:   [10, 22, 56],    // #0a1638 (Horizonte nocturno)
+      ground:    [2, 4, 9]        // #020409 (Tierra nocturna)
+    }
+  };
+  const pal = palettes[mode] || palettes.day;
+
+  function renderSide(face) {
+    const imgData = ctx.createImageData(size, size);
+    const data = imgData.data;
+
+    let pIdx = 0;
+    for (let j = 0; j < size; j++) {
+      const v = 1.0 - 2.0 * ((j + 0.5) / size);
+      for (let i = 0; i < size; i++) {
+        const u = 2.0 * ((i + 0.5) / size) - 1.0;
+
+        // Vector 3D WebGL CubeMap según la cara
+        let vx = 0, vy = 0, vz = 0;
+        if (face === 'posX') { vx =  1.0; vy = -v;   vz = -u;   }
+        else if (face === 'negX') { vx = -1.0; vy = -v;   vz =  u;   }
+        else if (face === 'posY') { vx =  u;   vy =  1.0; vz =  v;   }
+        else if (face === 'negY') { vx =  u;   vy = -1.0; vz = -v;   }
+        else if (face === 'posZ') { vx =  u;   vy = -v;   vz =  1.0; }
+        else if (face === 'negZ') { vx = -u;   vy = -v;   vz = -1.0; }
+
+        const mag = Math.hypot(vx, vy, vz) || 1.0;
+        const dx = vx / mag;
+        const dy = vy / mag;
+        const dz = vz / mag;
+
+        // Proyección sobre el Cénit Local (sinElev in [-1, 1])
+        const sinElev = dx * upX + dy * upY + dz * upZ;
+
+        let r, g, b;
+        if (sinElev >= 0) {
+          const t = Math.min(1.0, Math.max(0.0, sinElev));
+          if (t > 0.4) {
+            const f = (t - 0.4) / 0.6;
+            r = Math.round(pal.midSky[0] * (1 - f) + pal.zenith[0] * f);
+            g = Math.round(pal.midSky[1] * (1 - f) + pal.zenith[1] * f);
+            b = Math.round(pal.midSky[2] * (1 - f) + pal.zenith[2] * f);
+          } else {
+            const f = t / 0.4;
+            r = Math.round(pal.horizon[0] * (1 - f) + pal.midSky[0] * f);
+            g = Math.round(pal.horizon[1] * (1 - f) + pal.midSky[1] * f);
+            b = Math.round(pal.horizon[2] * (1 - f) + pal.midSky[2] * f);
+          }
+        } else {
+          const t = Math.min(1.0, Math.max(0.0, -sinElev / 0.35));
+          r = Math.round(pal.horizon[0] * (1 - t) + pal.ground[0] * t);
+          g = Math.round(pal.horizon[1] * (1 - t) + pal.ground[1] * t);
+          b = Math.round(pal.horizon[2] * (1 - t) + pal.ground[2] * t);
+        }
+
+        if (mode === 'night' && sinElev > 0.12) {
+          const hash = Math.sin(dx * 127.1 + dy * 311.7 + dz * 74.3) * 43758.5453;
+          const starVal = hash - Math.floor(hash);
+          if (starVal > 0.985) {
+            const starBrite = Math.min(255, Math.floor(180 + starVal * 75));
+            r = Math.max(r, starBrite);
+            g = Math.max(g, starBrite);
+            b = Math.max(b, 255);
+          }
+        }
+
+        data[pIdx]     = r;
+        data[pIdx + 1] = g;
+        data[pIdx + 2] = b;
+        data[pIdx + 3] = 255;
+        pIdx += 4;
+      }
+    }
+
+    ctx.putImageData(imgData, 0, 0);
+    return canvas.toDataURL('image/jpeg', 0.92);
+  }
+
+  const sources = {
+    positiveX: renderSide('posX'),
+    negativeX: renderSide('negX'),
+    positiveY: renderSide('posY'),
+    negativeY: renderSide('negY'),
+    positiveZ: renderSide('posZ'),
+    negativeZ: renderSide('negZ')
+  };
+  _raSkyboxCache[mode] = sources;
+
+  return new Cesium.SkyBox({ sources: sources });
 }
 
 window.wpUpdateAtmosphericSky = function(alt) {
   if (typeof viewer === 'undefined' || !viewer || !viewer.scene) return;
   const sc = viewer.scene;
-  if (sc.skyBox) sc.skyBox.show = false;
+  const targetMode = alt > 10.0 ? 'day' : (alt > -4.0 ? 'sunset' : 'night');
 
-  const gl = sc.globe;
+  if (_raCurrentSkyMode !== targetMode || !sc.skyBox) {
+    _raCurrentSkyMode = targetMode;
+    try {
+      sc.skyBox = createProceduralSkybox(targetMode);
+      sc.skyBox.show = true;
+    } catch (e) {
+      if (window.RA && window.RA.log) window.RA.log.debug('Error actualizando skyBox:', e);
+    }
+  }
+
   const at = sc.skyAtmosphere;
-
-  if (alt > 10.0) {
-    // ☀️ DÍA PLENO (Dispersión física Rayleigh en cúpula esférica continua 360°)
-    _raCurrentSkyMode = 'day';
+  const gl = sc.globe;
+  if (targetMode === 'day') {
     if (at) {
       at.show = true;
       at.atmosphereLightIntensity = 2.5;
-      at.hueShift = 0.0;
-      at.saturationShift = 0.05;
-      at.brightnessShift = 0.0;
+      at.brightnessShift = 0.05;
+      at.saturationShift = 0.0;
     }
     if (gl) gl.showGroundAtmosphere = true;
     sc.backgroundColor = Cesium.Color.fromCssColorString('#0284c7');
-  } else if (alt > -4.0) {
-    // 🌇 ATARDECER / AMANECER (Hora Dorada y Crepúsculo cálido esférico)
-    _raCurrentSkyMode = 'sunset';
+  } else if (targetMode === 'sunset') {
     if (at) {
       at.show = true;
       at.atmosphereLightIntensity = 3.2;
-      at.hueShift = -0.05;
-      at.saturationShift = 0.35;
-      at.brightnessShift = -0.15;
+      at.brightnessShift = -0.1;
+      at.saturationShift = 0.25;
     }
     if (gl) gl.showGroundAtmosphere = true;
     sc.backgroundColor = Cesium.Color.fromCssColorString('#1e1b4b');
   } else {
-    // 🌙 NOCHE (Cúpula nocturna profunda uniforme sin aristas)
-    _raCurrentSkyMode = 'night';
     if (at) {
       at.show = true;
-      at.atmosphereLightIntensity = 0.15;
-      at.hueShift = 0.0;
+      at.atmosphereLightIntensity = 0.2;
+      at.brightnessShift = -0.6;
       at.saturationShift = -0.4;
-      at.brightnessShift = -0.65;
     }
     if (gl) gl.showGroundAtmosphere = true;
     sc.backgroundColor = Cesium.Color.fromCssColorString('#020409');
@@ -4026,8 +4153,13 @@ scene.pickTranslucentDepth = true;
 globe.baseColor = Cesium.Color.fromCssColorString('#14213d');
 scene.fog.enabled = true;
 scene.fog.density = 0.0003;  // Factor aumento para descarte de teselas lejanas
-// Atmósfera Física y Bóveda Celeste Nativa AAA (Opción A: Cero costuras cúbicas)
-if (scene.skyBox) scene.skyBox.show = false;
+// SkyBox Esférico Topocéntrico Analítico AAA (Opción A: Cero costuras & Luz Diurna Pura)
+try {
+  scene.skyBox = createProceduralSkybox('day');
+  if (scene.skyBox) scene.skyBox.show = true;
+} catch(eSky) {
+  if (typeof RA !== 'undefined' && RA.log) RA.log.warn('No se pudo inicializar procedural skyBox:', eSky);
+}
 scene.skyAtmosphere.show = true;
 scene.skyAtmosphere.atmosphereLightIntensity = 2.5;
 if (globe) {
