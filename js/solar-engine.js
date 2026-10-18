@@ -1758,16 +1758,16 @@ function wpSyncCesiumSun(solarPos) {
         sc.fog.screenSpaceErrorFactor = 2.0;
       }
 
-      if (alt > 0.0) {
+      if (alt >= 0.0) {
         // ☀️ DÍA PLENO Y HORA DORADA / ATARDECER Y AMANECER (Coloreado Cálido y Atenuación Progresiva)
-        const isGoldenHour = alt <= 10.0;
-        const t = isGoldenHour ? Math.max(0, Math.min(1, alt / 10.0)) : 1.0;
+        const isGoldenHour = alt <= 12.0;
+        const t = isGoldenHour ? Math.max(0, Math.min(1, alt / 12.0)) : 1.0;
 
         if (typeof Cesium.SunLight === "function") {
           const sunColor = isGoldenHour
-            ? new Cesium.Color(1.0, 0.72 + 0.28 * t, 0.45 + 0.55 * t, 1.0)
+            ? new Cesium.Color(1.0, 0.78 + 0.22 * t, 0.55 + 0.45 * t, 1.0)
             : Cesium.Color.WHITE;
-          const sunIntensity = isGoldenHour ? (0.85 + 1.15 * t) : 2.0;
+          const sunIntensity = isGoldenHour ? (1.0 + 1.2 * t) : 2.2;
           try {
             sc.light = new Cesium.SunLight({ color: sunColor, intensity: sunIntensity });
           } catch(eL) {
@@ -1778,8 +1778,8 @@ function wpSyncCesiumSun(solarPos) {
         if (gl) {
           gl.enableLighting = true;
           gl.shadows = Cesium.ShadowMode.DISABLED;
-          gl.atmosphereLightIntensity = isGoldenHour ? (3.5 + 6.5 * t) : 10.0;
-          gl.baseColor = isGoldenHour ? Cesium.Color.fromCssColorString('#181d2f') : Cesium.Color.fromCssColorString('#14213d');
+          gl.atmosphereLightIntensity = isGoldenHour ? (4.0 + 6.0 * t) : 10.0;
+          gl.baseColor = isGoldenHour ? Cesium.Color.fromCssColorString('#1e293b') : Cesium.Color.fromCssColorString('#0f172a');
         }
 
         if (sc.shadowMap) {
@@ -1806,76 +1806,68 @@ function wpSyncCesiumSun(solarPos) {
           const shadowFade = Math.max(0, Math.min(1, alt / 5.0));
           sc.shadowMap.darkness = 0.50 * shadowFade;
         }
-        sc.backgroundColor = isGoldenHour ? Cesium.Color.fromCssColorString('#1e1b4b') : Cesium.Color.fromCssColorString('#0ea5e9');
+        // Color de cielo luminoso: transición suave desde azul cobalto amanecer/ocaso a azul celeste diurno
+        sc.backgroundColor = isGoldenHour 
+          ? Cesium.Color.fromCssColorString('#2563eb').lerp(Cesium.Color.fromCssColorString('#0ea5e9'), t, new Cesium.Color())
+          : Cesium.Color.fromCssColorString('#0ea5e9');
 
-        // Coloreado y atenuación cinematográfica en amanecer/atardecer (evita quemado de luz a tope)
+        // Renderizado físico directo sin filtros CSS degradantes
         if (canvas && canvas.style) {
-          if (isGoldenHour) {
-            const sepiaVal = ((1.0 - t) * 0.45).toFixed(2);
-            const brightVal = (0.78 + 0.22 * t).toFixed(2);
-            const satVal = (1.0 + (1.0 - t) * 0.35).toFixed(2);
-            const contrastVal = (1.0 + (1.0 - t) * 0.08).toFixed(2);
-            canvas.style.filter = 'brightness(' + brightVal + ') sepia(' + sepiaVal + ') saturate(' + satVal + ') contrast(' + contrastVal + ')';
-          } else {
-            canvas.style.filter = 'none';
-          }
+          canvas.style.filter = 'none';
         }
 
       } else if (alt > -6.0) {
-        // 🌆 CREPÚSCULO (Hora Azul / Twilight: Azul Cobalto y Desvanecimiento Continuo)
+        // 🌆 CREPÚSCULO (Hora Azul / Twilight: Azul Cobalto Cálido y Desvanecimiento Continuo)
         const tDusk = Math.max(0, Math.min(1, (alt + 6.0) / 6.0)); // 1.0 = Horizonte, 0.0 = Noche
-        const r = 0.40 + 0.50 * tDusk;
-        const g = 0.52 + 0.38 * tDusk;
-        const b = 0.92 + 0.08 * tDusk;
+        const r = 0.20 + 0.30 * tDusk;
+        const g = 0.35 + 0.35 * tDusk;
+        const b = 0.70 + 0.30 * tDusk;
         const duskColor = new Cesium.Color(r, g, b, 1.0);
 
         if (typeof Cesium.DirectionalLight === "function") {
           sc.light = new Cesium.DirectionalLight({
             direction: new Cesium.Cartesian3(0.25, 0.35, -0.90),
             color: duskColor,
-            intensity: 0.10 + 0.60 * tDusk
+            intensity: 0.30 + 0.70 * tDusk
           });
         }
         if (gl) {
           gl.enableLighting = true;
-          gl.atmosphereLightIntensity = 1.0 + 2.0 * tDusk;
-          gl.baseColor = Cesium.Color.fromCssColorString('#091122');
+          gl.atmosphereLightIntensity = 1.5 + 2.5 * tDusk;
+          gl.baseColor = Cesium.Color.fromCssColorString('#0f172a');
         }
         if (sc.shadowMap) {
           sc.shadowMap.enabled = false;
         }
-        sc.backgroundColor = Cesium.Color.fromCssColorString('#040814');
+        // Azul marino luminoso en crepúsculo (erradica negro carbón)
+        sc.backgroundColor = Cesium.Color.fromCssColorString('#1e3a8a').lerp(Cesium.Color.fromCssColorString('#2563eb'), tDusk, new Cesium.Color());
 
         if (canvas && canvas.style) {
-          const brightVal = (0.10 + 0.68 * tDusk).toFixed(2);
-          const hueVal = (192 - 17 * tDusk).toFixed(0);
-          const satVal = (0.60 + 0.40 * tDusk).toFixed(2);
-          const contrastVal = (1.10 + 0.05 * (1.0 - tDusk)).toFixed(2);
-          canvas.style.filter = 'brightness(' + brightVal + ') hue-rotate(' + hueVal + 'deg) saturate(' + satVal + ') contrast(' + contrastVal + ')';
+          canvas.style.filter = 'none';
         }
 
       } else {
-        // 🌙 NOCHE PROFUNDA PBR (Luz de Luna Física con Intensidad 0.10, Brillo 0.10)
-        const moonColor = new Cesium.Color(0.55, 0.72, 0.98, 1.0);
+        // 🌙 NOCHE PROFUNDA PBR (Luz de Luna Física con Intensidad 0.20)
+        const moonColor = new Cesium.Color(0.65, 0.78, 1.0, 1.0);
         if (typeof Cesium.DirectionalLight === "function") {
           sc.light = new Cesium.DirectionalLight({
             direction: new Cesium.Cartesian3(0.28, 0.42, -0.87),
             color: moonColor,
-            intensity: 0.10
+            intensity: 0.20
           });
         }
         if (gl) {
           gl.enableLighting = true;
-          gl.atmosphereLightIntensity = 0.6;
-          gl.baseColor = Cesium.Color.fromCssColorString('#070b14');
+          gl.atmosphereLightIntensity = 0.8;
+          gl.baseColor = Cesium.Color.fromCssColorString('#020617');
         }
         if (sc.shadowMap) {
           sc.shadowMap.enabled = false;
         }
-        sc.backgroundColor = Cesium.Color.fromCssColorString('#020408');
+        sc.backgroundColor = Cesium.Color.fromCssColorString('#020617');
 
         if (canvas && canvas.style) {
-          canvas.style.filter = 'brightness(0.10) hue-rotate(192deg) saturate(0.60) contrast(1.15)';
+          canvas.style.filter = 'none';
         }
       }
 

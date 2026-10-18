@@ -3271,10 +3271,10 @@ function createProceduralSkybox(mode) {
       ground:    [125, 211, 252]  // #7dd3fc (Celeste suave para el horizonte bajo)
     },
     sunset: {
-      zenith:    [30, 27, 75],    // #1e1b4b (Índigo crepuscular)
-      midSky:    [131, 24, 67],   // #831843 (Púrpura magenta)
-      horizon:   [245, 158, 11],  // #f59e0b (Ámbar dorado solar)
-      ground:    [12, 10, 24]     // #0c0a18 (Sombra crepuscular)
+      zenith:    [37, 99, 235],   // #2563eb (Azul cobalto luminoso, erradica negro en cénit)
+      midSky:    [217, 119, 6],   // #d97706 (Dorado ámbar cálido)
+      horizon:   [251, 146, 60],  // #fb923c (Ámbar solar radiante)
+      ground:    [30, 58, 138]    // #1e3a8a (Azul índigo suave)
     },
     night: {
       zenith:    [2, 6, 23],      // #020617 (Espacio profundo)
@@ -3372,47 +3372,53 @@ function createProceduralSkybox(mode) {
 window.wpUpdateAtmosphericSky = function(alt) {
   if (typeof viewer === 'undefined' || !viewer || !viewer.scene) return;
   const sc = viewer.scene;
-  const targetMode = alt > 10.0 ? 'day' : (alt > -4.0 ? 'sunset' : 'night');
+  const isDay = alt >= 0.0;
+  const isTwilight = alt < 0.0 && alt > -6.0;
+  const targetMode = alt > 10.0 ? 'day' : (alt >= -6.0 ? 'sunset' : 'night');
 
-  if (_raCurrentSkyMode !== targetMode || !sc.skyBox) {
-    _raCurrentSkyMode = targetMode;
-    try {
-      sc.skyBox = createProceduralSkybox(targetMode);
-      sc.skyBox.show = true;
-    } catch (e) {
-      if (window.RA && window.RA.log) window.RA.log.debug('Error actualizando skyBox:', e);
-    }
+  // En horas con luz (día y crepúsculo), ocultamos el SkyBox para que el cielo sea 100% puro y continuo
+  // sin cortes angulares ni tintes oscuros; solo se activa de noche para el mapa estelar.
+  if (sc.skyBox) {
+    sc.skyBox.show = !isDay && !isTwilight;
   }
 
   const at = sc.skyAtmosphere;
   const gl = sc.globe;
-  if (targetMode === 'day') {
+  if (isDay) {
     if (at) {
       at.show = true;
-      at.atmosphereLightIntensity = 2.5;
+      at.atmosphereLightIntensity = 3.5;
       at.brightnessShift = 0.05;
-      at.saturationShift = 0.0;
+      at.saturationShift = 0.05;
     }
     if (gl) gl.showGroundAtmosphere = true;
-    sc.backgroundColor = Cesium.Color.fromCssColorString('#0284c7');
-  } else if (targetMode === 'sunset') {
+    const tDay = Math.min(1.0, alt / 15.0);
+    sc.backgroundColor = Cesium.Color.fromCssColorString('#2563eb').lerp(Cesium.Color.fromCssColorString('#0ea5e9'), tDay, new Cesium.Color());
+  } else if (isTwilight) {
     if (at) {
       at.show = true;
-      at.atmosphereLightIntensity = 3.2;
-      at.brightnessShift = -0.1;
-      at.saturationShift = 0.25;
+      at.atmosphereLightIntensity = 2.0;
+      at.brightnessShift = 0.0;
+      at.saturationShift = 0.15;
     }
     if (gl) gl.showGroundAtmosphere = true;
-    sc.backgroundColor = Cesium.Color.fromCssColorString('#1e1b4b');
+    const tDusk = Math.max(0, Math.min(1, (alt + 6.0) / 6.0));
+    sc.backgroundColor = Cesium.Color.fromCssColorString('#1e3a8a').lerp(Cesium.Color.fromCssColorString('#2563eb'), tDusk, new Cesium.Color());
   } else {
     if (at) {
-      at.show = true;
-      at.atmosphereLightIntensity = 0.2;
-      at.brightnessShift = -0.6;
-      at.saturationShift = -0.4;
+      at.show = false;
     }
-    if (gl) gl.showGroundAtmosphere = true;
-    sc.backgroundColor = Cesium.Color.fromCssColorString('#020409');
+    if (gl) gl.showGroundAtmosphere = false;
+    sc.backgroundColor = Cesium.Color.fromCssColorString('#020617');
+    if (!sc.skyBox || _raCurrentSkyMode !== 'night') {
+      _raCurrentSkyMode = 'night';
+      try {
+        sc.skyBox = createProceduralSkybox('night');
+        sc.skyBox.show = true;
+      } catch (e) {
+        if (window.RA && window.RA.log) window.RA.log.debug('Error actualizando skyBox nocturno:', e);
+      }
+    }
   }
 };
 
