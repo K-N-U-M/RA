@@ -1833,7 +1833,7 @@ function wpSyncCesiumSun(solarPos) {
           sc.light = new Cesium.DirectionalLight({
             direction: new Cesium.Cartesian3(0.25, 0.35, -0.90),
             color: duskColor,
-            intensity: 0.20 + 0.50 * tDusk
+            intensity: 0.10 + 0.60 * tDusk
           });
         }
         if (gl) {
@@ -1855,13 +1855,13 @@ function wpSyncCesiumSun(solarPos) {
         }
 
       } else {
-        // 🌙 NOCHE PROFUNDA PBR (Luz de Luna Física, Brillo 0.10 y Saturación Reducida)
+        // 🌙 NOCHE PROFUNDA PBR (Luz de Luna Física con Intensidad 0.10, Brillo 0.10)
         const moonColor = new Cesium.Color(0.55, 0.72, 0.98, 1.0);
         if (typeof Cesium.DirectionalLight === "function") {
           sc.light = new Cesium.DirectionalLight({
             direction: new Cesium.Cartesian3(0.28, 0.42, -0.87),
             color: moonColor,
-            intensity: 0.28
+            intensity: 0.10
           });
         }
         if (gl) {
