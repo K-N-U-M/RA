@@ -1806,7 +1806,7 @@ function wpSyncCesiumSun(solarPos) {
           const shadowFade = Math.max(0, Math.min(1, alt / 5.0));
           sc.shadowMap.darkness = 0.50 * shadowFade;
         }
-        sc.backgroundColor = isGoldenHour ? Cesium.Color.fromCssColorString('#0c1322') : Cesium.Color.fromCssColorString('#0a101a');
+        sc.backgroundColor = isGoldenHour ? Cesium.Color.fromCssColorString('#1e1b4b') : Cesium.Color.fromCssColorString('#0ea5e9');
 
         // Coloreado y atenuación cinematográfica en amanecer/atardecer (evita quemado de luz a tope)
         if (canvas && canvas.style) {
