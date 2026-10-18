@@ -517,15 +517,20 @@ window.RA_App = window.RA_App || {};
                 Dibuja la <b>huella perimetral</b> del edificio en el terreno para extruir su volumen 3D con cubiertas inteligentes.
               </div>
 
-              <!-- Botón Principal de Dibujo de Huella de Edificio -->
-              <div style="display:flex;gap:4px;margin-bottom:6px;">
+              <!-- Botones Principales de Dibujo de Huella de Edificio -->
+              <div style="display:flex;gap:4px;margin-bottom:4px;">
                 <button type="button" class="btn-action-primary" id="btn-draw-building" onclick="startDrawingBuilding()" style="flex:1;padding:8px 4px;font-size:9px;background:linear-gradient(135deg, #0284c7, #0369a1);border-color:#38bdf8;" aria-label="Dibujar Huella">
                   <span><i data-lucide="building" class="icon-sm"></i> + DIBUJAR HUELLA</span>
                 </button>
-                <button type="button" class="btn-action-primary" id="btn-finish-building-panel" onclick="finishActiveBuilding()" style="flex:1;padding:8px 4px;font-size:9px;background:linear-gradient(135deg, #10b981, #059669);border-color:#34d399;" aria-label="Cerrar y Extruir">
+                <button type="button" class="btn-action-primary" id="btn-draw-building-rect" onclick="startDrawingBuildingRect()" style="flex:1;padding:8px 4px;font-size:9px;background:linear-gradient(135deg, #4f46e5, #4338ca);border-color:#818cf8;" aria-label="Rectángulo CAD" title="Trazar huella rectangular paramétrica en 2 clics (P1 -> P2 -> Fondo)">
+                  <span><i data-lucide="square" class="icon-sm"></i> + RECTÁNGULO CAD</span>
+                </button>
+              </div>
+              <div style="display:flex;gap:4px;margin-bottom:6px;">
+                <button type="button" class="btn-action-primary" id="btn-finish-building-panel" onclick="if (typeof WP !== 'undefined' && WP.mode === 'draw-building-rect') finishBuildingRect(); else finishActiveBuilding();" style="flex:1;padding:8px 4px;font-size:9px;background:linear-gradient(135deg, #10b981, #059669);border-color:#34d399;" aria-label="Cerrar y Extruir">
                   <span><i data-lucide="check" class="icon-sm"></i> EXTRUIR 3D</span>
                 </button>
-                <button type="button" class="btn-action-primary" id="btn-cancel-building-panel" onclick="cancelActiveBuilding()" style="display:none;padding:8px 6px;font-size:9px;background:rgba(239,68,68,0.2);border-color:#ef4444;color:#fca5a5;" aria-label="Cancelar Huella" title="Cancelar dibujo de edificio (Esc)">
+                <button type="button" class="btn-action-primary" id="btn-cancel-building-panel" onclick="if (typeof WP !== 'undefined' && WP.mode === 'draw-building-rect') cancelBuildingRect(); else cancelActiveBuilding();" style="display:none;padding:8px 6px;font-size:9px;background:rgba(239,68,68,0.2);border-color:#ef4444;color:#fca5a5;" aria-label="Cancelar Huella" title="Cancelar dibujo de edificio (Esc)">
                   <span><i data-lucide="x" class="icon-sm"></i> CANCELAR</span>
                 </button>
               </div>
@@ -568,6 +573,24 @@ window.RA_App = window.RA_App || {};
                   <button type="button" class="doc-mini-btn" onclick="setBuildingFloors(2)" style="flex:1;text-align:center;padding:3px 2px;" title="2 Plantas (6.0m)">2 Pl (6m)</button>
                   <button type="button" class="doc-mini-btn" onclick="setBuildingFloors(3)" style="flex:1;text-align:center;padding:3px 2px;" title="3 Plantas (9.0m)">3 Pl (9m)</button>
                   <button type="button" class="doc-mini-btn" onclick="setBuildingFloors(4)" style="flex:1;text-align:center;padding:3px 2px;" title="4 Plantas (12.0m)">4 Pl (12m)</button>
+                </div>
+
+                <!-- Dimensiones Paramétricas (para edificios rectangulares) -->
+                <div id="bld-rect-dimensions-box" style="display:none;padding:6px;background:rgba(99,102,241,0.12);border:1px solid rgba(129,140,248,0.3);border-radius:6px;margin-bottom:2px;">
+                  <div style="font-size:9.5px;font-weight:bold;color:#818cf8;display:flex;justify-content:space-between;margin-bottom:4px;">
+                    <span>📐 DIMENSIONES PARAMÉTRICAS:</span>
+                    <span id="bld-rect-area-badge" style="color:#a5b4fc;font-weight:normal;">0 m²</span>
+                  </div>
+                  <div style="display:flex;gap:6px;align-items:center;">
+                    <div style="flex:1;">
+                      <span style="font-size:9px;color:var(--text-slate-300);">Fachada Lado A (m):</span>
+                      <input type="number" id="bld-rect-lado-a" min="1" max="1000" step="0.5" class="field-input" style="width:100%;font-size:9.5px;padding:3px 6px;text-align:right;" onwheel="this.blur()" onchange="if (typeof updateBuildingRectDimensions === 'function' && selectedBuildingId) updateBuildingRectDimensions(selectedBuildingId, this.value, document.getElementById('bld-rect-lado-b').value)">
+                    </div>
+                    <div style="flex:1;">
+                      <span style="font-size:9px;color:var(--text-slate-300);">Fondo Lado B (m):</span>
+                      <input type="number" id="bld-rect-lado-b" min="1" max="1000" step="0.5" class="field-input" style="width:100%;font-size:9.5px;padding:3px 6px;text-align:right;" onwheel="this.blur()" onchange="if (typeof updateBuildingRectDimensions === 'function' && selectedBuildingId) updateBuildingRectDimensions(selectedBuildingId, document.getElementById('bld-rect-lado-a').value, this.value)">
+                    </div>
+                  </div>
                 </div>
 
                 <!-- Selector de Tipología de Cubierta Parametrizable -->
@@ -2934,6 +2957,18 @@ addEventListener('keydown', function(e) {
   }
 
   // Atajo de cierre inmediato para dibujo de edificios 3D
+  if (typeof WP !== 'undefined' && WP.mode === 'draw-building-rect') {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (typeof finishBuildingRect === 'function') finishBuildingRect();
+      return;
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      if (typeof cancelBuildingRect === 'function') cancelBuildingRect();
+      return;
+    }
+  }
   if (typeof WP !== 'undefined' && WP.mode === 'draw-building') {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -4928,6 +4963,10 @@ function selectBuilding(bldId) {
   if (ovhRow) ovhRow.style.display = isPitched ? 'flex' : 'none';
   if (parRow) parRow.style.display = (rType === 'flat') ? 'flex' : 'none';
   if (parWRow) parWRow.style.display = (rType === 'flat') ? 'flex' : 'none';
+
+  if (typeof syncRectInspectorUI === 'function') {
+    syncRectInspectorUI(bld);
+  }
 
   render3DBuildingsInCesium();
   if (typeof renderTriad2D === 'function') renderTriad2D();
@@ -15147,20 +15186,26 @@ window.toggleSolarHUD = toggleSolarHUD;
     }
 
     // 🌟 PRIORIDAD ABSOLUTA (BYPASS DE CESIUM): DIBUJO DE HUELLA DE EDIFICIO 3D EN TERRENO
-    if (typeof WP !== "undefined" && WP && WP.mode === "draw-building") {
-      if (activeBuildingPts && activeBuildingPts.length >= 3) {
-        try {
-          const p0Screen = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, activeBuildingPts[0]);
-          if (p0Screen && Math.hypot(down.position.x - p0Screen.x, down.position.y - p0Screen.y) <= 45) {
-            finishActiveBuilding();
-            return;
-          }
-        } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
-      }
+    if (typeof WP !== "undefined" && WP && (WP.mode === "draw-building" || WP.mode === "draw-building-rect")) {
       let pos3D = get3DPosition(down.position);
       if (Cesium.defined(pos3D)) {
         if (typeof triadState !== "undefined" && triadState && triadState.snapTarget && triadState.snapTarget.pos) {
           pos3D = Cesium.Cartesian3.clone(triadState.snapTarget.pos);
+        }
+        if (WP.mode === "draw-building-rect") {
+          if (typeof handleBuildingRectClick === "function") {
+            handleBuildingRectClick(pos3D);
+          }
+          return;
+        }
+        if (activeBuildingPts && activeBuildingPts.length >= 3) {
+          try {
+            const p0Screen = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, activeBuildingPts[0]);
+            if (p0Screen && Math.hypot(down.position.x - p0Screen.x, down.position.y - p0Screen.y) <= 45) {
+              finishActiveBuilding();
+              return;
+            }
+          } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
         }
         handleBuildingClick(pos3D);
       }
@@ -15744,15 +15789,21 @@ window.toggleSolarHUD = toggleSolarHUD;
     
     if (d.isDrawingBuilding) {
       let cPos = (typeof get3DPosition === 'function') ? get3DPosition(d.endPos) : null;
-      if (cPos && typeof getOrthogonalSnap === 'function') cPos = getOrthogonalSnap(cPos, activeBuildingPts);
-      if (cPos && typeof activeBuildingPts !== 'undefined' && activeBuildingPts.length >= 2) {
-        const p0Screen = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, activeBuildingPts[0]);
-        if (p0Screen && Math.hypot(d.endPos.x - p0Screen.x, d.endPos.y - p0Screen.y) <= 45) {
-          cPos = Cesium.Cartesian3.clone(activeBuildingPts[0]);
+      if (typeof WP !== 'undefined' && WP && WP.mode === 'draw-building-rect') {
+        if (typeof updateBuildingRectPreview === 'function' && cPos) {
+          updateBuildingRectPreview(cPos);
         }
+      } else {
+        if (cPos && typeof getOrthogonalSnap === 'function') cPos = getOrthogonalSnap(cPos, activeBuildingPts);
+        if (cPos && typeof activeBuildingPts !== 'undefined' && activeBuildingPts.length >= 2) {
+          const p0Screen = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, activeBuildingPts[0]);
+          if (p0Screen && Math.hypot(d.endPos.x - p0Screen.x, d.endPos.y - p0Screen.y) <= 45) {
+            cPos = Cesium.Cartesian3.clone(activeBuildingPts[0]);
+          }
+        }
+        window._bldCursorPos = cPos;
+        if (scene && typeof scene.requestRender === 'function') scene.requestRender();
       }
-      window._bldCursorPos = cPos;
-      if (scene && typeof scene.requestRender === 'function') scene.requestRender();
     }
 
     if (typeof updateTriadAtMouse === 'function') {
@@ -15926,7 +15977,7 @@ window.toggleSolarHUD = toggleSolarHUD;
 
     // Cursor estándar de navegación vs Cursor CAD / Dibujo de edificio / Trazado de canalizaciones
     const isDefiningPlane = (typeof WP !== 'undefined' && WP && WP.mode === 'define-plane');
-    const isDrawingBuilding = (typeof WP !== 'undefined' && WP && WP.mode === 'draw-building');
+    const isDrawingBuilding = (typeof WP !== 'undefined' && WP && (WP.mode === 'draw-building' || WP.mode === 'draw-building-rect'));
     const isDrawingPoly = (typeof WP !== 'undefined' && WP && WP.mode === 'draw-poly');
     const isRoutingCable = (typeof window.cableRoutingState !== 'undefined' && window.cableRoutingState && window.cableRoutingState.active);
     if (scene && scene.canvas) {

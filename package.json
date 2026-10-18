@@ -5,6 +5,6 @@
   "description": "Visor Solar 3D RA — plataforma de ingeniería fotovoltaica (CesiumJS, WebGL, física solar y cálculo eléctrico REBT).",
   "scripts": {
     "lint": "node tests/test-js-syntax.js",
-    "test": "node tests/test-js-syntax.js && node tests/test-ra-full-workflow.js && node tests/test-equipment-ai-importer.js && node tests/test-universal-search.js"
+    "test": "node tests/test-js-syntax.js && node tests/test-ra-full-workflow.js && node tests/test-equipment-ai-importer.js && node tests/test-universal-search.js && node tests/test-building-rect.js"
   }
 }

@@ -906,12 +906,584 @@ function render3DBuildingsInCesium() {
   }
   window.deleteBuilding = deleteBuilding;
 
+  // ── RECTÁNGULO CAD ASISTIDO (Opción 2: P1 -> P2 [Fachada] -> Fondo Lado B) ──
+  const bldRectState = {
+    active: false,
+    step: 0, // 0: esperando P1, 1: esperando P2, 2: esperando fondo Lado B
+    p1: null,
+    p2: null,
+    p3: null,
+    p4: null,
+    ladoA: 0,
+    ladoB: 0,
+    dirU: null,
+    dirV: null,
+    normalUp: null,
+    cursorPos: null,
+    previewLine: null,
+    previewRect: null,
+    tempEntities: []
+  };
+
+  function clearBuildingRectTempEntities() {
+    if (typeof window !== 'undefined' && window.viewer && bldRectState.tempEntities.length > 0) {
+      bldRectState.tempEntities.forEach(e => {
+        try { window.viewer.entities.remove(e); } catch(err) {}
+      });
+      bldRectState.tempEntities = [];
+    }
+    bldRectState.previewLine = null;
+    bldRectState.previewRect = null;
+  }
+
+  function getBuildingRectHudElement() {
+    if (typeof document === 'undefined') return null;
+    let el = document.getElementById('ra-bld-rect-hud');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'ra-bld-rect-hud';
+      el.style.cssText = 'display:none;position:fixed;top:65px;left:50%;transform:translateX(-50%);background:rgba(15,23,42,0.95);border:1px solid #818cf8;box-shadow:0 12px 30px -4px rgba(0,0,0,0.7),0 0 20px rgba(99,102,241,0.35);border-radius:10px;padding:12px 18px;z-index:99999;backdrop-filter:blur(10px);color:#f8fafc;font-family:inherit;min-width:340px;pointer-events:auto;';
+      el.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <span style="font-size:11px;font-weight:800;color:#818cf8;display:flex;align-items:center;gap:6px;">
+            <span>📐</span> RECTÁNGULO CAD ASISTIDO
+          </span>
+          <span id="ra-bld-rect-step-badge" style="font-size:9.5px;padding:2px 8px;border-radius:4px;background:#4338ca;color:#e0e7ff;font-weight:bold;">
+            PASO 1 DE 2
+          </span>
+        </div>
+        <div id="ra-bld-rect-help-text" style="font-size:10px;color:#cbd5e1;margin-bottom:10px;line-height:1.4;">
+          Haz clic en el terreno para marcar la primera esquina de la nave (P1).
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:10px;">
+          <div style="flex:1;">
+            <label style="font-size:9px;color:#94a3b8;display:block;margin-bottom:2px;">Fachada / Lado A (m):</label>
+            <input type="number" id="ra-bld-rect-input-a" min="1" max="1000" step="0.5" value="0.0" style="width:100%;background:rgba(0,0,0,0.5);border:1px solid #6366f1;color:#fff;font-size:11px;padding:4px 6px;border-radius:4px;text-align:right;font-weight:bold;" readonly>
+          </div>
+          <div style="flex:1;">
+            <label style="font-size:9px;color:#94a3b8;display:block;margin-bottom:2px;">Fondo / Lado B (m):</label>
+            <input type="number" id="ra-bld-rect-input-b" min="1" max="1000" step="0.5" value="0.0" style="width:100%;background:rgba(0,0,0,0.5);border:1px solid #6366f1;color:#fff;font-size:11px;padding:4px 6px;border-radius:4px;text-align:right;font-weight:bold;">
+          </div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid rgba(255,255,255,0.1);padding-top:8px;">
+          <span id="ra-bld-rect-area-label" style="font-size:10px;color:#38bdf8;font-weight:bold;">Área: 0.0 m²</span>
+          <div style="display:flex;gap:6px;">
+            <button type="button" id="ra-bld-rect-cancel-btn" style="padding:4px 10px;font-size:9.5px;background:rgba(239,68,68,0.25);border:1px solid #ef4444;color:#fca5a5;border-radius:4px;cursor:pointer;">Cancelar (Esc)</button>
+            <button type="button" id="ra-bld-rect-confirm-btn" style="padding:4px 12px;font-size:9.5px;background:linear-gradient(135deg, #4f46e5, #4338ca);border:1px solid #818cf8;color:#fff;border-radius:4px;font-weight:bold;cursor:pointer;">Confirmar (Enter)</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(el);
+
+      const cancelBtn = el.querySelector('#ra-bld-rect-cancel-btn');
+      if (cancelBtn) cancelBtn.onclick = () => cancelBuildingRect();
+
+      const confirmBtn = el.querySelector('#ra-bld-rect-confirm-btn');
+      if (confirmBtn) {
+        confirmBtn.onclick = () => {
+          const inB = parseFloat(document.getElementById('ra-bld-rect-input-b').value) || 0;
+          finishBuildingRect(inB > 0 ? inB : null);
+        };
+      }
+
+      const inputB = el.querySelector('#ra-bld-rect-input-b');
+      if (inputB) {
+        inputB.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
+            const val = parseFloat(inputB.value) || 0;
+            finishBuildingRect(val > 0 ? val : null);
+          } else if (e.key === 'Escape') {
+            cancelBuildingRect();
+          }
+        });
+        inputB.addEventListener('input', () => {
+          const val = parseFloat(inputB.value) || 0;
+          if (bldRectState.step === 2 && val > 0 && bldRectState.p1 && bldRectState.p2 && bldRectState.dirV) {
+            updateBuildingRectWithDistance(val);
+          }
+        });
+      }
+    }
+    return el;
+  }
+
+  function startDrawingBuildingRect() {
+    if (typeof window.closeActiveDrawMenu === 'function') window.closeActiveDrawMenu();
+    if (typeof window.setAppMode === 'function') window.setAppMode('draw');
+    if (typeof window.WP !== 'undefined' && window.WP) {
+      window.WP.mode = 'draw-building-rect';
+    }
+    bldRectState.active = true;
+    bldRectState.step = 0;
+    bldRectState.p1 = null;
+    bldRectState.p2 = null;
+    bldRectState.p3 = null;
+    bldRectState.p4 = null;
+    bldRectState.ladoA = 0;
+    bldRectState.ladoB = 0;
+    clearBuildingRectTempEntities();
+
+    const hud = getBuildingRectHudElement();
+    if (hud) {
+      hud.style.display = 'block';
+      const badge = hud.querySelector('#ra-bld-rect-step-badge');
+      if (badge) { badge.textContent = 'PASO 1/2'; badge.style.background = '#4338ca'; }
+      const help = hud.querySelector('#ra-bld-rect-help-text');
+      if (help) help.textContent = 'Haz clic en el terreno para marcar la primera esquina de la nave o edificio (P1).';
+      const inA = hud.querySelector('#ra-bld-rect-input-a');
+      if (inA) inA.value = '0.0';
+      const inB = hud.querySelector('#ra-bld-rect-input-b');
+      if (inB) inB.value = '0.0';
+      const area = hud.querySelector('#ra-bld-rect-area-label');
+      if (area) area.textContent = 'Área: 0.0 m²';
+    }
+
+    const confBar = (typeof document !== 'undefined') ? document.getElementById('ra-confirm-bar') : null;
+    if (confBar) {
+      confBar.style.display = 'flex';
+      if (typeof window.setElemText === 'function') {
+        window.setElemText('confirm-bar-text', '📐 HUELLA RECTANGULAR CAD: Clic 1 (P1) -> Clic 2 (P2 / Fachada) -> Fondo (Lado B en metros o Clic 3).');
+      }
+    }
+    const cancelBldBtn = (typeof document !== 'undefined') ? document.getElementById('btn-cancel-building-panel') : null;
+    if (cancelBldBtn) cancelBldBtn.style.display = 'inline-flex';
+
+    if (window.viewer && window.viewer.scene && window.viewer.scene.screenSpaceCameraController) {
+      window.viewer.scene.screenSpaceCameraController.enableLook = false;
+    }
+    if (typeof window.showStatus === 'function') {
+      window.showStatus('📐 MODO RECTÁNGULO CAD ACTIVO: Marca la primera esquina (P1)', 3500);
+    }
+    if (window.viewer && window.viewer.scene) window.viewer.scene.requestRender();
+  }
+
+  function handleBuildingRectClick(pos3D) {
+    if (!pos3D || !window.viewer) return;
+    const Cesium = window.Cesium;
+    if (!Cesium) return;
+
+    if (bldRectState.step === 0) {
+      bldRectState.p1 = Cesium.Cartesian3.clone(pos3D);
+      bldRectState.normalUp = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(bldRectState.p1);
+      bldRectState.step = 1;
+
+      // Entidad visual en P1
+      const p1Ent = window.viewer.entities.add({
+        position: bldRectState.p1,
+        point: {
+          pixelSize: 11,
+          color: Cesium.Color.fromCssColorString('#818CF8'),
+          outlineColor: Cesium.Color.WHITE,
+          outlineWidth: 2,
+          disableDepthTestDistance: Number.POSITIVE_INFINITY
+        }
+      });
+      bldRectState.tempEntities.push(p1Ent);
+
+      const hud = getBuildingRectHudElement();
+      if (hud) {
+        const badge = hud.querySelector('#ra-bld-rect-step-badge');
+        if (badge) { badge.textContent = 'PASO 2/2'; badge.style.background = '#0284c7'; }
+        const help = hud.querySelector('#ra-bld-rect-help-text');
+        if (help) help.textContent = 'Mueve el cursor hacia la segunda esquina para definir la fachada (Lado A) y haz clic en P2.';
+      }
+      if (typeof window.showStatus === 'function') {
+        window.showStatus('📐 P1 FIJADO: Mueve el cursor y haz clic en P2 para definir la fachada (Lado A)', 3000);
+      }
+      window.viewer.scene.requestRender();
+      return;
+    }
+
+    if (bldRectState.step === 1) {
+      const dist = Cesium.Cartesian3.distance(bldRectState.p1, pos3D);
+      if (dist < 0.5) return;
+
+      bldRectState.p2 = Cesium.Cartesian3.clone(pos3D);
+      bldRectState.ladoA = dist;
+
+      // Vectores ortogonales puros a 90°
+      const dirU = Cesium.Cartesian3.subtract(bldRectState.p2, bldRectState.p1, new Cesium.Cartesian3());
+      Cesium.Cartesian3.normalize(dirU, dirU);
+      bldRectState.dirU = dirU;
+
+      const dirV = Cesium.Cartesian3.cross(bldRectState.normalUp, dirU, new Cesium.Cartesian3());
+      Cesium.Cartesian3.normalize(dirV, dirV);
+      bldRectState.dirV = dirV;
+
+      // Entidad visual en P2
+      const p2Ent = window.viewer.entities.add({
+        position: bldRectState.p2,
+        point: {
+          pixelSize: 11,
+          color: Cesium.Color.fromCssColorString('#38BDF8'),
+          outlineColor: Cesium.Color.WHITE,
+          outlineWidth: 2,
+          disableDepthTestDistance: Number.POSITIVE_INFINITY
+        }
+      });
+      bldRectState.tempEntities.push(p2Ent);
+
+      bldRectState.step = 2;
+
+      const hud = getBuildingRectHudElement();
+      if (hud) {
+        const badge = hud.querySelector('#ra-bld-rect-step-badge');
+        if (badge) { badge.textContent = 'FONDO / LADO B'; badge.style.background = '#059669'; }
+        const help = hud.querySelector('#ra-bld-rect-help-text');
+        if (help) help.innerHTML = 'Fachada fijada. Mueve el ratón para dar profundidad al fondo, o escribe los metros en <b>Lado B</b> y pulsa Enter.';
+        const inA = hud.querySelector('#ra-bld-rect-input-a');
+        if (inA) inA.value = bldRectState.ladoA.toFixed(2);
+        const inB = hud.querySelector('#ra-bld-rect-input-b');
+        if (inB) {
+          inB.focus();
+          inB.select();
+        }
+      }
+
+      if (typeof window.showStatus === 'function') {
+        window.showStatus(`📐 FACHADA FIJADA (${bldRectState.ladoA.toFixed(2)}m): Mueve el cursor para fondo o introduce metros y pulsa Enter`, 3500);
+      }
+      window.viewer.scene.requestRender();
+      return;
+    }
+
+    if (bldRectState.step === 2) {
+      finishBuildingRect();
+    }
+  }
+
+  function updateBuildingRectPreview(pos3D) {
+    if (!bldRectState.active || !pos3D || !window.viewer) return;
+    const Cesium = window.Cesium;
+    if (!Cesium) return;
+
+    if (bldRectState.step === 1 && bldRectState.p1) {
+      const dist = Cesium.Cartesian3.distance(bldRectState.p1, pos3D);
+      const hud = getBuildingRectHudElement();
+      if (hud) {
+        const inA = hud.querySelector('#ra-bld-rect-input-a');
+        if (inA) inA.value = dist.toFixed(2);
+      }
+
+      bldRectState.cursorPos = Cesium.Cartesian3.clone(pos3D);
+      if (!bldRectState.previewLine) {
+        bldRectState.previewLine = window.viewer.entities.add({
+          polyline: {
+            positions: new Cesium.CallbackProperty(() => {
+              if (!bldRectState.p1 || !bldRectState.cursorPos) return [];
+              return [bldRectState.p1, bldRectState.cursorPos];
+            }, false),
+            width: 3.5,
+            material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#818CF8')),
+            arcType: Cesium.ArcType.NONE,
+            clampToGround: false
+          }
+        });
+        bldRectState.tempEntities.push(bldRectState.previewLine);
+      }
+      window.viewer.scene.requestRender();
+      return;
+    }
+
+    if (bldRectState.step === 2 && bldRectState.p1 && bldRectState.p2 && bldRectState.dirV) {
+      const vDiff = Cesium.Cartesian3.subtract(pos3D, bldRectState.p1, new Cesium.Cartesian3());
+      const dFondo = Cesium.Cartesian3.dot(vDiff, bldRectState.dirV);
+      updateBuildingRectWithDistance(dFondo);
+      window.viewer.scene.requestRender();
+    }
+  }
+
+  function updateBuildingRectWithDistance(dFondo) {
+    const Cesium = window.Cesium;
+    if (!Cesium || !bldRectState.p1 || !bldRectState.p2 || !bldRectState.dirV) return;
+
+    const sign = (dFondo >= 0) ? 1 : -1;
+    const mag = Math.max(0.5, Math.abs(dFondo));
+    const effectiveDist = sign * mag;
+
+    const offsetV = Cesium.Cartesian3.multiplyByScalar(bldRectState.dirV, effectiveDist, new Cesium.Cartesian3());
+    const p3 = Cesium.Cartesian3.add(bldRectState.p2, offsetV, new Cesium.Cartesian3());
+    const p4 = Cesium.Cartesian3.add(bldRectState.p1, offsetV, new Cesium.Cartesian3());
+
+    bldRectState.p3 = p3;
+    bldRectState.p4 = p4;
+    bldRectState.ladoB = mag;
+
+    const hud = getBuildingRectHudElement();
+    if (hud) {
+      const inB = hud.querySelector('#ra-bld-rect-input-b');
+      if (inB && document.activeElement !== inB) {
+        inB.value = mag.toFixed(2);
+      }
+      const area = hud.querySelector('#ra-bld-rect-area-label');
+      if (area) {
+        area.textContent = `Área: ${(bldRectState.ladoA * mag).toFixed(1)} m²`;
+      }
+    }
+
+    if (!bldRectState.previewRect) {
+      bldRectState.previewRect = window.viewer.entities.add({
+        polygon: {
+          hierarchy: new Cesium.CallbackProperty(() => {
+            if (!bldRectState.p1 || !bldRectState.p2 || !bldRectState.p3 || !bldRectState.p4) return new Cesium.PolygonHierarchy([]);
+            return new Cesium.PolygonHierarchy([bldRectState.p1, bldRectState.p2, bldRectState.p3, bldRectState.p4]);
+          }, false),
+          material: Cesium.Color.fromCssColorString('#818CF8').withAlpha(0.35),
+          perPositionHeight: true,
+          arcType: Cesium.ArcType.NONE
+        },
+        polyline: {
+          positions: new Cesium.CallbackProperty(() => {
+            if (!bldRectState.p1 || !bldRectState.p2 || !bldRectState.p3 || !bldRectState.p4) return [];
+            return [bldRectState.p1, bldRectState.p2, bldRectState.p3, bldRectState.p4, bldRectState.p1];
+          }, false),
+          width: 3.5,
+          material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#38BDF8')),
+          arcType: Cesium.ArcType.NONE,
+          clampToGround: false
+        }
+      });
+      bldRectState.tempEntities.push(bldRectState.previewRect);
+    }
+  }
+
+  function finishBuildingRect(manualLadoB) {
+    if (!bldRectState.active || !bldRectState.p1 || !bldRectState.p2) {
+      cancelBuildingRect();
+      return;
+    }
+    const Cesium = window.Cesium;
+    if (!Cesium) return;
+
+    if (typeof manualLadoB === 'number' && manualLadoB > 0) {
+      updateBuildingRectWithDistance(manualLadoB);
+    }
+
+    if (!bldRectState.p3 || !bldRectState.p4) {
+      updateBuildingRectWithDistance(12.0);
+    }
+
+    const pts = [bldRectState.p1, bldRectState.p2, bldRectState.p3, bldRectState.p4];
+    const bldCount = (Array.isArray(window.buildings) ? window.buildings.length : 0) + 1;
+    const bldName = 'Nave ' + bldCount;
+    const bldId = 'bld_' + Date.now();
+
+    const newBld = {
+      id: bldId,
+      name: bldName,
+      height: 6.0,
+      numFloors: 2,
+      roofType: 'flat',
+      roofPitch: 25,
+      roofAzimuth: 180,
+      parapetHeight: 0.6,
+      parapetWidth: 0.25,
+      overhang: 0.2,
+      facadeColor: '#F1F5F9',
+      roofColor: '#E2E8F0',
+      edgeColor: '#334155',
+      points: pts,
+      isRectangular: true,
+      ladoA: bldRectState.ladoA,
+      ladoB: bldRectState.ladoB
+    };
+
+    if (window.RAundo && typeof window.RAundo.snapBuildings === 'function') {
+      window.RAundo.snapBuildings('Crear ' + bldName);
+    }
+
+    if (!Array.isArray(window.buildings)) window.buildings = [];
+    window.buildings.push(newBld);
+
+    clearBuildingRectTempEntities();
+    bldRectState.active = false;
+    bldRectState.step = 0;
+    bldRectState.p1 = null;
+    bldRectState.p2 = null;
+    bldRectState.p3 = null;
+    bldRectState.p4 = null;
+
+    const hud = getBuildingRectHudElement();
+    if (hud) hud.style.display = 'none';
+
+    const confBar = (typeof document !== 'undefined') ? document.getElementById('ra-confirm-bar') : null;
+    if (confBar) {
+      confBar.style.display = 'none';
+      confBar.classList.remove('open');
+    }
+    const cancelBldBtn = (typeof document !== 'undefined') ? document.getElementById('btn-cancel-building-panel') : null;
+    if (cancelBldBtn) cancelBldBtn.style.display = 'none';
+
+    if (typeof window.WP !== 'undefined' && window.WP) window.WP.mode = 'idle';
+    if (typeof window.appMode !== 'undefined') window.appMode = 'navigate';
+
+    if (window.viewer && window.viewer.scene && window.viewer.scene.screenSpaceCameraController) {
+      window.viewer.scene.screenSpaceCameraController.enableLook = true;
+    }
+
+    if (typeof window.selectBuilding === 'function') {
+      window.selectBuilding(newBld.id);
+    }
+    if (typeof window.render3DBuildingsInCesium === 'function') {
+      window.render3DBuildingsInCesium();
+    }
+
+    const areaTotal = (newBld.ladoA * newBld.ladoB).toFixed(1);
+    if (typeof window.showToast === 'function') {
+      window.showToast('EDIFICIO RECTANGULAR CREADO', `${bldName}: ${newBld.ladoA.toFixed(1)}m × ${newBld.ladoB.toFixed(1)}m (${areaTotal} m²). Ángulos de 90° exactos.`, 'success', 4500);
+    }
+  }
+
+  function cancelBuildingRect() {
+    clearBuildingRectTempEntities();
+    bldRectState.active = false;
+    bldRectState.step = 0;
+    bldRectState.p1 = null;
+    bldRectState.p2 = null;
+    bldRectState.p3 = null;
+    bldRectState.p4 = null;
+
+    const hud = getBuildingRectHudElement();
+    if (hud) hud.style.display = 'none';
+
+    const confBar = (typeof document !== 'undefined') ? document.getElementById('ra-confirm-bar') : null;
+    if (confBar) {
+      confBar.style.display = 'none';
+      confBar.classList.remove('open');
+    }
+    const cancelBldBtn = (typeof document !== 'undefined') ? document.getElementById('btn-cancel-building-panel') : null;
+    if (cancelBldBtn) cancelBldBtn.style.display = 'none';
+
+    if (typeof window.WP !== 'undefined' && window.WP) window.WP.mode = 'idle';
+    if (typeof window.appMode !== 'undefined') window.appMode = 'navigate';
+
+    if (window.viewer && window.viewer.scene && window.viewer.scene.screenSpaceCameraController) {
+      window.viewer.scene.screenSpaceCameraController.enableLook = true;
+    }
+    if (window.viewer && window.viewer.scene) window.viewer.scene.requestRender();
+    if (typeof window.showStatus === 'function') {
+      window.showStatus('Trazado de rectángulo cancelado', 1500);
+    }
+  }
+
+  // ── INSPECTOR PARAMÉTRICO DE DIMENSIONES (LADO A & LADO B) ─────────────────
+  function getBuildingRectDimensions(bld) {
+    if (!bld || !Array.isArray(bld.points) || bld.points.length !== 4) return null;
+    const Cesium = window.Cesium;
+    if (!Cesium) return null;
+
+    const d12 = Cesium.Cartesian3.distance(bld.points[0], bld.points[1]);
+    const d23 = Cesium.Cartesian3.distance(bld.points[1], bld.points[2]);
+    const d34 = Cesium.Cartesian3.distance(bld.points[2], bld.points[3]);
+    const d41 = Cesium.Cartesian3.distance(bld.points[3], bld.points[0]);
+
+    const isRect = bld.isRectangular || (Math.abs(d12 - d34) < 1.0 && Math.abs(d23 - d41) < 1.0);
+    if (!isRect) return null;
+
+    return {
+      ladoA: (d12 + d34) / 2,
+      ladoB: (d23 + d41) / 2,
+      area: ((d12 + d34) / 2) * ((d23 + d41) / 2)
+    };
+  }
+
+  function updateBuildingRectDimensions(bldId, newLadoA, newLadoB) {
+    const arr = (typeof window !== 'undefined' && Array.isArray(window.buildings)) ? window.buildings : [];
+    const bld = arr.find(b => b && b.id === bldId);
+    if (!bld || !Array.isArray(bld.points) || bld.points.length !== 4) return false;
+    const Cesium = window.Cesium;
+    if (!Cesium) return false;
+
+    newLadoA = parseFloat(newLadoA);
+    newLadoB = parseFloat(newLadoB);
+    if (isNaN(newLadoA) || newLadoA <= 0 || isNaN(newLadoB) || newLadoB <= 0) return false;
+
+    if (window.RAundo && typeof window.RAundo.snapBuildings === 'function') {
+      window.RAundo.snapBuildings('Redimensionar ' + (bld.name || 'Edificio'));
+    }
+
+    const p1 = bld.points[0];
+    const p2Old = bld.points[1];
+    const p4Old = bld.points[3];
+
+    const dirU = Cesium.Cartesian3.subtract(p2Old, p1, new Cesium.Cartesian3());
+    Cesium.Cartesian3.normalize(dirU, dirU);
+
+    const dirV = Cesium.Cartesian3.subtract(p4Old, p1, new Cesium.Cartesian3());
+    Cesium.Cartesian3.normalize(dirV, dirV);
+
+    const p2New = Cesium.Cartesian3.add(p1, Cesium.Cartesian3.multiplyByScalar(dirU, newLadoA, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+    const p4New = Cesium.Cartesian3.add(p1, Cesium.Cartesian3.multiplyByScalar(dirV, newLadoB, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+    const p3New = Cesium.Cartesian3.add(p2New, Cesium.Cartesian3.multiplyByScalar(dirV, newLadoB, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+
+    bld.points = [p1, p2New, p3New, p4New];
+    bld.isRectangular = true;
+    bld.ladoA = newLadoA;
+    bld.ladoB = newLadoB;
+
+    if (typeof window.render3DBuildingsInCesium === 'function') window.render3DBuildingsInCesium();
+    if (typeof window.recalculateLayoutAndObstacles === 'function') window.recalculateLayoutAndObstacles();
+    if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Edificio redimensionado paramétricamente');
+
+    syncRectInspectorUI(bld);
+    return true;
+  }
+
+  function syncRectInspectorUI(bld) {
+    if (typeof document === 'undefined') return;
+    const box = document.getElementById('bld-rect-dimensions-box');
+    if (!box) return;
+
+    if (!bld) {
+      box.style.display = 'none';
+      return;
+    }
+
+    const dims = getBuildingRectDimensions(bld);
+    if (!dims) {
+      box.style.display = 'none';
+      return;
+    }
+
+    box.style.display = 'block';
+    const inA = document.getElementById('bld-rect-lado-a');
+    const inB = document.getElementById('bld-rect-lado-b');
+    const badge = document.getElementById('bld-rect-area-badge');
+
+    if (inA) inA.value = dims.ladoA.toFixed(2);
+    if (inB) inB.value = dims.ladoB.toFixed(2);
+    if (badge) badge.textContent = `${dims.area.toFixed(1)} m²`;
+  }
+
+  // Exportar funciones del Rectángulo CAD
+  window.startDrawingBuildingRect = startDrawingBuildingRect;
+  window.handleBuildingRectClick = handleBuildingRectClick;
+  window.updateBuildingRectPreview = updateBuildingRectPreview;
+  window.finishBuildingRect = finishBuildingRect;
+  window.cancelBuildingRect = cancelBuildingRect;
+  window.getBuildingRectDimensions = getBuildingRectDimensions;
+  window.updateBuildingRectDimensions = updateBuildingRectDimensions;
+  window.syncRectInspectorUI = syncRectInspectorUI;
+
   // Exportar al namespace global
   window.render3DBuildingsInCesium = render3DBuildingsInCesium;
 
   // Registrar en RA namespace
   if (window.RA) {
-    window.RA.buildings = { render: render3DBuildingsInCesium, deleteBuilding: deleteBuilding };
+    window.RA.buildings = {
+      render: render3DBuildingsInCesium,
+      deleteBuilding: deleteBuilding,
+      startDrawingBuildingRect: startDrawingBuildingRect,
+      handleBuildingRectClick: handleBuildingRectClick,
+      updateBuildingRectPreview: updateBuildingRectPreview,
+      finishBuildingRect: finishBuildingRect,
+      cancelBuildingRect: cancelBuildingRect,
+      getDimensions: getBuildingRectDimensions,
+      updateDimensions: updateBuildingRectDimensions,
+      syncUI: syncRectInspectorUI
+    };
   }
 
   // Protección contra scroll accidental de ratón en inputs numéricos de edificios
