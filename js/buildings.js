@@ -914,4 +914,15 @@ function render3DBuildingsInCesium() {
     window.RA.buildings = { render: render3DBuildingsInCesium, deleteBuilding: deleteBuilding };
   }
 
+  // Protección contra scroll accidental de ratón en inputs numéricos de edificios
+  if (typeof document !== 'undefined') {
+    document.addEventListener('wheel', function(e) {
+      if (e.target && e.target.tagName === 'INPUT' && e.target.type === 'number' && e.target.closest('#ra-building-panel')) {
+        if (document.activeElement === e.target) {
+          e.target.blur();
+        }
+      }
+    }, { passive: true });
+  }
+
 })();

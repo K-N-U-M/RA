@@ -555,15 +555,19 @@ window.RA_App = window.RA_App || {};
 
                 <div class="field-row" style="display:flex;justify-content:space-between;align-items:center;">
                   <span style="font-size:9.5px;color:var(--text-slate-300);">Altura Total ($H$ en m):</span>
-                  <input type="number" id="bld-height" min="1" max="150" step="0.5" value="6.0" class="field-input" style="width:75px;font-size:9.5px;padding:3px 6px;text-align:right;" onchange="updateSelectedBuildingProps()">
+                  <input type="number" id="bld-height" min="1" max="150" step="0.5" value="6.0" class="field-input" style="width:75px;font-size:9.5px;padding:3px 6px;text-align:right;" onwheel="this.blur()" oninput="updateSelectedBuildingProps()" onchange="updateSelectedBuildingProps()">
                 </div>
 
-                <!-- Botones Rápidos de Plantas (N x 3m) -->
+                <!-- Presets Rápidos: Naves Industriales y Plantas -->
                 <div style="display:flex;gap:4px;margin-bottom:2px;">
-                  <button type="button" class="doc-mini-btn" onclick="setBuildingFloors(1)" style="flex:1;text-align:center;padding:3px 2px;">1 Pl (3m)</button>
-                  <button type="button" class="doc-mini-btn" onclick="setBuildingFloors(2)" style="flex:1;text-align:center;padding:3px 2px;">2 Pl (6m)</button>
-                  <button type="button" class="doc-mini-btn" onclick="setBuildingFloors(3)" style="flex:1;text-align:center;padding:3px 2px;">3 Pl (9m)</button>
-                  <button type="button" class="doc-mini-btn" onclick="setBuildingFloors(4)" style="flex:1;text-align:center;padding:3px 2px;">4 Pl (12m)</button>
+                  <button type="button" class="doc-mini-btn" onclick="setBuildingHeightPreset(5.5, 'Nave Estándar')" style="flex:1;text-align:center;padding:3px 2px;" title="Nave Industrial Estándar (5.5m)">🏭 Nave (5.5m)</button>
+                  <button type="button" class="doc-mini-btn" onclick="setBuildingHeightPreset(7.5, 'Nave Alta')" style="flex:1;text-align:center;padding:3px 2px;" title="Nave Logística / Puente Grúa (7.5m)">🏭 Nave (7.5m)</button>
+                </div>
+                <div style="display:flex;gap:4px;margin-bottom:2px;">
+                  <button type="button" class="doc-mini-btn" onclick="setBuildingFloors(1)" style="flex:1;text-align:center;padding:3px 2px;" title="1 Planta (3.0m)">1 Pl (3m)</button>
+                  <button type="button" class="doc-mini-btn" onclick="setBuildingFloors(2)" style="flex:1;text-align:center;padding:3px 2px;" title="2 Plantas (6.0m)">2 Pl (6m)</button>
+                  <button type="button" class="doc-mini-btn" onclick="setBuildingFloors(3)" style="flex:1;text-align:center;padding:3px 2px;" title="3 Plantas (9.0m)">3 Pl (9m)</button>
+                  <button type="button" class="doc-mini-btn" onclick="setBuildingFloors(4)" style="flex:1;text-align:center;padding:3px 2px;" title="4 Plantas (12.0m)">4 Pl (12m)</button>
                 </div>
 
                 <!-- Selector de Tipología de Cubierta Parametrizable -->
@@ -611,18 +615,18 @@ window.RA_App = window.RA_App || {};
                 <!-- Peto Perimetral (para cubiertas planas) -->
                 <div class="field-row" id="bld-parapet-row" style="display:flex;justify-content:space-between;align-items:center;">
                   <span style="font-size:9.5px;color:var(--text-slate-300);">Peto Altura (m):</span>
-                  <input type="number" id="bld-parapet-height" min="0" max="2.5" step="0.05" value="0.6" class="field-input" style="width:65px;font-size:9px;padding:3px 6px;text-align:right;" onchange="updateSelectedBuildingProps()">
+                  <input type="number" id="bld-parapet-height" min="0" max="2.5" step="0.05" value="0.6" class="field-input" style="width:65px;font-size:9px;padding:3px 6px;text-align:right;" onwheel="this.blur()" oninput="updateSelectedBuildingProps()" onchange="updateSelectedBuildingProps()">
                 </div>
 
                 <div class="field-row" id="bld-parapet-width-row" style="display:flex;justify-content:space-between;align-items:center;">
                   <span style="font-size:9.5px;color:var(--text-slate-300);">Peto Ancho / Grosor (m):</span>
-                  <input type="number" id="bld-parapet-width" min="0.05" max="1.0" step="0.05" value="0.25" class="field-input" style="width:65px;font-size:9px;padding:3px 6px;text-align:right;" onchange="updateSelectedBuildingProps()">
+                  <input type="number" id="bld-parapet-width" min="0.05" max="1.0" step="0.05" value="0.25" class="field-input" style="width:65px;font-size:9px;padding:3px 6px;text-align:right;" onwheel="this.blur()" oninput="updateSelectedBuildingProps()" onchange="updateSelectedBuildingProps()">
                 </div>
 
                 <!-- Voladizo / Alero (Overhang para cubiertas inclinadas) -->
                 <div class="field-row" id="bld-overhang-row" style="display:none;justify-content:space-between;align-items:center;">
                   <span style="font-size:9.5px;color:var(--text-slate-300);">Alero / Voladizo (m):</span>
-                  <input type="number" id="bld-overhang" min="0" max="1.5" step="0.05" value="0.2" class="field-input" style="width:65px;font-size:9px;padding:3px 6px;text-align:right;" onchange="updateSelectedBuildingProps()">
+                  <input type="number" id="bld-overhang" min="0" max="1.5" step="0.05" value="0.2" class="field-input" style="width:65px;font-size:9px;padding:3px 6px;text-align:right;" onwheel="this.blur()" oninput="updateSelectedBuildingProps()" onchange="updateSelectedBuildingProps()">
                 </div>
 
                 <!-- Color y Acabado de Tejado, Fachadas y Aristas -->
@@ -4944,6 +4948,20 @@ function setBuildingFloors(numFloors) {
   updateSelectedBuildingProps();
 }
 
+function setBuildingHeightPreset(height, label) {
+  if (!selectedBuildingId) return;
+  const bld = buildings.find(b => b.id === selectedBuildingId);
+  if (!bld) return;
+  bld.height = parseFloat(height) || 6.0;
+  const hEl = document.getElementById('bld-height');
+  if (hEl) hEl.value = bld.height;
+  updateSelectedBuildingProps();
+  if (typeof showToast === 'function') {
+    showToast('ALTURA ACTUALIZADA', (bld.name || 'Edificio') + ': ' + (label || '') + ' (' + bld.height + 'm)', 'info', 1800);
+  }
+}
+window.setBuildingHeightPreset = setBuildingHeightPreset;
+
 function bldSyncAzimuth(val) {
   const az = parseInt(val, 10) || 0;
   const norm = ((az % 360) + 360) % 360;
@@ -4989,6 +5007,16 @@ function updateSelectedBuildingProps() {
   if (colorEl) bld.facadeColor = colorEl.value;
   if (roofColEl) bld.roofColor = roofColEl.value;
   if (edgeColEl) bld.edgeColor = edgeColEl.value;
+
+  // Sincronización reactiva en vivo del texto del dropdown y título
+  const dd = document.getElementById('bld-selected-dropdown');
+  if (dd) {
+    const opt = dd.querySelector('option[value="' + bld.id + '"]');
+    if (opt) {
+      opt.textContent = bld.name + ' (' + bld.height + 'm)';
+    }
+  }
+  setElemText('bld-selected-title', (bld.name || 'EDIFICIO').toUpperCase());
 
   const rType = bld.roofType || 'flat';
   if (pitchRow) pitchRow.style.display = (rType === 'flat') ? 'none' : 'flex';
