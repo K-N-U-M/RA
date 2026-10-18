@@ -563,7 +563,8 @@ function wpOpenPricingReviewModal(onConfirm) {
     var directCost = panelTotal + estPrice + invPrice + batPrice + cabPrice + moPrice + legPrice;
     var marginEur = directCost * (mgPct / 100.0);
     var subtotal = directCost + marginEur;
-    var iva = subtotal * 0.21;
+    var taxRate = (typeof window !== 'undefined' && window.solarProjectConfig && typeof window.solarProjectConfig.taxRate === 'number') ? window.solarProjectConfig.taxRate : 0.21;
+    var iva = subtotal * taxRate;
     var capexBruto = subtotal + iva;
 
     // Temporal override en sesión para cálculo fiel
@@ -1316,7 +1317,8 @@ function generatePropuestaComercialPDF(skipPricingModal) {
 // MOTOR FINANCIERO BANCABLE (CAPEX, OPEX, CASHFLOW, VAN, TIR, AMORTIZACIÓN)
 // Nota: La física solar y simulación anual se calculan exclusivamente en solar-engine.js (v3.0)
 // ═════════════════════════════════════════════════════════════════════════════
-  function calculateFinancialModel() {
+  function calculateFinancialModel(options = {}) {
+  const opts = (typeof options === 'object' && options !== null) ? options : {};
   const d = getProjectCalcs();
   const numPanels = d.numPanels || 1;
   const kwp = (numPanels * (d.cfg.potencia || 450)) / 1000.0;
@@ -1441,7 +1443,10 @@ function generatePropuestaComercialPDF(skipPricingModal) {
   const marginPct = (pricing && typeof pricing.marginPct === 'number') ? pricing.marginPct : 20;
   const marginEur = directCost * (marginPct / 100.0);
   const subtotal = directCost + marginEur;
-  const iva = subtotal * 0.21;
+  const taxRate = (typeof opts.taxRate === 'number')
+    ? opts.taxRate
+    : ((_projCfg && typeof _projCfg.taxRate === 'number') ? _projCfg.taxRate : 0.21);
+  const iva = subtotal * taxRate;
   const capexBruto = subtotal + iva;
 
   // Fiscalidad
@@ -1501,22 +1506,32 @@ function generatePropuestaComercialPDF(skipPricingModal) {
     : Math.max(annualYieldKWh * 0.75, 3500);
 
   // ── FASE 5: Despacho Multi-horario Estacional Bancable (12 meses × 24h = 288 horas) ──
+  const isSouthernHemisphere = (typeof opts.lat === 'number' && opts.lat < 0) ||
+    (_projCfg && typeof _projCfg.lat === 'number' && _projCfg.lat < 0);
+
   const MONTH_DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-  const MONTH_LOAD_WEIGHTS = [1.18, 1.12, 1.02, 0.92, 0.84, 0.88, 1.06, 1.02, 0.94, 0.94, 1.02, 1.16]; // Climatización estacional peninsular
+  const baseLoadWeights = [1.18, 1.12, 1.02, 0.92, 0.84, 0.88, 1.06, 1.02, 0.94, 0.94, 1.02, 1.16]; // Climatización estacional peninsular
+  const MONTH_LOAD_WEIGHTS = isSouthernHemisphere
+    ? baseLoadWeights.map((_, i) => baseLoadWeights[(i + 6) % 12])
+    : baseLoadWeights;
 
   // Producción mensual en kWh (SSOT: solarSimState.monthlyKwh si existe, o desglose estacional)
   let monthlySolarKwh = new Array(12).fill(0);
   if (typeof window !== 'undefined' && window.solarSimState && Array.isArray(window.solarSimState.monthlyKwh) && window.solarSimState.monthlyKwh.length === 12) {
     monthlySolarKwh = window.solarSimState.monthlyKwh.slice();
   } else {
-    const solarWeights = [0.045, 0.058, 0.082, 0.098, 0.118, 0.126, 0.132, 0.120, 0.095, 0.068, 0.046, 0.032];
+    const baseSolarWeights = [0.045, 0.058, 0.082, 0.098, 0.118, 0.126, 0.132, 0.120, 0.095, 0.068, 0.046, 0.032];
+    const solarWeights = isSouthernHemisphere
+      ? baseSolarWeights.map((_, i) => baseSolarWeights[(i + 6) % 12])
+      : baseSolarWeights;
     monthlySolarKwh = solarWeights.map(w => w * annualYieldKWh);
   }
 
-  // Normalización del perfil solar para cada mes según horas solares reales (latitud ~40°N)
+  // Normalización del perfil solar para cada mes según horas solares reales (latitud ~40°N o invertida para Hemisferio Sur)
   const getMonthlySolarProfile = (m) => {
-    const sunrise = 7.8 - 1.8 * Math.sin((m - 2) * Math.PI / 6);
-    const sunset = 17.2 + 2.8 * Math.sin((m - 2) * Math.PI / 6);
+    const monthPhase = isSouthernHemisphere ? (m + 4) : (m - 2);
+    const sunrise = 7.8 - 1.8 * Math.sin(monthPhase * Math.PI / 6);
+    const sunset = 17.2 + 2.8 * Math.sin(monthPhase * Math.PI / 6);
     const profile = new Array(24).fill(0);
     let sum = 0;
     for (let h = 0; h < 24; h++) {
@@ -1537,7 +1552,9 @@ function generatePropuestaComercialPDF(skipPricingModal) {
   const maxBatCap = batCap * batDOD;         // Capacidad útil real (kWh)
   const pBatMaxKw = Math.max(3.0, batCap * 0.5); // Límite de potencia C/2 (kW)
   let batSoC = 0.0;                         // SoC inicial (kWh útiles)
-  const hasVirtualBattery = !!(typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.hasVirtualBattery);
+  const isNetMeteringAnnual = (opts.netMeteringMode === 'annual_rollover') ||
+    (_projCfg && _projCfg.netMeteringMode === 'annual_rollover');
+  const hasVirtualBattery = isNetMeteringAnnual || !!(_projCfg.hasVirtualBattery);
 
   let annualAutoconsumoDirecto = 0;
   let annualBateriaKWh = 0;

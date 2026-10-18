@@ -30,6 +30,29 @@
   };
 
   /**
+   * Tabla de equivalencias normalizadas AWG (American Wire Gauge) / kcmil vs métrico mm² (NEC Tabla 310.16)
+   */
+  const AWG_METRIC_EQUIVALENTS = [
+    { awg: '14 AWG', mm2: 2.08, ampacityCu90: 25 },
+    { awg: '12 AWG', mm2: 3.31, ampacityCu90: 30 },
+    { awg: '10 AWG', mm2: 5.26, ampacityCu90: 40 },
+    { awg: '8 AWG',  mm2: 8.37, ampacityCu90: 55 },
+    { awg: '6 AWG',  mm2: 13.3, ampacityCu90: 75 },
+    { awg: '4 AWG',  mm2: 21.2, ampacityCu90: 95 },
+    { awg: '2 AWG',  mm2: 33.6, ampacityCu90: 130 },
+    { awg: '1/0 AWG', mm2: 53.5, ampacityCu90: 170 },
+    { awg: '2/0 AWG', mm2: 67.4, ampacityCu90: 195 }
+  ];
+
+  function getAWGEquivalent(mm2) {
+    const s = Number(mm2) || 4;
+    for (let i = 0; i < AWG_METRIC_EQUIVALENTS.length; i++) {
+      if (AWG_METRIC_EQUIVALENTS[i].mm2 >= s * 0.95) return AWG_METRIC_EQUIVALENTS[i];
+    }
+    return AWG_METRIC_EQUIVALENTS[AWG_METRIC_EQUIVALENTS.length - 1];
+  }
+
+  /**
    * Paleta de colores profesionales para identificar visualmente cada String en 3D
    */
   function getPolylineStringColor(index) {
@@ -46,7 +69,8 @@
 
   /**
    * Calcula los límites normativos admisibles de módulos por String
-   * según tensiones en frío (-10°C) y arranque MPPT en caliente (+70°C).
+   * según tensiones en frío (-10°C / clima adaptativo) y arranque MPPT en caliente (+70°C).
+   * Compatible con normas IEC 62548 (1000V/1500V) y NEC 690.7(C) (600V residencial en EE.UU.).
    */
   function calculateDynamicMPPTStringLimits(modParams = {}, invParams = {}, climParams = {}) {
     const pCfg = (typeof root.panelConfig !== 'undefined' && root.panelConfig) ? root.panelConfig : {};
@@ -64,9 +88,16 @@
     // si no hay selección, cae a los defaults normativos 1000/200/850 V.
     const liveInv = (root.solarProjectConfig && root.solarProjectConfig.calculatedLimits &&
                      root.solarProjectConfig.calculatedLimits.inverter) || null;
-    const Vmax_inv   = invParams.Vmax     || invParams.vDcMax || invParams.vMax || (liveInv ? (liveInv.vDcMax || liveInv.vMax || 1000) : 1000.0);
-    const Vmppt_min  = invParams.VmpptMin || invParams.vMpptMin || invParams.vMpptNomMin || (liveInv ? (liveInv.vMpptNomMin || liveInv.vMpptMin || 200) : 200.0);
-    const Vmppt_max  = invParams.VmpptMax || invParams.vMpptMax || invParams.vMpptNomMax || (liveInv ? (liveInv.vMpptNomMax || liveInv.vMpptMax || 850) : 850.0);
+    const rawVmax_inv = invParams.Vmax   || invParams.vDcMax || invParams.vMax || (liveInv ? (liveInv.vDcMax || liveInv.vMax || 1000) : 1000.0);
+    const Vmppt_min   = invParams.VmpptMin || invParams.vMpptMin || invParams.vMpptNomMin || (liveInv ? (liveInv.vMpptNomMin || liveInv.vMpptMin || 200) : 200.0);
+    const Vmppt_max   = invParams.VmpptMax || invParams.vMpptMax || invParams.vMpptNomMax || (liveInv ? (liveInv.vMpptNomMax || liveInv.vMpptMax || 850) : 850.0);
+
+    // Detección de jurisdicción normativa (IEC / NEC)
+    const jurisdiction = climParams.jurisdiction ||
+      (root.solarProjectConfig && root.solarProjectConfig.regulatoryJurisdiction) || 'IEC';
+    const isCommercial = (root.solarProjectConfig && root.solarProjectConfig.buildingType === 'commercial') || climParams.isCommercial;
+    // Si la jurisdicción es NEC_USA residencial, techo a 600V DC (NEC 690.7(C))
+    const effectiveVmax_inv = (jurisdiction === 'NEC_USA') ? Math.min(rawVmax_inv, (isCommercial ? 1000.0 : 600.0)) : rawVmax_inv;
 
     // Zonificación térmica peninsular de diseño en frío (CTE DB-HE1 / UNE 206007 / IDAE)
     function getCTEZonificationTmin(lat, lng, altitudM) {
@@ -80,16 +111,28 @@
 
     const projLat = climParams.lat || (root.solarProjectConfig && root.solarProjectConfig.lat);
     const projLng = climParams.lng || (root.solarProjectConfig && root.solarProjectConfig.lng);
-    const defaultTmin = (projLat != null) ? getCTEZonificationTmin(Number(projLat), Number(projLng)) : ELEC_CONSTANTS.T_MIN_SPAIN;
+    let defaultTmin = ELEC_CONSTANTS.T_MIN_SPAIN;
+    let defaultTmaxCell = 70.0;
+    if (projLat != null) {
+      const nLat = Number(projLat);
+      const nLng = Number(projLng);
+      if (nLat >= 35 && nLat <= 44 && nLng >= -10 && nLng <= 5) {
+        defaultTmin = getCTEZonificationTmin(nLat, nLng);
+      } else if (typeof window !== 'undefined' && window.RA && typeof window.RA.getDesignTemperatures === 'function') {
+        const dTemps = window.RA.getDesignTemperatures(nLat);
+        defaultTmin = dTemps.tMin;
+        defaultTmaxCell = dTemps.tCellMax;
+      }
+    }
 
     const Tmin = climParams.Tmin !== undefined ? climParams.Tmin : (climParams.tMinCold !== undefined ? climParams.tMinCold : defaultTmin);
-    const Tmax_cell = climParams.TmaxCell !== undefined ? climParams.TmaxCell : (climParams.tMaxHot !== undefined ? climParams.tMaxHot : 70.0);
+    const Tmax_cell = climParams.TmaxCell !== undefined ? climParams.TmaxCell : (climParams.tMaxHot !== undefined ? climParams.tMaxHot : defaultTmaxCell);
 
     const Voc_Tmin = Voc_STC * (1 + betaVoc * (Tmin - 25.0));
     const Vmp_Tmax = Vmp_STC * (1 + betaVmp * (Tmax_cell - 25.0));
     const Vmp_Tmin = Vmp_STC * (1 + betaVmp * (Tmin - 25.0));
 
-    const Ns_max_voc = Math.floor(Vmax_inv / Voc_Tmin);
+    const Ns_max_voc = Math.floor(effectiveVmax_inv / Voc_Tmin);
     const Ns_max_mppt = Math.floor(Vmppt_max / Vmp_Tmin);
     const Ns_max = Math.max(1, Math.min(Ns_max_voc, Ns_max_mppt));
     const Ns_min = Math.max(1, Math.ceil(Vmppt_min / Vmp_Tmax));
@@ -99,7 +142,9 @@
       Ns_min,
       Voc_Tmin,
       Vmp_Tmax,
-      Vmp_Tmin
+      Vmp_Tmin,
+      effectiveVmax_inv,
+      jurisdiction
     };
   }
 
@@ -1010,7 +1055,7 @@
    * Calcula la caída de tensión y valida el cumplimiento según REBT ITC-BT-40 e IEC 62548.
    * Límite normativo reglamentario: ΔV <= 1.5% tanto en continua (CC) como en alterna (CA).
    */
-  function calculateVoltageDrop({ lengthM, currentA, sectionMm2, voltageV, isThreePhase = false, isAC = false, conductor = 'Cu', tempC = 90, cosPhi = 0.98, reactancePerKm = 0.08 }) {
+  function calculateVoltageDrop({ lengthM, currentA, sectionMm2, voltageV, isThreePhase = false, isAC = false, conductor = 'Cu', tempC = 90, cosPhi = 0.98, reactancePerKm = 0.08, jurisdiction = 'IEC', customLimitPct }) {
     const rho = (conductor === 'Al') ? 0.036 : (tempC >= 90 ? ELEC_CONSTANTS.RHO_CU_90 : 0.018);
     const factorPhase = isThreePhase ? Math.sqrt(3) : 2.0;
     const l = Math.max(lengthM, 0.1);
@@ -1019,7 +1064,7 @@
 
     let deltaV;
     if (isAC) {
-      // Alterna AC: impedancia Z = (rho/S)*cosPhi + X*sinPhi (REBT ITC-BT-40)
+      // Alterna AC: impedancia Z = (rho/S)*cosPhi + X*sinPhi (REBT ITC-BT-40 / IEC)
       const cosP = Math.min(Math.max(cosPhi, 0.70), 1.0);
       const sinP = Math.sqrt(Math.max(0, 1.0 - cosP * cosP));
       const xMeter = (reactancePerKm || 0.08) / 1000.0;
@@ -1030,11 +1075,17 @@
     }
 
     const pct = (deltaV / Math.max(voltageV, 1.0)) * 100.0;
+    const defaultLimit = (jurisdiction === 'NEC_USA' ? 2.0 : 1.5);
+    const limitPct = (typeof customLimitPct === 'number' && customLimitPct > 0) ? customLimitPct : defaultLimit;
+    const awgEq = getAWGEquivalent(s);
+
     return {
       deltaV: Math.round(deltaV * 100) / 100,
       pct: Math.round(pct * 100) / 100,
-      valid: pct <= 1.5,
-      limitPct: 1.5
+      valid: pct <= limitPct,
+      limitPct: limitPct,
+      awgEquivalent: awgEq.awg,
+      jurisdiction: jurisdiction
     };
   }
 
@@ -1682,10 +1733,14 @@
   root.validateMPPTHomogeneity = validateMPPTHomogeneity;
   root.calculateInverterEfficiencyAndClipping = calculateInverterEfficiencyAndClipping;
   root.raInverterPhases = raInverterPhases;
+  root.AWG_METRIC_EQUIVALENTS = AWG_METRIC_EQUIVALENTS;
+  root.getAWGEquivalent = getAWGEquivalent;
 
   if (!root.RA) root.RA = {};
   root.RA.Electrical = {
     constants: ELEC_CONSTANTS,
+    AWG_METRIC_EQUIVALENTS: AWG_METRIC_EQUIVALENTS,
+    getAWGEquivalent: getAWGEquivalent,
     getPolylineStringColor: getPolylineStringColor,
     calculateDynamicMPPTStringLimits: calculateDynamicMPPTStringLimits,
     getNearestValidStringModuleCount: getNearestValidStringModuleCount,

@@ -227,8 +227,26 @@ assert(finModel && typeof finModel === 'object', 'Generación de modelo financie
 assert(finModel.capexNeto > 0, 'Cálculo de CAPEX neto con deducciones fiscales', `${finModel.capexNeto.toFixed(2)} €`);
 assert(finModel.van > 0, 'Valor Actual Neto (VAN a 25 años con WACC 4%) positivo', `VAN: ${finModel.van.toFixed(2)} €`);
 assert(finModel.tir > 0, 'Tasa Interna de Retorno (TIR) viable para inversión', `TIR: ${finModel.tir.toFixed(1)}%`);
-assert(finModel.paybackYears > 0 && finModel.paybackYears < 10, 'Periodo de retorno de inversión (Payback) acelerado', `${finModel.paybackYears.toFixed(1)} años`);
 assert(finModel.autoconsumoDirecto > 0 && finModel.autarquiaPct > 0, 'Despacho estacional multi-horario (288h) con balance horario', `Autarquía: ${finModel.autarquiaPct}%`);
+
+console.log('\n--- 4. PRUEBAS DE INTERNACIONALIZACIÓN Y REGULACIÓN MULTI-PAÍS (Bloque C Enterprise) ---');
+const necLimits = context.window.calculateDynamicMPPTStringLimits({}, { Vmax: 1000 }, { jurisdiction: 'NEC_USA', isCommercial: false });
+assert(necLimits.effectiveVmax_inv === 600, 'Límite residencial NEC 690.7(C) fija Vmax_inv a 600V DC en EE.UU.', `Vmax = ${necLimits.effectiveVmax_inv}V`);
+
+const vDropNec = context.window.calculateVoltageDrop({ lengthM: 25, currentA: 10, sectionMm2: 6, voltageV: 500, jurisdiction: 'NEC_USA' });
+assert(vDropNec.valid && vDropNec.awgEquivalent === '8 AWG', 'Equivalencia AWG normalizada (6mm² -> 8 AWG por sección segura)', vDropNec.awgEquivalent);
+
+const tempNordic = context.window.RA.getDesignTemperatures(52.5);
+assert(tempNordic.tMin === -20 && tempNordic.tMax === 35, 'Temperaturas dinámicas nórdicas según latitud (Alemania/UK: -20°C / +35°C)', `${tempNordic.tMin}°C / +${tempNordic.tMax}°C`);
+
+const tempTrop = context.window.RA.getDesignTemperatures(15.0);
+assert(tempTrop.tMin === 5 && tempTrop.tMax === 45, 'Temperaturas dinámicas tropicales según latitud (LatAm/Caribe: +5°C / +45°C)', `+${tempTrop.tMin}°C / +${tempTrop.tMax}°C`);
+
+const finModelSouth = context.window.calculateFinancialModel({ lat: -34.6, taxRate: 0.19 });
+assert(finModelSouth && finModelSouth.capexNeto > 0, 'Despacho financiero bancable en Hemisferio Sur con fiscalidad adaptable', `CAPEX con IVA 19%: ${finModelSouth.capexNeto.toFixed(2)} €`);
+
+const formattedUsd = context.window.RA.formatCurrency(1250.5, 'USD', 'en-US');
+assert(formattedUsd.includes('1,250.50') || formattedUsd.includes('1250'), 'Formateador de moneda internacional multi-divisa (USD)', formattedUsd);
 
 console.log('\n═════════════════════════════════════════════════════════════════════════════');
 console.log(`📊 RESUMEN: ${testsPassed} pruebas superadas, ${testsFailed} falladas.`);

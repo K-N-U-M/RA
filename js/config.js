@@ -140,6 +140,51 @@ if (typeof window !== 'undefined' && typeof window.RA_STRING_PALETTE === 'undefi
     };
   };
 
+  // ── Helpers Internacionales de Moneda, Formato y Clima (Bloque C) ─────────
+  if (!window.RA) window.RA = {};
+
+  /**
+   * Formateador universal de moneda con fallback seguro
+   */
+  window.RA.formatCurrency = function(amount, currency = 'EUR', locale = 'es-ES') {
+    const num = Number(amount) || 0;
+    try {
+      return new Intl.NumberFormat(locale, { style: 'currency', currency: currency }).format(num);
+    } catch (_) {
+      return num.toFixed(2) + ' ' + (currency === 'EUR' ? '€' : currency);
+    }
+  };
+
+  /**
+   * Formateador universal de números decimales
+   */
+  window.RA.formatNumber = function(value, decimals = 2, locale = 'es-ES') {
+    const num = Number(value) || 0;
+    try {
+      return new Intl.NumberFormat(locale, { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(num);
+    } catch (_) {
+      return num.toFixed(decimals);
+    }
+  };
+
+  /**
+   * Retorna temperaturas extremas de diseño según latitud geográfica (°C)
+   * Base de cálculo dinámico para IEC 62548 y NEC 690.7
+   */
+  window.RA.getDesignTemperatures = function(latitude) {
+    const lat = (typeof latitude === 'number') ? Math.abs(latitude) : 40.4;
+    // Latitudes tropicales / ecuatoriales (< 25°): Tmin templada, Tmax alta
+    if (lat < 25) {
+      return { tMin: 5, tMax: 45, tCellMax: 75, desc: 'Zona Tropical / Subtropical' };
+    }
+    // Latitudes templadas (25° - 48°, ej. España, Sur de Europa, mayor parte de EE.UU.)
+    if (lat <= 48) {
+      return { tMin: -10, tMax: 40, tCellMax: 70, desc: 'Zona Templada Continental' };
+    }
+    // Latitudes nórdicas / frías (> 48°, ej. Norte de Europa, Canadá, Alemania, UK)
+    return { tMin: -20, tMax: 35, tCellMax: 65, desc: 'Zona Nórdica / Fría' };
+  };
+
   // ── Red de seguridad global de promesas (Fase 4 · arquitectura) ────────────
   // Ninguna función async del proyecto tenía .catch: un rechazo silencioso dejaba
   // la app en estado indefinido. Captura cualquier rechazo no gestionado, informa
