@@ -1746,17 +1746,12 @@ function wpSyncCesiumSun(solarPos) {
       const gl = sc.globe;
       const canvas = viewer.canvas || (sc.canvas);
 
-      // 1. Resetear cualquier filtro CSS legado sobre el canvas (render 100% PBR WebGL nativo)
-      if (canvas && canvas.style && canvas.style.filter && canvas.style.filter !== 'none') {
-        canvas.style.filter = 'none';
-      }
-
-      // 2. Sincronizar Bóveda Celeste y Atmósfera Procedural Reactiva (Día, Ocaso, Noche estrellada)
+      // 1. Sincronizar Bóveda Celeste y Atmósfera Procedural Reactiva (Día, Ocaso, Noche estrellada)
       if (typeof window.wpUpdateAtmosphericSky === "function") {
         window.wpUpdateAtmosphericSky(alt);
       }
 
-      // 3. Niebla y Profundidad Atmosférica
+      // 2. Niebla y Profundidad Atmosférica
       if (sc.fog) {
         sc.fog.enabled = true;
         sc.fog.density = alt > 0 ? 0.00025 : 0.00015;
@@ -1764,12 +1759,21 @@ function wpSyncCesiumSun(solarPos) {
       }
 
       if (alt > 0.0) {
-        // ☀️ DÍA PLENO Y HORA DORADA / ATARDECER (SunLight ECEF nativo + atmósfera cálida)
+        // ☀️ DÍA PLENO Y HORA DORADA / ATARDECER Y AMANECER (Coloreado Cálido y Atenuación Progresiva)
+        const isGoldenHour = alt <= 10.0;
+        const t = isGoldenHour ? Math.max(0, Math.min(1, alt / 10.0)) : 1.0;
+
         if (typeof Cesium.SunLight === "function") {
-          sc.light = new Cesium.SunLight();
+          const sunColor = isGoldenHour
+            ? new Cesium.Color(1.0, 0.72 + 0.28 * t, 0.45 + 0.55 * t, 1.0)
+            : Cesium.Color.WHITE;
+          const sunIntensity = isGoldenHour ? (0.85 + 1.15 * t) : 2.0;
+          try {
+            sc.light = new Cesium.SunLight({ color: sunColor, intensity: sunIntensity });
+          } catch(eL) {
+            sc.light = new Cesium.SunLight();
+          }
         }
-        const isGoldenHour = alt <= 8.0;
-        const t = isGoldenHour ? Math.max(0, Math.min(1, alt / 8.0)) : 1.0;
 
         if (gl) {
           gl.enableLighting = true;
@@ -1777,6 +1781,7 @@ function wpSyncCesiumSun(solarPos) {
           gl.atmosphereLightIntensity = isGoldenHour ? (3.5 + 6.5 * t) : 10.0;
           gl.baseColor = isGoldenHour ? Cesium.Color.fromCssColorString('#181d2f') : Cesium.Color.fromCssColorString('#14213d');
         }
+
         if (sc.shadowMap) {
           if (typeof window.wpConfigureShadowMap === "function") {
             window.wpConfigureShadowMap(sc.shadowMap);
@@ -1803,6 +1808,19 @@ function wpSyncCesiumSun(solarPos) {
         }
         sc.backgroundColor = isGoldenHour ? Cesium.Color.fromCssColorString('#0c1322') : Cesium.Color.fromCssColorString('#0a101a');
 
+        // Coloreado y atenuación cinematográfica en amanecer/atardecer (evita quemado de luz a tope)
+        if (canvas && canvas.style) {
+          if (isGoldenHour) {
+            const sepiaVal = ((1.0 - t) * 0.45).toFixed(2);
+            const brightVal = (0.78 + 0.22 * t).toFixed(2);
+            const satVal = (1.0 + (1.0 - t) * 0.35).toFixed(2);
+            const contrastVal = (1.0 + (1.0 - t) * 0.08).toFixed(2);
+            canvas.style.filter = 'brightness(' + brightVal + ') sepia(' + sepiaVal + ') saturate(' + satVal + ') contrast(' + contrastVal + ')';
+          } else {
+            canvas.style.filter = 'none';
+          }
+        }
+
       } else if (alt > -6.0) {
         // 🌆 CREPÚSCULO (Hora Azul / Twilight: Azul Cobalto y Desvanecimiento Continuo)
         const tDusk = Math.max(0, Math.min(1, (alt + 6.0) / 6.0)); // 1.0 = Horizonte, 0.0 = Noche
@@ -1815,7 +1833,7 @@ function wpSyncCesiumSun(solarPos) {
           sc.light = new Cesium.DirectionalLight({
             direction: new Cesium.Cartesian3(0.25, 0.35, -0.90),
             color: duskColor,
-            intensity: 0.32 + 0.40 * tDusk
+            intensity: 0.30 + 0.40 * tDusk
           });
         }
         if (gl) {
@@ -1828,14 +1846,22 @@ function wpSyncCesiumSun(solarPos) {
         }
         sc.backgroundColor = Cesium.Color.fromCssColorString('#040814');
 
+        if (canvas && canvas.style) {
+          const brightVal = (0.42 + 0.36 * tDusk).toFixed(2);
+          const hueVal = (190 - 15 * tDusk).toFixed(0);
+          const satVal = (1.10 + 0.20 * tDusk).toFixed(2);
+          const contrastVal = (1.12 + 0.06 * (1.0 - tDusk)).toFixed(2);
+          canvas.style.filter = 'brightness(' + brightVal + ') hue-rotate(' + hueVal + 'deg) saturate(' + satVal + ') contrast(' + contrastVal + ')';
+        }
+
       } else {
-        // 🌙 NOCHE PROFUNDA PBR (Luz de Luna Física con Relieve y Normal Maps Visibles)
+        // 🌙 NOCHE PROFUNDA PBR (Luz de Luna Física con Relieve Nítido y Visibilidad de Cubierta)
         const moonColor = new Cesium.Color(0.55, 0.72, 0.98, 1.0);
         if (typeof Cesium.DirectionalLight === "function") {
           sc.light = new Cesium.DirectionalLight({
             direction: new Cesium.Cartesian3(0.28, 0.42, -0.87),
             color: moonColor,
-            intensity: 0.38
+            intensity: 0.40
           });
         }
         if (gl) {
@@ -1847,6 +1873,10 @@ function wpSyncCesiumSun(solarPos) {
           sc.shadowMap.enabled = false;
         }
         sc.backgroundColor = Cesium.Color.fromCssColorString('#020408');
+
+        if (canvas && canvas.style) {
+          canvas.style.filter = 'brightness(0.40) hue-rotate(192deg) saturate(1.15) contrast(1.18)';
+        }
       }
 
       if (typeof sc.requestRender === "function") {

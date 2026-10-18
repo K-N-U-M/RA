@@ -3352,7 +3352,7 @@ function createProceduralSkybox(mode) {
 
 window.wpUpdateAtmosphericSky = function(alt) {
   if (typeof viewer === 'undefined' || !viewer || !viewer.scene) return;
-  const targetMode = alt > 8.0 ? 'day' : (alt > -6.0 ? 'sunset' : 'night');
+  const targetMode = alt > 10.0 ? 'day' : (alt > -4.0 ? 'sunset' : 'night');
   if (_raCurrentSkyMode !== targetMode) {
     _raCurrentSkyMode = targetMode;
     try {
