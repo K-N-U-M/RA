@@ -242,12 +242,12 @@
     const btn = document.getElementById('ra-cloud-sync-btn');
     if (btn) {
       if (user) {
-        btn.innerHTML = `<i data-lucide="cloud-check" class="icon-sm"></i> <span style="font-size:10px;font-weight:700;">${user.displayName || user.email.split('@')[0]}</span>`;
+        btn.innerHTML = `<i data-lucide="cloud-check" class="icon-sm"></i>`;
         btn.style.borderColor = '#10B981';
         btn.style.color = '#34D399';
         btn.title = `Conectado como ${user.email} (Clic para gestionar)`;
       } else {
-        btn.innerHTML = `<i data-lucide="cloud" class="icon-sm"></i> <span style="font-size:10px;font-weight:700;">Nube</span>`;
+        btn.innerHTML = `<i data-lucide="cloud" class="icon-sm"></i>`;
         btn.style.borderColor = 'rgba(56,189,248,0.4)';
         btn.style.color = '#38BDF8';
         btn.title = 'Conectar con Firebase (Cloud Sync)';

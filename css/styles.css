@@ -465,6 +465,40 @@
       filter: drop-shadow(0 2px 8px rgba(245, 158, 11, 0.35));
       display: block;
     }
+    .sb-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .sb-header-actions .doc-mini-btn {
+      width: 32px !important;
+      height: 32px !important;
+      min-width: 32px !important;
+      min-height: 32px !important;
+      max-width: 32px !important;
+      max-height: 32px !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      border-radius: 6px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      box-sizing: border-box !important;
+      flex-shrink: 0 !important;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .sb-header-actions .doc-mini-btn i,
+    .sb-header-actions .doc-mini-btn svg {
+      width: 16px !important;
+      height: 16px !important;
+      max-width: 16px !important;
+      max-height: 16px !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      display: block !important;
+    }
     .sb-logo-badge {
       background: var(--grad-amber);
       color: #000;
