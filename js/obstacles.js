@@ -1027,6 +1027,10 @@ function render3DObstaclesInCesium() {
     }
   });
 
+  if (typeof window !== "undefined" && window.RAWindTurbine && typeof window.RAWindTurbine.renderAll === "function") {
+    window.RAWindTurbine.renderAll();
+  }
+
   if (typeof viewer !== "undefined" && viewer.scene && typeof viewer.scene.requestRender === "function") {
     viewer.scene.requestRender();
   }

@@ -30,12 +30,13 @@ function _raSanitizeForExport(obj, depth) {
   if (depth > 10) return null;
   if (Array.isArray(obj)) return obj.map(v => _raSanitizeForExport(v, depth + 1));
   if (obj && typeof obj === 'object') {
-    if (obj instanceof Cesium.Cartesian3) return { x: obj.x, y: obj.y, z: obj.z };
+    if (typeof Cesium !== 'undefined' && Cesium.Cartesian3 && obj instanceof Cesium.Cartesian3) return { x: obj.x, y: obj.y, z: obj.z };
+    if (typeof obj.x === 'number' && typeof obj.y === 'number' && typeof obj.z === 'number' && Object.keys(obj).length === 3) return { x: obj.x, y: obj.y, z: obj.z };
     if (obj instanceof Date) return obj.toISOString();
     const out = {};
     for (const k in obj) {
       if (!Object.prototype.hasOwnProperty.call(obj, k)) continue;
-      if (k === 'entity' || k === 'entities' || k === 'primitive' || k === 'primitives' || k.charAt(0) === '_') continue;
+      if (k === 'entity' || k === 'entities' || k === 'primitive' || k === 'primitives' || (k && k.charAt && k.charAt(0) === '_')) continue;
       const v = obj[k];
       if (typeof v === 'function') continue;
       out[k] = _raSanitizeForExport(v, depth + 1);
@@ -62,6 +63,13 @@ function raExportProjectData() {
       pitch: cam.pitch,
       roll: cam.roll
     };
+    if (cam.positionCartographic) {
+      camData.cartographic = {
+        longitude: (typeof Cesium !== 'undefined' && Cesium.Math) ? Cesium.Math.toDegrees(cam.positionCartographic.longitude) : cam.positionCartographic.longitude,
+        latitude: (typeof Cesium !== 'undefined' && Cesium.Math) ? Cesium.Math.toDegrees(cam.positionCartographic.latitude) : cam.positionCartographic.latitude,
+        height: cam.positionCartographic.height
+      };
+    }
   }
 
   const serializedPlanes = (typeof WP !== 'undefined' && WP && Array.isArray(WP.planes))
@@ -83,7 +91,9 @@ function raExportProjectData() {
     : [];
 
   const serializedPolylines = (typeof WP !== 'undefined' && WP && Array.isArray(WP.polylines))
-    ? WP.polylines.map(poly => ({
+    ? WP.polylines.map((poly, pIdx) => ({
+        id: poly.id || ('wp_poly_' + Date.now() + '_' + pIdx),
+        name: poly.name || ('Faldon #' + (pIdx + 1)),
         points: Array.isArray(poly.points) ? poly.points.map(pt => ({ x: pt.x, y: pt.y, z: pt.z })) : [],
         color: poly.color,
         planeIdx: (typeof poly.planeIdx === 'number') ? poly.planeIdx : 0,
@@ -91,6 +101,7 @@ function raExportProjectData() {
         orientationPref: poly.orientationPref || 'portrait',
         modTilt: poly.modTilt || 'auto',
         modAzimuth: poly.modAzimuth || 'auto',
+        area: (typeof poly.area === 'number') ? poly.area : (poly.roofInfo && typeof poly.roofInfo.area === 'number' ? poly.roofInfo.area : 0),
         deletedPanels: Array.isArray(poly.deletedPanels) ? poly.deletedPanels.map(dp => ({
           u: dp.u,
           v: dp.v,
@@ -112,6 +123,8 @@ function raExportProjectData() {
             panelId: p.panelId,
             hasMLPE: !!p.hasMLPE,
             isShaded: !!p.isShaded,
+            annualKwh: p.annualKwh || null,
+            shadePct: (typeof p.shadePct === 'number') ? p.shadePct : null,
             center: p.center ? { x: p.center.x, y: p.center.y, z: p.center.z } : null,
             corners: Array.isArray(p.corners) ? p.corners.map(c => ({ x: c.x, y: c.y, z: c.z })) : []
           })) : []
@@ -171,12 +184,14 @@ function raExportProjectData() {
       name: _raCurrentProjectName || 'Instalación Solar',
       address: currentAddress,
       totalPanels: totalPanels,
-      totalKwp: parseFloat(totalKwp)
+      totalKwp: parseFloat(totalKwp),
+      currentStep: (typeof wpCurrentStep !== 'undefined') ? wpCurrentStep : 2
     },
     camera: camData,
     workPlanes: {
       planes: serializedPlanes,
-      activePlaneIdx: (typeof WP !== 'undefined' && WP) ? WP.activePlaneIdx : 0
+      activePlaneIdx: (typeof WP !== 'undefined' && WP) ? WP.activePlaneIdx : 0,
+      selectedPolyIdx: (typeof WP !== 'undefined' && WP) ? WP.selectedPolyIdx : 0
     },
     polylines: serializedPolylines,
     obstacles: (typeof obstacles !== 'undefined' && Array.isArray(obstacles)) ? _raSanitizeForExport(obstacles, 0) : [],
@@ -212,6 +227,11 @@ function raExportProjectData() {
           carto: s.carto || null,
           rotation: s.rotation || 0
         },
+        dcProtection: {
+          position: (s.dcProtectionPosition) ? { x: s.dcProtectionPosition.x, y: s.dcProtectionPosition.y, z: s.dcProtectionPosition.z } : null,
+          carto: s.dcProtectionCarto || null,
+          rotation: s.dcProtectionRotation || 0
+        },
         battery: {
           position: s.batteryPosition ? { x: s.batteryPosition.x, y: s.batteryPosition.y, z: s.batteryPosition.z } : null,
           carto: s.batteryCarto || null,
@@ -219,12 +239,14 @@ function raExportProjectData() {
         },
         gridMeter: {
           position: (s.gridMeter && s.gridMeter.position) ? { x: s.gridMeter.position.x, y: s.gridMeter.position.y, z: s.gridMeter.position.z } : null,
-          carto: (s.gridMeter && s.gridMeter.carto) || null
+          carto: (s.gridMeter && s.gridMeter.carto) || null,
+          rotation: (s.gridMeter && typeof s.gridMeter.rotation === 'number') ? s.gridMeter.rotation : 0
         },
         combinerBox: {
           isEnabled: !!(s.combinerBox && s.combinerBox.isEnabled),
           position: (s.combinerBox && s.combinerBox.position) ? { x: s.combinerBox.position.x, y: s.combinerBox.position.y, z: s.combinerBox.position.z } : null,
-          carto: (s.combinerBox && s.combinerBox.carto) || null
+          carto: (s.combinerBox && s.combinerBox.carto) || null,
+          rotation: (s.combinerBox && typeof s.combinerBox.rotation === 'number') ? s.combinerBox.rotation : 0
         },
         routes: (s.routes) ? {
           dc: Array.isArray(s.routes.dc) ? s.routes.dc.map(p => ({ x: p.x, y: p.y, z: p.z })) : [],
@@ -414,6 +436,43 @@ function raHideProjectLoadingHUD() {
   }, 260);
 }
 
+/**
+ * [CAM-RESTORE] Restaura de forma robusta la cámara de Cesium a partir de datos serializados.
+ * Prioriza heading/pitch/roll para orientación astronómica/geodésica libre de deformaciones.
+ */
+function _raApplyCamera(camData) {
+  if (!camData || typeof viewer === 'undefined' || !viewer || !viewer.camera || typeof Cesium === 'undefined') return;
+  try {
+    const pos = (camData.position && typeof camData.position.x === 'number')
+      ? new Cesium.Cartesian3(camData.position.x, camData.position.y, camData.position.z)
+      : null;
+    if (!pos) return;
+
+    if (typeof camData.heading === 'number' && typeof camData.pitch === 'number' && isFinite(camData.heading) && isFinite(camData.pitch)) {
+      viewer.camera.setView({
+        destination: pos,
+        orientation: {
+          heading: camData.heading,
+          pitch: camData.pitch,
+          roll: (typeof camData.roll === 'number' && isFinite(camData.roll)) ? camData.roll : 0
+        }
+      });
+    } else if (camData.direction && camData.up) {
+      viewer.camera.setView({
+        destination: pos,
+        orientation: {
+          direction: new Cesium.Cartesian3(camData.direction.x, camData.direction.y, camData.direction.z),
+          up: new Cesium.Cartesian3(camData.up.x, camData.up.y, camData.up.z)
+        }
+      });
+    } else {
+      viewer.camera.setView({ destination: pos });
+    }
+  } catch (eCam) {
+    window.RA && window.RA.log && window.RA.log.debug('Error restaurando cámara:', eCam);
+  }
+}
+
 async function raImportProjectData(projectData, options = {}) {
   // [P0.2] Carrera de arranque y espera determinista: si el visor Cesium o el subsistema WP
   // aún no existen o están inicializándose, reintentar de forma controlada hasta 25 veces (5 segundos).
@@ -493,6 +552,24 @@ async function raImportProjectData(projectData, options = {}) {
       });
       window._obsEntities = [];
     }
+    if (window._obsPrimitives && typeof viewer !== 'undefined' && viewer && viewer.scene && viewer.scene.primitives) {
+      window._obsPrimitives.forEach(p => {
+        try { if (p && !p.isDestroyed()) viewer.scene.primitives.remove(p); } catch(errRemove) {}
+      });
+      window._obsPrimitives = [];
+    }
+    if (window._buildingEntities && typeof viewer !== 'undefined' && viewer && viewer.entities) {
+      window._buildingEntities.forEach(e => {
+        try { viewer.entities.remove(e); } catch(errRemove) {}
+      });
+      window._buildingEntities = [];
+    }
+    if (window._buildingPrimitives && typeof viewer !== 'undefined' && viewer && viewer.scene && viewer.scene.primitives) {
+      window._buildingPrimitives.forEach(p => {
+        try { if (p && !p.isDestroyed()) viewer.scene.primitives.remove(p); } catch(errRemove) {}
+      });
+      window._buildingPrimitives = [];
+    }
     if (window._bldEntities && typeof viewer !== 'undefined' && viewer && viewer.entities) {
       window._bldEntities.forEach(e => {
         try { viewer.entities.remove(e); } catch(errRemove) {}
@@ -509,21 +586,8 @@ async function raImportProjectData(projectData, options = {}) {
       window.RAundo.clear();
     }
 
-    // 2. Restaurar Cámara
-    if (projectData.camera && typeof viewer !== 'undefined' && viewer && viewer.camera) {
-      try {
-        const c = projectData.camera;
-        viewer.camera.setView({
-          destination: new Cesium.Cartesian3(c.position.x, c.position.y, c.position.z),
-          orientation: {
-            direction: new Cesium.Cartesian3(c.direction.x, c.direction.y, c.direction.z),
-            up: new Cesium.Cartesian3(c.up.x, c.up.y, c.up.z)
-          }
-        });
-      } catch (eCam) {
-        window.RA && window.RA.log && window.RA.log.debug('Error restaurando cámara:', eCam);
-      }
-    }
+    // 2. Restaurar Cámara (Fase temprana: orienta frustum y activa streaming 3D)
+    _raApplyCamera(projectData.camera);
 
     // Fase 3: Restaurar Planos de Trabajo, Faldones y Obstáculos 3D
     raUpdateProjectLoadingProgress(58, 'Reconstruyendo faldones y obstáculos 3D...', 'Cargando planos CAD y geometría volumétrica');
@@ -590,6 +654,8 @@ async function raImportProjectData(projectData, options = {}) {
               panelId: p.panelId,
               hasMLPE: !!p.hasMLPE,
               isShaded: !!p.isShaded,
+              annualKwh: p.annualKwh || null,
+              shadePct: (typeof p.shadePct === 'number') ? p.shadePct : null,
               center: p.center ? new Cesium.Cartesian3(p.center.x, p.center.y, p.center.z) : null,
               corners: Array.isArray(p.corners) ? p.corners.map(c => new Cesium.Cartesian3(c.x, c.y, c.z)) : []
             })) : []
@@ -620,43 +686,57 @@ async function raImportProjectData(projectData, options = {}) {
           roofInfo: rInfo
         });
       });
-      WP.selectedPolyIdx = WP.polylines.length > 0 ? 0 : -1;
+      WP.selectedPolyIdx = (projectData.workPlanes && typeof projectData.workPlanes.selectedPolyIdx === 'number' && projectData.workPlanes.selectedPolyIdx < WP.polylines.length)
+        ? projectData.workPlanes.selectedPolyIdx
+        : (WP.polylines.length > 0 ? 0 : -1);
     }
 
-    // 5. Restaurar Obstáculos — [AUDIT-SAVE] IN-PLACE: reasignar `obstacles = ...` rompía
-    // el alias del módulo (obstacles.js capturó global.obstacles al cargar) → los obstáculos
-    // cargados no respondían a selección/borrado/picking. Mutar el array compartido.
+    // 5. Restaurar Obstáculos — Rehidratación Cartesian3 e in-place update
     if (Array.isArray(projectData.obstacles)) {
       const _obsClean = JSON.parse(JSON.stringify(projectData.obstacles, (k, v) => (k === 'entity' || (k && k.charAt && k.charAt(0) === '_')) ? undefined : v));
-      const _arrObs = (typeof window !== 'undefined' && Array.isArray(window.obstacles)) ? window.obstacles : obstacles;
-      if (Array.isArray(_arrObs)) {
-        _arrObs.length = 0;
-        _obsClean.forEach(o => { if (o) _arrObs.push(o); });
-        obstacles = _arrObs;
-        if (typeof window !== 'undefined') window.obstacles = _arrObs;
-      } else {
-        obstacles = _obsClean;
-        if (typeof window !== 'undefined') window.obstacles = _obsClean;
-      }
+      const _arrObs = (typeof window !== 'undefined' && Array.isArray(window.obstacles)) ? window.obstacles : (typeof obstacles !== 'undefined' && Array.isArray(obstacles) ? obstacles : []);
+      _arrObs.length = 0;
+      _obsClean.forEach(o => {
+        if (!o) return;
+        if (o.cartesian && typeof Cesium !== 'undefined') {
+          o.cartesian = new Cesium.Cartesian3(o.cartesian.x, o.cartesian.y, o.cartesian.z);
+        }
+        if (o.center && typeof Cesium !== 'undefined') {
+          o.center = new Cesium.Cartesian3(o.center.x, o.center.y, o.center.z);
+        }
+        if (Array.isArray(o.points) && typeof Cesium !== 'undefined') {
+          o.points = o.points.map(pt => new Cesium.Cartesian3(pt.x, pt.y, pt.z));
+        }
+        if (o.type === 'wind_turbine' && window.RAWindTurbine && typeof window.RAWindTurbine.ensureProps === 'function') {
+          window.RAWindTurbine.ensureProps(o);
+        }
+        _arrObs.push(o);
+      });
+      obstacles = _arrObs;
+      if (typeof window !== 'undefined') window.obstacles = _arrObs;
       window.selectedObstacleId = null;
     }
 
-    // 5.b Restaurar Edificios 3D — mismo criterio in-place (alias window.buildings)
+    // 5.b Restaurar Edificios 3D — Rehidratación Cartesian3 e in-place update
     if (Array.isArray(projectData.buildings)) {
       const _bldClean = JSON.parse(JSON.stringify(projectData.buildings, (k, v) => (k === 'entity' || (k && k.charAt && k.charAt(0) === '_')) ? undefined : v));
-      const _arrBld = (typeof window !== 'undefined' && Array.isArray(window.buildings)) ? window.buildings : buildings;
-      if (Array.isArray(_arrBld)) {
-        _arrBld.length = 0;
-        _bldClean.forEach(b => { if (b) _arrBld.push(b); });
-        buildings = _arrBld;
-        if (typeof window !== 'undefined') window.buildings = _arrBld;
-      } else {
-        buildings = _bldClean;
-        if (typeof window !== 'undefined') window.buildings = _bldClean;
-      }
+      const _arrBld = (typeof window !== 'undefined' && Array.isArray(window.buildings)) ? window.buildings : (typeof buildings !== 'undefined' && Array.isArray(buildings) ? buildings : []);
+      _arrBld.length = 0;
+      _bldClean.forEach(b => {
+        if (!b) return;
+        if (Array.isArray(b.points) && typeof Cesium !== 'undefined') {
+          b.points = b.points.map(pt => new Cesium.Cartesian3(pt.x, pt.y, pt.z));
+        }
+        if (b.center && typeof Cesium !== 'undefined') {
+          b.center = new Cesium.Cartesian3(b.center.x, b.center.y, b.center.z);
+        }
+        _arrBld.push(b);
+      });
+      buildings = _arrBld;
+      if (typeof window !== 'undefined') window.buildings = _arrBld;
     }
 
-    // 6. Restaurar Configuración de Paneles
+    // 6. Restaurar Configuración de Paneles y Metadatos
     if (projectData.panelConfig && typeof panelConfig !== 'undefined') {
       Object.assign(panelConfig, projectData.panelConfig);
     }
@@ -664,38 +744,30 @@ async function raImportProjectData(projectData, options = {}) {
     if (projectData.metadata && projectData.metadata.name) {
       _raCurrentProjectName = projectData.metadata.name;
     }
+    if (projectData.metadata && projectData.metadata.address) {
+      const searchInp = document.getElementById('ra-search-input');
+      if (searchInp) searchInp.value = projectData.metadata.address;
+      const navAddr = document.getElementById('nav-info-address');
+      if (navAddr) navAddr.textContent = projectData.metadata.address;
+    }
 
     // Fase 4: Re-renderizado de escena y módulos fotovoltaicos
     raUpdateProjectLoadingProgress(78, 'Renderizando módulos fotovoltaicos...', 'Generando layout, sombras y métricas');
     await new Promise(r => setTimeout(r, 180));
 
-    // [AUDIT-SAVE] Las selecciones de catálogo se restauran al FINAL del import
-    // (ver bloque tras el Gemelo Digital): restaurarlas antes era inútil porque el
-    // pipeline de re-render y el auto-dimensionado las sobrescribían con defaults.
-
-    // 7. Re-renderizar Todo y sincronizar con Stepper (Paso 2: Generador)
-    // [AUDIT-SAVE] wpRenderPolylines NO EXISTE (typeof lo saltaba en silencio y los faldones
-    // cargados quedaban sin dibujar) → wpRenderAllPolylines + gizmo del plano + métricas.
+    // 7. Re-renderizar Todo
     if (typeof isPolygonDesignConfirmed !== 'undefined') isPolygonDesignConfirmed = true;
-    if (typeof wpCurrentStep !== 'undefined') wpCurrentStep = 2;
     if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
     if (typeof wpRenderActivePlaneGizmo === 'function') wpRenderActivePlaneGizmo();
     if (typeof render3DObstaclesInCesium === 'function') render3DObstaclesInCesium();
+    if (window.RAWindTurbine && typeof window.RAWindTurbine.renderAll === 'function') window.RAWindTurbine.renderAll();
     if (typeof render3DBuildingsInCesium === 'function') render3DBuildingsInCesium();
     if (typeof wpFastRenderSimulatedPanels === 'function') wpFastRenderSimulatedPanels();
     if (typeof recalculateSolarYield === 'function') recalculateSolarYield();
     if (typeof wpUpdateUI === 'function') wpUpdateUI();
     if (typeof wpUpdateAllMetrics === 'function') wpUpdateAllMetrics();
     if (typeof updateBudgetUI === 'function') updateBudgetUI();
-    // [AUDIT-SAVE] El heatmap no se serializa: marcarlo obsoleto para que Paso 3 y PDFs avisen
     if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Proyecto cargado: recalcular análisis solar');
-    if (typeof wpGoToStep === 'function') {
-      try { wpGoToStep(2); } catch (eStep) { window.RA && window.RA.log && window.RA.log.debug('Paso 2 activado tras importación:', eStep); }
-    }
-    
-    if (typeof ProjectHierarchy !== 'undefined' && ProjectHierarchy.notify) {
-      ProjectHierarchy.notify('project_loaded');
-    }
 
     // Fase 5: Restaurar Gemelo Digital Eléctrico (Inversor, Cuadros, Contador, Cables)
     raUpdateProjectLoadingProgress(92, 'Generando gemelo digital eléctrico y cableado...', 'Restaurando inversor, protecciones y REBT');
@@ -711,6 +783,18 @@ async function raImportProjectData(projectData, options = {}) {
       if (elec.inverter && elec.inverter.position && typeof Cesium !== 'undefined') {
         const invPt = new Cesium.Cartesian3(elec.inverter.position.x, elec.inverter.position.y, elec.inverter.position.z);
         if (typeof wpPlaceInverterAtPosition === 'function') wpPlaceInverterAtPosition(invPt);
+        if (typeof elec.inverter.rotation === 'number' && window.inverterEquipmentState) {
+          window.inverterEquipmentState.rotation = elec.inverter.rotation;
+        }
+      }
+      if (elec.dcProtection && elec.dcProtection.position && typeof Cesium !== 'undefined' && window.inverterEquipmentState) {
+        const s = window.inverterEquipmentState;
+        const dcPt = new Cesium.Cartesian3(elec.dcProtection.position.x, elec.dcProtection.position.y, elec.dcProtection.position.z);
+        s.dcProtectionPosition = dcPt;
+        if (elec.dcProtection.carto) s.dcProtectionCarto = elec.dcProtection.carto;
+        if (typeof elec.dcProtection.rotation === 'number') s.dcProtectionRotation = elec.dcProtection.rotation;
+        if (s.dcProtectionEntity) s.dcProtectionEntity.position = new Cesium.ConstantPositionProperty(dcPt);
+        if (s.dcProtectionLabel2D) s.dcProtectionLabel2D.position = dcPt;
       }
       if (elec.battery && elec.battery.position && typeof Cesium !== 'undefined' && window.inverterEquipmentState) {
         const s = window.inverterEquipmentState;
@@ -718,16 +802,26 @@ async function raImportProjectData(projectData, options = {}) {
         s.batteryPosition = batPt;
         if (elec.battery.carto) s.batteryCarto = elec.battery.carto;
         if (typeof elec.battery.rotation === 'number') s.batteryRotation = elec.battery.rotation;
-        if (s.batteryEntity) s.batteryEntity.position = new Cesium.ConstantPositionProperty(batPt);
-        if (s.batteryLabel2D) s.batteryLabel2D.position = batPt;
+        if (typeof wpRenderBattery3D === 'function') {
+          wpRenderBattery3D();
+        } else {
+          if (s.batteryEntity) s.batteryEntity.position = new Cesium.ConstantPositionProperty(batPt);
+          if (s.batteryLabel2D) s.batteryLabel2D.position = batPt;
+        }
       }
       if (elec.gridMeter && elec.gridMeter.position && typeof Cesium !== 'undefined') {
         const meterPt = new Cesium.Cartesian3(elec.gridMeter.position.x, elec.gridMeter.position.y, elec.gridMeter.position.z);
         if (typeof wpPlaceGridMeterAtPosition === 'function') wpPlaceGridMeterAtPosition(meterPt);
+        if (typeof elec.gridMeter.rotation === 'number' && window.inverterEquipmentState && window.inverterEquipmentState.gridMeter) {
+          window.inverterEquipmentState.gridMeter.rotation = elec.gridMeter.rotation;
+        }
       }
       if (elec.combinerBox && elec.combinerBox.isEnabled && elec.combinerBox.position && typeof Cesium !== 'undefined') {
         const cbPt = new Cesium.Cartesian3(elec.combinerBox.position.x, elec.combinerBox.position.y, elec.combinerBox.position.z);
         if (typeof wpPlaceCombinerBoxAtPosition === 'function') wpPlaceCombinerBoxAtPosition(cbPt);
+        if (typeof elec.combinerBox.rotation === 'number' && window.inverterEquipmentState && window.inverterEquipmentState.combinerBox) {
+          window.inverterEquipmentState.combinerBox.rotation = elec.combinerBox.rotation;
+        }
       }
       if (elec.routes && typeof Cesium !== 'undefined') {
         window.inverterEquipmentState.routes = {
@@ -737,6 +831,9 @@ async function raImportProjectData(projectData, options = {}) {
       }
       if (typeof wpCalculateAndRenderInverterCables === 'function') {
         wpCalculateAndRenderInverterCables();
+      }
+      if (window.RACableEngine && typeof window.RACableEngine.renderAllCables === 'function') {
+        window.RACableEngine.renderAllCables();
       }
       if (typeof wpUpdateCableRoutesUI === 'function') {
         wpUpdateCableRoutesUI();
@@ -755,13 +852,44 @@ async function raImportProjectData(projectData, options = {}) {
       if (!window.solarProjectConfig) window.solarProjectConfig = {};
       Object.assign(window.solarProjectConfig, projectData.projectConfig);
       if (typeof window.populateStep3EquipmentSelectors === 'function') window.populateStep3EquipmentSelectors();
-      // El layout se regeneró con el módulo default del catálogo (la config se restaura
-      // después): re-renderizar para que los paneles usen el módulo/inversor del proyecto.
       if (typeof wpFastRenderSimulatedPanels === 'function') wpFastRenderSimulatedPanels();
       if (typeof window !== 'undefined' && window.WorkflowOrchestrator && typeof window.WorkflowOrchestrator.refreshGating === 'function') {
         window.WorkflowOrchestrator.refreshGating();
       }
     }
+
+    // Restaurar estado de simulación solar y hora/mes
+    if (projectData.solarSimState && typeof solarSimState !== 'undefined') {
+      if (typeof projectData.solarSimState.monthIdx === 'number') solarSimState.monthIdx = projectData.solarSimState.monthIdx;
+      if (typeof projectData.solarSimState.hour === 'number') solarSimState.hour = projectData.solarSimState.hour;
+      if (projectData.solarSimState.viewMode) solarSimState.viewMode = projectData.solarSimState.viewMode;
+      if (typeof updateSolarTimeUI === 'function') updateSolarTimeUI();
+      if (typeof updateSolarPosition === 'function') updateSolarPosition();
+    }
+
+    // Navegar al paso correspondiente del proyecto
+    let targetStep = (projectData.metadata && typeof projectData.metadata.currentStep === 'number')
+      ? projectData.metadata.currentStep
+      : (typeof projectData.currentStep === 'number' ? projectData.currentStep : 2);
+    if (targetStep >= 2 && (typeof WP !== 'undefined' && (!WP.polylines || WP.polylines.length === 0 || !WP.polylines.some(p => p.points && p.points.length >= 3)))) {
+      targetStep = 1;
+    }
+    if (typeof wpCurrentStep !== 'undefined') wpCurrentStep = targetStep;
+    if (typeof wpGoToStep === 'function') {
+      try { wpGoToStep(targetStep); } catch (eStep) { window.RA && window.RA.log && window.RA.log.debug('Paso ' + targetStep + ' activado tras importación:', eStep); }
+    }
+    
+    if (typeof ProjectHierarchy !== 'undefined' && ProjectHierarchy.notify) {
+      ProjectHierarchy.notify('project_loaded');
+    }
+    if (typeof UIOutliner !== 'undefined' && typeof UIOutliner.update === 'function') {
+      UIOutliner.update();
+    }
+
+    // [CÁMARA FINAL-LOCK] Aplicar cámara guardada al final absoluto
+    // Esto garantiza que ningún re-render, selección o navegación de paso
+    // pueda desorientar o desplazar la vista exacta guardada por el usuario.
+    _raApplyCamera(projectData.camera);
 
     raSaveToRecentProjects(projectData);
     raCloseProjectsModal();
