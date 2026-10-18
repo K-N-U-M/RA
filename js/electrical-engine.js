@@ -885,13 +885,16 @@
       descripcion: `SPD DC Clase II Ucpv ${spdDcUcpv}V (In=20kA / Imax=40kA)`
     };
 
-    // Fusibles gPV de protección contra corrientes inversas (IEC 62548):
+    // Fusibles gPV de protección contra corrientes inversas (IEC 62548 cláusula 6.5.3 / IEC 60269-6):
     // Solo requeridos si hay >= 3 strings en paralelo por MPPT
     let dcFuses = null;
+    const modMaxFuse = mod.seriesFuseRating || mod.maxOcpr || 25;
+    const fuseInMin = Math.ceil(isc * 1.5);
+    const fuseInMax = Math.min(Math.floor(isc * 2.4), modMaxFuse);
+    const FUSE_RATINGS = [12, 15, 16, 20, 25, 30, 32];
+    const fuseRating = FUSE_RATINGS.find(f => f >= fuseInMin && f <= fuseInMax) || fuseInMin;
+
     if (parallelStrings >= 3) {
-      const fuseInMin = isc * 1.4;
-      const FUSE_RATINGS = [12, 15, 16, 20, 25, 30, 32];
-      const fuseRating = FUSE_RATINGS.find(f => f >= fuseInMin) || Math.ceil(fuseInMin);
       dcFuses = {
         requerido: true,
         tipo: 'Fusibles gPV cilíndricos 10x38',
@@ -904,10 +907,24 @@
     } else {
       dcFuses = {
         requerido: false,
+        inA: fuseRating,
         motivo: 'No requerido: <= 2 strings en paralelo por MPPT (corriente inversa admisible segura según IEC 62548)',
         descripcion: 'Sin fusibles (configuración <= 2 strings en paralelo)'
       };
     }
+
+    // Coordinación frente a la corriente de cortocircuito máxima admisible de la etapa MPPT del inversor
+    const iscArrayMppt = parallelStrings * 1.25 * isc;
+    const invMaxSc = inv.iMaxScA || (inv.maxShortCircuitCurrent ? inv.maxShortCircuitCurrent : null);
+    const isInvScSafe = !invMaxSc || (iscArrayMppt <= invMaxSc);
+    const mpptScCoordination = {
+      isSafe: isInvScSafe,
+      iscArrayMppt: Math.round(iscArrayMppt * 10) / 10,
+      invMaxSc: invMaxSc,
+      descripcion: isInvScSafe
+        ? `Coordinación MPPT OK (Isc array ${iscArrayMppt.toFixed(1)}A <= Isc max inv ${invMaxSc || 'N/A'}A)`
+        : `⚠️ Isc array (${iscArrayMppt.toFixed(1)}A) supera la corriente máxima de entrada MPPT (${invMaxSc}A)`
+    };
 
     // 2. PROTECCIONES AC (Lado de evacuación / conexión a red)
     const gridSupply = params.gridSupply || (params.isThreePhase ? 'three_phase' : (inv.type && inv.type.includes('Trifásico') ? 'three_phase' : 'single_phase'));
@@ -975,6 +992,7 @@
         seccionador: dcSwitch,
         spd: dcSpd,
         fusibles: dcFuses,
+        mpptScCoordination: mpptScCoordination,
         vocCold: parseFloat(vocCold.toFixed(1)),
         iscString: parseFloat(isc.toFixed(2))
       },
@@ -1017,6 +1035,27 @@
       pct: Math.round(pct * 100) / 100,
       valid: pct <= 1.5,
       limitPct: 1.5
+    };
+  }
+
+  /**
+   * Valida la caída de tensión acumulada total (DC + AC) según la Guía Técnica de la ITC-BT-40.
+   * Límite de diseño: ΔV_total <= 2.5% para prevenir sobretensiones >253V en bornes AC del inversor.
+   */
+  function calculateGlobalVoltageDrop(dcDropPct, acDropPct) {
+    const dPct = (typeof dcDropPct === 'number' && isFinite(dcDropPct)) ? dcDropPct : 0;
+    const aPct = (typeof acDropPct === 'number' && isFinite(acDropPct)) ? acDropPct : 0;
+    const totalPct = dPct + aPct;
+    const isCompliant = totalPct <= 2.5;
+    return {
+      dcDropPct: Math.round(dPct * 100) / 100,
+      acDropPct: Math.round(aPct * 100) / 100,
+      totalPct: Math.round(totalPct * 100) / 100,
+      limitPct: 2.5,
+      valid: isCompliant,
+      descripcion: isCompliant
+        ? `Caída de tensión global OK (${totalPct.toFixed(2)}% <= 2.5% acumulado DC+AC)`
+        : `⚠️ Caída de tensión acumulada (${totalPct.toFixed(2)}%) excede el límite del 2.5%; riesgo de desconexión del inversor a 253V`
     };
   }
 
@@ -1637,6 +1676,7 @@
   root.partitionPanelsIntoMPPTStrings = partitionPanelsIntoMPPTStrings;
   root.matchInvertersFromCatalog = matchInvertersFromCatalog;
   root.calculateVoltageDrop = calculateVoltageDrop;
+  root.calculateGlobalVoltageDrop = calculateGlobalVoltageDrop;
   root.calculateElectricalProtections = calculateElectricalProtections;
   root.rebalanceMPPTAssignment = rebalanceMPPTAssignment;
   root.validateMPPTHomogeneity = validateMPPTHomogeneity;
@@ -1654,6 +1694,7 @@
     partitionPanelsIntoMPPTStrings: partitionPanelsIntoMPPTStrings,
     matchInvertersFromCatalog: matchInvertersFromCatalog,
     calculateVoltageDrop: calculateVoltageDrop,
+    calculateGlobalVoltageDrop: calculateGlobalVoltageDrop,
     calculateElectricalProtections: calculateElectricalProtections,
     calculateProtections: calculateElectricalProtections,
     rebalanceMPPTAssignment: rebalanceMPPTAssignment,

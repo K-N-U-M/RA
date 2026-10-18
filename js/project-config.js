@@ -399,14 +399,17 @@ function step3UpdateHardwareSelection() {
     }
   } else {
     // Si no cambió el módulo (ej. cambio de inversor/batería o navegación a Paso 4),
-    // preservamos íntegramente poly.roofInfo y la caché del mapa de calor anual.
+    // preservamos íntegramente poly.roofInfo y la caché del mapa de calor anual,
+    // pero actualizamos los strings asignados y latiguillos inter-módulo
     if (typeof rebalanceMPPTAssignment === 'function') {
       rebalanceMPPTAssignment();
     }
+    if (typeof renderSimulatedPanels === 'function' && typeof simulatedPanelEntities !== 'undefined' && simulatedPanelEntities.length > 0) {
+      renderSimulatedPanels();
+    }
     if (typeof wpCalculateAndRenderInverterCables === 'function') {
       wpCalculateAndRenderInverterCables();
-    }
-    if (window.RACableEngine && typeof window.RACableEngine.redrawAll === 'function') {
+    } else if (window.RACableEngine && typeof window.RACableEngine.redrawAll === 'function') {
       window.RACableEngine.redrawAll();
     }
     if (typeof wpUpdateStep3UI === 'function') {

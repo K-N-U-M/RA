@@ -200,21 +200,33 @@
       var U = basis.uVec;
       var V = basis.vVec;
 
+      var lateralOffset = (typeof opts.lateralOffset === 'number') ? opts.lateralOffset : 0;
+      var latVec = Cesium.Cartesian3.normalize(Cesium.Cartesian3.cross(N, U, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+
       // Si el usuario proporcionó waypoints manuales (trazado por bandeja), conectar ortogonalmente
       var customWaypoints = opts.waypoints || [];
       if (Array.isArray(customWaypoints) && customWaypoints.length > 0) {
+        var wpShift = (opts.isNeg ? 0.04 : 0) + lateralOffset;
         var fullPts = [this.elevatePoint(pStart, normalOffset, N)];
         for (var w = 0; w < customWaypoints.length; w++) {
           var cw = this.toCartesian3(customWaypoints[w]);
-          if (cw) fullPts.push(cw);
+          if (cw) {
+            if (Math.abs(wpShift) > 0.001) {
+              cw = Cesium.Cartesian3.add(cw, Cesium.Cartesian3.multiplyByScalar(latVec, wpShift, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+            }
+            fullPts.push(cw);
+          }
         }
         fullPts.push(this.elevatePoint(pEnd, 0.25, N));
         return this.sanitizePositions(fullPts);
       }
 
       // Trazado Manhattan Automático:
-      // P0: Elevación en normal sobre cubierta
+      // P0: Elevación en normal sobre cubierta con desfase lateral para evitar colisión de strings
       var p0 = this.elevatePoint(pStart, normalOffset, N);
+      if (Math.abs(lateralOffset) > 0.001) {
+        p0 = Cesium.Cartesian3.add(p0, Cesium.Cartesian3.multiplyByScalar(latVec, lateralOffset, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+      }
 
       // Desplazamiento global hacia destino
       var disp = Cesium.Cartesian3.subtract(pEnd, pStart, new Cesium.Cartesian3());
@@ -596,24 +608,31 @@
         var targetForStringPos = (yBranchNodePos && sIdx < 2) ? yBranchNodePos : dcTargetPos;
         var targetForStringNeg = (yBranchNodeNeg && sIdx < 2) ? yBranchNodeNeg : dcTargetPos;
 
+        var stringOffset = (sIdx % 6) * 0.04;
         // Trazado DC+ (Rojo, cota +0.35m sobre faldón)
         var posPath = self.buildOrthogonalManhattanPath3D(startPos, targetForStringPos, {
-          normalOffset: self.CONFIG.DC_POS_OFFSET,
+          normalOffset: self.CONFIG.DC_POS_OFFSET + (sIdx % 2) * 0.015,
+          lateralOffset: stringOffset,
           basis: basis,
           waypoints: hasManualDc ? sState.routes.dc : null
         });
 
         // Trazado DC- (Azul, cota +0.45m sobre faldón / retorno compensado)
         var negPath = self.buildOrthogonalManhattanPath3D(termPos, targetForStringNeg, {
-          normalOffset: self.CONFIG.DC_NEG_OFFSET,
+          normalOffset: self.CONFIG.DC_NEG_OFFSET + (sIdx % 2) * 0.015,
+          lateralOffset: stringOffset,
+          isNeg: true,
           basis: basis,
           waypoints: hasManualDc ? sState.routes.dc : null
         });
 
         var lPos = self.computePathLength(posPath);
         var lNeg = self.computePathLength(negPath);
-        var totalStrLen = lPos + lNeg;
-        if (Math.max(lPos, lNeg) > maxLdc) maxLdc = Math.max(lPos, lNeg);
+        var numMods = (s.panels && Array.isArray(s.panels)) ? s.panels.length : (s.numPanels || 0);
+        var interModuleCableM = Math.max(0, (numMods - 1) * 1.25);
+        var totalStrLen = lPos + lNeg + interModuleCableM;
+        var strMaxDc = Math.max(lPos, lNeg) + interModuleCableM;
+        if (strMaxDc > maxLdc) maxLdc = strMaxDc;
 
         // Crear entidades volumétricas 3D con sombras reales + polyline de alta visibilidad
         var posEntities = self.createVolumetricEntity(viewer, posPath, {
