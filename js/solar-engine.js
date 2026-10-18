@@ -1746,8 +1746,25 @@ function wpSyncCesiumSun(solarPos) {
       const gl = sc.globe;
       const canvas = viewer.canvas || (sc.canvas);
 
+      // 1. Resetear cualquier filtro CSS legado sobre el canvas (render 100% PBR WebGL nativo)
+      if (canvas && canvas.style && canvas.style.filter && canvas.style.filter !== 'none') {
+        canvas.style.filter = 'none';
+      }
+
+      // 2. Sincronizar Bóveda Celeste y Atmósfera Procedural Reactiva (Día, Ocaso, Noche estrellada)
+      if (typeof window.wpUpdateAtmosphericSky === "function") {
+        window.wpUpdateAtmosphericSky(alt);
+      }
+
+      // 3. Niebla y Profundidad Atmosférica
+      if (sc.fog) {
+        sc.fog.enabled = true;
+        sc.fog.density = alt > 0 ? 0.00025 : 0.00015;
+        sc.fog.screenSpaceErrorFactor = 2.0;
+      }
+
       if (alt > 0.0) {
-        // ☀️ 1. DÍA PLENO Y ATARDECER / OCASO (Luz Solar Natural 100% con SunLight ECEF nativo)
+        // ☀️ DÍA PLENO Y HORA DORADA / ATARDECER (SunLight ECEF nativo + atmósfera cálida)
         if (typeof Cesium.SunLight === "function") {
           sc.light = new Cesium.SunLight();
         }
@@ -1757,7 +1774,7 @@ function wpSyncCesiumSun(solarPos) {
         if (gl) {
           gl.enableLighting = true;
           gl.shadows = Cesium.ShadowMode.DISABLED;
-          gl.atmosphereLightIntensity = isGoldenHour ? (4.0 + 6.0 * t) : 10.0;
+          gl.atmosphereLightIntensity = isGoldenHour ? (3.5 + 6.5 * t) : 10.0;
           gl.baseColor = isGoldenHour ? Cesium.Color.fromCssColorString('#181d2f') : Cesium.Color.fromCssColorString('#14213d');
         }
         if (sc.shadowMap) {
@@ -1780,73 +1797,56 @@ function wpSyncCesiumSun(solarPos) {
               sc.shadowMap._primitiveBias.normalShadingSmooth = 0.3;
             }
           }
-          sc.shadowMap.darkness = isGoldenHour ? 0.55 : 0.50;
+          // Transición continua de sombra: desvanecimiento suave a ras de horizonte (0° a 5°)
+          const shadowFade = Math.max(0, Math.min(1, alt / 5.0));
+          sc.shadowMap.darkness = 0.50 * shadowFade;
         }
-        sc.backgroundColor = Cesium.Color.fromCssColorString('#0a101a');
-
-        if (canvas && canvas.style) {
-          if (isGoldenHour) {
-            const sepiaVal = ((1.0 - t) * 0.35).toFixed(2);
-            const brightVal = (0.88 + 0.12 * t).toFixed(2);
-            const satVal = (1.0 + (1.0 - t) * 0.25).toFixed(2);
-            canvas.style.filter = 'brightness(' + brightVal + ') sepia(' + sepiaVal + ') saturate(' + satVal + ')';
-          } else {
-            canvas.style.filter = 'none';
-          }
-        }
+        sc.backgroundColor = isGoldenHour ? Cesium.Color.fromCssColorString('#0c1322') : Cesium.Color.fromCssColorString('#0a101a');
 
       } else if (alt > -6.0) {
-        // 🌆 3. CREPÚSCULO (Hora Azul / Twilight: Azul Cobalto y Desvanecimiento)
+        // 🌆 CREPÚSCULO (Hora Azul / Twilight: Azul Cobalto y Desvanecimiento Continuo)
         const tDusk = Math.max(0, Math.min(1, (alt + 6.0) / 6.0)); // 1.0 = Horizonte, 0.0 = Noche
-        const r = 0.38 + 0.55 * tDusk;
-        const g = 0.50 + 0.40 * tDusk;
-        const b = 0.95 + 0.05 * tDusk;
+        const r = 0.40 + 0.50 * tDusk;
+        const g = 0.52 + 0.38 * tDusk;
+        const b = 0.92 + 0.08 * tDusk;
         const duskColor = new Cesium.Color(r, g, b, 1.0);
 
         if (typeof Cesium.DirectionalLight === "function") {
           sc.light = new Cesium.DirectionalLight({
-            direction: new Cesium.Cartesian3(0.3, 0.3, -0.9),
+            direction: new Cesium.Cartesian3(0.25, 0.35, -0.90),
             color: duskColor,
-            intensity: 0.35 + 0.30 * tDusk
+            intensity: 0.32 + 0.40 * tDusk
           });
         }
         if (gl) {
           gl.enableLighting = true;
-          gl.atmosphereLightIntensity = 1.5 + 2.0 * tDusk;
-          gl.baseColor = Cesium.Color.fromCssColorString('#0d1527');
+          gl.atmosphereLightIntensity = 1.0 + 2.0 * tDusk;
+          gl.baseColor = Cesium.Color.fromCssColorString('#091122');
         }
         if (sc.shadowMap) {
           sc.shadowMap.enabled = false;
         }
-
-        if (canvas && canvas.style) {
-          const brightVal = (0.45 + 0.40 * tDusk).toFixed(2);
-          canvas.style.filter = 'brightness(' + brightVal + ') hue-rotate(190deg) saturate(1.20) contrast(1.08)';
-        }
+        sc.backgroundColor = Cesium.Color.fromCssColorString('#040814');
 
       } else {
-        // 🌙 4. NOCHE PROFUNDA (Luz de Luna Suave / Moonlight Shading sobre Geometría)
-        const moonColor = new Cesium.Color(0.42, 0.65, 0.98, 1.0);
+        // 🌙 NOCHE PROFUNDA PBR (Luz de Luna Física con Relieve y Normal Maps Visibles)
+        const moonColor = new Cesium.Color(0.55, 0.72, 0.98, 1.0);
         if (typeof Cesium.DirectionalLight === "function") {
           sc.light = new Cesium.DirectionalLight({
-            direction: new Cesium.Cartesian3(0.25, 0.45, -0.86),
+            direction: new Cesium.Cartesian3(0.28, 0.42, -0.87),
             color: moonColor,
-            intensity: 0.26
+            intensity: 0.38
           });
         }
         if (gl) {
           gl.enableLighting = true;
-          gl.atmosphereLightIntensity = 0.8;
+          gl.atmosphereLightIntensity = 0.6;
           gl.baseColor = Cesium.Color.fromCssColorString('#070b14');
         }
         if (sc.shadowMap) {
           sc.shadowMap.enabled = false;
         }
-        sc.backgroundColor = Cesium.Color.fromCssColorString('#04070e');
-
-        if (canvas && canvas.style) {
-          canvas.style.filter = 'brightness(0.26) hue-rotate(185deg) saturate(1.25) contrast(1.15)';
-        }
+        sc.backgroundColor = Cesium.Color.fromCssColorString('#020408');
       }
 
       if (typeof sc.requestRender === "function") {

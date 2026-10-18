@@ -150,6 +150,16 @@
       animation: ldpulse 2.5s ease-in-out infinite;
       text-indent: 12px;
     }
+    .ld-logo-img {
+      height: 76px;
+      width: auto;
+      max-width: 290px;
+      object-fit: contain;
+      filter: drop-shadow(0 0 25px rgba(245, 158, 11, 0.45));
+      animation: ldpulse 2.5s ease-in-out infinite;
+      display: block;
+      margin-bottom: 6px;
+    }
     @keyframes ldpulse {
       0%, 100% { box-shadow: 0 0 25px rgba(245,158,11,0.15); transform: scale(1); }
       50%      { box-shadow: 0 0 50px rgba(245,158,11,0.45); transform: scale(1.02); }
@@ -446,6 +456,14 @@
       display: flex;
       align-items: center;
       gap: 10px;
+    }
+    .sb-brand-logo {
+      height: 28px;
+      width: auto;
+      max-width: 175px;
+      object-fit: contain;
+      filter: drop-shadow(0 2px 8px rgba(245, 158, 11, 0.35));
+      display: block;
     }
     .sb-logo-badge {
       background: var(--grad-amber);
