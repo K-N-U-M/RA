@@ -924,6 +924,16 @@ function raSaveToRecentProjects(projectData) {
   } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Almacenamiento local (proyectos recientes)'); }
 }
 
+function _escapeHtml(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 function raRenderRecentProjectsList() {
   const listEl = document.getElementById('ra-recent-projects-list');
   if (!listEl) return;
@@ -937,12 +947,16 @@ function raRenderRecentProjectsList() {
   let html = '';
   recents.forEach((proj, idx) => {
     const dStr = new Date(proj.timestamp).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+    const cleanName = _escapeHtml(proj.name || 'Proyecto sin nombre');
+    const cleanAddr = _escapeHtml(proj.address || 'Ubicación no especificada');
+    const safeKwp = Number(proj.totalKwp || 0).toFixed(2);
+    const safePanels = parseInt(proj.totalPanels || 0, 10);
     html += `
       <div style="background:rgba(255,255,255,0.04);border:1px solid var(--border-subtle);border-radius:6px;padding:8px 10px;display:flex;justify-content:space-between;align-items:center;transition:all 0.15s ease;">
         <div style="display:flex;flex-direction:column;gap:2px;overflow:hidden;margin-right:8px;">
-          <span style="font-size:11px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${proj.name}</span>
-          <span style="font-size:9.5px;color:var(--text-slate-400);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><i data-lucide="map-pin" class="icon-sm"></i> ${proj.address}</span>
-          <span style="font-size:9px;color:var(--amber-400);font-family:var(--font-mono);"><i data-lucide="zap" class="icon-sm"></i> ${proj.totalKwp} kWp (${proj.totalPanels} paneles) · ${dStr}</span>
+          <span style="font-size:11px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${cleanName}</span>
+          <span style="font-size:9.5px;color:var(--text-slate-400);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><i data-lucide="map-pin" class="icon-sm"></i> ${cleanAddr}</span>
+          <span style="font-size:9px;color:var(--amber-400);font-family:var(--font-mono);"><i data-lucide="zap" class="icon-sm"></i> ${safeKwp} kWp (${safePanels} paneles) · ${dStr}</span>
         </div>
         <div style="display:flex;gap:4px;flex-shrink:0;">
           <button onclick="raLoadRecentProjectByIndex(${idx})" class="doc-mini-btn" style="padding:4px 8px;font-size:9.5px;border-color:var(--emerald-500);color:var(--emerald-400);">Cargar</button>

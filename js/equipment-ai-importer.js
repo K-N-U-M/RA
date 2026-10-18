@@ -730,6 +730,16 @@ NORMAS ESTRICTAS DE EXTRACCIÓN:
       this.renderError('Se requiere la clave API de Gemini. Configúrala en la sección de Empresa para activar esta función.');
     },
 
+    escapeHtml: function (str) {
+      if (str == null) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    },
+
     /**
      * Muestra la tarjeta de revisión antes de incorporar al catálogo
      */
@@ -840,6 +850,11 @@ NORMAS ESTRICTAS DE EXTRACCIÓN:
         `;
       }
 
+      const safeBrand = this.escapeHtml(data.brand || '');
+      const safeModel = this.escapeHtml(data.model || '');
+      const safePrice = Number.isFinite(Number(data.price)) ? Number(data.price) : 0;
+      const safeNotes = this.escapeHtml(data.summaryNotes || '');
+
       pane.innerHTML = `
         <div style="background:rgba(15,23,42,0.8);border:1px solid var(--border-subtle);border-radius:10px;padding:20px;max-width:700px;margin:0 auto;color:#fff;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:10px;">
@@ -858,24 +873,24 @@ NORMAS ESTRICTAS DE EXTRACCIÓN:
           <div style="display:grid;grid-template-columns:2fr 2fr 1fr;gap:10px;margin-bottom:14px;">
             <div class="doc-field">
               <label>Marca / Fabricante:</label>
-              <input type="text" id="ai-review-brand" value="${data.brand}" style="width:100%;background:#0b1120;border:1px solid #334155;color:#fff;padding:6px 8px;border-radius:4px;font-size:11px;">
+              <input type="text" id="ai-review-brand" value="${safeBrand}" style="width:100%;background:#0b1120;border:1px solid #334155;color:#fff;padding:6px 8px;border-radius:4px;font-size:11px;">
             </div>
             <div class="doc-field">
               <label>Modelo:</label>
-              <input type="text" id="ai-review-model" value="${data.model}" style="width:100%;background:#0b1120;border:1px solid #334155;color:#fff;padding:6px 8px;border-radius:4px;font-size:11px;">
+              <input type="text" id="ai-review-model" value="${safeModel}" style="width:100%;background:#0b1120;border:1px solid #334155;color:#fff;padding:6px 8px;border-radius:4px;font-size:11px;">
             </div>
             <div class="doc-field">
               <label>Precio (€):</label>
-              <input type="number" id="ai-review-price" value="${data.price}" step="5" style="width:100%;background:#0b1120;border:1px solid #334155;color:var(--amber-400);font-weight:bold;padding:6px 8px;border-radius:4px;font-size:11px;">
+              <input type="number" id="ai-review-price" value="${safePrice}" step="5" style="width:100%;background:#0b1120;border:1px solid #334155;color:var(--amber-400);font-weight:bold;padding:6px 8px;border-radius:4px;font-size:11px;">
             </div>
           </div>
 
           <!-- Desglose de Parámetros de Ingeniería -->
           ${specsHtml}
 
-          ${data.summaryNotes ? `
+          ${safeNotes ? `
             <div style="font-size:10.5px;color:var(--text-slate-400);font-style:italic;margin-bottom:16px;background:rgba(0,0,0,0.2);padding:6px 10px;border-radius:4px;">
-              💡 <b>Nota del fabricante:</b> ${data.summaryNotes}
+              💡 <b>Nota del fabricante:</b> ${safeNotes}
             </div>
           ` : ''}
 

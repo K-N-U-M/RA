@@ -334,6 +334,16 @@
       return cleanKey;
     },
 
+    _redactPII(text) {
+      if (!text || typeof text !== 'string') return text;
+      return text
+        .replace(/\b[0-9XYZ][0-9]{7}[TRWAGMYFPDXBNJZSQVHLCKE]\b/gi, '[DNI_REDACTADO]')
+        .replace(/\b[ABCDEFGHJNPQRSUVW][0-9]{7}[0-9A-J]\b/gi, '[CIF_REDACTADO]')
+        .replace(/\bES\d{2}[ \d]{20,24}\b/gi, '[IBAN_REDACTADO]')
+        .replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g, '[EMAIL_REDACTADO]')
+        .replace(/\b(?:\+34|0034)?[6789]\d{8}\b/g, '[TEL_REDACTADO]');
+    },
+
     async analyzeDocument({ base64Data, mimeType, textData, fileName }) {
       const apiKey = this.getApiKey();
       if (!apiKey) {
@@ -344,7 +354,10 @@
 
       const prompt = `Eres un auditor energético experto en el mercado eléctrico español (tarifas 2.0TD, 3.0TD, 6.1TD, PVPC y mercado libre).
 Analiza minuciosamente este documento de factura eléctrica (PDF, imagen fotográfica o texto).
-Extrae todos los datos técnicos, contractuales y económicos con precisión.
+Extrae los datos técnicos, energéticos y económicos con precisión.
+
+AVISO DE PRIVACIDAD Y CUMPLIMIENTO RGPD (Reglamento UE 2016/679):
+Por estricta protección de datos personales de personas físicas, NO extraigas nombres de clientes, DNIs/NIEs, teléfonos, emails ni cuentas bancarias. Asigna siempre null a esos campos si se mencionan. Concéntrate exclusivamente en los datos energéticos, tarifarios y económicos necesarios para el dimensionamiento solar.
 
 Devuelve EXCLUSIVAMENTE un objeto JSON válido con la siguiente estructura exacta:
 {
@@ -352,14 +365,14 @@ Devuelve EXCLUSIVAMENTE un objeto JSON válido con la siguiente estructura exact
   "distribuidora": "Nombre de la distribuidora (i-DE, E-Distribución, UFD, E-Redes, etc.) o null",
   "comercializadora": "Nombre comercial de la comercializadora (Iberdrola, Endesa, Naturgy, TotalEnergies, Repsol, Octopus, Curenergía, etc.)",
   "tarifaAcceso": "2.0TD",
-  "titularNombre": "Nombre completo o razón social del titular/cliente de la factura o null",
-  "titularNIF": "NIF/DNI/CIF del titular (e.g. 12345678Z o B12345678) o null",
-  "direccionSuministro": "Dirección del punto de suministro (calle, número, piso) o null",
-  "codigoPostal": "Código postal de 5 dígitos o null",
+  "titularNombre": null,
+  "titularNIF": null,
+  "direccionSuministro": null,
+  "codigoPostal": "Código postal de 5 dígitos o null (solo para radiación solar de zona)",
   "municipio": "Municipio/localidad o null",
   "provincia": "Provincia o null",
-  "telefono": "Teléfono de contacto del titular o null",
-  "email": "Email de contacto del titular o null",
+  "telefono": null,
+  "email": null,
   "periodoInicio": "YYYY-MM-DD o null",
   "periodoFin": "YYYY-MM-DD o null",
   "diasFactura": 30,
@@ -417,7 +430,7 @@ Normas estrictas:
       }
       if (textData) {
         parts.push({
-          text: (base64Data ? 'Texto auxiliar:\n' : '') + textData
+          text: (base64Data ? 'Texto auxiliar:\n' : '') + this._redactPII(textData)
         });
       }
       parts.push({ text: prompt });

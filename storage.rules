@@ -1,9 +1,12 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    // Proyectos (.raproject) y documentos PDF exportados
+    // Proyectos (.raproject) y documentos PDF exportados (restringido a propietario o admin)
     match /projects/{userId}/{projectId}/{allPaths=**} {
-      allow read: if true;
+      allow read: if request.auth != null && (
+        request.auth.uid == userId ||
+        request.auth.token.role == 'admin'
+      );
       allow write: if request.auth != null && request.auth.uid == userId;
     }
 

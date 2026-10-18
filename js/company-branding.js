@@ -18,7 +18,7 @@
   const STORAGE_KEY_BRANDING = 'ra_company_branding';
   const STORAGE_KEY_LOGO = 'ra_company_logo';
   const STORAGE_KEY_GEMINI = 'ra_gemini_api_key';
-  const DEFAULT_GEMINI_API_KEY = 'AQ.Ab8RN6JKDJ6lCpCMsc8ehaFbiaet5bCPK5gfd8MP1ZiHA3aFRg';
+  const DEFAULT_GEMINI_API_KEY = '';
 
   // [D1/G9] La clave nunca se guarda en claro en el navegador: se ofusca (base64 con prefijo)
   // y se envía SIEMPRE en la cabecera 'x-goog-api-key' (no en la URL). Nota: en un cliente
