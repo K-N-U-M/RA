@@ -1720,22 +1720,89 @@ function wpComputeInstantSolarPosition(monthIdx, hourFloat) {
   };
 }
 
+// ── CÁLCULO ASTRONÓMICO DE AMANECER Y OCASO (SPENCER & DUFFIE-BECKMAN) ───────
+function wpComputeSunTimes(latDeg, lonDeg, monthIdx) {
+  const m = Math.max(0, Math.min(11, monthIdx !== undefined ? monthIdx : 11));
+  const doy = SOLAR_MONTH_DAYS[m];
+  const isDst = (m >= 2 && m <= 9);
+  const tzHours = (lonDeg >= -18.5 && lonDeg <= 4.5 && latDeg >= 27.5 && latDeg <= 44.0)
+    ? (lonDeg < -10 ? (isDst ? 1 : 0) : (isDst ? 2 : 1))
+    : (Math.round(lonDeg / 15) + (isDst ? 1 : 0));
+
+  const gamma = (2 * Math.PI / 365) * (doy - 1);
+  const Et = 229.18 * (
+    0.000075 +
+    0.001868 * Math.cos(gamma) - 0.032077 * Math.sin(gamma) -
+    0.014615 * Math.cos(2 * gamma) - 0.040849 * Math.sin(2 * gamma)
+  );
+  const latRad = (latDeg * Math.PI) / 180;
+  const declRad = 0.006918 -
+    0.399912 * Math.cos(gamma) + 0.070257 * Math.sin(gamma) -
+    0.006758 * Math.cos(2 * gamma) + 0.000907 * Math.sin(2 * gamma) -
+    0.002697 * Math.cos(3 * gamma) + 0.00148 * Math.sin(3 * gamma);
+
+  // Refracción atmosférica estándar en el horizonte (-0.833°)
+  const h0Rad = (-0.833 * Math.PI) / 180;
+  const cosWs = (Math.sin(h0Rad) - Math.sin(latRad) * Math.sin(declRad)) / Math.max(1e-5, Math.cos(latRad) * Math.cos(declRad));
+  const safeCosWs = Math.max(-1, Math.min(1, cosWs));
+  const wsDeg = (Math.acos(safeCosWs) * 180) / Math.PI;
+
+  const solarSunrise = 12 - wsDeg / 15;
+  const solarSunset = 12 + wsDeg / 15;
+
+  const localSunriseDec = solarSunrise - (4 * lonDeg + Et) / 60 + tzHours;
+  const localSunsetDec = solarSunset - (4 * lonDeg + Et) / 60 + tzHours;
+
+  const formatH = (dec) => {
+    let norm = (dec + 24) % 24;
+    const hr = Math.floor(norm);
+    const min = Math.round((norm - hr) * 60);
+    return String(hr).padStart(2, "0") + ":" + String(min).padStart(2, "0");
+  };
+
+  return {
+    monthIdx: m,
+    doy: doy,
+    tzHours: tzHours,
+    localSunriseDec: localSunriseDec,
+    localSunsetDec: localSunsetDec,
+    sunriseStr: formatH(localSunriseDec),
+    sunsetStr: formatH(localSunsetDec)
+  };
+}
+
 function wpSyncCesiumSun(solarPos) {
   if (typeof viewer === "undefined" || !viewer || !viewer.clock) return;
   const year = 2026;
   const month = (solarPos && solarPos.monthIdx !== undefined) ? solarPos.monthIdx : 11;
   const day = 21;
   const hourVal = (solarPos && solarPos.hourFloat !== undefined) ? solarPos.hourFloat : 12.0;
-  const h = Math.floor(hourVal);
-  const m = Math.floor((hourVal % 1) * 60);
-  const s = Math.floor((((hourVal % 1) * 60) % 1) * 60);
 
-  const dateObj = new Date(Date.UTC(year, month, day, h, m, s));
+  const latDeg = (solarPos && typeof solarPos.latDeg === "number") ? solarPos.latDeg : 40.4168;
+  const lngDeg = (typeof window !== "undefined" && window.solarProjectConfig && typeof window.solarProjectConfig.lng === "number")
+    ? window.solarProjectConfig.lng : (typeof WP !== "undefined" && WP && WP.planes && WP.planes[0] && WP.planes[0].centerCarto ? Cesium.Math.toDegrees(WP.planes[0].centerCarto.longitude) : -3.7038);
+
+  // Sincronización estricta con hora UTC real según huso horario geográfico y DST
+  const baseTz = Math.round(lngDeg / 15);
+  const isDst = (month >= 2 && month <= 9);
+  const tzHours = (lngDeg >= -18.5 && lngDeg <= 4.5 && latDeg >= 27.5 && latDeg <= 44.0)
+    ? (lngDeg < -10 ? (isDst ? 1 : 0) : (isDst ? 2 : 1))
+    : (baseTz + (isDst ? 1 : 0));
+
+  const utcMinutes = Math.round((hourVal - tzHours) * 60);
+  const dateObj = new Date(Date.UTC(year, month, day, 0, 0, 0));
+  dateObj.setUTCMinutes(utcMinutes);
+
   if (typeof Cesium !== "undefined" && Cesium.JulianDate && typeof Cesium.JulianDate.fromDate === "function") {
     viewer.clock.currentTime = Cesium.JulianDate.fromDate(dateObj);
   }
 
   const alt = (solarPos && typeof solarPos.alt === 'number') ? solarPos.alt : 15.0;
+
+  // Erradicar esfera negra de la Luna en el cielo diurno (solo visible de noche)
+  if (viewer.scene && viewer.scene.moon) {
+    viewer.scene.moon.show = (alt <= 0.0);
+  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // 🌓 ILUMINACIÓN DINÁMICA: DÍA, ATARDECER, CREPÚSCULO Y LUZ DE LUNA
@@ -2183,6 +2250,33 @@ function wpSetSolarMonth(monthIdx) {
     else badge.textContent = "📅 21 " + monthNames[monthIdx];
   }
 
+  // Sincronizar dinámicamente horas reales de amanecer y ocaso en el HUD según coordenadas y mes
+  try {
+    const lat = (typeof WP !== "undefined" && WP && WP.planes && WP.planes[0] && WP.planes[0].centerCarto)
+      ? Cesium.Math.toDegrees(WP.planes[0].centerCarto.latitude)
+      : (typeof window !== "undefined" && window.solarProjectConfig && window.solarProjectConfig.lat ? window.solarProjectConfig.lat : 41.3851);
+    const lon = (typeof WP !== "undefined" && WP && WP.planes && WP.planes[0] && WP.planes[0].centerCarto)
+      ? Cesium.Math.toDegrees(WP.planes[0].centerCarto.longitude)
+      : (typeof window !== "undefined" && window.solarProjectConfig && window.solarProjectConfig.lng ? window.solarProjectConfig.lng : 2.1734);
+
+    const sunTimes = wpComputeSunTimes(lat, lon, monthIdx);
+    const sunriseLabel = document.getElementById("solar-sunrise-label");
+    const sunsetLabel = document.getElementById("solar-sunset-label");
+    const slider = document.getElementById("solar-time-slider");
+
+    if (sunriseLabel) sunriseLabel.textContent = sunTimes.sunriseStr + " (Amanecer)";
+    if (sunsetLabel) sunsetLabel.textContent = sunTimes.sunsetStr + " (Ocaso)";
+
+    if (slider) {
+      const minH = Math.max(4.0, Math.floor(sunTimes.localSunriseDec - 0.5));
+      const maxH = Math.min(23.5, Math.ceil(sunTimes.localSunsetDec + 0.5));
+      slider.min = minH.toFixed(1);
+      slider.max = maxH.toFixed(1);
+    }
+  } catch(eTimes) {
+    if (window.RA && window.RA.log) window.RA.log.debug('Error actualizando sunTimes:', eTimes);
+  }
+
   wpUpdateSolarSimulation();
 }
 
@@ -2324,7 +2418,8 @@ function wpSetSolarSpeed(spd) {
     wpSetSolarMonth: wpSetSolarMonth,
     wpSetSolarHour: wpSetSolarHour,
     wpToggleSolarPlay: wpToggleSolarPlay,
-    wpSetSolarSpeed: wpSetSolarSpeed
+    wpSetSolarSpeed: wpSetSolarSpeed,
+    wpComputeSunTimes: wpComputeSunTimes
   };
 
   global.SOLAR_ENGINE_CONSTANTS = SOLAR_ENGINE_CONSTANTS;
@@ -2397,5 +2492,6 @@ function wpSetSolarSpeed(spd) {
   global.wpSetSolarSpeed = wpSetSolarSpeed;
   global.computeInterRowPitch = computeInterRowPitch;
   global.computeTiltYieldCurve = computeTiltYieldCurve;
+  global.wpComputeSunTimes = wpComputeSunTimes;
 
 })(typeof window !== 'undefined' ? window : globalThis);

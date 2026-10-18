@@ -405,7 +405,7 @@
       phaseLabel = "🌆 CREPÚSCULO";
       altColor = "#818cf8";
     } else if (altVal <= 8.0) {
-      phaseLabel = "🌇 ATARDECER";
+      phaseLabel = (azVal < 180) ? "🌅 AMANECER" : "🌇 ATARDECER";
       altColor = "#f97316";
     }
 

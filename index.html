@@ -2062,11 +2062,11 @@ window.RA_App = window.RA_App || {};
 
       <div class="solar-slider-wrap">
         <div class="solar-slider-labels">
-          <span>06:00 (Amanecer)</span>
+          <span id="solar-sunrise-label">07:04 (Amanecer)</span>
           <span style="font-weight:bold;color:var(--amber-400);font-size:10.5px;" id="solar-time-display">12:00 h (Mediodía Solar)</span>
-          <span>20:00 (Ocaso)</span>
+          <span id="solar-sunset-label">20:36 (Ocaso)</span>
         </div>
-        <input id="solar-time-slider" class="solar-time-slider" type="range" min="6.0" max="20.0" step="0.05" value="12.0" 
+        <input id="solar-time-slider" class="solar-time-slider" type="range" min="5.0" max="22.0" step="0.05" value="12.0" 
                oninput="wpSetSolarHour(parseFloat(this.value))" />
       </div>
 
@@ -4183,6 +4183,7 @@ try {
 }
 scene.skyAtmosphere.show = true;
 scene.skyAtmosphere.atmosphereLightIntensity = 2.5;
+if (scene.moon) scene.moon.show = false;
 if (globe) {
   globe.showGroundAtmosphere = true;
 }
