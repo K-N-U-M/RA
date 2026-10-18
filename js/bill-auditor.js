@@ -342,9 +342,14 @@
         throw err;
       }
 
-      const prompt = `Eres un auditor energético experto en el mercado eléctrico español (tarifas 2.0TD, 3.0TD, 6.1TD, PVPC y mercado libre).
+      const prompt = `Eres un auditor energético experto en el mercado eléctrico (tarifas 2.0TD, 3.0TD, 6.1TD, TOU internacional, PVPC y mercado libre).
 Analiza minuciosamente este documento de factura eléctrica (PDF, imagen fotográfica o texto).
 Extrae todos los datos técnicos, contractuales y económicos con precisión.
+
+DIRECTIVA ESTRICTA DE PRIVACIDAD Y RGPD/CCPA:
+- Extrae únicamente los datos de consumo energético, potencias y tarifas.
+- NUNCA extraigas datos bancarios, IBAN, números de cuenta, tarjetas ni datos de pago confidenciales.
+- Los datos del titular se procesan exclusivamente en memoria local para el dimensionamiento técnico.
 
 Devuelve EXCLUSIVAMENTE un objeto JSON válido con la siguiente estructura exacta:
 {
@@ -747,6 +752,7 @@ Normas estrictas:
                   <span style="font-size:28px;">📄⚡</span>
                   <span style="font-size:12px;font-weight:800;color:#f59e0b;">Arrastra tu factura aquí o haz clic para subir</span>
                   <span style="font-size:9.5px;color:rgba(255,255,255,0.7);">Soporta: <b>PDF oficial</b> · <b>Fotos del móvil (JPG/PNG)</b> · <b>CSV Datadis</b> · <b>TXT</b></span>
+                  <span style="font-size:8.5px;color:#94a3b8;display:inline-flex;align-items:center;gap:4px;margin-top:2px;background:rgba(16,185,129,0.1);padding:2px 8px;border-radius:12px;border:1px solid rgba(16,185,129,0.25);">🛡️ Privacidad RGPD/CCPA: Datos bancarios ignorados. Procesamiento en memoria efímera.</span>
                 </div>
 
                 <div id="dropzone-loading-content" style="display:none;flex-direction:column;align-items:center;gap:10px;padding:6px 0;">

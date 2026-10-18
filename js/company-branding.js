@@ -40,6 +40,26 @@
   }
 
   /**
+   * Sanitización de entradas de texto corporativo contra XSS e inyecciones
+   */
+  function _sanitizeStr(str, maxLen) {
+    if (typeof str !== 'string') return '';
+    const limit = (typeof maxLen === 'number' && maxLen > 0) ? maxLen : 120;
+    return str
+      .replace(/<[^>]*>?/gm, '')
+      .replace(/[<>"'`;\\]/g, '')
+      .trim()
+      .slice(0, limit);
+  }
+
+  function _sanitizeUrl(str) {
+    if (typeof str !== 'string') return '';
+    const clean = str.replace(/<[^>]*>?/gm, '').replace(/[<>"'`;]/g, '').trim().slice(0, 250);
+    if (/^(?:javascript|data|vbscript):/i.test(clean)) return '';
+    return clean;
+  }
+
+  /**
    * [D1] Lectura canónica de la clave Gemini (memoria → almacén ofuscado).
    */
   function getGeminiApiKey() {
@@ -248,10 +268,10 @@
 
       const updated = {
         logo: existingLogo || '',
-        name: (getVal('cfg-company-name') || _currentBranding.name || 'SOLAR 3D PRO').trim(),
-        cif: (getVal('cfg-company-cif') || _currentBranding.cif || '').trim(),
-        phone: (getVal('cfg-company-phone') || _currentBranding.phone || '').trim(),
-        web: (getVal('cfg-company-web') || _currentBranding.web || '').trim(),
+        name: _sanitizeStr(getVal('cfg-company-name') || _currentBranding.name || 'SOLAR 3D PRO', 100),
+        cif: _sanitizeStr(getVal('cfg-company-cif') || _currentBranding.cif || '', 30),
+        phone: _sanitizeStr(getVal('cfg-company-phone') || _currentBranding.phone || '', 30),
+        web: _sanitizeUrl(getVal('cfg-company-web') || _currentBranding.web || ''),
         theme: getVal('cfg-proposal-theme') || _currentBranding.theme || 'emerald',
         status: getVal('cfg-offer-status') || _currentBranding.status || 'vinculante',
         font: getVal('cfg-doc-font') || _currentBranding.font || 'inter',
@@ -501,12 +521,16 @@
     closeModal,
     syncModalInput,
     updateLogoPreview,
-    testGeminiApiKey
+    testGeminiApiKey,
+    sanitizeStr: _sanitizeStr,
+    sanitizeUrl: _sanitizeUrl
   };
 
   global.RACompanyBranding = RACompanyBranding;
   if (!global.RA) global.RA = {};
   global.RA.branding = _currentBranding;
+  global.RA.sanitizeStr = _sanitizeStr;
+  global.RA.sanitizeUrl = _sanitizeUrl;
 
   // [D1+D2] API IA canónica compartida por todos los módulos
   global.RA.getGeminiApiKey = getGeminiApiKey;

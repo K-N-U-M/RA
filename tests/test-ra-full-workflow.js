@@ -77,7 +77,7 @@ console.log('🚀 INICIANDO BATERÍA DE PRUEBAS DE MOTORES INDUSTRIALES — PROY
 console.log('═════════════════════════════════════════════════════════════════════════════\n');
 
 // 1. Cargar módulos
-const modulesToLoad = ['config.js', 'radiation-engine.js', 'solar-engine.js', 'electrical-engine.js', 'financials.js'];
+const modulesToLoad = ['config.js', 'company-branding.js', 'radiation-engine.js', 'solar-engine.js', 'electrical-engine.js', 'financials.js'];
 modulesToLoad.forEach(mod => {
   const code = fs.readFileSync(path.join(__dirname, '..', 'js', mod), 'utf8');
   vm.runInContext(code, context);
@@ -247,6 +247,20 @@ assert(finModelSouth && finModelSouth.capexNeto > 0, 'Despacho financiero bancab
 
 const formattedUsd = context.window.RA.formatCurrency(1250.5, 'USD', 'en-US');
 assert(formattedUsd.includes('1,250.50') || formattedUsd.includes('1250'), 'Formateador de moneda internacional multi-divisa (USD)', formattedUsd);
+
+console.log('\n--- 5. PRUEBAS DE SEGURIDAD Y PRIVACIDAD (Bloque A Enterprise) ---');
+const dirtyInput = '<script>alert("xss")</script><b>Solar Corp</b>"\'\\;';
+const cleanInput = context.window.RA.sanitizeStr(dirtyInput);
+assert(!cleanInput.includes('<') && !cleanInput.includes('>') && !cleanInput.includes('"') && cleanInput.includes('Solar Corp'), 'Sanitización anti-XSS de textos corporativos', cleanInput);
+
+const dirtyUrl = 'javascript:alert(1)';
+const cleanUrl = context.window.RA.sanitizeUrl(dirtyUrl);
+assert(cleanUrl === '', 'Bloqueo estricto de URLs maliciosas (javascript:)', cleanUrl || '(bloqueada OK)');
+
+context.window.wpSetRegulatoryJurisdiction('NEC_USA');
+assert(context.window.solarProjectConfig.regulatoryJurisdiction === 'NEC_USA', 'Conmutación reactiva a jurisdicción NEC_USA', 'NEC_USA OK');
+context.window.wpSetRegulatoryJurisdiction('IEC');
+assert(context.window.solarProjectConfig.regulatoryJurisdiction === 'IEC', 'Conmutación reactiva a jurisdicción IEC / REBT', 'IEC OK');
 
 console.log('\n═════════════════════════════════════════════════════════════════════════════');
 console.log(`📊 RESUMEN: ${testsPassed} pruebas superadas, ${testsFailed} falladas.`);

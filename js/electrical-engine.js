@@ -1717,6 +1717,24 @@
   root.wpUpdateMeterPlacementGuideUI = wpUpdateMeterPlacementGuideUI;
   root.wpSetStringWiringTopology = wpSetStringWiringTopology;
 
+  /**
+   * Conmuta la jurisdicción regulatoria eléctrica (IEC / REBT vs NEC_USA)
+   */
+  function wpSetRegulatoryJurisdiction(jur) {
+    if (!root.solarProjectConfig) root.solarProjectConfig = {};
+    const valid = (jur === 'NEC_USA') ? 'NEC_USA' : 'IEC';
+    root.solarProjectConfig.regulatoryJurisdiction = valid;
+    if (typeof root.wpRecalculateElectricalDesign === 'function') {
+      root.wpRecalculateElectricalDesign();
+    } else if (typeof root.recalculateElectricalEngine === 'function') {
+      root.recalculateElectricalEngine();
+    }
+    if (typeof root.showToast === 'function') {
+      root.showToast(`Jurisdicción eléctrica: ${valid === 'NEC_USA' ? '🇺🇸 NEC 690 (EE.UU. · 600V · AWG)' : '🇪🇺 IEC 62548 / REBT (1000V · mm²)'}`, 'info', 3000);
+    }
+    return valid;
+  }
+
   // Exportar al ámbito global y Window
   root.ELEC_CONSTANTS = ELEC_CONSTANTS;
   root.getPolylineStringColor = getPolylineStringColor;
@@ -1735,6 +1753,7 @@
   root.raInverterPhases = raInverterPhases;
   root.AWG_METRIC_EQUIVALENTS = AWG_METRIC_EQUIVALENTS;
   root.getAWGEquivalent = getAWGEquivalent;
+  root.wpSetRegulatoryJurisdiction = wpSetRegulatoryJurisdiction;
 
   if (!root.RA) root.RA = {};
   root.RA.Electrical = {
@@ -1759,7 +1778,8 @@
     updateInverterAssistant: wpUpdateInverterSmartAssistantUI,
     applyRecommendedInverter: wpApplyRecommendedInverter,
     updateMeterPlacementGuide: wpUpdateMeterPlacementGuideUI,
-    setStringWiringTopology: wpSetStringWiringTopology
+    setStringWiringTopology: wpSetStringWiringTopology,
+    setRegulatoryJurisdiction: wpSetRegulatoryJurisdiction
   };
 
 })(typeof window !== 'undefined' ? window : globalThis);

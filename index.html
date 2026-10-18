@@ -1492,6 +1492,17 @@ window.RA_App = window.RA_App || {};
                 Configura los inversores, topología y acumulación. El software auto-calcula la cantidad requerida y valida los límites normativos.
               </p>
 
+              <!-- Selector de Jurisdicción Normativa Eléctrica -->
+              <div style="background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:6px;margin-bottom:6px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <span style="font-size:9.5px;font-weight:700;color:var(--sky-400);"><i data-lucide="globe" class="icon-sm"></i> Jurisdicción Eléctrica:</span>
+                  <select id="cfg-regulatory-jurisdiction" class="field-input" onchange="if(window.wpSetRegulatoryJurisdiction) window.wpSetRegulatoryJurisdiction(this.value);" style="width:170px;font-size:9px;padding:2px 4px;font-weight:700;background:#0f172a;color:#fff;">
+                    <option value="IEC" selected>🇪🇺 IEC / REBT (1000V · mm²)</option>
+                    <option value="NEC_USA">🇺🇸 NEC 690 (EE.UU. · 600V · AWG)</option>
+                  </select>
+                </div>
+              </div>
+
               <!-- Selector de Topología de Conversión -->
               <div style="background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:6px;margin-bottom:6px;">
                 <span style="font-size:9.5px;font-weight:700;color:var(--amber-400);display:block;margin-bottom:4px;"><i data-lucide="plug" class="icon-sm"></i> Topología del Sistema:</span>
@@ -2404,6 +2415,11 @@ window.RA_App = window.RA_App || {};
           <div class="field-row" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
             <span style="font-size:10.5px;color:var(--text-slate-300);">Ingeniería &amp; Legalización (€):</span>
             <input type="number" id="modal-cfg-pres-leg" step="50" min="0" class="field-input" style="width:90px;font-size:11px;text-align:right;" oninput="syncModalInputToBudget('cfg-pres-leg', this.value)">
+          </div>
+
+          <div class="field-row" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:10.5px;color:var(--text-slate-300);">Tipo Impositivo / Tax Rate (%):</span>
+            <input type="number" id="modal-cfg-pres-taxrate" value="21" step="1" min="0" max="100" class="field-input" style="width:90px;font-size:11px;text-align:right;" oninput="if(window.solarProjectConfig){window.solarProjectConfig.taxRate=parseFloat(this.value)/100;} if(typeof updateBudgetUI==='function') updateBudgetUI();">
           </div>
 
           <!-- Total Bruto -->
