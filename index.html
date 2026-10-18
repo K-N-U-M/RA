@@ -10243,9 +10243,17 @@ function deleteSelectedElectricalEquipment() {
     if (s.entity && viewer) {
       try { viewer.entities.remove(s.entity); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
     }
-    if (s.dcCableEntities && Array.isArray(s.dcCableEntities) && viewer) {
+    if (window.RACableEngine && typeof window.RACableEngine.clearAllCables === 'function') {
+      window.RACableEngine.clearAllCables();
+    } else if (s.dcCableEntities && Array.isArray(s.dcCableEntities) && viewer) {
       s.dcCableEntities.forEach(ent => {
-        try { viewer.entities.remove(ent); } catch(err) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(err, 'Entidad/Primitiva Cesium'); }
+        try {
+          if (ent.isCablePrimitive) {
+            if (window._raCableEnginePrimitives && ent.primitive) window._raCableEnginePrimitives.remove(ent.primitive);
+          } else {
+            viewer.entities.remove(ent);
+          }
+        } catch(err) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(err, 'Entidad/Primitiva Cesium'); }
       });
       s.dcCableEntities = [];
     }

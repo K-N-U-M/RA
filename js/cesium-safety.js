@@ -97,5 +97,57 @@
     return originalSetUniforms.apply(this, arguments);
   };
 
-  console.info('[cesium-safety] Protección de texturas instalada.');
+  // ── Resiliencia WebGL Context Loss (ISO 25010 / Khronos WebGL Standard) ─────
+  function attachCanvasContextSafety(canvas) {
+    if (!canvas || canvas.__raContextSafetyAttached) return;
+    canvas.__raContextSafetyAttached = true;
+
+    canvas.addEventListener('webglcontextlost', function (event) {
+      // OBLIGATORIO por estándar WebGL: preventDefault() indica al navegador
+      // que la aplicación desea restaurar el contexto y no abortar permanentemente.
+      event.preventDefault();
+      console.warn('[cesium-safety] Pérdida de contexto WebGL detectada (GPU suspendida o saturada). Esperando restauración...');
+      if (typeof window.showToast === 'function') {
+        window.showToast('RECURSO GRÁFICO REINICIANDO', 'El sistema ha suspendido momentáneamente la GPU. Restaurando escena 3D...', 'warning', 6000);
+      }
+    }, false);
+
+    canvas.addEventListener('webglcontextrestored', function () {
+      console.info('[cesium-safety] Contexto WebGL restaurado exitosamente por el navegador.');
+      if (typeof window.showToast === 'function') {
+        window.showToast('ESCENA 3D RESTAURADA', 'La aceleración gráfica por hardware ha sido reanudada con éxito.', 'success', 4000);
+      }
+      if (window.viewer && window.viewer.scene) {
+        try {
+          if (typeof window.viewer.scene.requestRender === 'function') {
+            window.viewer.scene.requestRender();
+          }
+        } catch (e) {
+          console.warn('[cesium-safety] Error al solicitar re-render tras restauración de contexto:', e);
+        }
+      }
+    }, false);
+  }
+
+  if (typeof HTMLCanvasElement !== 'undefined' && HTMLCanvasElement.prototype.getContext) {
+    const origGetContext = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (type) {
+      if (type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl') {
+        attachCanvasContextSafety(this);
+      }
+      return origGetContext.apply(this, arguments);
+    };
+  }
+
+  if (typeof document !== 'undefined') {
+    document.addEventListener('DOMContentLoaded', function () {
+      const container = document.getElementById('cesiumContainer');
+      if (container) {
+        const canvases = container.querySelectorAll('canvas');
+        canvases.forEach(attachCanvasContextSafety);
+      }
+    });
+  }
+
+  console.info('[cesium-safety] Protección de texturas y resiliencia WebGL instalada.');
 })();

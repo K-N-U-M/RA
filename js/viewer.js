@@ -68,23 +68,34 @@ function attachTilesetLoadMonitor(tileset, name) {
     });
   }
   if (tileset.tileLoad) {
+    let _tileThrottleTimer = null;
     tileset.tileLoad.addEventListener(() => {
-      if (typeof scene !== 'undefined' && scene && typeof scene.requestRender === 'function') {
-        scene.requestRender();
+      if (!_tileThrottleTimer) {
+        _tileThrottleTimer = setTimeout(() => {
+          _tileThrottleTimer = null;
+          if (typeof scene !== 'undefined' && scene && typeof scene.requestRender === 'function') {
+            scene.requestRender();
+          }
+        }, 75);
       }
     });
   }
 }
 
 async function loadGoogle3D() {
-  if (cesiumOsmBuildings) cesiumOsmBuildings.show = false;
+  if (cesiumOsmBuildings) {
+    cesiumOsmBuildings.show = false;
+    if (typeof cesiumOsmBuildings.trimLoadedTiles === 'function') {
+      try { cesiumOsmBuildings.trimLoadedTiles(); } catch (e) {}
+    }
+  }
   show3DTilesLoading('Conectando con Google Photorealistic 3D...', 0);
 
   if (!google3DTileset) {
     try {
       google3DTileset = await Cesium.Cesium3DTileset.fromIonAssetId(2275207, {
         maximumScreenSpaceError: 16,
-        maximumMemoryUsage: 2048,
+        maximumMemoryUsage: 512,
         preloadWhenStationary: true,
         preloadAncestors: true,
         skipLevelOfDetail: false, // [FIX HUECOS SOMBRA] No saltar LOD: mantiene geometría continua
@@ -108,7 +119,7 @@ async function loadGoogle3D() {
       google3DTileset = await Cesium.createGooglePhotorealistic3DTileset({
         key: GOOGLE_MAPS_API_KEY,
         maximumScreenSpaceError: 16, // Alta fidelidad geométrica
-        maximumMemoryUsage: 2048,    // 2GB de caché para retener mallas de edificios circundantes
+        maximumMemoryUsage: 512,     // 512MB de caché optimizado para GPUs integradas y portátiles
         preloadWhenStationary: true,
         preloadAncestors: true,
         skipLevelOfDetail: false,    // [FIX HUECOS SOMBRA] No saltar LOD: erradica agujeros en mallas
@@ -145,7 +156,12 @@ async function loadGoogle3D() {
 }
 
 async function loadCesium3D() {
-  if (google3DTileset) google3DTileset.show = false;
+  if (google3DTileset) {
+    google3DTileset.show = false;
+    if (typeof google3DTileset.trimLoadedTiles === 'function') {
+      try { google3DTileset.trimLoadedTiles(); } catch (e) {}
+    }
+  }
   globe.show = true;
   show3DTilesLoading('Cargando Cesium OSM Buildings...', 0);
 
@@ -187,8 +203,18 @@ async function loadCesium3D() {
 }
 
 async function loadArcGIS3D() {
-  if (google3DTileset) google3DTileset.show = false;
-  if (cesiumOsmBuildings) cesiumOsmBuildings.show = false;
+  if (google3DTileset) {
+    google3DTileset.show = false;
+    if (typeof google3DTileset.trimLoadedTiles === 'function') {
+      try { google3DTileset.trimLoadedTiles(); } catch (e) {}
+    }
+  }
+  if (cesiumOsmBuildings) {
+    cesiumOsmBuildings.show = false;
+    if (typeof cesiumOsmBuildings.trimLoadedTiles === 'function') {
+      try { cesiumOsmBuildings.trimLoadedTiles(); } catch (e) {}
+    }
+  }
   globe.show = true;
   show3DTilesLoading('Cargando Ortofoto ArcGIS 3D...', 0);
 

@@ -451,6 +451,34 @@
       }
     },
 
+    clearAllCables: function () {
+      var viewer = global.viewer;
+      var sState = global.inverterEquipmentState;
+      if (sState && Array.isArray(sState.dcCableEntities)) {
+        sState.dcCableEntities.forEach(function (e) {
+          try {
+            if (e.isCablePrimitive) {
+              if (window._raCableEnginePrimitives && e.primitive) {
+                window._raCableEnginePrimitives.remove(e.primitive);
+              }
+            } else if (viewer && viewer.entities) {
+              if (typeof global.removeLabel2DEntity === 'function') global.removeLabel2DEntity(e);
+              viewer.entities.remove(e);
+            }
+          } catch (err) {}
+        });
+        sState.dcCableEntities = [];
+      }
+      if (window._raCableEnginePrimitives && window._raCableEnginePrimitives.length === 0) {
+        try {
+          if (viewer && viewer.scene && viewer.scene.primitives) {
+            viewer.scene.primitives.remove(window._raCableEnginePrimitives);
+            window._raCableEnginePrimitives = null;
+          }
+        } catch (ePrim) {}
+      }
+    },
+
     /**
      * Motor Principal de Renderizado de Cableado DC y AC con Trazado Ortogonal 3D y Sombras
      */
@@ -461,20 +489,8 @@
       if (sState.__isRenderingCables) return;
       sState.__isRenderingCables = true;
       try {
-        // 1. Limpiar entidades anteriores
-      if (Array.isArray(sState.dcCableEntities)) {
-        sState.dcCableEntities.forEach(function (e) {
-          try {
-            if (e.isCablePrimitive) {
-              if (window._raCableEnginePrimitives) window._raCableEnginePrimitives.remove(e.primitive);
-            } else {
-              if (typeof global.removeLabel2DEntity === 'function') global.removeLabel2DEntity(e);
-              viewer.entities.remove(e);
-            }
-          } catch (err) {}
-        });
-      }
-      sState.dcCableEntities = [];
+        // 1. Limpiar entidades y primitivas GPU anteriores
+        this.clearAllCables();
 
       // 2. Recolectar strings y asegurar equipos
       var allStrings = this.gatherAllStrings();
