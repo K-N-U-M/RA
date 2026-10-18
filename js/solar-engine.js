@@ -1833,7 +1833,7 @@ function wpSyncCesiumSun(solarPos) {
           sc.light = new Cesium.DirectionalLight({
             direction: new Cesium.Cartesian3(0.25, 0.35, -0.90),
             color: duskColor,
-            intensity: 0.30 + 0.40 * tDusk
+            intensity: 0.20 + 0.50 * tDusk
           });
         }
         if (gl) {
@@ -1847,21 +1847,21 @@ function wpSyncCesiumSun(solarPos) {
         sc.backgroundColor = Cesium.Color.fromCssColorString('#040814');
 
         if (canvas && canvas.style) {
-          const brightVal = (0.42 + 0.36 * tDusk).toFixed(2);
-          const hueVal = (190 - 15 * tDusk).toFixed(0);
-          const satVal = (1.10 + 0.20 * tDusk).toFixed(2);
-          const contrastVal = (1.12 + 0.06 * (1.0 - tDusk)).toFixed(2);
+          const brightVal = (0.10 + 0.68 * tDusk).toFixed(2);
+          const hueVal = (192 - 17 * tDusk).toFixed(0);
+          const satVal = (0.60 + 0.40 * tDusk).toFixed(2);
+          const contrastVal = (1.10 + 0.05 * (1.0 - tDusk)).toFixed(2);
           canvas.style.filter = 'brightness(' + brightVal + ') hue-rotate(' + hueVal + 'deg) saturate(' + satVal + ') contrast(' + contrastVal + ')';
         }
 
       } else {
-        // 🌙 NOCHE PROFUNDA PBR (Luz de Luna Física con Relieve Nítido y Visibilidad de Cubierta)
+        // 🌙 NOCHE PROFUNDA PBR (Luz de Luna Física, Brillo 0.10 y Saturación Reducida)
         const moonColor = new Cesium.Color(0.55, 0.72, 0.98, 1.0);
         if (typeof Cesium.DirectionalLight === "function") {
           sc.light = new Cesium.DirectionalLight({
             direction: new Cesium.Cartesian3(0.28, 0.42, -0.87),
             color: moonColor,
-            intensity: 0.40
+            intensity: 0.28
           });
         }
         if (gl) {
@@ -1875,7 +1875,7 @@ function wpSyncCesiumSun(solarPos) {
         sc.backgroundColor = Cesium.Color.fromCssColorString('#020408');
 
         if (canvas && canvas.style) {
-          canvas.style.filter = 'brightness(0.40) hue-rotate(192deg) saturate(1.15) contrast(1.18)';
+          canvas.style.filter = 'brightness(0.10) hue-rotate(192deg) saturate(0.60) contrast(1.15)';
         }
       }
 
