@@ -3236,173 +3236,56 @@ Cesium.GoogleMaps.defaultApiKey = GOOGLE_MAPS_API_KEY;
 const _raSkyboxCache = {};
 let _raCurrentSkyMode = 'day';
 
+// En Opción A se delega en la atmósfera física esférica nativa de Cesium (Rayleigh/Mie)
+// erradicando al 100% las costuras cúbicas, aristas a 90° y la desalineación ECEF a 41°.
 function createProceduralSkybox(mode) {
-  mode = mode || 'day';
-  if (_raSkyboxCache[mode]) {
-    return new Cesium.SkyBox({ sources: _raSkyboxCache[mode] });
-  }
-
-  const size = 512;
-  const canvas = document.createElement('canvas');
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext('2d');
-
-  function renderSide(type) {
-    ctx.clearRect(0, 0, size, size);
-
-    if (mode === 'night') {
-      // 🌙 NOCHE ESTRELLADA PBR
-      if (type === 'top') {
-        const grad = ctx.createRadialGradient(size / 2, size / 2, 10, size / 2, size / 2, size * 0.75);
-        grad.addColorStop(0.0, '#020617');
-        grad.addColorStop(0.5, '#04091c');
-        grad.addColorStop(1.0, '#070f2b');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, size, size);
-
-        // Estrellas zenitales nítidas
-        for (let i = 0; i < 150; i++) {
-          const sx = ((i * 73 + 17) % (size - 12)) + 6;
-          const sy = ((i * 127 + 43) % (size - 12)) + 6;
-          const r = (i % 7 === 0) ? 1.5 : (i % 3 === 0 ? 1.1 : 0.75);
-          const alpha = 0.45 + (((i * 31) % 55) / 100);
-          ctx.fillStyle = (i % 5 === 0) ? 'rgba(186, 230, 253, ' + alpha + ')' : ((i % 9 === 0) ? 'rgba(254, 240, 138, ' + alpha + ')' : 'rgba(255, 255, 255, ' + alpha + ')');
-          ctx.beginPath();
-          ctx.arc(sx, sy, r, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      } else if (type === 'bottom') {
-        ctx.fillStyle = '#020409';
-        ctx.fillRect(0, 0, size, size);
-      } else {
-        const grad = ctx.createLinearGradient(0, 0, 0, size);
-        grad.addColorStop(0.00, '#04091c');
-        grad.addColorStop(0.40, '#070f2b');
-        grad.addColorStop(0.75, '#0a1638');
-        grad.addColorStop(1.00, '#070d22');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, size, size);
-
-        // Estrellas en hemisferio superior del horizonte
-        const seed = type === 'posX' ? 11 : (type === 'negX' ? 29 : (type === 'posY' ? 47 : 61));
-        for (let i = 0; i < 65; i++) {
-          const sx = (((i + seed) * 89 + 19) % (size - 12)) + 6;
-          const sy = (((i + seed) * 61 + 13) % Math.floor(size * 0.65)) + 8;
-          const r = (i % 4 === 0) ? 1.2 : 0.8;
-          const alpha = 0.35 + (((i * 29) % 50) / 100);
-          ctx.fillStyle = 'rgba(255, 255, 255, ' + alpha + ')';
-          ctx.beginPath();
-          ctx.arc(sx, sy, r, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      }
-    } else if (mode === 'sunset') {
-      // 🌇 ATARDECER / OCASO CREPUSCULAR
-      if (type === 'top') {
-        const grad = ctx.createRadialGradient(size / 2, size / 2, 10, size / 2, size / 2, size * 0.75);
-        grad.addColorStop(0.0, '#0f172a');
-        grad.addColorStop(0.45, '#1e1b4b');
-        grad.addColorStop(1.0, '#312e81');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, size, size);
-      } else if (type === 'bottom') {
-        ctx.fillStyle = '#0c0a18';
-        ctx.fillRect(0, 0, size, size);
-      } else {
-        const grad = ctx.createLinearGradient(0, 0, 0, size);
-        grad.addColorStop(0.00, '#1e1b4b');
-        grad.addColorStop(0.30, '#3b0764');
-        grad.addColorStop(0.55, '#831843');
-        grad.addColorStop(0.72, '#c2410c');
-        grad.addColorStop(0.88, '#ea580c');
-        grad.addColorStop(1.00, '#f59e0b');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, size, size);
-
-        // Bruma cálida horizontal
-        ctx.save();
-        ctx.fillStyle = 'rgba(251, 191, 36, 0.20)';
-        ctx.filter = 'blur(16px)';
-        ctx.fillRect(0, size * 0.70, size, size * 0.30);
-        ctx.restore();
-      }
-    } else {
-      // ☀️ DÍA PLENO RAYLEIGH (Modo Clásico Optimizado)
-      if (type === 'top') {
-        const grad = ctx.createRadialGradient(size / 2, size / 2, 10, size / 2, size / 2, size * 0.75);
-        grad.addColorStop(0.0, '#0284c7');
-        grad.addColorStop(0.6, '#0369a1');
-        grad.addColorStop(1.0, '#38bdf8');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, size, size);
-      } else if (type === 'bottom') {
-        ctx.fillStyle = '#0f172a';
-        ctx.fillRect(0, 0, size, size);
-      } else {
-        const grad = ctx.createLinearGradient(0, 0, 0, size);
-        grad.addColorStop(0.00, '#0369a1');
-        grad.addColorStop(0.35, '#38bdf8');
-        grad.addColorStop(0.65, '#bae6fd');
-        grad.addColorStop(0.85, '#e0f2fe');
-        grad.addColorStop(1.00, '#f8fafc');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, size, size);
-
-        ctx.save();
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
-        ctx.filter = 'blur(12px)';
-
-        const seedOffsets = {
-          'posX': [0.2, 0.45, 0.75],
-          'negX': [0.15, 0.55, 0.85],
-          'posY': [0.25, 0.50, 0.70],
-          'negY': [0.30, 0.60, 0.80]
-        }[type] || [0.25, 0.5, 0.75];
-
-        seedOffsets.forEach((ox, i) => {
-          const y = size * (0.38 + i * 0.12);
-          const rx = size * (0.28 + (i % 2) * 0.15);
-          const ry = size * (0.06 + (i % 2) * 0.03);
-          ctx.beginPath();
-          ctx.ellipse(ox * size, y, rx, ry, 0, 0, Math.PI * 2);
-          ctx.fill();
-
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
-          ctx.beginPath();
-          ctx.ellipse(ox * size, y + 2, rx * 0.6, ry * 0.6, 0, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
-        });
-        ctx.restore();
-      }
-    }
-    return canvas.toDataURL('image/jpeg', 0.88);
-  }
-
-  const sources = {
-    positiveX: renderSide('posX'),
-    negativeX: renderSide('negX'),
-    positiveY: renderSide('posY'),
-    negativeY: renderSide('negY'),
-    positiveZ: renderSide('top'),
-    negativeZ: renderSide('bottom')
-  };
-  _raSkyboxCache[mode] = sources;
-
-  return new Cesium.SkyBox({ sources: sources });
+  return undefined;
 }
 
 window.wpUpdateAtmosphericSky = function(alt) {
   if (typeof viewer === 'undefined' || !viewer || !viewer.scene) return;
-  const targetMode = alt > 10.0 ? 'day' : (alt > -4.0 ? 'sunset' : 'night');
-  if (_raCurrentSkyMode !== targetMode) {
-    _raCurrentSkyMode = targetMode;
-    try {
-      viewer.scene.skyBox = createProceduralSkybox(targetMode);
-    } catch (e) {
-      if (window.RA && window.RA.log) window.RA.log.debug('Error actualizando skyBox:', e);
+  const sc = viewer.scene;
+  if (sc.skyBox) sc.skyBox.show = false;
+
+  const gl = sc.globe;
+  const at = sc.skyAtmosphere;
+
+  if (alt > 10.0) {
+    // ☀️ DÍA PLENO (Dispersión física Rayleigh en cúpula esférica continua 360°)
+    _raCurrentSkyMode = 'day';
+    if (at) {
+      at.show = true;
+      at.atmosphereLightIntensity = 2.5;
+      at.hueShift = 0.0;
+      at.saturationShift = 0.05;
+      at.brightnessShift = 0.0;
     }
+    if (gl) gl.showGroundAtmosphere = true;
+    sc.backgroundColor = Cesium.Color.fromCssColorString('#0284c7');
+  } else if (alt > -4.0) {
+    // 🌇 ATARDECER / AMANECER (Hora Dorada y Crepúsculo cálido esférico)
+    _raCurrentSkyMode = 'sunset';
+    if (at) {
+      at.show = true;
+      at.atmosphereLightIntensity = 3.2;
+      at.hueShift = -0.05;
+      at.saturationShift = 0.35;
+      at.brightnessShift = -0.15;
+    }
+    if (gl) gl.showGroundAtmosphere = true;
+    sc.backgroundColor = Cesium.Color.fromCssColorString('#1e1b4b');
+  } else {
+    // 🌙 NOCHE (Cúpula nocturna profunda uniforme sin aristas)
+    _raCurrentSkyMode = 'night';
+    if (at) {
+      at.show = true;
+      at.atmosphereLightIntensity = 0.15;
+      at.hueShift = 0.0;
+      at.saturationShift = -0.4;
+      at.brightnessShift = -0.65;
+    }
+    if (gl) gl.showGroundAtmosphere = true;
+    sc.backgroundColor = Cesium.Color.fromCssColorString('#020409');
   }
 };
 
@@ -4143,14 +4026,14 @@ scene.pickTranslucentDepth = true;
 globe.baseColor = Cesium.Color.fromCssColorString('#14213d');
 scene.fog.enabled = true;
 scene.fog.density = 0.0003;  // Factor aumento para descarte de teselas lejanas
-// SkyBox Procedural Fotorrealista Diurno (Opción 1 AAA)
-try {
-  scene.skyBox = createProceduralSkybox();
-} catch(eSky) {
-  if (typeof RA !== 'undefined' && RA.log) RA.log.warn('No se pudo inicializar procedural skyBox:', eSky);
-}
+// Atmósfera Física y Bóveda Celeste Nativa AAA (Opción A: Cero costuras cúbicas)
+if (scene.skyBox) scene.skyBox.show = false;
 scene.skyAtmosphere.show = true;
 scene.skyAtmosphere.atmosphereLightIntensity = 2.5;
+if (globe) {
+  globe.showGroundAtmosphere = true;
+}
+scene.backgroundColor = Cesium.Color.fromCssColorString('#0284c7');
 
 // Vista inicial: Barcelona a 400 m en perspectiva
 camera.setView({
