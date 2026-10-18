@@ -60,6 +60,7 @@
       this._currentStep = 1;
       this._listeners = new Map();
       this._bypassGating = false;
+      this._transitionToken = 0;
 
       // Inicialización reactiva tras carga del DOM
       if (document.readyState === 'loading') {
@@ -242,6 +243,7 @@
       }
 
       this._currentStep = step;
+      this._transitionToken++;
 
       // Actualizar estado del Stepper HUD
       this.refreshGating();
@@ -249,6 +251,7 @@
       this.emit('step_changed', {
         step: this._currentStep,
         previousStep: previousStep,
+        transitionToken: this._transitionToken,
         def: STEP_DEFINITIONS[this._currentStep]
       });
 
@@ -282,6 +285,13 @@
      */
     getCurrentStep() {
       return this._currentStep;
+    }
+
+    /**
+     * Retorna el token de transición vigente
+     */
+    getTransitionToken() {
+      return this._transitionToken;
     }
 
     /**

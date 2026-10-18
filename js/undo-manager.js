@@ -157,7 +157,12 @@
       }
       if (kind === 'project') {
         if (typeof global.raExportProjectData === 'function') {
-          return global.raExportProjectData();
+          var pData = global.raExportProjectData();
+          if (pData) {
+            delete pData.simulationCache;
+            delete pData.annualHeatmapData;
+          }
+          return pData;
         }
       }
     } catch (e) {
@@ -332,6 +337,20 @@
   function pushEntry(kind, label, meta) {
     var state = captureState(kind, meta);
     if (!state) return;
+
+    if (kind === 'project') {
+      // Limitar snapshots completos de proyecto a un máximo de 3 para no saturar memoria heap (>100MB)
+      var projCount = 0;
+      for (var pi = undoStack.length - 1; pi >= 0; pi--) {
+        if (undoStack[pi].kind === 'project') {
+          projCount++;
+          if (projCount >= 3) {
+            undoStack.splice(pi, 1);
+          }
+        }
+      }
+    }
+
     undoStack.push({
       kind: kind,
       label: label || ('Modificación de ' + kind),

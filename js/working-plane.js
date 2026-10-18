@@ -3205,10 +3205,16 @@ async function wpGoToStep(step) {
     // Await del pipeline asíncrono: solo regenerar desde cero si no hay paneles aún en memoria
     const hasExistingPanels = (Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.some(p => p && !p.deleted)) ||
                               (typeof WP !== 'undefined' && WP && Array.isArray(WP.polylines) && WP.polylines.some(p => p && ((p.panels && p.panels.length > 0) || (p.roofInfo && p.roofInfo.panels && p.roofInfo.panels.length > 0))));
+    const transitionToken = (typeof window.WorkflowOrchestrator !== 'undefined' && typeof window.WorkflowOrchestrator.getTransitionToken === 'function')
+      ? window.WorkflowOrchestrator.getTransitionToken()
+      : null;
     if (!hasExistingPanels && typeof step5RegenerateLayout === 'function') {
       await step5RegenerateLayout();
     } else if (typeof wpFastRenderSimulatedPanels === 'function') {
       await wpFastRenderSimulatedPanels();
+    }
+    if (transitionToken !== null && window.WorkflowOrchestrator && window.WorkflowOrchestrator.getTransitionToken() !== transitionToken) {
+      return; // Transición abortada: el usuario navegó a otro paso durante la espera asíncrona
     }
     if (typeof wpRenderMonthlyProductionChart === 'function') {
       wpRenderMonthlyProductionChart();

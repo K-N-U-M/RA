@@ -21,7 +21,9 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 let _raCurrentFileHandle = null;
-let _raCurrentProjectName = 'Proyecto_Solar';
+let _raCurrentProjectName = 'Nuevo_Proyecto_Solar';
+let _isImportingActive = false;
+let _importGenerationId = 0;
 
 // [AUDIT-SAVE] Sanitizador: elimina referencias GPU/DOM (entity, primitivas, props _*)
 // del estado serializado. Antes JSON.stringify(obstacles) arrastraba el grafo completo
@@ -253,17 +255,35 @@ function raExportProjectData() {
 const RA_PROJECT_CURRENT_VERSION = '2.2';
 
 /**
+ * Parser de versionado semántico formal [major, minor, patch] para migraciones de esquema
+ */
+function _parseSemver(vStr) {
+  if (typeof vStr !== 'string') vStr = String(vStr || '1.0');
+  const parts = vStr.split('.').map(n => parseInt(n, 10) || 0);
+  return {
+    major: parts[0] || 0,
+    minor: parts[1] || 0,
+    patch: parts[2] || 0,
+    compare(other) {
+      if (this.major !== other.major) return this.major - other.major;
+      if (this.minor !== other.minor) return this.minor - other.minor;
+      return this.patch - other.patch;
+    }
+  };
+}
+
+/**
  * [C5/M9] Migración de esquema de los archivos .raproject (retrocompatibilidad al abrir).
  * Aplica valores por defecto seguros a los campos que faltan según la versión del archivo,
  * de modo que un proyecto viejo se cargue sin romper el flujo de 5 pasos.
  */
 function raMigrateProjectData(projectData) {
   if (!projectData || typeof projectData !== 'object') return projectData;
-  const fromVer = parseFloat(projectData.version) || 1.0;
-  const toVer = parseFloat(RA_PROJECT_CURRENT_VERSION);
+  const fromVer = _parseSemver(projectData.version);
+  const toVer = _parseSemver(RA_PROJECT_CURRENT_VERSION);
 
-  // v1.x → contenedores normalizados
-  if (fromVer < 2.0) {
+  // v1.x → contenedores normalizados (< 2.0.0)
+  if (fromVer.compare(_parseSemver('2.0')) < 0) {
     if (!projectData.workPlanes && Array.isArray(projectData.planes)) {
       projectData.workPlanes = { planes: projectData.planes, activePlaneIdx: projectData.activePlaneIdx || 0 };
     }
@@ -272,8 +292,8 @@ function raMigrateProjectData(projectData) {
     if (!Array.isArray(projectData.buildings)) projectData.buildings = [];
   }
 
-  // v2.0 → v2.1: faldones/paneles con estructura, orientación y MLPE
-  if (fromVer < 2.1) {
+  // v2.0 → v2.1: faldones/paneles con estructura, orientación y MLPE (< 2.1.0)
+  if (fromVer.compare(_parseSemver('2.1')) < 0) {
     (Array.isArray(projectData.polylines) ? projectData.polylines : []).forEach(poly => {
       if (!poly || typeof poly !== 'object') return;
       if (!poly.structureType) poly.structureType = 'coplanar_teja';
@@ -290,14 +310,14 @@ function raMigrateProjectData(projectData) {
     });
   }
 
-  // v2.1 → v2.2: estado de simulación unificado
-  if (fromVer < 2.2) {
+  // v2.1 → v2.2: estado de simulación unificado (< 2.2.0)
+  if (fromVer.compare(_parseSemver('2.2')) < 0) {
     if (!projectData.solarSimState || typeof projectData.solarSimState !== 'object') {
       projectData.solarSimState = { monthIdx: 5, hour: 12, viewMode: 'heatmap' };
     }
   }
 
-  projectData.__migratedFrom = (isFinite(fromVer) && fromVer < toVer) ? fromVer : undefined;
+  projectData.__migratedFrom = fromVer.compare(toVer) < 0 ? projectData.version : undefined;
   projectData.version = RA_PROJECT_CURRENT_VERSION;
   return projectData;
 }
@@ -452,6 +472,9 @@ async function raImportProjectData(projectData, options = {}) {
   delete projectData.__raImportRetryCount;
   delete projectData.__raImportDeferred;
 
+  const currentImportGen = ++_importGenerationId;
+  _isImportingActive = true;
+
   const projName = (projectData && projectData.metadata && projectData.metadata.name) || _raCurrentProjectName || 'Proyecto Solar';
   raShowProjectLoadingHUD(projName);
 
@@ -463,6 +486,7 @@ async function raImportProjectData(projectData, options = {}) {
     // Fase 1: Migración y verificación de esquema
     raUpdateProjectLoadingProgress(15, 'Validando estructura del archivo .raproject...', 'Comprobando esquema y versión ' + (projectData.version || '1.0'));
     await new Promise(r => setTimeout(r, 160));
+    if (_importGenerationId !== currentImportGen) return false;
 
     // [C5/M9] Migrar esquema de versiones antiguas antes de restaurar
     projectData = raMigrateProjectData(projectData);
@@ -472,6 +496,7 @@ async function raImportProjectData(projectData, options = {}) {
     // Fase 2: Limpieza de escena previa y cámara 3D
     raUpdateProjectLoadingProgress(35, 'Limpiando escena y orientando cámara 3D...', 'Posicionando vista y frustum');
     await new Promise(r => setTimeout(r, 180));
+    if (_importGenerationId !== currentImportGen) return false;
 
     // 1. Limpieza de estado previo segura
     if (typeof clearSimulatedPV === 'function') clearSimulatedPV();
@@ -516,6 +541,7 @@ async function raImportProjectData(projectData, options = {}) {
     // Fase 3: Restaurar Planos de Trabajo, Faldones y Obstáculos 3D
     raUpdateProjectLoadingProgress(58, 'Reconstruyendo faldones y obstáculos 3D...', 'Cargando planos CAD y geometría volumétrica');
     await new Promise(r => setTimeout(r, 180));
+    if (_importGenerationId !== currentImportGen) return false;
 
     // 3. Restaurar Planos de Trabajo
     if (typeof WP !== 'undefined') {
@@ -776,6 +802,10 @@ async function raImportProjectData(projectData, options = {}) {
       showToast('ERROR AL ABRIR', err.message || 'No se pudo leer el archivo.', 'error', 5000);
     }
     return false;
+  } finally {
+    if (_importGenerationId === currentImportGen) {
+      _isImportingActive = false;
+    }
   }
 }
 
@@ -889,6 +919,16 @@ function raSaveToRecentProjects(projectData) {
       if (storageData.simulationCache) delete storageData.simulationCache;
       if (storageData.solarSimState) delete storageData.solarSimState;
       if (storageData.annualHeatmapData) delete storageData.annualHeatmapData;
+      if (Array.isArray(storageData.polylines)) {
+        storageData.polylines.forEach(poly => {
+          if (poly && poly.roofInfo && Array.isArray(poly.roofInfo.panels)) {
+            poly.roofInfo.panels.forEach(p => {
+              delete p.corners;
+              delete p.center;
+            });
+          }
+        });
+      }
     } catch (_) { storageData = projectData; }
 
     const item = {
@@ -914,7 +954,19 @@ function raSaveToRecentProjects(projectData) {
         localStorage.setItem(RA_RECENT_PROJECTS_KEY, JSON.stringify(trimmed));
         saved = true;
       } catch (eQuota) {
-        trimmed = trimmed.slice(0, trimmed.length - 1);
+        // Degradar primero los proyectos más antiguos a solo-metadatos para ahorrar cuota
+        let degraded = false;
+        for (let i = trimmed.length - 1; i >= 1; i--) {
+          if (trimmed[i].data) {
+            trimmed[i].data = null;
+            trimmed[i].isMetadataOnly = true;
+            degraded = true;
+            break;
+          }
+        }
+        if (!degraded) {
+          trimmed = trimmed.slice(0, trimmed.length - 1);
+        }
       }
     }
     if (!saved && typeof showToast === 'function') {
@@ -957,13 +1009,18 @@ function raRenderRecentProjectsList() {
 
 function raLoadRecentProjectByIndex(idx) {
   const recents = raGetRecentProjects();
-  if (recents[idx] && recents[idx].data) {
-    const projName = recents[idx].name || 'Proyecto Reciente';
-    raCloseProjectsModal();
-    raShowProjectLoadingHUD(projName);
-    raUpdateProjectLoadingProgress(5, 'Cargando proyecto desde almacenamiento local...', projName);
-    raImportProjectData(recents[idx].data);
+  if (!recents[idx]) return;
+  if (!recents[idx].data) {
+    if (typeof showToast === 'function') {
+      showToast('DATOS DEPURADOS POR CUOTA', 'Los datos completos de este proyecto se purgaron por límite de cuota del navegador. Ábrelo desde su archivo .raproject.', 'warning', 5000);
+    }
+    return;
   }
+  const projName = recents[idx].name || 'Proyecto Reciente';
+  raCloseProjectsModal();
+  raShowProjectLoadingHUD(projName);
+  raUpdateProjectLoadingProgress(5, 'Cargando proyecto desde almacenamiento local...', projName);
+  raImportProjectData(recents[idx].data);
 }
 
 function raDeleteRecentProjectByIndex(idx) {
@@ -1166,7 +1223,8 @@ function raNewProjectConfirm() {
     closeProjectsModal: raCloseProjectsModal,
     newProjectConfirm: raNewProjectConfirm,
     getCurrentProjectName: function() { return _raCurrentProjectName; },
-    setCurrentProjectName: function(name) { _raCurrentProjectName = name; }
+    setCurrentProjectName: function(name) { _raCurrentProjectName = name; },
+    isImportingActive: function() { return _isImportingActive; }
   };
 
   global.RAProjectStorage = RAProjectStorage;
