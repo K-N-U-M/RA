@@ -185,14 +185,10 @@
       global._solarHeatmapLabelCollection.show = false;
     }
 
-    // 4b. Colecciones GPU de cableado: inter-módulo (strings) y acometidas (RACableEngine)
+    // 4b. Colecciones GPU de cableado: inter-módulo (strings) y acometidas (se mantienen los tubos físicos de RACableEngine)
     if (global.simulatedStringsPolylineCollection && !global.simulatedStringsPolylineCollection.isDestroyed()) {
       _savedPrimitiveStates.stringWires = global.simulatedStringsPolylineCollection.show;
       global.simulatedStringsPolylineCollection.show = false;
-    }
-    if (global._raCableEnginePrimitives && !global._raCableEnginePrimitives.isDestroyed()) {
-      _savedPrimitiveStates.cableEnginePrimitives = global._raCableEnginePrimitives.show;
-      global._raCableEnginePrimitives.show = false;
     }
 
     // 5. Overlays 2D y badges flotantes HTML
@@ -219,20 +215,18 @@
       try { global.RAMeasureTool.setVisible(true); } catch (eM) {}
     }
 
-    // 3. Colecciones de etiquetas 3D GPU
+    // 3. Colecciones de etiquetas 3D GPU (respetando estado global de areLabelsVisible)
     if (global._panelNumberLabelCollection && !global._panelNumberLabelCollection.isDestroyed()) {
-      global._panelNumberLabelCollection.show = (_savedPrimitiveStates.panelLabels !== false);
+      var shouldShowPanels = (_savedPrimitiveStates.panelLabels !== false) && (global.areLabelsVisible !== false);
+      global._panelNumberLabelCollection.show = shouldShowPanels;
     }
     if (global._solarHeatmapLabelCollection && !global._solarHeatmapLabelCollection.isDestroyed()) {
       global._solarHeatmapLabelCollection.show = (_savedPrimitiveStates.heatmapLabels !== false);
     }
 
-    // 3b. Restaurar colecciones GPU de cableado
+    // 3b. Restaurar colecciones GPU de cableado inter-módulo
     if (global.simulatedStringsPolylineCollection && !global.simulatedStringsPolylineCollection.isDestroyed()) {
       global.simulatedStringsPolylineCollection.show = (_savedPrimitiveStates.stringWires !== false);
-    }
-    if (global._raCableEnginePrimitives && !global._raCableEnginePrimitives.isDestroyed()) {
-      global._raCableEnginePrimitives.show = (_savedPrimitiveStates.cableEnginePrimitives !== false);
     }
     if (Array.isArray(_savedPrimitiveStates.hiddenCablePrimitives)) {
       _savedPrimitiveStates.hiddenCablePrimitives.forEach(function (prim) {

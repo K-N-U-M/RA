@@ -70,7 +70,8 @@
           dcPanels: [],
           acPanels: [],
           cables: [],
-          grounding: []
+          grounding: [],
+          safetySignage: null
         },
         obstacles: [],
         laborAndSoftCosts: []
@@ -506,6 +507,14 @@
           totalEur: parseFloat(earthCost.toFixed(2))
         });
 
+        // ── 7.5 SEÑALIZACIÓN Y ADVERTENCIA REGLAMENTARIA (UNE-EN IEC 62446-1 / ITC-BT-40) ──
+        const safetySignageCost = 38.50;
+        tree.summary.subtotalEur += safetySignageCost;
+        tree.electrical.safetySignage = {
+          description: 'Kit de señalización y advertencia de riesgo eléctrico (UNE-EN IEC 62446-1 / REBT)',
+          totalEur: safetySignageCost
+        };
+
         // ── 8. MANO DE OBRA, INGENIERÍA, PERMISOS Y MEDIOS AUXILIARES ──────────
         const instCosts = (root.RAStructureCatalog && typeof root.RAStructureCatalog.getInstallationCosts === 'function')
           ? root.RAStructureCatalog.getInstallationCosts()
@@ -734,6 +743,8 @@
             <div class="bom-subitem">📏 Cable DC: ${tree.electrical.cables[0] ? tree.electrical.cables[0].meters + 'm (' + tree.electrical.cables[0].secMm2 + 'mm²)' : '0m'}</div>
             <div class="bom-subitem">🔌 Evacuación AC: ${tree.electrical.cables[1] ? tree.electrical.cables[1].meters + 'm (' + tree.electrical.cables[1].secMm2 + 'mm²)' : '0m'}</div>
             ${tree.electrical.mc4Jumpers ? `<div class="bom-subitem">🔗 Latiguillos MC4 (Salto de Rana): <b>${tree.electrical.mc4Jumpers.count}x</b> 1.5m · <b>${tree.electrical.mc4Jumpers.totalEur.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</b></div>` : ''}
+            ${tree.electrical.grounding && tree.electrical.grounding.length > 0 ? `<div class="bom-subitem">⏚ Puesta a Tierra: ${tree.electrical.grounding[0].earthRods} pica(s) + ${tree.electrical.grounding[0].earthWireM}m conductor Cu 35mm² · <b>${tree.electrical.grounding[0].totalEur.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</b></div>` : ''}
+            ${tree.electrical.safetySignage ? `<div class="bom-subitem">⚠️ ${tree.electrical.safetySignage.description} · <b>${tree.electrical.safetySignage.totalEur.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</b></div>` : ''}
 
             <div class="bom-section-title">INSTALACIÓN, INGENIERÍA & MEDIOS</div>
             ${tree.laborAndSoftCosts && tree.laborAndSoftCosts.length > 0 ? tree.laborAndSoftCosts.map(item => `

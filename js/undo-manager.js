@@ -286,7 +286,7 @@
 
     if (kind === 'project') {
       if (typeof global.raImportProjectData === 'function' && data) {
-        global.raImportProjectData(data);
+        global.raImportProjectData(data, { preserveUndoHistory: true });
         return true;
       }
     }

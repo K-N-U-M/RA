@@ -414,7 +414,7 @@ function raHideProjectLoadingHUD() {
   }, 260);
 }
 
-async function raImportProjectData(projectData) {
+async function raImportProjectData(projectData, options = {}) {
   // [P0.2] Carrera de arranque y espera determinista: si el visor Cesium o el subsistema WP
   // aún no existen o están inicializándose, reintentar de forma controlada hasta 25 veces (5 segundos).
   if (typeof viewer === 'undefined' || !viewer || typeof WP === 'undefined' || !WP) {
@@ -433,7 +433,7 @@ async function raImportProjectData(projectData) {
       }
       setTimeout(function() {
         try {
-          raImportProjectData(projectData);
+          raImportProjectData(projectData, options);
         } catch(eDef) {
           if (window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eDef, 'import diferido');
         }
@@ -493,7 +493,7 @@ async function raImportProjectData(projectData) {
     if (window.RAWindTurbine && typeof window.RAWindTurbine.cleanAll === 'function') {
       try { window.RAWindTurbine.cleanAll(); } catch(eWt) {}
     }
-    if (window.RAundo && typeof window.RAundo.clear === 'function') {
+    if ((!options || !options.preserveUndoHistory) && window.RAundo && typeof window.RAundo.clear === 'function') {
       window.RAundo.clear();
     }
 
@@ -1032,6 +1032,31 @@ function raNewProjectConfirm() {
     if (Array.isArray(_arrBld)) {
       _arrBld.length = 0;
       if (typeof render3DBuildingsInCesium === 'function') render3DBuildingsInCesium();
+    }
+    // Limpieza de selecciones activas y canalizaciones residuales
+    if (typeof window !== 'undefined') {
+      window.selectedBuildingId = null;
+      window.selectedObstacleId = null;
+      window._universalGizmoTarget = null;
+      if (typeof selectedBuildingId !== 'undefined') selectedBuildingId = null;
+      if (typeof selectedObstacleId !== 'undefined') selectedObstacleId = null;
+      if (window._raCableEnginePrimitives && typeof viewer !== 'undefined' && viewer && viewer.scene) {
+        try { window._raCableEnginePrimitives.removeAll(); } catch(eCb) {}
+      }
+      if (window.cableRoutingState) {
+        if (Array.isArray(window.cableRoutingState.previewEntities) && typeof viewer !== 'undefined' && viewer && viewer.entities) {
+          window.cableRoutingState.previewEntities.forEach(ent => {
+            try { viewer.entities.remove(ent); } catch(eEnt) {}
+          });
+        }
+        window.cableRoutingState = { active: false, points: [], previewEntities: [] };
+      }
+      if (Array.isArray(window.polygonPoints)) {
+        window.polygonPoints.length = 0;
+      }
+      if (typeof polygonPoints !== 'undefined' && Array.isArray(polygonPoints)) {
+        polygonPoints.length = 0;
+      }
     }
     try { localStorage.removeItem('ra_solar_project_autosave'); } catch(e) {}
     if (window.RAundo && typeof window.RAundo.clear === 'function') {

@@ -82,10 +82,21 @@
       else if (/octopus/i.test(clean)) data.comercializadora = 'Octopus Energy';
       else if (/curenergia|energia\s*xxi|gas\s*&\s*power|baser/i.test(clean) || /pvpc/i.test(clean)) data.comercializadora = 'Mercado Regulado (PVPC)';
 
-      // 3. Tarifa de Acceso
-      const peajeMatch = clean.match(/peajes*(?:des*acceso|transporte)?[:s]*([0-9].[0-9][A-Za-z]*)/i) || clean.match(/(2.0TD|3.0TD|6.1TD)/i);
+      // 3. Tarifa de Acceso y Periodo de Facturación
+      const peajeMatch = clean.match(/peaje\s*(?:de\s*acceso|transporte)?[:\s]*([0-9]\.[0-9]\s*[A-Za-z]+|[0-9]\.[0-9][A-Za-z]*)/i) ||
+                         clean.match(/\b([236]\.[0-9]\s*TD|[23]\.[01]\s*A)\b/i);
       if (peajeMatch) {
-        data.tarifaAcceso = peajeMatch[1].toUpperCase();
+        data.tarifaAcceso = peajeMatch[1].replace(/\s+/g, '').toUpperCase();
+      }
+
+      const datesMatch = clean.match(/(?:per[íi]odo|desde|del)[\s:]*([0-3]?\d[\/\-.][0-1]?\d[\/\-.]\d{2,4})[\s\w]*(?:al|hasta)[\s:]*([0-3]?\d[\/\-.][0-1]?\d[\/\-.]\d{2,4})/i);
+      if (datesMatch) {
+        data.periodoInicio = datesMatch[1];
+        data.periodoFin = datesMatch[2];
+      }
+      const daysMatch = clean.match(/(?:d[íi]as\s*facturados?|n[úu]mero\s*de\s*d[íi]as|n[ºo]\s*d[íi]as)[\s:]*([0-9]{1,3})/i);
+      if (daysMatch) {
+        data.diasFactura = parseInt(daysMatch[1], 10);
       }
 
       // 3b. Datos identificativos del titular / cliente (best-effort para documentación)
@@ -495,7 +506,27 @@ Normas estrictas:
         tarifaAcceso: (d.tarifaAcceso || '2.0TD').toUpperCase(),
         periodoInicio: d.periodoInicio || null,
         periodoFin: d.periodoFin || null,
-        diasFactura: parseInt(d.diasFactura) || 30,
+        diasFactura: (() => {
+          let days = parseInt(d.diasFactura, 10);
+          if (d.periodoInicio && d.periodoFin) {
+            const parseD = s => {
+              if (!s) return null;
+              const parts = String(s).split(/[\/\-.]/);
+              if (parts.length === 3) {
+                if (parts[0].length === 4) return new Date(parts[0], parts[1] - 1, parts[2]);
+                return new Date(parts[2], parts[1] - 1, parts[0]);
+              }
+              return new Date(s);
+            };
+            const dt1 = parseD(d.periodoInicio);
+            const dt2 = parseD(d.periodoFin);
+            if (dt1 && dt2 && !isNaN(dt1.getTime()) && !isNaN(dt2.getTime()) && dt2 > dt1) {
+              const diffDays = Math.round((dt2 - dt1) / (1000 * 60 * 60 * 24));
+              if (diffDays >= 7 && diffDays <= 120) days = diffDays;
+            }
+          }
+          return (Number.isFinite(days) && days > 0) ? days : 30;
+        })(),
         potenciasContratadasKW: {
           p1: parseFloat(p1Pot) || 4.6,
           p2: parseFloat(p2Pot) || 4.6,

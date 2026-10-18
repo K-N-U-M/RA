@@ -1661,14 +1661,15 @@ function generatePropuestaComercialPDF(skipPricingModal) {
     ? catalog.modules.find(m => m.id === projCfg.selectedModuleId)
     : null;
 
+  const isBifacial = !!(activeModObj && (activeModObj.bifacial || activeModObj.isBifacial || activeModObj.bifacialityFactor > 0));
   const modTech = (activeModObj && activeModObj.tecnologia && (activeModObj.tecnologia.includes('N-Type') || activeModObj.tecnologia.includes('TOPCon')))
     ? 'TOPCON'
     : ((d.cfg && d.cfg.modelo && (d.cfg.modelo.includes('N-Type') || d.cfg.modelo.includes('TOPCon'))) ? 'TOPCON' : 'PERC');
 
   const catDegY1 = (activeModObj && (activeModObj.degradationYear1 || activeModObj.degYear1)) || null;
   const catDegAnn = (activeModObj && (activeModObj.degradationAnnual || activeModObj.degAnnual)) || null;
-  const degYear1 = (catDegY1 != null) ? (catDegY1 > 0.05 ? catDegY1 / 100 : catDegY1) : (modTech === 'TOPCON' ? 0.010 : 0.015);
-  const degAnnual = (catDegAnn != null) ? (catDegAnn > 0.05 ? catDegAnn / 100 : catDegAnn) : (modTech === 'TOPCON' ? 0.0040 : 0.0050);
+  const degYear1 = (catDegY1 != null) ? (catDegY1 > 0.05 ? catDegY1 / 100 : catDegY1) : (isBifacial || modTech === 'TOPCON' ? 0.010 : 0.015);
+  const degAnnual = (catDegAnn != null) ? (catDegAnn > 0.05 ? catDegAnn / 100 : catDegAnn) : (isBifacial ? 0.0035 : (modTech === 'TOPCON' ? 0.0040 : 0.0050));
 
   const _lossCfg = (typeof window !== 'undefined' && window.solarLossConfig) ? window.solarLossConfig : null;
   const soilingFactor = (_lossCfg && typeof _lossCfg.soiling === 'number') ? _lossCfg.soiling : 0.025;
@@ -1678,15 +1679,19 @@ function generatePropuestaComercialPDF(skipPricingModal) {
   const degradationFactors25 = [];
 
   // ── FASE 2.2: OPEX Indexado a IPC y Reemplazo de Inversor Dinámico por Potencia ──
+  const isMicro = (projCfg.selectedTopology === 'microinverter');
+  const invCount = (projCfg.autoSizing && projCfg.autoSizing.inverters && projCfg.autoSizing.inverters.count) || 1;
   let curInvObj = null;
   if (catalog && projCfg.selectedInverterId) {
     curInvObj = (catalog.inverters && Array.isArray(catalog.inverters))
       ? catalog.inverters.find(i => i.id === projCfg.selectedInverterId)
       : null;
   }
-  const invBasePrice = (curInvObj && curInvObj.price) ? curInvObj.price : (inv > 0 ? inv : Math.max(850, kwp * 125 + (batCap > 0 ? 450 : 0)));
+  // Los microinversores tienen garantía de 25 años y no se sustituyen a los 12 años
+  const singleInvPrice = (curInvObj && curInvObj.price) ? curInvObj.price : (inv > 0 ? (inv / invCount) : Math.max(850, kwp * 125 + (batCap > 0 ? 450 : 0)));
+  const invBasePrice = isMicro ? 0 : (singleInvPrice * invCount);
   const ipcTech = 0.012; // 1.2%/año inflación neta de electrónica de potencia
-  const invReplacementCost12 = Math.round(invBasePrice * Math.pow(1 + ipcTech, 12));
+  const invReplacementCost12 = isMicro ? 0 : Math.round(invBasePrice * Math.pow(1 + ipcTech, 12));
 
   // OPEX de año 1: Mantenimiento preventivo, monitorización y seguro (~1% subtotal o 15€/kWp)
   const opexYear1 = Math.max(90, Math.max(kwp * 15, subtotal * 0.01));

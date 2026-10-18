@@ -14,6 +14,7 @@
 
   let container = null;
   let isCollapsed = false;
+  let _renderPending = false;
 
   const UIOutliner = {
     init: function() {
@@ -100,6 +101,16 @@
     },
 
     render: function() {
+      if (_renderPending) return;
+      _renderPending = true;
+      const self = this;
+      (typeof requestAnimationFrame === 'function' ? requestAnimationFrame : setTimeout)(function() {
+        _renderPending = false;
+        self._executeRender();
+      });
+    },
+
+    _executeRender: function() {
       const treeContent = document.getElementById('outliner-tree-content');
       const badgeTotals = document.getElementById('outliner-badge-totals');
       if (!treeContent || !global.ProjectHierarchy) return;

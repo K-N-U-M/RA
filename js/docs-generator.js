@@ -120,7 +120,7 @@ function docWindow(title, body) {
       .doc-sheet { box-shadow: none !important; margin: 0 !important; padding: 0 !important; width: 100% !important; border-radius: 0 !important; }
       .no-print { display: none !important; }
       thead { display: table-header-group; }
-      tr, .sig-row, .dcard, .info, .warn { page-break-inside: avoid; break-inside: avoid; }
+      tr, .sig-row, .dcard, .info, .warn, .doc-chart-box { page-break-inside: avoid; break-inside: avoid; }
       h1, h2, h3 { page-break-after: avoid; break-after: avoid; }
     }
     .doc-top-bar { position: fixed; top: 0; left: 0; right: 0; height: 50px; background: #0f172a; color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; z-index: 99999; box-shadow: 0 4px 20px rgba(0,0,0,0.3); border-bottom: 2px solid #f59e0b; }
@@ -265,6 +265,123 @@ function showEmbeddedDocViewer(title, fullHtml) {
   }
 }
 
+function buildMonthlyProductionSvg(monthlyData) {
+  if (!Array.isArray(monthlyData) || monthlyData.length !== 12) return '';
+  const width = 540;
+  const height = 140;
+  const padLeft = 45;
+  const padRight = 15;
+  const padTop = 20;
+  const padBottom = 22;
+  const chartW = width - padLeft - padRight;
+  const chartH = height - padTop - padBottom;
+
+  const values = monthlyData.map(m => (typeof m.kwh === 'number' ? m.kwh : 0));
+  const maxVal = Math.max(...values, 100);
+  const ceilMax = Math.ceil(maxVal / 100) * 100;
+
+  const monthLabels = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+  const barWidth = Math.floor(chartW / 12) - 8;
+
+  let gridLines = '';
+  for (let i = 0; i <= 4; i++) {
+    const yVal = Math.round((ceilMax / 4) * i);
+    const yPos = padTop + chartH - (yVal / ceilMax) * chartH;
+    gridLines += '<line x1="' + padLeft + '" y1="' + yPos + '" x2="' + (width - padRight) + '" y2="' + yPos + '" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="' + (i === 0 ? '0' : '3,3') + '" />';
+    gridLines += '<text x="' + (padLeft - 6) + '" y="' + (yPos + 3) + '" font-size="8" fill="#64748b" text-anchor="end" font-family="sans-serif">' + yVal + '</text>';
+  }
+
+  let bars = '';
+  monthlyData.forEach((m, idx) => {
+    const val = values[idx];
+    const bH = Math.max(2, (val / ceilMax) * chartH);
+    const x = padLeft + idx * (chartW / 12) + 4;
+    const y = padTop + chartH - bH;
+    bars += '<rect x="' + x + '" y="' + y + '" width="' + barWidth + '" height="' + bH + '" rx="2" fill="url(#monthlyGrad)" />';
+    bars += '<text x="' + (x + barWidth / 2) + '" y="' + (y - 3) + '" font-size="7" font-weight="600" fill="#0f172a" text-anchor="middle" font-family="sans-serif">' + Math.round(val) + '</text>';
+    bars += '<text x="' + (x + barWidth / 2) + '" y="' + (height - padBottom + 11) + '" font-size="7.5" fill="#475569" text-anchor="middle" font-family="sans-serif">' + monthLabels[idx] + '</text>';
+  });
+
+  return '<div class="doc-chart-box" style="margin:10px 0 14px;page-break-inside:avoid;text-align:center;">' +
+    '<svg viewBox="0 0 ' + width + ' ' + height + '" style="width:100%;max-width:' + width + 'px;height:auto;display:inline-block;background:#ffffff;border:1px solid #e2e8f0;border-radius:6px;padding:6px;">' +
+      '<defs>' +
+        '<linearGradient id="monthlyGrad" x1="0" y1="0" x2="0" y2="1">' +
+          '<stop offset="0%" stop-color="#38bdf8" />' +
+          '<stop offset="100%" stop-color="#0284c7" />' +
+        '</linearGradient>' +
+      '</defs>' +
+      gridLines +
+      bars +
+    '</svg>' +
+    '<div style="font-size:7.5pt;color:#64748b;margin-top:2px;">Figura 5.1 — Histograma mensual de energía fotovoltaica generada (kWh/mes)</div>' +
+  '</div>';
+}
+
+function buildAmortizationSvg(capex, schedule25) {
+  if (!Array.isArray(schedule25) || schedule25.length < 25) return '';
+  const width = 540;
+  const height = 150;
+  const padLeft = 60;
+  const padRight = 20;
+  const padTop = 20;
+  const padBottom = 22;
+  const chartW = width - padLeft - padRight;
+  const chartH = height - padTop - padBottom;
+
+  const points = [{ year: 0, cum: -Math.abs(capex) }];
+  schedule25.forEach(row => {
+    points.push({ year: row.year, cum: row.cumulativeCashFlowEUR });
+  });
+
+  const minVal = Math.min(...points.map(p => p.cum));
+  const maxVal = Math.max(...points.map(p => p.cum));
+  const range = (maxVal - minVal) || 1;
+
+  const zeroY = padTop + chartH - ((0 - minVal) / range) * chartH;
+
+  const polyPoints = points.map(p => {
+    const x = padLeft + (p.year / 25) * chartW;
+    const y = padTop + chartH - ((p.cum - minVal) / range) * chartH;
+    return x.toFixed(1) + ',' + y.toFixed(1);
+  }).join(' ');
+
+  let xTicks = '';
+  for (let yr = 0; yr <= 25; yr += 5) {
+    const x = padLeft + (yr / 25) * chartW;
+    xTicks += '<line x1="' + x + '" y1="' + padTop + '" x2="' + x + '" y2="' + (padTop + chartH) + '" stroke="#f1f5f9" stroke-width="1" />';
+    xTicks += '<text x="' + x + '" y="' + (height - padBottom + 11) + '" font-size="7.5" fill="#64748b" text-anchor="middle" font-family="sans-serif">Año ' + yr + '</text>';
+  }
+
+  let yTicks =
+    '<line x1="' + padLeft + '" y1="' + zeroY + '" x2="' + (width - padRight) + '" y2="' + zeroY + '" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="4,3" />' +
+    '<text x="' + (padLeft - 6) + '" y="' + (zeroY + 3) + '" font-size="7.5" font-weight="700" fill="#475569" text-anchor="end" font-family="sans-serif">0 €</text>' +
+    '<text x="' + (padLeft - 6) + '" y="' + (padTop + 8) + '" font-size="7.5" fill="#10b981" font-weight="700" text-anchor="end" font-family="sans-serif">+' + Math.round(maxVal).toLocaleString('es-ES') + ' €</text>' +
+    '<text x="' + (padLeft - 6) + '" y="' + (padTop + chartH - 2) + '" font-size="7.5" fill="#ef4444" font-weight="700" text-anchor="end" font-family="sans-serif">-' + Math.round(Math.abs(minVal)).toLocaleString('es-ES') + ' €</text>';
+
+  let paybackMarker = '';
+  for (let i = 1; i < points.length; i++) {
+    if (points[i - 1].cum < 0 && points[i].cum >= 0) {
+      const frac = (0 - points[i - 1].cum) / (points[i].cum - points[i - 1].cum);
+      const exactYr = (i - 1) + frac;
+      const x = padLeft + (exactYr / 25) * chartW;
+      paybackMarker =
+        '<circle cx="' + x + '" cy="' + zeroY + '" r="4" fill="#f59e0b" stroke="#ffffff" stroke-width="1.5" />' +
+        '<rect x="' + (x - 26) + '" y="' + (zeroY - 20) + '" width="52" height="14" rx="3" fill="#0f172a" opacity="0.85" />' +
+        '<text x="' + x + '" y="' + (zeroY - 10) + '" font-size="7" font-weight="bold" fill="#f8fafc" text-anchor="middle" font-family="sans-serif">Payback ' + exactYr.toFixed(1) + 'a</text>';
+      break;
+    }
+  }
+
+  return '<div class="doc-chart-box" style="margin:12px 0 16px;page-break-inside:avoid;text-align:center;">' +
+    '<svg viewBox="0 0 ' + width + ' ' + height + '" style="width:100%;max-width:' + width + 'px;height:auto;display:inline-block;background:#ffffff;border:1px solid #e2e8f0;border-radius:6px;padding:6px;">' +
+      xTicks +
+      yTicks +
+      '<polyline points="' + polyPoints + '" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />' +
+      paybackMarker +
+    '</svg>' +
+    '<div style="font-size:7.5pt;color:#64748b;margin-top:2px;">Curva de Cashflow Acumulado a 25 Años — Amortización y Retorno de Inversión</div>' +
+  '</div>';
+}
 
 function generateMemoria(skipPricingModal) {
   // [B4] Bloquear entrega si el análisis solar está en curso u obsoleto
@@ -447,6 +564,7 @@ function generateMemoria(skipPricingModal) {
     '<table><tr><th>Mes<\/th><th>Días<\/th><th>HSP\/día (h)<\/th><th>Energía (kWh\/mes)<\/th><\/tr>' +
     monthRows +
     '<tr class="trow-total"><td colspan="3"><strong>TOTAL ANUAL<\/strong><\/td><td style="text-align:right;font-weight:900">' + _monthlyTotal.toLocaleString('es-ES') + ' kWh\/año<\/td><\/tr><\/table>' +
+    buildMonthlyProductionSvg(d.monthly) +
     '<p><strong>Producción específica:<\/strong> ' + d.hspAnual.toLocaleString('es-ES') + ' kWh\/kWp·año<\/p>' +
 
     '<h3>5.2 Dimensionamiento Eléctrico y Caída de Tensión por String (REBT ITC-BT-40 / UNE-HD 60364-5-52)<\/h3>' +
@@ -481,7 +599,8 @@ function generateMemoria(skipPricingModal) {
       '<h4 style="margin-top:14px;">6.1 Matriz de Flujos de Caja Descontados (Hitos Quinquenales y Decenales)<\/h4>' +
       '<table><tr><th>Hito Temporal<\/th><th>Degradación Módulos<\/th><th>Producción Anual<\/th><th>Ahorro Factura<\/th><th>OPEX Mantenimiento<\/th><th>Flujo Neto Anual<\/th><th>Cashflow Acumulado<\/th><\/tr>' +
       scheduleRowsHtml +
-      '<\/table>'
+      '<\/table>' +
+      buildAmortizationSvg(capexTot, finM && finM.financialSchedule25)
     ) : '') +
     '<h2>7. CONCLUSIÓN<\/h2>' +
     '<p>La instalación fotovoltaica de autoconsumo de <strong>' + d.P_dc_kW.toFixed(2) + ' kWp<\/strong> (' + d.numPanels + ' módulos de ' + d.cfg.potencia + ' Wp) es técnicamente viable y cumple la normativa española vigente. La producción estimada de <strong>' + d.annualKWh.toLocaleString('es-ES') + ' kWh\/año<\/strong> supone un ahorro anual de <strong>' + ah1.toLocaleString('es-ES') + ' €<\/strong> con un período de retorno de <strong>' + pbYears + ' años<\/strong> y una reducción de emisiones de <strong>' + d.co2_evitado + ' t CO₂\/año<\/strong>.<\/p>' +
@@ -810,6 +929,8 @@ function generatePresupuesto(skipPricingModal) {
         </div>
       </div>
     </div>
+
+    ${buildAmortizationSvg(capexBruto, m && m.financialSchedule25)}
 
     ${window.ultimoComparativo ? `
     <div style="margin-top:18px;page-break-inside:avoid;">
