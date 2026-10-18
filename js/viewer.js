@@ -68,10 +68,16 @@ function attachTilesetLoadMonitor(tileset, name) {
     });
   }
   if (tileset.tileLoad) {
+    let _tileLoadPending = false;
     tileset.tileLoad.addEventListener(() => {
-      if (typeof scene !== 'undefined' && scene && typeof scene.requestRender === 'function') {
-        scene.requestRender();
-      }
+      if (_tileLoadPending) return;
+      _tileLoadPending = true;
+      (typeof requestAnimationFrame === 'function' ? requestAnimationFrame : setTimeout)(() => {
+        _tileLoadPending = false;
+        if (typeof scene !== 'undefined' && scene && typeof scene.requestRender === 'function') {
+          scene.requestRender();
+        }
+      }, 16);
     });
   }
 }
@@ -80,23 +86,25 @@ async function loadGoogle3D() {
   if (cesiumOsmBuildings) cesiumOsmBuildings.show = false;
   show3DTilesLoading('Conectando con Google Photorealistic 3D...', 0);
 
+  const clientMemMb = (typeof navigator !== 'undefined' && navigator.deviceMemory && navigator.deviceMemory < 4) ? 512 : 1024;
+
   if (!google3DTileset) {
     try {
       google3DTileset = await Cesium.Cesium3DTileset.fromIonAssetId(2275207, {
         maximumScreenSpaceError: 16,
-        maximumMemoryUsage: 2048,
+        maximumMemoryUsage: clientMemMb,
         preloadWhenStationary: true,
         preloadAncestors: true,
-        skipLevelOfDetail: false, // [FIX HUECOS SOMBRA] No saltar LOD: mantiene geometría continua
-        loadSiblings: true,       // [FIX HUECOS SOMBRA] Cargar tiles hermanos para que proyecten sombra fuera de cámara
-        cullWithChildrenBounds: false, // [FIX HUECOS SOMBRA] Evitar culling prematuro de edificios adyacentes
-        dynamicScreenSpaceError: false // [FIX HUECOS SOMBRA] Evitar degradación agresiva en bordes de pantalla
+        skipLevelOfDetail: true,
+        loadSiblings: false,
+        cullWithChildrenBounds: true,
+        dynamicScreenSpaceError: true,
+        dynamicScreenSpaceErrorFactor: 4.0
       });
       google3DTileset.shadows = (typeof Cesium !== 'undefined' && Cesium.ShadowMode) ? Cesium.ShadowMode.ENABLED : undefined;
-      google3DTileset.cullWithChildrenBounds = false;
-      google3DTileset.skipLevelOfDetail = false;
-      google3DTileset.loadSiblings = true;
-      google3DTileset.dynamicScreenSpaceError = false;
+      google3DTileset.cullWithChildrenBounds = true;
+      google3DTileset.skipLevelOfDetail = true;
+      google3DTileset.dynamicScreenSpaceError = true;
       window.google3DTileset = google3DTileset;
       attachTilesetLoadMonitor(google3DTileset, 'Google 3D');
       scene.primitives.add(google3DTileset);
@@ -107,21 +115,21 @@ async function loadGoogle3D() {
     try {
       google3DTileset = await Cesium.createGooglePhotorealistic3DTileset({
         key: GOOGLE_MAPS_API_KEY,
-        maximumScreenSpaceError: 16, // Alta fidelidad geométrica
-        maximumMemoryUsage: 2048,    // 2GB de caché para retener mallas de edificios circundantes
+        maximumScreenSpaceError: 16,
+        maximumMemoryUsage: clientMemMb,
         preloadWhenStationary: true,
         preloadAncestors: true,
-        skipLevelOfDetail: false,    // [FIX HUECOS SOMBRA] No saltar LOD: erradica agujeros en mallas
+        skipLevelOfDetail: true,
         immediatelyLoadDesiredLevelOfDetail: false,
-        loadSiblings: true,          // [FIX HUECOS SOMBRA] Cargar tiles hermanos para proyectar sombras
-        cullWithChildrenBounds: false, // [FIX HUECOS SOMBRA] No descartar tiles de edificios cercanos
-        dynamicScreenSpaceError: false // [FIX HUECOS SOMBRA] Detalle uniforme sin degradación perimetral
+        loadSiblings: false,
+        cullWithChildrenBounds: true,
+        dynamicScreenSpaceError: true,
+        dynamicScreenSpaceErrorFactor: 4.0
       });
       google3DTileset.shadows = (typeof Cesium !== 'undefined' && Cesium.ShadowMode) ? Cesium.ShadowMode.ENABLED : undefined;
-      google3DTileset.cullWithChildrenBounds = false;
-      google3DTileset.skipLevelOfDetail = false;
-      google3DTileset.loadSiblings = true;
-      google3DTileset.dynamicScreenSpaceError = false;
+      google3DTileset.cullWithChildrenBounds = true;
+      google3DTileset.skipLevelOfDetail = true;
+      google3DTileset.dynamicScreenSpaceError = true;
       window.google3DTileset = google3DTileset;
       attachTilesetLoadMonitor(google3DTileset, 'Google 3D');
       scene.primitives.add(google3DTileset);
@@ -134,10 +142,7 @@ async function loadGoogle3D() {
     }
   } else {
     google3DTileset.show = true;
-    google3DTileset.cullWithChildrenBounds = false;
-    google3DTileset.skipLevelOfDetail = false;
-    google3DTileset.loadSiblings = true;
-    google3DTileset.dynamicScreenSpaceError = false;
+    try { google3DTileset.maximumMemoryUsage = clientMemMb; } catch(eM) {}
     globe.show = false;
     show3DTilesLoading('Renderizando Google 3D...', 0);
     hide3DTilesLoading(800);
@@ -145,7 +150,10 @@ async function loadGoogle3D() {
 }
 
 async function loadCesium3D() {
-  if (google3DTileset) google3DTileset.show = false;
+  if (google3DTileset) {
+    google3DTileset.show = false;
+    try { google3DTileset.maximumMemoryUsage = 128; } catch(eM) {}
+  }
   globe.show = true;
   show3DTilesLoading('Cargando Cesium OSM Buildings...', 0);
 
@@ -187,7 +195,10 @@ async function loadCesium3D() {
 }
 
 async function loadArcGIS3D() {
-  if (google3DTileset) google3DTileset.show = false;
+  if (google3DTileset) {
+    google3DTileset.show = false;
+    try { google3DTileset.maximumMemoryUsage = 128; } catch(eM) {}
+  }
   if (cesiumOsmBuildings) cesiumOsmBuildings.show = false;
   globe.show = true;
   show3DTilesLoading('Cargando Ortofoto ArcGIS 3D...', 0);

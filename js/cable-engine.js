@@ -59,6 +59,18 @@
       SNAP_DISTANCE_METERS: 2.5  // Radio de snap magnético a terminales
     },
 
+    // Pool de materiales GPU compartidos para garantizar 1 sola Draw Call en PolylineCollection
+    _materialPool: {},
+    getSharedMaterial: function(colorHex) {
+      if (!this._materialPool) this._materialPool = {};
+      if (!this._materialPool[colorHex] && typeof Cesium !== 'undefined' && Cesium.Material) {
+        this._materialPool[colorHex] = Cesium.Material.fromType('Color', {
+          color: Cesium.Color.fromCssColorString(colorHex)
+        });
+      }
+      return this._materialPool[colorHex];
+    },
+
     // Cache de perfiles 2D extruidos para PolylineVolume
     _shapes: {
       circleDc: null,
@@ -281,8 +293,8 @@
           show: true
         });
         
-        // Use PVFlow material to show direction like strings, or solid color
-        poly.material = Cesium.Material.fromType('Color', {
+        // Usar material compartido para agrupar polilíneas en una única draw call
+        poly.material = this.getSharedMaterial(colorHex) || Cesium.Material.fromType('Color', {
           color: color
         });
         

@@ -13,9 +13,12 @@
  * ============================================================================
  */
 
-function createSolarPanelTexture() {
+function createSolarPanelTexture(forceRegenerate = false) {
   if (typeof document === 'undefined') return '';
-  const canvas = document.createElement('canvas');
+  if (!forceRegenerate && typeof window !== 'undefined' && window.solarPanelTextureUrl && window.solarPanelTextureCanvas) {
+    return window.solarPanelTextureUrl;
+  }
+  const canvas = (typeof window !== 'undefined' && window.solarPanelTextureCanvas) ? window.solarPanelTextureCanvas : document.createElement('canvas');
   // Textura optimizada anti-moiré en 1024x2048
   canvas.width = 1024;
   canvas.height = 2048;
@@ -210,9 +213,21 @@ function buildCatenaryCurve3D(pA, pB, normVec, sagMeters = 0.07, segments = 6) {
   return points;
 }
 
+function disposeSolarMaterials() {
+  if (typeof window !== 'undefined' && window.solarPanelTextureCanvas) {
+    try {
+      window.solarPanelTextureCanvas.width = 1;
+      window.solarPanelTextureCanvas.height = 1;
+    } catch(e) {}
+    window.solarPanelTextureCanvas = null;
+    window.solarPanelTextureUrl = '';
+  }
+}
+
 // Inicialización y exportación global segura
 if (typeof window !== 'undefined') {
   window.createSolarPanelTexture = createSolarPanelTexture;
+  window.disposeSolarMaterials = disposeSolarMaterials;
   window.buildCatenaryCurve3D = buildCatenaryCurve3D;
   try {
     window.solarPanelTextureUrl = createSolarPanelTexture();

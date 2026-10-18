@@ -87,15 +87,65 @@
     program.__raSafetyChecked = true;
   }
 
+  let lastContextId = null;
+
+  function checkContextChange() {
+    const ctx = (typeof window !== 'undefined' && window.viewer && window.viewer.scene) ? window.viewer.scene.context : null;
+    if (ctx && ctx.id !== lastContextId) {
+      lastContextId = ctx.id;
+      warned.clear();
+      if (typeof window !== 'undefined' && window.RA && window.RA.log) {
+        window.RA.log.info('[cesium-safety] Contexto WebGL renovado (ID: ' + lastContextId + ').');
+      }
+    }
+  }
+
   const originalSetUniforms = Cesium.ShaderProgram.prototype._setUniforms;
   if (typeof originalSetUniforms !== 'function') {
     console.warn('[cesium-safety] _setUniforms no encontrado; protección no instalada.');
     return;
   }
   Cesium.ShaderProgram.prototype._setUniforms = function () {
+    checkContextChange();
     if (!this.__raSafetyChecked) inspectUniforms(this);
     return originalSetUniforms.apply(this, arguments);
   };
 
-  console.info('[cesium-safety] Protección de texturas instalada.');
+  function setupWebGLContextLossHandler(canvas) {
+    if (!canvas || !canvas.addEventListener) return;
+    canvas.addEventListener('webglcontextlost', function (event) {
+      event.preventDefault();
+      console.warn('[cesium-safety] Interceptado webglcontextlost: pausando renderizado y preservando estado.');
+      if (typeof window !== 'undefined' && window.viewer) {
+        window.viewer.useDefaultRenderLoop = false;
+      }
+      if (typeof showToast === 'function') {
+        showToast('REINICIANDO GRÁFICOS', 'Acelerador 3D suspendido momentáneamente. Reanudando motor...', 'warning', 4000);
+      }
+    }, false);
+
+    canvas.addEventListener('webglcontextrestored', function () {
+      console.info('[cesium-safety] webglcontextrestored: reinicializando pipeline gráfico Cesium.');
+      warned.clear();
+      if (typeof window !== 'undefined' && window.viewer) {
+        window.viewer.useDefaultRenderLoop = true;
+        if (window.viewer.scene && typeof window.viewer.scene.requestRender === 'function') {
+          window.viewer.scene.requestRender();
+        }
+      }
+      if (typeof showToast === 'function') {
+        showToast('GRÁFICOS RESTAURADOS', 'Acelerador 3D restablecido correctamente.', 'success', 3000);
+      }
+    }, false);
+  }
+
+  if (typeof window !== 'undefined') {
+    window.raSetupWebGLContextLossHandler = setupWebGLContextLossHandler;
+    window.addEventListener('DOMContentLoaded', function () {
+      const c = document.querySelector('#cesiumContainer canvas') || document.querySelector('canvas');
+      if (c) setupWebGLContextLossHandler(c);
+    });
+  }
+
+  console.info('[cesium-safety] Protección de texturas y resiliencia WebGL instaladas.');
 })();
