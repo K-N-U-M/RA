@@ -339,8 +339,10 @@ window.RA_App = window.RA_App || {};
     <!-- Buscador Universal -->
     <div class="sb-search-wrap" id="ra-search">
       <div class="sb-search-box">
-        <span class="sb-search-icon" onclick="executeSearch()">⌕</span>
-        <input class="sb-search-input" id="ra-search-input" type="text" placeholder="Buscar ciudad, dirección, coordenadas..." autocomplete="off" spellcheck="false">
+        <span class="sb-search-icon" onclick="executeSearch()" title="Buscar [Intro]">⌕</span>
+        <input class="sb-search-input" id="ra-search-input" type="text" placeholder="Dirección, Catastro, coordenadas o link Maps... [/]" autocomplete="off" spellcheck="false">
+        <button type="button" class="sb-search-action-btn" id="ra-search-clear-btn" onclick="clearSearchInput()" title="Limpiar búsqueda" style="display:none;" aria-label="Limpiar">✕</button>
+        <button type="button" class="sb-search-action-btn" id="ra-search-gps-btn" onclick="locateUserPosition()" title="Ir a mi ubicación actual (GPS)" aria-label="Mi ubicación">🎯</button>
         <button id="ra-search-btn" style="display:none;" aria-label="Buscar ubicación"></button>
       </div>
       <div id="ra-results"></div>
@@ -8547,42 +8549,10 @@ setupHoldBtn('btn-rt', () => { const h = camera.positionCartographic.height; cam
 setupHoldBtn('btn-zi', () => zoomCam(+1));
 setupHoldBtn('btn-zo', () => zoomCam(-1));
 
-// ── Buscador Nominatim & Historial (Lógica delegada a js/viewer.js) ───────────
-const searchInput = document.getElementById('ra-search-input');
-const resultsEl   = document.getElementById('ra-results');
-
-if (searchInput) {
-  searchInput.addEventListener('focus', () => {
-    if (searchInput.value.trim() === '' && typeof showHistory === 'function') {
-      showHistory();
-    }
-  });
-
-  searchInput.addEventListener('input', () => {
-    if (searchInput.value.trim() === '') {
-      if (typeof showHistory === 'function') showHistory();
-    } else if (resultsEl) {
-      resultsEl.classList.remove('open');
-    }
-  });
-
-  searchInput.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && typeof doSearch === 'function') doSearch();
-  });
+// ── Buscador Universal AAA (Lógica delegada a js/viewer.js) ───────────────────
+if (typeof initUniversalSearch === 'function') {
+  initUniversalSearch();
 }
-
-const searchBtn = document.getElementById('ra-search-btn');
-if (searchBtn) {
-  searchBtn.addEventListener('click', () => {
-    if (typeof doSearch === 'function') doSearch();
-  });
-}
-
-document.addEventListener('click', e => {
-  if (!e.target.closest('#ra-search') && !e.target.closest('#ra-results')) {
-    if (resultsEl) resultsEl.classList.remove('open');
-  }
-});
 
 // ============================================================================
 // GENERADOR DE DOCUMENTACIÓN TÉCNICA PV
