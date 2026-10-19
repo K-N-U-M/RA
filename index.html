@@ -4942,7 +4942,7 @@ function findBuildingUnderPosition(pos3D) {
 
   for (let bi = 0; bi < buildings.length; bi++) {
     const bld = buildings[bi];
-    if (!bld.points || bld.points.length < 3) continue;
+    if (!bld.points || bld.points.length < 3 || bld.visible === false) continue;
     const pts = bld.points.map(p => Cesium.Cartographic.fromCartesian(p));
     let inside = false;
     for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
@@ -4957,6 +4957,13 @@ function findBuildingUnderPosition(pos3D) {
 }
 
 function selectBuilding(bldId) {
+  if (bldId) {
+    const targetBld = Array.isArray(buildings) ? buildings.find(b => b.id === bldId) : null;
+    if (targetBld && targetBld.visible === false) {
+      if (typeof showToast === 'function') showToast('EDIFICIO OCULTO', 'Haz visible el edificio para poder seleccionarlo.', 'warning', 2500);
+      return;
+    }
+  }
   selectedBuildingId = bldId;
   if (typeof window !== 'undefined') window.selectedBuildingId = bldId;
 
@@ -6245,38 +6252,46 @@ function getPanelIndexFromPick(picked) {
 
   const rest = id.slice("pv_panel_".length);
 
+  let resolvedIdx = -1;
   // Formato de textura: "pv_panel_tex_N"
   if (rest.startsWith("tex_")) {
     const idx = parseInt(rest.slice("tex_".length), 10);
-    if (!isNaN(idx) && idx >= 0) return idx;
-    return -1;
-  }
-
-  // Formato de primitiva instanciada: "pv_panel_instance_N"
-  if (rest.startsWith("instance_")) {
+    if (!isNaN(idx) && idx >= 0) resolvedIdx = idx;
+  } else if (rest.startsWith("instance_")) {
+    // Formato de primitiva instanciada: "pv_panel_instance_N"
     const idx = parseInt(rest.slice("instance_".length), 10);
-    if (!isNaN(idx) && idx >= 0) return idx;
-    return -1;
-  }
-
-  // Formato de entidad fallback: "pv_panel_pool_N" o "pv_panel_pool_N_xxxx"
-  if (rest.startsWith("pool_")) {
+    if (!isNaN(idx) && idx >= 0) resolvedIdx = idx;
+  } else if (rest.startsWith("pool_")) {
+    // Formato de entidad fallback: "pv_panel_pool_N" o "pv_panel_pool_N_xxxx"
     const idx = parseInt(rest.slice("pool_".length), 10);
-    if (!isNaN(idx) && idx >= 0) return idx;
-    return -1;
-  }
-
-  // Formato legacy de faldón: "pv_panel_polyIdx_pIdx_..." o "pv_panel_pIdx"
-  const parts = rest.split("_");
-  if (parts.length >= 2) {
-    const polyIdx = parseInt(parts[0], 10);
-    const pIdx = parseInt(parts[1], 10);
-    if (!isNaN(polyIdx) && !isNaN(pIdx)) {
-      return pIdx;
+    if (!isNaN(idx) && idx >= 0) resolvedIdx = idx;
+  } else {
+    // Formato legacy de faldón: "pv_panel_polyIdx_pIdx_..." o "pv_panel_pIdx"
+    const parts = rest.split("_");
+    if (parts.length >= 2) {
+      const polyIdx = parseInt(parts[0], 10);
+      const pIdx = parseInt(parts[1], 10);
+      if (!isNaN(polyIdx) && !isNaN(pIdx)) resolvedIdx = pIdx;
+    }
+    if (resolvedIdx < 0) {
+      const idx = parseInt(rest, 10);
+      if (!isNaN(idx) && idx >= 0 && lastRoofInfo && idx < lastRoofInfo.panels.length) resolvedIdx = idx;
     }
   }
-  const idx = parseInt(rest, 10);
-  if (!isNaN(idx) && idx >= 0 && lastRoofInfo && idx < lastRoofInfo.panels.length) return idx;
+
+  if (resolvedIdx >= 0) {
+    const panelsList = (Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0)
+      ? window.allRenderedPanels
+      : ((lastRoofInfo && lastRoofInfo.panels) ? lastRoofInfo.panels : null);
+    if (panelsList && panelsList[resolvedIdx]) {
+      const p = panelsList[resolvedIdx];
+      if (p.visible === false) return -1;
+      if (typeof p.polyIdx === 'number' && typeof WP !== 'undefined' && WP && WP.polylines && WP.polylines[p.polyIdx]) {
+        if (WP.polylines[p.polyIdx].visible === false) return -1;
+      }
+    }
+    return resolvedIdx;
+  }
   return -1;
 }
 
@@ -6351,6 +6366,16 @@ function selectPanel(idx, isMulti = false) {
     selectedPanelIndex = -1;
     window.selectedPanelIndices = [];
   } else {
+    const panelsList = (Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0)
+      ? window.allRenderedPanels
+      : ((lastRoofInfo && lastRoofInfo.panels) ? lastRoofInfo.panels : null);
+    if (panelsList && panelsList[idx]) {
+      const p = panelsList[idx];
+      if (p.visible === false) return;
+      if (typeof p.polyIdx === 'number' && typeof WP !== 'undefined' && WP && WP.polylines && WP.polylines[p.polyIdx]) {
+        if (WP.polylines[p.polyIdx].visible === false) return;
+      }
+    }
     if (isMulti) {
       const pos = window.selectedPanelIndices.indexOf(idx);
       if (pos >= 0) {
@@ -9321,7 +9346,7 @@ function getUniversalSelectedTarget() {
   // A. Equipos Eléctricos (Inversor, Combiner, Contador)
   if (typeof selectedElectricalId !== 'undefined' && selectedElectricalId && window.inverterEquipmentState) {
     const s = window.inverterEquipmentState;
-    if (selectedElectricalId === 'inverter' && s.position) {
+    if (selectedElectricalId === 'inverter' && s.position && (!s.entity || s.entity.show !== false)) {
       return {
         type: 'electrical',
         id: 'inverter',
@@ -9334,7 +9359,7 @@ function getUniversalSelectedTarget() {
         accentColor: 'rgba(245, 158, 11, 0.4)'
       };
     }
-    if (selectedElectricalId === 'combiner' && s.combinerBox && s.combinerBox.position && s.combinerBox.isEnabled) {
+    if (selectedElectricalId === 'combiner' && s.combinerBox && s.combinerBox.position && s.combinerBox.isEnabled && (!s.combinerBox.entity || s.combinerBox.entity.show !== false)) {
       return {
         type: 'electrical',
         id: 'combiner',
@@ -9347,7 +9372,7 @@ function getUniversalSelectedTarget() {
         accentColor: 'rgba(16, 185, 129, 0.4)'
       };
     }
-    if (selectedElectricalId === 'meter' && s.gridMeter && s.gridMeter.position) {
+    if (selectedElectricalId === 'meter' && s.gridMeter && s.gridMeter.position && (!s.gridMeter.entity || s.gridMeter.entity.show !== false)) {
       return {
         type: 'electrical',
         id: 'meter',
@@ -9360,7 +9385,7 @@ function getUniversalSelectedTarget() {
         accentColor: 'rgba(56, 189, 248, 0.4)'
       };
     }
-    if (selectedElectricalId === 'dc_protection' && s.dcProtectionPosition && s.dcProtectionEntity) {
+    if (selectedElectricalId === 'dc_protection' && s.dcProtectionPosition && s.dcProtectionEntity && s.dcProtectionEntity.show !== false) {
       return {
         type: 'electrical',
         id: 'dc_protection',
@@ -9373,7 +9398,7 @@ function getUniversalSelectedTarget() {
         accentColor: 'rgba(217, 119, 6, 0.4)'
       };
     }
-    if (selectedElectricalId === 'battery' && s.batteryPosition && s.batteryEntity) {
+    if (selectedElectricalId === 'battery' && s.batteryPosition && s.batteryEntity && s.batteryEntity.show !== false) {
       return {
         type: 'electrical',
         id: 'battery',
@@ -9391,7 +9416,7 @@ function getUniversalSelectedTarget() {
   // B. Obstáculos 3D
   if (typeof selectedObstacleId !== 'undefined' && selectedObstacleId && typeof getSelectedObstacle === 'function') {
     const obs = getSelectedObstacle();
-    if (obs) {
+    if (obs && obs.visible !== false) {
       const wp = typeof getObstacleActivePlane === 'function' ? getObstacleActivePlane(obs) : null;
       let baseCenter = null;
       let normal = null;
@@ -9464,7 +9489,7 @@ function getUniversalSelectedTarget() {
   if (typeof selectedBuildingId !== 'undefined' && selectedBuildingId && Array.isArray(buildings)) {
     const bld = buildings.find(b => b.id === selectedBuildingId);
     const bldPts = (bld && (bld.points || bld.polygon)) || null;
-    if (bld && Array.isArray(bldPts) && bldPts.length > 0) {
+    if (bld && bld.visible !== false && Array.isArray(bldPts) && bldPts.length > 0) {
       let center = null;
       if (typeof computeBuildingCenter3D === 'function') {
         center = computeBuildingCenter3D(bld);
@@ -9490,8 +9515,9 @@ function getUniversalSelectedTarget() {
   // D. Paneles FV Individuales
   if (typeof selectedPanelIndex !== 'undefined' && selectedPanelIndex >= 0 && typeof getSelectedPanel === 'function') {
     const panel = getSelectedPanel();
-    if (panel && panel.center) {
+    if (panel && panel.visible !== false && panel.center) {
       const poly = (typeof WP !== 'undefined' && WP && WP.polylines && panel.polyIdx !== undefined) ? WP.polylines[panel.polyIdx] : null;
+      if (poly && poly.visible === false) return null;
       const roof = (poly && poly.roofInfo) || (typeof lastRoofInfo !== 'undefined' ? lastRoofInfo : null);
       let wp = null;
       const _pHasCorners = panel.corners && panel.corners.length === 4;
@@ -10381,6 +10407,20 @@ function selectElectricalObject(id) {
   }
   window.selectedRouteVertex = null;
 
+  if (id && window.inverterEquipmentState) {
+    const s = window.inverterEquipmentState;
+    let ent = null;
+    if (id === 'inverter') ent = s.entity;
+    else if (id === 'dc_protection') ent = s.dcProtectionEntity;
+    else if (id === 'battery') ent = s.batteryEntity;
+    else if (id === 'combiner' && s.combinerBox) ent = s.combinerBox.entity;
+    else if (id === 'meter' && s.gridMeter) ent = s.gridMeter.entity;
+    if (ent && ent.show === false) {
+      if (typeof showToast === 'function') showToast('EQUIPO OCULTO', 'Haz visible el equipo para poder seleccionarlo.', 'warning', 2500);
+      return;
+    }
+  }
+
   selectedElectricalId = id;
 
   // [AAA GIZMO UNIFICADO]: Ocultar etiqueta 3D de Cesium del equipo seleccionado para evitar colisión con el Gizmo 2D
@@ -10426,25 +10466,26 @@ function pickElectricalObjectUnderCursor(screenPos) {
         const parts = entId.split('_');
         return { id: 'route_handle', type: parts[3], index: parseInt(parts[4], 10) };
       }
-      if (entId.includes('ra_inverter_main_box')) return { id: 'inverter' };
-      if (entId.includes('ra_dc_protection_box')) return { id: 'dc_protection' };
-      if (entId.includes('ra_battery_storage_box')) return { id: 'battery' };
-      if (entId.includes('ra_combiner_box')) return { id: 'combiner' };
-      if (entId.includes('ra_grid_meter_box')) return { id: 'meter' };
+      if (entId.includes('ra_inverter_main_box') && (!s.entity || s.entity.show !== false)) return { id: 'inverter' };
+      if (entId.includes('ra_dc_protection_box') && (!s.dcProtectionEntity || s.dcProtectionEntity.show !== false)) return { id: 'dc_protection' };
+      if (entId.includes('ra_battery_storage_box') && (!s.batteryEntity || s.batteryEntity.show !== false)) return { id: 'battery' };
+      if (entId.includes('ra_combiner_box') && (!s.combinerBox || !s.combinerBox.entity || s.combinerBox.entity.show !== false)) return { id: 'combiner' };
+      if (entId.includes('ra_grid_meter_box') && (!s.gridMeter || !s.gridMeter.entity || s.gridMeter.entity.show !== false)) return { id: 'meter' };
     }
   } catch(err) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(err, 'Entidad/Primitiva Cesium'); }
 
   // B. Fallback: Proximidad de Proyección en Pantalla (28px de radio)
   const candidates = [
-    { id: 'inverter', pos: s.position },
-    { id: 'dc_protection', pos: (s.dcProtectionEntity && s.dcProtectionPosition) ? s.dcProtectionPosition : null },
-    { id: 'battery', pos: (s.batteryEntity && s.batteryPosition) ? s.batteryPosition : null },
-    { id: 'combiner', pos: (s.combinerBox && s.combinerBox.isEnabled) ? s.combinerBox.position : null },
-    { id: 'meter', pos: (s.gridMeter && s.gridMeter.position) ? s.gridMeter.position : null }
+    { id: 'inverter', pos: s.position, entity: s.entity },
+    { id: 'dc_protection', pos: (s.dcProtectionEntity && s.dcProtectionPosition) ? s.dcProtectionPosition : null, entity: s.dcProtectionEntity },
+    { id: 'battery', pos: (s.batteryEntity && s.batteryPosition) ? s.batteryPosition : null, entity: s.batteryEntity },
+    { id: 'combiner', pos: (s.combinerBox && s.combinerBox.isEnabled) ? s.combinerBox.position : null, entity: s.combinerBox ? s.combinerBox.entity : null },
+    { id: 'meter', pos: (s.gridMeter && s.gridMeter.position) ? s.gridMeter.position : null, entity: s.gridMeter ? s.gridMeter.entity : null }
   ];
 
   for (let c of candidates) {
     if (!c.pos) continue;
+    if (c.entity && c.entity.show === false) continue;
     try {
       const pWin = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, c.pos);
       if (pWin) {
@@ -13291,6 +13332,7 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
 
   for (let polyIdx = 0; polyIdx < polylinesList.length; polyIdx++) {
     const poly = polylinesList[polyIdx];
+    if (poly.visible === false) continue;
     // Cesión entre faldones: el navegador respira y las cascadas de sombra se reajustan
     if (polyIdx > 0) await new Promise(r => setTimeout(r, 0));
     const prevPanelsMap = (existingRenderedPanels.length > 0)
@@ -15675,7 +15717,10 @@ window.toggleSolarHUD = toggleSolarHUD;
         const parts = pIdStr.replace('bld_vtx_handle_', '').split('_');
         const vi = parseInt(parts.pop(), 10);
         const bId = parts.join('_');
-        hitBldVtx = { bldId: bId, vtxIdx: vi };
+        const targetB = Array.isArray(buildings) ? buildings.find(b => b.id === bId) : null;
+        if (targetB && targetB.visible !== false) {
+          hitBldVtx = { bldId: bId, vtxIdx: vi };
+        }
       }
     }
     // Proximidad en pantalla (tolerancia de 24px) para selección precisa en cualquier ángulo
@@ -15683,7 +15728,7 @@ window.toggleSolarHUD = toggleSolarHUD;
       let closestDist = 24.0;
       const bldList = selectedBuildingId ? [buildings.find(b => b.id === selectedBuildingId)].filter(Boolean) : buildings;
       for (const b of bldList) {
-        if (!b.points) continue;
+        if (!b.points || b.visible === false) continue;
         for (let vi = 0; vi < b.points.length; vi++) {
           const pt = b.points[vi];
           const wPos = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, pt);
@@ -15743,7 +15788,7 @@ window.toggleSolarHUD = toggleSolarHUD;
     if (pickedObj) {
       const pId = (typeof pickedObj.id === 'string') ? pickedObj.id : (pickedObj.id && typeof pickedObj.id.id === 'string' ? pickedObj.id.id : '');
       if (pId) {
-        clickedBld = buildings.find(b => pId.startsWith(b.id) || pId.includes(b.id));
+        clickedBld = buildings.find(b => (pId.startsWith(b.id) || pId.includes(b.id)) && b.visible !== false);
       }
     }
     if (!clickedBld) {
@@ -15802,7 +15847,7 @@ window.toggleSolarHUD = toggleSolarHUD;
     // F. Selección de vértices de polilínea por proximidad de pantalla
     if (WP.polylines && WP.selectedPolyIdx >= 0) {
       const activePoly = WP.polylines[WP.selectedPolyIdx];
-      if (activePoly && activePoly.points && activePoly.points.length > 0) {
+      if (activePoly && activePoly.visible !== false && activePoly.points && activePoly.points.length > 0) {
         let nearestVtxIdx = -1;
         let minVtxDist = 20.0;
         for (let vi = 0; vi < activePoly.points.length; vi++) {
@@ -15830,6 +15875,7 @@ window.toggleSolarHUD = toggleSolarHUD;
         const pIdx = parseInt(parts[0], 10);
         const vIdx = parseInt(parts[1], 10);
         if (!isNaN(pIdx) && !isNaN(vIdx)) {
+          if (WP.polylines && WP.polylines[pIdx] && WP.polylines[pIdx].visible === false) return;
           if (WP.selectedPolyIdx !== pIdx) wpSelectPolyline(pIdx);
           wpSelectVertex(vIdx);
           return;
@@ -15837,6 +15883,7 @@ window.toggleSolarHUD = toggleSolarHUD;
       } else if (entId.startsWith('wp_poly_fill_') || entId.startsWith('wp_poly_line_')) {
         const pIdx = parseInt(entId.split('_').pop(), 10);
         if (!isNaN(pIdx)) {
+          if (WP.polylines && WP.polylines[pIdx] && WP.polylines[pIdx].visible === false) return;
           wpSelectPolyline(pIdx);
           return;
         }

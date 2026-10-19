@@ -399,7 +399,8 @@ function checkObstacleGizmoHit(mx, my) {
 }
 
 function pickObstacleUnderCursor(screenPos) {
-  if (!Array.isArray(obstacles) || obstacles.length === 0) return null;
+  const obsList = (typeof global !== 'undefined' && Array.isArray(global.obstacles)) ? global.obstacles : (typeof obstacles !== 'undefined' && Array.isArray(obstacles) ? obstacles : []);
+  if (!Array.isArray(obsList) || obsList.length === 0) return null;
 
   // A. Primero intentar pick 3D nativo de Cesium (entidades de caja, árbol o etiquetas)
   try {
@@ -410,8 +411,8 @@ function pickObstacleUnderCursor(screenPos) {
           entId.startsWith('obs_tree_trunk_prim_') || entId.startsWith('obs_tree_canopy_prim_') ||
           entId.startsWith('obs_label_')) {
         // [P2] Coincidencia por sufijo exacto (includes podía cruzar ids con prefijos comunes)
-        const found = obstacles.find(o => entId === o.id || entId.endsWith('_' + o.id));
-        if (found) return found;
+        const found = obsList.find(o => entId === o.id || entId.endsWith('_' + o.id));
+        if (found && found.visible !== false) return found;
       }
     }
   } catch(err) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', err); }
@@ -420,8 +421,9 @@ function pickObstacleUnderCursor(screenPos) {
   const res = obsComputeUV(screenPos);
   if (res) {
     const activePlIdx = (typeof WP !== 'undefined' && WP) ? WP.activePlaneIdx : -1;
-    for (let i = obstacles.length - 1; i >= 0; i--) {
-      const obs = obstacles[i];
+    for (let i = obsList.length - 1; i >= 0; i--) {
+      const obs = obsList[i];
+      if (obs.visible === false) continue;
       if (obs.planeIdx !== undefined && activePlIdx >= 0 && obs.planeIdx !== activePlIdx) continue;
       const du = res.u - (obs.u || 0);
       const dv = res.v - (obs.v || 0);
@@ -442,8 +444,9 @@ function pickObstacleUnderCursor(screenPos) {
   // C. Fallback por proximidad en pantalla con prioridad por tamaño (sin enmascaramiento de obstáculos pequeños)
   let bestCandidate = null;
   let bestScore = Infinity;
-  for (let i = obstacles.length - 1; i >= 0; i--) {
-    const obs = obstacles[i];
+  for (let i = obsList.length - 1; i >= 0; i--) {
+    const obs = obsList[i];
+    if (obs.visible === false) continue;
     let pos3D = obs.cartesian || null;
     if (!pos3D) {
       const wp = (typeof getObstacleActivePlane === 'function') ? getObstacleActivePlane(obs) : null;
@@ -733,6 +736,20 @@ function render3DObstaclesInCesium() {
   obstacles.forEach((obs, idx) => {
     // Obstáculos especiales delegados a submódulos dedicados
     if (obs.type === 'wind_turbine') return;
+
+    if (obs.visible === false) {
+      const existing = window._obsPrimitives.filter(p => p && !p.isDestroyed() && p._obsId === obs.id);
+      if (existing.length > 0) {
+        existing.forEach(p => {
+          try {
+            viewer.scene.primitives.remove(p);
+          } catch(err) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', err); }
+          const pIdx = window._obsPrimitives.indexOf(p);
+          if (pIdx >= 0) window._obsPrimitives.splice(pIdx, 1);
+        });
+      }
+      return;
+    }
 
     let wp = (typeof getObstacleActivePlane === 'function') ? getObstacleActivePlane(obs) : null;
     
@@ -1131,6 +1148,14 @@ function nudgeSelectedObstacle(axis, meters) {
 }
 
 function selectObstacle(obsId) {
+  if (obsId) {
+    const obsList = (typeof global !== 'undefined' && Array.isArray(global.obstacles)) ? global.obstacles : (typeof obstacles !== 'undefined' && Array.isArray(obstacles) ? obstacles : []);
+    const targetObs = obsList.find(o => o.id === obsId);
+    if (targetObs && targetObs.visible === false) {
+      if (typeof global.showToast === 'function') global.showToast('OBSTÁCULO OCULTO', 'Haz visible el obstáculo para poder seleccionarlo.', 'warning', 2500);
+      return;
+    }
+  }
   selectedObstacleId = obsId;
   global.selectedObstacleId = obsId;
   if (typeof window !== 'undefined') window.selectedObstacleId = obsId;

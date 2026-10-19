@@ -229,6 +229,7 @@
                   </div>
                   <div class="node-meta">
                     <span class="badge-dim">${obs.w}×${obs.l}×${obs.h}m</span>
+                    <button type="button" class="node-action-btn" title="Alternar visibilidad" onclick="event.stopPropagation();ProjectHierarchy.toggleVisibility('obstacle', '${obs.id}');">${obs.visible ? '👁️' : '🙈'}</button>
                     <button type="button" class="node-action-btn delete-btn" title="Eliminar obstáculo" onclick="event.stopPropagation();ProjectHierarchy.deleteItem('obstacle', '${obs.id}');">🗑️</button>
                   </div>
                 </div>
@@ -326,6 +327,7 @@
               </div>
               <div class="node-meta">
                 <span class="badge-dim">${obs.w}×${obs.l}×${obs.h}m</span>
+                <button type="button" class="node-action-btn" title="Alternar visibilidad" onclick="event.stopPropagation();ProjectHierarchy.toggleVisibility('obstacle', '${obs.id}');">${obs.visible ? '👁️' : '🙈'}</button>
                 <button type="button" class="node-action-btn delete-btn" title="Eliminar obstáculo" onclick="event.stopPropagation();ProjectHierarchy.deleteItem('obstacle', '${obs.id}');">🗑️</button>
               </div>
             </div>

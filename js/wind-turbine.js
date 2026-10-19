@@ -23,7 +23,27 @@
   'use strict';
 
   var Cesium = root.Cesium;
-  if (!Cesium) { console.warn('[RAWindTurbine] Cesium no disponible'); return; }
+  if (!Cesium) {
+    console.warn('[RAWindTurbine] Cesium no disponible');
+    root.RAWindTurbine = {
+      toggleVisibility: function(idOrIdx) {
+        var obsList = (typeof root !== 'undefined' && Array.isArray(root.obstacles)) ? root.obstacles : (typeof global !== 'undefined' && Array.isArray(global.obstacles) ? global.obstacles : []);
+        var obs = (typeof idOrIdx === 'string')
+          ? obsList.find(function(o) { return o.id === idOrIdx; })
+          : obsList[idOrIdx];
+        if (obs) {
+          obs.visible = (obs.visible === false) ? true : false;
+          if (obs.visible === false && ((typeof root !== 'undefined' && root.selectedObstacleId === obs.id) || (typeof global !== 'undefined' && global.selectedObstacleId === obs.id))) {
+            if (typeof root !== 'undefined' && typeof root.selectObstacle === 'function') root.selectObstacle(null);
+            else if (typeof global !== 'undefined' && typeof global.selectObstacle === 'function') global.selectObstacle(null);
+            if (typeof root !== 'undefined') root.selectedObstacleId = null;
+            if (typeof global !== 'undefined') global.selectedObstacleId = null;
+          }
+        }
+      }
+    };
+    return;
+  }
 
   // ════════════════════════════════════════════════════════════════
   //  1. CONSTANTES Y COLORES
@@ -491,6 +511,10 @@
     var activeIds = {};
     (root.obstacles || []).forEach(function (obs) {
       if (obs.type === 'wind_turbine') {
+        if (obs.visible === false) {
+          cleanForObs(obs.id);
+          return;
+        }
         activeIds[obs.id] = true;
         ensureProps(obs);
 
@@ -551,6 +575,10 @@
   // Selección de obstáculos: panel dinámico
   var _origSelect = root.selectObstacle;
   root.selectObstacle = function (obsId) {
+    if (obsId) {
+      var obsCheck = (root.obstacles || []).find(function (o) { return o.id === obsId; });
+      if (obsCheck && obsCheck.visible === false) return;
+    }
     if (_origSelect) _origSelect(obsId);
     var obs = (root.obstacles || []).find(function (o) { return o.id === obsId; });
     if (obs && obs.type === 'wind_turbine') {
@@ -674,6 +702,23 @@
     invalidateAndRerender('Radio de aspas eólicas modificado');
   }
 
+  function toggleVisibility(idOrIdx) {
+    var obsList = (typeof root !== 'undefined' && Array.isArray(root.obstacles)) ? root.obstacles : (typeof global !== 'undefined' && Array.isArray(global.obstacles) ? global.obstacles : []);
+    var obs = (typeof idOrIdx === 'string')
+      ? obsList.find(function(o) { return o.id === idOrIdx; })
+      : obsList[idOrIdx];
+    if (obs) {
+      obs.visible = (obs.visible === false) ? true : false;
+      if (obs.visible === false && ((typeof root !== 'undefined' && root.selectedObstacleId === obs.id) || (typeof global !== 'undefined' && global.selectedObstacleId === obs.id))) {
+        if (typeof root !== 'undefined' && typeof root.selectObstacle === 'function') root.selectObstacle(null);
+        else if (typeof global !== 'undefined' && typeof global.selectObstacle === 'function') global.selectObstacle(null);
+        if (typeof root !== 'undefined') root.selectedObstacleId = null;
+        if (typeof global !== 'undefined') global.selectedObstacleId = null;
+      }
+      renderAll();
+    }
+  }
+
   // ════════════════════════════════════════════════════════════════
   //  12. EXPORTACIÓN CANÓNICA
   // ════════════════════════════════════════════════════════════════
@@ -690,7 +735,8 @@
     onTypeChange:          onTypeChange,
     onMastChange:          onMastChange,
     onBladeChange:         onBladeChange,
-    updateLiveModelMatrix: updateLiveModelMatrix
+    updateLiveModelMatrix: updateLiveModelMatrix,
+    toggleVisibility:      toggleVisibility
   };
 
 })(window);

@@ -377,11 +377,25 @@
 
     selectElectrical: function(elecId, shouldFly) {
       if (!elecId) return;
+      const s = global.inverterEquipmentState;
+      if (s) {
+        let ent = null;
+        if (elecId === 'inverter') ent = s.entity;
+        else if (elecId === 'dc_protection') ent = s.dcProtectionEntity;
+        else if (elecId === 'battery') ent = s.batteryEntity;
+        else if (elecId === 'combiner' && s.combinerBox) ent = s.combinerBox.entity;
+        else if (elecId === 'meter' && s.gridMeter) ent = s.gridMeter.entity;
+        if (ent && ent.show === false) {
+          if (typeof global.showToast === 'function') global.showToast('EQUIPO OCULTO', 'Haz visible el equipo para poder seleccionarlo.', 'warning', 2500);
+          return;
+        }
+      }
       if (typeof global.selectElectricalObject === 'function') {
         global.selectElectricalObject(elecId);
+      } else {
+        global.selectedElectricalId = elecId;
       }
-      const s = global.inverterEquipmentState;
-      if (shouldFly !== false && s && typeof global.viewer !== 'undefined' && global.viewer) {
+      if (shouldFly !== false && s && typeof global.viewer !== 'undefined' && global.viewer && typeof Cesium !== 'undefined') {
         let pos = null;
         if (elecId === 'inverter') pos = s.position;
         else if (elecId === 'dc_protection') pos = s.dcProtectionPosition;
@@ -404,13 +418,17 @@
 
     selectBuilding: function(bldId, shouldFly) {
       if (!bldId) return;
+      const bld = Array.isArray(global.buildings) ? global.buildings.find(function(b) { return b.id === bldId; }) : null;
+      if (bld && bld.visible === false) {
+        if (typeof global.showToast === 'function') global.showToast('EDIFICIO OCULTO', 'Haz visible el edificio para poder seleccionarlo.', 'warning', 2500);
+        return;
+      }
       if (typeof global.selectBuilding === 'function') {
         global.selectBuilding(bldId);
       } else {
         global.selectedBuildingId = bldId;
       }
-      if (shouldFly !== false && typeof global.viewer !== 'undefined' && global.viewer) {
-        const bld = Array.isArray(global.buildings) ? global.buildings.find(function(b) { return b.id === bldId; }) : null;
+      if (shouldFly !== false && typeof global.viewer !== 'undefined' && global.viewer && typeof Cesium !== 'undefined') {
         if (bld && bld.points && bld.points.length > 0) {
           try {
             const bs = Cesium.BoundingSphere.fromPoints(bld.points);
@@ -425,6 +443,11 @@
     },
 
     selectPlane: function(pIdx, shouldFly) {
+      const wp = global.WP;
+      if (wp && wp.planes && wp.planes[pIdx] && wp.planes[pIdx].visible === false) {
+        if (typeof global.showToast === 'function') global.showToast('PLANO OCULTO', 'Haz visible el plano para poder seleccionarlo.', 'warning', 2500);
+        return;
+      }
       if (typeof global.wpSelectActivePlane === 'function') {
         global.wpSelectActivePlane(pIdx, shouldFly !== false);
       }
@@ -434,9 +457,13 @@
     selectPolyline: function(polyIdx, shouldFly) {
       const wp = global.WP;
       if (!wp || !Array.isArray(wp.polylines) || !wp.polylines[polyIdx]) return;
+      const poly = wp.polylines[polyIdx];
+      if (poly.visible === false) {
+        if (typeof global.showToast === 'function') global.showToast('FALDÓN OCULTO', 'Haz visible el faldón para poder seleccionarlo.', 'warning', 2500);
+        return;
+      }
 
       wp.selectedPolyIdx = polyIdx;
-      const poly = wp.polylines[polyIdx];
 
       if (typeof poly.planeIdx === 'number' && poly.planeIdx >= 0 && poly.planeIdx !== wp.activePlaneIdx) {
         if (typeof global.wpSelectActivePlane === 'function') {
@@ -445,14 +472,18 @@
       }
 
       if (poly.points && poly.points.length >= 3) {
-        global.polygonPoints = poly.points.map(function(p) { return Cesium.Cartesian3.clone(p); });
+        global.polygonPoints = poly.points.map(function(p) {
+          return (typeof Cesium !== 'undefined' && Cesium.Cartesian3 && typeof Cesium.Cartesian3.clone === 'function')
+            ? Cesium.Cartesian3.clone(p)
+            : Object.assign({}, p);
+        });
       }
 
       if (typeof global.wpRenderAllPolylines === 'function') {
         global.wpRenderAllPolylines();
       }
 
-      if (shouldFly !== false && poly.points && poly.points.length > 0 && typeof global.viewer !== 'undefined' && global.viewer) {
+      if (shouldFly !== false && poly.points && poly.points.length > 0 && typeof global.viewer !== 'undefined' && global.viewer && typeof Cesium !== 'undefined') {
         try {
           const bs = Cesium.BoundingSphere.fromPoints(poly.points);
           global.viewer.camera.flyToBoundingSphere(bs, {
@@ -467,13 +498,17 @@
 
     selectObstacle: function(obsId, shouldFly) {
       if (!obsId) return;
+      const o = Array.isArray(global.obstacles) ? global.obstacles.find(function(item) { return item.id === obsId; }) : null;
+      if (o && o.visible === false) {
+        if (typeof global.showToast === 'function') global.showToast('OBSTÁCULO OCULTO', 'Haz visible el obstáculo para poder seleccionarlo.', 'warning', 2500);
+        return;
+      }
       if (typeof global.selectObstacle === 'function') {
         global.selectObstacle(obsId);
       } else {
         global.selectedObstacleId = obsId;
       }
-      const o = Array.isArray(global.obstacles) ? global.obstacles.find(function(item) { return item.id === obsId; }) : null;
-      if (shouldFly !== false && o && typeof global.viewer !== 'undefined' && global.viewer) {
+      if (shouldFly !== false && o && typeof global.viewer !== 'undefined' && global.viewer && typeof Cesium !== 'undefined') {
         const pos = o.cartesian;
         if (pos && typeof pos.x === 'number') {
           try {
@@ -513,31 +548,73 @@
         const bld = (typeof idOrIdx === 'string') ? global.buildings.find(function(b) { return b.id === idOrIdx; }) : global.buildings[idOrIdx];
         if (bld) {
           bld.visible = (bld.visible === false) ? true : false;
+          if (bld.visible === false && (global.selectedBuildingId === bld.id || (typeof window !== 'undefined' && window.selectedBuildingId === bld.id))) {
+            if (typeof global.selectBuilding === 'function') global.selectBuilding(null);
+            else if (typeof window !== 'undefined' && typeof window.selectBuilding === 'function') window.selectBuilding(null);
+            global.selectedBuildingId = null;
+            if (typeof window !== 'undefined') window.selectedBuildingId = null;
+          }
           if (typeof global.render3DBuildingsInCesium === 'function') global.render3DBuildingsInCesium();
+          if (typeof global.renderTriad2D === 'function') global.renderTriad2D();
           if (global.viewer && global.viewer.scene && typeof global.viewer.scene.requestRender === 'function') global.viewer.scene.requestRender();
         }
       } else if (type === 'plane' && wp && wp.planes && wp.planes[idOrIdx]) {
         wp.planes[idOrIdx].visible = (wp.planes[idOrIdx].visible === false) ? true : false;
         if (typeof global.wpRenderActivePlaneGizmo === 'function') global.wpRenderActivePlaneGizmo();
+        if (typeof global.renderTriad2D === 'function') global.renderTriad2D();
         if (global.viewer && global.viewer.scene && typeof global.viewer.scene.requestRender === 'function') global.viewer.scene.requestRender();
       } else if (type === 'polyline' && wp && wp.polylines && wp.polylines[idOrIdx]) {
         const isVis = (wp.polylines[idOrIdx].visible === false) ? true : false;
         wp.polylines[idOrIdx].visible = isVis;
+        if (!isVis && wp.selectedPolyIdx === idOrIdx) {
+          wp.selectedPolyIdx = -1;
+          wp.selectedVtxIdx = -1;
+          global.polygonPoints = [];
+          if (typeof global.selectedPanelIndex !== 'undefined') global.selectedPanelIndex = -1;
+          if (typeof window !== 'undefined' && typeof window.selectedPanelIndex !== 'undefined') window.selectedPanelIndex = -1;
+          if (Array.isArray(global.selectedPanelIndices)) global.selectedPanelIndices = [];
+          if (typeof window !== 'undefined' && Array.isArray(window.selectedPanelIndices)) window.selectedPanelIndices = [];
+        }
         if (typeof global.wpRenderAllPolylines === 'function') global.wpRenderAllPolylines();
         if (Array.isArray(global.simulatedPanelEntities)) {
           global.simulatedPanelEntities.forEach(function(pe) {
-            if (pe && pe.polyIdx === idOrIdx) pe.show = isVis;
+            const pIdx = (pe && typeof pe.polyIdx === 'number') ? pe.polyIdx : (pe && pe.pData && typeof pe.pData.polyIdx === 'number' ? pe.pData.polyIdx : null);
+            if (pIdx === idOrIdx) pe.show = isVis;
           });
         }
+        if (typeof global.wpFastRenderSimulatedPanels === 'function') {
+          global.wpFastRenderSimulatedPanels();
+        }
+        if (typeof global.renderTriad2D === 'function') global.renderTriad2D();
         if (global.viewer && global.viewer.scene && typeof global.viewer.scene.requestRender === 'function') global.viewer.scene.requestRender();
-      } else if (type === 'wind_turbine' && global.RAWindTurbine && typeof global.RAWindTurbine.toggleVisibility === 'function') {
-        global.RAWindTurbine.toggleVisibility(idOrIdx);
+      } else if (type === 'wind_turbine') {
+        if (global.RAWindTurbine && typeof global.RAWindTurbine.toggleVisibility === 'function') {
+          global.RAWindTurbine.toggleVisibility(idOrIdx);
+        } else if (Array.isArray(global.obstacles)) {
+          const o = (typeof idOrIdx === 'string') ? global.obstacles.find(function(item) { return item.id === idOrIdx; }) : global.obstacles[idOrIdx];
+          if (o) {
+            o.visible = (o.visible === false) ? true : false;
+            if (o.visible === false && (global.selectedObstacleId === o.id || (typeof window !== 'undefined' && window.selectedObstacleId === o.id))) {
+              if (typeof global.selectObstacle === 'function') global.selectObstacle(null);
+              else if (typeof window !== 'undefined' && typeof window.selectObstacle === 'function') window.selectObstacle(null);
+              global.selectedObstacleId = null;
+              if (typeof window !== 'undefined') window.selectedObstacleId = null;
+            }
+          }
+        }
         if (global.viewer && global.viewer.scene && typeof global.viewer.scene.requestRender === 'function') global.viewer.scene.requestRender();
       } else if (type === 'obstacle' && Array.isArray(global.obstacles)) {
         const o = (typeof idOrIdx === 'string') ? global.obstacles.find(function(item) { return item.id === idOrIdx; }) : global.obstacles[idOrIdx];
         if (o) {
           o.visible = (o.visible === false) ? true : false;
+          if (o.visible === false && (global.selectedObstacleId === o.id || (typeof window !== 'undefined' && window.selectedObstacleId === o.id))) {
+            if (typeof global.selectObstacle === 'function') global.selectObstacle(null);
+            else if (typeof window !== 'undefined' && typeof window.selectObstacle === 'function') window.selectObstacle(null);
+            global.selectedObstacleId = null;
+            if (typeof window !== 'undefined') window.selectedObstacleId = null;
+          }
           if (typeof global.render3DObstaclesInCesium === 'function') global.render3DObstaclesInCesium();
+          if (typeof global.renderTriad2D === 'function') global.renderTriad2D();
           if (global.viewer && global.viewer.scene && typeof global.viewer.scene.requestRender === 'function') global.viewer.scene.requestRender();
         }
       } else if (type === 'electrical') {
@@ -551,6 +628,13 @@
           else if (idOrIdx === 'meter' && s.gridMeter) ent = s.gridMeter.entity;
           if (ent) {
             ent.show = (ent.show === false) ? true : false;
+            if (ent.show === false && (global.selectedElectricalId === idOrIdx || (typeof window !== 'undefined' && window.selectedElectricalId === idOrIdx))) {
+              if (typeof global.selectElectricalObject === 'function') global.selectElectricalObject(null);
+              else if (typeof window !== 'undefined' && typeof window.selectElectricalObject === 'function') window.selectElectricalObject(null);
+              global.selectedElectricalId = null;
+              if (typeof window !== 'undefined') window.selectedElectricalId = null;
+            }
+            if (typeof global.renderTriad2D === 'function') global.renderTriad2D();
             if (global.viewer && global.viewer.scene && typeof global.viewer.scene.requestRender === 'function') global.viewer.scene.requestRender();
           }
         }
