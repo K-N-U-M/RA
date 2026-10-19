@@ -14024,11 +14024,13 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
                     czm_material czm_getMaterial(czm_materialInput materialInput) {
                       czm_material material = czm_getDefaultMaterial(materialInput);
                       vec2 st = materialInput.st;
-                      // 3. FLUJO ANIMADO
+                      // 3. FLUJO ANIMADO: Cable oscuro continuo con brillo azul eléctrico
                       float t = fract((czm_frameNumber * 0.03 * speed * direction) - st.s * 15.0);
-                      float glow = smoothstep(0.0, 0.2, t) * smoothstep(1.0, 0.8, t);
-                      material.diffuse = color.rgb;
-                      material.alpha = color.a * (0.3 + 0.7 * glow);
+                      float glow = smoothstep(0.0, 0.2, t) * smoothstep(1.0, 0.7, t);
+                      vec3 electricBlue = vec3(0.0, 0.85, 1.0);
+                      material.diffuse = mix(color.rgb, electricBlue, glow);
+                      material.emission = electricBlue * glow * 1.5;
+                      material.alpha = color.a;
                       return material;
                     }
                   `
