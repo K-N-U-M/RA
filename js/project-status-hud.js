@@ -335,7 +335,10 @@
     if (typeof getNearestValidStringModuleCount === 'function' && invObj && numPanels > 0) {
       const nsMin = (cfg.calculatedLimits && cfg.calculatedLimits.nMinString) || 6;
       const nsMax = (cfg.calculatedLimits && cfg.calculatedLimits.nMaxString) || 18;
-      const maxStrings = (invObj.mppts || invObj.mpptCount || 2) * 2;
+      const invCount = (cfg.autoSizing && cfg.autoSizing.inverters && Number.isFinite(cfg.autoSizing.inverters.count)) ? Math.max(1, cfg.autoSizing.inverters.count) : 1;
+      const mpptPerInv = (invObj.mppt || invObj.mppts || invObj.mpptCount || 2);
+      const inputsPerMppt = (invObj.inputsPerMppt || 2);
+      const maxStrings = mpptPerInv * invCount * inputsPerMppt;
       stringValidCount = getNearestValidStringModuleCount(numPanels, nsMin, nsMax, maxStrings);
       if (stringValidCount !== numPanels) {
         stringNotice = `Strings no balanceados: recomendado ajustar a ${stringValidCount} paneles (${stringValidCount > numPanels ? '+' : ''}${stringValidCount - numPanels})`;

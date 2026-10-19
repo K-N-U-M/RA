@@ -1189,12 +1189,14 @@
           const sLen = (stringPanels.get(n) || []).length;
           let bestChannel = -1;
 
-          // Prioridad 1: Canal ya asignado con orientación compatible y hueco disponible
+          // Prioridad 1: Canal ya asignado con orientación compatible, LONGITUD IDÉNTICA (ΔN = 0) y hueco disponible
           let bestScore = -Infinity;
           for (let c = 0; c < mpptCount; c++) {
-            if (channelOrientation[c] !== null && areOrientationsHomogeneous(channelOrientation[c], sData) && remaining[c] > 0) {
-              const lenMatch = (channelStrLen[c] === sLen) ? 10 : 0;
-              const score = lenMatch + remaining[c];
+            if (channelOrientation[c] !== null &&
+                areOrientationsHomogeneous(channelOrientation[c], sData) &&
+                (channelStrLen[c] === null || channelStrLen[c] === sLen) &&
+                remaining[c] > 0) {
+              const score = remaining[c];
               if (score > bestScore) {
                 bestScore = score;
                 bestChannel = c;
@@ -1212,14 +1214,26 @@
             }
           }
 
-          // Prioridad 3: Canal compatible aunque esté saturado (sobrecarga en su misma orientación, evita mezclar faldones)
+          // Prioridad 3: Canal compatible aunque esté saturado (sobrecarga en su misma orientación, priorizando ΔN = 0)
           if (bestChannel === -1) {
             let minAssigned = Infinity;
+            // 3a. Primero buscar canal compatible con longitud idéntica
             for (let c = 0; c < mpptCount; c++) {
-              if (channelOrientation[c] !== null && areOrientationsHomogeneous(channelOrientation[c], sData)) {
+              if (channelOrientation[c] !== null && areOrientationsHomogeneous(channelOrientation[c], sData) && channelStrLen[c] === sLen) {
                 if (channelStrings[c].length < minAssigned) {
                   minAssigned = channelStrings[c].length;
                   bestChannel = c;
+                }
+              }
+            }
+            // 3b. Si no existe, cualquier canal de orientación compatible
+            if (bestChannel === -1) {
+              for (let c = 0; c < mpptCount; c++) {
+                if (channelOrientation[c] !== null && areOrientationsHomogeneous(channelOrientation[c], sData)) {
+                  if (channelStrings[c].length < minAssigned) {
+                    minAssigned = channelStrings[c].length;
+                    bestChannel = c;
+                  }
                 }
               }
             }
@@ -1263,7 +1277,14 @@
 
     const homogeneity = validateMPPTHomogeneity(panels);
     if (!homogeneity.valid && typeof window !== 'undefined' && typeof window.showToast === 'function') {
-      window.showToast('⚠️ ' + homogeneity.violations[0].msg, 'warning');
+      const now = Date.now();
+      const firstMsg = homogeneity.violations[0].msg;
+      if (!window._lastMPPTHomogeneityToast ||
+          window._lastMPPTHomogeneityToast.msg !== firstMsg ||
+          (now - window._lastMPPTHomogeneityToast.time) > 3000) {
+        window._lastMPPTHomogeneityToast = { msg: firstMsg, time: now };
+        window.showToast('⚠️ ' + firstMsg, 'warning');
+      }
     }
 
     return {

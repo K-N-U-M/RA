@@ -186,6 +186,17 @@ assert(s1_1.mpptId !== s2_5.mpptId, 'Aislamiento MPPT multi-orientación: string
 const multiSlopeCheck = context.window.RA.Electrical.validateMPPTHomogeneity(multiSlopePanels);
 assert(multiSlopeCheck.valid === true, 'Homogeneidad MPPT multi-faldón respetada sin violaciones IEC 62548', 'valid: true');
 
+// Prueba de asignación con longitudes asimétricas (ΔN > 0):
+// 2 strings de 18 módulos y 1 string de 17 módulos en el mismo faldón con 2 MPPTs
+const asymPanels = [
+  ...Array.from({ length: 18 }, () => ({ stringName: 'S1.1', polyIdx: 0, tiltDeg: 20, azimuthDeg: 180, tag: 'MPPT1:S1.1' })),
+  ...Array.from({ length: 18 }, () => ({ stringName: 'S1.2', polyIdx: 0, tiltDeg: 20, azimuthDeg: 180, tag: 'MPPT1:S1.2' })),
+  ...Array.from({ length: 17 }, () => ({ stringName: 'S1.3', polyIdx: 0, tiltDeg: 20, azimuthDeg: 180, tag: 'MPPT1:S1.3' }))
+];
+context.window.RA.Electrical.rebalanceMPPTAssignment(asymPanels);
+const asymCheck = context.window.RA.Electrical.validateMPPTHomogeneity(asymPanels);
+assert(asymCheck.valid === true, 'Aislamiento MPPT por longitud: strings de diferente tamaño (ΔN > 0) no comparten canal en paralelo', 'valid: true');
+
 // Topología de cableado y orientación optimizada hacia el cuadro
 context.window.RA.Electrical.setStringWiringTopology('daisy_chain');
 assert(context.window.solarProjectConfig.stringWiringTopology === 'daisy_chain', 'Selector de técnica de cableado conmuta a Daisy-Chain', 'daisy_chain');

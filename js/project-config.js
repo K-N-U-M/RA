@@ -553,13 +553,19 @@ function wpComputeAutoSizing(forcedCount) {
       });
 
       let totalMpptsNeeded = 0;
+      let totalStringsCount = 0;
       orientationGroups.forEach(grp => {
         totalMpptsNeeded += Math.max(1, Math.ceil(grp.stringsCount / invInputs));
+        totalStringsCount += grp.stringsCount;
       });
 
       if (totalMpptsNeeded > 0) {
         autoInvertersByMppt = Math.max(1, Math.ceil(totalMpptsNeeded / invMppt));
       }
+      const maxStringsPerInv = invMppt * invInputs;
+      const autoInvertersByInputs = (maxStringsPerInv > 0) ? Math.max(1, Math.ceil(totalStringsCount / maxStringsPerInv)) : 1;
+
+      autoInvertersByMppt = Math.max(autoInvertersByMppt, autoInvertersByInputs);
     }
   } catch (errMppt) {
     console.warn('[RA-AutoSizing] Error al evaluar canales MPPT:', errMppt);
