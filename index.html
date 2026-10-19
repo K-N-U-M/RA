@@ -1498,6 +1498,9 @@ window.RA_App = window.RA_App || {};
             <!-- BANNER DINÁMICO DE AUTO-INGENIERÍA ZERO-CLICK -->
             <div id="step4-auto-engineering-banner" style="display:none;"></div>
 
+            <!-- CONTENEDOR DESPLEGABLE DE ALTERNATIVAS 1X VS NX -->
+            <div id="step3-smart-inverter-recommendations" style="display:none;margin-bottom:6px;"></div>
+
             <!-- CHECKLIST DE CONFORMIDAD RÁPIDA (ZERO-DOUBT) -->
             <div style="background:rgba(15,23,42,0.85);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:8px 10px;display:flex;justify-content:space-between;align-items:center;font-size:9.5px;">
               <div style="display:flex;align-items:center;gap:6px;">
@@ -1548,7 +1551,10 @@ window.RA_App = window.RA_App || {};
               <div id="step3-row-inverter" style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.06);border-radius:6px;padding:7px;margin-bottom:8px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
                   <span style="font-size:9.5px;font-weight:700;color:var(--amber-400);"><i data-lucide="zap" class="icon-sm"></i> Inversor de Red:</span>
-                  <button type="button" class="doc-mini-btn" onclick="step3EditCurrentEquipment('inverters')" style="font-size:9px;padding:2px 6px;color:var(--amber-400);"><i data-lucide="edit-2" class="icon-sm"></i> Ficha</button>
+                  <div style="display:flex;gap:4px;">
+                    <button type="button" class="doc-mini-btn" onclick="wpOpenSmartInverterMatchingModal()" style="font-size:9px;padding:2px 6px;color:#38BDF8;background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.3);font-weight:700;" title="Estudiar alternativas: 1x Central vs Nx Modulares y Microinversores"><i data-lucide="sparkles" class="icon-sm"></i> Alternativas 1x / Nx</button>
+                    <button type="button" class="doc-mini-btn" onclick="step3EditCurrentEquipment('inverters')" style="font-size:9px;padding:2px 6px;color:var(--amber-400);"><i data-lucide="edit-2" class="icon-sm"></i> Ficha</button>
+                  </div>
                 </div>
                 <select id="step3-sel-inverter" class="field-input" onchange="if(window.solarProjectConfig) window.solarProjectConfig.userManuallySelectedInverter=true; step3UpdateHardwareSelection();" style="width:100%;font-size:10px;font-weight:700;"></select>
               </div>
@@ -1557,7 +1563,10 @@ window.RA_App = window.RA_App || {};
               <div id="step3-row-microinverter" style="display:none;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.06);border-radius:6px;padding:7px;margin-bottom:8px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
                   <span style="font-size:9.5px;font-weight:700;color:#10b981;"><i data-lucide="cpu" class="icon-sm"></i> Microinversor / Optimizador:</span>
-                  <button type="button" class="doc-mini-btn" onclick="step3EditCurrentEquipment('microinverters')" style="font-size:9px;padding:2px 6px;color:#10b981;"><i data-lucide="edit-2" class="icon-sm"></i> Ficha</button>
+                  <div style="display:flex;gap:4px;">
+                    <button type="button" class="doc-mini-btn" onclick="wpOpenSmartInverterMatchingModal()" style="font-size:9px;padding:2px 6px;color:#10b981;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);font-weight:700;" title="Estudiar alternativas: 1x Central vs Nx Modulares y Microinversores"><i data-lucide="sparkles" class="icon-sm"></i> Alternativas 1x / Nx</button>
+                    <button type="button" class="doc-mini-btn" onclick="step3EditCurrentEquipment('microinverters')" style="font-size:9px;padding:2px 6px;color:#10b981;"><i data-lucide="edit-2" class="icon-sm"></i> Ficha</button>
+                  </div>
                 </div>
                 <select id="step3-sel-microinverter" class="field-input" onchange="if(window.solarProjectConfig) window.solarProjectConfig.userManuallySelectedInverter=true; step3UpdateHardwareSelection();" style="width:100%;font-size:10px;font-weight:700;"></select>
               </div>
@@ -1586,8 +1595,7 @@ window.RA_App = window.RA_App || {};
                 <button type="button" class="btn-action-primary" onclick="wpOpenSmartInverterMatchingModal()" style="width:100%;padding:7px;font-size:9.5px;background:rgba(56,189,248,0.15);border:1px solid #38BDF8;color:#38BDF8;font-weight:800;display:flex;align-items:center;justify-content:center;gap:6px;">
                   <i data-lucide="sparkles" class="icon-sm"></i> CASACIÓN INTELIGENTE MPPT &amp; INVERSORES
                 </button>
-                <!-- ASISTENTE INTELIGENTE Y RECOMENDACIONES DE INVERSOR DESPLEGADAS IN-SITU -->
-                <div id="step3-smart-inverter-recommendations" style="display:none;margin-top:6px;"></div>
+                <!-- ASISTENTE INTELIGENTE DESPLEGADO IN-SITU -->
                 <div id="step4-inverter-smart-assistant" style="display:none;margin-top:6px;"></div>
               </div>
 

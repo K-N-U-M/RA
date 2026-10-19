@@ -1193,11 +1193,16 @@ function wpRenderAutoEngineeringBanner(info, isManualOverride = false) {
     banner.innerHTML = `
       <div style="background:rgba(30,41,59,0.7);border:1px solid rgba(148,163,184,0.3);border-radius:8px;padding:8px;display:flex;justify-content:space-between;align-items:center;">
         <div style="font-size:9.5px;color:#94A3B8;">
-          <b style="color:#FBBF24;">⚡ Equipo manual seleccionado.</b> Puedes restablecer la auto-casación inteligente según sombras y faldones.
+          <b style="color:#FBBF24;">⚡ Equipo manual seleccionado.</b> Puedes restablecer la auto-casación o comparar alternativas.
         </div>
-        <button type="button" class="doc-mini-btn" onclick="wpAutoSelectOptimalEngineering(true)" style="background:rgba(56,189,248,0.15);border:1px solid #38BDF8;color:#38BDF8;font-size:9px;font-weight:bold;padding:3px 6px;cursor:pointer;">
-          <i data-lucide="sparkles" class="icon-sm"></i> AUTO-OPTIMIZAR
-        </button>
+        <div style="display:flex;gap:4px;align-items:center;">
+          <button type="button" class="doc-mini-btn" onclick="wpOpenSmartInverterMatchingModal()" style="background:rgba(56,189,248,0.2);border:1px solid #38BDF8;color:#38BDF8;font-size:8.5px;font-weight:bold;padding:3px 6px;cursor:pointer;" title="Comparar alternativas técnicas 1x Central vs Nx Modulares vs MLPE">
+            <i data-lucide="sparkles" class="icon-sm"></i> COMPARAR 1X VS NX
+          </button>
+          <button type="button" class="doc-mini-btn" onclick="wpAutoSelectOptimalEngineering(true)" style="background:rgba(16,185,129,0.15);border:1px solid #10B981;color:#34D399;font-size:8.5px;font-weight:bold;padding:3px 6px;cursor:pointer;">
+            <i data-lucide="rotate-ccw" class="icon-sm"></i> AUTO-OPTIMIZAR
+          </button>
+        </div>
       </div>
     `;
     banner.style.display = 'block';
@@ -1230,9 +1235,14 @@ function wpRenderAutoEngineeringBanner(info, isManualOverride = false) {
           <span style="font-size:10px;font-weight:900;color:#FBBF24;">
             <i data-lucide="alert-triangle" class="icon-sm"></i> CATÁLOGO INSUFICIENTE: INVERSOR VIRTUAL ACTIVADO
           </span>
-          <span class="card-tag" style="background:rgba(245,158,11,0.2);color:#FBBF24;font-size:9px;font-weight:bold;">
-            ⚡ PARÁMETRICO IDEAL
-          </span>
+          <div style="display:flex;gap:4px;align-items:center;">
+            <span class="card-tag" style="background:rgba(245,158,11,0.2);color:#FBBF24;font-size:9px;font-weight:bold;">
+              ⚡ PARÁMETRICO IDEAL
+            </span>
+            <button type="button" class="doc-mini-btn" onclick="wpOpenSmartInverterMatchingModal()" style="background:rgba(56,189,248,0.2);border:1px solid #38BDF8;color:#38BDF8;font-size:8.5px;font-weight:bold;padding:2px 6px;cursor:pointer;" title="Comparar alternativas técnicas 1x Central vs Nx Modulares vs MLPE">
+              <i data-lucide="sparkles" class="icon-sm"></i> COMPARAR 1X VS NX
+            </button>
+          </div>
         </div>
         <div style="font-size:8.5px;color:#FCD34D;background:rgba(245,158,11,0.12);padding:4px 6px;border-radius:4px;margin-bottom:5px;border-left:3px solid #F59E0B;line-height:1.3;">
           <b>Cuello de Botella Físico:</b> ${info.bottleneckReason || 'Requisitos del proyecto no cubiertos por los equipos disponibles.'}
@@ -1277,9 +1287,14 @@ function wpRenderAutoEngineeringBanner(info, isManualOverride = false) {
         <span style="font-size:10px;font-weight:900;color:${topoColors[info.topology] || '#38BDF8'};">
           <i data-lucide="cpu" class="icon-sm"></i> AUTO-INGENIERÍA INTELIGENTE: ${topoLabels[info.topology] || info.topology}
         </span>
-        <span class="card-tag" style="background:rgba(16,185,129,0.2);color:#34D399;font-size:9px;font-weight:bold;">
-          ✓ CASACIÓN ÓPTIMA
-        </span>
+        <div style="display:flex;gap:4px;align-items:center;">
+          <span class="card-tag" style="background:rgba(16,185,129,0.2);color:#34D399;font-size:9px;font-weight:bold;">
+            ✓ CASACIÓN ÓPTIMA
+          </span>
+          <button type="button" class="doc-mini-btn" onclick="wpOpenSmartInverterMatchingModal()" style="background:rgba(56,189,248,0.2);border:1px solid #38BDF8;color:#38BDF8;font-size:8.5px;font-weight:bold;padding:2px 6px;cursor:pointer;" title="Comparar alternativas técnicas: 1x Central vs Nx Modulares vs MLPE">
+            <i data-lucide="sparkles" class="icon-sm"></i> COMPARAR 1X VS NX
+          </button>
+        </div>
       </div>
       <div style="font-size:9px;color:#E2E8F0;line-height:1.35;margin-bottom:4px;">
         ${(info.topology === 'microinverter' || (sc && sc.isMicro))
