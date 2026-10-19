@@ -231,7 +231,15 @@ function step3UpdateHardwareSelection() {
   const prevModuleId = (window.solarProjectConfig && window.solarProjectConfig.selectedModuleId) ? window.solarProjectConfig.selectedModuleId : null;
   let moduleActuallyChanged = false;
 
-  if (invSel && invSel.value) window.solarProjectConfig.selectedInverterId = invSel.value;
+  const prevInverterId = (window.solarProjectConfig && window.solarProjectConfig.selectedInverterId) ? window.solarProjectConfig.selectedInverterId : null;
+  if (invSel && invSel.value) {
+    if (prevInverterId && prevInverterId !== invSel.value) {
+      if (window.solarProjectConfig.autoSizing && window.solarProjectConfig.autoSizing.inverters) {
+        window.solarProjectConfig.autoSizing.inverters.isManual = false;
+      }
+    }
+    window.solarProjectConfig.selectedInverterId = invSel.value;
+  }
   let newModValue = null;
   if (typeof document !== 'undefined' && document.activeElement === faldonModSel && faldonModSel && faldonModSel.value) {
     newModValue = faldonModSel.value;
@@ -279,8 +287,26 @@ function step3UpdateHardwareSelection() {
       }
     }
   }
-  if (miSel && miSel.value)   window.solarProjectConfig.selectedMicroinverterId = miSel.value;
-  if (batSel && batSel.value) window.solarProjectConfig.selectedBatteryId = batSel.value;
+
+  const prevMicroId = (window.solarProjectConfig && window.solarProjectConfig.selectedMicroinverterId) ? window.solarProjectConfig.selectedMicroinverterId : null;
+  if (miSel && miSel.value) {
+    if (prevMicroId && prevMicroId !== miSel.value) {
+      if (window.solarProjectConfig.autoSizing && window.solarProjectConfig.autoSizing.microinverters) {
+        window.solarProjectConfig.autoSizing.microinverters.isManual = false;
+      }
+    }
+    window.solarProjectConfig.selectedMicroinverterId = miSel.value;
+  }
+
+  const prevBatId = (window.solarProjectConfig && window.solarProjectConfig.selectedBatteryId) ? window.solarProjectConfig.selectedBatteryId : null;
+  if (batSel && batSel.value) {
+    if (prevBatId && prevBatId !== batSel.value) {
+      if (window.solarProjectConfig.autoSizing && window.solarProjectConfig.autoSizing.batteries) {
+        window.solarProjectConfig.autoSizing.batteries.isManual = false;
+      }
+    }
+    window.solarProjectConfig.selectedBatteryId = batSel.value;
+  }
 
   const catalog = (typeof window !== 'undefined' && window.equipmentCatalog) ? window.equipmentCatalog : ((typeof equipmentCatalog !== 'undefined') ? equipmentCatalog : null);
   if (!catalog) return;
