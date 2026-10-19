@@ -688,6 +688,36 @@
         }
       }
       this.notify('item_deleted', { type: type, target: idOrIdx });
+    },
+
+    selectPanel: function(idx, isMulti) {
+      if (typeof global.selectPanel === 'function') {
+        global.selectPanel(idx, isMulti);
+      }
+      this.notify('selection_changed', { type: 'panel', index: idx });
+    },
+
+    selectAllPanelsInPolyline: function(polyIdx) {
+      if (typeof global.selectAllPanelsInPolyline === 'function') {
+        global.selectAllPanelsInPolyline(polyIdx);
+      }
+      this.notify('selection_changed', { type: 'panels_polyline', polyIdx: polyIdx });
+    },
+
+    selectAllPanels: function() {
+      if (typeof global.selectAllPanels === 'function') {
+        global.selectAllPanels();
+      }
+      this.notify('selection_changed', { type: 'panels_all' });
+    },
+
+    deselectAllPanels: function() {
+      if (typeof global.deselectAllPanels === 'function') {
+        global.deselectAllPanels();
+      } else if (typeof global.selectPanel === 'function') {
+        global.selectPanel(-1);
+      }
+      this.notify('selection_changed', { type: 'panel', index: -1 });
     }
   };
 

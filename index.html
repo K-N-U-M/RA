@@ -3051,10 +3051,20 @@ addEventListener('keydown', function(e) {
         return;
       }
     }
+    if (typeof selectedPanelIndex !== 'undefined' && (selectedPanelIndex >= 0 || (Array.isArray(window.selectedPanelIndices) && window.selectedPanelIndices.length > 0))) {
+      selectPanel(-1);
+      showToast('SELECCIÓN', 'Módulos FV deseleccionados.', 'info', 1500);
+      return;
+    }
+    if (typeof selectedElectricalId !== 'undefined' && selectedElectricalId) {
+      if (typeof selectElectricalObject === 'function') selectElectricalObject(null);
+      showToast('SELECCIÓN', 'Equipo eléctrico deseleccionado.', 'info', 1500);
+      return;
+    }
     if (typeof selectedObstacleId !== 'undefined' && selectedObstacleId) {
       selectedObstacleId = null;
       if (typeof render3DObstaclesInCesium === 'function') render3DObstaclesInCesium();
-    if (typeof render3DBuildingsInCesium === 'function') render3DBuildingsInCesium();
+      if (typeof render3DBuildingsInCesium === 'function') render3DBuildingsInCesium();
       showToast('SELECCIÓN', 'Obstáculo deseleccionado.', 'info', 1500);
       return;
     }
@@ -6239,61 +6249,159 @@ function restorePanels(snapshot, panels) {
 
 function getPanelIndexFromPick(picked) {
   if (!picked) return -1;
-  // Cesium distingue Primitives (picked.id = string) de Entities (picked.id = Entity con .id string)
-  let id;
+  let id = null;
   if (typeof picked.id === 'string') {
-    id = picked.id; // Primitiva instanciada: id es directamente el string
+    id = picked.id;
   } else if (picked.id && typeof picked.id.id === 'string') {
-    id = picked.id.id; // Entidad Cesium: id es la Entity, .id es el string
-  } else {
-    return -1;
+    id = picked.id.id;
   }
+
+  const panelsList = (Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0)
+    ? window.allRenderedPanels
+    : ((typeof lastRoofInfo !== 'undefined' && lastRoofInfo && lastRoofInfo.panels) ? lastRoofInfo.panels : null);
+
+  // Verificación directa por referencia de objeto o pData
+  if (picked.id && picked.id.pData && Array.isArray(panelsList)) {
+    const directIdx = panelsList.indexOf(picked.id.pData);
+    if (directIdx >= 0) return directIdx;
+  }
+
+  if (!id || typeof id !== 'string') return -1;
   if (id.indexOf("pv_panel_") !== 0) return -1;
 
   const rest = id.slice("pv_panel_".length);
+  if (rest.startsWith("outline") || rest.startsWith("active_drag")) return -1;
 
   let resolvedIdx = -1;
-  // Formato de textura: "pv_panel_tex_N"
-  if (rest.startsWith("tex_")) {
+
+  // 1. Formato de overlay de sombras del Heatmap: "pv_panel_shadow_overlay_polyIdx_layoutIdx"
+  if (rest.startsWith("shadow_overlay_")) {
+    const shadowParts = rest.slice("shadow_overlay_".length).split("_");
+    if (shadowParts.length >= 2 && Array.isArray(panelsList)) {
+      const polyIdx = parseInt(shadowParts[0], 10);
+      const lIdx = parseInt(shadowParts[1], 10);
+      if (!isNaN(polyIdx) && !isNaN(lIdx)) {
+        const found = panelsList.findIndex(p => p && p.polyIdx === polyIdx && (p.layoutIndex === lIdx || p.localIdx === lIdx || p.pIdx === lIdx));
+        if (found >= 0) resolvedIdx = found;
+      }
+    }
+  } else if (rest.startsWith("tex_")) {
     const idx = parseInt(rest.slice("tex_".length), 10);
     if (!isNaN(idx) && idx >= 0) resolvedIdx = idx;
   } else if (rest.startsWith("instance_")) {
-    // Formato de primitiva instanciada: "pv_panel_instance_N"
     const idx = parseInt(rest.slice("instance_".length), 10);
     if (!isNaN(idx) && idx >= 0) resolvedIdx = idx;
   } else if (rest.startsWith("pool_")) {
-    // Formato de entidad fallback: "pv_panel_pool_N" o "pv_panel_pool_N_xxxx"
     const idx = parseInt(rest.slice("pool_".length), 10);
     if (!isNaN(idx) && idx >= 0) resolvedIdx = idx;
   } else {
-    // Formato legacy de faldón: "pv_panel_polyIdx_pIdx_..." o "pv_panel_pIdx"
+    // Formato multi-faldón: "pv_panel_polyIdx_pIdx_..." o "pv_panel_pIdx"
     const parts = rest.split("_");
-    if (parts.length >= 2) {
+    if (parts.length >= 2 && Array.isArray(panelsList)) {
       const polyIdx = parseInt(parts[0], 10);
       const pIdx = parseInt(parts[1], 10);
-      if (!isNaN(polyIdx) && !isNaN(pIdx)) resolvedIdx = pIdx;
+      if (!isNaN(polyIdx) && !isNaN(pIdx)) {
+        const found = panelsList.findIndex(p => p && p.polyIdx === polyIdx && (p.pIdx === pIdx || p.localIdx === pIdx || p.layoutIndex === pIdx));
+        if (found >= 0) resolvedIdx = found;
+        else resolvedIdx = pIdx;
+      }
     }
     if (resolvedIdx < 0) {
       const idx = parseInt(rest, 10);
-      if (!isNaN(idx) && idx >= 0 && lastRoofInfo && idx < lastRoofInfo.panels.length) resolvedIdx = idx;
+      if (!isNaN(idx) && idx >= 0 && panelsList && idx < panelsList.length) resolvedIdx = idx;
     }
   }
 
-  if (resolvedIdx >= 0) {
-    const panelsList = (Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0)
-      ? window.allRenderedPanels
-      : ((lastRoofInfo && lastRoofInfo.panels) ? lastRoofInfo.panels : null);
-    if (panelsList && panelsList[resolvedIdx]) {
-      const p = panelsList[resolvedIdx];
-      if (p.visible === false) return -1;
-      if (typeof p.polyIdx === 'number' && typeof WP !== 'undefined' && WP && WP.polylines && WP.polylines[p.polyIdx]) {
-        if (WP.polylines[p.polyIdx].visible === false) return -1;
-      }
+  if (resolvedIdx >= 0 && Array.isArray(panelsList) && panelsList[resolvedIdx]) {
+    const p = panelsList[resolvedIdx];
+    if (p.visible === false || p.deleted) return -1;
+    if (typeof p.polyIdx === 'number' && typeof WP !== 'undefined' && WP && WP.polylines && WP.polylines[p.polyIdx]) {
+      if (WP.polylines[p.polyIdx].visible === false) return -1;
     }
     return resolvedIdx;
   }
   return -1;
 }
+
+function pickPanelUnderCursor(screenPos) {
+  if (!screenPos) return -1;
+
+  // 1. Detección rápida por scene.pick nativo de Cesium
+  try {
+    if (typeof scene !== 'undefined' && scene && typeof scene.pick === 'function') {
+      const picked = scene.pick(screenPos);
+      const pIdx = getPanelIndexFromPick(picked);
+      if (pIdx >= 0) return pIdx;
+    }
+  } catch(ePick) {}
+
+  // 2. Detección profunda con drillPick (traspasa mallas de faldón wp_poly_fill, canalizaciones o sombras)
+  try {
+    if (typeof scene !== 'undefined' && scene && typeof scene.drillPick === 'function') {
+      const pickedList = scene.drillPick(screenPos, 15);
+      if (Array.isArray(pickedList)) {
+        for (let i = 0; i < pickedList.length; i++) {
+          const pIdx = getPanelIndexFromPick(pickedList[i]);
+          if (pIdx >= 0) return pIdx;
+        }
+      }
+    }
+  } catch(eDrill) {}
+
+  // 3. Fallback geométrico 2D exacto en pantalla (proyección de esquinas a ventana)
+  const panelsList = (Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0)
+    ? window.allRenderedPanels
+    : ((typeof lastRoofInfo !== 'undefined' && lastRoofInfo && lastRoofInfo.panels) ? lastRoofInfo.panels : null);
+
+  if (Array.isArray(panelsList) && panelsList.length > 0 && typeof scene !== 'undefined' && scene && typeof Cesium !== 'undefined' && Cesium.SceneTransforms) {
+    let bestIdx = -1;
+    let minCenterDist = Infinity;
+
+    for (let i = 0; i < panelsList.length; i++) {
+      const p = panelsList[i];
+      if (!p || p.visible === false || p.deleted) continue;
+      if (typeof p.polyIdx === 'number' && typeof WP !== 'undefined' && WP && WP.polylines && WP.polylines[p.polyIdx]) {
+        if (WP.polylines[p.polyIdx].visible === false) continue;
+      }
+      if (!p.corners || p.corners.length !== 4) continue;
+
+      try {
+        const sc0 = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, p.corners[0]);
+        const sc1 = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, p.corners[1]);
+        const sc2 = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, p.corners[2]);
+        const sc3 = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, p.corners[3]);
+
+        if (sc0 && sc1 && sc2 && sc3) {
+          const poly2D = [
+            { u: sc0.x, v: sc0.y },
+            { u: sc1.x, v: sc1.y },
+            { u: sc2.x, v: sc2.y },
+            { u: sc3.x, v: sc3.y }
+          ];
+          if (typeof isPointInPolygon2D === 'function' && isPointInPolygon2D({ u: screenPos.x, v: screenPos.y }, poly2D)) {
+            return i;
+          }
+        }
+
+        if (p.center) {
+          const scCenter = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, p.center);
+          if (scCenter) {
+            const d = Math.hypot(screenPos.x - scCenter.x, screenPos.y - scCenter.y);
+            if (d < 24.0 && d < minCenterDist) {
+              minCenterDist = d;
+              bestIdx = i;
+            }
+          }
+        }
+      } catch(eProj) {}
+    }
+
+    if (bestIdx >= 0) return bestIdx;
+  }
+
+  return -1;
+}
+window.pickPanelUnderCursor = pickPanelUnderCursor;
 
 function updatePanelSelectionUI() {
   const lbl = document.getElementById('panel-selected-lbl');
@@ -6428,6 +6536,48 @@ window.selectPanelRow = function(panelIdx) {
   if (typeof showStatus === 'function') showStatus(`FILA COMPLETA (${window.selectedPanelIndices.length} PANELES) SELECCIONADA`, 2500);
 };
 
+window.selectAllPanelsInPolyline = function(polyIdx) {
+  const panelsArray = window.allRenderedPanels;
+  if (!Array.isArray(panelsArray) || panelsArray.length === 0) return;
+  const matched = [];
+  panelsArray.forEach((p, i) => {
+    if (p && !p.deleted && (polyIdx === undefined || polyIdx === null || p.polyIdx === polyIdx)) {
+      matched.push(i);
+    }
+  });
+  if (matched.length === 0) return;
+  window.selectedPanelIndices = matched;
+  selectedPanelIndex = matched[matched.length - 1];
+  if (typeof window !== 'undefined') window.selectedPanelIndex = selectedPanelIndex;
+  updatePanelSelectionUI();
+  if (typeof renderTriad2D === 'function') renderTriad2D();
+  if (typeof showStatus === 'function') {
+    showStatus(`TODOS LOS PANELES DEL FALDON (${matched.length}) SELECCIONADOS`, 2500);
+  }
+};
+
+window.selectAllPanels = function() {
+  const panelsArray = window.allRenderedPanels;
+  if (!Array.isArray(panelsArray) || panelsArray.length === 0) return;
+  const matched = [];
+  panelsArray.forEach((p, i) => {
+    if (p && !p.deleted) matched.push(i);
+  });
+  if (matched.length === 0) return;
+  window.selectedPanelIndices = matched;
+  selectedPanelIndex = matched[matched.length - 1];
+  if (typeof window !== 'undefined') window.selectedPanelIndex = selectedPanelIndex;
+  updatePanelSelectionUI();
+  if (typeof renderTriad2D === 'function') renderTriad2D();
+  if (typeof showStatus === 'function') {
+    showStatus(`TODAS LAS PLACAS DEL CAMPO SOLAR (${matched.length}) SELECCIONADAS`, 2500);
+  }
+};
+
+window.deselectAllPanels = function() {
+  selectPanel(-1);
+};
+
 function getSelectedPanel() {
   if (typeof selectedPanelIndex === 'undefined' || selectedPanelIndex < 0) return null;
   const panelsArray = (window.allRenderedPanels && window.allRenderedPanels.length > 0)
@@ -6439,43 +6589,63 @@ function getSelectedPanel() {
 window.getSelectedPanel = getSelectedPanel;
 
 function deleteSelectedPanel() {
-  if (typeof selectedPanelIndex === 'undefined' || selectedPanelIndex < 0) return;
-  const panel = getSelectedPanel();
-  if (!panel) return;
+  const indicesToDelete = (Array.isArray(window.selectedPanelIndices) && window.selectedPanelIndices.length > 0)
+    ? Array.from(new Set(window.selectedPanelIndices)).filter(idx => typeof idx === 'number' && idx >= 0).sort((a, b) => b - a)
+    : ((typeof selectedPanelIndex !== 'undefined' && selectedPanelIndex >= 0) ? [selectedPanelIndex] : []);
 
-  if (window.RAundo && panel.polyIdx !== undefined) window.RAundo.snapPanelDelete(panel.polyIdx);
+  if (indicesToDelete.length === 0) return;
 
-  panel.deleted = true;
-  if (panel.rawPanel) {
-    panel.rawPanel.deleted = true;
+  const panelsArray = (window.allRenderedPanels && window.allRenderedPanels.length > 0)
+    ? window.allRenderedPanels
+    : (typeof lastRoofInfo !== 'undefined' && lastRoofInfo ? lastRoofInfo.panels : null);
+  if (!panelsArray || panelsArray.length === 0) return;
+
+  // Snapshot undo de faldones afectados
+  const affectedPolyIndices = new Set();
+  indicesToDelete.forEach(idx => {
+    const p = panelsArray[idx];
+    if (p && typeof p.polyIdx !== 'undefined') affectedPolyIndices.add(p.polyIdx);
+  });
+  if (window.RAundo) {
+    affectedPolyIndices.forEach(pIdx => window.RAundo.snapPanelDelete(pIdx));
   }
 
-  // Registrar exclusión persistente en el faldón / polilínea
-  if (typeof WP !== 'undefined' && WP && WP.polylines && panel.polyIdx !== undefined) {
-    const poly = WP.polylines[panel.polyIdx];
-    if (poly) {
-      if (!Array.isArray(poly.deletedPanels)) poly.deletedPanels = [];
-      poly.deletedPanels.push({
-        u: (typeof panel.u === 'number') ? panel.u : (panel.rawPanel && panel.rawPanel.u),
-        v: (typeof panel.v === 'number') ? panel.v : (panel.rawPanel && panel.rawPanel.v),
-        center: panel.center ? Cesium.Cartesian3.clone(panel.center) : (panel.rawPanel && panel.rawPanel.center ? Cesium.Cartesian3.clone(panel.rawPanel.center) : null)
-      });
-      if (poly.roofInfo && Array.isArray(poly.roofInfo.panels)) {
-        poly.roofInfo.panels = poly.roofInfo.panels.filter(p => p !== panel && p !== panel.rawPanel && !p.deleted);
+  // Marcar como borrados y registrar exclusiones
+  indicesToDelete.forEach(idx => {
+    const panel = panelsArray[idx];
+    if (!panel) return;
+    panel.deleted = true;
+    if (panel.rawPanel) panel.rawPanel.deleted = true;
+
+    if (typeof WP !== 'undefined' && WP && WP.polylines && panel.polyIdx !== undefined) {
+      const poly = WP.polylines[panel.polyIdx];
+      if (poly) {
+        if (!Array.isArray(poly.deletedPanels)) poly.deletedPanels = [];
+        poly.deletedPanels.push({
+          u: (typeof panel.u === 'number') ? panel.u : (panel.rawPanel && panel.rawPanel.u),
+          v: (typeof panel.v === 'number') ? panel.v : (panel.rawPanel && panel.rawPanel.v),
+          center: panel.center ? Cesium.Cartesian3.clone(panel.center) : (panel.rawPanel && panel.rawPanel.center ? Cesium.Cartesian3.clone(panel.rawPanel.center) : null)
+        });
+        if (poly.roofInfo && Array.isArray(poly.roofInfo.panels)) {
+          poly.roofInfo.panels = poly.roofInfo.panels.filter(p => p !== panel && p !== panel.rawPanel && !p.deleted);
+        }
       }
+    } else if (typeof lastRoofInfo !== 'undefined' && lastRoofInfo && Array.isArray(lastRoofInfo.panels)) {
+      lastRoofInfo.panels = lastRoofInfo.panels.filter((p, pIdx) => pIdx !== idx && !p.deleted);
     }
-  } else if (typeof lastRoofInfo !== 'undefined' && lastRoofInfo && Array.isArray(lastRoofInfo.panels)) {
-    lastRoofInfo.panels = lastRoofInfo.panels.filter((p, idx) => idx !== selectedPanelIndex && !p.deleted);
-  }
+  });
 
+  // Eliminar físicamente del array global en orden descendente
   if (window.allRenderedPanels && Array.isArray(window.allRenderedPanels)) {
-    window.allRenderedPanels.splice(selectedPanelIndex, 1);
+    indicesToDelete.forEach(idx => {
+      if (idx >= 0 && idx < window.allRenderedPanels.length) {
+        window.allRenderedPanels.splice(idx, 1);
+      }
+    });
   }
 
   // Purgar caché del Heatmap para evitar tooltips fantasma
   if (typeof window !== 'undefined' && window.solarSimState) {
-    // [D4/M1] Representación única del estado: boolean (true=válido, null=no calculado) + flag dirty.
-    // Se delega en la API canónica de invalidación en lugar de tratar annualHeatmapData como array.
     if (typeof window.wpInvalidateHeatmap === 'function') {
       window.wpInvalidateHeatmap('panel_eliminado');
     } else {
@@ -6484,6 +6654,10 @@ function deleteSelectedPanel() {
     }
   }
 
+  const deletedCount = indicesToDelete.length;
+  window.selectedPanelIndices = [];
+  selectedPanelIndex = -1;
+  if (typeof window !== 'undefined') window.selectedPanelIndex = -1;
   selectPanel(-1);
   if (typeof wpFastRenderSimulatedPanels === 'function') {
     wpFastRenderSimulatedPanels();
@@ -6503,7 +6677,11 @@ function deleteSelectedPanel() {
   if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') {
     BOMTreeEngine.refresh();
   }
-  if (typeof showStatus === 'function') showStatus('<i data-lucide=\"trash-2\" class=\"icon-sm\"></i> MÓDULO FV ELIMINADO', 2000);
+  if (typeof showStatus === 'function') {
+    showStatus(deletedCount > 1 
+      ? `<i data-lucide="trash-2" class="icon-sm"></i> ${deletedCount} MÓDULOS FV ELIMINADOS` 
+      : '<i data-lucide="trash-2" class="icon-sm"></i> MÓDULO FV ELIMINADO', 2000);
+  }
 }
 window.deleteSelectedPanel = deleteSelectedPanel;
 
@@ -15758,7 +15936,9 @@ window.toggleSolarHUD = toggleSolarHUD;
     }
 
     // 0B. Comprobar clic sobre panel FV 3D
-    const panelIdx = getPanelIndexFromPick(pickedObj);
+    const panelIdx = (typeof pickPanelUnderCursor === 'function')
+      ? pickPanelUnderCursor(click.position)
+      : getPanelIndexFromPick(pickedObj);
     if (panelIdx >= 0) {
       if (typeof selectObstacle === 'function') selectObstacle(null);
       if (typeof selectElectricalObject === 'function') selectElectricalObject(null);
@@ -15784,17 +15964,21 @@ window.toggleSolarHUD = toggleSolarHUD;
     }
 
     // 0D. Comprobar clic sobre Edificio 3D para seleccionarlo y editarlo
+    // Si estamos en pasos solares (Paso 2, 3 o 4), no saltar al Paso 0 de edificio por un clic en la escena
+    const activeStep = (typeof currentStep !== 'undefined') ? currentStep : ((typeof WP !== 'undefined' && WP) ? WP.step : 1);
     let clickedBld = null;
-    if (pickedObj) {
-      const pId = (typeof pickedObj.id === 'string') ? pickedObj.id : (pickedObj.id && typeof pickedObj.id.id === 'string' ? pickedObj.id.id : '');
-      if (pId) {
-        clickedBld = buildings.find(b => (pId.startsWith(b.id) || pId.includes(b.id)) && b.visible !== false);
+    if (activeStep <= 1) {
+      if (pickedObj) {
+        const pId = (typeof pickedObj.id === 'string') ? pickedObj.id : (pickedObj.id && typeof pickedObj.id.id === 'string' ? pickedObj.id.id : '');
+        if (pId) {
+          clickedBld = buildings.find(b => (pId.startsWith(b.id) || pId.includes(b.id)) && b.visible !== false);
+        }
       }
-    }
-    if (!clickedBld) {
-      const clickPos3D = (typeof get3DPosition === 'function') ? get3DPosition(click.position) : null;
-      if (clickPos3D && typeof findBuildingUnderPosition === 'function') {
-        clickedBld = findBuildingUnderPosition(clickPos3D);
+      if (!clickedBld) {
+        const clickPos3D = (typeof get3DPosition === 'function') ? get3DPosition(click.position) : null;
+        if (clickPos3D && typeof findBuildingUnderPosition === 'function') {
+          clickedBld = findBuildingUnderPosition(clickPos3D);
+        }
       }
     }
     if (clickedBld && typeof WP !== "undefined" && WP && WP.mode !== "draw-poly" && WP.mode !== "define-plane" && WP.mode !== "place-obs") {
@@ -15813,11 +15997,12 @@ window.toggleSolarHUD = toggleSolarHUD;
       // Verificar si el clic fue sobre la geometría del obstáculo seleccionado antes de deseleccionar
       const isClickOnSelectedObs = selectedObstacleId && pickedObj && (
         (typeof pickedObj.id === 'string' && pickedObj.id.includes(selectedObstacleId)) ||
-        (pickedObj.id && typeof pickedObj.id.id === 'string' && pickedObj.id.id.includes(selectedObstacleId))
+        (pickedObj.id && typeof pickedObj.id.id === 'string' && pickedObj.id.includes(selectedObstacleId))
       );
 
-      // Verificar si el clic fue sobre el panel seleccionado
-      const isClickOnSelectedPanel = selectedPanelIndex >= 0 && pickedObj && (
+      // Verificar si el clic fue sobre algún panel (o en grupo de selección)
+      const isClickOnAnyPanel = (typeof pickPanelUnderCursor === 'function' && pickPanelUnderCursor(click.position) >= 0);
+      const isClickOnSelectedPanel = isClickOnAnyPanel || (selectedPanelIndex >= 0 && pickedObj && (
         (typeof pickedObj.id === 'string' && (
           pickedObj.id === 'pv_panel_tex_' + selectedPanelIndex ||
           pickedObj.id === 'pv_panel_instance_' + selectedPanelIndex ||
@@ -15828,7 +16013,7 @@ window.toggleSolarHUD = toggleSolarHUD;
           pickedObj.id.id === 'pv_panel_instance_' + selectedPanelIndex ||
           pickedObj.id.id.startsWith('pv_panel_pool_' + selectedPanelIndex)
         ))
-      );
+      ));
 
       if (!isClickOnSelectedObs && !isClickOnSelectedPanel) {
         if (selectedElectricalId) {
@@ -16381,6 +16566,23 @@ window.toggleSolarHUD = toggleSolarHUD;
       return;
     }
 
+    // ── Doble clic sobre panel FV: seleccionar fila completa o faldón completo (con Shift)
+    if (doubleClick && doubleClick.position) {
+      const dblPanelIdx = (typeof pickPanelUnderCursor === 'function')
+        ? pickPanelUnderCursor(doubleClick.position)
+        : -1;
+      if (dblPanelIdx >= 0) {
+        const isShift = !!(window._raIsShiftDown || (typeof window.event !== 'undefined' && window.event && window.event.shiftKey));
+        const targetP = (window.allRenderedPanels && window.allRenderedPanels[dblPanelIdx]);
+        if (isShift && targetP && typeof targetP.polyIdx === 'number' && typeof window.selectAllPanelsInPolyline === 'function') {
+          window.selectAllPanelsInPolyline(targetP.polyIdx);
+        } else if (typeof window.selectPanelRow === 'function') {
+          window.selectPanelRow(dblPanelIdx);
+        }
+        return;
+      }
+    }
+
     // ── SUGERENCIA 2: Doble clic sobre arista para insertar un nuevo vértice
     const poly = (WP.polylines && WP.selectedPolyIdx >= 0) ? WP.polylines[WP.selectedPolyIdx] : null;
     if (poly && poly.points && poly.points.length >= 3 && doubleClick && doubleClick.position) {
@@ -16505,9 +16707,20 @@ window.toggleSolarHUD = toggleSolarHUD;
       if (typeof deleteUniversalSelectedObject === 'function' && deleteUniversalSelectedObject()) {
         return;
       }
-      if (selectedPanelIndex >= 0) {
+      if (selectedPanelIndex >= 0 || (Array.isArray(window.selectedPanelIndices) && window.selectedPanelIndices.length > 0)) {
         deleteSelectedPanel();
         return;
+      }
+    }
+    // ── Atajo CTRL + A para seleccionar todas las placas en Paso 2 o 3
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')) {
+      const activeEl = document.activeElement;
+      if (!activeEl || (activeEl.tagName !== 'INPUT' && activeEl.tagName !== 'TEXTAREA' && !activeEl.isContentEditable)) {
+        if (typeof window.selectAllPanels === 'function') {
+          e.preventDefault();
+          window.selectAllPanels();
+          return;
+        }
       }
     }
     // ── Atajos W / E para conmutar modo de Gizmo Universal (W: Translate, E: Rotate)

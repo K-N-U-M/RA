@@ -200,7 +200,7 @@
                         <span class="node-label poly-name" title="${poly.name}">${poly.name}</span>
                       </div>
                       <div class="node-meta">
-                        <span class="badge-stats">${poly.panelsCount} pl · ${poly.kwp.toFixed(1)} kWp</span>
+                        <span class="badge-stats" style="cursor:pointer;" title="Clic para seleccionar todas las placas de este faldón" onclick="event.stopPropagation();ProjectHierarchy.selectAllPanelsInPolyline(${poly.index});">${poly.panelsCount} pl · ${poly.kwp.toFixed(1)} kWp</span>
                         <button type="button" class="node-action-btn" title="Alternar visibilidad" onclick="event.stopPropagation();ProjectHierarchy.toggleVisibility('polyline', ${poly.index});">${poly.visible ? '👁️' : '🙈'}</button>
                         <button type="button" class="node-action-btn delete-btn" title="Eliminar faldón" onclick="event.stopPropagation();ProjectHierarchy.deleteItem('polyline', ${poly.index});">🗑️</button>
                       </div>
@@ -277,7 +277,7 @@
                     <span class="node-label poly-name" title="${poly.name}">${poly.name}</span>
                   </div>
                   <div class="node-meta">
-                    <span class="badge-stats">${poly.panelsCount} pl · ${poly.kwp.toFixed(1)} kWp</span>
+                    <span class="badge-stats" style="cursor:pointer;" title="Clic para seleccionar todas las placas de este faldón" onclick="event.stopPropagation();ProjectHierarchy.selectAllPanelsInPolyline(${poly.index});">${poly.panelsCount} pl · ${poly.kwp.toFixed(1)} kWp</span>
                     <button type="button" class="node-action-btn" title="Alternar visibilidad" onclick="event.stopPropagation();ProjectHierarchy.toggleVisibility('polyline', ${poly.index});">${poly.visible ? '👁️' : '🙈'}</button>
                     <button type="button" class="node-action-btn delete-btn" title="Eliminar faldón" onclick="event.stopPropagation();ProjectHierarchy.deleteItem('polyline', ${poly.index});">🗑️</button>
                   </div>
@@ -305,7 +305,7 @@
                 <span class="node-label poly-name" title="${poly.name}">${poly.name}</span>
               </div>
               <div class="node-meta">
-                <span class="badge-stats">${poly.panelsCount} pl · ${poly.kwp.toFixed(1)} kWp</span>
+                <span class="badge-stats" style="cursor:pointer;" title="Clic para seleccionar todas las placas de este faldón" onclick="event.stopPropagation();ProjectHierarchy.selectAllPanelsInPolyline(${poly.index});">${poly.panelsCount} pl · ${poly.kwp.toFixed(1)} kWp</span>
                 <button type="button" class="node-action-btn" title="Alternar visibilidad" onclick="event.stopPropagation();ProjectHierarchy.toggleVisibility('polyline', ${poly.index});">${poly.visible ? '👁️' : '🙈'}</button>
                 <button type="button" class="node-action-btn delete-btn" title="Eliminar faldón" onclick="event.stopPropagation();ProjectHierarchy.deleteItem('polyline', ${poly.index});">🗑️</button>
               </div>
