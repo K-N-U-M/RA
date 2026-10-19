@@ -520,7 +520,20 @@ function wpOpenPricingReviewModal(onConfirm) {
   var initialPanelPrice = (pricing.panelPrice > 0) ? pricing.panelPrice : (d.cfg && d.cfg.precio ? d.cfg.precio : 125);
   var initialEstPrice = (typeof pricing.estPrice === 'number' && pricing.estPrice >= 0) ? pricing.estPrice : ((d.pres_est && d.pres_est > 0) ? d.pres_est : 450);
   var initialInvPrice = (typeof pricing.invPrice === 'number' && pricing.invPrice >= 0) ? pricing.invPrice : ((d.pres_inv && d.pres_inv > 0) ? d.pres_inv : 1100);
-  var initialBatPrice = (typeof pricing.batPrice === 'number' && pricing.batPrice >= 0) ? pricing.batPrice : (d.pres_bat || 0);
+  var initialBatPrice = 0;
+  if (eq && eq.hasBat) {
+    var cat = (typeof equipmentCatalog !== 'undefined' && equipmentCatalog) ? equipmentCatalog : {};
+    var bItem = (cat.batteries || []).find(function(b) { return b.id === (cfg.selectedBatteryId); });
+    var bCount = Math.max(1, eq.batCount || 1);
+    var catalogBatCost = (bItem && bItem.price > 0) ? (bItem.price * bCount) : 0;
+    initialBatPrice = (typeof pricing.batPrice === 'number' && pricing.batPrice > 0)
+      ? pricing.batPrice
+      : (catalogBatCost > 0 ? catalogBatCost : ((d.pres_bat && d.pres_bat > 0) ? d.pres_bat : (d.batCost || 0)));
+  } else if (typeof pricing.batPrice === 'number' && pricing.batPrice >= 0) {
+    initialBatPrice = pricing.batPrice;
+  } else {
+    initialBatPrice = (d.pres_bat || 0);
+  }
   var initialCabPrice = (typeof pricing.cabPrice === 'number' && pricing.cabPrice >= 0) ? pricing.cabPrice : ((d.pres_cab && d.pres_cab > 0) ? d.pres_cab : 350);
   var initialMoPrice = (typeof pricing.moPrice === 'number' && pricing.moPrice >= 0) ? pricing.moPrice : ((d.pres_mo && d.pres_mo > 0) ? d.pres_mo : 1400);
   var initialLegPrice = (typeof pricing.legPrice === 'number' && pricing.legPrice >= 0) ? pricing.legPrice : ((d.pres_leg && d.pres_leg > 0) ? d.pres_leg : 500);
@@ -1387,11 +1400,11 @@ function generatePropuestaComercialPDF(skipPricingModal) {
   // [SSOT] BATERÍA: precio y capacidad del catálogo × unidades cuando hay selección.
   let bat = _input('cfg-pres-bat', 0);
   let _batSel = null;
-  if (_ssotCat && _ssotCfg.selectedBatteryId) {
+  if (_ssotCat && _ssotCfg.selectedBatteryId && _ssotCfg.selectedBatteryId !== 'bat_none') {
     _batSel = (_ssotCat.batteries || []).find(b => b.id === _ssotCfg.selectedBatteryId) || null;
   }
   if (_batSel && _batSel.price > 0) {
-    const _batCount = (_ssotCfg.autoSizing && _ssotCfg.autoSizing.batteries && _ssotCfg.autoSizing.batteries.count) || 1;
+    const _batCount = Math.max(1, (_ssotCfg.autoSizing && _ssotCfg.autoSizing.batteries && _ssotCfg.autoSizing.batteries.count) || 1);
     bat = _batSel.price * _batCount;
   }
   let cab = _input('cfg-pres-cab', 350);
@@ -1419,7 +1432,11 @@ function generatePropuestaComercialPDF(skipPricingModal) {
   if (pricing) {
     if (typeof pricing.estPrice === 'number' && pricing.estPrice >= 0) est = pricing.estPrice;
     if (typeof pricing.invPrice === 'number' && pricing.invPrice >= 0) inv = pricing.invPrice;
-    if (typeof pricing.batPrice === 'number' && pricing.batPrice >= 0) bat = pricing.batPrice;
+    if (typeof pricing.batPrice === 'number' && pricing.batPrice > 0) {
+      bat = pricing.batPrice;
+    } else if (pricing.batPrice === 0 && (!_batSel || _batSel.id === 'bat_none')) {
+      bat = 0;
+    }
     if (typeof pricing.cabPrice === 'number' && pricing.cabPrice >= 0) cab = pricing.cabPrice;
     if (typeof pricing.moPrice === 'number' && pricing.moPrice >= 0) mo = pricing.moPrice;
     if (typeof pricing.legPrice === 'number' && pricing.legPrice >= 0) leg = pricing.legPrice;

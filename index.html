@@ -2808,6 +2808,25 @@ function openCostBreakdownModal() {
     if (src && dst) dst.value = src.value;
   });
 
+  // Sincronizar selección de batería oficial de solarProjectConfig
+  const _cat = (typeof window !== 'undefined' && window.equipmentCatalog) ? window.equipmentCatalog : null;
+  const _cfg = (typeof window !== 'undefined' && window.solarProjectConfig) ? window.solarProjectConfig : null;
+  if (_cat && _cfg && _cfg.selectedBatteryId && _cfg.selectedBatteryId !== 'bat_none') {
+    const _bSpec = (_cat.batteries || []).find(b => b.id === _cfg.selectedBatteryId);
+    if (_bSpec && (_bSpec.kwh > 0 || _bSpec.price > 0)) {
+      const _bCnt = Math.max(1, (_cfg.autoSizing && _cfg.autoSizing.batteries && _cfg.autoSizing.batteries.count) || 1);
+      const _bCost = Math.round(_bSpec.price * _bCnt);
+      const batCostInp = document.getElementById('modal-cfg-pres-bat');
+      if (batCostInp) batCostInp.value = _bCost;
+      const batOptSelect = document.getElementById('modal-cfg-pres-bat-opt');
+      if (batOptSelect) {
+        if (_bSpec.kwh <= 6) batOptSelect.value = '5';
+        else if (_bSpec.kwh <= 12) batOptSelect.value = '10';
+        else batOptSelect.value = '15';
+      }
+    }
+  }
+
   // Visibilidad campo coste batería
   const batCostRow = document.getElementById('modal-row-bat-cost');
   const batOpt = document.getElementById('modal-cfg-pres-bat-opt');
@@ -11509,10 +11528,11 @@ function getProjectCalcs() {
   }
 
   let pres_bat = 0;
-  if (_scCat && _scCfg && _scCfg.selectedBatteryId) {
-    const _batItem = (_scCat.batteries || []).find(b => b.id === _scCfg.selectedBatteryId);
+  let _batItem = null;
+  if (_scCat && _scCfg && _scCfg.selectedBatteryId && _scCfg.selectedBatteryId !== 'bat_none') {
+    _batItem = (_scCat.batteries || []).find(b => b.id === _scCfg.selectedBatteryId);
     if (_batItem && _batItem.price > 0) {
-      const _batCnt = (_scCfg.autoSizing && _scCfg.autoSizing.batteries && _scCfg.autoSizing.batteries.count) || 1;
+      const _batCnt = Math.max(1, (_scCfg.autoSizing && _scCfg.autoSizing.batteries && _scCfg.autoSizing.batteries.count) || 1);
       pres_bat = _batItem.price * _batCnt;
     }
   }
@@ -11529,7 +11549,11 @@ function getProjectCalcs() {
     if (typeof _effPricing.panelPrice === 'number' && _effPricing.panelPrice > 0) pres_pan = numPanels * _effPricing.panelPrice;
     if (typeof _effPricing.estPrice === 'number' && _effPricing.estPrice >= 0) pres_est = _effPricing.estPrice;
     if (typeof _effPricing.invPrice === 'number' && _effPricing.invPrice >= 0) pres_inv = _effPricing.invPrice;
-    if (typeof _effPricing.batPrice === 'number' && _effPricing.batPrice >= 0) pres_bat = _effPricing.batPrice;
+    if (typeof _effPricing.batPrice === 'number' && _effPricing.batPrice > 0) {
+      pres_bat = _effPricing.batPrice;
+    } else if (_effPricing.batPrice === 0 && (!_batItem || _batItem.id === 'bat_none')) {
+      pres_bat = 0;
+    }
     if (typeof _effPricing.cabPrice === 'number' && _effPricing.cabPrice >= 0) pres_cab = _effPricing.cabPrice;
     if (typeof _effPricing.moPrice === 'number' && _effPricing.moPrice >= 0) pres_mo = _effPricing.moPrice;
     if (typeof _effPricing.legPrice === 'number' && _effPricing.legPrice >= 0) pres_leg = _effPricing.legPrice;

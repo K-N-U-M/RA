@@ -303,7 +303,23 @@ function step3UpdateHardwareSelection() {
     if (prevBatId && prevBatId !== batSel.value) {
       if (window.solarProjectConfig.autoSizing && window.solarProjectConfig.autoSizing.batteries) {
         window.solarProjectConfig.autoSizing.batteries.isManual = false;
+        if (batSel.value !== 'bat_none' && (!window.solarProjectConfig.autoSizing.batteries.count || window.solarProjectConfig.autoSizing.batteries.count === 0)) {
+          window.solarProjectConfig.autoSizing.batteries.count = 1;
+        }
       }
+      if (window.RAPricing && window.RAPricing.currentSessionPricing) {
+        window.RAPricing.currentSessionPricing.batPrice = null;
+      }
+      try {
+        const _saved = localStorage.getItem('ra_pricing_defaults');
+        if (_saved) {
+          const _p = JSON.parse(_saved);
+          if (_p && typeof _p === 'object') {
+            delete _p.batPrice;
+            localStorage.setItem('ra_pricing_defaults', JSON.stringify(_p));
+          }
+        }
+      } catch(e) {}
     }
     window.solarProjectConfig.selectedBatteryId = batSel.value;
   }
@@ -696,7 +712,7 @@ function wpComputeAutoSizing(forcedCount) {
 
   // 3. Baterías LFP:
   let autoBats = 0;
-  if (bat && bat.kwh && bat.kwh > 0) {
+  if (bat && bat.kwh && bat.kwh > 0 && bat.id !== 'bat_none') {
     autoBats = Math.max(1, Math.ceil(totalKwp / bat.kwh));
   }
 
@@ -704,7 +720,7 @@ function wpComputeAutoSizing(forcedCount) {
   if (!cfg.autoSizing) cfg.autoSizing = {};
   if (!cfg.autoSizing.inverters) cfg.autoSizing.inverters = { count: 1, autoCount: 1, isManual: false };
   if (!cfg.autoSizing.microinverters) cfg.autoSizing.microinverters = { count: 0, autoCount: 0, isManual: false };
-  if (!cfg.autoSizing.batteries) cfg.autoSizing.batteries = { count: 0, autoCount: 0, isManual: false };
+  if (!cfg.autoSizing.batteries) cfg.autoSizing.batteries = { count: autoBats, autoCount: autoBats, isManual: false };
 
   const prevInvCount = cfg.autoSizing.inverters.count;
   cfg.autoSizing.inverters.autoCount = autoInverters;
@@ -731,7 +747,7 @@ function wpComputeAutoSizing(forcedCount) {
   }
 
   cfg.autoSizing.batteries.autoCount = autoBats;
-  if (!cfg.autoSizing.batteries.isManual || cfg.autoSizing.batteries.count > autoBats * 2 || autoBats > cfg.autoSizing.batteries.count * 3) {
+  if (!cfg.autoSizing.batteries.isManual || cfg.autoSizing.batteries.count === 0 || cfg.autoSizing.batteries.count > autoBats * 2 || autoBats > cfg.autoSizing.batteries.count * 3) {
     if (cfg.autoSizing.batteries.isManual && cfg.autoSizing.batteries.count !== autoBats) {
       cfg.autoSizing.batteries.isManual = false;
     }
@@ -911,11 +927,23 @@ function step3SyncBudgetHardwareCosts(inv, mi, bat) {
     totalInvCost = invCount * (inv.price || 1200);
   }
 
-  const batCount = (cfg.autoSizing && cfg.autoSizing.batteries) ? cfg.autoSizing.batteries.count : 0;
-  const totalBatCost = (bat && bat.kwh > 0) ? (batCount * (bat.price || 0)) : 0;
+  const batCount = (cfg.autoSizing && cfg.autoSizing.batteries) ? Math.max(1, cfg.autoSizing.batteries.count) : 1;
+  const hasValidBat = (bat && bat.id !== 'bat_none' && (bat.kwh > 0 || bat.price > 0));
+  const totalBatCost = hasValidBat ? (batCount * (bat.price || 0)) : 0;
 
   if (invCostEl) invCostEl.value = Math.round(totalInvCost);
   if (batCostEl) batCostEl.value = Math.round(totalBatCost);
+  const modalBatCostEl = document.getElementById('modal-cfg-pres-bat');
+  if (modalBatCostEl) modalBatCostEl.value = Math.round(totalBatCost);
+  const modalBatOpt = document.getElementById('modal-cfg-pres-bat-opt');
+  if (modalBatOpt && bat) {
+    if (bat.id === 'bat_none' || !bat.kwh) modalBatOpt.value = '0';
+    else if (bat.kwh <= 6) modalBatOpt.value = '5';
+    else if (bat.kwh <= 12) modalBatOpt.value = '10';
+    else modalBatOpt.value = '15';
+  }
+  const modalBatCostRow = document.getElementById('modal-row-bat-cost');
+  if (modalBatCostRow) modalBatCostRow.style.display = totalBatCost > 0 ? 'flex' : 'none';
   if (rowBat) rowBat.style.display = totalBatCost > 0 ? 'flex' : 'none';
 
   if (typeof updateBudgetUI === 'function') {

@@ -414,9 +414,9 @@
         // ── 4.1 BATERÍAS DE ALMACENAMIENTO ──────────────────────────────────────
         const batCount = (projectConfig.autoSizing && projectConfig.autoSizing.batteries && projectConfig.autoSizing.batteries.count) || 0;
         const batId = projectConfig.selectedBatteryId;
-        if (batId && catalog.batteries) {
+        if (batId && batId !== 'bat_none' && catalog.batteries) {
           const batSpec = catalog.batteries.find(b => b.id === batId);
-          if (batSpec) {
+          if (batSpec && (batSpec.kwh > 0 || batSpec.price > 0)) {
             const finalBatCount = Math.max(1, batCount);
             const totalBatCost = finalBatCount * (batSpec.price || 3500);
             tree.summary.subtotalEur += totalBatCost;
