@@ -676,7 +676,57 @@ async function loadArcGIS3D() {
     );
   }
 
-  function flyToPlace(p, save = true) {
+  async function getGroundElevation(lat, lon) {
+    // 1. Google Maps Elevation API (si hay API key disponible)
+    const apiKey = (window.RA_CONFIG_KEYS && window.RA_CONFIG_KEYS.googleMaps) ||
+                   (window.RA_KEYS && window.RA_KEYS.googleMaps) ||
+                   'AIzaSyAj-cG-tvA-WSaQvC6axmHnQK4WM5VDQWA';
+    if (apiKey) {
+      try {
+        const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        const tid = controller ? setTimeout(() => controller.abort(), 2000) : null;
+        const res = await fetch(`https://maps.googleapis.com/maps/api/elevation/json?locations=${lat},${lon}&key=${apiKey}`, controller ? { signal: controller.signal } : {});
+        if (tid) clearTimeout(tid);
+        const data = await res.json();
+        if (data && data.status === 'OK' && Array.isArray(data.results) && data.results.length > 0) {
+          const elev = data.results[0].elevation;
+          if (typeof elev === 'number' && !isNaN(elev)) {
+            return elev;
+          }
+        }
+      } catch (eGoogle) {
+        window.RA && window.RA.log && window.RA.log.debug('Fallback desde Google Elevation API:', eGoogle);
+      }
+    }
+
+    // 2. Open-Meteo Elevation API (fallback abierto sin cuota)
+    try {
+      const controller2 = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      const tid2 = controller2 ? setTimeout(() => controller2.abort(), 2000) : null;
+      const res2 = await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${lat}&longitude=${lon}`, controller2 ? { signal: controller2.signal } : {});
+      if (tid2) clearTimeout(tid2);
+      const data2 = await res2.json();
+      if (data2 && Array.isArray(data2.elevation) && typeof data2.elevation[0] === 'number') {
+        return data2.elevation[0];
+      }
+    } catch (eMeteo) {
+      window.RA && window.RA.log && window.RA.log.debug('Fallback desde Open-Meteo Elevation:', eMeteo);
+    }
+
+    // 3. Muestreo de Globo Cesium si está disponible
+    if (window.viewer && window.viewer.scene && window.viewer.scene.globe && typeof Cesium !== 'undefined') {
+      try {
+        const carto = Cesium.Cartographic.fromDegrees(lon, lat);
+        const gh = window.viewer.scene.globe.getHeight(carto);
+        if (typeof gh === 'number' && !isNaN(gh)) return gh;
+      } catch (_) {}
+    }
+
+    // 4. Cota estimada en España si todos los servicios están inaccesibles
+    return 600;
+  }
+
+  async function flyToPlace(p, save = true) {
     if (!p) return;
     const searchInput = document.getElementById('ra-search-input');
     const resultsEl = document.getElementById('ra-results');
@@ -694,6 +744,7 @@ async function loadArcGIS3D() {
 
     const lon = parseFloat(p.lon);
     const lat = parseFloat(p.lat);
+    if (isNaN(lon) || isNaN(lat)) return;
 
     if (typeof window !== 'undefined' && window.solarProjectConfig) {
       window.solarProjectConfig.lat = lat;
@@ -711,21 +762,46 @@ async function loadArcGIS3D() {
       RAProjectStatusHUD.update();
     }
 
-    // Altura óptima para ingeniería fotovoltaica de cubierta: 140m con pitch -45°
-    let targetHeight = 140;
-    let targetPitch = Cesium.Math.toRadians(-45);
+    // Distancia visual (range) y ángulo para inspección fotovoltaica AAA
+    const isBroadArea = (p.type === 'osm' && (!p.sub_text || p.sub_text.split(',').length < 2));
+    const targetRange = isBroadArea ? 800 : 220; // 220m en cubierta permite ver nave/tejado con nitidez
+    const targetPitch = Cesium.Math.toRadians(isBroadArea ? -40 : -45);
 
-    // Si es un término municipal o búsqueda muy amplia, ajustar a altura intermedia
-    if (p.type === 'osm' && (!p.sub_text || p.sub_text.split(',').length < 2)) {
-      targetHeight = 450;
-      targetPitch = Cesium.Math.toRadians(-40);
-    }
+    // Obtener elevación del terreno real
+    const elevation = await getGroundElevation(lat, lon);
 
-    curCam.flyTo({
-      destination: Cesium.Cartesian3.fromDegrees(lon, lat, targetHeight),
-      duration: 2.5,
+    // Centrar la cámara en la ubicación focal usando BoundingSphere y HeadingPitchRange
+    const targetCartesian = Cesium.Cartesian3.fromDegrees(lon, lat, elevation);
+    const boundingSphere = new Cesium.BoundingSphere(targetCartesian, 0);
+
+    curCam.flyToBoundingSphere(boundingSphere, {
+      offset: new Cesium.HeadingPitchRange(
+        Cesium.Math.toRadians(0), // Heading Norte
+        targetPitch,
+        targetRange
+      ),
+      duration: 2.2,
       easingFunction: Cesium.EasingFunction.QUADRATIC_IN_OUT,
-      orientation: { heading: 0, pitch: targetPitch, roll: 0 }
+      complete: () => {
+        // Guardián anti-entierro post-vuelo: asegurar que la cámara quede por encima de mallas locales
+        setTimeout(() => {
+          if (window.viewer && window.viewer.scene && curCam) {
+            try {
+              const carto = curCam.positionCartographic;
+              if (carto) {
+                let surfaceH = null;
+                try { surfaceH = window.viewer.scene.sampleHeight(carto); } catch (_) {}
+                if (typeof surfaceH === 'number' && !isNaN(surfaceH) && carto.height < surfaceH + 20) {
+                  curCam.setView({
+                    destination: Cesium.Cartesian3.fromRadians(carto.longitude, carto.latitude, surfaceH + 50)
+                  });
+                }
+              }
+            } catch (_) {}
+            if (window.viewer.scene.requestRender) window.viewer.scene.requestRender();
+          }
+        }, 350);
+      }
     });
   }
 
