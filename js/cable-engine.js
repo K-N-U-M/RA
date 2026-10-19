@@ -644,7 +644,7 @@
 
         var lPos = self.computePathLength(posPath);
         var lNeg = self.computePathLength(negPath);
-        var numMods = (s.panels && Array.isArray(s.panels)) ? s.panels.length : (s.numPanels || 0);
+        var numMods = (strObj && strObj.panels && Array.isArray(strObj.panels)) ? strObj.panels.length : ((strObj && strObj.numPanels) || 0);
         var interModuleCableM = Math.max(0, (numMods - 1) * 1.25);
         var totalStrLen = lPos + lNeg + interModuleCableM;
         var strMaxDc = Math.max(lPos, lNeg) + interModuleCableM;

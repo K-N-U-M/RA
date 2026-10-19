@@ -830,16 +830,16 @@ async function raImportProjectData(projectData, options = {}) {
         };
       }
       if (typeof wpCalculateAndRenderInverterCables === 'function') {
-        wpCalculateAndRenderInverterCables();
+        try { wpCalculateAndRenderInverterCables(); } catch(eCbl) { console.warn('[RA Storage] Error en wpCalculateAndRenderInverterCables:', eCbl); }
       }
       if (window.RACableEngine && typeof window.RACableEngine.renderAllCables === 'function') {
-        window.RACableEngine.renderAllCables();
+        try { window.RACableEngine.renderAllCables(); } catch(eCbl) { console.warn('[RA Storage] Error en RACableEngine.renderAllCables:', eCbl); }
       }
       if (typeof wpUpdateCableRoutesUI === 'function') {
-        wpUpdateCableRoutesUI();
+        try { wpUpdateCableRoutesUI(); } catch(eUi) {}
       }
       if (typeof populateStep3EquipmentSelectors === 'function') {
-        populateStep3EquipmentSelectors();
+        try { populateStep3EquipmentSelectors(); } catch(eEq) {}
       }
     }
 
@@ -851,10 +851,14 @@ async function raImportProjectData(projectData, options = {}) {
     if (projectData.projectConfig && typeof window !== 'undefined') {
       if (!window.solarProjectConfig) window.solarProjectConfig = {};
       Object.assign(window.solarProjectConfig, projectData.projectConfig);
-      if (typeof window.populateStep3EquipmentSelectors === 'function') window.populateStep3EquipmentSelectors();
-      if (typeof wpFastRenderSimulatedPanels === 'function') wpFastRenderSimulatedPanels();
+      if (typeof window.populateStep3EquipmentSelectors === 'function') {
+        try { window.populateStep3EquipmentSelectors(); } catch(eEq2) {}
+      }
+      if (typeof wpFastRenderSimulatedPanels === 'function') {
+        try { wpFastRenderSimulatedPanels(); } catch(ePanels) {}
+      }
       if (typeof window !== 'undefined' && window.WorkflowOrchestrator && typeof window.WorkflowOrchestrator.refreshGating === 'function') {
-        window.WorkflowOrchestrator.refreshGating();
+        try { window.WorkflowOrchestrator.refreshGating(); } catch(eGating) {}
       }
     }
 
@@ -880,10 +884,13 @@ async function raImportProjectData(projectData, options = {}) {
     }
     
     if (typeof ProjectHierarchy !== 'undefined' && ProjectHierarchy.notify) {
-      ProjectHierarchy.notify('project_loaded');
+      try { ProjectHierarchy.notify('project_loaded'); } catch(eNotify) { console.warn('[RA Storage] Error en notify project_loaded:', eNotify); }
     }
-    if (typeof UIOutliner !== 'undefined' && typeof UIOutliner.update === 'function') {
-      UIOutliner.update();
+    if (typeof UIOutliner !== 'undefined') {
+      try {
+        if (typeof UIOutliner.update === 'function') UIOutliner.update();
+        else if (typeof UIOutliner.render === 'function') UIOutliner.render();
+      } catch(eOutliner) {}
     }
 
     // [CÁMARA FINAL-LOCK] Aplicar cámara guardada al final absoluto
@@ -912,7 +919,12 @@ async function raImportProjectData(projectData, options = {}) {
   } catch (err) {
     raHideProjectLoadingHUD();
     console.error('Error importando proyecto:', err);
-    if (preImportSnapshot && (!options || !options.isRollback)) {
+    const hadPriorGeometry = preImportSnapshot && (
+      (Array.isArray(preImportSnapshot.polylines) && preImportSnapshot.polylines.length > 0) ||
+      (preImportSnapshot.workPlanes && Array.isArray(preImportSnapshot.workPlanes.planes) && preImportSnapshot.workPlanes.planes.length > 0) ||
+      (Array.isArray(preImportSnapshot.buildings) && preImportSnapshot.buildings.length > 0)
+    );
+    if (hadPriorGeometry && (!options || !options.isRollback)) {
       try {
         console.warn('[RA Storage] Error en importación. Ejecutando rollback transaccional al proyecto previo...');
         raImportProjectData(preImportSnapshot, { isRollback: true });
@@ -1273,7 +1285,7 @@ function raNewProjectConfirm() {
         _raCurrentProjectName = fileName;
         raShowProjectLoadingHUD(file.name);
         raUpdateProjectLoadingProgress(5, 'Leyendo archivo soltado...', file.name);
-
+        const reader = new FileReader();
         reader.onload = async (ev) => {
           try {
             const data = JSON.parse(ev.target.result);
