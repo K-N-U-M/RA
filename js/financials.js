@@ -521,8 +521,9 @@ function wpOpenPricingReviewModal(onConfirm) {
   var initialEstPrice = (typeof pricing.estPrice === 'number' && pricing.estPrice >= 0) ? pricing.estPrice : ((d.pres_est && d.pres_est > 0) ? d.pres_est : 450);
   var initialInvPrice = (typeof pricing.invPrice === 'number' && pricing.invPrice >= 0) ? pricing.invPrice : ((d.pres_inv && d.pres_inv > 0) ? d.pres_inv : 1100);
   var initialBatPrice = 0;
+  var cfg = (typeof window !== 'undefined' && window.solarProjectConfig) ? window.solarProjectConfig : {};
   if (eq && eq.hasBat) {
-    var cat = (typeof equipmentCatalog !== 'undefined' && equipmentCatalog) ? equipmentCatalog : {};
+    var cat = (typeof equipmentCatalog !== 'undefined' && equipmentCatalog) ? equipmentCatalog : ((typeof window !== 'undefined' && window.equipmentCatalog) ? window.equipmentCatalog : {});
     var bItem = (cat.batteries || []).find(function(b) { return b.id === (cfg.selectedBatteryId); });
     var bCount = Math.max(1, eq.batCount || 1);
     var catalogBatCost = (bItem && bItem.price > 0) ? (bItem.price * bCount) : 0;
@@ -611,7 +612,7 @@ function wpOpenPricingReviewModal(onConfirm) {
     if (inp) inp.oninput = recalculateLive;
   });
 
-  var presetBtns = pModal.querySelectorAll('.btn-preset-margin');
+  var presetBtns = pModal ? pModal.querySelectorAll('.btn-preset-margin') : [];
   presetBtns.forEach(function(btn) {
     btn.onclick = function() {
       var mg = parseFloat(btn.getAttribute('data-margin')) || 20;
@@ -624,7 +625,7 @@ function wpOpenPricingReviewModal(onConfirm) {
     if (restoreInitial) {
       RAPricing.currentSessionPricing = initialPricing;
     }
-    pModal.style.display = 'none';
+    if (pModal) pModal.style.display = 'none';
   };
 
   var closeBtn = document.getElementById('btn-close-pricing-review');
@@ -695,7 +696,7 @@ function wpOpenPricingReviewModal(onConfirm) {
     };
   }
 
-  pModal.style.display = 'flex';
+  if (pModal) pModal.style.display = 'flex';
 }
 if (typeof window !== 'undefined') {
   window.wpOpenPricingReviewModal = wpOpenPricingReviewModal;
