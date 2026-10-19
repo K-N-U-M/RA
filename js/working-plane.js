@@ -4975,6 +4975,11 @@ function saveEquipmentCatalog() {
   window.equipmentCatalog = equipmentCatalog;
   populateModuleDropdown();
   populateEquipmentModalUI();
+  if (typeof populateStep3EquipmentSelectors === 'function') {
+    populateStep3EquipmentSelectors();
+  } else if (typeof window !== 'undefined' && typeof window.populateStep3EquipmentSelectors === 'function') {
+    window.populateStep3EquipmentSelectors();
+  }
 }
 
 function resetEquipmentCatalogToDefault() {
@@ -5078,6 +5083,11 @@ function openEquipmentCatalogModal(tab) {
 function closeEquipmentCatalogModal() {
   const modal = document.getElementById('ra-equipment-catalog-modal');
   if (modal) modal.style.display = 'none';
+  if (typeof populateStep3EquipmentSelectors === 'function') {
+    populateStep3EquipmentSelectors();
+  } else if (typeof window !== 'undefined' && typeof window.populateStep3EquipmentSelectors === 'function') {
+    window.populateStep3EquipmentSelectors();
+  }
 }
 
 function switchCatalogTab(tabName) {
@@ -5222,6 +5232,11 @@ function applyBatteryFromCatalog(batId) {
   if (!bat) return;
   if (typeof window !== 'undefined' && window.solarProjectConfig) {
     window.solarProjectConfig.selectedBatteryId = batId;
+  }
+  if (typeof populateStep3EquipmentSelectors === 'function') {
+    populateStep3EquipmentSelectors();
+  } else if (typeof window !== 'undefined' && typeof window.populateStep3EquipmentSelectors === 'function') {
+    window.populateStep3EquipmentSelectors();
   }
   const selBatId = document.getElementById('step3-sel-battery');
   if (selBatId) selBatId.value = batId;

@@ -45,6 +45,9 @@ global.onSelectModuleFromDropdown = function(id) {
 global.applyInverterFromCatalog = function(id) {
   global.lastAppliedInverter = id;
 };
+global.applyBatteryFromCatalog = function(id) {
+  global.lastAppliedBattery = id;
+};
 
 // Cargar el módulo
 require('../js/equipment-ai-importer.js');
@@ -144,7 +147,12 @@ assert.strictEqual(global.equipmentCatalog.modules.length, initialModuleCount + 
 assert.strictEqual(global.lastSelectedModule, cleanModule.id, 'Debe activar el nuevo módulo en el selector del Paso 2');
 assert.strictEqual(global.catalogSaved, true, 'Debe haber llamado a saveEquipmentCatalog()');
 
-console.log('✓ Inserción, guardado y sincronización reactiva en caliente verificados');
+const initialBatteryCount = global.equipmentCatalog.batteries.length;
+Importer.commitToCatalog(cleanBat);
+assert.strictEqual(global.equipmentCatalog.batteries.length, initialBatteryCount + 1, 'Debe haber añadido la batería a la lista');
+assert.strictEqual(global.lastAppliedBattery, cleanBat.id, 'Debe activar la nueva batería en el selector del Paso 4');
+
+console.log('✓ Inserción, guardado y sincronización reactiva en caliente verificados (módulos y baterías)');
 
 // ── 6. TEST DE DETECCIÓN DE API KEY ──────────────────────────────────────────
 mockLocalStorage['ra_gemini_api_key'] = 'AIzaSyMockTestKey12345';

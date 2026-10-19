@@ -23,14 +23,14 @@ window.solarProjectConfig = {
 window.RA.projectConfig = window.solarProjectConfig;
 
 function populateStep3EquipmentSelectors() {
-  const catalog = (typeof equipmentCatalog !== 'undefined') ? equipmentCatalog : null;
+  const catalog = (typeof window !== 'undefined' && window.equipmentCatalog) ? window.equipmentCatalog : ((typeof equipmentCatalog !== 'undefined') ? equipmentCatalog : null);
   if (!catalog) return;
 
   const cfg = window.solarProjectConfig || {};
 
   // 1. Módulos FV (Sincronizado entre Paso 2 Campo Solar y Paso 4 Equipos)
-  const curModVal = cfg.selectedModuleId || (catalog.modules[0] ? catalog.modules[0].id : '');
-  const modOptionsHtml = catalog.modules.map(m => {
+  const curModVal = cfg.selectedModuleId || (catalog.modules && catalog.modules[0] ? catalog.modules[0].id : '');
+  const modOptionsHtml = (catalog.modules || []).map(m => {
     const isSel = (m.id === curModVal);
     return '<option value="' + m.id + '"' + (isSel ? ' selected' : '') + '>' +
       m.brand + ' · ' + m.model + ' (' + m.wp + ' Wp · ' + m.l.toFixed(2) + '×' + m.w.toFixed(2) + 'm · ' + m.price + ' €)' +
@@ -51,7 +51,7 @@ function populateStep3EquipmentSelectors() {
 
   // 2. Inversores
   const invSel = document.getElementById('step3-sel-inverter');
-  if (invSel) {
+  if (invSel && Array.isArray(catalog.inverters)) {
     const curVal = cfg.selectedInverterId || (catalog.inverters[1] ? catalog.inverters[1].id : (catalog.inverters[0] ? catalog.inverters[0].id : ''));
     let invOptionsHtml = catalog.inverters.map(i => {
       const isSel = (i.id === curVal);
@@ -67,11 +67,12 @@ function populateStep3EquipmentSelectors() {
       invOptionsHtml = `<option value="${vInv.id}" ${isSel ? 'selected' : ''} style="color:#F59E0B;font-weight:bold;">⚡ ${vInv.brand} · ${vInv.model} (${vInv.kw} kW · ${vInv.price} €)</option>` + invOptionsHtml;
     }
     invSel.innerHTML = invOptionsHtml;
+    if (curVal) invSel.value = curVal;
   }
 
   // 3. Microinversores
   const miSel = document.getElementById('step3-sel-microinverter');
-  if (miSel) {
+  if (miSel && Array.isArray(catalog.microinverters)) {
     const curVal = cfg.selectedMicroinverterId || (catalog.microinverters[0] ? catalog.microinverters[0].id : '');
     miSel.innerHTML = catalog.microinverters.map(mi => {
       const isSel = (mi.id === curVal);
@@ -79,11 +80,12 @@ function populateStep3EquipmentSelectors() {
         mi.brand + ' · ' + mi.model + ' (' + Math.round(mi.kw * 1000) + ' W · ' + (mi.type || 'MLPE') + ' · ' + mi.price + ' €)' +
       '</option>';
     }).join('');
+    if (curVal) miSel.value = curVal;
   }
 
   // 4. Baterías
   const batSel = document.getElementById('step3-sel-battery');
-  if (batSel) {
+  if (batSel && Array.isArray(catalog.batteries)) {
     const curVal = cfg.selectedBatteryId || (catalog.batteries[0] ? catalog.batteries[0].id : '');
     batSel.innerHTML = catalog.batteries.map(b => {
       const isSel = (b.id === curVal);
@@ -92,6 +94,7 @@ function populateStep3EquipmentSelectors() {
         b.brand + ' · ' + b.model + ' (' + capTxt + ')' +
       '</option>';
     }).join('');
+    if (curVal) batSel.value = curVal;
   }
 
   if (typeof wpUpdateCableRoutesUI === 'function') {
@@ -159,8 +162,9 @@ function step2SelectModule(id) {
   const selStep3 = document.getElementById('step3-sel-module');
   if (selStep3) selStep3.value = id;
 
-  if (typeof equipmentCatalog !== 'undefined' && equipmentCatalog && Array.isArray(equipmentCatalog.modules)) {
-    const m = equipmentCatalog.modules.find(x => x.id === id);
+  const catalog = (typeof window !== 'undefined' && window.equipmentCatalog) ? window.equipmentCatalog : ((typeof equipmentCatalog !== 'undefined') ? equipmentCatalog : null);
+  if (catalog && Array.isArray(catalog.modules)) {
+    const m = catalog.modules.find(x => x.id === id);
     if (m && typeof panelConfig !== 'undefined') {
       panelConfig.potencia = m.wp || 450;
       panelConfig.largo = m.l || 2.10;
@@ -191,7 +195,7 @@ function step2SelectModule(id) {
 window.step2SelectModule = step2SelectModule;
 
 function wpUpdateStep2ModuleBadge() {
-  const catalog = (typeof equipmentCatalog !== 'undefined') ? equipmentCatalog : null;
+  const catalog = (typeof window !== 'undefined' && window.equipmentCatalog) ? window.equipmentCatalog : ((typeof equipmentCatalog !== 'undefined') ? equipmentCatalog : null);
   const cfg = window.solarProjectConfig || {};
   const badge = document.getElementById('step2-module-spec-badge');
   if (!catalog || !badge) return;
@@ -244,8 +248,9 @@ function step3UpdateHardwareSelection() {
     if (typeof wpUpdateStep2ModuleBadge === 'function') wpUpdateStep2ModuleBadge();
     
     // SSOT Sync: Actualizar panelConfig global automáticamente
-    if (typeof equipmentCatalog !== 'undefined' && equipmentCatalog && Array.isArray(equipmentCatalog.modules)) {
-      const m = equipmentCatalog.modules.find(x => x.id === newModValue);
+    const catalogMod = (typeof window !== 'undefined' && window.equipmentCatalog) ? window.equipmentCatalog : ((typeof equipmentCatalog !== 'undefined') ? equipmentCatalog : null);
+    if (catalogMod && Array.isArray(catalogMod.modules)) {
+      const m = catalogMod.modules.find(x => x.id === newModValue);
       if (m && typeof panelConfig !== 'undefined') {
         panelConfig.potencia = m.wp || 450;
         panelConfig.largo = m.l || 2.10;
@@ -263,13 +268,13 @@ function step3UpdateHardwareSelection() {
   if (miSel && miSel.value)   window.solarProjectConfig.selectedMicroinverterId = miSel.value;
   if (batSel && batSel.value) window.solarProjectConfig.selectedBatteryId = batSel.value;
 
-  const catalog = (typeof equipmentCatalog !== 'undefined') ? equipmentCatalog : null;
+  const catalog = (typeof window !== 'undefined' && window.equipmentCatalog) ? window.equipmentCatalog : ((typeof equipmentCatalog !== 'undefined') ? equipmentCatalog : null);
   if (!catalog) return;
 
-  const inv = catalog.inverters.find(i => i.id === window.solarProjectConfig.selectedInverterId) || catalog.inverters[0];
-  const mod = catalog.modules.find(m => m.id === window.solarProjectConfig.selectedModuleId) || catalog.modules[0];
-  const mi  = catalog.microinverters.find(m => m.id === window.solarProjectConfig.selectedMicroinverterId) || catalog.microinverters[0];
-  const bat = catalog.batteries.find(b => b.id === window.solarProjectConfig.selectedBatteryId) || catalog.batteries[0];
+  const inv = (catalog.inverters && catalog.inverters.find(i => i.id === window.solarProjectConfig.selectedInverterId)) || (catalog.inverters && catalog.inverters[0]);
+  const mod = (catalog.modules && catalog.modules.find(m => m.id === window.solarProjectConfig.selectedModuleId)) || (catalog.modules && catalog.modules[0]);
+  const mi  = (catalog.microinverters && catalog.microinverters.find(m => m.id === window.solarProjectConfig.selectedMicroinverterId)) || (catalog.microinverters && catalog.microinverters[0]);
+  const bat = (catalog.batteries && catalog.batteries.find(b => b.id === window.solarProjectConfig.selectedBatteryId)) || (catalog.batteries && catalog.batteries[0]);
 
   // Coeficientes térmicos bajo CTE / IEC 62548
   const tMin = -10;
@@ -467,7 +472,7 @@ function wpComputeAutoSizing(forcedCount) {
     window.solarProjectConfig.lastEstimatedPanels = count;
   }
 
-  const catalog = (typeof equipmentCatalog !== 'undefined') ? equipmentCatalog : null;
+  const catalog = (typeof window !== 'undefined' && window.equipmentCatalog) ? window.equipmentCatalog : ((typeof equipmentCatalog !== 'undefined') ? equipmentCatalog : null);
   if (!catalog) return;
 
   const cfg = window.solarProjectConfig;
@@ -951,7 +956,7 @@ function wpAutoSelectOptimalEngineering(force = false) {
     return null;
   }
 
-  const catalog = (typeof equipmentCatalog !== 'undefined') ? equipmentCatalog : null;
+  const catalog = (typeof window !== 'undefined' && window.equipmentCatalog) ? window.equipmentCatalog : ((typeof equipmentCatalog !== 'undefined') ? equipmentCatalog : null);
   if (!catalog || !Array.isArray(catalog.inverters) || catalog.inverters.length === 0) return null;
 
   // 1. Obtener conteo real de módulos y potencia
@@ -1204,13 +1209,14 @@ function wpRenderAutoEngineeringBanner(info, isManualOverride = false) {
 
 function wpSaveVirtualInverterToCatalog() {
   const cfg = window.solarProjectConfig;
-  const vInv = (cfg && cfg.lastVirtualInverter) || (cfg && cfg.selectedInverterId && typeof equipmentCatalog !== 'undefined' && equipmentCatalog.inverters && equipmentCatalog.inverters.find(i => i.id === cfg.selectedInverterId && i.isVirtual));
+  const catalog = (typeof window !== 'undefined' && window.equipmentCatalog) ? window.equipmentCatalog : ((typeof equipmentCatalog !== 'undefined') ? equipmentCatalog : null);
+  const vInv = (cfg && cfg.lastVirtualInverter) || (cfg && cfg.selectedInverterId && catalog && catalog.inverters && catalog.inverters.find(i => i.id === cfg.selectedInverterId && i.isVirtual));
   if (!vInv) {
     if (typeof showToast === 'function') showToast('AVISO', 'No hay ningún inversor virtual activo para guardar.', 'warning', 2500);
     return;
   }
 
-  if (typeof equipmentCatalog === 'undefined' || !Array.isArray(equipmentCatalog.inverters)) return;
+  if (!catalog || !Array.isArray(catalog.inverters)) return;
 
   const persistentId = 'inv_custom_' + Date.now();
   const cleanInv = {
@@ -1223,8 +1229,8 @@ function wpSaveVirtualInverterToCatalog() {
   delete cleanInv.suggestedCommercialModels;
 
   // Reemplazar la versión temporal en memoria
-  equipmentCatalog.inverters = equipmentCatalog.inverters.filter(i => i.id !== vInv.id);
-  equipmentCatalog.inverters.push(cleanInv);
+  catalog.inverters = catalog.inverters.filter(i => i.id !== vInv.id);
+  catalog.inverters.push(cleanInv);
 
   if (typeof saveEquipmentCatalog === 'function') {
     saveEquipmentCatalog();

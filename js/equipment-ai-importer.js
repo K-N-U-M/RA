@@ -580,6 +580,8 @@ NORMAS ESTRICTAS DE EXTRACCIÓN:
         root.onSelectModuleFromDropdown(toSave.id);
       } else if (item.category === 'inverters' && typeof root.applyInverterFromCatalog === 'function') {
         root.applyInverterFromCatalog(toSave.id);
+      } else if (item.category === 'batteries' && typeof root.applyBatteryFromCatalog === 'function') {
+        root.applyBatteryFromCatalog(toSave.id);
       }
 
       // Regresar a la pestaña correspondiente en el catálogo
