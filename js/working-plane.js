@@ -5096,7 +5096,7 @@ function switchCatalogTab(tabName) {
   if (editTabBtn) {
     editTabBtn.style.display = (tabName === 'edit') ? 'inline-flex' : 'none';
   }
-  ['modules', 'inverters', 'batteries', 'microinverters', 'structures', 'installation_costs', 'add_new', 'edit', 'ai_import'].forEach(t => {
+  ['modules', 'inverters', 'batteries', 'microinverters', 'structures', 'installation_costs', 'add_new', 'edit', 'ai_import', 'ai_search'].forEach(t => {
     const btn = document.getElementById('cat-tab-btn-' + t);
     const pane = document.getElementById('cat-pane-' + t);
     if (btn) btn.classList.toggle('active', t === tabName);
@@ -5105,6 +5105,10 @@ function switchCatalogTab(tabName) {
   if (tabName === 'ai_import') {
     if (typeof window !== 'undefined' && window.RAEquipmentAIImporter && typeof window.RAEquipmentAIImporter.renderInitialUI === 'function') {
       window.RAEquipmentAIImporter.renderInitialUI(document.getElementById('cat-pane-ai_import'));
+    }
+  } else if (tabName === 'ai_search') {
+    if (typeof window !== 'undefined' && window.RAEquipmentWebSearch && typeof window.RAEquipmentWebSearch.renderUI === 'function') {
+      window.RAEquipmentWebSearch.renderUI(document.getElementById('cat-pane-ai_search'));
     }
   } else if (tabName === 'structures') {
     if (typeof window !== 'undefined' && window.RAStructureCatalog && typeof window.RAStructureCatalog.renderStructuresCatalogUI === 'function') {

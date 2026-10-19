@@ -62,6 +62,7 @@ window.RA_App = window.RA_App || {};
   <script src="js/bom-tree.js?v=20261016b"></script>
   <script src="js/engineering-explainer.js?v=20260929b"></script>
   <script src="js/equipment-ai-importer.js?v=20261014a"></script>
+  <script src="js/equipment-web-search.js?v=20261019a"></script>
   <script src="js/project-status-hud.js?v=20261016b"></script>
   <script src="js/firebase-service.js?v=20261015d"></script>
 
@@ -2118,6 +2119,7 @@ window.RA_App = window.RA_App || {};
       <button class="sb-tab-btn" id="cat-tab-btn-installation_costs" onclick="switchCatalogTab('installation_costs')" style="padding:6px 12px;font-size:10.5px;border-radius:6px;color:#34D399;border:1px solid rgba(52,211,153,0.4);"><i data-lucide="wrench" class="icon-sm"></i> INSTALACIÓN &amp; SOFT COSTS</button>
       <button class="sb-tab-btn" id="cat-tab-btn-add_new" onclick="switchCatalogTab('add_new')" style="padding:6px 12px;font-size:10.5px;border-radius:6px;color:var(--amber-400);border:1px dashed var(--amber-400);"><i data-lucide="plus" class="icon-sm"></i> AÑADIR MANUAL</button>
       <button class="sb-tab-btn" id="cat-tab-btn-ai_import" onclick="switchCatalogTab('ai_import')" style="padding:6px 12px;font-size:10.5px;border-radius:6px;color:var(--sky-400);border:1px solid rgba(56,189,248,0.5);background:rgba(56,189,248,0.1);"><i data-lucide="sparkles" class="icon-sm"></i> ✨ IMPORTAR CON IA</button>
+      <button class="sb-tab-btn" id="cat-tab-btn-ai_search" onclick="switchCatalogTab('ai_search')" style="padding:6px 12px;font-size:10.5px;border-radius:6px;color:#C084FC;border:1px solid rgba(192,132,252,0.5);background:rgba(192,132,252,0.1);"><i data-lucide="globe" class="icon-sm"></i> 🌐 BUSCADOR WEB IA</button>
       <button class="sb-tab-btn" id="cat-tab-btn-edit" onclick="switchCatalogTab('edit')" style="display:none;padding:6px 12px;font-size:10.5px;border-radius:6px;color:var(--sky-400);border:1px dashed var(--sky-400);"><i data-lucide="edit-2" class="icon-sm"></i> EDITAR EQUIPO</button>
     </div>
 
@@ -2332,6 +2334,9 @@ window.RA_App = window.RA_App || {};
       
       <!-- Panel 7: Importador con IA -->
       <div id="cat-pane-ai_import" style="display:none;"></div>
+
+      <!-- Panel 7.5: Buscador Web de Equipos con IA -->
+      <div id="cat-pane-ai_search" style="display:none;"></div>
 
       <!-- Panel 8: Estructuras y Fijaciones Comerciales -->
       <div id="cat-pane-structures" style="display:none;"></div>
