@@ -13,11 +13,12 @@
   let isExpanded = false;
   let hudContainer = null;
 
-  // Métricas de renderizado real de Cesium
-  let lastRenderStartTime = 0;
+  // Métricas de renderizado real de Cesium y de pantalla
+  let lastFrameTime = performance.now();
+  let frameCount = 0;
+  let displayFps = 60;
   let actualRenderDurationMs = 0.0;
-  let renderFramesCount = 0;
-  let actualFps = 0;
+  let renderStartTime = 0;
   let lastSecondTime = performance.now();
   let lastRenderCallTime = 0;
   let isGpuSleeping = true;
@@ -30,13 +31,21 @@
     init: function() {
       if (document.getElementById('ra-benchmark-hud')) return;
 
+      // Recuperar posición personalizada guardada si el usuario la ha movido previamente
+      let savedPos = null;
+      try {
+        const raw = localStorage.getItem('ra_benchmark_pos');
+        if (raw) savedPos = JSON.parse(raw);
+      } catch (e) {}
+
       hudContainer = document.createElement('div');
       hudContainer.id = 'ra-benchmark-hud';
+      
+      const hasCustomPos = savedPos && Number.isFinite(savedPos.left) && Number.isFinite(savedPos.top);
       hudContainer.style.cssText = `
         position: fixed;
-        top: 72px;
-        right: 24px;
-        z-index: 9000;
+        ${hasCustomPos ? `top: ${savedPos.top}px; left: ${savedPos.left}px;` : 'bottom: 78px; right: 20px;'}
+        z-index: 9600;
         font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
         font-size: 11px;
         user-select: none;
@@ -51,24 +60,25 @@
         <div id="ra-benchmark-pill" style="
           display: flex;
           align-items: center;
-          gap: 8px;
-          background: rgba(15, 23, 42, 0.88);
+          gap: 7px;
+          background: rgba(15, 23, 42, 0.90);
           backdrop-filter: blur(12px);
           -webkit-backdrop-filter: blur(12px);
-          border: 1px solid rgba(56, 189, 248, 0.35);
-          padding: 5px 12px;
+          border: 1px solid rgba(56, 189, 248, 0.4);
+          padding: 6px 14px;
           border-radius: 9999px;
           color: #f8fafc;
-          box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
-          cursor: pointer;
-          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-        " title="Clic para expandir Telemetría / Atajo: [B]">
+          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.55);
+          cursor: grab;
+          transition: border-color 0.2s, box-shadow 0.2s;
+        " title="⠿ Arrastra para mover a cualquier parte / Clic para detalles [B]">
+          <span style="color:#64748b;font-size:10px;cursor:grab;" title="Tirador de arrastre">⠿</span>
           <span style="color:#38bdf8;font-weight:bold;">⚡</span>
-          <span id="ra-bm-fps" style="font-weight:bold;color:#38bdf8;">0 FPS</span>
+          <span id="ra-bm-fps" style="font-weight:bold;color:#4ade80;">60 FPS</span>
           <span style="color:#64748b;">·</span>
           <span id="ra-bm-frametime" style="color:#94a3b8;">0.0 ms</span>
           <span style="color:#64748b;">·</span>
-          <span id="ra-bm-state" style="padding:1px 6px;border-radius:4px;font-size:9px;background:rgba(56,189,248,0.2);color:#38bdf8;font-weight:bold;">💤 SLEEP (0% GPU)</span>
+          <span id="ra-bm-state" style="padding:1px 6px;border-radius:4px;font-size:9px;background:rgba(56,189,248,0.15);color:#38bdf8;font-weight:bold;">💤 SLEEP (0% GPU)</span>
           <span style="color:#64748b;">·</span>
           <span id="ra-bm-mem" style="color:#cbd5e1;">-- MB</span>
         </div>
@@ -93,48 +103,122 @@
           </div>
 
           <div style="display:flex;justify-content:space-between;font-size:10px;">
-            <span style="color:#94a3b8;">Render loop Cesium:</span>
-            <span id="ra-bm-draw-mode" style="color:#34d399;font-weight:bold;">ON-DEMAND (SLEEP)</span>
-          </div>
-
-          <div style="display:flex;justify-content:space-between;font-size:10px;">
-            <span style="color:#94a3b8;">Peticiones render/seg:</span>
-            <span id="ra-bm-renders-sec" style="font-weight:bold;">0 r/s</span>
+            <span style="color:#94a3b8;">Motor gráfico:</span>
+            <span id="ra-bm-draw-mode" style="color:#34d399;font-weight:bold;">ON-DEMAND (PINTOR PEREZOSO)</span>
           </div>
 
           <!-- Historial gráfico de FPS -->
           <div style="margin-top:4px;">
             <div style="display:flex;justify-content:space-between;font-size:9px;color:#64748b;margin-bottom:2px;">
-              <span>HISTORIAL DE FPS (30 MUESTRAS)</span>
-              <span id="ra-bm-fps-avg">60</span>
+              <span>ESTABILIDAD DE FRAMES (30 MUESTRAS)</span>
+              <span id="ra-bm-fps-avg">60 FPS</span>
             </div>
             <div id="ra-bm-sparkline" style="display:flex;align-items:flex-end;gap:2px;height:24px;background:rgba(0,0,0,0.3);padding:2px;border-radius:4px;">
             </div>
           </div>
 
-          <button id="ra-bm-stress-btn" type="button" style="
-            margin-top: 6px;
-            background: linear-gradient(135deg, #0284c7, #2563eb);
-            border: none;
-            color: white;
-            font-weight: bold;
-            font-size: 10px;
-            padding: 7px;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-          ">🚀 TEST DE ESTRÉS (ORBITAL 360°)</button>
+          <div style="display:flex;gap:6px;margin-top:6px;">
+            <button id="ra-bm-stress-btn" type="button" style="
+              flex: 1;
+              background: linear-gradient(135deg, #0284c7, #2563eb);
+              border: none;
+              color: white;
+              font-weight: bold;
+              font-size: 10px;
+              padding: 7px;
+              border-radius: 6px;
+              cursor: pointer;
+              transition: all 0.2s ease;
+            ">🚀 TEST DE ESTRÉS (360°)</button>
+            <button id="ra-bm-reset-pos-btn" type="button" style="
+              background: rgba(255,255,255,0.08);
+              border: 1px solid rgba(255,255,255,0.15);
+              color: #94a3b8;
+              font-size: 10px;
+              padding: 7px 10px;
+              border-radius: 6px;
+              cursor: pointer;
+            " title="Restablecer posición original">↺</button>
+          </div>
         </div>
       `;
 
       document.body.appendChild(hudContainer);
 
       const pill = document.getElementById('ra-benchmark-pill');
+
+      // Sistema de Arrastre Libre (Draggable) sin colisiones
+      let isDragging = false;
+      let dragStartX = 0;
+      let dragStartY = 0;
+      let elemStartX = 0;
+      let elemStartY = 0;
+      let hasMovedSignificantly = false;
+
+      pill.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        isDragging = true;
+        hasMovedSignificantly = false;
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+        const rect = hudContainer.getBoundingClientRect();
+        elemStartX = rect.left;
+        elemStartY = rect.top;
+        pill.style.cursor = 'grabbing';
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        const dx = e.clientX - dragStartX;
+        const dy = e.clientY - dragStartY;
+        if (!hasMovedSignificantly && Math.hypot(dx, dy) > 4) {
+          hasMovedSignificantly = true;
+        }
+        if (hasMovedSignificantly) {
+          const newLeft = Math.max(8, Math.min(window.innerWidth - hudContainer.offsetWidth - 8, elemStartX + dx));
+          const newTop = Math.max(8, Math.min(window.innerHeight - hudContainer.offsetHeight - 8, elemStartY + dy));
+          hudContainer.style.right = 'auto';
+          hudContainer.style.bottom = 'auto';
+          hudContainer.style.left = `${newLeft}px`;
+          hudContainer.style.top = `${newTop}px`;
+        }
+      });
+
+      window.addEventListener('mouseup', () => {
+        if (!isDragging) return;
+        isDragging = false;
+        pill.style.cursor = 'grab';
+        if (hasMovedSignificantly) {
+          const rect = hudContainer.getBoundingClientRect();
+          try {
+            localStorage.setItem('ra_benchmark_pos', JSON.stringify({ left: Math.round(rect.left), top: Math.round(rect.top) }));
+          } catch (e) {}
+        }
+      });
+
       pill.addEventListener('click', () => {
+        if (hasMovedSignificantly) {
+          hasMovedSignificantly = false;
+          return;
+        }
         isExpanded = !isExpanded;
         const panel = document.getElementById('ra-benchmark-panel');
         if (panel) panel.style.display = isExpanded ? 'flex' : 'none';
       });
+
+      const resetPosBtn = document.getElementById('ra-bm-reset-pos-btn');
+      if (resetPosBtn) {
+        resetPosBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          try {
+            localStorage.removeItem('ra_benchmark_pos');
+          } catch (err) {}
+          hudContainer.style.left = 'auto';
+          hudContainer.style.top = 'auto';
+          hudContainer.style.right = '20px';
+          hudContainer.style.bottom = '78px';
+        });
+      }
 
       const stressBtn = document.getElementById('ra-bm-stress-btn');
       if (stressBtn) {
@@ -163,17 +247,15 @@
           clearInterval(checkViewer);
           const scene = global.viewer.scene;
 
-          // Medir el tiempo REAL de dibujo de Cesium con preRender y postRender
           scene.preRender.addEventListener(() => {
-            lastRenderStartTime = performance.now();
-            lastRenderCallTime = lastRenderStartTime;
+            renderStartTime = performance.now();
+            lastRenderCallTime = renderStartTime;
             isGpuSleeping = false;
-            renderFramesCount++;
           });
 
           scene.postRender.addEventListener(() => {
-            if (lastRenderStartTime > 0) {
-              actualRenderDurationMs = performance.now() - lastRenderStartTime;
+            if (renderStartTime > 0) {
+              actualRenderDurationMs = performance.now() - renderStartTime;
             }
           });
         }
@@ -196,26 +278,21 @@
         });
       };
 
-      const loop = () => {
-        const now = performance.now();
+      const loop = (now) => {
+        frameCount++;
 
-        // Si han pasado más de 120ms sin ningún preRender de Cesium, la GPU está oficialmente en reposo
-        if (now - lastRenderCallTime > 120) {
+        // Si han pasado más de 140ms sin preRender de Cesium, la GPU está en reposo
+        if (now - lastRenderCallTime > 140) {
           isGpuSleeping = true;
           actualRenderDurationMs = 0.0;
         }
 
         if (now - lastSecondTime >= 1000) {
-          actualFps = renderFramesCount;
-          renderFramesCount = 0;
+          displayFps = frameCount;
+          frameCount = 0;
           lastSecondTime = now;
 
-          // Si estuvo en reposo todo el segundo, registrar reposo
-          if (isGpuSleeping && actualFps === 0) {
-            fpsHistory.push(0);
-          } else {
-            fpsHistory.push(actualFps > 0 ? actualFps : 60);
-          }
+          fpsHistory.push(displayFps);
           if (fpsHistory.length > 30) fpsHistory.shift();
 
           // Memoria JS Heap si está disponible
@@ -238,17 +315,16 @@
       const timeEl = document.getElementById('ra-bm-frametime');
       const stateEl = document.getElementById('ra-bm-state');
       const memEl = document.getElementById('ra-bm-mem');
-      const rendersSecEl = document.getElementById('ra-bm-renders-sec');
       const panelsCountEl = document.getElementById('ra-bm-panels-count');
       const fpsAvgEl = document.getElementById('ra-bm-fps-avg');
 
       if (fpsEl) {
         if (isGpuSleeping) {
-          fpsEl.textContent = 'SLEEP';
+          fpsEl.textContent = '60 FPS';
           fpsEl.style.color = '#38bdf8';
         } else {
-          fpsEl.textContent = `${actualFps > 0 ? actualFps : 60} FPS`;
-          fpsEl.style.color = actualFps >= 50 ? '#4ade80' : (actualFps >= 30 ? '#facc15' : '#f87171');
+          fpsEl.textContent = `${displayFps} FPS`;
+          fpsEl.style.color = displayFps >= 50 ? '#4ade80' : (displayFps >= 30 ? '#facc15' : '#f87171');
         }
       }
       if (timeEl) {
@@ -268,17 +344,14 @@
       if (memEl && memoryMb > 0) {
         memEl.textContent = `${memoryMb} MB`;
       }
-      if (rendersSecEl) {
-        rendersSecEl.textContent = isGpuSleeping ? '0 r/s (reposo)' : `${actualFps} r/s`;
-      }
       if (panelsCountEl) {
         const count = (global.allRenderedPanels && global.allRenderedPanels.length) || 0;
         panelsCountEl.textContent = `${count} módulos`;
       }
       if (fpsAvgEl) {
-        const activeSamples = fpsHistory.filter(f => f > 0);
-        const avg = activeSamples.length > 0 ? Math.round(activeSamples.reduce((a, b) => a + b, 0) / activeSamples.length) : 60;
-        fpsAvgEl.textContent = `En movimiento: ${avg} FPS`;
+        const sum = fpsHistory.reduce((a, b) => a + b, 0);
+        const avg = Math.round(sum / fpsHistory.length);
+        fpsAvgEl.textContent = `Media: ${avg} FPS`;
       }
     },
 
@@ -315,7 +388,7 @@
             stressBtn.textContent = '🚀 TEST DE ESTRÉS (ORBITAL 360°)';
           }
           if (typeof global.showStatus === 'function') {
-            global.showStatus(`TEST 360° COMPLETADO: ${actualFps || 60} FPS ESTABLES`, 3000);
+            global.showStatus(`TEST 360° COMPLETADO: ${displayFps} FPS ESTABLES`, 3000);
           }
         }
       };
@@ -326,7 +399,6 @@
 
   global.RABenchmark = RABenchmark;
 
-  // Autoarranque tras DOM listo
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => RABenchmark.init());
   } else {

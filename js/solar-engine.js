@@ -1965,6 +1965,13 @@ function wpSyncCesiumSun(solarPos) {
     if (window.simulatedPanelsPrimitive && typeof window.simulatedPanelsPrimitive.isDestroyed === "function" && !window.simulatedPanelsPrimitive.isDestroyed()) {
       window.simulatedPanelsPrimitive.shadows = currentShadowMode;
     }
+    if (window._faldonPanelsPrimitives && typeof window._faldonPanelsPrimitives.forEach === "function") {
+      window._faldonPanelsPrimitives.forEach(prim => {
+        if (prim && typeof prim.isDestroyed === "function" && !prim.isDestroyed()) {
+          prim.shadows = currentShadowMode;
+        }
+      });
+    }
   } catch(eShadow) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', eShadow); }
 }
 

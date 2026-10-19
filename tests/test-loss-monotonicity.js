@@ -205,6 +205,7 @@ function runLossMonotonicityTests() {
   // Inicializar simulación activa
   win.solarSimState.annualHeatmapData = { simulated: true };
   win.solarSimState.annualHeatmapDirty = false;
+  win.wpCurrentStep = 4;
   win.recalculateSolarYield();
   win.RA.ProjectStatusHUD.update();
 

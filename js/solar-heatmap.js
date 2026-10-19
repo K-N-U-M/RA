@@ -501,6 +501,154 @@
   // Token de generación para cancelación atómica de simulaciones obsoletas/concurrentes
   let _activeSimGenerationId = 0;
 
+  /**
+   * Ejecuta el cálculo masivo de 192 instantes en un Web Worker off-thread.
+   * Evita congelar el render loop de CesiumJS (preserva 60 FPS estables).
+   */
+  function runHeatmapInDedicatedWorker(cfg, onProgressCallback, progressBar, progressFill, totalPanelsCount) {
+    return new Promise((resolve, reject) => {
+      let worker;
+      try {
+        worker = new Worker('js/solar-worker.js');
+      } catch (err) {
+        return reject(err);
+      }
+
+      const panels = [];
+      const faldones = [];
+
+      cfg.polylines.forEach((poly, polyIdx) => {
+        const pInfo = poly.roofInfo || {};
+        const uVec = pInfo.uVec ? { x: pInfo.uVec.x, y: pInfo.uVec.y, z: pInfo.uVec.z } : { x: 1, y: 0, z: 0 };
+        const vVec = pInfo.vVec ? { x: pInfo.vVec.x, y: pInfo.vVec.y, z: pInfo.vVec.z } : { x: 0, y: 1, z: 0 };
+        const norm = pInfo.normal ? { x: pInfo.normal.x, y: pInfo.normal.y, z: pInfo.normal.z } : { x: 0, y: 0, z: 1 };
+
+        const obstacles2D = [];
+        const obsList = (typeof obstacles !== 'undefined' && Array.isArray(obstacles))
+          ? obstacles
+          : ((typeof window !== 'undefined' && Array.isArray(window.obstacles)) ? window.obstacles : []);
+        if (obsList && obsList.length > 0) {
+          obsList.forEach(obs => {
+            if (!obs || obs.deleted) return;
+            const pts = (typeof getObstaclePolygon2DForRoof === 'function')
+              ? getObstaclePolygon2DForRoof(obs, 0.0, pInfo)
+              : ((obs.points2D && obs.points2D[polyIdx]) || obs.poly2D);
+            if (pts && pts.length >= 3) {
+              obstacles2D.push({
+                height: (typeof obs.h === 'number' ? obs.h : (obs.height || 1.2)),
+                points2D: pts.map(pt => ({ u: pt.u, v: pt.v }))
+              });
+            }
+          });
+        }
+
+        faldones.push({
+          polyIdx,
+          uVec,
+          vVec,
+          normalWorld: norm,
+          obstacles2D
+        });
+
+        const pList = Array.isArray(poly.panels) ? poly.panels : (pInfo.panels || []);
+        pList.forEach((p, idx) => {
+          const pId = p.panelId || p.id || ('panel_' + polyIdx + '_' + idx);
+          const u = typeof p.u === 'number' ? p.u : 0;
+          const v = typeof p.v === 'number' ? p.v : 0;
+          const w = p.w || 1.05;
+          const h = p.h || 2.15;
+          const halfW = w / 2;
+          const halfH = h / 2;
+          const poly2D = (p.poly2D && p.poly2D.length >= 3)
+            ? p.poly2D.map(pt => ({ u: pt.u, v: pt.v }))
+            : [
+                { u: u - halfW, v: v - halfH },
+                { u: u + halfW, v: v - halfH },
+                { u: u + halfW, v: v + halfH },
+                { u: u - halfW, v: v + halfH }
+              ];
+
+          panels.push({
+            id: pId,
+            polyIdx,
+            layoutIndex: p.layoutIndex !== undefined ? p.layoutIndex : idx,
+            u: u,
+            v: v,
+            h: h,
+            w: w,
+            areaM2: p.areaM2 || (w * h),
+            tiltDeg: p.tiltDeg !== undefined ? p.tiltDeg : (pInfo.tiltDeg || 20),
+            azDeg: p.azDeg !== undefined ? p.azDeg : (pInfo.azDeg || 180),
+            poly2D: poly2D,
+            normalWorld: norm
+          });
+        });
+      });
+
+      worker.onmessage = function(e) {
+        const msg = e.data;
+        if (!msg) return;
+
+        if (msg.type === 'PROGRESS') {
+          if (typeof updateSolarCalcHUD === 'function') {
+            updateSolarCalcHUD(msg.progressPct, msg.mIdx, totalPanelsCount);
+          }
+          if (progressFill) progressFill.style.width = msg.progressPct + '%';
+          if (typeof onProgressCallback === 'function') {
+            onProgressCallback(msg.progressPct, msg.mIdx, totalPanelsCount);
+          }
+        } else if (msg.type === 'DONE') {
+          worker.terminate();
+          resolve(msg);
+        }
+      };
+
+      worker.onerror = function(err) {
+        worker.terminate();
+        reject(err);
+      };
+
+      worker.postMessage({
+        type: 'START_HEATMAP',
+        simGenerationId: cfg.simGenerationId,
+        lat: cfg.lat,
+        lng: cfg.lng,
+        resolution: cfg.resolution,
+        panels,
+        faldones,
+        climaticZone: cfg.climaticZone,
+        moduleProps: cfg.moduleProps
+      });
+    });
+  }
+
+  function applyWorkerHeatmapResults(polylines, results, monthlyNetWh, targetMonthlyNetWh) {
+    const map = new Map();
+    results.forEach(r => map.set(r.id, r));
+
+    polylines.forEach((poly, polyIdx) => {
+      const panels = Array.isArray(poly.panels) ? poly.panels : (poly.roofInfo && Array.isArray(poly.roofInfo.panels) ? poly.roofInfo.panels : []);
+      panels.forEach((p, idx) => {
+        const pId = p.panelId || p.id || ('panel_' + polyIdx + '_' + idx);
+        const res = map.get(pId) || (p.id ? map.get(p.id) : null) || (p.panelId ? map.get(p.panelId) : null) || map.get('panel_' + polyIdx + '_' + idx);
+        if (res) {
+          p.annualTotalPotential = res.annualTotalPotential;
+          p.annualShadedLoss = res.annualShadedLoss;
+          p.annualLossPct = res.annualLossPct;
+          p.annualYieldPct = res.annualYieldPct;
+          p.shadowHits = res.shadowHits;
+          p.activeDiodesHits = res.activeDiodesHits;
+        }
+      });
+    });
+
+    if (monthlyNetWh && Array.isArray(monthlyNetWh) && targetMonthlyNetWh) {
+      for (let k = 0; k < 12; k++) {
+        targetMonthlyNetWh[k] = monthlyNetWh[k] || 0;
+      }
+    }
+  }
+
   async function computeAnnualSolarHeatmap(onProgressCallback) {
     const simGenerationId = ++_activeSimGenerationId;
     if (typeof window !== 'undefined' && window.solarSimState) {
@@ -728,8 +876,40 @@
     const noctModule = (activeModule && (activeModule.noct || activeModule.NOCT)) || 45;
     const rawGamma = (activeModule && (activeModule.tempCoeffPmax || activeModule.gammaPmp || (activeModule.tecnologia && activeModule.tecnologia.includes('N-Type') ? -0.0028 : -0.0034))) || -0.0034;
     const gammaCoeff = (Math.abs(rawGamma) > 0.05) ? rawGamma / 100.0 : rawGamma; // normaliza si viene en %/°C
+    // [MEJORA 3 AAA]: Delegación al Web Worker dedicado off-thread (60 FPS puros sin micro-tirones)
+    let workerHandled = false;
+    if (typeof Worker !== 'undefined' && typeof window !== 'undefined' && window.location && window.location.protocol.startsWith('http')) {
+      try {
+        const workerResults = await runHeatmapInDedicatedWorker({
+          simGenerationId,
+          lat,
+          lng,
+          resolution: window.raHeatmapResolution || 'standard',
+          polylines,
+          climaticZone,
+          moduleProps: {
+            noct: noctModule,
+            gammaCoeff: gammaCoeff,
+            isBifacial: isBifacial,
+            bifacialityFactor: bifacialityFactor
+          }
+        }, onProgressCallback, progressBar, progressFill, totalPanelsCount);
 
-    for (let mIdx = 0; mIdx < monthsDoy.length; mIdx++) {
+        if (workerResults && workerResults.simGenerationId === _activeSimGenerationId) {
+          applyWorkerHeatmapResults(polylines, workerResults.results, workerResults.monthlyNetWh, _monthlyNetWh);
+          workerHandled = true;
+          if (typeof window !== 'undefined' && window.RA && window.RA.log) {
+            window.RA.log.info('[SOLAR WORKER] Simulación anual completada con éxito off-thread.');
+          }
+        }
+      } catch (errWorker) {
+        console.warn('[SOLAR WORKER] Fallback al hilo principal:', errWorker);
+      }
+    }
+
+    if (!workerHandled) {
+      // Bucle Time-Sliced en hilo principal (Fallback garantizado)
+      for (let mIdx = 0; mIdx < monthsDoy.length; mIdx++) {
       const m = monthsReal[mIdx];
       // Temperatura ambiente de diseño según zona climática y mes calendario REAL
       const tAmbMonth = (_T_AMB_TABLE[climaticZone] || _T_AMB_TABLE.interior)[m];
@@ -1050,6 +1230,7 @@
         }
       }
     }
+  }
 
     if (simGenerationId !== _activeSimGenerationId) return;
 

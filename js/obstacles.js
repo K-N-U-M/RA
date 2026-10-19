@@ -816,7 +816,8 @@ function render3DObstaclesInCesium() {
     const effectiveH = h + sinkOffset;
 
     const alignSig = isVertical ? 'v' : 'c';
-    const geomSig = `${obs.type || 'box'}_${w.toFixed(2)}_${l.toFixed(2)}_${effectiveH.toFixed(2)}_${obsSetback.toFixed(2)}_${alignSig}_${isSel ? '1' : '0'}`;
+    const colorSig = obs.color || (obs.type === 'caseton' ? '#2563EB' : obs.type === 'hvac' ? '#059669' : obs.type === 'custom' ? '#7C3AED' : '#DC2626');
+    const geomSig = `${obs.type || 'box'}_${w.toFixed(2)}_${l.toFixed(2)}_${effectiveH.toFixed(2)}_${obsSetback.toFixed(2)}_${alignSig}_${colorSig}_${isSel ? '1' : '0'}`;
 
     // Buscar si ya existen primitivas activas para este obstáculo con geometría idéntica
     const existing = window._obsPrimitives.filter(p => p && !p.isDestroyed() && p._obsId === obs.id);
@@ -862,9 +863,11 @@ function render3DObstaclesInCesium() {
       );
 
       const trunkColor = Cesium.Color.fromCssColorString('#5C4033').withAlpha(0.95);
-      const canopyColor = isSel
-        ? Cesium.Color.fromCssColorString('#F59E0B').withAlpha(0.90)
-        : Cesium.Color.fromCssColorString('#16A34A').withAlpha(0.88);
+      const canopyColor = obs.color
+        ? Cesium.Color.fromCssColorString(obs.color).withAlpha(0.90)
+        : (isSel
+          ? Cesium.Color.fromCssColorString('#F59E0B').withAlpha(0.90)
+          : Cesium.Color.fromCssColorString('#16A34A').withAlpha(0.88));
 
       // 1. Tronco Primitive (Cilíndrico realista de madera)
       if (typeof Cesium.Matrix4 !== "undefined" && typeof Cesium.Matrix4.fromRotationTranslation === "function") {
@@ -948,11 +951,14 @@ function render3DObstaclesInCesium() {
         new Cesium.Cartesian3()
       );
 
-      let hexColor = '#DC2626';
-      if (obs.type === 'caseton') hexColor = '#2563EB';
-      else if (obs.type === 'hvac') hexColor = '#059669';
-      else if (obs.type === 'custom') hexColor = '#7C3AED';
-      if (isSel) hexColor = '#F59E0B';
+      let hexColor = obs.color;
+      if (!hexColor) {
+        if (obs.type === 'caseton') hexColor = '#2563EB';
+        else if (obs.type === 'hvac') hexColor = '#059669';
+        else if (obs.type === 'custom') hexColor = '#7C3AED';
+        else hexColor = '#DC2626';
+        if (isSel) hexColor = '#F59E0B';
+      }
 
       const boxColor = Cesium.Color.fromCssColorString(hexColor).withAlpha(0.88);
 
@@ -1214,11 +1220,50 @@ function selectObstacle(obsId) {
     btnCopl.style.fontWeight = !isVert ? 'bold' : 'normal';
   }
 
+  const currentColor = obs.color || (obs.type === 'caseton' ? '#2563EB' : obs.type === 'hvac' ? '#059669' : obs.type === 'custom' ? '#7C3AED' : '#DC2626');
+  const picker = (typeof document !== 'undefined') ? document.getElementById('obs-color-picker') : null;
+  if (picker) picker.value = currentColor;
+  const hexValEl = (typeof document !== 'undefined') ? document.getElementById('obs-color-hex-val') : null;
+  if (hexValEl) hexValEl.textContent = currentColor.toUpperCase();
+  if (typeof document !== 'undefined') {
+    document.querySelectorAll('.obs-color-swatch').forEach(sw => {
+      const swColor = sw.getAttribute('data-color');
+      sw.style.outline = (swColor && swColor.toLowerCase() === currentColor.toLowerCase())
+        ? '2px solid #38BDF8'
+        : 'none';
+    });
+  }
+
   render3DObstaclesInCesium();
   if (typeof renderTriad2D === 'function') renderTriad2D();
   if (typeof wpCheckObstacleInsideRoof === 'function') wpCheckObstacleInsideRoof(obs);
   showStatus('OBSTÁCULO "' + (obs.name || '').toUpperCase() + '" SELECCIONADO', 1800);
 }
+
+function updateSelectedObstacleColor(colorHex) {
+  if (!selectedObstacleId) return;
+  const obs = obstacles.find(o => o.id === selectedObstacleId);
+  if (!obs) return;
+  obs.color = colorHex;
+  const picker = (typeof document !== 'undefined') ? document.getElementById('obs-color-picker') : null;
+  if (picker && picker.value !== colorHex) picker.value = colorHex;
+  const hexValEl = (typeof document !== 'undefined') ? document.getElementById('obs-color-hex-val') : null;
+  if (hexValEl) hexValEl.textContent = colorHex.toUpperCase();
+  if (typeof document !== 'undefined') {
+    document.querySelectorAll('.obs-color-swatch').forEach(sw => {
+      const swColor = sw.getAttribute('data-color');
+      sw.style.outline = (swColor && swColor.toLowerCase() === colorHex.toLowerCase())
+        ? '2px solid #38BDF8'
+        : 'none';
+    });
+  }
+  render3DObstaclesInCesium();
+  if (typeof viewer !== 'undefined' && viewer.scene) {
+    viewer.scene.requestRender();
+  }
+}
+global.updateSelectedObstacleColor = updateSelectedObstacleColor;
+if (typeof window !== 'undefined') window.updateSelectedObstacleColor = updateSelectedObstacleColor;
 
 function setSelectedObstacleAlignment(alignment) {
   if (!selectedObstacleId) return;
@@ -1502,7 +1547,7 @@ function obsPlaceAt(screenPos) {
   return true;
 }
 
-function recalculateLayoutAndObstacles() {
+function recalculateLayoutAndObstacles(targetPolyIdx) {
   updateObstaclePlacementUI();
   setElemText('obstacles-count-badge', `${obstacles.length} OBSTÁCULO${obstacles.length === 1 ? '' : 'S'}`);
 
@@ -1539,13 +1584,20 @@ function recalculateLayoutAndObstacles() {
   // [P0] La geometría cambió (obstáculo añadido/movido/editado): invalidar el heatmap anual
   if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Obstáculos o trazado modificados');
 
-  // 🚀 INVALIDACIÓN DE CACHÉ DE PANELES (Garantiza re-filtrado de colisiones 2D/3D con obstáculos)
+  // 🚀 INVALIDACIÓN DE CACHÉ DE PANELES INCREMENTAL (Solo el faldón afectado si targetPolyIdx está definido)
   if (typeof roofPanelsCache !== 'undefined' && roofPanelsCache) {
     roofPanelsCache.sig = '';
     roofPanelsCache.data = null;
   }
   if (typeof WP !== 'undefined' && WP && Array.isArray(WP.polylines)) {
-    WP.polylines.forEach(pl => { if (pl) pl.roofInfo = null; });
+    if (typeof targetPolyIdx === 'number' && targetPolyIdx >= 0 && targetPolyIdx < WP.polylines.length) {
+      if (WP.polylines[targetPolyIdx]) {
+        WP.polylines[targetPolyIdx].roofInfo = null;
+        WP.polylines[targetPolyIdx]._calcSig = null;
+      }
+    } else {
+      WP.polylines.forEach(pl => { if (pl) { pl.roofInfo = null; pl._calcSig = null; } });
+    }
   }
 
   const hasPolys = typeof WP !== 'undefined' && WP && Array.isArray(WP.polylines) && WP.polylines.some(pl => pl && pl.points && pl.points.length >= 3);
@@ -1553,7 +1605,7 @@ function recalculateLayoutAndObstacles() {
 
   if (hasPolys || hasPolygonPts) {
     const hasPanelsInScene = (typeof simulatedPanelEntities !== 'undefined' && Array.isArray(simulatedPanelEntities) && simulatedPanelEntities.length > 0) ||
-                             (typeof window !== 'undefined' && window.simulatedPanelsPrimitive);
+                             (typeof window !== 'undefined' && (window.simulatedPanelsPrimitive || (window._faldonPanelsPrimitives && window._faldonPanelsPrimitives.size > 0)));
     const shouldSimulatePanels = hasPanelsInScene || (typeof isPolygonDesignConfirmed !== 'undefined' && isPolygonDesignConfirmed) || (typeof wpCurrentStep !== 'undefined' && wpCurrentStep >= 2);
 
     if (shouldSimulatePanels) {
@@ -1561,7 +1613,7 @@ function recalculateLayoutAndObstacles() {
         recalculateSolarYield();
       }
       if (typeof wpFastRenderSimulatedPanels === 'function') {
-        wpFastRenderSimulatedPanels();
+        wpFastRenderSimulatedPanels(false, targetPolyIdx);
       } else if (typeof startSolarPanelsSimulation === 'function') {
         startSolarPanelsSimulation();
       }

@@ -1114,6 +1114,17 @@
       color: var(--text-slate-300);
       gap: 8px;
     }
+    /* ── Supresión de flechas nativas (spinners) en inputs numéricos ───────── */
+    input[type="number"]::-webkit-outer-spin-button,
+    input[type="number"]::-webkit-inner-spin-button {
+      -webkit-appearance: none !important;
+      margin: 0 !important;
+    }
+    input[type="number"] {
+      -moz-appearance: textfield !important;
+      appearance: textfield !important;
+    }
+
     .field-row span { font-weight: 600; }
     .field-input, .ra-input {
       background: rgba(0, 0, 0, 0.5);
@@ -1680,44 +1691,7 @@
       box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
     }
 
-    /* ── Atajos y HUD inferior izquierdo (Telemetría CAD) ───────────────── */
-    #ra-shortcuts-hud {
-      position: fixed;
-      bottom: 12px;
-      left: 420px;
-      right: auto;
-      background: rgba(15, 23, 42, 0.75);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid var(--border-subtle);
-      border-radius: 8px;
-      padding: 6px 12px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      font-size: 13px;
-      color: var(--text-slate-400);
-      z-index: 850;
-      transition: left 0.35s cubic-bezier(0.16, 1, 0.3, 1);
-      user-select: none;
-    }
-    #ra-sidebar.collapsed ~ #ra-shortcuts-hud,
-    body:has(#ra-sidebar.collapsed) #ra-shortcuts-hud {
-      left: 20px;
-    }
-    @media (max-width: 1400px) {
-      #ra-shortcuts-hud {
-        display: none;
-      }
-    }
-    #ra-shortcuts-hud .k {
-      background: rgba(255, 255, 255, 0.1);
-      color: var(--amber-400);
-      padding: 1px 5px;
-      border-radius: 3px;
-      font-weight: 700;
-      font-family: var(--font-mono);
-    }
+
 
     /* ── Modal de Documentación Técnica ──────────────────────────────────── */
     #ra-doc-modal {

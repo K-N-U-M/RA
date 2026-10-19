@@ -199,23 +199,24 @@
     }
     const kwp = (numPanels * pModW) / 1000.0;
 
-    // Inversor seleccionado
+    // Inversor seleccionado (exclusivo para Paso 4+)
+    const currentStep = (typeof wpCurrentStep !== 'undefined') ? wpCurrentStep : ((typeof window !== 'undefined' && window.wpCurrentStep) || 1);
     let invKw = 0;
     let invName = 'Inversor no seleccionado';
     let invObj = null;
-    if (cfg.selectedInverterId && Array.isArray(cat.inverters)) {
+    if (currentStep >= 4 && cfg.selectedInverterId && Array.isArray(cat.inverters)) {
       invObj = cat.inverters.find(i => i.id === cfg.selectedInverterId);
       if (invObj) {
         invKw = invObj.kw || invObj.kw_nominal || 0;
         invName = `${invObj.brand || ''} ${invObj.model || ''} (${invKw} kW)`;
       }
     }
-    const invCount = (cfg.autoSizing && cfg.autoSizing.inverters && cfg.autoSizing.inverters.count) ? cfg.autoSizing.inverters.count : 1;
+    const invCount = (currentStep >= 4 && cfg.autoSizing && cfg.autoSizing.inverters && cfg.autoSizing.inverters.count) ? cfg.autoSizing.inverters.count : 1;
     let totalInvKw = invKw * invCount;
 
     // Si el usuario no ha fijado manualmente un inversor y la potencia DC difiere enormemente
-    // de la potencia del inversor residual (ej. ratio < 0.65 o > 1.50), sincronizar proactivamente:
-    if (numPanels > 0 && !cfg.userManuallySelectedInverter && typeof wpAutoSelectOptimalEngineering === 'function') {
+    // de la potencia del inversor residual (ej. ratio < 0.65 o > 1.50), sincronizar proactivamente SOLO en Paso >= 4:
+    if (currentStep >= 4 && numPanels > 0 && !cfg.userManuallySelectedInverter && typeof wpAutoSelectOptimalEngineering === 'function') {
       const currentRatio = totalInvKw > 0 ? (kwp / totalInvKw) : 0;
       if (currentRatio < 0.65 || currentRatio > 1.50) {
         try {
@@ -234,7 +235,7 @@
     }
 
     // Ratio DC/AC
-    const ratioDcAc = totalInvKw > 0 ? (kwp / totalInvKw) : 0;
+    const ratioDcAc = (currentStep >= 4 && totalInvKw > 0) ? (kwp / totalInvKw) : 0;
 
     // Producción anual y desglose dual (Teórico vs Neto 3D)
     let annualKWh = 0;
@@ -402,8 +403,16 @@
 
     if (locationEl) locationEl.textContent = s.approxAddress || 'Ubicación';
 
+    const currentStep = (typeof wpCurrentStep !== 'undefined') ? wpCurrentStep : ((typeof window !== 'undefined' && window.wpCurrentStep) || 1);
+
     if (kwpEl) kwpEl.textContent = `${s.kwp.toFixed(2)} kWp`;
-    if (subEl) subEl.textContent = `${s.numPanels} paneles · ${s.invKw > 0 ? (s.invKw.toFixed(1) + ' kW AC') : 'Sin inversor'}`;
+    if (subEl) {
+      if (currentStep >= 4) {
+        subEl.textContent = `${s.numPanels} paneles · ${s.invKw > 0 ? (s.invKw.toFixed(1) + ' kW AC') : 'Sin inversor'}`;
+      } else {
+        subEl.textContent = `${s.numPanels} paneles instalados`;
+      }
+    }
 
     if (theoEnergyEl) {
       theoEnergyEl.textContent = s.theoreticalAnnualKWh > 0 ? `${Math.round(s.theoreticalAnnualKWh).toLocaleString('es-ES')} kWh/a` : '— kWh/a';
@@ -449,7 +458,7 @@
 
     // Badge Ratio DC/AC
     if (ratioEl) {
-      if (s.ratioDcAc > 0) {
+      if (currentStep >= 4 && s.ratioDcAc > 0) {
         ratioEl.textContent = `Ratio DC/AC: ${s.ratioDcAc.toFixed(2)}`;
         if (s.ratioDcAc >= 0.95 && s.ratioDcAc <= 1.30) {
           ratioEl.style.color = '#34D399'; // Verde óptimo
@@ -458,6 +467,9 @@
         } else {
           ratioEl.style.color = '#F87171'; // Rojo fuera de rango
         }
+      } else if (currentStep < 4) {
+        ratioEl.textContent = 'Fase de Diseño CAD';
+        ratioEl.style.color = '#94a3b8';
       } else {
         ratioEl.textContent = 'Ratio DC/AC —';
         ratioEl.style.color = '#94a3b8';
@@ -487,7 +499,8 @@
       let alertMsg = null;
       let alertLevel = 'warning';
 
-      if (s.numPanels > 0 && s.invKw > 0) {
+      // Las comprobaciones electrotécnicas de inversor y strings solo aplican en Paso >= 4
+      if (currentStep >= 4 && s.numPanels > 0 && s.invKw > 0) {
         if (s.ratioDcAc > 1.40) {
           alertMsg = `Ratio DC/AC excesivo (${s.ratioDcAc.toFixed(2)}): riesgo de clipping severo. Recomendado inversor superior.`;
           alertLevel = 'error';

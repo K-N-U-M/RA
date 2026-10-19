@@ -386,6 +386,11 @@
      * Auto-ubica el inversor y contador por defecto si aún no se han colocado
      */
     ensureDefaultEquipmentPositions: function (allStrings) {
+      var currentStep = (typeof global.wpCurrentStep !== 'undefined')
+        ? global.wpCurrentStep
+        : ((typeof window !== 'undefined' && window.wpCurrentStep) || 1);
+      if (currentStep < 4) return;
+
       var sState = global.inverterEquipmentState;
       if (!sState || typeof Cesium === 'undefined') return;
 
@@ -486,6 +491,18 @@
       var viewer = global.viewer;
       var sState = global.inverterEquipmentState;
       if (!viewer || !sState) return;
+
+      var currentStep = (typeof global.wpCurrentStep !== 'undefined')
+        ? global.wpCurrentStep
+        : ((typeof window !== 'undefined' && window.wpCurrentStep) || 1);
+      if (currentStep < 4) {
+        this.clearAllCables();
+        if (typeof global.setElectricalEquipmentVisibility === 'function') {
+          global.setElectricalEquipmentVisibility(false);
+        }
+        return;
+      }
+
       if (sState.__isRenderingCables) return;
       sState.__isRenderingCables = true;
       try {
@@ -1081,11 +1098,59 @@
   global.RA = global.RA || {};
   global.RA.CableEngine = RACableEngine;
 
+  function setElectricalEquipmentVisibility(visible) {
+    var s = (typeof window !== 'undefined' && window.inverterEquipmentState)
+      ? window.inverterEquipmentState
+      : ((typeof global !== 'undefined' && global.inverterEquipmentState) ? global.inverterEquipmentState : null);
+    if (!s) return;
+
+    var show = !!visible;
+    if (s.entity) s.entity.show = show;
+    if (s.label2D) s.label2D.show = show;
+
+    if (s.dcProtectionEntity) s.dcProtectionEntity.show = show;
+    if (s.dcProtectionLabel2D) s.dcProtectionLabel2D.show = show;
+
+    if (s.batteryEntity) s.batteryEntity.show = show;
+    if (s.batteryLabel2D) s.batteryLabel2D.show = show;
+
+    if (s.gridMeter) {
+      if (s.gridMeter.entity) s.gridMeter.entity.show = show;
+      if (s.gridMeter.label2D) s.gridMeter.label2D.show = show;
+    }
+    if (s.combinerBox) {
+      if (s.combinerBox.entity) s.combinerBox.entity.show = show;
+      if (s.combinerBox.label2D) s.combinerBox.label2D.show = show;
+    }
+
+    if (!show && typeof global.selectedElectricalId !== 'undefined' && global.selectedElectricalId) {
+      if (typeof global.selectElectricalObject === 'function') global.selectElectricalObject(null);
+    }
+  }
+  global.setElectricalEquipmentVisibility = setElectricalEquipmentVisibility;
+  if (typeof window !== 'undefined') window.setElectricalEquipmentVisibility = setElectricalEquipmentVisibility;
+
   // Enlaces de compatibilidad directa con los nombres legacy para no romper el HTML
   global.wpCalculateAndRenderInverterCables = function () {
+    var currentStep = (typeof global.wpCurrentStep !== 'undefined')
+      ? global.wpCurrentStep
+      : ((typeof window !== 'undefined' && window.wpCurrentStep) || 1);
+    if (currentStep < 4) {
+      RACableEngine.clearAllCables();
+      setElectricalEquipmentVisibility(false);
+      return;
+    }
     return RACableEngine.renderAllCables();
   };
   global.wpCalculateAndRenderACCables = function () {
+    var currentStep = (typeof global.wpCurrentStep !== 'undefined')
+      ? global.wpCurrentStep
+      : ((typeof window !== 'undefined' && window.wpCurrentStep) || 1);
+    if (currentStep < 4) {
+      RACableEngine.clearAllCables();
+      setElectricalEquipmentVisibility(false);
+      return;
+    }
     return RACableEngine.renderAllCables();
   };
 

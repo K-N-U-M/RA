@@ -248,6 +248,11 @@
         }
       }
 
+      // [LAZY LOADER PREFETCH] Si entra a Paso >= 4, pre-cargar dependencias del Paso 5 en background
+      if (step >= 4 && global.RALazyLoader && typeof global.RALazyLoader.prefetchStep5Dependencies === 'function') {
+        try { global.RALazyLoader.prefetchStep5Dependencies(); } catch(ePrefetch) {}
+      }
+
       this._currentStep = step;
 
       // Actualizar estado del Stepper HUD

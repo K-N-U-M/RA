@@ -979,6 +979,50 @@ function renderTriad2D() {
           }
           triadCtx.stroke();
           triadCtx.restore();
+
+          // Medición provisional en vivo (distancia en metros del último vértice al cursor o cierre)
+          let liveDist = 0;
+          if (isSnapClose && polyCount >= 3) {
+            liveDist = Cesium.Cartesian3.distance(pLast, WP.activePolyPts[0]);
+          } else if (WP.cursorPos) {
+            const plane = (typeof wpGetActivePlane === 'function') ? wpGetActivePlane() : null;
+            const targetPos = (plane && typeof wpProjectPointToActivePlane === 'function')
+              ? wpProjectPointToActivePlane(WP.cursorPos)
+              : WP.cursorPos;
+            liveDist = Cesium.Cartesian3.distance(pLast, targetPos);
+          }
+
+          if (liveDist > 0.15) {
+            const distText = (isSnapClose ? "Cerrar: " : "") + liveDist.toFixed(2) + " m";
+            const midX = (pLastScreen.x + snapTargetX) / 2;
+            const midY = (pLastScreen.y + snapTargetY) / 2;
+
+            triadCtx.save();
+            triadCtx.font = "bold 10.5px 'JetBrains Mono', Inter, monospace";
+            const tw = triadCtx.measureText(distText).width;
+            const bw = tw + 14;
+            const bh = 19;
+            const bx = midX - bw / 2;
+            const by = midY - bh / 2;
+
+            triadCtx.beginPath();
+            if (typeof triadCtx.roundRect === 'function') {
+              triadCtx.roundRect(bx, by, bw, bh, 4);
+            } else {
+              triadCtx.rect(bx, by, bw, bh);
+            }
+            triadCtx.fillStyle = isSnapClose ? "rgba(6, 78, 59, 0.94)" : "rgba(15, 23, 42, 0.92)";
+            triadCtx.fill();
+            triadCtx.strokeStyle = isSnapClose ? "#10B981" : "#F59E0B";
+            triadCtx.lineWidth = 1.5;
+            triadCtx.stroke();
+
+            triadCtx.fillStyle = isSnapClose ? "#6EE7B7" : "#FDE68A";
+            triadCtx.textAlign = "center";
+            triadCtx.textBaseline = "middle";
+            triadCtx.fillText(distText, midX, midY);
+            triadCtx.restore();
+          }
         }
 
         // 2. Diana de Snap Magnético sobre el punto de inicio P0 (Opción 1: sin mini-badge ni textos flotantes)
@@ -2662,6 +2706,31 @@ function wpRenderActivePolylineVisuals() {
       'wp_active_line_' + Math.random().toString(36).substring(2, 6)
     );
     WP.ents.activePoly.push(lineEnt);
+
+    // 3. Etiquetas provisionales de distancia entre vértices ya trazados
+    const plane = (typeof wpGetActivePlane === 'function') ? wpGetActivePlane() : null;
+    const planeNorm = (plane && plane.normal) ? plane.normal : new Cesium.Cartesian3(0, 0, 1);
+    for (let i = 0; i < pts.length - 1; i++) {
+      const pA = pts[i];
+      const pB = pts[i + 1];
+      const dist = Cesium.Cartesian3.distance(pA, pB);
+      if (dist > 0.05) {
+        const midElev = Cesium.Cartesian3.midpoint(elevatedPts[i], elevatedPts[i + 1], new Cesium.Cartesian3());
+        const cotaPos = Cesium.Cartesian3.add(
+          midElev,
+          Cesium.Cartesian3.multiplyByScalar(planeNorm, 0.15, new Cesium.Cartesian3()),
+          new Cesium.Cartesian3()
+        );
+        const cotaEnt = (getAddLabelEntity() || addLabelEntity)(cotaPos, dist.toFixed(2) + ' m', -10, {
+          bg: 'rgba(15, 23, 42, 0.90)',
+          borderColor: '#F59E0B',
+          textColor: '#FDE68A',
+          font: "bold 10px 'JetBrains Mono', monospace",
+          category: 'draw_cota'
+        });
+        if (cotaEnt) WP.ents.activePoly.push(cotaEnt);
+      }
+    }
   }
 
   if (typeof viewer !== 'undefined' && viewer && viewer.scene && typeof viewer.scene.requestRender === 'function') viewer.scene.requestRender();
@@ -2760,6 +2829,48 @@ function wpRenderAllPolylines() {
           polyIdx: i
         });
         if (badgeEnt) WP.ents.polys.push(badgeEnt);
+      }
+    }
+
+    // 3b. Cotas de distancia por arista (SÓLO se muestran si la polilínea está seleccionada)
+    if (isSel && Array.isArray(poly.points) && poly.points.length >= 2) {
+      const nPts = poly.points.length;
+      let edgeNorm = null;
+      if (typeof WP.planes !== 'undefined' && WP.planes && poly.planeIdx >= 0 && WP.planes[poly.planeIdx]) {
+        edgeNorm = WP.planes[poly.planeIdx].normal;
+      }
+      if (!edgeNorm && poly.points.length >= 3) {
+        const v1 = Cesium.Cartesian3.subtract(poly.points[1], poly.points[0], new Cesium.Cartesian3());
+        const v2 = Cesium.Cartesian3.subtract(poly.points[2], poly.points[0], new Cesium.Cartesian3());
+        const cr = Cesium.Cartesian3.cross(v1, v2, new Cesium.Cartesian3());
+        if (Cesium.Cartesian3.magnitude(cr) > 1e-4) {
+          edgeNorm = Cesium.Cartesian3.normalize(cr, new Cesium.Cartesian3());
+        }
+      }
+      if (!edgeNorm) edgeNorm = new Cesium.Cartesian3(0, 0, 1);
+
+      for (let k = 0; k < nPts; k++) {
+        const p1 = poly.points[k];
+        const p2 = poly.points[(k + 1) % nPts];
+        const edgeDist = Cesium.Cartesian3.distance(p1, p2);
+        if (edgeDist > 0.05) {
+          const midElev = Cesium.Cartesian3.midpoint(elevatedPts[k], elevatedPts[(k + 1) % nPts], new Cesium.Cartesian3());
+          const cotaPos = Cesium.Cartesian3.add(
+            midElev,
+            Cesium.Cartesian3.multiplyByScalar(edgeNorm, 0.15, new Cesium.Cartesian3()),
+            new Cesium.Cartesian3()
+          );
+
+          const edgeLabelEnt = (getAddLabelEntity() || addLabelEntity)(cotaPos, edgeDist.toFixed(2) + ' m', -10, {
+            bg: 'rgba(15, 23, 42, 0.92)',
+            borderColor: '#F59E0B',
+            textColor: '#FFFFFF',
+            font: "bold 10px 'JetBrains Mono', monospace",
+            category: 'roof_edge_cota',
+            polyIdx: i
+          });
+          if (edgeLabelEnt) WP.ents.polys.push(edgeLabelEnt);
+        }
       }
     }
 
@@ -2966,7 +3077,7 @@ function wpApplySelectedVtxCoords() {
   if (typeof wpPopulateFaldonCard === 'function') wpPopulateFaldonCard();
   // updateAllVisuals();
 
-  if (typeof recalculateLayoutAndObstacles === 'function') recalculateLayoutAndObstacles();
+  if (typeof recalculateLayoutAndObstacles === 'function') recalculateLayoutAndObstacles(WP.selectedPolyIdx);
 
   showStatus('<i data-lucide="check" class="icon-sm"></i> VÉRTICE #' + (WP.selectedVtxIdx + 1) + ' ACTUALIZADO', 1800);
 }
@@ -3005,7 +3116,7 @@ function wpDeleteSelectedVertexFromList() {
   if (typeof wpPopulateFaldonCard === 'function') wpPopulateFaldonCard();
   // updateAllVisuals();
 
-  if (typeof recalculateLayoutAndObstacles === 'function') recalculateLayoutAndObstacles();
+  if (typeof recalculateLayoutAndObstacles === 'function') recalculateLayoutAndObstacles(WP.selectedPolyIdx);
 
   showStatus('<i data-lucide="trash-2" class="icon-sm"></i> VÉRTICE #' + (deletedIdx + 1) + ' ELIMINADO (' + poly.points.length + ' RESTANTES)', 2000);
 }
@@ -3104,7 +3215,25 @@ async function wpGoToStep(step) {
   wpCurrentStep = step;
   if (typeof window !== 'undefined') window.wpCurrentStep = step;
 
-  // 1.2 Apagado seguro de herramientas interactivas al cambiar de paso
+  // 1.2 Limpieza y desacoplo de ingeniería eléctrica en fases 1, 2 y 3 (Cubierta limpia y cero carga CPU)
+  if (step < 4) {
+    if (typeof RACableEngine !== 'undefined' && typeof RACableEngine.clearAllCables === 'function') {
+      RACableEngine.clearAllCables();
+    }
+    if (typeof setElectricalEquipmentVisibility === 'function') {
+      setElectricalEquipmentVisibility(false);
+    }
+    if (window.simulatedStringsPolylineCollection && typeof viewer !== 'undefined' && viewer && viewer.scene && viewer.scene.primitives) {
+      try { viewer.scene.primitives.remove(window.simulatedStringsPolylineCollection); } catch(eW) {}
+      window.simulatedStringsPolylineCollection = null;
+    }
+  } else {
+    if (typeof setElectricalEquipmentVisibility === 'function') {
+      setElectricalEquipmentVisibility(true);
+    }
+  }
+
+  // 1.3 Apagado seguro de herramientas interactivas al cambiar de paso
   if (typeof window.RAMeasureTool !== 'undefined' && typeof window.RAMeasureTool.deactivate === 'function') {
     window.RAMeasureTool.deactivate();
   }
@@ -3244,6 +3373,10 @@ async function wpGoToStep(step) {
     if (typeof populateStep3EquipmentSelectors === 'function') populateStep3EquipmentSelectors();
     if (typeof step3UpdateHardwareSelection === 'function') step3UpdateHardwareSelection();
     if (typeof wpComputeAutoSizing === 'function') wpComputeAutoSizing();
+    // [DESPERTAR DE INGENIERÍA]: Al entrar en Paso 4, renderizar latiguillos de string y etiquetas MPPT
+    if (typeof wpFastRenderSimulatedPanels === 'function') {
+      await wpFastRenderSimulatedPanels(true);
+    }
     if (typeof wpCalculateAndRenderInverterCables === 'function') {
       wpCalculateAndRenderInverterCables();
     }
@@ -5360,6 +5493,10 @@ function wpRenderBattery3D(inverterCartesian) {
   s.batteryEntity = batEntity;
   if (typeof s.batteryRotation === 'undefined') s.batteryRotation = 0;
 
+  const batCurStep = (typeof wpCurrentStep !== 'undefined') ? wpCurrentStep : ((typeof window !== 'undefined' && window.wpCurrentStep) || 1);
+  const batShouldShow = (batCurStep >= 4);
+  batEntity.show = batShouldShow;
+
   const batLabelText = '🔋 BATERÍA LFP (' + batTotalKWh.toFixed(1) + ' kWh)\n' + batCount + 'x ' + (batItem.brand || 'LFP');
   if (typeof addLabelEntity === 'function') {
     s.batteryLabel2D = addLabelEntity(batCartesian, batLabelText, -46, {
@@ -5370,6 +5507,7 @@ function wpRenderBattery3D(inverterCartesian) {
       category: 'electrical',
       equipmentType: 'battery'
     });
+    if (s.batteryLabel2D) s.batteryLabel2D.show = batShouldShow;
   }
 
   if (typeof wpCalculateAndRenderInverterCables === 'function') {

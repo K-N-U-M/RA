@@ -62,16 +62,19 @@
 
       // 1. Latiguillos de cables inter-módulo (simulatedStringsPolylineCollection)
       if (global.simulatedStringsPolylineCollection) {
-        if (global.simulatedStringsPolylineCollection.show !== showMicroDetails) {
-          global.simulatedStringsPolylineCollection.show = showMicroDetails;
+        const currentStep = (typeof global.wpCurrentStep !== 'undefined') ? global.wpCurrentStep : 1;
+        const shouldShowStrings = showMicroDetails && (currentStep >= 4);
+        if (global.simulatedStringsPolylineCollection.show !== shouldShowStrings) {
+          global.simulatedStringsPolylineCollection.show = shouldShowStrings;
           needsRender = true;
         }
       }
 
       // 2. Colección de etiquetas de número de módulo (_panelNumberLabelCollection)
       if (global._panelNumberLabelCollection) {
-        if (global._panelNumberLabelCollection.show !== showMicroDetails) {
-          global._panelNumberLabelCollection.show = showMicroDetails;
+        const shouldShowLabels = showMicroDetails && (global.areLabelsVisible !== false);
+        if (global._panelNumberLabelCollection.show !== shouldShowLabels) {
+          global._panelNumberLabelCollection.show = shouldShowLabels;
           needsRender = true;
         }
       }

@@ -13,8 +13,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <!-- jsPDF for downloadable PDF generation -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <!-- jsPDF: Carga perezosa bajo demanda (Lazy Loading) gestionada por js/lazy-loader.js -->
 
   <!-- Base URL para Workers y Assets de Cesium -->
   
@@ -68,6 +67,7 @@ window.RA_App = window.RA_App || {};
   <script src="js/ra-benchmark.js?v=20261019a"></script>
   <script src="js/ra-lod-manager.js?v=20261019a"></script>
   <script src="js/storage-cache.js?v=20261019a"></script>
+  <script src="js/lazy-loader.js?v=20261019a"></script>
 
     <link rel="stylesheet" href="css/styles.css?v=20261016b">
 
@@ -876,72 +876,33 @@ window.RA_App = window.RA_App || {};
                     </div>
                   </div>
 
-                  <!-- Rotación y Giro sobre el Plano -->
-                  <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px;">
-                    <span style="font-size:9.5px;font-weight:bold;color:var(--text-slate-400);">ROTACIÓN:</span>
-                    <div style="display:flex;gap:3px;">
-                      <button class="gizmo-btn" onclick="rotateSelectedObstacle(-15)" title="Girar -15°">↺ -15°</button>
-                      <button class="gizmo-btn" onclick="rotateSelectedObstacle(+15)" title="Girar +15°">↻ +15°</button>
-                      <button class="gizmo-btn" onclick="rotateSelectedObstacle(+90)" title="Girar +90°" style="color:var(--amber-400);">↻ 90°</button>
-                    </div>
-                  </div>
-
-                  <!-- Modificadores de Escala por Separado (Ejes X, Y, Z) -->
+                  <!-- Selector de Color / Material del Objeto -->
                   <div style="background:rgba(15,23,42,0.6);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:6px;margin-top:4px;">
-                    <div style="font-size:9.5px;font-weight:bold;color:var(--amber-400);margin-bottom:4px;display:flex;justify-content:space-between;">
-                      <span><i data-lucide="ruler" class="icon-sm"></i> ESCALA POR EJES:</span>
-                      <span id="obs-scale-summary" style="color:var(--text-slate-400);">1.0x · 1.0x · 1.0x</span>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                      <span style="font-size:9.5px;font-weight:bold;color:var(--amber-400);display:flex;align-items:center;gap:4px;">
+                        <i data-lucide="palette" class="icon-sm"></i> COLOR DEL MATERIAL:
+                      </span>
+                      <span id="obs-color-hex-val" style="font-size:9px;font-family:monospace;color:var(--text-slate-400);">#DC2626</span>
                     </div>
                     
-                    <!-- Escala X (Ancho / Diámetro U) -->
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
-                      <span style="font-size:9.5px;color:#38BDF8;font-weight:bold;">EJE X (Ancho):</span>
-                      <div style="display:flex;gap:2px;">
-                        <button class="gizmo-btn" onclick="scaleSelectedObstacleAxis('x', 0.90)" title="Reducir X -10%">-10%</button>
-                        <button class="gizmo-btn" onclick="scaleSelectedObstacleAxis('x', 1.10)" title="Aumentar X +10%">+10%</button>
-                        <button class="gizmo-btn" onclick="nudgeSelectedObstacleDim('w', -0.5)" title="-0.5m">-0.5m</button>
-                        <button class="gizmo-btn" onclick="nudgeSelectedObstacleDim('w', +0.5)" title="+0.5m">+0.5m</button>
-                      </div>
+                    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+                      <input type="color" id="obs-color-picker" class="field-input" style="width:36px;height:24px;padding:1px 2px;cursor:pointer;border-radius:4px;border:1px solid rgba(255,255,255,0.15);background:transparent;" oninput="updateSelectedObstacleColor(this.value)" title="Elegir color personalizado">
+                      <span style="font-size:9px;color:var(--text-slate-400);">Personalizado o acabado:</span>
                     </div>
 
-                    <!-- Escala Y (Largo / Diámetro V) -->
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
-                      <span style="font-size:9.5px;color:#4ADE80;font-weight:bold;">EJE Y (Largo):</span>
-                      <div style="display:flex;gap:2px;">
-                        <button class="gizmo-btn" onclick="scaleSelectedObstacleAxis('y', 0.90)" title="Reducir Y -10%">-10%</button>
-                        <button class="gizmo-btn" onclick="scaleSelectedObstacleAxis('y', 1.10)" title="Aumentar Y +10%">+10%</button>
-                        <button class="gizmo-btn" onclick="nudgeSelectedObstacleDim('l', -0.5)" title="-0.5m">-0.5m</button>
-                        <button class="gizmo-btn" onclick="nudgeSelectedObstacleDim('l', +0.5)" title="+0.5m">+0.5m</button>
-                      </div>
-                    </div>
-
-                    <!-- Escala Z (Altura Z) -->
-                    <div style="display:flex;justify-content:space-between;align-items:center;">
-                      <span style="font-size:9.5px;color:#F43F5E;font-weight:bold;">EJE Z (Altura):</span>
-                      <div style="display:flex;gap:2px;">
-                        <button class="gizmo-btn" onclick="scaleSelectedObstacleAxis('z', 0.90)" title="Reducir Z -10%">-10%</button>
-                        <button class="gizmo-btn" onclick="scaleSelectedObstacleAxis('z', 1.10)" title="Aumentar Z +10%">+10%</button>
-                        <button class="gizmo-btn" onclick="nudgeSelectedObstacleDim('h', -0.5)" title="-0.5m">-0.5m</button>
-                        <button class="gizmo-btn" onclick="nudgeSelectedObstacleDim('h', +0.5)" title="+0.5m">+0.5m</button>
-                      </div>
+                    <!-- Paleta de materiales arquitectónicos rápidos -->
+                    <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;">
+                      <button type="button" class="obs-color-swatch" data-color="#DC2626" onclick="updateSelectedObstacleColor('#DC2626')" title="Ladrillo / Teja (#DC2626)" style="width:18px;height:18px;border-radius:4px;background:#DC2626;border:1px solid rgba(255,255,255,0.2);cursor:pointer;padding:0;"></button>
+                      <button type="button" class="obs-color-swatch" data-color="#B45309" onclick="updateSelectedObstacleColor('#B45309')" title="Barro / Cerámica (#B45309)" style="width:18px;height:18px;border-radius:4px;background:#B45309;border:1px solid rgba(255,255,255,0.2);cursor:pointer;padding:0;"></button>
+                      <button type="button" class="obs-color-swatch" data-color="#64748B" onclick="updateSelectedObstacleColor('#64748B')" title="Hormigón / Zinc (#64748B)" style="width:18px;height:18px;border-radius:4px;background:#64748B;border:1px solid rgba(255,255,255,0.2);cursor:pointer;padding:0;"></button>
+                      <button type="button" class="obs-color-swatch" data-color="#2563EB" onclick="updateSelectedObstacleColor('#2563EB')" title="Chapa Azul (#2563EB)" style="width:18px;height:18px;border-radius:4px;background:#2563EB;border:1px solid rgba(255,255,255,0.2);cursor:pointer;padding:0;"></button>
+                      <button type="button" class="obs-color-swatch" data-color="#059669" onclick="updateSelectedObstacleColor('#059669')" title="HVAC / Clima (#059669)" style="width:18px;height:18px;border-radius:4px;background:#059669;border:1px solid rgba(255,255,255,0.2);cursor:pointer;padding:0;"></button>
+                      <button type="button" class="obs-color-swatch" data-color="#7C3AED" onclick="updateSelectedObstacleColor('#7C3AED')" title="Púrpura Especial (#7C3AED)" style="width:18px;height:18px;border-radius:4px;background:#7C3AED;border:1px solid rgba(255,255,255,0.2);cursor:pointer;padding:0;"></button>
+                      <button type="button" class="obs-color-swatch" data-color="#F1F5F9" onclick="updateSelectedObstacleColor('#F1F5F9')" title="Aluminio / Blanco (#F1F5F9)" style="width:18px;height:18px;border-radius:4px;background:#F1F5F9;border:1px solid rgba(255,255,255,0.2);cursor:pointer;padding:0;"></button>
+                      <button type="button" class="obs-color-swatch" data-color="#1E293B" onclick="updateSelectedObstacleColor('#1E293B')" title="Antracita / Negro (#1E293B)" style="width:18px;height:18px;border-radius:4px;background:#1E293B;border:1px solid rgba(255,255,255,0.2);cursor:pointer;padding:0;"></button>
                     </div>
                   </div>
 
-                  <!-- Desplazamiento Fino en Ejes U / V -->
-                  <div style="display:flex;justify-content:space-between;align-items:center;">
-                    <span style="font-size:9.5px;font-weight:bold;color:var(--text-slate-400);">MOVER EJE U:</span>
-                    <div style="display:flex;gap:3px;">
-                      <button class="gizmo-btn" onclick="nudgeSelectedObstacle('u', -0.5)">-0.5m</button>
-                      <button class="gizmo-btn" onclick="nudgeSelectedObstacle('u', +0.5)">+0.5m</button>
-                    </div>
-                  </div>
-                  <div style="display:flex;justify-content:space-between;align-items:center;">
-                    <span style="font-size:9.5px;font-weight:bold;color:var(--text-slate-400);">MOVER EJE V:</span>
-                    <div style="display:flex;gap:3px;">
-                      <button class="gizmo-btn" onclick="nudgeSelectedObstacle('v', -0.5)">-0.5m</button>
-                      <button class="gizmo-btn" onclick="nudgeSelectedObstacle('v', +0.5)">+0.5m</button>
-                    </div>
-                  </div>
 
                   <button class="doc-mini-btn" onclick="deleteSelectedObstacle()" style="text-align:center;color:var(--rose-500);width:100%;margin-top:4px;">
                     <i data-lucide="trash-2" class="icon-sm"></i> BORRAR ESTE OBSTÁCULO
@@ -2099,14 +2060,6 @@ window.RA_App = window.RA_App || {};
     </div>
   </div>
 
-  <div id="ra-shortcuts-hud">
-    <span style="font-family:var(--font-mono);font-size:9.5px;color:var(--text-slate-300);">
-      LAT: <b id="c-lat" style="color:#fff;">+41.3870°</b> | LON: <b id="c-lon" style="color:#fff;">+2.1700°</b> | ALT: <b id="c-alt" style="color:var(--amber-400);">5 km</b>
-    </span>
-    <span style="border-left:1px solid rgba(255,255,255,0.15);padding-left:8px;">
-      <span class="k">B</span> Trazar <span class="k">E</span> Editar <span class="k">N</span> Navegar <span class="k">Tab</span> Menú
-    </span>
-  </div>
 
 
 
@@ -6171,6 +6124,23 @@ function clearSimulatedPV() {
     } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
     window.simulatedPanelsPrimitive = null;
   }
+  if (window._faldonPanelsPrimitives && typeof viewer !== "undefined" && viewer && viewer.scene && viewer.scene.primitives) {
+    window._faldonPanelsPrimitives.forEach(p => {
+      if (p) {
+        try {
+          p.shadows = (typeof Cesium !== "undefined" && Cesium.ShadowMode) ? Cesium.ShadowMode.DISABLED : 0;
+          viewer.scene.primitives.remove(p);
+        } catch(e) {}
+      }
+    });
+    window._faldonPanelsPrimitives.clear();
+  }
+  if (window._faldonSupportCollections && typeof viewer !== "undefined" && viewer && viewer.scene && viewer.scene.primitives) {
+    window._faldonSupportCollections.forEach(sc => {
+      if (sc) { try { viewer.scene.primitives.remove(sc); } catch(e) {} }
+    });
+    window._faldonSupportCollections.clear();
+  }
 
   if (typeof viewer !== "undefined" && viewer && viewer.entities) {
     simulatedStringEntities.forEach(e => {
@@ -8804,23 +8774,6 @@ function undoLastPoint() {
   }
 });
 
-// ── Coordenadas en Vivo ───────────────────────────────────────────────────
-const cLat = document.getElementById('c-lat');
-const cLon = document.getElementById('c-lon');
-const cAlt = document.getElementById('c-alt');
-
-function updateCoords() {
-  const pos = camera.positionCartographic;
-  if (!pos) return;
-  const lat = Cesium.Math.toDegrees(pos.latitude);
-  const lon = Cesium.Math.toDegrees(pos.longitude);
-  if (cLat) cLat.textContent = (lat >= 0 ? '+' : '') + lat.toFixed(4) + '°';
-  if (cLon) cLon.textContent = (lon >= 0 ? '+' : '') + lon.toFixed(4) + '°';
-  if (cAlt) {
-    const km = pos.height / 1000;
-    cAlt.textContent = km >= 1 ? km.toFixed(1) + ' km' : pos.height.toFixed(0) + ' m';
-  }
-}
 
 // ── Navegación Teclado ─────────────────────────────────────────────────────
 const keys = new Set();
@@ -8888,7 +8841,6 @@ function resetView() {
 }
 
 clock.onTick.addEventListener(() => {
-  updateCoords();
   updateWindRose();
 
   if (autoRotate) {
@@ -9247,6 +9199,9 @@ function wpPlaceGridMeterAtPosition(cartesian, skipRecurse = false) {
         shadows: Cesium.ShadowMode.ENABLED
       }
     });
+    const curStep = (typeof wpCurrentStep !== 'undefined') ? wpCurrentStep : ((typeof window !== 'undefined' && window.wpCurrentStep) || 1);
+    const shouldShow = (curStep >= 4);
+    meterEntity.show = shouldShow;
     window.inverterEquipmentState.gridMeter.entity = meterEntity;
 
     if (window.inverterEquipmentState.gridMeter.label2D) {
@@ -9261,6 +9216,7 @@ function wpPlaceGridMeterAtPosition(cartesian, skipRecurse = false) {
       category: 'electrical',
       equipmentType: 'meter'
     });
+    if (window.inverterEquipmentState.gridMeter.label2D) window.inverterEquipmentState.gridMeter.label2D.show = shouldShow;
   } catch(eEnt) {
     window.RA && window.RA.log && window.RA.log.debug('Error al renderizar marcador de contador:', eEnt);
   }
@@ -9391,6 +9347,9 @@ function wpPlaceCombinerBoxAtPosition(cartesian) {
         shadows: Cesium.ShadowMode.ENABLED
       }
     });
+    const curStep = (typeof wpCurrentStep !== 'undefined') ? wpCurrentStep : ((typeof window !== 'undefined' && window.wpCurrentStep) || 1);
+    const shouldShow = (curStep >= 4);
+    cbEntity.show = shouldShow;
     window.inverterEquipmentState.combinerBox.entity = cbEntity;
 
     if (window.inverterEquipmentState.combinerBox.label2D) {
@@ -9405,6 +9364,7 @@ function wpPlaceCombinerBoxAtPosition(cartesian) {
       category: 'electrical',
       equipmentType: 'combinerBox'
     });
+    if (window.inverterEquipmentState.combinerBox.label2D) window.inverterEquipmentState.combinerBox.label2D.show = shouldShow;
   } catch(eEnt) {
     window.RA && window.RA.log && window.RA.log.debug('Error renderizando Combiner Box:', eEnt);
   }
@@ -10932,6 +10892,9 @@ function wpPlaceInverterAtPosition(cartesian) {
         shadows: Cesium.ShadowMode.ENABLED
       }
     });
+    const curStep = (typeof wpCurrentStep !== 'undefined') ? wpCurrentStep : ((typeof window !== 'undefined' && window.wpCurrentStep) || 1);
+    const shouldShow = (curStep >= 4);
+    invEntity.show = shouldShow;
     window.inverterEquipmentState.entity = invEntity;
 
     if (window.inverterEquipmentState.label2D) {
@@ -10946,8 +10909,9 @@ function wpPlaceInverterAtPosition(cartesian) {
       category: 'electrical',
       equipmentType: 'inverter'
     });
+    if (window.inverterEquipmentState.label2D) window.inverterEquipmentState.label2D.show = shouldShow;
 
-    // <i data-lucide=\"rocket\" class=\"icon-sm\"></i> GEMELO DIGITAL 3D: CUADRO DE PROTECCIÓN DC ACOPLADO
+    // <i data-lucide="rocket" class="icon-sm"></i> GEMELO DIGITAL 3D: CUADRO DE PROTECCIÓN DC ACOPLADO
     if (window.inverterEquipmentState.dcProtectionEntity) {
       try { viewer.entities.remove(window.inverterEquipmentState.dcProtectionEntity); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
     }
@@ -10981,6 +10945,7 @@ function wpPlaceInverterAtPosition(cartesian) {
         shadows: Cesium.ShadowMode.ENABLED
       }
     });
+    dcEntity.show = shouldShow;
     window.inverterEquipmentState.dcProtectionEntity = dcEntity;
     window.inverterEquipmentState.dcProtectionPosition = dcCartesian;
     window.inverterEquipmentState.dcProtectionCarto = { latitude: Cesium.Math.toDegrees(dcPosCarto.latitude + 0.00000005), longitude: Cesium.Math.toDegrees(dcPosCarto.longitude + 0.00000007), height: dcPosCarto.height };
@@ -10998,6 +10963,7 @@ function wpPlaceInverterAtPosition(cartesian) {
       category: 'electrical',
       equipmentType: 'dcProtection'
     });
+    if (window.inverterEquipmentState.dcProtectionLabel2D) window.inverterEquipmentState.dcProtectionLabel2D.show = shouldShow;
     // <i data-lucide=\"battery-charging\" class=\"icon-sm\"></i> GEMELO DIGITAL 3D: SISTEMA DE ALMACENAMIENTO LFP ACOPLADO
     if (typeof wpRenderBattery3D === 'function') {
       wpRenderBattery3D(cartesian);
@@ -11393,6 +11359,14 @@ function wpUpdateCableRoutesUI() {
 window.wpUpdateCableRoutesUI = wpUpdateCableRoutesUI;
 
 function wpCalculateAndRenderInverterCables() {
+  // [BLINDAJE CAD FASES 1-2-3]: El cableado troncal y cuadros eléctricos solo se calculan en Paso 4 (Ingeniería)
+  const currentStep = (typeof wpCurrentStep !== 'undefined') ? wpCurrentStep : ((typeof window !== 'undefined' && window.wpCurrentStep) || 1);
+  if (currentStep < 4) {
+    if (typeof RACableEngine !== 'undefined' && typeof RACableEngine.clearAllCables === 'function') {
+      RACableEngine.clearAllCables();
+    }
+    return;
+  }
   if (typeof RACableEngine !== 'undefined' && typeof RACableEngine.renderAllCables === 'function') {
     return RACableEngine.renderAllCables();
   }
@@ -12198,9 +12172,29 @@ function computeRoofPanelsData() {
     let activeRoofInfo = null;
 
     WP.polylines.forEach((poly, idx) => {
-      const pInfo = computeSinglePolylineRoofInfo(poly.points, poly);
+      // 🚀 FIRMA INDIVIDUAL POR FALDÓN: Reutilizar poly.roofInfo si no ha cambiado su geometría ni parámetros
+      const ptsSig = (poly.points || []).filter(p => p && typeof p.x === "number").map(p => p.x.toFixed(3) + "," + p.y.toFixed(3) + "," + p.z.toFixed(3)).join(";");
+      const modId = poly.moduleId || (typeof panelConfig !== "undefined" ? (panelConfig.ancho + "x" + panelConfig.largo + "x" + panelConfig.potencia) : "def");
+      const arrMode = poly.arrangementMode || "def";
+      const azSur = poly.modAzimuth || "auto";
+      const tiltVal = poly.modTilt || "auto";
+      const orPref = poly.orientationPref || orientPref;
+      const stType = poly.structureType || "coplanar_teja";
+      const setbackVal = (document.getElementById("cfg-obstacle-setback") || { value: "0.50" }).value;
+      const singlePolySig = `${ptsSig}|${modId}|${arrMode}|${azSur}|${tiltVal}|${orPref}|${stType}|shd:${shadingStrategy}|sb:${setbackVal}|obs:${obstacles.length}`;
+
+      let pInfo;
+      if (poly.roofInfo && poly._calcSig === singlePolySig) {
+        pInfo = poly.roofInfo;
+      } else {
+        pInfo = computeSinglePolylineRoofInfo(poly.points, poly);
+        if (pInfo) {
+          poly.roofInfo = pInfo;
+          poly._calcSig = singlePolySig;
+        }
+      }
+
       if (pInfo) {
-        poly.roofInfo = pInfo;
         pInfo.panels.forEach((pan, pIdx) => {
           pan.polyIdx = idx;
           pan.globalIdx = allPanels.length;
@@ -12886,10 +12880,13 @@ function wpSyncStep6Controls() {
 window.wpSyncStep6Controls = wpSyncStep6Controls;
 
 // ── EXPORTACIÓN DE INFORME TÉCNICO PDF PROFESIONAL (PASO 5) ──
-function generatePdfReport() {
+async function generatePdfReport() {
   // [CANÓNICO v3.0] Delegación unificada a docs-generator.js
   if (typeof window.generateMemoria === 'function') {
     return window.generateMemoria();
+  }
+  if (typeof window.ensureJsPdfLoaded === 'function') {
+    await window.ensureJsPdfLoaded().catch(() => {});
   }
   const sConf = (window.solarProjectConfig && window.solarProjectConfig.calculatedLimits) ? window.solarProjectConfig : {
     calculatedLimits: { inverter: { model: 'Inversor Central FV' }, module: { model: 'Módulo Tier-1 450W', wp: 450 } }
@@ -13397,23 +13394,27 @@ function getClusterOrderedPanels(panels) {
 // [MODULARIZACION FASE 2 - BLOQUE 2.3] togglePhotorealisticPanelsTexture y toggleLabelsVisibility delegados canónicamente a js/ui-viewport-controls.js
 
 window._wpFastRenderDebounceTimer = null;
-function wpFastRenderSimulatedPanels(immediate = false) {
+function wpFastRenderSimulatedPanels(immediate = false, targetPolyIdx = null) {
   if (immediate !== true) {
     if (window._wpFastRenderDebounceTimer) clearTimeout(window._wpFastRenderDebounceTimer);
     // Devuelve promesa: resuelve cuando el layout completo (faldones + cables) está renderizado
     return new Promise(resolve => {
-      window._wpFastRenderDebounceTimer = setTimeout(() => { resolve(wpFastRenderSimulatedPanels(true)); }, 250);
+      window._wpFastRenderDebounceTimer = setTimeout(() => { resolve(wpFastRenderSimulatedPanels(true, targetPolyIdx)); }, 250);
     });
   }
-  return wpFastRenderSimulatedPanelsAsync(true);
+  return wpFastRenderSimulatedPanelsAsync(true, targetPolyIdx);
 }
 
 // ── Pipeline asíncrono (Fase 2): el bucle de faldones cede el control entre iteraciones
 // para no bloquear el hilo ni agotar memoria en plantas grandes. La promesa resuelve al
 // terminar, después de redibujar también los cables (paso 8 interno).
-async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
+async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx = null) {
   stopSimulationTimeouts();
   isSimulationRunning = false;
+
+  const isIncrementalTarget = (typeof targetPolyIdx === 'number' && targetPolyIdx >= 0);
+  window._faldonPanelsPrimitives = window._faldonPanelsPrimitives || new Map();
+  window._faldonSupportCollections = window._faldonSupportCollections || new Map();
 
   // ── Gating AAA (PRIMERO, antes de purgar GPU) ────────────────────────────
   // Regla: si hay diseño válido, preservar paneles aunque step < 2 (Campo Solar arranca en Paso 2)
@@ -13440,51 +13441,100 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
 
   // 1. Purgar primitivas GPU previas (solo si el gating autorizó continuar)
   if (typeof viewer !== "undefined" && viewer) {
-    if (viewer.entities && Array.isArray(simulatedPanelEntities)) {
-      simulatedPanelEntities.forEach(e => {
-        if (e && typeof e === 'object' && e._id) try { viewer.entities.remove(e); } catch(err) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(err, 'Entidad/Primitiva Cesium'); }
-      });
-    }
-    simulatedPanelEntities = [];
+    if (isIncrementalTarget) {
+      // 🚀 INCREMENTAL: Solo purgar entidades y primitivas del faldón objetivo
+      if (viewer.entities && Array.isArray(simulatedPanelEntities)) {
+        simulatedPanelEntities = simulatedPanelEntities.filter(e => {
+          if (e && e.pData && e.pData.polyIdx === targetPolyIdx) {
+            if (e._id) { try { viewer.entities.remove(e); } catch(err) {} }
+            return false;
+          }
+          return true;
+        });
+      }
+      const oldPrim = window._faldonPanelsPrimitives.get(targetPolyIdx);
+      if (oldPrim && viewer.scene && viewer.scene.primitives) {
+        try {
+          oldPrim.shadows = (typeof Cesium !== "undefined" && Cesium.ShadowMode) ? Cesium.ShadowMode.DISABLED : 0;
+          viewer.scene.primitives.remove(oldPrim);
+        } catch(ePrim) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(ePrim, 'Entidad/Primitiva Cesium'); }
+        window._faldonPanelsPrimitives.delete(targetPolyIdx);
+      }
+      if (typeof WP !== 'undefined' && WP && WP.polylines && WP.polylines[targetPolyIdx]) {
+        WP.polylines[targetPolyIdx].panelsPrimitive = null;
+      }
+      const oldSup = window._faldonSupportCollections.get(targetPolyIdx);
+      if (oldSup && viewer.scene && viewer.scene.primitives) {
+        try { viewer.scene.primitives.remove(oldSup); } catch(eSup) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eSup, 'Entidad/Primitiva Cesium'); }
+        window._faldonSupportCollections.delete(targetPolyIdx);
+      }
+    } else {
+      // FULL RE-RENDER: Purgar todas las primitivas y colecciones
+      if (viewer.entities && Array.isArray(simulatedPanelEntities)) {
+        simulatedPanelEntities.forEach(e => {
+          if (e && typeof e === 'object' && e._id) try { viewer.entities.remove(e); } catch(err) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(err, 'Entidad/Primitiva Cesium'); }
+        });
+      }
+      simulatedPanelEntities = [];
 
-    if (window.simulatedSupportEntities && Array.isArray(window.simulatedSupportEntities)) {
-      window.simulatedSupportEntities.forEach(e => { try { viewer.entities.remove(e); } catch(err) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(err, 'Entidad/Primitiva Cesium'); } });
-    }
-    window.simulatedSupportEntities = [];
+      if (window.simulatedSupportEntities && Array.isArray(window.simulatedSupportEntities)) {
+        window.simulatedSupportEntities.forEach(e => { try { viewer.entities.remove(e); } catch(err) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(err, 'Entidad/Primitiva Cesium'); } });
+      }
+      window.simulatedSupportEntities = [];
 
-    if (window.simulatedPanelsPrimitive && viewer.scene && viewer.scene.primitives) {
-      try {
-        window.simulatedPanelsPrimitive.shadows = (typeof Cesium !== "undefined" && Cesium.ShadowMode) ? Cesium.ShadowMode.DISABLED : 0;
-        viewer.scene.primitives.remove(window.simulatedPanelsPrimitive);
-      } catch(ePrim) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(ePrim, 'Entidad/Primitiva Cesium'); }
-      window.simulatedPanelsPrimitive = null;
-    }
+      if (window._faldonPanelsPrimitives && viewer.scene && viewer.scene.primitives) {
+        window._faldonPanelsPrimitives.forEach(p => {
+          if (p) {
+            try {
+              p.shadows = (typeof Cesium !== "undefined" && Cesium.ShadowMode) ? Cesium.ShadowMode.DISABLED : 0;
+              viewer.scene.primitives.remove(p);
+            } catch(e) {}
+          }
+        });
+        window._faldonPanelsPrimitives.clear();
+      }
 
-    if (window.simulatedSupportsPolylineCollection && viewer.scene && viewer.scene.primitives) {
-      try { viewer.scene.primitives.remove(window.simulatedSupportsPolylineCollection); } catch(eSupCol) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eSupCol, 'Entidad/Primitiva Cesium'); }
-      window.simulatedSupportsPolylineCollection = null;
-    }
+      if (window.simulatedPanelsPrimitive && viewer.scene && viewer.scene.primitives) {
+        try {
+          window.simulatedPanelsPrimitive.shadows = (typeof Cesium !== "undefined" && Cesium.ShadowMode) ? Cesium.ShadowMode.DISABLED : 0;
+          viewer.scene.primitives.remove(window.simulatedPanelsPrimitive);
+        } catch(ePrim) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(ePrim, 'Entidad/Primitiva Cesium'); }
+        window.simulatedPanelsPrimitive = null;
+      }
 
-    if (window.simulatedStringsPolylineCollection && viewer.scene && viewer.scene.primitives) {
-      try { viewer.scene.primitives.remove(window.simulatedStringsPolylineCollection); } catch(eWires) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eWires, 'Entidad/Primitiva Cesium'); }
-      window.simulatedStringsPolylineCollection = null;
-    }
+      if (window._faldonSupportCollections && viewer.scene && viewer.scene.primitives) {
+        window._faldonSupportCollections.forEach(sc => {
+          if (sc) { try { viewer.scene.primitives.remove(sc); } catch(e) {} }
+        });
+        window._faldonSupportCollections.clear();
+      }
 
-    if (window._panelNumberLabelCollection && viewer.scene && viewer.scene.primitives) {
-      try { viewer.scene.primitives.remove(window._panelNumberLabelCollection); } catch(eLbl) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eLbl, 'Entidad/Primitiva Cesium'); }
-      window._panelNumberLabelCollection = null;
-    }
+      if (window.simulatedSupportsPolylineCollection && viewer.scene && viewer.scene.primitives) {
+        try { viewer.scene.primitives.remove(window.simulatedSupportsPolylineCollection); } catch(eSupCol) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eSupCol, 'Entidad/Primitiva Cesium'); }
+        window.simulatedSupportsPolylineCollection = null;
+      }
 
-    if (window._panelNumberEntities && Array.isArray(window._panelNumberEntities)) {
-      window._panelNumberEntities.forEach(e => { try { viewer.entities.remove(e); } catch(err) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(err, 'Entidad/Primitiva Cesium'); } });
-      window._panelNumberEntities = [];
-    }
+      if (window.simulatedStringsPolylineCollection && viewer.scene && viewer.scene.primitives) {
+        try { viewer.scene.primitives.remove(window.simulatedStringsPolylineCollection); } catch(eWires) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eWires, 'Entidad/Primitiva Cesium'); }
+        window.simulatedStringsPolylineCollection = null;
+      }
 
-    if (Array.isArray(simulatedStringEntities)) {
-      simulatedStringEntities.forEach(e => {
-        if (viewer.entities && e && e._id) try { viewer.entities.remove(e); } catch(err) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(err, 'Entidad/Primitiva Cesium'); }
-      });
-      simulatedStringEntities = [];
+      if (window._panelNumberLabelCollection && viewer.scene && viewer.scene.primitives) {
+        try { viewer.scene.primitives.remove(window._panelNumberLabelCollection); } catch(eLbl) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eLbl, 'Entidad/Primitiva Cesium'); }
+        window._panelNumberLabelCollection = null;
+      }
+
+      if (window._panelNumberEntities && Array.isArray(window._panelNumberEntities)) {
+        window._panelNumberEntities.forEach(e => { try { viewer.entities.remove(e); } catch(err) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(err, 'Entidad/Primitiva Cesium'); } });
+        window._panelNumberEntities = [];
+      }
+
+      if (Array.isArray(simulatedStringEntities)) {
+        simulatedStringEntities.forEach(e => {
+          if (viewer.entities && e && e._id) try { viewer.entities.remove(e); } catch(err) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(err, 'Entidad/Primitiva Cesium'); }
+        });
+        simulatedStringEntities = [];
+      }
     }
   }
 
@@ -13520,6 +13570,8 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
   window.allRenderedPanels = []; // Expuesto globalmente para picking/selección multi-faldón
   const allTargetPanels = window.allRenderedPanels;
   const allTargetWires = [];
+  const currentStep = (typeof wpCurrentStep !== 'undefined') ? wpCurrentStep : ((typeof window !== 'undefined' && window.wpCurrentStep) || 1);
+  const shouldRenderElectricalStrings = (currentStep >= 4);
 
   let globalStringCounter = 0;
 
@@ -13730,7 +13782,7 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
 
       [ { list: eastPanels, suffix: '-E', color: '#00F0FF' }, { list: westPanels, suffix: '-W', color: '#F59E0B' } ].forEach(subGroup => {
         if (subGroup.list.length === 0) return;
-        const partitioned = (typeof partitionPanelsIntoMPPTStrings === 'function')
+        const partitioned = (shouldRenderElectricalStrings && typeof partitionPanelsIntoMPPTStrings === 'function')
           ? partitionPanelsIntoMPPTStrings(subGroup.list)
           : [{ stringSuffix: '', stringName: 'S1', panels: subGroup.list }];
 
@@ -13739,7 +13791,9 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
           const invMpptCount = (limits && limits.inverter && limits.inverter.mppt) ? limits.inverter.mppt : 2;
           const mpptId = (polyIdx % invMpptCount) + 1;
           const sName = "S" + (polyIdx + 1) + subGroup.suffix + subStr.stringSuffix;
-          const strColor = (partitioned.length > 1) ? getPolylineStringColor(globalStringCounter - 1) : subGroup.color;
+          const strColor = shouldRenderElectricalStrings
+            ? ((partitioned.length > 1) ? getPolylineStringColor(globalStringCounter - 1) : subGroup.color)
+            : '#00F0FF';
 
           // Los módulos en subStr.panels ya están ordenados en la secuencia física Snake contigua
           const stringPanels = subStr.panels || [];
@@ -13781,28 +13835,30 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
             });
           });
 
-          // <i data-lucide=\"rocket\" class=\"icon-sm\"></i> CABLEADO EN SERPIENTE CONTIGUO ELEVADO (SNAKE ROUTING UNE-EN 62305)
-          const norm = pInfo.normal || new Cesium.Cartesian3(0, 0, 1);
-          const wirePositions = stringPanels.map(p => {
-            if (!p.center) return null;
-            return Cesium.Cartesian3.add(
-              p.center,
-              Cesium.Cartesian3.multiplyByScalar(norm, 0.04, new Cesium.Cartesian3()),
-              new Cesium.Cartesian3()
-            );
-          }).filter(Boolean);
-          if (wirePositions.length > 0) {
-            allTargetWires.push({
-              positions: wirePositions,
-              polyIdx: polyIdx,
-              stringColor: strColor
-            });
+          if (shouldRenderElectricalStrings) {
+            // <i data-lucide=\"rocket\" class=\"icon-sm\"></i> CABLEADO EN SERPIENTE CONTIGUO ELEVADO (SNAKE ROUTING UNE-EN 62305)
+            const norm = pInfo.normal || new Cesium.Cartesian3(0, 0, 1);
+            const wirePositions = stringPanels.map(p => {
+              if (!p.center) return null;
+              return Cesium.Cartesian3.add(
+                p.center,
+                Cesium.Cartesian3.multiplyByScalar(norm, 0.04, new Cesium.Cartesian3()),
+                new Cesium.Cartesian3()
+              );
+            }).filter(Boolean);
+            if (wirePositions.length > 0) {
+              allTargetWires.push({
+                positions: wirePositions,
+                polyIdx: polyIdx,
+                stringColor: strColor
+              });
+            }
           }
         });
       });
     } else {
       // <i data-lucide=\"rocket\" class=\"icon-sm\"></i> PARTICIÓN DE STRINGS POR VENTANA MPPT HOMOGÉNEA Y PROTECCIÓN DE SOBRECARGA (IEC 62548 / REBT)
-      const partitioned = (typeof partitionPanelsIntoMPPTStrings === 'function')
+      const partitioned = (shouldRenderElectricalStrings && typeof partitionPanelsIntoMPPTStrings === 'function')
         ? partitionPanelsIntoMPPTStrings(polyPanels)
         : [{ stringSuffix: '', stringName: 'S1', panels: polyPanels }];
 
@@ -13811,7 +13867,7 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
         const invMpptCount = (limits && limits.inverter && limits.inverter.mppt) ? limits.inverter.mppt : 2;
         const mpptId = (polyIdx % invMpptCount) + 1; // Asignación de faldón a canal MPPT dedicado
         const sName = (partitioned.length > 1) ? ("S" + (polyIdx + 1) + subStr.stringSuffix) : ("S" + (polyIdx + 1));
-        const strColor = getPolylineStringColor(globalStringCounter - 1);
+        const strColor = shouldRenderElectricalStrings ? getPolylineStringColor(globalStringCounter - 1) : '#00F0FF';
 
         // Los módulos en subStr.panels ya vienen ordenados en la serpiente global contigua
         const stringPanels = subStr.panels || [];
@@ -13852,9 +13908,10 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
           });
         });
 
-        // <i data-lucide=\"rocket\" class=\"icon-sm\"></i> CABLEADO EN SERPIENTE CONTIGUO CON CURVAS CATENARIAS 3D (UNE-EN 62305)
-        const norm = (pInfo && pInfo.normal) ? pInfo.normal : new Cesium.Cartesian3(0, 0, 1);
-        const validPanels = stringPanels.filter(p => p && p.center);
+        if (shouldRenderElectricalStrings) {
+          // <i data-lucide=\"rocket\" class=\"icon-sm\"></i> CABLEADO EN SERPIENTE CONTIGUO CON CURVAS CATENARIAS 3D (UNE-EN 62305)
+          const norm = (pInfo && pInfo.normal) ? pInfo.normal : new Cesium.Cartesian3(0, 0, 1);
+          const validPanels = stringPanels.filter(p => p && p.center);
           let catenaryPositionsIda = [];
           let catenaryPositionsVuelta = [];
           if (validPanels.length > 1) {
@@ -13975,6 +14032,7 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
               direction: -1.0
             });
           }
+        }
         });
       }
       }
@@ -13993,17 +14051,41 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
     // <i data-lucide=\"rocket\" class=\"icon-sm\"></i> 3. INSTANCIACIÓN GPU DE ALTO RENDIMIENTO (1 SOLO DRAW CALL PARA TODAS LAS PLACAS)
     let instancedSuccess = false;
 
-    // <i data-lucide=\"camera\" class=\"icon-sm\"></i> MODO FOTORREALISTA PBR (TECLA T): Todas las placas con textura de silicio monocristalino y reflejo
+    // <i data-lucide="camera" class="icon-sm"></i> MODO FOTORREALISTA PBR (TECLA T): Todas las placas con textura de silicio monocristalino y reflejo
     if (isPbrMode && viewer.scene) {
-      simulatedPanelEntities = [];
       const texUrl = (typeof solarPanelTextureUrl !== 'undefined' && solarPanelTextureUrl)
         ? solarPanelTextureUrl
         : ((typeof createSolarPanelTexture === 'function') ? createSolarPanelTexture() : '');
         
-      const instances = [];
+      const panelRenderState = (typeof Cesium !== 'undefined' && Cesium.RenderState && typeof Cesium.RenderState.fromCache === 'function')
+        ? Cesium.RenderState.fromCache({
+            depthTest: { enabled: true },
+            depthMask: true,
+            polygonOffset: { enabled: true, factor: -2.0, units: -2.0 }
+          })
+        : undefined;
+
+      const texSource = (typeof window.solarPanelTextureCanvas !== 'undefined' && window.solarPanelTextureCanvas)
+        ? window.solarPanelTextureCanvas
+        : texUrl;
+
+      const mat = (texUrl && typeof Cesium.Material.fromType === 'function')
+        ? Cesium.Material.fromType('Image', { image: texSource })
+        : (Cesium.Material && typeof Cesium.Material.fromType === 'function' ? Cesium.Material.fromType('Color', { color: Cesium.Color.fromCssColorString('#0a1931') }) : undefined);
+
+      const instancesByFaldon = new Map();
+      if (!isIncrementalTarget) {
+        simulatedPanelEntities = [];
+      }
+
       for (let i = 0; i < allTargetPanels.length; i++) {
         const pData = allTargetPanels[i];
-        
+        const fIdx = (typeof pData.polyIdx === 'number') ? pData.polyIdx : 0;
+
+        if (isIncrementalTarget && fIdx !== targetPolyIdx) {
+          continue;
+        }
+
         const positions = new Float64Array([
             pData.corners[0].x, pData.corners[0].y, pData.corners[0].z,
             pData.corners[1].x, pData.corners[1].y, pData.corners[1].z,
@@ -14031,75 +14113,77 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
           primitiveType: Cesium.PrimitiveType.TRIANGLES,
           boundingSphere: Cesium.BoundingSphere.fromPoints(pData.corners)
         });
-        
-        instances.push(new Cesium.GeometryInstance({
+
+        if (!instancesByFaldon.has(fIdx)) instancesByFaldon.set(fIdx, []);
+        instancesByFaldon.get(fIdx).push(new Cesium.GeometryInstance({
           geometry: polyGeom,
           id: "pv_panel_instance_" + i
         }));
-        
+
         simulatedPanelEntities.push({
           id: "pv_panel_pool_" + i,
           show: true,
           pData: pData
         });
       }
-      
-      const panelRenderState = (typeof Cesium !== 'undefined' && Cesium.RenderState && typeof Cesium.RenderState.fromCache === 'function')
-        ? Cesium.RenderState.fromCache({
-            depthTest: { enabled: true },
-            depthMask: true,
-            polygonOffset: { enabled: true, factor: -2.0, units: -2.0 }
-          })
-        : undefined;
 
-      // [FIX-TEXTURA] Pasar el CANVAS (textura síncrona) en vez del data-URI: la carga
-      // asíncrona del data-URI permitía dibujar con textura undefined → crash "_target".
-      const texSource = (typeof window.solarPanelTextureCanvas !== 'undefined' && window.solarPanelTextureCanvas)
-        ? window.solarPanelTextureCanvas
-        : texUrl;
-
-      const mat = (texUrl && typeof Cesium.Material.fromType === 'function')
-        ? Cesium.Material.fromType('Image', { image: texSource })
-        : (Cesium.Material && typeof Cesium.Material.fromType === 'function' ? Cesium.Material.fromType('Color', { color: Cesium.Color.fromCssColorString('#0a1931') }) : undefined);
-
-      const primitive = new Cesium.Primitive({
-        geometryInstances: instances,
-        appearance: new Cesium.MaterialAppearance({
-          material: mat,
-          flat: true,
-          translucent: false,
-          renderState: panelRenderState
-        }),
-        asynchronous: false,
-        shadows: (typeof Cesium !== 'undefined' && Cesium.ShadowMode ? Cesium.ShadowMode.ENABLED : 1)
+      instancesByFaldon.forEach((instances, fIdx) => {
+        if (instances.length === 0) return;
+        const primitive = new Cesium.Primitive({
+          geometryInstances: instances,
+          appearance: new Cesium.MaterialAppearance({
+            material: mat,
+            flat: true,
+            translucent: false,
+            renderState: panelRenderState
+          }),
+          asynchronous: false,
+          shadows: (typeof Cesium !== 'undefined' && Cesium.ShadowMode ? Cesium.ShadowMode.ENABLED : 1)
+        });
+        const fPrim = viewer.scene.primitives.add(primitive);
+        window._faldonPanelsPrimitives.set(fIdx, fPrim);
+        if (hasPolys && WP.polylines[fIdx]) {
+          WP.polylines[fIdx].panelsPrimitive = fPrim;
+        }
+        if (fIdx === 0 || !window.simulatedPanelsPrimitive) {
+          window.simulatedPanelsPrimitive = fPrim;
+        }
       });
-      window.simulatedPanelsPrimitive = viewer.scene.primitives.add(primitive);
-      
+
       instancedSuccess = true;
       if (typeof showStatus === 'function') {
-        showStatus('<i data-lucide="camera" class="icon-sm"></i> ' + simulatedPanelEntities.length + ' PANELES CON TEXTURA FOTORREALISTA PBR [T]', 2500);
+        showStatus('<i data-lucide="camera" class="icon-sm"></i> ' + allTargetPanels.length + ' PANELES CON TEXTURA FOTORREALISTA PBR [T]', 2500);
       }
       if (viewer.scene && typeof viewer.scene.requestRender === 'function') {
         viewer.scene.requestRender();
       }
     }
 
-    // GPU instancing nativo (1 draw call, PerInstanceColor) para todos los modos (normal y heatmap).
+    // GPU instancing nativo (1 draw call por faldón, PerInstanceColor) para todos los modos (normal y heatmap).
     if (!instancedSuccess && viewer.scene && viewer.scene.primitives && typeof Cesium.GeometryInstance === "function" && typeof Cesium.PolygonGeometry === "function") {
       try {
-        simulatedPanelEntities = [];
-        const instances = [];
+        const instancesByFaldon = new Map();
+        if (!isIncrementalTarget) {
+          simulatedPanelEntities = [];
+        }
+
         for (let i = 0; i < allTargetPanels.length; i++) {
           const pData = allTargetPanels[i];
+          const fIdx = (typeof pData.polyIdx === 'number') ? pData.polyIdx : 0;
+
+          if (isIncrementalTarget && fIdx !== targetPolyIdx) {
+            continue;
+          }
+
           const positions = new Float64Array([  pData.corners[0].x, pData.corners[0].y, pData.corners[0].z,  pData.corners[1].x, pData.corners[1].y, pData.corners[1].z,  pData.corners[2].x, pData.corners[2].y, pData.corners[2].z,  pData.corners[3].x, pData.corners[3].y, pData.corners[3].z]);
           const isLandInst = (pData.orientation === 'landscape');
           const st = isLandInst ? new Float32Array([0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0]) : new Float32Array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 0.0]);
-        const v1 = Cesium.Cartesian3.subtract(pData.corners[1], pData.corners[0], new Cesium.Cartesian3()); // Length
-        const v2 = Cesium.Cartesian3.subtract(pData.corners[3], pData.corners[0], new Cesium.Cartesian3()); // Width
-        let norm = Cesium.Cartesian3.cross(v1, v2, new Cesium.Cartesian3()); // Length x Width -> UP
-        Cesium.Cartesian3.normalize(norm, norm);
-        const normals = new Float32Array([norm.x, norm.y, norm.z, norm.x, norm.y, norm.z, norm.x, norm.y, norm.z, norm.x, norm.y, norm.z]);
-        const indices = new Uint16Array([0, 1, 2, 0, 2, 3]); /* CCW winding */
+          const v1 = Cesium.Cartesian3.subtract(pData.corners[1], pData.corners[0], new Cesium.Cartesian3()); // Length
+          const v2 = Cesium.Cartesian3.subtract(pData.corners[3], pData.corners[0], new Cesium.Cartesian3()); // Width
+          let norm = Cesium.Cartesian3.cross(v1, v2, new Cesium.Cartesian3()); // Length x Width -> UP
+          Cesium.Cartesian3.normalize(norm, norm);
+          const normals = new Float32Array([norm.x, norm.y, norm.z, norm.x, norm.y, norm.z, norm.x, norm.y, norm.z, norm.x, norm.y, norm.z]);
+          const indices = new Uint16Array([0, 1, 2, 0, 2, 3]); /* CCW winding */
           const polyGeom = new Cesium.Geometry({  attributes: {    position: new Cesium.GeometryAttribute({ componentDatatype: Cesium.ComponentDatatype.DOUBLE, componentsPerAttribute: 3, values: positions }),    st: new Cesium.GeometryAttribute({ componentDatatype: Cesium.ComponentDatatype.FLOAT, componentsPerAttribute: 2, values: st }),    normal: new Cesium.GeometryAttribute({ componentDatatype: Cesium.ComponentDatatype.FLOAT, componentsPerAttribute: 3, values: normals })  },  indices: indices,  primitiveType: Cesium.PrimitiveType.TRIANGLES,  boundingSphere: Cesium.BoundingSphere.fromPoints(pData.corners)});
 
           let color;
@@ -14116,7 +14200,8 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
             );
           }
 
-          instances.push(new Cesium.GeometryInstance({
+          if (!instancesByFaldon.has(fIdx)) instancesByFaldon.set(fIdx, []);
+          instancesByFaldon.get(fIdx).push(new Cesium.GeometryInstance({
             geometry: polyGeom,
             attributes: {
               color: Cesium.ColorGeometryInstanceAttribute.fromColor(color)
@@ -14137,41 +14222,51 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
           });
         }
 
-        if (instances.length > 0) {
-          const panelRenderState = (typeof Cesium !== "undefined" && Cesium.RenderState && typeof Cesium.RenderState.fromCache === "function")
-            ? Cesium.RenderState.fromCache({
-                depthTest: {
-                  enabled: true
-                },
-                depthMask: true,
-                polygonOffset: {
-                  enabled: true,
-                  factor: -2.0,
-                  units: -2.0
-                }
-              })
-            : undefined;
-          const appearance = Cesium.PerInstanceColorAppearance ? new Cesium.PerInstanceColorAppearance({
-            flat: true,
-            translucent: false,
-            closed: false,
-            renderState: panelRenderState
-          }) : undefined;
+        const panelRenderState = (typeof Cesium !== "undefined" && Cesium.RenderState && typeof Cesium.RenderState.fromCache === "function")
+          ? Cesium.RenderState.fromCache({
+              depthTest: {
+                enabled: true
+              },
+              depthMask: true,
+              polygonOffset: {
+                enabled: true,
+                factor: -2.0,
+                units: -2.0
+              }
+            })
+          : undefined;
+        const appearance = Cesium.PerInstanceColorAppearance ? new Cesium.PerInstanceColorAppearance({
+          flat: true,
+          translucent: false,
+          closed: false,
+          renderState: panelRenderState
+        }) : undefined;
 
-          window.simulatedPanelsPrimitive = viewer.scene.primitives.add(new Cesium.Primitive({
+        instancesByFaldon.forEach((instances, fIdx) => {
+          if (instances.length === 0) return;
+          const primitive = new Cesium.Primitive({
             geometryInstances: instances,
             appearance: appearance,
             asynchronous: false,
             shadows: (typeof Cesium !== "undefined" && Cesium.ShadowMode ? Cesium.ShadowMode.ENABLED : 1)
-          }));
-          instancedSuccess = true;
-          if (typeof showStatus === 'function') {
-            showStatus(`<i data-lucide=\"check\" class=\"icon-sm\"></i> ${simulatedPanelEntities.length} PANELES FV RENDERIZADOS EN 3D (GPU 1-CALL)`, 3500);
+          });
+          const fPrim = viewer.scene.primitives.add(primitive);
+          window._faldonPanelsPrimitives.set(fIdx, fPrim);
+          if (hasPolys && WP.polylines[fIdx]) {
+            WP.polylines[fIdx].panelsPrimitive = fPrim;
           }
-          window.RA && window.RA.log && window.RA.log.warn(`[TELEMETRÍA FV] ÉXITO: ${simulatedPanelEntities.length} paneles renderizados en GPU Primitive`);
-          if (viewer.scene && typeof viewer.scene.requestRender === 'function') {
-            viewer.scene.requestRender();
+          if (fIdx === 0 || !window.simulatedPanelsPrimitive) {
+            window.simulatedPanelsPrimitive = fPrim;
           }
+        });
+
+        instancedSuccess = true;
+        if (typeof showStatus === 'function') {
+          showStatus(`<i data-lucide="check" class="icon-sm"></i> ${allTargetPanels.length} PANELES FV RENDERIZADOS EN 3D (GPU 1-CALL/FALDÓN)`, 3500);
+        }
+        window.RA && window.RA.log && window.RA.log.warn(`[TELEMETRÍA FV] ÉXITO: ${allTargetPanels.length} paneles renderizados en GPU Primitives`);
+        if (viewer.scene && typeof viewer.scene.requestRender === 'function') {
+          viewer.scene.requestRender();
         }
       } catch (eInst) {
         window.RA && window.RA.log && window.RA.log.debug("Fallback a entidades para paneles:", eInst);
@@ -14303,7 +14398,7 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
     }
 
     // 4. Líneas de cableado de String en serie agrupadas
-    if (!isHeatmapMode) {
+    if (!isHeatmapMode && shouldRenderElectricalStrings && allTargetWires.length > 0) {
       let wiresBatched = false;
       if (viewer.scene && viewer.scene.primitives && typeof Cesium.PolylineCollection === "function") {
         try {
@@ -14397,15 +14492,17 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
             new Cesium.Cartesian3()
           );
 
-          const panelNum = (typeof pData.pIdx === 'number') ? (pData.pIdx + 1) : (i + 1);
+          const panelNum = (typeof pData.pIdx === 'number' && shouldRenderElectricalStrings) ? (pData.pIdx + 1) : (i + 1);
 
           lblCol.add({
             position: badgePos,
-            text: pData.tag,
+            text: shouldRenderElectricalStrings ? pData.tag : String(panelNum),
             font: "bold 10px 'JetBrains Mono', Inter, monospace",
             fillColor: Cesium.Color.WHITE,
             showBackground: true,
-            backgroundColor: (pData.tag.includes("[+")) ? Cesium.Color.fromCssColorString("#EF4444").withAlpha(0.9) : (pData.tag.includes("[-") ? Cesium.Color.fromCssColorString("#1E293B").withAlpha(0.9) : Cesium.Color.BLACK.withAlpha(0.92)),
+            backgroundColor: shouldRenderElectricalStrings
+              ? ((pData.tag && pData.tag.includes("[+")) ? Cesium.Color.fromCssColorString("#EF4444").withAlpha(0.9) : ((pData.tag && pData.tag.includes("[-")) ? Cesium.Color.fromCssColorString("#1E293B").withAlpha(0.9) : Cesium.Color.BLACK.withAlpha(0.92)))
+              : Cesium.Color.BLACK.withAlpha(0.75),
             backgroundPadding: new Cesium.Cartesian2(4, 2),
             horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
             verticalOrigin: Cesium.VerticalOrigin.CENTER,
@@ -14481,16 +14578,17 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
   // idéntico a RACableEngine y simulatedStringsPolylineCollection para garantizar visibilidad al 100%.
   if (typeof viewer !== "undefined" && viewer && viewer.scene && viewer.scene.primitives && typeof WP !== "undefined" && WP && WP.polylines) {
     try {
-      const supportCol = new Cesium.PolylineCollection();
       const railMat = Cesium.Material.fromType('Color', { color: Cesium.Color.fromCssColorString('#CBD5E1') });
       const balastoMat = Cesium.Material.fromType('Color', { color: Cesium.Color.fromCssColorString('#475569') });
       const pergolaMat = Cesium.Material.fromType('Color', { color: Cesium.Color.fromCssColorString('#E2E8F0') });
-      let totalLinesAdded = 0;
 
       WP.polylines.forEach((poly, polyIdx) => {
+        if (isIncrementalTarget && polyIdx !== targetPolyIdx) return;
         const pInfo = poly.roofInfo;
         if (!pInfo || !pInfo.panels || pInfo.panels.length === 0) return;
         const panels = pInfo.panels;
+        const supportCol = new Cesium.PolylineCollection();
+        let totalLinesAdded = 0;
         
         let est = poly.estructura || null;
         const roofTilt = pInfo.tiltDeg || 0;
@@ -14700,12 +14798,15 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
             console.error('[RA-SOPORTES] Error en panel', idx, ePanelSup);
           }
         });
+        if (totalLinesAdded > 0) {
+          const sPrim = viewer.scene.primitives.add(supportCol);
+          window._faldonSupportCollections.set(polyIdx, sPrim);
+          if (polyIdx === 0 || !window.simulatedSupportsPolylineCollection) {
+            window.simulatedSupportsPolylineCollection = sPrim;
+          }
+          console.warn(`[RA-SOPORTES] GPU Primitive faldón ${polyIdx}: ${totalLinesAdded} líneas de soporte renderizadas.`);
+        }
       });
-
-      if (totalLinesAdded > 0) {
-        window.simulatedSupportsPolylineCollection = viewer.scene.primitives.add(supportCol);
-        console.warn(`[RA-SOPORTES] GPU Primitive exitosa: ${totalLinesAdded} líneas de soporte renderizadas.`);
-      }
     } catch (eSupGPU) {
       console.error('[RA-SOPORTES] Error al crear PolylineCollection de soportes:', eSupGPU);
     }
@@ -14735,6 +14836,9 @@ function _getOcclusionExcludeList(scene) {
   if (scene.skyAtmosphere) toExclude.push(scene.skyAtmosphere);
   if (window._solarHeatmapLabelCollection) toExclude.push(window._solarHeatmapLabelCollection);
   if (window.simulatedPanelsPrimitive) toExclude.push(window.simulatedPanelsPrimitive);
+  if (window._faldonPanelsPrimitives && typeof window._faldonPanelsPrimitives.forEach === 'function') {
+    window._faldonPanelsPrimitives.forEach(p => { if (p) toExclude.push(p); });
+  }
   if (window.simulatedStringsPolylineCollection) toExclude.push(window.simulatedStringsPolylineCollection);
   if (window.simulatedSupportsPolylineCollection) toExclude.push(window.simulatedSupportsPolylineCollection);
   if (window._raCableEnginePrimitives) toExclude.push(window._raCableEnginePrimitives);
@@ -16092,7 +16196,8 @@ window.toggleSolarHUD = toggleSolarHUD;
           return;
         }
       } else if (entId.startsWith('wp_poly_fill_') || entId.startsWith('wp_poly_line_')) {
-        const pIdx = parseInt(entId.split('_').pop(), 10);
+        const prefix = entId.startsWith('wp_poly_fill_') ? 'wp_poly_fill_' : 'wp_poly_line_';
+        const pIdx = parseInt(entId.replace(prefix, '').split('_')[0], 10);
         if (!isNaN(pIdx)) {
           if (WP.polylines && WP.polylines[pIdx] && WP.polylines[pIdx].visible === false) return;
           wpSelectPolyline(pIdx);
@@ -16512,7 +16617,8 @@ window.toggleSolarHUD = toggleSolarHUD;
       // [RA FIXED] Heavy calculations run on mouse release instead of drag
       // Omitimos recálculo booleano para paneles para no perder la posición manual
       if (draggedTargetType !== 'obstacle' && draggedTargetType !== 'panel' && typeof recalculateLayoutAndObstacles === 'function') {
-        recalculateLayoutAndObstacles();
+        const _vtxPolyIdx = (draggedTargetType === 'vertex' && typeof WP !== 'undefined' && WP) ? WP.selectedPolyIdx : null;
+        recalculateLayoutAndObstacles(_vtxPolyIdx);
       }
       
       // RECONSTRUIMOS el batch visual de paneles solo para arrastre manual de panel (para otros tipos ya lo reconstruye recalculateLayoutAndObstacles)
@@ -16520,8 +16626,12 @@ window.toggleSolarHUD = toggleSolarHUD;
         if (typeof window.wpInvalidateHeatmap === 'function') {
           window.wpInvalidateHeatmap('Panel movido manualmente');
         }
+        let _draggedPIdx = null;
+        if (panelsArr && typeof selectedPanelIndex !== 'undefined' && panelsArr[selectedPanelIndex]) {
+          _draggedPIdx = panelsArr[selectedPanelIndex].polyIdx;
+        }
         if (typeof wpFastRenderSimulatedPanels === 'function') {
-          wpFastRenderSimulatedPanels();
+          wpFastRenderSimulatedPanels(true, _draggedPIdx);
         }
       }
 
