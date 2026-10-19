@@ -144,6 +144,7 @@ function step3SetTopology(topo) {
   step3UpdateHardwareSelection();
   if (typeof wpUpdateStep4Checklist === 'function') wpUpdateStep4Checklist();
   if (typeof wpUpdateAutoSizingUI === 'function') wpUpdateAutoSizingUI();
+  if (typeof wpRefreshAutoEngineeringBanner === 'function') wpRefreshAutoEngineeringBanner(topo);
 }
 
 function step3EditCurrentEquipment(category) {
@@ -1143,7 +1144,8 @@ function wpAutoSelectOptimalEngineering(force = false) {
     totalKwp: totalKwp,
     gridSupply: gridSupply,
     distinctOrientations: distinctOrientations,
-    shadingDiagnostics: shading
+    shadingDiagnostics: shading,
+    selectedObjective: cfg.selectedObjective
   });
 
   const bestTopology = match.recommendedTopology || 'inverter';
@@ -1364,6 +1366,133 @@ function wpRenderAutoEngineeringBanner(info, isManualOverride = false) {
   if (window.lucide && typeof window.lucide.createIcons === 'function') try { window.lucide.createIcons(); } catch(e) {}
 }
 
+function wpRefreshAutoEngineeringBanner(preferredTopology) {
+  const banner = document.getElementById('step4-auto-engineering-banner');
+  if (!banner) return;
+
+  const cfg = window.solarProjectConfig || {};
+  const topo = preferredTopology || cfg.selectedTopology || 'inverter';
+  const catalog = (typeof window !== 'undefined' && window.equipmentCatalog) ? window.equipmentCatalog : ((typeof equipmentCatalog !== 'undefined') ? equipmentCatalog : null);
+  if (!catalog) return;
+
+  let totalPanels = (Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0)
+    ? window.allRenderedPanels.filter(p => p && !p.deleted).length
+    : 0;
+  if (totalPanels === 0 && typeof WP !== 'undefined' && Array.isArray(WP.polylines)) {
+    WP.polylines.forEach(p => {
+      const pInfo = p.roofInfo || (typeof computeSinglePolylineRoofInfo === 'function' ? computeSinglePolylineRoofInfo(p.points, p) : null);
+      if (pInfo && pInfo.panels) totalPanels += pInfo.panels.length;
+    });
+  }
+  if (totalPanels === 0) totalPanels = cfg.lastEstimatedPanels || 24;
+
+  const mod = (catalog.modules && catalog.modules.find(m => m.id === cfg.selectedModuleId)) || (catalog.modules && catalog.modules[0]) || { wp: 450, isc: 13.8, voc: 41.5 };
+  const totalKwp = (totalPanels * (mod.wp || 450)) / 1000.0;
+
+  let distinctOrientations = 1;
+  const orientations = [];
+  if (typeof WP !== 'undefined' && Array.isArray(WP.polylines) && WP.polylines.length > 0) {
+    WP.polylines.forEach(poly => {
+      if (poly && poly.points && poly.points.length >= 3) {
+        const pInfo = poly.roofInfo || (typeof computeSinglePolylineRoofInfo === 'function' ? computeSinglePolylineRoofInfo(poly.points, poly) : null);
+        const az = pInfo ? (pInfo.moduleAzimuthDeg ?? pInfo.azimuthDeg ?? 0) : 0;
+        const tilt = pInfo ? (pInfo.moduleTiltDeg ?? pInfo.tiltDeg ?? 30) : 30;
+        const isDupe = orientations.some(o => Math.abs(o.az - az) < 10 && Math.abs(o.tilt - tilt) < 5);
+        if (!isDupe) orientations.push({ az, tilt });
+      }
+    });
+    distinctOrientations = Math.max(1, orientations.length);
+  }
+
+  const shading = (typeof wpEvaluateMLPENecessity === 'function') ? wpEvaluateMLPENecessity() : null;
+  const gridSupply = (totalKwp > 6.0) ? 'three_phase' : 'single_phase';
+
+  let match = null;
+  if (typeof matchInvertersFromCatalog === 'function') {
+    match = matchInvertersFromCatalog({
+      invertersCatalog: catalog.inverters,
+      module: mod,
+      totalPanels: totalPanels,
+      totalKwp: totalKwp,
+      gridSupply: gridSupply,
+      distinctOrientations: distinctOrientations,
+      shadingDiagnostics: shading,
+      selectedObjective: cfg.selectedObjective,
+      selectedTopology: topo
+    });
+  }
+
+  let scenario = null;
+  let isVirtual = false;
+
+  if (topo === 'microinverter') {
+    const catalogMicros = (Array.isArray(catalog.microinverters) && catalog.microinverters.length > 0)
+      ? catalog.microinverters
+      : [{ id: 'micro_hoymiles_800', brand: 'Hoymiles', model: 'HMS-800-2T (2-en-1)', kw: 0.8, price: 175 }];
+    const chosenMicro = (cfg.selectedMicroinverterId && catalogMicros.find(m => m.id === cfg.selectedMicroinverterId)) || catalogMicros[0];
+    const microUnits = (cfg.autoSizing && cfg.autoSizing.microinverters && cfg.autoSizing.microinverters.count > 0)
+      ? cfg.autoSizing.microinverters.count
+      : Math.ceil(totalPanels / 2);
+    scenario = {
+      inverter: chosenMicro,
+      count: microUnits,
+      totalAcKw: Math.round(microUnits * (chosenMicro.kw || 0.8) * 10) / 10,
+      mpptCount: microUnits * 2,
+      overloadPct: parseFloat((totalKwp / (microUnits * (chosenMicro.kw || 0.8)) * 100).toFixed(1)),
+      totalCostEur: microUnits * (chosenMicro.price || 175),
+      isMicro: true
+    };
+  } else {
+    if (cfg.selectedInverterId && Array.isArray(catalog.inverters)) {
+      const activeInv = catalog.inverters.find(i => i.id === cfg.selectedInverterId) || cfg.lastVirtualInverter;
+      if (activeInv) {
+        const invCount = (cfg.autoSizing && cfg.autoSizing.inverters && cfg.autoSizing.inverters.count > 0)
+          ? cfg.autoSizing.inverters.count
+          : Math.max(1, Math.round(totalKwp / ((activeInv.kw || 10) * 1.18)));
+        const unitKw = activeInv.kw || 10;
+        const totalAcKw = Math.round(unitKw * invCount * 10) / 10;
+        const overloadPct = parseFloat((totalKwp / totalAcKw * 100).toFixed(1));
+        const mpptCount = (activeInv.mppt || activeInv.mpptCount || 2) * invCount;
+        scenario = {
+          inverter: activeInv,
+          count: invCount,
+          totalAcKw: totalAcKw,
+          mpptCount: mpptCount,
+          overloadPct: overloadPct,
+          totalCostEur: invCount * (activeInv.price || 1200),
+          isVirtual: !!activeInv.isVirtual
+        };
+        isVirtual = !!activeInv.isVirtual;
+      }
+    }
+    if (!scenario && match) {
+      scenario = match.recommendedScenarioB || match.recommendedScenarioA || match.virtualInverterMatch;
+      isVirtual = !!(scenario && (scenario.isVirtual || (scenario.inverter && scenario.inverter.isVirtual)));
+    }
+  }
+
+  if (!scenario) return;
+
+  const rationale = (match && match.topologyRationale)
+    ? match.topologyRationale
+    : (topo === 'microinverter'
+        ? 'Topología MLPE Descentralizada activa con seguimiento independiente por módulo.'
+        : `Topología String Central activa con ${scenario.count}× ${scenario.inverter.brand} ${scenario.inverter.model}.`);
+
+  wpRenderAutoEngineeringBanner({
+    topology: topo,
+    scenario: scenario,
+    totalKwp: totalKwp,
+    totalPanels: totalPanels,
+    distinctOrientations: distinctOrientations,
+    rationale: rationale,
+    shading: shading,
+    isVirtual: isVirtual,
+    bottleneckReason: (match && match.bottleneckReason) || (scenario.inverter && scenario.inverter.bottleneckReason),
+    suggestedCommercialModels: (match && match.suggestedCommercialModels) || (scenario.inverter && scenario.inverter.suggestedCommercialModels)
+  }, false);
+}
+
 function wpSaveVirtualInverterToCatalog() {
   const cfg = window.solarProjectConfig;
   const catalog = (typeof window !== 'undefined' && window.equipmentCatalog) ? window.equipmentCatalog : ((typeof equipmentCatalog !== 'undefined') ? equipmentCatalog : null);
@@ -1410,4 +1539,5 @@ function wpSaveVirtualInverterToCatalog() {
 
 window.wpAutoSelectOptimalEngineering = wpAutoSelectOptimalEngineering;
 window.wpRenderAutoEngineeringBanner = wpRenderAutoEngineeringBanner;
+window.wpRefreshAutoEngineeringBanner = wpRefreshAutoEngineeringBanner;
 window.wpSaveVirtualInverterToCatalog = wpSaveVirtualInverterToCatalog;

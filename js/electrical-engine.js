@@ -894,24 +894,56 @@
       estimatedCostEur: Math.ceil(totalPanels / 2) * 175
     };
 
-    // Matriz de decisión de Topología según Física Solar y Sombras:
-    let recommendedTopology = 'inverter';
+    // Matriz de decisión de Topología según Física Solar, Sombras y Escala de Proyecto:
+    let recommendedTopology = options.selectedTopology || 'inverter';
     let topologyRationale = 'Campo solar despejado: Inversor central de alta eficiencia con strings balanceados.';
 
-    if (shading) {
-      if (shading.recommendation === 'microinverters_or_full_mlpe') {
-        recommendedTopology = 'microinverter';
-        topologyRationale = 'Sombreado severo en >35% del campo: Topología descentralizada con Microinversores para desacoplar el sombreado mutuo.';
-      } else if (shading.recommendation === 'selective_optimizers') {
-        recommendedTopology = 'optimizer';
-        topologyRationale = `Sombreado parcial en ${shading.criticalLossPanelsCount || 'varios'} módulos: Inversor de red con Optimizadores DC selectivos (Tigo / Huawei).`;
+    const isCommercialIndustrial = totalKwp > 25.0;
+    const isMaxRoofFilling = (options.selectedObjective === 'max_roof');
+
+    if (!options.selectedTopology) {
+      if (shading) {
+        if (shading.recommendation === 'microinverters_or_full_mlpe') {
+          if (isCommercialIndustrial || isMaxRoofFilling) {
+            recommendedTopology = 'inverter';
+            topologyRationale = isCommercialIndustrial
+              ? `Instalación Industrial (${totalKwp.toFixed(1)} kWp) con sombreado: Inversores String Multi-MPPT recomendados (descentralización MLPE con microinversores no viable a escala industrial).`
+              : `Objetivo de Llenado Máximo con sombreado: Inversor String Multi-MPPT con particionado de strings para maximizar potencia de cubierta.`;
+          } else {
+            recommendedTopology = 'microinverter';
+            topologyRationale = 'Sombreado severo en >35% del campo: Topología descentralizada con Microinversores para desacoplar el sombreado mutuo.';
+          }
+        } else if (shading.recommendation === 'selective_optimizers') {
+          recommendedTopology = 'optimizer';
+          topologyRationale = `Sombreado parcial en ${shading.criticalLossPanelsCount || 'varios'} módulos: Inversor de red con Optimizadores DC selectivos (Tigo / Huawei).`;
+        } else if (distinctOrientations >= 3) {
+          if (isCommercialIndustrial) {
+            recommendedTopology = 'inverter';
+            topologyRationale = `Cubierta C&I con ${distinctOrientations} orientaciones: Inversor String Multi-MPPT con canales MPPT dedicados por orientación.`;
+          } else {
+            recommendedTopology = 'microinverter';
+            topologyRationale = `Cubierta compleja con ${distinctOrientations} orientaciones distintas: Los microinversores proporcionan seguimiento MPPT individual por módulo.`;
+          }
+        }
       } else if (distinctOrientations >= 3) {
-        recommendedTopology = 'microinverter';
-        topologyRationale = `Cubierta compleja con ${distinctOrientations} orientaciones distintas: Los microinversores proporcionan seguimiento MPPT individual por módulo.`;
+        if (isCommercialIndustrial) {
+          recommendedTopology = 'inverter';
+          topologyRationale = `Cubierta C&I con ${distinctOrientations} orientaciones: Inversores String Multi-MPPT con canales MPPT dedicados por orientación.`;
+        } else {
+          recommendedTopology = 'microinverter';
+          topologyRationale = `Cubierta con ${distinctOrientations} faldones de orientación distinta: Microinversores recomendados para evitar pérdidas por mismatch de string.`;
+        }
       }
-    } else if (distinctOrientations >= 3) {
-      recommendedTopology = 'microinverter';
-      topologyRationale = `Cubierta con ${distinctOrientations} faldones de orientación distinta: Microinversores recomendados para evitar pérdidas por mismatch de string.`;
+    } else {
+      if (options.selectedTopology === 'inverter') {
+        topologyRationale = (singleInvMatch && singleInvMatch.count > 1) || (multiInvMatch && multiInvMatch.count > 1)
+          ? `Topología String Central activa: Distribución modular balanceada con canales MPPT independientes (${totalKwp.toFixed(1)} kWp).`
+          : `Topología String Central activa: Inversor central de alta eficiencia con strings balanceados (${totalKwp.toFixed(1)} kWp).`;
+      } else if (options.selectedTopology === 'optimizer') {
+        topologyRationale = `Topología de Optimizadores DC activa: Inversores string coordinados con electrónica MLPE a nivel de módulo.`;
+      } else if (options.selectedTopology === 'microinverter') {
+        topologyRationale = `Topología MLPE Descentralizada activa: Microinversores para seguimiento y conversión independiente panel a panel.`;
+      }
     }
 
     return {

@@ -149,6 +149,43 @@ function runTest() {
   }
   console.log(`✓ Opción B directa de catálogo: ${scBDirect.count}x ${scBDirect.inverter.brand} ${scBDirect.inverter.model} (${scBDirect.totalAcKw} kW AC, redundancia ${scBDirect.redundancyPct}%)`);
 
+  // =========================================================================
+  // PRUEBA 5: Proyecto Industrial C&I (154 kWp) con sombreado severo (>35%) o max_roof
+  // El sistema DEBE recomendar Inversor String Multi-MPPT (C&I) en lugar de microinversores masivos
+  // =========================================================================
+  console.log('\n--- PRUEBA 5: Proyecto Industrial 154 kWp con sombreado >35% o Llenado Máximo ---');
+  const res154kShaded = matchInvertersFromCatalog({
+    invertersCatalog: commercialCatalog,
+    module: { wp: 550, isc: 14.5, voc: 49.5 },
+    totalPanels: 280,
+    totalKwp: 154.0,
+    gridSupply: 'three_phase',
+    distinctOrientations: 2,
+    shadingDiagnostics: { recommendation: 'microinverters_or_full_mlpe' },
+    selectedObjective: 'max_roof'
+  });
+
+  if (res154kShaded.recommendedTopology !== 'inverter') {
+    throw new Error(`En planta industrial de 154 kWp con max_roof la topología recomendada debe ser 'inverter', no '${res154kShaded.recommendedTopology}'`);
+  }
+  if (!res154kShaded.topologyRationale.includes('Industrial') && !res154kShaded.topologyRationale.includes('Llenado Máximo')) {
+    throw new Error(`El rationale debe indicar escala industrial o llenado máximo. Obtenido: ${res154kShaded.topologyRationale}`);
+  }
+  console.log(`✓ Regla Industrial C&I verificada: ${res154kShaded.recommendedTopology} recomendado (${res154kShaded.topologyRationale})`);
+
+  // Verificación de selección manual explícita
+  const resManualTopo = matchInvertersFromCatalog({
+    invertersCatalog: commercialCatalog,
+    module: { wp: 450, isc: 13.8, voc: 41.5 },
+    totalPanels: 40,
+    totalKwp: 18.0,
+    selectedTopology: 'inverter'
+  });
+  if (resManualTopo.recommendedTopology !== 'inverter') {
+    throw new Error(`Cuando se especifica selectedTopology='inverter', debe devolver 'inverter'`);
+  }
+  console.log(`✓ Respeto a topología explícita verificada: ${resManualTopo.recommendedTopology}`);
+
   console.log('\n============================================================');
   console.log('  TODOS LOS TESTS DE CASACIÓN INTELIGENTE 1X VS NX PASARON AL 100%');
   console.log('============================================================');

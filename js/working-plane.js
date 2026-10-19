@@ -5634,7 +5634,9 @@ function wpOpenSmartInverterMatchingModal() {
     totalKwp: totalKwp,
     gridSupply: gridSupply,
     distinctOrientations: distinctOrientations,
-    shadingDiagnostics: shading
+    shadingDiagnostics: shading,
+    selectedObjective: cfg.selectedObjective,
+    selectedTopology: cfg.selectedTopology
   });
 
   const scA = match.recommendedScenarioA;
