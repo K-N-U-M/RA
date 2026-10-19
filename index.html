@@ -6617,23 +6617,34 @@ function deleteSelectedPanel() {
     panel.deleted = true;
     if (panel.rawPanel) panel.rawPanel.deleted = true;
 
-    if (typeof WP !== 'undefined' && WP && WP.polylines && panel.polyIdx !== undefined) {
-      const poly = WP.polylines[panel.polyIdx];
+    const pPolyIdx = (typeof panel.polyIdx === 'number') ? panel.polyIdx : ((typeof WP !== 'undefined' && WP && WP.selectedPolyIdx >= 0) ? WP.selectedPolyIdx : 0);
+
+    if (typeof WP !== 'undefined' && WP && WP.polylines && WP.polylines[pPolyIdx]) {
+      const poly = WP.polylines[pPolyIdx];
       if (poly) {
         if (!Array.isArray(poly.deletedPanels)) poly.deletedPanels = [];
         poly.deletedPanels.push({
+          panelId: panel.panelId || (panel.rawPanel && panel.rawPanel.panelId) || ('pan_' + pPolyIdx + '_' + (panel.layoutIndex ?? panel.localIdx ?? idx)),
+          layoutIndex: (typeof panel.layoutIndex === 'number') ? panel.layoutIndex : (panel.rawPanel && panel.rawPanel.layoutIndex),
+          localIdx: (typeof panel.localIdx === 'number') ? panel.localIdx : (panel.rawPanel && panel.rawPanel.localIdx),
           u: (typeof panel.u === 'number') ? panel.u : (panel.rawPanel && panel.rawPanel.u),
           v: (typeof panel.v === 'number') ? panel.v : (panel.rawPanel && panel.rawPanel.v),
           center: panel.center ? Cesium.Cartesian3.clone(panel.center) : (panel.rawPanel && panel.rawPanel.center ? Cesium.Cartesian3.clone(panel.rawPanel.center) : null)
         });
-        if (poly.roofInfo && Array.isArray(poly.roofInfo.panels)) {
-          poly.roofInfo.panels = poly.roofInfo.panels.filter(p => p !== panel && p !== panel.rawPanel && !p.deleted);
-        }
+        // Invalidar roofInfo del faldón para forzar recomputación limpia en el renderizador
+        poly.roofInfo = null;
       }
     } else if (typeof lastRoofInfo !== 'undefined' && lastRoofInfo && Array.isArray(lastRoofInfo.panels)) {
       lastRoofInfo.panels = lastRoofInfo.panels.filter((p, pIdx) => pIdx !== idx && !p.deleted);
     }
   });
+
+  // Limpiar entidades de contorno de selección activas en Cesium
+  if (viewer && viewer.entities && Array.isArray(window.panelOutlineEntities)) {
+    window.panelOutlineEntities.forEach(e => { try { viewer.entities.remove(e); } catch(_) {} });
+    window.panelOutlineEntities = [];
+    panelOutlineEntity = null;
+  }
 
   // Eliminar físicamente del array global en orden descendente
   if (window.allRenderedPanels && Array.isArray(window.allRenderedPanels)) {
@@ -6659,8 +6670,10 @@ function deleteSelectedPanel() {
   selectedPanelIndex = -1;
   if (typeof window !== 'undefined') window.selectedPanelIndex = -1;
   selectPanel(-1);
+
+  // Forzar renderizado INMEDIATO (immediate = true) para evitar que el debounce de 250ms retrase la desaparición gráfica
   if (typeof wpFastRenderSimulatedPanels === 'function') {
-    wpFastRenderSimulatedPanels();
+    wpFastRenderSimulatedPanels(true);
   }
   if (typeof recalculateSolarYield === 'function') {
     recalculateSolarYield();
@@ -6676,6 +6689,9 @@ function deleteSelectedPanel() {
   }
   if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') {
     BOMTreeEngine.refresh();
+  }
+  if (viewer && viewer.scene && typeof viewer.scene.requestRender === 'function') {
+    viewer.scene.requestRender();
   }
   if (typeof showStatus === 'function') {
     showStatus(deletedCount > 1 
@@ -13660,16 +13676,23 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false) {
 
     // Filtrar módulos marcados en la lista de exclusión persistente poly.deletedPanels
     if (pInfo && pInfo.panels && Array.isArray(poly.deletedPanels) && poly.deletedPanels.length > 0) {
-      pInfo.panels = pInfo.panels.filter(p => {
+      pInfo.panels = pInfo.panels.filter((p, pIdx) => {
         const isDeleted = poly.deletedPanels.some(dp => {
-          if (p.center && dp.center) {
-            const d = Cesium.Cartesian3.distance(p.center, dp.center);
-            if (d < 0.25) return true;
-          }
+          // A. Coincidencia por panelId unívoco
+          if (p.panelId && dp.panelId && p.panelId === dp.panelId) return true;
+          // B. Coincidencia por índice de layout / localIdx
+          if (typeof p.layoutIndex === 'number' && typeof dp.layoutIndex === 'number' && p.layoutIndex === dp.layoutIndex) return true;
+          if (typeof p.localIdx === 'number' && typeof dp.localIdx === 'number' && p.localIdx === dp.localIdx) return true;
+          // C. Coincidencia por coordenadas locales u, v en el plano del faldón (inmune a variaciones Z de altura)
           if (typeof p.u === 'number' && typeof p.v === 'number' && typeof dp.u === 'number' && typeof dp.v === 'number') {
             const du = Math.abs(p.u - dp.u);
             const dv = Math.abs(p.v - dp.v);
-            if (du < 0.20 && dv < 0.20) return true;
+            if (du < 0.40 && dv < 0.40) return true;
+          }
+          // D. Coincidencia por proximidad espacial 3D (tolerancia ampliada a 0.65m para módulos inclinados o en pérgola)
+          if (p.center && dp.center) {
+            const d = Cesium.Cartesian3.distance(p.center, dp.center);
+            if (d < 0.65) return true;
           }
           return false;
         });

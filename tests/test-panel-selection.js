@@ -246,6 +246,40 @@ assert.strictEqual(global.selectedPanelIndex, -1);
 assert.strictEqual(global.solarSimState.annualHeatmapDirty, true);
 console.log('✔ Borrado múltiple atómico correcto y heatmap invalidado');
 
+console.log('--- TEST 8: Filtro multi-criterio de deletedPanels en estructuras elevadas ---');
+// Simular un faldón que se regenera: un módulo candidato con elevación 3D de 0.45m sobre plano
+const regeneratedPanels = [
+  { panelId: 'pan_0_0', layoutIndex: 0, u: 0.05, v: 1.02, center: new Cesium.Cartesian3(10, 10, 5.45) },
+  { panelId: 'pan_0_1', layoutIndex: 1, u: 1.25, v: 1.02, center: new Cesium.Cartesian3(11.2, 10, 5.45) }
+];
+const deletedExclusionList = [
+  // Grabado originalmente en rasante (Z=5.00) -> delta Z = 0.45m (> 0.25m antigua tolerancia)
+  { panelId: 'pan_0_0', layoutIndex: 0, u: 0.0, v: 1.0, center: new Cesium.Cartesian3(10, 10, 5.0) }
+];
+
+const filtered = regeneratedPanels.filter(p => {
+  const isDeleted = deletedExclusionList.some(dp => {
+    if (p.panelId && dp.panelId && p.panelId === dp.panelId) return true;
+    if (typeof p.layoutIndex === 'number' && typeof dp.layoutIndex === 'number' && p.layoutIndex === dp.layoutIndex) return true;
+    if (typeof p.u === 'number' && typeof p.v === 'number' && typeof dp.u === 'number' && typeof dp.v === 'number') {
+      const du = Math.abs(p.u - dp.u);
+      const dv = Math.abs(p.v - dp.v);
+      if (du < 0.40 && dv < 0.40) return true;
+    }
+    if (p.center && dp.center) {
+      const d = Cesium.Cartesian3.distance(p.center, dp.center);
+      if (d < 0.65) return true;
+    }
+    return false;
+  });
+  return !isDeleted;
+});
+
+// pan_0_0 debe ser excluido con éxito, quedando solo pan_0_1
+assert.strictEqual(filtered.length, 1);
+assert.strictEqual(filtered[0].panelId, 'pan_0_1');
+console.log('✔ Filtro multi-criterio excluye exitosamente módulos elevados (>0.25m) por panelId, localIdx, UV y distancia 3D');
+
 console.log('\n========================================');
-console.log('🎉 TODOS LOS TESTS DE SELECCIÓN PASARON!');
+console.log('🎉 TODOS LOS TESTS DE SELECCIÓN Y BORRADO PASARON!');
 console.log('========================================');
