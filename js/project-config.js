@@ -482,7 +482,90 @@ function wpComputeAutoSizing(forcedCount) {
   const invNomKw = inv.kw || 5.0;
   const maxOverloadRatio = inv.maxOverload || 1.30;
   const maxKwInput = invNomKw * maxOverloadRatio;
-  const autoInverters = Math.max(1, Math.ceil(totalKwp / maxKwInput));
+  const autoInvertersByPower = Math.max(1, Math.ceil(totalKwp / maxKwInput));
+
+  // 1b. Verificación de Canales MPPT Físicos e Incompatibilidad de Orientación (IEC 62548 / REBT)
+  let autoInvertersByMppt = 1;
+  try {
+    const invMppt = (inv && Number.isFinite(inv.mppt) && inv.mppt > 0) ? inv.mppt : 2;
+    const invInputs = (inv && Number.isFinite(inv.inputsPerMppt) && inv.inputsPerMppt > 0) ? inv.inputsPerMppt : 1;
+
+    let targetPanels = null;
+    if (typeof window !== 'undefined') {
+      if (Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0) {
+        targetPanels = window.allRenderedPanels.filter(p => p && !p.deleted);
+      } else if (typeof WP !== 'undefined' && WP && Array.isArray(WP.polylines)) {
+        const collected = [];
+        WP.polylines.forEach(pl => {
+          const arr = (pl && pl.roofInfo && Array.isArray(pl.roofInfo.panels)) ? pl.roofInfo.panels : (pl && Array.isArray(pl.panels) ? pl.panels : null);
+          if (arr) arr.forEach(p => collected.push(p));
+        });
+        if (collected.length > 0) targetPanels = collected;
+      }
+    }
+
+    if (Array.isArray(targetPanels) && targetPanels.length > 0) {
+      const stringsMap = new Map();
+      targetPanels.forEach(p => {
+        if (!p) return;
+        const sName = p.stringName || ('faldon_' + (p.polyIdx != null ? p.polyIdx : 0));
+        if (!stringsMap.has(sName)) {
+          let tilt = typeof p.tiltDeg === 'number' ? p.tiltDeg : null;
+          let az = typeof p.azimuthDeg === 'number' ? p.azimuthDeg : null;
+          if ((tilt == null || az == null) && typeof window !== 'undefined' && window.WP && Array.isArray(window.WP.polylines)) {
+            const poly = window.WP.polylines[p.polyIdx];
+            if (poly) {
+              if (tilt == null) tilt = (poly.roofInfo && typeof poly.roofInfo.tiltDeg === 'number') ? poly.roofInfo.tiltDeg : (poly.tiltDeg || 0);
+              if (az == null) az = (poly.roofInfo && typeof poly.roofInfo.azimuthDeg === 'number') ? poly.roofInfo.azimuthDeg : (poly.azimuthDeg || 0);
+            }
+          }
+          stringsMap.set(sName, {
+            tilt: typeof tilt === 'number' && !isNaN(tilt) ? tilt : 0,
+            az: typeof az === 'number' && !isNaN(az) ? az : 0,
+            count: 0
+          });
+        }
+        stringsMap.get(sName).count++;
+      });
+
+      // Agrupar strings por orientación homogénea (Δβ <= 5°, Δγ <= 10°)
+      const orientationGroups = [];
+      stringsMap.forEach(str => {
+        let matched = null;
+        for (const grp of orientationGroups) {
+          const dTilt = Math.abs(grp.tilt - str.tilt);
+          let dAz = Math.abs(grp.az - str.az);
+          if (dAz > 180) dAz = 360 - dAz;
+          if (dTilt <= 5.0 && dAz <= 10.0) {
+            matched = grp;
+            break;
+          }
+        }
+        if (matched) {
+          matched.stringsCount++;
+        } else {
+          orientationGroups.push({
+            tilt: str.tilt,
+            az: str.az,
+            stringsCount: 1
+          });
+        }
+      });
+
+      let totalMpptsNeeded = 0;
+      orientationGroups.forEach(grp => {
+        totalMpptsNeeded += Math.max(1, Math.ceil(grp.stringsCount / invInputs));
+      });
+
+      if (totalMpptsNeeded > 0) {
+        autoInvertersByMppt = Math.max(1, Math.ceil(totalMpptsNeeded / invMppt));
+      }
+    }
+  } catch (errMppt) {
+    console.warn('[RA-AutoSizing] Error al evaluar canales MPPT:', errMppt);
+  }
+
+  const autoInverters = Math.max(autoInvertersByPower, autoInvertersByMppt);
 
   // 2. Microinversores MLPE:
   let ratio = 1;
@@ -503,6 +586,7 @@ function wpComputeAutoSizing(forcedCount) {
   if (!cfg.autoSizing.microinverters) cfg.autoSizing.microinverters = { count: 0, autoCount: 0, isManual: false };
   if (!cfg.autoSizing.batteries) cfg.autoSizing.batteries = { count: 0, autoCount: 0, isManual: false };
 
+  const prevInvCount = cfg.autoSizing.inverters.count;
   cfg.autoSizing.inverters.autoCount = autoInverters;
   if (!cfg.autoSizing.inverters.isManual || cfg.autoSizing.inverters.count > autoInverters * 2 || autoInverters > cfg.autoSizing.inverters.count * 3) {
     if (cfg.autoSizing.inverters.isManual && cfg.autoSizing.inverters.count !== autoInverters) {
@@ -510,6 +594,12 @@ function wpComputeAutoSizing(forcedCount) {
       cfg.autoSizing.inverters.isManual = false;
     }
     cfg.autoSizing.inverters.count = autoInverters;
+  }
+  if (prevInvCount !== cfg.autoSizing.inverters.count) {
+    const rebFn = (typeof rebalanceMPPTAssignment === 'function')
+      ? rebalanceMPPTAssignment
+      : (typeof window !== 'undefined' && window.RA && window.RA.Electrical && typeof window.RA.Electrical.rebalanceMPPTAssignment === 'function' ? window.RA.Electrical.rebalanceMPPTAssignment : null);
+    if (rebFn) rebFn();
   }
 
   cfg.autoSizing.microinverters.autoCount = autoMicros;

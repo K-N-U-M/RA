@@ -162,6 +162,30 @@ const testPanelsIncompatible = [
 const checkIncompat = context.window.RA.Electrical.validateMPPTHomogeneity(testPanelsIncompatible);
 assert(checkIncompat.valid === false && checkIncompat.violations.length > 0, 'Bloqueo normativo MPPT: strings en paralelo con distinta orientación', `Violación detectada: Δβ > 5° o Δγ > 10°`);
 
+// Prueba de asignación balanceada multi-faldón (IEC 62548):
+// Faldón 1 (1 string, Norte/0°) y Faldón 2 (5 strings, Sur/180°) con inversor de 2 MPPTs × 2 entradas
+context.window.solarProjectConfig = context.window.solarProjectConfig || {};
+context.window.solarProjectConfig.calculatedLimits = {
+  inverter: { mppt: 2, inputsPerMppt: 2, vDcMax: 1000, vMpptMin: 200, vMpptMax: 850 }
+};
+context.window.solarProjectConfig.autoSizing = {
+  inverters: { count: 1 }
+};
+const multiSlopePanels = [
+  { stringName: 'S1.1', polyIdx: 0, tiltDeg: 20, azimuthDeg: 0, tag: 'MPPT1:S1.1' },
+  { stringName: 'S2.1', polyIdx: 1, tiltDeg: 20, azimuthDeg: 180, tag: 'MPPT1:S2.1' },
+  { stringName: 'S2.2', polyIdx: 1, tiltDeg: 20, azimuthDeg: 180, tag: 'MPPT1:S2.2' },
+  { stringName: 'S2.3', polyIdx: 1, tiltDeg: 20, azimuthDeg: 180, tag: 'MPPT1:S2.3' },
+  { stringName: 'S2.4', polyIdx: 1, tiltDeg: 20, azimuthDeg: 180, tag: 'MPPT1:S2.4' },
+  { stringName: 'S2.5', polyIdx: 1, tiltDeg: 20, azimuthDeg: 180, tag: 'MPPT1:S2.5' }
+];
+context.window.RA.Electrical.rebalanceMPPTAssignment(multiSlopePanels);
+const s1_1 = multiSlopePanels.find(p => p.stringName === 'S1.1');
+const s2_5 = multiSlopePanels.find(p => p.stringName === 'S2.5');
+assert(s1_1.mpptId !== s2_5.mpptId, 'Aislamiento MPPT multi-orientación: strings opuestos nunca comparten canal', `S1.1 en Canal ${s1_1.mpptId} != S2.5 en Canal ${s2_5.mpptId}`);
+const multiSlopeCheck = context.window.RA.Electrical.validateMPPTHomogeneity(multiSlopePanels);
+assert(multiSlopeCheck.valid === true, 'Homogeneidad MPPT multi-faldón respetada sin violaciones IEC 62548', 'valid: true');
+
 // Topología de cableado y orientación optimizada hacia el cuadro
 context.window.RA.Electrical.setStringWiringTopology('daisy_chain');
 assert(context.window.solarProjectConfig.stringWiringTopology === 'daisy_chain', 'Selector de técnica de cableado conmuta a Daisy-Chain', 'daisy_chain');

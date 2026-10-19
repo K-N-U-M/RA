@@ -1100,7 +1100,21 @@
     panels.forEach(p => {
       if (!p || !p.stringName) return;
       if (!byName.has(p.stringName)) {
-        byName.set(p.stringName, { name: p.stringName, polyIdx: p.polyIdx });
+        let tilt = typeof p.tiltDeg === 'number' ? p.tiltDeg : null;
+        let az = typeof p.azimuthDeg === 'number' ? p.azimuthDeg : null;
+        if ((tilt == null || az == null) && typeof window !== 'undefined' && window.WP && Array.isArray(window.WP.polylines)) {
+          const poly = window.WP.polylines[p.polyIdx];
+          if (poly) {
+            if (tilt == null) tilt = (poly.roofInfo && typeof poly.roofInfo.tiltDeg === 'number') ? poly.roofInfo.tiltDeg : (poly.tiltDeg || 0);
+            if (az == null) az = (poly.roofInfo && typeof poly.roofInfo.azimuthDeg === 'number') ? poly.roofInfo.azimuthDeg : (poly.azimuthDeg || 0);
+          }
+        }
+        byName.set(p.stringName, {
+          name: p.stringName,
+          polyIdx: p.polyIdx,
+          tilt: typeof tilt === 'number' && !isNaN(tilt) ? tilt : 0,
+          az: typeof az === 'number' && !isNaN(az) ? az : 0
+        });
         stringOrder.push(p.stringName);
       }
       if (!stringPanels.has(p.stringName)) stringPanels.set(p.stringName, []);
@@ -1108,6 +1122,22 @@
     });
     const totalStrings = stringOrder.length;
     if (totalStrings === 0) return { changed: 0, reason: 'sin_strings' };
+
+    function areOrientationsHomogeneous(o1, o2) {
+      if (!o1 || !o2) return true;
+      const deltaTilt = Math.abs(o1.tilt - o2.tilt);
+      let deltaAz = Math.abs(o1.az - o2.az);
+      if (deltaAz > 180) deltaAz = 360 - deltaAz;
+      return deltaTilt <= 5.0 && deltaAz <= 10.0;
+    }
+
+    function getAngleDiff(o1, o2) {
+      if (!o1 || !o2) return 0;
+      const deltaTilt = Math.abs(o1.tilt - o2.tilt);
+      let deltaAz = Math.abs(o1.az - o2.az);
+      if (deltaAz > 180) deltaAz = 360 - deltaAz;
+      return deltaTilt + deltaAz;
+    }
 
     // 2. Faldones en orden de primera aparición con sus strings
     const roofOrder = [];
@@ -1118,22 +1148,103 @@
       roofStrings.get(s.polyIdx).push(s.name);
     });
 
-    // 3. Asignación balanceada por capacidad
+    // 3. Asignación balanceada por capacidad respetando homogeneidad MPPT (IEC 62548)
     const remaining = new Array(mpptCount).fill(capPer);
+    const channelStrings = Array.from({ length: mpptCount }, () => []);
+    const channelOrientation = new Array(mpptCount).fill(null);
+    const channelStrLen = new Array(mpptCount).fill(null);
     const assign = new Map();
+
     roofOrder.forEach(pi => {
       const strs = roofStrings.get(pi);
       const strLens = strs.map(n => (stringPanels.get(n) || []).length);
       const isHomogeneous = strLens.every(len => len === strLens[0]);
-      let ch = (isHomogeneous || mpptCount === 1) ? remaining.findIndex(r => r >= strs.length) : -1;
+      const faldonOrientation = byName.get(strs[0]);
+
+      // Si el faldón cabe entero en un canal compatible o vacío:
+      let ch = -1;
+      if (isHomogeneous || mpptCount === 1) {
+        ch = remaining.findIndex((r, idx) => {
+          if (r < strs.length) return false;
+          if (channelOrientation[idx] === null) return true;
+          return areOrientationsHomogeneous(channelOrientation[idx], faldonOrientation) &&
+                 (channelStrLen[idx] === null || channelStrLen[idx] === strLens[0]);
+        });
+      }
+
       if (ch !== -1) {
-        strs.forEach(n => { assign.set(n, ch + 1); remaining[ch] = Math.max(0, remaining[ch] - 1); });
-      } else {
         strs.forEach(n => {
-          let best = 0;
-          for (let c = 1; c < mpptCount; c++) if (remaining[c] > remaining[best]) best = c;
-          assign.set(n, best + 1);
-          remaining[best] = Math.max(0, remaining[best] - 1);
+          assign.set(n, ch + 1);
+          remaining[ch] = Math.max(0, remaining[ch] - 1);
+          channelStrings[ch].push(n);
+        });
+        if (channelOrientation[ch] === null) {
+          channelOrientation[ch] = { tilt: faldonOrientation.tilt, az: faldonOrientation.az };
+          channelStrLen[ch] = strLens[0];
+        }
+      } else {
+        // Asignación string a string con preservación estricta de orientación
+        strs.forEach(n => {
+          const sData = byName.get(n);
+          const sLen = (stringPanels.get(n) || []).length;
+          let bestChannel = -1;
+
+          // Prioridad 1: Canal ya asignado con orientación compatible y hueco disponible
+          let bestScore = -Infinity;
+          for (let c = 0; c < mpptCount; c++) {
+            if (channelOrientation[c] !== null && areOrientationsHomogeneous(channelOrientation[c], sData) && remaining[c] > 0) {
+              const lenMatch = (channelStrLen[c] === sLen) ? 10 : 0;
+              const score = lenMatch + remaining[c];
+              if (score > bestScore) {
+                bestScore = score;
+                bestChannel = c;
+              }
+            }
+          }
+
+          // Prioridad 2: Canal completamente vacío
+          if (bestChannel === -1) {
+            for (let c = 0; c < mpptCount; c++) {
+              if (channelStrings[c].length === 0) {
+                bestChannel = c;
+                break;
+              }
+            }
+          }
+
+          // Prioridad 3: Canal compatible aunque esté saturado (sobrecarga en su misma orientación, evita mezclar faldones)
+          if (bestChannel === -1) {
+            let minAssigned = Infinity;
+            for (let c = 0; c < mpptCount; c++) {
+              if (channelOrientation[c] !== null && areOrientationsHomogeneous(channelOrientation[c], sData)) {
+                if (channelStrings[c].length < minAssigned) {
+                  minAssigned = channelStrings[c].length;
+                  bestChannel = c;
+                }
+              }
+            }
+          }
+
+          // Prioridad 4: Fallback absoluto cuando no hay canales compatibles ni vacíos
+          if (bestChannel === -1) {
+            let minAngle = Infinity;
+            for (let c = 0; c < mpptCount; c++) {
+              const diff = channelOrientation[c] ? getAngleDiff(channelOrientation[c], sData) : 0;
+              if (diff < minAngle) {
+                minAngle = diff;
+                bestChannel = c;
+              }
+            }
+            if (bestChannel === -1) bestChannel = 0;
+          }
+
+          assign.set(n, bestChannel + 1);
+          remaining[bestChannel] = Math.max(0, remaining[bestChannel] - 1);
+          channelStrings[bestChannel].push(n);
+          if (channelOrientation[bestChannel] === null) {
+            channelOrientation[bestChannel] = { tilt: sData.tilt, az: sData.az };
+            channelStrLen[bestChannel] = sLen;
+          }
         });
       }
     });
