@@ -241,6 +241,13 @@
         global.showToast('ANÁLISIS SOLAR OBSOLETO', 'La geometría, los obstáculos o el módulo han cambiado desde el último cálculo. Recalcula el mapa de calor para actualizar pérdidas y producción.', 'warning', 5000);
       }
 
+      // [LAZY EVALUATION] Si entra a Paso >= 3 y la física solar está pendiente, recalcular
+      if (step >= 3 && typeof global.recalculateSolarYield === 'function') {
+        if (!global.solarSimState || global.solarSimState.solarYieldDirty) {
+          try { global.recalculateSolarYield(true); } catch(eY) {}
+        }
+      }
+
       this._currentStep = step;
 
       // Actualizar estado del Stepper HUD

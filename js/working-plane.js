@@ -2168,7 +2168,7 @@ function wpSetPlaneTilt(targetTiltDeg) {
   if (typeof wpUpdateStep3UI === 'function') wpUpdateStep3UI();
   if (typeof wpPopulateFaldonCard === 'function') wpPopulateFaldonCard();
   if (typeof step5RegenerateLayout === 'function') step5RegenerateLayout();
-  if (typeof recalculateSolarYield === 'function') recalculateSolarYield();
+  if (typeof wpUpdateLayoutFastMetrics === 'function') wpUpdateLayoutFastMetrics();
   if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Pendiente de cubierta fijada a ' + tilt + '°');
 
   showStatus('<i data-lucide="compass" class="icon-sm"></i> PENDIENTE DE CUBIERTA ENDEREZADA A ' + tilt + '°', 2500);
@@ -2350,8 +2350,7 @@ function wpDeleteActivePlane(skipConfirm = false) {
   }
 
   if (typeof step5RegenerateLayout === 'function') step5RegenerateLayout();
-  if (typeof recalculateSolarYield === 'function') recalculateSolarYield();
-  if (typeof wpUpdateStep3UI === 'function') wpUpdateStep3UI();
+  if (typeof wpUpdateLayoutFastMetrics === 'function') wpUpdateLayoutFastMetrics();
   if (typeof wpPopulateFaldonCard === 'function') wpPopulateFaldonCard();
   if (typeof wpUpdateControlsAvailability === 'function') wpUpdateControlsAvailability();
 
@@ -2550,7 +2549,7 @@ function wpCloseActivePolyline() {
   if (typeof wpUpdateStep3UI === 'function') wpUpdateStep3UI();
   if (typeof wpPopulateFaldonCard === 'function') wpPopulateFaldonCard();
   if (typeof wpSyncStep6Controls === 'function') wpSyncStep6Controls();
-  if (typeof recalculateSolarYield === "function") recalculateSolarYield();
+  if (typeof wpUpdateLayoutFastMetrics === "function") wpUpdateLayoutFastMetrics();
   if (typeof wpFastRenderSimulatedPanels === "function") wpFastRenderSimulatedPanels();
   if (typeof ProjectHierarchy !== 'undefined' && ProjectHierarchy.notify) {
     ProjectHierarchy.notify('polyline_added', { polyline: polyObj, index: WP.selectedPolyIdx });
@@ -2840,7 +2839,7 @@ function wpSelectPolyline(polyIdx) {
   if (typeof wpSyncStep6Controls === 'function') wpSyncStep6Controls();
   // updateAllVisuals();
 
-  if (typeof recalculateSolarYield === 'function') recalculateSolarYield();
+  if (typeof wpUpdateLayoutFastMetrics === 'function') wpUpdateLayoutFastMetrics();
   if (typeof recalculateLayoutAndObstacles === 'function') recalculateLayoutAndObstacles();
   if (typeof wpFastRenderSimulatedPanels === 'function' && wpCurrentStep >= 2 && isPolygonDesignConfirmed) {
     wpFastRenderSimulatedPanels();
@@ -3002,11 +3001,10 @@ function wpDeleteSelectedVertexFromList() {
 
   wpRenderAllPolylines();
   wpUpdateUI();
-  if (typeof wpUpdateStep3UI === 'function') wpUpdateStep3UI();
+  if (typeof wpUpdateLayoutFastMetrics === 'function') wpUpdateLayoutFastMetrics();
   if (typeof wpPopulateFaldonCard === 'function') wpPopulateFaldonCard();
   // updateAllVisuals();
 
-  if (typeof recalculateSolarYield === 'function') recalculateSolarYield();
   if (typeof recalculateLayoutAndObstacles === 'function') recalculateLayoutAndObstacles();
 
   showStatus('<i data-lucide="trash-2" class="icon-sm"></i> VÉRTICE #' + (deletedIdx + 1) + ' ELIMINADO (' + poly.points.length + ' RESTANTES)', 2000);
@@ -3068,7 +3066,7 @@ function wpDeleteSelectedPolyline() {
   }
 
   if (typeof step5RegenerateLayout === 'function') step5RegenerateLayout();
-  if (typeof recalculateSolarYield === 'function') recalculateSolarYield();
+  if (typeof wpUpdateLayoutFastMetrics === 'function') wpUpdateLayoutFastMetrics();
   if (typeof recalculateLayoutAndObstacles === 'function') recalculateLayoutAndObstacles();
 
   if (typeof ProjectHierarchy !== 'undefined' && ProjectHierarchy.notify) {
@@ -3217,6 +3215,10 @@ async function wpGoToStep(step) {
     // <i data-lucide="cloud-sun" class="icon-sm"></i> PASO 3: ANÁLISIS SOLAR (Factura, Demanda, Heatmap Sombras)
     const c3 = document.getElementById('wp-step-3-content');
     if (c3) c3.style.display = 'flex';
+    // [LAZY EVALUATION] Disparar física solar y producción de ingeniería al ingresar al Paso 3
+    if (typeof recalculateSolarYield === 'function') {
+      try { recalculateSolarYield(true); } catch(eY) { console.warn('[LazyEvaluation] Error recalculando rendimiento solar:', eY); }
+    }
     // Sincronizar visualmente el criterio técnico sin disparar eventos de recálculo ni invalidación
     if (window.solarProjectConfig && window.solarProjectConfig.selectedObjective) {
       const activeObj = window.solarProjectConfig.selectedObjective;
@@ -3232,6 +3234,9 @@ async function wpGoToStep(step) {
     // PASO 4: INGENIERÍA ELÉCTRICA (Inversor, Batería, Strings, Cableado)
     const c4 = document.getElementById('wp-step-4-content');
     if (c4) c4.style.display = 'flex';
+    if (typeof window !== 'undefined' && window.solarSimState && window.solarSimState.solarYieldDirty && typeof recalculateSolarYield === 'function') {
+      try { recalculateSolarYield(true); } catch(eY) { console.warn('[LazyEvaluation] Error recalculando rendimiento solar:', eY); }
+    }
     // Auto-Ingeniería Fotovoltaica Zero-Click: selecciona la electrónica óptima según sombras, orientaciones y potencia
     if (typeof wpAutoSelectOptimalEngineering === 'function') {
       try { wpAutoSelectOptimalEngineering(false); } catch(eEng) { console.warn('[Auto-Engineering] Error:', eEng); }
@@ -3258,6 +3263,9 @@ async function wpGoToStep(step) {
     // <i data-lucide=\"file-text\" class=\"icon-sm\"></i> PASO 5: ENTREGA, PRESUPUESTO & MEMORIA PDF
     const c5 = document.getElementById('wp-step-5-content');
     if (c5) c5.style.display = 'flex';
+    if (typeof window !== 'undefined' && window.solarSimState && window.solarSimState.solarYieldDirty && typeof recalculateSolarYield === 'function') {
+      try { recalculateSolarYield(true); } catch(eY) { console.warn('[LazyEvaluation] Error recalculando rendimiento solar:', eY); }
+    }
     if (typeof wpCalculateAndRenderInverterCables === 'function') {
       wpCalculateAndRenderInverterCables();
     }
@@ -3347,6 +3355,70 @@ function wpContinueToObstacles() {
   }
 }
 window.wpContinueToObstacles = wpContinueToObstacles;
+
+/**
+ * wpUpdateLayoutFastMetrics: Actualización ultraligera O(1) de métricas de campo solar (Pasos 1 y 2).
+ * Cero cálculo de física solar pesada (Spencer, Hay-Davies, Perez, pérdidas térmicas ni amortizaciones).
+ * Actualiza inmediatamente número de paneles, kWp teóricos y badges de la UI sin bloquear el hilo principal.
+ */
+function wpUpdateLayoutFastMetrics() {
+  if (typeof window !== 'undefined') {
+    if (!window.solarSimState) window.solarSimState = {};
+    window.solarSimState.solarYieldDirty = true;
+  }
+
+  // 1. Sincronizar UI de faldones y badges de Paso 2
+  if (typeof wpUpdateStep3UI === 'function') {
+    wpUpdateStep3UI();
+  }
+
+  // 2. Si hay tarjeta de faldón seleccionada, refrescar conteo y kWp
+  if (typeof WP !== 'undefined' && WP && Array.isArray(WP.polylines) && WP.selectedPolyIdx >= 0 && WP.polylines[WP.selectedPolyIdx]) {
+    const poly = WP.polylines[WP.selectedPolyIdx];
+    const cardModLbl = document.getElementById('faldon-card-stats');
+    if (cardModLbl && poly && poly.roofInfo && Array.isArray(poly.roofInfo.panels)) {
+      const c = poly.roofInfo.panels.length;
+      const kw = (c * wpGetPolyWp(poly) / 1000).toFixed(2);
+      cardModLbl.innerHTML = c + ' mods <span style="font-size:8px;color:var(--amber-400);margin-left:4px;">· ' + kw + ' kWp</span>';
+    }
+  }
+
+  // 3. Sincronizar indicadores globales de potencia teórica en DOM
+  const polys = (typeof WP !== 'undefined' && WP && Array.isArray(WP.polylines)) ? WP.polylines : [];
+  let totalCount = 0;
+  let totalWp = 0;
+  polys.forEach(p => {
+    const cnt = (p.roofInfo && Array.isArray(p.roofInfo.panels)) ? p.roofInfo.panels.length : 0;
+    totalCount += cnt;
+    totalWp += cnt * wpGetPolyWp(p);
+  });
+  if (totalCount === 0 && typeof window.allRenderedPanels !== 'undefined' && Array.isArray(window.allRenderedPanels)) {
+    const activePanels = window.allRenderedPanels.filter(p => p && !p.deleted);
+    totalCount = activePanels.length;
+    const defWp = (typeof panelConfig !== 'undefined' && panelConfig && panelConfig.potencia) ? panelConfig.potencia : 450;
+    totalWp = totalCount * defWp;
+  }
+  const kwpVal = (totalWp / 1000).toFixed(2);
+
+  const elP2Kwp = document.getElementById('p2-summary-kwp');
+  const elP2Count = document.getElementById('p2-summary-count');
+  if (elP2Kwp) elP2Kwp.textContent = kwpVal + ' kWp';
+  if (elP2Count) elP2Count.textContent = totalCount;
+
+  const elStatPanels = document.getElementById('stat-total-panels');
+  const elStatPower = document.getElementById('stat-total-power');
+  if (elStatPanels) elStatPanels.textContent = totalCount;
+  if (elStatPower) elStatPower.textContent = kwpVal + ' kWp';
+
+  // 4. Actualizar HUD de estado de forma ligera si está disponible
+  if (typeof RAProjectStatusHUD !== 'undefined' && RAProjectStatusHUD && typeof RAProjectStatusHUD.update === 'function') {
+    if (!wpUpdateLayoutFastMetrics._lastHudTime || (Date.now() - wpUpdateLayoutFastMetrics._lastHudTime > 400)) {
+      wpUpdateLayoutFastMetrics._lastHudTime = Date.now();
+      RAProjectStatusHUD.update();
+    }
+  }
+}
+window.wpUpdateLayoutFastMetrics = wpUpdateLayoutFastMetrics;
 
 function wpUpdateStep3UI() {
   const polys = (WP && WP.polylines) ? WP.polylines : [];
@@ -3632,7 +3704,7 @@ function wpSelectFaldon(idx) {
   wpPopulateFaldonCard();
   if (typeof wpSyncStep6Controls === 'function') wpSyncStep6Controls();
 
-  if (typeof recalculateSolarYield === 'function') recalculateSolarYield();
+  if (typeof wpUpdateLayoutFastMetrics === 'function') wpUpdateLayoutFastMetrics();
 
   if (poly) {
     showStatus('<i data-lucide="crosshair" class="icon-sm"></i> ' +
@@ -3664,8 +3736,7 @@ function wpSetPolyModule(polyIdx, modId) {
 
   if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Módulo FV modificado');
   if (typeof wpFastRenderSimulatedPanels === "function") wpFastRenderSimulatedPanels();
-  if (typeof recalculateSolarYield === "function") recalculateSolarYield();
-  wpUpdateStep3UI();
+  if (typeof wpUpdateLayoutFastMetrics === "function") wpUpdateLayoutFastMetrics();
 
   let modName = modId;
   if (typeof equipmentCatalog !== 'undefined' && equipmentCatalog && Array.isArray(equipmentCatalog.modules)) {
@@ -3700,8 +3771,7 @@ function wpApplyPolyModuleToAll(sourcePolyIdx) {
 
   if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Módulo FV aplicado a todos los faldones');
   if (typeof wpFastRenderSimulatedPanels === "function") wpFastRenderSimulatedPanels();
-  if (typeof recalculateSolarYield === "function") recalculateSolarYield();
-  wpUpdateStep3UI();
+  if (typeof wpUpdateLayoutFastMetrics === "function") wpUpdateLayoutFastMetrics();
 
   let modName = targetModId;
   if (typeof equipmentCatalog !== 'undefined' && equipmentCatalog && Array.isArray(equipmentCatalog.modules)) {
@@ -3768,9 +3838,7 @@ function wpApplyPanelArrangement(polyIdx, mode) {
 
   if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Disposición de paneles modificada');
   if (typeof wpFastRenderSimulatedPanels === 'function') wpFastRenderSimulatedPanels();
-  if (typeof recalculateSolarYield === 'function') recalculateSolarYield();
-
-  wpUpdateStep3UI();
+  if (typeof wpUpdateLayoutFastMetrics === 'function') wpUpdateLayoutFastMetrics();
   if (typeof wpSyncStep6Controls === 'function') wpSyncStep6Controls();
   if (typeof wpSyncEstructuraUI === 'function') wpSyncEstructuraUI();
 
@@ -3807,9 +3875,7 @@ function wpApplyPanelArrangementToAll(sourcePolyIdx) {
 
   if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Disposición propagada a todos los faldones');
   if (typeof wpFastRenderSimulatedPanels === 'function') wpFastRenderSimulatedPanels();
-  if (typeof recalculateSolarYield === 'function') recalculateSolarYield();
-
-  wpUpdateStep3UI();
+  if (typeof wpUpdateLayoutFastMetrics === 'function') wpUpdateLayoutFastMetrics();
   if (typeof wpSyncStep6Controls === 'function') wpSyncStep6Controls();
 
   showStatus(`<i data-lucide="check" class="icon-sm"></i> DISPOSICIÓN PROPAGADA A TODOS LOS FALDONES (${WP.polylines.length} CUBIERTAS)`, 3000);
@@ -3862,7 +3928,7 @@ function wpSetPolyAzimuthRealtime(polyIdx, val) {
         const kw = (c * wpGetPolyWp(poly) / 1000).toFixed(2);
         cardModLbl.innerHTML = c + ' mods <span style="font-size:8px;color:var(--amber-400);margin-left:4px;">· ' + kw + ' kWp</span>';
       }
-      if (typeof recalculateSolarYield === "function") recalculateSolarYield();
+      if (typeof wpUpdateLayoutFastMetrics === "function") wpUpdateLayoutFastMetrics();
       if (typeof wpSyncStep6Controls === "function") wpSyncStep6Controls();
     });
   } else {
@@ -3879,6 +3945,7 @@ function wpSetPolyAzimuthRealtime(polyIdx, val) {
       const kw = (c * wpGetPolyWp(poly) / 1000).toFixed(2);
       cardModLbl.innerHTML = c + ' mods <span style="font-size:8px;color:var(--amber-400);margin-left:4px;">· ' + kw + ' kWp</span>';
     }
+    if (typeof wpUpdateLayoutFastMetrics === "function") wpUpdateLayoutFastMetrics();
     if (typeof wpSyncStep6Controls === "function") wpSyncStep6Controls();
   }
 }
@@ -4110,7 +4177,7 @@ function wpSetPolyTiltRealtime(polyIdx, val) {
         const kw = (c * wpGetPolyWp(poly) / 1000).toFixed(2);
         cardModLbl.innerHTML = c + ' mods <span style="font-size:8px;color:var(--amber-400);margin-left:4px;">· ' + kw + ' kWp</span>';
       }
-      if (typeof recalculateSolarYield === "function") recalculateSolarYield();
+      if (typeof wpUpdateLayoutFastMetrics === "function") wpUpdateLayoutFastMetrics();
       if (typeof wpSyncStep6Controls === "function") wpSyncStep6Controls();
     });
   } else {
@@ -4132,8 +4199,7 @@ function wpSetPolyTilt(polyIdx, val) {
   WP.selectedPolyIdx = polyIdx;
   if (roofPanelsCache) roofPanelsCache.sig = "";
   startSolarPanelsSimulation();
-  if (typeof recalculateSolarYield === "function") recalculateSolarYield();
-  wpUpdateStep3UI();
+  if (typeof wpUpdateLayoutFastMetrics === "function") wpUpdateLayoutFastMetrics();
 }
 
 function wpSetPolyStructure(polyIdx, val) {
@@ -4207,8 +4273,7 @@ function wpSetPolyStructure(polyIdx, val) {
     wpFastRenderSimulatedPanels();
   }
 
-  if (typeof recalculateSolarYield === 'function') recalculateSolarYield();
-  if (typeof wpUpdateStep3UI === 'function') wpUpdateStep3UI();
+  if (typeof wpUpdateLayoutFastMetrics === 'function') wpUpdateLayoutFastMetrics();
   if (typeof wpSyncStep6Controls === 'function') wpSyncStep6Controls();
   if (typeof wpSyncEstructuraUI === 'function') wpSyncEstructuraUI();
   if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') {
@@ -4257,7 +4322,7 @@ function wpSetPolyPergolaHeight(polyIdx, val) {
   if (typeof wpFastRenderSimulatedPanels === 'function') {
     wpFastRenderSimulatedPanels();
   }
-  if (typeof recalculateSolarYield === 'function') recalculateSolarYield();
+  if (typeof wpUpdateLayoutFastMetrics === 'function') wpUpdateLayoutFastMetrics();
   if (typeof showToast === 'function') showToast('PÉRGOLA ELEVADA', `Altura libre actualizada a ${h.toFixed(2)} m.`, 'info', 2000);
 }
 window.wpSetPolyPergolaHeight = wpSetPolyPergolaHeight;
@@ -4293,8 +4358,7 @@ function wpApplyPolyStructureToAll(sourcePolyIdx) {
   if (typeof wpFastRenderSimulatedPanels === 'function') {
     wpFastRenderSimulatedPanels();
   }
-  if (typeof recalculateSolarYield === 'function') recalculateSolarYield();
-  if (typeof wpUpdateStep3UI === 'function') wpUpdateStep3UI();
+  if (typeof wpUpdateLayoutFastMetrics === 'function') wpUpdateLayoutFastMetrics();
   if (typeof wpPopulateFaldonCard === 'function') wpPopulateFaldonCard();
   if (typeof wpSyncStep6Controls === 'function') wpSyncStep6Controls();
   if (typeof wpSyncEstructuraUI === 'function') wpSyncEstructuraUI();
@@ -5410,6 +5474,7 @@ function initUnifiedWorkPlaneSystem() {
   if (typeof wpProjectPointToActivePlane !== 'undefined') window.wpProjectPointToActivePlane = wpProjectPointToActivePlane;
   if (typeof wpRayPlane !== 'undefined') window.wpRayPlane = wpRayPlane;
   if (typeof wpGoToStep !== 'undefined') window.wpGoToStep = wpGoToStep;
+  if (typeof wpUpdateLayoutFastMetrics !== 'undefined') window.wpUpdateLayoutFastMetrics = wpUpdateLayoutFastMetrics;
 
   // Polilíneas y faldones
   if (typeof startPolylineDrawMode !== 'undefined') window.startPolylineDrawMode = startPolylineDrawMode;
