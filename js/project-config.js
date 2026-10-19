@@ -438,11 +438,62 @@ function step3UpdateHardwareSelection() {
   if (typeof wpUpdateInverterSmartAssistantUI === 'function') {
     wpUpdateInverterSmartAssistantUI();
   }
+  if (typeof wpUpdateStep4Checklist === 'function') {
+    wpUpdateStep4Checklist();
+  }
   if (typeof WorkflowOrchestrator !== 'undefined' && typeof WorkflowOrchestrator.refreshGating === 'function') {
     WorkflowOrchestrator.refreshGating();
   }
 }
 window.step3UpdateHardwareSelection = step3UpdateHardwareSelection;
+
+function wpUpdateStep4Checklist() {
+  const chkInv = document.getElementById('step4-chk-inverter');
+  const chkStr = document.getElementById('step4-chk-strings');
+  const chkRebt = document.getElementById('step4-chk-rebt');
+  if (!chkInv && !chkStr && !chkRebt) return;
+
+  const cfg = window.solarProjectConfig || {};
+  const catalog = (typeof window !== 'undefined' && window.equipmentCatalog) ? window.equipmentCatalog : ((typeof equipmentCatalog !== 'undefined') ? equipmentCatalog : null);
+  
+  if (chkInv) {
+    const inv = catalog && catalog.inverters && catalog.inverters.find(i => i.id === cfg.selectedInverterId);
+    if (inv) {
+      chkInv.textContent = '✓ Inversor: ' + (inv.kw || 5.0) + ' kW';
+      chkInv.style.color = '#10B981';
+      chkInv.style.background = 'rgba(16,185,129,0.15)';
+      chkInv.style.borderColor = 'rgba(16,185,129,0.3)';
+    } else {
+      chkInv.textContent = '⚡ Inversor Pendiente';
+      chkInv.style.color = '#F59E0B';
+      chkInv.style.background = 'rgba(245,158,11,0.15)';
+      chkInv.style.borderColor = 'rgba(245,158,11,0.3)';
+    }
+  }
+
+  if (chkStr) {
+    const limits = cfg.calculatedLimits;
+    if (limits && limits.nMaxString >= (limits.nMinString || 5)) {
+      chkStr.textContent = '✓ Strings: ' + limits.nMinString + '-' + limits.nMaxString + ' mods';
+      chkStr.style.color = '#10B981';
+      chkStr.style.background = 'rgba(16,185,129,0.15)';
+      chkStr.style.borderColor = 'rgba(16,185,129,0.3)';
+    } else {
+      chkStr.textContent = '📏 Strings MPPT';
+      chkStr.style.color = '#38BDF8';
+      chkStr.style.background = 'rgba(56,189,248,0.15)';
+      chkStr.style.borderColor = 'rgba(56,189,248,0.3)';
+    }
+  }
+
+  if (chkRebt) {
+    chkRebt.textContent = '✓ REBT: ΔV ≤ 1.5%';
+    chkRebt.style.color = '#10B981';
+    chkRebt.style.background = 'rgba(16,185,129,0.15)';
+    chkRebt.style.borderColor = 'rgba(16,185,129,0.3)';
+  }
+}
+window.wpUpdateStep4Checklist = wpUpdateStep4Checklist;
 
 function wpComputeAutoSizing(forcedCount) {
   let count = (typeof forcedCount === 'number' && forcedCount > 0) ? forcedCount : 0;

@@ -1494,91 +1494,96 @@ window.RA_App = window.RA_App || {};
           <!-- ═════════════════════════════════════════════════════════════════ -->
           <!-- PASO 4 CANÓNICO: INGENIERÍA ELÉCTRICA, EQUIPOS & REBT             -->
           <!-- ═════════════════════════════════════════════════════════════════ -->
-          <div id="wp-step-4-content" style="display:none;flex-direction:column;gap:8px;">
+          <div id="wp-step-4-content" style="display:none;flex-direction:column;gap:10px;">
             <!-- BANNER DINÁMICO DE AUTO-INGENIERÍA ZERO-CLICK -->
             <div id="step4-auto-engineering-banner" style="display:none;"></div>
 
+            <!-- CHECKLIST DE CONFORMIDAD RÁPIDA (ZERO-DOUBT) -->
+            <div style="background:rgba(15,23,42,0.85);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:8px 10px;display:flex;justify-content:space-between;align-items:center;font-size:9.5px;">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <span style="font-weight:900;color:#fff;"><i data-lucide="check-circle-2" class="icon-sm" style="color:var(--emerald-400);"></i> CHECKLIST INGENIERÍA:</span>
+              </div>
+              <div style="display:flex;gap:5px;align-items:center;font-size:9px;">
+                <span id="step4-chk-inverter" style="background:rgba(56,189,248,0.15);color:#38BDF8;padding:2px 6px;border-radius:4px;border:1px solid rgba(56,189,248,0.3);font-weight:700;">⚡ Inversor</span>
+                <span id="step4-chk-strings" style="background:rgba(245,158,11,0.15);color:var(--amber-400);padding:2px 6px;border-radius:4px;border:1px solid rgba(245,158,11,0.3);font-weight:700;">📏 Strings MPPT</span>
+                <span id="step4-chk-rebt" style="background:rgba(16,185,129,0.15);color:#10B981;padding:2px 6px;border-radius:4px;border:1px solid rgba(16,185,129,0.3);font-weight:700;">🛡️ REBT ≤ 1.5%</span>
+              </div>
+            </div>
+
             <!-- 4.1 EQUIPAMIENTO ELÉCTRICO Y CONVERSIÓN -->
-            <div class="ui-card" style="border: 1px solid rgba(245, 158, 11, 0.4); background: linear-gradient(135deg, rgba(15,23,42,0.95), rgba(30,41,59,0.85));">
+            <div class="ui-card" style="border:1px solid rgba(255,255,255,0.08);background:rgba(15,23,42,0.85);border-radius:8px;padding:10px;">
               <!-- Cabecera con enlace directo al catálogo -->
-              <div class="ui-card-head" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;">
-                <div style="display:flex;align-items:flex-start;justify-content:space-between;">
-                  <span style="color:#F59E0B;font-weight:900;line-height:1.2;font-size:11px;flex:1;"><i data-lucide="zap" class="icon-sm"></i> 4.1 Equipamiento Eléctrico &amp; Conversión</span>
-                  <span class="card-tag" style="background:#F59E0B;color:#0F172A;font-weight:900;margin-left:4px;white-space:nowrap;align-self:flex-start;">REBT / IEC 62548</span>
+              <div class="ui-card-head" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <span style="color:#F59E0B;font-weight:900;font-size:10.5px;"><i data-lucide="zap" class="icon-sm"></i> 4.1 EQUIPOS &amp; CONVERSIÓN</span>
+                  <span class="card-tag" style="background:rgba(245,158,11,0.15);color:#F59E0B;font-weight:800;font-size:8.5px;">REBT / IEC</span>
                 </div>
-                <div style="display:flex;gap:4px;justify-content:flex-end;">
-                  <button type="button" class="doc-mini-btn" onclick="wpQuickPreview3DFromStep4()" style="font-size:9px;border-color:var(--emerald-400);color:var(--emerald-400);background:rgba(16,185,129,0.12);padding:3px 7px;cursor:pointer;font-weight:700;" title="Genera una vista previa 3D de la disposición con los módulos seleccionados">
+                <div style="display:flex;gap:4px;">
+                  <button type="button" class="doc-mini-btn" onclick="wpQuickPreview3DFromStep4()" style="font-size:9px;border-color:var(--emerald-400);color:var(--emerald-400);background:rgba(16,185,129,0.12);padding:3px 7px;cursor:pointer;font-weight:700;" title="Genera una vista previa 3D de la disposición">
                     <i data-lucide="eye" class="icon-sm"></i> PREVER 3D
                   </button>
-                  <button type="button" class="doc-mini-btn" onclick="openEquipmentCatalogModal('ai_import')" style="font-size:9px;border-color:var(--sky-400);color:var(--sky-400);background:rgba(56,189,248,0.12);padding:3px 7px;cursor:pointer;" title="Importar ficha técnica de inversor o batería con IA">
-                    <i data-lucide="sparkles" class="icon-sm"></i> IMPORTAR PDF IA
-                  </button>
-                  <button type="button" class="doc-mini-btn" onclick="openEquipmentCatalogModal()" style="font-size:9px;border-color:var(--amber-400);color:var(--amber-400);padding:3px 7px;cursor:pointer;">
-                    <i data-lucide="settings" class="icon-sm"></i> CATÁLOGO
+                  <button type="button" class="doc-mini-btn" onclick="openEquipmentCatalogModal()" style="font-size:9px;border-color:var(--amber-400);color:var(--amber-400);background:rgba(245,158,11,0.12);padding:3px 7px;cursor:pointer;font-weight:700;" title="Abrir catálogo oficial y buscador IA">
+                    <i data-lucide="settings" class="icon-sm"></i> CATÁLOGO &amp; IA
                   </button>
                 </div>
               </div>
 
-              <p style="font-size:9.5px;color:var(--text-slate-400);margin:0 0 6px 0;">
-                Configura los inversores, topología y acumulación. El software auto-calcula la cantidad requerida y valida los límites normativos.
-              </p>
-
               <!-- Selector de Topología de Conversión -->
-              <div style="background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:6px;margin-bottom:6px;">
-                <span style="font-size:9.5px;font-weight:700;color:var(--amber-400);display:block;margin-bottom:4px;"><i data-lucide="plug" class="icon-sm"></i> Topología del Sistema:</span>
+              <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.06);border-radius:6px;padding:7px;margin-bottom:8px;">
+                <span style="font-size:9.5px;font-weight:700;color:var(--amber-400);display:block;margin-bottom:5px;"><i data-lucide="plug" class="icon-sm"></i> Topología del Sistema:</span>
                 <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;">
-                  <button type="button" id="step3-topo-inverter" class="doc-mini-btn active" onclick="step3SetTopology('inverter')" style="padding:4px 2px;font-size:9.5px;text-align:center;">
+                  <button type="button" id="step3-topo-inverter" class="doc-mini-btn active" onclick="step3SetTopology('inverter')" style="padding:5px 2px;font-size:9.5px;text-align:center;">
                     ⚡ String Central
                   </button>
-                  <button type="button" id="step3-topo-micro" class="doc-mini-btn" onclick="step3SetTopology('microinverter')" style="padding:4px 2px;font-size:9.5px;text-align:center;">
+                  <button type="button" id="step3-topo-micro" class="doc-mini-btn" onclick="step3SetTopology('microinverter')" style="padding:5px 2px;font-size:9.5px;text-align:center;">
                     <i data-lucide="cpu" class="icon-sm"></i> Microinversores
                   </button>
-                  <button type="button" id="step3-topo-optim" class="doc-mini-btn" onclick="step3SetTopology('optimizer')" style="padding:4px 2px;font-size:9.5px;text-align:center;">
+                  <button type="button" id="step3-topo-optim" class="doc-mini-btn" onclick="step3SetTopology('optimizer')" style="padding:5px 2px;font-size:9.5px;text-align:center;">
                     <i data-lucide="settings" class="icon-sm"></i> Optimizadores
                   </button>
                 </div>
               </div>
 
               <!-- Selector de Inversor (para String y Optimizadores) -->
-              <div id="step3-row-inverter" style="background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:6px;margin-bottom:6px;">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+              <div id="step3-row-inverter" style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.06);border-radius:6px;padding:7px;margin-bottom:8px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
                   <span style="font-size:9.5px;font-weight:700;color:var(--amber-400);"><i data-lucide="zap" class="icon-sm"></i> Inversor de Red:</span>
-                  <div style="display:flex;gap:4px;">
-                    <button type="button" class="doc-mini-btn" onclick="step3EditCurrentEquipment('inverters')" style="font-size:9.5px;padding:2px 5px;color:var(--amber-400);"><i data-lucide="edit-2" class="icon-sm"></i> Editar</button>
-                  </div>
+                  <button type="button" class="doc-mini-btn" onclick="step3EditCurrentEquipment('inverters')" style="font-size:9px;padding:2px 6px;color:var(--amber-400);"><i data-lucide="edit-2" class="icon-sm"></i> Ficha</button>
                 </div>
                 <select id="step3-sel-inverter" class="field-input" onchange="if(window.solarProjectConfig) window.solarProjectConfig.userManuallySelectedInverter=true; step3UpdateHardwareSelection();" style="width:100%;font-size:10px;font-weight:700;"></select>
               </div>
 
               <!-- Selector de Microinversor (para topología Microinversores) -->
-              <div id="step3-row-microinverter" style="display:none;background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:6px;margin-bottom:6px;">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+              <div id="step3-row-microinverter" style="display:none;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.06);border-radius:6px;padding:7px;margin-bottom:8px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
                   <span style="font-size:9.5px;font-weight:700;color:#10b981;"><i data-lucide="cpu" class="icon-sm"></i> Microinversor / Optimizador:</span>
-                  <button type="button" class="doc-mini-btn" onclick="step3EditCurrentEquipment('microinverters')" style="font-size:9.5px;padding:2px 5px;color:#10b981);"><i data-lucide="edit-2" class="icon-sm"></i> Editar</button>
+                  <button type="button" class="doc-mini-btn" onclick="step3EditCurrentEquipment('microinverters')" style="font-size:9px;padding:2px 6px;color:#10b981;"><i data-lucide="edit-2" class="icon-sm"></i> Ficha</button>
                 </div>
                 <select id="step3-sel-microinverter" class="field-input" onchange="if(window.solarProjectConfig) window.solarProjectConfig.userManuallySelectedInverter=true; step3UpdateHardwareSelection();" style="width:100%;font-size:10px;font-weight:700;"></select>
               </div>
 
               <!-- Selector de Batería / Almacenamiento -->
-              <div style="background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:6px;">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+              <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.06);border-radius:6px;padding:7px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
                   <span style="font-size:9.5px;font-weight:700;color:var(--emerald-400);"><i data-lucide="battery-charging" class="icon-sm"></i> Batería / Acumulación LFP:</span>
-                  <button type="button" class="doc-mini-btn" onclick="step3EditCurrentEquipment('batteries')" style="font-size:9.5px;padding:2px 5px;color:var(--emerald-400);"><i data-lucide="edit-2" class="icon-sm"></i> Editar</button>
+                  <button type="button" class="doc-mini-btn" onclick="step3EditCurrentEquipment('batteries')" style="font-size:9px;padding:2px 6px;color:var(--emerald-400);"><i data-lucide="edit-2" class="icon-sm"></i> Ficha</button>
                 </div>
                 <select id="step3-sel-battery" class="field-input" onchange="step3UpdateHardwareSelection()" style="width:100%;font-size:10px;font-weight:700;"></select>
               </div>
             </div>
 
             <!-- 4.2 DIMENSIONAMIENTO & STRINGS MPPT -->
-            <div class="ui-card" style="border: 1px solid rgba(56,189,248,0.35); background: rgba(15,23,42,0.85); border-radius:8px; padding:8px;">
-              <div class="ui-card-head" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                <span style="color:#38BDF8;font-weight:900;font-size:10px;"><i data-lucide="share-2" class="icon-sm"></i> 4.2 DIMENSIONAMIENTO &amp; STRINGS MPPT</span>
-                <span class="card-tag" style="background:rgba(56,189,248,0.15);color:#38BDF8;font-size:9.5px;">IEC 62548</span>
+            <div class="ui-card" style="border:1px solid rgba(255,255,255,0.08);background:rgba(15,23,42,0.85);border-radius:8px;padding:10px;">
+              <div class="ui-card-head" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <span style="color:#38BDF8;font-weight:900;font-size:10.5px;"><i data-lucide="share-2" class="icon-sm"></i> 4.2 DIMENSIONAMIENTO &amp; STRINGS MPPT</span>
+                  <span class="card-tag" style="background:rgba(56,189,248,0.15);color:#38BDF8;font-size:8.5px;">IEC 62548</span>
+                </div>
               </div>
 
               <!-- Botón Casación Inteligente MPPT con su contenedor in-situ -->
               <div style="margin-bottom:8px;">
-                <button type="button" class="btn-action-primary" onclick="wpOpenSmartInverterMatchingModal()" style="width:100%;padding:6px;font-size:9.5px;background:rgba(56,189,248,0.15);border:1px solid #38BDF8;color:#38BDF8;font-weight:800;display:flex;align-items:center;justify-content:center;gap:6px;">
+                <button type="button" class="btn-action-primary" onclick="wpOpenSmartInverterMatchingModal()" style="width:100%;padding:7px;font-size:9.5px;background:rgba(56,189,248,0.15);border:1px solid #38BDF8;color:#38BDF8;font-weight:800;display:flex;align-items:center;justify-content:center;gap:6px;">
                   <i data-lucide="sparkles" class="icon-sm"></i> CASACIÓN INTELIGENTE MPPT &amp; INVERSORES
                 </button>
                 <!-- ASISTENTE INTELIGENTE Y RECOMENDACIONES DE INVERSOR DESPLEGADAS IN-SITU -->
@@ -1587,8 +1592,8 @@ window.RA_App = window.RA_App || {};
               </div>
 
               <!-- TARJETA DE DIMENSIONAMIENTO MULTI-EQUIPO -->
-              <div id="step3-autosizing-card" style="background:rgba(0,0,0,0.4);border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:8px;margin-bottom:6px;font-size:9.5px;">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:4px;">
+              <div id="step3-autosizing-card" style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.06);border-radius:6px;padding:8px;margin-bottom:8px;font-size:9.5px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:4px;">
                   <span style="font-weight:900;color:var(--amber-400);"><i data-lucide="calculator" class="icon-sm"></i> CÁLCULO MULTI-EQUIPO</span>
                   <span id="step3-autosize-panels-badge" class="card-tag" style="background:rgba(56,189,248,0.2);color:#38BDF8;">50 Placas · 22.5 kWp</span>
                 </div>
@@ -1605,7 +1610,7 @@ window.RA_App = window.RA_App || {};
                       <button id="step3-auto-btn-inverters" type="button" class="doc-mini-btn" onclick="wpResetAutoSizing('inverters')" style="display:none;padding:1px 4px;font-size:9.5px;margin-left:4px;border-color:var(--emerald-400);color:var(--emerald-400);"><i data-lucide="refresh-cw" class="icon-sm"></i> Auto</button>
                     </div>
                   </div>
-                  <div id="step3-explain-inverters" style="font-size:9.5px;color:var(--text-slate-400);line-height:1.3;">
+                  <div id="step3-explain-inverters" style="font-size:9px;color:var(--text-slate-400);line-height:1.3;">
                     <i data-lucide="zap" class="icon-sm"></i> AUTO: Calculando...
                   </div>
                 </div>
@@ -1622,7 +1627,7 @@ window.RA_App = window.RA_App || {};
                       <button id="step3-auto-btn-microinverters" type="button" class="doc-mini-btn" onclick="wpResetAutoSizing('microinverters')" style="display:none;padding:1px 4px;font-size:9.5px;margin-left:4px;border-color:var(--emerald-400);color:var(--emerald-400);"><i data-lucide="refresh-cw" class="icon-sm"></i> Auto</button>
                     </div>
                   </div>
-                  <div id="step3-explain-microinverters" style="font-size:9.5px;color:var(--text-slate-400);line-height:1.3;">
+                  <div id="step3-explain-microinverters" style="font-size:9px;color:var(--text-slate-400);line-height:1.3;">
                     <i data-lucide="zap" class="icon-sm"></i> AUTO: Calculando...
                   </div>
                 </div>
@@ -1630,7 +1635,7 @@ window.RA_App = window.RA_App || {};
                 <!-- Control Baterías -->
                 <div id="step3-ctrl-batteries" style="margin-bottom:4px;">
                   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
-                    <span style="color:var(--text-slate-200);font-weight:bold;"><i data-lucide="battery-charging" class="icon-sm"></i> Módulos de Batería LFP:</span>
+                    <span style="color:var(--text-slate-200);font-weight:bold;"><i data-lucide="battery-charging" class="icon-sm"></i> Módulos Batería LFP:</span>
                     <div style="display:flex;align-items:center;gap:3px;">
                       <button type="button" class="gizmo-btn" onclick="wpStepQuantity('batteries', -1)" style="padding:2px 6px;font-weight:bold;" aria-label="Disminuir baterías">-</button>
                       <input id="step3-qty-batteries" type="number" min="0" max="50" value="0" onchange="wpSetManualQuantity('batteries', this.value)" style="width:38px;text-align:center;background:rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.2);color:#fff;font-size:10px;font-weight:bold;border-radius:4px;">
@@ -1639,20 +1644,20 @@ window.RA_App = window.RA_App || {};
                       <button id="step3-auto-btn-batteries" type="button" class="doc-mini-btn" onclick="wpResetAutoSizing('batteries')" style="display:none;padding:1px 4px;font-size:9.5px;margin-left:4px;border-color:var(--emerald-400);color:var(--emerald-400);"><i data-lucide="refresh-cw" class="icon-sm"></i> Auto</button>
                     </div>
                   </div>
-                  <div id="step3-explain-batteries" style="font-size:9.5px;color:var(--text-slate-400);line-height:1.3;">
+                  <div id="step3-explain-batteries" style="font-size:9px;color:var(--text-slate-400);line-height:1.3;">
                     <i data-lucide="zap" class="icon-sm"></i> AUTO: Calculando...
                   </div>
                 </div>
 
                 <!-- Resumen de Costes Totales de Hardware -->
-                <div style="margin-top:6px;padding-top:4px;border-top:1px dashed rgba(255,255,255,0.1);display:flex;justify-content:space-between;align-items:center;">
+                <div style="margin-top:6px;padding-top:4px;border-top:1px dashed rgba(255,255,255,0.08);display:flex;justify-content:space-between;align-items:center;">
                   <span style="color:var(--text-slate-300);">Coste Equipos (Inversor + Batería):</span>
                   <b id="step3-total-hardware-cost" style="color:var(--amber-400);font-size:11px;">0 €</b>
                 </div>
               </div>
 
               <!-- Ficha Técnica y Límites Eléctricos de String Calculados -->
-              <div id="step3-hardware-specs-card" style="background:rgba(0,0,0,0.35);border:1px solid rgba(245,158,11,0.25);border-radius:6px;padding:8px;margin-bottom:6px;font-size:9.5px;line-height:1.5;">
+              <div id="step3-hardware-specs-card" style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.06);border-radius:6px;padding:8px;font-size:9.5px;line-height:1.6;">
                 <div style="display:flex;justify-content:space-between;color:var(--text-slate-300);">
                   <span>Límite String en Frío (-10°C):</span>
                   <b id="step3-spec-nmax" class="amber">Máx. 13 placas</b>
@@ -1679,116 +1684,120 @@ window.RA_App = window.RA_App || {};
                 </div>
               </div>
 
-              <!-- Selector de Técnica de Cableado de Strings e Interconexión -->
-              <div style="background:rgba(0,0,0,0.35);border:1px solid rgba(56,189,248,0.3);border-radius:6px;padding:7px;margin-bottom:6px;font-size:9.5px;">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-                  <span style="font-weight:700;color:#38BDF8;display:flex;align-items:center;gap:4px;">
-                    <i data-lucide="git-merge" class="icon-sm"></i> Técnica de Cableado de Strings:
-                  </span>
-                  <span class="card-tag" style="background:rgba(56,189,248,0.15);color:#38BDF8;font-size:8px;">UNE-EN 62305</span>
-                </div>
-                <select id="step4-string-wiring-topology" class="field-input" onchange="wpSetStringWiringTopology(this.value)" style="width:100%;font-size:9.5px;font-weight:700;background:rgba(15,23,42,0.85);color:#E2E8F0;border:1px solid rgba(56,189,248,0.4);border-radius:4px;padding:4px;">
-                  <option value="leapfrog">🐸 Salto de Rana (Leapfrog / Anti-bucle UNE-EN 62305)</option>
-                  <option value="daisy_chain">⛓️ Guirnalda Continua + Retorno Compensado</option>
-                </select>
-                <div id="step4-string-wiring-desc" style="font-size:8.5px;color:var(--text-slate-400);margin-top:4px;line-height:1.3;">
-                  Conecta paneles alternos (pares a la ida, impares a la vuelta). Cancela bucles inductivos frente a rayos (UNE-EN 62305). Requiere latiguillos alargadores MC4 presupuestados en el BOM.
-                </div>
-              </div>
-
               <!-- Tarjeta Reactiva de Razonamiento y Justificación de Equipos -->
-              <div id="step3-engineering-explainer-container"></div>
+              <div id="step3-engineering-explainer-container" style="margin-top:6px;"></div>
             </div>
 
-            <!-- 4.3 EMPLAZAMIENTO FÍSICO 3D -->
-            <div class="ui-card" style="background:rgba(0,0,0,0.35);border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:8px;margin-top:6px;">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:4px;">
-                <span style="font-weight:900;color:var(--amber-400);font-size:10px;"><i data-lucide="box" class="icon-sm"></i> 4.3 EMPLAZAMIENTO FÍSICO 3D</span>
+            <!-- 4.3 TÉCNICA DE CABLEADO DE STRINGS -->
+            <div class="ui-card" style="border:1px solid rgba(255,255,255,0.08);background:rgba(15,23,42,0.85);border-radius:8px;padding:10px;">
+              <div class="ui-card-head" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <span style="font-weight:900;color:#38BDF8;font-size:10px;display:flex;align-items:center;gap:5px;">
+                  <i data-lucide="git-merge" class="icon-sm"></i> 4.3 TÉCNICA DE CABLEADO DE STRINGS
+                </span>
+                <span class="card-tag" style="background:rgba(56,189,248,0.15);color:#38BDF8;font-size:8px;">UNE-EN 62305</span>
+              </div>
+              <select id="step4-string-wiring-topology" class="field-input" onchange="wpSetStringWiringTopology(this.value)" style="width:100%;font-size:9.5px;font-weight:700;background:rgba(0,0,0,0.4);color:#E2E8F0;border:1px solid rgba(56,189,248,0.3);border-radius:4px;padding:5px;">
+                <option value="leapfrog">🐸 Salto de Rana (Leapfrog / Anti-bucle UNE-EN 62305)</option>
+                <option value="daisy_chain">⛓️ Guirnalda Continua + Retorno Compensado</option>
+              </select>
+              <div id="step4-string-wiring-desc" style="font-size:8.5px;color:var(--text-slate-400);margin-top:4px;line-height:1.4;">
+                Conecta paneles alternos (pares a la ida, impares a la vuelta). Cancela bucles inductivos frente a rayos (UNE-EN 62305). Requiere latiguillos alargadores MC4 presupuestados en el BOM.
+              </div>
+            </div>
+
+            <!-- 4.4 EMPLAZAMIENTO FÍSICO 3D & RUTAS REBT -->
+            <div class="ui-card" style="border:1px solid rgba(255,255,255,0.08);background:rgba(15,23,42,0.85);border-radius:8px;padding:10px;">
+              <div class="ui-card-head" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <span style="font-weight:900;color:#10B981;font-size:10.5px;"><i data-lucide="route" class="icon-sm"></i> 4.4 EMPLAZAMIENTO &amp; RUTAS REBT</span>
+                  <span class="card-tag" style="background:rgba(16,185,129,0.15);color:#10B981;font-size:8.5px;">ITC-BT-40</span>
+                </div>
               </div>
 
               <!-- GUÍA VISUAL ASISTIDA PARA EL CONTADOR / CUADRO GENERAL -->
-              <div id="step4-meter-placement-guide" style="margin-bottom:8px;"></div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:4px;">
-                <button type="button" class="btn-action-primary" onclick="wpStartInverterPlacement()" style="padding:6px 4px;font-size:9.5px;background:linear-gradient(135deg, #F59E0B, #D97706);color:#0F172A;font-weight:900;border:none;">
-                  <span><i data-lucide="zap" class="icon-sm"></i> SITUAR INVERSOR</span>
-                </button>
-                <button type="button" class="btn-action-primary" onclick="wpStartGridMeterPlacement()" style="padding:6px 4px;font-size:9.5px;background:rgba(56,189,248,0.2);border:1px solid #38BDF8;color:#38BDF8;font-weight:800;">
-                  <span><i data-lucide="plug" class="icon-sm"></i> SITUAR CONTADOR</span>
-                </button>
-                <button type="button" class="btn-action-primary" onclick="wpStartCombinerBoxPlacement()" title="Cuadro de agrupacion de strings DC (opcional)" style="padding:6px 4px;font-size:9.5px;background:rgba(217,119,6,0.2);border:1px solid #D97706;color:#FBBF24;font-weight:800;grid-column:1 / -1;">
-                  <span><i data-lucide="layout-grid" class="icon-sm"></i> SITUAR CUADRO DC</span>
-                </button>
+              <div id="step4-meter-placement-guide" style="margin-bottom:6px;"></div>
+
+              <!-- Subsección: Situar Equipos en Escena 3D -->
+              <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.06);border-radius:6px;padding:7px;margin-bottom:8px;">
+                <span style="font-size:9.5px;font-weight:700;color:var(--amber-400);display:block;margin-bottom:5px;"><i data-lucide="box" class="icon-sm"></i> Ubicación en Gemelo Digital 3D:</span>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
+                  <button type="button" class="btn-action-primary" onclick="wpStartInverterPlacement()" style="padding:6px 4px;font-size:9.5px;background:linear-gradient(135deg, #F59E0B, #D97706);color:#0F172A;font-weight:900;border:none;">
+                    <span><i data-lucide="zap" class="icon-sm"></i> SITUAR INVERSOR</span>
+                  </button>
+                  <button type="button" class="btn-action-primary" onclick="wpStartGridMeterPlacement()" style="padding:6px 4px;font-size:9.5px;background:rgba(56,189,248,0.2);border:1px solid #38BDF8;color:#38BDF8;font-weight:800;">
+                    <span><i data-lucide="plug" class="icon-sm"></i> SITUAR CONTADOR</span>
+                  </button>
+                  <button type="button" class="btn-action-primary" onclick="wpStartCombinerBoxPlacement()" title="Cuadro de agrupación de strings DC (opcional)" style="padding:6px 4px;font-size:9.5px;background:rgba(217,119,6,0.2);border:1px solid #D97706;color:#FBBF24;font-weight:800;grid-column:1 / -1;">
+                    <span><i data-lucide="layout-grid" class="icon-sm"></i> SITUAR CUADRO DC</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Subsección: Trazado de Conducciones -->
+              <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.06);border-radius:6px;padding:7px;">
+                <span style="font-size:9.5px;font-weight:700;color:#10B981;display:block;margin-bottom:5px;"><i data-lucide="git-commit" class="icon-sm"></i> Trazado de Conducciones Eléctricas:</span>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
+                  <button type="button" id="btn-route-dc" class="btn-action-primary" onclick="wpToggleCableRouting('dc')" style="padding:6px 4px;font-size:9px;background:rgba(239,68,68,0.15);border:1px solid #EF4444;color:#FCA5A5;font-weight:700;">
+                    <span><i data-lucide="route" class="icon-sm"></i> TRAZAR BANDEJA DC</span>
+                  </button>
+                  <button type="button" id="btn-route-ac" class="btn-action-primary" onclick="wpToggleCableRouting('ac')" style="padding:6px 4px;font-size:9px;background:rgba(56,189,248,0.15);border:1px solid #38BDF8;color:#7DD3FC;font-weight:700;">
+                    <span><i data-lucide="route" class="icon-sm"></i> TRAZAR TUBO AC</span>
+                  </button>
+                </div>
+
+                <!-- Barra de acciones en vivo mientras se dibuja la ruta -->
+                <div id="cable-routing-toolbar" style="display:none;margin-top:5px;background:rgba(15,23,42,0.95);border:1px solid var(--amber-500);border-radius:6px;padding:6px;flex-direction:column;gap:4px;">
+                  <div style="display:flex;justify-content:space-between;align-items:center;font-size:9.5px;color:#FDE68A;">
+                    <span id="cable-routing-title"><b>DIBUJANDO RUTA</b></span>
+                    <span id="cable-routing-count" style="font-weight:bold;color:#fff;">0 pts</span>
+                  </div>
+                  <div style="display:flex;gap:4px;">
+                    <button type="button" onclick="wpFinishCableRouting()" class="btn-action-primary" style="flex:2;padding:4px;font-size:9px;background:#10B981;color:#000;font-weight:900;border:none;">
+                      <span><i data-lucide="check" class="icon-sm"></i> FIJAR RUTA</span>
+                    </button>
+                    <button type="button" onclick="wpUndoLastCableRoutePoint()" class="doc-mini-btn" style="flex:1;padding:4px;font-size:9px;text-align:center;">
+                      DESHACER
+                    </button>
+                    <button type="button" onclick="wpCancelCableRouting()" class="doc-mini-btn" style="padding:4px 6px;font-size:9px;color:#EF4444;border-color:rgba(239,68,68,0.4);" aria-label="Cancelar trazado de cableado">
+                      ✕
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Resumen de rutas manuales fijadas -->
+                <div id="cable-routes-summary" style="display:flex;flex-direction:column;gap:3px;margin-top:4px;"></div>
+
+                <!-- Telemetría de Tiradas y Secciones Eléctricas -->
+                <div style="background:rgba(15,23,42,0.6);border:1px solid rgba(255,255,255,0.06);border-radius:6px;padding:6px;font-size:9px;line-height:1.6;margin-top:6px;">
+                  <div style="display:flex;justify-content:space-between;color:var(--text-slate-300);">
+                    <span><i data-lucide="git-commit" class="icon-sm"></i> Tirada DC Homerun:</span>
+                    <b id="inverter-stat-ldc" style="color:#38BDF8;">0.0 m</b>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;color:var(--text-slate-300);">
+                    <span><i data-lucide="shield" class="icon-sm"></i> Sección Cable DC (ZZ-F 1500V):</span>
+                    <b id="inverter-stat-sec-dc" style="color:#34D399;">6 mm² · ΔV 0.8%</b>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;color:var(--text-slate-300);padding-top:3px;border-top:1px dashed rgba(255,255,255,0.08);">
+                    <span><i data-lucide="git-commit" class="icon-sm"></i> Evacuación AC (Inversor ➔ Red):</span>
+                    <b id="inverter-stat-lac" style="color:#38BDF8;">0.0 m</b>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;color:var(--text-slate-300);">
+                    <span><i data-lucide="shield" class="icon-sm"></i> Sección Cable AC (RV-K 1kV):</span>
+                    <b id="inverter-stat-sec-ac" style="color:#34D399;">10 mm² · ΔV 0.6%</b>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;padding-top:4px;border-top:1px solid rgba(255,255,255,0.08);">
+                    <span><i data-lucide="check-circle" class="icon-sm"></i> Verificación REBT ITC-BT-40:</span>
+                    <span style="color:#10B981;font-weight:900;background:rgba(16,185,129,0.15);padding:1px 6px;border-radius:4px;border:1px solid rgba(16,185,129,0.3);">ΔV ≤ 1.5% CONFORME</span>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <!-- 4.4 TRAZADO DE RUTAS & REBT (ITC-BT-40) -->
-            <div class="ui-card" style="background:rgba(0,0,0,0.35);border:1px solid rgba(16,185,129,0.3);border-radius:8px;padding:8px;margin-top:6px;">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:4px;">
-                <span style="font-weight:900;color:#10B981;font-size:10px;"><i data-lucide="route" class="icon-sm"></i> 4.4 TRAZADO DE RUTAS &amp; REBT</span>
-                <span class="card-tag" style="background:rgba(16,185,129,0.2);color:#10B981;font-size:9.5px;">ITC-BT-40</span>
-              </div>
-              
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
-                <button type="button" id="btn-route-dc" class="btn-action-primary" onclick="wpToggleCableRouting('dc')" style="padding:5px 4px;font-size:9px;background:rgba(239,68,68,0.15);border:1px solid #EF4444;color:#FCA5A5;font-weight:700;">
-                  <span><i data-lucide="route" class="icon-sm"></i> TRAZAR BANDEJA DC</span>
-                </button>
-                <button type="button" id="btn-route-ac" class="btn-action-primary" onclick="wpToggleCableRouting('ac')" style="padding:5px 4px;font-size:9px;background:rgba(56,189,248,0.15);border:1px solid #38BDF8;color:#7DD3FC;font-weight:700;">
-                  <span><i data-lucide="route" class="icon-sm"></i> TRAZAR TUBO AC</span>
-                </button>
-              </div>
-
-              <!-- Barra de acciones en vivo mientras se dibuja la ruta -->
-              <div id="cable-routing-toolbar" style="display:none;margin-top:5px;background:rgba(15,23,42,0.95);border:1px solid var(--amber-500);border-radius:6px;padding:6px;flex-direction:column;gap:4px;">
-                <div style="display:flex;justify-content:space-between;align-items:center;font-size:9.5px;color:#FDE68A;">
-                  <span id="cable-routing-title"><b>DIBUJANDO RUTA</b></span>
-                  <span id="cable-routing-count" style="font-weight:bold;color:#fff;">0 pts</span>
-                </div>
-                <div style="display:flex;gap:4px;">
-                  <button type="button" onclick="wpFinishCableRouting()" class="btn-action-primary" style="flex:2;padding:4px;font-size:9px;background:#10B981;color:#000;font-weight:900;border:none;">
-                    <span><i data-lucide="check" class="icon-sm"></i> FIJAR RUTA</span>
-                  </button>
-                  <button type="button" onclick="wpUndoLastCableRoutePoint()" class="doc-mini-btn" style="flex:1;padding:4px;font-size:9px;text-align:center;">
-                    DESHACER
-                  </button>
-                  <button type="button" onclick="wpCancelCableRouting()" class="doc-mini-btn" style="padding:4px 6px;font-size:9px;color:#EF4444;border-color:rgba(239,68,68,0.4);" aria-label="Cancelar trazado de cableado">
-                    ✕
-                  </button>
-                </div>
-              </div>
-
-              <!-- Resumen de rutas manuales fijadas -->
-              <div id="cable-routes-summary" style="display:flex;flex-direction:column;gap:3px;margin-top:4px;"></div>
-
-              <!-- Telemetría de Tiradas y Secciones Eléctricas -->
-              <div style="background:rgba(15,23,42,0.6);border:1px solid rgba(255,255,255,0.06);border-radius:6px;padding:6px;font-size:9px;line-height:1.6;margin-top:8px;">
-                <div style="display:flex;justify-content:space-between;color:var(--text-slate-300);">
-                  <span><i data-lucide="git-commit" class="icon-sm"></i> Tirada DC Homerun:</span>
-                  <b id="inverter-stat-ldc" style="color:#38BDF8;">0.0 m</b>
-                </div>
-                <div style="display:flex;justify-content:space-between;color:var(--text-slate-300);">
-                  <span><i data-lucide="shield" class="icon-sm"></i> Sección Cable DC (ZZ-F 1500V):</span>
-                  <b id="inverter-stat-sec-dc" style="color:#34D399;">6 mm² · ΔV 0.8%</b>
-                </div>
-                <div style="display:flex;justify-content:space-between;color:var(--text-slate-300);padding-top:3px;border-top:1px dashed rgba(255,255,255,0.08);">
-                  <span><i data-lucide="git-commit" class="icon-sm"></i> Evacuación AC (Inversor ➔ Red):</span>
-                  <b id="inverter-stat-lac" style="color:#38BDF8;">0.0 m</b>
-                </div>
-                <div style="display:flex;justify-content:space-between;color:var(--text-slate-300);">
-                  <span><i data-lucide="shield" class="icon-sm"></i> Sección Cable AC (RV-K 1kV):</span>
-                  <b id="inverter-stat-sec-ac" style="color:#34D399;">10 mm² · ΔV 0.6%</b>
-                </div>
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;padding-top:4px;border-top:1px solid rgba(255,255,255,0.08);">
-                  <span><i data-lucide="check-circle" class="icon-sm"></i> Verificación REBT ITC-BT-40:</span>
-                  <span style="color:#10B981;font-weight:900;background:rgba(16,185,129,0.15);padding:1px 6px;border-radius:4px;border:1px solid rgba(16,185,129,0.3);">ΔV ≤ 1.5% CONFORME</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- 4.5 ÁRBOL DE PÉRDIDAS CONFIGURABLE (PR justificable) -->
-            <div class="ui-card" style="border:1px solid rgba(56,189,248,0.35);background:rgba(15,23,42,0.85);border-radius:8px;padding:8px;margin-top:6px;">
+            <!-- 4.5 PÉRDIDAS DEL SISTEMA (ÁRBOL PR) -->
+            <div class="ui-card" style="border:1px solid rgba(255,255,255,0.08);background:rgba(15,23,42,0.85);border-radius:8px;padding:10px;">
               <div class="ui-card-head" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
                 <span style="color:#38BDF8;font-weight:900;font-size:10px;"><i data-lucide="sliders-horizontal" class="icon-sm"></i> 4.5 PÉRDIDAS DEL SISTEMA (ÁRBOL PR)</span>
-                <span class="card-tag" style="background:rgba(56,189,248,0.15);color:#38BDF8;font-size:9.5px;">PVsyst</span>
+                <span class="card-tag" style="background:rgba(56,189,248,0.15);color:#38BDF8;font-size:8.5px;">PVsyst</span>
               </div>
               <div style="display:flex;gap:4px;margin-bottom:8px;">
                 <select id="loss-preset-select" onchange="raApplyLossPresetUI(this.value)" style="flex:1;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:#E2E8F0;font-size:9.5px;padding:4px 6px;">
@@ -1805,11 +1814,11 @@ window.RA_App = window.RA_App || {};
                 <span style="color:var(--text-slate-300);">Suma de pérdidas aplicada:</span>
                 <b id="loss-total-pct" style="color:#FBBF24;">—</b>
               </div>
-              <div style="font-size:9.5px;color:#64748b;margin-top:4px;">Se aplican al re-ejecutar el análisis energético. Se guardan automáticamente en este navegador.</div>
+              <div style="font-size:9px;color:#64748b;margin-top:4px;">Se aplican al re-ejecutar el análisis energético. Se guardan automáticamente en este navegador.</div>
             </div>
 
             <!-- BOTONERA DE NAVEGACIÓN PASO 4 -->
-            <div style="display:flex;gap:4px;margin-top:10px;border-top:1px solid rgba(255,255,255,0.08);padding-top:8px;">
+            <div style="display:flex;gap:6px;margin-top:4px;border-top:1px solid rgba(255,255,255,0.08);padding-top:8px;">
               <button type="button" class="btn-action-primary" onclick="wpGoToStep(3)" style="flex:1;padding:8px 6px;font-size:9.5px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15);color:var(--text-slate-300);">
                 <span><i data-lucide="arrow-left" class="icon-sm"></i> VOLVER A ANÁLISIS (3)</span>
               </button>
