@@ -588,44 +588,72 @@
       }
 
       const maxAllowedOverload = inv.maxOverload || 1.35;
-      const invCount = Math.max(1, Math.round(totalKwp / (inv.kw * 1.15)));
-      const actualOverload = totalKwp / (invCount * inv.kw);
-      // La corriente de diseño se calcula por cada canal MPPT disponible
       const _modsPerString = options.modulesPerString || 12;
       const _nStrings = Math.max(1, Math.ceil(totalPanels / _modsPerString));
       const _inputsPerMppt = inv.inputsPerMppt || 1;
       const _mpptCount = inv.mppt || inv.mpptCount || 2;
-      const _totalMppts = _mpptCount * invCount;
-      const _stringsPerMppt = Math.max(1, Math.ceil(_nStrings / _totalMppts));
-      const _iscPerMppt = (moduleSpec.isc || 14.0) * 1.25 * _stringsPerMppt;
-      const isCurrentSafe = !inv.iMaxScA || (_iscPerMppt <= inv.iMaxScA);
-      const hasPhaseUnbalance = (gridSupply === 'three_phase' && isInvSinglePhase && (inv.kw * invCount) > 5.0);
-
-      // Comprobación de límites de tensión MPPT y Voc en frío (-10°C / 70°C)
       const limits = calculateDynamicMPPTStringLimits(moduleSpec, inv, options.climParams || {});
-      const isVoltageSafe = options.modulesPerString ?
-        (options.modulesPerString <= limits.Ns_max && options.modulesPerString >= limits.Ns_min) :
-        (limits.Ns_max >= limits.Ns_min && (totalPanels === 0 || Math.ceil(totalPanels / _totalMppts) >= limits.Ns_min));
 
-      // Comprobación de canales MPPT mínimos frente a orientaciones distintas de cubierta
-      const hasEnoughMppts = _totalMppts >= distinctOrientations;
+      // Evaluador interno de viabilidad técnica y normativa para un número de unidades invCount
+      function evaluateConfiguration(invCount) {
+        const actualOverload = totalKwp / (invCount * inv.kw);
+        const _totalMppts = _mpptCount * invCount;
+        const _stringsPerMppt = Math.max(1, Math.ceil(_nStrings / _totalMppts));
+        const _iscPerMppt = (moduleSpec.isc || 14.0) * 1.25 * _stringsPerMppt;
+        const isCurrentSafe = !inv.iMaxScA || (_iscPerMppt <= inv.iMaxScA);
+        const hasPhaseUnbalance = (gridSupply === 'three_phase' && isInvSinglePhase && (inv.kw * invCount) > 5.0 && (invCount % 3 !== 0));
 
-      // Criterio de fragmentación máxima admisible según potencia unitaria
-      const maxUnitsAllowed = inv.kw <= 8.0 ? 2 : (inv.kw <= 15.0 ? 4 : (inv.kw <= 35.0 ? 6 : 8));
-      const isExcessiveFragmentation = invCount > maxUnitsAllowed;
+        const isVoltageSafe = options.modulesPerString ?
+          (options.modulesPerString <= limits.Ns_max && options.modulesPerString >= limits.Ns_min) :
+          (limits.Ns_max >= limits.Ns_min && (totalPanels === 0 || Math.ceil(totalPanels / _totalMppts) >= limits.Ns_min));
 
-      const isMatch = !isExcessiveFragmentation && actualOverload >= 0.75 && actualOverload <= (maxAllowedOverload + 0.12) && isCurrentSafe && isVoltageSafe && !hasPhaseUnbalance;
+        const hasEnoughMppts = _totalMppts >= distinctOrientations;
 
-      if (isMatch) {
-        compatible.push({
+        // Criterio de fragmentación máxima admisible según potencia unitaria
+        const maxUnitsAllowed = inv.kw <= 5.0 ? 3 : (inv.kw <= 10.0 ? 4 : (inv.kw <= 25.0 ? 6 : 8));
+        const isExcessiveFragmentation = invCount > maxUnitsAllowed;
+
+        const isMatch = !isExcessiveFragmentation &&
+          actualOverload >= 0.70 &&
+          actualOverload <= (maxAllowedOverload + 0.12) &&
+          isCurrentSafe &&
+          isVoltageSafe &&
+          !hasPhaseUnbalance;
+
+        if (!isMatch) return null;
+
+        return {
           inverter: inv,
           count: invCount,
           overloadPct: parseFloat((actualOverload * 100).toFixed(1)),
-          totalAcKw: invCount * inv.kw,
+          totalAcKw: Math.round(invCount * inv.kw * 10) / 10,
           mpptCount: _totalMppts,
           hasEnoughMppts: hasEnoughMppts,
+          redundancyPct: invCount > 1 ? parseFloat(((invCount - 1) / invCount * 100).toFixed(1)) : 0,
+          isDistributed: invCount > 1,
           totalCostEur: invCount * (inv.price || 1500)
-        });
+        };
+      }
+
+      // 1) Evaluar como opción centralizada (1x)
+      const singleMatch = evaluateConfiguration(1);
+      if (singleMatch) {
+        compatible.push(singleMatch);
+      }
+
+      // 2) Evaluar como opción modular distribuida (Nx con N >= 2)
+      // Se calcula cuántos equipos hacen falta para satisfacer la potencia instalada
+      const targetModularUnits = Math.max(2, Math.ceil(totalKwp / (inv.kw * 1.25)));
+      if (targetModularUnits >= 2) {
+        let multiMatch = evaluateConfiguration(targetModularUnits);
+        if (!multiMatch && (totalKwp / (targetModularUnits * inv.kw)) > (maxAllowedOverload + 0.12)) {
+          multiMatch = evaluateConfiguration(targetModularUnits + 1);
+        }
+        if (multiMatch) {
+          if (!compatible.some(c => c.inverter.id === inv.id && c.count === multiMatch.count)) {
+            compatible.push(multiMatch);
+          }
+        }
       }
     });
 
@@ -759,28 +787,104 @@
       };
     }
 
-    // Ordenar priorizando:
-    // 1. Que cubra los MPPTs requeridos para las orientaciones de cubierta
-    // 2. Cercanía a sobrecarga óptima (118%)
-    // 3. Menor número de inversores (preferir 1 inversor robusto antes que múltiples si la potencia lo permite)
-    compatible.sort((a, b) => {
+    // Separar candidatos centralizados (1x) y modulares (Nx con N >= 2)
+    const singleCandidates = compatible.filter(c => c.count === 1);
+    const multiCandidates = compatible.filter(c => c.count >= 2);
+
+    singleCandidates.sort((a, b) => {
       if (a.hasEnoughMppts !== b.hasEnoughMppts) return a.hasEnoughMppts ? -1 : 1;
-      const scoreA = Math.abs(a.overloadPct - 118) + (a.count > 1 ? 5 : 0);
-      const scoreB = Math.abs(b.overloadPct - 118) + (b.count > 1 ? 5 : 0);
+      const scoreA = Math.abs(a.overloadPct - 118);
+      const scoreB = Math.abs(b.overloadPct - 118);
       return scoreA - scoreB;
     });
 
-    const singleInvMatch = compatible.find(c => c.count === 1 && c.hasEnoughMppts) || compatible.find(c => c.count === 1) || compatible[0] || (virtualInverterMatch && virtualInverterMatch.count === 1 ? virtualInverterMatch : null);
-    const multiInvMatch = compatible.find(c => c.count >= 2 && c.hasEnoughMppts) || compatible.find(c => c.count >= 2) || (virtualInverterMatch && virtualInverterMatch.count > 1 ? virtualInverterMatch : null) || (singleInvMatch ? {
-      inverter: singleInvMatch.inverter,
-      count: Math.max(2, Math.ceil(singleInvMatch.count * 2)),
-      overloadPct: parseFloat((singleInvMatch.overloadPct / 2).toFixed(1)),
-      totalAcKw: singleInvMatch.totalAcKw * 2,
-      mpptCount: singleInvMatch.mpptCount * 2,
-      hasEnoughMppts: true,
-      totalCostEur: singleInvMatch.totalCostEur * 2,
-      isVirtual: !!singleInvMatch.isVirtual
-    } : null);
+    multiCandidates.sort((a, b) => {
+      if (a.hasEnoughMppts !== b.hasEnoughMppts) return a.hasEnoughMppts ? -1 : 1;
+      const fragPenaltyA = (a.count > 3 ? (a.count - 3) * 5 : 0);
+      const fragPenaltyB = (b.count > 3 ? (b.count - 3) * 5 : 0);
+      const scoreA = Math.abs(a.overloadPct - 118) + fragPenaltyA;
+      const scoreB = Math.abs(b.overloadPct - 118) + fragPenaltyB;
+      return scoreA - scoreB;
+    });
+
+    // Ordenar compatible global preservando compatibilidad
+    compatible.sort((a, b) => {
+      if (a.hasEnoughMppts !== b.hasEnoughMppts) return a.hasEnoughMppts ? -1 : 1;
+      const scoreA = Math.abs(a.overloadPct - 118) + (a.count > 1 ? 4 : 0);
+      const scoreB = Math.abs(b.overloadPct - 118) + (b.count > 1 ? 4 : 0);
+      return scoreA - scoreB;
+    });
+
+    // 1) Opción A: Inversor Centralizado (1x)
+    let singleInvMatch = singleCandidates[0] || (virtualInverterMatch && virtualInverterMatch.count === 1 ? virtualInverterMatch : null);
+    if (!singleInvMatch && totalKwp > 0) {
+      const isThreePhase = (gridSupply === 'three_phase' || totalKwp > 6.0);
+      const unitKwA = Math.max(1.0, Math.round((totalKwp / 1.18) * 10) / 10);
+      const mpptReqA = Math.max(distinctOrientations, isThreePhase ? (unitKwA >= 25 ? 4 : 2) : 2);
+      const estPriceA = isThreePhase
+        ? Math.round(unitKwA * (unitKwA >= 50 ? 45 : (unitKwA >= 20 ? 55 : 75)))
+        : Math.round(200 + unitKwA * 110);
+      const commModelsA = getSuggestedCommercialModels(unitKwA, isThreePhase ? 'three_phase' : 'single_phase');
+      singleInvMatch = {
+        inverter: {
+          id: `inv_virtual_1x_${Math.round(unitKwA)}kw`,
+          brand: 'Paramétrico (Auto-Generado)',
+          model: `Inversor Central ${unitKwA} kW (${mpptReqA} MPPT)`,
+          kw: unitKwA,
+          type: isThreePhase ? 'Trifásico' : 'Monofásico',
+          mppt: mpptReqA,
+          vDcMax: isThreePhase ? 1100 : 600,
+          price: estPriceA,
+          isVirtual: true,
+          suggestedCommercialModels: commModelsA
+        },
+        count: 1,
+        overloadPct: parseFloat((totalKwp / unitKwA * 100).toFixed(1)),
+        totalAcKw: unitKwA,
+        mpptCount: mpptReqA,
+        hasEnoughMppts: true,
+        redundancyPct: 0,
+        isDistributed: false,
+        totalCostEur: estPriceA,
+        isVirtual: true
+      };
+    }
+
+    // 2) Opción B: Modular Distribuida (Nx con N >= 2 de equipos menores)
+    let multiInvMatch = multiCandidates[0];
+    if (!multiInvMatch && totalKwp > 0) {
+      const isThreePhase = (gridSupply === 'three_phase' || totalKwp > 6.0);
+      const nUnitsB = totalKwp > 60.0 ? Math.max(2, Math.ceil(totalKwp / 45.0)) : 2;
+      const unitKwB = Math.max(1.0, Math.round((totalKwp / (nUnitsB * 1.18)) * 10) / 10);
+      const mpptReqB = Math.max(2, Math.ceil(distinctOrientations / nUnitsB));
+      const estPriceB = isThreePhase
+        ? Math.round(unitKwB * (unitKwB >= 50 ? 45 : (unitKwB >= 20 ? 55 : 75)))
+        : Math.round(200 + unitKwB * 110);
+      const commModelsB = getSuggestedCommercialModels(unitKwB, isThreePhase ? 'three_phase' : 'single_phase');
+      multiInvMatch = {
+        inverter: {
+          id: `inv_virtual_${nUnitsB}x_${Math.round(unitKwB)}kw`,
+          brand: 'Paramétrico (Auto-Generado)',
+          model: `Inversor Modular ${unitKwB} kW (${mpptReqB} MPPT)`,
+          kw: unitKwB,
+          type: isThreePhase ? 'Trifásico' : 'Monofásico',
+          mppt: mpptReqB,
+          vDcMax: isThreePhase ? 1100 : 600,
+          price: estPriceB,
+          isVirtual: true,
+          suggestedCommercialModels: commModelsB
+        },
+        count: nUnitsB,
+        overloadPct: parseFloat((totalKwp / (unitKwB * nUnitsB) * 100).toFixed(1)),
+        totalAcKw: Math.round(unitKwB * nUnitsB * 10) / 10,
+        mpptCount: mpptReqB * nUnitsB,
+        hasEnoughMppts: true,
+        redundancyPct: parseFloat(((nUnitsB - 1) / nUnitsB * 100).toFixed(1)),
+        isDistributed: true,
+        totalCostEur: estPriceB * nUnitsB,
+        isVirtual: true
+      };
+    }
 
     const scenarioC = {
       type: 'MLPE',
