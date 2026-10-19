@@ -1393,8 +1393,14 @@
       box-shadow: 0 4px 14px rgba(14, 165, 233, 0.3);
     }
     .doc-mini-btn .doc-icon { font-size: 12px; margin-bottom: 2px; }
-    .doc-mini-btn .doc-sub { font-size: 9px; color: var(--text-slate-400); font-weight: 400; }
     .doc-mini-btn:hover .doc-sub { color: rgba(255, 255, 255, 0.85); }
+    .doc-mini-btn.active {
+      background: rgba(14, 165, 233, 0.3) !important;
+      border-color: #38BDF8 !important;
+      color: #38BDF8 !important;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.35) !important;
+      font-weight: 800 !important;
+    }
 
     /* ── Notificaciones Flotantes y Status ───────────────────────────────── */
     #ra-status {

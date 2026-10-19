@@ -109,7 +109,19 @@ function step3SetTopology(topo) {
 
   ['inverter', 'micro', 'optim'].forEach(k => {
     const btn = document.getElementById('step3-topo-' + k);
-    if (btn) btn.classList.toggle('active', (k === 'inverter' && topo === 'inverter') || (k === 'micro' && topo === 'microinverter') || (k === 'optim' && topo === 'optimizer'));
+    if (btn) {
+      const isAct = (k === 'inverter' && topo === 'inverter') || (k === 'micro' && topo === 'microinverter') || (k === 'optim' && topo === 'optimizer');
+      btn.classList.toggle('active', isAct);
+      if (isAct) {
+        btn.style.background = (topo === 'microinverter') ? 'rgba(16,185,129,0.3)' : (topo === 'optimizer' ? 'rgba(245,158,11,0.3)' : 'rgba(14,165,233,0.3)');
+        btn.style.borderColor = (topo === 'microinverter') ? '#10B981' : (topo === 'optimizer' ? '#F59E0B' : '#38BDF8');
+        btn.style.color = (topo === 'microinverter') ? '#34D399' : (topo === 'optimizer' ? '#FBBF24' : '#38BDF8');
+      } else {
+        btn.style.background = 'rgba(14, 165, 233, 0.08)';
+        btn.style.borderColor = 'rgba(14, 165, 233, 0.25)';
+        btn.style.color = '#fff';
+      }
+    }
   });
 
   const rowInv = document.getElementById('step3-row-inverter');
@@ -130,6 +142,8 @@ function step3SetTopology(topo) {
   }
 
   step3UpdateHardwareSelection();
+  if (typeof wpUpdateStep4Checklist === 'function') wpUpdateStep4Checklist();
+  if (typeof wpUpdateAutoSizingUI === 'function') wpUpdateAutoSizingUI();
 }
 
 function step3EditCurrentEquipment(category) {
@@ -457,32 +471,50 @@ function wpUpdateStep4Checklist() {
   const catalog = (typeof window !== 'undefined' && window.equipmentCatalog) ? window.equipmentCatalog : ((typeof equipmentCatalog !== 'undefined') ? equipmentCatalog : null);
   
   if (chkInv) {
-    const inv = catalog && catalog.inverters && catalog.inverters.find(i => i.id === cfg.selectedInverterId);
-    if (inv) {
-      chkInv.textContent = '✓ Inversor: ' + (inv.kw || 5.0) + ' kW';
+    if (cfg.selectedTopology === 'microinverter') {
+      const mi = catalog && catalog.microinverters && catalog.microinverters.find(i => i.id === cfg.selectedMicroinverterId);
+      const miCount = (cfg.autoSizing && cfg.autoSizing.microinverters && cfg.autoSizing.microinverters.count) || 1;
+      const totalKw = (mi ? mi.kw : 0.8) * miCount;
+      chkInv.textContent = '✓ MLPE: ' + miCount + ' uds (' + totalKw.toFixed(1) + ' kW)';
       chkInv.style.color = '#10B981';
       chkInv.style.background = 'rgba(16,185,129,0.15)';
       chkInv.style.borderColor = 'rgba(16,185,129,0.3)';
     } else {
-      chkInv.textContent = '⚡ Inversor Pendiente';
-      chkInv.style.color = '#F59E0B';
-      chkInv.style.background = 'rgba(245,158,11,0.15)';
-      chkInv.style.borderColor = 'rgba(245,158,11,0.3)';
+      const inv = catalog && catalog.inverters && catalog.inverters.find(i => i.id === cfg.selectedInverterId);
+      const invCount = (cfg.autoSizing && cfg.autoSizing.inverters && cfg.autoSizing.inverters.count) || 1;
+      if (inv) {
+        chkInv.textContent = (invCount > 1 ? '✓ Inversores: ' + invCount + 'x ' + inv.kw + ' kW' : '✓ Inversor: ' + (inv.kw || 5.0) + ' kW');
+        chkInv.style.color = '#10B981';
+        chkInv.style.background = 'rgba(16,185,129,0.15)';
+        chkInv.style.borderColor = 'rgba(16,185,129,0.3)';
+      } else {
+        chkInv.textContent = '⚡ Inversor Pendiente';
+        chkInv.style.color = '#F59E0B';
+        chkInv.style.background = 'rgba(245,158,11,0.15)';
+        chkInv.style.borderColor = 'rgba(245,158,11,0.3)';
+      }
     }
   }
 
   if (chkStr) {
-    const limits = cfg.calculatedLimits;
-    if (limits && limits.nMaxString >= (limits.nMinString || 5)) {
-      chkStr.textContent = '✓ Strings: ' + limits.nMinString + '-' + limits.nMaxString + ' mods';
+    if (cfg.selectedTopology === 'microinverter') {
+      chkStr.textContent = '✓ MLPE 2-en-1 (Sin Strings DC)';
       chkStr.style.color = '#10B981';
       chkStr.style.background = 'rgba(16,185,129,0.15)';
       chkStr.style.borderColor = 'rgba(16,185,129,0.3)';
     } else {
-      chkStr.textContent = '📏 Strings MPPT';
-      chkStr.style.color = '#38BDF8';
-      chkStr.style.background = 'rgba(56,189,248,0.15)';
-      chkStr.style.borderColor = 'rgba(56,189,248,0.3)';
+      const limits = cfg.calculatedLimits;
+      if (limits && limits.nMaxString >= (limits.nMinString || 5)) {
+        chkStr.textContent = '✓ Strings: ' + limits.nMinString + '-' + limits.nMaxString + ' mods';
+        chkStr.style.color = '#10B981';
+        chkStr.style.background = 'rgba(16,185,129,0.15)';
+        chkStr.style.borderColor = 'rgba(16,185,129,0.3)';
+      } else {
+        chkStr.textContent = '📏 Strings MPPT';
+        chkStr.style.color = '#38BDF8';
+        chkStr.style.background = 'rgba(56,189,248,0.15)';
+        chkStr.style.borderColor = 'rgba(56,189,248,0.3)';
+      }
     }
   }
 
@@ -1060,31 +1092,47 @@ function wpAutoSelectOptimalEngineering(force = false) {
     shadingDiagnostics: shading
   });
 
-  const bestScenario = match.recommendedScenarioA || match.recommendedScenarioB;
   const bestTopology = match.recommendedTopology || 'inverter';
-
-  // Si se generó un Inversor Paramétrico Virtual (porque el catálogo no cumplió los requisitos físicos):
-  if (bestScenario && bestScenario.inverter && bestScenario.isVirtual) {
-    cfg.lastVirtualInverter = bestScenario.inverter;
-    if (Array.isArray(catalog.inverters) && !catalog.inverters.some(i => i.id === bestScenario.inverter.id)) {
-      catalog.inverters.push(bestScenario.inverter);
-    }
-  }
-
-  // 6. Aplicar la decisión técnica
-  cfg.selectedTopology = bestTopology;
+  let bestScenario = null;
 
   if (bestTopology === 'microinverter') {
-    if (Array.isArray(catalog.microinverters) && catalog.microinverters.length > 0) {
-      cfg.selectedMicroinverterId = catalog.microinverters[0].id;
-    }
+    const catalogMicros = (Array.isArray(catalog.microinverters) && catalog.microinverters.length > 0)
+      ? catalog.microinverters
+      : [{ id: 'micro_hoymiles_800', brand: 'Hoymiles', model: 'HMS-800-2T (2-en-1)', kw: 0.8, price: 175 }];
+    const chosenMicro = (cfg.selectedMicroinverterId && catalogMicros.find(m => m.id === cfg.selectedMicroinverterId)) || catalogMicros[0];
+    const microUnits = Math.ceil(totalPanels / 2);
+    bestScenario = {
+      inverter: chosenMicro,
+      count: microUnits,
+      totalAcKw: Math.round(microUnits * (chosenMicro.kw || 0.8) * 10) / 10,
+      mpptCount: microUnits * 2,
+      overloadPct: parseFloat((totalKwp / (microUnits * (chosenMicro.kw || 0.8)) * 100).toFixed(1)),
+      totalCostEur: microUnits * (chosenMicro.price || 175),
+      isMicro: true
+    };
+    cfg.selectedTopology = 'microinverter';
+    cfg.selectedMicroinverterId = chosenMicro.id;
+    if (!cfg.autoSizing) cfg.autoSizing = {};
+    if (!cfg.autoSizing.microinverters) cfg.autoSizing.microinverters = {};
+    cfg.autoSizing.microinverters.count = microUnits;
+    cfg.autoSizing.microinverters.isManual = false;
   } else {
+    bestScenario = match.recommendedScenarioA || match.recommendedScenarioB;
+    cfg.selectedTopology = bestTopology;
     if (bestScenario && bestScenario.inverter) {
       cfg.selectedInverterId = bestScenario.inverter.id;
       if (!cfg.autoSizing) cfg.autoSizing = {};
       if (!cfg.autoSizing.inverters) cfg.autoSizing.inverters = {};
       cfg.autoSizing.inverters.count = bestScenario.count;
       cfg.autoSizing.inverters.isManual = false;
+    }
+  }
+
+  // Si se generó un Inversor Paramétrico Virtual (para topología string central):
+  if (bestTopology !== 'microinverter' && bestScenario && bestScenario.inverter && bestScenario.isVirtual) {
+    cfg.lastVirtualInverter = bestScenario.inverter;
+    if (Array.isArray(catalog.inverters) && !catalog.inverters.some(i => i.id === bestScenario.inverter.id)) {
+      catalog.inverters.push(bestScenario.inverter);
     }
   }
 
@@ -1100,7 +1148,7 @@ function wpAutoSelectOptimalEngineering(force = false) {
     }
   }
 
-  // 7. Sincronizar selectores del DOM
+  // Sincronizar selectores del DOM
   const invSel = document.getElementById('step3-sel-inverter');
   if (invSel && cfg.selectedInverterId) invSel.value = cfg.selectedInverterId;
   const miSel = document.getElementById('step3-sel-microinverter');
@@ -1108,21 +1156,8 @@ function wpAutoSelectOptimalEngineering(force = false) {
   const batSel = document.getElementById('step3-sel-battery');
   if (batSel && cfg.selectedBatteryId) batSel.value = cfg.selectedBatteryId;
 
-  // Actualizar topología visual (botones)
-  ['inverter', 'micro', 'optim'].forEach(k => {
-    const btn = document.getElementById('step3-topo-' + k);
-    if (btn) btn.classList.toggle('active', (k === 'inverter' && bestTopology === 'inverter') || (k === 'micro' && bestTopology === 'microinverter') || (k === 'optim' && bestTopology === 'optimizer'));
-  });
-
-  const rowInv = document.getElementById('step3-row-inverter');
-  const rowMi = document.getElementById('step3-row-microinverter');
-  if (bestTopology === 'microinverter') {
-    if (rowInv) rowInv.style.display = 'none';
-    if (rowMi) rowMi.style.display = 'block';
-  } else {
-    if (rowInv) rowInv.style.display = 'block';
-    if (rowMi) rowMi.style.display = 'none';
-  }
+  // Actualizar topología activa conmutando visibilidad de campos y botones
+  step3SetTopology(bestTopology);
 
   // Si se recomiendan optimizadores selectivos, aplicarlos a los paneles afectados
   if (bestTopology === 'optimizer' && shading && typeof shading.applySelectiveOptimizers === 'function') {
@@ -1247,7 +1282,9 @@ function wpRenderAutoEngineeringBanner(info, isManualOverride = false) {
         </span>
       </div>
       <div style="font-size:9px;color:#E2E8F0;line-height:1.35;margin-bottom:4px;">
-        <b>Equipo Asignado:</b> ${sc.count}× ${sc.inverter.brand} ${sc.inverter.model} (${sc.totalAcKw} kW AC · ${sc.mpptCount} MPPTs · Sobrecarga: ${sc.overloadPct}%)
+        ${(info.topology === 'microinverter' || (sc && sc.isMicro))
+          ? `<b>Equipo Asignado:</b> ${sc.count}× Microinversores 2-en-1 ${sc.inverter.brand} ${sc.inverter.model} (${sc.totalAcKw} kW AC total · Seguimiento panel a panel · Inmune a sombras)`
+          : `<b>Equipo Asignado:</b> ${sc.count}× ${sc.inverter.brand} ${sc.inverter.model} (${sc.totalAcKw} kW AC · ${sc.mpptCount} MPPTs · Sobrecarga: ${sc.overloadPct}%)`}
       </div>
       <div style="font-size:8.5px;color:#94A3B8;line-height:1.3;">
         <b>Criterio Físico:</b> ${info.rationale} (${info.distinctOrientations} ${info.distinctOrientations === 1 ? 'orientación' : 'orientaciones distintas'}, ${info.totalPanels} placas · ${info.totalKwp.toFixed(1)} kWp).
