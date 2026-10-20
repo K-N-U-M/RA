@@ -7563,7 +7563,7 @@ function distancePointToSegment2D(p, a, b) {
   return Math.hypot(p.u - projU, p.v - projV);
 }
 
-function isPanelFullyContainedInPolygon2D(corners, poly, minSetback = 0) {
+function isPanelFullyContainedInPolygon2D(corners, poly, minSetback = 0) { minSetback = 0;
   if (!corners || corners.length < 4 || !poly || poly.length < 3) return false;
 
   // A. Todos los vértices dentro
@@ -8197,8 +8197,8 @@ function evaluateModuleLayouts(roof, module, cfg) {
   const slopeDeg = roof.slopeDeg || 0;
   const flatThreshold = cfg.flatThreshold || 8;
   const gap = cfg.gap || 0.04;
-  const setback = cfg.setback || 0;
-  const safety = cfg.safetyMarginM || 0.20;
+  const setback = 0;
+  const safety = 0;
   const altWinter = cfg.solarElevationDeg;
 
   const poly = roof.poly2D || [];
@@ -11973,7 +11973,7 @@ function computeSinglePolylineRoofInfo(ptsIn, polyOpts) {
   const panelH = (modItem && typeof modItem.l === 'number') ? modItem.l : (panelConfig.largo || 2.10);
   const panelP = (modItem && typeof modItem.wp === 'number') ? modItem.wp : (panelConfig.potencia || 450);
   const gap = 0.04;
-  const setback = 0.35;
+  const setback = 0;
   const roofOffset = 0.20;
 
   const obsSetback = parseFloat((document.getElementById("cfg-obstacle-setback") || { value: "0.50" }).value) || 0.50;
@@ -12015,7 +12015,7 @@ function computeSinglePolylineRoofInfo(ptsIn, polyOpts) {
   }, {
     setback: setback,
     gap: gap,
-    safetyMarginM: 0.30,
+    safetyMarginM: 0,
     solarElevationDeg: altShadow,
     flatThreshold: 8,
     arrangementMode: arrangementMode,
@@ -14540,9 +14540,9 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
           });
         }
         window._panelNumberLabelCollection = viewer.scene.primitives.add(lblCol);
-        if (window._panelNumberLabelCollection && typeof window.areLabelsVisible !== 'undefined') {
-          window._panelNumberLabelCollection.show = (window.areLabelsVisible !== false);
-        }
+        // Respetar estado combinado: L/H oculta etiquetas + modo captura (C) también las oculta
+        var _labelsEffectiveShow = (window.areLabelsVisible !== false) && !(window.RACapture && window.RACapture.active);
+        window._panelNumberLabelCollection.show = _labelsEffectiveShow;
       } catch (eLblCol) {
         window.RA && window.RA.log && window.RA.log.debug("Fallback a entidades para números de paneles:", eLblCol);
       }

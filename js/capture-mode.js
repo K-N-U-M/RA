@@ -268,6 +268,7 @@
 
   var api = {
     get enabled() { return state.enabled; },
+    get active() { return state.enabled; }, // alias para checkeos externos (ej. wpFastRenderSimulatedPanels)
     toggle: function () {
       if (state.enabled) api.disable(); else api.enable();
       return state.enabled;
