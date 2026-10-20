@@ -3408,8 +3408,21 @@ function wpCommitStampPolyline(targetPos3D) {
         }))
       : [],
     lineEnt: null,
-    fillEnt: null
+    fillEnt: null,
+    roofInfo: null,
+    panels: []
   };
+
+  if (typeof computeSinglePolylineRoofInfo === 'function') {
+    try {
+      newPolyObj.roofInfo = computeSinglePolylineRoofInfo(newPolyObj.points, newPolyObj);
+      if (newPolyObj.roofInfo && Array.isArray(newPolyObj.roofInfo.panels)) {
+        newPolyObj.panels = newPolyObj.roofInfo.panels;
+      }
+    } catch (eRoof) {
+      console.warn('[STAMP] Error calculando roofInfo inicial:', eRoof);
+    }
+  }
 
   // 2. Snapshot para Undo / Redo
   if (window.RAundo && typeof window.RAundo.snapPolylines === 'function') {
@@ -3471,12 +3484,27 @@ function wpCommitStampPolyline(targetPos3D) {
   if (typeof window.wpInvalidateHeatmap === 'function') {
     window.wpInvalidateHeatmap('Nuevo faldón duplicado: ' + newName);
   }
-  if (typeof wpUpdateStep3UI === 'function') wpUpdateStep3UI();
-  if (typeof wpPopulateFaldonCard === 'function') wpPopulateFaldonCard();
-  if (typeof wpSyncStep6Controls === 'function') wpSyncStep6Controls();
-  if (typeof recalculateLayoutAndObstacles === 'function') recalculateLayoutAndObstacles(newPolyIdx);
-  if (typeof wpFastRenderSimulatedPanels === 'function') wpFastRenderSimulatedPanels(true, newPolyIdx);
-  if (typeof wpUpdateLayoutFastMetrics === 'function') wpUpdateLayoutFastMetrics();
+  if (typeof recalculateLayoutAndObstacles === 'function') {
+    recalculateLayoutAndObstacles(newPolyIdx);
+  }
+  if (typeof wpFastRenderSimulatedPanels === 'function') {
+    wpFastRenderSimulatedPanels(true, newPolyIdx);
+  }
+  if (typeof recalculateSolarYield === 'function') {
+    recalculateSolarYield(true);
+  }
+  if (typeof wpUpdateLayoutFastMetrics === 'function') {
+    wpUpdateLayoutFastMetrics();
+  }
+  if (typeof wpPopulateFaldonCard === 'function') {
+    wpPopulateFaldonCard();
+  }
+  if (typeof wpSyncStep6Controls === 'function') {
+    wpSyncStep6Controls();
+  }
+  if (typeof wpUpdateStep3UI === 'function') {
+    wpUpdateStep3UI();
+  }
 
   if (typeof ProjectHierarchy !== 'undefined' && ProjectHierarchy.notify) {
     ProjectHierarchy.notify('polyline_added', { polyline: newPolyObj, index: newPolyIdx });

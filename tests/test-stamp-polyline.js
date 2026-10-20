@@ -57,7 +57,13 @@ const Cesium = {
   LabelStyle: { FILL_AND_OUTLINE: 2 },
   VerticalOrigin: { BOTTOM: 1 },
   ArcType: { NONE: 0 },
-  ShadowMode: { DISABLED: 0, ENABLED: 1 }
+  ShadowMode: { DISABLED: 0, ENABLED: 1 },
+  Matrix4: class {
+    static multiplyByPoint(m, p, r = new Cesium.Cartesian3()) {
+      r.x = p.x; r.y = p.y; r.z = p.z; return r;
+    }
+    static inverse(m, r) { return r || new Cesium.Matrix4(); }
+  }
 };
 
 global.Cesium = Cesium;
@@ -109,6 +115,33 @@ global.wpRenderAllPolylines = () => {};
 global.wpUpdateUI = () => {};
 global.recalculateLayoutAndObstacles = (idx) => { global._lastRecalcIdx = idx; };
 global.wpFastRenderSimulatedPanels = (skipCam, idx) => { global._lastFastRenderIdx = idx; };
+global.computeSinglePolylineRoofInfo = (pts, poly) => {
+  const pIdx = (WP && Array.isArray(WP.polylines)) ? WP.polylines.indexOf(poly) : 0;
+  const targetIdx = pIdx >= 0 ? pIdx : 1;
+  return {
+    uVec: new Cesium.Cartesian3(1, 0, 0),
+    vVec: new Cesium.Cartesian3(0, 1, 0),
+    normal: new Cesium.Cartesian3(0, 0, 1),
+    transform: new Cesium.Matrix4(),
+    invTransform: new Cesium.Matrix4(),
+    panels: [
+      {
+        panelId: 'pan_' + targetIdx + '_0',
+        polyIdx: targetIdx,
+        layoutIndex: 0,
+        u: 2, v: 2, w: 1, h: 2,
+        annualLossPct: 2.0
+      },
+      {
+        panelId: 'pan_' + targetIdx + '_1',
+        polyIdx: targetIdx,
+        layoutIndex: 1,
+        u: 4, v: 2, w: 1, h: 2,
+        annualLossPct: 15.0
+      }
+    ]
+  };
+};
 
 // Setup initial faldon
 global.WP = {
@@ -268,6 +301,45 @@ wpCancelStampPolyline(false);
 assert.strictEqual(WP.mode, 'idle', 'WP.mode debe ser idle');
 assert.strictEqual(WP.stampState, null, 'WP.stampState debe ser null');
 console.log('✔ TEST 5 PASADO: Modo estampar cancelado y entidades liberadas.');
+
+// ----------------------------------------------------------------------------
+// TEST 6: Inclusión de faldón duplicado en simulación de sombras y heatmap
+// ----------------------------------------------------------------------------
+console.log('\n▶ TEST 6: Verificar inclusión de paneles duplicados en estudio de sombras...');
+// Cargar motor de simulación solar y heatmap
+const heatmapCode = fs.readFileSync('js/solar-heatmap.js', 'utf8');
+eval(heatmapCode);
+
+// Asignar paneles al faldón 0
+WP.polylines[0].panels = [
+  { panelId: 'pan_0_0', polyIdx: 0, layoutIndex: 0, annualLossPct: 1.0 },
+  { panelId: 'pan_0_1', polyIdx: 0, layoutIndex: 1, annualLossPct: 3.0 }
+];
+WP.polylines[0].roofInfo = { panels: WP.polylines[0].panels };
+
+// Comprobar que el faldón duplicado (índice 1) tiene paneles válidos
+assert.ok(WP.polylines[1], 'El faldón duplicado debe existir en WP.polylines');
+assert.ok(Array.isArray(WP.polylines[1].panels) && WP.polylines[1].panels.length > 0, 'El faldón duplicado debe tener paneles asociados');
+assert.strictEqual(WP.polylines[1].panels[0].polyIdx, 1, 'Los paneles duplicados deben pertenecer al faldón 1');
+
+// Evaluar diagnóstico MLPE
+const evalResult = wpEvaluateMLPENecessity(WP);
+assert.strictEqual(evalResult.totalPanels, 4, 'El diagnóstico MLPE debe contabilizar los paneles de ambos faldones (2 + 2 = 4)');
+assert.strictEqual(evalResult.criticalLossPanelsCount, 1, 'Debe detectar el panel con 15% de pérdidas en el faldón duplicado');
+
+// Sincronización de resultados de Web Worker hacia paneles del faldón duplicado
+const mockResults = [
+  { id: 'pan_0_0', polyIdx: 0, layoutIndex: 0, annualTotalPotential: 1000, annualShadedLoss: 10, annualLossPct: 1.0, annualYieldPct: 99.0 },
+  { id: 'pan_0_1', polyIdx: 0, layoutIndex: 1, annualTotalPotential: 1000, annualShadedLoss: 30, annualLossPct: 3.0, annualYieldPct: 97.0 },
+  { id: 'pan_1_0', polyIdx: 1, layoutIndex: 0, annualTotalPotential: 1000, annualShadedLoss: 20, annualLossPct: 2.0, annualYieldPct: 98.0 },
+  { id: 'pan_1_1', polyIdx: 1, layoutIndex: 1, annualTotalPotential: 1000, annualShadedLoss: 150, annualLossPct: 15.0, annualYieldPct: 85.0 }
+];
+applyWorkerHeatmapResults(WP.polylines, mockResults, [], []);
+
+assert.strictEqual(WP.polylines[1].panels[0].annualLossPct, 2.0, 'Panel pan_1_0 recibe pérdidas correctas del worker');
+assert.strictEqual(WP.polylines[1].panels[1].annualLossPct, 15.0, 'Panel pan_1_1 recibe pérdidas correctas del worker');
+assert.strictEqual(WP.polylines[1].panels[1].annualYieldPct, 85.0, 'Panel pan_1_1 recibe rendimiento correcto del worker');
+console.log('✔ TEST 6 PASADO: Paneles de faldón duplicado integrados al 100% en estudio de sombras y heatmap.');
 
 console.log('\n═════════════════════════════════════════════════════════════════════');
 console.log('🎉 TODOS LOS TESTS DE DUPLICADO / ESTAMPAR HAN PASADO AL 100%!');

@@ -273,7 +273,25 @@
         let isShaded = false;
         if (polyShadowQuads2D.length > 0) {
           let panelPoly2D = null;
-          if (Array.isArray(pData.corners) && pData.corners.length === 4 && pInfo.center && pInfo.uVec && pInfo.vVec) {
+          const invT = pInfo.invTransform || (pInfo.transform && typeof Cesium !== 'undefined' && Cesium.Matrix4 ? Cesium.Matrix4.inverse(pInfo.transform, new Cesium.Matrix4()) : null);
+          if (Array.isArray(pData.corners) && pData.corners.length === 4 && invT && pInfo.uVec && pInfo.vVec) {
+            panelPoly2D = pData.corners.map(c => {
+              const locPt = Cesium.Matrix4.multiplyByPoint(invT, c, new Cesium.Cartesian3());
+              return {
+                u: Cesium.Cartesian3.dot(locPt, pInfo.uVec),
+                v: Cesium.Cartesian3.dot(locPt, pInfo.vVec)
+              };
+            });
+          } else if (pData.u !== undefined && pData.v !== undefined) {
+            const halfW = (pData.w || 1.05) / 2;
+            const halfH = (pData.h || 2.10) / 2;
+            panelPoly2D = [
+              { u: pData.u - halfW, v: pData.v - halfH },
+              { u: pData.u + halfW, v: pData.v - halfH },
+              { u: pData.u + halfW, v: pData.v + halfH },
+              { u: pData.u - halfW, v: pData.v + halfH }
+            ];
+          } else if (Array.isArray(pData.corners) && pData.corners.length === 4 && pInfo.center && pInfo.uVec && pInfo.vVec) {
             panelPoly2D = pData.corners.map(c => {
               const rel = Cesium.Cartesian3.subtract(c, pInfo.center, new Cesium.Cartesian3());
               return {
@@ -285,10 +303,10 @@
             const halfW = (pData.w || 1.05) / 2;
             const halfH = (pData.h || 2.10) / 2;
             panelPoly2D = [
-              { u: pData.u - halfW, v: pData.v - halfH },
-              { u: pData.u + halfW, v: pData.v - halfH },
-              { u: pData.u + halfW, v: pData.v + halfH },
-              { u: pData.u - halfW, v: pData.v + halfH }
+              { u: (pData.u || 0) - halfW, v: (pData.v || 0) - halfH },
+              { u: (pData.u || 0) + halfW, v: (pData.v || 0) - halfH },
+              { u: (pData.u || 0) + halfW, v: (pData.v || 0) + halfH },
+              { u: (pData.u || 0) - halfW, v: (pData.v || 0) + halfH }
             ];
           }
 
@@ -624,13 +642,30 @@
 
   function applyWorkerHeatmapResults(polylines, results, monthlyNetWh, targetMonthlyNetWh) {
     const map = new Map();
-    results.forEach(r => map.set(r.id, r));
+    results.forEach(r => {
+      if (r && r.id) {
+        map.set(r.id, r);
+        if (r.polyIdx !== undefined && r.layoutIndex !== undefined) {
+          map.set(`${r.polyIdx}_${r.layoutIndex}`, r);
+          map.set(`pan_${r.polyIdx}_${r.layoutIndex}`, r);
+          map.set(`panel_${r.polyIdx}_${r.layoutIndex}`, r);
+        }
+      }
+    });
 
     polylines.forEach((poly, polyIdx) => {
       const panels = Array.isArray(poly.panels) ? poly.panels : (poly.roofInfo && Array.isArray(poly.roofInfo.panels) ? poly.roofInfo.panels : []);
       panels.forEach((p, idx) => {
         const pId = p.panelId || p.id || ('panel_' + polyIdx + '_' + idx);
-        const res = map.get(pId) || (p.id ? map.get(p.id) : null) || (p.panelId ? map.get(p.panelId) : null) || map.get('panel_' + polyIdx + '_' + idx);
+        const lIdx = p.layoutIndex !== undefined ? p.layoutIndex : idx;
+        const res = map.get(pId) ||
+          (p.id ? map.get(p.id) : null) ||
+          (p.panelId ? map.get(p.panelId) : null) ||
+          map.get('panel_' + polyIdx + '_' + lIdx) ||
+          map.get('pan_' + polyIdx + '_' + lIdx) ||
+          map.get(`${polyIdx}_${lIdx}`) ||
+          map.get('panel_' + polyIdx + '_' + idx) ||
+          map.get('pan_' + polyIdx + '_' + idx);
         if (res) {
           p.annualTotalPotential = res.annualTotalPotential;
           p.annualShadedLoss = res.annualShadedLoss;
@@ -672,7 +707,11 @@
       if (livePanels) {
         const matchingLive = livePanels.filter(lp => lp && (lp.polyIdx === polyIdx || (!lp.polyIdx && polyIdx === 0)));
         if (matchingLive.length > 0) {
-          if (!poly.roofInfo) poly.roofInfo = {};
+          if (!poly.roofInfo) {
+            poly.roofInfo = (typeof computeSinglePolylineRoofInfo === 'function')
+              ? computeSinglePolylineRoofInfo(poly.points, poly) || {}
+              : {};
+          }
           poly.roofInfo.panels = matchingLive;
           poly.panels = matchingLive;
         }
@@ -2027,12 +2066,14 @@
     }
   }
   window.wpCleanCriticalShadedPanels = wpCleanCriticalShadedPanels;
+  window.applyWorkerHeatmapResults = applyWorkerHeatmapResults;
 
   if (!window.RA) window.RA = {};
   window.RA.solarHeatmap = {
     update: wpUpdatePanelShadingAndMLPE,
     evaluateMLPE: wpEvaluateMLPENecessity,
     computeHeatmap: computeAnnualSolarHeatmap,
+    applyWorkerHeatmapResults: applyWorkerHeatmapResults,
     invalidate: window.wpInvalidateHeatmap,
     updateDirtyAlert: wpUpdateStep3DirtyAlert,
     selectCommercialPath: wpSelectCommercialPath,

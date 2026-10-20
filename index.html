@@ -8096,6 +8096,8 @@ function getBuildingShadowPolygons2DForRoof(building, roof, sU, sV, shadowLenPer
 
   return [unifiedShadow];
 }
+window.getObstaclePolygon2DForRoof = getObstaclePolygon2DForRoof;
+window.getObstacleShadowPolygons2DForRoof = getObstacleShadowPolygons2DForRoof;
 window.getBuildingShadowPolygons2DForRoof = getBuildingShadowPolygons2DForRoof;
 
 function getObstacleShadowPolygons2DForRoof(obs, roof, sU, sV, shadowLenPerM) {
@@ -12056,7 +12058,14 @@ function computeSinglePolylineRoofInfo(ptsIn, polyOpts) {
     const clearance = estructura ? Math.max(0.05, Math.min(5, estructura.clearance || (estructura.tipo === 'pergola' ? 1.50 : 0.20))) : 0;
     const baseElev = estructura ? clearance : (roofOffset + (best.coplanar ? 0.02 : 0.05));
 
-    for (const c of best.centers) {
+    const targetPolyIdx = (opts && typeof opts.polyIdx === "number")
+      ? opts.polyIdx
+      : ((opts && typeof WP !== "undefined" && WP && Array.isArray(WP.polylines) && WP.polylines.indexOf(opts) >= 0)
+          ? WP.polylines.indexOf(opts)
+          : ((typeof WP !== "undefined" && WP && typeof WP.selectedPolyIdx === "number" && WP.selectedPolyIdx >= 0) ? WP.selectedPolyIdx : 0));
+
+    for (let pIdx = 0; pIdx < best.centers.length; pIdx++) {
+      const c = best.centers[pIdx];
       const pOrient = c.orient || (best.orientation === 'hybrid' ? 'portrait' : best.orientation);
       const isLand = (pOrient === 'landscape');
       const curModLen = isLand ? panelW : panelH;
@@ -12115,7 +12124,10 @@ function computeSinglePolylineRoofInfo(ptsIn, polyOpts) {
         vVec: pa.vVec,
         normal: pa.normal,
         transform: pa.transform,
-        polyIdx: (typeof poly !== 'undefined' && WP && WP.polylines) ? WP.polylines.indexOf(poly) : 0
+        layoutIndex: pIdx,
+        localIdx: pIdx,
+        panelId: "pan_" + targetPolyIdx + "_" + pIdx,
+        polyIdx: targetPolyIdx
       });
     }
   }
@@ -12150,6 +12162,7 @@ function computeSinglePolylineRoofInfo(ptsIn, polyOpts) {
     layouts: layouts
   };
 }
+window.computeSinglePolylineRoofInfo = computeSinglePolylineRoofInfo;
 
 // Motor principal de calculo multi-polilinea: agrega los paneles de TODOS los faldones y cubiertas
 function computeRoofPanelsData() {
