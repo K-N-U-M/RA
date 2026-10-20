@@ -1634,6 +1634,9 @@ function wpRestoreCameraNavigation() {
 window.wpRestoreCameraNavigation = wpRestoreCameraNavigation;
 
 function wpSetMode(mode) {
+  if (WP.stampState && mode !== 'stamp-poly') {
+    if (typeof wpCancelStampPolyline === 'function') wpCancelStampPolyline(true);
+  }
   WP.mode = mode;
   if (typeof reset3DPositionCache === 'function') reset3DPositionCache();
   const currentScene = typeof viewer !== 'undefined' && viewer ? viewer.scene : (window.viewer ? window.viewer.scene : null);
@@ -3187,6 +3190,336 @@ function wpDeleteSelectedPolyline() {
   if (typeof wpUpdateControlsAvailability === 'function') wpUpdateControlsAvailability();
 
   showStatus('<i data-lucide="trash-2" class="icon-sm"></i> ' + name.toUpperCase() + ' ELIMINADA', 2000);
+}
+
+// ── MODO ESTAMPAR POLILÍNEA / FALDÓN COMPLETO (OPCIÓN 2) ─────────────────────
+function wpStartStampPolyline(sourcePolyIdx) {
+  if (typeof sourcePolyIdx !== 'number' || sourcePolyIdx < 0 || !WP.polylines || !WP.polylines[sourcePolyIdx]) {
+    sourcePolyIdx = WP.selectedPolyIdx;
+  }
+  if (typeof sourcePolyIdx !== 'number' || sourcePolyIdx < 0 || !WP.polylines || !WP.polylines[sourcePolyIdx]) {
+    if (typeof showToast === 'function') {
+      showToast('SELECCIÓN REQUERIDA', 'Selecciona primero una polilínea o faldón para duplicar.', 'warning', 3000);
+    }
+    return false;
+  }
+
+  const srcPoly = WP.polylines[sourcePolyIdx];
+  if (!srcPoly.points || srcPoly.points.length < 3) {
+    if (typeof showToast === 'function') {
+      showToast('FALDÓN NO VÁLIDO', 'La polilínea seleccionada debe tener al menos 3 vértices.', 'warning', 3000);
+    }
+    return false;
+  }
+
+  // Cancelar colocaciones previas o modos conflictivos
+  if (typeof obsPlacement !== 'undefined' && obsPlacement && obsPlacement.active) {
+    if (typeof cancelObstaclePlacement === 'function') cancelObstaclePlacement();
+  }
+  if (WP.stampState) {
+    wpCancelStampPolyline(true);
+  }
+
+  // 1. Calcular centroide de la polilínea origen
+  const pts = srcPoly.points;
+  const centroid = new Cesium.Cartesian3(0, 0, 0);
+  for (let i = 0; i < pts.length; i++) {
+    Cesium.Cartesian3.add(centroid, pts[i], centroid);
+  }
+  Cesium.Cartesian3.divideByScalar(centroid, pts.length, centroid);
+
+  // 2. Vector offset de cada vértice respecto al centroide
+  const relPoints = pts.map(pt => Cesium.Cartesian3.subtract(pt, centroid, new Cesium.Cartesian3()));
+
+  // 3. Identificar obstáculos interiores pertenecientes al faldón
+  const allObs = (typeof obstacles !== 'undefined' && Array.isArray(obstacles)) ? obstacles : [];
+  const interiorObs = allObs.filter(obs => {
+    if (!obs || !obs.cartesian) return false;
+    if (typeof wpCheckObstacleInsideRoof === 'function') {
+      const res = wpCheckObstacleInsideRoof(obs);
+      return res && res.isInside && (res.polyIdx === sourcePolyIdx || res.polyName === srcPoly.name);
+    }
+    return false;
+  });
+
+  const relObs = interiorObs.map(obs => ({
+    obs: obs,
+    relPos: Cesium.Cartesian3.subtract(obs.cartesian, centroid, new Cesium.Cartesian3())
+  }));
+
+  // 4. Identificar paneles pertenecientes a este faldón para feedback
+  const faldonPanels = (Array.isArray(window.allRenderedPanels) ? window.allRenderedPanels : [])
+    .filter(p => p && !p.deleted && (p.polyIdx === sourcePolyIdx || (p.rawPanel && p.rawPanel.polyIdx === sourcePolyIdx)));
+
+  const relPanels = faldonPanels.map(p => {
+    const c = p.center || (p.rawPanel && p.rawPanel.center);
+    return c ? Cesium.Cartesian3.subtract(c, centroid, new Cesium.Cartesian3()) : null;
+  }).filter(Boolean);
+
+  // 5. Configurar estado de estampar
+  WP.stampState = {
+    sourcePolyIdx: sourcePolyIdx,
+    sourcePoly: srcPoly,
+    centroid: centroid,
+    curTargetPos: Cesium.Cartesian3.clone(centroid),
+    relPoints: relPoints,
+    relObs: relObs,
+    relPanels: relPanels,
+    previewEntities: []
+  };
+  WP.mode = 'stamp-poly';
+
+  // 6. Crear primitivas/entidades de vista previa si Cesium está activo
+  if (typeof viewer !== 'undefined' && viewer && viewer.entities) {
+    const previewHierarchy = new Cesium.CallbackProperty(() => {
+      if (!WP.stampState || !WP.stampState.curTargetPos) return new Cesium.PolygonHierarchy([]);
+      const cur = WP.stampState.curTargetPos;
+      const calcPts = WP.stampState.relPoints.map(rel => Cesium.Cartesian3.add(cur, rel, new Cesium.Cartesian3()));
+      return new Cesium.PolygonHierarchy(calcPts);
+    }, false);
+
+    const previewOutline = new Cesium.CallbackProperty(() => {
+      if (!WP.stampState || !WP.stampState.curTargetPos) return [];
+      const cur = WP.stampState.curTargetPos;
+      const calcPts = WP.stampState.relPoints.map(rel => Cesium.Cartesian3.add(cur, rel, new Cesium.Cartesian3()));
+      if (calcPts.length > 0) calcPts.push(Cesium.Cartesian3.clone(calcPts[0]));
+      return calcPts;
+    }, false);
+
+    const previewLabelPos = new Cesium.CallbackProperty(() => {
+      return (WP.stampState && WP.stampState.curTargetPos) ? WP.stampState.curTargetPos : centroid;
+    }, false);
+
+    const fillEnt = viewer.entities.add({
+      name: 'stamp_preview_fill',
+      polygon: {
+        hierarchy: previewHierarchy,
+        material: Cesium.Color.fromCssColorString('#10B981').withAlpha(0.28),
+        perPositionHeight: true
+      }
+    });
+
+    const outlineEnt = viewer.entities.add({
+      name: 'stamp_preview_outline',
+      polyline: {
+        positions: previewOutline,
+        width: 3.0,
+        material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#34D399')),
+        arcType: Cesium.ArcType.NONE
+      }
+    });
+
+    const obsCount = relObs.length;
+    const pnlCount = relPanels.length;
+    let labelInfo = '📋 Estampar ' + (srcPoly.name || 'Faldón');
+    if (pnlCount > 0 || obsCount > 0) {
+      labelInfo += ' (' + pnlCount + ' paneles' + (obsCount > 0 ? ', ' + obsCount + ' obst.' : '') + ')';
+    }
+    labelInfo += '\n[Clic izquierdo: Fijar | Esc: Cancelar]';
+
+    const labelEnt = viewer.entities.add({
+      name: 'stamp_preview_label',
+      position: previewLabelPos,
+      label: {
+        text: labelInfo,
+        font: 'bold 12px "Segoe UI", sans-serif',
+        fillColor: Cesium.Color.fromCssColorString('#FFFFFF'),
+        outlineColor: Cesium.Color.fromCssColorString('#0F172A'),
+        outlineWidth: 4,
+        style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+        verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+        pixelOffset: new Cesium.Cartesian2(0, -25),
+        disableDepthTestDistance: Number.POSITIVE_INFINITY
+      }
+    });
+
+    WP.stampState.previewEntities.push(fillEnt, outlineEnt, labelEnt);
+
+    if (viewer.scene && viewer.scene.canvas) {
+      viewer.scene.canvas.style.cursor = 'crosshair';
+      viewer.scene.requestRender();
+    }
+  }
+
+  if (typeof showStatus === 'function') {
+    showStatus('<i data-lucide="copy" class="icon-sm"></i> MODO ESTAMPAR: Haz clic en la cubierta para situar la copia [Esc para cancelar]', 4000);
+  }
+  if (typeof showToast === 'function') {
+    showToast('MODO ESTAMPAR FALDÓN', 'Mueve el ratón sobre la superficie del tejado y haz clic para fijar la copia.', 'info', 3500);
+  }
+
+  return true;
+}
+
+function wpUpdateStampPolylinePreview(cursor3D) {
+  if (!WP.stampState || WP.mode !== 'stamp-poly' || !cursor3D) return;
+  WP.stampState.curTargetPos = Cesium.Cartesian3.clone(cursor3D);
+  if (typeof viewer !== 'undefined' && viewer && viewer.scene) {
+    viewer.scene.requestRender();
+  }
+}
+
+function wpCommitStampPolyline(targetPos3D) {
+  if (!WP.stampState || WP.mode !== 'stamp-poly' || !targetPos3D) return false;
+
+  const srcPoly = WP.stampState.sourcePoly;
+  if (!srcPoly) {
+    wpCancelStampPolyline(false);
+    return false;
+  }
+
+  const centroid = WP.stampState.centroid;
+  const delta = Cesium.Cartesian3.subtract(targetPos3D, centroid, new Cesium.Cartesian3());
+
+  // 1. Calcular nuevos vértices desplazados
+  const newPts = WP.stampState.relPoints.map(rel => Cesium.Cartesian3.add(targetPos3D, rel, new Cesium.Cartesian3()));
+
+  if (!newPts || newPts.length < 3) {
+    if (typeof showToast === 'function') {
+      showToast('ERROR', 'No se pudieron calcular los vértices del faldón duplicado.', 'error', 3000);
+    }
+    return false;
+  }
+
+  const newArea = wpPolylineArea3D(newPts);
+  const newName = "Faldon #" + (WP.polylines.length + 1);
+  const newId = "wp_poly_" + Date.now();
+
+  const newPolyObj = {
+    id: newId,
+    name: newName,
+    planeIdx: srcPoly.planeIdx,
+    points: newPts,
+    area: newArea,
+    orientationPref: srcPoly.orientationPref || (typeof userPanelOrientationPref !== 'undefined' ? userPanelOrientationPref : 'portrait'),
+    modTilt: srcPoly.modTilt !== undefined ? srcPoly.modTilt : 'auto',
+    modAzimuth: srcPoly.modAzimuth !== undefined ? srcPoly.modAzimuth : 'auto',
+    structureType: srcPoly.structureType || 'coplanar_teja',
+    estructura: srcPoly.estructura ? JSON.parse(JSON.stringify(srcPoly.estructura)) : { tipo: 'coplanar', clearance: 0.05 },
+    arrangementMode: srcPoly.arrangementMode || 'coplanar',
+    hasWalkway: !!srcPoly.hasWalkway,
+    obstacleSetback: srcPoly.obstacleSetback || 0,
+    structureConfig: srcPoly.structureConfig ? JSON.parse(JSON.stringify(srcPoly.structureConfig)) : {},
+    deletedPanels: (Array.isArray(srcPoly.deletedPanels) && srcPoly.deletedPanels.length > 0)
+      ? srcPoly.deletedPanels.map(dp => ({
+          u: dp.u,
+          v: dp.v,
+          center: dp.center ? Cesium.Cartesian3.add(dp.center, delta, new Cesium.Cartesian3()) : null
+        }))
+      : [],
+    lineEnt: null,
+    fillEnt: null
+  };
+
+  // 2. Snapshot para Undo / Redo
+  if (window.RAundo && typeof window.RAundo.snapPolylines === 'function') {
+    window.RAundo.snapPolylines('Duplicar ' + srcPoly.name + ' como ' + newName);
+  }
+
+  // 3. Agregar a la lista de polilíneas
+  WP.polylines.push(newPolyObj);
+  const newPolyIdx = WP.polylines.length - 1;
+  WP.selectedPolyIdx = newPolyIdx;
+  if (typeof polygonPoints !== 'undefined') {
+    polygonPoints = newPts.map(p => Cesium.Cartesian3.clone(p));
+  }
+  if (typeof isPolygonDesignConfirmed !== 'undefined') {
+    isPolygonDesignConfirmed = true;
+  }
+
+  // 4. Clonar obstáculos interiores
+  const relObsList = WP.stampState.relObs;
+  if (Array.isArray(relObsList) && relObsList.length > 0) {
+    if (window.RAundo && typeof window.RAundo.snapObstacles === 'function') {
+      window.RAundo.snapObstacles('Clonar obstáculos en ' + newName);
+    }
+    if (typeof obstacles !== 'undefined' && Array.isArray(obstacles)) {
+      relObsList.forEach(({ obs, relPos }) => {
+        const newObsCartesian = Cesium.Cartesian3.add(targetPos3D, relPos, new Cesium.Cartesian3());
+        const clonedObs = {
+          ...JSON.parse(JSON.stringify(obs)),
+          id: "obs_" + Date.now() + "-" + (window._obsIdSeq = (window._obsIdSeq || 0) + 1),
+          name: (obs.name || 'Obstáculo') + ' (Copia)',
+          polyIdx: newPolyIdx,
+          planeIdx: newPolyObj.planeIdx,
+          cartesian: newObsCartesian
+        };
+        if (WP.planes && WP.planes[newPolyObj.planeIdx]) {
+          const pl = WP.planes[newPolyObj.planeIdx];
+          const relObs = Cesium.Cartesian3.subtract(newObsCartesian, pl.origin, new Cesium.Cartesian3());
+          clonedObs.u = Cesium.Cartesian3.dot(relObs, pl.uVec);
+          clonedObs.v = Cesium.Cartesian3.dot(relObs, pl.vVec);
+        }
+        obstacles.push(clonedObs);
+      });
+      if (typeof render3DObstaclesInCesium === 'function') {
+        render3DObstaclesInCesium();
+      }
+    }
+  }
+
+  // 5. Limpiar entidades de previsualización y restaurar cursor
+  wpCancelStampPolyline(true);
+
+  // 6. Renderizar y calcular el nuevo layout incrementalmente
+  wpRenderAllPolylines();
+  wpUpdateUI();
+
+  if (typeof roofPanelsCache !== 'undefined' && roofPanelsCache) {
+    roofPanelsCache.sig = "";
+  }
+  if (typeof window.wpInvalidateHeatmap === 'function') {
+    window.wpInvalidateHeatmap('Nuevo faldón duplicado: ' + newName);
+  }
+  if (typeof wpUpdateStep3UI === 'function') wpUpdateStep3UI();
+  if (typeof wpPopulateFaldonCard === 'function') wpPopulateFaldonCard();
+  if (typeof wpSyncStep6Controls === 'function') wpSyncStep6Controls();
+  if (typeof recalculateLayoutAndObstacles === 'function') recalculateLayoutAndObstacles(newPolyIdx);
+  if (typeof wpFastRenderSimulatedPanels === 'function') wpFastRenderSimulatedPanels(true, newPolyIdx);
+  if (typeof wpUpdateLayoutFastMetrics === 'function') wpUpdateLayoutFastMetrics();
+
+  if (typeof ProjectHierarchy !== 'undefined' && ProjectHierarchy.notify) {
+    ProjectHierarchy.notify('polyline_added', { polyline: newPolyObj, index: newPolyIdx });
+  }
+
+  if (typeof showStatus === 'function') {
+    showStatus('<i data-lucide="check" class="icon-sm"></i> ' + newName.toUpperCase() + ' ESTAMPADO CON ÉXITO', 3000);
+  }
+  if (typeof showToast === 'function') {
+    showToast('FALDÓN DUPLICADO', newName + ' colocado con su geometría, estructura y obstáculos.', 'success', 3500);
+  }
+
+  return true;
+}
+
+function wpCancelStampPolyline(isCommit) {
+  if (WP.stampState) {
+    if (Array.isArray(WP.stampState.previewEntities)) {
+      WP.stampState.previewEntities.forEach(ent => {
+        try {
+          if (typeof viewer !== 'undefined' && viewer && viewer.entities) {
+            viewer.entities.remove(ent);
+          }
+        } catch(e) {}
+      });
+    }
+  }
+  WP.stampState = null;
+  WP.mode = 'idle';
+
+  if (typeof viewer !== 'undefined' && viewer && viewer.scene) {
+    if (viewer.scene.canvas) viewer.scene.canvas.style.cursor = 'default';
+    viewer.scene.requestRender();
+  }
+
+  if (!isCommit) {
+    if (typeof showStatus === 'function') {
+      showStatus('DUPLICADO CANCELADO', 1800);
+    }
+    if (typeof showToast === 'function') {
+      showToast('DUPLICADO CANCELADO', 'Modo estampar finalizado.', 'info', 2000);
+    }
+  }
 }
 
 
@@ -5640,6 +5973,10 @@ function initUnifiedWorkPlaneSystem() {
   if (typeof wpSelectPolyline !== 'undefined') window.wpSelectPolyline = wpSelectPolyline;
   if (typeof wpSelectVertex !== 'undefined') window.wpSelectVertex = wpSelectVertex;
   if (typeof wpDeleteSelectedPolyline !== 'undefined') window.wpDeleteSelectedPolyline = wpDeleteSelectedPolyline;
+  if (typeof wpStartStampPolyline !== 'undefined') window.wpStartStampPolyline = wpStartStampPolyline;
+  if (typeof wpUpdateStampPolylinePreview !== 'undefined') window.wpUpdateStampPolylinePreview = wpUpdateStampPolylinePreview;
+  if (typeof wpCommitStampPolyline !== 'undefined') window.wpCommitStampPolyline = wpCommitStampPolyline;
+  if (typeof wpCancelStampPolyline !== 'undefined') window.wpCancelStampPolyline = wpCancelStampPolyline;
   if (typeof wpDeleteSelectedVertexFromList !== 'undefined') window.wpDeleteSelectedVertexFromList = wpDeleteSelectedVertexFromList;
   if (typeof wpInsertPointInSelectedPoly !== 'undefined') window.wpInsertPointInSelectedPoly = wpInsertPointInSelectedPoly;
   if (typeof wpSyncVertexInputs !== 'undefined') window.wpSyncVertexInputs = wpSyncVertexInputs;

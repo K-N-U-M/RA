@@ -747,10 +747,11 @@ window.RA_App = window.RA_App || {};
                 <select id="wp-polylines-dropdown" class="cfg-select" style="width:100%;font-size:10px;font-weight:bold;margin-bottom:6px;" onchange="wpSelectPolyline(parseInt(this.value, 10))">
                   <option value="-1">Sin polilíneas</option>
                 </select>
-                <div class="stat-grid-2">
+                <div class="stat-grid-2" style="margin-bottom:4px;">
                   <button class="doc-mini-btn" onclick="wpInsertPointInSelectedPoly()" style="text-align:center;">+ INSERTAR PTO</button>
-                  <button class="doc-mini-btn" onclick="wpDeleteSelectedPolyline()" style="text-align:center;color:var(--rose-500);"><i data-lucide="trash-2" class="icon-sm"></i> BORRAR POLILÍNEA</button>
+                  <button class="doc-mini-btn" onclick="wpStartStampPolyline(WP.selectedPolyIdx)" style="text-align:center;color:var(--emerald-400);background:rgba(16,185,129,0.12);border-color:rgba(16,185,129,0.3);" title="Duplicar faldón con su contenido (Ctrl+D)"><i data-lucide="copy" class="icon-sm"></i> DUPLICAR</button>
                 </div>
+                <button class="doc-mini-btn" onclick="wpDeleteSelectedPolyline()" style="width:100%;text-align:center;color:var(--rose-500);"><i data-lucide="trash-2" class="icon-sm"></i> BORRAR POLILÍNEA</button>
               </div>
 
               <!-- Listado y Edición de Vértices de la Polilínea Seleccionada -->
@@ -977,7 +978,8 @@ window.RA_App = window.RA_App || {};
                       <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--amber-400);"></span>
                       <span id="faldon-card-name" style="font-size:9.5px;font-weight:bold;color:#fff;">Faldón</span>
                     </div>
-                    <div style="text-align:right;">
+                    <div style="display:flex;align-items:center;gap:6px;">
+                      <button type="button" class="doc-mini-btn" style="padding:1px 6px;font-size:7.5px;font-weight:bold;color:var(--emerald-400);border-color:rgba(16,185,129,0.3);background:rgba(16,185,129,0.15);" onclick="wpStartStampPolyline(WP.selectedPolyIdx)" title="Duplicar este faldón con todos sus paneles y obstáculos (Ctrl+D)"><i data-lucide="copy" class="icon-sm"></i> DUPLICAR</button>
                       <span id="faldon-card-stats" style="font-size:9.5px;font-weight:bold;color:var(--emerald-400);">0 mods · 0.00 kWp</span>
                     </div>
                   </div>
@@ -2991,6 +2993,10 @@ addEventListener('keydown', function(e) {
       return;
     }
     if (typeof WP !== 'undefined' && WP) {
+      if (WP.mode === 'stamp-poly') {
+        if (typeof wpCancelStampPolyline === 'function') wpCancelStampPolyline();
+        return;
+      }
       if (WP.mode === 'draw-poly') {
         wpCancelDrawPoly();
         showToast('EDICIÓN', 'Modo de dibujo cancelado.', 'info', 2000);
@@ -3028,6 +3034,15 @@ addEventListener('keydown', function(e) {
 
   // [P0] SUPR/DELETE consolidado en _raKeydown2 (despachador único): antes, tres
   // listeners solapados procesaban la misma pulsación y borraban 2 objetos de golpe.
+
+  // 2.5. CTRL + D (Duplicar faldón / polilínea en modo estampar interactivo)
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D' || e.code === 'KeyD')) {
+    if (typeof WP !== 'undefined' && WP && typeof WP.selectedPolyIdx === 'number' && WP.selectedPolyIdx >= 0) {
+      e.preventDefault();
+      if (typeof wpStartStampPolyline === 'function') wpStartStampPolyline(WP.selectedPolyIdx);
+      return;
+    }
+  }
 
   // 3. CTRL + Z / CTRL + Y / CTRL + SHIFT + Z (Sistema Universal de Deshacer / Rehacer)
   if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z' || e.key === 'y' || e.key === 'Y' || e.code === 'KeyZ' || e.code === 'KeyY')) {
@@ -15964,6 +15979,17 @@ window.toggleSolarHUD = toggleSolarHUD;
       if (typeof obsPlaceAt === 'function' && obsPlaceAt(click.position)) return;
     }
 
+    // Prioridad 1.5: Modo Estampar Faldón / Polilínea Interactiva (Opción 2)
+    if (typeof WP !== "undefined" && WP && WP.mode === "stamp-poly") {
+      const pos3D = get3DPosition(click.position);
+      if (Cesium.defined(pos3D)) {
+        if (typeof wpCommitStampPolyline === 'function') {
+          wpCommitStampPolyline(pos3D);
+        }
+      }
+      return;
+    }
+
     if (typeof WP !== "undefined" && WP && WP.mode === "draw-poly") {
       // Cierre directo por clic en pantalla sobre el 1er vértice
       if (WP.activePolyPts && WP.activePolyPts.length >= 3) {
@@ -16228,6 +16254,13 @@ window.toggleSolarHUD = toggleSolarHUD;
       }
     }
   }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
+  // Cancelar modo estampar con clic derecho
+  handler.setInputAction(function() {
+    if (typeof WP !== 'undefined' && WP && WP.mode === 'stamp-poly') {
+      if (typeof wpCancelStampPolyline === 'function') wpCancelStampPolyline();
+    }
+  }, Cesium.ScreenSpaceEventType.RIGHT_CLICK);
   // --- DIRTY FLAG / RAF PATTERN PARA GIZMO (60 FPS LOCK) ---
   let _isGizmoDirty = false;
   let _pendingGizmoUpdate = null;
@@ -16437,6 +16470,16 @@ window.toggleSolarHUD = toggleSolarHUD;
       obsPlacement.lastX = movement.endPosition.x;
       obsPlacement.lastY = movement.endPosition.y;
       if (typeof obsRenderGhost === 'function') obsRenderGhost();
+      if (scene && scene.canvas) scene.canvas.style.cursor = 'crosshair';
+      return;
+    }
+
+    // Previsualización en tiempo real del faldón en modo Estampar
+    if (typeof WP !== 'undefined' && WP && WP.mode === 'stamp-poly') {
+      const pos3D = get3DPosition(movement.endPosition);
+      if (Cesium.defined(pos3D) && typeof wpUpdateStampPolylinePreview === 'function') {
+        wpUpdateStampPolylinePreview(pos3D);
+      }
       if (scene && scene.canvas) scene.canvas.style.cursor = 'crosshair';
       return;
     }
