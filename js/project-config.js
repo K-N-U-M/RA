@@ -545,6 +545,13 @@ function wpUpdateStep4Checklist() {
       chkStr.style.color = '#10B981';
       chkStr.style.background = 'rgba(16,185,129,0.15)';
       chkStr.style.borderColor = 'rgba(16,185,129,0.3)';
+      chkStr.title = '';
+    } else if (cfg.mpptHomogeneity && !cfg.mpptHomogeneity.valid && cfg.mpptHomogeneity.violations && cfg.mpptHomogeneity.violations.length > 0) {
+      chkStr.textContent = '⚠️ Incompatibilidad MPPT (' + cfg.mpptHomogeneity.violations.length + ')';
+      chkStr.style.color = '#EF4444';
+      chkStr.style.background = 'rgba(239,68,68,0.15)';
+      chkStr.style.borderColor = 'rgba(239,68,68,0.3)';
+      chkStr.title = cfg.mpptHomogeneity.violations.map(v => v.msg).join('\n');
     } else {
       const limits = cfg.calculatedLimits;
       if (limits && limits.nMaxString >= (limits.nMinString || 5)) {
@@ -552,11 +559,13 @@ function wpUpdateStep4Checklist() {
         chkStr.style.color = '#10B981';
         chkStr.style.background = 'rgba(16,185,129,0.15)';
         chkStr.style.borderColor = 'rgba(16,185,129,0.3)';
+        chkStr.title = '';
       } else {
         chkStr.textContent = '📏 Strings MPPT';
         chkStr.style.color = '#38BDF8';
         chkStr.style.background = 'rgba(56,189,248,0.15)';
         chkStr.style.borderColor = 'rgba(56,189,248,0.3)';
+        chkStr.title = '';
       }
     }
   }

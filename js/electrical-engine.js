@@ -1201,8 +1201,12 @@
   // Estrategia: los strings de un mismo faldón permanecen en un canal si cabe entero
   // (first-fit); si no, se reparten string a string al canal con más hueco. El aviso de
   // sobrecarga (index.html, validación 7b) sigue activo cuando el total excede la capacidad.
+  let _isRebalancingMPPT = false;
   function rebalanceMPPTAssignment(panels) {
-    let targetPanels = Array.isArray(panels) && panels.length > 0 ? panels : null;
+    if (_isRebalancingMPPT) return { changed: 0, reason: 'reentrancy_prevented' };
+    _isRebalancingMPPT = true;
+    try {
+      let targetPanels = Array.isArray(panels) && panels.length > 0 ? panels : null;
     if (!targetPanels && typeof window !== 'undefined') {
       if (Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0) {
         targetPanels = window.allRenderedPanels;
@@ -1412,15 +1416,10 @@
     });
 
     const homogeneity = validateMPPTHomogeneity(panels);
-    if (!homogeneity.valid && typeof window !== 'undefined' && typeof window.showToast === 'function') {
-      const now = Date.now();
-      const firstMsg = homogeneity.violations[0].msg;
-      if (!window._lastMPPTHomogeneityToast ||
-          window._lastMPPTHomogeneityToast.msg !== firstMsg ||
-          (now - window._lastMPPTHomogeneityToast.time) > 3000) {
-        window._lastMPPTHomogeneityToast = { msg: firstMsg, time: now };
-        window.showToast('⚠️ ' + firstMsg, 'warning');
-      }
+    if (typeof root !== 'undefined' && root.solarProjectConfig) {
+      root.solarProjectConfig.mpptHomogeneity = homogeneity;
+    } else if (typeof window !== 'undefined' && window.solarProjectConfig) {
+      window.solarProjectConfig.mpptHomogeneity = homogeneity;
     }
 
     return {
@@ -1432,6 +1431,9 @@
       valid: homogeneity.valid,
       violations: homogeneity.violations
     };
+    } finally {
+      _isRebalancingMPPT = false;
+    }
   }
 
   /**
@@ -1665,6 +1667,46 @@
 
     // Evaluar si está sobredimensionado en exceso (potencia total < 50% del inversor)
     const isOversized = totalKwp < (invNomKw * 0.50) && totalKwp >= 1.0;
+
+    // Caso C: Incompatibilidad MPPT en Strings (IEC 62548)
+    if (cfg.mpptHomogeneity && !cfg.mpptHomogeneity.valid && cfg.mpptHomogeneity.violations.length > 0) {
+      const v = cfg.mpptHomogeneity.violations[0];
+      const mpptReq = Math.max(2, (currentInv.mppt || 1) + 1);
+      const candidates = catalog.filter(inv => (inv.mppt || 1) >= mpptReq && (inv.kw * (inv.maxOverload || 1.30)) >= totalKwp);
+      let bestInv = null;
+      if (candidates.length > 0) {
+        candidates.sort((a, b) => Math.abs((totalKwp / a.kw) - 1.20) - Math.abs((totalKwp / b.kw) - 1.20));
+        bestInv = candidates[0];
+      }
+
+      container.style.display = 'block';
+      container.innerHTML = `
+        <div style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.45);border-radius:7px;padding:8px;display:flex;flex-direction:column;gap:5px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:10px;font-weight:900;color:#F87171;display:flex;align-items:center;gap:4px;">
+              <i data-lucide="alert-octagon" class="icon-sm"></i> Incompatibilidad MPPT en Cubierta
+            </span>
+            <span class="card-tag" style="background:rgba(239,68,68,0.25);color:#FCA5A5;font-size:8px;font-weight:800;">
+              Canal MPPT ${v.mpptId}
+            </span>
+          </div>
+          <div style="font-size:8.5px;color:var(--text-slate-200);line-height:1.3;">
+            ${v.msg}
+          </div>
+          ${bestInv && bestInv.id !== currentInv.id ? `
+            <button type="button" onclick="wpApplyRecommendedInverter('${bestInv.id}')" style="background:linear-gradient(135deg,#EF4444,#DC2626);border:none;color:#fff;font-size:9.5px;font-weight:900;padding:6px 10px;border-radius:5px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;box-shadow:0 0 10px rgba(239,68,68,0.3);margin-top:2px;">
+              <i data-lucide="zap" class="icon-sm"></i> Cambiar a ${bestInv.brand} ${bestInv.kw} kW (${bestInv.mppt} MPPTs) en 1 Clic
+            </button>
+          ` : `
+            <button type="button" onclick="step3SetTopology('microinverter');if(typeof step3UpdateHardwareSelection==='function')step3UpdateHardwareSelection();" style="background:linear-gradient(135deg,#10B981,#059669);border:none;color:#fff;font-size:9.5px;font-weight:900;padding:6px 10px;border-radius:5px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;box-shadow:0 0 10px rgba(16,185,129,0.3);margin-top:2px;">
+              <i data-lucide="cpu" class="icon-sm"></i> Cambiar a Microinversores MLPE (MPPT Independiente)
+            </button>
+          `}
+        </div>
+      `;
+      if (root.lucide && typeof root.lucide.createIcons === 'function') root.lucide.createIcons();
+      return;
+    }
 
     if (isUndersized) {
       // Buscar el mejor inversor de 1 unidad que admita esta potencia

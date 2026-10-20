@@ -515,23 +515,43 @@ function generateMemoria(skipPricingModal) {
     '<\/div>' +
 
     '<h2>4. DESCRIPCIÓN DE LA INSTALACIÓN<\/h2>' +
-    '<h3>4.1 Módulos Fotovoltaicos<\/h3>' +
-    '<table><tr><th>Parámetro<\/th><th>Valor<\/th><th>Condición<\/th><\/tr>' +
-    '<tr><td>Marca \/ Modelo<\/td><td>' + d.cfg.modelo + '<\/td><td>—<\/td><\/tr>' +
-    '<tr><td>Tecnología<\/td><td>' + d.cfg.tecnologia + '<\/td><td>—<\/td><\/tr>' +
-    '<tr><td>Potencia pico (Pmax)<\/td><td>' + d.cfg.potencia + ' Wp<\/td><td>STC<\/td><\/tr>' +
-    '<tr><td>Voc<\/td><td>' + d.Voc + ' V<\/td><td>STC<\/td><\/tr>' +
-    '<tr><td>Isc<\/td><td>' + d.Isc + ' A<\/td><td>STC<\/td><\/tr>' +
-    '<tr><td>Vmp<\/td><td>' + d.Vmp + ' V<\/td><td>MPP<\/td><\/tr>' +
-    '<tr><td>Imp<\/td><td>' + d.Imp + ' A<\/td><td>MPP<\/td><\/tr>' +
-    '<tr><td>Rendimiento<\/td><td>' + d.cfg.rendimiento + ' %<\/td><td>STC<\/td><\/tr>' +
-    '<tr><td>Dimensiones<\/td><td>' + d.cfg.largo + ' × ' + d.cfg.ancho + ' m<\/td><td>—<\/td><\/tr>' +
-    '<tr><td>Coef. temperatura Voc (β)<\/td><td>' + (d.betaVoc*100).toFixed(2) + ' %\/°C<\/td><td>—<\/td><\/tr>' +
-    '<tr><td>Voc corregida (T_min = ' + d.T_min + ' °C)<\/td><td>' + d.Voc_cold.toFixed(2) + ' V<\/td><td>Máx. posible<\/td><\/tr>' +
-    '<tr><td>Total módulos instalados<\/td><td><strong>' + d.numPanels + ' uds<\/strong><\/td><td>—<\/td><\/tr>' +
-    '<\/table>' +
+    (function() {
+      const mb = (d && d.modulesBreakdown) || (typeof window !== 'undefined' && window.RAModulesBreakdown && typeof window.RAModulesBreakdown.getProjectModulesBreakdown === 'function' ? window.RAModulesBreakdown.getProjectModulesBreakdown() : null);
+      if (mb && mb.isMultiModule) {
+        return '<h3>4.1 Módulos Fotovoltaicos (Configuración Multi-Modelo)<\/h3>' +
+          '<p style="font-size:9pt;margin-bottom:8px;">La instalación cuenta con un campo generador optimizado con <strong>' + mb.uniqueModelsCount + ' modelos de módulos<\/strong> adaptados a cada faldón, sumando <strong>' + d.numPanels + ' módulos<\/strong> y <strong>' + d.P_dc_kW.toFixed(3) + ' kWp<\/strong>:<\/p>' +
+          (window.RAModulesBreakdown ? window.RAModulesBreakdown.renderMultiModelSpecsTableHTML(mb) : '') +
+          '<h3>4.1.b Subcampos Generadores y Distribución por Cubierta<\/h3>' +
+          '<p style="font-size:9pt;margin-bottom:8px;">Distribución geométrica y estructural según estudio BIM 3D:<\/p>' +
+          (window.RAModulesBreakdown ? window.RAModulesBreakdown.renderSubfieldsTableHTML(mb, { includeCost: false }) : '');
+      }
+      return '<h3>4.1 Módulos Fotovoltaicos<\/h3>' +
+        '<table><tr><th>Parámetro<\/th><th>Valor<\/th><th>Condición<\/th><\/tr>' +
+        '<tr><td>Marca \/ Modelo<\/td><td>' + d.cfg.modelo + '<\/td><td>—<\/td><\/tr>' +
+        '<tr><td>Tecnología<\/td><td>' + d.cfg.tecnologia + '<\/td><td>—<\/td><\/tr>' +
+        '<tr><td>Potencia pico (Pmax)<\/td><td>' + d.cfg.potencia + ' Wp<\/td><td>STC<\/td><\/tr>' +
+        '<tr><td>Voc<\/td><td>' + d.Voc + ' V<\/td><td>STC<\/td><\/tr>' +
+        '<tr><td>Isc<\/td><td>' + d.Isc + ' A<\/td><td>STC<\/td><\/tr>' +
+        '<tr><td>Vmp<\/td><td>' + d.Vmp + ' V<\/td><td>MPP<\/td><\/tr>' +
+        '<tr><td>Imp<\/td><td>' + d.Imp + ' A<\/td><td>MPP<\/td><\/tr>' +
+        '<tr><td>Rendimiento<\/td><td>' + d.cfg.rendimiento + ' %<\/td><td>STC<\/td><\/tr>' +
+        '<tr><td>Dimensiones<\/td><td>' + d.cfg.largo + ' × ' + d.cfg.ancho + ' m<\/td><td>—<\/td><\/tr>' +
+        '<tr><td>Coef. temperatura Voc (β)<\/td><td>' + (d.betaVoc*100).toFixed(2) + ' %\/°C<\/td><td>—<\/td><\/tr>' +
+        '<tr><td>Voc corregida (T_min = ' + d.T_min + ' °C)<\/td><td>' + d.Voc_cold.toFixed(2) + ' V<\/td><td>Máx. posible<\/td><\/tr>' +
+        '<tr><td>Total módulos instalados<\/td><td><strong>' + d.numPanels + ' uds<\/strong><\/td><td>—<\/td><\/tr>' +
+        '<\/table>';
+    })() +
 
     '<h3>4.2 Configuración del Generador<\/h3>' +
+    (function() {
+      const mb = (d && d.modulesBreakdown) || (typeof window !== 'undefined' && window.RAModulesBreakdown && typeof window.RAModulesBreakdown.getProjectModulesBreakdown === 'function' ? window.RAModulesBreakdown.getProjectModulesBreakdown() : null);
+      if (mb && mb.isMultiModule) {
+        return '<div class="info" style="margin:8px 0;padding:8px 10px;background:#f0fdf4;border-left:3px solid #16a34a;font-size:8.5pt;border-radius:4px;">' +
+          '✓ <strong>Conformidad UNE-EN IEC 62548 &amp; REBT ITC-BT-40:<\/strong> Los módulos de diferentes modelos/potencias están segregados en strings físicamente homogéneos conectados a canales MPPT dedicados, previniendo pérdidas por desadaptación (mismatch).' +
+          '<\/div>';
+      }
+      return '';
+    })() +
     '<table><tr><th>Parámetro<\/th><th>Valor<\/th><th>Cálculo<\/th><\/tr>' +
     '<tr><td>Módulos por string<\/td><td>' + d.modsActual + ' uds<\/td><td>⌊' + d.V_max_inv + '\/' + d.Voc_cold.toFixed(2) + '⌋<\/td><\/tr>' +
     '<tr><td>Strings en paralelo<\/td><td>' + d.numStrings + '<\/td><td>⌈' + d.numPanels + '\/' + d.modsActual + '⌉<\/td><\/tr>' +
@@ -740,11 +760,25 @@ function generatePresupuesto(skipPricingModal) {
   const estCostTotal = (m && m.estCost > 0) ? m.estCost : (d.pres_est || (d.numPanels * 45.0));
   const puEstructuraPorModulo = d.numPanels > 0 ? (estCostTotal / d.numPanels) : 45.0;
 
+  const mb = (d && d.modulesBreakdown) || (typeof window !== 'undefined' && window.RAModulesBreakdown && typeof window.RAModulesBreakdown.getProjectModulesBreakdown === 'function' ? window.RAModulesBreakdown.getProjectModulesBreakdown() : null);
+  let cap1Items = [];
+  if (mb && mb.isMultiModule) {
+    cap1Items = mb.byModel.map((mod, idx) => ({
+      ref: '1.' + (idx + 1),
+      desc: 'Módulo FV ' + mod.fullName + ' (' + mod.wp + ' Wp, ' + mod.technology + '). Eficiencia ' + mod.efficiency + '%, Vmp ' + mod.vmp.toFixed(1) + ' V, Imp ' + mod.imp.toFixed(1) + ' A. Certificaciones IEC 61215/61730. Subcampos: ' + mod.roofNames.join(', ') + '. Garantía de potencia 25 años.',
+      ud: 'ud',
+      q: mod.count,
+      pu: mod.unitPrice
+    }));
+  } else {
+    cap1Items = [
+      { ref:'1.1', desc: 'Módulo FV ' + d.cfg.modelo + ' (' + d.cfg.potencia + ' Wp, ' + d.cfg.tecnologia + '). Certificaciones IEC 61215, IEC 61730 e ISO 9001. Garantía 12/25 años de producto y 25 años de producción lineal (≥84.8%).', ud:'ud', q: d.numPanels, pu: (m && m.panCost ? (m.panCost / d.numPanels) : (d.cfg.precio || 125.0)) }
+    ];
+  }
+
   const caps = [
-    { titulo: 'CAP. 1 — MÓDULOS FOTOVOLTAICOS TIER-1',
-      items: [
-        { ref:'1.1', desc: 'Módulo FV ' + d.cfg.modelo + ' (' + d.cfg.potencia + ' Wp, ' + d.cfg.tecnologia + '). Certificaciones IEC 61215, IEC 61730 e ISO 9001. Garantía 12/25 años de producto y 25 años de producción lineal (≥84.8%).', ud:'ud', q: d.numPanels, pu: (m && m.panCost ? (m.panCost / d.numPanels) : (d.cfg.precio || 125.0)) }
-      ]
+    { titulo: 'CAP. 1 — MÓDULOS FOTOVOLTAICOS TIER-1' + (mb && mb.isMultiModule ? ' (DESGLOSE MULTI-MODELO)' : ''),
+      items: cap1Items
     },
     { titulo: 'CAP. 2 — ESTRUCTURA SOPORTE (' + (d.isCoplanar ? 'COPLANAR A CUBIERTA' : 'PARAMÉTRICA / LASTRADA') + ')',
       items: [
@@ -899,6 +933,15 @@ function generatePresupuesto(skipPricingModal) {
         ${itemRows}
       </tbody>
     </table>
+
+    ${(mb && mb.byRoof && mb.byRoof.length > 0)
+      ? `<div class="doc-section-title" style="margin-top:16px">RESUMEN DE INVERSIÓN Y SUBDIVISIÓN POR CUBIERTA / FALDÓN</div>
+         <p style="font-size:8.5pt;color:#64748b;margin-bottom:8px;">Desglose analítico de potencia instalada, modelo de módulo y estructura asignada a cada plano de cubierta según estudio BIM 3D.</p>
+         ${(typeof window !== 'undefined' && window.RAModulesBreakdown)
+           ? window.RAModulesBreakdown.renderSubfieldsTableHTML(mb, { includeCost: true })
+           : ''}`
+      : ''
+    }
 
     <div class="doc-section-title" style="margin-top:16px">4. RESUMEN ECONÓMICO Y BALANCE FINANCIERO BANCABLE (25 AÑOS)</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">

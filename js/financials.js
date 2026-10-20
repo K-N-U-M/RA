@@ -494,12 +494,13 @@ function wpOpenPricingReviewModal(onConfirm) {
   var subtextBat = document.getElementById('pricing-subtext-bat');
 
   var d = (typeof getProjectCalcs === 'function') ? getProjectCalcs() : { numPanels: 0, cfg: { potencia: 450, precio: 125 } };
-  var numPanels = d.numPanels || (window.allRenderedPanels ? window.allRenderedPanels.length : 0) || 1;
-  var kwp = (numPanels * (d.cfg && d.cfg.potencia ? d.cfg.potencia : 450)) / 1000.0;
+  var mb = (d && d.modulesBreakdown) || (typeof window !== 'undefined' && window.RAModulesBreakdown && typeof window.RAModulesBreakdown.getProjectModulesBreakdown === 'function' ? window.RAModulesBreakdown.getProjectModulesBreakdown() : null);
+  var numPanels = (mb && mb.totalPanels > 0) ? mb.totalPanels : (d.numPanels || (window.allRenderedPanels ? window.allRenderedPanels.length : 0) || 1);
+  var kwp = (mb && mb.totalKwp > 0) ? mb.totalKwp : ((numPanels * (d.cfg && d.cfg.potencia ? d.cfg.potencia : 450)) / 1000.0);
   var eq = (typeof resolveEquipmentNames === 'function') ? resolveEquipmentNames() : null;
 
   if (projInfo) {
-    projInfo.textContent = 'Proyecto: ' + numPanels + ' módulos (' + kwp.toFixed(2) + ' kWp)';
+    projInfo.textContent = 'Proyecto: ' + numPanels + ' módulos (' + kwp.toFixed(2) + ' kWp)' + (mb && mb.isMultiModule ? ' [Multi-Modelo]' : '');
   }
   if (equipInfo) {
     var invDesc = eq ? (eq.invBrand ? (eq.invBrand + ' ' + eq.invModel) : eq.invName) : 'Inversor principal';
@@ -507,7 +508,11 @@ function wpOpenPricingReviewModal(onConfirm) {
     equipInfo.textContent = invDesc + ' · ' + batDesc;
   }
   if (subtextPanels) {
-    subtextPanels.textContent = numPanels + ' módulos de ' + (d.cfg && d.cfg.potencia ? d.cfg.potencia : 450) + ' Wp instalados en cubierta';
+    if (mb && mb.isMultiModule && window.RAModulesBreakdown && typeof window.RAModulesBreakdown.formatModuleSummaryText === 'function') {
+      subtextPanels.textContent = window.RAModulesBreakdown.formatModuleSummaryText(mb);
+    } else {
+      subtextPanels.textContent = numPanels + ' módulos de ' + (d.cfg && d.cfg.potencia ? d.cfg.potencia : 450) + ' Wp instalados en cubierta';
+    }
   }
   if (subtextInv && eq) {
     subtextInv.textContent = eq.invName || 'Sistema de conversión e inversor';
@@ -1186,7 +1191,12 @@ function generatePropuestaComercialPDF(skipPricingModal) {
       <h2>2. Configuración técnica seleccionada</h2>
       <table>
         <tr><th>Componente</th><th>Especificación / Modelo</th><th class="text-right">Cantidad</th></tr>
-        <tr><td>Módulos Fotovoltaicos</td><td>${d.cfg.modelo} (${d.cfg.potencia} Wp · ${d.cfg.tecnologia})</td><td class="text-right">${m.numPanels} uds</td></tr>
+        ${(m.modulesBreakdown && m.modulesBreakdown.isMultiModule)
+          ? `<tr><td>Módulos Fotovoltaicos</td><td><strong>Generador Multi-Campo (${m.modulesBreakdown.uniqueModelsCount} modelos Tier-1)</strong><br>` +
+            m.modulesBreakdown.byModel.map(bm => `<span style="font-size:9.5px;color:#475569;display:inline-block;margin-left:6px;">• ${bm.count}× ${bm.fullName} (${bm.wp} Wp · ${bm.technology})</span>`).join('<br>') +
+            `</td><td class="text-right">${m.numPanels} uds (${m.kwp.toFixed(2)} kWp)</td></tr>`
+          : `<tr><td>Módulos Fotovoltaicos</td><td>${d.cfg.modelo} (${d.cfg.potencia} Wp · ${d.cfg.tecnologia})</td><td class="text-right">${m.numPanels} uds</td></tr>`
+        }
         <tr><td>Inversor de Conexión a Red</td><td>${_eqp.invName}</td><td class="text-right">${_eqp.invCount} ud${_eqp.invCount > 1 ? 's' : ''}</td></tr>
         <tr><td>Sistema de Almacenamiento</td><td>${_eqp.hasBat ? _eqp.batName : 'Sin acumulación (Conexión Directa)'}</td><td class="text-right">${_eqp.hasBat ? (_eqp.batCount + ' ud' + (_eqp.batCount > 1 ? 's' : '')) : '—'}</td></tr>
         ${_eqp.hasMicro ? '<tr><td>Microinversores / Optimizadores</td><td>' + _eqp.microName + '</td><td class="text-right">' + _eqp.microCount + ' uds</td></tr>' : ''}
@@ -1197,7 +1207,12 @@ function generatePropuestaComercialPDF(skipPricingModal) {
       <h2>3. Desglose económico EPC</h2>
       <table>
         <tr><th>Capítulo</th><th>Descripción</th><th class="text-right">Importe (€)</th></tr>
-        <tr><td>Cap. 1</td><td>Módulos Solares Fotovoltaicos de Alta Eficiencia (${m.numPanels} uds × ${m.unitPanelPrice || 125} €)</td><td class="text-right">${m.panCost.toLocaleString('es-ES')} €</td></tr>
+        ${(m.modulesBreakdown && m.modulesBreakdown.isMultiModule)
+          ? `<tr><td>Cap. 1</td><td><strong>Módulos Solares Fotovoltaicos (${m.numPanels} uds en ${m.modulesBreakdown.uniqueModelsCount} modelos · ${m.kwp.toFixed(2)} kWp)</strong><br>` +
+            m.modulesBreakdown.byModel.map(bm => `<span style="font-size:9.5px;color:#475569;display:inline-block;margin-left:6px;">• ${bm.fullName} (${bm.wp} Wp): ${bm.count} uds × ${bm.unitPrice.toLocaleString('es-ES')} €</span>`).join('<br>') +
+            `</td><td class="text-right">${m.panCost.toLocaleString('es-ES')} €</td></tr>`
+          : `<tr><td>Cap. 1</td><td>Módulos Solares Fotovoltaicos de Alta Eficiencia (${m.numPanels} uds × ${m.unitPanelPrice || 125} €)</td><td class="text-right">${m.panCost.toLocaleString('es-ES')} €</td></tr>`
+        }
         <tr><td>Cap. 2</td><td>Estructura de Soporte y Fijación</td><td class="text-right">${m.estCost.toLocaleString('es-ES')} €</td></tr>
         <tr><td>Cap. 3</td><td>Inversor de Conexión a Red & Monitorización</td><td class="text-right">${m.invCost.toLocaleString('es-ES')} €</td></tr>
         <tr><td>Cap. 4</td><td>Sistema de Baterías LFP (si aplica)</td><td class="text-right">${m.batCost.toLocaleString('es-ES')} €</td></tr>
@@ -1207,6 +1222,17 @@ function generatePropuestaComercialPDF(skipPricingModal) {
         ${(m.marginEur > 0) ? '<tr><td style="color:' + pal.primary + ';">Margen</td><td style="color:' + pal.primary + ';">Margen Comercial &amp; Gastos Generales (+' + m.marginPct + '%)</td><td class="text-right" style="color:' + pal.primary + ';font-weight:700;">' + Math.round(m.marginEur).toLocaleString('es-ES') + ' €</td></tr>' : ''}
         <tr class="total-row"><td>TOTAL</td><td>PRESUPUESTO LLAVE EN MANO (IVA 21% inc.)</td><td class="text-right">${Math.round(m.capexBruto).toLocaleString('es-ES')} €</td></tr>
       </table>
+      ${(m.modulesBreakdown && m.modulesBreakdown.byRoof && m.modulesBreakdown.byRoof.length > 0)
+        ? `<div style="margin-top:14px;page-break-inside:avoid;">
+             <div style="font-weight:800;font-size:11px;color:${pal.dark};margin-bottom:4px;border-bottom:1.5px solid ${pal.primary};padding-bottom:3px;text-transform:uppercase;">
+               Resumen de Inversión y Subcampos por Faldón
+             </div>
+             ${(typeof window !== 'undefined' && window.RAModulesBreakdown)
+               ? window.RAModulesBreakdown.renderSubfieldsTableHTML(m.modulesBreakdown, { includeCost: true })
+               : ''}
+           </div>`
+        : ''
+      }
 
       <h2>4. Subvenciones y beneficios fiscales estimados</h2>
       <table>
@@ -1332,13 +1358,14 @@ function generatePropuestaComercialPDF(skipPricingModal) {
 // ═════════════════════════════════════════════════════════════════════════════
   function calculateFinancialModel() {
   const d = getProjectCalcs();
-  const numPanels = d.numPanels || 1;
-  const kwp = (numPanels * (d.cfg.potencia || 450)) / 1000.0;
+  const mb = (d && d.modulesBreakdown) || (typeof window !== 'undefined' && window.RAModulesBreakdown && typeof window.RAModulesBreakdown.getProjectModulesBreakdown === 'function' ? window.RAModulesBreakdown.getProjectModulesBreakdown() : null);
+  const numPanels = (mb && mb.totalPanels > 0) ? mb.totalPanels : (d.numPanels || 1);
+  const kwp = (mb && mb.totalKwp > 0) ? mb.totalKwp : ((numPanels * (d.cfg.potencia || 450)) / 1000.0);
   const annualYieldKWh = d.annualKWh || (kwp * 1450); // [P0] getProjectCalcs canónico devuelve annualKWh
 
   const pricing = (typeof RAPricing !== 'undefined') ? RAPricing.getEffectivePricing() : { panelPrice: 125, moPrice: 1400, marginPct: 20 };
   const unitPanelPrice = (pricing && pricing.panelPrice > 0) ? pricing.panelPrice : (d.cfg.precio || 125);
-  const panCost = numPanels * unitPanelPrice;
+  const panCost = (mb && mb.totalPanelsCost > 0) ? mb.totalPanelsCost : (numPanels * unitPanelPrice);
   // [SSOT] Lector de parámetros con doble fuente: los inputs del DESGLOSE (modal-cfg-pres-*,
   // modal-tax-*, modal-fin-*) son la UI real que existe en el DOM; los ids legacy del sidebar
   // (cfg-pres-*, tax-*, fin-*) no existen y quedan como fallback histórico.
@@ -1877,6 +1904,8 @@ function generatePropuestaComercialPDF(skipPricingModal) {
     marginEur: marginEur,
     unitPanelPrice: unitPanelPrice,
     panCost: panCost,
+    modulesBreakdown: mb,
+    isMultiModule: !!(mb && mb.isMultiModule),
     estCost: est,
     invCost: inv,
     batCost: bat,

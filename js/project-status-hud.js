@@ -214,26 +214,6 @@
     const invCount = (currentStep >= 4 && cfg.autoSizing && cfg.autoSizing.inverters && cfg.autoSizing.inverters.count) ? cfg.autoSizing.inverters.count : 1;
     let totalInvKw = invKw * invCount;
 
-    // Si el usuario no ha fijado manualmente un inversor y la potencia DC difiere enormemente
-    // de la potencia del inversor residual (ej. ratio < 0.65 o > 1.50), sincronizar proactivamente SOLO en Paso >= 4:
-    if (currentStep >= 4 && numPanels > 0 && !cfg.userManuallySelectedInverter && typeof wpAutoSelectOptimalEngineering === 'function') {
-      const currentRatio = totalInvKw > 0 ? (kwp / totalInvKw) : 0;
-      if (currentRatio < 0.65 || currentRatio > 1.50) {
-        try {
-          const reMatch = wpAutoSelectOptimalEngineering(false);
-          if (reMatch) {
-            const newBest = reMatch.recommendedScenarioA || reMatch.recommendedScenarioB;
-            if (newBest && newBest.inverter) {
-              invObj = newBest.inverter;
-              invKw = invObj.kw || 0;
-              totalInvKw = newBest.totalAcKw || (invKw * (newBest.count || 1));
-              invName = `${invObj.brand || ''} ${invObj.model || ''} (${invKw} kW)`;
-            }
-          }
-        } catch(eAuto) {}
-      }
-    }
-
     // Ratio DC/AC
     const ratioDcAc = (currentStep >= 4 && totalInvKw > 0) ? (kwp / totalInvKw) : 0;
 

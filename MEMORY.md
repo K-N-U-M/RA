@@ -621,3 +621,21 @@ calculateFinancialModel()  ← Definición canónica en financials.js (~L491)
 
 
 
+
+
+## 29. Desglose Multi-Módulo por Faldón en Presupuestos y Estudios Técnicos (Octubre 2026)
+- **Problema:** En proyectos con cubiertas complejas o de diferente orientación, el usuario podía asignar modelos distintos de panel a cada faldón (`WP.polylines[i].moduleId`), pero el cálculo económico (`financials.js`), los cálculos globales (`getProjectCalcs()`), la Memoria Técnica y el Presupuesto oficial (`docs-generator.js`) colapsaban todo a un único panel genérico plano, ignorando diferencias de potencia, precio y compatibilidad normativa.
+- **Solución Canónica (SSOT):**
+  - **Módulo `js/modules-breakdown.js` (`window.RAModulesBreakdown` / `window.RA.getProjectModulesBreakdown`):**
+    - Agregación analítica por faldón (`byRoof`) y por modelo (`byModel`), determinando unidades exactas, potencia pico acumulada ($P_{dc} = \sum N_i \times P_{\text{mod},i}$), costes directos de catálogo y parámetros eléctricos.
+    - Generador de tabla consolidada multi-modelo para especificaciones técnicas STC (`renderMultiModelSpecsTableHTML`).
+    - Generador de tabla de subcampos de cubierta con metrado y orientación (`renderSubfieldsTableHTML`).
+  - **Integración en `getProjectCalcs()` (`index.html`):**
+    - Potencia pico $P_{dc}$ y presupuesto de paneles sincronizados al 100% con el desglose real multi-modelo.
+  - **Integración Financiera (`js/financials.js`):**
+    - `calculateFinancialModel()` y `wpOpenPricingReviewModal` respetan el desglose multi-módulo, mostrando precios y kWp agregados.
+    - En la propuesta comercial EPC (`renderFinancialSummaryHTML`), desglose del Cap. 1 con subpartidas por modelo y cuadro resumen de inversión por faldón.
+  - **Integración en Documentación Oficial (`js/docs-generator.js`):**
+    - En **Presupuesto y Oferta**, Cap. 1 se desglosa en partidas 1.1, 1.2... por cada modelo, incorporando la tabla de subcampos por faldón.
+    - En **Memoria Técnica**, la sección 4.1 incorpora la tabla comparativa consolidada multi-modelo, la asignación por cubierta y la declaración de conformidad UNE-EN IEC 62548 / REBT ITC-BT-40 (aislamiento en strings y seguidores MPPT independientes).
+  - **Test Suite Dedicado:** `tests/test-modules-breakdown.js` integrado en `npm test` con 100% de éxito en mono-módulo, multi-módulo, renderizado de tablas y fallbacks.

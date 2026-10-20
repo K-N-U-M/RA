@@ -11684,6 +11684,13 @@ function getProjectCalcs() {
   const tiltDeg = pa ? pa.tiltDeg : 30;
   const azimutDeg = pa ? pa.azimuthDeg : 0;
 
+  const _mb = (typeof window !== 'undefined' && window.RAModulesBreakdown && typeof window.RAModulesBreakdown.getProjectModulesBreakdown === 'function')
+    ? window.RAModulesBreakdown.getProjectModulesBreakdown()
+    : null;
+  if (_mb && _mb.totalPanels > 0) {
+    numPanels = _mb.totalPanels;
+  }
+
   const eng = computeElectricalSizingEngineering({
     numPanels,
     cfg,
@@ -11691,6 +11698,9 @@ function getProjectCalcs() {
     azimutDeg,
     latDeg
   });
+  if (_mb && _mb.totalKwp > 0) {
+    eng.P_dc_kW = _mb.totalKwp;
+  }
 
   const SOLAR_RAD  = [2.8, 3.5, 4.8, 5.8, 6.5, 7.2, 7.5, 6.8, 5.4, 3.9, 2.9, 2.5];
   const MONTH_DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
@@ -11735,7 +11745,7 @@ function getProjectCalcs() {
     return el ? (parseFloat(el.value) || def) : def;
   };
 
-  let pres_pan = numPanels * (cfg.precio || 125); // [SSOT] fallback único 125 €
+  let pres_pan = (_mb && _mb.totalPanelsCost > 0) ? _mb.totalPanelsCost : (numPanels * (cfg.precio || 125)); // [SSOT] fallback único 125 €
   let pres_est = _inputVal('cfg-pres-est', 450);
   if (typeof BOMTreeEngine !== 'undefined') {
     const tree = BOMTreeEngine.computeBOMTree();
@@ -11878,6 +11888,8 @@ function getProjectCalcs() {
     shadowLossPct: (_engStats && typeof _engStats.avgShadowLossPct === 'number') ? _engStats.avgShadowLossPct : 0,
     hspAnual,
     monthly,
+    modulesBreakdown: _mb,
+    isMultiModule: !!(_mb && _mb.isMultiModule),
     co2Ton: co2Ton.toFixed(2),
     co2_evitado: co2Ton.toFixed(2),
     treesEquiv,
