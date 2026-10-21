@@ -29,7 +29,7 @@
     BALLAST_BLOCK_PRICE: 9.50,           // Bloque prefabricado de hormigón para lastre (€/ud)
     BALLAST_BLOCKS_PER_PANEL_15: 2,      // Bloques de hormigón por soporte a 15°
     BALLAST_BLOCKS_PER_PANEL_30: 3,      // Bloques de hormigón por soporte a 30°
-    BALLAST_WEIGHT_KG: 25.0,             // Masa unitaria de bloque de hormigón estándar
+    BALLAST_WEIGHT_KG: 45.0,             // Masa unitaria de bloque de hormigón estándar
     MC4_PAIRS_PER_STRING: 2,             // Pares de conectores MC4 por string (positivo y negativo)
     EARTH_RODS_PER_25KWP: 1,             // Picas de tierra de cobre por cada 25 kWp
     EARTH_WIRE_PER_PANEL_M: 1.2,         // Conductor de tierra desnudo o 1x16mm² por panel
@@ -93,7 +93,8 @@
         const polyId = poly.id || `faldon_${polyIdx + 1}`;
         const polyName = poly.name || `Faldón ${polyIdx + 1}`;
         const roofType = poly.roofType || 'sandwich_metal';
-        const maxLoad = poly.maxStructuralLoadKgM2 || 25.0;
+        const cteLimitKgM2 = (roofType === 'deck' || roofType === 'chapa' || (poly.structureType && poly.structureType.indexOf('chapa') !== -1)) ? 40.0 : 100.0;
+        const maxLoad = poly.maxStructuralLoadKgM2 || cteLimitKgM2;
         const stType = poly.structureType || 'coplanar_teja';
         const isTriangular = stType.includes('triangle');
         const estType = stType;
@@ -150,6 +151,7 @@
         const structWeightMap = {
           'coplanar_teja': 3.5,
           'coplanar_chapa': 2.5,
+          'ballast_blocks': 0.5,
           'triangles_30': 6.5,
           'triangles_15_ew': 7.0,
           'triangles_custom': 6.5,
@@ -209,42 +211,49 @@
         let fixingsUnitCost = mfg.tileHookPrice || BOM_DEFAULTS.SALVATEJAS_PRICE_UNIT;
         let ballastBlocks = 0;
         let ballastWeightKg = 0;
+        let structMaterialsCostEur = 0;
 
-        if (stType === 'coplanar_chapa') {
+        const isBallastBlocks = (stType === 'ballast_blocks' || (poly.estructura && poly.estructura.tipo === 'balasto_bloques'));
+
+        if (isBallastBlocks) {
+          const blocksPerMod = poly.blocksPerPanel || (poly.estructura && poly.estructura.blocksPerPanel) || 2;
+          ballastBlocks = panelCount * blocksPerMod;
+          const blockWeight = (mfg && typeof mfg.ballastBlockWeightKg === 'number' && mfg.ballastBlockWeightKg > 0)
+            ? mfg.ballastBlockWeightKg
+            : (BOM_DEFAULTS.BALLAST_WEIGHT_KG || 45.0);
+          ballastWeightKg = ballastBlocks * blockWeight;
+          fixingsType = 'Bloques prefabricados de hormigón (' + blockWeight + ' kg/ud)';
+          fixingsCount = ballastBlocks;
+          fixingsUnitCost = mfg.ballastBlockPrice || BOM_DEFAULTS.BALLAST_BLOCK_PRICE;
+          structMaterialsCostEur = ballastBlocks * fixingsUnitCost;
+        } else if (stType === 'coplanar_chapa') {
           fixingsType = 'Tornillos autorroscantes bimetálicos EPDM';
           fixingsCount = panelCount * 4;
           fixingsUnitCost = mfg.sheetScrewPrice || BOM_DEFAULTS.CHAPA_SCREW_PRICE_UNIT;
+          const profileCost = totalProfileMeters * (mfg.railPricePerMeter || BOM_DEFAULTS.PERFIL_PRICE_PER_METER);
+          const splicesCost = railSplicesCount * (mfg.splicePrice || BOM_DEFAULTS.SPLICE_PRICE_UNIT);
+          const fixCost = fixingsCount * fixingsUnitCost;
+          structMaterialsCostEur = profileCost + splicesCost + fixCost;
         } else if (isTriangular) {
           const is30Deg = (structCfg.tiltDeg || 0) >= 20 || (estType && estType.includes('30'));
           const ratio = is30Deg ? BOM_DEFAULTS.BALLAST_BLOCKS_PER_PANEL_30 : BOM_DEFAULTS.BALLAST_BLOCKS_PER_PANEL_15;
           ballastBlocks = panelCount * ratio;
-          ballastWeightKg = ballastBlocks * BOM_DEFAULTS.BALLAST_WEIGHT_KG;
+          const blockWeight = (mfg && typeof mfg.ballastBlockWeightKg === 'number' && mfg.ballastBlockWeightKg > 0)
+            ? mfg.ballastBlockWeightKg
+            : (BOM_DEFAULTS.BALLAST_WEIGHT_KG || 45.0);
+          ballastWeightKg = ballastBlocks * blockWeight;
           fixingsType = 'Bloques prefabricados de hormigón (Lastre)';
           fixingsCount = ballastBlocks;
           fixingsUnitCost = mfg.ballastBlockPrice || BOM_DEFAULTS.BALLAST_BLOCK_PRICE;
+          const aFramesCost = panelCount * 2 * (mfg.trianglePrice || BOM_DEFAULTS.A_FRAME_TRIANGLE_PRICE);
+          const ballastCost = ballastBlocks * (mfg.ballastBlockPrice || BOM_DEFAULTS.BALLAST_BLOCK_PRICE);
+          const tieBarsCost = panelCount * (mfg.tieBarPrice || 8.0);
+          structMaterialsCostEur = aFramesCost + ballastCost + tieBarsCost;
         } else {
           // Coplanar teja: 1 salvateja cada 1.15 m de perfil
           fixingsType = 'Salvatejas Inox A2 regulables';
           fixingsCount = Math.ceil(totalProfileMeters / 1.15);
           fixingsUnitCost = mfg.tileHookPrice || BOM_DEFAULTS.SALVATEJAS_PRICE_UNIT;
-        }
-
-        // Coste desglosado de materiales de estructura según mercado:
-        let structMaterialsCostEur = 0;
-        if (isTriangular) {
-          // Escuadras A-frame de aluminio premontadas (2 por módulo) + riostras + zapatas/lastres
-          const aFramesCost = panelCount * 2 * (mfg.trianglePrice || BOM_DEFAULTS.A_FRAME_TRIANGLE_PRICE);
-          const ballastCost = ballastBlocks * (mfg.ballastBlockPrice || BOM_DEFAULTS.BALLAST_BLOCK_PRICE);
-          const tieBarsCost = panelCount * (mfg.tieBarPrice || 8.0);
-          structMaterialsCostEur = aFramesCost + ballastCost + tieBarsCost;
-        } else if (stType === 'coplanar_chapa') {
-          // Perfil aluminio + tornillería chapa + empalmes
-          const profileCost = totalProfileMeters * (mfg.railPricePerMeter || BOM_DEFAULTS.PERFIL_PRICE_PER_METER);
-          const splicesCost = railSplicesCount * (mfg.splicePrice || BOM_DEFAULTS.SPLICE_PRICE_UNIT);
-          const fixCost = fixingsCount * fixingsUnitCost;
-          structMaterialsCostEur = profileCost + splicesCost + fixCost;
-        } else {
-          // Coplanar teja: Perfil aluminio 40x40 + salvatejas regulables Inox + empalmes
           const profileCost = totalProfileMeters * (mfg.railPricePerMeter || BOM_DEFAULTS.PERFIL_PRICE_PER_METER);
           const splicesCost = railSplicesCount * (mfg.splicePrice || BOM_DEFAULTS.SPLICE_PRICE_UNIT);
           const fixCost = fixingsCount * fixingsUnitCost;
@@ -636,8 +645,8 @@
           </div>
           <div id="bom-roof-${i}" class="bom-node-children" style="display:none; padding-left:14px;">
             <div class="bom-subitem">📐 <b>Estructura:</b> ${r.structure.manufacturer ? r.structure.manufacturer + ' · ' : ''}${r.structure.type ? r.structure.type.toUpperCase() : 'ESTÁNDAR'} (${r.structure.tiltDeg}°) · <b>${r.structure.costEur} €</b></div>
-            ${r.structure.profileMeters ? `<div class="bom-subitem" style="font-size:8px;color:#94a3b8;padding-left:12px;">• Perfil aluminio: <b>${r.structure.profileMeters} m</b> (${r.structure.standardBarsCount} barras 3.15m + ${r.structure.railSplicesCount} empalmes)</div>` : ''}
-            ${r.structure.fixingsCount ? `<div class="bom-subitem" style="font-size:8px;color:#94a3b8;padding-left:12px;">• Fijaciones: <b>${r.structure.fixingsCount}x</b> ${r.structure.fixingsType}</div>` : ''}
+            ${r.structure.profileMeters ? `<div class="bom-subitem" style="font-size: 10px;color:#94a3b8;padding-left:12px;">• Perfil aluminio: <b>${r.structure.profileMeters} m</b> (${r.structure.standardBarsCount} barras 3.15m + ${r.structure.railSplicesCount} empalmes)</div>` : ''}
+            ${r.structure.fixingsCount ? `<div class="bom-subitem" style="font-size: 10px;color:#94a3b8;padding-left:12px;">• Fijaciones: <b>${r.structure.fixingsCount}x</b> ${r.structure.fixingsType}</div>` : ''}
             <div class="bom-subitem">🔩 <b>Grapas (Clamps):</b> ${r.clamps.midCount} intermedias + ${r.clamps.endCount} finales · <b>${r.clamps.costEur} €</b></div>
             ${r.ballast.blocksCount > 0 ? `<div class="bom-subitem">🧱 <b>Lastres hormigón:</b> ${r.ballast.blocksCount} bloques (${r.ballast.totalWeightKg} kg)</div>` : ''}
           </div>
@@ -654,7 +663,7 @@
         ? tree.obstacles.map(obs => `
             <div class="bom-subitem bom-interactive-item" onclick="BOMTreeEngine.flyToObstacle('${obs.id}')" style="cursor:pointer; display:flex; justify-content:space-between; align-items:center;" title="Clic para enfocar cámara">
               <span>🛑 ${obs.name} (${obs.type})</span>
-              <span style="font-size:8px; color:#94a3b8;">${obs.dimensions}</span>
+              <span style="font-size: 10px; color:#94a3b8;">${obs.dimensions}</span>
             </div>
           `).join('')
         : '<div class="bom-subitem" style="color:var(--text-muted, #94a3b8); font-style:italic;">No hay obstáculos en la escena</div>';
@@ -749,8 +758,8 @@
             <div class="bom-section-title">INSTALACIÓN, INGENIERÍA & MEDIOS</div>
             ${tree.laborAndSoftCosts && tree.laborAndSoftCosts.length > 0 ? tree.laborAndSoftCosts.map(item => `
               <div class="bom-subitem" style="display:flex;justify-content:space-between;align-items:center;padding:2px 0;">
-                <span style="font-size:8.5px;color:#CBD5E1;">${item.description}</span>
-                <b style="font-size:9px;color:#F8FAFC;margin-left:6px;">${item.totalEur.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</b>
+                <span style="font-size: 10px;color:#CBD5E1;">${item.description}</span>
+                <b style="font-size: 10px;color:#F8FAFC;margin-left:6px;">${item.totalEur.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</b>
               </div>
             `).join('') : ''}
           `}

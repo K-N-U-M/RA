@@ -317,7 +317,7 @@ function wpOpenPricingReviewModal(onConfirm) {
             '<span style="font-size:20px;">🏷️</span>' +
             '<div>' +
               '<div style="font-weight:900;font-size:13px;color:#fff;letter-spacing:0.5px;">REVISIÓN DE PRECIOS &amp; PRESUPUESTO FINAL</div>' +
-              '<div id="pricing-modal-subtitle" style="font-size:9.5px;color:#94a3b8;">Verifica o ajusta los importes de cada partida antes de emitir la entrega final</div>' +
+              '<div id="pricing-modal-subtitle" style="font-size: 10px;color:#94a3b8;">Verifica o ajusta los importes de cada partida antes de emitir la entrega final</div>' +
             '</div>' +
           '</div>' +
           '<button type="button" id="btn-close-pricing-review" style="background:transparent;border:none;color:#94a3b8;font-size:18px;cursor:pointer;padding:4px 8px;">✕</button>' +
@@ -328,7 +328,7 @@ function wpOpenPricingReviewModal(onConfirm) {
               '<span>⚡</span>' +
               '<span id="pricing-modal-project-info">Proyecto: 0 paneles (0.00 kWp)</span>' +
             '</div>' +
-            '<div id="pricing-modal-equip-info" style="color:#94a3b8;font-size:9.5px;text-align:right;">Inversor / Batería</div>' +
+            '<div id="pricing-modal-equip-info" style="color:#94a3b8;font-size: 10px;text-align:right;">Inversor / Batería</div>' +
           '</div>' +
           '<div style="background:rgba(30,41,59,0.5);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:9px;">' +
             '<div style="font-size:10px;font-weight:900;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px;">' +
@@ -337,7 +337,7 @@ function wpOpenPricingReviewModal(onConfirm) {
             '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05);">' +
               '<div>' +
                 '<div style="font-size:11px;font-weight:800;color:#f8fafc;display:flex;align-items:center;gap:5px;"><span>🟦</span> Módulos Fotovoltaicos Tier-1</div>' +
-                '<div id="pricing-subtext-panels" style="font-size:9px;color:#94a3b8;">0 módulos en cubierta</div>' +
+                '<div id="pricing-subtext-panels" style="font-size: 10px;color:#94a3b8;">0 módulos en cubierta</div>' +
               '</div>' +
               '<div style="display:flex;align-items:center;gap:8px;">' +
                 '<div style="display:flex;align-items:center;gap:4px;">' +
@@ -350,7 +350,7 @@ function wpOpenPricingReviewModal(onConfirm) {
             '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05);">' +
               '<div>' +
                 '<div style="font-size:11px;font-weight:800;color:#f8fafc;display:flex;align-items:center;gap:5px;"><span>🏗️</span> Estructura Soporte &amp; Perfilería</div>' +
-                '<div id="pricing-subtext-est" style="font-size:9px;color:#94a3b8;">Perfilería continua de aluminio y fijaciones A2</div>' +
+                '<div id="pricing-subtext-est" style="font-size: 10px;color:#94a3b8;">Perfilería continua de aluminio y fijaciones A2</div>' +
               '</div>' +
               '<div style="display:flex;align-items:center;gap:4px;">' +
                 '<input type="number" id="pricing-input-est-price" min="0" max="50000" step="25" style="width:90px;padding:4px 6px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:6px;color:#fff;font-size:11px;font-weight:700;text-align:right;">' +
@@ -360,7 +360,7 @@ function wpOpenPricingReviewModal(onConfirm) {
             '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05);">' +
               '<div>' +
                 '<div style="font-size:11px;font-weight:800;color:#f8fafc;display:flex;align-items:center;gap:5px;"><span>⚡</span> Inversor / Microinversores</div>' +
-                '<div id="pricing-subtext-inv" style="font-size:9px;color:#94a3b8;">Sistema de conversión eléctrica y monitorización</div>' +
+                '<div id="pricing-subtext-inv" style="font-size: 10px;color:#94a3b8;">Sistema de conversión eléctrica y monitorización</div>' +
               '</div>' +
               '<div style="display:flex;align-items:center;gap:4px;">' +
                 '<input type="number" id="pricing-input-inv-price" min="0" max="50000" step="50" style="width:90px;padding:4px 6px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:6px;color:#fff;font-size:11px;font-weight:700;text-align:right;">' +
@@ -370,7 +370,7 @@ function wpOpenPricingReviewModal(onConfirm) {
             '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05);">' +
               '<div>' +
                 '<div style="font-size:11px;font-weight:800;color:#f8fafc;display:flex;align-items:center;gap:5px;"><span>🔋</span> Batería de Acumulación (LiFePO4)</div>' +
-                '<div id="pricing-subtext-bat" style="font-size:9px;color:#94a3b8;">Almacenamiento modular (0 € si no aplica)</div>' +
+                '<div id="pricing-subtext-bat" style="font-size: 10px;color:#94a3b8;">Almacenamiento modular (0 € si no aplica)</div>' +
               '</div>' +
               '<div style="display:flex;align-items:center;gap:4px;">' +
                 '<input type="number" id="pricing-input-bat-price" min="0" max="50000" step="50" style="width:90px;padding:4px 6px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:6px;color:#fff;font-size:11px;font-weight:700;text-align:right;">' +
@@ -380,7 +380,7 @@ function wpOpenPricingReviewModal(onConfirm) {
             '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05);">' +
               '<div>' +
                 '<div style="font-size:11px;font-weight:800;color:#f8fafc;display:flex;align-items:center;gap:5px;"><span>🔌</span> Cableado, Conducciones &amp; Cuadros</div>' +
-                '<div id="pricing-subtext-cab" style="font-size:9px;color:#94a3b8;">Líneas solares ZZ-F, cuadro DC/AC, protecciones SPD y tierras</div>' +
+                '<div id="pricing-subtext-cab" style="font-size: 10px;color:#94a3b8;">Líneas solares ZZ-F, cuadro DC/AC, protecciones SPD y tierras</div>' +
               '</div>' +
               '<div style="display:flex;align-items:center;gap:4px;">' +
                 '<input type="number" id="pricing-input-cab-price" min="0" max="25000" step="25" style="width:90px;padding:4px 6px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:6px;color:#fff;font-size:11px;font-weight:700;text-align:right;">' +
@@ -390,7 +390,7 @@ function wpOpenPricingReviewModal(onConfirm) {
             '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05);">' +
               '<div>' +
                 '<div style="font-size:11px;font-weight:800;color:#f8fafc;display:flex;align-items:center;gap:5px;"><span>👷</span> Mano de Obra &amp; Montaje</div>' +
-                '<div style="font-size:9px;color:#94a3b8;">Instalación completa, seguridad en altura y puesta en marcha</div>' +
+                '<div style="font-size: 10px;color:#94a3b8;">Instalación completa, seguridad en altura y puesta en marcha</div>' +
               '</div>' +
               '<div style="display:flex;align-items:center;gap:4px;">' +
                 '<input type="number" id="pricing-input-mo-price" min="0" max="30000" step="50" style="width:90px;padding:4px 6px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:6px;color:#fff;font-size:11px;font-weight:700;text-align:right;">' +
@@ -400,7 +400,7 @@ function wpOpenPricingReviewModal(onConfirm) {
             '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;">' +
               '<div>' +
                 '<div style="font-size:11px;font-weight:800;color:#f8fafc;display:flex;align-items:center;gap:5px;"><span>📑</span> Legalización, Proyecto &amp; CIE</div>' +
-                '<div style="font-size:9px;color:#94a3b8;">Memoria técnica / proyecto, tasas de Industria y boletín oficial</div>' +
+                '<div style="font-size: 10px;color:#94a3b8;">Memoria técnica / proyecto, tasas de Industria y boletín oficial</div>' +
               '</div>' +
               '<div style="display:flex;align-items:center;gap:4px;">' +
                 '<input type="number" id="pricing-input-leg-price" min="0" max="15000" step="25" style="width:90px;padding:4px 6px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:6px;color:#fff;font-size:11px;font-weight:700;text-align:right;">' +
@@ -412,7 +412,7 @@ function wpOpenPricingReviewModal(onConfirm) {
             '<div style="display:flex;justify-content:space-between;align-items:center;">' +
               '<div>' +
                 '<div style="font-size:11px;font-weight:800;color:#FBBF24;">Margen Comercial Deseado</div>' +
-                '<div style="font-size:9px;color:#94a3b8;">Beneficio bruto aplicado sobre la suma de costes directos</div>' +
+                '<div style="font-size: 10px;color:#94a3b8;">Beneficio bruto aplicado sobre la suma de costes directos</div>' +
               '</div>' +
               '<div style="display:flex;align-items:center;gap:4px;">' +
                 '<input type="number" id="pricing-input-margin-pct" min="0" max="100" step="1" style="width:65px;padding:4px 6px;background:rgba(0,0,0,0.4);border:1px solid #F59E0B;border-radius:6px;color:#FBBF24;font-size:11px;font-weight:800;text-align:right;">' +
@@ -987,8 +987,8 @@ function generatePropuestaComercialPDF(skipPricingModal) {
       .cover-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid ${pal.primary}; padding-bottom: 16px; margin-bottom: 22px; }
       .company-block { display: flex; align-items: center; gap: 14px; }
       .company-text .name { font-size: 18px; font-weight: 900; color: #0f172a; }
-      .company-text .sub { font-size: 9.5px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; margin-top: 2px; }
-      .company-text .contact { font-size: 9px; color: #94a3b8; margin-top: 3px; }
+      .company-text .sub { font-size: 10px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; margin-top: 2px; }
+      .company-text .contact { font-size: 10px; color: #94a3b8; margin-top: 3px; }
       .doc-ref-box { text-align: right; font-size: 11px; color: #475569; }
       .doc-ref-box b { color: #0f172a; font-size: 13px; }
       h2 { font-size: 13px; font-weight: 800; color: #1e293b; text-transform: uppercase; letter-spacing: 0.5px; margin: 20px 0 10px; border-left: 4px solid ${pal.primary}; padding-left: 10px; }
@@ -996,7 +996,7 @@ function generatePropuestaComercialPDF(skipPricingModal) {
       .hero-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; text-align: center; }
       .hero-val { font-size: 19px; font-weight: 900; color: #0f172a; margin-top: 4px; }
       .hero-val.primary { color: ${pal.primary}; }
-      .hero-lbl { font-size: 9px; font-weight: 700; color: #64748b; text-transform: uppercase; }
+      .hero-lbl { font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; }
       table { width: 100%; border-collapse: collapse; margin: 8px 0 18px; font-size: 11px; }
       th { background: #f8fafc; color: #475569; font-weight: 800; text-align: left; padding: 7px 10px; border-bottom: 2px solid #e2e8f0; }
       td { padding: 7px 10px; border-bottom: 1px solid #f1f5f9; color: #334155; }
@@ -1009,8 +1009,8 @@ function generatePropuestaComercialPDF(skipPricingModal) {
       .closer-hero-card.highlight { background: linear-gradient(135deg, ${pal.light}, #ffffff); border: 2px solid ${pal.primary}; }
       .closer-hero-val { font-size: 21px; font-weight: 900; color: #0f172a; margin: 4px 0 2px; }
       .closer-hero-val.primary { color: ${pal.primary}; }
-      .closer-hero-lbl { font-size: 9px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
-      .closer-hero-sub { font-size: 8.5px; color: #64748b; margin-top: 2px; font-weight: 600; }
+      .closer-hero-lbl { font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+      .closer-hero-sub { font-size: 10px; color: #64748b; margin-top: 2px; font-weight: 600; }
       .decision-boxes { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 14px 0; }
       .decision-card { border-radius: 8px; padding: 14px 16px; border: 1px solid #e2e8f0; background: #f8fafc; }
       .decision-card.featured { border: 2px solid ${pal.primary}; background: #ffffff; box-shadow: 0 4px 12px rgba(0,0,0,0.04); }
@@ -1021,7 +1021,7 @@ function generatePropuestaComercialPDF(skipPricingModal) {
       .sig-box-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 36px; }
       .sig-card { border: 1px dashed #cbd5e1; border-radius: 6px; padding: 16px; text-align: center; font-size: 10.5px; }
       .sig-logo-box { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 8px; }
-      .pill { display: inline-block; background: ${pal.light}; color: ${pal.dark}; font-size: 8.5px; font-weight: 800; padding: 3px 8px; border-radius: 12px; margin: 2px; }
+      .pill { display: inline-block; background: ${pal.light}; color: ${pal.dark}; font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 12px; margin: 2px; }
       @media print {
         body { background: #fff; padding: 0; padding-top: 0; }
         .doc-top-bar { display: none !important; }
@@ -1062,7 +1062,7 @@ function generatePropuestaComercialPDF(skipPricingModal) {
           <b>OFERTA: ${d.refNum}</b><br>
           Fecha: ${d.fechaStr}<br>
           Validez: 30 días naturales<br>
-          <span style="display:inline-block;margin-top:4px;padding:2px 8px;background:${pal.light};color:${pal.dark};border-radius:4px;font-size:9px;font-weight:800;">${branding.status === 'orientativa' ? 'OFERTA ORIENTATIVA' : 'OFERTA VINCULANTE'}</span>
+          <span style="display:inline-block;margin-top:4px;padding:2px 8px;background:${pal.light};color:${pal.dark};border-radius:4px;font-size: 10px;font-weight:800;">${branding.status === 'orientativa' ? 'OFERTA ORIENTATIVA' : 'OFERTA VINCULANTE'}</span>
         </div>
       </div>
 
@@ -1102,7 +1102,7 @@ function generatePropuestaComercialPDF(skipPricingModal) {
         <div class="decision-card featured">
           <div class="decision-title" style="color:${pal.dark};">
             <span>OPCIÓN A: PAGO LLAVE EN MANO</span>
-            <span style="font-size:9px;background:${pal.light};color:${pal.dark};padding:2px 6px;border-radius:4px;">RECOMENDADA</span>
+            <span style="font-size: 10px;background:${pal.light};color:${pal.dark};padding:2px 6px;border-radius:4px;">RECOMENDADA</span>
           </div>
           <div class="decision-row">
             <span>Presupuesto Instalación (IVA 21% inc.):</span>
@@ -1116,7 +1116,7 @@ function generatePropuestaComercialPDF(skipPricingModal) {
             <span>COSTE REAL NETO:</span>
             <span style="font-size:16px;color:${pal.primary};">${Math.round(m.capexNeto).toLocaleString('es-ES')} €</span>
           </div>
-          <div style="font-size:8.5px;color:#64748b;margin-top:6px;">
+          <div style="font-size: 10px;color:#64748b;margin-top:6px;">
             Ganancia neta acumulada (VAN 25a): <b>${Math.round(m.van).toLocaleString('es-ES')} €</b>
           </div>
         </div>
@@ -1124,7 +1124,7 @@ function generatePropuestaComercialPDF(skipPricingModal) {
         <div class="decision-card">
           <div class="decision-title" style="color:#2563eb;">
             <span>OPCIÓN B: FINANCIACIÓN 100%</span>
-            <span style="font-size:9px;background:#dbeafe;color:#1e40af;padding:2px 6px;border-radius:4px;">0 € ENTRADA</span>
+            <span style="font-size: 10px;background:#dbeafe;color:#1e40af;padding:2px 6px;border-radius:4px;">0 € ENTRADA</span>
           </div>
           <div class="decision-row">
             <span>Cuota mensual (${m.mesesFin / 12} años):</span>
@@ -1138,7 +1138,7 @@ function generatePropuestaComercialPDF(skipPricingModal) {
             <span>BALANCE EN TU BOLSILLO:</span>
             <span style="font-size:16px;color:#059669;">+ ${Math.round(m.balanceNetoMensual)} €/mes</span>
           </div>
-          <div style="font-size:8.5px;color:#64748b;margin-top:6px;">
+          <div style="font-size: 10px;color:#64748b;margin-top:6px;">
             La instalación se paga sola con el ahorro de luz desde el primer mes.
           </div>
         </div>
@@ -1146,7 +1146,7 @@ function generatePropuestaComercialPDF(skipPricingModal) {
 
       <!-- RESUMEN EJECUTIVO / IMPACTO AMBIENTAL -->
       <div style="margin:12px 0 10px;padding:10px 14px;background:linear-gradient(135deg,${pal.light},#f8fafc);border-left:4px solid ${pal.primary};border-radius:0 8px 8px 0;font-size:10.5px;line-height:1.5;color:#334155;">
-        <div id="ra-ai-summary-badge" style="font-size:8px;text-transform:uppercase;letter-spacing:1px;color:${pal.primary};font-weight:800;margin-bottom:4px;">📋 Resumen del proyecto</div>
+        <div id="ra-ai-summary-badge" style="font-size: 10px;text-transform:uppercase;letter-spacing:1px;color:${pal.primary};font-weight:800;margin-bottom:4px;">📋 Resumen del proyecto</div>
         <div id="ra-ai-summary-content">${_summaryHTML}</div>
       </div>
 
@@ -1161,9 +1161,9 @@ function generatePropuestaComercialPDF(skipPricingModal) {
       <div class="closer-cta-box">
         <div>
           <div style="font-weight:900;font-size:11.5px;color:#0f172a;">ACEPTACIÓN DE LA PROPUESTA Y RESERVA DE INSTALACIÓN</div>
-          <div style="font-size:9px;color:#64748b;margin-top:2px;">Conforme con las condiciones económicas expuestas para el inicio del proyecto técnico.</div>
+          <div style="font-size: 10px;color:#64748b;margin-top:2px;">Conforme con las condiciones económicas expuestas para el inicio del proyecto técnico.</div>
         </div>
-        <div style="text-align:right;font-size:9.5px;color:#334155;">
+        <div style="text-align:right;font-size: 10px;color:#334155;">
           Firma del Cliente: ________________________ Fecha: ___/___/2026<br>
           <b>${d.tit.nombre}</b> (NIF: ${d.tit.nif || '___________'})
         </div>
@@ -1193,7 +1193,7 @@ function generatePropuestaComercialPDF(skipPricingModal) {
         <tr><th>Componente</th><th>Especificación / Modelo</th><th class="text-right">Cantidad</th></tr>
         ${(m.modulesBreakdown && m.modulesBreakdown.isMultiModule)
           ? `<tr><td>Módulos Fotovoltaicos</td><td><strong>Generador Multi-Campo (${m.modulesBreakdown.uniqueModelsCount} modelos Tier-1)</strong><br>` +
-            m.modulesBreakdown.byModel.map(bm => `<span style="font-size:9.5px;color:#475569;display:inline-block;margin-left:6px;">• ${bm.count}× ${bm.fullName} (${bm.wp} Wp · ${bm.technology})</span>`).join('<br>') +
+            m.modulesBreakdown.byModel.map(bm => `<span style="font-size: 10px;color:#475569;display:inline-block;margin-left:6px;">• ${bm.count}× ${bm.fullName} (${bm.wp} Wp · ${bm.technology})</span>`).join('<br>') +
             `</td><td class="text-right">${m.numPanels} uds (${m.kwp.toFixed(2)} kWp)</td></tr>`
           : `<tr><td>Módulos Fotovoltaicos</td><td>${d.cfg.modelo} (${d.cfg.potencia} Wp · ${d.cfg.tecnologia})</td><td class="text-right">${m.numPanels} uds</td></tr>`
         }
@@ -1209,7 +1209,7 @@ function generatePropuestaComercialPDF(skipPricingModal) {
         <tr><th>Capítulo</th><th>Descripción</th><th class="text-right">Importe (€)</th></tr>
         ${(m.modulesBreakdown && m.modulesBreakdown.isMultiModule)
           ? `<tr><td>Cap. 1</td><td><strong>Módulos Solares Fotovoltaicos (${m.numPanels} uds en ${m.modulesBreakdown.uniqueModelsCount} modelos · ${m.kwp.toFixed(2)} kWp)</strong><br>` +
-            m.modulesBreakdown.byModel.map(bm => `<span style="font-size:9.5px;color:#475569;display:inline-block;margin-left:6px;">• ${bm.fullName} (${bm.wp} Wp): ${bm.count} uds × ${bm.unitPrice.toLocaleString('es-ES')} €</span>`).join('<br>') +
+            m.modulesBreakdown.byModel.map(bm => `<span style="font-size: 10px;color:#475569;display:inline-block;margin-left:6px;">• ${bm.fullName} (${bm.wp} Wp): ${bm.count} uds × ${bm.unitPrice.toLocaleString('es-ES')} €</span>`).join('<br>') +
             `</td><td class="text-right">${m.panCost.toLocaleString('es-ES')} €</td></tr>`
           : `<tr><td>Cap. 1</td><td>Módulos Solares Fotovoltaicos de Alta Eficiencia (${m.numPanels} uds × ${m.unitPanelPrice || 125} €)</td><td class="text-right">${m.panCost.toLocaleString('es-ES')} €</td></tr>`
         }
@@ -1243,7 +1243,7 @@ function generatePropuestaComercialPDF(skipPricingModal) {
         <tr style="background:${pal.light};font-weight:800;"><td>TOTAL AYUDAS</td><td>Ahorro fiscal total directo estimado</td><td class="text-right" style="color:${pal.primary}">- ${Math.round(m.totalAhorroFiscal).toLocaleString('es-ES')} €</td></tr>
         <tr class="total-row"><td>INVERSIÓN NETA</td><td>COSTE FINAL REAL TRAS BONIFICACIONES</td><td class="text-right" style="color:${pal.dark}">${Math.round(m.capexNeto).toLocaleString('es-ES')} €</td></tr>
       </table>
-      <p style="font-size:8.5px;color:#64748b;margin:4px 0 0 0;">Nota: bonificaciones y deducciones fiscales son estimaciones comerciales sujetas a vigencia normativa y ordenanzas municipales. Verificar con asesoría fiscal antes de incluirlas en contrato.</p>
+      <p style="font-size: 10px;color:#64748b;margin:4px 0 0 0;">Nota: bonificaciones y deducciones fiscales son estimaciones comerciales sujetas a vigencia normativa y ordenanzas municipales. Verificar con asesoría fiscal antes de incluirlas en contrato.</p>
     </div>
 
     <!-- PÁGINA 3: PRODUCCIÓN SOLAR, ANÁLISIS FINANCIERO Y GARANTÍAS -->
@@ -1296,7 +1296,7 @@ function generatePropuestaComercialPDF(skipPricingModal) {
         <div class="sig-card">
           <div class="sig-logo-box">
             ${logoDataUrl ? '<img src="' + logoDataUrl + '" style="max-height:36px;max-width:100px;object-fit:contain;">' : '<span style="font-size:20px;">🏢</span>'}
-            <div style="text-align:left;"><div style="font-weight:900;font-size:11px;">${companyName}</div>${companyCIF ? '<div style="font-size:9px;color:#64748b;">CIF: ' + companyCIF + '</div>' : ''}</div>
+            <div style="text-align:left;"><div style="font-weight:900;font-size:11px;">${companyName}</div>${companyCIF ? '<div style="font-size: 10px;color:#64748b;">CIF: ' + companyCIF + '</div>' : ''}</div>
           </div>
           Por la Empresa Instaladora<br><br>
           Firma y Sello: ________________________<br>

@@ -1006,7 +1006,7 @@ function renderAnalysisResults(r) {
       { name: 'PVsyst-Compatible (IEC 62548)', icon: '🔬', kwh: r.pvsyst ? r.pvsyst.annualKWh : null, pr: r.pvsyst ? r.pvsyst.PR : null, sigma: r.pvsyst ? r.pvsyst.sigma : null, ok: !!r.pvsyst }
     ];
 
-    let tableHTML = `<table style="width:100%;border-collapse:collapse;font-size:9.5px;margin:4px 0;">
+    let tableHTML = `<table style="width:100%;border-collapse:collapse;font-size: 10px;margin:4px 0;">
       <thead>
         <tr style="background:rgba(0,0,0,0.4);color:var(--text-slate-300);">
           <th style="padding:6px 8px;text-align:left;border-bottom:1px solid rgba(255,255,255,0.1);">Motor</th>
@@ -1319,49 +1319,49 @@ function renderGeometryAnalysis(r) {
   wrap.innerHTML =
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px;">' +
     '<div style="background:rgba(0,0,0,0.3);padding:6px 8px;border-radius:6px;">' +
-    '<div style="color:var(--text-slate-400);font-size:8px;">INCLINACIÓN CUBIERTA (normal)</div>' +
+    '<div style="color:var(--text-slate-400);font-size: 10px;">INCLINACIÓN CUBIERTA (normal)</div>' +
     '<b>' + tiltDeg.toFixed(1) + '°</b> · Normal n=(' + normal.x.toFixed(3) + ', ' + normal.y.toFixed(3) + ', ' + normal.z.toFixed(3) + ')' +
     '</div>' +
     '<div style="background:rgba(0,0,0,0.3);padding:6px 8px;border-radius:6px;">' +
-    '<div style="color:var(--text-slate-400);font-size:8px;">AZIMUT CUBIERTA (N=0 → E=90 → S=180 → O=270)</div>' +
+    '<div style="color:var(--text-slate-400);font-size: 10px;">AZIMUT CUBIERTA (N=0 → E=90 → S=180 → O=270)</div>' +
     '<b>' + azimuthN.toFixed(1) + '° (' + cardinal + ')</b>' +
     '</div>' +
     '<div style="background:rgba(0,0,0,0.3);padding:6px 8px;border-radius:6px;">' +
-    '<div style="color:var(--text-slate-400);font-size:8px;">MÓDULO INSTALADO · ' + orientLabel + '</div>' +
+    '<div style="color:var(--text-slate-400);font-size: 10px;">MÓDULO INSTALADO · ' + orientLabel + '</div>' +
     'Inclinación módulo <b>' + modTilt.toFixed(1) + '°</b>' +
     (roofInfo.coplanar ? ' <span style="color:#64748b">(coplanar)</span>' : ' <span style="color:#f59e0b">(estructura inclinada)</span>') +
     ' · Azimut módulo <b>' + roofInfo.moduleAzimuthDeg.toFixed(1) + '°</b> (Sur=0)<br>' +
     'Panel colocado: <b>' + modLen.toFixed(2) + ' m</b> (largo) × <b>' + (roofInfo.orientation === 'landscape' ? (panelConfig.largo || 2.1) : (panelConfig.ancho || 1.05)).toFixed(2) + ' m</b>' +
     '</div>' +
     '<div style="background:rgba(0,0,0,0.3);padding:6px 8px;border-radius:6px;">' +
-    '<div style="color:var(--text-slate-400);font-size:8px;">SOL 21-DIC 12h · vector unitario</div>' +
+    '<div style="color:var(--text-slate-400);font-size: 10px;">SOL 21-DIC 12h · vector unitario</div>' +
     'Altura <b>' + altWinter.toFixed(1) + '°</b> · Azimut <b>' + azWinter.toFixed(1) + '°</b><br>' +
     'S=(' + sunW.x.toFixed(3) + ', ' + sunW.y.toFixed(3) + ', ' + sunW.z.toFixed(3) + ')' +
     '</div>' +
     '<div style="background:rgba(0,0,0,0.3);padding:6px 8px;border-radius:6px;">' +
-    '<div style="color:var(--text-slate-400);font-size:8px;">INCIDENCIA · SOMBRA OBSTÁCULO 1,2 m</div>' +
+    '<div style="color:var(--text-slate-400);font-size: 10px;">INCIDENCIA · SOMBRA OBSTÁCULO 1,2 m</div>' +
     'cosΘ=' + inc.cosTheta.toFixed(3) + ' → <b>' + inc.thetaDeg.toFixed(1) + '°</b><br>' +
     'Longitud sombra: <b>' + obsShadow.toFixed(2) + ' m</b>' +
     '</div>' +
     '<div style="background:rgba(0,0,0,0.3);padding:6px 8px;border-radius:6px;grid-column:1/-1;">' +
-    '<div style="color:var(--text-slate-400);font-size:8px;">SEPARACIÓN ENTRE FILAS (§18 · solsticio invierno)</div>' +
+    '<div style="color:var(--text-slate-400);font-size: 10px;">SEPARACIÓN ENTRE FILAS (§18 · solsticio invierno)</div>' +
     'rowSpacing = L·cos(βm) + H/tan(α) + margen = <b>' + rs.toFixed(2) + ' m</b> (paso entre filas)<br>' +
     'Huella proyectada L·cos(Δβ) = <b>' + footprint.toFixed(2) + ' m</b> · Holgura entre filas = <b>' + gapRows.toFixed(2) + ' m</b>' +
     '</div>' +
     '<div style="background:rgba(0,0,0,0.3);padding:6px 8px;border-radius:6px;grid-column:1/-1;">' +
-    '<div style="color:var(--text-slate-400);font-size:8px;">ALGORITMO DE ORIENTACIÓN (§25/§26) · se elige la colocación más eficiente</div>' +
-    '<table style="width:100%;border-collapse:collapse;margin-top:4px;font-size:8.5px;">' +
+    '<div style="color:var(--text-slate-400);font-size: 10px;">ALGORITMO DE ORIENTACIÓN (§25/§26) · se elige la colocación más eficiente</div>' +
+    '<table style="width:100%;border-collapse:collapse;margin-top:4px;font-size: 10px;">' +
     '<tr style="color:var(--text-slate-400);"><td>Orientación</td><td style="text-align:right">Módulos</td><td style="text-align:right">Potencia</td><td style="text-align:right">Paso fila</td><td style="text-align:right">Huella</td></tr>' +
     layoutRows +
     '</table>' +
-    '<div style="margin-top:6px;color:var(--text-slate-400);font-size:8px;">' +
+    '<div style="margin-top:6px;color:var(--text-slate-400);font-size: 10px;">' +
     'Decisión: <b style="color:#10b981">' + orientLabel + '</b>' +
     (roofInfo.coplanar ? ' · coplanar con cubierta' : ' · estructura inclinada ' + modTilt.toFixed(1) + '°') +
     ' · Ray casting (obstáculo +X): módulo de prueba ' + (shaded ? '<b style="color:#f59e0b">SOMBREADO</b>' : '<b style="color:#10b981">SIN SOMBRA</b>') + '</div>' +
     '</div>' +
     '<div style="background:rgba(0,0,0,0.3);padding:6px 8px;border-radius:6px;grid-column:1/-1;">' +
-    '<div style="color:var(--text-slate-400);font-size:8px;">AUTO-TEST DEL MOTOR (§37 del documento)</div>' +
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 10px;margin-top:4px;font-size:8px;">' +
+    '<div style="color:var(--text-slate-400);font-size: 10px;">AUTO-TEST DEL MOTOR (§37 del documento)</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 10px;margin-top:4px;font-size: 10px;">' +
     selftestHtml +
     '</div>' +
     '</div>' +
@@ -1378,7 +1378,7 @@ function runEngineSelfTestsOnCard() {
     card.querySelectorAll('.selftest-row').forEach(el => el.remove());
     const div = document.createElement('div');
     div.className = 'selftest-row';
-    div.style.cssText = 'margin-top:6px;font-size:8px;color:' + (t.passed === t.total ? 'var(--emerald-500)' : '#f43f5e') + ';';
+    div.style.cssText = 'margin-top:6px;font-size: 10px;color:' + (t.passed === t.total ? 'var(--emerald-500)' : '#f43f5e') + ';';
     div.textContent = 'RESULTADO: ' + t.passed + '/' + t.total + ' TESTS SUPERADOS';
     card.appendChild(div);
   }
@@ -2001,9 +2001,6 @@ function wpRenderDynamicObstacleShadows(solarPos) {
     if (shadowEnt) {
       if (shadowEnt.polygon) {
         shadowEnt.polygon.hierarchy = new Cesium.PolygonHierarchy(pts);
-        if (!shadowEnt.polygon.depthFailMaterial) {
-          shadowEnt.polygon.depthFailMaterial = shadowMatObs;
-        }
       }
       shadowEnt.show = true;
     } else {
@@ -2012,7 +2009,6 @@ function wpRenderDynamicObstacleShadows(solarPos) {
         polygon: {
           hierarchy: new Cesium.PolygonHierarchy(pts),
           material: shadowMatObs,
-          depthFailMaterial: shadowMatObs,
           perPositionHeight: true,
           arcType: (typeof Cesium !== 'undefined' && Cesium.ArcType && Cesium.ArcType.NONE) ? Cesium.ArcType.NONE : undefined,
           zIndex: 15

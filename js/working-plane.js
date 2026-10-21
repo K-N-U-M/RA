@@ -2213,6 +2213,7 @@ function wpSetPlaneTilt(targetTiltDeg) {
   wpRenderActivePlaneGizmo();
   wpUpdateUI();
   if (typeof wpUpdateStep3UI === 'function') wpUpdateStep3UI();
+  if (typeof wpUpdateFaldonRowPitchUI === "function") wpUpdateFaldonRowPitchUI(polyIdx);
   if (typeof wpPopulateFaldonCard === 'function') wpPopulateFaldonCard();
   if (typeof step5RegenerateLayout === 'function') step5RegenerateLayout();
   if (typeof wpUpdateLayoutFastMetrics === 'function') wpUpdateLayoutFastMetrics();
@@ -2568,6 +2569,7 @@ function wpCloseActivePolyline() {
     planeIdx: WP.activePlaneIdx,
     points: pts,
     area: area,
+    alignToPlane: true,
     orientationPref: (typeof userPanelOrientationPref !== "undefined" ? userPanelOrientationPref : (window.userPanelOrientationPref || "portrait")),
     modTilt: "auto",
     modAzimuth: "auto",
@@ -2930,6 +2932,7 @@ function wpSelectPolyline(polyIdx) {
     WP.selectedPolyIdx = 0;
   } else {
     WP.selectedPolyIdx = polyIdx;
+  if (typeof wpUpdateFaldonRowPitchUI === "function") wpUpdateFaldonRowPitchUI(polyIdx);
   }
   WP.selectedVtxIdx = -1;
 
@@ -3413,6 +3416,7 @@ function wpCommitStampPolyline(targetPos3D) {
     panels: []
   };
 
+  if (typeof wpUpdateFaldonRowPitchUI === "function") wpUpdateFaldonRowPitchUI(polyIdx);
   if (typeof computeSinglePolylineRoofInfo === 'function') {
     try {
       newPolyObj.roofInfo = computeSinglePolylineRoofInfo(newPolyObj.points, newPolyObj);
@@ -3873,7 +3877,7 @@ function wpUpdateLayoutFastMetrics() {
     if (cardModLbl && poly && poly.roofInfo && Array.isArray(poly.roofInfo.panels)) {
       const c = poly.roofInfo.panels.length;
       const kw = (c * wpGetPolyWp(poly) / 1000).toFixed(2);
-      cardModLbl.innerHTML = c + ' mods <span style="font-size:8px;color:var(--amber-400);margin-left:4px;">· ' + kw + ' kWp</span>';
+      cardModLbl.innerHTML = c + ' mods <span style="font-size: 10px;color:var(--amber-400);margin-left:4px;">· ' + kw + ' kWp</span>';
     }
   }
 
@@ -4003,7 +4007,7 @@ function wpPopulateFaldonCard() {
   }
   var kwp = (modCount * polyModWp / 1000).toFixed(2);
   var statsEl = document.getElementById('faldon-card-stats');
-  if (statsEl) statsEl.innerHTML = modCount + ' mods <span style="font-size:8px;color:var(--amber-400);margin-left:4px;">· ' + kwp + ' kWp</span>';
+  if (statsEl) statsEl.innerHTML = modCount + ' mods <span style="font-size: 10px;color:var(--amber-400);margin-left:4px;">· ' + kwp + ' kWp</span>';
 
   // ── Selector de módulo FV ──
   var modSelect = document.getElementById('faldon-module-select');
@@ -4026,7 +4030,24 @@ function wpPopulateFaldonCard() {
     if (isPerg) {
       var hInput = document.getElementById('faldon-pergola-h');
       if (hInput) hInput.value = (poly.estructura && poly.estructura.clearance) ? poly.estructura.clearance : 1.80;
+      var subSel = document.getElementById('faldon-pergola-subtype');
+      if (subSel) subSel.value = poly.pergolaSubtype || (poly.estructura && poly.estructura.subtype) || 'continuous';
     }
+  }
+
+  var ballastRow = document.getElementById('faldon-ballast-row');
+  if (ballastRow) {
+    var isBallast = (effStruct === 'ballast_blocks' || (poly.estructura && poly.estructura.tipo === 'balasto_bloques'));
+    ballastRow.style.display = isBallast ? 'flex' : 'none';
+    if (isBallast) {
+      var bCountSel = document.getElementById('faldon-ballast-blocks-count');
+      if (bCountSel) bCountSel.value = poly.blocksPerPanel || (poly.estructura && poly.estructura.blocksPerPanel) || 2;
+    }
+  }
+
+  var tiltNum = document.getElementById('faldon-tilt-num');
+  if (tiltNum) {
+    tiltNum.value = (poly.modTilt !== undefined && poly.modTilt !== null && poly.modTilt !== 'auto') ? poly.modTilt : '';
   }
 
   var structMfgSelect = document.getElementById('faldon-structure-mfg-select');
@@ -4067,6 +4088,25 @@ function wpPopulateFaldonCard() {
     legendEl.innerHTML = '<span>' + leftTxt + '</span><span style="color:' + rightColor + ';font-weight:bold;">' + rightTxt + '</span>';
   }
 
+  // ── Alineación con Plano CAD vs Aristas ──
+  var alignBtn = document.getElementById("faldon-align-plane-btn");
+  if (alignBtn) {
+    var isAlignPlane = (poly.alignToPlane !== false);
+    if (isAlignPlane) {
+      alignBtn.textContent = "🔒 PLANO CAD (P1→P2)";
+      alignBtn.style.color = "#38BDF8";
+      alignBtn.style.borderColor = "rgba(56,189,248,0.35)";
+      alignBtn.style.background = "rgba(56,189,248,0.15)";
+      alignBtn.title = "Rejilla acoplada estrictamente al eje P1->P2 del Plano de Trabajo (clic para cambiar a auto-aristas)";
+    } else {
+      alignBtn.textContent = (poly.arrangementMode === 'custom') ? "📐 AJUSTE LIBRE (MANUAL)" : "📐 AUTO-ARISTAS";
+      alignBtn.style.color = "#F59E0B";
+      alignBtn.style.borderColor = "rgba(245,158,11,0.35)";
+      alignBtn.style.background = "rgba(245,158,11,0.15)";
+      alignBtn.title = (poly.arrangementMode === 'custom') ? "Orientación manual libre (clic para volver a fijar a Plano CAD)" : "Rejilla optimizada según la arista más favorable del faldón (clic para fijar a Plano CAD)";
+    }
+  }
+
   // ── Orientación y Comparador Vertical vs Horizontal ──
   var orient = poly.orientationPref || (typeof userPanelOrientationPref !== 'undefined' ? userPanelOrientationPref : 'portrait');
   var comp = (typeof wpGetFaldonOrientationComparison === 'function') ? wpGetFaldonOrientationComparison(poly) : null;
@@ -4102,7 +4142,7 @@ function wpPopulateFaldonCard() {
     }
   }
 
-  var isCoplanarPoly = (!poly.estructura || poly.estructura.tipo === 'coplanar') && (poly.modTilt === 'coplanar' || poly.modTilt === 0 || poly.modTilt === 'auto');
+  var isCoplanarPoly = (!poly.estructura || poly.estructura.tipo === 'coplanar' || (typeof poly.estructura.tipo === 'string' && poly.estructura.tipo.startsWith('coplanar')) || poly.structureType === 'coplanar_teja' || poly.structureType === 'coplanar_chapa') && (poly.modTilt === 'coplanar' || poly.modTilt === 0 || poly.modTilt === 'auto');
   var hBtn = document.getElementById('faldon-orient-hybrid');
   if (hBtn) {
     if (!isCoplanarPoly) {
@@ -4159,6 +4199,8 @@ function wpPopulateFaldonCard() {
   // Refrescar iconos Lucide
   if (window.lucide) try { lucide.createIcons(); } catch(_) {}
 }
+
+  if (typeof wpUpdateFaldonRowPitchUI === "function") wpUpdateFaldonRowPitchUI(WP.selectedPolyIdx);
 window.wpPopulateFaldonCard = wpPopulateFaldonCard;
 
 // ─────────────────────────────────────────────────────────────────
@@ -4291,12 +4333,14 @@ function wpApplyPanelArrangement(polyIdx, mode) {
   poly.arrangementMode = mode;
 
   if (mode === 'coplanar') {
+    poly.alignToPlane = true;
     poly.modTilt = 'auto';
     poly.modAzimuth = 'auto';
     if (!poly.estructura) poly.estructura = { tipo: 'coplanar', clearance: 0 };
     if (poly.estructura.tipo !== 'pergola') poly.estructura.tipo = 'coplanar';
     if (!poly.structureType || poly.structureType.includes('triangle')) poly.structureType = 'coplanar_teja';
   } else if (mode === 'solar_optimal') {
+    poly.alignToPlane = true;
     if (!poly.estructura) poly.estructura = { tipo: 'balasto', clearance: 0.20 };
     if (poly.estructura.tipo === 'coplanar') poly.estructura.tipo = 'balasto';
     if (!poly.structureType || !poly.structureType.includes('triangle')) poly.structureType = 'triangles_30';
@@ -4313,6 +4357,7 @@ function wpApplyPanelArrangement(polyIdx, mode) {
       poly.modAzimuth = 180; // Sur estricto
     }
   } else if (mode === 'custom') {
+    poly.alignToPlane = false; // Opción 1: Libertad total de orientación en modo manual
     if (!poly.estructura) poly.estructura = { tipo: 'balasto', clearance: 0.20 };
     if (poly.estructura.tipo === 'coplanar') poly.estructura.tipo = 'balasto';
     if (!poly.structureType || !poly.structureType.includes('triangle')) poly.structureType = 'triangles_30';
@@ -4362,6 +4407,7 @@ function wpApplyPanelArrangementToAll(sourcePolyIdx) {
     poly.arrangementMode = mode;
     poly.modTilt = tilt;
     poly.modAzimuth = az;
+    poly.alignToPlane = (mode !== 'custom');
     if (typeof computeSinglePolylineRoofInfo === 'function') {
       poly.roofInfo = computeSinglePolylineRoofInfo(poly.points, poly);
     }
@@ -4396,6 +4442,9 @@ function wpSetPolyAzimuthRealtime(polyIdx, val) {
   if (!WP.polylines || !WP.polylines[polyIdx]) return;
   WP.polylines[polyIdx].modAzimuth = val;
   WP.polylines[polyIdx].arrangementMode = (val === "auto" || val === "") ? 'coplanar' : 'custom';
+  if (val !== "auto" && val !== "") {
+    WP.polylines[polyIdx].alignToPlane = false;
+  }
   WP.selectedPolyIdx = polyIdx;
 
   const lbl = document.getElementById("faldon-az-val");
@@ -4420,7 +4469,7 @@ function wpSetPolyAzimuthRealtime(polyIdx, val) {
       if (cardModLbl && poly && poly.roofInfo && poly.roofInfo.panels) {
         const c = poly.roofInfo.panels.length;
         const kw = (c * wpGetPolyWp(poly) / 1000).toFixed(2);
-        cardModLbl.innerHTML = c + ' mods <span style="font-size:8px;color:var(--amber-400);margin-left:4px;">· ' + kw + ' kWp</span>';
+        cardModLbl.innerHTML = c + ' mods <span style="font-size: 10px;color:var(--amber-400);margin-left:4px;">· ' + kw + ' kWp</span>';
       }
       if (typeof wpUpdateLayoutFastMetrics === "function") wpUpdateLayoutFastMetrics();
       if (typeof wpSyncStep6Controls === "function") wpSyncStep6Controls();
@@ -4437,7 +4486,7 @@ function wpSetPolyAzimuthRealtime(polyIdx, val) {
     if (cardModLbl && poly && poly.roofInfo && poly.roofInfo.panels) {
       const c = poly.roofInfo.panels.length;
       const kw = (c * wpGetPolyWp(poly) / 1000).toFixed(2);
-      cardModLbl.innerHTML = c + ' mods <span style="font-size:8px;color:var(--amber-400);margin-left:4px;">· ' + kw + ' kWp</span>';
+      cardModLbl.innerHTML = c + ' mods <span style="font-size: 10px;color:var(--amber-400);margin-left:4px;">· ' + kw + ' kWp</span>';
     }
     if (typeof wpUpdateLayoutFastMetrics === "function") wpUpdateLayoutFastMetrics();
     if (typeof wpSyncStep6Controls === "function") wpSyncStep6Controls();
@@ -4478,6 +4527,30 @@ function wpSetPolyOrientation(polyIdx, orientation) {
   if (typeof wpPopulateFaldonCard === 'function') wpPopulateFaldonCard();
 }
 
+function wpTogglePolyPlaneAlignment(polyIdx) {
+  if (!WP.polylines || !WP.polylines[polyIdx]) return;
+  var poly = WP.polylines[polyIdx];
+  poly.alignToPlane = (poly.alignToPlane === undefined) ? false : !poly.alignToPlane;
+  if (typeof roofPanelsCache !== "undefined" && roofPanelsCache) {
+    roofPanelsCache.sig = "";
+    roofPanelsCache.data = null;
+  }
+  poly._calcSig = null;
+  poly.roofInfo = null;
+  if (typeof computeSinglePolylineRoofInfo === "function") {
+    poly.roofInfo = computeSinglePolylineRoofInfo(poly.points, poly);
+  }
+  if (typeof window.wpInvalidateHeatmap === "function") {
+    window.wpInvalidateHeatmap("Alineación de rejilla con plano de trabajo conmutada");
+  }
+  if (typeof wpFastRenderSimulatedPanels === "function") wpFastRenderSimulatedPanels();
+  if (typeof wpUpdateStep3UI === "function") wpUpdateStep3UI();
+  if (typeof wpPopulateFaldonCard === "function") wpPopulateFaldonCard();
+  var isPlane = (poly.alignToPlane !== false);
+  showStatus("ALINEACIÓN DE REJILLA: " + (isPlane ? "PLANO CAD (P1→P2)" : "ARISTA DE CUBIERTA"), 2000);
+}
+window.wpTogglePolyPlaneAlignment = wpTogglePolyPlaneAlignment;
+
 function wpGetFaldonOrientationComparison(poly) {
   if (!poly || !poly.points || poly.points.length < 3) return null;
   var fnInfo = (typeof computeSinglePolylineRoofInfo === 'function')
@@ -4510,7 +4583,7 @@ function wpGetFaldonOrientationComparison(poly) {
     var infoL = fnInfo(poly.points, optL);
     var countL = (infoL && infoL.panels) ? infoL.panels.length : 0;
 
-    var isCoplanar = (!poly.estructura || poly.estructura.tipo === 'coplanar') && (poly.modTilt === 'coplanar' || parseFloat(poly.modTilt) === 0 || poly.modTilt === 'auto' || !poly.modTilt);
+    var isCoplanar = (!poly.estructura || poly.estructura.tipo === 'coplanar' || (typeof poly.estructura.tipo === 'string' && poly.estructura.tipo.startsWith('coplanar')) || poly.structureType === 'coplanar_teja' || poly.structureType === 'coplanar_chapa') && (poly.modTilt === 'coplanar' || parseFloat(poly.modTilt) === 0 || poly.modTilt === 'auto' || !poly.modTilt);
     var countH = 0;
     if (isCoplanar) {
       var optH = Object.assign({}, poly, { orientationPref: 'hybrid' });
@@ -4625,7 +4698,10 @@ function wpSetPolyTiltRealtime(polyIdx, val) {
   WP.selectedPolyIdx = polyIdx;
 
   const lbl = document.getElementById("faldon-tilt-val");
-  if (lbl) lbl.textContent = (val === "auto" || val === "") ? "Auto (faldón)" : (val + "°");
+  
+  const numInput = document.getElementById("faldon-tilt-num");
+  if (numInput && val !== "auto") numInput.value = val;
+if (lbl) lbl.textContent = (val === "auto" || val === "") ? "Auto (faldón)" : (val + "°");
 
   const slider = document.getElementById("faldon-tilt-slider");
   if (slider && val !== "auto") slider.value = val;
@@ -4669,7 +4745,7 @@ function wpSetPolyTiltRealtime(polyIdx, val) {
       if (cardModLbl && poly && poly.roofInfo && poly.roofInfo.panels) {
         const c = poly.roofInfo.panels.length;
         const kw = (c * wpGetPolyWp(poly) / 1000).toFixed(2);
-        cardModLbl.innerHTML = c + ' mods <span style="font-size:8px;color:var(--amber-400);margin-left:4px;">· ' + kw + ' kWp</span>';
+        cardModLbl.innerHTML = c + ' mods <span style="font-size: 10px;color:var(--amber-400);margin-left:4px;">· ' + kw + ' kWp</span>';
       }
       if (typeof wpUpdateLayoutFastMetrics === "function") wpUpdateLayoutFastMetrics();
       if (typeof wpSyncStep6Controls === "function") wpSyncStep6Controls();
@@ -4707,14 +4783,29 @@ function wpSetPolyStructure(polyIdx, val) {
   const isTriCustom = (val === 'triangles_custom');
   const isTri = isTri30 || isTri15EW || isTriCustom || val.includes('triangle');
   const isPergola = (val === 'pergola');
-  const isCoplanar = !isTri && !isPergola;
+  const isBallastBlocks = (val === 'ballast_blocks');
+  const isCoplanar = !isTri && !isPergola && !isBallastBlocks;
 
   if (isPergola) {
     const curH = (poly.estructura && poly.estructura.clearance > 0) ? poly.estructura.clearance : 1.80;
-    poly.estructura = { tipo: 'pergola', clearance: curH };
+    const curSub = poly.pergolaSubtype || (poly.estructura && poly.estructura.subtype) || 'continuous';
+    poly.estructura = { tipo: 'pergola', clearance: curH, subtype: curSub };
+    poly.pergolaSubtype = curSub;
     poly.structureType = 'pergola';
     if (poly.modTilt === undefined || poly.modTilt === null) poly.modTilt = 'auto';
     if (poly.modAzimuth === undefined) poly.modAzimuth = 'auto';
+  } else if (isBallastBlocks) {
+    const curTilt = (typeof poly.modTilt === 'number' && poly.modTilt > 0) ? poly.modTilt : 10;
+    poly.estructura = {
+      tipo: 'balasto_bloques',
+      clearance: 0.10,
+      subtype: 'concrete_blocks',
+      blocksPerPanel: poly.blocksPerPanel || 2
+    };
+    poly.structureType = 'ballast_blocks';
+    poly.arrangementMode = 'custom';
+    poly.modTilt = curTilt;
+    if (poly.modAzimuth === 'auto' || poly.modAzimuth === undefined) poly.modAzimuth = 180;
   } else if (isCoplanar) {
     poly.estructura = { tipo: 'coplanar', clearance: 0.05 };
     poly.arrangementMode = 'coplanar';
@@ -4726,27 +4817,38 @@ function wpSetPolyStructure(polyIdx, val) {
     poly.modTilt = 15;
     poly.modAzimuth = 90;
   } else if (isTriCustom) {
-    // Triángulos con ángulo adaptable: preserva la inclinación elegida o usa el valor actual del slider
+    // Triangulos con angulo adaptable
     const currentTilt = (typeof poly.modTilt === 'number' && poly.modTilt > 0) ? poly.modTilt : 20;
     poly.estructura = { tipo: 'balasto', clearance: 0.25, subtype: 'custom_tilt' };
     poly.arrangementMode = 'custom';
     poly.modTilt = currentTilt;
     if (poly.modAzimuth === 'auto' || poly.modAzimuth === undefined) poly.modAzimuth = 180;
   } else {
-    // Triángulos 30º Cubierta Plana
+    // Triangulos 30 Cubierta Plana
     poly.estructura = { tipo: 'balasto', clearance: 0.25, subtype: 'south' };
     poly.arrangementMode = 'solar_optimal';
     poly.modTilt = 30;
     poly.modAzimuth = 180;
   }
 
-  // Sincronizar UI de altura de pérgola en el panel de faldón
+  // Sincronizar UI de altura de pergola y bloques de lastre
   const pergolaRow = document.getElementById('faldon-pergola-row');
   if (pergolaRow) {
     pergolaRow.style.display = isPergola ? 'flex' : 'none';
     if (isPergola) {
       const hInput = document.getElementById('faldon-pergola-h');
       if (hInput) hInput.value = (poly.estructura && poly.estructura.clearance) ? poly.estructura.clearance : 1.80;
+      const subSel = document.getElementById('faldon-pergola-subtype');
+      if (subSel) subSel.value = poly.pergolaSubtype || (poly.estructura && poly.estructura.subtype) || 'continuous';
+    }
+  }
+
+  const ballastRow = document.getElementById('faldon-ballast-row');
+  if (ballastRow) {
+    ballastRow.style.display = isBallastBlocks ? 'flex' : 'none';
+    if (isBallastBlocks) {
+      const bCountSel = document.getElementById('faldon-ballast-blocks-count');
+      if (bCountSel) bCountSel.value = poly.blocksPerPanel || 2;
     }
   }
 
@@ -4820,6 +4922,43 @@ function wpSetPolyPergolaHeight(polyIdx, val) {
   if (typeof showToast === 'function') showToast('PÉRGOLA ELEVADA', `Altura libre actualizada a ${h.toFixed(2)} m.`, 'info', 2000);
 }
 window.wpSetPolyPergolaHeight = wpSetPolyPergolaHeight;
+
+function wpSetPolyPergolaSubtype(polyIdx, val) {
+  if (polyIdx === undefined || polyIdx === null) polyIdx = (typeof WP !== 'undefined') ? WP.selectedPolyIdx : 0;
+  if (!WP.polylines || !WP.polylines[polyIdx]) return;
+  const poly = WP.polylines[polyIdx];
+  const sub = (val === 'spaced_rows') ? 'spaced_rows' : 'continuous';
+  if (!poly.estructura) poly.estructura = { tipo: 'pergola', clearance: 1.80, subtype: sub };
+  else {
+    poly.estructura.tipo = 'pergola';
+    poly.estructura.subtype = sub;
+  }
+  poly.pergolaSubtype = sub;
+
+  const sel = document.getElementById('faldon-pergola-subtype');
+  if (sel) sel.value = sub;
+
+  if (typeof roofPanelsCache !== 'undefined' && roofPanelsCache) {
+    roofPanelsCache.sig = '';
+    roofPanelsCache.data = null;
+  }
+  if (typeof computeSinglePolylineRoofInfo === 'function') {
+    poly.roofInfo = computeSinglePolylineRoofInfo(poly.points, poly);
+  }
+  if (typeof window.wpInvalidateHeatmap === 'function') {
+    window.wpInvalidateHeatmap('Tipo de cubierta de pérgola modificada');
+  }
+  if (typeof wpFastRenderSimulatedPanels === 'function') {
+    wpFastRenderSimulatedPanels();
+  }
+  if (typeof wpUpdateLayoutFastMetrics === 'function') wpUpdateLayoutFastMetrics();
+  if (typeof wpUpdateFaldonRowPitchUI === 'function') wpUpdateFaldonRowPitchUI(polyIdx);
+  if (typeof showToast === 'function') {
+    const lbl = (sub === 'spaced_rows') ? 'Filas independientes con pasillo' : 'Tejadillo continuo';
+    showToast('PÉRGOLA', `Tipo de cubierta: ${lbl}`, 'info', 2000);
+  }
+}
+window.wpSetPolyPergolaSubtype = wpSetPolyPergolaSubtype;
 
 function wpApplyPolyStructureToAll(sourcePolyIdx) {
   if (!WP.polylines || !WP.polylines[sourcePolyIdx]) return;
@@ -5144,12 +5283,12 @@ function wpUpdateUI() {
       vtxManagerContainer.style.display = 'block';
       const rows = selectedPoly.points.map((pt, vi) => {
         const isSel = vi === WP.selectedVtxIdx;
-        return '<div onclick="wpSelectVertex(' + vi + ')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:4px 8px;background:' + (isSel ? 'rgba(56,189,248,0.25)' : 'rgba(0,0,0,0.3)') + ';border-radius:4px;border:1px solid ' + (isSel ? '#38bdf8' : 'rgba(255,255,255,0.06)') + ';font-size:9px;transition:all 0.15s;">' +
+        return '<div onclick="wpSelectVertex(' + vi + ')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:4px 8px;background:' + (isSel ? 'rgba(56,189,248,0.25)' : 'rgba(0,0,0,0.3)') + ';border-radius:4px;border:1px solid ' + (isSel ? '#38bdf8' : 'rgba(255,255,255,0.06)') + ';font-size: 10px;transition:all 0.15s;">' +
           '<div style="display:flex;align-items:center;gap:6px;">' +
-            '<span style="display:inline-block;width:14px;height:14px;line-height:14px;text-align:center;border-radius:3px;background:' + (isSel ? '#38bdf8' : 'rgba(255,255,255,0.15)') + ';color:' + (isSel ? '#0f172a' : '#fff') + ';font-weight:bold;font-size:8px;">' + (vi + 1) + '</span>' +
+            '<span style="display:inline-block;width:14px;height:14px;line-height:14px;text-align:center;border-radius:3px;background:' + (isSel ? '#38bdf8' : 'rgba(255,255,255,0.15)') + ';color:' + (isSel ? '#0f172a' : '#fff') + ';font-weight:bold;font-size: 10px;">' + (vi + 1) + '</span>' +
             '<span style="color:' + (isSel ? '#38bdf8' : '#e2e8f0') + ';font-weight:bold;">Vértice ' + (vi + 1) + '</span>' +
           '</div>' +
-          '<div style="font-family:monospace;font-size:8px;color:var(--text-slate-300);">' +
+          '<div style="font-family:monospace;font-size: 10px;color:var(--text-slate-300);">' +
             'X: ' + pt.x.toFixed(1) + ' | Y: ' + pt.y.toFixed(1) + ' | Z: ' + pt.z.toFixed(1) +
           '</div>' +
         '</div>';
@@ -5179,13 +5318,13 @@ function wpUpdateUI() {
   const report = document.getElementById('wp-polyline-list-report');
   if (report) {
     if (WP.polylines.length === 0) {
-      report.innerHTML = '<div style="font-size:8.5px;color:var(--text-slate-400);padding:4px 0;">Sin polilíneas cerradas en esta sesión.</div>';
+      report.innerHTML = '<div style="font-size: 10px;color:var(--text-slate-400);padding:4px 0;">Sin polilíneas cerradas en esta sesión.</div>';
     } else {
       const totalArea = WP.polylines.reduce((s, p) => s + p.area, 0);
       const rows = WP.polylines.map((poly, i) => {
         const isSel = i === WP.selectedPolyIdx;
         const strColor = getPolylineStringColor(i);
-        return '<div onclick="wpSelectPolyline(' + i + ')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:5px 8px;background:' + (isSel ? 'rgba(56,189,248,0.22)' : 'rgba(0,0,0,0.25)') + ';border-radius:5px;margin-bottom:3px;font-size:8.5px;border:1px solid ' + (isSel ? '#38BDF8' : 'rgba(255,255,255,0.06)') + ';transition:all 0.15s ease;">' +
+        return '<div onclick="wpSelectPolyline(' + i + ')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:5px 8px;background:' + (isSel ? 'rgba(56,189,248,0.22)' : 'rgba(0,0,0,0.25)') + ';border-radius:5px;margin-bottom:3px;font-size: 10px;border:1px solid ' + (isSel ? '#38BDF8' : 'rgba(255,255,255,0.06)') + ';transition:all 0.15s ease;">' +
           '<div style="display:flex;align-items:center;gap:6px;">' +
             '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + strColor + ';box-shadow:0 0 5px ' + strColor + ';"></span>' +
             '<span style="color:' + (isSel ? '#38BDF8' : '#fff') + ';font-weight:bold;">' + (isSel ? '<i data-lucide=\"star\" class=\"icon-sm\"></i> ' : '') + poly.name + '</span>' +
@@ -5194,7 +5333,7 @@ function wpUpdateUI() {
         '</div>';
       }).join('');
       report.innerHTML =
-        '<div style="margin-top:4px;padding:5px 8px;background:rgba(56,189,248,0.12);border-radius:6px;border:1px solid rgba(56,189,248,0.3);font-size:8.5px;color:#38BDF8;font-weight:bold;display:flex;justify-content:space-between;align-items:center;">' +
+        '<div style="margin-top:4px;padding:5px 8px;background:rgba(56,189,248,0.12);border-radius:6px;border:1px solid rgba(56,189,248,0.3);font-size: 10px;color:#38BDF8;font-weight:bold;display:flex;justify-content:space-between;align-items:center;">' +
           '<span>' + WP.polylines.length + ' FALDÓN' + (WP.polylines.length === 1 ? '' : 'ES') + ' · CLIC PARA ENFOCAR</span>' +
           '<span>' + totalArea.toFixed(1) + ' m² TOTAL</span>' +
         '</div>' +
@@ -5624,16 +5763,16 @@ function populateEquipmentModalUI() {
     modTable.innerHTML = equipmentCatalog.modules.map((m, idx) => {
       const isCurrent = panelConfig && panelConfig.modelo && panelConfig.modelo.includes(m.model);
       const isCustom = idx >= 7;
-      let delBtn = isCustom ? ('<button class="doc-mini-btn" onclick="deleteCatalogItem(\'modules\',\'' + m.id + '\')" style="padding:4px 6px;font-size:9px;color:var(--rose-500);"><i data-lucide=\"x\" class=\"icon-sm\"></i></button>') : '';
+      let delBtn = isCustom ? ('<button class="doc-mini-btn" onclick="deleteCatalogItem(\'modules\',\'' + m.id + '\')" style="padding:4px 6px;font-size: 10px;color:var(--rose-500);"><i data-lucide=\"x\" class=\"icon-sm\"></i></button>') : '';
       return '<tr style="border-bottom:1px solid rgba(255,255,255,0.06);' + (isCurrent ? 'background:rgba(245,158,11,0.1);' : '') + '">' +
-        '<td style="padding:8px 10px;"><b>' + m.brand + '</b> ' + m.model + (isCurrent ? ' <span style="color:var(--amber-400);font-size:9px;">[ACTIVO]</span>' : '') + '</td>' +
+        '<td style="padding:8px 10px;"><b>' + m.brand + '</b> ' + m.model + (isCurrent ? ' <span style="color:var(--amber-400);font-size: 10px;">[ACTIVO]</span>' : '') + '</td>' +
         '<td style="padding:8px 10px;text-align:center;"><span style="color:var(--emerald-400);font-weight:bold;">' + m.wp + ' Wp</span></td>' +
         '<td style="padding:8px 10px;text-align:center;">' + m.eff + ' %</td>' +
         '<td style="padding:8px 10px;text-align:center;font-family:monospace;">' + m.l.toFixed(2) + ' × ' + m.w.toFixed(2) + ' m</td>' +
         '<td style="padding:8px 10px;text-align:center;color:var(--amber-400);font-weight:bold;">' + m.price + ' €</td>' +
         '<td style="padding:8px 10px;text-align:right;">' +
-          '<button class="doc-mini-btn" onclick="openEditEquipmentModal(\'modules\', \'' + m.id + '\')" style="padding:4px 8px;font-size:9px;border-color:var(--sky-400);color:var(--sky-400);margin-right:4px;"><i data-lucide=\"edit-2\" class=\"icon-sm\"></i> EDITAR</button>' +
-            '<button class="doc-mini-btn" onclick="onSelectModuleFromDropdown(\'' + m.id + '\');closeEquipmentCatalogModal();" style="padding:4px 8px;font-size:9px;border-color:var(--emerald-400);color:var(--emerald-400);margin-right:4px;">SELECCIONAR</button>' +
+          '<button class="doc-mini-btn" onclick="openEditEquipmentModal(\'modules\', \'' + m.id + '\')" style="padding:4px 8px;font-size: 10px;border-color:var(--sky-400);color:var(--sky-400);margin-right:4px;"><i data-lucide=\"edit-2\" class=\"icon-sm\"></i> EDITAR</button>' +
+            '<button class="doc-mini-btn" onclick="onSelectModuleFromDropdown(\'' + m.id + '\');closeEquipmentCatalogModal();" style="padding:4px 8px;font-size: 10px;border-color:var(--emerald-400);color:var(--emerald-400);margin-right:4px;">SELECCIONAR</button>' +
           delBtn +
         '</td>' +
       '</tr>';
@@ -5645,23 +5784,23 @@ function populateEquipmentModalUI() {
   if (invTable) {
     invTable.innerHTML = equipmentCatalog.inverters.map((inv, idx) => {
       const isCustom = idx >= 5;
-      let delBtn = isCustom ? ('<button class="doc-mini-btn" onclick="deleteCatalogItem(\'inverters\',\'' + inv.id + '\')" style="padding:4px 6px;font-size:9px;color:var(--rose-500);"><i data-lucide=\"x\" class=\"icon-sm\"></i></button>') : '';
+      let delBtn = isCustom ? ('<button class="doc-mini-btn" onclick="deleteCatalogItem(\'inverters\',\'' + inv.id + '\')" style="padding:4px 6px;font-size: 10px;color:var(--rose-500);"><i data-lucide=\"x\" class=\"icon-sm\"></i></button>') : '';
       const inputs = inv.inputsPerMppt || 1;
       const vMin = inv.vMpptMin || inv.vMpptNomMin || 160;
       const vMax = inv.vMpptMax || inv.vMpptNomMax || 850;
       const iOper = (inv.iMaxOperA || (inv.iMaxScA ? Math.round(inv.iMaxScA * 0.75 * 10) / 10 : 15.0)).toFixed(1);
       const iSc = (inv.iMaxScA || 25.0).toFixed(1);
 
-      return '<tr style="border-bottom:1px solid rgba(255,255,255,0.06);font-size:9.5px;">' +
-        '<td style="padding:6px 8px;"><b>' + inv.brand + '</b> ' + inv.model + '<br><span style="font-size:8px;color:var(--text-slate-400);">' + (inv.type || 'Híbrido') + '</span></td>' +
+      return '<tr style="border-bottom:1px solid rgba(255,255,255,0.06);font-size: 10px;">' +
+        '<td style="padding:6px 8px;"><b>' + inv.brand + '</b> ' + inv.model + '<br><span style="font-size: 10px;color:var(--text-slate-400);">' + (inv.type || 'Híbrido') + '</span></td>' +
         '<td style="padding:6px 8px;text-align:center;"><span style="color:var(--blue-400);font-weight:bold;">' + inv.kw + ' kW</span></td>' +
-        '<td style="padding:6px 8px;text-align:center;">' + inv.mppt + ' MPPT <span style="font-size:8px;color:var(--emerald-400);">(' + inputs + ' str/mppt)</span></td>' +
-        '<td style="padding:6px 8px;text-align:center;font-family:monospace;font-size:9px;">' + (inv.vDcMax || 1000) + 'V <span style="color:var(--text-slate-400);">(' + vMin + '-' + vMax + 'V)</span></td>' +
-        '<td style="padding:6px 8px;text-align:center;font-family:monospace;font-size:9px;"><b style="color:var(--amber-400);">' + iOper + 'A</b> / <span style="color:var(--emerald-400);">' + iSc + 'A</span></td>' +
+        '<td style="padding:6px 8px;text-align:center;">' + inv.mppt + ' MPPT <span style="font-size: 10px;color:var(--emerald-400);">(' + inputs + ' str/mppt)</span></td>' +
+        '<td style="padding:6px 8px;text-align:center;font-family:monospace;font-size: 10px;">' + (inv.vDcMax || 1000) + 'V <span style="color:var(--text-slate-400);">(' + vMin + '-' + vMax + 'V)</span></td>' +
+        '<td style="padding:6px 8px;text-align:center;font-family:monospace;font-size: 10px;"><b style="color:var(--amber-400);">' + iOper + 'A</b> / <span style="color:var(--emerald-400);">' + iSc + 'A</span></td>' +
         '<td style="padding:6px 8px;text-align:center;color:var(--amber-400);font-weight:bold;">' + inv.price + ' €</td>' +
         '<td style="padding:6px 8px;text-align:right;">' +
-          '<button class="doc-mini-btn" onclick="openEditEquipmentModal(\'inverters\', \'' + inv.id + '\')" style="padding:3px 6px;font-size:8.5px;border-color:var(--sky-400);color:var(--sky-400);margin-right:3px;"><i data-lucide=\"edit-2\" class=\"icon-sm\"></i> EDITAR</button>' +
-          '<button class="doc-mini-btn" onclick="applyInverterFromCatalog(\'' + inv.id + '\');closeEquipmentCatalogModal();" style="padding:3px 6px;font-size:8.5px;border-color:var(--blue-400);color:var(--blue-400);margin-right:3px;">APLICAR</button>' +
+          '<button class="doc-mini-btn" onclick="openEditEquipmentModal(\'inverters\', \'' + inv.id + '\')" style="padding:3px 6px;font-size: 10px;border-color:var(--sky-400);color:var(--sky-400);margin-right:3px;"><i data-lucide=\"edit-2\" class=\"icon-sm\"></i> EDITAR</button>' +
+          '<button class="doc-mini-btn" onclick="applyInverterFromCatalog(\'' + inv.id + '\');closeEquipmentCatalogModal();" style="padding:3px 6px;font-size: 10px;border-color:var(--blue-400);color:var(--blue-400);margin-right:3px;">APLICAR</button>' +
           delBtn +
         '</td>' +
       '</tr>';
@@ -5673,15 +5812,15 @@ function populateEquipmentModalUI() {
   if (batTable) {
     batTable.innerHTML = equipmentCatalog.batteries.map((bat, idx) => {
       const isCustom = idx >= 6;
-      let delBtn = isCustom ? ('<button class="doc-mini-btn" onclick="deleteCatalogItem(\'batteries\',\'' + bat.id + '\')" style="padding:4px 6px;font-size:9px;color:var(--rose-500);"><i data-lucide=\"x\" class=\"icon-sm\"></i></button>') : '';
+      let delBtn = isCustom ? ('<button class="doc-mini-btn" onclick="deleteCatalogItem(\'batteries\',\'' + bat.id + '\')" style="padding:4px 6px;font-size: 10px;color:var(--rose-500);"><i data-lucide=\"x\" class=\"icon-sm\"></i></button>') : '';
       return '<tr style="border-bottom:1px solid rgba(255,255,255,0.06);">' +
         '<td style="padding:8px 10px;"><b>' + bat.brand + '</b> ' + bat.model + '</td>' +
         '<td style="padding:8px 10px;text-align:center;"><span style="color:var(--emerald-400);font-weight:bold;">' + bat.kwh + ' kWh</span></td>' +
         '<td style="padding:8px 10px;text-align:center;">' + (bat.type || 'LFP') + '</td>' +
         '<td style="padding:8px 10px;text-align:center;color:var(--amber-400);font-weight:bold;">' + bat.price + ' €</td>' +
         '<td style="padding:8px 10px;text-align:right;">' +
-          '<button class="doc-mini-btn" onclick="openEditEquipmentModal(\'batteries\', \'' + bat.id + '\')" style="padding:4px 8px;font-size:9px;border-color:var(--sky-400);color:var(--sky-400);margin-right:4px;"><i data-lucide=\"edit-2\" class=\"icon-sm\"></i> EDITAR</button>' +
-            '<button class="doc-mini-btn" onclick="applyBatteryFromCatalog(\'' + bat.id + '\');closeEquipmentCatalogModal();" style="padding:4px 8px;font-size:9px;border-color:var(--emerald-400);color:var(--emerald-400);margin-right:4px;">APLICAR</button>' +
+          '<button class="doc-mini-btn" onclick="openEditEquipmentModal(\'batteries\', \'' + bat.id + '\')" style="padding:4px 8px;font-size: 10px;border-color:var(--sky-400);color:var(--sky-400);margin-right:4px;"><i data-lucide=\"edit-2\" class=\"icon-sm\"></i> EDITAR</button>' +
+            '<button class="doc-mini-btn" onclick="applyBatteryFromCatalog(\'' + bat.id + '\');closeEquipmentCatalogModal();" style="padding:4px 8px;font-size: 10px;border-color:var(--emerald-400);color:var(--emerald-400);margin-right:4px;">APLICAR</button>' +
           delBtn +
         '</td>' +
       '</tr>';
@@ -5693,7 +5832,7 @@ function populateEquipmentModalUI() {
   if (mlpeTable) {
     mlpeTable.innerHTML = equipmentCatalog.microinverters.map((mi, idx) => {
       const isCustom = idx >= 4;
-      let delBtn = isCustom ? ('<button class="doc-mini-btn" onclick="deleteCatalogItem(\'microinverters\',\'' + mi.id + '\')" style="padding:4px 6px;font-size:9px;color:var(--rose-500);"><i data-lucide=\"x\" class=\"icon-sm\"></i></button>') : '<span style="font-size:9px;color:var(--text-slate-400);">OFICIAL</span>';
+      let delBtn = isCustom ? ('<button class="doc-mini-btn" onclick="deleteCatalogItem(\'microinverters\',\'' + mi.id + '\')" style="padding:4px 6px;font-size: 10px;color:var(--rose-500);"><i data-lucide=\"x\" class=\"icon-sm\"></i></button>') : '<span style="font-size: 10px;color:var(--text-slate-400);">OFICIAL</span>';
       return '<tr style="border-bottom:1px solid rgba(255,255,255,0.06);">' +
         '<td style="padding:8px 10px;"><b>' + mi.brand + '</b> ' + mi.model + '</td>' +
         '<td style="padding:8px 10px;text-align:center;"><span style="color:var(--emerald-400);font-weight:bold;">' + (mi.kw * 1000) + ' W</span></td>' +
@@ -5864,7 +6003,7 @@ function wpRenderBattery3D(inverterCartesian) {
       bg: 'rgba(15, 23, 42, 0.92)',
       borderColor: '#10B981',
       textColor: '#FFFFFF',
-      font: "bold 9.5px 'JetBrains Mono', monospace",
+      font: "bold 10px 'JetBrains Mono', monospace",
       category: 'electrical',
       equipmentType: 'battery'
     });
@@ -6014,7 +6153,23 @@ function initUnifiedWorkPlaneSystem() {
   if (typeof wpClearEntGroup !== 'undefined') window.wpClearEntGroup = wpClearEntGroup;
   if (typeof wpEnsureCounterClockwisePoints !== 'undefined') window.wpEnsureCounterClockwisePoints = wpEnsureCounterClockwisePoints;
   if (typeof wpSetPolyOrientation !== 'undefined') window.wpSetPolyOrientation = wpSetPolyOrientation;
-  if (typeof wpSetPolyStructure !== 'undefined') window.wpSetPolyStructure = wpSetPolyStructure;
+  
+function wpSetPolyBallastBlocksCount(polyIdx, count) {
+  if (!WP.polylines || !WP.polylines[polyIdx]) return;
+  const num = parseInt(count, 10) || 2;
+  const poly = WP.polylines[polyIdx];
+  poly.blocksPerPanel = num;
+  if (!poly.estructura) poly.estructura = { tipo: 'balasto_bloques' };
+  poly.estructura.blocksPerPanel = num;
+  if (typeof updateBOMTreeUI === 'function') updateBOMTreeUI();
+  if (typeof wpUpdateStep3UI === 'function') wpUpdateStep3UI();
+  if (typeof window.showStatus === 'function') {
+    window.showStatus("Bloques de lastre por placa actualizados: " + num + " uds", 2500);
+  }
+}
+window.wpSetPolyBallastBlocksCount = wpSetPolyBallastBlocksCount;
+
+if (typeof wpSetPolyStructure !== 'undefined') window.wpSetPolyStructure = wpSetPolyStructure;
   if (typeof wpGetFaldonOrientationComparison !== 'undefined') window.wpGetFaldonOrientationComparison = wpGetFaldonOrientationComparison;
   if (typeof wpTogglePolyWalkway !== 'undefined') window.wpTogglePolyWalkway = wpTogglePolyWalkway;
   if (typeof wpApplyPolyWalkwayToAll !== 'undefined') window.wpApplyPolyWalkwayToAll = wpApplyPolyWalkwayToAll;
@@ -6158,12 +6313,12 @@ function wpOpenSmartInverterMatchingModal() {
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:4px;">
         <div style="display:flex;align-items:center;gap:6px;">
           <span style="font-weight:900;color:#38BDF8;font-size:10.5px;"><i data-lucide="sparkles" class="icon-sm"></i> COMPARATIVA INTELIGENTE DE INVERSORES</span>
-          <span class="card-tag" style="background:rgba(56,189,248,0.15);color:#38BDF8;font-size:8.5px;">${totalKwp.toFixed(1)} kWp · ${gridSupply === 'single_phase' ? 'Monofásico 230V' : 'Trifásico 400V'}</span>
+          <span class="card-tag" style="background:rgba(56,189,248,0.15);color:#38BDF8;font-size: 10px;">${totalKwp.toFixed(1)} kWp · ${gridSupply === 'single_phase' ? 'Monofásico 230V' : 'Trifásico 400V'}</span>
         </div>
         <button type="button" class="doc-mini-btn" onclick="document.getElementById('step3-smart-inverter-recommendations').style.display='none'"><i data-lucide="x" class="icon-sm"></i></button>
       </div>
 
-      <div style="font-size:9px;color:#94A3B8;margin-bottom:8px;line-height:1.35;">
+      <div style="font-size: 10px;color:#94A3B8;margin-bottom:8px;line-height:1.35;">
         El sistema ha analizado la potencia de campo (${totalKwp.toFixed(1)} kWp) y las ${distinctOrientations} orientaciones para calcular 3 alternativas técnicas:
       </div>
 
@@ -6173,22 +6328,22 @@ function wpOpenSmartInverterMatchingModal() {
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
           <div style="display:flex;align-items:center;gap:5px;">
             <span style="font-size:10px;font-weight:900;color:#FBBF24;"><i data-lucide="zap" class="icon-sm"></i> OPCIÓN A: Centralizada (1x Inversor)</span>
-            <span class="card-tag" style="background:rgba(245,158,11,0.2);color:#FBBF24;font-size:8px;">1 Equipo</span>
+            <span class="card-tag" style="background:rgba(245,158,11,0.2);color:#FBBF24;font-size: 10px;">1 Equipo</span>
           </div>
           <span style="font-size:10px;color:#34D399;font-weight:900;">${scA.totalCostEur} €</span>
         </div>
-        <div style="font-size:9.5px;font-weight:bold;color:#F1F5F9;margin:2px 0;">
+        <div style="font-size: 10px;font-weight:bold;color:#F1F5F9;margin:2px 0;">
           1x ${scA.inverter.brand} ${scA.inverter.model} (${scA.totalAcKw} kW AC)
         </div>
-        <div style="display:flex;flex-wrap:wrap;gap:4px;margin:4px 0;font-size:8.5px;">
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin:4px 0;font-size: 10px;">
           <span style="background:rgba(255,255,255,0.06);padding:2px 5px;border-radius:4px;color:#CBD5E1;">Sobrecarga: <b>${scA.overloadPct}%</b></span>
           <span style="background:rgba(255,255,255,0.06);padding:2px 5px;border-radius:4px;color:#CBD5E1;">MPPTs: <b>${scA.mpptCount} canales</b></span>
           <span style="background:rgba(239,68,68,0.15);padding:2px 5px;border-radius:4px;color:#F87171;">Redundancia: <b>0%</b></span>
         </div>
-        <div style="font-size:8.5px;color:#94A3B8;line-height:1.3;margin-bottom:5px;">
+        <div style="font-size: 10px;color:#94A3B8;line-height:1.3;margin-bottom:5px;">
           Mínimo coste de instalación, cableado AC centralizado y un único equipo a monitorizar.
         </div>
-        <button type="button" class="doc-mini-btn" style="background:#0284C7;border-color:#0284C7;color:#fff;width:100%;font-weight:bold;padding:5px;font-size:9px;" onclick="wpApplyInverterScenario('${scA.inverter.id}', 1, 'inverter', 'scA')">
+        <button type="button" class="doc-mini-btn" style="background:#0284C7;border-color:#0284C7;color:#fff;width:100%;font-weight:bold;padding:5px;font-size: 10px;" onclick="wpApplyInverterScenario('${scA.inverter.id}', 1, 'inverter', 'scA')">
           <i data-lucide="check" class="icon-sm"></i> APLICAR OPCIÓN 1x (${scA.totalAcKw} kW AC)
         </button>
       </div>` : ''}
@@ -6199,22 +6354,22 @@ function wpOpenSmartInverterMatchingModal() {
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
           <div style="display:flex;align-items:center;gap:5px;">
             <span style="font-size:10px;font-weight:900;color:#38BDF8;"><i data-lucide="layers" class="icon-sm"></i> OPCIÓN B: Modular Distribuida (${scB.count}x Equipos)</span>
-            <span class="card-tag" style="background:rgba(56,189,248,0.2);color:#38BDF8;font-size:8px;">${scB.count} Inversores</span>
+            <span class="card-tag" style="background:rgba(56,189,248,0.2);color:#38BDF8;font-size: 10px;">${scB.count} Inversores</span>
           </div>
           <span style="font-size:10px;color:#34D399;font-weight:900;">${scB.totalCostEur} €</span>
         </div>
-        <div style="font-size:9.5px;font-weight:bold;color:#F1F5F9;margin:2px 0;">
+        <div style="font-size: 10px;font-weight:bold;color:#F1F5F9;margin:2px 0;">
           ${scB.count}x ${scB.inverter.brand} ${scB.inverter.model} (${scB.totalAcKw} kW AC total · ${scB.count} × ${scB.inverter.kw} kW)
         </div>
-        <div style="display:flex;flex-wrap:wrap;gap:4px;margin:4px 0;font-size:8.5px;">
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin:4px 0;font-size: 10px;">
           <span style="background:rgba(255,255,255,0.06);padding:2px 5px;border-radius:4px;color:#CBD5E1;">Sobrecarga: <b>${scB.overloadPct}%</b></span>
           <span style="background:rgba(255,255,255,0.06);padding:2px 5px;border-radius:4px;color:#CBD5E1;">MPPTs: <b>${scB.mpptCount} canales</b></span>
           <span style="background:rgba(16,185,129,0.15);padding:2px 5px;border-radius:4px;color:#34D399;">Redundancia: <b>${scB.redundancyPct || Math.round((scB.count-1)/scB.count*100)}%</b></span>
         </div>
-        <div style="font-size:8.5px;color:#94A3B8;line-height:1.3;margin-bottom:5px;">
+        <div style="font-size: 10px;color:#94A3B8;line-height:1.3;margin-bottom:5px;">
           Alta disponibilidad: si 1 equipo sufre una avería, la instalación mantiene el ${scB.redundancyPct || Math.round((scB.count-1)/scB.count*100)}% de producción continua.
         </div>
-        <button type="button" class="doc-mini-btn" style="background:#059669;border-color:#059669;color:#fff;width:100%;font-weight:bold;padding:5px;font-size:9px;" onclick="wpApplyInverterScenario('${scB.inverter.id}', ${scB.count}, 'inverter', 'scB')">
+        <button type="button" class="doc-mini-btn" style="background:#059669;border-color:#059669;color:#fff;width:100%;font-weight:bold;padding:5px;font-size: 10px;" onclick="wpApplyInverterScenario('${scB.inverter.id}', ${scB.count}, 'inverter', 'scB')">
           <i data-lucide="check" class="icon-sm"></i> APLICAR OPCIÓN ${scB.count}x (${scB.totalAcKw} kW AC)
         </button>
       </div>` : ''}
@@ -6225,22 +6380,22 @@ function wpOpenSmartInverterMatchingModal() {
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
           <div style="display:flex;align-items:center;gap:5px;">
             <span style="font-size:10px;font-weight:900;color:#34D399;"><i data-lucide="cpu" class="icon-sm"></i> OPCIÓN C: Microinversores / MLPE</span>
-            <span class="card-tag" style="background:rgba(16,185,129,0.2);color:#34D399;font-size:8px;">MLPE Descentralizado</span>
+            <span class="card-tag" style="background:rgba(16,185,129,0.2);color:#34D399;font-size: 10px;">MLPE Descentralizado</span>
           </div>
           <span style="font-size:10px;color:#34D399;font-weight:900;">${scC.estimatedCostEur} €</span>
         </div>
-        <div style="font-size:9.5px;font-weight:bold;color:#F1F5F9;margin:2px 0;">
+        <div style="font-size: 10px;font-weight:bold;color:#F1F5F9;margin:2px 0;">
           ${scC.estimatedUnits}x Microinversores 2-en-1 (${scC.totalAcKw.toFixed(1)} kW AC total)
         </div>
-        <div style="display:flex;flex-wrap:wrap;gap:4px;margin:4px 0;font-size:8.5px;">
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin:4px 0;font-size: 10px;">
           <span style="background:rgba(255,255,255,0.06);padding:2px 5px;border-radius:4px;color:#CBD5E1;">Control: <b>Panel a panel</b></span>
           <span style="background:rgba(16,185,129,0.15);padding:2px 5px;border-radius:4px;color:#34D399;">Redundancia: <b>~95%</b></span>
           <span style="background:rgba(255,255,255,0.06);padding:2px 5px;border-radius:4px;color:#CBD5E1;">Sombras: <b>Inmune</b></span>
         </div>
-        <div style="font-size:8.5px;color:#94A3B8;line-height:1.3;margin-bottom:5px;">
+        <div style="font-size: 10px;color:#94A3B8;line-height:1.3;margin-bottom:5px;">
           Máxima eficiencia en tejados complejos con múltiples aguas, chimeneas y sombreados severos.
         </div>
-        <button type="button" class="doc-mini-btn" style="background:#10B981;border-color:#10B981;color:#fff;width:100%;font-weight:bold;padding:5px;font-size:9px;" onclick="wpApplyInverterScenario('${microId}', ${scC.estimatedUnits}, 'microinverter', 'scC')">
+        <button type="button" class="doc-mini-btn" style="background:#10B981;border-color:#10B981;color:#fff;width:100%;font-weight:bold;padding:5px;font-size: 10px;" onclick="wpApplyInverterScenario('${microId}', ${scC.estimatedUnits}, 'microinverter', 'scC')">
           <i data-lucide="check" class="icon-sm"></i> APLICAR OPCIÓN MLPE (${scC.estimatedUnits}x Micros)
         </button>
       </div>` : ''}
@@ -6375,3 +6530,84 @@ function wpApplyMLPERecommendationAction() {
   }
 })(typeof window !== 'undefined' ? window : globalThis);
 
+
+
+function wpUpdateFaldonRowPitchUI(polyIdx) {
+  if (polyIdx === undefined || polyIdx === null) polyIdx = (typeof WP !== 'undefined') ? WP.selectedPolyIdx : 0;
+  if (typeof WP === 'undefined' || !WP.polylines || !WP.polylines[polyIdx]) return;
+  const poly = WP.polylines[polyIdx];
+  const box = document.getElementById('faldon-row-pitch-box');
+  if (!box) return;
+
+  const stType = poly.structureType || (poly.estructura && poly.estructura.tipo);
+  const isPergola = (stType === 'pergola' || (poly.estructura && poly.estructura.tipo === 'pergola'));
+  const pergSubtype = poly.pergolaSubtype || (poly.estructura && poly.estructura.subtype) || 'continuous';
+  const isContinuousCanopy = isPergola && (pergSubtype !== 'spaced_rows');
+  const isCoplanar = (stType === 'coplanar_teja' || stType === 'coplanar_chapa' || poly.arrangementMode === 'coplanar' || poly.modTilt === 'auto' || poly.modTilt === 0);
+
+  const statusBadge = document.getElementById('faldon-pitch-status-badge');
+  const clearEl = document.getElementById('faldon-clear-spacing-val');
+  const totalEl = document.getElementById('faldon-total-pitch-val');
+  const noteEl = document.getElementById('faldon-pitch-note');
+
+  if (isCoplanar || isContinuousCanopy) {
+    if (statusBadge) {
+      statusBadge.textContent = isContinuousCanopy ? 'Tejadillo continuo' : 'Coplanar continuo';
+      statusBadge.style.background = 'rgba(56,189,248,0.15)';
+      statusBadge.style.color = '#38BDF8';
+    }
+    if (clearEl) clearEl.textContent = '0,04 m (Junta)';
+    if (totalEl) {
+      const pInfo = poly.roofInfo;
+      const modLen = (pInfo && pInfo.panels && pInfo.panels[0]) ? (pInfo.panels[0].h || 2.10) : 2.10;
+      totalEl.textContent = (modLen + 0.04).toFixed(2) + ' m';
+    }
+    if (noteEl) {
+      noteEl.innerHTML = isContinuousCanopy
+        ? '<i data-lucide="check" class="icon-sm" style="color:#38BDF8;width:10px;height:10px;"></i> <span>Marquesina continua: placas unidas sin sombras intermedias</span>'
+        : '<i data-lucide="check" class="icon-sm" style="color:#38BDF8;width:10px;height:10px;"></i> <span>Módulos a ras de cubierta sin sombras entre filas</span>';
+    }
+    if (window.lucide) try { lucide.createIcons(); } catch(e) {}
+    return;
+  }
+
+  const pInfo = poly.roofInfo;
+  let modDimension = 2.20;
+  const isLandscape = (poly.orientationPref === 'landscape');
+  if (pInfo && pInfo.panels && pInfo.panels.length > 0) {
+    const p0 = pInfo.panels[0];
+    modDimension = isLandscape ? (p0.w || 1.13) : (p0.h || 2.20);
+  } else {
+    modDimension = isLandscape ? 1.13 : 2.20;
+  }
+
+  const tiltVal = (typeof poly.modTilt === 'number') ? poly.modTilt : ((stType === 'triangles_30') ? 30 : 15);
+  const azVal = (typeof poly.modAzimuth === 'number') ? poly.modAzimuth : 180;
+  const latVal = (typeof latitude === 'number') ? latitude : 40.41;
+
+  if (typeof computeInterRowPitch === 'function') {
+    const pCalc = computeInterRowPitch({
+      moduleLength: modDimension,
+      tiltDeg: tiltVal,
+      azimuthDeg: azVal,
+      latitude: latVal,
+      safetyMarginM: 0.10,
+      useCTEWindow: true
+    });
+
+    if (statusBadge) {
+      statusBadge.textContent = 'Sin sombras (Invierno)';
+      statusBadge.style.background = 'rgba(16,185,129,0.15)';
+      statusBadge.style.color = '#34D399';
+    }
+    if (clearEl) clearEl.textContent = pCalc.clearSpacingM.toFixed(2) + ' m';
+    if (totalEl) totalEl.textContent = pCalc.totalPitchM.toFixed(2) + ' m';
+    if (noteEl) {
+      const orientTxt = isLandscape ? 'horizontal' : 'vertical';
+      const labelPrefix = isPergola ? 'Pérgola elevada' : 'Placa';
+      noteEl.innerHTML = `<i data-lucide="shield-check" class="icon-sm" style="color:#34D399;width:10px;height:10px;"></i> <span>${labelPrefix} en ${orientTxt} (${tiltVal}°): 4h sol libre en solsticio (CTE/IDAE)</span>`;
+    }
+  }
+  if (window.lucide) try { lucide.createIcons(); } catch(e) {}
+}
+window.wpUpdateFaldonRowPitchUI = wpUpdateFaldonRowPitchUI;

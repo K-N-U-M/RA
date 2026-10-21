@@ -27,6 +27,7 @@
       sheetScrewPrice: 1.80,           // €/ud tornillo autorroscante bimetálico EPDM
       trianglePrice: 24.50,            // €/ud escuadra A-frame premontada
       ballastBlockPrice: 9.50,         // €/ud bloque de hormigón 45kg
+      ballastBlockWeightKg: 45.0,      // kg masa unitaria de bloque de hormigón
       endClampPrice: 1.65,             // €/ud grapa final con tornillo Inox
       midClampPrice: 1.45,             // €/ud grapa intermedia con pin de tierra
       tieBarPrice: 8.00                // €/ud viga riostra horizontal de arriostramiento
@@ -43,6 +44,7 @@
       sheetScrewPrice: 2.10,
       trianglePrice: 27.50,
       ballastBlockPrice: 10.50,
+      ballastBlockWeightKg: 45.0,
       endClampPrice: 1.85,
       midClampPrice: 1.60,
       tieBarPrice: 9.50
@@ -59,6 +61,7 @@
       sheetScrewPrice: 1.65,
       trianglePrice: 22.80,
       ballastBlockPrice: 8.90,
+      ballastBlockWeightKg: 45.0,
       endClampPrice: 1.55,
       midClampPrice: 1.35,
       tieBarPrice: 7.80
@@ -75,6 +78,7 @@
       sheetScrewPrice: 1.70,
       trianglePrice: 23.00,
       ballastBlockPrice: 9.00,
+      ballastBlockWeightKg: 45.0,
       endClampPrice: 1.50,
       midClampPrice: 1.30,
       tieBarPrice: 7.50
@@ -118,7 +122,14 @@
       const raw = localStorage.getItem('ra_structure_catalog');
       if (raw) {
         const parsed = JSON.parse(raw);
-        return Object.assign({}, DEFAULT_STRUCTURES, parsed);
+        const merged = Object.assign({}, DEFAULT_STRUCTURES);
+        Object.keys(DEFAULT_STRUCTURES).forEach(k => {
+          merged[k] = Object.assign({}, DEFAULT_STRUCTURES[k], parsed[k] || {});
+          if (!merged[k].ballastBlockWeightKg || typeof merged[k].ballastBlockWeightKg !== 'number') {
+            merged[k].ballastBlockWeightKg = DEFAULT_STRUCTURES[k].ballastBlockWeightKg || 45.0;
+          }
+        });
+        return merged;
       }
     } catch (e) {
       console.warn('[RA-STRUCTURE-CATALOG] Error al cargar localStorage:', e);
@@ -258,7 +269,7 @@
               }).join('')}
             </div>
           </div>
-          <button type="button" class="doc-mini-btn" style="color:var(--text-slate-400);font-size:9.5px;" onclick="RAStructureCatalog.resetStructures()">
+          <button type="button" class="doc-mini-btn" style="color:var(--text-slate-400);font-size: 10px;" onclick="RAStructureCatalog.resetStructures()">
             ↩ Restaurar Precios Fábrica
           </button>
         </div>
@@ -270,7 +281,7 @@
 
         <table style="width:100%;border-collapse:collapse;text-align:left;font-size:11px;">
           <thead>
-            <tr style="border-bottom:2px solid #334155;color:var(--text-slate-400);font-size:9.5px;text-transform:uppercase;">
+            <tr style="border-bottom:2px solid #334155;color:var(--text-slate-400);font-size: 10px;text-transform:uppercase;">
               <th style="padding:6px 10px;">Componente / Partida Técnica</th>
               <th style="padding:6px 10px;text-align:center;">Unidad</th>
               <th style="padding:6px 10px;text-align:center;">Formato Comercial</th>
@@ -321,7 +332,13 @@
             <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
               <td style="padding:7px 10px;font-weight:600;color:#fff;">Bloque prefabricado de hormigón para lastre (cubierta plana)</td>
               <td style="padding:7px 10px;text-align:center;color:var(--text-slate-400);">ud</td>
-              <td style="padding:7px 10px;text-align:center;color:var(--text-slate-400);">Bloque 45 kg anti-vuelco</td>
+              <td style="padding:7px 10px;text-align:center;color:var(--text-slate-400);">
+                <div style="display:inline-flex;align-items:center;justify-content:center;gap:4px;">
+                  <span>Peso:</span>
+                  <input type="number" step="1" min="5" max="150" value="${(mfg.ballastBlockWeightKg || 45).toFixed(0)}" style="width:48px;padding:2px 4px;font-size:10px;background:#0F172A;border:1px solid #334155;color:#38BDF8;border-radius:4px;text-align:center;font-weight:bold;" onchange="RAStructureCatalog.updatePrice('${currentMfg}', 'ballastBlockWeightKg', this.value)" title="Peso unitario en kg de cada bloque de hormigón">
+                  <span>kg</span>
+                </div>
+              </td>
               <td style="padding:7px 10px;text-align:right;">
                 <input type="number" step="0.25" min="0" value="${mfg.ballastBlockPrice.toFixed(2)}" style="width:75px;padding:3px 6px;font-size:11px;background:#0F172A;border:1px solid #334155;color:#F8FAFC;border-radius:4px;text-align:right;" onchange="RAStructureCatalog.updatePrice('${currentMfg}', 'ballastBlockPrice', this.value)">
               </td>
@@ -372,7 +389,7 @@
           <div style="font-size:11px;font-weight:700;color:var(--text-slate-300);">
             DESGLOSE ECONÓMICO DE MANO DE OBRA, INGENIERÍA Y GASTOS DIRECTOS
           </div>
-          <button type="button" class="doc-mini-btn" style="color:var(--text-slate-400);font-size:9.5px;" onclick="RAStructureCatalog.resetInstallationCosts()">
+          <button type="button" class="doc-mini-btn" style="color:var(--text-slate-400);font-size: 10px;" onclick="RAStructureCatalog.resetInstallationCosts()">
             ↩ Restaurar Valores Fábrica
           </button>
         </div>
@@ -390,28 +407,28 @@
                 <span style="color:var(--text-slate-300);">Montaje mecánico estructura:</span>
                 <div style="display:flex;align-items:center;gap:4px;">
                   <input type="number" step="0.05" min="0" value="${costs.labor.mechanicalHoursPerPanel}" style="width:55px;padding:2px 4px;font-size:10.5px;background:#0F172A;border:1px solid #334155;color:#F8FAFC;border-radius:4px;text-align:right;" onchange="RAStructureCatalog.updateInstallationCost('labor', 'mechanicalHoursPerPanel', this.value)">
-                  <span style="font-size:9.5px;color:var(--text-slate-400);">h/mód (${mechH} h)</span>
+                  <span style="font-size: 10px;color:var(--text-slate-400);">h/mód (${mechH} h)</span>
                 </div>
               </div>
               <div style="display:flex;justify-content:space-between;align-items:center;">
                 <span style="color:var(--text-slate-300);">Conexionado eléctrico DC/AC:</span>
                 <div style="display:flex;align-items:center;gap:4px;">
                   <input type="number" step="0.05" min="0" value="${costs.labor.electricalHoursPerPanel}" style="width:55px;padding:2px 4px;font-size:10.5px;background:#0F172A;border:1px solid #334155;color:#F8FAFC;border-radius:4px;text-align:right;" onchange="RAStructureCatalog.updateInstallationCost('labor', 'electricalHoursPerPanel', this.value)">
-                  <span style="font-size:9.5px;color:var(--text-slate-400);">h/mód (${elecH} h)</span>
+                  <span style="font-size: 10px;color:var(--text-slate-400);">h/mód (${elecH} h)</span>
                 </div>
               </div>
               <div style="display:flex;justify-content:space-between;align-items:center;">
                 <span style="color:var(--text-slate-300);">Puesta en marcha y verificación:</span>
                 <div style="display:flex;align-items:center;gap:4px;">
                   <input type="number" step="0.5" min="0" value="${costs.labor.commissioningHoursFixed}" style="width:55px;padding:2px 4px;font-size:10.5px;background:#0F172A;border:1px solid #334155;color:#F8FAFC;border-radius:4px;text-align:right;" onchange="RAStructureCatalog.updateInstallationCost('labor', 'commissioningHoursFixed', this.value)">
-                  <span style="font-size:9.5px;color:var(--text-slate-400);">h fijas</span>
+                  <span style="font-size: 10px;color:var(--text-slate-400);">h fijas</span>
                 </div>
               </div>
               <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px dashed rgba(255,255,255,0.1);padding-top:4px;">
                 <span style="color:#F59E0B;font-weight:700;">Tarifa horaria oficial:</span>
                 <div style="display:flex;align-items:center;gap:4px;">
                   <input type="number" step="1.0" min="0" value="${costs.labor.hourlyRate}" style="width:65px;padding:2px 4px;font-size:10.5px;background:#0F172A;border:1px solid #334155;color:#F59E0B;font-weight:700;border-radius:4px;text-align:right;" onchange="RAStructureCatalog.updateInstallationCost('labor', 'hourlyRate', this.value)">
-                  <span style="font-size:9.5px;color:var(--text-slate-400);">€/hora</span>
+                  <span style="font-size: 10px;color:var(--text-slate-400);">€/hora</span>
                 </div>
               </div>
             </div>
@@ -480,7 +497,7 @@
                 <span style="color:var(--text-slate-300);">Pequeño material eléctrico (${totalPanels} mód.):</span>
                 <div style="display:flex;align-items:center;gap:4px;">
                   <input type="number" step="0.5" min="0" value="${costs.smallMaterials.perPanelSmallMaterials}" style="width:55px;padding:2px 4px;font-size:10.5px;background:#0F172A;border:1px solid #334155;color:#F8FAFC;border-radius:4px;text-align:right;" onchange="RAStructureCatalog.updateInstallationCost('smallMaterials', 'perPanelSmallMaterials', this.value)">
-                  <span style="font-size:9.5px;color:var(--text-slate-400);">€/mód</span>
+                  <span style="font-size: 10px;color:var(--text-slate-400);">€/mód</span>
                 </div>
               </div>
             </div>

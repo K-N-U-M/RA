@@ -411,7 +411,7 @@ REGLAS DE RIGOR TÉCNICO:
               <div>
                 <div style="font-weight:900;font-size:14px;color:#fff;letter-spacing:0.5px;display:flex;align-items:center;gap:8px;">
                   BUSCADOR WEB DE EQUIPOS CON INTELIGENCIA ARTIFICIAL
-                  <span style="background:rgba(167,139,250,0.25);color:#d8b4fe;font-size:9.5px;padding:2px 7px;border-radius:4px;border:1px solid rgba(167,139,250,0.4);font-weight:bold;">GEMINI AI</span>
+                  <span style="background:rgba(167,139,250,0.25);color:#d8b4fe;font-size: 10px;padding:2px 7px;border-radius:4px;border:1px solid rgba(167,139,250,0.4);font-weight:bold;">GEMINI AI</span>
                 </div>
                 <div style="font-size:10.5px;color:var(--text-slate-400);margin-top:2px;line-height:1.4;">
                   Encuentra modelos comerciales reales en la red e incorpóralos al catálogo con especificaciones electrotécnicas completas (IEC 62548 / REBT).
@@ -579,7 +579,7 @@ REGLAS DE RIGOR TÉCNICO:
             <div>
               <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
                 <div>
-                  <span style="display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:bold;color:${cat.color};background:${cat.bg};border:1px solid ${cat.border};padding:2px 8px;border-radius:4px;margin-bottom:6px;text-transform:uppercase;">
+                  <span style="display:inline-flex;align-items:center;gap:4px;font-size: 10px;font-weight:bold;color:${cat.color};background:${cat.bg};border:1px solid ${cat.border};padding:2px 8px;border-radius:4px;margin-bottom:6px;text-transform:uppercase;">
                     <i data-lucide="${cat.icon}" class="icon-sm"></i> ${cat.label}
                   </span>
                   <div style="font-size:13px;font-weight:900;color:#fff;">${item.brand}</div>
@@ -587,7 +587,7 @@ REGLAS DE RIGOR TÉCNICO:
                 </div>
                 <div style="text-align:right;flex-shrink:0;">
                   <div style="font-size:13px;font-weight:bold;color:var(--amber-400);font-family:monospace;">~${item.price} €</div>
-                  <div style="font-size:8.5px;color:var(--text-slate-400);">PVP est.</div>
+                  <div style="font-size: 10px;color:var(--text-slate-400);">PVP est.</div>
                 </div>
               </div>
 
@@ -609,7 +609,7 @@ REGLAS DE RIGOR TÉCNICO:
             <div style="font-size:12px;font-weight:bold;color:#fff;">
               Resultados de la búsqueda: <span style="color:#c084fc;">${results.length} modelos comerciales encontrados</span>
             </div>
-            <button type="button" id="ai-web-search-clear" class="doc-mini-btn" style="font-size:9.5px;color:var(--text-slate-400);">
+            <button type="button" id="ai-web-search-clear" class="doc-mini-btn" style="font-size: 10px;color:var(--text-slate-400);">
               Limpiar resultados
             </button>
           </div>
@@ -737,7 +737,7 @@ REGLAS DE RIGOR TÉCNICO:
         color: var(--text-slate-300);
         padding: 2px 7px;
         cursor: pointer;
-        font-size: 9.5px;
+        font-size: 10px;
         transition: all 0.15s ease;
       }
       .ai-quick-tag:hover {

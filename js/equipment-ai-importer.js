@@ -762,27 +762,27 @@ NORMAS ESTRICTAS DE EXTRACCIÓN:
         specsHtml = `
           <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:10px;margin-bottom:14px;font-size:11px;">
             <div style="background:rgba(0,0,0,0.25);padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.05);">
-              <span style="color:var(--text-slate-400);font-size:9.5px;display:block;">Potencia Nominal</span>
+              <span style="color:var(--text-slate-400);font-size: 10px;display:block;">Potencia Nominal</span>
               <b style="color:var(--emerald-400);font-size:14px;">${data.wp} Wp</b>
             </div>
             <div style="background:rgba(0,0,0,0.25);padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.05);">
-              <span style="color:var(--text-slate-400);font-size:9.5px;display:block;">Eficiencia STC</span>
+              <span style="color:var(--text-slate-400);font-size: 10px;display:block;">Eficiencia STC</span>
               <b style="color:#fff;font-size:13px;">${data.eff} %</b>
             </div>
             <div style="background:rgba(0,0,0,0.25);padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.05);">
-              <span style="color:var(--text-slate-400);font-size:9.5px;display:block;">Dimensiones (L×W)</span>
+              <span style="color:var(--text-slate-400);font-size: 10px;display:block;">Dimensiones (L×W)</span>
               <b style="color:#fff;font-size:12px;font-family:monospace;">${data.l.toFixed(2)} × ${data.w.toFixed(2)} m</b>
             </div>
             <div style="background:rgba(0,0,0,0.25);padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.05);">
-              <span style="color:var(--text-slate-400);font-size:9.5px;display:block;">Tensión Voc / Vmp</span>
+              <span style="color:var(--text-slate-400);font-size: 10px;display:block;">Tensión Voc / Vmp</span>
               <span style="color:#fff;font-size:11px;">${data.voc}V / ${data.vmp}V</span>
             </div>
             <div style="background:rgba(0,0,0,0.25);padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.05);">
-              <span style="color:var(--text-slate-400);font-size:9.5px;display:block;">Corriente Isc / Imp</span>
+              <span style="color:var(--text-slate-400);font-size: 10px;display:block;">Corriente Isc / Imp</span>
               <span style="color:#fff;font-size:11px;">${data.isc}A / ${data.imp}A</span>
             </div>
             <div style="background:rgba(0,0,0,0.25);padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.05);">
-              <span style="color:var(--text-slate-400);font-size:9.5px;display:block;">Coeficiente Temp. Pmax</span>
+              <span style="color:var(--text-slate-400);font-size: 10px;display:block;">Coeficiente Temp. Pmax</span>
               <span style="color:#fff;font-size:11px;">${data.tempCoeffPmax} %/°C</span>
             </div>
           </div>
@@ -791,27 +791,27 @@ NORMAS ESTRICTAS DE EXTRACCIÓN:
         specsHtml = `
           <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:10px;margin-bottom:14px;font-size:11px;">
             <div style="background:rgba(0,0,0,0.25);padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.05);">
-              <span style="color:var(--text-slate-400);font-size:9.5px;display:block;">Potencia Nominal AC</span>
+              <span style="color:var(--text-slate-400);font-size: 10px;display:block;">Potencia Nominal AC</span>
               <b style="color:var(--sky-400);font-size:14px;">${data.kw} kW</b>
             </div>
             <div style="background:rgba(0,0,0,0.25);padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.05);">
-              <span style="color:var(--text-slate-400);font-size:9.5px;display:block;">MPPTs / Entradas</span>
+              <span style="color:var(--text-slate-400);font-size: 10px;display:block;">MPPTs / Entradas</span>
               <b style="color:#fff;font-size:12px;">${data.mppt} MPPT (${data.inputsPerMppt} str/mppt)</b>
             </div>
             <div style="background:rgba(0,0,0,0.25);padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.05);">
-              <span style="color:var(--text-slate-400);font-size:9.5px;display:block;">Tensión Máx / Rango</span>
+              <span style="color:var(--text-slate-400);font-size: 10px;display:block;">Tensión Máx / Rango</span>
               <b style="color:#fff;font-size:11px;font-family:monospace;">${data.vDcMax}V (${data.vMpptMin}-${data.vMpptMax}V)</b>
             </div>
             <div style="background:rgba(0,0,0,0.25);padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.05);">
-              <span style="color:var(--text-slate-400);font-size:9.5px;display:block;">Corrientes Ioper / Isc</span>
+              <span style="color:var(--text-slate-400);font-size: 10px;display:block;">Corrientes Ioper / Isc</span>
               <span style="color:#fff;font-size:11px;">${data.iMaxOperA}A / ${data.iMaxScA}A</span>
             </div>
             <div style="background:rgba(0,0,0,0.25);padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.05);">
-              <span style="color:var(--text-slate-400);font-size:9.5px;display:block;">Tipo de Red</span>
+              <span style="color:var(--text-slate-400);font-size: 10px;display:block;">Tipo de Red</span>
               <span style="color:#fff;font-size:11px;">${data.type}</span>
             </div>
             <div style="background:rgba(0,0,0,0.25);padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.05);">
-              <span style="color:var(--text-slate-400);font-size:9.5px;display:block;">Eficiencia Máx</span>
+              <span style="color:var(--text-slate-400);font-size: 10px;display:block;">Eficiencia Máx</span>
               <span style="color:#fff;font-size:11px;">${data.effMax} %</span>
             </div>
           </div>
@@ -820,15 +820,15 @@ NORMAS ESTRICTAS DE EXTRACCIÓN:
         specsHtml = `
           <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:10px;margin-bottom:14px;font-size:11px;">
             <div style="background:rgba(0,0,0,0.25);padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.05);">
-              <span style="color:var(--text-slate-400);font-size:9.5px;display:block;">Capacidad Útil</span>
+              <span style="color:var(--text-slate-400);font-size: 10px;display:block;">Capacidad Útil</span>
               <b style="color:var(--emerald-400);font-size:14px;">${data.kwh} kWh</b>
             </div>
             <div style="background:rgba(0,0,0,0.25);padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.05);">
-              <span style="color:var(--text-slate-400);font-size:9.5px;display:block;">Potencia Descarga</span>
+              <span style="color:var(--text-slate-400);font-size: 10px;display:block;">Potencia Descarga</span>
               <b style="color:#fff;font-size:13px;">${data.kwMax} kW</b>
             </div>
             <div style="background:rgba(0,0,0,0.25);padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.05);">
-              <span style="color:var(--text-slate-400);font-size:9.5px;display:block;">Química / Tipo</span>
+              <span style="color:var(--text-slate-400);font-size: 10px;display:block;">Química / Tipo</span>
               <b style="color:#fff;font-size:11px;">${data.type}</b>
             </div>
           </div>
@@ -837,15 +837,15 @@ NORMAS ESTRICTAS DE EXTRACCIÓN:
         specsHtml = `
           <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:10px;margin-bottom:14px;font-size:11px;">
             <div style="background:rgba(0,0,0,0.25);padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.05);">
-              <span style="color:var(--text-slate-400);font-size:9.5px;display:block;">Potencia Nominal</span>
+              <span style="color:var(--text-slate-400);font-size: 10px;display:block;">Potencia Nominal</span>
               <b style="color:var(--emerald-400);font-size:14px;">${data.kw * 1000} W</b>
             </div>
             <div style="background:rgba(0,0,0,0.25);padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.05);">
-              <span style="color:var(--text-slate-400);font-size:9.5px;display:block;">Topología</span>
+              <span style="color:var(--text-slate-400);font-size: 10px;display:block;">Topología</span>
               <b style="color:#fff;font-size:11px;">${data.type}</b>
             </div>
             <div style="background:rgba(0,0,0,0.25);padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.05);">
-              <span style="color:var(--text-slate-400);font-size:9.5px;display:block;">Canales MPPT</span>
+              <span style="color:var(--text-slate-400);font-size: 10px;display:block;">Canales MPPT</span>
               <b style="color:#fff;font-size:11px;">${data.mppt} MPPT</b>
             </div>
           </div>
@@ -861,7 +861,7 @@ NORMAS ESTRICTAS DE EXTRACCIÓN:
         <div style="background:rgba(15,23,42,0.8);border:1px solid var(--border-subtle);border-radius:10px;padding:20px;max-width:700px;margin:0 auto;color:#fff;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:10px;">
             <div style="display:flex;align-items:center;gap:10px;">
-              <span style="display:inline-block;padding:3px 8px;border-radius:4px;background:rgba(16,185,129,0.15);color:var(--emerald-400);font-size:9px;font-weight:bold;letter-spacing:0.5px;">
+              <span style="display:inline-block;padding:3px 8px;border-radius:4px;background:rgba(16,185,129,0.15);color:var(--emerald-400);font-size: 10px;font-weight:bold;letter-spacing:0.5px;">
                 ✓ PARÁMETROS HOMOLOGADOS
               </span>
               <span style="font-size:10px;color:var(--text-slate-400);text-transform:uppercase;">${catLabels[data.category] || data.category}</span>

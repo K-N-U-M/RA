@@ -78,7 +78,7 @@
           <span style="color:#64748b;">·</span>
           <span id="ra-bm-frametime" style="color:#94a3b8;">0.0 ms</span>
           <span style="color:#64748b;">·</span>
-          <span id="ra-bm-state" style="padding:1px 6px;border-radius:4px;font-size:9px;background:rgba(56,189,248,0.15);color:#38bdf8;font-weight:bold;">💤 SLEEP (0% GPU)</span>
+          <span id="ra-bm-state" style="padding:1px 6px;border-radius:4px;font-size: 10px;background:rgba(56,189,248,0.15);color:#38bdf8;font-weight:bold;">💤 SLEEP (0% GPU)</span>
           <span style="color:#64748b;">·</span>
           <span id="ra-bm-mem" style="color:#cbd5e1;">-- MB</span>
         </div>
@@ -109,7 +109,7 @@
 
           <!-- Historial gráfico de FPS -->
           <div style="margin-top:4px;">
-            <div style="display:flex;justify-content:space-between;font-size:9px;color:#64748b;margin-bottom:2px;">
+            <div style="display:flex;justify-content:space-between;font-size: 10px;color:#64748b;margin-bottom:2px;">
               <span>ESTABILIDAD DE FRAMES (30 MUESTRAS)</span>
               <span id="ra-bm-fps-avg">60 FPS</span>
             </div>

@@ -948,7 +948,7 @@ function render3DBuildingsInCesium() {
           <span style="font-size:11px;font-weight:800;color:#818cf8;display:flex;align-items:center;gap:6px;">
             <span>📐</span> RECTÁNGULO CAD ASISTIDO
           </span>
-          <span id="ra-bld-rect-step-badge" style="font-size:9.5px;padding:2px 8px;border-radius:4px;background:#4338ca;color:#e0e7ff;font-weight:bold;">
+          <span id="ra-bld-rect-step-badge" style="font-size: 10px;padding:2px 8px;border-radius:4px;background:#4338ca;color:#e0e7ff;font-weight:bold;">
             PASO 1 DE 2
           </span>
         </div>
@@ -957,19 +957,19 @@ function render3DBuildingsInCesium() {
         </div>
         <div style="display:flex;gap:8px;margin-bottom:10px;">
           <div style="flex:1;">
-            <label style="font-size:9px;color:#94a3b8;display:block;margin-bottom:2px;">Fachada / Lado A (m):</label>
+            <label style="font-size: 10px;color:#94a3b8;display:block;margin-bottom:2px;">Fachada / Lado A (m):</label>
             <input type="number" id="ra-bld-rect-input-a" min="1" max="1000" step="0.5" value="0.0" style="width:100%;background:rgba(0,0,0,0.5);border:1px solid #6366f1;color:#fff;font-size:11px;padding:4px 6px;border-radius:4px;text-align:right;font-weight:bold;" readonly>
           </div>
           <div style="flex:1;">
-            <label style="font-size:9px;color:#94a3b8;display:block;margin-bottom:2px;">Fondo / Lado B (m):</label>
+            <label style="font-size: 10px;color:#94a3b8;display:block;margin-bottom:2px;">Fondo / Lado B (m):</label>
             <input type="number" id="ra-bld-rect-input-b" min="1" max="1000" step="0.5" value="0.0" style="width:100%;background:rgba(0,0,0,0.5);border:1px solid #6366f1;color:#fff;font-size:11px;padding:4px 6px;border-radius:4px;text-align:right;font-weight:bold;">
           </div>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid rgba(255,255,255,0.1);padding-top:8px;">
           <span id="ra-bld-rect-area-label" style="font-size:10px;color:#38bdf8;font-weight:bold;">Área: 0.0 m²</span>
           <div style="display:flex;gap:6px;">
-            <button type="button" id="ra-bld-rect-cancel-btn" style="padding:4px 10px;font-size:9.5px;background:rgba(239,68,68,0.25);border:1px solid #ef4444;color:#fca5a5;border-radius:4px;cursor:pointer;">Cancelar (Esc)</button>
-            <button type="button" id="ra-bld-rect-confirm-btn" style="padding:4px 12px;font-size:9.5px;background:linear-gradient(135deg, #4f46e5, #4338ca);border:1px solid #818cf8;color:#fff;border-radius:4px;font-weight:bold;cursor:pointer;">Confirmar (Enter)</button>
+            <button type="button" id="ra-bld-rect-cancel-btn" style="padding:4px 10px;font-size: 10px;background:rgba(239,68,68,0.25);border:1px solid #ef4444;color:#fca5a5;border-radius:4px;cursor:pointer;">Cancelar (Esc)</button>
+            <button type="button" id="ra-bld-rect-confirm-btn" style="padding:4px 12px;font-size: 10px;background:linear-gradient(135deg, #4f46e5, #4338ca);border:1px solid #818cf8;color:#fff;border-radius:4px;font-weight:bold;cursor:pointer;">Confirmar (Enter)</button>
           </div>
         </div>
       `;

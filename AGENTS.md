@@ -5,6 +5,15 @@
 
 ---
 
+## 🗣️ Regla Principal de Comunicación con el Usuario
+- **Comunicaciones escuetas:** Mensajes breves, directos al grano y sin rodeos.
+- **Formato en listas:** Toda explicación debe estructurarse siempre mediante viñetas o listas sencillas.
+- **Lenguaje llano y coloquial:** Tono natural, accesible y como en una charla del día a día.
+- **Sin tecnicismos ni referencias a código:** Cero nombres de funciones, archivos, líneas o vocabulario informático.
+- **Claridad universal:** Explicaciones transparentes y comprensibles por cualquier persona.
+
+---
+
 ## 1. 🌐 Visión General del Proyecto
 
 **RA (Visor 3D Fotovoltaico)** es una plataforma web de ingeniería solar de alta fidelidad que replica el flujo real de un instalador fotovoltaico profesional, combinando:

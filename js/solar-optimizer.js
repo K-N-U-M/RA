@@ -524,10 +524,10 @@
               
               <!-- 🥇 1º MÁXIMA PRODUCCIÓN TOTAL (GANADOR RECOMENDADO) -->
               <div style="background:linear-gradient(135deg, rgba(16,185,129,0.15), rgba(6,78,59,0.25));border:1.5px solid #10B981;border-radius:10px;padding:12px;display:flex;flex-direction:column;justify-content:space-between;position:relative;box-shadow:0 0 20px rgba(16,185,129,0.2);">
-                <div style="position:absolute;top:-8px;right:10px;background:#10B981;color:#0F172A;font-size:8.5px;font-weight:900;padding:2px 8px;border-radius:10px;letter-spacing:0.5px;">🥇 MÁXIMA ENERGÍA ANUAL</div>
+                <div style="position:absolute;top:-8px;right:10px;background:#10B981;color:#0F172A;font-size: 10px;font-weight:900;padding:2px 8px;border-radius:10px;letter-spacing:0.5px;">🥇 MÁXIMA ENERGÍA ANUAL</div>
                 <div>
                   <div style="font-size:11px;font-weight:bold;color:#A7F3D0;margin-top:4px;">${bE.title}</div>
-                  <div style="font-size:9.5px;color:#6EE7B7;margin-bottom:8px;">Disposición: <b>${bE.orientLabel}</b> · Paso: <b>${bE.rowPitchM}m</b></div>
+                  <div style="font-size: 10px;color:#6EE7B7;margin-bottom:8px;">Disposición: <b>${bE.orientLabel}</b> · Paso: <b>${bE.rowPitchM}m</b></div>
                   <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:4px;">
                     <span style="font-size:24px;font-weight:900;color:#FFFFFF;font-family:'JetBrains Mono',monospace;">${bE.kwhYear.toLocaleString()}</span>
                     <span style="font-size:10px;color:#A7F3D0;font-weight:bold;">kWh/año</span>
@@ -543,38 +543,38 @@
 
               <!-- 🥈 2º MÁXIMA POTENCIA (kWp) -->
               <div style="background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.3);border-radius:10px;padding:12px;display:flex;flex-direction:column;justify-content:space-between;position:relative;">
-                <div style="position:absolute;top:-8px;right:10px;background:#0284C7;color:#fff;font-size:8px;font-weight:bold;padding:1px 6px;border-radius:10px;">🥈 MÁX POTENCIA (kWp)</div>
+                <div style="position:absolute;top:-8px;right:10px;background:#0284C7;color:#fff;font-size: 10px;font-weight:bold;padding:1px 6px;border-radius:10px;">🥈 MÁX POTENCIA (kWp)</div>
                 <div>
                   <div style="font-size:10.5px;font-weight:bold;color:#BAE6FD;margin-top:4px;">${bP.title}</div>
-                  <div style="font-size:9px;color:#7DD3FC;margin-bottom:6px;">Disposición: <b>${bP.orientLabel}</b></div>
+                  <div style="font-size: 10px;color:#7DD3FC;margin-bottom:6px;">Disposición: <b>${bP.orientLabel}</b></div>
                   <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:2px;">
                     <span style="font-size:20px;font-weight:bold;color:#FFFFFF;font-family:'JetBrains Mono',monospace;">${bP.kwp}</span>
                     <span style="font-size:10px;color:#38BDF8;font-weight:bold;">kWp</span>
                   </div>
-                  <div style="font-size:9.5px;color:#94A3B8;">
+                  <div style="font-size: 10px;color:#94A3B8;">
                     <b>${bP.modules} placas</b> · ${bP.kwhYear.toLocaleString()} kWh/año
                   </div>
                 </div>
-                <button type="button" onclick="RASolarOptimizer.applyByIndex(${pIdx}, ${bPIndex >= 0 ? bPIndex : 0})" style="margin-top:8px;background:rgba(56,189,248,0.2);color:#38BDF8;border:1px solid rgba(56,189,248,0.4);border-radius:6px;padding:6px;font-size:9.5px;font-weight:bold;cursor:pointer;width:100%;">
+                <button type="button" onclick="RASolarOptimizer.applyByIndex(${pIdx}, ${bPIndex >= 0 ? bPIndex : 0})" style="margin-top:8px;background:rgba(56,189,248,0.2);color:#38BDF8;border:1px solid rgba(56,189,248,0.4);border-radius:6px;padding:6px;font-size: 10px;font-weight:bold;cursor:pointer;width:100%;">
                   Aplicar esta
                 </button>
               </div>
 
               <!-- 🥉 3º MÁXIMA EFICIENCIA UNITARIA (kWh/kWp) -->
               <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:10px;padding:12px;display:flex;flex-direction:column;justify-content:space-between;position:relative;">
-                <div style="position:absolute;top:-8px;right:10px;background:#D97706;color:#fff;font-size:8px;font-weight:bold;padding:1px 6px;border-radius:10px;">🥉 MÁX RENDIMIENTO</div>
+                <div style="position:absolute;top:-8px;right:10px;background:#D97706;color:#fff;font-size: 10px;font-weight:bold;padding:1px 6px;border-radius:10px;">🥉 MÁX RENDIMIENTO</div>
                 <div>
                   <div style="font-size:10.5px;font-weight:bold;color:#FDE68A;margin-top:4px;">${bEf.title}</div>
-                  <div style="font-size:9px;color:#FCD34D;margin-bottom:6px;">Disposición: <b>${bEf.orientLabel}</b></div>
+                  <div style="font-size: 10px;color:#FCD34D;margin-bottom:6px;">Disposición: <b>${bEf.orientLabel}</b></div>
                   <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:2px;">
                     <span style="font-size:20px;font-weight:bold;color:#FFFFFF;font-family:'JetBrains Mono',monospace;">${bEf.specificYield}</span>
                     <span style="font-size:10px;color:#F59E0B;font-weight:bold;">kWh/kWp</span>
                   </div>
-                  <div style="font-size:9.5px;color:#94A3B8;">
+                  <div style="font-size: 10px;color:#94A3B8;">
                     <b>${bEf.modules} placas</b> (${bEf.kwp} kWp) · ${bEf.kwhYear.toLocaleString()} kWh/a
                   </div>
                 </div>
-                <button type="button" onclick="RASolarOptimizer.applyByIndex(${pIdx}, ${bEfIndex >= 0 ? bEfIndex : 0})" style="margin-top:8px;background:rgba(245,158,11,0.2);color:#F59E0B;border:1px solid rgba(245,158,11,0.4);border-radius:6px;padding:6px;font-size:9.5px;font-weight:bold;cursor:pointer;width:100%;">
+                <button type="button" onclick="RASolarOptimizer.applyByIndex(${pIdx}, ${bEfIndex >= 0 ? bEfIndex : 0})" style="margin-top:8px;background:rgba(245,158,11,0.2);color:#F59E0B;border:1px solid rgba(245,158,11,0.4);border-radius:6px;padding:6px;font-size: 10px;font-weight:bold;cursor:pointer;width:100%;">
                   Aplicar esta
                 </button>
               </div>
@@ -588,7 +588,7 @@
                 <span style="color:#64748B;font-weight:normal;">Ordenado por Producción Neta Total</span>
               </div>
               <div style="max-height:260px;overflow-y:auto;">
-                <table style="width:100%;border-collapse:collapse;font-size:9.5px;text-align:left;">
+                <table style="width:100%;border-collapse:collapse;font-size: 10px;text-align:left;">
                   <thead>
                     <tr style="color:#64748B;border-bottom:1px solid rgba(255,255,255,0.06);background:rgba(0,0,0,0.2);">
                       <th style="padding:6px 10px;">#</th>
@@ -608,7 +608,7 @@
                         <td style="padding:6px 10px;color:${idx === 0 ? '#10B981' : '#64748B'};font-weight:bold;">${idx === 0 ? '🥇 1' : (idx === 1 ? '🥈 2' : (idx === 2 ? '🥉 3' : (idx + 1)))}</td>
                         <td style="padding:6px 10px;font-weight:${idx === 0 ? 'bold' : 'normal'};color:${idx === 0 ? '#A7F3D0' : '#E2E8F0'};">${s.title}</td>
                         <td style="padding:6px 10px;">
-                          <span style="padding:2px 5px;border-radius:4px;font-size:8.5px;background:${s.isHybrid ? 'rgba(168,85,247,0.2)' : 'rgba(255,255,255,0.06)'};color:${s.isHybrid ? '#C084FC' : '#CBD5E1'};font-weight:${s.isHybrid ? 'bold' : 'normal'};">
+                          <span style="padding:2px 5px;border-radius:4px;font-size: 10px;background:${s.isHybrid ? 'rgba(168,85,247,0.2)' : 'rgba(255,255,255,0.06)'};color:${s.isHybrid ? '#C084FC' : '#CBD5E1'};font-weight:${s.isHybrid ? 'bold' : 'normal'};">
                             ${s.orientLabel}
                           </span>
                         </td>
@@ -618,7 +618,7 @@
                         <td style="padding:6px 10px;text-align:right;color:#38BDF8;">${s.specificYield}</td>
                         <td style="padding:6px 10px;text-align:right;font-weight:bold;color:${idx === 0 ? '#10B981' : '#F8FAFC'};font-family:'JetBrains Mono',monospace;">${s.kwhYear.toLocaleString()}</td>
                         <td style="padding:6px 10px;text-align:center;">
-                          <button type="button" onclick="RASolarOptimizer.applyByIndex(${pIdx}, ${idx})" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#E2E8F0;border-radius:4px;padding:2px 6px;font-size:8.5px;cursor:pointer;">
+                          <button type="button" onclick="RASolarOptimizer.applyByIndex(${pIdx}, ${idx})" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#E2E8F0;border-radius:4px;padding:2px 6px;font-size: 10px;cursor:pointer;">
                             Aplicar
                           </button>
                         </td>
@@ -633,7 +633,7 @@
 
           <!-- Pie de Modal -->
           <div style="padding:10px 18px;border-top:1px solid rgba(255,255,255,0.08);background:rgba(0,0,0,0.2);display:flex;justify-content:space-between;align-items:center;">
-            <div style="font-size:9.5px;color:#64748B;">
+            <div style="font-size: 10px;color:#64748B;">
               Cálculo del paso inter-filas según normativa CTE DB-HE5 (Solsticio 21 Dic, 10:00-14:00 h).
             </div>
             <button type="button" onclick="document.getElementById('ra-solar-optimizer-modal').style.display='none'" style="background:rgba(255,255,255,0.08);color:#E2E8F0;border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:6px 14px;font-size:10px;cursor:pointer;">

@@ -98,11 +98,20 @@ function raExportProjectData() {
         color: poly.color,
         planeIdx: (typeof poly.planeIdx === 'number') ? poly.planeIdx : 0,
         structureType: poly.structureType || 'coplanar_teja',
+        estructura: poly.estructura ? JSON.parse(JSON.stringify(poly.estructura)) : null,
+        moduleId: poly.moduleId || null,
+        arrangementMode: poly.arrangementMode || null,
+        alignToPlane: poly.alignToPlane !== false,
+        hasWalkway: !!poly.hasWalkway,
+        walkwayWidth: (typeof poly.walkwayWidth === 'number') ? poly.walkwayWidth : 0.80,
         orientationPref: poly.orientationPref || 'portrait',
         modTilt: poly.modTilt || 'auto',
         modAzimuth: poly.modAzimuth || 'auto',
         area: (typeof poly.area === 'number') ? poly.area : (poly.roofInfo && typeof poly.roofInfo.area === 'number' ? poly.roofInfo.area : 0),
         deletedPanels: Array.isArray(poly.deletedPanels) ? poly.deletedPanels.map(dp => ({
+          panelId: dp.panelId || null,
+          layoutIndex: (typeof dp.layoutIndex === 'number') ? dp.layoutIndex : null,
+          localIdx: (typeof dp.localIdx === 'number') ? dp.localIdx : null,
           u: dp.u,
           v: dp.v,
           center: dp.center ? { x: dp.center.x, y: dp.center.y, z: dp.center.z } : null
@@ -672,6 +681,12 @@ async function raImportProjectData(projectData, options = {}) {
           name: poly.name || ('Faldon #' + (pIdx + 1)),
           planeIdx: (typeof poly.planeIdx === 'number') ? poly.planeIdx : (WP.activePlaneIdx || 0),
           structureType: poly.structureType || 'coplanar_teja',
+          estructura: poly.estructura ? JSON.parse(JSON.stringify(poly.estructura)) : (poly.structureType && poly.structureType.includes('pergola') ? { tipo: 'pergola', clearance: 1.80 } : (poly.structureType && poly.structureType.includes('triangle') ? { tipo: 'balasto', clearance: 0.20 } : { tipo: 'coplanar', clearance: 0.05 })),
+          moduleId: poly.moduleId || null,
+          arrangementMode: poly.arrangementMode || null,
+          alignToPlane: poly.alignToPlane !== false,
+          hasWalkway: !!poly.hasWalkway,
+          walkwayWidth: (typeof poly.walkwayWidth === 'number') ? poly.walkwayWidth : 0.80,
           points: pts,
           area: polyArea,
           color: poly.color || '#38bdf8',
@@ -679,6 +694,9 @@ async function raImportProjectData(projectData, options = {}) {
           modTilt: poly.modTilt || 'auto',
           modAzimuth: poly.modAzimuth || 'auto',
           deletedPanels: Array.isArray(poly.deletedPanels) ? poly.deletedPanels.map(dp => ({
+            panelId: dp.panelId || null,
+            layoutIndex: (typeof dp.layoutIndex === 'number') ? dp.layoutIndex : null,
+            localIdx: (typeof dp.localIdx === 'number') ? dp.localIdx : null,
             u: dp.u,
             v: dp.v,
             center: dp.center ? new Cesium.Cartesian3(dp.center.x, dp.center.y, dp.center.z) : null
@@ -1119,11 +1137,11 @@ function raRenderRecentProjectsList() {
       <div style="background:rgba(255,255,255,0.04);border:1px solid var(--border-subtle);border-radius:6px;padding:8px 10px;display:flex;justify-content:space-between;align-items:center;transition:all 0.15s ease;">
         <div style="display:flex;flex-direction:column;gap:2px;overflow:hidden;margin-right:8px;">
           <span style="font-size:11px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${cleanName}</span>
-          <span style="font-size:9.5px;color:var(--text-slate-400);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><i data-lucide="map-pin" class="icon-sm"></i> ${cleanAddr}</span>
-          <span style="font-size:9px;color:var(--amber-400);font-family:var(--font-mono);"><i data-lucide="zap" class="icon-sm"></i> ${safeKwp} kWp (${safePanels} paneles) · ${dStr}</span>
+          <span style="font-size: 10px;color:var(--text-slate-400);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><i data-lucide="map-pin" class="icon-sm"></i> ${cleanAddr}</span>
+          <span style="font-size: 10px;color:var(--amber-400);font-family:var(--font-mono);"><i data-lucide="zap" class="icon-sm"></i> ${safeKwp} kWp (${safePanels} paneles) · ${dStr}</span>
         </div>
         <div style="display:flex;gap:4px;flex-shrink:0;">
-          <button onclick="raLoadRecentProjectByIndex(${idx})" class="doc-mini-btn" style="padding:4px 8px;font-size:9.5px;border-color:var(--emerald-500);color:var(--emerald-400);">Cargar</button>
+          <button onclick="raLoadRecentProjectByIndex(${idx})" class="doc-mini-btn" style="padding:4px 8px;font-size: 10px;border-color:var(--emerald-500);color:var(--emerald-400);">Cargar</button>
           <button onclick="raDeleteRecentProjectByIndex(${idx})" style="background:none;border:none;color:var(--text-slate-500);font-size:12px;cursor:pointer;padding:2px 4px;" title="Eliminar de recientes"><i data-lucide="x" class="icon-sm"></i></button>
         </div>
       </div>

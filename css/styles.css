@@ -238,7 +238,7 @@
       color: var(--amber-400);
     }
     .wp-step-title {
-      font-size: 9.5px;
+      font-size: 10px;
       font-weight: 800;
       color: var(--text-slate-300);
       text-transform: uppercase;
@@ -407,6 +407,48 @@
 
     #ra-sidebar.collapsed {
       transform: translateX(-100%);
+    }
+
+    /* ── Divisor de Redimensionamiento Manual del Sidebar (Opción 2) ── */
+    #ra-sidebar-resizer {
+      position: absolute;
+      top: 0;
+      right: -6px;
+      width: 12px;
+      height: 100%;
+      cursor: col-resize;
+      z-index: 1002;
+      user-select: none;
+      background: transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s ease;
+    }
+    #ra-sidebar-resizer::after {
+      content: '';
+      width: 3px;
+      height: 48px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.25);
+      transition: background 0.15s ease, height 0.15s ease, box-shadow 0.15s ease;
+    }
+    #ra-sidebar-resizer:hover,
+    #ra-sidebar-resizer.is-resizing {
+      background: rgba(56, 189, 248, 0.18);
+    }
+    #ra-sidebar-resizer:hover::after,
+    #ra-sidebar-resizer.is-resizing::after {
+      background: #38bdf8;
+      height: 84px;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.9);
+    }
+    body.is-sidebar-resizing {
+      cursor: col-resize !important;
+      user-select: none !important;
+    }
+    body.is-sidebar-resizing * {
+      cursor: col-resize !important;
     }
 
     /* ── Tirador / Botón de Animación Lateral ─────────────────────────────── */
@@ -659,7 +701,7 @@
       white-space: nowrap;
     }
     .search-badge {
-      font-size: 8.5px;
+      font-size: 10px;
       font-weight: 800;
       padding: 1px 5px;
       border-radius: 4px;
@@ -742,7 +784,7 @@
       line-height: 1;
     }
     .wp-step-btn .wp-step-title {
-      font-size: 9.5px;
+      font-size: 10px;
       font-weight: 800;
       letter-spacing: 0;
       text-transform: uppercase;
@@ -1373,7 +1415,7 @@
     .solar-bar-chart { width: 100%; height: 90px; }
     .bar-rect { fill: var(--amber-500); transition: fill 0.15s; cursor: pointer; }
     .bar-rect:hover { fill: #fff; filter: drop-shadow(0 0 6px var(--amber-400)); }
-    .bar-label { font-size: 9.5px; fill: var(--text-slate-400); font-family: var(--font-mono); text-anchor: middle; }
+    .bar-label { font-size: 10px; fill: var(--text-slate-400); font-family: var(--font-mono); text-anchor: middle; }
 
     /* ── Documentos Grid ─────────────────────────────────────────────────── */
     .doc-action-grid {
@@ -1573,7 +1615,7 @@
       gap: 6px;
     }
     .ra-fab-tooltip-desc {
-      font-size: 9.5px;
+      font-size: 10px;
       color: #94A3B8;
       font-weight: 500;
       line-height: 1.4;
@@ -2735,6 +2777,10 @@ body.ra-capture-mode-active .ra-status-hud {
   }
 
   /* Ocultar el tirador tradicional de desktop en móvil */
+  #ra-sidebar-resizer {
+    display: none !important;
+  }
+
   #ra-sidebar-toggle-btn {
     display: none !important;
   }
@@ -2790,7 +2836,7 @@ body.ra-capture-mode-active .ra-status-hud {
     font-size: 11px !important;
   }
   .wp-step-title {
-    font-size: 8px !important;
+    font-size: 10px !important;
     letter-spacing: -0.2px !important;
   }
 
@@ -2828,7 +2874,7 @@ body.ra-capture-mode-active .ra-status-hud {
     z-index: 850 !important;
   }
   #ra-rosa-rumbo {
-    font-size: 8.5px !important;
+    font-size: 10px !important;
   }
 
   #ra-solar-fab-btn {

@@ -8,7 +8,9 @@
  * Características:
  * 1. HUD flotante Glassmorphism en el viewport con métricas unificadas (kWp, módulos,
  *    inversor, ratio DC/AC, producción anual y estado del análisis solar).
- * 2. Validación proactiva continua:
+ * 2. Modo compacto / plegable con atajo de teclado [H] o clic para mínima huella.
+ * 3. Arquitectura 100% reactiva dirigida por eventos (sin polling continuo en reposo).
+ * 4. Validación proactiva continua:
  *    - Ratio DC/AC admisible [0.85 - 1.35] (IEC 62548).
  *    - Compatibilidad de strings con ventana MPPT del inversor activo.
  *    - Aviso de sedimentación y hot-spots en pendientes < 10°.
@@ -20,11 +22,20 @@
   'use strict';
 
   let hudContainer = null;
-  let validationBanner = null;
   let lastStateFingerprint = '';
   let _cachedAddress = '';
   let _lastGeocodeCoord = '';
   let _isGeocoding = false;
+  let _lastAlertMsg = null;
+  let _lastAlertLevel = 'info';
+
+  // Modo compacto persistente
+  let _isCompact = false;
+  try {
+    if (typeof localStorage !== 'undefined') {
+      _isCompact = (localStorage.getItem('ra_hud_compact') === 'true');
+    }
+  } catch (e) {}
 
   function getApproximateAddress(lat, lng) {
     if (typeof lat !== 'number' || typeof lng !== 'number' || isNaN(lat) || isNaN(lng)) {
@@ -76,6 +87,69 @@
   }
 
   /**
+   * Alterna entre modo compacto y modo expandido.
+   */
+  function setCompactMode(compact) {
+    _isCompact = !!compact;
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('ra_hud_compact', _isCompact ? 'true' : 'false');
+      }
+    } catch (e) {}
+    applyCompactModeUI();
+  }
+
+  function toggleCompactMode(force) {
+    const next = (typeof force === 'boolean') ? force : !_isCompact;
+    setCompactMode(next);
+    if (typeof root.showStatus === 'function') {
+      root.showStatus(next ? '<i data-lucide="minimize-2" class="icon-sm"></i> HUD DE ESTADO MINIMIZADO [H]' : '<i data-lucide="maximize-2" class="icon-sm"></i> HUD DE ESTADO EXPANDIDO [H]', 1600);
+    }
+  }
+
+  /**
+   * Refleja visualmente el modo compacto en el DOM.
+   */
+  function applyCompactModeUI() {
+    ensureHUDDOM();
+    if (!hudContainer) return;
+
+    const pillBox = document.getElementById('ra-hud-pill-box');
+    const locRow = document.getElementById('ra-hud-location-row');
+    const metricsRow = document.getElementById('ra-hud-metrics-row');
+    const compactRow = document.getElementById('ra-hud-compact-row');
+    const alertBox = document.getElementById('ra-hud-validation-alert');
+
+    if (!pillBox || !locRow || !metricsRow || !compactRow) return;
+
+    if (_isCompact) {
+      hudContainer.classList.add('ra-hud-compact');
+      pillBox.style.padding = '5px 12px';
+      pillBox.style.gap = '0';
+      pillBox.style.borderRadius = '8px';
+      pillBox.style.cursor = 'pointer';
+      pillBox.title = 'Haz clic o pulsa [H] para expandir el HUD con todas las métricas';
+      locRow.style.display = 'none';
+      metricsRow.style.display = 'none';
+      compactRow.style.display = 'flex';
+      if (alertBox) alertBox.style.display = 'none';
+    } else {
+      hudContainer.classList.remove('ra-hud-compact');
+      pillBox.style.padding = '8px 14px';
+      pillBox.style.gap = '6px';
+      pillBox.style.borderRadius = '10px';
+      pillBox.style.cursor = 'default';
+      pillBox.title = '';
+      locRow.style.display = 'flex';
+      metricsRow.style.display = 'flex';
+      compactRow.style.display = 'none';
+      if (alertBox) {
+        alertBox.style.display = _lastAlertMsg ? 'flex' : 'none';
+      }
+    }
+  }
+
+  /**
    * Crea e inyecta el contenedor del HUD en el DOM si no existe.
    */
   function ensureHUDDOM() {
@@ -97,72 +171,120 @@
         pointer-events: none;
         font-family: 'Inter', system-ui, -apple-system, sans-serif;
         max-width: 420px;
-        transition: opacity 0.25s ease, transform 0.25s ease;
+        transition: opacity 0.2s ease, transform 0.2s ease;
       `;
 
       hudContainer.innerHTML = `
         <div id="ra-hud-pill-box" style="
           pointer-events: auto;
-          background: rgba(15, 23, 42, 0.90);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
+          background: rgba(15, 23, 42, 0.95);
           border: 1px solid rgba(56, 189, 248, 0.35);
-          box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6), 0 0 15px rgba(56, 189, 248, 0.15);
+          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 10px rgba(56, 189, 248, 0.10);
           border-radius: 10px;
           padding: 8px 14px;
           color: #fff;
           display: flex;
           flex-direction: column;
           gap: 6px;
+          user-select: none;
+          transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
         ">
-          <!-- Fila de Ubicación y Estado de Sombra -->
-          <div id="ra-hud-location-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 9.5px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 4px;">
+          <!-- Fila de Ubicación, Estado de Sombra y Botón de Minimizar [H] -->
+          <div id="ra-hud-location-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 4px;">
             <div style="display: flex; align-items: center; gap: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
               <span style="color: #38BDF8;">📍</span>
-              <span id="ra-hud-location-text" style="font-weight: 600; color: #cbd5e1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 250px;">Ubicación: —</span>
+              <span id="ra-hud-location-text" style="font-weight: 600; color: #cbd5e1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px;">Ubicación: —</span>
             </div>
-            <div id="ra-hud-shadow-badge" style="font-size: 8.5px; font-weight: 700; padding: 1px 6px; border-radius: 4px; background: rgba(56, 189, 248, 0.15); color: #38BDF8; white-space: nowrap;">
-              🌤️ Preliminar
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <div id="ra-hud-shadow-badge" style="font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 4px; background: rgba(56, 189, 248, 0.15); color: #38BDF8; white-space: nowrap;">
+                🌤️ Preliminar
+              </div>
+              <button id="ra-hud-toggle-btn" type="button" title="Minimizar HUD [H]" style="
+                background: rgba(255, 255, 255, 0.08);
+                border: 1px solid rgba(255, 255, 255, 0.15);
+                color: #cbd5e1;
+                cursor: pointer;
+                border-radius: 4px;
+                font-size: 10px;
+                font-weight: 800;
+                padding: 1px 5px;
+                line-height: 1.2;
+                display: flex;
+                align-items: center;
+                gap: 3px;
+                transition: background 0.15s ease, color 0.15s ease;
+              ">
+                <span id="ra-hud-toggle-icon">−</span>
+                <span style="font-size: 10px; color: #94a3b8; font-family: monospace;">[H]</span>
+              </button>
             </div>
           </div>
 
-          <!-- Métricas principales (kWp, Inversor, Desglose Teórico vs Neto) -->
-          <div style="display: flex; align-items: center; justify-content: space-between; gap: 14px;">
+          <!-- Métricas principales completas (kWp, Inversor, Desglose Teórico vs Neto) -->
+          <div id="ra-hud-metrics-row" style="display: flex; align-items: center; justify-content: space-between; gap: 14px;">
             <div style="display: flex; align-items: center; gap: 8px;">
               <div style="width: 8px; height: 8px; border-radius: 50%; background: #10B981; box-shadow: 0 0 8px #10B981;" id="ra-hud-status-dot"></div>
               <div>
                 <div style="font-size: 11.5px; font-weight: 900; letter-spacing: 0.3px; color: #f8fafc;" id="ra-hud-kwp-text">0.00 kWp</div>
-                <div style="font-size: 9.5px; color: #94a3b8;" id="ra-hud-sub-text">0 paneles · Sin inversor</div>
-                <div style="font-size: 9px; font-weight: 700;" id="ra-hud-ratio-badge">Ratio DC/AC —</div>
+                <div style="font-size: 10px; color: #94a3b8;" id="ra-hud-sub-text">0 paneles · Sin inversor</div>
+                <div style="font-size: 10px; font-weight: 700;" id="ra-hud-ratio-badge">Ratio DC/AC —</div>
               </div>
             </div>
-            <div style="text-align: right; display: flex; flex-direction: column; gap: 1px;">
-              <div style="font-size: 9px; color: #94a3b8; font-family: monospace;">
+            <div id="ra-hud-energy-breakdown" style="text-align: right; display: flex; flex-direction: column; gap: 1px;">
+              <div style="font-size: 10px; color: #94a3b8; font-family: monospace;">
                 Teórico: <span id="ra-hud-theo-energy" style="color: #cbd5e1; font-weight: 700;">— kWh/a</span>
               </div>
               <div style="font-size: 11px; font-weight: 800; font-family: monospace; color: #38BDF8;">
                 Neto 3D: <span id="ra-hud-energy-text">— kWh/año</span>
               </div>
-              <div id="ra-hud-shadow-detail" style="font-size: 8.5px; font-weight: 600; color: #94a3b8;">
+              <div id="ra-hud-shadow-detail" style="font-size: 10px; font-weight: 600; color: #94a3b8;">
                 Sin simulación
               </div>
             </div>
+          </div>
+
+          <!-- Fila Compacta Minimalista (Modo C - Se activa cuando _isCompact es true) -->
+          <div id="ra-hud-compact-row" style="display: none; align-items: center; justify-content: space-between; gap: 10px; font-size: 11px; font-weight: 800;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <div style="width: 7px; height: 7px; border-radius: 50%; background: #10B981; box-shadow: 0 0 6px #10B981;" id="ra-hud-compact-dot"></div>
+              <span id="ra-hud-compact-kwp" style="color: #f8fafc; font-family: monospace; font-size: 11.5px;">0.00 kWp</span>
+              <span id="ra-hud-compact-panels" style="color: #94a3b8; font-size: 10px; font-weight: 600;">(0 pnl)</span>
+              <span id="ra-hud-compact-alert" style="display: none; font-size: 11px; cursor: help;" title="">⚠️</span>
+            </div>
+            <button id="ra-hud-expand-btn" type="button" title="Expandir HUD [H]" style="
+              background: rgba(255, 255, 255, 0.08);
+              border: 1px solid rgba(255, 255, 255, 0.15);
+              color: #cbd5e1;
+              cursor: pointer;
+              border-radius: 4px;
+              font-size: 10px;
+              font-weight: 800;
+              padding: 1px 5px;
+              line-height: 1.2;
+              display: flex;
+              align-items: center;
+              gap: 3px;
+              transition: background 0.15s ease, color 0.15s ease;
+            ">
+              <span>+</span>
+              <span style="font-size: 10px; color: #94a3b8; font-family: monospace;">[H]</span>
+            </button>
           </div>
         </div>
 
         <div id="ra-hud-validation-alert" style="
           pointer-events: auto;
           display: none;
-          background: rgba(239, 68, 68, 0.92);
-          backdrop-filter: blur(8px);
+          background: rgba(239, 68, 68, 0.94);
           border-radius: 8px;
           padding: 6px 10px;
           color: #fff;
           font-size: 10px;
           font-weight: 700;
-          box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
           align-items: center;
           gap: 6px;
+          user-select: none;
         ">
           <span id="ra-hud-alert-icon">⚠️</span>
           <span id="ra-hud-alert-text">Alerta de diseño</span>
@@ -170,6 +292,32 @@
       `;
 
       document.body.appendChild(hudContainer);
+
+      // Manejadores de eventos de colapso / expansión
+      const toggleBtn = document.getElementById('ra-hud-toggle-btn');
+      if (toggleBtn) {
+        toggleBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          toggleCompactMode();
+        });
+      }
+
+      const expandBtn = document.getElementById('ra-hud-expand-btn');
+      if (expandBtn) {
+        expandBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          toggleCompactMode(false);
+        });
+      }
+
+      const compactRow = document.getElementById('ra-hud-compact-row');
+      if (compactRow) {
+        compactRow.addEventListener('click', () => {
+          if (_isCompact) toggleCompactMode(false);
+        });
+      }
+
+      applyCompactModeUI();
     }
     return hudContainer;
   }
@@ -364,11 +512,11 @@
     }
 
     // Fingerprint para evitar renders innecesarios
-    const currentFingerprint = `${s.numPanels}_${s.kwp.toFixed(2)}_${s.invKw.toFixed(1)}_${s.isHeatmapDirty}_${s.annualKWh}_${s.theoreticalAnnualKWh}_${s.hasSimulation}_${s.approxAddress}_${s.shadowLossPct}`;
+    const currentFingerprint = `${s.numPanels}_${s.kwp.toFixed(2)}_${s.invKw.toFixed(1)}_${s.isHeatmapDirty}_${s.annualKWh}_${s.theoreticalAnnualKWh}_${s.hasSimulation}_${s.approxAddress}_${s.shadowLossPct}_${_isCompact}`;
     if (currentFingerprint === lastStateFingerprint) return;
     lastStateFingerprint = currentFingerprint;
 
-    // Actualizar textos
+    // Actualizar textos principales
     const kwpEl = document.getElementById('ra-hud-kwp-text');
     const subEl = document.getElementById('ra-hud-sub-text');
     const energyEl = document.getElementById('ra-hud-energy-text');
@@ -381,11 +529,20 @@
     const theoEnergyEl = document.getElementById('ra-hud-theo-energy');
     const shadowDetailEl = document.getElementById('ra-hud-shadow-detail');
 
+    // Elementos del modo compacto
+    const compactKwpEl = document.getElementById('ra-hud-compact-kwp');
+    const compactPanelsEl = document.getElementById('ra-hud-compact-panels');
+    const compactDotEl = document.getElementById('ra-hud-compact-dot');
+    const compactAlertEl = document.getElementById('ra-hud-compact-alert');
+
     if (locationEl) locationEl.textContent = s.approxAddress || 'Ubicación';
 
     const currentStep = (typeof wpCurrentStep !== 'undefined') ? wpCurrentStep : ((typeof window !== 'undefined' && window.wpCurrentStep) || 1);
 
     if (kwpEl) kwpEl.textContent = `${s.kwp.toFixed(2)} kWp`;
+    if (compactKwpEl) compactKwpEl.textContent = `${s.kwp.toFixed(2)} kWp`;
+    if (compactPanelsEl) compactPanelsEl.textContent = `(${s.numPanels} pnl)`;
+
     if (subEl) {
       if (currentStep >= 4) {
         subEl.textContent = `${s.numPanels} paneles · ${s.invKw > 0 ? (s.invKw.toFixed(1) + ' kW AC') : 'Sin inversor'}`;
@@ -457,53 +614,77 @@
     }
 
     // Dot de estado del análisis
+    let dotColor = '#64748B';
+    let dotShadow = 'none';
+    let dotTitle = 'Sin paneles generados';
+    if (s.isHeatmapDirty) {
+      dotColor = '#F59E0B';
+      dotShadow = '0 0 8px #F59E0B';
+      dotTitle = 'Análisis solar desactualizado tras cambios de diseño';
+    } else if (s.numPanels > 0) {
+      dotColor = '#10B981';
+      dotShadow = '0 0 8px #10B981';
+      dotTitle = 'Diseño al día';
+    }
+
     if (dotEl) {
-      if (s.isHeatmapDirty) {
-        dotEl.style.background = '#F59E0B';
-        dotEl.style.boxShadow = '0 0 8px #F59E0B';
-        dotEl.title = 'Análisis solar desactualizado tras cambios de diseño';
-      } else if (s.numPanels > 0) {
-        dotEl.style.background = '#10B981';
-        dotEl.style.boxShadow = '0 0 8px #10B981';
-        dotEl.title = 'Diseño al día';
-      } else {
-        dotEl.style.background = '#64748B';
-        dotEl.style.boxShadow = 'none';
-        dotEl.title = 'Sin paneles generados';
-      }
+      dotEl.style.background = dotColor;
+      dotEl.style.boxShadow = dotShadow;
+      dotEl.title = dotTitle;
+    }
+    if (compactDotEl) {
+      compactDotEl.style.background = dotColor;
+      compactDotEl.style.boxShadow = dotShadow;
+      compactDotEl.title = dotTitle;
     }
 
     // Alertas proactivas automáticas (Hito 9)
+    let alertMsg = null;
+    let alertLevel = 'warning';
+
+    // Las comprobaciones electrotécnicas de inversor y strings solo aplican en Paso >= 4
+    if (currentStep >= 4 && s.numPanels > 0 && s.invKw > 0) {
+      if (s.ratioDcAc > 1.40) {
+        alertMsg = `Ratio DC/AC excesivo (${s.ratioDcAc.toFixed(2)}): riesgo de clipping severo. Recomendado inversor superior.`;
+        alertLevel = 'error';
+      } else if (s.ratioDcAc < 0.75) {
+        alertMsg = `Inversor sobredimensionado (Ratio ${s.ratioDcAc.toFixed(2)}): opera a baja eficiencia a carga parcial.`;
+        alertLevel = 'warning';
+      } else if (s.stringNotice) {
+        alertMsg = s.stringNotice;
+        alertLevel = 'info';
+      }
+    }
+
+    if (!alertMsg && s.minTilt < 9.5 && s.numPanels > 0) {
+      alertMsg = `Inclinación < 10°: requiere previsión de limpieza por sedimentación de polvo.`;
+      alertLevel = 'info';
+    }
+
+    if (!alertMsg && s.isHeatmapDirty && s.numPanels > 0) {
+      alertMsg = `Geometría modificada: recalcula el análisis solar en el Paso 3.`;
+      alertLevel = 'info';
+    }
+
+    _lastAlertMsg = alertMsg;
+    _lastAlertLevel = alertLevel;
+
+    // Actualizar alerta en modo compacto
+    if (compactAlertEl) {
+      if (alertMsg) {
+        compactAlertEl.style.display = 'inline-block';
+        compactAlertEl.textContent = (alertLevel === 'error') ? '⛔' : (alertLevel === 'warning' ? '⚠️' : 'ℹ️');
+        compactAlertEl.title = alertMsg;
+      } else {
+        compactAlertEl.style.display = 'none';
+        compactAlertEl.title = '';
+      }
+    }
+
+    // Actualizar banner de alerta en modo expandido
     if (alertBox && alertText) {
       const alertIcon = document.getElementById('ra-hud-alert-icon');
-      let alertMsg = null;
-      let alertLevel = 'warning';
-
-      // Las comprobaciones electrotécnicas de inversor y strings solo aplican en Paso >= 4
-      if (currentStep >= 4 && s.numPanels > 0 && s.invKw > 0) {
-        if (s.ratioDcAc > 1.40) {
-          alertMsg = `Ratio DC/AC excesivo (${s.ratioDcAc.toFixed(2)}): riesgo de clipping severo. Recomendado inversor superior.`;
-          alertLevel = 'error';
-        } else if (s.ratioDcAc < 0.75) {
-          alertMsg = `Inversor sobredimensionado (Ratio ${s.ratioDcAc.toFixed(2)}): opera a baja eficiencia a carga parcial.`;
-          alertLevel = 'warning';
-        } else if (s.stringNotice) {
-          alertMsg = s.stringNotice;
-          alertLevel = 'info';
-        }
-      }
-
-      if (!alertMsg && s.minTilt < 9.5 && s.numPanels > 0) {
-        alertMsg = `Inclinación < 10°: requiere previsión de limpieza por sedimentación de polvo.`;
-        alertLevel = 'info';
-      }
-
-      if (!alertMsg && s.isHeatmapDirty && s.numPanels > 0) {
-        alertMsg = `Geometría modificada: recalcula el análisis solar en el Paso 3.`;
-        alertLevel = 'info';
-      }
-
-      if (alertMsg) {
+      if (alertMsg && !_isCompact) {
         alertBox.style.display = 'flex';
         alertText.textContent = alertMsg;
         if (alertIcon) {
@@ -523,26 +704,98 @@
         alertBox.style.display = 'none';
       }
     }
+
+    applyCompactModeUI();
   }
 
-  // Bucle de sincronización reactiva no bloqueante
+  // ── OPCIÓN D: ARQUITECTURA REACTIVA DIRIGIDA POR EVENTOS ──────────────────────
+  let _updatePending = false;
+  function requestHUDUpdate() {
+    if (_updatePending) return;
+    _updatePending = true;
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => {
+        _updatePending = false;
+        updateHUD();
+      });
+    } else {
+      setTimeout(() => {
+        _updatePending = false;
+        updateHUD();
+      }, 30);
+    }
+  }
+
   let timerId = null;
+  let _syncInitialized = false;
+
   function startSync() {
     if (typeof window === 'undefined') return;
+    if (_syncInitialized) return;
+    _syncInitialized = true;
+
+    // 1. Render inicial inmediato
+    requestHUDUpdate();
+
+    // 2. Escucha reactiva de eventos personalizados de la plataforma
+    window.addEventListener('ra:project-updated', requestHUDUpdate);
+    window.addEventListener('ra:step-changed', requestHUDUpdate);
+    window.addEventListener('resize', requestHUDUpdate);
+
+    // 3. Reactividad en cambios de formularios y parámetros (sidebar / modales)
+    document.addEventListener('change', (e) => {
+      if (e.target && (e.target.closest('#ra-sidebar') || e.target.closest('.modal-box') || e.target.closest('.doc-modal-box'))) {
+        requestHUDUpdate();
+      }
+    }, { passive: true });
+
+    // 4. Reactividad al finalizar interacciones CAD/3D (soltar clic de ratón/táctil)
+    document.addEventListener('pointerup', () => {
+      requestHUDUpdate();
+    }, { passive: true });
+
+    // 5. Hooks no invasivos en funciones globales clave si ya existen
+    if (typeof window.wpUpdateUI === 'function') {
+      const origWpUpdateUI = window.wpUpdateUI;
+      window.wpUpdateUI = function() {
+        const res = origWpUpdateUI.apply(this, arguments);
+        requestHUDUpdate();
+        return res;
+      };
+    }
+
+    if (typeof window.wpSetStep === 'function') {
+      const origWpSetStep = window.wpSetStep;
+      window.wpSetStep = function() {
+        const res = origWpSetStep.apply(this, arguments);
+        requestHUDUpdate();
+        return res;
+      };
+    }
+
+    // 6. Heartbeat pasivo ultra-ligero de respaldo (5 segundos):
+    //    Si la ventana está en segundo plano o el estado no ha cambiado, consume 0% CPU.
     if (timerId) clearInterval(timerId);
-    timerId = setInterval(updateHUD, 1200);
-    setTimeout(updateHUD, 200);
+    timerId = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      updateHUD();
+    }, 5000);
   }
 
   const RAProjectStatusHUD = {
-    update: updateHUD,
+    update: requestHUDUpdate,
+    updateImmediate: updateHUD,
     inspect: inspectProjectState,
-    start: startSync
+    start: startSync,
+    toggleCompact: toggleCompactMode,
+    setCompact: setCompactMode,
+    isCompact: () => _isCompact
   };
 
   if (!root.RA) root.RA = {};
   root.RA.ProjectStatusHUD = RAProjectStatusHUD;
   root.RAProjectStatusHUD = RAProjectStatusHUD;
+  root.toggleProjectStatusHUDCompact = toggleCompactMode;
 
   // Iniciar automáticamente cuando el DOM esté listo
   if (typeof document !== 'undefined') {

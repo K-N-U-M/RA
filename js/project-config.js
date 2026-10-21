@@ -416,20 +416,36 @@ function step3UpdateHardwareSelection() {
     try { window.lucide.createIcons(); } catch (e) {}
   }
 
-  // Estimación de Sobrecarga Estructural en Cubierta (Normativa CTE DB-SE-AE)
+    // Estimación de Sobrecarga Estructural en Cubierta (Normativa CTE DB-SE-AE)
   const elLoad = document.getElementById('step3-spec-roof-load');
   if (elLoad) {
     const modArea = Math.max((mod.l || 2.10) * (mod.w || 1.05), 1.0);
     const modWeightKg = (typeof mod.weightKg === 'number' && mod.weightKg > 0) ? mod.weightKg : 24.5;
-    let hasBallast = false;
+    let hasBallastBlocks = false;
+    let hasTriangles = false;
+    let blocksCountPerPanel = 2;
     if (typeof WP !== 'undefined' && WP && Array.isArray(WP.polylines)) {
-      hasBallast = WP.polylines.some(pl => pl && pl.modStructure && (pl.modStructure.indexOf('triangle') !== -1 || pl.modStructure === 'ballasted'));
+      hasBallastBlocks = WP.polylines.some(pl => pl && (pl.structureType === 'ballast_blocks' || (pl.estructura && pl.estructura.tipo === 'balasto_bloques')));
+      hasTriangles = WP.polylines.some(pl => pl && pl.structureType && pl.structureType.indexOf('triangle') !== -1);
+      const bPl = WP.polylines.find(pl => pl && pl.blocksPerPanel);
+      if (bPl) blocksCountPerPanel = bPl.blocksPerPanel;
     }
-    const structWeightPerMod = hasBallast ? (90.0 + 6.5) : 6.5; // Lastre hormigón 2x45kg + perfiles vs coplanar
+    let blockWeight = 45.0;
+    if (window.RAStructureCatalog && typeof window.RAStructureCatalog.getStructure === 'function') {
+      const activeMfg = window.RAStructureCatalog.getActiveManufacturer ? window.RAStructureCatalog.getActiveManufacturer() : 'sunfer';
+      const mfg = window.RAStructureCatalog.getStructure(activeMfg);
+      if (mfg && typeof mfg.ballastBlockWeightKg === 'number') blockWeight = mfg.ballastBlockWeightKg;
+    }
+    const structWeightPerMod = hasBallastBlocks
+      ? (blocksCountPerPanel * blockWeight + 1.0)
+      : (hasTriangles ? (2 * blockWeight + 6.5) : 3.5);
     const kgPerM2 = (modWeightKg + structWeightPerMod) / modArea;
-    const isSafe = kgPerM2 <= 25.0;
-    elLoad.textContent = '~' + kgPerM2.toFixed(1) + ' kg/m² (' + (isSafe ? 'Admisible' : '⚠️ Requiere Verificación CTE') + ')';
-    elLoad.style.color = isSafe ? '#38BDF8' : '#F59E0B';
+    const isOverCTE = kgPerM2 > 100.0;
+    const isWarningCTE = kgPerM2 > 50.0;
+    const statusText = isOverCTE ? 'Excede CTE (>100 kg/m²)' : (isWarningCTE ? 'Requiere Verificación CTE' : 'Admisible CTE');
+    const statusColor = isOverCTE ? '#EF4444' : (isWarningCTE ? '#F59E0B' : '#38BDF8');
+    elLoad.textContent = '~' + kgPerM2.toFixed(1) + ' kg/m² (' + statusText + ')';
+    elLoad.style.color = statusColor;
   }
 
   // <i data-lucide="rocket" class="icon-sm"></i> Reactividad 3D: Sólo regenerar layout y faldones si el módulo fotovoltaico ha cambiado realmente
@@ -795,7 +811,7 @@ function step3RenderAutoSizingUI(count, totalKwp, mod, inv, mi, bat, maxKwInput,
     let warningHtml = '';
     const maxTotalInput = (maxKwInput || 6.5) * invCount;
     if (totalKwp > maxTotalInput) {
-      warningHtml = '<br><span style="color:var(--rose-400);font-size:9.5px;font-weight:bold;margin-top:2px;display:inline-block;"><i data-lucide="alert-triangle" class="icon-sm"></i> PELIGRO REBT/IEC: Sobrecarga DC/AC (' + totalKwp.toFixed(2) + ' kWp &gt; ' + maxTotalInput.toFixed(2) + ' kW máx). ¡Añada inversores!</span>';
+      warningHtml = '<br><span style="color:var(--rose-400);font-size: 10px;font-weight:bold;margin-top:2px;display:inline-block;"><i data-lucide="alert-triangle" class="icon-sm"></i> PELIGRO REBT/IEC: Sobrecarga DC/AC (' + totalKwp.toFixed(2) + ' kWp &gt; ' + maxTotalInput.toFixed(2) + ' kW máx). ¡Añada inversores!</span>';
       if (inputInv) { inputInv.style.borderColor = 'var(--rose-500)'; inputInv.style.color = 'var(--rose-400)'; }
     } else {
       if (inputInv) { inputInv.style.borderColor = ''; inputInv.style.color = ''; }
@@ -822,7 +838,7 @@ function step3RenderAutoSizingUI(count, totalKwp, mod, inv, mi, bat, maxKwInput,
     let miWarningHtml = '';
     const maxPanels = miCount * ratio;
     if (count > maxPanels) {
-      miWarningHtml = '<br><span style="color:var(--rose-400);font-size:9.5px;font-weight:bold;margin-top:2px;display:inline-block;"><i data-lucide="alert-triangle" class="icon-sm"></i> PELIGRO IEC: Faltan entradas (' + count + ' placas &gt; ' + maxPanels + ' permitidas). ¡Añada equipos!</span>';
+      miWarningHtml = '<br><span style="color:var(--rose-400);font-size: 10px;font-weight:bold;margin-top:2px;display:inline-block;"><i data-lucide="alert-triangle" class="icon-sm"></i> PELIGRO IEC: Faltan entradas (' + count + ' placas &gt; ' + maxPanels + ' permitidas). ¡Añada equipos!</span>';
       if (inputMi) { inputMi.style.borderColor = 'var(--rose-500)'; inputMi.style.color = 'var(--rose-400)'; }
     } else {
       if (inputMi) { inputMi.style.borderColor = ''; inputMi.style.color = ''; }
@@ -1257,14 +1273,14 @@ function wpRenderAutoEngineeringBanner(info, isManualOverride = false) {
   if (isManualOverride) {
     banner.innerHTML = `
       <div style="background:rgba(30,41,59,0.7);border:1px solid rgba(148,163,184,0.3);border-radius:8px;padding:8px;display:flex;justify-content:space-between;align-items:center;">
-        <div style="font-size:9.5px;color:#94A3B8;">
+        <div style="font-size: 10px;color:#94A3B8;">
           <b style="color:#FBBF24;">⚡ Equipo manual seleccionado.</b> Puedes restablecer la auto-casación o comparar alternativas.
         </div>
         <div style="display:flex;gap:4px;align-items:center;">
-          <button type="button" class="doc-mini-btn" onclick="wpOpenSmartInverterMatchingModal()" style="background:rgba(56,189,248,0.2);border:1px solid #38BDF8;color:#38BDF8;font-size:8.5px;font-weight:bold;padding:3px 6px;cursor:pointer;" title="Comparar alternativas técnicas 1x Central vs Nx Modulares vs MLPE">
+          <button type="button" class="doc-mini-btn" onclick="wpOpenSmartInverterMatchingModal()" style="background:rgba(56,189,248,0.2);border:1px solid #38BDF8;color:#38BDF8;font-size: 10px;font-weight:bold;padding:3px 6px;cursor:pointer;" title="Comparar alternativas técnicas 1x Central vs Nx Modulares vs MLPE">
             <i data-lucide="sparkles" class="icon-sm"></i> COMPARAR 1X VS NX
           </button>
-          <button type="button" class="doc-mini-btn" onclick="wpAutoSelectOptimalEngineering(true)" style="background:rgba(16,185,129,0.15);border:1px solid #10B981;color:#34D399;font-size:8.5px;font-weight:bold;padding:3px 6px;cursor:pointer;">
+          <button type="button" class="doc-mini-btn" onclick="wpAutoSelectOptimalEngineering(true)" style="background:rgba(16,185,129,0.15);border:1px solid #10B981;color:#34D399;font-size: 10px;font-weight:bold;padding:3px 6px;cursor:pointer;">
             <i data-lucide="rotate-ccw" class="icon-sm"></i> AUTO-OPTIMIZAR
           </button>
         </div>
@@ -1286,7 +1302,7 @@ function wpRenderAutoEngineeringBanner(info, isManualOverride = false) {
   if (isVirtual) {
     const comModels = Array.isArray(info.suggestedCommercialModels) ? info.suggestedCommercialModels : [];
     const modelsHtml = comModels.length > 0 ? `
-      <div style="font-size:8px;color:#94A3B8;margin-bottom:6px;">
+      <div style="font-size: 10px;color:#94A3B8;margin-bottom:6px;">
         <b style="color:#CBD5E1;">Equipos de mercado sugeridos:</b>
         <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px;">
           ${comModels.map(m => `<span style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:3px;padding:1px 5px;color:#CBD5E1;">${m.brand} ${m.model} (${m.kw} kW)</span>`).join('')}
@@ -1301,29 +1317,29 @@ function wpRenderAutoEngineeringBanner(info, isManualOverride = false) {
             <i data-lucide="alert-triangle" class="icon-sm"></i> CATÁLOGO INSUFICIENTE: INVERSOR VIRTUAL ACTIVADO
           </span>
           <div style="display:flex;gap:4px;align-items:center;">
-            <span class="card-tag" style="background:rgba(245,158,11,0.2);color:#FBBF24;font-size:9px;font-weight:bold;">
+            <span class="card-tag" style="background:rgba(245,158,11,0.2);color:#FBBF24;font-size: 10px;font-weight:bold;">
               ⚡ PARÁMETRICO IDEAL
             </span>
-            <button type="button" class="doc-mini-btn" onclick="wpOpenSmartInverterMatchingModal()" style="background:rgba(56,189,248,0.2);border:1px solid #38BDF8;color:#38BDF8;font-size:8.5px;font-weight:bold;padding:2px 6px;cursor:pointer;" title="Comparar alternativas técnicas 1x Central vs Nx Modulares vs MLPE">
+            <button type="button" class="doc-mini-btn" onclick="wpOpenSmartInverterMatchingModal()" style="background:rgba(56,189,248,0.2);border:1px solid #38BDF8;color:#38BDF8;font-size: 10px;font-weight:bold;padding:2px 6px;cursor:pointer;" title="Comparar alternativas técnicas 1x Central vs Nx Modulares vs MLPE">
               <i data-lucide="sparkles" class="icon-sm"></i> COMPARAR 1X VS NX
             </button>
           </div>
         </div>
-        <div style="font-size:8.5px;color:#FCD34D;background:rgba(245,158,11,0.12);padding:4px 6px;border-radius:4px;margin-bottom:5px;border-left:3px solid #F59E0B;line-height:1.3;">
+        <div style="font-size: 10px;color:#FCD34D;background:rgba(245,158,11,0.12);padding:4px 6px;border-radius:4px;margin-bottom:5px;border-left:3px solid #F59E0B;line-height:1.3;">
           <b>Cuello de Botella Físico:</b> ${info.bottleneckReason || 'Requisitos del proyecto no cubiertos por los equipos disponibles.'}
         </div>
-        <div style="font-size:9px;color:#E2E8F0;line-height:1.35;margin-bottom:4px;">
+        <div style="font-size: 10px;color:#E2E8F0;line-height:1.35;margin-bottom:4px;">
           <b>Inversor Ideal Auto-Generado:</b> ${sc.count}× ${sc.inverter.brand} ${sc.inverter.model} (${sc.totalAcKw} kW AC · ${sc.mpptCount} MPPTs · Sobrecarga: ${sc.overloadPct}%)
         </div>
         ${modelsHtml}
         <div style="display:flex;gap:6px;align-items:center;margin-top:6px;border-top:1px solid rgba(255,255,255,0.08);padding-top:5px;">
-          <button type="button" class="doc-mini-btn" onclick="wpSaveVirtualInverterToCatalog()" style="background:rgba(245,158,11,0.25);border:1px solid #F59E0B;color:#FBBF24;font-size:9px;font-weight:bold;padding:3px 7px;cursor:pointer;" title="Guardar este inversor en el catálogo definitivo">
+          <button type="button" class="doc-mini-btn" onclick="wpSaveVirtualInverterToCatalog()" style="background:rgba(245,158,11,0.25);border:1px solid #F59E0B;color:#FBBF24;font-size: 10px;font-weight:bold;padding:3px 7px;cursor:pointer;" title="Guardar este inversor en el catálogo definitivo">
             <i data-lucide="save" class="icon-sm"></i> GUARDAR EN CATÁLOGO
           </button>
-          <button type="button" class="doc-mini-btn" onclick="openEquipmentCatalogModal('ai_import')" style="background:rgba(56,189,248,0.15);border:1px solid #38BDF8;color:#38BDF8;font-size:9px;font-weight:bold;padding:3px 7px;cursor:pointer;" title="Importar PDF técnico de inversor real con IA">
+          <button type="button" class="doc-mini-btn" onclick="openEquipmentCatalogModal('ai_import')" style="background:rgba(56,189,248,0.15);border:1px solid #38BDF8;color:#38BDF8;font-size: 10px;font-weight:bold;padding:3px 7px;cursor:pointer;" title="Importar PDF técnico de inversor real con IA">
             <i data-lucide="sparkles" class="icon-sm"></i> SUBIR PDF CON IA
           </button>
-          <button type="button" class="doc-mini-btn" onclick="openEquipmentCatalogModal('inverters')" style="background:rgba(148,163,184,0.15);border:1px solid #94A3B8;color:#CBD5E1;font-size:9px;font-weight:bold;padding:3px 7px;cursor:pointer;" title="Abrir catálogo">
+          <button type="button" class="doc-mini-btn" onclick="openEquipmentCatalogModal('inverters')" style="background:rgba(148,163,184,0.15);border:1px solid #94A3B8;color:#CBD5E1;font-size: 10px;font-weight:bold;padding:3px 7px;cursor:pointer;" title="Abrir catálogo">
             <i data-lucide="database" class="icon-sm"></i> CATÁLOGO
           </button>
         </div>
@@ -1353,20 +1369,20 @@ function wpRenderAutoEngineeringBanner(info, isManualOverride = false) {
           <i data-lucide="cpu" class="icon-sm"></i> AUTO-INGENIERÍA INTELIGENTE: ${topoLabels[info.topology] || info.topology}
         </span>
         <div style="display:flex;gap:4px;align-items:center;">
-          <span class="card-tag" style="background:rgba(16,185,129,0.2);color:#34D399;font-size:9px;font-weight:bold;">
+          <span class="card-tag" style="background:rgba(16,185,129,0.2);color:#34D399;font-size: 10px;font-weight:bold;">
             ✓ CASACIÓN ÓPTIMA
           </span>
-          <button type="button" class="doc-mini-btn" onclick="wpOpenSmartInverterMatchingModal()" style="background:rgba(56,189,248,0.2);border:1px solid #38BDF8;color:#38BDF8;font-size:8.5px;font-weight:bold;padding:2px 6px;cursor:pointer;" title="Comparar alternativas técnicas: 1x Central vs Nx Modulares vs MLPE">
+          <button type="button" class="doc-mini-btn" onclick="wpOpenSmartInverterMatchingModal()" style="background:rgba(56,189,248,0.2);border:1px solid #38BDF8;color:#38BDF8;font-size: 10px;font-weight:bold;padding:2px 6px;cursor:pointer;" title="Comparar alternativas técnicas: 1x Central vs Nx Modulares vs MLPE">
             <i data-lucide="sparkles" class="icon-sm"></i> COMPARAR 1X VS NX
           </button>
         </div>
       </div>
-      <div style="font-size:9px;color:#E2E8F0;line-height:1.35;margin-bottom:4px;">
+      <div style="font-size: 10px;color:#E2E8F0;line-height:1.35;margin-bottom:4px;">
         ${(info.topology === 'microinverter' || (sc && sc.isMicro))
           ? `<b>Equipo Asignado:</b> ${sc.count}× Microinversores 2-en-1 ${sc.inverter.brand} ${sc.inverter.model} (${sc.totalAcKw} kW AC total · Seguimiento panel a panel · Inmune a sombras)`
           : `<b>Equipo Asignado:</b> ${sc.count}× ${sc.inverter.brand} ${sc.inverter.model} (${sc.totalAcKw} kW AC · ${sc.mpptCount} MPPTs · Sobrecarga: ${sc.overloadPct}%)`}
       </div>
-      <div style="font-size:8.5px;color:#94A3B8;line-height:1.3;">
+      <div style="font-size: 10px;color:#94A3B8;line-height:1.3;">
         <b>Criterio Físico:</b> ${info.rationale} (${info.distinctOrientations} ${info.distinctOrientations === 1 ? 'orientación' : 'orientaciones distintas'}, ${info.totalPanels} placas · ${info.totalKwp.toFixed(1)} kWp).
       </div>
     </div>

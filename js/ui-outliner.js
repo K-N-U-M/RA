@@ -135,7 +135,7 @@
           <div class="outliner-empty-state">
             <span style="font-size:18px;">🏛️</span>
             <span style="font-weight:700;">Escena sin elementos.</span>
-            <span style="font-size:8.5px;color:#94a3b8;">Dibuja un edificio 3D o define un plano en el Paso 1.</span>
+            <span style="font-size: 10px;color:#94a3b8;">Dibuja un edificio 3D o define un plano en el Paso 1.</span>
           </div>
         `;
         return;
@@ -416,7 +416,7 @@
         }
 
         .outliner-badge {
-          font-size: 8.5px;
+          font-size: 10px;
           font-weight: 800;
           padding: 2px 6px;
           border-radius: 4px;
@@ -429,7 +429,7 @@
           background: transparent;
           border: none;
           color: #94a3b8;
-          font-size: 9px;
+          font-size: 10px;
           cursor: pointer;
           padding: 2px 4px;
         }
@@ -463,7 +463,7 @@
         }
 
         .outliner-group-title {
-          font-size: 8.5px;
+          font-size: 10px;
           font-weight: 900;
           letter-spacing: 0.5px;
           color: #94a3b8;
@@ -526,14 +526,14 @@
         }
 
         .outliner-hint-row {
-          font-size: 8px;
+          font-size: 10px;
           color: #94a3b8;
           font-style: italic;
           padding: 3px 6px;
         }
 
         .outliner-sub-label {
-          font-size: 8px;
+          font-size: 10px;
           font-weight: 700;
           color: #cbd5e1;
           margin-top: 4px;
@@ -541,7 +541,7 @@
         }
 
         .node-label {
-          font-size: 9.5px;
+          font-size: 10px;
           font-weight: 700;
           white-space: nowrap;
           overflow: hidden;
@@ -554,17 +554,17 @@
 
         .sub-plane-name {
           color: #38bdf8;
-          font-size: 9px;
+          font-size: 10px;
         }
 
         .poly-name {
           color: #e2e8f0;
-          font-size: 8.5px;
+          font-size: 10px;
         }
 
         .obs-name {
           color: #fbbf24;
-          font-size: 8.5px;
+          font-size: 10px;
         }
 
         .node-meta {
@@ -574,7 +574,7 @@
         }
 
         .badge-angle {
-          font-size: 7.5px;
+          font-size: 10px;
           color: #f59e0b;
           background: rgba(245, 158, 11, 0.12);
           padding: 1px 4px;
@@ -582,7 +582,7 @@
         }
 
         .badge-stats {
-          font-size: 7.5px;
+          font-size: 10px;
           color: #10b981;
           background: rgba(16, 185, 129, 0.12);
           padding: 1px 4px;
@@ -591,7 +591,7 @@
         }
 
         .badge-dim {
-          font-size: 7.5px;
+          font-size: 10px;
           color: #94a3b8;
           background: rgba(255, 255, 255, 0.05);
           padding: 1px 4px;
@@ -601,7 +601,7 @@
         .node-action-btn {
           background: transparent;
           border: none;
-          font-size: 9px;
+          font-size: 10px;
           cursor: pointer;
           padding: 1px 3px;
           opacity: 0.75;
@@ -620,7 +620,7 @@
         }
 
         .outliner-no-poly {
-          font-size: 8px;
+          font-size: 10px;
           color: #64748b;
           font-style: italic;
           padding: 2px 4px;

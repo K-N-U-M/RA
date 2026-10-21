@@ -41,6 +41,13 @@
 
 ## 2. Historial de Decisiones de Diseño
 
+### 2026-10-20: Persistencia de Arrastre Manual de Paneles y Claridad Visual en Tooltip
+- **Problema 1 (Posición 3D de paneles movidos):** Al mover paneles manualmente con el Gizmo, el contorno amarillo se desplazaba pero la malla sólida Cesium en GPU se mantenía en la cuadrícula original.
+  - **Causa:** `_dp.isManual` no se asignaba directamente en `LEFT_UP` (solo en `_dp.rawPanel`), la caché `roofPanelsCache` retenía el layout antiguo y `wpFastRenderSimulatedPanelsAsync` esperaba `prev.isManual` en el objeto renderizado.
+  - **Solución:** `flushGizmoUpdate()` forzado al inicio de `LEFT_UP`, asignación de `isManual`, `center` y `corners` en `_dp` y `_dp.rawPanel`, invalidación de `roofPanelsCache`, matching dual `(prev.isManual || (prev.rawPanel && prev.rawPanel.isManual))` y sincronización en `.then()` de `wpFastRenderSimulatedPanels`.
+- **Problema 2 (Confusión Heatmap vs Colores de String):** Paneles pertenecientes a strings eléctricos coloreados (ej. String 3 en granate/morado) se confundían con puntos calientes de sombreado, mientras que la tarjeta flotante (*hover*) indicaba "100% Libre" porque la simulación anual estaba inactiva o desactualizada.
+  - **Solución:** La tarjeta flotante ahora incluye un badge de modo explícito (`☀️ Heatmap Solar` si la simulación anual está vigente, o `⚡ String [S1.x]` en modo normal/eléctrico). Si la simulación solar no se ha ejecutado o está pendiente tras un cambio, indica con claridad `⚠️ Simulación pendiente (Paso 3)` y `Pendiente de cálculo` en lugar de inducir a error con `100% Libre`.
+
 ### 2026-09-30: Refactor Faldones — Patrón Master-Detail
 - **Problema:** N tarjetas dinámicas HTML por faldón → duplicación DOM masiva, 3 funciones de selección solapadas.
 - **Solución:** Dropdown selector (`#faldon-selector-dropdown`) + tarjeta única con IDs estables (`#faldon-edit-card`).

@@ -228,6 +228,17 @@
     if (global._panelNumberLabelCollection && typeof global._panelNumberLabelCollection.show !== 'undefined') {
       global._panelNumberLabelCollection.show = isVis;
     }
+    const vScene = (typeof global.viewer !== 'undefined' && global.viewer) ? global.viewer.scene : ((typeof viewer !== 'undefined' && viewer) ? viewer.scene : null);
+    if (vScene && vScene.primitives) {
+      try {
+        for (let i = 0; i < vScene.primitives.length; i++) {
+          const p = vScene.primitives.get(i);
+          if (p && p._isPanelNumberCollection) {
+            p.show = isVis;
+          }
+        }
+      } catch(_) {}
+    }
     if (global._solarHeatmapLabelCollection && typeof global._solarHeatmapLabelCollection.show !== 'undefined') {
       global._solarHeatmapLabelCollection.show = isVis;
     }

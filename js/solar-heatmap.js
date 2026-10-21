@@ -65,16 +65,16 @@
             <button id="ra-bif-mono-btn" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:10px 12px;color:#fff;cursor:pointer;text-align:left;display:flex;justify-content:space-between;align-items:center;transition:background 0.15s;">
               <div>
                 <div style="font-size:11px;font-weight:700;color:#f8fafc;">⚪ Monofacial Estándar</div>
-                <div style="font-size:9.5px;color:#94a3b8;">Captación solo por cara frontal (0% albedo trasero)</div>
+                <div style="font-size: 10px;color:#94a3b8;">Captación solo por cara frontal (0% albedo trasero)</div>
               </div>
-              <span style="font-size:9.5px;background:rgba(255,255,255,0.1);padding:2px 6px;border-radius:4px;color:#cbd5e1;">Por defecto</span>
+              <span style="font-size: 10px;background:rgba(255,255,255,0.1);padding:2px 6px;border-radius:4px;color:#cbd5e1;">Por defecto</span>
             </button>
             <button id="ra-bif-std-btn" style="background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.35);border-radius:8px;padding:10px 12px;color:#fff;cursor:pointer;text-align:left;display:flex;justify-content:space-between;align-items:center;transition:background 0.15s;">
               <div>
                 <div style="font-size:11px;font-weight:700;color:#38bdf8;">🔵 Bifacial TOPCon / HJT</div>
-                <div style="font-size:9.5px;color:#94a3b8;">Factor de bifacialidad 0.75 (ganancia real típica: +5-15% según albedo y altura de estructura)</div>
+                <div style="font-size: 10px;color:#94a3b8;">Factor de bifacialidad 0.75 (ganancia real típica: +5-15% según albedo y altura de estructura)</div>
               </div>
-              <span style="font-size:9.5px;background:rgba(56,189,248,0.2);color:#38bdf8;padding:2px 6px;border-radius:4px;">Recomendado</span>
+              <span style="font-size: 10px;background:rgba(56,189,248,0.2);color:#38bdf8;padding:2px 6px;border-radius:4px;">Recomendado</span>
             </button>
           </div>
         </div>
@@ -103,6 +103,14 @@
   function generateInterRowShadowQuads2D(pInfo, sU, sV, shadowLenPerM) {
     if (!pInfo || !Array.isArray(pInfo.panels) || pInfo.panels.length < 2) return [];
     if (shadowLenPerM <= 0) return [];
+
+    const structType = pInfo.structureType || (pInfo.estructura && pInfo.estructura.tipo);
+    const pergSubtype = pInfo.pergolaSubtype || (pInfo.estructura && pInfo.estructura.subtype) || 'continuous';
+    const isContinuousPergola = (structType === 'pergola' && pergSubtype !== 'spaced_rows');
+
+    // En cubiertas coplanares o marquesinas/pérgolas continuas (tejadillo corrido),
+    // todos los paneles forman un único plano continuo sin autosombreado inter-filas
+    if (pInfo.coplanar || isContinuousPergola) return [];
 
     let hModGlobal = 0;
     if (typeof pInfo.moduleTiltDeg === 'number' && pInfo.moduleTiltDeg > 5) {
@@ -192,6 +200,11 @@
 
     if (!solarSimState.panelShadowOverlayPool) {
       solarSimState.panelShadowOverlayPool = new Map();
+    } else if (solarSimState.panelShadowOverlayPool.size > 0) {
+      solarSimState.panelShadowOverlayPool.forEach(ent => {
+        try { viewer.entities.remove(ent); } catch(e) {}
+      });
+      solarSimState.panelShadowOverlayPool.clear();
     }
     const overlayPool = solarSimState.panelShadowOverlayPool;
     const activeOverlayIds = new Set();
@@ -266,7 +279,7 @@
         if (interRowQuads && interRowQuads.length > 0) polyShadowQuads2D.push(...interRowQuads);
       }
 
-      pInfo.panels.forEach((pData) => {
+      pInfo.panels.forEach((pData, pIdx) => {
         totalPanels++;
         const entIdx = panelGlobalCounter++;
 
@@ -310,10 +323,18 @@
             ];
           }
 
-          const myIndex = (pData.layoutIndex !== undefined) ? pData.layoutIndex : null;
+          const myIndex = (pData.layoutIndex !== undefined) ? pData.layoutIndex : pIdx;
+          const panelH = pData.h || 2.10;
           for (const quad of polyShadowQuads2D) {
             // Evitar que el panel se auto-sombre con su propia sombra arrojada
-            if (myIndex !== null && quad.sourcePanelIdx === myIndex) continue;
+            if (quad.sourcePanelIdx !== undefined) {
+              if (quad.sourcePanelIdx === myIndex) continue;
+              if (typeof quad.sourceU === 'number' && typeof quad.sourceV === 'number' && typeof pData.u === 'number' && typeof pData.v === 'number') {
+                if (Math.abs(quad.sourceU - pData.u) < 0.05 && Math.abs(quad.sourceV - pData.v) < 0.05) continue;
+                // Si ambos módulos pertenecen a la misma fila física (misma cota V dentro del 40% del panel)
+                if (Math.abs(quad.sourceV - pData.v) < panelH * 0.40) continue;
+              }
+            }
             if (typeof polygonsIntersect2D === "function" && polygonsIntersect2D(panelPoly2D, quad)) {
               isShaded = true;
               break;
@@ -339,36 +360,7 @@
           shadedCount++;
           const tiltAngle = (typeof pInfo.tiltDeg === 'number') ? pInfo.tiltDeg : 15;
           const zOffset = 0.025 + 0.015 * Math.sin(Cesium.Math.toRadians(tiltAngle));
-          const shadowCorners = pData.corners.map(c => {
-            return Cesium.Cartesian3.add(c, Cesium.Cartesian3.multiplyByScalar(normWorld, zOffset, new Cesium.Cartesian3()), new Cesium.Cartesian3());
-          });
 
-          const shadowMatOverlay = Cesium.Color.fromCssColorString('#0f172a').withAlpha(0.75);
-          const entId = "pv_panel_shadow_overlay_" + polyIdx + "_" + (pData.layoutIndex !== undefined ? pData.layoutIndex : (pData.panelId || entIdx));
-          activeOverlayIds.add(entId);
-          let shadowOverlay = overlayPool.get(entId);
-          if (!shadowOverlay) {
-            shadowOverlay = viewer.entities.add({
-              id: entId,
-              show: true,
-              polygon: {
-                hierarchy: new Cesium.PolygonHierarchy(shadowCorners),
-                material: shadowMatOverlay,
-                depthFailMaterial: shadowMatOverlay,
-                perPositionHeight: true,
-                arcType: (typeof Cesium !== 'undefined' && Cesium.ArcType && Cesium.ArcType.NONE) ? Cesium.ArcType.NONE : undefined
-              }
-            });
-            overlayPool.set(entId, shadowOverlay);
-          } else {
-            if (shadowOverlay.polygon) {
-              shadowOverlay.polygon.hierarchy = new Cesium.PolygonHierarchy(shadowCorners);
-              if (!shadowOverlay.polygon.depthFailMaterial) {
-                shadowOverlay.polygon.depthFailMaterial = shadowMatOverlay;
-              }
-            }
-            shadowOverlay.show = true;
-          }
 
           if (requiresMLPE) {
             const badgePos = Cesium.Cartesian3.add(
@@ -387,7 +379,7 @@
                 bg: (annualLoss >= 25.0) ? 'rgba(239, 68, 68, 0.92)' : 'rgba(15, 23, 42, 0.92)',
                 borderColor: (annualLoss >= 25.0) ? '#EF4444' : '#10B981',
                 textColor: (annualLoss >= 25.0) ? '#FFFFFF' : '#34D399',
-                font: "bold 9.5px 'JetBrains Mono', monospace",
+                font: "bold 10px 'JetBrains Mono', monospace",
                 maxDist: 75.0
               });
               solarSimState.mlpeBadgeEntities.push(badgeEntity);
@@ -398,10 +390,9 @@
     });
 
     overlayPool.forEach((ent, id) => {
-      if (!activeOverlayIds.has(id)) {
-        ent.show = false;
-      }
+      try { viewer.entities.remove(ent); } catch(e) {}
     });
+    overlayPool.clear();
 
     const shadedCountEl = document.getElementById("solar-telemetry-shaded") || document.getElementById("hud-shaded-count");
     const mlpeCountEl = document.getElementById("solar-telemetry-mlpe") || document.getElementById("hud-mlpe-count");
@@ -428,7 +419,7 @@
     }
 
     if (altEl) {
-      altEl.innerHTML = altVal.toFixed(1) + "° <span style='font-size:8.5px;font-weight:600;opacity:0.9;'>(" + phaseLabel + ")</span>";
+      altEl.innerHTML = altVal.toFixed(1) + "° <span style='font-size: 10px;font-weight:600;opacity:0.9;'>(" + phaseLabel + ")</span>";
       altEl.style.color = altColor;
     }
     if (azEl) azEl.textContent = azVal.toFixed(1) + "° (" + getCompassDirection(azVal) + ")";
@@ -1475,7 +1466,7 @@
         <div style="font-weight:700;color:${iconColor};margin-bottom:4px;">
           ✓ Simulación anual completada (192 instantes nominales, 6:00-21:00; sol ≥ 10°${heatmapStride > 1 ? ', muestreo 1 de ' + heatmapStride + ' paneles' : ''})
         </div>
-        <div style="font-size:8.5px;line-height:1.35;color:var(--text-slate-300);">
+        <div style="font-size: 10px;line-height:1.35;color:var(--text-slate-300);">
           ${diag.recommendationMsg}
         </div>
       `;
@@ -1650,7 +1641,7 @@
         <div style="font-weight:700;color:#F59E0B;margin-bottom:4px;">
           ⚠ Análisis solar desactualizado
         </div>
-        <div style="font-size:8.5px;line-height:1.35;color:var(--text-slate-300);">
+        <div style="font-size: 10px;line-height:1.35;color:var(--text-slate-300);">
           ${reason ? reason + '. ' : ''}La geometría o parámetros han cambiado. Pulsa en <b>Recalcular Mapa de Calor</b> para computar sombras y kWh reales.
         </div>
       `;
@@ -1827,7 +1818,7 @@
         const demandKwh = hasBill ? Math.round(comp.consumoAnualKWh) : Math.round(targetKwp * 1450);
         const reqModules = Math.max(1, Math.round((targetKwp * 1000) / modWp));
         const realTargetKwp = (reqModules * modWp) / 1000;
-        valJustSaving.innerHTML = `${demandKwh.toLocaleString()} kWh/año <span style="font-size:7.5px;color:#c084fc;font-weight:normal;">(${reqModules} mods · ${realTargetKwp.toFixed(2)} kWp)</span>`;
+        valJustSaving.innerHTML = `${demandKwh.toLocaleString()} kWh/año <span style="font-size: 10px;color:#c084fc;font-weight:normal;">(${reqModules} mods · ${realTargetKwp.toFixed(2)} kWp)</span>`;
       } else {
         valJustSaving.innerHTML = '<span style="color:#d8b4fe;">Sin factura (importar)</span>';
       }
@@ -1852,7 +1843,7 @@
       if (totalMaxModules > 0) {
         const fullKwp = (totalMaxModules * modWp) / 1000;
         const estKwh = Math.round(fullKwp * 1450);
-        valMaxProd.innerHTML = `${fullKwp.toFixed(2)} kWp <span style="font-size:7.5px;color:#7dd3fc;font-weight:normal;">(${totalMaxModules} mods · ${estKwh.toLocaleString()} kWh)</span>`;
+        valMaxProd.innerHTML = `${fullKwp.toFixed(2)} kWp <span style="font-size: 10px;color:#7dd3fc;font-weight:normal;">(${totalMaxModules} mods · ${estKwh.toLocaleString()} kWh)</span>`;
       } else {
         valMaxProd.textContent = '-- kWp';
       }

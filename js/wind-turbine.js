@@ -632,12 +632,12 @@
     var rotorD = (obs.bladeRadius * 2).toFixed(1);
 
     c.innerHTML =
-      '<span style="font-size:9px;font-weight:700;color:var(--amber-400,#F59E0B);letter-spacing:0.8px;">' +
+      '<span style="font-size: 10px;font-weight:700;color:var(--amber-400,#F59E0B);letter-spacing:0.8px;">' +
         '⚡ PARÁMETROS EÓLICOS</span>' +
 
       '<div style="display:flex;gap:4px;align-items:center;">' +
-        '<span style="font-size:9px;color:#94a3b8;width:60px;">TIPO:</span>' +
-        '<select id="wt-type-select" class="cfg-select" style="flex:1;font-size:9px;" ' +
+        '<span style="font-size: 10px;color:#94a3b8;width:60px;">TIPO:</span>' +
+        '<select id="wt-type-select" class="cfg-select" style="flex:1;font-size: 10px;" ' +
           'onchange="RAWindTurbine.onTypeChange(this.value)">' +
           '<option value="hawt"' + (obs.turbineType === 'hawt' ? ' selected' : '') + '>HAWT (Eje Horizontal)</option>' +
           '<option value="vawt"' + (obs.turbineType === 'vawt' ? ' selected' : '') + '>VAWT (Eje Vertical)</option>' +
@@ -645,20 +645,20 @@
       '</div>' +
 
       '<div style="display:flex;gap:4px;align-items:center;">' +
-        '<span style="font-size:9px;color:#94a3b8;width:60px;">MÁSTIL:</span>' +
+        '<span style="font-size: 10px;color:#94a3b8;width:60px;">MÁSTIL:</span>' +
         '<input type="number" id="wt-mast-height" class="cfg-input" value="' + obs.mastHeight +
           '" min="2" max="50" step="0.5" style="flex:1;font-size:10px;" oninput="RAWindTurbine.onMastChange(this.value)">' +
-        '<span style="font-size:9px;color:#64748b;">m</span>' +
+        '<span style="font-size: 10px;color:#64748b;">m</span>' +
       '</div>' +
 
       '<div style="display:flex;gap:4px;align-items:center;">' +
-        '<span style="font-size:9px;color:#94a3b8;width:60px;">ASPAS:</span>' +
+        '<span style="font-size: 10px;color:#94a3b8;width:60px;">ASPAS:</span>' +
         '<input type="number" id="wt-blade-radius" class="cfg-input" value="' + obs.bladeRadius +
           '" min="0.3" max="25" step="0.25" style="flex:1;font-size:10px;" oninput="RAWindTurbine.onBladeChange(this.value)">' +
-        '<span style="font-size:9px;color:#64748b;">m radio</span>' +
+        '<span style="font-size: 10px;color:#64748b;">m radio</span>' +
       '</div>' +
 
-      '<div style="font-size:8px;color:#475569;line-height:1.3;margin-top:2px;">' +
+      '<div style="font-size: 10px;color:#475569;line-height:1.3;margin-top:2px;">' +
         'Altura total: <b id="wt-total-height">' + totalH + '</b> m' +
         ' · Diám. rotor: <b id="wt-rotor-diam">' + rotorD + '</b> m' +
       '</div>';
