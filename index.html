@@ -8669,7 +8669,9 @@ function resetSolarDashboard() {
 }
 
 function renderSolarBarChart(data) {
-  window.lastMonthlyYields = data ? [...data] : [0,0,0,0,0,0,0,0,0,0,0,0];
+  const safeData = (Array.isArray(data) && data.length > 0) ? data : (Array.isArray(window.lastMonthlyYields) ? window.lastMonthlyYields : [0,0,0,0,0,0,0,0,0,0,0,0]);
+  window.lastMonthlyYields = [...safeData];
+  data = safeData;
   const chartTargets = [
     { svgId: 'bom-solar-svg-chart', infoId: 'bom-chart-hover-info' }
   ];
@@ -17075,7 +17077,7 @@ window.toggleSolarHUD = toggleSolarHUD;
       // Limpiar entidad de arrastre al soltar el ratón SIEMPRE
       universalGizmoState.startPoints = null;
       universalGizmoState.startCenter = null;
-      if (activePanelDragEntity && viewer) {
+      if (draggedTargetType !== 'panel' && activePanelDragEntity && viewer) {
         try { viewer.entities.remove(activePanelDragEntity); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
         activePanelDragEntity = null;
       }
@@ -17092,56 +17094,64 @@ window.toggleSolarHUD = toggleSolarHUD;
         if (typeof window.wpInvalidateHeatmap === 'function') {
           window.wpInvalidateHeatmap('Panel movido manualmente');
         }
-        let _draggedPIdx = null;
-        if (panelsArr && typeof selectedPanelIndex !== 'undefined' && panelsArr[selectedPanelIndex]) {
-          _draggedPIdx = panelsArr[selectedPanelIndex].polyIdx;
-        }
         if (typeof roofPanelsCache !== 'undefined' && roofPanelsCache) {
           roofPanelsCache.sig = null;
           roofPanelsCache.data = null;
         }
         if (typeof wpFastRenderSimulatedPanels === 'function') {
-          wpFastRenderSimulatedPanels(true, _draggedPIdx).then(() => {
-            if (window.allRenderedPanels && _draggedPanelId) {
-              const _newIdx = window.allRenderedPanels.findIndex(p => p && p.panelId === _draggedPanelId);
-              if (_newIdx >= 0) {
-                selectedPanelIndex = _newIdx;
-                if (typeof window !== 'undefined') window.selectedPanelIndex = _newIdx;
-                if (typeof updatePanelSelectionUI === 'function') updatePanelSelectionUI();
-                if (typeof renderTriad2D === 'function') renderTriad2D();
+          // [Opción 2] Refresco completo de campo, estructura 3D y cableado al soltar el ratón
+          wpFastRenderSimulatedPanels(true, null).then(() => {
+            if (activePanelDragEntity && viewer) {
+              try { viewer.entities.remove(activePanelDragEntity); } catch(e) {}
+              activePanelDragEntity = null;
+            }
+            if (window.allRenderedPanels) {
+              if (_affectedPanelIds && _affectedPanelIds.length > 0) {
+                window.selectedPanelIndices = _affectedPanelIds.map(id => window.allRenderedPanels.findIndex(p => p && p.panelId === id)).filter(idx => idx >= 0);
               }
+              if (_draggedPanelId) {
+                const _newIdx = window.allRenderedPanels.findIndex(p => p && p.panelId === _draggedPanelId);
+                if (_newIdx >= 0) {
+                  selectedPanelIndex = _newIdx;
+                  if (typeof window !== 'undefined') window.selectedPanelIndex = _newIdx;
+                }
+              }
+              if (typeof updatePanelSelectionUI === 'function') updatePanelSelectionUI();
+              if (typeof renderTriad2D === 'function') renderTriad2D();
+            }
+            if (typeof wpCalculateAndRenderInverterCables === 'function') {
+              wpCalculateAndRenderInverterCables();
+            }
+            if (typeof recalculateSolarYield === 'function') {
+              recalculateSolarYield();
+            }
+            if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') {
+              BOMTreeEngine.refresh();
+            }
+            if (typeof ProjectHierarchy !== 'undefined' && ProjectHierarchy && typeof ProjectHierarchy.notify === 'function') {
+              ProjectHierarchy.notify('transform_committed');
+              ProjectHierarchy.notify('electrical_updated');
+            }
+            if (viewer && viewer.scene && typeof viewer.scene.requestRender === 'function') {
+              viewer.scene.requestRender();
             }
           });
         }
-      }
-
-      if (draggedTargetType === 'panel' && window.allRenderedPanels) {
-        if (_affectedPanelIds && _affectedPanelIds.length > 0) {
-          window.selectedPanelIndices = _affectedPanelIds.map(id => window.allRenderedPanels.findIndex(p => p && p.panelId === id)).filter(idx => idx >= 0);
+      } else {
+        if (typeof recalculateSolarYield === 'function') recalculateSolarYield();
+        if ((draggedTargetType === 'inverter' || draggedTargetType === 'dc_protection' || draggedTargetType === 'combiner_box') && typeof wpFastRenderSimulatedPanels === 'function') {
+          wpFastRenderSimulatedPanels();
         }
-        if (_draggedPanelId) {
-          const _newIdx = window.allRenderedPanels.findIndex(p => p && p.panelId === _draggedPanelId);
-          if (_newIdx >= 0) {
-            selectedPanelIndex = _newIdx;
-            if (typeof window !== 'undefined') window.selectedPanelIndex = _newIdx;
-          }
-        }
-        if (typeof updatePanelSelectionUI === 'function') updatePanelSelectionUI();
-      }
-      
-      if (typeof recalculateSolarYield === 'function') recalculateSolarYield();
-      if ((draggedTargetType === 'inverter' || draggedTargetType === 'dc_protection' || draggedTargetType === 'combiner_box') && typeof wpFastRenderSimulatedPanels === 'function') {
-        wpFastRenderSimulatedPanels();
-      }
-      if (typeof wpCalculateAndRenderInverterCables === 'function') wpCalculateAndRenderInverterCables();
+        if (typeof wpCalculateAndRenderInverterCables === 'function') wpCalculateAndRenderInverterCables();
 
-      if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') {
-        BOMTreeEngine.refresh();
-      }
-      if (typeof wpUpdateUI === 'function') wpUpdateUI();
-      if (typeof ProjectHierarchy !== 'undefined' && ProjectHierarchy && typeof ProjectHierarchy.notify === 'function') {
-        ProjectHierarchy.notify('transform_committed');
-        ProjectHierarchy.notify('electrical_updated');
+        if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') {
+          BOMTreeEngine.refresh();
+        }
+        if (typeof wpUpdateUI === 'function') wpUpdateUI();
+        if (typeof ProjectHierarchy !== 'undefined' && ProjectHierarchy && typeof ProjectHierarchy.notify === 'function') {
+          ProjectHierarchy.notify('transform_committed');
+          ProjectHierarchy.notify('electrical_updated');
+        }
       }
       showStatus('<i data-lucide="check" class="icon-sm"></i> POSICIÓN Y ROTACIÓN FIJADAS', 1200);
       if (_gizmoWasDragging && window.RAundo && typeof window.RAundo.commitDrag === 'function') {

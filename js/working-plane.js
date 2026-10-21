@@ -3416,7 +3416,6 @@ function wpCommitStampPolyline(targetPos3D) {
     panels: []
   };
 
-  if (typeof wpUpdateFaldonRowPitchUI === "function") wpUpdateFaldonRowPitchUI(polyIdx);
   if (typeof computeSinglePolylineRoofInfo === 'function') {
     try {
       newPolyObj.roofInfo = computeSinglePolylineRoofInfo(newPolyObj.points, newPolyObj);
@@ -3437,6 +3436,7 @@ function wpCommitStampPolyline(targetPos3D) {
   WP.polylines.push(newPolyObj);
   const newPolyIdx = WP.polylines.length - 1;
   WP.selectedPolyIdx = newPolyIdx;
+  if (typeof wpUpdateFaldonRowPitchUI === "function") wpUpdateFaldonRowPitchUI(newPolyIdx);
   if (typeof polygonPoints !== 'undefined') {
     polygonPoints = newPts.map(p => Cesium.Cartesian3.clone(p));
   }
