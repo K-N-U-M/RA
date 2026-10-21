@@ -190,29 +190,34 @@
   function wpUpdatePanelShadingAndMLPE(solarPos) {
     if (typeof viewer === "undefined" || !viewer || !viewer.entities) return;
 
-    if (!solarSimState) window.solarSimState = {};
-    solarSimState.currentSolarPos = solarPos;
-
-    if (solarSimState.mlpeBadgeEntities) {
-      solarSimState.mlpeBadgeEntities.forEach(e => viewer.entities.remove(e));
+    if (typeof window !== "undefined" && !window.solarSimState) window.solarSimState = {};
+    const curSimState = (typeof window !== "undefined" && window.solarSimState) ? window.solarSimState : (typeof solarSimState !== "undefined" ? solarSimState : {});
+    if (typeof window !== "undefined") window.solarSimState = curSimState;
+    if (typeof solarSimState !== "undefined" && solarSimState && solarSimState !== curSimState) {
+      Object.assign(solarSimState, curSimState);
     }
-    solarSimState.mlpeBadgeEntities = [];
+    curSimState.currentSolarPos = solarPos;
 
-    if (!solarSimState.panelShadowOverlayPool) {
-      solarSimState.panelShadowOverlayPool = new Map();
-    } else if (solarSimState.panelShadowOverlayPool.size > 0) {
-      solarSimState.panelShadowOverlayPool.forEach(ent => {
+    if (curSimState.mlpeBadgeEntities) {
+      curSimState.mlpeBadgeEntities.forEach(e => viewer.entities.remove(e));
+    }
+    curSimState.mlpeBadgeEntities = [];
+
+    if (!curSimState.panelShadowOverlayPool) {
+      curSimState.panelShadowOverlayPool = new Map();
+    } else if (curSimState.panelShadowOverlayPool.size > 0) {
+      curSimState.panelShadowOverlayPool.forEach(ent => {
         try { viewer.entities.remove(ent); } catch(e) {}
       });
-      solarSimState.panelShadowOverlayPool.clear();
+      curSimState.panelShadowOverlayPool.clear();
     }
-    const overlayPool = solarSimState.panelShadowOverlayPool;
+    const overlayPool = curSimState.panelShadowOverlayPool;
     const activeOverlayIds = new Set();
 
-    if (solarSimState.obstacleShadowSurfaceEntities) {
-      solarSimState.obstacleShadowSurfaceEntities.forEach(e => viewer.entities.remove(e));
+    if (curSimState.obstacleShadowSurfaceEntities) {
+      curSimState.obstacleShadowSurfaceEntities.forEach(e => viewer.entities.remove(e));
     }
-    solarSimState.obstacleShadowSurfaceEntities = [];
+    curSimState.obstacleShadowSurfaceEntities = [];
 
     let shadedCount = 0;
     let totalPanels = 0;
@@ -1441,6 +1446,9 @@
       });
     });
     window.solarSimState.panelCache = panelCache;
+    if (typeof solarSimState !== 'undefined' && solarSimState && solarSimState !== window.solarSimState) {
+      solarSimState.panelCache = panelCache;
+    }
 
     // 7. Evaluar diagnóstico y actualizar telemetría
     const diag = wpEvaluateMLPENecessity();
@@ -1481,10 +1489,16 @@
 
     // 9. Actualizar visuales 3D al modo Heatmap
     if (!window.solarSimState) window.solarSimState = {};
-    solarSimState.viewMode = 'heatmap';
-    solarSimState.annualHeatmapData = true;
-    solarSimState.annualHeatmapDirty = false;
-    solarSimState.isCalculatingHeatmap = false; // [B4] fin de simulación: desbloquear documentos
+    window.solarSimState.viewMode = 'heatmap';
+    window.solarSimState.annualHeatmapData = true;
+    window.solarSimState.annualHeatmapDirty = false;
+    window.solarSimState.isCalculatingHeatmap = false; // [B4] fin de simulación: desbloquear documentos
+    if (typeof solarSimState !== 'undefined' && solarSimState && solarSimState !== window.solarSimState) {
+      solarSimState.viewMode = 'heatmap';
+      solarSimState.annualHeatmapData = true;
+      solarSimState.annualHeatmapDirty = false;
+      solarSimState.isCalculatingHeatmap = false;
+    }
 
     if (typeof wpFastRenderSimulatedPanels === 'function') {
       await wpFastRenderSimulatedPanels(true);
@@ -1521,7 +1535,10 @@
   window.wpInvalidateHeatmap = function(reason) {
     _activeSimGenerationId++; // Cancelación atómica inmediata de cualquier simulación asíncrona en curso
     if (typeof hideSolarCalcHUD === 'function') hideSolarCalcHUD();
-    const wasHeatmapMode = !!(window.solarSimState && window.solarSimState.viewMode === 'heatmap');
+    const wasHeatmapMode = !!(
+      (window.solarSimState && window.solarSimState.viewMode === 'heatmap') ||
+      (typeof solarSimState !== 'undefined' && solarSimState && solarSimState.viewMode === 'heatmap')
+    );
     if (window.solarSimState) {
       window.solarSimState.annualHeatmapData = null;
       window.solarSimState.annualHeatmapDirty = true;
@@ -1531,6 +1548,18 @@
       window.solarSimState.isCalculatingHeatmap = false;
       window.solarSimState.monthlyKwh = null; // [B6] invalidar reparto mensual derivado
       window.solarSimState.viewMode = 'normal';
+    }
+    if (typeof solarSimState !== 'undefined' && solarSimState && solarSimState !== window.solarSimState) {
+      solarSimState.annualHeatmapData = null;
+      solarSimState.annualHeatmapDirty = true;
+      solarSimState.panelCache = null;
+      solarSimState._lastInvalReason = reason || 'Cubierta modificada';
+      solarSimState.annualHeatmapInvalidatedAt = Date.now();
+      solarSimState.isCalculatingHeatmap = false;
+      solarSimState.monthlyKwh = null;
+      solarSimState.viewMode = 'normal';
+    }
+    if (window.solarSimState) {
       if (window.solarSimState.panelShadowOverlayPool) {
         if (typeof viewer !== 'undefined' && viewer && viewer.entities) {
           window.solarSimState.panelShadowOverlayPool.forEach(e => {

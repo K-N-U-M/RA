@@ -4296,7 +4296,8 @@ const _rawInitHour = _initNow.getHours() + _initNow.getMinutes() / 60; // Hora a
 // Acotamos en rango diurno de 6.00h a 20.00h para visualización solar realista
 const _initHourFloat = Math.max(6.0, Math.min(20.0, Math.round(_rawInitHour * 100) / 100));
 
-let solarSimState = {
+window.solarSimState = window.solarSimState || {};
+Object.assign(window.solarSimState, {
   monthIdx: _initMonth,
   hourFloat: _initHourFloat,
   isPlaying: false,
@@ -4305,7 +4306,8 @@ let solarSimState = {
   dynamicShadowEntities: [],
   mlpeBadgeEntities: [],
   panelShadowOverlayEntities: []
-};
+});
+let solarSimState = window.solarSimState;
 
 const SOLAR_MONTH_DAYS = [15, 45, 75, 105, 135, 165, 198, 228, 258, 288, 318, 355];
 const SOLAR_MONTH_NAMES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
@@ -13397,20 +13399,29 @@ function getHeatmapColor(lossPct) {
 
 // ── ESTADO GLOBAL DEL MOTOR SOLAR Y SOMBRAS ─────────────────────────────────
 if (typeof window.solarSimState === "undefined" || !window.solarSimState) {
-  window.solarSimState = {
-    viewMode: 'instant', // 'instant' | 'heatmap' | 'mlpe'
-    currentMonth: 11,    // 0 = Ene, 11 = Dic (Solsticio invierno CTE)
-    currentHour: 12.0,   // 12:00 h
-    isPlaying: false,
-    playSpeed: 1,        // 1x, 3x, 5x
-    playInterval: null,
-    currentSolarPos: null,
-    mlpeBadgeEntities: [],
-    panelShadowOverlayEntities: [],
-    obstacleShadowSurfaceEntities: [],
-    heatmapLabelEntities: [],
-    annualHeatmapData: null
-  };
+  window.solarSimState = {};
+}
+const _defaultSimStateProps = {
+  viewMode: 'instant', // 'instant' | 'heatmap' | 'mlpe'
+  currentMonth: 11,    // 0 = Ene, 11 = Dic (Solsticio invierno CTE)
+  currentHour: 12.0,   // 12:00 h
+  isPlaying: false,
+  playSpeed: 1,        // 1x, 3x, 5x
+  playInterval: null,
+  currentSolarPos: null,
+  mlpeBadgeEntities: [],
+  panelShadowOverlayEntities: [],
+  obstacleShadowSurfaceEntities: [],
+  heatmapLabelEntities: [],
+  annualHeatmapData: null
+};
+for (const _k in _defaultSimStateProps) {
+  if (typeof window.solarSimState[_k] === 'undefined') {
+    window.solarSimState[_k] = _defaultSimStateProps[_k];
+  }
+}
+if (typeof solarSimState !== 'undefined') {
+  solarSimState = window.solarSimState;
 }
 
 // ── RENDERIZADO RÁPIDO Y PRECISO DE PANELES ─────────────────────────────────
@@ -14157,6 +14168,7 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
               _lastPrSys: panelData._lastPrSys,
               annualKwh: panelData.annualKwh,
               relativeYieldPct: panelData.relativeYieldPct,
+              annualTotalInsolation: panelData.annualTotalInsolation,
               isNormal: panelData.isNormal,
               requiresMLPE: panelData.requiresMLPE,
               isUnviable: panelData.isUnviable,
@@ -14230,6 +14242,7 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
             _lastPrSys: panelData._lastPrSys,
             annualKwh: panelData.annualKwh,
             relativeYieldPct: panelData.relativeYieldPct,
+            annualTotalInsolation: panelData.annualTotalInsolation,
             isNormal: panelData.isNormal,
             requiresMLPE: panelData.requiresMLPE,
             isUnviable: panelData.isUnviable,
@@ -15440,21 +15453,38 @@ function _flushHeatmapPanelHover() {
   }
 
   if (hoveredPanel) {
-    const isSimValid = !!(window.solarSimState && window.solarSimState.annualHeatmapData && !window.solarSimState.annualHeatmapDirty);
-    const isHeatmapActive = !!(window.solarSimState && window.solarSimState.viewMode === 'heatmap');
-    const kwh = (typeof hoveredPanel.annualKwh === 'number') ? hoveredPanel.annualKwh : Math.round((hoveredPanel.annualYieldPct || 100) * 8.5);
-    const loss = typeof hoveredPanel.annualLossPct === 'number' ? hoveredPanel.annualLossPct : 0;
-    const tilt = typeof hoveredPanel.tiltDeg === 'number' ? hoveredPanel.tiltDeg.toFixed(0) : (hoveredPanel.pitch ? hoveredPanel.pitch.toFixed(0) : '0');
+    const isSimValid = !!(
+      (window.solarSimState && window.solarSimState.annualHeatmapData && !window.solarSimState.annualHeatmapDirty) ||
+      (typeof solarSimState !== 'undefined' && solarSimState && solarSimState.annualHeatmapData && !solarSimState.annualHeatmapDirty)
+    );
+    const isHeatmapActive = !!(
+      (window.solarSimState && window.solarSimState.viewMode === 'heatmap') ||
+      (typeof solarSimState !== 'undefined' && solarSimState && solarSimState.viewMode === 'heatmap')
+    );
+
+    // [Respaldo de Seguridad] Si hoveredPanel perdió métricas en un redraw GPU, rescatarlas desde panelCache
+    let panelData = hoveredPanel;
+    const cache = (window.solarSimState && window.solarSimState.panelCache) || (typeof solarSimState !== 'undefined' && solarSimState && solarSimState.panelCache);
+    if (cache && (typeof hoveredPanel.annualLossPct === 'undefined' || typeof hoveredPanel.annualKwh === 'undefined')) {
+      const cached = cache.get(hoveredPanel.panelId) || cache.get(hoveredPanel.polyIdx + '_' + (hoveredPanel.layoutIndex ?? hoveredIdx));
+      if (cached) {
+        panelData = Object.assign({}, cached, hoveredPanel);
+      }
+    }
+
+    const kwh = (typeof panelData.annualKwh === 'number') ? panelData.annualKwh : Math.round((panelData.annualYieldPct || 100) * 8.5);
+    const loss = typeof panelData.annualLossPct === 'number' ? panelData.annualLossPct : 0;
+    const tilt = typeof panelData.tiltDeg === 'number' ? panelData.tiltDeg.toFixed(0) : (panelData.pitch ? panelData.pitch.toFixed(0) : '0');
     let azStr = 'Sur';
-    if (typeof hoveredPanel.azimuthDeg === 'number') {
-      const azN = (180 - hoveredPanel.azimuthDeg + 360) % 360;
+    if (typeof panelData.azimuthDeg === 'number') {
+      const azN = (180 - panelData.azimuthDeg + 360) % 360;
       azStr = (typeof getAzimuthCardinalShort === 'function' ? getAzimuthCardinalShort(azN) + ' (' : '') + azN.toFixed(0) + '°' + (typeof getAzimuthCardinalShort === 'function' ? ')' : '');
     }
-    const isMlpe = hoveredPanel.requiresMLPE || loss >= 8;
-    const isUnv = hoveredPanel.isUnviable || loss >= 25;
+    const isMlpe = panelData.requiresMLPE || loss >= 8;
+    const isUnv = panelData.isUnviable || loss >= 25;
 
-    const strColor = hoveredPanel.stringColor || '#00F0FF';
-    const strLabel = hoveredPanel.stringName || ('String #' + ((hoveredPanel.polyIdx || 0) + 1));
+    const strColor = panelData.stringColor || '#00F0FF';
+    const strLabel = panelData.stringName || ('String #' + ((panelData.polyIdx || 0) + 1));
     const modeBadge = isHeatmapActive && isSimValid
       ? `<span style="display:inline-flex;align-items:center;gap:3px;padding:1px 5px;border-radius:4px;font-size: 10px;background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.3);font-weight:700;">☀️ Heatmap Solar</span>`
       : `<span style="display:inline-flex;align-items:center;gap:3px;padding:1px 5px;border-radius:4px;font-size: 10px;background:rgba(56,189,248,0.12);color:${strColor};border:1px solid rgba(56,189,248,0.25);font-weight:700;">⚡ ${strLabel}</span>`;
@@ -15468,8 +15498,30 @@ function _flushHeatmapPanelHover() {
       : `<span style="font-weight:600;color:#94a3b8;font-size: 10px;">Pendiente de cálculo</span>`;
 
     const kwhHtml = isSimValid
-      ? `<span style="font-weight:800;color:#10b981;">${kwh} kWh/año</span>`
-      : `<span style="font-weight:600;color:#94a3b8;font-size: 10px;">${kwh} kWh/año <span style="font-size: 10px;color:#64748B;">(est.)</span></span>`;
+      ? `<span style="font-weight:800;color:#10b981;">${kwh.toLocaleString('es-ES')} kWh/año</span>`
+      : `<span style="font-weight:600;color:#94a3b8;font-size: 10px;">${kwh.toLocaleString('es-ES')} kWh/año <span style="font-size: 10px;color:#64748B;">(est.)</span></span>`;
+
+    // [Opción 2] Métricas ampliadas de radiación e insolación anual
+    const insolationVal = (typeof panelData.annualTotalInsolation === 'number' && panelData.annualTotalInsolation > 0)
+      ? panelData.annualTotalInsolation
+      : (typeof panelData.annualGrossKwh === 'number' ? Math.round(panelData.annualGrossKwh / 0.885) : null);
+    const insolationRow = (isSimValid && insolationVal)
+      ? `<div style="display:flex;justify-content:space-between;margin-bottom:2px;gap:12px;font-size:10px;">
+           <span style="color:#94a3b8;">Radiación Incidente:</span>
+           <span style="color:#f8fafc;font-weight:700;">${insolationVal.toLocaleString('es-ES')} kWh/año</span>
+         </div>`
+      : '';
+
+    // [Opción 2] Rendimiento Relativo comparado con la mejor placa
+    const relYieldVal = typeof panelData.relativeYieldPct === 'number'
+      ? panelData.relativeYieldPct
+      : (typeof panelData.annualYieldPct === 'number' ? panelData.annualYieldPct : null);
+    const relYieldRow = (isSimValid && relYieldVal !== null)
+      ? `<div style="display:flex;justify-content:space-between;margin-bottom:2px;gap:12px;font-size:10px;">
+           <span style="color:#94a3b8;">Rendimiento vs. Líder:</span>
+           <span style="color:${relYieldVal >= 95 ? '#10b981' : (relYieldVal >= 85 ? '#f59e0b' : '#ef4444')};font-weight:700;">${relYieldVal.toFixed(1)}%</span>
+         </div>`
+      : '';
 
     tooltip.innerHTML = `
       <div style="font-weight:800;color:var(--amber-400);font-size:11px;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:3px;gap:8px;">
@@ -15488,6 +15540,8 @@ function _flushHeatmapPanelHover() {
         <span style="color:#cbd5e1;">Pérdidas Sombras:</span>
         ${lossHtml}
       </div>
+      ${insolationRow}
+      ${relYieldRow}
       <div style="display:flex;justify-content:space-between;margin-top:4px;padding-top:4px;border-top:1px solid rgba(255,255,255,0.1);font-size:10px;">
         <span style="color:#94a3b8;">Diagnóstico:</span>
         ${diagHtml}
@@ -15735,9 +15789,10 @@ function wpRenderHeatmapVisuals() {
 }
 
 async function wpSetShadowViewMode(mode) {
-  if (!solarSimState) window.solarSimState = {};
-  if (solarSimState.isCalculatingHeatmap) return; // Evitar disparos concurrentes
-  solarSimState.viewMode = mode;
+  if (!window.solarSimState) window.solarSimState = {};
+  if (window.solarSimState.isCalculatingHeatmap) return; // Evitar disparos concurrentes
+  window.solarSimState.viewMode = mode;
+  if (typeof solarSimState !== 'undefined' && solarSimState) solarSimState.viewMode = mode;
 
   const btnInstant = document.getElementById("btn-shadow-mode-instant");
   const btnHeatmap = document.getElementById("btn-shadow-mode-heatmap");
@@ -15851,6 +15906,8 @@ async function wpRunHeatmapAndActivateView(forceRecalculate = true) {
   if (btnHeatmap) btnHeatmap.classList.add("active");
   if (btnMlpe) btnMlpe.classList.remove("active");
   if (heatLegend) heatLegend.style.display = "flex";
+  if (window.solarSimState) window.solarSimState.viewMode = "heatmap";
+  if (typeof solarSimState !== 'undefined' && solarSimState) solarSimState.viewMode = "heatmap";
 }
 window.wpRunHeatmapAndActivateView = wpRunHeatmapAndActivateView;
 
