@@ -17511,14 +17511,15 @@ window.toggleSolarHUD = toggleSolarHUD;
 </script>
 
 <!-- ── MODAL GENERADOR DE DOCUMENTACIÓN TÉCNICA PV ──────────────────────── -->
-<div id="ra-doc-modal" role="dialog" aria-modal="true">
+<div id="ra-doc-modal" role="dialog" aria-modal="true" onclick="if(event.target === this) closeDocModal();">
   <div class="doc-modal-box">
     <div class="doc-modal-head">
       <span><i data-lucide="file-text" class="icon-sm"></i> GENERADOR DE DOCUMENTACIÓN TÉCNICA PV · REBT + RD 244/2019</span>
       <button class="doc-modal-close" onclick="closeDocModal()" aria-label="Cerrar documentación técnica"><i data-lucide="x" class="icon-sm"></i></button>
     </div>
 
-    <div class="doc-modal-section">
+    <div class="doc-modal-body">
+      <div class="doc-modal-section">
       <h3>① Datos del Titular / Promotor</h3>
       <div class="doc-fields-grid">
         <div class="doc-field full"><label>Nombre / Razón Social</label><input id="doc-nombre" type="text" placeholder="Nombre completo o razón social" value="PROPIETARIO EJEMPLO S.L."></div>
@@ -17584,8 +17585,9 @@ window.toggleSolarHUD = toggleSolarHUD;
       </div>
     </div>
 
-    <div class="doc-modal-footer">
-      <i data-lucide="alert-triangle" class="icon-sm"></i> Documentos técnicos de referencia para proyecto y legalización. Normativa: RD 842/2002 (REBT) · ITC-BT-40 · RD 244/2019 · RD 1183/2020 · UNE-EN IEC 62446-1
+      <div class="doc-modal-footer">
+        <i data-lucide="alert-triangle" class="icon-sm"></i> Documentos técnicos de referencia para proyecto y legalización. Normativa: RD 842/2002 (REBT) · ITC-BT-40 · RD 244/2019 · RD 1183/2020 · UNE-EN IEC 62446-1
+      </div>
     </div>
   </div>
 </div>
