@@ -603,6 +603,29 @@ window.RA_App = window.RA_App || {};
                   </div>
                 </div>
 
+                <!-- Sistema de Ejes de Coordenadas del Edificio (Alineado a Lados de Construcción vs Brújula) -->
+                <div id="bld-axes-box" style="padding:6px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.3);border-radius:6px;margin-bottom:2px;display:flex;flex-direction:column;gap:4px;">
+                  <div style="font-size:10px;font-weight:700;color:#34d399;display:flex;justify-content:space-between;align-items:center;">
+                    <span>🧭 EJES DE COORDENADAS:</span>
+                    <span id="bld-axis-azimuth-badge" style="color:#a7f3d0;font-weight:600;font-size:9.5px;">Eje X: --°</span>
+                  </div>
+                  <div style="display:flex;gap:4px;">
+                    <button type="button" id="bld-axis-mode-wall" class="doc-mini-btn" onclick="if(typeof setBuildingAxisMode==='function') setBuildingAxisMode('wall');" style="flex:1;text-align:center;padding:3px 4px;background:rgba(16,185,129,0.25);border-color:#10b981;color:#6ee7b7;font-weight:600;" title="Alinear flechas X/Y con los muros reales del edificio">
+                      🏢 Lados del Edificio
+                    </button>
+                    <button type="button" id="bld-axis-mode-compass" class="doc-mini-btn" onclick="if(typeof setBuildingAxisMode==='function') setBuildingAxisMode('compass');" style="flex:1;text-align:center;padding:3px 4px;background:rgba(15,23,42,0.6);border-color:rgba(255,255,255,0.12);color:#94a3b8;" title="Usar ejes geográficos Este-Oeste / Norte-Sur">
+                      🧭 Brújula (N-S)
+                    </button>
+                  </div>
+                  <div id="bld-axis-wall-controls" style="display:flex;justify-content:space-between;align-items:center;gap:4px;padding-top:2px;">
+                    <span id="bld-axis-edge-label" style="font-size:9.5px;color:#cbd5e1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Muro #1</span>
+                    <div style="display:flex;gap:3px;">
+                      <button type="button" class="doc-mini-btn" onclick="if(typeof cycleBuildingReferenceWall==='function') cycleBuildingReferenceWall(-1);" style="padding:2px 6px;font-size:9.5px;" title="Muro anterior">◀</button>
+                      <button type="button" class="doc-mini-btn" onclick="if(typeof cycleBuildingReferenceWall==='function') cycleBuildingReferenceWall(1);" style="padding:2px 6px;font-size:9.5px;border-color:#10b981;color:#6ee7b7;" title="Cambiar qué lado del edificio manda como eje principal">🔄 Cambiar Lado</button>
+                    </div>
+                  </div>
+                </div>
+
                 <!-- Selector de Tipología de Cubierta Parametrizable -->
                 <div class="field-row" style="display:flex;justify-content:space-between;align-items:center;">
                   <span style="font-size: 10px;color:var(--text-slate-300);font-weight:600;">Tipología de Cubierta:</span>
@@ -4886,6 +4909,7 @@ function finishActiveBuilding() {
     roofType: 'flat',
     roofPitch: 25,
     roofAzimuth: 180,
+    axisMode: 'wall',
     parapetHeight: 0.6,
     parapetWidth: 0.25,
     overhang: 0.2,
@@ -4894,6 +4918,13 @@ function finishActiveBuilding() {
     edgeColor: '#334155',
     points: [...activeBuildingPts]
   };
+  if (typeof computeBuildingConstructionAxes === 'function') {
+    const _axes = computeBuildingConstructionAxes(newBld);
+    if (_axes && typeof _axes.normalAzimuthDeg === 'number') {
+      newBld.roofAzimuth = Math.round(_axes.normalAzimuthDeg);
+      newBld.refEdgeIdx = _axes.edgeIdx;
+    }
+  }
 
   if (window.RAundo && typeof window.RAundo.snapBuildings === 'function') {
     window.RAundo.snapBuildings('Crear ' + bldName);
@@ -5390,24 +5421,46 @@ function createSolarPlaneFromBuildingRoof() {
     return Cesium.Cartesian3.fromRadians(carto.longitude, carto.latitude, roofHeight);
   });
 
-  // Si tenemos sistema de planos de trabajo, crear plano formal
+  // Si tenemos sistema de planos de trabajo, crear plano formal con ejes alineados a los lados de construcción
   if (typeof WP !== 'undefined' && WP) {
+    const bldAxes = (typeof computeBuildingConstructionAxes === 'function')
+      ? computeBuildingConstructionAxes(bld)
+      : null;
     const calculatedTilt = (bld.roofType === 'flat' ? 0 : (bld.roofPitch !== undefined ? bld.roofPitch : 20));
-    const calculatedAzimuth = (bld.roofType === 'flat' ? 180 : (bld.roofAzimuth !== undefined ? bld.roofAzimuth : 180));
+    const defaultAz = (bldAxes && typeof bldAxes.normalAzimuthDeg === 'number') ? Math.round(bldAxes.normalAzimuthDeg) : 180;
+    const calculatedAzimuth = (bld.roofType === 'flat' ? defaultAz : (bld.roofAzimuth !== undefined ? bld.roofAzimuth : defaultAz));
+
+    let planeNormal, planeUVec, planeVVec;
+    if (bldAxes && bldAxes.normal && bldAxes.uVec && bldAxes.vVec) {
+      planeNormal = Cesium.Cartesian3.clone(bldAxes.normal);
+      planeUVec   = Cesium.Cartesian3.clone(bldAxes.uVec);
+      planeVVec   = Cesium.Cartesian3.clone(bldAxes.vVec);
+    } else {
+      planeNormal = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(roofCartesians[0], new Cesium.Cartesian3());
+      planeUVec   = Cesium.Cartesian3.normalize(Cesium.Cartesian3.subtract(roofCartesians[1], roofCartesians[0], new Cesium.Cartesian3()), new Cesium.Cartesian3());
+      planeVVec   = Cesium.Cartesian3.normalize(Cesium.Cartesian3.cross(planeNormal, planeUVec, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+    }
+
+    const pOrigin = roofCartesians[0];
+    const pAlongU = Cesium.Cartesian3.add(pOrigin, Cesium.Cartesian3.multiplyByScalar(planeUVec, 5.0, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+    const pAlongV = Cesium.Cartesian3.add(pOrigin, Cesium.Cartesian3.multiplyByScalar(planeVVec, 5.0, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+
     const newPlane = {
       id: 'plane_roof_' + bld.id,
       name: 'Cubierta ' + bld.name,
-      origin: roofCartesians[0],
-      p1: roofCartesians[0],
-      p2: roofCartesians[1],
-      p3: roofCartesians[2],
+      origin: pOrigin,
+      p1: pOrigin,
+      p2: pAlongU,
+      p3: pAlongV,
+      pts3D: [pOrigin, pAlongU, pAlongV],
+      axisMode: 'edge',
       tiltDeg: calculatedTilt,
       azimuthDeg: calculatedAzimuth,
       pitch: calculatedTilt,
       azimuth: calculatedAzimuth,
-      normal: Cesium.Cartesian3.UNIT_Z,
-      uVec: Cesium.Cartesian3.subtract(roofCartesians[1], roofCartesians[0], new Cesium.Cartesian3()),
-      vVec: Cesium.Cartesian3.subtract(roofCartesians[2], roofCartesians[0], new Cesium.Cartesian3()),
+      normal: planeNormal,
+      uVec: planeUVec,
+      vVec: planeVVec,
       isRoof: true,
       buildingId: bld.id
     };
@@ -9669,30 +9722,35 @@ function getUniversalSelectedTarget() {
     const bld = (typeof buildings !== 'undefined' && Array.isArray(buildings)) ? buildings.find(b => b.id === selectedBuildingId) : null;
     if (bld && bld.points && _bldState.selectedVtxIdx >= 0 && _bldState.selectedVtxIdx < bld.points.length) {
       const pt = bld.points[_bldState.selectedVtxIdx];
-      const az = (typeof bld.roofAzimuth === 'number') ? bld.roofAzimuth : 0;
-      const azRad = Cesium.Math.toRadians(az);
-      // Marco local alineado con la cubierta:
-      // uVec = dirección de la pendiente (roofAzimuth), proyectada horizontal en ECEF
-      // vVec = dirección de la cumbrera (perpendicular a uVec, horizontal)
-      // normal = vertical local (ENU Up en ese punto)
-      const enuMat = Cesium.Transforms.eastNorthUpToFixedFrame(pt);
-      const east  = Cesium.Cartesian3.normalize(new Cesium.Cartesian3(enuMat[0], enuMat[1], enuMat[2]), new Cesium.Cartesian3());
-      const north = Cesium.Cartesian3.normalize(new Cesium.Cartesian3(enuMat[4], enuMat[5], enuMat[6]), new Cesium.Cartesian3());
-      const up    = Cesium.Cartesian3.normalize(new Cesium.Cartesian3(enuMat[8], enuMat[9], enuMat[10]), new Cesium.Cartesian3());
-      // uVec = sin(az)*East + cos(az)*North  (dirección del agua — azimut geográfico)
-      const uVec = Cesium.Cartesian3.normalize(
-        Cesium.Cartesian3.add(
-          Cesium.Cartesian3.multiplyByScalar(east,  Math.sin(azRad), new Cesium.Cartesian3()),
-          Cesium.Cartesian3.multiplyByScalar(north, Math.cos(azRad), new Cesium.Cartesian3()),
+      const bldAxes = (typeof computeBuildingConstructionAxes === 'function')
+        ? computeBuildingConstructionAxes(bld, _bldState.selectedVtxIdx)
+        : null;
+
+      let uVec, vVec, normal;
+      if (bldAxes && bldAxes.uVec && bldAxes.vVec && bldAxes.normal) {
+        uVec   = bldAxes.uVec;
+        vVec   = bldAxes.vVec;
+        normal = bldAxes.normal;
+      } else {
+        const az = (typeof bld.roofAzimuth === 'number') ? bld.roofAzimuth : 0;
+        const azRad = Cesium.Math.toRadians(az);
+        const enuMat = Cesium.Transforms.eastNorthUpToFixedFrame(pt);
+        const east  = Cesium.Cartesian3.normalize(new Cesium.Cartesian3(enuMat[0], enuMat[1], enuMat[2]), new Cesium.Cartesian3());
+        const north = Cesium.Cartesian3.normalize(new Cesium.Cartesian3(enuMat[4], enuMat[5], enuMat[6]), new Cesium.Cartesian3());
+        const up    = Cesium.Cartesian3.normalize(new Cesium.Cartesian3(enuMat[8], enuMat[9], enuMat[10]), new Cesium.Cartesian3());
+        uVec = Cesium.Cartesian3.normalize(
+          Cesium.Cartesian3.add(
+            Cesium.Cartesian3.multiplyByScalar(east,  Math.sin(azRad), new Cesium.Cartesian3()),
+            Cesium.Cartesian3.multiplyByScalar(north, Math.cos(azRad), new Cesium.Cartesian3()),
+            new Cesium.Cartesian3()
+          ), new Cesium.Cartesian3()
+        );
+        vVec = Cesium.Cartesian3.normalize(
+          Cesium.Cartesian3.cross(up, uVec, new Cesium.Cartesian3()),
           new Cesium.Cartesian3()
-        ), new Cesium.Cartesian3()
-      );
-      // vVec = cross(up, uVec) — perpendicular horizontal (eje de cumbrera)
-      const vVec = Cesium.Cartesian3.normalize(
-        Cesium.Cartesian3.cross(up, uVec, new Cesium.Cartesian3()),
-        new Cesium.Cartesian3()
-      );
-      const normal = up;
+        );
+        normal = up;
+      }
       return {
         type: 'vertex',
         subType: 'building_vertex',
@@ -9878,21 +9936,38 @@ function getUniversalSelectedTarget() {
     const bld = buildings.find(b => b.id === selectedBuildingId);
     const bldPts = (bld && (bld.points || bld.polygon)) || null;
     if (bld && bld.visible !== false && Array.isArray(bldPts) && bldPts.length > 0) {
-      let center = null;
-      if (typeof computeBuildingCenter3D === 'function') {
-        center = computeBuildingCenter3D(bld);
-      } else {
-        let sum = new Cesium.Cartesian3(0, 0, 0);
-        bldPts.forEach(p => { sum = Cesium.Cartesian3.add(sum, p, sum); });
-        center = Cesium.Cartesian3.multiplyByScalar(sum, 1.0 / bldPts.length, new Cesium.Cartesian3());
+      const bldAxes = (typeof computeBuildingConstructionAxes === 'function')
+        ? computeBuildingConstructionAxes(bld)
+        : null;
+
+      let center = (bldAxes && bldAxes.center) ? bldAxes.center : null;
+      if (!center) {
+        if (typeof computeBuildingCenter3D === 'function') {
+          center = computeBuildingCenter3D(bld);
+        } else {
+          let sum = new Cesium.Cartesian3(0, 0, 0);
+          bldPts.forEach(p => { sum = Cesium.Cartesian3.add(sum, p, sum); });
+          center = Cesium.Cartesian3.multiplyByScalar(sum, 1.0 / bldPts.length, new Cesium.Cartesian3());
+        }
       }
-      const normal = Cesium.Cartesian3.normalize(center, new Cesium.Cartesian3());
-      const transform = Cesium.Transforms.eastNorthUpToFixedFrame(center);
-      const uVec = (typeof Cesium.Matrix4.multiplyByPointAsVector === 'function')
-        ? Cesium.Matrix4.multiplyByPointAsVector(transform, Cesium.Cartesian3.UNIT_X, new Cesium.Cartesian3())
-        : Cesium.Cartesian3.cross(normal, Cesium.Cartesian3.UNIT_Z, new Cesium.Cartesian3());
-      Cesium.Cartesian3.normalize(uVec, uVec);
-      const vVec = Cesium.Cartesian3.normalize(Cesium.Cartesian3.cross(normal, uVec, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+
+      let normal, uVec, vVec, gizmoRot;
+      if (bldAxes && bldAxes.normal && bldAxes.uVec && bldAxes.vVec) {
+        normal   = bldAxes.normal;
+        uVec     = bldAxes.uVec;
+        vVec     = bldAxes.vVec;
+        gizmoRot = (bldAxes.axisMode === 'compass') ? (bld.roofAzimuth || 0) : 0;
+      } else {
+        normal = Cesium.Cartesian3.normalize(center, new Cesium.Cartesian3());
+        const transform = Cesium.Transforms.eastNorthUpToFixedFrame(center);
+        uVec = (typeof Cesium.Matrix4.multiplyByPointAsVector === 'function')
+          ? Cesium.Matrix4.multiplyByPointAsVector(transform, Cesium.Cartesian3.UNIT_X, new Cesium.Cartesian3())
+          : Cesium.Cartesian3.cross(normal, Cesium.Cartesian3.UNIT_Z, new Cesium.Cartesian3());
+        Cesium.Cartesian3.normalize(uVec, uVec);
+        vVec = Cesium.Cartesian3.normalize(Cesium.Cartesian3.cross(normal, uVec, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+        gizmoRot = bld.roofAzimuth || 0;
+      }
+
       const bldWp = {
         origin: center,
         normal: normal,
@@ -9905,7 +9980,7 @@ function getUniversalSelectedTarget() {
         id: bld.id,
         name: (bld.name || 'Edificio 3D').toUpperCase(),
         pos: center,
-        rot: bld.roofAzimuth || 0,
+        rot: gizmoRot,
         height: bld.height || 3.5,
         rawObj: bld,
         wp: bldWp,
@@ -10459,7 +10534,28 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
         try { fnUpdateRot(target.rawObj, target); } catch(eObsM) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eObsM, 'Entidad/Primitiva Cesium'); }
       }
     } else if (target.type === 'building' && target.rawObj) {
-      target.rawObj.roofAzimuth = Math.round(normRot);
+      const bld = target.rawObj;
+      const ptsArr = bld.points || bld.polygon;
+      if (Array.isArray(ptsArr) && universalGizmoState.startPoints && universalGizmoState.startPoints.length === ptsArr.length && dDeg !== 0) {
+        const rotCenter = universalGizmoState.startCenter || target.pos;
+        const zAxis = (target.wp && target.wp.normal) ? target.wp.normal : effectiveAxis;
+        const rotQuat = Cesium.Quaternion.fromAxisAngle(zAxis, Cesium.Math.toRadians(dDeg));
+        const rotMat3 = Cesium.Matrix3.fromQuaternion(rotQuat);
+        for (let i = 0; i < ptsArr.length; i++) {
+          const rel = Cesium.Cartesian3.subtract(universalGizmoState.startPoints[i], rotCenter, new Cesium.Cartesian3());
+          const rotatedRel = Cesium.Matrix3.multiplyByVector(rotMat3, rel, new Cesium.Cartesian3());
+          ptsArr[i] = Cesium.Cartesian3.add(rotCenter, rotatedRel, new Cesium.Cartesian3());
+        }
+        const updatedAxes = (typeof computeBuildingConstructionAxes === 'function') ? computeBuildingConstructionAxes(bld) : null;
+        if (updatedAxes && typeof updatedAxes.normalAzimuthDeg === 'number') {
+          bld.roofAzimuth = Math.round(updatedAxes.normalAzimuthDeg);
+        } else {
+          bld.roofAzimuth = Math.round(normRot);
+        }
+        if (typeof syncBuildingAxesInspectorUI === 'function') syncBuildingAxesInspectorUI(bld);
+      } else {
+        bld.roofAzimuth = Math.round(normRot);
+      }
       // Reconstrucción GPU pesada diferida a LEFT_UP (index.html:15829) para garantizar 60 FPS
     } else if (target.type === 'panel' && target.rawObj) {
       const p = target.rawObj;

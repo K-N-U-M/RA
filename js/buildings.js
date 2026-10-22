@@ -881,6 +881,60 @@ function render3DBuildingsInCesium() {
         } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
       }
     });
+
+    // ── Indicador Visual de Lado Guía / Ejes de Construcción (CAD Local Frame) ──
+    if (isSel && typeof computeBuildingConstructionAxes === 'function') {
+      try {
+        const bAxes = computeBuildingConstructionAxes(bld);
+        if (bAxes && bAxes.axisMode === 'wall' && typeof bAxes.edgeIdx === 'number' && basePositions[bAxes.edgeIdx]) {
+          const eIdx = bAxes.edgeIdx;
+          const nextIdx = (eIdx + 1) % basePositions.length;
+          const c1 = cartoList[eIdx];
+          const c2 = cartoList[nextIdx];
+          const refP1 = Cesium.Cartesian3.fromRadians(c1.longitude, c1.latitude, avgBaseHeight + 0.14);
+          const refP2 = Cesium.Cartesian3.fromRadians(c2.longitude, c2.latitude, avgBaseHeight + 0.14);
+
+          const refWallEnt = viewer.entities.add({
+            name: (bld.name || 'Edificio') + ' - Muro Guía Eje X/U (Lado #' + (eIdx + 1) + ')',
+            polyline: {
+              positions: [refP1, refP2],
+              width: 5.5,
+              material: new Cesium.PolylineGlowMaterialProperty({
+                glowPower: 0.25,
+                color: Cesium.Color.fromCssColorString('#EF4444')
+              }),
+              arcType: Cesium.ArcType.NONE,
+              clampToGround: false,
+              disableDepthTestDistance: Number.POSITIVE_INFINITY
+            }
+          });
+          window._buildingEntities.push(refWallEnt);
+
+          // Escuadra ortogonal Eje V (Verde) en la esquina de origen del muro guía
+          const vLen = Math.min(Math.max(bAxes.edgeLength * 0.25, 1.5), 4.5);
+          const refPV = Cesium.Cartesian3.add(
+            refP1,
+            Cesium.Cartesian3.multiplyByScalar(bAxes.vVec, vLen, new Cesium.Cartesian3()),
+            new Cesium.Cartesian3()
+          );
+          const refOrthoEnt = viewer.entities.add({
+            name: (bld.name || 'Edificio') + ' - Eje V Ortogonal (Fondo 90°)',
+            polyline: {
+              positions: [refP1, refPV],
+              width: 4.5,
+              material: new Cesium.PolylineGlowMaterialProperty({
+                glowPower: 0.22,
+                color: Cesium.Color.fromCssColorString('#10B981')
+              }),
+              arcType: Cesium.ArcType.NONE,
+              clampToGround: false,
+              disableDepthTestDistance: Number.POSITIVE_INFINITY
+            }
+          });
+          window._buildingEntities.push(refOrthoEnt);
+        }
+      } catch(eAxesVis) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', eAxesVis); }
+    }
   });
 
   if (viewer && viewer.scene && typeof viewer.scene.requestRender === 'function') {
@@ -1278,6 +1332,8 @@ function render3DBuildingsInCesium() {
       roofType: 'flat',
       roofPitch: 25,
       roofAzimuth: 180,
+      axisMode: 'wall',
+      refEdgeIdx: 0,
       parapetHeight: 0.6,
       parapetWidth: 0.25,
       overhang: 0.2,
@@ -1289,6 +1345,10 @@ function render3DBuildingsInCesium() {
       ladoA: bldRectState.ladoA,
       ladoB: bldRectState.ladoB
     };
+    const _initAxes = computeBuildingConstructionAxes(newBld);
+    if (_initAxes && typeof _initAxes.normalAzimuthDeg === 'number') {
+      newBld.roofAzimuth = Math.round(_initAxes.normalAzimuthDeg);
+    }
 
     if (window.RAundo && typeof window.RAundo.snapBuildings === 'function') {
       window.RAundo.snapBuildings('Crear ' + bldName);
@@ -1434,30 +1494,297 @@ function render3DBuildingsInCesium() {
   function syncRectInspectorUI(bld) {
     if (typeof document === 'undefined') return;
     const box = document.getElementById('bld-rect-dimensions-box');
-    if (!box) return;
+    if (box) {
+      if (!bld) {
+        box.style.display = 'none';
+      } else {
+        const dims = getBuildingRectDimensions(bld);
+        if (!dims) {
+          box.style.display = 'none';
+        } else {
+          box.style.display = 'block';
+          const inA = document.getElementById('bld-rect-lado-a');
+          const inB = document.getElementById('bld-rect-lado-b');
+          const badge = document.getElementById('bld-rect-area-badge');
 
-    if (!bld) {
-      box.style.display = 'none';
-      return;
+          if (inA) inA.value = dims.ladoA.toFixed(2);
+          if (inB) inB.value = dims.ladoB.toFixed(2);
+          if (badge) badge.textContent = `${dims.area.toFixed(1)} m²`;
+        }
+      }
     }
-
-    const dims = getBuildingRectDimensions(bld);
-    if (!dims) {
-      box.style.display = 'none';
-      return;
-    }
-
-    box.style.display = 'block';
-    const inA = document.getElementById('bld-rect-lado-a');
-    const inB = document.getElementById('bld-rect-lado-b');
-    const badge = document.getElementById('bld-rect-area-badge');
-
-    if (inA) inA.value = dims.ladoA.toFixed(2);
-    if (inB) inB.value = dims.ladoB.toFixed(2);
-    if (badge) badge.textContent = `${dims.area.toFixed(1)} m²`;
+    syncBuildingAxesInspectorUI(bld);
   }
 
-  // Exportar funciones del Rectángulo CAD
+  // ── SISTEMA DE EJES DE COORDENADAS ALINEADOS A LOS LADOS DE CONSTRUCCIÓN ──
+  function computeBuildingConstructionAxes(bld, optVtxIdx) {
+    const Cesium = (typeof window !== 'undefined' && window.Cesium) ? window.Cesium : (typeof globalThis !== 'undefined' ? globalThis.Cesium : null);
+    if (!Cesium || !bld) return null;
+    const pts = bld.points || bld.polygon;
+    if (!Array.isArray(pts) || pts.length < 3) return null;
+
+    const N = pts.length;
+    // 1. Centroide 3D
+    let sum = new Cesium.Cartesian3(0, 0, 0);
+    for (let i = 0; i < N; i++) {
+      sum = Cesium.Cartesian3.add(sum, pts[i], sum);
+    }
+    const center = Cesium.Cartesian3.multiplyByScalar(sum, 1.0 / N, new Cesium.Cartesian3());
+
+    // 2. Base local ENU en el punto de referencia (vértice o centroide)
+    const refOrigin = (typeof optVtxIdx === 'number' && optVtxIdx >= 0 && optVtxIdx < N && pts[optVtxIdx])
+      ? pts[optVtxIdx]
+      : center;
+
+    let east, north, up;
+    if (typeof Cesium.Transforms !== 'undefined' && typeof Cesium.Transforms.eastNorthUpToFixedFrame === 'function') {
+      const enuMat = Cesium.Transforms.eastNorthUpToFixedFrame(refOrigin);
+      east  = Cesium.Cartesian3.normalize(new Cesium.Cartesian3(enuMat[0], enuMat[1], enuMat[2]), new Cesium.Cartesian3());
+      north = Cesium.Cartesian3.normalize(new Cesium.Cartesian3(enuMat[4], enuMat[5], enuMat[6]), new Cesium.Cartesian3());
+      up    = Cesium.Cartesian3.normalize(new Cesium.Cartesian3(enuMat[8], enuMat[9], enuMat[10]), new Cesium.Cartesian3());
+    } else {
+      up = Cesium.Cartesian3.normalize(refOrigin, new Cesium.Cartesian3());
+      east = Cesium.Cartesian3.cross(Cesium.Cartesian3.UNIT_Z, up, new Cesium.Cartesian3());
+      if (Cesium.Cartesian3.magnitude(east) < 1e-4) {
+        east = Cesium.Cartesian3.cross(Cesium.Cartesian3.UNIT_X, up, new Cesium.Cartesian3());
+      }
+      Cesium.Cartesian3.normalize(east, east);
+      north = Cesium.Cartesian3.normalize(Cesium.Cartesian3.cross(up, east, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+    }
+
+    const axisMode = (bld.axisMode === 'compass') ? 'compass' : 'wall';
+
+    // 3. Longitudes de cada lado de construcción
+    const edgeLengths = [];
+    let longestIdx = 0;
+    let maxLen = -1;
+    for (let i = 0; i < N; i++) {
+      const pA = pts[i];
+      const pB = pts[(i + 1) % N];
+      const d = Cesium.Cartesian3.distance(pA, pB);
+      edgeLengths.push(d);
+      if (d > maxLen) {
+        maxLen = d;
+        longestIdx = i;
+      }
+    }
+
+    // 4. Si está en modo Brújula (Norte-Sur / Este-Oeste), devolver marco ENU clásico
+    if (axisMode === 'compass') {
+      return {
+        origin: refOrigin,
+        center: center,
+        normal: up,
+        uVec: east,
+        vVec: north,
+        axisMode: 'compass',
+        edgeIdx: longestIdx,
+        edgeCount: N,
+        edgeLength: edgeLengths[longestIdx] || 0,
+        edgeLengths: edgeLengths,
+        wallAzimuthDeg: 90,
+        normalAzimuthDeg: 180
+      };
+    }
+
+    // 5. Modo Muros del Edificio ('wall'): elegir el lado constructivo guía
+    let edgeIdx = longestIdx;
+    if (typeof bld.refEdgeIdx === 'number' && bld.refEdgeIdx >= 0 && bld.refEdgeIdx < N) {
+      edgeIdx = bld.refEdgeIdx;
+    } else if (bld.isRectangular && N === 4) {
+      edgeIdx = 0; // P1 -> P2 (Fachada Principal Lado A)
+    } else {
+      bld.refEdgeIdx = longestIdx;
+    }
+
+    const pStart = pts[edgeIdx];
+    const pEnd   = pts[(edgeIdx + 1) % N];
+    const rawEdge = Cesium.Cartesian3.subtract(pEnd, pStart, new Cesium.Cartesian3());
+    const edgeLen = Cesium.Cartesian3.magnitude(rawEdge);
+
+    // Proyectar vector del muro sobre el plano horizontal local (perpendicular a 'up')
+    const dotUp = Cesium.Cartesian3.dot(rawEdge, up);
+    const horizEdge = Cesium.Cartesian3.subtract(
+      rawEdge,
+      Cesium.Cartesian3.multiplyByScalar(up, dotUp, new Cesium.Cartesian3()),
+      new Cesium.Cartesian3()
+    );
+
+    let uVec;
+    if (Cesium.Cartesian3.magnitude(horizEdge) > 1e-4) {
+      uVec = Cesium.Cartesian3.normalize(horizEdge, new Cesium.Cartesian3());
+    } else {
+      uVec = Cesium.Cartesian3.clone(east);
+    }
+
+    // Eje V ortogonal a 90° exactos sobre el plano horizontal: cross(up, uVec)
+    let vVec = Cesium.Cartesian3.normalize(
+      Cesium.Cartesian3.cross(up, uVec, new Cesium.Cartesian3()),
+      new Cesium.Cartesian3()
+    );
+
+    // Verificar que vVec apunte hacia el interior del edificio (desde el muro guía hacia el centroide)
+    const edgeMid = Cesium.Cartesian3.multiplyByScalar(
+      Cesium.Cartesian3.add(pStart, pEnd, new Cesium.Cartesian3()),
+      0.5,
+      new Cesium.Cartesian3()
+    );
+    const toCenter = Cesium.Cartesian3.subtract(center, edgeMid, new Cesium.Cartesian3());
+    if (Cesium.Cartesian3.dot(toCenter, vVec) < -1e-4) {
+      vVec = Cesium.Cartesian3.negate(vVec, new Cesium.Cartesian3());
+    }
+
+    // Calcular azimut geográfico del muro (uVec) y de su normal de fachada (hacia afuera = -vVec)
+    const uEast  = Cesium.Cartesian3.dot(uVec, east);
+    const uNorth = Cesium.Cartesian3.dot(uVec, north);
+    const wallAzimuthDeg = ((Math.atan2(uEast, uNorth) * 180 / Math.PI) % 360 + 360) % 360;
+
+    const outVec = Cesium.Cartesian3.negate(vVec, new Cesium.Cartesian3());
+    const nEast  = Cesium.Cartesian3.dot(outVec, east);
+    const nNorth = Cesium.Cartesian3.dot(outVec, north);
+    const normalAzimuthDeg = ((Math.atan2(nEast, nNorth) * 180 / Math.PI) % 360 + 360) % 360;
+
+    return {
+      origin: refOrigin,
+      center: center,
+      normal: up,
+      uVec: uVec,
+      vVec: vVec,
+      axisMode: 'wall',
+      edgeIdx: edgeIdx,
+      edgeCount: N,
+      edgeLength: edgeLen,
+      edgeLengths: edgeLengths,
+      wallAzimuthDeg: wallAzimuthDeg,
+      normalAzimuthDeg: normalAzimuthDeg
+    };
+  }
+
+  function syncBuildingAxesInspectorUI(bld) {
+    if (typeof document === 'undefined') return;
+    const targetBld = bld || ((typeof window !== 'undefined' && window.selectedBuildingId && Array.isArray(window.buildings))
+      ? window.buildings.find(b => b && b.id === window.selectedBuildingId)
+      : null);
+    if (!targetBld) return;
+
+    const axes = computeBuildingConstructionAxes(targetBld);
+    if (!axes) return;
+
+    const btnWall = document.getElementById('bld-axis-mode-wall');
+    const btnCompass = document.getElementById('bld-axis-mode-compass');
+    const wallControls = document.getElementById('bld-axis-wall-controls');
+    const edgeLabel = document.getElementById('bld-axis-edge-label');
+    const azBadge = document.getElementById('bld-axis-azimuth-badge');
+
+    const isWall = (axes.axisMode !== 'compass');
+    if (btnWall) {
+      btnWall.style.background = isWall ? 'rgba(16, 185, 129, 0.25)' : 'rgba(15, 23, 42, 0.6)';
+      btnWall.style.borderColor = isWall ? '#10b981' : 'rgba(255,255,255,0.12)';
+      btnWall.style.color = isWall ? '#6ee7b7' : '#94a3b8';
+    }
+    if (btnCompass) {
+      btnCompass.style.background = !isWall ? 'rgba(56, 189, 248, 0.25)' : 'rgba(15, 23, 42, 0.6)';
+      btnCompass.style.borderColor = !isWall ? '#38bdf8' : 'rgba(255,255,255,0.12)';
+      btnCompass.style.color = !isWall ? '#7dd3fc' : '#94a3b8';
+    }
+    if (wallControls) {
+      wallControls.style.display = isWall ? 'flex' : 'none';
+    }
+    if (edgeLabel) {
+      if (isWall) {
+        edgeLabel.textContent = `Muro #${axes.edgeIdx + 1} de ${axes.edgeCount} (${axes.edgeLength.toFixed(1)} m)`;
+      } else {
+        edgeLabel.textContent = 'Brújula Geográfica (Este-Norte)';
+      }
+    }
+    if (azBadge) {
+      azBadge.textContent = isWall
+        ? `Eje X: ${Math.round(axes.wallAzimuthDeg)}°`
+        : 'Eje X: 90° (E)';
+    }
+  }
+
+  function setBuildingAxisMode(mode, optEdgeIdx) {
+    const bldId = (typeof window !== 'undefined') ? window.selectedBuildingId : null;
+    const arr = (typeof window !== 'undefined' && Array.isArray(window.buildings)) ? window.buildings : [];
+    const bld = arr.find(b => b && b.id === bldId);
+    if (!bld) return false;
+
+    bld.axisMode = (mode === 'compass') ? 'compass' : 'wall';
+    if (typeof optEdgeIdx === 'number' && optEdgeIdx >= 0 && Array.isArray(bld.points) && optEdgeIdx < bld.points.length) {
+      bld.refEdgeIdx = optEdgeIdx;
+    }
+
+    const axes = computeBuildingConstructionAxes(bld);
+    // Sincronizar también cualquier plano solar asociado a este edificio
+    if (axes && typeof window.WP !== 'undefined' && window.WP && Array.isArray(window.WP.planes)) {
+      window.WP.planes.forEach(pl => {
+        if (pl && pl.buildingId === bld.id) {
+          pl.uVec = axes.uVec;
+          pl.vVec = axes.vVec;
+          pl.normal = axes.normal;
+        }
+      });
+    }
+
+    syncBuildingAxesInspectorUI(bld);
+    if (typeof window.render3DBuildingsInCesium === 'function') window.render3DBuildingsInCesium();
+    if (typeof window.renderTriad2D === 'function') window.renderTriad2D();
+    if (window.viewer && window.viewer.scene) window.viewer.scene.requestRender();
+    return true;
+  }
+
+  function cycleBuildingReferenceWall(step) {
+    const bldId = (typeof window !== 'undefined') ? window.selectedBuildingId : null;
+    const arr = (typeof window !== 'undefined' && Array.isArray(window.buildings)) ? window.buildings : [];
+    const bld = arr.find(b => b && b.id === bldId);
+    if (!bld || !Array.isArray(bld.points) || bld.points.length < 3) return false;
+
+    const N = bld.points.length;
+    const curAxes = computeBuildingConstructionAxes(bld);
+    const curIdx = (curAxes && typeof curAxes.edgeIdx === 'number') ? curAxes.edgeIdx : 0;
+    const delta = (typeof step === 'number' && step !== 0) ? step : 1;
+    const nextIdx = ((curIdx + delta) % N + N) % N;
+
+    bld.axisMode = 'wall';
+    bld.refEdgeIdx = nextIdx;
+
+    const newAxes = computeBuildingConstructionAxes(bld);
+    if (newAxes && typeof window.bldSyncAzimuth === 'function') {
+      window.bldSyncAzimuth(Math.round(newAxes.normalAzimuthDeg));
+    } else if (newAxes) {
+      bld.roofAzimuth = Math.round(newAxes.normalAzimuthDeg);
+    }
+
+    // Sincronizar plano de cubierta solar si existe
+    if (newAxes && typeof window.WP !== 'undefined' && window.WP && Array.isArray(window.WP.planes)) {
+      window.WP.planes.forEach(pl => {
+        if (pl && pl.buildingId === bld.id) {
+          pl.uVec = newAxes.uVec;
+          pl.vVec = newAxes.vVec;
+          pl.normal = newAxes.normal;
+        }
+      });
+      if (typeof window.wpFastRenderSimulatedPanels === 'function') {
+        window.wpFastRenderSimulatedPanels();
+      }
+    }
+
+    syncBuildingAxesInspectorUI(bld);
+    if (typeof window.render3DBuildingsInCesium === 'function') window.render3DBuildingsInCesium();
+    if (typeof window.renderTriad2D === 'function') window.renderTriad2D();
+    if (typeof window.showToast === 'function' && newAxes) {
+      window.showToast(
+        'EJE ALINEADO AL MURO #' + (nextIdx + 1),
+        `Lado guía: ${newAxes.edgeLength.toFixed(1)}m · Eje X a ${Math.round(newAxes.wallAzimuthDeg)}°`,
+        'info',
+        2200
+      );
+    }
+    return true;
+  }
+
+  // Exportar funciones del Rectángulo CAD y Ejes Constructivos
   window.startDrawingBuildingRect = startDrawingBuildingRect;
   window.handleBuildingRectClick = handleBuildingRectClick;
   window.updateBuildingRectPreview = updateBuildingRectPreview;
@@ -1466,6 +1793,10 @@ function render3DBuildingsInCesium() {
   window.getBuildingRectDimensions = getBuildingRectDimensions;
   window.updateBuildingRectDimensions = updateBuildingRectDimensions;
   window.syncRectInspectorUI = syncRectInspectorUI;
+  window.computeBuildingConstructionAxes = computeBuildingConstructionAxes;
+  window.syncBuildingAxesInspectorUI = syncBuildingAxesInspectorUI;
+  window.setBuildingAxisMode = setBuildingAxisMode;
+  window.cycleBuildingReferenceWall = cycleBuildingReferenceWall;
 
   // Exportar al namespace global
   window.render3DBuildingsInCesium = render3DBuildingsInCesium;
@@ -1482,7 +1813,10 @@ function render3DBuildingsInCesium() {
       cancelBuildingRect: cancelBuildingRect,
       getDimensions: getBuildingRectDimensions,
       updateDimensions: updateBuildingRectDimensions,
-      syncUI: syncRectInspectorUI
+      syncUI: syncRectInspectorUI,
+      computeAxes: computeBuildingConstructionAxes,
+      setAxisMode: setBuildingAxisMode,
+      cycleReferenceWall: cycleBuildingReferenceWall
     };
   }
 
