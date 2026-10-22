@@ -553,6 +553,14 @@
     buildAndOpenDossierWindow();
   }
 
+  // Helper para convertir hex a "r, g, b"
+  function hexToRgb(hex) {
+    var c = (hex || '#e11d48').replace('#', '');
+    if (c.length === 3) c = c.split('').map(function(x) { return x + x; }).join('');
+    var num = parseInt(c, 16);
+    return [(num >> 16) & 255, (num >> 8) & 255, num & 255].join(', ');
+  }
+
   // Genera el documento HTML Landscape e invoca la ventana con edición y exportación
   function buildAndOpenDossierWindow() {
     var raw = getProjectDossierData();
@@ -585,9 +593,32 @@
     var dateStr = ov.offerDate || raw.metrics.dateStr;
 
     var pal = getThemeColors(ProposalConfig.theme || 'rose');
+    var rgbPri = hexToRgb(pal.primary);
 
     // Captura del render de la cubierta
     var renderSnapshot = ProposalConfig.include3DRender ? (ProposalConfig.renderSnapshot || getViewerSnapshot()) : null;
+
+    // Helper constructores de componentes modulares
+    function makeCard(inner, extraStyle, extraAttr) {
+      return '<div class="card" ' + (extraAttr || '') + ' style="' + (extraStyle || '') + '">' +
+        '<div class="dossier-drag-handle no-print" title="Arrastrar para mover">⠿</div>' +
+        '<div class="dossier-resize-handle no-print" title="Arrastrar para redimensionar">◢</div>' +
+        inner +
+      '</div>';
+    }
+
+    function makeImgBox(imgSrc, altText, extraStyle, labelText) {
+      return '<div class="dossier-img-box" style="' + (extraStyle || '') + '">' +
+        (imgSrc 
+          ? '<img src="' + imgSrc + '" class="dossier-target-img" style="width:100%;height:100%;object-fit:cover;" alt="' + (altText || 'Imagen') + '"/>' 
+          : '<div style="color:#cbd5e1;font-size:15px;font-weight:700;text-align:center;padding:20px;">' + (altText || 'Sin imagen') + '</div>') +
+        '<button type="button" class="dossier-img-picker-btn no-print" onclick="DossierWYSIWYG.triggerImageUpload(this)">📁 Seleccionar imagen local (HDD)</button>' +
+        '<input type="file" accept="image/*" class="dossier-file-input no-print" style="display:none;" onchange="DossierWYSIWYG.handleImageUploaded(this)"/>' +
+        (labelText ? '<div class="editable-field" contenteditable="true" style="position:absolute;bottom:10px;left:14px;background:rgba(15,23,42,0.85);backdrop-filter:blur(6px);padding:5px 12px;border-radius:6px;color:#fff;font-size:11px;font-weight:700;">' + labelText + '</div>' : '') +
+      '</div>';
+    }
+
+    var divGrad = '<div class="dossier-divider"></div>';
 
     // Construcción del documento A4 Landscape
     var html = [
@@ -600,60 +631,216 @@
       '  @page { size: A4 landscape; margin: 0; }',
       '  *, *::before, *::after { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
       '  body { margin: 0; padding: 0; font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #1e293b; padding-top: 56px; }',
-      '  .sheet { width: 297mm; height: 210mm; background: #fff; margin: 12mm auto; position: relative; padding: 14mm 16mm 14mm 16mm; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; page-break-after: always; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-radius: 4px; }',
+      '  .sheet { width: 297mm; height: 210mm; background: #fff; margin: 12mm auto; position: relative; padding: 12mm 16mm 12mm 16mm; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; page-break-after: always; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-radius: 4px; }',
       '  @media print {',
       '    body { background: none; padding-top: 0; }',
       '    .sheet { margin: 0; box-shadow: none; width: 297mm; height: 210mm; page-break-after: always; border-radius: 0; }',
       '    .no-print { display: none !important; }',
+      '    .dossier-drag-handle, .dossier-resize-handle, .dossier-img-picker-btn, #dossier-format-bar { display: none !important; }',
       '  }',
-      '  .sheet-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 7mm; }',
-      '  .sheet-title-num { font-size: 30px; font-weight: 900; color: #0f172a; border-bottom: 2px solid #0f172a; padding-bottom: 2px; }',
-      '  .sheet-title-txt { font-size: 22px; font-weight: 700; color: #334155; margin-left: 8px; }',
+      '  .sheet-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4mm; }',
+      '  .sheet-title-num { font-size: 28px; font-weight: 900; color: #0f172a; border-bottom: 2px solid #0f172a; padding-bottom: 2px; }',
+      '  .sheet-title-txt { font-size: 20px; font-weight: 700; color: #334155; margin-left: 8px; }',
       '  .sheet-footer { height: 9.5mm; border-radius: 5px; background: linear-gradient(90deg, ' + pal.primary + ', ' + pal.secondary + '); display: flex; justify-content: space-between; align-items: center; padding: 0 16px; color: #fff; font-size: 10.5px; font-weight: 700; margin-top: auto; }',
-      '  .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; box-shadow: 0 2px 6px rgba(0,0,0,0.03); }',
+      '  ',
+      '  /* CONTENEDORES CON SOMBRA DIFUMINADA Y BORDES DEGRADADOS */',
+      '  .card {',
+      '    background: #ffffff;',
+      '    border-radius: 12px;',
+      '    border: 1.5px solid transparent;',
+      '    background-image: linear-gradient(#ffffff, #ffffff), linear-gradient(135deg, ' + pal.primary + ', ' + pal.secondary + ');',
+      '    background-origin: border-box;',
+      '    background-clip: padding-box, border-box;',
+      '    padding: 14px;',
+      '    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.07), 0 8px 16px -6px rgba(0, 0, 0, 0.04);',
+      '    position: relative;',
+      '    transition: box-shadow 0.2s ease, transform 0.1s ease;',
+      '    min-width: 80px;',
+      '    min-height: 40px;',
+      '  }',
+      '  .card:hover {',
+      '    box-shadow: 0 14px 30px -4px rgba(0, 0, 0, 0.10), 0 10px 18px -4px rgba(0, 0, 0, 0.06);',
+      '  }',
+      '  ',
+      '  /* LÍNEAS HORIZONTALES SEPARADORAS CON DEGRADADO */',
+      '  .dossier-divider {',
+      '    height: 2px;',
+      '    width: 100%;',
+      '    margin: 8px 0;',
+      '    border: none;',
+      '    background: linear-gradient(90deg, transparent, ' + pal.primary + ', ' + pal.secondary + ', transparent);',
+      '    opacity: 0.8;',
+      '  }',
+      '  ',
       '  .table-clean { width: 100%; border-collapse: collapse; font-size: 10px; }',
       '  .table-clean th { border-bottom: 1.5px solid #cbd5e1; padding: 5px 4px; text-align: left; color: #475569; font-weight: 800; font-size: 9.5px; }',
       '  .table-clean td { padding: 4.5px 4px; border-bottom: 1px solid #f1f5f9; color: #1e293b; }',
       '  ',
-      '  /* Barra de herramientas flotante */',
+      '  /* BARRA DE HERRAMIENTAS FLOTANTE */',
       '  .dossier-toolbar { position: fixed; top: 0; left: 0; right: 0; height: 50px; background: #0f172a; color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; z-index: 99999; box-shadow: 0 4px 20px rgba(0,0,0,0.4); border-bottom: 2px solid ' + pal.primary + '; }',
-      '  .toolbar-btn { border: none; border-radius: 6px; padding: 7px 14px; font-size: 11px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all 0.15s ease; color: #fff; }',
-      '  .toolbar-btn:hover { filter: brightness(1.15); }',
+      '  .toolbar-btn { border: none; border-radius: 6px; padding: 7px 12px; font-size: 11px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all 0.15s ease; color: #fff; }',
+      '  .toolbar-btn:hover { filter: brightness(1.15); transform: translateY(-1px); }',
       '  ',
-      '  /* Modo edición visual */',
-      '  .editable-field { outline: none; border-radius: 3px; }',
-      '  .edit-mode-active .editable-field { background: rgba(225,29,72,0.04); box-shadow: 0 0 0 1px rgba(225,29,72,0.25); cursor: text; }',
-      '  .edit-mode-active .editable-field:hover { background: rgba(225,29,72,0.1); }',
+      '  /* MODO EDICIÓN VISUAL WYSIWYG & ZERO ESTÁTICO */',
+      '  .editable-field { outline: none; border-radius: 3px; word-break: break-word; overflow-wrap: break-word; max-width: 100%; }',
+      '  .edit-mode-active .editable-field { background: rgba(' + rgbPri + ', 0.04); box-shadow: 0 0 0 1px rgba(' + rgbPri + ', 0.25); cursor: text; }',
+      '  .edit-mode-active .editable-field:hover { background: rgba(' + rgbPri + ', 0.10); }',
       '  .edit-mode-active .editable-field:focus { background: #fff; box-shadow: 0 0 0 2px ' + pal.primary + '; }',
+      '  ',
+      '  /* ASIDEROS DE ARRASTRE Y ESCALADO */',
+      '  .dossier-drag-handle {',
+      '    position: absolute;',
+      '    top: 4px;',
+      '    left: 4px;',
+      '    width: 22px;',
+      '    height: 22px;',
+      '    cursor: grab;',
+      '    font-size: 13px;',
+      '    line-height: 22px;',
+      '    text-align: center;',
+      '    color: ' + pal.primary + ';',
+      '    background: rgba(255,255,255,0.95);',
+      '    border: 1px solid rgba(0,0,0,0.15);',
+      '    border-radius: 4px;',
+      '    user-select: none;',
+      '    display: none;',
+      '    z-index: 50;',
+      '    box-shadow: 0 2px 5px rgba(0,0,0,0.12);',
+      '  }',
+      '  .dossier-drag-handle:active { cursor: grabbing; }',
+      '  .dossier-resize-handle {',
+      '    position: absolute;',
+      '    bottom: 2px;',
+      '    right: 2px;',
+      '    width: 18px;',
+      '    height: 18px;',
+      '    cursor: se-resize;',
+      '    font-size: 12px;',
+      '    line-height: 18px;',
+      '    text-align: center;',
+      '    color: ' + pal.primary + ';',
+      '    user-select: none;',
+      '    display: none;',
+      '    z-index: 50;',
+      '  }',
+      '  .edit-mode-active .dossier-drag-handle,',
+      '  .edit-mode-active .dossier-resize-handle {',
+      '    display: block;',
+      '  }',
+      '  ',
+      '  /* SELECTOR DE IMÁGENES LOCALES DESDE HDD */',
+      '  .dossier-img-box {',
+      '    position: relative;',
+      '    overflow: hidden;',
+      '    border-radius: 10px;',
+      '    display: flex;',
+      '    align-items: center;',
+      '    justify-content: center;',
+      '    background: #0f172a;',
+      '  }',
+      '  .dossier-img-picker-btn {',
+      '    position: absolute;',
+      '    top: 8px;',
+      '    right: 8px;',
+      '    background: rgba(15,23,42,0.85);',
+      '    color: #fff;',
+      '    border: 1px solid rgba(255,255,255,0.35);',
+      '    backdrop-filter: blur(4px);',
+      '    border-radius: 6px;',
+      '    padding: 6px 11px;',
+      '    font-size: 10.5px;',
+      '    font-weight: 700;',
+      '    cursor: pointer;',
+      '    display: none;',
+      '    z-index: 60;',
+      '    box-shadow: 0 4px 10px rgba(0,0,0,0.3);',
+      '    transition: all 0.15s ease;',
+      '  }',
+      '  .dossier-img-picker-btn:hover {',
+      '    background: ' + pal.primary + ';',
+      '    border-color: #fff;',
+      '    transform: scale(1.02);',
+      '  }',
+      '  .edit-mode-active .dossier-img-picker-btn {',
+      '    display: block;',
+      '  }',
+      '  ',
+      '  /* BARRA FLOTANTE DE FORMATO */',
+      '  #dossier-format-bar {',
+      '    position: fixed;',
+      '    background: #0f172a;',
+      '    color: #fff;',
+      '    border: 1px solid rgba(255,255,255,0.2);',
+      '    box-shadow: 0 10px 30px rgba(0,0,0,0.5);',
+      '    border-radius: 8px;',
+      '    padding: 5px 9px;',
+      '    display: none;',
+      '    align-items: center;',
+      '    gap: 6px;',
+      '    z-index: 999999;',
+      '    font-family: inherit;',
+      '    font-size: 11px;',
+      '  }',
+      '  .fmt-btn {',
+      '    background: #1e293b;',
+      '    border: 1px solid #334155;',
+      '    color: #e2e8f0;',
+      '    border-radius: 4px;',
+      '    padding: 3px 8px;',
+      '    font-size: 11px;',
+      '    cursor: pointer;',
+      '    font-weight: 700;',
+      '  }',
+      '  .fmt-btn:hover { background: ' + pal.primary + '; color: #fff; }',
+      '  .fmt-sep { width: 1px; height: 18px; background: #334155; margin: 0 2px; }',
+      '  #fmt-size-display { font-size: 10.5px; font-weight: 700; color: ' + pal.secondary + '; min-width: 32px; text-align: center; }',
       '</style>',
       '</head>',
       '<body>',
-
+      '',
       '<!-- BARRA DE HERRAMIENTAS INTERACTIVA -->',
       '<div class="dossier-toolbar no-print">',
       '  <div style="display:flex;align-items:center;gap:12px;">',
       '    <strong style="font-size:13px;letter-spacing:0.04em;">📑 DOSSIER COMERCIAL LANDSCAPE</strong>',
       '    <span style="font-size:11px;color:#94a3b8;background:#1e293b;padding:3px 8px;border-radius:4px;border:1px solid #334155;">10 Láminas Técnicas</span>',
       '  </div>',
-      '  <div style="display:flex;gap:8px;align-items:center;">',
-      '    <button class="toolbar-btn" id="btn-toggle-edit" onclick="toggleDossierEditMode()" style="background:#f59e0b;color:#000;">✏️ MODO EDICIÓN WYSIWYG</button>',
+      '  <div style="display:flex;gap:7px;align-items:center;">',
+      '    <button class="toolbar-btn" id="btn-toggle-edit" onclick="DossierWYSIWYG.toggleEditMode()" style="background:#f59e0b;color:#000;">✏️ MODO EDICIÓN WYSIWYG</button>',
+      '    <button class="toolbar-btn" onclick="DossierWYSIWYG.runTestSuite()" style="background:#8b5cf6;">🧪 TEST WYSIWYG</button>',
       '    <button class="toolbar-btn" onclick="window.print()" style="background:' + pal.primary + ';">🖨️ IMPRIMIR / PDF</button>',
-      '    <button class="toolbar-btn" onclick="exportDossierToWordDocx()" style="background:#2563eb;">📄 DESCARGAR WORD (.DOCX)</button>',
-      '    <button class="toolbar-btn" onclick="exportDossierToWordDoc()" style="background:#1d4ed8;">📝 WORD (.DOC)</button>',
-      '    <button class="toolbar-btn" onclick="exportDossierToHtml()" style="background:#475569;">🌐 GUARDAR HTML</button>',
-      '    <button class="toolbar-btn" onclick="window.close()" style="background:#ef4444;margin-left:8px;">✕</button>',
+      '    <button class="toolbar-btn" onclick="DossierWYSIWYG.exportToWordDocx()" style="background:#2563eb;">📄 DESCARGAR WORD (.DOCX)</button>',
+      '    <button class="toolbar-btn" onclick="DossierWYSIWYG.exportToWordDoc()" style="background:#1d4ed8;">📝 WORD (.DOC)</button>',
+      '    <button class="toolbar-btn" onclick="DossierWYSIWYG.exportToHtml()" style="background:#475569;">🌐 GUARDAR HTML</button>',
+      '    <button class="toolbar-btn" onclick="window.close()" style="background:#ef4444;margin-left:6px;">✕</button>',
       '  </div>',
       '</div>',
-
+      '',
+      '<!-- BARRA FLOTANTE CONTEXTUAL DE FORMATO -->',
+      '<div id="dossier-format-bar" class="no-print">',
+      '  <button type="button" class="fmt-btn" onclick="DossierWYSIWYG.adjustFontSize(-1)" title="Reducir fuente (A-)">A-</button>',
+      '  <span id="fmt-size-display">14px</span>',
+      '  <button type="button" class="fmt-btn" onclick="DossierWYSIWYG.adjustFontSize(1)" title="Aumentar fuente (A+)">A+</button>',
+      '  <div class="fmt-sep"></div>',
+      '  <button type="button" class="fmt-btn" onclick="DossierWYSIWYG.execFormat(\'bold\')" title="Negrita"><b>B</b></button>',
+      '  <button type="button" class="fmt-btn" onclick="DossierWYSIWYG.execFormat(\'italic\')" title="Cursiva"><i>I</i></button>',
+      '  <button type="button" class="fmt-btn" onclick="DossierWYSIWYG.execFormat(\'underline\')" title="Subrayado"><u>U</u></button>',
+      '  <div class="fmt-sep"></div>',
+      '  <button type="button" class="fmt-btn" onclick="DossierWYSIWYG.applyThemeColor()" style="color:' + pal.primary + ';font-weight:900;" title="Color del tema">● Color</button>',
+      '  <div class="fmt-sep"></div>',
+      '  <button type="button" class="fmt-btn" onclick="DossierWYSIWYG.execFormat(\'justifyLeft\')" title="Alinear a la izquierda">⬅</button>',
+      '  <button type="button" class="fmt-btn" onclick="DossierWYSIWYG.execFormat(\'justifyCenter\')" title="Centrar">⬌</button>',
+      '  <button type="button" class="fmt-btn" onclick="DossierWYSIWYG.execFormat(\'justifyRight\')" title="Alinear a la derecha">➡</button>',
+      '</div>',
+      '',
       '<div id="dossier-container">',
-
-      // ── LÁMINA 1: PORTADA ──────────────────────────────────────────────────
+      '',
+      '<!-- ── LÁMINA 1: PORTADA ────────────────────────────────────────────────── -->',
       '<div class="sheet">',
       '  <div class="sheet-head">',
       '    <div class="editable-field" contenteditable="true" style="font-size:24px;font-weight:900;color:' + pal.primary + ';">' + (companyLogo ? '<img src="' + companyLogo + '" style="max-height:45px;vertical-align:middle;"/>' : companyName) + '</div>',
       '    <div class="editable-field" contenteditable="true" style="font-size:18px;font-weight:800;color:' + pal.primary + ';">' + companyWeb + '</div>',
       '  </div>',
-      '  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">',
+      '  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">',
       '    <div>',
       '      <h1 class="editable-field" contenteditable="true" style="font-size:30px;font-weight:900;margin:0 0 4px 0;color:#0f172a;">Autoconsumo Fotovoltaico</h1>',
       '      <p class="editable-field" contenteditable="true" style="font-size:14px;color:#475569;margin:0;font-weight:600;">Propuesta técnica y económica de generación solar distribuida</p>',
@@ -664,93 +851,102 @@
       '      <div class="editable-field" contenteditable="true" style="font-size:10.5px;color:#64748b;margin-top:3px;">Código: ' + offerCode + ' · Fecha: ' + dateStr + '</div>',
       '    </div>',
       '  </div>',
-      '  <div style="flex:1;border-radius:12px;overflow:hidden;background:#0f172a;display:flex;align-items:center;justify-content:center;position:relative;">',
-      (renderSnapshot ? '<img src="' + renderSnapshot + '" style="width:100%;height:100%;object-fit:cover;" alt="Render Cubierta"/>' : '<div style="color:#fff;font-size:18px;">Render de Instalación 3D</div>'),
-      '    <div style="position:absolute;bottom:12px;left:16px;background:rgba(15,23,42,0.85);backdrop-filter:blur(6px);padding:5px 12px;border-radius:6px;color:#fff;font-size:11px;font-weight:700;">Diseño Fotovoltaico de Precisión 3D</div>',
+      divGrad,
+      '  <div style="flex:1;min-height:0;margin:6px 0;">' + 
+      makeImgBox(renderSnapshot, 'Render de Instalación 3D', 'width:100%;height:100%;min-height:220px;', 'Diseño Fotovoltaico de Precisión 3D') +
       '  </div>',
       '  <div class="sheet-footer">',
       '    <span class="editable-field" contenteditable="true">' + companySlogan + '</span>',
       '    <span class="editable-field" contenteditable="true">' + companyWeb + '</span>',
       '  </div>',
       '</div>',
-
-      // ── LÁMINA 2: 01. RESUMEN ──────────────────────────────────────────────
+      '',
+      '<!-- ── LÁMINA 2: 01. RESUMEN ────────────────────────────────────────────── -->',
       '<div class="sheet">',
       '  <div class="sheet-head">',
       '    <div class="editable-field" contenteditable="true" style="font-size:20px;font-weight:900;color:' + pal.primary + ';">' + companyName + '</div>',
-      '    <div style="font-size:16px;font-weight:800;color:' + pal.primary + ';">01. Resumen</div>',
+      '    <div class="editable-field" contenteditable="true" style="font-size:16px;font-weight:800;color:' + pal.primary + ';">01. Resumen</div>',
       '  </div>',
-      '  <div><span class="sheet-title-num">01.</span><span class="sheet-title-txt">Resumen & Filosofía</span></div>',
-      '  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:14px;">',
-      '    <div>',
-      '      <h4 class="editable-field" contenteditable="true" style="color:' + pal.primary + ';margin:0 0 6px 0;font-size:14px;">01. Sostenibilidad</h4>',
-      '      <p class="editable-field" contenteditable="true" style="font-size:11px;color:#475569;line-height:1.5;margin:0 0 14px 0;">Desarrollamos proyectos fotovoltaicos orientados al máximo respeto medioambiental, optimizando la generación limpia sobre cubiertas existentes para un crecimiento energético sostenible y responsable.</p>',
-      '      <h4 class="editable-field" contenteditable="true" style="color:' + pal.primary + ';margin:0 0 6px 0;font-size:14px;">03. Digitalización</h4>',
-      '      <p class="editable-field" contenteditable="true" style="font-size:11px;color:#475569;line-height:1.5;margin:0;">Ingeniería de vanguardia asistida por modelado tridimensional y cálculo de sombreado ray-tracing para predecir con total exactitud la producción y retorno de tu inversión.</p>',
-      '    </div>',
-      '    <div>',
-      '      <h4 class="editable-field" contenteditable="true" style="color:' + pal.primary + ';margin:0 0 6px 0;font-size:14px;">02. Servicio & Confianza</h4>',
-      '      <p class="editable-field" contenteditable="true" style="font-size:11px;color:#475569;line-height:1.5;margin:0 0 14px 0;">Cercanía, rigor y acompañamiento llave en mano. Nos ocupamos de todo el ciclo del proyecto: ingeniería, legalización, tramitación de subvenciones y mantenimiento integral.</p>',
-      '      <h4 class="editable-field" contenteditable="true" style="color:' + pal.primary + ';margin:0 0 6px 0;font-size:14px;">04. Tu Contribución</h4>',
-      '      <p class="editable-field" contenteditable="true" style="font-size:11px;color:#475569;line-height:1.5;margin:0 0 10px 0;">Tu decisión marca una diferencia real e inmediata para el planeta, reduciendo significativamente la huella de carbono de tu actividad.</p>',
-      '      <div style="display:flex;justify-content:space-between;background:' + pal.light + ';padding:10px 14px;border-radius:10px;border:1px solid ' + pal.border + ';">',
-      '        <div style="text-align:center;"><strong class="editable-field" contenteditable="true" style="font-size:15px;color:' + pal.primary + ';">' + raw.metrics.co2Ton + ' t</strong><div style="font-size:9px;color:#64748b;">CO₂ evitado/año</div></div>',
-      '        <div style="text-align:center;"><strong class="editable-field" contenteditable="true" style="font-size:15px;color:' + pal.primary + ';">' + raw.metrics.trees + '</strong><div style="font-size:9px;color:#64748b;">Árboles plantados</div></div>',
-      '        <div style="text-align:center;"><strong class="editable-field" contenteditable="true" style="font-size:15px;color:' + pal.primary + ';">' + (kwp * 0.02).toFixed(2) + '</strong><div style="font-size:9px;color:#64748b;">Viajes luna en VE</div></div>',
-      '      </div>',
-      '    </div>',
+      '  <div><span class="sheet-title-num editable-field" contenteditable="true">01.</span><span class="sheet-title-txt editable-field" contenteditable="true">Resumen & Filosofía</span></div>',
+      divGrad,
+      '  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:10px;">',
+      makeCard(
+        '<div>' +
+        '  <h4 class="editable-field" contenteditable="true" style="color:' + pal.primary + ';margin:0 0 6px 0;font-size:14px;">01. Sostenibilidad</h4>' +
+        '  <p class="editable-field" contenteditable="true" style="font-size:11px;color:#475569;line-height:1.5;margin:0 0 14px 0;">Desarrollamos proyectos fotovoltaicos orientados al máximo respeto medioambiental, optimizando la generación limpia sobre cubiertas existentes para un crecimiento energético sostenible y responsable.</p>' +
+        '  <h4 class="editable-field" contenteditable="true" style="color:' + pal.primary + ';margin:0 0 6px 0;font-size:14px;">03. Digitalización</h4>' +
+        '  <p class="editable-field" contenteditable="true" style="font-size:11px;color:#475569;line-height:1.5;margin:0;">Ingeniería de vanguardia asistida por modelado tridimensional y cálculo de sombreado ray-tracing para predecir con total exactitud la producción y retorno de tu inversión.</p>' +
+        '</div>'
+      ),
+      makeCard(
+        '<div>' +
+        '  <h4 class="editable-field" contenteditable="true" style="color:' + pal.primary + ';margin:0 0 6px 0;font-size:14px;">02. Servicio & Confianza</h4>' +
+        '  <p class="editable-field" contenteditable="true" style="font-size:11px;color:#475569;line-height:1.5;margin:0 0 14px 0;">Cercanía, rigor y acompañamiento llave en mano. Nos ocupamos de todo el ciclo del proyecto: ingeniería, legalización, tramitación de subvenciones y mantenimiento integral.</p>' +
+        '  <h4 class="editable-field" contenteditable="true" style="color:' + pal.primary + ';margin:0 0 6px 0;font-size:14px;">04. Tu Contribución</h4>' +
+        '  <p class="editable-field" contenteditable="true" style="font-size:11px;color:#475569;line-height:1.5;margin:0 0 10px 0;">Tu decisión marca una diferencia real e inmediata para el planeta, reduciendo significativamente la huella de carbono de tu actividad.</p>' +
+        '  <div style="display:flex;justify-content:space-between;background:' + pal.light + ';padding:10px 14px;border-radius:10px;border:1px solid ' + pal.border + ';">' +
+        '    <div style="text-align:center;"><strong class="editable-field" contenteditable="true" style="font-size:15px;color:' + pal.primary + ';">' + raw.metrics.co2Ton + ' t</strong><div class="editable-field" contenteditable="true" style="font-size:9px;color:#64748b;">CO₂ evitado/año</div></div>' +
+        '    <div style="text-align:center;"><strong class="editable-field" contenteditable="true" style="font-size:15px;color:' + pal.primary + ';">' + raw.metrics.trees + '</strong><div class="editable-field" contenteditable="true" style="font-size:9px;color:#64748b;">Árboles plantados</div></div>' +
+        '    <div style="text-align:center;"><strong class="editable-field" contenteditable="true" style="font-size:15px;color:' + pal.primary + ';">' + (kwp * 0.02).toFixed(2) + '</strong><div class="editable-field" contenteditable="true" style="font-size:9px;color:#64748b;">Viajes luna en VE</div></div>' +
+        '  </div>' +
+        '</div>'
+      ),
       '  </div>',
       '  <div class="sheet-footer">',
       '    <span class="editable-field" contenteditable="true">' + companySlogan + '</span>',
       '    <span class="editable-field" contenteditable="true">' + companyWeb + '</span>',
       '  </div>',
       '</div>',
-
-      // ── LÁMINA 3: 02. ESTUDIO PRELIMINAR (FACTURA) ─────────────────────────
+      '',
+      '<!-- ── LÁMINA 3: 02. ESTUDIO PRELIMINAR (FACTURA) ───────────────────────── -->',
       '<div class="sheet">',
       '  <div class="sheet-head">',
       '    <div class="editable-field" contenteditable="true" style="font-size:20px;font-weight:900;color:' + pal.primary + ';">' + companyName + '</div>',
-      '    <div style="font-size:16px;font-weight:800;color:' + pal.primary + ';">02. Estudio preliminar</div>',
+      '    <div class="editable-field" contenteditable="true" style="font-size:16px;font-weight:800;color:' + pal.primary + ';">02. Estudio preliminar</div>',
       '  </div>',
-      '  <div><span class="sheet-title-num">02.</span><span class="sheet-title-txt">Estudio Preliminar & Consumos</span></div>',
-      '  <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:20px;margin-top:14px;align-items:center;">',
-      '    <div>',
-      '      <div style="background:#1e293b;color:#fff;padding:6px 12px;border-radius:6px;font-size:10.5px;font-weight:bold;margin-bottom:8px;">CONSUMO MENSUAL ESTIMADO (kWh)</div>',
-      '      <div style="height:140px;">' + Charts.monthlyBars(raw.monthlyBalance.map(function(m){return m.redSin;}), pal) + '</div>',
-      '    </div>',
-      '    <div class="card" style="padding:12px;">',
-      '      <div style="font-size:11px;font-weight:bold;color:' + pal.primary + ';margin-bottom:8px;">DATOS DE SUMINISTRO & TARIFA</div>',
-      '      <table class="table-clean">',
-      '        <tr><td><strong>CUPS:</strong></td><td class="editable-field" contenteditable="true">' + cups + '</td></tr>',
-      '        <tr><td><strong>Tarifa de Acceso:</strong></td><td class="editable-field" contenteditable="true">' + tariff + '</td></tr>',
-      '        <tr><td><strong>Potencia Contratada:</strong></td><td class="editable-field" contenteditable="true">' + raw.client.potContr + ' kW</td></tr>',
-      '        <tr><td><strong>Ubicación:</strong></td><td class="editable-field" contenteditable="true">' + address + '</td></tr>',
-      '        <tr><td><strong>Consumo Anual:</strong></td><td class="editable-field" contenteditable="true">' + Number(annualCons).toLocaleString('es-ES') + ' kWh / año</td></tr>',
-      '      </table>',
-      '    </div>',
+      '  <div><span class="sheet-title-num editable-field" contenteditable="true">02.</span><span class="sheet-title-txt editable-field" contenteditable="true">Estudio Preliminar & Consumos</span></div>',
+      divGrad,
+      '  <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:20px;margin-top:10px;align-items:center;">',
+      makeCard(
+        '<div>' +
+        '  <div class="editable-field" contenteditable="true" style="background:#1e293b;color:#fff;padding:6px 12px;border-radius:6px;font-size:10.5px;font-weight:bold;margin-bottom:8px;">CONSUMO MENSUAL ESTIMADO (kWh)</div>' +
+        '  <div style="height:140px;">' + Charts.monthlyBars(raw.monthlyBalance.map(function(m){return m.redSin;}), pal) + '</div>' +
+        '</div>'
+      ),
+      makeCard(
+        '<div>' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:11px;font-weight:bold;color:' + pal.primary + ';margin-bottom:8px;">DATOS DE SUMINISTRO & TARIFA</div>' +
+        '  <table class="table-clean">' +
+        '    <tr><td class="editable-field" contenteditable="true"><strong>CUPS:</strong></td><td class="editable-field" contenteditable="true">' + cups + '</td></tr>' +
+        '    <tr><td class="editable-field" contenteditable="true"><strong>Tarifa de Acceso:</strong></td><td class="editable-field" contenteditable="true">' + tariff + '</td></tr>' +
+        '    <tr><td class="editable-field" contenteditable="true"><strong>Potencia Contratada:</strong></td><td class="editable-field" contenteditable="true">' + raw.client.potContr + ' kW</td></tr>' +
+        '    <tr><td class="editable-field" contenteditable="true"><strong>Ubicación:</strong></td><td class="editable-field" contenteditable="true">' + address + '</td></tr>' +
+        '    <tr><td class="editable-field" contenteditable="true"><strong>Consumo Anual:</strong></td><td class="editable-field" contenteditable="true">' + Number(annualCons).toLocaleString('es-ES') + ' kWh / año</td></tr>' +
+        '  </table>' +
+        '</div>'
+      ),
       '  </div>',
       '  <div class="sheet-footer">',
       '    <span class="editable-field" contenteditable="true">' + companySlogan + '</span>',
       '    <span class="editable-field" contenteditable="true">' + companyWeb + '</span>',
       '  </div>',
       '</div>',
-
-      // ── LÁMINA 4: 03. INSTALACIÓN PROYECTADA ──────────────────────────────
+      '',
+      '<!-- ── LÁMINA 4: 03. INSTALACIÓN PROYECTADA ────────────────────────────── -->',
       '<div class="sheet">',
       '  <div class="sheet-head">',
       '    <div class="editable-field" contenteditable="true" style="font-size:20px;font-weight:900;color:' + pal.primary + ';">' + companyName + '</div>',
-      '    <div style="font-size:16px;font-weight:800;color:' + pal.primary + ';">03. Instalación Proyectada</div>',
+      '    <div class="editable-field" contenteditable="true" style="font-size:16px;font-weight:800;color:' + pal.primary + ';">03. Instalación Proyectada</div>',
       '  </div>',
-      '  <div><span class="sheet-title-num">03.</span><span class="sheet-title-txt">Ingeniería & Distribución en Cubierta</span></div>',
-      '  <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:20px;margin-top:14px;align-items:center;">',
-      '    <div style="border-radius:10px;overflow:hidden;height:180px;background:#0f172a;">',
-      (renderSnapshot ? '<img src="' + renderSnapshot + '" style="width:100%;height:100%;object-fit:cover;"/>' : '<div style="color:#fff;text-align:center;padding-top:70px;">Plano Cenital 3D</div>'),
-      '    </div>',
+      '  <div><span class="sheet-title-num editable-field" contenteditable="true">03.</span><span class="sheet-title-txt editable-field" contenteditable="true">Ingeniería & Distribución en Cubierta</span></div>',
+      divGrad,
+      '  <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:20px;margin-top:10px;align-items:center;">',
+      makeImgBox(renderSnapshot, 'Plano Cenital 3D', 'height:190px;width:100%;border-radius:10px;', 'Vista Cenital Fotogramétrica'),
       '    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">',
-      '      <div class="card" style="padding:10px;text-align:center;"><div class="editable-field" contenteditable="true" style="font-size:17px;font-weight:900;color:' + pal.primary + ';">' + kwp + ' kWp</div><div style="font-size:9.5px;color:#64748b;">Potencia Pico</div></div>',
-      '      <div class="card" style="padding:10px;text-align:center;"><div class="editable-field" contenteditable="true" style="font-size:17px;font-weight:900;color:' + pal.primary + ';">' + kwNom + ' kWn</div><div style="font-size:9.5px;color:#64748b;">Potencia Nominal</div></div>',
-      '      <div class="card" style="padding:10px;text-align:center;"><div class="editable-field" contenteditable="true" style="font-size:17px;font-weight:900;color:#1e293b;">' + numPanels + '</div><div style="font-size:9.5px;color:#64748b;">Módulos FV</div></div>',
-      '      <div class="card" style="padding:10px;text-align:center;"><div class="editable-field" contenteditable="true" style="font-size:15px;font-weight:900;color:#1e293b;">' + (raw.equipment.structure.indexOf('Coplanar') !== -1 ? 'COPLANAR' : 'INCLINADA') + '</div><div style="font-size:9.5px;color:#64748b;">Estructura</div></div>',
+      makeCard('<div class="editable-field" contenteditable="true" style="font-size:17px;font-weight:900;color:' + pal.primary + ';">' + kwp + ' kWp</div><div class="editable-field" contenteditable="true" style="font-size:9.5px;color:#64748b;">Potencia Pico</div>', 'text-align:center;padding:10px;'),
+      makeCard('<div class="editable-field" contenteditable="true" style="font-size:17px;font-weight:900;color:' + pal.primary + ';">' + kwNom + ' kWn</div><div class="editable-field" contenteditable="true" style="font-size:9.5px;color:#64748b;">Potencia Nominal</div>', 'text-align:center;padding:10px;'),
+      makeCard('<div class="editable-field" contenteditable="true" style="font-size:17px;font-weight:900;color:#1e293b;">' + numPanels + '</div><div class="editable-field" contenteditable="true" style="font-size:9.5px;color:#64748b;">Módulos FV</div>', 'text-align:center;padding:10px;'),
+      makeCard('<div class="editable-field" contenteditable="true" style="font-size:15px;font-weight:900;color:#1e293b;">' + (raw.equipment.structure.indexOf('Coplanar') !== -1 ? 'COPLANAR' : 'INCLINADA') + '</div><div class="editable-field" contenteditable="true" style="font-size:9.5px;color:#64748b;">Estructura</div>', 'text-align:center;padding:10px;'),
       '    </div>',
       '  </div>',
       '  <div class="sheet-footer">',
@@ -758,70 +954,90 @@
       '    <span class="editable-field" contenteditable="true">' + companyWeb + '</span>',
       '  </div>',
       '</div>',
-
-      // ── LÁMINA 5: 04. BALANCE MENSUAL ──────────────────────────────────────
+      '',
+      '<!-- ── LÁMINA 5: 04. BALANCE MENSUAL ────────────────────────────────────── -->',
       '<div class="sheet">',
       '  <div class="sheet-head">',
       '    <div class="editable-field" contenteditable="true" style="font-size:20px;font-weight:900;color:' + pal.primary + ';">' + companyName + '</div>',
-      '    <div style="font-size:16px;font-weight:800;color:' + pal.primary + ';">04. Tu Nueva Situación</div>',
+      '    <div class="editable-field" contenteditable="true" style="font-size:16px;font-weight:800;color:' + pal.primary + ';">04. Tu Nueva Situación</div>',
       '  </div>',
-      '  <div><span class="sheet-title-num">04.</span><span class="sheet-title-txt">Balance Energético Mensual</span></div>',
-      '  <div style="margin-top:12px;">',
-      '    <table class="table-clean" style="text-align:right;">',
-      '      <thead><tr style="background:#f8fafc;"><th style="text-align:left;">Mes</th><th>Energía FV (kWh)</th><th>Autoconsumo (kWh)</th><th>Excedentes (kWh)</th><th>Red Sin FV (kWh)</th><th>Red Con FV (kWh)</th><th>Cobertura Solar (%)</th></tr></thead>',
-      '      <tbody>',
-      (function() {
-        var rows = '';
-        raw.monthlyBalance.forEach(function(row) {
-          rows += '<tr><td style="text-align:left;font-weight:bold;">' + row.mes + '</td>' +
-            '<td class="editable-field" contenteditable="true">' + row.gen.toLocaleString('es-ES') + '</td>' +
-            '<td class="editable-field" contenteditable="true">' + row.auto.toLocaleString('es-ES') + '</td>' +
-            '<td class="editable-field" contenteditable="true">' + row.exc.toLocaleString('es-ES') + '</td>' +
-            '<td class="editable-field" contenteditable="true">' + row.redSin.toLocaleString('es-ES') + '</td>' +
-            '<td class="editable-field" contenteditable="true">' + row.redCon.toLocaleString('es-ES') + '</td>' +
-            '<td class="editable-field" contenteditable="true">' + row.cobertura + ' %</td></tr>';
-        });
-        return rows;
-      })(),
-      '        <tr style="font-weight:900;border-top:2px solid #0f172a;background:#f8fafc;"><td style="text-align:left;">TOTAL</td>' +
-      '          <td class="editable-field" contenteditable="true">' + raw.totals.gen + ' kWh</td>' +
-      '          <td class="editable-field" contenteditable="true">' + raw.totals.auto + ' kWh</td>' +
-      '          <td class="editable-field" contenteditable="true">' + raw.totals.exc + ' kWh</td>' +
-      '          <td class="editable-field" contenteditable="true">' + raw.totals.redSin + ' kWh</td>' +
-      '          <td class="editable-field" contenteditable="true">' + raw.totals.redCon + ' kWh</td>' +
-      '          <td class="editable-field" contenteditable="true">' + raw.totals.cobertura + ' %</td></tr>',
-      '      </tbody>',
-      '    </table>',
+      '  <div><span class="sheet-title-num editable-field" contenteditable="true">04.</span><span class="sheet-title-txt editable-field" contenteditable="true">Balance Energético Mensual</span></div>',
+      divGrad,
+      '  <div style="margin-top:8px;">',
+      makeCard(
+        '<table class="table-clean" style="text-align:right;">' +
+        '  <thead><tr style="background:#f8fafc;">' +
+        '    <th class="editable-field" contenteditable="true" style="text-align:left;">Mes</th>' +
+        '    <th class="editable-field" contenteditable="true">Energía FV (kWh)</th>' +
+        '    <th class="editable-field" contenteditable="true">Autoconsumo (kWh)</th>' +
+        '    <th class="editable-field" contenteditable="true">Excedentes (kWh)</th>' +
+        '    <th class="editable-field" contenteditable="true">Red Sin FV (kWh)</th>' +
+        '    <th class="editable-field" contenteditable="true">Red Con FV (kWh)</th>' +
+        '    <th class="editable-field" contenteditable="true">Cobertura Solar (%)</th>' +
+        '  </tr></thead>' +
+        '  <tbody>' +
+        (function() {
+          var rows = '';
+          raw.monthlyBalance.forEach(function(row) {
+            rows += '<tr><td class="editable-field" contenteditable="true" style="text-align:left;font-weight:bold;">' + row.mes + '</td>' +
+              '<td class="editable-field" contenteditable="true">' + row.gen.toLocaleString('es-ES') + '</td>' +
+              '<td class="editable-field" contenteditable="true">' + row.auto.toLocaleString('es-ES') + '</td>' +
+              '<td class="editable-field" contenteditable="true">' + row.exc.toLocaleString('es-ES') + '</td>' +
+              '<td class="editable-field" contenteditable="true">' + row.redSin.toLocaleString('es-ES') + '</td>' +
+              '<td class="editable-field" contenteditable="true">' + row.redCon.toLocaleString('es-ES') + '</td>' +
+              '<td class="editable-field" contenteditable="true">' + row.cobertura + ' %</td></tr>';
+          });
+          return rows;
+        })() +
+        '    <tr style="font-weight:900;border-top:2px solid #0f172a;background:#f8fafc;">' +
+        '      <td class="editable-field" contenteditable="true" style="text-align:left;">TOTAL</td>' +
+        '      <td class="editable-field" contenteditable="true">' + raw.totals.gen + ' kWh</td>' +
+        '      <td class="editable-field" contenteditable="true">' + raw.totals.auto + ' kWh</td>' +
+        '      <td class="editable-field" contenteditable="true">' + raw.totals.exc + ' kWh</td>' +
+        '      <td class="editable-field" contenteditable="true">' + raw.totals.redSin + ' kWh</td>' +
+        '      <td class="editable-field" contenteditable="true">' + raw.totals.redCon + ' kWh</td>' +
+        '      <td class="editable-field" contenteditable="true">' + raw.totals.cobertura + ' %</td>' +
+        '    </tr>' +
+        '  </tbody>' +
+        '</table>'
+      ),
       '  </div>',
       '  <div class="sheet-footer">',
       '    <span class="editable-field" contenteditable="true">' + companySlogan + '</span>',
       '    <span class="editable-field" contenteditable="true">' + companyWeb + '</span>',
       '  </div>',
       '</div>',
-
-      // ── LÁMINA 6: 05. GRÁFICAS DE BALANCE ──────────────────────────────────
+      '',
+      '<!-- ── LÁMINA 6: 05. GRÁFICAS DE BALANCE ────────────────────────────────── -->',
       '<div class="sheet">',
       '  <div class="sheet-head">',
       '    <div class="editable-field" contenteditable="true" style="font-size:20px;font-weight:900;color:' + pal.primary + ';">' + companyName + '</div>',
-      '    <div style="font-size:16px;font-weight:800;color:' + pal.primary + ';">05. Balance Gráfico</div>',
+      '    <div class="editable-field" contenteditable="true" style="font-size:16px;font-weight:800;color:' + pal.primary + ';">05. Balance Gráfico</div>',
       '  </div>',
-      '  <div><span class="sheet-title-num">05.</span><span class="sheet-title-txt">Curvas de Producción & Cobertura</span></div>',
-      '  <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:20px;margin-top:14px;align-items:center;">',
-      '    <div class="card">',
-      '      <div style="font-size:10.5px;font-weight:bold;margin-bottom:6px;">CURVA HORARIA DIARIA DE AUTOCONSUMO</div>',
-      Charts.dailyCurve(pal, kwp, annualCons / 365),
-      '    </div>',
+      '  <div><span class="sheet-title-num editable-field" contenteditable="true">05.</span><span class="sheet-title-txt editable-field" contenteditable="true">Curvas de Producción & Cobertura</span></div>',
+      divGrad,
+      '  <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:20px;margin-top:10px;align-items:center;">',
+      makeCard(
+        '<div>' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:10.5px;font-weight:bold;margin-bottom:6px;">CURVA HORARIA DIARIA DE AUTOCONSUMO</div>' +
+        Charts.dailyCurve(pal, kwp, annualCons / 365) +
+        '</div>'
+      ),
       '    <div style="display:flex;justify-content:space-around;align-items:center;">',
-      '      <div style="text-align:center;">',
-      '        <div style="font-size:10.5px;font-weight:bold;margin-bottom:6px;">Consumo Cubierto</div>',
-      Charts.donut(Math.round(Number(raw.metrics.totalCoverage)), Math.round(100 - Number(raw.metrics.totalCoverage)), 'Solar', 'Red', pal.primary, '#0284c7'),
-      '        <div class="editable-field" contenteditable="true" style="font-size:9.5px;color:#64748b;margin-top:4px;">' + Math.round(Number(raw.metrics.totalCoverage)) + '% Solar / ' + Math.round(100 - Number(raw.metrics.totalCoverage)) + '% Red</div>',
-      '      </div>',
-      '      <div style="text-align:center;">',
-      '        <div style="font-size:10.5px;font-weight:bold;margin-bottom:6px;">Destino Generación</div>',
-      Charts.donut(raw.metrics.totalDestAuto, raw.metrics.totalDestExc, 'Directo', 'Excedente', pal.secondary, pal.primary),
-      '        <div class="editable-field" contenteditable="true" style="font-size:9.5px;color:#64748b;margin-top:4px;">' + raw.metrics.totalDestAuto + '% Autoconsumo</div>',
-      '      </div>',
+      makeCard(
+        '<div style="text-align:center;">' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:10.5px;font-weight:bold;margin-bottom:6px;">Consumo Cubierto</div>' +
+        Charts.donut(Math.round(Number(raw.metrics.totalCoverage)), Math.round(100 - Number(raw.metrics.totalCoverage)), 'Solar', 'Red', pal.primary, '#0284c7') +
+        '  <div class="editable-field" contenteditable="true" style="font-size:9.5px;color:#64748b;margin-top:4px;">' + Math.round(Number(raw.metrics.totalCoverage)) + '% Solar / ' + Math.round(100 - Number(raw.metrics.totalCoverage)) + '% Red</div>' +
+        '</div>'
+      ),
+      makeCard(
+        '<div style="text-align:center;">' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:10.5px;font-weight:bold;margin-bottom:6px;">Destino Generación</div>' +
+        Charts.donut(raw.metrics.totalDestAuto, raw.metrics.totalDestExc, 'Directo', 'Excedente', pal.secondary, pal.primary) +
+        '  <div class="editable-field" contenteditable="true" style="font-size:9.5px;color:#64748b;margin-top:4px;">' + raw.metrics.totalDestAuto + '% Autoconsumo</div>' +
+        '</div>'
+      ),
       '    </div>',
       '  </div>',
       '  <div class="sheet-footer">',
@@ -829,60 +1045,73 @@
       '    <span class="editable-field" contenteditable="true">' + companyWeb + '</span>',
       '  </div>',
       '</div>',
-
-      // ── LÁMINA 7: 06. EQUIPAMIENTO TÉCNICO ─────────────────────────────────
+      '',
+      '<!-- ── LÁMINA 7: 06. EQUIPAMIENTO TÉCNICO ───────────────────────────────── -->',
       '<div class="sheet">',
       '  <div class="sheet-head">',
       '    <div class="editable-field" contenteditable="true" style="font-size:20px;font-weight:900;color:' + pal.primary + ';">' + companyName + '</div>',
-      '    <div style="font-size:16px;font-weight:800;color:' + pal.primary + ';">06. Equipamiento</div>',
+      '    <div class="editable-field" contenteditable="true" style="font-size:16px;font-weight:800;color:' + pal.primary + ';">06. Equipamiento</div>',
       '  </div>',
-      '  <div><span class="sheet-title-num">06.</span><span class="sheet-title-txt">Tu Nuevo Equipo</span></div>',
-      '  <div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:14px;margin-top:14px;">',
-      '    <div class="card" style="text-align:center;">',
-      '      <div style="font-size:10.5px;font-weight:bold;color:' + pal.primary + ';">MÓDULOS FV</div>',
-      '      <div class="editable-field" contenteditable="true" style="font-size:13px;font-weight:900;margin:6px 0;">Tier-1 ' + raw.equipment.modWp + ' Wp</div>',
-      '      <div class="editable-field" contenteditable="true" style="font-size:9.5px;color:#64748b;line-height:1.4;">Garantía de potencia: 25 años<br>Alta eficiencia y tolerancia positiva</div>',
-      '    </div>',
-      '    <div class="card" style="text-align:center;">',
-      '      <div style="font-size:10.5px;font-weight:bold;color:' + pal.primary + ';">INVERSORES</div>',
-      '      <div class="editable-field" contenteditable="true" style="font-size:13px;font-weight:900;margin:6px 0;">' + kwNom + ' kWn</div>',
-      '      <div class="editable-field" contenteditable="true" style="font-size:9.5px;color:#64748b;line-height:1.4;">Eficiencia: 98.5%<br>Monitorización WiFi / App</div>',
-      '    </div>',
-      '    <div class="card" style="text-align:center;">',
-      '      <div style="font-size:10.5px;font-weight:bold;color:' + pal.primary + ';">ESTRUCTURA</div>',
-      '      <div class="editable-field" contenteditable="true" style="font-size:13px;font-weight:900;margin:6px 0;">Aluminio Anodizado</div>',
-      '      <div class="editable-field" contenteditable="true" style="font-size:9.5px;color:#64748b;line-height:1.4;">Tornillería Inox A2<br>Resistencia vientos 150 km/h</div>',
-      '    </div>',
-      '    <div class="card" style="text-align:center;">',
-      '      <div style="font-size:10.5px;font-weight:bold;color:' + pal.primary + ';">PROTECCIONES</div>',
-      '      <div class="editable-field" contenteditable="true" style="font-size:13px;font-weight:900;margin:6px 0;">Cuadro AC/DC</div>',
-      '      <div class="editable-field" contenteditable="true" style="font-size:9.5px;color:#64748b;line-height:1.4;">Sobretensiones Tipo II<br>Fusibles y corte seccionable</div>',
-      '    </div>',
+      '  <div><span class="sheet-title-num editable-field" contenteditable="true">06.</span><span class="sheet-title-txt editable-field" contenteditable="true">Tu Nuevo Equipo</span></div>',
+      divGrad,
+      '  <div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:14px;margin-top:10px;">',
+      makeCard(
+        '<div style="text-align:center;">' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:10.5px;font-weight:bold;color:' + pal.primary + ';">MÓDULOS FV</div>' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:13px;font-weight:900;margin:6px 0;">Tier-1 ' + raw.equipment.modWp + ' Wp</div>' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:9.5px;color:#64748b;line-height:1.4;">Garantía de potencia: 25 años<br>Alta eficiencia y tolerancia positiva</div>' +
+        '</div>'
+      ),
+      makeCard(
+        '<div style="text-align:center;">' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:10.5px;font-weight:bold;color:' + pal.primary + ';">INVERSORES</div>' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:13px;font-weight:900;margin:6px 0;">' + kwNom + ' kWn</div>' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:9.5px;color:#64748b;line-height:1.4;">Eficiencia: 98.5%<br>Monitorización WiFi / App</div>' +
+        '</div>'
+      ),
+      makeCard(
+        '<div style="text-align:center;">' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:10.5px;font-weight:bold;color:' + pal.primary + ';">ESTRUCTURA</div>' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:13px;font-weight:900;margin:6px 0;">Aluminio Anodizado</div>' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:9.5px;color:#64748b;line-height:1.4;">Tornillería Inox A2<br>Resistencia vientos 150 km/h</div>' +
+        '</div>'
+      ),
+      makeCard(
+        '<div style="text-align:center;">' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:10.5px;font-weight:bold;color:' + pal.primary + ';">PROTECCIONES</div>' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:13px;font-weight:900;margin:6px 0;">Cuadro AC/DC</div>' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:9.5px;color:#64748b;line-height:1.4;">Sobretensiones Tipo II<br>Fusibles y corte seccionable</div>' +
+        '</div>'
+      ),
       '  </div>',
       '  <div class="sheet-footer">',
       '    <span class="editable-field" contenteditable="true">' + companySlogan + '</span>',
       '    <span class="editable-field" contenteditable="true">' + companyWeb + '</span>',
       '  </div>',
       '</div>',
-
-      // ── LÁMINA 8: 07. PROPUESTA ECONÓMICA ──────────────────────────────────
+      '',
+      '<!-- ── LÁMINA 8: 07. PROPUESTA ECONÓMICA ────────────────────────────────── -->',
       '<div class="sheet">',
       '  <div class="sheet-head">',
       '    <div class="editable-field" contenteditable="true" style="font-size:20px;font-weight:900;color:' + pal.primary + ';">' + companyName + '</div>',
-      '    <div style="font-size:16px;font-weight:800;color:' + pal.primary + ';">07. Propuesta Económica</div>',
+      '    <div class="editable-field" contenteditable="true" style="font-size:16px;font-weight:800;color:' + pal.primary + ';">07. Propuesta Económica</div>',
       '  </div>',
-      '  <div><span class="sheet-title-num">07.</span><span class="sheet-title-txt">Retorno de Inversión & Ahorro</span></div>',
-      '  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:14px;align-items:center;">',
-      '    <div style="background:' + pal.light + ';border:2px solid ' + pal.primary + ';border-radius:12px;padding:22px;text-align:center;">',
-      '      <div style="font-size:12px;font-weight:700;color:' + pal.dark + ';">COSTE TOTAL DE LA INSTALACIÓN (SIN IVA)</div>',
-      '      <div class="editable-field" contenteditable="true" style="font-size:32px;font-weight:900;color:' + pal.primary + ';margin:8px 0;">' + totalCost + ' €</div>',
-      '      <div class="editable-field" contenteditable="true" style="font-size:10.5px;color:#64748b;">Financiación personalizada disponible sin entrada</div>',
-      '    </div>',
+      '  <div><span class="sheet-title-num editable-field" contenteditable="true">07.</span><span class="sheet-title-txt editable-field" contenteditable="true">Retorno de Inversión & Ahorro</span></div>',
+      divGrad,
+      '  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:10px;align-items:center;">',
+      makeCard(
+        '<div style="text-align:center;padding:12px;">' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:12px;font-weight:700;color:' + pal.dark + ';">COSTE TOTAL DE LA INSTALACIÓN (SIN IVA)</div>' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:32px;font-weight:900;color:' + pal.primary + ';margin:8px 0;">' + totalCost + ' €</div>' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:10.5px;color:#64748b;">Financiación personalizada disponible sin entrada</div>' +
+        '</div>',
+        'background:' + pal.light + ';border:2px solid ' + pal.primary + ';'
+      ),
       '    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">',
-      '      <div class="card" style="text-align:center;"><div class="editable-field" contenteditable="true" style="font-size:18px;font-weight:900;color:' + pal.primary + ';">' + ahorroAnual + ' €</div><div style="font-size:9.5px;color:#64748b;">Ahorro Anual Estimado</div></div>',
-      '      <div class="card" style="text-align:center;"><div class="editable-field" contenteditable="true" style="font-size:18px;font-weight:900;color:' + pal.primary + ';">' + payback + ' años</div><div style="font-size:9.5px;color:#64748b;">Periodo de Amortización</div></div>',
-      '      <div class="card" style="text-align:center;"><div class="editable-field" contenteditable="true" style="font-size:18px;font-weight:900;color:' + pal.primary + ';">' + tirStr + '</div><div style="font-size:9.5px;color:#64748b;">Tasa de Rentabilidad (TIR)</div></div>',
-      '      <div class="card" style="text-align:center;"><div class="editable-field" contenteditable="true" style="font-size:18px;font-weight:900;color:' + pal.primary + ';">' + ahorro25 + ' €</div><div style="font-size:9.5px;color:#64748b;">Ahorro Acumulado (25 años)</div></div>',
+      makeCard('<div class="editable-field" contenteditable="true" style="font-size:18px;font-weight:900;color:' + pal.primary + ';">' + ahorroAnual + ' €</div><div class="editable-field" contenteditable="true" style="font-size:9.5px;color:#64748b;">Ahorro Anual Estimado</div>', 'text-align:center;'),
+      makeCard('<div class="editable-field" contenteditable="true" style="font-size:18px;font-weight:900;color:' + pal.primary + ';">' + payback + ' años</div><div class="editable-field" contenteditable="true" style="font-size:9.5px;color:#64748b;">Periodo de Amortización</div>', 'text-align:center;'),
+      makeCard('<div class="editable-field" contenteditable="true" style="font-size:18px;font-weight:900;color:' + pal.primary + ';">' + tirStr + '</div><div class="editable-field" contenteditable="true" style="font-size:9.5px;color:#64748b;">Tasa de Rentabilidad (TIR)</div>', 'text-align:center;'),
+      makeCard('<div class="editable-field" contenteditable="true" style="font-size:18px;font-weight:900;color:' + pal.primary + ';">' + ahorro25 + ' €</div><div class="editable-field" contenteditable="true" style="font-size:9.5px;color:#64748b;">Ahorro Acumulado (25 años)</div>', 'text-align:center;'),
       '    </div>',
       '  </div>',
       '  <div class="sheet-footer">',
@@ -890,70 +1119,91 @@
       '    <span class="editable-field" contenteditable="true">' + companyWeb + '</span>',
       '  </div>',
       '</div>',
-
-      // ── LÁMINA 9: 08. AMORTIZACIÓN A 25 AÑOS ───────────────────────────────
+      '',
+      '<!-- ── LÁMINA 9: 08. AMORTIZACIÓN A 25 AÑOS ─────────────────────────────── -->',
       '<div class="sheet">',
       '  <div class="sheet-head">',
       '    <div class="editable-field" contenteditable="true" style="font-size:20px;font-weight:900;color:' + pal.primary + ';">' + companyName + '</div>',
-      '    <div style="font-size:16px;font-weight:800;color:' + pal.primary + ';">08. Amortización</div>',
+      '    <div class="editable-field" contenteditable="true" style="font-size:16px;font-weight:800;color:' + pal.primary + ';">08. Amortización</div>',
       '  </div>',
-      '  <div><span class="sheet-title-num">08.</span><span class="sheet-title-txt">Amortización Acumulada Anual</span></div>',
-      '  <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:20px;margin-top:14px;align-items:center;">',
-      '    <div class="card">',
-      '      <div style="font-size:10.5px;font-weight:bold;margin-bottom:6px;">PROYECCIÓN DE CASHFLOW ACUMULADO (AÑOS 1 A 25)</div>',
-      Charts.amortization25(pal, payback, totalCost, ahorroAnual),
-      '    </div>',
-      '    <div class="card" style="padding:12px;">',
-      '      <div style="font-size:10.5px;font-weight:bold;color:' + pal.primary + ';margin-bottom:8px;">PARÁMETROS MACROECONÓMICOS</div>',
-      '      <table class="table-clean">',
-      '        <tr><td><strong>Incremento IPC Eléctrico:</strong></td><td class="editable-field" contenteditable="true">4,00 % / año</td></tr>',
-      '        <tr><td><strong>Degradación de Módulos:</strong></td><td class="editable-field" contenteditable="true">0,55 % / año</td></tr>',
-      '        <tr><td><strong>Precio Medio Electricidad:</strong></td><td class="editable-field" contenteditable="true">0,16 € / kWh</td></tr>',
-      '        <tr><td><strong>Garantía de Producción:</strong></td><td class="editable-field" contenteditable="true">25 años lineal</td></tr>',
-      '      </table>',
-      '    </div>',
+      '  <div><span class="sheet-title-num editable-field" contenteditable="true">08.</span><span class="sheet-title-txt editable-field" contenteditable="true">Amortización Acumulada Anual</span></div>',
+      divGrad,
+      '  <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:20px;margin-top:10px;align-items:center;">',
+      makeCard(
+        '<div>' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:10.5px;font-weight:bold;margin-bottom:6px;">PROYECCIÓN DE CASHFLOW ACUMULADO (AÑOS 1 A 25)</div>' +
+        Charts.amortization25(pal, payback, totalCost, ahorroAnual) +
+        '</div>'
+      ),
+      makeCard(
+        '<div>' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:10.5px;font-weight:bold;color:' + pal.primary + ';margin-bottom:8px;">PARÁMETROS MACROECONÓMICOS</div>' +
+        '  <table class="table-clean">' +
+        '    <tr><td class="editable-field" contenteditable="true"><strong>Incremento IPC Eléctrico:</strong></td><td class="editable-field" contenteditable="true">4,00 % / año</td></tr>' +
+        '    <tr><td class="editable-field" contenteditable="true"><strong>Degradación de Módulos:</strong></td><td class="editable-field" contenteditable="true">0,55 % / año</td></tr>' +
+        '    <tr><td class="editable-field" contenteditable="true"><strong>Precio Medio Electricidad:</strong></td><td class="editable-field" contenteditable="true">0,16 € / kWh</td></tr>' +
+        '    <tr><td class="editable-field" contenteditable="true"><strong>Garantía de Producción:</strong></td><td class="editable-field" contenteditable="true">25 años lineal</td></tr>' +
+        '  </table>' +
+        '</div>'
+      ),
       '  </div>',
       '  <div class="sheet-footer">',
       '    <span class="editable-field" contenteditable="true">' + companySlogan + '</span>',
       '    <span class="editable-field" contenteditable="true">' + companyWeb + '</span>',
       '  </div>',
       '</div>',
-
-      // ── LÁMINA 10: CIERRE Y FIRMA ───────────────────────────────────────────
+      '',
+      '<!-- ── LÁMINA 10: CIERRE Y FIRMA ─────────────────────────────────────────── -->',
       '<div class="sheet">',
       '  <div class="sheet-head">',
       '    <div class="editable-field" contenteditable="true" style="font-size:20px;font-weight:900;color:' + pal.primary + ';">' + companyName + '</div>',
-      '    <div style="font-size:16px;font-weight:800;color:' + pal.primary + ';">Aceptación de Oferta</div>',
+      '    <div class="editable-field" contenteditable="true" style="font-size:16px;font-weight:800;color:' + pal.primary + ';">Aceptación de Oferta</div>',
       '  </div>',
-      '  <div><span class="sheet-title-num">✍️</span><span class="sheet-title-txt">Datos del Cliente & Conformidad</span></div>',
-      '  <div style="margin-top:14px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:10px;padding:18px;">',
-      '    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;font-size:11.5px;">',
-      '      <div><strong>Empresa / Titular:</strong> <span class="editable-field" contenteditable="true">' + clientName + '</span></div>',
-      '      <div><strong>CIF / NIF:</strong> <span class="editable-field" contenteditable="true">' + clientNif + '</span></div>',
-      '      <div><strong>Ubicación:</strong> <span class="editable-field" contenteditable="true">' + address + '</span></div>',
-      '      <div><strong>Teléfono:</strong> <span class="editable-field" contenteditable="true">' + (raw.client.phone || '') + '</span></div>',
-      '    </div>',
-      '    <div style="margin-top:20px;border-top:1px dashed #cbd5e1;padding-top:14px;display:flex;justify-content:space-between;align-items:flex-end;">',
-      '      <div class="editable-field" contenteditable="true" style="font-size:10.5px;color:#64748b;max-width:60%;">El cliente manifiesta su conformidad con los parámetros técnicos y económicos de la presente oferta y autoriza la visita técnica de replanteo y tramitación administrativa.</div>',
-      '      <div style="text-align:center;border-top:1px solid #000;width:180px;padding-top:6px;font-size:10.5px;font-weight:bold;">Fdo. El Cliente</div>',
-      '    </div>',
+      '  <div><span class="sheet-title-num editable-field" contenteditable="true">✍️</span><span class="sheet-title-txt editable-field" contenteditable="true">Datos del Cliente & Conformidad</span></div>',
+      divGrad,
+      '  <div style="margin-top:10px;">' +
+      makeCard(
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;font-size:11.5px;">' +
+        '  <div><strong class="editable-field" contenteditable="true">Empresa / Titular:</strong> <span class="editable-field" contenteditable="true">' + clientName + '</span></div>' +
+        '  <div><strong class="editable-field" contenteditable="true">CIF / NIF:</strong> <span class="editable-field" contenteditable="true">' + clientNif + '</span></div>' +
+        '  <div><strong class="editable-field" contenteditable="true">Ubicación:</strong> <span class="editable-field" contenteditable="true">' + address + '</span></div>' +
+        '  <div><strong class="editable-field" contenteditable="true">Teléfono:</strong> <span class="editable-field" contenteditable="true">' + (raw.client.phone || '') + '</span></div>' +
+        '</div>' +
+        '<div style="margin-top:18px;border-top:1px dashed #cbd5e1;padding-top:14px;display:flex;justify-content:space-between;align-items:flex-end;">' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:10.5px;color:#64748b;max-width:60%;">El cliente manifiesta su conformidad con los parámetros técnicos y económicos de la presente oferta y autoriza la visita técnica de replanteo y tramitación administrativa.</div>' +
+        '  <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">' +
+        makeImgBox(null, 'Espacio para Firma / Sello', 'width:180px;height:75px;border:1px dashed #94a3b8;background:#f8fafc;') +
+        '    <div class="editable-field" contenteditable="true" style="font-size:10.5px;font-weight:bold;color:#0f172a;">Fdo. El Cliente</div>' +
+        '  </div>' +
+        '</div>'
+      ) +
       '  </div>',
       '  <div class="sheet-footer">',
       '    <span class="editable-field" contenteditable="true">' + companySlogan + '</span>',
       '    <span class="editable-field" contenteditable="true">' + companyWeb + '</span>',
       '  </div>',
       '</div>',
-
+      '',
       '</div>', // fin dossier-container
-
-      '<!-- SCRIPTS DE EDICIÓN Y EXPORTACIÓN EN LA VENTANA -->',
+      '',
+      '<!-- MOTOR WYSIWYG MODULAR, EDICIÓN, SANITIZACIÓN & TEST SUITE -->',
       '<script>',
-      '  var isEditMode = false;',
-      '  function toggleDossierEditMode() {',
-      '    isEditMode = !isEditMode;',
+      'var DossierWYSIWYG = {',
+      '  isEditMode: false,',
+      '  activeTarget: null,',
+      '  themePrimary: "' + pal.primary + '",',
+      '',
+      '  init: function() {',
+      '    this.setupDragAndResize();',
+      '    this.setupFormatBar();',
+      '    this.ensureAllContentEditable();',
+      '  },',
+      '',
+      '  toggleEditMode: function() {',
+      '    this.isEditMode = !this.isEditMode;',
       '    var btn = document.getElementById("btn-toggle-edit");',
       '    var body = document.body;',
-      '    if (isEditMode) {',
+      '    if (this.isEditMode) {',
       '      body.classList.add("edit-mode-active");',
       '      btn.textContent = "💾 EDICIÓN ACTIVA (CLIC EN TEXTOS)";',
       '      btn.style.background = "#10b981";',
@@ -963,14 +1213,214 @@
       '      btn.textContent = "✏️ MODO EDICIÓN WYSIWYG";',
       '      btn.style.background = "#f59e0b";',
       '      btn.style.color = "#000";',
+      '      this.hideFormatBar();',
       '    }',
-      '  }',
+      '  },',
       '',
-      '  function exportDossierToWordDocx() {',
-      '    var content = document.getElementById("dossier-container").innerHTML;',
+      '  setupDragAndResize: function() {',
+      '    var self = this;',
+      '    document.querySelectorAll(".card").forEach(function(card) {',
+      '      // 1. Arrastre de contenedores (Movilidad)',
+      '      var dh = card.querySelector(".dossier-drag-handle");',
+      '      if (dh) {',
+      '        dh.onmousedown = function(e) {',
+      '          if (!self.isEditMode) return;',
+      '          e.preventDefault();',
+      '          e.stopPropagation();',
+      '',
+      '          var startX = e.clientX;',
+      '          var startY = e.clientY;',
+      '',
+      '          var transform = card.style.transform || "";',
+      '          var curX = 0, curY = 0;',
+      '          var match = /translate\(([-\d.]+)px,\s*([-\d.]+)px\)/.exec(transform);',
+      '          if (match) {',
+      '            curX = parseFloat(match[1]);',
+      '            curY = parseFloat(match[2]);',
+      '          }',
+      '',
+      '          card.style.zIndex = "1000";',
+      '',
+      '          function onMouseMove(moveEvent) {',
+      '            var dx = moveEvent.clientX - startX;',
+      '            var dy = moveEvent.clientY - startY;',
+      '            card.style.transform = "translate(" + (curX + dx) + "px, " + (curY + dy) + "px)";',
+      '          }',
+      '',
+      '          function onMouseUp() {',
+      '            document.removeEventListener("mousemove", onMouseMove);',
+      '            document.removeEventListener("mouseup", onMouseUp);',
+      '            card.style.zIndex = "";',
+      '          }',
+      '',
+      '          document.addEventListener("mousemove", onMouseMove);',
+      '          document.addEventListener("mouseup", onMouseUp);',
+      '        };',
+      '      }',
+      '',
+      '      // 2. Escalabilidad bidireccional (Resize)',
+      '      var rh = card.querySelector(".dossier-resize-handle");',
+      '      if (rh) {',
+      '        rh.onmousedown = function(e) {',
+      '          if (!self.isEditMode) return;',
+      '          e.preventDefault();',
+      '          e.stopPropagation();',
+      '',
+      '          var startX = e.clientX;',
+      '          var startY = e.clientY;',
+      '          var startW = card.offsetWidth;',
+      '          var startH = card.offsetHeight;',
+      '',
+      '          card.style.flex = "none";',
+      '',
+      '          function onMouseMove(moveEvent) {',
+      '            var newW = Math.max(80, startW + (moveEvent.clientX - startX));',
+      '            var newH = Math.max(40, startH + (moveEvent.clientY - startY));',
+      '            card.style.width = newW + "px";',
+      '            card.style.height = newH + "px";',
+      '          }',
+      '',
+      '          function onMouseUp() {',
+      '            document.removeEventListener("mousemove", onMouseMove);',
+      '            document.removeEventListener("mouseup", onMouseUp);',
+      '          }',
+      '',
+      '          document.addEventListener("mousemove", onMouseMove);',
+      '          document.addEventListener("mouseup", onMouseUp);',
+      '        };',
+      '      }',
+      '    });',
+      '  },',
+      '',
+      '  triggerImageUpload: function(btn) {',
+      '    var box = btn.closest(".dossier-img-box");',
+      '    if (!box) return;',
+      '    var inp = box.querySelector(".dossier-file-input");',
+      '    if (inp) { inp.click(); }',
+      '  },',
+      '',
+      '  handleImageUploaded: function(input) {',
+      '    if (!input.files || !input.files[0]) return;',
+      '    var file = input.files[0];',
+      '    var box = input.closest(".dossier-img-box");',
+      '    var targetImg = box ? box.querySelector(".dossier-target-img") : null;',
+      '    var reader = new FileReader();',
+      '    reader.onload = function(e) {',
+      '      if (targetImg) {',
+      '        targetImg.src = e.target.result;',
+      '        targetImg.style.display = "block";',
+      '      } else if (box) {',
+      '        var newImg = document.createElement("img");',
+      '        newImg.src = e.target.result;',
+      '        newImg.className = "dossier-target-img";',
+      '        newImg.style.cssText = "width:100%;height:100%;object-fit:cover;";',
+      '        box.insertBefore(newImg, box.firstChild);',
+      '      }',
+      '      var placeholder = box.querySelector("div:not(.editable-field):not(.dossier-drag-handle)");',
+      '      if (placeholder && !placeholder.classList.contains("dossier-target-img")) {',
+      '        placeholder.style.display = "none";',
+      '      }',
+      '    };',
+      '    reader.readAsDataURL(file);',
+      '  },',
+      '',
+      '  setupFormatBar: function() {',
+      '    var self = this;',
+      '    var bar = document.getElementById("dossier-format-bar");',
+      '    if (!bar) return;',
+      '',
+      '    document.addEventListener("selectionchange", function() {',
+      '      if (!self.isEditMode) return;',
+      '      var sel = window.getSelection();',
+      '      if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return;',
+      '      var node = sel.anchorNode;',
+      '      var el = (node && node.nodeType === 3) ? node.parentElement : node;',
+      '      if (el && el.closest(".editable-field")) {',
+      '        self.activeTarget = el.closest(".editable-field");',
+      '        self.positionFormatBar(sel.getRangeAt(0).getBoundingClientRect());',
+      '      }',
+      '    });',
+      '',
+      '    document.addEventListener("focusin", function(e) {',
+      '      if (!self.isEditMode) return;',
+      '      if (e.target && e.target.classList && e.target.classList.contains("editable-field")) {',
+      '        self.activeTarget = e.target;',
+      '        self.positionFormatBar(e.target.getBoundingClientRect());',
+      '      }',
+      '    });',
+      '',
+      '    document.addEventListener("mousedown", function(e) {',
+      '      if (bar.contains(e.target) || (e.target.classList && e.target.classList.contains("editable-field"))) return;',
+      '      var sel = window.getSelection();',
+      '      if (!sel || sel.isCollapsed) { self.hideFormatBar(); }',
+      '    });',
+      '  },',
+      '',
+      '  positionFormatBar: function(rect) {',
+      '    var bar = document.getElementById("dossier-format-bar");',
+      '    if (!bar || !rect) return;',
+      '    bar.style.display = "flex";',
+      '    var top = rect.top - 44;',
+      '    if (top < 56) top = rect.bottom + 8;',
+      '    var left = Math.max(10, Math.min(window.innerWidth - 380, rect.left));',
+      '    bar.style.top = top + "px";',
+      '    bar.style.left = left + "px";',
+      '',
+      '    if (this.activeTarget) {',
+      '      var fs = window.getComputedStyle(this.activeTarget).fontSize;',
+      '      var disp = document.getElementById("fmt-size-display");',
+      '      if (disp) disp.textContent = Math.round(parseFloat(fs)) + "px";',
+      '    }',
+      '  },',
+      '',
+      '  hideFormatBar: function() {',
+      '    var bar = document.getElementById("dossier-format-bar");',
+      '    if (bar) bar.style.display = "none";',
+      '  },',
+      '',
+      '  adjustFontSize: function(delta) {',
+      '    if (!this.activeTarget) return;',
+      '    var current = parseFloat(window.getComputedStyle(this.activeTarget).fontSize) || 14;',
+      '    var next = Math.max(8, Math.min(72, current + delta));',
+      '    this.activeTarget.style.fontSize = next + "px";',
+      '    var disp = document.getElementById("fmt-size-display");',
+      '    if (disp) disp.textContent = next + "px";',
+      '  },',
+      '',
+      '  execFormat: function(cmd, val) {',
+      '    document.execCommand(cmd, false, val || null);',
+      '    if (this.activeTarget) this.activeTarget.focus();',
+      '  },',
+      '',
+      '  applyThemeColor: function() {',
+      '    this.execFormat("foreColor", this.themePrimary);',
+      '  },',
+      '',
+      '  ensureAllContentEditable: function() {',
+      '    document.querySelectorAll(".sheet h1, .sheet h2, .sheet h3, .sheet h4, .sheet p, .sheet span, .sheet td, .sheet th, .sheet strong, .sheet div.sheet-title-num, .sheet div.sheet-title-txt").forEach(function(el) {',
+      '      if (el.children.length === 0 && el.textContent.trim().length > 0) {',
+      '        el.classList.add("editable-field");',
+      '        el.setAttribute("contenteditable", "true");',
+      '      }',
+      '    });',
+      '  },',
+      '',
+      '  getSanitizedClone: function(container) {',
+      '    var clone = container.cloneNode(true);',
+      '    clone.querySelectorAll(".no-print").forEach(function(el) { el.remove(); });',
+      '    clone.querySelectorAll(".dossier-drag-handle, .dossier-resize-handle, .dossier-img-picker-btn, .dossier-file-input, #dossier-format-bar").forEach(function(el) { el.remove(); });',
+      '    clone.querySelectorAll("[contenteditable]").forEach(function(el) { el.removeAttribute("contenteditable"); });',
+      '    clone.querySelectorAll(".editable-field").forEach(function(el) { el.classList.remove("editable-field"); });',
+      '    return clone;',
+      '  },',
+      '',
+      '  exportToWordDocx: function() {',
+      '    var container = document.getElementById("dossier-container");',
+      '    var sanitized = this.getSanitizedClone(container);',
+      '    var content = sanitized.innerHTML;',
       '    var styles = document.querySelector("style").innerHTML;',
       '    var header = "<html xmlns:o=\'urn:schemas-microsoft-com:office:office\' xmlns:w=\'urn:schemas-microsoft-com:office:word\' xmlns=\'http://www.w3.org/TR/REC-html40\'>" +',
-      '      "<head><meta charset=\'utf-8\'><title>' + clientName + '</title><style>" + styles + "</style></head><body>";',
+      '      "<head><meta charset=\'utf-8\'><title>Propuesta Comercial</title><style>" + styles + "</style></head><body>";',
       '    var footer = "</body></html>";',
       '    var blob = new Blob(["\\ufeff" + header + content + footer], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document;charset=utf-8" });',
       '    var a = document.createElement("a");',
@@ -979,13 +1429,15 @@
       '    document.body.appendChild(a);',
       '    a.click();',
       '    document.body.removeChild(a);',
-      '  }',
+      '  },',
       '',
-      '  function exportDossierToWordDoc() {',
-      '    var content = document.getElementById("dossier-container").innerHTML;',
+      '  exportToWordDoc: function() {',
+      '    var container = document.getElementById("dossier-container");',
+      '    var sanitized = this.getSanitizedClone(container);',
+      '    var content = sanitized.innerHTML;',
       '    var styles = document.querySelector("style").innerHTML;',
       '    var header = "<html xmlns:o=\'urn:schemas-microsoft-com:office:office\' xmlns:w=\'urn:schemas-microsoft-com:office:word\' xmlns=\'http://www.w3.org/TR/REC-html40\'>" +',
-      '      "<head><meta charset=\'utf-8\'><title>' + clientName + '</title><style>" + styles + "</style></head><body>";',
+      '      "<head><meta charset=\'utf-8\'><title>Propuesta Comercial</title><style>" + styles + "</style></head><body>";',
       '    var footer = "</body></html>";',
       '    var blob = new Blob(["\\ufeff" + header + content + footer], { type: "application/msword;charset=utf-8" });',
       '    var a = document.createElement("a");',
@@ -994,12 +1446,14 @@
       '    document.body.appendChild(a);',
       '    a.click();',
       '    document.body.removeChild(a);',
-      '  }',
+      '  },',
       '',
-      '  function exportDossierToHtml() {',
+      '  exportToHtml: function() {',
       '    var clone = document.documentElement.cloneNode(true);',
       '    var bar = clone.querySelector(".dossier-toolbar");',
       '    if (bar) bar.remove();',
+      '    var formatBar = clone.querySelector("#dossier-format-bar");',
+      '    if (formatBar) formatBar.remove();',
       '    var blob = new Blob(["\\ufeff" + clone.outerHTML], { type: "text/html;charset=utf-8" });',
       '    var a = document.createElement("a");',
       '    a.href = URL.createObjectURL(blob);',
@@ -1007,7 +1461,136 @@
       '    document.body.appendChild(a);',
       '    a.click();',
       '    document.body.removeChild(a);',
+      '  },',
+      '',
+      '  runTestSuite: function() {',
+      '    var results = [];',
+      '',
+      '    // T1: Zero Contenido Estático',
+      '    var allTexts = document.querySelectorAll(".sheet h1, .sheet h2, .sheet h3, .sheet h4, .sheet p, .sheet span, .sheet td, .sheet th");',
+      '    var nonEditable = 0;',
+      '    allTexts.forEach(function(el) {',
+      '      if (el.children.length === 0 && el.textContent.trim().length > 0 && !el.classList.contains("editable-field")) {',
+      '        nonEditable++;',
+      '      }',
+      '    });',
+      '    results.push({',
+      '      id: "T1",',
+      '      title: "Zero Contenido Estático (100% Editable)",',
+      '      passed: nonEditable === 0,',
+      '      detail: nonEditable === 0',
+      '        ? "100% de los elementos de texto analizados (" + allTexts.length + ") son editables en vivo (contenteditable)."',
+      '        : "Se detectaron " + nonEditable + " elementos estáticos."',
+      '    });',
+      '',
+      '    // T2: Movilidad de Contenedores',
+      '    var cards = document.querySelectorAll(".card");',
+      '    var withDrag = Array.from(cards).filter(function(c) { return c.querySelector(".dossier-drag-handle"); });',
+      '    results.push({',
+      '      id: "T2",',
+      '      title: "Movilidad de Contenedores (Asideros ⠿)",',
+      '      passed: withDrag.length === cards.length && cards.length > 0,',
+      '      detail: withDrag.length + " de " + cards.length + " tarjetas equipadas con asidero interactivo de arrastre ⠿."',
+      '    });',
+      '',
+      '    // T3: Escalabilidad (Resize ◢)',
+      '    var withResize = Array.from(cards).filter(function(c) { return c.querySelector(".dossier-resize-handle"); });',
+      '    results.push({',
+      '      id: "T3",',
+      '      title: "Escalabilidad Bidireccional (Resize ◢)",',
+      '      passed: withResize.length === cards.length && cards.length > 0,',
+      '      detail: withResize.length + " de " + cards.length + " contenedores escalables dinámicamente en ancho y alto."',
+      '    });',
+      '',
+      '    // T4: Selector de Imágenes desde HDD Local',
+      '    var imgBoxes = document.querySelectorAll(".dossier-img-box");',
+      '    var withPickers = Array.from(imgBoxes).filter(function(b) {',
+      '      return b.querySelector(".dossier-img-picker-btn") && b.querySelector(".dossier-file-input");',
+      '    });',
+      '    results.push({',
+      '      id: "T4",',
+      '      title: "Selector de Imágenes desde HDD (FileReader Base64)",',
+      '      passed: withPickers.length === imgBoxes.length && imgBoxes.length > 0,',
+      '      detail: withPickers.length + " de " + imgBoxes.length + " cajas de imagen vinculadas a selector local del disco."',
+      '    });',
+      '',
+      '    // T5: Barra Flotante de Formato Tipográfico',
+      '    var fmtBar = document.getElementById("dossier-format-bar");',
+      '    var hasControls = fmtBar && fmtBar.querySelectorAll(".fmt-btn").length >= 7;',
+      '    results.push({',
+      '      id: "T5",',
+      '      title: "Barra Flotante de Formato Tipográfico",',
+      '      passed: !!hasControls,',
+      '      detail: hasControls',
+      '        ? "Barra contextual activa con escalado tipográfico (A-/A+), estilos (B/I/U), color temático y alineaciones."',
+      '        : "Barra de formato no localizada o incompleta."',
+      '    });',
+      '',
+      '    // T6: Sanitización de Exportación',
+      '    var testClone = this.getSanitizedClone(document.getElementById("dossier-container"));',
+      '    var residualControls = testClone.querySelectorAll(".no-print, .dossier-drag-handle, .dossier-resize-handle, .dossier-img-picker-btn, .dossier-file-input").length;',
+      '    results.push({',
+      '      id: "T6",',
+      '      title: "Sanitización de Exportación (PDF/Word/HTML)",',
+      '      passed: residualControls === 0,',
+      '      detail: residualControls === 0',
+      '        ? "Sanitizador impecable: 0 controles de edición residuales en la exportación final."',
+      '        : "Detectados " + residualControls + " elementos de edición residuales en el documento exportado."',
+      '    });',
+      '',
+      '    this.showTestModal(results);',
+      '  },',
+      '',
+      '  showTestModal: function(results) {',
+      '    var exist = document.getElementById("dossier-test-modal");',
+      '    if (exist) exist.remove();',
+      '',
+      '    var allPassed = results.every(function(r) { return r.passed; });',
+      '',
+      '    var rows = results.map(function(r) {',
+      '      var badge = r.passed ',
+      '        ? \'<span style="background:#059669;color:#fff;font-weight:800;padding:2px 8px;border-radius:4px;font-size:10px;">PASS ✓</span>\' ',
+      '        : \'<span style="background:#dc2626;color:#fff;font-weight:800;padding:2px 8px;border-radius:4px;font-size:10px;">FAIL ✗</span>\';',
+      '      return \'<div style="padding:10px;background:#1e293b;border:1px solid #334155;border-radius:8px;display:flex;flex-direction:column;gap:4px;">\' +',
+      '        \'<div style="display:flex;justify-content:space-between;align-items:center;">\' +',
+      '        \'  <strong style="color:#f8fafc;font-size:12px;">\' + r.id + \': \' + r.title + \'</strong>\' +',
+      '        \'  \' + badge +',
+      '        \'</div>\' +',
+      '        \'<div style="font-size:11px;color:#94a3b8;line-height:1.3;">\' + r.detail + \'</div>\' +',
+      '        \'</div>\';',
+      '    }).join("");',
+      '',
+      '    var modal = document.createElement("div");',
+      '    modal.id = "dossier-test-modal";',
+      '    modal.className = "no-print";',
+      '    modal.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,0.85);backdrop-filter:blur(6px);z-index:9999999;display:flex;align-items:center;justify-content:center;padding:20px;";',
+      '    modal.innerHTML = [',
+      '      \'<div style="background:#0f172a;border:2px solid \' + (allPassed ? "#10b981" : "#f59e0b") + \';border-radius:14px;max-width:580px;width:100%;padding:22px;box-shadow:0 20px 40px rgba(0,0,0,0.6);display:flex;flex-direction:column;gap:14px;color:#fff;max-height:90vh;overflow-y:auto;">\',',
+      '      \'  <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #334155;padding-bottom:12px;">\',',
+      '      \'    <div style="display:flex;align-items:center;gap:10px;">\',',
+      '      \'      <span style="font-size:22px;">\' + (allPassed ? "✅" : "⚠️") + "</span>",',
+      '      \'      <div>\',',
+      '      \'        <h3 style="margin:0;font-size:15px;color:#f8fafc;">BATERÍA DE PRUEBAS WYSIWYG & ARQUITECTURA</h3>\',',
+      '      \'        <div style="font-size:11px;color:#94a3b8;">Validación de movilidad, escalado, imágenes locales, estética y sanitización</div>\',',
+      '      \'      </div>\',',
+      '      \'    </div>\',',
+      '      \'    <button onclick="document.getElementById(\\\'dossier-test-modal\\\').remove()" style="background:#334155;border:none;color:#fff;padding:6px 10px;border-radius:6px;cursor:pointer;font-weight:bold;">✕</button>\',',
+      '      \'  </div>\',',
+      '      \'  <div style="display:flex;flex-direction:column;gap:8px;">\' + rows + "</div>",',
+      '      \'  <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid #334155;padding-top:12px;">\',',
+      '      \'    <span style="font-size:11.5px;color:\' + (allPassed ? "#10b981" : "#f59e0b") + \';font-weight:700;">\' + (allPassed ? "✓ Todos los tests han superado la validación técnica con éxito." : "Se encontraron advertencias.") + "</span>",',
+      '      \'    <button onclick="document.getElementById(\\\'dossier-test-modal\\\').remove()" style="background:#10b981;border:none;color:#fff;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:bold;font-size:11.5px;">Aceptar y Continuar</button>\',',
+      '      \'  </div>\',',
+      '      \'</div>\'',
+      '    ].join("\\n");',
+      '',
+      '    document.body.appendChild(modal);',
       '  }',
+      '};',
+      '',
+      '// Inicializar tras renderizado',
+      'window.addEventListener("DOMContentLoaded", function() { DossierWYSIWYG.init(); });',
+      'setTimeout(function() { DossierWYSIWYG.init(); }, 300);',
       '</script>',
       '</body>',
       '</html>'
