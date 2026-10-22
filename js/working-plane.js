@@ -5729,13 +5729,17 @@ function switchCatalogTab(tabName) {
   if (editTabBtn) {
     editTabBtn.style.display = (tabName === 'edit') ? 'inline-flex' : 'none';
   }
-  ['modules', 'inverters', 'batteries', 'microinverters', 'structures', 'installation_costs', 'add_new', 'edit', 'ai_import', 'ai_search'].forEach(t => {
+  ['modules', 'inverters', 'batteries', 'microinverters', 'wind_turbines', 'structures', 'installation_costs', 'add_new', 'edit', 'ai_import', 'ai_search'].forEach(t => {
     const btn = document.getElementById('cat-tab-btn-' + t);
     const pane = document.getElementById('cat-pane-' + t);
     if (btn) btn.classList.toggle('active', t === tabName);
     if (pane) pane.style.display = (t === tabName) ? 'block' : 'none';
   });
-  if (tabName === 'ai_import') {
+  if (tabName === 'wind_turbines') {
+    if (typeof window !== 'undefined' && window.RAWindCatalog && typeof window.RAWindCatalog.refreshPanel === 'function') {
+      window.RAWindCatalog.refreshPanel();
+    }
+  } else if (tabName === 'ai_import') {
     if (typeof window !== 'undefined' && window.RAEquipmentAIImporter && typeof window.RAEquipmentAIImporter.renderInitialUI === 'function') {
       window.RAEquipmentAIImporter.renderInitialUI(document.getElementById('cat-pane-ai_import'));
     }

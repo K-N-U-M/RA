@@ -45,7 +45,9 @@ function runLossMonotonicityTests() {
     querySelector: () => ({ value: '0', textContent: '', style: {}, classList: { add: ()=>{}, remove: ()=>{} }, parentNode: { removeChild: ()=>{} } }),
     querySelectorAll: () => [],
     createElement: () => ({ id: '', style: {}, innerHTML: '', appendChild: ()=>{}, querySelector: ()=>null, parentNode: { removeChild: ()=>{} } }),
-    body: { appendChild: ()=>{}, contains: ()=>true }
+    body: { appendChild: ()=>{}, contains: ()=>true },
+    addEventListener: ()=>{},
+    removeEventListener: ()=>{}
   };
 
   const win = {

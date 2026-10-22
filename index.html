@@ -43,6 +43,21 @@ window.RA_App = window.RA_App || {};
   <script src="js/solar-optimizer.js?v=20261016a"></script>
   <script src="js/obstacles.js?v=20261016a"></script>
   <script src="js/wind-turbine.js?v=20261011a"></script>
+  <script src="js/wind/wind-constants.js?v=20261022a"></script>
+  <script src="js/wind/wind-catalog.js?v=20261022a"></script>
+  <script src="js/wind/wind-entity.js?v=20261022a"></script>
+  <script src="js/wind/wind-visualizer.js?v=20261022a"></script>
+  <script src="js/wind/wind-ui.js?v=20261022a"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      if (window.RAWindCatalog && typeof window.RAWindCatalog.injectCatalogTab === "function") {
+        window.RAWindCatalog.injectCatalogTab();
+      }
+      if (window.RAWindUI && typeof window.RAWindUI.init === "function") {
+        window.RAWindUI.init();
+      }
+    });
+  </script>
   <script src="js/solar-materials.js?v=20260930a"></script>
   <script src="js/electrical-engine.js?v=20260929b"></script>
   <script src="js/undo-manager.js?v=20260929b"></script>
@@ -825,7 +840,7 @@ window.RA_App = window.RA_App || {};
                 <button class="doc-mini-btn" id="obs-btn-tree" onclick="startObstaclePlacement('tree')" style="text-align:center;">
                   <span class="doc-icon"><i data-lucide="tree-deciduous" class="icon-sm"></i></span><span>+ ÁRBOL TIPO</span><span class="doc-sub">3.0×3.0×5.0m</span>
                 </button>
-                <button class="doc-mini-btn" id="obs-btn-wind-turbine" onclick="startObstaclePlacement('wind_turbine')" style="text-align:center;">
+                <button class="doc-mini-btn" id="obs-btn-wind-turbine" onclick="if(typeof openEquipmentCatalogModal==='function'){openEquipmentCatalogModal('wind_turbines');}else{startObstaclePlacement('wind_turbine');}" style="text-align:center;">
                   <span class="doc-icon"><i data-lucide="wind" class="icon-sm"></i></span><span>+ EÓLICA</span><span class="doc-sub">Aerogenerador</span>
                 </button>
               </div>
@@ -920,6 +935,7 @@ window.RA_App = window.RA_App || {};
               </button>
             </div>
             </div><!-- /wp-subdock-body-obs -->
+          </div><!-- /wp-step2-solar-panel -->
           </div>
 
           <!-- PASO 3: DISTRIBUCION FOTOVOLTAICA Y RENDIMIENTO -->
@@ -928,6 +944,13 @@ window.RA_App = window.RA_App || {};
           <!-- PASO 3: SELECCIÓN DE INVERSOR Y MÓDULOS (HARDWARE GATING) -->
           <!-- ═════════════════════════════════════════════════════════════════ -->
           <div id="wp-step-2-content" style="display:none;flex-direction:column;gap:8px;">
+            <!-- Subtabs Paso 2: Solar FV vs Eólica -->
+            <div id="wp-step2-gen-tabs" style="display:flex;gap:4px;margin-bottom:4px;background:rgba(0,0,0,0.25);padding:4px;border-radius:6px;border:1px solid var(--border-subtle);">
+              <button type="button" class="sb-tab-btn active" id="step2-tab-solar" onclick="wpSwitchGenTab('solar')" style="flex:1;padding:6px 8px;font-size:10.5px;border-radius:5px;display:flex;align-items:center;justify-content:center;gap:6px;"><i data-lucide="sun" class="icon-sm"></i> ☀️ SOLAR (FV)</button>
+              <button type="button" class="sb-tab-btn" id="step2-tab-wind" onclick="wpSwitchGenTab('wind')" style="flex:1;padding:6px 8px;font-size:10.5px;border-radius:5px;display:flex;align-items:center;justify-content:center;gap:6px;color:#38BDF8;"><i data-lucide="wind" class="icon-sm"></i> 💨 EÓLICA</button>
+            </div>
+            <div id="wp-step2-wind-panel" style="display:none;"></div>
+            <div id="wp-step2-solar-panel" style="display:flex;flex-direction:column;gap:8px;">
             <div class="ui-card" style="border: 1px solid var(--border-subtle);">
               <div class="ui-card-head">
                 <span style="color:var(--amber-400);font-weight:900;"><i data-lucide="sun" class="icon-sm"></i> Paso 2: Campo Solar &amp; Malla Fotovoltaica</span>
@@ -2151,6 +2174,7 @@ window.RA_App = window.RA_App || {};
       <button class="sb-tab-btn" id="cat-tab-btn-inverters" onclick="switchCatalogTab('inverters')" style="padding:6px 12px;font-size:10.5px;border-radius:6px;"><i data-lucide="zap" class="icon-sm"></i> INVERSORES</button>
       <button class="sb-tab-btn" id="cat-tab-btn-batteries" onclick="switchCatalogTab('batteries')" style="padding:6px 12px;font-size:10.5px;border-radius:6px;"><i data-lucide="battery-charging" class="icon-sm"></i> BATERÍAS LFP</button>
       <button class="sb-tab-btn" id="cat-tab-btn-microinverters" onclick="switchCatalogTab('microinverters')" style="padding:6px 12px;font-size:10.5px;border-radius:6px;"><i data-lucide="cpu" class="icon-sm"></i> MICROINVERSORES</button>
+      <button class="sb-tab-btn" id="cat-tab-btn-wind_turbines" onclick="switchCatalogTab('wind_turbines')" style="padding:6px 12px;font-size:10.5px;border-radius:6px;color:#38BDF8;border:1px solid rgba(56,189,248,0.5);background:rgba(56,189,248,0.08);"><i data-lucide="wind" class="icon-sm"></i> 💨 AEROGENERADORES</button>
       <button class="sb-tab-btn" id="cat-tab-btn-structures" onclick="switchCatalogTab('structures')" style="padding:6px 12px;font-size:10.5px;border-radius:6px;color:#38BDF8;border:1px solid rgba(56,189,248,0.4);"><i data-lucide="layers" class="icon-sm"></i> ESTRUCTURAS</button>
       <button class="sb-tab-btn" id="cat-tab-btn-installation_costs" onclick="switchCatalogTab('installation_costs')" style="padding:6px 12px;font-size:10.5px;border-radius:6px;color:#34D399;border:1px solid rgba(52,211,153,0.4);"><i data-lucide="wrench" class="icon-sm"></i> INSTALACIÓN &amp; SOFT COSTS</button>
       <button class="sb-tab-btn" id="cat-tab-btn-add_new" onclick="switchCatalogTab('add_new')" style="padding:6px 12px;font-size:10.5px;border-radius:6px;color:var(--amber-400);border:1px dashed var(--amber-400);"><i data-lucide="plus" class="icon-sm"></i> AÑADIR MANUAL</button>
@@ -2375,7 +2399,8 @@ window.RA_App = window.RA_App || {};
       <div id="cat-pane-ai_search" style="display:none;"></div>
 
       <!-- Panel 8: Estructuras y Fijaciones Comerciales -->
-      <div id="cat-pane-structures" style="display:none;"></div>
+      <div id="cat-pane-wind_turbines" style="display:none;"></div>
+    <div id="cat-pane-structures" style="display:none;"></div>
 
       <!-- Panel 9: Costes de Instalación, Mano de Obra e Ingeniería -->
       <div id="cat-pane-installation_costs" style="display:none;"></div>
@@ -3048,6 +3073,10 @@ addEventListener('keydown', function(e) {
 
   // 1. Tecla ESCAPE (Cancelar colocación / deseleccionar)
   if (e.key === 'Escape' || e.keyCode === 27) {
+    if (window.RAWindUI && typeof window.RAWindUI.isPlacementActive === 'function' && window.RAWindUI.isPlacementActive()) {
+      window.RAWindUI.cancelPlacement();
+      return;
+    }
     if (typeof obsPlacement !== 'undefined' && obsPlacement && obsPlacement.active) {
       cancelObstaclePlacement();
       showToast('COLOCACIÓN', 'Colocación de obstáculo cancelada.', 'info', 2000);
@@ -12669,6 +12698,22 @@ if (typeof equipmentCatalog === 'undefined' && typeof window.equipmentCatalog !=
 window.openEquipmentCatalogModal = openEquipmentCatalogModal;
 window.closeEquipmentCatalogModal = closeEquipmentCatalogModal;
 window.switchCatalogTab = switchCatalogTab;
+
+function wpSwitchGenTab(tab) {
+  var solPanel = document.getElementById("wp-step2-solar-panel");
+  var wndPanel = document.getElementById("wp-step2-wind-panel");
+  var solBtn = document.getElementById("step2-tab-solar");
+  var wndBtn = document.getElementById("step2-tab-wind");
+  if (solPanel) solPanel.style.display = (tab === "solar") ? "flex" : "none";
+  if (wndPanel) wndPanel.style.display = (tab === "wind") ? "block" : "none";
+  if (solBtn) solBtn.classList.toggle("active", tab === "solar");
+  if (wndBtn) wndBtn.classList.toggle("active", tab === "wind");
+  if (tab === "wind" && window.RAWindUI && typeof window.RAWindUI.renderStep2Panel === "function") {
+    window.RAWindUI.renderStep2Panel();
+  }
+}
+window.wpSwitchGenTab = wpSwitchGenTab;
+
 window.onSelectModuleFromDropdown = onSelectModuleFromDropdown;
 window.applyInverterFromCatalog = applyInverterFromCatalog;
 window.applyBatteryFromCatalog = applyBatteryFromCatalog;
@@ -16511,6 +16556,13 @@ window.toggleSolarHUD = toggleSolarHUD;
     }
 
     // ── PRIORIDAD 1: Colocación activa de nuevos obstáculos (Botón de Crear Objeto)
+    if (window.RAWindUI && typeof window.RAWindUI.isPlacementActive === 'function' && window.RAWindUI.isPlacementActive()) {
+      const pos3D = (typeof get3DPosition === 'function') ? get3DPosition(click.position) : null;
+      if (pos3D && window.RAWindUI.placeAtCartesian(pos3D)) {
+        return;
+      }
+    }
+
     if (typeof obsPlacement !== 'undefined' && obsPlacement && obsPlacement.active) {
       if (typeof obsPlaceAt === 'function' && obsPlaceAt(click.position)) return;
     }

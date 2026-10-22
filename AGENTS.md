@@ -36,8 +36,9 @@ c:/TRABAJOS/RA/
 ├── index.html                       # Aplicación completa (HTML/CSS/JS monolito cliente)
 ├── AGENTS.md                        # ← ESTE ARCHIVO. Fuente de verdad para agentes IA.
 ├── MEMORY.md                        # Memoria viva del proyecto: decisiones, estado, deuda técnica
-├── AUDITORIA_INTEGRAL_Y_PLAN_DE_RESOLUCION_2026.md  # Auditoría vigente y plan por gravedad
 ├── MANUAL_TECNICO_INGENIERIA_RA.md  # Física solar y formulación matemática
+├── MANUAL_CIENTIFICO_TECNICO_EOLICO_HIBRIDO.md # Manual científico eólico y normativo
+├── ESPECIFICACION_ARQUITECTURA_MODULO_EOLICO.md # Arquitectura técnica AAA eólica
 ├── css/styles.css                   # Estilos complementarios
 ├── js/
 │   ├── workflow-orchestrator.js     # Máquina de estados del stepper (5 pasos)

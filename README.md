@@ -43,6 +43,8 @@ c:/TRABAJOS/RA/
 ├── AGENTS.md                    # Fuente canónica de la verdad v3.0 para desarrollo e IA
 ├── README.md                    # Documentación ejecutiva del repositorio
 ├── MANUAL_TECNICO_INGENIERIA_RA.md # Manual técnico y formulación matemática
+├── MANUAL_CIENTIFICO_TECNICO_EOLICO_HIBRIDO.md # Manual científico eólico y normativo
+├── ESPECIFICACION_ARQUITECTURA_MODULO_EOLICO.md # Arquitectura técnica AAA eólica
 ├── css/
 │   └── styles.css               # Sistema de diseño, temas glassmórficos y componentes UI
 ├── doc/                         # Especificaciones, tecnología, arquitectura y convenciones
