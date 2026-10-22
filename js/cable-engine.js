@@ -44,18 +44,27 @@
     // Configuración física de visualización
     CONFIG: {
       DC_POS_OFFSET: 0.35,       // Metros sobre plano para polo positivo (+)
-      DC_NEG_OFFSET: 0.45,       // Metros sobre plano para polo negativo (-)
+      DC_NEG_OFFSET: 0.35,       // Metros sobre plano para polo negativo (-) emparejado
+      DC_RETURN_OFFSET: 0.12,    // Metros sobre plano para retorno compensado bajo módulos (anti-bucle)
+      JUMPER_OFFSET: 0.12,       // Metros sobre plano para latiguillos intermódulo (stringing)
+      GROUND_OFFSET: 0.20,       // Metros sobre plano para conductor equipotencial de tierra
       TRAY_OFFSET: 0.40,         // Metros sobre plano para bandeja DC
       AC_OFFSET: 0.35,           // Metros sobre paramento para tubo AC
       CABLE_RADIUS_DC: 0.018,    // Radio visual cable DC (18 mm)
       CABLE_RADIUS_AC: 0.025,    // Radio visual tubo AC (25 mm)
-      TRAY_WIDTH: 0.08,          // Anchura de bandeja portacables (8 cm)
-      TRAY_HEIGHT: 0.03,         // Altura de bandeja portacables (3 cm)
+      TRAY_WIDTH: 0.08,          // Anchura estándar bandeja portacables (8 cm)
+      TRAY_HEIGHT: 0.03,         // Altura estándar bandeja portacables (3 cm)
       COLOR_DC_POS: '#EF4444',   // Rojo solar (DC+)
       COLOR_DC_NEG: '#0284C7',   // Azul grafito alto contraste (DC-)
+      COLOR_DC_RETURN: '#0369A1',// Azul marino retorno anti-bucle
       COLOR_COMBINER: '#10B981', // Verde esmeralda troncal
       COLOR_AC: '#38BDF8',       // Celeste evacuación AC
       COLOR_TRAY: '#64748B',     // Gris metalizado bandeja
+      COLOR_GROUNDING: '#16A34A',// Verde tierra equipotencial Cu 16mm² (ITC-BT-18)
+      STRING_COLORS: [           // Paleta armónica para identificación de strings
+        '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6',
+        '#EC4899', '#06B6D4', '#F97316', '#14B8A6'
+      ],
       SNAP_DISTANCE_METERS: 2.5  // Radio de snap magnético a terminales
     },
 
@@ -180,10 +189,92 @@
     },
 
     /**
+     * Esquiva obstáculos en cubierta (chimeneas, casetones, claraboyas) insertando
+     * quiebros ortogonales a 90° con margen reglamentario (CTE DB-SI / UNE-EN 62548).
+     */
+    detourAroundObstacles: function (positions, basis, marginMeters) {
+      if (!Array.isArray(positions) || positions.length < 2 || typeof Cesium === 'undefined') return positions;
+      var obsList = (typeof global.obstacles !== 'undefined' && Array.isArray(global.obstacles))
+        ? global.obstacles
+        : ((typeof window !== 'undefined' && Array.isArray(window.obstacles)) ? window.obstacles : []);
+      if (!obsList || obsList.length === 0) return positions;
+
+      var margin = (typeof marginMeters === 'number') ? marginMeters : 0.40;
+      var U = basis && basis.uVec;
+      var V = basis && basis.vVec;
+      if (!U || !V) return positions;
+
+      var newPositions = [positions[0]];
+
+      for (var i = 0; i < positions.length - 1; i++) {
+        var pA = positions[i];
+        var pB = positions[i + 1];
+        if (!pA || !pB) continue;
+
+        var segVec = Cesium.Cartesian3.subtract(pB, pA, new Cesium.Cartesian3());
+        var segLen = Cesium.Cartesian3.magnitude(segVec);
+        if (segLen < 0.2) {
+          newPositions.push(pB);
+          continue;
+        }
+
+        var segDir = Cesium.Cartesian3.divideByScalar(segVec, segLen, new Cesium.Cartesian3());
+        var isAlongU = Math.abs(Cesium.Cartesian3.dot(segDir, U)) > 0.7;
+        var isAlongV = Math.abs(Cesium.Cartesian3.dot(segDir, V)) > 0.7;
+
+        if (!isAlongU && !isAlongV) {
+          newPositions.push(pB);
+          continue;
+        }
+
+        var obstacleHit = false;
+        for (var o = 0; o < obsList.length; o++) {
+          var obs = obsList[o];
+          if (!obs) continue;
+          var obsCenter = this.toCartesian3(obs.cartesian || obs.center || obs.position);
+          if (!obsCenter) continue;
+
+          var obsRadius = Math.max(obs.w || 1.0, obs.l || 1.0) * 0.5 + margin;
+
+          // Proyección del centro del obstáculo sobre el tramo de cable
+          var vAO = Cesium.Cartesian3.subtract(obsCenter, pA, new Cesium.Cartesian3());
+          var t = Cesium.Cartesian3.dot(vAO, segDir);
+
+          if (t > 0.2 && t < (segLen - 0.2)) {
+            var pProj = Cesium.Cartesian3.add(pA, Cesium.Cartesian3.multiplyByScalar(segDir, t, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+            var dToSeg = Cesium.Cartesian3.distance(obsCenter, pProj);
+
+            if (dToSeg < obsRadius) {
+              obstacleHit = true;
+              var perpDir = isAlongU ? V : U;
+              var vToSeg = Cesium.Cartesian3.subtract(pProj, obsCenter, new Cesium.Cartesian3());
+              var dotPerp = Cesium.Cartesian3.dot(vToSeg, perpDir);
+              var sign = (dotPerp >= 0) ? 1.0 : -1.0;
+              var detourClearance = obsRadius + 0.15;
+              var detourVec = Cesium.Cartesian3.multiplyByScalar(perpDir, sign * detourClearance, new Cesium.Cartesian3());
+
+              var entryPt = Cesium.Cartesian3.subtract(pProj, Cesium.Cartesian3.multiplyByScalar(segDir, obsRadius + 0.05, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+              var corner1 = Cesium.Cartesian3.add(entryPt, detourVec, new Cesium.Cartesian3());
+              var exitPt = Cesium.Cartesian3.add(pProj, Cesium.Cartesian3.multiplyByScalar(segDir, obsRadius + 0.05, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+              var corner2 = Cesium.Cartesian3.add(exitPt, detourVec, new Cesium.Cartesian3());
+
+              newPositions.push(entryPt, corner1, corner2, exitPt);
+              break;
+            }
+          }
+        }
+
+        newPositions.push(pB);
+      }
+
+      return this.sanitizePositions(newPositions);
+    },
+
+    /**
      * Generador de Trazado Manhattan 3D Ortogonal (90°) sobre Plano de Cubierta y Fachada
      * @param {Cesium.Cartesian3} startPos Punto inicial (panel o caja)
      * @param {Cesium.Cartesian3} endPos Punto final (inversor o contador)
-     * @param {Object} options Opciones de trazado { normalOffset, intermediateWaypoints, basis }
+     * @param {Object} options Opciones de trazado { normalOffset, intermediateWaypoints, basis, avoidObstacles }
      * @returns {Cesium.Cartesian3[]} Lista de vértices de la polilínea ortogonal a 90°
      */
     buildOrthogonalManhattanPath3D: function (startPos, endPos, options) {
@@ -239,16 +330,22 @@
       // Codo 2: Tramo a lo largo del eje V a 90° (hacia la arista de cumbrera o alero)
       var corner2 = Cesium.Cartesian3.add(corner1, Cesium.Cartesian3.multiplyByScalar(V, deltaV, new Cesium.Cartesian3()), new Cesium.Cartesian3());
 
-      // Codo 3: Transición vertical hacia el equipo destino (bajante vertical de fachada a plomo)
+      // Esquivar obstáculos en el plano de cubierta (si no se ha desactivado explícitamente)
+      var roofPoints = [p0, corner1, corner2];
+      if (opts.avoidObstacles !== false) {
+        roofPoints = this.detourAroundObstacles(roofPoints, basis, opts.obstacleMargin || 0.40);
+      }
+      var lastRoofPoint = roofPoints[roofPoints.length - 1];
+
+      // Codo vertical: Transición hacia el equipo destino (bajante vertical de fachada a plomo)
       var up = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(pEnd, new Cesium.Cartesian3());
-      var heightDiff = Cesium.Cartesian3.dot(Cesium.Cartesian3.subtract(corner2, pEnd, new Cesium.Cartesian3()), up);
-      var path;
+      var heightDiff = Cesium.Cartesian3.dot(Cesium.Cartesian3.subtract(lastRoofPoint, pEnd, new Cesium.Cartesian3()), up);
+      var path = roofPoints.slice();
       if (heightDiff > 0.3) {
         var cornerDown = Cesium.Cartesian3.add(pEnd, Cesium.Cartesian3.multiplyByScalar(up, heightDiff, new Cesium.Cartesian3()), new Cesium.Cartesian3());
-        path = [p0, corner1, corner2, cornerDown, pEnd];
-      } else {
-        path = [p0, corner1, corner2, pEnd];
+        path.push(cornerDown);
       }
+      path.push(pEnd);
       return this.sanitizePositions(path);
     },
 
@@ -263,6 +360,7 @@
       var opts = options || {};
       var colorHex = opts.colorHex || this.CONFIG.COLOR_DC_POS;
       var isTray = !!opts.isTray;
+      var nStrings = opts.numStrings || 1;
       
       var sanitized = this.sanitizePositions(positions);
       if (sanitized.length < 2) return [];
@@ -270,6 +368,16 @@
       var color = Cesium.Color.fromCssColorString(colorHex);
       var createdList = [];
       
+      // Dimensionado dinámico de sección según número de strings y tipo de canalización (REBT ITC-BT-19/20)
+      var dynamicWidth = 5.0;
+      if (isTray) {
+        if (nStrings <= 1) dynamicWidth = 6.0;        // Tubo rígido D=32mm
+        else if (nStrings === 2) dynamicWidth = 8.0;   // Bandeja 60x60mm
+        else if (nStrings <= 4) dynamicWidth = 10.0;  // Bandeja 100x60mm
+        else dynamicWidth = 14.0;                     // Bandeja industrial 150-200mm
+      }
+      var finalWidth = (typeof opts.width === 'number') ? opts.width : dynamicWidth;
+
       try {
         if (!window._raCableEnginePrimitives) {
           window._raCableEnginePrimitives = viewer.scene.primitives.add(new Cesium.PolylineCollection());
@@ -277,17 +385,14 @@
         
         var poly = window._raCableEnginePrimitives.add({
           positions: sanitized,
-          width: isTray ? 8.0 : 6.0,
+          width: finalWidth,
           show: true
         });
         
-        // Use PVFlow material to show direction like strings, or solid color
         poly.material = Cesium.Material.fromType('Color', {
           color: color
         });
         
-        // Wrap the primitive in a mock entity object so existing cleanup code works
-        // or just add a flag so we know it's a primitive
         var mockEntity = {
           isCablePrimitive: true,
           primitive: poly,
@@ -591,7 +696,14 @@
         }
       }
 
-      // 5. Generar y Renderizar Trazados DC para cada String
+      // Variables acumuladoras para desglose y metrado REBT
+      var totalDcSingleCoreM = 0;
+      var totalInterModuleJumpersM = 0;
+      var totalTrayM = 0;
+      var totalGroundingM = 0;
+      var stringTelemetryList = [];
+
+      // 5. Generar y Renderizar Trazados DC para cada String con Retorno Compensado Anti-Bucle (UNE-EN 62305)
       allStrings.forEach(function (strObj, sIdx) {
         var sPanels = strObj.panels || [];
         if (sPanels.length === 0) return;
@@ -636,57 +748,142 @@
         if (!startPos || !termPos || !dcTargetPos) return;
 
         var basis = self.getRoofOrthonormalBasis(startPos);
+        var stringColor = self.CONFIG.STRING_COLORS[sIdx % self.CONFIG.STRING_COLORS.length];
 
-        // Si hay nodo Y en cubierta para este par de strings (conectores desacoplados para DC+ y DC-):
+        // ── 5.1 LATIGUILLOS INTERMÓDULO (STRINGING 3D) ─────────────────────────
+        var interModuleM = 0;
+        if (sPanels.length > 1) {
+          for (var p = 0; p < sPanels.length - 1; p++) {
+            var jA = self.toCartesian3(getJunctionBoxPos(sPanels[p]));
+            var jB = self.toCartesian3(getJunctionBoxPos(sPanels[p + 1]));
+            if (jA && jB) {
+              var elevatedA = self.elevatePoint(jA, self.CONFIG.JUMPER_OFFSET, basis.normal);
+              var elevatedB = self.elevatePoint(jB, self.CONFIG.JUMPER_OFFSET, basis.normal);
+              var jLen = Cesium.Cartesian3.distance(elevatedA, elevatedB);
+              interModuleM += jLen;
+
+              var jumperEntities = self.createVolumetricEntity(viewer, [elevatedA, elevatedB], {
+                name: 'Latiguillo Intermódulo ' + (p + 1) + '➔' + (p + 2) + ' String #' + (sIdx + 1),
+                colorHex: stringColor,
+                width: 3.5
+              });
+              jumperEntities.forEach(function (e) { sState.dcCableEntities.push(e); });
+            }
+          }
+        }
+        totalInterModuleJumpersM += interModuleM;
+
+        // ── 5.2 CONDUCTOR DE RETORNO COMPENSADO ANTI-BUCLE (UNE-EN 62305 & IEC 62548) ─
+        // El polo negativo del último panel retorna bajo los módulos pegado a las guías hasta el primer panel
+        var returnPath = [];
+        var lReturn = 0;
+        if (sPanels.length > 1 && Cesium.Cartesian3.distance(termPos, startPos) > 0.4) {
+          for (var r = sPanels.length - 1; r >= 0; r--) {
+            var rPos = self.toCartesian3(getJunctionBoxPos(sPanels[r]));
+            if (rPos) {
+              returnPath.push(self.elevatePoint(rPos, self.CONFIG.DC_RETURN_OFFSET, basis.normal));
+            }
+          }
+          returnPath = self.sanitizePositions(returnPath);
+          lReturn = self.computePathLength(returnPath);
+
+          var returnEntities = self.createVolumetricEntity(viewer, returnPath, {
+            name: 'Retorno Compensado Anti-Bucle String #' + (sIdx + 1) + ' (UNE-EN 62305)',
+            colorHex: self.CONFIG.COLOR_DC_RETURN,
+            width: 4.0
+          });
+          returnEntities.forEach(function (e) { sState.dcCableEntities.push(e); });
+        }
+
+        // Si hay nodo Y en cubierta para este par de strings:
         var targetForStringPos = (yBranchNodePos && sIdx < 2) ? yBranchNodePos : dcTargetPos;
         var targetForStringNeg = (yBranchNodeNeg && sIdx < 2) ? yBranchNodeNeg : dcTargetPos;
 
-        var stringOffset = (sIdx % 6) * 0.04;
-        // Trazado DC+ (Rojo, cota +0.35m sobre faldón)
+        // ── 5.3 TIRADAS PRINCIPALES PAREADAS (HOMERUN EMPAREJADO EN LA MISMA BANDEJA) ─
+        // Ambos polos DC+ y DC- viajan juntos con una mínima separación de ±0.02m (cero bucle)
+        var stringBundleOffset = (sIdx % 4) * 0.04;
+
         var posPath = self.buildOrthogonalManhattanPath3D(startPos, targetForStringPos, {
-          normalOffset: self.CONFIG.DC_POS_OFFSET + (sIdx % 2) * 0.015,
-          lateralOffset: stringOffset,
+          normalOffset: self.CONFIG.DC_POS_OFFSET + (sIdx % 2) * 0.012,
+          lateralOffset: stringBundleOffset + 0.02,
           basis: basis,
           waypoints: hasManualDc ? sState.routes.dc : null
         });
 
-        // Trazado DC- (Azul, cota +0.45m sobre faldón / retorno compensado)
-        var negPath = self.buildOrthogonalManhattanPath3D(termPos, targetForStringNeg, {
-          normalOffset: self.CONFIG.DC_NEG_OFFSET + (sIdx % 2) * 0.015,
-          lateralOffset: stringOffset,
+        var negPath = self.buildOrthogonalManhattanPath3D(startPos, targetForStringNeg, {
+          normalOffset: self.CONFIG.DC_NEG_OFFSET + (sIdx % 2) * 0.012,
+          lateralOffset: stringBundleOffset - 0.02,
           isNeg: true,
           basis: basis,
           waypoints: hasManualDc ? sState.routes.dc : null
         });
 
         var lPos = self.computePathLength(posPath);
-        var lNeg = self.computePathLength(negPath);
-        var numMods = (strObj && strObj.panels && Array.isArray(strObj.panels)) ? strObj.panels.length : ((strObj && strObj.numPanels) || 0);
-        var interModuleCableM = Math.max(0, (numMods - 1) * 1.25);
-        var totalStrLen = lPos + lNeg + interModuleCableM;
-        var strMaxDc = Math.max(lPos, lNeg) + interModuleCableM;
+        var lNegHomerun = self.computePathLength(negPath);
+        var lNegTotal = lNegHomerun + lReturn;
+
+        var numMods = sPanels.length;
+        var totalStrLen = lPos + lNegTotal + interModuleM;
+        var strMaxDc = Math.max(lPos, lNegTotal) + interModuleM;
         if (strMaxDc > maxLdc) maxLdc = strMaxDc;
 
-        // Crear entidades volumétricas 3D con sombras reales + polyline de alta visibilidad
+        totalDcSingleCoreM += (lPos + lNegTotal);
+        totalTrayM += Math.max(lPos, lNegHomerun);
+
+        // Crear entidades volumétricas para DC+ y DC- con ancho adaptativo
         var posEntities = self.createVolumetricEntity(viewer, posPath, {
-          name: 'Acometida DC+ String #' + (sIdx + 1) + ' (90° Manhattan 3D)',
+          name: 'Acometida DC+ String #' + (sIdx + 1) + ' (Homerun Pareado)',
           colorHex: self.CONFIG.COLOR_DC_POS,
+          width: 5.0,
           radius: self.CONFIG.CABLE_RADIUS_DC
         });
         posEntities.forEach(function (e) { sState.dcCableEntities.push(e); });
 
         var negEntities = self.createVolumetricEntity(viewer, negPath, {
-          name: 'Acometida DC- String #' + (sIdx + 1) + ' (90° Manhattan 3D)',
+          name: 'Acometida DC- String #' + (sIdx + 1) + ' (Homerun Pareado)',
           colorHex: self.CONFIG.COLOR_DC_NEG,
+          width: 5.0,
           radius: self.CONFIG.CABLE_RADIUS_DC
         });
         negEntities.forEach(function (e) { sState.dcCableEntities.push(e); });
+
+        // ── 5.4 CONDUCTOR DE PUESTA A TIERRA DE ESTRUCTURA Y MARCOS (ITC-BT-18) ──
+        var groundPath = self.buildOrthogonalManhattanPath3D(startPos, dcTargetPos, {
+          normalOffset: self.CONFIG.GROUND_OFFSET,
+          lateralOffset: stringBundleOffset,
+          basis: basis,
+          waypoints: hasManualDc ? sState.routes.dc : null
+        });
+        var lGround = self.computePathLength(groundPath) + (numMods * 1.15);
+        totalGroundingM += lGround;
+
+        var groundEntities = self.createVolumetricEntity(viewer, groundPath, {
+          name: 'Conductor Equipotencial Tierra Cu 16mm² (ITC-BT-18) String #' + (sIdx + 1),
+          colorHex: self.CONFIG.COLOR_GROUNDING,
+          width: 3.0,
+          radius: 0.010
+        });
+        groundEntities.forEach(function (e) { sState.dcCableEntities.push(e); });
+
+        // Guardar datos preliminares de este string para telemetría
+        stringTelemetryList.push({
+          index: sIdx + 1,
+          name: strObj.stringName || ('String #' + (sIdx + 1)),
+          numPanels: numMods,
+          homerunLength: Math.round(lPos * 10) / 10,
+          posHomerunLength: Math.round(lPos * 10) / 10,
+          negHomerunLength: Math.round(lNegHomerun * 10) / 10,
+          returnConductorLength: Math.round(lReturn * 10) / 10,
+          interModuleLength: Math.round(interModuleM * 10) / 10,
+          totalCableLength: Math.round(totalStrLen * 10) / 10,
+          isAntiLoop: true
+        });
 
         // Etiqueta 2D de telemetría de string
         var midIdx = Math.floor(posPath.length / 2);
         var midPt = posPath[midIdx] || posPath[0];
         if (typeof global.addLabelEntity === 'function') {
-          var labelText = '⚡ String ' + (sIdx + 1) + ' (DC+/DC-) · ' + totalStrLen.toFixed(1) + ' m [90°]';
+          var labelText = '⚡ String ' + (sIdx + 1) + ' (DC+/DC-) · ' + totalStrLen.toFixed(1) + ' m [Anti-Bucle]';
           var lbl = global.addLabelEntity(midPt, labelText, -6, {
             bg: 'rgba(15, 23, 42, 0.90)',
             borderColor: self.CONFIG.COLOR_DC_POS,
@@ -707,11 +904,13 @@
         });
         var yTrunkLen = self.computePathLength(yTrunkPath);
         maxLdc += yTrunkLen;
+        totalTrayM += yTrunkLen;
 
         var yTrunkEntities = self.createVolumetricEntity(viewer, yTrunkPath, {
           name: 'Troncal DC Bipolar Paralelo Y (90° Manhattan)',
           colorHex: self.CONFIG.COLOR_TRAY,
-          isTray: true
+          isTray: true,
+          numStrings: allStrings.length
         });
         yTrunkEntities.forEach(function (e) { sState.dcCableEntities.push(e); });
       }
@@ -726,11 +925,13 @@
         });
         var lTrunk = self.computePathLength(trunkPath);
         maxLdc += lTrunk;
+        totalTrayM += lTrunk;
 
         var trunkEntities = self.createVolumetricEntity(viewer, trunkPath, {
           name: 'Troncal DC Combiner ➔ Cuadro/Inversor (90° Manhattan 3D)',
           colorHex: self.CONFIG.COLOR_COMBINER,
-          isTray: true
+          isTray: true,
+          numStrings: allStrings.length
         });
         trunkEntities.forEach(function (e) { sState.dcCableEntities.push(e); });
 
@@ -753,11 +954,13 @@
         });
         var lDcInv = self.computePathLength(dcToInvPath);
         maxLdc += lDcInv;
+        totalTrayM += lDcInv;
 
         var dcToInvEntities = self.createVolumetricEntity(viewer, dcToInvPath, {
           name: 'Puente DC Cuadro ➔ Inversor (90° Manhattan 3D)',
           colorHex: self.CONFIG.COLOR_COMBINER,
-          isTray: true
+          isTray: true,
+          numStrings: allStrings.length
         });
         dcToInvEntities.forEach(function (e) { sState.dcCableEntities.push(e); });
       }
@@ -769,11 +972,13 @@
         });
         var lBridge = self.computePathLength(bridgePath);
         maxLdc += lBridge;
+        totalTrayM += lBridge;
 
         var bridgeEntities = self.createVolumetricEntity(viewer, bridgePath, {
           name: 'Puente DC Cuadro ➔ Inversor (90° Manhattan 3D)',
           colorHex: self.CONFIG.COLOR_COMBINER,
-          isTray: true
+          isTray: true,
+          numStrings: allStrings.length
         });
         bridgeEntities.forEach(function (e) { sState.dcCableEntities.push(e); });
       }
@@ -842,6 +1047,52 @@
 
       // 8. Dimensionamiento Eléctrico REBT ITC-BT-40 y Actualización de Telemetría
       this.updateElectricalSizingAndHUD(sState.L_dc_measured, sState.L_ac_measured);
+
+      // 9. Completar Telemetría REBT por String y Desglose de Materiales (BOM / Memoria Técnica)
+      var modCfg = global.panelConfig || { potencia: 450, isc: 13.8, imp: 13.05, vmp: 34.5, voc: 41.5 };
+      var vmpNom = modCfg.vmp || 34.5;
+      var vocNom = modCfg.voc || (vmpNom * 1.20);
+      var rho90 = 0.023;
+      var imp = modCfg.imp || 13.05;
+      var secDc = sState.S_dc_recommended || 6;
+
+      stringTelemetryList.forEach(function (st) {
+        var nMods = st.numPanels || 1;
+        st.vmpHot = Math.round(nMods * vmpNom * 0.88 * 10) / 10;
+        st.vocCold = Math.round(nMods * vocNom * 1.12 * 10) / 10;
+        st.recommendedSection = secDc;
+        var dVStr = (2 * rho90 * (st.homerunLength || 20) * imp) / secDc;
+        var dVpctStr = (dVStr / Math.max(12.0, st.vmpHot)) * 100;
+        st.voltageDropV = Math.round(dVStr * 100) / 100;
+        st.voltageDropPct = Math.round(dVpctStr * 100) / 100;
+        st.compliance = (dVpctStr <= 1.5);
+      });
+      sState.stringTelemetry = stringTelemetryList;
+
+      var numStrings = allStrings.length;
+      var trayWidthMm = (numStrings <= 1) ? 60 : ((numStrings === 2) ? 60 : ((numStrings <= 4) ? 100 : 150));
+      var trayDesc = (numStrings <= 1)
+        ? 'Tubo rígido D=32mm libre de halógenos'
+        : ('Bandeja metálica perforada ' + trayWidthMm + 'x60 mm con tapa (REBT ITC-BT-19)');
+
+      var totalPanelsCount = 0;
+      allStrings.forEach(function (s) { totalPanelsCount += (s.panels ? s.panels.length : 0); });
+
+      sState.cableBreakdown = {
+        totalDcCableMeters: Math.round(totalDcSingleCoreM * 10) / 10,
+        totalInterModuleMeters: Math.round(totalInterModuleJumpersM * 10) / 10,
+        totalTrayMeters: Math.round(totalTrayM * 10) / 10,
+        trayType: trayDesc,
+        trayWidthMm: trayWidthMm,
+        totalAcConduitMeters: Math.round((sState.L_ac_measured || 0) * 10) / 10,
+        acConduitSpec: 'Tubo rígido curvable en frío M32 libre de halógenos (REBT ITC-BT-20)',
+        totalAcCableMeters: Math.round((sState.L_ac_measured || 0) * 10) / 10,
+        acCableSpec: 'Manguera RZ1-K (AS) 0,6/1 kV libre de halógenos ' + (sState.S_ac_recommended || 10) + ' mm²',
+        totalGroundingMeters: Math.round(totalGroundingM * 10) / 10,
+        groundingSpec: 'Cable de cobre desnudo Cu 16 mm² para equipotencialidad de estructuras (ITC-BT-18)',
+        mc4ConnectorPairs: (numStrings * 2) + (isParallelY ? 2 : 0) + totalPanelsCount,
+        fillFactorPct: Math.min(40, Math.round(((numStrings * 2 * 35) / (trayWidthMm * 60)) * 100))
+      };
 
       console.info('[RACableEngine] ⚡ Cables generados con éxito: ' + allStrings.length + ' string(s), maxLdc=' + maxLdc.toFixed(1) + 'm, Lac=' + (sState.L_ac_measured || 0).toFixed(1) + 'm');
 
@@ -1086,6 +1337,18 @@
         // Test 5: Trazado Manhattan Ortogonal 90°
         var path = RACableEngine.buildOrthogonalManhattanPath3D(pA, pC, { normalOffset: 0.35 });
         assert('Trazado Manhattan devuelve array de vértices >= 3', Array.isArray(path) && path.length >= 3);
+
+        // Test 6: Esquivado de Obstáculos a 90° (CTE DB-SI)
+        var basisTest = { normal: new Cesium.Cartesian3(0, 0, 1), uVec: new Cesium.Cartesian3(1, 0, 0), vVec: new Cesium.Cartesian3(0, 1, 0) };
+        var savedObs = global.obstacles;
+        global.obstacles = [{ cartesian: new Cesium.Cartesian3(5, 0, 0), w: 1.0, l: 1.0, h: 1.2 }];
+        var detouredPath = RACableEngine.buildOrthogonalManhattanPath3D(new Cesium.Cartesian3(0, 0, 0), new Cesium.Cartesian3(10, 0, 0), { basis: basisTest, normalOffset: 0.35 });
+        assert('Esquivado de obstáculos inserta quiebros perimetrales (vértices > 3)', Array.isArray(detouredPath) && detouredPath.length > 3);
+        global.obstacles = savedObs;
+
+        // Test 7: Configuración de colores de stringing y retorno anti-bucle
+        assert('Paleta armónica de stringing disponible con >= 6 colores', Array.isArray(RACableEngine.CONFIG.STRING_COLORS) && RACableEngine.CONFIG.STRING_COLORS.length >= 6);
+        assert('Constante de retorno anti-bucle definida', !!RACableEngine.CONFIG.COLOR_DC_RETURN);
       }
 
       console.info('[RACableEngine] Resultados de verificación:', results);
