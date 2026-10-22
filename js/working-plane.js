@@ -3908,9 +3908,17 @@ function wpUpdateLayoutFastMetrics() {
   if (elStatPanels) elStatPanels.textContent = totalCount;
   if (elStatPower) elStatPower.textContent = kwpVal + ' kWp';
 
-  // 4. Actualizar HUD de estado de forma ligera si está disponible
+  // 4. Recalcular producción estimada real (mes a mes + píldora + histograma) en vivo
+  if (typeof recalculateSolarYield === 'function') {
+    recalculateSolarYield(true);
+  }
+  if (typeof wpUpdateLiveSweetSpotTelemetry === 'function') {
+    wpUpdateLiveSweetSpotTelemetry(WP && WP.selectedPolyIdx);
+  }
+
+  // 5. Actualizar HUD de estado de forma ligera si está disponible
   if (typeof RAProjectStatusHUD !== 'undefined' && RAProjectStatusHUD && typeof RAProjectStatusHUD.update === 'function') {
-    if (!wpUpdateLayoutFastMetrics._lastHudTime || (Date.now() - wpUpdateLayoutFastMetrics._lastHudTime > 400)) {
+    if (!wpUpdateLayoutFastMetrics._lastHudTime || (Date.now() - wpUpdateLayoutFastMetrics._lastHudTime > 120)) {
       wpUpdateLayoutFastMetrics._lastHudTime = Date.now();
       RAProjectStatusHUD.update();
     }
@@ -4196,11 +4204,12 @@ function wpPopulateFaldonCard() {
   var azSlider = document.getElementById('faldon-az-slider');
   if (azSlider) azSlider.value = (az === 'auto' ? 180 : az);
 
+  if (typeof wpUpdateFaldonRowPitchUI === "function") wpUpdateFaldonRowPitchUI(WP.selectedPolyIdx);
+  if (typeof wpUpdateLiveSweetSpotTelemetry === "function") wpUpdateLiveSweetSpotTelemetry(WP.selectedPolyIdx);
+
   // Refrescar iconos Lucide
   if (window.lucide) try { lucide.createIcons(); } catch(_) {}
 }
-
-  if (typeof wpUpdateFaldonRowPitchUI === "function") wpUpdateFaldonRowPitchUI(WP.selectedPolyIdx);
 window.wpPopulateFaldonCard = wpPopulateFaldonCard;
 
 // ─────────────────────────────────────────────────────────────────
@@ -4330,9 +4339,17 @@ function wpApplyPanelArrangement(polyIdx, mode) {
     : 40.4168;
   const optimalTilt = Math.min(35, Math.max(15, Math.round(3.7 + 0.69 * Math.abs(lat))));
 
+  if (poly._baselineYieldKwh === undefined && typeof wpComputePolyQuickYield === 'function') {
+    const baseStats = wpComputePolyQuickYield(poly);
+    poly._baselineYieldKwh = baseStats.annualYieldKWh;
+    poly._baselinePanelCount = baseStats.numPanels;
+  }
+
   poly.arrangementMode = mode;
 
   if (mode === 'coplanar') {
+    poly.lockRowPitch = false;
+    poly.lockedRowPitchM = 0;
     poly.alignToPlane = true;
     poly.modTilt = 'auto';
     poly.modAzimuth = 'auto';
@@ -4386,10 +4403,12 @@ function wpApplyPanelArrangement(polyIdx, mode) {
   }
 
   if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Disposición de paneles modificada');
-  if (typeof wpFastRenderSimulatedPanels === 'function') wpFastRenderSimulatedPanels();
+  if (typeof wpFastRenderSimulatedPanels === 'function') wpFastRenderSimulatedPanels(true, polyIdx);
   if (typeof wpUpdateLayoutFastMetrics === 'function') wpUpdateLayoutFastMetrics();
+  if (typeof wpPopulateFaldonCard === 'function') wpPopulateFaldonCard();
   if (typeof wpSyncStep6Controls === 'function') wpSyncStep6Controls();
   if (typeof wpSyncEstructuraUI === 'function') wpSyncEstructuraUI();
+  if (typeof recalculateSolarYield === 'function') recalculateSolarYield(true);
 
   const slopeVal = (poly.roofInfo && poly.roofInfo.tiltDeg !== undefined) ? poly.roofInfo.tiltDeg : 0;
   const isSouthFav = (slopeVal > 8 && poly.modAzimuth === 'auto');
@@ -4442,6 +4461,13 @@ let wpAzimuthRafId = null;
 
 function wpSetPolyAzimuthRealtime(polyIdx, val) {
   if (!WP.polylines || !WP.polylines[polyIdx]) return;
+  const polyRef = WP.polylines[polyIdx];
+  if (polyRef._baselineYieldKwh === undefined && window.RA && window.RA.solarStats && window.RA.solarStats.annualYieldKWh > 0) {
+    polyRef._baselineYieldKwh = window.RA.solarStats.annualYieldKWh;
+  }
+  if (polyRef._baselinePanelCount === undefined && polyRef.roofInfo && polyRef.roofInfo.panels) {
+    polyRef._baselinePanelCount = polyRef.roofInfo.panels.length;
+  }
   WP.polylines[polyIdx].modAzimuth = val;
   WP.polylines[polyIdx].arrangementMode = (val === "auto" || val === "") ? 'coplanar' : 'custom';
   if (val !== "auto" && val !== "") {
@@ -4450,7 +4476,11 @@ function wpSetPolyAzimuthRealtime(polyIdx, val) {
   WP.selectedPolyIdx = polyIdx;
 
   const lbl = document.getElementById("faldon-az-val");
-  if (lbl) lbl.textContent = (val === "auto" || val === "") ? "Auto" : (val + "°");
+  if (lbl) {
+    lbl.textContent = (val === "auto" || val === "")
+      ? "Auto"
+      : (val + "°" + (typeof getAzimuthCardinalShort === 'function' ? ' · ' + getAzimuthCardinalShort(Number(val)) : ''));
+  }
 
   const slider = document.getElementById("faldon-az-slider");
   if (slider && val !== "auto") slider.value = val;
@@ -4465,7 +4495,7 @@ function wpSetPolyAzimuthRealtime(polyIdx, val) {
       if (pInfo) poly.roofInfo = pInfo;
 
       if (roofPanelsCache) roofPanelsCache.sig = "";
-      wpFastRenderSimulatedPanels();
+      wpFastRenderSimulatedPanels(true, polyIdx);
 
       const cardModLbl = document.getElementById("faldon-card-stats");
       if (cardModLbl && poly && poly.roofInfo && poly.roofInfo.panels) {
@@ -4473,6 +4503,7 @@ function wpSetPolyAzimuthRealtime(polyIdx, val) {
         const kw = (c * wpGetPolyWp(poly) / 1000).toFixed(2);
         cardModLbl.innerHTML = c + ' mods <span style="font-size: 10px;color:var(--amber-400);margin-left:4px;">· ' + kw + ' kWp</span>';
       }
+      if (typeof wpUpdateFaldonRowPitchUI === "function") wpUpdateFaldonRowPitchUI(polyIdx);
       if (typeof wpUpdateLayoutFastMetrics === "function") wpUpdateLayoutFastMetrics();
       if (typeof wpSyncStep6Controls === "function") wpSyncStep6Controls();
     });
@@ -4482,7 +4513,7 @@ function wpSetPolyAzimuthRealtime(polyIdx, val) {
     if (pInfo) poly.roofInfo = pInfo;
 
     if (roofPanelsCache) roofPanelsCache.sig = "";
-    wpFastRenderSimulatedPanels();
+    wpFastRenderSimulatedPanels(true, polyIdx);
 
     const cardModLbl = document.getElementById("faldon-card-stats");
     if (cardModLbl && poly && poly.roofInfo && poly.roofInfo.panels) {
@@ -4490,6 +4521,7 @@ function wpSetPolyAzimuthRealtime(polyIdx, val) {
       const kw = (c * wpGetPolyWp(poly) / 1000).toFixed(2);
       cardModLbl.innerHTML = c + ' mods <span style="font-size: 10px;color:var(--amber-400);margin-left:4px;">· ' + kw + ' kWp</span>';
     }
+    if (typeof wpUpdateFaldonRowPitchUI === "function") wpUpdateFaldonRowPitchUI(polyIdx);
     if (typeof wpUpdateLayoutFastMetrics === "function") wpUpdateLayoutFastMetrics();
     if (typeof wpSyncStep6Controls === "function") wpSyncStep6Controls();
   }
@@ -4500,6 +4532,8 @@ function wpCommitPolyAzimuth(polyIdx) {
     window.wpInvalidateHeatmap('Azimut de módulo fijado');
   }
   if (typeof wpSyncStep6Controls === 'function') wpSyncStep6Controls();
+  if (typeof recalculateSolarYield === 'function') recalculateSolarYield(true);
+  if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') BOMTreeEngine.refresh();
 }
 window.wpCommitPolyAzimuth = wpCommitPolyAzimuth;
 
@@ -4570,6 +4604,7 @@ function wpGetFaldonOrientationComparison(poly) {
             (poly.hasWalkway ? 'w1' : 'w0') + '_' +
             (poly.walkwayWidth || 0.8) + '_' +
             (poly.obstacleSetback || 0) + '_' +
+            (poly.lockRowPitch ? ('lk' + (poly.lockedRowPitchM || 1)) : 'lk0') + '_' +
             ((poly.estructura && poly.estructura.tipo) || '');
 
   if (poly._orientCompCache && poly._orientCompCache.sig === sig && (Date.now() - poly._orientCompCache.ts < 4000)) {
@@ -4695,6 +4730,13 @@ let wpTiltRafId = null;
 
 function wpSetPolyTiltRealtime(polyIdx, val) {
   if (!WP.polylines || !WP.polylines[polyIdx]) return;
+  const polyRef = WP.polylines[polyIdx];
+  if (polyRef._baselineYieldKwh === undefined && window.RA && window.RA.solarStats && window.RA.solarStats.annualYieldKWh > 0) {
+    polyRef._baselineYieldKwh = window.RA.solarStats.annualYieldKWh;
+  }
+  if (polyRef._baselinePanelCount === undefined && polyRef.roofInfo && polyRef.roofInfo.panels) {
+    polyRef._baselinePanelCount = polyRef.roofInfo.panels.length;
+  }
   WP.polylines[polyIdx].modTilt = val;
   WP.polylines[polyIdx].arrangementMode = (val === "auto" || val === "") ? 'coplanar' : 'custom';
   WP.selectedPolyIdx = polyIdx;
@@ -4708,29 +4750,6 @@ if (lbl) lbl.textContent = (val === "auto" || val === "") ? "Auto (faldón)" : (
   const slider = document.getElementById("faldon-tilt-slider");
   if (slider && val !== "auto") slider.value = val;
 
-  const pitchVal = null; // pitch elements removed in master-detail refactor
-  const pitchClean = null;
-  if (pitchVal && pitchClean) {
-    if (val === "auto" || parseFloat(val) <= 0) {
-      pitchVal.textContent = "Auto (Coplanar)";
-      pitchClean.innerHTML = "<i data-lucide=\"check-circle\" class=\"icon-sm\"></i> OK"; if(window.lucide) lucide.createIcons();
-      pitchClean.style.color = "#34D399";
-    } else {
-      const numTilt = parseFloat(val);
-      if (typeof computeInterRowPitch === 'function') {
-        const pInfo = computeInterRowPitch({ moduleLength: 2.2, tiltDeg: numTilt });
-        pitchVal.textContent = pInfo.totalPitchM + " m";
-        if (numTilt < 10) {
-          pitchClean.innerHTML = "<i data-lucide=\"alert-triangle\" class=\"icon-sm\"></i> <10° Autolimpieza"; if(window.lucide) lucide.createIcons();
-          pitchClean.style.color = "#F87171";
-        } else {
-          pitchClean.innerHTML = "<i data-lucide=\"check-circle\" class=\"icon-sm\"></i> Autolimpieza OK"; if(window.lucide) lucide.createIcons();
-          pitchClean.style.color = "#34D399";
-        }
-      }
-    }
-  }
-
   if (typeof window !== "undefined" && window.requestAnimationFrame) {
     if (wpTiltRafId) cancelAnimationFrame(wpTiltRafId);
     wpTiltRafId = requestAnimationFrame(() => {
@@ -4741,7 +4760,7 @@ if (lbl) lbl.textContent = (val === "auto" || val === "") ? "Auto (faldón)" : (
       if (pInfo) poly.roofInfo = pInfo;
 
       if (roofPanelsCache) roofPanelsCache.sig = "";
-      wpFastRenderSimulatedPanels();
+      wpFastRenderSimulatedPanels(true, polyIdx);
 
       const cardModLbl = document.getElementById("faldon-card-stats");
       if (cardModLbl && poly && poly.roofInfo && poly.roofInfo.panels) {
@@ -4749,6 +4768,7 @@ if (lbl) lbl.textContent = (val === "auto" || val === "") ? "Auto (faldón)" : (
         const kw = (c * wpGetPolyWp(poly) / 1000).toFixed(2);
         cardModLbl.innerHTML = c + ' mods <span style="font-size: 10px;color:var(--amber-400);margin-left:4px;">· ' + kw + ' kWp</span>';
       }
+      if (typeof wpUpdateFaldonRowPitchUI === "function") wpUpdateFaldonRowPitchUI(polyIdx);
       if (typeof wpUpdateLayoutFastMetrics === "function") wpUpdateLayoutFastMetrics();
       if (typeof wpSyncStep6Controls === "function") wpSyncStep6Controls();
     });
@@ -4757,11 +4777,166 @@ if (lbl) lbl.textContent = (val === "auto" || val === "") ? "Auto (faldón)" : (
   }
 }
 
+function wpTogglePolyLockRowPitch(polyIdx, locked) {
+  if (polyIdx === undefined || polyIdx === null || polyIdx < 0) polyIdx = (typeof WP !== 'undefined') ? WP.selectedPolyIdx : 0;
+  if (!WP.polylines || !WP.polylines[polyIdx]) return;
+  const poly = WP.polylines[polyIdx];
+  poly.lockRowPitch = !!locked;
+  if (poly.lockRowPitch) {
+    const curPitch = (poly.roofInfo && poly.roofInfo.rowPitch > 0) ? poly.roofInfo.rowPitch : 0;
+    if (curPitch > 0) poly.lockedRowPitchM = curPitch;
+  } else {
+    poly.lockedRowPitchM = 0;
+  }
+  if (roofPanelsCache) roofPanelsCache.sig = "";
+  if (typeof computeSinglePolylineRoofInfo === "function") {
+    poly.roofInfo = computeSinglePolylineRoofInfo(poly.points, poly);
+  }
+  if (typeof wpFastRenderSimulatedPanels === "function") wpFastRenderSimulatedPanels(true, polyIdx);
+  if (typeof wpUpdateFaldonRowPitchUI === "function") wpUpdateFaldonRowPitchUI(polyIdx);
+  if (typeof wpUpdateLayoutFastMetrics === "function") wpUpdateLayoutFastMetrics();
+}
+window.wpTogglePolyLockRowPitch = wpTogglePolyLockRowPitch;
+
+function wpSnapPolyToSweetSpot(polyIdx, mode) {
+  if (polyIdx === undefined || polyIdx === null || polyIdx < 0) polyIdx = (typeof WP !== 'undefined') ? WP.selectedPolyIdx : 0;
+  if (!WP.polylines || !WP.polylines[polyIdx]) return;
+  const poly = WP.polylines[polyIdx];
+  if (poly._baselineYieldKwh === undefined && window.RA && window.RA.solarStats && window.RA.solarStats.annualYieldKWh > 0) {
+    poly._baselineYieldKwh = window.RA.solarStats.annualYieldKWh;
+  }
+  if (poly._baselinePanelCount === undefined && poly.roofInfo && poly.roofInfo.panels) {
+    poly._baselinePanelCount = poly.roofInfo.panels.length;
+  }
+
+  let lat = 37.38;
+  if (poly.roofInfo && typeof poly.roofInfo.latDeg === 'number') {
+    lat = poly.roofInfo.latDeg;
+  } else if (window.solarProjectConfig && typeof window.solarProjectConfig.latitude === 'number') {
+    lat = window.solarProjectConfig.latitude;
+  }
+  const optTilt = Math.min(35, Math.max(15, Math.round(3.7 + 0.69 * Math.abs(lat))));
+  const optAzGeo = (lat >= 0) ? 180 : 0;
+
+  poly.arrangementMode = 'custom';
+  poly.modTilt = optTilt;
+  if (mode !== 'tilt_only') {
+    poly.modAzimuth = optAzGeo;
+    poly.alignToPlane = false;
+  }
+  if (!poly.estructura) poly.estructura = { tipo: 'balasto', clearance: 0.20 };
+  if (poly.estructura.tipo === 'coplanar') poly.estructura.tipo = 'balasto';
+
+  const tiltNum = document.getElementById("faldon-tilt-num");
+  if (tiltNum) tiltNum.value = optTilt;
+  const tiltSlider = document.getElementById("faldon-tilt-slider");
+  if (tiltSlider) tiltSlider.value = optTilt;
+  const tiltLbl = document.getElementById("faldon-tilt-val");
+  if (tiltLbl) tiltLbl.textContent = optTilt + "°";
+
+  if (mode !== 'tilt_only') {
+    const azSlider = document.getElementById("faldon-az-slider");
+    if (azSlider) azSlider.value = optAzGeo;
+    const azLbl = document.getElementById("faldon-az-val");
+    if (azLbl) azLbl.textContent = optAzGeo + "° · " + (typeof getAzimuthCardinalShort === 'function' ? getAzimuthCardinalShort(optAzGeo) : 'S');
+  }
+
+  if (roofPanelsCache) roofPanelsCache.sig = "";
+  if (typeof computeSinglePolylineRoofInfo === "function") {
+    poly.roofInfo = computeSinglePolylineRoofInfo(poly.points, poly);
+  }
+  if (typeof window.wpInvalidateHeatmap === 'function') {
+    window.wpInvalidateHeatmap('Ángulo clavado en el punto dulce solar');
+  }
+  if (typeof wpFastRenderSimulatedPanels === "function") wpFastRenderSimulatedPanels(true, polyIdx);
+  if (typeof wpUpdateFaldonRowPitchUI === "function") wpUpdateFaldonRowPitchUI(polyIdx);
+  if (typeof wpUpdateLayoutFastMetrics === "function") wpUpdateLayoutFastMetrics();
+  if (typeof wpPopulateFaldonCard === "function") wpPopulateFaldonCard();
+  if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') BOMTreeEngine.refresh();
+  if (typeof showStatus === 'function') {
+    showStatus(`🏆 PICO SOLAR CLAVADO EN ${optTilt}° · ${mode === 'tilt_only' ? 'INCLINACIÓN ÓPTIMA' : (optAzGeo + '° SUR')}`, 2500);
+  }
+}
+window.wpSnapPolyToSweetSpot = wpSnapPolyToSweetSpot;
+
+function wpUpdateLiveSweetSpotTelemetry(polyIdx) {
+  if (polyIdx === undefined || polyIdx === null || polyIdx < 0) polyIdx = (typeof WP !== 'undefined') ? WP.selectedPolyIdx : 0;
+  if (typeof WP === 'undefined' || !WP.polylines || !WP.polylines[polyIdx]) return;
+  const poly = WP.polylines[polyIdx];
+  const pInfo = poly.roofInfo;
+
+  const badgeEl = document.getElementById('faldon-live-sweetspot-badge');
+  const specEl = document.getElementById('faldon-live-specific-yield');
+  const countEl = document.getElementById('faldon-live-panel-count');
+  const totalEl = document.getElementById('faldon-live-total-yield');
+  const lockChk = document.getElementById('faldon-lock-row-pitch-chk');
+  if (lockChk) lockChk.checked = !!poly.lockRowPitch;
+
+  if (!badgeEl && !specEl && !totalEl) return;
+
+  const stats = (window.RA && window.RA.solarStats) ? window.RA.solarStats : null;
+  const totalKwh = (stats && stats.annualYieldKWh > 0) ? Math.round(stats.annualYieldKWh) : 0;
+  const hsp = (stats && stats.hsp > 0) ? Math.round(stats.hsp) : 0;
+  const curPanels = (pInfo && Array.isArray(pInfo.panels)) ? pInfo.panels.length : 0;
+
+  if (poly._baselineYieldKwh === undefined && totalKwh > 0) {
+    poly._baselineYieldKwh = totalKwh;
+  }
+  if (poly._baselinePanelCount === undefined && curPanels > 0) {
+    poly._baselinePanelCount = curPanels;
+  }
+
+  let lat = 37.38;
+  if (pInfo && typeof pInfo.latDeg === 'number') lat = pInfo.latDeg;
+  else if (window.solarProjectConfig && typeof window.solarProjectConfig.latitude === 'number') lat = window.solarProjectConfig.latitude;
+  const optTilt = Math.min(35, Math.max(15, Math.round(3.7 + 0.69 * Math.abs(lat))));
+
+  const curTilt = (pInfo && typeof pInfo.moduleTiltDeg === 'number') ? Math.round(pInfo.moduleTiltDeg) : (parseFloat(poly.modTilt) || 0);
+  const curAzSur = (pInfo && typeof pInfo.moduleAzimuthDeg === 'number') ? pInfo.moduleAzimuthDeg : 0;
+  const isAtPeak = (Math.abs(curTilt - optTilt) <= 2 && Math.abs(curAzSur) <= 5);
+
+  if (specEl) specEl.textContent = (hsp > 0 ? hsp.toLocaleString('es-ES') : '—') + ' kWh/kWp';
+  if (countEl) countEl.textContent = String(curPanels);
+  if (totalEl) totalEl.textContent = (totalKwh > 0 ? totalKwh.toLocaleString('es-ES') : '—') + ' kWh/a';
+
+  if (badgeEl) {
+    const diffKwh = (typeof poly._baselineYieldKwh === 'number') ? (totalKwh - poly._baselineYieldKwh) : 0;
+    const diffPanels = (typeof poly._baselinePanelCount === 'number') ? (curPanels - poly._baselinePanelCount) : 0;
+    const panelWarn = (diffPanels !== 0) ? ` (${diffPanels > 0 ? '+' : ''}${diffPanels} pl)` : '';
+
+    if (isAtPeak) {
+      const signStr = diffKwh >= 0 ? `+${diffKwh.toLocaleString('es-ES')}` : diffKwh.toLocaleString('es-ES');
+      badgeEl.innerHTML = `🏆 PICO ÓPTIMO (${optTilt}° S)${diffKwh !== 0 ? ' · ' + signStr + ' kWh' : ''}${panelWarn}`;
+      badgeEl.style.background = 'rgba(245, 158, 11, 0.25)';
+      badgeEl.style.color = '#FBBF24';
+      badgeEl.style.border = '1px solid rgba(245, 158, 11, 0.5)';
+    } else if (diffKwh > 0) {
+      badgeEl.innerHTML = `🔥 +${diffKwh.toLocaleString('es-ES')} kWh/año${panelWarn}`;
+      badgeEl.style.background = 'rgba(16, 185, 129, 0.22)';
+      badgeEl.style.color = '#34D399';
+      badgeEl.style.border = '1px solid rgba(16, 185, 129, 0.45)';
+    } else if (diffKwh < 0) {
+      badgeEl.innerHTML = `❄️ ${diffKwh.toLocaleString('es-ES')} kWh/año${panelWarn}`;
+      badgeEl.style.background = 'rgba(239, 68, 68, 0.22)';
+      badgeEl.style.color = '#F87171';
+      badgeEl.style.border = '1px solid rgba(239, 68, 68, 0.45)';
+    } else {
+      badgeEl.innerHTML = `🎯 Pico local: ${optTilt}° · 180° S`;
+      badgeEl.style.background = 'rgba(56, 189, 248, 0.15)';
+      badgeEl.style.color = '#38BDF8';
+      badgeEl.style.border = '1px solid rgba(56, 189, 248, 0.35)';
+    }
+  }
+}
+window.wpUpdateLiveSweetSpotTelemetry = wpUpdateLiveSweetSpotTelemetry;
+
 function wpCommitPolyTilt(polyIdx) {
   if (typeof window.wpInvalidateHeatmap === 'function') {
     window.wpInvalidateHeatmap('Inclinación de módulo fijada');
   }
   if (typeof wpSyncStep6Controls === 'function') wpSyncStep6Controls();
+  if (typeof recalculateSolarYield === 'function') recalculateSolarYield(true);
+  if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') BOMTreeEngine.refresh();
 }
 window.wpCommitPolyTilt = wpCommitPolyTilt;
 

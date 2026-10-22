@@ -1176,13 +1176,14 @@ window.RA_App = window.RA_App || {};
                       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
                         <span style="font-size: 10px;color:var(--text-slate-300);font-weight:600;"><i data-lucide="ruler" class="icon-sm"></i> INCLINACIÓN MÓDULO (βm):</span>
                         <div style="display:flex;align-items:center;gap:3px;">
-                          <input id="faldon-tilt-num" type="number" min="0" max="90" step="1" placeholder="Auto" style="width:40px;font-size: 10px;padding:1px 3px;background:#0F172A;color:var(--amber-400);border:1px solid rgba(245,158,11,0.3);border-radius:4px;text-align:right;font-weight:bold;font-family:monospace;" onchange="wpSetPolyTiltRealtime(WP.selectedPolyIdx, this.value); if (typeof wpCommitPolyTilt === 'function') wpCommitPolyTilt(WP.selectedPolyIdx);" />
+                          <input id="faldon-tilt-num" type="number" min="0" max="90" step="1" placeholder="Auto" style="width:40px;font-size: 10px;padding:1px 3px;background:#0F172A;color:var(--amber-400);border:1px solid rgba(245,158,11,0.3);border-radius:4px;text-align:right;font-weight:bold;font-family:monospace;" oninput="wpSetPolyTiltRealtime(WP.selectedPolyIdx, this.value);" onchange="wpSetPolyTiltRealtime(WP.selectedPolyIdx, this.value); if (typeof wpCommitPolyTilt === 'function') wpCommitPolyTilt(WP.selectedPolyIdx);" />
                           <span style="font-size: 10px;color:var(--amber-400);font-weight:bold;">°</span>
                           <span id="faldon-tilt-val" style="font-size: 10px;font-weight:bold;color:var(--amber-400);font-family:monospace;display:none;">Auto</span>
                         </div>
                       </div>
                       <div style="display:flex;align-items:center;gap:6px;">
                         <input id="faldon-tilt-slider" type="range" min="0" max="90" step="1" value="0" style="flex:1;accent-color:var(--amber-400);height:4px;cursor:pointer;" oninput="wpSetPolyTiltRealtime(WP.selectedPolyIdx, this.value)" onchange="if (typeof wpCommitPolyTilt === 'function') wpCommitPolyTilt(WP.selectedPolyIdx);" />
+                        <button class="doc-mini-btn" style="padding:2px 5px;font-size: 10px;background:rgba(245,158,11,0.16);color:#FBBF24;border-color:rgba(245,158,11,0.35);font-weight:700;" title="Clavar ángulo de inclinación en el pico óptimo de producción anual para esta latitud" onclick="if (typeof wpSnapPolyToSweetSpot === 'function') wpSnapPolyToSweetSpot(WP.selectedPolyIdx, true);">🎯 PICO</button>
                         <button class="doc-mini-btn" style="padding:2px 5px;font-size: 10px;" onclick="wpApplyPanelArrangement(WP.selectedPolyIdx, 'coplanar')">AUTO</button>
                       </div>
                     </div>
@@ -1201,6 +1202,34 @@ window.RA_App = window.RA_App || {};
                         <button class="doc-mini-btn" style="padding:1px 2px;font-size: 10px;flex:1;" onclick="wpSetPolyAzimuthRealtime(WP.selectedPolyIdx, 90); if (typeof wpCommitPolyAzimuth === 'function') wpCommitPolyAzimuth(WP.selectedPolyIdx);">90° E</button>
                         <button class="doc-mini-btn" style="padding:1px 2px;font-size: 10px;flex:1;background:rgba(245,158,11,0.15);color:var(--amber-400);font-weight:bold;" onclick="wpSetPolyAzimuthRealtime(WP.selectedPolyIdx, 180); if (typeof wpCommitPolyAzimuth === 'function') wpCommitPolyAzimuth(WP.selectedPolyIdx);">180° S</button>
                         <button class="doc-mini-btn" style="padding:1px 2px;font-size: 10px;flex:1;" onclick="wpSetPolyAzimuthRealtime(WP.selectedPolyIdx, 270); if (typeof wpCommitPolyAzimuth === 'function') wpCommitPolyAzimuth(WP.selectedPolyIdx);">270° O</button>
+                      </div>
+                    </div>
+
+                    <!-- Telemetría de Producción en Vivo + Punto Dulce + Candado de Filas -->
+                    <div id="faldon-live-yield-box" style="background:linear-gradient(135deg, rgba(16,185,129,0.10), rgba(15,23,42,0.75));border:1px solid rgba(16,185,129,0.28);border-radius:6px;padding:6px 8px;display:flex;flex-direction:column;gap:5px;">
+                      <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;">
+                        <span style="font-size:10px;font-weight:800;color:#E2E8F0;letter-spacing:0.3px;">⚡ SINTONIZADOR SOLAR EN VIVO</span>
+                        <span id="faldon-live-sweetspot-badge" style="font-size:9px;font-weight:800;padding:1px 6px;border-radius:999px;background:rgba(16,185,129,0.18);color:#34D399;border:1px solid rgba(16,185,129,0.35);font-family:monospace;">EN VIVO</span>
+                      </div>
+                      <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;">
+                        <div style="background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.06);border-radius:4px;padding:4px 6px;">
+                          <div style="font-size:9px;color:#94A3B8;text-transform:uppercase;">Rendimiento específico</div>
+                          <div id="faldon-live-specific-yield" style="font-size:11px;font-weight:800;color:#38BDF8;font-family:monospace;">-- kWh/kWp</div>
+                        </div>
+                        <div style="background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.06);border-radius:4px;padding:4px 6px;">
+                          <div style="font-size:9px;color:#94A3B8;text-transform:uppercase;display:flex;justify-content:space-between;">
+                            <span>Cosecha Faldón</span>
+                            <span id="faldon-live-panel-count" style="color:#FBBF24;font-weight:700;">-- uds</span>
+                          </div>
+                          <div id="faldon-live-total-yield" style="font-size:11px;font-weight:800;color:#34D399;font-family:monospace;">-- kWh/año</div>
+                        </div>
+                      </div>
+                      <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;padding-top:2px;border-top:1px solid rgba(255,255,255,0.06);">
+                        <label style="display:flex;align-items:center;gap:5px;font-size:10px;color:#CBD5E1;cursor:pointer;user-select:none;" title="Mantiene fijo el pasillo entre filas al cambiar la inclinación para que no bailen ni desaparezcan placas">
+                          <input id="faldon-lock-row-pitch-chk" type="checkbox" style="accent-color:#10B981;cursor:pointer;margin:0;" onchange="if (typeof wpTogglePolyLockRowPitch === 'function') wpTogglePolyLockRowPitch(WP.selectedPolyIdx, this.checked);" />
+                          <span>🔒 Fijar nº placas al inclinar</span>
+                        </label>
+                        <button class="doc-mini-btn" style="padding:2px 6px;font-size:9px;background:rgba(245,158,11,0.18);color:#FBBF24;border-color:rgba(245,158,11,0.4);font-weight:800;" onclick="if (typeof wpSnapPolyToSweetSpot === 'function') wpSnapPolyToSweetSpot(WP.selectedPolyIdx, false);" title="Ajusta automáticamente Inclinación y Orientación al máximo absoluto anual">🎯 Clavar en el Pico</button>
                       </div>
                     </div>
                   </div>
@@ -7259,12 +7288,49 @@ function recalculateSolarYield(force = false) {
   const MONTHLY_DECLINATIONS = [-20.9, -13.0, -2.4, 9.4, 18.8, 23.1, 21.2, 13.5, 2.2, -9.6, -18.9, -23.0];
   
   const latRad = latDeg * Math.PI / 180.0;
-  const tiltRad = modTilt * Math.PI / 180.0;
-  const azSurRad = modAzSigned * Math.PI / 180.0; // Convención Sur = 0°
+
+  // Desglose por subcampos (faldones) para que al cambiar βm o γ en un faldón responda con precisión exacta
+  const subArrays = [];
+  if (typeof WP !== 'undefined' && WP && Array.isArray(WP.polylines) && WP.polylines.length > 0) {
+    WP.polylines.forEach((poly, pIdx) => {
+      const pInf = poly.roofInfo || (typeof computeSinglePolylineRoofInfo === 'function' ? computeSinglePolylineRoofInfo(poly.points, poly) : null);
+      const pCount = (pInf && Array.isArray(pInf.panels)) ? pInf.panels.length : 0;
+      if (pCount <= 0) return;
+      const pWp = (typeof wpGetPolyWp === 'function') ? wpGetPolyWp(poly) : modulePowerW;
+      const pTilt = (pInf && typeof pInf.moduleTiltDeg === 'number')
+        ? pInf.moduleTiltDeg
+        : ((typeof poly.modTilt === 'number') ? poly.modTilt : modTilt);
+      let pAzSur = (pInf && typeof pInf.moduleAzimuthDeg === 'number')
+        ? pInf.moduleAzimuthDeg
+        : ((typeof poly.modAzimuth === 'number') ? (poly.modAzimuth - 180) : modAzSigned);
+      while (pAzSur > 180) pAzSur -= 360;
+      while (pAzSur < -180) pAzSur += 360;
+      const isEW = !!(poly.estructura && poly.estructura.subtype === 'east_west');
+      subArrays.push({
+        polyIdx: pIdx,
+        nPanels: pCount,
+        kwp: (pCount * pWp) / 1000.0,
+        tiltDeg: pTilt,
+        azSurDeg: pAzSur,
+        isEastWest: isEW
+      });
+    });
+  }
+  if (subArrays.length === 0) {
+    subArrays.push({
+      polyIdx: 0,
+      nPanels: numPanels,
+      kwp: peakPowerKW,
+      tiltDeg: modTilt,
+      azSurDeg: modAzSigned,
+      isEastWest: false
+    });
+  }
 
   let monthlyYields = [];
   let annualYieldKWh = 0;
   let annualGrossYield = 0;
+  const subArrayAnnualGross = new Map();
 
   for (let m = 0; m < 12; m++) {
     const declRad = MONTHLY_DECLINATIONS[m] * Math.PI / 180.0;
@@ -7273,28 +7339,39 @@ function recalculateSolarYield(force = false) {
     const sinAlphaMid = Math.sin(latRad) * Math.sin(declRad) + Math.cos(latRad) * Math.cos(declRad);
     const alphaMid = Math.asin(Math.max(0.02, Math.min(1.0, sinAlphaMid)));
 
-    // Ángulo de incidencia solar al mediodía sobre el plano del panel orientado:
-    // Al mediodía solar, azSun = 0° (Sur), por lo que azSun - azPanel = -azSur
-    const cosIncMid = Math.sin(alphaMid) * Math.cos(tiltRad) + Math.cos(alphaMid) * Math.sin(tiltRad) * Math.cos(azSurRad);
-    const rbMid = Math.max(0.05, cosIncMid / Math.max(0.08, Math.sin(alphaMid)));
-
     // Fracción difusa estacional (DHI/GHI) y albedo de suelo
     const dhiFrac = 0.32 + 0.06 * Math.cos((m - 6) * Math.PI / 6);
     const dniFrac = Math.max(0.0, 1.0 - dhiFrac);
-
-    // Factor de radiación en plano inclinado POA / GHI (Directa + Difusa celeste + Reflejada del suelo albedo 0.2)
-    const poaFactor = (dniFrac * rbMid) + (dhiFrac * (1.0 + Math.cos(tiltRad)) / 2.0) + (0.20 * (1.0 - Math.cos(tiltRad)) / 2.0);
 
     // Recurso solar geolocalizado SSOT (getRobustMonthlyGHI): integra radiación horizontal real del emplazamiento
     const baseGHI_Wh = (typeof getRobustMonthlyGHI === 'function')
       ? getRobustMonthlyGHI(latDeg, (pa && pa.lonDeg !== undefined ? pa.lonDeg : -3.7), m)
       : (SOLAR_RAD_MONTHLY_BASE[m] * 1000);
-    const dailyPoa = (baseGHI_Wh / 1000.0) * Math.max(0.15, poaFactor);
-    // Producción bruta (sin sistema ni sombras)
-    const monthlyGrossKWh = peakPowerKW * dailyPoa * MONTH_DAYS[m];
-    annualGrossYield += monthlyGrossKWh;
-    
-    const monthlyKWh = monthlyGrossKWh * pr;
+
+    let monthGrossSum = 0;
+    for (let s = 0; s < subArrays.length; s++) {
+      const sa = subArrays[s];
+      const sTiltRad = sa.tiltDeg * Math.PI / 180.0;
+      const sAzRad = sa.azSurDeg * Math.PI / 180.0;
+      let poaFactor;
+      if (sa.isEastWest) {
+        const cosIncE = Math.sin(alphaMid) * Math.cos(sTiltRad) + Math.cos(alphaMid) * Math.sin(sTiltRad) * Math.cos(sAzRad - Math.PI / 2);
+        const cosIncW = Math.sin(alphaMid) * Math.cos(sTiltRad) + Math.cos(alphaMid) * Math.sin(sTiltRad) * Math.cos(sAzRad + Math.PI / 2);
+        const rbEW = 0.5 * (Math.max(0.05, cosIncE / Math.max(0.08, Math.sin(alphaMid))) + Math.max(0.05, cosIncW / Math.max(0.08, Math.sin(alphaMid))));
+        poaFactor = (dniFrac * rbEW) + (dhiFrac * (1.0 + Math.cos(sTiltRad)) / 2.0) + (0.20 * (1.0 - Math.cos(sTiltRad)) / 2.0);
+      } else {
+        const cosIncMid = Math.sin(alphaMid) * Math.cos(sTiltRad) + Math.cos(alphaMid) * Math.sin(sTiltRad) * Math.cos(sAzRad);
+        const rbMid = Math.max(0.05, cosIncMid / Math.max(0.08, Math.sin(alphaMid)));
+        poaFactor = (dniFrac * rbMid) + (dhiFrac * (1.0 + Math.cos(sTiltRad)) / 2.0) + (0.20 * (1.0 - Math.cos(sTiltRad)) / 2.0);
+      }
+      const dailyPoa = (baseGHI_Wh / 1000.0) * Math.max(0.15, poaFactor);
+      const saMonthGross = sa.kwp * dailyPoa * MONTH_DAYS[m];
+      monthGrossSum += saMonthGross;
+      subArrayAnnualGross.set(sa.polyIdx, (subArrayAnnualGross.get(sa.polyIdx) || 0) + saMonthGross);
+    }
+
+    annualGrossYield += monthGrossSum;
+    const monthlyKWh = monthGrossSum * pr;
     monthlyYields.push(Math.round(monthlyKWh));
     annualYieldKWh += monthlyKWh;
   }
@@ -7348,50 +7425,42 @@ function recalculateSolarYield(force = false) {
     const nPanels = window.allRenderedPanels.length;
     const prSys = (typeof prObj.prBOS === 'number') ? prObj.prBOS : (pr / (0.925 * (1 - 0.028)));
 
-    const hasSimulatedPanels = window.allRenderedPanels.some(p =>
-      (typeof p.annualGrossKwh === 'number' && p.annualGrossKwh > 0) ||
-      (typeof p.annualKwh === 'number' && p.annualKwh > 0)
-    );
+    // Solo reutilizar p.annualGrossKwh si proviene de un raycast 3D válido Y la inclinación/orientación del panel no ha cambiado
+    const isHeatmapValid = !!(typeof window.solarSimState !== 'undefined' && window.solarSimState && window.solarSimState.annualHeatmapData && !window.solarSimState.annualHeatmapDirty);
+    let simulatedTotalKWh = 0;
+    let simulatedGrossKWh = 0;
+    window.allRenderedPanels.forEach(p => {
+      const pYieldFactor = (typeof p.annualYieldPct === 'number') ? (p.annualYieldPct / 100.0) : shadowLossFactor;
+      const pPolyIdx = (typeof p.polyIdx === 'number') ? p.polyIdx : 0;
+      const sa = subArrays.find(s => s.polyIdx === pPolyIdx);
+      const curTilt = (typeof p.tiltDeg === 'number') ? p.tiltDeg : (sa ? sa.tiltDeg : modTilt);
+      const curAz = (typeof p.azimuthDeg === 'number') ? p.azimuthDeg : (sa ? sa.azSurDeg : modAzSigned);
+      const sameAngles = (p._poaTiltDeg !== undefined && Math.abs(p._poaTiltDeg - curTilt) < 0.05 && p._poaAzDeg !== undefined && Math.abs(p._poaAzDeg - curAz) < 0.05);
 
-    if (hasSimulatedPanels) {
-      // SSOT: Si los paneles ya disponen de radiación calculada (por heatmap detallado o layout previo),
-      // reescalamos reactivamente la producción con el nuevo PR del sistema conservando estrictamente la energía bruta inmutable
-      let simulatedTotalKWh = 0;
-      let simulatedGrossKWh = 0;
-      window.allRenderedPanels.forEach(p => {
-        const pYieldFactor = (typeof p.annualYieldPct === 'number') ? (p.annualYieldPct / 100.0) : shadowLossFactor;
-        const gross = (typeof p.annualGrossKwh === 'number' && p.annualGrossKwh > 0)
-          ? p.annualGrossKwh
-          : (p.annualKwh ? (p.annualKwh / (p._lastPrSys || prSys || 0.885)) : ((annualGrossKWh / nPanels) * pYieldFactor));
-        p.annualGrossKwh = gross;
-        p._lastPrSys = prSys;
-        p.annualKwh = Math.round(gross * prSys);
-        simulatedGrossKWh += gross;
-        simulatedTotalKWh += p.annualKwh;
-      });
+      let basePanelGross = annualGrossKWh / nPanels;
+      if (sa && sa.nPanels > 0 && subArrayAnnualGross.has(sa.polyIdx)) {
+        basePanelGross = subArrayAnnualGross.get(sa.polyIdx) / sa.nPanels;
+      }
 
-      if (simulatedTotalKWh > 0) {
-        annualYieldKWh = simulatedTotalKWh;
-        annualGrossKWh = Math.round(simulatedGrossKWh);
-        annualSystemLossKWh = Math.max(0, Math.round(annualGrossKWh * (1.0 - prSys)));
-        energyAfterShadows = annualYieldKWh + annualSystemLossKWh;
-        annualShadowLossKWh = Math.max(0, Math.round((annualGrossKWh / Math.max(0.01, 1 - avgShadowLossPct / 100)) * (avgShadowLossPct / 100)));
-      }
-    } else {
-      let simulatedTotalKWh = 0;
-      let simulatedGrossKWh = 0;
-      window.allRenderedPanels.forEach(p => {
-        const pYieldFactor = (typeof p.annualYieldPct === 'number') ? (p.annualYieldPct / 100.0) : shadowLossFactor;
-        const gross = (annualGrossKWh / nPanels) * pYieldFactor;
-        p.annualGrossKwh = gross;
-        p._lastPrSys = prSys;
-        p.annualKwh = Math.round(gross * prSys);
-        simulatedGrossKWh += gross;
-        simulatedTotalKWh += p.annualKwh;
-      });
-      if (simulatedTotalKWh > 0) {
-        annualYieldKWh = simulatedTotalKWh;
-      }
+      const gross = (isHeatmapValid && sameAngles && typeof p.annualGrossKwh === 'number' && p.annualGrossKwh > 0)
+        ? p.annualGrossKwh
+        : (basePanelGross * pYieldFactor);
+
+      p.annualGrossKwh = gross;
+      p._poaTiltDeg = curTilt;
+      p._poaAzDeg = curAz;
+      p._lastPrSys = prSys;
+      p.annualKwh = Math.round(gross * prSys);
+      simulatedGrossKWh += gross;
+      simulatedTotalKWh += p.annualKwh;
+    });
+
+    if (simulatedTotalKWh > 0) {
+      annualYieldKWh = simulatedTotalKWh;
+      annualGrossKWh = Math.round(simulatedGrossKWh);
+      annualSystemLossKWh = Math.max(0, Math.round(annualGrossKWh * (1.0 - prSys)));
+      energyAfterShadows = annualYieldKWh + annualSystemLossKWh;
+      annualShadowLossKWh = Math.max(0, Math.round((annualGrossKWh / Math.max(0.01, 1 - avgShadowLossPct / 100)) * (avgShadowLossPct / 100)));
     }
   }
 
@@ -8509,6 +8578,10 @@ function evaluateModuleLayouts(roof, module, cfg) {
     let rowPitch = (coplanar || isContinuousCanopy)
       ? (footprintA + gap)
       : calculatePVsystRowPitch(modLen, deltaTilt, slopeDeg, moduleAzSur, lat, safety);
+
+    if (cfg && cfg.lockRowPitch && typeof cfg.lockedRowPitchM === 'number' && cfg.lockedRowPitchM > 0 && !coplanar && !isContinuousCanopy && !isEastWest) {
+      rowPitch = Math.max(footprintA + gap, cfg.lockedRowPitchM);
+    }
 
     if (isEastWest) {
       // Cálculo astronómico de sombra en solsticio de invierno (CTE DB-HE5 / UNE-EN 62446)
@@ -12044,8 +12117,17 @@ function getProjectCalcs() {
     mlpeCount = (roofInfo && roofInfo.panels) ? roofInfo.panels.filter(p => p.hasMLPE).length : 0;
   }
 
-  const tiltDeg = pa ? pa.tiltDeg : 30;
-  const azimutDeg = pa ? pa.azimuthDeg : 0;
+  let tiltDeg = pa ? pa.tiltDeg : 30;
+  let azimutDeg = pa ? pa.azimuthDeg : 0;
+  if (typeof WP !== 'undefined' && WP && Array.isArray(WP.polylines) && WP.polylines.length > 0) {
+    const selIdx = (WP.selectedPolyIdx >= 0 && WP.selectedPolyIdx < WP.polylines.length) ? WP.selectedPolyIdx : 0;
+    const selPoly = WP.polylines[selIdx];
+    const pInf = selPoly && (selPoly.roofInfo || (typeof computeSinglePolylineRoofInfo === 'function' ? computeSinglePolylineRoofInfo(selPoly.points, selPoly) : null));
+    if (pInf) {
+      if (typeof pInf.moduleTiltDeg === 'number') tiltDeg = pInf.moduleTiltDeg;
+      if (typeof pInf.moduleAzimuthDeg === 'number') azimutDeg = pInf.moduleAzimuthDeg;
+    }
+  }
 
   const _mb = (typeof window !== 'undefined' && window.RAModulesBreakdown && typeof window.RAModulesBreakdown.getProjectModulesBreakdown === 'function')
     ? window.RAModulesBreakdown.getProjectModulesBreakdown()
@@ -12486,6 +12568,8 @@ function computeSinglePolylineRoofInfo(ptsIn, polyOpts) {
     pergolaSubtype: opts.pergolaSubtype || (opts.estructura && opts.estructura.subtype) || 'continuous',
     orientations: orientList,
     alignToPlane: (opts.alignToPlane !== undefined) ? !!opts.alignToPlane : true,
+    lockRowPitch: !!(opts && opts.lockRowPitch),
+    lockedRowPitchM: (opts && typeof opts.lockedRowPitchM === 'number') ? opts.lockedRowPitchM : 0,
     panelFilter: defaultPanelFilter,
     hasWalkway: !!opts.hasWalkway,
     walkwayWidth: (typeof opts.walkwayWidth === 'number') ? opts.walkwayWidth : 0.80,
@@ -12635,7 +12719,7 @@ window.computeSinglePolylineRoofInfo = computeSinglePolylineRoofInfo;
 function computeRoofPanelsData() {
   const orientPref = (typeof userPanelOrientationPref !== "undefined" && userPanelOrientationPref) ? userPanelOrientationPref : "auto";
   const polySig = (typeof WP !== "undefined" && WP && WP.polylines && WP.polylines.length > 0)
-    ? WP.polylines.map((pl, pi) => "P" + pi + ":" + (pl.points || []).filter(p => p && typeof p.x === "number").map(p => p.x.toFixed(3) + "," + p.y.toFixed(3) + "," + p.z.toFixed(3)).join(";") + ":mod=" + (pl.moduleId || "def") + ":arr=" + (pl.arrangementMode || "def") + ":az=" + (pl.modAzimuth || "auto") + ":t=" + (pl.modTilt || "auto") + ":or=" + (pl.orientationPref || "portrait")).join("|")
+    ? WP.polylines.map((pl, pi) => "P" + pi + ":" + (pl.points || []).filter(p => p && typeof p.x === "number").map(p => p.x.toFixed(3) + "," + p.y.toFixed(3) + "," + p.z.toFixed(3)).join(";") + ":mod=" + (pl.moduleId || "def") + ":arr=" + (pl.arrangementMode || "def") + ":az=" + (pl.modAzimuth || "auto") + ":t=" + (pl.modTilt || "auto") + ":lk=" + (pl.lockRowPitch ? (pl.lockedRowPitchM || 1) : 0) + ":or=" + (pl.orientationPref || "portrait")).join("|")
     : (polygonPoints || []).filter(p => p && typeof p.x === "number").map(p => p.x.toFixed(3) + "," + p.y.toFixed(3) + "," + p.z.toFixed(3)).join(";");
 
   const curObj = (typeof window !== "undefined" && window.solarProjectConfig && window.solarProjectConfig.selectedObjective) ? window.solarProjectConfig.selectedObjective : "optimal_inv";
