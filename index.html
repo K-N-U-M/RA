@@ -11698,11 +11698,12 @@ function computeElectricalSizingEngineering(generator) {
   const Vmp_str_hot = modsPerString * Vmp_hot;
   const I_total_dc = numStrings * Isc;
 
-  const P_ac_kW = P_dc_kW / 1.15;
+  const activeInvKw = (activeInv && (activeInv.kw || activeInv.kw_nominal || activeInv.acKw)) ? (activeInv.kw || activeInv.kw_nominal || activeInv.acKw) : 0;
+  const P_ac_kW = activeInvKw > 0 ? activeInvKw : (P_dc_kW / 1.15);
   const INV_SIZES = [0.6, 1.0, 1.5, 2.0, 3.0, 3.68, 4.0, 5.0, 6.0, 8.0, 10.0, 12.0, 15.0, 20.0, 25.0, 30.0, 50.0, 100.0];
-  const inv_kW = INV_SIZES.find(s => s >= P_ac_kW) || Math.ceil(P_ac_kW);
+  const inv_kW = activeInvKw > 0 ? activeInvKw : (INV_SIZES.find(s => s >= P_ac_kW) || Math.ceil(P_ac_kW));
   const _selInv = (window.solarProjectConfig && window.solarProjectConfig.calculatedLimits && window.solarProjectConfig.calculatedLimits.inverter) || null;
-  const monofasico = (typeof window.raInverterPhases === 'function' && _selInv) ? (window.raInverterPhases(_selInv) === 1) : (inv_kW <= 5.0);
+  const monofasico = (activeInv && typeof activeInv.phases === 'number') ? (activeInv.phases === 1) : ((typeof window.raInverterPhases === 'function' && _selInv) ? (window.raInverterPhases(_selInv) === 1) : (inv_kW <= 5.0));
   const V_ac = monofasico ? 230 : 400;
   const I_ac = monofasico ? (inv_kW * 1000) / (V_ac * 0.95) : (inv_kW * 1000) / (Math.sqrt(3) * V_ac * 0.95);
 
@@ -11797,6 +11798,10 @@ function computeElectricalSizingEngineering(generator) {
     inv_kW,
     monofasico,
     V_ac,
+    V_max_inv: V_dc_max,
+    V_mppt_min: V_mppt_min,
+    V_mppt_max: V_mppt_max,
+    activeInv: activeInv,
     I_ac: Math.round(I_ac * 10) / 10,
     I_ac_design: Math.round(I_ac_design * 10) / 10,
     numStrings,
@@ -12023,7 +12028,66 @@ function getProjectCalcs() {
   } catch (e) { /* catálogo no disponible */ }
   cfg.pAcNominalW = pAcNominalW;
 
+  const _invObjItem = (_scCat && _scCfg && _scCfg.selectedInverterId)
+    ? (_scCat.inverters || []).find(i => i.id === _scCfg.selectedInverterId)
+    : null;
+  const _invObjCount = (_scCfg && _scCfg.autoSizing && _scCfg.autoSizing.inverters && _scCfg.autoSizing.inverters.count) || 1;
+  const inverterObj = _invObjItem ? {
+    id: _invObjItem.id,
+    brand: _invObjItem.brand || '',
+    model: _invObjItem.model || '',
+    fullName: (_invObjItem.brand ? (_invObjItem.brand + ' ') : '') + (_invObjItem.model || ('Inversor ' + eng.inv_kW + ' kW')),
+    kw: (_invObjItem.kw || _invObjItem.kw_nominal || eng.inv_kW),
+    totalKw: (_invObjItem.kw || _invObjItem.kw_nominal || eng.inv_kW) * _invObjCount,
+    count: _invObjCount,
+    mpptCount: _invObjItem.mppt || _invObjItem.mpptCount || _invObjItem.mppts || (eng.numStrings > 1 ? 2 : 1),
+    vDcMax: _invObjItem.vDcMax || _invObjItem.vMax || _invObjItem.vMaxDc || eng.V_max_inv || 1000,
+    vMpptMin: _invObjItem.vMpptMin || eng.V_mppt_min || 160,
+    vMpptMax: _invObjItem.vMpptMax || eng.V_mppt_max || 850,
+    efficiency: _invObjItem.efficiency || 98.4,
+    phases: (typeof _invObjItem.phases === 'number') ? _invObjItem.phases : (eng.monofasico ? 1 : 3),
+    topology: _scCfg ? (_scCfg.selectedTopology || 'inverter') : 'inverter'
+  } : {
+    id: 'inv_default',
+    fullName: 'Inversor Solar Multi-MPPT ' + eng.inv_kW + ' kW',
+    brand: 'Genérico Certificado',
+    model: 'Multi-MPPT ' + eng.inv_kW + ' kW',
+    kw: eng.inv_kW,
+    totalKw: eng.inv_kW,
+    count: 1,
+    mpptCount: eng.numStrings > 1 ? 2 : 1,
+    vDcMax: eng.V_max_inv || 1000,
+    vMpptMin: eng.V_mppt_min || 160,
+    vMpptMax: eng.V_mppt_max || 850,
+    efficiency: 98.2,
+    phases: eng.monofasico ? 1 : 3,
+    topology: 'inverter'
+  };
+
+  const _batObjCount = Math.max(1, (_scCfg && _scCfg.autoSizing && _scCfg.autoSizing.batteries && _scCfg.autoSizing.batteries.count) || 1);
+  const hasBat = !!(_batItem && _batItem.id !== 'bat_none' && ((_batItem.kwh || _batItem.capacity || 0) > 0));
+  const batteryObj = hasBat ? {
+    id: _batItem.id,
+    brand: _batItem.brand || '',
+    model: _batItem.model || '',
+    fullName: (_batItem.brand ? (_batItem.brand + ' ') : '') + (_batItem.model || 'Batería Solar'),
+    kwh: _batItem.kwh || _batItem.capacity || 5.0,
+    totalKwh: (_batItem.kwh || _batItem.capacity || 5.0) * _batObjCount,
+    count: _batObjCount,
+    voltage: _batItem.voltage || 400,
+    technology: _batItem.technology || 'LiFePO4 (LFP)',
+    efficiency: _batItem.efficiency || 95,
+    dod: _batItem.dod || 90,
+    costEur: pres_bat
+  } : null;
+
   return {
+    inverter: inverterObj,
+    battery: batteryObj,
+    hasBattery: hasBat,
+    V_max_inv: inverterObj.vDcMax,
+    V_mppt_min: inverterObj.vMpptMin,
+    V_mppt_max: inverterObj.vMpptMax,
     refNum: (typeof generateRefNum === 'function') ? generateRefNum() : 'RA-PROY-2026',
     cfg: cfg,
     fechaStr: (typeof formatDateSpanish === 'function') ? formatDateSpanish(new Date()) : new Date().toLocaleDateString('es-ES'),
@@ -12103,6 +12167,7 @@ function getProjectCalcs() {
     pres_pan,
     pres_est,
     pres_inv,
+    pres_bat,
     pres_cab,
     pres_mo,
     pres_mon,

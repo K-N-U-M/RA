@@ -64,6 +64,20 @@
     },
 
     /**
+     * Carga JSZip de forma perezosa bajo demanda para empaquetado de documentación.
+     */
+    loadJSZip: async function() {
+      if (global.JSZip) {
+        return global.JSZip;
+      }
+      const cdnUrl = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+      await loadScriptAsync(cdnUrl, {
+        crossOrigin: 'anonymous'
+      });
+      return global.JSZip;
+    },
+
+    /**
      * Pre-carga silenciosa de fondo (Prefetch) en momentos de baja actividad de CPU.
      */
     prefetchStep5Dependencies: function() {
@@ -81,5 +95,6 @@
 
   global.RALazyLoader = RALazyLoader;
   global.ensureJsPdfLoaded = () => RALazyLoader.loadJsPDF();
+  global.ensureJSZipLoaded = () => RALazyLoader.loadJSZip();
 
 })(typeof window !== 'undefined' ? window : this);

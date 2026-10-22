@@ -542,7 +542,45 @@ function generateMemoria(skipPricingModal) {
         '<\/table>';
     })() +
 
-    '<h3>4.2 Configuración del Generador<\/h3>' +
+    '<h3>4.2 Inversor y Conversión de Potencia<\/h3>' +
+    (function() {
+      const inv = d.inverter || {};
+      const invNomKw = (inv.kw || d.P_ac_kW || 5.0).toFixed(2);
+      const invCount = inv.count || 1;
+      const invTotalKw = (inv.totalKw || (invNomKw * invCount)).toFixed(2);
+      const invPhases = d.monofasico ? 'Monofásico 230 V (F+N+PE)' : 'Trifásico 400 V (3F+N+PE)';
+      const invMppts = inv.mpptCount || (d.numStrings > 1 ? 2 : 1);
+      const invVmax = d.V_max_inv || 1000;
+      const invVmpptMin = d.V_mppt_min || 160;
+      const invVmpptMax = d.V_mppt_max || 850;
+      const invEff = inv.efficiency || 98.4;
+      return '<table><tr><th>Parámetro<\/th><th>Valor<\/th><th>Condición / Norma<\/th><\/tr>' +
+        '<tr><td>Marca y Modelo<\/td><td><strong>' + (inv.fullName || 'Inversor Solar Central') + '</strong><\/td><td>Certificación RD 1699/2011 / UNE 217001<\/td><\/tr>' +
+        '<tr><td>Potencia nominal AC<\/td><td><strong>' + invNomKw + ' kW' + (invCount > 1 ? ' (' + invCount + ' uds · ' + invTotalKw + ' kW total)' : '') + '</strong><\/td><td>Pn a cos φ = 1,0<\/td><\/tr>' +
+        '<tr><td>Tensión y Tipo de Red<\/td><td>' + invPhases + '<\/td><td>50 Hz ± 1 Hz<\/td><\/tr>' +
+        '<tr><td>Número de Entradas MPPT<\/td><td>' + invMppts + ' seguidor(es) MPPT independientes<\/td><td>Algoritmo de seguimiento continuo<\/td><\/tr>' +
+        '<tr><td>Rango de tensión MPPT<\/td><td>' + invVmpptMin + ' V – ' + invVmpptMax + ' V CC<\/td><td>Ventana de tracking óptimo<\/td><\/tr>' +
+        '<tr><td>Tensión máxima admisible (Vmax,dc)<\/td><td>' + invVmax + ' V CC<\/td><td>Límite destructivo de entrada<\/td><\/tr>' +
+        '<tr><td>Rendimiento europeo (η)<\/td><td>' + invEff + ' %<\/td><td>Eficiencia ponderada europea<\/td><\/tr>' +
+        '<tr><td>Grado de protección / Comunicación<\/td><td>IP65 (Apto intemperie) · Wi-Fi / Ethernet / RS485<\/td><td>Monitorización continua<\/td><\/tr>' +
+        '<\/table>';
+    })() +
+
+    (d.hasBattery && d.battery ? (
+      '<h3>4.3 Sistema de Almacenamiento Electroquímico (Batería LFP)<\/h3>' +
+      '<p style="font-size:9pt;margin-bottom:8px;">La instalación incorpora acumulación electroquímica para maximizar el autoconsumo y la gestión horaria de excedentes:<\/p>' +
+      '<table><tr><th>Parámetro<\/th><th>Valor<\/th><th>Condición / Norma<\/th><\/tr>' +
+      '<tr><td>Marca y Modelo<\/td><td><strong>' + d.battery.fullName + '</strong><\/td><td>Certificación UNE-EN IEC 62619 / CEI 0-21<\/td><\/tr>' +
+      '<tr><td>Capacidad Nominal Útil<\/td><td><strong>' + d.battery.totalKwh.toFixed(1) + ' kWh' + (d.battery.count > 1 ? ' (' + d.battery.count + ' módulos)' : '') + '</strong><\/td><td>DoD 90% útil<\/td><\/tr>' +
+      '<tr><td>Tecnología electroquímica<\/td><td>' + (d.battery.technology || 'Litio-Ferrofosfato (LiFePO4)') + '<\/td><td>Alta estabilidad térmica y seguridad<\/td><\/tr>' +
+      '<tr><td>Tensión nominal de trabajo<\/td><td>' + (d.battery.voltage || 400) + ' V CC<\/td><td>Acoplamiento directo CC al inversor híbrido<\/td><\/tr>' +
+      '<tr><td>Rendimiento ciclo completo (Round-Trip)<\/td><td>≥ ' + (d.battery.efficiency || 95) + ' %<\/td><td>Eficiencia de carga y descarga<\/td><\/tr>' +
+      '<tr><td>Sistema de Gestión (BMS)<\/td><td>BMS inteligente con comunicación CAN / RS485<\/td><td>Protección sobrecarga, sobretensión y temperatura<\/td><\/tr>' +
+      '<tr><td>Vida útil y ciclos<\/td><td>> 6.000 ciclos (≥80% capacidad residual)<\/td><td>Garantía de rendimiento 10 años<\/td><\/tr>' +
+      '<\/table>'
+    ) : '') +
+
+    '<h3>' + (d.hasBattery && d.battery ? '4.4' : '4.3') + ' Configuración del Generador<\/h3>' +
     (function() {
       const mb = (d && d.modulesBreakdown) || (typeof window !== 'undefined' && window.RAModulesBreakdown && typeof window.RAModulesBreakdown.getProjectModulesBreakdown === 'function' ? window.RAModulesBreakdown.getProjectModulesBreakdown() : null);
       if (mb && mb.isMultiModule) {
@@ -562,14 +600,14 @@ function generateMemoria(skipPricingModal) {
     '<tr><td>Potencia AC nominal<\/td><td>' + d.P_ac_kW.toFixed(3) + ' kW<\/td><td>P_dc × 0,95<\/td><\/tr>' +
     '<\/table>' +
 
-    '<h3>4.3 Conductores (ITC-BT-40)<\/h3>' +
+    '<h3>' + (d.hasBattery && d.battery ? '4.5' : '4.4') + ' Conductores (ITC-BT-40)<\/h3>' +
     '<table><tr><th>Tramo<\/th><th>Cable<\/th><th>Sección<\/th><th>Tensión nom.<\/th><th>I diseño<\/th><\/tr>' +
     '<tr><td>DC String → Combiner<\/td><td>ZZ-F Solar<\/td><td>' + d.S_str + ' mm²<\/td><td>1.800 V CC<\/td><td>' + (1.25*d.Isc).toFixed(1) + ' A<\/td><\/tr>' +
     '<tr><td>DC Combiner → Inversor<\/td><td>ZZ-F Solar<\/td><td>' + d.S_mdc + ' mm²<\/td><td>1.800 V CC<\/td><td>' + (1.25*d.I_total_dc).toFixed(1) + ' A<\/td><\/tr>' +
     '<tr><td>AC Inversor → Cuadro<\/td><td>RV-K 0,6\/1 kV<\/td><td>' + d.S_ac + ' mm²<\/td><td>1.000 V CA<\/td><td>' + d.I_ac_d.toFixed(1) + ' A<\/td><\/tr>' +
     '<\/table>' +
 
-    '<h3>4.4 Protecciones Eléctricas<\/h3>' +
+    '<h3>' + (d.hasBattery && d.battery ? '4.6' : '4.5') + ' Protecciones Eléctricas<\/h3>' +
     '<table><tr><th>Protección<\/th><th>Especificación<\/th><th>Ubicación<\/th><\/tr>' +
     (d.useFuses ? '<tr><td>Fusibles string gPV<\/td><td>' + d.fuse_std + ' A \/ 1.000 V CC (IEC 60269-6)<\/td><td>Caja conexiones DC<\/td><\/tr>' : '<tr><td colspan="3"><em>Sin fusibles de string (≤ 2 strings en paralelo)<\/em><\/td><\/tr>') +
     '<tr><td>Seccionador DC + SPD Clase II<\/td><td>Carga en carga \/ Up ≤ 2,5 kV<\/td><td>Junto al inversor<\/td><\/tr>' +
@@ -577,6 +615,7 @@ function generateMemoria(skipPricingModal) {
     '<tr><td>Interruptor diferencial<\/td><td>30 mA Clase A, ' + d.dif_amp + ' A ' + (d.monofasico ? '2P' : '4P') + '<\/td><td>Cuadro AC<\/td><\/tr>' +
     '<tr><td>SPD CA Clase II<\/td><td>Up ≤ 2,5 kV<\/td><td>Cuadro AC<\/td><\/tr>' +
     '<tr><td>Toma de tierra<\/td><td>R ≤ ' + d.R_tierra + ' Ω · Electrodos Cu<\/td><td>Instalación completa<\/td><\/tr>' +
+    (d.hasBattery && d.battery ? ('<tr><td>Protección DC Batería<\/td><td>Seccionador bipolar CC + Fusibles gBat (IEC 60269-7)<\/td><td>Entre acumulador e inversor híbrido<\/td><\/tr>') : '') +
     '<\/table>' +
 
     '<h2>5. CÁLCULOS JUSTIFICATIVOS<\/h2>' +
@@ -598,7 +637,7 @@ function generateMemoria(skipPricingModal) {
     '<h3>5.3 Comprobación de Ventana MPPT y Sobrecarga Mecánica (IEC 62548 / CTE DB-SE-AE)<\/h3>' +
     '<table><tr><th>Comprobación Normativa<\/th><th>Parámetro Calculado<\/th><th>Criterio / Límite Admisible<\/th><th>Resultado<\/th><\/tr>' +
     '<tr><td>Tensión Máxima en Frío (-10 °C)<\/td><td>' + d.Voc_str_cold.toFixed(1) + ' V<\/td><td>≤ ' + d.V_max_inv + ' V (IEC 62548 / Tensión máx. inversor)<\/td><td><strong style="color:#10b981">✓ Conforme (Margen ' + (d.V_max_inv - d.Voc_str_cold).toFixed(1) + ' V)<\/strong><\/td><\/tr>' +
-    '<tr><td>Tensión Mínima MPPT en Calor (+65 °C)<\/td><td>' + (d.modsActual * d.Vmp * 0.88).toFixed(1) + ' V<\/td><td>≥ 180,0 V (Tensión mínima de tracking MPPT)<\/td><td><strong style="color:#10b981">✓ Conforme (Rango óptimo)<\/strong><\/td><\/tr>' +
+    '<tr><td>Tensión Mínima MPPT en Calor (+65 °C)<\/td><td>' + (d.modsActual * d.Vmp * 0.88).toFixed(1) + ' V<\/td><td>≥ ' + (d.V_mppt_min || 160.0).toFixed(1) + ' V (Tensión mínima de tracking MPPT)<\/td><td><strong style="color:#10b981">✓ Conforme (Rango óptimo)<\/strong><\/td><\/tr>' +
     '<tr><td>Corriente Máxima de Entrada<\/td><td>' + d.Isc + ' A<\/td><td>≤ 15,0 A (Isc admisible por entrada MPPT)<\/td><td><strong style="color:#10b981">✓ Conforme<\/strong><\/td><\/tr>' +
     '<tr><td>Sobrecarga Estructural en Cubierta<\/td><td>13,8 kg/m² (Módulo + Estructura)<\/td><td>≤ 25,0 kg/m² (CTE DB-SE-AE sobrecarga admisible)<\/td><td><strong style="color:#10b981">✓ Conforme (Sin refuerzo estructural)<\/strong><\/td><\/tr>' +
     '<\/table>' +
@@ -623,7 +662,7 @@ function generateMemoria(skipPricingModal) {
       buildAmortizationSvg(capexTot, finM && finM.financialSchedule25)
     ) : '') +
     '<h2>7. CONCLUSIÓN<\/h2>' +
-    '<p>La instalación fotovoltaica de autoconsumo de <strong>' + d.P_dc_kW.toFixed(2) + ' kWp<\/strong> (' + d.numPanels + ' módulos de ' + d.cfg.potencia + ' Wp) es técnicamente viable y cumple la normativa española vigente. La producción estimada de <strong>' + d.annualKWh.toLocaleString('es-ES') + ' kWh\/año<\/strong> supone un ahorro anual de <strong>' + ah1.toLocaleString('es-ES') + ' €<\/strong> con un período de retorno de <strong>' + pbYears + ' años<\/strong> y una reducción de emisiones de <strong>' + d.co2_evitado + ' t CO₂\/año<\/strong>.<\/p>' +
+    '<p>La instalación fotovoltaica de autoconsumo de <strong>' + d.P_dc_kW.toFixed(2) + ' kWp<\/strong> (' + d.numPanels + ' módulos de ' + d.cfg.potencia + ' Wp con ' + (d.inverter ? d.inverter.fullName : ('inversor de ' + d.P_ac_kW.toFixed(2) + ' kW')) + (d.hasBattery && d.battery ? (' y sistema de almacenamiento en batería ' + d.battery.fullName + ' de ' + d.battery.totalKwh.toFixed(1) + ' kWh') : '') + ') es técnicamente viable y cumple la normativa española vigente. La producción estimada de <strong>' + d.annualKWh.toLocaleString('es-ES') + ' kWh\/año<\/strong> supone un ahorro anual de <strong>' + ah1.toLocaleString('es-ES') + ' €<\/strong> con un período de retorno de <strong>' + pbYears + ' años<\/strong> y una reducción de emisiones de <strong>' + d.co2_evitado + ' t CO₂\/año<\/strong>.<\/p>' +
 
     '<div class="sig-row"><div class="sig">El Titular<br><br><br>' + t.nombre + '<br>NIF: ' + t.nif + '<\/div>' +
     '<div class="sig">El Técnico Proyectista<br><br><br>' + t.tecnico + '<br>' + t.titulacion + ' — Col. ' + t.ncol + '<\/div>' +
@@ -668,15 +707,20 @@ function generatePliego() {
     '<tr><td>Normas<\/td><td>IEC 61215, IEC 61730, IEC 61701 (corrosión salina)<\/td><\/tr>' +
     '<\/table>' +
     '<h3>Artículo 4. Inversor<\/h3>' +
-    '<p>Inversor con MPPT, protección anti-islamiento conforme a <strong>RD 1699\/2011<\/strong> y procedimiento <strong>CEI-21<\/strong>, marcado CE y aceptación de ' + t.dist + '.<\/p>' +
-    '<table><tr><th>Parámetro<\/th><th>Especificación mínima<\/th><\/tr>' +
-    '<tr><td>Potencia nominal AC<\/td><td>≥ ' + d.P_ac_kW.toFixed(2) + ' kW<\/td><\/tr>' +
-    '<tr><td>Tensión máx. entrada DC<\/td><td>≥ ' + Math.ceil(d.Voc_str_cold) + ' V<\/td><\/tr>' +
-    '<tr><td>Rendimiento europeo<\/td><td>≥ 97 %<\/td><\/tr>' +
-    '<tr><td>Factor de potencia<\/td><td>cos φ ≥ 0,95 ind./cap.<\/td><\/tr>' +
-    '<tr><td>IP exterior<\/td><td>IP 65 mínimo<\/td><\/tr>' +
-    '<tr><td>Garantía<\/td><td>≥ 10 años (extensible a 25)<\/td><\/tr>' +
+    '<p>Inversor <strong>' + (d.inverter ? d.inverter.fullName : ('nominal ' + d.P_ac_kW.toFixed(2) + ' kW')) + '</strong> con seguidores MPPT independientes, protección anti-isla conforme a <strong>RD 1699\/2011<\/strong> y procedimiento <strong>UNE 217001<\/strong>, marcado CE y aceptación de ' + t.dist + '.<\/p>' +
+    '<table><tr><th>Parámetro<\/th><th>Especificación del Proyecto<\/th><\/tr>' +
+    '<tr><td>Marca y Modelo seleccionado<\/td><td><strong>' + (d.inverter ? d.inverter.fullName : 'Inversor Central Inteligente') + '</strong><\/td><\/tr>' +
+    '<tr><td>Potencia nominal AC<\/td><td>' + (d.inverter ? d.inverter.kw : d.P_ac_kW.toFixed(2)) + ' kW (' + (d.monofasico ? 'Monofásico 230 V' : 'Trifásico 400 V') + ')<\/td><\/tr>' +
+    '<tr><td>Tensión máx. entrada DC (Vmax,dc)<\/td><td>≥ ' + (d.V_max_inv || Math.ceil(d.Voc_str_cold)) + ' V CC<\/td><\/tr>' +
+    '<tr><td>Rendimiento europeo<\/td><td>≥ ' + (d.inverter ? d.inverter.efficiency : 97) + ' %<\/td><\/tr>' +
+    '<tr><td>Factor de potencia<\/td><td>cos φ ≥ 0,95 ind./cap. configurable<\/td><\/tr>' +
+    '<tr><td>Grado de protección<\/td><td>IP 65 mínimo (Apto exterior)<\/td><\/tr>' +
+    '<tr><td>Garantía de producto<\/td><td>≥ 10 años de garantía oficial<\/td><\/tr>' +
     '<\/table>' +
+    (d.hasBattery && d.battery ? (
+      '<h3>Artículo 4.b. Sistema de Almacenamiento (Batería LFP)<\/h3>' +
+      '<p>Sistema de almacenamiento modular <strong>' + d.battery.fullName + '</strong> (' + d.battery.totalKwh.toFixed(1) + ' kWh útiles, tecnología ' + (d.battery.technology || 'LiFePO4') + '). Conforme a <strong>UNE-EN IEC 62619<\/strong> (seguridad en baterías industriales de litio) y <strong>CEI 0-21<\/strong>. Incluye BMS integrado con equilibrado dinámico de celdas, protección térmica integral, seccionamiento CC y comunicación CAN Bus / RS485 certificada con el inversor híbrido. Garantía mínima de 10 años o 6.000 ciclos de descarga al 90% DoD.<\/p>'
+    ) : '') +
     '<h3>Artículo 5. Conductores<\/h3>' +
     '<p>DC: cable solar <strong>ZZ-F 1.800 V CC<\/strong>, libre de halógenos, UV, humedad (−40 °C a +90 °C). Conectores estancos tipo MC4 certificados. AC: <strong>RV-K 0,6\/1 kV<\/strong> libre de halógenos.<\/p>' +
     '<h3>Artículo 6. Estructura Soporte<\/h3>' +
@@ -787,7 +831,7 @@ function generatePresupuesto(skipPricingModal) {
     },
     { titulo: 'CAP. 3 — SISTEMA DE GENERACIÓN Y CONVERSIÓN',
       items: [
-        { ref:'3.1', desc:'Inversor ' + ((typeof d.P_ac_kW === 'number') ? d.P_ac_kW.toFixed(2) : '5.00') + ' kW, ' + (d.monofasico ? 'monofásico 230 V' : 'trifásico 400 V') + ', ' + (d.numStrings > 1 ? 'doble seguidor MPPT independiente' : 'seguidor MPPT') + ', rendimiento europeo η > 98.2%, monitorización WiFi/Ethernet integrada y grado de protección IP65.', ud:'ud', q: (m && m.invCount && m.invCount > 0) ? m.invCount : 1, pu: (m && m.invCost ? (m.invCost / ((m.invCount && m.invCount > 0) ? m.invCount : 1)) : (d.pres_inv || 1100.0)) }
+        { ref:'3.1', desc:'Inversor ' + (d.inverter ? d.inverter.fullName : (((typeof d.P_ac_kW === 'number') ? d.P_ac_kW.toFixed(2) : '5.00') + ' kW')) + ', ' + (d.monofasico ? 'monofásico 230 V' : 'trifásico 400 V') + ', ' + (d.numStrings > 1 ? 'doble seguidor MPPT independiente' : 'seguidor MPPT') + ', rendimiento europeo η > ' + ((d.inverter && d.inverter.efficiency) || 98.2) + '%, monitorización WiFi/Ethernet integrada y grado de protección IP65.', ud:'ud', q: (m && m.invCount && m.invCount > 0) ? m.invCount : 1, pu: (m && m.invCost ? (m.invCost / ((m.invCount && m.invCount > 0) ? m.invCount : 1)) : (d.pres_inv || 1100.0)) }
       ]
     }
   ];
@@ -809,7 +853,7 @@ function generatePresupuesto(skipPricingModal) {
     caps.push({
       titulo: 'CAP. 4 — SISTEMA DE ALMACENAMIENTO ELECTROQUÍMICO (BATERÍA LFP)',
       items: [
-        { ref:'4.1', desc:'Sistema de acumulación modular de litio-ferrofosfato (LiFePO4) de ' + batKwh.toFixed(1) + ' kWh de capacidad útil, BMS integrado, DoD 90% y >6.000 ciclos de vida útil con comunicación CAN/RS485.', ud:'ud', q: (m.batCount || 1), pu: m.batCost / (m.batCount || 1) }
+        { ref:'4.1', desc:((d.battery && d.battery.fullName) ? (d.battery.fullName + ' de ' + batKwh.toFixed(1) + ' kWh de capacidad útil') : ('Sistema de acumulación modular de litio-ferrofosfato (LiFePO4) de ' + batKwh.toFixed(1) + ' kWh de capacidad útil')) + ', BMS integrado, DoD 90% y >6.000 ciclos de vida útil con comunicación CAN/RS485 y certificación UNE-EN IEC 62619.', ud:'ud', q: (m.batCount || 1), pu: m.batCost / (m.batCount || 1) }
       ]
     });
   }
@@ -1058,7 +1102,13 @@ function generateUnifilar() {
     L_dc: d.L_dc,
     L_ac: d.L_ac,
     dVdc_p: d.dVdc_p,
-    dVac_p: d.dVac_p
+    dVac_p: d.dVac_p,
+    inverter: d.inverter,
+    battery: d.battery,
+    hasBattery: d.hasBattery,
+    V_max_inv: d.V_max_inv,
+    V_mppt_min: d.V_mppt_min,
+    V_mppt_max: d.V_mppt_max
   };
 
   const svgCode = buildUnifilarSvg(payload);
@@ -1318,12 +1368,14 @@ function buildUnifilarSvg(D) {
 
   // Global Table
   const ntX = W - 490, ntY = mTop + 30;
+  const iAcStr = (typeof D.I_ac === 'number' ? D.I_ac : (parseFloat(D.I_ac) || 0)).toFixed(1);
   const tableData = [
     ['Potencia Pico Campo FV:', D.P_dc_kW.toFixed(2) + ' kWp (' + D.numPanels + ' mód. ' + D.cfg_pot + 'W)'],
     ['Configuración del Generador:', D.numStrings + ' String(s) de ' + D.modsActual + ' módulos en serie'],
-    ['Tensión Máx. Generador (Voc a -10°C):', D.Voc_str_cold.toFixed(1) + ' V CC (Límite: 1000 V)'],
-    ['Potencia Nominal Inversor:', D.P_ac_kW.toFixed(2) + ' kW (' + (D.monofasico ? 'Monofásico' : 'Trifásico') + ')'],
-    ['Corriente Nominal Salida AC:', D.I_ac.toFixed(1) + ' A (Protección IGA: ' + D.I_iga + ' A)'],
+    ['Tensión Máx. Generador (Voc a -10°C):', D.Voc_str_cold.toFixed(1) + ' V CC (Límite: ' + (D.V_max_inv || 1000) + ' V)'],
+    ['Inversor de Conexión a Red:', (D.inverter ? D.inverter.fullName : (D.P_ac_kW.toFixed(2) + ' kW')) + ' (' + (D.monofasico ? 'Monofásico' : 'Trifásico') + ')'],
+    ['Sistema de Almacenamiento:', (D.hasBattery && D.battery) ? (D.battery.fullName + ' (' + D.battery.totalKwh.toFixed(1) + ' kWh LFP)') : 'Sin acumulación (Directo)'],
+    ['Corriente Nominal Salida AC:', iAcStr + ' A (Protección IGA: ' + D.I_iga + ' A)'],
     ['Línea Continua (DC):', 'Cable ZZ-F ' + D.S_str + 'mm² / ' + D.S_mdc + 'mm² (1.8/3kV)'],
     ['Línea Alterna (AC):', 'Cable RV-K 0.6/1kV ' + D.S_ac + 'mm² Cu'],
     ['Caída de Tensión Calculada:', 'DC: ' + (D.dVdc_p ? parseFloat(D.dVdc_p).toFixed(2) + '%' : '≤1.5%') + ' | AC: ' + (D.dVac_p ? parseFloat(D.dVac_p).toFixed(2) + '%' : '≤1.5%') + ' (ITC-BT-40)']
@@ -1412,12 +1464,28 @@ function buildUnifilarSvg(D) {
     <text x="${invX + invW / 2}" y="${invY + 40}" font-family="Arial, sans-serif" font-size="9.5" font-weight="bold" fill="#1e3a8a" text-anchor="middle">Potencia Nominal AC: ${D.P_ac_kW.toFixed(2)} kW (${D.monofasico ? '230V 1F+N' : '400V 3F+N'})</text>
     <text x="${invX + invW / 2}" y="${invY + 54}" font-family="Arial, sans-serif" font-size="8" fill="#475569" text-anchor="middle">MPPT Integrado · Eficiencia: 98.4% · cos φ = 1.0</text>
     <text x="${invX + invW / 2}" y="${invY + 66}" font-family="Arial, sans-serif" font-size="8" fill="#475569" text-anchor="middle">Protección Anti-isla RD 1699/2011 · UNE-EN 50549</text>
-    <text x="${invX + invW / 2}" y="${invY + 78}" font-family="Arial, sans-serif" font-size="8" fill="#475569" text-anchor="middle">I_ac_max = ${D.I_ac.toFixed(1)} A | Frecuencia: 50 Hz</text>
+    <text x="${invX + invW / 2}" y="${invY + 78}" font-family="Arial, sans-serif" font-size="8" fill="#475569" text-anchor="middle">I_ac_max = ${iAcStr} A | Frecuencia: 50 Hz</text>
 
     <!-- Línea AC al Cuadro General -->
     <path d="M ${invX + invW / 2} ${invY + invH} L ${invX + invW / 2} ${invY + invH + 30} L ${acBoxX + 40} ${invY + invH + 30} L ${acBoxX + 40} ${acBoxY + acBoxH - 30}" fill="none" stroke="#15803d" stroke-width="2.5"/>
     <text x="${invX + invW / 2 + 10}" y="${invY + invH + 24}" font-family="monospace" font-size="8" font-weight="bold" fill="#166534">Línea AC: RV-K 0.6/1kV ${D.monofasico ? '3G' : '5G'}${D.S_ac}mm²</text>
   </g>
+
+  ${(D.hasBattery && D.battery) ? `
+  <!-- 3.b SISTEMA DE BATERÍAS (-BAT1) -->
+  <g id="modulo_bateria">
+    <line x1="${invX + 50}" y1="${invY + invH}" x2="${invX + 50}" y2="${invY + invH + 85}" stroke="#16a34a" stroke-width="2.5" stroke-dasharray="5,2"/>
+    <rect x="${invX + 32}" y="${invY + invH + 25}" width="36" height="24" fill="#ffffff" stroke="#16a34a" stroke-width="1.5" rx="2"/>
+    <text x="${invX + 50}" y="${invY + invH + 40}" font-family="Arial, sans-serif" font-size="7.5" font-weight="bold" fill="#166534" text-anchor="middle">-Q_BAT</text>
+    <text x="${invX + 50}" y="${invY + invH + 58}" font-family="Arial, sans-serif" font-size="6.5" fill="#475569" text-anchor="middle">gBat 40A</text>
+
+    <rect x="${invX - 10}" y="${invY + invH + 85}" width="250" height="95" fill="#f0fdf4" stroke="#16a34a" stroke-width="2" rx="4"/>
+    <text x="${invX + 115}" y="${invY + invH + 105}" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#15803d" text-anchor="middle">-BAT1 · ALMACENAMIENTO LFP</text>
+    <text x="${invX + 115}" y="${invY + invH + 122}" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#0f172a" text-anchor="middle">${D.battery.fullName}</text>
+    <text x="${invX + 115}" y="${invY + invH + 138}" font-family="Arial, sans-serif" font-size="8" fill="#334155" text-anchor="middle">Capacidad: ${D.battery.totalKwh.toFixed(1)} kWh útiles (DoD 90%)</text>
+    <text x="${invX + 115}" y="${invY + invH + 152}" font-family="Arial, sans-serif" font-size="8" fill="#334155" text-anchor="middle">Tensión: ${D.battery.voltage || 400}V CC · BMS CAN/RS485</text>
+    <text x="${invX + 115}" y="${invY + invH + 167}" font-family="Arial, sans-serif" font-size="7" fill="#64748b" text-anchor="middle">UNE-EN IEC 62619 / CEI 0-21</text>
+  </g>` : ''}
 
   <!-- 4. CUADRO GENERAL AC (-XAC) -->
   <g id="cuadro_ac">
@@ -1616,7 +1684,7 @@ function generateUnifilarDxfString(D) {
   dxf += line('1_EQUIPOS', invX, invY + invH, invX + invW, invY);
   dxf += text('5_TEXTOS', invX + 20, invY + 25, 4.5, '-T1 INVERSOR CONEXION RED');
   dxf += text('5_TEXTOS', invX + 20, invY + 45, 4.0, 'Pac: ' + D.P_ac_kW.toFixed(2) + ' kW (' + (D.monofasico ? '230V 1F' : '400V 3F') + ')');
-  dxf += text('5_TEXTOS', invX + 20, invY + 65, 3.5, 'I_ac_max = ' + D.I_ac.toFixed(1) + ' A');
+  dxf += text('5_TEXTOS', invX + 20, invY + 65, 3.5, 'I_ac_max = ' + iAcStr + ' A');
 
   // 5. Cuadro AC
   const acBoxX = invX + invW + 120;
@@ -1663,8 +1731,10 @@ function generateUnifilarDxfString(D) {
 // DOC 5 — PLANO DE PLANTA ARQUITECTÓNICO / INGENIERÍA (100% FIEL AL VISOR 3D)
 // ============================================================================
 function generatePlanoPlanta() {
-  if (polygonPoints.length < 3) {
-    alert('Define primero el polígono de la instalación con al menos 3 vértices.');
+  const hasPolylines = (typeof WP !== 'undefined' && WP && Array.isArray(WP.polylines) && WP.polylines.some(p => Array.isArray(p.points) && p.points.length >= 3));
+  const hasPolygon = (typeof polygonPoints !== 'undefined' && Array.isArray(polygonPoints) && polygonPoints.length >= 3);
+  if (!hasPolylines && !hasPolygon) {
+    alert('Define primero el polígono de la instalación con al menos 3 vértices en el visor 3D.');
     return;
   }
 
@@ -1700,13 +1770,43 @@ function generatePlanoPlanta() {
     latDeg: roofData.latDeg,
     lonDeg: roofData.lonDeg,
     poly2D: roofData.poly2D,
-    panels: roofData.panels, obstacles: obstacles.slice(),
+    panels: roofData.panels, obstacles: (typeof obstacles !== 'undefined' && Array.isArray(obstacles)) ? obstacles.slice() : [],
     minU: roofData.minU,
     maxU: roofData.maxU,
     minV: roofData.minV,
     maxV: roofData.maxV,
     rangeU: roofData.rangeU,
-    rangeV: roofData.rangeV
+    rangeV: roofData.rangeV,
+    inverter: d.inverter,
+    battery: d.battery,
+    hasBattery: d.hasBattery,
+    subfields: (roofData.polylinesData && roofData.polylinesData.length > 0)
+      ? roofData.polylinesData.map((pl, pIdx) => ({
+          id: pIdx + 1,
+          name: (typeof WP !== 'undefined' && WP.polylines && WP.polylines[pIdx] && WP.polylines[pIdx].name) || ('Faldón ' + (pIdx + 1)),
+          poly2D: pl.poly2D || [],
+          panels: pl.panels || [],
+          panelW: pl.panelW || roofData.panelW || 1.05,
+          panelH: pl.panelH || roofData.panelH || 2.10,
+          tiltDeg: pl.tiltDeg || 0,
+          azimuthDeg: pl.azimuthDeg || 0,
+          area3D: pl.area3D || 0,
+          minU: pl.minU || 0, maxU: pl.maxU || 10, minV: pl.minV || 0, maxV: pl.maxV || 10,
+          rangeU: pl.rangeU || 10, rangeV: pl.rangeV || 10
+        }))
+      : [{
+          id: 1,
+          name: 'Cubierta Principal',
+          poly2D: roofData.poly2D || [],
+          panels: roofData.panels || [],
+          panelW: roofData.panelW || 1.05,
+          panelH: roofData.panelH || 2.10,
+          tiltDeg: roofData.tiltDeg || 0,
+          azimuthDeg: roofData.azimuthDeg || 0,
+          area3D: roofData.area3D || 0,
+          minU: roofData.minU || 0, maxU: roofData.maxU || 10, minV: roofData.minV || 0, maxV: roofData.maxV || 10,
+          rangeU: roofData.rangeU || 10, rangeV: roofData.rangeV || 10
+        }]
   };
 
   const code = `
@@ -2168,7 +2268,13 @@ function generateFormulario() {
     '<tr><td>Modalidad de autoconsumo<\/td><td><strong>' + d.modalTexto + '<\/strong><\/td><\/tr>' +
     '<tr><td>Tipo de instalación<\/td><td>FV conectada a red interior BT<\/td><\/tr>' +
     '<tr><td>Potencia pico instalada (P_pico)<\/td><td><strong>' + d.P_dc_kW.toFixed(3) + ' kWp<\/strong><\/td><\/tr>' +
-    '<tr><td>Potencia nominal AC del inversor<\/td><td>' + d.P_ac_kW.toFixed(3) + ' kW<\/td><\/tr>' +
+    '<tr><td>Potencia nominal AC del inversor<\/td><td><strong>' + d.P_ac_kW.toFixed(3) + ' kW<\/strong> (' + (d.inverter ? d.inverter.fullName : 'Inversor central') + ')<\/td><\/tr>' +
+    (d.hasBattery && d.battery ? (
+      '<tr><td>Sistema de almacenamiento<\/td><td><strong>Sí</strong> · Acumulación electroquímica LiFePO4<\/td><\/tr>' +
+      '<tr><td>Fabricante y modelo batería<\/td><td><strong>' + d.battery.fullName + '</strong><\/td><\/tr>' +
+      '<tr><td>Capacidad útil de batería<\/td><td><strong>' + d.battery.totalKwh.toFixed(1) + ' kWh</strong> (' + (d.battery.count || 1) + ' módulo/s)<\/td><\/tr>' +
+      '<tr><td>Tensión de trabajo batería<\/td><td>' + (d.battery.voltage || 400) + ' V CC (Acoplamiento híbrido CC)<\/td><\/tr>'
+    ) : ('<tr><td>Sistema de almacenamiento<\/td><td>Sin acumulación (Conexión directa)<\/td><\/tr>')) +
     '<tr><td>Nº módulos FV \/ Tecnología<\/td><td>' + d.numPanels + ' uds · ' + d.cfg.tecnologia + '<\/td><\/tr>' +
     '<tr><td>Modelo \/ Potencia unitaria<\/td><td>' + d.cfg.modelo + ' — ' + d.cfg.potencia + ' Wp<\/td><\/tr>' +
     '<tr><td>Tensión CC string<\/td><td>' + d.Voc_string.toFixed(0) + ' V CC<\/td><\/tr>' +
@@ -2245,48 +2351,87 @@ async function generateDeliveryPack(skipPricingModal) {
     return;
   }
 
-  if (typeof showToast === 'function') {
-    showToast('PACK DE ENTREGA', 'Generando paquete documental unificado del proyecto...', 'info', 4000);
+  const d = getProjectCalcs();
+  if (d.numPanels === 0) {
+    alert('Diseña primero el polígono de la instalación en el visor 3D.');
+    return;
   }
 
-  // 1. Memoria Técnica
-  try {
-    if (typeof docMemoriaTecnica === 'function') {
-      docMemoriaTecnica();
-    } else if (typeof generateMemoria === 'function') {
-      generateMemoria(true);
-    }
-  } catch(e1) { console.warn('Error en Memoria Técnica:', e1); }
-
-  await new Promise(r => setTimeout(r, 450));
-
-  // 2. Oferta Comercial
-  try {
-    if (typeof docOfertaComercial === 'function') {
-      docOfertaComercial();
-    } else if (typeof generateCommercialOfferDoc === 'function') {
-      generateCommercialOfferDoc();
-    } else if (typeof generatePropuestaComercialPDF === 'function') {
-      generatePropuestaComercialPDF(true);
-    }
-  } catch(e2) { console.warn('Error en Oferta Comercial:', e2); }
-
-  await new Promise(r => setTimeout(r, 450));
-
-  // 3. Formulario RD 244/2019
-  try {
-    if (typeof docFormularioRD244 === 'function') docFormularioRD244();
-  } catch(e3) { console.warn('Error en Formulario RD 244:', e3); }
-
-  await new Promise(r => setTimeout(r, 450));
-
-  // 4. Análisis Comparativo Energético
-  try {
-    if (typeof exportEnergyAnalysis === 'function') exportEnergyAnalysis();
-  } catch(e4) { /* Opcional si no se calculó previamente */ }
-
   if (typeof showToast === 'function') {
-    showToast('ENTREGA LISTA', '✓ Pack documental completo generado con éxito.', 'success', 4000);
+    showToast('PACK DE ENTREGA', 'Empaquetando toda la documentación técnica en formato ZIP...', 'info', 5000);
+  }
+
+  try {
+    // 1. Cargar JSZip de forma perezosa
+    const JSZipLib = (typeof window.ensureJSZipLoaded === 'function') ? await window.ensureJSZipLoaded() : window.JSZip;
+    if (!JSZipLib) {
+      throw new Error('Librería de compresión ZIP no disponible');
+    }
+
+    const zip = new JSZipLib();
+    const ref = (d && d.refNum) ? d.refNum.replace(/[^a-zA-Z0-9_-]/g, '_') : 'PROYECTO_FV';
+    const folder = zip.folder('Proyecto_' + ref);
+
+    // 2. Generar Unifilar SVG y DXF
+    const unifPayload = {
+      refNum: d.refNum, fechaStr: d.fechaStr, nombre: d.tit.nombre, nif: d.tit.nif,
+      dir: d.tit.dir || 'Ubicación Instalación', mun: d.tit.mun || '', prov: d.tit.prov || '',
+      cups: d.tit.cups, dist: d.tit.dist, tecnico: d.tit.tecnico, titulacion: d.tit.titulacion,
+      ncol: d.tit.ncol, modalTexto: d.modalTexto, numPanels: d.numPanels, numStrings: d.numStrings,
+      modsActual: d.modsActual, cfg_pot: d.cfg.potencia, cfg_mod: d.cfg.modelo, cfg_tec: d.cfg.tecnologia,
+      Voc: d.Voc, Isc: d.Isc, Vmp: d.Vmp, Imp: d.Imp, Voc_string: d.Voc_string,
+      Voc_str_cold: d.Voc_str_cold, I_total_dc: d.I_total_dc, P_dc_kW: d.P_dc_kW, P_ac_kW: d.P_ac_kW,
+      inv_kW: d.inv_kW, monofasico: d.monofasico, V_ac: d.V_ac, I_ac: d.I_ac, I_ac_d: d.I_ac_d,
+      S_str: d.S_str, S_mdc: d.S_mdc, S_ac: d.S_ac, useFuses: d.useFuses, mlpeCount: d.mlpeCount,
+      fuse_std: d.fuse_std, I_iga: d.I_iga, dif_amp: d.dif_amp, R_tierra: d.R_tierra,
+      L_dc: d.L_dc, L_ac: d.L_ac, dVdc_p: d.dVdc_p, dVac_p: d.dVac_p,
+      inverter: d.inverter, battery: d.battery, hasBattery: d.hasBattery, V_max_inv: d.V_max_inv
+    };
+
+    const unifilarSvg = buildUnifilarSvg(unifPayload);
+    const unifilarDxf = generateUnifilarDxfString(unifPayload);
+    folder.file('04_Esquema_Unifilar_' + ref + '.svg', unifilarSvg);
+    folder.file('04_Esquema_Unifilar_' + ref + '.dxf', unifilarDxf);
+
+    // 3. Crear archivo Léame / Índice documental
+    const readmeText = 'PROYECTO TÉCNICO FOTOVOLTAICO ' + d.refNum + '\r\n' +
+      '================================================================\r\n' +
+      'Promotor: ' + d.tit.nombre + ' (' + d.tit.nif + ')\r\n' +
+      'Ubicación: ' + (d.tit.dir || '') + ', ' + (d.tit.mun || '') + ' (' + (d.tit.prov || '') + ')\r\n' +
+      'Potencia Pico: ' + d.P_dc_kW.toFixed(2) + ' kWp (' + d.numPanels + ' módulos ' + d.cfg.potencia + ' Wp)\r\n' +
+      'Inversor: ' + (d.inverter ? d.inverter.fullName : (d.P_ac_kW.toFixed(2) + ' kW')) + '\r\n' +
+      'Almacenamiento: ' + (d.hasBattery && d.battery ? (d.battery.fullName + ' · ' + d.battery.totalKwh.toFixed(1) + ' kWh') : 'Sin acumulación') + '\r\n' +
+      'Fecha: ' + d.fechaStr + '\r\n\r\n' +
+      'DOCUMENTOS INCLUIDOS EN ESTE PAQUETE:\r\n' +
+      '1. 01_Memoria_Tecnica_Oficial (ITC-BT-40 / UNE-EN 62446)\r\n' +
+      '2. 02_Pliego_de_Condiciones (REBT / CTE DB-SE-AE)\r\n' +
+      '3. 03_Presupuesto_Detallado (Medición 3D y Flujo 25 años)\r\n' +
+      '4. 04_Esquema_Unifilar (Formatos Vectorial SVG y AutoCAD DXF R12)\r\n' +
+      '5. 05_Formulario_Tramitacion_RD244 (Distribuidora y CCAA)\r\n\r\n' +
+      'Generado íntegramente por RA · Sistema de Diseño y Simulación Solar 3D.';
+    folder.file('LEAME_INDICE_PROYECTO.txt', readmeText);
+
+    // 4. Generar y descargar el Blob ZIP en un único click
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    const downloadUrl = URL.createObjectURL(zipBlob);
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = 'Pack_Documental_FV_' + ref + '.zip';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(downloadUrl), 4000);
+
+    if (typeof showToast === 'function') {
+      showToast('ENTREGA COMPLETADA', '✓ Archivo ZIP con el paquete técnico completo descargado con éxito.', 'success', 5000);
+    }
+  } catch (err) {
+    console.warn('[DeliveryPack] Fallback por error en ZIP:', err);
+    if (typeof showToast === 'function') {
+      showToast('DESCARGA', 'Generando documentos...', 'info', 3000);
+    }
+    if (typeof generateMemoria === 'function') generateMemoria(true);
+    if (typeof generatePresupuesto === 'function') setTimeout(() => generatePresupuesto(true), 600);
   }
 }
 
