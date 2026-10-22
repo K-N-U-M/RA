@@ -101,13 +101,32 @@
         const structCfg = poly.structureConfig || { type: estType, tiltDeg: isTriangular ? 30.0 : 0.0, azimuthDeg: 180.0 };
 
         // Single Source of Truth: Priorizar los módulos reales renderizados en 3D para este faldón
-        let panels = (typeof root !== 'undefined' && Array.isArray(root.allRenderedPanels) && root.allRenderedPanels.length > 0)
-          ? root.allRenderedPanels.filter(p => {
-              if (typeof p.polyIdx === 'number') return p.polyIdx === polyIdx;
-              if (typeof p.faldonIndex === 'number') return p.faldonIndex === polyIdx;
-              return polylines.length <= 1; // Si no hay índice y hay múltiples faldones, evitamos doble conteo
-            })
-          : (Array.isArray(poly.panels) ? poly.panels : (poly.roofInfo && Array.isArray(poly.roofInfo.panels) ? poly.roofInfo.panels : []));
+        let panels = [];
+        if (typeof root !== 'undefined' && Array.isArray(root.allRenderedPanels) && root.allRenderedPanels.length > 0) {
+          panels = root.allRenderedPanels.filter(p => {
+            if (!p || p.deleted) return false;
+            if (typeof p.polyIdx === 'number') return p.polyIdx === polyIdx;
+            if (typeof p.faldonIndex === 'number') return p.faldonIndex === polyIdx;
+            if (p.rawPanel && typeof p.rawPanel.polyIdx === 'number') return p.rawPanel.polyIdx === polyIdx;
+            return polylines.length <= 1;
+          });
+        }
+        // Fallback robusto a arrays de faldón si no se encontró en allRenderedPanels
+        if (panels.length === 0) {
+          if (Array.isArray(poly.panels) && poly.panels.length > 0) {
+            panels = poly.panels.filter(p => p && !p.deleted);
+          } else if (poly.roofInfo && Array.isArray(poly.roofInfo.panels) && poly.roofInfo.panels.length > 0) {
+            panels = poly.roofInfo.panels.filter(p => p && !p.deleted);
+          } else if (typeof root.computeSinglePolylineRoofInfo === 'function' && Array.isArray(poly.points) && poly.points.length >= 3) {
+            try {
+              const freshInfo = root.computeSinglePolylineRoofInfo(poly.points, poly);
+              if (freshInfo && Array.isArray(freshInfo.panels)) {
+                poly.roofInfo = freshInfo;
+                panels = freshInfo.panels.filter(p => p && !p.deleted);
+              }
+            } catch(eRec) {}
+          }
+        }
         
         const panelCount = panels.length;
 
@@ -899,6 +918,34 @@
       this.renderHUD();
     }
   };
+
+  // Suscribirse a cambios del proyecto para actualización en tiempo real (micro-debounce eficiente)
+  let _bomDebounceTimer = null;
+  if (typeof root !== 'undefined') {
+    const bindHierarchy = function() {
+      if (root.ProjectHierarchy && typeof root.ProjectHierarchy.subscribe === 'function') {
+        root.ProjectHierarchy.subscribe(function() {
+          const hudEl = document.getElementById('ra-bom-tree-hud');
+          // Gating de visibilidad: solo computar y renderizar si el panel está abierto
+          if (hudEl && hudEl.style.display !== 'none') {
+            if (_bomDebounceTimer) clearTimeout(_bomDebounceTimer);
+            _bomDebounceTimer = setTimeout(function() {
+              if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') {
+                BOMTreeEngine.refresh();
+              }
+            }, 80);
+          }
+        });
+      } else {
+        setTimeout(bindHierarchy, 400);
+      }
+    };
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', bindHierarchy);
+    } else {
+      setTimeout(bindHierarchy, 200);
+    }
+  }
 
   // Exportar al ámbito global
   root.BOMTreeEngine = BOMTreeEngine;

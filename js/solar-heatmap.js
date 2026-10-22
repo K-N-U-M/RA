@@ -1940,10 +1940,19 @@
     if (polyIdx === 0 || !window._raGlobalObjectiveSelectedIds) {
       const allCandidates = [];
       polylinesList.forEach((pl, plIdx) => {
-        const pList = (pl && pl.roofInfo && Array.isArray(pl.roofInfo.panels)) ? pl.roofInfo.panels : (pl && Array.isArray(pl.panels) ? pl.panels : []);
-        pList.forEach(p => {
+        let pList = (pl && pl.roofInfo && Array.isArray(pl.roofInfo.panels)) ? pl.roofInfo.panels : (pl && Array.isArray(pl.panels) ? pl.panels : []);
+        if (pList.length === 0 && pl && Array.isArray(pl.points) && pl.points.length >= 3 && typeof computeSinglePolylineRoofInfo === 'function') {
+          try {
+            const fresh = computeSinglePolylineRoofInfo(pl.points, pl);
+            if (fresh && Array.isArray(fresh.panels)) {
+              pl.roofInfo = fresh;
+              pList = fresh.panels;
+            }
+          } catch(ePl) {}
+        }
+        pList.forEach((p, pIdx) => {
           if (!p.deleted) {
-            allCandidates.push({ p, plIdx, panelId: p.panelId || ('pan_' + plIdx + '_' + (p.layoutIndex ?? p.localIdx ?? 0)) });
+            allCandidates.push({ p, plIdx, panelId: p.panelId || ('pan_' + plIdx + '_' + (p.layoutIndex ?? p.localIdx ?? pIdx)) });
           }
         });
       });
@@ -1968,8 +1977,8 @@
     const selectedSet = window._raGlobalObjectiveSelectedIds;
     let filtered = polyPanels;
     if (selectedSet) {
-      filtered = polyPanels.filter(p => {
-        const id = p.panelId || ('pan_' + polyIdx + '_' + (p.layoutIndex ?? p.localIdx ?? 0));
+      filtered = polyPanels.filter((p, pIdx) => {
+        const id = p.panelId || ('pan_' + polyIdx + '_' + (p.layoutIndex ?? p.localIdx ?? pIdx));
         return selectedSet.has(id);
       });
     }

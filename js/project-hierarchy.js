@@ -49,9 +49,30 @@
               function getPolylineStats(poly, polyIdx) {
           let pCount = 0;
           if (renderedPanels.length > 0) {
-            pCount = renderedPanels.filter(function(p) { return p && p.polyIdx === polyIdx && !p.deleted; }).length;
-          } else if (poly && poly.roofInfo && Array.isArray(poly.roofInfo.panels)) {
-            pCount = poly.roofInfo.panels.filter(function(p) { return p && !p.deleted; }).length;
+            pCount = renderedPanels.filter(function(p) {
+              if (!p || p.deleted) return false;
+              if (typeof p.polyIdx === 'number') return p.polyIdx === polyIdx;
+              if (typeof p.faldonIndex === 'number') return p.faldonIndex === polyIdx;
+              if (p.rawPanel && typeof p.rawPanel.polyIdx === 'number') return p.rawPanel.polyIdx === polyIdx;
+              return polylines.length <= 1;
+            }).length;
+          }
+          if (pCount === 0) {
+            if (poly && Array.isArray(poly.panels) && poly.panels.length > 0) {
+              pCount = poly.panels.filter(function(p) { return p && !p.deleted; }).length;
+            } else if (poly && poly.roofInfo && Array.isArray(poly.roofInfo.panels) && poly.roofInfo.panels.length > 0) {
+              pCount = poly.roofInfo.panels.filter(function(p) { return p && !p.deleted; }).length;
+            } else if (poly && typeof poly.panelCount === 'number' && poly.panelCount > 0) {
+              pCount = poly.panelCount;
+            } else if (typeof global.computeSinglePolylineRoofInfo === 'function' && poly && Array.isArray(poly.points) && poly.points.length >= 3) {
+              try {
+                const freshInfo = global.computeSinglePolylineRoofInfo(poly.points, poly);
+                if (freshInfo && Array.isArray(freshInfo.panels)) {
+                  poly.roofInfo = freshInfo;
+                  pCount = freshInfo.panels.filter(function(p) { return p && !p.deleted; }).length;
+                }
+              } catch(eRec) {}
+            }
           }
           let modW = (poly && poly.moduleConfig && poly.moduleConfig.potencia);
           if (!modW && global.solarProjectConfig && global.solarProjectConfig.selectedModuleId && global.equipmentCatalog && typeof global.equipmentCatalog.getModule === 'function') {
