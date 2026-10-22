@@ -282,6 +282,12 @@
     if (willOpen) {
       p.classList.add('open');
       if (btn) btn.style.transform = 'rotate(45deg) scale(1.08)';
+      if (window.RAShadowSettings && typeof window.RAShadowSettings.injectUI === 'function') {
+        try { window.RAShadowSettings.injectUI(); } catch (e) {}
+      }
+      if (typeof window.raSyncShadowUI === 'function') {
+        try { window.raSyncShadowUI(); } catch (e) {}
+      }
       if (window.lucide && typeof window.lucide.createIcons === 'function') {
         try {
           window.lucide.createIcons({ root: p });
