@@ -1197,78 +1197,288 @@ function raCloseProjectsModal() {
 window.raCloseProjectsModal = raCloseProjectsModal;
 
 function raNewProjectConfirm() {
-  if (confirm('¿Deseas iniciar un nuevo proyecto? Se limpiará la geometría y paneles actuales.')) {
-    // 1. Cancelar autosave pendiente para evitar que sobreescriba el nuevo proyecto
-    if (typeof _wpAutoSaveTimer !== 'undefined' && _wpAutoSaveTimer) {
-      clearTimeout(_wpAutoSaveTimer);
-      _wpAutoSaveTimer = null;
+  if (!confirm('¿Deseas iniciar un nuevo proyecto desde cero? Se limpiará toda la escena 3D, equipos, faldones, simulación solar, mediciones y datos de documentos/facturas.')) {
+    return;
+  }
+
+  // 1. Cancelar autosave pendiente
+  if (typeof _wpAutoSaveTimer !== 'undefined' && _wpAutoSaveTimer) {
+    clearTimeout(_wpAutoSaveTimer);
+    _wpAutoSaveTimer = null;
+  }
+
+  var curViewer = (typeof viewer !== 'undefined' && viewer) ? viewer : (window.viewer || null);
+
+  // 2. Limpieza completa de paneles y soportes simulados (entidades y primitivas GPU)
+  if (typeof clearSimulatedPV === 'function') {
+    try { clearSimulatedPV(); } catch(e) {}
+  } else if (typeof window.clearSimulatedPV === 'function') {
+    try { window.clearSimulatedPV(); } catch(e) {}
+  }
+
+  // 3. Limpieza de cables y canalizaciones (RACableEngine + primitivas)
+  if (typeof RACableEngine !== 'undefined' && typeof RACableEngine.clearAllCables === 'function') {
+    try { RACableEngine.clearAllCables(); } catch(e) {}
+  }
+  if (typeof wpClearInverterAndCables === 'function') {
+    try { wpClearInverterAndCables(); } catch(e) {}
+  }
+  if (window._raCableEnginePrimitives && curViewer && curViewer.scene && curViewer.scene.primitives) {
+    try { window._raCableEnginePrimitives.removeAll(); } catch(e) {}
+  }
+  if (window.cableRoutingState) {
+    if (Array.isArray(window.cableRoutingState.previewEntities) && curViewer && curViewer.entities) {
+      window.cableRoutingState.previewEntities.forEach(function(ent) {
+        try { curViewer.entities.remove(ent); } catch(e) {}
+      });
     }
-    if (typeof clearSimulatedPV === 'function') clearSimulatedPV();
-    if (typeof wpClearInverterAndCables === 'function') wpClearInverterAndCables();
-    if (window.RAWindTurbine && typeof window.RAWindTurbine.cleanAll === 'function') {
-      try { window.RAWindTurbine.cleanAll(); } catch(eWt) {}
-    }
-    if (typeof window !== 'undefined') window.allRenderedPanels = [];
-    if (typeof WP !== 'undefined') {
-      WP.planes = [];
-      WP.polylines = [];
-      WP.activePlaneIdx = -1;
-      WP.selectedPolyIdx = -1;
-      if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
-      if (typeof wpRenderActivePlaneGizmo === 'function') wpRenderActivePlaneGizmo();
-    }
-    // Mutación in-place para no romper la referencia compartida de obstacles
-    var _arrObs = (typeof window !== 'undefined' && Array.isArray(window.obstacles)) ? window.obstacles : (typeof obstacles !== 'undefined' ? obstacles : null);
-    if (Array.isArray(_arrObs)) {
-      _arrObs.length = 0;
-      if (typeof render3DObstaclesInCesium === 'function') render3DObstaclesInCesium();
-    }
-    // Mutación in-place para edificios
-    var _arrBld = (typeof window !== 'undefined' && Array.isArray(window.buildings)) ? window.buildings : (typeof buildings !== 'undefined' ? buildings : null);
-    if (Array.isArray(_arrBld)) {
-      _arrBld.length = 0;
-      if (typeof render3DBuildingsInCesium === 'function') render3DBuildingsInCesium();
-    }
-    // Limpieza de selecciones activas y canalizaciones residuales
-    if (typeof window !== 'undefined') {
-      window.selectedBuildingId = null;
-      window.selectedObstacleId = null;
-      window._universalGizmoTarget = null;
-      if (typeof selectedBuildingId !== 'undefined') selectedBuildingId = null;
-      if (typeof selectedObstacleId !== 'undefined') selectedObstacleId = null;
-      if (window._raCableEnginePrimitives && typeof viewer !== 'undefined' && viewer && viewer.scene) {
-        try { window._raCableEnginePrimitives.removeAll(); } catch(eCb) {}
+    window.cableRoutingState = { active: false, type: null, points: [], previewEntities: [] };
+  }
+
+  // 4. Reseteo de equipos eléctricos e inversor (para que no queden métricas residuales en el árbol ni memoria)
+  if (window.inverterEquipmentState) {
+    window.inverterEquipmentState = {
+      position: null,
+      carto: null,
+      entity: null,
+      label2D: null,
+      dcProtectionPosition: null,
+      dcProtectionCarto: null,
+      dcProtectionEntity: null,
+      dcProtectionLabel2D: null,
+      batteryPosition: null,
+      batteryCarto: null,
+      batteryEntity: null,
+      batteryLabel2D: null,
+      dcCableEntities: [],
+      routes: { dc: [], ac: [] },
+      L_dc_measured: 0,
+      L_ac_measured: 0,
+      S_dc_recommended: 6.0,
+      S_ac_recommended: 10.0,
+      gridMeter: { position: null, entity: null, acCableEntity: null },
+      combinerBox: { isEnabled: false, position: null, entity: null }
+    };
+  }
+  window.selectedElectricalId = null;
+
+  // 5. Limpieza de superposiciones del mapa de calor y sombras solares (panelShadowOverlayPool, etc.)
+  if (window.solarSimState) {
+    var ss = window.solarSimState;
+    if (ss.panelShadowOverlayPool) {
+      if (curViewer && curViewer.entities) {
+        ss.panelShadowOverlayPool.forEach(function(ent) {
+          try { curViewer.entities.remove(ent); } catch(_) {}
+        });
       }
-      if (window.cableRoutingState) {
-        if (Array.isArray(window.cableRoutingState.previewEntities) && typeof viewer !== 'undefined' && viewer && viewer.entities) {
-          window.cableRoutingState.previewEntities.forEach(ent => {
-            try { viewer.entities.remove(ent); } catch(eEnt) {}
-          });
+      ss.panelShadowOverlayPool.clear();
+    }
+    if (Array.isArray(ss.obstacleShadowSurfaceEntities)) {
+      if (curViewer && curViewer.entities) {
+        ss.obstacleShadowSurfaceEntities.forEach(function(e) {
+          try { curViewer.entities.remove(e); } catch(_) {}
+        });
+      }
+      ss.obstacleShadowSurfaceEntities = [];
+    }
+    if (Array.isArray(ss.mlpeBadgeEntities)) {
+      if (curViewer && curViewer.entities) {
+        ss.mlpeBadgeEntities.forEach(function(e) {
+          try { curViewer.entities.remove(e); } catch(_) {}
+        });
+      }
+      ss.mlpeBadgeEntities = [];
+    }
+    if (Array.isArray(ss.heatmapLabelEntities)) {
+      if (curViewer && curViewer.entities) {
+        ss.heatmapLabelEntities.forEach(function(e) {
+          try { curViewer.entities.remove(e); } catch(_) {}
+        });
+      }
+      ss.heatmapLabelEntities = [];
+    }
+    if (window._solarHeatmapLabelCollection && curViewer && curViewer.scene && curViewer.scene.primitives) {
+      try { window._solarHeatmapLabelCollection.removeAll(); } catch(_) {}
+    }
+    ss.annualHeatmapData = null;
+    ss.annualHeatmapDirty = true;
+    ss.monthlyKwh = null;
+    ss.hourlyHeatmapData = null;
+  }
+
+  // 6. Limpieza de aerogeneradores
+  if (window.RAWindTurbine && typeof window.RAWindTurbine.cleanAll === 'function') {
+    try { window.RAWindTurbine.cleanAll(); } catch(eWt) {}
+  }
+
+  // 7. Limpieza de paneles en memoria y faldones/polilíneas
+  window.allRenderedPanels = [];
+  if (typeof WP !== 'undefined') {
+    // BUG FIX: Eliminar explícitamente entidades 3D de cada polilínea antes de resetear el array
+    if (Array.isArray(WP.polylines) && curViewer && curViewer.entities) {
+      WP.polylines.forEach(function(p) {
+        if (!p) return;
+        if (p.lineEnt) try { curViewer.entities.remove(p.lineEnt); } catch(_) {}
+        if (p.fillEnt) try { curViewer.entities.remove(p.fillEnt); } catch(_) {}
+        if (Array.isArray(p.vtxEnts)) {
+          p.vtxEnts.forEach(function(v) { try { curViewer.entities.remove(v); } catch(_) {} });
         }
-        window.cableRoutingState = { active: false, points: [], previewEntities: [] };
+        if (p.badgeEnt) try { curViewer.entities.remove(p.badgeEnt); } catch(_) {}
+      });
+    }
+    if (typeof wpClearEntGroup === 'function') {
+      try { wpClearEntGroup('polys'); } catch(_) {}
+      try { wpClearEntGroup('planes'); } catch(_) {}
+      try { wpClearEntGroup('grid'); } catch(_) {}
+      try { wpClearEntGroup('triad'); } catch(_) {}
+      try { wpClearEntGroup('gizmo'); } catch(_) {}
+    }
+    WP.planes = [];
+    WP.polylines = [];
+    WP.activePlaneIdx = -1;
+    WP.selectedPolyIdx = -1;
+    WP.selectedVtxIdx = -1;
+    if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
+    if (typeof wpRenderActivePlaneGizmo === 'function') wpRenderActivePlaneGizmo();
+    if (typeof wpUpdateUI === 'function') wpUpdateUI();
+  }
+
+  // 8. Limpieza de obstáculos 3D
+  var _arrObs = (typeof window !== 'undefined' && Array.isArray(window.obstacles)) ? window.obstacles : (typeof obstacles !== 'undefined' ? obstacles : null);
+  if (Array.isArray(_arrObs)) {
+    if (curViewer && curViewer.entities) {
+      _arrObs.forEach(function(obs) {
+        if (!obs) return;
+        if (obs.entity) try { curViewer.entities.remove(obs.entity); } catch(_) {}
+        if (obs.fillEntity) try { curViewer.entities.remove(obs.fillEntity); } catch(_) {}
+        if (obs.outlineEntity) try { curViewer.entities.remove(obs.outlineEntity); } catch(_) {}
+      });
+    }
+    _arrObs.length = 0;
+    if (typeof render3DObstaclesInCesium === 'function') render3DObstaclesInCesium();
+  }
+
+  // 9. Limpieza de edificios 3D
+  var _arrBld = (typeof window !== 'undefined' && Array.isArray(window.buildings)) ? window.buildings : (typeof buildings !== 'undefined' ? buildings : null);
+  if (Array.isArray(_arrBld)) {
+    if (curViewer && curViewer.entities) {
+      _arrBld.forEach(function(bld) {
+        if (!bld) return;
+        if (bld.entity) try { curViewer.entities.remove(bld.entity); } catch(_) {}
+        if (bld.roofEntity) try { curViewer.entities.remove(bld.roofEntity); } catch(_) {}
+        if (bld.outlineEntity) try { curViewer.entities.remove(bld.outlineEntity); } catch(_) {}
+      });
+    }
+    _arrBld.length = 0;
+    if (typeof render3DBuildingsInCesium === 'function') render3DBuildingsInCesium();
+  }
+
+  // 10. Reseteo de selecciones, gizmos y puntos de dibujo
+  window.selectedBuildingId = null;
+  window.selectedObstacleId = null;
+  window._universalGizmoTarget = null;
+  if (typeof selectedBuildingId !== 'undefined') selectedBuildingId = null;
+  if (typeof selectedObstacleId !== 'undefined') selectedObstacleId = null;
+  if (Array.isArray(window.polygonPoints)) window.polygonPoints.length = 0;
+  if (typeof polygonPoints !== 'undefined' && Array.isArray(polygonPoints)) polygonPoints.length = 0;
+  window.isPolygonDesignConfirmed = false;
+  if (typeof isPolygonDesignConfirmed !== 'undefined') isPolygonDesignConfirmed = false;
+  window.roofPanelsCache = null;
+  window.lastRoofInfo = null;
+  if (typeof lastRoofInfo !== 'undefined') lastRoofInfo = null;
+
+  // 11. Reseteo de Facturas y Auditor de Facturas (SSOT)
+  if (window.RA && window.RA.billAuditor && typeof window.RA.billAuditor.getState === 'function') {
+    try {
+      var bSt = window.RA.billAuditor.getState();
+      if (bSt) {
+        bSt.currentBill = null;
+        bSt.comparison = null;
+        bSt.pendingFile = null;
+        bSt.isAnalyzing = false;
       }
-      if (Array.isArray(window.polygonPoints)) {
-        window.polygonPoints.length = 0;
-      }
-      if (typeof polygonPoints !== 'undefined' && Array.isArray(polygonPoints)) {
-        polygonPoints.length = 0;
-      }
+    } catch(eB) {}
+  }
+
+  // 12. Reseteo de Configuración del Proyecto y Datos del Cliente (SSOT)
+  if (window.solarProjectConfig) {
+    window.solarProjectConfig.clientInfo = null;
+    window.solarProjectConfig.annualConsumptionKwh = null;
+    window.solarProjectConfig.targetKwp = 5.0;
+    window.solarProjectConfig.address = '';
+  }
+
+  // 13. Reseteo de formularios y campos de documentos en el DOM (Paso 5 / Titular)
+  var docFieldsToClear = [
+    'doc-nombre', 'doc-nif', 'doc-tel', 'doc-email',
+    'doc-dir', 'doc-mun', 'doc-prov', 'doc-cp', 'doc-cups',
+    'doc-potcontr', 'doc-dist'
+  ];
+  docFieldsToClear.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+
+  // Limpiar overrides del Dossier Comercial
+  if (window.CommercialProposalDossier) {
+    window.CommercialProposalDossier.overrides = {};
+    window.CommercialProposalDossier.renderSnapshot = null;
+  }
+
+  // 14. Reseteo de HUD de energía, dashboard y métricas
+  if (typeof resetSolarDashboard === 'function') {
+    try { resetSolarDashboard(); } catch(eDash) {}
+  }
+  var hudEnergy = document.getElementById('ra-hud-energy');
+  if (hudEnergy) hudEnergy.style.display = 'none';
+
+  // 15. Limpieza de Undo/Redo y almacenamiento local
+  try { localStorage.removeItem('ra_solar_project_autosave'); } catch(e) {}
+  try { localStorage.removeItem('ra_solar_project_last'); } catch(e) {}
+  if (window.RAundo && typeof window.RAundo.clear === 'function') {
+    window.RAundo.clear();
+  }
+
+  // 16. Actualización reactiva de árboles de proyecto (Árbol BIM y Outliner)
+  if (window.ProjectHierarchy && typeof window.ProjectHierarchy.notify === 'function') {
+    window.ProjectHierarchy.notify('item_deleted', { type: 'all' });
+  }
+  if (window.UIOutliner && typeof window.UIOutliner.render === 'function') {
+    try { window.UIOutliner.render(); } catch(eOut) {}
+  }
+  if (window.BOMTree && typeof window.BOMTree.render === 'function') {
+    try { window.BOMTree.render(); } catch(eBom) {}
+  }
+  if (typeof ProjectStatusHUD !== 'undefined' && ProjectStatusHUD && typeof ProjectStatusHUD.update === 'function') {
+    try { ProjectStatusHUD.update(); } catch(eHud) {}
+  } else if (typeof RAProjectStatusHUD !== 'undefined' && RAProjectStatusHUD && typeof RAProjectStatusHUD.update === 'function') {
+    try { RAProjectStatusHUD.update(); } catch(eHud) {}
+  }
+
+  // 17. Regreso forzado al Paso 1 con gating desbloqueado
+  if (typeof window.WorkflowOrchestrator !== 'undefined') {
+    if (typeof window.WorkflowOrchestrator.goToStep === 'function') {
+      window.WorkflowOrchestrator.goToStep(1, true);
     }
-    try { localStorage.removeItem('ra_solar_project_autosave'); } catch(e) {}
-    if (window.RAundo && typeof window.RAundo.clear === 'function') {
-      window.RAundo.clear();
+    if (typeof window.WorkflowOrchestrator.refreshGating === 'function') {
+      window.WorkflowOrchestrator.refreshGating();
     }
-    if (typeof window !== 'undefined' && window.ProjectHierarchy && typeof window.ProjectHierarchy.notify === 'function') {
-      window.ProjectHierarchy.notify('project_reset');
-    }
-    if (typeof window !== 'undefined' && window.WorkflowOrchestrator) {
-      if (typeof window.WorkflowOrchestrator.goToStep === 'function') window.WorkflowOrchestrator.goToStep(1, true);
-      if (typeof window.WorkflowOrchestrator.refreshGating === 'function') window.WorkflowOrchestrator.refreshGating();
-    }
-    _raCurrentFileHandle = null;
-    _raCurrentProjectName = 'Nuevo_Proyecto_Solar';
-    raCloseProjectsModal();
-    if (typeof showToast === 'function') showToast('NUEVO PROYECTO', 'Lienzo listo para nuevo diseño.', 'info', 2500);
+  }
+  if (typeof wpGoToStep === 'function') {
+    try { wpGoToStep(1); } catch(_) {}
+  }
+
+  // 18. Refresco del motor de render Cesium
+  if (curViewer && curViewer.scene && typeof curViewer.scene.requestRender === 'function') {
+    try { curViewer.scene.requestRender(); } catch(eR) {}
+  }
+
+  _raCurrentFileHandle = null;
+  _raCurrentProjectName = 'Nuevo_Proyecto_Solar';
+  raCloseProjectsModal();
+
+  if (typeof showToast === 'function') {
+    showToast('NUEVO PROYECTO INICIADO', 'Escena 3D, cálculos, facturas y documentos reiniciados desde cero.', 'success', 3000);
   }
 }
 
