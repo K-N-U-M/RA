@@ -282,6 +282,9 @@
     if (willOpen) {
       p.classList.add('open');
       if (btn) btn.style.transform = 'rotate(45deg) scale(1.08)';
+      if (typeof window.raSyncShadowUI === 'function') {
+        window.raSyncShadowUI();
+      }
       if (window.lucide && typeof window.lucide.createIcons === 'function') {
         try {
           window.lucide.createIcons({ root: p });
