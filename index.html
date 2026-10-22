@@ -15236,18 +15236,19 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
               totalLinesAdded += 2;
 
             } else {
-              // COPLANAR: Raíles longitudinales de aluminio bajo el módulo
-              const v1 = Cesium.Cartesian3.subtract(p.corners[1], p.corners[0], new Cesium.Cartesian3());
-              const v2 = Cesium.Cartesian3.subtract(p.corners[3], p.corners[0], new Cesium.Cartesian3());
+              // COPLANAR: Raíles transversales de aluminio continuos por fila bajo el módulo
+              const v1 = Cesium.Cartesian3.subtract(p.corners[1], p.corners[0], new Cesium.Cartesian3()); // Eje longitudinal del panel
+              const v2 = Cesium.Cartesian3.subtract(p.corners[3], p.corners[0], new Cesium.Cartesian3()); // Eje transversal (dirección de la fila)
               const norm = Cesium.Cartesian3.normalize(Cesium.Cartesian3.cross(v1, v2, new Cesium.Cartesian3()), new Cesium.Cartesian3());
               const drop = Cesium.Cartesian3.multiplyByScalar(norm, -0.025, new Cesium.Cartesian3());
-              const off1 = Cesium.Cartesian3.multiplyByScalar(v2, 0.25, new Cesium.Cartesian3());
-              const off2 = Cesium.Cartesian3.multiplyByScalar(v2, 0.75, new Cesium.Cartesian3());
+              // Los perfiles corren en horizontal a lo largo de la fila (eje v2), apoyando en las zonas de fijación a 1/4 y 3/4 del largo (v1)
+              const off1 = Cesium.Cartesian3.multiplyByScalar(v1, 0.25, new Cesium.Cartesian3());
+              const off2 = Cesium.Cartesian3.multiplyByScalar(v1, 0.75, new Cesium.Cartesian3());
 
               const r1S = Cesium.Cartesian3.add(Cesium.Cartesian3.add(p.corners[0], off1, new Cesium.Cartesian3()), drop, new Cesium.Cartesian3());
-              const r1E = Cesium.Cartesian3.add(Cesium.Cartesian3.add(p.corners[1], off1, new Cesium.Cartesian3()), drop, new Cesium.Cartesian3());
+              const r1E = Cesium.Cartesian3.add(Cesium.Cartesian3.add(p.corners[3], off1, new Cesium.Cartesian3()), drop, new Cesium.Cartesian3());
               const r2S = Cesium.Cartesian3.add(Cesium.Cartesian3.add(p.corners[0], off2, new Cesium.Cartesian3()), drop, new Cesium.Cartesian3());
-              const r2E = Cesium.Cartesian3.add(Cesium.Cartesian3.add(p.corners[1], off2, new Cesium.Cartesian3()), drop, new Cesium.Cartesian3());
+              const r2E = Cesium.Cartesian3.add(Cesium.Cartesian3.add(p.corners[3], off2, new Cesium.Cartesian3()), drop, new Cesium.Cartesian3());
 
               const rail1 = supportCol.add({
                 positions: [r1S, r1E],
