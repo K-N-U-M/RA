@@ -1221,14 +1221,27 @@
       var modCfg = global.panelConfig || { potencia: 450, isc: 13.8, imp: 13.05, vmp: 34.5, voc: 41.5 };
       var vmpNom = modCfg.vmp || 34.5;
       var vocNom = modCfg.voc || (vmpNom * 1.20);
+      var invCfgForLimits = (global.solarProjectConfig && global.solarProjectConfig.calculatedLimits && global.solarProjectConfig.calculatedLimits.inverter)
+        ? global.solarProjectConfig.calculatedLimits.inverter
+        : { vMaxAbs: 1000, vMpptMin: 200, vMpptMax: 850, vStart: 200 };
+      var dynLim = (typeof global.calculateDynamicMPPTStringLimits === 'function')
+        ? global.calculateDynamicMPPTStringLimits(
+            { voc: vocNom, vmp: vmpNom, tempCoeffVoc: modCfg.tempCoeffVoc ?? -0.0026, tempCoeffPmax: modCfg.tempCoeffPmax ?? -0.0034 },
+            invCfgForLimits,
+            (global.solarProjectConfig && global.solarProjectConfig.tempMinC) ?? -5,
+            (global.solarProjectConfig && global.solarProjectConfig.tempMaxCellC) ?? 70
+          )
+        : null;
+      var vmpHotMod = (dynLim && dynLim.vmpHot > 0) ? dynLim.vmpHot : (vmpNom * (1 + (modCfg.tempCoeffPmax ?? -0.0034) * (70 - 25)));
+      var vocColdMod = (dynLim && dynLim.vocCold > 0) ? dynLim.vocCold : (vocNom * (1 + (modCfg.tempCoeffVoc ?? -0.0026) * (-5 - 25)));
       var rho90 = 0.023;
       var imp = modCfg.imp || 13.05;
       var secDc = sState.S_dc_recommended || 6;
 
       stringTelemetryList.forEach(function (st) {
         var nMods = st.numPanels || 1;
-        st.vmpHot = Math.round(nMods * vmpNom * 0.88 * 10) / 10;
-        st.vocCold = Math.round(nMods * vocNom * 1.12 * 10) / 10;
+        st.vmpHot = Math.round(nMods * vmpHotMod * 10) / 10;
+        st.vocCold = Math.round(nMods * vocColdMod * 10) / 10;
         st.recommendedSection = secDc;
         var dVStr = (2 * rho90 * (st.homerunLength || 20) * imp) / secDc;
         var dVpctStr = (dVStr / Math.max(12.0, st.vmpHot)) * 100;
@@ -1323,7 +1336,8 @@
       // (fuente única getDcTopologyInfo). Ya no se lee un campo inexistente (dcTopology) que
       // provocaba que nunca se doblara la sección del conductor troncal.
       var numParallel = this.getDcTopologyInfo(strList.length).groups;
-      var iDcDesign = numParallel * 1.25 * (modCfg.isc || 13.8);
+      // IEC 62548 Clause 5.2.1: 1.56 × Isc (1.25 × 1.25) para dimensionamiento térmico de conductores de campo FV
+      var iDcDesign = numParallel * 1.56 * (modCfg.isc || 13.8);
       var iDcWorking = numParallel * imp;
 
       var secDcAvail = [4, 6, 10, 16, 25];
@@ -1403,6 +1417,8 @@
 
       sState.S_ac_recommended = sAcOpt;
       sState.dV_ac_pct = dVacPctOpt;
+      sState.dV_total_pct = Math.round((dVdcPctOpt + dVacPctOpt) * 100) / 100;
+      sState.globalNonCompliantWarning = (sState.dV_total_pct > 2.5);
 
       // Actualizar telemetría visual en HUD
       var statLdcEl = document.getElementById('inverter-stat-ldc');
@@ -1421,6 +1437,25 @@
         if (sState.acNonCompliantWarning) statSecAcEl.style.color = '#ef4444';
         else statSecAcEl.style.color = '';
       }
+      var statRebtBadge = document.getElementById('inverter-stat-rebt-badge');
+      if (statRebtBadge) {
+        if (sState.dcNonCompliantWarning || sState.acNonCompliantWarning) {
+          statRebtBadge.textContent = '⚠️ ΔV > 1.5% NO CONFORME (DC ' + dVdcPctOpt.toFixed(1) + '% / AC ' + dVacPctOpt.toFixed(1) + '%)';
+          statRebtBadge.style.color = '#EF4444';
+          statRebtBadge.style.background = 'rgba(239,68,68,0.15)';
+          statRebtBadge.style.borderColor = 'rgba(239,68,68,0.35)';
+        } else if (sState.globalNonCompliantWarning) {
+          statRebtBadge.textContent = '⚠️ ΔV TOTAL ' + sState.dV_total_pct.toFixed(1) + '% > 2.5% (REBT ITC-BT-40)';
+          statRebtBadge.style.color = '#F59E0B';
+          statRebtBadge.style.background = 'rgba(245,158,11,0.15)';
+          statRebtBadge.style.borderColor = 'rgba(245,158,11,0.35)';
+        } else {
+          statRebtBadge.textContent = '✓ ΔV ≤ 1.5% CONFORME (Total ' + sState.dV_total_pct.toFixed(1) + '%)';
+          statRebtBadge.style.color = '#10B981';
+          statRebtBadge.style.background = 'rgba(16,185,129,0.15)';
+          statRebtBadge.style.borderColor = 'rgba(16,185,129,0.3)';
+        }
+      }
 
       if (!global.solarLossConfig) global.solarLossConfig = {};
       global.solarLossConfig.wiringCalculated = (dVdcPctOpt + dVacPctOpt) / 100.0;
@@ -1428,6 +1463,7 @@
         global.solarLossConfig.wiring = global.solarLossConfig.wiringCalculated;
       }
 
+      if (typeof global.wpUpdateStep4Checklist === 'function') global.wpUpdateStep4Checklist();
       if (typeof global.recalculateSolarYield === 'function') global.recalculateSolarYield();
       if (global.BOMTreeEngine && typeof global.BOMTreeEngine.refresh === 'function') global.BOMTreeEngine.refresh();
       if (global.ProjectHierarchy && typeof global.ProjectHierarchy.notify === 'function') global.ProjectHierarchy.notify('electrical_updated');

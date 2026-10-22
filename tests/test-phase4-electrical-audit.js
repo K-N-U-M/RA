@@ -247,8 +247,44 @@ function runAuditTests() {
   assert.strictEqual(context.solarProjectConfig.lastVirtualInverter, undefined, 'Tras registrar el equipo en catálogo, lastVirtualInverter debe limpiarse');
   console.log(`  ✓ Aislamiento verificado y alta en 1 clic completada: "${context.equipmentCatalog.inverters[1].brand} ${context.equipmentCatalog.inverters[1].model}" añadido al catálogo.`);
 
+  // ── 7. SEGUNDA PASADA AAA: Telemetría REBT Dinámica (1.5% / 2.5%) y Coherencia Térmica en RACableEngine ──
+  console.log('\n[7/7] Verificando coherencia térmica CTE en RACableEngine y badges REBT dinámicos (1.5% tramo / 2.5% global)...');
+  loadScript('js/cable-engine.js');
+  context.inverterEquipmentState = {
+    L_dc_measured: 20,
+    L_ac_measured: 15,
+    dV_dc_pct: 0.7,
+    dV_ac_pct: 0.5,
+    dcNonCompliantWarning: false,
+    acNonCompliantWarning: false,
+    globalNonCompliantWarning: false
+  };
+  context.wpUpdateStep4Checklist();
+  assert(elements['step4-chk-rebt'].textContent.includes('✓ REBT: ΔV ≤ 1.5%'), 'Con ΔV DC=0.7% y AC=0.5%, el badge REBT debe estar en verde conforme');
+  assert.strictEqual(elements['step4-chk-rebt'].style.color, '#10B981');
+
+  // Caso caída global > 2.5% (ej. DC = 1.4%, AC = 1.3% -> Total = 2.7% > 2.5%)
+  context.inverterEquipmentState.dV_dc_pct = 1.4;
+  context.inverterEquipmentState.dV_ac_pct = 1.3;
+  context.inverterEquipmentState.globalNonCompliantWarning = true;
+  context.wpUpdateStep4Checklist();
+  assert(elements['step4-chk-rebt'].textContent.includes('> 2.5%'), 'Con ΔV DC=1.4% y AC=1.3% (Total 2.7%), el checklist debe alertar de ΔV Total > 2.5%');
+  assert.strictEqual(elements['step4-chk-rebt'].style.color, '#F59E0B');
+
+  // Caso incumplimiento de tramo > 1.5% (ej. DC = 1.9%)
+  context.inverterEquipmentState.dV_dc_pct = 1.9;
+  context.inverterEquipmentState.dcNonCompliantWarning = true;
+  context.wpUpdateStep4Checklist();
+  assert(elements['step4-chk-rebt'].textContent.includes('ΔV > 1.5%'), 'Con ΔV DC=1.9%, el checklist debe mostrar alerta roja ΔV > 1.5%');
+  assert.strictEqual(elements['step4-chk-rebt'].style.color, '#EF4444');
+
+  // Verificar que updateElectricalSizingAndHUD actualiza #inverter-stat-rebt-badge dinámicamente
+  context.RACableEngine.updateElectricalSizingAndHUD(18, 12);
+  assert(elements['inverter-stat-rebt-badge'].textContent.includes('CONFORME'), 'El badge #inverter-stat-rebt-badge debe actualizarse dinámicamente desde RACableEngine');
+  console.log(`  ✓ Badges REBT dinámicos verificados: "${elements['inverter-stat-rebt-badge'].textContent}" y control de límite global 2.5%.`);
+
   console.log('\n═══════════════════════════════════════════════════════════════════════════');
-  console.log('✓ TODOS LOS TESTS DE LA AUDITORÍA FORENSE DE FASE 4 SUPERADOS AL 100%');
+  console.log('✓ TODOS LOS TESTS DE LA AUDITORÍA FORENSE DE FASE 4 (CALIDAD AAA) SUPERADOS AL 100%');
   console.log('═══════════════════════════════════════════════════════════════════════════');
 }
 

@@ -6288,7 +6288,9 @@ function wpOpenSmartInverterMatchingModal() {
       isc: selectedMod.isc || 13.8,
       voc: selectedMod.voc || 41.5,
       vmp: selectedMod.vmp || 34.5,
-      imp: selectedMod.imp || 13.05
+      imp: selectedMod.imp || 13.05,
+      tempCoeffVoc: selectedMod.tempCoeffVoc ?? -0.0026,
+      tempCoeffPmax: selectedMod.tempCoeffPmax ?? -0.0034
     },
     totalPanels: totalPanels,
     totalKwp: totalKwp,
@@ -6296,7 +6298,9 @@ function wpOpenSmartInverterMatchingModal() {
     distinctOrientations: distinctOrientations,
     shadingDiagnostics: shading,
     selectedObjective: cfg.selectedObjective,
-    selectedTopology: cfg.selectedTopology
+    selectedTopology: cfg.selectedTopology,
+    tempMinC: cfg.tempMinC ?? -5,
+    tempMaxCellC: cfg.tempMaxCellC ?? 70
   });
 
   const scA = match.recommendedScenarioA;
@@ -6336,6 +6340,7 @@ function wpOpenSmartInverterMatchingModal() {
         </div>
         <div style="font-size: 10px;font-weight:bold;color:#F1F5F9;margin:2px 0;">
           1x ${scA.inverter.brand} ${scA.inverter.model} (${scA.totalAcKw} kW AC)
+          ${scA.isVirtual || scA.inverter.isVirtual ? '<span style="background:rgba(245,158,11,0.25);color:#FBBF24;padding:1px 5px;border-radius:3px;font-size:9px;margin-left:4px;border:1px solid rgba(245,158,11,0.5);">⚠️ EQUIPO RECOMENDADO FUERA DE CATÁLOGO</span>' : ''}
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:4px;margin:4px 0;font-size: 10px;">
           <span style="background:rgba(255,255,255,0.06);padding:2px 5px;border-radius:4px;color:#CBD5E1;">Sobrecarga: <b>${scA.overloadPct}%</b></span>
@@ -6362,6 +6367,7 @@ function wpOpenSmartInverterMatchingModal() {
         </div>
         <div style="font-size: 10px;font-weight:bold;color:#F1F5F9;margin:2px 0;">
           ${scB.count}x ${scB.inverter.brand} ${scB.inverter.model} (${scB.totalAcKw} kW AC total · ${scB.count} × ${scB.inverter.kw} kW)
+          ${scB.isVirtual || scB.inverter.isVirtual ? '<span style="background:rgba(245,158,11,0.25);color:#FBBF24;padding:1px 5px;border-radius:3px;font-size:9px;margin-left:4px;border:1px solid rgba(245,158,11,0.5);">⚠️ EQUIPO RECOMENDADO FUERA DE CATÁLOGO</span>' : ''}
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:4px;margin:4px 0;font-size: 10px;">
           <span style="background:rgba(255,255,255,0.06);padding:2px 5px;border-radius:4px;color:#CBD5E1;">Sobrecarga: <b>${scB.overloadPct}%</b></span>
@@ -6433,10 +6439,9 @@ function wpApplyInverterScenario(invId, count, topology, scenarioKey) {
       }
       if (scenarioObj && scenarioObj.inverter && scenarioObj.inverter.isVirtual) {
         window.solarProjectConfig.lastVirtualInverter = scenarioObj.inverter;
-        const catalog = (typeof equipmentCatalog !== 'undefined' && equipmentCatalog && Array.isArray(equipmentCatalog.inverters)) ? equipmentCatalog.inverters : null;
-        if (catalog && !catalog.some(i => i.id === scenarioObj.inverter.id)) {
-          catalog.push(scenarioObj.inverter);
-        }
+        // NO inyectar el inversor virtual en equipmentCatalog.inverters (aislamiento de catálogo comercial)
+      } else if (window.solarProjectConfig) {
+        window.solarProjectConfig.lastVirtualInverter = null;
       }
     }
   }

@@ -597,7 +597,7 @@ function wpUpdateStep4Checklist() {
   }
 
   if (chkRebt) {
-    chkRebt.textContent = '✓ REBT: ΔV ≤ 1.5%';
+    const sState = (typeof window !== 'undefined' && window.inverterEquipmentState) ? window.inverterEquipmentState : null; const dVdc = (sState && Number.isFinite(sState.dV_dc_pct)) ? sState.dV_dc_pct : 0.8; const dVac = (sState && Number.isFinite(sState.dV_ac_pct)) ? sState.dV_ac_pct : 0.6; const globalCheck = (typeof calculateGlobalVoltageDrop === 'function') ? calculateGlobalVoltageDrop(dVdc, dVac) : { totalPct: Math.round((dVdc + dVac) * 100) / 100, valid: (dVdc + dVac) <= 2.5 }; const totalDropPct = Number.isFinite(globalCheck.totalPct) ? globalCheck.totalPct : (dVdc + dVac); const dcFail = Boolean((sState && sState.dcNonCompliantWarning) || (dVdc > 1.5)); const acFail = Boolean((sState && sState.acNonCompliantWarning) || (dVac > 1.5)); const globalFail = Boolean((sState && sState.globalNonCompliantWarning) || !globalCheck.valid || (totalDropPct > 2.5)); if (dcFail || acFail) { chkRebt.textContent = '⚠️ REBT: ΔV > 1.5% (DC ' + dVdc.toFixed(1) + '% / AC ' + dVac.toFixed(1) + '%)'; chkRebt.style.color = '#EF4444'; chkRebt.style.background = 'rgba(239,68,68,0.15)'; chkRebt.style.borderColor = 'rgba(239,68,68,0.35)'; chkRebt.title = 'Incumplimiento REBT ITC-BT-40: caída de tensión en tramo supera el 1.5% máximo admisible.'; } else if (globalFail) { chkRebt.textContent = '⚠️ REBT: ΔV Total ' + totalDropPct.toFixed(1) + '% > 2.5%'; chkRebt.style.color = '#F59E0B'; chkRebt.style.background = 'rgba(245,158,11,0.15)'; chkRebt.style.borderColor = 'rgba(245,158,11,0.35)'; chkRebt.title = 'Advertencia REBT ITC-BT-40 / IDAE: la caída de tensión acumulada DC + AC (' + totalDropPct.toFixed(2) + '%) supera el 2.5% recomendado.'; } else { chkRebt.textContent = '✓ REBT: ΔV ≤ 1.5% (Total ' + totalDropPct.toFixed(1) + '%)'; chkRebt.style.color = '#10B981'; chkRebt.style.background = 'rgba(16,185,129,0.15)'; chkRebt.style.borderColor = 'rgba(16,185,129,0.3)'; chkRebt.title = ''; } return;
     chkRebt.style.color = '#10B981';
     chkRebt.style.background = 'rgba(16,185,129,0.15)';
     chkRebt.style.borderColor = 'rgba(16,185,129,0.3)';
@@ -1185,7 +1185,7 @@ function wpAutoSelectOptimalEngineering(force = false) {
     gridSupply: gridSupply,
     distinctOrientations: distinctOrientations,
     shadingDiagnostics: shading,
-    selectedObjective: cfg.selectedObjective
+    selectedObjective: cfg.selectedObjective, tempMinC: cfg.tempMinC ?? -5, tempMaxCellC: cfg.tempMaxCellC ?? 70
   });
 
   const bestTopology = match.recommendedTopology || 'inverter';
@@ -1468,7 +1468,7 @@ function wpRefreshAutoEngineeringBanner(preferredTopology) {
       gridSupply: gridSupply,
       distinctOrientations: distinctOrientations,
       shadingDiagnostics: shading,
-      selectedObjective: cfg.selectedObjective,
+      selectedObjective: cfg.selectedObjective, tempMinC: cfg.tempMinC ?? -5, tempMaxCellC: cfg.tempMaxCellC ?? 70,
       selectedTopology: topo
     });
   }
