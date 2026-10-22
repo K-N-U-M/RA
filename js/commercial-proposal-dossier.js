@@ -184,13 +184,27 @@
     var isCommercial = (kwp >= 15 || (tariff && (tariff.indexOf('3.') !== -1 || tariff.indexOf('6.'))) || annualCons > 18000);
     var profileType = isCommercial ? 'Comercial & PYME' : 'Residencial Premium';
 
-    // Desglose de CAPEX estructurado (consistente con totalCost sin IVA)
-    var panPart = Math.round(totalCost * 0.32);
-    var invPart = Math.round(totalCost * 0.18);
-    var estPart = Math.round(totalCost * 0.14);
-    var cabPart = Math.round(totalCost * 0.11);
-    var moPart  = Math.round(totalCost * 0.16);
-    var legPart = Math.max(0, totalCost - (panPart + invPart + estPart + cabPart + moPart));
+    // Desglose de CAPEX estructurado a partir del diseño real del proyecto (escalado al totalCost sin IVA)
+    var designCosts = (typeof global.RAPricing !== 'undefined' && typeof global.RAPricing.computeDesignCosts === 'function')
+      ? global.RAPricing.computeDesignCosts(numPanels)
+      : null;
+    var panPart, invPart, estPart, cabPart, moPart, legPart;
+    if (designCosts && designCosts.directCostTotal > 0) {
+      var scale = totalCost / designCosts.directCostTotal;
+      panPart = Math.round(designCosts.panelPrice * scale);
+      invPart = Math.round(((designCosts.invPrice || 0) + (designCosts.batPrice || 0)) * scale);
+      estPart = Math.round(designCosts.estPrice * scale);
+      cabPart = Math.round(designCosts.cabPrice * scale);
+      moPart  = Math.round(designCosts.moPrice * scale);
+      legPart = Math.max(0, Math.round(totalCost) - (panPart + invPart + estPart + cabPart + moPart));
+    } else {
+      panPart = Math.round(totalCost * 0.32);
+      invPart = Math.round(totalCost * 0.18);
+      estPart = Math.round(totalCost * 0.14);
+      cabPart = Math.round(totalCost * 0.11);
+      moPart  = Math.round(totalCost * 0.16);
+      legPart = Math.max(0, Math.round(totalCost) - (panPart + invPart + estPart + cabPart + moPart));
+    }
 
     // Cálculos Bancables: Préstamo Verde a 8 años (96 meses @ 5,5% TIN)
     var nMonths = 96;
@@ -644,6 +658,32 @@
     var kwNom = raw.metrics.kwNom;
     var numPanels = raw.metrics.numPanels;
     var totalCost = ov.totalCost || raw.metrics.totalCost;
+    var parseEsNum = function(s, fb) {
+      if (typeof s === 'number') return s;
+      if (!s) return fb;
+      var clean = String(s).replace(/[^\d.,-]/g, '').replace(/\./g, '').replace(',', '.');
+      var n = parseFloat(clean);
+      return isFinite(n) && n > 0 ? n : fb;
+    };
+    var fmtEsCurrency = function(n) {
+      return Number(n || 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+    };
+    var totalCostNum = ov.totalCost ? parseEsNum(ov.totalCost, raw.metrics.totalCostNum) : raw.metrics.totalCostNum;
+    var totalCostGrossNum = Math.round(totalCostNum * 1.21 * 100) / 100;
+    var totalCostGross = totalCostGrossNum.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (ov.totalCost && raw.metrics.totalCostNum > 0 && Math.abs(totalCostNum - raw.metrics.totalCostNum) > 1) {
+      var capexRatio = totalCostNum / raw.metrics.totalCostNum;
+      var scaleCapexStr = function(str) {
+        return Math.round(parseEsNum(str, 0) * capexRatio).toLocaleString('es-ES');
+      };
+      raw.metrics.capexModules = scaleCapexStr(raw.metrics.capexModules);
+      raw.metrics.capexInverters = scaleCapexStr(raw.metrics.capexInverters);
+      raw.metrics.capexStructure = scaleCapexStr(raw.metrics.capexStructure);
+      raw.metrics.capexElectrical = scaleCapexStr(raw.metrics.capexElectrical);
+      raw.metrics.capexLabor = scaleCapexStr(raw.metrics.capexLabor);
+      raw.metrics.capexPermits = scaleCapexStr(raw.metrics.capexPermits);
+      raw.metrics.totalCostGross = totalCostGross;
+    }
     var annualYield = raw.metrics.annualYield;
     var payback = ov.payback || raw.metrics.payback;
     var ahorroAnual = ov.ahorroAnual || raw.metrics.ahorroAnual;
@@ -1430,16 +1470,16 @@
         '    <div><strong>CIF / NIF:</strong> <span class="editable-field" contenteditable="true">' + clientNif + '</span></div>' +
         '    <div style="grid-column:1/-1;"><strong>Ubicación:</strong> <span class="editable-field" contenteditable="true">' + address + '</span></div>' +
         '    <div><strong>CUPS:</strong> <span class="editable-field" contenteditable="true">' + cups + '</span></div>' +
-        '    <div><strong>Tarifa de Acceso:</strong> <span class="editable-field" contenteditable="true">' + tariffName + '</span></div>' +
-        '    <div><strong>Potencia Solar:</strong> <span class="editable-field" contenteditable="true">' + totalPower + ' kWp</span></div>' +
-        '    <div><strong>Importe Total:</strong> <span class="editable-field" contenteditable="true" style="font-weight:bold;color:' + pal.primary + ';">' + totalCostGross + ' (IVA inc.)</span></div>' +
+        '    <div><strong>Tarifa de Acceso:</strong> <span class="editable-field" contenteditable="true">' + tariff + '</span></div>' +
+        '    <div><strong>Potencia Solar:</strong> <span class="editable-field" contenteditable="true">' + kwp + ' kWp</span></div>' +
+        '    <div><strong>Importe Total:</strong> <span class="editable-field" contenteditable="true" style="font-weight:bold;color:' + pal.primary + ';">' + totalCostGross + ' € (IVA inc.)</span></div>' +
         '  </div>' +
         '  <div style="margin-top:8px;padding-top:6px;border-top:1px solid #e2e8f0;">' +
         '    <div style="font-size:10px;font-weight:bold;color:' + pal.dark + ';margin-bottom:4px;">HITOS DE PAGO ESTÁNDAR BANCABLE (MODALIDAD CAPEX)</div>' +
         '    <table class="table-clean" style="font-size:8.5px;">' +
-        '      <tr><td><strong>1º Hito (30%):</strong></td><td>A la firma de contrato (reserva de equipos y tramitación de licencias)</td><td style="font-weight:bold;text-align:right;">' + formatCurrency(Math.round(raw.costs.total * 0.30)) + '</td></tr>' +
-        '      <tr><td><strong>2º Hito (50%):</strong></td><td>Al acopio de materiales en cubierta y comienzo de montaje mecánico</td><td style="font-weight:bold;text-align:right;">' + formatCurrency(Math.round(raw.costs.total * 0.50)) + '</td></tr>' +
-        '      <tr><td><strong>3º Hito (20%):</strong></td><td>A la puesta en marcha, emisión de CIE y entrega de documentación legal</td><td style="font-weight:bold;text-align:right;">' + formatCurrency(Math.round(raw.costs.total * 0.20)) + '</td></tr>' +
+        '      <tr><td><strong>1º Hito (30%):</strong></td><td>A la firma de contrato (reserva de equipos y tramitación de licencias)</td><td style="font-weight:bold;text-align:right;">' + fmtEsCurrency(Math.round(totalCostGrossNum * 0.30)) + '</td></tr>' +
+        '      <tr><td><strong>2º Hito (50%):</strong></td><td>Al acopio de materiales en cubierta y comienzo de montaje mecánico</td><td style="font-weight:bold;text-align:right;">' + fmtEsCurrency(Math.round(totalCostGrossNum * 0.50)) + '</td></tr>' +
+        '      <tr><td><strong>3º Hito (20%):</strong></td><td>A la puesta en marcha, emisión de CIE y entrega de documentación legal</td><td style="font-weight:bold;text-align:right;">' + fmtEsCurrency(Math.round(totalCostGrossNum * 0.20)) + '</td></tr>' +
         '    </table>' +
         '  </div>' +
         '</div>'
