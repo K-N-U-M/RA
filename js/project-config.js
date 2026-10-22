@@ -60,11 +60,11 @@ function populateStep3EquipmentSelectors() {
       '</option>';
     }).join('');
 
-    // Si el inversor seleccionado es virtual y no está en catálogo, inyectarlo destacado al principio
+    // Si el inversor seleccionado es virtual y no está en catálogo, inyectarlo destacado al principio con etiqueta de advertencia
     const vInv = cfg.lastVirtualInverter;
     if (vInv && !catalog.inverters.some(i => i.id === vInv.id)) {
       const isSel = (vInv.id === curVal);
-      invOptionsHtml = `<option value="${vInv.id}" ${isSel ? 'selected' : ''} style="color:#F59E0B;font-weight:bold;">⚡ ${vInv.brand} · ${vInv.model} (${vInv.kw} kW · ${vInv.price} €)</option>` + invOptionsHtml;
+      invOptionsHtml = `<option value="${vInv.id}" ${isSel ? 'selected' : ''} style="color:#F59E0B;font-weight:bold;">⚠️ [EQUIPO RECOMENDADO FUERA DE CATÁLOGO] ${vInv.brand} · ${vInv.model} (${vInv.kw} kW · ${vInv.price} €)</option>` + invOptionsHtml;
     }
     invSel.innerHTML = invOptionsHtml;
     if (curVal) invSel.value = curVal;
@@ -328,21 +328,31 @@ function step3UpdateHardwareSelection() {
   const catalog = (typeof window !== 'undefined' && window.equipmentCatalog) ? window.equipmentCatalog : ((typeof equipmentCatalog !== 'undefined') ? equipmentCatalog : null);
   if (!catalog) return;
 
-  const inv = (catalog.inverters && catalog.inverters.find(i => i.id === window.solarProjectConfig.selectedInverterId)) || (catalog.inverters && catalog.inverters[0]);
-  const mod = (catalog.modules && catalog.modules.find(m => m.id === window.solarProjectConfig.selectedModuleId)) || (catalog.modules && catalog.modules[0]);
-  const mi  = (catalog.microinverters && catalog.microinverters.find(m => m.id === window.solarProjectConfig.selectedMicroinverterId)) || (catalog.microinverters && catalog.microinverters[0]);
-  const bat = (catalog.batteries && catalog.batteries.find(b => b.id === window.solarProjectConfig.selectedBatteryId)) || (catalog.batteries && catalog.batteries[0]);
+  const cfgRef = window.solarProjectConfig || {};
+  const inv = (catalog.inverters && catalog.inverters.find(i => i.id === cfgRef.selectedInverterId)) ||
+              (cfgRef.lastVirtualInverter && cfgRef.lastVirtualInverter.id === cfgRef.selectedInverterId ? cfgRef.lastVirtualInverter : null) ||
+              (catalog.inverters && catalog.inverters[0]);
+  const mod = (catalog.modules && catalog.modules.find(m => m.id === cfgRef.selectedModuleId)) || (catalog.modules && catalog.modules[0]);
+  const mi  = (catalog.microinverters && catalog.microinverters.find(m => m.id === cfgRef.selectedMicroinverterId)) || (catalog.microinverters && catalog.microinverters[0]);
+  const bat = (catalog.batteries && catalog.batteries.find(b => b.id === cfgRef.selectedBatteryId)) || (catalog.batteries && catalog.batteries[0]);
 
-  // Coeficientes térmicos bajo CTE / IEC 62548
-  const tMin = -10;
-  const tMaxCell = 65;
-  const gammaVoc = mod.gammaVoc || -0.0028;
-  const vOcCold = (mod.voc || 41.5) * (1 + gammaVoc * (tMin - 25));
-  const vMpHot = (mod.vmp || 34.5) * (1 + gammaVoc * (tMaxCell - 25));
-
-  const nMaxCold = Math.floor((inv.vDcMax || 1000) / vOcCold);
-  const nMinMppt = Math.ceil((inv.vMpptNomMin || 180) / vMpHot);
-  const nMaxInvPower = Math.floor(((inv.kw || 5.0) * 1000 * (inv.maxOverload || 1.30)) / (mod.wp || 450));
+  // Coeficientes térmicos bajo CTE / IEC 62548 unificados con RA.Electrical.calculateDynamicMPPTStringLimits
+  let nMaxCold = 18;
+  let nMinMppt = 5;
+  if (typeof calculateDynamicMPPTStringLimits === 'function') {
+    const dynLim = calculateDynamicMPPTStringLimits(mod, inv);
+    nMaxCold = dynLim.Ns_max;
+    nMinMppt = dynLim.Ns_min;
+  } else {
+    const tMin = -10;
+    const tMaxCell = 70;
+    const gammaVoc = -Math.abs(mod.gammaVoc || mod.betaVoc || -0.0028);
+    const vOcCold = (mod.voc || 41.5) * (1 + gammaVoc * (tMin - 25));
+    const vMpHot = (mod.vmp || 34.5) * (1 + gammaVoc * 1.05 * (tMaxCell - 25));
+    nMaxCold = Math.floor((inv.vDcMax || 1000) / vOcCold);
+    nMinMppt = Math.ceil((inv.vMpptNomMin || 180) / vMpHot);
+  }
+  const nMaxInvPower = Math.floor(((inv.kw || 5.0) * 1000 * (inv.maxOverload || 1.35)) / (mod.wp || 450));
 
   window.solarProjectConfig.calculatedLimits = {
     nMinString: Math.max(nMinMppt, 3),
@@ -628,23 +638,27 @@ function wpComputeAutoSizing(forcedCount) {
 
   const cfg = window.solarProjectConfig;
   const mod = (catalog.modules && catalog.modules.find(m => m.id === cfg.selectedModuleId)) || (catalog.modules && catalog.modules[0]) || { wp: 450, brand: 'Tier-1', model: 'Mono' };
-  const inv = (catalog.inverters && catalog.inverters.find(i => i.id === cfg.selectedInverterId)) || (catalog.inverters && catalog.inverters[0]) || { kw: 5.0, maxOverload: 1.30 };
+  const inv = (catalog.inverters && catalog.inverters.find(i => i.id === cfg.selectedInverterId)) ||
+              (cfg.lastVirtualInverter && cfg.lastVirtualInverter.id === cfg.selectedInverterId ? cfg.lastVirtualInverter : null) ||
+              (catalog.inverters && catalog.inverters[0]) || { kw: 5.0, maxOverload: 1.35 };
   const mi  = (catalog.microinverters && catalog.microinverters.find(m => m.id === cfg.selectedMicroinverterId)) || (catalog.microinverters && catalog.microinverters[0]) || { model: '', type: '' };
   const bat = (catalog.batteries && catalog.batteries.find(b => b.id === cfg.selectedBatteryId)) || (catalog.batteries && catalog.batteries[0]) || { kwh: 0 };
 
   const totalKwp = (count * (mod.wp || 450)) / 1000.0;
 
-  // 1. Inversores String Requeridos:
+  // 1. Inversores String Requeridos (unificado con matchInvertersFromCatalog: maxOverload || 1.35):
   const invNomKw = inv.kw || 5.0;
-  const maxOverloadRatio = inv.maxOverload || 1.30;
+  const maxOverloadRatio = inv.maxOverload || 1.35;
   const maxKwInput = invNomKw * maxOverloadRatio;
   const autoInvertersByPower = Math.max(1, Math.ceil(totalKwp / maxKwInput));
 
-  // 1b. Verificación de Canales MPPT Físicos e Incompatibilidad de Orientación (IEC 62548 / REBT)
+  // 1b. Verificación de Canales MPPT Físicos, Simetría de Longitud (ΔN = 0) e Incompatibilidad de Orientación (IEC 62548 / REBT)
   let autoInvertersByMppt = 1;
   try {
     const invMppt = (inv && Number.isFinite(inv.mppt) && inv.mppt > 0) ? inv.mppt : 2;
-    const invInputs = (inv && Number.isFinite(inv.inputsPerMppt) && inv.inputsPerMppt > 0) ? inv.inputsPerMppt : 1;
+    const rawInputs = (inv && Number.isFinite(inv.inputsPerMppt) && inv.inputsPerMppt > 0) ? inv.inputsPerMppt : 1;
+    const iscLimitInputs = (inv && inv.iMaxScA) ? Math.max(1, Math.floor(inv.iMaxScA / ((mod.isc || 14.0) * 1.25))) : rawInputs;
+    const invInputs = Math.max(1, Math.min(rawInputs, iscLimitInputs));
 
     let targetPanels = null;
     if (typeof window !== 'undefined') {
@@ -684,7 +698,7 @@ function wpComputeAutoSizing(forcedCount) {
         stringsMap.get(sName).count++;
       });
 
-      // Agrupar strings por orientación homogénea (Δβ <= 5°, Δγ <= 10°)
+      // Agrupar strings por orientación homogénea (Δβ <= 5°, Δγ <= 10°) Y longitud idéntica (ΔN = 0, IEC 62548)
       const orientationGroups = [];
       stringsMap.forEach(str => {
         let matched = null;
@@ -692,7 +706,7 @@ function wpComputeAutoSizing(forcedCount) {
           const dTilt = Math.abs(grp.tilt - str.tilt);
           let dAz = Math.abs(grp.az - str.az);
           if (dAz > 180) dAz = 360 - dAz;
-          if (dTilt <= 5.0 && dAz <= 10.0) {
+          if (dTilt <= 5.0 && dAz <= 10.0 && grp.panelCount === str.count) {
             matched = grp;
             break;
           }
@@ -703,6 +717,7 @@ function wpComputeAutoSizing(forcedCount) {
           orientationGroups.push({
             tilt: str.tilt,
             az: str.az,
+            panelCount: str.count,
             stringsCount: 1
           });
         }
@@ -1198,7 +1213,13 @@ function wpAutoSelectOptimalEngineering(force = false) {
     cfg.autoSizing.microinverters.count = microUnits;
     cfg.autoSizing.microinverters.isManual = false;
   } else {
-    bestScenario = match.recommendedScenarioA || match.recommendedScenarioB;
+    // Priorizar siempre coincidencias reales de catálogo (1x o Nx) frente a inversores paramétricos virtuales
+    bestScenario = match.bestCatalogMatch ||
+      (match.recommendedScenarioA && !match.recommendedScenarioA.isVirtual ? match.recommendedScenarioA : null) ||
+      (match.recommendedScenarioB && !match.recommendedScenarioB.isVirtual ? match.recommendedScenarioB : null) ||
+      match.virtualInverterMatch ||
+      match.recommendedScenarioA ||
+      match.recommendedScenarioB;
     cfg.selectedTopology = bestTopology;
     if (bestScenario && bestScenario.inverter) {
       cfg.selectedInverterId = bestScenario.inverter.id;
@@ -1210,11 +1231,13 @@ function wpAutoSelectOptimalEngineering(force = false) {
   }
 
   // Si se generó un Inversor Paramétrico Virtual (para topología string central):
+  // Se mantiene aislado en cfg.lastVirtualInverter sin contaminar catalog.inverters hasta que el usuario lo guarde explícitamente
   if (bestTopology !== 'microinverter' && bestScenario && bestScenario.inverter && bestScenario.isVirtual) {
     cfg.lastVirtualInverter = bestScenario.inverter;
-    if (Array.isArray(catalog.inverters) && !catalog.inverters.some(i => i.id === bestScenario.inverter.id)) {
-      catalog.inverters.push(bestScenario.inverter);
-    }
+    cfg.lastSuggestedCommercialModels = match.suggestedCommercialModels || bestScenario.inverter.suggestedCommercialModels || [];
+    if (typeof populateStep3EquipmentSelectors === 'function') populateStep3EquipmentSelectors();
+  } else {
+    delete cfg.lastVirtualInverter;
   }
 
   // Auto-dimensionar batería LFP si procede (residencial / híbrido <= 15 kWp)
@@ -1301,24 +1324,27 @@ function wpRenderAutoEngineeringBanner(info, isManualOverride = false) {
 
   if (isVirtual) {
     const comModels = Array.isArray(info.suggestedCommercialModels) ? info.suggestedCommercialModels : [];
+    if (window.solarProjectConfig && comModels.length > 0) {
+      window.solarProjectConfig.lastSuggestedCommercialModels = comModels;
+    }
     const modelsHtml = comModels.length > 0 ? `
       <div style="font-size: 10px;color:#94A3B8;margin-bottom:6px;">
-        <b style="color:#CBD5E1;">Equipos de mercado sugeridos:</b>
+        <b style="color:#CBD5E1;">Equipos de mercado sugeridos (clic para añadir en 1 clic a la BD comercial):</b>
         <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px;">
-          ${comModels.map(m => `<span style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:3px;padding:1px 5px;color:#CBD5E1;">${m.brand} ${m.model} (${m.kw} kW)</span>`).join('')}
+          ${comModels.map((m, idx) => `<button type="button" onclick="wpAddSuggestedCommercialModelToCatalog(${idx})" style="background:rgba(245,158,11,0.14);border:1px solid rgba(245,158,11,0.45);border-radius:4px;padding:2px 6px;color:#FDE68A;font-size:10px;font-weight:bold;cursor:pointer;" title="Añadir ${m.brand} ${m.model} al catálogo comercial y seleccionarlo">➕ ${m.brand} ${m.model} (${m.kw} kW)</button>`).join('')}
         </div>
       </div>
     ` : '';
 
     banner.innerHTML = `
-      <div style="background:linear-gradient(135deg, rgba(30,27,75,0.92), rgba(15,23,42,0.92));border:1px solid #F59E0B;border-radius:8px;padding:8px;box-shadow:0 0 12px rgba(245,158,11,0.2);margin-bottom:6px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:3px;">
+      <div style="background:linear-gradient(135deg, rgba(69,10,10,0.92), rgba(30,27,75,0.92));border:2px solid #F59E0B;border-radius:8px;padding:8px;box-shadow:0 0 14px rgba(245,158,11,0.28);margin-bottom:6px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:3px;">
           <span style="font-size:10px;font-weight:900;color:#FBBF24;">
-            <i data-lucide="alert-triangle" class="icon-sm"></i> CATÁLOGO INSUFICIENTE: INVERSOR VIRTUAL ACTIVADO
+            <i data-lucide="alert-triangle" class="icon-sm"></i> ⚠️ EQUIPO RECOMENDADO FUERA DE CATÁLOGO
           </span>
           <div style="display:flex;gap:4px;align-items:center;">
-            <span class="card-tag" style="background:rgba(245,158,11,0.2);color:#FBBF24;font-size: 10px;font-weight:bold;">
-              ⚡ PARÁMETRICO IDEAL
+            <span class="card-tag" style="background:rgba(239,68,68,0.25);border:1px solid #EF4444;color:#FCA5A5;font-size: 9.5px;font-weight:900;">
+              NO REGISTRADO EN BD
             </span>
             <button type="button" class="doc-mini-btn" onclick="wpOpenSmartInverterMatchingModal()" style="background:rgba(56,189,248,0.2);border:1px solid #38BDF8;color:#38BDF8;font-size: 10px;font-weight:bold;padding:2px 6px;cursor:pointer;" title="Comparar alternativas técnicas 1x Central vs Nx Modulares vs MLPE">
               <i data-lucide="sparkles" class="icon-sm"></i> COMPARAR 1X VS NX
@@ -1326,15 +1352,15 @@ function wpRenderAutoEngineeringBanner(info, isManualOverride = false) {
           </div>
         </div>
         <div style="font-size: 10px;color:#FCD34D;background:rgba(245,158,11,0.12);padding:4px 6px;border-radius:4px;margin-bottom:5px;border-left:3px solid #F59E0B;line-height:1.3;">
-          <b>Cuello de Botella Físico:</b> ${info.bottleneckReason || 'Requisitos del proyecto no cubiertos por los equipos disponibles.'}
+          <b>Cuello de Botella Físico:</b> ${info.bottleneckReason || 'Requisitos del proyecto no cubiertos por los equipos disponibles en catálogo.'}
         </div>
         <div style="font-size: 10px;color:#E2E8F0;line-height:1.35;margin-bottom:4px;">
           <b>Inversor Ideal Auto-Generado:</b> ${sc.count}× ${sc.inverter.brand} ${sc.inverter.model} (${sc.totalAcKw} kW AC · ${sc.mpptCount} MPPTs · Sobrecarga: ${sc.overloadPct}%)
         </div>
         ${modelsHtml}
         <div style="display:flex;gap:6px;align-items:center;margin-top:6px;border-top:1px solid rgba(255,255,255,0.08);padding-top:5px;">
-          <button type="button" class="doc-mini-btn" onclick="wpSaveVirtualInverterToCatalog()" style="background:rgba(245,158,11,0.25);border:1px solid #F59E0B;color:#FBBF24;font-size: 10px;font-weight:bold;padding:3px 7px;cursor:pointer;" title="Guardar este inversor en el catálogo definitivo">
-            <i data-lucide="save" class="icon-sm"></i> GUARDAR EN CATÁLOGO
+          <button type="button" class="doc-mini-btn" onclick="wpSaveVirtualInverterToCatalog()" style="background:linear-gradient(135deg,#F59E0B,#D97706);border:none;color:#0F172A;font-size: 10px;font-weight:900;padding:4px 8px;cursor:pointer;" title="Añadir este equipo directamente a la base de datos comercial con un solo clic">
+            <i data-lucide="plus-circle" class="icon-sm"></i> AÑADIR A BASE DE DATOS COMERCIAL (1 CLIC)
           </button>
           <button type="button" class="doc-mini-btn" onclick="openEquipmentCatalogModal('ai_import')" style="background:rgba(56,189,248,0.15);border:1px solid #38BDF8;color:#38BDF8;font-size: 10px;font-weight:bold;padding:3px 7px;cursor:pointer;" title="Importar PDF técnico de inversor real con IA">
             <i data-lucide="sparkles" class="icon-sm"></i> SUBIR PDF CON IA
@@ -1550,6 +1576,7 @@ function wpSaveVirtualInverterToCatalog() {
   cfg.selectedInverterId = persistentId;
   delete cfg.lastVirtualInverter;
 
+  if (typeof populateStep3EquipmentSelectors === 'function') populateStep3EquipmentSelectors();
   if (typeof populateHardwareDropdowns === 'function') populateHardwareDropdowns();
   if (typeof step3UpdateHardwareSelection === 'function') step3UpdateHardwareSelection();
 
@@ -1562,7 +1589,65 @@ function wpSaveVirtualInverterToCatalog() {
   }
 }
 
+function wpAddSuggestedCommercialModelToCatalog(idx) {
+  const cfg = window.solarProjectConfig;
+  const catalog = (typeof window !== 'undefined' && window.equipmentCatalog) ? window.equipmentCatalog : ((typeof equipmentCatalog !== 'undefined') ? equipmentCatalog : null);
+  const vInv = (cfg && cfg.lastVirtualInverter) || {};
+  const list = (cfg && Array.isArray(cfg.lastSuggestedCommercialModels) && cfg.lastSuggestedCommercialModels.length > 0)
+    ? cfg.lastSuggestedCommercialModels
+    : (Array.isArray(vInv.suggestedCommercialModels) ? vInv.suggestedCommercialModels : []);
+  const modelSpec = list[idx];
+  if (!modelSpec || !catalog || !Array.isArray(catalog.inverters)) return;
+
+  const isThreePhase = (modelSpec.kw || 10) > 6.0;
+  const persistentId = `inv_${String(modelSpec.brand || 'custom').toLowerCase()}_${modelSpec.kw}kw_${Date.now()}`;
+  const newCommercialInv = {
+    id: persistentId,
+    brand: modelSpec.brand || 'Tier-1',
+    model: modelSpec.model || `${modelSpec.kw}KTL`,
+    kw: modelSpec.kw || vInv.kw || 10,
+    type: isThreePhase ? 'Trifásico' : 'Monofásico',
+    mppt: modelSpec.mppt || vInv.mppt || 2,
+    inputsPerMppt: vInv.inputsPerMppt || 2,
+    vDcMax: isThreePhase ? 1100 : 600,
+    vStart: isThreePhase ? 200 : 100,
+    vMpptNomMin: isThreePhase ? 200 : 120,
+    vMpptNomMax: isThreePhase ? 850 : 500,
+    iMaxOperA: vInv.iMaxOperA || 26.0,
+    iMaxScA: vInv.iMaxScA || 36.0,
+    maxOverload: 1.35,
+    eff: 98.4,
+    price: vInv.price || (isThreePhase ? Math.round((modelSpec.kw || 10) * 65) : Math.round(250 + (modelSpec.kw || 5) * 110)),
+    isVirtual: false
+  };
+
+  if (vInv.id) {
+    catalog.inverters = catalog.inverters.filter(i => i.id !== vInv.id);
+  }
+  catalog.inverters.push(newCommercialInv);
+
+  if (typeof saveEquipmentCatalog === 'function') {
+    saveEquipmentCatalog();
+  }
+
+  cfg.selectedInverterId = persistentId;
+  delete cfg.lastVirtualInverter;
+
+  if (typeof populateStep3EquipmentSelectors === 'function') populateStep3EquipmentSelectors();
+  if (typeof populateHardwareDropdowns === 'function') populateHardwareDropdowns();
+  if (typeof step3UpdateHardwareSelection === 'function') step3UpdateHardwareSelection();
+
+  wpAutoSelectOptimalEngineering(true);
+
+  if (typeof showStatus === 'function') {
+    showStatus(`✓ EQUIPO COMERCIAL "${newCommercialInv.brand} ${newCommercialInv.model}" AÑADIDO A LA BASE DE DATOS`, 3500);
+  } else if (typeof showToast === 'function') {
+    showToast('EQUIPO REGISTRADO', `${newCommercialInv.brand} ${newCommercialInv.model} añadido y seleccionado.`, 'success', 3500);
+  }
+}
+
 window.wpAutoSelectOptimalEngineering = wpAutoSelectOptimalEngineering;
 window.wpRenderAutoEngineeringBanner = wpRenderAutoEngineeringBanner;
 window.wpRefreshAutoEngineeringBanner = wpRefreshAutoEngineeringBanner;
 window.wpSaveVirtualInverterToCatalog = wpSaveVirtualInverterToCatalog;
+window.wpAddSuggestedCommercialModelToCatalog = wpAddSuggestedCommercialModelToCatalog;

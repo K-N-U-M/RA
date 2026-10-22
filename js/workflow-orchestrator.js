@@ -210,6 +210,13 @@
             reason: 'Requiere seleccionar un inversor o microinversor del catálogo en el Paso 4 (Ingeniería)'
           };
         }
+        // Bloqueo normativo IEC 62548 por paralelización asimétrica de strings (ΔN ≠ 0) u orientaciones incompatibles en un mismo canal MPPT
+        if (cfg && cfg.selectedTopology !== 'microinverter' && cfg.selectedTopology !== 'optimizer' && cfg.mpptHomogeneity && cfg.mpptHomogeneity.valid === false && Array.isArray(cfg.mpptHomogeneity.violations) && cfg.mpptHomogeneity.violations.length > 0) {
+          return {
+            allowed: false,
+            reason: cfg.mpptHomogeneity.violations[0].msg || 'Configuración bloqueada (IEC 62548): Strings en paralelo en el mismo MPPT con distinto número de módulos u orientación incompatible.'
+          };
+        }
       }
 
       return { allowed: true };

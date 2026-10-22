@@ -24,12 +24,23 @@
       const totalKwp = opts.totalKwp || ((count * (mod.wp || 450)) / 1000.0);
       const invCount = opts.invCount || 1;
 
-      // Cálculos térmicos y ratios
-      const tMin = -10;
-      const tMaxCell = 65;
-      const gammaVoc = mod.gammaVoc || -0.0028;
-      const vocCold = (mod.voc || 41.5) * (1 + gammaVoc * (tMin - 25));
-      const vmpHot = (mod.vmp || 34.5) * (1 + gammaVoc * (tMaxCell - 25));
+      // Cálculos térmicos y ratios unificados con RA.Electrical.calculateDynamicMPPTStringLimits
+      let vocCold, vmpHot, nMaxCold, nMinMppt;
+      if (typeof calculateDynamicMPPTStringLimits === 'function') {
+        const dynLim = calculateDynamicMPPTStringLimits(mod, inv);
+        vocCold = dynLim.Voc_Tmin;
+        vmpHot = dynLim.Vmp_Tmax;
+        nMaxCold = dynLim.Ns_max;
+        nMinMppt = dynLim.Ns_min;
+      } else {
+        const tMin = -10;
+        const tMaxCell = 70;
+        const gammaVoc = -Math.abs(mod.gammaVoc || mod.betaVoc || -0.0028);
+        vocCold = (mod.voc || 41.5) * (1 + gammaVoc * (tMin - 25));
+        vmpHot = (mod.vmp || 34.5) * (1 + gammaVoc * 1.05 * (tMaxCell - 25));
+        nMaxCold = Math.floor((inv.vDcMax || 1000) / vocCold);
+        nMinMppt = Math.ceil((inv.vMpptNomMin || 180) / vmpHot);
+      }
 
       const totalInvAcKw = (topo === 'microinverter') ? (opts.microinverter ? opts.microinverter.kw * invCount : totalKwp) : (inv.kw * invCount);
       const dcAcRatio = totalInvAcKw > 0 ? (totalKwp / totalInvAcKw) : 1.0;
@@ -41,7 +52,7 @@
       if (dcAcRatio < 1.05) {
         ratioStatus = 'underloaded';
         ratioText = 'Inversor con holgura frente al campo solar. Margen disponible para ampliar módulos en el futuro sin sustituir el equipo.';
-      } else if (dcAcRatio <= 1.30) {
+      } else if (dcAcRatio <= (inv.maxOverload || 1.35)) {
         ratioStatus = 'optimal';
         ratioText = `Ratio óptimo (${dcAcPct}%). Maximiza la producción en horas de baja irradiancia (amanecer, atardecer e invierno) con mínimo recorte térmico (clipping).`;
       } else {
@@ -50,8 +61,6 @@
       }
 
       // Límites eléctricos por string
-      const nMaxCold = Math.floor((inv.vDcMax || 1000) / vocCold);
-      const nMinMppt = Math.ceil((inv.vMpptNomMin || 180) / vmpHot);
       const panelsPerInv = Math.ceil(count / Math.max(1, invCount));
       const panelsPerMppt = Math.round(panelsPerInv / Math.max(1, inv.mppt || 2));
 
@@ -175,7 +184,9 @@
       if (!catalog) return;
 
       const mod = catalog.modules.find(m => m.id === cfg.selectedModuleId) || catalog.modules[0];
-      const inv = catalog.inverters.find(i => i.id === cfg.selectedInverterId) || catalog.inverters[0];
+      const inv = catalog.inverters.find(i => i.id === cfg.selectedInverterId) ||
+                  (cfg.lastVirtualInverter && cfg.lastVirtualInverter.id === cfg.selectedInverterId ? cfg.lastVirtualInverter : null) ||
+                  catalog.inverters[0];
       const mi = catalog.microinverters.find(m => m.id === cfg.selectedMicroinverterId) || catalog.microinverters[0];
       const bat = catalog.batteries.find(b => b.id === cfg.selectedBatteryId) || catalog.batteries[0];
 

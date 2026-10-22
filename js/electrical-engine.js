@@ -50,12 +50,12 @@
    */
   function calculateDynamicMPPTStringLimits(modParams = {}, invParams = {}, climParams = {}) {
     const pCfg = (typeof root.panelConfig !== 'undefined' && root.panelConfig) ? root.panelConfig : {};
-    const modW = modParams.potencia || modParams.power || pCfg.potencia || 450;
+    const modW = modParams.potencia || modParams.power || modParams.wp || pCfg.potencia || 450;
     const Voc_STC = modParams.Voc || modParams.voc || pCfg.voc || (modW >= 500 ? 50.0 : 49.5);
     const Vmp_STC = modParams.Vmp || modParams.vmp || pCfg.vmp || (modW >= 500 ? 42.0 : 41.5);
-    const rawBeta = modParams.betaVoc || modParams.tempCoeffVoc || pCfg.betaVoc || pCfg.tempCoeffVoc || -0.0027;
+    const rawBeta = modParams.betaVoc || modParams.gammaVoc || modParams.tempCoeffVoc || pCfg.betaVoc || pCfg.gammaVoc || pCfg.tempCoeffVoc || -0.0028;
     const betaVoc = -Math.abs(Math.abs(rawBeta) > 0.05 ? rawBeta / 100.0 : rawBeta);
-    const rawBetaVmp = modParams.betaVmp || modParams.tempCoeffVmp || pCfg.betaVmp || (rawBeta * 1.05);
+    const rawBetaVmp = modParams.betaVmp || modParams.gammaVmp || modParams.tempCoeffVmp || pCfg.betaVmp || (rawBeta * 1.05);
     const betaVmp = -Math.abs(Math.abs(rawBetaVmp) > 0.05 ? rawBetaVmp / 100.0 : rawBetaVmp);
     const rawGamma = modParams.gammaPmp || modParams.tempCoeffPmax || pCfg.gammaPmp || pCfg.tempCoeffPmax || (pCfg.tecnologia && pCfg.tecnologia.includes('N-Type') ? -0.0029 : -0.0035);
     const gammaPmp = -Math.abs(Math.abs(rawGamma) > 0.05 ? rawGamma / 100.0 : rawGamma);
@@ -487,8 +487,11 @@
 
     const strings = [];
 
-    // 3. Si las hileras completas encajan limpiamente en la ventana MPPT, usar la agrupación por filas
-    if (canKeepRowsIntact && stringRowBuckets.length === numStrings && stringRowBuckets.every(b => b.length >= minPerString && b.length <= maxPerString)) {
+    // 3. Si las hileras completas encajan limpiamente en la ventana MPPT Y garantizan simetría eléctrica (ΔN = 0 cuando es divisible, o ΔN <= 1), usar la agrupación por filas
+    const bucketLens = stringRowBuckets.map(b => b.length);
+    const maxAllowedBucketDelta = (total % numStrings === 0) ? 0 : 1;
+    const isRowBucketingSymmetric = bucketLens.length > 0 && (Math.max(...bucketLens) - Math.min(...bucketLens)) <= maxAllowedBucketDelta;
+    if (canKeepRowsIntact && isRowBucketingSymmetric && stringRowBuckets.length === numStrings && stringRowBuckets.every(b => b.length >= minPerString && b.length <= maxPerString)) {
       stringRowBuckets.forEach((bucketPanels, s) => {
         let finalBucket = applyRowBasedLeapfrog(bucketPanels);
         if (!finalBucket || finalBucket.length === 0) finalBucket = bucketPanels;
@@ -588,11 +591,11 @@
       }
 
       const maxAllowedOverload = inv.maxOverload || 1.35;
-      const _modsPerString = options.modulesPerString || 12;
-      const _nStrings = Math.max(1, Math.ceil(totalPanels / _modsPerString));
+      const limits = calculateDynamicMPPTStringLimits(moduleSpec, inv, options.climParams || {});
+      const _modsPerString = options.modulesPerString || Math.max(limits.Ns_min || 6, Math.min(limits.Ns_max || 18, 20));
+      const _nStrings = Math.max(distinctOrientations, Math.ceil(totalPanels / _modsPerString));
       const _inputsPerMppt = inv.inputsPerMppt || 1;
       const _mpptCount = inv.mppt || inv.mpptCount || 2;
-      const limits = calculateDynamicMPPTStringLimits(moduleSpec, inv, options.climParams || {});
 
       // Evaluador interno de viabilidad técnica y normativa para un número de unidades invCount
       function evaluateConfiguration(invCount) {
@@ -600,12 +603,21 @@
         const _totalMppts = _mpptCount * invCount;
         const _stringsPerMppt = Math.max(1, Math.ceil(_nStrings / _totalMppts));
         const _iscPerMppt = (moduleSpec.isc || 14.0) * 1.25 * _stringsPerMppt;
+        const _impPerMppt = (moduleSpec.imp || 13.0) * _stringsPerMppt;
         const isCurrentSafe = !inv.iMaxScA || (_iscPerMppt <= inv.iMaxScA);
-        const hasPhaseUnbalance = (gridSupply === 'three_phase' && isInvSinglePhase && (inv.kw * invCount) > 5.0 && (invCount % 3 !== 0));
+        const hasImpClipping = !!(inv.iMaxOperA && _impPerMppt > inv.iMaxOperA);
 
+        // REBT ITC-BT-40 Punto 4.2: Desequilibrio máximo entre dos fases cualesquiera <= 5.0 kW
+        // Al repartir N inversores monofásicos entre las 3 fases L1, L2, L3, el desfase entre la fase más cargada y la menos cargada es (ceil(N/3) - floor(N/3)) * P_unit
+        const maxPhaseUnits = Math.ceil(invCount / 3);
+        const minPhaseUnits = Math.floor(invCount / 3);
+        const maxPhaseDeltaKw = (maxPhaseUnits - minPhaseUnits) * (inv.kw || 0);
+        const hasPhaseUnbalance = (gridSupply === 'three_phase' && isInvSinglePhase && maxPhaseDeltaKw > 5.0);
+
+        const _minActiveStrings = Math.max(invCount, distinctOrientations);
         const isVoltageSafe = options.modulesPerString ?
           (options.modulesPerString <= limits.Ns_max && options.modulesPerString >= limits.Ns_min) :
-          (limits.Ns_max >= limits.Ns_min && (totalPanels === 0 || Math.ceil(totalPanels / _totalMppts) >= limits.Ns_min));
+          (limits.Ns_max >= limits.Ns_min && (totalPanels === 0 || Math.floor(totalPanels / _minActiveStrings) >= limits.Ns_min));
 
         const hasEnoughMppts = _totalMppts >= distinctOrientations;
 
@@ -615,7 +627,7 @@
 
         const isMatch = !isExcessiveFragmentation &&
           actualOverload >= 0.70 &&
-          actualOverload <= (maxAllowedOverload + 0.12) &&
+          actualOverload <= maxAllowedOverload &&
           isCurrentSafe &&
           isVoltageSafe &&
           !hasPhaseUnbalance;
@@ -629,6 +641,7 @@
           totalAcKw: Math.round(invCount * inv.kw * 10) / 10,
           mpptCount: _totalMppts,
           hasEnoughMppts: hasEnoughMppts,
+          hasImpClipping: hasImpClipping,
           redundancyPct: invCount > 1 ? parseFloat(((invCount - 1) / invCount * 100).toFixed(1)) : 0,
           isDistributed: invCount > 1,
           totalCostEur: invCount * (inv.price || 1500)
@@ -646,7 +659,7 @@
       const targetModularUnits = Math.max(2, Math.ceil(totalKwp / (inv.kw * 1.25)));
       if (targetModularUnits >= 2) {
         let multiMatch = evaluateConfiguration(targetModularUnits);
-        if (!multiMatch && (totalKwp / (targetModularUnits * inv.kw)) > (maxAllowedOverload + 0.12)) {
+        if (!multiMatch && (totalKwp / (targetModularUnits * inv.kw)) > maxAllowedOverload) {
           multiMatch = evaluateConfiguration(targetModularUnits + 1);
         }
         if (multiMatch) {
@@ -793,15 +806,17 @@
 
     singleCandidates.sort((a, b) => {
       if (a.hasEnoughMppts !== b.hasEnoughMppts) return a.hasEnoughMppts ? -1 : 1;
-      const scoreA = Math.abs(a.overloadPct - 118);
-      const scoreB = Math.abs(b.overloadPct - 118);
+      const clipA = a.hasImpClipping ? 8 : 0;
+      const clipB = b.hasImpClipping ? 8 : 0;
+      const scoreA = Math.abs(a.overloadPct - 118) + clipA;
+      const scoreB = Math.abs(b.overloadPct - 118) + clipB;
       return scoreA - scoreB;
     });
 
     multiCandidates.sort((a, b) => {
       if (a.hasEnoughMppts !== b.hasEnoughMppts) return a.hasEnoughMppts ? -1 : 1;
-      const fragPenaltyA = (a.count > 3 ? (a.count - 3) * 5 : 0);
-      const fragPenaltyB = (b.count > 3 ? (b.count - 3) * 5 : 0);
+      const fragPenaltyA = (a.count > 3 ? (a.count - 3) * 5 : 0) + (a.hasImpClipping ? 8 : 0);
+      const fragPenaltyB = (b.count > 3 ? (b.count - 3) * 5 : 0) + (b.hasImpClipping ? 8 : 0);
       const scoreA = Math.abs(a.overloadPct - 118) + fragPenaltyA;
       const scoreB = Math.abs(b.overloadPct - 118) + fragPenaltyB;
       return scoreA - scoreB;
@@ -810,8 +825,8 @@
     // Ordenar compatible global preservando compatibilidad
     compatible.sort((a, b) => {
       if (a.hasEnoughMppts !== b.hasEnoughMppts) return a.hasEnoughMppts ? -1 : 1;
-      const scoreA = Math.abs(a.overloadPct - 118) + (a.count > 1 ? 4 : 0);
-      const scoreB = Math.abs(b.overloadPct - 118) + (b.count > 1 ? 4 : 0);
+      const scoreA = Math.abs(a.overloadPct - 118) + (a.count > 1 ? 4 : 0) + (a.hasImpClipping ? 8 : 0);
+      const scoreB = Math.abs(b.overloadPct - 118) + (b.count > 1 ? 4 : 0) + (b.hasImpClipping ? 8 : 0);
       return scoreA - scoreB;
     });
 
@@ -950,6 +965,7 @@
       totalKwp: totalKwp,
       distinctOrientations: distinctOrientations,
       compatible: compatible,
+      bestCatalogMatch: compatible[0] || null,
       hasCatalogMatch: compatible.length > 0,
       virtualInverterMatch: virtualInverterMatch,
       bottleneckReason: bottleneckReason,
@@ -978,11 +994,11 @@
     const isc = params.isc || mod.isc || 14.0;
     const voc = params.voc || mod.voc || 49.5;
 
-    // Tensión Voc en frío (-10°C / zonificación CTE)
+    // Tensión Voc en frío (-10°C / -14°C según zonificación CTE DB-HE / IEC 62548)
     let vocCold = params.vocCold || params.voc_cold;
     if (!vocCold) {
-      const limits = calculateDynamicMPPTStringLimits(mod, inv, clim);
-      vocCold = (limits && limits.Voc_Tmin) ? (limits.Voc_Tmin * stringModules) : (voc * 1.10 * stringModules);
+      const limits = calculateDynamicMPPTStringLimits({ ...mod, voc: voc }, inv, clim);
+      vocCold = (limits && limits.Voc_Tmin) ? (limits.Voc_Tmin * stringModules) : (voc * 1.14 * stringModules);
     } else if (params.vocColdPerModule) {
       vocCold = params.vocCold * stringModules;
     }
@@ -994,9 +1010,9 @@
     const DC_VOLT_RATINGS = [600, 1000, 1200, 1500];
     const dcSwitchUe = DC_VOLT_RATINGS.find(v => v >= ueVocMin) || 1500;
 
-    // Ie >= 1.25 * Isc * N_strings_paralelo
-    const ieMin = isc * 1.25 * parallelStrings;
-    const DC_CURR_RATINGS = [16, 25, 32, 40, 63, 80, 100];
+    // Ie >= 1.56 * Isc * N_strings_paralelo (IEC 62548 cláusula 5.2.1: 1.25 seguridad × 1.25 sobreirradiación/albedo = 1.5625)
+    const ieMin = isc * 1.56 * parallelStrings;
+    const DC_CURR_RATINGS = [16, 25, 32, 40, 63, 80, 100, 125];
     const dcSwitchIe = DC_CURR_RATINGS.find(a => a >= ieMin) || Math.ceil(ieMin);
 
     const dcSwitch = {
@@ -1022,10 +1038,10 @@
     };
 
     // Fusibles gPV de protección contra corrientes inversas (IEC 62548 cláusula 6.5.3 / IEC 60269-6):
-    // Solo requeridos si hay >= 3 strings en paralelo por MPPT
+    // Solo requeridos si hay >= 3 strings en paralelo por MPPT (1.56 * Isc <= In <= 2.4 * Isc)
     let dcFuses = null;
     const modMaxFuse = mod.seriesFuseRating || mod.maxOcpr || 25;
-    const fuseInMin = Math.ceil(isc * 1.5);
+    const fuseInMin = Math.ceil(isc * 1.56);
     const fuseInMax = Math.min(Math.floor(isc * 2.4), modMaxFuse);
     const FUSE_RATINGS = [12, 15, 16, 20, 25, 30, 32];
     const fuseRating = FUSE_RATINGS.find(f => f >= fuseInMin && f <= fuseInMax) || fuseInMin;
@@ -1500,8 +1516,8 @@
           if (deltaAz > 180) deltaAz = 360 - deltaAz;
           const deltaCount = Math.abs(dataA.panelCount - dataB.panelCount);
 
-          if (deltaCount > 0 && dataA.panelCount > 1 && dataB.panelCount > 1) {
-            const msg = `Incompatibilidad MPPT en Canal ${mpptId}: Strings '${nameA}' (${dataA.panelCount} módulos) y '${nameB}' (${dataB.panelCount} módulos) en paralelo tienen diferente longitud (ΔN = ${deltaCount}). Provoca desbalance de tensión y corrientes inversas (IEC 62548).`;
+          if (deltaCount > 0) {
+            const msg = `⛔ BLOQUEO NORMATIVO MPPT en Canal ${mpptId}: Strings '${nameA}' (${dataA.panelCount} módulos) y '${nameB}' (${dataB.panelCount} módulos) en paralelo tienen diferente longitud (ΔN = ${deltaCount}). Provoca desbalance severo de tensión Vmp y corrientes inversas destructivas (IEC 62548).`;
             violations.push({
               mpptId,
               stringA: nameA,
@@ -1509,10 +1525,12 @@
               deltaTilt,
               deltaAz,
               deltaCount,
+              blocking: true,
+              code: 'MPPT_ASYMMETRIC_STRING_LENGTH',
               msg
             });
           } else if (deltaTilt > 5.0 || deltaAz > 10.0) {
-            const msg = `Incompatibilidad MPPT en Canal ${mpptId}: Strings '${nameA}' y '${nameB}' en paralelo difieren en orientación (Δβ = ${deltaTilt.toFixed(1)}°, Δγ = ${deltaAz.toFixed(1)}°). Produce recirculación y pérdida de tracking (IEC 62548).`;
+            const msg = `⛔ BLOQUEO NORMATIVO MPPT en Canal ${mpptId}: Strings '${nameA}' y '${nameB}' en paralelo difieren en orientación (Δβ = ${deltaTilt.toFixed(1)}°, Δγ = ${deltaAz.toFixed(1)}°). Produce recirculación y pérdida de tracking (IEC 62548).`;
             violations.push({
               mpptId,
               stringA: nameA,
@@ -1520,6 +1538,8 @@
               deltaTilt,
               deltaAz,
               deltaCount: 0,
+              blocking: true,
+              code: 'MPPT_ORIENTATION_MISMATCH',
               msg
             });
           }
@@ -1655,10 +1675,10 @@
 
     // Caso B: Inversor Central / String
     const selectedInvId = cfg.selectedInverterId || (catalog[0] ? catalog[0].id : null);
-    const currentInv = catalog.find(i => i.id === selectedInvId) || catalog[0];
+    const currentInv = catalog.find(i => i.id === selectedInvId) || (cfg.lastVirtualInverter && cfg.lastVirtualInverter.id === selectedInvId ? cfg.lastVirtualInverter : null) || catalog[0];
 
     const invNomKw = currentInv.kw || 5.0;
-    const maxOverloadRatio = currentInv.maxOverload || 1.30;
+    const maxOverloadRatio = currentInv.maxOverload || 1.35;
     const maxCapacityKwp = invNomKw * maxOverloadRatio;
     const autoInverters = Math.max(1, Math.ceil(totalKwp / maxCapacityKwp));
 
@@ -1668,38 +1688,41 @@
     // Evaluar si está sobredimensionado en exceso (potencia total < 50% del inversor)
     const isOversized = totalKwp < (invNomKw * 0.50) && totalKwp >= 1.0;
 
-    // Caso C: Incompatibilidad MPPT en Strings (IEC 62548)
+    // Caso C: Incompatibilidad MPPT en Strings (IEC 62548) — BLOQUEO DE CONFIGURACIÓN
     if (cfg.mpptHomogeneity && !cfg.mpptHomogeneity.valid && cfg.mpptHomogeneity.violations.length > 0) {
       const v = cfg.mpptHomogeneity.violations[0];
       const mpptReq = Math.max(2, (currentInv.mppt || 1) + 1);
-      const candidates = catalog.filter(inv => (inv.mppt || 1) >= mpptReq && (inv.kw * (inv.maxOverload || 1.30)) >= totalKwp);
+      const candidates = catalog.filter(inv => (inv.mppt || 1) >= mpptReq && (inv.kw * (inv.maxOverload || 1.35)) >= totalKwp);
       let bestInv = null;
       if (candidates.length > 0) {
-        candidates.sort((a, b) => Math.abs((totalKwp / a.kw) - 1.20) - Math.abs((totalKwp / b.kw) - 1.20));
+        candidates.sort((a, b) => Math.abs((totalKwp / a.kw) - 1.18) - Math.abs((totalKwp / b.kw) - 1.18));
         bestInv = candidates[0];
       }
 
       container.style.display = 'block';
       container.innerHTML = `
-        <div style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.45);border-radius:7px;padding:8px;display:flex;flex-direction:column;gap:5px;">
+        <div style="background:rgba(239,68,68,0.16);border:2px solid #EF4444;border-radius:7px;padding:8px;display:flex;flex-direction:column;gap:5px;box-shadow:0 0 12px rgba(239,68,68,0.25);">
           <div style="display:flex;align-items:center;justify-content:space-between;">
-            <span style="font-size:10px;font-weight:900;color:#F87171;display:flex;align-items:center;gap:4px;">
-              <i data-lucide="alert-octagon" class="icon-sm"></i> Incompatibilidad MPPT en Cubierta
+            <span style="font-size:10px;font-weight:900;color:#FCA5A5;display:flex;align-items:center;gap:4px;">
+              <i data-lucide="shield-alert" class="icon-sm"></i> ⛔ CONFIGURACIÓN BLOQUEADA (IEC 62548)
             </span>
-            <span class="card-tag" style="background:rgba(239,68,68,0.25);color:#FCA5A5;font-size: 10px;font-weight:800;">
-              Canal MPPT ${v.mpptId}
+            <span class="card-tag" style="background:#EF4444;color:#fff;font-size: 9px;font-weight:900;">
+              CANAL MPPT ${v.mpptId}
             </span>
           </div>
-          <div style="font-size: 10px;color:var(--text-slate-200);line-height:1.3;">
+          <div style="font-size: 10px;color:#FECACA;line-height:1.35;font-weight:600;">
             ${v.msg}
+          </div>
+          <div style="font-size: 9.5px;color:#CBD5E1;line-height:1.3;">
+            <b>Acción requerida para desbloquear Entrega (Paso 5):</b> Iguala el número de módulos por string en el faldón o añade canales MPPT independientes.
           </div>
           ${bestInv && bestInv.id !== currentInv.id ? `
             <button type="button" onclick="wpApplyRecommendedInverter('${bestInv.id}')" style="background:linear-gradient(135deg,#EF4444,#DC2626);border:none;color:#fff;font-size: 10px;font-weight:900;padding:6px 10px;border-radius:5px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;box-shadow:0 0 10px rgba(239,68,68,0.3);margin-top:2px;">
               <i data-lucide="zap" class="icon-sm"></i> Cambiar a ${bestInv.brand} ${bestInv.kw} kW (${bestInv.mppt} MPPTs) en 1 Clic
             </button>
           ` : `
-            <button type="button" onclick="step3SetTopology('microinverter');if(typeof step3UpdateHardwareSelection==='function')step3UpdateHardwareSelection();" style="background:linear-gradient(135deg,#10B981,#059669);border:none;color:#fff;font-size: 10px;font-weight:900;padding:6px 10px;border-radius:5px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;box-shadow:0 0 10px rgba(16,185,129,0.3);margin-top:2px;">
-              <i data-lucide="cpu" class="icon-sm"></i> Cambiar a Microinversores MLPE (MPPT Independiente)
+            <button type="button" onclick="wpStepQuantity('inverters', 1)" style="background:linear-gradient(135deg,#EF4444,#DC2626);border:none;color:#fff;font-size: 10px;font-weight:900;padding:6px 10px;border-radius:5px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;box-shadow:0 0 10px rgba(239,68,68,0.3);margin-top:2px;">
+              <i data-lucide="plus-circle" class="icon-sm"></i> Añadir +1 Inversor para Habilitar Más Canales MPPT
             </button>
           `}
         </div>
