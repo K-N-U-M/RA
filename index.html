@@ -11873,6 +11873,35 @@ function computeElectricalSizingEngineering(generator) {
   };
 }
 
+function generateRefNum() {
+  if (typeof window !== 'undefined' && window._currentProjectRefNum) {
+    return window._currentProjectRefNum;
+  }
+  try {
+    const saved = localStorage.getItem('ra_current_project_ref');
+    if (saved && typeof saved === 'string' && saved.startsWith('RA-')) {
+      if (typeof window !== 'undefined') window._currentProjectRefNum = saved;
+      return saved;
+    }
+  } catch(e) {}
+  const y = new Date().getFullYear();
+  const rand = Math.floor(1000 + Math.random() * 9000);
+  const ref = 'RA-' + y + '-' + rand;
+  if (typeof window !== 'undefined') {
+    window._currentProjectRefNum = ref;
+  }
+  try { localStorage.setItem('ra_current_project_ref', ref); } catch(e) {}
+  return ref;
+}
+if (typeof window !== 'undefined') {
+  window.generateRefNum = generateRefNum;
+  window.resetProjectRefNum = function() {
+    window._currentProjectRefNum = null;
+    try { localStorage.removeItem('ra_current_project_ref'); } catch(e) {}
+    return generateRefNum();
+  };
+}
+
 function getProjectCalcs() {
   const tit = (typeof readTitular === 'function') ? readTitular() : {};
 

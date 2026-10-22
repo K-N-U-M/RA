@@ -106,10 +106,13 @@
     var kwp = Number(m.kwp || d.kwp || 0);
     var kwNom = Number(d.P_ac_kW || (kwp > 0 ? (kwp * 0.9) : 5.0));
     var numPanels = Number(m.numPanels || d.numPanels || 0);
-    var totalCost = Number(m.capexBruto || d.subtotal || (numPanels * 350) || 5000);
+    // [SSOT Fiscal] m.subtotal es la Base Imponible neta (sin IVA). m.capexBruto incluye 21% IVA.
+    var totalCostSinIva = Number(m.subtotal || d.subtotal || (m.capexBruto ? (m.capexBruto / 1.21) : null) || (numPanels * 350) || 5000);
+    var totalCostConIva = Number(m.capexBruto || (totalCostSinIva * 1.21));
+    var totalCost = totalCostSinIva; // El campo de la UI es "Coste Instalación (€ sin IVA)"
     var annualYield = Math.round(Number(d.annualKWh || (kwp * 1450)));
-    var payback = Number(m.paybackYears || (totalCost > 0 && m.ahorroLuzAnio1 > 0 ? (totalCost / m.ahorroLuzAnio1) : 4.5));
     var ahorroAnual = Number(m.ahorroLuzAnio1 || (annualYield * 0.12));
+    var payback = Number(m.paybackYears || (totalCost > 0 && ahorroAnual > 0 ? (totalCost / ahorroAnual) : 4.5));
     var tirStr = m.tirString || (m.tir ? (m.tir.toFixed(1) + ' %') : '18.5 %');
     var ahorro25 = Number(m.ahorroTotal25 || (ahorroAnual * 23.5));
 
@@ -213,6 +216,8 @@
         numPanels: numPanels,
         totalCost: totalCost.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
         totalCostNum: totalCost,
+        totalCostGross: totalCostConIva.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+        totalCostGrossNum: totalCostConIva,
         annualYield: annualYield.toLocaleString('es-ES'),
         annualYieldNum: annualYield,
         payback: payback.toFixed(1),
@@ -222,7 +227,7 @@
         ahorro25: ahorro25.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
         co2Ton: (kwp * 0.42).toFixed(1),
         trees: Math.round(kwp * 1.5),
-        offerCode: d.refNum || ('OFT-' + Math.floor(10000 + Math.random() * 90000)),
+        offerCode: (d.refNum && d.refNum !== 'RA-PROY-2026') ? d.refNum : ((typeof global.generateRefNum === 'function') ? global.generateRefNum() : ('RA-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000))),
         dateStr: d.fechaStr || new Date().toLocaleDateString('es-ES'),
         totalCoverage: totalCoverage,
         totalDestAuto: totalDestAuto,
@@ -1110,6 +1115,7 @@
         '<div style="text-align:center;padding:12px;">' +
         '  <div class="editable-field" contenteditable="true" style="font-size:12px;font-weight:700;color:' + pal.dark + ';">COSTE TOTAL DE LA INSTALACIÓN (SIN IVA)</div>' +
         '  <div class="editable-field" contenteditable="true" style="font-size:32px;font-weight:900;color:' + pal.primary + ';margin:8px 0;">' + totalCost + ' €</div>' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:11px;color:' + pal.dark + ';opacity:0.85;font-weight:600;margin-bottom:4px;">Total con IVA (21%): ' + (raw.metrics && raw.metrics.totalCostGross ? raw.metrics.totalCostGross : '') + ' €</div>' +
         '  <div class="editable-field" contenteditable="true" style="font-size:10.5px;color:#64748b;">Financiación personalizada disponible sin entrada</div>' +
         '</div>',
         'background:' + pal.light + ';border:2px solid ' + pal.primary + ';'
