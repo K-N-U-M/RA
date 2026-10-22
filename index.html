@@ -15075,8 +15075,6 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
         
         const esPergola = (est.tipo === 'pergola') || (poly.structureType === 'pergola');
         const esCoplanar = !esPergola && ((est.tipo === 'coplanar') || (poly.structureType && poly.structureType.startsWith('coplanar')));
-        const maxSoportes = esPergola ? 200 : 80;
-        const pasoMuestra = Math.max(1, Math.ceil(panels.length / maxSoportes));
         const pergolaPostCandidates = [];
 
         // Proyección analítica exacta de puntos 3D sobre el plano del faldón
@@ -15106,7 +15104,7 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
         };
 
         panels.forEach((p, idx) => {
-          if (idx % pasoMuestra !== 0 || !p.corners || p.corners.length < 4) return;
+          if (!p.corners || p.corners.length < 4) return;
           try {
             // Identificar los dos laterales paralelos de la estructura sin riesgo de cruce en aspa (X)
             // Evaluamos la pendiente diferencial a lo largo de las aristas topológicas del módulo
