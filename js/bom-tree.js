@@ -417,11 +417,13 @@
       const currentStep = (typeof window !== 'undefined' && typeof window.wpCurrentStep !== 'undefined') ? window.wpCurrentStep : (typeof wpCurrentStep !== 'undefined' ? wpCurrentStep : 4);
       const hasElectricalObjects = typeof window !== 'undefined' && window.inverterEquipmentState != null;
       const isEngineeringStep = (currentStep >= 4 || hasElectricalObjects);
-      if (tree.summary.totalPanels > 0 && isEngineeringStep) {
+      if (tree.summary.totalPanels > 0) {
         // ── 4. INVERSORES DE POTENCIA ──────────────────────────────────────────
         const invCount = (projectConfig.autoSizing && projectConfig.autoSizing.inverters && projectConfig.autoSizing.inverters.count) || 1;
         const invId = projectConfig.selectedInverterId || (catalog.inverters && catalog.inverters[0] ? catalog.inverters[0].id : null);
-        const invSpec = (catalog.inverters && catalog.inverters.find(i => i.id === invId)) || (catalog.inverters ? catalog.inverters[0] : { kw: 10, price: 1750, brand: 'Inversor' });
+        const invSpec = (catalog.inverters && catalog.inverters.find(i => i.id === invId))
+          || ((projectConfig.lastVirtualInverter && projectConfig.lastVirtualInverter.id === invId) ? projectConfig.lastVirtualInverter : null)
+          || (catalog.inverters ? catalog.inverters[0] : { kw: 10, price: 1750, brand: 'Inversor' });
 
         if (invSpec) {
           const totalInvCost = invCount * (invSpec.price || 1500);

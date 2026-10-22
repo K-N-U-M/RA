@@ -12027,7 +12027,7 @@ function getProjectCalcs() {
   const _scCat = window.equipmentCatalog;
   const _scCfg = window.solarProjectConfig;
   if (_scCat && _scCfg && _scCfg.selectedInverterId) {
-    const _invItem = (_scCat.inverters || []).find(i => i.id === _scCfg.selectedInverterId);
+    const _invItem = (_scCat.inverters || []).find(i => i.id === _scCfg.selectedInverterId) || ((_scCfg.lastVirtualInverter && _scCfg.lastVirtualInverter.id === _scCfg.selectedInverterId) ? _scCfg.lastVirtualInverter : null);
     if (_invItem && _invItem.price > 0) {
       const _invCnt = (_scCfg.autoSizing && _scCfg.autoSizing.inverters && _scCfg.autoSizing.inverters.count) || 1;
       pres_inv = _invItem.price * _invCnt;
@@ -12045,14 +12045,14 @@ function getProjectCalcs() {
   }
   if (pres_bat === 0) pres_bat = _inputVal('cfg-pres-bat', 0);
 
-  let pres_cab = _inputVal('cfg-pres-cab', 350);
-  let pres_mo  = _inputVal('cfg-pres-mo', 1400);
-  let pres_mon = 200, pres_leg = _inputVal('cfg-pres-leg', 350);
+  const _designCosts = (typeof window !== 'undefined' && window.RAPricing && typeof window.RAPricing.computeDesignCosts === 'function') ? window.RAPricing.computeDesignCosts(numPanels) : null; if (_designCosts) { pres_pan = numPanels * _designCosts.panelPrice; pres_est = _designCosts.estPrice; pres_inv = _designCosts.invPrice; pres_bat = _designCosts.batPrice; } let pres_cab = _designCosts ? _designCosts.cabPrice : _inputVal('cfg-pres-cab', 350);
+  let pres_mo  = _designCosts ? _designCosts.moPrice : _inputVal('cfg-pres-mo', 1400);
+  let pres_mon = 200, pres_leg = _designCosts ? _designCosts.legPrice : _inputVal('cfg-pres-leg', 350);
 
   const _effPricing = (typeof window !== 'undefined' && window.RAPricing && typeof window.RAPricing.getEffectivePricing === 'function')
     ? window.RAPricing.getEffectivePricing()
     : null;
-  if (_effPricing) {
+  if (_effPricing && _effPricing.projectFingerprint) {
     if (typeof _effPricing.panelPrice === 'number' && _effPricing.panelPrice > 0) pres_pan = numPanels * _effPricing.panelPrice;
     if (typeof _effPricing.estPrice === 'number' && _effPricing.estPrice >= 0) pres_est = _effPricing.estPrice;
     if (typeof _effPricing.invPrice === 'number' && _effPricing.invPrice >= 0) pres_inv = _effPricing.invPrice;
@@ -12086,7 +12086,7 @@ function getProjectCalcs() {
   cfg.pAcNominalW = pAcNominalW;
 
   const _invObjItem = (_scCat && _scCfg && _scCfg.selectedInverterId)
-    ? (_scCat.inverters || []).find(i => i.id === _scCfg.selectedInverterId)
+    ? ((_scCat.inverters || []).find(i => i.id === _scCfg.selectedInverterId) || ((_scCfg.lastVirtualInverter && _scCfg.lastVirtualInverter.id === _scCfg.selectedInverterId) ? _scCfg.lastVirtualInverter : null))
     : null;
   const _invObjCount = (_scCfg && _scCfg.autoSizing && _scCfg.autoSizing.inverters && _scCfg.autoSizing.inverters.count) || 1;
   const inverterObj = _invObjItem ? {

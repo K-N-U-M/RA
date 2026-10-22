@@ -34,8 +34,13 @@ function resolveEquipmentNames() {
   };
 
   // ── Inversor ──
-  if (cfg.selectedInverterId && cat.inverters && Array.isArray(cat.inverters)) {
-    var inv = cat.inverters.find(function(i) { return i.id === cfg.selectedInverterId; });
+  if (cfg.selectedInverterId) {
+    var inv = (cat.inverters && Array.isArray(cat.inverters))
+      ? cat.inverters.find(function(i) { return i.id === cfg.selectedInverterId; })
+      : null;
+    if (!inv && cfg.lastVirtualInverter && cfg.lastVirtualInverter.id === cfg.selectedInverterId) {
+      inv = cfg.lastVirtualInverter;
+    }
     if (inv) {
       result.invBrand = inv.brand || '';
       result.invModel = inv.model || '';
@@ -44,7 +49,7 @@ function resolveEquipmentNames() {
       var sizing = cfg.autoSizing && cfg.autoSizing.inverters;
       result.invCount = (sizing && sizing.count) ? sizing.count : 1;
       var mpptTxt = result.invMPPTs > 0 ? (' · ' + result.invMPPTs + ' MPPT') : '';
-      result.invName = result.invBrand + ' ' + result.invModel + ' (' + result.invKw + ' kW' + mpptTxt + ')';
+      result.invName = (result.invCount > 1 ? (result.invCount + 'x ') : '') + result.invBrand + ' ' + result.invModel + ' (' + result.invKw + ' kW' + mpptTxt + ')';
     }
   }
 
@@ -248,16 +253,179 @@ var RAPricing = {
   STORAGE_KEY: 'ra_pricing_defaults',
   currentSessionPricing: null,
 
+  getProjectFingerprint: function(forcedPanels) {
+    var cfg = (typeof window !== 'undefined' && window.solarProjectConfig) ? window.solarProjectConfig : {};
+    var nPan = (typeof forcedPanels === 'number' && forcedPanels > 0) ? forcedPanels : 0;
+    if (!nPan && typeof window !== 'undefined' && Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0) {
+      nPan = window.allRenderedPanels.filter(function(p) { return p && !p.deleted; }).length;
+    }
+    if (!nPan && typeof WP !== 'undefined' && WP && Array.isArray(WP.polylines)) {
+      WP.polylines.forEach(function(p) {
+        if (p && p.roofInfo && Array.isArray(p.roofInfo.panels)) nPan += p.roofInfo.panels.length;
+      });
+    }
+    var invCnt = (cfg.autoSizing && cfg.autoSizing.inverters && cfg.autoSizing.inverters.count) || 1;
+    var batCnt = (cfg.autoSizing && cfg.autoSizing.batteries && cfg.autoSizing.batteries.count) || 0;
+    return [
+      nPan || 0,
+      cfg.selectedModuleId || 'mod',
+      cfg.selectedInverterId || 'inv',
+      invCnt,
+      cfg.selectedBatteryId || 'bat',
+      batCnt,
+      cfg.selectedTopology || 'inverter'
+    ].join('|');
+  },
+
+  computeDesignCosts: function(forcedPanels) {
+    var cat = (typeof equipmentCatalog !== 'undefined' && equipmentCatalog) ? equipmentCatalog : ((typeof window !== 'undefined' && window.equipmentCatalog) ? window.equipmentCatalog : {});
+    var cfg = (typeof window !== 'undefined' && window.solarProjectConfig) ? window.solarProjectConfig : {};
+    var tree = (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.computeBOMTree === 'function')
+      ? BOMTreeEngine.computeBOMTree()
+      : null;
+
+    var numPanels = (typeof forcedPanels === 'number' && forcedPanels > 0)
+      ? forcedPanels
+      : ((tree && tree.summary && tree.summary.totalPanels > 0)
+          ? tree.summary.totalPanels
+          : ((typeof window !== 'undefined' && Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0)
+              ? window.allRenderedPanels.filter(function(p) { return p && !p.deleted; }).length
+              : (cfg.lastEstimatedPanels || 1)));
+
+    // 1. Precio unitario real del módulo seleccionado en catálogo
+    var modObj = (cat.modules || []).find(function(m) { return m.id === cfg.selectedModuleId; }) || (cat.modules && cat.modules[0]) || null;
+    var panelPrice = (modObj && modObj.price > 0) ? modObj.price : ((typeof panelConfig !== 'undefined' && panelConfig && panelConfig.precio > 0) ? panelConfig.precio : 125);
+    var modWp = (modObj && (modObj.wp || modObj.potencia)) ? (modObj.wp || modObj.potencia) : ((typeof panelConfig !== 'undefined' && panelConfig && panelConfig.potencia) ? panelConfig.potencia : 450);
+    var totalKwp = (numPanels * modWp) / 1000.0;
+
+    // 2. Estructura soporte desde BOM 3D real
+    var estPrice = 0;
+    if (tree && Array.isArray(tree.roofs) && tree.roofs.length > 0) {
+      tree.roofs.forEach(function(r) {
+        if (typeof r.subtotalEur === 'number' && r.subtotalEur > 0) estPrice += r.subtotalEur;
+        else {
+          if (r.structure && r.structure.costEur) estPrice += r.structure.costEur;
+          if (r.clamps && r.clamps.costEur) estPrice += r.clamps.costEur;
+        }
+      });
+    }
+    if (estPrice <= 0) {
+      estPrice = Math.round(numPanels * 55);
+    }
+
+    // 3. Inversor / Microinversores / Optimizadores desde selección real (incluyendo Inversor Virtual)
+    var invPrice = 0;
+    if (cfg.selectedTopology === 'microinverter') {
+      var miObj = (cat.microinverters || []).find(function(m) { return m.id === cfg.selectedMicroinverterId; }) || (cat.microinverters && cat.microinverters[0]) || { price: 175 };
+      var miCnt = (cfg.autoSizing && cfg.autoSizing.microinverters && cfg.autoSizing.microinverters.count) || Math.ceil(numPanels / 2);
+      invPrice = Math.round((miObj.price || 175) * Math.max(1, miCnt));
+    } else {
+      var invObj = (cat.inverters || []).find(function(i) { return i.id === cfg.selectedInverterId; }) || null;
+      if (!invObj && cfg.lastVirtualInverter && cfg.lastVirtualInverter.id === cfg.selectedInverterId) {
+        invObj = cfg.lastVirtualInverter;
+      }
+      if (!invObj && cat.inverters && cat.inverters.length > 0) invObj = cat.inverters[0];
+      var invCnt = (cfg.autoSizing && cfg.autoSizing.inverters && cfg.autoSizing.inverters.count) || 1;
+      var unitInvPrice = (invObj && invObj.price > 0) ? invObj.price : Math.round(650 + Math.max(5, totalKwp / invCnt) * 95);
+      invPrice = Math.round(unitInvPrice * Math.max(1, invCnt));
+      if (tree && tree.electrical && tree.electrical.optimizers && tree.electrical.optimizers.totalCostEur > 0) {
+        invPrice += Math.round(tree.electrical.optimizers.totalCostEur);
+      }
+    }
+
+    // 4. Batería de Acumulación
+    var batPrice = 0;
+    if (cfg.selectedBatteryId && cfg.selectedBatteryId !== 'bat_none') {
+      var batObj = (cat.batteries || []).find(function(b) { return b.id === cfg.selectedBatteryId; }) || null;
+      if (batObj && batObj.price > 0 && (batObj.kwh || batObj.capacity || 0) > 0) {
+        var batCnt = Math.max(1, (cfg.autoSizing && cfg.autoSizing.batteries && cfg.autoSizing.batteries.count) || 1);
+        batPrice = Math.round(batObj.price * batCnt);
+      }
+    }
+
+    // 5. Cableado, Conducciones, Cuadros DC/AC, Tierras y Pequeño Material desde metrado 3D / BOM
+    var cabPrice = 0;
+    if (tree && tree.electrical) {
+      (tree.electrical.dcPanels || []).forEach(function(p) { cabPrice += (p.price || 0) * (p.count || 1); });
+      (tree.electrical.acPanels || []).forEach(function(p) { cabPrice += (p.price || 0) * (p.count || 1); });
+      (tree.electrical.cables || []).forEach(function(c) { cabPrice += (c.totalEur || 0); });
+      if (tree.electrical.mc4Jumpers && tree.electrical.mc4Jumpers.totalEur) cabPrice += tree.electrical.mc4Jumpers.totalEur;
+      (tree.electrical.grounding || []).forEach(function(g) { cabPrice += (g.totalEur || 0); });
+      if (tree.electrical.safetySignage && tree.electrical.safetySignage.totalEur) cabPrice += tree.electrical.safetySignage.totalEur;
+    }
+    if (tree && Array.isArray(tree.laborAndSoftCosts)) {
+      tree.laborAndSoftCosts.forEach(function(item) {
+        if (item.category === 'small_materials') cabPrice += (item.totalEur || 0);
+      });
+    }
+    if (cabPrice <= 0) {
+      cabPrice = Math.round(490 + numPanels * 18);
+    }
+
+    // 6. Mano de Obra, Montaje y Medios Auxiliares de Seguridad en Altura (escalado por paneles)
+    var moPrice = 0;
+    if (tree && Array.isArray(tree.laborAndSoftCosts) && tree.laborAndSoftCosts.length > 0) {
+      tree.laborAndSoftCosts.forEach(function(item) {
+        if (item.category === 'labor' || item.category === 'auxiliary') {
+          moPrice += (item.totalEur || 0);
+        }
+      });
+    }
+    if (moPrice <= 0) {
+      var instCosts = (typeof RAStructureCatalog !== 'undefined' && typeof RAStructureCatalog.getInstallationCosts === 'function')
+        ? RAStructureCatalog.getInstallationCosts()
+        : null;
+      var lCfg = (instCosts && instCosts.labor) || { mechanicalHoursPerPanel: 0.85, electricalHoursPerPanel: 0.55, commissioningHoursFixed: 4.0, hourlyRate: 32.0 };
+      var aCfg = (instCosts && instCosts.auxiliary) || { lifelineSafety: 280.0, scaffoldingLift: 350.0 };
+      var totalHours = numPanels * ((lCfg.mechanicalHoursPerPanel || 0.85) + (lCfg.electricalHoursPerPanel || 0.55)) + (lCfg.commissioningHoursFixed || 4.0);
+      var auxCost = (aCfg.lifelineSafety || 280) + (numPanels > 25 ? (aCfg.scaffoldingLift || 350) : Math.round((aCfg.scaffoldingLift || 350) * 0.6));
+      moPrice = Math.round(totalHours * (lCfg.hourlyRate || 32.0) + auxCost);
+    }
+
+    // 7. Legalización, Proyecto de Ingeniería / MTD, Dirección de Obra y Boletín CIE (escalado por REBT ITC-BT-04)
+    var legPrice = 0;
+    if (tree && Array.isArray(tree.laborAndSoftCosts) && tree.laborAndSoftCosts.length > 0) {
+      tree.laborAndSoftCosts.forEach(function(item) {
+        if (item.category === 'engineering') {
+          legPrice += (item.totalEur || 0);
+        } else if (item.category === 'permits' && !String(item.description || '').includes('ICIO')) {
+          legPrice += (item.totalEur || 0);
+        }
+      });
+    }
+    if (legPrice <= 0) {
+      legPrice = totalKwp > 10 ? 1585 : 1085;
+    }
+
+    return {
+      panelPrice: Math.round(panelPrice),
+      estPrice: Math.round(estPrice),
+      invPrice: Math.round(invPrice),
+      batPrice: Math.round(batPrice),
+      cabPrice: Math.round(cabPrice),
+      moPrice: Math.round(moPrice),
+      legPrice: Math.round(legPrice)
+    };
+  },
+
   getDefaults: function() {
-    if (this.currentSessionPricing) return this.currentSessionPricing;
+    var currentFp = this.getProjectFingerprint();
+    if (this.currentSessionPricing) {
+      if (!this.currentSessionPricing.projectFingerprint || this.currentSessionPricing.projectFingerprint === currentFp) {
+        return this.currentSessionPricing;
+      }
+      // El diseño del proyecto ha cambiado (distinto nº de módulos o equipos): invalidar caché de sesión anterior
+      this.currentSessionPricing = null;
+    }
+    var designCosts = this.computeDesignCosts();
     var base = {
-      panelPrice: 125,
+      panelPrice: designCosts.panelPrice,
       estPrice: null,
       invPrice: null,
       batPrice: null,
       cabPrice: null,
-      moPrice: 1400,
-      legPrice: 500,
+      moPrice: designCosts.moPrice,
+      legPrice: designCosts.legPrice,
       marginPct: 20,
       skipReview: false
     };
@@ -266,13 +434,8 @@ var RAPricing = {
       if (saved) {
         var parsed = JSON.parse(saved);
         if (parsed && typeof parsed === 'object') {
-          if (typeof parsed.panelPrice === 'number' && parsed.panelPrice > 0) base.panelPrice = parsed.panelPrice;
-          if (typeof parsed.estPrice === 'number' && parsed.estPrice >= 0) base.estPrice = parsed.estPrice;
-          if (typeof parsed.invPrice === 'number' && parsed.invPrice >= 0) base.invPrice = parsed.invPrice;
-          if (typeof parsed.batPrice === 'number' && parsed.batPrice >= 0) base.batPrice = parsed.batPrice;
-          if (typeof parsed.cabPrice === 'number' && parsed.cabPrice >= 0) base.cabPrice = parsed.cabPrice;
-          if (typeof parsed.moPrice === 'number' && parsed.moPrice >= 0) base.moPrice = parsed.moPrice;
-          if (typeof parsed.legPrice === 'number' && parsed.legPrice >= 0) base.legPrice = parsed.legPrice;
+          // Solo persistimos entre proyectos el % de margen comercial habitual y skipReview.
+          // Jamás arrastramos importes a tanto alzado (estPrice, invPrice, moPrice, etc.) de un proyecto viejo a uno nuevo.
           if (typeof parsed.marginPct === 'number' && parsed.marginPct >= 0) base.marginPct = parsed.marginPct;
           base.skipReview = !!parsed.skipReview;
         }
@@ -282,10 +445,29 @@ var RAPricing = {
   },
 
   saveDefaults: function(cfg) {
-    this.currentSessionPricing = Object.assign({}, cfg);
+    var fp = this.getProjectFingerprint();
+    this.currentSessionPricing = Object.assign({}, cfg, { projectFingerprint: fp });
     try {
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(cfg));
+      // Guardar en localStorage únicamente preferencias comerciales transversales (margen %), nunca partidas absolutas de otro proyecto
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify({
+        marginPct: (cfg && typeof cfg.marginPct === 'number') ? cfg.marginPct : 20,
+        skipReview: !!(cfg && cfg.skipReview)
+      }));
     } catch(e) {}
+  },
+
+  resetToDesign: function() {
+    this.currentSessionPricing = null;
+    try {
+      var saved = localStorage.getItem(this.STORAGE_KEY);
+      var mg = 20;
+      if (saved) {
+        var parsed = JSON.parse(saved);
+        if (parsed && typeof parsed.marginPct === 'number') mg = parsed.marginPct;
+      }
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify({ marginPct: mg, skipReview: false }));
+    } catch (e) {}
+    return this.computeDesignCosts();
   },
 
   getEffectivePricing: function() {
@@ -331,8 +513,11 @@ function wpOpenPricingReviewModal(onConfirm) {
             '<div id="pricing-modal-equip-info" style="color:#94a3b8;font-size: 10px;text-align:right;">Inversor / Batería</div>' +
           '</div>' +
           '<div style="background:rgba(30,41,59,0.5);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:9px;">' +
-            '<div style="font-size:10px;font-weight:900;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px;">' +
-              'Partidas de Coste Directo (Instalación Llave en Mano)' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">' +
+              '<div style="font-size:10px;font-weight:900;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;">' +
+                'Partidas de Coste Directo (Instalación Llave en Mano)' +
+              '</div>' +
+              '<button type="button" id="btn-reset-pricing-to-design" style="padding:3px 8px;background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.4);border-radius:5px;color:#38BDF8;font-size:9.5px;font-weight:800;cursor:pointer;" title="Recalcular todas las partidas automáticamente a partir del diseño 3D y equipos seleccionados">🔄 Recalcular según diseño</button>' +
             '</div>' +
             '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05);">' +
               '<div>' +
@@ -521,28 +706,16 @@ function wpOpenPricingReviewModal(onConfirm) {
     subtextBat.textContent = eq.hasBat ? eq.batName : 'Sin sistema de acumulación electroquímica';
   }
 
-  // Pre-cargar valores actuales
-  var initialPanelPrice = (pricing.panelPrice > 0) ? pricing.panelPrice : (d.cfg && d.cfg.precio ? d.cfg.precio : 125);
-  var initialEstPrice = (typeof pricing.estPrice === 'number' && pricing.estPrice >= 0) ? pricing.estPrice : ((d.pres_est && d.pres_est > 0) ? d.pres_est : 450);
-  var initialInvPrice = (typeof pricing.invPrice === 'number' && pricing.invPrice >= 0) ? pricing.invPrice : ((d.pres_inv && d.pres_inv > 0) ? d.pres_inv : 1100);
-  var initialBatPrice = 0;
-  var cfg = (typeof window !== 'undefined' && window.solarProjectConfig) ? window.solarProjectConfig : {};
-  if (eq && eq.hasBat) {
-    var cat = (typeof equipmentCatalog !== 'undefined' && equipmentCatalog) ? equipmentCatalog : ((typeof window !== 'undefined' && window.equipmentCatalog) ? window.equipmentCatalog : {});
-    var bItem = (cat.batteries || []).find(function(b) { return b.id === (cfg.selectedBatteryId); });
-    var bCount = Math.max(1, eq.batCount || 1);
-    var catalogBatCost = (bItem && bItem.price > 0) ? (bItem.price * bCount) : 0;
-    initialBatPrice = (typeof pricing.batPrice === 'number' && pricing.batPrice > 0)
-      ? pricing.batPrice
-      : (catalogBatCost > 0 ? catalogBatCost : ((d.pres_bat && d.pres_bat > 0) ? d.pres_bat : (d.batCost || 0)));
-  } else if (typeof pricing.batPrice === 'number' && pricing.batPrice >= 0) {
-    initialBatPrice = pricing.batPrice;
-  } else {
-    initialBatPrice = (d.pres_bat || 0);
-  }
-  var initialCabPrice = (typeof pricing.cabPrice === 'number' && pricing.cabPrice >= 0) ? pricing.cabPrice : ((d.pres_cab && d.pres_cab > 0) ? d.pres_cab : 350);
-  var initialMoPrice = (typeof pricing.moPrice === 'number' && pricing.moPrice >= 0) ? pricing.moPrice : ((d.pres_mo && d.pres_mo > 0) ? d.pres_mo : 1400);
-  var initialLegPrice = (typeof pricing.legPrice === 'number' && pricing.legPrice >= 0) ? pricing.legPrice : ((d.pres_leg && d.pres_leg > 0) ? d.pres_leg : 500);
+  // Pre-cargar valores dinámicos calculados desde la ingeniería del proyecto actual
+  var designCosts = RAPricing.computeDesignCosts(numPanels);
+  var hasActiveSessionOverride = Boolean(RAPricing.currentSessionPricing && RAPricing.currentSessionPricing.projectFingerprint === RAPricing.getProjectFingerprint(numPanels));
+  var initialPanelPrice = (hasActiveSessionOverride && pricing.panelPrice > 0) ? pricing.panelPrice : designCosts.panelPrice;
+  var initialEstPrice = (hasActiveSessionOverride && typeof pricing.estPrice === 'number' && pricing.estPrice >= 0) ? pricing.estPrice : designCosts.estPrice;
+  var initialInvPrice = (hasActiveSessionOverride && typeof pricing.invPrice === 'number' && pricing.invPrice >= 0) ? pricing.invPrice : designCosts.invPrice;
+  var initialBatPrice = (hasActiveSessionOverride && typeof pricing.batPrice === 'number' && pricing.batPrice >= 0) ? pricing.batPrice : designCosts.batPrice;
+  var initialCabPrice = (hasActiveSessionOverride && typeof pricing.cabPrice === 'number' && pricing.cabPrice >= 0) ? pricing.cabPrice : designCosts.cabPrice;
+  var initialMoPrice = (hasActiveSessionOverride && typeof pricing.moPrice === 'number' && pricing.moPrice >= 0) ? pricing.moPrice : designCosts.moPrice;
+  var initialLegPrice = (hasActiveSessionOverride && typeof pricing.legPrice === 'number' && pricing.legPrice >= 0) ? pricing.legPrice : designCosts.legPrice;
   var initialMarginPct = (typeof pricing.marginPct === 'number' && pricing.marginPct >= 0) ? pricing.marginPct : 20;
 
   if (pInput) pInput.value = initialPanelPrice;
@@ -585,8 +758,9 @@ function wpOpenPricingReviewModal(onConfirm) {
     var iva = subtotal * 0.21;
     var capexBruto = subtotal + iva;
 
-    // Temporal override en sesión para cálculo fiel
+    // Temporal override en sesión etiquetado con la huella del proyecto actual
     RAPricing.currentSessionPricing = {
+      projectFingerprint: RAPricing.getProjectFingerprint(numPanels),
       panelPrice: pPrice,
       estPrice: estPrice,
       invPrice: invPrice,
@@ -616,6 +790,21 @@ function wpOpenPricingReviewModal(onConfirm) {
   [pInput, estInput, invInput, batInput, cabInput, moInput, legInput, mgInput].forEach(function(inp) {
     if (inp) inp.oninput = recalculateLive;
   });
+
+  var resetDesignBtn = document.getElementById('btn-reset-pricing-to-design');
+  if (resetDesignBtn) {
+    resetDesignBtn.onclick = function() {
+      var fresh = RAPricing.resetToDesign();
+      if (pInput) pInput.value = fresh.panelPrice;
+      if (estInput) estInput.value = fresh.estPrice;
+      if (invInput) invInput.value = fresh.invPrice;
+      if (batInput) batInput.value = fresh.batPrice;
+      if (cabInput) cabInput.value = fresh.cabPrice;
+      if (moInput) moInput.value = fresh.moPrice;
+      if (legInput) legInput.value = fresh.legPrice;
+      recalculateLive();
+    };
+  }
 
   var presetBtns = pModal ? pModal.querySelectorAll('.btn-preset-margin') : [];
   presetBtns.forEach(function(btn) {
@@ -1363,9 +1552,12 @@ function generatePropuestaComercialPDF(skipPricingModal) {
   const kwp = (mb && mb.totalKwp > 0) ? mb.totalKwp : ((numPanels * (d.cfg.potencia || 450)) / 1000.0);
   const annualYieldKWh = d.annualKWh || (kwp * 1450); // [P0] getProjectCalcs canónico devuelve annualKWh
 
+  const designCosts = (typeof RAPricing !== 'undefined' && typeof RAPricing.computeDesignCosts === 'function')
+    ? RAPricing.computeDesignCosts(numPanels)
+    : null;
   const pricing = (typeof RAPricing !== 'undefined') ? RAPricing.getEffectivePricing() : { panelPrice: 125, moPrice: 1400, marginPct: 20 };
-  const unitPanelPrice = (pricing && pricing.panelPrice > 0) ? pricing.panelPrice : (d.cfg.precio || 125);
-  const panCost = (mb && mb.totalPanelsCost > 0) ? mb.totalPanelsCost : (numPanels * unitPanelPrice);
+  const unitPanelPrice = (pricing && pricing.panelPrice > 0) ? pricing.panelPrice : (designCosts ? designCosts.panelPrice : (d.cfg.precio || 125));
+  const panCost = (mb && mb.totalPanelsCost > 0 && !(pricing && pricing.projectFingerprint)) ? mb.totalPanelsCost : (numPanels * unitPanelPrice);
   // [SSOT] Lector de parámetros con doble fuente: los inputs del DESGLOSE (modal-cfg-pres-*,
   // modal-tax-*, modal-fin-*) son la UI real que existe en el DOM; los ids legacy del sidebar
   // (cfg-pres-*, tax-*, fin-*) no existen y quedan como fallback histórico.
@@ -1382,7 +1574,7 @@ function generatePropuestaComercialPDF(skipPricingModal) {
     const el = document.getElementById(id) || document.getElementById('modal-' + id);
     return el ? el.value : def;
   };
-  let est = _input('cfg-pres-est', 450);
+  let est = designCosts ? designCosts.estPrice : _input('cfg-pres-est', 450);
   // [SSOT] ESTRUCTURA: Calcular dinámicamente desde el BOM paramétrico (Opción A)
   if (typeof BOMTreeEngine !== 'undefined') {
     const tree = BOMTreeEngine.computeBOMTree();
@@ -1411,22 +1603,21 @@ function generatePropuestaComercialPDF(skipPricingModal) {
       }
     }
   }
-  // [SSOT] INVERSOR: precio real del catálogo × unidades dimensionadas cuando hay selección
-  // activa. Antes el CAPEX usaba el input crudo cfg-pres-inv (default 1100 €) aunque la
-  // pestaña de ingeniería tuviera un inversor de 2.400 € → la oferta no cuadraba.
-  let inv = _input('cfg-pres-inv', 1100);
+  let inv = designCosts ? designCosts.invPrice : _input('cfg-pres-inv', 1100);
   const _ssotCat = (typeof equipmentCatalog !== 'undefined') ? equipmentCatalog : null;
   const _ssotCfg = (typeof window !== 'undefined' && window.solarProjectConfig) ? window.solarProjectConfig : {};
   let _invSel = null;
   if (_ssotCat && _ssotCfg.selectedInverterId) {
     _invSel = (_ssotCat.inverters || []).find(i => i.id === _ssotCfg.selectedInverterId) || null;
   }
+  if (!_invSel && _ssotCfg.lastVirtualInverter && _ssotCfg.lastVirtualInverter.id === _ssotCfg.selectedInverterId) {
+    _invSel = _ssotCfg.lastVirtualInverter;
+  }
   if (_invSel && _invSel.price > 0) {
     const _invCount = (_ssotCfg.autoSizing && _ssotCfg.autoSizing.inverters && _ssotCfg.autoSizing.inverters.count) || 1;
     inv = _invSel.price * _invCount;
   }
-  // [SSOT] BATERÍA: precio y capacidad del catálogo × unidades cuando hay selección.
-  let bat = _input('cfg-pres-bat', 0);
+  let bat = designCosts ? designCosts.batPrice : _input('cfg-pres-bat', 0);
   let _batSel = null;
   if (_ssotCat && _ssotCfg.selectedBatteryId && _ssotCfg.selectedBatteryId !== 'bat_none') {
     _batSel = (_ssotCat.batteries || []).find(b => b.id === _ssotCfg.selectedBatteryId) || null;
@@ -1435,29 +1626,12 @@ function generatePropuestaComercialPDF(skipPricingModal) {
     const _batCount = Math.max(1, (_ssotCfg.autoSizing && _ssotCfg.autoSizing.batteries && _ssotCfg.autoSizing.batteries.count) || 1);
     bat = _batSel.price * _batCount;
   }
-  let cab = _input('cfg-pres-cab', 350);
-  // [SSOT] Cableado 3D medido: Si el gemelo digital tiene trazado real de cables, calcular con metrado
-  const _sState = (typeof window !== 'undefined' && window.inverterEquipmentState) ? window.inverterEquipmentState : null;
-  if (_sState && (typeof _sState.L_dc_measured === 'number' || typeof _sState.L_ac_measured === 'number')) {
-    const _lDc = _sState.L_dc_measured || 25.0;
-    const _lAc = _sState.L_ac_measured || 15.0;
-    const _nStr = d.numStrings || 1;
-    const _mDc = Math.round(_lDc * _nStr * 2);
-    const _mAc = Math.round(_lAc * (d.monofasico ? 3 : 5));
-    const _sDc = d.S_dc_real || d.S_str || 6;
-    const _sAc = d.S_ac_real || d.S_ac || 10;
-    const _puDc = _sDc <= 6 ? 1.85 : (_sDc <= 10 ? 2.90 : 4.20);
-    const _puAc = _sAc <= 6 ? 2.40 : (_sAc <= 10 ? 3.80 : 5.90);
-    const _cableCostReal = Math.round((_mDc * _puDc) + (_mAc * _puAc) + ((_lDc + _lAc) * 6.80) + 195 + 245 + 85);
-    if (_cableCostReal > 0) {
-      cab = _cableCostReal;
-    }
-  }
-  let mo  = (pricing && pricing.moPrice != null) ? pricing.moPrice : _input('cfg-pres-mo', 1400);
-  let leg = (pricing && pricing.legPrice != null) ? pricing.legPrice : _input('cfg-pres-leg', 500);
+  let cab = designCosts ? designCosts.cabPrice : _input('cfg-pres-cab', 350);
+  let mo  = designCosts ? designCosts.moPrice : _input('cfg-pres-mo', 1400);
+  let leg = designCosts ? designCosts.legPrice : _input('cfg-pres-leg', 500);
 
-  // [SSOT] Si el usuario ha ajustado precios en RAPricing, tienen prioridad máxima:
-  if (pricing) {
+  // [SSOT] Si el usuario ha ajustado precios manualmente para ESTE diseño (misma huella), aplicar sus ajustes:
+  if (pricing && pricing.projectFingerprint) {
     if (typeof pricing.estPrice === 'number' && pricing.estPrice >= 0) est = pricing.estPrice;
     if (typeof pricing.invPrice === 'number' && pricing.invPrice >= 0) inv = pricing.invPrice;
     if (typeof pricing.batPrice === 'number' && pricing.batPrice > 0) {
