@@ -70,6 +70,7 @@ window.RA_App = window.RA_App || {};
   <script src="js/storage-cache.js?v=20261019a"></script>
   <script src="js/lazy-loader.js?v=20261019a"></script>
   <script src="js/shadow-settings.js?v=20261022b"></script>
+  <script src="js/commercial-proposal-dossier.js?v=20261022a"></script>
 
     <link rel="stylesheet" href="css/styles.css?v=20261016b">
 
@@ -1920,8 +1921,11 @@ window.RA_App = window.RA_App || {};
                 <button type="button" class="btn-action-primary" onclick="generateMemoria()" style="width:100%;padding:9px;font-size:11px;background:linear-gradient(135deg, #10B981, #059669);color:#fff;font-weight:900;border:none;box-shadow:0 0 10px rgba(16,185,129,0.3);">
                   <span><i data-lucide="file-text" class="icon-sm"></i> EXPORTAR MEMORIA TÉCNICA (PDF)</span>
                 </button>
-                <button type="button" class="btn-action-primary" onclick="generatePropuestaComercialPDF()" style="width:100%;padding:8px;font-size:10.5px;background:linear-gradient(135deg, #0284C7, #0369A1);color:#fff;font-weight:800;border:none;">
-                  <span><i data-lucide="file-text" class="icon-sm"></i> GENERAR OFERTA COMERCIAL (PDF)</span>
+                <button type="button" class="btn-action-primary" onclick="if(window.CommercialProposalDossier && window.CommercialProposalDossier.openConfig) { window.CommercialProposalDossier.openConfig(); } else { generatePropuestaComercialPDF(); }" style="width:100%;padding:9px;font-size:10.5px;background:linear-gradient(135deg, #e11d48, #f97316);color:#fff;font-weight:900;border:none;box-shadow:0 0 10px rgba(225,29,72,0.35);">
+                  <span><i data-lucide="award" class="icon-sm"></i> DOSSIER EJECUTIVO LANDSCAPE (12 LÁMINAS)</span>
+                </button>
+                <button type="button" class="btn-action-secondary" onclick="generatePropuestaComercialPDF()" style="width:100%;padding:6px;font-size:10px;background:rgba(2,132,199,0.15);border:1px solid rgba(2,132,199,0.4);color:#38bdf8;font-weight:700;">
+                  <span><i data-lucide="file-text" class="icon-sm"></i> OFERTA BANCABLE ESTÁNDAR (PORTRAIT)</span>
                 </button>
                 <button type="button" class="btn-action-primary" onclick="if(window.openBillAuditorModal) openBillAuditorModal();" style="width:100%;padding:8px;font-size:10.5px;background:linear-gradient(135deg, rgba(245,158,11,0.25), rgba(217,119,6,0.35));border:1px solid #F59E0B;color:#FBBF24;font-weight:800;">
                   <span><i data-lucide="receipt" class="icon-sm"></i> AUDITAR FACTURA &amp; COMPARATIVA DE AHORRO</span>
