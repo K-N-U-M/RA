@@ -13985,7 +13985,8 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
 
   const obj = (window.solarProjectConfig && window.solarProjectConfig.selectedObjective) ? window.solarProjectConfig.selectedObjective : 'optimal_inv';
   const limits = (window.solarProjectConfig && window.solarProjectConfig.calculatedLimits) ? window.solarProjectConfig.calculatedLimits : null;
-  const maxTotalModules = (limits && typeof limits.nMaxTotalModules === 'number') ? limits.nMaxTotalModules : Infinity;
+  const invCount = (window.solarProjectConfig && window.solarProjectConfig.autoSizing && window.solarProjectConfig.autoSizing.inverters && window.solarProjectConfig.autoSizing.inverters.count) || 1;
+  const maxTotalModules = (limits && typeof limits.nMaxTotalModules === 'number') ? (limits.nMaxTotalModules * invCount) : Infinity;
 
   for (let polyIdx = 0; polyIdx < polylinesList.length; polyIdx++) {
     const poly = polylinesList[polyIdx];
@@ -14999,8 +15000,9 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
       WP.polylines.forEach((poly, polyIdx) => {
         if (isIncrementalTarget && polyIdx !== targetPolyIdx) return;
         const pInfo = poly.roofInfo;
-        if (!pInfo || !pInfo.panels || pInfo.panels.length === 0) return;
-        const panels = pInfo.panels;
+        if (!pInfo) return;
+        const panels = (poly.panels && poly.panels.length > 0) ? poly.panels : (pInfo.panels || []);
+        if (!panels || panels.length === 0) return;
         const supportCol = new Cesium.PolylineCollection();
         let totalLinesAdded = 0;
         

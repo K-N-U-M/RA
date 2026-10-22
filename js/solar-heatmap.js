@@ -1902,6 +1902,7 @@
     const maxTotalModules = options.maxTotalModules;
     const isAnalyzingSolar = !!options.isAnalyzingSolar;
 
+    const isAutoSizingInverters = !(window.solarProjectConfig && window.solarProjectConfig.autoSizing && window.solarProjectConfig.autoSizing.inverters && window.solarProjectConfig.autoSizing.inverters.isManual);
     let limitModules = Infinity;
     if (obj === 'target_kwh') {
       const rawModules = Math.max(1, Math.round((targetKwp * 1000) / modWp));
@@ -1918,7 +1919,7 @@
       limitModules = (typeof snapHelper === 'function')
         ? snapHelper(rawModules, nsMin, nsMax, maxStrings)
         : rawModules;
-    } else if (obj === 'optimal_inv' && Number.isFinite(maxTotalModules) && maxTotalModules > 0 && !isAnalyzingSolar) {
+    } else if (obj === 'optimal_inv' && Number.isFinite(maxTotalModules) && maxTotalModules > 0 && !isAnalyzingSolar && !isAutoSizingInverters) {
       limitModules = maxTotalModules;
     }
 
@@ -1936,9 +1937,10 @@
       return [...polyPanels];
     }
 
-    // Caso B: Múltiples faldones — Selección global coordinada
+    // Caso B: Múltiples faldones — Selección global coordinada equitativa (sin inanición de faldones)
     if (polyIdx === 0 || !window._raGlobalObjectiveSelectedIds) {
-      const allCandidates = [];
+      const candidatesByPoly = new Map();
+      let totalAllCandidates = 0;
       polylinesList.forEach((pl, plIdx) => {
         let pList = (pl && pl.roofInfo && Array.isArray(pl.roofInfo.panels)) ? pl.roofInfo.panels : (pl && Array.isArray(pl.panels) ? pl.panels : []);
         if (pList.length === 0 && pl && Array.isArray(pl.points) && pl.points.length >= 3 && typeof computeSinglePolylineRoofInfo === 'function') {
@@ -1950,27 +1952,54 @@
             }
           } catch(ePl) {}
         }
+        const polyCand = [];
         pList.forEach((p, pIdx) => {
           if (!p.deleted) {
-            allCandidates.push({ p, plIdx, panelId: p.panelId || ('pan_' + plIdx + '_' + (p.layoutIndex ?? p.localIdx ?? pIdx)) });
+            polyCand.push({ p, plIdx, panelId: p.panelId || ('pan_' + plIdx + '_' + (p.layoutIndex ?? p.localIdx ?? pIdx)) });
           }
         });
+        candidatesByPoly.set(plIdx, polyCand);
+        totalAllCandidates += polyCand.length;
       });
 
-      if (allCandidates.length > limitModules) {
-        allCandidates.sort((a, b) => {
-          const lossA = a.p.annualLossPct || 0;
-          const lossB = b.p.annualLossPct || 0;
-          if (Math.abs(lossA - lossB) > 0.05) return lossA - lossB;
-          const kwhA = a.p.annualKwh || 0;
-          const kwhB = b.p.annualKwh || 0;
-          if (kwhA !== kwhB) return kwhB - kwhA;
-          return a.plIdx - b.plIdx || (a.p.layoutIndex || 0) - (b.p.layoutIndex || 0);
+      if (totalAllCandidates > limitModules) {
+        // Asignación equitativa y proporcional por faldón: NUNCA dejar un faldón activo a 0
+        const selectedIds = new Set();
+        let remainingQuota = limitModules;
+
+        // Paso 1: Asegurar cuota proporcional según capacidad geométrica de cada faldón
+        const activePolys = Array.from(candidatesByPoly.keys()).filter(k => candidatesByPoly.get(k).length > 0);
+        
+        activePolys.forEach(k => {
+          const cands = candidatesByPoly.get(k);
+          const faldonShare = Math.round(limitModules * (cands.length / totalAllCandidates));
+          const minPerPoly = Math.max(1, Math.min(cands.length, faldonShare));
+          cands.sort((a, b) => (a.p.annualLossPct || 0) - (b.p.annualLossPct || 0) || (b.p.annualKwh || 0) - (a.p.annualKwh || 0));
+          const baseTake = Math.min(cands.length, minPerPoly);
+          for (let i = 0; i < baseTake && remainingQuota > 0; i++) {
+            selectedIds.add(cands[i].panelId);
+            cands[i]._allocated = true;
+            remainingQuota--;
+          }
         });
-        const selected = allCandidates.slice(0, limitModules);
-        window._raGlobalObjectiveSelectedIds = new Set(selected.map(x => x.panelId));
+
+        // Paso 2: Repartir el remanente globalmente según menor sombra / mayor producción
+        if (remainingQuota > 0) {
+          const leftover = [];
+          candidatesByPoly.forEach(cands => {
+            cands.forEach(c => { if (!c._allocated) leftover.push(c); });
+          });
+          leftover.sort((a, b) => (a.p.annualLossPct || 0) - (b.p.annualLossPct || 0) || (b.p.annualKwh || 0) - (a.p.annualKwh || 0));
+          for (let i = 0; i < leftover.length && remainingQuota > 0; i++) {
+            selectedIds.add(leftover[i].panelId);
+            remainingQuota--;
+          }
+        }
+        window._raGlobalObjectiveSelectedIds = selectedIds;
       } else {
-        window._raGlobalObjectiveSelectedIds = new Set(allCandidates.map(x => x.panelId));
+        const allIds = new Set();
+        candidatesByPoly.forEach(cands => cands.forEach(c => allIds.add(c.panelId)));
+        window._raGlobalObjectiveSelectedIds = allIds;
       }
     }
 
