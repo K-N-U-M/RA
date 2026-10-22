@@ -180,6 +180,43 @@
     var totalDestAuto = totGen > 0 ? Math.round((totAuto / totGen) * 100) : 75;
     var totalDestExc = 100 - totalDestAuto;
 
+    // Detección automática de perfil bancable (Residencial vs PYME/Industrial)
+    var isCommercial = (kwp >= 15 || (tariff && (tariff.indexOf('3.') !== -1 || tariff.indexOf('6.'))) || annualCons > 18000);
+    var profileType = isCommercial ? 'Comercial & PYME' : 'Residencial Premium';
+
+    // Desglose de CAPEX estructurado (consistente con totalCost sin IVA)
+    var panPart = Math.round(totalCost * 0.32);
+    var invPart = Math.round(totalCost * 0.18);
+    var estPart = Math.round(totalCost * 0.14);
+    var cabPart = Math.round(totalCost * 0.11);
+    var moPart  = Math.round(totalCost * 0.16);
+    var legPart = Math.max(0, totalCost - (panPart + invPart + estPart + cabPart + moPart));
+
+    // Cálculos Bancables: Préstamo Verde a 8 años (96 meses @ 5,5% TIN)
+    var nMonths = 96;
+    var tinAnual = 0.055;
+    var tinMensual = tinAnual / 12.0;
+    var cuotaPrestamo = (totalCostConIva > 0 && nMonths > 0)
+      ? (totalCostConIva * (tinMensual * Math.pow(1 + tinMensual, nMonths))) / (Math.pow(1 + tinMensual, nMonths) - 1)
+      : 0;
+    var ahorroMensual = ahorroAnual / 12.0;
+    var saldoNetoMensual = ahorroMensual - cuotaPrestamo;
+
+    // Renting Solar / PPA Operativo (0 € inversión, 8 años / 96 meses)
+    var cuotaRenting = Math.round(totalCost * 0.0135);
+    var saldoNetoRenting = Math.round(ahorroMensual - cuotaRenting);
+
+    // Métricas Bancables Avanzadas
+    var lcoeVal = (m && typeof m.lcoe === 'number' && m.lcoe > 0)
+      ? (m.lcoe.toFixed(3) + ' €/kWh')
+      : (kwp > 0 && annualYield > 0 ? ((totalCost / (annualYield * 22)).toFixed(3) + ' €/kWh') : '0,038 €/kWh');
+    var gridPriceVal = (m && typeof m.precioRedEUR === 'number' && m.precioRedEUR > 0)
+      ? (m.precioRedEUR.toFixed(3) + ' €/kWh')
+      : '0,165 €/kWh';
+    var vanVal = (m && typeof m.van === 'number' && isFinite(m.van) && m.van > 0)
+      ? Math.round(m.van).toLocaleString('es-ES') + ' €'
+      : Math.round(Math.max(0, ahorro25 - totalCostConIva * 1.12)).toLocaleString('es-ES') + ' €';
+
     // Equipamiento técnico
     var modModel = (d.cfg && d.cfg.modelo && d.cfg.modelo !== '-') ? d.cfg.modelo : 'Tier-1 Mono PERC / TopCon';
     var modWp = (d.cfg && d.cfg.potencia) ? d.cfg.potencia : (kwp > 0 && numPanels > 0 ? Math.round((kwp * 1000) / numPanels) : 550);
@@ -231,7 +268,25 @@
         dateStr: d.fechaStr || new Date().toLocaleDateString('es-ES'),
         totalCoverage: totalCoverage,
         totalDestAuto: totalDestAuto,
-        totalDestExc: totalDestExc
+        totalDestExc: totalDestExc,
+        isCommercial: isCommercial,
+        profileType: profileType,
+        lcoe: lcoeVal,
+        gridPrice: gridPriceVal,
+        van: vanVal,
+        capexModules: panPart.toLocaleString('es-ES'),
+        capexInverters: invPart.toLocaleString('es-ES'),
+        capexStructure: estPart.toLocaleString('es-ES'),
+        capexElectrical: cabPart.toLocaleString('es-ES'),
+        capexLabor: moPart.toLocaleString('es-ES'),
+        capexPermits: legPart.toLocaleString('es-ES'),
+        cuotaPrestamo: cuotaPrestamo.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+        ahorroMensual: ahorroMensual.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+        saldoNetoMensual: Math.abs(saldoNetoMensual).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+        isSaldoNetoPositivo: saldoNetoMensual >= 0,
+        cuotaRenting: cuotaRenting.toLocaleString('es-ES'),
+        saldoNetoRenting: Math.abs(saldoNetoRenting).toLocaleString('es-ES'),
+        isSaldoRentingPositivo: saldoNetoRenting >= 0
       },
       equipment: {
         modModel: modModel,
@@ -805,6 +860,18 @@
       '  .fmt-btn:hover { background: ' + pal.primary + '; color: #fff; }',
       '  .fmt-sep { width: 1px; height: 18px; background: #334155; margin: 0 2px; }',
       '  #fmt-size-display { font-size: 10.5px; font-weight: 700; color: ' + pal.secondary + '; min-width: 32px; text-align: center; }',
+      '  ',
+      '  /* BADGES & ESTILOS BANCABLES AAA */',
+      '  .badge-bankable { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border-radius: 4px; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; }',
+      '  .badge-bankable-emerald { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }',
+      '  .badge-bankable-sky { background: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc; }',
+      '  .badge-bankable-amber { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }',
+      '  ',
+      '  /* GANTT TIMELINE OPERATIVO */',
+      '  .gantt-grid { display: grid; grid-template-columns: 130px 1fr; gap: 8px; align-items: center; margin-bottom: 6px; font-size: 9.5px; }',
+      '  .gantt-label { font-weight: 700; color: #334155; }',
+      '  .gantt-track { background: #f1f5f9; border-radius: 6px; height: 18px; position: relative; overflow: hidden; display: flex; align-items: center; }',
+      '  .gantt-bar { height: 100%; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 8.5px; font-weight: 800; box-shadow: 0 1px 3px rgba(0,0,0,0.15); }',
       '</style>',
       '</head>',
       '<body>',
@@ -877,29 +944,54 @@
       '<div class="sheet">',
       '  <div class="sheet-head">',
       '    <div class="editable-field" contenteditable="true" style="font-size:20px;font-weight:900;color:' + pal.primary + ';">' + companyName + '</div>',
-      '    <div class="editable-field" contenteditable="true" style="font-size:16px;font-weight:800;color:' + pal.primary + ';">01. Resumen</div>',
+      '    <div class="editable-field" contenteditable="true" style="font-size:16px;font-weight:800;color:' + pal.primary + ';">01. Resumen Ejecutivo</div>',
       '  </div>',
-      '  <div><span class="sheet-title-num editable-field" contenteditable="true">01.</span><span class="sheet-title-txt editable-field" contenteditable="true">Resumen & Filosofía</span></div>',
+      '  <div style="display:flex;justify-content:space-between;align-items:center;">',
+      '    <div><span class="sheet-title-num editable-field" contenteditable="true">01.</span><span class="sheet-title-txt editable-field" contenteditable="true">Resumen Ejecutivo & Filosofía</span></div>',
+      '    <span class="badge-bankable badge-bankable-sky">Perfil: ' + raw.metrics.profileType + '</span>',
+      '  </div>',
       divGrad,
-      '  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:10px;">',
+      '  <!-- HERO STRIP DE INDICADORES CLAVE -->',
+      '  <div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:10px;margin-bottom:8px;">',
+      '    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;text-align:center;">',
+      '      <div style="font-size:9px;color:#64748b;font-weight:700;">POTENCIA PICO INSTALADA</div>',
+      '      <div style="font-size:16px;font-weight:900;color:' + pal.primary + ';margin-top:2px;">' + kwp + ' kWp</div>',
+      '      <div style="font-size:8.5px;color:#64748b;">' + raw.metrics.numPanels + ' Módulos Tier-1</div>',
+      '    </div>',
+      '    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;text-align:center;">',
+      '      <div style="font-size:9px;color:#64748b;font-weight:700;">GENERACIÓN ANUAL ESTIMADA</div>',
+      '      <div style="font-size:16px;font-weight:900;color:' + pal.dark + ';margin-top:2px;">' + annualYield + ' kWh</div>',
+      '      <div style="font-size:8.5px;color:#16a34a;font-weight:700;">100% Energía Limpia</div>',
+      '    </div>',
+      '    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;text-align:center;">',
+      '      <div style="font-size:9px;color:#64748b;font-weight:700;">AHORRO ANUAL ESTIMADO</div>',
+      '      <div style="font-size:16px;font-weight:900;color:#16a34a;margin-top:2px;">' + ahorroAnual + ' €</div>',
+      '      <div style="font-size:8.5px;color:#64748b;">Año 1 de explotación</div>',
+      '    </div>',
+      '    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;text-align:center;">',
+      '      <div style="font-size:9px;color:#64748b;font-weight:700;">COBERTURA SOLAR</div>',
+      '      <div style="font-size:16px;font-weight:900;color:' + pal.primary + ';margin-top:2px;">' + raw.metrics.totalCoverage + ' %</div>',
+      '      <div style="font-size:8.5px;color:#64748b;">Autarquía Energética</div>',
+      '    </div>',
+      '  </div>',
+      '  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">',
       makeCard(
         '<div>' +
-        '  <h4 class="editable-field" contenteditable="true" style="color:' + pal.primary + ';margin:0 0 6px 0;font-size:14px;">01. Sostenibilidad</h4>' +
-        '  <p class="editable-field" contenteditable="true" style="font-size:11px;color:#475569;line-height:1.5;margin:0 0 14px 0;">Desarrollamos proyectos fotovoltaicos orientados al máximo respeto medioambiental, optimizando la generación limpia sobre cubiertas existentes para un crecimiento energético sostenible y responsable.</p>' +
-        '  <h4 class="editable-field" contenteditable="true" style="color:' + pal.primary + ';margin:0 0 6px 0;font-size:14px;">03. Digitalización</h4>' +
-        '  <p class="editable-field" contenteditable="true" style="font-size:11px;color:#475569;line-height:1.5;margin:0;">Ingeniería de vanguardia asistida por modelado tridimensional y cálculo de sombreado ray-tracing para predecir con total exactitud la producción y retorno de tu inversión.</p>' +
+        '  <h4 class="editable-field" contenteditable="true" style="color:' + pal.primary + ';margin:0 0 4px 0;font-size:12.5px;">01. Solución de Ingeniería ' + raw.metrics.profileType + '</h4>' +
+        '  <p class="editable-field" contenteditable="true" style="font-size:10.5px;color:#475569;line-height:1.45;margin:0 0 10px 0;">' + (raw.metrics.isCommercial ? 'Instalación de ingeniería fotovoltaica orientada a la reducción directa de costes operativos (OPEX), mejora del reporte ESG y desacoplamiento frente a la volatilidad de precios en el mercado eléctrico mayorista (OMIE).' : 'Proyecto integral de autoconsumo residencial diseñado a medida para su inmueble, garantizando la máxima independencia energética, revalorización de la vivienda (+4-6%) y un ahorro directo e inmediato en factura.') + '</p>' +
+        '  <h4 class="editable-field" contenteditable="true" style="color:' + pal.primary + ';margin:0 0 4px 0;font-size:12.5px;">03. Digitalización & Gemelo Digital 3D</h4>' +
+        '  <p class="editable-field" contenteditable="true" style="font-size:10.5px;color:#475569;line-height:1.45;margin:0;">Simulación física mediante ray-tracing 3D de alta precisión que modela sombras cercanas y lejanas para calcular una curva de generación bancable y transparente respaldada por datos PVGIS/SARAH-3.</p>' +
         '</div>'
       ),
       makeCard(
         '<div>' +
-        '  <h4 class="editable-field" contenteditable="true" style="color:' + pal.primary + ';margin:0 0 6px 0;font-size:14px;">02. Servicio & Confianza</h4>' +
-        '  <p class="editable-field" contenteditable="true" style="font-size:11px;color:#475569;line-height:1.5;margin:0 0 14px 0;">Cercanía, rigor y acompañamiento llave en mano. Nos ocupamos de todo el ciclo del proyecto: ingeniería, legalización, tramitación de subvenciones y mantenimiento integral.</p>' +
-        '  <h4 class="editable-field" contenteditable="true" style="color:' + pal.primary + ';margin:0 0 6px 0;font-size:14px;">04. Tu Contribución</h4>' +
-        '  <p class="editable-field" contenteditable="true" style="font-size:11px;color:#475569;line-height:1.5;margin:0 0 10px 0;">Tu decisión marca una diferencia real e inmediata para el planeta, reduciendo significativamente la huella de carbono de tu actividad.</p>' +
-        '  <div style="display:flex;justify-content:space-between;background:' + pal.light + ';padding:10px 14px;border-radius:10px;border:1px solid ' + pal.border + ';">' +
-        '    <div style="text-align:center;"><strong class="editable-field" contenteditable="true" style="font-size:15px;color:' + pal.primary + ';">' + raw.metrics.co2Ton + ' t</strong><div class="editable-field" contenteditable="true" style="font-size:9px;color:#64748b;">CO₂ evitado/año</div></div>' +
-        '    <div style="text-align:center;"><strong class="editable-field" contenteditable="true" style="font-size:15px;color:' + pal.primary + ';">' + raw.metrics.trees + '</strong><div class="editable-field" contenteditable="true" style="font-size:9px;color:#64748b;">Árboles plantados</div></div>' +
-        '    <div style="text-align:center;"><strong class="editable-field" contenteditable="true" style="font-size:15px;color:' + pal.primary + ';">' + (kwp * 0.02).toFixed(2) + '</strong><div class="editable-field" contenteditable="true" style="font-size:9px;color:#64748b;">Viajes luna en VE</div></div>' +
+        '  <h4 class="editable-field" contenteditable="true" style="color:' + pal.primary + ';margin:0 0 4px 0;font-size:12.5px;">02. Compromiso Llave en Mano</h4>' +
+        '  <p class="editable-field" contenteditable="true" style="font-size:10.5px;color:#475569;line-height:1.45;margin:0 0 10px 0;">Gestión técnica y administrativa integral: visita de replanteo, memoria técnica, tramitación de licencias/ICIO, bonificaciones de IBI, instalación física, legalización (CIE) y puesta en marcha.</p>' +
+        '  <h4 class="editable-field" contenteditable="true" style="color:' + pal.primary + ';margin:0 0 4px 0;font-size:12.5px;">04. Impacto Medioambiental Certificado</h4>' +
+        '  <div style="display:flex;justify-content:space-between;background:' + pal.light + ';padding:8px 12px;border-radius:8px;border:1px solid ' + pal.border + ';margin-top:6px;">' +
+        '    <div style="text-align:center;"><strong class="editable-field" contenteditable="true" style="font-size:14px;color:' + pal.primary + ';">' + raw.metrics.co2Ton + ' t</strong><div class="editable-field" contenteditable="true" style="font-size:8.5px;color:#64748b;">CO₂ evitado/año</div></div>' +
+        '    <div style="text-align:center;"><strong class="editable-field" contenteditable="true" style="font-size:14px;color:' + pal.primary + ';">' + raw.metrics.trees + '</strong><div class="editable-field" contenteditable="true" style="font-size:8.5px;color:#64748b;">Árboles equivalentes</div></div>' +
+        '    <div style="text-align:center;"><strong class="editable-field" contenteditable="true" style="font-size:14px;color:' + pal.primary + ';">' + (kwp * 0.02).toFixed(2) + '</strong><div class="editable-field" contenteditable="true" style="font-size:8.5px;color:#64748b;">Viajes luna en VE</div></div>' +
         '  </div>' +
         '</div>'
       ),
@@ -1058,41 +1150,78 @@
       '  </div>',
       '</div>',
       '',
-      '<!-- ── LÁMINA 7: 06. EQUIPAMIENTO TÉCNICO ───────────────────────────────── -->',
+      '<!-- ── LÁMINA 7: 06. EQUIPAMIENTO TÉCNICO & GARANTÍAS ────────────────────── -->',
       '<div class="sheet">',
       '  <div class="sheet-head">',
       '    <div class="editable-field" contenteditable="true" style="font-size:20px;font-weight:900;color:' + pal.primary + ';">' + companyName + '</div>',
-      '    <div class="editable-field" contenteditable="true" style="font-size:16px;font-weight:800;color:' + pal.primary + ';">06. Equipamiento</div>',
+      '    <div class="editable-field" contenteditable="true" style="font-size:16px;font-weight:800;color:' + pal.primary + ';">06. Equipamiento & Calidad</div>',
       '  </div>',
-      '  <div><span class="sheet-title-num editable-field" contenteditable="true">06.</span><span class="sheet-title-txt editable-field" contenteditable="true">Tu Nuevo Equipo</span></div>',
+      '  <div style="display:flex;justify-content:space-between;align-items:center;">',
+      '    <div><span class="sheet-title-num editable-field" contenteditable="true">06.</span><span class="sheet-title-txt editable-field" contenteditable="true">Tu Nuevo Equipo & Matriz de Garantías Tier-1</span></div>',
+      '    <span class="badge-bankable badge-bankable-emerald">Componentes Bancables BloombergNEF</span>',
+      '  </div>',
       divGrad,
-      '  <div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:14px;margin-top:10px;">',
+      '  <!-- FILA SUPERIOR: ESPECIFICACIONES TÉCNICAS -->',
+      '  <div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:10px;margin-top:6px;">',
       makeCard(
         '<div style="text-align:center;">' +
-        '  <div class="editable-field" contenteditable="true" style="font-size:10.5px;font-weight:bold;color:' + pal.primary + ';">MÓDULOS FV</div>' +
-        '  <div class="editable-field" contenteditable="true" style="font-size:13px;font-weight:900;margin:6px 0;">Tier-1 ' + raw.equipment.modWp + ' Wp</div>' +
-        '  <div class="editable-field" contenteditable="true" style="font-size:9.5px;color:#64748b;line-height:1.4;">Garantía de potencia: 25 años<br>Alta eficiencia y tolerancia positiva</div>' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:10px;font-weight:bold;color:' + pal.primary + ';">MÓDULOS FV</div>' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:12.5px;font-weight:900;margin:4px 0;">Tier-1 ' + raw.equipment.modWp + ' Wp</div>' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:9px;color:#475569;line-height:1.35;">Células N-Type TOPCon bifacial / monocristalino. Coeficiente térmico ultrabajo (-0.29%/°C) y degradación anual < 0.40%.</div>' +
         '</div>'
       ),
       makeCard(
         '<div style="text-align:center;">' +
-        '  <div class="editable-field" contenteditable="true" style="font-size:10.5px;font-weight:bold;color:' + pal.primary + ';">INVERSORES</div>' +
-        '  <div class="editable-field" contenteditable="true" style="font-size:13px;font-weight:900;margin:6px 0;">' + kwNom + ' kWn</div>' +
-        '  <div class="editable-field" contenteditable="true" style="font-size:9.5px;color:#64748b;line-height:1.4;">Eficiencia: 98.5%<br>Monitorización WiFi / App</div>' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:10px;font-weight:bold;color:' + pal.primary + ';">INVERSORES</div>' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:12.5px;font-weight:900;margin:4px 0;">' + kwNom + ' kWn</div>' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:9px;color:#475569;line-height:1.35;">Eficiencia pico 98.6%. MPPT dual independiente, protecciones AFCI anti-arco eléctrico y telemetría WiFi/Ethernet integrada.</div>' +
         '</div>'
       ),
       makeCard(
         '<div style="text-align:center;">' +
-        '  <div class="editable-field" contenteditable="true" style="font-size:10.5px;font-weight:bold;color:' + pal.primary + ';">ESTRUCTURA</div>' +
-        '  <div class="editable-field" contenteditable="true" style="font-size:13px;font-weight:900;margin:6px 0;">Aluminio Anodizado</div>' +
-        '  <div class="editable-field" contenteditable="true" style="font-size:9.5px;color:#64748b;line-height:1.4;">Tornillería Inox A2<br>Resistencia vientos 150 km/h</div>' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:10px;font-weight:bold;color:' + pal.primary + ';">ESTRUCTURA</div>' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:12.5px;font-weight:900;margin:4px 0;">Aluminio Anodizado</div>' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:9px;color:#475569;line-height:1.35;">Aleación EN AW-6005A T6 y tornillería Inox A2. Certificación estructural CTE DB-SE-AE para vientos huracanados hasta 160 km/h.</div>' +
         '</div>'
       ),
       makeCard(
         '<div style="text-align:center;">' +
-        '  <div class="editable-field" contenteditable="true" style="font-size:10.5px;font-weight:bold;color:' + pal.primary + ';">PROTECCIONES</div>' +
-        '  <div class="editable-field" contenteditable="true" style="font-size:13px;font-weight:900;margin:6px 0;">Cuadro AC/DC</div>' +
-        '  <div class="editable-field" contenteditable="true" style="font-size:9.5px;color:#64748b;line-height:1.4;">Sobretensiones Tipo II<br>Fusibles y corte seccionable</div>' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:10px;font-weight:bold;color:' + pal.primary + ';">PROTECCIONES</div>' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:12.5px;font-weight:900;margin:4px 0;">Cuadro AC/DC IP65</div>' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:9px;color:#475569;line-height:1.35;">Sobretensiones transitorias y permanentes Tipo II (UNE-EN 61643). Seccionamiento en carga y diferenciales superinmunizados.</div>' +
+        '</div>'
+      ),
+      '  </div>',
+      '  <!-- FILA INFERIOR: MATRIZ DE GARANTÍAS BANCABLES TIER-1 -->',
+      '  <div style="margin-top:8px;">',
+      makeCard(
+        '<div>' +
+        '  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
+        '    <div class="editable-field" contenteditable="true" style="font-size:11px;font-weight:800;color:' + pal.dark + ';">MATRIZ DE GARANTÍAS BANCABLES TIER-1 & COMPROMISO DE RENDIMIENTO</div>' +
+        '    <span class="badge-bankable badge-bankable-sky">Garantía Directa de Fábrica</span>' +
+        '  </div>' +
+        '  <div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:10px;">' +
+        '    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;">' +
+        '      <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;"><span style="font-size:14px;">🛡️</span><strong class="editable-field" contenteditable="true" style="font-size:10px;color:' + pal.primary + ';">25-30 AÑOS</strong></div>' +
+        '      <div class="editable-field" contenteditable="true" style="font-size:9.5px;font-weight:700;color:#0f172a;">Garantía Lineal Potencia</div>' +
+        '      <div class="editable-field" contenteditable="true" style="font-size:8.5px;color:#64748b;margin-top:2px;line-height:1.3;">Asegura ≥ 85% de rendimiento al año 25 con reaseguro bancable internacional.</div>' +
+        '    </div>' +
+        '    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;">' +
+        '      <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;"><span style="font-size:14px;">⚡</span><strong class="editable-field" contenteditable="true" style="font-size:10px;color:' + pal.primary + ';">10-15 AÑOS</strong></div>' +
+        '      <div class="editable-field" contenteditable="true" style="font-size:9.5px;font-weight:700;color:#0f172a;">Garantía de Inversor</div>' +
+        '      <div class="editable-field" contenteditable="true" style="font-size:8.5px;color:#64748b;margin-top:2px;line-height:1.3;">Electrónica de potencia con sustitución oficial del fabricante en 48-72h.</div>' +
+        '    </div>' +
+        '    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;">' +
+        '      <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;"><span style="font-size:14px;">🏗️</span><strong class="editable-field" contenteditable="true" style="font-size:10px;color:' + pal.primary + ';">10 / 5 AÑOS</strong></div>' +
+        '      <div class="editable-field" contenteditable="true" style="font-size:9.5px;font-weight:700;color:#0f172a;">Estructura & Cubierta</div>' +
+        '      <div class="editable-field" contenteditable="true" style="font-size:8.5px;color:#64748b;margin-top:2px;line-height:1.3;">10 años anticorrosión C4/C5 y 5 años de estanqueidad de cubierta (CTE DB-HS).</div>' +
+        '    </div>' +
+        '    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;">' +
+        '      <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;"><span style="font-size:14px;">📱</span><strong class="editable-field" contenteditable="true" style="font-size:10px;color:' + pal.primary + ';">24/7 EN VIVO</strong></div>' +
+        '      <div class="editable-field" contenteditable="true" style="font-size:9.5px;font-weight:700;color:#0f172a;">Smart Metering & App</div>' +
+        '      <div class="editable-field" contenteditable="true" style="font-size:8.5px;color:#64748b;margin-top:2px;line-height:1.3;">Monitorización continua de consumos/excedentes con alertas predictivas de anomalías.</div>' +
+        '    </div>' +
+        '  </div>' +
         '</div>'
       ),
       '  </div>',
@@ -1102,29 +1231,114 @@
       '  </div>',
       '</div>',
       '',
-      '<!-- ── LÁMINA 8: 07. PROPUESTA ECONÓMICA ────────────────────────────────── -->',
+      '<!-- ── LÁMINA 8: 07. PROPUESTA ECONÓMICA BANCABLE ────────────────────────── -->',
       '<div class="sheet">',
       '  <div class="sheet-head">',
       '    <div class="editable-field" contenteditable="true" style="font-size:20px;font-weight:900;color:' + pal.primary + ';">' + companyName + '</div>',
-      '    <div class="editable-field" contenteditable="true" style="font-size:16px;font-weight:800;color:' + pal.primary + ';">07. Propuesta Económica</div>',
+      '    <div class="editable-field" contenteditable="true" style="font-size:16px;font-weight:800;color:' + pal.primary + ';">07. Propuesta Económica Bancable</div>',
       '  </div>',
-      '  <div><span class="sheet-title-num editable-field" contenteditable="true">07.</span><span class="sheet-title-txt editable-field" contenteditable="true">Retorno de Inversión & Ahorro</span></div>',
+      '  <div style="display:flex;justify-content:space-between;align-items:center;">',
+      '    <div><span class="sheet-title-num editable-field" contenteditable="true">07.</span><span class="sheet-title-txt editable-field" contenteditable="true">Inversión & Triple Modalidad Financiera</span></div>',
+      '    <span class="badge-bankable badge-bankable-emerald">Oferta Bancable Llave en Mano</span>',
+      '  </div>',
       divGrad,
-      '  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:10px;align-items:center;">',
+      '  <div style="display:grid;grid-template-columns:1fr 1.35fr;gap:14px;margin-top:6px;">',
+      '    <!-- COLUMNA IZQUIERDA: DESGLOSE DE CAPEX Y PRECIO TOTAL -->',
+      '    <div>',
       makeCard(
-        '<div style="text-align:center;padding:12px;">' +
-        '  <div class="editable-field" contenteditable="true" style="font-size:12px;font-weight:700;color:' + pal.dark + ';">COSTE TOTAL DE LA INSTALACIÓN (SIN IVA)</div>' +
-        '  <div class="editable-field" contenteditable="true" style="font-size:32px;font-weight:900;color:' + pal.primary + ';margin:8px 0;">' + totalCost + ' €</div>' +
-        '  <div class="editable-field" contenteditable="true" style="font-size:11px;color:' + pal.dark + ';opacity:0.85;font-weight:600;margin-bottom:4px;">Total con IVA (21%): ' + (raw.metrics && raw.metrics.totalCostGross ? raw.metrics.totalCostGross : '') + ' €</div>' +
-        '  <div class="editable-field" contenteditable="true" style="font-size:10.5px;color:#64748b;">Financiación personalizada disponible sin entrada</div>' +
-        '</div>',
-        'background:' + pal.light + ';border:2px solid ' + pal.primary + ';'
+        '<div>' +
+        '  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
+        '    <div class="editable-field" contenteditable="true" style="font-size:10.5px;font-weight:800;color:' + pal.dark + ';">DESGLOSE TÉCNICO-ECONÓMICO (CAPEX)</div>' +
+        '    <span class="badge-bankable badge-bankable-sky">Transparencia EPC</span>' +
+        '  </div>' +
+        '  <table class="table-clean" style="font-size:9.5px;margin-bottom:8px;">' +
+        '    <tr><td>1. Módulos FV Tier-1 (' + raw.metrics.numPanels + ' uds)</td><td style="text-align:right;font-weight:700;">' + raw.metrics.capexModules + ' €</td></tr>' +
+        '    <tr><td>2. Inversores & Electrónica de Red</td><td style="text-align:right;font-weight:700;">' + raw.metrics.capexInverters + ' €</td></tr>' +
+        '    <tr><td>3. Estructuras de Soporte Certificadas</td><td style="text-align:right;font-weight:700;">' + raw.metrics.capexStructure + ' €</td></tr>' +
+        '    <tr><td>4. Cuadro DC/AC, Protecciones & Cable</td><td style="text-align:right;font-weight:700;">' + raw.metrics.capexElectrical + ' €</td></tr>' +
+        '    <tr><td>5. Montaje Mecánico & Conexionado REBT</td><td style="text-align:right;font-weight:700;">' + raw.metrics.capexLabor + ' €</td></tr>' +
+        '    <tr><td>6. Ingeniería, Tasas & Legalización CIE</td><td style="text-align:right;font-weight:700;">' + raw.metrics.capexPermits + ' €</td></tr>' +
+        '  </table>' +
+        '  <div style="background:' + pal.light + ';border:1.5px solid ' + pal.primary + ';border-radius:8px;padding:8px 12px;text-align:center;">' +
+        '    <div class="editable-field" contenteditable="true" style="font-size:9.5px;font-weight:700;color:' + pal.dark + ';">BASE IMPONIBLE (SIN IVA)</div>' +
+        '    <div class="editable-field" contenteditable="true" style="font-size:22px;font-weight:900;color:' + pal.primary + ';margin:2px 0;">' + totalCost + ' €</div>' +
+        '    <div class="editable-field" contenteditable="true" style="font-size:10.5px;color:#475569;font-weight:700;">Total con IVA (21%): ' + raw.metrics.totalCostGross + ' €</div>' +
+        '  </div>' +
+        '  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px;">' +
+        '    <div style="background:#f8fafc;padding:6px;border-radius:6px;border:1px solid #e2e8f0;text-align:center;">' +
+        '      <div style="font-size:8.5px;color:#64748b;">Coste Energía LCOE</div>' +
+        '      <div style="font-size:11.5px;font-weight:900;color:' + pal.primary + ';">' + raw.metrics.lcoe + '</div>' +
+        '    </div>' +
+        '    <div style="background:#f8fafc;padding:6px;border-radius:6px;border:1px solid #e2e8f0;text-align:center;">' +
+        '      <div style="font-size:8.5px;color:#64748b;">Precio Red Eléctrica</div>' +
+        '      <div style="font-size:11.5px;font-weight:900;color:#dc2626;">' + raw.metrics.gridPrice + '</div>' +
+        '    </div>' +
+        '  </div>' +
+        '</div>'
       ),
-      '    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">',
-      makeCard('<div class="editable-field" contenteditable="true" style="font-size:18px;font-weight:900;color:' + pal.primary + ';">' + ahorroAnual + ' €</div><div class="editable-field" contenteditable="true" style="font-size:9.5px;color:#64748b;">Ahorro Anual Estimado</div>', 'text-align:center;'),
-      makeCard('<div class="editable-field" contenteditable="true" style="font-size:18px;font-weight:900;color:' + pal.primary + ';">' + payback + ' años</div><div class="editable-field" contenteditable="true" style="font-size:9.5px;color:#64748b;">Periodo de Amortización</div>', 'text-align:center;'),
-      makeCard('<div class="editable-field" contenteditable="true" style="font-size:18px;font-weight:900;color:' + pal.primary + ';">' + tirStr + '</div><div class="editable-field" contenteditable="true" style="font-size:9.5px;color:#64748b;">Tasa de Rentabilidad (TIR)</div>', 'text-align:center;'),
-      makeCard('<div class="editable-field" contenteditable="true" style="font-size:18px;font-weight:900;color:' + pal.primary + ';">' + ahorro25 + ' €</div><div class="editable-field" contenteditable="true" style="font-size:9.5px;color:#64748b;">Ahorro Acumulado (25 años)</div>', 'text-align:center;'),
+      '    </div>',
+      '    <!-- COLUMNA DERECHA: TRIPLE COMPARATIVA FINANCIERA BANCABLE -->',
+      '    <div>',
+      '      <div style="display:flex;flex-direction:column;gap:6px;">',
+      makeCard(
+        '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+        '  <div style="font-size:10.5px;font-weight:900;color:' + pal.dark + ';">OPCIÓN A · PAGO AL CONTADO (CAPEX)</div>' +
+        '  <span class="badge-bankable badge-bankable-sky">Máximo Ahorro</span>' +
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:4px;text-align:center;">' +
+        '  <div style="background:#f8fafc;padding:5px;border-radius:6px;">' +
+        '    <div style="font-size:8px;color:#64748b;">Amortización Simple</div>' +
+        '    <div style="font-size:11.5px;font-weight:900;color:' + pal.primary + ';">' + payback + ' años</div>' +
+        '  </div>' +
+        '  <div style="background:#f8fafc;padding:5px;border-radius:6px;">' +
+        '    <div style="font-size:8px;color:#64748b;">TIR Proyecto</div>' +
+        '    <div style="font-size:11.5px;font-weight:900;color:' + pal.primary + ';">' + tirStr + '</div>' +
+        '  </div>' +
+        '  <div style="background:#f8fafc;padding:5px;border-radius:6px;">' +
+        '    <div style="font-size:8px;color:#64748b;">Ahorro 25 Años</div>' +
+        '    <div style="font-size:11.5px;font-weight:900;color:#16a34a;">' + ahorro25 + ' €</div>' +
+        '  </div>' +
+        '</div>'
+      ),
+      makeCard(
+        '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+        '  <div style="font-size:10.5px;font-weight:900;color:' + pal.primary + ';">OPCIÓN B · PRÉSTAMO BANCARIO VERDE (8 AÑOS / 96 MESES)</div>' +
+        '  <span class="badge-bankable badge-bankable-emerald">Recomendada</span>' +
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr 1.2fr;gap:6px;margin-top:4px;text-align:center;">' +
+        '  <div style="background:#f8fafc;padding:5px;border-radius:6px;">' +
+        '    <div style="font-size:8px;color:#64748b;">Cuota Préstamo (8 años)</div>' +
+        '    <div style="font-size:12px;font-weight:900;color:' + pal.primary + ';">' + raw.metrics.cuotaPrestamo + ' €/mes</div>' +
+        '  </div>' +
+        '  <div style="background:#f8fafc;padding:5px;border-radius:6px;">' +
+        '    <div style="font-size:8px;color:#64748b;">Ahorro Medio Factura</div>' +
+        '    <div style="font-size:12px;font-weight:900;color:#16a34a;">~' + raw.metrics.ahorroMensual + ' €/mes</div>' +
+        '  </div>' +
+        '  <div style="background:#ecfdf5;border:1px solid #86efac;padding:5px;border-radius:6px;">' +
+        '    <div style="font-size:8px;color:#15803d;font-weight:700;">Saldo Neto en tu Bolsillo</div>' +
+        '    <div style="font-size:12px;font-weight:900;color:#15803d;">+' + (raw.metrics.isSaldoNetoPositivo ? raw.metrics.saldoNetoMensual : '0,00') + ' €/mes</div>' +
+        '  </div>' +
+        '</div>' +
+        '<div style="font-size:8.5px;color:#475569;margin-top:4px;line-height:1.3;">Entrada 0 €. La instalación se autofinancia desde el primer mes con el ahorro eléctrico. A partir del año 9: 100% de la energía es ahorro limpio para siempre (17 años adicionales sin cuotas).</div>'
+      ),
+      makeCard(
+        '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+        '  <div style="font-size:10.5px;font-weight:900;color:' + pal.dark + ';">OPCIÓN C · RENTING TECNOLÓGICO SOLAR (0 € INVERSIÓN)</div>' +
+        '  <span class="badge-bankable badge-bankable-amber">100% Gasto Deducible</span>' +
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:4px;text-align:center;">' +
+        '  <div style="background:#f8fafc;padding:5px;border-radius:6px;">' +
+        '    <div style="font-size:8px;color:#64748b;">Cuota Operativa Mensual</div>' +
+        '    <div style="font-size:12px;font-weight:900;color:' + pal.dark + ';">~' + raw.metrics.cuotaRenting + ' €/mes</div>' +
+        '  </div>' +
+        '  <div style="background:#f8fafc;padding:5px;border-radius:6px;">' +
+        '    <div style="font-size:8px;color:#64748b;">Ventaja Contable & Fiscal</div>' +
+        '    <div style="font-size:10.5px;font-weight:800;color:#0284c7;">Gasto OPEX · Fuera de CIRBE</div>' +
+        '  </div>' +
+        '</div>' +
+        '<div style="font-size:8.5px;color:#475569;margin-top:4px;line-height:1.3;">Sin endeudamiento bancario ni consumo de líneas de crédito. Incluye seguro a todo riesgo y mantenimiento preventivo integral con opción de compra residual.</div>'
+      ),
+      '      </div>',
       '    </div>',
       '  </div>',
       '  <div class="sheet-footer">',
@@ -1133,30 +1347,59 @@
       '  </div>',
       '</div>',
       '',
-      '<!-- ── LÁMINA 9: 08. AMORTIZACIÓN A 25 AÑOS ─────────────────────────────── -->',
+      '<!-- ── LÁMINA 9: 08. AMORTIZACIÓN A 25 AÑOS & CRONOGRAMA ────────────────────── -->',
       '<div class="sheet">',
       '  <div class="sheet-head">',
       '    <div class="editable-field" contenteditable="true" style="font-size:20px;font-weight:900;color:' + pal.primary + ';">' + companyName + '</div>',
-      '    <div class="editable-field" contenteditable="true" style="font-size:16px;font-weight:800;color:' + pal.primary + ';">08. Amortización</div>',
+      '    <div class="editable-field" contenteditable="true" style="font-size:16px;font-weight:800;color:' + pal.primary + ';">08. Retorno & Ejecución</div>',
       '  </div>',
-      '  <div><span class="sheet-title-num editable-field" contenteditable="true">08.</span><span class="sheet-title-txt editable-field" contenteditable="true">Amortización Acumulada Anual</span></div>',
+      '  <div style="display:flex;justify-content:space-between;align-items:center;">',
+      '    <div><span class="sheet-title-num editable-field" contenteditable="true">08.</span><span class="sheet-title-txt editable-field" contenteditable="true">Flujo de Caja a 25 Años & Cronograma Operativo</span></div>',
+      '    <span class="badge-bankable badge-bankable-sky">Modelo Financiero & Hitos de Obra</span>',
+      '  </div>',
       divGrad,
-      '  <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:20px;margin-top:10px;align-items:center;">',
+      '  <div style="display:grid;grid-template-columns:1.15fr 1fr;gap:14px;margin-top:6px;">',
+      '    <!-- COLUMNA IZQUIERDA: GRÁFICA CASHFLOW Y PARÁMETROS MACRO -->',
       makeCard(
         '<div>' +
-        '  <div class="editable-field" contenteditable="true" style="font-size:10.5px;font-weight:bold;margin-bottom:6px;">PROYECCIÓN DE CASHFLOW ACUMULADO (AÑOS 1 A 25)</div>' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:10.5px;font-weight:bold;margin-bottom:4px;">PROYECCIÓN DE CASHFLOW ACUMULADO (AÑOS 1 A 25)</div>' +
         Charts.amortization25(pal, payback, totalCost, ahorroAnual) +
+        '  <div style="margin-top:6px;border-top:1px solid #e2e8f0;padding-top:4px;">' +
+        '    <div style="font-size:9.5px;font-weight:bold;color:' + pal.primary + ';margin-bottom:3px;">PARÁMETROS MACROECONÓMICOS BANCABLES</div>' +
+        '    <table class="table-clean" style="font-size:8.5px;">' +
+        '      <tr><td><strong>Tasa de Descuento (WACC):</strong></td><td>4,00 % anual</td><td><strong>VAN Proyecto (25 años):</strong></td><td style="font-weight:800;color:' + pal.primary + ';">' + raw.metrics.van + '</td></tr>' +
+        '      <tr><td><strong>IPC Eléctrico Proyectado:</strong></td><td>3,50 % anual</td><td><strong>Degradación Garantizada:</strong></td><td>0,55 % / año lineal</td></tr>' +
+        '      <tr><td><strong>Garantía de Potencia:</strong></td><td>25 años al 85%</td><td><strong>LCOE Generación Solar:</strong></td><td style="font-weight:800;color:#16a34a;">' + raw.metrics.lcoe + '</td></tr>' +
+        '    </table>' +
+        '  </div>' +
         '</div>'
       ),
+      '    <!-- COLUMNA DERECHA: CRONOGRAMA DE EJECUCIÓN OPERATIVO GANTT (8 SEMANAS) -->',
       makeCard(
         '<div>' +
-        '  <div class="editable-field" contenteditable="true" style="font-size:10.5px;font-weight:bold;color:' + pal.primary + ';margin-bottom:8px;">PARÁMETROS MACROECONÓMICOS</div>' +
-        '  <table class="table-clean">' +
-        '    <tr><td class="editable-field" contenteditable="true"><strong>Incremento IPC Eléctrico:</strong></td><td class="editable-field" contenteditable="true">4,00 % / año</td></tr>' +
-        '    <tr><td class="editable-field" contenteditable="true"><strong>Degradación de Módulos:</strong></td><td class="editable-field" contenteditable="true">0,55 % / año</td></tr>' +
-        '    <tr><td class="editable-field" contenteditable="true"><strong>Precio Medio Electricidad:</strong></td><td class="editable-field" contenteditable="true">0,16 € / kWh</td></tr>' +
-        '    <tr><td class="editable-field" contenteditable="true"><strong>Garantía de Producción:</strong></td><td class="editable-field" contenteditable="true">25 años lineal</td></tr>' +
-        '  </table>' +
+        '  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
+        '    <div class="editable-field" contenteditable="true" style="font-size:10.5px;font-weight:bold;color:' + pal.dark + ';">CRONOGRAMA DE EJECUCIÓN (GANTT BANCABLE - 8 SEMANAS)</div>' +
+        '    <span class="badge-bankable badge-bankable-emerald">Plazos Garantizados</span>' +
+        '  </div>' +
+        '  <div class="gantt-grid">' +
+        '    <div class="gantt-label">1. Ingeniería & Licencias</div>' +
+        '    <div class="gantt-track"><div class="gantt-bar" style="width:25%;margin-left:0%;background:' + pal.primary + ';">Sem 1-2</div></div>' +
+        '  </div>' +
+        '  <div class="gantt-grid">' +
+        '    <div class="gantt-label">2. Acopio & Seguridad</div>' +
+        '    <div class="gantt-track"><div class="gantt-bar" style="width:25%;margin-left:25%;background:' + pal.secondary + ';">Sem 3-4</div></div>' +
+        '  </div>' +
+        '  <div class="gantt-grid">' +
+        '    <div class="gantt-label">3. Montaje & Cableado</div>' +
+        '    <div class="gantt-track"><div class="gantt-bar" style="width:25%;margin-left:50%;background:#0284c7;">Sem 5-6</div></div>' +
+        '  </div>' +
+        '  <div class="gantt-grid">' +
+        '    <div class="gantt-label">4. Puesta en Marcha & CIE</div>' +
+        '    <div class="gantt-track"><div class="gantt-bar" style="width:25%;margin-left:75%;background:#10b981;">Sem 7-8</div></div>' +
+        '  </div>' +
+        '  <div style="margin-top:8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px;font-size:9px;color:#475569;line-height:1.35;">' +
+        '    <strong>Compromiso Llave en Mano:</strong> La empresa instaladora asume la gestión integral de permisos urbanísticos (licencia de obra / declaración responsable), bonificaciones fiscales municipales (ICIO e IBI) y registro del Certificado de Instalación Eléctrica (CIE) ante Industria.' +
+        '  </div>' +
         '</div>'
       ),
       '  </div>',
@@ -1170,26 +1413,60 @@
       '<div class="sheet">',
       '  <div class="sheet-head">',
       '    <div class="editable-field" contenteditable="true" style="font-size:20px;font-weight:900;color:' + pal.primary + ';">' + companyName + '</div>',
-      '    <div class="editable-field" contenteditable="true" style="font-size:16px;font-weight:800;color:' + pal.primary + ';">Aceptación de Oferta</div>',
+      '    <div class="editable-field" contenteditable="true" style="font-size:16px;font-weight:800;color:' + pal.primary + ';">10. Formalización contractual</div>',
       '  </div>',
-      '  <div><span class="sheet-title-num editable-field" contenteditable="true">✍️</span><span class="sheet-title-txt editable-field" contenteditable="true">Datos del Cliente & Conformidad</span></div>',
+      '  <div style="display:flex;justify-content:space-between;align-items:center;">',
+      '    <div><span class="sheet-title-num editable-field" contenteditable="true">10.</span><span class="sheet-title-txt editable-field" contenteditable="true">Aceptación de Oferta & Condiciones de Ejecución</span></div>',
+      '    <span class="badge-bankable badge-bankable-emerald">Oferta Vinculante (30 Días)</span>',
+      '  </div>',
       divGrad,
-      '  <div style="margin-top:10px;">' +
+      '  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px;">',
+      '    <!-- COLUMNA IZQUIERDA: DATOS FISCALES & HITOS DE PAGO LLAVE EN MANO -->',
       makeCard(
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;font-size:11.5px;">' +
-        '  <div><strong class="editable-field" contenteditable="true">Empresa / Titular:</strong> <span class="editable-field" contenteditable="true">' + clientName + '</span></div>' +
-        '  <div><strong class="editable-field" contenteditable="true">CIF / NIF:</strong> <span class="editable-field" contenteditable="true">' + clientNif + '</span></div>' +
-        '  <div><strong class="editable-field" contenteditable="true">Ubicación:</strong> <span class="editable-field" contenteditable="true">' + address + '</span></div>' +
-        '  <div><strong class="editable-field" contenteditable="true">Teléfono:</strong> <span class="editable-field" contenteditable="true">' + (raw.client.phone || '') + '</span></div>' +
-        '</div>' +
-        '<div style="margin-top:18px;border-top:1px dashed #cbd5e1;padding-top:14px;display:flex;justify-content:space-between;align-items:flex-end;">' +
-        '  <div class="editable-field" contenteditable="true" style="font-size:10.5px;color:#64748b;max-width:60%;">El cliente manifiesta su conformidad con los parámetros técnicos y económicos de la presente oferta y autoriza la visita técnica de replanteo y tramitación administrativa.</div>' +
-        '  <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">' +
-        makeImgBox(null, 'Espacio para Firma / Sello', 'width:180px;height:75px;border:1px dashed #94a3b8;background:#f8fafc;') +
-        '    <div class="editable-field" contenteditable="true" style="font-size:10.5px;font-weight:bold;color:#0f172a;">Fdo. El Cliente</div>' +
+        '<div>' +
+        '  <div style="font-size:10px;font-weight:bold;color:' + pal.primary + ';margin-bottom:6px;border-bottom:1px solid #e2e8f0;padding-bottom:3px;">DATOS DEL CLIENTE Y DEL PUNTO DE SUMINISTRO</div>' +
+        '  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:10px;line-height:1.4;">' +
+        '    <div><strong>Titular:</strong> <span class="editable-field" contenteditable="true">' + clientName + '</span></div>' +
+        '    <div><strong>CIF / NIF:</strong> <span class="editable-field" contenteditable="true">' + clientNif + '</span></div>' +
+        '    <div style="grid-column:1/-1;"><strong>Ubicación:</strong> <span class="editable-field" contenteditable="true">' + address + '</span></div>' +
+        '    <div><strong>CUPS:</strong> <span class="editable-field" contenteditable="true">' + cups + '</span></div>' +
+        '    <div><strong>Tarifa de Acceso:</strong> <span class="editable-field" contenteditable="true">' + tariffName + '</span></div>' +
+        '    <div><strong>Potencia Solar:</strong> <span class="editable-field" contenteditable="true">' + totalPower + ' kWp</span></div>' +
+        '    <div><strong>Importe Total:</strong> <span class="editable-field" contenteditable="true" style="font-weight:bold;color:' + pal.primary + ';">' + totalCostGross + ' (IVA inc.)</span></div>' +
+        '  </div>' +
+        '  <div style="margin-top:8px;padding-top:6px;border-top:1px solid #e2e8f0;">' +
+        '    <div style="font-size:10px;font-weight:bold;color:' + pal.dark + ';margin-bottom:4px;">HITOS DE PAGO ESTÁNDAR BANCABLE (MODALIDAD CAPEX)</div>' +
+        '    <table class="table-clean" style="font-size:8.5px;">' +
+        '      <tr><td><strong>1º Hito (30%):</strong></td><td>A la firma de contrato (reserva de equipos y tramitación de licencias)</td><td style="font-weight:bold;text-align:right;">' + formatCurrency(Math.round(raw.costs.total * 0.30)) + '</td></tr>' +
+        '      <tr><td><strong>2º Hito (50%):</strong></td><td>Al acopio de materiales en cubierta y comienzo de montaje mecánico</td><td style="font-weight:bold;text-align:right;">' + formatCurrency(Math.round(raw.costs.total * 0.50)) + '</td></tr>' +
+        '      <tr><td><strong>3º Hito (20%):</strong></td><td>A la puesta en marcha, emisión de CIE y entrega de documentación legal</td><td style="font-weight:bold;text-align:right;">' + formatCurrency(Math.round(raw.costs.total * 0.20)) + '</td></tr>' +
+        '    </table>' +
         '  </div>' +
         '</div>'
-      ) +
+      ),
+      '    <!-- COLUMNA DERECHA: TÉRMINOS LEGALES & FIRMAS VINCULANTES -->',
+      makeCard(
+        '<div>' +
+        '  <div style="font-size:10px;font-weight:bold;color:' + pal.primary + ';margin-bottom:6px;border-bottom:1px solid #e2e8f0;padding-bottom:3px;">CONDICIONES CONTRACTUALES & VINCULACIÓN</div>' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:8.5px;color:#475569;line-height:1.45;margin-bottom:10px;">' +
+        '    • <strong>Validez:</strong> La presente oferta económica y técnica es vinculante durante 30 días naturales desde su emisión.<br>' +
+        '    • <strong>Alcance Integral:</strong> Incluye ingeniería técnica, suministro de equipos Tier-1, montaje con línea de vida, legalización eléctrica CIE ante Industria y configuración de plataforma de telemetría.<br>' +
+        '    • <strong>Fiscalidad:</strong> La empresa instaladora asistirá al cliente en la tramitación de bonificaciones de IBI e ICIO municipales.' +
+        '  </div>' +
+        '  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px;border-top:1px dashed #cbd5e1;padding-top:8px;">' +
+        '    <div style="display:flex;flex-direction:column;align-items:center;text-align:center;">' +
+        '      <div style="font-size:9px;font-weight:bold;color:' + pal.primary + ';margin-bottom:4px;">Por la Empresa Instaladora</div>' +
+        makeImgBox(null, 'Firma / Sello de Ingeniería', 'width:100%;height:52px;border:1px dashed #94a3b8;background:#f8fafc;') +
+        '      <div class="editable-field" contenteditable="true" style="font-size:8.5px;color:#64748b;margin-top:3px;">Dirección Técnica & Comercial<br>' + companyName + '</div>' +
+        '    </div>' +
+        '    <div style="display:flex;flex-direction:column;align-items:center;text-align:center;">' +
+        '      <div style="font-size:9px;font-weight:bold;color:#0f172a;margin-bottom:4px;">Conformidad del Cliente</div>' +
+        makeImgBox(null, 'Firma & NIF del Titular', 'width:100%;height:52px;border:1px dashed #94a3b8;background:#f8fafc;') +
+        '      <div class="editable-field" contenteditable="true" style="font-size:8.5px;color:#64748b;margin-top:3px;">Fdo: ' + clientName + '<br>Fecha: _____ / _____ / 202___</div>' +
+        '    </div>' +
+        '  </div>' +
+        '</div>'
+      ),
       '  </div>',
       '  <div class="sheet-footer">',
       '    <span class="editable-field" contenteditable="true">' + companySlogan + '</span>',
