@@ -15,6 +15,13 @@
   let container = null;
   let isCollapsed = false;
   let _renderPending = false;
+  const sectionCollapsedState = {
+    buildings: false,
+    planes: false,
+    standalone: false,
+    obstacles: false,
+    electrical: false
+  };
 
   const UIOutliner = {
     init: function() {
@@ -100,6 +107,16 @@
       if (btn) btn.textContent = isCollapsed ? '▲' : '▼';
     },
 
+    toggleSection: function(sectionKey, e) {
+      if (e) e.stopPropagation();
+      sectionCollapsedState[sectionKey] = !sectionCollapsedState[sectionKey];
+      const grp = document.getElementById('outliner-grp-' + sectionKey);
+      const chevron = document.getElementById('outliner-chev-' + sectionKey);
+      const isCol = !!sectionCollapsedState[sectionKey];
+      if (grp) grp.style.display = isCol ? 'none' : 'flex';
+      if (chevron) chevron.textContent = isCol ? '▶' : '▼';
+    },
+
     render: function() {
       if (_renderPending) return;
       _renderPending = true;
@@ -145,7 +162,18 @@
 
       // ── 1. EDIFICIOS 3D Y SUS CUBIERTAS / FALDONES HIJOS ──
       if (tree.buildings.length > 0) {
-        html += `<div class="outliner-group-title">🏢 EDIFICIOS 3D (${tree.buildings.length})</div>`;
+        const bldCol = !!sectionCollapsedState.buildings;
+        html += `
+          <div class="outliner-accordion-group">
+            <div class="outliner-group-header" onclick="UIOutliner.toggleSection('buildings', event)">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <span class="outliner-chevron" id="outliner-chev-buildings">${bldCol ? '▶' : '▼'}</span>
+                <span>🏢 EDIFICIOS 3D (${tree.buildings.length})</span>
+              </div>
+              <span class="outliner-group-count">${tree.buildings.length}</span>
+            </div>
+            <div class="outliner-group-content" id="outliner-grp-buildings" style="display:${bldCol ? 'none' : 'flex'};">
+        `;
         tree.buildings.forEach(function(bld) {
           const isSel = bld.isSelected ? 'active-node' : '';
           html += `
@@ -244,9 +272,23 @@
         });
       }
 
+        html += `</div></div>`;
+      }
+
       // ── 2. PLANOS DE CUBIERTA INDEPENDIENTES (SOBRE FOTOGRAMETRÍA 3D) ──
       if (tree.planes.length > 0) {
-        html += `<div class="outliner-group-title">🏠 PLANOS INDEPENDIENTES (${tree.planes.length})</div>`;
+        const plCol = !!sectionCollapsedState.planes;
+        html += `
+          <div class="outliner-accordion-group">
+            <div class="outliner-group-header" onclick="UIOutliner.toggleSection('planes', event)">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <span class="outliner-chevron" id="outliner-chev-planes">${plCol ? '▶' : '▼'}</span>
+                <span>🏠 PLANOS INDEPENDIENTES (${tree.planes.length})</span>
+              </div>
+              <span class="outliner-group-count">${tree.planes.length}</span>
+            </div>
+            <div class="outliner-group-content" id="outliner-grp-planes" style="display:${plCol ? 'none' : 'flex'};">
+        `;
         tree.planes.forEach(function(p) {
           const planeActive = p.isActive ? 'active-node' : '';
           html += `
@@ -293,9 +335,23 @@
         });
       }
 
+        html += `</div></div>`;
+      }
+
       // ── 3. FALDONES AUTÓNOMOS ──
       if (tree.standalonePolylines.length > 0) {
-        html += `<div class="outliner-group-title">📐 FALDONES AUTÓNOMOS (${tree.standalonePolylines.length})</div>`;
+        const stdCol = !!sectionCollapsedState.standalone;
+        html += `
+          <div class="outliner-accordion-group">
+            <div class="outliner-group-header" onclick="UIOutliner.toggleSection('standalone', event)">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <span class="outliner-chevron" id="outliner-chev-standalone">${stdCol ? '▶' : '▼'}</span>
+                <span>📐 FALDONES AUTÓNOMOS (${tree.standalonePolylines.length})</span>
+              </div>
+              <span class="outliner-group-count">${tree.standalonePolylines.length}</span>
+            </div>
+            <div class="outliner-group-content" id="outliner-grp-standalone" style="display:${stdCol ? 'none' : 'flex'};">
+        `;
         tree.standalonePolylines.forEach(function(poly) {
           const polySel = poly.isSelected ? 'selected-poly' : '';
           html += `
@@ -314,9 +370,23 @@
         });
       }
 
+        html += `</div></div>`;
+      }
+
       // ── 4. OBSTÁCULOS EN TERRENO / GLOBALES ──
       if (tree.obstacles.length > 0) {
-        html += `<div class="outliner-group-title">🧱 OBSTÁCULOS EN TERRENO (${tree.obstacles.length})</div>`;
+        const obsCol = !!sectionCollapsedState.obstacles;
+        html += `
+          <div class="outliner-accordion-group">
+            <div class="outliner-group-header" onclick="UIOutliner.toggleSection('obstacles', event)">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <span class="outliner-chevron" id="outliner-chev-obstacles">${obsCol ? '▶' : '▼'}</span>
+                <span>🧱 OBSTÁCULOS EN TERRENO (${tree.obstacles.length})</span>
+              </div>
+              <span class="outliner-group-count">${tree.obstacles.length}</span>
+            </div>
+            <div class="outliner-group-content" id="outliner-grp-obstacles" style="display:${obsCol ? 'none' : 'flex'};">
+        `;
         tree.obstacles.forEach(function(obs) {
           const obsSel = obs.isSelected ? 'selected-obs' : '';
           html += `
@@ -335,9 +405,23 @@
         });
       }
 
+        html += `</div></div>`;
+      }
+
       // ── 5. EQUIPOS ELÉCTRICOS & CUADROS (PASO 4) ──
       if (tree.electrical && tree.electrical.length > 0) {
-        html += `<div class="outliner-group-title">⚡ CUADROS & EQUIPOS ELÉCTRICOS (${tree.electrical.length})</div>`;
+        const elCol = !!sectionCollapsedState.electrical;
+        html += `
+          <div class="outliner-accordion-group">
+            <div class="outliner-group-header" onclick="UIOutliner.toggleSection('electrical', event)">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <span class="outliner-chevron" id="outliner-chev-electrical">${elCol ? '▶' : '▼'}</span>
+                <span>⚡ CUADROS & EQUIPOS ELÉCTRICOS (${tree.electrical.length})</span>
+              </div>
+              <span class="outliner-group-count">${tree.electrical.length}</span>
+            </div>
+            <div class="outliner-group-content" id="outliner-grp-electrical" style="display:${elCol ? 'none' : 'flex'};">
+        `;
         tree.electrical.forEach(function(eq) {
           const eqSel = eq.isSelected ? 'selected-obs active-node' : '';
           if (eq.isCableMetric) {
@@ -364,6 +448,7 @@
             `;
           }
         });
+        html += `</div></div>`;
       }
 
       treeContent.innerHTML = html;
@@ -378,10 +463,11 @@
       style.textContent = `
         .ra-cad-outliner {
           position: fixed;
-          top: 250px;
+          top: 190px;
           right: 20px;
-          width: 300px;
-          max-height: calc(100vh - 280px);
+          width: 310px;
+          bottom: 84px;
+          max-height: calc(100vh - 284px);
           background: rgba(15, 23, 42, 0.92);
           backdrop-filter: blur(14px);
           -webkit-backdrop-filter: blur(14px);
@@ -440,7 +526,60 @@
           gap: 6px;
           padding: 8px;
           overflow-y: auto;
-          max-height: calc(100vh - 340px);
+          flex: 1 1 auto;
+          min-height: 0;
+        }
+
+        .outliner-accordion-group {
+          display: flex;
+          flex-direction: column;
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 8px;
+          overflow: hidden;
+          background: rgba(15, 23, 42, 0.45);
+        }
+
+        .outliner-group-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 6px 8px;
+          background: rgba(30, 41, 59, 0.65);
+          cursor: pointer;
+          user-select: none;
+          font-size: 10px;
+          font-weight: 800;
+          color: #94a3b8;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+          transition: background 0.15s ease, color 0.15s ease;
+        }
+
+        .outliner-group-header:hover {
+          background: rgba(56, 189, 248, 0.15);
+          color: #38bdf8;
+        }
+
+        .outliner-chevron {
+          font-size: 8px;
+          color: #38bdf8;
+          width: 12px;
+          display: inline-block;
+          text-align: center;
+        }
+
+        .outliner-group-count {
+          font-size: 9px;
+          background: rgba(255, 255, 255, 0.1);
+          color: #cbd5e1;
+          padding: 1px 5px;
+          border-radius: 10px;
+        }
+
+        .outliner-group-content {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          padding: 6px;
         }
 
         /* [FIX-SCROLL] Los hijos flex se comprimían (flex-shrink por defecto) cuando el
