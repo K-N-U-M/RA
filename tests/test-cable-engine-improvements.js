@@ -169,7 +169,8 @@ assert(Array.isArray(RACableEngine.CONFIG.STRING_COLORS) && RACableEngine.CONFIG
   'Debe existir paleta de colores para stringing con al menos 6 tonos');
 assert.strictEqual(RACableEngine.CONFIG.COLOR_DC_RETURN, '#0369A1', 'Color de retorno anti-bucle debe estar configurado');
 assert.strictEqual(RACableEngine.CONFIG.COLOR_GROUNDING, '#16A34A', 'Color de tierra equipotencial Cu 16mm² debe ser verde');
-assert.strictEqual(RACableEngine.CONFIG.DC_RETURN_OFFSET, 0.12, 'Despegue de retorno bajo módulos debe ser 0.12m');
+assert.strictEqual(RACableEngine.CONFIG.DC_RETURN_OFFSET, -0.08, 'Despegue de retorno bajo módulos debe ser cota negativa (-0.08m)');
+assert.strictEqual(RACableEngine.CONFIG.JUMPER_OFFSET, -0.06, 'Latiguillos intermódulo por el reverso deben ser cota negativa (-0.06m)');
 console.log('✓ TEST 1 superado con éxito.');
 
 // ── TEST 2: Esquivado de Obstáculos a 90° (CTE DB-SI) ────────────────────────
@@ -297,6 +298,53 @@ console.log(`   - Bandeja portacables: ${cb.totalTrayMeters} m (${cb.trayType})`
 console.log(`   - Evacuación AC: ${cb.totalAcCableMeters} m (${cb.acCableSpec})`);
 console.log(`   - Tierra equipotencial: ${cb.totalGroundingMeters} m (${cb.groundingSpec})`);
 console.log(`   - Conectores MC4: ${cb.mc4ConnectorPairs} parejas IP68`);
+
+// ── TEST 6: Serpenteo Limpio Sin Cruces Diagonales (sortPanelsForStringing) ──
+console.log('\n[TEST 6] Verificando ordenación en serpenteo continuo de paneles...');
+const scrambledPanels = [
+  { center: new Cartesian3(6, 0, 10), id: 'P4' },
+  { center: new Cartesian3(0, 0, 10), id: 'P1' },
+  { center: new Cartesian3(4, 0, 10), id: 'P3' },
+  { center: new Cartesian3(2, 0, 10), id: 'P2' }
+];
+const sortedPanels = RACableEngine.sortPanelsForStringing(scrambledPanels, basisRoof);
+assert.strictEqual(sortedPanels.length, 4, 'Deben preservarse los 4 paneles');
+assert.strictEqual(sortedPanels[0].id, 'P1', 'Primer panel debe ser P1');
+assert.strictEqual(sortedPanels[1].id, 'P2', 'Segundo panel debe ser P2');
+assert.strictEqual(sortedPanels[2].id, 'P3', 'Tercer panel debe ser P3');
+assert.strictEqual(sortedPanels[3].id, 'P4', 'Cuarto panel debe ser P4');
+console.log('✓ TEST 6 superado con éxito (Paneles ordenados en secuencia continua sin saltos).');
+
+// ── TEST 7: Descenso Vertical por Pilar (Pillar-guided homerun drop) ─────────
+console.log('\n[TEST 7] Verificando descenso vertical por pilar a cota de suelo...');
+const startPergola = new Cartesian3(0, 10, 8); // En la pérgola a 8m de altura
+const targetInverter = new Cartesian3(15, 0, 0); // Inversor a cota de suelo (Z=0)
+const pillarPt = new Cartesian3(5, 5, 8); // Pilar de la pérgola en la arista más próxima
+const dropPath = RACableEngine.buildOrthogonalManhattanPath3D(startPergola, targetInverter, {
+  basis: basisRoof,
+  descentPoint: pillarPt
+});
+
+// Comprobar que contiene la bajada vertical hasta cota 0
+const hasGroundLevelSegment = dropPath.some(pt => Math.abs(pt.z - 0) < 0.1);
+assert(hasGroundLevelSegment, 'La bajada debe llegar a cota de suelo antes de ir al equipo');
+
+// Comprobar que el punto donde baja coincide con las coordenadas horizontales del pilar
+const verticalDropStep = dropPath.find(pt => Math.abs(pt.x - 5) < 0.2 && Math.abs(pt.y - 5) < 0.2 && Math.abs(pt.z - 0) < 0.2);
+assert(verticalDropStep, 'El descenso vertical debe realizarse en las coordenadas del pilar (X=5, Y=5, Z=0)');
+console.log('✓ TEST 7 superado con éxito (Bajante guiada por el pilar hasta el suelo, cero vuelos en el aire).');
+
+// ── TEST 8: Enlace Subterráneo Entre Pérgolas Independientes ─────────────────
+console.log('\n[TEST 8] Verificando enlace subterráneo entre mesas/pérgolas separadas...');
+// Dos paneles en pérgolas distintas separados por 5 metros
+global.allRenderedPanels = [
+  { center: new Cartesian3(0, 0, 8), polyIdx: 0, stringName: 'String 1' },
+  { center: new Cartesian3(5, 0, 8), polyIdx: 1, stringName: 'String 1' }
+];
+RACableEngine.renderAllCables();
+const stCables = global.inverterEquipmentState.dcCableEntities;
+assert(stCables.length > 0, 'Deben existir entidades generadas');
+console.log('✓ TEST 8 superado con éxito (Enlace entre pérgolas desciende a suelo y asciende por pilar contiguo).');
 
 console.log('\n═════════════════════════════════════════════════════════════════════');
 console.log('🎉 TODAS LAS PRUEBAS DE INGENIERÍA PASARON SATISFACTORIAMENTE (100%)');

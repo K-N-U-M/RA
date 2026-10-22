@@ -43,13 +43,13 @@
 
     // Configuración física de visualización
     CONFIG: {
-      DC_POS_OFFSET: 0.35,       // Metros sobre plano para polo positivo (+)
-      DC_NEG_OFFSET: 0.35,       // Metros sobre plano para polo negativo (-) emparejado
-      DC_RETURN_OFFSET: 0.12,    // Metros sobre plano para retorno compensado bajo módulos (anti-bucle)
-      JUMPER_OFFSET: 0.12,       // Metros sobre plano para latiguillos intermódulo (stringing)
-      GROUND_OFFSET: 0.20,       // Metros sobre plano para conductor equipotencial de tierra
-      TRAY_OFFSET: 0.40,         // Metros sobre plano para bandeja DC
-      AC_OFFSET: 0.35,           // Metros sobre paramento para tubo AC
+      DC_POS_OFFSET: -0.06,      // Metros sobre plano: cota negativa para ir bajo las placas
+      DC_NEG_OFFSET: -0.06,      // Metros sobre plano: cota negativa para ir bajo las placas emparejado
+      DC_RETURN_OFFSET: -0.08,   // Metros sobre plano: retorno pegado a las guías bajo módulos
+      JUMPER_OFFSET: -0.06,      // Metros sobre plano: latiguillos por el reverso de las placas
+      GROUND_OFFSET: -0.08,      // Metros sobre plano: conductor equipotencial de tierra bajo estructura
+      TRAY_OFFSET: -0.05,        // Metros sobre plano: bandeja por el reverso de la estructura
+      AC_OFFSET: 0.15,           // Metros sobre paramento para tubo AC
       CABLE_RADIUS_DC: 0.018,    // Radio visual cable DC (18 mm)
       CABLE_RADIUS_AC: 0.025,    // Radio visual tubo AC (25 mm)
       TRAY_WIDTH: 0.08,          // Anchura estándar bandeja portacables (8 cm)
@@ -271,10 +271,115 @@
     },
 
     /**
+     * Ordena los paneles de un string de forma continua y serpenteante (daisy-chain por cercanía)
+     * para evitar cruces en diagonal y trazar un camino limpio a lo largo de las hileras.
+     */
+    sortPanelsForStringing: function (panels, basis) {
+      if (!Array.isArray(panels) || panels.length <= 2 || typeof Cesium === 'undefined') return panels || [];
+      var unvisited = panels.slice();
+      var self = this;
+
+      function getPos(p) {
+        if (!p) return null;
+        var c = p.center || (p.corners && p.corners[0]);
+        return self.toCartesian3(c);
+      }
+
+      var uVec = (basis && basis.uVec) || Cesium.Cartesian3.UNIT_X;
+      var startIdx = 0;
+      var minVal = Infinity;
+
+      for (var i = 0; i < unvisited.length; i++) {
+        var pos = getPos(unvisited[i]);
+        if (pos) {
+          var val = Cesium.Cartesian3.dot(pos, uVec);
+          if (val < minVal) {
+            minVal = val;
+            startIdx = i;
+          }
+        }
+      }
+
+      var sorted = [];
+      var current = unvisited.splice(startIdx, 1)[0];
+      sorted.push(current);
+
+      while (unvisited.length > 0) {
+        var curPos = getPos(current);
+        var bestIdx = 0;
+        var bestDist = Infinity;
+
+        for (var j = 0; j < unvisited.length; j++) {
+          var candPos = getPos(unvisited[j]);
+          if (curPos && candPos) {
+            var d = Cesium.Cartesian3.distance(curPos, candPos);
+            if (d < bestDist) {
+              bestDist = d;
+              bestIdx = j;
+            }
+          }
+        }
+
+        current = unvisited.splice(bestIdx, 1)[0];
+        sorted.push(current);
+      }
+
+      return sorted;
+    },
+
+    /**
+     * Localiza el pilar o arista de la estructura soporte más cercano al destino (inversor/cuadro)
+     * para canalizar la bajante pegada al poste en lugar de volar por el aire.
+     */
+    findClosestStructurePillar: function (startPos, targetPos, panels) {
+      if (!targetPos || typeof Cesium === 'undefined') return startPos;
+      var tPos = this.toCartesian3(targetPos);
+      var sPos = this.toCartesian3(startPos);
+      if (!tPos || !sPos) return startPos;
+
+      var bestPt = sPos;
+      var bestDist = Infinity;
+
+      var pList = (Array.isArray(panels) && panels.length > 0)
+        ? panels
+        : ((Array.isArray(global.allRenderedPanels) && global.allRenderedPanels.length > 0) ? global.allRenderedPanels : []);
+
+      if (pList.length === 0) return startPos;
+
+      for (var i = 0; i < pList.length; i++) {
+        var p = pList[i];
+        if (!p) continue;
+        if (Array.isArray(p.corners) && p.corners.length > 0) {
+          for (var c = 0; c < p.corners.length; c++) {
+            var cPt = this.toCartesian3(p.corners[c]);
+            if (cPt) {
+              var d = Cesium.Cartesian3.distance(cPt, tPos);
+              if (d < bestDist) {
+                bestDist = d;
+                bestPt = cPt;
+              }
+            }
+          }
+        } else if (p.center) {
+          var cnt = this.toCartesian3(p.center);
+          if (cnt) {
+            var d2 = Cesium.Cartesian3.distance(cnt, tPos);
+            if (d2 < bestDist) {
+              bestDist = d2;
+              bestPt = cnt;
+            }
+          }
+        }
+      }
+
+      return bestPt;
+    },
+
+    /**
      * Generador de Trazado Manhattan 3D Ortogonal (90°) sobre Plano de Cubierta y Fachada
      * @param {Cesium.Cartesian3} startPos Punto inicial (panel o caja)
      * @param {Cesium.Cartesian3} endPos Punto final (inversor o contador)
-     * @param {Object} options Opciones de trazado { normalOffset, intermediateWaypoints, basis, avoidObstacles }
+     * @param {Object} options Opciones de trazado { normalOffset, intermediateWaypoints, basis, avoidObstacles, descentPoint }
      * @returns {Cesium.Cartesian3[]} Lista de vértices de la polilínea ortogonal a 90°
      */
     buildOrthogonalManhattanPath3D: function (startPos, endPos, options) {
@@ -319,15 +424,16 @@
         p0 = Cesium.Cartesian3.add(p0, Cesium.Cartesian3.multiplyByScalar(latVec, lateralOffset, new Cesium.Cartesian3()), new Cesium.Cartesian3());
       }
 
-      // Desplazamiento global hacia destino
-      var disp = Cesium.Cartesian3.subtract(pEnd, pStart, new Cesium.Cartesian3());
+      // Si se definió un punto de descenso (pilar o arista de estructura hacia equipo):
+      var roofTarget = opts.descentPoint ? this.toCartesian3(opts.descentPoint) : pEnd;
+      var disp = Cesium.Cartesian3.subtract(roofTarget, pStart, new Cesium.Cartesian3());
       var deltaU = Cesium.Cartesian3.dot(disp, U);
       var deltaV = Cesium.Cartesian3.dot(disp, V);
 
       // Codo 1: Tramo a lo largo del eje U (paralelo a hileras de paneles)
       var corner1 = Cesium.Cartesian3.add(p0, Cesium.Cartesian3.multiplyByScalar(U, deltaU, new Cesium.Cartesian3()), new Cesium.Cartesian3());
 
-      // Codo 2: Tramo a lo largo del eje V a 90° (hacia la arista de cumbrera o alero)
+      // Codo 2: Tramo a lo largo del eje V a 90° (hacia el pilar de descenso)
       var corner2 = Cesium.Cartesian3.add(corner1, Cesium.Cartesian3.multiplyByScalar(V, deltaV, new Cesium.Cartesian3()), new Cesium.Cartesian3());
 
       // Esquivar obstáculos en el plano de cubierta (si no se ha desactivado explícitamente)
@@ -337,13 +443,24 @@
       }
       var lastRoofPoint = roofPoints[roofPoints.length - 1];
 
-      // Codo vertical: Transición hacia el equipo destino (bajante vertical de fachada a plomo)
+      // Codo vertical: Transición hacia el equipo destino (bajante vertical por pilar o fachada a plomo)
       var up = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(pEnd, new Cesium.Cartesian3());
       var heightDiff = Cesium.Cartesian3.dot(Cesium.Cartesian3.subtract(lastRoofPoint, pEnd, new Cesium.Cartesian3()), up);
       var path = roofPoints.slice();
       if (heightDiff > 0.3) {
-        var cornerDown = Cesium.Cartesian3.add(pEnd, Cesium.Cartesian3.multiplyByScalar(up, heightDiff, new Cesium.Cartesian3()), new Cesium.Cartesian3());
-        path.push(cornerDown);
+        // 1. Bajada vertical pegada al pilar / estructura hasta cota de suelo
+        var dropAtStructure = Cesium.Cartesian3.subtract(lastRoofPoint, Cesium.Cartesian3.multiplyByScalar(up, heightDiff, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+        path.push(dropAtStructure);
+
+        // 2. Tramo ortogonal en cota de suelo / zanja hacia el equipo destino
+        var groundDisp = Cesium.Cartesian3.subtract(pEnd, dropAtStructure, new Cesium.Cartesian3());
+        var gDist = Cesium.Cartesian3.magnitude(groundDisp);
+        if (gDist > 0.3) {
+          var gU = (basis && basis.uVec) ? basis.uVec : Cesium.Cartesian3.UNIT_X;
+          var dGu = Cesium.Cartesian3.dot(groundDisp, gU);
+          var groundCorner = Cesium.Cartesian3.add(dropAtStructure, Cesium.Cartesian3.multiplyByScalar(gU, dGu, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+          path.push(groundCorner);
+        }
       }
       path.push(pEnd);
       return this.sanitizePositions(path);
@@ -705,8 +822,12 @@
 
       // 5. Generar y Renderizar Trazados DC para cada String con Retorno Compensado Anti-Bucle (UNE-EN 62305)
       allStrings.forEach(function (strObj, sIdx) {
-        var sPanels = strObj.panels || [];
-        if (sPanels.length === 0) return;
+        var rawPanels = strObj.panels || [];
+        if (rawPanels.length === 0) return;
+
+        var samplePos = self.toCartesian3(rawPanels[0].center || (rawPanels[0].corners && rawPanels[0].corners[0]));
+        var basis = self.getRoofOrthonormalBasis(samplePos);
+        var sPanels = self.sortPanelsForStringing(rawPanels, basis);
 
         var firstPanel = sPanels[0];
         var termPanel = sPanels[sPanels.length - 1];
@@ -747,7 +868,9 @@
         var termPos = self.toCartesian3(getJunctionBoxPos(termPanel));
         if (!startPos || !termPos || !dcTargetPos) return;
 
-        var basis = self.getRoofOrthonormalBasis(startPos);
+        // Pilar o arista de descenso más próximo a los equipos
+        var descentPillar = self.findClosestStructurePillar(startPos, dcTargetPos, sPanels);
+
         var stringColor = self.CONFIG.STRING_COLORS[sIdx % self.CONFIG.STRING_COLORS.length];
 
         // ── 5.1 LATIGUILLOS INTERMÓDULO (STRINGING 3D) ─────────────────────────
@@ -759,13 +882,40 @@
             if (jA && jB) {
               var elevatedA = self.elevatePoint(jA, self.CONFIG.JUMPER_OFFSET, basis.normal);
               var elevatedB = self.elevatePoint(jB, self.CONFIG.JUMPER_OFFSET, basis.normal);
-              var jLen = Cesium.Cartesian3.distance(elevatedA, elevatedB);
+              var directDist = Cesium.Cartesian3.distance(elevatedA, elevatedB);
+
+              var jumperPts;
+              var isInterTableJump = (directDist > 2.6) || (typeof sPanels[p].polyIdx === 'number' && typeof sPanels[p + 1].polyIdx === 'number' && sPanels[p].polyIdx !== sPanels[p + 1].polyIdx);
+
+              if (isInterTableJump) {
+                // Enlace subterráneo entre pérgolas/marquesinas independientes (REBT ITC-BT-07/20)
+                var upA = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(elevatedA, new Cesium.Cartesian3());
+                var upB = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(elevatedB, new Cesium.Cartesian3());
+                var dropDistA = 3.5;
+                var dropDistB = 3.5;
+                if (dcTargetPos) {
+                  var diffZA = Cesium.Cartesian3.dot(Cesium.Cartesian3.subtract(elevatedA, dcTargetPos, new Cesium.Cartesian3()), upA);
+                  if (diffZA > 0.8) dropDistA = diffZA;
+                  var diffZB = Cesium.Cartesian3.dot(Cesium.Cartesian3.subtract(elevatedB, dcTargetPos, new Cesium.Cartesian3()), upB);
+                  if (diffZB > 0.8) dropDistB = diffZB;
+                }
+                var footA = Cesium.Cartesian3.subtract(elevatedA, Cesium.Cartesian3.multiplyByScalar(upA, dropDistA, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+                var footB = Cesium.Cartesian3.subtract(elevatedB, Cesium.Cartesian3.multiplyByScalar(upB, dropDistB, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+
+                // Descenso vertical por pilar A -> Zanja en suelo -> Ascenso vertical por pilar B
+                jumperPts = [elevatedA, footA, footB, elevatedB];
+              } else {
+                // Latiguillo normal bajo los módulos de la misma mesa
+                jumperPts = [elevatedA, elevatedB];
+              }
+
+              var jLen = self.computePathLength(jumperPts);
               interModuleM += jLen;
 
-              var jumperEntities = self.createVolumetricEntity(viewer, [elevatedA, elevatedB], {
-                name: 'Latiguillo Intermódulo ' + (p + 1) + '➔' + (p + 2) + ' String #' + (sIdx + 1),
+              var jumperEntities = self.createVolumetricEntity(viewer, jumperPts, {
+                name: 'Latiguillo ' + (isInterTableJump ? 'Subterráneo' : 'Intermódulo') + ' ' + (p + 1) + '➔' + (p + 2) + ' String #' + (sIdx + 1),
                 colorHex: stringColor,
-                width: 3.5
+                width: isInterTableJump ? 4.5 : 3.5
               });
               jumperEntities.forEach(function (e) { sState.dcCableEntities.push(e); });
             }
@@ -781,7 +931,23 @@
           for (var r = sPanels.length - 1; r >= 0; r--) {
             var rPos = self.toCartesian3(getJunctionBoxPos(sPanels[r]));
             if (rPos) {
-              returnPath.push(self.elevatePoint(rPos, self.CONFIG.DC_RETURN_OFFSET, basis.normal));
+              var elR = self.elevatePoint(rPos, self.CONFIG.DC_RETURN_OFFSET, basis.normal);
+              if (returnPath.length > 0) {
+                var prevR = returnPath[returnPath.length - 1];
+                var dR = Cesium.Cartesian3.distance(prevR, elR);
+                if (dR > 2.6 || (r < sPanels.length - 1 && typeof sPanels[r].polyIdx === 'number' && typeof sPanels[r + 1].polyIdx === 'number' && sPanels[r].polyIdx !== sPanels[r + 1].polyIdx)) {
+                  var upR1 = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(prevR, new Cesium.Cartesian3());
+                  var upR2 = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(elR, new Cesium.Cartesian3());
+                  var dDrop1 = (dcTargetPos && Cesium.Cartesian3.dot(Cesium.Cartesian3.subtract(prevR, dcTargetPos, new Cesium.Cartesian3()), upR1) > 0.8)
+                    ? Cesium.Cartesian3.dot(Cesium.Cartesian3.subtract(prevR, dcTargetPos, new Cesium.Cartesian3()), upR1) : 3.5;
+                  var dDrop2 = (dcTargetPos && Cesium.Cartesian3.dot(Cesium.Cartesian3.subtract(elR, dcTargetPos, new Cesium.Cartesian3()), upR2) > 0.8)
+                    ? Cesium.Cartesian3.dot(Cesium.Cartesian3.subtract(elR, dcTargetPos, new Cesium.Cartesian3()), upR2) : 3.5;
+                  var foot1 = Cesium.Cartesian3.subtract(prevR, Cesium.Cartesian3.multiplyByScalar(upR1, dDrop1, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+                  var foot2 = Cesium.Cartesian3.subtract(elR, Cesium.Cartesian3.multiplyByScalar(upR2, dDrop2, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+                  returnPath.push(foot1, foot2);
+                }
+              }
+              returnPath.push(elR);
             }
           }
           returnPath = self.sanitizePositions(returnPath);
@@ -806,6 +972,7 @@
         var posPath = self.buildOrthogonalManhattanPath3D(startPos, targetForStringPos, {
           normalOffset: self.CONFIG.DC_POS_OFFSET + (sIdx % 2) * 0.012,
           lateralOffset: stringBundleOffset + 0.02,
+          descentPoint: descentPillar,
           basis: basis,
           waypoints: hasManualDc ? sState.routes.dc : null
         });
@@ -813,6 +980,7 @@
         var negPath = self.buildOrthogonalManhattanPath3D(startPos, targetForStringNeg, {
           normalOffset: self.CONFIG.DC_NEG_OFFSET + (sIdx % 2) * 0.012,
           lateralOffset: stringBundleOffset - 0.02,
+          descentPoint: descentPillar,
           isNeg: true,
           basis: basis,
           waypoints: hasManualDc ? sState.routes.dc : null
@@ -851,6 +1019,7 @@
         var groundPath = self.buildOrthogonalManhattanPath3D(startPos, dcTargetPos, {
           normalOffset: self.CONFIG.GROUND_OFFSET,
           lateralOffset: stringBundleOffset,
+          descentPoint: descentPillar,
           basis: basis,
           waypoints: hasManualDc ? sState.routes.dc : null
         });
