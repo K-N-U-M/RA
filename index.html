@@ -8315,10 +8315,9 @@ function evaluateModuleLayouts(roof, module, cfg) {
   const optimalTilt = Math.min(35, Math.max(15, Math.round(3.7 + 0.69 * Math.abs(lat))));
   const optimalAzSur = (lat >= 0) ? 0 : 180;
 
-  const isEastWest = (cfg.moduleAzimuthSur === "east_west" || cfg.structureType === "east_west" || cfg.structureType === "triangles_15_ew" || (cfg.estructura && cfg.estructura.subtype === "east_west"));
-
   const isOptimal = (cfg.arrangementMode === 'solar_optimal' || cfg.moduleTiltDeg === 'optimal');
   const isCoplanar = (cfg.arrangementMode === 'coplanar' || cfg.moduleTiltDeg === 'coplanar' || cfg.moduleTiltDeg === 'auto');
+  const isEastWest = !isOptimal && (cfg.moduleAzimuthSur === "east_west" || cfg.structureType === "east_west" || cfg.structureType === "triangles_15_ew" || (cfg.estructura && cfg.estructura.subtype === "east_west"));
 
   let moduleTiltDeg;
   let moduleAzN;
@@ -8331,18 +8330,17 @@ function evaluateModuleLayouts(roof, module, cfg) {
 
     if (slopeDeg <= flatThreshold) {
       // Caso A: Cubierta plana (<=8°): Estructura orientada estrictamente al Sur (180°) con inclinación óptima
-      moduleTiltDeg = isEastWest ? 12 : optimalTilt;
+      moduleTiltDeg = optimalTilt;
       moduleAzN = 180;
       moduleAzSur = 0;
     } else if (isSouthQuadrant) {
-      // Caso B: Cubierta inclinada con vertiente Sur favorable: Acoplada al faldón (estética limpia integrada)
-      // Si la pendiente es suave (<15°), eleva ligeramente hacia el óptimo; si es adecuada (15-35°), coplanar
-      moduleTiltDeg = (slopeDeg < 15) ? Math.min(optimalTilt, slopeDeg + 10) : slopeDeg;
+      // Caso B: Cubierta inclinada con vertiente Sur favorable: Acoplada al faldón (estética limpia integrada coplanar)
+      moduleTiltDeg = slopeDeg;
       moduleAzN = roofAz;
       moduleAzSur = (roof.azimuthSur !== undefined) ? roof.azimuthSur : normalizeAzimuth(180 - moduleAzN);
     } else {
       // Caso C: Cubierta inclinada desorientada (Norte, Este/Oeste cerrado): Diente de sierra rescatado al Sur
-      moduleTiltDeg = isEastWest ? 12 : optimalTilt;
+      moduleTiltDeg = optimalTilt;
       moduleAzN = 180;
       moduleAzSur = 0;
     }
@@ -8356,16 +8354,16 @@ function evaluateModuleLayouts(roof, module, cfg) {
     moduleTiltDeg = (cfg.moduleTiltDeg !== undefined && cfg.moduleTiltDeg !== "" && !isNaN(parseFloat(cfg.moduleTiltDeg)))
       ? (isEastWest ? 12 : parseFloat(cfg.moduleTiltDeg)) : (slopeDeg >= flatThreshold ? slopeDeg : optimalTilt);
 
-    let rawAz = 180;
-    if (cfg.moduleAzimuthGeo !== undefined && cfg.moduleAzimuthGeo !== "" && cfg.moduleAzimuthGeo !== "auto") {
+    let rawAz = isEastWest ? 90 : 180;
+    if (!isEastWest && cfg.moduleAzimuthGeo !== undefined && cfg.moduleAzimuthGeo !== "" && cfg.moduleAzimuthGeo !== "auto") {
       rawAz = parseFloat(cfg.moduleAzimuthGeo);
-    } else if (cfg.moduleAzimuthSur !== undefined && cfg.moduleAzimuthSur !== "" && cfg.moduleAzimuthSur !== "auto") {
+    } else if (!isEastWest && cfg.moduleAzimuthSur !== undefined && cfg.moduleAzimuthSur !== "" && cfg.moduleAzimuthSur !== "auto") {
       rawAz = parseFloat(cfg.moduleAzimuthSur);
-    } else {
+    } else if (!isEastWest) {
       rawAz = (roof.azimuthDeg !== undefined) ? roof.azimuthDeg : 180;
     }
     moduleAzN = normalizeAzimuth(rawAz);
-    moduleAzSur = normalizeAzimuth(180 - moduleAzN);
+    moduleAzSur = isEastWest ? 90 : normalizeAzimuth(180 - moduleAzN);
   }
 
   const isPergola = (cfg.structureType === 'pergola' || (cfg.estructura && cfg.estructura.tipo === 'pergola'));
@@ -8480,10 +8478,10 @@ function evaluateModuleLayouts(roof, module, cfg) {
     const isExplicitAz = (!isEastWest && cfg.moduleAzimuthSur !== undefined && cfg.moduleAzimuthSur !== "" && cfg.moduleAzimuthSur !== "auto");
     const directAzDeg = isExplicitAz ? parseFloat(cfg.moduleAzimuthSur) : 0;
     const directAngleRad = degToRad(directAzDeg);
-    const alignToPlane = (cfg.alignToPlane !== false) && !isCustomMode && !isExplicitAz;
+    const alignToPlane = (cfg.alignToPlane !== false) && !isCustomMode && !isExplicitAz && !isEastWest && !(isOptimal && (slopeDeg <= flatThreshold || !isSouthQuadrant));
     const anglesToTest = alignToPlane
       ? [0]
-      : (isExplicitAz ? [azAngle] : ((coplanar || (isOptimal && slopeDeg > flatThreshold && (roof.azimuthDeg >= 100 && roof.azimuthDeg <= 260))) ? uniqueAngles : [azAngle]));
+      : (isEastWest ? [azAngle] : (isExplicitAz ? [azAngle] : ((coplanar || (isOptimal && slopeDeg > flatThreshold && isSouthQuadrant)) ? uniqueAngles : [azAngle])));
 
     // Generador de rejilla para un (ángulo, faseA, faseB) — antes duplicado inline en cada candidato
     const generateGrid = (ang, poA, poB) => {
@@ -12457,8 +12455,8 @@ function computeSinglePolylineRoofInfo(ptsIn, polyOpts) {
         const dv = (sx * (curModLen / 2) * cosDelta) * AuvN.y + (sy * (curModWid / 2)) * BuvN.y;
         const isEW = !!c.isEastWest;
         const isWest = c.ewSide === 'W';
-        // En Este-Oeste, la arista alta está en la cumbrera de unión central
-        const isHighEdge = isEW ? (isWest ? (sx >= 0) : (sx <= 0)) : (sx <= 0);
+        // En Este-Oeste, la arista alta está en la cumbrera de unión central (near ridge: sx=-1 para W, sx=+1 para E)
+        const isHighEdge = isEW ? (isWest ? (sx <= 0) : (sx >= 0)) : (sx <= 0);
         const dh = baseElev + (isHighEdge ? (curModLen * sinDelta) : 0);
 
         const lp = Cesium.Cartesian3.add(

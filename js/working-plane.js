@@ -4340,22 +4340,32 @@ function wpApplyPanelArrangement(polyIdx, mode) {
     if (poly.estructura.tipo !== 'pergola') poly.estructura.tipo = 'coplanar';
     if (!poly.structureType || poly.structureType.includes('triangle')) poly.structureType = 'coplanar_teja';
   } else if (mode === 'solar_optimal') {
-    poly.alignToPlane = true;
-    if (!poly.estructura) poly.estructura = { tipo: 'balasto', clearance: 0.20 };
-    if (poly.estructura.tipo === 'coplanar') poly.estructura.tipo = 'balasto';
-    if (!poly.structureType || !poly.structureType.includes('triangle')) poly.structureType = 'triangles_30';
     // Si la cubierta tiene pendiente > 8º y mira a vertiente Sur, acopla inclinación al faldón
     const slope = (poly.roofInfo && poly.roofInfo.tiltDeg !== undefined) ? poly.roofInfo.tiltDeg : 0;
     const rAz = (poly.roofInfo && poly.roofInfo.azimuthDeg !== undefined) ? poly.roofInfo.azimuthDeg : 180;
     const isSouthFavorable = (slope > 8 && rAz >= 100 && rAz <= 260);
 
     if (isSouthFavorable) {
-      poly.modTilt = (slope < 15) ? Math.min(optimalTilt, slope + 10) : slope;
-      poly.modAzimuth = 'auto'; // Toma el azimut del faldón
+      // En cubierta inclinada favorable al sur: integración coplanar técnica normativa (sin velas ni balasto)
+      poly.alignToPlane = true;
+      poly.estructura = { tipo: 'coplanar', clearance: 0 };
+      poly.structureType = 'coplanar_teja';
+      poly.modTilt = 'auto';
+      poly.modAzimuth = 'auto';
     } else {
+      // En cubierta plana o desorientada: estructura de triángulos a Sur estricto (180°)
+      poly.alignToPlane = false;
+      poly.estructura = { tipo: 'balasto', clearance: 0.20, subtype: 'south' };
+      poly.structureType = 'triangles_30';
       poly.modTilt = optimalTilt;
       poly.modAzimuth = 180; // Sur estricto
     }
+    // Limpiar explícitamente cualquier residuo previo de configuración Este-Oeste
+    if (poly.estructura && poly.estructura.subtype === 'east_west') {
+      poly.estructura.subtype = 'south';
+    }
+    const structSel = document.getElementById('faldon-structure-select');
+    if (structSel) structSel.value = poly.structureType;
   } else if (mode === 'custom') {
     poly.alignToPlane = false; // Opción 1: Libertad total de orientación en modo manual
     if (!poly.estructura) poly.estructura = { tipo: 'balasto', clearance: 0.20 };
@@ -4395,22 +4405,14 @@ function wpApplyPanelArrangementToAll(sourcePolyIdx) {
   if (!WP.polylines || !WP.polylines[sourcePolyIdx]) return;
   const src = WP.polylines[sourcePolyIdx];
   const mode = src.arrangementMode || 'coplanar';
-  const tilt = src.modTilt;
-  const az = src.modAzimuth;
 
   if (typeof roofPanelsCache !== 'undefined' && roofPanelsCache) {
     roofPanelsCache.sig = '';
     roofPanelsCache.data = null;
   }
 
-  WP.polylines.forEach(poly => {
-    poly.arrangementMode = mode;
-    poly.modTilt = tilt;
-    poly.modAzimuth = az;
-    poly.alignToPlane = (mode !== 'custom');
-    if (typeof computeSinglePolylineRoofInfo === 'function') {
-      poly.roofInfo = computeSinglePolylineRoofInfo(poly.points, poly);
-    }
+  WP.polylines.forEach((poly, idx) => {
+    wpApplyPanelArrangement(idx, mode);
   });
 
   if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Disposición propagada a todos los faldones');
