@@ -1844,7 +1844,12 @@ function wpSyncCesiumSun(solarPos) {
 
         if (gl) {
           gl.enableLighting = true;
-          gl.shadows = Cesium.ShadowMode.DISABLED;
+          const shadowCfg = (typeof window !== "undefined" && window.ShadowSettings)
+            ? window.ShadowSettings.getSettings()
+            : { terrainShadows: true, selfShadows: true };
+          gl.shadows = (typeof Cesium !== "undefined" && Cesium.ShadowMode)
+            ? (shadowCfg.terrainShadows ? Cesium.ShadowMode.ENABLED : Cesium.ShadowMode.RECEIVE_ONLY)
+            : Cesium.ShadowMode.DISABLED;
           gl.atmosphereLightIntensity = isGoldenHour ? (4.0 + 6.0 * t) : 10.0;
           gl.baseColor = isGoldenHour ? Cesium.Color.fromCssColorString('#1e293b') : Cesium.Color.fromCssColorString('#0f172a');
         }
@@ -1943,9 +1948,26 @@ function wpSyncCesiumSun(solarPos) {
       }
     }
 
+    const shadowCfg = (typeof window !== "undefined" && window.ShadowSettings)
+      ? window.ShadowSettings.getSettings()
+      : { selfShadows: true, terrainShadows: true };
+
+    const tilesShadowMode = (alt > 0)
+      ? ((typeof Cesium !== "undefined" && Cesium.ShadowMode)
+          ? (shadowCfg.selfShadows ? Cesium.ShadowMode.ENABLED : Cesium.ShadowMode.RECEIVE_ONLY)
+          : undefined)
+      : ((typeof Cesium !== "undefined" && Cesium.ShadowMode) ? Cesium.ShadowMode.DISABLED : undefined);
+
+    if (google3DTileset) google3DTileset.shadows = tilesShadowMode;
+    if (cesiumOsmBuildings) cesiumOsmBuildings.shadows = tilesShadowMode;
+
+    if (gl && typeof Cesium !== "undefined" && Cesium.ShadowMode) {
+      gl.shadows = (alt > 0)
+        ? (shadowCfg.terrainShadows ? Cesium.ShadowMode.ENABLED : Cesium.ShadowMode.RECEIVE_ONLY)
+        : Cesium.ShadowMode.DISABLED;
+    }
+
     const currentShadowMode = (alt > 0) ? Cesium.ShadowMode.ENABLED : Cesium.ShadowMode.DISABLED;
-    if (google3DTileset) google3DTileset.shadows = currentShadowMode;
-    if (cesiumOsmBuildings) cesiumOsmBuildings.shadows = currentShadowMode;
 
     // Sincronizar sombras GPU dinámicas para edificios 3D modelados
     if (window._buildingPrimitives && Array.isArray(window._buildingPrimitives)) {

@@ -304,8 +304,30 @@
     updateUI();
   }
 
+  // Función canónica para configurar el shadowMap desde solar-engine
+  global.wpConfigureShadowMap = function(shadowMap) {
+    if (!shadowMap) return;
+    var preset = QUALITY_PRESETS[currentSettings.quality] || QUALITY_PRESETS.high;
+    shadowMap.size = preset.size;
+    shadowMap.softShadows = preset.softShadows;
+    shadowMap.maximumDistance = Number(currentSettings.radius) || 400.0;
+    shadowMap._fitNearFar = false;
+    shadowMap.enabled = true;
+    if (shadowMap._primitiveBias) {
+      shadowMap._primitiveBias.polygonOffset = true;
+      shadowMap._primitiveBias.polygonOffsetFactor = 1.2;
+      shadowMap._primitiveBias.polygonOffsetUnits = 4.0;
+      shadowMap._primitiveBias.normalOffset = true;
+      shadowMap._primitiveBias.normalOffsetScale = 0.5;
+      shadowMap._primitiveBias.depthBias = 0.0006;
+      shadowMap._primitiveBias.normalShading = true;
+      shadowMap._primitiveBias.normalShadingSmooth = 0.3;
+    }
+  };
+
   // API pública
   global.ShadowSettings = {
+    QUALITY_PRESETS: QUALITY_PRESETS,
     getSettings: function() { return Object.assign({}, currentSettings); },
     setQuality: setQuality,
     setRadius: setRadius,
