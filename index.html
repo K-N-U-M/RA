@@ -3555,39 +3555,48 @@ function wpConfigureShadowMap(sm) {
   if (!sm) return;
   sm.enabled = true; // SIEMPRE habilitar si se invoca esta función
   
-  if (sm.size !== 4096) {
-    sm.size = 4096;
-    sm.softShadows = true;
-    sm.darkness = 0.50;
-    sm.maximumDistance = 2000.0; 
-    sm._fitNearFar = false; 
-    sm.cascadesEnabled = true;
-    sm.numberOfCascades = 4;
-    sm.fadingEnabled = false;
+  if (typeof window !== 'undefined' && window.ShadowSettings && typeof window.ShadowSettings.apply === 'function') {
+    window.ShadowSettings.apply();
+    return;
+  }
 
-    if (sm._primitiveBias) {
-      sm._primitiveBias.polygonOffset = false;
-      sm._primitiveBias.polygonOffsetFactor = 0.0;
-      sm._primitiveBias.polygonOffsetUnits = 0.0;
-      sm._primitiveBias.normalOffset = true;
-      sm._primitiveBias.normalShading = false;
-      sm._primitiveBias.depthBias = 0.0006;
-    }
-    if (sm._terrainBias) {
-      sm._terrainBias.polygonOffset = false;
-      sm._terrainBias.polygonOffsetFactor = 0.0;
-      sm._terrainBias.polygonOffsetUnits = 0.0;
-      sm._terrainBias.normalOffset = true;
-      sm._terrainBias.normalShading = false;
-      sm._terrainBias.depthBias = 0.0006;
-    }
+  const userCfgRadius = (typeof window !== 'undefined' && window.ShadowSettings && typeof window.ShadowSettings.getSettings === 'function')
+    ? Number(window.ShadowSettings.getSettings().radius) || 400.0
+    : 400.0;
 
-    if (typeof window !== 'undefined' && window.google3DTileset) {
-      window.google3DTileset.cullWithChildrenBounds = false;
-      window.google3DTileset.skipLevelOfDetail = true;
-      window.google3DTileset.loadSiblings = true;
-      window.google3DTileset.dynamicScreenSpaceError = false;
-    }
+  sm.size = 4096;
+  sm.softShadows = true;
+  sm.darkness = 0.50;
+  sm.maximumDistance = userCfgRadius; 
+  sm._fitNearFar = false; 
+  sm.cascadesEnabled = true;
+  sm.numberOfCascades = 4;
+  sm.fadingEnabled = true;
+
+  const depthBias = Math.max(0.00015, (window.wpShadowBiasMeters || 0.05) / userCfgRadius);
+
+  if (sm._primitiveBias) {
+    sm._primitiveBias.polygonOffset = false;
+    sm._primitiveBias.polygonOffsetFactor = 0.0;
+    sm._primitiveBias.polygonOffsetUnits = 0.0;
+    sm._primitiveBias.normalOffset = true;
+    sm._primitiveBias.normalShading = false;
+    sm._primitiveBias.depthBias = depthBias;
+  }
+  if (sm._terrainBias) {
+    sm._terrainBias.polygonOffset = false;
+    sm._terrainBias.polygonOffsetFactor = 0.0;
+    sm._terrainBias.polygonOffsetUnits = 0.0;
+    sm._terrainBias.normalOffset = true;
+    sm._terrainBias.normalShading = false;
+    sm._terrainBias.depthBias = depthBias;
+  }
+
+  if (typeof window !== 'undefined' && window.google3DTileset) {
+    window.google3DTileset.cullWithChildrenBounds = false;
+    window.google3DTileset.skipLevelOfDetail = true;
+    window.google3DTileset.loadSiblings = true;
+    window.google3DTileset.dynamicScreenSpaceError = false;
   }
 }
 window.wpConfigureShadowMap = wpConfigureShadowMap;
@@ -3918,25 +3927,40 @@ if (scene && scene.preUpdate) {
     if (!scene.shadowMap || !camera) return;
     const sm = scene.shadowMap;
     
+    // Si ShadowSettings está disponible, respetar fielmente el radio de acción configurado por el usuario
+    const userCfgRadius = (typeof window !== 'undefined' && window.ShadowSettings && typeof window.ShadowSettings.getSettings === 'function')
+      ? Number(window.ShadowSettings.getSettings().radius)
+      : null;
+
+    if (userCfgRadius && !isNaN(userCfgRadius) && userCfgRadius >= 50) {
+      if (Math.abs(userCfgRadius - (sm.maximumDistance || 0)) >= 1.0) {
+        sm.maximumDistance = userCfgRadius;
+        sm._fitNearFar = false;
+        sm.fadingEnabled = true;
+        const depthBias = Math.max(0.00015, (window.wpShadowBiasMeters || 0.05) / userCfgRadius);
+        if (sm._primitiveBias) sm._primitiveBias.depthBias = depthBias;
+        if (sm._terrainBias) sm._terrainBias.depthBias = depthBias;
+      }
+      return;
+    }
+
     // Distancia real de cámara al centro focal/superficie (no altitud sobre elipsoide)
     let realDist = 80.0;
     if (typeof triadState !== 'undefined' && triadState && typeof triadState.camDist === 'number' && triadState.camDist > 1) {
       realDist = triadState.camDist;
     } else if (window._lastCenterPick && (performance.now() - window._lastCenterPick.t) < 2000) {
-      // distancia cacheada (pickPosition = lectura de profundidad GPU: costoso por frame)
       realDist = window._lastCenterPick.d;
     }
 
     // Escalar dinámicamente el alcance de sombra (cuantizado a 10m).
-    // OPTIMIZACIÓN: mutar sm.maximumDistance/bias cada frame ensuciaba la escena y
-    // anulaba requestRenderMode (GPU al 100% permanente). Ahora solo se aplica si el
-    // valor objetivo cambia de verdad (delta >= 25m de span).
     const dynamicMaxDist = Math.max(400.0, Math.min(3000.0, Math.round(realDist / 10.0) * 10.0 * 4.0));
     window.wpShadowBiasMeters = (typeof window.wpShadowBiasMeters === 'number') ? window.wpShadowBiasMeters : 0.05;
     const dynamicDepthBias = Math.max(0.00015, window.wpShadowBiasMeters / dynamicMaxDist);
     const spanDelta = Math.abs(dynamicMaxDist - (sm.maximumDistance || 0));
     if (spanDelta >= 25.0) {
       sm.maximumDistance = dynamicMaxDist;
+      sm._fitNearFar = false;
+      sm.fadingEnabled = true;
       if (sm._primitiveBias) sm._primitiveBias.depthBias = dynamicDepthBias;
       if (sm._terrainBias) sm._terrainBias.depthBias = dynamicDepthBias;
     }

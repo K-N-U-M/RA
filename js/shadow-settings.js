@@ -88,10 +88,34 @@
     // 1. Configurar ShadowMap de Cesium
     if (scene.shadowMap) {
       try {
+        var radiusMeters = Number(currentSettings.radius) || 400.0;
         scene.shadowMap.size = preset.size;
         scene.shadowMap.softShadows = preset.softShadows;
-        scene.shadowMap.maximumDistance = Number(currentSettings.radius) || 400;
+        scene.shadowMap.maximumDistance = radiusMeters;
+        scene.shadowMap._fitNearFar = false;
+        scene.shadowMap.fadingEnabled = true;
+        scene.shadowMap.cascadesEnabled = true;
+        scene.shadowMap.numberOfCascades = 4;
         scene.shadowMap.enabled = true;
+
+        var biasBase = (typeof window.wpShadowBiasMeters === 'number') ? window.wpShadowBiasMeters : 0.05;
+        var depthBias = Math.max(0.00015, biasBase / radiusMeters);
+        if (scene.shadowMap._primitiveBias) {
+          scene.shadowMap._primitiveBias.polygonOffset = false;
+          scene.shadowMap._primitiveBias.polygonOffsetFactor = 0.0;
+          scene.shadowMap._primitiveBias.polygonOffsetUnits = 0.0;
+          scene.shadowMap._primitiveBias.normalOffset = true;
+          scene.shadowMap._primitiveBias.normalShading = false;
+          scene.shadowMap._primitiveBias.depthBias = depthBias;
+        }
+        if (scene.shadowMap._terrainBias) {
+          scene.shadowMap._terrainBias.polygonOffset = false;
+          scene.shadowMap._terrainBias.polygonOffsetFactor = 0.0;
+          scene.shadowMap._terrainBias.polygonOffsetUnits = 0.0;
+          scene.shadowMap._terrainBias.normalOffset = true;
+          scene.shadowMap._terrainBias.normalShading = false;
+          scene.shadowMap._terrainBias.depthBias = depthBias;
+        }
       } catch (eMap) {
         if (global.RA && global.RA.log) global.RA.log.warn('[ShadowSettings] Error configurando shadowMap:', eMap);
       }
@@ -308,20 +332,31 @@
   global.wpConfigureShadowMap = function(shadowMap) {
     if (!shadowMap) return;
     var preset = QUALITY_PRESETS[currentSettings.quality] || QUALITY_PRESETS.high;
+    var radiusMeters = Number(currentSettings.radius) || 400.0;
     shadowMap.size = preset.size;
     shadowMap.softShadows = preset.softShadows;
-    shadowMap.maximumDistance = Number(currentSettings.radius) || 400.0;
+    shadowMap.maximumDistance = radiusMeters;
     shadowMap._fitNearFar = false;
+    shadowMap.fadingEnabled = true;
+    shadowMap.cascadesEnabled = true;
+    shadowMap.numberOfCascades = 4;
     shadowMap.enabled = true;
+    var depthBias = Math.max(0.00015, (window.wpShadowBiasMeters || 0.05) / radiusMeters);
     if (shadowMap._primitiveBias) {
-      shadowMap._primitiveBias.polygonOffset = true;
-      shadowMap._primitiveBias.polygonOffsetFactor = 1.2;
-      shadowMap._primitiveBias.polygonOffsetUnits = 4.0;
+      shadowMap._primitiveBias.polygonOffset = false;
+      shadowMap._primitiveBias.polygonOffsetFactor = 0.0;
+      shadowMap._primitiveBias.polygonOffsetUnits = 0.0;
       shadowMap._primitiveBias.normalOffset = true;
-      shadowMap._primitiveBias.normalOffsetScale = 0.5;
-      shadowMap._primitiveBias.depthBias = 0.0006;
-      shadowMap._primitiveBias.normalShading = true;
-      shadowMap._primitiveBias.normalShadingSmooth = 0.3;
+      shadowMap._primitiveBias.normalShading = false;
+      shadowMap._primitiveBias.depthBias = depthBias;
+    }
+    if (shadowMap._terrainBias) {
+      shadowMap._terrainBias.polygonOffset = false;
+      shadowMap._terrainBias.polygonOffsetFactor = 0.0;
+      shadowMap._terrainBias.polygonOffsetUnits = 0.0;
+      shadowMap._terrainBias.normalOffset = true;
+      shadowMap._terrainBias.normalShading = false;
+      shadowMap._terrainBias.depthBias = depthBias;
     }
   };
 
