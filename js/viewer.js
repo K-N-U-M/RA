@@ -103,12 +103,7 @@ async function loadGoogle3D() {
         cullWithChildrenBounds: false, // [FIX HUECOS SOMBRA] Evitar culling prematuro de edificios adyacentes
         dynamicScreenSpaceError: false // [FIX HUECOS SOMBRA] Evitar degradación agresiva en bordes de pantalla
       });
-      const initTilesShadowMode = (window.raShadowSettings && window.raShadowSettings.tilesetMode === 'receive')
-        ? Cesium.ShadowMode.RECEIVE_ONLY
-        : ((window.raShadowSettings && window.raShadowSettings.tilesetMode === 'off')
-           ? Cesium.ShadowMode.DISABLED
-           : Cesium.ShadowMode.ENABLED);
-      google3DTileset.shadows = (typeof Cesium !== 'undefined' && Cesium.ShadowMode) ? initTilesShadowMode : undefined;
+      google3DTileset.shadows = (typeof Cesium !== 'undefined' && Cesium.ShadowMode) ? Cesium.ShadowMode.ENABLED : undefined;
       google3DTileset.cullWithChildrenBounds = false;
       google3DTileset.skipLevelOfDetail = false;
       google3DTileset.loadSiblings = true;
@@ -133,12 +128,7 @@ async function loadGoogle3D() {
         cullWithChildrenBounds: false, // [FIX HUECOS SOMBRA] No descartar tiles de edificios cercanos
         dynamicScreenSpaceError: false // [FIX HUECOS SOMBRA] Detalle uniforme sin degradación perimetral
       });
-      const initTilesShadowMode = (window.raShadowSettings && window.raShadowSettings.tilesetMode === 'receive')
-        ? Cesium.ShadowMode.RECEIVE_ONLY
-        : ((window.raShadowSettings && window.raShadowSettings.tilesetMode === 'off')
-           ? Cesium.ShadowMode.DISABLED
-           : Cesium.ShadowMode.ENABLED);
-      google3DTileset.shadows = (typeof Cesium !== 'undefined' && Cesium.ShadowMode) ? initTilesShadowMode : undefined;
+      google3DTileset.shadows = (typeof Cesium !== 'undefined' && Cesium.ShadowMode) ? Cesium.ShadowMode.ENABLED : undefined;
       google3DTileset.cullWithChildrenBounds = false;
       google3DTileset.skipLevelOfDetail = false;
       google3DTileset.loadSiblings = true;

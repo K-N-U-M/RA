@@ -1943,41 +1943,32 @@ function wpSyncCesiumSun(solarPos) {
       }
     }
 
-    const baseTilesetMode = (window.raShadowSettings && window.raShadowSettings.tilesetMode === 'receive')
-      ? Cesium.ShadowMode.RECEIVE_ONLY
-      : ((window.raShadowSettings && window.raShadowSettings.tilesetMode === 'off')
-         ? Cesium.ShadowMode.DISABLED
-         : Cesium.ShadowMode.ENABLED);
-
-    const isSunUp = (alt > 0) && (!window.raShadowSettings || window.raShadowSettings.quality !== 'off');
-    const currentShadowMode = isSunUp ? baseTilesetMode : Cesium.ShadowMode.DISABLED;
+    const currentShadowMode = (alt > 0) ? Cesium.ShadowMode.ENABLED : Cesium.ShadowMode.DISABLED;
     if (google3DTileset) google3DTileset.shadows = currentShadowMode;
     if (cesiumOsmBuildings) cesiumOsmBuildings.shadows = currentShadowMode;
-    if (gl) gl.shadows = currentShadowMode;
 
-    // Sincronizar sombras GPU dinámicas para elementos diseñados (siempre proyectan y reciben si hay sol)
-    const elemShadowMode = isSunUp ? Cesium.ShadowMode.ENABLED : Cesium.ShadowMode.DISABLED;
+    // Sincronizar sombras GPU dinámicas para edificios 3D modelados
     if (window._buildingPrimitives && Array.isArray(window._buildingPrimitives)) {
       window._buildingPrimitives.forEach(prim => {
-        if (prim && typeof prim.isDestroyed === "function" && !prim.isDestroyed()) prim.shadows = elemShadowMode;
+        if (prim && typeof prim.isDestroyed === "function" && !prim.isDestroyed()) prim.shadows = currentShadowMode;
       });
     }
 
     // Sincronizar sombras GPU dinámicas para obstáculos (árboles, casetones, chimeneas)
     if (window._obsPrimitives && Array.isArray(window._obsPrimitives)) {
       window._obsPrimitives.forEach(prim => {
-        if (prim && typeof prim.isDestroyed === "function" && !prim.isDestroyed()) prim.shadows = elemShadowMode;
+        if (prim && typeof prim.isDestroyed === "function" && !prim.isDestroyed()) prim.shadows = currentShadowMode;
       });
     }
 
     // Sincronizar sombras en la primitiva de paneles fotovoltaicos
     if (window.simulatedPanelsPrimitive && typeof window.simulatedPanelsPrimitive.isDestroyed === "function" && !window.simulatedPanelsPrimitive.isDestroyed()) {
-      window.simulatedPanelsPrimitive.shadows = elemShadowMode;
+      window.simulatedPanelsPrimitive.shadows = currentShadowMode;
     }
     if (window._faldonPanelsPrimitives && typeof window._faldonPanelsPrimitives.forEach === "function") {
       window._faldonPanelsPrimitives.forEach(prim => {
         if (prim && typeof prim.isDestroyed === "function" && !prim.isDestroyed()) {
-          prim.shadows = elemShadowMode;
+          prim.shadows = currentShadowMode;
         }
       });
     }

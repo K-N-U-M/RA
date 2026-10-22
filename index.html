@@ -43,21 +43,6 @@ window.RA_App = window.RA_App || {};
   <script src="js/solar-optimizer.js?v=20261016a"></script>
   <script src="js/obstacles.js?v=20261016a"></script>
   <script src="js/wind-turbine.js?v=20261011a"></script>
-  <script src="js/wind/wind-constants.js?v=20261022a"></script>
-  <script src="js/wind/wind-catalog.js?v=20261022a"></script>
-  <script src="js/wind/wind-entity.js?v=20261022a"></script>
-  <script src="js/wind/wind-visualizer.js?v=20261022a"></script>
-  <script src="js/wind/wind-ui.js?v=20261022a"></script>
-  <script>
-    document.addEventListener("DOMContentLoaded", function() {
-      if (window.RAWindCatalog && typeof window.RAWindCatalog.injectCatalogTab === "function") {
-        window.RAWindCatalog.injectCatalogTab();
-      }
-      if (window.RAWindUI && typeof window.RAWindUI.init === "function") {
-        window.RAWindUI.init();
-      }
-    });
-  </script>
   <script src="js/solar-materials.js?v=20260930a"></script>
   <script src="js/electrical-engine.js?v=20260929b"></script>
   <script src="js/undo-manager.js?v=20260929b"></script>
@@ -840,7 +825,7 @@ window.RA_App = window.RA_App || {};
                 <button class="doc-mini-btn" id="obs-btn-tree" onclick="startObstaclePlacement('tree')" style="text-align:center;">
                   <span class="doc-icon"><i data-lucide="tree-deciduous" class="icon-sm"></i></span><span>+ ÁRBOL TIPO</span><span class="doc-sub">3.0×3.0×5.0m</span>
                 </button>
-                <button class="doc-mini-btn" id="obs-btn-wind-turbine" onclick="if(typeof openEquipmentCatalogModal==='function'){openEquipmentCatalogModal('wind_turbines');}else{startObstaclePlacement('wind_turbine');}" style="text-align:center;">
+                <button class="doc-mini-btn" id="obs-btn-wind-turbine" onclick="startObstaclePlacement('wind_turbine')" style="text-align:center;">
                   <span class="doc-icon"><i data-lucide="wind" class="icon-sm"></i></span><span>+ EÓLICA</span><span class="doc-sub">Aerogenerador</span>
                 </button>
               </div>
@@ -935,7 +920,6 @@ window.RA_App = window.RA_App || {};
               </button>
             </div>
             </div><!-- /wp-subdock-body-obs -->
-          </div><!-- /wp-step2-solar-panel -->
           </div>
 
           <!-- PASO 3: DISTRIBUCION FOTOVOLTAICA Y RENDIMIENTO -->
@@ -944,13 +928,6 @@ window.RA_App = window.RA_App || {};
           <!-- PASO 3: SELECCIÓN DE INVERSOR Y MÓDULOS (HARDWARE GATING) -->
           <!-- ═════════════════════════════════════════════════════════════════ -->
           <div id="wp-step-2-content" style="display:none;flex-direction:column;gap:8px;">
-            <!-- Subtabs Paso 2: Solar FV vs Eólica -->
-            <div id="wp-step2-gen-tabs" style="display:flex;gap:4px;margin-bottom:4px;background:rgba(0,0,0,0.25);padding:4px;border-radius:6px;border:1px solid var(--border-subtle);">
-              <button type="button" class="sb-tab-btn active" id="step2-tab-solar" onclick="wpSwitchGenTab('solar')" style="flex:1;padding:6px 8px;font-size:10.5px;border-radius:5px;display:flex;align-items:center;justify-content:center;gap:6px;"><i data-lucide="sun" class="icon-sm"></i> ☀️ SOLAR (FV)</button>
-              <button type="button" class="sb-tab-btn" id="step2-tab-wind" onclick="wpSwitchGenTab('wind')" style="flex:1;padding:6px 8px;font-size:10.5px;border-radius:5px;display:flex;align-items:center;justify-content:center;gap:6px;color:#38BDF8;"><i data-lucide="wind" class="icon-sm"></i> 💨 EÓLICA</button>
-            </div>
-            <div id="wp-step2-wind-panel" style="display:none;"></div>
-            <div id="wp-step2-solar-panel" style="display:flex;flex-direction:column;gap:8px;">
             <div class="ui-card" style="border: 1px solid var(--border-subtle);">
               <div class="ui-card-head">
                 <span style="color:var(--amber-400);font-weight:900;"><i data-lucide="sun" class="icon-sm"></i> Paso 2: Campo Solar &amp; Malla Fotovoltaica</span>
@@ -2174,7 +2151,6 @@ window.RA_App = window.RA_App || {};
       <button class="sb-tab-btn" id="cat-tab-btn-inverters" onclick="switchCatalogTab('inverters')" style="padding:6px 12px;font-size:10.5px;border-radius:6px;"><i data-lucide="zap" class="icon-sm"></i> INVERSORES</button>
       <button class="sb-tab-btn" id="cat-tab-btn-batteries" onclick="switchCatalogTab('batteries')" style="padding:6px 12px;font-size:10.5px;border-radius:6px;"><i data-lucide="battery-charging" class="icon-sm"></i> BATERÍAS LFP</button>
       <button class="sb-tab-btn" id="cat-tab-btn-microinverters" onclick="switchCatalogTab('microinverters')" style="padding:6px 12px;font-size:10.5px;border-radius:6px;"><i data-lucide="cpu" class="icon-sm"></i> MICROINVERSORES</button>
-      <button class="sb-tab-btn" id="cat-tab-btn-wind_turbines" onclick="switchCatalogTab('wind_turbines')" style="padding:6px 12px;font-size:10.5px;border-radius:6px;color:#38BDF8;border:1px solid rgba(56,189,248,0.5);background:rgba(56,189,248,0.08);"><i data-lucide="wind" class="icon-sm"></i> 💨 AEROGENERADORES</button>
       <button class="sb-tab-btn" id="cat-tab-btn-structures" onclick="switchCatalogTab('structures')" style="padding:6px 12px;font-size:10.5px;border-radius:6px;color:#38BDF8;border:1px solid rgba(56,189,248,0.4);"><i data-lucide="layers" class="icon-sm"></i> ESTRUCTURAS</button>
       <button class="sb-tab-btn" id="cat-tab-btn-installation_costs" onclick="switchCatalogTab('installation_costs')" style="padding:6px 12px;font-size:10.5px;border-radius:6px;color:#34D399;border:1px solid rgba(52,211,153,0.4);"><i data-lucide="wrench" class="icon-sm"></i> INSTALACIÓN &amp; SOFT COSTS</button>
       <button class="sb-tab-btn" id="cat-tab-btn-add_new" onclick="switchCatalogTab('add_new')" style="padding:6px 12px;font-size:10.5px;border-radius:6px;color:var(--amber-400);border:1px dashed var(--amber-400);"><i data-lucide="plus" class="icon-sm"></i> AÑADIR MANUAL</button>
@@ -2399,8 +2375,7 @@ window.RA_App = window.RA_App || {};
       <div id="cat-pane-ai_search" style="display:none;"></div>
 
       <!-- Panel 8: Estructuras y Fijaciones Comerciales -->
-      <div id="cat-pane-wind_turbines" style="display:none;"></div>
-    <div id="cat-pane-structures" style="display:none;"></div>
+      <div id="cat-pane-structures" style="display:none;"></div>
 
       <!-- Panel 9: Costes de Instalación, Mano de Obra e Ingeniería -->
       <div id="cat-pane-installation_costs" style="display:none;"></div>
@@ -3073,10 +3048,6 @@ addEventListener('keydown', function(e) {
 
   // 1. Tecla ESCAPE (Cancelar colocación / deseleccionar)
   if (e.key === 'Escape' || e.keyCode === 27) {
-    if (window.RAWindUI && typeof window.RAWindUI.isPlacementActive === 'function' && window.RAWindUI.isPlacementActive()) {
-      window.RAWindUI.cancelPlacement();
-      return;
-    }
     if (typeof obsPlacement !== 'undefined' && obsPlacement && obsPlacement.active) {
       cancelObstaclePlacement();
       showToast('COLOCACIÓN', 'Colocación de obstáculo cancelada.', 'info', 2000);
@@ -3574,201 +3545,50 @@ const { scene, camera, clock } = viewer;
 if (camera && camera.frustum) camera.frustum.near = 0.5;
 const globe = scene.globe;
 
-// ── Configuración Centralizada de Sombras GPU & Terreno 3D ──
-window.raShadowSettings = window.raShadowSettings || {
-  quality: 'high',         // 'ultra' (4K), 'high' (2K), 'medium' (1K), 'off'
-  maxDistance: 600,        // 100 a 3000 m (deslizador)
-  tilesetMode: 'enabled',  // 'enabled' (Completo: proyectar y recibir), 'receive' (Solo recibir), 'off' (Desactivado)
-  biasMeters: 0.10         // 0.05 a 2.0 m (deslizador)
-};
-
-// Cargar persistencia de localStorage si existe
-try {
-  const _savedShadows = localStorage.getItem('ra_shadow_settings');
-  if (_savedShadows) {
-    const _p = JSON.parse(_savedShadows);
-    if (_p && typeof _p === 'object') {
-      Object.assign(window.raShadowSettings, _p);
-    }
-  }
-} catch(e) {}
-
-function raSaveShadowSettings() {
-  try {
-    localStorage.setItem('ra_shadow_settings', JSON.stringify(window.raShadowSettings));
-  } catch(e) {}
-}
-
-function raApplyShadowSettings() {
-  const cfg = window.raShadowSettings;
-  const sm = (typeof scene !== 'undefined') ? scene.shadowMap : null;
-  const tileset = (typeof google3DTileset !== 'undefined' && google3DTileset) ? google3DTileset : window.google3DTileset;
-  const osm = (typeof cesiumOsmBuildings !== 'undefined' && cesiumOsmBuildings) ? cesiumOsmBuildings : window.cesiumOsmBuildings;
-  const gl = (typeof scene !== 'undefined') ? scene.globe : null;
-  const v = (typeof viewer !== 'undefined') ? viewer : window.viewer;
-
-  if (sm) {
-    if (cfg.quality === 'off') {
-      sm.enabled = false;
-    } else {
-      sm.enabled = true;
-      sm.size = (cfg.quality === 'ultra') ? 4096 : (cfg.quality === 'high' ? 2048 : 1024);
-      sm.numberOfCascades = (cfg.quality === 'medium') ? 2 : 4;
-      sm.softShadows = (cfg.quality !== 'medium');
-      sm.darkness = 0.50;
-      sm.maximumDistance = Math.max(100.0, Math.min(3000.0, Number(cfg.maxDistance) || 600.0));
-      sm._fitNearFar = false;
-      sm.cascadesEnabled = true;
-      sm.fadingEnabled = true;
-
-      const effBias = Math.max(0.00015, (Number(cfg.biasMeters) || 0.10) / sm.maximumDistance);
-
-      if (sm._primitiveBias) {
-        sm._primitiveBias.polygonOffset = true;
-        sm._primitiveBias.polygonOffsetFactor = 1.1;
-        sm._primitiveBias.polygonOffsetUnits = 4.0;
-        sm._primitiveBias.normalOffset = true;
-        sm._primitiveBias.normalOffsetScale = 0.8;
-        sm._primitiveBias.normalShading = false;
-        sm._primitiveBias.depthBias = effBias;
-      }
-      if (sm._terrainBias) {
-        sm._terrainBias.polygonOffset = true;
-        sm._terrainBias.polygonOffsetFactor = 1.1;
-        sm._terrainBias.polygonOffsetUnits = 4.0;
-        sm._terrainBias.normalOffset = true;
-        sm._terrainBias.normalOffsetScale = 0.8;
-        sm._terrainBias.normalShading = false;
-        sm._terrainBias.depthBias = effBias;
-      }
-    }
-  }
-
-  // Sincronizar modo de sombras para tileset fotogramétrico y terreno DTM
-  let targetMode = (typeof Cesium !== 'undefined' && Cesium.ShadowMode) ? Cesium.ShadowMode.ENABLED : undefined;
-  if (typeof Cesium !== 'undefined' && Cesium.ShadowMode) {
-    if (cfg.quality === 'off' || cfg.tilesetMode === 'off') {
-      targetMode = Cesium.ShadowMode.DISABLED;
-    } else if (cfg.tilesetMode === 'receive') {
-      targetMode = Cesium.ShadowMode.RECEIVE_ONLY;
-    } else {
-      targetMode = Cesium.ShadowMode.ENABLED;
-    }
-  }
-
-  if (tileset) {
-    tileset.shadows = targetMode;
-    tileset.skipLevelOfDetail = false;
-    tileset.loadSiblings = true;
-    tileset.cullWithChildrenBounds = false;
-    tileset.dynamicScreenSpaceError = false;
-  }
-  if (osm) osm.shadows = targetMode;
-  if (gl) gl.shadows = targetMode;
-  if (v) v.terrainShadows = targetMode;
-
-  if (typeof raSyncShadowUI === 'function') {
-    raSyncShadowUI();
-  }
-
-  if (typeof scene !== 'undefined' && typeof scene.requestRender === 'function') {
-    scene.requestRender();
-  }
-}
-
+// ── Calibración de Sombras GPU AAA (Erradica parpadeos, velo negro y acné en 3D Tiles) ──
 function wpConfigureShadowMap(sm) {
   if (!sm) return;
-  raApplyShadowSettings();
+  sm.enabled = true; // SIEMPRE habilitar si se invoca esta función
+  
+  if (sm.size !== 4096) {
+    sm.size = 4096;
+    sm.softShadows = true;
+    sm.darkness = 0.50;
+    sm.maximumDistance = 2000.0; 
+    sm._fitNearFar = false; 
+    sm.cascadesEnabled = true;
+    sm.numberOfCascades = 4;
+    sm.fadingEnabled = false;
+
+    if (sm._primitiveBias) {
+      sm._primitiveBias.polygonOffset = false;
+      sm._primitiveBias.polygonOffsetFactor = 0.0;
+      sm._primitiveBias.polygonOffsetUnits = 0.0;
+      sm._primitiveBias.normalOffset = true;
+      sm._primitiveBias.normalShading = false;
+      sm._primitiveBias.depthBias = 0.0006;
+    }
+    if (sm._terrainBias) {
+      sm._terrainBias.polygonOffset = false;
+      sm._terrainBias.polygonOffsetFactor = 0.0;
+      sm._terrainBias.polygonOffsetUnits = 0.0;
+      sm._terrainBias.normalOffset = true;
+      sm._terrainBias.normalShading = false;
+      sm._terrainBias.depthBias = 0.0006;
+    }
+
+    if (typeof window !== 'undefined' && window.google3DTileset) {
+      window.google3DTileset.cullWithChildrenBounds = false;
+      window.google3DTileset.skipLevelOfDetail = true;
+      window.google3DTileset.loadSiblings = true;
+      window.google3DTileset.dynamicScreenSpaceError = false;
+    }
+  }
 }
 window.wpConfigureShadowMap = wpConfigureShadowMap;
-
-function raSyncShadowUI() {
-  const cfg = window.raShadowSettings;
-  if (!cfg) return;
-
-  // 1. Calidad
-  ['ultra', 'high', 'medium', 'off'].forEach(q => {
-    const el = document.getElementById('btn-shadow-' + q);
-    if (el) el.classList.toggle('active', q === cfg.quality);
-  });
-  const qBadge = document.getElementById('shadow-quality-badge');
-  if (qBadge) {
-    if (cfg.quality === 'ultra') { qBadge.textContent = 'ULTRA (4K)'; qBadge.style.background = 'var(--amber-500)'; qBadge.style.color = '#000'; }
-    else if (cfg.quality === 'high') { qBadge.textContent = 'ALTA (2K)'; qBadge.style.background = 'var(--emerald-500)'; qBadge.style.color = '#000'; }
-    else if (cfg.quality === 'medium') { qBadge.textContent = 'MEDIA (1K)'; qBadge.style.background = 'var(--sky-500)'; qBadge.style.color = '#fff'; }
-    else if (cfg.quality === 'off') { qBadge.textContent = 'DESACTIVADA'; qBadge.style.background = 'rgba(255,255,255,0.1)'; qBadge.style.color = '#fff'; }
-  }
-
-  // 2. Radio de distancia
-  const dSlider = document.getElementById('shadow-distance-slider');
-  const dDisplay = document.getElementById('shadow-distance-display');
-  if (dSlider) dSlider.value = cfg.maxDistance;
-  if (dDisplay) dDisplay.textContent = Math.round(cfg.maxDistance) + ' m';
-
-  // 3. Modo tileset / terreno
-  ['enabled', 'receive', 'off'].forEach(m => {
-    const el = document.getElementById('btn-tiles-shadow-' + m);
-    if (el) el.classList.toggle('active', m === cfg.tilesetMode);
-  });
-  const tBadge = document.getElementById('tileset-shadow-badge');
-  if (tBadge) {
-    if (cfg.tilesetMode === 'enabled') { tBadge.textContent = 'COMPLETO'; tBadge.style.color = '#34D399'; tBadge.style.background = 'rgba(16,185,129,0.2)'; }
-    else if (cfg.tilesetMode === 'receive') { tBadge.textContent = 'SOLO RECIBIR'; tBadge.style.color = '#38BDF8'; tBadge.style.background = 'rgba(56,189,248,0.2)'; }
-    else if (cfg.tilesetMode === 'off') { tBadge.textContent = 'DESACTIVADO'; tBadge.style.color = '#94A3B8'; tBadge.style.background = 'rgba(255,255,255,0.1)'; }
-  }
-
-  // 4. Bias
-  const bSlider = document.getElementById('shadow-bias-slider');
-  const bDisplay = document.getElementById('bias-val-display');
-  if (bSlider) bSlider.value = cfg.biasMeters;
-  if (bDisplay) bDisplay.textContent = Number(cfg.biasMeters).toFixed(2) + ' m';
-}
-window.raSyncShadowUI = raSyncShadowUI;
-
-window.raSetShadowQuality = function(q) {
-  window.raShadowSettings.quality = q;
-  raSaveShadowSettings();
-  raApplyShadowSettings();
-  const names = { ultra: 'Ultra (4K)', high: 'Alta (2K)', medium: 'Media (1K)', off: 'Desactivada' };
-  if (typeof showToast === 'function') {
-    showToast('CALIDAD DE SOMBRAS', 'Perfil configurado: ' + (names[q] || q), 'info', 2000);
-  }
-};
-
-window.raSetShadowDistance = function(d) {
-  const m = Math.max(100, Math.min(3000, Number(d) || 600));
-  window.raShadowSettings.maxDistance = m;
-  const dDisplay = document.getElementById('shadow-distance-display');
-  if (dDisplay) dDisplay.textContent = Math.round(m) + ' m';
-  raSaveShadowSettings();
-  raApplyShadowSettings();
-};
-
-window.raSetTilesetShadowMode = function(mode) {
-  window.raShadowSettings.tilesetMode = mode;
-  raSaveShadowSettings();
-  raApplyShadowSettings();
-  const names = {
-    enabled: 'Auto-sombra completa (Proyectar y Recibir)',
-    receive: 'Solo recibir sombra de placas y obstáculos',
-    off: 'Desactivado en terreno y edificios'
-  };
-  if (typeof showToast === 'function') {
-    showToast('SOMBRAS DE ENTORNO', names[mode] || mode, 'info', 2500);
-  }
-};
-
-window.raSetShadowBias = function(b) {
-  const val = Math.max(0.05, Math.min(2.0, Number(b) || 0.10));
-  window.raShadowSettings.biasMeters = val;
-  window.wpShadowBiasMeters = val;
-  const bDisplay = document.getElementById('bias-val-display');
-  if (bDisplay) bDisplay.textContent = val.toFixed(2) + ' m';
-  raSaveShadowSettings();
-  raApplyShadowSettings();
-};
-window.wpSetShadowBiasMeters = window.raSetShadowBias;
-
+// Diagnóstico y ajuste en vivo del bias de sombras (gemelo digital):
+//   wpShadowDiagnostics()  → estado actual del shadowMap
+//   wpSetShadowBiasMeters(m) → despegue físico de la sombra en metros (0.1-2.0).
 
 // ── Estructuras paramétricas de montaje (Paso 2 · pérgola / balasto) ──
 function wpOnEstructuraChange(tipo, hVal) {
@@ -4106,25 +3926,16 @@ if (scene && scene.preUpdate) {
     // OPTIMIZACIÓN: mutar sm.maximumDistance/bias cada frame ensuciaba la escena y
     // anulaba requestRenderMode (GPU al 100% permanente). Ahora solo se aplica si el
     // valor objetivo cambia de verdad (delta >= 25m de span).
-    // Mantener distancia estable según la configuración del usuario (evita parpadeos de cascadas)
-    const userMaxDist = (window.raShadowSettings && typeof window.raShadowSettings.maxDistance === 'number')
-      ? window.raShadowSettings.maxDistance
-      : 600.0;
-    if (Math.abs((sm.maximumDistance || 0) - userMaxDist) > 1.0) {
-      sm.maximumDistance = userMaxDist;
+    const dynamicMaxDist = Math.max(400.0, Math.min(3000.0, Math.round(realDist / 10.0) * 10.0 * 4.0));
+    window.wpShadowBiasMeters = (typeof window.wpShadowBiasMeters === 'number') ? window.wpShadowBiasMeters : 0.05;
+    const dynamicDepthBias = Math.max(0.00015, window.wpShadowBiasMeters / dynamicMaxDist);
+    const spanDelta = Math.abs(dynamicMaxDist - (sm.maximumDistance || 0));
+    if (spanDelta >= 25.0) {
+      sm.maximumDistance = dynamicMaxDist;
+      if (sm._primitiveBias) sm._primitiveBias.depthBias = dynamicDepthBias;
+      if (sm._terrainBias) sm._terrainBias.depthBias = dynamicDepthBias;
     }
-    const biasM = (window.raShadowSettings && typeof window.raShadowSettings.biasMeters === 'number')
-      ? window.raShadowSettings.biasMeters
-      : 0.10;
-    const dynamicDepthBias = Math.max(0.00015, biasM / userMaxDist);
-    if (sm._primitiveBias && Math.abs((sm._primitiveBias.depthBias || 0) - dynamicDepthBias) > 0.00001) {
-      sm._primitiveBias.depthBias = dynamicDepthBias;
-    }
-    if (sm._terrainBias && Math.abs((sm._terrainBias.depthBias || 0) - dynamicDepthBias) > 0.00001) {
-      sm._terrainBias.depthBias = dynamicDepthBias;
-    }
-    return;
-    });
+  });
 }
 
 // ── Guardia de cámara dron (Fase 4): impedir atravesar el terreno ──
@@ -4441,12 +4252,7 @@ globe.enableLighting = false;
 globe.showWaterEffect = true;
 globe.depthTestAgainstTerrain = true;
 // Sombra: desactivada completamente para máximo rendimiento GPU
-// Sincronizar sombras según configuración activa de usuario (default: Cesium.ShadowMode.ENABLED)
-if (typeof raApplyShadowSettings === 'function') {
-  raApplyShadowSettings();
-} else {
-  globe.shadows = (typeof Cesium !== 'undefined' && Cesium.ShadowMode) ? Cesium.ShadowMode.ENABLED : undefined;
-}
+globe.shadows = Cesium.ShadowMode.DISABLED;
 scene.pickTranslucentDepth = true;
 globe.baseColor = Cesium.Color.fromCssColorString('#14213d');
 scene.fog.enabled = true;
@@ -12863,21 +12669,6 @@ if (typeof equipmentCatalog === 'undefined' && typeof window.equipmentCatalog !=
 window.openEquipmentCatalogModal = openEquipmentCatalogModal;
 window.closeEquipmentCatalogModal = closeEquipmentCatalogModal;
 window.switchCatalogTab = switchCatalogTab;
-
-function wpSwitchGenTab(tab) {
-  var solPanel = document.getElementById("wp-step2-solar-panel");
-  var wndPanel = document.getElementById("wp-step2-wind-panel");
-  var solBtn = document.getElementById("step2-tab-solar");
-  var wndBtn = document.getElementById("step2-tab-wind");
-  if (solPanel) solPanel.style.display = (tab === "solar") ? "flex" : "none";
-  if (wndPanel) wndPanel.style.display = (tab === "wind") ? "block" : "none";
-  if (solBtn) solBtn.classList.toggle("active", tab === "solar");
-  if (wndBtn) wndBtn.classList.toggle("active", tab === "wind");
-  if (tab === "wind" && window.RAWindUI && typeof window.RAWindUI.renderStep2Panel === "function") {
-    window.RAWindUI.renderStep2Panel();
-  }
-}
-window.wpSwitchGenTab = wpSwitchGenTab;
 window.onSelectModuleFromDropdown = onSelectModuleFromDropdown;
 window.applyInverterFromCatalog = applyInverterFromCatalog;
 window.applyBatteryFromCatalog = applyBatteryFromCatalog;
@@ -16720,13 +16511,6 @@ window.toggleSolarHUD = toggleSolarHUD;
     }
 
     // ── PRIORIDAD 1: Colocación activa de nuevos obstáculos (Botón de Crear Objeto)
-    if (window.RAWindUI && typeof window.RAWindUI.isPlacementActive === 'function' && window.RAWindUI.isPlacementActive()) {
-      const pos3D = (typeof get3DPosition === 'function') ? get3DPosition(click.position) : null;
-      if (pos3D && window.RAWindUI.placeAtCartesian(pos3D)) {
-        return;
-      }
-    }
-
     if (typeof obsPlacement !== 'undefined' && obsPlacement && obsPlacement.active) {
       if (typeof obsPlaceAt === 'function' && obsPlaceAt(click.position)) return;
     }
@@ -18055,102 +17839,22 @@ window.toggleSolarHUD = toggleSolarHUD;
           </div>
         </div>
 
-        <!-- ⚙️ Calidad y Ajustes de Sombras GPU & Terreno 3D -->
-        <div class="ui-card" id="ra-shadow-settings-card">
-          <div class="ui-card-head">
-            <span>Sombras GPU &amp; Terreno 3D</span>
-            <span class="card-tag" id="shadow-quality-badge" style="background:var(--emerald-500);color:#000;font-weight:900;">ALTA (2K)</span>
-          </div>
-          <div class="engine-cards-group" style="padding:12px; display:flex; flex-direction:column; gap:12px;">
-            <!-- Selector de Calidad de Sombras -->
-            <div style="display:flex; flex-direction:column; gap:6px;">
-              <span style="font-size:11px; font-weight:600; color:#e2e8f0;">Calidad de Sombras GPU</span>
-              <div class="engine-cards-group" id="shadow-quality-group" style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
-                <div class="engine-card-opt" id="btn-shadow-ultra" onclick="raSetShadowQuality('ultra')">
-                  <div class="engine-card-title">
-                    <span>1. Ultra (4K)</span>
-                  </div>
-                  <div class="engine-card-desc">4096px · 4 cascadas · Suaves</div>
-                </div>
-                <div class="engine-card-opt active" id="btn-shadow-high" onclick="raSetShadowQuality('high')">
-                  <div class="engine-card-title">
-                    <span>2. Alta (2K)</span>
-                  </div>
-                  <div class="engine-card-desc">2048px · Nítida · Recomendada</div>
-                </div>
-                <div class="engine-card-opt" id="btn-shadow-medium" onclick="raSetShadowQuality('medium')">
-                  <div class="engine-card-title">
-                    <span>3. Media (1K)</span>
-                  </div>
-                  <div class="engine-card-desc">1024px · Fluida</div>
-                </div>
-                <div class="engine-card-opt" id="btn-shadow-off" onclick="raSetShadowQuality('off')">
-                  <div class="engine-card-title">
-                    <span>4. Desactivada</span>
-                  </div>
-                  <div class="engine-card-desc">Sin sombras GPU</div>
-                </div>
-              </div>
-            </div>
-
-            <div style="height:1px; background:rgba(255,255,255,0.05); margin:2px 0;"></div>
-
-            <!-- Deslizador de Radio de Acción de Sombras -->
-            <div style="display:flex; flex-direction:column; gap:6px;">
-              <div style="display:flex; justify-content:space-between; align-items:center;">
-                <span style="font-size:11px; font-weight:600; color:#e2e8f0;">Radio de Acción de Sombras</span>
-                <span id="shadow-distance-display" style="font-size:11px; font-weight:700; color:var(--amber-400);">600 m</span>
-              </div>
-              <input type="range" id="shadow-distance-slider" min="100" max="3000" step="50" value="600" style="width:100%; accent-color:var(--amber-400);" oninput="raSetShadowDistance(this.value)">
-              <span style="font-size: 10px; color:#64748b; line-height:1.2;">Distancia máxima desde la cámara donde se proyectan sombras. Un radio ajustado mejora la nitidez sobre la instalación.</span>
-            </div>
-
-            <div style="height:1px; background:rgba(255,255,255,0.05); margin:2px 0;"></div>
-
-            <!-- Auto-sombreado de Edificios 3D y Terreno -->
-            <div style="display:flex; flex-direction:column; gap:6px;">
-              <div style="display:flex; justify-content:space-between; align-items:center;">
-                <span style="font-size:11px; font-weight:600; color:#e2e8f0;">Auto-sombra de Edificios 3D y Terreno</span>
-                <span id="tileset-shadow-badge" class="card-tag" style="background:rgba(16,185,129,0.2);color:#34D399;font-size:9px;font-weight:800;padding:2px 4px;border-radius:3px;">COMPLETO</span>
-              </div>
-              <div class="engine-cards-group" id="tileset-shadow-group" style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:4px;">
-                <div class="engine-card-opt active" id="btn-tiles-shadow-enabled" onclick="raSetTilesetShadowMode('enabled')" style="padding:6px; text-align:center;">
-                  <div style="font-size:10px; font-weight:700;">Completo</div>
-                  <div style="font-size:8px; color:#94a3b8;">Proyectar + Recibir</div>
-                </div>
-                <div class="engine-card-opt" id="btn-tiles-shadow-receive" onclick="raSetTilesetShadowMode('receive')" style="padding:6px; text-align:center;">
-                  <div style="font-size:10px; font-weight:700;">Solo Recibir</div>
-                  <div style="font-size:8px; color:#94a3b8;">Sin auto-sombra</div>
-                </div>
-                <div class="engine-card-opt" id="btn-tiles-shadow-off" onclick="raSetTilesetShadowMode('off')" style="padding:6px; text-align:center;">
-                  <div style="font-size:10px; font-weight:700;">Desactivado</div>
-                  <div style="font-size:8px; color:#94a3b8;">Sin sombras entorno</div>
-                </div>
-              </div>
-              <span style="font-size: 10px; color:#64748b; line-height:1.2;">"Completo" proyecta sombras del terreno sobre el terreno y elementos. "Solo Recibir" elimina parpadeos fotogramétricos si fuera necesario.</span>
-            </div>
-
-            <div style="height:1px; background:rgba(255,255,255,0.05); margin:2px 0;"></div>
-
-            <!-- Despegue de Sombras (Anti-Parpadeo / Bias) -->
-            <div style="display:flex; flex-direction:column; gap:6px;">
-              <div style="display:flex; justify-content:space-between; align-items:center;">
-                <span style="font-size:11px; font-weight:600; color:#e2e8f0;">Despegue Físico (Anti-Parpadeo)</span>
-                <span id="bias-val-display" style="font-size:11px; color:#94a3b8;">0.10 m</span>
-              </div>
-              <input type="range" id="shadow-bias-slider" min="0.05" max="2.0" step="0.05" value="0.10" style="width:100%; accent-color:var(--rose-500);" oninput="raSetShadowBias(this.value)">
-              <span style="font-size: 10px; color:#64748b; line-height:1.2;">Ajusta el margen físico para evitar parpadeos y acné en mallas 3D rugosas.</span>
-            </div>
-          </div>
-        </div>
-
         <div class="ui-card">
           <div class="ui-card-head">
             <span>Optimización Heatmap (Ray-Tracing)</span>
             <span class="card-tag" style="background:var(--sky-500);color:#fff;">RENDIMIENTO</span>
           </div>
           <div class="engine-cards-group" style="padding:12px; display:flex; flex-direction:column; gap:12px;">
+            <div style="display:flex; flex-direction:column; gap:6px;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size:11px; font-weight:600; color:#e2e8f0;">Despegue de Sombras (Anti-Parpadeo)</span>
+                <span id="bias-val-display" style="font-size:11px; color:#94a3b8;">0.05 m</span>
+              </div>
+              <input type="range" id="shadow-bias-slider" min="0.05" max="2.0" step="0.05" value="0.05" style="width:100%; accent-color:var(--rose-500);" oninput="document.getElementById('bias-val-display').innerText = this.value + ' m'; if(typeof window.wpSetShadowBiasMeters === 'function') window.wpSetShadowBiasMeters(this.value);">
+              <span style="font-size: 10px; color:#64748b; line-height:1.2;">Ajusta el despegue físico para evitar parpadeos en 3D Tiles.</span>
+            </div>
             
+            <div style="height:1px; background:rgba(255,255,255,0.05); margin:4px 0;"></div>
             
             <div style="display:flex; flex-direction:column; gap:6px;">
               <span style="font-size:11px; font-weight:600; color:#e2e8f0; margin-bottom: 2px;">Precisión del Ray-Tracing Anual</span>
