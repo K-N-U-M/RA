@@ -30,7 +30,6 @@ window.RA_App = window.RA_App || {};
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
 
   <script src="js/ui-viewport-controls.js?v=20261016a"></script>
-  <script src="js/shadow-settings.js?v=20261022a"></script>
   <script src="js/error-handler.js"></script>
   <script src="js/project-config.js?v=20261016a"></script>
   <script src="js/buildings.js?v=20261016d"></script>
@@ -87,7 +86,7 @@ window.RA_App = window.RA_App || {};
   <script src="js/ra-lod-manager.js?v=20261019a"></script>
   <script src="js/storage-cache.js?v=20261019a"></script>
   <script src="js/lazy-loader.js?v=20261019a"></script>
-  <script src="js/shadow-settings.js?v=20261022b"></script>
+  <script src="js/shadow-settings.js?v=20261023a"></script>
   <script src="js/commercial-proposal-dossier.js?v=20261022a"></script>
 
     <link rel="stylesheet" href="css/styles.css?v=20261016b">
@@ -3742,50 +3741,38 @@ const globe = scene.globe;
 // ── Calibración de Sombras GPU AAA (Erradica parpadeos, velo negro y acné en 3D Tiles) ──
 function wpConfigureShadowMap(sm) {
   if (!sm) return;
-  sm.enabled = true; // SIEMPRE habilitar si se invoca esta función
-  
-  if (typeof window !== 'undefined' && window.ShadowSettings && typeof window.ShadowSettings.apply === 'function') {
-    window.ShadowSettings.apply();
+  if (typeof window !== 'undefined' && window.ShadowSettings && typeof window.ShadowSettings.configureShadowMap === 'function') {
+    window.ShadowSettings.configureShadowMap(sm);
     return;
   }
-
-  const userCfgRadius = (typeof window !== 'undefined' && window.ShadowSettings && typeof window.ShadowSettings.getSettings === 'function')
-    ? Number(window.ShadowSettings.getSettings().radius) || 400.0
-    : 400.0;
-
+  const userCfgRadius = 400.0;
+  sm.enabled = true;
   sm.size = 4096;
   sm.softShadows = true;
   sm.darkness = 0.50;
-  sm.maximumDistance = userCfgRadius; 
-  sm._fitNearFar = false; 
+  sm.maximumDistance = userCfgRadius;
+  sm._fitNearFar = true;
   sm.cascadesEnabled = true;
   sm.numberOfCascades = 4;
   sm.fadingEnabled = true;
-
-  const depthBias = Math.max(0.00015, (window.wpShadowBiasMeters || 0.05) / userCfgRadius);
-
+  const depthBias = Math.max(0.00025, Math.min(0.005, (window.wpShadowBiasMeters || 0.08) / userCfgRadius));
   if (sm._primitiveBias) {
-    sm._primitiveBias.polygonOffset = false;
-    sm._primitiveBias.polygonOffsetFactor = 0.0;
-    sm._primitiveBias.polygonOffsetUnits = 0.0;
+    sm._primitiveBias.polygonOffset = true;
+    sm._primitiveBias.polygonOffsetFactor = 1.1;
+    sm._primitiveBias.polygonOffsetUnits = 3.2;
     sm._primitiveBias.normalOffset = true;
+    sm._primitiveBias.normalOffsetScale = 0.25;
     sm._primitiveBias.normalShading = false;
     sm._primitiveBias.depthBias = depthBias;
   }
   if (sm._terrainBias) {
-    sm._terrainBias.polygonOffset = false;
-    sm._terrainBias.polygonOffsetFactor = 0.0;
-    sm._terrainBias.polygonOffsetUnits = 0.0;
+    sm._terrainBias.polygonOffset = true;
+    sm._terrainBias.polygonOffsetFactor = 1.1;
+    sm._terrainBias.polygonOffsetUnits = 3.2;
     sm._terrainBias.normalOffset = true;
+    sm._terrainBias.normalOffsetScale = 0.35;
     sm._terrainBias.normalShading = false;
-    sm._terrainBias.depthBias = depthBias;
-  }
-
-  if (typeof window !== 'undefined' && window.google3DTileset) {
-    window.google3DTileset.cullWithChildrenBounds = false;
-    window.google3DTileset.skipLevelOfDetail = true;
-    window.google3DTileset.loadSiblings = true;
-    window.google3DTileset.dynamicScreenSpaceError = false;
+    sm._terrainBias.depthBias = depthBias * 1.15;
   }
 }
 window.wpConfigureShadowMap = wpConfigureShadowMap;
@@ -4103,12 +4090,12 @@ window.wpShadowDiagnostics = function() {
   };
 };
 window.wpSetShadowBiasMeters = function(m) {
-  window.wpShadowBiasMeters = Math.max(0.05, Math.min(2.0, Number(m) || 0.05));
-  // aplicar inmediatamente (el preUpdate solo reaplica si el span cambia >= 25m)
-  if (typeof scene !== 'undefined' && scene.shadowMap) {
-    const bias = Math.max(0.00015, window.wpShadowBiasMeters / (scene.shadowMap.maximumDistance || 400));
-    if (scene.shadowMap._primitiveBias) scene.shadowMap._primitiveBias.depthBias = bias;
-    if (scene.shadowMap._terrainBias) scene.shadowMap._terrainBias.depthBias = bias;
+  const val = Math.max(0.05, Math.min(2.0, Number(m) || 0.08));
+  window.wpShadowBiasMeters = val;
+  if (typeof window !== 'undefined' && window.ShadowSettings && typeof window.ShadowSettings.setBiasMeters === 'function') {
+    window.ShadowSettings.setBiasMeters(val);
+  } else if (typeof scene !== 'undefined' && scene.shadowMap) {
+    wpConfigureShadowMap(scene.shadowMap);
     if (typeof scene.requestRender === 'function') scene.requestRender();
   }
   return window.wpShadowDiagnostics();
@@ -4118,52 +4105,8 @@ if (scene.shadowMap) {
   wpConfigureShadowMap(scene.shadowMap);
 }
 
-// ☀️ LOD Dinámico de Sombras GPU (Anti-Peter Panning y Anti-Huecos) ☀️
-// Modula el volumen de sombras y sesgo según la distancia REAL a la geometría visible
-if (scene && scene.preUpdate) {
-  scene.preUpdate.addEventListener(() => {
-    if (!scene.shadowMap || !camera) return;
-    const sm = scene.shadowMap;
-    
-    // Si ShadowSettings está disponible, respetar fielmente el radio de acción configurado por el usuario
-    const userCfgRadius = (typeof window !== 'undefined' && window.ShadowSettings && typeof window.ShadowSettings.getSettings === 'function')
-      ? Number(window.ShadowSettings.getSettings().radius)
-      : null;
-
-    if (userCfgRadius && !isNaN(userCfgRadius) && userCfgRadius >= 50) {
-      if (Math.abs(userCfgRadius - (sm.maximumDistance || 0)) >= 1.0) {
-        sm.maximumDistance = userCfgRadius;
-        sm._fitNearFar = false;
-        sm.fadingEnabled = true;
-        const depthBias = Math.max(0.00015, (window.wpShadowBiasMeters || 0.05) / userCfgRadius);
-        if (sm._primitiveBias) sm._primitiveBias.depthBias = depthBias;
-        if (sm._terrainBias) sm._terrainBias.depthBias = depthBias;
-      }
-      return;
-    }
-
-    // Distancia real de cámara al centro focal/superficie (no altitud sobre elipsoide)
-    let realDist = 80.0;
-    if (typeof triadState !== 'undefined' && triadState && typeof triadState.camDist === 'number' && triadState.camDist > 1) {
-      realDist = triadState.camDist;
-    } else if (window._lastCenterPick && (performance.now() - window._lastCenterPick.t) < 2000) {
-      realDist = window._lastCenterPick.d;
-    }
-
-    // Escalar dinámicamente el alcance de sombra (cuantizado a 10m).
-    const dynamicMaxDist = Math.max(400.0, Math.min(3000.0, Math.round(realDist / 10.0) * 10.0 * 4.0));
-    window.wpShadowBiasMeters = (typeof window.wpShadowBiasMeters === 'number') ? window.wpShadowBiasMeters : 0.05;
-    const dynamicDepthBias = Math.max(0.00015, window.wpShadowBiasMeters / dynamicMaxDist);
-    const spanDelta = Math.abs(dynamicMaxDist - (sm.maximumDistance || 0));
-    if (spanDelta >= 25.0) {
-      sm.maximumDistance = dynamicMaxDist;
-      sm._fitNearFar = false;
-      sm.fadingEnabled = true;
-      if (sm._primitiveBias) sm._primitiveBias.depthBias = dynamicDepthBias;
-      if (sm._terrainBias) sm._terrainBias.depthBias = dynamicDepthBias;
-    }
-  });
-}
+// [AAA SHADOW PIPELINE]: Se elimina la mutación por frame en scene.preUpdate
+// que forzaba _fitNearFar = false e invalidaba el FBO de cascadas al orbitar.
 
 // ── Guardia de cámara dron (Fase 4): impedir atravesar el terreno ──
 // Clampea la altura de cámara a (terreno DTM + 2.5 m) en cada frame. La colisión
@@ -4330,13 +4273,10 @@ window.wpCapturaInforme = async function() {
 // ── Estabilización de render tras movimiento de cámara en requestRenderMode ──
 if (camera && camera.moveEnd) {
   camera.moveEnd.addEventListener(() => {
-    if (typeof scene !== 'undefined' && scene && typeof scene.requestRender === 'function') {
+    if (typeof window !== 'undefined' && window.ShadowSettings && typeof window.ShadowSettings.requestSettleFrames === 'function') {
+      window.ShadowSettings.requestSettleFrames(scene);
+    } else if (typeof scene !== 'undefined' && scene && typeof scene.requestRender === 'function') {
       scene.requestRender();
-      if (typeof window !== 'undefined' && window.requestAnimationFrame) {
-        window.requestAnimationFrame(() => {
-          if (scene && typeof scene.requestRender === 'function') scene.requestRender();
-        });
-      }
     }
   });
 }
@@ -4479,7 +4419,7 @@ globe.enableLighting = false;
 globe.showWaterEffect = true;
 globe.depthTestAgainstTerrain = true;
 // Sombra: desactivada completamente para máximo rendimiento GPU
-globe.shadows = Cesium.ShadowMode.DISABLED;
+globe.shadows = (window.ShadowSettings && !window.ShadowSettings.getSettings().terrainShadows) ? Cesium.ShadowMode.RECEIVE_ONLY : Cesium.ShadowMode.ENABLED;
 scene.pickTranslucentDepth = true;
 globe.baseColor = Cesium.Color.fromCssColorString('#14213d');
 scene.fog.enabled = true;

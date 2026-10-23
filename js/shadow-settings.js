@@ -1,18 +1,15 @@
 /**
  * ============================================================================
- * SHADOW SETTINGS MODULE (shadow-settings.js)
+ * SHADOW SETTINGS MODULE (shadow-settings.js) — AAA Graphics Engine Calibration
  * ============================================================================
- * Gestión modular e independiente de sombras en Cesium Viewer:
- * - Calidad de resolución del mapa de sombras (Baja, Media, Alta, Ultra).
+ * Gestión modular, unificada y estable de sombras en Cesium Viewer:
+ * - Calidad de resolución del mapa de sombras (Baja 1K, Media 2K, Alta 4K, Ultra 8K).
  * - Radio de acción / distancia máxima de sombras (50m a 2000m).
+ * - Sesgo físico y offset poligonal/normal calibrado para erradicar el parpadeo
+ *   masivo ("black screen / total shadow flash") al orbitar o desplazar cámara.
  * - Proyección bidireccional y autosombreado (Terreno 3D, Mallas fotogramétricas,
  *   Estructuras, Pérgolas, Módulos FV).
  * - Interfaz limpia e integrada en el panel flotante de ajustes (⚙️).
- * 
- * Arquitectura:
- * - NO altera la cámara ni modifica posiciones geográficas.
- * - NO re-ejecuta inicializaciones destructivas.
- * - Preserva Cesium.ShadowMode.ENABLED en mallas 3D y primitivas.
  * ============================================================================
  */
 
@@ -55,6 +52,7 @@
   var defaultSettings = {
     quality: 'high',
     radius: 400,
+    biasMeters: 0.08,
     selfShadows: true,
     terrainShadows: true
   };
@@ -77,45 +75,69 @@
   }
 
   var currentSettings = loadSettings();
+  if (typeof global !== 'undefined') {
+    global.wpShadowBiasMeters = Number(currentSettings.biasMeters) || 0.08;
+  }
+
+  /**
+   * Calibra los parámetros de un ShadowMap de Cesium con estabilidad de grado AAA.
+   * Importante: _fitNearFar DEBE permanecer en true (valor nativo de Cesium) para que
+   * las 4 cascadas ortográficas ajusten sus planos Znear/Zfar al volumen de escena real
+   * durante rotaciones/paneos de cámara, evitando que la escena caiga fuera del rango
+   * de profundidad de la cascada y parpadee completamente en sombra.
+   */
+  function configureCesiumShadowMap(shadowMap) {
+    if (!shadowMap) return;
+    var preset = QUALITY_PRESETS[currentSettings.quality] || QUALITY_PRESETS.high;
+    var radiusMeters = Math.max(50.0, Math.min(2500.0, Number(currentSettings.radius) || 400.0));
+    var biasMeters = Math.max(0.05, Math.min(2.0, Number(currentSettings.biasMeters) || Number(global.wpShadowBiasMeters) || 0.08));
+    global.wpShadowBiasMeters = biasMeters;
+
+    if (shadowMap.size !== preset.size) {
+      shadowMap.size = preset.size;
+    }
+    shadowMap.softShadows = preset.softShadows;
+    shadowMap.maximumDistance = radiusMeters;
+    shadowMap._fitNearFar = true;
+    shadowMap.fadingEnabled = true;
+    shadowMap.cascadesEnabled = true;
+    shadowMap.numberOfCascades = 4;
+    shadowMap.enabled = true;
+
+    // Cálculo de depthBias combinado con polygonOffset hardware para evitar auto-oclusión
+    // en ángulos rasantes al orbitar sobre Google 3D Tiles y terreno
+    var depthBias = Math.max(0.00025, Math.min(0.005, biasMeters / Math.max(200.0, radiusMeters)));
+
+    if (shadowMap._primitiveBias) {
+      shadowMap._primitiveBias.polygonOffset = true;
+      shadowMap._primitiveBias.polygonOffsetFactor = 1.1;
+      shadowMap._primitiveBias.polygonOffsetUnits = 3.2;
+      shadowMap._primitiveBias.normalOffset = true;
+      shadowMap._primitiveBias.normalOffsetScale = 0.25;
+      shadowMap._primitiveBias.normalShading = false;
+      shadowMap._primitiveBias.depthBias = depthBias;
+    }
+    if (shadowMap._terrainBias) {
+      shadowMap._terrainBias.polygonOffset = true;
+      shadowMap._terrainBias.polygonOffsetFactor = 1.1;
+      shadowMap._terrainBias.polygonOffsetUnits = 3.2;
+      shadowMap._terrainBias.normalOffset = true;
+      shadowMap._terrainBias.normalOffsetScale = 0.35;
+      shadowMap._terrainBias.normalShading = false;
+      shadowMap._terrainBias.depthBias = depthBias * 1.15;
+    }
+  }
 
   function applySettings() {
-    var v = (typeof global.viewer !== 'undefined' && global.viewer) ? global.viewer : global.viewer;
+    var v = (typeof global.viewer !== 'undefined' && global.viewer) ? global.viewer : null;
     if (!v || !v.scene) return;
 
     var scene = v.scene;
-    var preset = QUALITY_PRESETS[currentSettings.quality] || QUALITY_PRESETS.high;
 
     // 1. Configurar ShadowMap de Cesium
     if (scene.shadowMap) {
       try {
-        var radiusMeters = Number(currentSettings.radius) || 400.0;
-        scene.shadowMap.size = preset.size;
-        scene.shadowMap.softShadows = preset.softShadows;
-        scene.shadowMap.maximumDistance = radiusMeters;
-        scene.shadowMap._fitNearFar = false;
-        scene.shadowMap.fadingEnabled = true;
-        scene.shadowMap.cascadesEnabled = true;
-        scene.shadowMap.numberOfCascades = 4;
-        scene.shadowMap.enabled = true;
-
-        var biasBase = (typeof window.wpShadowBiasMeters === 'number') ? window.wpShadowBiasMeters : 0.05;
-        var depthBias = Math.max(0.00015, biasBase / radiusMeters);
-        if (scene.shadowMap._primitiveBias) {
-          scene.shadowMap._primitiveBias.polygonOffset = false;
-          scene.shadowMap._primitiveBias.polygonOffsetFactor = 0.0;
-          scene.shadowMap._primitiveBias.polygonOffsetUnits = 0.0;
-          scene.shadowMap._primitiveBias.normalOffset = true;
-          scene.shadowMap._primitiveBias.normalShading = false;
-          scene.shadowMap._primitiveBias.depthBias = depthBias;
-        }
-        if (scene.shadowMap._terrainBias) {
-          scene.shadowMap._terrainBias.polygonOffset = false;
-          scene.shadowMap._terrainBias.polygonOffsetFactor = 0.0;
-          scene.shadowMap._terrainBias.polygonOffsetUnits = 0.0;
-          scene.shadowMap._terrainBias.normalOffset = true;
-          scene.shadowMap._terrainBias.normalShading = false;
-          scene.shadowMap._terrainBias.depthBias = depthBias;
-        }
+        configureCesiumShadowMap(scene.shadowMap);
       } catch (eMap) {
         if (global.RA && global.RA.log) global.RA.log.warn('[ShadowSettings] Error configurando shadowMap:', eMap);
       }
@@ -170,10 +192,25 @@
       });
     }
 
-    // Solicitar redibujado de la escena
-    if (typeof scene.requestRender === 'function') {
-      try { scene.requestRender(); } catch (eR) {}
-    }
+    // Solicitar 2 frames de asentamiento (settling) para que el FBO de cascadas converja limpio
+    requestShadowSettleFrames(scene);
+  }
+
+  function requestShadowSettleFrames(scene) {
+    if (!scene || typeof scene.requestRender !== 'function') return;
+    try {
+      scene.requestRender();
+      if (typeof global.requestAnimationFrame === 'function') {
+        global.requestAnimationFrame(function() {
+          try {
+            scene.requestRender();
+            global.requestAnimationFrame(function() {
+              try { scene.requestRender(); } catch (_) {}
+            });
+          } catch (_) {}
+        });
+      }
+    } catch (eR) {}
   }
 
   function setQuality(qualityKey) {
@@ -189,6 +226,17 @@
     if (isNaN(val) || val < 50) val = 50;
     if (val > 2500) val = 2500;
     currentSettings.radius = val;
+    saveSettings(currentSettings);
+    applySettings();
+    updateUI();
+  }
+
+  function setBiasMeters(meters) {
+    var val = parseFloat(meters);
+    if (isNaN(val) || val < 0.05) val = 0.05;
+    if (val > 2.0) val = 2.0;
+    currentSettings.biasMeters = val;
+    global.wpShadowBiasMeters = val;
     saveSettings(currentSettings);
     applySettings();
     updateUI();
@@ -228,14 +276,21 @@
     if (slider) slider.value = currentSettings.radius;
     if (valDisplay) valDisplay.innerText = currentSettings.radius + ' m';
 
-    // 3. Checkboxes
+    // 3. Deslizador de sesgo / despegue físico
+    var biasVal = Number(currentSettings.biasMeters) || 0.08;
+    var biasSlider = document.getElementById('shadow-bias-slider');
+    var biasDisplay = document.getElementById('bias-val-display');
+    if (biasSlider) biasSlider.value = biasVal;
+    if (biasDisplay) biasDisplay.innerText = biasVal.toFixed(2) + ' m';
+
+    // 4. Checkboxes
     var chkSelf = document.getElementById('ra-shadow-self-toggle');
     if (chkSelf) chkSelf.checked = currentSettings.selfShadows;
 
     var chkTerrain = document.getElementById('ra-shadow-terrain-toggle');
     if (chkTerrain) chkTerrain.checked = currentSettings.terrainShadows;
 
-    // 4. Badge en cabecera
+    // 5. Badge en cabecera
     var badge = document.getElementById('shadow-quality-status-badge');
     if (badge && QUALITY_PRESETS[currentSettings.quality]) {
       badge.innerText = QUALITY_PRESETS[currentSettings.quality].tag + ' (' + currentSettings.radius + 'm)';
@@ -246,7 +301,10 @@
     var container = document.getElementById('ra-floating-settings-popover');
     if (!container) return;
 
-    if (document.getElementById('ra-shadow-settings-card')) return;
+    if (document.getElementById('ra-shadow-settings-card')) {
+      updateUI();
+      return;
+    }
 
     var card = document.createElement('div');
     card.className = 'ui-card';
@@ -328,37 +386,8 @@
     updateUI();
   }
 
-  // Función canónica para configurar el shadowMap desde solar-engine
-  global.wpConfigureShadowMap = function(shadowMap) {
-    if (!shadowMap) return;
-    var preset = QUALITY_PRESETS[currentSettings.quality] || QUALITY_PRESETS.high;
-    var radiusMeters = Number(currentSettings.radius) || 400.0;
-    shadowMap.size = preset.size;
-    shadowMap.softShadows = preset.softShadows;
-    shadowMap.maximumDistance = radiusMeters;
-    shadowMap._fitNearFar = false;
-    shadowMap.fadingEnabled = true;
-    shadowMap.cascadesEnabled = true;
-    shadowMap.numberOfCascades = 4;
-    shadowMap.enabled = true;
-    var depthBias = Math.max(0.00015, (window.wpShadowBiasMeters || 0.05) / radiusMeters);
-    if (shadowMap._primitiveBias) {
-      shadowMap._primitiveBias.polygonOffset = false;
-      shadowMap._primitiveBias.polygonOffsetFactor = 0.0;
-      shadowMap._primitiveBias.polygonOffsetUnits = 0.0;
-      shadowMap._primitiveBias.normalOffset = true;
-      shadowMap._primitiveBias.normalShading = false;
-      shadowMap._primitiveBias.depthBias = depthBias;
-    }
-    if (shadowMap._terrainBias) {
-      shadowMap._terrainBias.polygonOffset = false;
-      shadowMap._terrainBias.polygonOffsetFactor = 0.0;
-      shadowMap._terrainBias.polygonOffsetUnits = 0.0;
-      shadowMap._terrainBias.normalOffset = true;
-      shadowMap._terrainBias.normalShading = false;
-      shadowMap._terrainBias.depthBias = depthBias;
-    }
-  };
+  // Función canónica para configurar el shadowMap desde solar-engine e index.html
+  global.wpConfigureShadowMap = configureCesiumShadowMap;
 
   // API pública
   global.ShadowSettings = {
@@ -366,23 +395,31 @@
     getSettings: function() { return Object.assign({}, currentSettings); },
     setQuality: setQuality,
     setRadius: setRadius,
+    setBiasMeters: setBiasMeters,
     setSelfShadows: setSelfShadows,
     setTerrainShadows: setTerrainShadows,
     apply: applySettings,
+    configureShadowMap: configureCesiumShadowMap,
+    requestSettleFrames: requestShadowSettleFrames,
     updateUI: updateUI,
     init: function() {
       injectShadowControlsUI();
       applySettings();
-    }
+    },
+    injectUI: injectShadowControlsUI
   };
+
+  // Alias de compatibilidad para ui-viewport-controls.js
+  global.RAShadowSettings = global.ShadowSettings;
+  global.raSyncShadowUI = updateUI;
 
   // Inicialización segura tras carga del DOM
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function() {
-      setTimeout(global.ShadowSettings.init, 500);
+      setTimeout(global.ShadowSettings.init, 400);
     });
   } else {
-    setTimeout(global.ShadowSettings.init, 500);
+    setTimeout(global.ShadowSettings.init, 400);
   }
 
 })(typeof window !== 'undefined' ? window : this);

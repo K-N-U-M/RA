@@ -1855,7 +1855,9 @@ function wpSyncCesiumSun(solarPos) {
         }
 
         if (sc.shadowMap) {
-          if (typeof window.wpConfigureShadowMap === "function") {
+          if (typeof window !== "undefined" && window.ShadowSettings && typeof window.ShadowSettings.configureShadowMap === "function") {
+            window.ShadowSettings.configureShadowMap(sc.shadowMap);
+          } else if (typeof window.wpConfigureShadowMap === "function") {
             window.wpConfigureShadowMap(sc.shadowMap);
           } else {
             const shadowRadius = (typeof window !== "undefined" && window.ShadowSettings && typeof window.ShadowSettings.getSettings === "function")
@@ -1864,19 +1866,25 @@ function wpSyncCesiumSun(solarPos) {
             sc.shadowMap.enabled = true;
             sc.shadowMap.size = 4096;
             sc.shadowMap.maximumDistance = shadowRadius;
-            sc.shadowMap._fitNearFar = false;
+            sc.shadowMap._fitNearFar = true;
             sc.shadowMap.fadingEnabled = true;
             sc.shadowMap.softShadows = true;
             if (sc.shadowMap._primitiveBias) {
-              sc.shadowMap._primitiveBias.polygonOffset = false;
+              sc.shadowMap._primitiveBias.polygonOffset = true;
+              sc.shadowMap._primitiveBias.polygonOffsetFactor = 1.1;
+              sc.shadowMap._primitiveBias.polygonOffsetUnits = 3.2;
               sc.shadowMap._primitiveBias.normalOffset = true;
+              sc.shadowMap._primitiveBias.normalOffsetScale = 0.25;
               sc.shadowMap._primitiveBias.normalShading = false;
-              sc.shadowMap._primitiveBias.depthBias = Math.max(0.00015, 0.05 / shadowRadius);
+              sc.shadowMap._primitiveBias.depthBias = Math.max(0.00025, 0.08 / shadowRadius);
             }
           }
           // Transición continua de sombra: desvanecimiento suave a ras de horizonte (0° a 5°)
           const shadowFade = Math.max(0, Math.min(1, alt / 5.0));
-          sc.shadowMap.darkness = 0.50 * shadowFade;
+          const targetDarkness = 0.50 * shadowFade;
+          if (Math.abs((sc.shadowMap.darkness || 0) - targetDarkness) > 0.005) {
+            sc.shadowMap.darkness = targetDarkness;
+          }
         }
         // Color de cielo luminoso: transición suave desde azul cobalto amanecer/ocaso a azul celeste diurno
         sc.backgroundColor = isGoldenHour 
