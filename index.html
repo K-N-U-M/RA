@@ -37,7 +37,9 @@ window.RA_App = window.RA_App || {};
     <script src="js/solar-heatmap.js?v=20261016b"></script>
     <script src="js/config.js?v=20260929b"></script>
     <script src="js/modules-breakdown.js?v=20261020a"></script>
-    <script src="js/financials.js?v=20260929c"></script>
+    <!-- Catálogo Canónico de Iconografía e Ilustraciones SVG Monocromáticas (SSOT) -->
+  <script src="js/svg-catalog.js?v=20261023b"></script>
+  <script src="js/financials.js?v=20261023a"></script>
   <script src="js/viewer.js?v=20261016a"></script>
   <script src="js/solar-engine.js?v=20260929b"></script>
   <script src="js/solar-optimizer.js?v=20261016a"></script>
@@ -2634,6 +2636,39 @@ window.RA_App = window.RA_App || {};
           </div>
         </div>
 
+        <!-- 5. ESTRATEGIA COMERCIAL: DESCUENTO & EXTRAS "QUITA Y PON" (FASE 3) -->
+        <div class="ui-card" style="margin:0;background:rgba(30,41,59,0.5);border:1px solid rgba(245,158,11,0.3);padding:14px;border-radius:8px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;border-bottom:1px solid rgba(255,255,255,0.06);padding-bottom:6px;">
+            <span style="font-size:11px;font-weight:800;color:var(--amber-400);text-transform:uppercase;">
+              <i data-lucide="tag" class="icon-sm"></i> Estrategia Comercial &amp; Descuento
+            </span>
+            <span class="card-tag" style="font-size:10px;background:rgba(245,158,11,0.15);color:var(--amber-400);">CIERRA-VENTAS</span>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+            <label style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:#fff;cursor:pointer;">
+              <input type="checkbox" id="modal-comm-discount-enabled" onchange="raSyncCommercialControls()" style="accent-color:#f59e0b;">
+              <b>Activar Descuento Promocional</b>
+            </label>
+            <div style="display:flex;gap:4px;">
+              <input type="number" id="modal-comm-discount-val" value="5" min="0" step="1" class="field-input" style="width:65px;font-size:11px;text-align:right;" oninput="raSyncCommercialControls()">
+              <select id="modal-comm-discount-type" onchange="raSyncCommercialControls()" style="background:rgba(0,0,0,0.5);border:1px solid var(--border-subtle);color:#fff;font-size:10px;padding:3px;border-radius:4px;">
+                <option value="percent">% Descuento</option>
+                <option value="fixed_eur">€ Directos</option>
+              </select>
+            </div>
+          </div>
+          <div class="field-row" style="margin-bottom:10px;">
+            <input type="text" id="modal-comm-discount-lbl" value="Descuento Especial Firma Rápida" placeholder="Etiqueta comercial (ej. Plan Amigo, Feria Solar...)" class="field-input" style="width:100%;font-size:10px;" oninput="raSyncCommercialControls()">
+          </div>
+
+          <!-- Partidas Opcionales Quita y Pon -->
+          <div style="font-size:10px;font-weight:700;color:var(--sky-400);text-transform:uppercase;margin:8px 0 6px;">Partidas Opcionales (Quita y Pon):</div>
+          <div id="modal-comm-addons-list" style="display:flex;flex-direction:column;gap:5px;font-size:10px;">
+            <!-- Renderizado dinámico de addons -->
+          </div>
+        </div>
+
         <!-- Simulación de Financiación Bancaria -->
         <div class="ui-card" style="margin:0;background:rgba(30,41,59,0.5);border:1px solid rgba(255,255,255,0.08);padding:14px;border-radius:8px;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.06);padding-bottom:6px;">
@@ -2779,6 +2814,14 @@ window.RA_App = window.RA_App || {};
             </select>
           </div>
           <div class="doc-field">
+            <label style="font-size:10px;color:var(--amber-400);font-weight:700;margin-bottom:4px;display:block;">✨ Estilo Maquetación Presupuesto:</label>
+            <select id="modal-cfg-layout-style" onchange="syncModalInputToBranding('cfg-layout-style', this.value)" style="width:100%;background:rgba(0,0,0,0.5);border:1px solid var(--amber-400);color:#FBBF24;font-size:10.5px;padding:6px;border-radius:6px;outline:none;font-weight:bold;">
+              <option value="editorial">1. Editorial Premium (Espacio &amp; Elegancia)</option>
+              <option value="infographic">2. Infografía Comercial (Impacto Rápido &amp; Cierre)</option>
+              <option value="technical">3. Técnico Equilibrado (Partidas Claras)</option>
+            </select>
+          </div>
+          <div class="doc-field">
             <label style="font-size:10px;color:var(--text-slate-300);font-weight:700;margin-bottom:4px;display:block;">Estado Legal Oferta:</label>
             <select id="modal-cfg-offer-status" onchange="syncModalInputToBranding('cfg-offer-status', this.value)" style="width:100%;background:rgba(0,0,0,0.5);border:1px solid var(--border-subtle);color:#fff;font-size:10.5px;padding:6px;border-radius:6px;outline:none;">
               <option value="vinculante">Oferta Vinculante (30 días)</option>
@@ -2912,6 +2955,7 @@ function openCostBreakdownModal() {
 
   // Actualizar métricas
   if (typeof updateBudgetUI === 'function') updateBudgetUI();
+  if (typeof raRenderCommercialAddonsUI === 'function') raRenderCommercialAddonsUI();
   syncCostModalMetrics();
 
   modal.style.display = 'flex';
@@ -2933,6 +2977,69 @@ function syncModalInputToBudget(targetId, val) {
   if (typeof updateBudgetUI === 'function') updateBudgetUI();
   syncCostModalMetrics();
 }
+
+function raRenderCommercialAddonsUI() {
+  if (typeof RAPricing === 'undefined' || typeof RAPricing.getCommercialConfig !== 'function') return;
+  const cfg = RAPricing.getCommercialConfig();
+  const container = document.getElementById('modal-comm-addons-list');
+  if (!container) return;
+
+  const discCheck = document.getElementById('modal-comm-discount-enabled');
+  const discVal = document.getElementById('modal-comm-discount-val');
+  const discType = document.getElementById('modal-comm-discount-type');
+  const discLbl = document.getElementById('modal-comm-discount-lbl');
+
+  if (discCheck) discCheck.checked = !!cfg.discountEnabled;
+  if (discVal) discVal.value = cfg.discountValue || 5;
+  if (discType) discType.value = cfg.discountType || 'percent';
+  if (discLbl) discLbl.value = cfg.discountLabel || 'Descuento Especial';
+
+  const allAddons = (cfg.addons || []).concat(cfg.customAddons || []);
+  let html = '';
+  allAddons.forEach((ad, i) => {
+    html += '<label style="display:flex;align-items:center;justify-content:space-between;background:rgba(0,0,0,0.3);padding:4px 8px;border-radius:4px;cursor:pointer;">' +
+      '<span style="display:flex;align-items:center;gap:6px;color:#e2e8f0;">' +
+        '<input type="checkbox" ' + (ad.enabled ? 'checked' : '') + ' onchange="raToggleAddon(' + i + ', this.checked)" style="accent-color:#10b981;">' +
+        ad.name +
+      '</span>' +
+      '<b style="color:var(--emerald-400);font-family:var(--font-mono);">' + (ad.unitPrice || 0) + ' €</b>' +
+    '</label>';
+  });
+  container.innerHTML = html;
+}
+
+function raToggleAddon(idx, enabled) {
+  if (typeof RAPricing === 'undefined') return;
+  const cfg = RAPricing.getCommercialConfig();
+  if (cfg.addons && cfg.addons[idx]) {
+    cfg.addons[idx].enabled = enabled;
+  }
+  RAPricing.saveCommercialConfig(cfg);
+  if (typeof updateBudgetUI === 'function') updateBudgetUI();
+  if (typeof syncCostModalMetrics === 'function') syncCostModalMetrics();
+}
+
+function raSyncCommercialControls() {
+  if (typeof RAPricing === 'undefined') return;
+  const cfg = RAPricing.getCommercialConfig();
+  const discCheck = document.getElementById('modal-comm-discount-enabled');
+  const discVal = document.getElementById('modal-comm-discount-val');
+  const discType = document.getElementById('modal-comm-discount-type');
+  const discLbl = document.getElementById('modal-comm-discount-lbl');
+
+  if (discCheck) cfg.discountEnabled = discCheck.checked;
+  if (discVal) cfg.discountValue = parseFloat(discVal.value) || 0;
+  if (discType) cfg.discountType = discType.value;
+  if (discLbl) cfg.discountLabel = discLbl.value;
+
+  RAPricing.saveCommercialConfig(cfg);
+  if (typeof updateBudgetUI === 'function') updateBudgetUI();
+  if (typeof syncCostModalMetrics === 'function') syncCostModalMetrics();
+}
+
+window.raRenderCommercialAddonsUI = raRenderCommercialAddonsUI;
+window.raToggleAddon = raToggleAddon;
+window.raSyncCommercialControls = raSyncCommercialControls;
 
 function syncCostModalMetrics() {
   // [SSOT] Escribir las métricas del modal DIRECTAMENTE desde calculateFinancialModel
@@ -3791,16 +3898,25 @@ function wpCompararEscenarios() {
   const fin = (typeof calculateFinancialModel === 'function') ? (function() { try { return calculateFinancialModel(); } catch (e) { return null; } })() : null;
   const ahorroBase = fin ? fin.ahorroLuzAnio1 : 0;
   const kWhBase = scenarios[0].kwh || 1;
-  // instalación fija (igual en todos los escenarios): est + cab + mo + leg del presupuesto
+  // instalación fija (igual en todos los escenarios): est + bat + cab + mo + leg del presupuesto real
   const val = (id, def) => {
     const el = document.getElementById('modal-' + id) || document.getElementById(id);
     return el ? (parseFloat(el.value) || def) : def;
   };
-  const instalacionFija = (fin ? fin.estCost : val('cfg-pres-est', 450)) + val('cfg-pres-cab', 350) + val('cfg-pres-mo', 1400) + val('cfg-pres-leg', 500);
+  const instalacionFija = fin
+    ? (fin.estCost + fin.batCost + fin.cabCost + fin.moCost + fin.legCost)
+    : (val('cfg-pres-est', 450) + val('cfg-pres-bat', 0) + val('cfg-pres-cab', 350) + val('cfg-pres-mo', 1400) + val('cfg-pres-leg', 500));
+  const marginFactor = 1 + ((fin && typeof fin.marginPct === 'number' ? fin.marginPct : 20) / 100.0);
+  const ivaFactor = 1.21;
 
   scenarios.forEach(s => {
     s.ahorro = ahorroBase > 0 ? Math.round(ahorroBase * (s.kwh / kWhBase)) : Math.round(s.kwh * 0.15);
-    s.capex = Math.round(s.capexEq + instalacionFija);
+    // Si es E1 o E3 y disponemos de fin.capexBruto exacto, usarlo directamente para 100% coherencia con Paso 5
+    if (fin && (s.nombre.indexOf('E1') === 0 || s.nombre.indexOf('E3') === 0)) {
+      s.capex = Math.round(fin.capexBruto);
+    } else {
+      s.capex = Math.round((s.capexEq + instalacionFija) * marginFactor * ivaFactor);
+    }
     // flujo 25 años con degradación 0.45%/año; VAN al 4%
     let van = -s.capex, flujo = s.ahorro;
     let npvLow = -0.1, npvHigh = 5.0, tir = null;
@@ -5676,7 +5792,8 @@ function updateBudgetUI() {
     const _dirKwh = (m.autoconsumoDirecto != null ? m.autoconsumoDirecto : 0).toLocaleString('es-ES');
     const _batKwh = (m.bateriaKWh != null ? m.bateriaKWh : 0).toLocaleString('es-ES');
     const _excKwh = (m.excedenteKWh != null ? m.excedenteKWh : 0).toLocaleString('es-ES');
-    const _redKwh = (m.costeRedAnual != null ? m.costeRedAnual : 0).toLocaleString('es-ES');
+    const _redKwhVal = (m.redKWh != null) ? m.redKWh : Math.max(0, Math.round((m.consumoAnual || 0) - (m.autoconsumoDirecto || 0) - (m.bateriaKWh || 0)));
+    const _redKwh = _redKwhVal.toLocaleString('es-ES');
     const _ingExc = (m.ingresoExcedente != null ? m.ingresoExcedente : 0).toLocaleString('es-ES');
     touInfoEl.textContent = _touNom + ' · ' +
       'Autoconsumo directo: ' + _dirKwh + ' kWh · ' +
@@ -6299,6 +6416,7 @@ function triggerSimulationFromButton() {
 }
 
 function clearSimulatedPV() {
+  if (typeof wpCleanupAllSolarPrimitives === 'function') wpCleanupAllSolarPrimitives();
   if (typeof viewer !== "undefined" && viewer && viewer.entities) {
     simulatedPanelEntities.forEach(e => {
       if (e && typeof e === 'object' && e._id) viewer.entities.remove(e);
@@ -8604,7 +8722,7 @@ function evaluateModuleLayouts(roof, module, cfg) {
     const isExplicitAz = (!isEastWest && cfg.moduleAzimuthSur !== undefined && cfg.moduleAzimuthSur !== "" && cfg.moduleAzimuthSur !== "auto");
     const directAzDeg = isExplicitAz ? parseFloat(cfg.moduleAzimuthSur) : 0;
     const directAngleRad = degToRad(directAzDeg);
-    const alignToPlane = (cfg.alignToPlane !== false) && !isCustomMode && !isExplicitAz && !isEastWest && !(isOptimal && (slopeDeg <= flatThreshold || !isSouthQuadrant));
+    const alignToPlane = (cfg.alignToPlane !== false) && !isExplicitAz && !isEastWest && !(isOptimal && (slopeDeg <= flatThreshold || !isSouthQuadrant));
     const anglesToTest = alignToPlane
       ? [0]
       : (isEastWest ? [azAngle] : (isExplicitAz ? [azAngle] : ((coplanar || (isOptimal && slopeDeg > flatThreshold && isSouthQuadrant)) ? uniqueAngles : [azAngle])));
@@ -10677,6 +10795,7 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
         if (typeof WP !== 'undefined' && WP && WP.polylines && WP.polylines[pIdx] && WP.polylines[pIdx].points && WP.polylines[pIdx].points[vIdx]) {
           const poly = WP.polylines[pIdx];
           poly.points[vIdx] = Cesium.Cartesian3.clone(newPos);
+          poly._geometryDirty = true;
           if (typeof wpPolylineArea3D === 'function') poly.area = wpPolylineArea3D(poly.points);
           if (typeof polygonPoints !== 'undefined' && Array.isArray(polygonPoints) && polygonPoints[vIdx]) {
             polygonPoints[vIdx] = Cesium.Cartesian3.clone(newPos);
@@ -12181,57 +12300,44 @@ function getProjectCalcs() {
   const hspAnual = eng.P_dc_kW > 0 ? Math.round(annualKWh / eng.P_dc_kW) : 0;
 
   const co2Ton = (annualKWh * SOLAR_ENGINE_CONSTANTS.CO2_FACTOR_SPAIN) / 1000;
-  const treesEquiv = Math.round(annualKWh * 0.045);
+  const treesEquiv = Math.round(co2Ton * 45);
   const precio_kwh = 0.18;
-  const ahorro_anual = Math.round(annualKWh * precio_kwh);
 
   const _inputVal = (id, def) => {
     const el = document.getElementById('modal-' + id) || document.getElementById(id);
     return el ? (parseFloat(el.value) || def) : def;
   };
 
-  let pres_pan = (_mb && _mb.totalPanelsCost > 0) ? _mb.totalPanelsCost : (numPanels * (cfg.precio || 125)); // [SSOT] fallback único 125 €
-  let pres_est = _inputVal('cfg-pres-est', 450);
-  if (typeof BOMTreeEngine !== 'undefined') {
-    const tree = BOMTreeEngine.computeBOMTree();
-    if (tree && tree.roofs && tree.summary.totalPanels > 0) {
-      let totalEst = 0;
-      tree.roofs.forEach(r => { if (r.structure && r.structure.costEur) totalEst += r.structure.costEur; });
-      if (totalEst > 0) pres_est = totalEst;
-    }
-  }
-
-  let pres_inv = _inputVal('cfg-pres-inv', 1100);
   const _scCat = window.equipmentCatalog;
   const _scCfg = window.solarProjectConfig;
-  if (_scCat && _scCfg && _scCfg.selectedInverterId) {
-    const _invItem = (_scCat.inverters || []).find(i => i.id === _scCfg.selectedInverterId) || ((_scCfg.lastVirtualInverter && _scCfg.lastVirtualInverter.id === _scCfg.selectedInverterId) ? _scCfg.lastVirtualInverter : null);
-    if (_invItem && _invItem.price > 0) {
-      const _invCnt = (_scCfg.autoSizing && _scCfg.autoSizing.inverters && _scCfg.autoSizing.inverters.count) || 1;
-      pres_inv = _invItem.price * _invCnt;
-    }
-  }
-
-  let pres_bat = 0;
   let _batItem = null;
   if (_scCat && _scCfg && _scCfg.selectedBatteryId && _scCfg.selectedBatteryId !== 'bat_none') {
     _batItem = (_scCat.batteries || []).find(b => b.id === _scCfg.selectedBatteryId);
-    if (_batItem && _batItem.price > 0) {
-      const _batCnt = Math.max(1, (_scCfg.autoSizing && _scCfg.autoSizing.batteries && _scCfg.autoSizing.batteries.count) || 1);
-      pres_bat = _batItem.price * _batCnt;
-    }
   }
-  if (pres_bat === 0) pres_bat = _inputVal('cfg-pres-bat', 0);
 
-  const _designCosts = (typeof window !== 'undefined' && window.RAPricing && typeof window.RAPricing.computeDesignCosts === 'function') ? window.RAPricing.computeDesignCosts(numPanels) : null; if (_designCosts) { pres_pan = numPanels * _designCosts.panelPrice; pres_est = _designCosts.estPrice; pres_inv = _designCosts.invPrice; pres_bat = _designCosts.batPrice; } let pres_cab = _designCosts ? _designCosts.cabPrice : _inputVal('cfg-pres-cab', 350);
-  let pres_mo  = _designCosts ? _designCosts.moPrice : _inputVal('cfg-pres-mo', 1400);
-  let pres_mon = 200, pres_leg = _designCosts ? _designCosts.legPrice : _inputVal('cfg-pres-leg', 350);
-
+  const _designCosts = (typeof window !== 'undefined' && window.RAPricing && typeof window.RAPricing.computeDesignCosts === 'function')
+    ? window.RAPricing.computeDesignCosts(numPanels)
+    : null;
   const _effPricing = (typeof window !== 'undefined' && window.RAPricing && typeof window.RAPricing.getEffectivePricing === 'function')
     ? window.RAPricing.getEffectivePricing()
     : null;
-  if (_effPricing && _effPricing.projectFingerprint) {
-    if (typeof _effPricing.panelPrice === 'number' && _effPricing.panelPrice > 0) pres_pan = numPanels * _effPricing.panelPrice;
+  const _hasOverride = !!(_effPricing && _effPricing.projectFingerprint);
+
+  let pres_pan = _designCosts ? _designCosts.panelTotalCost : ((_mb && _mb.totalPanelsCost > 0) ? _mb.totalPanelsCost : (numPanels * (cfg.precio || 125)));
+  let pres_est = _designCosts ? _designCosts.estPrice : _inputVal('cfg-pres-est', 450);
+  let pres_inv = _designCosts ? _designCosts.invPrice : _inputVal('cfg-pres-inv', 1100);
+  let pres_bat = _designCosts ? _designCosts.batPrice : _inputVal('cfg-pres-bat', 0);
+  let pres_cab = _designCosts ? _designCosts.cabPrice : _inputVal('cfg-pres-cab', 350);
+  let pres_mo  = _designCosts ? _designCosts.moPrice : _inputVal('cfg-pres-mo', 1400);
+  let pres_mon = 0; // Integrado en el inversor / sistema de conversión (sin partida fantasma)
+  let pres_leg = _designCosts ? _designCosts.legPrice : _inputVal('cfg-pres-leg', 350);
+
+  if (_hasOverride) {
+    if (typeof _effPricing.panelPrice === 'number' && _effPricing.panelPrice > 0) {
+      if (!(_mb && _mb.isMultiModule && _designCosts && Math.abs(_effPricing.panelPrice - _designCosts.panelPrice) < 0.05)) {
+        pres_pan = Math.round(numPanels * _effPricing.panelPrice);
+      }
+    }
     if (typeof _effPricing.estPrice === 'number' && _effPricing.estPrice >= 0) pres_est = _effPricing.estPrice;
     if (typeof _effPricing.invPrice === 'number' && _effPricing.invPrice >= 0) pres_inv = _effPricing.invPrice;
     if (typeof _effPricing.batPrice === 'number' && _effPricing.batPrice > 0) {
@@ -12243,10 +12349,17 @@ function getProjectCalcs() {
     if (typeof _effPricing.moPrice === 'number' && _effPricing.moPrice >= 0) pres_mo = _effPricing.moPrice;
     if (typeof _effPricing.legPrice === 'number' && _effPricing.legPrice >= 0) pres_leg = _effPricing.legPrice;
   }
-  const subtotal = pres_pan + pres_est + pres_inv + pres_bat + pres_cab + pres_mo + pres_mon + pres_leg;
-  const iva = subtotal * 0.21;
+
+  const _directCost = Math.round(pres_pan + pres_est + pres_inv + pres_bat + pres_cab + pres_mo + pres_leg);
+  const _marginPct = (_effPricing && typeof _effPricing.marginPct === 'number') ? _effPricing.marginPct : 20;
+  const subtotal = Math.round(_directCost * (1 + (_marginPct / 100.0)));
+  const iva = Math.round(subtotal * 0.21);
   const total_pres = subtotal + iva;
-  const payback = ahorro_anual > 0 ? (total_pres / ahorro_anual).toFixed(1) : '—';
+  const _cachedFin = (typeof window !== 'undefined' && window._lastFinModel && window._lastFinModel.numPanels === numPanels) ? window._lastFinModel : null;
+  const ahorro_anual = (_cachedFin && _cachedFin.ahorroLuzAnio1 > 0) ? Math.round(_cachedFin.ahorroLuzAnio1) : Math.round(annualKWh * 0.14);
+  const payback = (_cachedFin && typeof _cachedFin.paybackYears === 'number' && isFinite(_cachedFin.paybackYears))
+    ? _cachedFin.paybackYears.toFixed(1)
+    : (ahorro_anual > 0 ? (total_pres / ahorro_anual).toFixed(1) : '—');
 
   // Potencia AC nominal total del inversor seleccionado (para clipping en los motores de energía)
   let pAcNominalW = 0;
@@ -12383,7 +12496,7 @@ function getProjectCalcs() {
     I_iga: eng.I_iga,
     dif_amp: eng.dif_amp,
     spdType: eng.spdType,
-    R_tierra: 800,
+    R_tierra: 15,
     PR: eng.PR,
     lossTree: eng.lossTree,
     annualKWh,
@@ -12407,10 +12520,14 @@ function getProjectCalcs() {
     pres_mo,
     pres_mon,
     pres_leg,
+    directCost: _directCost,
+    marginPct: _marginPct,
     subtotal,
     iva,
     total_pres,
+    total: total_pres,
     payback,
+    roi: payback,
     modalTexto: (typeof getSelectedModalidadText === 'function') ? getSelectedModalidadText() : 'Autoconsumo individual con excedentes acogido a compensación simplificada (RD 244/2019)',
       // 📏 Mediciones milimétricas reales obtenidas directamente de Cesium 3D
     L_dc: (window.inverterEquipmentState && window.inverterEquipmentState.L_dc_measured) ? window.inverterEquipmentState.L_dc_measured : (eng.L_dc || 25.0),
@@ -13989,12 +14106,20 @@ function getClusterOrderedPanels(panels) {
 // [MODULARIZACION FASE 2 - BLOQUE 2.3] togglePhotorealisticPanelsTexture y toggleLabelsVisibility delegados canónicamente a js/ui-viewport-controls.js
 
 window._wpFastRenderDebounceTimer = null;
+let _raRenderGenerationId = 0;
+
 function wpFastRenderSimulatedPanels(immediate = false, targetPolyIdx = null) {
+  if (window._wpFastRenderDebounceTimer) {
+    clearTimeout(window._wpFastRenderDebounceTimer);
+    window._wpFastRenderDebounceTimer = null;
+  }
   if (immediate !== true) {
-    if (window._wpFastRenderDebounceTimer) clearTimeout(window._wpFastRenderDebounceTimer);
     // Devuelve promesa: resuelve cuando el layout completo (faldones + cables) está renderizado
     return new Promise(resolve => {
-      window._wpFastRenderDebounceTimer = setTimeout(() => { resolve(wpFastRenderSimulatedPanels(true, targetPolyIdx)); }, 250);
+      window._wpFastRenderDebounceTimer = setTimeout(() => {
+        window._wpFastRenderDebounceTimer = null;
+        resolve(wpFastRenderSimulatedPanels(true, targetPolyIdx));
+      }, 250);
     });
   }
   return wpFastRenderSimulatedPanelsAsync(true, targetPolyIdx);
@@ -14027,9 +14152,189 @@ function wpCleanupPanelNumberLabels() {
 }
 window.wpCleanupPanelNumberLabels = wpCleanupPanelNumberLabels;
 
+// ── 🛡️ LIMPIEZA CENTRALIZADA DEFENSIVA DE TODAS LAS PRIMITIVAS GPU (PANELES, SOPORTES, PÉRGOLAS, CABLES) ───────────────
+function wpCleanupAllSolarPrimitives(targetPolyIdx = null) {
+  if (typeof viewer === "undefined" || !viewer) return;
+  const isInc = (typeof targetPolyIdx === 'number' && targetPolyIdx >= 0);
+
+  // 1. Limpieza de etiquetas numéricas
+  wpCleanupPanelNumberLabels();
+
+  // 2. Limpieza de entidades Cesium
+  if (viewer.entities) {
+    if (Array.isArray(simulatedPanelEntities)) {
+      if (isInc) {
+        simulatedPanelEntities = simulatedPanelEntities.filter(e => {
+          if (e && e.pData && e.pData.polyIdx === targetPolyIdx) {
+            if (e._id) { try { viewer.entities.remove(e); } catch(err) {} }
+            return false;
+          }
+          return true;
+        });
+      } else {
+        simulatedPanelEntities.forEach(e => {
+          if (e && typeof e === 'object' && e._id) try { viewer.entities.remove(e); } catch(err) {}
+        });
+        simulatedPanelEntities = [];
+      }
+    }
+
+    if (!isInc) {
+      if (window.simulatedSupportEntities && Array.isArray(window.simulatedSupportEntities)) {
+        window.simulatedSupportEntities.forEach(e => { try { viewer.entities.remove(e); } catch(err) {} });
+        window.simulatedSupportEntities = [];
+      }
+      if (window._panelNumberEntities && Array.isArray(window._panelNumberEntities)) {
+        window._panelNumberEntities.forEach(e => { try { viewer.entities.remove(e); } catch(err) {} });
+        window._panelNumberEntities = [];
+      }
+      if (Array.isArray(simulatedStringEntities)) {
+        simulatedStringEntities.forEach(e => {
+          if (e && typeof e === 'object' && e._id) try { viewer.entities.remove(e); } catch(err) {}
+        });
+        simulatedStringEntities = [];
+      }
+    }
+  }
+
+  // 3. Purgar referencias en Maps y variables globales
+  if (window._faldonPanelsPrimitives && viewer.scene && viewer.scene.primitives) {
+    if (isInc) {
+      const oldPrim = window._faldonPanelsPrimitives.get(targetPolyIdx);
+      if (oldPrim) {
+        try {
+          if (oldPrim.shadows !== undefined && typeof Cesium !== 'undefined' && Cesium.ShadowMode) {
+            oldPrim.shadows = Cesium.ShadowMode.DISABLED;
+          }
+          viewer.scene.primitives.remove(oldPrim);
+        } catch(e) {}
+        window._faldonPanelsPrimitives.delete(targetPolyIdx);
+      }
+    } else {
+      window._faldonPanelsPrimitives.forEach(p => {
+        if (p) {
+          try {
+            if (p.shadows !== undefined && typeof Cesium !== 'undefined' && Cesium.ShadowMode) {
+              p.shadows = Cesium.ShadowMode.DISABLED;
+            }
+            viewer.scene.primitives.remove(p);
+          } catch(e) {}
+        }
+      });
+      window._faldonPanelsPrimitives.clear();
+    }
+  }
+
+  if (window._faldonSupportCollections && viewer.scene && viewer.scene.primitives) {
+    if (isInc) {
+      const oldSup = window._faldonSupportCollections.get(targetPolyIdx);
+      if (oldSup) {
+        try { viewer.scene.primitives.remove(oldSup); } catch(e) {}
+        window._faldonSupportCollections.delete(targetPolyIdx);
+      }
+    } else {
+      window._faldonSupportCollections.forEach(sc => {
+        if (sc) { try { viewer.scene.primitives.remove(sc); } catch(e) {} }
+      });
+      window._faldonSupportCollections.clear();
+    }
+  }
+
+  if (window._faldonPergolaPrimitives && viewer.scene && viewer.scene.primitives) {
+    if (isInc) {
+      const oldPerg = window._faldonPergolaPrimitives.get(targetPolyIdx);
+      if (oldPerg) {
+        try { viewer.scene.primitives.remove(oldPerg); } catch(e) {}
+        window._faldonPergolaPrimitives.delete(targetPolyIdx);
+      }
+    } else {
+      window._faldonPergolaPrimitives.forEach(p => {
+        if (p) { try { viewer.scene.primitives.remove(p); } catch(e) {} }
+      });
+      window._faldonPergolaPrimitives.clear();
+    }
+  }
+
+  if (!isInc) {
+    if (window.simulatedPanelsPrimitive && viewer.scene && viewer.scene.primitives) {
+      try {
+        if (window.simulatedPanelsPrimitive.shadows !== undefined && typeof Cesium !== 'undefined' && Cesium.ShadowMode) {
+          window.simulatedPanelsPrimitive.shadows = Cesium.ShadowMode.DISABLED;
+        }
+        viewer.scene.primitives.remove(window.simulatedPanelsPrimitive);
+      } catch(e) {}
+      window.simulatedPanelsPrimitive = null;
+    }
+    if (window.simulatedSupportsPolylineCollection && viewer.scene && viewer.scene.primitives) {
+      try { viewer.scene.primitives.remove(window.simulatedSupportsPolylineCollection); } catch(e) {}
+      window.simulatedSupportsPolylineCollection = null;
+    }
+    if (window.simulatedStringsPolylineCollection && viewer.scene && viewer.scene.primitives) {
+      try { viewer.scene.primitives.remove(window.simulatedStringsPolylineCollection); } catch(e) {}
+      window.simulatedStringsPolylineCollection = null;
+    }
+  } else {
+    if (targetPolyIdx === 0 && window.simulatedPanelsPrimitive && viewer.scene && viewer.scene.primitives) {
+      try {
+        viewer.scene.primitives.remove(window.simulatedPanelsPrimitive);
+      } catch(e) {}
+      window.simulatedPanelsPrimitive = null;
+    }
+    if (window.simulatedStringsPolylineCollection && viewer.scene && viewer.scene.primitives) {
+      try { viewer.scene.primitives.remove(window.simulatedStringsPolylineCollection); } catch(e) {}
+      window.simulatedStringsPolylineCollection = null;
+    }
+  }
+
+  if (typeof WP !== 'undefined' && WP && WP.polylines) {
+    if (isInc && WP.polylines[targetPolyIdx]) {
+      if (WP.polylines[targetPolyIdx].panelsPrimitive && viewer.scene && viewer.scene.primitives) {
+        try { viewer.scene.primitives.remove(WP.polylines[targetPolyIdx].panelsPrimitive); } catch(e) {}
+      }
+      WP.polylines[targetPolyIdx].panelsPrimitive = null;
+    } else if (!isInc) {
+      WP.polylines.forEach(pl => {
+        if (pl && pl.panelsPrimitive && viewer.scene && viewer.scene.primitives) {
+          try { viewer.scene.primitives.remove(pl.panelsPrimitive); } catch(e) {}
+        }
+        if (pl) pl.panelsPrimitive = null;
+      });
+    }
+  }
+
+  // 4. 🚀 ESCANEO DEFENSIVO INVERSO EN viewer.scene.primitives:
+  // Purga garantizada de cualquier primitiva huérfana en GPU
+  if (viewer.scene && viewer.scene.primitives) {
+    try {
+      const prims = viewer.scene.primitives;
+      for (let pi = prims.length - 1; pi >= 0; pi--) {
+        const p = prims.get(pi);
+        if (!p) continue;
+        const matchFaldon = (!isInc || p._raFaldonIdx === targetPolyIdx);
+        if ((p._isRAPanelPrimitive && matchFaldon) ||
+            (p._isRASupportPrimitive && matchFaldon) ||
+            (p._isRAPergolaPrimitive && matchFaldon) ||
+            (p._isRAStringWirePrimitive && !isInc)) {
+          try {
+            if (p.shadows !== undefined && typeof Cesium !== 'undefined' && Cesium.ShadowMode) {
+              p.shadows = Cesium.ShadowMode.DISABLED;
+            }
+            prims.remove(p);
+            if (typeof p.destroy === 'function' && !p.isDestroyed()) {
+              p.destroy();
+            }
+          } catch (_) {}
+        }
+      }
+    } catch(ePrims) {}
+  }
+}
+window.wpCleanupAllSolarPrimitives = wpCleanupAllSolarPrimitives;
+
 async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx = null) {
   stopSimulationTimeouts();
   isSimulationRunning = false;
+  const currentRenderId = ++_raRenderGenerationId;
 
   const isIncrementalTarget = (typeof targetPolyIdx === 'number' && targetPolyIdx >= 0);
   window._faldonPanelsPrimitives = window._faldonPanelsPrimitives || new Map();
@@ -14059,123 +14364,8 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
     return;
   }
 
-  // 1. Purgar primitivas GPU previas (solo si el gating autorizó continuar)
-  if (typeof viewer !== "undefined" && viewer) {
-    wpCleanupPanelNumberLabels();
-    if (isIncrementalTarget) {
-      // 🚀 INCREMENTAL: Solo purgar entidades y primitivas del faldón objetivo
-      if (viewer.entities && Array.isArray(simulatedPanelEntities)) {
-        simulatedPanelEntities = simulatedPanelEntities.filter(e => {
-          if (e && e.pData && e.pData.polyIdx === targetPolyIdx) {
-            if (e._id) { try { viewer.entities.remove(e); } catch(err) {} }
-            return false;
-          }
-          return true;
-        });
-      }
-      let oldPrim = window._faldonPanelsPrimitives.get(targetPolyIdx);
-      if (!oldPrim && targetPolyIdx === 0 && window.simulatedPanelsPrimitive) {
-        oldPrim = window.simulatedPanelsPrimitive;
-      }
-      if (oldPrim && viewer.scene && viewer.scene.primitives) {
-        try {
-          oldPrim.shadows = (typeof Cesium !== "undefined" && Cesium.ShadowMode) ? Cesium.ShadowMode.DISABLED : 0;
-          viewer.scene.primitives.remove(oldPrim);
-        } catch(ePrim) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(ePrim, 'Entidad/Primitiva Cesium'); }
-        window._faldonPanelsPrimitives.delete(targetPolyIdx);
-        if (window.simulatedPanelsPrimitive === oldPrim) {
-          window.simulatedPanelsPrimitive = null;
-        }
-      }
-      if (typeof WP !== 'undefined' && WP && WP.polylines && WP.polylines[targetPolyIdx]) {
-        WP.polylines[targetPolyIdx].panelsPrimitive = null;
-      }
-      const oldSup = window._faldonSupportCollections.get(targetPolyIdx);
-      if (oldSup && viewer.scene && viewer.scene.primitives) {
-        try { viewer.scene.primitives.remove(oldSup); } catch(eSup) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eSup, 'Entidad/Primitiva Cesium'); }
-        window._faldonSupportCollections.delete(targetPolyIdx);
-      }
-      const oldPerg = window._faldonPergolaPrimitives.get(targetPolyIdx);
-      if (oldPerg && viewer.scene && viewer.scene.primitives) {
-        try { viewer.scene.primitives.remove(oldPerg); } catch(ePerg) {}
-        window._faldonPergolaPrimitives.delete(targetPolyIdx);
-      }
-    } else {
-      // FULL RE-RENDER: Purgar todas las primitivas y colecciones
-      if (viewer.entities && Array.isArray(simulatedPanelEntities)) {
-        simulatedPanelEntities.forEach(e => {
-          if (e && typeof e === 'object' && e._id) try { viewer.entities.remove(e); } catch(err) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(err, 'Entidad/Primitiva Cesium'); }
-        });
-      }
-      simulatedPanelEntities = [];
-
-      if (window.simulatedSupportEntities && Array.isArray(window.simulatedSupportEntities)) {
-        window.simulatedSupportEntities.forEach(e => { try { viewer.entities.remove(e); } catch(err) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(err, 'Entidad/Primitiva Cesium'); } });
-      }
-      window.simulatedSupportEntities = [];
-
-      if (window._faldonPanelsPrimitives && viewer.scene && viewer.scene.primitives) {
-        window._faldonPanelsPrimitives.forEach(p => {
-          if (p) {
-            try {
-              p.shadows = (typeof Cesium !== "undefined" && Cesium.ShadowMode) ? Cesium.ShadowMode.DISABLED : 0;
-              viewer.scene.primitives.remove(p);
-            } catch(e) {}
-          }
-        });
-        window._faldonPanelsPrimitives.clear();
-      }
-
-      if (window.simulatedPanelsPrimitive && viewer.scene && viewer.scene.primitives) {
-        try {
-          window.simulatedPanelsPrimitive.shadows = (typeof Cesium !== "undefined" && Cesium.ShadowMode) ? Cesium.ShadowMode.DISABLED : 0;
-          viewer.scene.primitives.remove(window.simulatedPanelsPrimitive);
-        } catch(ePrim) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(ePrim, 'Entidad/Primitiva Cesium'); }
-        window.simulatedPanelsPrimitive = null;
-      }
-
-      if (window._faldonSupportCollections && viewer.scene && viewer.scene.primitives) {
-        window._faldonSupportCollections.forEach(sc => {
-          if (sc) { try { viewer.scene.primitives.remove(sc); } catch(e) {} }
-        });
-        window._faldonSupportCollections.clear();
-      }
-
-      if (window._faldonPergolaPrimitives && viewer.scene && viewer.scene.primitives) {
-        window._faldonPergolaPrimitives.forEach(p => {
-          if (p) { try { viewer.scene.primitives.remove(p); } catch(e) {} }
-        });
-        window._faldonPergolaPrimitives.clear();
-      }
-
-      if (window.simulatedSupportsPolylineCollection && viewer.scene && viewer.scene.primitives) {
-        try { viewer.scene.primitives.remove(window.simulatedSupportsPolylineCollection); } catch(eSupCol) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eSupCol, 'Entidad/Primitiva Cesium'); }
-        window.simulatedSupportsPolylineCollection = null;
-      }
-
-      if (window.simulatedStringsPolylineCollection && viewer.scene && viewer.scene.primitives) {
-        try { viewer.scene.primitives.remove(window.simulatedStringsPolylineCollection); } catch(eWires) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eWires, 'Entidad/Primitiva Cesium'); }
-        window.simulatedStringsPolylineCollection = null;
-      }
-
-      if (window._panelNumberLabelCollection && viewer.scene && viewer.scene.primitives) {
-        try { viewer.scene.primitives.remove(window._panelNumberLabelCollection); } catch(eLbl) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eLbl, 'Entidad/Primitiva Cesium'); }
-        window._panelNumberLabelCollection = null;
-      }
-
-      if (window._panelNumberEntities && Array.isArray(window._panelNumberEntities)) {
-        window._panelNumberEntities.forEach(e => { try { viewer.entities.remove(e); } catch(err) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(err, 'Entidad/Primitiva Cesium'); } });
-        window._panelNumberEntities = [];
-      }
-
-      if (Array.isArray(simulatedStringEntities)) {
-        simulatedStringEntities.forEach(e => {
-          if (viewer.entities && e && e._id) try { viewer.entities.remove(e); } catch(err) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(err, 'Entidad/Primitiva Cesium'); }
-        });
-        simulatedStringEntities = [];
-      }
-    }
-  }
+  // 1. Purgar primitivas GPU previas mediante limpiador defensivo unificado
+  wpCleanupAllSolarPrimitives(isIncrementalTarget ? targetPolyIdx : null);
 
   // [gating desplazado al inicio de la función — ver bloque AAA arriba]
 
@@ -14225,6 +14415,7 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
     if (poly.visible === false) continue;
     // Cesión entre faldones: el navegador respira y las cascadas de sombra se reajustan
     if (polyIdx > 0) await new Promise(r => setTimeout(r, 0));
+    if (currentRenderId !== _raRenderGenerationId) return;
     const prevPanelsMap = (existingRenderedPanels.length > 0)
       ? existingRenderedPanels.filter(op => op && (op.polyIdx === polyIdx || (!op.polyIdx && polyIdx === 0)))
       : ((poly.roofInfo && poly.roofInfo.panels) ? poly.roofInfo.panels : []);
@@ -14290,7 +14481,10 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
             p.requiresMLPE = src.requiresMLPE;
             p.isUnviable = src.isUnviable;
           }
-          if (prev && (prev.isManual || (prev.rawPanel && prev.rawPanel.isManual))) {
+          if (poly._geometryDirty) {
+          // Geometría de cubierta editada: no arrastrar coordenadas manuales obsoletas del faldón viejo
+          delete poly._geometryDirty;
+        } else if (prev && (prev.isManual || (prev.rawPanel && prev.rawPanel.isManual))) {
             p.isManual = true;
             p.gridA = undefined;
             p.gridB = undefined;
@@ -14785,7 +14979,12 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
           asynchronous: false,
           shadows: (typeof Cesium !== 'undefined' && Cesium.ShadowMode ? Cesium.ShadowMode.ENABLED : 1)
         });
+        if (currentRenderId !== _raRenderGenerationId) return;
+        primitive._isRAPanelPrimitive = true;
+        primitive._raFaldonIdx = fIdx;
         const fPrim = viewer.scene.primitives.add(primitive);
+        fPrim._isRAPanelPrimitive = true;
+        fPrim._raFaldonIdx = fIdx;
         window._faldonPanelsPrimitives.set(fIdx, fPrim);
         if (hasPolys && WP.polylines[fIdx]) {
           WP.polylines[fIdx].panelsPrimitive = fPrim;
@@ -14895,7 +15094,12 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
             asynchronous: false,
             shadows: (typeof Cesium !== 'undefined' && Cesium.ShadowMode ? Cesium.ShadowMode.ENABLED : 1)
           });
+          if (currentRenderId !== _raRenderGenerationId) return;
+          primitive._isRAPanelPrimitive = true;
+          primitive._raFaldonIdx = fIdx;
           const fPrim = viewer.scene.primitives.add(primitive);
+          fPrim._isRAPanelPrimitive = true;
+          fPrim._raFaldonIdx = fIdx;
           window._faldonPanelsPrimitives.set(fIdx, fPrim);
           if (hasPolys && WP.polylines[fIdx]) {
             WP.polylines[fIdx].panelsPrimitive = fPrim;
@@ -15088,7 +15292,11 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
               }
               simulatedStringEntities.push({ id: 'pv_string_wire_' + w, positions: wire.positions });
             }
-          window.simulatedStringsPolylineCollection = viewer.scene.primitives.add(wireCol);
+          if (currentRenderId !== _raRenderGenerationId) return;
+          wireCol._isRAStringWirePrimitive = true;
+          const wPrim = viewer.scene.primitives.add(wireCol);
+          wPrim._isRAStringWirePrimitive = true;
+          window.simulatedStringsPolylineCollection = wPrim;
           wiresBatched = true;
         } catch(eWireCol) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eWireCol, 'Entidad/Primitiva Cesium'); }
       }
@@ -15451,12 +15659,17 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
           }
         });
         if (totalLinesAdded > 0) {
+          if (currentRenderId !== _raRenderGenerationId) return;
+          supportCol._isRASupportPrimitive = true;
+          supportCol._raFaldonIdx = polyIdx;
           const sPrim = viewer.scene.primitives.add(supportCol);
+          sPrim._isRASupportPrimitive = true;
+          sPrim._raFaldonIdx = polyIdx;
           window._faldonSupportCollections.set(polyIdx, sPrim);
           if (polyIdx === 0 || !window.simulatedSupportsPolylineCollection) {
             window.simulatedSupportsPolylineCollection = sPrim;
           }
-          console.warn(`[RA-SOPORTES] GPU Primitive faldón ${polyIdx}: ${totalLinesAdded} líneas de soporte renderizadas.`);
+          console.log(`[RA-SOPORTES] GPU Primitive faldón ${polyIdx}: ${totalLinesAdded} líneas de soporte renderizadas.`);
         }
 
         // [AAA PÉRGOLA CILINDROS 3D] Pilares volumétricos que proyectan sombras reales en Cesium
@@ -15516,8 +15729,13 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
                 asynchronous: false,
                 shadows: Cesium.ShadowMode.ENABLED
               });
-              viewer.scene.primitives.add(pergolaPillarsPrim);
-              window._faldonPergolaPrimitives.set(polyIdx, pergolaPillarsPrim);
+              if (currentRenderId !== _raRenderGenerationId) return;
+              pergolaPillarsPrim._isRAPergolaPrimitive = true;
+              pergolaPillarsPrim._raFaldonIdx = polyIdx;
+              const pPrim = viewer.scene.primitives.add(pergolaPillarsPrim);
+              pPrim._isRAPergolaPrimitive = true;
+              pPrim._raFaldonIdx = polyIdx;
+              window._faldonPergolaPrimitives.set(polyIdx, pPrim);
               console.warn(`[RA-PERGOLA] 3D Postes volumétricos faldón ${polyIdx}: ${cylInstances.length} pilares cilíndricos con sombras activadas.`);
             }
           } catch (eCyl) {

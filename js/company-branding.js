@@ -120,6 +120,7 @@
     phone: '',
     web: '',
     theme: 'emerald',
+    layoutStyle: 'editorial', // editorial | infographic | technical
     status: 'vinculante',
     font: 'inter',
     finTin: '5.95',
@@ -253,6 +254,7 @@
         phone: (getVal('cfg-company-phone') || _currentBranding.phone || '').trim(),
         web: (getVal('cfg-company-web') || _currentBranding.web || '').trim(),
         theme: getVal('cfg-proposal-theme') || _currentBranding.theme || 'emerald',
+        layoutStyle: getVal('cfg-layout-style') || _currentBranding.layoutStyle || 'editorial',
         status: getVal('cfg-offer-status') || _currentBranding.status || 'vinculante',
         font: getVal('cfg-doc-font') || _currentBranding.font || 'inter',
         finTin: getVal('cfg-fin-tin') || _currentBranding.finTin || '5.95',
@@ -389,6 +391,7 @@
     setModalVal('cfg-company-phone', b.phone);
     setModalVal('cfg-company-web', b.web);
     setModalVal('cfg-proposal-theme', b.theme);
+    setModalVal('cfg-layout-style', b.layoutStyle || 'editorial');
     setModalVal('cfg-offer-status', b.status);
     setModalVal('cfg-war-power', b.warPower);
     setModalVal('cfg-war-mod', b.warMod);

@@ -646,8 +646,10 @@ Normas estrictas:
 
     const costeEnergiaNetoAnual = Math.max(costeEnergiaRedAnual - ingresoCompensacionExcedenteAnual, 0);
     const subtotalConSolar = costeTerminoFijoAnual + costeEnergiaNetoAnual;
-    const ivaConSolar = subtotalConSolar * 0.21;
-    const gastoAnualConSolarEUR = subtotalConSolar + ivaConSolar;
+    const ieFactor = (bill.impuestoElectricoEUR > 0 || bill.impuestoElectricoPct > 0) ? 1.0511269632 : 1.0;
+    const baseIvaConSolar = subtotalConSolar * ieFactor;
+    const ivaConSolar = baseIvaConSolar * 0.21;
+    const gastoAnualConSolarEUR = baseIvaConSolar + ivaConSolar;
     const gastoMensualConSolarEUR = gastoAnualConSolarEUR / 12.0;
 
     const ahorroAnualEUR = Math.max(gastoAnualActualEUR - gastoAnualConSolarEUR, 0);

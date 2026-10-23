@@ -3068,6 +3068,7 @@ function wpApplySelectedVtxCoords() {
 
   poly.points[WP.selectedVtxIdx] = new Cesium.Cartesian3(x, y, z);
   poly.area = wpPolylineArea3D(poly.points);
+  poly._geometryDirty = true;
   polygonPoints = poly.points.map(p => Cesium.Cartesian3.clone(p));
 
   if (typeof roofPanelsCache !== 'undefined' && roofPanelsCache) {
@@ -3104,6 +3105,7 @@ function wpDeleteSelectedVertexFromList() {
   const deletedIdx = WP.selectedVtxIdx;
   poly.points.splice(deletedIdx, 1);
   poly.area = wpPolylineArea3D(poly.points);
+  poly._geometryDirty = true;
   polygonPoints = poly.points.map(p => Cesium.Cartesian3.clone(p));
 
   WP.selectedVtxIdx = Math.min(deletedIdx, poly.points.length - 1);
@@ -3137,6 +3139,7 @@ function wpInsertPointInSelectedPoly() {
 
   poly.points.splice(curIdx + 1, 0, midPoint);
   poly.area = wpPolylineArea3D(poly.points);
+  poly._geometryDirty = true;
   polygonPoints = poly.points.map(p => Cesium.Cartesian3.clone(p));
 
   wpSelectVertex(curIdx + 1);
@@ -4384,7 +4387,7 @@ function wpApplyPanelArrangement(polyIdx, mode) {
     const structSel = document.getElementById('faldon-structure-select');
     if (structSel) structSel.value = poly.structureType;
   } else if (mode === 'custom') {
-    poly.alignToPlane = false; // Opción 1: Libertad total de orientación en modo manual
+    if (poly.alignToPlane === undefined) poly.alignToPlane = true;
     if (!poly.estructura) poly.estructura = { tipo: 'balasto', clearance: 0.20 };
     if (poly.estructura.tipo === 'coplanar') poly.estructura.tipo = 'balasto';
     if (!poly.structureType || !poly.structureType.includes('triangle')) poly.structureType = 'triangles_30';

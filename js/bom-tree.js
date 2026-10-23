@@ -59,6 +59,8 @@
           totalMicroinverters: 0,
           totalInverters: 0,
           subtotalEur: 0,
+          pecDirectCostEur: 0,
+          municipalTaxesEur: 0,
           maxLoadKgM2: 0,
           loadWarning: false
         },
@@ -66,12 +68,15 @@
         electrical: {
           inverters: [],
           microinverters: [],
+          optimizers: null,
           batteries: [],
           dcPanels: [],
           acPanels: [],
           cables: [],
           grounding: [],
-          safetySignage: null
+          safetySignage: null,
+          cablesTotalEur: 0,
+          panelsProtTotalEur: 0
         },
         obstacles: [],
         laborAndSoftCosts: []
@@ -161,10 +166,13 @@
           const modSpec = moduleMap.get(mId) || defaultMod;
           roofKwp += (modSpec.wp || 450) / 1000.0;
           roofPanelsWeightKg += (modSpec.weightKg || 25.0);
-          if (p.hasOptimizer || p.optimizerModelId) {
+          if ((p.hasOptimizer || p.hasMLPE || p.optimizerModelId) && projectConfig.selectedTopology !== 'microinverter') {
             optimizersInRoof++;
           }
         });
+        if (optimizersInRoof === 0 && projectConfig.selectedTopology === 'optimizer') {
+          optimizersInRoof = panels.length;
+        }
 
         // Estructura y tornillería paramétrica según mercado comercial
         const structWeightMap = {
@@ -418,27 +426,52 @@
       const hasElectricalObjects = typeof window !== 'undefined' && window.inverterEquipmentState != null;
       const isEngineeringStep = (currentStep >= 4 || hasElectricalObjects);
       if (tree.summary.totalPanels > 0) {
-        // ── 4. INVERSORES DE POTENCIA ──────────────────────────────────────────
-        const invCount = (projectConfig.autoSizing && projectConfig.autoSizing.inverters && projectConfig.autoSizing.inverters.count) || 1;
-        const invId = projectConfig.selectedInverterId || (catalog.inverters && catalog.inverters[0] ? catalog.inverters[0].id : null);
-        const invSpec = (catalog.inverters && catalog.inverters.find(i => i.id === invId))
-          || ((projectConfig.lastVirtualInverter && projectConfig.lastVirtualInverter.id === invId) ? projectConfig.lastVirtualInverter : null)
-          || (catalog.inverters ? catalog.inverters[0] : { kw: 10, price: 1750, brand: 'Inversor' });
-
-        if (invSpec) {
-          const totalInvCost = invCount * (invSpec.price || 1500);
-          tree.summary.totalInverters = invCount;
-          tree.summary.totalAcKw = invCount * (invSpec.kw || 10.0);
-          tree.summary.subtotalEur += totalInvCost;
-          tree.electrical.inverters.push({
-            id: invSpec.id,
-            brand: invSpec.brand,
-            model: invSpec.model,
-            kwNominal: invSpec.kw,
-            count: invCount,
-            unitPrice: invSpec.price,
-            totalPriceEur: parseFloat(totalInvCost.toFixed(2))
+        // ── 4. INVERSORES DE POTENCIA O MICROINVERSORES (SEGÚN TOPOLOGÍA) ─────
+        const isMicroTopology = (projectConfig.selectedTopology === 'microinverter');
+        if (isMicroTopology) {
+          const miId = projectConfig.selectedMicroinverterId || (catalog.microinverters && catalog.microinverters[0] ? catalog.microinverters[0].id : null);
+          const miSpec = (catalog.microinverters && catalog.microinverters.find(m => m.id === miId && !(m.type && m.type.includes('Optimizador'))))
+            || (catalog.microinverters && catalog.microinverters.find(m => !(m.type && m.type.includes('Optimizador'))))
+            || { id: 'mi_default', brand: 'Enphase / Hoymiles', model: 'Microinversor Dual', kw: 0.8, price: 175 };
+          const miRatio = ((miSpec.model || '') + (miSpec.type || '')).includes('4') ? 4 : 2;
+          const miCount = (projectConfig.autoSizing && projectConfig.autoSizing.microinverters && projectConfig.autoSizing.microinverters.count)
+            || Math.max(1, Math.ceil(tree.summary.totalPanels / miRatio));
+          const totalMiCost = miCount * (miSpec.price || 175);
+          tree.summary.totalMicroinverters = miCount;
+          tree.summary.totalInverters = 0;
+          tree.summary.totalAcKw = parseFloat((miCount * (miSpec.kw || (miSpec.va ? miSpec.va / 1000 : 0.8))).toFixed(2));
+          tree.summary.subtotalEur += totalMiCost;
+          tree.electrical.microinverters.push({
+            id: miSpec.id,
+            brand: miSpec.brand || 'Tier-1',
+            model: miSpec.model || 'Microinversor',
+            kwNominal: miSpec.kw || (miSpec.va ? miSpec.va / 1000 : 0.8),
+            count: miCount,
+            unitPrice: miSpec.price || 175,
+            totalPriceEur: parseFloat(totalMiCost.toFixed(2))
           });
+        } else {
+          const invCount = (projectConfig.autoSizing && projectConfig.autoSizing.inverters && projectConfig.autoSizing.inverters.count) || 1;
+          const invId = projectConfig.selectedInverterId || (catalog.inverters && catalog.inverters[0] ? catalog.inverters[0].id : null);
+          const invSpec = (catalog.inverters && catalog.inverters.find(i => i.id === invId))
+            || ((projectConfig.lastVirtualInverter && projectConfig.lastVirtualInverter.id === invId) ? projectConfig.lastVirtualInverter : null)
+            || (catalog.inverters ? catalog.inverters[0] : { kw: 10, price: 1750, brand: 'Inversor' });
+
+          if (invSpec) {
+            const totalInvCost = invCount * (invSpec.price || 1500);
+            tree.summary.totalInverters = invCount;
+            tree.summary.totalAcKw = invCount * (invSpec.kw || 10.0);
+            tree.summary.subtotalEur += totalInvCost;
+            tree.electrical.inverters.push({
+              id: invSpec.id,
+              brand: invSpec.brand,
+              model: invSpec.model,
+              kwNominal: invSpec.kw,
+              count: invCount,
+              unitPrice: invSpec.price,
+              totalPriceEur: parseFloat(totalInvCost.toFixed(2))
+            });
+          }
         }
 
         // ── 4.1 BATERÍAS DE ALMACENAMIENTO ──────────────────────────────────────
@@ -471,6 +504,7 @@
         const dcPanelCost = dcPanelSpec.price || 245;
         const acPanelCost = acPanelSpec.price || 295;
         tree.summary.subtotalEur += (dcPanelCost + acPanelCost);
+        tree.electrical.panelsProtTotalEur = parseFloat((dcPanelCost + acPanelCost).toFixed(2));
 
         tree.electrical.dcPanels.push({ model: dcPanelSpec.model, count: 1, price: dcPanelCost });
         tree.electrical.acPanels.push({ model: acPanelSpec.model, count: 1, price: acPanelCost });
@@ -603,10 +637,14 @@
 
         // Pequeño material
         const costSmallMat = parseFloat((totalP * (smallMatCfg.perPanelSmallMaterials || 6.50)).toFixed(2));
+        const jumpersCostVal = (tree.electrical.mc4Jumpers && tree.electrical.mc4Jumpers.totalEur) ? tree.electrical.mc4Jumpers.totalEur : 0;
+        tree.electrical.cablesTotalEur = parseFloat((dcCableCost + acCableCost + jumpersCostVal + earthCost + safetySignageCost + costSmallMat).toFixed(2));
 
-        const subtotalInstallation = costMech + costElec + costComm + costProj + costSup + costCie + costUrban + costWaste + costIcio + costLifeline + costScaffold + costSmallMat;
+        const subtotalInstallation = costMech + costElec + costComm + costProj + costSup + costCie + costUrban + costWaste + costLifeline + costScaffold + costSmallMat;
 
         tree.summary.subtotalEur += subtotalInstallation;
+        tree.summary.pecDirectCostEur = parseFloat(tree.summary.subtotalEur.toFixed(2));
+        tree.summary.municipalTaxesEur = parseFloat(costIcio.toFixed(2));
 
         tree.laborAndSoftCosts.push(
           { category: 'labor', description: `Montaje mecánico de estructuras y paneles (${mechH} h @ ${rate} €/h)`, totalEur: costMech },
@@ -678,7 +716,11 @@
         ? tree.electrical.inverters.map(inv => `
             <div class="bom-subitem bom-interactive-item" onclick="BOMTreeEngine.flyToElectrical('inverter')" style="cursor:pointer;" title="Clic para enfocar y seleccionar inversor en 3D">🔄 ${inv.count}x ${inv.brand} ${inv.model} (${inv.kwNominal} kW) · <b>${inv.totalPriceEur} €</b></div>
           `).join('')
-        : '<div class="bom-subitem" style="color:var(--text-muted, #94a3b8); font-style:italic;">Sin inversores asignados</div>';
+        : (tree.electrical.microinverters && tree.electrical.microinverters.length > 0
+            ? tree.electrical.microinverters.map(mi => `
+                <div class="bom-subitem">⚡ ${mi.count}x ${mi.brand} ${mi.model} (${mi.kwNominal} kW) · <b>${mi.totalPriceEur} €</b></div>
+              `).join('')
+            : '<div class="bom-subitem" style="color:var(--text-muted, #94a3b8); font-style:italic;">Sin inversores asignados</div>');
         
       let obstaclesHtml = (tree.obstacles && tree.obstacles.length > 0)
         ? tree.obstacles.map(obs => `
@@ -784,9 +826,12 @@
               </div>
             `).join('') : ''}
           `}
-          <div class="bom-total-footer">
-            <span>PRESUPUESTO TOTAL (BOM + M.O.):</span>
-            <span class="bom-total-price">${tree.summary.subtotalEur.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</span>
+          <div class="bom-total-footer" style="flex-direction:column;align-items:stretch;gap:3px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span>COSTE DIRECTO PEC (BOM + M.O.):</span>
+              <span class="bom-total-price">${tree.summary.subtotalEur.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</span>
+            </div>
+            ${tree.summary.municipalTaxesEur > 0 ? `<div style="display:flex;justify-content:space-between;align-items:center;font-size:9.5px;color:#94a3b8;font-weight:500;"><span>Tasas Municipales / ICIO est. (informativo):</span><span>${tree.summary.municipalTaxesEur.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</span></div>` : ''}
           </div>
         </div>
       `;

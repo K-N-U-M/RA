@@ -1594,9 +1594,18 @@ function recalculateLayoutAndObstacles(targetPolyIdx) {
       if (WP.polylines[targetPolyIdx]) {
         WP.polylines[targetPolyIdx].roofInfo = null;
         WP.polylines[targetPolyIdx]._calcSig = null;
+        WP.polylines[targetPolyIdx].panels = null;
+        WP.polylines[targetPolyIdx]._geometryDirty = true;
       }
     } else {
-      WP.polylines.forEach(pl => { if (pl) { pl.roofInfo = null; pl._calcSig = null; } });
+      WP.polylines.forEach(pl => {
+        if (pl) {
+          pl.roofInfo = null;
+          pl._calcSig = null;
+          pl.panels = null;
+          pl._geometryDirty = true;
+        }
+      });
     }
   }
 

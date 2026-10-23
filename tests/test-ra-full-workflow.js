@@ -11,8 +11,8 @@ const path = require('path');
 const vm = require('vm');
 
 const docMock = {
-  getElementById: (id) => ({ id, value: '0', textContent: '', style: {}, classList: { add: () => {}, remove: () => {} } }),
-  querySelector: () => ({ value: '0', textContent: '', style: {}, classList: { add: () => {}, remove: () => {} } }),
+  getElementById: (id) => ({ id, value: '0', textContent: '', style: {}, classList: { add: () => {}, remove: () => {} }, setAttribute: () => {}, removeAttribute: () => {} }),
+  querySelector: () => ({ value: '0', textContent: '', style: {}, classList: { add: () => {}, remove: () => {} }, setAttribute: () => {}, removeAttribute: () => {} }),
   querySelectorAll: () => []
 };
 

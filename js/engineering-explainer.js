@@ -281,14 +281,15 @@
      * para el Paso 5 y el Generador de Documentos PDF/Word
      */
     generateExecutiveSummaryHTML: function(projectData) {
-      const d = projectData || {};
-      const numPanels = d.numPanels || (window.solarProjectConfig && window.solarProjectConfig.lastEstimatedPanels) || 0;
-      const mod = (d.cfg) || (panelConfig) || { modelo: 'Tier-1 450W', potencia: 450, largo: 2.10, ancho: 1.05 };
-      const totalKwp = ((numPanels * (mod.potencia || 450)) / 1000.0).toFixed(2);
-      const fin = d.financial || {};
-      const savingsAnnual = fin.savingsAnnual || (d.ahorro_anual) || (numPanels * 135);
-      const payback = fin.paybackYears || (d.roi) || '4.2';
-      const co2Tons = ((numPanels * (mod.potencia || 450) * 1.45 * 0.25) / 1000.0).toFixed(1);
+      const d = projectData || (typeof window !== 'undefined' && typeof window.getProjectCalcs === 'function' ? window.getProjectCalcs() : {});
+      const fin = (d && d.financial) || (typeof window !== 'undefined' && window._lastFinModel) || (typeof window !== 'undefined' && typeof window.calculateFinancialModel === 'function' ? window.calculateFinancialModel() : {});
+      const numPanels = fin.numPanels || d.numPanels || (window.solarProjectConfig && window.solarProjectConfig.lastEstimatedPanels) || 0;
+      const mod = (d.cfg) || (typeof panelConfig !== 'undefined' ? panelConfig : null) || { modelo: 'Tier-1 450W', potencia: 450, largo: 2.10, ancho: 1.05 };
+      const totalKwp = (fin.kwp ? Number(fin.kwp) : (d.P_dc_kW ? Number(d.P_dc_kW) : ((numPanels * (mod.potencia || 450)) / 1000.0))).toFixed(2);
+      const annualKwh = fin.annualYieldKWh || d.annualKWh || (parseFloat(totalKwp) * 1450);
+      const savingsAnnual = fin.ahorroLuzAnio1 || fin.savingsAnnual || d.ahorro_anual || (numPanels * 135);
+      const payback = (typeof fin.paybackYears === 'number' && isFinite(fin.paybackYears)) ? fin.paybackYears.toFixed(1) : (d.payback || d.roi || '5.2');
+      const co2Tons = ((annualKwh * 0.26) / 1000.0).toFixed(2);
       const treesEquivalent = Math.round(parseFloat(co2Tons) * 45);
 
       const catalog = (typeof equipmentCatalog !== 'undefined') ? equipmentCatalog : null;

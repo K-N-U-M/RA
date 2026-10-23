@@ -113,7 +113,26 @@ function docWindow(title, body) {
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 10pt; color: #1e293b; background: #f8fafc; line-height: 1.6; padding-top: 54px; }
-    @page { size: A4 portrait; margin: 16mm 14mm 14mm 16mm; }
+    @page { size: A4 portrait; margin: 12mm 14mm 12mm 14mm; }
+    *, *::before, *::after { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    .doc-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0d2b45; padding-bottom: 12px; margin-bottom: 16px; }
+    .doc-header-left { display: flex; align-items: center; gap: 12px; }
+    .doc-logo-box { display: flex; align-items: center; gap: 10px; }
+    .doc-logo-icon { font-size: 26pt; }
+    .doc-logo-title { font-size: 13pt; font-weight: 900; color: #0d2b45; letter-spacing: -0.3px; }
+    .doc-logo-sub { font-size: 8pt; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+    .doc-header-right { text-align: right; font-size: 8pt; color: #475569; border: 1px solid #cbd5e1; padding: 6px 10px; min-width: 170px; background: #f8fafc; border-radius: 4px; }
+    .doc-meta-item { line-height: 1.4; }
+    .doc-section-title { font-size: 10.5pt; font-weight: 800; color: #0d2b45; border-left: 4px solid #3b82f6; padding-left: 8px; margin: 16px 0 8px; text-transform: uppercase; letter-spacing: 0.3px; }
+    .doc-box { border: 1px solid #e2e8f0; border-radius: 4px; padding: 10px 12px; background: #f8fafc; margin-bottom: 12px; font-size: 8.5pt; }
+    .doc-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .doc-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .doc-grid-span2 { grid-column: span 2; }
+    .kpi-card { border: 1px solid #cbd5e1; background: #ffffff; border-radius: 4px; padding: 8px; text-align: center; }
+    .kpi-val { font-size: 13pt; font-weight: 900; color: #0d2b45; }
+    .kpi-lbl { font-size: 7.5pt; color: #64748b; text-transform: uppercase; font-weight: 700; margin-top: 2px; }
+    .doc-table { width: 100%; border-collapse: collapse; margin: 8px 0 14px; font-size: 8.5pt; }
+    .trow-total td { background: #eff6ff !important; font-weight: 800; }
     @media print {
       body { background: #fff; padding-top: 0; }
       .doc-top-bar { display: none !important; }
@@ -639,7 +658,19 @@ function generateMemoria(skipPricingModal) {
     '<tr><td>Tensión Máxima en Frío (-10 °C)<\/td><td>' + d.Voc_str_cold.toFixed(1) + ' V<\/td><td>≤ ' + d.V_max_inv + ' V (IEC 62548 / Tensión máx. inversor)<\/td><td><strong style="color:#10b981">✓ Conforme (Margen ' + (d.V_max_inv - d.Voc_str_cold).toFixed(1) + ' V)<\/strong><\/td><\/tr>' +
     '<tr><td>Tensión Mínima MPPT en Calor (+65 °C)<\/td><td>' + (d.modsActual * d.Vmp * 0.88).toFixed(1) + ' V<\/td><td>≥ ' + (d.V_mppt_min || 160.0).toFixed(1) + ' V (Tensión mínima de tracking MPPT)<\/td><td><strong style="color:#10b981">✓ Conforme (Rango óptimo)<\/strong><\/td><\/tr>' +
     '<tr><td>Corriente Máxima de Entrada<\/td><td>' + d.Isc + ' A<\/td><td>≤ 15,0 A (Isc admisible por entrada MPPT)<\/td><td><strong style="color:#10b981">✓ Conforme<\/strong><\/td><\/tr>' +
-    '<tr><td>Sobrecarga Estructural en Cubierta<\/td><td>13,8 kg/m² (Módulo + Estructura)<\/td><td>≤ 25,0 kg/m² (CTE DB-SE-AE sobrecarga admisible)<\/td><td><strong style="color:#10b981">✓ Conforme (Sin refuerzo estructural)<\/strong><\/td><\/tr>' +
+    (function() {
+      var wTot = 12.5;
+      try {
+        if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.computeBOMTree === 'function') {
+          var t = BOMTreeEngine.computeBOMTree();
+          if (t && t.structuralLoads && t.structuralLoads.maxWeightPerSqmKg) {
+            wTot = t.structuralLoads.maxWeightPerSqmKg;
+          }
+        }
+      } catch(e) {}
+      var isOk = wTot <= 25.0;
+      return '<tr><td>Sobrecarga Estructural en Cubierta<\/td><td>' + wTot.toFixed(1) + ' kg/m² (Módulo + Estructura)<\/td><td>≤ 25,0 kg/m² (CTE DB-SE-AE sobrecarga admisible)<\/td><td><strong style="color:' + (isOk ? '#10b981' : '#f59e0b') + '">' + (isOk ? '✓ Conforme (Sin refuerzo estructural)' : '⚠️ Requiere verificación de forjado') + '<\/strong><\/td><\/tr>';
+    })() +
     '<\/table>' +
 
     '<h2>6. ANÁLISIS ECONÓMICO Y FINANCIERO BANCABLE (25 AÑOS)<\/h2>' +
@@ -801,6 +832,8 @@ function generatePresupuesto(skipPricingModal) {
   const puEstructura = d.isCoplanar ? 24.50 : 38.00; // Coplanar vs Lastrada con cortavientos
 
   // Capítulos detallados con BOM métrico real y alineación con Modelo Financiero
+  // Margen de escala comercial para partidas de presupuesto de cliente
+  const _marginFactor = (m && m.marginEur > 0 && m.directCost > 0) ? (m.subtotal / m.directCost) : 1.0;
   const estCostTotal = (m && m.estCost > 0) ? m.estCost : (d.pres_est || (d.numPanels * 45.0));
   const puEstructuraPorModulo = d.numPanels > 0 ? (estCostTotal / d.numPanels) : 45.0;
 
