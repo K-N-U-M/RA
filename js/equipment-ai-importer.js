@@ -83,6 +83,7 @@ OBJETIVO:
    - "inverters" (Inversor de conexión a red, híbrido o central)
    - "batteries" (Batería de litio LFP / acumulador estacionario)
    - "microinverters" (Microinversor o Optimizador de potencia MLPE)
+   - "wind_turbines" (Aerogenerador minieólica de eje horizontal HAWT o vertical VAWT)
 
 2. Si el documento contiene varias potencias o modelos de una misma serie (ejemplo: 430W, 440W, 450W), SELECCIONA EL MODELO DE MAYOR POTENCIA o el más representativo de la ficha.
 
@@ -91,7 +92,7 @@ OBJETIVO:
 DEBES DEVOLVER EXCLUSIVAMENTE UN OBJETO JSON VÁLIDO CON LA SIGUIENTE ESTRUCTURA:
 
 {
-  "category": "modules" | "inverters" | "batteries" | "microinverters",
+  "category": "modules" | "inverters" | "batteries" | "microinverters" | "wind_turbines",
   "brand": "Nombre del fabricante (ej. JA Solar, Longi, Huawei, Fronius, BYD, Enphase...)",
   "model": "Denominación comercial exacta del modelo (ej. JAM54D40-440/MB)",
   "specs": {
@@ -132,6 +133,25 @@ DEBES DEVOLVER EXCLUSIVAMENTE UN OBJETO JSON VÁLIDO CON LA SIGUIENTE ESTRUCTURA
     "kwMax": 5.0,               // Potencia máx de carga/descarga en kW
     "dod": 95,                  // Profundidad de descarga DoD en %
     "cycles": 6000,             // Ciclos de vida garantizados
+
+    /* SI ES "wind_turbines": */
+    "ratedPowerW": 25000,       // Potencia nominal en W (ej. 25000 para 25 kW)
+    "type": "HAWT",             // "HAWT" (eje horizontal) o "VAWT" (eje vertical)
+    "rotorDiameterM": 6.4,      // Diámetro del rotor en metros
+    "bladeCount": 3,            // Número de aspas/palas (3, 2, etc.)
+    "hubHeightsAvailableM": [12, 18, 24], // Alturas de mástil disponibles en metros
+    "cutInSpeedMs": 2.5,        // Velocidad de arranque cut-in en m/s
+    "ratedSpeedMs": 11.0,       // Velocidad nominal en m/s
+    "cutOutSpeedMs": 25.0,      // Velocidad de parada cut-out en m/s
+    "survivalSpeedMs": 59.5,    // Velocidad de supervivencia en m/s
+    "iecClass": "III",          // Clase IEC (I, II, III, IV, S)
+    "acousticPowerLwaDba": 101, // Potencia sonora LwA en dBA
+    "generatorType": "PMSG",    // Tipo generador: PMSG, IG, DFIG
+    "outputVoltageV": 400,      // Tensión de salida en V
+    "rectifierIncluded": true,  // Si incluye rectificador AC/DC
+    "dumpLoadRequiredKw": 30,   // Potencia freno reostático en kW
+    "nacelleMassKg": 280,       // Masa de la góndola en kg
+    "rotorMassKg": 95,          // Masa del rotor en kg
 
     /* SI ES "microinverters": */
     "kw": 0.800,                // Potencia nominal AC en kW (ej. 0.800 para 800W)
@@ -292,14 +312,14 @@ NORMAS ESTRICTAS DE EXTRACCIÓN:
       }
 
       let category = raw.category || 'modules';
-      if (!['modules', 'inverters', 'batteries', 'microinverters'].includes(category)) {
+      if (!['modules', 'inverters', 'batteries', 'microinverters', 'wind_turbines'].includes(category)) {
         category = 'modules';
       }
 
       const brand = (raw.brand || 'Fabricante Homologado').trim();
       const model = (raw.model || (fileName ? fileName.replace(/\.[^/.]+$/, '') : 'Modelo Estándar')).trim();
       const specs = raw.specs || {};
-      const idPrefix = category === 'modules' ? 'mod_ai_' : (category === 'inverters' ? 'inv_ai_' : (category === 'batteries' ? 'bat_ai_' : 'mlpe_ai_'));
+      const idPrefix = category === 'modules' ? 'mod_ai_' : (category === 'inverters' ? 'inv_ai_' : (category === 'batteries' ? 'bat_ai_' : (category === 'wind_turbines' ? 'wt_ai_' : 'mlpe_ai_')));
       const id = idPrefix + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 5);
 
       const validated = {
@@ -503,6 +523,43 @@ NORMAS ESTRICTAS DE EXTRACCIÓN:
      * Guarda el equipo validado en el catálogo permanente (localStorage + memoria)
      */
     commitToCatalog: function (item) {
+      if (item && item.category === 'wind_turbines') {
+        if (root.RAWindCatalog && typeof root.RAWindCatalog.upsert === 'function') {
+          const turbine = {
+            id: root.RAWindCatalog.generateId(item.brand, item.model),
+            manufacturer: item.brand,
+            model: item.model,
+            type: item.type || 'HAWT',
+            ratedPowerW: item.ratedPowerW || 10000,
+            rotorDiameterM: item.rotorDiameterM || 5.0,
+            bladeCount: item.bladeCount || 3,
+            hubHeightsAvailableM: item.hubHeightsAvailableM || [12, 18, 24],
+            cutInSpeedMs: item.cutInSpeedMs || 2.5,
+            ratedSpeedMs: item.ratedSpeedMs || 11.0,
+            cutOutSpeedMs: item.cutOutSpeedMs || 25.0,
+            survivalSpeedMs: item.survivalSpeedMs || 59.5,
+            iecClass: item.iecClass || 'III',
+            acousticPowerLwaDba: item.acousticPowerLwaDba || 98,
+            electrical: {
+              generatorType: item.generatorType || 'PMSG',
+              outputVoltageV: item.outputVoltageV || 400,
+              rectifierIncluded: item.rectifierIncluded !== false,
+              dumpLoadRequiredKw: item.dumpLoadRequiredKw || 12
+            },
+            structural: {
+              nacelleMassKg: item.nacelleMassKg || 200,
+              rotorMassKg: item.rotorMassKg || 80,
+              maxThrustKn: 15,
+              naturalFrequencyHz: 0.8
+            },
+            priceEur: item.price || 15000,
+            powerCurve: []
+          };
+          root.RAWindCatalog.upsert(turbine);
+          if (typeof root.switchCatalogTab === 'function') root.switchCatalogTab('wind_turbines');
+          return turbine.id;
+        }
+      }
       if (!item || !item.category || !root.equipmentCatalog) {
         throw new Error('Error al guardar: el catálogo no está inicializado.');
       }
@@ -830,6 +887,24 @@ NORMAS ESTRICTAS DE EXTRACCIÓN:
             <div style="background:rgba(0,0,0,0.25);padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.05);">
               <span style="color:var(--text-slate-400);font-size: 10px;display:block;">Química / Tipo</span>
               <b style="color:#fff;font-size:11px;">${data.type}</b>
+            </div>
+          </div>
+        `;
+      } else if (data.category === 'wind_turbines') {
+        const kw = (data.ratedPowerW ? (data.ratedPowerW / 1000).toFixed(1) : '?');
+        specsHtml = `
+          <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:10px;margin-bottom:14px;font-size:11px;">
+            <div style="background:rgba(0,0,0,0.25);padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.05);">
+              <span style="color:var(--text-slate-400);font-size: 10px;display:block;">Potencia Nominal</span>
+              <b style="color:#38BDF8;font-size:14px;">${kw} kW</b>
+            </div>
+            <div style="background:rgba(0,0,0,0.25);padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.05);">
+              <span style="color:var(--text-slate-400);font-size: 10px;display:block;">Tipo & Rotor</span>
+              <b style="color:#fff;font-size:12px;">${data.type} · Ø ${data.rotorDiameterM}m</b>
+            </div>
+            <div style="background:rgba(0,0,0,0.25);padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.05);">
+              <span style="color:var(--text-slate-400);font-size: 10px;display:block;">Ruido & Clase</span>
+              <b style="color:#FBBF24;font-size:12px;">${data.acousticPowerLwaDba} dBA · Clase ${data.iecClass}</b>
             </div>
           </div>
         `;

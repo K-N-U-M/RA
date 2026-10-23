@@ -70,7 +70,7 @@
     buildSearchPrompt: function (query, categoryFilter) {
       const catConstraint = categoryFilter && categoryFilter !== 'all'
         ? `IMPORTANTE: Limita los resultados estrictamente a la categoría '${categoryFilter}'.`
-        : `Clasifica cada resultado en una de estas 4 categorías: 'modules', 'inverters', 'batteries' o 'microinverters'.`;
+        : `Clasifica cada resultado en una de estas 5 categorías: 'modules', 'inverters', 'batteries', 'microinverters' o 'wind_turbines'.`;
 
       return `Actúa como un Ingeniero Senior de Proyectos Fotovoltaicos y Base de Datos Oficial de Equipos Solares.
 El usuario desea buscar en internet y en la base técnica internacional de fabricantes fotovoltaicos modelos comerciales reales que coincidan con la búsqueda:
@@ -143,6 +143,33 @@ Si es Microinversor ('microinverters'):
   "kw": 0.38, // potencia de salida AC en kW
   "type": "Microinversor 1-en-1 / 2-en-1 / 4-en-1",
   "price": 160 // precio estimado en euros
+}
+
+
+
+Si es Aerogenerador ('wind_turbines'):
+{
+  "category": "wind_turbines",
+  "brand": "Nombre de Fabricante (ej. Bornay, Enair, Kliux, Vestas)",
+  "model": "Modelo comercial exacto",
+  "type": "HAWT", // HAWT (eje horizontal) o VAWT (eje vertical)
+  "ratedPowerW": 25000, // potencia nominal en W
+  "rotorDiameterM": 6.4, // diámetro del rotor en metros
+  "bladeCount": 3,
+  "hubHeightsAvailableM": [12, 18, 24, 30],
+  "cutInSpeedMs": 2.5,
+  "ratedSpeedMs": 11.0,
+  "cutOutSpeedMs": 25.0,
+  "survivalSpeedMs": 59.5,
+  "iecClass": "III",
+  "acousticPowerLwaDba": 101,
+  "generatorType": "PMSG",
+  "outputVoltageV": 400,
+  "rectifierIncluded": true,
+  "dumpLoadRequiredKw": 30,
+  "nacelleMassKg": 280,
+  "rotorMassKg": 95,
+  "price": 28000 // precio estimado en euros
 }
 
 REGLAS DE RIGOR TÉCNICO:
@@ -259,6 +286,34 @@ REGLAS DE RIGOR TÉCNICO:
         source: 'Web Search AI'
       };
 
+      if (category.includes('wind') || category.includes('eoli') || category.includes('turbin')) {
+        const ratedPowerW = Math.max(parseFloat(raw.ratedPowerW) || (parseFloat(raw.kw) ? parseFloat(raw.kw) * 1000 : 10000), 500);
+        const rotorDiameterM = Math.max(parseFloat(raw.rotorDiameterM) || (parseFloat(raw.diameter) || 5.0), 1.0);
+        const type = (String(raw.type || 'HAWT').toUpperCase() === 'VAWT') ? 'VAWT' : 'HAWT';
+        return {
+          ...base,
+          category: 'wind_turbines',
+          type: type,
+          ratedPowerW: ratedPowerW,
+          rotorDiameterM: rotorDiameterM,
+          bladeCount: parseInt(raw.bladeCount, 10) || 3,
+          hubHeightsAvailableM: Array.isArray(raw.hubHeightsAvailableM) ? raw.hubHeightsAvailableM : [12, 18, 24],
+          cutInSpeedMs: parseFloat(raw.cutInSpeedMs) || 2.5,
+          ratedSpeedMs: parseFloat(raw.ratedSpeedMs) || 11.0,
+          cutOutSpeedMs: parseFloat(raw.cutOutSpeedMs) || 25.0,
+          survivalSpeedMs: parseFloat(raw.survivalSpeedMs) || 59.5,
+          iecClass: String(raw.iecClass || 'III'),
+          acousticPowerLwaDba: parseFloat(raw.acousticPowerLwaDba) || 98,
+          generatorType: raw.generatorType || 'PMSG',
+          outputVoltageV: parseFloat(raw.outputVoltageV) || 400,
+          rectifierIncluded: raw.rectifierIncluded !== false,
+          dumpLoadRequiredKw: parseFloat(raw.dumpLoadRequiredKw) || (ratedPowerW / 1000 * 1.2),
+          nacelleMassKg: parseFloat(raw.nacelleMassKg) || 200,
+          rotorMassKg: parseFloat(raw.rotorMassKg) || 80,
+          price: Math.max(parseFloat(raw.price) || 15000, 500)
+        };
+      }
+
       if (category.includes('inv') && !category.includes('micro')) {
         const kw = Math.max(parseFloat(raw.kw) || 5.0, 0.5);
         const mppt = Math.max(parseInt(raw.mppt, 10) || 2, 1);
@@ -356,6 +411,49 @@ REGLAS DE RIGOR TÉCNICO:
       }
 
       const category = item.category || 'modules';
+      if (category === 'wind_turbines' && typeof window !== 'undefined' && window.RAWindCatalog && typeof window.RAWindCatalog.upsert === 'function') {
+        const turbine = {
+          id: window.RAWindCatalog.generateId(item.brand, item.model),
+          manufacturer: item.brand,
+          model: item.model,
+          type: item.type || 'HAWT',
+          ratedPowerW: item.ratedPowerW || 10000,
+          rotorDiameterM: item.rotorDiameterM || 5.0,
+          bladeCount: item.bladeCount || 3,
+          hubHeightsAvailableM: item.hubHeightsAvailableM || [12, 18, 24],
+          cutInSpeedMs: item.cutInSpeedMs || 2.5,
+          ratedSpeedMs: item.ratedSpeedMs || 11.0,
+          cutOutSpeedMs: item.cutOutSpeedMs || 25.0,
+          survivalSpeedMs: item.survivalSpeedMs || 59.5,
+          iecClass: item.iecClass || 'III',
+          acousticPowerLwaDba: item.acousticPowerLwaDba || 98,
+          electrical: {
+            generatorType: item.generatorType || 'PMSG',
+            outputVoltageV: item.outputVoltageV || 400,
+            rectifierIncluded: item.rectifierIncluded !== false,
+            dumpLoadRequiredKw: item.dumpLoadRequiredKw || 12
+          },
+          structural: {
+            nacelleMassKg: item.nacelleMassKg || 200,
+            rotorMassKg: item.rotorMassKg || 80,
+            maxThrustKn: 15,
+            naturalFrequencyHz: 0.8
+          },
+          priceEur: item.price || 15000,
+          powerCurve: []
+        };
+        window.RAWindCatalog.upsert(turbine);
+        if (typeof root.showStatus === 'function') {
+          root.showStatus('<i data-lucide="check-circle" class="icon-sm"></i> AEROGENERADOR INCORPORADO: ' + item.brand + ' ' + item.model, 3500);
+        }
+        if (typeof showToast === 'function') {
+          showToast('EQUIPO AÑADIDO', item.brand + ' ' + item.model + ' guardado en el catálogo eólico.', 'success', 3000);
+        }
+        if (typeof root.switchCatalogTab === 'function') {
+          root.switchCatalogTab('wind_turbines');
+        }
+        return turbine.id;
+      }
       if (!Array.isArray(catalog[category])) {
         catalog[category] = [];
       }
@@ -452,6 +550,7 @@ REGLAS DE RIGOR TÉCNICO:
                   <option value="inverters">⚡ Inversores</option>
                   <option value="batteries">🔋 Baterías LFP</option>
                   <option value="microinverters">🎛️ Microinversores</option>
+                  <option value="wind_turbines">💨 Aerogeneradores</option>
                 </select>
               </div>
 
@@ -471,6 +570,8 @@ REGLAS DE RIGOR TÉCNICO:
               <button type="button" class="ai-quick-tag" data-q="Huawei SUN2000-5KTL-L1">Huawei 5KTL</button>
               <button type="button" class="ai-quick-tag" data-q="BYD Battery-Box HVS 10.2">BYD HVS 10.2</button>
               <button type="button" class="ai-quick-tag" data-q="Enphase IQ8HC">Enphase IQ8HC</button>
+              <button type="button" class="ai-quick-tag" data-q="Bornay Wind 25.3">Bornay Wind 25.3</button>
+              <button type="button" class="ai-quick-tag" data-q="Enair 30L 30kW">Enair 30L</button>
             </div>
           </div>
 
@@ -531,7 +632,8 @@ REGLAS DE RIGOR TÉCNICO:
         modules: { label: 'MÓDULO FV', color: '#F59E0B', bg: 'rgba(245,158,11,0.15)', border: 'rgba(245,158,11,0.4)', icon: 'sun' },
         inverters: { label: 'INVERSOR', color: '#38BDF8', bg: 'rgba(56,189,248,0.15)', border: 'rgba(56,189,248,0.4)', icon: 'zap' },
         batteries: { label: 'BATERÍA LFP', color: '#10B981', bg: 'rgba(16,185,129,0.15)', border: 'rgba(16,185,129,0.4)', icon: 'battery-charging' },
-        microinverters: { label: 'MICROINVERSOR', color: '#A78BFA', bg: 'rgba(167,139,250,0.15)', border: 'rgba(167,139,250,0.4)', icon: 'cpu' }
+        microinverters: { label: 'MICROINVERSOR', color: '#A78BFA', bg: 'rgba(167,139,250,0.15)', border: 'rgba(167,139,250,0.4)', icon: 'cpu' },
+        wind_turbines: { label: 'AEROGENERADOR', color: '#38BDF8', bg: 'rgba(56,189,248,0.15)', border: 'rgba(56,189,248,0.4)', icon: 'wind' }
       };
 
       const cardsHtml = results.map((item, idx) => {
@@ -563,6 +665,17 @@ REGLAS DE RIGOR TÉCNICO:
             <div style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0;">
               <span class="ai-spec-pill" style="color:#10B981;"><i data-lucide="battery" class="icon-sm"></i> <b>${item.kwh} kWh</b></span>
               <span class="ai-spec-pill">${item.type}</span>
+            </div>
+          `;
+        } else if (item.category === 'wind_turbines') {
+          const kw = (item.ratedPowerW ? (item.ratedPowerW / 1000).toFixed(1) : '?');
+          specsPills = `
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0;">
+              <span class="ai-spec-pill" style="color:#38BDF8;"><i data-lucide="wind" class="icon-sm"></i> <b>${kw} kW</b></span>
+              <span class="ai-spec-pill"><i data-lucide="circle-dot" class="icon-sm" style="color:#FBBF24;"></i> Ø ${item.rotorDiameterM}m</span>
+              <span class="ai-spec-pill">Tipo: ${item.type}</span>
+              <span class="ai-spec-pill">V.Nominal: ${item.ratedSpeedMs} m/s</span>
+              <span class="ai-spec-pill">LwA: ${item.acousticPowerLwaDba} dBA</span>
             </div>
           `;
         } else if (item.category === 'microinverters') {

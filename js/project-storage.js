@@ -204,6 +204,22 @@ function raExportProjectData() {
     },
     polylines: serializedPolylines,
     obstacles: (typeof obstacles !== 'undefined' && Array.isArray(obstacles)) ? _raSanitizeForExport(obstacles, 0) : [],
+    windTurbines: (typeof window !== 'undefined' && window.RAWind && window.RAWind.Entity && typeof window.RAWind.Entity.serializeAll === 'function')
+      ? window.RAWind.Entity.serializeAll()
+      : ((typeof window !== 'undefined' && Array.isArray(window.windTurbines))
+          ? window.windTurbines.map(function(t) {
+              return {
+                id: t.id,
+                catalogId: t.catalogId,
+                name: t.name,
+                positionCartographic: t.positionCartographic,
+                mountingType: t.mountingType,
+                supportStructure: t.supportStructure,
+                orientationRad: t.orientationRad,
+                operationalState: t.operationalState
+              };
+            })
+          : []),
     buildings: (typeof buildings !== 'undefined' && Array.isArray(buildings)) ? _raSanitizeForExport(buildings, 0) : [],
     panelConfig: (typeof panelConfig !== 'undefined' && panelConfig) ? _raSanitizeForExport(panelConfig, 0) : null,
     // [AUDIT-SAVE] Selecciones de catálogo y auto-dimensionado: sin esto, tras cargar un
@@ -779,6 +795,20 @@ async function raImportProjectData(projectData, options = {}) {
     if (typeof wpRenderActivePlaneGizmo === 'function') wpRenderActivePlaneGizmo();
     if (typeof render3DObstaclesInCesium === 'function') render3DObstaclesInCesium();
     if (window.RAWindTurbine && typeof window.RAWindTurbine.renderAll === 'function') window.RAWindTurbine.renderAll();
+
+    // 5.c Restaurar y migrar Aerogeneradores RA-Wind
+    if (typeof window !== 'undefined' && window.RAWind && window.RAWind.Entity) {
+      if (Array.isArray(projectData.windTurbines)) {
+        window.RAWind.Entity.deserializeAll(projectData.windTurbines);
+      }
+      try { window.RAWind.Entity.migrateLegacyObstacles(); } catch(eMig) {}
+      if (window.RAWindVisualizer && typeof window.RAWindVisualizer.renderAll === 'function') {
+        try { window.RAWindVisualizer.renderAll(); } catch(eWv) {}
+      }
+      if (window.RAWindUI && typeof window.RAWindUI.renderStep2Panel === 'function') {
+        try { window.RAWindUI.renderStep2Panel(); } catch(eWu) {}
+      }
+    }
     if (typeof render3DBuildingsInCesium === 'function') render3DBuildingsInCesium();
     if (typeof wpFastRenderSimulatedPanels === 'function') wpFastRenderSimulatedPanels();
     if (typeof recalculateSolarYield === 'function') recalculateSolarYield();

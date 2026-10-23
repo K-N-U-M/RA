@@ -165,6 +165,18 @@
     }
 
     /**
+     * Comprueba si existe al menos una fuente de generación activa
+     * (paneles fotovoltaicos o aerogeneradores en servicio)
+     */
+    hasActiveGenerationSource() {
+      const hasPanels = this.hasGeneratedPanels();
+      const hasWind = Array.isArray(global.windTurbines) && global.windTurbines.some(t => {
+        return t && t.operationalState && t.operationalState.enabled !== false;
+      });
+      return hasPanels || hasWind;
+    }
+
+    /**
      * Validador de transición (Guard Condition)
      * Retorna { allowed: boolean, reason?: string }
      */
@@ -179,6 +191,7 @@
       const hasPlane = this.hasActivePlane();
       const hasPolys = this.hasRoofPolylines();
       const hasPanels = this.hasGeneratedPanels();
+      const hasGenSource = this.hasActiveGenerationSource();
 
       if (step === 2) {
         if (!hasPolys) {
@@ -188,23 +201,24 @@
           };
         }
       } else if (step === 3 || step === 4) {
-        if (!hasPanels) {
+        if (!hasGenSource) {
           return {
             allowed: false,
-            reason: 'Requiere generar la malla de módulos fotovoltaicos en el Paso 2 (Campo Solar)'
+            reason: 'Requiere definir al menos una fuente de generación (paneles solares o aerogeneradores) en el Paso 2'
           };
         }
       } else if (step === 5) {
-        if (!hasPanels) {
+        if (!hasGenSource) {
           return {
             allowed: false,
-            reason: 'Requiere completar el diseño solar en los pasos anteriores'
+            reason: 'Requiere completar el diseño de generación (solar o eólica) en los pasos anteriores'
           };
         }
-        // minPrerequisite: 'inverter' — el presupuesto/memoria exigen inversor o microinversor del catálogo
+        // Si hay diseño solar, validar selección de inversor del catálogo
+        const hasWind = Array.isArray(global.windTurbines) && global.windTurbines.some(t => t && t.operationalState && t.operationalState.enabled !== false);
         const cfg = global.solarProjectConfig;
         const hasInverter = !!(cfg && (cfg.selectedInverterId || (cfg.selectedTopology === 'microinverter' && cfg.selectedMicroinverterId)));
-        if (!hasInverter) {
+        if (!hasInverter && !hasWind) {
           return {
             allowed: false,
             reason: 'Requiere seleccionar un inversor o microinversor del catálogo en el Paso 4 (Ingeniería)'
