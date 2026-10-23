@@ -364,6 +364,10 @@ function step3UpdateHardwareSelection() {
     battery: bat
   };
 
+  // Ejecutar inmediatamente motor de dimensionamiento automático multi-equipo
+  const currentTotalPanels = (typeof lastRoofInfo !== "undefined" && lastRoofInfo && lastRoofInfo.panels) ? lastRoofInfo.panels.length : 0;
+  wpComputeAutoSizing(currentTotalPanels > 0 ? currentTotalPanels : undefined);
+
   // Actualizar PanelConfig global para generación 3D
   if (typeof panelConfig !== 'undefined') {
     panelConfig.potencia = mod.wp || 450;
@@ -510,10 +514,6 @@ function step3UpdateHardwareSelection() {
     window.wpRenderBattery3D();
   }
 
-  // Ejecutar motor de dimensionamiento automático multi-equipo
-  const currentTotalPanels = (typeof lastRoofInfo !== 'undefined' && lastRoofInfo && lastRoofInfo.panels) ? lastRoofInfo.panels.length : 0;
-  wpComputeAutoSizing(currentTotalPanels > 0 ? currentTotalPanels : undefined);
-
   // <i data-lucide=\"lightbulb\" class=\"icon-sm\"></i> Actualizar tarjeta de razonamiento de equipos para cliente/ingeniero
   if (typeof EngineeringExplainer !== 'undefined' && typeof EngineeringExplainer.renderEquipmentJustificationUI === 'function') {
     EngineeringExplainer.renderEquipmentJustificationUI('step3-engineering-explainer-container');
@@ -521,8 +521,20 @@ function step3UpdateHardwareSelection() {
   if (typeof wpUpdateInverterSmartAssistantUI === 'function') {
     wpUpdateInverterSmartAssistantUI();
   }
+  if (typeof wpRefreshAutoEngineeringBanner === 'function') {
+    wpRefreshAutoEngineeringBanner();
+  }
   if (typeof wpUpdateStep4Checklist === 'function') {
     wpUpdateStep4Checklist();
+  }
+  if (typeof updateBudgetUI === 'function') {
+    updateBudgetUI();
+  }
+  if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') {
+    BOMTreeEngine.refresh();
+  }
+  if (typeof ProjectHierarchy !== 'undefined' && typeof ProjectHierarchy.notify === 'function') {
+    ProjectHierarchy.notify('electrical_updated');
   }
   if (typeof WorkflowOrchestrator !== 'undefined' && typeof WorkflowOrchestrator.refreshGating === 'function') {
     WorkflowOrchestrator.refreshGating();
