@@ -3037,6 +3037,7 @@ window.RA_App = window.RA_App || {};
               <option value="emerald">Verde Esmeralda (Clean Energy)</option>
               <option value="amber">Ámbar Solar (Gold Modern)</option>
               <option value="blue">Azul Corporativo (Navy Tech)</option>
+              <option value="rose">Rosa Corporativo (Executive Rose)</option>
               <option value="slate">Grafito / Minimal Technical</option>
             </select>
           </div>
@@ -8784,7 +8785,7 @@ function convexHull2D(points) {
   return lower.concat(upper);
 }
 
-function getBuildingShadowPolygons2DForRoof(building, roof, sU, sV, shadowLenPerM) {
+function getBuildingPolygon2DForRoof(building, roof, poly) {
   if (!building || !building.points || building.points.length < 3) return null;
   if (!roof) return null;
 
@@ -8802,33 +8803,60 @@ function getBuildingShadowPolygons2DForRoof(building, roof, sU, sV, shadowLenPer
   avgBaseHeight /= rawCartoList.length;
 
   const bldHeight = Math.max(building.height || 6.0, 1.0);
-  const roofHeight = avgBaseHeight + bldHeight;
+  const coronacionHeight = avgBaseHeight + bldHeight;
 
   let roofZ = avgBaseHeight;
+  let roofCenterCarto = null;
   if (roof.carto && typeof roof.carto.height === 'number') {
     roofZ = roof.carto.height;
-  } else if (roof.center) {
+    roofCenterCarto = roof.carto;
+  } else if (roof.center && typeof Cesium !== 'undefined' && Cesium.Cartographic) {
     const c = Cesium.Cartographic.fromCartesian(roof.center);
-    if (c) roofZ = c.height;
-  } else if (roof.origin) {
+    if (c) {
+      roofZ = c.height;
+      roofCenterCarto = c;
+    }
+  } else if (roof.origin && typeof Cesium !== 'undefined' && Cesium.Cartographic) {
     const c = Cesium.Cartographic.fromCartesian(roof.origin);
-    if (c) roofZ = c.height;
+    if (c) {
+      roofZ = c.height;
+      roofCenterCarto = c;
+    }
   }
 
-  const isSameBuilding = (roof.buildingId && roof.buildingId === building.id);
+  // Comprobar si el faldón o cubierta pertenece a este mismo edificio
+  let isSameBuilding = false;
+  if (roof.buildingId && roof.buildingId === building.id) {
+    isSameBuilding = true;
+  } else if (poly && poly.buildingId && poly.buildingId === building.id) {
+    isSameBuilding = true;
+  } else if (typeof roof.planeIdx === 'number' && typeof WP !== 'undefined' && WP && WP.planes && WP.planes[roof.planeIdx] && WP.planes[roof.planeIdx].buildingId === building.id) {
+    isSameBuilding = true;
+  } else if (poly && typeof poly.planeIdx === 'number' && typeof WP !== 'undefined' && WP && WP.planes && WP.planes[poly.planeIdx] && WP.planes[poly.planeIdx].buildingId === building.id) {
+    isSameBuilding = true;
+  } else if (roofCenterCarto && rawCartoList.length >= 3) {
+    // Salvaguarda geométrica: si el centroide de la cubierta está dentro de la huella 2D del edificio y a su misma cota
+    const roofPt2D = { u: roofCenterCarto.longitude, v: roofCenterCarto.latitude };
+    const bldPoly2D = rawCartoList.map(c => ({ u: c.longitude, v: c.latitude }));
+    if (typeof isPointInPolygon2D === 'function' && isPointInPolygon2D(roofPt2D, bldPoly2D)) {
+      if (Math.abs(coronacionHeight - roofZ) < 1.5) {
+        isSameBuilding = true;
+      }
+    }
+  }
+
   let effectiveHeight = 0;
   if (isSameBuilding) {
-    effectiveHeight = building.parapetHeight || 0.6;
+    // Si es la cubierta del mismo edificio, solo el parapeto perimetral arroja sombra hacia adentro si existe
+    effectiveHeight = building.parapetHeight || 0.0;
   } else {
-    // Para un edificio colindante, la altura que arroja sombra sobre este tejado
+    // Para un edificio colindante o vecino, la altura efectiva que arroja sombra sobre este tejado
     // es la diferencia entre la coronación del edificio vecino y la cota de la cubierta baja
-    effectiveHeight = roofHeight - roofZ;
+    effectiveHeight = coronacionHeight - roofZ;
   }
 
   const SHADOW_OFFSET_START_M = 0.05;
   if (effectiveHeight <= SHADOW_OFFSET_START_M) return null;
-  const shadowLen = effectiveHeight * (shadowLenPerM || 0);
-  if (shadowLen <= SHADOW_OFFSET_START_M) return null;
 
   const uVec = roof.uVec || new Cesium.Cartesian3(1, 0, 0);
   const vVec = roof.vVec || new Cesium.Cartesian3(0, 1, 0);
@@ -8840,7 +8868,7 @@ function getBuildingShadowPolygons2DForRoof(building, roof, sU, sV, shadowLenPer
 
   const roofOrigin = roof.origin || roof.center || (roof.points && roof.points[0]) || building.points[0];
 
-  // Proyectar la huella del muro a la cota exacta de la cubierta en el plano (U, V)
+  // Proyectar la huella del edificio en el plano local 2D (U, V) de la cubierta
   const basePoly = rawCartoList.map(c => {
     const wallAtRoofZ = Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, roofZ);
     if (invT) {
@@ -8858,6 +8886,26 @@ function getBuildingShadowPolygons2DForRoof(building, roof, sU, sV, shadowLenPer
     }
   });
 
+  if (!basePoly || basePoly.length < 3) return null;
+
+  return {
+    height: effectiveHeight,
+    points2D: basePoly,
+    isBuilding: true,
+    buildingId: building.id
+  };
+}
+
+function getBuildingShadowPolygons2DForRoof(building, roof, sU, sV, shadowLenPerM) {
+  const bldObs = getBuildingPolygon2DForRoof(building, roof);
+  if (!bldObs) return null;
+
+  const effectiveHeight = bldObs.height;
+  const shadowLen = effectiveHeight * (shadowLenPerM || 0);
+  const SHADOW_OFFSET_START_M = 0.05;
+  if (shadowLen <= SHADOW_OFFSET_START_M) return null;
+
+  const basePoly = bldObs.points2D;
   const deltaUStart = sU * SHADOW_OFFSET_START_M;
   const deltaVStart = sV * SHADOW_OFFSET_START_M;
   const startShadowPoly = basePoly.map(p => ({ u: p.u + deltaUStart, v: p.v + deltaVStart }));
@@ -8876,6 +8924,7 @@ function getBuildingShadowPolygons2DForRoof(building, roof, sU, sV, shadowLenPer
 }
 window.getObstaclePolygon2DForRoof = getObstaclePolygon2DForRoof;
 window.getObstacleShadowPolygons2DForRoof = getObstacleShadowPolygons2DForRoof;
+window.getBuildingPolygon2DForRoof = getBuildingPolygon2DForRoof;
 window.getBuildingShadowPolygons2DForRoof = getBuildingShadowPolygons2DForRoof;
 
 function getObstacleShadowPolygons2DForRoof(obs, roof, sU, sV, shadowLenPerM) {
@@ -13299,6 +13348,9 @@ function computeSinglePolylineRoofInfo(ptsIn, polyOpts) {
   const area3D = compute3DPolygonArea(localPoints);
   return {
     poly2D,
+    planeIdx: planeIdx,
+    buildingId: opts.buildingId || (wpPlane ? wpPlane.buildingId : null),
+    carto: (pa.center && typeof Cesium !== 'undefined' && Cesium.Cartographic ? Cesium.Cartographic.fromCartesian(pa.center) : null),
     panels,
     origin: pa.center, uVec: uVec, vVec: vVec, normal: normal,
     transform: pa.transform,
