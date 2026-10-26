@@ -2109,7 +2109,7 @@ function wpRenderDynamicObstacleShadows(solarPos) {
       // B. Proyección analítica de sombra de edificios 3D / casetones sobre cubierta
       if (typeof buildings !== "undefined" && Array.isArray(buildings) && buildings.length > 0) {
         buildings.forEach((bld, bldIdx) => {
-          const shadowQuads = getBuildingShadowPolygons2DForRoof(bld, pInfo, sU, sV, solarPos.shadowLenPerM);
+          const shadowQuads = getBuildingShadowPolygons2DForRoof(bld, pInfo, sU, sV, solarPos.shadowLenPerM, poly);
           if (!shadowQuads || shadowQuads.length === 0) return;
 
           shadowQuads.forEach((quad2D, qIdx) => {

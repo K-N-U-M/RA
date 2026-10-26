@@ -1968,6 +1968,30 @@ function wpAddPlanePoint(pos3D) {
       WP.planePts.pop(); // Retirar P3 colineal para permitir al usuario hacer clic en un punto válido
       return;
     }
+    let detectedBldId = null;
+    const bldList = (typeof buildings !== 'undefined' && Array.isArray(buildings))
+      ? buildings
+      : ((typeof window !== 'undefined' && Array.isArray(window.buildings)) ? window.buildings : []);
+    if (bldList.length > 0 && typeof Cesium !== 'undefined' && Cesium.Cartographic) {
+      const p1Carto = Cesium.Cartographic.fromCartesian(WP.planePts[0]);
+      if (p1Carto) {
+        const pt2D = { u: p1Carto.longitude, v: p1Carto.latitude };
+        for (let b = 0; b < bldList.length; b++) {
+          const bld = bldList[b];
+          if (bld && Array.isArray(bld.points) && bld.points.length >= 3) {
+            const bldCartos = bld.points.map(p => Cesium.Cartographic.fromCartesian(p)).filter(Boolean);
+            if (bldCartos.length >= 3) {
+              const bldPoly2D = bldCartos.map(c => ({ u: c.longitude, v: c.latitude }));
+              if (typeof isPointInPolygon2D === 'function' && isPointInPolygon2D(pt2D, bldPoly2D)) {
+                detectedBldId = bld.id;
+                break;
+              }
+            }
+          }
+        }
+      }
+    }
+
     const planeObj = Object.assign({
       id: 'plane_' + Date.now(),
       name: 'Plano Cubierta #' + (WP.planes.length + 1) + ' (' + planeData.tiltDeg.toFixed(0) + '°)',
@@ -1977,7 +2001,8 @@ function wpAddPlanePoint(pos3D) {
       uVec: planeData.uVec,
       vVec: planeData.vVec,
       tiltDeg: planeData.tiltDeg,
-      azimuthDeg: planeData.azimuthDeg
+      azimuthDeg: planeData.azimuthDeg,
+      buildingId: detectedBldId
     }, planeData);
 
     if (window.RAundo && typeof window.RAundo.snapPlanes === 'function') window.RAundo.snapPlanes('Crear ' + planeObj.name);
@@ -2645,6 +2670,7 @@ function wpCloseActivePolyline() {
     id: "wp_poly_" + Date.now(),
     name: "Faldon #" + (WP.polylines.length + 1),
     planeIdx: WP.activePlaneIdx,
+    buildingId: (plane && plane.buildingId) ? plane.buildingId : null,
     points: pts,
     area: area,
     alignToPlane: true,

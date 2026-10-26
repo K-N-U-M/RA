@@ -274,7 +274,7 @@
       if (solarPos.isDaylight && typeof buildings !== "undefined" && buildings && buildings.length > 0) {
         buildings.forEach(bld => {
           if (typeof getBuildingShadowPolygons2DForRoof === "function") {
-            const quads = getBuildingShadowPolygons2DForRoof(bld, pInfo, sU, sV, solarPos.shadowLenPerM);
+            const quads = getBuildingShadowPolygons2DForRoof(bld, pInfo, sU, sV, solarPos.shadowLenPerM, poly);
             if (quads && quads.length > 0) polyShadowQuads2D.push(...quads);
           }
         });
@@ -1100,7 +1100,7 @@
           if (typeof buildings !== "undefined" && buildings && buildings.length > 0) {
             buildings.forEach(bld => {
               if (typeof getBuildingShadowPolygons2DForRoof === "function") {
-                const quads = getBuildingShadowPolygons2DForRoof(bld, pInfo, sU, sV, solarPos.shadowLenPerM);
+                const quads = getBuildingShadowPolygons2DForRoof(bld, pInfo, sU, sV, solarPos.shadowLenPerM, poly);
                 if (quads && quads.length > 0) polyShadowQuads2D.push(...quads);
               }
             });

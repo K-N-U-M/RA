@@ -8865,6 +8865,12 @@ function getBuildingPolygon2DForRoof(building, roof, poly) {
       roofZ = c.height;
       roofCenterCarto = c;
     }
+  } else if (poly && poly.points && poly.points.length > 0 && typeof Cesium !== 'undefined' && Cesium.Cartographic) {
+    const c = Cesium.Cartographic.fromCartesian(poly.points[0]);
+    if (c) {
+      roofZ = c.height;
+      roofCenterCarto = c;
+    }
   }
 
   // Comprobar si el faldón o cubierta pertenece a este mismo edificio
@@ -8878,11 +8884,12 @@ function getBuildingPolygon2DForRoof(building, roof, poly) {
   } else if (poly && typeof poly.planeIdx === 'number' && typeof WP !== 'undefined' && WP && WP.planes && WP.planes[poly.planeIdx] && WP.planes[poly.planeIdx].buildingId === building.id) {
     isSameBuilding = true;
   } else if (roofCenterCarto && rawCartoList.length >= 3) {
-    // Salvaguarda geométrica: si el centroide de la cubierta está dentro de la huella 2D del edificio y a su misma cota
+    // Salvaguarda geométrica: si el centroide de la cubierta está dentro de la huella 2D del edificio
     const roofPt2D = { u: roofCenterCarto.longitude, v: roofCenterCarto.latitude };
     const bldPoly2D = rawCartoList.map(c => ({ u: c.longitude, v: c.latitude }));
     if (typeof isPointInPolygon2D === 'function' && isPointInPolygon2D(roofPt2D, bldPoly2D)) {
-      if (Math.abs(coronacionHeight - roofZ) < 1.5) {
+      // Si la cota de la cubierta está a la coronación o por encima del edificio (con holgura de 2.5m hacia abajo o cualquier altura superior)
+      if (roofZ >= (coronacionHeight - 2.5)) {
         isSameBuilding = true;
       }
     }
@@ -8890,8 +8897,9 @@ function getBuildingPolygon2DForRoof(building, roof, poly) {
 
   let effectiveHeight = 0;
   if (isSameBuilding) {
-    // Si es la cubierta del mismo edificio, solo el parapeto perimetral arroja sombra hacia adentro si existe
-    effectiveHeight = building.parapetHeight || 0.0;
+    // Un edificio jamás arroja sombra masiva sobre los paneles de su propia cubierta superior.
+    // Solo un parapeto o casetón perimetral proyecta sombras locales internas, si se modela como obstáculo.
+    return null;
   } else {
     // Para un edificio colindante o vecino, la altura efectiva que arroja sombra sobre este tejado
     // es la diferencia entre la coronación del edificio vecino y la cota de la cubierta baja
@@ -8939,8 +8947,8 @@ function getBuildingPolygon2DForRoof(building, roof, poly) {
   };
 }
 
-function getBuildingShadowPolygons2DForRoof(building, roof, sU, sV, shadowLenPerM) {
-  const bldObs = getBuildingPolygon2DForRoof(building, roof);
+function getBuildingShadowPolygons2DForRoof(building, roof, sU, sV, shadowLenPerM, poly) {
+  const bldObs = getBuildingPolygon2DForRoof(building, roof, poly);
   if (!bldObs) return null;
 
   const effectiveHeight = bldObs.height;
