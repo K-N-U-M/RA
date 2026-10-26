@@ -2019,9 +2019,68 @@ function wpAddPlanePoint(pos3D) {
   if (typeof viewer !== 'undefined' && viewer && viewer.scene && typeof viewer.scene.requestRender === 'function') viewer.scene.requestRender();
 }
 
+function wpClearAllPlaneGizmos() {
+  wpClearEntGroup("activePlaneMarker");
+  wpClearEntGroup("inactivePlanes");
+
+  const curViewer = (typeof viewer !== 'undefined' && viewer) ? viewer : (window.viewer || null);
+  if (curViewer && curViewer.entities) {
+    const fixedIds = [
+      'wp_active_plane_mesh',
+      'wp_active_plane_border',
+      'wp_active_plane_origin_dot',
+      'wp_active_plane_vtx_0',
+      'wp_active_plane_vtx_1',
+      'wp_active_plane_vtx_2',
+      'wp_plane_preview_pt_1',
+      'wp_plane_preview_pt_2',
+      'wp_plane_preview_pt_3',
+      'wp_plane_preview_line_1_2'
+    ];
+    fixedIds.forEach(id => {
+      try {
+        if (curViewer.entities.getById(id)) curViewer.entities.removeById(id);
+      } catch (eId) {}
+    });
+    for (let pi = 0; pi <= 64; pi++) {
+      try {
+        if (curViewer.entities.getById('wp_inactive_plane_mesh_' + pi)) curViewer.entities.removeById('wp_inactive_plane_mesh_' + pi);
+        if (curViewer.entities.getById('wp_inactive_plane_border_' + pi)) curViewer.entities.removeById('wp_inactive_plane_border_' + pi);
+        for (let vi = 0; vi <= 10; vi++) {
+          if (curViewer.entities.getById('wp_inactive_plane_vtx_' + pi + '_' + vi)) curViewer.entities.removeById('wp_inactive_plane_vtx_' + pi + '_' + vi);
+        }
+      } catch (eInact) {}
+    }
+  }
+
+  // Purga de etiquetas 2D asociadas al plano de trabajo
+  if (typeof window !== 'undefined') {
+    if (Array.isArray(window.labels2DRegistry)) {
+      window.labels2DRegistry = window.labels2DRegistry.filter(l => {
+        if (!l) return false;
+        const txt = typeof l.text === 'function' ? l.text() : (l.text || '');
+        return !txt.includes('🎯 PLANO') && !txt.includes('🎯 Plano');
+      });
+    }
+  }
+
+  if (curViewer && curViewer.scene && typeof curViewer.scene.requestRender === 'function') {
+    try { curViewer.scene.requestRender(); } catch (eR) {}
+  }
+}
+window.wpClearAllPlaneGizmos = wpClearAllPlaneGizmos;
+
 function wpRenderActivePlaneGizmo() {
   wpClearEntGroup("activePlaneMarker");
   wpClearEntGroup("inactivePlanes");
+
+  // Los planos de trabajo son geometría constructiva exclusiva del Paso 1 (Emplazamiento).
+  // Fuera del Paso 1 deben permanecer ocultos para no superponerse sobre paneles ni interferir con simulaciones.
+  const curStep = (typeof wpCurrentStep !== 'undefined') ? wpCurrentStep : ((typeof window !== 'undefined' && window.wpCurrentStep) || 1);
+  if (curStep > 1) {
+    wpClearAllPlaneGizmos();
+    return;
+  }
 
   const activePlane = wpGetActivePlane();
   if (!activePlane && (!WP.planes || WP.planes.length === 0)) return;
@@ -3644,6 +3703,17 @@ async function wpGoToStep(step, force = false) {
   } else {
     if (typeof setElectricalEquipmentVisibility === 'function') {
       setElectricalEquipmentVisibility(true);
+    }
+  }
+
+  // 1.2b Limpieza de geometría auxiliar de planos de trabajo fuera del Paso 1
+  if (step > 1) {
+    if (typeof wpClearAllPlaneGizmos === 'function') {
+      wpClearAllPlaneGizmos();
+    }
+  } else if (step === 1) {
+    if (typeof wpRenderActivePlaneGizmo === 'function') {
+      wpRenderActivePlaneGizmo();
     }
   }
 

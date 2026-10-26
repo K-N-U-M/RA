@@ -701,6 +701,7 @@
   }
 
   async function computeAnnualSolarHeatmap(onProgressCallback) {
+    if (typeof wpClearAllPlaneGizmos === "function") { try { wpClearAllPlaneGizmos(); } catch (_) {} }
     if (typeof wpClearDynamicShadows === "function") {
       try { wpClearDynamicShadows(); } catch (_) {}
     } else if (typeof window !== "undefined" && window.wpClearDynamicShadows) {

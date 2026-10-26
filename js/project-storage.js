@@ -889,7 +889,14 @@ async function raImportProjectData(projectData, options = {}) {
     // 7. Re-renderizar Todo
     if (typeof isPolygonDesignConfirmed !== 'undefined') isPolygonDesignConfirmed = true;
     if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
-    if (typeof wpRenderActivePlaneGizmo === 'function') wpRenderActivePlaneGizmo();
+    let previewTargetStep = (projectData.metadata && typeof projectData.metadata.currentStep === 'number')
+      ? projectData.metadata.currentStep
+      : (typeof projectData.currentStep === 'number' ? projectData.currentStep : 2);
+    if (previewTargetStep <= 1 && typeof wpRenderActivePlaneGizmo === 'function') {
+      wpRenderActivePlaneGizmo();
+    } else if (typeof wpClearAllPlaneGizmos === 'function') {
+      wpClearAllPlaneGizmos();
+    }
     if (typeof render3DObstaclesInCesium === 'function') render3DObstaclesInCesium();
     if (window.RAWindTurbine && typeof window.RAWindTurbine.renderAll === 'function') window.RAWindTurbine.renderAll();
 
