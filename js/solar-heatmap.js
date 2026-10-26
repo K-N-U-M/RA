@@ -960,7 +960,7 @@
           applyWorkerHeatmapResults(polylines, workerResults.results, workerResults.monthlyNetWh, _monthlyNetWh);
           workerHandled = true;
           if (typeof window !== 'undefined' && window.RA && window.RA.log) {
-            window.RA.log.info('[SOLAR WORKER] Simulación anual completada con éxito off-thread.');
+            (typeof window.RA.log.info === 'function' ? window.RA.log.info : console.log)('[SOLAR WORKER] Simulación anual completada con éxito off-thread.');
           }
         }
       } catch (errWorker) {

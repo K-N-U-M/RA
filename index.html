@@ -3387,6 +3387,7 @@ window.RA.cleanup = function() {
   window.RA.log && window.RA.log.debug('RA.cleanup() ejecutado — ' + window.RA._listeners.length + ' listeners liberados');
 };
 window.RA.log = {
+  info:  function() { console.log.apply(console, ['[RA]'].concat(Array.from(arguments))); },
   debug: function() { if (window.RA.debug) console.log.apply(console, ['[RA]'].concat(Array.from(arguments))); },
   warn:  function() { if (window.RA.debug) console.warn.apply(console, ['[RA]'].concat(Array.from(arguments))); },
   error: function() { console.error.apply(console, ['[RA ERROR]'].concat(Array.from(arguments))); }
@@ -9058,6 +9059,9 @@ function evaluateModuleLayouts(roof, module, cfg) {
   const poly = roof.poly2D || [];
   if (poly.length < 3) return { layouts: [], best: null };
 
+  const roofAz = (roof.azimuthDeg !== undefined) ? roof.azimuthDeg : 180;
+  const isSouthQuadrant = (roofAz >= 100 && roofAz <= 260); // Favorable a sol (SE, S, SO)
+
   // 1. Cálculo de inclinación y azimut óptimos
   const lat = (typeof roof.latDeg === "number") ? roof.latDeg : (typeof latitude === "number" ? latitude : 40.4168);
   const optimalTilt = Math.min(35, Math.max(15, Math.round(3.7 + 0.69 * Math.abs(lat))));
@@ -9073,8 +9077,6 @@ function evaluateModuleLayouts(roof, module, cfg) {
 
   if (isOptimal) {
     // <i data-lucide=\"sun\" class=\"icon-sm\"></i> MODO HÍBRIDO INTELIGENTE CARA AL SOL (PVsyst / Helioscope)
-    const roofAz = (roof.azimuthDeg !== undefined) ? roof.azimuthDeg : 180;
-    const isSouthQuadrant = (roofAz >= 100 && roofAz <= 260); // Favorable a sol (SE, S, SO)
 
     if (slopeDeg <= flatThreshold) {
       // Caso A: Cubierta plana (<=8°): Estructura orientada estrictamente al Sur (180°) con inclinación óptima
