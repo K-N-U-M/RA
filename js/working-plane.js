@@ -1496,6 +1496,14 @@ function renderTriad2D() {
       } catch(_e) { console.warn("[Triad] renderUniversalGizmo2D error:", _e); }
     }
 
+    // 🎨 OVERLAYS DE LA SUITE CAD (Pre-selección Hover y Marco Marquee)
+    if (typeof window.renderCADHoverOverlay === 'function') {
+      try { window.renderCADHoverOverlay(triadCtx, scene); } catch(eHover) {}
+    }
+    if (typeof window.renderCADMarqueeOverlay === 'function') {
+      try { window.renderCADMarqueeOverlay(triadCtx); } catch(eMarq) {}
+    }
+
     // 🔄 REFRESH AUTOMÁTICO rAF SI HAY TRANSICIONES ACTIVAS (FADE IN 150ms / FADE OUT 300ms)
     if (_hasHoverFadeTransitions) {
       _requestHoverFadeNextFrame();
@@ -2773,23 +2781,29 @@ function wpRenderAllPolylines() {
     const elevatedPts = wpElevatePointsForVisuals(poly.points, poly.planeIdx, 0.12);
     const closedElevatedPts = [...elevatedPts, elevatedPts[0]];
     
-    // 1. Contorno perimetral nítido y discreto en color naranja/ámbar
-    const polyColor = isSel ? '#F59E0B' : '#D97706';
+    // Modo Foco: si está activo y este faldón no pertenece al plano activo, atenuar (ghosting CAD)
+    const isFocusGhost = (window.cadFocusMode !== false && typeof WP.activePlaneIdx === 'number' && WP.activePlaneIdx >= 0 && typeof poly.planeIdx === 'number' && poly.planeIdx !== WP.activePlaneIdx);
+
+    // 1. Contorno perimetral nítido y discreto en color naranja/ámbar (o atenuado en ghosting)
+    const polyColor = isFocusGhost ? '#64748B' : (isSel ? '#F59E0B' : '#D97706');
+    const lineWidth = isFocusGhost ? 1.2 : (isSel ? 3.0 : 2.0);
+    const lineAlpha = isFocusGhost ? 0.35 : 1.0;
     const line = (getAddPolylineEntity() || addPolylineEntity)(
       closedElevatedPts,
       polyColor,
-      isSel ? 3.0 : 2.0,
-      1.0,
+      lineWidth,
+      lineAlpha,
       1.0,
       'wp_poly_line_' + i + '_' + Math.random().toString(36).substring(2, 6)
     );
     if (line) WP.ents.polys.push(line);
     
     // 2. Superficie sólida semitransparente generada sobre la cubierta (CCW garantizado)
+    const fillAlpha = isFocusGhost ? 0.02 : (isSel ? 0.18 : 0.08);
     const fill = addPolygonEntity(
       elevatedPts,
       polyColor,
-      isSel ? 0.18 : 0.08,
+      fillAlpha,
       0,
       'wp_poly_fill_' + i + '_' + Math.random().toString(36).substring(2, 6)
     );
