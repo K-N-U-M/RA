@@ -1338,7 +1338,7 @@ if (typeof window !== 'undefined') {
     };
   }
 
-function generatePropuestaComercialPDF(skipPricingModal, targetWindowName) {
+function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, themeOverride) {
   const d = getProjectCalcs();
   // Resiliencia AAA: si getProjectCalcs devuelve 0 paneles, intentar recuperar de caché conocida
   let numPanelsFinal = d.numPanels;
@@ -1411,7 +1411,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName) {
       }
     } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
   }
-  const theme        = branding.theme || 'emerald';
+  const theme        = themeOverride || branding.theme || 'emerald';
   const layoutStyle  = branding.layoutStyle || 'editorial'; // editorial | infographic | technical
   const warPower     = branding.warPower || '25';
   const warMod       = branding.warMod   || '15';
@@ -2284,12 +2284,16 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName) {
           if (window.opener && window.opener.RACompanyBranding && typeof window.opener.RACompanyBranding.saveCompanyBranding === 'function') {
             window.opener.RACompanyBranding.saveCompanyBranding(stored);
           }
+          if (window.opener && window.opener.RA && window.opener.RA.branding) {
+            window.opener.RA.branding.theme = t;
+          }
         } catch (e) {}
+
         if (window.opener && typeof window.opener.generatePropuestaComercialPDF === 'function') {
           window.name = window.name || 'ra_proposal_window_' + Date.now();
-          window.opener.generatePropuestaComercialPDF(true, window.name);
+          window.opener.generatePropuestaComercialPDF(true, window.name, t);
         } else {
-          alert('Paleta guardada. Vuelve a generar la propuesta para verla con este color.');
+          alert('Paleta guardada. Vuelve a abrir la propuesta para verla.');
         }
       }
 
