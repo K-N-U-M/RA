@@ -61,6 +61,32 @@ function polygonsIntersect2D(polyA, polyB) {
   return false;
 }
 
+function convexHull2D(points) {
+  if (!points || points.length <= 3) return points || [];
+  const pts = points.slice().sort((a, b) => a.u === b.u ? a.v - b.v : a.u - b.u);
+  function cross(o, a, b) {
+    return (a.u - o.u) * (b.v - o.v) - (a.v - o.v) * (b.u - o.u);
+  }
+  const lower = [];
+  for (let p of pts) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 1e-9) {
+      lower.pop();
+    }
+    lower.push(p);
+  }
+  const upper = [];
+  for (let i = pts.length - 1; i >= 0; i--) {
+    const p = pts[i];
+    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 1e-9) {
+      upper.pop();
+    }
+    upper.push(p);
+  }
+  lower.pop();
+  upper.pop();
+  return lower.concat(upper);
+}
+
 function dividePanelIntoSubstrings2D(quad) {
   if (!quad || quad.length !== 4) return quad ? [quad] : [];
   const p0 = quad[0], p1 = quad[1], p2 = quad[2], p3 = quad[3];
@@ -287,9 +313,14 @@ self.onmessage = function(e) {
           const basePoly = obs.points2D || [];
           if (basePoly.length >= 3) {
             const topPoly = basePoly.map(pt => ({ u: pt.u + dU, v: pt.v + dV }));
-            for (let i = 0; i < basePoly.length; i++) {
-              const next = (i + 1) % basePoly.length;
-              quads.push([basePoly[i], basePoly[next], topPoly[next], topPoly[i]]);
+            const hull = convexHull2D([...basePoly, ...topPoly]);
+            if (hull && hull.length >= 3) {
+              quads.push(hull);
+            } else {
+              for (let i = 0; i < basePoly.length; i++) {
+                const next = (i + 1) % basePoly.length;
+                quads.push([basePoly[i], basePoly[next], topPoly[next], topPoly[i]]);
+              }
             }
           }
         });
