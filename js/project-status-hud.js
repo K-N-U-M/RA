@@ -242,9 +242,7 @@
               </div>
             </div>
           </div>
-          </div>
-
-          <!-- Fila Compacta Minimalista (Modo C - Se activa cuando _isCompact es true) -->
+<!-- Fila Compacta Minimalista (Modo C - Se activa cuando _isCompact es true) -->
           <div id="ra-hud-compact-row" style="display: none; align-items: center; justify-content: space-between; gap: 10px; font-size: 11px; font-weight: 800;">
             <div style="display: flex; align-items: center; gap: 6px;">
               <div style="width: 7px; height: 7px; border-radius: 50%; background: #10B981; box-shadow: 0 0 6px #10B981;" id="ra-hud-compact-dot"></div>
