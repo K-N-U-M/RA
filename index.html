@@ -2474,19 +2474,22 @@ window.RA_App = window.RA_App || {};
       </div>
     </div>
 
-    <!-- Pestañas de Navegación del Catálogo -->
-    <div style="display:flex;gap:4px;padding:8px 16px;background:rgba(0,0,0,0.25);border-bottom:1px solid var(--border-subtle);flex-wrap:wrap;">
-      <button class="sb-tab-btn active" id="cat-tab-btn-modules" onclick="switchCatalogTab('modules')" style="padding:6px 12px;font-size:10.5px;border-radius:6px;"><i data-lucide="sun" class="icon-sm"></i> MÓDULOS FV</button>
-      <button class="sb-tab-btn" id="cat-tab-btn-inverters" onclick="switchCatalogTab('inverters')" style="padding:6px 12px;font-size:10.5px;border-radius:6px;"><i data-lucide="zap" class="icon-sm"></i> INVERSORES</button>
-      <button class="sb-tab-btn" id="cat-tab-btn-batteries" onclick="switchCatalogTab('batteries')" style="padding:6px 12px;font-size:10.5px;border-radius:6px;"><i data-lucide="battery-charging" class="icon-sm"></i> BATERÍAS LFP</button>
-      <button class="sb-tab-btn" id="cat-tab-btn-microinverters" onclick="switchCatalogTab('microinverters')" style="padding:6px 12px;font-size:10.5px;border-radius:6px;"><i data-lucide="cpu" class="icon-sm"></i> MICROINVERSORES</button>
-      <button class="sb-tab-btn" id="cat-tab-btn-wind_turbines" onclick="switchCatalogTab('wind_turbines')" style="padding:6px 12px;font-size:10.5px;border-radius:6px;color:#38BDF8;border:1px solid rgba(56,189,248,0.5);background:rgba(56,189,248,0.08);"><i data-lucide="wind" class="icon-sm"></i> 💨 AEROGENERADORES</button>
-      <button class="sb-tab-btn" id="cat-tab-btn-structures" onclick="switchCatalogTab('structures')" style="padding:6px 12px;font-size:10.5px;border-radius:6px;color:#38BDF8;border:1px solid rgba(56,189,248,0.4);"><i data-lucide="layers" class="icon-sm"></i> ESTRUCTURAS</button>
-      <button class="sb-tab-btn" id="cat-tab-btn-installation_costs" onclick="switchCatalogTab('installation_costs')" style="padding:6px 12px;font-size:10.5px;border-radius:6px;color:#34D399;border:1px solid rgba(52,211,153,0.4);"><i data-lucide="wrench" class="icon-sm"></i> INSTALACIÓN &amp; SOFT COSTS</button>
-      <button class="sb-tab-btn" id="cat-tab-btn-add_new" onclick="switchCatalogTab('add_new')" style="padding:6px 12px;font-size:10.5px;border-radius:6px;color:var(--amber-400);border:1px dashed var(--amber-400);"><i data-lucide="plus" class="icon-sm"></i> AÑADIR MANUAL</button>
-      <button class="sb-tab-btn" id="cat-tab-btn-ai_import" onclick="switchCatalogTab('ai_import')" style="padding:6px 12px;font-size:10.5px;border-radius:6px;color:var(--sky-400);border:1px solid rgba(56,189,248,0.5);background:rgba(56,189,248,0.1);"><i data-lucide="sparkles" class="icon-sm"></i> ✨ IMPORTAR CON IA</button>
-      <button class="sb-tab-btn" id="cat-tab-btn-ai_search" onclick="switchCatalogTab('ai_search')" style="padding:6px 12px;font-size:10.5px;border-radius:6px;color:#C084FC;border:1px solid rgba(192,132,252,0.5);background:rgba(192,132,252,0.1);"><i data-lucide="globe" class="icon-sm"></i> 🌐 BUSCADOR WEB IA</button>
-      <button class="sb-tab-btn" id="cat-tab-btn-edit" onclick="switchCatalogTab('edit')" style="display:none;padding:6px 12px;font-size:10.5px;border-radius:6px;color:var(--sky-400);border:1px dashed var(--sky-400);"><i data-lucide="edit-2" class="icon-sm"></i> EDITAR EQUIPO</button>
+    <!-- Pestañas de Navegación del Catálogo (Sistema Dark CAD Segmented) -->
+    <div style="display:flex;gap:6px;padding:10px 16px;background:rgba(15,23,42,0.6);border-bottom:1px solid rgba(255,255,255,0.08);flex-wrap:wrap;align-items:center;">
+      <button class="cat-nav-pill active" id="cat-tab-btn-modules" onclick="switchCatalogTab('modules')"><i data-lucide="sun" class="icon-sm"></i> MÓDULOS FV</button>
+      <button class="cat-nav-pill" id="cat-tab-btn-inverters" onclick="switchCatalogTab('inverters')"><i data-lucide="zap" class="icon-sm"></i> INVERSORES</button>
+      <button class="cat-nav-pill" id="cat-tab-btn-batteries" onclick="switchCatalogTab('batteries')"><i data-lucide="battery-charging" class="icon-sm"></i> BATERÍAS LFP</button>
+      <button class="cat-nav-pill" id="cat-tab-btn-microinverters" onclick="switchCatalogTab('microinverters')"><i data-lucide="cpu" class="icon-sm"></i> MICROINVERSORES</button>
+      <button class="cat-nav-pill" id="cat-tab-btn-wind_turbines" onclick="switchCatalogTab('wind_turbines')"><i data-lucide="wind" class="icon-sm"></i> AEROGENERADORES</button>
+      <button class="cat-nav-pill" id="cat-tab-btn-structures" onclick="switchCatalogTab('structures')"><i data-lucide="layers" class="icon-sm"></i> ESTRUCTURAS</button>
+      <button class="cat-nav-pill" id="cat-tab-btn-installation_costs" onclick="switchCatalogTab('installation_costs')"><i data-lucide="wrench" class="icon-sm"></i> INSTALACIÓN &amp; SOFT COSTS</button>
+      
+      <div style="width:1px;height:20px;background:rgba(255,255,255,0.12);margin:0 4px;"></div>
+
+      <button class="cat-nav-pill cat-nav-action action-add" id="cat-tab-btn-add_new" onclick="switchCatalogTab('add_new')"><i data-lucide="plus" class="icon-sm"></i> AÑADIR MANUAL</button>
+      <button class="cat-nav-pill cat-nav-action action-ai" id="cat-tab-btn-ai_import" onclick="switchCatalogTab('ai_import')"><i data-lucide="sparkles" class="icon-sm"></i> IMPORTAR CON IA</button>
+      <button class="cat-nav-pill cat-nav-action action-web" id="cat-tab-btn-ai_search" onclick="switchCatalogTab('ai_search')"><i data-lucide="globe" class="icon-sm"></i> BUSCADOR WEB IA</button>
+      <button class="cat-nav-pill cat-nav-action" id="cat-tab-btn-edit" onclick="switchCatalogTab('edit')" style="display:none;"><i data-lucide="edit-2" class="icon-sm"></i> EDITAR EQUIPO</button>
     </div>
 
     <!-- Cuerpo con Tablas y Contenidos -->
