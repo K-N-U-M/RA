@@ -1624,7 +1624,15 @@ function generatePropuestaComercialPDF(skipPricingModal) {
       .doc-btn-html:hover { background: #334155; }
       .doc-btn-edit { background: ${pal.accent}; color: #000; }
       .doc-btn-close { background: #ef4444; color: #fff; }
-      .page-sheet { width: 840px; background: #ffffff; padding: ${layoutStyle === 'editorial' ? '44px 52px' : (layoutStyle === 'infographic' ? '36px 40px' : '32px 36px')}; margin-bottom: 28px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); border-radius: 6px; }
+      .page-sheet { width: 210mm; min-height: 297mm; max-height: 297mm; background: #ffffff; padding: 12mm 14mm; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); border-radius: 4px; box-sizing: border-box; overflow: hidden; position: relative; }
+      .tech-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0 12px; }
+      .tech-card { border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 8px 10px; background: #f8fafc; display: flex; align-items: center; gap: 10px; min-height: 60px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); }
+      .tech-icon-box { width: 44px; height: 44px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 8px; }
+      .tech-info { flex: 1; min-width: 0; }
+      .tech-label { font-size: 8.5px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+      .tech-name { font-size: 11px; font-weight: 800; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.25; margin-top: 1px; }
+      .tech-sub { font-size: 9px; color: #64748b; line-height: 1.2; margin-top: 2px; }
+      .tech-badge { flex-shrink: 0; text-align: right; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 8px; font-size: 11px; font-weight: 900; color: ${pal.primary}; }
       .closer-hero-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: ${layoutStyle === 'editorial' ? '14px' : '10px'}; margin: ${layoutStyle === 'editorial' ? '18px 0 24px' : '12px 0 16px'}; }
       .closer-hero-card { background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: ${layoutStyle === 'editorial' ? '16px 10px' : '12px 8px'}; text-align: center; transition: all 0.2s ease; }
       .decision-boxes { display: grid; grid-template-columns: 1fr 1fr; gap: ${layoutStyle === 'editorial' ? '18px' : '12px'}; margin: ${layoutStyle === 'editorial' ? '20px 0' : '14px 0'}; }
@@ -1671,18 +1679,18 @@ function generatePropuestaComercialPDF(skipPricingModal) {
       .sig-card { border: 1px dashed #cbd5e1; border-radius: 6px; padding: 16px; text-align: center; font-size: 10.5px; }
       .sig-logo-box { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 8px; }
       .pill { display: inline-block; background: ${pal.light}; color: ${pal.dark}; font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 12px; margin: 2px; }
-      @page { size: A4 portrait; margin: 10mm; }
+      @page { size: A4 portrait; margin: 0; }
       *, *::before, *::after { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
       @media print {
-        body { background: #fff; padding: 0; padding-top: 0; }
+        html, body { background: #fff; padding: 0; margin: 0; width: 210mm; }
         .doc-top-bar { display: none !important; }
-        .page-sheet { box-shadow: none; padding: 22px 30px; margin: 0; page-break-after: always; width: 100%; }
-        .page-sheet:last-child { page-break-after: avoid; }
+        .page-sheet { box-shadow: none; border-radius: 0; width: 210mm; min-height: 297mm; max-height: 297mm; height: 297mm; padding: 12mm 14mm; margin: 0; page-break-before: auto; page-break-after: always; break-after: page; page-break-inside: avoid; break-inside: avoid; overflow: hidden; box-sizing: border-box; }
+        .page-sheet:last-child { page-break-after: avoid; break-after: avoid; }
         thead { display: table-header-group; }
-        tr, .hero-card, .closer-hero-card, .decision-card, .sig-card, .chart-box { page-break-inside: avoid; break-inside: avoid; }
-        h2 { page-break-after: avoid; break-after: avoid; margin: 12px 0 6px; }
-        table { margin: 6px 0 12px; }
-        td, th { padding: 5px 8px; }
+        tr, .hero-card, .closer-hero-card, .decision-card, .sig-card, .chart-box, .tech-card { page-break-inside: avoid; break-inside: avoid; }
+        h2 { page-break-after: avoid; break-after: avoid; margin: 10px 0 5px; }
+        table { margin: 4px 0 10px; }
+        td, th { padding: 4.5px 7px; }
       }
     </style>
   </head>
@@ -1853,20 +1861,103 @@ function generatePropuestaComercialPDF(skipPricingModal) {
       </table>
 
       <h2>2. Configuración técnica seleccionada</h2>
-      <table>
-        <tr><th>Componente</th><th>Especificación / Modelo</th><th class="text-right">Cantidad</th></tr>
-        ${(m.modulesBreakdown && m.modulesBreakdown.isMultiModule)
-          ? `<tr><td>Módulos Fotovoltaicos</td><td><strong>Generador Multi-Campo (${m.modulesBreakdown.uniqueModelsCount} modelos Tier-1)</strong><br>` +
-            m.modulesBreakdown.byModel.map(bm => `<span style="font-size: 10px;color:#475569;display:inline-block;margin-left:6px;">• ${bm.count}× ${bm.fullName} (${bm.wp} Wp · ${bm.technology})</span>`).join('<br>') +
-            `</td><td class="text-right">${m.numPanels} uds (${m.kwp.toFixed(2)} kWp)</td></tr>`
-          : `<tr><td style="display:flex;align-items:center;gap:8px;">${(window.RA_SvgCatalog ? window.RA_SvgCatalog.render('panel', pal.primary, 22) : '')} <b>Módulos Fotovoltaicos</b></td><td>${d.cfg.modelo} (${d.cfg.potencia} Wp · ${d.cfg.tecnologia})</td><td class="text-right"><b>${m.numPanels} uds</b></td></tr>`
-        }
-        <tr><td style="display:flex;align-items:center;gap:8px;">${(window.RA_SvgCatalog ? window.RA_SvgCatalog.render('inverter', pal.primary, 22) : '')} <b>Inversor de Red</b></td><td>${_eqp.invName}</td><td class="text-right"><b>${_eqp.invCount} ud${_eqp.invCount > 1 ? 's' : ''}</b></td></tr>
-        <tr><td style="display:flex;align-items:center;gap:8px;">${(window.RA_SvgCatalog ? window.RA_SvgCatalog.render('battery', pal.primary, 22) : '')} <b>Almacenamiento</b></td><td>${_eqp.hasBat ? _eqp.batName : 'Sin acumulación (Conexión Directa)'}</td><td class="text-right">${_eqp.hasBat ? ('<b>' + _eqp.batCount + ' ud' + (_eqp.batCount > 1 ? 's' : '') + '</b>') : '—'}</td></tr>
-        ${_eqp.hasMicro ? '<tr><td>Microinversores / Optimizadores</td><td>' + _eqp.microName + '</td><td class="text-right">' + _eqp.microCount + ' uds</td></tr>' : ''}
-        <tr><td style="display:flex;align-items:center;gap:8px;">${(window.RA_SvgCatalog ? window.RA_SvgCatalog.render('structure', pal.primary, 22) : '')} <b>Estructura &amp; Fijación</b></td><td>Aluminio Anodizado AL6005-T5 con tornillería Inox A2</td><td class="text-right"><b>${m.numPanels} uds</b></td></tr>
-        <tr><td style="display:flex;align-items:center;gap:8px;">${(window.RA_SvgCatalog ? window.RA_SvgCatalog.render('protections', pal.primary, 22) : '')} <b>Cableado &amp; Protecciones</b></td><td>Cable Solar ZZ-F 1.5kV + Cuadro DC/AC con SPD Tipo II e IGA</td><td class="text-right"><b>1 lote</b></td></tr>
-      </table>
+      <div class="tech-grid">
+        <!-- 1. Módulos -->
+        <div class="tech-card">
+          <div class="tech-icon-box">
+            ${(window.RA_SvgCatalog ? window.RA_SvgCatalog.render('panel', pal.primary, 36) : '')}
+          </div>
+          <div class="tech-info">
+            <div class="tech-label">MÓDULOS FOTOVOLTAICOS</div>
+            ${(m.modulesBreakdown && m.modulesBreakdown.isMultiModule)
+              ? `<div class="tech-name">Generador Multi-Campo (${m.modulesBreakdown.uniqueModelsCount} modelos)</div>
+                 <div class="tech-sub">${m.modulesBreakdown.byModel.map(bm => bm.count + '× ' + bm.fullName + ' (' + bm.wp + 'W)').join(' · ')}</div>`
+              : `<div class="tech-name" title="${d.cfg.modelo}">${d.cfg.modelo}</div>
+                 <div class="tech-sub">${d.cfg.potencia} Wp · ${d.cfg.tecnologia}</div>`
+            }
+          </div>
+          <div class="tech-badge">
+            ${m.numPanels} uds<br><span style="font-size:8.5px;color:#64748b;font-weight:700;">${m.kwp.toFixed(2)} kWp</span>
+          </div>
+        </div>
+
+        <!-- 2. Inversor -->
+        <div class="tech-card">
+          <div class="tech-icon-box">
+            ${(window.RA_SvgCatalog ? window.RA_SvgCatalog.render('inverter', pal.primary, 36) : '')}
+          </div>
+          <div class="tech-info">
+            <div class="tech-label">INVERSOR DE RED</div>
+            <div class="tech-name" title="${_eqp.invName}">${_eqp.invName}</div>
+            <div class="tech-sub">Conversión DC/AC de Alta Eficiencia + Smart Meter</div>
+          </div>
+          <div class="tech-badge">
+            ${_eqp.invCount} ud${_eqp.invCount > 1 ? 's' : ''}
+          </div>
+        </div>
+
+        <!-- 3. Almacenamiento -->
+        <div class="tech-card">
+          <div class="tech-icon-box">
+            ${(window.RA_SvgCatalog ? window.RA_SvgCatalog.render('battery', _eqp.hasBat ? pal.primary : '#94a3b8', 36) : '')}
+          </div>
+          <div class="tech-info">
+            <div class="tech-label">SISTEMA DE ALMACENAMIENTO</div>
+            <div class="tech-name" title="${_eqp.hasBat ? _eqp.batName : 'Sin acumulación (Conexión Directa)'}">${_eqp.hasBat ? _eqp.batName : 'Sin acumulación'}</div>
+            <div class="tech-sub">${_eqp.hasBat ? 'Batería LFP Litio-Ferrofosfato con BMS' : 'Preparado para ampliación futura'}</div>
+          </div>
+          <div class="tech-badge" style="${!_eqp.hasBat ? 'color:#94a3b8;border-color:#e2e8f0;' : ''}">
+            ${_eqp.hasBat ? (_eqp.batCount + ' ud' + (_eqp.batCount > 1 ? 's' : '')) : '—'}
+          </div>
+        </div>
+
+        <!-- 4. Microinversores / Optimizadores -->
+        ${_eqp.hasMicro ? `
+        <div class="tech-card">
+          <div class="tech-icon-box">
+            ${(window.RA_SvgCatalog ? window.RA_SvgCatalog.render('inverter', pal.primary, 36) : '')}
+          </div>
+          <div class="tech-info">
+            <div class="tech-label">MICROINVERSORES / OPTIMIZADORES</div>
+            <div class="tech-name" title="${_eqp.microName}">${_eqp.microName}</div>
+            <div class="tech-sub">Monitorización y MPPT a nivel de módulo individual</div>
+          </div>
+          <div class="tech-badge">
+            ${_eqp.microCount} uds
+          </div>
+        </div>
+        ` : ''}
+
+        <!-- 5. Estructura & Soporte -->
+        <div class="tech-card">
+          <div class="tech-icon-box">
+            ${(window.RA_SvgCatalog ? window.RA_SvgCatalog.render('structure', pal.primary, 36) : '')}
+          </div>
+          <div class="tech-info">
+            <div class="tech-label">ESTRUCTURA Y FIJACIÓN</div>
+            <div class="tech-name">Aluminio Anodizado AL6005-T5</div>
+            <div class="tech-sub">Tornillería Inox A2 · Resistencia al viento y corrosión</div>
+          </div>
+          <div class="tech-badge">
+            ${m.numPanels} uds
+          </div>
+        </div>
+
+        <!-- 6. Cableado & Protecciones -->
+        <div class="tech-card">
+          <div class="tech-icon-box">
+            ${(window.RA_SvgCatalog ? window.RA_SvgCatalog.render('protections', pal.primary, 36) : '')}
+          </div>
+          <div class="tech-info">
+            <div class="tech-label">CABLEADO Y CUADROS DE PROTECCIÓN</div>
+            <div class="tech-name">Líneas ZZ-F 1.5kV + Cuadro DC/AC</div>
+            <div class="tech-sub">Sobretensiones SPD Tipo II + Magnetotérmico IGA</div>
+          </div>
+          <div class="tech-badge">
+            1 lote
+          </div>
+        </div>
+      </div>
 
       <h2>3. Presupuesto detallado llave en mano</h2>
       <table>
