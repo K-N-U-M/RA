@@ -1839,19 +1839,36 @@ window.RA_App = window.RA_App || {};
                 </div>
               </div>
 
-              <!-- Selector de Topología de Conversión -->
-              <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.06);border-radius:6px;padding:7px;margin-bottom:8px;">
-                <span style="font-size: 10px;font-weight:700;color:var(--amber-400);display:block;margin-bottom:5px;"><i data-lucide="plug" class="icon-sm"></i> Topología del Sistema:</span>
+              <!-- Selector de Topología de Conversión con Esquema de Convivencia -->
+              <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.06);border-radius:6px;padding:8px;margin-bottom:8px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                  <span style="font-size: 10px;font-weight:800;color:var(--amber-400);display:flex;align-items:center;gap:5px;">
+                    <i data-lucide="plug" class="icon-sm"></i> TOPOLOGÍA & ARQUITECTURA DE CONVERSIÓN:
+                  </span>
+                  <span id="step3-topo-arch-tag" class="card-tag" style="background:rgba(56,189,248,0.15);color:#38BDF8;font-size:9.5px;font-weight:700;">
+                    1x INVERSOR
+                  </span>
+                </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;">
-                  <button type="button" id="step3-topo-inverter" class="doc-mini-btn active" onclick="step3SetTopology('inverter')" style="padding:5px 2px;font-size: 10px;text-align:center;">
-                    ⚡ String Central
+                  <button type="button" id="step3-topo-inverter" class="doc-mini-btn active" onclick="step3SetTopology('inverter')" style="padding:6px 2px;font-size: 10px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:2px;">
+                    <span style="font-weight:800;">⚡ Inversor String</span>
+                    <span style="font-size:8.5px;opacity:0.75;font-weight:normal;">Convencional Puro</span>
                   </button>
-                  <button type="button" id="step3-topo-micro" class="doc-mini-btn" onclick="step3SetTopology('microinverter')" style="padding:5px 2px;font-size: 10px;text-align:center;">
-                    <i data-lucide="cpu" class="icon-sm"></i> Microinversores
+                  <button type="button" id="step3-topo-optim" class="doc-mini-btn" onclick="step3SetTopology('optimizer')" style="padding:6px 2px;font-size: 10px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:2px;">
+                    <span style="font-weight:800;">⚙️ Inversor + MLPE</span>
+                    <span style="font-size:8.5px;opacity:0.75;font-weight:normal;">Inversor + Optimizadores</span>
                   </button>
-                  <button type="button" id="step3-topo-optim" class="doc-mini-btn" onclick="step3SetTopology('optimizer')" style="padding:5px 2px;font-size: 10px;text-align:center;">
-                    <i data-lucide="settings" class="icon-sm"></i> Optimizadores
+                  <button type="button" id="step3-topo-micro" class="doc-mini-btn" onclick="step3SetTopology('microinverter')" style="padding:6px 2px;font-size: 10px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:2px;">
+                    <span style="font-weight:800;">🖲️ Microinversores</span>
+                    <span style="font-size:8.5px;opacity:0.75;font-weight:normal;">Conversión AC en panel</span>
                   </button>
+                </div>
+                <!-- Banner explicativo interactivo de la topología activa y convivencia de equipos -->
+                <div id="step3-topo-explainer-banner" style="margin-top:7px;background:rgba(15,23,42,0.6);border:1px solid rgba(56,189,248,0.2);border-radius:4px;padding:5px 8px;font-size:9.5px;line-height:1.3;color:#94a3b8;display:flex;align-items:center;gap:6px;">
+                  <i data-lucide="info" class="icon-sm" style="color:#38BDF8;flex-shrink:0;"></i>
+                  <span id="step3-topo-explainer-text">
+                    <strong style="color:#e2e8f0;">Inversor String Central:</strong> Los paneles se conectan en serie (DC) a las entradas MPPT de 1 o varios inversores centrales.
+                  </span>
                 </div>
               </div>
 

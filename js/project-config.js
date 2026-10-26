@@ -145,24 +145,61 @@ function step3SetTopology(topo) {
   const ctrlInv = document.getElementById('step3-ctrl-inverters');
   const ctrlMi = document.getElementById('step3-ctrl-microinverters');
 
+  const archTag = document.getElementById('step3-topo-arch-tag');
+  const explainerText = document.getElementById('step3-topo-explainer-text');
+  const explainerBanner = document.getElementById('step3-topo-explainer-banner');
+
   if (topo === 'microinverter') {
     if (rowInv) rowInv.style.display = 'none';
     if (rowOpt) rowOpt.style.display = 'none';
     if (rowMi) rowMi.style.display = 'block';
     if (ctrlInv) ctrlInv.style.display = 'none';
     if (ctrlMi) ctrlMi.style.display = 'block';
+    if (archTag) {
+      archTag.textContent = 'MICROINVERSORES AC (SIN CENTRAL)';
+      archTag.style.background = 'rgba(16,185,129,0.15)';
+      archTag.style.color = '#34D399';
+    }
+    if (explainerText) {
+      explainerText.innerHTML = '<strong style="color:#34D399;">Arquitectura Microinversores (AC):</strong> No requiere inversor central. Cada microinversor se monta en tejado y convierte DC a AC a 230V directamente.';
+    }
+    if (explainerBanner) {
+      explainerBanner.style.borderColor = 'rgba(16,185,129,0.3)';
+    }
   } else if (topo === 'optimizer') {
     if (rowInv) rowInv.style.display = 'block';
     if (rowOpt) rowOpt.style.display = 'block';
     if (rowMi) rowMi.style.display = 'none';
     if (ctrlInv) ctrlInv.style.display = 'block';
     if (ctrlMi) ctrlMi.style.display = 'none';
+    if (archTag) {
+      archTag.textContent = 'INVERSOR CENTRAL + OPTIMIZADORES';
+      archTag.style.background = 'rgba(245,158,11,0.15)';
+      archTag.style.color = '#FBBF24';
+    }
+    if (explainerText) {
+      explainerText.innerHTML = '<strong style="color:#FBBF24;">Arquitectura Híbrida (Inversor + MLPE):</strong> Conexión en serie de paneles con Optimizadores DC/DC adosados, conectados al Inversor de Red principal.';
+    }
+    if (explainerBanner) {
+      explainerBanner.style.borderColor = 'rgba(245,158,11,0.3)';
+    }
   } else {
     if (rowInv) rowInv.style.display = 'block';
     if (rowOpt) rowOpt.style.display = 'none';
     if (rowMi) rowMi.style.display = 'none';
     if (ctrlInv) ctrlInv.style.display = 'block';
     if (ctrlMi) ctrlMi.style.display = 'none';
+    if (archTag) {
+      archTag.textContent = 'INVERSOR STRING CENTRAL';
+      archTag.style.background = 'rgba(56,189,248,0.15)';
+      archTag.style.color = '#38BDF8';
+    }
+    if (explainerText) {
+      explainerText.innerHTML = '<strong style="color:#38BDF8;">Inversor String Central:</strong> Los paneles se conectan en serie (DC) directamente a las entradas MPPT del inversor central.';
+    }
+    if (explainerBanner) {
+      explainerBanner.style.borderColor = 'rgba(56,189,248,0.3)';
+    }
   }
 
   step3UpdateHardwareSelection();
