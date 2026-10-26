@@ -30,8 +30,22 @@ function resolveEquipmentNames() {
     // Microinversor
     microName: '', microBrand: '', microModel: '', microCount: 0, hasMicro: false,
     // Topología
-    topology: cfg.selectedTopology || 'inverter'
+    topology: cfg.selectedTopology || 'inverter',
+    // Módulo FV
+    modBrand: '', modModel: '', modFullName: '', modWp: 450
   };
+
+  // ── Módulo FV ──
+  var activeModId = cfg.selectedModuleId || (window.WP && window.WP.polylines && window.WP.polylines[0] && window.WP.polylines[0].moduleId) || '';
+  if (cat.modules && Array.isArray(cat.modules)) {
+    var foundMod = cat.modules.find(function(m) { return m.id === activeModId; }) || cat.modules[0];
+    if (foundMod) {
+      result.modBrand = foundMod.brand || foundMod.fabricante || '';
+      result.modModel = foundMod.model || foundMod.modelo || '';
+      result.modWp = foundMod.wp || foundMod.potencia || 450;
+      result.modFullName = (result.modBrand ? (result.modBrand + ' ') : '') + (result.modModel || ('Tier-1 ' + result.modWp + 'W'));
+    }
+  }
 
   // ── Inversor ──
   if (cfg.selectedInverterId) {
@@ -725,7 +739,7 @@ function wpOpenPricingReviewModal(onConfirm) {
             '</div>' +
             '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05);">' +
               '<div>' +
-                '<div style="font-size:11px;font-weight:800;color:#f8fafc;display:flex;align-items:center;gap:5px;"><span>🟦</span> Módulos Fotovoltaicos Tier-1</div>' +
+                '<div style="font-size:11px;font-weight:800;color:#f8fafc;display:flex;align-items:center;gap:5px;"><span>🟦</span> <span id="pricing-title-panels">Módulos Fotovoltaicos Tier-1</span></div>' +
                 '<div id="pricing-subtext-panels" style="font-size: 10px;color:#94a3b8;">0 módulos en cubierta</div>' +
               '</div>' +
               '<div style="display:flex;align-items:center;gap:8px;">' +
@@ -888,6 +902,7 @@ function wpOpenPricingReviewModal(onConfirm) {
 
   var projInfo = document.getElementById('pricing-modal-project-info');
   var equipInfo = document.getElementById('pricing-modal-equip-info');
+  var titlePanels = document.getElementById('pricing-title-panels');
   var subtextPanels = document.getElementById('pricing-subtext-panels');
   var subtextInv = document.getElementById('pricing-subtext-inv');
   var subtextBat = document.getElementById('pricing-subtext-bat');
@@ -900,6 +915,19 @@ function wpOpenPricingReviewModal(onConfirm) {
 
   if (projInfo) {
     projInfo.textContent = 'Proyecto: ' + numPanels + ' módulos (' + kwp.toFixed(2) + ' kWp)' + (mb && mb.isMultiModule ? ' [Multi-Modelo]' : '');
+  }
+  if (titlePanels) {
+    if (mb && mb.isMultiModule) {
+      titlePanels.textContent = 'Módulos Fotovoltaicos Multi-Campo (' + mb.uniqueModelsCount + ' modelos)';
+    } else if (mb && mb.byModel && mb.byModel[0] && mb.byModel[0].fullName) {
+      titlePanels.textContent = 'Módulos Fotovoltaicos ' + mb.byModel[0].fullName;
+    } else if (eq && eq.modFullName) {
+      titlePanels.textContent = 'Módulos Fotovoltaicos ' + eq.modFullName;
+    } else if (d.cfg && d.cfg.modelo && d.cfg.modelo !== '-') {
+      titlePanels.textContent = 'Módulos Fotovoltaicos ' + d.cfg.modelo;
+    } else {
+      titlePanels.textContent = 'Módulos Fotovoltaicos Tier-1';
+    }
   }
   if (equipInfo) {
     var invDesc = eq ? (eq.invBrand ? (eq.invBrand + ' ' + eq.invModel) : eq.invName) : 'Inversor principal';
