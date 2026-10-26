@@ -2377,13 +2377,16 @@ window.RA_App = window.RA_App || {};
       <button id="btn-shadow-mode-mlpe" class="solar-mode-btn" onclick="wpSetShadowViewMode('mlpe')" title="Diagnóstico de microinversores y optimizadores de potencia requeridos">
         <span><i data-lucide="zap" class="icon-sm"></i> VER OPTIMIZADORES</span>
       </button>
+      <button id="btn-toggle-shadow-planes" class="solar-mode-btn" onclick="wpToggleShadowPlanes()" title="Mostrar u ocultar los planos geométricos oscuros de sombra arrojada sobre el tejado" style="border-color:rgba(148,163,184,0.3);">
+        <span id="shadow-planes-label"><i data-lucide="eye-off" class="icon-sm"></i> SOMBRAS 3D: OFF</span>
+      </button>
       <button type="button" class="solar-mode-btn" onclick="wpEnfoqueDron();" title="Encuadre 3/4 tipo dron de los faldones">
-                          <span><i data-lucide="camera" class="icon-sm"></i> CÁMARA DRON</span>
-                        </button>
-                        <button type="button" class="solar-mode-btn" onclick="wpCapturaInforme().then(c => { if (c && typeof showToast === 'function') showToast('CAPTURAS LISTAS', 'Se incluirán en el próximo PDF de memoria.', 'success', 3500); });" title="Captura dron realista + irradiación para el presupuesto">
-                          <span><i data-lucide="image" class="icon-sm"></i> CAPTURA INFORME</span>
-                        </button>
-                        <button id="btn-place-inverter" class="solar-mode-btn" onclick="wpStartInverterPlacement()" title="Ubicar Inversor Híbrido, Baterías y Cuadro Eléctrico en 3D para calcular tirada métrica de cable">
+        <span><i data-lucide="camera" class="icon-sm"></i> CÁMARA DRON</span>
+      </button>
+      <button type="button" class="solar-mode-btn" onclick="wpCapturaInforme().then(c => { if (c && typeof showToast === 'function') showToast('CAPTURAS LISTAS', 'Se incluirán en el próximo PDF de memoria.', 'success', 3500); });" title="Captura dron realista + irradiación para el presupuesto">
+        <span><i data-lucide="image" class="icon-sm"></i> CAPTURA INFORME</span>
+      </button>
+      <button id="btn-place-inverter" class="solar-mode-btn" onclick="wpStartInverterPlacement()" title="Ubicar Inversor Híbrido, Baterías y Cuadro Eléctrico en 3D para calcular tirada métrica de cable">
         <span><i data-lucide="zap" class="icon-sm"></i> UBICAR INVERSOR 3D</span>
       </button>
     </div>

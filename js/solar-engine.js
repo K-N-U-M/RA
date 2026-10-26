@@ -2015,12 +2015,69 @@ function wpClearDynamicShadows() {
   }
 }
 
+function wpToggleShadowPlanes(forceVal) {
+  if (!solarSimState) window.solarSimState = {};
+  if (typeof forceVal === 'boolean') {
+    solarSimState.showShadowPlanes = forceVal;
+  } else {
+    solarSimState.showShadowPlanes = !solarSimState.showShadowPlanes;
+  }
+
+  const btn = document.getElementById("btn-toggle-shadow-planes");
+  const lbl = document.getElementById("shadow-planes-label");
+  const isShown = !!solarSimState.showShadowPlanes;
+
+  if (btn) {
+    btn.classList.toggle("active", isShown);
+    btn.style.borderColor = isShown ? '#38bdf8' : 'rgba(148,163,184,0.3)';
+    btn.style.color = isShown ? '#38bdf8' : '#94a3b8';
+  }
+  if (lbl) {
+    lbl.innerHTML = isShown
+      ? '<i data-lucide="eye" class="icon-sm"></i> SOMBRAS 3D: ON'
+      : '<i data-lucide="eye-off" class="icon-sm"></i> SOMBRAS 3D: OFF';
+    if (window.lucide && typeof window.lucide.createIcons === 'function') {
+      window.lucide.createIcons();
+    }
+  }
+
+  if (!isShown) {
+    wpClearDynamicShadows();
+  } else if (solarSimState.viewMode !== "heatmap" && solarSimState.currentSolarPos) {
+    wpRenderDynamicObstacleShadows(solarSimState.currentSolarPos);
+  }
+
+  if (typeof showToast === 'function') {
+    showToast(
+      isShown ? 'PLANOS DE SOMBRA ACTIVADOS' : 'PLANOS DE SOMBRA OCULTOS',
+      isShown ? 'Se muestran los conos analíticos de sombra sobre cubierta y terreno.' : 'Vista limpia: sombras analíticas translúcidas desactivadas.',
+      'info',
+      2500
+    );
+  }
+
+  if (typeof viewer !== "undefined" && viewer && viewer.scene && typeof viewer.scene.requestRender === "function") {
+    viewer.scene.requestRender();
+  }
+}
+
 function wpRenderDynamicObstacleShadows(solarPos) {
   if (typeof viewer === "undefined" || !viewer || !viewer.entities) return;
 
   if (!solarSimState) window.solarSimState = {};
   if (!solarSimState.dynamicShadowEntities) solarSimState.dynamicShadowEntities = [];
   const activeShadowIds = new Set();
+
+  // Si el usuario los ha desactivado o estamos en modo heatmap, limpiar y no proyectar
+  if (solarSimState.showShadowPlanes !== true || solarSimState.viewMode === "heatmap") {
+    if (solarSimState.dynamicShadowEntities.length > 0) {
+      solarSimState.dynamicShadowEntities.forEach(e => {
+        try { viewer.entities.remove(e); } catch(err) {}
+      });
+      solarSimState.dynamicShadowEntities = [];
+    }
+    return;
+  }
 
   if (!solarPos || !solarPos.isDaylight || typeof obstacles === "undefined" || !obstacles || obstacles.length === 0) {
     if (solarSimState.dynamicShadowEntities.length > 0) {
@@ -2530,6 +2587,7 @@ function wpSetSolarSpeed(spd) {
   global.wpComputeInstantSolarPosition = wpComputeInstantSolarPosition;
   global.wpSyncCesiumSun = wpSyncCesiumSun;
   global.wpClearDynamicShadows = wpClearDynamicShadows;
+  global.wpToggleShadowPlanes = wpToggleShadowPlanes;
   global.wpRenderDynamicObstacleShadows = wpRenderDynamicObstacleShadows;
   global.wpUpdateSolarSimulation = wpUpdateSolarSimulation;
   global.wpSetSolarMonth = wpSetSolarMonth;
