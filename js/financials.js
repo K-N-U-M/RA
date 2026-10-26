@@ -1821,7 +1821,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         line-height: 1.5;
       }
       .cover-hero-title {
-        margin: 32px 0 20px;
+        margin: 16px 0 12px;
         text-align: center;
       }
       .cover-hero-tag {
@@ -1855,8 +1855,8 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         background: #f8fafc;
         border: 1.5px solid #e2e8f0;
         border-radius: 12px;
-        padding: 16px 20px;
-        margin: 16px 0 22px;
+        padding: 12px 18px;
+        margin: 10px 0 12px;
         box-shadow: 0 2px 8px rgba(0,0,0,0.03);
       }
       .cover-client-header {
@@ -1880,20 +1880,20 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       .cover-specs-grid {
         display: grid;
         grid-template-columns: repeat(4, 1fr);
-        gap: 12px;
-        margin: 10px 0 24px;
+        gap: 10px;
+        margin: 6px 0 14px;
       }
       .cover-spec-box {
         background: #f8fafc;
         border: 1.5px solid #e2e8f0;
-        border-radius: 12px;
-        padding: 16px 10px;
+        border-radius: 10px;
+        padding: 10px 8px;
         display: flex;
         flex-direction: column;
         align-items: center;
         text-align: center;
         justify-content: space-between;
-        min-height: 145px;
+        min-height: 110px;
         box-shadow: 0 2px 6px rgba(0,0,0,0.03);
         transition: all 0.2s ease;
       }
@@ -1958,6 +1958,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       /* Estilos para Página de Fotos e Implantación 3D */
       .photo-grid-main { display: flex; flex-direction: column; gap: 12px; margin-top: 10px; }
       .photo-card-hero { height: 112mm; border: 1.5px solid #cbd5e1; border-radius: 8px; overflow: hidden; background: #f8fafc; position: relative; display: flex; flex-direction: column; }
+      .cover-photo-card { height: 74mm; border: 1.5px solid #cbd5e1; border-radius: 10px; overflow: hidden; background: #f8fafc; position: relative; display: flex; flex-direction: column; margin: 12px 0 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.03); }
       .photo-card-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; height: 80mm; }
       .photo-card-sub { border: 1.5px solid #cbd5e1; border-radius: 8px; overflow: hidden; background: #f8fafc; position: relative; display: flex; flex-direction: column; }
       .photo-img-wrap { flex: 1; position: relative; overflow: hidden; background: #0f172a; display: flex; align-items: center; justify-content: center; cursor: pointer; }
@@ -2094,6 +2095,35 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
             <div><strong>Modalidad Autoconsumo:</strong> <span>${d.modalTexto}</span></div>
             <div><strong>Ingeniero / Técnico Responsable:</strong> <span>${d.tit.tecnico} (${d.tit.titulacion})</span></div>
             <div><strong>Colegiado N.º:</strong> <span>${d.tit.ncol || 'Habilitado CTE/REBT'}</span></div>
+          </div>
+        </div>
+
+        <!-- CUADRO CENTRAL DE IMAGEN PRINCIPAL DE PORTADA / GEMELO 3D -->
+        <div class="cover-photo-card">
+          <div class="photo-img-wrap" onclick="triggerPhotoUpload('photo-cover-input')">
+            <input type="file" id="photo-cover-input" accept="image/*" style="display:none;" onchange="handlePhotoUpload(this, 'photo-cover-img', 'photo-cover-placeholder')">
+            ${_propPhotos.cover ? `
+              <img id="photo-cover-img" src="${_propPhotos.cover}" alt="Imagen del proyecto" style="display:block;">
+              <div id="photo-cover-placeholder" style="display:none;"></div>
+            ` : (_viewerSnapshot ? `
+              <img id="photo-cover-img" src="${_viewerSnapshot}" alt="Simulación del proyecto" style="display:block;">
+              <div id="photo-cover-placeholder" style="display:none;"></div>
+            ` : `
+              <img id="photo-cover-img" style="display:none;" alt="Imagen del proyecto">
+              <div id="photo-cover-placeholder" class="photo-empty-placeholder">
+                <span style="font-size:28px;">📷</span>
+                <span style="font-size:11px;font-weight:700;">Haz clic para cargar imagen de portada o fotografía del inmueble</span>
+                <span style="font-size:9px;">Formatos recomendados: JPG o PNG (alta resolución)</span>
+              </div>
+            `)}
+            <div class="photo-upload-overlay">📸 Cambiar foto de portada</div>
+          </div>
+          <div class="photo-caption-bar">
+            <div>
+              <div class="photo-caption-title" contenteditable="true">IMPLANTACIÓN SOLAR Y ENTORNO ARQUITECTÓNICO</div>
+              <div class="photo-caption-desc" contenteditable="true">Estudio de integración fotovoltaica sobre cubierta · ${d.tit.mun || ''} (${d.tit.prov || ''})</div>
+            </div>
+            <div style="font-size:9px;font-weight:800;color:${pal.primary};background:#f8fafc;padding:3px 8px;border-radius:4px;border:1px solid #e2e8f0;">VISTA DE PORTADA</div>
           </div>
         </div>
 
@@ -2784,7 +2814,8 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
             // ── Persistencia para sobrevivir a cambios de paleta de color ──
             try {
               let photoKey = 'hero';
-              if (imgId.indexOf('sub1') !== -1) photoKey = 'sub1';
+              if (imgId.indexOf('cover') !== -1) photoKey = 'cover';
+              else if (imgId.indexOf('sub1') !== -1) photoKey = 'sub1';
               else if (imgId.indexOf('sub2') !== -1) photoKey = 'sub2';
 
               // Persistir en memoria de ventana padre (opener)
