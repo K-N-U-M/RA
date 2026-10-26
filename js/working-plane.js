@@ -2319,6 +2319,12 @@ function wpDeleteActivePlane(skipConfirm = false) {
     window.allRenderedPanels = [];
     if (typeof lastRoofInfo !== 'undefined') window.lastRoofInfo = null;
     if (typeof wpClearInverterAndCables === 'function') wpClearInverterAndCables();
+    if (typeof wpCleanupAllSolarPrimitives === 'function') {
+      wpCleanupAllSolarPrimitives(null);
+    }
+    if (typeof wpCleanupPanelNumberLabels === 'function') {
+      wpCleanupPanelNumberLabels();
+    }
   }
   
   // ── Actualizar UI y Renderizar estado (BARRIDO INTEGRAL DE 4 FASES) ────────
@@ -2398,6 +2404,7 @@ function wpDeleteActivePlane(skipConfirm = false) {
   }
 
   if (typeof step5RegenerateLayout === 'function') step5RegenerateLayout();
+  if (typeof wpFastRenderSimulatedPanels === 'function') wpFastRenderSimulatedPanels(true);
   if (typeof wpUpdateLayoutFastMetrics === 'function') wpUpdateLayoutFastMetrics();
   if (typeof wpPopulateFaldonCard === 'function') wpPopulateFaldonCard();
   if (typeof wpUpdateControlsAvailability === 'function') wpUpdateControlsAvailability();
@@ -2407,6 +2414,10 @@ function wpDeleteActivePlane(skipConfirm = false) {
   }
   if (typeof renderUiOutliner === 'function') {
     try { renderUiOutliner(); } catch (eOut) {}
+  }
+
+  if (curViewer && curViewer.scene && typeof curViewer.scene.requestRender === 'function') {
+    curViewer.scene.requestRender();
   }
 
   wpUpdateUI();
@@ -3563,21 +3574,32 @@ function wpCancelStampPolyline(isCommit) {
 // Aquí solo se lee/escribe; NO redeclarar (un let aquí rompe el bloque inline con SyntaxError).
 if (typeof window !== 'undefined' && typeof window.wpCurrentStep === 'undefined') window.wpCurrentStep = 1;
 
-async function wpGoToStep(step) {
+async function wpGoToStep(step, force = false) {
   // 1. Delegar el bloqueo arquitectónico al Orquestador Central
   if (typeof window.WorkflowOrchestrator !== 'undefined') {
-    if (!window.WorkflowOrchestrator.goToStep(step)) {
+    if (!window.WorkflowOrchestrator.goToStep(step, force)) {
       return; 
     }
   }
 
   // 1.1 Bloqueo de pasos no desbloqueados por falta de prerrequisitos
   const targetBtn = document.getElementById('wp-step-' + step + '-btn');
-  if (targetBtn && targetBtn.classList.contains('disabled')) {
+  if (!force && targetBtn && targetBtn.classList.contains('disabled')) {
     if (typeof showToast === 'function') {
       showToast('PASO BLOQUEADO', targetBtn.title || 'Completa los pasos previos requeridos', 'warning', 2500);
     }
     return;
+  }
+
+  // Asegurar que la pestaña contenedora principal #pane-geometria y .only-draw estén visibles
+  const paneGeo = document.getElementById('pane-geometria');
+  if (paneGeo && !paneGeo.classList.contains('active')) {
+    paneGeo.classList.add('active');
+    paneGeo.style.display = '';
+  }
+  const onlyDraw = paneGeo ? paneGeo.querySelector('.only-draw') : null;
+  if (onlyDraw && onlyDraw.style.display === 'none') {
+    onlyDraw.style.display = 'flex';
   }
 
   wpCurrentStep = step;

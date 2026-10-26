@@ -161,6 +161,20 @@
       // NOTA: isPolygonDesignConfirmed ya NO cuenta como prueba de paneles.
       // Ese flag significa "el usuario pasó por Campo Solar", no "hay layout generado";
       // aceptarlo permitía saltar al Paso 3/4/5 con 0 paneles.
+      // Fallback reactivo: si hay polilíneas válidas pero roofInfo aún no se ha evaluado en este frame, calcularlo al vuelo
+      if (global.WP && Array.isArray(global.WP.polylines) && typeof global.computeSinglePolylineRoofInfo === 'function') {
+        for (let i = 0; i < global.WP.polylines.length; i++) {
+          const p = global.WP.polylines[i];
+          if (p && Array.isArray(p.points) && p.points.length >= 3 && !p.roofInfo) {
+            try {
+              p.roofInfo = global.computeSinglePolylineRoofInfo(p.points, p);
+              if (p.roofInfo && Array.isArray(p.roofInfo.panels) && p.roofInfo.panels.length > 0) {
+                return true;
+              }
+            } catch (eCalc) {}
+          }
+        }
+      }
       return false;
     }
 

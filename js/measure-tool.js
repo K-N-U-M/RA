@@ -952,6 +952,39 @@
   }
 
   // ── REGISTRO DE API PÚBLICA Y EXPORTACIÓN ──────────────────────────────────
+
+  // ── SERIALIZACIÓN Y DESERIALIZACIÓN (.raproject) ─────────────────────────
+  function serialize() {
+    return (_state.measurements || []).map(function(m) {
+      return {
+        id: m.id,
+        ptA: m.ptA ? { x: m.ptA.x, y: m.ptA.y, z: m.ptA.z } : null,
+        ptB: m.ptB ? { x: m.ptB.x, y: m.ptB.y, z: m.ptB.z } : null,
+        metrics: m.metrics ? {
+          d3D: m.metrics.d3D,
+          d2D: m.metrics.d2D,
+          dZ: m.metrics.dZ,
+          dZSigned: m.metrics.dZSigned,
+          slopeDeg: m.metrics.slopeDeg
+        } : null
+      };
+    });
+  }
+
+  function deserialize(dataArray) {
+    clearMeasurements();
+    if (!Array.isArray(dataArray) || !dataArray.length) return;
+    if (typeof Cesium === 'undefined') return;
+
+    dataArray.forEach(function(item) {
+      if (!item || !item.ptA || !item.ptB) return;
+      if (!isFinite(item.ptA.x) || !isFinite(item.ptB.x)) return;
+      var pA = new Cesium.Cartesian3(item.ptA.x, item.ptA.y, item.ptA.z);
+      var pB = new Cesium.Cartesian3(item.ptB.x, item.ptB.y, item.ptB.z);
+      commitMeasurementSegment(pA, pB);
+    });
+  }
+
   var RAMeasureTool = {
     activate: activate,
     deactivate: deactivate,
@@ -963,7 +996,9 @@
     isActive: function() { return _state.active; },
     isSnappingEnabled: function() { return _state.snappingEnabled; },
     invalidateSnapCandidates: invalidateSnapCandidates,
-    getMeasurements: function() { return _state.measurements.slice(); }
+    getMeasurements: function() { return _state.measurements.slice(); },
+    serialize: serialize,
+    deserialize: deserialize
   };
 
   global.RAMeasureTool = RAMeasureTool;

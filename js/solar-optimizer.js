@@ -24,7 +24,7 @@
      * Comprueba si dos rectángulos orientados 2D se intersecan con margen de separación (minGap).
      * Utiliza el Teorema de Ejes Separadores (SAT).
      */
-    doRectanglesOverlap2D(cornersA, cornersB, minGap = 0.04) {
+    doRectanglesOverlap2D(cornersA, cornersB, minGap = 0.02) {
       if (!cornersA || cornersA.length < 4 || !cornersB || cornersB.length < 4) return false;
 
       // AABB Broadphase rápido para descartar el 90% de los casos
@@ -122,7 +122,7 @@
 
       const poly = roof.poly2D;
       const setback = (typeof cfg.setback === 'number') ? cfg.setback : 0.35;
-      const gap = (typeof cfg.gap === 'number') ? cfg.gap : 0.04;
+      const gap = (typeof cfg.gap === 'number') ? cfg.gap : 0.02;
       const safety = (typeof cfg.safetyMarginM === 'number') ? cfg.safetyMarginM : 0.20;
 
       const moduleLength = module.lengthM || 2.20;

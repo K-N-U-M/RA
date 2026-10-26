@@ -17,13 +17,13 @@ function createSolarPanelTexture() {
   if (typeof document === 'undefined') return '';
   const canvas = document.createElement('canvas');
   // Textura optimizada anti-moiré en 1024x2048
-  canvas.width = 1024;
-  canvas.height = 2048;
+  canvas.width = 256;
+  canvas.height = 512;
   const ctx = canvas.getContext('2d');
   if (!ctx) return '';
 
-  const w = 1024;
-  const h = 2048;
+  const w = 256;
+  const h = 512;
 
   // ==========================================================================
   // 1. MARCO PERIMETRAL DE ALUMINIO ANODIZADO EXTRUIDO (AAA DETAIL)
@@ -50,7 +50,7 @@ function createSolarPanelTexture() {
   ctx.lineTo(0, h - 2);
   ctx.stroke();
 
-  const miterSize = 28;
+  const miterSize = 10;
   ctx.strokeStyle = 'rgba(15, 23, 42, 0.85)';
   ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(miterSize, miterSize); ctx.stroke();
@@ -58,7 +58,7 @@ function createSolarPanelTexture() {
   ctx.beginPath(); ctx.moveTo(0, h); ctx.lineTo(miterSize, h - miterSize); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(w, h); ctx.lineTo(w - miterSize, h - miterSize); ctx.stroke();
 
-  const frameThick = 24;
+  const frameThick = 8;
   // Junta de estanqueidad negra
   ctx.fillStyle = '#050811';
   ctx.fillRect(frameThick - 3, frameThick - 3, w - 2 * (frameThick - 3), h - 2 * (frameThick - 3));
@@ -75,12 +75,12 @@ function createSolarPanelTexture() {
   const laminW = w - 2 * laminX;
   const laminH = h - 2 * laminY;
 
-  // Base monocristalina de silicio dopado profundo con revestimiento antirreflectante (ARC)
+  // Base monocristalina de silicio con revestimiento antirreflectante (ARC) azul zafiro / navy equilibrado
   const siliconBase = ctx.createLinearGradient(laminX, laminY, laminX + laminW, laminY + laminH);
-  siliconBase.addColorStop(0.00, '#09162e');
-  siliconBase.addColorStop(0.35, '#050e1f');
-  siliconBase.addColorStop(0.70, '#030814');
-  siliconBase.addColorStop(1.00, '#02050e');
+  siliconBase.addColorStop(0.00, '#1a365d'); // Azul zafiro medio iluminado
+  siliconBase.addColorStop(0.30, '#132847');
+  siliconBase.addColorStop(0.70, '#0d1d33');
+  siliconBase.addColorStop(1.00, '#081324');
   ctx.fillStyle = siliconBase;
   ctx.fillRect(laminX, laminY, laminW, laminH);
 
@@ -88,13 +88,13 @@ function createSolarPanelTexture() {
   // CERO micro-fingers de alta frecuencia espacial para erradicar el 100% del Moiré
   const cols = 6;
   const rows = 10;
-  const gap = 3;
-  const pad = 12;
+  const gap = 2;
+  const pad = 4;
   const availW = laminW - pad * 2;
   const availH = laminH - pad * 2;
   const cellW = (availW - gap * (cols - 1)) / cols;
   const cellH = (availH - gap * (rows - 1)) / rows;
-  const cornerCut = 6;
+  const cornerCut = 3;
 
   function drawCellWafer(x, y, cw, ch) {
     ctx.beginPath();
@@ -116,9 +116,9 @@ function createSolarPanelTexture() {
 
       // Gradiente suave por oblea monocristalina
       const cellGrad = ctx.createLinearGradient(cx, cy, cx + cellW, cy + cellH);
-      cellGrad.addColorStop(0.00, '#0b1d3d');
-      cellGrad.addColorStop(0.50, '#061226');
-      cellGrad.addColorStop(1.00, '#020712');
+      cellGrad.addColorStop(0.00, '#1e3a66'); // Iluminación suave en la oblea
+      cellGrad.addColorStop(0.50, '#142949');
+      cellGrad.addColorStop(1.00, '#0c1a30');
       ctx.fillStyle = cellGrad;
       drawCellWafer(cx, cy, cellW, cellH);
       ctx.fill();
@@ -148,10 +148,10 @@ function createSolarPanelTexture() {
   // 3. CAPA DE VIDRIO SOLAR TEMPLADO (EFECTO ESPEJO / CLEARCOAT MIRROR)
   // ==========================================================================
   const glassMirror = ctx.createLinearGradient(0, 0, w, h);
-  glassMirror.addColorStop(0.00, 'rgba(255, 255, 255, 0.16)');
-  glassMirror.addColorStop(0.35, 'rgba(255, 255, 255, 0.04)');
-  glassMirror.addColorStop(0.65, 'rgba(15, 23, 42, 0.04)');
-  glassMirror.addColorStop(1.00, 'rgba(255, 255, 255, 0.12)');
+  glassMirror.addColorStop(0.00, 'rgba(255, 255, 255, 0.22)');
+  glassMirror.addColorStop(0.30, 'rgba(125, 211, 252, 0.08)'); // Destello celeste sutil
+  glassMirror.addColorStop(0.70, 'rgba(15, 23, 42, 0.02)');
+  glassMirror.addColorStop(1.00, 'rgba(255, 255, 255, 0.15)');
   ctx.fillStyle = glassMirror;
   ctx.fillRect(laminX, laminY, laminW, laminH);
 

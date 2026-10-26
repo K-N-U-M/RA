@@ -20,7 +20,7 @@
   let statusTimer = null;
 
   if (typeof global.isPhotorealisticTextureMode === 'undefined') {
-    global.isPhotorealisticTextureMode = false;
+    global.isPhotorealisticTextureMode = true;
   }
   if (typeof global.areLabelsVisible === 'undefined') {
     global.areLabelsVisible = true;

@@ -137,7 +137,7 @@
       // Actualizar badge global de cabecera
       if (badgeTotals) {
         if (tree.totals.totalKwp > 0) {
-          badgeTotals.textContent = `${tree.totals.panelsCount} mod · ${tree.totals.totalKwp.toFixed(1)} kWp`;
+          badgeTotals.textContent = `${tree.totals.panelsCount} mod · ${tree.totals.totalKwp.toFixed(2)} kWp`;
         } else if (tree.totals.buildingsCount > 0 || tree.totals.planesCount > 0) {
           badgeTotals.textContent = `${tree.totals.buildingsCount} Edif · ${tree.totals.planesCount} Planos`;
         } else {
@@ -221,16 +221,30 @@
               } else {
                 pl.polylines.forEach(function(poly) {
                   const polySel = poly.isSelected ? 'selected-poly' : '';
+                  const areaBadge = (typeof poly.areaM2 === 'number' && poly.areaM2 > 0) ? (poly.areaM2.toFixed(1) + ' m²') : 'CAD';
+                  const pVis = poly.panelsVisible !== false;
                   html += `
-                    <div class="outliner-poly-item ${polySel}" onclick="ProjectHierarchy.selectPolyline(${poly.index}, true)">
-                      <div style="display:flex;align-items:center;gap:4px;flex:1;overflow:hidden;">
-                        <span class="node-bullet">└ ✏️</span>
-                        <span class="node-label poly-name" title="${poly.name}">${poly.name}</span>
+                    <div class="outliner-poly-group">
+                      <div class="outliner-poly-item ${polySel} ${poly.visible ? '' : 'is-hidden-node'}" onclick="ProjectHierarchy.selectPolyline(${poly.index}, true)">
+                        <div style="display:flex;align-items:center;gap:4px;flex:1;overflow:hidden;">
+                          <span class="node-bullet">└ ✏️</span>
+                          <span class="node-label poly-name" title="${poly.name}">${poly.name}</span>
+                        </div>
+                        <div class="node-meta">
+                          <span class="badge-dim" title="Superficie geométrica del faldón">${areaBadge}</span>
+                          <button type="button" class="node-action-btn" title="Mostrar/Ocultar contorno CAD del faldón" onclick="event.stopPropagation();ProjectHierarchy.toggleVisibility('polyline', ${poly.index});">${poly.visible ? '👁️' : '🙈'}</button>
+                          <button type="button" class="node-action-btn delete-btn" title="Eliminar faldón" onclick="event.stopPropagation();ProjectHierarchy.deleteItem('polyline', ${poly.index});">🗑️</button>
+                        </div>
                       </div>
-                      <div class="node-meta">
-                        <span class="badge-stats" style="cursor:pointer;" title="Clic para seleccionar todas las placas de este faldón" onclick="event.stopPropagation();ProjectHierarchy.selectAllPanelsInPolyline(${poly.index});">${poly.panelsCount} pl · ${poly.kwp.toFixed(1)} kWp</span>
-                        <button type="button" class="node-action-btn" title="Alternar visibilidad" onclick="event.stopPropagation();ProjectHierarchy.toggleVisibility('polyline', ${poly.index});">${poly.visible ? '👁️' : '🙈'}</button>
-                        <button type="button" class="node-action-btn delete-btn" title="Eliminar faldón" onclick="event.stopPropagation();ProjectHierarchy.deleteItem('polyline', ${poly.index});">🗑️</button>
+                      <div class="outliner-panels-item ${pVis ? '' : 'is-hidden-node'}" onclick="ProjectHierarchy.selectAllPanelsInPolyline(${poly.index})">
+                        <div style="display:flex;align-items:center;gap:4px;flex:1;overflow:hidden;padding-left:14px;">
+                          <span class="node-bullet">└ ☀️</span>
+                          <span class="node-label panels-node-name" title="Clic para seleccionar las placas FV de ${poly.name}">Placas FV</span>
+                        </div>
+                        <div class="node-meta">
+                          <span class="badge-stats" title="Módulos y potencia instalada en ${poly.name}">${poly.panelsCount} pl · ${poly.kwp.toFixed(2)} kWp</span>
+                          <button type="button" class="node-action-btn" title="Mostrar/Ocultar placas FV de este faldón" onclick="event.stopPropagation();ProjectHierarchy.toggleVisibility('poly_panels', ${poly.index});">${pVis ? '👁️' : '🙈'}</button>
+                        </div>
                       </div>
                     </div>
                   `;
@@ -310,16 +324,30 @@
           } else {
             p.polylines.forEach(function(poly) {
               const polySel = poly.isSelected ? 'selected-poly' : '';
+              const areaBadge = (typeof poly.areaM2 === 'number' && poly.areaM2 > 0) ? (poly.areaM2.toFixed(1) + ' m²') : 'CAD';
+              const pVis = poly.panelsVisible !== false;
               html += `
-                <div class="outliner-poly-item ${polySel}" onclick="ProjectHierarchy.selectPolyline(${poly.index}, true)">
-                  <div style="display:flex;align-items:center;gap:4px;flex:1;overflow:hidden;">
-                    <span class="node-bullet">└ ✏️</span>
-                    <span class="node-label poly-name" title="${poly.name}">${poly.name}</span>
+                <div class="outliner-poly-group">
+                  <div class="outliner-poly-item ${polySel} ${poly.visible ? '' : 'is-hidden-node'}" onclick="ProjectHierarchy.selectPolyline(${poly.index}, true)">
+                    <div style="display:flex;align-items:center;gap:4px;flex:1;overflow:hidden;">
+                      <span class="node-bullet">└ ✏️</span>
+                      <span class="node-label poly-name" title="${poly.name}">${poly.name}</span>
+                    </div>
+                    <div class="node-meta">
+                      <span class="badge-dim" title="Superficie geométrica del faldón">${areaBadge}</span>
+                      <button type="button" class="node-action-btn" title="Mostrar/Ocultar contorno CAD del faldón" onclick="event.stopPropagation();ProjectHierarchy.toggleVisibility('polyline', ${poly.index});">${poly.visible ? '👁️' : '🙈'}</button>
+                      <button type="button" class="node-action-btn delete-btn" title="Eliminar faldón" onclick="event.stopPropagation();ProjectHierarchy.deleteItem('polyline', ${poly.index});">🗑️</button>
+                    </div>
                   </div>
-                  <div class="node-meta">
-                    <span class="badge-stats" style="cursor:pointer;" title="Clic para seleccionar todas las placas de este faldón" onclick="event.stopPropagation();ProjectHierarchy.selectAllPanelsInPolyline(${poly.index});">${poly.panelsCount} pl · ${poly.kwp.toFixed(1)} kWp</span>
-                    <button type="button" class="node-action-btn" title="Alternar visibilidad" onclick="event.stopPropagation();ProjectHierarchy.toggleVisibility('polyline', ${poly.index});">${poly.visible ? '👁️' : '🙈'}</button>
-                    <button type="button" class="node-action-btn delete-btn" title="Eliminar faldón" onclick="event.stopPropagation();ProjectHierarchy.deleteItem('polyline', ${poly.index});">🗑️</button>
+                  <div class="outliner-panels-item ${pVis ? '' : 'is-hidden-node'}" onclick="ProjectHierarchy.selectAllPanelsInPolyline(${poly.index})">
+                    <div style="display:flex;align-items:center;gap:4px;flex:1;overflow:hidden;padding-left:14px;">
+                      <span class="node-bullet">└ ☀️</span>
+                      <span class="node-label panels-node-name" title="Clic para seleccionar las placas FV de ${poly.name}">Placas FV</span>
+                    </div>
+                    <div class="node-meta">
+                      <span class="badge-stats" title="Módulos y potencia instalada en ${poly.name}">${poly.panelsCount} pl · ${poly.kwp.toFixed(2)} kWp</span>
+                      <button type="button" class="node-action-btn" title="Mostrar/Ocultar placas FV de este faldón" onclick="event.stopPropagation();ProjectHierarchy.toggleVisibility('poly_panels', ${poly.index});">${pVis ? '👁️' : '🙈'}</button>
+                    </div>
                   </div>
                 </div>
               `;
@@ -350,16 +378,30 @@
         `;
         tree.standalonePolylines.forEach(function(poly) {
           const polySel = poly.isSelected ? 'selected-poly' : '';
+          const areaBadge = (typeof poly.areaM2 === 'number' && poly.areaM2 > 0) ? (poly.areaM2.toFixed(1) + ' m²') : 'CAD';
+          const pVis = poly.panelsVisible !== false;
           html += `
-            <div class="outliner-poly-item ${polySel}" onclick="ProjectHierarchy.selectPolyline(${poly.index}, true)">
-              <div style="display:flex;align-items:center;gap:4px;flex:1;overflow:hidden;">
-                <span class="node-bullet">✏️</span>
-                <span class="node-label poly-name" title="${poly.name}">${poly.name}</span>
+            <div class="outliner-poly-group">
+              <div class="outliner-poly-item ${polySel} ${poly.visible ? '' : 'is-hidden-node'}" onclick="ProjectHierarchy.selectPolyline(${poly.index}, true)">
+                <div style="display:flex;align-items:center;gap:4px;flex:1;overflow:hidden;">
+                  <span class="node-bullet">✏️</span>
+                  <span class="node-label poly-name" title="${poly.name}">${poly.name}</span>
+                </div>
+                <div class="node-meta">
+                  <span class="badge-dim" title="Superficie geométrica del faldón">${areaBadge}</span>
+                  <button type="button" class="node-action-btn" title="Mostrar/Ocultar contorno CAD del faldón" onclick="event.stopPropagation();ProjectHierarchy.toggleVisibility('polyline', ${poly.index});">${poly.visible ? '👁️' : '🙈'}</button>
+                  <button type="button" class="node-action-btn delete-btn" title="Eliminar faldón" onclick="event.stopPropagation();ProjectHierarchy.deleteItem('polyline', ${poly.index});">🗑️</button>
+                </div>
               </div>
-              <div class="node-meta">
-                <span class="badge-stats" style="cursor:pointer;" title="Clic para seleccionar todas las placas de este faldón" onclick="event.stopPropagation();ProjectHierarchy.selectAllPanelsInPolyline(${poly.index});">${poly.panelsCount} pl · ${poly.kwp.toFixed(1)} kWp</span>
-                <button type="button" class="node-action-btn" title="Alternar visibilidad" onclick="event.stopPropagation();ProjectHierarchy.toggleVisibility('polyline', ${poly.index});">${poly.visible ? '👁️' : '🙈'}</button>
-                <button type="button" class="node-action-btn delete-btn" title="Eliminar faldón" onclick="event.stopPropagation();ProjectHierarchy.deleteItem('polyline', ${poly.index});">🗑️</button>
+              <div class="outliner-panels-item ${pVis ? '' : 'is-hidden-node'}" onclick="ProjectHierarchy.selectAllPanelsInPolyline(${poly.index})">
+                <div style="display:flex;align-items:center;gap:4px;flex:1;overflow:hidden;padding-left:12px;">
+                  <span class="node-bullet">└ ☀️</span>
+                  <span class="node-label panels-node-name" title="Clic para seleccionar las placas FV de ${poly.name}">Placas FV</span>
+                </div>
+                <div class="node-meta">
+                  <span class="badge-stats" title="Módulos y potencia instalada en ${poly.name}">${poly.panelsCount} pl · ${poly.kwp.toFixed(2)} kWp</span>
+                  <button type="button" class="node-action-btn" title="Mostrar/Ocultar placas FV de este faldón" onclick="event.stopPropagation();ProjectHierarchy.toggleVisibility('poly_panels', ${poly.index});">${pVis ? '👁️' : '🙈'}</button>
+                </div>
               </div>
             </div>
           `;
@@ -757,7 +799,13 @@
           padding: 2px 4px;
         }
 
-        .outliner-poly-item, .outliner-obs-item {
+        .outliner-poly-group {
+          display: flex;
+          flex-direction: column;
+          gap: 1px;
+        }
+
+        .outliner-poly-item, .outliner-obs-item, .outliner-panels-item {
           display: flex;
           justify-content: space-between;
           align-items: center;
@@ -766,10 +814,31 @@
           background: rgba(255, 255, 255, 0.02);
           cursor: pointer;
           border: 1px solid transparent;
+          transition: background 0.15s ease, opacity 0.15s ease;
         }
 
-        .outliner-poly-item:hover, .outliner-obs-item:hover {
+        .outliner-panels-item {
+          background: rgba(16, 185, 129, 0.04);
+          border-left: 2px solid rgba(16, 185, 129, 0.35);
+          margin-left: 6px;
+        }
+
+        .outliner-poly-item:hover, .outliner-obs-item:hover, .outliner-panels-item:hover {
           background: rgba(255, 255, 255, 0.06);
+        }
+
+        .outliner-panels-item:hover {
+          background: rgba(16, 185, 129, 0.12);
+          border-color: rgba(16, 185, 129, 0.45);
+        }
+
+        .panels-node-name {
+          color: #6ee7b7;
+          font-size: 10px;
+        }
+
+        .is-hidden-node {
+          opacity: 0.48;
         }
 
         .outliner-poly-item.selected-poly {

@@ -74,12 +74,25 @@
               } catch(eRec) {}
             }
           }
-          let modW = (poly && poly.moduleConfig && poly.moduleConfig.potencia);
-          if (!modW && global.solarProjectConfig && global.solarProjectConfig.selectedModuleId && global.equipmentCatalog && typeof global.equipmentCatalog.getModule === 'function') {
-            const mod = global.equipmentCatalog.getModule(global.solarProjectConfig.selectedModuleId);
-            if (mod && mod.potencia) modW = mod.potencia;
+          let modW = (poly && poly.moduleConfig && (poly.moduleConfig.wp || poly.moduleConfig.potencia));
+          if (!modW && poly && poly.moduleId && global.equipmentCatalog && Array.isArray(global.equipmentCatalog.modules)) {
+            const polyMod = global.equipmentCatalog.modules.find(function(m) { return m.id === poly.moduleId; });
+            if (polyMod && (polyMod.wp || polyMod.potencia)) modW = polyMod.wp || polyMod.potencia;
           }
-          if (!modW && global.panelConfig && global.panelConfig.potencia) modW = global.panelConfig.potencia;
+          if (!modW && global.solarProjectConfig && global.solarProjectConfig.selectedModule && (global.solarProjectConfig.selectedModule.wp || global.solarProjectConfig.selectedModule.potencia)) {
+            modW = global.solarProjectConfig.selectedModule.wp || global.solarProjectConfig.selectedModule.potencia;
+          }
+          if (!modW && global.solarProjectConfig && global.solarProjectConfig.selectedModuleId && global.equipmentCatalog) {
+            const mod = (typeof global.equipmentCatalog.getModule === 'function')
+              ? global.equipmentCatalog.getModule(global.solarProjectConfig.selectedModuleId)
+              : (Array.isArray(global.equipmentCatalog.modules)
+                  ? global.equipmentCatalog.modules.find(function(m) { return m.id === global.solarProjectConfig.selectedModuleId; })
+                  : null);
+            if (mod && (mod.wp || mod.potencia)) modW = mod.wp || mod.potencia;
+          }
+          if (!modW && global.panelConfig && (global.panelConfig.wp || global.panelConfig.potencia)) {
+            modW = global.panelConfig.wp || global.panelConfig.potencia;
+          }
           if (!modW) modW = 450;
   
           const kwp = (pCount * modW) / 1000.0;
@@ -151,7 +164,8 @@
                   panelsCount: stats.panelsCount,
                   kwp: stats.kwp,
                   isSelected: polyIdx === wp.selectedPolyIdx,
-                  visible: poly.visible !== false
+                  visible: poly.visible !== false,
+                  panelsVisible: poly.panelsVisible !== false
                 });
               }
             });
@@ -216,7 +230,8 @@
                 panelsCount: stats.panelsCount,
                 kwp: stats.kwp,
                 isSelected: polyIdx === wp.selectedPolyIdx,
-                visible: poly.visible !== false
+                visible: poly.visible !== false,
+                panelsVisible: poly.panelsVisible !== false
               });
             }
           });
@@ -239,7 +254,8 @@
             panelsCount: stats.panelsCount,
             kwp: stats.kwp,
             isSelected: polyIdx === wp.selectedPolyIdx,
-            visible: poly.visible !== false
+            visible: poly.visible !== false,
+            panelsVisible: poly.panelsVisible !== false
           });
         }
       });
@@ -591,17 +607,55 @@
           wp.selectedPolyIdx = -1;
           wp.selectedVtxIdx = -1;
           global.polygonPoints = [];
-          if (typeof global.selectedPanelIndex !== 'undefined') global.selectedPanelIndex = -1;
-          if (typeof window !== 'undefined' && typeof window.selectedPanelIndex !== 'undefined') window.selectedPanelIndex = -1;
-          if (Array.isArray(global.selectedPanelIndices)) global.selectedPanelIndices = [];
-          if (typeof window !== 'undefined' && Array.isArray(window.selectedPanelIndices)) window.selectedPanelIndices = [];
         }
         if (typeof global.wpRenderAllPolylines === 'function') global.wpRenderAllPolylines();
+        if (typeof global.renderTriad2D === 'function') global.renderTriad2D();
+        if (global.viewer && global.viewer.scene && typeof global.viewer.scene.requestRender === 'function') global.viewer.scene.requestRender();
+      } else if (type === 'poly_panels' && wp && wp.polylines && wp.polylines[idOrIdx]) {
+        const poly = wp.polylines[idOrIdx];
+        const isPanelsVis = (poly.panelsVisible === false) ? true : false;
+        poly.panelsVisible = isPanelsVis;
+
+        // Si ocultamos las placas de este faldón, deseleccionar cualquier placa seleccionada perteneciente a este faldón
+        if (!isPanelsVis) {
+          const panelsList = (Array.isArray(global.allRenderedPanels) && global.allRenderedPanels.length > 0)
+            ? global.allRenderedPanels
+            : ((global.lastRoofInfo && Array.isArray(global.lastRoofInfo.panels)) ? global.lastRoofInfo.panels : []);
+          if (Array.isArray(global.selectedPanelIndices) && global.selectedPanelIndices.length > 0) {
+            global.selectedPanelIndices = global.selectedPanelIndices.filter(function(pIdx) {
+              const p = panelsList[pIdx];
+              return !p || p.polyIdx !== idOrIdx;
+            });
+            if (typeof window !== 'undefined') window.selectedPanelIndices = global.selectedPanelIndices;
+          }
+          if (typeof global.selectedPanelIndex === 'number' && global.selectedPanelIndex >= 0) {
+            const selP = panelsList[global.selectedPanelIndex];
+            if (selP && selP.polyIdx === idOrIdx) {
+              global.selectedPanelIndex = (Array.isArray(global.selectedPanelIndices) && global.selectedPanelIndices.length > 0)
+                ? global.selectedPanelIndices[global.selectedPanelIndices.length - 1]
+                : -1;
+              if (typeof window !== 'undefined') window.selectedPanelIndex = global.selectedPanelIndex;
+            }
+          }
+          if (typeof global.updatePanelSelectionUI === 'function') global.updatePanelSelectionUI();
+        }
+
         if (Array.isArray(global.simulatedPanelEntities)) {
           global.simulatedPanelEntities.forEach(function(pe) {
             const pIdx = (pe && typeof pe.polyIdx === 'number') ? pe.polyIdx : (pe && pe.pData && typeof pe.pData.polyIdx === 'number' ? pe.pData.polyIdx : null);
-            if (pIdx === idOrIdx) pe.show = isVis;
+            if (pIdx === idOrIdx) pe.show = isPanelsVis;
           });
+        }
+        if (poly.panelsPrimitive && typeof poly.panelsPrimitive.show !== 'undefined') {
+          poly.panelsPrimitive.show = isPanelsVis;
+        }
+        if (global._faldonPanelsPrimitives && typeof global._faldonPanelsPrimitives.get === 'function') {
+          const fp = global._faldonPanelsPrimitives.get(idOrIdx);
+          if (fp) fp.show = isPanelsVis;
+        }
+        if (global._faldonSupportCollections && typeof global._faldonSupportCollections.get === 'function') {
+          const sp = global._faldonSupportCollections.get(idOrIdx);
+          if (sp) sp.show = isPanelsVis;
         }
         if (typeof global.wpFastRenderSimulatedPanels === 'function') {
           global.wpFastRenderSimulatedPanels();

@@ -230,17 +230,18 @@
                 <div style="font-size: 10px; font-weight: 700;" id="ra-hud-ratio-badge">Ratio DC/AC —</div>
               </div>
             </div>
-            <div id="ra-hud-energy-breakdown" style="text-align: right; display: flex; flex-direction: column; gap: 1px;">
-              <div style="font-size: 10px; color: #94a3b8; font-family: monospace;">
+                        <div id="ra-hud-energy-breakdown" style="text-align: right; display: flex; flex-direction: column; gap: 1px;">
+              <div id="ra-hud-row-1" style="font-size: 10px; color: #94a3b8; font-family: monospace;">
                 Teórico: <span id="ra-hud-theo-energy" style="color: #cbd5e1; font-weight: 700;">— kWh/a</span>
               </div>
-              <div style="font-size: 11px; font-weight: 800; font-family: monospace; color: #38BDF8;">
+              <div id="ra-hud-row-2" style="font-size: 11px; font-weight: 800; font-family: monospace; color: #38BDF8;">
                 Neto 3D: <span id="ra-hud-energy-text">— kWh/año</span>
               </div>
               <div id="ra-hud-shadow-detail" style="font-size: 10px; font-weight: 600; color: #94a3b8;">
                 Sin simulación
               </div>
             </div>
+          </div>
           </div>
 
           <!-- Fila Compacta Minimalista (Modo C - Se activa cuando _isCompact es true) -->
@@ -339,13 +340,30 @@
     const cfg = (typeof window !== 'undefined' && window.solarProjectConfig) ? window.solarProjectConfig : {};
     const cat = (typeof equipmentCatalog !== 'undefined' && equipmentCatalog) ? equipmentCatalog : {};
     
-    // Módulo seleccionado
+    // Módulo seleccionado y desglose unificado SSOT (respeta poly.moduleId por faldón)
     let pModW = 450;
     if (cfg.selectedModuleId && Array.isArray(cat.modules)) {
       const mObj = cat.modules.find(m => m.id === cfg.selectedModuleId);
       if (mObj && (mObj.wp || mObj.potencia)) pModW = mObj.wp || mObj.potencia;
     }
-    const kwp = (numPanels * pModW) / 1000.0;
+    let kwp = (numPanels * pModW) / 1000.0;
+    if (typeof window !== 'undefined' && window.ProjectHierarchy && typeof window.ProjectHierarchy.getTree === 'function') {
+      try {
+        const tree = window.ProjectHierarchy.getTree();
+        if (tree && tree.totals && tree.totals.panelsCount > 0 && tree.totals.totalKwp > 0) {
+          numPanels = tree.totals.panelsCount;
+          kwp = tree.totals.totalKwp;
+        }
+      } catch (eTree) {}
+    } else if (typeof window !== 'undefined' && typeof window.getProjectModulesBreakdown === 'function') {
+      try {
+        const mb = window.getProjectModulesBreakdown();
+        if (mb && typeof mb.totalPanels === 'number' && mb.totalPanels > 0 && typeof mb.totalKwp === 'number' && mb.totalKwp > 0) {
+          numPanels = mb.totalPanels;
+          kwp = mb.totalKwp;
+        }
+      } catch (eMb) {}
+    }
 
     // Inversor seleccionado (exclusivo para Paso 4+)
     const currentStep = (typeof wpCurrentStep !== 'undefined') ? wpCurrentStep : ((typeof window !== 'undefined' && window.wpCurrentStep) || 1);
@@ -474,6 +492,22 @@
       }
     }
 
+        // Inspección de aerogeneradores mini-eólicos (Módulo Híbrido)
+    let numTurbines = 0;
+    let windKw = 0;
+    let windAnnualKWh = 0;
+    if (typeof window !== 'undefined' && Array.isArray(window.windTurbines)) {
+      const activeTurbs = window.windTurbines.filter(t => !t.operationalState || t.operationalState.enabled !== false);
+      numTurbines = activeTurbs.length;
+      activeTurbs.forEach(t => {
+        const pW = (t._catalog && t._catalog.ratedPowerW) ? t._catalog.ratedPowerW : 0;
+        windKw += (pW / 1000.0);
+      });
+      if (numTurbines > 0 && window.windParkSummary && typeof window.windParkSummary.totalAepNetKwh === 'number') {
+        windAnnualKWh = Math.round(window.windParkSummary.totalAepNetKwh);
+      }
+    }
+
     return {
       numPanels,
       pModW,
@@ -481,8 +515,11 @@
       invKw: totalInvKw,
       invName,
       ratioDcAc,
-      annualKWh,
-      theoreticalAnnualKWh,
+      annualKWh: numPanels > 0 ? annualKWh : 0,
+      theoreticalAnnualKWh: numPanels > 0 ? theoreticalAnnualKWh : 0,
+      numTurbines,
+      windKw,
+      windAnnualKWh,
       hasSimulation,
       shadowLossPct,
       approxAddress,
@@ -502,9 +539,9 @@
 
     const s = inspectProjectState();
 
-    // Ocultar si no hay paneles diseñados (0 kWp) o en pantallas móviles (<= 768px)
+    // Ocultar si no hay ni paneles ni aerogeneradores o en pantallas móviles (<= 768px)
     const isMobile = (typeof window !== 'undefined' && window.innerWidth <= 768);
-    if (isMobile || s.numPanels === 0) {
+    if (isMobile || (s.numPanels === 0 && s.numTurbines === 0)) {
       hudContainer.style.display = 'none';
       return;
     } else {
@@ -512,7 +549,7 @@
     }
 
     // Fingerprint para evitar renders innecesarios
-    const currentFingerprint = `${s.numPanels}_${s.kwp.toFixed(2)}_${s.invKw.toFixed(1)}_${s.isHeatmapDirty}_${s.annualKWh}_${s.theoreticalAnnualKWh}_${s.hasSimulation}_${s.approxAddress}_${s.shadowLossPct}_${_isCompact}`;
+    const currentFingerprint = `${s.numPanels}_${s.kwp.toFixed(2)}_${s.numTurbines}_${s.windKw.toFixed(1)}_${s.windAnnualKWh}_${s.invKw.toFixed(1)}_${s.isHeatmapDirty}_${s.annualKWh}_${s.theoreticalAnnualKWh}_${s.hasSimulation}_${s.approxAddress}_${s.shadowLossPct}_${_isCompact}`;
     if (currentFingerprint === lastStateFingerprint) return;
     lastStateFingerprint = currentFingerprint;
 
@@ -528,6 +565,8 @@
     const shadowBadgeEl = document.getElementById('ra-hud-shadow-badge');
     const theoEnergyEl = document.getElementById('ra-hud-theo-energy');
     const shadowDetailEl = document.getElementById('ra-hud-shadow-detail');
+    const row1El = document.getElementById('ra-hud-row-1');
+    const row2El = document.getElementById('ra-hud-row-2');
 
     // Elementos del modo compacto
     const compactKwpEl = document.getElementById('ra-hud-compact-kwp');
@@ -539,57 +578,89 @@
 
     const currentStep = (typeof wpCurrentStep !== 'undefined') ? wpCurrentStep : ((typeof window !== 'undefined' && window.wpCurrentStep) || 1);
 
-    if (kwpEl) kwpEl.textContent = `${s.kwp.toFixed(2)} kWp`;
-    if (compactKwpEl) compactKwpEl.textContent = `${s.kwp.toFixed(2)} kWp`;
-    if (compactPanelsEl) compactPanelsEl.textContent = `(${s.numPanels} pnl)`;
-
-    if (subEl) {
-      if (currentStep >= 4) {
-        subEl.textContent = `${s.numPanels} paneles · ${s.invKw > 0 ? (s.invKw.toFixed(1) + ' kW AC') : 'Sin inversor'}`;
-      } else {
-        subEl.textContent = `${s.numPanels} paneles instalados`;
+    if (s.numPanels > 0 && s.numTurbines > 0) {
+      if (kwpEl) kwpEl.innerHTML = `<span style="color:#FBBF24;">☀️ ${s.kwp.toFixed(2)} kWp</span> <span style="color:#64748B;">+</span> <span style="color:#38BDF8;">💨 ${s.windKw.toFixed(1)} kW</span>`;
+      if (compactKwpEl) compactKwpEl.innerHTML = `<span style="color:#FBBF24;">☀️${s.kwp.toFixed(1)}</span>+<span style="color:#38BDF8;">💨${s.windKw.toFixed(1)}kW</span>`;
+      if (compactPanelsEl) compactPanelsEl.textContent = `(${s.numPanels}p · ${s.numTurbines}t)`;
+      if (subEl) {
+        subEl.textContent = `${s.numPanels} paneles · ${s.numTurbines} ${s.numTurbines === 1 ? 'turbina' : 'turbinas'}${currentStep >= 4 && s.invKw > 0 ? ' · ' + s.invKw.toFixed(1) + ' kW AC' : ''}`;
+      }
+    } else if (s.numTurbines > 0) {
+      if (kwpEl) kwpEl.innerHTML = `<span style="color:#38BDF8;">💨 ${s.windKw.toFixed(1)} kW Eólica</span>`;
+      if (compactKwpEl) compactKwpEl.innerHTML = `<span style="color:#38BDF8;">💨 ${s.windKw.toFixed(1)} kW</span>`;
+      if (compactPanelsEl) compactPanelsEl.textContent = `(${s.numTurbines} turb)`;
+      if (subEl) {
+        subEl.textContent = `${s.numTurbines} ${s.numTurbines === 1 ? 'aerogenerador instalado' : 'aerogeneradores instalados'}`;
+      }
+    } else {
+      if (kwpEl) kwpEl.textContent = `${s.kwp.toFixed(2)} kWp`;
+      if (compactKwpEl) compactKwpEl.textContent = `${s.kwp.toFixed(2)} kWp`;
+      if (compactPanelsEl) compactPanelsEl.textContent = `(${s.numPanels} pnl)`;
+      if (subEl) {
+        if (currentStep >= 4) {
+          subEl.textContent = `${s.numPanels} paneles · ${s.invKw > 0 ? (s.invKw.toFixed(1) + ' kW AC') : 'Sin inversor'}`;
+        } else {
+          subEl.textContent = `${s.numPanels} paneles instalados`;
+        }
       }
     }
 
-    if (theoEnergyEl) {
-      theoEnergyEl.textContent = s.theoreticalAnnualKWh > 0 ? `${Math.round(s.theoreticalAnnualKWh).toLocaleString('es-ES')} kWh/a` : '— kWh/a';
-    }
-
-    if (energyEl) {
-      energyEl.textContent = s.annualKWh > 0 ? `${Math.round(s.annualKWh).toLocaleString('es-ES')} kWh/a` : '— kWh/año';
-      if (s.hasSimulation && !s.isHeatmapDirty) {
-        energyEl.style.color = '#10B981';
-      } else {
-        energyEl.style.color = '#38BDF8';
+    if (s.numTurbines > 0) {
+      const fvNet = Math.round(s.annualKWh || 0);
+      const wndNet = Math.round(s.windAnnualKWh || 0);
+      const totNet = fvNet + wndNet;
+      if (row1El) {
+        row1El.innerHTML = `☀️ FV: <span style="color:#FBBF24;font-weight:700;">${fvNet.toLocaleString('es-ES')} kWh/a</span>`;
+      }
+      if (row2El) {
+        row2El.innerHTML = `💨 Eólica: <span style="color:#38BDF8;font-weight:800;">${wndNet.toLocaleString('es-ES')} kWh/a</span>`;
+      }
+      if (shadowDetailEl) {
+        shadowDetailEl.innerHTML = `⚡ Total: <span style="color:#10B981;font-weight:800;font-family:monospace;">${totNet.toLocaleString('es-ES')} kWh/a</span>`;
+      }
+    } else {
+      if (row1El) {
+        row1El.innerHTML = `Teórico: <span id="ra-hud-theo-energy" style="color: #cbd5e1; font-weight: 700;">${s.theoreticalAnnualKWh > 0 ? Math.round(s.theoreticalAnnualKWh).toLocaleString('es-ES') + ' kWh/a' : '— kWh/a'}</span>`;
+      }
+      if (row2El) {
+        const netColor = (s.hasSimulation && !s.isHeatmapDirty) ? '#10B981' : '#38BDF8';
+        row2El.innerHTML = `Neto 3D: <span id="ra-hud-energy-text" style="color:${netColor};">${s.annualKWh > 0 ? Math.round(s.annualKWh).toLocaleString('es-ES') + ' kWh/a' : '— kWh/año'}</span>`;
+      }
+      if (shadowDetailEl) {
+        if (s.isHeatmapDirty) {
+          shadowDetailEl.textContent = 'Sombras desactualizadas';
+          shadowDetailEl.style.color = '#F59E0B';
+        } else if (s.hasSimulation) {
+          shadowDetailEl.textContent = s.shadowLossPct > 0 ? `Pérdida sombras: -${s.shadowLossPct.toFixed(1)}%` : 'Cubierta libre de sombras';
+          shadowDetailEl.style.color = '#34D399';
+        } else {
+          shadowDetailEl.textContent = 'Paso 3 para simular sombras';
+          shadowDetailEl.style.color = '#94a3b8';
+        }
       }
     }
 
     if (shadowBadgeEl) {
-      if (s.isHeatmapDirty) {
+      if (s.isHeatmapDirty && s.numPanels > 0) {
         shadowBadgeEl.textContent = '⚠️ Recálculo pendiente';
         shadowBadgeEl.style.background = 'rgba(245, 158, 11, 0.20)';
         shadowBadgeEl.style.color = '#F59E0B';
-      } else if (s.hasSimulation) {
+      } else if (s.hasSimulation && s.numPanels > 0) {
         shadowBadgeEl.textContent = `🎯 3D Simulado (${s.shadowLossPct > 0 ? '-' + s.shadowLossPct.toFixed(1) + '%' : '0%'} sombra)`;
         shadowBadgeEl.style.background = 'rgba(16, 185, 129, 0.20)';
         shadowBadgeEl.style.color = '#10B981';
+      } else if (s.numPanels > 0 && s.numTurbines > 0) {
+        shadowBadgeEl.textContent = '⚡ Híbrido FV + Eólica';
+        shadowBadgeEl.style.background = 'rgba(16, 185, 129, 0.18)';
+        shadowBadgeEl.style.color = '#34D399';
+      } else if (s.numTurbines > 0) {
+        shadowBadgeEl.textContent = '💨 Parque Eólico';
+        shadowBadgeEl.style.background = 'rgba(56, 189, 248, 0.18)';
+        shadowBadgeEl.style.color = '#38BDF8';
       } else {
         shadowBadgeEl.textContent = '🌤️ Teórico preliminar';
         shadowBadgeEl.style.background = 'rgba(56, 189, 248, 0.15)';
         shadowBadgeEl.style.color = '#38BDF8';
-      }
-    }
-
-    if (shadowDetailEl) {
-      if (s.isHeatmapDirty) {
-        shadowDetailEl.textContent = 'Sombras desactualizadas';
-        shadowDetailEl.style.color = '#F59E0B';
-      } else if (s.hasSimulation) {
-        shadowDetailEl.textContent = s.shadowLossPct > 0 ? `Pérdida sombras: -${s.shadowLossPct.toFixed(1)}%` : 'Cubierta libre de sombras';
-        shadowDetailEl.style.color = '#34D399';
-      } else {
-        shadowDetailEl.textContent = 'Paso 3 para simular sombras';
-        shadowDetailEl.style.color = '#94a3b8';
       }
     }
 

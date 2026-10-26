@@ -22,6 +22,21 @@
 
 let _raCurrentFileHandle = null;
 let _raCurrentProjectName = 'Proyecto_Solar';
+let _raImportInProgress = false;
+// [A6 FIX] Validación de coordenadas numéricas finitas para prevenir DeveloperError en bucle de render Cesium
+function _raIsValidCoord(v) {
+  return typeof v === 'number' && Number.isFinite(v);
+}
+
+function _raIsValidCartesian(pt) {
+  return pt && _raIsValidCoord(pt.x) && _raIsValidCoord(pt.y) && _raIsValidCoord(pt.z);
+}
+
+function _raToCartesian3(pt) {
+  if (typeof Cesium === 'undefined' || !_raIsValidCartesian(pt)) return null;
+  return new Cesium.Cartesian3(pt.x, pt.y, pt.z);
+}
+
 
 // [AUDIT-SAVE] Sanitizador: elimina referencias GPU/DOM (entity, primitivas, props _*)
 // del estado serializado. Antes JSON.stringify(obstacles) arrastraba el grafo completo
@@ -36,7 +51,9 @@ function _raSanitizeForExport(obj, depth) {
     const out = {};
     for (const k in obj) {
       if (!Object.prototype.hasOwnProperty.call(obj, k)) continue;
-      if (k === 'entity' || k === 'entities' || k === 'primitive' || k === 'primitives' || (k && k.charAt && k.charAt(0) === '_')) continue;
+      // [A5 FIX] Preservar explícitamente _position para permitir migración de turbinas legadas
+      if (k === 'entity' || k === 'entities' || k === 'primitive' || k === 'primitives') continue;
+      if (k && k.charAt && k.charAt(0) === '_' && k !== '_position') continue;
       const v = obj[k];
       if (typeof v === 'function') continue;
       out[k] = _raSanitizeForExport(v, depth + 1);
@@ -94,6 +111,8 @@ function raExportProjectData() {
     ? WP.polylines.map((poly, pIdx) => ({
         id: poly.id || ('wp_poly_' + Date.now() + '_' + pIdx),
         name: poly.name || ('Faldon #' + (pIdx + 1)),
+        visible: poly.visible !== false,
+        panelsVisible: poly.panelsVisible !== false,
         points: Array.isArray(poly.points) ? poly.points.map(pt => ({ x: pt.x, y: pt.y, z: pt.z })) : [],
         color: poly.color,
         planeIdx: (typeof poly.planeIdx === 'number') ? poly.planeIdx : 0,
@@ -141,7 +160,10 @@ function raExportProjectData() {
       }))
     : [];
 
-  const totalPanels = (typeof simulatedPanelEntities !== 'undefined' && simulatedPanelEntities) ? simulatedPanelEntities.length : 0;
+  // [A3 FIX] Leer paneles activos de allRenderedPanels con fallback a simulatedPanelEntities
+  const totalPanels = (typeof window !== 'undefined' && Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0)
+    ? window.allRenderedPanels.filter(p => p && !p.deleted).length
+    : ((typeof simulatedPanelEntities !== 'undefined' && simulatedPanelEntities) ? simulatedPanelEntities.length : 0);
 
   // [AUDIT-SAVE] CRÍTICO: el flujo legacy (P1/P2/P3 + trazar + confirmar) genera paneles
   // SIN crear entradas en WP.polylines — el .raproject guardaba 0 faldones y al cargar el
@@ -187,7 +209,7 @@ function raExportProjectData() {
 
   return {
     format: 'RA_SOLAR_PROJECT',
-    version: '2.2',
+    version: '2.3',
     timestamp: new Date().toISOString(),
     metadata: {
       name: _raCurrentProjectName || 'Instalación Solar',
@@ -220,6 +242,9 @@ function raExportProjectData() {
               };
             })
           : []),
+    windResourceConfig: (typeof window !== 'undefined' && window.RAWind && window.RAWind.Resource && typeof window.RAWind.Resource.getConfig === 'function')
+      ? window.RAWind.Resource.getConfig()
+      : null,
     buildings: (typeof buildings !== 'undefined' && Array.isArray(buildings)) ? _raSanitizeForExport(buildings, 0) : [],
     panelConfig: (typeof panelConfig !== 'undefined' && panelConfig) ? _raSanitizeForExport(panelConfig, 0) : null,
     // [AUDIT-SAVE] Selecciones de catálogo y auto-dimensionado: sin esto, tras cargar un
@@ -240,6 +265,7 @@ function raExportProjectData() {
     solarSimState: (typeof solarSimState !== 'undefined' && solarSimState) ? {
       monthIdx: solarSimState.monthIdx,
       hour: solarSimState.hour,
+      hourFloat: (typeof solarSimState.hourFloat === 'number') ? solarSimState.hourFloat : solarSimState.hour,
       viewMode: solarSimState.viewMode
     } : null,
     electricalInfrastructure: (() => {
@@ -292,12 +318,41 @@ function raExportProjectData() {
           selectedCableAcId: (cfg && cfg.selectedCableAcId) || 'cable_ac_rvk_5g10'
         }
       };
+    })(),
+    // [AUDIT v2.3] Persistencia integral de subsistemas para cero pérdida de datos
+    measurements: (typeof window !== 'undefined' && window.RAMeasureTool && typeof window.RAMeasureTool.serialize === 'function')
+      ? window.RAMeasureTool.serialize()
+      : [],
+    billAudit: (typeof window !== 'undefined' && window.RA && window.RA.billAuditor && typeof window.RA.billAuditor.getState === 'function')
+      ? (() => {
+          const bSt = window.RA.billAuditor.getState();
+          return (bSt && bSt.currentBill) ? JSON.parse(JSON.stringify(bSt.currentBill)) : null;
+        })()
+      : null,
+    commercialProposal: (typeof window !== 'undefined' && window.CommercialProposalDossier && typeof window.CommercialProposalDossier.getConfig === 'function')
+      ? window.CommercialProposalDossier.getConfig()
+      : null,
+    clientDetails: (() => {
+      if (typeof readTitular === 'function') {
+        try { return readTitular(); } catch (_) { return null; }
+      }
+      return null;
+    })(),
+    financialSettings: (() => {
+      const g = (id, def) => {
+        const el = document.getElementById(id);
+        return el ? (parseFloat(el.value) || def) : def;
+      };
+      return {
+        plazoMeses: g('fin-plazo-meses', 120),
+        tinPct: g('fin-tin-pct', 5.95)
+      };
     })()
   };
 }
 
 // 2. Deserializar e Importar Proyecto Completo
-const RA_PROJECT_CURRENT_VERSION = '2.2';
+const RA_PROJECT_CURRENT_VERSION = '2.3';
 
 /**
  * [C5/M9] Migración de esquema de los archivos .raproject (retrocompatibilidad al abrir).
@@ -308,6 +363,16 @@ function raMigrateProjectData(projectData) {
   if (!projectData || typeof projectData !== 'object') return projectData;
   const fromVer = parseFloat(projectData.version) || 1.0;
   const toVer = parseFloat(RA_PROJECT_CURRENT_VERSION);
+
+  // [A7 FIX] Control de versiones futuras: evitar corrupción si el archivo proviene de una versión más reciente
+  if (fromVer > toVer) {
+    console.warn('[RA Storage] Advertencia: El archivo .raproject tiene versión ' + projectData.version + ', superior a la soportada (' + RA_PROJECT_CURRENT_VERSION + ').');
+    if (typeof showToast === 'function') {
+      showToast('VERSIÓN NUEVA', 'El archivo fue creado con una versión superior (' + projectData.version + '). Algunas funciones avanzadas podrían no cargarse.', 'warning', 6000);
+    }
+    // No degradar ciegamente la versión para no perder trazabilidad
+    projectData.__futureVersionWarning = true;
+  }
 
   // v1.x → contenedores normalizados
   if (fromVer < 2.0) {
@@ -345,7 +410,9 @@ function raMigrateProjectData(projectData) {
   }
 
   projectData.__migratedFrom = (isFinite(fromVer) && fromVer < toVer) ? fromVer : undefined;
-  projectData.version = RA_PROJECT_CURRENT_VERSION;
+  if (!projectData.__futureVersionWarning) {
+    projectData.version = RA_PROJECT_CURRENT_VERSION;
+  }
   return projectData;
 }
 
@@ -468,9 +535,7 @@ function raHideProjectLoadingHUD() {
 function _raApplyCamera(camData) {
   if (!camData || typeof viewer === 'undefined' || !viewer || !viewer.camera || typeof Cesium === 'undefined') return;
   try {
-    const pos = (camData.position && typeof camData.position.x === 'number')
-      ? new Cesium.Cartesian3(camData.position.x, camData.position.y, camData.position.z)
-      : null;
+    const pos = _raToCartesian3(camData.position);
     if (!pos) return;
 
     if (typeof camData.heading === 'number' && typeof camData.pitch === 'number' && isFinite(camData.heading) && isFinite(camData.pitch)) {
@@ -483,13 +548,16 @@ function _raApplyCamera(camData) {
         }
       });
     } else if (camData.direction && camData.up) {
-      viewer.camera.setView({
-        destination: pos,
-        orientation: {
-          direction: new Cesium.Cartesian3(camData.direction.x, camData.direction.y, camData.direction.z),
-          up: new Cesium.Cartesian3(camData.up.x, camData.up.y, camData.up.z)
-        }
-      });
+      const cDir = _raToCartesian3(camData.direction);
+      const cUp = _raToCartesian3(camData.up);
+      if (cDir && cUp) {
+        viewer.camera.setView({
+          destination: pos,
+          orientation: { direction: cDir, up: cUp }
+        });
+      } else {
+        viewer.camera.setView({ destination: pos });
+      }
     } else {
       viewer.camera.setView({ destination: pos });
     }
@@ -499,6 +567,18 @@ function _raApplyCamera(camData) {
 }
 
 async function raImportProjectData(projectData, options = {}) {
+  // [C4 FIX] Mutex de concurrencia: evitar importaciones simultáneas (D&D doble, Ctrl+S durante import)
+  if (_raImportInProgress && (!options || !options.isRollback)) {
+    console.warn('[RA Storage] Importación en curso ignorada: otra operación de importación está activa.');
+    if (typeof showToast === 'function') {
+      showToast('OPERACIÓN EN CURSO', 'Ya hay una carga de proyecto ejecutándose.', 'warning', 2500);
+    }
+    return false;
+  }
+  if (!options || !options.isRollback) {
+    _raImportInProgress = true;
+  }
+
   // [P0.2] Carrera de arranque y espera determinista: si el visor Cesium o el subsistema WP
   // aún no existen o están inicializándose, reintentar de forma controlada hasta 25 veces (5 segundos).
   if (typeof viewer === 'undefined' || !viewer || typeof WP === 'undefined' || !WP) {
@@ -515,16 +595,22 @@ async function raImportProjectData(projectData, options = {}) {
       if (typeof showStatus === 'function') {
         showStatus('ESPERANDO INICIALIZACIÓN DEL VISOR 3D (' + _retryCount + '/25)...', 1500);
       }
-      setTimeout(function() {
-        try {
-          raImportProjectData(projectData, options);
-        } catch(eDef) {
-          if (window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eDef, 'import diferido');
-        }
-      }, 200);
-      return true;
+      return new Promise(function(resolve) {
+        setTimeout(async function() {
+          try {
+            _raImportInProgress = false; // reset para el reintento
+            const res = await raImportProjectData(projectData, options);
+            resolve(res);
+          } catch(eDef) {
+            _raImportInProgress = false;
+            if (window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eDef, 'import diferido');
+            resolve(false);
+          }
+        }, 200);
+      });
     } else {
       delete projectData.__raImportRetryCount;
+      _raImportInProgress = false;
       raHideProjectLoadingHUD();
       console.error('[RA Storage] Timeout: El visor 3D o WP no se inicializaron a tiempo.');
       if (typeof showToast === 'function') {
@@ -607,6 +693,14 @@ async function raImportProjectData(projectData, options = {}) {
     if (window.RAWindTurbine && typeof window.RAWindTurbine.cleanAll === 'function') {
       try { window.RAWindTurbine.cleanAll(); } catch(eWt) {}
     }
+    // [C2 FIX] Limpiar todas las primitivas y anillos de aerogeneradores de la GPU antes de deserializar
+    if (window.RAWindVisualizer && typeof window.RAWindVisualizer.clearAll === 'function') {
+      try { window.RAWindVisualizer.clearAll(); } catch(eWvc) {}
+    }
+    if (typeof window !== 'undefined') {
+      window.windTurbines = [];
+      window.windParkSummary = null;
+    }
     if ((!options || !options.preserveUndoHistory) && window.RAundo && typeof window.RAundo.clear === 'function') {
       window.RAundo.clear();
     }
@@ -626,13 +720,13 @@ async function raImportProjectData(projectData, options = {}) {
         : (Array.isArray(projectData.planes) ? projectData.planes : []);
 
       inPlanes.forEach(p => {
-        const pt1 = p.p1 ? new Cesium.Cartesian3(p.p1.x, p.p1.y, p.p1.z) : null;
-        const pt2 = p.p2 ? new Cesium.Cartesian3(p.p2.x, p.p2.y, p.p2.z) : null;
-        const pt3 = p.p3 ? new Cesium.Cartesian3(p.p3.x, p.p3.y, p.p3.z) : null;
+        const pt1 = _raToCartesian3(p.p1);
+        const pt2 = _raToCartesian3(p.p2);
+        const pt3 = _raToCartesian3(p.p3);
         
-        // Reconstrucción del array canónico (Opciones de retrocompatibilidad)
+        // Reconstrucción del array canónico con validación estricta de números finitos
         const pts3D = (p.pts3D && Array.isArray(p.pts3D)) 
-           ? p.pts3D.map(pt => new Cesium.Cartesian3(pt.x, pt.y, pt.z)) 
+           ? p.pts3D.map(_raToCartesian3).filter(Boolean) 
            : [pt1, pt2, pt3].filter(Boolean);
 
         WP.planes.push({
@@ -642,13 +736,13 @@ async function raImportProjectData(projectData, options = {}) {
           p2: pt2,
           p3: pt3,
           pts3D: pts3D,
-          origin: p.origin ? new Cesium.Cartesian3(p.origin.x, p.origin.y, p.origin.z) : null,
-          normal: p.normal ? new Cesium.Cartesian3(p.normal.x, p.normal.y, p.normal.z) : null,
-          uVec: p.uVec ? new Cesium.Cartesian3(p.uVec.x, p.uVec.y, p.uVec.z) : null,
-          vVec: p.vVec ? new Cesium.Cartesian3(p.vVec.x, p.vVec.y, p.vVec.z) : null,
-          tiltDeg: p.tiltDeg,
-          azimuthDeg: p.azimuthDeg,
-          area: p.area
+          origin: _raToCartesian3(p.origin),
+          normal: _raToCartesian3(p.normal),
+          uVec: _raToCartesian3(p.uVec),
+          vVec: _raToCartesian3(p.vVec),
+          tiltDeg: _raIsValidCoord(p.tiltDeg) ? p.tiltDeg : 0,
+          azimuthDeg: _raIsValidCoord(p.azimuthDeg) ? p.azimuthDeg : 0,
+          area: _raIsValidCoord(p.area) ? p.area : 0
         });
       });
       WP.activePlaneIdx = (projectData.workPlanes && typeof projectData.workPlanes.activePlaneIdx === 'number')
@@ -661,7 +755,7 @@ async function raImportProjectData(projectData, options = {}) {
       WP.polylines = [];
       const inPolys = Array.isArray(projectData.polylines) ? projectData.polylines : [];
       inPolys.forEach((poly, pIdx) => {
-        const pts = Array.isArray(poly.points) ? poly.points.map(pt => new Cesium.Cartesian3(pt.x, pt.y, pt.z)) : [];
+        const pts = Array.isArray(poly.points) ? poly.points.map(_raToCartesian3).filter(Boolean) : [];
         let rInfo = null;
         if (poly.roofInfo) {
           rInfo = {
@@ -681,8 +775,8 @@ async function raImportProjectData(projectData, options = {}) {
               isShaded: !!p.isShaded,
               annualKwh: p.annualKwh || null,
               shadePct: (typeof p.shadePct === 'number') ? p.shadePct : null,
-              center: p.center ? new Cesium.Cartesian3(p.center.x, p.center.y, p.center.z) : null,
-              corners: Array.isArray(p.corners) ? p.corners.map(c => new Cesium.Cartesian3(c.x, c.y, c.z)) : []
+              center: _raToCartesian3(p.center),
+              corners: Array.isArray(p.corners) ? p.corners.map(_raToCartesian3).filter(Boolean) : []
             })) : []
           };
         }
@@ -695,6 +789,8 @@ async function raImportProjectData(projectData, options = {}) {
         WP.polylines.push({
           id: poly.id || ('wp_poly_' + Date.now() + '_' + pIdx),
           name: poly.name || ('Faldon #' + (pIdx + 1)),
+          visible: poly.visible !== false,
+          panelsVisible: poly.panelsVisible !== false,
           planeIdx: (typeof poly.planeIdx === 'number') ? poly.planeIdx : (WP.activePlaneIdx || 0),
           structureType: poly.structureType || 'coplanar_teja',
           estructura: poly.estructura ? JSON.parse(JSON.stringify(poly.estructura)) : (poly.structureType && poly.structureType.includes('pergola') ? { tipo: 'pergola', clearance: 1.80 } : (poly.structureType && poly.structureType.includes('triangle') ? { tipo: 'balasto', clearance: 0.20 } : { tipo: 'coplanar', clearance: 0.05 })),
@@ -715,7 +811,7 @@ async function raImportProjectData(projectData, options = {}) {
             localIdx: (typeof dp.localIdx === 'number') ? dp.localIdx : null,
             u: dp.u,
             v: dp.v,
-            center: dp.center ? new Cesium.Cartesian3(dp.center.x, dp.center.y, dp.center.z) : null
+            center: _raToCartesian3(dp.center)
           })) : [],
           roofInfo: rInfo
         });
@@ -732,15 +828,9 @@ async function raImportProjectData(projectData, options = {}) {
       _arrObs.length = 0;
       _obsClean.forEach(o => {
         if (!o) return;
-        if (o.cartesian && typeof Cesium !== 'undefined') {
-          o.cartesian = new Cesium.Cartesian3(o.cartesian.x, o.cartesian.y, o.cartesian.z);
-        }
-        if (o.center && typeof Cesium !== 'undefined') {
-          o.center = new Cesium.Cartesian3(o.center.x, o.center.y, o.center.z);
-        }
-        if (Array.isArray(o.points) && typeof Cesium !== 'undefined') {
-          o.points = o.points.map(pt => new Cesium.Cartesian3(pt.x, pt.y, pt.z));
-        }
+        if (o.cartesian) o.cartesian = _raToCartesian3(o.cartesian);
+        if (o.center) o.center = _raToCartesian3(o.center);
+        if (Array.isArray(o.points)) o.points = o.points.map(_raToCartesian3).filter(Boolean);
         if (o.type === 'wind_turbine' && window.RAWindTurbine && typeof window.RAWindTurbine.ensureProps === 'function') {
           window.RAWindTurbine.ensureProps(o);
         }
@@ -758,12 +848,8 @@ async function raImportProjectData(projectData, options = {}) {
       _arrBld.length = 0;
       _bldClean.forEach(b => {
         if (!b) return;
-        if (Array.isArray(b.points) && typeof Cesium !== 'undefined') {
-          b.points = b.points.map(pt => new Cesium.Cartesian3(pt.x, pt.y, pt.z));
-        }
-        if (b.center && typeof Cesium !== 'undefined') {
-          b.center = new Cesium.Cartesian3(b.center.x, b.center.y, b.center.z);
-        }
+        if (Array.isArray(b.points)) b.points = b.points.map(_raToCartesian3).filter(Boolean);
+        if (b.center) b.center = _raToCartesian3(b.center);
         _arrBld.push(b);
       });
       buildings = _arrBld;
@@ -798,6 +884,31 @@ async function raImportProjectData(projectData, options = {}) {
 
     // 5.c Restaurar y migrar Aerogeneradores RA-Wind
     if (typeof window !== 'undefined' && window.RAWind && window.RAWind.Entity) {
+      if (projectData.windResourceConfig && window.RAWind.Resource && typeof window.RAWind.Resource.updateConfig === 'function') {
+        try { window.RAWind.Resource.updateConfig(projectData.windResourceConfig); } catch(eWrc) {}
+      } else if (!projectData.windResourceConfig && window.RAWind.Resource && typeof window.RAWind.Resource.updateConfig === 'function') {
+        // [A4 FIX] Si el proyecto no tiene windResourceConfig, restablecer a valores por defecto
+        try {
+          var _defSectors = (window.RAWind.Resource.DEFAULT_SECTORS) ? JSON.parse(JSON.stringify(window.RAWind.Resource.DEFAULT_SECTORS)) : null;
+          window.RAWind.Resource.updateConfig({
+            sourceName: 'Manual / IDAE (Por defecto)',
+            vMeanRefMs: 5.5,
+            vMean50mMs: 7.2,
+            refHeightM: 10.0,
+            weibullK: 2.0,
+            roughnessLengthM: 0.10,
+            shearExponentAlpha: 0.143,
+            prevailingWindDirDeg: 270,
+            autoYawToWind: true,
+            ambientTempC: 15.0,
+            siteAltitudeM: 100.0,
+            receptorDistanceM: 35.0,
+            availabilityFactor: 0.97,
+            electricalEfficiency: 0.95,
+            sectors: _defSectors
+          });
+        } catch(eWrcDef) {}
+      }
       if (Array.isArray(projectData.windTurbines)) {
         window.RAWind.Entity.deserializeAll(projectData.windTurbines);
       }
@@ -914,9 +1025,78 @@ async function raImportProjectData(projectData, options = {}) {
     if (projectData.solarSimState && typeof solarSimState !== 'undefined') {
       if (typeof projectData.solarSimState.monthIdx === 'number') solarSimState.monthIdx = projectData.solarSimState.monthIdx;
       if (typeof projectData.solarSimState.hour === 'number') solarSimState.hour = projectData.solarSimState.hour;
+      // [A2 FIX] Restaurar hourFloat si está guardado o calcular desde hour
+      if (typeof projectData.solarSimState.hourFloat === 'number') {
+        solarSimState.hourFloat = projectData.solarSimState.hourFloat;
+      } else if (typeof projectData.solarSimState.hour === 'number') {
+        solarSimState.hourFloat = projectData.solarSimState.hour;
+      }
       if (projectData.solarSimState.viewMode) solarSimState.viewMode = projectData.solarSimState.viewMode;
       if (typeof updateSolarTimeUI === 'function') updateSolarTimeUI();
       if (typeof updateSolarPosition === 'function') updateSolarPosition();
+    }
+
+    // [AUDIT v2.3] Restaurar cotas y mediciones 3D
+    if (Array.isArray(projectData.measurements) && typeof window !== 'undefined' && window.RAMeasureTool && typeof window.RAMeasureTool.deserialize === 'function') {
+      try { window.RAMeasureTool.deserialize(projectData.measurements); } catch (eMeas) { console.warn('[RA Storage] Error restaurando mediciones:', eMeas); }
+    }
+
+    // [AUDIT v2.3] Restaurar auditoría y factura analizada (SSOT)
+    if (projectData.billAudit && typeof window !== 'undefined' && window.RA && window.RA.billAuditor) {
+      try {
+        const bSt = (typeof window.RA.billAuditor.getState === 'function') ? window.RA.billAuditor.getState() : null;
+        if (bSt) {
+          bSt.currentBill = JSON.parse(JSON.stringify(projectData.billAudit));
+          if (typeof window.RA.billAuditor.syncWithProjectCalcs === 'function') {
+            window.RA.billAuditor.syncWithProjectCalcs();
+          }
+        }
+      } catch (eBill) { console.warn('[RA Storage] Error restaurando factura:', eBill); }
+    }
+
+    // [AUDIT v2.3] Restaurar configuración y personalizaciones del Dossier Comercial
+    if (projectData.commercialProposal && typeof window !== 'undefined' && window.CommercialProposalDossier && typeof window.CommercialProposalDossier.setConfig === 'function') {
+      try { window.CommercialProposalDossier.setConfig(projectData.commercialProposal); } catch (eDossier) { console.warn('[RA Storage] Error restaurando dossier:', eDossier); }
+    }
+
+    // [AUDIT v2.3] Restaurar datos administrativos de cliente y titular del suministro
+    if (projectData.clientDetails && typeof document !== 'undefined') {
+      try {
+        const cd = projectData.clientDetails;
+        const setVal = (id, val) => {
+          const el = document.getElementById(id);
+          if (el && val != null) el.value = val;
+        };
+        setVal('doc-nombre', cd.nombre);
+        setVal('doc-nif', cd.nif);
+        setVal('doc-tel', cd.tel);
+        setVal('doc-email', cd.email);
+        setVal('doc-dir', cd.dir);
+        setVal('doc-mun', cd.mun);
+        setVal('doc-prov', cd.prov);
+        setVal('doc-cp', cd.cp);
+        setVal('doc-cups', cd.cups);
+        setVal('doc-potcontr', cd.potContr);
+        setVal('doc-dist', cd.dist);
+        setVal('doc-modalidad', cd.modalidad);
+        setVal('doc-tecnico', cd.tecnico);
+        setVal('doc-titulacion', cd.titulacion);
+        setVal('doc-ncol', cd.ncol);
+        if (window.solarProjectConfig) {
+          window.solarProjectConfig.clientInfo = JSON.parse(JSON.stringify(cd));
+        }
+      } catch (eClient) { console.warn('[RA Storage] Error restaurando cliente:', eClient); }
+    }
+
+    // [AUDIT v2.3] Restaurar parámetros financieros (plazo, TIN)
+    if (projectData.financialSettings && typeof document !== 'undefined') {
+      try {
+        const fs = projectData.financialSettings;
+        const elPlazo = document.getElementById('fin-plazo-meses');
+        if (elPlazo && typeof fs.plazoMeses === 'number') elPlazo.value = fs.plazoMeses;
+        const elTin = document.getElementById('fin-tin-pct');
+        if (elTin && typeof fs.tinPct === 'number') elTin.value = fs.tinPct;
+      } catch (eFin) {}
     }
 
     // Navegar al paso correspondiente del proyecto
@@ -928,7 +1108,7 @@ async function raImportProjectData(projectData, options = {}) {
     }
     if (typeof wpCurrentStep !== 'undefined') wpCurrentStep = targetStep;
     if (typeof wpGoToStep === 'function') {
-      try { wpGoToStep(targetStep); } catch (eStep) { window.RA && window.RA.log && window.RA.log.debug('Paso ' + targetStep + ' activado tras importación:', eStep); }
+      try { await wpGoToStep(targetStep, true); } catch (eStep) { window.RA && window.RA.log && window.RA.log.debug('Paso ' + targetStep + ' activado tras importación:', eStep); }
     }
     
     if (typeof ProjectHierarchy !== 'undefined' && ProjectHierarchy.notify) {
@@ -975,19 +1155,26 @@ async function raImportProjectData(projectData, options = {}) {
     if (hadPriorGeometry && (!options || !options.isRollback)) {
       try {
         console.warn('[RA Storage] Error en importación. Ejecutando rollback transaccional al proyecto previo...');
-        raImportProjectData(preImportSnapshot, { isRollback: true });
+        // [C3 FIX] Añadir await a la ejecución del rollback
+        await raImportProjectData(preImportSnapshot, { isRollback: true });
         if (typeof showToast === 'function') {
           showToast('IMPORTACIÓN FALLIDA · RESTAURADO', 'El archivo no es válido. Se ha restaurado el proyecto anterior intacto.', 'warning', 6000);
         }
+        _raImportInProgress = false;
         return false;
       } catch (eRoll) {
         console.error('[RA Storage] Error crítico durante rollback:', eRoll);
       }
     }
+    _raImportInProgress = false;
     if (typeof showToast === 'function') {
       showToast('ERROR AL ABRIR', err.message || 'No se pudo leer el archivo.', 'error', 5000);
     }
     return false;
+  } finally {
+    if (!options || !options.isRollback) {
+      _raImportInProgress = false;
+    }
   }
 }
 
@@ -996,6 +1183,33 @@ async function raSaveProjectToFile(saveAs = false) {
   const projectData = raExportProjectData();
   const jsonStr = JSON.stringify(projectData, null, 2);
   const defaultFileName = (_raCurrentProjectName || 'Proyecto_Solar').replace(/[^a-zA-Z0-9_-]/g, '_') + '.raproject';
+
+  // [A1 FIX] Si no se solicita "Guardar Como" y ya poseemos un handle abierto con permiso de escritura,
+  // reutilizarlo directamente sin abrir diálogo modal (Ctrl+S fluido estándar)
+  if (!saveAs && _raCurrentFileHandle) {
+    try {
+      if (typeof _raCurrentFileHandle.queryPermission === 'function') {
+        let perm = await _raCurrentFileHandle.queryPermission({ mode: 'readwrite' });
+        if (perm !== 'granted' && typeof _raCurrentFileHandle.requestPermission === 'function') {
+          perm = await _raCurrentFileHandle.requestPermission({ mode: 'readwrite' });
+        }
+        if (perm === 'granted') {
+          const writable = await _raCurrentFileHandle.createWritable();
+          await writable.write(jsonStr);
+          await writable.close();
+          raSaveToRecentProjects(projectData);
+          if (typeof raCloseProjectsModal === 'function') raCloseProjectsModal();
+          if (typeof showToast === 'function') {
+            showToast('GUARDADO', 'Proyecto actualizado en disco.', 'success', 2000);
+          }
+          return;
+        }
+      }
+    } catch (eReuse) {
+      console.warn('[RA Storage] Falló escritura en handle existente, solicitando selector:', eReuse);
+      _raCurrentFileHandle = null;
+    }
+  }
 
   // Opción A: File System Access API nativa (Ventana modal de selección de carpeta/archivo)
   if (typeof window.showSaveFilePicker === 'function') {
@@ -1339,6 +1553,39 @@ function raNewProjectConfirm() {
   // 6. Limpieza de aerogeneradores
   if (window.RAWindTurbine && typeof window.RAWindTurbine.cleanAll === 'function') {
     try { window.RAWindTurbine.cleanAll(); } catch(eWt) {}
+  }
+  // [C1 FIX] Limpiar todas las primitivas y visualizaciones eólicas de la GPU y memoria
+  if (window.RAWindVisualizer && typeof window.RAWindVisualizer.clearAll === 'function') {
+    try { window.RAWindVisualizer.clearAll(); } catch(eWvc) {}
+  }
+  if (typeof window !== 'undefined') {
+    window.windTurbines = [];
+    window.windParkSummary = null;
+    if (window.RAWind && window.RAWind.Resource && typeof window.RAWind.Resource.updateConfig === 'function') {
+      try {
+        var _defSectors = (window.RAWind.Resource.DEFAULT_SECTORS) ? JSON.parse(JSON.stringify(window.RAWind.Resource.DEFAULT_SECTORS)) : null;
+        window.RAWind.Resource.updateConfig({
+          sourceName: 'Manual / IDAE (Por defecto)',
+          vMeanRefMs: 5.5,
+          vMean50mMs: 7.2,
+          refHeightM: 10.0,
+          weibullK: 2.0,
+          roughnessLengthM: 0.10,
+          shearExponentAlpha: 0.143,
+          prevailingWindDirDeg: 270,
+          autoYawToWind: true,
+          ambientTempC: 15.0,
+          siteAltitudeM: 100.0,
+          receptorDistanceM: 35.0,
+          availabilityFactor: 0.97,
+          electricalEfficiency: 0.95,
+          sectors: _defSectors
+        });
+      } catch(eWrcDef) {}
+    }
+    if (window.RAWindUI && typeof window.RAWindUI.renderStep2Panel === 'function') {
+      try { window.RAWindUI.renderStep2Panel(); } catch(eWui) {}
+    }
   }
 
   // 7. Limpieza de paneles en memoria y faldones/polilíneas

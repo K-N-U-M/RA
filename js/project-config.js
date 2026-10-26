@@ -389,18 +389,29 @@ function step3UpdateHardwareSelection() {
   // Verificación de Corriente Operativa Máxima Imp vs MPPT (Prevención de Clipping)
   // Se evalúa la corriente real que ingresa al canal MPPT más cargado (reparto entre MPPTs e inversores)
   const _modPanels = (typeof simulatedPanelEntities !== 'undefined' && Array.isArray(simulatedPanelEntities)) ? simulatedPanelEntities.length : 0;
-  const _modsPerStr = Math.max(3, (window.solarProjectConfig.calculatedLimits && window.solarProjectConfig.calculatedLimits.nMinString) || 12);
-  const _realStrings = (typeof electricalStrings !== 'undefined' && Array.isArray(electricalStrings) && electricalStrings.length > 0)
-    ? electricalStrings.length
-    : ((typeof window.electricalStrings !== 'undefined' && Array.isArray(window.electricalStrings) && window.electricalStrings.length > 0)
-      ? window.electricalStrings.length
-      : (_modPanels > 0 ? Math.max(1, Math.ceil(_modPanels / _modsPerStr)) : 1));
+  const _maxModsPerStr = (window.solarProjectConfig.calculatedLimits && window.solarProjectConfig.calculatedLimits.nMaxString) || 18;
+  const _minModsPerStr = (window.solarProjectConfig.calculatedLimits && window.solarProjectConfig.calculatedLimits.nMinString) || 5;
 
   const _invCount = (window.solarProjectConfig && window.solarProjectConfig.autoSizing && window.solarProjectConfig.autoSizing.inverters && window.solarProjectConfig.autoSizing.inverters.count)
     ? Math.max(1, window.solarProjectConfig.autoSizing.inverters.count)
     : 1;
   const _mpptChannelsPerInv = Math.max(1, inv.mppt || 2);
   const _totalMpptChannels = _invCount * _mpptChannelsPerInv;
+
+  let _realStrings;
+  if (typeof electricalStrings !== 'undefined' && Array.isArray(electricalStrings) && electricalStrings.length > 0) {
+    _realStrings = electricalStrings.length;
+  } else if (typeof window.electricalStrings !== 'undefined' && Array.isArray(window.electricalStrings) && window.electricalStrings.length > 0) {
+    _realStrings = window.electricalStrings.length;
+  } else if (_modPanels > 0) {
+    _realStrings = Math.max(1, Math.ceil(_modPanels / _maxModsPerStr));
+    if (_realStrings < _totalMpptChannels && Math.floor(_modPanels / _totalMpptChannels) >= _minModsPerStr) {
+      _realStrings = _totalMpptChannels;
+    }
+  } else {
+    _realStrings = 1;
+  }
+
   const _stringsPerMppt = Math.max(1, Math.ceil(_realStrings / _totalMpptChannels));
 
   const elImp = document.getElementById('step3-spec-imp-check');

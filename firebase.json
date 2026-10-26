@@ -5,17 +5,31 @@
       "firebase.json",
       "**/.*",
       "**/node_modules/**",
+      "functions/**",
       "tests/**",
       "doc/**",
       "*.md"
     ],
     "rewrites": [
       {
+        "source": "/api/gwa",
+        "function": "gwaProxy"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }
     ],
     "headers": [
+      {
+        "source": "/",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
+      },
       {
         "source": "**/*.@(html|htm)",
         "headers": [
@@ -30,7 +44,7 @@
         "headers": [
           {
             "key": "Cache-Control",
-            "value": "max-age=86400"
+            "value": "no-cache, must-revalidate"
           }
         ]
       },
@@ -45,6 +59,18 @@
       }
     ]
   },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log"
+      ]
+    }
+  ],
   "firestore": {
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"

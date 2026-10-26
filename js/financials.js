@@ -441,6 +441,24 @@ var RAPricing = {
     var bTot = Math.round(batPrice);
     var cTot = Math.round(cabPrice);
     var mTot = Math.round(moPrice);
+    // 8. Partida Eólica (Fase 3): Aerogeneradores, mástil, zapata y dump load
+    var windTot = 0;
+    var windCount = 0;
+    var windKw = 0;
+    if (typeof window !== 'undefined' && Array.isArray(window.windTurbines) && window.windTurbines.length > 0) {
+      window.windTurbines.forEach(function (t) {
+        if (!t || (t.operationalState && t.operationalState.enabled === false)) return;
+        var cat = t._catalog || {};
+        var kw = (cat.ratedPowerW ? (cat.ratedPowerW / 1000) : 5);
+        var costTurbine = (cat.priceEur && cat.priceEur > 0) ? cat.priceEur : Math.round(kw * 1450);
+        var mastH = (t.supportStructure && t.supportStructure.hubHeightM) || 18;
+        var costMast = Math.round(mastH * 220);
+        windTot += (costTurbine + costMast);
+        windCount++;
+        windKw += kw;
+      });
+    }
+    var wTot = Math.round(windTot);
     var lTot = Math.round(legPrice);
 
     return {
@@ -458,7 +476,10 @@ var RAPricing = {
       moPrice: mTot,
       legPrice: lTot,
       icioTaxEur: Math.round(icioTaxEur),
-      directCostTotal: pTot + eTot + iTot + bTot + cTot + mTot + lTot
+      windPrice: wTot,
+      windCount: windCount,
+      windKw: Number(windKw.toFixed(1)),
+      directCostTotal: pTot + eTot + iTot + bTot + cTot + mTot + lTot + wTot
     };
   },
 
@@ -480,6 +501,7 @@ var RAPricing = {
       cabPrice: null,
       moPrice: designCosts.moPrice,
       legPrice: designCosts.legPrice,
+      windPrice: (typeof designCosts.windPrice === 'number') ? designCosts.windPrice : null,
       marginPct: 20,
       skipReview: false
     };
@@ -774,6 +796,16 @@ function wpOpenPricingReviewModal(onConfirm) {
                 '<span style="font-size:10px;color:#94a3b8;">€</span>' +
               '</div>' +
             '</div>' +
+            '<div id="pricing-row-wind" style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-top:1px solid rgba(255,255,255,0.05);">' +
+              '<div>' +
+                '<div style="font-size:11px;font-weight:800;color:#f8fafc;display:flex;align-items:center;gap:5px;"><span>💨</span> Aerogeneradores &amp; Soporte Eólico</div>' +
+                '<div id="pricing-subtext-wind" style="font-size: 10px;color:#94a3b8;">Turbinas eólicas, mástil, zapata y resistencia dump load</div>' +
+              '</div>' +
+              '<div style="display:flex;align-items:center;gap:4px;">' +
+                '<input type="number" id="pricing-input-wind-price" min="0" max="200000" step="50" style="width:90px;padding:4px 6px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:6px;color:#fff;font-size:11px;font-weight:700;text-align:right;">' +
+                '<span style="font-size:10px;color:#94a3b8;">€</span>' +
+              '</div>' +
+            '</div>' +
           '</div>' +
           '<div style="background:rgba(30,41,59,0.5);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:8px;">' +
             '<div style="display:flex;justify-content:space-between;align-items:center;">' +
@@ -907,6 +939,11 @@ function wpOpenPricingReviewModal(onConfirm) {
   if (cabInput) cabInput.value = Math.round(initialCabPrice);
   if (moInput) moInput.value = Math.round(initialMoPrice);
   if (legInput) legInput.value = Math.round(initialLegPrice);
+  var windInp = document.getElementById('pricing-input-wind-price');
+  var rowWind = document.getElementById('pricing-row-wind');
+  var initWind = (pricing && typeof pricing.windPrice === 'number' && pricing.windPrice >= 0) ? pricing.windPrice : (designCosts.windPrice || 0);
+  if (windInp) windInp.value = Math.round(initWind);
+  if (rowWind) rowWind.style.display = (designCosts.windKw > 0 || initWind > 0) ? 'flex' : 'none';
   if (mgInput) mgInput.value = initialMarginPct;
 
   if (subTitle) {
@@ -928,6 +965,8 @@ function wpOpenPricingReviewModal(onConfirm) {
     var cabPrice = parseFloat(cabInput ? cabInput.value : 0) || 0;
     var moPrice = parseFloat(moInput ? moInput.value : 0) || 0;
     var legPrice = parseFloat(legInput ? legInput.value : 0) || 0;
+    var windInput = document.getElementById('pricing-input-wind-price');
+    var windPrice = parseFloat(windInput ? windInput.value : (designCosts.windPrice || 0)) || 0;
     var mgPct = parseFloat(mgInput ? mgInput.value : 20) || 0;
 
     var panelTotal = (mb && mb.isMultiModule && Math.abs(pPrice - designCosts.panelPrice) < 0.05)
@@ -936,7 +975,7 @@ function wpOpenPricingReviewModal(onConfirm) {
     var rowPanSub = document.getElementById('pricing-row-panel-subtotal');
     if (rowPanSub) rowPanSub.textContent = Math.round(panelTotal).toLocaleString('es-ES') + ' €';
 
-    var directCost = panelTotal + estPrice + invPrice + batPrice + cabPrice + moPrice + legPrice;
+    var directCost = panelTotal + estPrice + invPrice + batPrice + cabPrice + moPrice + legPrice + windPrice;
     var marginEur = directCost * (mgPct / 100.0);
     var subtotal = directCost + marginEur;
     var iva = subtotal * 0.21;
@@ -952,6 +991,7 @@ function wpOpenPricingReviewModal(onConfirm) {
       cabPrice: cabPrice,
       moPrice: moPrice,
       legPrice: legPrice,
+      windPrice: windPrice,
       marginPct: mgPct,
       skipReview: false
     };
@@ -2099,11 +2139,13 @@ function generatePropuestaComercialPDF(skipPricingModal) {
     if (typeof pricing.cabPrice === 'number' && pricing.cabPrice >= 0) cab = pricing.cabPrice;
     if (typeof pricing.moPrice === 'number' && pricing.moPrice >= 0) mo = pricing.moPrice;
     if (typeof pricing.legPrice === 'number' && pricing.legPrice >= 0) leg = pricing.legPrice;
+    if (typeof pricing.windPrice === 'number' && pricing.windPrice >= 0) windCost = pricing.windPrice;
   }
 
   const mlpeCost = designCosts ? (designCosts.mlpePrice || 0) : 0;
   // directCost suma exactamente las 7 partidas canónicas (inv ya incluye mlpePrice cuando aplica)
-  const directCost = Math.round(panCost + est + inv + bat + cab + mo + leg);
+  const windCost = (designCosts && typeof designCosts.windPrice === 'number') ? designCosts.windPrice : 0;
+  const directCost = Math.round(panCost + est + inv + bat + cab + mo + leg + windCost);
   const marginPct = (pricing && typeof pricing.marginPct === 'number') ? pricing.marginPct : 20;
   const marginEur = directCost * (marginPct / 100.0);
 

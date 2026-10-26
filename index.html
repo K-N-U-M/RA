@@ -45,11 +45,23 @@ window.RA_App = window.RA_App || {};
   <script src="js/solar-optimizer.js?v=20261016a"></script>
   <script src="js/obstacles.js?v=20261016a"></script>
   <script src="js/wind-turbine.js?v=20261011a"></script>
-  <script src="js/wind/wind-constants.js?v=20261022a"></script>
-  <script src="js/wind/wind-catalog.js?v=20261022a"></script>
-  <script src="js/wind/wind-entity.js?v=20261022a"></script>
-  <script src="js/wind/wind-visualizer.js?v=20261022a"></script>
-  <script src="js/wind/wind-ui.js?v=20261022a"></script>
+  <script src="js/wind/wind-constants.js?v=20261024b"></script>
+  <script src="js/wind/wind-catalog.js?v=20261024b"></script>
+  <script src="js/wind/wind-rooftop-cfd.js?v=20261024b"></script>
+  <script src="js/wind/wind-resource.js?v=20261025_eng1"></script>
+  <script src="js/wind/wind-acoustics.js?v=20261024b"></script>
+  <script src="js/wind/wind-structural.js?v=20261024b"></script>
+  <script src="js/wind/wind-electrical.js?v=20261024b"></script>
+  <script src="js/wind/wind-hybrid-dispatch.js?v=20261025a"></script>
+  <script src="js/wind/wind-shadow-flicker.js?v=20261025a"></script>
+  <script src="js/wind/wind-worker.js?v=20261024b"></script>
+  <script src="js/wind/wind-entity.js?v=20261025_eng1"></script>
+  <script src="js/wind/wind-visualizer.js?v=20261025_eng1"></script>
+  <script src="js/wind/wind-ui.js?v=20261025_eng1"></script>
+
+
+
+
   <script>
     document.addEventListener("DOMContentLoaded", function() {
       if (window.RAWindCatalog && typeof window.RAWindCatalog.injectCatalogTab === "function") {
@@ -80,7 +92,7 @@ window.RA_App = window.RA_App || {};
   <script src="js/engineering-explainer.js?v=20260929b"></script>
   <script src="js/equipment-ai-importer.js?v=20261014a"></script>
   <script src="js/equipment-web-search.js?v=20261019a"></script>
-  <script src="js/project-status-hud.js?v=20261016b"></script>
+  <script src="js/project-status-hud.js?v=20261025_hud1"></script>
   <script src="js/firebase-service.js?v=20261015d"></script>
   <script src="js/ra-benchmark.js?v=20261019a"></script>
   <script src="js/ra-lod-manager.js?v=20261019a"></script>
@@ -89,7 +101,7 @@ window.RA_App = window.RA_App || {};
   <script src="js/shadow-settings.js?v=20261023a"></script>
   <script src="js/commercial-proposal-dossier.js?v=20261022a"></script>
 
-    <link rel="stylesheet" href="css/styles.css?v=20261016b">
+    <link rel="stylesheet" href="css/styles.css?v=20261025_tabs_v2">
 
   <!-- Lucide SVG Icons -->
   <script src="https://unpkg.com/lucide@1.48.0" integrity="sha384-Hh7C333mXel+qppGoFs4qAOXp7h67eur4XsQVF2bvHAM3MQ4DX4cQI7oRCzb98J4" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
@@ -97,10 +109,66 @@ window.RA_App = window.RA_App || {};
     .icon-sm { width: 1.15em; height: 1.15em; vertical-align: -0.2em; stroke-width: 2.3; margin-right: 0.1em; }
     .lucide { width: 1.15em; height: 1.15em; vertical-align: -0.2em; stroke-width: 2.3; }
   
-    #ra-hud-energy .tooltip-container:hover .tooltip-content {
+        #ra-hud-energy .tooltip-container:hover .tooltip-content {
       opacity: 1 !important;
       visibility: visible !important;
       transform: translateY(-50%) translateX(0) !important;
+    }
+    #wp-step2-gen-tabs {
+      display: grid !important;
+      grid-template-columns: 1fr 1fr !important;
+      gap: 4px !important;
+      margin-bottom: 8px !important;
+      background: rgba(15, 23, 42, 0.9) !important;
+      padding: 3px !important;
+      border-radius: 8px !important;
+      border: 1px solid rgba(51, 65, 85, 0.8) !important;
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5) !important;
+    }
+    #step2-tab-solar, #step2-tab-wind {
+      -webkit-appearance: none !important;
+      appearance: none !important;
+      border-radius: 6px !important;
+      padding: 7px 10px !important;
+      font-size: 11px !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 6px !important;
+      cursor: pointer !important;
+      transition: all 0.2s ease !important;
+    }
+    #step2-tab-solar.active {
+      background: rgba(245, 158, 11, 0.18) !important;
+      background-color: rgba(245, 158, 11, 0.18) !important;
+      color: #FBBF24 !important;
+      border: 1px solid rgba(245, 158, 11, 0.5) !important;
+      box-shadow: 0 0 12px rgba(245, 158, 11, 0.2) !important;
+      font-weight: 700 !important;
+    }
+    #step2-tab-solar:not(.active) {
+      background: transparent !important;
+      background-color: transparent !important;
+      color: #94A3B8 !important;
+      border: 1px solid transparent !important;
+      box-shadow: none !important;
+      font-weight: 600 !important;
+    }
+    #step2-tab-wind.active {
+      background: rgba(56, 189, 248, 0.18) !important;
+      background-color: rgba(56, 189, 248, 0.18) !important;
+      color: #38BDF8 !important;
+      border: 1px solid rgba(56, 189, 248, 0.5) !important;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.2) !important;
+      font-weight: 700 !important;
+    }
+    #step2-tab-wind:not(.active) {
+      background: transparent !important;
+      background-color: transparent !important;
+      color: #94A3B8 !important;
+      border: 1px solid transparent !important;
+      box-shadow: none !important;
+      font-weight: 600 !important;
     }
   </style>
 
@@ -133,22 +201,104 @@ window.RA_App = window.RA_App || {};
   </style>
   <div id="ra-hud-energy" style="display:none; position:absolute; top:16px; left:50%; transform:translateX(-50%); z-index:100; font-family:'Inter', sans-serif; pointer-events:auto; transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);">
     <!-- Pill (Always visible when active) -->
-    <div id="ra-hud-pill" style="background:rgba(15,23,42,0.85); backdrop-filter:blur(8px); border:1px solid rgba(56,189,248,0.4); border-radius:24px; padding:6px 16px; color:#fff; display:flex; align-items:center; gap:8px; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,0.5); transition:all 0.2s;">
+    <div id="ra-hud-pill" style="background:rgba(15,23,42,0.88); backdrop-filter:blur(8px); border:1px solid rgba(56,189,248,0.4); border-radius:24px; padding:6px 14px; color:#fff; display:flex; align-items:center; gap:7px; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,0.5); transition:all 0.2s;">
       <i id="hud-icon-status" data-lucide="leaf" class="icon-sm" style="color:#38BDF8;"></i>
-      <span id="hud-title-label" style="font-size:12px; font-weight:800; letter-spacing:0.5px; text-transform:uppercase;">Prod. Anual Estimada:</span>
-      <b id="hud-val-neta" style="font-family:'JetBrains Mono', monospace; font-size:14.5px; color:#38BDF8;">-- kWh/a&ntilde;o</b>
-        <div class="tooltip-container" style="position:relative; display:inline-flex; align-items:center; margin-left:4px;">
+      <span id="hud-title-label" style="font-size:11.5px; font-weight:800; letter-spacing:0.4px; text-transform:uppercase;">Prod. Anual Estimada:</span>
+      <b id="hud-val-neta" style="font-family:'JetBrains Mono', monospace; font-size:14px; color:#38BDF8;">-- kWh/a&ntilde;o</b>
+      <span id="hud-hybrid-badges" style="display:none; align-items:center; gap:5px; margin-left:3px; padding-left:8px; border-left:1px solid rgba(255,255,255,0.18); font-family:'JetBrains Mono', monospace; font-size:10.5px; font-weight:700;">
+        <span id="hud-pill-solar-badge" style="background:rgba(245,158,11,0.18); color:#FBBF24; border:1px solid rgba(245,158,11,0.45); border-radius:10px; padding:1px 6px; display:inline-flex; align-items:center; gap:3px;" title="Producción Anual Fotovoltaica (kWh/año)">
+          &#9728;&#65039; <span id="hud-pill-solar-val">0</span>
+        </span>
+        <span id="hud-pill-wind-badge" style="background:rgba(56,189,248,0.18); color:#38BDF8; border:1px solid rgba(56,189,248,0.45); border-radius:10px; padding:1px 6px; display:inline-flex; align-items:center; gap:3px;" title="Producción Anual Eólica (kWh/año)">
+          &#128168; <span id="hud-pill-wind-val">0</span>
+        </span>
+      </span>
+        <div class="tooltip-container" style="position:relative; display:inline-flex; align-items:center; margin-left:2px;">
            <i data-lucide="help-circle" style="width:14px;height:14px;color:#cbd5e1;cursor:help;"></i>
            <div class="tooltip-content" style="opacity:0; visibility:hidden; position:absolute; top:50%; left:calc(100% + 20px); transform:translateY(-50%) translateX(-10px); width:320px; background:rgba(15,23,42,0.95); backdrop-filter:blur(8px); border:1px solid rgba(56,189,248,0.4); border-radius:6px; padding:12px; color:#f1f5f9; font-size:10px; font-weight:normal; line-height:1.4; box-shadow:0 10px 25px rgba(0,0,0,0.5); transition:all 0.2s; z-index:200; text-transform:none; letter-spacing:normal; text-align:left;">
              <div style="font-weight:800; color:#38BDF8; margin-bottom:6px; font-size:11px; text-align:center;">
-               Potencia (kW) &times; Horas de Sol &times; Rendimiento
+               Balance Energ&eacute;tico H&iacute;brido (FV + E&oacute;lica)
              </div>
              <div style="display:flex; flex-direction:column; gap:6px;">
-               <div><b style="color:#F59E0B;">&#9728; El Sol (HSP):</b> Calculado astron&oacute;micamente (modelo Kt / Sat&eacute;lite) para las coordenadas terrestres exactas del fald&oacute;n.</div>
-               <div><b style="color:#F87171;">&#9729; Sombras:</b> Medidas preliminarmente por geometr&iacute;a y recalibradas en el Paso 3 con trazado de rayos 3D.</div>
-               <div><b style="color:#F87171;">&#9889; Mermas (PR):</b> P&eacute;rdidas f&iacute;sicas por calor, cableado e inversor.</div>
+               <div><b style="color:#F59E0B;">&#9728; Solar FV (HSP):</b> Modelo astron&oacute;mico + sombreado 3D y mermas t&eacute;rmicas/el&eacute;ctricas (PR).</div>
+               <div><b style="color:#38BDF8;">&#128168; Mini-E&oacute;lica (Weibull):</b> Extrapolaci&oacute;n logar&iacute;tmica a altura de buje, curva P(v) y modelo de estelas de Jensen.</div>
              </div>
            </div>
+        </div>
+      <i data-lucide="chevron-down" class="icon-sm" style="color:#94a3b8; margin-left:2px;"></i>
+    </div>
+    
+    <!-- Dropdown (Visible on hover of container) -->
+    <div id="ra-hud-dropdown" style="opacity:0; pointer-events:none; position:absolute; top:100%; left:50%; transform:translateX(-50%) translateY(10px); background:rgba(15,23,42,0.96); backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,0.12); border-radius:8px; width:310px; padding:12px; margin-top:8px; box-shadow:0 10px 25px rgba(0,0,0,0.55); transition:all 0.3s; display:flex; flex-direction:column; gap:8px;">
+      
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#94a3b8;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:6px;">
+        <span style="display:flex;align-items:center;gap:4px;"><i data-lucide="map-pin" class="icon-sm" style="color:#38BDF8;"></i> Punto terrestre:</span>
+        <b id="hud-val-coords" style="font-family:'JetBrains Mono', monospace; color:#38BDF8; font-weight:600;">--</b>
+      </div>
+
+      <!-- Bloque Solar FV -->
+      <div id="hud-dropdown-solar-block" style="display:flex; flex-direction:column; gap:6px;">
+        <div id="hud-solar-sec-header" style="display:none; justify-content:space-between; align-items:center; font-size:10px; font-weight:800; color:#FBBF24; letter-spacing:0.3px;">
+          <span>&#9728;&#65039; GENERACI&Oacute;N FOTOVOLTAICA</span>
+          <span id="hud-val-solar-net-sub" style="font-family:'JetBrains Mono', monospace;">0 kWh/a</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#cbd5e1;">
+          <span style="display:flex;align-items:center;gap:4px;"><i data-lucide="sun" class="icon-sm" style="color:#F59E0B;"></i> Prod. Bruta Te&oacute;rica:</span>
+          <b id="hud-val-bruta" style="font-family:'JetBrains Mono', monospace; color:#fff;">-- kWh</b>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#f87171;">
+          <span style="display:flex;align-items:center;gap:4px;"><i data-lucide="cloud" class="icon-sm"></i> P&eacute;rdidas Sombras:</span>
+          <b id="hud-val-sombras" style="font-family:'JetBrains Mono', monospace;">-- kWh</b>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#f87171;">
+          <span style="display:flex;align-items:center;gap:4px;"><i data-lucide="zap" class="icon-sm"></i> P&eacute;rdidas Sistema (PR):</span>
+          <b id="hud-val-sistema" style="font-family:'JetBrains Mono', monospace;">-- kWh</b>
+        </div>
+      </div>
+
+      <!-- Bloque Mini-Eólico -->
+      <div id="hud-dropdown-wind-block" style="display:none; flex-direction:column; gap:5px; border-top:1px solid rgba(255,255,255,0.09); padding-top:7px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; font-size:10px; font-weight:800; color:#38BDF8; letter-spacing:0.3px;">
+          <span id="hud-wind-sec-title">&#128168; GENERACI&Oacute;N MINI-E&Oacute;LICA</span>
+          <span id="hud-val-wind-net-sub" style="font-family:'JetBrains Mono', monospace;">0 kWh/a</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#cbd5e1;">
+          <span>&#127788;&#65039; Potencia / Viento (10m):</span>
+          <b id="hud-val-wind-resource" style="font-family:'JetBrains Mono', monospace; color:#fff;">--</b>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#f87171;">
+          <span>&#127744; P&eacute;rdida Estela (Jensen):</span>
+          <b id="hud-val-wind-wake" style="font-family:'JetBrains Mono', monospace;">-0.0%</b>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#34d399;">
+          <span>&#9881;&#65039; Factor Cap. / Horas Eq.:</span>
+          <b id="hud-val-wind-cf" style="font-family:'JetBrains Mono', monospace;">--</b>
+        </div>
+      </div>
+
+      <!-- Barra de Mix Energético Híbrido -->
+      <div id="hud-dropdown-mix-block" style="display:none; flex-direction:column; gap:4px; border-top:1px solid rgba(255,255,255,0.09); padding-top:7px;">
+        <div style="display:flex; justify-content:space-between; font-size:10px; font-weight:700;">
+          <span id="hud-mix-solar-pct" style="color:#FBBF24;">&#9728;&#65039; FV 50%</span>
+          <span style="color:#94a3b8; font-size:9.5px;">MIX ANUAL</span>
+          <span id="hud-mix-wind-pct" style="color:#38BDF8;">&#128168; E&oacute;lica 50%</span>
+        </div>
+        <div style="width:100%; height:5px; background:#1e293b; border-radius:4px; overflow:hidden; display:flex;">
+          <div id="hud-mix-bar-solar" style="width:50%; height:100%; background:#F59E0B; transition:width 0.3s ease;"></div>
+          <div id="hud-mix-bar-wind" style="width:50%; height:100%; background:#38BDF8; transition:width 0.3s ease;"></div>
+        </div>
+      </div>
+      
+      <div id="hud-dropdown-footer-badges" style="border-top:1px dashed rgba(255,255,255,0.2); padding-top:8px; margin-top:2px; display:flex; justify-content:center; align-items:center;">
+         <div id="hud-pre-badge" style="font-size: 10px;background:rgba(56,189,248,0.12);color:#38BDF8;border:1px solid rgba(56,189,248,0.35);padding:3px 8px;border-radius:4px;font-weight:700;display:flex;align-items:center;gap:5px;box-shadow:0 0 8px rgba(56,189,248,0.15);letter-spacing:0.3px;">
+            <i data-lucide="clock" style="width:10px;height:10px;"></i> ESTIMACI&Oacute;N PREVIA (SIN HEATMAP 3D)
+         </div>
+         <div id="hud-val-badge" style="font-size: 10px;background:#10B981;color:#fff;padding:3px 8px;border-radius:4px;font-weight:700;display:none;align-items:center;gap:5px;box-shadow:0 0 8px rgba(16,185,129,0.4);letter-spacing:0.3px;">
+            <i data-lucide="check-circle-2" style="width:10px;height:10px;"></i> RECALIBRADO CON SIMULACI&Oacute;N 3D
+         </div>
+      </div>
+    </div>
+  </div>
         </div>
       <i data-lucide="chevron-down" class="icon-sm" style="color:#94a3b8; margin-left:4px;"></i>
     </div>
@@ -962,8 +1112,7 @@ window.RA_App = window.RA_App || {};
               </button>
             </div>
             </div><!-- /wp-subdock-body-obs -->
-          </div><!-- /wp-step2-solar-panel -->
-          </div>
+          </div><!-- /wp-p1-obs-content -->
 
           <!-- PASO 3: DISTRIBUCION FOTOVOLTAICA Y RENDIMIENTO -->
           <!-- ═════════════════════════════════════════════════════════════════ -->
@@ -972,9 +1121,13 @@ window.RA_App = window.RA_App || {};
           <!-- ═════════════════════════════════════════════════════════════════ -->
           <div id="wp-step-2-content" style="display:none;flex-direction:column;gap:8px;">
             <!-- Subtabs Paso 2: Solar FV vs Eólica -->
-            <div id="wp-step2-gen-tabs" style="display:flex;gap:4px;margin-bottom:4px;background:rgba(0,0,0,0.25);padding:4px;border-radius:6px;border:1px solid var(--border-subtle);">
-              <button type="button" class="sb-tab-btn active" id="step2-tab-solar" onclick="wpSwitchGenTab('solar')" style="flex:1;padding:6px 8px;font-size:10.5px;border-radius:5px;display:flex;align-items:center;justify-content:center;gap:6px;"><i data-lucide="sun" class="icon-sm"></i> ☀️ SOLAR (FV)</button>
-              <button type="button" class="sb-tab-btn" id="step2-tab-wind" onclick="wpSwitchGenTab('wind')" style="flex:1;padding:6px 8px;font-size:10.5px;border-radius:5px;display:flex;align-items:center;justify-content:center;gap:6px;color:#38BDF8;"><i data-lucide="wind" class="icon-sm"></i> 💨 EÓLICA</button>
+            <div id="wp-step2-gen-tabs" style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:8px;background:rgba(15,23,42,0.85);padding:3px;border-radius:8px;border:1px solid rgba(51,65,85,0.7);box-shadow:inset 0 1px 3px rgba(0,0,0,0.4);">
+              <button type="button" class="step2-gen-tab-btn tab-solar active" id="step2-tab-solar" onclick="wpSwitchGenTab('solar')" style="border:1px solid rgba(245,158,11,0.45);background:rgba(245,158,11,0.15);color:#FBBF24;padding:6px 10px;font-size:11px;font-weight:700;border-radius:6px;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;box-shadow:0 0 12px rgba(245,158,11,0.18);">
+                <i data-lucide="sun" class="icon-sm"></i> ☀️ SOLAR (FV)
+              </button>
+              <button type="button" class="step2-gen-tab-btn tab-wind" id="step2-tab-wind" onclick="wpSwitchGenTab('wind')" style="border:1px solid transparent;background:transparent;color:#94A3B8;padding:6px 10px;font-size:11px;font-weight:600;border-radius:6px;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;">
+                <i data-lucide="wind" class="icon-sm"></i> 💨 EÓLICA
+              </button>
             </div>
             <div id="wp-step2-wind-panel" style="display:none;"></div>
             <div id="wp-step2-solar-panel" style="display:flex;flex-direction:column;gap:8px;">
@@ -1372,7 +1525,8 @@ window.RA_App = window.RA_App || {};
               </div>
 
             </div>
-          </div>
+            </div><!-- /wp-step2-solar-panel -->
+          </div><!-- /wp-step-2-content -->
           <!-- ═════════════════════════════════════════════════════════════════ -->
           <!-- ═════════════════════════════════════════════════════════════════ -->
           <!-- PASO 3: ANÁLISIS SOLAR (DEMANDA, FACTURA, SOMBRAS & RENDIMIENTO) -->
@@ -6575,7 +6729,7 @@ function getPanelIndexFromPick(picked) {
     const p = panelsList[resolvedIdx];
     if (p.visible === false || p.deleted) return -1;
     if (typeof p.polyIdx === 'number' && typeof WP !== 'undefined' && WP && WP.polylines && WP.polylines[p.polyIdx]) {
-      if (WP.polylines[p.polyIdx].visible === false) return -1;
+      if (WP.polylines[p.polyIdx].panelsVisible === false) return -1;
     }
     return resolvedIdx;
   }
@@ -6622,7 +6776,7 @@ function pickPanelUnderCursor(screenPos) {
       const p = panelsList[i];
       if (!p || p.visible === false || p.deleted) continue;
       if (typeof p.polyIdx === 'number' && typeof WP !== 'undefined' && WP && WP.polylines && WP.polylines[p.polyIdx]) {
-        if (WP.polylines[p.polyIdx].visible === false) continue;
+        if (WP.polylines[p.polyIdx].panelsVisible === false) continue;
       }
       if (!p.corners || p.corners.length !== 4) continue;
 
@@ -6742,7 +6896,7 @@ function selectPanel(idx, isMulti = false) {
       const p = panelsList[idx];
       if (p.visible === false) return;
       if (typeof p.polyIdx === 'number' && typeof WP !== 'undefined' && WP && WP.polylines && WP.polylines[p.polyIdx]) {
-        if (WP.polylines[p.polyIdx].visible === false) return;
+        if (WP.polylines[p.polyIdx].panelsVisible === false) return;
       }
     }
     if (isMulti) {
@@ -6798,11 +6952,18 @@ window.selectPanelRow = function(panelIdx) {
 };
 
 window.selectAllPanelsInPolyline = function(polyIdx) {
+  if (typeof polyIdx === 'number' && typeof WP !== 'undefined' && WP && WP.polylines && WP.polylines[polyIdx]) {
+    if (WP.polylines[polyIdx].panelsVisible === false) {
+      if (typeof showToast === 'function') showToast('PLACAS FV OCULTAS', 'Haz visibles las placas de este faldón para poder seleccionarlas.', 'warning', 2500);
+      return;
+    }
+  }
   const panelsArray = window.allRenderedPanels;
   if (!Array.isArray(panelsArray) || panelsArray.length === 0) return;
   const matched = [];
   panelsArray.forEach((p, i) => {
     if (p && !p.deleted && (polyIdx === undefined || polyIdx === null || p.polyIdx === polyIdx)) {
+      if (typeof p.polyIdx === 'number' && typeof WP !== 'undefined' && WP && WP.polylines && WP.polylines[p.polyIdx] && WP.polylines[p.polyIdx].panelsVisible === false) return;
       matched.push(i);
     }
   });
@@ -7721,7 +7882,14 @@ function recalculateSolarYield(force = false) {
   window.RA = window.RA || {};
   const _hasSimPanels = (typeof window !== 'undefined' && Array.isArray(window.allRenderedPanels)) && window.allRenderedPanels.some(p => (typeof p.annualGrossKwh === 'number' && p.annualGrossKwh > 0) || (typeof p.annualKwh === 'number' && p.annualKwh > 0));
   window.RA.solarStats = {
+    numPanels: numPanels,
     annualYieldKWh: annualYieldKWh,
+    annualGrossKWh: annualGrossKWh,
+    annualShadowLossKWh: annualShadowLossKWh,
+    annualSystemLossKWh: annualSystemLossKWh,
+    pr: pr,
+    latDeg: latDeg,
+    lonDeg: lonDeg,
     theoreticalAnnualKWh: theoreticalAnnualKWh,
     simulatedNetKWh: _hasSimPanels ? annualYieldKWh : null,
     hasSimulation: _hasSimPanels,
@@ -7731,12 +7899,159 @@ function recalculateSolarYield(force = false) {
     hsp: hsp,
     annualSavingsEUR: annualSavingsEUR
   };
+  if (typeof window.raUpdateEnergyHUD === 'function') {
+    window.raUpdateEnergyHUD();
+  }
 
   if (typeof window !== 'undefined') {
     if (!window.solarSimState) window.solarSimState = {};
     window.solarSimState.solarYieldDirty = false;
   }
 }
+
+function raUpdateEnergyHUD() {
+  const hudEnergy = document.getElementById('ra-hud-energy');
+  if (!hudEnergy) return;
+
+  const sStats = (window.RA && window.RA.solarStats) ? window.RA.solarStats : {};
+  let numPanels = typeof sStats.numPanels === 'number' ? sStats.numPanels : 0;
+  if (!numPanels && Array.isArray(window.allRenderedPanels)) {
+    numPanels = window.allRenderedPanels.filter(p => p && !p.deleted).length;
+  }
+  const solarNetKWh = numPanels > 0 ? Math.round(sStats.annualYieldKWh || 0) : 0;
+  const solarGrossKWh = numPanels > 0 ? Math.round(sStats.annualGrossKWh || solarNetKWh) : 0;
+  const solarShadowLossKWh = numPanels > 0 ? Math.round(sStats.annualShadowLossKWh || 0) : 0;
+  const solarSysLossKWh = numPanels > 0 ? Math.round(sStats.annualSystemLossKWh || 0) : 0;
+  const avgShadowPct = numPanels > 0 ? (sStats.avgShadowLossPct || 0) : 0;
+  const prVal = (typeof sStats.pr === 'number') ? sStats.pr : 0.786;
+
+  // Datos eólicos
+  const activeTurbs = Array.isArray(window.windTurbines)
+    ? window.windTurbines.filter(t => !t.operationalState || t.operationalState.enabled !== false)
+    : [];
+  const numTurbines = activeTurbs.length;
+  let windKw = 0;
+  activeTurbs.forEach(t => {
+    const pW = (t._catalog && t._catalog.ratedPowerW) ? t._catalog.ratedPowerW : 0;
+    windKw += (pW / 1000.0);
+  });
+  const wSum = (numTurbines > 0 && window.windParkSummary) ? window.windParkSummary : null;
+  const windNetKWh = wSum ? Math.round(wSum.totalAepNetKwh || 0) : 0;
+  const windWakePct = wSum ? (wSum.parkWakeLossPercentage || 0) : 0;
+  const windCfPct = wSum ? ((wSum.averageCapacityFactor || 0) * 100) : 0;
+  const windEqHours = wSum ? Math.round(wSum.equivalentHours || 0) : 0;
+  const resCfg = (window.RAWind && window.RAWind.Resource && typeof window.RAWind.Resource.getConfig === 'function')
+    ? window.RAWind.Resource.getConfig()
+    : { vMeanRefMs: 5.5 };
+
+  if (numPanels === 0 && numTurbines === 0) {
+    hudEnergy.style.display = 'none';
+    return;
+  }
+
+  hudEnergy.style.display = 'block';
+  const totalHybridKWh = solarNetKWh + windNetKWh;
+  const isSimulated = Boolean(window.solarSimState && window.solarSimState.annualHeatmapData && !window.solarSimState.annualHeatmapDirty);
+
+  const hudTitleLabel = document.getElementById('hud-title-label');
+  if (hudTitleLabel) {
+    if (numPanels > 0 && numTurbines > 0) {
+      hudTitleLabel.textContent = 'Prod. Híbrida Anual:';
+    } else if (numTurbines > 0) {
+      hudTitleLabel.textContent = 'Prod. Eólica Anual:';
+    } else {
+      hudTitleLabel.textContent = isSimulated ? 'Producción Neta Anual:' : 'Prod. Anual Estimada:';
+    }
+  }
+
+  const hudValNeta = document.getElementById('hud-val-neta');
+  if (hudValNeta) {
+    hudValNeta.style.color = (isSimulated || (numPanels > 0 && numTurbines > 0)) ? '#10B981' : '#38BDF8';
+    hudValNeta.textContent = totalHybridKWh.toLocaleString('es-ES') + ' kWh/año';
+  }
+
+  // Micro-badges en la píldora superior
+  const hybridBadges = document.getElementById('hud-hybrid-badges');
+  const pillSolarBadge = document.getElementById('hud-pill-solar-badge');
+  const pillWindBadge = document.getElementById('hud-pill-wind-badge');
+  const pillSolarVal = document.getElementById('hud-pill-solar-val');
+  const pillWindVal = document.getElementById('hud-pill-wind-val');
+
+  if (hybridBadges) {
+    if (numTurbines > 0) {
+      hybridBadges.style.display = 'inline-flex';
+      if (pillSolarBadge) pillSolarBadge.style.display = numPanels > 0 ? 'inline-flex' : 'none';
+      if (pillWindBadge) pillWindBadge.style.display = 'inline-flex';
+      if (pillSolarVal) pillSolarVal.textContent = solarNetKWh.toLocaleString('es-ES');
+      if (pillWindVal) pillWindVal.textContent = windNetKWh.toLocaleString('es-ES');
+    } else {
+      hybridBadges.style.display = 'none';
+    }
+  }
+
+  // Coordenadas terrestres
+  let latDeg = typeof sStats.latDeg === 'number' ? sStats.latDeg : null;
+  let lonDeg = typeof sStats.lonDeg === 'number' ? sStats.lonDeg : null;
+  if (latDeg === null && activeTurbs.length > 0 && activeTurbs[0].positionCartographic) {
+    latDeg = activeTurbs[0].positionCartographic.latitudeRad * (180 / Math.PI);
+    lonDeg = activeTurbs[0].positionCartographic.longitudeRad * (180 / Math.PI);
+  }
+  if (latDeg !== null && lonDeg !== null) {
+    const latStr = Math.abs(latDeg).toFixed(2) + '°' + (latDeg >= 0 ? 'N' : 'S');
+    const lonStr = Math.abs(lonDeg).toFixed(2) + '°' + (lonDeg >= 0 ? 'E' : 'O');
+    setElemText('hud-val-coords', latStr + ', ' + lonStr);
+  }
+
+  // Bloque Solar en el Dropdown
+  const solarBlock = document.getElementById('hud-dropdown-solar-block');
+  const solarSecHeader = document.getElementById('hud-solar-sec-header');
+  if (solarBlock) {
+    solarBlock.style.display = numPanels > 0 ? 'flex' : 'none';
+    if (solarSecHeader) {
+      solarSecHeader.style.display = (numPanels > 0 && numTurbines > 0) ? 'flex' : 'none';
+    }
+    setElemText('hud-val-solar-net-sub', solarNetKWh.toLocaleString('es-ES') + ' kWh/a');
+    setElemText('hud-val-bruta', solarGrossKWh.toLocaleString('es-ES') + ' kWh');
+    const shadowPctStr = avgShadowPct > 0 ? (' (' + avgShadowPct.toFixed(1) + '%)') : '';
+    setElemText('hud-val-sombras', '-' + solarShadowLossKWh.toLocaleString('es-ES') + ' kWh' + shadowPctStr);
+    const sysLossPct = ((1.0 - prVal) * 100).toFixed(1);
+    setElemText('hud-val-sistema', '-' + solarSysLossKWh.toLocaleString('es-ES') + ' kWh (' + sysLossPct + '%)');
+  }
+
+  // Bloque Eólico en el Dropdown
+  const windBlock = document.getElementById('hud-dropdown-wind-block');
+  if (windBlock) {
+    windBlock.style.display = numTurbines > 0 ? 'flex' : 'none';
+    setElemText('hud-val-wind-net-sub', windNetKWh.toLocaleString('es-ES') + ' kWh/a');
+    setElemText('hud-val-wind-resource', windKw.toFixed(1) + ' kW · ' + Number(resCfg.vMeanRefMs || 5.5).toFixed(2) + ' m/s');
+    setElemText('hud-val-wind-wake', '-' + Number(windWakePct).toFixed(1) + '%');
+    setElemText('hud-val-wind-cf', Number(windCfPct).toFixed(1) + '% (' + windEqHours.toLocaleString('es-ES') + ' h)');
+  }
+
+  // Barra de Mix Híbrido
+  const mixBlock = document.getElementById('hud-dropdown-mix-block');
+  if (mixBlock) {
+    if (numPanels > 0 && numTurbines > 0 && totalHybridKWh > 0) {
+      mixBlock.style.display = 'flex';
+      const sPct = Math.round((solarNetKWh / totalHybridKWh) * 100);
+      const wPct = 100 - sPct;
+      setElemText('hud-mix-solar-pct', '☀️ FV ' + sPct + '%');
+      setElemText('hud-mix-wind-pct', '💨 Eólica ' + wPct + '%');
+      const barS = document.getElementById('hud-mix-bar-solar');
+      const barW = document.getElementById('hud-mix-bar-wind');
+      if (barS) barS.style.width = sPct + '%';
+      if (barW) barW.style.width = wPct + '%';
+    } else {
+      mixBlock.style.display = 'none';
+    }
+  }
+
+  const footerBadges = document.getElementById('hud-dropdown-footer-badges');
+  if (footerBadges) {
+    footerBadges.style.display = numPanels > 0 ? 'flex' : 'none';
+  }
+}
+window.raUpdateEnergyHUD = raUpdateEnergyHUD;
 
 function compute3DPolygonArea(points) {
   let totalArea = 0;
@@ -8512,7 +8827,7 @@ function evaluateModuleLayouts(roof, module, cfg) {
   const moduleLength = module.lengthM, moduleWidth = module.widthM;
   const slopeDeg = roof.slopeDeg || 0;
   const flatThreshold = cfg.flatThreshold || 8;
-  const gap = cfg.gap || 0.04;
+  const gap = cfg.gap || 0.02;
   const setback = 0;
   const safety = 0;
   const altWinter = cfg.solarElevationDeg;
@@ -8896,20 +9211,21 @@ function resetSolarDashboard() {
   setElemText('sol-string-imp', '0.0 A');
   renderSolarBarChart([0,0,0,0,0,0,0,0,0,0,0,0]);
 
-  const hudEnergy = document.getElementById('ra-hud-energy');
-  if (hudEnergy) hudEnergy.style.display = 'none';
-
-  const panelEl = document.getElementById('yield-breakdown-panel');
+    const panelEl = document.getElementById('yield-breakdown-panel');
   if (panelEl) panelEl.style.display = 'none';
 
   window.RA = window.RA || {};
   window.RA.solarStats = {
+    numPanels: 0,
     annualYieldKWh: 0,
     monthlyYields: [0,0,0,0,0,0,0,0,0,0,0,0],
     peakPowerKW: 0,
     hsp: 0,
     annualSavingsEUR: 0
   };
+  if (typeof window.raUpdateEnergyHUD === 'function') {
+    window.raUpdateEnergyHUD();
+  }
 }
 
 function renderSolarBarChart(data) {
@@ -10092,6 +10408,37 @@ function getUniversalSelectedTarget() {
     }
   }
 
+  // B2. Aerogeneradores 3D (RA-Wind)
+  if (window.RAWindVisualizer && typeof window.RAWindVisualizer.getSelectedId === 'function') {
+    const wtId = window.RAWindVisualizer.getSelectedId();
+    if (wtId && window.RAWind && window.RAWind.Entity) {
+      const wt = window.RAWind.Entity.getById(wtId);
+      if (wt && wt.positionCartographic) {
+        const basePos = Cesium.Cartesian3.fromRadians(
+          wt.positionCartographic.longitudeRad,
+          wt.positionCartographic.latitudeRad,
+          wt.positionCartographic.altitudeM || 0
+        );
+        const enuMat = Cesium.Transforms.eastNorthUpToFixedFrame(basePos);
+        const uVec = new Cesium.Cartesian3(enuMat[0], enuMat[1], enuMat[2]);
+        const vVec = new Cesium.Cartesian3(enuMat[4], enuMat[5], enuMat[6]);
+        const normal = new Cesium.Cartesian3(enuMat[8], enuMat[9], enuMat[10]);
+        return {
+          type: 'wind_turbine_entity',
+          id: wt.id,
+          name: (wt.name || 'Aerogenerador').toUpperCase(),
+          pos: basePos,
+          rot: Cesium.Math.toDegrees(wt.orientationRad || 0),
+          height: (wt.supportStructure && wt.supportStructure.hubHeightM) || 18,
+          rawObj: wt,
+          wp: { origin: basePos, normal: normal, uVec: uVec, vVec: vVec, plane: { origin: basePos, normal: normal } },
+          color: '#38BDF8',
+          accentColor: 'rgba(56, 189, 248, 0.45)'
+        };
+      }
+    }
+  }
+
   // C. Edificios 3D
   if (typeof selectedBuildingId !== 'undefined' && selectedBuildingId && Array.isArray(buildings)) {
     const bld = buildings.find(b => b.id === selectedBuildingId);
@@ -10156,7 +10503,7 @@ function getUniversalSelectedTarget() {
     const panel = getSelectedPanel();
     if (panel && panel.visible !== false && panel.center) {
       const poly = (typeof WP !== 'undefined' && WP && WP.polylines && panel.polyIdx !== undefined) ? WP.polylines[panel.polyIdx] : null;
-      if (poly && poly.visible === false) return null;
+      if (poly && poly.panelsVisible === false) return null;
       const roof = (poly && poly.roofInfo) || (typeof lastRoofInfo !== 'undefined' ? lastRoofInfo : null);
       let wp = null;
       const _pHasCorners = panel.corners && panel.corners.length === 4;
@@ -10718,6 +11065,12 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
         bld.roofAzimuth = Math.round(normRot);
       }
       // Reconstrucción GPU pesada diferida a LEFT_UP (index.html:15829) para garantizar 60 FPS
+    } else if (target.type === 'wind_turbine_entity' && target.rawObj) {
+      const wt = target.rawObj;
+      wt.orientationRad = Cesium.Math.toRadians(normRot);
+      if (window.RAWindVisualizer && typeof window.RAWindVisualizer.updateLiveModelMatrix === 'function') {
+        window.RAWindVisualizer.updateLiveModelMatrix(wt);
+      }
     } else if (target.type === 'panel' && target.rawObj) {
       const p = target.rawObj;
       p.rot = Math.round(normRot);
@@ -10872,6 +11225,15 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
         : (typeof window !== 'undefined' && typeof window.updateObstacleLiveModelMatrix === 'function' ? window.updateObstacleLiveModelMatrix : null);
       if (typeof fnUpdate === 'function') {
         try { fnUpdate(obs, target); } catch(eObsT) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eObsT, 'Entidad/Primitiva Cesium'); }
+      }
+    } else if (target.type === 'wind_turbine_entity' && target.rawObj) {
+      const wt = target.rawObj;
+      if (window.RAWind && window.RAWind.Entity) {
+        window.RAWind.Entity.updatePosition(wt.id, carto.longitude, carto.latitude, carto.height || 0);
+      }
+      target.pos = Cesium.Cartesian3.clone(newPos);
+      if (window.RAWindVisualizer && typeof window.RAWindVisualizer.updateLiveModelMatrix === 'function') {
+        window.RAWindVisualizer.updateLiveModelMatrix(wt);
       }
     } else if (target.type === 'building' && target.rawObj) {
       const bld = target.rawObj;
@@ -12568,6 +12930,7 @@ function computeSinglePolylineRoofInfo(ptsIn, polyOpts) {
     ? WP.planes[planeIdx]
     : null;
 
+  let planeLocalOffsetZ = 0;
   if (wpPlane && wpPlane.uVec && wpPlane.vVec && wpPlane.normal && invTransform && typeof Cesium !== "undefined" && Cesium.Matrix4) {
     const uLocal = Cesium.Matrix4.multiplyByPointAsVector(invTransform, wpPlane.uVec, new Cesium.Cartesian3());
     const vLocal = Cesium.Matrix4.multiplyByPointAsVector(invTransform, wpPlane.vVec, new Cesium.Cartesian3());
@@ -12576,6 +12939,15 @@ function computeSinglePolylineRoofInfo(ptsIn, polyOpts) {
       uVec = Cesium.Cartesian3.normalize(uLocal, new Cesium.Cartesian3());
       vVec = Cesium.Cartesian3.normalize(vLocal, new Cesium.Cartesian3());
       normal = Cesium.Cartesian3.normalize(nLocal, new Cesium.Cartesian3());
+
+      // Proyectar matemáticamente la cota del plano de trabajo en el marco local del faldón:
+      // Si el centroide de la polilínea tiene un desnivel respecto al plano del tejado (wpPlane.origin),
+      // se traslada exactamente a la superficie matemática del plano de trabajo para eliminar el hundimiento/despegue.
+      if (wpPlane.origin) {
+        const originLocal = Cesium.Matrix4.multiplyByPoint(invTransform, wpPlane.origin, new Cesium.Cartesian3());
+        planeLocalOffsetZ = Cesium.Cartesian3.dot(originLocal, normal);
+      }
+
       poly2D = localPoints.map(p => ({
         u: Cesium.Cartesian3.dot(p, uVec),
         v: Cesium.Cartesian3.dot(p, vVec)
@@ -12600,7 +12972,7 @@ function computeSinglePolylineRoofInfo(ptsIn, polyOpts) {
   const panelW = (modItem && typeof modItem.w === 'number') ? modItem.w : (panelConfig.ancho || 1.05);
   const panelH = (modItem && typeof modItem.l === 'number') ? modItem.l : (panelConfig.largo || 2.10);
   const panelP = (modItem && typeof modItem.wp === 'number') ? modItem.wp : (panelConfig.potencia || 450);
-  const gap = 0.04;
+  const gap = 0.02;
   const setback = (typeof opts.setback === "number") ? opts.setback : 0;
   const roofOffset = 0.20;
 
@@ -12706,7 +13078,7 @@ function computeSinglePolylineRoofInfo(ptsIn, polyOpts) {
       const curModWid = isLand ? panelH : panelW;
 
       // Centro 3D en el espacio
-      const centerH = baseElev + (best.coplanar ? 0 : (curModLen / 2) * sinDelta);
+      const centerH = planeLocalOffsetZ + baseElev + (best.coplanar ? 0 : (curModLen / 2) * sinDelta);
       const localCenter = Cesium.Cartesian3.add(
         Cesium.Cartesian3.multiplyByScalar(uVec, c.u, new Cesium.Cartesian3()),
         Cesium.Cartesian3.multiplyByScalar(vVec, c.v, new Cesium.Cartesian3()),
@@ -12724,7 +13096,7 @@ function computeSinglePolylineRoofInfo(ptsIn, polyOpts) {
         const isWest = c.ewSide === 'W';
         // En Este-Oeste, la arista alta está en la cumbrera de unión central (near ridge: sx=-1 para W, sx=+1 para E)
         const isHighEdge = isEW ? (isWest ? (sx <= 0) : (sx >= 0)) : (sx <= 0);
-        const dh = baseElev + (isHighEdge ? (curModLen * sinDelta) : 0);
+        const dh = planeLocalOffsetZ + baseElev + (isHighEdge ? (curModLen * sinDelta) : 0);
 
         const lp = Cesium.Cartesian3.add(
           Cesium.Cartesian3.multiplyByScalar(uVec, c.u + du, new Cesium.Cartesian3()),
@@ -13001,8 +13373,38 @@ function wpSwitchGenTab(tab) {
   var wndBtn = document.getElementById("step2-tab-wind");
   if (solPanel) solPanel.style.display = (tab === "solar") ? "flex" : "none";
   if (wndPanel) wndPanel.style.display = (tab === "wind") ? "block" : "none";
-  if (solBtn) solBtn.classList.toggle("active", tab === "solar");
-  if (wndBtn) wndBtn.classList.toggle("active", tab === "wind");
+  if (solBtn) {
+    solBtn.classList.toggle("active", tab === "solar");
+    if (tab === "solar") {
+      solBtn.style.background = "rgba(245, 158, 11, 0.15)";
+      solBtn.style.color = "#FBBF24";
+      solBtn.style.borderColor = "rgba(245, 158, 11, 0.45)";
+      solBtn.style.boxShadow = "0 0 12px rgba(245, 158, 11, 0.18)";
+      solBtn.style.fontWeight = "700";
+    } else {
+      solBtn.style.background = "transparent";
+      solBtn.style.color = "#94A3B8";
+      solBtn.style.borderColor = "transparent";
+      solBtn.style.boxShadow = "none";
+      solBtn.style.fontWeight = "600";
+    }
+  }
+  if (wndBtn) {
+    wndBtn.classList.toggle("active", tab === "wind");
+    if (tab === "wind") {
+      wndBtn.style.background = "rgba(56, 189, 248, 0.15)";
+      wndBtn.style.color = "#38BDF8";
+      wndBtn.style.borderColor = "rgba(56, 189, 248, 0.45)";
+      wndBtn.style.boxShadow = "0 0 12px rgba(56, 189, 248, 0.18)";
+      wndBtn.style.fontWeight = "700";
+    } else {
+      wndBtn.style.background = "transparent";
+      wndBtn.style.color = "#94A3B8";
+      wndBtn.style.borderColor = "transparent";
+      wndBtn.style.boxShadow = "none";
+      wndBtn.style.fontWeight = "600";
+    }
+  }
   if (tab === "wind" && window.RAWindUI && typeof window.RAWindUI.renderStep2Panel === "function") {
     window.RAWindUI.renderStep2Panel();
   }
@@ -14398,7 +14800,7 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
 
   for (let polyIdx = 0; polyIdx < polylinesList.length; polyIdx++) {
     const poly = polylinesList[polyIdx];
-    if (poly.visible === false) continue;
+    if (poly.panelsVisible === false) continue;
     // Cesión entre faldones: el navegador respira y las cascadas de sombra se reajustan
     if (polyIdx > 0) await new Promise(r => setTimeout(r, 0));
     if (currentRenderId !== _raRenderGenerationId) return;
@@ -15335,21 +15737,25 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
 
           const panelNum = (typeof pData.pIdx === 'number' && shouldRenderElectricalStrings) ? (pData.pIdx + 1) : (i + 1);
 
+                    // [DIRECCIÓN DE ARTE AAA] Micro-badge HUD minimalista con acabado translúcido
           lblCol.add({
             position: badgePos,
-            text: shouldRenderElectricalStrings ? pData.tag : String(panelNum),
-            font: "bold 10px 'JetBrains Mono', Inter, monospace",
+            text: shouldRenderElectricalStrings ? pData.tag : ('#' + String(panelNum)),
+            font: "600 9px 'Inter', system-ui, sans-serif",
             fillColor: Cesium.Color.WHITE,
+            outlineColor: Cesium.Color.fromCssColorString('#0284c7'),
+            outlineWidth: 1.0,
+            style: Cesium.LabelStyle.FILL_AND_OUTLINE,
             showBackground: true,
             backgroundColor: shouldRenderElectricalStrings
-              ? ((pData.tag && pData.tag.includes("[+")) ? Cesium.Color.fromCssColorString("#EF4444").withAlpha(0.9) : ((pData.tag && pData.tag.includes("[-")) ? Cesium.Color.fromCssColorString("#1E293B").withAlpha(0.9) : Cesium.Color.BLACK.withAlpha(0.92)))
-              : Cesium.Color.BLACK.withAlpha(0.75),
-            backgroundPadding: new Cesium.Cartesian2(4, 2),
+              ? ((pData.tag && pData.tag.includes("[+")) ? Cesium.Color.fromCssColorString("#EF4444").withAlpha(0.85) : ((pData.tag && pData.tag.includes("[-")) ? Cesium.Color.fromCssColorString("#1E293B").withAlpha(0.85) : Cesium.Color.fromCssColorString("#0F172A").withAlpha(0.85)))
+              : Cesium.Color.fromCssColorString("#0F172A").withAlpha(0.75),
+            backgroundPadding: new Cesium.Cartesian2(5, 3),
             horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
             verticalOrigin: Cesium.VerticalOrigin.CENTER,
             disableDepthTestDistance: Number.POSITIVE_INFINITY,
             eyeOffset: new Cesium.Cartesian3(0, 0, -1.0),
-            distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0.0, 160.0)
+            distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0.0, 120.0)
           });
         }
         window._panelNumberLabelCollection = viewer.scene.primitives.add(lblCol);
@@ -15424,6 +15830,7 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
       const pergolaMat = Cesium.Material.fromType('Color', { color: Cesium.Color.fromCssColorString('#E2E8F0') });
 
       WP.polylines.forEach((poly, polyIdx) => {
+        if (poly && poly.panelsVisible === false) return;
         if (isIncrementalTarget && polyIdx !== targetPolyIdx) return;
         const pInfo = poly.roofInfo;
         if (!pInfo) return;
@@ -15449,6 +15856,7 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
         
         const esPergola = (est.tipo === 'pergola') || (poly.structureType === 'pergola');
         const esCoplanar = !esPergola && ((est.tipo === 'coplanar') || (poly.structureType && poly.structureType.startsWith('coplanar')));
+        if (esCoplanar) return; // En montaje coplanar los paneles van enrasados al tejado sin estructura transversal visible sobre o bajo el módulo
         const pergolaPostCandidates = [];
 
         // Proyección analítica exacta de puntos 3D sobre el plano del faldón
@@ -15537,25 +15945,35 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
               crossBeam.material = railMat;
               totalLinesAdded++;
 
-            } else if (!esCoplanar) {
+                        } else if (!esCoplanar) {
               // BALASTO / ESTRUCTURA TRIANGULAR INCLINADA PROFESIONAL (A-Frame solar):
-              // Por cada lateral (izquierdo y derecho del módulo):
-              // 1. Apoyo frontal descansando en el suelo
-              // 2. Travesaño horizontal en el suelo (zapata de lastre)
-              // 3. Montante vertical trasero levantando la esquina alta
-              // 4. Arista inclinada cerrando el triángulo estructural
+              // [DIRECCIÓN DE ARTE AAA]:
+              // 1. Vector normal inferior: los elementos de soporte van SIEMPRE en el intradós (espalda) del panel (-0.05m).
+              // 2. Retranqueo longitudinal (-0.06m en la arista alta y +0.06m en la arista baja): las patas mueren bajo el marco y NO sobresalen como cuernos/aletas.
+              // 3. Los raíles transversales se sitúan estrictamente bajo el panel en la cota de intradós para que NO atraviesen el cristal fotovoltaico.
+              const v1_m = Cesium.Cartesian3.subtract(p.corners[1], p.corners[0], new Cesium.Cartesian3());
+              const v2_m = Cesium.Cartesian3.subtract(p.corners[3], p.corners[0], new Cesium.Cartesian3());
+              const n_m = Cesium.Cartesian3.normalize(Cesium.Cartesian3.cross(v1_m, v2_m, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+              const underOffset = Cesium.Cartesian3.multiplyByScalar(n_m, -0.05, new Cesium.Cartesian3()); // 50mm por debajo de la superficie del cristal
 
               [pair1, pair2].forEach((pair) => {
-                const cartoLow = Cesium.Cartographic.fromCartesian(pair.low);
-                const cartoHigh = Cesium.Cartographic.fromCartesian(pair.high);
+                const legVec = Cesium.Cartesian3.subtract(pair.high, pair.low, new Cesium.Cartesian3());
+                const legLen = Cesium.Cartesian3.magnitude(legVec);
+                const legDir = (legLen > 0.01) ? Cesium.Cartesian3.normalize(legVec, new Cesium.Cartesian3()) : new Cesium.Cartesian3();
 
-                // Cota real de cubierta bajo los apoyos (proyectada con precisión milimétrica al plano del faldón)
+                // Retranqueo de fijación de clamps:
+                // Retranqueo de 9cm hacia arriba en la arista inferior para que la pata no asome por abajo,
+                // y retranqueo de 8cm hacia abajo en la arista superior.
+                const clampInsetLow = Cesium.Cartesian3.multiplyByScalar(legDir, 0.09, new Cesium.Cartesian3());
+                const clampInsetHigh = Cesium.Cartesian3.multiplyByScalar(legDir, -0.08, new Cesium.Cartesian3());
+
+                const topLow = Cesium.Cartesian3.add(Cesium.Cartesian3.add(pair.low, underOffset, new Cesium.Cartesian3()), clampInsetLow, new Cesium.Cartesian3());
+                const topHigh = Cesium.Cartesian3.add(Cesium.Cartesian3.add(pair.high, underOffset, new Cesium.Cartesian3()), clampInsetHigh, new Cesium.Cartesian3());
+
+                // Cota real de cubierta bajo los apoyos
                 const groundFront = projectPointToRoof(pair.low);
                 let groundBack = projectPointToRoof(pair.high);
 
-                // Brazo resistente de lastre contra vuelco por viento (CTE DB-SE-AE):
-                // En ángulos elevados (>35°), la proyección directa se reduce demasiado;
-                // extendemos la zapata hacia atrás para garantizar un apoyo mínimo de 1.40m
                 const baseVec = Cesium.Cartesian3.subtract(groundBack, groundFront, new Cesium.Cartesian3());
                 const baseLen = Cesium.Cartesian3.magnitude(baseVec);
                 if (baseLen > 0.05 && baseLen < 1.40) {
@@ -15563,17 +15981,16 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
                   groundBack = Cesium.Cartesian3.add(groundFront, Cesium.Cartesian3.multiplyByScalar(dir, 1.40, new Cesium.Cartesian3()), new Cesium.Cartesian3());
                 }
 
-                // Triángulo estructural cerrado A-Frame:
-                // Arista baja -> Zapata suelo frontal -> Zapata suelo trasera -> Montante alto -> Arista baja
+                // Triángulo estructural cerrado A-Frame (confinado bajo el marco, acabado aluminio anodizado oscuro)
                 const triLeg = supportCol.add({
-                  positions: [pair.low, groundFront, groundBack, pair.high, pair.low],
-                  width: 5.5,
+                  positions: [topLow, groundFront, groundBack, topHigh, topLow],
+                  width: 4.0,
                   show: true
                 });
                 triLeg.material = balastoMat;
                 totalLinesAdded++;
 
-                // Zapata de lastre de hormigón: prisma/barra gruesa en la base sobre la cubierta
+                // Zapata de lastre de hormigón: prisma pesado sobre la cubierta
                 const ballastFoot = supportCol.add({
                   positions: [groundFront, groundBack],
                   width: 9.0,
@@ -15583,29 +16000,30 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
                 totalLinesAdded++;
               });
 
-              // Barra transversal estabilizadora entre ambos apoyos en el suelo (arriostramiento)
+              // Barra transversal estabilizadora entre ambos apoyos en el suelo (arriostramiento inferior)
               const gFront1 = projectPointToRoof(pair1.low);
               const gFront2 = projectPointToRoof(pair2.low);
 
               const tieBar = supportCol.add({
                 positions: [gFront1, gFront2],
-                width: 4.0,
+                width: 3.5,
                 show: true
               });
               tieBar.material = railMat;
               totalLinesAdded++;
 
-              // Raíles longitudinales transversales de aluminio conectando ambos pórticos A-Frame a cota de módulo
+              // Raíles longitudinales transversales de aluminio: SITUADOS EN EL INTRADÓS (bajo el cristal)
               const leg1Dir = Cesium.Cartesian3.subtract(pair1.high, pair1.low, new Cesium.Cartesian3());
               const leg2Dir = Cesium.Cartesian3.subtract(pair2.high, pair2.low, new Cesium.Cartesian3());
-              const rA_S = Cesium.Cartesian3.add(pair1.low, Cesium.Cartesian3.multiplyByScalar(leg1Dir, 0.25, new Cesium.Cartesian3()), new Cesium.Cartesian3());
-              const rA_E = Cesium.Cartesian3.add(pair2.low, Cesium.Cartesian3.multiplyByScalar(leg2Dir, 0.25, new Cesium.Cartesian3()), new Cesium.Cartesian3());
-              const rB_S = Cesium.Cartesian3.add(pair1.low, Cesium.Cartesian3.multiplyByScalar(leg1Dir, 0.75, new Cesium.Cartesian3()), new Cesium.Cartesian3());
-              const rB_E = Cesium.Cartesian3.add(pair2.low, Cesium.Cartesian3.multiplyByScalar(leg2Dir, 0.75, new Cesium.Cartesian3()), new Cesium.Cartesian3());
 
-              const railA = supportCol.add({ positions: [rA_S, rA_E], width: 5.0, show: true });
+              const rA_S = Cesium.Cartesian3.add(Cesium.Cartesian3.add(pair1.low, underOffset, new Cesium.Cartesian3()), Cesium.Cartesian3.multiplyByScalar(leg1Dir, 0.25, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+              const rA_E = Cesium.Cartesian3.add(Cesium.Cartesian3.add(pair2.low, underOffset, new Cesium.Cartesian3()), Cesium.Cartesian3.multiplyByScalar(leg2Dir, 0.25, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+              const rB_S = Cesium.Cartesian3.add(Cesium.Cartesian3.add(pair1.low, underOffset, new Cesium.Cartesian3()), Cesium.Cartesian3.multiplyByScalar(leg1Dir, 0.75, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+              const rB_E = Cesium.Cartesian3.add(Cesium.Cartesian3.add(pair2.low, underOffset, new Cesium.Cartesian3()), Cesium.Cartesian3.multiplyByScalar(leg2Dir, 0.75, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+
+              const railA = supportCol.add({ positions: [rA_S, rA_E], width: 4.0, show: true });
               railA.material = railMat;
-              const railB = supportCol.add({ positions: [rB_S, rB_E], width: 5.0, show: true });
+              const railB = supportCol.add({ positions: [rB_S, rB_E], width: 4.0, show: true });
               railB.material = railMat;
               totalLinesAdded += 2;
 
@@ -16954,7 +17372,9 @@ window.toggleSolarHUD = toggleSolarHUD;
 
     // ── PRIORIDAD 1: Colocación activa de nuevos obstáculos (Botón de Crear Objeto)
     if (window.RAWindUI && typeof window.RAWindUI.isPlacementActive === 'function' && window.RAWindUI.isPlacementActive()) {
-      const pos3D = (typeof get3DPosition === 'function') ? get3DPosition(click.position) : null;
+      const pos3D = (typeof get3DPosition === 'function')
+        ? get3DPosition(click.position, { raw: true, bypassThrottle: true })
+        : null;
       if (pos3D && window.RAWindUI.placeAtCartesian(pos3D)) {
         return;
       }
@@ -17089,6 +17509,32 @@ window.toggleSolarHUD = toggleSolarHUD;
       const count = (window.selectedPanelIndices && window.selectedPanelIndices.length) || 1;
       showStatus(count > 1 ? `${count} MÓDULOS FV SELECCIONADOS (Shift+Clic para añadir/quitar)` : ('MÓDULO FV #' + (panelIdx + 1) + ' SELECCIONADO'), 2000);
       return;
+    }
+
+    // 0C-Wind. Comprobar clic sobre Aerogenerador 3D (RA-Wind)
+    if (pickedObj && window.RAWind && window.RAWind.Entity && Array.isArray(window.windTurbines) && window.windTurbines.length > 0) {
+      let wtHitId = null;
+      if (pickedObj.primitive && pickedObj.primitive._windTurbineId) {
+        wtHitId = pickedObj.primitive._windTurbineId;
+      } else {
+        const pIdStr = (typeof pickedObj.id === 'string') ? pickedObj.id : (pickedObj.id && typeof pickedObj.id.id === 'string' ? pickedObj.id.id : '');
+        if (pIdStr && pIdStr.startsWith('wt_')) {
+          const foundWt = window.windTurbines.find(t => t && pIdStr.endsWith('_' + t.id));
+          if (foundWt) wtHitId = foundWt.id;
+        }
+      }
+      if (wtHitId) {
+        if (selectedPanelIndex >= 0) selectPanel(-1);
+        if (typeof selectElectricalObject === 'function') selectElectricalObject(null);
+        if (typeof selectObstacle === 'function') selectObstacle(null);
+        if (window.RAWindUI && typeof window.RAWindUI.selectTurbineForInspect === 'function') {
+          window.RAWindUI.selectTurbineForInspect(wtHitId);
+        } else if (window.RAWindVisualizer && typeof window.RAWindVisualizer.selectTurbine === 'function') {
+          window.RAWindVisualizer.selectTurbine(wtHitId);
+        }
+        renderTriad2D();
+        return;
+      }
     }
 
     // 0C. Comprobar clic sobre obstáculo 3D
@@ -17539,6 +17985,13 @@ window.toggleSolarHUD = toggleSolarHUD;
         if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Edificio desplazado');
       } else if (draggedTargetType === 'obstacle') {
         if (typeof recalculateLayoutAndObstacles === 'function') recalculateLayoutAndObstacles();
+      } else if (draggedTargetType === 'wind_turbine_entity') {
+        if (window.RAWind && window.RAWind.Entity) {
+          window.RAWind.Entity.recalculateAllEngineering();
+          if (window.RAWindUI && typeof window.RAWindUI.renderStep2Panel === 'function') {
+            window.RAWindUI.renderStep2Panel();
+          }
+        }
       } else if (draggedTargetType === 'panel') {
         // [Option A] Traslación manual de panel / multi-panel: persistir en arrays y dejar que wpFastRender reconstruya el batch.
         const _cloneCorners = function(corners) { return corners.map(function(c) { return Cesium.Cartesian3.clone(c); }); };
@@ -18376,7 +18829,7 @@ window.toggleSolarHUD = toggleSolarHUD;
     <button type="button" class="btn-action-secondary" id="btn-toggle-pbr-texture" onclick="togglePhotorealisticPanelsTexture()" style="padding:0 12px; height:48px; border-radius:24px; font-size:10px; border:1px solid rgba(56,189,248,0.4); display:flex; gap:6px; align-items:center; background:rgba(15,23,42,0.88); backdrop-filter:blur(16px); color:#fff; cursor:pointer; box-shadow:0 4px 16px rgba(0,0,0,0.4);" title="Alternar textura fotorrealista PBR (Atajo: T)">
       <i data-lucide="camera" class="icon-sm"></i>
       <span style="font-weight:700;">TEXTURA PBR</span>
-      <span id="tag-pbr-texture-status" class="card-tag" style="background:rgba(255,255,255,0.08);color:var(--text-slate-300);font-size: 10px;font-weight:700;padding:2px 4px;border-radius:4px;">OFF</span>
+      <span id="tag-pbr-texture-status" class="card-tag" style="background:rgba(16,185,129,0.2);color:#34D399;font-size: 10px;font-weight:900;padding:2px 4px;border-radius:4px;">ON</span>
     </button>
   </div>
   

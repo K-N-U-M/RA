@@ -592,7 +592,9 @@
 
       const maxAllowedOverload = inv.maxOverload || 1.35;
       const limits = calculateDynamicMPPTStringLimits(moduleSpec, inv, options.climParams || {});
-      const _modsPerString = options.modulesPerString || Math.max(limits.Ns_min || 6, Math.min(limits.Ns_max || 18, 20));
+      const _maxModsPerString = limits.Ns_max || 18;
+      const _minModsPerString = limits.Ns_min || 5;
+      const _modsPerString = options.modulesPerString || _maxModsPerString;
       const _nStrings = Math.max(distinctOrientations, Math.ceil(totalPanels / _modsPerString));
       const _inputsPerMppt = inv.inputsPerMppt || 1;
       const _mpptCount = inv.mppt || inv.mpptCount || 2;

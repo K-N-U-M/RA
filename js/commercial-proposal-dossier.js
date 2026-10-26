@@ -2258,7 +2258,22 @@
     generateFromModal: generateFromModal,
     setModalTheme: setModalTheme,
     refreshSnapshot: refreshSnapshot,
-    generate: buildAndOpenDossierWindow
+    generate: buildAndOpenDossierWindow,
+    getConfig: function() {
+      return {
+        theme: ProposalConfig.theme,
+        include3DRender: ProposalConfig.include3DRender,
+        overrides: ProposalConfig.overrides ? JSON.parse(JSON.stringify(ProposalConfig.overrides)) : {}
+      };
+    },
+    setConfig: function(cfg) {
+      if (!cfg || typeof cfg !== 'object') return;
+      if (typeof cfg.theme === 'string') ProposalConfig.theme = cfg.theme;
+      if (typeof cfg.include3DRender === 'boolean') ProposalConfig.include3DRender = cfg.include3DRender;
+      if (cfg.overrides && typeof cfg.overrides === 'object') {
+        ProposalConfig.overrides = JSON.parse(JSON.stringify(cfg.overrides));
+      }
+    }
   };
 
 })(typeof window !== 'undefined' ? window : this);

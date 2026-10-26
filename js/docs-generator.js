@@ -637,6 +637,26 @@ function generateMemoria(skipPricingModal) {
     (d.hasBattery && d.battery ? ('<tr><td>Protección DC Batería<\/td><td>Seccionador bipolar CC + Fusibles gBat (IEC 60269-7)<\/td><td>Entre acumulador e inversor híbrido<\/td><\/tr>') : '') +
     '<\/table>' +
 
+    (function() {
+      var wList = (typeof window !== 'undefined' && Array.isArray(window.windTurbines)) ? window.windTurbines.filter(function(t){return t && (!t.operationalState || t.operationalState.enabled !== false);}) : [];
+      if (wList.length === 0) return '';
+      var wSum = (typeof window !== 'undefined' && window.windParkSummary) ? window.windParkSummary : { totalRatedKw: 0, totalAepNetKwh: 0 };
+      var hHtml = '<h2>4.BIS. SUBSISTEMA DE GENERACI\u00d3N MINI-E\u00d3LICA & HIBRIDACI\u00d3N<\/h2>' +
+        '<p style="font-size:9pt;margin-bottom:8px;">El proyecto integra generadores e\u00f3licos de peque\u00f1a potencia en acoplamiento paralelo AC seg\u00fan REBT ITC-BT-40, directrices del RD 1367/2007 de contaminaci\u00f3n ac\u00fastica y CTE DB-SE-AE:<\/p>' +
+        '<table><tr><th>Par\u00e1metro / Equipo<\/th><th>Especificaci\u00f3n T\u00e9cnica<\/th><th>Conformidad Normativa<\/th><\/tr>' +
+        '<tr><td>Potencia E\u00f3lica Instalada<\/td><td><strong>' + (wSum.totalRatedKw || 0) + ' kW (' + wList.length + ' aerogeneradores)<\/strong><\/td><td>Acoplamiento AC en Cuadro General<\/td><\/tr>' +
+        '<tr><td>Producci\u00f3n E\u00f3lica Neta Estimada<\/td><td><strong>' + (wSum.totalAepNetKwh || 0).toLocaleString('es-ES') + ' kWh/a\u00f1o<\/strong><\/td><td>Distribuci\u00f3n Weibull + P\u00e9rdidas Estela Jensen<\/td><\/tr>';
+      wList.forEach(function(t, idx) {
+        var c = t._catalog || {};
+        var st = t.supportStructure || {};
+        var h = st.hubHeightM || 18;
+        hHtml += '<tr><td>Aerogenerador #' + (idx+1) + ' (' + (t.name || c.model || 'Mini-E\u00f3lica') + ')<\/td>' +
+          '<td>' + (c.ratedPowerW ? (c.ratedPowerW/1000) : 0) + ' kW · ' + (c.type || 'HAWT') + ' · Rotor D=' + (c.rotorDiameterM || 0) + 'm · M\u00e1stil ' + h + 'm<\/td>' +
+          '<td>Freno Reost\u00e1tico 120% (Dump Load ' + ((c.ratedPowerW ? (c.ratedPowerW/1000)*1.2 : 0).toFixed(1)) + ' kW) + Dif. Clase B 300mA<\/td><\/tr>';
+      });
+      hHtml += '<\/table>';
+      return hHtml;
+    })() +
     '<h2>5. CÁLCULOS JUSTIFICATIVOS<\/h2>' +
     '<h3>5.1 Producción Energética — Método HSP (PR = ' + d.PR + ')<\/h3>' +
     '<table><tr><th>Mes<\/th><th>Días<\/th><th>HSP\/día (h)<\/th><th>Energía (kWh\/mes)<\/th><\/tr>' +
@@ -1408,6 +1428,7 @@ function buildUnifilarSvg(D) {
     ['Tensión Máx. Generador (Voc a -10°C):', D.Voc_str_cold.toFixed(1) + ' V CC (Límite: ' + (D.V_max_inv || 1000) + ' V)'],
     ['Inversor de Conexión a Red:', (D.inverter ? D.inverter.fullName : (D.P_ac_kW.toFixed(2) + ' kW')) + ' (' + (D.monofasico ? 'Monofásico' : 'Trifásico') + ')'],
     ['Sistema de Almacenamiento:', (D.hasBattery && D.battery) ? (D.battery.fullName + ' (' + D.battery.totalKwh.toFixed(1) + ' kWh LFP)') : 'Sin acumulación (Directo)'],
+    ['Generación Eólica Híbrida:', (typeof window !== 'undefined' && window.windParkSummary && window.windParkSummary.totalRatedKw > 0) ? (window.windParkSummary.totalRatedKw + ' kW Mini-Eólica (Freno Dump Load REBT)') : 'No instalada'],
     ['Corriente Nominal Salida AC:', iAcStr + ' A (Protección IGA: ' + D.I_iga + ' A)'],
     ['Línea Continua (DC):', 'Cable ZZ-F ' + D.S_str + 'mm² / ' + D.S_mdc + 'mm² (1.8/3kV)'],
     ['Línea Alterna (AC):', 'Cable RV-K 0.6/1kV ' + D.S_ac + 'mm² Cu'],
