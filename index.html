@@ -6973,6 +6973,84 @@ function selectPanel(idx, isMulti = false) {
   if (typeof renderTriad2D === 'function') renderTriad2D();
 }
 
+function clearAllCADSelection(notify = false) {
+  let hadAnySelection = false;
+
+  // A. Placas FV (individuales o múltiples)
+  if ((typeof selectedPanelIndex !== 'undefined' && selectedPanelIndex >= 0) || (Array.isArray(window.selectedPanelIndices) && window.selectedPanelIndices.length > 0)) {
+    hadAnySelection = true;
+    if (typeof selectPanel === 'function') selectPanel(-1);
+    window.selectedPanelIndices = [];
+    selectedPanelIndex = -1;
+    if (typeof window !== 'undefined') window.selectedPanelIndex = -1;
+    if (typeof updatePanelSelectionUI === 'function') updatePanelSelectionUI();
+  }
+
+  // B. Obstáculos 3D
+  if (typeof selectedObstacleId !== 'undefined' && selectedObstacleId) {
+    hadAnySelection = true;
+    if (typeof selectObstacle === 'function') selectObstacle(null);
+    selectedObstacleId = null;
+    if (typeof window !== 'undefined') window.selectedObstacleId = null;
+    if (typeof render3DObstaclesInCesium === 'function') render3DObstaclesInCesium();
+  }
+
+  // C. Equipamiento Eléctrico 3D
+  if (typeof selectedElectricalId !== 'undefined' && selectedElectricalId) {
+    hadAnySelection = true;
+    if (typeof selectElectricalObject === 'function') selectElectricalObject(null);
+    selectedElectricalId = null;
+    if (typeof window !== 'undefined') window.selectedElectricalId = null;
+  }
+
+  // D. Edificios 3D
+  if (typeof selectedBuildingId !== 'undefined' && selectedBuildingId) {
+    hadAnySelection = true;
+    if (typeof selectBuilding === 'function') selectBuilding(null);
+    selectedBuildingId = null;
+    if (typeof window !== 'undefined') window.selectedBuildingId = null;
+    if (typeof render3DBuildingsInCesium === 'function') render3DBuildingsInCesium();
+  }
+
+  // E. Vértices de faldones o huellas
+  if (typeof WP !== 'undefined' && WP && (WP.selectedVtxIdx >= 0 || WP.selectedVertexIdx >= 0)) {
+    hadAnySelection = true;
+    WP.selectedVtxIdx = -1;
+    WP.selectedVertexIdx = -1;
+    if (typeof selectedVertexIndex !== 'undefined') selectedVertexIndex = -1;
+    if (typeof wpSyncVertexInputs === 'function') wpSyncVertexInputs();
+    if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
+    if (typeof wpUpdateUI === 'function') wpUpdateUI();
+  }
+  if (typeof bldFootprintState !== 'undefined' && bldFootprintState && bldFootprintState.selectedVtxIdx >= 0) {
+    hadAnySelection = true;
+    bldFootprintState.selectedVtxIdx = -1;
+    if (typeof updateBuildingFootprintUI === 'function') updateBuildingFootprintUI();
+  }
+
+  // F. Gizmo Universal y Tríada 2D
+  if (typeof universalGizmoState !== 'undefined' && universalGizmoState) {
+    if (universalGizmoState.active) hadAnySelection = true;
+    universalGizmoState.active = false;
+    universalGizmoState.mode = null;
+    universalGizmoState.targetType = null;
+    universalGizmoState.targetId = null;
+  }
+  if (typeof renderTriad2D === 'function') renderTriad2D();
+
+  // G. Limpieza de candidatos de ciclaje CAD
+  if (typeof window !== 'undefined' && window.cadCyclingState) {
+    window.cadCyclingState.candidates = [];
+    window.cadCyclingState.candidateIdx = -1;
+  }
+
+  if (hadAnySelection && notify && typeof showStatus === 'function') {
+    showStatus('<i data-lucide="x-circle" class="icon-sm"></i> SELECCIÓN DESPEJADA', 1200);
+  }
+  return hadAnySelection;
+}
+window.clearAllCADSelection = clearAllCADSelection;
+
 window.selectPanel = selectPanel;
 window.selectPanelRow = function(panelIdx) {
   const panelsArray = window.allRenderedPanels;
@@ -17690,16 +17768,14 @@ window.toggleSolarHUD = toggleSolarHUD;
       ));
 
       if (!isClickOnSelectedObs && !isClickOnSelectedPanel) {
-        if (selectedElectricalId) {
-          selectElectricalObject(null);
+        if (typeof clearAllCADSelection === 'function') {
+          clearAllCADSelection(false);
+        } else {
+          if (selectedElectricalId) selectElectricalObject(null);
+          if (typeof selectPanel === 'function') selectPanel(-1);
+          if (selectedObstacleId && !obsPlacement.active) selectObstacle(null);
+          renderTriad2D();
         }
-        if (selectedPanelIndex >= 0) {
-          selectPanel(-1);
-        }
-        if (selectedObstacleId && !obsPlacement.active) {
-          selectObstacle(null);
-        }
-        renderTriad2D();
       }
     }
 
@@ -17770,6 +17846,12 @@ window.toggleSolarHUD = toggleSolarHUD;
         if (typeof render3DBuildingsInCesium === 'function') render3DBuildingsInCesium();
         renderTriad2D();
       }
+    }
+
+    // ── REGLA DE ORO CAD: Clic en zona vacía del visor -> Deseleccionar cualquier elemento activo
+    const hitGizmoAtEnd = (typeof checkUniversalGizmoHit === 'function') ? checkUniversalGizmoHit(click.position.x, click.position.y) : null;
+    if (!hitGizmoAtEnd && typeof clearAllCADSelection === 'function') {
+      clearAllCADSelection(true);
     }
   }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
