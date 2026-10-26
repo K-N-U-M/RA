@@ -1553,8 +1553,20 @@ function generatePropuestaComercialPDF(skipPricingModal) {
   const _cCab = Math.round(m.cabCost * _mFactor);
   const _cMo  = Math.round(m.moCost * _mFactor);
   const _cLeg = Math.max(0, Math.round(m.subtotal) - (_cPan + _cEst + _cInv + _cBat + _cCab + _cMo));
+  // Captura automática de snapshot 3D Cesium WebGL
+  let _viewerSnapshot = null;
+  try {
+    const v = (typeof window !== 'undefined' && window.viewer) ? window.viewer : null;
+    if (v && v.scene && v.scene.canvas) {
+      v.scene.render();
+      _viewerSnapshot = v.scene.canvas.toDataURL('image/jpeg', 0.92);
+    }
+  } catch (e) {
+    if (window.RA && window.RA.log) window.RA.log.warn('[PropuestaComercial] Error capturando snapshot 3D:', e);
+  }
+
   const _commCfgForPages = (typeof RAPricing !== 'undefined' && typeof RAPricing.getCommercialConfig === 'function') ? RAPricing.getCommercialConfig() : null;
-  const _totPages = (_commCfgForPages && _commCfgForPages.showThreePackagesComparison) ? 4 : 3;
+  const _totPages = (_commCfgForPages && _commCfgForPages.showThreePackagesComparison) ? 5 : 4;
   const _infografias = buildInfografiasHTML(m, pal, annualYieldKWh, layoutStyle);
   const payload = {
     refNum: d.refNum,
@@ -1633,6 +1645,23 @@ function generatePropuestaComercialPDF(skipPricingModal) {
       .tech-name { font-size: 11px; font-weight: 800; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.25; margin-top: 1px; }
       .tech-sub { font-size: 9px; color: #64748b; line-height: 1.2; margin-top: 2px; }
       .tech-badge { flex-shrink: 0; text-align: right; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 8px; font-size: 11px; font-weight: 900; color: ${pal.primary}; }
+      /* Estilos para Página de Fotos e Implantación 3D */
+      .photo-grid-main { display: flex; flex-direction: column; gap: 12px; margin-top: 10px; }
+      .photo-card-hero { height: 122mm; border: 1.5px solid #cbd5e1; border-radius: 8px; overflow: hidden; background: #f8fafc; position: relative; display: flex; flex-direction: column; }
+      .photo-card-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; height: 86mm; }
+      .photo-card-sub { border: 1.5px solid #cbd5e1; border-radius: 8px; overflow: hidden; background: #f8fafc; position: relative; display: flex; flex-direction: column; }
+      .photo-img-wrap { flex: 1; position: relative; overflow: hidden; background: #0f172a; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+      .photo-img-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+      .photo-caption-bar { background: #ffffff; border-top: 1px solid #e2e8f0; padding: 6px 10px; display: flex; justify-content: space-between; align-items: center; font-size: 10px; flex-shrink: 0; }
+      .photo-caption-title { font-weight: 800; color: #0f172a; outline: none; }
+      .photo-caption-desc { font-size: 9px; color: #64748b; outline: none; }
+      .photo-upload-overlay { position: absolute; top: 8px; right: 8px; background: rgba(15,23,42,0.75); color: #fff; font-size: 9px; font-weight: 700; padding: 4px 8px; border-radius: 4px; display: flex; align-items: center; gap: 4px; pointer-events: none; transition: background 0.2s; backdrop-filter: blur(2px); }
+      .photo-img-wrap:hover .photo-upload-overlay { background: rgba(15,23,42,0.92); }
+      .photo-empty-placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: #94a3b8; text-align: center; padding: 20px; }
+      @media print {
+        .photo-upload-overlay { display: none !important; }
+        .photo-card-hero, .photo-card-sub { border-color: #94a3b8; }
+      }
       .closer-hero-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: ${layoutStyle === 'editorial' ? '14px' : '10px'}; margin: ${layoutStyle === 'editorial' ? '18px 0 24px' : '12px 0 16px'}; }
       .closer-hero-card { background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: ${layoutStyle === 'editorial' ? '16px 10px' : '12px 8px'}; text-align: center; transition: all 0.2s ease; }
       .decision-boxes { display: grid; grid-template-columns: 1fr 1fr; gap: ${layoutStyle === 'editorial' ? '18px' : '12px'}; margin: ${layoutStyle === 'editorial' ? '20px 0' : '14px 0'}; }
@@ -2001,6 +2030,91 @@ function generatePropuestaComercialPDF(skipPricingModal) {
       <p style="font-size: 10px;color:#64748b;margin:4px 0 0 0;">Nota: bonificaciones y deducciones fiscales son estimaciones comerciales sujetas a vigencia normativa y ordenanzas municipales. Verificar con asesoría fiscal antes de incluirlas en contrato.</p>
     </div>
 
+    <!-- PÁGINA 3: IMPLANTACIÓN SOLAR Y VISTAS DEL PROYECTO (FOTOS Y SIMULACIÓN 3D) -->
+    <div class="page-sheet">
+      <div class="cover-header">
+        <div class="company-text">
+          <div class="name">IMPLANTACIÓN SOLAR &amp; <span style="color:${pal.primary}">VISTAS DEL PROYECTO</span></div>
+          <div class="sub">Simulación Tridimensional · Integración Arquitectónica · Reporte Fotográfico</div>
+        </div>
+        <div class="doc-ref-box"><b>Ref: ${d.refNum}</b><br>Hoja 4 de ${_totPages}</div>
+      </div>
+
+      <h2>Gemelo digital y reportaje fotográfico de la instalación</h2>
+      <p style="font-size:10px;color:#64748b;margin-bottom:8px;">Vistas de integración del campo solar sobre cubierta y ubicación prevista para los componentes principales:</p>
+
+      <div class="photo-grid-main">
+        <!-- Foto 1: Principal Hero 3D -->
+        <div class="photo-card-hero">
+          <div class="photo-img-wrap" onclick="triggerPhotoUpload('photo-hero-input')">
+            <input type="file" id="photo-hero-input" accept="image/*" style="display:none;" onchange="handlePhotoUpload(this, 'photo-hero-img', 'photo-hero-placeholder')">
+            ${_viewerSnapshot ? `
+              <img id="photo-hero-img" src="${_viewerSnapshot}" alt="Simulación 3D de la cubierta fotovoltaica">
+              <div id="photo-hero-placeholder" style="display:none;"></div>
+            ` : `
+              <img id="photo-hero-img" style="display:none;" alt="Simulación 3D">
+              <div id="photo-hero-placeholder" class="photo-empty-placeholder">
+                <span style="font-size:28px;">📷</span>
+                <span style="font-size:11px;font-weight:700;">Haz clic para cargar imagen 3D o foto de la cubierta</span>
+                <span style="font-size:9px;">Formatos recomendados: JPG o PNG</span>
+              </div>
+            `}
+            <div class="photo-upload-overlay">📸 Reemplazar foto / 3D</div>
+          </div>
+          <div class="photo-caption-bar">
+            <div>
+              <div class="photo-caption-title" contenteditable="true">SIMULACIÓN 3D: CUBIERTA SOLAR Y ANÁLISIS DE SOMBRAS</div>
+              <div class="photo-caption-desc" contenteditable="true">Disposición optimizada de ${m.numPanels} módulos fotovoltaicos (${m.kwp.toFixed(2)} kWp) sobre faldón.</div>
+            </div>
+            <div style="font-size:9px;font-weight:800;color:${pal.primary};background:#f8fafc;padding:3px 8px;border-radius:4px;border:1px solid #e2e8f0;">VISTA PRINCIPAL</div>
+          </div>
+        </div>
+
+        <!-- Fila de fotos auxiliares -->
+        <div class="photo-card-row">
+          <!-- Foto 2: Detalle / Emplazamiento Real -->
+          <div class="photo-card-sub">
+            <div class="photo-img-wrap" onclick="triggerPhotoUpload('photo-sub1-input')">
+              <input type="file" id="photo-sub1-input" accept="image/*" style="display:none;" onchange="handlePhotoUpload(this, 'photo-sub1-img', 'photo-sub1-placeholder')">
+              <img id="photo-sub1-img" style="display:none;" alt="Detalle del tejado">
+              <div id="photo-sub1-placeholder" class="photo-empty-placeholder">
+                <span style="font-size:24px;">🏡</span>
+                <span style="font-size:10.5px;font-weight:700;">Foto real del tejado / fachada</span>
+                <span style="font-size:8.5px;">Haz clic para subir desde el disco local</span>
+              </div>
+              <div class="photo-upload-overlay">📸 Cargar foto</div>
+            </div>
+            <div class="photo-caption-bar">
+              <div>
+                <div class="photo-caption-title" contenteditable="true">EMPLAZAMIENTO REAL DE CUBIERTA</div>
+                <div class="photo-caption-desc" contenteditable="true">Estado previo del tejado y verificación de orientación/inclinación.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Foto 3: Cuadro eléctrico / Inversor -->
+          <div class="photo-card-sub">
+            <div class="photo-img-wrap" onclick="triggerPhotoUpload('photo-sub2-input')">
+              <input type="file" id="photo-sub2-input" accept="image/*" style="display:none;" onchange="handlePhotoUpload(this, 'photo-sub2-img', 'photo-sub2-placeholder')">
+              <img id="photo-sub2-img" style="display:none;" alt="Ubicación Inversor">
+              <div id="photo-sub2-placeholder" class="photo-empty-placeholder">
+                <span style="font-size:24px;">⚡</span>
+                <span style="font-size:10.5px;font-weight:700;">Ubicación de Inversor / Cuadro AC</span>
+                <span style="font-size:8.5px;">Haz clic para subir foto del cuadro eléctrico</span>
+              </div>
+              <div class="photo-upload-overlay">📸 Cargar foto</div>
+            </div>
+            <div class="photo-caption-bar">
+              <div>
+                <div class="photo-caption-title" contenteditable="true">PUNTO DE CONEXIÓN ELÉCTRICA</div>
+                <div class="photo-caption-desc" contenteditable="true">Ubicación prevista para inversor ${_eqp.invName} y cuadro de protecciones.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     ${(function() {
       var comm = (typeof RAPricing !== 'undefined' && typeof RAPricing.getCommercialConfig === 'function') ? RAPricing.getCommercialConfig() : null;
       if (!comm || !comm.showThreePackagesComparison) return '';
@@ -2132,6 +2246,46 @@ function generatePropuestaComercialPDF(skipPricingModal) {
     </div>
 
     <script>
+      function triggerPhotoUpload(inputId) {
+        const input = document.getElementById(inputId);
+        if (input) input.click();
+      }
+
+      function handlePhotoUpload(input, imgId, placeholderId) {
+        if (!input.files || !input.files[0]) return;
+        const file = input.files[0];
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const img = new Image();
+          img.onload = function() {
+            // Optimizar en canvas cliente para no saturar memoria en PDF
+            const maxDim = 1600;
+            let w = img.width, h = img.height;
+            if (w > maxDim || h > maxDim) {
+              if (w > h) { h = Math.round((h * maxDim) / w); w = maxDim; }
+              else { w = Math.round((w * maxDim) / h); h = maxDim; }
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            const optimizedData = canvas.toDataURL('image/jpeg', 0.88);
+
+            const targetImg = document.getElementById(imgId);
+            const placeholder = document.getElementById(placeholderId);
+            if (targetImg) {
+              targetImg.src = optimizedData;
+              targetImg.style.display = 'block';
+            }
+            if (placeholder) {
+              placeholder.style.display = 'none';
+            }
+          };
+          img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
+
       function togglePropEdit() {
         const sheets = document.querySelectorAll('.page-sheet');
         const btn = document.getElementById('btn-prop-edit');
