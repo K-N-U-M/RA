@@ -16939,6 +16939,11 @@ function toggleSolarHUD(show) {
   if (shouldOpen) {
     // 1. Mostrar HUD con animación de crecimiento de 300ms
     hud.style.display = 'flex';
+    if (typeof bringToFront === 'function') bringToFront(hud);
+    if (typeof makeElementDraggable === 'function') {
+      const solarHdr = hud.querySelector('.solar-hud-header');
+      if (solarHdr) makeElementDraggable(hud, solarHdr, 'ra_solar_hud_pos');
+    }
     requestAnimationFrame(() => {
       hud.classList.remove('solar-hud-minimized');
       hud.classList.remove('hidden');

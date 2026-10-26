@@ -864,6 +864,11 @@
       if (typeof window.renderSolarBarChart === 'function') {
         setTimeout(() => window.renderSolarBarChart(window.lastMonthlyYields), 50);
       }
+
+      if (hudEl && typeof window.makeElementDraggable === 'function') {
+        const hdr = hudEl.querySelector('.bom-hud-header');
+        if (hdr) window.makeElementDraggable(hudEl, hdr, 'ra_bom_pos');
+      }
     },
 
 
@@ -879,6 +884,7 @@
       const hudEl = document.getElementById('ra-bom-tree-hud');
       if (hudEl) {
         hudEl.style.display = 'flex';
+        if (typeof window.bringToFront === 'function') window.bringToFront(hudEl);
         hudEl.classList.remove('minimized');
         hudEl.classList.add('mobile-active');
         if (typeof window !== 'undefined' && window.innerWidth <= 768) {

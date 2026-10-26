@@ -51,6 +51,11 @@
       this.injectStyles();
       document.body.appendChild(container);
 
+      if (typeof global.makeElementDraggable === 'function') {
+        const hdr = container.querySelector('.outliner-header');
+        if (hdr) global.makeElementDraggable(container, hdr, 'ra_outliner_pos');
+      }
+
       // Suscribirse a cambios en la jerarquía BIM
       if (global.ProjectHierarchy && typeof global.ProjectHierarchy.subscribe === 'function') {
         global.ProjectHierarchy.subscribe(function() {
@@ -65,6 +70,7 @@
       if (!container) this.init();
       if (!container) return;
       container.style.display = 'flex';
+      if (typeof global.bringToFront === 'function') global.bringToFront(container);
       container.classList.add('mobile-active');
       if (typeof window !== 'undefined' && window.innerWidth <= 768) {
         const sb = document.getElementById('ra-sidebar');
@@ -498,23 +504,23 @@
         .ra-cad-outliner {
           position: fixed;
           top: 190px;
-          right: 20px;
-          width: 310px;
-          bottom: 84px;
-          max-height: calc(100vh - 284px);
-          background: rgba(15, 23, 42, 0.92);
+          right: 76px;
+          width: 320px;
+          height: auto;
+          max-height: calc(100vh - 230px);
+          background: rgba(15, 23, 42, 0.94);
           backdrop-filter: blur(14px);
           -webkit-backdrop-filter: blur(14px);
-          border: 1px solid rgba(56, 189, 248, 0.35);
+          border: 1px solid rgba(56, 189, 248, 0.45);
           border-radius: 12px;
-          box-shadow: 0 10px 32px rgba(0, 0, 0, 0.70), 0 0 14px rgba(56, 189, 248, 0.15);
+          box-shadow: 0 10px 32px rgba(0, 0, 0, 0.75), 0 0 16px rgba(56, 189, 248, 0.20);
           display: flex;
           flex-direction: column;
-          z-index: 9400;
+          z-index: 9600;
           font-family: 'Inter', -apple-system, sans-serif;
           color: #f8fafc;
           overflow: hidden;
-          transition: all 0.25s ease;
+          transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
 
         .outliner-header {

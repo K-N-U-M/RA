@@ -328,6 +328,163 @@
     return false;
   }
 
+  
+  // ── SISTEMA UNIVERSAL DE VENTANAS FLOTANTES DESPLAZABLES (DRAGGABLE) ───────
+  let _topWindowZIndex = 9600;
+
+  function bringToFront(el) {
+    if (!el) return;
+    _topWindowZIndex = Math.max(_topWindowZIndex + 1, 9600);
+    el.style.zIndex = _topWindowZIndex;
+  }
+
+  function makeElementDraggable(panelEl, handleEl, storageKey) {
+    if (!panelEl || !handleEl) return;
+    if (panelEl._hasDraggableInitialized) return;
+    panelEl._hasDraggableInitialized = true;
+
+    // Restaurar posición guardada si existe y es válida
+    if (storageKey) {
+      try {
+        const raw = localStorage.getItem(storageKey);
+        if (raw) {
+          const pos = JSON.parse(raw);
+          if (pos && Number.isFinite(pos.left) && Number.isFinite(pos.top)) {
+            // Verificar que no quede fuera de los límites de pantalla
+            const maxL = Math.max(10, window.innerWidth - 60);
+            const maxT = Math.max(10, window.innerHeight - 60);
+            const clampL = Math.max(10, Math.min(maxL, pos.left));
+            const clampT = Math.max(10, Math.min(maxT, pos.top));
+            panelEl.style.left = clampL + 'px';
+            panelEl.style.top = clampT + 'px';
+            panelEl.style.right = 'auto';
+            panelEl.style.bottom = 'auto';
+          }
+        }
+      } catch (e) {}
+    }
+
+    panelEl.addEventListener('pointerdown', function() {
+      bringToFront(panelEl);
+    }, { passive: true });
+
+    let isDragging = false;
+    let dragStartX = 0;
+    let dragStartY = 0;
+    let elemStartX = 0;
+    let elemStartY = 0;
+    let hasMovedSignificantly = false;
+
+    handleEl.style.cursor = 'grab';
+    handleEl.style.userSelect = 'none';
+
+    handleEl.addEventListener('pointerdown', function(e) {
+      if (e.button !== 0 && e.pointerType === 'mouse') return;
+      // Si el clic proviene de botones interactivos dentro de la cabecera, no iniciar drag
+      if (e.target && (e.target.closest('button') || e.target.closest('input') || e.target.closest('select') || e.target.closest('a'))) {
+        return;
+      }
+      isDragging = true;
+      hasMovedSignificantly = false;
+      dragStartX = e.clientX;
+      dragStartY = e.clientY;
+
+      const rect = panelEl.getBoundingClientRect();
+      elemStartX = rect.left;
+      elemStartY = rect.top;
+
+      bringToFront(panelEl);
+      handleEl.style.cursor = 'grabbing';
+      if (typeof handleEl.setPointerCapture === 'function') {
+        try { handleEl.setPointerCapture(e.pointerId); } catch(err) {}
+      }
+      e.stopPropagation();
+    });
+
+    window.addEventListener('pointermove', function(e) {
+      if (!isDragging) return;
+      const dx = e.clientX - dragStartX;
+      const dy = e.clientY - dragStartY;
+
+      if (!hasMovedSignificantly && Math.hypot(dx, dy) > 4) {
+        hasMovedSignificantly = true;
+      }
+
+      if (hasMovedSignificantly) {
+        const panelWidth = panelEl.offsetWidth || 300;
+        const panelHeight = panelEl.offsetHeight || 200;
+        const maxLeft = Math.max(8, window.innerWidth - panelWidth - 8);
+        const maxTop = Math.max(8, window.innerHeight - panelHeight - 8);
+
+        const newLeft = Math.max(8, Math.min(maxLeft, elemStartX + dx));
+        const newTop = Math.max(8, Math.min(maxTop, elemStartY + dy));
+
+        panelEl.style.right = 'auto';
+        panelEl.style.bottom = 'auto';
+        panelEl.style.left = newLeft + 'px';
+        panelEl.style.top = newTop + 'px';
+      }
+    }, { passive: false });
+
+    function endDrag(e) {
+      if (!isDragging) return;
+      isDragging = false;
+      handleEl.style.cursor = 'grab';
+      if (typeof handleEl.releasePointerCapture === 'function' && e && e.pointerId != null) {
+        try { handleEl.releasePointerCapture(e.pointerId); } catch(err) {}
+      }
+      if (hasMovedSignificantly) {
+        const rect = panelEl.getBoundingClientRect();
+        if (storageKey) {
+          try {
+            localStorage.setItem(storageKey, JSON.stringify({ left: Math.round(rect.left), top: Math.round(rect.top) }));
+          } catch(err) {}
+        }
+      }
+    }
+
+    window.addEventListener('pointerup', endDrag);
+    window.addEventListener('pointercancel', endDrag);
+  }
+
+  function initUniversalFloatingDraggables() {
+    // 1. Árbol de Proyecto (CAD Outliner)
+    const outlinerPanel = document.getElementById('ra-cad-outliner-panel');
+    if (outlinerPanel) {
+      const outlinerHeader = outlinerPanel.querySelector('.outliner-header');
+      if (outlinerHeader) {
+        makeElementDraggable(outlinerPanel, outlinerHeader, 'ra_outliner_pos');
+      }
+    }
+
+    // 2. Árbol BIM y Mediciones (BOM)
+    const bomPanel = document.getElementById('ra-bom-tree-hud');
+    if (bomPanel) {
+      const bomHeader = bomPanel.querySelector('.bom-hud-header');
+      if (bomHeader) {
+        makeElementDraggable(bomPanel, bomHeader, 'ra_bom_pos');
+      }
+    }
+
+    // 3. Panel Solar & Sombras
+    const solarHud = document.getElementById('ra-solar-time-hud');
+    if (solarHud) {
+      const solarHeader = solarHud.querySelector('.solar-hud-header');
+      if (solarHeader) {
+        makeElementDraggable(solarHud, solarHeader, 'ra_solar_hud_pos');
+      }
+    }
+
+    // 4. Popover de Ajustes de Renderizado
+    const settingsPopover = document.getElementById('ra-floating-settings-popover');
+    if (settingsPopover) {
+      const settingsHeader = settingsPopover.firstElementChild;
+      if (settingsHeader) {
+        makeElementDraggable(settingsPopover, settingsHeader, 'ra_settings_popover_pos');
+      }
+    }
+  }
+
   function initUniversalModalHandlers() {
     if (typeof document === 'undefined') return;
 
@@ -479,10 +636,12 @@
       document.addEventListener('DOMContentLoaded', function() {
         initUniversalModalHandlers();
         initMobileResponsiveBehavior();
+        initUniversalFloatingDraggables();
       });
     } else {
       initUniversalModalHandlers();
       initMobileResponsiveBehavior();
+      initUniversalFloatingDraggables();
     }
   }
 
@@ -502,7 +661,10 @@
     hideStatus,
     togglePhotorealisticPanelsTexture,
     toggleLabelsVisibility,
-    toggleSettingsPopover
+    toggleSettingsPopover,
+    makeElementDraggable,
+    bringToFront,
+    initUniversalFloatingDraggables
   };
 
   global.UIViewportControls = UIViewportControls;
@@ -521,5 +683,8 @@
   global.togglePhotorealisticPanelsTexture = togglePhotorealisticPanelsTexture;
   global.toggleLabelsVisibility = toggleLabelsVisibility;
   global.toggleSettingsPopover = toggleSettingsPopover;
+  global.makeElementDraggable = makeElementDraggable;
+  global.bringToFront = bringToFront;
+  global.initUniversalFloatingDraggables = initUniversalFloatingDraggables;
 
 })(typeof window !== 'undefined' ? window : this);
