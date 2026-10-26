@@ -2005,6 +2005,16 @@ function wpSyncCesiumSun(solarPos) {
   } catch(eShadow) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', eShadow); }
 }
 
+function wpClearDynamicShadows() {
+  if (typeof viewer === "undefined" || !viewer || !viewer.entities) return;
+  if (typeof window !== "undefined" && window.solarSimState && Array.isArray(window.solarSimState.dynamicShadowEntities)) {
+    window.solarSimState.dynamicShadowEntities.forEach(e => {
+      try { viewer.entities.remove(e); } catch(err) {}
+    });
+    window.solarSimState.dynamicShadowEntities = [];
+  }
+}
+
 function wpRenderDynamicObstacleShadows(solarPos) {
   if (typeof viewer === "undefined" || !viewer || !viewer.entities) return;
 
@@ -2248,6 +2258,7 @@ function wpUpdateSolarSimulation() {
   wpSyncCesiumSun(solarPos);
 
   if (solarSimState.viewMode === "heatmap") {
+    wpClearDynamicShadows();
     wpRenderHeatmapVisuals();
   } else {
     wpRenderDynamicObstacleShadows(solarPos);
@@ -2446,6 +2457,7 @@ function wpSetSolarSpeed(spd) {
     renderDailyCurve: renderDailyCurve,
     wpComputeInstantSolarPosition: wpComputeInstantSolarPosition,
     wpSyncCesiumSun: wpSyncCesiumSun,
+    wpClearDynamicShadows: wpClearDynamicShadows,
     wpRenderDynamicObstacleShadows: wpRenderDynamicObstacleShadows,
     wpUpdateSolarSimulation: wpUpdateSolarSimulation,
     wpSetSolarMonth: wpSetSolarMonth,
@@ -2517,6 +2529,7 @@ function wpSetSolarSpeed(spd) {
   global.renderDailyCurve = renderDailyCurve;
   global.wpComputeInstantSolarPosition = wpComputeInstantSolarPosition;
   global.wpSyncCesiumSun = wpSyncCesiumSun;
+  global.wpClearDynamicShadows = wpClearDynamicShadows;
   global.wpRenderDynamicObstacleShadows = wpRenderDynamicObstacleShadows;
   global.wpUpdateSolarSimulation = wpUpdateSolarSimulation;
   global.wpSetSolarMonth = wpSetSolarMonth;

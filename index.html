@@ -8901,9 +8901,11 @@ function getBuildingShadowPolygons2DForRoof(building, roof, sU, sV, shadowLenPer
   if (!bldObs) return null;
 
   const effectiveHeight = bldObs.height;
-  const shadowLen = effectiveHeight * (shadowLenPerM || 0);
+  // Limitar longitud de sombra para evitar planos infinitos o aberrantes con sol rasante
+  const maxShadowLen = Math.min(shadowLenPerM || 0, 50.0);
+  const shadowLen = Math.min(effectiveHeight * maxShadowLen, 120.0);
   const SHADOW_OFFSET_START_M = 0.05;
-  if (shadowLen <= SHADOW_OFFSET_START_M) return null;
+  if (shadowLen <= SHADOW_OFFSET_START_M || !isFinite(shadowLen)) return null;
 
   const basePoly = bldObs.points2D;
   const deltaUStart = sU * SHADOW_OFFSET_START_M;

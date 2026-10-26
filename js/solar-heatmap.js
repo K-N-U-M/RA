@@ -556,6 +556,26 @@
           });
         }
 
+        const bldList = (typeof buildings !== 'undefined' && Array.isArray(buildings))
+          ? buildings
+          : ((typeof window !== 'undefined' && Array.isArray(window.buildings)) ? window.buildings : []);
+        if (bldList && bldList.length > 0) {
+          bldList.forEach(bld => {
+            if (!bld || bld.visible === false || !bld.points || bld.points.length < 3) return;
+            const bldObs = (typeof getBuildingPolygon2DForRoof === 'function')
+              ? getBuildingPolygon2DForRoof(bld, pInfo, poly)
+              : null;
+            if (bldObs && bldObs.points2D && bldObs.points2D.length >= 3 && bldObs.height > 0.05) {
+              obstacles2D.push({
+                height: bldObs.height,
+                points2D: bldObs.points2D.map(pt => ({ u: pt.u, v: pt.v })),
+                isBuilding: true,
+                buildingId: bld.id
+              });
+            }
+          });
+        }
+
         faldones.push({
           polyIdx,
           uVec,
@@ -681,6 +701,11 @@
   }
 
   async function computeAnnualSolarHeatmap(onProgressCallback) {
+    if (typeof wpClearDynamicShadows === "function") {
+      try { wpClearDynamicShadows(); } catch (_) {}
+    } else if (typeof window !== "undefined" && window.wpClearDynamicShadows) {
+      try { window.wpClearDynamicShadows(); } catch (_) {}
+    }
     const simGenerationId = ++_activeSimGenerationId;
     if (typeof window !== 'undefined' && window.solarSimState) {
       window.solarSimState.currentSimGenerationId = simGenerationId;

@@ -689,6 +689,11 @@ async function raImportProjectData(projectData, options = {}) {
       });
       window._bldEntities = [];
     }
+    if (typeof wpClearDynamicShadows === 'function') {
+      try { wpClearDynamicShadows(); } catch(eShd) {}
+    } else if (typeof window !== 'undefined' && window.wpClearDynamicShadows) {
+      try { window.wpClearDynamicShadows(); } catch(eShd) {}
+    }
     if (typeof wpClearInverterAndCables === 'function') {
       try { wpClearInverterAndCables(); } catch(eClr) {}
     }
