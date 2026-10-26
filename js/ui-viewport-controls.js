@@ -350,11 +350,13 @@
         if (raw) {
           const pos = JSON.parse(raw);
           if (pos && Number.isFinite(pos.left) && Number.isFinite(pos.top)) {
-            // Verificar que no quede fuera de los límites de pantalla
-            const maxL = Math.max(10, window.innerWidth - 60);
+            const panelW = panelEl.offsetWidth || 300;
+            const maxL = Math.max(10, window.innerWidth - panelW - 10);
             const maxT = Math.max(10, window.innerHeight - 60);
             const clampL = Math.max(10, Math.min(maxL, pos.left));
             const clampT = Math.max(10, Math.min(maxT, pos.top));
+            panelEl.style.position = 'fixed';
+            panelEl.style.transform = 'none';
             panelEl.style.left = clampL + 'px';
             panelEl.style.top = clampT + 'px';
             panelEl.style.right = 'auto';
@@ -408,6 +410,13 @@
 
       if (!hasMovedSignificantly && Math.hypot(dx, dy) > 4) {
         hasMovedSignificantly = true;
+        // Congelar ancho explícito antes de desacoplar del centrado automático
+        const currentWidth = panelEl.offsetWidth;
+        if (currentWidth > 0 && !panelEl.style.width) {
+          panelEl.style.width = currentWidth + 'px';
+        }
+        panelEl.style.position = 'fixed';
+        panelEl.style.transform = 'none';
       }
 
       if (hasMovedSignificantly) {

@@ -12923,9 +12923,16 @@ function computeSinglePolylineRoofInfo(ptsIn, polyOpts) {
   let poly2D = pa.poly2D;
 
   // 🚀 ACOPLAMIENTO AL PLANO DE TRABAJO (CAD P1->P2)
-  const planeIdx = (typeof opts.planeIdx === "number" && opts.planeIdx >= 0)
-    ? opts.planeIdx
-    : ((typeof WP !== "undefined" && WP && typeof WP.activePlaneIdx === "number") ? WP.activePlaneIdx : -1);
+  let planeIdx = (typeof opts.planeIdx === "number" && opts.planeIdx >= 0) ? opts.planeIdx : -1;
+  if (planeIdx === -1 && typeof WP !== "undefined" && Array.isArray(WP.polylines)) {
+    const found = WP.polylines.find(p => p === opts || (p && opts && p.id && p.id === opts.id));
+    if (found && typeof found.planeIdx === "number" && found.planeIdx >= 0) {
+      planeIdx = found.planeIdx;
+    }
+  }
+  if (planeIdx === -1 && typeof WP !== "undefined" && typeof WP.activePlaneIdx === "number") {
+    planeIdx = WP.activePlaneIdx;
+  }
   const wpPlane = (typeof WP !== "undefined" && WP && Array.isArray(WP.planes) && planeIdx >= 0 && WP.planes[planeIdx])
     ? WP.planes[planeIdx]
     : null;

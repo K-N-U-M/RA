@@ -1680,21 +1680,21 @@ function wpSelectActivePlane(idx, shouldFly) {
 
     // 1. Sincronizar automáticamente la polilínea/faldón activo al primer faldón perteneciente a este plano
     if (Array.isArray(WP.polylines) && WP.polylines.length > 0) {
-      let matchPolyIdx = WP.polylines.findIndex(p => p && p.planeIdx === idx);
-      // Fallback: si no tiene planeIdx asignado explícitamente, vincular la primera polilínea disponible
-      if (matchPolyIdx === -1 && WP.polylines[idx]) {
-        WP.polylines[idx].planeIdx = idx;
-        matchPolyIdx = idx;
-      } else if (matchPolyIdx === -1 && WP.polylines[0]) {
-        matchPolyIdx = 0;
-      }
+      const matchPolyIdx = WP.polylines.findIndex(p => p && p.planeIdx === idx);
       if (matchPolyIdx !== -1) {
         WP.selectedPolyIdx = matchPolyIdx;
         const selP = WP.polylines[matchPolyIdx];
         if (selP && selP.points) {
           polygonPoints = selP.points.map(pt => Cesium.Cartesian3.clone(pt));
         }
+      } else {
+        // Aislamiento estricto: este plano no tiene polilíneas creadas aún
+        WP.selectedPolyIdx = -1;
+        polygonPoints = [];
       }
+    } else {
+      WP.selectedPolyIdx = -1;
+      polygonPoints = [];
     }
 
     // 2. Renderizar gizmo del plano activo y huellas de planos inactivos
@@ -2949,7 +2949,10 @@ function wpSelectPolyline(polyIdx) {
 
   const poly = WP.polylines[WP.selectedPolyIdx];
   if (poly && typeof poly.planeIdx === "number") {
-    WP.activePlaneIdx = poly.planeIdx;
+    if (WP.activePlaneIdx !== poly.planeIdx) {
+      WP.activePlaneIdx = poly.planeIdx;
+      if (typeof wpRenderActivePlaneGizmo === 'function') wpRenderActivePlaneGizmo();
+    }
   }
   if (poly) {
     polygonPoints = poly.points.map(p => Cesium.Cartesian3.clone(p));
@@ -3164,12 +3167,19 @@ function wpDeleteSelectedPolyline() {
     window.RAundo.snapPolylines('Eliminar ' + name);
   }
   WP.polylines.splice(WP.selectedPolyIdx, 1);
-  WP.selectedPolyIdx = WP.polylines.length > 0 ? WP.polylines.length - 1 : -1;
   WP.selectedVtxIdx = -1;
 
-  polygonPoints = (WP.selectedPolyIdx >= 0 && WP.polylines[WP.selectedPolyIdx])
-    ? WP.polylines[WP.selectedPolyIdx].points.map(p => Cesium.Cartesian3.clone(p))
-    : [];
+  // Buscar si queda alguna polilínea en el plano activo
+  const nextMatchIdx = WP.polylines.findIndex(p => p && p.planeIdx === WP.activePlaneIdx);
+  if (nextMatchIdx !== -1) {
+    WP.selectedPolyIdx = nextMatchIdx;
+    polygonPoints = (WP.polylines[nextMatchIdx] && WP.polylines[nextMatchIdx].points)
+      ? WP.polylines[nextMatchIdx].points.map(p => Cesium.Cartesian3.clone(p))
+      : [];
+  } else {
+    WP.selectedPolyIdx = -1;
+    polygonPoints = [];
+  }
 
   if (typeof roofPanelsCache !== 'undefined' && roofPanelsCache) {
     roofPanelsCache.sig = "";
@@ -3981,12 +3991,18 @@ function wpUpdateStep3UI() {
   // ── Sincronizar dropdown selector de faldón ──
   const dropdown = document.getElementById('faldon-selector-dropdown');
   if (dropdown) {
-    dropdown.innerHTML = polys.map((poly, idx) => {
+    const unselectedOpt = (WP.selectedPolyIdx === -1)
+      ? '<option value="-1" disabled selected>— Sin faldón en plano activo —</option>'
+      : '';
+    dropdown.innerHTML = unselectedOpt + polys.map((poly, idx) => {
       const pName = poly.name || ('Faldón #' + (idx + 1));
+      const planeTag = (typeof poly.planeIdx === 'number' && WP.planes && WP.planes[poly.planeIdx])
+        ? ' [' + (WP.planes[poly.planeIdx].name || ('Plano #' + (poly.planeIdx + 1))) + ']'
+        : '';
       const pArea = (typeof poly.area === 'number') ? poly.area : 0;
       const modCount = (poly.roofInfo && poly.roofInfo.panels) ? poly.roofInfo.panels.length : 0;
       return '<option value="' + idx + '"' + (idx === WP.selectedPolyIdx ? ' selected' : '') + '>' +
-        pName + ' (' + modCount + ' mods · ' + pArea.toFixed(1) + ' m²)</option>';
+        pName + planeTag + ' (' + modCount + ' mods · ' + pArea.toFixed(1) + ' m²)</option>';
     }).join('');
   }
   const countBadge = document.getElementById('faldon-count-badge');
@@ -4010,16 +4026,31 @@ function wpPopulateFaldonCard() {
   if (polys.length === 0) {
     if (selectorCtr) selectorCtr.style.display = 'none';
     if (card) card.style.display = 'none';
-    if (emptyState) emptyState.style.display = 'block';
+    if (emptyState) {
+      emptyState.style.display = 'block';
+      emptyState.innerHTML = 'No hay faldones cerrados todavía. Traza una polilínea y ciérrala para crear un faldón.';
+    }
     return;
   }
   if (selectorCtr) selectorCtr.style.display = 'block';
-  if (emptyState) emptyState.style.display = 'none';
 
-  // Asegurar selección válida
+  // Asegurar selección válida preferente en el plano activo
   if (WP.selectedPolyIdx < 0 || WP.selectedPolyIdx >= polys.length) {
-    WP.selectedPolyIdx = 0;
+    var matchPlanePoly = polys.findIndex(p => p && p.planeIdx === WP.activePlaneIdx);
+    if (matchPlanePoly !== -1) {
+      WP.selectedPolyIdx = matchPlanePoly;
+    } else {
+      // El plano activo no tiene faldones: mostrar estado vacío sin forzar selección sobre otro plano
+      if (card) card.style.display = 'none';
+      if (emptyState) {
+        emptyState.style.display = 'block';
+        emptyState.innerHTML = '<i data-lucide="layers" class="icon-sm"></i> Este plano de trabajo no tiene faldones trazados.<br>Dibuja una polilínea en el Paso 1 para colocar paneles en este plano.';
+        if (window.lucide) lucide.createIcons();
+      }
+      return;
+    }
   }
+  if (emptyState) emptyState.style.display = 'none';
   var poly = polys[WP.selectedPolyIdx];
   if (!poly) { if (card) card.style.display = 'none'; return; }
   if (card) card.style.display = 'block';
@@ -4256,7 +4287,10 @@ function wpSelectFaldon(idx) {
 
   var poly = WP.polylines[idx];
   if (poly && typeof poly.planeIdx === 'number') {
-    WP.activePlaneIdx = poly.planeIdx;
+    if (WP.activePlaneIdx !== poly.planeIdx) {
+      WP.activePlaneIdx = poly.planeIdx;
+      if (typeof wpRenderActivePlaneGizmo === 'function') wpRenderActivePlaneGizmo();
+    }
   }
   if (poly) {
     polygonPoints = poly.points.map(function(p) { return Cesium.Cartesian3.clone(p); });
@@ -5458,13 +5492,19 @@ function wpUpdateUI() {
   const vtxTable = document.getElementById('wp-vertices-list-table');
 
   if (polyDropdownContainer && polyDropdown) {
-    const optionsHtml = WP.polylines.map((poly, idx) => {
+    const unselectedOptP1 = (WP.selectedPolyIdx === -1)
+      ? '<option value="-1" disabled selected>— Sin faldón en plano activo —</option>'
+      : '';
+    const optionsHtml = unselectedOptP1 + WP.polylines.map((poly, idx) => {
       const pName = poly.name || ('Faldon #' + (idx + 1));
+      const planeTag = (typeof poly.planeIdx === 'number' && WP.planes && WP.planes[poly.planeIdx])
+        ? ' [' + (WP.planes[poly.planeIdx].name || ('Plano #' + (poly.planeIdx + 1))) + ']'
+        : '';
       const pArea = (typeof poly.area === 'number')
         ? poly.area
         : (typeof wpPolylineArea3D === 'function' && poly.points && poly.points.length >= 3 ? (wpPolylineArea3D(poly.points) || 0) : 0);
       return '<option value="' + idx + '"' + (idx === WP.selectedPolyIdx ? ' selected' : '') + '>' +
-        (idx === WP.selectedPolyIdx ? '<i data-lucide=\"star\" class=\"icon-sm\"></i> ' : '') + pName + ' (' + poly.points.length + ' vtx · ' + pArea.toFixed(1) + ' m²)' +
+        (idx === WP.selectedPolyIdx ? '<i data-lucide=\"star\" class=\"icon-sm\"></i> ' : '') + pName + planeTag + ' (' + poly.points.length + ' vtx · ' + pArea.toFixed(1) + ' m²)' +
       '</option>';
     }).join('');
 
@@ -5702,8 +5742,17 @@ function clearActivePolyline() {
       window.RAundo.snapPolylines('Eliminar polilínea');
     }
     WP.polylines.splice(WP.selectedPolyIdx, 1);
-    WP.selectedPolyIdx = WP.polylines.length > 0 ? WP.polylines.length - 1 : 0;
-    polygonPoints = WP.polylines.length > 0 ? WP.polylines[WP.selectedPolyIdx].points.map(p => Cesium.Cartesian3.clone(p)) : [];
+    WP.selectedVtxIdx = -1;
+    const nextMatchIdx = WP.polylines.findIndex(p => p && p.planeIdx === WP.activePlaneIdx);
+    if (nextMatchIdx !== -1) {
+      WP.selectedPolyIdx = nextMatchIdx;
+      polygonPoints = (WP.polylines[nextMatchIdx] && WP.polylines[nextMatchIdx].points)
+        ? WP.polylines[nextMatchIdx].points.map(p => Cesium.Cartesian3.clone(p))
+        : [];
+    } else {
+      WP.selectedPolyIdx = -1;
+      polygonPoints = [];
+    }
     wpRenderAllPolylines();
     wpUpdateUI();
     updateAllVisuals();
