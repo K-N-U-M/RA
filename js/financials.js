@@ -1695,13 +1695,25 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   const _cCab = Math.round(m.cabCost * _mFactor);
   const _cMo  = Math.round(m.moCost * _mFactor);
   const _cLeg = Math.max(0, Math.round(m.subtotal) - (_cPan + _cEst + _cInv + _cBat + _cCab + _cMo));
+  // Recuperación resiliente de fotos personalizadas persistidas (por proyecto o sesión)
+  const _propPhotos = (function() {
+    try {
+      const mem = (typeof window !== 'undefined' && window.RA && window.RA._proposalCustomPhotos) ? window.RA._proposalCustomPhotos : null;
+      if (mem) return mem;
+      const ss = (typeof sessionStorage !== 'undefined') ? JSON.parse(sessionStorage.getItem('ra_proposal_custom_photos') || '{}') : {};
+      return ss || {};
+    } catch (e) { return {}; }
+  })();
+
   // Captura automática de snapshot 3D Cesium WebGL
-  let _viewerSnapshot = null;
+  let _viewerSnapshot = _propPhotos.hero || null;
   try {
     const v = (typeof window !== 'undefined' && window.viewer) ? window.viewer : null;
     if (v && v.scene && v.scene.canvas) {
       v.scene.render();
-      _viewerSnapshot = v.scene.canvas.toDataURL('image/jpeg', 0.92);
+      if (!_propPhotos.hero) {
+        _viewerSnapshot = v.scene.canvas.toDataURL('image/jpeg', 0.92);
+      }
     }
   } catch (e) {
     if (window.RA && window.RA.log) window.RA.log.warn('[PropuestaComercial] Error capturando snapshot 3D:', e);
@@ -2324,12 +2336,17 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
           <div class="photo-card-sub">
             <div class="photo-img-wrap" onclick="triggerPhotoUpload('photo-sub1-input')">
               <input type="file" id="photo-sub1-input" accept="image/*" style="display:none;" onchange="handlePhotoUpload(this, 'photo-sub1-img', 'photo-sub1-placeholder')">
-              <img id="photo-sub1-img" style="display:none;" alt="Detalle del tejado">
-              <div id="photo-sub1-placeholder" class="photo-empty-placeholder">
-                <span style="font-size:24px;">🏡</span>
-                <span style="font-size:10.5px;font-weight:700;">Foto real del tejado / fachada</span>
-                <span style="font-size:8.5px;">Haz clic para subir desde el disco local</span>
-              </div>
+              ${_propPhotos.sub1 ? `
+                <img id="photo-sub1-img" src="${_propPhotos.sub1}" alt="Detalle del tejado" style="display:block;">
+                <div id="photo-sub1-placeholder" style="display:none;"></div>
+              ` : `
+                <img id="photo-sub1-img" style="display:none;" alt="Detalle del tejado">
+                <div id="photo-sub1-placeholder" class="photo-empty-placeholder">
+                  <span style="font-size:24px;">🏡</span>
+                  <span style="font-size:10.5px;font-weight:700;">Foto real del tejado / fachada</span>
+                  <span style="font-size:8.5px;">Haz clic para subir desde el disco local</span>
+                </div>
+              `}
               <div class="photo-upload-overlay">📸 Cargar foto</div>
             </div>
             <div class="photo-caption-bar">
@@ -2344,12 +2361,17 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
           <div class="photo-card-sub">
             <div class="photo-img-wrap" onclick="triggerPhotoUpload('photo-sub2-input')">
               <input type="file" id="photo-sub2-input" accept="image/*" style="display:none;" onchange="handlePhotoUpload(this, 'photo-sub2-img', 'photo-sub2-placeholder')">
-              <img id="photo-sub2-img" style="display:none;" alt="Ubicación Inversor">
-              <div id="photo-sub2-placeholder" class="photo-empty-placeholder">
-                <span style="font-size:24px;">⚡</span>
-                <span style="font-size:10.5px;font-weight:700;">Ubicación de Inversor / Cuadro AC</span>
-                <span style="font-size:8.5px;">Haz clic para subir foto del cuadro eléctrico</span>
-              </div>
+              ${_propPhotos.sub2 ? `
+                <img id="photo-sub2-img" src="${_propPhotos.sub2}" alt="Ubicación Inversor" style="display:block;">
+                <div id="photo-sub2-placeholder" style="display:none;"></div>
+              ` : `
+                <img id="photo-sub2-img" style="display:none;" alt="Ubicación Inversor">
+                <div id="photo-sub2-placeholder" class="photo-empty-placeholder">
+                  <span style="font-size:24px;">⚡</span>
+                  <span style="font-size:10.5px;font-weight:700;">Ubicación de Inversor / Cuadro AC</span>
+                  <span style="font-size:8.5px;">Haz clic para subir foto del cuadro eléctrico</span>
+                </div>
+              `}
               <div class="photo-upload-overlay">📸 Cargar foto</div>
             </div>
             <div class="photo-caption-bar">
@@ -2757,6 +2779,25 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
             }
             if (placeholder) {
               placeholder.style.display = 'none';
+            }
+
+            // ── Persistencia para sobrevivir a cambios de paleta de color ──
+            try {
+              let photoKey = 'hero';
+              if (imgId.indexOf('sub1') !== -1) photoKey = 'sub1';
+              else if (imgId.indexOf('sub2') !== -1) photoKey = 'sub2';
+
+              // Persistir en memoria de ventana padre (opener)
+              if (window.opener && window.opener.RA) {
+                window.opener.RA._proposalCustomPhotos = window.opener.RA._proposalCustomPhotos || {};
+                window.opener.RA._proposalCustomPhotos[photoKey] = optimizedData;
+              }
+              // Persistir en sessionStorage
+              const currentPhotos = JSON.parse(sessionStorage.getItem('ra_proposal_custom_photos') || '{}');
+              currentPhotos[photoKey] = optimizedData;
+              sessionStorage.setItem('ra_proposal_custom_photos', JSON.stringify(currentPhotos));
+            } catch (errPersist) {
+              console.warn('[handlePhotoUpload] No se pudo persistir foto:', errPersist);
             }
           };
           img.src = e.target.result;
