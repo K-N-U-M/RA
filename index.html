@@ -1868,6 +1868,16 @@ window.RA_App = window.RA_App || {};
                 <div id="step3-inverter-live-summary" style="margin-top:4px;font-size:10px;color:#94a3b8;display:flex;justify-content:space-between;align-items:center;"></div>
               </div>
 
+              <!-- Selector de Optimizadores DC/DC (Visible en topología Optimizadores) -->
+              <div id="step3-row-optimizer" style="display:none;background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.25);border-radius:6px;padding:7px;margin-bottom:8px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                  <span style="font-size: 10px;font-weight:700;color:#FBBF24;"><i data-lucide="settings" class="icon-sm"></i> Optimizadores DC/DC (MLPE):</span>
+                  <button type="button" class="doc-mini-btn" onclick="step3EditCurrentEquipment('microinverters')" style="font-size: 10px;padding:2px 6px;color:#FBBF24;"><i data-lucide="edit-2" class="icon-sm"></i> Ficha</button>
+                </div>
+                <select id="step3-sel-optimizer" class="field-input" onchange="step3UpdateHardwareSelection()" style="width:100%;font-size:10px;font-weight:700;"></select>
+                <div id="step3-optimizer-live-summary" style="margin-top:4px;font-size:10px;color:#94a3b8;display:flex;justify-content:space-between;align-items:center;"></div>
+              </div>
+
               <!-- Selector de Microinversor (para topología Microinversores) -->
               <div id="step3-row-microinverter" style="display:none;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.06);border-radius:6px;padding:7px;margin-bottom:8px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
@@ -1881,13 +1891,26 @@ window.RA_App = window.RA_App || {};
               </div>
 
               <!-- Selector de Batería / Almacenamiento -->
-              <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.06);border-radius:6px;padding:7px;">
+              <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.06);border-radius:6px;padding:7px;margin-bottom:8px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
                   <span style="font-size: 10px;font-weight:700;color:var(--emerald-400);"><i data-lucide="battery-charging" class="icon-sm"></i> Batería / Acumulación LFP:</span>
                   <button type="button" class="doc-mini-btn" onclick="step3EditCurrentEquipment('batteries')" style="font-size: 10px;padding:2px 6px;color:var(--emerald-400);"><i data-lucide="edit-2" class="icon-sm"></i> Ficha</button>
                 </div>
                 <select id="step3-sel-battery" class="field-input" onchange="step3UpdateHardwareSelection()" style="width:100%;font-size:10px;font-weight:700;"></select>
                 <div id="step3-battery-live-summary" style="margin-top:4px;font-size:10px;color:#94a3b8;display:flex;justify-content:space-between;align-items:center;"></div>
+              </div>
+
+              <!-- RACK / LISTADO DE ELECTRÓNICA ACTIVA DEL PROYECTO -->
+              <div id="step3-electronics-rack-card" style="background:rgba(15,23,42,0.9);border:1px solid rgba(56,189,248,0.25);border-radius:6px;padding:8px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:4px;">
+                  <span style="font-size:10px;font-weight:800;color:#38BDF8;display:flex;align-items:center;gap:4px;">
+                    <i data-lucide="server" class="icon-sm"></i> RACK DE ELECTRÓNICA & MLPE ACTIVO
+                  </span>
+                  <span id="step3-rack-count-badge" class="card-tag" style="background:rgba(56,189,248,0.15);color:#38BDF8;font-size:9.5px;">1 Disp.</span>
+                </div>
+                <div id="step3-electronics-rack-list" style="display:flex;flex-direction:column;gap:5px;">
+                  <!-- Render dinámico de equipos con estado, asignación y potencia -->
+                </div>
               </div>
             </div>
 

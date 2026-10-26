@@ -70,7 +70,22 @@ function populateStep3EquipmentSelectors() {
     if (curVal) invSel.value = curVal;
   }
 
-  // 3. Microinversores
+  // 3. Optimizadores DC/DC (MLPE)
+  const optSel = document.getElementById('step3-sel-optimizer');
+  if (optSel && Array.isArray(catalog.microinverters)) {
+    const optimizersList = catalog.microinverters.filter(m => (m.type && m.type.includes('Optimizador')) || (m.model && m.model.toLowerCase().includes('optimi')));
+    const curOptVal = cfg.selectedOptimizerId || (optimizersList[0] ? optimizersList[0].id : (catalog.microinverters[0] ? catalog.microinverters[0].id : ''));
+    const sourceList = optimizersList.length > 0 ? optimizersList : catalog.microinverters;
+    optSel.innerHTML = sourceList.map(opt => {
+      const isSel = (opt.id === curOptVal);
+      return '<option value="' + opt.id + '"' + (isSel ? ' selected' : '') + '>' +
+        opt.brand + ' · ' + opt.model + ' (' + (opt.type || 'Optimizador DC') + ' · ' + (opt.price || 65) + ' €)' +
+      '</option>';
+    }).join('');
+    if (curOptVal) optSel.value = curOptVal;
+  }
+
+  // 3.1 Microinversores
   const miSel = document.getElementById('step3-sel-microinverter');
   if (miSel && Array.isArray(catalog.microinverters)) {
     const curVal = cfg.selectedMicroinverterId || (catalog.microinverters[0] ? catalog.microinverters[0].id : '');
@@ -126,16 +141,25 @@ function step3SetTopology(topo) {
 
   const rowInv = document.getElementById('step3-row-inverter');
   const rowMi = document.getElementById('step3-row-microinverter');
+  const rowOpt = document.getElementById('step3-row-optimizer');
   const ctrlInv = document.getElementById('step3-ctrl-inverters');
   const ctrlMi = document.getElementById('step3-ctrl-microinverters');
 
   if (topo === 'microinverter') {
     if (rowInv) rowInv.style.display = 'none';
+    if (rowOpt) rowOpt.style.display = 'none';
     if (rowMi) rowMi.style.display = 'block';
     if (ctrlInv) ctrlInv.style.display = 'none';
     if (ctrlMi) ctrlMi.style.display = 'block';
+  } else if (topo === 'optimizer') {
+    if (rowInv) rowInv.style.display = 'block';
+    if (rowOpt) rowOpt.style.display = 'block';
+    if (rowMi) rowMi.style.display = 'none';
+    if (ctrlInv) ctrlInv.style.display = 'block';
+    if (ctrlMi) ctrlMi.style.display = 'none';
   } else {
     if (rowInv) rowInv.style.display = 'block';
+    if (rowOpt) rowOpt.style.display = 'none';
     if (rowMi) rowMi.style.display = 'none';
     if (ctrlInv) ctrlInv.style.display = 'block';
     if (ctrlMi) ctrlMi.style.display = 'none';
@@ -287,6 +311,11 @@ function step3UpdateHardwareSelection() {
         panelConfig.imp = m.imp || 13.05;
       }
     }
+  }
+
+  const optSel = document.getElementById('step3-sel-optimizer');
+  if (optSel && optSel.value) {
+    window.solarProjectConfig.selectedOptimizerId = optSel.value;
   }
 
   const prevMicroId = (window.solarProjectConfig && window.solarProjectConfig.selectedMicroinverterId) ? window.solarProjectConfig.selectedMicroinverterId : null;
@@ -946,6 +975,22 @@ function step3RenderAutoSizingUI(count, totalKwp, mod, inv, mi, bat, maxKwInput,
       totCost += batCount * (bat.price || 2400);
     }
     costEl.textContent = Math.round(totCost).toLocaleString('es-ES') + ' €';
+  }
+
+  // Actualizar resumen en vivo de Optimizadores
+  const optSummaryEl = document.getElementById('step3-optimizer-live-summary');
+  if (optSummaryEl) {
+    if (topo === 'optimizer') {
+      const optCostTot = count * 65;
+      optSummaryEl.innerHTML = '<span style="color:#FBBF24;font-weight:700;">' + count + 'x Optimizadores (1 por panel)</span><span style="color:#94a3b8;">' + optCostTot.toLocaleString('es-ES') + ' € · Mitigación total sombras</span>';
+    } else {
+      optSummaryEl.innerHTML = '';
+    }
+  }
+
+  // Renderizar Rack de Electrónica & MLPE Activo
+  if (typeof wpRenderElectronicsRackUI === 'function') {
+    wpRenderElectronicsRackUI();
   }
 
   if (typeof window !== 'undefined' && window.lucide && typeof window.lucide.createIcons === 'function') {
@@ -1692,3 +1737,146 @@ window.wpRenderAutoEngineeringBanner = wpRenderAutoEngineeringBanner;
 window.wpRefreshAutoEngineeringBanner = wpRefreshAutoEngineeringBanner;
 window.wpSaveVirtualInverterToCatalog = wpSaveVirtualInverterToCatalog;
 window.wpAddSuggestedCommercialModelToCatalog = wpAddSuggestedCommercialModelToCatalog;
+
+
+/**
+ * Renderiza en la sidebar izquierda la lista/rack de todos los equipos de electrónica activos,
+ * detallando modelos, cantidades, potencia AC, faldones asignados y estado de operación.
+ */
+function wpRenderElectronicsRackUI() {
+  const rackContainer = document.getElementById('step3-electronics-rack-list');
+  const countBadge = document.getElementById('step3-rack-count-badge');
+  if (!rackContainer) return;
+
+  const cfg = window.solarProjectConfig || {};
+  const topo = cfg.selectedTopology || 'inverter';
+  const catalog = (typeof window !== 'undefined' && window.equipmentCatalog) ? window.equipmentCatalog : ((typeof equipmentCatalog !== 'undefined') ? equipmentCatalog : null);
+  if (!catalog) return;
+
+  const items = [];
+
+  // Inversores de Red
+  if (topo !== 'microinverter') {
+    const invCount = (cfg.autoSizing && cfg.autoSizing.inverters && cfg.autoSizing.inverters.count) || 1;
+    const invId = cfg.selectedInverterId || (catalog.inverters && catalog.inverters[0] ? catalog.inverters[0].id : null);
+    const invSpec = (catalog.inverters && catalog.inverters.find(i => i.id === invId))
+      || (cfg.lastVirtualInverter && cfg.lastVirtualInverter.id === invId ? cfg.lastVirtualInverter : null)
+      || (catalog.inverters ? catalog.inverters[0] : { brand: 'Inversor', model: 'String', kw: 10 });
+    
+    // Identificar faldones
+    let roofDesc = 'Todos los faldones';
+    if (typeof WP !== 'undefined' && Array.isArray(WP.polylines) && WP.polylines.length > 0) {
+      const validRoofs = WP.polylines.filter(p => p && p.points && p.points.length >= 3);
+      if (validRoofs.length > 1) {
+        roofDesc = validRoofs.length + ' Faldones (' + (validRoofs.map((r, i) => 'F' + (i+1)).join(', ')) + ')';
+      } else if (validRoofs.length === 1) {
+        roofDesc = 'Faldón 1 (' + (validRoofs[0].name || 'Cubierta') + ')';
+      }
+    }
+
+    items.push({
+      type: 'inverter',
+      icon: 'zap',
+      badge: (invCount > 1 ? invCount + 'x INVERSORES' : '1x INVERSOR STRING'),
+      title: (invSpec.brand || 'Tier-1') + ' ' + (invSpec.model || 'Inversor'),
+      specs: (invCount * (invSpec.kw || 10.0)).toFixed(1) + ' kW AC total · ' + ((invSpec.mppt || 2) * invCount) + ' MPPTs · ' + (invSpec.type || 'Trifásico/Monofásico'),
+      tag: roofDesc,
+      tagColor: '#38BDF8',
+      price: invCount * (invSpec.price || 1200)
+    });
+  }
+
+  // Optimizadores DC/DC
+  if (topo === 'optimizer') {
+    const panelsTotal = (cfg.autoSizing && cfg.autoSizing.inverters && cfg.autoSizing.inverters.panelsTotal)
+      || (Array.isArray(window.allRenderedPanels) ? window.allRenderedPanels.filter(p => p && !p.deleted).length : 18);
+    const optId = cfg.selectedOptimizerId || 'mlpe_solaredge_s500';
+    const optSpec = (catalog.microinverters && catalog.microinverters.find(m => m.id === optId))
+      || { brand: 'Tigo / SolarEdge', model: 'Optimizador DC 500W', price: 65 };
+    
+    items.push({
+      type: 'optimizer',
+      icon: 'settings',
+      badge: panelsTotal + 'x OPTIMIZADORES',
+      title: (optSpec.brand || 'MLPE') + ' ' + (optSpec.model || 'Optimizador DC'),
+      specs: 'Electrónica DC/DC individual módulo a módulo · 1V SafeDC por módulo',
+      tag: '1 por módulo solar (' + panelsTotal + ' uds)',
+      tagColor: '#F59E0B',
+      price: panelsTotal * (optSpec.price || 65)
+    });
+  }
+
+  // Microinversores
+  if (topo === 'microinverter') {
+    const miCount = (cfg.autoSizing && cfg.autoSizing.microinverters && cfg.autoSizing.microinverters.count) || 1;
+    const miId = cfg.selectedMicroinverterId || (catalog.microinverters && catalog.microinverters[0] ? catalog.microinverters[0].id : null);
+    const miSpec = (catalog.microinverters && catalog.microinverters.find(m => m.id === miId))
+      || (catalog.microinverters ? catalog.microinverters[0] : { brand: 'Enphase / Hoymiles', model: 'Microinversor', kw: 0.8 });
+    
+    items.push({
+      type: 'microinverter',
+      icon: 'cpu',
+      badge: miCount + 'x MICROINVERSORES',
+      title: (miSpec.brand || 'MLPE') + ' ' + (miSpec.model || 'Microinversor'),
+      specs: (miCount * (miSpec.kw || 0.8)).toFixed(1) + ' kW AC total · Conversión directa en tejado',
+      tag: 'Seguimiento MPPT distribuido',
+      tagColor: '#10B981',
+      price: miCount * (miSpec.price || 175)
+    });
+  }
+
+  // Baterías / Acumulación
+  const batCount = (cfg.autoSizing && cfg.autoSizing.batteries && cfg.autoSizing.batteries.count) || 0;
+  const batId = cfg.selectedBatteryId;
+  if (batId && batId !== 'bat_none' && batCount > 0) {
+    const batSpec = catalog.batteries && catalog.batteries.find(b => b.id === batId);
+    if (batSpec && batSpec.kwh > 0) {
+      items.push({
+        type: 'battery',
+        icon: 'battery-charging',
+        badge: batCount + 'x MÓDULOS BATERÍA',
+        title: (batSpec.brand || 'Batería') + ' ' + (batSpec.model || 'LFP'),
+        specs: (batCount * batSpec.kwh).toFixed(1) + ' kWh acumulación útil · ' + (batSpec.type || 'LFP'),
+        tag: 'Acoplada en DC / Bus Híbrido',
+        tagColor: '#34D399',
+        price: batCount * (batSpec.price || 2400)
+      });
+    }
+  }
+
+  if (countBadge) {
+    countBadge.textContent = items.length + ' ' + (items.length === 1 ? 'Dispositivo' : 'Dispositivos');
+  }
+
+  rackContainer.innerHTML = items.map(item => `
+    <div style="background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.08);border-left:3px solid ${item.tagColor};border-radius:4px;padding:6px 8px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+        <span style="font-size:9px;font-weight:900;color:${item.tagColor};letter-spacing:0.4px;">
+          ${item.badge}
+        </span>
+        <span style="font-size:9.5px;font-weight:700;color:#F8FAFC;">
+          ${item.price.toLocaleString('es-ES')} €
+        </span>
+      </div>
+      <div style="font-size:10.5px;font-weight:800;color:#F1F5F9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+        ${item.title}
+      </div>
+      <div style="font-size:9.5px;color:#94A3B8;margin-top:2px;line-height:1.25;">
+        ${item.specs}
+      </div>
+      <div style="margin-top:3px;display:flex;justify-content:space-between;align-items:center;font-size:9px;">
+        <span style="color:#CBD5E1;background:rgba(255,255,255,0.06);padding:1px 4px;border-radius:3px;">
+          📍 ${item.tag}
+        </span>
+        <span style="color:#10B981;font-weight:700;">
+          ✓ En servicio
+        </span>
+      </div>
+    </div>
+  `).join('');
+
+  if (typeof window !== 'undefined' && window.lucide && typeof window.lucide.createIcons === 'function') {
+    window.lucide.createIcons();
+  }
+}
+window.wpRenderElectronicsRackUI = wpRenderElectronicsRackUI;
