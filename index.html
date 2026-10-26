@@ -16096,7 +16096,7 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
     try {
       const railMat = Cesium.Material.fromType('Color', { color: Cesium.Color.fromCssColorString('#CBD5E1') });
       const balastoMat = Cesium.Material.fromType('Color', { color: Cesium.Color.fromCssColorString('#475569') });
-      const pergolaMat = Cesium.Material.fromType('Color', { color: Cesium.Color.fromCssColorString('#E2E8F0') });
+      const pergolaMat = balastoMat;
 
       WP.polylines.forEach((poly, polyIdx) => {
         if (poly && poly.panelsVisible === false) return;
@@ -16395,7 +16395,7 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
               const pergolaPillarsPrim = new Cesium.Primitive({
                 geometryInstances: cylInstances,
                 appearance: new Cesium.MaterialAppearance({
-                  material: Cesium.Material.fromType('Color', { color: Cesium.Color.fromCssColorString('#CBD5E1') }),
+                  material: Cesium.Material.fromType('Color', { color: Cesium.Color.fromCssColorString('#475569') }),
                   flat: false,
                   translucent: false
                 }),
