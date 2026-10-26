@@ -7000,18 +7000,39 @@ window.selectPanelRow = function(panelIdx) {
 };
 
 window.selectAllPanelsInPolyline = function(polyIdx) {
+  if (polyIdx === undefined || polyIdx === null) {
+    polyIdx = (typeof WP !== 'undefined' && WP && typeof WP.selectedPolyIdx === 'number' && WP.selectedPolyIdx >= 0) ? WP.selectedPolyIdx : 0;
+  }
   if (typeof polyIdx === 'number' && typeof WP !== 'undefined' && WP && WP.polylines && WP.polylines[polyIdx]) {
     if (WP.polylines[polyIdx].panelsVisible === false) {
       if (typeof showToast === 'function') showToast('PLACAS FV OCULTAS', 'Haz visibles las placas de este faldón para poder seleccionarlas.', 'warning', 2500);
       return;
     }
   }
-  const panelsArray = window.allRenderedPanels;
+  const panelsArray = (Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0)
+    ? window.allRenderedPanels
+    : ((typeof lastRoofInfo !== 'undefined' && lastRoofInfo && Array.isArray(lastRoofInfo.panels)) ? lastRoofInfo.panels : []);
   if (!Array.isArray(panelsArray) || panelsArray.length === 0) return;
+
+  const getPIdx = (p) => {
+    if (!p) return 0;
+    if (typeof p.polyIdx === 'number') return p.polyIdx;
+    if (typeof p.faldonIndex === 'number') return p.faldonIndex;
+    if (p.rawPanel && typeof p.rawPanel.polyIdx === 'number') return p.rawPanel.polyIdx;
+    if (typeof p.panelId === 'string' && p.panelId.startsWith('pan_')) {
+      const parts = p.panelId.split('_');
+      const num = parseInt(parts[1], 10);
+      if (!isNaN(num)) return num;
+    }
+    return 0;
+  };
+
   const matched = [];
   panelsArray.forEach((p, i) => {
-    if (p && !p.deleted && (polyIdx === undefined || polyIdx === null || p.polyIdx === polyIdx)) {
-      if (typeof p.polyIdx === 'number' && typeof WP !== 'undefined' && WP && WP.polylines && WP.polylines[p.polyIdx] && WP.polylines[p.polyIdx].panelsVisible === false) return;
+    if (!p || p.deleted) return;
+    const itemPolyIdx = getPIdx(p);
+    if (polyIdx === undefined || polyIdx === null || itemPolyIdx === polyIdx) {
+      if (typeof WP !== 'undefined' && WP && WP.polylines && WP.polylines[itemPolyIdx] && WP.polylines[itemPolyIdx].panelsVisible === false) return;
       matched.push(i);
     }
   });
@@ -18282,26 +18303,40 @@ window.toggleSolarHUD = toggleSolarHUD;
       return;
     }
 
-    // ── Doble clic sobre panel FV: seleccionar fila completa o faldón completo (con Shift)
+    // ── Doble clic sobre panel FV: Opción 1 - Seleccionar TODAS las placas del faldón y activar modo de desplazamiento
     if (doubleClick && doubleClick.position) {
       const dblPanelIdx = (typeof pickPanelUnderCursor === 'function')
         ? pickPanelUnderCursor(doubleClick.position)
         : -1;
       if (dblPanelIdx >= 0) {
-        const isShift = !!(window._raIsShiftDown || (typeof window.event !== 'undefined' && window.event && window.event.shiftKey));
-        const targetP = (window.allRenderedPanels && window.allRenderedPanels[dblPanelIdx]);
-        // Opción 1: Doble clic en cualquier panel selecciona todas las placas de su faldón y sincroniza el faldón activo
-        if (targetP && typeof targetP.polyIdx === 'number' && typeof window.selectAllPanelsInPolyline === 'function') {
-          if (typeof WP !== 'undefined' && WP.selectedPolyIdx !== targetP.polyIdx && typeof wpSelectFaldon === 'function') {
-            wpSelectFaldon(targetP.polyIdx);
+        const panelsList = (Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0)
+          ? window.allRenderedPanels
+          : ((typeof lastRoofInfo !== 'undefined' && lastRoofInfo && Array.isArray(lastRoofInfo.panels)) ? lastRoofInfo.panels : null);
+        const targetP = panelsList ? panelsList[dblPanelIdx] : null;
+
+        let targetPolyIdx = -1;
+        if (targetP) {
+          if (typeof targetP.polyIdx === 'number') targetPolyIdx = targetP.polyIdx;
+          else if (typeof targetP.faldonIndex === 'number') targetPolyIdx = targetP.faldonIndex;
+          else if (targetP.rawPanel && typeof targetP.rawPanel.polyIdx === 'number') targetPolyIdx = targetP.rawPanel.polyIdx;
+          else if (typeof targetP.panelId === 'string' && targetP.panelId.startsWith('pan_')) {
+            const num = parseInt(targetP.panelId.split('_')[1], 10);
+            if (!isNaN(num)) targetPolyIdx = num;
           }
-          if (isShift && typeof window.selectPanelRow === 'function') {
-            window.selectPanelRow(dblPanelIdx);
-          } else {
-            window.selectAllPanelsInPolyline(targetP.polyIdx);
-          }
-        } else if (typeof window.selectPanelRow === 'function') {
-          window.selectPanelRow(dblPanelIdx);
+        }
+        if (targetPolyIdx < 0 && typeof WP !== 'undefined' && WP && typeof WP.selectedPolyIdx === 'number' && WP.selectedPolyIdx >= 0) {
+          targetPolyIdx = WP.selectedPolyIdx;
+        }
+        if (targetPolyIdx < 0) targetPolyIdx = 0;
+
+        // Sincronizar tarjeta de faldón activo si difiere
+        if (typeof WP !== 'undefined' && WP && WP.selectedPolyIdx !== targetPolyIdx && typeof wpSelectFaldon === 'function') {
+          wpSelectFaldon(targetPolyIdx);
+        }
+
+        // Seleccionar masivamente todas las placas del faldón
+        if (typeof window.selectAllPanelsInPolyline === 'function') {
+          window.selectAllPanelsInPolyline(targetPolyIdx);
         }
         return;
       }
