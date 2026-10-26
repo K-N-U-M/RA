@@ -1338,7 +1338,7 @@ if (typeof window !== 'undefined') {
     };
   }
 
-function generatePropuestaComercialPDF(skipPricingModal) {
+function generatePropuestaComercialPDF(skipPricingModal, targetWindowName) {
   const d = getProjectCalcs();
   // Resiliencia AAA: si getProjectCalcs devuelve 0 paneles, intentar recuperar de caché conocida
   let numPanelsFinal = d.numPanels;
@@ -2285,7 +2285,12 @@ function generatePropuestaComercialPDF(skipPricingModal) {
             window.opener.RACompanyBranding.saveCompanyBranding(stored);
           }
         } catch (e) {}
-        location.reload();
+        if (window.opener && typeof window.opener.generatePropuestaComercialPDF === 'function') {
+          window.name = window.name || 'ra_proposal_window_' + Date.now();
+          window.opener.generatePropuestaComercialPDF(true, window.name);
+        } else {
+          alert('Paleta guardada. Vuelve a generar la propuesta para verla con este color.');
+        }
       }
 
       function triggerPhotoUpload(inputId) {
@@ -2358,7 +2363,7 @@ function generatePropuestaComercialPDF(skipPricingModal) {
   </html>
   `;
 
-  const w = window.open('', '_blank');
+  const w = window.open('', targetWindowName || '_blank');
   if (!w) {
     alert('Por favor, activa las ventanas emergentes (popups) para visualizar la propuesta comercial.');
     return;
