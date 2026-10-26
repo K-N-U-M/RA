@@ -55,6 +55,7 @@
           totalPanels: 0,
           totalKwp: 0,
           totalAcKw: 0,
+          totalStorageKwh: 0,
           totalOptimizers: 0,
           totalMicroinverters: 0,
           totalInverters: 0,
@@ -495,6 +496,12 @@
           }
         }
 
+        if (tree.electrical.batteries && tree.electrical.batteries.length > 0) {
+          let sKwh = 0;
+          tree.electrical.batteries.forEach(b => { sKwh += (b.kwhCapacity || 0) * (b.count || 1); });
+          tree.summary.totalStorageKwh = Math.round(sKwh * 10) / 10;
+        }
+
         // ── 5. CUADROS DE PROTECCIÓN DC Y AC ────────────────────────────────────
         const dcPanelId = projectConfig.selectedProtectionDcId || 'panel_dc_2mppt';
         const acPanelId = projectConfig.selectedProtectionAcId || 'panel_ac_tri_25a';
@@ -714,13 +721,19 @@
 
       let invertersHtml = tree.electrical.inverters.length > 0 
         ? tree.electrical.inverters.map(inv => `
-            <div class="bom-subitem bom-interactive-item" onclick="BOMTreeEngine.flyToElectrical('inverter')" style="cursor:pointer;" title="Clic para enfocar y seleccionar inversor en 3D">🔄 ${inv.count}x ${inv.brand} ${inv.model} (${inv.kwNominal} kW) · <b>${inv.totalPriceEur} €</b></div>
+            <div class="bom-subitem bom-interactive-item" onclick="BOMTreeEngine.flyToElectrical('inverter')" style="cursor:pointer;" title="Clic para enfocar y seleccionar inversor en 3D">🔄 ${inv.count}x ${inv.brand} ${inv.model} (${inv.kwNominal} kW${inv.count > 1 ? ' c/u · ' + (inv.kwNominal * inv.count).toFixed(1) + ' kW total' : ''}) · <b>${inv.totalPriceEur.toLocaleString('es-ES')} €</b></div>
           `).join('')
         : (tree.electrical.microinverters && tree.electrical.microinverters.length > 0
             ? tree.electrical.microinverters.map(mi => `
-                <div class="bom-subitem">⚡ ${mi.count}x ${mi.brand} ${mi.model} (${mi.kwNominal} kW) · <b>${mi.totalPriceEur} €</b></div>
+                <div class="bom-subitem">⚡ ${mi.count}x ${mi.brand} ${mi.model} (${mi.kwNominal} kW) · <b>${mi.totalPriceEur.toLocaleString('es-ES')} €</b></div>
               `).join('')
             : '<div class="bom-subitem" style="color:var(--text-muted, #94a3b8); font-style:italic;">Sin inversores asignados</div>');
+
+      let batteriesHtml = (tree.electrical.batteries && tree.electrical.batteries.length > 0)
+        ? tree.electrical.batteries.map(bat => `
+            <div class="bom-subitem bom-interactive-item" onclick="BOMTreeEngine.flyToElectrical('battery')" style="cursor:pointer;" title="Clic para enfocar y seleccionar Batería en 3D">🔋 ${bat.count}x ${bat.brand} ${bat.model} (${(bat.kwhCapacity * bat.count).toFixed(1)} kWh) · <b>${bat.totalPriceEur.toLocaleString('es-ES')} €</b></div>
+          `).join('')
+        : '';
         
       let obstaclesHtml = (tree.obstacles && tree.obstacles.length > 0)
         ? tree.obstacles.map(obs => `
@@ -769,6 +782,7 @@
             <div class="bom-kpi"><span>POTENCIA:</span> <b>${tree.summary.totalKwp} kWp</b></div>
             <div class="bom-kpi"><span>AC NOMINAL:</span> <b>${tree.summary.totalAcKw} kW</b></div>
             <div class="bom-kpi"><span>MÓDULOS:</span> <b>${tree.summary.totalPanels} u.</b></div>
+            ${tree.summary.totalStorageKwh > 0 ? `<div class="bom-kpi" style="border-color:rgba(52,211,153,0.3);background:rgba(52,211,153,0.1);"><span style="color:#34D399;">BATERÍA:</span> <b style="color:#34D399;">${tree.summary.totalStorageKwh} kWh</b></div>` : ''}
           </div>
           
           
@@ -807,6 +821,7 @@
 
             <div class="bom-section-title">ELECTRÓNICA & POTENCIA</div>
             ${invertersHtml}
+            ${batteriesHtml}
             ${tree.electrical.optimizers ? `<div class="bom-subitem">⚡ ${tree.electrical.optimizers.count}x ${tree.electrical.optimizers.model} · <b>${tree.electrical.optimizers.totalCostEur} €</b></div>` : ''}
 
             <div class="bom-section-title">CABLEADO, CUADROS & TIERRAS</div>

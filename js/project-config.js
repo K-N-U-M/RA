@@ -912,6 +912,24 @@ function step3RenderAutoSizingUI(count, totalKwp, mod, inv, mi, bat, maxKwInput,
     }
   }
 
+  // Actualizar resúmenes vivos de inversor y batería en selectores
+  const invSummaryEl = document.getElementById('step3-inverter-live-summary');
+  if (invSummaryEl && inv) {
+    const totAcKw = (invCount * (inv.kw || 10.0)).toFixed(1);
+    const totMppts = (inv.mppt || 2) * invCount;
+    invSummaryEl.innerHTML = '<span style="color:#38BDF8;font-weight:700;">' + invCount + 'x ' + (invCount > 1 ? 'Inversores' : 'Inversor') + '</span><span style="color:#94a3b8;">' + totAcKw + ' kW AC total · ' + totMppts + ' MPPTs</span>';
+  }
+
+  const batSummaryEl = document.getElementById('step3-battery-live-summary');
+  if (batSummaryEl) {
+    if (bat && bat.kwh > 0 && batCount > 0) {
+      const totKwh = (batCount * bat.kwh).toFixed(1);
+      batSummaryEl.innerHTML = '<span style="color:#34D399;font-weight:700;">' + batCount + 'x ' + (batCount > 1 ? 'Módulos' : 'Módulo') + '</span><span style="color:#94a3b8;">' + totKwh + ' kWh total LFP</span>';
+    } else {
+      batSummaryEl.innerHTML = '<span style="color:#94a3b8;">Conexión directa (Sin batería)</span>';
+    }
+  }
+
   // 4. Coste total equipos
   const costEl = document.getElementById('step3-total-hardware-cost');
   if (costEl) {

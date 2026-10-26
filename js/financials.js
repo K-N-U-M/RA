@@ -17,6 +17,8 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 // RESOLUCIÓN DE EQUIPOS DESDE CATÁLOGO (SSOT → Nombres reales)
 // ═══════════════════════════════════════════════════════════════════════════════
+// RESOLUCIÓN DE EQUIPOS DESDE CATÁLOGO (SSOT → Nombres reales)
+// ═══════════════════════════════════════════════════════════════════════════════
 function resolveEquipmentNames() {
   var cat = (typeof equipmentCatalog !== 'undefined' && equipmentCatalog) ? equipmentCatalog : {};
   var cfg = (typeof window !== 'undefined' && window.solarProjectConfig) ? window.solarProjectConfig : {};
@@ -24,11 +26,15 @@ function resolveEquipmentNames() {
     // Inversor
     invName: 'Inversor de Alta Eficiencia (≥98.2%)',
     invBrand: '', invModel: '', invKw: 0, invCount: 1, invMPPTs: 0,
+    totalAcKw: 0, totalMPPTs: 0,
+    invertersBreakdown: { isMulti: false, totalCount: 1, totalAcKw: 0, totalMPPTs: 0, items: [] },
     // Batería
     batName: 'Sin acumulación (Conexión Directa)',
     batBrand: '', batModel: '', batKwh: 0, batCount: 0, hasBat: false,
+    totalBatKwh: 0,
+    batteriesBreakdown: { isMulti: false, totalCount: 0, totalCapacityKwh: 0, items: [] },
     // Microinversor
-    microName: '', microBrand: '', microModel: '', microCount: 0, hasMicro: false,
+    microName: '', microBrand: '', microModel: '', microCount: 0, hasMicro: false, totalMicroKw: 0,
     // Topología
     topology: cfg.selectedTopology || 'inverter',
     // Módulo FV
@@ -47,8 +53,55 @@ function resolveEquipmentNames() {
     }
   }
 
-  // ── Inversor ──
-  if (cfg.selectedInverterId) {
+  // ── Inversores (Multi-Inversor y Auto-Sizing) ──
+  var customInverters = Array.isArray(cfg.inverters) && cfg.inverters.length > 0 ? cfg.inverters : (Array.isArray(cfg.selectedInverters) && cfg.selectedInverters.length > 0 ? cfg.selectedInverters : null);
+
+  if (customInverters) {
+    var totCnt = 0, totKw = 0, totMppt = 0;
+    var invItems = [];
+    customInverters.forEach(function(item) {
+      var id = item.id || item.inverterId;
+      var invObj = (cat.inverters && Array.isArray(cat.inverters)) ? cat.inverters.find(function(i) { return i.id === id; }) : null;
+      var count = item.count || 1;
+      var kw = (invObj && (invObj.kw || invObj.kw_nominal)) || item.kw || 0;
+      var mppt = (invObj && (invObj.mppt || invObj.mpptCount || invObj.mppts || invObj.nMppt)) || item.mppt || 2;
+      var brand = (invObj && invObj.brand) || item.brand || 'Tier-1';
+      var model = (invObj && invObj.model) || item.model || 'Inversor';
+      var subKw = kw * count;
+      var subMppt = mppt * count;
+      totCnt += count;
+      totKw += subKw;
+      totMppt += subMppt;
+      invItems.push({
+        id: id,
+        brand: brand,
+        model: model,
+        fullName: brand + ' ' + model,
+        kw: kw,
+        count: count,
+        totalKw: subKw,
+        mppt: mppt,
+        totalMPPTs: subMppt
+      });
+    });
+    result.invertersBreakdown = {
+      isMulti: totCnt > 1 || invItems.length > 1,
+      totalCount: totCnt,
+      totalAcKw: Math.round(totKw * 100) / 100,
+      totalMPPTs: totMppt,
+      items: invItems
+    };
+    result.invCount = totCnt;
+    result.totalAcKw = Math.round(totKw * 100) / 100;
+    result.totalMPPTs = totMppt;
+    if (invItems.length === 1) {
+      result.invBrand = invItems[0].brand;
+      result.invModel = invItems[0].model;
+      result.invKw = invItems[0].kw;
+      result.invMPPTs = invItems[0].mppt;
+    }
+    result.invName = (totCnt > 1 ? (totCnt + '× ') : '') + (invItems.length > 1 ? (invItems.length + ' Estaciones Inversoras (' + result.totalAcKw.toFixed(1) + ' kW total)') : (result.invBrand + ' ' + result.invModel + ' (' + result.totalAcKw.toFixed(1) + ' kW total · ' + totMppt + ' MPPT)'));
+  } else if (cfg.selectedInverterId) {
     var inv = (cat.inverters && Array.isArray(cat.inverters))
       ? cat.inverters.find(function(i) { return i.id === cfg.selectedInverterId; })
       : null;
@@ -62,13 +115,76 @@ function resolveEquipmentNames() {
       result.invMPPTs = inv.mppt || inv.mpptCount || inv.mppts || inv.nMppt || 0;
       var sizing = cfg.autoSizing && cfg.autoSizing.inverters;
       result.invCount = (sizing && sizing.count) ? sizing.count : 1;
+      result.totalAcKw = Math.round((result.invKw * result.invCount) * 100) / 100;
+      result.totalMPPTs = result.invMPPTs * result.invCount;
+      result.invertersBreakdown = {
+        isMulti: result.invCount > 1,
+        totalCount: result.invCount,
+        totalAcKw: result.totalAcKw,
+        totalMPPTs: result.totalMPPTs,
+        items: [{
+          id: inv.id,
+          brand: result.invBrand,
+          model: result.invModel,
+          fullName: result.invBrand + ' ' + result.invModel,
+          kw: result.invKw,
+          count: result.invCount,
+          totalKw: result.totalAcKw,
+          mppt: result.invMPPTs,
+          totalMPPTs: result.totalMPPTs
+        }]
+      };
       var mpptTxt = result.invMPPTs > 0 ? (' · ' + result.invMPPTs + ' MPPT') : '';
-      result.invName = (result.invCount > 1 ? (result.invCount + 'x ') : '') + result.invBrand + ' ' + result.invModel + ' (' + result.invKw + ' kW' + mpptTxt + ')';
+      if (result.invCount > 1) {
+        result.invName = result.invCount + '× ' + result.invBrand + ' ' + result.invModel + ' (' + result.totalAcKw.toFixed(1) + ' kW total · ' + result.totalMPPTs + ' MPPT)';
+      } else {
+        result.invName = result.invBrand + ' ' + result.invModel + ' (' + result.invKw + ' kW' + mpptTxt + ')';
+      }
     }
   }
 
-  // ── Batería ──
-  if (cfg.selectedBatteryId && cat.batteries && Array.isArray(cat.batteries)) {
+  // ── Batería / Acumulación ──
+  var customBatteries = Array.isArray(cfg.batteries) && cfg.batteries.length > 0 ? cfg.batteries : (Array.isArray(cfg.selectedBatteries) && cfg.selectedBatteries.length > 0 ? cfg.selectedBatteries : null);
+
+  if (customBatteries) {
+    var totBatCnt = 0, totBatCap = 0;
+    var batItems = [];
+    customBatteries.forEach(function(item) {
+      var id = item.id || item.batteryId;
+      var batObj = (cat.batteries && Array.isArray(cat.batteries)) ? cat.batteries.find(function(b) { return b.id === id; }) : null;
+      var count = item.count || 1;
+      var cap = (batObj && (batObj.kwh || batObj.capacity)) || item.kwh || 0;
+      var brand = (batObj && batObj.brand) || item.brand || 'Tier-1';
+      var model = (batObj && batObj.model) || item.model || 'Batería LFP';
+      var subCap = cap * count;
+      totBatCnt += count;
+      totBatCap += subCap;
+      batItems.push({
+        id: id,
+        brand: brand,
+        model: model,
+        fullName: brand + ' ' + model,
+        kwh: cap,
+        count: count,
+        totalKwh: subCap
+      });
+    });
+    result.hasBat = totBatCap > 0;
+    result.batCount = totBatCnt;
+    result.totalBatKwh = Math.round(totBatCap * 10) / 10;
+    result.batteriesBreakdown = {
+      isMulti: totBatCnt > 1 || batItems.length > 1,
+      totalCount: totBatCnt,
+      totalCapacityKwh: result.totalBatKwh,
+      items: batItems
+    };
+    if (batItems.length === 1) {
+      result.batBrand = batItems[0].brand;
+      result.batModel = batItems[0].model;
+      result.batKwh = batItems[0].kwh;
+    }
+    result.batName = (totBatCnt > 1 ? (totBatCnt + '× ') : '') + (batItems.length > 1 ? (batItems.length + ' Torres de Batería (' + result.totalBatKwh.toFixed(1) + ' kWh)') : (result.batBrand + ' ' + result.batModel + ' (' + result.totalBatKwh.toFixed(1) + ' kWh)'));
+  } else if (cfg.selectedBatteryId && cat.batteries && Array.isArray(cat.batteries)) {
     var bat = cat.batteries.find(function(b) { return b.id === cfg.selectedBatteryId; });
     if (bat && bat.id !== 'bat_none' && ((bat.kwh || bat.capacity || 0) > 0)) {
       result.batBrand = bat.brand || '';
@@ -77,15 +193,35 @@ function resolveEquipmentNames() {
       var batSizing = cfg.autoSizing && cfg.autoSizing.batteries;
       result.batCount = (batSizing && batSizing.count) ? batSizing.count : 1;
       result.hasBat = true;
-      var totalKwh = (result.batKwh * result.batCount).toFixed(1);
-      result.batName = result.batBrand + ' ' + result.batModel + ' (' + totalKwh + ' kWh)';
+      result.totalBatKwh = Math.round((result.batKwh * result.batCount) * 10) / 10;
+      result.batteriesBreakdown = {
+        isMulti: result.batCount > 1,
+        totalCount: result.batCount,
+        totalCapacityKwh: result.totalBatKwh,
+        items: [{
+          id: bat.id,
+          brand: result.batBrand,
+          model: result.batModel,
+          fullName: result.batBrand + ' ' + result.batModel,
+          kwh: result.batKwh,
+          count: result.batCount,
+          totalKwh: result.totalBatKwh
+        }]
+      };
+      if (result.batCount > 1) {
+        result.batName = result.batCount + '× ' + result.batBrand + ' ' + result.batModel + ' (' + result.totalBatKwh.toFixed(1) + ' kWh total)';
+      } else {
+        result.batName = result.batBrand + ' ' + result.batModel + ' (' + result.totalBatKwh.toFixed(1) + ' kWh)';
+      }
     } else {
       result.hasBat = false;
       result.batBrand = '';
       result.batModel = '';
       result.batKwh = 0;
       result.batCount = 0;
-      result.batName = 'Sin batería';
+      result.totalBatKwh = 0;
+      result.batName = 'Sin batería (Conexión Directa)';
+      result.batteriesBreakdown = { isMulti: false, totalCount: 0, totalCapacityKwh: 0, items: [] };
     }
   }
 
@@ -99,18 +235,14 @@ function resolveEquipmentNames() {
       result.microCount = (micSizing && micSizing.count) ? micSizing.count : 0;
       result.hasMicro = true;
       result.microName = result.microBrand + ' ' + result.microModel;
+      var micKw = mic.kw || (mic.va ? mic.va / 1000 : 0.8);
+      result.totalMicroKw = Math.round((micKw * result.microCount) * 100) / 100;
     }
   }
 
   return result;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// RESUMEN COMERCIAL HÍBRIDO (Plantilla determinista + Gemini opcional)
-// Tono: comercial-cercano — vendedor que inspira confianza
-// Devuelve HTML sincrónico con la plantilla. Si hay API Key, lanza
-// enrichSummaryWithGemini() async para reemplazar el contenido.
-// ═══════════════════════════════════════════════════════════════════════════════
 function generateCommercialSummary(d, m, equipment) {
   var kwp = m.kwp || 0;
   var numPanels = m.numPanels || 0;
@@ -349,7 +481,7 @@ var RAPricing = {
       estPrice = Math.round(numPanels * 55);
     }
 
-    // 3. Inversor / Microinversores / Optimizadores desde selección real (incluyendo Inversor Virtual)
+    // 3. Inversor / Microinversores / Optimizadores desde selección real (incluyendo Inversor Virtual y Multi-Inversor)
     var invOnlyPrice = 0;
     var mlpePrice = 0;
     if (cfg.selectedTopology === 'microinverter') {
@@ -361,23 +493,33 @@ var RAPricing = {
         invOnlyPrice = Math.round((miObj.price || 175) * Math.max(1, miCnt));
       }
     } else {
-      var invObj = (cat.inverters || []).find(function(i) { return i.id === cfg.selectedInverterId; }) || null;
-      if (!invObj && cfg.lastVirtualInverter && cfg.lastVirtualInverter.id === cfg.selectedInverterId) {
-        invObj = cfg.lastVirtualInverter;
+      if (tree && tree.electrical && Array.isArray(tree.electrical.inverters) && tree.electrical.inverters.length > 0) {
+        tree.electrical.inverters.forEach(function(invItem) {
+          invOnlyPrice += (invItem.totalPriceEur || 0);
+        });
+      } else {
+        var invObj = (cat.inverters || []).find(function(i) { return i.id === cfg.selectedInverterId; }) || null;
+        if (!invObj && cfg.lastVirtualInverter && cfg.lastVirtualInverter.id === cfg.selectedInverterId) {
+          invObj = cfg.lastVirtualInverter;
+        }
+        if (!invObj && cat.inverters && cat.inverters.length > 0) invObj = cat.inverters[0];
+        var invCnt = (cfg.autoSizing && cfg.autoSizing.inverters && cfg.autoSizing.inverters.count) || 1;
+        var unitInvPrice = (invObj && invObj.price > 0) ? invObj.price : Math.round(650 + Math.max(5, totalKwp / invCnt) * 95);
+        invOnlyPrice = Math.round(unitInvPrice * Math.max(1, invCnt));
       }
-      if (!invObj && cat.inverters && cat.inverters.length > 0) invObj = cat.inverters[0];
-      var invCnt = (cfg.autoSizing && cfg.autoSizing.inverters && cfg.autoSizing.inverters.count) || 1;
-      var unitInvPrice = (invObj && invObj.price > 0) ? invObj.price : Math.round(650 + Math.max(5, totalKwp / invCnt) * 95);
-      invOnlyPrice = Math.round(unitInvPrice * Math.max(1, invCnt));
       if (tree && tree.electrical && tree.electrical.optimizers && tree.electrical.optimizers.totalCostEur > 0) {
         mlpePrice = Math.round(tree.electrical.optimizers.totalCostEur);
       }
     }
     var invPrice = invOnlyPrice + mlpePrice;
 
-    // 4. Batería de Acumulación
+    // 4. Batería de Acumulación (con soporte Multi-Batería desde BOM)
     var batPrice = 0;
-    if (cfg.selectedBatteryId && cfg.selectedBatteryId !== 'bat_none') {
+    if (tree && tree.electrical && Array.isArray(tree.electrical.batteries) && tree.electrical.batteries.length > 0) {
+      tree.electrical.batteries.forEach(function(b) {
+        batPrice += (b.totalPriceEur || 0);
+      });
+    } else if (cfg.selectedBatteryId && cfg.selectedBatteryId !== 'bat_none') {
       var batObj = (cat.batteries || []).find(function(b) { return b.id === cfg.selectedBatteryId; }) || null;
       if (batObj && batObj.price > 0 && (batObj.kwh || batObj.capacity || 0) > 0) {
         var batCnt = Math.max(1, (cfg.autoSizing && cfg.autoSizing.batteries && cfg.autoSizing.batteries.count) || 1);
@@ -1929,10 +2071,12 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
             <div class="tech-info">
               <div class="tech-label">INVERSOR DE RED</div>
               <div class="tech-name" title="${_eqp.invName}">${_eqp.invName}</div>
-              <div class="tech-sub">Conversión DC/AC de Alta Eficiencia + Smart Meter</div>
+              <div class="tech-sub">${_eqp.invCount > 1 
+                ? (_eqp.invCount + '× ' + _eqp.invKw + ' kW (' + _eqp.totalAcKw.toFixed(1) + ' kW AC total) · ' + _eqp.totalMPPTs + ' MPPT · Conversión de Alta Eficiencia')
+                : 'Conversión DC/AC de Alta Eficiencia + Smart Meter'}</div>
             </div>
             <div class="tech-badge">
-              ${_eqp.invCount} ud${_eqp.invCount > 1 ? 's' : ''}
+              ${_eqp.invCount} ud${_eqp.invCount > 1 ? 's' : ''} · ${_eqp.totalAcKw.toFixed(1)} kW AC
             </div>
           </div>
 
@@ -1944,10 +2088,14 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
             <div class="tech-info">
               <div class="tech-label">SISTEMA DE ALMACENAMIENTO</div>
               <div class="tech-name" title="${_eqp.hasBat ? _eqp.batName : 'Sin acumulación (Conexión Directa)'}">${_eqp.hasBat ? _eqp.batName : 'Sin acumulación'}</div>
-              <div class="tech-sub">${_eqp.hasBat ? 'Batería LFP Litio-Ferrofosfato con BMS' : 'Preparado para ampliación futura'}</div>
+              <div class="tech-sub">${_eqp.hasBat 
+                ? (_eqp.batCount > 1 
+                    ? (_eqp.batCount + ' módulos × ' + _eqp.batKwh + ' kWh (' + _eqp.totalBatKwh.toFixed(1) + ' kWh total) · Batería LFP con BMS') 
+                    : 'Batería LFP Litio-Ferrofosfato con BMS (' + _eqp.totalBatKwh.toFixed(1) + ' kWh)') 
+                : 'Preparado para ampliación futura'}</div>
             </div>
             <div class="tech-badge" style="${!_eqp.hasBat ? 'color:#94a3b8;border-color:#e2e8f0;' : ''}">
-              ${_eqp.hasBat ? (_eqp.batCount + ' ud' + (_eqp.batCount > 1 ? 's' : '')) : '—'}
+              ${_eqp.hasBat ? (_eqp.batCount + ' ud' + (_eqp.batCount > 1 ? 's' : '') + ' · ' + _eqp.totalBatKwh.toFixed(1) + ' kWh') : '—'}
             </div>
           </div>
 
@@ -2026,8 +2174,25 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
             : `<tr><td>Cap. 1</td><td>Módulos Solares Fotovoltaicos de Alta Eficiencia (${m.numPanels} uds × ${Math.round((_cPan / (m.numPanels || 1))).toLocaleString('es-ES')} €/ud)</td><td class="text-right">${_cPan.toLocaleString('es-ES')} €</td></tr>`
           }
           <tr><td>Cap. 2</td><td>Estructura de Soporte y Fijación Certificada (Aluminio / Inox A2)</td><td class="text-right">${_cEst.toLocaleString('es-ES')} €</td></tr>
-          <tr><td>Cap. 3</td><td>Inversor de Conexión a Red, Monitorización Inteligente & Protecciones</td><td class="text-right">${_cInv.toLocaleString('es-ES')} €</td></tr>
-          ${_cBat > 0 ? `<tr><td>Cap. 4</td><td>Sistema de Almacenamiento en Batería LFP Litio-Ferrofosfato</td><td class="text-right">${_cBat.toLocaleString('es-ES')} €</td></tr>` : ''}
+          ${(_eqp.invCount > 1 || (_eqp.invertersBreakdown && _eqp.invertersBreakdown.isMulti))
+            ? `<tr><td>Cap. 3</td><td><strong>Inversores de Conexión a Red & Monitorización (${_eqp.invCount} uds · ${_eqp.totalAcKw.toFixed(2)} kW AC total)</strong><br>` +
+              ((_eqp.invertersBreakdown && _eqp.invertersBreakdown.items && _eqp.invertersBreakdown.items.length > 0)
+                ? _eqp.invertersBreakdown.items.map(it => `<span style="font-size: 10px;color:#475569;display:inline-block;margin-left:6px;">• ${it.count}× ${it.fullName || (it.brand + ' ' + it.model)} (${it.kw} kW · ${it.mppt || 2} MPPT): ${Math.round((_cInv * (it.count * it.kw / (_eqp.totalAcKw || 1)))).toLocaleString('es-ES')} €</span>`).join('<br>')
+                : `<span style="font-size: 10px;color:#475569;display:inline-block;margin-left:6px;">• ${_eqp.invCount}× ${_eqp.invBrand} ${_eqp.invModel} (${_eqp.invKw} kW · ${_eqp.invMPPTs} MPPT)</span>`
+              ) +
+              `</td><td class="text-right">${_cInv.toLocaleString('es-ES')} €</td></tr>`
+            : `<tr><td>Cap. 3</td><td>Inversor de Conexión a Red, Monitorización Inteligente & Protecciones (${_eqp.invName})</td><td class="text-right">${_cInv.toLocaleString('es-ES')} €</td></tr>`
+          }
+          ${_cBat > 0 ? (
+            (_eqp.batCount > 1 || (_eqp.batteriesBreakdown && _eqp.batteriesBreakdown.isMulti))
+            ? `<tr><td>Cap. 4</td><td><strong>Sistema de Almacenamiento Electroquímico (${_eqp.batCount} uds · ${_eqp.totalBatKwh.toFixed(1)} kWh total)</strong><br>` +
+              ((_eqp.batteriesBreakdown && _eqp.batteriesBreakdown.items && _eqp.batteriesBreakdown.items.length > 0)
+                ? _eqp.batteriesBreakdown.items.map(it => `<span style="font-size: 10px;color:#475569;display:inline-block;margin-left:6px;">• ${it.count}× ${it.fullName || (it.brand + ' ' + it.model)} (${it.kwh} kWh c/u · BMS integrado): ${Math.round((_cBat * (it.count * it.kwh / (_eqp.totalBatKwh || 1)))).toLocaleString('es-ES')} €</span>`).join('<br>')
+                : `<span style="font-size: 10px;color:#475569;display:inline-block;margin-left:6px;">• ${_eqp.batCount}× ${_eqp.batBrand} ${_eqp.batModel} (${_eqp.batKwh} kWh c/u · BMS integrado)</span>`
+              ) +
+              `</td><td class="text-right">${_cBat.toLocaleString('es-ES')} €</td></tr>`
+            : `<tr><td>Cap. 4</td><td>Sistema de Almacenamiento en Batería LFP Litio-Ferrofosfato (${_eqp.batName})</td><td class="text-right">${_cBat.toLocaleString('es-ES')} €</td></tr>`
+          ) : ''}
           <tr><td>Cap. ${_cBat > 0 ? 5 : 4}</td><td>Líneas Eléctricas DC/AC Solar ZZ-F y Cuadros con SPD Tipo II e IGA</td><td class="text-right">${_cCab.toLocaleString('es-ES')} €</td></tr>
           <tr><td>Cap. ${_cBat > 0 ? 6 : 5}</td><td>Montaje Mecánico, Mano de Obra Cualificada y Puesta en Servicio</td><td class="text-right">${_cMo.toLocaleString('es-ES')} €</td></tr>
           <tr><td>Cap. ${_cBat > 0 ? 7 : 6}</td><td>Ingeniería Técnica, Dirección de Obra y Tramitación Legal (CIE / Industria)</td><td class="text-right">${_cLeg.toLocaleString('es-ES')} €</td></tr>
