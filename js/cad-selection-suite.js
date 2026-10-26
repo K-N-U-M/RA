@@ -359,6 +359,40 @@
             cycleNextCADSelection(e.shiftKey);
           }
         }
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
+        if (activeTag === 'input' || activeTag === 'textarea' || activeTag === 'select') return;
+
+        // Desplazamiento de precisión de placas (Opción 2) si hay placas seleccionadas o faldón activo
+        const hasSelectedPanels = (Array.isArray(global.selectedPanelIndices) && global.selectedPanelIndices.length > 0) || (typeof global.selectedPanelIndex === 'number' && global.selectedPanelIndex >= 0);
+        const activePolyIdx = (global.WP && typeof global.WP.selectedPolyIdx === 'number') ? global.WP.selectedPolyIdx : -1;
+
+        if ((hasSelectedPanels || activePolyIdx >= 0) && typeof global.wpShiftPolylinePanels === 'function') {
+          // Determinar target polyIdx
+          let targetPoly = activePolyIdx;
+          if (targetPoly < 0 && hasSelectedPanels && Array.isArray(global.allRenderedPanels)) {
+            const firstIdx = (global.selectedPanelIndices && global.selectedPanelIndices.length > 0) ? global.selectedPanelIndices[0] : global.selectedPanelIndex;
+            const p = global.allRenderedPanels[firstIdx];
+            if (p && typeof p.polyIdx === 'number') targetPoly = p.polyIdx;
+          }
+
+          if (targetPoly >= 0 && global.WP && global.WP.polylines && global.WP.polylines[targetPoly]) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const step = e.shiftKey ? 0.10 : 0.01; // 10cm con Shift, 1cm por defecto
+            let deltaA = 0;
+            let deltaB = 0;
+
+            if (e.key === 'ArrowLeft') deltaA = -step;
+            else if (e.key === 'ArrowRight') deltaA = step;
+            else if (e.key === 'ArrowUp') deltaB = step;
+            else if (e.key === 'ArrowDown') deltaB = -step;
+
+            global.wpShiftPolylinePanels(targetPoly, deltaA, deltaB);
+            return;
+          }
+        }
       } else if ((e.key === 'f' || e.key === 'F') && e.shiftKey) {
         // Atajo Shift + F: Alternar Modo Foco
         const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';

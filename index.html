@@ -1411,6 +1411,53 @@ window.RA_App = window.RA_App || {};
                         <button class="doc-mini-btn" style="padding:2px 6px;font-size:9px;background:rgba(245,158,11,0.18);color:#FBBF24;border-color:rgba(245,158,11,0.4);font-weight:800;" onclick="if (typeof wpSnapPolyToSweetSpot === 'function') wpSnapPolyToSweetSpot(WP.selectedPolyIdx, false);" title="Ajusta automáticamente Inclinación y Orientación al máximo absoluto anual">🎯 Clavar en el Pico</button>
                       </div>
                     </div>
+                  <!-- DESPLAZAMIENTO Y AJUSTE MILIMÉTRICO DE PLACAS FV (Ejes Longitudinal y Transversal) -->
+                  <div id="faldon-panel-nudge-box" style="background:rgba(0,0,0,0.30);border:1px solid rgba(56,189,248,0.35);border-radius:6px;padding:6px 8px;margin-bottom:6px;display:flex;flex-direction:column;gap:5px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                      <span style="font-size:10px;font-weight:700;color:#38BDF8;display:flex;align-items:center;gap:4px;">
+                        <i data-lucide="move" class="icon-sm"></i> DESPLAZAMIENTO DE PRECISIÓN:
+                      </span>
+                      <button type="button" class="doc-mini-btn" style="padding:1px 6px;font-size:9.5px;font-weight:800;background:rgba(56,189,248,0.18);color:#38BDF8;border-color:rgba(56,189,248,0.4);" onclick="selectAllPanelsInCurrentFaldon()" title="Seleccionar todas las placas de este faldón (Ctrl+A o doble clic en 3D)">
+                        <i data-lucide="check-square" class="icon-sm"></i> SELECCIONAR TODAS (Ctrl+A)
+                      </button>
+                    </div>
+
+                    <!-- Eje Longitudinal (A) -->
+                    <div style="display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,0.03);padding:3px 6px;border-radius:4px;border:1px solid rgba(255,255,255,0.06);">
+                      <div style="display:flex;align-items:center;gap:4px;">
+                        <span style="font-size:9.5px;color:#94A3B8;font-weight:600;">Longitudinal (A):</span>
+                        <span id="faldon-shift-long-val" style="font-size:10.5px;font-weight:800;color:#FBBF24;font-family:monospace;">0 cm</span>
+                      </div>
+                      <div style="display:flex;gap:2px;">
+                        <button type="button" class="doc-mini-btn" style="padding:1px 5px;font-size:9px;font-weight:700;" onclick="wpShiftPolylinePanels(WP.selectedPolyIdx, -0.10, 0)" title="Mover -10 cm longitudinal">-10cm</button>
+                        <button type="button" class="doc-mini-btn" style="padding:1px 5px;font-size:9px;font-weight:700;" onclick="wpShiftPolylinePanels(WP.selectedPolyIdx, -0.01, 0)" title="Mover -1 cm longitudinal">-1cm</button>
+                        <button type="button" class="doc-mini-btn" style="padding:1px 5px;font-size:9px;font-weight:700;" onclick="wpShiftPolylinePanels(WP.selectedPolyIdx, 0.01, 0)" title="Mover +1 cm longitudinal">+1cm</button>
+                        <button type="button" class="doc-mini-btn" style="padding:1px 5px;font-size:9px;font-weight:700;" onclick="wpShiftPolylinePanels(WP.selectedPolyIdx, 0.10, 0)" title="Mover +10 cm longitudinal">+10cm</button>
+                      </div>
+                    </div>
+
+                    <!-- Eje Transversal (B) -->
+                    <div style="display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,0.03);padding:3px 6px;border-radius:4px;border:1px solid rgba(255,255,255,0.06);">
+                      <div style="display:flex;align-items:center;gap:4px;">
+                        <span style="font-size:9.5px;color:#94A3B8;font-weight:600;">Transversal (B):</span>
+                        <span id="faldon-shift-trans-val" style="font-size:10.5px;font-weight:800;color:#38BDF8;font-family:monospace;">0 cm</span>
+                      </div>
+                      <div style="display:flex;gap:2px;">
+                        <button type="button" class="doc-mini-btn" style="padding:1px 5px;font-size:9px;font-weight:700;" onclick="wpShiftPolylinePanels(WP.selectedPolyIdx, 0, -0.10)" title="Mover -10 cm transversal">-10cm</button>
+                        <button type="button" class="doc-mini-btn" style="padding:1px 5px;font-size:9px;font-weight:700;" onclick="wpShiftPolylinePanels(WP.selectedPolyIdx, 0, -0.01)" title="Mover -1 cm transversal">-1cm</button>
+                        <button type="button" class="doc-mini-btn" style="padding:1px 5px;font-size:9px;font-weight:700;" onclick="wpShiftPolylinePanels(WP.selectedPolyIdx, 0, 0.01)" title="Mover +1 cm transversal">+1cm</button>
+                        <button type="button" class="doc-mini-btn" style="padding:1px 5px;font-size:9px;font-weight:700;" onclick="wpShiftPolylinePanels(WP.selectedPolyIdx, 0, 0.10)" title="Mover +10 cm transversal">+10cm</button>
+                      </div>
+                    </div>
+
+                    <!-- Botón Centrar / Restablecer + atajo de teclado explicativo -->
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px;">
+                      <span style="font-size:9px;color:#94A3B8;">⌨ Flechas: ±1cm (Shift: ±10cm)</span>
+                      <button type="button" class="doc-mini-btn" style="padding:1px 7px;font-size:9px;font-weight:700;background:rgba(239,68,68,0.12);color:#F87171;border-color:rgba(239,68,68,0.3);" onclick="wpResetPolylinePanelsShift(WP.selectedPolyIdx)" title="Restablecer posición por defecto">
+                        <i data-lucide="rotate-ccw" class="icon-sm"></i> CENTRAR
+                      </button>
+                    </div>
+                  </div>
                   </div>
                 </div>
               </div>
@@ -9022,8 +9069,10 @@ function evaluateModuleLayouts(roof, module, cfg) {
       const bMin = Math.min(...poly.map(p => p.u * BuvN.x + p.v * BuvN.y));
       const bMax = Math.max(...poly.map(p => p.u * BuvN.x + p.v * BuvN.y));
       const currentCenters = [];
-      const startA = aMin + setback + halfA_base + poA * rowPitch;
-      const startB = bMin + setback + halfB_base + poB * colPitch;
+      const shiftA = (typeof cfg.matrixShiftA === 'number') ? cfg.matrixShiftA : ((typeof cfg.matrixShiftU === 'number') ? cfg.matrixShiftU : 0);
+      const shiftB = (typeof cfg.matrixShiftB === 'number') ? cfg.matrixShiftB : ((typeof cfg.matrixShiftV === 'number') ? cfg.matrixShiftV : 0);
+      const startA = aMin + setback + halfA_base + poA * rowPitch + shiftA;
+      const startB = bMin + setback + halfB_base + poB * colPitch + shiftB;
 
       const hasWalkway = !!cfg.hasWalkway;
       const walkwayWidth = (typeof cfg.walkwayWidth === 'number') ? cfg.walkwayWidth : 0.80;
@@ -13035,6 +13084,8 @@ function computeSinglePolylineRoofInfo(ptsIn, polyOpts) {
     pergolaSubtype: opts.pergolaSubtype || (opts.estructura && opts.estructura.subtype) || 'continuous',
     orientations: orientList,
     alignToPlane: (opts.alignToPlane !== undefined) ? !!opts.alignToPlane : true,
+    matrixShiftA: (typeof opts.matrixShiftA === 'number') ? opts.matrixShiftA : ((typeof opts.matrixShiftU === 'number') ? opts.matrixShiftU : 0),
+    matrixShiftB: (typeof opts.matrixShiftB === 'number') ? opts.matrixShiftB : ((typeof opts.matrixShiftV === 'number') ? opts.matrixShiftV : 0),
     lockRowPitch: !!(opts && opts.lockRowPitch),
     lockedRowPitchM: (opts && typeof opts.lockedRowPitchM === 'number') ? opts.lockedRowPitchM : 0,
     panelFilter: defaultPanelFilter,
@@ -13229,7 +13280,9 @@ function computeRoofPanelsData() {
       const setbackVal = (document.getElementById("cfg-obstacle-setback") || { value: "0.50" }).value;
       const alPlaneVal = poly.alignToPlane !== false ? "pl1" : "pl0";
       const plIdxVal = typeof poly.planeIdx === "number" ? poly.planeIdx : -1;
-      const singlePolySig = `${ptsSig}|${modId}|${arrMode}|${azSur}|${tiltVal}|${orPref}|${stType}|al:${alPlaneVal}|pIdx:${plIdxVal}|shd:${shadingStrategy}|sb:${setbackVal}|obs:${obstacles.length}`;
+      const shA = (poly.matrixShiftA || 0).toFixed(3);
+      const shB = (poly.matrixShiftB || 0).toFixed(3);
+      const singlePolySig = `${ptsSig}|${modId}|${arrMode}|${azSur}|${tiltVal}|${orPref}|${stType}|al:${alPlaneVal}|pIdx:${plIdxVal}|shd:${shadingStrategy}|sb:${setbackVal}|obs:${obstacles.length}|shA:${shA}|shB:${shB}`;
 
       let pInfo;
       if (poly.roofInfo && poly._calcSig === singlePolySig) {
@@ -18237,8 +18290,16 @@ window.toggleSolarHUD = toggleSolarHUD;
       if (dblPanelIdx >= 0) {
         const isShift = !!(window._raIsShiftDown || (typeof window.event !== 'undefined' && window.event && window.event.shiftKey));
         const targetP = (window.allRenderedPanels && window.allRenderedPanels[dblPanelIdx]);
-        if (isShift && targetP && typeof targetP.polyIdx === 'number' && typeof window.selectAllPanelsInPolyline === 'function') {
-          window.selectAllPanelsInPolyline(targetP.polyIdx);
+        // Opción 1: Doble clic en cualquier panel selecciona todas las placas de su faldón y sincroniza el faldón activo
+        if (targetP && typeof targetP.polyIdx === 'number' && typeof window.selectAllPanelsInPolyline === 'function') {
+          if (typeof WP !== 'undefined' && WP.selectedPolyIdx !== targetP.polyIdx && typeof wpSelectFaldon === 'function') {
+            wpSelectFaldon(targetP.polyIdx);
+          }
+          if (isShift && typeof window.selectPanelRow === 'function') {
+            window.selectPanelRow(dblPanelIdx);
+          } else {
+            window.selectAllPanelsInPolyline(targetP.polyIdx);
+          }
         } else if (typeof window.selectPanelRow === 'function') {
           window.selectPanelRow(dblPanelIdx);
         }
@@ -18375,12 +18436,15 @@ window.toggleSolarHUD = toggleSolarHUD;
         return;
       }
     }
-    // ── Atajo CTRL + A para seleccionar todas las placas en Paso 2 o 3
+    // ── Atajo CTRL + A para seleccionar placas (del faldón activo si hay uno seleccionado, o de todo el campo solar)
     if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')) {
       const activeEl = document.activeElement;
       if (!activeEl || (activeEl.tagName !== 'INPUT' && activeEl.tagName !== 'TEXTAREA' && !activeEl.isContentEditable)) {
-        if (typeof window.selectAllPanels === 'function') {
-          e.preventDefault();
+        e.preventDefault();
+        if (typeof WP !== 'undefined' && typeof WP.selectedPolyIdx === 'number' && WP.selectedPolyIdx >= 0 && typeof window.selectAllPanelsInPolyline === 'function') {
+          window.selectAllPanelsInPolyline(WP.selectedPolyIdx);
+          return;
+        } else if (typeof window.selectAllPanels === 'function') {
           window.selectAllPanels();
           return;
         }

@@ -4276,6 +4276,7 @@ function wpPopulateFaldonCard() {
 
   if (typeof wpUpdateFaldonRowPitchUI === "function") wpUpdateFaldonRowPitchUI(WP.selectedPolyIdx);
   if (typeof wpUpdateLiveSweetSpotTelemetry === "function") wpUpdateLiveSweetSpotTelemetry(WP.selectedPolyIdx);
+  if (typeof wpUpdateFaldonShiftUI === "function") wpUpdateFaldonShiftUI(WP.selectedPolyIdx);
 
   // Refrescar iconos Lucide
   if (window.lucide) try { lucide.createIcons(); } catch(_) {}
@@ -4849,6 +4850,96 @@ if (lbl) lbl.textContent = (val === "auto" || val === "") ? "Auto (faldón)" : (
     wpSetPolyTilt(polyIdx, val);
   }
 }
+
+// ── DESPLAZAMIENTO Y AJUSTE DE PRECISIÓN DE PLACAS POR FALDÓN ─────────────────
+function wpShiftPolylinePanels(polyIdx, deltaA, deltaB) {
+  if (polyIdx === undefined || polyIdx === null || polyIdx < 0) polyIdx = (typeof WP !== 'undefined') ? WP.selectedPolyIdx : 0;
+  if (!WP.polylines || !WP.polylines[polyIdx]) return;
+  const poly = WP.polylines[polyIdx];
+
+  const oldShiftA = poly.matrixShiftA || 0;
+  const oldShiftB = poly.matrixShiftB || 0;
+  const newShiftA = Math.round((oldShiftA + (deltaA || 0)) * 1000) / 1000;
+  const newShiftB = Math.round((oldShiftB + (deltaB || 0)) * 1000) / 1000;
+
+  poly.matrixShiftA = newShiftA;
+  poly.matrixShiftB = newShiftB;
+  poly.matrixShiftU = newShiftA; // alias para interoperabilidad
+  poly.matrixShiftV = newShiftB;
+
+  if (typeof roofPanelsCache !== 'undefined' && roofPanelsCache) roofPanelsCache.sig = '';
+  if (typeof computeSinglePolylineRoofInfo === 'function') {
+    poly.roofInfo = computeSinglePolylineRoofInfo(poly.points, poly);
+  }
+  if (typeof wpFastRenderSimulatedPanels === 'function') {
+    wpFastRenderSimulatedPanels(true, polyIdx);
+  }
+  if (typeof wpUpdateFaldonShiftUI === 'function') {
+    wpUpdateFaldonShiftUI(polyIdx);
+  }
+  if (typeof wpUpdateLayoutFastMetrics === 'function') {
+    wpUpdateLayoutFastMetrics();
+  }
+  if (typeof window.selectAllPanelsInPolyline === 'function') {
+    window.selectAllPanelsInPolyline(polyIdx);
+  }
+}
+window.wpShiftPolylinePanels = wpShiftPolylinePanels;
+
+function wpResetPolylinePanelsShift(polyIdx) {
+  if (polyIdx === undefined || polyIdx === null || polyIdx < 0) polyIdx = (typeof WP !== 'undefined') ? WP.selectedPolyIdx : 0;
+  if (!WP.polylines || !WP.polylines[polyIdx]) return;
+  const poly = WP.polylines[polyIdx];
+
+  poly.matrixShiftA = 0;
+  poly.matrixShiftB = 0;
+  poly.matrixShiftU = 0;
+  poly.matrixShiftV = 0;
+
+  if (typeof roofPanelsCache !== 'undefined' && roofPanelsCache) roofPanelsCache.sig = '';
+  if (typeof computeSinglePolylineRoofInfo === 'function') {
+    poly.roofInfo = computeSinglePolylineRoofInfo(poly.points, poly);
+  }
+  if (typeof wpFastRenderSimulatedPanels === 'function') {
+    wpFastRenderSimulatedPanels(true, polyIdx);
+  }
+  if (typeof wpUpdateFaldonShiftUI === 'function') {
+    wpUpdateFaldonShiftUI(polyIdx);
+  }
+  if (typeof wpUpdateLayoutFastMetrics === 'function') {
+    wpUpdateLayoutFastMetrics();
+  }
+  if (typeof window.selectAllPanelsInPolyline === 'function') {
+    window.selectAllPanelsInPolyline(polyIdx);
+  }
+}
+window.wpResetPolylinePanelsShift = wpResetPolylinePanelsShift;
+
+function wpUpdateFaldonShiftUI(polyIdx) {
+  if (polyIdx === undefined || polyIdx === null || polyIdx < 0) polyIdx = (typeof WP !== 'undefined') ? WP.selectedPolyIdx : 0;
+  const poly = (WP.polylines && WP.polylines[polyIdx]) ? WP.polylines[polyIdx] : null;
+  const shAEl = document.getElementById('faldon-shift-long-val');
+  const shBEl = document.getElementById('faldon-shift-trans-val');
+  if (shAEl) {
+    const valA = poly ? (poly.matrixShiftA || 0) : 0;
+    shAEl.textContent = (valA >= 0 ? '+' : '') + (valA * 100).toFixed(0) + ' cm';
+  }
+  if (shBEl) {
+    const valB = poly ? (poly.matrixShiftB || 0) : 0;
+    shBEl.textContent = (valB >= 0 ? '+' : '') + (valB * 100).toFixed(0) + ' cm';
+  }
+}
+window.wpUpdateFaldonShiftUI = wpUpdateFaldonShiftUI;
+
+function selectAllPanelsInCurrentFaldon() {
+  const pIdx = (typeof WP !== 'undefined' && typeof WP.selectedPolyIdx === 'number') ? WP.selectedPolyIdx : -1;
+  if (pIdx >= 0 && typeof window.selectAllPanelsInPolyline === 'function') {
+    window.selectAllPanelsInPolyline(pIdx);
+  } else if (typeof showToast === 'function') {
+    showToast('FALDÓN NO SELECCIONADO', 'Selecciona primero un faldón para activar sus placas.', 'warning', 2500);
+  }
+}
+window.selectAllPanelsInCurrentFaldon = selectAllPanelsInCurrentFaldon;
 
 function wpTogglePolyLockRowPitch(polyIdx, locked) {
   if (polyIdx === undefined || polyIdx === null || polyIdx < 0) polyIdx = (typeof WP !== 'undefined') ? WP.selectedPolyIdx : 0;
