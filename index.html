@@ -4244,7 +4244,7 @@ window.wpShadowDiagnostics = function() {
   };
 };
 window.wpSetShadowBiasMeters = function(m) {
-  const val = Math.max(0.05, Math.min(2.0, Number(m) || 0.08));
+  const val = Math.max(0.01, Math.min(2.0, Number(m) || 0.08));
   window.wpShadowBiasMeters = val;
   if (typeof window !== 'undefined' && window.ShadowSettings && typeof window.ShadowSettings.setBiasMeters === 'function') {
     window.ShadowSettings.setBiasMeters(val);
@@ -18757,7 +18757,7 @@ window.toggleSolarHUD = toggleSolarHUD;
                 <span style="font-size:11px; font-weight:600; color:#e2e8f0;">Despegue de Sombras (Anti-Parpadeo)</span>
                 <span id="bias-val-display" style="font-size:11px; color:#94a3b8;">0.05 m</span>
               </div>
-              <input type="range" id="shadow-bias-slider" min="0.05" max="2.0" step="0.05" value="0.05" style="width:100%; accent-color:var(--rose-500);" oninput="document.getElementById('bias-val-display').innerText = this.value + ' m'; if(typeof window.wpSetShadowBiasMeters === 'function') window.wpSetShadowBiasMeters(this.value);">
+              <input type="range" id="shadow-bias-slider" min="0.01" max="2.0" step="0.01" value="0.05" style="width:100%; accent-color:var(--rose-500);" oninput="document.getElementById('bias-val-display').innerText = this.value + ' m'; if(typeof window.wpSetShadowBiasMeters === 'function') window.wpSetShadowBiasMeters(this.value);">
               <span style="font-size: 10px; color:#64748b; line-height:1.2;">Ajusta el despegue físico para evitar parpadeos en 3D Tiles.</span>
             </div>
             

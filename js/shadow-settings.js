@@ -90,7 +90,7 @@
     if (!shadowMap) return;
     var preset = QUALITY_PRESETS[currentSettings.quality] || QUALITY_PRESETS.high;
     var radiusMeters = Math.max(50.0, Math.min(2500.0, Number(currentSettings.radius) || 400.0));
-    var biasMeters = Math.max(0.05, Math.min(2.0, Number(currentSettings.biasMeters) || Number(global.wpShadowBiasMeters) || 0.08));
+    var biasMeters = Math.max(0.01, Math.min(2.0, Number(currentSettings.biasMeters) || Number(global.wpShadowBiasMeters) || 0.08));
     global.wpShadowBiasMeters = biasMeters;
 
     if (shadowMap.size !== preset.size) {
@@ -233,7 +233,7 @@
 
   function setBiasMeters(meters) {
     var val = parseFloat(meters);
-    if (isNaN(val) || val < 0.05) val = 0.05;
+    if (isNaN(val) || val < 0.01) val = 0.01;
     if (val > 2.0) val = 2.0;
     currentSettings.biasMeters = val;
     global.wpShadowBiasMeters = val;
