@@ -80,6 +80,7 @@ window.WP = window.WP || {
   activePolyPts: [],          // Vértices de la polilínea en curso
   selectedPolyIdx: 0,         // Polilínea seleccionada para edición
   selectedVtxIdx: -1,         // Vértice seleccionado para edición
+  selectedPlaneVtxIdx: -1,    // Vértice maestro del plano activo seleccionado (0, 1, 2)
   showPlaneVertices: true,    // Visibilidad de vértices maestros y contorno de planos
   
   cursorPos: undefined,
@@ -2483,6 +2484,7 @@ function wpDeleteActivePlane(skipConfirm = false) {
 
     WP.selectedPolyIdx = -1;
     WP.selectedVtxIdx  = -1;
+    WP.selectedPlaneVtxIdx = -1;
   }
 
   // ── Paso 4: Borrar obstáculos del plano eliminado ─────────────────────────

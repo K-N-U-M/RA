@@ -10997,8 +10997,41 @@ function getUniversalSelectedTarget() {
     }
   }
 
-  // F. Plano de Trabajo Activo (LCS Transformable: Traslación U/V/Z, Rotación Pitch/Yaw)
+  // F0. Vértice Maestro del Plano de Trabajo Activo (P1, P2 o P3)
   const curStep = (typeof wpCurrentStep !== 'undefined') ? wpCurrentStep : ((typeof window !== 'undefined' && window.wpCurrentStep) || 1);
+  if (curStep === 1 && typeof WP !== 'undefined' && WP && typeof WP.selectedPlaneVtxIdx === 'number' && WP.selectedPlaneVtxIdx >= 0) {
+    if (typeof wpGetActivePlane === 'function') {
+      const actPl = wpGetActivePlane();
+      if (actPl && actPl.pts3D && actPl.pts3D[WP.selectedPlaneVtxIdx] && actPl.normal) {
+        const pt = actPl.pts3D[WP.selectedPlaneVtxIdx];
+        const vIdx = WP.selectedPlaneVtxIdx;
+        const norm = Cesium.Cartesian3.normalize(actPl.normal, new Cesium.Cartesian3());
+        const uVec = actPl.uVec ? Cesium.Cartesian3.normalize(actPl.uVec, new Cesium.Cartesian3()) : Cesium.Cartesian3.cross(norm, Cesium.Cartesian3.UNIT_Z, new Cesium.Cartesian3());
+        const vVec = actPl.vVec ? Cesium.Cartesian3.normalize(actPl.vVec, new Cesium.Cartesian3()) : Cesium.Cartesian3.cross(norm, uVec, new Cesium.Cartesian3());
+        const vtxNames = ['P1 (Origen)', 'P2 (Dirección X)', 'P3 (Dirección Y)'];
+        return {
+          type: 'workplane_vertex',
+          id: 'wp_plane_vtx_' + vIdx,
+          name: 'VÉRTICE PLANO #' + (vIdx + 1) + ' · ' + (vtxNames[vIdx] || ''),
+          pos: pt,
+          rot: 0,
+          height: 0,
+          rawObj: { plane: actPl, vtxIdx: vIdx },
+          wp: {
+            origin: pt,
+            normal: norm,
+            uVec: uVec,
+            vVec: vVec,
+            plane: { origin: pt, normal: norm }
+          },
+          color: vIdx === 0 ? '#F59E0B' : '#0284C7',
+          accentColor: 'rgba(56, 189, 248, 0.45)'
+        };
+      }
+    }
+  }
+
+  // F. Plano de Trabajo Activo (LCS Transformable: Traslación U/V/Z, Rotación Pitch/Yaw)
   if (curStep === 1 || window.wpIsPlaneGizmoEnabled) {
     if (typeof wpGetActivePlane === 'function') {
       const actPl = wpGetActivePlane();
@@ -11017,7 +11050,7 @@ function getUniversalSelectedTarget() {
           id: actPl.id || 'plane_' + (WP.activePlaneIdx || 0),
           name: (actPl.name || 'Plano de Trabajo').toUpperCase(),
           pos: center,
-          rot: Math.round(actPl.azimuthDeg || 0),
+          rot: 0,
           height: 0,
           rawObj: actPl,
           wp: {
@@ -11558,28 +11591,28 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
       const rotQuat = Cesium.Quaternion.fromAxisAngle(effectiveAxis, Cesium.Math.toRadians(dDeg));
       const rotMat3 = Cesium.Matrix3.fromQuaternion(rotQuat);
 
-      if (dDeg !== 0 && Array.isArray(pl.pts3D)) {
-        const center = target.pos;
-        pl.pts3D = pl.pts3D.map(pt => {
+      if (universalGizmoState.startPoints && universalGizmoState.startCenter && Array.isArray(pl.pts3D)) {
+        const center = universalGizmoState.startCenter;
+        pl.pts3D = universalGizmoState.startPoints.map(pt => {
           const rel = Cesium.Cartesian3.subtract(pt, center, new Cesium.Cartesian3());
           const rotRel = Cesium.Matrix3.multiplyByVector(rotMat3, rel, new Cesium.Cartesian3());
           return Cesium.Cartesian3.add(center, rotRel, new Cesium.Cartesian3());
         });
-        if (pl.origin) {
-          const relOrg = Cesium.Cartesian3.subtract(pl.origin, center, new Cesium.Cartesian3());
+        if (universalGizmoState.startOrigin) {
+          const relOrg = Cesium.Cartesian3.subtract(universalGizmoState.startOrigin, center, new Cesium.Cartesian3());
           const rotOrg = Cesium.Matrix3.multiplyByVector(rotMat3, relOrg, new Cesium.Cartesian3());
           pl.origin = Cesium.Cartesian3.add(center, rotOrg, new Cesium.Cartesian3());
         }
-        if (pl.normal) {
-          pl.normal = Cesium.Matrix3.multiplyByVector(rotMat3, pl.normal, new Cesium.Cartesian3());
+        if (universalGizmoState.startNormal) {
+          pl.normal = Cesium.Matrix3.multiplyByVector(rotMat3, universalGizmoState.startNormal, new Cesium.Cartesian3());
           Cesium.Cartesian3.normalize(pl.normal, pl.normal);
         }
-        if (pl.uVec) {
-          pl.uVec = Cesium.Matrix3.multiplyByVector(rotMat3, pl.uVec, new Cesium.Cartesian3());
+        if (universalGizmoState.startUVec) {
+          pl.uVec = Cesium.Matrix3.multiplyByVector(rotMat3, universalGizmoState.startUVec, new Cesium.Cartesian3());
           Cesium.Cartesian3.normalize(pl.uVec, pl.uVec);
         }
-        if (pl.vVec) {
-          pl.vVec = Cesium.Matrix3.multiplyByVector(rotMat3, pl.vVec, new Cesium.Cartesian3());
+        if (universalGizmoState.startVVec) {
+          pl.vVec = Cesium.Matrix3.multiplyByVector(rotMat3, universalGizmoState.startVVec, new Cesium.Cartesian3());
           Cesium.Cartesian3.normalize(pl.vVec, pl.vVec);
         }
 
@@ -11594,11 +11627,12 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
         let az = Cesium.Math.toDegrees(Math.atan2(nDotEast, nDotNorth));
         pl.azimuthDeg = ((az % 360) + 360) % 360;
 
-        // Rotar simultáneamente polilíneas y faldones hijos asociados a este plano
-        if (Array.isArray(WP.polylines)) {
-          WP.polylines.forEach(poly => {
-            if (poly && poly.planeIdx === WP.activePlaneIdx && Array.isArray(poly.points)) {
-              poly.points = poly.points.map(pt => {
+        // Rotar simultáneamente polilíneas y faldones hijos asociados a este plano basados en su snapshot
+        if (Array.isArray(WP.polylines) && Array.isArray(universalGizmoState.startChildPolys)) {
+          WP.polylines.forEach((poly, pIdx) => {
+            const startPts = universalGizmoState.startChildPolys[pIdx];
+            if (poly && poly.planeIdx === WP.activePlaneIdx && Array.isArray(startPts) && Array.isArray(poly.points)) {
+              poly.points = startPts.map(pt => {
                 const rel = Cesium.Cartesian3.subtract(pt, center, new Cesium.Cartesian3());
                 const rotRel = Cesium.Matrix3.multiplyByVector(rotMat3, rel, new Cesium.Cartesian3());
                 return Cesium.Cartesian3.add(center, rotRel, new Cesium.Cartesian3());
@@ -11870,6 +11904,37 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
       if (typeof wpRenderActivePlaneGizmo === 'function') wpRenderActivePlaneGizmo();
       if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
       if (typeof wpUpdateUI === 'function') wpUpdateUI();
+    } else if (target.type === 'workplane_vertex' && target.rawObj) {
+      const { plane, vtxIdx } = target.rawObj;
+      if (plane && Array.isArray(plane.pts3D) && plane.pts3D[vtxIdx]) {
+        plane.pts3D[vtxIdx] = Cesium.Cartesian3.clone(newPos);
+        target.pos = Cesium.Cartesian3.clone(newPos);
+
+        // Recalcular plano a partir de los 3 puntos (P1, P2, P3)
+        if (typeof wpComputePlaneFrom3Points === 'function' && plane.pts3D.length >= 3) {
+          const mode = (typeof WP !== 'undefined' && WP.axisMode) || 'p1p2';
+          const recomputed = wpComputePlaneFrom3Points(plane.pts3D[0], plane.pts3D[1], plane.pts3D[2], mode);
+          if (recomputed) {
+            plane.normal = recomputed.normal;
+            plane.uVec = recomputed.uVec;
+            plane.vVec = recomputed.vVec;
+            plane.origin = recomputed.origin;
+            plane.tiltDeg = recomputed.tiltDeg;
+            plane.azimuthDeg = recomputed.azimuthDeg;
+            plane.d = recomputed.d;
+
+            if (target.wp) {
+              target.wp.origin = recomputed.origin;
+              target.wp.normal = recomputed.normal;
+              target.wp.uVec = recomputed.uVec;
+              target.wp.vVec = recomputed.vVec;
+              target.wp.plane = { origin: recomputed.origin, normal: recomputed.normal };
+            }
+          }
+        }
+        if (typeof wpRenderActivePlaneGizmo === 'function') wpRenderActivePlaneGizmo();
+        if (typeof wpUpdateUI === 'function') wpUpdateUI();
+      }
     }
   }
 
@@ -17653,6 +17718,27 @@ window.toggleSolarHUD = toggleSolarHUD;
           universalGizmoState.startPoints = bldPts.map(p => Cesium.Cartesian3.clone(p));
           universalGizmoState.startCenter = Cesium.Cartesian3.clone(uTarget.pos);
         }
+        if (uTarget.type === 'workplane' && uTarget.rawObj) {
+          const pl = uTarget.rawObj;
+          universalGizmoState.startPoints = (pl.pts3D || []).map(p => Cesium.Cartesian3.clone(p));
+          universalGizmoState.startOrigin = pl.origin ? Cesium.Cartesian3.clone(pl.origin) : null;
+          universalGizmoState.startNormal = pl.normal ? Cesium.Cartesian3.clone(pl.normal) : null;
+          universalGizmoState.startUVec = pl.uVec ? Cesium.Cartesian3.clone(pl.uVec) : null;
+          universalGizmoState.startVVec = pl.vVec ? Cesium.Cartesian3.clone(pl.vVec) : null;
+          universalGizmoState.startCenter = Cesium.Cartesian3.clone(uTarget.pos);
+          if (Array.isArray(WP.polylines)) {
+            universalGizmoState.startChildPolys = WP.polylines.map(poly => {
+              if (poly && poly.planeIdx === WP.activePlaneIdx && Array.isArray(poly.points)) {
+                return poly.points.map(pt => Cesium.Cartesian3.clone(pt));
+              }
+              return null;
+            });
+          }
+        }
+        if (uTarget.type === 'workplane_vertex' && uTarget.rawObj) {
+          const { plane, vtxIdx } = uTarget.rawObj;
+          universalGizmoState.startPlaneVtxPt = plane && plane.pts3D && plane.pts3D[vtxIdx] ? Cesium.Cartesian3.clone(plane.pts3D[vtxIdx]) : null;
+        }
         if (uTarget.type === 'panel' && uTarget.rawObj && uTarget.rawObj.corners) {
           universalGizmoState.startCorners = uTarget.rawObj.corners.map(c => Cesium.Cartesian3.clone(c));
           if (activePanelDragEntity && viewer) {
@@ -17706,6 +17792,54 @@ window.toggleSolarHUD = toggleSolarHUD;
         const dy = down.position.y - universalGizmoState.screen.oy;
         universalGizmoState.startAngleRad = Math.atan2(-dy, dx);
         return;
+      }
+    }
+
+    // ── B0. Clic directo sobre vértice maestro del plano de trabajo activo (P1, P2, P3 en Paso 1)
+    const curStep = (typeof wpCurrentStep !== 'undefined') ? wpCurrentStep : ((typeof window !== 'undefined' && window.wpCurrentStep) || 1);
+    if (curStep === 1 && typeof WP !== 'undefined' && WP && typeof wpGetActivePlane === 'function') {
+      const actPl = wpGetActivePlane();
+      if (actPl && Array.isArray(actPl.pts3D) && actPl.pts3D.length >= 3 && actPl.visible !== false) {
+        let nearestPlaneVtxIdx = -1;
+        let minPlaneVtxDist = 24.0;
+        for (let vi = 0; vi < 3; vi++) {
+          const pt = actPl.pts3D[vi];
+          if (!pt) continue;
+          const pWin = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, pt);
+          if (pWin) {
+            const d = Math.hypot(down.position.x - pWin.x, down.position.y - pWin.y);
+            if (d < minPlaneVtxDist) {
+              minPlaneVtxDist = d;
+              nearestPlaneVtxIdx = vi;
+            }
+          }
+        }
+        if (nearestPlaneVtxIdx >= 0) {
+          WP.selectedPlaneVtxIdx = nearestPlaneVtxIdx;
+          WP.selectedVtxIdx = -1;
+          renderTriad2D();
+
+          const pt = actPl.pts3D[nearestPlaneVtxIdx];
+          universalGizmoState.active = true;
+          universalGizmoState.wasDragging = false;
+          universalGizmoState.mode = 'center-drag';
+          universalGizmoState.targetType = 'workplane_vertex';
+          if (window.RAundo && typeof window.RAundo.beginDrag === 'function') window.RAundo.beginDrag('workplane_vertex');
+          universalGizmoState.startMouse = { x: down.position.x, y: down.position.y };
+          universalGizmoState.startPos = Cesium.Cartesian3.clone(pt);
+          universalGizmoState.startRot = 0;
+          universalGizmoState.startAngleRad = 0;
+          universalGizmoState.startPlaneVtxPt = Cesium.Cartesian3.clone(pt);
+
+          if (scene && scene.screenSpaceCameraController) {
+            scene.screenSpaceCameraController.enableRotate = false;
+            scene.screenSpaceCameraController.enableTranslate = false;
+            scene.screenSpaceCameraController.enableTilt = false;
+            scene.screenSpaceCameraController.enableLook = false;
+            scene.screenSpaceCameraController.enableZoom = false;
+          }
+          return;
+        }
       }
     }
 
@@ -17998,6 +18132,61 @@ window.toggleSolarHUD = toggleSolarHUD;
       return;
     }
 
+    // -0A. Comprobar clic sobre vértice maestro del plano de trabajo activo (Paso 1)
+    const curStepForClick = (typeof wpCurrentStep !== 'undefined') ? wpCurrentStep : ((typeof window !== 'undefined' && window.wpCurrentStep) || 1);
+    if (curStepForClick === 1 && typeof WP !== 'undefined' && WP && typeof wpGetActivePlane === 'function') {
+      const actPl = wpGetActivePlane();
+      if (actPl && Array.isArray(actPl.pts3D) && actPl.pts3D.length >= 3 && actPl.visible !== false) {
+        let hitPlaneVtxIdx = -1;
+        // 1. Pick Cesium de entidad de vértice de plano
+        if (pickedObj && pickedObj.id) {
+          const pId = (typeof pickedObj.id === 'string') ? pickedObj.id : (typeof pickedObj.id.id === 'string' ? pickedObj.id.id : '');
+          if (pId.startsWith('wp_active_plane_vtx_')) {
+            hitPlaneVtxIdx = parseInt(pId.replace('wp_active_plane_vtx_', ''), 10);
+          }
+        }
+        // 2. Proximidad en pantalla (tolerancia 24px)
+        if (hitPlaneVtxIdx < 0 || isNaN(hitPlaneVtxIdx)) {
+          let minPVtxDist = 24.0;
+          for (let vi = 0; vi < 3; vi++) {
+            const pt = actPl.pts3D[vi];
+            if (!pt) continue;
+            const pWin = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, pt);
+            if (pWin) {
+              const d = Math.hypot(click.position.x - pWin.x, click.position.y - pWin.y);
+              if (d < minPVtxDist) {
+                minPVtxDist = d;
+                hitPlaneVtxIdx = vi;
+              }
+            }
+          }
+        }
+        if (hitPlaneVtxIdx >= 0 && hitPlaneVtxIdx < 3) {
+          WP.selectedPlaneVtxIdx = hitPlaneVtxIdx;
+          WP.selectedVtxIdx = -1;
+          renderTriad2D();
+          const vtxLabels = ['P1 (Origen)', 'P2 (Eje X)', 'P3 (Eje Y)'];
+          showStatus('VÉRTICE #' + (hitPlaneVtxIdx + 1) + ' (' + vtxLabels[hitPlaneVtxIdx] + ') SELECCIONADO PARA EDICIÓN DIRECTA', 2500);
+          return;
+        }
+      }
+    }
+
+    // -0B. Comprobar clic sobre superficie o borde del plano de trabajo activo (para deseleccionar su vértice y volver a seleccionar el plano completo)
+    if (curStepForClick === 1 && typeof WP !== 'undefined' && WP && typeof wpGetActivePlane === 'function') {
+      const actPl = wpGetActivePlane();
+      if (actPl && actPl.visible !== false && pickedObj && pickedObj.id) {
+        const pId = (typeof pickedObj.id === 'string') ? pickedObj.id : (typeof pickedObj.id.id === 'string' ? pickedObj.id.id : '');
+        if (pId === 'wp_active_plane_mesh' || pId === 'wp_active_plane_border') {
+          WP.selectedPlaneVtxIdx = -1;
+          WP.selectedVtxIdx = -1;
+          renderTriad2D();
+          showStatus('<i data-lucide="compass" class="icon-sm"></i> ' + (actPl.name || 'PLANO DE TRABAJO').toUpperCase() + ' SELECCIONADO', 2000);
+          return;
+        }
+      }
+    }
+
     // 0. Comprobar clic sobre Manipulador o proximidad de Vértice de Huella de Edificio
     let hitBldVtx = null;
     const pickedObj = scene.pick(click.position);
@@ -18213,6 +18402,13 @@ window.toggleSolarHUD = toggleSolarHUD;
     }
 
     // G. Si hay un vértice seleccionado y se hace clic en vacío fuera de la Tríada, deseleccionar
+    if (typeof WP !== 'undefined' && WP && WP.selectedPlaneVtxIdx >= 0) {
+      const hitVtx = (typeof checkUniversalGizmoHit === 'function') ? checkUniversalGizmoHit(click.position.x, click.position.y) : null;
+      if (!hitVtx) {
+        WP.selectedPlaneVtxIdx = -1;
+        renderTriad2D();
+      }
+    }
     if (WP.selectedVtxIdx >= 0) {
       const hitVtx = (typeof checkUniversalGizmoHit === 'function') ? checkUniversalGizmoHit(click.position.x, click.position.y) : null;
       if (!hitVtx) {
@@ -18538,6 +18734,13 @@ window.toggleSolarHUD = toggleSolarHUD;
         if (typeof wpFastRenderSimulatedPanels === 'function') wpFastRenderSimulatedPanels(true, null);
         if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Plano de trabajo transformado');
         if (typeof showStatus === 'function') showStatus('<i data-lucide="compass" class="icon-sm"></i> PLANO DE TRABAJO TRANSFORMADO CON ÉXITO', 2500);
+      } else if (draggedTargetType === 'workplane_vertex') {
+        if (typeof wpRenderActivePlaneGizmo === 'function') wpRenderActivePlaneGizmo();
+        if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
+        if (typeof render3DObstaclesInCesium === 'function') render3DObstaclesInCesium();
+        if (typeof wpFastRenderSimulatedPanels === 'function') wpFastRenderSimulatedPanels(true, null);
+        if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Vértice de plano de trabajo modificado');
+        if (typeof showStatus === 'function') showStatus('<i data-lucide="check" class="icon-sm"></i> VÉRTICE DEL PLANO ACTUALIZADO CON ÉXITO', 2500);
       } else if (draggedTargetType === 'vertex') {
         if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
         if (typeof render3DBuildingsInCesium === 'function') render3DBuildingsInCesium();
@@ -18663,6 +18866,12 @@ window.toggleSolarHUD = toggleSolarHUD;
       // Limpiar entidad de arrastre al soltar el ratón SIEMPRE
       universalGizmoState.startPoints = null;
       universalGizmoState.startCenter = null;
+      universalGizmoState.startOrigin = null;
+      universalGizmoState.startNormal = null;
+      universalGizmoState.startUVec = null;
+      universalGizmoState.startVVec = null;
+      universalGizmoState.startChildPolys = null;
+      universalGizmoState.startPlaneVtxPt = null;
       if (draggedTargetType !== 'panel' && activePanelDragEntity && viewer) {
         try { viewer.entities.remove(activePanelDragEntity); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
         activePanelDragEntity = null;
