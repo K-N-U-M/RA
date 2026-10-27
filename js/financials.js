@@ -312,19 +312,25 @@ if (typeof window !== 'undefined') {
 }
 
 function generateCommercialSummary(d, m, equipment) {
-  var kwp = m.kwp || 0;
-  var numPanels = m.numPanels || 0;
-  var annualKWh = d.annualKWh || (kwp * 1450);
-  var ahorro = m.ahorroLuzAnio1 || 0;
-  var payback = m.paybackYears || 0;
-  var autoconsumo = m.pctAutoconsumo || 0;
+  var kwp = (m && m.kwp) || 0;
+  var numPanels = (m && m.numPanels) || (d && d.numPanels) || 0;
+  var annualKWh = (d && d.annualKWh) || (kwp * 1450);
+  var ahorro = (m && m.ahorroLuzAnio1) || (m && m.ahorroAnualEstimado) || 0;
+  var payback = (m && m.paybackYears) || 0;
+  var autoconsumo = (m && m.pctAutoconsumo) || (m && m.autoconsumoPct) || 0;
   var tit = (d && d.tit) ? d.tit : {};
   var ciudad = tit.mun || tit.prov || 'su localidad';
-  var nombre = tit.nombre || 'Estimado/a cliente';
+  var rawNombre = tit.nombre ? String(tit.nombre).trim() : '';
+
+  var isGeneric = !rawNombre || /^(cliente|titular|titular de la instalaci[oó]n|propietario|propietario ejemplo|propietario ejemplo s\.?l\.?|particular|empresa|ejemplo|xxxx+|n\/a)$/i.test(rawNombre);
 
   // ── Plantilla determinista ──
   var lines = [];
-  lines.push('Estimado/a <strong>' + nombre.split(' ')[0] + '</strong>,');
+  if (!isGeneric) {
+    lines.push('Estimado/a <strong>' + rawNombre.split(' ')[0] + '</strong>,');
+  } else {
+    lines.push('Estimado/a cliente,');
+  }
   lines.push('');
   lines.push('Hemos diseñado una instalación fotovoltaica a medida para su propiedad en <strong>' + ciudad + '</strong>.');
 
@@ -374,29 +380,90 @@ async function requestCommercialSummaryFromGemini(d, m, equipment) {
   } catch(e) {}
   if (!apiKey) throw new Error('NO_API_KEY');
 
+  // 1. Obtención y saneamiento del nombre del cliente (evita comodines robóticos)
+  var rawNombre = '';
+  if (typeof document !== 'undefined') {
+    var modalNombreEl = document.getElementById('pricing-cust-nombre');
+    if (modalNombreEl && modalNombreEl.value && modalNombreEl.value.trim()) {
+      rawNombre = modalNombreEl.value.trim();
+    }
+  }
+  if (!rawNombre && d && d.tit && d.tit.nombre) {
+    rawNombre = String(d.tit.nombre).trim();
+  }
+  if (!rawNombre && typeof window !== 'undefined' && window.RA && window.RA.billAuditor && window.RA.billAuditor.comparison && window.RA.billAuditor.comparison.titular) {
+    rawNombre = String(window.RA.billAuditor.comparison.titular).trim();
+  }
+  if (!rawNombre && typeof document !== 'undefined') {
+    var docNombreEl = document.getElementById('doc-nombre');
+    if (docNombreEl && docNombreEl.value && docNombreEl.value.trim()) {
+      rawNombre = docNombreEl.value.trim();
+    }
+  }
+
+  var isGenericName = !rawNombre ||
+    /^(cliente|titular|titular de la instalaci[oó]n|propietario|propietario ejemplo|propietario ejemplo s\.?l\.?|particular|empresa|ejemplo|xxxx+|n\/a)$/i.test(rawNombre);
+  var nombreLimpio = isGenericName ? '' : rawNombre;
+
+  // 2. Obtención de ubicación / municipio
+  var ciudad = '';
+  if (typeof document !== 'undefined') {
+    var modalMunEl = document.getElementById('pricing-cust-mun');
+    var modalProvEl = document.getElementById('pricing-cust-prov');
+    if (modalMunEl && modalMunEl.value && modalMunEl.value.trim()) {
+      ciudad = modalMunEl.value.trim();
+    } else if (modalProvEl && modalProvEl.value && modalProvEl.value.trim()) {
+      ciudad = modalProvEl.value.trim();
+    }
+  }
+  if (!ciudad && d && d.tit) {
+    ciudad = (d.tit.mun || d.tit.prov || '').trim();
+  }
+  if (!ciudad && typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.address) {
+    ciudad = window.solarProjectConfig.address.split(',')[0].trim();
+  }
+  if (!ciudad) ciudad = 'su localidad';
+
+  // 3. Métricas técnicas y económicas
   var kwp = (m && m.kwp) || 0;
   var numPanels = (m && m.numPanels) || (d && d.numPanels) || 0;
-  var annualKWh = (d && d.annualKWh) || (kwp * 1450);
-  var ahorro = (m && m.ahorroLuzAnio1) || 0;
+  var annualKWh = (d && d.annualKWh) || (m && m.annualKWh) || (kwp * 1450);
+  var ahorro = (m && m.ahorroLuzAnio1) || (m && m.ahorroAnualEstimado) || 0;
   var payback = (m && m.paybackYears) || 0;
-  var autoconsumo = (m && m.pctAutoconsumo) || 0;
-  var ciudad = (d && d.tit && (d.tit.mun || d.tit.prov)) || 'su localidad';
-  var nombre = (d && d.tit && d.tit.nombre) || 'Cliente';
+  var autoconsumo = (m && m.pctAutoconsumo) || (m && m.autoconsumoPct) || 0;
 
-  var prompt = 'Eres un asesor solar comercial profesional redactando una propuesta para un cliente residencial o pyme. ' +
-    'Escribe un resumen ejecutivo y persuasivo de la propuesta (máx 120 palabras) en español con tono cercano, riguroso y convincente. ' +
-    'NO uses saludo inicial ("Estimado..."), ve directo al grano. Usa HTML inline simple (<strong> para destacar cifras clave). ' +
-    'Datos del proyecto:\n' +
-    '- Cliente: ' + nombre + '\n' +
+  // 4. Prompt instructivo y riguroso para redacción de alto impacto sin cortes
+  var prompt = 'Eres un consultor solar experto y redactor comercial sénior en España.\n' +
+    'Redacta un resumen comercial ejecutivo, persuasivo, riguroso y de alto valor (entre 75 y 115 palabras) para una propuesta fotovoltaica formal.\n\n' +
+    'REGLAS DE ESTILO Y FORMATO (OBLIGATORIAS):\n' +
+    '1. Extensión y cierre: Redacta 1 o 2 párrafos fluidos y cohesionados. Asegúrate de finalizar el texto con oraciones completas y PUNTO FINAL. No dejes nunca una frase a medias ni el texto cortado.\n' +
+    '2. Sin viñetas ni títulos: NO uses viñetas (- o *), ni encabezados (# o ##), ni listas.\n' +
+    '3. Destacados HTML: Utiliza etiquetas <strong>...</strong> exclusivamente para destacar las 4 cifras cuantitativas clave (potencia en kWp, producción estimada en kWh/año, ahorro en el primer año en € y plazo de amortización en años).\n' +
+    '4. Sin saludos: NO utilices saludos iniciales como "Estimado...", ve directo al grano destacando la propuesta de valor y rentabilidad.\n';
+
+  if (!isGenericName) {
+    prompt += '5. Cliente: El titular de la propuesta es "' + nombreLimpio + '". Puedes mencionarlo con naturalidad y cortesía.\n';
+  } else {
+    prompt += '5. Cliente: No se ha indicado un nombre de cliente específico. ' +
+      'BAJO NINGÚN CONCEPTO utilices la palabra "CLIENTE" ni "PROPIETARIO" en mayúsculas como si fuera un nombre propio. ' +
+      'Refiérete al destinatario de forma natural (por ejemplo: "Para esta vivienda en ' + ciudad + '...", ' +
+      '"Esta instalación fotovoltaica proyectada en ' + ciudad + '...", o "Para su inmueble en ' + ciudad + '...").\n';
+  }
+
+  prompt += '\nDATOS REALES DEL PROYECTO:\n' +
     '- Ubicación: ' + ciudad + '\n' +
-    '- Módulos: ' + numPanels + ' paneles\n' +
-    '- Potencia de campo: ' + kwp.toFixed(2) + ' kWp\n' +
-    '- Producción anual estimada: ' + Math.round(annualKWh).toLocaleString('es-ES') + ' kWh\n' +
-    '- Ahorro estimado año 1: ' + Math.round(ahorro).toLocaleString('es-ES') + ' €\n' +
-    '- Plazo amortización: ' + payback.toFixed(1) + ' años\n';
-  if (autoconsumo > 0) prompt += '- Grado de autoconsumo: ' + Math.round(autoconsumo) + '%\n';
-  if (equipment && equipment.hasBat) prompt += '- Sistema de baterías: ' + equipment.batName + '\n';
-  if (equipment) prompt += '- Inversor solar: ' + equipment.invName + '\n';
+    '- Módulos fotovoltaicos: ' + numPanels + ' paneles (' + kwp.toFixed(2) + ' kWp)\n' +
+    '- Producción anual estimada: ' + Math.round(annualKWh).toLocaleString('es-ES') + ' kWh/año\n' +
+    (ahorro > 0 ? ('- Ahorro económico año 1: ' + Math.round(ahorro).toLocaleString('es-ES') + ' €/año\n') : '') +
+    (payback > 0 ? ('- Retorno de inversión (payback): ' + payback.toFixed(1) + ' años\n') : '') +
+    (autoconsumo > 0 ? ('- Grado de autoconsumo: ' + Math.round(autoconsumo) + '%\n') : '');
+
+  if (equipment && equipment.hasBat && equipment.batName) {
+    prompt += '- Almacenamiento: Batería ' + equipment.batName + '\n';
+  }
+  if (equipment && equipment.invName) {
+    prompt += '- Inversor solar: ' + equipment.invName + '\n';
+  }
 
   var models = [];
   try {
@@ -419,22 +486,31 @@ async function requestCommercialSummaryFromGemini(d, m, equipment) {
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
           generationConfig: {
             temperature: 0.6,
-            maxOutputTokens: 500
+            maxOutputTokens: 2500
           }
         })
       }, 30000, apiKey);
 
       if (!resp.ok) continue;
       var data = await resp.json().catch(function() { return null; });
-      if (data && data.candidates && data.candidates[0] && data.candidates[0].content &&
-          data.candidates[0].content.parts && data.candidates[0].content.parts[0]) {
-        var text = data.candidates[0].content.parts[0].text || '';
-        if (text.trim()) {
-          return String(text.trim())
+      var candidate = data && data.candidates && data.candidates[0];
+      if (candidate && candidate.content && Array.isArray(candidate.content.parts)) {
+        var textParts = candidate.content.parts
+          .filter(function(p) { return !p.thought && typeof p.text === 'string'; })
+          .map(function(p) { return p.text; });
+        var text = textParts.length > 0 ? textParts.join('') : (candidate.content.parts[0] && candidate.content.parts[0].text ? candidate.content.parts[0].text : '');
+
+        if (text && text.trim()) {
+          var cleanHtml = String(text.trim())
+            .replace(/^```(?:html)?\s*/i, '')
+            .replace(/\s*```$/i, '')
             .replace(/<\s*(?:script|iframe|object|embed|style|link|meta)[^>]*>[\s\S]*?<\s*\/\s*(?:script|iframe|object|embed|style|link|meta)\s*>/gi, '')
             .replace(/<\s*(?:script|iframe|object|embed|style|link|meta)[^>]*>/gi, '')
             .replace(/\bon\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
-            .replace(/href\s*=\s*['"]?javascript:[^'">\s]*/gi, '');
+            .replace(/href\s*=\s*['"]?javascript:[^'">\s]*/gi, '')
+            .trim();
+
+          if (cleanHtml) return cleanHtml;
         }
       }
     } catch(eLoop) {}
@@ -1256,7 +1332,7 @@ function wpOpenPricingReviewModal(onConfirm) {
                 '<span>⚡ Generar / Previsualizar</span>' +
               '</button>' +
             '</div>' +
-            '<div id="modal-ai-summary-box" contenteditable="true" style="background:rgba(15,23,42,0.7);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:8px 10px;font-size:10px;line-height:1.45;color:#E2E8F0;min-height:48px;max-height:110px;overflow-y:auto;outline:none;" title="Haz clic para editar manualmente el texto">' +
+            '<div id="modal-ai-summary-box" contenteditable="true" style="background:rgba(15,23,42,0.7);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:8px 10px;font-size:10px;line-height:1.45;color:#E2E8F0;min-height:48px;max-height:130px;overflow-y:auto;outline:none;" title="Haz clic para editar manualmente el texto">' +
               '<span style="color:#94a3b8;font-style:italic;">Pulsa en &laquo;Generar / Previsualizar&raquo; para redactar el resumen con IA adaptado a los datos y equipos de este proyecto, o edítalo directamente aquí.</span>' +
             '</div>' +
             '<div style="display:flex;justify-content:space-between;align-items:center;font-size:9px;color:#94a3b8;">' +
@@ -1754,8 +1830,21 @@ function wpOpenPricingReviewModal(onConfirm) {
     modalGenAiSummaryBtn.onclick = async function() {
       if (modalAiSummaryStatus) modalAiSummaryStatus.innerHTML = '⏳ <em>Consultando a Google Gemini para redactar el resumen...</em>';
       if (modalAiSummaryBox) modalAiSummaryBox.innerHTML = '<span style="color:#C084FC;">✨ Conectando con Gemini y redactando propuesta ejecutiva...</span>';
+      var liveD = (typeof getProjectCalcs === 'function') ? getProjectCalcs() : (d || {});
+      var liveM = m;
+      var liveEq = eq;
       try {
-        var text = await requestCommercialSummaryFromGemini(d, m, eq);
+        liveD = liveD || {};
+        liveD.tit = liveD.tit || {};
+        if (custNombreInput && custNombreInput.value) liveD.tit.nombre = custNombreInput.value.trim();
+        if (custMunInput && custMunInput.value) liveD.tit.mun = custMunInput.value.trim();
+        if (custProvInput && custProvInput.value) liveD.tit.prov = custProvInput.value.trim();
+        liveM = (typeof calculateFinancialModel === 'function') ? (function() {
+          try { return calculateFinancialModel(); } catch(_) { return m; }
+        })() : m;
+        liveEq = (typeof resolveEquipmentNames === 'function') ? resolveEquipmentNames() : eq;
+
+        var text = await requestCommercialSummaryFromGemini(liveD, liveM, liveEq);
         if (text && text.trim()) {
           _customCommercialSummary = text;
           if (modalAiSummaryBox) modalAiSummaryBox.innerHTML = text;
@@ -1769,7 +1858,7 @@ function wpOpenPricingReviewModal(onConfirm) {
         } else {
           if (modalAiSummaryStatus) modalAiSummaryStatus.innerHTML = '❌ No se pudo conectar con Gemini (' + (eGen.message || 'error') + '). Mostrando plantilla.';
         }
-        if (modalAiSummaryBox) modalAiSummaryBox.innerHTML = generateCommercialSummary(d, m, eq);
+        if (modalAiSummaryBox) modalAiSummaryBox.innerHTML = generateCommercialSummary(liveD || d, liveM || m, liveEq || eq);
       }
     };
   }
@@ -4429,6 +4518,18 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   }
   if (typeof generatePropuestaComercialPDF !== 'undefined')
     window.generatePropuestaComercialPDF = generatePropuestaComercialPDF;
+  if (typeof generateCommercialSummary !== 'undefined') {
+    window.generateCommercialSummary = generateCommercialSummary;
+    if (typeof globalThis !== 'undefined') globalThis.generateCommercialSummary = generateCommercialSummary;
+  }
+  if (typeof requestCommercialSummaryFromGemini !== 'undefined') {
+    window.requestCommercialSummaryFromGemini = requestCommercialSummaryFromGemini;
+    if (typeof globalThis !== 'undefined') globalThis.requestCommercialSummaryFromGemini = requestCommercialSummaryFromGemini;
+  }
+  if (typeof enrichSummaryWithGemini !== 'undefined') {
+    window.enrichSummaryWithGemini = enrichSummaryWithGemini;
+    if (typeof globalThis !== 'undefined') globalThis.enrichSummaryWithGemini = enrichSummaryWithGemini;
+  }
   if (typeof togglePropEdit !== 'undefined')
     window.togglePropEdit = togglePropEdit;
   if (typeof exportPropWord !== 'undefined')
@@ -4449,4 +4550,14 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       }
     }
   }
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    generateCommercialSummary: typeof generateCommercialSummary !== 'undefined' ? generateCommercialSummary : null,
+    requestCommercialSummaryFromGemini: typeof requestCommercialSummaryFromGemini !== 'undefined' ? requestCommercialSummaryFromGemini : null,
+    enrichSummaryWithGemini: typeof enrichSummaryWithGemini !== 'undefined' ? enrichSummaryWithGemini : null,
+    calculateFinancialModel: typeof calculateFinancialModel !== 'undefined' ? calculateFinancialModel : null,
+    RAPricing: typeof RAPricing !== 'undefined' ? RAPricing : null
+  };
+}
 })();
