@@ -846,16 +846,13 @@ function generatePresupuesto(skipPricingModal) {
   const totalMetrosDC = Math.round(lDcReal * Math.max(d.numStrings || 1, 1) * 2); // Polaridad (+) y (-)
   const totalMetrosAC = Math.round(lAcReal * (d.monofasico ? 3 : 5)); // Fases + Neutro + Tierra
 
-  // Precio unitario cable según sección comercial
-  const puCableDC = sDcReal <= 6 ? 1.85 : (sDcReal <= 10 ? 2.90 : 4.20);
-  const puCableAC = sAcReal <= 6 ? 2.40 : (sAcReal <= 10 ? 3.80 : 5.90);
-  const puEstructura = d.isCoplanar ? 24.50 : 38.00; // Coplanar vs Lastrada con cortavientos
-
-  // Capítulos detallados con BOM métrico real y alineación con Modelo Financiero
-  // Margen de escala comercial para partidas de presupuesto de cliente
-  const _marginFactor = (m && m.marginEur > 0 && m.directCost > 0) ? (m.subtotal / m.directCost) : 1.0;
+  // Sincronización estricta con el Modelo Financiero SSOT
   const estCostTotal = (m && m.estCost > 0) ? m.estCost : (d.pres_est || (d.numPanels * 45.0));
   const puEstructuraPorModulo = d.numPanels > 0 ? (estCostTotal / d.numPanels) : 45.0;
+  const isPergola = !!(typeof WP !== 'undefined' && WP && Array.isArray(WP.polylines) && WP.polylines.some(p => p && (p.structureType === 'pergola' || (p.estructura && p.estructura.tipo === 'pergola'))));
+  const descEstructura = isPergola
+    ? 'Estructura tipo Pérgola Elevada autoportante de aluminio/acero galvanizado con pilares anclados a forjado y vigas de dintel reforzadas'
+    : (d.isCoplanar ? 'Estructura coplanar de aluminio anodizado EN AW-6063 T6 para fijación a cubierta inclinada' : 'Estructura soporte autoportante con perfilería continua de aluminio y fijaciones inox A2');
 
   const mb = (d && d.modulesBreakdown) || (typeof window !== 'undefined' && window.RAModulesBreakdown && typeof window.RAModulesBreakdown.getProjectModulesBreakdown === 'function' ? window.RAModulesBreakdown.getProjectModulesBreakdown() : null);
   let cap1Items = [];
@@ -879,7 +876,7 @@ function generatePresupuesto(skipPricingModal) {
     },
     { titulo: 'CAP. 2 — ESTRUCTURA SOPORTE (' + (d.isCoplanar ? 'COPLANAR A CUBIERTA' : 'PARAMÉTRICA / LASTRADA') + ')',
       items: [
-        { ref:'2.1', desc: (d.isCoplanar ? 'Estructura coplanar de aluminio anodizado EN AW-6063 T6 para fijación a cubierta inclinada' : 'Estructura soporte autoportante con perfilería continua de aluminio y fijaciones inox A2') + '. Incluso perfiles continuos, grapas de fijación inter-panel, tornillería A2 inox y juntas de estanqueidad EPDM calculadas por Árbol BIM.', ud:'ud mod', q: d.numPanels, pu: puEstructuraPorModulo }
+        { ref:'2.1', desc: descEstructura + '. Incluso perfiles continuos, grapas de fijación inter-panel, tornillería A2 inox y juntas de estanqueidad EPDM calculadas por Árbol BIM.', ud:'ud mod', q: d.numPanels, pu: puEstructuraPorModulo }
       ]
     },
     { titulo: 'CAP. 3 — SISTEMA DE GENERACIÓN Y CONVERSIÓN',
@@ -965,8 +962,10 @@ function generatePresupuesto(skipPricingModal) {
     sumRows += '<tr><td>' + cap.titulo + '</td><td style="text-align:right;font-weight:700">' + capTotal.toLocaleString('es-ES', {minimumFractionDigits:2}) + ' €</td><td style="text-align:right;color:#6b7280">' + (subtotalCalc > 0 ? (capTotal / subtotalCalc * 100).toFixed(1) : '0.0') + ' %</td></tr>';
   });
 
-  const iva = subtotalCalc * 0.21;
-  const capexBruto = subtotalCalc + iva;
+  // Sincronización milimétrica con el SSOT Financiero Bancable (evita redondeos flotantes divergentes)
+  const subtotalFinal = m ? m.subtotal : Math.round(subtotalCalc);
+  const iva = m ? m.iva : Math.round(subtotalFinal * 0.21);
+  const capexBruto = m ? m.capexBruto : (subtotalFinal + iva);
 
   // Incentivos y retorno bancable (25 años)
   const tirVal = m ? (typeof m.tir === 'number' ? m.tir.toFixed(1) : m.tir) : '16.4';
