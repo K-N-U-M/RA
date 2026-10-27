@@ -262,6 +262,19 @@
           const splicesCost = railSplicesCount * (mfg.splicePrice || BOM_DEFAULTS.SPLICE_PRICE_UNIT);
           const fixCost = fixingsCount * fixingsUnitCost;
           structMaterialsCostEur = profileCost + splicesCost + fixCost;
+        } else if (stType === 'pergola' || (poly.estructura && poly.estructura.tipo === 'pergola')) {
+          const pergClearance = (poly.estructura && typeof poly.estructura.clearance === 'number') ? poly.estructura.clearance : (poly.pergolaHeight || 1.80);
+          const pergSubtype = poly.pergolaSubtype || (poly.estructura && poly.estructura.subtype) || 'continuous';
+          const postsPerPanel = 2.0; // Media de pilares por módulo en marquesina/pérgola estructural
+          const totalPosts = Math.max(4, Math.round(panelCount * postsPerPanel));
+          const postUnitCost = Math.round(pergClearance * 45.0 + 35.0); // Coste por pilar estructural según altura + anclaje a forjado
+          const beamCost = totalProfileMeters * (mfg.railPricePerMeter ? mfg.railPricePerMeter * 1.6 : 14.80); // Viga reforzada de dintel
+          const splicesCost = railSplicesCount * (mfg.splicePrice || 3.0);
+          const postsCost = totalPosts * postUnitCost;
+          structMaterialsCostEur = postsCost + beamCost + splicesCost;
+          fixingsType = 'Pilares tubulares de acero/aluminio (H=' + pergClearance.toFixed(2) + 'm) + Dinteles';
+          fixingsCount = totalPosts;
+          fixingsUnitCost = postUnitCost;
         } else if (isTriangular) {
           const is30Deg = (structCfg.tiltDeg || 0) >= 20 || (estType && estType.includes('30'));
           const ratio = is30Deg ? BOM_DEFAULTS.BALLAST_BLOCKS_PER_PANEL_30 : BOM_DEFAULTS.BALLAST_BLOCKS_PER_PANEL_15;

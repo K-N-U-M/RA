@@ -477,8 +477,27 @@ var RAPricing = {
         }
       });
     }
+    // Detección de faldones tipo pérgola elevada
+    var isAnyPergola = false;
+    var pergolaClearance = 1.80;
+    if (typeof WP !== 'undefined' && WP && Array.isArray(WP.polylines)) {
+      WP.polylines.forEach(function(poly) {
+        if (poly && (poly.structureType === 'pergola' || (poly.estructura && poly.estructura.tipo === 'pergola'))) {
+          isAnyPergola = true;
+          if (poly.estructura && typeof poly.estructura.clearance === 'number') {
+            pergolaClearance = poly.estructura.clearance;
+          }
+        }
+      });
+    }
+
     if (estPrice <= 0) {
-      estPrice = Math.round(numPanels * 55);
+      if (isAnyPergola) {
+        var basePergolaPerPanel = Math.round(130 + pergolaClearance * 45); // ~200-240 €/panel
+        estPrice = Math.round(numPanels * basePergolaPerPanel);
+      } else {
+        estPrice = Math.round(numPanels * 55);
+      }
     }
 
     // 3. Inversor / Microinversores / Optimizadores desde selección real (incluyendo Inversor Virtual y Multi-Inversor)
@@ -622,6 +641,9 @@ var RAPricing = {
       panelPrice: Math.round(panelPrice * 100) / 100,
       panelTotalCost: pTot,
       estPrice: eTot,
+      isPergola: isAnyPergola,
+      pergolaClearance: pergolaClearance,
+      estDescription: isAnyPergola ? ('Pérgola elevada de aluminio/acero (H = ' + pergolaClearance.toFixed(2) + ' m)') : 'Estructura soporte y perfilería',
       invPrice: iTot,
       invOnlyPrice: Math.round(invOnlyPrice),
       mlpePrice: Math.round(mlpePrice),
@@ -1088,6 +1110,14 @@ function wpOpenPricingReviewModal(onConfirm) {
   }
   if (subtextBat && eq) {
     subtextBat.textContent = eq.hasBat ? eq.batName : 'Sin sistema de acumulación electroquímica';
+  }
+  var subtextEst = document.getElementById('pricing-subtext-est');
+  if (subtextEst && designCosts) {
+    if (designCosts.isPergola) {
+      subtextEst.innerHTML = '<b style="color:#38BDF8;">Pérgola Elevada (H = ' + designCosts.pergolaClearance.toFixed(2) + ' m)</b> · Pórticos y pilares anclados a forjado';
+    } else {
+      subtextEst.textContent = 'Perfilería continua de aluminio y fijaciones A2';
+    }
   }
 
   // Pre-cargar valores dinámicos calculados desde la ingeniería del proyecto actual
