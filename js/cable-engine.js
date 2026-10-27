@@ -1234,7 +1234,7 @@
         : null;
       var vmpHotMod = (dynLim && dynLim.vmpHot > 0) ? dynLim.vmpHot : (vmpNom * (1 + (modCfg.tempCoeffPmax ?? -0.0034) * (70 - 25)));
       var vocColdMod = (dynLim && dynLim.vocCold > 0) ? dynLim.vocCold : (vocNom * (1 + (modCfg.tempCoeffVoc ?? -0.0026) * (-5 - 25)));
-      var rho90 = 0.023;
+      var rho90 = (global.ELEC_CONSTANTS && global.ELEC_CONSTANTS.RHO_CU_90) ? global.ELEC_CONSTANTS.RHO_CU_90 : 0.023;
       var imp = modCfg.imp || 13.05;
       var secDc = sState.S_dc_recommended || 6;
 
@@ -1313,10 +1313,16 @@
         ? global.solarProjectConfig.calculatedLimits.inverter
         : { kw: 10.0, type: 'Trifásico' };
 
-      var rho90 = 0.023; // Resistencia específica cobre a 90°C
+      var rho90 = (global.ELEC_CONSTANTS && global.ELEC_CONSTANTS.RHO_CU_90) ? global.ELEC_CONSTANTS.RHO_CU_90 : 0.023; // Resistencia específica cobre a 90°C (REBT ITC-BT-40)
       var lDcVal = Ldc || 25;
       var lAcVal = Lac || 15;
       var imp = modCfg.imp || 13.05;
+
+      // Ganancia de corriente por módulo bifacial (TOPCon / HJT / N-Type bifacial) según IEC 61215-1-1
+      var isBifacial = !!(modCfg.bifacial || modCfg.isBifacial || (modCfg.tecnologia && modCfg.tecnologia.toLowerCase().includes('bifacial')));
+      var bifacialGain = isBifacial ? 1.08 : 1.0; // Ganancia trasera estimada media 8%
+      var iscEffective = (modCfg.isc || 13.8) * bifacialGain;
+      var impEffective = imp * bifacialGain;
 
       // Obtener el número real de paneles del circuito para la tensión de trabajo (Vmp real)
       var strList = this.gatherAllStrings();
@@ -1337,8 +1343,8 @@
       // provocaba que nunca se doblara la sección del conductor troncal.
       var numParallel = this.getDcTopologyInfo(strList.length).groups;
       // IEC 62548 Clause 5.2.1: 1.56 × Isc (1.25 × 1.25) para dimensionamiento térmico de conductores de campo FV
-      var iDcDesign = numParallel * 1.56 * (modCfg.isc || 13.8);
-      var iDcWorking = numParallel * imp;
+      var iDcDesign = numParallel * 1.56 * iscEffective;
+      var iDcWorking = numParallel * impEffective;
 
       var secDcAvail = [4, 6, 10, 16, 25];
       var imaxDcZZF  = [44, 58, 80, 107, 138];

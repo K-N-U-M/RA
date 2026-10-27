@@ -1164,9 +1164,9 @@
    * Calcula la caída de tensión y valida el cumplimiento según REBT ITC-BT-40 e IEC 62548.
    * Límite normativo reglamentario: ΔV <= 1.5% tanto en continua (CC) como en alterna (CA).
    */
-  function calculateVoltageDrop({ lengthM, currentA, sectionMm2, voltageV, isThreePhase = false, isAC = false, conductor = 'Cu', tempC = 90, cosPhi = 0.98, reactancePerKm = 0.08 }) {
-    const rho = (conductor === 'Al') ? 0.036 : (tempC >= 90 ? ELEC_CONSTANTS.RHO_CU_90 : 0.018);
-    const factorPhase = isThreePhase ? Math.sqrt(3) : 2.0;
+  function calculateVoltageDrop({ lengthM, currentA, sectionMm2, voltageV, isThreePhase = false, isAC = false, conductor = 'Cu', tempC = 90, cosPhi = 0.95, reactancePerKm = 0.08 }) {
+    const rho = (conductor === 'Al') ? (ELEC_CONSTANTS.RHO_AL_90 || 0.0362) : (tempC >= 90 ? ELEC_CONSTANTS.RHO_CU_90 : (ELEC_CONSTANTS.RHO_CU_20 || 0.01724));
+    const factorPhase = (isAC && isThreePhase) ? Math.sqrt(3) : 2.0;
     const l = Math.max(lengthM, 0.1);
     const i = Math.max(currentA, 0.01);
     const s = Math.max(sectionMm2, 0.5);
@@ -1179,8 +1179,8 @@
       const xMeter = (reactancePerKm || 0.08) / 1000.0;
       deltaV = factorPhase * i * l * ((rho / s) * cosP + xMeter * sinP);
     } else {
-      // Continua DC: puramente resistiva óhmica
-      deltaV = (factorPhase * rho * l * i) / s;
+      // Continua DC: circuito bifilar cerrado (+ y -) -> factor 2.0 estricto
+      deltaV = (2.0 * rho * l * i) / s;
     }
 
     const pct = (deltaV / Math.max(voltageV, 1.0)) * 100.0;
@@ -1220,9 +1220,20 @@
   // (first-fit); si no, se reparten string a string al canal con más hueco. El aviso de
   // sobrecarga (index.html, validación 7b) sigue activo cuando el total excede la capacidad.
   let _isRebalancingMPPT = false;
+  let _lastRebalanceTimestamp = 0;
+  let _lastRebalanceResult = null;
+
   function rebalanceMPPTAssignment(panels) {
     if (_isRebalancingMPPT) return { changed: 0, reason: 'reentrancy_prevented' };
+
+    // Throttle / cache inteligente de 80ms para evitar bloqueos continuos en transformaciones 3D masivas
+    const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    if (!panels && (now - _lastRebalanceTimestamp < 80) && _lastRebalanceResult) {
+      return _lastRebalanceResult;
+    }
+
     _isRebalancingMPPT = true;
+    _lastRebalanceTimestamp = now;
     try {
       let targetPanels = Array.isArray(panels) && panels.length > 0 ? panels : null;
     if (!targetPanels && typeof window !== 'undefined') {
@@ -1440,7 +1451,7 @@
       window.solarProjectConfig.mpptHomogeneity = homogeneity;
     }
 
-    return {
+    const res = {
       changed,
       mpptCount,
       capPer,
@@ -1449,6 +1460,8 @@
       valid: homogeneity.valid,
       violations: homogeneity.violations
     };
+    _lastRebalanceResult = res;
+    return res;
     } finally {
       _isRebalancingMPPT = false;
     }
@@ -1841,16 +1854,27 @@
       }
     }
 
+    // Evaluar si es monofásico pero excede el límite habitual de 5 kW de inyección de distribuidora
+    const isSinglePhase = (currentInv.type && currentInv.type.includes('Monofásico')) || (currentInv.phases === 1);
+    const exceedsSinglePhase5kW = isSinglePhase && (currentInv.kw > 5.0);
+
     // Si está perfectamente ajustado
     container.style.display = 'block';
     container.innerHTML = `
-      <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.3);border-radius:6px;padding:5px 8px;display:flex;align-items:center;justify-content:space-between;">
-        <span style="font-size: 10px;font-weight:800;color:#34D399;display:flex;align-items:center;gap:4px;">
-          <i data-lucide="check-circle" class="icon-sm"></i> Inversor perfectamente ajustado
-        </span>
-        <span style="font-size: 10px;color:rgba(255,255,255,0.7);">
-          ${totalKwp.toFixed(1)} kWp · ${((totalKwp / invNomKw) * 100).toFixed(0)}% carga óptima
-        </span>
+      <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.3);border-radius:6px;padding:5px 8px;display:flex;flex-direction:column;gap:4px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <span style="font-size: 10px;font-weight:800;color:#34D399;display:flex;align-items:center;gap:4px;">
+            <i data-lucide="check-circle" class="icon-sm"></i> Inversor perfectamente ajustado
+          </span>
+          <span style="font-size: 10px;color:rgba(255,255,255,0.7);">
+            ${totalKwp.toFixed(1)} kWp · ${((totalKwp / invNomKw) * 100).toFixed(0)}% carga óptima
+          </span>
+        </div>
+        ${exceedsSinglePhase5kW ? `
+          <div style="font-size: 9.5px;color:#FBBF24;background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.3);padding:3px 6px;border-radius:4px;display:flex;align-items:center;gap:4px;">
+            <i data-lucide="alert-triangle" class="icon-sm"></i> <b>Aviso Distribuidora:</b> Equipo monofásico > 5 kW (${currentInv.kw} kW). Las distribuidoras en España (Endesa/Iberdrola/UFD) suelen exigir acometida trifásica para P > 5 kW (REBT ITC-BT-40).
+          </div>
+        ` : ''}
       </div>
     `;
     if (root.lucide && typeof root.lucide.createIcons === 'function') root.lucide.createIcons();
@@ -1883,8 +1907,19 @@
     if (!container) return;
 
     const s = root.inverterEquipmentState || {};
-    const hasInverter = !!(s.position);
-    const hasMeter = !!(s.gridMeter && s.gridMeter.position);
+    let hasInverter = !!(s.position);
+    let hasMeter = !!(s.gridMeter && s.gridMeter.position);
+
+    // Auto-resolución Zero-Click si estamos en el Paso 4 y aún no se han disparado posiciones por defecto
+    if ((!hasInverter || !hasMeter) && typeof root.wpCableEngine !== 'undefined' && typeof root.wpCableEngine.ensureDefaultEquipmentPositions === 'function') {
+      try {
+        const allStrs = typeof root.wpCableEngine.gatherAllStrings === 'function' ? root.wpCableEngine.gatherAllStrings() : [];
+        root.wpCableEngine.ensureDefaultEquipmentPositions(allStrs);
+        hasInverter = !!(s.position);
+        hasMeter = !!(s.gridMeter && s.gridMeter.position);
+      } catch (eAuto) {}
+    }
+
     const measuredDc = (typeof s.L_dc_measured === 'number' && s.L_dc_measured > 0) ? s.L_dc_measured : 0;
     const measuredAc = (typeof s.L_ac_measured === 'number' && s.L_ac_measured > 0) ? s.L_ac_measured : 0;
 
