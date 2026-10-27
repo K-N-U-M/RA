@@ -14181,16 +14181,47 @@ function computeRoofPanelsData() {
         pInfo = computeSinglePolylineRoofInfo(poly.points, poly);
         if (pInfo) {
           // Si el faldon tenia paneles manuales y no cambio la geometria de cubierta, transferir posiciones
-          if (oldPanels && !poly._geometryDirty && Array.isArray(pInfo.panels)) {
+          if (!poly._geometryDirty && Array.isArray(pInfo.panels)) {
+            const liveRenderedPanels = (Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0)
+              ? window.allRenderedPanels.filter(op => op && (op.polyIdx === idx || (!op.polyIdx && idx === 0)))
+              : [];
+            const prevSource = (oldPanels && oldPanels.length > 0) ? oldPanels : liveRenderedPanels;
+
             pInfo.panels.forEach((p, pIdx) => {
-              const prev = oldPanels.find(op => (op.panelId && op.panelId === p.panelId) || (typeof op.layoutIndex === 'number' && op.layoutIndex === p.layoutIndex)) || (oldPanels.length === pInfo.panels.length ? oldPanels[pIdx] : null);
-              if (prev && prev.isManual) {
+              let prev = null;
+              if (p.panelId) {
+                prev = prevSource.find(op => (op.panelId === p.panelId) || (op.rawPanel && op.rawPanel.panelId === p.panelId));
+                if (!prev && liveRenderedPanels.length > 0) {
+                  prev = liveRenderedPanels.find(op => (op.panelId === p.panelId) || (op.rawPanel && op.rawPanel.panelId === p.panelId));
+                }
+              }
+              if (!prev && typeof p.layoutIndex === 'number') {
+                prev = prevSource.find(op => (typeof op.layoutIndex === 'number' && op.layoutIndex === p.layoutIndex) || (typeof op.localIdx === 'number' && op.localIdx === p.layoutIndex));
+              }
+              if (!prev && typeof p.localIdx === 'number') {
+                prev = prevSource.find(op => (typeof op.localIdx === 'number' && op.localIdx === p.localIdx) || (typeof op.layoutIndex === 'number' && op.layoutIndex === p.localIdx));
+              }
+              if (!prev && prevSource.length === pInfo.panels.length) {
+                prev = prevSource[pIdx];
+              }
+
+              if (prev && (prev.isManual || (prev.rawPanel && prev.rawPanel.isManual))) {
                 p.isManual = true;
-                if (prev.center) p.center = Cesium.Cartesian3.clone(prev.center);
-                if (Array.isArray(prev.corners)) p.corners = prev.corners.map(c => Cesium.Cartesian3.clone(c));
-                if (typeof prev.rot === 'number') p.rot = prev.rot;
-                if (typeof prev.u === 'number') p.u = prev.u;
-                if (typeof prev.v === 'number') p.v = prev.v;
+                p.gridA = undefined;
+                p.gridB = undefined;
+                const srcCenter = (prev.isManual && prev.center) ? prev.center : (prev.rawPanel && prev.rawPanel.center ? prev.rawPanel.center : prev.center);
+                const srcCorners = (prev.isManual && prev.corners) ? prev.corners : (prev.rawPanel && prev.rawPanel.corners ? prev.rawPanel.corners : prev.corners);
+                if (srcCenter) p.center = Cesium.Cartesian3.clone(srcCenter);
+                if (Array.isArray(srcCorners)) p.corners = srcCorners.map(c => Cesium.Cartesian3.clone(c));
+                if (typeof prev.rot !== 'undefined') p.rot = prev.rot;
+                else if (prev.rawPanel && typeof prev.rawPanel.rot !== 'undefined') p.rot = prev.rawPanel.rot;
+                if (typeof prev.u !== 'undefined') p.u = prev.u;
+                else if (prev.rawPanel && typeof prev.rawPanel.u !== 'undefined') p.u = prev.rawPanel.u;
+                if (typeof prev.v !== 'undefined') p.v = prev.v;
+                else if (prev.rawPanel && typeof prev.rawPanel.v !== 'undefined') p.v = prev.rawPanel.v;
+                if (typeof prev.orientation !== 'undefined') p.orientation = prev.orientation;
+                if (typeof prev.w !== 'undefined') p.w = prev.w;
+                if (typeof prev.h !== 'undefined') p.h = prev.h;
               }
             });
           }
@@ -15720,7 +15751,10 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
   // 1. Purgar primitivas GPU previas mediante limpiador defensivo unificado
   wpCleanupAllSolarPrimitives(isIncrementalTarget ? targetPolyIdx : null);
 
-  // [gating desplazado al inicio de la función — ver bloque AAA arriba]
+  // [SSOT] Capturar los paneles renderizados vivos (incluyendo posiciones manuales) ANTES del cómputo
+  const existingRenderedPanels = (Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0)
+    ? [...window.allRenderedPanels]
+    : [];
 
   const roofInfo = computeRoofPanelsData();
   const calculatedPanelCount = (roofInfo && roofInfo.panels) ? roofInfo.panels.length : 0;
@@ -15747,9 +15781,6 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
   const hasPolys = typeof WP !== "undefined" && WP && WP.polylines && WP.polylines.length > 0;
   const polylinesList = hasPolys ? WP.polylines : [{ points: polygonPoints, roofInfo: roofInfo, name: "Polilínea #1" }];
 
-  const existingRenderedPanels = (Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0)
-    ? [...window.allRenderedPanels]
-    : [];
   window.allRenderedPanels = []; // Expuesto globalmente para picking/selección multi-faldón
   const allTargetPanels = window.allRenderedPanels;
   const allTargetWires = [];
