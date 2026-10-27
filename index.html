@@ -16206,17 +16206,6 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
               dintelLoop.material = pergolaMat;
               totalLinesAdded++;
 
-              // Travesaño intermedio de refuerzo bajo el panel
-              const midA = Cesium.Cartesian3.midpoint(p.corners[0], p.corners[3], new Cesium.Cartesian3());
-              const midB = Cesium.Cartesian3.midpoint(p.corners[1], p.corners[2], new Cesium.Cartesian3());
-              const crossBeam = supportCol.add({
-                positions: [midA, midB],
-                width: 4.5,
-                show: true
-              });
-              crossBeam.material = railMat;
-              totalLinesAdded++;
-
                         } else if (!esCoplanar) {
               // BALASTO / ESTRUCTURA TRIANGULAR INCLINADA PROFESIONAL (A-Frame solar):
               // [DIRECCIÓN DE ARTE AAA]:
