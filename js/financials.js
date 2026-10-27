@@ -2407,6 +2407,52 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       .sig-card { border: 1px dashed #cbd5e1; border-radius: 6px; padding: 16px; text-align: center; font-size: 10.5px; }
       .sig-logo-box { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 8px; }
       .pill { display: inline-block; background: ${pal.light}; color: ${pal.dark}; font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 12px; margin: 2px; }
+
+      /* Estilos para modo edición interactivo (redimensionar, arrastrar y borrar) */
+      body.mode-edit-layout [data-editable-box] {
+        position: relative !important;
+        cursor: move !important;
+        resize: both !important;
+        overflow: auto !important;
+        transition: outline 0.15s ease, box-shadow 0.15s ease;
+      }
+      body.mode-edit-layout [data-editable-box]:hover {
+        outline: 1.5px dashed ${pal.primary} !important;
+        box-shadow: 0 0 10px rgba(0,0,0,0.12) !important;
+      }
+      body.mode-edit-layout [data-editable-box].selected-edit-box {
+        outline: 2px solid ${pal.primary} !important;
+        box-shadow: 0 0 14px rgba(0,0,0,0.2) !important;
+      }
+      .ra-edit-del-btn {
+        position: absolute;
+        top: -9px;
+        right: -9px;
+        width: 22px;
+        height: 22px;
+        background: #ef4444;
+        color: #ffffff;
+        border: 2px solid #ffffff;
+        border-radius: 50%;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: 900;
+        cursor: pointer;
+        z-index: 99999;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+        user-select: none;
+        line-height: 1;
+      }
+      body.mode-edit-layout [data-editable-box]:hover > .ra-edit-del-btn,
+      body.mode-edit-layout [data-editable-box].selected-edit-box > .ra-edit-del-btn {
+        display: flex !important;
+      }
+      .ra-edit-del-btn:hover {
+        background: #dc2626 !important;
+        transform: scale(1.15);
+      }
       @page { size: A4 portrait; margin: 0; }
       *, *::before, *::after { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
       @media print {
@@ -3225,13 +3271,124 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         reader.readAsDataURL(file);
       }
 
+      let _draggedElement = null;
+      let _selectedBox = null;
+
+      function setupInteractiveBoxes() {
+        const selectors = [
+          '.hero-card', '.closer-hero-card', '.decision-card', '.chart-box', '.tech-card',
+          '.sig-card', '.cover-spec-card', '.photo-card-hero', '.photo-card-sub', '.cover-photo-card',
+          '.kpi-strip', '.dcard', '.closer-cta-box', 'table', 'p', 'h2', 'h3'
+        ];
+        const sheets = document.querySelectorAll('.page-sheet');
+        sheets.forEach(sheet => {
+          selectors.forEach(sel => {
+            sheet.querySelectorAll(sel).forEach(el => {
+              if (el.hasAttribute('data-editable-box')) return;
+              el.setAttribute('data-editable-box', 'true');
+
+              // Botón de eliminar flotante
+              const delBtn = document.createElement('button');
+              delBtn.type = 'button';
+              delBtn.className = 'ra-edit-del-btn no-print';
+              delBtn.title = 'Eliminar este elemento';
+              delBtn.innerHTML = '✕';
+              delBtn.onclick = function(ev) {
+                ev.stopPropagation();
+                ev.preventDefault();
+                if (confirm('¿Eliminar este bloque del documento?')) {
+                  el.remove();
+                }
+              };
+              el.appendChild(delBtn);
+
+              // Eventos de selección y arrastre
+              el.addEventListener('click', function(ev) {
+                if (!document.body.classList.contains('mode-edit-layout')) return;
+                ev.stopPropagation();
+                if (_selectedBox) _selectedBox.classList.remove('selected-edit-box');
+                _selectedBox = el;
+                el.classList.add('selected-edit-box');
+              });
+
+              // Habilitar drag & drop reordenamiento
+              el.addEventListener('dragstart', function(ev) {
+                if (!document.body.classList.contains('mode-edit-layout')) return;
+                _draggedElement = el;
+                ev.dataTransfer.effectAllowed = 'move';
+                try { ev.dataTransfer.setData('text/plain', ''); } catch(e) {}
+                el.style.opacity = '0.45';
+              });
+
+              el.addEventListener('dragend', function() {
+                if (_draggedElement) _draggedElement.style.opacity = '1';
+                _draggedElement = null;
+              });
+
+              el.addEventListener('dragover', function(ev) {
+                if (!document.body.classList.contains('mode-edit-layout') || !_draggedElement || _draggedElement === el) return;
+                ev.preventDefault();
+                ev.dataTransfer.dropEffect = 'move';
+              });
+
+              el.addEventListener('drop', function(ev) {
+                if (!document.body.classList.contains('mode-edit-layout') || !_draggedElement || _draggedElement === el) return;
+                ev.preventDefault();
+                ev.stopPropagation();
+                const parent = el.parentNode;
+                if (!parent) return;
+                const rect = el.getBoundingClientRect();
+                const next = (ev.clientY - rect.top) > (rect.height / 2);
+                parent.insertBefore(_draggedElement, next ? el.nextSibling : el);
+              });
+            });
+          });
+        });
+      }
+
+      document.addEventListener('keydown', function(ev) {
+        if (!document.body.classList.contains('mode-edit-layout') || !_selectedBox) return;
+        // Si no está escribiendo dentro de un nodo editable
+        if (ev.target && ev.target.isContentEditable && ev.target !== _selectedBox) return;
+        if (ev.key === 'Delete') {
+          _selectedBox.remove();
+          _selectedBox = null;
+        }
+      });
+
       function togglePropEdit() {
         const sheets = document.querySelectorAll('.page-sheet');
         const btn = document.getElementById('btn-prop-edit');
-        const isEdit = sheets[0].contentEditable === 'true';
-        sheets.forEach(s => { s.contentEditable = isEdit ? 'false' : 'true'; s.style.outline = isEdit ? 'none' : '2px dashed ${pal.primary}'; });
-        btn.textContent = isEdit ? '✏️ EDITAR' : '💾 EDICIÓN ACTIVA';
-        btn.style.background = isEdit ? '${pal.accent}' : '${pal.primary}';
+        const isEdit = document.body.classList.contains('mode-edit-layout');
+
+        if (isEdit) {
+          document.body.classList.remove('mode-edit-layout');
+          sheets.forEach(s => {
+            s.contentEditable = 'false';
+            s.style.outline = 'none';
+          });
+          document.querySelectorAll('[data-editable-box]').forEach(el => {
+            el.removeAttribute('draggable');
+          });
+          if (_selectedBox) {
+            _selectedBox.classList.remove('selected-edit-box');
+            _selectedBox = null;
+          }
+          btn.textContent = '✏️ EDITAR';
+          btn.style.background = '${pal.accent}';
+        } else {
+          document.body.classList.add('mode-edit-layout');
+          setupInteractiveBoxes();
+          sheets.forEach(s => {
+            s.contentEditable = 'true';
+            s.style.outline = '2px dashed ${pal.primary}';
+          });
+          document.querySelectorAll('[data-editable-box]').forEach(el => {
+            el.setAttribute('draggable', 'true');
+          });
+          btn.textContent = '💾 FINALIZAR EDICIÓN';
+          btn.style.background = '#10b981';
+        }
       }
       function exportPropWord() {
         let content = '';
@@ -3246,6 +3403,11 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       function exportPropHtml() {
         const clone = document.documentElement.cloneNode(true);
         const bar = clone.querySelector('.doc-top-bar'); if (bar) bar.remove();
+        clone.querySelectorAll('.ra-edit-del-btn').forEach(b => b.remove());
+        clone.querySelectorAll('[data-editable-box]').forEach(el => {
+          el.removeAttribute('draggable');
+          el.removeAttribute('data-editable-box');
+        });
         const blob = new Blob(['\ufeff' + clone.outerHTML], { type: 'text/html;charset=utf-8' });
         const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = '${d.refNum}_Propuesta_Comercial.html';
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
