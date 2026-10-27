@@ -2685,6 +2685,44 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         background: #dc2626 !important;
         transform: scale(1.15);
       }
+
+      /* ── BARRA FLOTANTE DE FORMATO (RICH TEXT) ── */
+      #prop-format-toolbar {
+        position: fixed;
+        display: none;
+        background: #0f172a;
+        border: 1px solid #334155;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        border-radius: 8px;
+        padding: 5px 8px;
+        z-index: 100000;
+        align-items: center;
+        gap: 6px;
+        font-family: system-ui, sans-serif;
+      }
+      #prop-format-toolbar button, #prop-format-toolbar select {
+        background: #1e293b;
+        border: 1px solid #475569;
+        color: #fff;
+        border-radius: 4px;
+        padding: 3px 7px;
+        font-size: 11px;
+        font-weight: 700;
+        cursor: pointer;
+        outline: none;
+      }
+      #prop-format-toolbar button:hover {
+        background: #334155;
+      }
+      #prop-format-toolbar input[type="color"] {
+        width: 24px;
+        height: 22px;
+        padding: 0;
+        border: 1px solid #475569;
+        border-radius: 4px;
+        cursor: pointer;
+        background: transparent;
+      }
       @page { size: A4 portrait; margin: 0; }
       *, *::before, *::after { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
       @media print {
@@ -2701,6 +2739,33 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     </style>
   </head>
   <body>
+    <!-- BARRA FLOTANTE DE FORMATO TEXTUAL -->
+    <div id="prop-format-toolbar" class="no-print">
+      <select id="prop-fmt-font" onchange="applyPropFormat('fontName', this.value)" title="Tipografía">
+        <option value="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">Sistema / Sans</option>
+        <option value="Inter, system-ui, sans-serif">Inter</option>
+        <option value="Roboto, sans-serif">Roboto</option>
+        <option value="'Space Grotesk', sans-serif">Space Grotesk</option>
+        <option value="Georgia, serif">Georgia</option>
+        <option value="'Courier New', monospace">Monospace</option>
+      </select>
+      <select id="prop-fmt-size" onchange="applyPropFormat('fontSize', this.value)" title="Tamaño">
+        <option value="2">Pequeño (10pt)</option>
+        <option value="3" selected>Normal (12pt)</option>
+        <option value="4">Medio (14pt)</option>
+        <option value="5">Título H3 (18pt)</option>
+        <option value="6">Título H2 (24pt)</option>
+      </select>
+      <button type="button" onclick="applyPropFormat('bold')" title="Negrita"><b>B</b></button>
+      <button type="button" onclick="applyPropFormat('italic')" title="Cursiva"><i>I</i></button>
+      <button type="button" onclick="applyPropFormat('underline')" title="Subrayado"><u>U</u></button>
+      <button type="button" onclick="applyPropFormat('strikeThrough')" title="Tachado"><s>S</s></button>
+      <input type="color" id="prop-fmt-color" onchange="applyPropFormat('foreColor', this.value)" title="Color del texto" value="#0f172a">
+      <button type="button" onclick="applyPropFormat('justifyLeft')" title="Alinear Izquierda">⇤</button>
+      <button type="button" onclick="applyPropFormat('justifyCenter')" title="Centrar">≡</button>
+      <button type="button" onclick="applyPropFormat('justifyRight')" title="Alinear Derecha">⇥</button>
+    </div>
+
     <div class="doc-top-bar no-print">
       <div class="doc-bar-title"><span>OFERTA COMERCIAL</span> PROPUESTA ECONÓMICA Y TÉCNICA · ${d.refNum}</div>
       <div class="doc-bar-btns">
@@ -2713,6 +2778,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
           <button type="button" onclick="setDocTheme('rose')" title="Rosa Corporativo" style="width:16px;height:16px;border-radius:50%;background:#e11d48;border:2px solid ${theme==='rose'?'#fff':'transparent'};cursor:pointer;"></button>
           <button type="button" onclick="setDocTheme('slate')" title="Gris Pizarra" style="width:16px;height:16px;border-radius:50%;background:#334155;border:2px solid ${theme==='slate'?'#fff':'transparent'};cursor:pointer;"></button>
         </div>
+        <button class="doc-btn" style="background:#8b5cf6;color:#fff;" onclick="capture3DToProposal()" title="Actualizar fotos con captura 3D en vivo del proyecto">📸 CAPTURAR VISTA 3D</button>
         <button class="doc-btn doc-btn-edit" id="btn-prop-edit" onclick="togglePropEdit()">✏️ EDITAR</button>
         <button class="doc-btn doc-btn-print" onclick="window.print()">🖨 IMPRIMIR / PDF</button>
         <button class="doc-btn doc-btn-word" onclick="exportPropWord()">📝 WORD (.DOC)</button>
@@ -3588,6 +3654,73 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         }
       });
 
+      function applyPropFormat(cmd, val) {
+        document.execCommand(cmd, false, val || null);
+      }
+
+      function capture3DToProposal() {
+        try {
+          let canvas = null;
+          if (window.opener) {
+            if (window.opener.viewer && window.opener.viewer.scene && window.opener.viewer.scene.canvas) {
+              window.opener.viewer.scene.render();
+              canvas = window.opener.viewer.scene.canvas;
+            } else {
+              const el = window.opener.document.querySelector('canvas');
+              if (el) canvas = el;
+            }
+          }
+          if (canvas) {
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+            // Actualizar la foto principal o las fotos del proyecto
+            const heroImg = document.getElementById('prop-hero-img') || document.querySelector('.cover-photo-card img') || document.querySelector('.photo-card-hero img');
+            if (heroImg) {
+              heroImg.src = dataUrl;
+              heroImg.style.display = 'block';
+              const pl = heroImg.parentElement.querySelector('.photo-placeholder');
+              if (pl) pl.style.display = 'none';
+            }
+            alert('¡Captura 3D del proyecto actualizada con éxito en la propuesta!');
+          } else {
+            alert('No se pudo acceder al visor 3D de la ventana principal. Asegúrate de que la ventana del proyecto esté abierta.');
+          }
+        } catch (err) {
+          alert('Error capturando vista 3D: ' + err.message);
+        }
+      }
+
+      // Manejo de selección para barra flotante de formato en la propuesta
+      document.addEventListener('selectionchange', function() {
+        const tb = document.getElementById('prop-format-toolbar');
+        if (!tb || !document.body.classList.contains('mode-edit-layout')) {
+          if (tb) tb.style.display = 'none';
+          return;
+        }
+        const sel = window.getSelection();
+        if (!sel || sel.isCollapsed || !sel.rangeCount) {
+          tb.style.display = 'none';
+          return;
+        }
+        const range = sel.getRangeAt(0);
+        const sheets = document.querySelectorAll('.page-sheet');
+        let insideSheet = false;
+        sheets.forEach(s => {
+          if (s.contains(range.commonAncestorContainer)) insideSheet = true;
+        });
+        if (!insideSheet) {
+          tb.style.display = 'none';
+          return;
+        }
+        const rect = range.getBoundingClientRect();
+        if (rect.width === 0) {
+          tb.style.display = 'none';
+          return;
+        }
+        tb.style.display = 'flex';
+        tb.style.left = Math.max(10, Math.min(window.innerWidth - 380, rect.left + window.scrollX + (rect.width / 2) - 180)) + 'px';
+        tb.style.top = Math.max(54, rect.top + window.scrollY - 44) + 'px';
+      });
+
       function togglePropEdit() {
         const sheets = document.querySelectorAll('.page-sheet');
         const btn = document.getElementById('btn-prop-edit');
@@ -3606,6 +3739,8 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
             _selectedBox.classList.remove('selected-edit-box');
             _selectedBox = null;
           }
+          const tb = document.getElementById('prop-format-toolbar');
+          if (tb) tb.style.display = 'none';
           btn.textContent = '✏️ EDITAR';
           btn.style.background = '${pal.accent}';
         } else {

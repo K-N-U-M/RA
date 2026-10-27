@@ -182,12 +182,168 @@ function docWindow(title, body) {
     .sig-row { display: flex; justify-content: space-between; margin-top: 40px; gap: 25px; }
     .sig { border-top: 1px dashed #94a3b8; padding-top: 8px; font-size: 8.5pt; text-align: center; flex: 1; }
     .footer { margin-top: 25px; padding-top: 10px; border-top: 1px solid #e2e8f0; font-size: 7.5pt; color: #94a3b8; text-align: center; }
+
+    /* ── BARRA FLOTANTE DE FORMATO Y ESTILOS DE EDICIÓN AVANZADA ── */
+    #doc-format-toolbar {
+      position: fixed;
+      display: none;
+      background: #0f172a;
+      border: 1px solid #334155;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+      border-radius: 8px;
+      padding: 5px 8px;
+      z-index: 100000;
+      align-items: center;
+      gap: 6px;
+      font-family: system-ui, sans-serif;
+    }
+    #doc-format-toolbar button, #doc-format-toolbar select {
+      background: #1e293b;
+      border: 1px solid #475569;
+      color: #fff;
+      border-radius: 4px;
+      padding: 3px 7px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      outline: none;
+    }
+    #doc-format-toolbar button:hover {
+      background: #334155;
+    }
+    #doc-format-toolbar input[type="color"] {
+      width: 24px;
+      height: 22px;
+      padding: 0;
+      border: 1px solid #475569;
+      border-radius: 4px;
+      cursor: pointer;
+      background: transparent;
+    }
+    .doc-img-resizable {
+      position: relative;
+      display: inline-block;
+      max-width: 100%;
+      margin: 10px 0;
+      user-select: none;
+    }
+    .doc-img-resizable img {
+      width: 100%;
+      height: auto;
+      display: block;
+      border-radius: 6px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .doc-img-handle-del {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      background: #ef4444;
+      color: #fff;
+      border: none;
+      border-radius: 50%;
+      width: 22px;
+      height: 22px;
+      font-size: 11px;
+      font-weight: 900;
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+    .doc-img-resizable:hover .doc-img-handle-del {
+      display: flex;
+    }
+    .ra-draggable-block {
+      position: relative;
+      transition: background-color 0.2s, outline 0.2s;
+    }
+    .mode-edit-layout .ra-draggable-block {
+      outline: 1px dashed rgba(59, 130, 246, 0.4);
+      outline-offset: 4px;
+      margin-bottom: 8px;
+    }
+    .mode-edit-layout .ra-draggable-block:hover {
+      outline: 2px dashed #3b82f6;
+      background-color: rgba(59, 130, 246, 0.03);
+    }
+    .ra-block-del-btn {
+      position: absolute;
+      top: 0px;
+      right: 0px;
+      background: #ef4444;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      width: 20px;
+      height: 20px;
+      font-size: 11px;
+      font-weight: 900;
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+    .mode-edit-layout .ra-draggable-block:hover .ra-block-del-btn {
+      display: flex;
+    }
+    .ra-block-drag-handle {
+      position: absolute;
+      top: 0px;
+      left: -24px;
+      background: #3b82f6;
+      color: #fff;
+      border-radius: 4px;
+      width: 20px;
+      height: 20px;
+      font-size: 12px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      cursor: grab;
+      z-index: 100;
+    }
+    .mode-edit-layout .ra-draggable-block:hover .ra-block-drag-handle {
+      display: flex;
+    }
   </style>
 </head>
 <body>
+  <!-- BARRA FLOTANTE DE FORMATO -->
+  <div id="doc-format-toolbar" class="no-print">
+    <select id="fmt-font" onchange="applyDocFormat('fontName', this.value)" title="Tipografía">
+      <option value="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">Sistema / Sans</option>
+      <option value="Inter, system-ui, sans-serif">Inter</option>
+      <option value="Roboto, sans-serif">Roboto</option>
+      <option value="'Space Grotesk', sans-serif">Space Grotesk</option>
+      <option value="Georgia, serif">Georgia</option>
+      <option value="'Courier New', monospace">Monospace</option>
+    </select>
+    <select id="fmt-size" onchange="applyDocFormat('fontSize', this.value)" title="Tamaño">
+      <option value="2">Pequeño (10pt)</option>
+      <option value="3" selected>Normal (12pt)</option>
+      <option value="4">Medio (14pt)</option>
+      <option value="5">Título H3 (18pt)</option>
+      <option value="6">Título H2 (24pt)</option>
+    </select>
+    <button type="button" onclick="applyDocFormat('bold')" title="Negrita"><b>B</b></button>
+    <button type="button" onclick="applyDocFormat('italic')" title="Cursiva"><i>I</i></button>
+    <button type="button" onclick="applyDocFormat('underline')" title="Subrayado"><u>U</u></button>
+    <button type="button" onclick="applyDocFormat('strikeThrough')" title="Tachado"><s>S</s></button>
+    <input type="color" id="fmt-color" onchange="applyDocFormat('foreColor', this.value)" title="Color del texto" value="#0f172a">
+    <button type="button" onclick="applyDocFormat('justifyLeft')" title="Alinear Izquierda">⇤</button>
+    <button type="button" onclick="applyDocFormat('justifyCenter')" title="Centrar">≡</button>
+    <button type="button" onclick="applyDocFormat('justifyRight')" title="Alinear Derecha">⇥</button>
+  </div>
+
   <div class="doc-top-bar no-print">
     <div class="doc-bar-title"><span>DOCUMENTACIÓN FV</span> ${title}</div>
     <div class="doc-bar-btns">
+      <input type="file" id="doc-img-upload-input" accept="image/*" style="display:none;" onchange="handleDocImageInsert(this)">
+      <button class="doc-btn" style="background:#0284c7;color:#fff;" onclick="triggerDocImageUpload()" title="Añadir una imagen desde tu equipo">🖼️ AÑADIR IMAGEN</button>
+      <button class="doc-btn" style="background:#8b5cf6;color:#fff;" onclick="capture3DViewToDoc()" title="Capturar la vista 3D actual del proyecto e insertarla aquí">📸 CAPTURAR VISTA 3D</button>
       <button class="doc-btn doc-btn-edit" id="btn-edit-toggle" onclick="toggleEditMode()">✏️ MODO EDICIÓN</button>
       <button class="doc-btn doc-btn-print" onclick="window.print()">🖨 IMPRIMIR / PDF</button>
       <button class="doc-btn doc-btn-word" onclick="exportToWord()">📝 EXPORTAR OPENDOC / WORD (.DOC)</button>
@@ -201,22 +357,188 @@ function docWindow(title, body) {
   </div>
 
   <script>
+    let _activeDragBlock = null;
+
+    function applyDocFormat(cmd, val) {
+      document.execCommand(cmd, false, val || null);
+    }
+
+    function triggerDocImageUpload() {
+      const input = document.getElementById('doc-img-upload-input');
+      if (input) input.click();
+    }
+
+    function handleDocImageInsert(input) {
+      if (!input.files || !input.files[0]) return;
+      const file = input.files[0];
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        insertImageIntoDoc(e.target.result, file.name);
+      };
+      reader.readAsDataURL(file);
+      input.value = '';
+    }
+
+    function capture3DViewToDoc() {
+      try {
+        let canvas = null;
+        if (window.opener) {
+          if (window.opener.viewer && window.opener.viewer.scene && window.opener.viewer.scene.canvas) {
+            window.opener.viewer.scene.render();
+            canvas = window.opener.viewer.scene.canvas;
+          } else {
+            const el = window.opener.document.querySelector('canvas');
+            if (el) canvas = el;
+          }
+        }
+        if (canvas) {
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+          insertImageIntoDoc(dataUrl, 'Captura 3D del Proyecto');
+        } else {
+          alert('No se pudo acceder al lienzo 3D de la ventana principal. Asegúrate de tener la ventana del proyecto abierta.');
+        }
+      } catch (err) {
+        console.warn('Error capturando vista 3D:', err);
+        alert('Error capturando el lienzo 3D: ' + err.message);
+      }
+    }
+
+    function insertImageIntoDoc(dataUrl, altText) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'doc-img-resizable ra-draggable-block';
+      wrapper.setAttribute('draggable', 'true');
+      wrapper.style.width = '100%';
+      wrapper.innerHTML = '<img src="' + dataUrl + '" alt="' + (altText || 'Imagen') + '">' +
+        '<button type="button" class="doc-img-handle-del no-print" onclick="this.parentNode.remove()" title="Eliminar imagen">✕</button>';
+      
+      const sheet = document.getElementById('editable-doc-sheet');
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount > 0 && sheet.contains(sel.anchorNode)) {
+        const range = sel.getRangeAt(0);
+        range.insertNode(wrapper);
+      } else {
+        sheet.appendChild(wrapper);
+      }
+      setupDraggableBlocks();
+    }
+
+    function setupDraggableBlocks() {
+      const sheet = document.getElementById('editable-doc-sheet');
+      if (!sheet) return;
+      const candidates = sheet.querySelectorAll('.doc-box, .doc-grid-4, .doc-table, .doc-section-title, .doc-img-resizable, .kpi-card');
+      candidates.forEach(el => {
+        if (el.hasAttribute('data-has-drag')) return;
+        el.setAttribute('data-has-drag', 'true');
+        el.classList.add('ra-draggable-block');
+
+        // Botón de eliminar bloque
+        const delBtn = document.createElement('button');
+        delBtn.type = 'button';
+        delBtn.className = 'ra-block-del-btn no-print';
+        delBtn.title = 'Eliminar este bloque';
+        delBtn.innerHTML = '✕';
+        delBtn.onclick = function(ev) {
+          ev.stopPropagation();
+          if (confirm('¿Eliminar este bloque del presupuesto?')) {
+            el.remove();
+          }
+        };
+        el.appendChild(delBtn);
+
+        // Tirador de arrastre
+        const handle = document.createElement('div');
+        handle.className = 'ra-block-drag-handle no-print';
+        handle.title = 'Arrastra para mover este bloque arriba o abajo';
+        handle.innerHTML = '⠿';
+        el.appendChild(handle);
+
+        el.setAttribute('draggable', 'true');
+
+        el.addEventListener('dragstart', function(ev) {
+          if (!document.body.classList.contains('mode-edit-layout')) {
+            ev.preventDefault();
+            return;
+          }
+          _activeDragBlock = el;
+          ev.dataTransfer.effectAllowed = 'move';
+          try { ev.dataTransfer.setData('text/plain', ''); } catch(e) {}
+          el.style.opacity = '0.4';
+        });
+
+        el.addEventListener('dragend', function() {
+          if (_activeDragBlock) _activeDragBlock.style.opacity = '1';
+          _activeDragBlock = null;
+        });
+
+        el.addEventListener('dragover', function(ev) {
+          if (!document.body.classList.contains('mode-edit-layout') || !_activeDragBlock || _activeDragBlock === el) return;
+          ev.preventDefault();
+          ev.dataTransfer.dropEffect = 'move';
+        });
+
+        el.addEventListener('drop', function(ev) {
+          if (!document.body.classList.contains('mode-edit-layout') || !_activeDragBlock || _activeDragBlock === el) return;
+          ev.preventDefault();
+          ev.stopPropagation();
+          const parent = el.parentNode;
+          if (!parent) return;
+          const rect = el.getBoundingClientRect();
+          const next = (ev.clientY - rect.top) > (rect.height / 2);
+          parent.insertBefore(_activeDragBlock, next ? el.nextSibling : el);
+        });
+      });
+    }
+
+    // Manejo de selección para barra flotante de formato
+    document.addEventListener('selectionchange', function() {
+      const tb = document.getElementById('doc-format-toolbar');
+      if (!tb || !document.body.classList.contains('mode-edit-layout')) {
+        if (tb) tb.style.display = 'none';
+        return;
+      }
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed || !sel.rangeCount) {
+        tb.style.display = 'none';
+        return;
+      }
+      const range = sel.getRangeAt(0);
+      const sheet = document.getElementById('editable-doc-sheet');
+      if (!sheet || !sheet.contains(range.commonAncestorContainer)) {
+        tb.style.display = 'none';
+        return;
+      }
+      const rect = range.getBoundingClientRect();
+      if (rect.width === 0) {
+        tb.style.display = 'none';
+        return;
+      }
+      tb.style.display = 'flex';
+      tb.style.left = Math.max(10, Math.min(window.innerWidth - 380, rect.left + window.scrollX + (rect.width / 2) - 180)) + 'px';
+      tb.style.top = Math.max(54, rect.top + window.scrollY - 44) + 'px';
+    });
+
     function toggleEditMode() {
       const sheet = document.getElementById('editable-doc-sheet');
       const btn = document.getElementById('btn-edit-toggle');
-      const isEdit = sheet.contentEditable === 'true';
-      sheet.contentEditable = isEdit ? 'false' : 'true';
-      if (!isEdit) {
-        btn.textContent = '💾 EDICIÓN ACTIVA (CLIC PARA EDITAR)';
-        btn.style.background = '#10b981';
-        btn.style.color = '#fff';
-        sheet.style.outline = '2px dashed #f59e0b';
-        sheet.style.padding = '43px 48px';
-      } else {
+      const isEdit = document.body.classList.contains('mode-edit-layout');
+
+      if (isEdit) {
+        document.body.classList.remove('mode-edit-layout');
+        sheet.contentEditable = 'false';
         btn.textContent = '✏️ MODO EDICIÓN';
         btn.style.background = '#f59e0b';
         btn.style.color = '#000';
         sheet.style.outline = 'none';
+        const tb = document.getElementById('doc-format-toolbar');
+        if (tb) tb.style.display = 'none';
+      } else {
+        document.body.classList.add('mode-edit-layout');
+        sheet.contentEditable = 'true';
+        btn.textContent = '💾 FINALIZAR EDICIÓN';
+        btn.style.background = '#10b981';
+        btn.style.color = '#fff';
+        sheet.style.outline = '2px dashed #f59e0b';
+        setupDraggableBlocks();
       }
     }
 
