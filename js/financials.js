@@ -358,23 +358,97 @@ function generateCommercialSummary(d, m, equipment) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// ENRIQUECIMIENTO GEMINI ASYNC — Se llama tras abrir la ventana de oferta
-// Reemplaza el contenido del bloque resumen con la respuesta de Gemini.
-// Si falla por cualquier motivo, el resumen de plantilla permanece visible.
+// GENERACIÓN Y ENRIQUECIMIENTO DE RESUMEN COMERCIAL CON GEMINI
 // ═══════════════════════════════════════════════════════════════════════════════
-async function enrichSummaryWithGemini(targetWindow, d, m, equipment) {
-  // ── Obtener API Key ──
+var _customCommercialSummary = null; // Almacena el texto personalizado generado o editado en el modal
+
+async function requestCommercialSummaryFromGemini(d, m, equipment) {
   var apiKey = '';
   try {
-    if (window.RA && typeof window.RA.getGeminiApiKey === 'function') {
-      apiKey = window.RA.getGeminiApiKey();
+    if (window.RA && typeof window.RA.getGeminiApiKey === 'function') apiKey = window.RA.getGeminiApiKey();
+    if (!apiKey) apiKey = (window.RA && window.RA.geminiApiKey) ? window.RA.geminiApiKey : (localStorage.getItem('ra_gemini_api_key') || '');
+  } catch(e) {}
+  if (!apiKey) throw new Error('NO_API_KEY');
+
+  var kwp = (m && m.kwp) || 0;
+  var numPanels = (m && m.numPanels) || (d && d.numPanels) || 0;
+  var annualKWh = (d && d.annualKWh) || (kwp * 1450);
+  var ahorro = (m && m.ahorroLuzAnio1) || 0;
+  var payback = (m && m.paybackYears) || 0;
+  var autoconsumo = (m && m.pctAutoconsumo) || 0;
+  var ciudad = (d && d.tit && (d.tit.mun || d.tit.prov)) || 'su localidad';
+  var nombre = (d && d.tit && d.tit.nombre) || 'Cliente';
+
+  var prompt = 'Eres un asesor solar comercial profesional redactando una propuesta para un cliente residencial o pyme. ' +
+    'Escribe un resumen ejecutivo y persuasivo de la propuesta (máx 120 palabras) en español con tono cercano, riguroso y convincente. ' +
+    'NO uses saludo inicial ("Estimado..."), ve directo al grano. Usa HTML inline simple (<strong> para destacar cifras clave). ' +
+    'Datos del proyecto:\n' +
+    '- Cliente: ' + nombre + '\n' +
+    '- Ubicación: ' + ciudad + '\n' +
+    '- Módulos: ' + numPanels + ' paneles\n' +
+    '- Potencia de campo: ' + kwp.toFixed(2) + ' kWp\n' +
+    '- Producción anual estimada: ' + Math.round(annualKWh).toLocaleString('es-ES') + ' kWh\n' +
+    '- Ahorro estimado año 1: ' + Math.round(ahorro).toLocaleString('es-ES') + ' €\n' +
+    '- Plazo amortización: ' + payback.toFixed(1) + ' años\n';
+  if (autoconsumo > 0) prompt += '- Grado de autoconsumo: ' + Math.round(autoconsumo) + '%\n';
+  if (equipment && equipment.hasBat) prompt += '- Sistema de baterías: ' + equipment.batName + '\n';
+  if (equipment) prompt += '- Inversor solar: ' + equipment.invName + '\n';
+
+  var models = [];
+  try {
+    if (typeof discoverAvailableModels === 'function') {
+      models = await discoverAvailableModels(apiKey);
     }
-    if (!apiKey) {
-      apiKey = (window.RA && window.RA.geminiApiKey) ? window.RA.geminiApiKey
-             : (localStorage.getItem('ra_gemini_api_key') || '');
-    }
-  } catch(e) { return; }
-  if (!apiKey) return; // Sin key → mantener plantilla
+  } catch(e) {}
+  if (!models || models.length === 0) {
+    models = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-3.8-flash', 'gemini-3.5-flash'];
+  }
+
+  for (var mIdx = 0; mIdx < models.length; mIdx++) {
+    var modelName = models[mIdx];
+    var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + modelName + ':generateContent';
+    try {
+      var resp = await _aiFetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.6,
+            maxOutputTokens: 500
+          }
+        })
+      }, 30000, apiKey);
+
+      if (!resp.ok) continue;
+      var data = await resp.json().catch(function() { return null; });
+      if (data && data.candidates && data.candidates[0] && data.candidates[0].content &&
+          data.candidates[0].content.parts && data.candidates[0].content.parts[0]) {
+        var text = data.candidates[0].content.parts[0].text || '';
+        if (text.trim()) {
+          return String(text.trim())
+            .replace(/<\s*(?:script|iframe|object|embed|style|link|meta)[^>]*>[\s\S]*?<\s*\/\s*(?:script|iframe|object|embed|style|link|meta)\s*>/gi, '')
+            .replace(/<\s*(?:script|iframe|object|embed|style|link|meta)[^>]*>/gi, '')
+            .replace(/\bon\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+            .replace(/href\s*=\s*['"]?javascript:[^'">\s]*/gi, '');
+        }
+      }
+    } catch(eLoop) {}
+  }
+  throw new Error('NO_RESPONSE');
+}
+
+async function enrichSummaryWithGemini(targetWindow, d, m, equipment) {
+  // Si el usuario ya previsualizó o editó el resumen en el modal, respetarlo al 100%
+  if (_customCommercialSummary && _customCommercialSummary.trim()) {
+    try {
+      var containerCustom = targetWindow.document.getElementById('ra-ai-summary-content');
+      var badgeCustom = targetWindow.document.getElementById('ra-ai-summary-badge');
+      if (containerCustom) containerCustom.innerHTML = _customCommercialSummary;
+      if (badgeCustom) badgeCustom.innerHTML = '✨ Resumen personalizado con IA · Google Gemini';
+      return;
+    } catch(eCustom) {}
+  }
 
   // ── Buscar el contenedor del resumen en la ventana de oferta ──
   var container = null;
@@ -388,74 +462,17 @@ async function enrichSummaryWithGemini(targetWindow, d, m, equipment) {
   try { badge = targetWindow.document.getElementById('ra-ai-summary-badge'); } catch(e) {}
   if (badge) badge.innerHTML = '✨ <em>Generando resumen con Gemini...</em>';
 
-  // ── Construir prompt estructurado ──
-  var kwp = m.kwp || 0;
-  var numPanels = m.numPanels || 0;
-  var annualKWh = d.annualKWh || (kwp * 1450);
-  var ahorro = m.ahorroLuzAnio1 || 0;
-  var payback = m.paybackYears || 0;
-  var autoconsumo = m.pctAutoconsumo || 0;
-  var ciudad = d.tit.mun || d.tit.prov || 'su localidad';
-  var nombre = d.tit.nombre || 'Cliente';
-
-  var prompt = 'Eres un asesor solar comercial profesional redactando una propuesta para un cliente residencial. ' +
-    'Escribe un párrafo de presentación comercial (máx 120 palabras) en español con tono cercano, profesional y que inspire confianza. ' +
-    'NO uses saludo ("Estimado"), NO uses formato markdown. Usa HTML inline simple (<strong> para destacar cifras clave). ' +
-    'Datos del proyecto:\n' +
-    '- Cliente: ' + nombre + '\n' +
-    '- Ubicación: ' + ciudad + '\n' +
-    '- Módulos: ' + numPanels + ' paneles\n' +
-    '- Potencia: ' + kwp.toFixed(2) + ' kWp\n' +
-    '- Producción anual: ' + Math.round(annualKWh).toLocaleString('es-ES') + ' kWh\n' +
-    '- Ahorro año 1: ' + Math.round(ahorro).toLocaleString('es-ES') + ' €\n' +
-    '- Payback: ' + payback.toFixed(1) + ' años\n';
-  if (autoconsumo > 0) prompt += '- Autoconsumo: ' + Math.round(autoconsumo) + '%\n';
-  if (equipment && equipment.hasBat) prompt += '- Batería: ' + equipment.batName + '\n';
-  if (equipment) prompt += '- Inversor: ' + equipment.invName + '\n';
-
-  // ── Llamada REST a Gemini ──
   try {
-    var modelsToTry = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-3.8-flash', 'gemini-3.5-flash'];
-    var text = '';
-    for (var mIdx = 0; mIdx < modelsToTry.length; mIdx++) {
-      var currentModel = modelsToTry[mIdx];
-      var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + currentModel + ':generateContent';
-      var resp = await _aiFetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 300
-          }
-        })
-      }, 30000, apiKey);
-      if (resp.ok) {
-        var data = await resp.json();
-        if (data.candidates && data.candidates[0] && data.candidates[0].content &&
-            data.candidates[0].content.parts && data.candidates[0].content.parts[0]) {
-          text = data.candidates[0].content.parts[0].text || '';
-          if (text.trim()) break;
-        }
-      }
-    }
-    if (!text.trim()) {
-      if (badge) badge.innerHTML = '📋 Resumen del proyecto';
-      return; // Mantener plantilla
-    }
-    if (text.trim()) {
-      var sanitized = String(text.trim())
-        .replace(/<\s*(?:script|iframe|object|embed|style|link|meta)[^>]*>[\s\S]*?<\s*\/\s*(?:script|iframe|object|embed|style|link|meta)\s*>/gi, '')
-        .replace(/<\s*(?:script|iframe|object|embed|style|link|meta)[^>]*>/gi, '')
-        .replace(/\bon\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
-        .replace(/href\s*=\s*['"]?javascript:[^'">\s]*/gi, '');
-      container.innerHTML = sanitized;
+    var generatedText = await requestCommercialSummaryFromGemini(d, m, equipment);
+    if (generatedText && generatedText.trim()) {
+      container.innerHTML = generatedText;
       if (badge) badge.innerHTML = '✨ Resumen generado con IA · Google Gemini';
     }
   } catch(err) {
     if (badge) badge.innerHTML = '📋 Resumen del proyecto';
-    if (window.RA_ErrorHandler) window.RA_ErrorHandler.handleAsyncAPI(err, 'Gemini AI');
+    if (window.RA_ErrorHandler && err.message !== 'NO_API_KEY') {
+      window.RA_ErrorHandler.handleAsyncAPI(err, 'Gemini AI');
+    }
   }
 }
 
@@ -1105,6 +1122,25 @@ function wpOpenPricingReviewModal(onConfirm) {
               '<b id="pricing-preview-total" style="font-size:17px;color:#fff;font-weight:900;">0 €</b>' +
             '</div>' +
           '</div>' +
+          '<!-- BLOQUE DE RESUMEN EJECUTIVO COMERCIAL CON GEMINI -->' +
+          '<div style="background:rgba(30,41,59,0.5);border:1px solid rgba(168,85,247,0.35);border-radius:8px;padding:11px 12px;display:flex;flex-direction:column;gap:7px;">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+              '<div style="display:flex;align-items:center;gap:6px;">' +
+                '<span style="font-size:14px;">✨</span>' +
+                '<span style="font-size:10.5px;font-weight:900;color:#C084FC;text-transform:uppercase;letter-spacing:0.5px;">Resumen Comercial con IA (Google Gemini)</span>' +
+              '</div>' +
+              '<button type="button" id="btn-modal-generate-ai-summary" style="padding:3px 9px;background:rgba(168,85,247,0.2);border:1px solid rgba(168,85,247,0.5);border-radius:5px;color:#E9D5FF;font-size:9.5px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:4px;" title="Redactar o actualizar el resumen ejecutivo de la propuesta con Gemini">' +
+                '<span>⚡ Generar / Previsualizar</span>' +
+              '</button>' +
+            '</div>' +
+            '<div id="modal-ai-summary-box" contenteditable="true" style="background:rgba(15,23,42,0.7);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:8px 10px;font-size:10px;line-height:1.45;color:#E2E8F0;min-height:48px;max-height:110px;overflow-y:auto;outline:none;" title="Haz clic para editar manualmente el texto">' +
+              '<span style="color:#94a3b8;font-style:italic;">Pulsa en &laquo;Generar / Previsualizar&raquo; para redactar el resumen con IA adaptado a los datos y equipos de este proyecto, o edítalo directamente aquí.</span>' +
+            '</div>' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;font-size:9px;color:#94a3b8;">' +
+              '<span id="modal-ai-summary-status">💡 Este texto aparecerá destacado en la Oferta Bancable (PDF). Puedes editarlo libremente.</span>' +
+              '<button type="button" id="btn-modal-clear-ai-summary" style="background:none;border:none;color:#94a3b8;font-size:9px;cursor:pointer;text-decoration:underline;padding:0;">Restablecer plantilla</button>' +
+            '</div>' +
+          '</div>' +
           '<div style="display:flex;flex-direction:column;gap:4px;">' +
             '<label style="display:flex;align-items:center;gap:8px;font-size:10px;color:#cbd5e1;cursor:pointer;">' +
               '<input type="checkbox" id="pricing-check-save-defaults" checked style="accent-color:#10b981;">' +
@@ -1488,6 +1524,58 @@ function wpOpenPricingReviewModal(onConfirm) {
       if (moInput) moInput.value = fresh.moPrice;
       if (legInput) legInput.value = fresh.legPrice;
       recalculateLive();
+    };
+  }
+
+  // ── GENERACIÓN Y PREVISUALIZACIÓN DE RESUMEN IA EN EL MODAL ──
+  var modalGenAiSummaryBtn = document.getElementById('btn-modal-generate-ai-summary');
+  var modalAiSummaryBox = document.getElementById('modal-ai-summary-box');
+  var modalAiSummaryStatus = document.getElementById('modal-ai-summary-status');
+  var modalClearAiSummaryBtn = document.getElementById('btn-modal-clear-ai-summary');
+
+  // Inicializar contenido si ya hay uno personalizado o mostrar plantilla
+  if (modalAiSummaryBox) {
+    if (_customCommercialSummary && _customCommercialSummary.trim()) {
+      modalAiSummaryBox.innerHTML = _customCommercialSummary;
+      if (modalAiSummaryStatus) modalAiSummaryStatus.innerHTML = '✨ Resumen personalizado listo para la oferta.';
+    } else {
+      modalAiSummaryBox.innerHTML = generateCommercialSummary(d, m, eq);
+    }
+    modalAiSummaryBox.oninput = function() {
+      _customCommercialSummary = modalAiSummaryBox.innerHTML;
+      if (modalAiSummaryStatus) modalAiSummaryStatus.innerHTML = '✏️ Texto editado manualmente. Se respetará en la oferta final.';
+    };
+  }
+
+  if (modalClearAiSummaryBtn) {
+    modalClearAiSummaryBtn.onclick = function() {
+      _customCommercialSummary = null;
+      if (modalAiSummaryBox) modalAiSummaryBox.innerHTML = generateCommercialSummary(d, m, eq);
+      if (modalAiSummaryStatus) modalAiSummaryStatus.innerHTML = '📋 Restablecida la plantilla estándar.';
+    };
+  }
+
+  if (modalGenAiSummaryBtn) {
+    modalGenAiSummaryBtn.onclick = async function() {
+      if (modalAiSummaryStatus) modalAiSummaryStatus.innerHTML = '⏳ <em>Consultando a Google Gemini para redactar el resumen...</em>';
+      if (modalAiSummaryBox) modalAiSummaryBox.innerHTML = '<span style="color:#C084FC;">✨ Conectando con Gemini y redactando propuesta ejecutiva...</span>';
+      try {
+        var text = await requestCommercialSummaryFromGemini(d, m, eq);
+        if (text && text.trim()) {
+          _customCommercialSummary = text;
+          if (modalAiSummaryBox) modalAiSummaryBox.innerHTML = text;
+          if (modalAiSummaryStatus) modalAiSummaryStatus.innerHTML = '✅ <b>Resumen generado con éxito por Gemini.</b> Puedes retocarlo si lo deseas.';
+        } else {
+          throw new Error('Respuesta vacía');
+        }
+      } catch(eGen) {
+        if (eGen.message === 'NO_API_KEY') {
+          if (modalAiSummaryStatus) modalAiSummaryStatus.innerHTML = '❌ Introduce tu API Key de Gemini en el Paso 5 (Datos & Logo Empresa).';
+        } else {
+          if (modalAiSummaryStatus) modalAiSummaryStatus.innerHTML = '❌ No se pudo conectar con Gemini (' + (eGen.message || 'error') + '). Mostrando plantilla.';
+        }
+        if (modalAiSummaryBox) modalAiSummaryBox.innerHTML = generateCommercialSummary(d, m, eq);
+      }
     };
   }
 
