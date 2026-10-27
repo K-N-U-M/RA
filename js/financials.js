@@ -899,7 +899,17 @@ function wpOpenPricingReviewModal(onConfirm) {
               '<div style="font-size:10px;font-weight:900;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;">' +
                 'Partidas de Coste Directo (Instalación Llave en Mano)' +
               '</div>' +
-              '<button type="button" id="btn-reset-pricing-to-design" style="padding:3px 8px;background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.4);border-radius:5px;color:#38BDF8;font-size:9.5px;font-weight:800;cursor:pointer;" title="Recalcular todas las partidas automáticamente a partir del diseño 3D y equipos seleccionados">🔄 Recalcular según diseño</button>' +
+              '<div style="display:flex;align-items:center;gap:6px;">' +
+                '<button type="button" id="btn-ai-survey-pricing" style="padding:3px 8px;background:rgba(167,139,250,0.15);border:1px solid rgba(167,139,250,0.4);border-radius:5px;color:#C084FC;font-size:9.5px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:4px;" title="Consultar a Google Gemini los precios actuales de mercado en España para estos equipos">✨ Sondeo Precios (IA Gemini)</button>' +
+                '<button type="button" id="btn-reset-pricing-to-design" style="padding:3px 8px;background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.4);border-radius:5px;color:#38BDF8;font-size:9.5px;font-weight:800;cursor:pointer;" title="Recalcular todas las partidas automáticamente a partir del diseño 3D y equipos seleccionados">🔄 Recalcular según diseño</button>' +
+              '</div>' +
+            '</div>' +
+            '<div id="pricing-ai-survey-banner" style="display:none;background:rgba(147,51,234,0.12);border:1px solid rgba(168,85,247,0.35);border-radius:6px;padding:8px 10px;font-size:10px;color:#E9D5FF;line-height:1.4;">' +
+              '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">' +
+                '<span style="font-weight:800;color:#C084FC;">✨ SONDEO DE MERCADO IA (GOOGLE GEMINI)</span>' +
+                '<button type="button" id="btn-apply-ai-pricing" style="padding:2px 8px;background:#9333EA;color:#fff;border:none;border-radius:4px;font-size:9.5px;font-weight:800;cursor:pointer;display:none;">Aplicar Precios Sugeridos</button>' +
+              '</div>' +
+              '<div id="pricing-ai-survey-text">Consultando tarifas mayoristas y de instalador en España...</div>' +
             '</div>' +
             '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05);">' +
               '<div>' +
@@ -1214,6 +1224,117 @@ function wpOpenPricingReviewModal(onConfirm) {
   [pInput, estInput, invInput, batInput, cabInput, moInput, legInput, mgInput].forEach(function(inp) {
     if (inp) inp.oninput = recalculateLive;
   });
+
+  // ── SONDEO DE PRECIOS AUTOMÁTICO CON GEMINI AI ──
+  var aiSurveyBtn = document.getElementById('btn-ai-survey-pricing');
+  var aiBanner = document.getElementById('pricing-ai-survey-banner');
+  var aiText = document.getElementById('pricing-ai-survey-text');
+  var applyAiBtn = document.getElementById('btn-apply-ai-pricing');
+  var suggestedAiPrices = null;
+
+  if (aiSurveyBtn) {
+    aiSurveyBtn.onclick = async function() {
+      var apiKey = '';
+      try {
+        if (window.RA && typeof window.RA.getGeminiApiKey === 'function') apiKey = window.RA.getGeminiApiKey();
+        if (!apiKey) apiKey = localStorage.getItem('ra_gemini_api_key') || '';
+      } catch(e) {}
+
+      if (!apiKey) {
+        alert('Por favor, introduce o verifica tu API Key de Gemini en el menu Datos & Logo Empresa (Paso 5) para activar las consultas de mercado con IA.');
+        return;
+      }
+
+      if (aiBanner) aiBanner.style.display = 'block';
+      if (aiText) aiText.innerHTML = '⏳ <em>Consultando a Google Gemini precios medios de mercado en España para tus equipos...</em>';
+      if (applyAiBtn) applyAiBtn.style.display = 'none';
+
+      try {
+        var modName = (d.cfg && d.cfg.potencia ? (d.cfg.potencia + ' Wp') : '450 Wp Tier-1');
+        var invName = (eq && eq.invName) ? eq.invName : 'Inversor solar de red';
+        var batName = (eq && eq.hasBat) ? eq.batName : 'Sin bateria';
+        var structType = designCosts.isPergola ? ('Pergola elevada ' + designCosts.pergolaClearance.toFixed(2) + 'm') : 'Coplanar / Triangulos lastrados';
+
+        var prompt = 'Actua como consultor de costes y tarifas de instalaciones fotovoltaicas en Espana (ano 2024-2026). ' +
+          'Proporciona el precio de coste directo razonable de mercado para las siguientes partidas de un proyecto residencial/comercial de ' + numPanels + ' paneles:\n' +
+          '- Modulo fotovoltaico: ' + modName + ' (precio unitario en EUR/ud)\n' +
+          '- Estructura soporte: ' + structType + ' para ' + numPanels + ' paneles (precio total estructura en EUR)\n' +
+          '- Inversor: ' + invName + ' (precio total inversor en EUR)\n' +
+          (eq && eq.hasBat ? ('- Bateria: ' + batName + ' (precio total bateria en EUR)\n') : '') +
+          '- Cableado solar, cuadro protecciones DC/AC y puesta a tierra para ' + numPanels + ' modulos (precio total en EUR)\n' +
+          '- Mano de obra completa de instalacion y montaje para ' + numPanels + ' modulos (precio total en EUR)\n' +
+          '- Ingenieria, proyecto tecnico y boletin CIE (precio total en EUR)\n\n' +
+          'Devuelve EXCLUSIVAMENTE un objeto JSON sin bloques de codigo con esta estructura exacta:\n' +
+          '{\n' +
+          '  "panelPrice": 115,\n' +
+          '  "estPrice": 1200,\n' +
+          '  "invPrice": 1150,\n' +
+          '  "batPrice": 0,\n' +
+          '  "cabPrice": 550,\n' +
+          '  "moPrice": 1350,\n' +
+          '  "legPrice": 450,\n' +
+          '  "resumen": "Breve explicacion de 2 lineas sobre la tendencia de precios en Espana."\n' +
+          '}';
+
+        var modelsToTry = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+        var jsonResult = null;
+
+        for (var mi = 0; mi < modelsToTry.length; mi++) {
+          var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + modelsToTry[mi] + ':generateContent';
+          var resp = await _aiFetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ role: 'user', parts: [{ text: prompt }] }],
+              generationConfig: { temperature: 0.2, maxOutputTokens: 400 }
+            })
+          }, 25000, apiKey);
+
+          if (resp.ok) {
+            var data = await resp.json();
+            var rawText = (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0])
+              ? data.candidates[0].content.parts[0].text : '';
+            var cleaned = rawText.replace(/```json/gi, '').replace(/```/gi, '').trim();
+            try {
+              jsonResult = JSON.parse(cleaned);
+              if (jsonResult && jsonResult.panelPrice) break;
+            } catch(eParse) {}
+          }
+        }
+
+        if (jsonResult && jsonResult.panelPrice) {
+          suggestedAiPrices = jsonResult;
+          if (aiText) {
+            aiText.innerHTML = '<b>Sugerencia Gemini:</b> Módulo: <b>' + jsonResult.panelPrice + ' €/ud</b> · ' +
+              'Estructura: <b>' + jsonResult.estPrice + ' €</b> · Inversor: <b>' + jsonResult.invPrice + ' €</b> · ' +
+              'M.O.: <b>' + jsonResult.moPrice + ' €</b> · Cables/Cuadros: <b>' + jsonResult.cabPrice + ' €</b>.<br>' +
+              '<span style="font-size:9px;color:#D8B4FE;">' + (jsonResult.resumen || '') + '</span>';
+          }
+          if (applyAiBtn) applyAiBtn.style.display = 'inline-block';
+        } else {
+          if (aiText) aiText.innerHTML = '❌ No se pudo interpretar la respuesta JSON de Gemini. Comprueba la conexión o intenta de nuevo.';
+        }
+      } catch (errAi) {
+        if (aiText) aiText.innerHTML = '❌ Error de conexión al consultar Gemini: ' + (errAi.message || errAi);
+      }
+    };
+  }
+
+  if (applyAiBtn) {
+    applyAiBtn.onclick = function() {
+      if (!suggestedAiPrices) return;
+      if (pInput && suggestedAiPrices.panelPrice > 0) pInput.value = suggestedAiPrices.panelPrice;
+      if (estInput && suggestedAiPrices.estPrice > 0) estInput.value = suggestedAiPrices.estPrice;
+      if (invInput && suggestedAiPrices.invPrice > 0) invInput.value = suggestedAiPrices.invPrice;
+      if (batInput && typeof suggestedAiPrices.batPrice === 'number' && suggestedAiPrices.batPrice > 0) batInput.value = suggestedAiPrices.batPrice;
+      if (cabInput && suggestedAiPrices.cabPrice > 0) cabInput.value = suggestedAiPrices.cabPrice;
+      if (moInput && suggestedAiPrices.moPrice > 0) moInput.value = suggestedAiPrices.moPrice;
+      if (legInput && suggestedAiPrices.legPrice > 0) legInput.value = suggestedAiPrices.legPrice;
+      recalculateLive();
+      if (aiText) aiText.innerHTML = '✅ <b>¡Precios sugeridos por Gemini aplicados al presupuesto!</b>';
+      applyAiBtn.style.display = 'none';
+    };
+  }
 
   var resetDesignBtn = document.getElementById('btn-reset-pricing-to-design');
   if (resetDesignBtn) {
