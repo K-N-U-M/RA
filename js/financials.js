@@ -355,6 +355,12 @@ function generateCommercialSummary(d, m, equipment) {
       'que le permitirá aprovechar la energía solar incluso en horario nocturno.');
   }
 
+  // Comunidad Energética Local (CEL · RDL 7/2026 hasta 5 km)
+  var excKwh = (m && m.excedenteKWh != null) ? m.excedenteKWh : Math.round(annualKWh * 0.35);
+  if (excKwh > 500) {
+    lines.push('Su instalación está <strong>certificada CEL-Ready</strong> (RDL 7/2026): sus excedentes (~<strong>' + Math.round(excKwh).toLocaleString('es-ES') + ' kWh/año</strong>) podrán monetizarse en una <strong>Comunidad Energética Local</strong> en un radio de hasta <strong>5 km</strong> sin el límite de compensación a 0 € de la red convencional.');
+  }
+
   // Cierre comercial
   lines.push('');
   lines.push('Le invitamos a revisar los detalles técnicos y económicos de esta propuesta. ' +
@@ -463,6 +469,11 @@ async function requestCommercialSummaryFromGemini(d, m, equipment) {
   }
   if (equipment && equipment.invName) {
     prompt += '- Inversor solar: ' + equipment.invName + '\n';
+  }
+
+  var excKwhGemini = (m && m.excedenteKWh != null) ? m.excedenteKWh : Math.round(annualKWh * 0.35);
+  if (excKwhGemini > 500) {
+    prompt += '- Excedente exportable a Comunidad Energética Local (radio 5 km s/ RDL 7/2026): ' + Math.round(excKwhGemini).toLocaleString('es-ES') + ' kWh/año (monetizable a ~0,11 €/kWh sin límite de compensación de factura).\n';
   }
 
   var models = [];
@@ -926,6 +937,8 @@ var RAPricing = {
       ]
     },
     showThreePackagesComparison: true,
+    includeCEL: true,
+    celPriceEur: 0.11,
     dossierMode: 'full',
     activeSlides: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
   },
@@ -1159,6 +1172,42 @@ function wpOpenPricingReviewModal(onConfirm) {
               '</div>' +
             '</div>' +
           '</div>' +
+
+          '<!-- SECCIÓN 3: COMUNIDAD ENERGÉTICA LOCAL (CEL · RDL 7/2026) -->' +
+          '<div style="background:rgba(30,41,59,0.5);border:1px solid rgba(16,185,129,0.3);border-radius:8px;padding:11px 12px;display:flex;flex-direction:column;gap:8px;">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+              '<div style="display:flex;align-items:center;gap:6px;">' +
+                '<span style="font-size:13px;">🌐</span>' +
+                '<span style="font-size:10.5px;font-weight:900;color:#34D399;text-transform:uppercase;letter-spacing:0.5px;">Comunidad Energética Local (RDL 7/2026 · 5 km)</span>' +
+              '</div>' +
+              '<label style="display:flex;align-items:center;gap:6px;font-size:10px;color:#A7F3D0;cursor:pointer;">' +
+                '<input type="checkbox" id="pricing-check-cel-enabled" checked style="accent-color:#10b981;">' +
+                '<b>Incluir página CEL en propuesta</b>' +
+              '</label>' +
+            '</div>' +
+            '<div style="display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:8px;align-items:center;">' +
+              '<div>' +
+                '<label style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">Precio Venta Excedente CEL</label>' +
+                '<div style="display:flex;align-items:center;gap:4px;">' +
+                  '<input type="number" id="pricing-input-cel-price" min="0.05" max="0.30" step="0.005" value="0.11" style="width:100%;box-sizing:border-box;padding:4px 7px;background:rgba(0,0,0,0.4);border:1px solid #10B981;border-radius:5px;color:#34D399;font-size:11px;font-weight:800;text-align:right;">' +
+                  '<span style="font-size:10px;color:#94a3b8;white-space:nowrap;">€/kWh</span>' +
+                '</div>' +
+              '</div>' +
+              '<div>' +
+                '<label style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">Radio Legal de Cobertura</label>' +
+                '<div style="font-size:11px;font-weight:800;color:#F8FAFC;padding:4px 0;">5.000 m (78,5 km²)</div>' +
+              '</div>' +
+              '<div>' +
+                '<label style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">Ingreso Extra Estimado</label>' +
+                '<div id="pricing-cel-preview-extra" style="font-size:11px;font-weight:900;color:#10B981;padding:4px 0;">+0 €/año</div>' +
+              '</div>' +
+            '</div>' +
+            '<div style="font-size:9px;color:#94a3b8;line-height:1.35;border-top:1px solid rgba(255,255,255,0.06);padding-top:6px;display:flex;justify-content:space-between;">' +
+              '<span>Marco: <b>RDL 7/2026</b> · Reparto dinámico horario <b>βh</b> (Orden TED/1247/2021) sin tope mensual a 0 €.</span>' +
+              '<span id="pricing-cel-preview-status" style="color:#6ee7b7;font-weight:700;">CEL-Ready</span>' +
+            '</div>' +
+          '</div>' +
+
           '<div style="background:rgba(30,41,59,0.5);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:9px;">' +
             '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">' +
               '<div style="font-size:10px;font-weight:900;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;">' +
@@ -1501,6 +1550,13 @@ function wpOpenPricingReviewModal(onConfirm) {
   if (custPotContrInput) custPotContrInput.value = curPot.toFixed(2);
   if (custPrecioKwhInput) custPrecioKwhInput.value = curPriceKwh.toFixed(3);
 
+  // Inicializar estado de Comunidad Energética Local (CEL)
+  var curCommCfg = (typeof RAPricing !== 'undefined' && typeof RAPricing.getCommercialConfig === 'function') ? RAPricing.getCommercialConfig() : {};
+  var celCheckInput = document.getElementById('pricing-check-cel-enabled');
+  var celPriceInput = document.getElementById('pricing-input-cel-price');
+  if (celCheckInput) celCheckInput.checked = (curCommCfg.includeCEL !== undefined) ? !!curCommCfg.includeCEL : true;
+  if (celPriceInput) celPriceInput.value = (typeof curCommCfg.celPriceEur === 'number') ? curCommCfg.celPriceEur : 0.11;
+
   if (subTitle) {
     subTitle.textContent = (typeof onConfirm === 'function')
       ? 'Verifica o ajusta los importes de cada partida antes de emitir la entrega final'
@@ -1586,6 +1642,25 @@ function wpOpenPricingReviewModal(onConfirm) {
           if (paybackEl) paybackEl.textContent = (m.paybackYears ? m.paybackYears.toFixed(1) : '—') + ' años';
           if (tirEl) tirEl.textContent = (m.tir != null && isFinite(m.tir) ? m.tir.toFixed(1) + ' %' : (m.tirString || '—'));
           if (autoconsumoEl) autoconsumoEl.textContent = Math.round(m.pctAutoconsumo || m.autarquiaPct || 0) + ' %';
+
+          // Actualización en vivo de Comunidad Energética Local (CEL)
+          var celExtraEl = document.getElementById('pricing-cel-preview-extra');
+          var celStatusEl = document.getElementById('pricing-cel-preview-status');
+          var isCelOn = celCheckInput ? celCheckInput.checked : true;
+          var celPriceVal = celPriceInput ? (parseFloat(celPriceInput.value) || 0.11) : 0.11;
+          if (celExtraEl) {
+            if (!isCelOn) {
+              celExtraEl.textContent = 'Desactivado';
+              celExtraEl.style.color = '#94a3b8';
+              if (celStatusEl) celStatusEl.textContent = 'Excluido de la propuesta';
+            } else {
+              var celM = (typeof calculateCELMetrics === 'function') ? calculateCELMetrics(d, m, celPriceVal) : null;
+              var extraEur = celM ? celM.beneficioExtraCEL : Math.max(0, Math.round(((m.excedenteKWh != null ? m.excedenteKWh : (kwp * 1450 * 0.35))) * (celPriceVal - 0.05)));
+              celExtraEl.textContent = '+' + Math.round(extraEur).toLocaleString('es-ES') + ' €/año';
+              celExtraEl.style.color = '#10B981';
+              if (celStatusEl) celStatusEl.textContent = 'CEL-Ready (~' + (celM ? celM.familiasBeneficiadas : 1) + ' familias)';
+            }
+          }
         }
       }
     } catch (eKpi) {
@@ -1595,9 +1670,10 @@ function wpOpenPricingReviewModal(onConfirm) {
 
   recalculateLive();
 
-  [pInput, estInput, invInput, batInput, cabInput, moInput, legInput, mgInput, custConsumoInput, custPotContrInput, custPrecioKwhInput].forEach(function(inp) {
+  [pInput, estInput, invInput, batInput, cabInput, moInput, legInput, mgInput, custConsumoInput, custPotContrInput, custPrecioKwhInput, celPriceInput].forEach(function(inp) {
     if (inp) inp.oninput = recalculateLive;
   });
+  if (celCheckInput) celCheckInput.onchange = recalculateLive;
 
   // ── SONDEO DE PRECIOS AUTOMÁTICO CON GEMINI AI ──
   var aiSurveyBtn = document.getElementById('btn-ai-survey-pricing');
@@ -1971,6 +2047,14 @@ function wpOpenPricingReviewModal(onConfirm) {
         }
       }
 
+      // Persistir configuración de Comunidad Energética Local (CEL)
+      var curCommCfgToSave = (typeof RAPricing !== 'undefined' && typeof RAPricing.getCommercialConfig === 'function') ? RAPricing.getCommercialConfig() : {};
+      if (celCheckInput) curCommCfgToSave.includeCEL = celCheckInput.checked;
+      if (celPriceInput) curCommCfgToSave.celPriceEur = parseFloat(celPriceInput.value) || 0.11;
+      if (typeof RAPricing !== 'undefined' && typeof RAPricing.saveCommercialConfig === 'function') {
+        RAPricing.saveCommercialConfig(curCommCfgToSave);
+      }
+
       wpUpdateStep5PricingBadge();
       if (typeof updateBudgetUI === 'function') updateBudgetUI();
 
@@ -2185,6 +2269,275 @@ if (typeof window !== 'undefined') {
       tejadoBlindado: infoTejadoBlindado,
       cascadaFiscal: infoCascadaFiscal
     };
+  }
+
+  // ── COMUNIDAD ENERGÉTICA LOCAL (CEL · MARCO RDL 7/2026 RADIO 5 KM) ──────────
+  function calculateCELMetrics(d, m, customCelPrice) {
+    d = d || {};
+    m = m || {};
+    var genKWh = Math.round(m.annualYieldKWh || (d && d.annualKWh) || 0);
+    var autoKWh = Math.round(m.autoconsumoDirecto || (genKWh * (m.autarquiaPct || 65) / 100));
+    var batKWh = Math.round(m.bateriaKWh || 0);
+    var excKWh = Math.round(m.excedenteKWh != null ? m.excedenteKWh : Math.max(0, genKWh - autoKWh - batKWh));
+    if (excKWh <= 0 && genKWh > 0) {
+      excKWh = Math.round(genKWh * 0.35); // Estimación canónica de vertido estacional
+    }
+
+    var precioPool = 0.05; // €/kWh Compensación simplificada estándar mayorista
+    var precioCEL = (typeof customCelPrice === 'number' && customCelPrice > 0) ? customCelPrice : 0.11; // €/kWh Venta local P2P CEL
+
+    var ingresoPoolAnual = Math.round(excKWh * precioPool);
+    var ingresoCELAnual = Math.round(excKWh * precioCEL);
+    var beneficioExtraCEL = Math.max(0, ingresoCELAnual - ingresoPoolAnual);
+    var ahorroTotalConCEL = Math.round((m.ahorroLuzAnio1 || 0) + beneficioExtraCEL);
+
+    var paybackTradicional = (m.paybackYears && isFinite(m.paybackYears) && m.paybackYears > 0) ? m.paybackYears : 6.5;
+    var capexNeto = (m.capexNeto && isFinite(m.capexNeto) && m.capexNeto > 0) ? m.capexNeto : (m.capexBruto || 6000);
+    var paybackCEL = (capexNeto > 0 && ahorroTotalConCEL > 0)
+      ? Math.round((capexNeto / ahorroTotalConCEL) * 10) / 10
+      : Math.round(paybackTradicional * 0.72 * 10) / 10;
+    var reduccionPaybackAnios = Math.max(0.4, Math.round((paybackTradicional - paybackCEL) * 10) / 10);
+
+    var familiasBeneficiadas = Math.max(1, Math.round((excKWh / 1800) * 10) / 10);
+    var co2EvitadoKg = Math.round(excKWh * 0.26);
+
+    var autoPct = genKWh > 0 ? Math.round((autoKWh / genKWh) * 100) : 55;
+    var batPct = (genKWh > 0 && batKWh > 0) ? Math.round((batKWh / genKWh) * 100) : 0;
+    var excPct = Math.max(0, 100 - autoPct - batPct);
+
+    return {
+      genKWh: genKWh,
+      autoKWh: autoKWh,
+      batKWh: batKWh,
+      excKWh: excKWh,
+      autoPct: autoPct,
+      batPct: batPct,
+      excPct: excPct,
+      precioPool: precioPool,
+      precioCEL: precioCEL,
+      ingresoPoolAnual: ingresoPoolAnual,
+      ingresoCELAnual: ingresoCELAnual,
+      beneficioExtraCEL: beneficioExtraCEL,
+      ahorroTotalConCEL: ahorroTotalConCEL,
+      paybackTradicional: paybackTradicional,
+      paybackCEL: paybackCEL,
+      reduccionPaybackAnios: reduccionPaybackAnios,
+      familiasBeneficiadas: familiasBeneficiadas,
+      co2EvitadoKg: co2EvitadoKg,
+      distanciaMaxKm: 5,
+      distanciaMaxMetros: 5000,
+      areaKm2: 78.5,
+      normativa: 'Real Decreto-ley 7/2026',
+      normativaCompleta: 'Real Decreto-ley 7/2026 (amplía el radio de autoconsumo colectivo a 5 km)',
+      ordenTED: 'Orden TED/1247/2021 (Coeficientes horarios dinámicos βh)'
+    };
+  }
+
+  function buildCELPageHTML(d, m, pal, cel, pageNum, totPages, companyName) {
+    pal = pal || { primary: '#059669', light: '#d1fae5', accent: '#10b981', dark: '#065f46' };
+    cel = cel || calculateCELMetrics(d, m);
+    d = d || {};
+    pageNum = pageNum || 5;
+    totPages = totPages || 7;
+    companyName = companyName || 'SOLAR 3D PRO';
+
+    var autoW = Math.max(15, cel.autoPct);
+    var batW = cel.batPct > 0 ? Math.max(10, cel.batPct) : 0;
+    var excW = Math.max(15, 100 - autoW - batW);
+
+    // SVG Radar de Cobertura 5.000 metros (78,5 km² según RDL 7/2026)
+    var radarSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 200" width="100%" height="100%" style="display:block;">' +
+      '<defs>' +
+        '<radialGradient id="celRadarGlow" cx="50%" cy="50%" r="50%">' +
+          '<stop offset="0%" stop-color="' + pal.primary + '" stop-opacity="0.25"/>' +
+          '<stop offset="65%" stop-color="' + pal.accent + '" stop-opacity="0.10"/>' +
+          '<stop offset="100%" stop-color="' + pal.primary + '" stop-opacity="0.01"/>' +
+        '</radialGradient>' +
+      '</defs>' +
+      '<rect x="0" y="0" width="440" height="200" rx="8" fill="#0f172a"/>' +
+      '<line x1="220" y1="8" x2="220" y2="192" stroke="#334155" stroke-width="1" stroke-dasharray="3,3"/>' +
+      '<line x1="20" y1="100" x2="420" y2="100" stroke="#334155" stroke-width="1" stroke-dasharray="3,3"/>' +
+      '<circle cx="220" cy="100" r="88" fill="url(#celRadarGlow)" stroke="' + pal.primary + '" stroke-width="2" stroke-dasharray="4,2"/>' +
+      '<circle cx="220" cy="100" r="54" fill="none" stroke="#475569" stroke-width="1" stroke-dasharray="2,3"/>' +
+      '<circle cx="220" cy="100" r="26" fill="none" stroke="#475569" stroke-width="1"/>' +
+      '<text x="223" y="76" fill="#94a3b8" font-size="7" font-family="monospace">1.000 m (1 km)</text>' +
+      '<text x="223" y="48" fill="#94a3b8" font-size="7" font-family="monospace">2.500 m (2,5 km)</text>' +
+      '<text x="223" y="14" fill="' + pal.accent + '" font-size="8" font-weight="900" font-family="monospace">RADIO 5.000 m · MARCO RDL 7/2026 (78,5 km²)</text>' +
+      '<line x1="220" y1="100" x2="155" y2="50" stroke="' + pal.accent + '" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.85"/>' +
+      '<line x1="220" y1="100" x2="295" y2="55" stroke="' + pal.accent + '" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.85"/>' +
+      '<line x1="220" y1="100" x2="315" y2="140" stroke="' + pal.accent + '" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.85"/>' +
+      '<line x1="220" y1="100" x2="135" y2="145" stroke="' + pal.accent + '" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.85"/>' +
+      '<line x1="220" y1="100" x2="220" y2="182" stroke="' + pal.accent + '" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.85"/>' +
+      '<circle cx="155" cy="50" r="4.5" fill="#38bdf8"/>' +
+      '<text x="150" y="42" fill="#f8fafc" font-size="7" font-weight="700" text-anchor="end">🏡 Viviendas (1,2 km)</text>' +
+      '<circle cx="295" cy="55" r="4.5" fill="#f59e0b"/>' +
+      '<text x="301" y="49" fill="#f8fafc" font-size="7" font-weight="700">🏪 Comercio (2,1 km)</text>' +
+      '<circle cx="315" cy="140" r="4.5" fill="#a855f7"/>' +
+      '<text x="321" y="147" fill="#f8fafc" font-size="7" font-weight="700">🏫 Colegio (3,8 km)</text>' +
+      '<circle cx="135" cy="145" r="4.5" fill="#34d399"/>' +
+      '<text x="130" y="153" fill="#f8fafc" font-size="7" font-weight="700" text-anchor="end">🏭 PYME / Taller (4,4 km)</text>' +
+      '<circle cx="220" cy="182" r="4.5" fill="#ec4899"/>' +
+      '<text x="228" y="190" fill="#f8fafc" font-size="7" font-weight="700">🏢 Comunidad (4,9 km)</text>' +
+      '<circle cx="220" cy="100" r="13" fill="' + pal.primary + '" opacity="0.35"/>' +
+      '<circle cx="220" cy="100" r="7.5" fill="#ffffff" stroke="' + pal.primary + '" stroke-width="2.5"/>' +
+      '<circle cx="220" cy="100" r="3" fill="' + pal.dark + '"/>' +
+      '<rect x="175" y="112" width="90" height="14" rx="3" fill="rgba(15,23,42,0.88)" stroke="' + pal.primary + '" stroke-width="1"/>' +
+      '<text x="220" y="122" fill="#ffffff" font-size="7" font-weight="900" text-anchor="middle">☀️ TU HUB GENERADOR</text>' +
+      '<rect x="10" y="10" width="112" height="24" rx="4" fill="rgba(30,41,59,0.85)" stroke="#475569" stroke-width="1"/>' +
+      '<text x="16" y="21" fill="#38bdf8" font-size="7" font-weight="800">REPARTO LOCAL P2P</text>' +
+      '<text x="16" y="30" fill="#cbd5e1" font-size="6.5">Telemedida horaria βh</text>' +
+    '</svg>';
+
+    return '<div class="page-sheet">' +
+      '<div>' +
+        '<div class="cover-header">' +
+          '<div class="company-text">' +
+            '<div class="name">COMUNIDAD ENERGÉTICA LOCAL &amp; <span style="color:' + pal.primary + '">HUB DE EXCEDENTES</span></div>' +
+            '<div class="sub">Marco Regulatorio Real Decreto-ley 7/2026 · Radio de Cobertura hasta 5.000 metros (78,5 km²)</div>' +
+          '</div>' +
+          '<div class="doc-ref-box"><b>Ref: ' + (d.refNum || 'PROY') + '</b><br>Hoja ' + pageNum + ' de ' + totPages + '</div>' +
+        '</div>' +
+
+        '<!-- 4 HEROS MONUMENTALES DE COMUNIDAD ENERGÉTICA -->' +
+        '<div class="hero-grid" style="grid-template-columns: repeat(4, 1fr); margin: 8px 0 14px;">' +
+          '<div class="hero-card" style="border-top: 3px solid #f59e0b; background: #fffbeb;">' +
+            '<div class="hero-lbl" style="color: #b45309;">Excedente Solar Anual</div>' +
+            '<div class="hero-val" style="color: #b45309; font-size: 19px;">' + cel.excKWh.toLocaleString('es-ES') + ' kWh</div>' +
+            '<div style="font-size: 8.5px; color: #92400e; margin-top: 2px;">' + cel.excPct + '% de tu producción total</div>' +
+          '</div>' +
+          '<div class="hero-card highlight" style="border-top: 3px solid ' + pal.primary + '; background: linear-gradient(135deg, ' + pal.light + ', #ffffff);">' +
+            '<div class="hero-lbl" style="color: ' + pal.dark + ';">Valorización CEL (0,11 €/kWh)</div>' +
+            '<div class="hero-val primary" style="font-size: 20px;">+' + cel.ingresoCELAnual.toLocaleString('es-ES') + ' €/año</div>' +
+            '<div style="font-size: 8.5px; color: ' + pal.dark + '; margin-top: 2px; font-weight: 700;">+' + cel.beneficioExtraCEL.toLocaleString('es-ES') + ' € más que vertiendo a red</div>' +
+          '</div>' +
+          '<div class="hero-card" style="border-top: 3px solid #0284c7; background: #f0f9ff;">' +
+            '<div class="hero-lbl" style="color: #0369a1;">Payback Acelerado</div>' +
+            '<div class="hero-val" style="color: #0284c7; font-size: 19px;">' + cel.paybackCEL.toFixed(1) + ' Años</div>' +
+            '<div style="font-size: 8.5px; color: #0284c7; margin-top: 2px; font-weight: 700;">-' + cel.reduccionPaybackAnios.toFixed(1) + ' años de amortización</div>' +
+          '</div>' +
+          '<div class="hero-card" style="border-top: 3px solid #10b981; background: #f0fdf4;">' +
+            '<div class="hero-lbl" style="color: #047857;">Impacto en el Barrio</div>' +
+            '<div class="hero-val" style="color: #10b981; font-size: 19px;">~' + cel.familiasBeneficiadas + ' Familias</div>' +
+            '<div style="font-size: 8.5px; color: #065f46; margin-top: 2px;">abastecidas con energía km 0</div>' +
+          '</div>' +
+        '</div>' +
+
+        '<!-- CARA A CARA: RED CONVENCIONAL VS COMUNIDAD ENERGÉTICA LOCAL -->' +
+        '<div style="display: grid; grid-template-columns: 1fr 1.15fr; gap: 12px; margin-bottom: 14px;">' +
+          '<div style="border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 11px 13px; background: #f8fafc; display: flex; flex-direction: column; justify-content: space-between;">' +
+            '<div>' +
+              '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">' +
+                '<span style="font-size: 8.5px; font-weight: 800; color: #64748b; text-transform: uppercase;">RÉGIMEN TRADICIONAL (RD 244/2019)</span>' +
+                '<span style="font-size: 8px; background: #e2e8f0; color: #475569; padding: 2px 6px; border-radius: 4px; font-weight: 700;">RED GENERAL</span>' +
+              '</div>' +
+              '<div style="font-size: 11.5px; font-weight: 900; color: #1e293b;">Compensación Simplificada en Factura</div>' +
+              '<div style="font-size: 20px; font-weight: 900; color: #64748b; margin: 3px 0;">0,05 €/kWh <span style="font-size: 9.5px; font-weight: 600; color: #94a3b8;">(precio medio pool)</span></div>' +
+              '<div style="font-size: 9px; color: #475569; line-height: 1.35; margin-top: 3px;">' +
+                'Ingreso anual estimado: <b>~' + cel.ingresoPoolAnual.toLocaleString('es-ES') + ' €/año</b>.' +
+              '</div>' +
+            '</div>' +
+            '<div style="margin-top: 7px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; padding: 5px 7px; font-size: 8px; color: #991b1b; line-height: 1.3;">' +
+              '⚠️ <b>Tope Legal Mensual a 0 €:</b> Todo kWh vertido por encima del importe de energía de tu factura se regala obligatoriamente a la eléctrica sin retribución alguna.' +
+            '</div>' +
+          '</div>' +
+
+          '<div style="border: 2px solid ' + pal.primary + '; border-radius: 10px; padding: 11px 13px; background: #ffffff; box-shadow: 0 4px 14px rgba(0,0,0,0.06); display: flex; flex-direction: column; justify-content: space-between; position: relative;">' +
+            '<div style="position: absolute; top: -9px; right: 12px; background: ' + pal.primary + '; color: #fff; font-size: 8px; font-weight: 900; padding: 2px 8px; border-radius: 10px; letter-spacing: 0.5px;">¡+120% MÁS RENTABLE!</div>' +
+            '<div>' +
+              '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">' +
+                '<span style="font-size: 8.5px; font-weight: 800; color: ' + pal.dark + '; text-transform: uppercase;">MARCO REGULATORIO RDL 7/2026</span>' +
+                '<span style="font-size: 8px; background: ' + pal.light + '; color: ' + pal.dark + '; padding: 2px 6px; border-radius: 4px; font-weight: 800;">RADIO HASTA 5 KM</span>' +
+              '</div>' +
+              '<div style="font-size: 11.5px; font-weight: 900; color: #0f172a;">Comunidad Energética Local (CEL) P2P</div>' +
+              '<div style="font-size: 22px; font-weight: 900; color: ' + pal.primary + '; margin: 3px 0;">0,11 €/kWh <span style="font-size: 9.5px; font-weight: 700; color: ' + pal.dark + ';">precio local justo acordado</span></div>' +
+              '<div style="font-size: 9px; color: #334155; line-height: 1.35; margin-top: 3px;">' +
+                'Ingreso anual estimado: <b style="color:' + pal.primary + ';font-size:10.5px;">+' + cel.ingresoCELAnual.toLocaleString('es-ES') + ' €/año</b> (<b style="color:#059669;">+' + cel.beneficioExtraCEL.toLocaleString('es-ES') + ' €/año netos extra</b>).' +
+              '</div>' +
+            '</div>' +
+            '<div style="margin-top: 7px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 5px 7px; font-size: 8px; color: #166534; line-height: 1.3;">' +
+              '✅ <b>Sin Límite de Factura:</b> Liquidación íntegra hora a hora mediante coeficientes de reparto dinámicos βh (Orden TED/1247/2021). Tus vecinos ahorran un 35% y tú duplicas ingresos.' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+
+        '<!-- SECCIÓN TÉCNICA: DESPACHO ENERGÉTICO 4 VÍAS & RADAR 5 KM -->' +
+        '<div style="display: grid; grid-template-columns: 1.05fr 1fr; gap: 12px; margin-bottom: 12px; align-items: stretch;">' +
+          '<div style="border: 1px solid #e2e8f0; border-radius: 10px; padding: 11px; background: #f8fafc; display: flex; flex-direction: column; justify-content: space-between;">' +
+            '<div>' +
+              '<div style="font-size: 10px; font-weight: 900; color: #1e293b; text-transform: uppercase; margin-bottom: 7px; display: flex; align-items: center; gap: 6px;">' +
+                '<span>⚡</span>' +
+                '<span>1. Despacho del Flujo Energético Generado</span>' +
+              '</div>' +
+              '<div style="width: 100%; height: 24px; border-radius: 6px; overflow: hidden; display: flex; margin-bottom: 8px; border: 1px solid #cbd5e1; box-shadow: inset 0 1px 3px rgba(0,0,0,0.08);">' +
+                '<div style="width:' + autoW + '%; background: linear-gradient(135deg, #059669, #10b981); color: #fff; font-size: 8px; font-weight: 900; display: flex; align-items: center; justify-content: center; padding: 0 4px; white-space: nowrap;">' +
+                  cel.autoPct + '% Autoconsumo' +
+                '</div>' +
+                (cel.batPct > 0 ? (
+                  '<div style="width:' + batW + '%; background: linear-gradient(135deg, #0284c7, #38bdf8); color: #fff; font-size: 8px; font-weight: 900; display: flex; align-items: center; justify-content: center; padding: 0 4px; white-space: nowrap;">' +
+                    cel.batPct + '% Batería' +
+                  '</div>'
+                ) : '') +
+                '<div style="width:' + excW + '%; background: linear-gradient(135deg, #d97706, #f59e0b); color: #fff; font-size: 8px; font-weight: 900; display: flex; align-items: center; justify-content: center; padding: 0 4px; white-space: nowrap;">' +
+                  cel.excPct + '% Inyección CEL (5 km)' +
+                '</div>' +
+              '</div>' +
+              '<div style="display: flex; flex-direction: column; gap: 4px; font-size: 8.5px; line-height: 1.3;">' +
+                '<div style="display: flex; align-items: flex-start; gap: 6px;">' +
+                  '<span style="color: #059669; font-weight: 900;">■</span>' +
+                  '<div><b>Autoconsumo Inmueble (' + cel.autoKWh.toLocaleString('es-ES') + ' kWh/año):</b> Cubre consumos instantáneos diurnos a coste 0 €.</div>' +
+                '</div>' +
+                (cel.batKWh > 0 ? (
+                  '<div style="display: flex; align-items: flex-start; gap: 6px;">' +
+                    '<span style="color: #0284c7; font-weight: 900;">■</span>' +
+                    '<div><b>Batería LFP (' + cel.batKWh.toLocaleString('es-ES') + ' kWh/año):</b> Reserva energética para consumos nocturnos.</div>' +
+                  '</div>'
+                ) : '') +
+                '<div style="display: flex; align-items: flex-start; gap: 6px;">' +
+                  '<span style="color: #d97706; font-weight: 900;">■</span>' +
+                  '<div><b>Inyección CEL (' + cel.excKWh.toLocaleString('es-ES') + ' kWh/año):</b> Compartida con el barrio en radio de 5 km a <b>' + cel.precioCEL.toFixed(2) + ' €/kWh</b>.</div>' +
+                '</div>' +
+                '<div style="display: flex; align-items: flex-start; gap: 6px;">' +
+                  '<span style="color: #64748b; font-weight: 900;">■</span>' +
+                  '<div><b>Respaldo de Red:</b> Suministro ininterrumpido 24 horas y balance de seguridad permanente.</div>' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+
+          '<div style="border: 1px solid #e2e8f0; border-radius: 10px; padding: 9px 11px; background: #f8fafc; display: flex; flex-direction: column; justify-content: space-between;">' +
+            '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">' +
+              '<div style="font-size: 10px; font-weight: 900; color: #1e293b; text-transform: uppercase;">2. Radar de Cobertura 5 km</div>' +
+              '<span style="font-size: 8px; font-weight: 800; color: ' + pal.primary + '; background: ' + pal.light + '; padding: 2px 6px; border-radius: 4px;">RDL 7/2026 · 78,5 km²</span>' +
+            '</div>' +
+            '<div style="width: 100%; height: 145px; border-radius: 6px; overflow: hidden; background: #0f172a;">' +
+              radarSvg +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+
+        '<!-- SELLO DE HOMOLOGACIÓN CEL-READY -->' +
+        '<div style="border: 1.5px solid #10b981; border-radius: 8px; padding: 9px 12px; background: linear-gradient(135deg, #f0fdf4, #ffffff); display: flex; align-items: center; justify-content: space-between; gap: 12px; box-shadow: 0 2px 6px rgba(16,185,129,0.06);">' +
+          '<div style="display: flex; align-items: center; gap: 10px;">' +
+            '<span style="font-size: 24px;">🛡️</span>' +
+            '<div>' +
+              '<div style="font-size: 10.5px; font-weight: 900; color: #065f46; letter-spacing: 0.3px;">DISEÑO DE INGENIERÍA 100% HOMOLOGADO CEL-READY</div>' +
+              '<div style="font-size: 8px; color: #047857; margin-top: 2px; line-height: 1.35;">' +
+                'La instalación incorpora <b>telemedida horaria bidireccional</b> homologada y soporte de coeficientes dinámicos <b>βh (Orden TED/1247/2021)</b>. No requiere obras de tendido vecinal ni cableado exterior: la energía se comparte a través de la red de distribución existente según el <b>Real Decreto-ley 7/2026</b>.' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div style="text-align: right; white-space: nowrap;">' +
+            '<span style="font-size: 8.5px; font-weight: 900; color: #065f46; background: #d1fae5; padding: 3px 8px; border-radius: 5px; border: 1px solid #10b981; display: inline-block;">COMPATIBLE RDL 7/2026</span>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+
+      '<!-- PIE DE HOJA -->' +
+      '<div class="cover-footer">' +
+        '<span>Marco legal: RDL 7/2026 (BOE) · Orden TED/1247/2021 · RD 244/2019 · REBT ITC-BT-40</span>' +
+        '<span>' + companyName + ' · Ref: ' + (d.refNum || 'PROY') + '</span>' +
+      '</div>' +
+    '</div>';
   }
 
 function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, themeOverride) {
@@ -2433,11 +2786,17 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     ? window.windTurbines.filter(t => t && (!t.operationalState || t.operationalState.enabled !== false)).length
     : ((typeof designCosts !== 'undefined' && designCosts && designCosts.windCount) || 0);
   const _hasThreePkgs = Boolean(_commCfgForPages && _commCfgForPages.showThreePackagesComparison);
-  const _totPages = _hasThreePkgs ? 7 : 6;
-  const _pageIndexComparativa = 4;
-  const _pageIndexProduccion = _hasThreePkgs ? 5 : 4;
-  const _pageIndexPresupuesto = _hasThreePkgs ? 6 : 5;
-  const _pageIndexDecision = _totPages;
+  const _includeCEL = (_commCfgForPages && _commCfgForPages.includeCEL !== undefined) ? _commCfgForPages.includeCEL : true;
+  const _customCelPrice = (_commCfgForPages && typeof _commCfgForPages.celPriceEur === 'number') ? _commCfgForPages.celPriceEur : 0.11;
+  const _celMetrics = calculateCELMetrics(d, m, _customCelPrice);
+
+  let _pageTracker = 3;
+  const _pageIndexComparativa = _hasThreePkgs ? ++_pageTracker : 0;
+  const _pageIndexProduccion = ++_pageTracker;
+  const _pageIndexCEL = _includeCEL ? ++_pageTracker : 0;
+  const _pageIndexPresupuesto = ++_pageTracker;
+  const _pageIndexDecision = ++_pageTracker;
+  const _totPages = _pageTracker;
   const _infografias = buildInfografiasHTML(m, pal, annualYieldKWh, layoutStyle);
   const payload = {
     refNum: d.refNum,
@@ -3366,6 +3725,8 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         </div>
       </div>
     </div>
+
+    ${_includeCEL ? buildCELPageHTML(d, m, pal, _celMetrics, _pageIndexCEL, _totPages, companyName) : ''}
 
     <!-- PÁGINA PRESUPUESTO: PRESUPUESTO ECONÓMICO EPC Y AYUDAS FISCALES -->
     <div class="page-sheet">
@@ -4782,6 +5143,14 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     window.exportPropHtml = exportPropHtml;
   if (typeof RAPricing !== 'undefined')
     window.RAPricing = RAPricing;
+  if (typeof calculateCELMetrics !== 'undefined') {
+    window.calculateCELMetrics = calculateCELMetrics;
+    if (typeof globalThis !== 'undefined') globalThis.calculateCELMetrics = calculateCELMetrics;
+  }
+  if (typeof buildCELPageHTML !== 'undefined') {
+    window.buildCELPageHTML = buildCELPageHTML;
+    if (typeof globalThis !== 'undefined') globalThis.buildCELPageHTML = buildCELPageHTML;
+  }
   if (typeof wpOpenPricingReviewModal !== 'undefined')
     window.wpOpenPricingReviewModal = wpOpenPricingReviewModal;
   if (typeof wpUpdateStep5PricingBadge !== 'undefined') {
@@ -4801,6 +5170,8 @@ if (typeof module !== 'undefined' && module.exports) {
     requestCommercialSummaryFromGemini: typeof requestCommercialSummaryFromGemini !== 'undefined' ? requestCommercialSummaryFromGemini : null,
     enrichSummaryWithGemini: typeof enrichSummaryWithGemini !== 'undefined' ? enrichSummaryWithGemini : null,
     calculateFinancialModel: typeof calculateFinancialModel !== 'undefined' ? calculateFinancialModel : null,
+    calculateCELMetrics: typeof calculateCELMetrics !== 'undefined' ? calculateCELMetrics : null,
+    buildCELPageHTML: typeof buildCELPageHTML !== 'undefined' ? buildCELPageHTML : null,
     RAPricing: typeof RAPricing !== 'undefined' ? RAPricing : null
   };
 }
