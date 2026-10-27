@@ -1638,13 +1638,88 @@ window.RA_App = window.RA_App || {};
                 </div>
               </div>
 
+              <!-- 3.0 DATOS DE FACTURA & DEMANDA ELÉCTRICA DEL CLIENTE (SSOT) -->
+              <div id="step3-bill-data-card" style="background:rgba(15,23,42,0.85);border:1px solid rgba(168,85,247,0.3);border-radius:8px;padding:8px 10px;margin-bottom:8px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:4px;">
+                  <span style="font-size:10px;font-weight:900;color:#c084fc;display:flex;align-items:center;gap:5px;text-transform:uppercase;letter-spacing:0.3px;">
+                    <i data-lucide="receipt" class="icon-sm" style="color:#c084fc;"></i> Factura & Consumo Eléctrico
+                  </span>
+                  <div style="display:flex;gap:4px;align-items:center;">
+                    <button type="button" onclick="if(window.openBillAuditorModal) openBillAuditorModal();" class="doc-mini-btn" style="padding:2px 6px;font-size:9.5px;color:#c084fc;border-color:rgba(168,85,247,0.4);background:rgba(168,85,247,0.12);" title="Subir archivo PDF de la factura eléctrica para auto-rellenar datos con OCR">
+                      <i data-lucide="upload" class="icon-sm"></i> Subir PDF
+                    </button>
+                    <button type="button" onclick="wpToggleStep3ExtraBillFields()" class="doc-mini-btn" id="btn-toggle-step3-extra-bill" style="padding:2px 5px;font-size:9px;" title="Ver más datos de suministro y CUPS">
+                      ▾ Más
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Grid principal de datos de consumo y precio -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:10px;">
+                  <!-- Gasto Mensual -->
+                  <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.06);border-radius:5px;padding:5px 6px;">
+                    <label style="font-size:8.5px;color:#94A3B8;display:block;text-transform:uppercase;font-weight:700;margin-bottom:2px;">Gasto Mensual Actual:</label>
+                    <div style="display:flex;align-items:center;gap:3px;">
+                      <input type="number" id="step3-bill-cost-month" min="10" max="50000" step="5" value="125" oninput="wpSyncStep3BillFromMonth(this.value)" style="width:100%;box-sizing:border-box;background:rgba(0,0,0,0.5);border:1px solid rgba(168,85,247,0.4);border-radius:4px;color:#c084fc;font-size:11px;font-weight:900;padding:2px 5px;text-align:right;outline:none;">
+                      <span style="font-size:9.5px;color:#c084fc;font-weight:bold;">€/mes</span>
+                    </div>
+                  </div>
+
+                  <!-- Consumo Anual Total -->
+                  <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.06);border-radius:5px;padding:5px 6px;">
+                    <label style="font-size:8.5px;color:#94A3B8;display:block;text-transform:uppercase;font-weight:700;margin-bottom:2px;">Consumo Anual Total:</label>
+                    <div style="display:flex;align-items:center;gap:3px;">
+                      <input type="number" id="step3-bill-kwh-year" min="100" max="500000" step="50" value="5450" oninput="wpSyncStep3BillFromKwh(this.value)" style="width:100%;box-sizing:border-box;background:rgba(0,0,0,0.5);border:1px solid rgba(56,189,248,0.4);border-radius:4px;color:#38BDF8;font-size:11px;font-weight:900;padding:2px 5px;text-align:right;outline:none;">
+                      <span style="font-size:9.5px;color:#38BDF8;font-weight:bold;">kWh</span>
+                    </div>
+                  </div>
+
+                  <!-- Potencia Contratada -->
+                  <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.06);border-radius:5px;padding:5px 6px;">
+                    <label style="font-size:8.5px;color:#94A3B8;display:block;text-transform:uppercase;font-weight:700;margin-bottom:2px;">Potencia Contratada:</label>
+                    <div style="display:flex;align-items:center;gap:3px;">
+                      <input type="number" id="step3-bill-pot-contr" min="0.5" max="150" step="0.25" value="5.75" oninput="wpSyncStep3BillParams()" style="width:100%;box-sizing:border-box;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);border-radius:4px;color:#fff;font-size:10.5px;font-weight:700;padding:2px 5px;text-align:right;outline:none;">
+                      <span style="font-size:9.5px;color:#94A3B8;">kW</span>
+                    </div>
+                  </div>
+
+                  <!-- Precio Medio Energía -->
+                  <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.06);border-radius:5px;padding:5px 6px;">
+                    <label style="font-size:8.5px;color:#94A3B8;display:block;text-transform:uppercase;font-weight:700;margin-bottom:2px;">Precio Medio Red:</label>
+                    <div style="display:flex;align-items:center;gap:3px;">
+                      <input type="number" id="step3-bill-price-kwh" min="0.05" max="1.50" step="0.01" value="0.18" oninput="wpSyncStep3BillParams()" style="width:100%;box-sizing:border-box;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);border-radius:4px;color:#FBBF24;font-size:10.5px;font-weight:700;padding:2px 5px;text-align:right;outline:none;">
+                      <span style="font-size:9px;color:#FBBF24;white-space:nowrap;">€/kWh</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Campos secundarios colapsables: CUPS, Distribuidora, Titular -->
+                <div id="step3-bill-extra-fields" style="display:none;margin-top:6px;padding-top:6px;border-top:1px dashed rgba(255,255,255,0.08);flex-direction:column;gap:5px;font-size:9.5px;">
+                  <div>
+                    <label style="font-size:8.5px;color:#94A3B8;display:block;text-transform:uppercase;margin-bottom:2px;">Código CUPS:</label>
+                    <input type="text" id="step3-bill-cups" placeholder="ES00210000XXXXXXXXXX" oninput="wpSyncStep3BillParams()" style="width:100%;box-sizing:border-box;background:rgba(0,0,0,0.4);border:1px solid rgba(56,189,248,0.3);border-radius:4px;color:#38BDF8;font-size:9.5px;font-family:monospace;padding:3px 6px;">
+                  </div>
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;">
+                    <div>
+                      <label style="font-size:8.5px;color:#94A3B8;display:block;text-transform:uppercase;margin-bottom:2px;">Titular / Cliente:</label>
+                      <input type="text" id="step3-bill-titular" placeholder="Nombre cliente" oninput="wpSyncStep3BillParams()" style="width:100%;box-sizing:border-box;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.1);border-radius:4px;color:#fff;font-size:9.5px;padding:3px 6px;">
+                    </div>
+                    <div>
+                      <label style="font-size:8.5px;color:#94A3B8;display:block;text-transform:uppercase;margin-bottom:2px;">Tarifa / Acceso:</label>
+                      <select id="step3-bill-tariff" onchange="wpSyncStep3BillParams()" style="width:100%;box-sizing:border-box;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.1);border-radius:4px;color:#fff;font-size:9px;padding:3px 4px;">
+                        <option value="2.0TD">2.0TD (Doméstica / P &le; 15 kW)</option>
+                        <option value="3.0TD">3.0TD (Pyme / P &gt; 15 kW)</option>
+                        <option value="6.1TD">6.1TD (Alta Tensión / Industrial)</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <!-- 3.1 ESTRATEGIA COMERCIAL Y DISTRIBUCIÓN -->
               <div style="margin-bottom:8px;">
                 <div style="font-size: 10px;font-weight:800;color:var(--text-slate-300);text-transform:uppercase;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;">
                   <span style="display:flex;align-items:center;gap:4px;"><i data-lucide="target" class="icon-sm"></i> 3.1 Estrategia Comercial de la Instalación</span>
-                  <button type="button" onclick="if(window.openBillAuditorModal) openBillAuditorModal();" style="background:rgba(168,85,247,0.18);border:1px solid rgba(168,85,247,0.5);color:#c084fc;font-size: 10px;font-weight:800;padding:2px 7px;border-radius:4px;cursor:pointer;display:flex;align-items:center;gap:4px;">
-                    <i data-lucide="receipt" class="icon-sm"></i> Importar Factura
-                  </button>
                 </div>
 
                 <!-- SELECTOR VISUAL DE LOS DOS CAMINOS COMERCIALES -->
@@ -6210,7 +6285,136 @@ function switchCostesSubtab(subtab) {
 }
 
 
-// ── SINCRONIZACIÓN DE CONSUMO EN PASO 3 (DISEÑO) ──
+// ── SINCRONIZACIÓN DE CONSUMO EN PASO 3 (DISEÑO & ANÁLISIS) ──
+function wpToggleStep3ExtraBillFields() {
+  const el = document.getElementById('step3-bill-extra-fields');
+  const btn = document.getElementById('btn-toggle-step3-extra-bill');
+  if (!el) return;
+  const isHidden = (el.style.display === 'none' || !el.style.display);
+  el.style.display = isHidden ? 'flex' : 'none';
+  if (btn) btn.textContent = isHidden ? '▴ Menos' : '▾ Más';
+}
+
+function wpSyncStep3BillFromMonth(val) {
+  const costMonth = parseFloat(val) || 0;
+  const priceKwhEl = document.getElementById('step3-bill-price-kwh');
+  const priceKwh = priceKwhEl ? (parseFloat(priceKwhEl.value) || 0.18) : 0.18;
+  const potEl = document.getElementById('step3-bill-pot-contr');
+  const pot = potEl ? (parseFloat(potEl.value) || 5.75) : 5.75;
+  const termPotMes = pot * 3.3; // Estimación término de potencia mensual con peajes e impuestos
+
+  const energyCostYear = Math.max(0, (costMonth - termPotMes) * 12 / 1.26); // deducción IVA e impuestos
+  const calcKwh = Math.round(energyCostYear / priceKwh) || Math.round(costMonth * 40);
+
+  const kwhInput = document.getElementById('step3-bill-kwh-year');
+  if (kwhInput && document.activeElement !== kwhInput) {
+    kwhInput.value = calcKwh;
+  }
+
+  // Sincronizar en el modelo SSOT
+  wpPersistStep3BillData(costMonth, calcKwh, pot, priceKwh);
+}
+
+function wpSyncStep3BillFromKwh(val) {
+  const kwh = parseFloat(val) || 0;
+  const priceKwhEl = document.getElementById('step3-bill-price-kwh');
+  const priceKwh = priceKwhEl ? (parseFloat(priceKwhEl.value) || 0.18) : 0.18;
+  const potEl = document.getElementById('step3-bill-pot-contr');
+  const pot = potEl ? (parseFloat(potEl.value) || 5.75) : 5.75;
+  const termPotMes = pot * 3.3;
+
+  const energyCostYear = kwh * priceKwh;
+  const costMonth = Math.round(((energyCostYear / 12) * 1.26 + termPotMes));
+
+  const monthInput = document.getElementById('step3-bill-cost-month');
+  if (monthInput && document.activeElement !== monthInput) {
+    monthInput.value = costMonth;
+  }
+
+  // Sincronizar en el modelo SSOT
+  wpPersistStep3BillData(costMonth, kwh, pot, priceKwh);
+}
+
+function wpSyncStep3BillParams() {
+  const monthInput = document.getElementById('step3-bill-cost-month');
+  const kwhInput = document.getElementById('step3-bill-kwh-year');
+  const potEl = document.getElementById('step3-bill-pot-contr');
+  const priceKwhEl = document.getElementById('step3-bill-price-kwh');
+
+  const costMonth = monthInput ? (parseFloat(monthInput.value) || 125) : 125;
+  const kwh = kwhInput ? (parseFloat(kwhInput.value) || 5450) : 5450;
+  const pot = potEl ? (parseFloat(potEl.value) || 5.75) : 5.75;
+  const priceKwh = priceKwhEl ? (parseFloat(priceKwhEl.value) || 0.18) : 0.18;
+
+  wpPersistStep3BillData(costMonth, kwh, pot, priceKwh);
+}
+
+function wpPersistStep3BillData(costMonth, kwh, pot, priceKwh) {
+  if (!window.solarProjectConfig) window.solarProjectConfig = {};
+  window.solarProjectConfig.manualAnnualConsumptionKWh = kwh;
+  window.solarProjectConfig.billCostMonth = costMonth;
+
+  // Sincronizar inputs de Paso 5 si existen
+  const p5Kwh = document.getElementById('cfg-pres-consumo-anual');
+  if (p5Kwh && document.activeElement !== p5Kwh) p5Kwh.value = Math.round(kwh);
+  const p5Month = document.getElementById('cfg-pres-factura-mes');
+  if (p5Month && document.activeElement !== p5Month) p5Month.value = Math.round(costMonth);
+
+  // Sincronizar modal de precios/pricing si existen
+  const prConsumo = document.getElementById('pricing-cust-consumo');
+  if (prConsumo && document.activeElement !== prConsumo) prConsumo.value = Math.round(kwh);
+  const prPot = document.getElementById('pricing-cust-potcontr');
+  if (prPot && document.activeElement !== prPot) prPot.value = pot.toFixed(2);
+  const prPrecio = document.getElementById('pricing-cust-precio-kwh');
+  if (prPrecio && document.activeElement !== prPrecio) prPrecio.value = priceKwh.toFixed(3);
+
+  // Sincronizar objeto canónico BillAuditor
+  if (window.RA && window.RA.billAuditor) {
+    if (!window.RA.billAuditor.comparison) window.RA.billAuditor.comparison = {};
+    window.RA.billAuditor.comparison.consumoAnualKWh = kwh;
+    window.RA.billAuditor.comparison.gastoMensualActualEUR = costMonth;
+    window.RA.billAuditor.comparison.potenciaContratadaP1 = pot;
+    window.RA.billAuditor.comparison.precioMedioKWh = priceKwh;
+
+    const cupsEl = document.getElementById('step3-bill-cups');
+    if (cupsEl && cupsEl.value.trim()) window.RA.billAuditor.comparison.cups = cupsEl.value.trim();
+    const titEl = document.getElementById('step3-bill-titular');
+    if (titEl && titEl.value.trim()) window.RA.billAuditor.comparison.titular = titEl.value.trim();
+  }
+
+  // Refrescar tarjetas de estrategia comercial y balance financiero
+  if (typeof wpUpdateCommercialPathsUI === 'function') wpUpdateCommercialPathsUI();
+  if (typeof updateBudgetUI === 'function') updateBudgetUI();
+}
+
+function wpPopulateStep3BillFromSSOT() {
+  const mInput = document.getElementById('step3-bill-cost-month');
+  const kInput = document.getElementById('step3-bill-kwh-year');
+  const pInput = document.getElementById('step3-bill-pot-contr');
+  const prInput = document.getElementById('step3-bill-price-kwh');
+  const cupsInput = document.getElementById('step3-bill-cups');
+  const titInput = document.getElementById('step3-bill-titular');
+
+  if (!mInput && !kInput) return;
+
+  const comp = (window.RA && window.RA.billAuditor && window.RA.billAuditor.comparison) ? window.RA.billAuditor.comparison : null;
+  const cfg = window.solarProjectConfig || {};
+
+  let kwh = (comp && comp.consumoAnualKWh) || cfg.manualAnnualConsumptionKWh || 5450;
+  let costMonth = (comp && comp.gastoMensualActualEUR) || cfg.billCostMonth || Math.round((kwh * 0.18 / 12) * 1.26 + 22);
+  let pot = (comp && comp.potenciaContratadaP1) || 5.75;
+  let priceKwh = (comp && comp.precioMedioKWh) || 0.18;
+  let cups = (comp && comp.cups) || '';
+  let titular = (comp && comp.titular) || '';
+
+  if (mInput && document.activeElement !== mInput) mInput.value = Math.round(costMonth);
+  if (kInput && document.activeElement !== kInput) kInput.value = Math.round(kwh);
+  if (pInput && document.activeElement !== pInput) pInput.value = pot.toFixed(2);
+  if (prInput && document.activeElement !== prInput) prInput.value = priceKwh.toFixed(3);
+  if (cupsInput && cups) cupsInput.value = cups;
+  if (titInput && titular) titInput.value = titular;
+}
+window.wpPopulateStep3BillFromSSOT = wpPopulateStep3BillFromSSOT;
 
 
 

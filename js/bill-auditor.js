@@ -1714,6 +1714,9 @@ Normas estrictas:
     if (typeof updateBudgetUI === 'function') {
       updateBudgetUI();
     }
+    if (typeof wpPopulateStep3BillFromSSOT === 'function') {
+      wpPopulateStep3BillFromSSOT();
+    }
 
     if (typeof showToast === 'function') {
       const detailStr = (bill.consumoAnualEstimadoKWh ? ' [Histórico 12m]' : '');

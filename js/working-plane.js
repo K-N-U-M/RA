@@ -3979,6 +3979,7 @@ async function wpGoToStep(step, force = false) {
       }
     }
     if (typeof wpUpdateStep3DirtyAlert === 'function') wpUpdateStep3DirtyAlert();
+    if (typeof wpPopulateStep3BillFromSSOT === 'function') wpPopulateStep3BillFromSSOT();
     if (typeof wpUpdateCommercialPathsUI === 'function') wpUpdateCommercialPathsUI();
     if (typeof wpUpdateShadedCleanupUI === 'function') wpUpdateShadedCleanupUI();
   } else if (step === 4) {
