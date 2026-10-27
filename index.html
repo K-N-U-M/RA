@@ -14150,11 +14150,28 @@ function computeRoofPanelsData() {
       const singlePolySig = `${ptsSig}|${modId}|${arrMode}|${azSur}|${tiltVal}|${orPref}|${stType}|al:${alPlaneVal}|pIdx:${plIdxVal}|shd:${shadingStrategy}|sb:${setbackVal}|obs:${obstacles.length}|shA:${shA}|shB:${shB}`;
 
       let pInfo;
-      if (poly.roofInfo && poly._calcSig === singlePolySig) {
+      if (poly.roofInfo && (poly._calcSig === singlePolySig || poly._fromProjectImport)) {
         pInfo = poly.roofInfo;
+        poly._calcSig = singlePolySig;
+        delete poly._fromProjectImport;
       } else {
+        const oldPanels = (poly.roofInfo && Array.isArray(poly.roofInfo.panels)) ? poly.roofInfo.panels : null;
         pInfo = computeSinglePolylineRoofInfo(poly.points, poly);
         if (pInfo) {
+          // Si el faldon tenia paneles manuales y no cambio la geometria de cubierta, transferir posiciones
+          if (oldPanels && !poly._geometryDirty && Array.isArray(pInfo.panels)) {
+            pInfo.panels.forEach((p, pIdx) => {
+              const prev = oldPanels.find(op => (op.panelId && op.panelId === p.panelId) || (typeof op.layoutIndex === 'number' && op.layoutIndex === p.layoutIndex)) || (oldPanels.length === pInfo.panels.length ? oldPanels[pIdx] : null);
+              if (prev && prev.isManual) {
+                p.isManual = true;
+                if (prev.center) p.center = Cesium.Cartesian3.clone(prev.center);
+                if (Array.isArray(prev.corners)) p.corners = prev.corners.map(c => Cesium.Cartesian3.clone(c));
+                if (typeof prev.rot === 'number') p.rot = prev.rot;
+                if (typeof prev.u === 'number') p.u = prev.u;
+                if (typeof prev.v === 'number') p.v = prev.v;
+              }
+            });
+          }
           poly.roofInfo = pInfo;
           poly._calcSig = singlePolySig;
         }
@@ -15750,7 +15767,10 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
             prev = prevPanelsMap.find(op => op.panelId === p.panelId || (op.rawPanel && op.rawPanel.panelId === p.panelId));
           }
           if (!prev && typeof p.layoutIndex === 'number') {
-            prev = prevPanelsMap.find(op => op.layoutIndex === p.layoutIndex || op.localIdx === p.layoutIndex);
+            prev = prevPanelsMap.find(op => (typeof op.layoutIndex === 'number' && op.layoutIndex === p.layoutIndex) || (typeof op.localIdx === 'number' && op.localIdx === p.layoutIndex));
+          }
+          if (!prev && typeof p.localIdx === 'number') {
+            prev = prevPanelsMap.find(op => (typeof op.localIdx === 'number' && op.localIdx === p.localIdx) || (typeof op.layoutIndex === 'number' && op.layoutIndex === p.localIdx));
           }
           if (!prev && typeof p.u === 'number' && typeof p.v === 'number') {
             prev = prevPanelsMap.find(op => typeof op.u === 'number' && typeof op.v === 'number' && Math.abs(op.u - p.u) < 0.05 && Math.abs(op.v - p.v) < 0.05);

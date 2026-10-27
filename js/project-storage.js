@@ -107,6 +107,25 @@ function raExportProjectData() {
       }))
     : [];
 
+  // [MANUAL-PANELS-SYNC] Sincronizar paneles activos desde window.allRenderedPanels hacia poly.roofInfo.panels
+  if (typeof WP !== 'undefined' && WP && Array.isArray(WP.polylines) && typeof window !== 'undefined' && Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0) {
+    WP.polylines.forEach((poly, polyIdx) => {
+      if (!poly || !poly.roofInfo || !Array.isArray(poly.roofInfo.panels)) return;
+      const renderedForPoly = window.allRenderedPanels.filter(rp => rp && (rp.polyIdx === polyIdx || (!rp.polyIdx && polyIdx === 0)));
+      if (renderedForPoly.length > 0) {
+        poly.roofInfo.panels.forEach((p, idx) => {
+          const match = renderedForPoly.find(rp => (p.panelId && rp.panelId === p.panelId) || (typeof p.layoutIndex === 'number' && (rp.layoutIndex === p.layoutIndex || rp.localIdx === p.layoutIndex))) || renderedForPoly[idx];
+          if (match && (match.isManual || (match.rawPanel && match.rawPanel.isManual))) {
+            p.isManual = true;
+            if (match.center) p.center = { x: match.center.x, y: match.center.y, z: match.center.z };
+            if (Array.isArray(match.corners)) p.corners = match.corners.map(c => ({ x: c.x, y: c.y, z: c.z }));
+            if (typeof match.rot === 'number') p.rot = match.rot;
+          }
+        });
+      }
+    });
+  }
+
   const serializedPolylines = (typeof WP !== 'undefined' && WP && Array.isArray(WP.polylines))
     ? WP.polylines.map((poly, pIdx) => ({
         id: poly.id || ('wp_poly_' + Date.now() + '_' + pIdx),
@@ -142,8 +161,13 @@ function raExportProjectData() {
           tilt: poly.roofInfo.tilt,
           azimuth: poly.roofInfo.azimuth,
           panelCount: poly.roofInfo.panels ? poly.roofInfo.panels.length : 0,
-          panels: poly.roofInfo.panels ? poly.roofInfo.panels.map(p => ({
+          panels: poly.roofInfo.panels ? poly.roofInfo.panels.map((p, idx) => ({
             u: p.u, v: p.v, w: p.w, h: p.h,
+            gridA: (typeof p.gridA === 'number') ? p.gridA : null,
+            gridB: (typeof p.gridB === 'number') ? p.gridB : null,
+            layoutIndex: (typeof p.layoutIndex === 'number') ? p.layoutIndex : idx,
+            localIdx: (typeof p.localIdx === 'number') ? p.localIdx : idx,
+            polyIdx: (typeof p.polyIdx === 'number') ? p.polyIdx : pIdx,
             orientation: p.orientation,
             tiltDeg: p.tiltDeg,
             azimuthDeg: p.azimuthDeg,
@@ -188,8 +212,13 @@ function raExportProjectData() {
         area: _lr.area,
         tilt: _lr.tilt,
         azimuth: _lr.azimuth,
-        panels: _lr.panels.map(p => ({
+        panels: _lr.panels.map((p, idx) => ({
           u: p.u, v: p.v, w: p.w, h: p.h,
+          gridA: (typeof p.gridA === 'number') ? p.gridA : null,
+          gridB: (typeof p.gridB === 'number') ? p.gridB : null,
+          layoutIndex: (typeof p.layoutIndex === 'number') ? p.layoutIndex : idx,
+          localIdx: (typeof p.localIdx === 'number') ? p.localIdx : idx,
+          polyIdx: 0,
           orientation: p.orientation,
           tiltDeg: p.tiltDeg,
           azimuthDeg: p.azimuthDeg,
@@ -785,15 +814,20 @@ async function raImportProjectData(projectData, options = {}) {
             area: poly.roofInfo.area,
             tilt: poly.roofInfo.tilt,
             azimuth: poly.roofInfo.azimuth,
-            panels: Array.isArray(poly.roofInfo.panels) ? poly.roofInfo.panels.map(p => ({
+            panels: Array.isArray(poly.roofInfo.panels) ? poly.roofInfo.panels.map((p, pPanIdx) => ({
               u: p.u, v: p.v, w: p.w, h: p.h,
+              gridA: (typeof p.gridA === 'number') ? p.gridA : null,
+              gridB: (typeof p.gridB === 'number') ? p.gridB : null,
+              layoutIndex: (typeof p.layoutIndex === 'number') ? p.layoutIndex : pPanIdx,
+              localIdx: (typeof p.localIdx === 'number') ? p.localIdx : pPanIdx,
+              polyIdx: (typeof p.polyIdx === 'number') ? p.polyIdx : pIdx,
               orientation: p.orientation,
               tiltDeg: p.tiltDeg,
               azimuthDeg: p.azimuthDeg,
               stringId: p.stringId,
               isManual: !!p.isManual,
               rot: p.rot || 0,
-              panelId: p.panelId,
+              panelId: p.panelId || ('pan_' + pIdx + '_' + pPanIdx),
               hasMLPE: !!p.hasMLPE,
               isShaded: !!p.isShaded,
               annualKwh: p.annualKwh || null,
@@ -840,9 +874,36 @@ async function raImportProjectData(projectData, options = {}) {
             v: dp.v,
             center: _raToCartesian3(dp.center)
           })) : [],
-          roofInfo: rInfo
+          roofInfo: rInfo,
+          _fromProjectImport: true
         });
       });
+
+      // [REHYDRATE-MANUAL-PANELS] Inmediatamente rehidratar window.allRenderedPanels y lastRoofInfo
+      try {
+        if (typeof window !== 'undefined') {
+          const importedAllPanels = [];
+          WP.polylines.forEach((poly, polyI) => {
+            if (poly.roofInfo && Array.isArray(poly.roofInfo.panels)) {
+              poly.roofInfo.panels.forEach((pan, panI) => {
+                pan.polyIdx = polyI;
+                pan.globalIdx = importedAllPanels.length;
+                importedAllPanels.push(pan);
+              });
+            }
+          });
+          if (importedAllPanels.length > 0) {
+            window.allRenderedPanels = importedAllPanels;
+            if (WP.polylines[0] && WP.polylines[0].roofInfo) {
+              window.lastRoofInfo = WP.polylines[0].roofInfo;
+              if (typeof lastRoofInfo !== 'undefined') lastRoofInfo = WP.polylines[0].roofInfo;
+            }
+          }
+        }
+      } catch (rehydrateErr) {
+        console.warn('[STORAGE] Error rehidratando allRenderedPanels:', rehydrateErr);
+      }
+
       WP.selectedPolyIdx = (projectData.workPlanes && typeof projectData.workPlanes.selectedPolyIdx === 'number' && projectData.workPlanes.selectedPolyIdx < WP.polylines.length)
         ? projectData.workPlanes.selectedPolyIdx
         : (WP.polylines.length > 0 ? 0 : -1);
