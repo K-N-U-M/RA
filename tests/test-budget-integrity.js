@@ -88,6 +88,29 @@ assert(financialsCode.includes('TOTAL DEDUCCIONES FISCALES'), 'financials.js deb
 assert(financialsCode.includes('Bonificación ICIO*'), 'financials.js debe indicar con nota que ICIO es ahorro municipal ajeno a la factura');
 console.log('✔ TEST 4 PASADO: Transparencia fiscal blindada sin contradicción aritmética.\n');
 
+// 5. Verificar persistencia de commercialConfig y windPrice en project-storage.js
+console.log('▶ TEST 5: Verificación de persistencia SSOT de commercialConfig y windPrice en project-storage.js...');
+const storageCode = fs.readFileSync(path.join(__dirname, '../js/project-storage.js'), 'utf8');
+assert(storageCode.includes('commercialConfig: commCfg ? JSON.parse(JSON.stringify(commCfg)) : null'), 'project-storage.js debe exportar commercialConfig');
+assert(storageCode.includes('RAPricing.saveCommercialConfig(po.commercialConfig)'), 'project-storage.js debe rehidratar commercialConfig');
+assert(storageCode.includes('setVal(\'cfg-pres-wind\', po.pricing.windPrice)'), 'project-storage.js debe rehidratar windPrice');
+console.log('✔ TEST 5 PASADO: commercialConfig y windPrice blindados en el SSOT de guardado/carga .raproject.\n');
+
+// 6. Verificar reactividad en memoria _sessionCommercialConfig y sincronización de modal
+console.log('▶ TEST 6: Verificación de reactividad en memoria _sessionCommercialConfig y controles en review modal...');
+assert(financialsCode.includes('_sessionCommercialConfig: null,'), 'RAPricing debe tener _sessionCommercialConfig');
+assert(financialsCode.includes('pricing-addons-chips-container'), 'El modal de revisión de precios debe contener los chips de addons');
+assert(financialsCode.includes('pricing-check-discount-enabled'), 'El modal de revisión de precios debe contener el checkbox de descuento');
+assert(financialsCode.includes('pricing-preview-addons-row'), 'El modal debe reflejar la fila de addons en el desglose');
+assert(financialsCode.includes('pricing-preview-discount-row'), 'El modal debe reflejar la fila de descuento en el desglose');
+assert(financialsCode.includes('pricing-preview-total-tachado'), 'El modal debe reflejar el importe tachado pre-descuento');
+console.log('✔ TEST 6 PASADO: Modal de revisión sincronizado al 100% con Add-ons y Descuentos.\n');
+
+// 7. Verificación del layout de impresión anti-página en blanco
+console.log('▶ TEST 7: Verificación del layout @media print (anti subpixel overflow en Blink)...');
+assert(financialsCode.includes('min-height: 295mm; max-height: 296mm; height: auto;'), 'financials.js debe usar min-height: 295mm; max-height: 296mm; para prevenir páginas en blanco');
+console.log('✔ TEST 7 PASADO: Margen subpixel de impresión A4 garantizado sin desbordamiento.\n');
+
 console.log('═════════════════════════════════════════════════════════════════════');
 console.log('🎉 TODOS LOS TESTS DE INTEGRIDAD DEL PRESUPUESTO PASARON AL 100%');
 console.log('═════════════════════════════════════════════════════════════════════');

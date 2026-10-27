@@ -353,11 +353,15 @@ function raExportProjectData() {
     pricingOverrides: (() => {
       try {
         const pricing = (typeof RAPricing !== 'undefined') ? RAPricing.getDefaults() : null;
+        const commCfg = (typeof RAPricing !== 'undefined' && typeof RAPricing.getCommercialConfig === 'function')
+          ? RAPricing.getCommercialConfig()
+          : null;
         const customSummary = (typeof window !== 'undefined' && typeof window.getCustomCommercialSummary === 'function')
           ? window.getCustomCommercialSummary()
           : null;
         return {
           pricing: pricing ? Object.assign({}, pricing) : null,
+          commercialConfig: commCfg ? JSON.parse(JSON.stringify(commCfg)) : null,
           customCommercialSummary: customSummary || null
         };
       } catch(ePr) { return null; }
@@ -1147,8 +1151,12 @@ async function raImportProjectData(projectData, options = {}) {
           if (typeof po.pricing.cabPrice === 'number') setVal('cfg-pres-cab', po.pricing.cabPrice);
           if (typeof po.pricing.moPrice === 'number') setVal('cfg-pres-mo', po.pricing.moPrice);
           if (typeof po.pricing.legPrice === 'number') setVal('cfg-pres-leg', po.pricing.legPrice);
+          if (typeof po.pricing.windPrice === 'number') setVal('cfg-pres-wind', po.pricing.windPrice);
           if (typeof wpUpdateStep5PricingBadge === 'function') wpUpdateStep5PricingBadge();
           if (typeof updateBudgetUI === 'function') updateBudgetUI();
+        }
+        if (po.commercialConfig && typeof RAPricing !== 'undefined' && typeof RAPricing.saveCommercialConfig === 'function') {
+          RAPricing.saveCommercialConfig(po.commercialConfig);
         }
         if (po.customCommercialSummary && typeof window.setCustomCommercialSummary === 'function') {
           window.setCustomCommercialSummary(po.customCommercialSummary);

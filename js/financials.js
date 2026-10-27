@@ -888,6 +888,7 @@ var RAPricing = {
 
   resetToDesign: function() {
     this.currentSessionPricing = null;
+    this._sessionCommercialConfig = null;
     try {
       var saved = localStorage.getItem(this.STORAGE_KEY);
       var mg = 20;
@@ -902,6 +903,7 @@ var RAPricing = {
 
 
   COMMERCIAL_CONFIG_KEY: 'ra_commercial_custom_config',
+  _sessionCommercialConfig: null,
   _defaultCommercialConfig: {
     hideMarginInClientDocs: true,
     showUnitPricesInClientDocs: true,
@@ -944,6 +946,9 @@ var RAPricing = {
   },
 
   getCommercialConfig: function() {
+    if (this._sessionCommercialConfig && typeof this._sessionCommercialConfig === 'object') {
+      return Object.assign({}, this._defaultCommercialConfig, this._sessionCommercialConfig);
+    }
     try {
       var saved = localStorage.getItem(this.COMMERCIAL_CONFIG_KEY);
       if (saved) {
@@ -957,6 +962,7 @@ var RAPricing = {
   },
 
   saveCommercialConfig: function(cfg) {
+    this._sessionCommercialConfig = cfg ? JSON.parse(JSON.stringify(cfg)) : null;
     try {
       localStorage.setItem(this.COMMERCIAL_CONFIG_KEY, JSON.stringify(cfg));
     } catch(e) {}
@@ -1336,6 +1342,28 @@ function wpOpenPricingReviewModal(onConfirm) {
               '<button type="button" class="btn-preset-margin" data-margin="30" style="flex:1;padding:4px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:4px;color:#cbd5e1;font-size:10px;font-weight:700;cursor:pointer;">30%</button>' +
             '</div>' +
           '</div>' +
+          '<!-- SECCIÓN 4: EQUIPAMIENTO ADICIONAL (ADD-ONS) Y PROMOCIÓN COMERCIAL -->' +
+          '<div style="background:rgba(30,41,59,0.5);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:11px 12px;display:flex;flex-direction:column;gap:8px;">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+              '<div style="font-size:10px;font-weight:900;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;display:flex;align-items:center;gap:6px;">' +
+                '<span>🧩</span> Equipamiento Opcional (Add-ons) y Promoción' +
+              '</div>' +
+              '<div id="pricing-addons-summary-badge" style="font-size:9.5px;color:#38BDF8;font-weight:700;">0 seleccionados (+0 €)</div>' +
+            '</div>' +
+            '<div id="pricing-addons-chips-container" style="display:flex;flex-wrap:wrap;gap:6px;"></div>' +
+            '<div style="display:grid;grid-template-columns:auto 85px 65px 1fr;gap:6px;align-items:center;background:rgba(15,23,42,0.4);border:1px solid rgba(255,255,255,0.06);border-radius:6px;padding:6px 8px;">' +
+              '<label style="display:flex;align-items:center;gap:5px;font-size:10px;font-weight:700;color:#cbd5e1;cursor:pointer;white-space:nowrap;">' +
+                '<input type="checkbox" id="pricing-check-discount-enabled" style="accent-color:#F59E0B;">' +
+                '<span>Aplicar Descuento:</span>' +
+              '</label>' +
+              '<input type="number" id="pricing-input-discount-val" min="0" step="1" placeholder="5" style="width:100%;box-sizing:border-box;padding:3px 6px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:4px;color:#FBBF24;font-size:10.5px;font-weight:800;text-align:right;">' +
+              '<select id="pricing-select-discount-type" style="padding:3px 4px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:4px;color:#cbd5e1;font-size:10px;font-weight:700;">' +
+                '<option value="percent">%</option>' +
+                '<option value="fixed_eur">€</option>' +
+              '</select>' +
+              '<input type="text" id="pricing-input-discount-label" placeholder="Motivo (ej. Campaña Especial)" style="width:100%;box-sizing:border-box;padding:3px 6px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:4px;color:#cbd5e1;font-size:10px;">' +
+            '</div>' +
+          '</div>' +
           '<div style="background:linear-gradient(135deg,rgba(16,185,129,0.12),rgba(5,150,105,0.06));border:1px solid rgba(16,185,129,0.3);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:5px;">' +
             '<div style="display:flex;justify-content:space-between;font-size:10.5px;color:#94a3b8;">' +
               '<span>Coste Directo Total:</span>' +
@@ -1344,6 +1372,14 @@ function wpOpenPricingReviewModal(onConfirm) {
             '<div style="display:flex;justify-content:space-between;font-size:10.5px;color:#34D399;">' +
               '<span>Beneficio Comercial:</span>' +
               '<b id="pricing-preview-margin">+0 €</b>' +
+            '</div>' +
+            '<div id="pricing-preview-addons-row" style="display:none;justify-content:space-between;font-size:10.5px;color:#38BDF8;">' +
+              '<span>Equipamiento Opcional (Add-ons):</span>' +
+              '<b id="pricing-preview-addons">+0 €</b>' +
+            '</div>' +
+            '<div id="pricing-preview-discount-row" style="display:none;justify-content:space-between;font-size:10.5px;color:#F59E0B;">' +
+              '<span id="pricing-preview-discount-label">Descuento Comercial:</span>' +
+              '<b id="pricing-preview-discount">-0 €</b>' +
             '</div>' +
             '<div style="display:flex;justify-content:space-between;font-size:10.5px;color:#94a3b8;">' +
               '<span>Base Imponible (Venta sin IVA):</span>' +
@@ -1356,7 +1392,10 @@ function wpOpenPricingReviewModal(onConfirm) {
             '<hr style="border:0;border-top:1px solid rgba(16,185,129,0.25);margin:4px 0;">' +
             '<div style="display:flex;justify-content:space-between;align-items:center;">' +
               '<span style="font-size:11px;font-weight:900;color:#34D399;text-transform:uppercase;">TOTAL LLAVE EN MANO:</span>' +
-              '<b id="pricing-preview-total" style="font-size:17px;color:#fff;font-weight:900;">0 €</b>' +
+              '<div style="display:flex;align-items:baseline;gap:6px;">' +
+                '<s id="pricing-preview-total-tachado" style="display:none;font-size:12px;color:#94a3b8;font-weight:700;">0 €</s>' +
+                '<b id="pricing-preview-total" style="font-size:17px;color:#fff;font-weight:900;">0 €</b>' +
+              '</div>' +
             '</div>' +
           '</div>' +
           '<!-- INDICADORES CLAVE DE RENTABILIDAD EN TIEMPO REAL -->' +
@@ -1558,12 +1597,99 @@ function wpOpenPricingReviewModal(onConfirm) {
   if (custPotContrInput) custPotContrInput.value = curPot.toFixed(2);
   if (custPrecioKwhInput) custPrecioKwhInput.value = curPriceKwh.toFixed(3);
 
-  // Inicializar estado de Comunidad Energética Local (CEL)
+  // Inicializar estado comercial (CEL, Add-ons y Descuentos)
   var curCommCfg = (typeof RAPricing !== 'undefined' && typeof RAPricing.getCommercialConfig === 'function') ? RAPricing.getCommercialConfig() : {};
+  var initialCommCfg = JSON.parse(JSON.stringify(curCommCfg));
+  var workingCommCfg = JSON.parse(JSON.stringify(curCommCfg));
+  if (!workingCommCfg.addons || !Array.isArray(workingCommCfg.addons) || workingCommCfg.addons.length === 0) {
+    workingCommCfg.addons = JSON.parse(JSON.stringify(RAPricing._defaultCommercialConfig.addons));
+  }
+
   var celCheckInput = document.getElementById('pricing-check-cel-enabled');
   var celPriceInput = document.getElementById('pricing-input-cel-price');
-  if (celCheckInput) celCheckInput.checked = (curCommCfg.includeCEL !== undefined) ? !!curCommCfg.includeCEL : true;
-  if (celPriceInput) celPriceInput.value = (typeof curCommCfg.celPriceEur === 'number') ? curCommCfg.celPriceEur : 0.11;
+  if (celCheckInput) celCheckInput.checked = (workingCommCfg.includeCEL !== undefined) ? !!workingCommCfg.includeCEL : true;
+  if (celPriceInput) celPriceInput.value = (typeof workingCommCfg.celPriceEur === 'number') ? workingCommCfg.celPriceEur : 0.11;
+
+  var discCheckInput = document.getElementById('pricing-check-discount-enabled');
+  var discValInput = document.getElementById('pricing-input-discount-val');
+  var discTypeSelect = document.getElementById('pricing-select-discount-type');
+  var discLabelInput = document.getElementById('pricing-input-discount-label');
+
+  if (discCheckInput) discCheckInput.checked = !!workingCommCfg.discountEnabled;
+  if (discValInput) discValInput.value = (typeof workingCommCfg.discountValue === 'number' && workingCommCfg.discountValue >= 0) ? workingCommCfg.discountValue : 5;
+  if (discTypeSelect) discTypeSelect.value = workingCommCfg.discountType || 'percent';
+  if (discLabelInput) discLabelInput.value = workingCommCfg.discountLabel || 'Descuento Comercial Especial';
+
+  var chipsContainer = document.getElementById('pricing-addons-chips-container');
+  var addonsBadge = document.getElementById('pricing-addons-summary-badge');
+
+  function renderAddonsChips() {
+    if (!chipsContainer) return;
+    chipsContainer.innerHTML = '';
+    var activeCount = 0;
+    var activeSum = 0;
+
+    (workingCommCfg.addons || []).forEach(function(addon, idx) {
+      if (!addon) return;
+      var isAct = !!addon.enabled;
+      var price = (Number(addon.qty) || 1) * (Number(addon.unitPrice) || 0);
+      if (isAct) {
+        activeCount++;
+        activeSum += price;
+      }
+
+      var chip = document.createElement('button');
+      chip.type = 'button';
+      chip.setAttribute('data-addon-id', addon.id || idx);
+      chip.style.cssText = 'padding:4px 8px;border-radius:6px;font-size:9.5px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:all 0.15s ease;' +
+        (isAct
+          ? 'background:rgba(56,189,248,0.22);border:1px solid #38BDF8;color:#E0F2FE;box-shadow:0 0 8px rgba(56,189,248,0.25);'
+          : 'background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#94a3b8;');
+
+      var shortName = addon.name;
+      if (addon.id === 'ev_charger') shortName = '⚡ Cargador VE (+890€)';
+      else if (addon.id === 'bird_mesh') shortName = '🕊️ Malla Antipájaros (+320€)';
+      else if (addon.id === 'virtual_bat') shortName = '🔋 Batería Virtual (+95€)';
+      else if (addon.id === 'lifeline') shortName = '🦺 Línea de Vida (+450€)';
+      else if (addon.id === 'maint_annual') shortName = '🛠️ Mantenimiento Anual (+180€)';
+      else shortName = (addon.name || 'Extra') + ' (+' + Math.round(price) + '€)';
+
+      chip.innerHTML = (isAct ? '✓ ' : '+ ') + shortName;
+
+      chip.onclick = function() {
+        addon.enabled = !addon.enabled;
+        renderAddonsChips();
+        syncSessionCommercialConfig();
+        recalculateLive();
+      };
+      chipsContainer.appendChild(chip);
+    });
+
+    if (addonsBadge) {
+      addonsBadge.textContent = activeCount + ' seleccionado' + (activeCount !== 1 ? 's' : '') + ' (+' + Math.round(activeSum).toLocaleString('es-ES') + ' €)';
+    }
+  }
+
+  function syncSessionCommercialConfig() {
+    workingCommCfg.discountEnabled = discCheckInput ? discCheckInput.checked : false;
+    workingCommCfg.discountValue = discValInput ? (parseFloat(discValInput.value) || 0) : 0;
+    workingCommCfg.discountType = discTypeSelect ? discTypeSelect.value : 'percent';
+    workingCommCfg.discountLabel = (discLabelInput && discLabelInput.value.trim()) ? discLabelInput.value.trim() : 'Descuento Comercial Especial';
+    if (celCheckInput) workingCommCfg.includeCEL = celCheckInput.checked;
+    if (celPriceInput) workingCommCfg.celPriceEur = parseFloat(celPriceInput.value) || 0.11;
+    if (typeof RAPricing !== 'undefined') {
+      RAPricing._sessionCommercialConfig = JSON.parse(JSON.stringify(workingCommCfg));
+    }
+  }
+
+  if (discCheckInput) discCheckInput.onchange = function() { syncSessionCommercialConfig(); recalculateLive(); };
+  if (discValInput) discValInput.oninput = function() { syncSessionCommercialConfig(); recalculateLive(); };
+  if (discTypeSelect) discTypeSelect.onchange = function() { syncSessionCommercialConfig(); recalculateLive(); };
+  if (discLabelInput) discLabelInput.oninput = function() { syncSessionCommercialConfig(); recalculateLive(); };
+  if (celCheckInput) celCheckInput.onchange = function() { syncSessionCommercialConfig(); recalculateLive(); };
+  if (celPriceInput) celPriceInput.oninput = function() { syncSessionCommercialConfig(); recalculateLive(); };
+
+  renderAddonsChips();
 
   if (subTitle) {
     subTitle.textContent = (typeof onConfirm === 'function')
@@ -1577,6 +1703,8 @@ function wpOpenPricingReviewModal(onConfirm) {
   }
 
   function recalculateLive() {
+    syncSessionCommercialConfig();
+
     var pPrice = parseFloat(pInput ? pInput.value : 125) || 0;
     var estPrice = parseFloat(estInput ? estInput.value : 0) || 0;
     var invPrice = parseFloat(invInput ? invInput.value : 0) || 0;
@@ -1596,9 +1724,31 @@ function wpOpenPricingReviewModal(onConfirm) {
 
     var directCost = panelTotal + estPrice + invPrice + batPrice + cabPrice + moPrice + legPrice + windPrice;
     var marginEur = directCost * (mgPct / 100.0);
-    var subtotal = directCost + marginEur;
-    var iva = subtotal * 0.21;
+
+    // Sumar Add-ons activos
+    var addonsCost = 0;
+    (workingCommCfg.addons || []).forEach(function(a) {
+      if (a && a.enabled) {
+        addonsCost += (Number(a.qty) || 1) * (Number(a.unitPrice) || 0);
+      }
+    });
+
+    var subtotalPreDiscount = directCost + marginEur + addonsCost;
+
+    // Calcular descuento comercial
+    var discountEur = 0;
+    if (workingCommCfg.discountEnabled) {
+      if (workingCommCfg.discountType === 'percent') {
+        discountEur = subtotalPreDiscount * (Math.max(0, Number(workingCommCfg.discountValue) || 0) / 100.0);
+      } else {
+        discountEur = Math.max(0, Number(workingCommCfg.discountValue) || 0);
+      }
+    }
+
+    var subtotal = Math.max(100, Math.round(subtotalPreDiscount - discountEur));
+    var iva = Math.round(subtotal * 0.21);
     var capexBruto = subtotal + iva;
+    var capexTachado = (discountEur > 0) ? Math.round(subtotalPreDiscount * 1.21) : null;
 
     // Temporal override en sesión etiquetado con la huella del proyecto actual
     RAPricing.currentSessionPricing = {
@@ -1626,14 +1776,49 @@ function wpOpenPricingReviewModal(onConfirm) {
 
     var dEl = document.getElementById('pricing-preview-direct');
     var mEl = document.getElementById('pricing-preview-margin');
+    var aRow = document.getElementById('pricing-preview-addons-row');
+    var aEl = document.getElementById('pricing-preview-addons');
+    var discRow = document.getElementById('pricing-preview-discount-row');
+    var discEl = document.getElementById('pricing-preview-discount');
+    var discLbl = document.getElementById('pricing-preview-discount-label');
     var sEl = document.getElementById('pricing-preview-subtotal');
     var iEl = document.getElementById('pricing-preview-iva');
+    var tTachadoEl = document.getElementById('pricing-preview-total-tachado');
     var tEl = document.getElementById('pricing-preview-total');
 
     if (dEl) dEl.textContent = Math.round(directCost).toLocaleString('es-ES') + ' €';
     if (mEl) mEl.textContent = '+' + Math.round(marginEur).toLocaleString('es-ES') + ' € (' + mgPct + '%)';
+
+    if (aRow && aEl) {
+      if (addonsCost > 0) {
+        aRow.style.display = 'flex';
+        aEl.textContent = '+' + Math.round(addonsCost).toLocaleString('es-ES') + ' €';
+      } else {
+        aRow.style.display = 'none';
+      }
+    }
+
+    if (discRow && discEl) {
+      if (discountEur > 0) {
+        discRow.style.display = 'flex';
+        if (discLbl) discLbl.textContent = (workingCommCfg.discountLabel || 'Descuento') + ':';
+        discEl.textContent = '-' + Math.round(discountEur).toLocaleString('es-ES') + ' €' + (workingCommCfg.discountType === 'percent' ? ' (' + workingCommCfg.discountValue + '%)' : '');
+      } else {
+        discRow.style.display = 'none';
+      }
+    }
+
     if (sEl) sEl.textContent = Math.round(subtotal).toLocaleString('es-ES') + ' €';
     if (iEl) iEl.textContent = Math.round(iva).toLocaleString('es-ES') + ' €';
+
+    if (tTachadoEl) {
+      if (capexTachado && capexTachado > capexBruto) {
+        tTachadoEl.style.display = 'inline';
+        tTachadoEl.textContent = Math.round(capexTachado).toLocaleString('es-ES') + ' €';
+      } else {
+        tTachadoEl.style.display = 'none';
+      }
+    }
     if (tEl) tEl.textContent = Math.round(capexBruto).toLocaleString('es-ES') + ' €';
 
     // ── CALCULAR Y ACTUALIZAR TARJETAS KPI EN TIEMPO REAL ──
@@ -1878,6 +2063,8 @@ function wpOpenPricingReviewModal(onConfirm) {
       if (cabInput) cabInput.value = fresh.cabPrice;
       if (moInput) moInput.value = fresh.moPrice;
       if (legInput) legInput.value = fresh.legPrice;
+      var windInput = document.getElementById('pricing-input-wind-price');
+      if (windInput) windInput.value = Math.round(fresh.windPrice || 0);
       recalculateLive();
     };
   }
@@ -1959,6 +2146,9 @@ function wpOpenPricingReviewModal(onConfirm) {
   var closeModal = function(restoreInitial) {
     if (restoreInitial) {
       RAPricing.currentSessionPricing = initialPricing;
+      if (typeof RAPricing !== 'undefined') {
+        RAPricing._sessionCommercialConfig = initialCommCfg;
+      }
     }
     if (pModal) pModal.style.display = 'none';
   };
@@ -1977,6 +2167,8 @@ function wpOpenPricingReviewModal(onConfirm) {
       var cabPrice = parseFloat(cabInput ? cabInput.value : 0) || 0;
       var moPrice = parseFloat(moInput ? moInput.value : 0) || 0;
       var legPrice = parseFloat(legInput ? legInput.value : 0) || 0;
+      var windInput = document.getElementById('pricing-input-wind-price');
+      var windPrice = parseFloat(windInput ? windInput.value : (designCosts.windPrice || 0)) || 0;
       var mgPct = parseFloat(mgInput ? mgInput.value : 20) || 0;
 
       var newCfg = {
@@ -1987,6 +2179,7 @@ function wpOpenPricingReviewModal(onConfirm) {
         cabPrice: cabPrice,
         moPrice: moPrice,
         legPrice: legPrice,
+        windPrice: windPrice,
         marginPct: mgPct,
         skipReview: false
       };
@@ -2010,6 +2203,7 @@ function wpOpenPricingReviewModal(onConfirm) {
       setVal('cfg-pres-cab', cabPrice);
       setVal('cfg-pres-mo', moPrice);
       setVal('cfg-pres-leg', legPrice);
+      setVal('cfg-pres-wind', windPrice);
 
       // ── PERSISTIR DATOS DEL CLIENTE Y FACTURACIÓN AL SSOT (DOM & STATE) ──
       var cNom = custNombreInput ? custNombreInput.value.trim() : '';
@@ -2055,10 +2249,15 @@ function wpOpenPricingReviewModal(onConfirm) {
         }
       }
 
-      // Persistir configuración de Comunidad Energética Local (CEL)
+      // Persistir configuración comercial completa (CEL, Add-ons y Descuentos)
       var curCommCfgToSave = (typeof RAPricing !== 'undefined' && typeof RAPricing.getCommercialConfig === 'function') ? RAPricing.getCommercialConfig() : {};
       if (celCheckInput) curCommCfgToSave.includeCEL = celCheckInput.checked;
       if (celPriceInput) curCommCfgToSave.celPriceEur = parseFloat(celPriceInput.value) || 0.11;
+      curCommCfgToSave.addons = workingCommCfg.addons;
+      curCommCfgToSave.discountEnabled = discCheckInput ? discCheckInput.checked : false;
+      curCommCfgToSave.discountValue = discValInput ? (parseFloat(discValInput.value) || 0) : 0;
+      curCommCfgToSave.discountType = discTypeSelect ? discTypeSelect.value : 'percent';
+      curCommCfgToSave.discountLabel = (discLabelInput && discLabelInput.value.trim()) ? discLabelInput.value.trim() : 'Descuento Comercial Especial';
       if (typeof RAPricing !== 'undefined' && typeof RAPricing.saveCommercialConfig === 'function') {
         RAPricing.saveCommercialConfig(curCommCfgToSave);
       }
@@ -3197,7 +3396,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       @media print {
         html, body { background: #fff; padding: 0; margin: 0; width: 210mm; }
         .doc-top-bar { display: none !important; }
-        .page-sheet { box-shadow: none; border-radius: 0; width: 210mm; min-height: 297mm; max-height: 297mm; height: 297mm; padding: 18mm 20mm; margin: 0; page-break-before: auto; page-break-after: always; break-after: page; page-break-inside: avoid; break-inside: avoid; overflow: hidden; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; }
+        .page-sheet { box-shadow: none; border-radius: 0; width: 210mm; min-height: 295mm; max-height: 296mm; height: auto; padding: 16mm 18mm; margin: 0; page-break-before: auto; page-break-after: always; break-after: page; page-break-inside: avoid; break-inside: avoid; overflow: hidden; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; }
         .page-sheet:last-child { page-break-after: avoid; break-after: avoid; }
         thead { display: table-header-group; }
         tr, .hero-card, .closer-hero-card, .decision-card, .sig-card, .chart-box, .tech-card { page-break-inside: avoid; break-inside: avoid; }
