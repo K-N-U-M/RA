@@ -271,8 +271,12 @@ function showEmbeddedDocViewer(title, fullHtml) {
     document.body.appendChild(modal);
   }
   modal.innerHTML = `
-    <div style="width:90%;max-width:920px;height:90vh;background:#fff;border-radius:8px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 25px 60px rgba(0,0,0,0.5);">
-      <iframe id="ra-doc-iframe" style="width:100%;height:100%;border:none;"></iframe>
+    <div style="width:90%;max-width:960px;height:90vh;background:#fff;border-radius:10px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 25px 60px rgba(0,0,0,0.6);position:relative;">
+      <div style="background:#0f172a;color:#fff;padding:8px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #f59e0b;">
+        <span style="font-size:11px;font-weight:800;letter-spacing:0.5px;">📄 ${title || 'DOCUMENTO'} (VISOR INTEGRADO)</span>
+        <button type="button" onclick="document.getElementById('ra-embedded-doc-modal').style.display='none'" style="background:transparent;border:none;color:#94a3b8;font-size:18px;cursor:pointer;padding:2px 8px;font-weight:900;" title="Cerrar visor">✕</button>
+      </div>
+      <iframe id="ra-doc-iframe" style="width:100%;height:calc(100% - 40px);border:none;"></iframe>
     </div>
   `;
   modal.style.display = 'flex';
@@ -282,6 +286,9 @@ function showEmbeddedDocViewer(title, fullHtml) {
     iframe.contentWindow.document.write(fullHtml);
     iframe.contentWindow.document.close();
   }
+}
+if (typeof window !== 'undefined') {
+  window.showEmbeddedDocViewer = showEmbeddedDocViewer;
 }
 
 function buildMonthlyProductionSvg(monthlyData) {

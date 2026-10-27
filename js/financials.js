@@ -1186,6 +1186,9 @@ function wpOpenPricingReviewModal(onConfirm) {
   var subtextBat = document.getElementById('pricing-subtext-bat');
 
   var d = (typeof getProjectCalcs === 'function') ? getProjectCalcs() : { numPanels: 0, cfg: { potencia: 450, precio: 125 } };
+  var m = (typeof calculateFinancialModel === 'function') ? (function() {
+    try { return calculateFinancialModel(); } catch(e) { return { kwp: 0, numPanels: 0, ahorroLuzAnio1: 0, paybackYears: 0, pctAutoconsumo: 0 }; }
+  })() : { kwp: 0, numPanels: 0, ahorroLuzAnio1: 0, paybackYears: 0, pctAutoconsumo: 0 };
   var mb = (d && d.modulesBreakdown) || (typeof window !== 'undefined' && window.RAModulesBreakdown && typeof window.RAModulesBreakdown.getProjectModulesBreakdown === 'function' ? window.RAModulesBreakdown.getProjectModulesBreakdown() : null);
   var numPanels = (mb && mb.totalPanels > 0) ? mb.totalPanels : (d.numPanels || (window.allRenderedPanels ? window.allRenderedPanels.length : 0) || 1);
   var kwp = (mb && mb.totalKwp > 0) ? mb.totalKwp : ((numPanels * (d.cfg && d.cfg.potencia ? d.cfg.potencia : 450)) / 1000.0);
@@ -3250,6 +3253,10 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
 
   const w = window.open('', targetWindowName || '_blank');
   if (!w) {
+    if (typeof showEmbeddedDocViewer === 'function') {
+      showEmbeddedDocViewer('Propuesta Comercial Bancable - ' + d.refNum, code);
+      return;
+    }
     alert('Por favor, activa las ventanas emergentes (popups) para visualizar la propuesta comercial.');
     return;
   }
