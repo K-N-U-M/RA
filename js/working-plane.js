@@ -2276,6 +2276,7 @@ function wpSetPlaneTilt(targetTiltDeg) {
     slopeDir = Cesium.Cartesian3.negate(north, new Cesium.Cartesian3());
   }
 
+  const oldNormal = plane.normal ? Cesium.Cartesian3.clone(plane.normal) : radial;
   const newNormal = Cesium.Cartesian3.add(
     Cesium.Cartesian3.multiplyByScalar(radial, Math.cos(betaRad), new Cesium.Cartesian3()),
     Cesium.Cartesian3.multiplyByScalar(slopeDir, Math.sin(betaRad), new Cesium.Cartesian3()),
@@ -2290,6 +2291,22 @@ function wpSetPlaneTilt(targetTiltDeg) {
   }
   plane.uVec = Cesium.Cartesian3.normalize(uVec, new Cesium.Cartesian3());
   plane.vVec = Cesium.Cartesian3.normalize(Cesium.Cartesian3.cross(plane.normal, plane.uVec, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+
+  // Rotar geométricamente pts3D alrededor del origen
+  const rotAxis = Cesium.Cartesian3.cross(oldNormal, plane.normal, new Cesium.Cartesian3());
+  if (Cesium.Cartesian3.magnitude(rotAxis) > 1e-5) {
+    Cesium.Cartesian3.normalize(rotAxis, rotAxis);
+    const angle = Cesium.Math.acosClamped(Cesium.Cartesian3.dot(oldNormal, plane.normal));
+    const rotQuat = Cesium.Quaternion.fromAxisAngle(rotAxis, angle);
+    const rotMat = Cesium.Matrix3.fromQuaternion(rotQuat);
+    if (Array.isArray(plane.pts3D)) {
+      plane.pts3D = plane.pts3D.map(pt => {
+        const rel = Cesium.Cartesian3.subtract(pt, plane.origin, new Cesium.Cartesian3());
+        return Cesium.Cartesian3.add(plane.origin, Cesium.Matrix3.multiplyByVector(rotMat, rel, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+      });
+    }
+  }
+
   plane.name = 'Plano Cubierta #' + (WP.activePlaneIdx + 1) + ' (' + tilt.toFixed(0) + '°)';
 
   if (WP.polylines) {
@@ -2305,20 +2322,113 @@ function wpSetPlaneTilt(targetTiltDeg) {
   wpRenderActivePlaneGizmo();
   wpUpdateUI();
   if (typeof wpUpdateStep3UI === 'function') wpUpdateStep3UI();
-  if (typeof wpUpdateFaldonRowPitchUI === "function") wpUpdateFaldonRowPitchUI(polyIdx);
   if (typeof wpPopulateFaldonCard === 'function') wpPopulateFaldonCard();
   if (typeof step5RegenerateLayout === 'function') step5RegenerateLayout();
   if (typeof wpUpdateLayoutFastMetrics === 'function') wpUpdateLayoutFastMetrics();
   if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Pendiente de cubierta fijada a ' + tilt + '°');
 
   showStatus('<i data-lucide="compass" class="icon-sm"></i> PENDIENTE DE CUBIERTA ENDEREZADA A ' + tilt + '°', 2500);
-  if (typeof showToast === 'function') {
-    showToast('PENDIENTE ENDEREZADA', 'El plano de cubierta se ha fijado exactamente a ' + tilt + '°.', 'success', 3000);
-  }
   const curViewer = (typeof viewer !== 'undefined' && viewer) ? viewer : (window.viewer || null);
   if (curViewer && curViewer.scene && typeof curViewer.scene.requestRender === 'function') curViewer.scene.requestRender();
 }
 window.wpSetPlaneTilt = wpSetPlaneTilt;
+
+// Parametric Azimuth Adjustment (Rotación Yaw alrededor de la Normal Geodésica/Z-Local)
+function wpSetPlaneAzimuth(targetAzimuthDeg) {
+  const plane = wpGetActivePlane();
+  if (!plane || !plane.origin) return;
+
+  const radial = Cesium.Cartesian3.normalize(plane.origin, new Cesium.Cartesian3());
+  const east = Cesium.Cartesian3.normalize(Cesium.Cartesian3.cross(Cesium.Cartesian3.UNIT_Z, radial, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+  const north = Cesium.Cartesian3.normalize(Cesium.Cartesian3.cross(radial, east, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+
+  const azDeg = ((parseFloat(targetAzimuthDeg) % 360) + 360) % 360;
+  const azRad = Cesium.Math.toRadians(azDeg);
+  const tiltRad = Cesium.Math.toRadians(plane.tiltDeg || 0);
+
+  // Vector de caída en el plano horizontal local
+  const slopeDir = Cesium.Cartesian3.add(
+    Cesium.Cartesian3.multiplyByScalar(north, Math.cos(azRad), new Cesium.Cartesian3()),
+    Cesium.Cartesian3.multiplyByScalar(east, Math.sin(azRad), new Cesium.Cartesian3()),
+    new Cesium.Cartesian3()
+  );
+
+  const oldNormal = plane.normal ? Cesium.Cartesian3.clone(plane.normal) : radial;
+  plane.normal = Cesium.Cartesian3.normalize(
+    Cesium.Cartesian3.add(
+      Cesium.Cartesian3.multiplyByScalar(radial, Math.cos(tiltRad), new Cesium.Cartesian3()),
+      Cesium.Cartesian3.multiplyByScalar(slopeDir, Math.sin(tiltRad), new Cesium.Cartesian3()),
+      new Cesium.Cartesian3()
+    ),
+    new Cesium.Cartesian3()
+  );
+  plane.azimuthDeg = azDeg;
+
+  let uVec = Cesium.Cartesian3.cross(plane.normal, Cesium.Cartesian3.UNIT_Z, new Cesium.Cartesian3());
+  if (Cesium.Cartesian3.magnitude(uVec) < 1e-3) {
+    uVec = Cesium.Cartesian3.cross(plane.normal, Cesium.Cartesian3.UNIT_X, new Cesium.Cartesian3());
+  }
+  plane.uVec = Cesium.Cartesian3.normalize(uVec, new Cesium.Cartesian3());
+  plane.vVec = Cesium.Cartesian3.normalize(Cesium.Cartesian3.cross(plane.normal, plane.uVec, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+
+  // Rotar pts3D
+  const rotAxis = Cesium.Cartesian3.cross(oldNormal, plane.normal, new Cesium.Cartesian3());
+  if (Cesium.Cartesian3.magnitude(rotAxis) > 1e-5) {
+    Cesium.Cartesian3.normalize(rotAxis, rotAxis);
+    const angle = Cesium.Math.acosClamped(Cesium.Cartesian3.dot(oldNormal, plane.normal));
+    const rotQuat = Cesium.Quaternion.fromAxisAngle(rotAxis, angle);
+    const rotMat = Cesium.Matrix3.fromQuaternion(rotQuat);
+    if (Array.isArray(plane.pts3D)) {
+      plane.pts3D = plane.pts3D.map(pt => {
+        const rel = Cesium.Cartesian3.subtract(pt, plane.origin, new Cesium.Cartesian3());
+        return Cesium.Cartesian3.add(plane.origin, Cesium.Matrix3.multiplyByVector(rotMat, rel, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+      });
+    }
+  }
+
+  wpRenderActivePlaneGizmo();
+  wpUpdateUI();
+  if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
+  if (typeof step5RegenerateLayout === 'function') step5RegenerateLayout();
+  if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Azimut fijado a ' + azDeg.toFixed(1) + '°');
+  const curViewer = (typeof viewer !== 'undefined' && viewer) ? viewer : (window.viewer || null);
+  if (curViewer && curViewer.scene && typeof curViewer.scene.requestRender === 'function') curViewer.scene.requestRender();
+}
+window.wpSetPlaneAzimuth = wpSetPlaneAzimuth;
+
+// Parametric Z-Offset Adjustment (Desplazamiento Normal/Vertical sobre Fotogrametría)
+function wpOffsetActivePlaneZ(deltaZ) {
+  const plane = wpGetActivePlane();
+  if (!plane || !plane.origin) return;
+
+  const normal = plane.normal ? Cesium.Cartesian3.normalize(plane.normal, new Cesium.Cartesian3()) : Cesium.Cartesian3.normalize(plane.origin, new Cesium.Cartesian3());
+  const shiftVec = Cesium.Cartesian3.multiplyByScalar(normal, deltaZ, new Cesium.Cartesian3());
+
+  if (Array.isArray(plane.pts3D)) {
+    plane.pts3D = plane.pts3D.map(pt => Cesium.Cartesian3.add(pt, shiftVec, new Cesium.Cartesian3()));
+  }
+  plane.origin = Cesium.Cartesian3.add(plane.origin, shiftVec, new Cesium.Cartesian3());
+  plane.zOffset = (plane.zOffset || 0) + deltaZ;
+
+  // Propagar a polilíneas asociadas
+  if (Array.isArray(WP.polylines)) {
+    WP.polylines.forEach(poly => {
+      if (poly && poly.planeIdx === WP.activePlaneIdx && Array.isArray(poly.points)) {
+        poly.points = poly.points.map(pt => Cesium.Cartesian3.add(pt, shiftVec, new Cesium.Cartesian3()));
+        poly._geometryDirty = true;
+      }
+    });
+  }
+
+  wpRenderActivePlaneGizmo();
+  wpUpdateUI();
+  if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
+  if (typeof step5RegenerateLayout === 'function') step5RegenerateLayout();
+  showStatus('<i data-lucide="arrow-up" class="icon-sm"></i> OFFSET Z PLANO: ' + (plane.zOffset >= 0 ? '+' : '') + plane.zOffset.toFixed(2) + 'm', 2000);
+  const curViewer = (typeof viewer !== 'undefined' && viewer) ? viewer : (window.viewer || null);
+  if (curViewer && curViewer.scene && typeof curViewer.scene.requestRender === 'function') curViewer.scene.requestRender();
+}
+window.wpOffsetActivePlaneZ = wpOffsetActivePlaneZ;
 
 function wpDeleteActivePlane(skipConfirm = false) {
   if (WP.activePlaneIdx < 0 || !WP.planes[WP.activePlaneIdx]) return;

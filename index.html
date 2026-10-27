@@ -601,6 +601,36 @@ window.RA_App = window.RA_App || {};
                   <div style="font-size: 10px;color:var(--text-slate-300);">Inclinación: <b id="wp-plane-tilt-lbl" style="color:#fff;">0.0°</b></div>
                   <div style="font-size: 10px;color:var(--text-slate-300);">Azimut: <b id="wp-plane-az-lbl" style="color:#fff;">180.0° (Sur)</b></div>
                 </div>
+
+                <!-- 🎛️ CONTROLES PARAMÉTRICOS DEL LCS (SISTEMA DE COORDENADAS LOCAL) -->
+                <div style="margin-top:6px;background:rgba(255,255,255,0.03);padding:6px 8px;border-radius:6px;border:1px solid rgba(56,189,248,0.25);">
+                  <div style="font-size:10px;font-weight:bold;color:#38bdf8;display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+                    <span><i data-lucide="move-3d" class="icon-sm"></i> TRANSFORMACIÓN LCS (GIZMO &amp; PARÁMETROS)</span>
+                  </div>
+
+                  <!-- Elevación Z (Offset sobre fotogrametría) -->
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+                    <span style="font-size:10px;color:var(--text-slate-300);">Elevación Normal (Z):</span>
+                    <div style="display:flex;gap:3px;align-items:center;">
+                      <button type="button" class="doc-mini-btn" onclick="wpOffsetActivePlaneZ(-0.20)" style="padding:1px 5px;font-size:10px;" title="Bajar 20cm">−0.2m</button>
+                      <button type="button" class="doc-mini-btn" onclick="wpOffsetActivePlaneZ(-0.05)" style="padding:1px 5px;font-size:10px;" title="Bajar 5cm">−5cm</button>
+                      <button type="button" class="doc-mini-btn" onclick="wpOffsetActivePlaneZ(0.05)" style="padding:1px 5px;font-size:10px;" title="Subir 5cm">+5cm</button>
+                      <button type="button" class="doc-mini-btn" onclick="wpOffsetActivePlaneZ(0.20)" style="padding:1px 5px;font-size:10px;" title="Subir 20cm">+0.2m</button>
+                    </div>
+                  </div>
+
+                  <!-- Ajuste de Azimut Yaw -->
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                    <span style="font-size:10px;color:var(--text-slate-300);">Giro Azimut (Yaw):</span>
+                    <div style="display:flex;gap:3px;align-items:center;">
+                      <button type="button" class="doc-mini-btn" onclick="const p = wpGetActivePlane(); if(p) wpSetPlaneAzimuth((p.azimuthDeg||0) - 5);" style="padding:1px 5px;font-size:10px;" title="Girar 5° a la izquierda">⟲ −5°</button>
+                      <button type="button" class="doc-mini-btn" onclick="const p = wpGetActivePlane(); if(p) wpSetPlaneAzimuth((p.azimuthDeg||0) - 1);" style="padding:1px 5px;font-size:10px;" title="Girar 1° a la izquierda">−1°</button>
+                      <button type="button" class="doc-mini-btn" onclick="const p = wpGetActivePlane(); if(p) wpSetPlaneAzimuth((p.azimuthDeg||0) + 1);" style="padding:1px 5px;font-size:10px;" title="Girar 1° a la derecha">+1°</button>
+                      <button type="button" class="doc-mini-btn" onclick="const p = wpGetActivePlane(); if(p) wpSetPlaneAzimuth((p.azimuthDeg||0) + 5);" style="padding:1px 5px;font-size:10px;" title="Girar 5° a la derecha">+5° ⟳</button>
+                    </div>
+                  </div>
+                </div>
+
                 <div id="wp-plane-tilt-quickfix-box" style="margin-top:6px;background:rgba(255,255,255,0.04);padding:5px 7px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);">
                   <div style="font-size: 10px;color:var(--text-slate-300);margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;">
                     <span><i data-lucide="compass" class="icon-sm"></i> Enderezar Pendiente:</span>
@@ -10967,6 +10997,43 @@ function getUniversalSelectedTarget() {
     }
   }
 
+  // F. Plano de Trabajo Activo (LCS Transformable: Traslación U/V/Z, Rotación Pitch/Yaw)
+  const curStep = (typeof wpCurrentStep !== 'undefined') ? wpCurrentStep : ((typeof window !== 'undefined' && window.wpCurrentStep) || 1);
+  if (curStep === 1 || window.wpIsPlaneGizmoEnabled) {
+    if (typeof wpGetActivePlane === 'function') {
+      const actPl = wpGetActivePlane();
+      if (actPl && actPl.pts3D && actPl.pts3D.length >= 3 && actPl.normal) {
+        const p1 = actPl.pts3D[0], p2 = actPl.pts3D[1], p3 = actPl.pts3D[2];
+        const center = new Cesium.Cartesian3(
+          (p1.x + p2.x + p3.x) / 3.0,
+          (p1.y + p2.y + p3.y) / 3.0,
+          (p1.z + p2.z + p3.z) / 3.0
+        );
+        const norm = Cesium.Cartesian3.normalize(actPl.normal, new Cesium.Cartesian3());
+        const uVec = actPl.uVec ? Cesium.Cartesian3.normalize(actPl.uVec, new Cesium.Cartesian3()) : Cesium.Cartesian3.cross(norm, Cesium.Cartesian3.UNIT_Z, new Cesium.Cartesian3());
+        const vVec = actPl.vVec ? Cesium.Cartesian3.normalize(actPl.vVec, new Cesium.Cartesian3()) : Cesium.Cartesian3.cross(norm, uVec, new Cesium.Cartesian3());
+        return {
+          type: 'workplane',
+          id: actPl.id || 'plane_' + (WP.activePlaneIdx || 0),
+          name: (actPl.name || 'Plano de Trabajo').toUpperCase(),
+          pos: center,
+          rot: Math.round(actPl.azimuthDeg || 0),
+          height: 0,
+          rawObj: actPl,
+          wp: {
+            origin: center,
+            normal: norm,
+            uVec: uVec,
+            vVec: vVec,
+            plane: { origin: center, normal: norm }
+          },
+          color: '#38BDF8',
+          accentColor: 'rgba(56, 189, 248, 0.45)'
+        };
+      }
+    }
+  }
+
   return null;
 }
 
@@ -11485,6 +11552,64 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
       if (panelOutlineEntity && p.corners && p.corners.length === 4) {
         panelOutlineEntity.polyline.positions = [p.corners[0], p.corners[1], p.corners[2], p.corners[3], Cesium.Cartesian3.clone(p.corners[0])];
       }
+    } else if (target.type === 'workplane' && target.rawObj) {
+      const pl = target.rawObj;
+      const _rotMode = universalGizmoState.mode;
+      const rotQuat = Cesium.Quaternion.fromAxisAngle(effectiveAxis, Cesium.Math.toRadians(dDeg));
+      const rotMat3 = Cesium.Matrix3.fromQuaternion(rotQuat);
+
+      if (dDeg !== 0 && Array.isArray(pl.pts3D)) {
+        const center = target.pos;
+        pl.pts3D = pl.pts3D.map(pt => {
+          const rel = Cesium.Cartesian3.subtract(pt, center, new Cesium.Cartesian3());
+          const rotRel = Cesium.Matrix3.multiplyByVector(rotMat3, rel, new Cesium.Cartesian3());
+          return Cesium.Cartesian3.add(center, rotRel, new Cesium.Cartesian3());
+        });
+        if (pl.origin) {
+          const relOrg = Cesium.Cartesian3.subtract(pl.origin, center, new Cesium.Cartesian3());
+          const rotOrg = Cesium.Matrix3.multiplyByVector(rotMat3, relOrg, new Cesium.Cartesian3());
+          pl.origin = Cesium.Cartesian3.add(center, rotOrg, new Cesium.Cartesian3());
+        }
+        if (pl.normal) {
+          pl.normal = Cesium.Matrix3.multiplyByVector(rotMat3, pl.normal, new Cesium.Cartesian3());
+          Cesium.Cartesian3.normalize(pl.normal, pl.normal);
+        }
+        if (pl.uVec) {
+          pl.uVec = Cesium.Matrix3.multiplyByVector(rotMat3, pl.uVec, new Cesium.Cartesian3());
+          Cesium.Cartesian3.normalize(pl.uVec, pl.uVec);
+        }
+        if (pl.vVec) {
+          pl.vVec = Cesium.Matrix3.multiplyByVector(rotMat3, pl.vVec, new Cesium.Cartesian3());
+          Cesium.Cartesian3.normalize(pl.vVec, pl.vVec);
+        }
+
+        // Recalcular inclinación y azimut desde la nueva normal
+        const radial = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(center, new Cesium.Cartesian3());
+        const cosTilt = Math.abs(Cesium.Cartesian3.dot(pl.normal, radial));
+        pl.tiltDeg = Cesium.Math.toDegrees(Math.acos(Cesium.Math.clamp(cosTilt, 0, 1)));
+        const east = Cesium.Cartesian3.normalize(Cesium.Cartesian3.cross(Cesium.Cartesian3.UNIT_Z, radial, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+        const northVec = Cesium.Cartesian3.normalize(Cesium.Cartesian3.cross(radial, east, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+        const nDotNorth = Cesium.Cartesian3.dot(pl.normal, northVec);
+        const nDotEast = Cesium.Cartesian3.dot(pl.normal, east);
+        let az = Cesium.Math.toDegrees(Math.atan2(nDotEast, nDotNorth));
+        pl.azimuthDeg = ((az % 360) + 360) % 360;
+
+        // Rotar simultáneamente polilíneas y faldones hijos asociados a este plano
+        if (Array.isArray(WP.polylines)) {
+          WP.polylines.forEach(poly => {
+            if (poly && poly.planeIdx === WP.activePlaneIdx && Array.isArray(poly.points)) {
+              poly.points = poly.points.map(pt => {
+                const rel = Cesium.Cartesian3.subtract(pt, center, new Cesium.Cartesian3());
+                const rotRel = Cesium.Matrix3.multiplyByVector(rotMat3, rel, new Cesium.Cartesian3());
+                return Cesium.Cartesian3.add(center, rotRel, new Cesium.Cartesian3());
+              });
+              poly._geometryDirty = true;
+            }
+          });
+        }
+        if (typeof wpRenderActivePlaneGizmo === 'function') wpRenderActivePlaneGizmo();
+        if (typeof wpUpdateUI === 'function') wpUpdateUI();
+      }
     }
   }
 
@@ -11720,6 +11845,31 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
       } else if (panelOutlineEntity && p.corners && p.corners.length === 4) {
         panelOutlineEntity.polyline.positions = [p.corners[0], p.corners[1], p.corners[2], p.corners[3], Cesium.Cartesian3.clone(p.corners[0])];
       }
+    } else if (target.type === 'workplane' && target.rawObj) {
+      const pl = target.rawObj;
+      const delta = Cesium.Cartesian3.subtract(newPos, target.pos, new Cesium.Cartesian3());
+      target.pos = Cesium.Cartesian3.clone(newPos);
+
+      // Trasladar los 3 vértices maestros del plano
+      if (Array.isArray(pl.pts3D)) {
+        pl.pts3D = pl.pts3D.map(pt => Cesium.Cartesian3.add(pt, delta, new Cesium.Cartesian3()));
+      }
+      if (pl.origin) {
+        pl.origin = Cesium.Cartesian3.add(pl.origin, delta, new Cesium.Cartesian3());
+      }
+
+      // Propagar traslación a todas las polilíneas/faldones pertenecientes a este plano
+      if (Array.isArray(WP.polylines)) {
+        WP.polylines.forEach(poly => {
+          if (poly && poly.planeIdx === WP.activePlaneIdx && Array.isArray(poly.points)) {
+            poly.points = poly.points.map(pt => Cesium.Cartesian3.add(pt, delta, new Cesium.Cartesian3()));
+            poly._geometryDirty = true;
+          }
+        });
+      }
+      if (typeof wpRenderActivePlaneGizmo === 'function') wpRenderActivePlaneGizmo();
+      if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
+      if (typeof wpUpdateUI === 'function') wpUpdateUI();
     }
   }
 
@@ -18381,7 +18531,14 @@ window.toggleSolarHUD = toggleSolarHUD;
 
       let _draggedPanelId = null;
       let _affectedPanelIds = [];
-      if (draggedTargetType === 'vertex') {
+      if (draggedTargetType === 'workplane') {
+        if (typeof wpRenderActivePlaneGizmo === 'function') wpRenderActivePlaneGizmo();
+        if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
+        if (typeof render3DObstaclesInCesium === 'function') render3DObstaclesInCesium();
+        if (typeof wpFastRenderSimulatedPanels === 'function') wpFastRenderSimulatedPanels(true, null);
+        if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Plano de trabajo transformado');
+        if (typeof showStatus === 'function') showStatus('<i data-lucide="compass" class="icon-sm"></i> PLANO DE TRABAJO TRANSFORMADO CON ÉXITO', 2500);
+      } else if (draggedTargetType === 'vertex') {
         if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
         if (typeof render3DBuildingsInCesium === 'function') render3DBuildingsInCesium();
         if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Vértice desplazado (faldón o edificio)');
