@@ -964,7 +964,7 @@ function wpOpenPricingReviewModal(onConfirm) {
   var pModal = document.getElementById('ra-pricing-review-modal');
   if (!pModal) {
     var modalHtml = '<div id="ra-pricing-review-modal" role="dialog" aria-modal="true" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,0.85);backdrop-filter:blur(8px);z-index:999999;align-items:center;justify-content:center;padding:16px;">' +
-      '<div style="background:#0f172a;border:1px solid #334155;border-radius:12px;width:660px;max-width:96vw;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 25px 50px -12px rgba(0,0,0,0.85);overflow:hidden;color:#fff;font-family:Inter,system-ui,sans-serif;">' +
+      '<div style="background:#0f172a;border:1px solid #334155;border-radius:12px;width:780px;max-width:96vw;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 25px 50px -12px rgba(0,0,0,0.85);overflow:hidden;color:#fff;font-family:Inter,system-ui,sans-serif;">' +
         '<div style="padding:14px 20px;background:rgba(0,0,0,0.4);border-bottom:1px solid rgba(255,255,255,0.08);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">' +
           '<div style="display:flex;align-items:center;gap:10px;">' +
             '<span style="font-size:20px;">🏷️</span>' +
@@ -982,6 +982,106 @@ function wpOpenPricingReviewModal(onConfirm) {
               '<span id="pricing-modal-project-info">Proyecto: 0 paneles (0.00 kWp)</span>' +
             '</div>' +
             '<div id="pricing-modal-equip-info" style="color:#94a3b8;font-size: 10px;text-align:right;">Inversor / Batería</div>' +
+          '</div>' +
+
+          '<!-- SECCIÓN 1: DATOS DE FACTURACIÓN DEL CLIENTE -->' +
+          '<div style="background:rgba(30,41,59,0.5);border:1px solid rgba(56,189,248,0.2);border-radius:8px;padding:11px 12px;display:flex;flex-direction:column;gap:8px;">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+              '<div style="display:flex;align-items:center;gap:6px;">' +
+                '<span style="font-size:13px;">👤</span>' +
+                '<span style="font-size:10.5px;font-weight:900;color:#38BDF8;text-transform:uppercase;letter-spacing:0.5px;">Datos de Facturación del Cliente</span>' +
+              '</div>' +
+              '<span style="font-size:9.5px;color:#94a3b8;">Verifica los datos fiscales antes de emitir</span>' +
+            '</div>' +
+            '<div style="display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:8px;">' +
+              '<div>' +
+                '<label style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">Titular / Razón Social</label>' +
+                '<input type="text" id="pricing-cust-nombre" placeholder="Nombre o Empresa" style="width:100%;box-sizing:border-box;padding:4px 7px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:5px;color:#fff;font-size:10.5px;font-weight:700;">' +
+              '</div>' +
+              '<div>' +
+                '<label style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">NIF / CIF</label>' +
+                '<input type="text" id="pricing-cust-nif" placeholder="00000000X" style="width:100%;box-sizing:border-box;padding:4px 7px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:5px;color:#fff;font-size:10.5px;font-weight:700;">' +
+              '</div>' +
+              '<div>' +
+                '<label style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">Teléfono</label>' +
+                '<input type="text" id="pricing-cust-tel" placeholder="+34 600..." style="width:100%;box-sizing:border-box;padding:4px 7px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:5px;color:#fff;font-size:10.5px;">' +
+              '</div>' +
+            '</div>' +
+            '<div style="display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:8px;">' +
+              '<div>' +
+                '<label style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">Email de Contacto</label>' +
+                '<input type="email" id="pricing-cust-email" placeholder="cliente@correo.com" style="width:100%;box-sizing:border-box;padding:4px 7px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:5px;color:#fff;font-size:10.5px;">' +
+              '</div>' +
+              '<div style="grid-column: span 2;">' +
+                '<label style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">Dirección de Instalación / Fiscal</label>' +
+                '<input type="text" id="pricing-cust-dir" placeholder="Calle, número, polígono..." style="width:100%;box-sizing:border-box;padding:4px 7px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:5px;color:#fff;font-size:10.5px;">' +
+              '</div>' +
+            '</div>' +
+            '<div style="display:grid;grid-template-columns:1.2fr 1fr 0.8fr;gap:8px;">' +
+              '<div>' +
+                '<label style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">Municipio</label>' +
+                '<input type="text" id="pricing-cust-mun" placeholder="Municipio" style="width:100%;box-sizing:border-box;padding:4px 7px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:5px;color:#fff;font-size:10.5px;">' +
+              '</div>' +
+              '<div>' +
+                '<label style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">Provincia</label>' +
+                '<input type="text" id="pricing-cust-prov" placeholder="Provincia" style="width:100%;box-sizing:border-box;padding:4px 7px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:5px;color:#fff;font-size:10.5px;">' +
+              '</div>' +
+              '<div>' +
+                '<label style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">Código Postal</label>' +
+                '<input type="text" id="pricing-cust-cp" placeholder="28001" style="width:100%;box-sizing:border-box;padding:4px 7px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:5px;color:#fff;font-size:10.5px;">' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+
+          '<!-- SECCIÓN 2: DATOS DE CONSUMO ELÉCTRICO Y SUMINISTRO (CLAVE DE RENTABILIDAD) -->' +
+          '<div style="background:rgba(30,41,59,0.5);border:1px solid rgba(245,158,11,0.25);border-radius:8px;padding:11px 12px;display:flex;flex-direction:column;gap:8px;">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+              '<div style="display:flex;align-items:center;gap:6px;">' +
+                '<span style="font-size:13px;">📊</span>' +
+                '<span style="font-size:10.5px;font-weight:900;color:#FBBF24;text-transform:uppercase;letter-spacing:0.5px;">Consumo &amp; Parámetros Eléctricos del Cliente</span>' +
+              '</div>' +
+              '<span style="font-size:9.5px;color:#FDE68A;">Condicionan el ahorro anual, retorno y amortización</span>' +
+            '</div>' +
+            '<div style="display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:8px;">' +
+              '<div>' +
+                '<label style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">Consumo Anual Total</label>' +
+                '<div style="display:flex;align-items:center;gap:4px;">' +
+                  '<input type="number" id="pricing-cust-consumo" min="100" max="1000000" step="50" style="width:100%;box-sizing:border-box;padding:4px 7px;background:rgba(0,0,0,0.4);border:1px solid #F59E0B;border-radius:5px;color:#FDE68A;font-size:11px;font-weight:800;text-align:right;">' +
+                  '<span style="font-size:10px;color:#94a3b8;white-space:nowrap;">kWh/año</span>' +
+                '</div>' +
+              '</div>' +
+              '<div>' +
+                '<label style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">Potencia Contratada</label>' +
+                '<div style="display:flex;align-items:center;gap:4px;">' +
+                  '<input type="number" id="pricing-cust-potcontr" min="0.5" max="500" step="0.25" style="width:100%;box-sizing:border-box;padding:4px 7px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:5px;color:#fff;font-size:11px;font-weight:700;text-align:right;">' +
+                  '<span style="font-size:10px;color:#94a3b8;white-space:nowrap;">kW</span>' +
+                '</div>' +
+              '</div>' +
+              '<div>' +
+                '<label style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">Precio Medio Red</label>' +
+                '<div style="display:flex;align-items:center;gap:4px;">' +
+                  '<input type="number" id="pricing-cust-precio-kwh" min="0.05" max="1.0" step="0.01" style="width:100%;box-sizing:border-box;padding:4px 7px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:5px;color:#fff;font-size:11px;font-weight:700;text-align:right;">' +
+                  '<span style="font-size:10px;color:#94a3b8;white-space:nowrap;">€/kWh</span>' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div style="display:grid;grid-template-columns:1.8fr 1.2fr;gap:8px;">' +
+              '<div>' +
+                '<label style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">Código CUPS de Suministro</label>' +
+                '<input type="text" id="pricing-cust-cups" placeholder="ES0021..." style="width:100%;box-sizing:border-box;padding:4px 7px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:5px;color:#38BDF8;font-size:10.5px;font-family:monospace;font-weight:700;">' +
+              '</div>' +
+              '<div>' +
+                '<label style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">Distribuidora Eléctrica</label>' +
+                '<select id="pricing-cust-dist" style="width:100%;box-sizing:border-box;padding:4px 6px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:5px;color:#fff;font-size:10px;">' +
+                  '<option value="e-distribución (Endesa)">e-distribución (Endesa)</option>' +
+                  '<option value="Iberdrola Distribución">Iberdrola Distribución</option>' +
+                  '<option value="UFD (Naturgy)">UFD (Naturgy)</option>' +
+                  '<option value="Viesgo Distribución">Viesgo Distribución</option>' +
+                  '<option value="EDP Distribución">EDP Distribución</option>' +
+                  '<option value="Otra distribuidora">Otra distribuidora</option>' +
+                '</select>' +
+              '</div>' +
+            '</div>' +
           '</div>' +
           '<div style="background:rgba(30,41,59,0.5);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:9px;">' +
             '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">' +
@@ -1126,6 +1226,25 @@ function wpOpenPricingReviewModal(onConfirm) {
               '<b id="pricing-preview-total" style="font-size:17px;color:#fff;font-weight:900;">0 €</b>' +
             '</div>' +
           '</div>' +
+          '<!-- INDICADORES CLAVE DE RENTABILIDAD EN TIEMPO REAL -->' +
+          '<div style="background:rgba(15,23,42,0.6);border:1px solid rgba(56,189,248,0.25);border-radius:8px;padding:9px 12px;display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;text-align:center;">' +
+            '<div style="background:rgba(30,41,59,0.7);padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.05);">' +
+              '<div id="pricing-metric-ahorro" style="font-size:12px;font-weight:900;color:#10B981;">0 €/año</div>' +
+              '<div style="font-size:8.5px;color:#94a3b8;font-weight:700;text-transform:uppercase;">Ahorro Año 1</div>' +
+            '</div>' +
+            '<div style="background:rgba(30,41,59,0.7);padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.05);">' +
+              '<div id="pricing-metric-payback" style="font-size:12px;font-weight:900;color:#F59E0B;">0.0 años</div>' +
+              '<div style="font-size:8.5px;color:#94a3b8;font-weight:700;text-transform:uppercase;">Retorno (Payback)</div>' +
+            '</div>' +
+            '<div style="background:rgba(30,41,59,0.7);padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.05);">' +
+              '<div id="pricing-metric-tir" style="font-size:12px;font-weight:900;color:#38BDF8;">0.0 %</div>' +
+              '<div style="font-size:8.5px;color:#94a3b8;font-weight:700;text-transform:uppercase;">TIR Anual</div>' +
+            '</div>' +
+            '<div style="background:rgba(30,41,59,0.7);padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.05);">' +
+              '<div id="pricing-metric-autoconsumo" style="font-size:12px;font-weight:900;color:#A855F7;">0 %</div>' +
+              '<div style="font-size:8.5px;color:#94a3b8;font-weight:700;text-transform:uppercase;">Autoconsumo</div>' +
+            '</div>' +
+          '</div>' +
           '<!-- BLOQUE DE RESUMEN EJECUTIVO COMERCIAL CON GEMINI -->' +
           '<div style="background:rgba(30,41,59,0.5);border:1px solid rgba(168,85,247,0.35);border-radius:8px;padding:11px 12px;display:flex;flex-direction:column;gap:7px;">' +
             '<div style="display:flex;justify-content:space-between;align-items:center;">' +
@@ -1266,6 +1385,46 @@ function wpOpenPricingReviewModal(onConfirm) {
   if (rowWind) rowWind.style.display = (designCosts.windKw > 0 || initWind > 0) ? 'flex' : 'none';
   if (mgInput) mgInput.value = initialMarginPct;
 
+  // ── INICIALIZAR Y POBLAR CAMPOS DE FACTURA & CLIENTE (SSOT) ──
+  var custNombreInput = document.getElementById('pricing-cust-nombre');
+  var custNifInput = document.getElementById('pricing-cust-nif');
+  var custTelInput = document.getElementById('pricing-cust-tel');
+  var custEmailInput = document.getElementById('pricing-cust-email');
+  var custDirInput = document.getElementById('pricing-cust-dir');
+  var custMunInput = document.getElementById('pricing-cust-mun');
+  var custProvInput = document.getElementById('pricing-cust-prov');
+  var custCpInput = document.getElementById('pricing-cust-cp');
+  var custCupsInput = document.getElementById('pricing-cust-cups');
+  var custDistSelect = document.getElementById('pricing-cust-dist');
+  var custConsumoInput = document.getElementById('pricing-cust-consumo');
+  var custPotContrInput = document.getElementById('pricing-cust-potcontr');
+  var custPrecioKwhInput = document.getElementById('pricing-cust-precio-kwh');
+
+  var curTit = (typeof readTitular === 'function') ? readTitular() : (d.tit || {});
+  var curBillComp = (typeof window !== 'undefined' && window.RA && window.RA.billAuditor && window.RA.billAuditor.comparison) ? window.RA.billAuditor.comparison : null;
+  var curManualCons = (typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.manualAnnualConsumptionKWh) || 0;
+  if (!curManualCons) {
+    var rawManualEl = document.getElementById('cfg-pres-consumo-anual') || document.getElementById('modal-cfg-pres-consumo-anual');
+    if (rawManualEl && parseFloat(rawManualEl.value) > 0) curManualCons = parseFloat(rawManualEl.value);
+  }
+  var initConsumo = (curBillComp && curBillComp.consumoAnualKWh > 0) ? curBillComp.consumoAnualKWh : (curManualCons > 0 ? curManualCons : ((kwp >= 12) ? 18000 : 4500));
+  var curPriceKwh = (curBillComp && curBillComp.precioMedioKWh > 0) ? curBillComp.precioMedioKWh : 0.18;
+  var curPot = curTit.potContr || (curBillComp && curBillComp.potenciaContratadaP1) || 5.75;
+
+  if (custNombreInput) custNombreInput.value = (curTit.nombre && curTit.nombre !== 'Titular de la Instalación') ? curTit.nombre : (curBillComp && curBillComp.titular ? curBillComp.titular : (curTit.nombre || ''));
+  if (custNifInput) custNifInput.value = (curTit.nif && curTit.nif !== 'XXXXXXXXX') ? curTit.nif : (curBillComp && curBillComp.cifNif ? curBillComp.cifNif : (curTit.nif || ''));
+  if (custTelInput) custTelInput.value = curTit.tel || '';
+  if (custEmailInput) custEmailInput.value = curTit.email || '';
+  if (custDirInput) custDirInput.value = curTit.dir || (curBillComp && curBillComp.direccionSuministro ? curBillComp.direccionSuministro : (window.solarProjectConfig && window.solarProjectConfig.address ? window.solarProjectConfig.address : ''));
+  if (custMunInput) custMunInput.value = curTit.mun || (window.solarProjectConfig && window.solarProjectConfig.address ? window.solarProjectConfig.address.split(',')[0].trim() : 'Madrid');
+  if (custProvInput) custProvInput.value = curTit.prov || 'Madrid';
+  if (custCpInput) custCpInput.value = curTit.cp || '28001';
+  if (custCupsInput) custCupsInput.value = (curTit.cups && curTit.cups !== 'ES00210000XXXXXXXXXX') ? curTit.cups : (curBillComp && curBillComp.cups ? curBillComp.cups : (curTit.cups || ''));
+  if (custDistSelect && curTit.dist) custDistSelect.value = curTit.dist;
+  if (custConsumoInput) custConsumoInput.value = Math.round(initConsumo);
+  if (custPotContrInput) custPotContrInput.value = curPot.toFixed(2);
+  if (custPrecioKwhInput) custPrecioKwhInput.value = curPriceKwh.toFixed(3);
+
   if (subTitle) {
     subTitle.textContent = (typeof onConfirm === 'function')
       ? 'Verifica o ajusta los importes de cada partida antes de emitir la entrega final'
@@ -1316,6 +1475,15 @@ function wpOpenPricingReviewModal(onConfirm) {
       skipReview: false
     };
 
+    // Actualizar temporalmente consumo y parámetros en window.solarProjectConfig para métricas en vivo
+    var custConsumoVal = custConsumoInput ? parseFloat(custConsumoInput.value) : 0;
+    if (typeof window !== 'undefined') {
+      if (!window.solarProjectConfig) window.solarProjectConfig = {};
+      if (custConsumoVal > 0) {
+        window.solarProjectConfig.manualAnnualConsumptionKWh = custConsumoVal;
+      }
+    }
+
     var dEl = document.getElementById('pricing-preview-direct');
     var mEl = document.getElementById('pricing-preview-margin');
     var sEl = document.getElementById('pricing-preview-subtotal');
@@ -1327,11 +1495,31 @@ function wpOpenPricingReviewModal(onConfirm) {
     if (sEl) sEl.textContent = Math.round(subtotal).toLocaleString('es-ES') + ' €';
     if (iEl) iEl.textContent = Math.round(iva).toLocaleString('es-ES') + ' €';
     if (tEl) tEl.textContent = Math.round(capexBruto).toLocaleString('es-ES') + ' €';
+
+    // ── CALCULAR Y ACTUALIZAR TARJETAS KPI EN TIEMPO REAL ──
+    try {
+      if (typeof calculateFinancialModel === 'function') {
+        var m = calculateFinancialModel();
+        if (m) {
+          var ahorroEl = document.getElementById('pricing-metric-ahorro');
+          var paybackEl = document.getElementById('pricing-metric-payback');
+          var tirEl = document.getElementById('pricing-metric-tir');
+          var autoconsumoEl = document.getElementById('pricing-metric-autoconsumo');
+
+          if (ahorroEl) ahorroEl.textContent = Math.round(m.ahorroLuzAnio1 || 0).toLocaleString('es-ES') + ' €/año';
+          if (paybackEl) paybackEl.textContent = (m.paybackYears ? m.paybackYears.toFixed(1) : '—') + ' años';
+          if (tirEl) tirEl.textContent = (m.tir != null && isFinite(m.tir) ? m.tir.toFixed(1) + ' %' : (m.tirString || '—'));
+          if (autoconsumoEl) autoconsumoEl.textContent = Math.round(m.pctAutoconsumo || m.autarquiaPct || 0) + ' %';
+        }
+      }
+    } catch (eKpi) {
+      console.warn('[PricingModal] Error recalculando KPIs en vivo:', eKpi);
+    }
   }
 
   recalculateLive();
 
-  [pInput, estInput, invInput, batInput, cabInput, moInput, legInput, mgInput].forEach(function(inp) {
+  [pInput, estInput, invInput, batInput, cabInput, moInput, legInput, mgInput, custConsumoInput, custPotContrInput, custPrecioKwhInput].forEach(function(inp) {
     if (inp) inp.oninput = recalculateLive;
   });
 
@@ -1649,6 +1837,50 @@ function wpOpenPricingReviewModal(onConfirm) {
       setVal('cfg-pres-cab', cabPrice);
       setVal('cfg-pres-mo', moPrice);
       setVal('cfg-pres-leg', legPrice);
+
+      // ── PERSISTIR DATOS DEL CLIENTE Y FACTURACIÓN AL SSOT (DOM & STATE) ──
+      var cNom = custNombreInput ? custNombreInput.value.trim() : '';
+      var cNif = custNifInput ? custNifInput.value.trim() : '';
+      var cTel = custTelInput ? custTelInput.value.trim() : '';
+      var cEmail = custEmailInput ? custEmailInput.value.trim() : '';
+      var cDir = custDirInput ? custDirInput.value.trim() : '';
+      var cMun = custMunInput ? custMunInput.value.trim() : '';
+      var cProv = custProvInput ? custProvInput.value.trim() : '';
+      var cCp = custCpInput ? custCpInput.value.trim() : '';
+      var cCups = custCupsInput ? custCupsInput.value.trim() : '';
+      var cDist = custDistSelect ? custDistSelect.value : '';
+      var cConsumo = custConsumoInput ? (parseFloat(custConsumoInput.value) || 0) : 0;
+      var cPot = custPotContrInput ? (parseFloat(custPotContrInput.value) || 0) : 0;
+      var cPrecio = custPrecioKwhInput ? (parseFloat(custPrecioKwhInput.value) || 0) : 0;
+
+      if (cNom) setVal('doc-nombre', cNom);
+      if (cNif) setVal('doc-nif', cNif);
+      if (cTel) setVal('doc-tel', cTel);
+      if (cEmail) setVal('doc-email', cEmail);
+      if (cDir) setVal('doc-dir', cDir);
+      if (cMun) setVal('doc-mun', cMun);
+      if (cProv) setVal('doc-prov', cProv);
+      if (cCp) setVal('doc-cp', cCp);
+      if (cCups) setVal('doc-cups', cCups);
+      if (cDist) setVal('doc-dist', cDist);
+      if (cPot > 0) setVal('doc-potcontr', cPot.toFixed(2));
+      if (cConsumo > 0) setVal('cfg-pres-consumo-anual', Math.round(cConsumo));
+
+      if (typeof window !== 'undefined') {
+        if (!window.solarProjectConfig) window.solarProjectConfig = {};
+        if (cConsumo > 0) window.solarProjectConfig.manualAnnualConsumptionKWh = cConsumo;
+        if (cDir || cMun) {
+          window.solarProjectConfig.address = (cDir && cMun) ? (cDir + ', ' + cMun) : (cDir || cMun);
+        }
+        if (window.RA && window.RA.billAuditor && window.RA.billAuditor.comparison) {
+          if (cConsumo > 0) window.RA.billAuditor.comparison.consumoAnualKWh = cConsumo;
+          if (cPrecio > 0) window.RA.billAuditor.comparison.precioMedioKWh = cPrecio;
+          if (cCups) window.RA.billAuditor.comparison.cups = cCups;
+          if (cNom) window.RA.billAuditor.comparison.titular = cNom;
+          if (cNif) window.RA.billAuditor.comparison.cifNif = cNif;
+          if (cDir) window.RA.billAuditor.comparison.direccionSuministro = cDir;
+        }
+      }
 
       wpUpdateStep5PricingBadge();
       if (typeof updateBudgetUI === 'function') updateBudgetUI();
