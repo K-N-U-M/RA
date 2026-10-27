@@ -448,9 +448,43 @@ function step3UpdateHardwareSelection() {
   const elNmax = document.getElementById('step3-spec-nmax');
   const elNmin = document.getElementById('step3-spec-nmin');
   const elTot  = document.getElementById('step3-spec-totmax');
-  if (elNmax) elNmax.textContent = 'Máx. ' + window.solarProjectConfig.calculatedLimits.nMaxString + ' placas';
-  if (elNmin) elNmin.textContent = 'Mín. ' + window.solarProjectConfig.calculatedLimits.nMinString + ' placas';
-  if (elTot)  elTot.textContent  = window.solarProjectConfig.calculatedLimits.nMaxTotalModules + ' placas (' + ((window.solarProjectConfig.calculatedLimits.nMaxTotalModules * (mod.wp || 450)) / 1000).toFixed(1) + ' kWp)';
+
+  // Si hay un faldón activo en step4RoofScopeState, contextualizar el semáforo al faldón seleccionado
+  const activeRoofIdx = (typeof window.step4RoofScopeState !== 'undefined') ? window.step4RoofScopeState.activeScope : 'all';
+  let effMod = mod;
+  let effInv = inv;
+  let effPanelCount = null;
+
+  if (typeof activeRoofIdx === 'number' && typeof WP !== 'undefined' && Array.isArray(WP.polylines) && WP.polylines[activeRoofIdx]) {
+    const poly = WP.polylines[activeRoofIdx];
+    if (poly.moduleId) {
+      const spec = catalog.modules && catalog.modules.find(m => m.id === poly.moduleId);
+      if (spec) effMod = spec;
+    }
+    if (poly.roofInfo && Array.isArray(poly.roofInfo.panels)) {
+      effPanelCount = poly.roofInfo.panels.filter(x => !x.deleted).length;
+    }
+  }
+
+  // Recalcular límites térmicos bajo el módulo efectivo
+  let effNmax = window.solarProjectConfig.calculatedLimits.nMaxString;
+  let effNmin = window.solarProjectConfig.calculatedLimits.nMinString;
+  if (typeof calculateDynamicMPPTStringLimits === 'function' && effMod !== mod) {
+    const dLim = calculateDynamicMPPTStringLimits(effMod, effInv);
+    effNmax = dLim.Ns_max;
+    effNmin = dLim.Ns_min;
+  }
+
+  if (elNmax) elNmax.textContent = 'Máx. ' + effNmax + ' placas' + (typeof activeRoofIdx === 'number' ? ` (F${activeRoofIdx + 1})` : '');
+  if (elNmin) elNmin.textContent = 'Mín. ' + effNmin + ' placas' + (typeof activeRoofIdx === 'number' ? ` (F${activeRoofIdx + 1})` : '');
+  if (elTot) {
+    if (typeof activeRoofIdx === 'number' && effPanelCount !== null) {
+      const fKwp = ((effPanelCount * (effMod.wp || 450)) / 1000).toFixed(1);
+      elTot.textContent = `${effPanelCount} placas instaladas (${fKwp} kWp en F${activeRoofIdx + 1})`;
+    } else {
+      elTot.textContent = window.solarProjectConfig.calculatedLimits.nMaxTotalModules + ' placas (' + ((window.solarProjectConfig.calculatedLimits.nMaxTotalModules * (effMod.wp || 450)) / 1000).toFixed(1) + ' kWp)';
+    }
+  }
 
   // Verificación de Corriente Operativa Máxima Imp vs MPPT (Prevención de Clipping)
   // Se evalúa la corriente real que ingresa al canal MPPT más cargado (reparto entre MPPTs e inversores)
@@ -2124,6 +2158,11 @@ window.wpRenderStep4RoofScopeUI = wpRenderStep4RoofScopeUI;
 function wpSetStep4RoofScope(scope) {
   window.step4RoofScopeState.activeScope = scope;
   wpRenderStep4RoofScopeUI();
+
+  // Actualizar semáforo paramétrico para el faldón o global
+  if (typeof step3UpdateHardwareSelection === 'function') {
+    step3UpdateHardwareSelection();
+  }
 
   // Si se selecciona un faldón concreto, sincronizar cámara y selección 3D
   if (typeof scope === 'number') {
