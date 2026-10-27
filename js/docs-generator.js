@@ -419,6 +419,7 @@ function generateMemoria(skipPricingModal) {
   }
   const t = d.tit;
   const loc = (t.dir ? t.dir + ', ' : '') + (t.mun || '') + (t.prov ? ', ' + t.prov : '');
+  const _eqWar = (typeof resolveEquipmentWarranties === 'function') ? resolveEquipmentWarranties() : { warMod: '15', warPower: '25', warInv: '10', warMo: '5', warBat: '10', hasBat: false, isMicro: false };
 
   // [B6] El reparto mensual del PDF se toma de la SIMULACIÓN REAL si está disponible.
   const _simMonthly = (typeof raGetSimulatedMonthlyKwh === 'function') ? raGetSimulatedMonthlyKwh() : null;
@@ -801,11 +802,12 @@ function generatePliego() {
 
     '<h2>CAPÍTULO V — GARANTÍAS Y MANTENIMIENTO<\/h2>' +
     '<table><tr><th>Componente<\/th><th>Garantía mínima<\/th><\/tr>' +
-    '<tr><td>Módulos FV (producto)<\/td><td>12 años<\/td><\/tr>' +
-    '<tr><td>Módulos FV (potencia)<\/td><td>25 años (≥ 80 % Pnom)<\/td><\/tr>' +
-    '<tr><td>Inversor<\/td><td>10 años (extensible)<\/td><\/tr>' +
-    '<tr><td>Estructura soporte<\/td><td>10 años<\/td><\/tr>' +
-    '<tr><td>Mano de obra instalación<\/td><td>2 años (RD 7\/2021)<\/td><\/tr>' +
+    '<tr><td>Módulos FV (producto)<\/td><td>' + _eqWar.warMod + ' años oficial<\/td><\/tr>' +
+    '<tr><td>Módulos FV (potencia lineal)<\/td><td>' + _eqWar.warPower + ' años (≥ 80 % Pnom)<\/td><\/tr>' +
+    '<tr><td>Inversor & Conversión<\/td><td>' + _eqWar.warInv + ' años' + (_eqWar.isMicro ? ' (Microinversor oficial)' : ' (extensible)') + '<\/td><\/tr>' +
+    (_eqWar.hasBat ? ('<tr><td>Batería de Acumulación (LiFePO4)<\/td><td>' + _eqWar.warBat + ' años o 6.000 ciclos<\/td><\/tr>') : '') +
+    '<tr><td>Estructura soporte & Fijaciones<\/td><td>10 años inox A2<\/td><\/tr>' +
+    '<tr><td>Mano de obra instalación<\/td><td>' + _eqWar.warMo + ' años (cobertura instalador)<\/td><\/tr>' +
     '<\/table>' +
     '<p>Se recomienda revisión anual: limpieza de módulos, inspección visual de cables y conectores, comprobación de aprietes, verificación de protecciones y análisis de producción vs. estimado.<\/p>' +
 

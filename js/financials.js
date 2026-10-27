@@ -243,6 +243,74 @@ function resolveEquipmentNames() {
   return result;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// RESOLUCIÓN DE GARANTÍAS DE EQUIPOS (SSOT → Dinámicas según catálogo y tecnología)
+// ═══════════════════════════════════════════════════════════════════════════════
+function resolveEquipmentWarranties(eq) {
+  eq = eq || resolveEquipmentNames();
+  var cat = (typeof equipmentCatalog !== 'undefined' && equipmentCatalog) ? equipmentCatalog : {};
+  var cfg = (typeof window !== 'undefined' && window.solarProjectConfig) ? window.solarProjectConfig : {};
+
+  // Valores predeterminados por normativa española (RD 7/2021) y estándares Tier-1
+  var result = {
+    warPower: '25',    // Garantía lineal de rendimiento módulos (25 años estándar)
+    warMod: '15',      // Garantía de producto módulos (12-15 años estándar, 25-30 para All-Black/TOPCon/ABC)
+    warInv: '10',      // Garantía de inversor (10 años central de red / híbrido, 25 años microinversores)
+    warMo: '5',        // Garantía de montaje e instalación (5 años)
+    warBat: '10',      // Garantía de batería (10 años / 6.000 ciclos LiFePO4)
+    isMicro: (eq && eq.hasMicro) || (cfg.selectedTopology === 'microinverter'),
+    hasBat: Boolean(eq && eq.hasBat)
+  };
+
+  // 1. Dinamismo en Módulos
+  var modId = cfg.selectedModuleId || '';
+  var modObj = (cat.modules && Array.isArray(cat.modules)) ? cat.modules.find(function(m) { return m.id === modId; }) : null;
+  if (modObj) {
+    if (modObj.warProd) result.warMod = String(modObj.warProd);
+    else if (modObj.tec && (modObj.tec.includes('ABC') || modObj.tec.includes('TOPCon') || modObj.tec.includes('Dual-Glass'))) {
+      result.warMod = '25';
+    } else {
+      result.warMod = '15';
+    }
+    if (modObj.warPwr) result.warPower = String(modObj.warPwr);
+    else result.warPower = (modObj.tec && modObj.tec.includes('Dual-Glass')) ? '30' : '25';
+  }
+
+  // 2. Dinamismo en Inversores: Microinversores (ej. Enphase IQ8) ofrecen 25 años oficial
+  if (result.isMicro) {
+    result.warInv = '25';
+  } else {
+    var invId = cfg.selectedInverterId || '';
+    var invObj = (cat.inverters && Array.isArray(cat.inverters)) ? cat.inverters.find(function(i) { return i.id === invId; }) : null;
+    if (invObj && invObj.warYears) {
+      result.warInv = String(invObj.warYears);
+    } else if (invObj && invObj.brand && /fronius|solaredge/i.test(invObj.brand)) {
+      result.warInv = '10';
+    } else {
+      result.warInv = '10';
+    }
+  }
+
+  // 3. Respetar override manual si el usuario definió un branding de empresa con garantías específicas
+  try {
+    var b = {};
+    if (window.RACompanyBranding && typeof window.RACompanyBranding.getBranding === 'function') {
+      b = window.RACompanyBranding.getBranding();
+    } else {
+      b = JSON.parse(localStorage.getItem('ra_company_branding') || '{}');
+    }
+    if (b.warPower && b.warPower !== '25') result.warPower = String(b.warPower);
+    if (b.warMod && b.warMod !== '15') result.warMod = String(b.warMod);
+    if (b.warInv && b.warInv !== '10' && !result.isMicro) result.warInv = String(b.warInv);
+    if (b.warMo && b.warMo !== '5') result.warMo = String(b.warMo);
+  } catch(e) {}
+
+  return result;
+}
+if (typeof window !== 'undefined') {
+  window.resolveEquipmentWarranties = resolveEquipmentWarranties;
+}
+
 function generateCommercialSummary(d, m, equipment) {
   var kwp = m.kwp || 0;
   var numPanels = m.numPanels || 0;
@@ -1121,6 +1189,8 @@ function wpOpenPricingReviewModal(onConfirm) {
   if (subtextBat && eq) {
     subtextBat.textContent = eq.hasBat ? eq.batName : 'Sin sistema de acumulación electroquímica';
   }
+  // Pre-cargar valores dinámicos calculados desde la ingeniería del proyecto actual
+  var designCosts = RAPricing.computeDesignCosts(numPanels);
   var subtextEst = document.getElementById('pricing-subtext-est');
   if (subtextEst && designCosts) {
     if (designCosts.isPergola) {
@@ -1129,9 +1199,6 @@ function wpOpenPricingReviewModal(onConfirm) {
       subtextEst.textContent = 'Perfilería continua de aluminio y fijaciones A2';
     }
   }
-
-  // Pre-cargar valores dinámicos calculados desde la ingeniería del proyecto actual
-  var designCosts = RAPricing.computeDesignCosts(numPanels);
   var hasActiveSessionOverride = Boolean(RAPricing.currentSessionPricing && RAPricing.currentSessionPricing.projectFingerprint === RAPricing.getProjectFingerprint(numPanels));
   var initialPanelPrice = (hasActiveSessionOverride && pricing.panelPrice > 0) ? pricing.panelPrice : designCosts.panelPrice;
   var initialEstPrice = (hasActiveSessionOverride && typeof pricing.estPrice === 'number' && pricing.estPrice >= 0) ? pricing.estPrice : designCosts.estPrice;
@@ -1706,10 +1773,12 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   }
   const theme        = themeOverride || branding.theme || 'emerald';
   const layoutStyle  = branding.layoutStyle || 'editorial'; // editorial | infographic | technical
-  const warPower     = branding.warPower || '25';
-  const warMod       = branding.warMod   || '15';
-  const warInv       = branding.warInv   || '10';
-  const warMo        = branding.warMo    || '5';
+  const eqWarranties = (typeof resolveEquipmentWarranties === 'function') ? resolveEquipmentWarranties() : {};
+  const warPower     = eqWarranties.warPower || branding.warPower || '25';
+  const warMod       = eqWarranties.warMod   || branding.warMod   || '15';
+  const warInv       = eqWarranties.warInv   || branding.warInv   || '10';
+  const warMo        = eqWarranties.warMo    || branding.warMo    || '5';
+  const warBat       = eqWarranties.warBat   || '10';
 
   // ── Paleta de color por tema ──────────────────────────────────────────────
   const THEMES = {
@@ -2668,9 +2737,10 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       ${_infografias.cascadaFiscal}
       <h2>Garantías oficiales incluidas</h2>
       <table>
-        <tr><th>Componente</th><th>Garantía de Producto</th><th>Garantía de Producción</th><th>Garantía de Instalación</th></tr>
-        <tr><td>Módulos Fotovoltaicos</td><td>${warPower} años</td><td>${warMod} años (≥84.8%)</td><td rowspan="3" style="vertical-align:middle;text-align:center;">${warMo} años<br>mano de obra</td></tr>
-        <tr><td>Inversor & Monitorización</td><td>${warInv} años</td><td>—</td></tr>
+        <tr><th>Componente</th><th>Garantía de Producto</th><th>Garantía de Rendimiento</th><th>Garantía de Instalación</th></tr>
+        <tr><td>Módulos Fotovoltaicos</td><td>${warMod} años</td><td>${warPower} años (≥84.8%)</td><td rowspan="${eqWarranties.hasBat ? '4' : '3'}" style="vertical-align:middle;text-align:center;">${warMo} años<br>mano de obra</td></tr>
+        <tr><td>Inversor & Monitorización</td><td>${warInv} años${eqWarranties.isMicro ? ' (Microinversor oficial)' : ''}</td><td>—</td></tr>
+        ${eqWarranties.hasBat ? '<tr><td>Batería de Litio LFP</td><td>' + warBat + ' años (o 6.000 ciclos)</td><td>—</td></tr>' : ''}
         <tr><td>Estructura & Fijaciones</td><td>10 años inox A2</td><td>—</td></tr>
       </table>
 
@@ -3100,6 +3170,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   let cab = designCosts ? designCosts.cabPrice : _input('cfg-pres-cab', 350);
   let mo  = designCosts ? designCosts.moPrice : _input('cfg-pres-mo', 1400);
   let leg = designCosts ? designCosts.legPrice : _input('cfg-pres-leg', 500);
+  let windCost = (designCosts && typeof designCosts.windPrice === 'number') ? designCosts.windPrice : 0;
 
   // [SSOT] Si el usuario ha ajustado precios manualmente para ESTE diseño (misma huella), aplicar sus ajustes:
   if (hasSessionOverride) {
@@ -3118,7 +3189,6 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
 
   const mlpeCost = designCosts ? (designCosts.mlpePrice || 0) : 0;
   // directCost suma exactamente las 7 partidas canónicas (inv ya incluye mlpePrice cuando aplica)
-  const windCost = (designCosts && typeof designCosts.windPrice === 'number') ? designCosts.windPrice : 0;
   const directCost = Math.round(panCost + est + inv + bat + cab + mo + leg + windCost);
   const marginPct = (pricing && typeof pricing.marginPct === 'number') ? pricing.marginPct : 20;
   const marginEur = directCost * (marginPct / 100.0);

@@ -2767,6 +2767,7 @@ window.RA_App = window.RA_App || {};
               <option value="coplanar_teja">Coplanar Teja (45 €/mód)</option>
               <option value="sandwich">Chapa Sándwich (35 €/mód)</option>
               <option value="triangulos">Triángulo Lastrado 15°/30° (65 €/mód)</option>
+              <option value="pergola">Pérgola Solar Elevada (BOM)</option>
               <option value="personalizada">Personalizada (€)</option>
             </select>
           </div>
@@ -2859,15 +2860,19 @@ window.RA_App = window.RA_App || {};
             </select>
           </div>
 
-          <div class="stat-grid-2" style="margin-top:6px;">
-            <div class="stat-pill" style="padding:8px 10px;">
-              <span class="stat-pill-label" style="font-size: 10px;">Total Ahorro Fiscal</span>
-              <span class="stat-pill-value emerald" id="modal-tax-total-savings" style="font-size:14px;">0 €</span>
+          <div class="stat-grid-2" style="margin-top:6px;gap:6px;">
+            <div class="stat-pill" style="padding:6px 8px;">
+              <span class="stat-pill-label" style="font-size: 9.5px;" title="Deducción IRPF estatal/autonómica + bonificación del IBI municipal">Bonif. EPC (IBI + IRPF)</span>
+              <span class="stat-pill-value emerald" id="modal-tax-total-savings" style="font-size:13px;">0 €</span>
             </div>
-            <div class="stat-pill" style="padding:8px 10px;">
-              <span class="stat-pill-label" style="font-size: 10px;">Inversión Neta Final</span>
-              <span class="stat-pill-value amber" id="modal-tax-net-investment" style="font-size:14px;">0 €</span>
+            <div class="stat-pill" style="padding:6px 8px;">
+              <span class="stat-pill-label" style="font-size: 9.5px;" title="Bonificación sobre el impuesto de obras municipal (ICIO)">Ahorro Licencia ICIO</span>
+              <span class="stat-pill-value sky" id="modal-tax-icio-savings" style="font-size:13px;color:#38bdf8;">0 €</span>
             </div>
+          </div>
+          <div style="background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.3);border-radius:6px;padding:8px 10px;display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
+            <span style="font-size:10px;font-weight:800;color:var(--emerald-400);text-transform:uppercase;">INVERSIÓN NETA TRAS AYUDAS:</span>
+            <b id="modal-tax-net-investment" style="font-family:var(--font-mono);font-size:14px;color:#fff;font-weight:900;">0 €</b>
           </div>
         </div>
 
@@ -2964,6 +2969,16 @@ window.RA_App = window.RA_App || {};
           <div class="field-row" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
             <span style="font-size:10.5px;color:var(--text-slate-300);">Tipo de Interés (TIN %):</span>
             <input type="number" id="modal-fin-tin-pct" step="0.25" min="0" max="20" class="field-input" style="width:90px;font-size:11px;text-align:right;" oninput="syncModalInputToBudget('fin-tin-pct', this.value)">
+          </div>
+
+          <div class="field-row" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;background:rgba(56,189,248,0.08);padding:6px 8px;border-radius:6px;border:1px solid rgba(56,189,248,0.2);">
+            <div style="display:flex;flex-direction:column;">
+              <span style="font-size:10.5px;font-weight:700;color:#38bdf8;">Batería Virtual / Monedero Solar:</span>
+              <span style="font-size:9px;color:var(--text-slate-400);">Compensar excedentes al 100% sin tope de término de energía</span>
+            </div>
+            <label style="display:flex;align-items:center;cursor:pointer;">
+              <input type="checkbox" id="modal-cfg-virtual-bat" onchange="toggleVirtualBatterySync(this.checked)" style="width:16px;height:16px;accent-color:#38bdf8;cursor:pointer;">
+            </label>
           </div>
 
           <div style="margin-top:10px;padding:12px;background:rgba(0,0,0,0.3);border-radius:8px;border:1px solid rgba(16,185,129,0.2);display:flex;flex-direction:column;gap:6px;">
@@ -3190,29 +3205,58 @@ function openCostBreakdownModal() {
   const modal = document.getElementById('ra-cost-breakdown-modal');
   if (!modal) return;
   
-  // Sincronizar valores de formulario desde pane-presupuesto
-  const syncFields = [
-    'cfg-tipo-est', 'cfg-pres-est', 'cfg-pres-inv', 'cfg-pres-bat-opt',
-    'cfg-pres-bat', 'cfg-pres-cab', 'cfg-pres-mo', 'cfg-pres-leg',
-    'tax-ibi-cuota', 'tax-ibi-opt', 'tax-irpf-opt', 'tax-icio-opt',
-    'fin-plazo-meses', 'fin-tin-pct'
-  ];
-  syncFields.forEach(id => {
-    const src = document.getElementById(id);
-    const dst = document.getElementById('modal-' + id);
-    if (src && dst) dst.value = src.value;
-  });
-
-  // Sincronizar selección de batería oficial de solarProjectConfig
+  // Sincronizar estado SSOT desde RAPricing y calculateFinancialModel
   const _cat = (typeof window !== 'undefined' && window.equipmentCatalog) ? window.equipmentCatalog : null;
   const _cfg = (typeof window !== 'undefined' && window.solarProjectConfig) ? window.solarProjectConfig : null;
+  const d = (typeof getProjectCalcs === 'function') ? getProjectCalcs() : { numPanels: 1 };
+  const numPanels = (d && d.numPanels) ? d.numPanels : 1;
+  const designCosts = (typeof RAPricing !== 'undefined' && typeof RAPricing.computeDesignCosts === 'function')
+    ? RAPricing.computeDesignCosts(numPanels)
+    : null;
+  const pricing = (typeof RAPricing !== 'undefined' && typeof RAPricing.getEffectivePricing === 'function')
+    ? RAPricing.getEffectivePricing()
+    : null;
+
+  // Sincronizar inputs de costes desde RAPricing / designCosts
+  const setInp = (id, val) => { const el = document.getElementById(id); if (el && val != null && !isNaN(val)) el.value = Math.round(val); };
+  
+  if (designCosts && designCosts.isPergola) {
+    const tipoEst = document.getElementById('modal-cfg-tipo-est');
+    if (tipoEst) tipoEst.value = 'pergola';
+  }
+
+  const estVal = (pricing && typeof pricing.estPrice === 'number' && pricing.estPrice >= 0)
+    ? pricing.estPrice
+    : (designCosts ? designCosts.estPrice : null);
+  setInp('modal-cfg-pres-est', estVal);
+
+  const invVal = (pricing && typeof pricing.invPrice === 'number' && pricing.invPrice >= 0)
+    ? pricing.invPrice
+    : (designCosts ? designCosts.invPrice : null);
+  setInp('modal-cfg-pres-inv', invVal);
+
+  const cabVal = (pricing && typeof pricing.cabPrice === 'number' && pricing.cabPrice >= 0)
+    ? pricing.cabPrice
+    : (designCosts ? designCosts.cabPrice : null);
+  setInp('modal-cfg-pres-cab', cabVal);
+
+  const moVal = (pricing && typeof pricing.moPrice === 'number' && pricing.moPrice >= 0)
+    ? pricing.moPrice
+    : (designCosts ? designCosts.moPrice : null);
+  setInp('modal-cfg-pres-mo', moVal);
+
+  const legVal = (pricing && typeof pricing.legPrice === 'number' && pricing.legPrice >= 0)
+    ? pricing.legPrice
+    : (designCosts ? designCosts.legPrice : null);
+  setInp('modal-cfg-pres-leg', legVal);
+
+  // Sincronizar selección de batería oficial de solarProjectConfig / catálogo
   if (_cat && _cfg && _cfg.selectedBatteryId && _cfg.selectedBatteryId !== 'bat_none') {
     const _bSpec = (_cat.batteries || []).find(b => b.id === _cfg.selectedBatteryId);
     if (_bSpec && (_bSpec.kwh > 0 || _bSpec.price > 0)) {
       const _bCnt = Math.max(1, (_cfg.autoSizing && _cfg.autoSizing.batteries && _cfg.autoSizing.batteries.count) || 1);
       const _bCost = Math.round(_bSpec.price * _bCnt);
-      const batCostInp = document.getElementById('modal-cfg-pres-bat');
-      if (batCostInp) batCostInp.value = _bCost;
+      setInp('modal-cfg-pres-bat', _bCost);
       const batOptSelect = document.getElementById('modal-cfg-pres-bat-opt');
       if (batOptSelect) {
         if (_bSpec.kwh <= 6) batOptSelect.value = '5';
@@ -3220,6 +3264,8 @@ function openCostBreakdownModal() {
         else batOptSelect.value = '15';
       }
     }
+  } else if (pricing && typeof pricing.batPrice === 'number') {
+    setInp('modal-cfg-pres-bat', pricing.batPrice);
   }
 
   // Visibilidad campo coste batería
@@ -3227,6 +3273,12 @@ function openCostBreakdownModal() {
   const batOpt = document.getElementById('modal-cfg-pres-bat-opt');
   if (batCostRow && batOpt) {
     batCostRow.style.display = (batOpt.value !== '0') ? 'flex' : 'none';
+  }
+
+  // Sincronizar estado de Batería Virtual
+  const vBatCheck = document.getElementById('modal-cfg-virtual-bat');
+  if (vBatCheck) {
+    vBatCheck.checked = !!(_cfg && _cfg.hasVirtualBattery);
   }
 
   // Actualizar métricas
@@ -3244,6 +3296,27 @@ function closeCostBreakdownModal() {
 }
 
 function syncModalInputToBudget(targetId, val) {
+  // Sincronización bidireccional reactiva con RAPricing.currentSessionPricing
+  if (typeof RAPricing !== 'undefined') {
+    const d = (typeof getProjectCalcs === 'function') ? getProjectCalcs() : { numPanels: 1 };
+    const numPanels = (d && d.numPanels) ? d.numPanels : 1;
+    const currentFp = RAPricing.getProjectFingerprint(numPanels);
+    const prev = RAPricing.getEffectivePricing();
+    
+    RAPricing.currentSessionPricing = Object.assign({}, prev, {
+      projectFingerprint: currentFp,
+      panelPrice: prev.panelPrice || 125,
+      estPrice: parseFloat((document.getElementById('modal-cfg-pres-est') || {}).value) || prev.estPrice,
+      invPrice: parseFloat((document.getElementById('modal-cfg-pres-inv') || {}).value) || prev.invPrice,
+      batPrice: parseFloat((document.getElementById('modal-cfg-pres-bat') || {}).value) || prev.batPrice,
+      cabPrice: parseFloat((document.getElementById('modal-cfg-pres-cab') || {}).value) || prev.cabPrice,
+      moPrice: parseFloat((document.getElementById('modal-cfg-pres-mo') || {}).value) || prev.moPrice,
+      legPrice: parseFloat((document.getElementById('modal-cfg-pres-leg') || {}).value) || prev.legPrice,
+      marginPct: prev.marginPct || 20,
+      skipReview: false
+    });
+  }
+
   const target = document.getElementById(targetId);
   if (target) {
     target.value = val;
@@ -3253,6 +3326,22 @@ function syncModalInputToBudget(targetId, val) {
   if (typeof updateBudgetUI === 'function') updateBudgetUI();
   syncCostModalMetrics();
 }
+
+function toggleVirtualBatterySync(enabled) {
+  if (typeof window !== 'undefined') {
+    window.solarProjectConfig = window.solarProjectConfig || {};
+    window.solarProjectConfig.hasVirtualBattery = !!enabled;
+    try {
+      localStorage.setItem('ra_has_virtual_battery', enabled ? 'true' : 'false');
+    } catch(e) {}
+  }
+  if (typeof updateBudgetUI === 'function') updateBudgetUI();
+  syncCostModalMetrics();
+  if (typeof showToast === 'function') {
+    showToast(enabled ? 'BATERÍA VIRTUAL ACTIVADA' : 'BATERÍA VIRTUAL DESACTIVADA', enabled ? 'Excedentes compensados al 100% en monedero solar.' : 'Compensación estándar regulada RD 244/2019.', 'info', 2500);
+  }
+}
+window.toggleVirtualBatterySync = toggleVirtualBatterySync;
 
 function raRenderCommercialAddonsUI() {
   if (typeof RAPricing === 'undefined' || typeof RAPricing.getCommercialConfig !== 'function') return;
@@ -3330,6 +3419,7 @@ function syncCostModalMetrics() {
   set('modal-budget-paneles', Math.round(m.panCost).toLocaleString('es-ES') + ' €');
   set('modal-budget-total', Math.round(m.capexBruto).toLocaleString('es-ES') + ' €');
   set('modal-tax-total-savings', Math.round(m.totalAhorroFiscal).toLocaleString('es-ES') + ' €');
+  set('modal-tax-icio-savings', Math.round(m.ahorroICIO || 0).toLocaleString('es-ES') + ' €');
   set('modal-tax-net-investment', Math.round(m.capexNeto).toLocaleString('es-ES') + ' €');
   set('modal-fin-annual-save', Math.round(m.ahorroLuzAnio1).toLocaleString('es-ES') + ' €/año');
   set('modal-fin-payback', (m.paybackYears != null && isFinite(m.paybackYears)) ? m.paybackYears.toFixed(1) + ' años' : '—');
