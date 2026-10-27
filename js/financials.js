@@ -2870,7 +2870,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         <button class="doc-btn" style="background:#8b5cf6;color:#fff;" onclick="capture3DToProposal()" title="Actualizar fotos con captura 3D en vivo del proyecto">📸 CAPTURAR VISTA 3D</button>
         <button class="doc-btn doc-btn-edit" id="btn-prop-edit" onclick="togglePropEdit()">✏️ EDITAR</button>
         <button class="doc-btn doc-btn-print" onclick="window.print()">🖨 IMPRIMIR / PDF</button>
-        <button class="doc-btn doc-btn-word" onclick="exportPropWord()">📝 WORD (.DOC)</button>
+        <button class="doc-btn doc-btn-word" id="btn-export-docx" onclick="exportPropDocx()" title="Descargar documento Word (.docx) con maquetación e imágenes completas">📝 WORD (.DOCX)</button>
         <button class="doc-btn doc-btn-html" onclick="exportPropHtml()">🌐 HTML</button>
         <button class="doc-btn doc-btn-close" onclick="window.close()">✕</button>
       </div>
@@ -3846,15 +3846,257 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
           btn.style.background = '#10b981';
         }
       }
+      function _localBuildDocxBlob(htmlContent, options) {
+        options = options || {};
+        const isLandscape = options.orientation === 'landscape';
+        const widthDxa = isLandscape ? 16838 : 11906;
+        const heightDxa = isLandscape ? 11906 : 16838;
+
+        const images = [];
+        let imgIdx = 0;
+        const processedHtml = htmlContent.replace(/src=["'](data:image\/([a-zA-Z0-9\+\-]+);base64,([A-Za-z0-9+/=\r\n]+))["']/gi, function(match, fullDataUrl, ext, b64) {
+          imgIdx++;
+          const cleanExt = (ext === 'jpeg' || ext === 'jpg') ? 'jpg' : ((ext === 'svg+xml') ? 'svg' : ext);
+          const fName = 'img_' + imgIdx + '.' + cleanExt;
+          images.push({
+            name: fName,
+            contentType: 'image/' + ext,
+            base64: b64.replace(/\s+/g, '')
+          });
+          return 'src="' + fName + '"';
+        });
+
+        const boundary = '----=_Part_RA_DOCX_' + Date.now();
+        let mhtml = 'MIME-Version: 1.0\r\n' +
+          'Content-Type: multipart/related; boundary="' + boundary + '"; type="text/html"\r\n\r\n' +
+          '--' + boundary + '\r\n' +
+          'Content-Type: text/html; charset="utf-8"\r\n' +
+          'Content-Transfer-Encoding: quoted-printable\r\n' +
+          'Content-Location: document.html\r\n\r\n' +
+          '<!DOCTYPE html>\r\n<html><head><meta charset="utf-8"><title>' + (options.title || 'Propuesta Comercial') + '</title>\r\n' +
+          '<style>\r\n' +
+          '@page Section1 { size: ' + (isLandscape ? '297mm 210mm' : '210mm 297mm') + '; margin: 12mm 14mm 14mm 12mm; mso-page-orientation: ' + (isLandscape ? 'landscape' : 'portrait') + '; }\r\n' +
+          'div.Section1 { page: Section1; font-family: Segoe UI, Aptos, Arial, sans-serif; }\r\n' +
+          '.page-sheet { page-break-after: always; break-after: page; mso-break-type: section-break; width: 100% !important; margin: 0 0 25pt 0 !important; box-shadow: none !important; border-radius: 0 !important; }\r\n' +
+          'table { border-collapse: collapse; width: 100%; mso-table-lspace: 0pt; mso-table-rspace: 0pt; margin: 8pt 0; }\r\n' +
+          'td, th { vertical-align: top; font-family: Segoe UI, Aptos, Arial, sans-serif; }\r\n' +
+          'img { max-width: 100%; height: auto; }\r\n' +
+          (options.styles || '') + '\r\n' +
+          '</style></head><body><div class="Section1">\r\n' +
+          processedHtml + '\r\n' +
+          '</div></body></html>\r\n\r\n';
+
+        for (let ii = 0; ii < images.length; ii++) {
+          const img = images[ii];
+          mhtml += '--' + boundary + '\r\n' +
+            'Content-Type: ' + img.contentType + '\r\n' +
+            'Content-Transfer-Encoding: base64\r\n' +
+            'Content-Location: ' + img.name + '\r\n' +
+            'Content-ID: <' + img.name + '>\r\n\r\n' +
+            img.base64.replace(/(.{76})/g, '$1\r\n') + '\r\n\r\n';
+        }
+        mhtml += '--' + boundary + '--\r\n';
+
+        const contentTypesXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n' +
+          '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">\r\n' +
+          '  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>\r\n' +
+          '  <Default Extension="xml" ContentType="application/xml"/>\r\n' +
+          '  <Default Extension="mht" ContentType="message/rfc822"/>\r\n' +
+          '  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>\r\n' +
+          '</Types>';
+
+        const pkgRelsXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n' +
+          '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">\r\n' +
+          '  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>\r\n' +
+          '</Relationships>';
+
+        const docRelsXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n' +
+          '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">\r\n' +
+          '  <Relationship Id="htmlChunk" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/aFChunk" Target="chunk.mht"/>\r\n' +
+          '</Relationships>';
+
+        const documentXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n' +
+          '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"\r\n' +
+          '            xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">\r\n' +
+          '  <w:body>\r\n' +
+          '    <w:altChunk r:id="htmlChunk"/>\r\n' +
+          '    <w:sectPr>\r\n' +
+          '      <w:pgSz w:w="' + widthDxa + '" w:h="' + heightDxa + '"' + (isLandscape ? ' w:orient="landscape"' : '') + '/>\r\n' +
+          '      <w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134"/>\r\n' +
+          '    </w:sectPr>\r\n' +
+          '  </w:body>\r\n' +
+          '</w:document>';
+
+        const files = [
+          { name: '[Content_Types].xml', data: contentTypesXml },
+          { name: '_rels/.rels', data: pkgRelsXml },
+          { name: 'word/_rels/document.xml.rels', data: docRelsXml },
+          { name: 'word/document.xml', data: documentXml },
+          { name: 'word/chunk.mht', data: mhtml }
+        ];
+
+        // Empaquetador ZIP nativo
+        const fileEntries = [];
+        let offset = 0;
+        function strToBytes(str) { return new TextEncoder().encode(str); }
+        const crcTable = new Uint32Array(256);
+        for (let i = 0; i < 256; i++) {
+          let c = i;
+          for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+          crcTable[i] = c;
+        }
+        function crc32(buf) {
+          let crc = ~0;
+          for (let i = 0; i < buf.length; i++) crc = (crc >>> 8) ^ crcTable[(crc ^ buf[i]) & 0xFF];
+          return (~crc) >>> 0;
+        }
+        const parts = [];
+        for (let fi = 0; fi < files.length; fi++) {
+          const f = files[fi];
+          const data = (typeof f.data === 'string') ? strToBytes(f.data) : f.data;
+          const nameBytes = strToBytes(f.name);
+          const crc = crc32(data);
+          const size = data.length;
+          const h = new Uint8Array(30 + nameBytes.length);
+          const dv = new DataView(h.buffer);
+          dv.setUint32(0, 0x04034b50, true);
+          dv.setUint16(4, 20, true);
+          dv.setUint16(6, 0x0800, true);
+          dv.setUint16(8, 0, true);
+          dv.setUint16(10, 0, true);
+          dv.setUint16(12, 0, true);
+          dv.setUint32(14, crc, true);
+          dv.setUint32(18, size, true);
+          dv.setUint32(22, size, true);
+          dv.setUint16(26, nameBytes.length, true);
+          dv.setUint16(28, 0, true);
+          h.set(nameBytes, 30);
+          parts.push(h);
+          parts.push(data);
+          fileEntries.push({ nameBytes: nameBytes, crc: crc, size: size, offset: offset });
+          offset += h.length + data.length;
+        }
+        const cdStart = offset;
+        let cdSize = 0;
+        for (let ei = 0; ei < fileEntries.length; ei++) {
+          const entry = fileEntries[ei];
+          const cd = new Uint8Array(46 + entry.nameBytes.length);
+          const dv = new DataView(cd.buffer);
+          dv.setUint32(0, 0x02014b50, true);
+          dv.setUint16(4, 20, true);
+          dv.setUint16(6, 20, true);
+          dv.setUint16(8, 0x0800, true);
+          dv.setUint16(10, 0, true);
+          dv.setUint16(12, 0, true);
+          dv.setUint16(14, 0, true);
+          dv.setUint32(16, entry.crc, true);
+          dv.setUint32(20, entry.size, true);
+          dv.setUint32(24, entry.size, true);
+          dv.setUint16(28, entry.nameBytes.length, true);
+          dv.setUint16(30, 0, true);
+          dv.setUint16(32, 0, true);
+          dv.setUint16(34, 0, true);
+          dv.setUint16(36, 0, true);
+          dv.setUint32(38, 0, true);
+          dv.setUint32(42, entry.offset, true);
+          cd.set(entry.nameBytes, 46);
+          parts.push(cd);
+          cdSize += cd.length;
+        }
+        const eocd = new Uint8Array(22);
+        const dvE = new DataView(eocd.buffer);
+        dvE.setUint32(0, 0x06054b50, true);
+        dvE.setUint16(4, 0, true);
+        dvE.setUint16(6, 0, true);
+        dvE.setUint16(8, fileEntries.length, true);
+        dvE.setUint16(10, fileEntries.length, true);
+        dvE.setUint32(12, cdSize, true);
+        dvE.setUint32(16, cdStart, true);
+        dvE.setUint16(20, 0, true);
+        parts.push(eocd);
+
+        let totLen = 0;
+        for (let pi = 0; pi < parts.length; pi++) totLen += parts[pi].length;
+        const out = new Uint8Array(totLen);
+        let pPos = 0;
+        for (let pi = 0; pi < parts.length; pi++) {
+          out.set(parts[pi], pPos);
+          pPos += parts[pi].length;
+        }
+        return new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+      }
+
+      function exportPropDocx() {
+        const btnWord = document.getElementById('btn-export-docx');
+        const origText = btnWord ? btnWord.innerHTML : '';
+        if (btnWord) { btnWord.innerHTML = '⏳ GENERANDO DOCX...'; btnWord.disabled = true; }
+
+        try {
+          const sheets = document.querySelectorAll('.page-sheet');
+          if (!sheets || sheets.length === 0) throw new Error('No se encontraron hojas para exportar');
+
+          const container = document.createElement('div');
+          sheets.forEach(s => {
+            const cloneSheet = s.cloneNode(true);
+            cloneSheet.querySelectorAll('.ra-edit-del-btn').forEach(b => b.remove());
+            cloneSheet.querySelectorAll('[data-editable-box]').forEach(el => {
+              el.removeAttribute('draggable');
+              el.removeAttribute('data-editable-box');
+            });
+            cloneSheet.removeAttribute('contenteditable');
+            container.appendChild(cloneSheet);
+          });
+
+          // Convertir cualquier <svg> a <img> base64 para compatibilidad plena con Microsoft Word
+          const svgs = Array.from(container.querySelectorAll('svg'));
+          for (let i = 0; i < svgs.length; i++) {
+            const svgEl = svgs[i];
+            try {
+              const svgData = new XMLSerializer().serializeToString(svgEl);
+              const svgB64 = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+              const imgEl = document.createElement('img');
+              imgEl.src = svgB64;
+              imgEl.style.cssText = svgEl.style.cssText || 'display:block;max-width:100%;';
+              if (svgEl.getAttribute('width')) imgEl.setAttribute('width', svgEl.getAttribute('width'));
+              if (svgEl.getAttribute('height')) imgEl.setAttribute('height', svgEl.getAttribute('height'));
+              svgEl.parentNode.replaceChild(imgEl, svgEl);
+            } catch(eSvg) {}
+          }
+
+          const stylesEl = document.querySelector('style');
+          const styles = stylesEl ? stylesEl.innerHTML : '';
+
+          let docxBlob = null;
+          if (window.opener && window.opener.RADocxExporter && typeof window.opener.RADocxExporter.buildDocxBlobFromHtml === 'function') {
+            docxBlob = window.opener.RADocxExporter.buildDocxBlobFromHtml(container.innerHTML, {
+              orientation: 'portrait',
+              styles: styles,
+              title: document.title || 'Propuesta Comercial'
+            });
+          } else {
+            docxBlob = _localBuildDocxBlob(container.innerHTML, {
+              orientation: 'portrait',
+              styles: styles,
+              title: document.title || 'Propuesta Comercial'
+            });
+          }
+
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(docxBlob);
+          a.download = '${d.refNum}_Propuesta_Comercial.docx';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(a.href), 30000);
+        } catch(errDocx) {
+          console.error('Error exportando a DOCX:', errDocx);
+          alert('No se pudo generar el archivo DOCX: ' + (errDocx.message || errDocx));
+        } finally {
+          if (btnWord) { btnWord.innerHTML = origText || '📝 WORD (.DOCX)'; btnWord.disabled = false; }
+        }
+      }
       function exportPropWord() {
-        let content = '';
-        document.querySelectorAll('.page-sheet').forEach(s => content += s.outerHTML + '<br><br>');
-        const styles = document.querySelector('style').innerHTML;
-        const header = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>' + document.title + '</title><style>' + styles + '</style></head><body>';
-        const footer = '</body></html>';
-        const blob = new Blob(['\ufeff' + header + content + footer], { type: 'application/msword;charset=utf-8' });
-        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = '${d.refNum}_Propuesta_Comercial.doc';
-        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        return exportPropDocx();
       }
       function exportPropHtml() {
         const clone = document.documentElement.cloneNode(true);
@@ -4532,6 +4774,8 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   }
   if (typeof togglePropEdit !== 'undefined')
     window.togglePropEdit = togglePropEdit;
+  if (typeof exportPropDocx !== 'undefined')
+    window.exportPropDocx = exportPropDocx;
   if (typeof exportPropWord !== 'undefined')
     window.exportPropWord = exportPropWord;
   if (typeof exportPropHtml !== 'undefined')

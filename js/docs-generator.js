@@ -346,7 +346,7 @@ function docWindow(title, body) {
       <button class="doc-btn" style="background:#8b5cf6;color:#fff;" onclick="capture3DViewToDoc()" title="Capturar la vista 3D actual del proyecto e insertarla aquí">📸 CAPTURAR VISTA 3D</button>
       <button class="doc-btn doc-btn-edit" id="btn-edit-toggle" onclick="toggleEditMode()">✏️ MODO EDICIÓN</button>
       <button class="doc-btn doc-btn-print" onclick="window.print()">🖨 IMPRIMIR / PDF</button>
-      <button class="doc-btn doc-btn-word" onclick="exportToWord()">📝 EXPORTAR OPENDOC / WORD (.DOC)</button>
+      <button class="doc-btn doc-btn-word" id="btn-doc-docx" onclick="exportToWordDocx()" title="Descargar documento Word (.docx) con maquetación e imágenes completas">📝 WORD (.DOCX)</button>
       <button class="doc-btn doc-btn-html" onclick="exportToHtml()">🌐 DESCARGAR HTML</button>
       <button class="doc-btn doc-btn-close" onclick="window.close()">✕</button>
     </div>
@@ -542,18 +542,70 @@ function docWindow(title, body) {
       }
     }
 
+    function exportToWordDocx() {
+      const btnWord = document.getElementById('btn-doc-docx');
+      const origText = btnWord ? btnWord.innerHTML : '';
+      if (btnWord) { btnWord.innerHTML = '⏳ GENERANDO DOCX...'; btnWord.disabled = true; }
+
+      try {
+        const sheet = document.getElementById('editable-doc-sheet');
+        if (!sheet) throw new Error('No se encontró la hoja de documento');
+        const cloneSheet = sheet.cloneNode(true);
+        cloneSheet.removeAttribute('contenteditable');
+
+        // Convertir cualquier <svg> a <img> base64 para que Word lo renderice fielmente
+        const svgs = Array.from(cloneSheet.querySelectorAll('svg'));
+        for (let i = 0; i < svgs.length; i++) {
+          const svgEl = svgs[i];
+          try {
+            const svgData = new XMLSerializer().serializeToString(svgEl);
+            const svgB64 = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+            const imgEl = document.createElement('img');
+            imgEl.src = svgB64;
+            imgEl.style.cssText = svgEl.style.cssText || 'display:block;max-width:100%;';
+            if (svgEl.getAttribute('width')) imgEl.setAttribute('width', svgEl.getAttribute('width'));
+            if (svgEl.getAttribute('height')) imgEl.setAttribute('height', svgEl.getAttribute('height'));
+            svgEl.parentNode.replaceChild(imgEl, svgEl);
+          } catch(eSvg) {}
+        }
+
+        const stylesEl = document.querySelector('style');
+        const styles = stylesEl ? stylesEl.innerHTML : '';
+
+        let docxBlob = null;
+        if (window.opener && window.opener.RADocxExporter && typeof window.opener.RADocxExporter.buildDocxBlobFromHtml === 'function') {
+          docxBlob = window.opener.RADocxExporter.buildDocxBlobFromHtml(cloneSheet.outerHTML, {
+            orientation: 'portrait',
+            styles: styles,
+            title: document.title || '${title}'
+          });
+        } else if (typeof buildDocxBlobFromHtml === 'function') {
+          docxBlob = buildDocxBlobFromHtml(cloneSheet.outerHTML, {
+            orientation: 'portrait',
+            styles: styles,
+            title: document.title || '${title}'
+          });
+        } else {
+          throw new Error('Módulo RADocxExporter no disponible');
+        }
+
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(docxBlob);
+        a.download = '${title.replace(/[^a-z0-9_\\-\\.]/gi, '_')}.docx';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(a.href), 30000);
+      } catch(errDocx) {
+        console.error('Error exportando documento DOCX:', errDocx);
+        alert('No se pudo generar el archivo DOCX: ' + (errDocx.message || errDocx));
+      } finally {
+        if (btnWord) { btnWord.innerHTML = origText || '📝 WORD (.DOCX)'; btnWord.disabled = false; }
+      }
+    }
+
     function exportToWord() {
-      const content = document.getElementById('editable-doc-sheet').innerHTML;
-      const styles = document.querySelector('style').innerHTML;
-      const header = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>' + document.title + '</title><style>' + styles + '</style></head><body>';
-      const footer = '</body></html>';
-      const blob = new Blob(['\\ufeff' + header + content + footer], { type: 'application/msword;charset=utf-8' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = '${title.replace(/[^a-z0-9_\-\.]/gi, '_')}.doc';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      return exportToWordDocx();
     }
 
     function exportToHtml() {
