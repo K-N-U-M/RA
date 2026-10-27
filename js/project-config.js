@@ -1418,16 +1418,21 @@ function wpRenderAutoEngineeringBanner(info, isManualOverride = false) {
 
   if (isManualOverride) {
     banner.innerHTML = `
-      <div style="background:rgba(30,41,59,0.7);border:1px solid rgba(148,163,184,0.3);border-radius:8px;padding:8px;display:flex;justify-content:space-between;align-items:center;">
-        <div style="font-size: 10px;color:#94A3B8;">
-          <b style="color:#FBBF24;">⚡ Equipo manual seleccionado.</b> Puedes restablecer la auto-casación o comparar alternativas.
+      <div style="background:rgba(15,23,42,0.92);border:1px solid rgba(245,158,11,0.4);border-radius:8px;padding:8px 10px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 4px 15px rgba(0,0,0,0.3);margin-bottom:6px;">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="background:rgba(245,158,11,0.15);color:#FBBF24;border:1px solid rgba(245,158,11,0.3);padding:2px 6px;border-radius:4px;font-size:9.5px;font-weight:900;">
+            🛠️ MODO MANUAL
+          </span>
+          <span style="font-size:10px;color:#CBD5E1;">
+            Ajustes personalizados por el proyectista.
+          </span>
         </div>
         <div style="display:flex;gap:4px;align-items:center;">
-          <button type="button" class="doc-mini-btn" onclick="wpOpenSmartInverterMatchingModal()" style="background:rgba(56,189,248,0.2);border:1px solid #38BDF8;color:#38BDF8;font-size: 10px;font-weight:bold;padding:3px 6px;cursor:pointer;" title="Comparar alternativas técnicas 1x Central vs Nx Modulares vs MLPE">
-            <i data-lucide="sparkles" class="icon-sm"></i> COMPARAR 1X VS NX
+          <button type="button" class="doc-mini-btn" onclick="wpOpenSmartInverterMatchingModal()" style="background:rgba(56,189,248,0.15);border:1px solid #38BDF8;color:#38BDF8;font-size:9.5px;font-weight:bold;padding:3px 7px;cursor:pointer;" title="Comparar alternativas técnicas 1x Central vs Nx Modulares vs MLPE">
+            <i data-lucide="sparkles" class="icon-sm"></i> ALTERNATIVAS
           </button>
-          <button type="button" class="doc-mini-btn" onclick="wpAutoSelectOptimalEngineering(true)" style="background:rgba(16,185,129,0.15);border:1px solid #10B981;color:#34D399;font-size: 10px;font-weight:bold;padding:3px 6px;cursor:pointer;">
-            <i data-lucide="rotate-ccw" class="icon-sm"></i> AUTO-OPTIMIZAR
+          <button type="button" class="doc-mini-btn" onclick="if(window.solarProjectConfig) window.solarProjectConfig.userManuallySelectedInverter=false; wpAutoSelectOptimalEngineering(true);" style="background:linear-gradient(135deg,#10B981,#059669);border:none;color:#fff;font-size:9.5px;font-weight:900;padding:3px 8px;border-radius:4px;cursor:pointer;" title="Volver a calcular la topología e inversor óptimo por IA">
+            <i data-lucide="rotate-ccw" class="icon-sm"></i> RESTAURAR AUTO
           </button>
         </div>
       </div>
@@ -1512,27 +1517,27 @@ function wpRenderAutoEngineeringBanner(info, isManualOverride = false) {
   };
 
   banner.innerHTML = `
-    <div style="background:linear-gradient(135deg, rgba(15,23,42,0.92), rgba(30,41,59,0.88));border:1px solid ${topoColors[info.topology] || '#38BDF8'};border-radius:8px;padding:8px;box-shadow:0 0 10px rgba(56,189,248,0.15);margin-bottom:6px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:3px;">
-        <span style="font-size:10px;font-weight:900;color:${topoColors[info.topology] || '#38BDF8'};">
-          <i data-lucide="cpu" class="icon-sm"></i> AUTO-INGENIERÍA INTELIGENTE: ${topoLabels[info.topology] || info.topology}
+    <div style="background:linear-gradient(135deg, rgba(15,23,42,0.95), rgba(30,41,59,0.90));border:1.5px solid ${topoColors[info.topology] || '#38BDF8'};border-radius:8px;padding:9px 10px;box-shadow:0 4px 15px rgba(0,0,0,0.35);margin-bottom:6px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:5px;">
+        <span style="font-size:10.5px;font-weight:900;color:${topoColors[info.topology] || '#38BDF8'};display:flex;align-items:center;gap:5px;">
+          <i data-lucide="cpu" class="icon-sm"></i> PILOTO AUTOMÁTICO ACTIVO: ${topoLabels[info.topology] || info.topology}
         </span>
         <div style="display:flex;gap:4px;align-items:center;">
-          <span class="card-tag" style="background:rgba(16,185,129,0.2);color:#34D399;font-size: 10px;font-weight:bold;">
-            ✓ CASACIÓN ÓPTIMA
+          <span class="card-tag" style="background:rgba(16,185,129,0.2);color:#34D399;font-size:9.5px;font-weight:800;border:1px solid rgba(16,185,129,0.3);">
+            ✓ AUTO-INGENIERÍA OK
           </span>
-          <button type="button" class="doc-mini-btn" onclick="wpOpenSmartInverterMatchingModal()" style="background:rgba(56,189,248,0.2);border:1px solid #38BDF8;color:#38BDF8;font-size: 10px;font-weight:bold;padding:2px 6px;cursor:pointer;" title="Comparar alternativas técnicas: 1x Central vs Nx Modulares vs MLPE">
-            <i data-lucide="sparkles" class="icon-sm"></i> COMPARAR 1X VS NX
+          <button type="button" class="doc-mini-btn" onclick="wpOpenSmartInverterMatchingModal()" style="background:rgba(56,189,248,0.2);border:1px solid #38BDF8;color:#38BDF8;font-size:9.5px;font-weight:bold;padding:2px 6px;cursor:pointer;" title="Comparar alternativas técnicas: 1x Central vs Nx Modulares vs MLPE">
+            <i data-lucide="sparkles" class="icon-sm"></i> ALTERNATIVAS
           </button>
         </div>
       </div>
-      <div style="font-size: 10px;color:#E2E8F0;line-height:1.35;margin-bottom:4px;">
+      <div style="font-size:10px;color:#E2E8F0;line-height:1.4;margin-bottom:4px;">
         ${(info.topology === 'microinverter' || (sc && sc.isMicro))
-          ? `<b>Equipo Asignado:</b> ${sc.count}× Microinversores 2-en-1 ${sc.inverter.brand} ${sc.inverter.model} (${sc.totalAcKw} kW AC total · Seguimiento panel a panel · Inmune a sombras)`
-          : `<b>Equipo Asignado:</b> ${sc.count}× ${sc.inverter.brand} ${sc.inverter.model} (${sc.totalAcKw} kW AC · ${sc.mpptCount} MPPTs · Sobrecarga: ${sc.overloadPct}%)`}
+          ? `<b>Arquitectura Seleccionada:</b> ${sc.count}× Microinversores ${sc.inverter.brand} ${sc.inverter.model} (${sc.totalAcKw} kW AC · Seguimiento granular por módulo · Inmune a sombras)`
+          : `<b>Arquitectura Seleccionada:</b> ${sc.count}× ${sc.inverter.brand} ${sc.inverter.model} (${sc.totalAcKw} kW AC · ${sc.mpptCount} MPPTs · Sobrecarga DC/AC: <b>${sc.overloadPct}%</b>)`}
       </div>
-      <div style="font-size: 10px;color:#94A3B8;line-height:1.3;">
-        <b>Criterio Físico:</b> ${info.rationale} (${info.distinctOrientations} ${info.distinctOrientations === 1 ? 'orientación' : 'orientaciones distintas'}, ${info.totalPanels} placas · ${info.totalKwp.toFixed(1)} kWp).
+      <div style="font-size:9.5px;color:#94A3B8;line-height:1.35;background:rgba(0,0,0,0.3);padding:4px 6px;border-radius:4px;border:1px solid rgba(255,255,255,0.05);">
+        <b>Criterio Técnico del Algoritmo:</b> ${info.rationale} (${info.distinctOrientations} ${info.distinctOrientations === 1 ? 'orientación de cubierta' : 'orientaciones distintas'}, ${info.totalPanels} placas · ${info.totalKwp.toFixed(1)} kWp).
       </div>
     </div>
   `;
