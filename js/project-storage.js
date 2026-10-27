@@ -349,6 +349,18 @@ function raExportProjectData() {
         plazoMeses: g('fin-plazo-meses', 120),
         tinPct: g('fin-tin-pct', 5.95)
       };
+    })(),
+    pricingOverrides: (() => {
+      try {
+        const pricing = (typeof RAPricing !== 'undefined') ? RAPricing.getDefaults() : null;
+        const customSummary = (typeof window !== 'undefined' && typeof window.getCustomCommercialSummary === 'function')
+          ? window.getCustomCommercialSummary()
+          : null;
+        return {
+          pricing: pricing ? Object.assign({}, pricing) : null,
+          customCommercialSummary: customSummary || null
+        };
+      } catch(ePr) { return null; }
     })()
   };
 }
@@ -1115,6 +1127,33 @@ async function raImportProjectData(projectData, options = {}) {
         const elTin = document.getElementById('fin-tin-pct');
         if (elTin && typeof fs.tinPct === 'number') elTin.value = fs.tinPct;
       } catch (eFin) {}
+    }
+
+    // [AUDIT v2.4] Restaurar precios personalizados de partidas y resumen comercial con IA
+    if (projectData.pricingOverrides) {
+      try {
+        const po = projectData.pricingOverrides;
+        if (po.pricing && typeof RAPricing !== 'undefined') {
+          RAPricing.currentSessionPricing = Object.assign({}, po.pricing);
+          const setVal = function(id, val) {
+            const el1 = document.getElementById(id);
+            if (el1) el1.value = val;
+            const el2 = document.getElementById('modal-' + id);
+            if (el2) el2.value = val;
+          };
+          if (typeof po.pricing.estPrice === 'number') setVal('cfg-pres-est', po.pricing.estPrice);
+          if (typeof po.pricing.invPrice === 'number') setVal('cfg-pres-inv', po.pricing.invPrice);
+          if (typeof po.pricing.batPrice === 'number') setVal('cfg-pres-bat', po.pricing.batPrice);
+          if (typeof po.pricing.cabPrice === 'number') setVal('cfg-pres-cab', po.pricing.cabPrice);
+          if (typeof po.pricing.moPrice === 'number') setVal('cfg-pres-mo', po.pricing.moPrice);
+          if (typeof po.pricing.legPrice === 'number') setVal('cfg-pres-leg', po.pricing.legPrice);
+          if (typeof wpUpdateStep5PricingBadge === 'function') wpUpdateStep5PricingBadge();
+          if (typeof updateBudgetUI === 'function') updateBudgetUI();
+        }
+        if (po.customCommercialSummary && typeof window.setCustomCommercialSummary === 'function') {
+          window.setCustomCommercialSummary(po.customCommercialSummary);
+        }
+      } catch (ePricing) { console.warn('[RA Storage] Error restaurando pricingOverrides:', ePricing); }
     }
 
     // Navegar al paso correspondiente del proyecto

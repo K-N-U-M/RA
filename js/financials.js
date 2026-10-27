@@ -361,6 +361,10 @@ function generateCommercialSummary(d, m, equipment) {
 // GENERACIÓN Y ENRIQUECIMIENTO DE RESUMEN COMERCIAL CON GEMINI
 // ═══════════════════════════════════════════════════════════════════════════════
 var _customCommercialSummary = null; // Almacena el texto personalizado generado o editado en el modal
+if (typeof window !== 'undefined') {
+  window.getCustomCommercialSummary = function() { return _customCommercialSummary; };
+  window.setCustomCommercialSummary = function(val) { _customCommercialSummary = val; };
+}
 
 async function requestCommercialSummaryFromGemini(d, m, equipment) {
   var apiKey = '';
