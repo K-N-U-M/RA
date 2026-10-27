@@ -987,12 +987,10 @@ var RAPricing = {
     var p1Subtotal = Math.round(p1Direct * (1 + mgPct / 100));
     var p1Capex = Math.round(p1Subtotal * 1.21);
     var p1Ahorro = Math.round((m.ahorroLuzAnio1 || 1200) * (m.batCost > 0 ? 0.65 : 1.0));
-    var p1Payback = p1Ahorro > 0 ? (p1Capex / p1Ahorro).toFixed(1) : '5.5';
 
     // Paquete 2: Óptimo Recomendado (Diseño 3D actual del usuario)
     var p2Capex = Math.round(m.capexBruto);
     var p2Ahorro = Math.round(m.ahorroLuzAnio1);
-    var p2Payback = (typeof m.paybackYears === 'number' && isFinite(m.paybackYears)) ? m.paybackYears.toFixed(1) : '4.5';
 
     // Paquete 3: Independencia Total (Batería de alta capacidad + cargador VE / extras)
     var batExtra = (m.batCost > 0) ? 2200 : 3800; // batería o ampliación
@@ -1000,7 +998,17 @@ var RAPricing = {
     var p3Subtotal = Math.round(p3Direct * (1 + mgPct / 100));
     var p3Capex = Math.round(p3Subtotal * 1.21);
     var p3Ahorro = Math.round(p2Ahorro * 1.25);
-    var p3Payback = p3Ahorro > 0 ? (p3Capex / p3Ahorro).toFixed(1) : '4.8';
+
+    // [SSOT Metodológico] Coherencia en amortización: aplicar factor dinámico con deducción fiscal
+    // proporcional a los tres paquetes para evitar asimetrías de cálculo frente al cliente.
+    var p2PaybackNum = (typeof m.paybackYears === 'number' && isFinite(m.paybackYears) && m.paybackYears > 0) ? m.paybackYears : 4.5;
+    var simpleRatioP2 = (p2Ahorro > 0 && p2Capex > 0) ? (p2Capex / p2Ahorro) : 6.0;
+    var dynamicFactor = (simpleRatioP2 > 0) ? Math.min(1.0, p2PaybackNum / simpleRatioP2) : 0.75;
+    var p1PaybackVal = Math.max(1.8, (p1Ahorro > 0 ? (p1Capex / p1Ahorro) * dynamicFactor : 4.0));
+    var p3PaybackVal = Math.max(2.5, (p3Ahorro > 0 ? (p3Capex / p3Ahorro) * dynamicFactor : 5.0));
+    var p1Payback = p1PaybackVal.toFixed(1);
+    var p2Payback = p2PaybackNum.toFixed(1);
+    var p3Payback = p3PaybackVal.toFixed(1);
 
     return {
       essential: {
@@ -2087,8 +2095,9 @@ if (typeof window !== 'undefined') {
 // ============================================================================
 
 // ── INFOGRAFÍAS VECTORIALES PARA HUMANOS (FASE 4) ──────────────────────────
-  function buildInfografiasHTML(m, pal, annualYieldKWh, layoutStyle) {
+  function buildInfografiasHTML(m, pal, annualYieldKWh, layoutStyle, billOpts) {
     layoutStyle = layoutStyle || 'editorial';
+    billOpts = billOpts || {};
     var SvgCat = (typeof window !== 'undefined' && window.RA_SvgCatalog) ? window.RA_SvgCatalog : null;
     function getIcon(name, col, sz) {
       if (!SvgCat || typeof SvgCat.render !== 'function') return '';
@@ -2097,8 +2106,10 @@ if (typeof window !== 'undefined') {
 
     var batKwh = (m.batCap && m.batCap > 0) ? m.batCap : (m.batCost > 0 ? 5.12 : 0);
     var hasBat = batKwh > 0;
-    var gastoSin = Math.round(((m.consumoAnual || 3500) * (m.precioRedEUR || 0.18)) / 12) || 120;
-    var gastoCon = Math.max(15, Math.round(gastoSin - (m.ahorroMensualLuz || 65)));
+    // [SSOT] Priorizar factura real auditada del cliente frente a estimación paramétrica
+    var fallbackGastoSin = Math.round(((m.consumoAnual || 3500) * (m.precioRedEUR || 0.18)) / 12) || 120;
+    var gastoSin = (billOpts.gastoSin && billOpts.gastoSin > 0) ? Math.round(billOpts.gastoSin) : fallbackGastoSin;
+    var gastoCon = (billOpts.gastoCon && billOpts.gastoCon > 0) ? Math.round(billOpts.gastoCon) : Math.max(15, Math.round(gastoSin - (m.ahorroMensualLuz || 65)));
     var cuotaFin = Math.round(m.cuotaMensual) || 85;
     var cuotaTotalFin = gastoCon + cuotaFin;
     var balanceFinMes = gastoSin - cuotaTotalFin;
@@ -2560,6 +2571,9 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     alert('Diseña primero el polígono de la instalación en el visor 3D.');
     return;
   }
+  if (d.numPanels === 0 && numPanelsFinal > 0) {
+    d.numPanels = numPanelsFinal;
+  }
 
   // Interceptar para revisión de precios y margen si no se ha saltado explícitamente
   if (!skipPricingModal && typeof wpOpenPricingReviewModal === 'function') {
@@ -2568,7 +2582,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     });
     return;
   }
-  const m = calculateFinancialModel();
+  const m = calculateFinancialModel({ d: d, numPanels: numPanelsFinal });
 
   let gastoMensualSinSolar = 0;
   let gastoMensualConSolar = 0;
@@ -2748,15 +2762,19 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
 
   const contactBlock = [companyPhone, companyWeb].filter(Boolean).join(' · ');
 
-    // Factor de margen para desglose comercial de cliente (oculta costes directos y margen industrial)
-  const _mFactor = (m.directCost > 0) ? (m.subtotal / m.directCost) : 1.20;
+  // Factor de margen para desglose comercial de cliente (oculta costes directos y margen industrial)
+  const _mFactor = 1 + ((typeof m.marginPct === 'number' ? m.marginPct : 20) / 100.0);
   const _cPan = Math.round(m.panCost * _mFactor);
   const _cEst = Math.round(m.estCost * _mFactor);
   const _cInv = Math.round(m.invCost * _mFactor);
   const _cBat = Math.round(m.batCost * _mFactor);
   const _cCab = Math.round(m.cabCost * _mFactor);
   const _cMo  = Math.round(m.moCost * _mFactor);
-  const _cLeg = Math.max(0, Math.round(m.subtotal) - (_cPan + _cEst + _cInv + _cBat + _cCab + _cMo));
+  const _cWind = Math.round((m.windCost || 0) * _mFactor);
+  // Total de partidas de equipo e instalación base con margen comercial aplicado
+  const _baseEquipTotal = Math.round(m.directCost + m.marginEur);
+  // Legalización absorbe únicamente el residuo de redondeo de enteros entre partidas base
+  const _cLeg = Math.max(0, _baseEquipTotal - (_cPan + _cEst + _cInv + _cBat + _cCab + _cMo + _cWind));
   // Recuperación resiliente de fotos personalizadas persistidas (por proyecto o sesión)
   const _propPhotos = (function() {
     try {
@@ -2797,7 +2815,10 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   const _pageIndexPresupuesto = ++_pageTracker;
   const _pageIndexDecision = ++_pageTracker;
   const _totPages = _pageTracker;
-  const _infografias = buildInfografiasHTML(m, pal, annualYieldKWh, layoutStyle);
+  const _infografias = buildInfografiasHTML(m, pal, annualYieldKWh, layoutStyle, {
+    gastoSin: gastoMensualSinSolar,
+    gastoCon: gastoMensualConSolar
+  });
   const payload = {
     refNum: d.refNum,
     fechaStr: d.fechaStr,
@@ -3321,7 +3342,13 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
             <div>
               <div class="cover-spec-label">${(windTurbineCount > 0) ? 'Generadores Instalados' : 'Módulos Solares'}</div>
               <div class="cover-spec-val primary">${m.numPanels} ${(windTurbineCount > 0) ? ('+ ' + windTurbineCount + ' aero') : 'Placas'}</div>
-              <div class="cover-spec-sub">${(windTurbineCount > 0) ? (m.numPanels + ' módulos FV + ' + windTurbineCount + ' turbina(s)') : ('Tecnología Tier-1 ' + (d.cfg && d.cfg.potencia ? d.cfg.potencia : 450) + ' Wp')}</div>
+              <div class="cover-spec-sub">${
+                (windTurbineCount > 0)
+                  ? (m.numPanels + ' módulos FV + ' + windTurbineCount + ' turbina(s)')
+                  : (m.modulesBreakdown && m.modulesBreakdown.isMultiModule)
+                    ? ('Tier-1 Multi-modelo (' + m.modulesBreakdown.uniqueModelsCount + ' mod · ' + m.kwp.toFixed(2) + ' kWp)')
+                    : ('Tecnología Tier-1 ' + (d.cfg && d.cfg.potencia ? d.cfg.potencia : 450) + ' Wp')
+              }</div>
             </div>
           </div>
 
@@ -3742,35 +3769,54 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         <h2>3. Presupuesto detallado llave en mano</h2>
         <table>
           <tr><th>Capítulo</th><th>Descripción de la Partida</th><th class="text-right">Importe (€)</th></tr>
-          ${(m.modulesBreakdown && m.modulesBreakdown.isMultiModule)
-            ? `<tr><td>Cap. 1</td><td><strong>Módulos Solares Fotovoltaicos (${m.numPanels} uds · ${m.modulesBreakdown.uniqueModelsCount} modelos Tier-1 · ${m.kwp.toFixed(2)} kWp)</strong><br>` +
-              m.modulesBreakdown.byModel.map(bm => `<span style="font-size: 10px;color:#475569;display:inline-block;margin-left:6px;">• ${bm.fullName} (${bm.wp} Wp): ${bm.count} uds</span>`).join('<br>') +
-              `</td><td class="text-right">${_cPan.toLocaleString('es-ES')} €</td></tr>`
-            : `<tr><td>Cap. 1</td><td>Módulos Solares Fotovoltaicos de Alta Eficiencia (${m.numPanels} uds × ${Math.round((_cPan / (m.numPanels || 1))).toLocaleString('es-ES')} €/ud)</td><td class="text-right">${_cPan.toLocaleString('es-ES')} €</td></tr>`
-          }
-          <tr><td>Cap. 2</td><td>Estructura de Soporte y Fijación Certificada (Aluminio / Inox A2)</td><td class="text-right">${_cEst.toLocaleString('es-ES')} €</td></tr>
-          ${(_eqp.invCount > 1 || (_eqp.invertersBreakdown && _eqp.invertersBreakdown.isMulti))
-            ? `<tr><td>Cap. 3</td><td><strong>Inversores de Conexión a Red & Monitorización (${_eqp.invCount} uds · ${_eqp.totalAcKw.toFixed(2)} kW AC total)</strong><br>` +
-              ((_eqp.invertersBreakdown && _eqp.invertersBreakdown.items && _eqp.invertersBreakdown.items.length > 0)
-                ? _eqp.invertersBreakdown.items.map(it => `<span style="font-size: 10px;color:#475569;display:inline-block;margin-left:6px;">• ${it.count}× ${it.fullName || (it.brand + ' ' + it.model)} (${it.kw} kW · ${it.mppt || 2} MPPT): ${Math.round((_cInv * (it.count * it.kw / (_eqp.totalAcKw || 1)))).toLocaleString('es-ES')} €</span>`).join('<br>')
-                : `<span style="font-size: 10px;color:#475569;display:inline-block;margin-left:6px;">• ${_eqp.invCount}× ${_eqp.invBrand} ${_eqp.invModel} (${_eqp.invKw} kW · ${_eqp.invMPPTs} MPPT)</span>`
-              ) +
-              `</td><td class="text-right">${_cInv.toLocaleString('es-ES')} €</td></tr>`
-            : `<tr><td>Cap. 3</td><td>Inversor de Conexión a Red, Monitorización Inteligente & Protecciones (${_eqp.invName})</td><td class="text-right">${_cInv.toLocaleString('es-ES')} €</td></tr>`
-          }
-          ${_cBat > 0 ? (
-            (_eqp.batCount > 1 || (_eqp.batteriesBreakdown && _eqp.batteriesBreakdown.isMulti))
-            ? `<tr><td>Cap. 4</td><td><strong>Sistema de Almacenamiento Electroquímico (${_eqp.batCount} uds · ${_eqp.totalBatKwh.toFixed(1)} kWh total)</strong><br>` +
-              ((_eqp.batteriesBreakdown && _eqp.batteriesBreakdown.items && _eqp.batteriesBreakdown.items.length > 0)
-                ? _eqp.batteriesBreakdown.items.map(it => `<span style="font-size: 10px;color:#475569;display:inline-block;margin-left:6px;">• ${it.count}× ${it.fullName || (it.brand + ' ' + it.model)} (${it.kwh} kWh c/u · BMS integrado): ${Math.round((_cBat * (it.count * it.kwh / (_eqp.totalBatKwh || 1)))).toLocaleString('es-ES')} €</span>`).join('<br>')
-                : `<span style="font-size: 10px;color:#475569;display:inline-block;margin-left:6px;">• ${_eqp.batCount}× ${_eqp.batBrand} ${_eqp.batModel} (${_eqp.batKwh} kWh c/u · BMS integrado)</span>`
-              ) +
-              `</td><td class="text-right">${_cBat.toLocaleString('es-ES')} €</td></tr>`
-            : `<tr><td>Cap. 4</td><td>Sistema de Almacenamiento en Batería LFP Litio-Ferrofosfato (${_eqp.batName})</td><td class="text-right">${_cBat.toLocaleString('es-ES')} €</td></tr>`
-          ) : ''}
-          <tr><td>Cap. ${_cBat > 0 ? 5 : 4}</td><td>Líneas Eléctricas DC/AC Solar ZZ-F y Cuadros con SPD Tipo II e IGA</td><td class="text-right">${_cCab.toLocaleString('es-ES')} €</td></tr>
-          <tr><td>Cap. ${_cBat > 0 ? 6 : 5}</td><td>Montaje Mecánico, Mano de Obra Cualificada y Puesta en Servicio</td><td class="text-right">${_cMo.toLocaleString('es-ES')} €</td></tr>
-          <tr><td>Cap. ${_cBat > 0 ? 7 : 6}</td><td>Ingeniería Técnica, Dirección de Obra y Tramitación Legal (CIE / Industria)</td><td class="text-right">${_cLeg.toLocaleString('es-ES')} €</td></tr>
+          ${(function() {
+            var cNum = 1;
+            var html = '';
+            // Cap 1: Módulos FV
+            if (m.modulesBreakdown && m.modulesBreakdown.isMultiModule) {
+              html += '<tr><td>Cap. ' + (cNum++) + '</td><td><strong>Módulos Solares Fotovoltaicos (' + m.numPanels + ' uds · ' + m.modulesBreakdown.uniqueModelsCount + ' modelos Tier-1 · ' + m.kwp.toFixed(2) + ' kWp)</strong><br>' +
+                m.modulesBreakdown.byModel.map(bm => '<span style="font-size: 10px;color:#475569;display:inline-block;margin-left:6px;">• ' + bm.fullName + ' (' + bm.wp + ' Wp): ' + bm.count + ' uds</span>').join('<br>') +
+                '</td><td class="text-right">' + _cPan.toLocaleString('es-ES') + ' €</td></tr>';
+            } else {
+              var puPanStr = (_cPan / (m.numPanels || 1)).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+              html += '<tr><td>Cap. ' + (cNum++) + '</td><td>Módulos Solares Fotovoltaicos de Alta Eficiencia (' + m.numPanels + ' uds × ' + puPanStr + ' €/ud)</td><td class="text-right">' + _cPan.toLocaleString('es-ES') + ' €</td></tr>';
+            }
+            // Cap 2: Estructura
+            html += '<tr><td>Cap. ' + (cNum++) + '</td><td>Estructura de Soporte y Fijación Certificada (Aluminio / Inox A2)</td><td class="text-right">' + _cEst.toLocaleString('es-ES') + ' €</td></tr>';
+            // Cap 3: Inversor
+            if (_eqp.invCount > 1 || (_eqp.invertersBreakdown && _eqp.invertersBreakdown.isMulti)) {
+              html += '<tr><td>Cap. ' + (cNum++) + '</td><td><strong>Inversores de Conexión a Red & Monitorización (' + _eqp.invCount + ' uds · ' + _eqp.totalAcKw.toFixed(2) + ' kW AC total)</strong><br>' +
+                ((_eqp.invertersBreakdown && _eqp.invertersBreakdown.items && _eqp.invertersBreakdown.items.length > 0)
+                  ? _eqp.invertersBreakdown.items.map(it => '<span style="font-size: 10px;color:#475569;display:inline-block;margin-left:6px;">• ' + it.count + '× ' + (it.fullName || (it.brand + ' ' + it.model)) + ' (' + it.kw + ' kW · ' + (it.mppt || 2) + ' MPPT): ' + Math.round((_cInv * (it.count * it.kw / (_eqp.totalAcKw || 1)))).toLocaleString('es-ES') + ' €</span>').join('<br>')
+                  : '<span style="font-size: 10px;color:#475569;display:inline-block;margin-left:6px;">• ' + _eqp.invCount + '× ' + _eqp.invBrand + ' ' + _eqp.invModel + ' (' + _eqp.invKw + ' kW · ' + _eqp.invMPPTs + ' MPPT)</span>'
+                ) + '</td><td class="text-right">' + _cInv.toLocaleString('es-ES') + ' €</td></tr>';
+            } else {
+              html += '<tr><td>Cap. ' + (cNum++) + '</td><td>Inversor de Conexión a Red, Monitorización Inteligente & Protecciones (' + _eqp.invName + ')</td><td class="text-right">' + _cInv.toLocaleString('es-ES') + ' €</td></tr>';
+            }
+            // Cap 4: Batería (si existe)
+            if (_cBat > 0) {
+              if (_eqp.batCount > 1 || (_eqp.batteriesBreakdown && _eqp.batteriesBreakdown.isMulti)) {
+                html += '<tr><td>Cap. ' + (cNum++) + '</td><td><strong>Sistema de Almacenamiento Electroquímico (' + _eqp.batCount + ' uds · ' + _eqp.totalBatKwh.toFixed(1) + ' kWh total)</strong><br>' +
+                  ((_eqp.batteriesBreakdown && _eqp.batteriesBreakdown.items && _eqp.batteriesBreakdown.items.length > 0)
+                    ? _eqp.batteriesBreakdown.items.map(it => '<span style="font-size: 10px;color:#475569;display:inline-block;margin-left:6px;">• ' + it.count + '× ' + (it.fullName || (it.brand + ' ' + it.model)) + ' (' + it.kwh + ' kWh c/u · BMS integrado): ' + Math.round((_cBat * (it.count * it.kwh / (_eqp.totalBatKwh || 1)))).toLocaleString('es-ES') + ' €</span>').join('<br>')
+                    : '<span style="font-size: 10px;color:#475569;display:inline-block;margin-left:6px;">• ' + _eqp.batCount + '× ' + _eqp.batBrand + ' ' + _eqp.batModel + ' (' + _eqp.batKwh + ' kWh c/u · BMS integrado)</span>'
+                  ) + '</td><td class="text-right">' + _cBat.toLocaleString('es-ES') + ' €</td></tr>';
+              } else {
+                html += '<tr><td>Cap. ' + (cNum++) + '</td><td>Sistema de Almacenamiento en Batería LFP Litio-Ferrofosfato (' + _eqp.batName + ')</td><td class="text-right">' + _cBat.toLocaleString('es-ES') + ' €</td></tr>';
+              }
+            }
+            // Cap Minieólica (si existe)
+            if (_cWind > 0) {
+              html += '<tr><td>Cap. ' + (cNum++) + '</td><td>Sistema de Generación Minieólica Certificada (' + (windTurbineCount || 1) + ' aerogenerador(es) con control MPPT y mástil)</td><td class="text-right">' + _cWind.toLocaleString('es-ES') + ' €</td></tr>';
+            }
+            // Cap Cableado y protecciones
+            html += '<tr><td>Cap. ' + (cNum++) + '</td><td>Líneas Eléctricas DC/AC Solar ZZ-F y Cuadros con SPD Tipo II e IGA</td><td class="text-right">' + _cCab.toLocaleString('es-ES') + ' €</td></tr>';
+            // Cap Mano de obra y montaje
+            html += '<tr><td>Cap. ' + (cNum++) + '</td><td>Montaje Mecánico, Mano de Obra Cualificada y Puesta en Servicio</td><td class="text-right">' + _cMo.toLocaleString('es-ES') + ' €</td></tr>';
+            // Cap Legalización e ingeniería
+            html += '<tr><td>Cap. ' + (cNum++) + '</td><td>Ingeniería Técnica, Dirección de Obra y Tramitación Legal (CIE / Industria)</td><td class="text-right">' + _cLeg.toLocaleString('es-ES') + ' €</td></tr>';
+            return html;
+          })()}
           ${(function() {
             var cfg = (typeof RAPricing !== 'undefined' && typeof RAPricing.getCommercialConfig === 'function') ? RAPricing.getCommercialConfig() : null;
             var all = cfg ? (cfg.addons || []).concat(cfg.customAddons || []) : [];
@@ -3781,7 +3827,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
               return '<tr style="background:#f0fdf4;"><td style="color:#16a34a;font-weight:700;">Extra ' + (idx + 1) + '</td><td><strong>' + ad.name + '</strong> (' + (ad.qty || 1) + ' ud)</td><td class="text-right" style="font-weight:700;color:#16a34a;">' + tot.toLocaleString('es-ES') + ' €</td></tr>';
             }).join('');
           })()}
-          ${(m.discountEur > 0) ? '<tr style="background:#fef2f2;color:#dc2626;"><td style="font-weight:700;">Promoción</td><td><strong>' + m.discountLabel + '</strong></td><td class="text-right" style="font-weight:800;">- ' + Math.round(m.discountEur).toLocaleString('es-ES') + ' €</td></tr>' : ''}
+          ${(m.discountEur && m.discountEur > 0) ? '<tr style="background:#fef2f2;color:#dc2626;"><td style="font-weight:700;">Promoción</td><td><strong>' + (m.discountLabel || 'Descuento Comercial Especial') + '</strong></td><td class="text-right" style="font-weight:800;">- ' + Math.round(m.discountEur).toLocaleString('es-ES') + ' €</td></tr>' : ''}
           <tr style="background:#f8fafc;font-weight:700;border-top:2px solid #cbd5e1;"><td>BASE IMPONIBLE</td><td>Total Ejecución Material y Servicios Llave en Mano</td><td class="text-right" style="color:${pal.primary};">${Math.round(m.subtotal).toLocaleString('es-ES')} €</td></tr>
           <tr style="background:#f8fafc;"><td>IVA APLICABLE</td><td>Impuesto sobre el Valor Añadido (21%)</td><td class="text-right">${Math.round(m.iva).toLocaleString('es-ES')} €</td></tr>
           <tr class="total-row"><td>TOTAL PRESUPUESTO</td><td>INVERSIÓN TOTAL LLAVE EN MANO (IVA INCLUIDO)</td><td class="text-right">${Math.round(m.capexBruto).toLocaleString('es-ES')} €</td></tr>
@@ -3791,10 +3837,10 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         <table>
           <tr><th>Concepto Fiscal</th><th>Detalle / Normativa Aplicable</th><th class="text-right">Ahorro Estimado</th></tr>
           <tr><td>Bonificación IBI</td><td>Bonificación en el Impuesto sobre Bienes Inmuebles</td><td class="text-right">${Math.round(m.ahorroIBITotal).toLocaleString('es-ES')} €</td></tr>
-          <tr><td>Deducción IRPF</td><td>Deducción en IRPF por reducción de demanda / energía primaria</td><td class="text-right">${Math.round(m.ahorroIRPF).toLocaleString('es-ES')} €</td></tr>
-          <tr><td>Bonificación ICIO</td><td>Bonificación del 95% en Impuesto de Construcciones y Obras</td><td class="text-right">${Math.round(m.ahorroICIO).toLocaleString('es-ES')} €</td></tr>
-          <tr style="background:${pal.light};font-weight:800;"><td>TOTAL AYUDAS</td><td>Ahorro fiscal total directo estimado</td><td class="text-right" style="color:${pal.primary}">- ${Math.round(m.totalAhorroFiscal).toLocaleString('es-ES')} €</td></tr>
-          <tr class="total-row"><td>INVERSIÓN NETA</td><td>COSTE FINAL REAL TRAS BONIFICACIONES</td><td class="text-right" style="color:${pal.dark}">${Math.round(m.capexNeto).toLocaleString('es-ES')} €</td></tr>
+          <tr><td>Deducción IRPF</td><td>Deducción en IRPF por reducción de demanda / energía primaria (RD 19/2021)</td><td class="text-right">${Math.round(m.ahorroIRPF).toLocaleString('es-ES')} €</td></tr>
+          <tr style="background:${pal.light};font-weight:800;"><td>TOTAL DEDUCCIONES FISCALES</td><td>Deducción fiscal directa acumulada (IBI + IRPF)</td><td class="text-right" style="color:${pal.primary}">- ${Math.round(m.totalAhorroFiscal).toLocaleString('es-ES')} €</td></tr>
+          <tr class="total-row"><td>INVERSIÓN NETA</td><td>COSTE FINAL REAL TRAS DEDUCCIONES FISCALES DIRECTAS</td><td class="text-right" style="color:${pal.dark}">${Math.round(m.capexNeto).toLocaleString('es-ES')} €</td></tr>
+          <tr><td style="color:#64748b;font-size:10px;">Bonificación ICIO*</td><td style="color:#64748b;font-size:10px;">Exención del 95% en Impuesto de Construcciones y Obras (ahorro en tasa municipal ajeno a la factura)</td><td class="text-right" style="color:#64748b;font-size:10px;">${Math.round(m.ahorroICIO).toLocaleString('es-ES')} €</td></tr>
         </table>
       </div>
       <p style="font-size: 9.5px;color:#64748b;margin:6px 0 0 0;line-height:1.35;border-top:1px solid #f1f5f9;padding-top:6px;">Nota: bonificaciones y deducciones fiscales son estimaciones comerciales sujetas a vigencia normativa y ordenanzas municipales. Verificar con asesoría fiscal antes de incluirlas en contrato.</p>
@@ -4498,12 +4544,16 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
 // MOTOR FINANCIERO BANCABLE (CAPEX, OPEX, CASHFLOW, VAN, TIR, AMORTIZACIÓN)
 // Nota: La física solar y simulación anual se calculan exclusivamente en solar-engine.js (v3.0)
 // ═════════════════════════════════════════════════════════════════════════════
-  function calculateFinancialModel() {
-  const d = getProjectCalcs();
+  function calculateFinancialModel(overrides) {
+  const d = (overrides && overrides.d) || getProjectCalcs();
   const mb = (d && d.modulesBreakdown) || (typeof window !== 'undefined' && window.RAModulesBreakdown && typeof window.RAModulesBreakdown.getProjectModulesBreakdown === 'function' ? window.RAModulesBreakdown.getProjectModulesBreakdown() : null);
-  const numPanels = (mb && mb.totalPanels > 0) ? mb.totalPanels : (d.numPanels || 1);
+  const numPanels = (overrides && overrides.numPanels > 0) ? overrides.numPanels : ((mb && mb.totalPanels > 0) ? mb.totalPanels : (d.numPanels || 1));
   const kwp = (mb && mb.totalKwp > 0) ? mb.totalKwp : ((numPanels * (d.cfg.potencia || 450)) / 1000.0);
-  const annualYieldKWh = d.annualKWh || (kwp * 1450); // [P0] getProjectCalcs canónico devuelve annualKWh
+  // [SSOT] Producción física anual: priorizar simulación 3D precisa con pérdidas de sombras reales
+  const solarStats = (typeof window !== 'undefined' && window.RA && window.RA.solarStats) ? window.RA.solarStats : null;
+  const annualYieldKWh = (solarStats && Number.isFinite(solarStats.annualYieldKWh) && solarStats.annualYieldKWh > 0)
+    ? Math.round(solarStats.annualYieldKWh)
+    : (d.annualKWh || (kwp * 1450));
 
   const designCosts = (typeof RAPricing !== 'undefined' && typeof RAPricing.computeDesignCosts === 'function')
     ? RAPricing.computeDesignCosts(numPanels)
@@ -4594,6 +4644,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   const subtotalPreDiscount = directCost + marginEur + addonsCost;
 
   let discountEur = 0;
+  const discountLabel = (commercialCfg && commercialCfg.discountLabel) || 'Descuento Comercial Especial';
   if (commercialCfg && commercialCfg.discountEnabled) {
     if (commercialCfg.discountType === 'percent') {
       discountEur = subtotalPreDiscount * (Math.max(0, Number(commercialCfg.discountValue) || 0) / 100.0);
@@ -5040,6 +5091,11 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     protOnlyCost: designCosts ? designCosts.protOnlyPrice : Math.round(cab * 0.55),
     moCost: mo,
     legCost: leg,
+    windCost: windCost,
+    addonsCost: addonsCost,
+    discountEur: discountEur,
+    discountLabel: discountLabel,
+    capexTachado: capexTachado,
     tasaICIO: tasaICIO,
     subtotal: subtotal,
     iva: iva,

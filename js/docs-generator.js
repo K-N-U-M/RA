@@ -1327,6 +1327,46 @@ function generatePresupuesto(skipPricingModal) {
     });
   }
 
+  // Si existen aerogeneradores (Minieólica), incorporar su capítulo
+  if (m && m.windCost > 0) {
+    const windCount = (typeof window !== 'undefined' && Array.isArray(window.windTurbines))
+      ? window.windTurbines.filter(t => t && (!t.operationalState || t.operationalState.enabled !== false)).length
+      : 1;
+    caps.push({
+      titulo: 'CAP. EÓL — SISTEMA DE GENERACIÓN MINIEÓLICA URBANA / RURAL',
+      items: [
+        { ref: 'EOL.1', desc: 'Aerogenerador de minieólica de alta eficiencia con regulador de carga MPPT, freno electrodinámico y mástil autoportante certificado.', ud: 'ud', q: Math.max(windCount, 1), pu: m.windCost / Math.max(windCount, 1) }
+      ]
+    });
+  }
+
+  // Add-ons y Servicios Adicionales Comerciales
+  const commCfg = (typeof RAPricing !== 'undefined' && typeof RAPricing.getCommercialConfig === 'function') ? RAPricing.getCommercialConfig() : null;
+  const allAddons = commCfg ? (commCfg.addons || []).concat(commCfg.customAddons || []) : [];
+  const activeAddons = allAddons.filter(a => a && a.enabled);
+  if (activeAddons.length > 0) {
+    caps.push({
+      titulo: 'CAP. EXT — EQUIPAMIENTO Y SERVICIOS ADICIONALES (EXTRAS)',
+      items: activeAddons.map((ad, idx) => ({
+        ref: 'EXT.' + (idx + 1),
+        desc: ad.name,
+        ud: 'ud',
+        q: Number(ad.qty) || 1,
+        pu: Number(ad.unitPrice) || 0
+      }))
+    });
+  }
+
+  // Bonificación / Descuento Comercial
+  if (m && m.discountEur > 0) {
+    caps.push({
+      titulo: 'CAP. PROM — BONIFICACIÓN Y PROMOCIÓN COMERCIAL APLICADA',
+      items: [
+        { ref: 'PROM.1', desc: (m.discountLabel || 'Promoción Comercial Especial'), ud: 'partida', q: 1, pu: -Math.round(m.discountEur) }
+      ]
+    });
+  }
+
   let itemRows = '', sumRows = '';
   let subtotalCalc = 0;
   caps.forEach(cap => {
@@ -1428,7 +1468,7 @@ function generatePresupuesto(skipPricingModal) {
         <thead><tr><th>RESUMEN POR CAPÍTULOS</th><th style="text-align:right">IMPORTE</th><th style="text-align:right">%</th></tr></thead>
         <tbody>
           ${sumRows}
-          <tr style="background:#f1f5f9;font-weight:700"><td>BASE IMPONIBLE (SUBTOTAL)</td><td style="text-align:right">${subtotalCalc.toLocaleString('es-ES', {minimumFractionDigits:2})} €</td><td style="text-align:right">100.0 %</td></tr>
+          <tr style="background:#f1f5f9;font-weight:700"><td>BASE IMPONIBLE (SUBTOTAL)</td><td style="text-align:right">${subtotalFinal.toLocaleString('es-ES', {minimumFractionDigits:2})} €</td><td style="text-align:right">100.0 %</td></tr>
           <tr><td>IVA REPERCUTIDO (21%)</td><td style="text-align:right">${iva.toLocaleString('es-ES', {minimumFractionDigits:2})} €</td><td></td></tr>
           <tr style="background:#dbeafe;font-weight:900;font-size:11pt"><td>TOTAL PRESUPUESTO (CAPEX BRUTO)</td><td style="text-align:right;color:#1d4ed8">${capexBruto.toLocaleString('es-ES', {minimumFractionDigits:2})} €</td><td></td></tr>
           <tr style="background:#dcfce7;font-weight:800;color:#15803d"><td>COSTE NETO TRAS INCENTIVOS FISCALES</td><td style="text-align:right">${capexNeto.toLocaleString('es-ES', {minimumFractionDigits:2})} €</td><td></td></tr>

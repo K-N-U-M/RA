@@ -151,9 +151,14 @@
     for (var i = 0; i < 12; i++) {
       var gKwh = Math.round(monthlySolarKwh[i] || 0);
       var cKwh = Math.round(monthlyConsKwh[i] || 0);
-      // Autoconsumo estimado considerando coincidencia horaria
-      var autoRatio = Math.min(0.85, 0.90 - 0.22 * Math.min(1.2, gKwh / Math.max(cKwh, 1)));
-      var aKwh = Math.round(Math.min(cKwh * 0.88, gKwh * autoRatio));
+      // [SSOT] Autoconsumo alineado con el modelo financiero bancable (despacho horario 288h)
+      var ssotAutoRatio = (m && m.annualYieldKWh > 0 && m.autoconsumoDirecto > 0)
+        ? ((m.autoconsumoDirecto + (m.bateriaKWh || 0)) / m.annualYieldKWh)
+        : null;
+      var autoRatio = (ssotAutoRatio && ssotAutoRatio > 0 && ssotAutoRatio <= 1.0)
+        ? Math.min(0.95, ssotAutoRatio * (1.0 + 0.10 * Math.sin((i - 2) * Math.PI / 6)))
+        : Math.min(0.85, 0.90 - 0.22 * Math.min(1.2, gKwh / Math.max(cKwh, 1)));
+      var aKwh = Math.round(Math.min(cKwh * 0.95, gKwh * autoRatio));
       var eKwh = Math.max(0, gKwh - aKwh);
       var rSinKwh = cKwh;
       var rConKwh = Math.max(0, cKwh - aKwh);
