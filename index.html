@@ -1987,52 +1987,58 @@ window.RA_App = window.RA_App || {};
                 </div>
 
                 <!-- Control Inversores -->
-                <div id="step3-ctrl-inverters" style="margin-bottom:6px;">
-                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
-                    <span style="color:var(--text-slate-200);font-weight:bold;"><i data-lucide="zap" class="icon-sm"></i> Inversores Necesarios:</span>
-                    <div style="display:flex;align-items:center;gap:3px;">
-                      <button type="button" class="gizmo-btn" onclick="wpStepQuantity('inverters', -1)" style="padding:2px 6px;font-weight:bold;" aria-label="Disminuir inversores">-</button>
-                      <input id="step3-qty-inverters" type="number" min="1" max="100" value="1" onchange="wpSetManualQuantity('inverters', this.value)" style="width:38px;text-align:center;background:rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.2);color:#fff;font-size:10px;font-weight:bold;border-radius:4px;">
-                      <button type="button" class="gizmo-btn" onclick="wpStepQuantity('inverters', 1)" style="padding:2px 6px;font-weight:bold;" aria-label="Aumentar inversores">+</button>
-                      <span style="font-size: 10px;color:var(--text-slate-400);margin-left:2px;">uds</span>
-                      <button id="step3-auto-btn-inverters" type="button" class="doc-mini-btn" onclick="wpResetAutoSizing('inverters')" style="display:none;padding:1px 4px;font-size: 10px;margin-left:4px;border-color:var(--emerald-400);color:var(--emerald-400);"><i data-lucide="refresh-cw" class="icon-sm"></i> Auto</button>
+                <div id="step3-ctrl-inverters" style="background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.05);border-radius:6px;padding:6px;margin-bottom:6px;">
+                  <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <span style="color:#F59E0B;font-weight:800;display:flex;align-items:center;gap:4px;">
+                      <i data-lucide="zap" class="icon-sm"></i> Inversores:
+                    </span>
+                    <div style="display:flex;align-items:center;gap:3px;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);border-radius:5px;padding:2px 4px;">
+                      <button type="button" class="gizmo-btn" onclick="wpStepQuantity('inverters', -1)" style="padding:1px 6px;font-weight:bold;font-size:11px;background:transparent;border:none;color:#fff;cursor:pointer;" aria-label="Disminuir inversores">-</button>
+                      <input id="step3-qty-inverters" type="number" min="1" max="100" value="1" onchange="wpSetManualQuantity('inverters', this.value)" style="width:28px;text-align:center;background:transparent;border:none;color:#fff;font-size:10.5px;font-weight:bold;outline:none;">
+                      <button type="button" class="gizmo-btn" onclick="wpStepQuantity('inverters', 1)" style="padding:1px 6px;font-weight:bold;font-size:11px;background:transparent;border:none;color:#fff;cursor:pointer;" aria-label="Aumentar inversores">+</button>
+                      <span style="font-size:9px;color:#94a3b8;">uds</span>
+                      <button id="step3-auto-btn-inverters" type="button" class="doc-mini-btn" onclick="wpResetAutoSizing('inverters')" style="display:none;padding:1px 4px;font-size:9px;margin-left:3px;border-color:var(--emerald-400);color:var(--emerald-400);background:rgba(16,185,129,0.15);"><i data-lucide="refresh-cw" class="icon-sm"></i> Auto</button>
                     </div>
                   </div>
-                  <div id="step3-explain-inverters" style="font-size: 10px;color:var(--text-slate-400);line-height:1.3;">
+                  <div id="step3-explain-inverters" style="font-size:9.5px;color:#94a3b8;line-height:1.3;margin-top:4px;">
                     <i data-lucide="zap" class="icon-sm"></i> AUTO: Calculando...
                   </div>
                 </div>
 
                 <!-- Control Microinversores -->
-                <div id="step3-ctrl-microinverters" style="display:none;margin-bottom:6px;">
-                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
-                    <span style="color:var(--text-slate-200);font-weight:bold;"><i data-lucide="cpu" class="icon-sm"></i> Microinversores Necesarios:</span>
-                    <div style="display:flex;align-items:center;gap:3px;">
-                      <button type="button" class="gizmo-btn" onclick="wpStepQuantity('microinverters', -1)" style="padding:2px 6px;font-weight:bold;" aria-label="Disminuir microinversores">-</button>
-                      <input id="step3-qty-microinverters" type="number" min="0" max="1000" value="0" onchange="wpSetManualQuantity('microinverters', this.value)" style="width:38px;text-align:center;background:rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.2);color:#fff;font-size:10px;font-weight:bold;border-radius:4px;">
-                      <button type="button" class="gizmo-btn" onclick="wpStepQuantity('microinverters', 1)" style="padding:2px 6px;font-weight:bold;" aria-label="Aumentar microinversores">+</button>
-                      <span style="font-size: 10px;color:var(--text-slate-400);margin-left:2px;">uds</span>
-                      <button id="step3-auto-btn-microinverters" type="button" class="doc-mini-btn" onclick="wpResetAutoSizing('microinverters')" style="display:none;padding:1px 4px;font-size: 10px;margin-left:4px;border-color:var(--emerald-400);color:var(--emerald-400);"><i data-lucide="refresh-cw" class="icon-sm"></i> Auto</button>
+                <div id="step3-ctrl-microinverters" style="display:none;background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.05);border-radius:6px;padding:6px;margin-bottom:6px;">
+                  <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <span style="color:#34D399;font-weight:800;display:flex;align-items:center;gap:4px;">
+                      <i data-lucide="cpu" class="icon-sm"></i> Microinversores:
+                    </span>
+                    <div style="display:flex;align-items:center;gap:3px;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);border-radius:5px;padding:2px 4px;">
+                      <button type="button" class="gizmo-btn" onclick="wpStepQuantity('microinverters', -1)" style="padding:1px 6px;font-weight:bold;font-size:11px;background:transparent;border:none;color:#fff;cursor:pointer;" aria-label="Disminuir microinversores">-</button>
+                      <input id="step3-qty-microinverters" type="number" min="0" max="1000" value="0" onchange="wpSetManualQuantity('microinverters', this.value)" style="width:34px;text-align:center;background:transparent;border:none;color:#fff;font-size:10.5px;font-weight:bold;outline:none;">
+                      <button type="button" class="gizmo-btn" onclick="wpStepQuantity('microinverters', 1)" style="padding:1px 6px;font-weight:bold;font-size:11px;background:transparent;border:none;color:#fff;cursor:pointer;" aria-label="Aumentar microinversores">+</button>
+                      <span style="font-size:9px;color:#94a3b8;">uds</span>
+                      <button id="step3-auto-btn-microinverters" type="button" class="doc-mini-btn" onclick="wpResetAutoSizing('microinverters')" style="display:none;padding:1px 4px;font-size:9px;margin-left:3px;border-color:var(--emerald-400);color:var(--emerald-400);background:rgba(16,185,129,0.15);"><i data-lucide="refresh-cw" class="icon-sm"></i> Auto</button>
                     </div>
                   </div>
-                  <div id="step3-explain-microinverters" style="font-size: 10px;color:var(--text-slate-400);line-height:1.3;">
+                  <div id="step3-explain-microinverters" style="font-size:9.5px;color:#94a3b8;line-height:1.3;margin-top:4px;">
                     <i data-lucide="zap" class="icon-sm"></i> AUTO: Calculando...
                   </div>
                 </div>
 
                 <!-- Control Baterías -->
-                <div id="step3-ctrl-batteries" style="margin-bottom:4px;">
-                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
-                    <span style="color:var(--text-slate-200);font-weight:bold;"><i data-lucide="battery-charging" class="icon-sm"></i> Módulos Batería LFP:</span>
-                    <div style="display:flex;align-items:center;gap:3px;">
-                      <button type="button" class="gizmo-btn" onclick="wpStepQuantity('batteries', -1)" style="padding:2px 6px;font-weight:bold;" aria-label="Disminuir baterías">-</button>
-                      <input id="step3-qty-batteries" type="number" min="0" max="50" value="0" onchange="wpSetManualQuantity('batteries', this.value)" style="width:38px;text-align:center;background:rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.2);color:#fff;font-size:10px;font-weight:bold;border-radius:4px;">
-                      <button type="button" class="gizmo-btn" onclick="wpStepQuantity('batteries', 1)" style="padding:2px 6px;font-weight:bold;" aria-label="Aumentar baterías">+</button>
-                      <span style="font-size: 10px;color:var(--text-slate-400);margin-left:2px;">uds</span>
-                      <button id="step3-auto-btn-batteries" type="button" class="doc-mini-btn" onclick="wpResetAutoSizing('batteries')" style="display:none;padding:1px 4px;font-size: 10px;margin-left:4px;border-color:var(--emerald-400);color:var(--emerald-400);"><i data-lucide="refresh-cw" class="icon-sm"></i> Auto</button>
+                <div id="step3-ctrl-batteries" style="background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.05);border-radius:6px;padding:6px;margin-bottom:4px;">
+                  <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <span style="color:#38BDF8;font-weight:800;display:flex;align-items:center;gap:4px;">
+                      <i data-lucide="battery-charging" class="icon-sm"></i> Módulos Batería:
+                    </span>
+                    <div style="display:flex;align-items:center;gap:3px;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);border-radius:5px;padding:2px 4px;">
+                      <button type="button" class="gizmo-btn" onclick="wpStepQuantity('batteries', -1)" style="padding:1px 6px;font-weight:bold;font-size:11px;background:transparent;border:none;color:#fff;cursor:pointer;" aria-label="Disminuir baterías">-</button>
+                      <input id="step3-qty-batteries" type="number" min="0" max="50" value="0" onchange="wpSetManualQuantity('batteries', this.value)" style="width:28px;text-align:center;background:transparent;border:none;color:#fff;font-size:10.5px;font-weight:bold;outline:none;">
+                      <button type="button" class="gizmo-btn" onclick="wpStepQuantity('batteries', 1)" style="padding:1px 6px;font-weight:bold;font-size:11px;background:transparent;border:none;color:#fff;cursor:pointer;" aria-label="Aumentar baterías">+</button>
+                      <span style="font-size:9px;color:#94a3b8;">uds</span>
+                      <button id="step3-auto-btn-batteries" type="button" class="doc-mini-btn" onclick="wpResetAutoSizing('batteries')" style="display:none;padding:1px 4px;font-size:9px;margin-left:3px;border-color:var(--emerald-400);color:var(--emerald-400);background:rgba(16,185,129,0.15);"><i data-lucide="refresh-cw" class="icon-sm"></i> Auto</button>
                     </div>
                   </div>
-                  <div id="step3-explain-batteries" style="font-size: 10px;color:var(--text-slate-400);line-height:1.3;">
+                  <div id="step3-explain-batteries" style="font-size:9.5px;color:#94a3b8;line-height:1.3;margin-top:4px;">
                     <i data-lucide="zap" class="icon-sm"></i> AUTO: Calculando...
                   </div>
                 </div>
@@ -2044,31 +2050,49 @@ window.RA_App = window.RA_App || {};
                 </div>
               </div>
 
-              <!-- Ficha Técnica y Límites Eléctricos de String Calculados -->
-              <div id="step3-hardware-specs-card" style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.06);border-radius:6px;padding:8px;font-size: 10px;line-height:1.6;">
-                <div style="display:flex;justify-content:space-between;color:var(--text-slate-300);">
-                  <span>Límite String en Frío (-10°C):</span>
-                  <b id="step3-spec-nmax" class="amber">Máx. 13 placas</b>
+              <!-- Ficha Técnica y Límites Eléctricos de String Calculados (Semáforo Paramétrico Pro) -->
+              <div id="step3-hardware-specs-card" style="background:rgba(15,23,42,0.9);border:1px solid rgba(56,189,248,0.25);border-radius:7px;padding:9px;font-size:10px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:4px;">
+                  <span style="font-weight:900;color:#38BDF8;display:flex;align-items:center;gap:4px;">
+                    <i data-lucide="shield-check" class="icon-sm"></i> SEMÁFORO DE COMPATIBILIDAD IEC 62548
+                  </span>
+                  <span style="font-size:9px;color:#94a3b8;font-weight:700;">CONFORMIDAD TÉCNICA</span>
                 </div>
-                <div style="display:flex;justify-content:space-between;color:var(--text-slate-300);">
-                  <span>Mínimo Arranque MPPT (65°C):</span>
-                  <b id="step3-spec-nmin" class="amber">Mín. 5 placas</b>
+
+                <!-- Pastillas de Validación Paramétrica (Pills) -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;">
+                  <div style="background:rgba(0,0,0,0.35);padding:6px;border-radius:5px;border:1px solid rgba(255,255,255,0.06);">
+                    <div style="font-size:8.5px;color:#94a3b8;text-transform:uppercase;font-weight:700;">Tensión en Frío (-10°C)</div>
+                    <div id="step3-spec-nmax" class="amber" style="font-size:11px;font-weight:900;margin-top:2px;">Máx. 13 placas</div>
+                  </div>
+                  <div style="background:rgba(0,0,0,0.35);padding:6px;border-radius:5px;border:1px solid rgba(255,255,255,0.06);">
+                    <div style="font-size:8.5px;color:#94a3b8;text-transform:uppercase;font-weight:700;">Mín. Arranque MPPT (65°C)</div>
+                    <div id="step3-spec-nmin" class="amber" style="font-size:11px;font-weight:900;margin-top:2px;">Mín. 5 placas</div>
+                  </div>
                 </div>
-                <div style="display:flex;justify-content:space-between;color:var(--text-slate-300);">
-                  <span>Capacidad Máx por Inversor:</span>
-                  <b id="step3-spec-totmax" class="amber">14 placas (6.3 kWp)</b>
+
+                <div style="background:rgba(0,0,0,0.35);padding:6px;border-radius:5px;border:1px solid rgba(255,255,255,0.06);margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
+                  <div>
+                    <div style="font-size:8.5px;color:#94a3b8;text-transform:uppercase;font-weight:700;">Capacidad Total por Inversor</div>
+                    <div id="step3-spec-totmax" class="amber" style="font-size:11px;font-weight:900;margin-top:2px;">14 placas (6.3 kWp)</div>
+                  </div>
+                  <span style="background:rgba(245,158,11,0.15);color:#FBBF24;padding:2px 6px;border-radius:4px;font-size:9.5px;font-weight:800;border:1px solid rgba(245,158,11,0.3);">RATIO STC</span>
                 </div>
-                <div style="display:flex;justify-content:space-between;color:var(--text-slate-300);padding-top:3px;border-top:1px dashed rgba(255,255,255,0.08);">
-                  <span>Corriente Operativa Imp vs MPPT:</span>
-                  <b id="step3-spec-imp-check" style="color:#10B981;">13.1 A ≤ 26.0 A (Óptimo)</b>
-                </div>
-                <div style="display:flex;justify-content:space-between;color:var(--text-slate-300);">
-                  <span>Seguridad Isc vs Inversor:</span>
-                  <b id="step3-spec-isc-check" style="color:#10B981;">14.0 A ≤ 30.0 A (OK)</b>
-                </div>
-                <div style="display:flex;justify-content:space-between;color:var(--text-slate-300);">
-                  <span>Sobrecarga Estructural Techo:</span>
-                  <b id="step3-spec-roof-load" style="color:#38BDF8;">~14.5 kg/m² (Admisible)</b>
+
+                <!-- Verificación de Corrientes y Carga de Cubierta -->
+                <div style="display:flex;flex-direction:column;gap:4px;padding-top:4px;border-top:1px dashed rgba(255,255,255,0.08);line-height:1.4;">
+                  <div style="display:flex;justify-content:space-between;color:var(--text-slate-300);">
+                    <span>Corriente Imp vs MPPT:</span>
+                    <b id="step3-spec-imp-check" style="color:#10B981;">13.1 A ≤ 26.0 A (Óptimo)</b>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;color:var(--text-slate-300);">
+                    <span>Seguridad Isc Cortocircuito:</span>
+                    <b id="step3-spec-isc-check" style="color:#10B981;">14.0 A ≤ 30.0 A (OK)</b>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;color:var(--text-slate-300);">
+                    <span>Sobrecarga Estructural (CTE):</span>
+                    <b id="step3-spec-roof-load" style="color:#38BDF8;">~14.5 kg/m² (Admisible)</b>
+                  </div>
                 </div>
               </div>
 
@@ -10350,6 +10374,9 @@ function wpPlaceGridMeterAtPosition(cartesian, skipRecurse = false) {
   window.inverterEquipmentState.gridMeter.position = cartesian;
   window.inverterEquipmentState.gridMeter.carto = { latitude: latDeg, longitude: lonDeg, height: heightM };
   window.inverterEquipmentState.gridMeter.isPlacing = false;
+  if (typeof viewer !== 'undefined' && viewer && viewer.canvas) {
+    viewer.canvas.style.cursor = 'default';
+  }
 
   if (window.inverterEquipmentState.gridMeter.entity) {
     try { viewer.entities.remove(window.inverterEquipmentState.gridMeter.entity); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
@@ -12248,12 +12275,38 @@ function deleteSelectedElectricalEquipment() {
 function wpStartInverterPlacement() {
   if (!window.inverterEquipmentState) window.inverterEquipmentState = {};
   window.inverterEquipmentState.isPlacing = true;
+  if (window.inverterEquipmentState.gridMeter) window.inverterEquipmentState.gridMeter.isPlacing = false;
+  if (window.inverterEquipmentState.combinerBox) window.inverterEquipmentState.combinerBox.isPlacing = false;
+
+  // Feedback UI/UX: Cursor en diana y aviso interactivo
+  if (typeof viewer !== 'undefined' && viewer && viewer.canvas) {
+    viewer.canvas.style.cursor = 'crosshair';
+  }
   const btn = document.getElementById('btn-place-inverter');
   if (btn) btn.classList.add('active');
   if (typeof showToast === 'function') {
-    showToast('UBICACIÓN DE CUADRO E INVERSOR', 'Haz clic en cualquier pared, suelo o fachada 3D para posicionar el inversor/cuadro eléctrico.', 'info', 4000);
+    showToast('UBICACIÓN DE CUADRO E INVERSOR', '🎯 Haz clic en cualquier pared, suelo o fachada 3D para situar el inversor.', 'info', 4000);
   }
-  showStatus('<i data-lucide=\"zap\" class=\"icon-sm\"></i> HAZ CLIC EN EL MODELO 3D PARA UBICAR EL CUADRO ELÉCTRICO / INVERSOR', 4000);
+  showStatus('<i data-lucide="zap" class="icon-sm"></i> HAZ CLIC EN EL MODELO 3D PARA UBICAR EL CUADRO ELÉCTRICO / INVERSOR', 4000);
+}
+
+function wpStartGridMeterPlacement() {
+  if (!window.inverterEquipmentState) window.inverterEquipmentState = {};
+  if (!window.inverterEquipmentState.gridMeter) window.inverterEquipmentState.gridMeter = {};
+  window.inverterEquipmentState.gridMeter.isPlacing = true;
+  window.inverterEquipmentState.isPlacing = false;
+  if (window.inverterEquipmentState.combinerBox) window.inverterEquipmentState.combinerBox.isPlacing = false;
+
+  // Feedback UI/UX: Cursor en diana y aviso interactivo
+  if (typeof viewer !== 'undefined' && viewer && viewer.canvas) {
+    viewer.canvas.style.cursor = 'crosshair';
+  }
+  const btn = document.getElementById('btn-step2-place-meter') || document.getElementById('btn-place-meter');
+  if (btn) btn.classList.add('active');
+  if (typeof showToast === 'function') {
+    showToast('UBICACIÓN DEL CONTADOR DE LUZ', '🎯 Haz clic en la fachada exterior o murete donde esté la acometida de red / contador.', 'info', 4000);
+  }
+  showStatus('<i data-lucide="plug" class="icon-sm"></i> HAZ CLIC EN LA FACHADA 3D PARA SITUAR EL CONTADOR / CGMP', 4000);
 }
 
 
@@ -12315,6 +12368,9 @@ function wpPlaceInverterAtPosition(cartesian) {
   window.inverterEquipmentState.position = cartesian;
   window.inverterEquipmentState.carto = { latitude: latDeg, longitude: lonDeg, height: heightM };
   window.inverterEquipmentState.isPlacing = false;
+  if (typeof viewer !== 'undefined' && viewer && viewer.canvas) {
+    viewer.canvas.style.cursor = 'default';
+  }
 
   // Actualizar indicadores UI
   const tagEl = document.getElementById('inverter-status-tag');
