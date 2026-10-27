@@ -1920,5 +1920,195 @@ function wpRenderElectronicsRackUI() {
   if (typeof window !== 'undefined' && window.lucide && typeof window.lucide.createIcons === 'function') {
     window.lucide.createIcons();
   }
+
+  // Sincronizar el componente multi-faldón contextual (Fase 1)
+  if (typeof wpRenderStep4RoofScopeUI === 'function') {
+    wpRenderStep4RoofScopeUI();
+  }
 }
 window.wpRenderElectronicsRackUI = wpRenderElectronicsRackUI;
+
+// ══════════════════════════════════════════════════════════════════════════
+// ARQUITECTURA MULTI-FALDÓN EN FASE 4: SCOPE BAR & MAPEO HETEROGÉNEO
+// ══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Estado interno del visor de faldón en Paso 4
+ * activeScope: 'all' | 0 | 1 | 2 ... (índice del faldón)
+ */
+window.step4RoofScopeState = {
+  activeScope: 'all'
+};
+
+/**
+ * Renderiza la barra de ámbitos contextual (Scope Bar) y la matriz de mapeo por faldón.
+ */
+function wpRenderStep4RoofScopeUI() {
+  const container = document.getElementById('step4-roof-scope-bar');
+  const pillsContainer = document.getElementById('step4-roof-scope-pills');
+  const countBadge = document.getElementById('step4-roof-scope-count');
+  const mappingCard = document.getElementById('step4-roof-mapping-card');
+  const mappingTable = document.getElementById('step4-roof-mapping-table');
+  const mappingSummaryTag = document.getElementById('step4-mapping-summary-tag');
+
+  if (!container || !pillsContainer) return;
+
+  const polylines = (typeof WP !== 'undefined' && Array.isArray(WP.polylines))
+    ? WP.polylines.filter(p => p && p.points && p.points.length >= 3)
+    : [];
+
+  // Si solo hay 0 o 1 faldón, la vista estándar global es suficiente
+  if (polylines.length <= 1) {
+    container.style.display = 'none';
+    if (mappingCard) mappingCard.style.display = 'none';
+    return;
+  }
+
+  container.style.display = 'flex';
+  if (countBadge) countBadge.textContent = polylines.length + ' Faldones';
+  if (mappingCard) mappingCard.style.display = 'block';
+  if (mappingSummaryTag) mappingSummaryTag.textContent = polylines.length + ' Faldones Activos';
+
+  const currentScope = window.step4RoofScopeState.activeScope;
+
+  // Obtener datos SSOT del desglose de módulos
+  const mb = (typeof window.RAModulesBreakdown !== 'undefined' && typeof window.RAModulesBreakdown.getProjectModulesBreakdown === 'function')
+    ? window.RAModulesBreakdown.getProjectModulesBreakdown()
+    : null;
+
+  const roofsData = (mb && Array.isArray(mb.byRoof)) ? mb.byRoof : polylines.map((p, idx) => ({
+    roofIndex: idx,
+    name: p.name || ('Faldón ' + (idx + 1)),
+    panelCount: (p.roofInfo && Array.isArray(p.roofInfo.panels)) ? p.roofInfo.panels.filter(x => !x.deleted).length : 0,
+    moduleFullName: 'Módulo Estándar',
+    wp: 450,
+    kwp: 0,
+    tiltDeg: p.tiltDeg || 30,
+    azimuthDeg: p.azimuthDeg || 0
+  }));
+
+  // Renderizar píldoras del Scope Bar
+  const isAllActive = currentScope === 'all';
+  let pillsHtml = `
+    <button type="button" onclick="wpSetStep4RoofScope('all')" style="flex-shrink:0;padding:4px 8px;border-radius:5px;font-size:9.5px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all 0.15s;${isAllActive ? 'background:#38BDF8;color:#0F172A;border:1px solid #38BDF8;' : 'background:rgba(0,0,0,0.4);color:#94A3B8;border:1px solid rgba(255,255,255,0.1);'}">
+      <i data-lucide="globe" class="icon-sm"></i> TODA LA INSTALACIÓN
+    </button>
+  `;
+
+  roofsData.forEach((r, idx) => {
+    const isAct = currentScope === idx;
+    const nPanels = r.panelCount || 0;
+    const kwp = r.kwp ? r.kwp.toFixed(1) : ((nPanels * (r.wp || 450)) / 1000).toFixed(1);
+    const label = `F${idx + 1}`;
+
+    pillsHtml += `
+      <button type="button" onclick="wpSetStep4RoofScope(${idx})" style="flex-shrink:0;padding:4px 8px;border-radius:5px;font-size:9.5px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all 0.15s;${isAct ? 'background:#F59E0B;color:#0F172A;border:1px solid #F59E0B;' : 'background:rgba(0,0,0,0.4);color:#CBD5E1;border:1px solid rgba(255,255,255,0.1);'}">
+        <span>🏠 ${label}:</span>
+        <span style="font-weight:bold;opacity:0.9;">${nPanels} mod (${kwp} kWp)</span>
+      </button>
+    `;
+  });
+
+  pillsContainer.innerHTML = pillsHtml;
+
+  // Renderizar Matriz de Mapeo por Faldón
+  if (mappingTable) {
+    const cfg = window.solarProjectConfig || {};
+    const globalTopo = cfg.selectedTopology || 'inverter';
+
+    mappingTable.innerHTML = roofsData.map((r, idx) => {
+      const isHighlighted = (currentScope === 'all' || currentScope === idx);
+      const borderClr = isHighlighted ? (currentScope === idx ? '#F59E0B' : 'rgba(255,255,255,0.12)') : 'rgba(255,255,255,0.04)';
+      const opacity = isHighlighted ? '1' : '0.45';
+      const poly = polylines[idx];
+
+      // Determinar electrónica asignada al faldón
+      const topo = (poly && poly.assignedTopology) ? poly.assignedTopology : globalTopo;
+      let topoBadge = '⚡ Inversor String';
+      let topoColor = '#38BDF8';
+      let mpptDesc = `MPPT ${idx + 1} (String independiente)`;
+
+      if (topo === 'microinverter') {
+        topoBadge = '🖲️ Microinversor';
+        topoColor = '#10B981';
+        mpptDesc = 'MPPT distribuido por panel';
+      } else if (topo === 'optimizer') {
+        topoBadge = '⚙️ Inversor + MLPE';
+        topoColor = '#F59E0B';
+        mpptDesc = 'MPPT Central + Optimizador individual';
+      }
+
+      const modName = r.moduleFullName || (r.moduleBrand ? `${r.moduleBrand} ${r.moduleModel}` : 'Módulo Solar');
+      const kwp = r.kwp ? r.kwp.toFixed(2) : (((r.panelCount || 0) * (r.wp || 450)) / 1000).toFixed(2);
+
+      return `
+        <div style="background:rgba(0,0,0,0.3);border:1px solid ${borderClr};border-left:3px solid ${topoColor};border-radius:5px;padding:6px 8px;opacity:${opacity};transition:all 0.2s;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+            <div style="display:flex;align-items:center;gap:5px;">
+              <span style="font-size:10px;font-weight:900;color:#F8FAFC;">
+                🏠 F${idx + 1}: ${r.name || ('Faldón ' + (idx + 1))}
+              </span>
+              <span style="font-size:8.5px;color:#94A3B8;background:rgba(255,255,255,0.06);padding:1px 4px;border-radius:3px;">
+                ${r.tiltDeg || 30}° / az ${r.azimuthDeg || 0}°
+              </span>
+            </div>
+            <button type="button" onclick="wpFocusRoofIn3D(${idx})" class="doc-mini-btn" style="padding:1px 5px;font-size:9px;color:#38BDF8;border-color:rgba(56,189,248,0.3);background:rgba(56,189,248,0.1);" title="Centrar cámara 3D en este faldón">
+              <i data-lucide="crosshair" class="icon-sm"></i> Ver 3D
+            </button>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:9.5px;margin-top:4px;line-height:1.25;">
+            <div style="background:rgba(255,255,255,0.03);padding:4px 6px;border-radius:4px;">
+              <span style="color:#94A3B8;display:block;font-size:8.5px;text-transform:uppercase;">Placa Fotovoltaica:</span>
+              <b style="color:#E2E8F0;">${modName}</b>
+              <div style="color:#FBBF24;font-size:9px;font-weight:700;margin-top:1px;">
+                ${r.panelCount || 0} uds · ${kwp} kWp (${r.wp || 450} Wp/ud)
+              </div>
+            </div>
+
+            <div style="background:rgba(255,255,255,0.03);padding:4px 6px;border-radius:4px;">
+              <span style="color:#94A3B8;display:block;font-size:8.5px;text-transform:uppercase;">Electrónica & MPPT:</span>
+              <b style="color:${topoColor};">${topoBadge}</b>
+              <div style="color:#CBD5E1;font-size:9px;margin-top:1px;">
+                ${mpptDesc}
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  if (typeof window.lucide !== 'undefined' && typeof window.lucide.createIcons === 'function') {
+    window.lucide.createIcons();
+  }
+}
+window.wpRenderStep4RoofScopeUI = wpRenderStep4RoofScopeUI;
+
+/**
+ * Cambia el ámbito activo de visualización en Paso 4
+ * @param {'all' | number} scope 
+ */
+function wpSetStep4RoofScope(scope) {
+  window.step4RoofScopeState.activeScope = scope;
+  wpRenderStep4RoofScopeUI();
+
+  // Si se selecciona un faldón concreto, sincronizar cámara y selección 3D
+  if (typeof scope === 'number') {
+    wpFocusRoofIn3D(scope);
+  }
+}
+window.wpSetStep4RoofScope = wpSetStep4RoofScope;
+
+/**
+ * Centra la cámara del visor 3D y resalta el faldón seleccionado
+ * @param {number} polyIdx 
+ */
+function wpFocusRoofIn3D(polyIdx) {
+  if (typeof window.ProjectHierarchy !== 'undefined' && typeof window.ProjectHierarchy.selectPolyline === 'function') {
+    window.ProjectHierarchy.selectPolyline(polyIdx, true);
+  } else if (typeof window.wpSelectPolyline === 'function') {
+    window.wpSelectPolyline(polyIdx);
+  }
+}
+window.wpFocusRoofIn3D = wpFocusRoofIn3D;

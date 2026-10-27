@@ -4014,6 +4014,9 @@ async function wpGoToStep(step, force = false) {
     if (typeof wpUpdateMeterPlacementGuideUI === 'function') {
       wpUpdateMeterPlacementGuideUI();
     }
+    if (typeof wpRenderStep4RoofScopeUI === 'function') {
+      wpRenderStep4RoofScopeUI();
+    }
   } else if (step === 5) {
     // <i data-lucide=\"file-text\" class=\"icon-sm\"></i> PASO 5: ENTREGA, PRESUPUESTO & MEMORIA PDF
     const c5 = document.getElementById('wp-step-5-content');

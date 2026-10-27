@@ -1851,6 +1851,19 @@ window.RA_App = window.RA_App || {};
               </div>
             </div>
 
+            <!-- BANDA SELECTORA MULTI-FALDÓN / SCOPE BAR CONTEXTUAL F1-FN -->
+            <div id="step4-roof-scope-bar" style="display:none;background:rgba(15,23,42,0.92);border:1px solid rgba(56,189,248,0.22);border-radius:8px;padding:6px 8px;flex-direction:column;gap:5px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <span style="font-size:9.5px;font-weight:800;color:#94A3B8;display:flex;align-items:center;gap:4px;text-transform:uppercase;letter-spacing:0.3px;">
+                  <i data-lucide="layers" class="icon-sm" style="color:#38BDF8;"></i> ÁMBITO DE DISEÑO (FALDONES & CUBIERTAS):
+                </span>
+                <span id="step4-roof-scope-count" class="card-tag" style="background:rgba(56,189,248,0.15);color:#38BDF8;font-size:9px;font-weight:800;">4 Faldones</span>
+              </div>
+              <div id="step4-roof-scope-pills" style="display:flex;gap:4px;overflow-x:auto;padding-bottom:2px;" class="custom-scrollbar">
+                <!-- Inyección dinámica de píldoras: Global + F1, F2, F3... -->
+              </div>
+            </div>
+
             <!-- 4.1 EQUIPAMIENTO ELÉCTRICO Y CONVERSIÓN -->
             <div class="ui-card" style="border:1px solid rgba(255,255,255,0.08);background:rgba(15,23,42,0.85);border-radius:8px;padding:10px;">
               <!-- Cabecera con enlace directo al catálogo -->
@@ -1948,7 +1961,7 @@ window.RA_App = window.RA_App || {};
               </div>
 
               <!-- RACK / LISTADO DE ELECTRÓNICA ACTIVA DEL PROYECTO -->
-              <div id="step3-electronics-rack-card" style="background:rgba(15,23,42,0.9);border:1px solid rgba(56,189,248,0.25);border-radius:6px;padding:8px;">
+              <div id="step3-electronics-rack-card" style="background:rgba(15,23,42,0.9);border:1px solid rgba(56,189,248,0.25);border-radius:6px;padding:8px;margin-bottom:8px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:4px;">
                   <span style="font-size:10px;font-weight:800;color:#38BDF8;display:flex;align-items:center;gap:4px;">
                     <i data-lucide="server" class="icon-sm"></i> RACK DE ELECTRÓNICA & MLPE ACTIVO
@@ -1957,6 +1970,21 @@ window.RA_App = window.RA_App || {};
                 </div>
                 <div id="step3-electronics-rack-list" style="display:flex;flex-direction:column;gap:5px;">
                   <!-- Render dinámico de equipos con estado, asignación y potencia -->
+                </div>
+              </div>
+
+              <!-- MATRIZ DE ASIGNACIÓN: FALDONES ➔ MÓDULOS ➔ ELECTRÓNICA (MULTI-FALDÓN) -->
+              <div id="step4-roof-mapping-card" style="display:none;background:rgba(0,0,0,0.35);border:1px solid rgba(245,158,11,0.25);border-radius:6px;padding:8px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:4px;">
+                  <span style="font-size:10px;font-weight:900;color:#FBBF24;display:flex;align-items:center;gap:4px;">
+                    <i data-lucide="git-branch" class="icon-sm"></i> MAPEO DE GENERACIÓN POR FAL DÓN
+                  </span>
+                  <span id="step4-mapping-summary-tag" class="card-tag" style="background:rgba(245,158,11,0.15);color:#FBBF24;font-size:9px;font-weight:800;">
+                    4 Faldones Activos
+                  </span>
+                </div>
+                <div id="step4-roof-mapping-table" style="display:flex;flex-direction:column;gap:5px;">
+                  <!-- Inyección dinámica: cada fila con faldón, placas, electrónica y estado MPPT -->
                 </div>
               </div>
             </div>
