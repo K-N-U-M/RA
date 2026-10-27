@@ -1,3 +1,42 @@
+
+  /**
+   * [CEL / GHOST OVERRIDE] Conmuta o fuerza la inclusión manual de un módulo podado en el layout activo
+   */
+  function wpToggleGhostPanel(panelIdOrIdx) {
+    if (!window.solarProjectConfig) window.solarProjectConfig = {};
+    if (!Array.isArray(window.solarProjectConfig.forcedPanelIds)) {
+      window.solarProjectConfig.forcedPanelIds = [];
+    }
+    const forced = window.solarProjectConfig.forcedPanelIds;
+    let targetId = panelIdOrIdx;
+    if (typeof panelIdOrIdx === 'number' && Array.isArray(window.allRenderedPanels) && window.allRenderedPanels[panelIdOrIdx]) {
+      targetId = window.allRenderedPanels[panelIdOrIdx].panelId;
+    }
+    if (!targetId) return;
+
+    const idx = forced.indexOf(targetId);
+    if (idx >= 0) {
+      forced.splice(idx, 1);
+    } else {
+      forced.push(targetId);
+    }
+
+    if (typeof roofPanelsCache !== 'undefined' && roofPanelsCache) {
+      roofPanelsCache.sig = "";
+      roofPanelsCache.data = null;
+    }
+    if (typeof wpFastRenderSimulatedPanels === 'function') {
+      wpFastRenderSimulatedPanels(true);
+    }
+    if (typeof wpUpdateCommercialPathsUI === 'function') {
+      wpUpdateCommercialPathsUI();
+    }
+    if (typeof recalculateSolarYield === 'function') {
+      recalculateSolarYield();
+    }
+  }
+  window.wpToggleGhostPanel = wpToggleGhostPanel;
+
 /**
  * js/solar-heatmap.js — Motor de Simulación Anual de Sombras e Irradiancia (Arquitectura AAA v3)
  * ==============================================================================================
@@ -1903,6 +1942,36 @@
         valMaxProd.textContent = '-- kWp';
       }
     }
+    // Actualizar Banner Interactivo de Comunidad Energética Local (CEL · RDL 7/2026)
+    const celBanner = document.getElementById('cel-opportunity-banner');
+    if (celBanner) {
+      let ghostCount = 0;
+      let activeCount = 0;
+      if (Array.isArray(window.allRenderedPanels)) {
+        window.allRenderedPanels.forEach(p => {
+          if (!p || p.deleted) return;
+          if (p.isGhost) ghostCount++;
+          else activeCount++;
+        });
+      }
+
+      if (isJustSaving && ghostCount > 0) {
+        celBanner.style.display = 'block';
+        const ghostKwp = ((ghostCount * modWp) / 1000).toFixed(2);
+        const ghostGenKwh = Math.round(ghostKwp * 1450);
+        const ghostCelEur = Math.round(ghostGenKwh * (0.11 - 0.05)); // Margen neto CEL vs pool
+
+        const countEl = document.getElementById('cel-banner-ghost-count');
+        const kwpEl = document.getElementById('cel-banner-ghost-kwp');
+        const eurEl = document.getElementById('cel-banner-ghost-eur');
+        if (countEl) countEl.textContent = ghostCount;
+        if (kwpEl) kwpEl.textContent = ghostKwp + ' kWp';
+        if (eurEl) eurEl.textContent = '+' + ghostCelEur.toLocaleString('es-ES') + ' €/año';
+      } else {
+        celBanner.style.display = 'none';
+      }
+    }
+
     if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
   }
   window.wpUpdateCommercialPathsUI = wpUpdateCommercialPathsUI;
@@ -1953,13 +2022,32 @@
       return [...polyPanels];
     }
 
+    // [FORCED-PANELS] Identificadores de módulos forzados por el usuario
+    const forcedList = (window.solarProjectConfig && Array.isArray(window.solarProjectConfig.forcedPanelIds)) ? window.solarProjectConfig.forcedPanelIds : [];
+    const forcedSet = new Set(forcedList);
+
     // Caso A: Único faldón
     const listLen = Array.isArray(polylinesList) ? polylinesList.length : 1;
     if (listLen <= 1) {
       if (polyPanels.length > limitModules) {
-        const sorted = [...polyPanels].sort((a, b) => (a.annualLossPct || 0) - (b.annualLossPct || 0));
-        return sorted.slice(0, limitModules);
+        const sorted = [...polyPanels].sort((a, b) => {
+          const aForced = forcedSet.has(a.panelId) ? 1 : 0;
+          const bForced = forcedSet.has(b.panelId) ? 1 : 0;
+          if (aForced !== bForced) return bForced - aForced; // Forzados van primero
+          return (a.annualLossPct || 0) - (b.annualLossPct || 0);
+        });
+        const activeSlice = sorted.slice(0, limitModules);
+        const activeIds = new Set(activeSlice.map(p => p.panelId));
+        return polyPanels.map(p => {
+          if (!activeIds.has(p.panelId)) {
+            p.isGhost = true;
+          } else {
+            delete p.isGhost;
+          }
+          return p;
+        });
       }
+      polyPanels.forEach(p => { delete p.isGhost; });
       return [...polyPanels];
     }
 
@@ -2032,10 +2120,19 @@
     const selectedSet = window._raGlobalObjectiveSelectedIds;
     let filtered = polyPanels;
     if (selectedSet) {
-      filtered = polyPanels.filter((p, pIdx) => {
+      filtered = polyPanels.map((p, pIdx) => {
         const id = p.panelId || ('pan_' + polyIdx + '_' + (p.layoutIndex ?? p.localIdx ?? pIdx));
-        return selectedSet.has(id);
+        if (forcedSet && forcedSet.has(id)) {
+          delete p.isGhost;
+        } else if (!selectedSet.has(id)) {
+          p.isGhost = true;
+        } else {
+          delete p.isGhost;
+        }
+        return p;
       });
+    } else {
+      polyPanels.forEach(p => { delete p.isGhost; });
     }
 
     // Limpieza al terminar el último faldón
