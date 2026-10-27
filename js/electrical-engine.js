@@ -1692,16 +1692,23 @@
     const selectedInvId = cfg.selectedInverterId || (catalog[0] ? catalog[0].id : null);
     const currentInv = catalog.find(i => i.id === selectedInvId) || (cfg.lastVirtualInverter && cfg.lastVirtualInverter.id === selectedInvId ? cfg.lastVirtualInverter : null) || catalog[0];
 
+    // Considerar multi-inversor si ya está dimensionado por wpComputeAutoSizing
+    const invCount = (cfg.autoSizing && cfg.autoSizing.inverters && Number.isFinite(cfg.autoSizing.inverters.count) && cfg.autoSizing.inverters.count > 0)
+      ? cfg.autoSizing.inverters.count
+      : 1;
+
     const invNomKw = currentInv.kw || 5.0;
     const maxOverloadRatio = currentInv.maxOverload || 1.35;
-    const maxCapacityKwp = invNomKw * maxOverloadRatio;
-    const autoInverters = Math.max(1, Math.ceil(totalKwp / maxCapacityKwp));
+    const singleMaxCapacityKwp = invNomKw * maxOverloadRatio;
+    const totalInvNomKw = invNomKw * invCount;
+    const totalMaxCapacityKwp = totalInvNomKw * maxOverloadRatio;
+    const autoInverters = Math.max(1, Math.ceil(totalKwp / singleMaxCapacityKwp));
 
-    // Evaluar si se queda corto (potencia total supera la capacidad con margen del 5%)
-    const isUndersized = totalKwp > (maxCapacityKwp * 1.05);
+    // Evaluar si la instalación completa se queda corta considerando las unidades seleccionadas/auto
+    const isUndersized = totalKwp > (totalMaxCapacityKwp * 1.05);
 
-    // Evaluar si está sobredimensionado en exceso (potencia total < 50% del inversor)
-    const isOversized = totalKwp < (invNomKw * 0.50) && totalKwp >= 1.0;
+    // Evaluar si está sobredimensionado en exceso (potencia total < 50% de la potencia nominal instalada)
+    const isOversized = totalKwp < (totalInvNomKw * 0.50) && totalKwp >= 1.0;
 
     // Caso C: Incompatibilidad MPPT en Strings (IEC 62548) — BLOQUEO DE CONFIGURACIÓN
     if (cfg.mpptHomogeneity && !cfg.mpptHomogeneity.valid && cfg.mpptHomogeneity.violations.length > 0) {
@@ -1859,18 +1866,23 @@
     const exceedsSinglePhase5kW = isSinglePhase && (currentInv.kw > 5.0);
 
     // Si está perfectamente ajustado
+    const loadPercent = Math.round((totalKwp / totalInvNomKw) * 100);
+    const invCountText = invCount > 1 ? `${invCount}x Inversores (${totalInvNomKw.toFixed(1)} kW AC total)` : `Inversor (${invNomKw} kW AC)`;
     container.style.display = 'block';
     container.innerHTML = `
       <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.3);border-radius:6px;padding:5px 8px;display:flex;flex-direction:column;gap:4px;">
         <div style="display:flex;align-items:center;justify-content:space-between;">
           <span style="font-size: 10px;font-weight:800;color:#34D399;display:flex;align-items:center;gap:4px;">
-            <i data-lucide="check-circle" class="icon-sm"></i> Inversor perfectamente ajustado
+            <i data-lucide="check-circle" class="icon-sm"></i> ${invCount > 1 ? 'Sistema multi-inversor perfectamente ajustado' : 'Inversor perfectamente ajustado'}
           </span>
           <span style="font-size: 10px;color:rgba(255,255,255,0.7);">
-            ${totalKwp.toFixed(1)} kWp · ${((totalKwp / invNomKw) * 100).toFixed(0)}% carga óptima
+            ${totalKwp.toFixed(1)} kWp · ${loadPercent}% carga óptima
           </span>
         </div>
-        ${exceedsSinglePhase5kW ? `
+        <div style="font-size: 9.5px;color:var(--text-slate-300);">
+          ${invCountText} · Capacidad máx admisible: ${totalMaxCapacityKwp.toFixed(1)} kWp
+        </div>
+        ${exceedsSinglePhase5kW && invCount === 1 ? `
           <div style="font-size: 9.5px;color:#FBBF24;background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.3);padding:3px 6px;border-radius:4px;display:flex;align-items:center;gap:4px;">
             <i data-lucide="alert-triangle" class="icon-sm"></i> <b>Aviso Distribuidora:</b> Equipo monofásico > 5 kW (${currentInv.kw} kW). Las distribuidoras en España (Endesa/Iberdrola/UFD) suelen exigir acometida trifásica para P > 5 kW (REBT ITC-BT-40).
           </div>
