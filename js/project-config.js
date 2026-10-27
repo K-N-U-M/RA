@@ -2107,6 +2107,9 @@ function wpRenderStep4RoofScopeUI() {
               </span>
             </div>
             <div style="display:flex;gap:3px;align-items:center;">
+              <button type="button" onclick="wpOpenRoofOverrideModal(${idx})" class="doc-mini-btn" style="padding:1px 5px;font-size:9px;color:#FBBF24;border-color:rgba(245,158,11,0.3);background:rgba(245,158,11,0.1);" title="Ajustar módulo y electrónica de este faldón">
+                <i data-lucide="sliders" class="icon-sm"></i> Ajustar
+              </button>
               <button type="button" onclick="wpFocusRoofIn3D(${idx})" class="doc-mini-btn" style="padding:1px 5px;font-size:9px;color:#38BDF8;border-color:rgba(56,189,248,0.3);background:rgba(56,189,248,0.1);" title="Centrar cámara 3D en este faldón">
                 <i data-lucide="crosshair" class="icon-sm"></i> Ver 3D
               </button>
@@ -2279,3 +2282,104 @@ function wpRenderStep4SingleLineDiagramUI() {
   svgWrapper.innerHTML = svgContent;
 }
 window.wpRenderStep4SingleLineDiagramUI = wpRenderStep4SingleLineDiagramUI;
+
+// ══════════════════════════════════════════════════════════════════════════
+// FASE 5: MODAL DE AJUSTE QUIRÚRGICO POR FALDÓN (MANUAL OVERRIDE)
+// ══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Abre el modal quirúrgico para personalizar el faldón seleccionado
+ * @param {number} polyIdx 
+ */
+function wpOpenRoofOverrideModal(polyIdx) {
+  if (typeof WP === 'undefined' || !WP.polylines || !WP.polylines[polyIdx]) return;
+  const poly = WP.polylines[polyIdx];
+  const catalog = (typeof window.equipmentCatalog !== 'undefined') ? window.equipmentCatalog : null;
+  if (!catalog) return;
+
+  const currentModId = poly.moduleId || window.solarProjectConfig.selectedModuleId || (catalog.modules[0] ? catalog.modules[0].id : '');
+  const currentTopo = poly.assignedTopology || 'inherit';
+
+  let modalEl = document.getElementById('step4-roof-override-modal');
+  if (!modalEl) {
+    modalEl = document.createElement('div');
+    modalEl.id = 'step4-roof-override-modal';
+    modalEl.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.75);z-index:99999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px);';
+    document.body.appendChild(modalEl);
+  }
+
+  const moduleOptions = (catalog.modules || []).map(m => `
+    <option value="${m.id}" ${m.id === currentModId ? 'selected' : ''}>
+      ${m.brand} ${m.model} (${m.wp || 450} Wp · ${m.eff || 21.5}%)
+    </option>
+  `).join('');
+
+  modalEl.innerHTML = `
+    <div style="background:#0F172A;border:1px solid rgba(245,158,11,0.4);border-radius:10px;padding:18px;max-width:440px;width:92%;box-shadow:0 12px 32px rgba(0,0,0,0.8);font-family:sans-serif;color:#E2E8F0;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:8px;">
+        <span style="font-size:12px;font-weight:900;color:#FBBF24;display:flex;align-items:center;gap:6px;">
+          <i data-lucide="sliders" class="icon-sm"></i> AJUSTE QUIRÚRGICO: FALDÓN ${polyIdx + 1}
+        </span>
+        <button type="button" onclick="document.getElementById('step4-roof-override-modal').style.display='none'" style="background:transparent;border:none;color:#94A3B8;cursor:pointer;font-size:14px;font-weight:bold;">✕</button>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:10px;font-size:11px;">
+        <div>
+          <label style="color:#94A3B8;display:block;margin-bottom:4px;font-weight:700;">Módulo Fotovoltaico Asignado:</label>
+          <select id="modal-roof-override-module" style="width:100%;padding:6px;background:rgba(0,0,0,0.5);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:5px;font-size:10.5px;">
+            ${moduleOptions}
+          </select>
+        </div>
+
+        <div>
+          <label style="color:#94A3B8;display:block;margin-bottom:4px;font-weight:700;">Electrónica y Topología de este Faldón:</label>
+          <select id="modal-roof-override-topo" style="width:100%;padding:6px;background:rgba(0,0,0,0.5);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:5px;font-size:10.5px;">
+            <option value="inherit" ${currentTopo === 'inherit' ? 'selected' : ''}>— Heredar Configuración Global del Proyecto —</option>
+            <option value="inverter" ${currentTopo === 'inverter' ? 'selected' : ''}>⚡ Inversor Central (String a MPPT dedicado)</option>
+            <option value="optimizer" ${currentTopo === 'optimizer' ? 'selected' : ''}>⚙️ Inversor + Optimizadores DC/DC (MLPE anti-sombras)</option>
+            <option value="microinverter" ${currentTopo === 'microinverter' ? 'selected' : ''}>🖲️ Microinversor (Conversión directa en tejado)</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;border-top:1px solid rgba(255,255,255,0.1);padding-top:12px;">
+        <button type="button" onclick="document.getElementById('step4-roof-override-modal').style.display='none'" class="doc-mini-btn" style="padding:6px 12px;font-size:10.5px;">Cancelar</button>
+        <button type="button" onclick="wpSaveRoofOverride(${polyIdx})" style="background:linear-gradient(135deg,#F59E0B,#D97706);border:none;color:#0F172A;font-weight:900;padding:6px 14px;border-radius:5px;cursor:pointer;font-size:10.5px;">Guardar Faldón</button>
+      </div>
+    </div>
+  `;
+
+  modalEl.style.display = 'flex';
+  if (typeof window.lucide !== 'undefined' && typeof window.lucide.createIcons === 'function') {
+    window.lucide.createIcons();
+  }
+}
+window.wpOpenRoofOverrideModal = wpOpenRoofOverrideModal;
+
+/**
+ * Guarda los cambios personalizados para un faldón concreto y refresca la UI
+ * @param {number} polyIdx 
+ */
+function wpSaveRoofOverride(polyIdx) {
+  if (typeof WP === 'undefined' || !WP.polylines || !WP.polylines[polyIdx]) return;
+  const poly = WP.polylines[polyIdx];
+
+  const selMod = document.getElementById('modal-roof-override-module');
+  const selTopo = document.getElementById('modal-roof-override-topo');
+
+  if (selMod) poly.moduleId = selMod.value;
+  if (selTopo) poly.assignedTopology = (selTopo.value === 'inherit') ? null : selTopo.value;
+
+  const modalEl = document.getElementById('step4-roof-override-modal');
+  if (modalEl) modalEl.style.display = 'none';
+
+  // Refrescar vistas
+  if (typeof wpRenderStep4RoofScopeUI === 'function') wpRenderStep4RoofScopeUI();
+  if (typeof wpRenderStep4SingleLineDiagramUI === 'function') wpRenderStep4SingleLineDiagramUI();
+  if (typeof step3UpdateHardwareSelection === 'function') step3UpdateHardwareSelection();
+
+  if (typeof window.showToast === 'function') {
+    window.showToast('FALDÓN ACTUALIZADO', `Configuración guardada para Faldón ${polyIdx + 1}.`, 'success', 3000);
+  }
+}
+window.wpSaveRoofOverride = wpSaveRoofOverride;
