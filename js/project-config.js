@@ -1967,9 +1967,12 @@ function wpRenderElectronicsRackUI() {
     window.lucide.createIcons();
   }
 
-  // Sincronizar el componente multi-faldón contextual (Fase 1)
+  // Sincronizar el componente multi-faldón contextual (Fase 1 y Fase 4)
   if (typeof wpRenderStep4RoofScopeUI === 'function') {
     wpRenderStep4RoofScopeUI();
+  }
+  if (typeof wpRenderStep4SingleLineDiagramUI === 'function') {
+    wpRenderStep4SingleLineDiagramUI();
   }
 }
 window.wpRenderElectronicsRackUI = wpRenderElectronicsRackUI;
@@ -2158,6 +2161,7 @@ window.wpRenderStep4RoofScopeUI = wpRenderStep4RoofScopeUI;
 function wpSetStep4RoofScope(scope) {
   window.step4RoofScopeState.activeScope = scope;
   wpRenderStep4RoofScopeUI();
+  wpRenderStep4SingleLineDiagramUI();
 
   // Actualizar semáforo paramétrico para el faldón o global
   if (typeof step3UpdateHardwareSelection === 'function') {
@@ -2183,3 +2187,95 @@ function wpFocusRoofIn3D(polyIdx) {
   }
 }
 window.wpFocusRoofIn3D = wpFocusRoofIn3D;
+
+// ══════════════════════════════════════════════════════════════════════════
+// FASE 4: ESQUEMA UNIFILAR INTERACTIVO EN MINIATURA (SINGLE LINE FLOW SVG)
+// ══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Renderiza el esquema unifilar SVG dinámico en la Fase 4
+ */
+function wpRenderStep4SingleLineDiagramUI() {
+  const container = document.getElementById('step4-single-line-diagram-card');
+  const svgWrapper = document.getElementById('step4-single-line-diagram-svg');
+  if (!container || !svgWrapper) return;
+
+  const polylines = (typeof WP !== 'undefined' && Array.isArray(WP.polylines))
+    ? WP.polylines.filter(p => p && p.points && p.points.length >= 3)
+    : [];
+
+  if (polylines.length === 0) {
+    container.style.display = 'none';
+    return;
+  }
+
+  container.style.display = 'block';
+
+  const cfg = window.solarProjectConfig || {};
+  const topo = cfg.selectedTopology || 'inverter';
+  const catalog = (typeof window.equipmentCatalog !== 'undefined') ? window.equipmentCatalog : null;
+  const invSpec = (catalog && catalog.inverters && catalog.inverters.find(i => i.id === cfg.selectedInverterId)) || { kw: 5, brand: 'Inversor' };
+
+  const numRoofs = polylines.length;
+  const svgHeight = Math.max(120, numRoofs * 32 + 25);
+  const svgWidth = 320;
+
+  let faldonNodes = '';
+  let linePaths = '';
+
+  const invX = 180;
+  const invY = svgHeight / 2 - 18;
+  const gridX = 275;
+  const gridY = svgHeight / 2 - 12;
+
+  polylines.forEach((p, idx) => {
+    const y = 18 + (idx * 30);
+    const nP = (p.roofInfo && Array.isArray(p.roofInfo.panels)) ? p.roofInfo.panels.filter(x => !x.deleted).length : 0;
+    const isSel = (window.step4RoofScopeState && window.step4RoofScopeState.activeScope === idx);
+    const fillRect = isSel ? '#F59E0B' : '#1E293B';
+    const strokeRect = isSel ? '#FBBF24' : '#475569';
+    const textColor = isSel ? '#0F172A' : '#F1F5F9';
+
+    faldonNodes += `
+      <g style="cursor:pointer;" onclick="wpSetStep4RoofScope(${idx})">
+        <rect x="10" y="${y - 10}" width="80" height="20" rx="4" fill="${fillRect}" stroke="${strokeRect}" stroke-width="1.2"/>
+        <text x="50" y="${y + 3}" fill="${textColor}" font-size="8.5" font-weight="900" text-anchor="middle">F${idx + 1} (${nP}p)</text>
+      </g>
+    `;
+
+    // Conexión DC del faldón al Inversor/MPPT
+    linePaths += `
+      <path d="M 90 ${y} C 130 ${y}, 140 ${invY + 18}, ${invX} ${invY + 18}" fill="none" stroke="${isSel ? '#F59E0B' : '#38BDF8'}" stroke-width="1.5" stroke-dasharray="${isSel ? 'none' : '3,2'}"/>
+    `;
+  });
+
+  const svgContent = `
+    <svg viewBox="0 0 ${svgWidth} ${svgHeight}" style="width:100%;height:auto;display:block;">
+      <!-- Líneas de interconexión DC -->
+      ${linePaths}
+
+      <!-- Nodos de Faldones -->
+      ${faldonNodes}
+
+      <!-- Inversor / Centro de Conversión -->
+      <g>
+        <rect x="${invX}" y="${invY}" width="55" height="36" rx="5" fill="#0F172A" stroke="#10B981" stroke-width="1.8"/>
+        <text x="${invX + 27}" y="${invY + 14}" fill="#34D399" font-size="8" font-weight="900" text-anchor="middle">INV ${invSpec.kw || 5} kW</text>
+        <text x="${invX + 27}" y="${invY + 26}" fill="#94A3B8" font-size="7" font-weight="700" text-anchor="middle">MPPT AUTO</text>
+      </g>
+
+      <!-- Línea AC Inversor a Red -->
+      <path d="M ${invX + 55} ${invY + 18} L ${gridX} ${gridY + 12}" fill="none" stroke="#10B981" stroke-width="2"/>
+
+      <!-- Cuadro AC & Red General -->
+      <g>
+        <rect x="${gridX}" y="${gridY}" width="36" height="24" rx="4" fill="#0F172A" stroke="#38BDF8" stroke-width="1.5"/>
+        <text x="${gridX + 18}" y="${gridY + 12}" fill="#38BDF8" font-size="7.5" font-weight="900" text-anchor="middle">RED</text>
+        <text x="${gridX + 18}" y="${gridY + 20}" fill="#94A3B8" font-size="6.5" text-anchor="middle">230/400V</text>
+      </g>
+    </svg>
+  `;
+
+  svgWrapper.innerHTML = svgContent;
+}
+window.wpRenderStep4SingleLineDiagramUI = wpRenderStep4SingleLineDiagramUI;
