@@ -1343,43 +1343,116 @@ function wpOpenPricingReviewModal(onConfirm) {
           '  "resumen": "Breve explicacion de 2 lineas sobre la tendencia de precios en Espana."\n' +
           '}';
 
-        var modelsToTry = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+        // 1. Descubrir modelos activos admitidos por la API Key del usuario o usar fallback ordenado
+        var modelsToTry = [];
+        try {
+          if (window.RAEquipmentAIImporter && typeof window.RAEquipmentAIImporter.discoverAvailableModels === 'function') {
+            modelsToTry = await window.RAEquipmentAIImporter.discoverAvailableModels(apiKey);
+          }
+        } catch(eDisc) {}
+
+        if (!modelsToTry || modelsToTry.length === 0) {
+          modelsToTry = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.0-flash-exp'];
+        }
+
         var jsonResult = null;
+        var lastHttpError = null;
+        var lastRawText = '';
 
         for (var mi = 0; mi < modelsToTry.length; mi++) {
-          var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + modelsToTry[mi] + ':generateContent';
+          var modelName = modelsToTry[mi];
+          var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + modelName + ':generateContent';
+          
           var resp = await _aiFetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               contents: [{ role: 'user', parts: [{ text: prompt }] }],
-              generationConfig: { temperature: 0.2, maxOutputTokens: 400 }
+              generationConfig: {
+                temperature: 0.2,
+                maxOutputTokens: 900,
+                responseMimeType: 'application/json'
+              }
             })
-          }, 25000, apiKey);
+          }, 30000, apiKey);
 
-          if (resp.ok) {
-            var data = await resp.json();
-            var rawText = (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0])
-              ? data.candidates[0].content.parts[0].text : '';
-            var cleaned = rawText.replace(/```json/gi, '').replace(/```/gi, '').trim();
-            try {
-              jsonResult = JSON.parse(cleaned);
-              if (jsonResult && jsonResult.panelPrice) break;
-            } catch(eParse) {}
+          if (!resp.ok) {
+            var errData = await resp.json().catch(function() { return {}; });
+            lastHttpError = (errData && errData.error && errData.error.message) ? errData.error.message : ('HTTP ' + resp.status + ' (' + modelName + ')');
+            continue;
+          }
+
+          var data = await resp.json().catch(function() { return null; });
+          if (!data) continue;
+
+          var rawText = (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0])
+            ? data.candidates[0].content.parts[0].text : '';
+          
+          if (!rawText) continue;
+          lastRawText = rawText;
+
+          // Extracción inteligente y robusta de JSON
+          var cleaned = rawText.replace(/^[^{\[]*([{\[][\s\S]*[}\]])[^}\]]*$/, '$1').trim();
+          try {
+            var parsed = JSON.parse(cleaned);
+            if (parsed && typeof parsed === 'object') {
+              jsonResult = {
+                panelPrice: parseFloat(parsed.panelPrice) || 0,
+                estPrice: parseFloat(parsed.estPrice) || 0,
+                invPrice: parseFloat(parsed.invPrice) || 0,
+                batPrice: parseFloat(parsed.batPrice) || 0,
+                cabPrice: parseFloat(parsed.cabPrice) || 0,
+                moPrice: parseFloat(parsed.moPrice) || 0,
+                legPrice: parseFloat(parsed.legPrice) || 0,
+                resumen: parsed.resumen || parsed.summary || 'Tarifas medias obtenidas vía Google Gemini.'
+              };
+              if (jsonResult.panelPrice > 0 || jsonResult.estPrice > 0 || jsonResult.invPrice > 0) {
+                break;
+              }
+            }
+          } catch(eParse) {
+            // Regex fallback si Gemini incluyó comentarios o trailing commas
+            var extractNum = function(regex, defVal) {
+              var match = rawText.match(regex);
+              return match ? (parseFloat(match[1]) || defVal) : defVal;
+            };
+            var pPrice = extractNum(/"panelPrice"\s*:\s*([0-9]+(?:\.[0-9]+)?)/i, 0);
+            var ePrice = extractNum(/"estPrice"\s*:\s*([0-9]+(?:\.[0-9]+)?)/i, 0);
+            var iPrice = extractNum(/"invPrice"\s*:\s*([0-9]+(?:\.[0-9]+)?)/i, 0);
+            var bPrice = extractNum(/"batPrice"\s*:\s*([0-9]+(?:\.[0-9]+)?)/i, 0);
+            var cPrice = extractNum(/"cabPrice"\s*:\s*([0-9]+(?:\.[0-9]+)?)/i, 0);
+            var mPrice = extractNum(/"moPrice"\s*:\s*([0-9]+(?:\.[0-9]+)?)/i, 0);
+            var lPrice = extractNum(/"legPrice"\s*:\s*([0-9]+(?:\.[0-9]+)?)/i, 0);
+            var resMatch = rawText.match(/"resumen"\s*:\s*"([^"]+)"/i);
+
+            if (pPrice > 0 || ePrice > 0 || iPrice > 0) {
+              jsonResult = {
+                panelPrice: pPrice,
+                estPrice: ePrice,
+                invPrice: iPrice,
+                batPrice: bPrice,
+                cabPrice: cPrice,
+                moPrice: mPrice,
+                legPrice: lPrice,
+                resumen: resMatch ? resMatch[1] : 'Tarifas extraídas mediante análisis sintáctico de Gemini.'
+              };
+              break;
+            }
           }
         }
 
-        if (jsonResult && jsonResult.panelPrice) {
+        if (jsonResult && (jsonResult.panelPrice > 0 || jsonResult.estPrice > 0 || jsonResult.invPrice > 0)) {
           suggestedAiPrices = jsonResult;
           if (aiText) {
             aiText.innerHTML = '<b>Sugerencia Gemini:</b> Módulo: <b>' + jsonResult.panelPrice + ' €/ud</b> · ' +
-              'Estructura: <b>' + jsonResult.estPrice + ' €</b> · Inversor: <b>' + jsonResult.invPrice + ' €</b> · ' +
-              'M.O.: <b>' + jsonResult.moPrice + ' €</b> · Cables/Cuadros: <b>' + jsonResult.cabPrice + ' €</b>.<br>' +
+              'Estructura: <b>' + Math.round(jsonResult.estPrice) + ' €</b> · Inversor: <b>' + Math.round(jsonResult.invPrice) + ' €</b> · ' +
+              'M.O.: <b>' + Math.round(jsonResult.moPrice) + ' €</b> · Cables/Cuadros: <b>' + Math.round(jsonResult.cabPrice) + ' €</b>.<br>' +
               '<span style="font-size:9px;color:#D8B4FE;">' + (jsonResult.resumen || '') + '</span>';
           }
           if (applyAiBtn) applyAiBtn.style.display = 'inline-block';
         } else {
-          if (aiText) aiText.innerHTML = '❌ No se pudo interpretar la respuesta JSON de Gemini. Comprueba la conexión o intenta de nuevo.';
+          var detail = lastHttpError ? (' (' + lastHttpError + ')') : (lastRawText ? ' (Respuesta: ' + lastRawText.substring(0, 80) + '...)' : '');
+          if (aiText) aiText.innerHTML = '❌ No se pudo interpretar la respuesta de Gemini' + detail + '. Comprueba la conexión o intenta de nuevo.';
         }
       } catch (errAi) {
         if (aiText) aiText.innerHTML = '❌ Error de conexión al consultar Gemini: ' + (errAi.message || errAi);
