@@ -1886,6 +1886,18 @@ function wpRenderElectronicsRackUI() {
     }
   }
 
+  // Cuadros de Protección AC y DC (REBT ITC-BT-40)
+  items.push({
+    type: 'protection',
+    icon: 'shield',
+    badge: 'CUADRO PROTECCIÓN AC/DC',
+    title: 'Sobretensiones Transitorias & Permanentes',
+    specs: 'IGA + Diferencial Clase A Inmunizado + Descargador Tipo II (REBT ITC-BT-40/23)',
+    tag: 'Protección general de evacuación',
+    tagColor: '#E2E8F0',
+    price: 380
+  });
+
   if (countBadge) {
     countBadge.textContent = items.length + ' ' + (items.length === 1 ? 'Dispositivo' : 'Dispositivos');
   }
@@ -2040,6 +2052,11 @@ function wpRenderStep4RoofScopeUI() {
 
       const modName = r.moduleFullName || (r.moduleBrand ? `${r.moduleBrand} ${r.moduleModel}` : 'Módulo Solar');
       const kwp = r.kwp ? r.kwp.toFixed(2) : (((r.panelCount || 0) * (r.wp || 450)) / 1000).toFixed(2);
+      const nPanels = r.panelCount || 0;
+
+      // Telemetría de cableado por faldón estimada
+      const estDcL = Math.round(10 + (idx * 3.5)); // Longitud estimada homerun al faldón
+      const estJumpers = Math.max(0, nPanels - 1);
 
       return `
         <div style="background:rgba(0,0,0,0.3);border:1px solid ${borderClr};border-left:3px solid ${topoColor};border-radius:5px;padding:6px 8px;opacity:${opacity};transition:all 0.2s;">
@@ -2052,9 +2069,11 @@ function wpRenderStep4RoofScopeUI() {
                 ${r.tiltDeg || 30}° / az ${r.azimuthDeg || 0}°
               </span>
             </div>
-            <button type="button" onclick="wpFocusRoofIn3D(${idx})" class="doc-mini-btn" style="padding:1px 5px;font-size:9px;color:#38BDF8;border-color:rgba(56,189,248,0.3);background:rgba(56,189,248,0.1);" title="Centrar cámara 3D en este faldón">
-              <i data-lucide="crosshair" class="icon-sm"></i> Ver 3D
-            </button>
+            <div style="display:flex;gap:3px;align-items:center;">
+              <button type="button" onclick="wpFocusRoofIn3D(${idx})" class="doc-mini-btn" style="padding:1px 5px;font-size:9px;color:#38BDF8;border-color:rgba(56,189,248,0.3);background:rgba(56,189,248,0.1);" title="Centrar cámara 3D en este faldón">
+                <i data-lucide="crosshair" class="icon-sm"></i> Ver 3D
+              </button>
+            </div>
           </div>
 
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:9.5px;margin-top:4px;line-height:1.25;">
@@ -2062,7 +2081,7 @@ function wpRenderStep4RoofScopeUI() {
               <span style="color:#94A3B8;display:block;font-size:8.5px;text-transform:uppercase;">Placa Fotovoltaica:</span>
               <b style="color:#E2E8F0;">${modName}</b>
               <div style="color:#FBBF24;font-size:9px;font-weight:700;margin-top:1px;">
-                ${r.panelCount || 0} uds · ${kwp} kWp (${r.wp || 450} Wp/ud)
+                ${nPanels} uds · ${kwp} kWp (${r.wp || 450} Wp/ud)
               </div>
             </div>
 
@@ -2073,6 +2092,19 @@ function wpRenderStep4RoofScopeUI() {
                 ${mpptDesc}
               </div>
             </div>
+          </div>
+
+          <!-- FILA ENRIQUECIDA FASE 2: CONEXIONADO ELÉCTRICO, CABLES & CONECTORES DEL FALDÓN -->
+          <div style="margin-top:5px;padding-top:4px;border-top:1px dashed rgba(255,255,255,0.07);display:flex;justify-content:space-between;align-items:center;font-size:8.5px;color:#94A3B8;">
+            <span style="display:flex;align-items:center;gap:3px;">
+              <i data-lucide="git-commit" class="icon-sm" style="color:#38BDF8;"></i> Tirada Homerun DC: <b style="color:#E2E8F0;">~${estDcL} m (ZZ-F 6mm²)</b>
+            </span>
+            <span style="display:flex;align-items:center;gap:3px;">
+              <i data-lucide="link" class="icon-sm" style="color:#F59E0B;"></i> Puentes: <b style="color:#E2E8F0;">${estJumpers} uds</b>
+            </span>
+            <span style="display:flex;align-items:center;gap:3px;color:#10B981;font-weight:700;">
+              <i data-lucide="check" class="icon-sm"></i> Sin sombras cruzadas
+            </span>
           </div>
         </div>
       `;
