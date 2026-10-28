@@ -5183,6 +5183,27 @@ function wpTogglePolyLockRowPitch(polyIdx, locked) {
 }
 window.wpTogglePolyLockRowPitch = wpTogglePolyLockRowPitch;
 
+function wpTogglePolyIgnoreTilesShadows(polyIdx, ignore) {
+  if (polyIdx === undefined || polyIdx === null || polyIdx < 0) polyIdx = (typeof WP !== 'undefined') ? WP.selectedPolyIdx : 0;
+  if (!WP.polylines || !WP.polylines[polyIdx]) return;
+  const poly = WP.polylines[polyIdx];
+  poly.ignore3DTilesShadows = !!ignore;
+  if (poly.roofInfo) {
+    poly.roofInfo.ignore3DTilesShadows = !!ignore;
+  }
+  if (typeof window.wpInvalidateHeatmap === 'function') {
+    window.wpInvalidateHeatmap('Configuración de sombras de malla 3D modificada');
+  }
+  if (typeof showToast === 'function') {
+    if (poly.ignore3DTilesShadows) {
+      showToast('SOMBRAS 3D FILTRADAS', `Faldón "${poly.name || (polyIdx + 1)}": se ignoran sombras de fotogrametría/tiles obsoletos. Se computan sombras de objetos.`, 'success', 3500);
+    } else {
+      showToast('SOMBRAS 3D COMPLETAS', `Faldón "${poly.name || (polyIdx + 1)}": computando sombras de entorno 3D y objetos.`, 'info', 3000);
+    }
+  }
+}
+window.wpTogglePolyIgnoreTilesShadows = wpTogglePolyIgnoreTilesShadows;
+
 function wpSnapPolyToSweetSpot(polyIdx, mode) {
   if (polyIdx === undefined || polyIdx === null || polyIdx < 0) polyIdx = (typeof WP !== 'undefined') ? WP.selectedPolyIdx : 0;
   if (!WP.polylines || !WP.polylines[polyIdx]) return;
@@ -5256,6 +5277,8 @@ function wpUpdateLiveSweetSpotTelemetry(polyIdx) {
   const totalEl = document.getElementById('faldon-live-total-yield');
   const lockChk = document.getElementById('faldon-lock-row-pitch-chk');
   if (lockChk) lockChk.checked = !!poly.lockRowPitch;
+  const ignoreTilesChk = document.getElementById('faldon-ignore-tiles-shadows-chk');
+  if (ignoreTilesChk) ignoreTilesChk.checked = !!poly.ignore3DTilesShadows;
 
   if (!badgeEl && !specEl && !totalEl) return;
 

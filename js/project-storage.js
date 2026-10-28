@@ -147,6 +147,8 @@ function raExportProjectData() {
         matrixShiftB: (typeof poly.matrixShiftB === 'number') ? poly.matrixShiftB : 0,
         modTilt: poly.modTilt || 'auto',
         modAzimuth: poly.modAzimuth || 'auto',
+        lockRowPitch: !!poly.lockRowPitch,
+        ignore3DTilesShadows: !!poly.ignore3DTilesShadows,
         area: (typeof poly.area === 'number') ? poly.area : (poly.roofInfo && typeof poly.roofInfo.area === 'number' ? poly.roofInfo.area : 0),
         deletedPanels: Array.isArray(poly.deletedPanels) ? poly.deletedPanels.map(dp => ({
           panelId: dp.panelId || null,
@@ -160,6 +162,7 @@ function raExportProjectData() {
           area: poly.roofInfo.area,
           tilt: poly.roofInfo.tilt,
           azimuth: poly.roofInfo.azimuth,
+          ignore3DTilesShadows: !!poly.roofInfo.ignore3DTilesShadows,
           panelCount: poly.roofInfo.panels ? poly.roofInfo.panels.length : 0,
           panels: poly.roofInfo.panels ? poly.roofInfo.panels.map((p, idx) => ({
             u: p.u, v: p.v, w: p.w, h: p.h,
@@ -862,6 +865,8 @@ async function raImportProjectData(projectData, options = {}) {
           orientationPref: poly.orientationPref || 'portrait',
           modTilt: poly.modTilt || 'auto',
           modAzimuth: poly.modAzimuth || 'auto',
+          lockRowPitch: !!poly.lockRowPitch,
+          ignore3DTilesShadows: !!(poly.ignore3DTilesShadows || (poly.roofInfo && poly.roofInfo.ignore3DTilesShadows)),
           matrixShiftA: (typeof poly.matrixShiftA === 'number') ? poly.matrixShiftA : ((typeof poly.matrixShiftU === 'number') ? poly.matrixShiftU : 0),
           matrixShiftB: (typeof poly.matrixShiftB === 'number') ? poly.matrixShiftB : ((typeof poly.matrixShiftV === 'number') ? poly.matrixShiftV : 0),
           matrixShiftU: (typeof poly.matrixShiftA === 'number') ? poly.matrixShiftA : ((typeof poly.matrixShiftU === 'number') ? poly.matrixShiftU : 0),

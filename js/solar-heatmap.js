@@ -390,7 +390,7 @@
           // [AAA FÍSICA SOLAR] Si el sol incide por la espalda del plano/panel (espalda al sol), sombra propia directa
           if (normWorld && Cesium.Cartesian3.dot(normWorld, sunDirWorld) <= 0.001) {
             isShaded = true;
-          } else if (typeof isPanelOccludedBy3DEnvironment === "function" && isPanelOccludedBy3DEnvironment(pData.center, normWorld, sunDirWorld)) {
+          } else if (!poly.ignore3DTilesShadows && !(pInfo && pInfo.ignore3DTilesShadows) && typeof isPanelOccludedBy3DEnvironment === "function" && isPanelOccludedBy3DEnvironment(pData.center, normWorld, sunDirWorld)) {
             isShaded = true;
           }
         }
@@ -1289,7 +1289,8 @@
             }
 
             if (shadedSubstringsCount < 3 && G_beam > 0.1 && sunDirWorld && pData.center) {
-              if (typeof isPanelOccludedBy3DEnvironment === "function" && isPanelOccludedBy3DEnvironment(pData.center, panelNormWorld, sunDirWorld)) {
+              const shouldCheck3DTiles = !poly.ignore3DTilesShadows && !(pInfo && pInfo.ignore3DTilesShadows);
+              if (shouldCheck3DTiles && typeof isPanelOccludedBy3DEnvironment === "function" && isPanelOccludedBy3DEnvironment(pData.center, panelNormWorld, sunDirWorld)) {
                 isShaded = true;
                 shadedSubstringsCount = 3;
               }
