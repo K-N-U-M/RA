@@ -204,7 +204,12 @@
       hasSolarTarget = true;
     }
 
-    var stepDays = 5; // Muestreo cada 5 días para balance velocidad/precisión (<30ms)
+    // [AUD-2026 · E-02] Antes se muestreaba 1 día de cada 5 y una ventana fija 06-20 UTC:
+    // el máximo diario se subestimaba (un día malo podía pasar el filtro) y se perdían
+    // amaneceres/atardeceres de verano, cuando la sombra es más larga.
+    // Ahora: todos los días del año y barrido 03:00-22:00 UTC (el propio cálculo solar
+    // descarta las horas sin sol, así que el coste extra es asumible).
+    var stepDays = 1;
     var stepMinutes = 10; // Pasos de 10 minutos
     var totalSimulatedMinutes = {};
     targetList.forEach(function (rec) {
@@ -227,8 +232,8 @@
         var dailyMinutesThisDay = {};
         targetList.forEach(function (rec) { dailyMinutesThisDay[rec.id] = 0; });
 
-        // Barrido diurno de 06:00 a 20:00 UTC
-        for (var hMin = 6.0 * 60; hMin <= 20.0 * 60; hMin += stepMinutes) {
+        // Barrido diurno completo; las horas sin sol se descartan en calculateSolarPosition.
+        for (var hMin = 3.0 * 60; hMin <= 22.0 * 60; hMin += stepMinutes) {
           var hDecimal = hMin / 60.0;
           var sun = calculateSolarPosition(tLat, tLon, curDay, hDecimal);
 

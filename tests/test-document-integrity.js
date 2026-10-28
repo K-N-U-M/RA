@@ -111,6 +111,14 @@ if (typeof DOMParser !== 'function') {
 assert.ok(clean.includes('Hola'), 'El texto legítimo debe conservarse');
 console.log('  ✓ PASS: sanitizador elimina etiquetas/atributos peligrosos');
 
+// 6. [A-04/A-07] Base de inversión declarada y ahorros etiquetados.
+assert.ok(/inversionBaseMetricas:\s*capexBruto/.test(finSrc), 'El modelo debe declarar la base de métricas (CAPEX bruto)');
+assert.ok(/Desembolso inicial \(base de TIR y payback\)/.test(finSrc), 'La tabla fiscal debe separar desembolso inicial e inversión neta');
+assert.ok(/AHORRO S\/ FACTURA \(auditoría\)/.test(finSrc) && /Ahorro s\/ modelo energético \(SSOT\)/.test(finSrc),
+  'Los dos ahorros deben estar etiquetados y no mezclados');
+assert.ok(/sobre desembolso inicial \(CAPEX bruto\)/.test(docsSrc), 'La memoria debe indicar la base de TIR/payback');
+console.log('  ✓ PASS: base de inversión y ahorros declarados sin ambigüedad');
+
 console.log('═════════════════════════════════════════════════════════════════════');
 console.log('🎉 INTEGRIDAD DOCUMENTAL: TODAS LAS COMPROBACIONES PASARON');
 console.log('═════════════════════════════════════════════════════════════════════');

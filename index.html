@@ -13307,8 +13307,11 @@ function computeElectricalSizingEngineering(generator) {
     : 15;
 
   const I_dc_design = 1.25 * Isc;
-  const SEC_DC_AVAIL = [4, 6, 10, 16, 25];
-  const IMAX_DC_ZZF  = [44, 58, 80, 107, 138];
+  // [AUD-2026 · C-05] Fuente única de secciones/ampacidad: js/electrical-engine.js.
+  // Si el módulo no está disponible (carga parcial), se usa la copia mínima de respaldo.
+  const _RA_SEC = (typeof window !== 'undefined' && window.RA && window.RA.Electrical && window.RA.Electrical.SECCIONES) || null;
+  const SEC_DC_AVAIL = (_RA_SEC && Array.isArray(_RA_SEC.dc)) ? _RA_SEC.dc : [4, 6, 10, 16, 25];
+  const IMAX_DC_ZZF  = (_RA_SEC && Array.isArray(_RA_SEC.dcIz)) ? _RA_SEC.dcIz : [44, 58, 80, 107, 138];
 
   // [C6/M6] Factores de corrección de ampacidad (REBT ITC-BT-19 / UNE 20460-5-523):
   // temperatura ambiente 40–45 °C × agrupamiento en bandeja/conducto.
@@ -13333,8 +13336,9 @@ function computeElectricalSizingEngineering(generator) {
   const dVdc_pct = (dV_dc / Math.max(Vmp_str_hot, 1.0)) * 100;
 
   const I_ac_design = 1.25 * I_ac;
-  const SEC_AC_AVAIL = [2.5, 4, 6, 10, 16, 25, 35, 50, 70];
-  const IMAX_AC_RVK  = [29, 38, 49, 68, 91, 119, 146, 178, 226];
+  // [AUD-2026 · C-05] Misma fuente única que el tramo DC.
+  const SEC_AC_AVAIL = (_RA_SEC && Array.isArray(_RA_SEC.ac)) ? _RA_SEC.ac : [2.5, 4, 6, 10, 16, 25, 35, 50, 70];
+  const IMAX_AC_RVK  = (_RA_SEC && Array.isArray(_RA_SEC.acIz)) ? _RA_SEC.acIz : [29, 38, 49, 68, 91, 119, 146, 178, 226];
 
   let S_ac_opt = null;
   for (let i = 0; i < SEC_AC_AVAIL.length; i++) {
@@ -13562,21 +13566,53 @@ function getProjectCalcs() {
     };
   });
   annualKWh = Math.round(annualKWh);
+
+  // [AUD-2026 · D-01] Producción canónica con fuente DECLARADA y prioridad real:
+  //   1) simulación por panel (sombras + pérdidas)   → 'simulation'
+  //   2) motor físico con GHI del emplazamiento      → 'physical'
+  //   3) tabla estacional interna (último recurso)   → 'fallback-seasonal'
+  let productionSource = 'fallback-seasonal';
+  let productionSourceDetail = 'Tabla estacional interna de España (sin datos del emplazamiento)';
+
   // [SSOT] PRODUCCIÓN DE INGENIERÍA como fuente prioritaria: recalculateSolarYield integra
   // las pérdidas de sistema, las sombras (raycast por panel) y la suma real p.annualKwh
-  // del heatmap — es el número que el instalador ve en la pestaña de ingeniería. La tabla
-  // SOLAR_RAD queda como estimación fallback sólo cuando aún no hay simulación.
+  // del heatmap — es el número que el instalador ve en la pestaña de ingeniería.
   const _engStats = (typeof window !== 'undefined' && window.RA && window.RA.solarStats) ? window.RA.solarStats : null;
   if (_engStats && Number.isFinite(_engStats.annualYieldKWh) && _engStats.annualYieldKWh > 0 && annualKWh > 0) {
     const _ratio = _engStats.annualYieldKWh / annualKWh;
     monthly.forEach(m => { m.kWh = Math.round(m.kWh * _ratio); m.hsp = (parseFloat(m.hsp) * _ratio).toFixed(2); });
     annualKWh = Math.round(_engStats.annualYieldKWh);
+    productionSource = 'simulation';
+    productionSourceDetail = 'Simulación por panel (sombras + pérdidas)';
+  } else if (typeof runPhysicalModel === 'function' && eng.P_dc_kW > 0) {
+    // Sin simulación: se usa el motor físico con la GHI del emplazamiento (NASA/PVGIS
+    // cacheado por coordenada). Memoizado por firma para no repetirlo en cada render.
+    try {
+      const _prodSig = [eng.P_dc_kW, latDeg, lonDeg, tiltDeg, azimutDeg, (cfg && cfg.modelo) || '', (cfg && cfg.potencia) || 0].join('|');
+      const _prodCache = (window.__raCanonicalProdCache = window.__raCanonicalProdCache || {});
+      let _ph = _prodCache[_prodSig];
+      if (!_ph) {
+        _ph = runPhysicalModel(eng.P_dc_kW, latDeg, lonDeg, tiltDeg, azimutDeg, cfg, null);
+        _prodCache[_prodSig] = _ph;
+      }
+      if (_ph && Number.isFinite(_ph.annualKWh) && _ph.annualKWh > 0 && Array.isArray(_ph.monthlyKWh)) {
+        annualKWh = Math.round(_ph.annualKWh);
+        monthly.forEach((row, m) => {
+          const kwh = Number(_ph.monthlyKWh[m]) || 0;
+          row.kWh = Math.round(kwh);
+          row.hsp = (eng.P_dc_kW > 0 ? (kwh / (eng.P_dc_kW * MONTH_DAYS[m])) : 0).toFixed(2);
+        });
+        productionSource = 'physical';
+        productionSourceDetail = 'Motor físico · ' + (_ph.ghiSource || 'GHI del emplazamiento');
+      }
+    } catch (eProd) {
+      console.warn('[getProjectCalcs] Modelo físico no disponible, se usa la tabla estacional:', eProd && eProd.message);
+    }
   }
   const hspAnual = eng.P_dc_kW > 0 ? Math.round(annualKWh / eng.P_dc_kW) : 0;
 
   const co2Ton = (annualKWh * SOLAR_ENGINE_CONSTANTS.CO2_FACTOR_SPAIN) / 1000;
   const treesEquiv = Math.round(co2Ton * 45);
-  const precio_kwh = 0.18;
 
   const _inputVal = (id, def) => {
     const el = document.getElementById('modal-' + id) || document.getElementById(id);
@@ -13631,7 +13667,10 @@ function getProjectCalcs() {
   const iva = Math.round(subtotal * 0.21);
   const total_pres = subtotal + iva;
   const _cachedFin = (typeof window !== 'undefined' && window._lastFinModel && window._lastFinModel.numPanels === numPanels) ? window._lastFinModel : null;
-  const ahorro_anual = (_cachedFin && _cachedFin.ahorroLuzAnio1 > 0) ? Math.round(_cachedFin.ahorroLuzAnio1) : Math.round(annualKWh * 0.14);
+  // [AUD-2026 · D-06] Sin modelo financiero no se inventa un ahorro con un precio suelto.
+  // Se declara 0 y el payback queda como «—»; el modelo se recalcula en cuanto haya datos.
+  const precio_kwh = 0.18; // precio de referencia para etiquetas (no para calcular ahorro)
+  const ahorro_anual = (_cachedFin && _cachedFin.ahorroLuzAnio1 > 0) ? Math.round(_cachedFin.ahorroLuzAnio1) : 0;
   const payback = (_cachedFin && typeof _cachedFin.paybackYears === 'number' && isFinite(_cachedFin.paybackYears))
     ? _cachedFin.paybackYears.toFixed(1)
     : (ahorro_anual > 0 ? (total_pres / ahorro_anual).toFixed(1) : '—');
@@ -13775,6 +13814,8 @@ function getProjectCalcs() {
     PR: eng.PR,
     lossTree: eng.lossTree,
     annualKWh,
+    productionSource,
+    productionSourceDetail,
     theoreticalAnnualKWh: (_engStats && _engStats.theoreticalAnnualKWh) ? _engStats.theoreticalAnnualKWh : annualKWh,
     hasSimulation: _engStats ? !!_engStats.hasSimulation : false,
     shadowLossPct: (_engStats && typeof _engStats.avgShadowLossPct === 'number') ? _engStats.avgShadowLossPct : 0,

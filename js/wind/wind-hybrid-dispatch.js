@@ -341,6 +341,12 @@
     var lcoeHybridEurKwh = npvEnergy > 0 ? (npvCost / npvEnergy) : 0;
 
     return {
+      // [AUD-2026 · E-04] Trazabilidad: la serie horaria es SINTÉTICA (senos normalizados
+      // a la energía anual), no un año meteorológico real. Los KPIs de autonomía y ahorro
+      // deben presentarse como estimación de despacho, no como simulación bancable.
+      seriesSource: 'synthetic-monthly-profile',
+      isSyntheticSeries: true,
+      seriesDisclaimer: 'Serie horaria sintética normalizada al anual; no sustituye a ERA5/PVGIS horario.',
       annualSolarKwh: Math.round(annualSolar),
       annualWindKwh: Math.round(annualWind),
       annualHybridGenKwh: Math.round(totalGenKwh),

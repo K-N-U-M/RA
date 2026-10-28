@@ -3934,8 +3934,10 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         <tr><th>Concepto Auditado</th><th>Factura Actual (Sin Solar)</th><th class="text-right" style="color:${pal.primary}">Con Proyecto Solar 3D</th></tr>
         <tr><td>Compañía y Tarifa</td><td>${window.RA.billAuditor.currentBill.comercializadora} (${window.RA.billAuditor.currentBill.tarifaAcceso || '2.0TD'})</td><td class="text-right" style="color:${pal.primary}">Autoconsumo + Compensación</td></tr>
         <tr><td>Gasto Mensual Facturado</td><td>${window.RA.billAuditor.comparison.gastoMensualActualEUR} €/mes</td><td class="text-right" style="font-weight:800;color:${pal.primary}">${window.RA.billAuditor.comparison.gastoMensualConSolarEUR} €/mes</td></tr>
-        <tr style="background:${pal.light};font-weight:800;"><td>AHORRO DIRECTO AUDITADO</td><td>—</td><td class="text-right" style="color:${pal.primary}">${window.RA.billAuditor.comparison.ahorroAnualEUR.toLocaleString('es-ES')} €/año (-${window.RA.billAuditor.comparison.porcentajeAhorro}%)</td></tr>
-      </table>` : ''}
+        <tr style="background:${pal.light};font-weight:800;"><td>AHORRO S/ FACTURA (auditoría)</td><td>—</td><td class="text-right" style="color:${pal.primary}">${window.RA.billAuditor.comparison.ahorroAnualEUR.toLocaleString('es-ES')} €/año (-${window.RA.billAuditor.comparison.porcentajeAhorro}%)</td></tr>
+        <tr><td>Ahorro s/ modelo energético (SSOT)</td><td>—</td><td class="text-right" style="font-weight:700;color:${pal.primary}">${Math.round(m.ahorroLuzAnio1).toLocaleString('es-ES')} €/año</td></tr>
+      </table>
+      <p style="font-size:9px;color:#64748b;margin:4px 0 0 0;">La fila de auditoría incluye término de potencia e impuestos de la factura; el modelo energético solo valora energía. Las métricas de rentabilidad usan la segunda.</p>` : ''}
 
       ${_infografias.tejadoBlindado}
       ${_infografias.cascadaFiscal}
@@ -4056,11 +4058,12 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
           <tr><td>Bonificación IBI</td><td>Bonificación en el Impuesto sobre Bienes Inmuebles</td><td class="text-right">${Math.round(m.ahorroIBITotal).toLocaleString('es-ES')} €</td></tr>
           <tr><td>Deducción IRPF</td><td>Deducción en IRPF por reducción de demanda / energía primaria (RD 19/2021)</td><td class="text-right">${Math.round(m.ahorroIRPF).toLocaleString('es-ES')} €</td></tr>
           <tr style="background:${pal.light};font-weight:800;"><td>TOTAL DEDUCCIONES FISCALES</td><td>Deducción fiscal directa acumulada (IBI + IRPF)</td><td class="text-right" style="color:${pal.primary}">- ${Math.round(m.totalAhorroFiscal).toLocaleString('es-ES')} €</td></tr>
-          <tr class="total-row"><td>INVERSIÓN NETA</td><td>COSTE FINAL REAL TRAS DEDUCCIONES FISCALES DIRECTAS</td><td class="text-right" style="color:${pal.dark}">${Math.round(m.capexNeto).toLocaleString('es-ES')} €</td></tr>
+          <tr class="total-row"><td>INVERSIÓN NETA</td><td>COSTE FINAL TRAS DEDUCCIONES FISCALES DIRECTAS</td><td class="text-right" style="color:${pal.dark}">${Math.round(m.capexNeto).toLocaleString('es-ES')} €</td></tr>
+          <tr><td style="color:#64748b;font-size:10px;">Desembolso inicial (base de TIR y payback)</td><td style="color:#64748b;font-size:10px;">CAPEX bruto: las deducciones se computan como flujo positivo en los años 1..N</td><td class="text-right" style="color:#64748b;font-size:10px;">${Math.round(m.capexBruto).toLocaleString('es-ES')} €</td></tr>
           <tr><td style="color:#64748b;font-size:10px;">Bonificación ICIO*</td><td style="color:#64748b;font-size:10px;">Exención del 95% en Impuesto de Construcciones y Obras (ahorro en tasa municipal ajeno a la factura)</td><td class="text-right" style="color:#64748b;font-size:10px;">${Math.round(m.ahorroICIO).toLocaleString('es-ES')} €</td></tr>
         </table>
       </div>
-      <p style="font-size: 9.5px;color:#64748b;margin:6px 0 0 0;line-height:1.35;border-top:1px solid #f1f5f9;padding-top:6px;">Nota: bonificaciones y deducciones fiscales son estimaciones comerciales sujetas a vigencia normativa y ordenanzas municipales. Verificar con asesoría fiscal antes de incluirlas en contrato.</p>
+      <p style="font-size: 9.5px;color:#64748b;margin:6px 0 0 0;line-height:1.35;border-top:1px solid #f1f5f9;padding-top:6px;">Nota: bonificaciones y deducciones fiscales son estimaciones comerciales sujetas a vigencia normativa y ordenanzas municipales. Verificar con asesoría fiscal antes de incluirlas en contrato. La TIR y el payback se calculan sobre el <strong>desembolso inicial (CAPEX bruto)</strong>; la "inversión neta" es informativa y no es la base de esas métricas.</p>
     </div>
 
     <!-- PÁGINA CIERRE: HOJA DE DECISIÓN EJECUTIVA -->
@@ -5187,6 +5190,8 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     ahorroICIO: ahorroICIO,
     totalAhorroFiscal: totalAhorroFiscal,
     capexNeto: capexNeto,
+    // [AUD-2026 · A-04] Base única declarada de las métricas de rentabilidad.
+    inversionBaseMetricas: capexBruto,
     autarquiaPct: Math.round(autarquia * 100),
     pctAutoconsumo: Math.round(autarquia * 100),
     precioRedEUR: precioRed,

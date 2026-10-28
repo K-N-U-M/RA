@@ -895,6 +895,11 @@ function generateMemoria(skipPricingModal) {
     '<h2>1. OBJETO Y ANTECEDENTES<\/h2>' +
     '<p>El presente documento es la <strong>Memoria Técnica Descriptiva y de Cálculo<\/strong> de la instalación fotovoltaica de autoconsumo proyectada para <strong>' + t.nombre + '<\/strong> (NIF: ' + t.nif + '), en ' + (loc || 'la dirección indicada') + '.<\/p>' +
     '<p><strong>Modalidad:<\/strong> ' + d.modalTexto + '<\/p>' +
+    // [AUD-2026 · D-01] Trazabilidad del dato de producción: simulación, motor físico o tabla.
+    '<p><strong>Producción estimada:<\/strong> ' + Math.round(d.annualKWh).toLocaleString('es-ES') + ' kWh/año · <em>fuente: ' +
+      ((d.productionSource === 'simulation') ? 'simulación por panel (sombras y pérdidas incluidas)'
+        : (d.productionSource === 'physical') ? (d.productionSourceDetail || 'motor físico con datos del emplazamiento')
+        : 'estimación estacional interna (pendiente de simulación)') + '<\/em><\/p>' +
     '<p><strong>CUPS:<\/strong> ' + t.cups + ' · <strong>Distribuidora:<\/strong> ' + t.dist + '<\/p>' +
     (typeof EngineeringExplainer !== 'undefined' && typeof EngineeringExplainer.generateExecutiveSummaryHTML === 'function' ? EngineeringExplainer.generateExecutiveSummaryHTML(d) : '') +
 
@@ -1087,9 +1092,9 @@ function generateMemoria(skipPricingModal) {
     '<div class="dcard"><label>Inversión Inicial (CAPEX Bruto)<\/label><value>' + capexTot.toLocaleString('es-ES',{minimumFractionDigits:2}) + ' €<\/value><\/div>' +
     '<div class="dcard"><label>Ahorro Anual (Año 1)<\/label><value style="color:#10b981">' + ah1.toLocaleString('es-ES') + ' €/año<\/value><\/div>' +
     '<div class="dcard"><label>Valor Actual Neto (VAN 25a · WACC 4%)<\/label><value style="color:#10b981"><strong>+' + (typeof vanVal === 'number' ? vanVal.toLocaleString('es-ES') : vanVal) + ' €<\/strong><\/value><\/div>' +
-    '<div class="dcard"><label>Tasa Interna de Retorno (TIR)<\/label><value style="color:#10b981"><strong>' + tirVal + ' %<\/strong><\/value><\/div>' +
+    '<div class="dcard"><label>Tasa Interna de Retorno (TIR)<\/label><value style="color:#10b981"><strong>' + tirVal + ' %<\/strong><\/value><small style="display:block;font-size:8px;color:#64748b;">sobre desembolso inicial (CAPEX bruto)<\/small><\/div>' +
     '<div class="dcard"><label>Coste Nivelado (LCOE)<\/label><value>' + lcoeVal + ' €/kWh<\/value><\/div>' +
-    '<div class="dcard"><label>Período de Retorno (Payback)<\/label><value><strong>' + pbYears + ' años<\/strong><\/value><\/div>' +
+    '<div class="dcard"><label>Período de Retorno (Payback)<\/label><value><strong>' + pbYears + ' años<\/strong><\/value><small style="display:block;font-size:8px;color:#64748b;">sobre desembolso inicial (CAPEX bruto)<\/small><\/div>' +
     '<div class="dcard"><label>Emisiones CO₂ Evitadas<\/label><value>' + d.co2_evitado + ' t CO₂/año<\/value><\/div>' +
     '<div class="dcard"><label>Energía Limpia Total (25 años)<\/label><value>' + Math.round(d.annualKWh * 23.2).toLocaleString('es-ES') + ' kWh<\/value><\/div>' +
     '<\/div>' +

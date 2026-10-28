@@ -21,12 +21,13 @@
     RHO_AL_90: 0.03620,
     T_MIN_SPAIN: -10,         // Temperatura mínima de diseño peninsular en frío CTE/UNE
     T_AMB_MAX_SPAIN: 40,      // Temperatura ambiente máxima en verano peninsular
-    DV_MAX_DC_PCT: 1.5,       // Caída de tensión máxima admisible DC
-    DV_MAX_AC_PCT: 1.5,       // Caída de tensión máxima admisible AC
+    DV_MAX_DC_PCT: 1.5,       // Caída de tensión máxima admisible DC (objetivo de diseño)
+    DV_MAX_AC_PCT: 1.5,       // Caída de tensión máxima admisible AC (objetivo de diseño)
+    DV_MAX_TOTAL_PCT: 2.5,    // [C-02] Restricción vinculante DC+AC (criterio de proyecto)
     SEC_DC_AVAIL: [4, 6, 10, 16, 25],
     IMAX_DC_ZZF:  [44, 58, 80, 107, 138],
-    SEC_AC_AVAIL: [2.5, 4, 6, 10, 16, 25, 35, 50],
-    IMAX_AC_RVK:  [29, 38, 49, 68, 91, 119, 146, 178]
+    SEC_AC_AVAIL: [2.5, 4, 6, 10, 16, 25, 35, 50, 70],
+    IMAX_AC_RVK:  [29, 38, 49, 68, 91, 119, 146, 178, 226]
   };
 
   /**
@@ -1204,23 +1205,34 @@
   }
 
   /**
-   * Valida la caída de tensión acumulada total (DC + AC) según la Guía Técnica de la ITC-BT-40.
-   * Límite de diseño: ΔV_total <= 2.5% para prevenir sobretensiones >253V en bornes AC del inversor.
+   * [AUD-2026 · C-02] Criterio de caída de tensión en dos niveles, explícito:
+   *   1) Cada tramo (DC y AC) ≤ 1,5 % — objetivo de diseño del proyecto.
+   *   2) La suma DC+AC ≤ 2,5 % — restricción vinculante (evita sobretensiones >253 V
+   *      en bornes AC y deja margen al ITC-BT-19).
+   * Las dos condiciones se cumplen a la vez (AND). Antes el 1,5 % se atribuía a la
+   * ITC-BT-40, que no fija ese valor: es criterio de proyecto sobre la guía de aplicación.
    */
   function calculateGlobalVoltageDrop(dcDropPct, acDropPct) {
     const dPct = (typeof dcDropPct === 'number' && isFinite(dcDropPct)) ? dcDropPct : 0;
     const aPct = (typeof acDropPct === 'number' && isFinite(acDropPct)) ? acDropPct : 0;
     const totalPct = dPct + aPct;
-    const isCompliant = totalPct <= 2.5;
+    const limitTotal = ELEC_CONSTANTS.DV_MAX_TOTAL_PCT;
+    const limitTramo = ELEC_CONSTANTS.DV_MAX_DC_PCT;
+    const isCompliant = totalPct <= limitTotal;
+    const tramoOver = (dPct > limitTramo) || (aPct > limitTramo);
     return {
       dcDropPct: Math.round(dPct * 100) / 100,
       acDropPct: Math.round(aPct * 100) / 100,
       totalPct: Math.round(totalPct * 100) / 100,
-      limitPct: 2.5,
+      limitPct: limitTotal,
+      limitTramoPct: limitTramo,
       valid: isCompliant,
+      tramoValid: !tramoOver,
+      // Caso incómodo: cada tramo cumple su 1,5 % pero la suma incumple el 2,5 % global.
+      tramosExcedenTotal: (!tramoOver) && (totalPct > limitTotal),
       descripcion: isCompliant
-        ? `Caída de tensión global OK (${totalPct.toFixed(2)}% <= 2.5% acumulado DC+AC)`
-        : `⚠️ Caída de tensión acumulada (${totalPct.toFixed(2)}%) excede el límite del 2.5%; riesgo de desconexión del inversor a 253V`
+        ? `Caída de tensión global OK (${totalPct.toFixed(2)} % ≤ ${limitTotal} % acumulado DC+AC; tramos ≤ ${limitTramo} % cada uno)`
+        : `⚠️ Caída de tensión acumulada (${totalPct.toFixed(2)} %) excede el ${limitTotal} % (DC ${dPct.toFixed(2)} % + AC ${aPct.toFixed(2)} %); revisar sección o longitud`
     };
   }
 
@@ -2081,6 +2093,13 @@
     constants: ELEC_CONSTANTS,
     getPolylineStringColor: getPolylineStringColor,
     calculateDynamicMPPTStringLimits: calculateDynamicMPPTStringLimits,
+    // [AUD-2026 · C-05] Tablas canónicas de secciones y ampacidad (fuente única).
+    SECCIONES: {
+      dc: ELEC_CONSTANTS.SEC_DC_AVAIL,
+      dcIz: ELEC_CONSTANTS.IMAX_DC_ZZF,
+      ac: ELEC_CONSTANTS.SEC_AC_AVAIL,
+      acIz: ELEC_CONSTANTS.IMAX_AC_RVK
+    },
     getNearestValidStringModuleCount: getNearestValidStringModuleCount,
     getSnakeOrderedPanels: getSnakeOrderedPanels,
     generateSnakeWiringPositions: generateSnakeWiringPositions,

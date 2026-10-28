@@ -33,6 +33,16 @@ function parseWAsPLib(libText) {
 
   const parts2 = lines[1].split(/\s+/).map(Number);
   const numRough = parts2[0], numHeights = parts2[1], numSectors = parts2[2];
+
+  // [AUD-2026 · B-09] Topes de estructura: el fichero viene de un tercero y sus
+  // cabeceras gobernaban los bucles (CPU DoS con numHeights=999999).
+  const isInt = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
+  if (!isInt(numRough, 1, 8) || !isInt(numHeights, 1, 12) || !isInt(numSectors, 1, 36)) {
+    throw new Error('Cabecera .lib fuera de rango (rough/heights/sectors)');
+  }
+  const needed = 4 + numRough * (1 + numHeights * 2);
+  if (lines.length < needed) throw new Error('Fichero .lib truncado');
+
   const roughnesses = lines[2].split(/\s+/).map(Number);
   const heights = lines[3].split(/\s+/).map(Number);
 
@@ -92,7 +102,57 @@ function parseWAsPLib(libText) {
   };
 }
 
-exports.gwaProxy = onRequest({ cors: true, maxInstances: 10, timeoutSeconds: 60 }, async (req, res) => {
+// [AUD-2026 · B-09] Endurecimiento del proxy:
+//  - CORS restringido a los orígenes de la app (antes `cors: true` = cualquiera).
+//  - Rate limit best-effort por IP (30 req/min) para frenar bucles y abuso de cuota.
+//  - Allowlist de host al descargar el .lib (antes SSRF si se manipulaba el XML).
+//  - Timeout y tope de tamaño en ambas descargas.
+//  - Errores genéricos al cliente; detalle solo en el log.
+const ALLOWED_ORIGINS = [
+  /^https:\/\/ra-solar-3d\.(web\.app|firebaseapp\.com)$/,
+  /^https:\/\/[a-z0-9-]+\.web\.app$/,
+  /^http:\/\/localhost(:\d+)?$/,
+  /^http:\/\/127\.0\.0\.1(:\d+)?$/
+];
+const RATE_LIMIT = { windowMs: 60000, max: 30, hits: new Map() };
+
+function isRateLimited(ip) {
+  const now = Date.now();
+  const entry = RATE_LIMIT.hits.get(ip);
+  if (!entry || now - entry.start > RATE_LIMIT.windowMs) {
+    RATE_LIMIT.hits.set(ip, { start: now, count: 1 });
+    return false;
+  }
+  entry.count++;
+  return entry.count > RATE_LIMIT.max;
+}
+
+async function fetchTextLimited(url, { maxBytes = 2 * 1024 * 1024, timeoutMs = 8000, allowedHostSuffix = null } = {}) {
+  const parsed = new URL(url);
+  if (allowedHostSuffix && !parsed.hostname.endsWith(allowedHostSuffix)) {
+    throw new Error('Host no permitido: ' + parsed.hostname);
+  }
+  const resp = await fetch(parsed, {
+    headers: { 'User-Agent': 'RenewableArchitecture/1.0' },
+    signal: AbortSignal.timeout(timeoutMs)
+  });
+  if (!resp.ok) throw new Error('HTTP ' + resp.status);
+  const text = await resp.text();
+  if (Buffer.byteLength(text, 'utf8') > maxBytes) throw new Error('Respuesta demasiado grande');
+  return text;
+}
+
+exports.gwaProxy = onRequest({
+  cors: ALLOWED_ORIGINS,
+  maxInstances: 5,
+  timeoutSeconds: 30
+}, async (req, res) => {
+  const ip = (req.headers['x-forwarded-for'] || req.ip || 'unknown').toString().split(',')[0].trim();
+  if (isRateLimited(ip)) {
+    res.status(429).json({ error: 'Demasiadas peticiones. Inténtalo en un minuto.' });
+    return;
+  }
+
   const lat = parseFloat(req.query.lat);
   const lon = parseFloat(req.query.lon);
 
@@ -105,11 +165,10 @@ exports.gwaProxy = onRequest({ cors: true, maxInstances: 10, timeoutSeconds: 60 
   logger.info(`Consultando GWA WPS para lat=${lat}, lon=${lon}`);
 
   try {
-    const wpsResp = await fetch(wpsUrl, { headers: { 'User-Agent': 'RenewableArchitecture/1.0' } });
-    if (!wpsResp.ok) {
-      throw new Error(`GWA WPS respondió HTTP ${wpsResp.status}`);
-    }
-    const xml = await wpsResp.text();
+    const xml = await fetchTextLimited(wpsUrl, {
+      allowedHostSuffix: 'globalwindatlas.info',
+      maxBytes: 512 * 1024
+    });
 
     const match = xml.match(/"path":\s*"([^"]+)"/);
     if (!match) {
@@ -119,11 +178,10 @@ exports.gwaProxy = onRequest({ cors: true, maxInstances: 10, timeoutSeconds: 60 
     const libUrl = match[1].replace('http://', 'https://');
     logger.info(`Descargando .lib desde DTU: ${libUrl}`);
 
-    const libResp = await fetch(libUrl);
-    if (!libResp.ok) {
-      throw new Error(`Descarga de .lib falló con HTTP ${libResp.status}`);
-    }
-    const libText = await libResp.text();
+    const libText = await fetchTextLimited(libUrl, {
+      allowedHostSuffix: 'globalwindatlas.info',
+      maxBytes: 2 * 1024 * 1024
+    });
 
     const parsed = parseWAsPLib(libText);
     res.set('Cache-Control', 'public, max-age=2592000'); // Cache 30 días
@@ -131,9 +189,7 @@ exports.gwaProxy = onRequest({ cors: true, maxInstances: 10, timeoutSeconds: 60 
 
   } catch (err) {
     logger.error('Error al consultar Global Wind Atlas:', err);
-    res.status(502).json({
-      error: 'Error al contactar con Global Wind Atlas (DTU WPS)',
-      details: err.message
-    });
+    // Sin requisitos internos en la respuesta: mensaje genérico.
+    res.status(502).json({ error: 'No se pudo obtener el recurso eólico (GWA)' });
   }
 });

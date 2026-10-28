@@ -1451,12 +1451,12 @@
           statRebtBadge.style.background = 'rgba(239,68,68,0.15)';
           statRebtBadge.style.borderColor = 'rgba(239,68,68,0.35)';
         } else if (sState.globalNonCompliantWarning) {
-          statRebtBadge.textContent = '⚠️ ΔV TOTAL ' + sState.dV_total_pct.toFixed(1) + '% > 2.5% (REBT ITC-BT-40)';
+          statRebtBadge.textContent = '⚠️ ΔV TOTAL ' + sState.dV_total_pct.toFixed(1) + '% > 2.5% (criterio de proyecto DC+AC)';
           statRebtBadge.style.color = '#F59E0B';
           statRebtBadge.style.background = 'rgba(245,158,11,0.15)';
           statRebtBadge.style.borderColor = 'rgba(245,158,11,0.35)';
         } else {
-          statRebtBadge.textContent = '✓ ΔV ≤ 1.5% CONFORME (Total ' + sState.dV_total_pct.toFixed(1) + '%)';
+          statRebtBadge.textContent = '✓ ΔV ≤ 1.5% CONFORME por tramo (Total ' + sState.dV_total_pct.toFixed(1) + '% ≤ 2.5%)';
           statRebtBadge.style.color = '#10B981';
           statRebtBadge.style.background = 'rgba(16,185,129,0.15)';
           statRebtBadge.style.borderColor = 'rgba(16,185,129,0.3)';
