@@ -627,6 +627,7 @@ async function raImportProjectData(projectData, options = {}) {
   }
   if (!options || !options.isRollback) {
     _raImportInProgress = true;
+    if (typeof window !== 'undefined') window._raImportInProgress = true;
   }
 
   // [P0.2] Carrera de arranque y espera determinista: si el visor Cesium o el subsistema WP

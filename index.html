@@ -12150,7 +12150,14 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
             otherP.isManual = true;
             otherP.gridA = undefined;
             otherP.gridB = undefined;
+            if (roofInfo && roofInfo.invTransform && roofInfo.uVec && roofInfo.vVec) {
+              const locPt = Cesium.Matrix4.multiplyByPoint(roofInfo.invTransform, otherP.center, new Cesium.Cartesian3());
+              otherP.u = Cesium.Cartesian3.dot(locPt, roofInfo.uVec);
+              otherP.v = Cesium.Cartesian3.dot(locPt, roofInfo.vVec);
+            }
             if (otherP.rawPanel) {
+              if (typeof otherP.u === 'number') otherP.rawPanel.u = otherP.u;
+              if (typeof otherP.v === 'number') otherP.rawPanel.v = otherP.v;
               otherP.rawPanel.center = Cesium.Cartesian3.clone(otherP.center);
               otherP.rawPanel.corners = otherP.corners;
               otherP.rawPanel.isManual = true;
@@ -13605,10 +13612,13 @@ function computeRoofPanelsData() {
       const singlePolySig = `${ptsSig}|${modId}|${arrMode}|${azSur}|${tiltVal}|${orPref}|${stType}|al:${alPlaneVal}|pIdx:${plIdxVal}|shd:${shadingStrategy}|sb:${setbackVal}|obs:${obstacles.length}|shA:${shA}|shB:${shB}`;
 
       let pInfo;
-      if (poly.roofInfo && (poly._calcSig === singlePolySig || poly._fromProjectImport)) {
+      const hasPreserveFlag = poly._preserveImportedPanels || poly._fromProjectImport || (typeof window !== 'undefined' && window._raImportInProgress);
+      if (poly.roofInfo && (poly._calcSig === singlePolySig || hasPreserveFlag)) {
         pInfo = poly.roofInfo;
         poly._calcSig = singlePolySig;
-        delete poly._fromProjectImport;
+        if (!hasPreserveFlag) {
+          delete poly._fromProjectImport;
+        }
       } else {
         const oldPanels = (poly.roofInfo && Array.isArray(poly.roofInfo.panels)) ? poly.roofInfo.panels : null;
         pInfo = computeSinglePolylineRoofInfo(poly.points, poly);
@@ -13620,6 +13630,7 @@ function computeRoofPanelsData() {
               : [];
             const prevSource = (oldPanels && oldPanels.length > 0) ? oldPanels : liveRenderedPanels;
 
+            const matchedPrevPanels = new Set();
             pInfo.panels.forEach((p, pIdx) => {
               let prev = null;
               if (p.panelId) {
@@ -13636,6 +13647,11 @@ function computeRoofPanelsData() {
               }
               if (!prev && prevSource.length === pInfo.panels.length) {
                 prev = prevSource[pIdx];
+              }
+
+              if (prev) {
+                matchedPrevPanels.add(prev);
+                if (prev.rawPanel) matchedPrevPanels.add(prev.rawPanel);
               }
 
               if (prev && (prev.isManual || (prev.rawPanel && prev.rawPanel.isManual))) {
@@ -13655,6 +13671,44 @@ function computeRoofPanelsData() {
                 if (typeof prev.orientation !== 'undefined') p.orientation = prev.orientation;
                 if (typeof prev.w !== 'undefined') p.w = prev.w;
                 if (typeof prev.h !== 'undefined') p.h = prev.h;
+              }
+            });
+
+            // Preservar paneles manuales que quedaron fuera de la cuadrícula automática
+            prevSource.forEach(op => {
+              if (!op) return;
+              const isMan = op.isManual || (op.rawPanel && op.rawPanel.isManual);
+              if (isMan && !matchedPrevPanels.has(op)) {
+                const srcCenter = (op.isManual && op.center) ? op.center : (op.rawPanel && op.rawPanel.center ? op.rawPanel.center : op.center);
+                const srcCorners = (op.isManual && op.corners) ? op.corners : (op.rawPanel && op.rawPanel.corners ? op.rawPanel.corners : op.corners);
+                if (srcCenter && Array.isArray(srcCorners) && srcCorners.length >= 3) {
+                  const extraIdx = pInfo.panels.length;
+                  pInfo.panels.push({
+                    center: Cesium.Cartesian3.clone(srcCenter),
+                    corners: srcCorners.map(c => Cesium.Cartesian3.clone(c)),
+                    u: op.u,
+                    v: op.v,
+                    w: op.w || 1.134,
+                    h: op.h || 2.278,
+                    gridA: undefined,
+                    gridB: undefined,
+                    layoutIndex: extraIdx,
+                    localIdx: extraIdx,
+                    panelId: op.panelId || ('pan_' + idx + '_' + extraIdx),
+                    polyIdx: idx,
+                    orientation: op.orientation || 'portrait',
+                    tiltDeg: op.tiltDeg || 0,
+                    azimuthDeg: op.azimuthDeg || 0,
+                    stringId: op.stringId,
+                    isManual: true,
+                    rot: op.rot || 0,
+                    hasMLPE: !!op.hasMLPE,
+                    isShaded: !!op.isShaded,
+                    annualKwh: op.annualKwh || null,
+                    shadePct: op.shadePct || null
+                  });
+                  matchedPrevPanels.add(op);
+                }
               }
             });
           }
@@ -15240,6 +15294,7 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
     // recomputar duplicaba el coste completo del layout por faldón (OOM en grandes plantas).
     let pInfo = poly.roofInfo || ((typeof computeSinglePolylineRoofInfo === "function") ? computeSinglePolylineRoofInfo(poly.points, poly) : null);
     if (pInfo && pInfo.panels) {
+      const matchedAsyncPrevPanels = new Set();
       pInfo.panels.forEach((p, idx) => {
         p.layoutIndex = idx;
         p.localIdx = idx;
@@ -15301,6 +15356,10 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
             p.requiresMLPE = src.requiresMLPE;
             p.isUnviable = src.isUnviable;
           }
+          if (prev) {
+            matchedAsyncPrevPanels.add(prev);
+            if (prev.rawPanel) matchedAsyncPrevPanels.add(prev.rawPanel);
+          }
           if (poly._geometryDirty) {
           // Geometría de cubierta editada: no arrastrar coordenadas manuales obsoletas del faldón viejo
           delete poly._geometryDirty;
@@ -15327,6 +15386,32 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
           }
         }
       });
+      if (prevPanelsMap && prevPanelsMap.length > 0) {
+        prevPanelsMap.forEach(op => {
+          if (!op) return;
+          const isMan = op.isManual || (op.rawPanel && op.rawPanel.isManual);
+          if (isMan && !matchedAsyncPrevPanels.has(op)) {
+            const srcCenter = (op.isManual && op.center) ? op.center : (op.rawPanel && op.rawPanel.center ? op.rawPanel.center : op.center);
+            const srcCorners = (op.isManual && op.corners) ? op.corners : (op.rawPanel && op.rawPanel.corners ? op.rawPanel.corners : op.corners);
+            if (srcCenter && Array.isArray(srcCorners) && srcCorners.length >= 3) {
+              const extraIdx = pInfo.panels.length;
+              pInfo.panels.push({
+                ...op,
+                center: Cesium.Cartesian3.clone(srcCenter),
+                corners: srcCorners.map(c => Cesium.Cartesian3.clone(c)),
+                isManual: true,
+                gridA: undefined,
+                gridB: undefined,
+                layoutIndex: extraIdx,
+                localIdx: extraIdx,
+                polyIdx: polyIdx,
+                panelId: op.panelId || ('pan_' + polyIdx + '_' + extraIdx)
+              });
+              matchedAsyncPrevPanels.add(op);
+            }
+          }
+        });
+      }
       pInfo.panels = pInfo.panels.filter(p => !p.deleted);
     }
 

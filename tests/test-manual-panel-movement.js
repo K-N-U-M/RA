@@ -187,4 +187,124 @@ assert.strictEqual(window.allRenderedPanels[1].center.x, 18, 'window.allRendered
 assert.strictEqual(window.allRenderedPanels[1].isManual, true, 'isManual DEBE mantenerse en true');
 console.log('OK: wpFastRenderSimulatedPanelsAsync conservó el panel movido');
 
-console.log('\n>>> TODOS LOS TESTS DE PERSISTENCIA Y MOVIMIENTO MANUAL PASARON AL 100%! <<<');
+console.log('--- TEST 5: Ciclo completo Exportación -> Importación (.raproject) con 3 paneles manuales (#16, #17, #18) ---');
+const fs = require('fs');
+
+global.window = global;
+global.document = global.document || {
+  getElementById: function(id) {
+    if (!this._elements) this._elements = {};
+    if (!this._elements[id]) {
+      this._elements[id] = { id: id, value: '', textContent: '', style: {}, classList: { contains: () => false, toggle: () => {}, add: () => {}, remove: () => {} } };
+    }
+    return this._elements[id];
+  },
+  createElement: function(tag) { return { tagName: tag, style: {}, innerHTML: '', appendChild: () => {} }; },
+  head: { appendChild: () => {} },
+  body: { appendChild: () => {}, removeChild: () => {} }
+};
+
+global.viewer = global.viewer || {
+  camera: {
+    position: new Cartesian3(4800000, 300000, 4100000),
+    direction: new Cartesian3(-0.6, -0.2, -0.7),
+    up: new Cartesian3(0.1, 0.9, -0.4),
+    heading: 1.25,
+    pitch: -0.65,
+    roll: 0.01,
+    positionCartographic: { longitude: 0.035, latitude: 0.72, height: 120 },
+    setView: function() {}
+  },
+  entities: { remove: () => {}, add: (obj) => obj },
+  scene: { primitives: { remove: () => {}, add: (obj) => obj }, requestRender: () => {} }
+};
+
+global.obstacles = global.obstacles || [];
+global.buildings = global.buildings || [];
+
+const psCode = fs.readFileSync('js/project-storage.js', 'utf8');
+eval(psCode);
+
+const mock18Panels = [];
+for (let i = 0; i < 18; i++) {
+  const isMan = (i >= 15);
+  const posX = isMan ? (100 + i * 2) : (i * 2);
+  const posY = isMan ? 50 : 20;
+  const posZ = isMan ? 2.5 : 5.0;
+  mock18Panels.push({
+    panelId: 'pan_0_' + i,
+    layoutIndex: i,
+    localIdx: i,
+    polyIdx: 0,
+    center: new Cartesian3(posX, posY, posZ),
+    corners: [
+      new Cartesian3(posX - 0.5, posY - 1, posZ),
+      new Cartesian3(posX + 0.5, posY - 1, posZ),
+      new Cartesian3(posX + 0.5, posY + 1, posZ),
+      new Cartesian3(posX - 0.5, posY + 1, posZ)
+    ],
+    u: posX,
+    v: posY,
+    isManual: isMan
+  });
+}
+
+const poly18 = {
+  id: 'faldon_pergola',
+  name: 'Pérgola y Cubierta',
+  points: [new Cartesian3(0, 0, 5), new Cartesian3(50, 0, 5), new Cartesian3(50, 50, 5), new Cartesian3(0, 50, 5)],
+  roofInfo: {
+    area: 250,
+    tilt: 10,
+    azimuth: 180,
+    panels: JSON.parse(JSON.stringify(mock18Panels)).map(p => ({
+      ...p,
+      center: new Cartesian3(p.center.x, p.center.y, p.center.z),
+      corners: p.corners.map(c => new Cartesian3(c.x, c.y, c.z))
+    }))
+  }
+};
+
+global.WP.polylines = [poly18];
+global.WP.selectedPolyIdx = 0;
+global.window.allRenderedPanels = poly18.roofInfo.panels.map(p => ({
+  ...p,
+  center: Cartesian3.clone(p.center),
+  corners: p.corners.map(c => Cartesian3.clone(c))
+}));
+
+const exportedData = global.raExportProjectData();
+assert.strictEqual(exportedData.polylines[0].roofInfo.panels.length, 18, 'Debe exportar los 18 paneles');
+assert.strictEqual(exportedData.polylines[0].roofInfo.panels[15].isManual, true, 'Panel #16 debe ser isManual');
+assert.strictEqual(exportedData.polylines[0].roofInfo.panels[16].isManual, true, 'Panel #17 debe ser isManual');
+assert.strictEqual(exportedData.polylines[0].roofInfo.panels[17].isManual, true, 'Panel #18 debe ser isManual');
+assert.strictEqual(exportedData.polylines[0].roofInfo.panels[17].center.x, 134, 'Panel #18 debe estar en x=134');
+console.log('OK: Exportación preservó isManual y coordenadas de los 3 paneles');
+
+const jsonProject = JSON.parse(JSON.stringify(exportedData));
+global.WP.polylines = [];
+global.window.allRenderedPanels = [];
+
+(async () => {
+  await global.raImportProjectData(jsonProject);
+
+  const importedPoly = global.WP.polylines[0];
+  assert.ok(importedPoly, 'Faldón importado debe existir');
+  assert.strictEqual(importedPoly.roofInfo.panels.length, 18, 'Faldón importado debe tener los 18 paneles');
+
+  const p16 = importedPoly.roofInfo.panels[15];
+  const p17 = importedPoly.roofInfo.panels[16];
+  const p18 = importedPoly.roofInfo.panels[17];
+
+  assert.strictEqual(p16.isManual, true, 'Panel #16 debe conservar isManual tras importación');
+  assert.strictEqual(p17.isManual, true, 'Panel #17 debe conservar isManual tras importación');
+  assert.strictEqual(p18.isManual, true, 'Panel #18 debe conservar isManual tras importación');
+
+  assert.strictEqual(p16.center.x, 130, 'Panel #16 debe conservar su posición x=130');
+  assert.strictEqual(p17.center.x, 132, 'Panel #17 debe conservar su posición x=132');
+  assert.strictEqual(p18.center.x, 134, 'Panel #18 debe conservar su posición x=134');
+  assert.strictEqual(p18.center.z, 2.5, 'Panel #18 debe conservar su cota z=2.5');
+
+  console.log('OK: Importación restauró fielmente los 3 paneles manuales en x=[130, 132, 134] y z=2.5');
+  console.log('\n>>> TODOS LOS TESTS DE PERSISTENCIA Y MOVIMIENTO MANUAL PASARON AL 100%! <<<');
+})();
