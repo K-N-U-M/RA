@@ -1069,4 +1069,53 @@ tasks:
 
 ---
 
-*Fin del informe. Versión 1.0 — 2026-10-27. Los hallazgos marcados `VERIFICADO` están respaldados por lectura directa del código citado y, cuando se indica, por ejecución. Los `INDICIO` requieren reproducción antes de convertirse en tarea.*
+## 18. Estado de reparación (actualizado 2026-10-28)
+
+> Bitácora detallada: `REPARACION_2026-10-28.md`. Gate actual: **45/45** (`node tests/run-all.js`).
+> Estados: **CERRADO** · **MITIGADO** (defecto neutralizado, causa raíz pendiente) · **ETIQUETADO** (decisión de producto) · **PENDIENTE-DECISIÓN** · **NO VERIFICADO** (anexo B).
+
+| ID | Estado | Evidencia de cierre |
+| :--- | :--- | :--- |
+| A-01 | CERRADO | `computeVanLabel` + `test-document-integrity` |
+| A-02 | CERRADO | `computeCapexBreakdown` cierra contra el total |
+| A-03 | CERRADO | `N/D` + banner; sin constantes 16.4/4.2 |
+| A-04 | ETIQUETADO | `inversionBaseMetricas` + tabla fiscal explicada. Decisión contractual pendiente |
+| A-05 | CERRADO / PENDIENTE-DECISIÓN | CEL off por defecto y condicionada; falta referencia jurídica |
+| A-06 | CERRADO | `tests/run-all.js` ejecuta los 45 sin abortar |
+| A-07 | ETIQUETADO | Ahorro de auditoría vs modelo, con nota |
+| A-08 | CERRADO | Sin «0.00 kWp»; deriva del diseño |
+| B-01…B-03, B-10 | CERRADO | `test-server-hardening` (allowlist, 400, cabeceras) |
+| B-04 | CERRADO (requiere rotación) | `js/ra-env.js` ignorado + `test-no-secrets` |
+| B-05…B-07 | CERRADO | Reglas cerradas + `test-security-contract`; falta emulador |
+| B-08 | CERRADO | `RASanitize` + escape de toasts |
+| B-09 | MITIGADO | CORS, rate limit, allowlist, sin `details`. App Check requiere despliegue |
+| C-01 | CERRADO | Paridad inline↔módulo (`test-mppt-parity`) |
+| C-02 | CERRADO | Regla AND 1,5/2,5 + atribución corregida |
+| C-03 | CERRADO | ρ(T) (`test-ra-full-workflow`) |
+| C-04 | CERRADO | Tipo B salvo RCMU acreditado |
+| C-05 | CERRADO | Tabla única; dimensionado extraído al motor |
+| C-06 | CERRADO | Docstring a 70 °C |
+| D-01 | CERRADO | `productionSource` + `js/production-source.js` |
+| D-02 | CERRADO | Geometría mensual real en el motor físico |
+| D-03 | CERRADO | PR sin recorte |
+| D-04/D-05 | CERRADO | Excentricidad Erbs; kt [0,1] (`test-radiation-accuracy`) |
+| D-06 | CERRADO | Sin ahorro inventado sin modelo |
+| D-07 | CERRADO | Factor CO₂ único |
+| D-08 | CERRADO | `monthlySource` en modelo y memoria |
+| E-01 | MITIGADO | `cpAudit` + AEP bloqueado + aviso UI. Datos pendientes de datasheet |
+| E-02 | CERRADO | Muestreo diario verificado (`test-shadow-flicker-sampling`) |
+| E-03 | MITIGADO / PENDIENTE-DECISIÓN | Sin geotecnia no firma «seguro»; e/L/6 y despegue publicados |
+| E-04 | ETIQUETADO | `seriesSource` sintético + disclaimer |
+| E-05/E-06 | NO VERIFICADO | Anexo B (ruido, altitud) |
+| F-01 | MITIGADO (hito) | Producción y dimensionado externalizados; duplicado muerto eliminado; trinquete 16.180 líneas. Inline ya por debajo del inicio (16.252) |
+| F-02 | MITIGADO | Mock de Cesium corregido; falta helper compartido |
+| F-03 | MITIGADO | CI + guardas propias; falta ESLint formal |
+| F-04 | CERRADO | Inventario 63 archivos en AGENTS/doc |
+| F-05 | CERRADO | `test-module-wiring` |
+| F-06 | CERRADO | `RAErrors` + `test-error-observability` |
+
+**Bloqueos por decisión humana** (detalle en `REPARACION_2026-10-28.md` §4.1): base de inversión, referencia CEL, geotecnia eólica, datos de curvas.
+
+---
+
+*Fin del informe. Versión 1.1 — 2026-10-28 (estado de reparación).*
