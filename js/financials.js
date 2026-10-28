@@ -3451,7 +3451,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         <button class="doc-btn doc-btn-print" onclick="window.print()">🖨 IMPRIMIR / PDF</button>
         <button class="doc-btn doc-btn-word" id="btn-export-docx" onclick="exportPropDocx()" title="Descargar documento Word (.docx) con maquetación e imágenes completas">📝 WORD (.DOCX)</button>
         <button class="doc-btn doc-btn-html" onclick="exportPropHtml()">🌐 HTML</button>
-        <button class="doc-btn doc-btn-close" onclick="window.close()">✕</button>
+        <button class="doc-btn doc-btn-close" onclick="closeProposalViewer()" title="Cerrar propuesta">✕</button>
       </div>
     </div>
 
@@ -4183,25 +4183,54 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     </div>
 
     <script>
+      function getOpenerWindow() {
+        try {
+          if (window.opener && !window.opener.closed && window.opener.document) return window.opener;
+        } catch(e) {}
+        try {
+          if (window.parent && window.parent !== window && window.parent.document) return window.parent;
+        } catch(e) {}
+        return null;
+      }
+
+      function closeProposalViewer() {
+        try {
+          const mw = getOpenerWindow();
+          if (mw && mw.document) {
+            const modal = mw.document.getElementById('ra-embedded-doc-modal');
+            if (modal && modal.style.display !== 'none') {
+              modal.style.display = 'none';
+              return;
+            }
+          }
+        } catch(e) {}
+        try { window.close(); } catch(e) {}
+      }
+
       function setDocTheme(t) {
         try {
           const stored = JSON.parse(localStorage.getItem('ra_company_branding') || '{}');
           stored.theme = t;
           localStorage.setItem('ra_company_branding', JSON.stringify(stored));
-          if (window.opener && window.opener.RACompanyBranding && typeof window.opener.RACompanyBranding.saveCompanyBranding === 'function') {
-            window.opener.RACompanyBranding.saveCompanyBranding(stored);
+          const mw = getOpenerWindow();
+          if (mw && mw.RACompanyBranding && typeof mw.RACompanyBranding.saveCompanyBranding === 'function') {
+            mw.RACompanyBranding.saveCompanyBranding(stored);
           }
-          if (window.opener && window.opener.RA && window.opener.RA.branding) {
-            window.opener.RA.branding.theme = t;
+          if (mw && mw.RA && mw.RA.branding) {
+            mw.RA.branding.theme = t;
+          }
+          if (mw && typeof mw.generatePropuestaComercialPDF === 'function') {
+            if (window.opener && !window.opener.closed) {
+              window.name = window.name || 'ra_proposal_window_' + Date.now();
+              mw.generatePropuestaComercialPDF(true, window.name, t);
+            } else {
+              mw.generatePropuestaComercialPDF(true, null, t);
+            }
+            return;
           }
         } catch (e) {}
 
-        if (window.opener && typeof window.opener.generatePropuestaComercialPDF === 'function') {
-          window.name = window.name || 'ra_proposal_window_' + Date.now();
-          window.opener.generatePropuestaComercialPDF(true, window.name, t);
-        } else {
-          alert('Paleta guardada. Vuelve a abrir la propuesta para verla.');
-        }
+        alert('Paleta guardada. Vuelve a abrir la propuesta para visualizarla con el nuevo tema.');
       }
 
       function triggerPhotoUpload(inputId) {
@@ -4216,7 +4245,6 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         reader.onload = function(e) {
           const img = new Image();
           img.onload = function() {
-            // Optimizar en canvas cliente para no saturar memoria en PDF
             const maxDim = 1600;
             let w = img.width, h = img.height;
             if (w > maxDim || h > maxDim) {
@@ -4239,19 +4267,17 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
               placeholder.style.display = 'none';
             }
 
-            // ── Persistencia para sobrevivir a cambios de paleta de color ──
             try {
               let photoKey = 'hero';
               if (imgId.indexOf('cover') !== -1) photoKey = 'cover';
               else if (imgId.indexOf('sub1') !== -1) photoKey = 'sub1';
               else if (imgId.indexOf('sub2') !== -1) photoKey = 'sub2';
 
-              // Persistir en memoria de ventana padre (opener)
-              if (window.opener && window.opener.RA) {
-                window.opener.RA._proposalCustomPhotos = window.opener.RA._proposalCustomPhotos || {};
-                window.opener.RA._proposalCustomPhotos[photoKey] = optimizedData;
+              const mw = getOpenerWindow();
+              if (mw && mw.RA) {
+                mw.RA._proposalCustomPhotos = mw.RA._proposalCustomPhotos || {};
+                mw.RA._proposalCustomPhotos[photoKey] = optimizedData;
               }
-              // Persistir en sessionStorage
               const currentPhotos = JSON.parse(sessionStorage.getItem('ra_proposal_custom_photos') || '{}');
               currentPhotos[photoKey] = optimizedData;
               sessionStorage.setItem('ra_proposal_custom_photos', JSON.stringify(currentPhotos));
@@ -4280,7 +4306,6 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
               if (el.hasAttribute('data-editable-box')) return;
               el.setAttribute('data-editable-box', 'true');
 
-              // Botón de eliminar flotante
               const delBtn = document.createElement('button');
               delBtn.type = 'button';
               delBtn.className = 'ra-edit-del-btn no-print';
@@ -4295,7 +4320,6 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
               };
               el.appendChild(delBtn);
 
-              // Eventos de selección y arrastre
               el.addEventListener('click', function(ev) {
                 if (!document.body.classList.contains('mode-edit-layout')) return;
                 ev.stopPropagation();
@@ -4304,7 +4328,6 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
                 el.classList.add('selected-edit-box');
               });
 
-              // Habilitar drag & drop reordenamiento
               el.addEventListener('dragstart', function(ev) {
                 if (!document.body.classList.contains('mode-edit-layout')) return;
                 _draggedElement = el;
@@ -4341,7 +4364,6 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
 
       document.addEventListener('keydown', function(ev) {
         if (!document.body.classList.contains('mode-edit-layout') || !_selectedBox) return;
-        // Si no está escribiendo dentro de un nodo editable
         if (ev.target && ev.target.isContentEditable && ev.target !== _selectedBox) return;
         if (ev.key === 'Delete') {
           _selectedBox.remove();
@@ -4356,25 +4378,35 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       function capture3DToProposal() {
         try {
           let canvas = null;
-          if (window.opener) {
-            if (window.opener.viewer && window.opener.viewer.scene && window.opener.viewer.scene.canvas) {
-              window.opener.viewer.scene.render();
-              canvas = window.opener.viewer.scene.canvas;
+          const mw = getOpenerWindow();
+          if (mw) {
+            if (mw.viewer && mw.viewer.scene && mw.viewer.scene.canvas) {
+              try { mw.viewer.scene.render(); } catch(e) {}
+              canvas = mw.viewer.scene.canvas;
             } else {
-              const el = window.opener.document.querySelector('canvas');
+              const el = mw.document.querySelector('canvas');
               if (el) canvas = el;
             }
           }
           if (canvas) {
             const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
-            // Actualizar la foto principal o las fotos del proyecto
-            const heroImg = document.getElementById('prop-hero-img') || document.querySelector('.cover-photo-card img') || document.querySelector('.photo-card-hero img');
+            const heroImg = document.getElementById('photo-cover-img') || document.getElementById('prop-hero-img') || document.querySelector('.cover-photo-card img') || document.querySelector('.photo-card-hero img');
             if (heroImg) {
               heroImg.src = dataUrl;
               heroImg.style.display = 'block';
-              const pl = heroImg.parentElement.querySelector('.photo-placeholder');
+              const pl = document.getElementById('photo-cover-placeholder') || heroImg.parentElement.querySelector('.photo-placeholder') || heroImg.parentElement.querySelector('.photo-empty-placeholder');
               if (pl) pl.style.display = 'none';
             }
+            try {
+              if (mw && mw.RA) {
+                mw.RA._proposalCustomPhotos = mw.RA._proposalCustomPhotos || {};
+                mw.RA._proposalCustomPhotos.cover = dataUrl;
+              }
+              const currentPhotos = JSON.parse(sessionStorage.getItem('ra_proposal_custom_photos') || '{}');
+              currentPhotos.cover = dataUrl;
+              sessionStorage.setItem('ra_proposal_custom_photos', JSON.stringify(currentPhotos));
+            } catch(ePersist) {}
+
             alert('¡Captura 3D del proyecto actualizada con éxito en la propuesta!');
           } else {
             alert('No se pudo acceder al visor 3D de la ventana principal. Asegúrate de que la ventana del proyecto esté abierta.');
@@ -4384,7 +4416,6 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         }
       }
 
-      // Manejo de selección para barra flotante de formato en la propuesta
       document.addEventListener('selectionchange', function() {
         const tb = document.getElementById('prop-format-toolbar');
         if (!tb || !document.body.classList.contains('mode-edit-layout')) {
@@ -4436,7 +4467,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
           }
           const tb = document.getElementById('prop-format-toolbar');
           if (tb) tb.style.display = 'none';
-          btn.textContent = '✏️ EDITAR';
+          btn.innerHTML = '✏️ EDITAR';
           btn.style.background = '${pal.accent}';
         } else {
           document.body.classList.add('mode-edit-layout');
@@ -4448,188 +4479,9 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
           document.querySelectorAll('[data-editable-box]').forEach(el => {
             el.setAttribute('draggable', 'true');
           });
-          btn.textContent = '💾 FINALIZAR EDICIÓN';
+          btn.innerHTML = '💾 FINALIZAR EDICIÓN';
           btn.style.background = '#10b981';
         }
-      }
-      function _localBuildDocxBlob(htmlContent, options) {
-        options = options || {};
-        const isLandscape = options.orientation === 'landscape';
-        const widthDxa = isLandscape ? 16838 : 11906;
-        const heightDxa = isLandscape ? 11906 : 16838;
-
-        const images = [];
-        let imgIdx = 0;
-        const processedHtml = htmlContent.replace(/src=["'](data:image\/([a-zA-Z0-9\+\-]+);base64,([A-Za-z0-9+/=\r\n]+))["']/gi, function(match, fullDataUrl, ext, b64) {
-          imgIdx++;
-          const cleanExt = (ext === 'jpeg' || ext === 'jpg') ? 'jpg' : ((ext === 'svg+xml') ? 'svg' : ext);
-          const fName = 'img_' + imgIdx + '.' + cleanExt;
-          images.push({
-            name: fName,
-            contentType: 'image/' + ext,
-            base64: b64.replace(/\s+/g, '')
-          });
-          return 'src="' + fName + '"';
-        });
-
-        const boundary = '----=_Part_RA_DOCX_' + Date.now();
-        let mhtml = 'MIME-Version: 1.0\r\n' +
-          'Content-Type: multipart/related; boundary="' + boundary + '"; type="text/html"\r\n\r\n' +
-          '--' + boundary + '\r\n' +
-          'Content-Type: text/html; charset="utf-8"\r\n' +
-          'Content-Transfer-Encoding: quoted-printable\r\n' +
-          'Content-Location: document.html\r\n\r\n' +
-          '<!DOCTYPE html>\r\n<html><head><meta charset="utf-8"><title>' + (options.title || 'Propuesta Comercial') + '</title>\r\n' +
-          '<style>\r\n' +
-          '@page Section1 { size: ' + (isLandscape ? '297mm 210mm' : '210mm 297mm') + '; margin: 12mm 14mm 14mm 12mm; mso-page-orientation: ' + (isLandscape ? 'landscape' : 'portrait') + '; }\r\n' +
-          'div.Section1 { page: Section1; font-family: Segoe UI, Aptos, Arial, sans-serif; }\r\n' +
-          '.page-sheet { page-break-after: always; break-after: page; mso-break-type: section-break; width: 100% !important; margin: 0 0 25pt 0 !important; box-shadow: none !important; border-radius: 0 !important; }\r\n' +
-          'table { border-collapse: collapse; width: 100%; mso-table-lspace: 0pt; mso-table-rspace: 0pt; margin: 8pt 0; }\r\n' +
-          'td, th { vertical-align: top; font-family: Segoe UI, Aptos, Arial, sans-serif; }\r\n' +
-          'img { max-width: 100%; height: auto; }\r\n' +
-          (options.styles || '') + '\r\n' +
-          '</style></head><body><div class="Section1">\r\n' +
-          processedHtml + '\r\n' +
-          '</div></body></html>\r\n\r\n';
-
-        for (let ii = 0; ii < images.length; ii++) {
-          const img = images[ii];
-          mhtml += '--' + boundary + '\r\n' +
-            'Content-Type: ' + img.contentType + '\r\n' +
-            'Content-Transfer-Encoding: base64\r\n' +
-            'Content-Location: ' + img.name + '\r\n' +
-            'Content-ID: <' + img.name + '>\r\n\r\n' +
-            img.base64.replace(/(.{76})/g, '$1\r\n') + '\r\n\r\n';
-        }
-        mhtml += '--' + boundary + '--\r\n';
-
-        const contentTypesXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n' +
-          '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">\r\n' +
-          '  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>\r\n' +
-          '  <Default Extension="xml" ContentType="application/xml"/>\r\n' +
-          '  <Default Extension="mht" ContentType="message/rfc822"/>\r\n' +
-          '  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>\r\n' +
-          '</Types>';
-
-        const pkgRelsXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n' +
-          '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">\r\n' +
-          '  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>\r\n' +
-          '</Relationships>';
-
-        const docRelsXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n' +
-          '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">\r\n' +
-          '  <Relationship Id="htmlChunk" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/aFChunk" Target="chunk.mht"/>\r\n' +
-          '</Relationships>';
-
-        const documentXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n' +
-          '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"\r\n' +
-          '            xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">\r\n' +
-          '  <w:body>\r\n' +
-          '    <w:altChunk r:id="htmlChunk"/>\r\n' +
-          '    <w:sectPr>\r\n' +
-          '      <w:pgSz w:w="' + widthDxa + '" w:h="' + heightDxa + '"' + (isLandscape ? ' w:orient="landscape"' : '') + '/>\r\n' +
-          '      <w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134"/>\r\n' +
-          '    </w:sectPr>\r\n' +
-          '  </w:body>\r\n' +
-          '</w:document>';
-
-        const files = [
-          { name: '[Content_Types].xml', data: contentTypesXml },
-          { name: '_rels/.rels', data: pkgRelsXml },
-          { name: 'word/_rels/document.xml.rels', data: docRelsXml },
-          { name: 'word/document.xml', data: documentXml },
-          { name: 'word/chunk.mht', data: mhtml }
-        ];
-
-        // Empaquetador ZIP nativo
-        const fileEntries = [];
-        let offset = 0;
-        function strToBytes(str) { return new TextEncoder().encode(str); }
-        const crcTable = new Uint32Array(256);
-        for (let i = 0; i < 256; i++) {
-          let c = i;
-          for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
-          crcTable[i] = c;
-        }
-        function crc32(buf) {
-          let crc = ~0;
-          for (let i = 0; i < buf.length; i++) crc = (crc >>> 8) ^ crcTable[(crc ^ buf[i]) & 0xFF];
-          return (~crc) >>> 0;
-        }
-        const parts = [];
-        for (let fi = 0; fi < files.length; fi++) {
-          const f = files[fi];
-          const data = (typeof f.data === 'string') ? strToBytes(f.data) : f.data;
-          const nameBytes = strToBytes(f.name);
-          const crc = crc32(data);
-          const size = data.length;
-          const h = new Uint8Array(30 + nameBytes.length);
-          const dv = new DataView(h.buffer);
-          dv.setUint32(0, 0x04034b50, true);
-          dv.setUint16(4, 20, true);
-          dv.setUint16(6, 0x0800, true);
-          dv.setUint16(8, 0, true);
-          dv.setUint16(10, 0, true);
-          dv.setUint16(12, 0, true);
-          dv.setUint32(14, crc, true);
-          dv.setUint32(18, size, true);
-          dv.setUint32(22, size, true);
-          dv.setUint16(26, nameBytes.length, true);
-          dv.setUint16(28, 0, true);
-          h.set(nameBytes, 30);
-          parts.push(h);
-          parts.push(data);
-          fileEntries.push({ nameBytes: nameBytes, crc: crc, size: size, offset: offset });
-          offset += h.length + data.length;
-        }
-        const cdStart = offset;
-        let cdSize = 0;
-        for (let ei = 0; ei < fileEntries.length; ei++) {
-          const entry = fileEntries[ei];
-          const cd = new Uint8Array(46 + entry.nameBytes.length);
-          const dv = new DataView(cd.buffer);
-          dv.setUint32(0, 0x02014b50, true);
-          dv.setUint16(4, 20, true);
-          dv.setUint16(6, 20, true);
-          dv.setUint16(8, 0x0800, true);
-          dv.setUint16(10, 0, true);
-          dv.setUint16(12, 0, true);
-          dv.setUint16(14, 0, true);
-          dv.setUint32(16, entry.crc, true);
-          dv.setUint32(20, entry.size, true);
-          dv.setUint32(24, entry.size, true);
-          dv.setUint16(28, entry.nameBytes.length, true);
-          dv.setUint16(30, 0, true);
-          dv.setUint16(32, 0, true);
-          dv.setUint16(34, 0, true);
-          dv.setUint16(36, 0, true);
-          dv.setUint32(38, 0, true);
-          dv.setUint32(42, entry.offset, true);
-          cd.set(entry.nameBytes, 46);
-          parts.push(cd);
-          cdSize += cd.length;
-        }
-        const eocd = new Uint8Array(22);
-        const dvE = new DataView(eocd.buffer);
-        dvE.setUint32(0, 0x06054b50, true);
-        dvE.setUint16(4, 0, true);
-        dvE.setUint16(6, 0, true);
-        dvE.setUint16(8, fileEntries.length, true);
-        dvE.setUint16(10, fileEntries.length, true);
-        dvE.setUint32(12, cdSize, true);
-        dvE.setUint32(16, cdStart, true);
-        dvE.setUint16(20, 0, true);
-        parts.push(eocd);
-
-        let totLen = 0;
-        for (let pi = 0; pi < parts.length; pi++) totLen += parts[pi].length;
-        const out = new Uint8Array(totLen);
-        let pPos = 0;
-        for (let pi = 0; pi < parts.length; pi++) {
-          out.set(parts[pi], pPos);
-          pPos += parts[pi].length;
-        }
-        return new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
       }
 
       function exportPropDocx() {
@@ -4653,7 +4505,6 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
             container.appendChild(cloneSheet);
           });
 
-          // Convertir cualquier <svg> a <img> base64 para compatibilidad plena con Microsoft Word
           const svgs = Array.from(container.querySelectorAll('svg'));
           for (let i = 0; i < svgs.length; i++) {
             const svgEl = svgs[i];
@@ -4673,18 +4524,18 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
           const styles = stylesEl ? stylesEl.innerHTML : '';
 
           let docxBlob = null;
-          if (window.opener && window.opener.RADocxExporter && typeof window.opener.RADocxExporter.buildDocxBlobFromHtml === 'function') {
-            docxBlob = window.opener.RADocxExporter.buildDocxBlobFromHtml(container.innerHTML, {
+          const mw = getOpenerWindow();
+          const exporter = (mw && mw.RADocxExporter) || (typeof RADocxExporter !== 'undefined' ? RADocxExporter : null);
+          if (exporter && typeof exporter.buildDocxBlobFromHtml === 'function') {
+            docxBlob = exporter.buildDocxBlobFromHtml(container.innerHTML, {
               orientation: 'portrait',
               styles: styles,
               title: document.title || 'Propuesta Comercial'
             });
           } else {
-            docxBlob = _localBuildDocxBlob(container.innerHTML, {
-              orientation: 'portrait',
-              styles: styles,
-              title: document.title || 'Propuesta Comercial'
-            });
+            // Fallback: descargar como documento HTML compatible con Word
+            const wordHtml = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><style>' + styles + '</style></head><body>' + container.innerHTML + '</body></html>';
+            docxBlob = new Blob(['\ufeff', wordHtml], { type: 'application/msword' });
           }
 
           const a = document.createElement('a');
@@ -4716,6 +4567,20 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = '${d.refNum}_Propuesta_Comercial.html';
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
       }
+
+      // Exponer globalmente en window para garantizar compatibilidad inline onclick
+      window.getOpenerWindow = getOpenerWindow;
+      window.closeProposalViewer = closeProposalViewer;
+      window.setDocTheme = setDocTheme;
+      window.triggerPhotoUpload = triggerPhotoUpload;
+      window.handlePhotoUpload = handlePhotoUpload;
+      window.setupInteractiveBoxes = setupInteractiveBoxes;
+      window.applyPropFormat = applyPropFormat;
+      window.capture3DToProposal = capture3DToProposal;
+      window.togglePropEdit = togglePropEdit;
+      window.exportPropDocx = exportPropDocx;
+      window.exportPropWord = exportPropWord;
+      window.exportPropHtml = exportPropHtml;
     </script>
   </body>
   </html>
