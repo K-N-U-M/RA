@@ -14,9 +14,11 @@
 | **PDF/Informes** | Generación en cliente | `js/docs-generator.js`. |
 | **Datos geográficos** | Google Photorealistic 3D Tiles | Fuente base del terreno/edificios de contexto. |
 
-> ⚠️ **Sin build system ni gestor de paquetes.** No existe `package.json`, `tsconfig.json` ni bundler. Los scripts en `js/` se cargan como `<script>` clásico en orden. **No existen ni `src/*.ts` ni Three.js**: toda la matemática es JavaScript dentro de `js/` y del bloque inline de `index.html`.
+> ⚠️ **Sin build system.** No hay bundler ni transpilador: los scripts de `js/` se cargan como `<script>` clásico en orden. Existe un `package.json` **sin dependencias** que solo orquesta `lint` y el runner de pruebas (`tests/run-all.js`). **No existen ni `src/*.ts` ni Three.js**: toda la matemática vive en `js/` y en el bloque inline de `index.html`.
 
 ## 2. Módulos JavaScript (`js/`)
+
+> **Estado real (2026-10-28):** 63 archivos JS — 50 en `js/` y 13 en `js/wind/`. La tabla siguiente es una selección de los núcleos; el inventario completo se obtiene con `node tests/test-js-syntax.js` (que recorre todos).
 
 | Archivo | Responsabilidad |
 | :--- | :--- |

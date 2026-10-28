@@ -4806,10 +4806,13 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   const MONTH_LOAD_WEIGHTS = [1.18, 1.12, 1.02, 0.92, 0.84, 0.88, 1.06, 1.02, 0.94, 0.94, 1.02, 1.16]; // Climatización estacional peninsular
 
   // Producción mensual en kWh (SSOT: solarSimState.monthlyKwh si existe, o desglose estacional)
+  // [AUD-2026 · D-08] Se declara el origen para no presentar como simulación una curva tipo.
+  let monthlySource = 'simulation';
   let monthlySolarKwh = new Array(12).fill(0);
   if (typeof window !== 'undefined' && window.solarSimState && Array.isArray(window.solarSimState.monthlyKwh) && window.solarSimState.monthlyKwh.length === 12) {
     monthlySolarKwh = window.solarSimState.monthlyKwh.slice();
   } else {
+    monthlySource = 'fallback-weights';
     const solarWeights = [0.045, 0.058, 0.082, 0.098, 0.118, 0.126, 0.132, 0.120, 0.095, 0.068, 0.046, 0.032];
     monthlySolarKwh = solarWeights.map(w => w * annualYieldKWh);
   }
@@ -5197,6 +5200,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     precioRedEUR: precioRed,
     precioCompensacionEUR: precioCompensacion,
     annualYieldKWh: annualYieldKWh,
+    monthlySource: monthlySource,
     ahorroLuzAnio1: ahorroLuzAnio1,
     ahorroTotal25: ahorroTotal25,
     paybackYears: paybackYears,

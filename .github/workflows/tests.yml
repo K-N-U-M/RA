@@ -1,0 +1,31 @@
+name: tests
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # El proyecto no tiene dependencias de runtime: no hay `npm ci`.
+      - name: Sintaxis de módulos
+        run: node tests/test-js-syntax.js
+
+      - name: Batería completa (agregada, sin abortar en el primer fallo)
+        run: node tests/run-all.js --timeout=180000
+
+      - name: Guardas de seguridad (sin credenciales versionadas)
+        run: node tests/test-no-secrets.js
+
+      - name: Contrato de servidor
+        run: node tests/test-server-hardening.js

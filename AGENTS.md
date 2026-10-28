@@ -62,11 +62,15 @@ c:/TRABAJOS/RA/
 │   ├── engineering-explainer.js     # Explicaciones guiadas de ingeniería
 │   ├── wind-turbine.js              # Generadores eólicos 3D (HAWT/VAWT) paramétricos AAA
 │   ├── measure-tool.js              # Cinta métrica 3D con desglose físico y snap magnético
-│   ├── config.js                    # Constantes globales y paletas
+│   ├── config.js                    # Constantes globales y paletas (credenciales vía js/ra-env.js)
+│   ├── sanitizer.js                 # Saneado por allowlist de HTML generado por IA
+│   ├── wind/                        # 13 módulos del motor eólico (recurso, estructura, ruido, flicker…)
 │   └── viewer.js                    # Configuración del visor Cesium
-├── tests/                           # Scripts de verificación automatizados
+├── tests/                           # 38 pruebas; runner agregado en tests/run-all.js
 └── doc/                             # Documentación canónica de arquitectura
 ```
+
+> **Inventario real (2026-10-28):** 63 archivos JS (50 en `js/` + 13 en `js/wind/`). Este árbol es una selección de los núcleos; `node tests/test-js-syntax.js` recorre el inventario completo.
 
 > [!IMPORTANT]
 > **Gestión de Hooks Globales:** Las funciones invocadas desde atributos HTML (`onclick`, `onchange`) deben estar siempre accesibles en `window`. No eliminar ni renombrar sin actualizar el HTML.

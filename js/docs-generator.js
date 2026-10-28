@@ -899,7 +899,8 @@ function generateMemoria(skipPricingModal) {
     '<p><strong>Producción estimada:<\/strong> ' + Math.round(d.annualKWh).toLocaleString('es-ES') + ' kWh/año · <em>fuente: ' +
       ((d.productionSource === 'simulation') ? 'simulación por panel (sombras y pérdidas incluidas)'
         : (d.productionSource === 'physical') ? (d.productionSourceDetail || 'motor físico con datos del emplazamiento')
-        : 'estimación estacional interna (pendiente de simulación)') + '<\/em><\/p>' +
+        : 'estimación estacional interna (pendiente de simulación)') +
+      ' · reparto mensual: ' + ((finM && finM.monthlySource === 'simulation') ? 'simulación' : 'estimación estacional') + '<\/em><\/p>' +
     '<p><strong>CUPS:<\/strong> ' + t.cups + ' · <strong>Distribuidora:<\/strong> ' + t.dist + '<\/p>' +
     (typeof EngineeringExplainer !== 'undefined' && typeof EngineeringExplainer.generateExecutiveSummaryHTML === 'function' ? EngineeringExplainer.generateExecutiveSummaryHTML(d) : '') +
 

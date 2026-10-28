@@ -79,6 +79,14 @@ C-01 (coeficientes MPPT inline), C-03 (ρ(T)), C-04 (RCD Tipo B), C-06, D-03 (PR
 - **B-03 (resto)**: `firebase.json` excluye `server.js`, reglas, `package.json`, `js/ra-env.js` y añade cabeceras de seguridad (nosniff, DENY, CSP mínima, HSTS, Permissions-Policy).
 - **B-09**: `gwaProxy` con CORS restringido, rate limit 30/min por IP, allowlist de host, timeout, tope de tamaño, topes de estructura en el parser y errores genéricos. Runtime actualizado a Node 22.
 
+### 2.6 Ola 3 — trazabilidad mensual, documentación y CI
+
+| ID | Cambio | Archivo |
+| :--- | :--- | :--- |
+| **D-08** | El modelo declara `monthlySource` (`simulation` / `fallback-weights`) y la memoria lo imprime junto a la fuente de producción. | `js/financials.js`, `js/docs-generator.js` |
+| **F-04** | Inventario real actualizado: 63 archivos JS (50 + 13 eólicos), `package.json` existente, `sanitizer.js` y `js/wind/` documentados; corregida la afirmación «no existe package.json». | `AGENTS.md`, `doc/02-tecnologia.md` |
+| **F-03 (parcial)** | Workflow de CI sin dependencias (`.github/workflows/tests.yml`): sintaxis, batería completa, secretos y servidor. Pendiente ESLint formal. | `.github/workflows/tests.yml` |
+
 ---
 
 ## 3. Decisiones tomadas (documentadas)
@@ -107,11 +115,9 @@ C-01 (coeficientes MPPT inline), C-03 (ρ(T)), C-04 (RCD Tipo B), C-06, D-03 (PR
 | ID | Asunto |
 | :--- | :--- |
 | **D-04/D-05** | Excentricidad orbital en Erbs y rango de `kt`. |
-| **D-08** | Marcar `monthlySource` (simulación vs pesos fijos) en UI/PDF. |
 | **E-01 (datos)** | Sustituir las 6 curvas por datasheets reales; hoy solo se detectan. |
 | **F-01** | Reducir el monolito (16.252 líneas inline). |
-| **F-03** | ESLint + CI. |
-| **F-04** | Inventario de módulos en `AGENTS.md`/`doc/02` (60 vs 30). |
+| **F-03** | ESLint formal (hoy CI + guardas propias). |
 | **F-05/F-06** | Contratos de dependencia y observabilidad. |
 | **B-09 (App Check)** | Requiere token de cliente y despliegue. |
 
