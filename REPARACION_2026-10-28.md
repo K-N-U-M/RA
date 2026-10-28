@@ -7,7 +7,7 @@
 | :--- | :--- |
 | Base de partida | `91d241f` (auditoría) → árbol actualizado por terceros hasta `f75a627` |
 | Olas ejecutadas | **Ola 0-1** (`8f7938d`) · **Ola 2** (`f4c1a92`) |
-| Gate | **42/42 tests en verde** (`node tests/run-all.js`) |
+| Gate | **44/44 tests en verde** (`node tests/run-all.js`) |
 | Inline `index.html` | 5 bloques compilan (`new Function` sobre el HTML) |
 
 ---
@@ -106,6 +106,13 @@ C-01 (coeficientes MPPT inline), C-03 (ρ(T)), C-04 (RCD Tipo B), C-06, D-03 (PR
 
 > **Balance honesto del inline:** partía de 16.252 líneas y está en 16.413. El neto sube por los bloques de seguridad añadidos (producción trazable, `N/D`, comprobaciones), pero el trinquete impide que siga creciendo y ya no hay funciones duplicadas. A partir de aquí, todo lo nuevo va a módulos.
 
+### 2.10 Ola 6 — el eje eólico deja de publicar imposibles
+
+| ID | Cambio | Archivo | Prueba |
+| :--- | :--- | :--- | :--- |
+| **E-01 (guarda)** | `computeTurbineAEP` devuelve 0 kWh con `invalidPowerCurve: true` y motivo si el `cpAudit` del equipo es inválido. El resumen del parque expone `hasInvalidCurves` / `invalidCurves` y la UI muestra un aviso rojo con los equipos afectados. Ya no se puede presentar un AEP alto salido de una curva con Cp > 0,593. | `js/wind/wind-resource.js`, `js/wind/wind-ui.js` | `test-wind-aep-guard` |
+| **E-02 (verificación)** | El muestreo diario (365 días, 10 min, ventana 03-22 UTC) queda declarado en el resultado (`sampling`) y verificado: un receptor a 45 m recibe 26 min/día y 14,4 h/año, con ~36 ms de cálculo. El muestreo de 1 día de cada 5 no estaba justificado por rendimiento. | `js/wind/wind-shadow-flicker.js` | `test-shadow-flicker-sampling` |
+
 ---
 
 ## 3. Decisiones tomadas (documentadas)
@@ -146,7 +153,7 @@ C-01 (coeficientes MPPT inline), C-03 (ρ(T)), C-04 (RCD Tipo B), C-06, D-03 (PR
 
 ```powershell
 cd C:\TRABAJOS\RA\RA
-node tests/run-all.js        # 42/42, exit 0
+node tests/run-all.js        # 44/44, exit 0
 node tests/test-js-syntax.js # 61 módulos OK
 git log --oneline -3
 ```

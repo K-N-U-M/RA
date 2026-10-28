@@ -337,6 +337,29 @@
       return disabledRes;
     }
 
+    // [AUD-2026 · E-01] Sin una curva físicamente válida no se publica AEP:
+    // una curva con Cp > Betz produce energía inexistente. Se devuelve un resultado
+    // explícito (0 kWh + motivo) en lugar de un número alto y creíble.
+    var cpAudit = turbineInstance.cpAudit || (cat && cat.cpAudit) || null;
+    if (cpAudit && cpAudit.valid === false) {
+      var invalidRes = {
+        aepGrossKwh: 0,
+        aepNetKwh: 0,
+        capacityFactor: 0,
+        equivalentFullLoadHours: 0,
+        wakeLossPercentage: 0,
+        rooftopSpeedupGainPercentage: 0,
+        hubWindSpeedMeanMs: 0,
+        airDensityKgM3: 0,
+        isDirty: false,
+        invalidPowerCurve: true,
+        cpMax: cpAudit.maxCp,
+        warning: 'Curva de potencia inválida (Cp_máx = ' + cpAudit.maxCp + ' > 0,593). AEP no calculable hasta corregir el datasheet.'
+      };
+      turbineInstance.simulationResults = invalidRes;
+      return invalidRes;
+    }
+
     var siteAlt = (turbineInstance.positionCartographic && turbineInstance.positionCartographic.altitudeM)
       ? turbineInstance.positionCartographic.altitudeM
       : (cfg.siteAltitudeM || 100);
@@ -514,7 +537,12 @@
       parkWakeLossPercentage: Number(parkWakeLossPct.toFixed(1)),
       monthlyKwh: monthlyKwh,
       perTurbine: perTurbine,
-      resourceConfig: cfg
+      resourceConfig: cfg,
+      // [AUD-2026 · E-01] Trazabilidad de curvas rechazadas.
+      hasInvalidCurves: perTurbine.some(function (x) { return x.results && x.results.invalidPowerCurve; }),
+      invalidCurves: perTurbine
+        .filter(function (x) { return x.results && x.results.invalidPowerCurve; })
+        .map(function (x) { return { id: x.id, name: x.name, cpMax: x.results.cpMax }; })
     };
 
     global.windParkSummary = summary;

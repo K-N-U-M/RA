@@ -293,6 +293,8 @@
       worstReceiverName: worstRec.name,
       worstReceiverDistanceM: Math.round(worstRec.dist2D),
       maxMinutesPerDay: maxMinDay,
+      // [AUD-2026 · E-02] Metadatos de muestreo: 365 días a 10 min (antes 1 de cada 5 días).
+      sampling: { stepDays: stepDays, stepMinutes: stepMinutes, daysEvaluated: 365, windowUtcHours: [3, 22] },
       compliesNorm30hYear: complies30h,
       compliesNorm30mDay: complies30m,
       isAcceptable: complies30h && complies30m,

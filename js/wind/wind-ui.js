@@ -483,6 +483,14 @@
 
     var html = '';
 
+    // [AUD-2026 · E-01] Aviso visible si hay curvas rechazadas por el límite de Betz.
+    if (parkSummary && parkSummary.hasInvalidCurves) {
+      var _badNames = (parkSummary.invalidCurves || []).map(function(c) { return c.name || c.id; }).join(', ');
+      html += '<div style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.5);border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:10px;color:#FCA5A5;line-height:1.4;">' +
+        '<b>⚠️ Curva de potencia no válida:</b> ' + _badNames + '. El AEP de esos equipos se muestra como 0 kWh porque la curva declara más energía que la contenida en el viento (Cp &gt; 0,593). Corrige el datasheet (potencia o diámetro de rotor) antes de usar estas cifras.' +
+        '</div>';
+    }
+
     // ── 1. Cabecera del Parque Mini-Eólico ─────────────────────────────
     html += '<div style="background:rgba(15,23,42,0.65);border:1px solid rgba(56,189,248,0.28);border-radius:8px;padding:10px 12px;margin-bottom:10px;">';
     html += '  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
