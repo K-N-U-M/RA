@@ -4,13 +4,31 @@
 'use strict';
 
 // ── Claves y Tokens ────────────────────────────────────────────────────────
-const GOOGLE_MAPS_API_KEY = 'AIzaSyAj-cG-tvA-WSaQvC6axmHnQK4WM5VDQWA';
-const CESIUM_ION_TOKEN    = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJhYTYwM2YzZC0zZDIwLTQ3YWQtYWQ5OC01MTkyMzkzYzNmMjQiLCJpZCI6NDU4MjA0LCJpc3MiOiJodHRwczovL2FwaS5jZXNpdW0uY29tIiwiYXVkIjoidW5kZWZpbmVkX2RlZmF1bHQiLCJpYXQiOjE3ODQ0OTI0Njl9.DV-6rn9Hp3XsrxH0xZJGQJQddYK-WyRV5ZQ5dJSwqVk';
+// [AUD-2026 · B-04] Las credenciales viven en `js/ra-env.js` (no versionado, ver .gitignore).
+// Este módulo solo las consume; si faltan, la app avisa en vez de arrancar a medias.
+const _RA_ENV = (typeof window !== 'undefined' && window.RA_ENV) ? window.RA_ENV : {};
+const GOOGLE_MAPS_API_KEY = _RA_ENV.googleMaps || '';
+const CESIUM_ION_TOKEN    = _RA_ENV.cesiumIon || '';
 
 // ── Fuente única de verdad de claves/tokens ─────────────────────────────────
-// index.html delega aquí (window.RA_CONFIG_KEYS) para no duplicar secretos en
-// el bundle. Rotar una clave = editar SOLO este módulo.
+// index.html delega aquí (window.RA_CONFIG_KEYS) para no duplicar secretos en el bundle.
 window.RA_CONFIG_KEYS = { googleMaps: GOOGLE_MAPS_API_KEY, cesiumIon: CESIUM_ION_TOKEN };
+
+if (!GOOGLE_MAPS_API_KEY || !CESIUM_ION_TOKEN) {
+  if (typeof document === 'undefined' || !document || typeof document.createElement !== 'function') {
+    // Entornos headless (tests/VM): no se intenta pintar el aviso, solo se avisa por consola.
+    if (typeof console !== 'undefined') console.warn('[RA] Faltan credenciales RA_ENV; visor deshabilitado.');
+    return;
+  }
+  const _cfgFatal = document.createElement('div');
+  _cfgFatal.id = 'ra-missing-env';
+  _cfgFatal.style.cssText = 'position:fixed;inset:0;z-index:999999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:#0b1120;color:#e2e8f0;font-family:system-ui,sans-serif;text-align:center;padding:24px;';
+  _cfgFatal.innerHTML = '<div style="font-size:40px;">🔑</div>' +
+    '<div style="font-size:18px;font-weight:800;">Faltan las credenciales del visor</div>' +
+    '<div style="font-size:13px;color:#94a3b8;max-width:520px;line-height:1.6;">Copia <code>js/ra-env.example.js</code> a <code>js/ra-env.js</code> y rellena las claves restringidas. Ese archivo no se versiona.</div>';
+  (document.body || document.documentElement).appendChild(_cfgFatal);
+  return;
+}
 
 // [P3] Resiliencia CDN: sin CesiumJS (sin red / CDN caído) esto lanzaba ReferenceError
 // y el usuario se quedaba con pantalla en blanco sin explicación alguna.
@@ -24,7 +42,7 @@ if (typeof Cesium === 'undefined') {
     '<div style="font-size:19px;font-weight:800;letter-spacing:-0.3px;">No se pudo cargar CesiumJS</div>' +
     '<div style="font-size:13px;color:#94a3b8;max-width:460px;line-height:1.6;">El visor 3D requiere el CDN de Cesium (cesium.com) y el motor de fotogrametría de Google. Comprueba tu conexión a internet y recarga la página.</div>' +
     '<button onclick="location.reload()" style="margin-top:8px;background:#2563eb;color:#fff;border:none;border-radius:8px;padding:10px 22px;font-size:13px;font-weight:700;cursor:pointer;">🔄 Recargar</button>';
-  document.body.appendChild(_fatal);
+  (document.body || document.documentElement).appendChild(_fatal);
   return;
 }
 

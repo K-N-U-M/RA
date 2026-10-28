@@ -312,8 +312,14 @@ if (typeof window !== 'undefined') {
 }
 
 function generateCommercialSummary(d, m, equipment) {
-  var kwp = (m && m.kwp) || 0;
   var numPanels = (m && m.numPanels) || (d && d.numPanels) || 0;
+  var kwp = (m && m.kwp) || 0;
+  // [AUD-2026 · A-08] Si el modelo no trae kWp, derivarlo del diseño (nº módulos × Wp);
+  // nunca imprimir "0.00 kWp" en una propuesta con módulos.
+  if (!(kwp > 0) && numPanels > 0) {
+    var _wpMod = (d && d.cfg && (d.cfg.potencia || d.cfg.wp)) || 0;
+    if (_wpMod > 0) kwp = (numPanels * _wpMod) / 1000;
+  }
   var annualKWh = (d && d.annualKWh) || (kwp * 1450);
   var ahorro = (m && m.ahorroLuzAnio1) || (m && m.ahorroAnualEstimado) || 0;
   var payback = (m && m.paybackYears) || 0;
@@ -335,13 +341,15 @@ function generateCommercialSummary(d, m, equipment) {
   lines.push('Hemos diseñado una instalación fotovoltaica a medida para su propiedad en <strong>' + ciudad + '</strong>.');
 
   // KWp y paneles
-  lines.push('El sistema propuesto consta de <strong>' + numPanels + ' módulos</strong> de última generación con una potencia total de <strong>' + kwp.toFixed(2) + ' kWp</strong>, ' +
+  var _potTxt = (kwp > 0) ? ' con una potencia total de <strong>' + kwp.toFixed(2) + ' kWp</strong>' : '';
+  lines.push('El sistema propuesto consta de <strong>' + numPanels + ' módulos</strong>' + _potTxt + ', ' +
     'que generarán aproximadamente <strong>' + Math.round(annualKWh).toLocaleString('es-ES') + ' kWh al año</strong>.');
 
   // Ahorro y payback
   if (ahorro > 0) {
+    var _payTxt = (payback > 0) ? ('en tan solo <strong>' + payback.toFixed(1) + ' años</strong>') : 'en un plazo a determinar con el modelo financiero';
     lines.push('Esto se traduce en un ahorro estimado de <strong>' + Math.round(ahorro).toLocaleString('es-ES') + ' €</strong> en su primer año, ' +
-      'con una recuperación total de la inversión en tan solo <strong>' + payback.toFixed(1) + ' años</strong>.');
+      'con una recuperación total de la inversión ' + _payTxt + '.');
   }
 
   // Autoconsumo
@@ -356,9 +364,15 @@ function generateCommercialSummary(d, m, equipment) {
   }
 
   // Comunidad Energética Local (CEL · RDL 7/2026 hasta 5 km)
+  // [AUD-2026 · A-05] La CEL es una HIPÓTESIS comercial opcional: solo se anuncia si el
+  // usuario la ha activado en el modal de precios (includeCEL). Activada por defecto y con
+  // un precio de 0,11 €/kWh sin fuente trazable, inflaba el ahorro de todas las propuestas.
   var excKwh = (m && m.excedenteKWh != null) ? m.excedenteKWh : Math.round(annualKWh * 0.35);
-  if (excKwh > 500) {
-    lines.push('Su instalación está <strong>certificada CEL-Ready</strong> (RDL 7/2026): sus excedentes (~<strong>' + Math.round(excKwh).toLocaleString('es-ES') + ' kWh/año</strong>) podrán monetizarse en una <strong>Comunidad Energética Local</strong> en un radio de hasta <strong>5 km</strong> sin el límite de compensación a 0 € de la red convencional.');
+  var _celCfg = (typeof RAPricing !== 'undefined' && typeof RAPricing.getCommercialConfig === 'function')
+    ? RAPricing.getCommercialConfig() : null;
+  var _celEnabled = !!(_celCfg && _celCfg.includeCEL === true);
+  if (excKwh > 500 && _celEnabled) {
+    lines.push('Su instalación está <strong>preparada para integrarse en una Comunidad Energética Local</strong>: sus excedentes (~<strong>' + Math.round(excKwh).toLocaleString('es-ES') + ' kWh/año</strong>) podrían monetizarse en el marco normativo aplicable, sujeto a verificación jurídica y a las condiciones de la comunidad.');
   }
 
   // Cierre comercial
@@ -535,7 +549,7 @@ async function enrichSummaryWithGemini(targetWindow, d, m, equipment) {
     try {
       var containerCustom = targetWindow.document.getElementById('ra-ai-summary-content');
       var badgeCustom = targetWindow.document.getElementById('ra-ai-summary-badge');
-      if (containerCustom) containerCustom.innerHTML = _customCommercialSummary;
+      if (containerCustom) containerCustom.innerHTML = (window.RASanitize && window.RASanitize.richText) ? window.RASanitize.richText(_customCommercialSummary) : _customCommercialSummary;
       if (badgeCustom) badgeCustom.innerHTML = '✨ Resumen personalizado con IA · Google Gemini';
       return;
     } catch(eCustom) {}
@@ -939,7 +953,7 @@ var RAPricing = {
       ]
     },
     showThreePackagesComparison: true,
-    includeCEL: true,
+    includeCEL: false,
     celPriceEur: 0.11,
     dossierMode: 'full',
     activeSlides: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
@@ -1607,7 +1621,7 @@ function wpOpenPricingReviewModal(onConfirm) {
 
   var celCheckInput = document.getElementById('pricing-check-cel-enabled');
   var celPriceInput = document.getElementById('pricing-input-cel-price');
-  if (celCheckInput) celCheckInput.checked = (workingCommCfg.includeCEL !== undefined) ? !!workingCommCfg.includeCEL : true;
+  if (celCheckInput) celCheckInput.checked = (workingCommCfg.includeCEL !== undefined) ? !!workingCommCfg.includeCEL : false;
   if (celPriceInput) celPriceInput.value = (typeof workingCommCfg.celPriceEur === 'number') ? workingCommCfg.celPriceEur : 0.11;
 
   var discCheckInput = document.getElementById('pricing-check-discount-enabled');
@@ -2078,7 +2092,7 @@ function wpOpenPricingReviewModal(onConfirm) {
   // Inicializar contenido si ya hay uno personalizado o mostrar plantilla
   if (modalAiSummaryBox) {
     if (_customCommercialSummary && _customCommercialSummary.trim()) {
-      modalAiSummaryBox.innerHTML = _customCommercialSummary;
+      modalAiSummaryBox.innerHTML = (window.RASanitize && window.RASanitize.richText) ? window.RASanitize.richText(_customCommercialSummary) : _customCommercialSummary;
       if (modalAiSummaryStatus) modalAiSummaryStatus.innerHTML = '✨ Resumen personalizado listo para la oferta.';
     } else {
       modalAiSummaryBox.innerHTML = generateCommercialSummary(d, m, eq);
@@ -2118,7 +2132,11 @@ function wpOpenPricingReviewModal(onConfirm) {
         var text = await requestCommercialSummaryFromGemini(liveD, liveM, liveEq);
         if (text && text.trim()) {
           _customCommercialSummary = text;
-          if (modalAiSummaryBox) modalAiSummaryBox.innerHTML = text;
+          // [AUD-2026 · B-08] La salida de la IA se sanea por allowlist antes de inyectarse.
+          var _safeAiText = (window.RASanitize && typeof window.RASanitize.richText === 'function')
+            ? window.RASanitize.richText(text)
+            : String(text).replace(/</g, '&lt;');
+          if (modalAiSummaryBox) modalAiSummaryBox.innerHTML = _safeAiText;
           if (modalAiSummaryStatus) modalAiSummaryStatus.innerHTML = '✅ <b>Resumen generado con éxito por Gemini.</b> Puedes retocarlo si lo deseas.';
         } else {
           throw new Error('Respuesta vacía');
@@ -2509,7 +2527,7 @@ if (typeof window !== 'undefined') {
     var reduccionPaybackAnios = Math.max(0.4, Math.round((paybackTradicional - paybackCEL) * 10) / 10);
 
     var familiasBeneficiadas = Math.max(1, Math.round((excKWh / 1800) * 10) / 10);
-    var co2EvitadoKg = Math.round(excKWh * 0.26);
+    var co2EvitadoKg = Math.round(excKWh * (((typeof window !== 'undefined' && window.SOLAR_ENGINE_CONSTANTS && window.SOLAR_ENGINE_CONSTANTS.CO2_FACTOR_SPAIN) || 0.259)));
 
     var autoPct = genKWh > 0 ? Math.round((autoKWh / genKWh) * 100) : 55;
     var batPct = (genKWh > 0 && batKWh > 0) ? Math.round((batKWh / genKWh) * 100) : 0;
@@ -3003,7 +3021,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     ? window.windTurbines.filter(t => t && (!t.operationalState || t.operationalState.enabled !== false)).length
     : ((typeof designCosts !== 'undefined' && designCosts && designCosts.windCount) || 0);
   const _hasThreePkgs = Boolean(_commCfgForPages && _commCfgForPages.showThreePackagesComparison);
-  const _includeCEL = (_commCfgForPages && _commCfgForPages.includeCEL !== undefined) ? _commCfgForPages.includeCEL : true;
+  const _includeCEL = (_commCfgForPages && _commCfgForPages.includeCEL !== undefined) ? _commCfgForPages.includeCEL : false;
   const _customCelPrice = (_commCfgForPages && typeof _commCfgForPages.celPriceEur === 'number') ? _commCfgForPages.celPriceEur : 0.11;
   const _celMetrics = calculateCELMetrics(d, m, _customCelPrice);
 
@@ -4165,8 +4183,8 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:10px 0;">
         <span class="pill">⚡ ${m.kwp.toFixed(2)} kWp (${m.numPanels} Módulos)</span>
         <span class="pill">☀️ ${Math.round(annualYieldKWh).toLocaleString('es-ES')} kWh/año Generación</span>
-        <span class="pill">🌱 ${Math.round(annualYieldKWh * 0.26).toLocaleString('es-ES')} kg CO₂ evitados/año</span>
-        <span class="pill">🌳 Eq. ${Math.round((annualYieldKWh * 0.26 / 1000) * 45)} árboles/año</span>
+        <span class="pill">🌱 ${Math.round(annualYieldKWh * (((typeof window !== 'undefined' && window.SOLAR_ENGINE_CONSTANTS && window.SOLAR_ENGINE_CONSTANTS.CO2_FACTOR_SPAIN) || 0.259))).toLocaleString('es-ES')} kg CO₂ evitados/año</span>
+        <span class="pill">🌳 Eq. ${Math.round((annualYieldKWh * (((typeof window !== 'undefined' && window.SOLAR_ENGINE_CONSTANTS && window.SOLAR_ENGINE_CONSTANTS.CO2_FACTOR_SPAIN) || 0.259)) / 1000) * 45)} árboles/año</span>
       </div>
 
       <!-- CUADRO DE ACEPTACIÓN INMEDIATA (CIERRE COMERCIAL) -->

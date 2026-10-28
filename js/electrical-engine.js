@@ -3,7 +3,7 @@
  * ⚡ ELECTRICAL ENGINE & REBT CABLING MODULE — PROYECTO RA (CALIDAD AAA)
  * ============================================================================
  * Arquitectura Modular Desacoplada:
- * - Dimensionamiento de Strings por ventana térmica MPPT (-10°C a +65°C, IEC 62548).
+ * - Dimensionamiento de Strings por ventana térmica MPPT (-10°C a +70°C, IEC 62548).
  * - Enrutamiento continuo en serpiente (Snake routing leapfrog anti-bucle inductivo UNE-EN 62305).
  * - Trazado físico 3D de cableado DC y AC con curvas catenarias.
  * - Dimensionamiento de sección comercial de conductores (ZZ-F 1500V DC y RV-K 0.6/1kV AC)
@@ -1114,7 +1114,12 @@
     // Interruptor Diferencial (RCD AC según REBT ITC-BT-40 e IEC 62109-2):
     // Si el inversor es sin transformador y no tiene separación galvánica:
     // Requiere Tipo B, O Tipo A Superinmunizado (A-SI / F) si el fabricante certifica que no inyecta CC > 6mA (RCMU).
-    const rcmuCertified = params.rcmuCertified !== undefined ? params.rcmuCertified : true; // Inversores modernos (Huawei/Fronius/SMA/etc.)
+    // [AUD-2026 · C-04] No se asume RCMU: sin dato explícito del datasheet, la protección
+    // correcta para un inversor sin transformador es Tipo B. Antes se asumía "certificado"
+    // para cualquier equipo y se especificaba Tipo A-SI sin verificar.
+    const rcmuCertified = (params.rcmuCertified !== undefined)
+      ? !!params.rcmuCertified
+      : !!(inv && (inv.rcmu === true || inv.hasRcmu === true || inv.rcmuCertified === true));
     const rcdType = rcmuCertified ? 'Tipo A Superinmunizado (A-SI / Hpi / Si)' : 'Tipo B';
     const sensibilidadMa = (params.esIndustrial || (isThreePhase && igaIn >= 63)) ? 300 : 30;
 
@@ -1165,7 +1170,13 @@
    * Límite normativo reglamentario: ΔV <= 1.5% tanto en continua (CC) como en alterna (CA).
    */
   function calculateVoltageDrop({ lengthM, currentA, sectionMm2, voltageV, isThreePhase = false, isAC = false, conductor = 'Cu', tempC = 90, cosPhi = 0.95, reactancePerKm = 0.08 }) {
-    const rho = (conductor === 'Al') ? (ELEC_CONSTANTS.RHO_AL_90 || 0.0362) : (tempC >= 90 ? ELEC_CONSTANTS.RHO_CU_90 : (ELEC_CONSTANTS.RHO_CU_20 || 0.01724));
+    // [AUD-2026 · C-03] Resistividad corregida por temperatura de servicio real:
+    // ρ(T) = ρ20 · (1 + α·(T−20)). Antes se usaba ρ a 20 °C para cualquier T < 90 °C,
+    // subestimando la caída de tensión ~19 % en el caso dimensionante (celda a 70 °C).
+    const rhoBase = (conductor === 'Al') ? 0.028264 : (ELEC_CONSTANTS.RHO_CU_20 || 0.017241);
+    const alphaT = (conductor === 'Al') ? 0.00403 : 0.00393;
+    const tCond = Math.max(20, Math.min(90, (typeof tempC === 'number' && isFinite(tempC)) ? tempC : 90));
+    const rho = rhoBase * (1 + alphaT * (tCond - 20));
     const factorPhase = (isAC && isThreePhase) ? Math.sqrt(3) : 2.0;
     const l = Math.max(lengthM, 0.1);
     const i = Math.max(currentA, 0.01);

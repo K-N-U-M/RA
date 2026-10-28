@@ -107,20 +107,26 @@ assert.ok(html.includes('TED/1247/2021'), 'Debe citar los coeficientes dinámico
 
 console.log('✅ TEST 2 superado con éxito.');
 
-// ── TEST 3: Resumen comercial (plantilla determinista) enriquecida con CEL ──
+// ── TEST 3: Resumen comercial (plantilla determinista) y gating de la CEL ──
+// [AUD-2026 · A-05] La CEL pasó a ser una hipótesis OPCIONAL: por defecto no se anuncia.
 console.log('\n--- TEST 3: Integración en el resumen comercial para cliente ---');
-const summary = financials.generateCommercialSummary(mockD, mockM, { hasBat: false });
-console.log('Extracto del resumen comercial:\n', summary);
-assert.ok(summary.includes('CEL-Ready'), 'El resumen comercial debe mencionar CEL-Ready');
-assert.ok(summary.includes('RDL 7/2026'), 'El resumen comercial debe citar RDL 7/2026');
-assert.ok(summary.includes('5 km'), 'El resumen comercial debe mencionar los 5 km');
+const summaryDefault = financials.generateCommercialSummary(mockD, mockM, { hasBat: false });
+assert.ok(!summaryDefault.includes('CEL-Ready'), 'Sin activación, el resumen NO debe afirmar certificación CEL');
+assert.ok(!summaryDefault.includes('5 km'), 'Sin activación, el resumen no debe prometer radio de 5 km');
+
+financials.RAPricing.saveCommercialConfig({ includeCEL: true, celPriceEur: 0.11 });
+const summaryCel = financials.generateCommercialSummary(mockD, mockM, { hasBat: false });
+console.log('Extracto del resumen comercial con CEL activa:\n', summaryCel);
+assert.ok(summaryCel.includes('Comunidad Energética Local'), 'Con CEL activa debe mencionar la comunidad energética');
+assert.ok(summaryCel.includes('verificación jurídica'), 'Debe condicionar la promesa a verificación jurídica');
+financials.RAPricing.saveCommercialConfig({ includeCEL: false, celPriceEur: 0.11 });
 console.log('✅ TEST 3 superado con éxito.');
 
 // ── TEST 4: Configuración comercial en RAPricing ──
 console.log('\n--- TEST 4: Configuración en RAPricing ---');
 const commCfg = financials.RAPricing.getCommercialConfig();
-assert.strictEqual(commCfg.includeCEL, true, 'includeCEL debe estar habilitado por defecto');
-assert.strictEqual(commCfg.celPriceEur, 0.11, 'celPriceEur por defecto debe ser 0.11 €/kWh');
+assert.strictEqual(commCfg.includeCEL, false, 'includeCEL debe estar deshabilitado por defecto');
+assert.strictEqual(commCfg.celPriceEur, 0.11, 'celPriceEur de referencia debe ser 0.11 €/kWh (solo si se activa)');
 console.log('✅ TEST 4 superado con éxito.');
 
 console.log('\n🎉 TODOS LOS TESTS DE COMUNIDAD ENERGÉTICA LOCAL (RDL 7/2026 · 5 KM) PASARON SATISFACTORIAMENTE!');

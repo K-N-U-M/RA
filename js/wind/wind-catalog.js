@@ -230,10 +230,61 @@
 
   var STORAGE_KEY = 'ra_wind_catalog_v1';
 
+  // ── [AUD-2026 · E-01] Validación física de curvas de potencia ──────────────
+  // El límite de Betz (16/27 ≈ 0,593) es infranqueable para un rotor abierto.
+  // El catálogo se construía sin comprobar Cp; había equipos que declaraban
+  // 13,5 kW a 8 m/s con 6,4 m de diámetro (Cp ≈ 1,34), es decir, más energía que
+  // la contenida en el viento.
+  var AIR_DENSITY_KGM3 = 1.225;
+  var BETZ_LIMIT = 0.593;
+
+  function computePowerCurveAudit(turbine) {
+    var D = Number(turbine && turbine.rotorDiameterM);
+    var pts = (turbine && Array.isArray(turbine.powerCurve)) ? turbine.powerCurve : [];
+    if (!(D > 0) || pts.length === 0) {
+      return { valid: false, maxCp: null, reason: 'Diámetro de rotor o curva de potencia ausentes' };
+    }
+    var area = Math.PI * D * D / 4;
+    var maxCp = 0;
+    var atV = null;
+    var violations = [];
+    pts.forEach(function (p) {
+      var v = Number(p && p.v);
+      var power = Number(p && p.p);
+      if (!(v > 0) || !isFinite(power) || power < 0) return;
+      var cp = power / (0.5 * AIR_DENSITY_KGM3 * area * Math.pow(v, 3));
+      if (cp > maxCp) { maxCp = cp; atV = v; }
+      if (cp > BETZ_LIMIT) violations.push({ v: v, cp: Math.round(cp * 1000) / 1000 });
+    });
+    return {
+      valid: maxCp <= BETZ_LIMIT,
+      maxCp: Math.round(maxCp * 1000) / 1000,
+      atV: atV,
+      violations: violations,
+      rotorAreaM2: Math.round(area * 100) / 100,
+      reason: violations.length
+        ? 'Curva incompatible con el límite de Betz: revisar potencia nominal o diámetro de rotor'
+        : 'Curva físicamente viable'
+    };
+  }
+
+  function auditCatalogEntry(turbine) {
+    if (!turbine || typeof turbine !== 'object') return turbine;
+    var audit = computePowerCurveAudit(turbine);
+    turbine.cpAudit = audit;
+    if (!audit.valid && typeof console !== 'undefined') {
+      console.warn('[RAWindCatalog] Curva no válida (' + (turbine.manufacturer || '?') + ' ' +
+        (turbine.model || '?') + '): Cp_max=' + audit.maxCp + ' > ' + BETZ_LIMIT);
+    }
+    return turbine;
+  }
+
   // ── API pública del catálogo ──────────────────────────────────────────
   var RAWindCatalog = {
 
     _catalog: null,
+
+    validatePowerCurve: computePowerCurveAudit,
 
     // Carga desde localStorage o retorna los valores por defecto
     load: function () {
@@ -243,13 +294,13 @@
         if (stored) {
           var parsed = JSON.parse(stored);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            this._catalog = parsed;
+            this._catalog = parsed.map(auditCatalogEntry);
             return this._catalog;
           }
         }
       } catch (e) { /* fallo silencioso */ }
       this._catalog = DEFAULT_TURBINES.map(function (t) {
-        return JSON.parse(JSON.stringify(t));
+        return auditCatalogEntry(JSON.parse(JSON.stringify(t)));
       });
       return this._catalog;
     },

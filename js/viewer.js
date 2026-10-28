@@ -425,7 +425,7 @@ async function loadArcGIS3D() {
   async function queryGoogleGeocode(q) {
     const apiKey = (window.RA_CONFIG_KEYS && window.RA_CONFIG_KEYS.googleMaps) ||
                    (window.RA_KEYS && window.RA_KEYS.googleMaps) ||
-                   'AIzaSyAj-cG-tvA-WSaQvC6axmHnQK4WM5VDQWA';
+                   '';
     if (!apiKey) return null;
 
     const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(q)}&key=${apiKey}&language=es`;
@@ -686,7 +686,7 @@ async function loadArcGIS3D() {
     // 1. Google Maps Elevation API (si hay API key disponible)
     const apiKey = (window.RA_CONFIG_KEYS && window.RA_CONFIG_KEYS.googleMaps) ||
                    (window.RA_KEYS && window.RA_KEYS.googleMaps) ||
-                   'AIzaSyAj-cG-tvA-WSaQvC6axmHnQK4WM5VDQWA';
+                   '';
     if (apiKey) {
       try {
         const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;

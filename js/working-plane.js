@@ -4169,8 +4169,17 @@ function wpUpdateLayoutFastMetrics() {
   if (elStatPanels) elStatPanels.textContent = totalCount;
   if (elStatPower) elStatPower.textContent = kwpVal + ' kWp';
 
-  // 4. Recalcular producción estimada real (mes a mes + píldora + histograma) en vivo
-  if (typeof recalculateSolarYield === 'function') {
+  // 4. Producción estimada. [AUD-2026 · Lazy Evaluation] En Pasos 1-2 NO se ejecuta la
+  // física pesada: solo se marca el estado como sucio y se difiere a la entrada al Paso 3.
+  // En Paso ≥3 se mantiene el refresco vivo (comportamiento previo).
+  if (typeof window !== 'undefined') {
+    if (!window.solarSimState) window.solarSimState = {};
+    window.solarSimState.solarYieldDirty = true;
+  }
+  const _fastMetricsStep = (typeof wpCurrentStep !== 'undefined')
+    ? wpCurrentStep
+    : ((typeof window !== 'undefined' && typeof window.wpCurrentStep !== 'undefined') ? window.wpCurrentStep : 1);
+  if (_fastMetricsStep >= 3 && typeof recalculateSolarYield === 'function') {
     recalculateSolarYield(true);
   }
   if (typeof wpUpdateLiveSweetSpotTelemetry === 'function') {

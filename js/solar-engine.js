@@ -739,10 +739,18 @@ function runPhysicalModel(kwp, latDeg, lonDeg, tiltDeg, azimutDeg, cfg, customMo
     net: annualKWh
   };
 
+  // [AUD-2026 · D-03] El PR es un indicador de salud: no se recorta en silencio.
+  // Antes se publicaba siempre entre 0,60 y 0,90, ocultando diseños malos (0,52) o
+  // datos incoherentes (0,95). Ahora se devuelve el valor real y un aviso explícito.
+  const prRaw = Number.isFinite(PR) ? Math.round(PR * 1000) / 1000 : 0;
+  const prWarning = (prRaw < 0.60 || prRaw > 0.90)
+    ? `PR fuera de rango razonable (${(prRaw * 100).toFixed(1)} %): revisar sombras, suciedad, temperatura o datos de irradiancia.`
+    : null;
   return {
     annualKWh: Math.round(annualKWh),
     monthlyKWh: monthlyYields,
-    PR: Math.max(Math.min(PR, 0.90), 0.60),
+    PR: prRaw,
+    prWarning: prWarning,
     cascadeLosses: cascadeLosses,
     clippingKWh: Math.round(totalClippedWh / 1000),
     clippingPct: (annualKWh + totalClippedWh / 1000) > 0 ? Math.round((totalClippedWh / 1000) / (annualKWh + totalClippedWh / 1000) * 1000) / 10 : 0,

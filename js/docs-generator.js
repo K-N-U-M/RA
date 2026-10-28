@@ -854,11 +854,14 @@ function generateMemoria(skipPricingModal) {
   }
 
   // Métricas financieras bancables a 25 años
+  // [AUD-2026 · A-03] Sin modelo financiero NO se inventan métricas: se publica 'N/D'
+  // y se marca el documento como no bancable (ver `FIN_MODEL_MISSING`).
+  const FIN_MODEL_MISSING = !finM;
   const capexTot = finM ? finM.capexBruto : d.total;
-  const vanVal = finM ? (typeof finM.van === 'number' ? Math.round(finM.van) : finM.van) : Math.round(d.ahorro_anual * 15.6 - (d.total * 0.85));
-  const tirVal = finM ? (typeof finM.tir === 'number' ? finM.tir.toFixed(1) : finM.tir) : '16.4';
-  const lcoeVal = finM ? (typeof finM.lcoe === 'number' ? finM.lcoe.toFixed(3) : finM.lcoe) : '0.038';
-  const pbYears = finM ? (typeof finM.paybackYears === 'number' ? finM.paybackYears.toFixed(1) : finM.paybackYears) : (d.ahorro_anual > 0 ? (d.total / d.ahorro_anual).toFixed(1) : 'N/D');
+  const vanVal = finM ? (typeof finM.van === 'number' ? Math.round(finM.van) : finM.van) : 'N/D';
+  const tirVal = finM ? (typeof finM.tir === 'number' ? finM.tir.toFixed(1) : finM.tir) : 'N/D';
+  const lcoeVal = finM ? (typeof finM.lcoe === 'number' ? finM.lcoe.toFixed(3) : finM.lcoe) : 'N/D';
+  const pbYears = finM ? (typeof finM.paybackYears === 'number' ? finM.paybackYears.toFixed(1) : finM.paybackYears) : 'N/D';
   const ah1 = finM ? Math.round(finM.ahorroLuzAnio1) : d.ahorro_anual;
 
   const keyYears = [1, 5, 10, 15, 20, 25];
@@ -885,6 +888,9 @@ function generateMemoria(skipPricingModal) {
     '<h1>Instalación Fotovoltaica de Autoconsumo<\/h1>' +
     '<p>' + loc + '<\/p><\/div>' +
     '<div class="hdr-r"><strong>' + d.refNum + '<\/strong>Fecha: ' + d.fechaStr + '<br>Rev. R0 · Pág 1/1<\/div><\/div>' +
+    (FIN_MODEL_MISSING
+      ? '<div class="doc-warning" style="border:2px solid #ef4444;background:#fef2f2;color:#991b1b;padding:10px 14px;border-radius:6px;margin:10px 0;font-size:10pt;font-weight:700;">⚠️ DOCUMENTO EMITIDO SIN MODELO FINANCIERO: TIR, VAN, payback y LCOE figuran como «N/D» y no son válidos para financiación ni para comparación comercial.</div>'
+      : '') +
 
     '<h2>1. OBJETO Y ANTECEDENTES<\/h2>' +
     '<p>El presente documento es la <strong>Memoria Técnica Descriptiva y de Cálculo<\/strong> de la instalación fotovoltaica de autoconsumo proyectada para <strong>' + t.nombre + '<\/strong> (NIF: ' + t.nif + '), en ' + (loc || 'la dirección indicada') + '.<\/p>' +
@@ -1391,14 +1397,17 @@ function generatePresupuesto(skipPricingModal) {
   const capexBruto = m ? m.capexBruto : (subtotalFinal + iva);
 
   // Incentivos y retorno bancable (25 años)
-  const tirVal = m ? (typeof m.tir === 'number' ? m.tir.toFixed(1) : m.tir) : '16.4';
-  const vanVal = m ? Math.round(m.van).toLocaleString('es-ES') : Math.round(capexBruto * 2.8).toLocaleString('es-ES');
-  const lcoeVal = m ? (m.lcoe).toFixed(3) : '0.036';
-  const paybackVal = m ? (m.paybackYears).toFixed(1) : '4.2';
+  // [AUD-2026 · A-03] Nunca sustituir por constantes de escaparate (16,4 % / 4,2 años).
+  const FIN_MISSING_BUDGET = !m;
+  const tirVal = m ? (typeof m.tir === 'number' ? m.tir.toFixed(1) : m.tir) : 'N/D';
+  const vanVal = m ? ((typeof m.van === 'number' && isFinite(m.van)) ? Math.round(m.van).toLocaleString('es-ES') : 'N/D') : 'N/D';
+  const lcoeVal = m ? ((typeof m.lcoe === 'number') ? m.lcoe.toFixed(3) : 'N/D') : 'N/D';
+  const paybackVal = m ? ((typeof m.paybackYears === 'number') ? m.paybackYears.toFixed(1) : 'N/D') : 'N/D';
   const capexNeto = m ? m.capexNeto : Math.round(capexBruto * 0.65);
   const ahorroAnio1 = m ? Math.round(m.ahorroLuzAnio1).toLocaleString('es-ES') : Math.round(d.ahorro_anual).toLocaleString('es-ES');
 
   const body = `
+  ${FIN_MISSING_BUDGET ? '<div class="doc-warning" style="border:2px solid #ef4444;background:#fef2f2;color:#991b1b;padding:10px 14px;border-radius:6px;margin:10px 0;font-size:10pt;font-weight:700;">⚠️ PRESUPUESTO SIN MODELO FINANCIERO: los indicadores de rentabilidad figuran como «N/D».</div>' : ''}
   <div class="doc-sheet">
     <div class="doc-header">
       <div class="doc-header-left">

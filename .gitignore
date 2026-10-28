@@ -23,3 +23,6 @@ yarn-error.log*
 # Firebase cache
 .firebase/
 
+
+# Credenciales locales (no versionar)
+js/ra-env.js

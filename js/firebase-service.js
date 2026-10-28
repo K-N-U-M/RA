@@ -25,14 +25,10 @@
   let _currentUser = null;
   let _initialized = false;
 
-  const DEFAULT_FIREBASE_CONFIG = {
-    apiKey: "AIzaSyA96UjIJVDIxEZV4KN38Oax0faOPXaeuF4",
-    authDomain: "ra-solar-3d.firebaseapp.com",
-    projectId: "ra-solar-3d",
-    storageBucket: "ra-solar-3d.firebasestorage.app",
-    messagingSenderId: "611795919942",
-    appId: "1:611795919942:web:198920f0f7903723ed1647"
-  };
+  // [AUD-2026 · B-04] Configuración desde js/ra-env.js (no versionado). Sin literales.
+  const DEFAULT_FIREBASE_CONFIG = (typeof window !== 'undefined' && window.RA_ENV && window.RA_ENV.firebase)
+    ? window.RA_ENV.firebase
+    : { apiKey: '', authDomain: '', projectId: '', storageBucket: '', messagingSenderId: '', appId: '' };
 
   function getStoredConfig() {
     if (global.RA_FIREBASE_CONFIG && typeof global.RA_FIREBASE_CONFIG === 'object') {
@@ -171,13 +167,25 @@
       throw new Error('Firebase Firestore no está inicializado.');
     }
     const user = _currentUser;
-    const userId = user ? user.uid : 'anon';
-    const userEmail = user ? user.email : 'anónimo';
+    if (!user) {
+      throw new Error('Inicia sesión para guardar proyectos en la nube.');
+    }
+    const userId = user.uid;
+    const userEmail = user.email || '';
 
     const cleanData = global.RAProjectStorage ? global.RAProjectStorage.exportProjectData() : projectData;
-    const projectId = customId || cleanData.meta?.id || ('proj_' + Date.now());
+    const generatedId = (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
+      ? 'proj_' + crypto.randomUUID()
+      : ('proj_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8));
+    const projectId = customId || (cleanData.meta && cleanData.meta.id) || generatedId;
 
-    // Inyectar metadatos de sincronización
+    // [AUD-2026 · B-06] `ownerId` en la RAÍZ: es el campo que validan las reglas
+    // (`request.resource.data.ownerId`). Antes solo se escribía en `meta.ownerId`,
+    // por lo que TODA creación era denegada y la consulta por ownerId no devolvía nada.
+    cleanData.ownerId = userId;
+    cleanData.ownerEmail = userEmail;
+    cleanData.tenantId = (user.tenantId || null);
+
     cleanData.meta = cleanData.meta || {};
     cleanData.meta.id = projectId;
     cleanData.meta.updatedAt = new Date().toISOString();
@@ -195,11 +203,16 @@
 
   async function loadProjectFromCloud(projectId) {
     if (!_db) throw new Error('Firebase Firestore no está inicializado.');
+    if (!_currentUser) throw new Error('Inicia sesión para descargar proyectos.');
     const doc = await _db.collection('projects').doc(projectId).get();
     if (!doc.exists) {
       throw new Error('El proyecto no existe en la nube.');
     }
     const data = doc.data();
+    // [AUD-2026 · B-06] Defensa en profundidad: no confiar solo en las reglas.
+    if (data.ownerId && data.ownerId !== _currentUser.uid) {
+      throw new Error('No tienes permiso para abrir este proyecto.');
+    }
     if (global.RAProjectStorage && typeof global.RAProjectStorage.importProjectData === 'function') {
       global.RAProjectStorage.importProjectData(data);
     }
@@ -212,11 +225,13 @@
   async function listCloudProjects() {
     if (!_db) return [];
     const user = _currentUser;
-    let query = _db.collection('projects');
-    if (user) {
-      query = query.where('ownerId', '==', user.uid);
-    }
-    const snap = await query.orderBy('meta.updatedAt', 'desc').limit(20).get();
+    // [AUD-2026] Sin sesión no se consulta la colección (antes se listaba todo).
+    if (!user) return [];
+    const snap = await _db.collection('projects')
+      .where('ownerId', '==', user.uid)
+      .orderBy('meta.updatedAt', 'desc')
+      .limit(20)
+      .get();
     const list = [];
     snap.forEach(doc => {
       list.push({ id: doc.id, ...doc.data() });

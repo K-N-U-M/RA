@@ -70,6 +70,49 @@
   }
 
   // Lectura unificada de SSOT para datos del proyecto
+  /**
+   * [AUD-2026 · A-01] Etiqueta de VAN. Nunca inventa ni “positiviza” el valor:
+   * si el motor no lo entrega, devuelve 'N/D'; si es negativo, conserva el signo.
+   * Exportada para pruebas conductuales (`_audit`).
+   */
+  function computeVanLabel(m) {
+    if (m && typeof m.van === 'number' && isFinite(m.van)) {
+      return Math.round(m.van).toLocaleString('es-ES') + ' €';
+    }
+    return 'N/D';
+  }
+
+  /**
+   * [AUD-2026 · A-02] Reparto de CAPEX por capítulos. `panelPrice` es €/módulo:
+   * el total de la partida debe salir de `panelTotalCost` (o de unitario × nº módulos).
+   * El residual va a permisos solo si queda positivo, y la suma cierra contra totalCost.
+   * Exportada para pruebas conductuales (`_audit`).
+   */
+  function computeCapexBreakdown(designCosts, totalCost, numPanels) {
+    var panPart, invPart, estPart, cabPart, moPart, legPart;
+    var panels = (typeof numPanels === 'number' && numPanels > 0) ? numPanels : 0;
+    if (designCosts && designCosts.directCostTotal > 0) {
+      var scale = totalCost / designCosts.directCostTotal;
+      panPart = Math.round((designCosts.panelTotalCost || (designCosts.panelPrice * panels)) * scale);
+      invPart = Math.round(((designCosts.invPrice || 0) + (designCosts.batPrice || 0)) * scale);
+      estPart = Math.round((designCosts.estPrice || 0) * scale);
+      cabPart = Math.round((designCosts.cabPrice || 0) * scale);
+      moPart  = Math.round((designCosts.moPrice || 0) * scale);
+      legPart = Math.max(0, Math.round(totalCost) - (panPart + invPart + estPart + cabPart + moPart));
+    } else {
+      panPart = Math.round(totalCost * 0.32);
+      invPart = Math.round(totalCost * 0.18);
+      estPart = Math.round(totalCost * 0.14);
+      cabPart = Math.round(totalCost * 0.11);
+      moPart  = Math.round(totalCost * 0.16);
+      legPart = Math.max(0, Math.round(totalCost) - (panPart + invPart + estPart + cabPart + moPart));
+    }
+    return {
+      panPart: panPart, invPart: invPart, estPart: estPart,
+      cabPart: cabPart, moPart: moPart, legPart: legPart
+    };
+  }
+
   function getProjectDossierData() {
     var d = (typeof global.getProjectCalcs === 'function') ? global.getProjectCalcs() : { numPanels: 0 };
     var m = (typeof global.calculateFinancialModel === 'function') ? global.calculateFinancialModel() : {};
@@ -193,23 +236,13 @@
     var designCosts = (typeof global.RAPricing !== 'undefined' && typeof global.RAPricing.computeDesignCosts === 'function')
       ? global.RAPricing.computeDesignCosts(numPanels)
       : null;
-    var panPart, invPart, estPart, cabPart, moPart, legPart;
-    if (designCosts && designCosts.directCostTotal > 0) {
-      var scale = totalCost / designCosts.directCostTotal;
-      panPart = Math.round(designCosts.panelPrice * scale);
-      invPart = Math.round(((designCosts.invPrice || 0) + (designCosts.batPrice || 0)) * scale);
-      estPart = Math.round(designCosts.estPrice * scale);
-      cabPart = Math.round(designCosts.cabPrice * scale);
-      moPart  = Math.round(designCosts.moPrice * scale);
-      legPart = Math.max(0, Math.round(totalCost) - (panPart + invPart + estPart + cabPart + moPart));
-    } else {
-      panPart = Math.round(totalCost * 0.32);
-      invPart = Math.round(totalCost * 0.18);
-      estPart = Math.round(totalCost * 0.14);
-      cabPart = Math.round(totalCost * 0.11);
-      moPart  = Math.round(totalCost * 0.16);
-      legPart = Math.max(0, Math.round(totalCost) - (panPart + invPart + estPart + cabPart + moPart));
-    }
+    var capexParts = computeCapexBreakdown(designCosts, totalCost, numPanels);
+    var panPart = capexParts.panPart;
+    var invPart = capexParts.invPart;
+    var estPart = capexParts.estPart;
+    var cabPart = capexParts.cabPart;
+    var moPart  = capexParts.moPart;
+    var legPart = capexParts.legPart;
 
     // Cálculos Bancables: Préstamo Verde a 8 años (96 meses @ 5,5% TIN)
     var nMonths = 96;
@@ -232,9 +265,8 @@
     var gridPriceVal = (m && typeof m.precioRedEUR === 'number' && m.precioRedEUR > 0)
       ? (m.precioRedEUR.toFixed(3) + ' €/kWh')
       : '0,165 €/kWh';
-    var vanVal = (m && typeof m.van === 'number' && isFinite(m.van) && m.van > 0)
-      ? Math.round(m.van).toLocaleString('es-ES') + ' €'
-      : Math.round(Math.max(0, ahorro25 - totalCostConIva * 1.12)).toLocaleString('es-ES') + ' €';
+    // [AUD-2026 · A-01] Prohibido fabricar un VAN: etiqueta única y con signo real.
+    var vanVal = computeVanLabel(m);
 
     // Equipamiento técnico
     var modModel = (d.cfg && d.cfg.modelo && d.cfg.modelo !== '-') ? d.cfg.modelo : 'Tier-1 Mono PERC / TopCon';
@@ -281,7 +313,8 @@
         ahorroAnualNum: ahorroAnual,
         tir: tirStr,
         ahorro25: ahorro25.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-        co2Ton: (kwp * 0.42).toFixed(1),
+        // [AUD-2026 · D-07] Un único factor de emisión (kg CO2/kWh), no un atajo por kWp.
+        co2Ton: (annualYield * (((typeof global.SOLAR_ENGINE_CONSTANTS !== 'undefined' && global.SOLAR_ENGINE_CONSTANTS.CO2_FACTOR_SPAIN) || 0.259)) / 1000).toFixed(1),
         trees: Math.round(kwp * 1.5),
         offerCode: (d.refNum && d.refNum !== 'RA-PROY-2026') ? d.refNum : ((typeof global.generateRefNum === 'function') ? global.generateRefNum() : ('RA-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000))),
         dateStr: d.fechaStr || new Date().toLocaleDateString('es-ES'),
@@ -2273,6 +2306,11 @@
     setModalTheme: setModalTheme,
     refreshSnapshot: refreshSnapshot,
     generate: buildAndOpenDossierWindow,
+    // [AUD-2026] Superficie de auditoría: funciones puras expuestas para pruebas.
+    _audit: {
+      computeVanLabel: computeVanLabel,
+      computeCapexBreakdown: computeCapexBreakdown
+    },
     getConfig: function() {
       return {
         theme: ProposalConfig.theme,

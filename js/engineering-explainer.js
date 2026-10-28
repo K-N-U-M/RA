@@ -289,7 +289,8 @@
       const annualKwh = fin.annualYieldKWh || d.annualKWh || (parseFloat(totalKwp) * 1450);
       const savingsAnnual = fin.ahorroLuzAnio1 || fin.savingsAnnual || d.ahorro_anual || (numPanels * 135);
       const payback = (typeof fin.paybackYears === 'number' && isFinite(fin.paybackYears)) ? fin.paybackYears.toFixed(1) : (d.payback || d.roi || '5.2');
-      const co2Tons = ((annualKwh * 0.26) / 1000.0).toFixed(2);
+      const _co2f = (typeof window !== 'undefined' && window.SOLAR_ENGINE_CONSTANTS && window.SOLAR_ENGINE_CONSTANTS.CO2_FACTOR_SPAIN) || 0.259;
+      const co2Tons = ((annualKwh * _co2f) / 1000.0).toFixed(2);
       const treesEquivalent = Math.round(parseFloat(co2Tons) * 45);
 
       const catalog = (typeof equipmentCatalog !== 'undefined') ? equipmentCatalog : null;

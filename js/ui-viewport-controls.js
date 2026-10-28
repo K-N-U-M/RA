@@ -73,11 +73,18 @@
     toast.style.background = bgGradient;
     toast.style.borderLeft = '4px solid ' + borderCol;
 
+    // [AUD-2026 · B-08] `title`/`message` pueden venir de datos del proyecto (nombre importado,
+    // respuesta de IA). Se escapan antes de interpolar: antes `innerHTML` ejecutaba XSS
+    // almacenado al guardar en nube un proyecto con `<img onerror>` en el nombre.
+    const _toastEsc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => (
+      { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+    ));
+
     toast.innerHTML = `
       <span style="font-size:16px;line-height:1.2;margin-top:2px;">${icon}</span>
       <div style="flex:1;min-width:0;">
-        <div style="font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:${type === 'warning' ? '#FCD34D' : (type === 'success' ? '#86EFAC' : (type === 'error' ? '#FCA5A5' : '#7DD3FC'))};margin-bottom:2px;">${title}</div>
-        <div style="font-size:11px;color:#E2E8F0;line-height:1.35;word-break:break-word;">${message}</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:${type === 'warning' ? '#FCD34D' : (type === 'success' ? '#86EFAC' : (type === 'error' ? '#FCA5A5' : '#7DD3FC'))};margin-bottom:2px;">${_toastEsc(title)}</div>
+        <div style="font-size:11px;color:#E2E8F0;line-height:1.35;word-break:break-word;">${_toastEsc(message)}</div>
       </div>
     `;
 

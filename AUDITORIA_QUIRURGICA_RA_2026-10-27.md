@@ -312,7 +312,7 @@ server.listen(PORT, '0.0.0.0', …)
 ### B-04 · Claves de Google y Cesium hardcodeadas y duplicadas · 🔴 CRÍTICO · VERIFICADO
 
 - **Ubicación:** `js/config.js:7-8` (fuente declarada), `js/viewer.js:428` y `:689` (duplicados de Maps y Cesium), `js/firebase-service.js:29` (apiKey del proyecto Firebase). **5 ocurrencias / 3 credenciales distintas**, dos de ellas duplicadas.
-- **Evidencia:** `const GOOGLE_MAPS_API_KEY = 'AIzaSyAj-…'; const CESIUM_ION_TOKEN = 'eyJhbGciOiJIUzI1NiIs…';` y `apiKey: "AIzaSyA96UjIJVDIxEZV4KN38Oax0faOPXaeuF4"`.
+- **Evidencia:** `const GOOGLE_MAPS_API_KEY = 'AIzaSyAj-…'; const CESIUM_ION_TOKEN = 'eyJhbGciOiJIUzI1NiIs…';` y `apiKey: "AIzaSyA96…[REDACTADA]"`.
 - **Defecto:** el comentario de `config.js:10-12` afirma ser "fuente única… para no duplicar secretos en el bundle", pero hay copias en `viewer.js` y el `.gitignore` no las excluye: están **versionadas**. Además el token de Cesium Ion es un JWT de cuenta (id 458204) con validez larga. Se mezclan dos problemas distintos: credenciales de facturación (Maps/Cesium) y configuración pública de Firebase.
 - **Impacto:** consumo a cargo del titular (Google Maps Platform y Cesium ion facturan por uso) y rotación en varios sitios. Una API key de Maps es inevitablemente pública en cliente: la mitigación real es **restricción por referrer/API + cuotas**, no ocultarla.
 - **Corrección:** (1) rotar ambas; (2) restringir en Cloud Console (HTTP referrers del dominio, solo APIs necesarias; Cesium: token con scopes mínimos y dominio permitido); (3) mantener una sola fuente en un archivo generado `js/ra-env.js` ignorado por git, con plantilla `.example`; (4) test que falle si aparece `AIza` fuera del generado.

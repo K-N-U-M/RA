@@ -1,31 +1,53 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Proyectos solares 3D: solo el propietario, miembros del mismo tenant/organización o administradores
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isOwner() {
+      return isSignedIn() && resource.data.ownerId == request.auth.uid;
+    }
+    function isTenantMember() {
+      return isSignedIn()
+        && resource.data.tenantId != null
+        && request.auth.token.tenantId != null
+        && resource.data.tenantId == request.auth.token.tenantId;
+    }
+    function isTenantManager() {
+      return isTenantMember() && request.auth.token.role == 'manager';
+    }
+    function isAdmin() {
+      return isSignedIn() && (request.auth.token.role == 'admin' || request.auth.token.admin == true);
+    }
+
+    // Proyectos solares 3D: propietario, miembro del tenant o administrador.
+    // [AUD-2026 · B-05] Se eliminó la rama `|| resource.data.isPublic == true`, que quedaba
+    // FUERA del bloque de autenticación y permitía lectura anónima de cualquier proyecto
+    // marcado público. Ningún cliente escribe ese campo: era una puerta abierta sin uso.
     match /projects/{projectId} {
-      allow read: if (request.auth != null && (
-        resource.data.ownerId == request.auth.uid ||
-        (resource.data.tenantId != null && request.auth.token.tenantId != null && resource.data.tenantId == request.auth.token.tenantId) ||
-        request.auth.token.role == 'admin'
-      )) || resource.data.isPublic == true;
-      allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
-      allow update, delete: if request.auth != null && (
-        resource.data.ownerId == request.auth.uid ||
-        (resource.data.tenantId != null && request.auth.token.tenantId != null && resource.data.tenantId == request.auth.token.tenantId && request.auth.token.role == 'manager') ||
-        request.auth.token.role == 'admin'
-      );
+      allow read: if isOwner() || isTenantMember() || isAdmin();
+
+      allow create: if isSignedIn()
+        && request.resource.data.ownerId == request.auth.uid;
+
+      allow update: if (isOwner() || isTenantManager() || isAdmin())
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.tenantId == resource.data.tenantId;
+
+      allow delete: if isOwner() || isAdmin();
     }
 
     // Catálogos oficiales de equipos (módulos, inversores, estructuras, tarifas):
-    // Lectura universal, edición restringida a administradores o modo desarrollo
+    // lectura universal, edición restringida a administradores.
     match /equipment_catalog/{item} {
       allow read: if true;
-      allow write: if request.auth != null && (request.auth.token.role == 'admin' || request.auth.token.admin == true);
+      allow write: if isAdmin();
     }
 
     // Perfiles y preferencias de usuario
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
     }
   }
 }

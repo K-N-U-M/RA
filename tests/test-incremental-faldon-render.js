@@ -102,16 +102,19 @@ const vm = require('vm');
 vm.runInThisContext(obstaclesCode);
 
 // TEST 1: Invalidador selectivo por targetPolyIdx
+// [AUD-2026 · contrato actualizado] Desde el commit 87015c9 la invalidación selectiva
+// NO destruye `roofInfo`/`panels` (hacerlo revertía los movimientos manuales de paneles).
+// Se invalida la firma de cálculo (`_calcSig`), que fuerza el recálculo aguas abajo.
 console.log('--- TEST 1: Invalidación selectiva con targetPolyIdx ---');
 recalculateLayoutAndObstacles(1); // Modificar únicamente faldón 1
 
 assert.strictEqual(WP.polylines[0].roofInfo !== null, true, 'Faldón 0 debe conservar su roofInfo');
 assert.strictEqual(WP.polylines[0]._calcSig !== null, true, 'Faldón 0 debe conservar su _calcSig');
-assert.strictEqual(WP.polylines[1].roofInfo, null, 'Faldón 1 (objetivo) debe invalidar su roofInfo');
 assert.strictEqual(WP.polylines[1]._calcSig, null, 'Faldón 1 (objetivo) debe invalidar su _calcSig');
+assert.strictEqual(WP.polylines[1].roofInfo !== null, true, 'Faldón 1 debe conservar los paneles (movimientos manuales)');
 assert.strictEqual(WP.polylines[2].roofInfo !== null, true, 'Faldón 2 debe conservar su roofInfo');
 assert.strictEqual(WP.polylines[2]._calcSig !== null, true, 'Faldón 2 debe conservar su _calcSig');
-console.log('✓ PASS: recalculateLayoutAndObstacles(1) solo invalidó el faldón 1.');
+console.log('✓ PASS: recalculateLayoutAndObstacles(1) solo invalidó la firma del faldón 1.');
 
 // TEST 2: Invalidación global cuando targetPolyIdx es null / undefined
 console.log('--- TEST 2: Invalidación global sin targetPolyIdx ---');
@@ -119,10 +122,10 @@ WP.polylines[1].roofInfo = { panels: [] };
 WP.polylines[1]._calcSig = 'sig';
 recalculateLayoutAndObstacles(); // Invalidate all
 
-assert.strictEqual(WP.polylines[0].roofInfo, null, 'Faldón 0 debe invalidarse');
-assert.strictEqual(WP.polylines[1].roofInfo, null, 'Faldón 1 debe invalidarse');
-assert.strictEqual(WP.polylines[2].roofInfo, null, 'Faldón 2 debe invalidarse');
-console.log('✓ PASS: recalculateLayoutAndObstacles() global invalidó todos los faldones.');
+assert.strictEqual(WP.polylines[0]._calcSig, null, 'Faldón 0 debe invalidar su firma');
+assert.strictEqual(WP.polylines[1]._calcSig, null, 'Faldón 1 debe invalidar su firma');
+assert.strictEqual(WP.polylines[2]._calcSig, null, 'Faldón 2 debe invalidar su firma');
+console.log('✓ PASS: recalculateLayoutAndObstacles() global invalidó las firmas de todos los faldones.');
 
 // TEST 3: Desacoplamiento de primitivas GPU Map(_faldonPanelsPrimitives)
 console.log('--- TEST 3: Desacoplamiento de primitivas GPU Map(_faldonPanelsPrimitives) ---');

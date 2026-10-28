@@ -64,6 +64,21 @@ const mockCartesian3 = class Cartesian3 {
     result.z = a.z / mag;
     return result;
   }
+  static negate(a, result) {
+    result = result || new Cartesian3();
+    result.x = -a.x;
+    result.y = -a.y;
+    result.z = -a.z;
+    return result;
+  }
+  static fromRadians(lon, lat, height, ellipsoid, result) {
+    // Aproximación determinista suficiente para los cálculos en espacio local del test.
+    result = result || new Cartesian3();
+    result.x = lon * 6378137;
+    result.y = lat * 6378137;
+    result.z = height || 0;
+    return result;
+  }
 };
 
 class mockColor {
@@ -74,8 +89,23 @@ class mockColor {
 }
 mockColor.WHITE = new mockColor();
 
+// Constantes unitarias que usa `computeBuildingConstructionAxes` en su rama de respaldo.
+// (Contrato real de Cesium: son Cartesian3 estáticos, no undefined.)
+mockCartesian3.UNIT_X = new mockCartesian3(1, 0, 0);
+mockCartesian3.UNIT_Y = new mockCartesian3(0, 1, 0);
+mockCartesian3.UNIT_Z = new mockCartesian3(0, 0, 1);
+
 global.Cesium = {
   Cartesian3: mockCartesian3,
+  // Matriz ENU identidad: permite ejercitar la rama principal en Node sin Cesium real.
+  Transforms: {
+    eastNorthUpToFixedFrame: () => ([
+      1, 0, 0, 0,
+      0, 1, 0, 0,
+      0, 0, 1, 0,
+      0, 0, 0, 1
+    ])
+  },
   Color: mockColor,
   ColorMaterialProperty: class {},
   PolylineDashMaterialProperty: class {},
