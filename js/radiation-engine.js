@@ -33,13 +33,20 @@
    * Desagregación Erbs del índice de claridad kt → fracción difusa.
    * @param {number} ghi         Irradiancia global horizontal (W/m²)
    * @param {number} sunElevDeg  Elevación solar (grados)
+   * @param {number} [dayOfYear] Día del año (1-365). Si se indica, corrige la
+   *                             excentricidad orbital (D-04): kt = GHI / (I0·cosθz)
+   *                             con I0 = 1367·(1 + 0,033·cos(360·n/365)).
    */
-  function decomposeErbs(ghi, sunElevDeg) {
+  function decomposeErbs(ghi, sunElevDeg, dayOfYear) {
     if (!sunElevDeg || sunElevDeg <= 0 || !ghi || ghi <= 0) {
-      return { kt: 0, dhiFraction: 1.0, dhi: 0, dni: 0 };
+      return { kt: 0, dhiFraction: 1.0, dhi: 0, dni: 0, e0: 1 };
     }
     const sinElev = Math.max(0.017, Math.sin(sunElevDeg * Math.PI / 180));
-    const kt = Math.min(0.85, Math.max(0.1, ghi / (SOLAR_CONST_WM2 * sinElev + 1e-3)));
+    const e0 = (typeof dayOfYear === 'number' && isFinite(dayOfYear) && dayOfYear >= 1)
+      ? (1 + 0.033 * Math.cos(2 * Math.PI * (dayOfYear - 1) / 365))
+      : 1;
+    // [AUD-2026 · D-05] kt es un índice físico en [0,1]; antes se recortaba a 0,85.
+    const kt = Math.min(1.0, Math.max(0.0, ghi / (SOLAR_CONST_WM2 * e0 * sinElev + 1e-3)));
     let dhiFraction;
     if (kt < 0.22) {
       dhiFraction = 1.0 - 0.09 * kt;
@@ -52,7 +59,7 @@
     const dhi = ghi * dhiFraction;
     const maxDni = 1150; // Límite físico en superficie terrestre bajo cielo despejado (CTE/ASHRAE)
     const dni = Math.max(0, Math.min(maxDni, (ghi - dhi) / Math.max(sinElev, 0.05)));
-    return { kt, dhiFraction, dhi, dni };
+    return { kt, dhiFraction, dhi, dni, e0 };
   }
 
   /**
@@ -193,14 +200,14 @@
   /**
    * POA completo (Erbs + Hay-Davies + IAM) — equivalente exacto de computePOAIrradiance.
    */
-  function poa(ghi, latDeg, tiltDeg, azSurDeg, sunElevDeg, sunAzSurDeg, albedo) {
+  function poa(ghi, latDeg, tiltDeg, azSurDeg, sunElevDeg, sunAzSurDeg, albedo, dayOfYear) {
     const alb = (typeof albedo === 'number') ? albedo : 0.20;
     if (sunElevDeg <= 0 || ghi <= 0) {
       return { G_poa: 0, G_b: 0, G_d: 0, G_r: 0, incAngleDeg: 0, iamFactor: 1 };
     }
     const tiltRad = tiltDeg * Math.PI / 180;
     const cosTheta = Math.max(0, Math.min(1, incidenceCos(tiltDeg, azSurDeg, sunElevDeg, sunAzSurDeg)));
-    const dec = decomposeErbs(ghi, sunElevDeg);
+    const dec = decomposeErbs(ghi, sunElevDeg, dayOfYear);
     const tp = transposeComponents({
       ghi: ghi, dhi: dec.dhi, dni: dec.dni,
       cosTheta: cosTheta, tiltRad: tiltRad, albedo: alb, sunElevDeg: sunElevDeg

@@ -7,7 +7,7 @@
 | :--- | :--- |
 | Base de partida | `91d241f` (auditoría) → árbol actualizado por terceros hasta `f75a627` |
 | Olas ejecutadas | **Ola 0-1** (`8f7938d`) · **Ola 2** (`f4c1a92`) |
-| Gate | **38/38 tests en verde** (`node tests/run-all.js`) |
+| Gate | **40/40 tests en verde** (`node tests/run-all.js`) |
 | Inline `index.html` | 5 bloques compilan (`new Function` sobre el HTML) |
 
 ---
@@ -79,7 +79,17 @@ C-01 (coeficientes MPPT inline), C-03 (ρ(T)), C-04 (RCD Tipo B), C-06, D-03 (PR
 - **B-03 (resto)**: `firebase.json` excluye `server.js`, reglas, `package.json`, `js/ra-env.js` y añade cabeceras de seguridad (nosniff, DENY, CSP mínima, HSTS, Permissions-Policy).
 - **B-09**: `gwaProxy` con CORS restringido, rate limit 30/min por IP, allowlist de host, timeout, tope de tamaño, topes de estructura en el parser y errores genéricos. Runtime actualizado a Node 22.
 
-### 2.6 Ola 3 — trazabilidad mensual, documentación y CI
+### 2.7 Ola 4 — precisión de radiación y contrato de carga
+
+| ID | Cambio | Archivo | Prueba |
+| :--- | :--- | :--- | :--- |
+| **D-04** | Erbs corrige la excentricidad orbital: `I0(n) = 1367·(1 + 0,033·cos(360·n/365))`. Se propaga el día del año por `decomposeErbs → poa → computePOAIrradiance → runPhysicalModel / heatmap / worker`. Efecto: ±6,8 % estacional en `kt` para la misma GHI. | `js/radiation-engine.js`, `js/solar-engine.js`, `js/solar-heatmap.js`, `js/solar-worker.js` | `test-radiation-accuracy` |
+| **D-05** | `kt` deja de recortarse a [0,1–0,85]; ahora es [0–1], coherente con el modelo Erbs. | `js/radiation-engine.js`, `js/solar-engine.js` | `test-radiation-accuracy` |
+| **F-05** | Contrato de cableado: todos los `<script>` existen, orden crítico congelado (ra-env→config, radiation→heatmap, electrical→cable/dossier), 63 archivos sin huérfanos y workers referenciados. | — | `test-module-wiring` |
+
+> Nota: la corrección de excentricidad **no rompe** la coherencia mensual (julio sigue muy por encima de enero) pero sí ajusta el reparto difusa/directa un ~7 % en los extremos del año.
+
+### 2.8 Ola 3 — trazabilidad mensual, documentación y CI
 
 | ID | Cambio | Archivo |
 | :--- | :--- | :--- |
@@ -127,7 +137,7 @@ C-01 (coeficientes MPPT inline), C-03 (ρ(T)), C-04 (RCD Tipo B), C-06, D-03 (PR
 
 ```powershell
 cd C:\TRABAJOS\RA\RA
-node tests/run-all.js        # 38/38, exit 0
+node tests/run-all.js        # 40/40, exit 0
 node tests/test-js-syntax.js # 61 módulos OK
 git log --oneline -3
 ```

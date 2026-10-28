@@ -363,10 +363,10 @@ function computeHighPrecisionSolarPosition(latDeg, lonDeg, doy, solarDecimalHour
   };
 }
 
-function computePOAIrradiance(G_ghi, latDeg, tiltDeg, azSurDeg, sunElevDeg, sunAzSurDeg, albedo = 0.20) {
+function computePOAIrradiance(G_ghi, latDeg, tiltDeg, azSurDeg, sunElevDeg, sunAzSurDeg, albedo = 0.20, dayOfYear = null) {
   // [B2] Motor único de radiación (Erbs + Hay-Davies) — SSOT en js/radiation-engine.js
   if (typeof global !== 'undefined' && global.RA && global.RA.Radiation && typeof global.RA.Radiation.poa === 'function') {
-    return global.RA.Radiation.poa(G_ghi, latDeg, tiltDeg, azSurDeg, sunElevDeg, sunAzSurDeg, albedo);
+    return global.RA.Radiation.poa(G_ghi, latDeg, tiltDeg, azSurDeg, sunElevDeg, sunAzSurDeg, albedo, dayOfYear);
   }
   // Fallback para entornos sin el módulo (p. ej. tests aislados)
   if (sunElevDeg <= 0 || G_ghi <= 0) return { G_poa: 0, G_b: 0, G_d: 0, G_r: 0, iamFactor: 1 };
@@ -382,7 +382,9 @@ function computePOAIrradiance(G_ghi, latDeg, tiltDeg, azSurDeg, sunElevDeg, sunA
   const incAngleDeg = (Math.acos(cosTheta) * 180) / Math.PI;
 
   // Separación empírica Erbs
-  const kt = Math.min(0.85, Math.max(0.1, G_ghi / (1367 * Math.sin(sunElevRad) + 1e-3)));
+  const _e0 = (typeof dayOfYear === 'number' && isFinite(dayOfYear) && dayOfYear >= 1)
+    ? (1 + 0.033 * Math.cos(2 * Math.PI * (dayOfYear - 1) / 365)) : 1;
+  const kt = Math.min(1.0, Math.max(0.0, G_ghi / (1367 * _e0 * Math.sin(sunElevRad) + 1e-3)));
   let df = 0.22;
   if (kt < 0.22) df = 1.0 - 0.09 * kt;
   else if (kt < 0.80) df = 0.9511 - 0.1604 * kt + 4.388 * Math.pow(kt, 2) - 16.638 * Math.pow(kt, 3) + 12.336 * Math.pow(kt, 4);
@@ -688,7 +690,7 @@ function runPhysicalModel(kwp, latDeg, lonDeg, tiltDeg, azimutDeg, cfg, customMo
       // Compass (0°=N, 180°=S) → convención Sur del motor (0°=S, -90°=E, +90°=O). Rango [-180,180).
       const azSur = azFromNorth - 180;
       // azimutDeg llega en convención brújula (180°=Sur); el motor usa 0°=Sur
-      const poa = computePOAIrradiance(GHI_instant, latDeg, tiltDeg, azimutDeg - 180, altDeg, azSur, 0.20);
+      const poa = computePOAIrradiance(GHI_instant, latDeg, tiltDeg, azimutDeg - 180, altDeg, azSur, 0.20, doy);
       const GPOA = poa.G_poa;
       const iamFactor = poa.iamFactor;
       const Tcell = calcTcell(tAmb[m], GPOA, NOCT);

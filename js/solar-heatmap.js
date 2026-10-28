@@ -1083,8 +1083,12 @@
         const GHI_instant = Math.max(0, (GHI_daily_Wh / (_sinAltSum * hourStepDt)) * sinAlt);
         // [B2] Desagregación Erbs vía motor único de radiación (RA.Radiation). Fallback inline si el módulo no está.
         let G_dhi, G_dni;
+        // [AUD-2026 · D-04] Día del año para corregir la excentricidad orbital en Erbs.
+        const _doyHeat = (d && typeof d.getFullYear === 'function')
+          ? (Math.floor((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - Date.UTC(d.getFullYear(), 0, 1)) / 86400000) + 1)
+          : null;
         if (typeof window !== 'undefined' && window.RA && window.RA.Radiation && typeof window.RA.Radiation.decomposeErbs === 'function') {
-          const _dec = window.RA.Radiation.decomposeErbs(GHI_instant, elevation);
+          const _dec = window.RA.Radiation.decomposeErbs(GHI_instant, elevation, _doyHeat);
           G_dhi = _dec.dhi;
           G_dni = _dec.dni;
         } else {

@@ -177,10 +177,13 @@ function computeSolarPositionWorker(latDeg, lonDeg, dayOfYear, utcHour) {
   };
 }
 
-function decomposeErbsWorker(ghi, elevation) {
+function decomposeErbsWorker(ghi, elevation, dayOfYear) {
   const elevRad = Math.max(0.01, elevation * Math.PI / 180);
   const sinAlt = Math.sin(elevRad);
-  const kt = Math.min(0.85, Math.max(0.1, ghi / (SOLAR_CONST * sinAlt + 1e-3)));
+  // [AUD-2026 · D-04] Excentricidad orbital: I0(n) = 1367·(1 + 0,033·cos(360·n/365)).
+  const e0 = (typeof dayOfYear === 'number' && isFinite(dayOfYear) && dayOfYear >= 1)
+    ? (1 + 0.033 * Math.cos(2 * Math.PI * (dayOfYear - 1) / 365)) : 1;
+  const kt = Math.min(1.0, Math.max(0.0, ghi / (SOLAR_CONST * e0 * sinAlt + 1e-3)));
   let DHI_fraction;
   if (kt < 0.22) DHI_fraction = 1.0 - 0.09 * kt;
   else if (kt < 0.80) DHI_fraction = 0.9511 - 0.1604 * kt + 4.388 * kt * kt - 16.638 * Math.pow(kt, 3) + 12.336 * Math.pow(kt, 4);
@@ -289,7 +292,7 @@ self.onmessage = function(e) {
       const elevRad = sp.elevRad;
       const sinAlt = Math.sin(elevRad);
       const GHI_instant = Math.max(0, (GHI_daily_Wh / (_sinAltSum * hourStepDt)) * sinAlt);
-      const { dhi: G_dhi, dni: G_dni } = decomposeErbsWorker(GHI_instant, sp.elevDeg);
+      const { dhi: G_dhi, dni: G_dni } = decomposeErbsWorker(GHI_instant, sp.elevDeg, monthsDoy[mIdx]);
 
       // Pre-calcular siluetas de sombra de obstáculos por faldón para esta hora (O(F) en vez de O(N*F))
       const faldonShadowQuads = new Map();
