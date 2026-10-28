@@ -33,13 +33,15 @@ assert.ok(asc(E.SECCIONES.dc) && asc(E.SECCIONES.ac), 'Las secciones deben ser c
 assert.ok(asc(E.SECCIONES.dcIz) && asc(E.SECCIONES.acIz), 'Las Iz deben ser crecientes');
 console.log('  ✓ PASS: tablas DC/AC canónicas, coherentes y crecientes');
 
-// 2. La copia inline consume la tabla del módulo (no una copia literal).
+// 2. [F-01] Las tablas y el dimensionado viven SOLO en el módulo; el inline delega.
 const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
-assert.ok(/_RA_SEC\s*&&\s*Array\.isArray\(_RA_SEC\.dc\)/.test(html), 'El inline debe leer _RA_SEC.dc');
-assert.ok(/_RA_SEC\s*&&\s*Array\.isArray\(_RA_SEC\.ac\)/.test(html), 'El inline debe leer _RA_SEC.ac');
-const inlineDcLiterals = (html.match(/const SEC_DC_AVAIL = \[4, 6, 10, 16, 25\]/g) || []).length;
-assert.strictEqual(inlineDcLiterals, 0, 'No debe quedar la tabla DC literal en el inline');
-console.log('  ✓ PASS: el inline delega en la tabla única del motor');
+assert.ok(/computeElectricalSizingEngineering[\s\S]{0,900}RA\.Electrical\.computeSizingEngineering/.test(html),
+  'El inline debe delegar el dimensionado en el módulo');
+const inlineFn = html.slice(html.indexOf('function computeElectricalSizingEngineering'));
+assert.ok(!/SEC_DC_AVAIL|IMAX_DC_ZZF|_RA_SEC/.test(inlineFn.slice(0, 1200)), 'El inline no debe conservar tablas de secciones');
+const modSrc = fs.readFileSync(path.join(ROOT, 'js/electrical-engine.js'), 'utf8');
+assert.ok(/computeSizingEngineering: computeSizingEngineering/.test(modSrc), 'El módulo debe exportar el dimensionado');
+console.log('  ✓ PASS: tablas y dimensionado solo en el motor; inline delegado');
 
 // 3. Criterio de ΔV en dos niveles.
 const ok = E.calculateGlobalVoltageDrop(1.2, 1.2);

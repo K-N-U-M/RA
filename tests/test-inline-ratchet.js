@@ -17,7 +17,7 @@ const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
 
 // Techos congelados (2026-10-28). Solo pueden bajar.
 const BASE = {
-  inlineLines: 16414,
+  inlineLines: 16180,
   inlineFunctions: 237,
   duplicateDeclarations: 0,
   namesSharedWithModules: 16

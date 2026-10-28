@@ -7,7 +7,7 @@
 | :--- | :--- |
 | Base de partida | `91d241f` (auditoría) → árbol actualizado por terceros hasta `f75a627` |
 | Olas ejecutadas | **Ola 0-1** (`8f7938d`) · **Ola 2** (`f4c1a92`) |
-| Gate | **44/44 tests en verde** (`node tests/run-all.js`) |
+| Gate | **45/45 tests en verde** (`node tests/run-all.js`) |
 | Inline `index.html` | 5 bloques compilan (`new Function` sobre el HTML) |
 
 ---
@@ -113,6 +113,15 @@ C-01 (coeficientes MPPT inline), C-03 (ρ(T)), C-04 (RCD Tipo B), C-06, D-03 (PR
 | **E-01 (guarda)** | `computeTurbineAEP` devuelve 0 kWh con `invalidPowerCurve: true` y motivo si el `cpAudit` del equipo es inválido. El resumen del parque expone `hasInvalidCurves` / `invalidCurves` y la UI muestra un aviso rojo con los equipos afectados. Ya no se puede presentar un AEP alto salido de una curva con Cp > 0,593. | `js/wind/wind-resource.js`, `js/wind/wind-ui.js` | `test-wind-aep-guard` |
 | **E-02 (verificación)** | El muestreo diario (365 días, 10 min, ventana 03-22 UTC) queda declarado en el resultado (`sampling`) y verificado: un receptor a 45 m recibe 26 min/día y 14,4 h/año, con ~36 ms de cálculo. El muestreo de 1 día de cada 5 no estaba justificado por rendimiento. | `js/wind/wind-shadow-flicker.js` | `test-shadow-flicker-sampling` |
 
+### 2.11 Ola 7 — el dimensionado eléctrico sale del monolito
+
+| ID | Cambio | Archivo | Prueba |
+| :--- | :--- | :--- | :--- |
+| **F-01 (hito)** | `computeElectricalSizingEngineering` (250 líneas, 10.705 caracteres) se mueve íntegro a `RA.Electrical.computeSizingEngineering`. El inline queda como delegado de 862 caracteres. **Equivalencia demostrada**: resultado JSON-idéntico al original en 3 casos (5,4 / 10,8 / 36,3 kWp) antes de sustituirlo. | `js/electrical-engine.js`, `index.html` | `test-electrical-sizing` |
+| **F-01 (robustez)** | El motor tolera carga parcial: sin `SOLAR_ENGINE_CONSTANTS.RHO_CU_90` usa 0,023 (antes propagaba `NaN` a toda la tabla) y sin `computeCellTemperature` usa un salto térmico de respaldo. | `js/electrical-engine.js` | `test-electrical-sizing` |
+
+> **Hito del monolito:** el inline pasa de **16.252 líneas (auditoría) a 16.179**, ya por debajo del punto de partida *después* de añadir trazabilidad de producción, avisos de `N/D` y comprobaciones. La lógica eléctrica y la de producción viven en módulos.
+
 ---
 
 ## 3. Decisiones tomadas (documentadas)
@@ -153,7 +162,7 @@ C-01 (coeficientes MPPT inline), C-03 (ρ(T)), C-04 (RCD Tipo B), C-06, D-03 (PR
 
 ```powershell
 cd C:\TRABAJOS\RA\RA
-node tests/run-all.js        # 44/44, exit 0
+node tests/run-all.js        # 45/45, exit 0
 node tests/test-js-syntax.js # 61 módulos OK
 git log --oneline -3
 ```
