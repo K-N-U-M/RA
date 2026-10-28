@@ -83,12 +83,12 @@ function readTitular() {
 }
 
 function getProjectCalcs() {
+  if (typeof RA !== 'undefined' && RA.ProjectCalcs && typeof RA.ProjectCalcs.getProjectCalcs === 'function') {
+    return RA.ProjectCalcs.getProjectCalcs();
+  }
   if (typeof window !== 'undefined' && typeof window._canonicalGetProjectCalcs === 'function') {
     return window._canonicalGetProjectCalcs();
   }
-  // [P1] El fallback legacy (tabla SOLAR_RAD, PR=0.80 fijo, límites genéricos 1000/160/850 V,
-  // L_dc=30/L_ac=15, precio 0.18 €/kWh) se eliminó el 29/09/2026: contradecía al motor
-  // canónico (SSOT — AGENTS.md §10.7) y solo podía ejecutarse con la app a medio cargar.
   if (typeof window !== 'undefined' && window.RA && window.RA.log) {
     window.RA.log.warn('getProjectCalcs: motor canónico no disponible aún');
   }
@@ -1409,8 +1409,8 @@ function generatePresupuesto(skipPricingModal) {
   const vanVal = m ? ((typeof m.van === 'number' && isFinite(m.van)) ? Math.round(m.van).toLocaleString('es-ES') : 'N/D') : 'N/D';
   const lcoeVal = m ? ((typeof m.lcoe === 'number') ? m.lcoe.toFixed(3) : 'N/D') : 'N/D';
   const paybackVal = m ? ((typeof m.paybackYears === 'number') ? m.paybackYears.toFixed(1) : 'N/D') : 'N/D';
-  const capexNeto = m ? m.capexNeto : Math.round(capexBruto * 0.65);
-  const ahorroAnio1 = m ? Math.round(m.ahorroLuzAnio1).toLocaleString('es-ES') : Math.round(d.ahorro_anual).toLocaleString('es-ES');
+  const capexNeto = m ? m.capexNeto : capexBruto;
+  const ahorroAnio1 = m ? Math.round(m.ahorroLuzAnio1).toLocaleString('es-ES') : (d.ahorro_anual > 0 ? Math.round(d.ahorro_anual).toLocaleString('es-ES') : 'N/D');
 
   const body = `
   ${FIN_MISSING_BUDGET ? '<div class="doc-warning" style="border:2px solid #ef4444;background:#fef2f2;color:#991b1b;padding:10px 14px;border-radius:6px;margin:10px 0;font-size:10pt;font-weight:700;">⚠️ PRESUPUESTO SIN MODELO FINANCIERO: los indicadores de rentabilidad figuran como «N/D».</div>' : ''}

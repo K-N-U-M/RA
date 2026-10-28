@@ -4837,6 +4837,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
 
   // Parámetros físicos de batería (IEC 62619 / LFP residencial)
   const batEff = 0.92;                      // Eficiencia roundtrip (92%)
+  const batEffHalf = Math.sqrt(batEff);     // Eficiencia simétrica en carga/descarga (~95.9%)
   const batDOD = 0.90;                      // Profundidad de descarga (90%)
   const maxBatCap = batCap * batDOD;         // Capacidad útil real (kWh)
   const pBatMaxKw = Math.max(3.0, batCap * 0.5); // Límite de potencia C/2 (kW)
@@ -4888,7 +4889,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         const space = maxBatCap - batSoC;
         const maxCharge = pBatMaxKw * 1.0;
         const charge = Math.min(surplus, space, maxCharge);
-        batSoC += charge * batEff;
+        batSoC += charge * batEffHalf;
         surplus -= charge;
       }
 
@@ -4896,19 +4897,21 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       if (batStrategy === 'arbitraje' && maxBatCap > 0 && batSoC < maxBatCap && isValley && h >= 2 && h <= 6) {
         const space = maxBatCap - batSoC;
         const gridCharge = Math.min(space, pBatMaxKw * 1.0, load * 0.5);
-        batSoC += gridCharge * batEff;
+        batSoC += gridCharge * batEffHalf;
         monthCostGrid += gridCharge * price;
         monthGridChargeCost += gridCharge * price;
       }
 
-      // Descarga de batería si hay déficit
+      // Descarga de batería si hay déficit (con eficiencia electroquímica de descarga)
       if (direct < load) {
         const need = load - direct;
         if (batSoC > 0.01) {
           const maxDischarge = pBatMaxKw * 1.0;
-          const discharge = Math.min(need, batSoC, maxDischarge);
-          batSoC -= discharge;
-          fromBattery = discharge;
+          // Para entregar 'need' de energía útil, se descuenta de SoC considerando batEffHalf
+          const reqFromSoC = need / batEffHalf;
+          const dischargeFromSoC = Math.min(reqFromSoC, batSoC, maxDischarge / batEffHalf);
+          batSoC -= dischargeFromSoC;
+          fromBattery = dischargeFromSoC * batEffHalf;
         }
         gridBuy = Math.max(need - fromBattery, 0);
       } else if (surplus > 0) {

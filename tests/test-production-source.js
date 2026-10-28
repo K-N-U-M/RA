@@ -43,7 +43,7 @@ assert.ok(ph.monthlyKWh[6] > ph.monthlyKWh[0] * 1.5, 'Julio debe superar clarame
 console.log(`  ✓ PASS: ${ph.annualKWh} kWh/año · julio ${ph.monthlyKWh[6]} vs enero ${ph.monthlyKWh[0]}`);
 
 // 2. Fuente declarada en el SSOT y resolución externalizada (F-01).
-const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+const html = fs.readFileSync(path.join(ROOT, 'js/project-calcs.js'), 'utf8');
 assert.ok(/let productionSource = 'fallback-seasonal'/.test(html), 'Debe inicializarse la fuente como fallback');
 assert.ok(/RAProduction\.resolve\(/.test(html), 'getProjectCalcs debe delegar la prioridad en RAProduction');
 assert.ok(/productionSource = _prodResolved\.source/.test(html), 'La fuente resuelta debe propagarse');

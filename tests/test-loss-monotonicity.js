@@ -175,7 +175,7 @@ function runLossMonotonicityTests() {
   });
 
   // Cargar módulos JS
-  ['config.js', 'radiation-engine.js', 'solar-engine.js', 'electrical-engine.js', 'project-status-hud.js'].forEach(f => {
+  ['config.js', 'radiation-engine.js', 'solar-engine.js', 'electrical-engine.js', 'project-status-hud.js', 'project-calcs.js'].forEach(f => {
     vm.runInContext(fs.readFileSync(path.join(projectRoot, 'js', f), 'utf8'), ctx);
   });
 

@@ -2126,11 +2126,16 @@
   const betaVoc = cfg.betaVoc || -0.0027;
   const gammaPmp = cfg.gammaPmp || -0.0035;
 
-  const T_min = SOLAR_ENGINE_CONSTANTS.T_MIN_SPAIN;
+  const T_min = (typeof SOLAR_ENGINE_CONSTANTS !== 'undefined' && SOLAR_ENGINE_CONSTANTS.T_MIN_SPAIN)
+    ? SOLAR_ENGINE_CONSTANTS.T_MIN_SPAIN
+    : -10;
+  const T_amb_max = (typeof SOLAR_ENGINE_CONSTANTS !== 'undefined' && SOLAR_ENGINE_CONSTANTS.T_AMB_MAX_SPAIN)
+    ? SOLAR_ENGINE_CONSTANTS.T_AMB_MAX_SPAIN
+    : 40;
   // [AUD-2026 · F-01] Tolerancia a carga parcial: si `solar-engine` no está, no reventar.
   const T_cell_max = (typeof computeCellTemperature === 'function')
-    ? computeCellTemperature(SOLAR_ENGINE_CONSTANTS.T_AMB_MAX_SPAIN, 1000, true, 1.0)
-    : (SOLAR_ENGINE_CONSTANTS.T_AMB_MAX_SPAIN + 25);
+    ? computeCellTemperature(T_amb_max, 1000, true, 1.0)
+    : (T_amb_max + 25);
   const betaVmp = cfg.betaVmp || gammaPmp || -0.0035;
 
   // [P0.1] Desacoplar inversor: usar el inversor seleccionado del catálogo en lugar de 1000/160/850 fijos
@@ -2188,7 +2193,9 @@
   const _selInv = (window.solarProjectConfig && window.solarProjectConfig.calculatedLimits && window.solarProjectConfig.calculatedLimits.inverter) || null;
   const monofasico = (activeInv && typeof activeInv.phases === 'number') ? (activeInv.phases === 1) : ((typeof window.raInverterPhases === 'function' && _selInv) ? (window.raInverterPhases(_selInv) === 1) : (inv_kW <= 5.0));
   const V_ac = monofasico ? 230 : 400;
-  const I_ac = monofasico ? (inv_kW * 1000) / (V_ac * 0.95) : (inv_kW * 1000) / (Math.sqrt(3) * V_ac * 0.95);
+  // Factor de potencia de inyección (0.95 en baseline histórico; configurable si el inversor declara cosPhi)
+  const cosPhiAc = (activeInv && typeof activeInv.cosPhi === 'number' && activeInv.cosPhi > 0) ? activeInv.cosPhi : 0.95;
+  const I_ac = monofasico ? (inv_kW * 1000) / (V_ac * cosPhiAc) : (inv_kW * 1000) / (Math.sqrt(3) * V_ac * cosPhiAc);
 
   // [AUD-2026 · F-01] Sin la constante global, usar el valor normativo del proyecto
   // en lugar de propagar NaN a toda la tabla de secciones.
@@ -2202,7 +2209,10 @@
     ? window.inverterEquipmentState.L_ac_measured
     : 15;
 
-  const I_dc_design = 1.25 * Isc;
+  // Factor de bifacialidad bajo UNE-EN 62548 (ganancia de albedo en strings bifaciales)
+  const isBifacialMod = !!(cfg && (cfg.bifacial || cfg.isBifacial || (cfg.bifacialityFactor && cfg.bifacialityFactor > 0)));
+  const bifacialGainFactor = isBifacialMod ? 1.15 : 1.0;
+  const I_dc_design = 1.25 * (Isc * bifacialGainFactor);
   // [AUD-2026 · C-05] Fuente única de secciones/ampacidad: js/electrical-engine.js.
   // Si el módulo no está disponible (carga parcial), se usa la copia mínima de respaldo.
   const _RA_SEC = (typeof window !== 'undefined' && window.RA && window.RA.Electrical && window.RA.Electrical.SECCIONES) || null;
