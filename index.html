@@ -45,6 +45,7 @@ window.RA_App = window.RA_App || {};
   <script src="js/financials.js?v=20261027_edit_layout1"></script>
   <script src="js/viewer.js?v=20261016a"></script>
   <script src="js/solar-engine.js?v=20260929b"></script>
+  <script src="js/production-source.js?v=20261028a"></script>
   <script src="js/solar-optimizer.js?v=20261016a"></script>
   <script src="js/obstacles.js?v=20261016a"></script>
   <script src="js/wind-turbine.js?v=20261011a"></script>
@@ -10627,21 +10628,6 @@ window.inverterEquipmentState.combinerBox = {
 window.RA.inverterState = window.inverterEquipmentState;
 
 // A. UBICAR CONTADOR DE RED / CGMP (LÍNEA AC)
-function wpStartGridMeterPlacement() {
-  if (!window.inverterEquipmentState) window.inverterEquipmentState = {};
-  if (!window.inverterEquipmentState.gridMeter) window.inverterEquipmentState.gridMeter = {};
-  window.inverterEquipmentState.gridMeter.isPlacing = true;
-  window.inverterEquipmentState.isPlacing = false;
-  if (window.inverterEquipmentState.combinerBox) window.inverterEquipmentState.combinerBox.isPlacing = false;
-
-  const btn = document.getElementById('btn-step2-place-meter') || document.getElementById('btn-place-meter');
-  if (btn) btn.classList.add('active');
-  if (typeof showToast === 'function') {
-    showToast('ACOMETIDA / CONTADOR DE RED', 'Haz clic en el modelo 3D para situar el punto de conexión a la Red Eléctrica / CGMP.', 'info', 4000);
-  }
-  showStatus('<i data-lucide=\"map-pin\" class=\"icon-sm\"></i> HAZ CLIC EN EL MODELO 3D PARA UBICAR EL CONTADOR DE RED / CGMP', 4000);
-}
-
 function wpPlaceGridMeterAtPosition(cartesian, skipRecurse = false) {
   if (!cartesian || typeof Cesium === 'undefined' || typeof viewer === 'undefined' || !viewer) return;
 
@@ -13574,40 +13560,38 @@ function getProjectCalcs() {
   let productionSource = 'fallback-seasonal';
   let productionSourceDetail = 'Tabla estacional interna de España (sin datos del emplazamiento)';
 
-  // [SSOT] PRODUCCIÓN DE INGENIERÍA como fuente prioritaria: recalculateSolarYield integra
-  // las pérdidas de sistema, las sombras (raycast por panel) y la suma real p.annualKwh
-  // del heatmap — es el número que el instalador ve en la pestaña de ingeniería.
+  // [SSOT] Producción de ingeniería: recalculateSolarYield integra pérdidas de sistema,
+  // sombras (raycast por panel) y la suma real p.annualKwh del heatmap.
+  // [AUD-2026 · D-01/F-01] La prioridad (simulación → motor físico → tabla) y su
+  // memoización viven en js/production-source.js; aquí solo se aplica el resultado.
   const _engStats = (typeof window !== 'undefined' && window.RA && window.RA.solarStats) ? window.RA.solarStats : null;
-  if (_engStats && Number.isFinite(_engStats.annualYieldKWh) && _engStats.annualYieldKWh > 0 && annualKWh > 0) {
-    const _ratio = _engStats.annualYieldKWh / annualKWh;
-    monthly.forEach(m => { m.kWh = Math.round(m.kWh * _ratio); m.hsp = (parseFloat(m.hsp) * _ratio).toFixed(2); });
-    annualKWh = Math.round(_engStats.annualYieldKWh);
-    productionSource = 'simulation';
-    productionSourceDetail = 'Simulación por panel (sombras + pérdidas)';
-  } else if (typeof runPhysicalModel === 'function' && eng.P_dc_kW > 0) {
-    // Sin simulación: se usa el motor físico con la GHI del emplazamiento (NASA/PVGIS
-    // cacheado por coordenada). Memoizado por firma para no repetirlo en cada render.
-    try {
-      const _prodSig = [eng.P_dc_kW, latDeg, lonDeg, tiltDeg, azimutDeg, (cfg && cfg.modelo) || '', (cfg && cfg.potencia) || 0].join('|');
-      const _prodCache = (window.__raCanonicalProdCache = window.__raCanonicalProdCache || {});
-      let _ph = _prodCache[_prodSig];
-      if (!_ph) {
-        _ph = runPhysicalModel(eng.P_dc_kW, latDeg, lonDeg, tiltDeg, azimutDeg, cfg, null);
-        _prodCache[_prodSig] = _ph;
-      }
-      if (_ph && Number.isFinite(_ph.annualKWh) && _ph.annualKWh > 0 && Array.isArray(_ph.monthlyKWh)) {
-        annualKWh = Math.round(_ph.annualKWh);
-        monthly.forEach((row, m) => {
-          const kwh = Number(_ph.monthlyKWh[m]) || 0;
-          row.kWh = Math.round(kwh);
-          row.hsp = (eng.P_dc_kW > 0 ? (kwh / (eng.P_dc_kW * MONTH_DAYS[m])) : 0).toFixed(2);
-        });
-        productionSource = 'physical';
-        productionSourceDetail = 'Motor físico · ' + (_ph.ghiSource || 'GHI del emplazamiento');
-      }
-    } catch (eProd) {
-      console.warn('[getProjectCalcs] Modelo físico no disponible, se usa la tabla estacional:', eProd && eProd.message);
+  let _prodResolved = (typeof window !== 'undefined' && window.RAProduction && typeof window.RAProduction.resolve === 'function')
+    ? window.RAProduction.resolve({
+        stats: _engStats,
+        kwp: eng.P_dc_kW, lat: latDeg, lon: lonDeg,
+        tilt: tiltDeg, azimuth: azimutDeg, cfg: cfg
+      })
+    : null;
+  // Respaldo si el módulo no está cargado: la simulación sigue siendo la fuente prioritaria.
+  if (!_prodResolved && _engStats && Number.isFinite(_engStats.annualYieldKWh) && _engStats.annualYieldKWh > 0) {
+    _prodResolved = {
+      annualKWh: _engStats.annualYieldKWh,
+      monthlyKWh: Array.isArray(_engStats.monthlyYields) ? _engStats.monthlyYields : null,
+      source: 'simulation',
+      detail: 'Simulación por panel (sombras + pérdidas)'
+    };
+  }
+  if (_prodResolved && _prodResolved.annualKWh > 0) {
+    annualKWh = Math.round(_prodResolved.annualKWh);
+    if (Array.isArray(_prodResolved.monthlyKWh) && _prodResolved.monthlyKWh.length === 12) {
+      monthly.forEach((row, m) => {
+        const kwh = Number(_prodResolved.monthlyKWh[m]) || 0;
+        row.kWh = Math.round(kwh);
+        row.hsp = (eng.P_dc_kW > 0 ? (kwh / (eng.P_dc_kW * MONTH_DAYS[m])) : 0).toFixed(2);
+      });
     }
+    productionSource = _prodResolved.source;
+    productionSourceDetail = _prodResolved.detail;
   }
   const hspAnual = eng.P_dc_kW > 0 ? Math.round(annualKWh / eng.P_dc_kW) : 0;
 

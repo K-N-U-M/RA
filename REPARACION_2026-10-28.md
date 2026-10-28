@@ -7,7 +7,7 @@
 | :--- | :--- |
 | Base de partida | `91d241f` (auditoría) → árbol actualizado por terceros hasta `f75a627` |
 | Olas ejecutadas | **Ola 0-1** (`8f7938d`) · **Ola 2** (`f4c1a92`) |
-| Gate | **40/40 tests en verde** (`node tests/run-all.js`) |
+| Gate | **42/42 tests en verde** (`node tests/run-all.js`) |
 | Inline `index.html` | 5 bloques compilan (`new Function` sobre el HTML) |
 
 ---
@@ -97,6 +97,15 @@ C-01 (coeficientes MPPT inline), C-03 (ρ(T)), C-04 (RCD Tipo B), C-06, D-03 (PR
 | **F-04** | Inventario real actualizado: 63 archivos JS (50 + 13 eólicos), `package.json` existente, `sanitizer.js` y `js/wind/` documentados; corregida la afirmación «no existe package.json». | `AGENTS.md`, `doc/02-tecnologia.md` |
 | **F-03 (parcial)** | Workflow de CI sin dependencias (`.github/workflows/tests.yml`): sintaxis, batería completa, secretos y servidor. Pendiente ESLint formal. | `.github/workflows/tests.yml` |
 
+### 2.9 Ola 5 — observabilidad y trinquete del monolito
+
+| ID | Cambio | Archivo | Prueba |
+| :--- | :--- | :--- | :--- |
+| **F-06** | `RA_ErrorHandler` guarda un buffer circular (50) con contexto (proyecto, paso, mensaje, stack), engancha `error` y `unhandledrejection`, y expone `RAErrors.report()/exportJSON()/download()`. | `js/error-handler.js` | `test-error-observability` |
+| **F-01 (parcial)** | 1) La resolución de producción sale del inline a `js/production-source.js` (prioridad + memoización), con respaldo local si el módulo no carga. 2) Eliminada la declaración muerta duplicada de `wpStartGridMeterPlacement` (la segunda ganaba por hoisting). 3) Nuevo **trinquete**: el inline no puede crecer (techo 16.414 líneas, 237 funciones, 0 duplicados, 16 nombres compartidos). | `index.html`, `js/production-source.js` | `test-inline-ratchet`, `test-production-source`, `test-module-wiring` |
+
+> **Balance honesto del inline:** partía de 16.252 líneas y está en 16.413. El neto sube por los bloques de seguridad añadidos (producción trazable, `N/D`, comprobaciones), pero el trinquete impide que siga creciendo y ya no hay funciones duplicadas. A partir de aquí, todo lo nuevo va a módulos.
+
 ---
 
 ## 3. Decisiones tomadas (documentadas)
@@ -137,7 +146,7 @@ C-01 (coeficientes MPPT inline), C-03 (ρ(T)), C-04 (RCD Tipo B), C-06, D-03 (PR
 
 ```powershell
 cd C:\TRABAJOS\RA\RA
-node tests/run-all.js        # 40/40, exit 0
+node tests/run-all.js        # 42/42, exit 0
 node tests/test-js-syntax.js # 61 módulos OK
 git log --oneline -3
 ```

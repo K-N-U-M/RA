@@ -42,15 +42,18 @@ assert.ok(Math.abs(sumM - ph.annualKWh) / ph.annualKWh < 0.02, `Suma mensual (${
 assert.ok(ph.monthlyKWh[6] > ph.monthlyKWh[0] * 1.5, 'Julio debe superar claramente a enero en el hemisferio norte');
 console.log(`  ✓ PASS: ${ph.annualKWh} kWh/año · julio ${ph.monthlyKWh[6]} vs enero ${ph.monthlyKWh[0]}`);
 
-// 2. Fuente declarada en el SSOT.
+// 2. Fuente declarada en el SSOT y resolución externalizada (F-01).
 const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
 assert.ok(/let productionSource = 'fallback-seasonal'/.test(html), 'Debe inicializarse la fuente como fallback');
-assert.ok(/productionSource = 'simulation'/.test(html), 'La simulación debe declararse');
-assert.ok(/productionSource = 'physical'/.test(html), 'El motor físico debe declararse');
+assert.ok(/RAProduction\.resolve\(/.test(html), 'getProjectCalcs debe delegar la prioridad en RAProduction');
+assert.ok(/productionSource = _prodResolved\.source/.test(html), 'La fuente resuelta debe propagarse');
 assert.ok(/productionSource,/.test(html), 'La fuente debe viajar en getProjectCalcs()');
-assert.ok(/__raCanonicalProdCache/.test(html), 'El modelo físico debe memoizarse');
-assert.ok(/runPhysicalModel\(eng\.P_dc_kW/.test(html), 'Debe usarse el motor físico con los datos del proyecto');
-console.log('  ✓ PASS: getProjectCalcs declara simulation / physical / fallback y memoiza');
+
+const prodSrc = fs.readFileSync(path.join(ROOT, 'js/production-source.js'), 'utf8');
+assert.ok(/source: 'simulation'/.test(prodSrc) && /source: 'physical'/.test(prodSrc), 'El módulo debe declarar ambas fuentes');
+assert.ok(/function signature\(/.test(prodSrc) && /_cache\[sig\]/.test(prodSrc), 'El modelo físico debe memoizarse');
+assert.ok(/root\.runPhysicalModel/.test(prodSrc), 'Debe usar el motor físico del proyecto');
+console.log('  ✓ PASS: prioridad simulation → physical → fallback externalizada y memoizada');
 
 // 3. El documento refleja la fuente.
 const docs = fs.readFileSync(path.join(ROOT, 'js/docs-generator.js'), 'utf8');
