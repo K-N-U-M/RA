@@ -3408,6 +3408,10 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       body.mode-edit-layout [data-editable-box] {
         position: relative !important;
         cursor: grab !important;
+        resize: both !important;
+        overflow: auto !important;
+        min-width: 60px !important;
+        min-height: 40px !important;
         transition: outline 0.15s ease, box-shadow 0.15s ease;
       }
       body.mode-edit-layout [data-editable-box]:active {
@@ -4511,6 +4515,15 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
                 if (ev.target.closest('.ra-edit-del-btn')) return;
                 const isDirectTextEdit = ['INPUT', 'TEXTAREA'].includes(ev.target.tagName);
                 if (isDirectTextEdit) return;
+
+                // Si el clic se produce sobre el tirador de redimensión (esquina inferior derecha de 18x18px), permitir redimensionar sin arrastrar
+                const rect = el.getBoundingClientRect();
+                const isOnResizeHandle = (ev.clientX >= rect.right - 18) && (ev.clientY >= rect.bottom - 18);
+                if (isOnResizeHandle) {
+                  el.removeAttribute('draggable');
+                  return;
+                }
+
                 el.setAttribute('draggable', 'true');
               });
 
