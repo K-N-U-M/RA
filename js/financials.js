@@ -3132,7 +3132,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300;400;600;700&family=Inter:wght@400;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
     <style>
       *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-      body { background: #f1f5f9; font-family: 'Segoe UI', Arial, sans-serif; color: #0f172a; padding: 20px; display: flex; flex-direction: column; align-items: center; padding-top: 70px; }
+      body { background: #f1f5f9; font-family: 'Comfortaa', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #0f172a; padding: 20px; display: flex; flex-direction: column; align-items: center; padding-top: 70px; }
       .doc-top-bar { position: fixed; top: 0; left: 0; right: 0; height: 50px; background: #0f172a; color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; z-index: 99999; box-shadow: 0 4px 20px rgba(0,0,0,0.3); border-bottom: 2px solid ${pal.primary}; }
       .doc-bar-title { font-weight: 800; font-size: 12px; color: #f8fafc; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px; }
       .doc-bar-title span { color: ${pal.accent}; font-family: monospace; font-size: 11px; }
@@ -3470,9 +3470,9 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     <!-- BARRA FLOTANTE DE FORMATO TEXTUAL -->
     <div id="prop-format-toolbar" class="no-print">
       <select id="prop-fmt-font" onchange="applyPropFormat('fontName', this.value)" title="Tipografía">
+        <option value="'Comfortaa', cursive, sans-serif" selected>Comfortaa (Redondeada - Por Defecto)</option>
         <option value="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">Sistema / Sans</option>
         <option value="Inter, system-ui, sans-serif">Inter</option>
-        <option value="'Comfortaa', cursive, sans-serif">Comfortaa (Redondeada)</option>
         <option value="Roboto, sans-serif">Roboto</option>
         <option value="'Space Grotesk', sans-serif">Space Grotesk</option>
         <option value="Georgia, serif">Georgia</option>
