@@ -1610,6 +1610,10 @@
   window.wpInvalidateHeatmap = function(reason) {
     _activeSimGenerationId++; // Cancelación atómica inmediata de cualquier simulación asíncrona en curso
     if (typeof hideSolarCalcHUD === 'function') hideSolarCalcHUD();
+    // Reactividad en vivo: si el modo Live Heatmap está activo, reevaluar en caliente
+    if (typeof window !== 'undefined' && window.LiveSolarProbe && window.LiveSolarProbe.enabled) {
+      window.LiveSolarProbe.evaluate();
+    }
     const wasHeatmapMode = !!(
       (window.solarSimState && window.solarSimState.viewMode === 'heatmap') ||
       (typeof solarSimState !== 'undefined' && solarSimState && solarSimState.viewMode === 'heatmap')
