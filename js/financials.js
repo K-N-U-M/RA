@@ -2657,7 +2657,7 @@ if (typeof window !== 'undefined') {
     var excW = Math.max(15, 100 - autoW - batW);
 
     // SVG Radar de Cobertura 5.000 metros (78,5 km² según RDL 7/2026) rediseñado con espacio amplio sin solapes
-    var radarSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 260" width="100%" height="100%" style="display:block;">' +
+    var radarSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" width="100%" height="100%" style="display:block;">' +
       '<defs>' +
         '<radialGradient id="celRadarGlow" cx="50%" cy="50%" r="50%">' +
           '<stop offset="0%" stop-color="' + pal.primary + '" stop-opacity="0.25"/>' +
@@ -2665,61 +2665,61 @@ if (typeof window !== 'undefined') {
           '<stop offset="100%" stop-color="' + pal.primary + '" stop-opacity="0.01"/>' +
         '</radialGradient>' +
       '</defs>' +
-      '<rect x="0" y="0" width="560" height="260" rx="10" fill="#0b1329"/>' +
+      '<rect x="0" y="0" width="640" height="360" rx="12" fill="#0b1329"/>' +
       
       // Ejes y retícula concéntrica
-      '<line x1="280" y1="12" x2="280" y2="248" stroke="#1e293b" stroke-width="1.2" stroke-dasharray="3,3"/>' +
-      '<line x1="20" y1="130" x2="540" y2="130" stroke="#1e293b" stroke-width="1.2" stroke-dasharray="3,3"/>' +
+      '<line x1="320" y1="20" x2="320" y2="340" stroke="#1e293b" stroke-width="1.4" stroke-dasharray="4,4"/>' +
+      '<line x1="20" y1="185" x2="620" y2="185" stroke="#1e293b" stroke-width="1.4" stroke-dasharray="4,4"/>' +
       
-      // Anillos concéntricos de distancia
-      '<circle cx="280" cy="130" r="115" fill="url(#celRadarGlow)" stroke="' + pal.primary + '" stroke-width="2" stroke-dasharray="6,3"/>' +
-      '<circle cx="280" cy="130" r="75" fill="none" stroke="#334155" stroke-width="1.2" stroke-dasharray="3,3"/>' +
-      '<circle cx="280" cy="130" r="38" fill="none" stroke="#334155" stroke-width="1.2"/>' +
+      // Anillos concéntricos de distancia amplia
+      '<circle cx="320" cy="185" r="135" fill="url(#celRadarGlow)" stroke="' + pal.primary + '" stroke-width="2.2" stroke-dasharray="6,4"/>' +
+      '<circle cx="320" cy="185" r="90" fill="none" stroke="#334155" stroke-width="1.4" stroke-dasharray="4,4"/>' +
+      '<circle cx="320" cy="185" r="45" fill="none" stroke="#334155" stroke-width="1.4"/>' +
       
-      // Etiquetas de distancia concéntricas despejadas
-      '<text x="284" y="98" fill="#64748b" font-size="8.5" font-weight="700" font-family="monospace">1.000 m (1 km)</text>' +
-      '<text x="284" y="62" fill="#64748b" font-size="8.5" font-weight="700" font-family="monospace">2.500 m (2,5 km)</text>' +
-      '<text x="280" y="24" fill="' + pal.accent + '" font-size="10" font-weight="900" font-family="monospace" text-anchor="middle" letter-spacing="0.5">RADIO PERIMETRAL 5.000 m · MARCO RDL 7/2026 (78,5 km²)</text>' +
+      // Etiquetas de distancia concéntricas despejadas y legibles
+      '<text x="325" y="147" fill="#94a3b8" font-size="10.5" font-weight="800" font-family="monospace">1.000 m (1 km)</text>' +
+      '<text x="325" y="102" fill="#94a3b8" font-size="10.5" font-weight="800" font-family="monospace">2.500 m (2,5 km)</text>' +
+      '<text x="320" y="32" fill="' + pal.accent + '" font-size="12" font-weight="900" font-family="monospace" text-anchor="middle" letter-spacing="0.8">RADIO PERIMETRAL 5.000 m · MARCO RDL 7/2026 (78,5 km²)</text>' +
       
       // Líneas de enlace a los nodos de reparto
-      '<line x1="280" y1="130" x2="195" y2="60" stroke="' + pal.accent + '" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.8"/>' +
-      '<line x1="280" y1="130" x2="375" y2="65" stroke="' + pal.accent + '" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.8"/>' +
-      '<line x1="280" y1="130" x2="395" y2="175" stroke="' + pal.accent + '" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.8"/>' +
-      '<line x1="280" y1="130" x2="165" y2="180" stroke="' + pal.accent + '" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.8"/>' +
-      '<line x1="280" y1="130" x2="280" y2="225" stroke="' + pal.accent + '" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.8"/>' +
+      '<line x1="320" y1="185" x2="225" y2="95" stroke="' + pal.accent + '" stroke-width="1.8" stroke-dasharray="4,3" opacity="0.85"/>' +
+      '<line x1="320" y1="185" x2="435" y2="100" stroke="' + pal.accent + '" stroke-width="1.8" stroke-dasharray="4,3" opacity="0.85"/>' +
+      '<line x1="320" y1="185" x2="455" y2="245" stroke="' + pal.accent + '" stroke-width="1.8" stroke-dasharray="4,3" opacity="0.85"/>' +
+      '<line x1="320" y1="185" x2="185" y2="250" stroke="' + pal.accent + '" stroke-width="1.8" stroke-dasharray="4,3" opacity="0.85"/>' +
+      '<line x1="320" y1="185" x2="320" y2="315" stroke="' + pal.accent + '" stroke-width="1.8" stroke-dasharray="4,3" opacity="0.85"/>' +
       
       // Nodo 1: Viviendas (Noroeste)
-      '<circle cx="195" cy="60" r="6.5" fill="#38bdf8" stroke="#ffffff" stroke-width="2"/>' +
-      '<text x="184" y="58" fill="#ffffff" font-size="9.5" font-weight="800" text-anchor="end">🏡 Viviendas (1,2 km)</text>' +
+      '<circle cx="225" cy="95" r="8" fill="#38bdf8" stroke="#ffffff" stroke-width="2.5"/>' +
+      '<text x="210" y="99" fill="#ffffff" font-size="11.5" font-weight="800" text-anchor="end">🏡 Viviendas (1,2 km)</text>' +
       
       // Nodo 2: Comercio (Noreste)
-      '<circle cx="375" cy="65" r="6.5" fill="#f59e0b" stroke="#ffffff" stroke-width="2"/>' +
-      '<text x="388" y="63" fill="#ffffff" font-size="9.5" font-weight="800">🏪 Comercio (2,1 km)</text>' +
+      '<circle cx="435" cy="100" r="8" fill="#f59e0b" stroke="#ffffff" stroke-width="2.5"/>' +
+      '<text x="450" y="104" fill="#ffffff" font-size="11.5" font-weight="800">🏪 Comercio (2,1 km)</text>' +
       
       // Nodo 3: Colegio (Sureste)
-      '<circle cx="395" cy="175" r="6.5" fill="#a855f7" stroke="#ffffff" stroke-width="2"/>' +
-      '<text x="408" y="179" fill="#ffffff" font-size="9.5" font-weight="800">🏫 Colegio (3,8 km)</text>' +
+      '<circle cx="455" cy="245" r="8" fill="#a855f7" stroke="#ffffff" stroke-width="2.5"/>' +
+      '<text x="470" y="249" fill="#ffffff" font-size="11.5" font-weight="800">🏫 Colegio (3,8 km)</text>' +
       
       // Nodo 4: PYME / Taller (Suroeste)
-      '<circle cx="165" cy="180" r="6.5" fill="#34d399" stroke="#ffffff" stroke-width="2"/>' +
-      '<text x="154" y="184" fill="#ffffff" font-size="9.5" font-weight="800" text-anchor="end">🏭 PYME / Taller (4,4 km)</text>' +
+      '<circle cx="185" cy="250" r="8" fill="#34d399" stroke="#ffffff" stroke-width="2.5"/>' +
+      '<text x="170" y="254" fill="#ffffff" font-size="11.5" font-weight="800" text-anchor="end">🏭 PYME / Taller (4,4 km)</text>' +
       
       // Nodo 5: Comunidad (Sur)
-      '<circle cx="280" cy="225" r="6.5" fill="#ec4899" stroke="#ffffff" stroke-width="2"/>' +
-      '<text x="294" y="229" fill="#ffffff" font-size="9.5" font-weight="800">🏢 Comunidad (4,9 km)</text>' +
+      '<circle cx="320" cy="315" r="8" fill="#ec4899" stroke="#ffffff" stroke-width="2.5"/>' +
+      '<text x="336" y="319" fill="#ffffff" font-size="11.5" font-weight="800">🏢 Comunidad (4,9 km)</text>' +
       
       // Núcleo: TU HUB GENERADOR
-      '<circle cx="280" cy="130" r="20" fill="' + pal.primary + '" opacity="0.35"/>' +
-      '<circle cx="280" cy="130" r="11" fill="#ffffff" stroke="' + pal.primary + '" stroke-width="3"/>' +
-      '<circle cx="280" cy="130" r="5" fill="' + pal.dark + '"/>' +
-      '<rect x="220" y="146" width="120" height="20" rx="4" fill="rgba(15,23,42,0.95)" stroke="' + pal.primary + '" stroke-width="1.2"/>' +
-      '<text x="280" y="160" fill="#ffffff" font-size="9.5" font-weight="900" text-anchor="middle">☀️ TU HUB GENERADOR</text>' +
+      '<circle cx="320" cy="185" r="26" fill="' + pal.primary + '" opacity="0.35"/>' +
+      '<circle cx="320" cy="185" r="14" fill="#ffffff" stroke="' + pal.primary + '" stroke-width="3.5"/>' +
+      '<circle cx="320" cy="185" r="6" fill="' + pal.dark + '"/>' +
+      '<rect x="245" y="205" width="150" height="26" rx="5" fill="rgba(15,23,42,0.96)" stroke="' + pal.primary + '" stroke-width="1.5"/>' +
+      '<text x="320" y="222" fill="#ffffff" font-size="11" font-weight="900" text-anchor="middle">☀️ TU HUB GENERADOR</text>' +
       
-      // Insignia flotante superior izquierda con posición no invasiva
-      '<rect x="14" y="14" width="126" height="34" rx="6" fill="rgba(15,23,42,0.90)" stroke="rgba(56,189,248,0.4)" stroke-width="1.2"/>' +
-      '<text x="22" y="29" fill="#38bdf8" font-size="9" font-weight="900" letter-spacing="0.4">REPARTO LOCAL P2P</text>' +
-      '<text x="22" y="41" fill="#94a3b8" font-size="8">Telemedida horaria βh</text>' +
-    '</svg>';
+      // Insignia flotante superior izquierda holgada sin solapes
+      '<rect x="18" y="16" width="150" height="42" rx="7" fill="rgba(15,23,42,0.92)" stroke="rgba(56,189,248,0.4)" stroke-width="1.2"/>' +
+      '<text x="28" y="34" fill="#38bdf8" font-size="10.5" font-weight="900" letter-spacing="0.5">REPARTO LOCAL P2P</text>' +
+      '<text x="28" y="49" fill="#94a3b8" font-size="9.5" font-weight="600">Telemedida horaria βh</text>' +
+    '</svg>'
 
     // HOJA 1 CEL: MODELO ECONÓMICO Y HOMOLOGACIÓN
     var page1Html = '<div class="page-sheet">' +
@@ -2878,7 +2878,7 @@ if (typeof window !== 'undefined') {
             '<div style="font-size: 13px; font-weight: 900; color: #0f172a; text-transform: uppercase; letter-spacing: -0.2px;">2. Radar de Cobertura y Topología de Reparto (5 km)</div>' +
             '<span style="font-size: 9.5px; font-weight: 800; color: ' + pal.primary + '; background: ' + pal.light + '; padding: 3px 10px; border-radius: 6px;">RDL 7/2026 · 78,5 km² de Cobertura</span>' +
           '</div>' +
-          '<div class="cel-radar-inner" style="width: 100%; height: 230px; min-height: 100px; border-radius: 10px; overflow: hidden; background: #0b1329; box-shadow: 0 4px 16px rgba(0,0,0,0.2);">' +
+          '<div class="cel-radar-inner" style="width: 100%; height: 320px; min-height: 260px; border-radius: 10px; overflow: hidden; background: #0b1329; box-shadow: 0 4px 16px rgba(0,0,0,0.2);">' +
             radarSvg +
           '</div>' +
           '<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 10px; color: #64748b; line-height: 1.4; gap: 16px;">' +
