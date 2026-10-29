@@ -4128,55 +4128,55 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
             <div class="doc-ref-box"><b>Ref: ${d.refNum}</b><br>Hoja ${_pageIndexComparativa} de ${_totPages}</div>
           </div>
           <h2>Elige el nivel de independencia energética para tu inmueble</h2>
-          <p style="font-size:10px;color:#64748b;margin-bottom:18px;">Hemos preparado tres alternativas equilibradas para adaptarse a tu presupuesto y objetivos de ahorro a largo plazo:</p>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:20px;">
+          <p style="font-size:12px;color:#64748b;margin-bottom:28px;line-height:1.5;">Hemos preparado tres alternativas equilibradas para adaptarse a tu presupuesto y objetivos de ahorro a largo plazo:</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-bottom:34px;">
             
-            <div style="border:1px solid #cbd5e1;border-radius:10px;padding:18px 14px;background:#f8fafc;display:flex;flex-direction:column;justify-content:space-between;">
+            <div style="border:1.5px solid #cbd5e1;border-radius:12px;padding:28px 18px;min-height:124mm;background:#f8fafc;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 2px 8px rgba(0,0,0,0.02);">
               <div>
-                <div style="font-size:11.5px;font-weight:800;color:#475569;text-transform:uppercase;">${pkgs.essential.title}</div>
-                <div style="font-size:9.5px;color:#64748b;margin:6px 0 14px;line-height:1.4;">${pkgs.essential.desc}</div>
-                <div style="font-size:22px;font-weight:900;color:#0f172a;">${pkgs.essential.capex.toLocaleString('es-ES')} €</div>
-                <div style="font-size:9px;color:#64748b;margin-top:2px;">IVA 21% incluido</div>
+                <div style="font-size:14px;font-weight:900;color:#475569;text-transform:uppercase;letter-spacing:0.5px;">${pkgs.essential.title}</div>
+                <div style="font-size:11.5px;color:#64748b;margin:12px 0 22px;line-height:1.55;">${pkgs.essential.desc}</div>
+                <div style="font-size:28px;font-weight:900;color:#0f172a;">${pkgs.essential.capex.toLocaleString('es-ES')} €</div>
+                <div style="font-size:10px;color:#64748b;margin-top:4px;">IVA 21% incluido</div>
               </div>
-              <div style="margin-top:16px;border-top:1px solid #e2e8f0;padding-top:12px;font-size:10px;line-height:1.7;">
-                <div>• Ahorro: <b>${pkgs.essential.ahorroAnual.toLocaleString('es-ES')} €/año</b></div>
-                <div>• Retorno: <b>${pkgs.essential.payback} años</b></div>
-                <div>• Autarquía solar: <b>~${pkgs.essential.autarquia}%</b></div>
+              <div style="margin-top:26px;border-top:1.5px solid #e2e8f0;padding-top:18px;font-size:12px;line-height:1.9;">
+                <div>⚡ Ahorro: <b>${pkgs.essential.ahorroAnual.toLocaleString('es-ES')} €/año</b></div>
+                <div>🔄 Retorno: <b>${pkgs.essential.payback} años</b></div>
+                <div>☀️ Autarquía solar: <b>~${pkgs.essential.autarquia}%</b></div>
               </div>
             </div>
 
-            <div style="border:2.5px solid ${pal.primary};border-radius:10px;padding:18px 14px;background:#ffffff;box-shadow:0 8px 24px rgba(0,0,0,0.06);display:flex;flex-direction:column;justify-content:space-between;position:relative;">
-              <div style="position:absolute;top:-10px;right:12px;background:${pal.primary};color:#fff;font-size:8.5px;font-weight:900;padding:2px 10px;border-radius:10px;letter-spacing:0.5px;">PROYECTO ACTUAL</div>
+            <div style="border:3px solid ${pal.primary};border-radius:12px;padding:28px 18px;min-height:124mm;background:#ffffff;box-shadow:0 12px 32px rgba(0,0,0,0.08);display:flex;flex-direction:column;justify-content:space-between;position:relative;">
+              <div style="position:absolute;top:-12px;right:14px;background:${pal.primary};color:#fff;font-size:9.5px;font-weight:900;padding:3px 12px;border-radius:12px;letter-spacing:0.6px;box-shadow:0 2px 6px rgba(0,0,0,0.15);">PROYECTO ACTUAL</div>
               <div>
-                <div style="font-size:11.5px;font-weight:900;color:${pal.dark};text-transform:uppercase;">${pkgs.optimal.title}</div>
-                <div style="font-size:9.5px;color:#64748b;margin:6px 0 14px;line-height:1.4;">${pkgs.optimal.desc}</div>
-                <div style="font-size:24px;font-weight:900;color:${pal.primary};">${pkgs.optimal.capex.toLocaleString('es-ES')} €</div>
-                <div style="font-size:9px;color:#64748b;margin-top:2px;">IVA 21% incluido</div>
+                <div style="font-size:14px;font-weight:900;color:${pal.dark};text-transform:uppercase;letter-spacing:0.5px;">${pkgs.optimal.title}</div>
+                <div style="font-size:11.5px;color:#64748b;margin:12px 0 22px;line-height:1.55;">${pkgs.optimal.desc}</div>
+                <div style="font-size:32px;font-weight:900;color:${pal.primary};">${pkgs.optimal.capex.toLocaleString('es-ES')} €</div>
+                <div style="font-size:10px;color:#64748b;margin-top:4px;">IVA 21% incluido</div>
               </div>
-              <div style="margin-top:16px;border-top:1px solid #e2e8f0;padding-top:12px;font-size:10px;line-height:1.7;">
-                <div>• Ahorro: <b>${pkgs.optimal.ahorroAnual.toLocaleString('es-ES')} €/año</b></div>
-                <div>• Retorno: <b>${pkgs.optimal.payback} años</b></div>
-                <div>• Autarquía solar: <b>~${pkgs.optimal.autarquia}%</b></div>
+              <div style="margin-top:26px;border-top:1.5px solid #e2e8f0;padding-top:18px;font-size:12px;line-height:1.9;">
+                <div>⚡ Ahorro: <b>${pkgs.optimal.ahorroAnual.toLocaleString('es-ES')} €/año</b></div>
+                <div>🔄 Retorno: <b>${pkgs.optimal.payback} años</b></div>
+                <div>☀️ Autarquía solar: <b>~${pkgs.optimal.autarquia}%</b></div>
               </div>
             </div>
 
-            <div style="border:1px solid #cbd5e1;border-radius:10px;padding:18px 14px;background:#f8fafc;display:flex;flex-direction:column;justify-content:space-between;">
+            <div style="border:1.5px solid #cbd5e1;border-radius:12px;padding:28px 18px;min-height:124mm;background:#f8fafc;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 2px 8px rgba(0,0,0,0.02);">
               <div>
-                <div style="font-size:11.5px;font-weight:800;color:#0369a1;text-transform:uppercase;">${pkgs.premium.title}</div>
-                <div style="font-size:9.5px;color:#64748b;margin:6px 0 14px;line-height:1.4;">${pkgs.premium.desc}</div>
-                <div style="font-size:22px;font-weight:900;color:#0369a1;">${pkgs.premium.capex.toLocaleString('es-ES')} €</div>
-                <div style="font-size:9px;color:#64748b;margin-top:2px;">IVA 21% incluido</div>
+                <div style="font-size:14px;font-weight:900;color:#0369a1;text-transform:uppercase;letter-spacing:0.5px;">${pkgs.premium.title}</div>
+                <div style="font-size:11.5px;color:#64748b;margin:12px 0 22px;line-height:1.55;">${pkgs.premium.desc}</div>
+                <div style="font-size:28px;font-weight:900;color:#0369a1;">${pkgs.premium.capex.toLocaleString('es-ES')} €</div>
+                <div style="font-size:10px;color:#64748b;margin-top:4px;">IVA 21% incluido</div>
               </div>
-              <div style="margin-top:16px;border-top:1px solid #e2e8f0;padding-top:12px;font-size:10px;line-height:1.7;">
-                <div>• Ahorro: <b>${pkgs.premium.ahorroAnual.toLocaleString('es-ES')} €/año</b></div>
-                <div>• Retorno: <b>${pkgs.premium.payback} años</b></div>
-                <div>• Autarquía solar: <b>~${pkgs.premium.autarquia}%</b></div>
+              <div style="margin-top:26px;border-top:1.5px solid #e2e8f0;padding-top:18px;font-size:12px;line-height:1.9;">
+                <div>⚡ Ahorro: <b>${pkgs.premium.ahorroAnual.toLocaleString('es-ES')} €/año</b></div>
+                <div>🔄 Retorno: <b>${pkgs.premium.payback} años</b></div>
+                <div>☀️ Autarquía solar: <b>~${pkgs.premium.autarquia}%</b></div>
               </div>
             </div>
 
           </div>
 
-          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px;font-size:10px;color:#475569;line-height:1.5;">
+          <div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:22px 24px;font-size:12px;color:#475569;line-height:1.7;box-shadow:0 1px 4px rgba(0,0,0,0.02);">
             <b>Criterio Técnico de Selección:</b> El paquete <b>${pkgs.optimal.title}</b> ha sido calculado por nuestro gemelo digital como el punto óptimo de rentabilidad marginal (máximo VAN y menor coste nivelado LCOE). Las tres modalidades incluyen ingeniería completa, permisos de acceso y conexión, y boletín eléctrico oficial CIE.
           </div>
         </div>
