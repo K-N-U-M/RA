@@ -3097,6 +3097,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
 
   let _pageTracker = 3;
   const _pageIndexComparativa = _hasThreePkgs ? ++_pageTracker : 0;
+  const _pageIndexInfografias = _hasThreePkgs ? ++_pageTracker : 0;
   const _pageIndexProduccion = ++_pageTracker;
   const _pageIndexGarantias = ++_pageTracker;
   const _pageIndexCEL = _includeCEL ? ++_pageTracker : 0;
@@ -3338,11 +3339,11 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       .tech-badge { width: 100%; text-align: center; background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 6px 8px; font-size: 11.5px; font-weight: 900; color: ${pal.primary}; box-shadow: 0 1px 3px rgba(0,0,0,0.02); }
       /* Estilos para Página de Fotos e Implantación 3D */
       .photo-grid-main { display: flex; flex-direction: column; gap: 12px; margin-top: 10px; }
-      .photo-card-hero { height: 112mm; border: 1.5px solid #cbd5e1; border-radius: 8px; overflow: hidden; background: #f8fafc; position: relative; display: flex; flex-direction: column; }
+      .photo-card-hero { height: 96mm; border: 1.5px solid #cbd5e1; border-radius: 8px; overflow: hidden; background: #f8fafc; position: relative; display: flex; flex-direction: column; }
       .cover-photo-card { height: 74mm; border: 1.5px solid #cbd5e1; border-radius: 10px; overflow: hidden; background: #ffffff; position: relative; display: flex; flex-direction: column; margin: 12px 0 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.03); }
       .cover-photo-card .photo-img-wrap { background: #ffffff; }
       .cover-photo-card .photo-img-wrap img { object-fit: contain; }
-      .photo-card-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; height: 80mm; }
+      .photo-card-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; height: 68mm; }
       .photo-card-sub { border: 1.5px solid #cbd5e1; border-radius: 8px; overflow: hidden; background: #f8fafc; position: relative; display: flex; flex-direction: column; }
       .photo-img-wrap { flex: 1; position: relative; overflow: hidden; background: #0f172a; display: flex; align-items: center; justify-content: center; cursor: pointer; }
       .photo-img-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -3834,18 +3835,19 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
 
     <!-- PÁGINA 3: IMPLANTACIÓN SOLAR Y VISTAS DEL PROYECTO (FOTOS Y SIMULACIÓN 3D) -->
     <div class="page-sheet">
-      <div class="cover-header">
-        <div class="company-text">
-          <div class="name">IMPLANTACIÓN SOLAR &amp; <span style="color:${pal.primary}">VISTAS DEL PROYECTO</span></div>
-          <div class="sub">Simulación Tridimensional · Integración Arquitectónica · Reporte Fotográfico</div>
+      <div>
+        <div class="cover-header">
+          <div class="company-text">
+            <div class="name">IMPLANTACIÓN SOLAR &amp; <span style="color:${pal.primary}">VISTAS DEL PROYECTO</span></div>
+            <div class="sub">Simulación Tridimensional · Integración Arquitectónica · Reporte Fotográfico</div>
+          </div>
+          <div class="doc-ref-box"><b>Ref: ${d.refNum}</b><br>Hoja 3 de ${_totPages}</div>
         </div>
-        <div class="doc-ref-box"><b>Ref: ${d.refNum}</b><br>Hoja 3 de ${_totPages}</div>
-      </div>
 
-      <h2>Gemelo digital y reportaje fotográfico de la instalación</h2>
-      <p style="font-size:10px;color:#64748b;margin-bottom:8px;">Vistas de integración del campo solar sobre cubierta y ubicación prevista para los componentes principales:</p>
+        <h2>Gemelo digital y reportaje fotográfico de la instalación</h2>
+        <p style="font-size:10px;color:#64748b;margin-bottom:8px;">Vistas de integración del campo solar sobre cubierta y ubicación prevista para los componentes principales:</p>
 
-      <div class="photo-grid-main">
+        <div class="photo-grid-main">
         <!-- Foto 1: Principal Hero 3D -->
         <div class="photo-card-hero">
           <div class="photo-img-wrap" onclick="triggerPhotoUpload('photo-hero-input')">
@@ -3925,6 +3927,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
           </div>
         </div>
       </div>
+      </div>
 
       <!-- PIE DE HOJA 3 -->
       <div class="cover-footer" style="margin-top:auto;padding-top:12px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;font-size:9px;color:#64748b;">
@@ -3939,7 +3942,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       var pkgs = RAPricing.computeThreePackages(m);
       if (!pkgs) return '';
       return `
-      <!-- PÁGINA INTERMEDIA: COMPARATIVA DE 3 PAQUETES (GOOD / BETTER / BEST) -->
+      <!-- PÁGINA 4A: COMPARATIVA DE 3 PAQUETES (ESENCIAL / ÓPTIMO / TOTAL) -->
       <div class="page-sheet">
         <div>
           <div class="cover-header">
@@ -3950,46 +3953,46 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
             <div class="doc-ref-box"><b>Ref: ${d.refNum}</b><br>Hoja ${_pageIndexComparativa} de ${_totPages}</div>
           </div>
           <h2>Elige el nivel de independencia energética para tu inmueble</h2>
-          <p style="font-size:10px;color:#64748b;margin-bottom:14px;">Hemos preparado tres alternativas equilibradas para adaptarse a tu presupuesto y objetivos de ahorro a largo plazo:</p>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:18px;">
+          <p style="font-size:10px;color:#64748b;margin-bottom:18px;">Hemos preparado tres alternativas equilibradas para adaptarse a tu presupuesto y objetivos de ahorro a largo plazo:</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:20px;">
             
-            <div style="border:1px solid #cbd5e1;border-radius:8px;padding:14px 12px;background:#f8fafc;display:flex;flex-direction:column;justify-content:space-between;">
+            <div style="border:1px solid #cbd5e1;border-radius:10px;padding:18px 14px;background:#f8fafc;display:flex;flex-direction:column;justify-content:space-between;">
               <div>
-                <div style="font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;">${pkgs.essential.title}</div>
-                <div style="font-size:9.5px;color:#64748b;margin:4px 0 10px;line-height:1.35;">${pkgs.essential.desc}</div>
-                <div style="font-size:20px;font-weight:900;color:#0f172a;">${pkgs.essential.capex.toLocaleString('es-ES')} €</div>
-                <div style="font-size:9px;color:#64748b;">IVA 21% incluido</div>
+                <div style="font-size:11.5px;font-weight:800;color:#475569;text-transform:uppercase;">${pkgs.essential.title}</div>
+                <div style="font-size:9.5px;color:#64748b;margin:6px 0 14px;line-height:1.4;">${pkgs.essential.desc}</div>
+                <div style="font-size:22px;font-weight:900;color:#0f172a;">${pkgs.essential.capex.toLocaleString('es-ES')} €</div>
+                <div style="font-size:9px;color:#64748b;margin-top:2px;">IVA 21% incluido</div>
               </div>
-              <div style="margin-top:12px;border-top:1px solid #e2e8f0;padding-top:8px;font-size:10px;line-height:1.6;">
+              <div style="margin-top:16px;border-top:1px solid #e2e8f0;padding-top:12px;font-size:10px;line-height:1.7;">
                 <div>• Ahorro: <b>${pkgs.essential.ahorroAnual.toLocaleString('es-ES')} €/año</b></div>
                 <div>• Retorno: <b>${pkgs.essential.payback} años</b></div>
                 <div>• Autarquía solar: <b>~${pkgs.essential.autarquia}%</b></div>
               </div>
             </div>
 
-            <div style="border:2.5px solid ${pal.primary};border-radius:8px;padding:14px 12px;background:#ffffff;box-shadow:0 6px 20px rgba(0,0,0,0.06);display:flex;flex-direction:column;justify-content:space-between;position:relative;">
-              <div style="position:absolute;top:-10px;right:10px;background:${pal.primary};color:#fff;font-size:8.5px;font-weight:900;padding:2px 8px;border-radius:10px;letter-spacing:0.5px;">PROYECTO ACTUAL</div>
+            <div style="border:2.5px solid ${pal.primary};border-radius:10px;padding:18px 14px;background:#ffffff;box-shadow:0 8px 24px rgba(0,0,0,0.06);display:flex;flex-direction:column;justify-content:space-between;position:relative;">
+              <div style="position:absolute;top:-10px;right:12px;background:${pal.primary};color:#fff;font-size:8.5px;font-weight:900;padding:2px 10px;border-radius:10px;letter-spacing:0.5px;">PROYECTO ACTUAL</div>
               <div>
-                <div style="font-size:11px;font-weight:900;color:${pal.dark};text-transform:uppercase;">${pkgs.optimal.title}</div>
-                <div style="font-size:9.5px;color:#64748b;margin:4px 0 10px;line-height:1.35;">${pkgs.optimal.desc}</div>
-                <div style="font-size:22px;font-weight:900;color:${pal.primary};">${pkgs.optimal.capex.toLocaleString('es-ES')} €</div>
-                <div style="font-size:9px;color:#64748b;">IVA 21% incluido</div>
+                <div style="font-size:11.5px;font-weight:900;color:${pal.dark};text-transform:uppercase;">${pkgs.optimal.title}</div>
+                <div style="font-size:9.5px;color:#64748b;margin:6px 0 14px;line-height:1.4;">${pkgs.optimal.desc}</div>
+                <div style="font-size:24px;font-weight:900;color:${pal.primary};">${pkgs.optimal.capex.toLocaleString('es-ES')} €</div>
+                <div style="font-size:9px;color:#64748b;margin-top:2px;">IVA 21% incluido</div>
               </div>
-              <div style="margin-top:12px;border-top:1px solid #e2e8f0;padding-top:8px;font-size:10px;line-height:1.6;">
+              <div style="margin-top:16px;border-top:1px solid #e2e8f0;padding-top:12px;font-size:10px;line-height:1.7;">
                 <div>• Ahorro: <b>${pkgs.optimal.ahorroAnual.toLocaleString('es-ES')} €/año</b></div>
                 <div>• Retorno: <b>${pkgs.optimal.payback} años</b></div>
                 <div>• Autarquía solar: <b>~${pkgs.optimal.autarquia}%</b></div>
               </div>
             </div>
 
-            <div style="border:1px solid #cbd5e1;border-radius:8px;padding:14px 12px;background:#f8fafc;display:flex;flex-direction:column;justify-content:space-between;">
+            <div style="border:1px solid #cbd5e1;border-radius:10px;padding:18px 14px;background:#f8fafc;display:flex;flex-direction:column;justify-content:space-between;">
               <div>
-                <div style="font-size:11px;font-weight:800;color:#0369a1;text-transform:uppercase;">${pkgs.premium.title}</div>
-                <div style="font-size:9.5px;color:#64748b;margin:4px 0 10px;line-height:1.35;">${pkgs.premium.desc}</div>
-                <div style="font-size:20px;font-weight:900;color:#0369a1;">${pkgs.premium.capex.toLocaleString('es-ES')} €</div>
-                <div style="font-size:9px;color:#64748b;">IVA 21% incluido</div>
+                <div style="font-size:11.5px;font-weight:800;color:#0369a1;text-transform:uppercase;">${pkgs.premium.title}</div>
+                <div style="font-size:9.5px;color:#64748b;margin:6px 0 14px;line-height:1.4;">${pkgs.premium.desc}</div>
+                <div style="font-size:22px;font-weight:900;color:#0369a1;">${pkgs.premium.capex.toLocaleString('es-ES')} €</div>
+                <div style="font-size:9px;color:#64748b;margin-top:2px;">IVA 21% incluido</div>
               </div>
-              <div style="margin-top:12px;border-top:1px solid #e2e8f0;padding-top:8px;font-size:10px;line-height:1.6;">
+              <div style="margin-top:16px;border-top:1px solid #e2e8f0;padding-top:12px;font-size:10px;line-height:1.7;">
                 <div>• Ahorro: <b>${pkgs.premium.ahorroAnual.toLocaleString('es-ES')} €/año</b></div>
                 <div>• Retorno: <b>${pkgs.premium.payback} años</b></div>
                 <div>• Autarquía solar: <b>~${pkgs.premium.autarquia}%</b></div>
@@ -3997,13 +4000,36 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
             </div>
 
           </div>
-          ${_infografias.caraACara}
-          ${_infografias.relojSolar}
+
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px;font-size:10px;color:#475569;line-height:1.5;">
+            <b>Criterio Técnico de Selección:</b> El paquete <b>${pkgs.optimal.title}</b> ha sido calculado por nuestro gemelo digital como el punto óptimo de rentabilidad marginal (máximo VAN y menor coste nivelado LCOE). Las tres modalidades incluyen ingeniería completa, permisos de acceso y conexión, y boletín eléctrico oficial CIE.
+          </div>
         </div>
 
         <!-- PIE DE HOJA COMPARATIVA -->
         <div class="cover-footer" style="margin-top:auto;padding-top:12px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;font-size:9px;color:#64748b;">
           <span>Planes de Autarquía e Independencia Energética · Garantía de Rendimiento</span>
+          <span>${companyName} · Ref: ${d.refNum}</span>
+        </div>
+      </div>
+
+      <!-- PÁGINA 4B: IMPACTO FINANCIERO MENSUAL Y CICLO SOLAR 24H -->
+      <div class="page-sheet">
+        <div>
+          <div class="cover-header">
+            <div class="company-text">
+              <div class="name">BALANCE FINANCIERO &amp; <span style="color:${pal.primary}">AUTARQUÍA 24H</span></div>
+              <div class="sub">Impacto en Factura Mensual · Despacho Solar Día y Noche</div>
+            </div>
+            <div class="doc-ref-box"><b>Ref: ${d.refNum}</b><br>Hoja ${_pageIndexInfografias} de ${_totPages}</div>
+          </div>
+          ${_infografias.caraACara}
+          ${_infografias.relojSolar}
+        </div>
+
+        <!-- PIE DE HOJA INFOGRAFÍAS -->
+        <div class="cover-footer" style="margin-top:auto;padding-top:12px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;font-size:9px;color:#64748b;">
+          <span>Auditoría de Flujo de Caja Mensual · Modelo Horario de Batería y Autoconsumo</span>
           <span>${companyName} · Ref: ${d.refNum}</span>
         </div>
       </div>`;
