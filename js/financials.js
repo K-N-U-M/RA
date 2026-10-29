@@ -3455,6 +3455,64 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         transform: scale(1.15);
       }
 
+      /* ── TIRADORES DE ESPACIADO INTERACTIVOS (OPCIÓN B: GAP HANDLERS) ── */
+      .ra-gap-handle {
+        position: absolute;
+        z-index: 10005;
+        background: rgba(15, 23, 42, 0.88);
+        color: #38BDF8;
+        border: 1px solid rgba(56, 189, 248, 0.4);
+        border-radius: 4px;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        font-weight: 900;
+        user-select: none;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+        transition: transform 0.1s, background 0.15s, border-color 0.15s;
+      }
+      body.mode-edit-layout [data-editable-box]:hover > .ra-gap-handle,
+      body.mode-edit-layout [data-editable-box].selected-edit-box > .ra-gap-handle {
+        display: flex !important;
+      }
+      .ra-gap-handle:hover {
+        background: #0284c7 !important;
+        color: #ffffff !important;
+        border-color: #38BDF8 !important;
+        transform: scale(1.18);
+      }
+      .ra-gap-handle-x {
+        top: 50%;
+        right: -8px;
+        transform: translateY(-50%);
+        width: 16px;
+        height: 28px;
+        cursor: col-resize !important;
+      }
+      .ra-gap-handle-y {
+        bottom: -8px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 28px;
+        height: 16px;
+        cursor: row-resize !important;
+      }
+      #ra-gap-tooltip {
+        position: fixed;
+        display: none;
+        z-index: 100010;
+        background: #0f172a;
+        color: #38bdf8;
+        border: 1px solid #0284c7;
+        border-radius: 5px;
+        padding: 3px 8px;
+        font-size: 10.5px;
+        font-weight: 800;
+        pointer-events: none;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      }
+
       /* ── BARRA FLOTANTE DE FORMATO (RICH TEXT) ── */
       #prop-format-toolbar {
         position: fixed;
@@ -3508,6 +3566,9 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     </style>
   </head>
   <body>
+    <!-- TOOLTIP DINÁMICO DE SEPARACIÓN (OPCIÓN B) -->
+    <div id="ra-gap-tooltip" class="no-print"></div>
+
     <!-- BARRA FLOTANTE DE FORMATO TEXTUAL -->
     <div id="prop-format-toolbar" class="no-print">
       <select id="prop-fmt-font" onchange="applyPropFormat('fontName', this.value)" title="Tipografía">
@@ -4501,6 +4562,77 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
               };
               el.appendChild(delBtn);
 
+              // ── TIRADORES DE SEPARACIÓN (OPCIÓN B: SPLITTERS HORIZONTAL Y VERTICAL) ──
+              const handleX = document.createElement('div');
+              handleX.className = 'ra-gap-handle ra-gap-handle-x no-print';
+              handleX.title = 'Arrastra horizontalmente para separar o acercar lateralmente (↔ Margen)';
+              handleX.innerHTML = '↔';
+              el.appendChild(handleX);
+
+              const handleY = document.createElement('div');
+              handleY.className = 'ra-gap-handle ra-gap-handle-y no-print';
+              handleY.title = 'Arrastra verticalmente para separar o acercar entre filas (↕ Margen)';
+              handleY.innerHTML = '↕';
+              el.appendChild(handleY);
+
+              // Lógica de arrastre de separación horizontal
+              handleX.addEventListener('mousedown', function(e) {
+                e.stopPropagation();
+                e.preventDefault();
+                const startX = e.clientX;
+                const computed = window.getComputedStyle(el);
+                const startMarginR = parseFloat(computed.marginRight) || 0;
+                const tt = document.getElementById('ra-gap-tooltip');
+
+                function onMoveX(ev) {
+                  const delta = ev.clientX - startX;
+                  const newMargin = Math.max(0, Math.round(startMarginR + delta));
+                  el.style.marginRight = newMargin + 'px';
+                  if (tt) {
+                    tt.style.display = 'block';
+                    tt.style.left = (ev.clientX + 14) + 'px';
+                    tt.style.top = (ev.clientY - 12) + 'px';
+                    tt.innerHTML = '↔ Margen H: <b>' + newMargin + ' px</b> (~' + (newMargin * 0.264583).toFixed(1) + ' mm)';
+                  }
+                }
+                function onUpX() {
+                  window.removeEventListener('mousemove', onMoveX);
+                  window.removeEventListener('mouseup', onUpX);
+                  if (tt) tt.style.display = 'none';
+                }
+                window.addEventListener('mousemove', onMoveX);
+                window.addEventListener('mouseup', onUpX);
+              });
+
+              // Lógica de arrastre de separación vertical
+              handleY.addEventListener('mousedown', function(e) {
+                e.stopPropagation();
+                e.preventDefault();
+                const startY = e.clientY;
+                const computed = window.getComputedStyle(el);
+                const startMarginB = parseFloat(computed.marginBottom) || 0;
+                const tt = document.getElementById('ra-gap-tooltip');
+
+                function onMoveY(ev) {
+                  const delta = ev.clientY - startY;
+                  const newMargin = Math.max(0, Math.round(startMarginB + delta));
+                  el.style.marginBottom = newMargin + 'px';
+                  if (tt) {
+                    tt.style.display = 'block';
+                    tt.style.left = (ev.clientX + 14) + 'px';
+                    tt.style.top = (ev.clientY - 12) + 'px';
+                    tt.innerHTML = '↕ Margen V: <b>' + newMargin + ' px</b> (~' + (newMargin * 0.264583).toFixed(1) + ' mm)';
+                  }
+                }
+                function onUpY() {
+                  window.removeEventListener('mousemove', onMoveY);
+                  window.removeEventListener('mouseup', onUpY);
+                  if (tt) tt.style.display = 'none';
+                }
+                window.addEventListener('mousemove', onMoveY);
+                window.addEventListener('mouseup', onUpY);
+              });
+
               el.addEventListener('click', function(ev) {
                 if (!document.body.classList.contains('mode-edit-layout')) return;
                 ev.stopPropagation();
@@ -4511,8 +4643,8 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
 
               el.addEventListener('mousedown', function(ev) {
                 if (!document.body.classList.contains('mode-edit-layout')) return;
-                // Si el clic es sobre un botón de borrado o sobre un elemento editable de texto directo, no forzar drag
-                if (ev.target.closest('.ra-edit-del-btn')) return;
+                // Si el clic es sobre un botón de borrado, tirador de separación o sobre un elemento editable de texto directo, no forzar drag
+                if (ev.target.closest('.ra-edit-del-btn') || ev.target.closest('.ra-gap-handle')) return;
                 const isDirectTextEdit = ['INPUT', 'TEXTAREA'].includes(ev.target.tagName);
                 if (isDirectTextEdit) return;
 
@@ -4580,6 +4712,30 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         if (ev.key === 'Delete') {
           _selectedBox.remove();
           _selectedBox = null;
+          return;
+        }
+
+        // Atajo teclado Alt + Flechas para ajuste fino de separación en milímetros
+        if (ev.altKey) {
+          const stepPx = 4; // ~1mm por pulsación
+          const computed = window.getComputedStyle(_selectedBox);
+          if (ev.key === 'ArrowRight') {
+            ev.preventDefault();
+            const cur = parseFloat(computed.marginRight) || 0;
+            _selectedBox.style.marginRight = (cur + stepPx) + 'px';
+          } else if (ev.key === 'ArrowLeft') {
+            ev.preventDefault();
+            const cur = parseFloat(computed.marginRight) || 0;
+            _selectedBox.style.marginRight = Math.max(0, cur - stepPx) + 'px';
+          } else if (ev.key === 'ArrowDown') {
+            ev.preventDefault();
+            const cur = parseFloat(computed.marginBottom) || 0;
+            _selectedBox.style.marginBottom = (cur + stepPx) + 'px';
+          } else if (ev.key === 'ArrowUp') {
+            ev.preventDefault();
+            const cur = parseFloat(computed.marginBottom) || 0;
+            _selectedBox.style.marginBottom = Math.max(0, cur - stepPx) + 'px';
+          }
         }
       });
 
@@ -4708,7 +4864,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
           const container = document.createElement('div');
           sheets.forEach(s => {
             const cloneSheet = s.cloneNode(true);
-            cloneSheet.querySelectorAll('.ra-edit-del-btn').forEach(b => b.remove());
+            cloneSheet.querySelectorAll('.ra-edit-del-btn, .ra-gap-handle').forEach(b => b.remove());
             cloneSheet.querySelectorAll('[data-editable-box]').forEach(el => {
               el.removeAttribute('draggable');
               el.removeAttribute('data-editable-box');
@@ -4770,7 +4926,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       function exportPropHtml() {
         const clone = document.documentElement.cloneNode(true);
         const bar = clone.querySelector('.doc-top-bar'); if (bar) bar.remove();
-        clone.querySelectorAll('.ra-edit-del-btn').forEach(b => b.remove());
+        clone.querySelectorAll('.ra-edit-del-btn, .ra-gap-handle, #ra-gap-tooltip').forEach(b => b.remove());
         clone.querySelectorAll('[data-editable-box]').forEach(el => {
           el.removeAttribute('draggable');
           el.removeAttribute('data-editable-box');
