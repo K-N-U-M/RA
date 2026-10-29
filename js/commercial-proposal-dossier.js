@@ -807,36 +807,36 @@
       '  @page { size: A4 landscape; margin: 0; }',
       '  *, *::before, *::after { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
       '  body { margin: 0; padding: 0; font-family: "Comfortaa", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #1e293b; padding-top: 56px; }',
-      '  .sheet { width: 297mm; height: 210mm; background: #fff; margin: 12mm auto; position: relative; padding: 14mm 20mm 12mm 20mm; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; page-break-after: always; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-radius: 6px; font-size: 16.5px; line-height: 1.6; }',
-      '  .sheet-body-content { flex: 1; display: flex; flex-direction: column; justify-content: center; margin: 4mm 0; width: 100%; }',
+      '  .sheet { width: 297mm; height: 210mm; background: #fff; margin: 12mm auto; position: relative; padding: 10mm 16mm 9mm 16mm; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; page-break-after: always; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-radius: 6px; font-size: 14.5px; line-height: 1.5; }',
+      '  .sheet-body-content { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: space-between; margin: 2mm 0; width: 100%; }',
       '  .sheet:last-of-type { page-break-after: avoid !important; }',
       '  @media print {',
       '    body { background: none; padding-top: 0; }',
-      '    .sheet { margin: 0; box-shadow: none; width: 297mm; height: 210mm; page-break-after: always; border-radius: 0; }',
+      '    .sheet { margin: 0; box-shadow: none; width: 297mm; height: 210mm; padding: 10mm 16mm 9mm 16mm; page-break-after: always; border-radius: 0; }',
       '    .sheet:last-of-type { page-break-after: avoid !important; }',
       '    .no-print { display: none !important; }',
       '    .dossier-drag-handle, .dossier-resize-handle, .dossier-img-picker-btn, #dossier-format-bar, .dossier-overflow-warn { display: none !important; }',
       '  }',
       '  .dossier-overflow-warn { position: absolute; top: 8px; right: 14px; background: #ef4444; color: #fff; font-size: 10px; font-weight: 800; padding: 4px 10px; border-radius: 6px; box-shadow: 0 4px 12px rgba(239,68,68,0.4); z-index: 9999; display: flex; align-items: center; gap: 6px; pointer-events: none; }',
-      '  .sheet-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4mm; }',
-      '  .sheet-title-num { font-size: 38px; font-weight: 900; color: #0f172a; border-bottom: 3px solid #0f172a; padding-bottom: 2px; }',
-      '  .sheet-title-txt { font-size: 26px; font-weight: 800; color: #334155; margin-left: 12px; }',
-      '  .sheet-footer { height: 11mm; border-radius: 6px; background: linear-gradient(90deg, ' + pal.primary + ', ' + pal.secondary + '); display: flex; justify-content: space-between; align-items: center; padding: 0 20px; color: #fff; font-size: 14px; font-weight: 700; margin-top: auto; }',
+      '  .sheet-head { display: flex; justify-content: space-between; align-items: center; height: 14mm; margin-bottom: 2mm; flex-shrink: 0; }',
+      '  .sheet-title-num { font-size: 32px; font-weight: 900; color: #0f172a; border-bottom: 3px solid #0f172a; padding-bottom: 1px; }',
+      '  .sheet-title-txt { font-size: 22px; font-weight: 800; color: #334155; margin-left: 10px; }',
+      '  .sheet-footer { height: 9.5mm; border-radius: 6px; background: linear-gradient(90deg, ' + pal.primary + ', ' + pal.secondary + '); display: flex; justify-content: space-between; align-items: center; padding: 0 16px; color: #fff; font-size: 13px; font-weight: 700; margin-top: auto; flex-shrink: 0; }',
       '  ',
       '  /* CONTENEDORES CON SOMBRA DIFUMINADA Y BORDES DEGRADADOS */',
       '  .card {',
       '    background: #ffffff;',
-      '    border-radius: 14px;',
+      '    border-radius: 12px;',
       '    border: 1.5px solid transparent;',
       '    background-image: linear-gradient(#ffffff, #ffffff), linear-gradient(135deg, ' + pal.primary + ', ' + pal.secondary + ');',
       '    background-origin: border-box;',
       '    background-clip: padding-box, border-box;',
-      '    padding: 18px 22px;',
+      '    padding: 12px 16px;',
       '    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.07), 0 8px 16px -6px rgba(0, 0, 0, 0.04);',
       '    position: relative;',
       '    transition: box-shadow 0.2s ease, transform 0.1s ease;',
       '    min-width: 80px;',
-      '    min-height: 40px;',
+      '    min-height: 35px;',
       '  }',
       '  .card:hover {',
       '    box-shadow: 0 14px 30px -4px rgba(0, 0, 0, 0.10), 0 10px 18px -4px rgba(0, 0, 0, 0.06);',
@@ -844,17 +844,17 @@
       '  ',
       '  /* LÍNEAS HORIZONTALES SEPARADORAS CON DEGRADADO */',
       '  .dossier-divider {',
-      '    height: 2px;',
+      '    height: 1.5px;',
       '    width: 100%;',
-      '    margin: 8px 0;',
+      '    margin: 6px 0;',
       '    border: none;',
       '    background: linear-gradient(90deg, transparent, ' + pal.primary + ', ' + pal.secondary + ', transparent);',
       '    opacity: 0.8;',
       '  }',
       '  ',
-      '  .table-clean { width: 100%; border-collapse: collapse; font-size: 15px; }',
-      '  .table-clean th { border-bottom: 2px solid #cbd5e1; padding: 10px 10px; text-align: left; color: #475569; font-weight: 800; font-size: 15px; }',
-      '  .table-clean td { padding: 9px 10px; border-bottom: 1px solid #f1f5f9; color: #1e293b; font-size: 15px; }',
+      '  .table-clean { width: 100%; border-collapse: collapse; font-size: 13.5px; }',
+      '  .table-clean th { border-bottom: 2px solid #cbd5e1; padding: 6px 8px; text-align: left; color: #475569; font-weight: 800; font-size: 13.5px; }',
+      '  .table-clean td { padding: 5px 8px; border-bottom: 1px solid #f1f5f9; color: #1e293b; font-size: 13px; }',
       '  ',
       '  /* BARRA DE HERRAMIENTAS FLOTANTE */',
       '  .dossier-toolbar { position: fixed; top: 0; left: 0; right: 0; height: 50px; background: #0f172a; color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; z-index: 99999; box-shadow: 0 4px 20px rgba(0,0,0,0.4); border-bottom: 2px solid ' + pal.primary + '; }',
@@ -1127,50 +1127,50 @@
       divGrad,
       '  <div class="sheet-body-content">',
       '    <!-- HERO STRIP CENTRADO CON ILUSTRACIONES SVG MONOCROMÁTICAS -->',
-      '    <div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:16px;margin-bottom:20px;">',
-      '      <div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:16px 12px;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,0.03);">',
-      '        <div style="display:flex;justify-content:center;margin-bottom:8px;">' + getDossierIcon('panel', pal.primary, 38) + '</div>',
-      '        <div style="font-size:14px;color:#64748b;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;">POTENCIA PICO INSTALADA</div>',
-      '        <div style="font-size:32px;font-weight:900;color:' + pal.primary + ';margin:6px 0 3px;">' + kwp + ' kWp</div>',
-      '        <div style="font-size:15px;color:#475569;font-weight:700;">' + raw.metrics.numPanels + ' Módulos Tier-1</div>',
+      '    <div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:10px;margin-bottom:12px;">',
+      '      <div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:10px 8px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.03);">',
+      '        <div style="display:flex;justify-content:center;margin-bottom:4px;">' + getDossierIcon('panel', pal.primary, 30) + '</div>',
+      '        <div style="font-size:12px;color:#64748b;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;">POTENCIA PICO INSTALADA</div>',
+      '        <div style="font-size:26px;font-weight:900;color:' + pal.primary + ';margin:4px 0 2px;">' + kwp + ' kWp</div>',
+      '        <div style="font-size:13px;color:#475569;font-weight:700;">' + raw.metrics.numPanels + ' Módulos Tier-1</div>',
       '      </div>',
-      '      <div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:16px 12px;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,0.03);">',
-      '        <div style="display:flex;justify-content:center;margin-bottom:8px;">' + getDossierIcon('freeEnergy', pal.secondary, 38) + '</div>',
-      '        <div style="font-size:14px;color:#64748b;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;">GENERACIÓN ANUAL</div>',
-      '        <div style="font-size:32px;font-weight:900;color:' + pal.dark + ';margin:6px 0 3px;">' + annualYield + ' kWh</div>',
-      '        <div style="font-size:15px;color:#16a34a;font-weight:700;">100% Autogeneración</div>',
+      '      <div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:10px 8px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.03);">',
+      '        <div style="display:flex;justify-content:center;margin-bottom:4px;">' + getDossierIcon('freeEnergy', pal.secondary, 30) + '</div>',
+      '        <div style="font-size:12px;color:#64748b;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;">GENERACIÓN ANUAL</div>',
+      '        <div style="font-size:26px;font-weight:900;color:' + pal.dark + ';margin:4px 0 2px;">' + annualYield + ' kWh</div>',
+      '        <div style="font-size:13px;color:#16a34a;font-weight:700;">100% Autogeneración</div>',
       '      </div>',
-      '      <div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:16px 12px;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,0.03);">',
-      '        <div style="display:flex;justify-content:center;margin-bottom:8px;">' + getDossierIcon('piggyBank', '#16a34a', 38) + '</div>',
-      '        <div style="font-size:14px;color:#64748b;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;">AHORRO ANUAL ESTIMADO</div>',
-      '        <div style="font-size:32px;font-weight:900;color:#16a34a;margin:6px 0 3px;">' + ahorroAnual + ' €</div>',
-      '        <div style="font-size:15px;color:#64748b;font-weight:700;">Año 1 de explotación</div>',
+      '      <div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:10px 8px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.03);">',
+      '        <div style="display:flex;justify-content:center;margin-bottom:4px;">' + getDossierIcon('piggyBank', '#16a34a', 30) + '</div>',
+      '        <div style="font-size:12px;color:#64748b;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;">AHORRO ANUAL ESTIMADO</div>',
+      '        <div style="font-size:26px;font-weight:900;color:#16a34a;margin:4px 0 2px;">' + ahorroAnual + ' €</div>',
+      '        <div style="font-size:13px;color:#64748b;font-weight:700;">Año 1 de explotación</div>',
       '      </div>',
-      '      <div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:16px 12px;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,0.03);">',
-      '        <div style="display:flex;justify-content:center;margin-bottom:8px;">' + getDossierIcon('energyFlow24h', pal.primary, 38) + '</div>',
-      '        <div style="font-size:14px;color:#64748b;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;">COBERTURA SOLAR</div>',
-      '        <div style="font-size:32px;font-weight:900;color:' + pal.primary + ';margin:6px 0 3px;">' + raw.metrics.totalCoverage + ' %</div>',
-      '        <div style="font-size:15px;color:#64748b;font-weight:700;">Autarquía Energética</div>',
+      '      <div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:10px 8px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.03);">',
+      '        <div style="display:flex;justify-content:center;margin-bottom:4px;">' + getDossierIcon('energyFlow24h', pal.primary, 30) + '</div>',
+      '        <div style="font-size:12px;color:#64748b;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;">COBERTURA SOLAR</div>',
+      '        <div style="font-size:26px;font-weight:900;color:' + pal.primary + ';margin:4px 0 2px;">' + raw.metrics.totalCoverage + ' %</div>',
+      '        <div style="font-size:13px;color:#64748b;font-weight:700;">Autarquía Energética</div>',
       '      </div>',
       '    </div>',
-      '    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">',
+      '    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">',
       makeCard(
         '<div>' +
-        '  <h4 class="editable-field" contenteditable="true" style="color:' + pal.primary + ';margin:0 0 8px 0;font-size:18px;font-weight:800;">01. Solución de Ingeniería ' + raw.metrics.profileType + '</h4>' +
-        '  <p class="editable-field" contenteditable="true" style="font-size:15px;color:#475569;line-height:1.6;margin:0 0 14px 0;">' + (raw.metrics.isCommercial ? 'Instalación de ingeniería fotovoltaica orientada a la reducción directa de costes operativos (OPEX), mejora del reporte ESG y desacoplamiento frente a la volatilidad de precios en el mercado eléctrico mayorista (OMIE).' : 'Proyecto integral de autoconsumo residencial diseñado a medida para su inmueble, garantizando la máxima independencia energética, revalorización de la vivienda (+4-6%) y un ahorro directo e inmediato en factura.') + '</p>' +
-        '  <h4 class="editable-field" contenteditable="true" style="color:' + pal.primary + ';margin:0 0 8px 0;font-size:18px;font-weight:800;">03. Digitalización & Gemelo Digital 3D</h4>' +
-        '  <p class="editable-field" contenteditable="true" style="font-size:15px;color:#475569;line-height:1.6;margin:0;">Simulación física mediante ray-tracing 3D de alta precisión que modela sombras cercanas y lejanas para calcular una curva de generación bancable y transparente respaldada por datos PVGIS/SARAH-3.</p>' +
+        '  <h4 class="editable-field" contenteditable="true" style="color:' + pal.primary + ';margin:0 0 6px 0;font-size:16px;font-weight:800;">01. Solución de Ingeniería ' + raw.metrics.profileType + '</h4>' +
+        '  <p class="editable-field" contenteditable="true" style="font-size:13.5px;color:#475569;line-height:1.5;margin:0 0 10px 0;">' + (raw.metrics.isCommercial ? 'Instalación de ingeniería fotovoltaica orientada a la reducción directa de costes operativos (OPEX), mejora del reporte ESG y desacoplamiento frente a la volatilidad de precios en el mercado eléctrico mayorista (OMIE).' : 'Proyecto integral de autoconsumo residencial diseñado a medida para su inmueble, garantizando la máxima independencia energética, revalorización de la vivienda (+4-6%) y un ahorro directo e inmediato en factura.') + '</p>' +
+        '  <h4 class="editable-field" contenteditable="true" style="color:' + pal.primary + ';margin:0 0 6px 0;font-size:16px;font-weight:800;">03. Digitalización & Gemelo Digital 3D</h4>' +
+        '  <p class="editable-field" contenteditable="true" style="font-size:13.5px;color:#475569;line-height:1.5;margin:0;">Simulación física mediante ray-tracing 3D de alta precisión que modela sombras cercanas y lejanas para calcular una curva de generación bancable y transparente respaldada por datos PVGIS/SARAH-3.</p>' +
         '</div>'
       ),
       makeCard(
         '<div>' +
-        '  <h4 class="editable-field" contenteditable="true" style="color:' + pal.primary + ';margin:0 0 8px 0;font-size:18px;font-weight:800;">02. Compromiso Llave en Mano</h4>' +
-        '  <p class="editable-field" contenteditable="true" style="font-size:15px;color:#475569;line-height:1.6;margin:0 0 14px 0;">Gestión técnica y administrativa integral: visita de replanteo, memoria técnica, tramitación de licencias/ICIO, bonificaciones de IBI, instalación física, legalización (CIE) y puesta en marcha.</p>' +
-        '  <h4 class="editable-field" contenteditable="true" style="color:' + pal.primary + ';margin:0 0 8px 0;font-size:18px;font-weight:800;">04. Impacto Medioambiental Certificado</h4>' +
-        '  <div style="display:flex;justify-content:space-between;background:' + pal.light + ';padding:12px 18px;border-radius:10px;border:1px solid ' + pal.border + ';margin-top:8px;">' +
-        '    <div style="text-align:center;"><strong class="editable-field" contenteditable="true" style="font-size:26px;color:' + pal.primary + ';display:block;">' + raw.metrics.co2Ton + ' t</strong><div class="editable-field" contenteditable="true" style="font-size:14px;color:#64748b;font-weight:700;margin-top:3px;">CO₂ evitado/año</div></div>' +
-        '    <div style="text-align:center;"><strong class="editable-field" contenteditable="true" style="font-size:26px;color:' + pal.primary + ';display:block;">' + raw.metrics.trees + '</strong><div class="editable-field" contenteditable="true" style="font-size:14px;color:#64748b;font-weight:700;margin-top:3px;">Árboles equivalentes</div></div>' +
-        '    <div style="text-align:center;"><strong class="editable-field" contenteditable="true" style="font-size:26px;color:' + pal.primary + ';display:block;">' + (kwp * 0.02).toFixed(2) + '</strong><div class="editable-field" contenteditable="true" style="font-size:14px;color:#64748b;font-weight:700;margin-top:3px;">Viajes luna en VE</div></div>' +
+        '  <h4 class="editable-field" contenteditable="true" style="color:' + pal.primary + ';margin:0 0 6px 0;font-size:16px;font-weight:800;">02. Compromiso Llave en Mano</h4>' +
+        '  <p class="editable-field" contenteditable="true" style="font-size:13.5px;color:#475569;line-height:1.5;margin:0 0 10px 0;">Gestión técnica y administrativa integral: visita de replanteo, memoria técnica, tramitación de licencias/ICIO, bonificaciones de IBI, instalación física, legalización (CIE) y puesta en marcha.</p>' +
+        '  <h4 class="editable-field" contenteditable="true" style="color:' + pal.primary + ';margin:0 0 6px 0;font-size:16px;font-weight:800;">04. Impacto Medioambiental Certificado</h4>' +
+        '  <div style="display:flex;justify-content:space-between;background:' + pal.light + ';padding:8px 14px;border-radius:8px;border:1px solid ' + pal.border + ';margin-top:6px;">' +
+        '    <div style="text-align:center;"><strong class="editable-field" contenteditable="true" style="font-size:22px;color:' + pal.primary + ';display:block;">' + raw.metrics.co2Ton + ' t</strong><div class="editable-field" contenteditable="true" style="font-size:12px;color:#64748b;font-weight:700;margin-top:2px;">CO₂ evitado/año</div></div>' +
+        '    <div style="text-align:center;"><strong class="editable-field" contenteditable="true" style="font-size:22px;color:' + pal.primary + ';display:block;">' + raw.metrics.trees + '</strong><div class="editable-field" contenteditable="true" style="font-size:12px;color:#64748b;font-weight:700;margin-top:2px;">Árboles equiv.</div></div>' +
+        '    <div style="text-align:center;"><strong class="editable-field" contenteditable="true" style="font-size:22px;color:' + pal.primary + ';display:block;">' + (kwp * 0.02).toFixed(2) + '</strong><div class="editable-field" contenteditable="true" style="font-size:12px;color:#64748b;font-weight:700;margin-top:2px;">Viajes VE</div></div>' +
         '  </div>' +
         '</div>'
       ),
@@ -1343,71 +1343,71 @@
       divGrad,
       '  <div class="sheet-body-content">',
       '    <!-- FILA SUPERIOR: ESPECIFICACIONES TÉCNICAS CON ILUSTRACIONES SVG -->',
-      '    <div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:16px;margin-bottom:18px;">',
+      '    <div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:10px;margin-bottom:12px;">',
       makeCard(
-        '<div style="text-align:center;padding:4px 2px;">' +
-        '  <div style="display:flex;justify-content:center;margin-bottom:8px;">' + getDossierIcon('panel', pal.primary, 42) + '</div>' +
-        '  <div class="editable-field" contenteditable="true" style="font-size:15px;font-weight:800;color:' + pal.primary + ';letter-spacing:0.5px;">MÓDULOS FV</div>' +
-        '  <div class="editable-field" contenteditable="true" style="font-size:19px;font-weight:900;margin:4px 0 6px;">Tier-1 ' + raw.equipment.modWp + ' Wp</div>' +
-        '  <div class="editable-field" contenteditable="true" style="font-size:14.5px;color:#475569;line-height:1.5;">Células N-Type TOPCon bifacial de alta pureza. Rendimiento garantizado al 85% tras 25 años.</div>' +
+        '<div style="text-align:center;padding:2px;">' +
+        '  <div style="display:flex;justify-content:center;margin-bottom:4px;">' + getDossierIcon('panel', pal.primary, 32) + '</div>' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:13px;font-weight:800;color:' + pal.primary + ';letter-spacing:0.5px;">MÓDULOS FV</div>' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:16px;font-weight:900;margin:3px 0 4px;">Tier-1 ' + raw.equipment.modWp + ' Wp</div>' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:12.5px;color:#475569;line-height:1.4;">Células N-Type TOPCon bifacial. Rendimiento ≥85% tras 25 años.</div>' +
         '</div>'
       ),
       makeCard(
-        '<div style="text-align:center;padding:4px 2px;">' +
-        '  <div style="display:flex;justify-content:center;margin-bottom:8px;">' + getDossierIcon('inverter', pal.primary, 42) + '</div>' +
-        '  <div class="editable-field" contenteditable="true" style="font-size:15px;font-weight:800;color:' + pal.primary + ';letter-spacing:0.5px;">INVERSORES</div>' +
-        '  <div class="editable-field" contenteditable="true" style="font-size:19px;font-weight:900;margin:4px 0 6px;">' + kwNom + ' kWn Híbrido</div>' +
-        '  <div class="editable-field" contenteditable="true" style="font-size:14.5px;color:#475569;line-height:1.5;">Eficiencia pico 98.6%. MPPT dual inteligente, protecciones AFCI y telemetría WiFi/App.</div>' +
+        '<div style="text-align:center;padding:2px;">' +
+        '  <div style="display:flex;justify-content:center;margin-bottom:4px;">' + getDossierIcon('inverter', pal.primary, 32) + '</div>' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:13px;font-weight:800;color:' + pal.primary + ';letter-spacing:0.5px;">INVERSORES</div>' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:16px;font-weight:900;margin:3px 0 4px;">' + kwNom + ' kWn Híbrido</div>' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:12.5px;color:#475569;line-height:1.4;">Eficiencia 98.6%. MPPT dual, AFCI y telemetría WiFi/App.</div>' +
         '</div>'
       ),
       makeCard(
-        '<div style="text-align:center;padding:4px 2px;">' +
-        '  <div style="display:flex;justify-content:center;margin-bottom:8px;">' + getDossierIcon('structure', pal.primary, 42) + '</div>' +
-        '  <div class="editable-field" contenteditable="true" style="font-size:15px;font-weight:800;color:' + pal.primary + ';letter-spacing:0.5px;">ESTRUCTURA</div>' +
-        '  <div class="editable-field" contenteditable="true" style="font-size:19px;font-weight:900;margin:4px 0 6px;">Aluminio Anodizado</div>' +
-        '  <div class="editable-field" contenteditable="true" style="font-size:14.5px;color:#475569;line-height:1.5;">Aleación EN AW-6005A T6 e inox A2. Cálculo estructural CTE DB-SE-AE hasta 160 km/h.</div>' +
+        '<div style="text-align:center;padding:2px;">' +
+        '  <div style="display:flex;justify-content:center;margin-bottom:4px;">' + getDossierIcon('structure', pal.primary, 32) + '</div>' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:13px;font-weight:800;color:' + pal.primary + ';letter-spacing:0.5px;">ESTRUCTURA</div>' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:16px;font-weight:900;margin:3px 0 4px;">Aluminio Anodizado</div>' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:12.5px;color:#475569;line-height:1.4;">Aleación EN AW-6005A T6 e inox A2. CTE hasta 160 km/h.</div>' +
         '</div>'
       ),
       makeCard(
-        '<div style="text-align:center;padding:4px 2px;">' +
-        '  <div style="display:flex;justify-content:center;margin-bottom:8px;">' + getDossierIcon('protections', pal.primary, 42) + '</div>' +
-        '  <div class="editable-field" contenteditable="true" style="font-size:15px;font-weight:800;color:' + pal.primary + ';letter-spacing:0.5px;">PROTECCIONES</div>' +
-        '  <div class="editable-field" contenteditable="true" style="font-size:19px;font-weight:900;margin:4px 0 6px;">Cuadro AC/DC IP65</div>' +
-        '  <div class="editable-field" contenteditable="true" style="font-size:14.5px;color:#475569;line-height:1.5;">Descargadores SPD Clase II contra rayos, seccionador en carga y diferenciales superinmunizados.</div>' +
+        '<div style="text-align:center;padding:2px;">' +
+        '  <div style="display:flex;justify-content:center;margin-bottom:4px;">' + getDossierIcon('protections', pal.primary, 32) + '</div>' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:13px;font-weight:800;color:' + pal.primary + ';letter-spacing:0.5px;">PROTECCIONES</div>' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:16px;font-weight:900;margin:3px 0 4px;">Cuadro AC/DC IP65</div>' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:12.5px;color:#475569;line-height:1.4;">Descargadores SPD Clase II, seccionador y diferenciales.</div>' +
         '</div>'
       ),
       '    </div>',
       '    <!-- FILA INFERIOR: MATRIZ DE GARANTÍAS BANCABLES TIER-1 -->',
       makeCard(
         '<div>' +
-        '  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
-        '    <div class="editable-field" contenteditable="true" style="font-size:17px;font-weight:900;color:' + pal.dark + ';">MATRIZ DE GARANTÍAS BANCABLES TIER-1 & COMPROMISO DE RENDIMIENTO</div>' +
+        '  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
+        '    <div class="editable-field" contenteditable="true" style="font-size:15px;font-weight:900;color:' + pal.dark + ';">MATRIZ DE GARANTÍAS BANCABLES TIER-1 & RENDIMIENTO</div>' +
         '    <span class="badge-bankable badge-bankable-sky">Garantía Directa de Fábrica</span>' +
         '  </div>' +
-        '  <div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:14px;">' +
-        '    <div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:12px 10px;text-align:center;">' +
-        '      <div style="display:flex;justify-content:center;margin-bottom:6px;">' + getDossierIcon('warranty25', pal.primary, 34) + '</div>' +
-        '      <strong class="editable-field" contenteditable="true" style="font-size:16px;color:' + pal.primary + ';display:block;">25 AÑOS GARANTÍA</strong>' +
-        '      <div class="editable-field" contenteditable="true" style="font-size:14.5px;font-weight:800;color:#0f172a;margin:4px 0;">Potencia Lineal Tier-1</div>' +
-        '      <div class="editable-field" contenteditable="true" style="font-size:13.5px;color:#64748b;line-height:1.45;">Rendimiento garantizado ≥85% al año 25 con reaseguro bancable.</div>' +
+        '  <div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:10px;">' +
+        '    <div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 6px;text-align:center;">' +
+        '      <div style="display:flex;justify-content:center;margin-bottom:4px;">' + getDossierIcon('warranty25', pal.primary, 28) + '</div>' +
+        '      <strong class="editable-field" contenteditable="true" style="font-size:14px;color:' + pal.primary + ';display:block;">25 AÑOS GARANTÍA</strong>' +
+        '      <div class="editable-field" contenteditable="true" style="font-size:13px;font-weight:800;color:#0f172a;margin:3px 0;">Potencia Lineal Tier-1</div>' +
+        '      <div class="editable-field" contenteditable="true" style="font-size:12px;color:#64748b;line-height:1.35;">Rendimiento garantizado ≥85% al año 25 con reaseguro.</div>' +
         '    </div>' +
-        '    <div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:12px 10px;text-align:center;">' +
-        '      <div style="display:flex;justify-content:center;margin-bottom:6px;">' + getDossierIcon('inverter', pal.primary, 34) + '</div>' +
-        '      <strong class="editable-field" contenteditable="true" style="font-size:16px;color:' + pal.primary + ';display:block;">10-15 AÑOS</strong>' +
-        '      <div class="editable-field" contenteditable="true" style="font-size:14.5px;font-weight:800;color:#0f172a;margin:4px 0;">Electrónica Inversor</div>' +
-        '      <div class="editable-field" contenteditable="true" style="font-size:13.5px;color:#64748b;line-height:1.45;">Sustitución directa oficial del fabricante en 48-72 horas.</div>' +
+        '    <div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 6px;text-align:center;">' +
+        '      <div style="display:flex;justify-content:center;margin-bottom:4px;">' + getDossierIcon('inverter', pal.primary, 28) + '</div>' +
+        '      <strong class="editable-field" contenteditable="true" style="font-size:14px;color:' + pal.primary + ';display:block;">10-15 AÑOS</strong>' +
+        '      <div class="editable-field" contenteditable="true" style="font-size:13px;font-weight:800;color:#0f172a;margin:3px 0;">Electrónica Inversor</div>' +
+        '      <div class="editable-field" contenteditable="true" style="font-size:12px;color:#64748b;line-height:1.35;">Sustitución directa oficial del fabricante en 48-72h.</div>' +
         '    </div>' +
-        '    <div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:12px 10px;text-align:center;">' +
-        '      <div style="display:flex;justify-content:center;margin-bottom:6px;">' + getDossierIcon('structure', pal.primary, 34) + '</div>' +
-        '      <strong class="editable-field" contenteditable="true" style="font-size:16px;color:' + pal.primary + ';display:block;">10 / 5 AÑOS</strong>' +
-        '      <div class="editable-field" contenteditable="true" style="font-size:14.5px;font-weight:800;color:#0f172a;margin:4px 0;">Estructura & Cubierta</div>' +
-        '      <div class="editable-field" contenteditable="true" style="font-size:13.5px;color:#64748b;line-height:1.45;">10 años anticorrosión y 5 años de estanqueidad de cubierta (CTE).</div>' +
+        '    <div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 6px;text-align:center;">' +
+        '      <div style="display:flex;justify-content:center;margin-bottom:4px;">' + getDossierIcon('structure', pal.primary, 28) + '</div>' +
+        '      <strong class="editable-field" contenteditable="true" style="font-size:14px;color:' + pal.primary + ';display:block;">10 / 5 AÑOS</strong>' +
+        '      <div class="editable-field" contenteditable="true" style="font-size:13px;font-weight:800;color:#0f172a;margin:3px 0;">Estructura & Cubierta</div>' +
+        '      <div class="editable-field" contenteditable="true" style="font-size:12px;color:#64748b;line-height:1.35;">10 años anticorrosión y 5 años estanqueidad CTE.</div>' +
         '    </div>' +
-        '    <div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:12px 10px;text-align:center;">' +
-        '      <div style="display:flex;justify-content:center;margin-bottom:6px;">' + getDossierIcon('certifiedEngineer', pal.primary, 34) + '</div>' +
-        '      <strong class="editable-field" contenteditable="true" style="font-size:16px;color:' + pal.primary + ';display:block;">INSTALACIÓN CIE</strong>' +
-        '      <div class="editable-field" contenteditable="true" style="font-size:14.5px;font-weight:800;color:#0f172a;margin:4px 0;">Ingeniería Habilitada</div>' +
-        '      <div class="editable-field" contenteditable="true" style="font-size:13.5px;color:#64748b;line-height:1.45;">Legalización oficial en Industria y tramitación de bonificaciones.</div>' +
+        '    <div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 6px;text-align:center;">' +
+        '      <div style="display:flex;justify-content:center;margin-bottom:4px;">' + getDossierIcon('certifiedEngineer', pal.primary, 28) + '</div>' +
+        '      <strong class="editable-field" contenteditable="true" style="font-size:14px;color:' + pal.primary + ';display:block;">INSTALACIÓN CIE</strong>' +
+        '      <div class="editable-field" contenteditable="true" style="font-size:13px;font-weight:800;color:#0f172a;margin:3px 0;">Ingeniería Habilitada</div>' +
+        '      <div class="editable-field" contenteditable="true" style="font-size:12px;color:#64748b;line-height:1.35;">Legalización oficial Industria y bonificaciones.</div>' +
         '    </div>' +
         '  </div>' +
         '</div>'
@@ -1439,31 +1439,31 @@
         '    <div class="editable-field" contenteditable="true" style="font-size:15px;font-weight:800;color:' + pal.dark + ';">DESGLOSE TÉCNICO-ECONÓMICO (CAPEX)</div>' +
         '    <span class="badge-bankable badge-bankable-sky">Transparencia EPC</span>' +
         '  </div>' +
-        '  <table class="table-clean" style="font-size:14px;margin-bottom:12px;">' +
-        '    <tr><td>1. Módulos FV Tier-1 (' + raw.metrics.numPanels + ' uds)</td><td style="text-align:right;font-weight:700;">' + raw.metrics.capexModules + ' €</td></tr>' +
-        '    <tr><td>2. Inversores & Electrónica de Red</td><td style="text-align:right;font-weight:700;">' + raw.metrics.capexInverters + ' €</td></tr>' +
-        '    <tr><td>3. Estructuras de Soporte Certificadas</td><td style="text-align:right;font-weight:700;">' + raw.metrics.capexStructure + ' €</td></tr>' +
-        '    <tr><td>4. Cuadro DC/AC, Protecciones & Cable</td><td style="text-align:right;font-weight:700;">' + raw.metrics.capexElectrical + ' €</td></tr>' +
-        '    <tr><td>5. Montaje Mecánico & Conexionado REBT</td><td style="text-align:right;font-weight:700;">' + raw.metrics.capexLabor + ' €</td></tr>' +
-        '    <tr><td>6. Ingeniería, Tasas & Legalización CIE</td><td style="text-align:right;font-weight:700;">' + raw.metrics.capexPermits + ' €</td></tr>' +
+        '  <table class="table-clean" style="font-size:12.5px;margin-bottom:8px;">' +
+        '    <tr><td style="padding:4px 6px;">1. Módulos FV Tier-1 (' + raw.metrics.numPanels + ' uds)</td><td style="text-align:right;font-weight:700;padding:4px 6px;">' + raw.metrics.capexModules + ' €</td></tr>' +
+        '    <tr><td style="padding:4px 6px;">2. Inversores & Electrónica de Red</td><td style="text-align:right;font-weight:700;padding:4px 6px;">' + raw.metrics.capexInverters + ' €</td></tr>' +
+        '    <tr><td style="padding:4px 6px;">3. Estructuras de Soporte Certificadas</td><td style="text-align:right;font-weight:700;padding:4px 6px;">' + raw.metrics.capexStructure + ' €</td></tr>' +
+        '    <tr><td style="padding:4px 6px;">4. Cuadro DC/AC, Protecciones & Cable</td><td style="text-align:right;font-weight:700;padding:4px 6px;">' + raw.metrics.capexElectrical + ' €</td></tr>' +
+        '    <tr><td style="padding:4px 6px;">5. Montaje Mecánico & Conexionado REBT</td><td style="text-align:right;font-weight:700;padding:4px 6px;">' + raw.metrics.capexLabor + ' €</td></tr>' +
+        '    <tr><td style="padding:4px 6px;">6. Ingeniería, Tasas & Legalización CIE</td><td style="text-align:right;font-weight:700;padding:4px 6px;">' + raw.metrics.capexPermits + ' €</td></tr>' +
         (raw.activeAddons && raw.activeAddons.length > 0 ? raw.activeAddons.map(function(ad, i) {
           var p = (Number(ad.qty) || 1) * (Number(ad.unitPrice) || 0);
-          return '    <tr style="background:#f0fdf4;"><td style="color:#16a34a;font-weight:600;">+ ' + ad.name + '</td><td style="text-align:right;font-weight:700;color:#16a34a;">' + p.toLocaleString('es-ES') + ' €</td></tr>';
+          return '    <tr style="background:#f0fdf4;"><td style="color:#16a34a;font-weight:600;padding:4px 6px;">+ ' + ad.name + '</td><td style="text-align:right;font-weight:700;color:#16a34a;padding:4px 6px;">' + p.toLocaleString('es-ES') + ' €</td></tr>';
         }).join('') : '') +
         '  </table>' +
-        '  <div style="background:' + pal.light + ';border:1.5px solid ' + pal.primary + ';border-radius:8px;padding:8px 12px;text-align:center;">' +
-        '    <div class="editable-field" contenteditable="true" style="font-size:14px;font-weight:800;color:' + pal.dark + ';">BASE IMPONIBLE (SIN IVA)</div>' +
-        '    <div class="editable-field" contenteditable="true" style="font-size:34px;font-weight:900;color:' + pal.primary + ';margin:6px 0;">' + totalCost + ' €</div>' +
-        '    <div class="editable-field" contenteditable="true" style="font-size:15px;color:#475569;font-weight:700;">Total con IVA (21%): ' + raw.metrics.totalCostGross + ' €</div>' +
+        '  <div style="background:' + pal.light + ';border:1.5px solid ' + pal.primary + ';border-radius:8px;padding:6px 10px;text-align:center;">' +
+        '    <div class="editable-field" contenteditable="true" style="font-size:12px;font-weight:800;color:' + pal.dark + ';">BASE IMPONIBLE (SIN IVA)</div>' +
+        '    <div class="editable-field" contenteditable="true" style="font-size:26px;font-weight:900;color:' + pal.primary + ';margin:4px 0 2px;">' + totalCost + ' €</div>' +
+        '    <div class="editable-field" contenteditable="true" style="font-size:13px;color:#475569;font-weight:700;">Total con IVA (21%): ' + raw.metrics.totalCostGross + ' €</div>' +
         '  </div>' +
-        '  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px;">' +
-        '    <div style="background:#f8fafc;padding:6px;border-radius:6px;border:1px solid #e2e8f0;text-align:center;">' +
-        '      <div style="font-size:13px;color:#64748b;font-weight:700;">Coste Energía LCOE</div>' +
-        '      <div style="font-size:17px;font-weight:900;color:' + pal.primary + ';">' + raw.metrics.lcoe + '</div>' +
+        '  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;">' +
+        '    <div style="background:#f8fafc;padding:5px;border-radius:6px;border:1px solid #e2e8f0;text-align:center;">' +
+        '      <div style="font-size:11px;color:#64748b;font-weight:700;">Coste Energía LCOE</div>' +
+        '      <div style="font-size:15px;font-weight:900;color:' + pal.primary + ';">' + raw.metrics.lcoe + '</div>' +
         '    </div>' +
-        '    <div style="background:#f8fafc;padding:6px;border-radius:6px;border:1px solid #e2e8f0;text-align:center;">' +
-        '      <div style="font-size:13px;color:#64748b;font-weight:700;">Precio Red Eléctrica</div>' +
-        '      <div style="font-size:17px;font-weight:900;color:#dc2626;">' + raw.metrics.gridPrice + '</div>' +
+        '    <div style="background:#f8fafc;padding:5px;border-radius:6px;border:1px solid #e2e8f0;text-align:center;">' +
+        '      <div style="font-size:11px;color:#64748b;font-weight:700;">Precio Red Eléctrica</div>' +
+        '      <div style="font-size:15px;font-weight:900;color:#dc2626;">' + raw.metrics.gridPrice + '</div>' +
         '    </div>' +
         '  </div>' +
         '</div>'
@@ -1474,61 +1474,61 @@
       '      <div style="display:flex;flex-direction:column;gap:6px;">',
       makeCard(
         '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-        '  <div style="font-size:15px;font-weight:900;color:' + pal.dark + ';">OPCIÓN A · PAGO AL CONTADO (CAPEX)</div>' +
+        '  <div style="font-size:13.5px;font-weight:900;color:' + pal.dark + ';">OPCIÓN A · PAGO AL CONTADO (CAPEX)</div>' +
         '  <span class="badge-bankable badge-bankable-sky">Máximo Ahorro</span>' +
         '</div>' +
-        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:4px;text-align:center;">' +
-        '  <div style="background:#f8fafc;padding:5px;border-radius:6px;">' +
-        '    <div style="font-size:13px;color:#64748b;font-weight:700;">Amortización Simple</div>' +
-        '    <div style="font-size:18px;font-weight:900;color:' + pal.primary + ';">' + payback + ' años</div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-top:3px;text-align:center;">' +
+        '  <div style="background:#f8fafc;padding:4px;border-radius:6px;">' +
+        '    <div style="font-size:11px;color:#64748b;font-weight:700;">Amortización Simple</div>' +
+        '    <div style="font-size:15px;font-weight:900;color:' + pal.primary + ';">' + payback + ' años</div>' +
         '  </div>' +
-        '  <div style="background:#f8fafc;padding:5px;border-radius:6px;">' +
-        '    <div style="font-size:13px;color:#64748b;font-weight:700;">TIR Proyecto</div>' +
-        '    <div style="font-size:18px;font-weight:900;color:' + pal.primary + ';">' + tirStr + '</div>' +
+        '  <div style="background:#f8fafc;padding:4px;border-radius:6px;">' +
+        '    <div style="font-size:11px;color:#64748b;font-weight:700;">TIR Proyecto</div>' +
+        '    <div style="font-size:15px;font-weight:900;color:' + pal.primary + ';">' + tirStr + '</div>' +
         '  </div>' +
-        '  <div style="background:#f8fafc;padding:5px;border-radius:6px;">' +
-        '    <div style="font-size:13px;color:#64748b;font-weight:700;">Ahorro 25 Años</div>' +
-        '    <div style="font-size:18px;font-weight:900;color:#16a34a;">' + ahorro25 + ' €</div>' +
+        '  <div style="background:#f8fafc;padding:4px;border-radius:6px;">' +
+        '    <div style="font-size:11px;color:#64748b;font-weight:700;">Ahorro 25 Años</div>' +
+        '    <div style="font-size:15px;font-weight:900;color:#16a34a;">' + ahorro25 + ' €</div>' +
         '  </div>' +
         '</div>'
       ),
       makeCard(
         '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-        '  <div style="font-size:15px;font-weight:900;color:' + pal.primary + ';">OPCIÓN B · PRÉSTAMO BANCARIO VERDE (8 AÑOS / 96 MESES)</div>' +
+        '  <div style="font-size:13.5px;font-weight:900;color:' + pal.primary + ';">OPCIÓN B · PRÉSTAMO VERDE (8 AÑOS)</div>' +
         '  <span class="badge-bankable badge-bankable-emerald">Recomendada</span>' +
         '</div>' +
-        '<div style="display:grid;grid-template-columns:1fr 1fr 1.2fr;gap:6px;margin-top:4px;text-align:center;">' +
-        '  <div style="background:#f8fafc;padding:5px;border-radius:6px;">' +
-        '    <div style="font-size:13px;color:#64748b;font-weight:700;">Cuota Préstamo (8 años)</div>' +
-        '    <div style="font-size:18px;font-weight:900;color:' + pal.primary + ';">' + raw.metrics.cuotaPrestamo + ' €/mes</div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr 1.2fr;gap:4px;margin-top:3px;text-align:center;">' +
+        '  <div style="background:#f8fafc;padding:4px;border-radius:6px;">' +
+        '    <div style="font-size:11px;color:#64748b;font-weight:700;">Cuota Préstamo</div>' +
+        '    <div style="font-size:15px;font-weight:900;color:' + pal.primary + ';">' + raw.metrics.cuotaPrestamo + ' €/m</div>' +
         '  </div>' +
-        '  <div style="background:#f8fafc;padding:5px;border-radius:6px;">' +
-        '    <div style="font-size:13px;color:#64748b;font-weight:700;">Ahorro Medio Factura</div>' +
-        '    <div style="font-size:18px;font-weight:900;color:#16a34a;">~' + raw.metrics.ahorroMensual + ' €/mes</div>' +
+        '  <div style="background:#f8fafc;padding:4px;border-radius:6px;">' +
+        '    <div style="font-size:11px;color:#64748b;font-weight:700;">Ahorro Factura</div>' +
+        '    <div style="font-size:15px;font-weight:900;color:#16a34a;">~' + raw.metrics.ahorroMensual + ' €/m</div>' +
         '  </div>' +
-        '  <div style="background:#ecfdf5;border:1px solid #86efac;padding:5px;border-radius:6px;">' +
-        '    <div style="font-size:13px;color:#15803d;font-weight:800;">Saldo Neto en tu Bolsillo</div>' +
-        '    <div style="font-size:18px;font-weight:900;color:#15803d;">+' + (raw.metrics.isSaldoNetoPositivo ? raw.metrics.saldoNetoMensual : '0,00') + ' €/mes</div>' +
+        '  <div style="background:#ecfdf5;border:1px solid #86efac;padding:4px;border-radius:6px;">' +
+        '    <div style="font-size:11px;color:#15803d;font-weight:800;">Saldo Neto Bolsillo</div>' +
+        '    <div style="font-size:15px;font-weight:900;color:#15803d;">+' + (raw.metrics.isSaldoNetoPositivo ? raw.metrics.saldoNetoMensual : '0,00') + ' €/m</div>' +
         '  </div>' +
         '</div>' +
-        '<div style="font-size:13px;color:#475569;margin-top:5px;line-height:1.45;">Entrada 0 €. La instalación se autofinancia desde el primer mes con el ahorro eléctrico. A partir del año 9: 100% de la energía es ahorro limpio para siempre (17 años adicionales sin cuotas).</div>'
+        '<div style="font-size:11.5px;color:#475569;margin-top:4px;line-height:1.4;">Entrada 0 €. Se autofinancia desde el mes 1 con el ahorro. Del año 9 al 25: 100% de la energía es ahorro limpio directo.</div>'
       ),
       makeCard(
         '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-        '  <div style="font-size:15px;font-weight:900;color:' + pal.dark + ';">OPCIÓN C · RENTING TECNOLÓGICO SOLAR (0 € INVERSIÓN)</div>' +
-        '  <span class="badge-bankable badge-bankable-amber">100% Gasto Deducible</span>' +
+        '  <div style="font-size:13.5px;font-weight:900;color:' + pal.dark + ';">OPCIÓN C · RENTING SOLAR (0 € INVERSIÓN)</div>' +
+        '  <span class="badge-bankable badge-bankable-amber">100% Deducible</span>' +
         '</div>' +
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:4px;text-align:center;">' +
-        '  <div style="background:#f8fafc;padding:5px;border-radius:6px;">' +
-        '    <div style="font-size:13px;color:#64748b;font-weight:700;">Cuota Operativa Mensual</div>' +
-        '    <div style="font-size:18px;font-weight:900;color:' + pal.dark + ';">~' + raw.metrics.cuotaRenting + ' €/mes</div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:3px;text-align:center;">' +
+        '  <div style="background:#f8fafc;padding:4px;border-radius:6px;">' +
+        '    <div style="font-size:11px;color:#64748b;font-weight:700;">Cuota Mensual</div>' +
+        '    <div style="font-size:15px;font-weight:900;color:' + pal.dark + ';">~' + raw.metrics.cuotaRenting + ' €/m</div>' +
         '  </div>' +
-        '  <div style="background:#f8fafc;padding:5px;border-radius:6px;">' +
-        '    <div style="font-size:13px;color:#64748b;font-weight:700;">Ventaja Contable & Fiscal</div>' +
-        '    <div style="font-size:15px;font-weight:800;color:#0284c7;">Gasto OPEX · Fuera de CIRBE</div>' +
+        '  <div style="background:#f8fafc;padding:4px;border-radius:6px;">' +
+        '    <div style="font-size:11px;color:#64748b;font-weight:700;">Ventaja Contable</div>' +
+        '    <div style="font-size:13px;font-weight:800;color:#0284c7;">Gasto OPEX · Sin CIRBE</div>' +
         '  </div>' +
         '</div>' +
-        '<div style="font-size:13px;color:#475569;margin-top:5px;line-height:1.45;">Sin endeudamiento bancario ni consumo de líneas de crédito. Incluye seguro a todo riesgo y mantenimiento preventivo integral con opción de compra residual.</div>'
+        '<div style="font-size:11.5px;color:#475569;margin-top:4px;line-height:1.4;">Sin consumo de líneas de crédito ni balance activo. Incluye seguro a todo riesgo y mantenimiento preventivo.</div>'
       ),
       '      </div>',
       '    </div>',

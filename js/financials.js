@@ -2800,56 +2800,56 @@ if (typeof window !== 'undefined') {
         '</div>' +
 
         '<!-- CARA A CARA: RED CONVENCIONAL VS COMUNIDAD ENERGÉTICA LOCAL -->' +
-        '<div style="display: grid; grid-template-columns: 1fr 1.15fr; gap: 16px; margin-bottom: 22px;">' +
-          '<div class="tech-card cel-card" style="border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 14px 16px; background: #f8fafc; display: flex; flex-direction: column; justify-content: space-between; position: relative;">' +
+        '<div style="display: grid; grid-template-columns: 1fr 1.15fr; gap: 12px; margin-bottom: 12px;">' +
+          '<div class="tech-card cel-card" style="border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; background: #f8fafc; display: flex; flex-direction: column; justify-content: space-between; position: relative;">' +
             '<div>' +
-              '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">' +
-                '<span style="font-size: 9px; font-weight: 800; color: #64748b; text-transform: uppercase;">RÉGIMEN TRADICIONAL (RD 244/2019)</span>' +
-                '<span style="font-size: 8.5px; background: #e2e8f0; color: #475569; padding: 2px 7px; border-radius: 4px; font-weight: 700;">RED GENERAL</span>' +
+              '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">' +
+                '<span style="font-size: 8.5px; font-weight: 800; color: #64748b; text-transform: uppercase;">RÉGIMEN TRADICIONAL (RD 244/2019)</span>' +
+                '<span style="font-size: 8px; background: #e2e8f0; color: #475569; padding: 2px 6px; border-radius: 4px; font-weight: 700;">RED GENERAL</span>' +
               '</div>' +
-              '<div style="font-size: 13px; font-weight: 900; color: #1e293b;">Compensación Simplificada en Factura</div>' +
-              '<div style="font-size: 22px; font-weight: 900; color: #64748b; margin: 4px 0;">0,05 €/kWh <span style="font-size: 10px; font-weight: 600; color: #94a3b8;">(precio medio pool)</span></div>' +
-              '<div style="font-size: 10px; color: #475569; line-height: 1.4; margin-top: 4px;">' +
+              '<div style="font-size: 12px; font-weight: 900; color: #1e293b;">Compensación Simplificada en Factura</div>' +
+              '<div style="font-size: 19px; font-weight: 900; color: #64748b; margin: 3px 0;">0,05 €/kWh <span style="font-size: 9.5px; font-weight: 600; color: #94a3b8;">(precio medio pool)</span></div>' +
+              '<div style="font-size: 9.5px; color: #475569; line-height: 1.35; margin-top: 3px;">' +
                 'Ingreso anual estimado: <b>~' + cel.ingresoPoolAnual.toLocaleString('es-ES') + ' €/año</b>.' +
               '</div>' +
             '</div>' +
-            '<div style="margin-top: 10px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; padding: 8px 10px; font-size: 9px; color: #991b1b; line-height: 1.35;">' +
+            '<div style="margin-top: 6px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 5px; padding: 6px 8px; font-size: 8.5px; color: #991b1b; line-height: 1.3;">' +
               '⚠️ <b>Tope Legal Mensual a 0 €:</b> Todo kWh vertido por encima del importe de energía de tu factura se regala obligatoriamente a la eléctrica sin retribución alguna.' +
             '</div>' +
           '</div>' +
 
-          '<div class="tech-card cel-card" style="border: 2px solid ' + pal.primary + '; border-radius: 10px; padding: 14px 16px; background: #ffffff; box-shadow: 0 4px 14px rgba(0,0,0,0.06); display: flex; flex-direction: column; justify-content: space-between; position: relative;">' +
-            '<div style="position: absolute; top: -10px; right: 14px; background: ' + pal.primary + '; color: #fff; font-size: 8.5px; font-weight: 900; padding: 3px 10px; border-radius: 10px; letter-spacing: 0.5px;">¡+120% MÁS RENTABLE!</div>' +
+          '<div class="tech-card cel-card" style="border: 2px solid ' + pal.primary + '; border-radius: 8px; padding: 10px 14px; background: #ffffff; box-shadow: 0 4px 14px rgba(0,0,0,0.06); display: flex; flex-direction: column; justify-content: space-between; position: relative;">' +
+            '<div style="position: absolute; top: -9px; right: 12px; background: ' + pal.primary + '; color: #fff; font-size: 8px; font-weight: 900; padding: 2px 8px; border-radius: 8px; letter-spacing: 0.5px;">¡+120% MÁS RENTABLE!</div>' +
             '<div>' +
-              '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">' +
-                '<span style="font-size: 9px; font-weight: 800; color: ' + pal.dark + '; text-transform: uppercase;">MARCO REGULATORIO RDL 7/2026</span>' +
-                '<span style="font-size: 8.5px; background: ' + pal.light + '; color: ' + pal.dark + '; padding: 2px 7px; border-radius: 4px; font-weight: 800;">RADIO HASTA 5 KM</span>' +
+              '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">' +
+                '<span style="font-size: 8.5px; font-weight: 800; color: ' + pal.dark + '; text-transform: uppercase;">MARCO REGULATORIO RDL 7/2026</span>' +
+                '<span style="font-size: 8px; background: ' + pal.light + '; color: ' + pal.dark + '; padding: 2px 6px; border-radius: 4px; font-weight: 800;">RADIO HASTA 5 KM</span>' +
               '</div>' +
-              '<div style="font-size: 13px; font-weight: 900; color: #0f172a;">Comunidad Energética Local (CEL) P2P</div>' +
-              '<div style="font-size: 24px; font-weight: 900; color: ' + pal.primary + '; margin: 4px 0;">' + (typeof cel.precioCEL === 'number' ? cel.precioCEL.toFixed(2).replace('.', ',') : '0,11') + ' €/kWh <span style="font-size: 10.5px; font-weight: 700; color: ' + pal.dark + ';">precio local justo acordado</span></div>' +
-              '<div style="font-size: 10px; color: #334155; line-height: 1.4; margin-top: 4px;">' +
-                'Ingreso anual estimado: <b style="color:' + pal.primary + ';font-size:11px;">+' + cel.ingresoCELAnual.toLocaleString('es-ES') + ' €/año</b> (<b style="color:#059669;">+' + cel.beneficioExtraCEL.toLocaleString('es-ES') + ' €/año netos extra</b>).' +
+              '<div style="font-size: 12px; font-weight: 900; color: #0f172a;">Comunidad Energética Local (CEL) P2P</div>' +
+              '<div style="font-size: 20px; font-weight: 900; color: ' + pal.primary + '; margin: 3px 0;">' + (typeof cel.precioCEL === 'number' ? cel.precioCEL.toFixed(2).replace('.', ',') : '0,11') + ' €/kWh <span style="font-size: 9.5px; font-weight: 700; color: ' + pal.dark + ';">precio local justo acordado</span></div>' +
+              '<div style="font-size: 9.5px; color: #334155; line-height: 1.35; margin-top: 3px;">' +
+                'Ingreso anual estimado: <b style="color:' + pal.primary + ';font-size:10.5px;">+' + cel.ingresoCELAnual.toLocaleString('es-ES') + ' €/año</b> (<b style="color:#059669;">+' + cel.beneficioExtraCEL.toLocaleString('es-ES') + ' €/año netos extra</b>).' +
               '</div>' +
             '</div>' +
-            '<div style="margin-top: 10px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 8px 10px; font-size: 9px; color: #166534; line-height: 1.35;">' +
+            '<div style="margin-top: 6px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 5px; padding: 6px 8px; font-size: 8.5px; color: #166534; line-height: 1.3;">' +
               '✅ <b>Sin Límite de Factura:</b> Liquidación íntegra hora a hora mediante coeficientes de reparto dinámicos βh (Orden TED/1247/2021). Tus vecinos ahorran un 35% y tú duplicas ingresos.' +
             '</div>' +
           '</div>' +
         '</div>' +
 
         '<!-- SELLO DE HOMOLOGACIÓN CEL-READY -->' +
-        '<div class="tech-card cel-card" style="border: 1.5px solid #10b981; border-radius: 8px; padding: 14px 16px; background: linear-gradient(135deg, #f0fdf4, #ffffff); display: flex; align-items: center; justify-content: space-between; gap: 14px; box-shadow: 0 2px 6px rgba(16,185,129,0.06); margin-top: 10px; position: relative;">' +
-          '<div style="display: flex; align-items: center; gap: 12px;">' +
-            '<span style="font-size: 28px;">🛡️</span>' +
+        '<div class="tech-card cel-card" style="border: 1.5px solid #10b981; border-radius: 8px; padding: 10px 14px; background: linear-gradient(135deg, #f0fdf4, #ffffff); display: flex; align-items: center; justify-content: space-between; gap: 12px; box-shadow: 0 2px 6px rgba(16,185,129,0.06); margin-top: 6px; position: relative;">' +
+          '<div style="display: flex; align-items: center; gap: 10px;">' +
+            '<span style="font-size: 24px;">🛡️</span>' +
             '<div>' +
-              '<div style="font-size: 11.5px; font-weight: 900; color: #065f46; letter-spacing: 0.3px;">DISEÑO DE INGENIERÍA 100% HOMOLOGADO CEL-READY</div>' +
-              '<div style="font-size: 9px; color: #047857; margin-top: 3px; line-height: 1.4;">' +
+              '<div style="font-size: 11px; font-weight: 900; color: #065f46; letter-spacing: 0.3px;">DISEÑO DE INGENIERÍA 100% HOMOLOGADO CEL-READY</div>' +
+              '<div style="font-size: 8.5px; color: #047857; margin-top: 2px; line-height: 1.35;">' +
                 'La instalación incorpora <b>telemedida horaria bidireccional</b> homologada y soporte de coeficientes dinámicos <b>βh (Orden TED/1247/2021)</b>. No requiere obras de tendido vecinal ni cableado exterior: la energía se comparte a través de la red de distribución existente según el <b>Real Decreto-ley 7/2026</b>.' +
               '</div>' +
             '</div>' +
           '</div>' +
           '<div style="text-align: right; white-space: nowrap;">' +
-            '<span style="font-size: 9.5px; font-weight: 900; color: #065f46; background: #d1fae5; padding: 4px 10px; border-radius: 5px; border: 1px solid #10b981; display: inline-block;">COMPATIBLE RDL 7/2026</span>' +
+            '<span style="font-size: 9px; font-weight: 900; color: #065f46; background: #d1fae5; padding: 3px 8px; border-radius: 5px; border: 1px solid #10b981; display: inline-block;">COMPATIBLE RDL 7/2026</span>' +
           '</div>' +
         '</div>' +
       '</div>' +
@@ -2873,60 +2873,60 @@ if (typeof window !== 'undefined') {
         '</div>' +
 
         '<!-- 1. DESPACHO DEL FLUJO ENERGÉTICO EN GRAN FORMATO -->' +
-        '<div class="tech-card cel-card cel-flow-card" style="border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 14px 18px; background: #f8fafc; margin: 8px 0 12px; position: relative;">' +
-          '<div style="font-size: 12px; font-weight: 900; color: #1e293b; text-transform: uppercase; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">' +
-            '<div style="display: flex; align-items: center; gap: 8px;"><span>⚡</span><span>1. Despacho del Flujo Energético Generado</span></div>' +
-            '<span style="font-size: 9.5px; font-weight: 800; color: ' + pal.primary + '; background: ' + pal.light + '; padding: 3px 8px; border-radius: 4px;">Balance 100% Optimizado</span>' +
+        '<div class="tech-card cel-card cel-flow-card" style="border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; background: #f8fafc; margin: 4px 0 8px; position: relative;">' +
+          '<div style="font-size: 11px; font-weight: 900; color: #1e293b; text-transform: uppercase; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;">' +
+            '<div style="display: flex; align-items: center; gap: 6px;"><span>⚡</span><span>1. Despacho del Flujo Energético Generado</span></div>' +
+            '<span style="font-size: 8.5px; font-weight: 800; color: ' + pal.primary + '; background: ' + pal.light + '; padding: 2px 7px; border-radius: 4px;">Balance 100% Optimizado</span>' +
           '</div>' +
 
-          '<div style="width: 100%; height: 34px; border-radius: 8px; overflow: hidden; display: flex; margin-bottom: 14px; border: 1.5px solid #cbd5e1; box-shadow: inset 0 2px 4px rgba(0,0,0,0.08);">' +
-            '<div style="width:' + autoW + '%; background: linear-gradient(135deg, #059669, #10b981); color: #fff; font-size: 10px; font-weight: 900; display: flex; align-items: center; justify-content: center; padding: 0 6px; white-space: nowrap;">' +
+          '<div style="width: 100%; height: 26px; border-radius: 6px; overflow: hidden; display: flex; margin-bottom: 8px; border: 1.5px solid #cbd5e1; box-shadow: inset 0 2px 4px rgba(0,0,0,0.08);">' +
+            '<div style="width:' + autoW + '%; background: linear-gradient(135deg, #059669, #10b981); color: #fff; font-size: 9.5px; font-weight: 900; display: flex; align-items: center; justify-content: center; padding: 0 4px; white-space: nowrap;">' +
               cel.autoPct + '% Autoconsumo' +
             '</div>' +
             (cel.batPct > 0 ? (
-              '<div style="width:' + batW + '%; background: linear-gradient(135deg, #0284c7, #38bdf8); color: #fff; font-size: 10px; font-weight: 900; display: flex; align-items: center; justify-content: center; padding: 0 6px; white-space: nowrap;">' +
+              '<div style="width:' + batW + '%; background: linear-gradient(135deg, #0284c7, #38bdf8); color: #fff; font-size: 9.5px; font-weight: 900; display: flex; align-items: center; justify-content: center; padding: 0 4px; white-space: nowrap;">' +
                 cel.batPct + '% Batería' +
               '</div>'
             ) : '') +
-            '<div style="width:' + excW + '%; background: linear-gradient(135deg, #d97706, #f59e0b); color: #fff; font-size: 10px; font-weight: 900; display: flex; align-items: center; justify-content: center; padding: 0 6px; white-space: nowrap;">' +
+            '<div style="width:' + excW + '%; background: linear-gradient(135deg, #d97706, #f59e0b); color: #fff; font-size: 9.5px; font-weight: 900; display: flex; align-items: center; justify-content: center; padding: 0 4px; white-space: nowrap;">' +
               cel.excPct + '% Inyección CEL (5 km)' +
             '</div>' +
           '</div>' +
 
-          '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 10px; line-height: 1.45;">' +
-            '<div style="display: flex; align-items: flex-start; gap: 8px; background: #ffffff; padding: 10px 12px; border-radius: 6px; border: 1px solid #e2e8f0;">' +
-              '<span style="color: #059669; font-weight: 900; font-size: 13px;">■</span>' +
+          '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 9px; line-height: 1.35;">' +
+            '<div style="display: flex; align-items: flex-start; gap: 6px; background: #ffffff; padding: 6px 10px; border-radius: 6px; border: 1px solid #e2e8f0;">' +
+              '<span style="color: #059669; font-weight: 900; font-size: 11px;">■</span>' +
               '<div><b>Autoconsumo Inmueble (' + cel.autoKWh.toLocaleString('es-ES') + ' kWh/año):</b> Cubre consumos instantáneos diurnos a coste 0 €. Máxima prioridad operativa.</div>' +
             '</div>' +
             (cel.batKWh > 0 ? (
-              '<div style="display: flex; align-items: flex-start; gap: 8px; background: #ffffff; padding: 10px 12px; border-radius: 6px; border: 1px solid #e2e8f0;">' +
-                '<span style="color: #0284c7; font-weight: 900; font-size: 13px;">■</span>' +
+              '<div style="display: flex; align-items: flex-start; gap: 6px; background: #ffffff; padding: 6px 10px; border-radius: 6px; border: 1px solid #e2e8f0;">' +
+                '<span style="color: #0284c7; font-weight: 900; font-size: 11px;">■</span>' +
                 '<div><b>Batería LFP (' + cel.batKWh.toLocaleString('es-ES') + ' kWh/año):</b> Reserva energética gestionada para consumos nocturnos o picos tarifarios.</div>' +
               '</div>'
             ) : '') +
-            '<div style="display: flex; align-items: flex-start; gap: 8px; background: #ffffff; padding: 10px 12px; border-radius: 6px; border: 1px solid #e2e8f0;">' +
-              '<span style="color: #d97706; font-weight: 900; font-size: 13px;">■</span>' +
-              '<div><b>Inyección CEL (' + cel.excKWh.toLocaleString('es-ES') + ' kWh/año):</b> Compartida con consumidores del barrio en radio de 5 km a <b>' + cel.precioCEL.toFixed(2) + ' €/kWh</b>.</div>' +
+            '<div style="display: flex; align-items: flex-start; gap: 6px; background: #ffffff; padding: 6px 10px; border-radius: 6px; border: 1px solid #e2e8f0;">' +
+              '<span style="color: #d97706; font-weight: 900; font-size: 11px;">■</span>' +
+              '<div><b>Inyección CEL (' + cel.excKWh.toLocaleString('es-ES') + ' kWh/año):</b> Compartida con el vecindario a <b>' + cel.precioCEL.toFixed(2) + ' €/kWh</b>.</div>' +
             '</div>' +
-            '<div style="display: flex; align-items: flex-start; gap: 8px; background: #ffffff; padding: 10px 12px; border-radius: 6px; border: 1px solid #e2e8f0;">' +
-              '<span style="color: #64748b; font-weight: 900; font-size: 13px;">■</span>' +
-              '<div><b>Respaldo de Red Eléctrica:</b> Suministro ininterrumpido 24 horas y balance de seguridad permanente ante cualquier contingencia.</div>' +
+            '<div style="display: flex; align-items: flex-start; gap: 6px; background: #ffffff; padding: 6px 10px; border-radius: 6px; border: 1px solid #e2e8f0;">' +
+              '<span style="color: #64748b; font-weight: 900; font-size: 11px;">■</span>' +
+              '<div><b>Respaldo de Red Eléctrica:</b> Suministro ininterrumpido 24 horas y balance de seguridad permanente ante contingencias.</div>' +
             '</div>' +
           '</div>' +
         '</div>' +
 
         '<!-- 2. RADAR DE COBERTURA 5 KM EN GRAN FORMATO -->' +
-        '<div class="tech-card chart-box cel-card cel-radar-card" style="border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 14px 18px; background: #ffffff; box-shadow: 0 4px 16px rgba(0,0,0,0.04); position: relative;">' +
-          '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">' +
-            '<div style="font-size: 13px; font-weight: 900; color: #0f172a; text-transform: uppercase; letter-spacing: -0.2px;">2. Radar de Cobertura y Topología de Reparto (5 km)</div>' +
-            '<span style="font-size: 9.5px; font-weight: 800; color: ' + pal.primary + '; background: ' + pal.light + '; padding: 3px 10px; border-radius: 6px;">RDL 7/2026 · 78,5 km² de Cobertura</span>' +
+        '<div class="tech-card chart-box cel-card cel-radar-card" style="border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; background: #ffffff; box-shadow: 0 4px 16px rgba(0,0,0,0.04); position: relative;">' +
+          '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">' +
+            '<div style="font-size: 11.5px; font-weight: 900; color: #0f172a; text-transform: uppercase; letter-spacing: -0.2px;">2. Radar de Cobertura y Topología de Reparto (5 km)</div>' +
+            '<span style="font-size: 8.5px; font-weight: 800; color: ' + pal.primary + '; background: ' + pal.light + '; padding: 2px 8px; border-radius: 5px;">RDL 7/2026 · 78,5 km² de Cobertura</span>' +
           '</div>' +
-          '<div class="cel-radar-inner" style="width: 100%; height: 320px; min-height: 260px; border-radius: 10px; overflow: hidden; background: #0b1329; box-shadow: 0 4px 16px rgba(0,0,0,0.2);">' +
+          '<div class="cel-radar-inner" style="width: 100%; height: 235px; min-height: 200px; border-radius: 8px; overflow: hidden; background: #0b1329; box-shadow: 0 4px 16px rgba(0,0,0,0.2);">' +
             radarSvg +
           '</div>' +
-          '<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 10px; color: #64748b; line-height: 1.4; gap: 16px;">' +
+          '<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px; font-size: 9px; color: #64748b; line-height: 1.35; gap: 12px;">' +
             '<span style="flex: 1;">Topología de reparto P2P homologada para consumidores residenciales, comerciales e industriales en baja y media tensión.</span>' +
-            '<span style="font-weight: 800; color: ' + pal.primary + '; white-space: nowrap; background: ' + pal.light + '; padding: 3px 8px; border-radius: 4px;">Telemedida horaria activa</span>' +
+            '<span style="font-weight: 800; color: ' + pal.primary + '; white-space: nowrap; background: ' + pal.light + '; padding: 2px 7px; border-radius: 4px;">Telemedida horaria activa</span>' +
           '</div>' +
         '</div>' +
       '</div>' +
