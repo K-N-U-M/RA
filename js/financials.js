@@ -1147,8 +1147,51 @@ function wpUpdateStep5PricingBadge() {
     badge.textContent = 'MARGEN ' + pricing.marginPct + '% · ' + pricing.panelPrice + ' €/MÓD';
   }
 }
+window._selectedProposalFormat = window._selectedProposalFormat || 'landscape';
+function wpSetProposalFormat(fmt) {
+  window._selectedProposalFormat = fmt;
+  var btnL = document.getElementById('step5-fmt-landscape');
+  var btnP = document.getElementById('step5-fmt-portrait');
+  var heroBtn = document.getElementById('step5-btn-download-commercial');
+  var isL = (fmt === 'landscape');
+  if (btnL && btnP) {
+    btnL.style.background = isL ? 'rgba(16,185,129,0.22)' : 'transparent';
+    btnL.style.borderColor = isL ? '#10B981' : 'transparent';
+    btnL.style.color = isL ? '#34D399' : '#94a3b8';
+    btnP.style.background = !isL ? 'rgba(14,165,233,0.22)' : 'transparent';
+    btnP.style.borderColor = !isL ? '#0284c7' : 'transparent';
+    btnP.style.color = !isL ? '#38BDF8' : '#94a3b8';
+  }
+  if (heroBtn) {
+    heroBtn.innerHTML = isL
+      ? '<i data-lucide="award" class="icon-sm"></i> <span>EMITIR DOSSIER EJECUTIVO (LANDSCAPE)</span>'
+      : '<i data-lucide="file-text" class="icon-sm"></i> <span>EMITIR OFERTA BANCABLE (PORTRAIT)</span>';
+    heroBtn.style.background = isL
+      ? 'linear-gradient(135deg, #10B981, #059669)'
+      : 'linear-gradient(135deg, #0284c7, #0369a1)';
+    heroBtn.style.boxShadow = isL
+      ? '0 4px 15px rgba(16,185,129,0.35)'
+      : '0 4px 15px rgba(2,132,199,0.35)';
+    if (window.lucide && typeof window.lucide.createIcons === 'function') {
+      try { window.lucide.createIcons(); } catch(e) {}
+    }
+  }
+}
+function wpDownloadSelectedProposal() {
+  if (window._selectedProposalFormat === 'portrait') {
+    if (typeof generatePropuestaComercialPDF === 'function') generatePropuestaComercialPDF();
+  } else {
+    if (window.CommercialProposalDossier && typeof window.CommercialProposalDossier.openConfig === 'function') {
+      window.CommercialProposalDossier.openConfig();
+    } else if (typeof generatePropuestaComercialPDF === 'function') {
+      generatePropuestaComercialPDF();
+    }
+  }
+}
 if (typeof window !== 'undefined') {
   window.wpUpdateStep5PricingBadge = wpUpdateStep5PricingBadge;
+  window.wpSetProposalFormat = wpSetProposalFormat;
+  window.wpDownloadSelectedProposal = wpDownloadSelectedProposal;
 }
 
 function wpOpenPricingReviewModal(onConfirm) {

@@ -2447,97 +2447,104 @@ window.RA_App = window.RA_App || {};
 
           <div id="step5-executive-summary-container"></div>
 
-              <!-- 🏷️ TARJETA DE REVISIÓN PREVIA DE PRECIOS Y MARGEN COMERCIAL -->
-              <div id="step5-pricing-overview-card" style="background:rgba(15,23,42,0.85);border:1px solid rgba(245,158,11,0.35);border-radius:8px;padding:9px 12px;margin-bottom:8px;">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                  <span style="color:#FBBF24;font-weight:900;font-size:10px;text-transform:uppercase;display:flex;align-items:center;gap:5px;">
-                    <i data-lucide="tag" class="icon-sm"></i> PRECIOS &amp; MARGEN COMERCIAL
+              <!-- 💼 HUB 1: ÁREA COMERCIAL & VENTA (CLIENTE FINAL) -->
+              <div id="step5-commercial-hub-card" style="background:rgba(15,23,42,0.85);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(16,185,129,0.3);border-radius:10px;padding:11px;margin-bottom:10px;box-shadow:0 6px 20px -3px rgba(0,0,0,0.5);">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                  <span style="font-size:10.5px;font-weight:900;color:#34D399;display:flex;align-items:center;gap:6px;text-transform:uppercase;letter-spacing:0.5px;">
+                    <i data-lucide="briefcase" class="icon-sm"></i> Propuesta Comercial &amp; Venta
                   </span>
-                  <span id="step5-pricing-badge" class="card-tag" style="background:rgba(245,158,11,0.15);color:#FBBF24;font-size: 10px;font-weight:800;">
-                    MARGEN 20% · 125 €/MÓD
+                  <span class="card-tag" style="background:rgba(16,185,129,0.15);color:#34D399;font-size:9px;font-weight:800;border:1px solid rgba(16,185,129,0.3);padding:2px 6px;border-radius:4px;">
+                    CLIENTE FINAL
                   </span>
                 </div>
-                <p style="font-size: 10px;color:var(--text-slate-400);margin:0 0 7px 0;line-height:1.35;">
-                  Verifica o afina el precio unitario de placas, mano de obra y tu margen de beneficio antes de emitir la oferta comercial.
-                </p>
-                <button type="button" class="btn-action-secondary" onclick="if(window.wpOpenPricingReviewModal) window.wpOpenPricingReviewModal();" style="width:100%;padding:6px;font-size: 10px;font-weight:800;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.4);color:#FBBF24;display:flex;align-items:center;justify-content:center;gap:5px;border-radius:6px;cursor:pointer;">
-                  <i data-lucide="sliders" class="icon-sm"></i> AJUSTAR PRECIOS &amp; MARGEN
+
+                <!-- Selector segmentado de formato de propuesta -->
+                <div style="background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:3px;display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:8px;">
+                  <button type="button" id="step5-fmt-landscape" onclick="wpSetProposalFormat('landscape')" class="doc-mini-btn active" style="padding:6px 4px;font-size:10px;font-weight:800;text-align:center;display:flex;align-items:center;justify-content:center;gap:5px;background:rgba(16,185,129,0.22);border:1px solid #10B981;color:#34D399;border-radius:4px;cursor:pointer;">
+                    <i data-lucide="layout" class="icon-sm"></i> Landscape (10 Lám.)
+                  </button>
+                  <button type="button" id="step5-fmt-portrait" onclick="wpSetProposalFormat('portrait')" class="doc-mini-btn" style="padding:6px 4px;font-size:10px;font-weight:700;text-align:center;display:flex;align-items:center;justify-content:center;gap:5px;background:transparent;border:1px solid transparent;color:#94a3b8;border-radius:4px;cursor:pointer;">
+                    <i data-lucide="file-text" class="icon-sm"></i> Portrait (Bancable)
+                  </button>
+                </div>
+
+                <!-- Botón CTA Primario de Descarga Comercial -->
+                <button type="button" id="step5-btn-download-commercial" class="btn-action-primary" onclick="wpDownloadSelectedProposal()" style="width:100%;padding:10px 12px;font-size:11px;background:linear-gradient(135deg, #10B981, #059669);color:#fff;font-weight:900;border:none;border-radius:6px;box-shadow:0 4px 14px rgba(16,185,129,0.35);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;letter-spacing:0.3px;margin-bottom:8px;transition:all 0.2s ease;">
+                  <i data-lucide="award" class="icon-sm"></i> <span>EMITIR DOSSIER EJECUTIVO (LANDSCAPE)</span>
                 </button>
+
+                <!-- Sub-fila compacta: Auditoría de factura + Precios y margen -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+                  <button type="button" onclick="if(window.openBillAuditorModal) openBillAuditorModal();" class="doc-mini-btn" style="padding:7px 6px;font-size:9.5px;font-weight:800;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);color:#FBBF24;display:flex;align-items:center;justify-content:center;gap:5px;border-radius:5px;cursor:pointer;" title="Comparativa de ahorro y auditoría con factura de luz del cliente">
+                    <i data-lucide="receipt" class="icon-sm"></i> <span>Auditar Factura</span>
+                  </button>
+                  <button type="button" id="step5-pricing-overview-card" onclick="if(window.wpOpenPricingReviewModal) window.wpOpenPricingReviewModal();" class="doc-mini-btn" style="padding:7px 6px;font-size:9.5px;font-weight:800;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);color:#FBBF24;display:flex;align-items:center;justify-content:center;gap:5px;border-radius:5px;cursor:pointer;" title="Ajustar precios unitarios de módulos, mano de obra y margen comercial">
+                    <i data-lucide="sliders" class="icon-sm"></i> <span id="step5-pricing-badge">Margen &amp; Precios</span>
+                  </button>
+                </div>
               </div>
 
-                            <!-- ACCIONES DE DESCARGA DIRECTA -->
-              <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:8px;">
-                <button type="button" class="btn-action-primary" onclick="generateMemoria()" style="width:100%;padding:9px;font-size:11px;background:linear-gradient(135deg, #10B981, #059669);color:#fff;font-weight:900;border:none;box-shadow:0 0 10px rgba(16,185,129,0.3);">
-                  <span><i data-lucide="file-text" class="icon-sm"></i> EXPORTAR MEMORIA TÉCNICA (PDF)</span>
-                </button>
-                <button type="button" class="btn-action-primary" onclick="if(window.CommercialProposalDossier && window.CommercialProposalDossier.openConfig) { window.CommercialProposalDossier.openConfig(); } else { generatePropuestaComercialPDF(); }" style="width:100%;padding:9px;font-size:10.5px;background:linear-gradient(135deg, #e11d48, #f97316);color:#fff;font-weight:900;border:none;box-shadow:0 0 10px rgba(225,29,72,0.35);">
-                  <span><i data-lucide="award" class="icon-sm"></i> DOSSIER EJECUTIVO LANDSCAPE (10 LÁMINAS)</span>
-                </button>
-                <button type="button" class="btn-action-secondary" onclick="generatePropuestaComercialPDF()" style="width:100%;padding:6px;font-size:10px;background:rgba(2,132,199,0.15);border:1px solid rgba(2,132,199,0.4);color:#38bdf8;font-weight:700;">
-                  <span><i data-lucide="file-text" class="icon-sm"></i> OFERTA BANCABLE ESTÁNDAR (PORTRAIT)</span>
-                </button>
-                <button type="button" class="btn-action-primary" onclick="if(window.openBillAuditorModal) openBillAuditorModal();" style="width:100%;padding:8px;font-size:10.5px;background:linear-gradient(135deg, rgba(245,158,11,0.25), rgba(217,119,6,0.35));border:1px solid #F59E0B;color:#FBBF24;font-weight:800;">
-                  <span><i data-lucide="receipt" class="icon-sm"></i> AUDITAR FACTURA &amp; COMPARATIVA DE AHORRO</span>
-                </button>
-                <button type="button" id="btn-open-doc-modal" class="btn-action-secondary" onclick="if(typeof window.openDocModal === 'function') window.openDocModal();" style="display:flex;background:rgba(56, 189, 248, 0.15);border:1px solid rgba(56, 189, 248, 0.4);color:#38BDF8;font-size: 10px;font-weight:800;padding:7px;width:100%;margin-top:4px;align-items:center;justify-content:center;gap:5px;border-radius:6px;cursor:pointer;">
-                  <i data-lucide="user-check" class="icon-sm"></i> DATOS DE LEGALIZACIÓN &amp; PROYECTISTA (CUPS, TITULAR...)
-                </button>
-              </div>
-              <!-- Expediente Técnico Oficial Directo (REBT / RD 244) -->
-              <div style="background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:6px;margin-bottom:8px;">
-                <div style="font-size: 10px;font-weight:bold;color:var(--sky-400);text-transform:uppercase;margin-bottom:5px;display:flex;align-items:center;justify-content:space-between;">
-                  <span style="display:flex;align-items:center;gap:4px;"><i data-lucide="folder-check" class="icon-sm"></i> Expediente Técnico de Legalización (Colegio Oficial / Industria)</span>
-                  <button type="button" onclick="if(typeof window.openDocModal === 'function') window.openDocModal();" style="background:none;border:none;color:var(--sky-400);font-size: 10px;cursor:pointer;text-decoration:underline;padding:0;">Editar datos</button>
+              <!-- 🏛️ HUB 2: EXPEDIENTE OFICIAL DE LEGALIZACIÓN (INDUSTRIA / REBT) -->
+              <div id="step5-technical-hub-card" style="background:rgba(15,23,42,0.85);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(56,189,248,0.25);border-radius:10px;padding:11px;margin-bottom:10px;box-shadow:0 6px 20px -3px rgba(0,0,0,0.5);">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                  <span style="font-size:10.5px;font-weight:900;color:#38BDF8;display:flex;align-items:center;gap:6px;text-transform:uppercase;letter-spacing:0.5px;">
+                    <i data-lucide="folder-check" class="icon-sm"></i> Expediente de Legalización
+                  </span>
+                  <button type="button" id="btn-open-doc-modal" onclick="if(typeof window.openDocModal === 'function') window.openDocModal();" class="card-tag" style="background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.35);color:#38BDF8;font-size:9px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:4px;padding:2px 6px;border-radius:4px;" title="Configurar datos de titular, CUPS, proyectista y visado colegial">
+                    <i data-lucide="user-check" class="icon-sm" style="width:10px;height:10px;"></i> <span>CUPS / Proyectista</span>
+                  </button>
                 </div>
-                <button type="button" class="btn-action-primary" onclick="generateDeliveryPack()" style="width:100%;margin-bottom:8px;padding:9px 12px;font-size:10.5px;font-weight:900;background:linear-gradient(135deg, #0284c7, #0369a1);box-shadow:0 0 12px rgba(2,132,199,0.35);border:none;border-radius:6px;cursor:pointer;color:#fff;display:flex;align-items:center;justify-content:center;gap:6px;" title="Emite la Memoria Técnica, Oferta Comercial, Tramitación y Análisis Energético de forma coordinada">
+
+                <!-- Master CTA: Pack de Entrega Completo -->
+                <button type="button" class="btn-action-primary" onclick="generateDeliveryPack()" style="width:100%;margin-bottom:8px;padding:9px 12px;font-size:11px;font-weight:900;background:linear-gradient(135deg, #0284c7, #0369a1);box-shadow:0 4px 14px rgba(2,132,199,0.35);border:none;border-radius:6px;cursor:pointer;color:#fff;display:flex;align-items:center;justify-content:center;gap:7px;letter-spacing:0.3px;transition:all 0.2s ease;" title="Emite la Memoria Técnica, Pliego, Presupuesto, Unifilar, Planos y Tramitación RD 244 de forma coordinada">
                   <i data-lucide="package" class="icon-sm"></i><span>📦 GENERAR PACK DE ENTREGA COMPLETO</span>
                 </button>
+
+                <!-- Bento Grid 2x3 con micro-tiles de documentos oficiales -->
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
-                  <button type="button" class="doc-mini-btn" onclick="generateMemoria()" style="padding:6px 4px;font-size: 10px;font-weight:700;display:flex;align-items:center;gap:4px;justify-content:center;" title="Descargar Memoria Técnica Oficial (ITC-BT-40)" aria-label="Descargar Memoria Técnica Oficial">
-                    <i data-lucide="clipboard" class="icon-sm"></i><span>MEMORIA TÉCNICA</span>
+                  <button type="button" class="doc-mini-btn" onclick="generateMemoria()" style="padding:6px 6px;font-size:9.5px;font-weight:700;display:flex;align-items:center;gap:5px;justify-content:flex-start;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);color:#cbd5e1;border-radius:5px;" title="Memoria Técnica Oficial (REBT ITC-BT-40 / UNE-EN 62446)">
+                    <i data-lucide="clipboard" class="icon-sm" style="color:#38BDF8;width:12px;height:12px;"></i><span>Memoria Técnica</span>
                   </button>
-                  <button type="button" class="doc-mini-btn" onclick="generatePliego()" style="padding:6px 4px;font-size: 10px;font-weight:700;display:flex;align-items:center;gap:4px;justify-content:center;">
-                    <i data-lucide="file" class="icon-sm"></i><span>PLIEGO CONDICIONES</span>
+                  <button type="button" class="doc-mini-btn" onclick="generateUnifilar()" style="padding:6px 6px;font-size:9.5px;font-weight:700;display:flex;align-items:center;gap:5px;justify-content:flex-start;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);color:#cbd5e1;border-radius:5px;" title="Esquema Unifilar Oficial">
+                    <i data-lucide="zap" class="icon-sm" style="color:#FBBF24;width:12px;height:12px;"></i><span>Esquema Unifilar</span>
                   </button>
-                  <button type="button" class="doc-mini-btn" onclick="generatePresupuesto()" style="padding:6px 4px;font-size: 10px;font-weight:700;display:flex;align-items:center;gap:4px;justify-content:center;">
-                    <i data-lucide="euro" class="icon-sm"></i><span>PRESUPUESTO BOE</span>
+                  <button type="button" class="doc-mini-btn" onclick="generatePliego()" style="padding:6px 6px;font-size:9.5px;font-weight:700;display:flex;align-items:center;gap:5px;justify-content:flex-start;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);color:#cbd5e1;border-radius:5px;" title="Pliego de Condiciones y Prescripciones Técnicas">
+                    <i data-lucide="file-check" class="icon-sm" style="color:#34D399;width:12px;height:12px;"></i><span>Pliego Condiciones</span>
                   </button>
-                  <button type="button" class="doc-mini-btn" onclick="generateUnifilar()" style="padding:6px 4px;font-size: 10px;font-weight:700;display:flex;align-items:center;gap:4px;justify-content:center;">
-                    <i data-lucide="zap" class="icon-sm"></i><span>ESQUEMA UNIFILAR</span>
+                  <button type="button" class="doc-mini-btn" onclick="generatePlanoPlanta()" style="padding:6px 6px;font-size:9.5px;font-weight:700;display:flex;align-items:center;gap:5px;justify-content:flex-start;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);color:#cbd5e1;border-radius:5px;" title="Plano de Implantación Solar 2D/3D">
+                    <i data-lucide="ruler" class="icon-sm" style="color:#A78BFA;width:12px;height:12px;"></i><span>Plano de Planta</span>
                   </button>
-                  <button type="button" class="doc-mini-btn" onclick="generatePlanoPlanta()" style="padding:6px 4px;font-size: 10px;font-weight:700;display:flex;align-items:center;gap:4px;justify-content:center;">
-                    <i data-lucide="ruler" class="icon-sm"></i><span>PLANO DE PLANTA</span>
+                  <button type="button" class="doc-mini-btn" onclick="generatePresupuesto()" style="padding:6px 6px;font-size:9.5px;font-weight:700;display:flex;align-items:center;gap:5px;justify-content:flex-start;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);color:#cbd5e1;border-radius:5px;" title="Presupuesto y Mediciones Oficiales según Formato BOE">
+                    <i data-lucide="euro" class="icon-sm" style="color:#F472B6;width:12px;height:12px;"></i><span>Presupuesto BOE</span>
                   </button>
-                  <button type="button" class="doc-mini-btn" onclick="generateFormulario()" style="padding:6px 4px;font-size: 10px;font-weight:700;display:flex;align-items:center;gap:4px;justify-content:center;">
-                    <i data-lucide="file-text" class="icon-sm"></i><span>TRAMITACIÓN RD 244</span>
+                  <button type="button" class="doc-mini-btn" onclick="generateFormulario()" style="padding:6px 6px;font-size:9.5px;font-weight:700;display:flex;align-items:center;gap:5px;justify-content:flex-start;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);color:#cbd5e1;border-radius:5px;" title="Formulario Oficial de Tramitación según RD 244/2019">
+                    <i data-lucide="file-text" class="icon-sm" style="color:#38BDF8;width:12px;height:12px;"></i><span>Tramitación RD 244</span>
                   </button>
                 </div>
               </div>
 
-              <!-- RESUMEN FINANCIERO Y ACCESO A PANELES DETALLADOS -->
-              <div style="background:rgba(0,0,0,0.3);padding:8px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);display:flex;flex-direction:column;gap:5px;">
-                <div style="font-size: 10px;font-weight:bold;color:var(--amber-400);text-transform:uppercase;">
-                  <i data-lucide="bar-chart-2" class="icon-sm"></i> Detalle Económico y Fiscal
+              <!-- 📊 DETALLE ECONÓMICO Y AJUSTES DE EMPRESA -->
+              <div style="background:rgba(0,0,0,0.3);padding:9px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);display:flex;flex-direction:column;gap:5px;margin-bottom:8px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <span style="font-size:10px;font-weight:800;color:var(--amber-400);text-transform:uppercase;display:flex;align-items:center;gap:5px;">
+                    <i data-lucide="bar-chart-2" class="icon-sm"></i> Detalle Económico &amp; Fiscal
+                  </span>
+                  <span style="font-size:9px;color:#94a3b8;">CAPEX · TOU · IRPF</span>
                 </div>
-                <div style="font-size: 10px;color:var(--text-slate-300);line-height:1.4;">
-                  Puedes afinar los costes desglosados (CAPEX), tarifa eléctrica TOU y deducciones de IRPF/IBI en la pestaña <b>COSTES</b>.
-                </div>
-                <div style="display:flex;gap:4px;margin-top:2px;">
-                  <button type="button" class="doc-mini-btn" onclick="openCostBreakdownModal()" style="flex:1;text-align:center;padding:5px 6px;color:var(--amber-400);border-color:var(--amber-400);cursor:pointer;font-weight:700;">
-                    <span><i data-lucide="euro" class="icon-sm"></i> Ver Desglose Costes</span>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:2px;">
+                  <button type="button" class="doc-mini-btn" onclick="openCostBreakdownModal()" style="padding:6px 8px;font-size:9.5px;font-weight:700;text-align:center;color:var(--amber-400);border:1px solid rgba(245,158,11,0.35);background:rgba(245,158,11,0.06);border-radius:5px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;">
+                    <i data-lucide="euro" class="icon-sm"></i><span>Desglose Costes</span>
                   </button>
-                  <button type="button" class="doc-mini-btn" onclick="openCompanyBrandingModal()" style="flex:1;text-align:center;padding:5px 6px;color:var(--sky-400);border-color:var(--sky-400);cursor:pointer;font-weight:700;">
-                    <span><i data-lucide="building" class="icon-sm"></i> Datos &amp; Logo Empresa</span>
-                  </button>
-                </div>
-
-                <!-- BOTONERA DE RETORNO PASO 5 -->
-                <div style="display:flex;gap:4px;margin-top:10px;border-top:1px solid rgba(255,255,255,0.08);padding-top:8px;">
-                  <button type="button" class="btn-action-primary" onclick="wpGoToStep(4)" style="width:100%;padding:8px 6px;font-size: 10px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15);color:var(--text-slate-300);">
-                    <span><i data-lucide="arrow-left" class="icon-sm"></i> VOLVER A INGENIERÍA (4)</span>
+                  <button type="button" class="doc-mini-btn" onclick="openCompanyBrandingModal()" style="padding:6px 8px;font-size:9.5px;font-weight:700;text-align:center;color:var(--sky-400);border:1px solid rgba(56,189,248,0.35);background:rgba(56,189,248,0.06);border-radius:5px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;">
+                    <i data-lucide="building" class="icon-sm"></i><span>Datos &amp; Logo</span>
                   </button>
                 </div>
               </div>
+
+              <!-- BOTONERA DE RETORNO AL PASO 4 -->
+              <button type="button" class="btn-action-primary" onclick="wpGoToStep(4)" style="width:100%;padding:8px 6px;font-size:10px;font-weight:700;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.12);color:var(--text-slate-300);border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all 0.2s ease;">
+                <i data-lucide="arrow-left" class="icon-sm"></i><span>VOLVER A INGENIERÍA (4)</span>
+              </button>
             </div>
           </div>
         </div>
