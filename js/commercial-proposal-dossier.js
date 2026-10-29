@@ -88,24 +88,25 @@
    * El residual va a permisos solo si queda positivo, y la suma cierra contra totalCost.
    * Exportada para pruebas conductuales (`_audit`).
    */
-  function computeCapexBreakdown(designCosts, totalCost, numPanels) {
+  function computeCapexBreakdown(designCosts, totalCost, numPanels, addonsCost) {
     var panPart, invPart, estPart, cabPart, moPart, legPart;
     var panels = (typeof numPanels === 'number' && numPanels > 0) ? numPanels : 0;
+    var effectiveTotal = Math.max(0, totalCost - (Number(addonsCost) || 0));
     if (designCosts && designCosts.directCostTotal > 0) {
-      var scale = totalCost / designCosts.directCostTotal;
+      var scale = effectiveTotal / designCosts.directCostTotal;
       panPart = Math.round((designCosts.panelTotalCost || (designCosts.panelPrice * panels)) * scale);
       invPart = Math.round(((designCosts.invPrice || 0) + (designCosts.batPrice || 0)) * scale);
       estPart = Math.round((designCosts.estPrice || 0) * scale);
       cabPart = Math.round((designCosts.cabPrice || 0) * scale);
       moPart  = Math.round((designCosts.moPrice || 0) * scale);
-      legPart = Math.max(0, Math.round(totalCost) - (panPart + invPart + estPart + cabPart + moPart));
+      legPart = Math.max(0, Math.round(effectiveTotal) - (panPart + invPart + estPart + cabPart + moPart));
     } else {
-      panPart = Math.round(totalCost * 0.32);
-      invPart = Math.round(totalCost * 0.18);
-      estPart = Math.round(totalCost * 0.14);
-      cabPart = Math.round(totalCost * 0.11);
-      moPart  = Math.round(totalCost * 0.16);
-      legPart = Math.max(0, Math.round(totalCost) - (panPart + invPart + estPart + cabPart + moPart));
+      panPart = Math.round(effectiveTotal * 0.32);
+      invPart = Math.round(effectiveTotal * 0.18);
+      estPart = Math.round(effectiveTotal * 0.14);
+      cabPart = Math.round(effectiveTotal * 0.11);
+      moPart  = Math.round(effectiveTotal * 0.16);
+      legPart = Math.max(0, Math.round(effectiveTotal) - (panPart + invPart + estPart + cabPart + moPart));
     }
     return {
       panPart: panPart, invPart: invPart, estPart: estPart,
@@ -236,7 +237,13 @@
     var designCosts = (typeof global.RAPricing !== 'undefined' && typeof global.RAPricing.computeDesignCosts === 'function')
       ? global.RAPricing.computeDesignCosts(numPanels)
       : null;
-    var capexParts = computeCapexBreakdown(designCosts, totalCost, numPanels);
+    var commCfg = (typeof global.RAPricing !== 'undefined' && typeof global.RAPricing.getCommercialConfig === 'function')
+      ? global.RAPricing.getCommercialConfig()
+      : null;
+    var allAddons = commCfg ? (commCfg.addons || []).concat(commCfg.customAddons || []) : [];
+    var activeAddons = allAddons.filter(function(a) { return a && a.enabled; });
+    var addonsCost = activeAddons.reduce(function(s, a) { return s + (Number(a.qty) || 1) * (Number(a.unitPrice) || 0); }, 0);
+    var capexParts = computeCapexBreakdown(designCosts, totalCost, numPanels, addonsCost);
     var panPart = capexParts.panPart;
     var invPart = capexParts.invPart;
     var estPart = capexParts.estPart;
@@ -340,6 +347,7 @@
         saldoNetoRenting: Math.abs(saldoNetoRenting).toLocaleString('es-ES'),
         isSaldoRentingPositivo: saldoNetoRenting >= 0
       },
+      activeAddons: activeAddons,
       equipment: {
         modModel: modModel,
         modWp: modWp,
@@ -1438,6 +1446,10 @@
         '    <tr><td>4. Cuadro DC/AC, Protecciones & Cable</td><td style="text-align:right;font-weight:700;">' + raw.metrics.capexElectrical + ' €</td></tr>' +
         '    <tr><td>5. Montaje Mecánico & Conexionado REBT</td><td style="text-align:right;font-weight:700;">' + raw.metrics.capexLabor + ' €</td></tr>' +
         '    <tr><td>6. Ingeniería, Tasas & Legalización CIE</td><td style="text-align:right;font-weight:700;">' + raw.metrics.capexPermits + ' €</td></tr>' +
+        (raw.activeAddons && raw.activeAddons.length > 0 ? raw.activeAddons.map(function(ad, i) {
+          var p = (Number(ad.qty) || 1) * (Number(ad.unitPrice) || 0);
+          return '    <tr style="background:#f0fdf4;"><td style="color:#16a34a;font-weight:600;">+ ' + ad.name + '</td><td style="text-align:right;font-weight:700;color:#16a34a;">' + p.toLocaleString('es-ES') + ' €</td></tr>';
+        }).join('') : '') +
         '  </table>' +
         '  <div style="background:' + pal.light + ';border:1.5px solid ' + pal.primary + ';border-radius:8px;padding:8px 12px;text-align:center;">' +
         '    <div class="editable-field" contenteditable="true" style="font-size:14px;font-weight:800;color:' + pal.dark + ';">BASE IMPONIBLE (SIN IVA)</div>' +

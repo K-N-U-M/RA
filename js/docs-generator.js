@@ -1207,6 +1207,7 @@ function generatePliego() {
     '<tr><td>Mano de obra instalación<\/td><td>' + _eqWar.warMo + ' años (cobertura instalador)<\/td><\/tr>' +
     '<\/table>' +
     '<p>Se recomienda revisión anual: limpieza de módulos, inspección visual de cables y conectores, comprobación de aprietes, verificación de protecciones y análisis de producción vs. estimado.<\/p>' +
+    '<p style="font-size:8pt;color:#6b7280;margin-top:8px;"><strong>Exclusiones de obra:<\/strong> Salvo expresa inclusión en el Capítulo de Equipamiento y Servicios Adicionales (CAP. EXT) del Presupuesto, quedan excluidas del alcance del instalador: el pago delegado de tasas e impuestos municipales (ICIO / licencia urbanística), tasas por ocupación de vía pública, medios de elevación extraordinarios no previstos y refuerzos estructurales de cubierta o forjado.<\/p>' +
 
     '<div class="sig-row"><div class="sig">El Titular<br><br><br>' + t.nombre + '<\/div>' +
     '<div class="sig">El Técnico<br><br><br>' + t.tecnico + '<\/div>' +

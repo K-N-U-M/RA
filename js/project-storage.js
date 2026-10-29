@@ -299,7 +299,10 @@ function raExportProjectData() {
       targetKwp: window.solarProjectConfig.targetKwp || null,
       autoSizing: window.solarProjectConfig.autoSizing || null,
       calculatedLimits: window.solarProjectConfig.calculatedLimits || null,
-      inverterCapacityWarning: window.solarProjectConfig.inverterCapacityWarning || null
+      inverterCapacityWarning: window.solarProjectConfig.inverterCapacityWarning || null,
+      manualAnnualConsumptionKWh: window.solarProjectConfig.manualAnnualConsumptionKWh || null,
+      billCostMonth: window.solarProjectConfig.billCostMonth || null,
+      gridSupply: window.solarProjectConfig.gridSupply || null
     } : null,
     solarSimState: (typeof solarSimState !== 'undefined' && solarSimState) ? {
       monthIdx: solarSimState.monthIdx,
@@ -362,6 +365,28 @@ function raExportProjectData() {
     measurements: (typeof window !== 'undefined' && window.RAMeasureTool && typeof window.RAMeasureTool.serialize === 'function')
       ? window.RAMeasureTool.serialize()
       : [],
+    // [AUDIT v2.5] Persistencia integral de Factura & Consumo Eléctrico
+    step3BillData: (() => {
+      const g = (id, def) => {
+        const el = document.getElementById(id);
+        return el ? (parseFloat(el.value) || def) : def;
+      };
+      const gStr = (id) => {
+        const el = document.getElementById(id);
+        return el ? el.value.trim() : '';
+      };
+      const comp = (window.RA && window.RA.billAuditor && window.RA.billAuditor.comparison) ? window.RA.billAuditor.comparison : {};
+      const cfg = window.solarProjectConfig || {};
+      return {
+        costMonth: g('step3-bill-cost-month', comp.gastoMensualActualEUR || cfg.billCostMonth || 125),
+        kwhYear: g('step3-bill-kwh-year', comp.consumoAnualKWh || cfg.manualAnnualConsumptionKWh || 5450),
+        potContr: g('step3-bill-pot-contr', comp.potenciaContratadaP1 || 5.75),
+        priceKwh: g('step3-bill-price-kwh', comp.precioMedioKWh || 0.18),
+        cups: gStr('step3-bill-cups') || comp.cups || '',
+        titular: gStr('step3-bill-titular') || comp.titular || '',
+        tariff: gStr('step3-bill-tariff') || '2.0TD'
+      };
+    })(),
     billAudit: (typeof window !== 'undefined' && window.RA && window.RA.billAuditor && typeof window.RA.billAuditor.getState === 'function')
       ? (() => {
           const bSt = window.RA.billAuditor.getState();
@@ -1150,17 +1175,53 @@ async function raImportProjectData(projectData, options = {}) {
       try { window.RAMeasureTool.deserialize(projectData.measurements); } catch (eMeas) { console.warn('[RA Storage] Error restaurando mediciones:', eMeas); }
     }
 
-    // [AUDIT v2.3] Restaurar auditoría y factura analizada (SSOT)
-    if (projectData.billAudit && typeof window !== 'undefined' && window.RA && window.RA.billAuditor) {
+    // [AUDIT v2.5] Restaurar auditoría, factura analizada y datos de tarjeta Paso 3 (SSOT)
+    if (typeof window !== 'undefined' && window.RA && window.RA.billAuditor) {
       try {
         const bSt = (typeof window.RA.billAuditor.getState === 'function') ? window.RA.billAuditor.getState() : null;
-        if (bSt) {
+        if (bSt && projectData.billAudit) {
           bSt.currentBill = JSON.parse(JSON.stringify(projectData.billAudit));
-          if (typeof window.RA.billAuditor.syncWithProjectCalcs === 'function') {
-            window.RA.billAuditor.syncWithProjectCalcs();
+          if (typeof window.RA.billAuditor.computeComparison === 'function') {
+            bSt.comparison = window.RA.billAuditor.computeComparison(bSt.currentBill);
           }
         }
       } catch (eBill) { console.warn('[RA Storage] Error restaurando factura:', eBill); }
+    }
+
+    if (projectData.step3BillData && typeof document !== 'undefined') {
+      try {
+        const bd = projectData.step3BillData;
+        const setVal = (id, val) => {
+          const el = document.getElementById(id);
+          if (el && val != null) el.value = val;
+        };
+        setVal('step3-bill-cost-month', bd.costMonth);
+        setVal('step3-bill-kwh-year', bd.kwhYear);
+        setVal('step3-bill-pot-contr', bd.potContr);
+        setVal('step3-bill-price-kwh', bd.priceKwh);
+        setVal('step3-bill-cups', bd.cups);
+        setVal('step3-bill-titular', bd.titular);
+        setVal('step3-bill-tariff', bd.tariff);
+
+        if (!window.solarProjectConfig) window.solarProjectConfig = {};
+        if (bd.kwhYear) window.solarProjectConfig.manualAnnualConsumptionKWh = bd.kwhYear;
+        if (bd.costMonth) window.solarProjectConfig.billCostMonth = bd.costMonth;
+        if (bd.gridSupply) window.solarProjectConfig.gridSupply = bd.gridSupply;
+
+        if (window.RA && window.RA.billAuditor) {
+          if (!window.RA.billAuditor.comparison) window.RA.billAuditor.comparison = {};
+          if (bd.kwhYear) window.RA.billAuditor.comparison.consumoAnualKWh = bd.kwhYear;
+          if (bd.costMonth) window.RA.billAuditor.comparison.gastoMensualActualEUR = bd.costMonth;
+          if (bd.potContr) window.RA.billAuditor.comparison.potenciaContratadaP1 = bd.potContr;
+          if (bd.priceKwh) window.RA.billAuditor.comparison.precioMedioKWh = bd.priceKwh;
+          if (bd.cups) window.RA.billAuditor.comparison.cups = bd.cups;
+          if (bd.titular) window.RA.billAuditor.comparison.titular = bd.titular;
+        }
+
+        if (typeof wpSyncStep3BillParams === 'function') {
+          wpSyncStep3BillParams();
+        }
+      } catch (eStep3Bill) { console.warn('[RA Storage] Error restaurando step3BillData:', eStep3Bill); }
     }
 
     // [AUDIT v2.3] Restaurar configuración y personalizaciones del Dossier Comercial
@@ -1265,6 +1326,10 @@ async function raImportProjectData(projectData, options = {}) {
     // Esto garantiza que ningún re-render, selección o navegación de paso
     // pueda desorientar o desplazar la vista exacta guardada por el usuario.
     _raApplyCamera(projectData.camera);
+
+    if (typeof wpPopulateStep3BillFromSSOT === 'function') {
+      try { wpPopulateStep3BillFromSSOT(); } catch (ePop) {}
+    }
 
     raSaveToRecentProjects(projectData);
     raCloseProjectsModal();

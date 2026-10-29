@@ -624,12 +624,16 @@
         const maxPhaseDeltaKw = (maxPhaseUnits - minPhaseUnits) * (inv.kw || 0);
         const hasPhaseUnbalance = (gridSupply === 'three_phase' && isInvSinglePhase && maxPhaseDeltaKw > 5.0);
 
-        const _minActiveStrings = Math.max(invCount, distinctOrientations);
+        const isMLPE = (options.selectedTopology === 'optimizer' || options.selectedTopology === 'microinverter');
+        const effectiveOrientations = isMLPE ? Math.min(distinctOrientations, 2) : distinctOrientations;
+        const _minActiveStrings = Math.max(invCount, effectiveOrientations);
         const isVoltageSafe = options.modulesPerString ?
           (options.modulesPerString <= limits.Ns_max && options.modulesPerString >= limits.Ns_min) :
           (limits.Ns_max >= limits.Ns_min && (totalPanels === 0 || Math.floor(totalPanels / _minActiveStrings) >= limits.Ns_min));
 
-        const hasEnoughMppts = _totalMppts >= distinctOrientations;
+        // En topología con Optimizadores DC (MLPE), los optimizadores desacoplan faldones y orientaciones,
+        // por lo que no es obligatorio tener 1 MPPT por cada faldón/orientación física.
+        const hasEnoughMppts = isMLPE ? (_totalMppts >= 1) : (_totalMppts >= distinctOrientations);
 
         // Criterio de fragmentación máxima admisible según potencia unitaria
         const maxUnitsAllowed = inv.kw <= 5.0 ? 3 : (inv.kw <= 10.0 ? 4 : (inv.kw <= 25.0 ? 6 : 8));
@@ -762,7 +766,8 @@
         unitKw = Math.round((idealKw / invCount) * 10) / 10;
       }
 
-      const mpptReq = Math.max(distinctOrientations, isThreePhase ? (unitKw >= 25 ? 4 : 2) : 2);
+      const isMLPEVirtual = (options.selectedTopology === 'optimizer' || options.selectedTopology === 'microinverter');
+      const mpptReq = isMLPEVirtual ? 2 : Math.max(distinctOrientations, isThreePhase ? (unitKw >= 25 ? 4 : 2) : 2);
       const _modsPerString = options.modulesPerString || 14;
       const _nStrings = Math.max(1, Math.ceil(totalPanels / _modsPerString));
       const inputsPerMppt = Math.max(1, Math.ceil(_nStrings / (mpptReq * invCount)));
@@ -832,11 +837,14 @@
       return scoreA - scoreB;
     });
 
-    // Ordenar compatible global preservando compatibilidad
+    // Ordenar compatible global preservando compatibilidad y penalizando fragmentación innecesaria
     compatible.sort((a, b) => {
       if (a.hasEnoughMppts !== b.hasEnoughMppts) return a.hasEnoughMppts ? -1 : 1;
-      const scoreA = Math.abs(a.overloadPct - 118) + (a.count > 1 ? 4 : 0) + (a.hasImpClipping ? 8 : 0);
-      const scoreB = Math.abs(b.overloadPct - 118) + (b.count > 1 ? 4 : 0) + (b.hasImpClipping ? 8 : 0);
+      // Gran penalización a instalaciones multi-inversor si existe opción de 1 solo equipo
+      const countPenaltyA = (a.count - 1) * 35;
+      const countPenaltyB = (b.count - 1) * 35;
+      const scoreA = Math.abs(a.overloadPct - 118) + countPenaltyA + (a.hasImpClipping ? 8 : 0);
+      const scoreB = Math.abs(b.overloadPct - 118) + countPenaltyB + (b.hasImpClipping ? 8 : 0);
       return scoreA - scoreB;
     });
 

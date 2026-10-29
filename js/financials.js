@@ -114,7 +114,12 @@ function resolveEquipmentNames() {
       result.invKw = inv.kw || inv.kw_nominal || 0;
       result.invMPPTs = inv.mppt || inv.mpptCount || inv.mppts || inv.nMppt || 0;
       var sizing = cfg.autoSizing && cfg.autoSizing.inverters;
-      result.invCount = (sizing && sizing.count) ? sizing.count : 1;
+      var countFromSizing = (sizing && sizing.count) ? sizing.count : 1;
+      if (inv.kw >= 10.0 && countFromSizing > 1 && !cfg.inverters && !cfg.selectedInverters) {
+        countFromSizing = 1;
+        if (sizing) sizing.count = 1;
+      }
+      result.invCount = countFromSizing;
       result.totalAcKw = Math.round((result.invKw * result.invCount) * 100) / 100;
       result.totalMPPTs = result.invMPPTs * result.invCount;
       result.invertersBreakdown = {
@@ -967,10 +972,16 @@ var RAPricing = {
     discountType: 'percent', // 'percent' | 'fixed_eur'
     discountValue: 5,        // 5% o 500 €
     addons: [
-      { id: 'ev_charger',   enabled: false, name: 'Cargador Vehículo Eléctrico Wallbox 7,4 kW + Protecciones', qty: 1, unitPrice: 890 },
-      { id: 'bird_mesh',    enabled: false, name: 'Sistema Perimetral Antipájaros en Cubierta (Malla UV)',    qty: 1, unitPrice: 320 },
-      { id: 'virtual_bat',  enabled: false, name: 'Alta y Configuración de Batería Virtual (Hucha Solar)',     qty: 1, unitPrice: 95 },
-      { id: 'lifeline',     enabled: false, name: 'Línea de Vida Homologada EN 795 / Medios de Elevación',     qty: 1, unitPrice: 450 },
+      { id: 'smart_meter',    enabled: false, name: 'Vatímetro Inteligente (Smart Meter) + Toroidales de Medida', qty: 1, unitPrice: 220 },
+      { id: 'crane_lift',     enabled: false, name: 'Medios de Elevación / Camión Pluma con Cesta a Cubierta',  qty: 1, unitPrice: 480 },
+      { id: 'extended_ac',    enabled: false, name: 'Tirada Extra de Acometida AC (>15m) en Tubo Libre Halógenos', qty: 1, unitPrice: 350 },
+      { id: 'bat_protection', enabled: false, name: 'Armario Rack + Cuadro Seccionamiento y Fusibles DC Batería', qty: 1, unitPrice: 280 },
+      { id: 'roof_sealing',   enabled: false, name: 'Kit Sellado Estanco Cubierta, Taco Químico y Juntas EPDM', qty: 1, unitPrice: 160 },
+      { id: 'municipal_tax',  enabled: false, name: 'Tramitación Licencia Urbanística y Tasa ICIO Municipal',  qty: 1, unitPrice: 450 },
+      { id: 'ev_charger',     enabled: false, name: 'Cargador Vehículo Eléctrico Wallbox 7,4 kW + Protecciones', qty: 1, unitPrice: 890 },
+      { id: 'bird_mesh',      enabled: false, name: 'Sistema Perimetral Antipájaros en Cubierta (Malla UV)',    qty: 1, unitPrice: 320 },
+      { id: 'virtual_bat',    enabled: false, name: 'Alta y Configuración de Batería Virtual (Hucha Solar)',     qty: 1, unitPrice: 95 },
+      { id: 'lifeline',     enabled: false, name: 'Línea de Vida Homologada EN 795 en Cubierta',                qty: 1, unitPrice: 450 },
       { id: 'maint_annual', enabled: false, name: 'Pack Mantenimiento Preventivo y Limpieza Anual (Año 1)',    qty: 1, unitPrice: 180 }
     ],
     customAddons: [],
@@ -1001,19 +1012,41 @@ var RAPricing = {
   },
 
   getCommercialConfig: function() {
+    var base = JSON.parse(JSON.stringify(this._defaultCommercialConfig));
+    var stored = null;
     if (this._sessionCommercialConfig && typeof this._sessionCommercialConfig === 'object') {
-      return Object.assign({}, this._defaultCommercialConfig, this._sessionCommercialConfig);
+      stored = this._sessionCommercialConfig;
+    } else {
+      try {
+        var saved = localStorage.getItem(this.COMMERCIAL_CONFIG_KEY);
+        if (saved) stored = JSON.parse(saved);
+      } catch(e) {}
     }
-    try {
-      var saved = localStorage.getItem(this.COMMERCIAL_CONFIG_KEY);
-      if (saved) {
-        var parsed = JSON.parse(saved);
-        if (parsed && typeof parsed === 'object') {
-          return Object.assign({}, this._defaultCommercialConfig, parsed);
-        }
+    if (stored && typeof stored === 'object') {
+      var merged = Object.assign({}, base, stored);
+      // Merge seguro de addons: preserva los nuevos de catálogo sin perder estados previos del usuario
+      if (Array.isArray(stored.addons)) {
+        var finalAddons = [];
+        var storedMap = {};
+        stored.addons.forEach(function(a) { if (a && a.id) storedMap[a.id] = a; });
+        base.addons.forEach(function(defAddon) {
+          if (storedMap[defAddon.id]) {
+            finalAddons.push(Object.assign({}, defAddon, storedMap[defAddon.id]));
+          } else {
+            finalAddons.push(defAddon);
+          }
+        });
+        // Preservar cualquier addon custom previo que no esté en defaults
+        stored.addons.forEach(function(a) {
+          if (a && a.id && !finalAddons.some(function(fa) { return fa.id === a.id; })) {
+            finalAddons.push(a);
+          }
+        });
+        merged.addons = finalAddons;
       }
-    } catch(e) {}
-    return JSON.parse(JSON.stringify(this._defaultCommercialConfig));
+      return merged;
+    }
+    return base;
   },
 
   saveCommercialConfig: function(cfg) {
@@ -1119,6 +1152,10 @@ if (typeof window !== 'undefined') {
 }
 
 function wpOpenPricingReviewModal(onConfirm) {
+  // Sincronización proactiva: asegurar que el dimensionamiento óptimo de ingeniería esté al día con la red y catálogo
+  if (typeof wpAutoSelectOptimalEngineering === 'function' && window.solarProjectConfig && !window.solarProjectConfig.userManuallySelectedInverter) {
+    try { wpAutoSelectOptimalEngineering(false); } catch(eOpt) {}
+  }
   var pModal = document.getElementById('ra-pricing-review-modal');
   if (!pModal) {
     var modalHtml = '<div id="ra-pricing-review-modal" role="dialog" aria-modal="true" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,0.85);backdrop-filter:blur(8px);z-index:999999;align-items:center;justify-content:center;padding:16px;">' +
@@ -1702,7 +1739,13 @@ function wpOpenPricingReviewModal(onConfirm) {
           : 'background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#94a3b8;');
 
       var shortName = addon.name;
-      if (addon.id === 'ev_charger') shortName = '⚡ Cargador VE (+890€)';
+      if (addon.id === 'smart_meter') shortName = '📊 Smart Meter (+220€)';
+      else if (addon.id === 'crane_lift') shortName = '🏗️ Camión Pluma (+480€)';
+      else if (addon.id === 'extended_ac') shortName = '🔌 Acometida AC >15m (+350€)';
+      else if (addon.id === 'bat_protection') shortName = '🛡️ Rack & Protec. DC (+280€)';
+      else if (addon.id === 'roof_sealing') shortName = '🧪 Sellado Químico (+160€)';
+      else if (addon.id === 'municipal_tax') shortName = '🏛️ Tasa ICIO (+450€)';
+      else if (addon.id === 'ev_charger') shortName = '⚡ Cargador VE (+890€)';
       else if (addon.id === 'bird_mesh') shortName = '🕊️ Malla Antipájaros (+320€)';
       else if (addon.id === 'virtual_bat') shortName = '🔋 Batería Virtual (+95€)';
       else if (addon.id === 'lifeline') shortName = '🦺 Línea de Vida (+450€)';
@@ -2697,7 +2740,7 @@ if (typeof window !== 'undefined') {
             '<div style="font-size: 9px; color: #92400e; margin-top: 4px;">' + cel.excPct + '% de tu producción total</div>' +
           '</div>' +
           '<div class="hero-card highlight" style="border-top: 3px solid ' + pal.primary + '; background: linear-gradient(135deg, ' + pal.light + ', #ffffff);">' +
-            '<div class="hero-lbl" style="color: ' + pal.dark + ';">Valorización CEL (0,11 €/kWh)</div>' +
+            '<div class="hero-lbl" style="color: ' + pal.dark + ';">Valorización CEL (' + (typeof cel.precioCEL === 'number' ? cel.precioCEL.toFixed(2).replace('.', ',') : '0,11') + ' €/kWh)</div>' +
             '<div class="hero-val primary" style="font-size: 21px;">+' + cel.ingresoCELAnual.toLocaleString('es-ES') + ' €/año</div>' +
             '<div style="font-size: 9px; color: ' + pal.dark + '; margin-top: 4px; font-weight: 700;">+' + cel.beneficioExtraCEL.toLocaleString('es-ES') + ' € más que vertiendo a red</div>' +
           '</div>' +
@@ -2715,7 +2758,7 @@ if (typeof window !== 'undefined') {
 
         '<!-- CARA A CARA: RED CONVENCIONAL VS COMUNIDAD ENERGÉTICA LOCAL -->' +
         '<div style="display: grid; grid-template-columns: 1fr 1.15fr; gap: 16px; margin-bottom: 22px;">' +
-          '<div style="border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 14px 16px; background: #f8fafc; display: flex; flex-direction: column; justify-content: space-between;">' +
+          '<div class="tech-card cel-card" style="border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 14px 16px; background: #f8fafc; display: flex; flex-direction: column; justify-content: space-between; position: relative;">' +
             '<div>' +
               '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">' +
                 '<span style="font-size: 9px; font-weight: 800; color: #64748b; text-transform: uppercase;">RÉGIMEN TRADICIONAL (RD 244/2019)</span>' +
@@ -2732,7 +2775,7 @@ if (typeof window !== 'undefined') {
             '</div>' +
           '</div>' +
 
-          '<div style="border: 2px solid ' + pal.primary + '; border-radius: 10px; padding: 14px 16px; background: #ffffff; box-shadow: 0 4px 14px rgba(0,0,0,0.06); display: flex; flex-direction: column; justify-content: space-between; position: relative;">' +
+          '<div class="tech-card cel-card" style="border: 2px solid ' + pal.primary + '; border-radius: 10px; padding: 14px 16px; background: #ffffff; box-shadow: 0 4px 14px rgba(0,0,0,0.06); display: flex; flex-direction: column; justify-content: space-between; position: relative;">' +
             '<div style="position: absolute; top: -10px; right: 14px; background: ' + pal.primary + '; color: #fff; font-size: 8.5px; font-weight: 900; padding: 3px 10px; border-radius: 10px; letter-spacing: 0.5px;">¡+120% MÁS RENTABLE!</div>' +
             '<div>' +
               '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">' +
@@ -2740,7 +2783,7 @@ if (typeof window !== 'undefined') {
                 '<span style="font-size: 8.5px; background: ' + pal.light + '; color: ' + pal.dark + '; padding: 2px 7px; border-radius: 4px; font-weight: 800;">RADIO HASTA 5 KM</span>' +
               '</div>' +
               '<div style="font-size: 13px; font-weight: 900; color: #0f172a;">Comunidad Energética Local (CEL) P2P</div>' +
-              '<div style="font-size: 24px; font-weight: 900; color: ' + pal.primary + '; margin: 4px 0;">0,11 €/kWh <span style="font-size: 10.5px; font-weight: 700; color: ' + pal.dark + ';">precio local justo acordado</span></div>' +
+              '<div style="font-size: 24px; font-weight: 900; color: ' + pal.primary + '; margin: 4px 0;">' + (typeof cel.precioCEL === 'number' ? cel.precioCEL.toFixed(2).replace('.', ',') : '0,11') + ' €/kWh <span style="font-size: 10.5px; font-weight: 700; color: ' + pal.dark + ';">precio local justo acordado</span></div>' +
               '<div style="font-size: 10px; color: #334155; line-height: 1.4; margin-top: 4px;">' +
                 'Ingreso anual estimado: <b style="color:' + pal.primary + ';font-size:11px;">+' + cel.ingresoCELAnual.toLocaleString('es-ES') + ' €/año</b> (<b style="color:#059669;">+' + cel.beneficioExtraCEL.toLocaleString('es-ES') + ' €/año netos extra</b>).' +
               '</div>' +
@@ -2752,7 +2795,7 @@ if (typeof window !== 'undefined') {
         '</div>' +
 
         '<!-- SELLO DE HOMOLOGACIÓN CEL-READY -->' +
-        '<div style="border: 1.5px solid #10b981; border-radius: 8px; padding: 14px 16px; background: linear-gradient(135deg, #f0fdf4, #ffffff); display: flex; align-items: center; justify-content: space-between; gap: 14px; box-shadow: 0 2px 6px rgba(16,185,129,0.06); margin-top: 10px;">' +
+        '<div class="tech-card cel-card" style="border: 1.5px solid #10b981; border-radius: 8px; padding: 14px 16px; background: linear-gradient(135deg, #f0fdf4, #ffffff); display: flex; align-items: center; justify-content: space-between; gap: 14px; box-shadow: 0 2px 6px rgba(16,185,129,0.06); margin-top: 10px; position: relative;">' +
           '<div style="display: flex; align-items: center; gap: 12px;">' +
             '<span style="font-size: 28px;">🛡️</span>' +
             '<div>' +
@@ -2787,7 +2830,7 @@ if (typeof window !== 'undefined') {
         '</div>' +
 
         '<!-- 1. DESPACHO DEL FLUJO ENERGÉTICO EN GRAN FORMATO -->' +
-        '<div style="border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 16px 18px; background: #f8fafc; margin: 12px 0 18px;">' +
+        '<div class="tech-card cel-card cel-flow-card" style="border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 14px 18px; background: #f8fafc; margin: 8px 0 12px; position: relative;">' +
           '<div style="font-size: 12px; font-weight: 900; color: #1e293b; text-transform: uppercase; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">' +
             '<div style="display: flex; align-items: center; gap: 8px;"><span>⚡</span><span>1. Despacho del Flujo Energético Generado</span></div>' +
             '<span style="font-size: 9.5px; font-weight: 800; color: ' + pal.primary + '; background: ' + pal.light + '; padding: 3px 8px; border-radius: 4px;">Balance 100% Optimizado</span>' +
@@ -2830,15 +2873,15 @@ if (typeof window !== 'undefined') {
         '</div>' +
 
         '<!-- 2. RADAR DE COBERTURA 5 KM EN GRAN FORMATO -->' +
-        '<div style="border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 18px 20px; background: #ffffff; box-shadow: 0 4px 16px rgba(0,0,0,0.04);">' +
-          '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">' +
+        '<div class="tech-card chart-box cel-card cel-radar-card" style="border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 14px 18px; background: #ffffff; box-shadow: 0 4px 16px rgba(0,0,0,0.04); position: relative;">' +
+          '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">' +
             '<div style="font-size: 13px; font-weight: 900; color: #0f172a; text-transform: uppercase; letter-spacing: -0.2px;">2. Radar de Cobertura y Topología de Reparto (5 km)</div>' +
             '<span style="font-size: 9.5px; font-weight: 800; color: ' + pal.primary + '; background: ' + pal.light + '; padding: 3px 10px; border-radius: 6px;">RDL 7/2026 · 78,5 km² de Cobertura</span>' +
           '</div>' +
-          '<div style="width: 100%; height: 270px; border-radius: 10px; overflow: hidden; background: #0b1329; box-shadow: 0 4px 16px rgba(0,0,0,0.2);">' +
+          '<div class="cel-radar-inner" style="width: 100%; height: 230px; min-height: 100px; border-radius: 10px; overflow: hidden; background: #0b1329; box-shadow: 0 4px 16px rgba(0,0,0,0.2);">' +
             radarSvg +
           '</div>' +
-          '<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; font-size: 10px; color: #64748b; line-height: 1.4; gap: 16px;">' +
+          '<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 10px; color: #64748b; line-height: 1.4; gap: 16px;">' +
             '<span style="flex: 1;">Topología de reparto P2P homologada para consumidores residenciales, comerciales e industriales en baja y media tensión.</span>' +
             '<span style="font-weight: 800; color: ' + pal.primary + '; white-space: nowrap; background: ' + pal.light + '; padding: 3px 8px; border-radius: 4px;">Telemedida horaria activa</span>' +
           '</div>' +
@@ -3519,6 +3562,51 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         width: 28px;
         height: 16px;
         cursor: row-resize !important;
+      }
+
+      /* ── TIRADORES DE TAMAÑO Y REDIMENSIÓN (CORNER ◢ Y ALTURA ⇕) ── */
+      .ra-resize-handle {
+        position: absolute;
+        z-index: 10006;
+        background: #0284c7;
+        color: #ffffff;
+        border: 1px solid #38bdf8;
+        border-radius: 4px;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        user-select: none;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+        transition: transform 0.1s, background 0.15s;
+      }
+      body.mode-edit-layout [data-editable-box]:hover > .ra-resize-handle,
+      body.mode-edit-layout [data-editable-box].selected-edit-box > .ra-resize-handle {
+        display: flex !important;
+      }
+      .ra-resize-handle:hover {
+        background: #0369a1 !important;
+        color: #ffffff !important;
+        border-color: #7dd3fc !important;
+        transform: scale(1.15);
+      }
+      .ra-resize-corner {
+        bottom: 0px;
+        right: 0px;
+        width: 18px;
+        height: 18px;
+        font-size: 11px;
+        line-height: 1;
+        cursor: se-resize !important;
+        border-radius: 4px 0 4px 0;
+      }
+      .ra-resize-height {
+        bottom: -9px;
+        right: 28px;
+        padding: 1px 7px;
+        font-size: 9px;
+        font-weight: 800;
+        cursor: ns-resize !important;
+        letter-spacing: 0.3px;
       }
       #ra-gap-tooltip {
         position: fixed;
@@ -4306,7 +4394,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
           <tr><td style="color:#64748b;font-size:10px;">Bonificación ICIO*</td><td style="color:#64748b;font-size:10px;">Exención del 95% en Impuesto de Construcciones y Obras (ahorro en tasa municipal ajeno a la factura)</td><td class="text-right" style="color:#64748b;font-size:10px;">${Math.round(m.ahorroICIO).toLocaleString('es-ES')} €</td></tr>
         </table>
       </div>
-      <p style="font-size: 9.5px;color:#64748b;margin:6px 0 0 0;line-height:1.35;border-top:1px solid #f1f5f9;padding-top:6px;">Nota: bonificaciones y deducciones fiscales son estimaciones comerciales sujetas a vigencia normativa y ordenanzas municipales. Verificar con asesoría fiscal antes de incluirlas en contrato. La TIR y el payback se calculan sobre el <strong>desembolso inicial (CAPEX bruto)</strong>; la "inversión neta" es informativa y no es la base de esas métricas.</p>
+      <p style="font-size: 9.5px;color:#64748b;margin:6px 0 0 0;line-height:1.35;border-top:1px solid #f1f5f9;padding-top:6px;">Nota: bonificaciones y deducciones fiscales son estimaciones comerciales sujetas a vigencia normativa y ordenanzas municipales. Verificar con asesoría fiscal antes de incluirlas en contrato. La TIR y el payback se calculan sobre el <strong>desembolso inicial (CAPEX bruto)</strong>; la "inversión neta" es informativa y no es la base de esas métricas. Quedan excluidas tasas urbanísticas municipales (ICIO), ocupación de vía pública y medios de elevación extraordinarios salvo expresa contratación en el capítulo de extras.</p>
     </div>
 
     <!-- PÁGINA CIERRE: HOJA DE DECISIÓN EJECUTIVA -->
@@ -4426,11 +4514,39 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         <div id="ra-ai-summary-content">${_summaryHTML}</div>
       </div>
 
-      <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:10px 0;">
-        <span class="pill">⚡ ${m.kwp.toFixed(2)} kWp (${m.numPanels} Módulos)</span>
-        <span class="pill">☀️ ${Math.round(annualYieldKWh).toLocaleString('es-ES')} kWh/año Generación</span>
-        <span class="pill">🌱 ${Math.round(annualYieldKWh * (((typeof window !== 'undefined' && window.SOLAR_ENGINE_CONSTANTS && window.SOLAR_ENGINE_CONSTANTS.CO2_FACTOR_SPAIN) || 0.259))).toLocaleString('es-ES')} kg CO₂ evitados/año</span>
-        <span class="pill">🌳 Eq. ${Math.round((annualYieldKWh * (((typeof window !== 'undefined' && window.SOLAR_ENGINE_CONSTANTS && window.SOLAR_ENGINE_CONSTANTS.CO2_FACTOR_SPAIN) || 0.259)) / 1000) * 45)} árboles/año</span>
+      <!-- MATRIZ 2x2 CÁPSULAS DE IMPACTO (TRIPLE TAMAÑO Y ALTA JERARQUÍA) -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0 16px;">
+        <div class="pill-capsule" style="background:${pal.light};border:1.5px solid ${pal.primary};border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:12px;box-shadow:0 3px 8px rgba(0,0,0,0.04);">
+          <span style="font-size:26px;line-height:1;">⚡</span>
+          <div>
+            <div style="font-size:10px;font-weight:800;color:${pal.dark};text-transform:uppercase;letter-spacing:0.5px;">Potencia Instalada</div>
+            <div style="font-size:16px;font-weight:900;color:${pal.primary};">${m.kwp.toFixed(2)} kWp <span style="font-size:12px;font-weight:700;color:${pal.dark};">(${m.numPanels} Módulos)</span></div>
+          </div>
+        </div>
+
+        <div class="pill-capsule" style="background:${pal.light};border:1.5px solid ${pal.primary};border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:12px;box-shadow:0 3px 8px rgba(0,0,0,0.04);">
+          <span style="font-size:26px;line-height:1;">☀️</span>
+          <div>
+            <div style="font-size:10px;font-weight:800;color:${pal.dark};text-transform:uppercase;letter-spacing:0.5px;">Generación Anual Estimada</div>
+            <div style="font-size:16px;font-weight:900;color:${pal.primary};">${Math.round(annualYieldKWh).toLocaleString('es-ES')} <span style="font-size:12px;font-weight:700;color:${pal.dark};">kWh/año</span></div>
+          </div>
+        </div>
+
+        <div class="pill-capsule" style="background:${pal.light};border:1.5px solid ${pal.primary};border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:12px;box-shadow:0 3px 8px rgba(0,0,0,0.04);">
+          <span style="font-size:26px;line-height:1;">🌱</span>
+          <div>
+            <div style="font-size:10px;font-weight:800;color:${pal.dark};text-transform:uppercase;letter-spacing:0.5px;">Huella CO₂ Evitada</div>
+            <div style="font-size:16px;font-weight:900;color:${pal.primary};">${Math.round(annualYieldKWh * (((typeof window !== 'undefined' && window.SOLAR_ENGINE_CONSTANTS && window.SOLAR_ENGINE_CONSTANTS.CO2_FACTOR_SPAIN) || 0.259))).toLocaleString('es-ES')} <span style="font-size:12px;font-weight:700;color:${pal.dark};">kg CO₂/año</span></div>
+          </div>
+        </div>
+
+        <div class="pill-capsule" style="background:${pal.light};border:1.5px solid ${pal.primary};border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:12px;box-shadow:0 3px 8px rgba(0,0,0,0.04);">
+          <span style="font-size:26px;line-height:1;">🌳</span>
+          <div>
+            <div style="font-size:10px;font-weight:800;color:${pal.dark};text-transform:uppercase;letter-spacing:0.5px;">Compensación Ecológica</div>
+            <div style="font-size:16px;font-weight:900;color:${pal.primary};">Eq. ${Math.round((annualYieldKWh * (((typeof window !== 'undefined' && window.SOLAR_ENGINE_CONSTANTS && window.SOLAR_ENGINE_CONSTANTS.CO2_FACTOR_SPAIN) || 0.259)) / 1000) * 45)} <span style="font-size:12px;font-weight:700;color:${pal.dark};">árboles/año</span></div>
+          </div>
+        </div>
       </div>
 
       <!-- CUADRO DE ACEPTACIÓN INMEDIATA (CIERRE COMERCIAL) -->
@@ -4561,7 +4677,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         const selectors = [
           '.hero-card', '.closer-hero-card', '.decision-card', '.chart-box', '.tech-card',
           '.sig-card', '.cover-spec-card', '.photo-card-hero', '.photo-card-sub', '.cover-photo-card',
-          '.kpi-strip', '.dcard', '.closer-cta-box', 'table', 'p', 'h2', 'h3'
+          '.kpi-strip', '.dcard', '.closer-cta-box', '.cel-card', 'table', 'p', 'h2', 'h3'
         ];
         const sheets = document.querySelectorAll('.page-sheet');
         sheets.forEach(sheet => {
@@ -4583,6 +4699,92 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
                 }
               };
               el.appendChild(delBtn);
+
+              // ── TIRADORES DE TAMAÑO Y REDIMENSIÓN (CORNER ◢ Y ALTURA ⇕) ──
+              const handleCorner = document.createElement('div');
+              handleCorner.className = 'ra-resize-handle ra-resize-corner no-print';
+              handleCorner.title = 'Arrastra para redimensionar ancho y alto';
+              handleCorner.innerHTML = '◢';
+              el.appendChild(handleCorner);
+
+              const handleHeight = document.createElement('div');
+              handleHeight.className = 'ra-resize-handle ra-resize-height no-print';
+              handleHeight.title = 'Arrastra hacia arriba o abajo para ajustar la altura del bloque';
+              handleHeight.innerHTML = '⇕ Alto';
+              el.appendChild(handleHeight);
+
+              // Lógica de redimensión vertical (Altura del bloque)
+              handleHeight.addEventListener('mousedown', function(e) {
+                e.stopPropagation();
+                e.preventDefault();
+                const startY = e.clientY;
+                const startH = el.offsetHeight;
+                const tt = document.getElementById('ra-gap-tooltip');
+                const radarInner = el.querySelector('.cel-radar-inner') || (el.classList.contains('cel-radar-inner') ? el : null);
+                const startInnerH = radarInner ? radarInner.offsetHeight : 0;
+
+                function onMoveH(ev) {
+                  const deltaY = ev.clientY - startY;
+                  const newH = Math.max(60, Math.round(startH + deltaY));
+                  el.style.height = newH + 'px';
+                  if (radarInner && startInnerH > 0) {
+                    const newInnerH = Math.max(80, Math.round(startInnerH + deltaY));
+                    radarInner.style.height = newInnerH + 'px';
+                  }
+                  if (tt) {
+                    tt.style.display = 'block';
+                    tt.style.left = (ev.clientX + 14) + 'px';
+                    tt.style.top = (ev.clientY - 12) + 'px';
+                    tt.innerHTML = '⇕ Altura bloque: <b>' + newH + ' px</b>';
+                  }
+                }
+                function onUpH() {
+                  window.removeEventListener('mousemove', onMoveH);
+                  window.removeEventListener('mouseup', onUpH);
+                  if (tt) tt.style.display = 'none';
+                }
+                window.addEventListener('mousemove', onMoveH);
+                window.addEventListener('mouseup', onUpH);
+              });
+
+              // Lógica de redimensión bidireccional (Esquina ◢)
+              handleCorner.addEventListener('mousedown', function(e) {
+                e.stopPropagation();
+                e.preventDefault();
+                const startX = e.clientX;
+                const startY = e.clientY;
+                const startW = el.offsetWidth;
+                const startH = el.offsetHeight;
+                const tt = document.getElementById('ra-gap-tooltip');
+                const radarInner = el.querySelector('.cel-radar-inner') || (el.classList.contains('cel-radar-inner') ? el : null);
+                const startInnerH = radarInner ? radarInner.offsetHeight : 0;
+
+                function onMoveC(ev) {
+                  const deltaX = ev.clientX - startX;
+                  const deltaY = ev.clientY - startY;
+                  const newW = Math.max(100, Math.round(startW + deltaX));
+                  const newH = Math.max(60, Math.round(startH + deltaY));
+                  el.style.width = newW + 'px';
+                  el.style.height = newH + 'px';
+                  if (radarInner && startInnerH > 0) {
+                    const newInnerH = Math.max(80, Math.round(startInnerH + deltaY));
+                    radarInner.style.height = newInnerH + 'px';
+                  }
+                  if (tt) {
+                    tt.style.display = 'block';
+                    tt.style.left = (ev.clientX + 14) + 'px';
+                    tt.style.top = (ev.clientY - 12) + 'px';
+                    tt.innerHTML = '⤡ Tamaño: <b>' + newW + ' × ' + newH + ' px</b>';
+                  }
+                }
+                function onUpC() {
+                  window.removeEventListener('mousemove', onMoveC);
+                  window.removeEventListener('mouseup', onUpC);
+                  if (tt) tt.style.display = 'none';
+                }
+                window.addEventListener('mousemove', onMoveC);
+                window.addEventListener('mouseup', onUpC);
+              });
 
               // ── TIRADORES DE SEPARACIÓN (OPCIÓN B: SPLITTERS HORIZONTAL Y VERTICAL) ──
               const handleX = document.createElement('div');
@@ -4666,7 +4868,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
               el.addEventListener('mousedown', function(ev) {
                 if (!document.body.classList.contains('mode-edit-layout')) return;
                 // Si el clic es sobre un botón de borrado, tirador de separación o sobre un elemento editable de texto directo, no forzar drag
-                if (ev.target.closest('.ra-edit-del-btn') || ev.target.closest('.ra-gap-handle')) return;
+                if (ev.target.closest('.ra-edit-del-btn') || ev.target.closest('.ra-gap-handle') || ev.target.closest('.ra-resize-handle')) return;
                 const isDirectTextEdit = ['INPUT', 'TEXTAREA'].includes(ev.target.tagName);
                 if (isDirectTextEdit) return;
 

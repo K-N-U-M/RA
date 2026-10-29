@@ -238,7 +238,8 @@ function getProjectCalcs() {
   const _invObjItem = (_scCat && _scCfg && _scCfg.selectedInverterId)
     ? ((_scCat.inverters || []).find(i => i.id === _scCfg.selectedInverterId) || ((_scCfg.lastVirtualInverter && _scCfg.lastVirtualInverter.id === _scCfg.selectedInverterId) ? _scCfg.lastVirtualInverter : null))
     : null;
-  const _invObjCount = (_scCfg && _scCfg.autoSizing && _scCfg.autoSizing.inverters && _scCfg.autoSizing.inverters.count) || 1;
+  let _invObjCount = (_scCfg && _scCfg.autoSizing && _scCfg.autoSizing.inverters && _scCfg.autoSizing.inverters.count) || 1;
+  if (_invObjItem && _invObjItem.kw >= 10.0 && _invObjCount > 1 && !_scCfg.inverters && !_scCfg.selectedInverters) { _invObjCount = 1; }
   const inverterObj = _invObjItem ? {
     id: _invObjItem.id,
     brand: _invObjItem.brand || '',
@@ -400,6 +401,24 @@ function getProjectCalcs() {
     isCoplanar: (tiltDeg > 5),
 };
 }
+
+  function getSelectedModalidadText() {
+    if (typeof document !== 'undefined') {
+      const el = document.getElementById('doc-modalidad');
+      if (el) {
+        const val = el.value;
+        if (val === 'sin') return 'Autoconsumo individual sin excedentes (RD 244/2019 art. 9.1.a)';
+        if (val === 'con-acogido') return 'Autoconsumo individual con excedentes acogido a compensación simplificada (RD 244/2019)';
+        if (val === 'con-noacogido') return 'Autoconsumo individual con excedentes sin compensación (RD 244/2019)';
+        if (val === 'colectivo-cel') return 'Autoconsumo colectivo / Comunidad Energética Local (CEL — RDL 7/2026 radio 5 km)';
+        if (el.selectedOptions && el.selectedOptions[0] && el.selectedOptions[0].textContent) {
+          return el.selectedOptions[0].textContent;
+        }
+      }
+    }
+    return 'Autoconsumo individual con excedentes acogido a compensación simplificada (RD 244/2019)';
+  }
+  root.getSelectedModalidadText = getSelectedModalidadText;
 
   // Registro bajo el namespace canónico RA y alias globales de compatibilidad
   root.RA = root.RA || {};

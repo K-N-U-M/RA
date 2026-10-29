@@ -111,6 +111,26 @@ console.log('▶ TEST 7: Verificación del layout @media print (anti subpixel ov
 assert(financialsCode.includes('min-height: 295mm; max-height: 296mm; height: auto;'), 'financials.js debe usar min-height: 295mm; max-height: 296mm; para prevenir páginas en blanco');
 console.log('✔ TEST 7 PASADO: Margen subpixel de impresión A4 garantizado sin desbordamiento.\n');
 
+// 8. Verificación de catálogo de Add-ons técnicos de obra
+console.log('▶ TEST 8: Verificación de catálogo de Add-ons técnicos (Smart Meter, Grúa, Acometida, Rack Batería, Sellado, Tasa ICIO)...');
+const defAddons = RAPricing._defaultCommercialConfig.addons;
+const requiredAddonIds = ['smart_meter', 'crane_lift', 'extended_ac', 'bat_protection', 'roof_sealing', 'municipal_tax'];
+requiredAddonIds.forEach(id => {
+  assert(defAddons.some(a => a.id === id), "El catálogo de add-ons debe incluir la partida técnica " + id);
+});
+
+// Probar merge seguro de getCommercialConfig con sesión previa legacy
+RAPricing._sessionCommercialConfig = {
+  addons: [
+    { id: 'ev_charger', enabled: true, unitPrice: 900 }
+  ]
+};
+const mergedCfg = RAPricing.getCommercialConfig();
+assert(mergedCfg.addons.some(a => a.id === 'smart_meter'), 'getCommercialConfig debe incorporar partidas nuevas de catálogo en sesiones legacy');
+assert(mergedCfg.addons.find(a => a.id === 'ev_charger').enabled === true, 'getCommercialConfig debe conservar el estado de addons guardados por el usuario');
+RAPricing._sessionCommercialConfig = null;
+console.log('✔ TEST 8 PASADO: Add-ons técnicos y merge seguro verificados correctamente.\n');
+
 console.log('═════════════════════════════════════════════════════════════════════');
 console.log('🎉 TODOS LOS TESTS DE INTEGRIDAD DEL PRESUPUESTO PASARON AL 100%');
 console.log('═════════════════════════════════════════════════════════════════════');

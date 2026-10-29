@@ -7,6 +7,7 @@ window.solarProjectConfig = {
   selectedProtectionAcId: 'panel_ac_tri_25a',
   selectedCableDcId: 'cable_dc_zzf_6',
   selectedCableAcId: 'cable_ac_rvk_5g10',
+  gridSupply: 'three_phase', // 'single_phase' (Monofásica 230V) | 'three_phase' (Trifásica 400V)
   selectedTopology: 'inverter', // 'inverter' | 'microinverter' | 'optimizer'
   selectedObjective: 'optimal_inv',
   targetKwp: 5.0,
@@ -207,6 +208,36 @@ function step3SetTopology(topo) {
   if (typeof wpUpdateAutoSizingUI === 'function') wpUpdateAutoSizingUI();
   if (typeof wpRefreshAutoEngineeringBanner === 'function') wpRefreshAutoEngineeringBanner(topo);
 }
+
+function wpSetGridSupply(supply, manual = true) {
+  if (!window.solarProjectConfig) window.solarProjectConfig = {};
+  window.solarProjectConfig.gridSupply = supply;
+  if (manual) window.solarProjectConfig.userManuallySelectedGridSupply = true;
+
+  const btnMono = document.getElementById('step3-grid-single-phase');
+  const btnTri = document.getElementById('step3-grid-three-phase');
+  if (btnMono && btnTri) {
+    const isTri = (supply === 'three_phase');
+    btnMono.classList.toggle('active', !isTri);
+    btnTri.classList.toggle('active', isTri);
+    btnMono.style.background = !isTri ? 'rgba(14,165,233,0.3)' : 'rgba(14,165,233,0.06)';
+    btnMono.style.borderColor = !isTri ? '#38BDF8' : 'rgba(14,165,233,0.25)';
+    btnMono.style.color = !isTri ? '#38BDF8' : '#cbd5e1';
+    btnTri.style.background = isTri ? 'rgba(16,185,129,0.3)' : 'rgba(14,165,233,0.06)';
+    btnTri.style.borderColor = isTri ? '#10B981' : 'rgba(14,165,233,0.25)';
+    btnTri.style.color = isTri ? '#34D399' : '#cbd5e1';
+  }
+
+  // Si se cambia el tipo de red, auto-reajustar el inversor óptimo si no está fijado a mano
+  if (typeof wpAutoSelectOptimalEngineering === 'function') {
+    wpAutoSelectOptimalEngineering(false);
+  } else if (typeof wpComputeAutoSizing === 'function') {
+    wpComputeAutoSizing();
+  }
+  if (typeof step3UpdateHardwareSelection === 'function') step3UpdateHardwareSelection();
+  if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') BOMTreeEngine.refresh();
+}
+window.wpSetGridSupply = wpSetGridSupply;
 
 function step3EditCurrentEquipment(category) {
   const cfg = window.solarProjectConfig || {};
@@ -1383,8 +1414,26 @@ function wpAutoSelectOptimalEngineering(force = false) {
   // 3. Obtener diagnóstico de sombras 3D (Paso 3)
   const shading = (typeof wpEvaluateMLPENecessity === 'function') ? wpEvaluateMLPENecessity() : null;
 
-  // 4. Tipo de red (suministro)
-  const gridSupply = (totalKwp > 6.0) ? 'three_phase' : 'single_phase';
+  // 4. Tipo de red (suministro) respetando elección de usuario o autodetectando por potencia
+  let gridSupply = cfg.gridSupply;
+  if (!gridSupply || !cfg.userManuallySelectedGridSupply) {
+    gridSupply = (totalKwp > 6.0) ? 'three_phase' : 'single_phase';
+    cfg.gridSupply = gridSupply;
+    // Sincronizar UI de los botones si están en el DOM
+    const btnMono = document.getElementById('step3-grid-single-phase');
+    const btnTri = document.getElementById('step3-grid-three-phase');
+    if (btnMono && btnTri) {
+      const isTri = (gridSupply === 'three_phase');
+      btnMono.classList.toggle('active', !isTri);
+      btnTri.classList.toggle('active', isTri);
+      btnMono.style.background = !isTri ? 'rgba(14,165,233,0.3)' : 'rgba(14,165,233,0.06)';
+      btnMono.style.borderColor = !isTri ? '#38BDF8' : 'rgba(14,165,233,0.25)';
+      btnMono.style.color = !isTri ? '#38BDF8' : '#cbd5e1';
+      btnTri.style.background = isTri ? 'rgba(16,185,129,0.3)' : 'rgba(14,165,233,0.06)';
+      btnTri.style.borderColor = isTri ? '#10B981' : 'rgba(14,165,233,0.25)';
+      btnTri.style.color = isTri ? '#34D399' : '#cbd5e1';
+    }
+  }
 
   // 5. Casación de inversor desde el motor electrotécnico
   if (typeof matchInvertersFromCatalog !== 'function') return null;
@@ -1673,7 +1722,11 @@ function wpRefreshAutoEngineeringBanner(preferredTopology) {
   }
 
   const shading = (typeof wpEvaluateMLPENecessity === 'function') ? wpEvaluateMLPENecessity() : null;
-  const gridSupply = (totalKwp > 6.0) ? 'three_phase' : 'single_phase';
+  let gridSupply = cfg.gridSupply;
+  if (!gridSupply || !cfg.userManuallySelectedGridSupply) {
+    gridSupply = (totalKwp > 6.0) ? 'three_phase' : 'single_phase';
+    cfg.gridSupply = gridSupply;
+  }
 
   let match = null;
   if (typeof matchInvertersFromCatalog === 'function') {

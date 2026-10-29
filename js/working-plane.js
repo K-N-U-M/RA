@@ -6128,6 +6128,9 @@ const DEFAULT_EQUIPMENT_CATALOG = {
   inverters: [
     { id: 'inv_huawei_5k', brand: 'Huawei', model: 'SUN2000-5KTL-L1', kw: 5.0, phases: 1, type: 'Monofásico Híbrido (1F+N)', mppt: 2, inputsPerMppt: 1, vDcMax: 600, vMpptMin: 90, vMpptMax: 560, vMpptNomMin: 180, vMpptNomMax: 480, vStart: 100, iMaxOperA: 12.5, iMaxScA: 18.0, maxOverload: 1.30, eff: 98.4, price: 1080 },
     { id: 'inv_huawei_10k', brand: 'Huawei', model: 'SUN2000-10KTL-M1', kw: 10.0, phases: 3, type: 'Trifásico Híbrido (3F+N)', mppt: 2, inputsPerMppt: 2, vDcMax: 1100, vMpptMin: 140, vMpptMax: 980, vMpptNomMin: 320, vMpptNomMax: 800, vStart: 200, iMaxOperA: 26.0, iMaxScA: 30.0, maxOverload: 1.35, eff: 98.6, price: 1750 },
+    { id: 'inv_huawei_15k', brand: 'Huawei', model: 'SUN2000-15KTL-M2', kw: 15.0, phases: 3, type: 'Trifásico Red (3F+N)', mppt: 2, inputsPerMppt: 2, vDcMax: 1080, vMpptMin: 160, vMpptMax: 950, vMpptNomMin: 380, vMpptNomMax: 800, vStart: 200, iMaxOperA: 22.0, iMaxScA: 30.0, maxOverload: 1.35, eff: 98.65, price: 1950 },
+    { id: 'inv_sungrow_15k', brand: 'Sungrow', model: 'SG15RT', kw: 15.0, phases: 3, type: 'Trifásico Red (3F+N)', mppt: 2, inputsPerMppt: 2, vDcMax: 1100, vMpptMin: 160, vMpptMax: 1000, vMpptNomMin: 350, vMpptNomMax: 850, vStart: 180, iMaxOperA: 25.0, iMaxScA: 32.0, maxOverload: 1.35, eff: 98.5, price: 1680 },
+    { id: 'inv_huawei_20k', brand: 'Huawei', model: 'SUN2000-20KTL-M2', kw: 20.0, phases: 3, type: 'Trifásico Red (3F+N)', mppt: 2, inputsPerMppt: 2, vDcMax: 1080, vMpptMin: 160, vMpptMax: 950, vMpptNomMin: 380, vMpptNomMax: 800, vStart: 200, iMaxOperA: 22.0, iMaxScA: 30.0, maxOverload: 1.35, eff: 98.65, price: 2150 },
     { id: 'inv_fronius_6k', brand: 'Fronius', model: 'Primo GEN24 6.0 Plus', kw: 6.0, phases: 1, type: 'Monofásico Híbrido (1F+N)', mppt: 2, inputsPerMppt: 1, vDcMax: 1000, vMpptMin: 65, vMpptMax: 800, vMpptNomMin: 210, vMpptNomMax: 800, vStart: 80, iMaxOperA: 16.0, iMaxScA: 22.0, maxOverload: 1.25, eff: 97.6, price: 1950 },
     { id: 'inv_sungrow_10k', brand: 'Sungrow', model: 'SG10RT', kw: 10.0, phases: 3, type: 'Trifásico Red (3F+N)', mppt: 2, inputsPerMppt: 2, vDcMax: 1100, vMpptMin: 160, vMpptMax: 1000, vMpptNomMin: 350, vMpptNomMax: 850, vStart: 180, iMaxOperA: 25.0, iMaxScA: 32.0, maxOverload: 1.30, eff: 98.5, price: 1450 },
     { id: 'inv_kostal_8k', brand: 'Kostal', model: 'PLENTICORE plus 8.5', kw: 8.5, phases: 3, type: 'Trifásico Híbrido (3 MPPT)', mppt: 3, inputsPerMppt: 1, vDcMax: 1000, vMpptMin: 120, vMpptMax: 900, vMpptNomMin: 290, vMpptNomMax: 720, vStart: 150, iMaxOperA: 13.0, iMaxScA: 24.0, maxOverload: 1.25, eff: 97.5, price: 1820 },
@@ -6179,8 +6182,13 @@ function loadEquipmentCatalog() {
     if (raw) {
       const parsed = JSON.parse(raw);
       let inverters = Array.isArray(parsed.inverters) && parsed.inverters.length > 0 ? parsed.inverters : DEFAULT_EQUIPMENT_CATALOG.inverters;
-      if (inverters.length > 0 && !inverters[0].vDcMax) {
-        inverters = DEFAULT_EQUIPMENT_CATALOG.inverters;
+      if (inverters.length > 0 && (!inverters[0].vDcMax || !inverters.some(i => i.id === 'inv_huawei_15k'))) {
+        // Asegurar que modelos comerciales de 15k/20k estén presentes en la caché del navegador
+        DEFAULT_EQUIPMENT_CATALOG.inverters.forEach(defInv => {
+          if (!inverters.some(i => i.id === defInv.id)) {
+            inverters.push(defInv);
+          }
+        });
       } else {
         // Hidratación suave de campos electrotécnicos nuevos si vienen de una versión previa
         inverters.forEach(inv => {

@@ -1702,9 +1702,14 @@ window.RA_App = window.RA_App || {};
 
                   <!-- Precio Medio Energía -->
                   <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.06);border-radius:5px;padding:5px 6px;">
-                    <label style="font-size:8.5px;color:#94A3B8;display:block;text-transform:uppercase;font-weight:700;margin-bottom:2px;">Precio Medio Red:</label>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+                      <label style="font-size:8.5px;color:#94A3B8;display:block;text-transform:uppercase;font-weight:700;">Precio Red:</label>
+                      <button type="button" onclick="wpFetchOfficialReePrice()" title="Obtener precio medio oficial PVPC de Red Eléctrica de España (REE)" style="background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.35);border-radius:3px;color:#38BDF8;font-size:8px;font-weight:bold;padding:1px 4px;cursor:pointer;display:flex;align-items:center;gap:3px;">
+                        <i data-lucide="refresh-cw" class="icon-sm" id="step3-ree-refresh-icon" style="width:10px;height:10px;"></i> REE
+                      </button>
+                    </div>
                     <div style="display:flex;align-items:center;gap:3px;">
-                      <input type="number" id="step3-bill-price-kwh" min="0.05" max="1.50" step="0.01" value="0.18" oninput="wpSyncStep3BillParams()" style="width:100%;box-sizing:border-box;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);border-radius:4px;color:#FBBF24;font-size:10.5px;font-weight:700;padding:2px 5px;text-align:right;outline:none;">
+                      <input type="number" id="step3-bill-price-kwh" min="0.05" max="1.50" step="0.005" value="0.18" oninput="wpSyncStep3BillParams()" style="width:100%;box-sizing:border-box;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);border-radius:4px;color:#FBBF24;font-size:10.5px;font-weight:700;padding:2px 5px;text-align:right;outline:none;">
                       <span style="font-size:9px;color:#FBBF24;white-space:nowrap;">€/kWh</span>
                     </div>
                   </div>
@@ -2023,6 +2028,26 @@ window.RA_App = window.RA_App || {};
                   </button>
                   <button type="button" class="doc-mini-btn" onclick="openEquipmentCatalogModal()" style="font-size: 10px;border-color:var(--amber-400);color:var(--amber-400);background:rgba(245,158,11,0.12);padding:3px 7px;cursor:pointer;font-weight:700;" title="Abrir catálogo oficial y buscador IA">
                     <i data-lucide="settings" class="icon-sm"></i> CATÁLOGO &amp; IA
+                  </button>
+                </div>
+              </div>
+
+              <!-- Selector de Red Eléctrica: Monofásica vs Trifásica -->
+              <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.06);border-radius:6px;padding:8px;margin-bottom:8px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                  <span style="font-size: 10px;font-weight:800;color:var(--amber-400);display:flex;align-items:center;gap:5px;">
+                    <i data-lucide="zap" class="icon-sm"></i> TIPO DE RED &amp; ACOMETIDA:
+                  </span>
+                  <span class="card-tag" style="background:rgba(16,185,129,0.15);color:#34D399;font-size:9.5px;font-weight:700;">
+                    REBT ITC-BT-40
+                  </span>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+                  <button type="button" id="step3-grid-single-phase" class="doc-mini-btn" onclick="wpSetGridSupply('single_phase')" style="padding:6px 4px;font-size:10px;text-align:center;display:flex;align-items:center;justify-content:center;gap:6px;background:rgba(14,165,233,0.06);border:1px solid rgba(14,165,233,0.25);color:#cbd5e1;cursor:pointer;">
+                    <span>⚡ Monofásica (230 V)</span>
+                  </button>
+                  <button type="button" id="step3-grid-three-phase" class="doc-mini-btn active" onclick="wpSetGridSupply('three_phase')" style="padding:6px 4px;font-size:10px;text-align:center;display:flex;align-items:center;justify-content:center;gap:6px;background:rgba(16,185,129,0.3);border:1px solid #10B981;color:#34D399;cursor:pointer;">
+                    <span>⚡⚡⚡ Trifásica (400 V)</span>
                   </button>
                 </div>
               </div>
@@ -5366,6 +5391,57 @@ function wpPopulateStep3BillFromSSOT() {
   if (titInput && titular) titInput.value = titular;
 }
 window.wpPopulateStep3BillFromSSOT = wpPopulateStep3BillFromSSOT;
+
+/**
+ * Consulta la API oficial de Red Eléctrica de España (REE / ESIOS)
+ * y actualiza el precio medio del kWh con el PVPC oficial diario.
+ */
+async function wpFetchOfficialReePrice() {
+  const icon = document.getElementById('step3-ree-refresh-icon');
+  if (icon) icon.style.animation = 'spin 1s linear infinite';
+
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const url = `https://apidatos.ree.es/es/datos/mercados/precios-mercados-tiempo-real?start_date=${today}T00:00&end_date=${today}T23:59&time_trunc=hour`;
+    
+    const resp = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const json = await resp.json();
+    
+    const pvpc = json.included && json.included.find(item => 
+      (item.type && item.type.includes('PVPC')) || 
+      (item.attributes && item.attributes.title && item.attributes.title.includes('PVPC'))
+    );
+
+    if (pvpc && Array.isArray(pvpc.attributes && pvpc.attributes.values) && pvpc.attributes.values.length > 0) {
+      const vals = pvpc.attributes.values.map(v => v.value);
+      const avgMwh = vals.reduce((sum, v) => sum + v, 0) / vals.length;
+      const avgKwh = Math.round((avgMwh / 1000) * 10000) / 10000; // EUR/kWh
+      
+      const prInput = document.getElementById('step3-bill-price-kwh');
+      if (prInput) {
+        prInput.value = avgKwh.toFixed(4);
+      }
+      wpSyncStep3BillParams();
+
+      if (typeof showToast === 'function') {
+        showToast('PRECIO OFICIAL REE ACTUALIZADO', `PVPC medio hoy: ${avgKwh.toFixed(4)} €/kWh (${avgMwh.toFixed(1)} €/MWh s/ Red Eléctrica de España).`, 'success', 4000);
+      } else if (typeof showStatus === 'function') {
+        showStatus(`PVPC OFICIAL REE: ${avgKwh.toFixed(4)} €/kWh`, 3500);
+      }
+    } else {
+      throw new Error('No se encontraron registros PVPC en la respuesta de REE');
+    }
+  } catch (err) {
+    console.warn('[REE-Price] Error al consultar API oficial REE:', err);
+    if (typeof showToast === 'function') {
+      showToast('ERROR AL CONSULTAR REE', 'No se pudo conectar con la API de Red Eléctrica de España. Comprueba tu conexión a internet.', 'warning', 4000);
+    }
+  } finally {
+    if (icon) icon.style.animation = '';
+  }
+}
+window.wpFetchOfficialReePrice = wpFetchOfficialReePrice;
 
 
 
@@ -16446,6 +16522,7 @@ window.toggleSolarHUD = toggleSolarHUD;
             <option value="sin">Sin excedentes (art. 9.1.a)</option>
             <option value="con-acogido" selected>Con excedentes — compensación simplificada</option>
             <option value="con-noacogido">Con excedentes — sin compensación</option>
+            <option value="colectivo-cel">Colectivo / Comunidad Energética Local (CEL — RDL 7/2026)</option>
           </select>
         </div>
       </div>
