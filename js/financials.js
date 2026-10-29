@@ -3127,6 +3127,9 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   <head>
     <meta charset="UTF-8">
     <title>Propuesta Comercial Solar FV — ${d.refNum}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300;400;600;700&family=Inter:wght@400;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
     <style>
       *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
       body { background: #f1f5f9; font-family: 'Segoe UI', Arial, sans-serif; color: #0f172a; padding: 20px; display: flex; flex-direction: column; align-items: center; padding-top: 70px; }
@@ -3469,6 +3472,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       <select id="prop-fmt-font" onchange="applyPropFormat('fontName', this.value)" title="Tipografía">
         <option value="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">Sistema / Sans</option>
         <option value="Inter, system-ui, sans-serif">Inter</option>
+        <option value="'Comfortaa', cursive, sans-serif">Comfortaa (Redondeada)</option>
         <option value="Roboto, sans-serif">Roboto</option>
         <option value="'Space Grotesk', sans-serif">Space Grotesk</option>
         <option value="Georgia, serif">Georgia</option>
