@@ -33,7 +33,7 @@ window.RA_App = window.RA_App || {};
   <script src="js/ui-viewport-controls.js?v=20261016a"></script>
   <script src="js/error-handler.js"></script>
 <script src="js/sanitizer.js?v=20261028a"></script>
-  <script src="js/project-config.js?v=20261029c"></script>
+  <script src="js/project-config.js?v=20261029d"></script>
   <script src="js/polygon-shadow-math.js?v=1793234328702"></script>
   <script src="js/building-footprint-cad.js?v=1793254482833"></script>
   <script src="js/cable-routing-ui.js?v=1793254551222"></script>
@@ -100,7 +100,7 @@ window.RA_App = window.RA_App || {};
   <script src="js/ui-outliner.js?v=20261015f"></script>
   <script src="js/bill-auditor.js?v=20260929b"></script>
   <script src="js/structure-catalog.js?v=20261015a"></script>
-  <script src="js/bom-tree.js?v=20261016b"></script>
+  <script src="js/bom-tree.js?v=20261029d"></script>
   <script src="js/engineering-explainer.js?v=20260929b"></script>
   <script src="js/equipment-ai-importer.js?v=20261014a"></script>
   <script src="js/equipment-web-search.js?v=20261019a"></script>
@@ -2089,7 +2089,13 @@ window.RA_App = window.RA_App || {};
               <div id="step3-row-optimizer" style="display:none;background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.25);border-radius:6px;padding:7px;margin-bottom:8px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
                   <span style="font-size: 10px;font-weight:700;color:#FBBF24;"><i data-lucide="settings" class="icon-sm"></i> Optimizadores DC/DC (MLPE):</span>
-                  <button type="button" class="doc-mini-btn" onclick="step3EditCurrentEquipment('microinverters')" style="font-size: 10px;padding:2px 6px;color:#FBBF24;"><i data-lucide="edit-2" class="icon-sm"></i> Ficha</button>
+                  <div style="display:flex;align-items:center;gap:4px;">
+                    <select id="step3-sel-optimizer-coverage" onchange="if(window.solarProjectConfig){ window.solarProjectConfig.optimizerCoverage = this.value; step3UpdateHardwareSelection(); }" style="background:rgba(0,0,0,0.4);border:1px solid rgba(245,158,11,0.3);border-radius:4px;color:#FBBF24;font-size:9px;font-weight:700;padding:2px 4px;outline:none;" title="Selecciona si los optimizadores se aplican solo a placas con sombra o a todo el tejado">
+                      <option value="selective" selected>🎯 Selectivo (Sombra >8%)</option>
+                      <option value="full">🌐 Integral (100% de placas)</option>
+                    </select>
+                    <button type="button" class="doc-mini-btn" onclick="step3EditCurrentEquipment('microinverters')" style="font-size: 10px;padding:2px 6px;color:#FBBF24;"><i data-lucide="edit-2" class="icon-sm"></i> Ficha</button>
+                  </div>
                 </div>
                 <select id="step3-sel-optimizer" class="field-input" onchange="step3UpdateHardwareSelection()" style="width:100%;font-size:10px;font-weight:700;"></select>
                 <div id="step3-optimizer-live-summary" style="margin-top:4px;font-size:10px;color:#94a3b8;display:flex;justify-content:space-between;align-items:center;"></div>

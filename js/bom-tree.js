@@ -167,11 +167,13 @@
           const modSpec = moduleMap.get(mId) || defaultMod;
           roofKwp += (modSpec.wp || 450) / 1000.0;
           roofPanelsWeightKg += (modSpec.weightKg || 25.0);
-          if ((p.hasOptimizer || p.hasMLPE || p.optimizerModelId) && projectConfig.selectedTopology !== 'microinverter') {
+          const needsMLPE = (p.hasOptimizer || p.hasMLPE || p.optimizerModelId || (typeof p.annualLossPct === 'number' && p.annualLossPct >= 8.0));
+          if (needsMLPE && projectConfig.selectedTopology !== 'microinverter') {
             optimizersInRoof++;
           }
         });
-        if (optimizersInRoof === 0 && projectConfig.selectedTopology === 'optimizer') {
+        const isFullRoofMLPE = (poly && poly.optimizerCoverage === 'full') || (projectConfig && projectConfig.optimizerCoverage === 'full');
+        if (optimizersInRoof === 0 && projectConfig.selectedTopology === 'optimizer' && isFullRoofMLPE) {
           optimizersInRoof = panels.length;
         }
 

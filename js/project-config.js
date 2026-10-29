@@ -1057,7 +1057,28 @@ function step3RenderAutoSizingUI(count, totalKwp, mod, inv, mi, bat, maxKwInput,
     }
   }
 
-  // 4. Coste total equipos
+  // 4. Coste total equipos y cálculo de optimizadores selectivos
+  let activeOptimizersCount = 0;
+  if (Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0) {
+    window.allRenderedPanels.forEach(p => {
+      if (!p || p.deleted) return;
+      if (p.hasMLPE || p.hasOptimizer || (typeof p.annualLossPct === 'number' && p.annualLossPct >= 8.0)) {
+        activeOptimizersCount++;
+      }
+    });
+  } else if (typeof WP !== 'undefined' && Array.isArray(WP.polylines)) {
+    WP.polylines.forEach(poly => {
+      const pList = Array.isArray(poly.panels) ? poly.panels : (poly.roofInfo && Array.isArray(poly.roofInfo.panels) ? poly.roofInfo.panels : []);
+      pList.forEach(p => {
+        if (p.hasMLPE || p.hasOptimizer || (typeof p.annualLossPct === 'number' && p.annualLossPct >= 8.0)) {
+          activeOptimizersCount++;
+        }
+      });
+    });
+  }
+  const isFullMLPE = (cfg && cfg.optimizerCoverage === 'full');
+  const finalOptimizersCount = (topo === 'optimizer') ? (isFullMLPE ? count : activeOptimizersCount) : 0;
+
   const costEl = document.getElementById('step3-total-hardware-cost');
   if (costEl) {
     let totCost = 0;
@@ -1066,7 +1087,7 @@ function step3RenderAutoSizingUI(count, totalKwp, mod, inv, mi, bat, maxKwInput,
     } else {
       totCost += invCount * (inv.price || 1200);
       if (topo === 'optimizer') {
-        totCost += count * 65; // Optimizadores DC
+        totCost += finalOptimizersCount * 65; // Optimizadores DC reales
       }
     }
     if (bat && bat.kwh > 0) {
@@ -1079,8 +1100,14 @@ function step3RenderAutoSizingUI(count, totalKwp, mod, inv, mi, bat, maxKwInput,
   const optSummaryEl = document.getElementById('step3-optimizer-live-summary');
   if (optSummaryEl) {
     if (topo === 'optimizer') {
-      const optCostTot = count * 65;
-      optSummaryEl.innerHTML = '<span style="color:#FBBF24;font-weight:700;">' + count + 'x Optimizadores (1 por panel)</span><span style="color:#94a3b8;">' + optCostTot.toLocaleString('es-ES') + ' € · Mitigación total sombras</span>';
+      const optCostTot = finalOptimizersCount * 65;
+      if (finalOptimizersCount === 0) {
+        optSummaryEl.innerHTML = '<span style="color:#10B981;font-weight:700;"><i data-lucide="check" class="icon-sm"></i> 0 Optimizadores necesarios (0 sombras)</span><span style="color:#94a3b8;">0 € · Strings directos de máxima eficiencia</span>';
+      } else if (finalOptimizersCount < count) {
+        optSummaryEl.innerHTML = '<span style="color:#FBBF24;font-weight:700;">' + finalOptimizersCount + 'x Optimizadores selectivos (' + Math.round((finalOptimizersCount / count) * 100) + '% del campo)</span><span style="color:#94a3b8;">' + optCostTot.toLocaleString('es-ES') + ' € · Mitigación focalizada</span>';
+      } else {
+        optSummaryEl.innerHTML = '<span style="color:#FBBF24;font-weight:700;">' + finalOptimizersCount + 'x Optimizadores (1 por panel)</span><span style="color:#94a3b8;">' + optCostTot.toLocaleString('es-ES') + ' € · Cobertura 100%</span>';
+      }
     } else {
       optSummaryEl.innerHTML = '';
     }
@@ -1894,20 +1921,46 @@ function wpRenderElectronicsRackUI() {
   if (topo === 'optimizer') {
     const panelsTotal = (cfg.autoSizing && cfg.autoSizing.inverters && cfg.autoSizing.inverters.panelsTotal)
       || (Array.isArray(window.allRenderedPanels) ? window.allRenderedPanels.filter(p => p && !p.deleted).length : 18);
-    const optId = cfg.selectedOptimizerId || 'mlpe_solaredge_s500';
-    const optSpec = (catalog.microinverters && catalog.microinverters.find(m => m.id === optId))
-      || { brand: 'Tigo / SolarEdge', model: 'Optimizador DC 500W', price: 65 };
     
-    items.push({
-      type: 'optimizer',
-      icon: 'settings',
-      badge: panelsTotal + 'x OPTIMIZADORES',
-      title: (optSpec.brand || 'MLPE') + ' ' + (optSpec.model || 'Optimizador DC'),
-      specs: 'Electrónica DC/DC individual módulo a módulo · 1V SafeDC por módulo',
-      tag: '1 por módulo solar (' + panelsTotal + ' uds)',
-      tagColor: '#F59E0B',
-      price: panelsTotal * (optSpec.price || 65)
-    });
+    // Contar optimizadores reales activos (selectivos o totales)
+    let realOptCount = 0;
+    if (Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0) {
+      window.allRenderedPanels.forEach(p => {
+        if (!p || p.deleted) return;
+        if (p.hasMLPE || p.hasOptimizer || (typeof p.annualLossPct === 'number' && p.annualLossPct >= 8.0)) {
+          realOptCount++;
+        }
+      });
+    } else if (typeof WP !== 'undefined' && Array.isArray(WP.polylines)) {
+      WP.polylines.forEach(poly => {
+        const pList = Array.isArray(poly.panels) ? poly.panels : (poly.roofInfo && Array.isArray(poly.roofInfo.panels) ? poly.roofInfo.panels : []);
+        pList.forEach(p => {
+          if (p.hasMLPE || p.hasOptimizer || (typeof p.annualLossPct === 'number' && p.annualLossPct >= 8.0)) {
+            realOptCount++;
+          }
+        });
+      });
+    }
+    const isFullMLPE = (cfg && cfg.optimizerCoverage === 'full');
+    const finalCount = isFullMLPE ? panelsTotal : realOptCount;
+
+    const optId = cfg.selectedOptimizerId || 'mlpe_tigo_ts4';
+    const optSpec = (catalog.microinverters && catalog.microinverters.find(m => m.id === optId))
+      || { brand: 'Tigo Energy', model: 'Optimizador TS4-A-O', price: 65 };
+    
+    if (finalCount > 0) {
+      const isSelective = finalCount < panelsTotal;
+      items.push({
+        type: 'optimizer',
+        icon: 'settings',
+        badge: finalCount + 'x OPTIMIZADORES',
+        title: (optSpec.brand || 'MLPE') + ' ' + (optSpec.model || 'Optimizador DC'),
+        specs: isSelective ? 'Electrónica DC/DC selectiva en paneles con sombra >8%' : 'Electrónica DC/DC en cada módulo solar (Cobertura 100%)',
+        tag: isSelective ? `${finalCount}/${panelsTotal} paneles (${Math.round((finalCount/panelsTotal)*100)}% selectivo)` : '1 por módulo solar (' + panelsTotal + ' uds)',
+        tagColor: '#F59E0B',
+        price: finalCount * (optSpec.price || 65)
+      });
+    }
   }
 
   // Microinversores
@@ -2117,43 +2170,57 @@ function wpRenderStep4RoofScopeUI() {
           if (pPoly === idx) {
             const isShaded = p.isShaded || (typeof p.annualLossPct === 'number' && p.annualLossPct >= 8.0);
             if (isShaded) shadedPanelsInRoof++;
-            if (topo === 'optimizer') {
-              // En topología optimizador: o todos (SolarEdge/Huawei full) o selectivos por sombra
-              if (p.hasMLPE || p.hasOptimizer || isShaded) {
-                faldonOptCount++;
-              }
-            } else if (p.hasMLPE || p.hasOptimizer) {
+            // En topología optimizador: selectivo por defecto (solo si requiere MLPE o tiene sombra > 8%)
+            if (p.hasMLPE || p.hasOptimizer || (p.annualLossPct >= 8.0)) {
               faldonOptCount++;
             }
           }
         });
       }
 
-      // Si la topología del faldón es 'optimizer' y no hay discriminación individual previa, aplica a todos los módulos del faldón
-      if (topo === 'optimizer' && faldonOptCount === 0 && nPanels > 0) {
+      // Solo si el usuario ha configurado explícitamente cobertura total 100% (ej. SolarEdge)
+      const isFullRoofMLPE = (poly && poly.optimizerCoverage === 'full') || (window.solarProjectConfig && window.solarProjectConfig.optimizerCoverage === 'full');
+      if (topo === 'optimizer' && isFullRoofMLPE && nPanels > 0) {
         faldonOptCount = nPanels;
       }
 
       let optimizerDetailBadge = '';
       if (topo === 'optimizer') {
-        topoBadge = '⚙️ Inversor + MLPE';
-        topoColor = '#F59E0B';
-        const isSelective = faldonOptCount < nPanels && faldonOptCount > 0;
-        const optPercent = nPanels > 0 ? Math.round((faldonOptCount / nPanels) * 100) : 0;
-        mpptDesc = isSelective
-          ? `MPPT ${idx + 1} · MLPE Selectivo (${faldonOptCount}/${nPanels} mods · ${optPercent}%)`
-          : `MPPT ${idx + 1} · Cobertura Total MLPE (${faldonOptCount} optimizadores)`;
-        
-        optimizerDetailBadge = `
-          <div style="margin-top:4px;padding:3px 6px;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.3);border-radius:4px;display:flex;align-items:center;justify-content:space-between;font-size:8.5px;">
-            <span style="color:#FBBF24;font-weight:700;display:flex;align-items:center;gap:3px;">
-              <i data-lucide="settings" class="icon-sm"></i> ${faldonOptCount} Optimizadores instalados
-            </span>
-            <span style="color:#CBD5E1;background:rgba(0,0,0,0.4);padding:1px 4px;border-radius:3px;">
-              ${isSelective ? `Sombra >8% (${faldonOptCount} uds)` : '100% faldón protegido'}
-            </span>
-          </div>
-        `;
+        if (faldonOptCount > 0) {
+          topoBadge = '⚙️ Inversor + MLPE';
+          topoColor = '#F59E0B';
+          const isSelective = faldonOptCount < nPanels;
+          const optPercent = nPanels > 0 ? Math.round((faldonOptCount / nPanels) * 100) : 0;
+          mpptDesc = isSelective
+            ? `MPPT ${idx + 1} · MLPE Selectivo (${faldonOptCount}/${nPanels} mods · ${optPercent}%)`
+            : `MPPT ${idx + 1} · Cobertura Total MLPE (${faldonOptCount} optimizadores)`;
+          
+          optimizerDetailBadge = `
+            <div style="margin-top:4px;padding:3px 6px;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.3);border-radius:4px;display:flex;align-items:center;justify-content:space-between;font-size:8.5px;">
+              <span style="color:#FBBF24;font-weight:700;display:flex;align-items:center;gap:3px;">
+                <i data-lucide="settings" class="icon-sm"></i> ${faldonOptCount} Optimizadores selectivos
+              </span>
+              <span style="color:#CBD5E1;background:rgba(0,0,0,0.4);padding:1px 4px;border-radius:3px;">
+                ${isSelective ? `${faldonOptCount} en sombra · ${nPanels - faldonOptCount} string limpio` : '100% faldón protegido'}
+              </span>
+            </div>
+          `;
+        } else {
+          // Faldón sin sombras en proyecto con topología optimizadores: va a String Directo sin encarecer
+          topoBadge = '⚡ Inversor String (Limpio)';
+          topoColor = '#38BDF8';
+          mpptDesc = `MPPT ${idx + 1} (Directo sin MLPE · 0 sombras)`;
+          optimizerDetailBadge = `
+            <div style="margin-top:4px;padding:3px 6px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.25);border-radius:4px;display:flex;align-items:center;justify-content:space-between;font-size:8.5px;">
+              <span style="color:#34D399;font-weight:700;display:flex;align-items:center;gap:3px;">
+                <i data-lucide="check" class="icon-sm"></i> 0 Optimizadores (Faldón sin sombras)
+              </span>
+              <span style="color:#94A3B8;">
+                ${nPanels} módulos a string directo
+              </span>
+            </div>
+          `;
+        }
       } else if (topo === 'microinverter') {
         topoBadge = '🖲️ Microinversor';
         topoColor = '#10B981';
@@ -2493,6 +2560,7 @@ function wpOpenRoofOverrideModal(polyIdx) {
 
   const currentModId = poly.moduleId || window.solarProjectConfig.selectedModuleId || (catalog.modules[0] ? catalog.modules[0].id : '');
   const currentTopo = poly.assignedTopology || 'inherit';
+  const currentCoverage = poly.optimizerCoverage || 'inherit';
 
   let modalEl = document.getElementById('step4-roof-override-modal');
   if (!modalEl) {
@@ -2529,9 +2597,18 @@ function wpOpenRoofOverrideModal(polyIdx) {
           <label style="color:#94A3B8;display:block;margin-bottom:4px;font-weight:700;">Electrónica y Topología de este Faldón:</label>
           <select id="modal-roof-override-topo" style="width:100%;padding:6px;background:rgba(0,0,0,0.5);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:5px;font-size:10.5px;">
             <option value="inherit" ${currentTopo === 'inherit' ? 'selected' : ''}>— Heredar Configuración Global del Proyecto —</option>
-            <option value="inverter" ${currentTopo === 'inverter' ? 'selected' : ''}>⚡ Inversor Central (String a MPPT dedicado)</option>
-            <option value="optimizer" ${currentTopo === 'optimizer' ? 'selected' : ''}>⚙️ Inversor + Optimizadores DC/DC (MLPE anti-sombras)</option>
+            <option value="inverter" ${currentTopo === 'inverter' ? 'selected' : ''}>⚡ Inversor Central (String puro a MPPT dedicado)</option>
+            <option value="optimizer" ${currentTopo === 'optimizer' ? 'selected' : ''}>⚙️ Inversor + Optimizadores DC/DC (MLPE)</option>
             <option value="microinverter" ${currentTopo === 'microinverter' ? 'selected' : ''}>🖲️ Microinversor (Conversión directa en tejado)</option>
+          </select>
+        </div>
+
+        <div>
+          <label style="color:#94A3B8;display:block;margin-bottom:4px;font-weight:700;">Cobertura de Optimizadores (si aplica):</label>
+          <select id="modal-roof-override-coverage" style="width:100%;padding:6px;background:rgba(0,0,0,0.5);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:5px;font-size:10.5px;">
+            <option value="inherit" ${currentCoverage === 'inherit' ? 'selected' : ''}>— Heredar Configuración Global —</option>
+            <option value="selective" ${currentCoverage === 'selective' ? 'selected' : ''}>🎯 Solo placas con sombra (&gt;8%)</option>
+            <option value="full" ${currentCoverage === 'full' ? 'selected' : ''}>🌐 100% de los módulos de este faldón</option>
           </select>
         </div>
       </div>
@@ -2560,9 +2637,11 @@ function wpSaveRoofOverride(polyIdx) {
 
   const selMod = document.getElementById('modal-roof-override-module');
   const selTopo = document.getElementById('modal-roof-override-topo');
+  const selCov = document.getElementById('modal-roof-override-coverage');
 
   if (selMod) poly.moduleId = selMod.value;
   if (selTopo) poly.assignedTopology = (selTopo.value === 'inherit') ? null : selTopo.value;
+  if (selCov) poly.optimizerCoverage = (selCov.value === 'inherit') ? null : selCov.value;
 
   const modalEl = document.getElementById('step4-roof-override-modal');
   if (modalEl) modalEl.style.display = 'none';
