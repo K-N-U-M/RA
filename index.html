@@ -7255,8 +7255,10 @@ function recalculateSolarYield(force = false) {
     const nPanels = window.allRenderedPanels.length;
     const prSys = (typeof prObj.prBOS === 'number') ? prObj.prBOS : (pr / (0.925 * (1 - 0.028)));
 
-    // Solo reutilizar p.annualGrossKwh si proviene de un raycast 3D válido Y la inclinación/orientación del panel no ha cambiado
-    const isHeatmapValid = !!(typeof window.solarSimState !== 'undefined' && window.solarSimState && window.solarSimState.annualHeatmapData && !window.solarSimState.annualHeatmapDirty);
+    const hasSimulatedPanels = window.allRenderedPanels.some(p =>
+      (typeof p.annualGrossKwh === 'number' && p.annualGrossKwh > 0) ||
+      (typeof p.annualKwh === 'number' && p.annualKwh > 0)
+    );
     let simulatedTotalKWh = 0;
     let simulatedGrossKWh = 0;
     window.allRenderedPanels.forEach(p => {
@@ -7265,15 +7267,16 @@ function recalculateSolarYield(force = false) {
       const sa = subArrays.find(s => s.polyIdx === pPolyIdx);
       const curTilt = (typeof p.tiltDeg === 'number') ? p.tiltDeg : (sa ? sa.tiltDeg : modTilt);
       const curAz = (typeof p.azimuthDeg === 'number') ? p.azimuthDeg : (sa ? sa.azSurDeg : modAzSigned);
-      const sameAngles = (p._poaTiltDeg !== undefined && Math.abs(p._poaTiltDeg - curTilt) < 0.05 && p._poaAzDeg !== undefined && Math.abs(p._poaAzDeg - curAz) < 0.05);
 
       let basePanelGross = annualGrossKWh / nPanels;
       if (sa && sa.nPanels > 0 && subArrayAnnualGross.has(sa.polyIdx)) {
         basePanelGross = subArrayAnnualGross.get(sa.polyIdx) / sa.nPanels;
       }
 
-      const gross = (isHeatmapValid && sameAngles && typeof p.annualGrossKwh === 'number' && p.annualGrossKwh > 0)
-        ? p.annualGrossKwh
+      const gross = hasSimulatedPanels
+        ? (typeof p.annualGrossKwh === 'number' && p.annualGrossKwh > 0
+            ? p.annualGrossKwh
+            : (typeof p.annualKwh === 'number' && p.annualKwh > 0 ? (p.annualKwh / (p._lastPrSys || prSys || 0.885)) : (basePanelGross * pYieldFactor)))
         : (basePanelGross * pYieldFactor);
 
       p.annualGrossKwh = gross;
@@ -7493,6 +7496,11 @@ function recalculateSolarYield(force = false) {
   };
   if (typeof window.raUpdateEnergyHUD === 'function') {
     window.raUpdateEnergyHUD();
+  }
+
+  // Si el visor 3D se encuentra en modo Heatmap, refrescar las etiquetas 3D de producción por módulo
+  if (typeof window.wpRenderHeatmapVisuals === 'function' && window.solarSimState && window.solarSimState.viewMode === 'heatmap') {
+    window.wpRenderHeatmapVisuals();
   }
 
   if (typeof window !== 'undefined') {
@@ -8575,6 +8583,11 @@ function resetSolarDashboard() {
   };
   if (typeof window.raUpdateEnergyHUD === 'function') {
     window.raUpdateEnergyHUD();
+  }
+
+  // Si el visor 3D se encuentra en modo Heatmap, refrescar las etiquetas 3D de producción por módulo
+  if (typeof window.wpRenderHeatmapVisuals === 'function' && window.solarSimState && window.solarSimState.viewMode === 'heatmap') {
+    window.wpRenderHeatmapVisuals();
   }
 }
 
