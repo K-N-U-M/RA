@@ -3405,8 +3405,8 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       /* Estilos para Página de Fotos e Implantación 3D */
       .photo-grid-main { display: flex; flex-direction: column; gap: 12px; margin-top: 10px; }
       .photo-card-hero { height: 96mm; border: 1.5px solid #cbd5e1; border-radius: 8px; overflow: hidden; background: #f8fafc; position: relative; display: flex; flex-direction: column; }
-      .cover-photo-card { height: 74mm; border: 1.5px solid #cbd5e1; border-radius: 10px; overflow: hidden; background: #ffffff; position: relative; display: flex; flex-direction: column; margin: 12px 0 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.03); }
-      .cover-photo-card .photo-img-wrap { background: #ffffff; }
+      .cover-photo-card { height: 74mm; border: none; border-radius: 10px; overflow: hidden; background: transparent; position: relative; display: flex; flex-direction: column; margin: 12px 0 16px; box-shadow: none; }
+      .cover-photo-card .photo-img-wrap { background: transparent; }
       .cover-photo-card .photo-img-wrap img { object-fit: contain; }
       .photo-card-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; height: 68mm; }
       .photo-card-sub { border: 1.5px solid #cbd5e1; border-radius: 8px; overflow: hidden; background: #f8fafc; position: relative; display: flex; flex-direction: column; }
