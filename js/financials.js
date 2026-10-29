@@ -3539,7 +3539,6 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
 
         <!-- Bloque Titular de Presentación -->
         <div class="cover-hero-title">
-          <div class="cover-hero-tag">Propuesta Técnico-Económica Llave en Mano</div>
           <h1 class="cover-hero-h1">PROYECTO INTEGRAL DE GENERACIÓN RENOVABLE</h1>
           <div class="cover-hero-sub">Estudio de viabilidad técnica, diseño CAD 3D y análisis de rentabilidad para autoconsumo</div>
         </div>
