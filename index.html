@@ -33,7 +33,7 @@ window.RA_App = window.RA_App || {};
   <script src="js/ui-viewport-controls.js?v=20261016a"></script>
   <script src="js/error-handler.js"></script>
 <script src="js/sanitizer.js?v=20261028a"></script>
-  <script src="js/project-config.js?v=20261016a"></script>
+  <script src="js/project-config.js?v=20261029c"></script>
   <script src="js/polygon-shadow-math.js?v=1793234328702"></script>
   <script src="js/building-footprint-cad.js?v=1793254482833"></script>
   <script src="js/cable-routing-ui.js?v=1793254551222"></script>
@@ -2165,18 +2165,18 @@ window.RA_App = window.RA_App || {};
                 </div>
               </div>
 
-              <!-- MATRIZ DE ASIGNACIÓN: FALDONES ➔ MÓDULOS ➔ ELECTRÓNICA (MULTI-FALDÓN) -->
+              <!-- MATRIZ DE ASIGNACIÓN & COMBINACIONES DE ELECTRÓNICA POR FALDÓN -->
               <div id="step4-roof-mapping-card" style="display:none;background:rgba(0,0,0,0.35);border:1px solid rgba(245,158,11,0.25);border-radius:6px;padding:8px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:4px;">
                   <span style="font-size:10px;font-weight:900;color:#FBBF24;display:flex;align-items:center;gap:4px;">
-                    <i data-lucide="git-branch" class="icon-sm"></i> MAPEO DE GENERACIÓN POR FAL DÓN
+                    <i data-lucide="git-branch" class="icon-sm"></i> MATRIZ DE COMBINACIONES &amp; ELECTRÓNICA POR FALDÓN
                   </span>
                   <span id="step4-mapping-summary-tag" class="card-tag" style="background:rgba(245,158,11,0.15);color:#FBBF24;font-size:9px;font-weight:800;">
                     —
                   </span>
                 </div>
                 <div id="step4-roof-mapping-table" style="display:flex;flex-direction:column;gap:5px;">
-                  <!-- Inyección dinámica: cada fila con faldón, placas, electrónica y estado MPPT -->
+                  <!-- Inyección dinámica: cada fila con faldón, placas, electrónica, desglose de optimizadores y estado MPPT -->
                 </div>
               </div>
             </div>

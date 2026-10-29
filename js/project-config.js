@@ -2105,19 +2105,85 @@ function wpRenderStep4RoofScopeUI() {
       let topoColor = '#38BDF8';
       let mpptDesc = `MPPT ${idx + 1} (String independiente)`;
 
-      if (topo === 'microinverter') {
-        topoBadge = '🖲️ Microinversor';
-        topoColor = '#10B981';
-        mpptDesc = 'MPPT distribuido por panel';
-      } else if (topo === 'optimizer') {
+      const nPanels = r.panelCount || 0;
+
+      // Calcular paneles específicos de este faldón con optimizador / MLPE
+      let faldonOptCount = 0;
+      let shadedPanelsInRoof = 0;
+      if (Array.isArray(window.allRenderedPanels)) {
+        window.allRenderedPanels.forEach(p => {
+          if (!p || p.deleted) return;
+          const pPoly = (typeof p.polyIdx === 'number') ? p.polyIdx : ((typeof p.roofIndex === 'number') ? p.roofIndex : -1);
+          if (pPoly === idx) {
+            const isShaded = p.isShaded || (typeof p.annualLossPct === 'number' && p.annualLossPct >= 8.0);
+            if (isShaded) shadedPanelsInRoof++;
+            if (topo === 'optimizer') {
+              // En topología optimizador: o todos (SolarEdge/Huawei full) o selectivos por sombra
+              if (p.hasMLPE || p.hasOptimizer || isShaded) {
+                faldonOptCount++;
+              }
+            } else if (p.hasMLPE || p.hasOptimizer) {
+              faldonOptCount++;
+            }
+          }
+        });
+      }
+
+      // Si la topología del faldón es 'optimizer' y no hay discriminación individual previa, aplica a todos los módulos del faldón
+      if (topo === 'optimizer' && faldonOptCount === 0 && nPanels > 0) {
+        faldonOptCount = nPanels;
+      }
+
+      let optimizerDetailBadge = '';
+      if (topo === 'optimizer') {
         topoBadge = '⚙️ Inversor + MLPE';
         topoColor = '#F59E0B';
-        mpptDesc = 'MPPT Central + Optimizador individual';
+        const isSelective = faldonOptCount < nPanels && faldonOptCount > 0;
+        const optPercent = nPanels > 0 ? Math.round((faldonOptCount / nPanels) * 100) : 0;
+        mpptDesc = isSelective
+          ? `MPPT ${idx + 1} · MLPE Selectivo (${faldonOptCount}/${nPanels} mods · ${optPercent}%)`
+          : `MPPT ${idx + 1} · Cobertura Total MLPE (${faldonOptCount} optimizadores)`;
+        
+        optimizerDetailBadge = `
+          <div style="margin-top:4px;padding:3px 6px;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.3);border-radius:4px;display:flex;align-items:center;justify-content:space-between;font-size:8.5px;">
+            <span style="color:#FBBF24;font-weight:700;display:flex;align-items:center;gap:3px;">
+              <i data-lucide="settings" class="icon-sm"></i> ${faldonOptCount} Optimizadores instalados
+            </span>
+            <span style="color:#CBD5E1;background:rgba(0,0,0,0.4);padding:1px 4px;border-radius:3px;">
+              ${isSelective ? `Sombra >8% (${faldonOptCount} uds)` : '100% faldón protegido'}
+            </span>
+          </div>
+        `;
+      } else if (topo === 'microinverter') {
+        topoBadge = '🖲️ Microinversor';
+        topoColor = '#10B981';
+        mpptDesc = 'MPPT distribuido por panel (conversión AC)';
+        optimizerDetailBadge = `
+          <div style="margin-top:4px;padding:3px 6px;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.3);border-radius:4px;display:flex;align-items:center;justify-content:space-between;font-size:8.5px;">
+            <span style="color:#34D399;font-weight:700;display:flex;align-items:center;gap:3px;">
+              <i data-lucide="cpu" class="icon-sm"></i> ${Math.ceil(nPanels / 2)}x Microinversores duales
+            </span>
+            <span style="color:#CBD5E1;background:rgba(0,0,0,0.4);padding:1px 4px;border-radius:3px;">
+              100% faldón desacoplado
+            </span>
+          </div>
+        `;
+      } else {
+        // Inversor String puro
+        optimizerDetailBadge = `
+          <div style="margin-top:4px;padding:3px 6px;background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.2);border-radius:4px;display:flex;align-items:center;justify-content:space-between;font-size:8.5px;">
+            <span style="color:#38BDF8;font-weight:700;display:flex;align-items:center;gap:3px;">
+              <i data-lucide="zap" class="icon-sm"></i> Sin MLPE en faldón
+            </span>
+            <span style="color:#94A3B8;">
+              ${shadedPanelsInRoof > 0 ? `⚠️ ${shadedPanelsInRoof} con sombra` : '✓ Libre de sombras'}
+            </span>
+          </div>
+        `;
       }
 
       const modName = r.moduleFullName || (r.moduleBrand ? `${r.moduleBrand} ${r.moduleModel}` : 'Módulo Solar');
       const kwp = r.kwp ? r.kwp.toFixed(2) : (((r.panelCount || 0) * (r.wp || 450)) / 1000).toFixed(2);
-      const nPanels = r.panelCount || 0;
 
       // Telemetría de cableado por faldón estimada
       const estDcL = Math.round(10 + (idx * 3.5)); // Longitud estimada homerun al faldón
@@ -2161,6 +2227,9 @@ function wpRenderStep4RoofScopeUI() {
               </div>
             </div>
           </div>
+
+          <!-- DETALLE ESPECÍFICO DE UBICACIÓN Y CONTEO DE OPTIMIZADORES -->
+          ${optimizerDetailBadge}
 
           <!-- FILA ENRIQUECIDA FASE 2: CONEXIONADO ELÉCTRICO, CABLES & CONECTORES DEL FALDÓN -->
           <div style="margin-top:5px;padding-top:4px;border-top:1px dashed rgba(255,255,255,0.07);display:flex;justify-content:space-between;align-items:center;font-size:8.5px;color:#94A3B8;">
@@ -2216,6 +2285,25 @@ function wpFocusRoofIn3D(polyIdx) {
   } else if (typeof window.wpSelectPolyline === 'function') {
     window.wpSelectPolyline(polyIdx);
   }
+
+  // Resaltado visual en el visor 3D para módulos con MLPE / optimizador en este faldón
+  try {
+    if (Array.isArray(window.allRenderedPanels) && typeof window.cesiumViewer !== 'undefined' && window.cesiumViewer) {
+      window.allRenderedPanels.forEach(p => {
+        if (!p || p.deleted) return;
+        const pPoly = (typeof p.polyIdx === 'number') ? p.polyIdx : ((typeof p.roofIndex === 'number') ? p.roofIndex : -1);
+        if (pPoly === polyIdx && (p.hasMLPE || p.hasOptimizer || p.isShaded)) {
+          if (p.entity && p.entity.polygon && p.entity.polygon.material) {
+            const originalMat = p.entity.polygon.material;
+            p.entity.polygon.material = Cesium.Color.fromCssColorString('#F59E0B').withAlpha(0.9);
+            setTimeout(() => {
+              try { if (p.entity && p.entity.polygon) p.entity.polygon.material = originalMat; } catch(e) {}
+            }, 1800);
+          }
+        }
+      });
+    }
+  } catch (err) {}
 }
 window.wpFocusRoofIn3D = wpFocusRoofIn3D;
 
