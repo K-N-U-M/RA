@@ -982,7 +982,7 @@
           simGenerationId,
           lat,
           lng,
-          resolution: window.raHeatmapResolution || 'standard',
+          resolution: window.raHeatmapResolution || 'ultra',
           polylines,
           climaticZone,
           moduleProps: {

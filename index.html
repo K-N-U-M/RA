@@ -16712,7 +16712,7 @@ window.toggleSolarHUD = toggleSolarHUD;
             <div style="display:flex; flex-direction:column; gap:6px;">
               <span style="font-size:11px; font-weight:600; color:#e2e8f0; margin-bottom: 2px;">Precisión del Ray-Tracing Anual</span>
               <div class="engine-cards-group">
-                <div class="engine-card-opt" id="btn-res-ultra" onclick="setHeatmapResolution('ultra')">
+                <div class="engine-card-opt active" id="btn-res-ultra" onclick="setHeatmapResolution('ultra')">
                   <div class="engine-card-title">
                     <span>1. ULTRA (Documental)</span>
                     <span style="font-size: 10px;background:var(--emerald-500);color:#000;padding:1px 4px;border-radius:3px;font-weight:900;">192 RAYOS</span>
@@ -16728,7 +16728,7 @@ window.toggleSolarHUD = toggleSolarHUD;
                   <div class="engine-card-desc">Análisis balanceado de solsticios y equinoccios. Útil para iterar rápidamente en la cubierta.</div>
                 </div>
 
-                <div class="engine-card-opt active" id="btn-res-fast" onclick="setHeatmapResolution('fast')">
+                <div class="engine-card-opt" id="btn-res-fast" onclick="setHeatmapResolution('fast')">
                   <div class="engine-card-title">
                     <span>3. RÁPIDA (Boceto)</span>
                     <span style="font-size: 10px;background:var(--amber-500);color:#000;padding:1px 4px;border-radius:3px;font-weight:900;">16 RAYOS</span>
@@ -16738,7 +16738,7 @@ window.toggleSolarHUD = toggleSolarHUD;
               </div>
             </div>
             <script>
-              window.raHeatmapResolution = 'fast';
+              window.raHeatmapResolution = 'ultra';
               function setHeatmapResolution(res) {
                 window.raHeatmapResolution = res;
                 document.getElementById('btn-res-ultra').classList.remove('active');
