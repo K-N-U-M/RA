@@ -7286,16 +7286,22 @@ function recalculateSolarYield(force = false) {
     });
 
     if (simulatedTotalKWh > 0) {
-      // Cascada física canónica (IEC 61724 / PVsyst):
-      // 1. Producción Bruta = generación potencial sin obstáculos
-      // 2. Energía tras Sombras = Producción Bruta × (1 - Pérdida Sombras)
-      // 3. Producción Neta = Energía tras Sombras × PR_sistema
-      // 4. Pérdidas Sistema (PR) = Energía tras Sombras - Producción Neta
-      annualGrossKWh = Math.round(annualGrossYield);
-      annualShadowLossKWh = Math.round(annualGrossKWh * (avgShadowLossPct / 100.0));
-      energyAfterShadows = Math.max(0, annualGrossKWh - annualShadowLossKWh);
-      annualSystemLossKWh = Math.round(energyAfterShadows * (1.0 - prSys));
-      annualYieldKWh = Math.max(0, energyAfterShadows - annualSystemLossKWh);
+      // Cascada física canónica (IEC 61724 / PVsyst) anclada a la simulación 3D:
+      // 1. Energía tras sombras = suma de generación bruta real calculada panel a panel por raycast
+      // 2. Pérdidas de sistema (PR) = Energía tras sombras × (1 - PR_sistema)
+      // 3. Producción Neta = Energía tras sombras - Pérdidas de sistema (= simulatedTotalKWh)
+      // 4. Producción Bruta potencial sin obstáculos y Pérdida por Sombras
+      energyAfterShadows = Math.round(simulatedGrossKWh);
+      annualYieldKWh = simulatedTotalKWh;
+      annualSystemLossKWh = Math.max(0, energyAfterShadows - annualYieldKWh);
+
+      if (avgShadowLossPct > 0 && avgShadowLossPct < 99.0) {
+        annualGrossKWh = Math.round(energyAfterShadows / (1.0 - (avgShadowLossPct / 100.0)));
+        annualShadowLossKWh = Math.max(0, annualGrossKWh - energyAfterShadows);
+      } else {
+        annualGrossKWh = Math.round(Math.max(energyAfterShadows, annualGrossYield));
+        annualShadowLossKWh = Math.max(0, annualGrossKWh - energyAfterShadows);
+      }
     }
   }
 
