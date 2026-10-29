@@ -260,7 +260,7 @@ function runAuditTests() {
     globalNonCompliantWarning: false
   };
   context.wpUpdateStep4Checklist();
-  assert(elements['step4-chk-rebt'].textContent.includes('✓ REBT: ΔV ≤ 1.5%'), 'Con ΔV DC=0.7% y AC=0.5%, el badge REBT debe estar en verde conforme');
+  assert(elements['step4-chk-rebt'].textContent.includes('✓ ΔV ≤ 1.5%'), 'Con ΔV DC=0.7% y AC=0.5%, el badge REBT debe estar en verde conforme');
   assert.strictEqual(elements['step4-chk-rebt'].style.color, '#10B981');
 
   // Caso caída global > 2.5% (ej. DC = 1.4%, AC = 1.3% -> Total = 2.7% > 2.5%)
@@ -275,7 +275,7 @@ function runAuditTests() {
   context.inverterEquipmentState.dV_dc_pct = 1.9;
   context.inverterEquipmentState.dcNonCompliantWarning = true;
   context.wpUpdateStep4Checklist();
-  assert(elements['step4-chk-rebt'].textContent.includes('ΔV > 1.5%'), 'Con ΔV DC=1.9%, el checklist debe mostrar alerta roja ΔV > 1.5%');
+  assert(elements['step4-chk-rebt'].textContent.includes('> 1.5%'), 'Con ΔV DC=1.9%, el checklist debe mostrar alerta roja ΔV > 1.5%');
   assert.strictEqual(elements['step4-chk-rebt'].style.color, '#EF4444');
 
   // Verificar que updateElectricalSizingAndHUD actualiza #inverter-stat-rebt-badge dinámicamente

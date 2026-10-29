@@ -481,33 +481,36 @@
         var hMin = t.hubHeightsAvailableM ? t.hubHeightsAvailableM[0] : '?';
         var hMax = t.hubHeightsAvailableM ? t.hubHeightsAvailableM[t.hubHeightsAvailableM.length - 1] : '?';
         var price = t.priceEur ? (t.priceEur.toLocaleString('es-ES') + ' €') : '—';
-        return '<tr style="border-bottom:1px solid rgba(255,255,255,0.06);font-size:10px;">' +
-          '<td style="padding:7px 8px;"><b style="color:#fff;">' + t.manufacturer + '</b><br>' +
-          '<span style="color:#38BDF8;">' + t.model + '</span></td>' +
-          '<td style="padding:7px 8px;text-align:center;"><span style="background:rgba(56,189,248,0.15);color:#38BDF8;padding:2px 6px;border-radius:4px;font-weight:700;">' + t.type + '</span></td>' +
-          '<td style="padding:7px 8px;text-align:center;font-family:monospace;color:#FBBF24;">' + kw + ' kW</td>' +
-          '<td style="padding:7px 8px;text-align:center;">' + t.rotorDiameterM + ' m</td>' +
-          '<td style="padding:7px 8px;text-align:center;">' + hMin + '–' + hMax + ' m</td>' +
-          '<td style="padding:7px 8px;text-align:center;color:var(--text-slate-300);">' + t.iecClass + '</td>' +
-          '<td style="padding:7px 8px;text-align:center;color:var(--text-slate-300);">' + t.acousticPowerLwaDba + ' dB(A)</td>' +
-          '<td style="padding:7px 8px;text-align:center;color:#34D399;">' + price + '</td>' +
-          '<td style="padding:7px 8px;text-align:right;">' +
-          '<button class="doc-mini-btn" onclick="if(window.RAWindCatalog) window.RAWindCatalog._onUseTurbine(\'' + t.id + '\')" style="margin-right:3px;font-size:10px;color:#10B981;border-color:rgba(16,185,129,0.4);">USAR</button>' +
-          '<button class="doc-mini-btn" onclick="if(window.RAWindCatalog) window.RAWindCatalog._onDeleteTurbine(\'' + t.id + '\')" style="font-size:10px;color:#EF4444;border-color:rgba(239,68,68,0.4);">🗑</button>' +
+        return '<tr>' +
+          '<td><b>' + t.manufacturer + '</b><br>' +
+          '<span style="color:#38BDF8;font-size:10.5px;">' + t.model + '</span></td>' +
+          '<td style="text-align:center;"><span class="cat-badge cat-badge-cyan">' + t.type + '</span></td>' +
+          '<td style="text-align:center;"><span class="cat-badge cat-badge-amber">' + kw + ' kW</span></td>' +
+          '<td style="text-align:center;font-family:monospace;">' + t.rotorDiameterM + ' m</td>' +
+          '<td style="text-align:center;font-size:10.5px;">' + hMin + '–' + hMax + ' m</td>' +
+          '<td style="text-align:center;"><span class="cat-badge cat-badge-purple">' + t.iecClass + '</span></td>' +
+          '<td style="text-align:center;font-size:10.5px;color:var(--text-slate-300);">' + t.acousticPowerLwaDba + ' dB(A)</td>' +
+          '<td style="text-align:center;color:#34D399;font-weight:bold;">' + price + '</td>' +
+          '<td style="text-align:right;">' +
+            '<div style="display:flex;justify-content:flex-end;align-items:center;gap:4px;">' +
+              '<button class="cat-btn cat-btn-edit" onclick="if(window.openEditEquipmentModal) window.openEditEquipmentModal(\'wind_turbines\', \'' + t.id + '\');"><i data-lucide="edit-2" class="icon-sm"></i> EDITAR</button>' +
+              '<button class="cat-btn cat-btn-apply" onclick="if(window.RAWindCatalog) window.RAWindCatalog._onUseTurbine(\'' + t.id + '\')">USAR</button>' +
+              '<button class="cat-btn cat-btn-delete" onclick="if(window.RAWindCatalog) window.RAWindCatalog._onDeleteTurbine(\'' + t.id + '\')" title="Eliminar"><i data-lucide="x" class="icon-sm"></i></button>' +
+            '</div>' +
           '</td></tr>';
       }).join('');
-      return '<table style="width:100%;border-collapse:collapse;text-align:left;">' +
-        '<thead><tr style="border-bottom:2px solid #334155;color:var(--text-slate-400);font-size:10px;text-transform:uppercase;">' +
-        '<th style="padding:6px 8px;">Fabricante & Modelo</th>' +
-        '<th style="padding:6px 8px;text-align:center;">Tipo</th>' +
-        '<th style="padding:6px 8px;text-align:center;">Potencia</th>' +
-        '<th style="padding:6px 8px;text-align:center;">Ø Rotor</th>' +
-        '<th style="padding:6px 8px;text-align:center;">H. Mástil</th>' +
-        '<th style="padding:6px 8px;text-align:center;">Clase IEC</th>' +
-        '<th style="padding:6px 8px;text-align:center;">Ruido LwA</th>' +
-        '<th style="padding:6px 8px;text-align:center;">Precio</th>' +
-        '<th style="padding:6px 8px;text-align:right;">Acciones</th>' +
-        '</tr></thead><tbody>' + rows + '</tbody></table>';
+      return '<div class="cat-table-wrap"><table class="cat-table">' +
+        '<thead><tr>' +
+        '<th style="width:24%;">Fabricante & Modelo</th>' +
+        '<th style="text-align:center;width:8%;">Tipo</th>' +
+        '<th style="text-align:center;width:11%;">Potencia</th>' +
+        '<th style="text-align:center;width:10%;">Ø Rotor</th>' +
+        '<th style="text-align:center;width:10%;">H. Mástil</th>' +
+        '<th style="text-align:center;width:9%;">Clase IEC</th>' +
+        '<th style="text-align:center;width:10%;">Ruido LwA</th>' +
+        '<th style="text-align:center;width:10%;">Precio</th>' +
+        '<th style="text-align:right;width:16%;">Acciones</th>' +
+        '</tr></thead><tbody>' + rows + '</tbody></table></div>';
     },
 
     // ── Refresca el panel de turbinas si está visible ────────────────

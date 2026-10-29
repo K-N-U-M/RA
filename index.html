@@ -42,7 +42,7 @@ window.RA_App = window.RA_App || {};
     <!-- Catálogo Canónico de Iconografía e Ilustraciones SVG Monocromáticas (SSOT) -->
   <script src="js/svg-catalog.js?v=20261023b"></script>
   <script src="js/docx-exporter.js?v=20261027a"></script>
-  <script src="js/financials.js?v=20261027_edit_layout1"></script>
+  <script src="js/financials.js?v=1793233143526"></script>
   <script src="js/viewer.js?v=20261016a"></script>
   <script src="js/solar-engine.js?v=20260929b"></script>
   <script src="js/production-source.js?v=20261028a"></script>
@@ -1925,6 +1925,37 @@ window.RA_App = window.RA_App || {};
                 </div>
               </div>
 
+              <!-- 3.4 PÉRDIDAS DEL SISTEMA (ÁRBOL PR) -->
+            <div class="ui-card" style="border:1px solid rgba(255,255,255,0.08);background:rgba(15,23,42,0.85);border-radius:8px;padding:10px;">
+              <div class="ui-card-head" onclick="const b=document.getElementById('step3-loss-body'); const ch=document.getElementById('step3-loss-chev'); if(b){const isH=b.style.display==='none'; b.style.display=isH?'block':'none'; if(ch) ch.style.transform=isH?'rotate(180deg)':'rotate(0deg)';}" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;cursor:pointer;" title="Clic para desplegar/plegar">
+                <span style="color:#38BDF8;font-weight:900;font-size:10px;display:flex;align-items:center;gap:5px;">
+                  <i data-lucide="sliders-horizontal" class="icon-sm"></i> 3.4 PÉRDIDAS DEL SISTEMA (ÁRBOL PR)
+                  <i id="step3-loss-chev" data-lucide="chevron-down" class="icon-sm" style="transition:transform 0.2s;"></i>
+                </span>
+                <span class="card-tag" style="background:rgba(56,189,248,0.15);color:#38BDF8;font-size: 10px;">PVsyst</span>
+              </div>
+              <div id="step3-loss-body" style="display:none;">
+              <div style="display:flex;gap:4px;margin-bottom:8px;">
+                <select id="loss-preset-select" onchange="raApplyLossPresetUI(this.value)" style="flex:1;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:#E2E8F0;font-size: 10px;padding:4px 6px;">
+                  <option value="">— Preset —</option>
+                  <option value="estandar">Estándar (limpio, suburbano)</option>
+                  <option value="urbano">Urbano (polvo moderado)</option>
+                  <option value="rural">Rural / agrícola (suciedad alta)</option>
+                  <option value="optimo">Óptimo (mantenimiento intensivo)</option>
+                </select>
+                <button type="button" onclick="raResetLossesUI()" title="Restaurar valores por defecto" style="background:rgba(239,68,68,0.18);border:1px solid rgba(239,68,68,0.4);border-radius:6px;color:#F87171;font-size: 10px;padding:4px 8px;cursor:pointer;font-weight:800;">↺</button>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 8px;font-size: 10px;color:var(--text-slate-300);" id="loss-fields-grid"></div>
+              <div id="loss-total-row" style="margin-top:6px;padding-top:5px;border-top:1px solid rgba(255,255,255,0.08);font-size: 10px;display:flex;justify-content:space-between;">
+                <span style="color:var(--text-slate-300);">Suma de pérdidas aplicada:</span>
+                <b id="loss-total-pct" style="color:#FBBF24;">—</b>
+              </div>
+              <div style="font-size: 10px;color:#64748b;margin-top:4px;">Se aplican al re-ejecutar el análisis energético y modifican la producción del Paso 3. Se guardan automáticamente en este navegador.</div>
+              </div>
+            </div>
+
+            
+
               <!-- BOTONERA DE NAVEGACIÓN PASO 3 -->
               <div style="display:flex;gap:4px;margin-top:10px;border-top:1px solid rgba(255,255,255,0.08);padding-top:8px;">
                 <button type="button" class="btn-action-primary" onclick="wpGoToStep(2)" style="flex:1;padding:8px 6px;font-size: 10px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15);color:var(--text-slate-300);">
@@ -1965,7 +1996,7 @@ window.RA_App = window.RA_App || {};
                 <span style="font-size:9.5px;font-weight:800;color:#94A3B8;display:flex;align-items:center;gap:4px;text-transform:uppercase;letter-spacing:0.3px;">
                   <i data-lucide="layers" class="icon-sm" style="color:#38BDF8;"></i> ÁMBITO DE DISEÑO (FALDONES & CUBIERTAS):
                 </span>
-                <span id="step4-roof-scope-count" class="card-tag" style="background:rgba(56,189,248,0.15);color:#38BDF8;font-size:9px;font-weight:800;">4 Faldones</span>
+                <span id="step4-roof-scope-count" class="card-tag" style="background:rgba(56,189,248,0.15);color:#38BDF8;font-size:9px;font-weight:800;">—</span>
               </div>
               <div id="step4-roof-scope-pills" style="display:flex;gap:4px;overflow-x:auto;padding-bottom:2px;" class="custom-scrollbar">
                 <!-- Inyección dinámica de píldoras: Global + F1, F2, F3... -->
@@ -2032,8 +2063,20 @@ window.RA_App = window.RA_App || {};
                     <button type="button" class="doc-mini-btn" onclick="step3EditCurrentEquipment('inverters')" style="font-size: 10px;padding:2px 6px;color:var(--amber-400);"><i data-lucide="edit-2" class="icon-sm"></i> Ficha</button>
                   </div>
                 </div>
-                <select id="step3-sel-inverter" class="field-input" onchange="if(window.solarProjectConfig) window.solarProjectConfig.userManuallySelectedInverter=true; step3UpdateHardwareSelection();" style="width:100%;font-size:10px;font-weight:700;"></select>
+                <div style="display:flex;gap:6px;align-items:center;">
+                  <select id="step3-sel-inverter" class="field-input" onchange="if(window.solarProjectConfig) window.solarProjectConfig.userManuallySelectedInverter=true; step3UpdateHardwareSelection();" style="flex:1;font-size:10px;font-weight:700;"></select>
+                  <div id="step3-ctrl-inverters" style="display:flex;align-items:center;gap:3px;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);border-radius:5px;padding:2px 4px;flex-shrink:0;">
+                    <button type="button" class="gizmo-btn" onclick="wpStepQuantity('inverters', -1)" style="padding:1px 6px;font-weight:bold;font-size:11px;background:transparent;border:none;color:#fff;cursor:pointer;" aria-label="Disminuir inversores">-</button>
+                    <input id="step3-qty-inverters" type="number" min="1" max="100" value="1" oninput="wpSetManualQuantity('inverters', this.value)" onchange="wpSetManualQuantity('inverters', this.value)" style="width:28px;text-align:center;background:transparent;border:none;color:#fff;font-size:10.5px;font-weight:bold;outline:none;">
+                    <button type="button" class="gizmo-btn" onclick="wpStepQuantity('inverters', 1)" style="padding:1px 6px;font-weight:bold;font-size:11px;background:transparent;border:none;color:#fff;cursor:pointer;" aria-label="Aumentar inversores">+</button>
+                    <span style="font-size:9px;color:#94a3b8;">uds</span>
+                    <button id="step3-auto-btn-inverters" type="button" class="doc-mini-btn" onclick="wpResetAutoSizing('inverters')" style="display:none;padding:1px 4px;font-size:9px;margin-left:3px;border-color:var(--emerald-400);color:var(--emerald-400);background:rgba(16,185,129,0.15);" title="Restaurar cálculo automático"><i data-lucide="refresh-cw" class="icon-sm"></i> Auto</button>
+                  </div>
+                </div>
                 <div id="step3-inverter-live-summary" style="margin-top:4px;font-size:10px;color:#94a3b8;display:flex;justify-content:space-between;align-items:center;"></div>
+                <div id="step3-explain-inverters" style="font-size:9.5px;color:#94a3b8;line-height:1.3;margin-top:4px;">
+                  <i data-lucide="zap" class="icon-sm"></i> AUTO: Calculando...
+                </div>
               </div>
 
               <!-- Selector de Optimizadores DC/DC (Visible en topología Optimizadores) -->
@@ -2055,7 +2098,19 @@ window.RA_App = window.RA_App || {};
                     <button type="button" class="doc-mini-btn" onclick="step3EditCurrentEquipment('microinverters')" style="font-size: 10px;padding:2px 6px;color:#10b981;"><i data-lucide="edit-2" class="icon-sm"></i> Ficha</button>
                   </div>
                 </div>
-                <select id="step3-sel-microinverter" class="field-input" onchange="if(window.solarProjectConfig) window.solarProjectConfig.userManuallySelectedInverter=true; step3UpdateHardwareSelection();" style="width:100%;font-size:10px;font-weight:700;"></select>
+                <div style="display:flex;gap:6px;align-items:center;">
+                  <select id="step3-sel-microinverter" class="field-input" onchange="if(window.solarProjectConfig) window.solarProjectConfig.userManuallySelectedInverter=true; step3UpdateHardwareSelection();" style="flex:1;font-size:10px;font-weight:700;"></select>
+                  <div id="step3-ctrl-microinverters" style="display:none;align-items:center;gap:3px;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);border-radius:5px;padding:2px 4px;flex-shrink:0;">
+                    <button type="button" class="gizmo-btn" onclick="wpStepQuantity('microinverters', -1)" style="padding:1px 6px;font-weight:bold;font-size:11px;background:transparent;border:none;color:#fff;cursor:pointer;" aria-label="Disminuir microinversores">-</button>
+                    <input id="step3-qty-microinverters" type="number" min="0" max="1000" value="0" oninput="wpSetManualQuantity('microinverters', this.value)" onchange="wpSetManualQuantity('microinverters', this.value)" style="width:34px;text-align:center;background:transparent;border:none;color:#fff;font-size:10.5px;font-weight:bold;outline:none;">
+                    <button type="button" class="gizmo-btn" onclick="wpStepQuantity('microinverters', 1)" style="padding:1px 6px;font-weight:bold;font-size:11px;background:transparent;border:none;color:#fff;cursor:pointer;" aria-label="Aumentar microinversores">+</button>
+                    <span style="font-size:9px;color:#94a3b8;">uds</span>
+                    <button id="step3-auto-btn-microinverters" type="button" class="doc-mini-btn" onclick="wpResetAutoSizing('microinverters')" style="display:none;padding:1px 4px;font-size:9px;margin-left:3px;border-color:var(--emerald-400);color:var(--emerald-400);background:rgba(16,185,129,0.15);" title="Restaurar cálculo automático"><i data-lucide="refresh-cw" class="icon-sm"></i> Auto</button>
+                  </div>
+                </div>
+                <div id="step3-explain-microinverters" style="font-size:9.5px;color:#94a3b8;line-height:1.3;margin-top:4px;">
+                  <i data-lucide="zap" class="icon-sm"></i> AUTO: Calculando...
+                </div>
               </div>
 
               <!-- Selector de Batería / Almacenamiento -->
@@ -2064,8 +2119,31 @@ window.RA_App = window.RA_App || {};
                   <span style="font-size: 10px;font-weight:700;color:var(--emerald-400);"><i data-lucide="battery-charging" class="icon-sm"></i> Batería / Acumulación LFP:</span>
                   <button type="button" class="doc-mini-btn" onclick="step3EditCurrentEquipment('batteries')" style="font-size: 10px;padding:2px 6px;color:var(--emerald-400);"><i data-lucide="edit-2" class="icon-sm"></i> Ficha</button>
                 </div>
-                <select id="step3-sel-battery" class="field-input" onchange="step3UpdateHardwareSelection()" style="width:100%;font-size:10px;font-weight:700;"></select>
+                <div style="display:flex;gap:6px;align-items:center;">
+                  <select id="step3-sel-battery" class="field-input" onchange="step3UpdateHardwareSelection()" style="flex:1;font-size:10px;font-weight:700;"></select>
+                  <div id="step3-ctrl-batteries" style="display:flex;align-items:center;gap:3px;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);border-radius:5px;padding:2px 4px;flex-shrink:0;">
+                    <button type="button" class="gizmo-btn" onclick="wpStepQuantity('batteries', -1)" style="padding:1px 6px;font-weight:bold;font-size:11px;background:transparent;border:none;color:#fff;cursor:pointer;" aria-label="Disminuir baterías">-</button>
+                    <input id="step3-qty-batteries" type="number" min="0" max="50" value="0" oninput="wpSetManualQuantity('batteries', this.value)" onchange="wpSetManualQuantity('batteries', this.value)" style="width:28px;text-align:center;background:transparent;border:none;color:#fff;font-size:10.5px;font-weight:bold;outline:none;">
+                    <button type="button" class="gizmo-btn" onclick="wpStepQuantity('batteries', 1)" style="padding:1px 6px;font-weight:bold;font-size:11px;background:transparent;border:none;color:#fff;cursor:pointer;" aria-label="Aumentar baterías">+</button>
+                    <span style="font-size:9px;color:#94a3b8;">uds</span>
+                    <button id="step3-auto-btn-batteries" type="button" class="doc-mini-btn" onclick="wpResetAutoSizing('batteries')" style="display:none;padding:1px 4px;font-size:9px;margin-left:3px;border-color:var(--emerald-400);color:var(--emerald-400);background:rgba(16,185,129,0.15);" title="Restaurar cálculo automático"><i data-lucide="refresh-cw" class="icon-sm"></i> Auto</button>
+                  </div>
+                </div>
                 <div id="step3-battery-live-summary" style="margin-top:4px;font-size:10px;color:#94a3b8;display:flex;justify-content:space-between;align-items:center;"></div>
+                <div id="step3-explain-batteries" style="font-size:9.5px;color:#94a3b8;line-height:1.3;margin-top:4px;">
+                  <i data-lucide="zap" class="icon-sm"></i> AUTO: Calculando...
+                </div>
+              </div>
+
+              <!-- Resumen Total Coste Equipos -->
+              <div id="step3-autosizing-card" style="background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.06);border-radius:6px;padding:7px;margin-bottom:8px;font-size: 10px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <div style="display:flex;align-items:center;gap:6px;">
+                    <span style="font-weight:800;color:var(--amber-400);"><i data-lucide="calculator" class="icon-sm"></i> COSTE TOTAL EQUIPOS:</span>
+                    <span id="step3-autosize-panels-badge" class="card-tag" style="background:rgba(56,189,248,0.2);color:#38BDF8;font-size:9px;">0 Placas · 0.0 kWp</span>
+                  </div>
+                  <b id="step3-total-hardware-cost" style="color:var(--amber-400);font-size:12px;">0 €</b>
+                </div>
               </div>
 
               <!-- RACK / LISTADO DE ELECTRÓNICA ACTIVA DEL PROYECTO -->
@@ -2074,7 +2152,7 @@ window.RA_App = window.RA_App || {};
                   <span style="font-size:10px;font-weight:800;color:#38BDF8;display:flex;align-items:center;gap:4px;">
                     <i data-lucide="server" class="icon-sm"></i> RACK DE ELECTRÓNICA & MLPE ACTIVO
                   </span>
-                  <span id="step3-rack-count-badge" class="card-tag" style="background:rgba(56,189,248,0.15);color:#38BDF8;font-size:9.5px;">1 Disp.</span>
+                  <span id="step3-rack-count-badge" class="card-tag" style="background:rgba(56,189,248,0.15);color:#38BDF8;font-size:9.5px;">—</span>
                 </div>
                 <div id="step3-electronics-rack-list" style="display:flex;flex-direction:column;gap:5px;">
                   <!-- Render dinámico de equipos con estado, asignación y potencia -->
@@ -2088,7 +2166,7 @@ window.RA_App = window.RA_App || {};
                     <i data-lucide="git-branch" class="icon-sm"></i> MAPEO DE GENERACIÓN POR FAL DÓN
                   </span>
                   <span id="step4-mapping-summary-tag" class="card-tag" style="background:rgba(245,158,11,0.15);color:#FBBF24;font-size:9px;font-weight:800;">
-                    4 Faldones Activos
+                    —
                   </span>
                 </div>
                 <div id="step4-roof-mapping-table" style="display:flex;flex-direction:column;gap:5px;">
@@ -2130,77 +2208,6 @@ window.RA_App = window.RA_App || {};
                 </div>
               </div>
 
-              <!-- TARJETA DE DIMENSIONAMIENTO MULTI-EQUIPO -->
-              <div id="step3-autosizing-card" style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.06);border-radius:6px;padding:8px;margin-bottom:8px;font-size: 10px;">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:4px;">
-                  <span style="font-weight:900;color:var(--amber-400);"><i data-lucide="calculator" class="icon-sm"></i> CÁLCULO MULTI-EQUIPO</span>
-                  <span id="step3-autosize-panels-badge" class="card-tag" style="background:rgba(56,189,248,0.2);color:#38BDF8;">50 Placas · 22.5 kWp</span>
-                </div>
-
-                <!-- Control Inversores -->
-                <div id="step3-ctrl-inverters" style="background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.05);border-radius:6px;padding:6px;margin-bottom:6px;">
-                  <div style="display:flex;justify-content:space-between;align-items:center;">
-                    <span style="color:#F59E0B;font-weight:800;display:flex;align-items:center;gap:4px;">
-                      <i data-lucide="zap" class="icon-sm"></i> Inversores:
-                    </span>
-                    <div style="display:flex;align-items:center;gap:3px;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);border-radius:5px;padding:2px 4px;">
-                      <button type="button" class="gizmo-btn" onclick="wpStepQuantity('inverters', -1)" style="padding:1px 6px;font-weight:bold;font-size:11px;background:transparent;border:none;color:#fff;cursor:pointer;" aria-label="Disminuir inversores">-</button>
-                      <input id="step3-qty-inverters" type="number" min="1" max="100" value="1" onchange="wpSetManualQuantity('inverters', this.value)" style="width:28px;text-align:center;background:transparent;border:none;color:#fff;font-size:10.5px;font-weight:bold;outline:none;">
-                      <button type="button" class="gizmo-btn" onclick="wpStepQuantity('inverters', 1)" style="padding:1px 6px;font-weight:bold;font-size:11px;background:transparent;border:none;color:#fff;cursor:pointer;" aria-label="Aumentar inversores">+</button>
-                      <span style="font-size:9px;color:#94a3b8;">uds</span>
-                      <button id="step3-auto-btn-inverters" type="button" class="doc-mini-btn" onclick="wpResetAutoSizing('inverters')" style="display:none;padding:1px 4px;font-size:9px;margin-left:3px;border-color:var(--emerald-400);color:var(--emerald-400);background:rgba(16,185,129,0.15);"><i data-lucide="refresh-cw" class="icon-sm"></i> Auto</button>
-                    </div>
-                  </div>
-                  <div id="step3-explain-inverters" style="font-size:9.5px;color:#94a3b8;line-height:1.3;margin-top:4px;">
-                    <i data-lucide="zap" class="icon-sm"></i> AUTO: Calculando...
-                  </div>
-                </div>
-
-                <!-- Control Microinversores -->
-                <div id="step3-ctrl-microinverters" style="display:none;background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.05);border-radius:6px;padding:6px;margin-bottom:6px;">
-                  <div style="display:flex;justify-content:space-between;align-items:center;">
-                    <span style="color:#34D399;font-weight:800;display:flex;align-items:center;gap:4px;">
-                      <i data-lucide="cpu" class="icon-sm"></i> Microinversores:
-                    </span>
-                    <div style="display:flex;align-items:center;gap:3px;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);border-radius:5px;padding:2px 4px;">
-                      <button type="button" class="gizmo-btn" onclick="wpStepQuantity('microinverters', -1)" style="padding:1px 6px;font-weight:bold;font-size:11px;background:transparent;border:none;color:#fff;cursor:pointer;" aria-label="Disminuir microinversores">-</button>
-                      <input id="step3-qty-microinverters" type="number" min="0" max="1000" value="0" onchange="wpSetManualQuantity('microinverters', this.value)" style="width:34px;text-align:center;background:transparent;border:none;color:#fff;font-size:10.5px;font-weight:bold;outline:none;">
-                      <button type="button" class="gizmo-btn" onclick="wpStepQuantity('microinverters', 1)" style="padding:1px 6px;font-weight:bold;font-size:11px;background:transparent;border:none;color:#fff;cursor:pointer;" aria-label="Aumentar microinversores">+</button>
-                      <span style="font-size:9px;color:#94a3b8;">uds</span>
-                      <button id="step3-auto-btn-microinverters" type="button" class="doc-mini-btn" onclick="wpResetAutoSizing('microinverters')" style="display:none;padding:1px 4px;font-size:9px;margin-left:3px;border-color:var(--emerald-400);color:var(--emerald-400);background:rgba(16,185,129,0.15);"><i data-lucide="refresh-cw" class="icon-sm"></i> Auto</button>
-                    </div>
-                  </div>
-                  <div id="step3-explain-microinverters" style="font-size:9.5px;color:#94a3b8;line-height:1.3;margin-top:4px;">
-                    <i data-lucide="zap" class="icon-sm"></i> AUTO: Calculando...
-                  </div>
-                </div>
-
-                <!-- Control Baterías -->
-                <div id="step3-ctrl-batteries" style="background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.05);border-radius:6px;padding:6px;margin-bottom:4px;">
-                  <div style="display:flex;justify-content:space-between;align-items:center;">
-                    <span style="color:#38BDF8;font-weight:800;display:flex;align-items:center;gap:4px;">
-                      <i data-lucide="battery-charging" class="icon-sm"></i> Módulos Batería:
-                    </span>
-                    <div style="display:flex;align-items:center;gap:3px;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);border-radius:5px;padding:2px 4px;">
-                      <button type="button" class="gizmo-btn" onclick="wpStepQuantity('batteries', -1)" style="padding:1px 6px;font-weight:bold;font-size:11px;background:transparent;border:none;color:#fff;cursor:pointer;" aria-label="Disminuir baterías">-</button>
-                      <input id="step3-qty-batteries" type="number" min="0" max="50" value="0" onchange="wpSetManualQuantity('batteries', this.value)" style="width:28px;text-align:center;background:transparent;border:none;color:#fff;font-size:10.5px;font-weight:bold;outline:none;">
-                      <button type="button" class="gizmo-btn" onclick="wpStepQuantity('batteries', 1)" style="padding:1px 6px;font-weight:bold;font-size:11px;background:transparent;border:none;color:#fff;cursor:pointer;" aria-label="Aumentar baterías">+</button>
-                      <span style="font-size:9px;color:#94a3b8;">uds</span>
-                      <button id="step3-auto-btn-batteries" type="button" class="doc-mini-btn" onclick="wpResetAutoSizing('batteries')" style="display:none;padding:1px 4px;font-size:9px;margin-left:3px;border-color:var(--emerald-400);color:var(--emerald-400);background:rgba(16,185,129,0.15);"><i data-lucide="refresh-cw" class="icon-sm"></i> Auto</button>
-                    </div>
-                  </div>
-                  <div id="step3-explain-batteries" style="font-size:9.5px;color:#94a3b8;line-height:1.3;margin-top:4px;">
-                    <i data-lucide="zap" class="icon-sm"></i> AUTO: Calculando...
-                  </div>
-                </div>
-
-                <!-- Resumen de Costes Totales de Hardware -->
-                <div style="margin-top:6px;padding-top:4px;border-top:1px dashed rgba(255,255,255,0.08);display:flex;justify-content:space-between;align-items:center;">
-                  <span style="color:var(--text-slate-300);">Coste Equipos (Inversor + Batería):</span>
-                  <b id="step3-total-hardware-cost" style="color:var(--amber-400);font-size:11px;">0 €</b>
-                </div>
-              </div>
-
               <!-- Ficha Técnica y Límites Eléctricos de String Calculados (Semáforo Paramétrico Pro) -->
               <div id="step3-hardware-specs-card" style="background:rgba(15,23,42,0.9);border:1px solid rgba(56,189,248,0.25);border-radius:7px;padding:9px;font-size:10px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:4px;">
@@ -2214,18 +2221,18 @@ window.RA_App = window.RA_App || {};
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;">
                   <div style="background:rgba(0,0,0,0.35);padding:6px;border-radius:5px;border:1px solid rgba(255,255,255,0.06);">
                     <div style="font-size:8.5px;color:#94a3b8;text-transform:uppercase;font-weight:700;">Tensión en Frío (-10°C)</div>
-                    <div id="step3-spec-nmax" class="amber" style="font-size:11px;font-weight:900;margin-top:2px;">Máx. 13 placas</div>
+                    <div id="step3-spec-nmax" class="amber" style="font-size:11px;font-weight:900;margin-top:2px;">Calculando…</div>
                   </div>
                   <div style="background:rgba(0,0,0,0.35);padding:6px;border-radius:5px;border:1px solid rgba(255,255,255,0.06);">
-                    <div style="font-size:8.5px;color:#94a3b8;text-transform:uppercase;font-weight:700;">Mín. Arranque MPPT (65°C)</div>
-                    <div id="step3-spec-nmin" class="amber" style="font-size:11px;font-weight:900;margin-top:2px;">Mín. 5 placas</div>
+                    <div style="font-size:8.5px;color:#94a3b8;text-transform:uppercase;font-weight:700;">Mín. Arranque MPPT (70°C)</div>
+                    <div id="step3-spec-nmin" class="amber" style="font-size:11px;font-weight:900;margin-top:2px;">Calculando…</div>
                   </div>
                 </div>
 
                 <div style="background:rgba(0,0,0,0.35);padding:6px;border-radius:5px;border:1px solid rgba(255,255,255,0.06);margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
                   <div>
                     <div style="font-size:8.5px;color:#94a3b8;text-transform:uppercase;font-weight:700;">Capacidad Total por Inversor</div>
-                    <div id="step3-spec-totmax" class="amber" style="font-size:11px;font-weight:900;margin-top:2px;">14 placas (6.3 kWp)</div>
+                    <div id="step3-spec-totmax" class="amber" style="font-size:11px;font-weight:900;margin-top:2px;">—</div>
                   </div>
                   <span style="background:rgba(245,158,11,0.15);color:#FBBF24;padding:2px 6px;border-radius:4px;font-size:9.5px;font-weight:800;border:1px solid rgba(245,158,11,0.3);">RATIO STC</span>
                 </div>
@@ -2234,15 +2241,15 @@ window.RA_App = window.RA_App || {};
                 <div style="display:flex;flex-direction:column;gap:4px;padding-top:4px;border-top:1px dashed rgba(255,255,255,0.08);line-height:1.4;">
                   <div style="display:flex;justify-content:space-between;color:var(--text-slate-300);">
                     <span>Corriente Imp vs MPPT:</span>
-                    <b id="step3-spec-imp-check" style="color:#10B981;">13.1 A ≤ 26.0 A (Óptimo)</b>
+                    <b id="step3-spec-imp-check" style="color:#94a3b8;">—</b>
                   </div>
                   <div style="display:flex;justify-content:space-between;color:var(--text-slate-300);">
                     <span>Seguridad Isc Cortocircuito:</span>
-                    <b id="step3-spec-isc-check" style="color:#10B981;">14.0 A ≤ 30.0 A (OK)</b>
+                    <b id="step3-spec-isc-check" style="color:#94a3b8;">—</b>
                   </div>
                   <div style="display:flex;justify-content:space-between;color:var(--text-slate-300);">
                     <span>Sobrecarga Estructural (CTE):</span>
-                    <b id="step3-spec-roof-load" style="color:#38BDF8;">~14.5 kg/m² (Admisible)</b>
+                    <b id="step3-spec-roof-load" style="color:#94a3b8;">—</b>
                   </div>
                 </div>
               </div>
@@ -2338,7 +2345,7 @@ window.RA_App = window.RA_App || {};
                   </div>
                   <div style="display:flex;justify-content:space-between;color:var(--text-slate-300);">
                     <span><i data-lucide="shield" class="icon-sm"></i> Sección Cable DC (ZZ-F 1500V):</span>
-                    <b id="inverter-stat-sec-dc" style="color:#34D399;">6 mm² · ΔV 0.8%</b>
+                    <b id="inverter-stat-sec-dc" style="color:#94a3b8;">—</b>
                   </div>
                   <div style="display:flex;justify-content:space-between;color:var(--text-slate-300);padding-top:3px;border-top:1px dashed rgba(255,255,255,0.08);">
                     <span><i data-lucide="git-commit" class="icon-sm"></i> Evacuación AC (Inversor ➔ Red):</span>
@@ -2346,7 +2353,7 @@ window.RA_App = window.RA_App || {};
                   </div>
                   <div style="display:flex;justify-content:space-between;color:var(--text-slate-300);">
                     <span><i data-lucide="shield" class="icon-sm"></i> Sección Cable AC (RV-K 1kV):</span>
-                    <b id="inverter-stat-sec-ac" style="color:#34D399;">10 mm² · ΔV 0.6%</b>
+                    <b id="inverter-stat-sec-ac" style="color:#94a3b8;">—</b>
                   </div>
                   <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;padding-top:4px;border-top:1px solid rgba(255,255,255,0.08);">
                     <span><i data-lucide="check-circle" class="icon-sm"></i> Verificación REBT ITC-BT-40:</span>
@@ -2354,30 +2361,6 @@ window.RA_App = window.RA_App || {};
                   </div>
                 </div>
               </div>
-            </div>
-
-            <!-- 4.5 PÉRDIDAS DEL SISTEMA (ÁRBOL PR) -->
-            <div class="ui-card" style="border:1px solid rgba(255,255,255,0.08);background:rgba(15,23,42,0.85);border-radius:8px;padding:10px;">
-              <div class="ui-card-head" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                <span style="color:#38BDF8;font-weight:900;font-size:10px;"><i data-lucide="sliders-horizontal" class="icon-sm"></i> 4.5 PÉRDIDAS DEL SISTEMA (ÁRBOL PR)</span>
-                <span class="card-tag" style="background:rgba(56,189,248,0.15);color:#38BDF8;font-size: 10px;">PVsyst</span>
-              </div>
-              <div style="display:flex;gap:4px;margin-bottom:8px;">
-                <select id="loss-preset-select" onchange="raApplyLossPresetUI(this.value)" style="flex:1;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:#E2E8F0;font-size: 10px;padding:4px 6px;">
-                  <option value="">— Preset —</option>
-                  <option value="estandar">Estándar (limpio, suburbano)</option>
-                  <option value="urbano">Urbano (polvo moderado)</option>
-                  <option value="rural">Rural / agrícola (suciedad alta)</option>
-                  <option value="optimo">Óptimo (mantenimiento intensivo)</option>
-                </select>
-                <button type="button" onclick="raResetLossesUI()" title="Restaurar valores por defecto" style="background:rgba(239,68,68,0.18);border:1px solid rgba(239,68,68,0.4);border-radius:6px;color:#F87171;font-size: 10px;padding:4px 8px;cursor:pointer;font-weight:800;">↺</button>
-              </div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 8px;font-size: 10px;color:var(--text-slate-300);" id="loss-fields-grid"></div>
-              <div id="loss-total-row" style="margin-top:6px;padding-top:5px;border-top:1px solid rgba(255,255,255,0.08);font-size: 10px;display:flex;justify-content:space-between;">
-                <span style="color:var(--text-slate-300);">Suma de pérdidas aplicada:</span>
-                <b id="loss-total-pct" style="color:#FBBF24;">—</b>
-              </div>
-              <div style="font-size: 10px;color:#64748b;margin-top:4px;">Se aplican al re-ejecutar el análisis energético. Se guardan automáticamente en este navegador.</div>
             </div>
 
             <!-- BOTONERA DE NAVEGACIÓN PASO 4 -->
@@ -2769,25 +2752,33 @@ window.RA_App = window.RA_App || {};
 
       <!-- Panel 5: Añadir Nuevo Equipo -->
       <div id="cat-pane-add_new" style="display:none;">
-        <div style="background:rgba(0,0,0,0.3);border:1px solid var(--border-subtle);border-radius:8px;padding:16px;max-width:650px;margin:0 auto;">
+        <div style="background:rgba(0,0,0,0.3);border:1px solid var(--border-subtle);border-radius:8px;padding:16px;max-width:680px;margin:0 auto;">
           <div style="font-weight:bold;color:var(--amber-400);margin-bottom:12px;font-size:12px;"><i data-lucide="plus" class="icon-sm"></i> ALTA DE NUEVO EQUIPO PERSONALIZADO</div>
           
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
             <div class="doc-field">
               <label>Tipo de Equipo:</label>
-              <select id="new-eq-type" onchange="document.getElementById('mod-fields-wrap').style.display = this.value==='module'?'grid':'none'; document.getElementById('inv-fields-wrap').style.display = this.value==='inverter'?'grid':'none'; document.getElementById('bat-fields-wrap').style.display = this.value==='battery'?'grid':'none';">
+              <select id="new-eq-type" onchange="
+                document.getElementById('mod-fields-wrap').style.display = this.value==='module'?'grid':'none';
+                document.getElementById('inv-fields-wrap').style.display = this.value==='inverter'?'grid':'none';
+                document.getElementById('bat-fields-wrap').style.display = this.value==='battery'?'grid':'none';
+                document.getElementById('mi-fields-wrap').style.display = this.value==='microinverter'?'grid':'none';
+                document.getElementById('wt-fields-wrap').style.display = this.value==='wind_turbine'?'grid':'none';
+              ">
                 <option value="module" selected>Módulo Solar Fotovoltaico</option>
                 <option value="inverter">Inversor de Conexión a Red</option>
                 <option value="battery">Batería de Almacenamiento</option>
+                <option value="microinverter">Microinversor MLPE</option>
+                <option value="wind_turbine">Aerogenerador Eólico</option>
               </select>
             </div>
             <div class="doc-field">
               <label>Marca / Fabricante:</label>
-              <input type="text" id="new-eq-brand" placeholder="Ej. SunPower, Aiko, Kostal...">
+              <input type="text" id="new-eq-brand" placeholder="Ej. SunPower, Aiko, Kostal, Bornay...">
             </div>
             <div class="doc-field">
               <label>Modelo / Denominación:</label>
-              <input type="text" id="new-eq-model" placeholder="Ej. Maxeon 6 425W">
+              <input type="text" id="new-eq-model" placeholder="Ej. Maxeon 6 425W, Wind 25.3">
             </div>
             <div class="doc-field">
               <label>Precio Unitario (€):</label>
@@ -2822,14 +2813,41 @@ window.RA_App = window.RA_App || {};
             <div class="doc-field"><label>Tipo de Batería:</label><input type="text" id="new-bat-type" value="LFP Litio FerroFosfato"></div>
           </div>
 
+          <!-- Campos específicos Microinversor -->
+          <div id="mi-fields-wrap" style="display:none;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;border-top:1px solid rgba(255,255,255,0.08);padding-top:10px;">
+            <div class="doc-field"><label>Potencia AC Salida (kW):</label><input type="number" id="new-mi-kw" value="0.45" step="0.05"></div>
+            <div class="doc-field"><label>Tipo / Configuración:</label><input type="text" id="new-mi-type" value="Microinversor 1-en-1"></div>
+          </div>
+
+          <!-- Campos específicos Aerogenerador -->
+          <div id="wt-fields-wrap" style="display:none;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;border-top:1px solid rgba(255,255,255,0.08);padding-top:10px;">
+            <div class="doc-field"><label>Potencia Nominal (kW):</label><input type="number" id="new-wt-kw" value="10.0" step="0.5"></div>
+            <div class="doc-field"><label>Diámetro del Rotor (m):</label><input type="number" id="new-wt-diameter" value="5.0" step="0.1"></div>
+            <div class="doc-field"><label>Tipo de Turbina:</label>
+              <select id="new-wt-type">
+                <option value="HAWT" selected>Eje Horizontal (HAWT)</option>
+                <option value="VAWT">Eje Vertical (VAWT)</option>
+              </select>
+            </div>
+            <div class="doc-field"><label>Altura Mástil Disponible (m):</label><input type="text" id="new-wt-heights" value="12, 18, 24" placeholder="Ej. 12, 18, 24"></div>
+            <div class="doc-field"><label>Clase IEC Eólica:</label>
+              <select id="new-wt-iec">
+                <option value="I">Clase I (Alta turbulencia / Viento fuerte)</option>
+                <option value="II">Clase II (Viento medio)</option>
+                <option value="III" selected>Clase III (Viento suave / Terreno interior)</option>
+                <option value="S">Clase S (Especial)</option>
+              </select>
+            </div>
+            <div class="doc-field"><label>Nivel de Potencia Acústica LwA (dBA):</label><input type="number" id="new-wt-noise" value="95" step="1"></div>
+          </div>
+
           <button class="btn-action-primary" onclick="addNewEquipmentFromForm()">
             <span><i data-lucide="save" class="icon-sm"></i> GUARDAR EQUIPO EN CATÁLOGO LOCAL</span>
           </button>
         </div>
       </div>
 
-    
-      <!-- Panel 6: Editar Equipo Existente del Catálogo -->
+    <!-- Panel 6: Editar Equipo Existente del Catálogo -->
       <div id="cat-pane-edit" style="display:none;">
         <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(56,189,248,0.3);border-radius:8px;padding:16px;max-width:680px;margin:0 auto;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
@@ -2840,7 +2858,7 @@ window.RA_App = window.RA_App || {};
           <input type="hidden" id="edit-eq-id" value="">
           <input type="hidden" id="edit-eq-cat" value="modules">
           
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px;">
+          <div id="edit-general-fields" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px;">
             <div class="doc-field">
               <label>Marca / Fabricante:</label>
               <input type="text" id="edit-eq-brand">
@@ -2893,6 +2911,41 @@ window.RA_App = window.RA_App || {};
           <div id="edit-mi-wrap" style="display:none;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;border-top:1px solid rgba(255,255,255,0.08);padding-top:10px;">
             <div class="doc-field"><label>Potencia AC Salida (kW):</label><input type="number" id="edit-mi-kw" step="0.05"></div>
             <div class="doc-field"><label>Tipo / Configuración:</label><input type="text" id="edit-mi-type" placeholder="Ej. Microinversor 2-en-1, 1-en-1..."></div>
+          </div>
+
+          <!-- Campos específicos Aerogenerador -->
+          <div id="edit-wt-wrap" style="display:none;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;border-top:1px solid rgba(255,255,255,0.08);padding-top:10px;">
+            <div class="doc-field"><label>Potencia Nominal (kW):</label><input type="number" id="edit-wt-kw" step="0.5"></div>
+            <div class="doc-field"><label>Diámetro del Rotor (m):</label><input type="number" id="edit-wt-diameter" step="0.1"></div>
+            <div class="doc-field"><label>Tipo de Turbina:</label>
+              <select id="edit-wt-type">
+                <option value="HAWT">Eje Horizontal (HAWT)</option>
+                <option value="VAWT">Eje Vertical (VAWT)</option>
+              </select>
+            </div>
+            <div class="doc-field"><label>Alturas de Mástil (m, separadas por coma):</label><input type="text" id="edit-wt-heights" placeholder="Ej. 12, 18, 24, 30"></div>
+            <div class="doc-field"><label>Clase IEC Eólica:</label>
+              <select id="edit-wt-iec">
+                <option value="I">Clase I (Viento fuerte / Alta turbulencia)</option>
+                <option value="II">Clase II (Viento medio)</option>
+                <option value="III">Clase III (Viento suave / Terreno interior)</option>
+                <option value="S">Clase S (Especial)</option>
+              </select>
+            </div>
+            <div class="doc-field"><label>Ruido Acústico LwA (dBA):</label><input type="number" id="edit-wt-noise" step="1"></div>
+            <div class="doc-field"><label>V. Arranque Cut-in (m/s):</label><input type="number" id="edit-wt-cutin" step="0.5"></div>
+            <div class="doc-field"><label>V. Nominal Rated (m/s):</label><input type="number" id="edit-wt-ratedspeed" step="0.5"></div>
+            <div class="doc-field"><label>V. Corte Cut-out (m/s):</label><input type="number" id="edit-wt-cutout" step="1"></div>
+            <div class="doc-field"><label>V. Supervivencia (m/s):</label><input type="number" id="edit-wt-survival" step="1"></div>
+          </div>
+
+          <!-- Campos específicos Parámetro Estructura / Coste Instalación -->
+          <div id="edit-param-wrap" style="display:none;grid-template-columns:1fr;gap:10px;margin-bottom:12px;border-top:1px solid rgba(255,255,255,0.08);padding-top:10px;">
+            <div class="doc-field full">
+              <label id="edit-param-label">Valor del Parámetro:</label>
+              <input type="number" id="edit-param-val" step="0.01" style="font-size:13px;font-weight:bold;color:#38BDF8;">
+              <div id="edit-param-desc" style="font-size:10px;color:var(--text-slate-400);margin-top:4px;"></div>
+            </div>
           </div>
 
           <div style="display:flex;gap:10px;margin-top:14px;">
@@ -8371,11 +8424,16 @@ function recalculateSolarYield(force = false) {
     });
 
     if (simulatedTotalKWh > 0) {
-      annualYieldKWh = simulatedTotalKWh;
-      annualGrossKWh = Math.round(simulatedGrossKWh);
-      annualSystemLossKWh = Math.max(0, Math.round(annualGrossKWh * (1.0 - prSys)));
-      energyAfterShadows = annualYieldKWh + annualSystemLossKWh;
-      annualShadowLossKWh = Math.max(0, Math.round((annualGrossKWh / Math.max(0.01, 1 - avgShadowLossPct / 100)) * (avgShadowLossPct / 100)));
+      // Cascada física canónica (IEC 61724 / PVsyst):
+      // 1. Producción Bruta = generación potencial sin obstáculos
+      // 2. Energía tras Sombras = Producción Bruta × (1 - Pérdida Sombras)
+      // 3. Producción Neta = Energía tras Sombras × PR_sistema
+      // 4. Pérdidas Sistema (PR) = Energía tras Sombras - Producción Neta
+      annualGrossKWh = Math.round(annualGrossYield);
+      annualShadowLossKWh = Math.round(annualGrossKWh * (avgShadowLossPct / 100.0));
+      energyAfterShadows = Math.max(0, annualGrossKWh - annualShadowLossKWh);
+      annualSystemLossKWh = Math.round(energyAfterShadows * (1.0 - prSys));
+      annualYieldKWh = Math.max(0, energyAfterShadows - annualSystemLossKWh);
     }
   }
 
@@ -13609,7 +13667,7 @@ function computeRoofPanelsData() {
       const plIdxVal = typeof poly.planeIdx === "number" ? poly.planeIdx : -1;
       const shA = (poly.matrixShiftA || 0).toFixed(3);
       const shB = (poly.matrixShiftB || 0).toFixed(3);
-      const singlePolySig = `${ptsSig}|${modId}|${arrMode}|${azSur}|${tiltVal}|${orPref}|${stType}|al:${alPlaneVal}|pIdx:${plIdxVal}|shd:${shadingStrategy}|sb:${setbackVal}|obs:${obstacles.length}|shA:${shA}|shB:${shB}`;
+      const singlePolySig = `${ptsSig}|${modId}|${arrMode}|${azSur}|${tiltVal}|${orPref}|${stType}|al:${alPlaneVal}|pIdx:${plIdxVal}|shd:${shadingStrategy}|sb:${setbackVal}|obs:${obstacles.length}|shA:${shA}|shB:${shB}|ign3D:${!!poly.ignore3DTilesShadows}`;
 
       let pInfo;
       const hasPreserveFlag = poly._preserveImportedPanels || poly._fromProjectImport || (typeof window !== 'undefined' && window._raImportInProgress);
@@ -13712,6 +13770,7 @@ function computeRoofPanelsData() {
               }
             });
           }
+          pInfo.ignore3DTilesShadows = !!poly.ignore3DTilesShadows;
           poly.roofInfo = pInfo;
           poly._calcSig = singlePolySig;
         }
@@ -13922,10 +13981,15 @@ window.wpResetAutoSizing = wpResetAutoSizing;
 // [DEDUP] switchCatalogTab -> working-plane.js
 
 function openEditEquipmentModal(category, id) {
-  const cat = (typeof equipmentCatalog !== 'undefined' && equipmentCatalog) ? equipmentCatalog : window.equipmentCatalog;
-  if (!cat || !cat[category]) return;
-  const item = cat[category].find(x => x.id === id);
-  if (!item) return;
+  const catNames = {
+    modules: 'MÓDULO SOLAR',
+    inverters: 'INVERSOR DE RED',
+    batteries: 'BATERÍA LFP',
+    microinverters: 'MICROINVERSOR MLPE',
+    wind_turbines: 'AEROGENERADOR EÓLICO',
+    structures: 'COMPONENTE DE ESTRUCTURA',
+    installation_costs: 'COSTE DE INSTALACIÓN / MANO DE OBRA'
+  };
 
   const idIn = document.getElementById('edit-eq-id');
   const catIn = document.getElementById('edit-eq-cat');
@@ -13934,25 +13998,122 @@ function openEditEquipmentModal(category, id) {
   const priceIn = document.getElementById('edit-eq-price');
   const titleEl = document.getElementById('edit-pane-title');
   const badgeEl = document.getElementById('edit-cat-badge');
+  const genFields = document.getElementById('edit-general-fields');
 
-  if (idIn) idIn.value = item.id;
+  if (idIn) idIn.value = id;
   if (catIn) catIn.value = category;
+
+  if (badgeEl) badgeEl.textContent = catNames[category] || category.toUpperCase();
+
+  // Ocultar todas las secciones específicas
+  ['mod', 'inv', 'bat', 'mi', 'wt', 'param'].forEach(k => {
+    const el = document.getElementById('edit-' + k + '-wrap');
+    if (el) el.style.display = 'none';
+  });
+
+  // CASO A: AEROGENERADORES
+  if (category === 'wind_turbines') {
+    if (genFields) genFields.style.display = 'grid';
+    let turbine = null;
+    if (window.RAWindCatalog && typeof window.RAWindCatalog.getById === 'function') {
+      turbine = window.RAWindCatalog.getById(id);
+    }
+    if (!turbine) return;
+
+    if (brandIn) brandIn.value = turbine.manufacturer || '';
+    if (modelIn) modelIn.value = turbine.model || '';
+    if (priceIn) priceIn.value = turbine.priceEur || 0;
+
+    const wrap = document.getElementById('edit-wt-wrap');
+    if (wrap) wrap.style.display = 'grid';
+
+    const kwIn = document.getElementById('edit-wt-kw');
+    const diamIn = document.getElementById('edit-wt-diameter');
+    const typeIn = document.getElementById('edit-wt-type');
+    const hIn = document.getElementById('edit-wt-heights');
+    const iecIn = document.getElementById('edit-wt-iec');
+    const noiseIn = document.getElementById('edit-wt-noise');
+    const cutinIn = document.getElementById('edit-wt-cutin');
+    const ratedIn = document.getElementById('edit-wt-ratedspeed');
+    const cutoutIn = document.getElementById('edit-wt-cutout');
+    const survIn = document.getElementById('edit-wt-survival');
+
+    if (kwIn) kwIn.value = (turbine.ratedPowerW ? turbine.ratedPowerW / 1000 : 10).toFixed(1);
+    if (diamIn) diamIn.value = turbine.rotorDiameterM || 5.0;
+    if (typeIn) typeIn.value = turbine.type || 'HAWT';
+    if (hIn) hIn.value = Array.isArray(turbine.hubHeightsAvailableM) ? turbine.hubHeightsAvailableM.join(', ') : '12, 18, 24';
+    if (iecIn) iecIn.value = turbine.iecClass || 'III';
+    if (noiseIn) noiseIn.value = turbine.acousticPowerLwaDba || 95;
+    if (cutinIn) cutinIn.value = turbine.cutInSpeedMs || 2.5;
+    if (ratedIn) ratedIn.value = turbine.ratedSpeedMs || 11.0;
+    if (cutoutIn) cutoutIn.value = turbine.cutOutSpeedMs || 25.0;
+    if (survIn) survIn.value = turbine.survivalSpeedMs || 59.5;
+
+    if (titleEl) {
+      titleEl.innerHTML = '<i data-lucide="edit-2" class="icon-sm"></i> MODIFICAR AEROGENERADOR: ' + (turbine.manufacturer || '') + ' ' + (turbine.model || '');
+      if (window.lucide && typeof window.lucide.createIcons === 'function') try { window.lucide.createIcons(); } catch(e) {}
+    }
+    switchCatalogTab('edit');
+    return;
+  }
+
+  // CASO B: PARÁMETROS DE ESTRUCTURA Y COSTES
+  if (category === 'structures' || category === 'installation_costs') {
+    if (genFields) genFields.style.display = 'none';
+    const wrap = document.getElementById('edit-param-wrap');
+    if (wrap) wrap.style.display = 'grid';
+
+    let currentVal = 0;
+    let labelText = id;
+    let descText = '';
+
+    if (category === 'structures' && window.RAStructureCatalog) {
+      const activeMfgKey = window.RAStructureCatalog.getActiveManufacturer();
+      const mfg = window.RAStructureCatalog.getStructure(activeMfgKey);
+      if (mfg && typeof mfg[id] === 'number') currentVal = mfg[id];
+      labelText = 'Precio unitario / coste de ' + id + ' (' + (mfg ? mfg.brand : activeMfgKey) + ')';
+      descText = 'Actualiza el coste unitario del componente en el desglose de estructuras y BOM.';
+    } else if (category === 'installation_costs' && window.RAStructureCatalog) {
+      const costs = window.RAStructureCatalog.getInstallationCosts();
+      const parts = id.split('.');
+      if (parts.length === 2 && costs[parts[0]] && typeof costs[parts[0]][parts[1]] === 'number') {
+        currentVal = costs[parts[0]][parts[1]];
+      }
+      labelText = 'Tarifa / Coste: ' + id;
+      descText = 'Modifica la base de cálculo de mano de obra, ingeniería o tasas en el presupuesto general.';
+    }
+
+    const lbl = document.getElementById('edit-param-label');
+    const valIn = document.getElementById('edit-param-val');
+    const descEl = document.getElementById('edit-param-desc');
+
+    if (lbl) lbl.textContent = labelText;
+    if (valIn) valIn.value = currentVal;
+    if (descEl) descEl.textContent = descText;
+
+    if (titleEl) {
+      titleEl.innerHTML = '<i data-lucide="edit-2" class="icon-sm"></i> ' + (catNames[category] || 'PARÁMETRO') + ': ' + id;
+      if (window.lucide && typeof window.lucide.createIcons === 'function') try { window.lucide.createIcons(); } catch(e) {}
+    }
+    switchCatalogTab('edit');
+    return;
+  }
+
+  // CASO C: CATÁLOGO SOLAR (MÓDULOS, INVERSORES, BATERÍAS, MICROINVERSORES)
+  if (genFields) genFields.style.display = 'grid';
+  const cat = (typeof equipmentCatalog !== 'undefined' && equipmentCatalog) ? equipmentCatalog : window.equipmentCatalog;
+  if (!cat || !cat[category]) return;
+  const item = cat[category].find(x => x.id === id);
+  if (!item) return;
+
   if (brandIn) brandIn.value = item.brand || '';
   if (modelIn) modelIn.value = item.model || '';
   if (priceIn) priceIn.value = item.price || 0;
 
-  const catNames = { modules: 'MÓDULO SOLAR', inverters: 'INVERSOR DE RED', batteries: 'BATERÍA LFP', microinverters: 'MICROINVERSOR MLPE' };
-  if (badgeEl) badgeEl.textContent = catNames[category] || category.toUpperCase();
   if (titleEl) {
     titleEl.innerHTML = '<i data-lucide="edit-2" class="icon-sm"></i> MODIFICAR ' + (catNames[category] || 'EQUIPO') + ': ' + (item.brand || '') + ' ' + (item.model || '');
     if (window.lucide && typeof window.lucide.createIcons === 'function') try { window.lucide.createIcons(); } catch(e) {}
   }
-
-  // Ocultar todas las secciones específicas
-  ['mod', 'inv', 'bat', 'mi'].forEach(k => {
-    const el = document.getElementById('edit-' + k + '-wrap');
-    if (el) el.style.display = 'none';
-  });
 
   if (category === 'modules') {
     const wrap = document.getElementById('edit-mod-wrap');
@@ -14039,6 +14200,85 @@ function saveEditedEquipment() {
 
   const id = idIn.value;
   const category = catIn.value;
+
+  // 1. GUARDADO AEROGENERADOR
+  if (category === 'wind_turbines') {
+    if (!window.RAWindCatalog || typeof window.RAWindCatalog.getById !== 'function') return;
+    const existing = window.RAWindCatalog.getById(id) || {};
+    const manufacturer = (document.getElementById('edit-eq-brand').value || existing.manufacturer || 'Fabricante').trim();
+    const model = (document.getElementById('edit-eq-model').value || existing.model || 'Modelo').trim();
+    const priceEur = Math.max(0, parseFloat(document.getElementById('edit-eq-price').value) || 0);
+
+    const kw = Math.max(0.1, parseFloat(document.getElementById('edit-wt-kw').value) || 10.0);
+    const diameter = Math.max(0.5, parseFloat(document.getElementById('edit-wt-diameter').value) || 5.0);
+    const type = document.getElementById('edit-wt-type').value || 'HAWT';
+    const heightsStr = document.getElementById('edit-wt-heights').value || '12, 18, 24';
+    const hubHeights = heightsStr.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n) && n > 0);
+    const iec = document.getElementById('edit-wt-iec').value || 'III';
+    const noise = Math.max(30, parseFloat(document.getElementById('edit-wt-noise').value) || 95);
+    const cutin = parseFloat(document.getElementById('edit-wt-cutin').value) || 2.5;
+    const ratedSpeed = parseFloat(document.getElementById('edit-wt-ratedspeed').value) || 11.0;
+    const cutout = parseFloat(document.getElementById('edit-wt-cutout').value) || 25.0;
+    const survival = parseFloat(document.getElementById('edit-wt-survival').value) || 59.5;
+
+    const updatedTurbine = Object.assign({}, existing, {
+      id: id,
+      manufacturer: manufacturer,
+      model: model,
+      type: type,
+      ratedPowerW: Math.round(kw * 1000),
+      rotorDiameterM: diameter,
+      hubHeightsAvailableM: hubHeights.length > 0 ? hubHeights : (existing.hubHeightsAvailableM || [12, 18, 24]),
+      iecClass: iec,
+      acousticPowerLwaDba: noise,
+      cutInSpeedMs: cutin,
+      ratedSpeedMs: ratedSpeed,
+      cutOutSpeedMs: cutout,
+      survivalSpeedMs: survival,
+      priceEur: priceEur
+    });
+
+    window.RAWindCatalog.upsert(updatedTurbine);
+    window.RAWindCatalog.refreshPanel();
+
+    showStatus('<i data-lucide="check-circle" class="icon-sm"></i> AEROGENERADOR ACTUALIZADO: ' + manufacturer + ' ' + model, 2500);
+    if (typeof showToast === 'function') {
+      showToast('AEROGENERADOR ACTUALIZADO', manufacturer + ' ' + model + ' guardado con éxito.', 'success', 3000);
+    }
+    switchCatalogTab('wind_turbines');
+    return;
+  }
+
+  // 2. GUARDADO PARÁMETRO DE ESTRUCTURA / INSTALACIÓN
+  if (category === 'structures') {
+    if (window.RAStructureCatalog) {
+      const activeMfgKey = window.RAStructureCatalog.getActiveManufacturer();
+      const val = parseFloat(document.getElementById('edit-param-val').value) || 0;
+      window.RAStructureCatalog.updatePrice(activeMfgKey, id, val);
+      window.RAStructureCatalog.renderStructuresCatalogUI();
+      if (typeof updateBudgetUI === 'function') updateBudgetUI();
+      showStatus('<i data-lucide="check-circle" class="icon-sm"></i> PRECIO DE ESTRUCTURA ACTUALIZADO', 2500);
+    }
+    switchCatalogTab('structures');
+    return;
+  }
+
+  if (category === 'installation_costs') {
+    if (window.RAStructureCatalog) {
+      const val = parseFloat(document.getElementById('edit-param-val').value) || 0;
+      const parts = id.split('.');
+      if (parts.length === 2) {
+        window.RAStructureCatalog.updateInstallationCost(parts[0], parts[1], val);
+        window.RAStructureCatalog.renderInstallationCostsUI();
+        if (typeof updateBudgetUI === 'function') updateBudgetUI();
+        showStatus('<i data-lucide="check-circle" class="icon-sm"></i> TARIFA DE INSTALACIÓN ACTUALIZADA', 2500);
+      }
+    }
+    switchCatalogTab('installation_costs');
+    return;
+  }
+
+  // 3. GUARDADO CATÁLOGO SOLAR
   const cat = (typeof equipmentCatalog !== 'undefined' && equipmentCatalog) ? equipmentCatalog : window.equipmentCatalog;
   if (!cat || !cat[category]) return;
 
@@ -14060,7 +14300,6 @@ function saveEditedEquipment() {
     item.imp = parseFloat(document.getElementById('edit-mod-imp').value) || item.imp || 12.5;
     item.tec = (document.getElementById('edit-mod-tec').value || item.tec || 'Monocristalino').trim();
 
-    // Sincronizar con panelConfig activo si es el módulo seleccionado
     if (typeof panelConfig !== 'undefined' && (panelConfig.modelo.includes(item.model) || (window.solarProjectConfig && window.solarProjectConfig.selectedModuleId === item.id))) {
       panelConfig.modelo = item.brand + ' ' + item.model;
       panelConfig.potencia = item.wp;
@@ -14103,7 +14342,7 @@ function saveEditedEquipment() {
   step3UpdateHardwareSelection();
   if (typeof updateBudgetUI === 'function') updateBudgetUI();
 
-  showStatus('<i data-lucide=\"check-circle\" class=\"icon-sm\"></i> EQUIPO ACTUALIZADO: ' + item.brand + ' ' + item.model, 2500);
+  showStatus('<i data-lucide="check-circle" class="icon-sm"></i> EQUIPO ACTUALIZADO: ' + item.brand + ' ' + item.model, 2500);
   switchCatalogTab(category);
 }
 
@@ -16781,7 +17020,7 @@ function isPanelOccludedBy3DEnvironment(panelCenter, norm, sunDirWorld) {
   const normVec = norm || Cesium.Cartesian3.UNIT_Z;
 
   // [PERF] Descarte rápido: si el sol está a la espalda del panel, no incide sol directo
-  if (Cesium.Cartesian3.dot(normVec, sunDirWorld) <= 0.01) return false;
+  if (Cesium.Cartesian3.dot(normVec, sunDirWorld) <= 0.05) return false;
 
   if (!_scratchNormScaled && typeof Cesium !== 'undefined' && Cesium.Cartesian3) {
     _scratchNormScaled = new Cesium.Cartesian3();
@@ -16790,7 +17029,7 @@ function isPanelOccludedBy3DEnvironment(panelCenter, norm, sunDirWorld) {
 
   const rayOrigin = Cesium.Cartesian3.add(
     panelCenter,
-    Cesium.Cartesian3.multiplyByScalar(normVec, 0.35, _scratchNormScaled || new Cesium.Cartesian3()),
+    Cesium.Cartesian3.multiplyByScalar(normVec, 0.55, _scratchNormScaled || new Cesium.Cartesian3()),
     _scratchRayOrigin || new Cesium.Cartesian3()
   );
 
@@ -16811,7 +17050,7 @@ function isPanelOccludedBy3DEnvironment(panelCenter, norm, sunDirWorld) {
         const dist = Cesium.Cartesian3.distance(rayOrigin, hit.position);
         // Despegue de 0.50m (el origen ya está elevado 0.35m sobre la normal del panel para evitar auto-impacto).
         // Detecta parapetos, casetones y edificios colindantes entre 0.5m y 1200m.
-        if (dist > 0.50 && dist < 1200.0) return true;
+        if (dist > 0.85 && dist < 1200.0) return true;
       }
     }
   } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }

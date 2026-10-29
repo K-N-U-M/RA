@@ -240,6 +240,47 @@ function resolveEquipmentNames() {
     }
   }
 
+  // ── Generación Mini-Eólica (Hibridación) ──
+  var activeTurbines = (typeof window !== 'undefined' && Array.isArray(window.windTurbines))
+    ? window.windTurbines.filter(function(t) { return t && (!t.operationalState || t.operationalState.enabled !== false); })
+    : [];
+  var wPark = (typeof window !== 'undefined' && window.windParkSummary) ? window.windParkSummary : null;
+
+  result.hasWind = activeTurbines.length > 0;
+  result.windCount = activeTurbines.length;
+  result.windTotalKw = 0;
+  result.windAepNetKwh = (wPark && wPark.totalAepNetKwh) ? Math.round(wPark.totalAepNetKwh) : 0;
+  result.windName = 'Mini-Eólica de Alta Eficiencia';
+  result.windDesc = 'Turbina(s) eólica(s) con acoplamiento AC';
+  result.windItems = [];
+
+  if (result.hasWind) {
+    var totalW = 0;
+    var modelsMap = {};
+    activeTurbines.forEach(function(t, idx) {
+      var c = t._catalog || {};
+      var st = t.supportStructure || {};
+      var ratedKw = c.ratedPowerW ? (c.ratedPowerW / 1000) : (t.ratedPowerKw || 3.0);
+      totalW += ratedKw;
+      var mName = (c.brand ? (c.brand + ' ') : '') + (c.model || t.name || ('Aerogenerador #' + (idx + 1)));
+      if (!modelsMap[mName]) {
+        modelsMap[mName] = { count: 0, ratedKw: ratedKw, hubH: st.hubHeightM || 18, type: c.type || 'HAWT' };
+      }
+      modelsMap[mName].count++;
+    });
+
+    result.windTotalKw = Math.round(totalW * 10) / 10;
+    var mKeys = Object.keys(modelsMap);
+    if (mKeys.length === 1) {
+      var single = modelsMap[mKeys[0]];
+      result.windName = (single.count > 1 ? (single.count + '× ') : '') + mKeys[0];
+      result.windDesc = single.ratedKw + ' kW unitario · Mástil ' + single.hubH + ' m · Rotor ' + single.type + ' · Acoplamiento AC ITC-BT-40';
+    } else {
+      result.windName = 'Parque Mini-Eólico (' + activeTurbines.length + ' turbinas)';
+      result.windDesc = mKeys.map(function(k) { return modelsMap[k].count + '× ' + k + ' (' + modelsMap[k].ratedKw + ' kW)'; }).join(' · ');
+    }
+  }
+
   return result;
 }
 
@@ -3501,21 +3542,6 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
           <div class="cover-hero-sub">Estudio de viabilidad técnica, diseño CAD 3D y análisis de rentabilidad para autoconsumo</div>
         </div>
 
-        <!-- Caja de Datos del Cliente y Emplazamiento -->
-        <div class="cover-client-card">
-          <div class="cover-client-header">
-            <span>👤 DATOS DEL CLIENTE Y EMPLAZAMIENTO DE LA INSTALACIÓN</span>
-          </div>
-          <div class="cover-client-grid">
-            <div><strong>Cliente / Titular:</strong> <span>${d.tit.nombre} (${d.tit.nif})</span></div>
-            <div><strong>Punto Suministro (CUPS):</strong> <span>${d.tit.cups}</span></div>
-            <div><strong>Dirección de Obra:</strong> <span>${d.tit.dir || 'Instalación Solar'}, ${d.tit.mun || ''} (${d.tit.prov || ''})</span></div>
-            <div><strong>Modalidad Autoconsumo:</strong> <span>${d.modalTexto}</span></div>
-            <div><strong>Ingeniero / Técnico Responsable:</strong> <span>${d.tit.tecnico} (${d.tit.titulacion})</span></div>
-            <div><strong>Colegiado N.º:</strong> <span>${d.tit.ncol || 'Habilitado CTE/REBT'}</span></div>
-          </div>
-        </div>
-
         <!-- CUADRO CENTRAL DE IMAGEN PRINCIPAL DE PORTADA / GEMELO 3D -->
         <div class="cover-photo-card">
           <div class="photo-img-wrap" onclick="triggerPhotoUpload('photo-cover-input')">
@@ -3575,9 +3601,13 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
               ${(window.RA_SvgCatalog ? window.RA_SvgCatalog.render('inverter', pal.primary, 34) : '')}
             </div>
             <div>
-              <div class="cover-spec-label">Potencia Pico Total</div>
-              <div class="cover-spec-val">${m.kwp.toFixed(2)} kWp</div>
-              <div class="cover-spec-sub">${_eqp.totalAcKw > 0 ? (_eqp.totalAcKw.toFixed(1) + ' kW AC nominal') : 'Conversión de alta eficiencia'}</div>
+              <div class="cover-spec-label">${_eqp.hasWind ? 'Potencia Híbrida Total' : 'Potencia Pico Total'}</div>
+              <div class="cover-spec-val">${_eqp.hasWind ? ((m.kwp + _eqp.windTotalKw).toFixed(2) + ' kW') : (m.kwp.toFixed(2) + ' kWp')}</div>
+              <div class="cover-spec-sub">${
+                _eqp.hasWind
+                  ? (m.kwp.toFixed(2) + ' kWp Solar · ' + _eqp.windTotalKw.toFixed(1) + ' kW Eólica')
+                  : (_eqp.totalAcKw > 0 ? (_eqp.totalAcKw.toFixed(1) + ' kW AC nominal') : 'Conversión de alta eficiencia')
+              }</div>
             </div>
           </div>
 
@@ -3587,9 +3617,13 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
               ${(window.RA_SvgCatalog ? window.RA_SvgCatalog.render('peakSun', pal.primary, 34) : '')}
             </div>
             <div>
-              <div class="cover-spec-label">Producción Anual</div>
-              <div class="cover-spec-val primary">${Math.round(annualYieldKWh).toLocaleString('es-ES')} kWh</div>
-              <div class="cover-spec-sub">~100% calibrado por gemelo 3D</div>
+              <div class="cover-spec-label">${_eqp.hasWind ? 'Producción Anual Total' : 'Producción Anual'}</div>
+              <div class="cover-spec-val primary">${Math.round(annualYieldKWh + (_eqp.hasWind ? _eqp.windAepNetKwh : 0)).toLocaleString('es-ES')} kWh</div>
+              <div class="cover-spec-sub">${
+                _eqp.hasWind
+                  ? ('☀️ ' + Math.round(annualYieldKWh).toLocaleString('es-ES') + ' kWh FV + 💨 ' + Math.round(_eqp.windAepNetKwh).toLocaleString('es-ES') + ' kWh Eól.')
+                  : '~100% calibrado por gemelo 3D'
+              }</div>
             </div>
           </div>
 
@@ -3689,6 +3723,30 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
               ${_eqp.hasBat ? (_eqp.batCount + ' ud' + (_eqp.batCount > 1 ? 's' : '') + ' · ' + _eqp.totalBatKwh.toFixed(1) + ' kWh') : '—'}
             </div>
           </div>
+
+          <!-- 3.BIS Generación Mini-Eólica (Aerogeneradores) -->
+          ${_eqp.hasWind ? `
+          <div class="tech-card">
+            <div class="tech-icon-box">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="52" height="52" fill="none" stroke="${pal.primary}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 12c0-3 2.5-5.5 5.5-5.5S23 9 23 12s-2.5 5.5-5.5 5.5S12 15 12 12z" opacity="0.3"/>
+                <path d="M12 12L12 2a4 4 0 0 1 4 4c0 3-4 6-4 6z"/>
+                <path d="M12 12l-8.66 5a4 4 0 0 1 1.46-5.46c2.6-1.5 7.2.46 7.2.46z"/>
+                <path d="M12 12l-3.34 9.4c-1.37 2.37-4.4 3.18-6.77 1.8-2.37-1.37-3.18-4.4-1.8-6.77L12 12z" opacity="0.15"/>
+                <circle cx="12" cy="12" r="2.5" fill="${pal.primary}"/>
+                <line x1="12" y1="14.5" x2="12" y2="23" stroke-width="2.2"/>
+              </svg>
+            </div>
+            <div class="tech-info">
+              <div class="tech-label">GENERACIÓN MINI-EÓLICA</div>
+              <div class="tech-name" title="${_eqp.windName}">${_eqp.windName}</div>
+              <div class="tech-sub">${_eqp.windDesc}</div>
+            </div>
+            <div class="tech-badge">
+              ${_eqp.windCount} ud${_eqp.windCount > 1 ? 's' : ''} · ${_eqp.windTotalKw.toFixed(1)} kW
+            </div>
+          </div>
+          ` : ''}
 
           <!-- 4. Microinversores / Optimizadores o Estructura -->
           ${_eqp.hasMicro ? `

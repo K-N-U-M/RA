@@ -1224,16 +1224,19 @@
       var invCfgForLimits = (global.solarProjectConfig && global.solarProjectConfig.calculatedLimits && global.solarProjectConfig.calculatedLimits.inverter)
         ? global.solarProjectConfig.calculatedLimits.inverter
         : { vMaxAbs: 1000, vMpptMin: 200, vMpptMax: 850, vStart: 200 };
+      var climColdC = (global.solarProjectConfig && typeof global.solarProjectConfig.tempMinC === 'number')
+        ? global.solarProjectConfig.tempMinC : undefined;
+      var climHotC = (global.solarProjectConfig && typeof global.solarProjectConfig.tempMaxCellC === 'number')
+        ? global.solarProjectConfig.tempMaxCellC : undefined;
       var dynLim = (typeof global.calculateDynamicMPPTStringLimits === 'function')
         ? global.calculateDynamicMPPTStringLimits(
             { voc: vocNom, vmp: vmpNom, tempCoeffVoc: modCfg.tempCoeffVoc ?? -0.0026, tempCoeffPmax: modCfg.tempCoeffPmax ?? -0.0034 },
             invCfgForLimits,
-            (global.solarProjectConfig && global.solarProjectConfig.tempMinC) ?? -5,
-            (global.solarProjectConfig && global.solarProjectConfig.tempMaxCellC) ?? 70
+            { Tmin: climColdC, TmaxCell: climHotC }
           )
         : null;
       var vmpHotMod = (dynLim && dynLim.vmpHot > 0) ? dynLim.vmpHot : (vmpNom * (1 + (modCfg.tempCoeffPmax ?? -0.0034) * (70 - 25)));
-      var vocColdMod = (dynLim && dynLim.vocCold > 0) ? dynLim.vocCold : (vocNom * (1 + (modCfg.tempCoeffVoc ?? -0.0026) * (-5 - 25)));
+      var vocColdMod = (dynLim && dynLim.vocCold > 0) ? dynLim.vocCold : (vocNom * (1 + (modCfg.tempCoeffVoc ?? -0.0026) * (-10 - 25)));
       var rho90 = (global.ELEC_CONSTANTS && global.ELEC_CONSTANTS.RHO_CU_90) ? global.ELEC_CONSTANTS.RHO_CU_90 : 0.023;
       var imp = modCfg.imp || 13.05;
       var secDc = sState.S_dc_recommended || 6;

@@ -3984,40 +3984,36 @@ async function wpGoToStep(step, force = false) {
     if (typeof wpUpdateShadedCleanupUI === 'function') wpUpdateShadedCleanupUI();
   } else if (step === 4) {
     // PASO 4: INGENIERÍA ELÉCTRICA (Inversor, Batería, Strings, Cableado)
+    // [AUD-2026 · H7] Cada refrescador va encapsulado: un fallo no bloquea al resto.
+    const _safe4 = function (fn) {
+      try { fn(); } catch (eS4) {
+        console.warn('[Step4-refresh]', eS4 && eS4.message);
+        if (typeof window !== 'undefined' && window.RA_ErrorHandler) { window.RA_ErrorHandler.handle(eS4, 'step4-refresh'); }
+      }
+    };
     const c4 = document.getElementById('wp-step-4-content');
     if (c4) c4.style.display = 'flex';
     if (typeof window !== 'undefined' && window.solarSimState && window.solarSimState.solarYieldDirty && typeof recalculateSolarYield === 'function') {
-      try { recalculateSolarYield(true); } catch(eY) { console.warn('[LazyEvaluation] Error recalculando rendimiento solar:', eY); }
+      _safe4(function () { recalculateSolarYield(true); });
     }
     // Auto-Ingeniería Fotovoltaica Zero-Click: selecciona la electrónica óptima según sombras, orientaciones y potencia
     if (typeof wpAutoSelectOptimalEngineering === 'function') {
-      try { wpAutoSelectOptimalEngineering(false); } catch(eEng) { console.warn('[Auto-Engineering] Error:', eEng); }
+      _safe4(function () { wpAutoSelectOptimalEngineering(false); });
     }
-    if (typeof populateStep3EquipmentSelectors === 'function') populateStep3EquipmentSelectors();
-    if (typeof step3UpdateHardwareSelection === 'function') step3UpdateHardwareSelection();
-    if (typeof wpComputeAutoSizing === 'function') wpComputeAutoSizing();
+    if (typeof populateStep3EquipmentSelectors === 'function') _safe4(populateStep3EquipmentSelectors);
+    if (typeof step3UpdateHardwareSelection === 'function') _safe4(step3UpdateHardwareSelection);
+    if (typeof wpComputeAutoSizing === 'function') _safe4(wpComputeAutoSizing);
     // [DESPERTAR DE INGENIERÍA]: Al entrar en Paso 4, renderizar latiguillos de string y etiquetas MPPT
     if (typeof wpFastRenderSimulatedPanels === 'function') {
-      await wpFastRenderSimulatedPanels(true);
+      try { await wpFastRenderSimulatedPanels(true); }
+      catch (eS4a) { console.warn('[Step4-refresh]', eS4a && eS4a.message); }
     }
-    if (typeof wpCalculateAndRenderInverterCables === 'function') {
-      wpCalculateAndRenderInverterCables();
-    }
-    if (typeof wpUpdateCableRoutesUI === 'function') {
-      wpUpdateCableRoutesUI();
-    }
-    if (typeof raRenderLossFields === 'function') {
-      raRenderLossFields();
-    }
-    if (typeof wpUpdateInverterSmartAssistantUI === 'function') {
-      wpUpdateInverterSmartAssistantUI();
-    }
-    if (typeof wpUpdateMeterPlacementGuideUI === 'function') {
-      wpUpdateMeterPlacementGuideUI();
-    }
-    if (typeof wpRenderStep4RoofScopeUI === 'function') {
-      wpRenderStep4RoofScopeUI();
-    }
+    if (typeof wpCalculateAndRenderInverterCables === 'function') _safe4(wpCalculateAndRenderInverterCables);
+    if (typeof wpUpdateCableRoutesUI === 'function') _safe4(wpUpdateCableRoutesUI);
+    if (typeof raRenderLossFields === 'function') _safe4(raRenderLossFields);
+    if (typeof wpUpdateInverterSmartAssistantUI === 'function') _safe4(wpUpdateInverterSmartAssistantUI);
+    if (typeof wpUpdateMeterPlacementGuideUI === 'function') _safe4(wpUpdateMeterPlacementGuideUI);
+    if (typeof wpRenderStep4RoofScopeUI === 'function') _safe4(wpRenderStep4RoofScopeUI);
   } else if (step === 5) {
     // <i data-lucide=\"file-text\" class=\"icon-sm\"></i> PASO 5: ENTREGA, PRESUPUESTO & MEMORIA PDF
     const c5 = document.getElementById('wp-step-5-content');
@@ -4498,6 +4494,8 @@ function wpPopulateFaldonCard() {
   if (typeof wpUpdateFaldonRowPitchUI === "function") wpUpdateFaldonRowPitchUI(WP.selectedPolyIdx);
   if (typeof wpUpdateLiveSweetSpotTelemetry === "function") wpUpdateLiveSweetSpotTelemetry(WP.selectedPolyIdx);
   if (typeof wpUpdateFaldonShiftUI === "function") wpUpdateFaldonShiftUI(WP.selectedPolyIdx);
+  var ignoreTilesChk = document.getElementById("faldon-ignore-tiles-shadows-chk");
+  if (ignoreTilesChk && poly) ignoreTilesChk.checked = !!poly.ignore3DTilesShadows;
 
   // Refrescar iconos Lucide
   if (window.lucide) try { lucide.createIcons(); } catch(_) {}
@@ -5191,6 +5189,9 @@ function wpTogglePolyIgnoreTilesShadows(polyIdx, ignore) {
   if (poly.roofInfo) {
     poly.roofInfo.ignore3DTilesShadows = !!ignore;
   }
+  if (typeof roofPanelsCache !== "undefined" && roofPanelsCache) roofPanelsCache.sig = "";
+  delete poly._calcSig;
+  if (typeof recalculateSolarYield === "function") { try { recalculateSolarYield(true); } catch(_) {} }
   if (typeof window.wpInvalidateHeatmap === 'function') {
     window.wpInvalidateHeatmap('Configuración de sombras de malla 3D modificada');
   }
@@ -6367,17 +6368,19 @@ function populateEquipmentModalUI() {
     modTable.innerHTML = equipmentCatalog.modules.map((m, idx) => {
       const isCurrent = panelConfig && panelConfig.modelo && panelConfig.modelo.includes(m.model);
       const isCustom = idx >= 7;
-      let delBtn = isCustom ? ('<button class="doc-mini-btn" onclick="deleteCatalogItem(\'modules\',\'' + m.id + '\')" style="padding:4px 6px;font-size: 10px;color:var(--rose-500);"><i data-lucide=\"x\" class=\"icon-sm\"></i></button>') : '';
-      return '<tr style="border-bottom:1px solid rgba(255,255,255,0.06);' + (isCurrent ? 'background:rgba(245,158,11,0.1);' : '') + '">' +
-        '<td style="padding:8px 10px;"><b>' + m.brand + '</b> ' + m.model + (isCurrent ? ' <span style="color:var(--amber-400);font-size: 10px;">[ACTIVO]</span>' : '') + '</td>' +
-        '<td style="padding:8px 10px;text-align:center;"><span style="color:var(--emerald-400);font-weight:bold;">' + m.wp + ' Wp</span></td>' +
-        '<td style="padding:8px 10px;text-align:center;">' + m.eff + ' %</td>' +
-        '<td style="padding:8px 10px;text-align:center;font-family:monospace;">' + m.l.toFixed(2) + ' × ' + m.w.toFixed(2) + ' m</td>' +
-        '<td style="padding:8px 10px;text-align:center;color:var(--amber-400);font-weight:bold;">' + m.price + ' €</td>' +
-        '<td style="padding:8px 10px;text-align:right;">' +
-          '<button class="doc-mini-btn" onclick="openEditEquipmentModal(\'modules\', \'' + m.id + '\')" style="padding:4px 8px;font-size: 10px;border-color:var(--sky-400);color:var(--sky-400);margin-right:4px;"><i data-lucide=\"edit-2\" class=\"icon-sm\"></i> EDITAR</button>' +
-            '<button class="doc-mini-btn" onclick="onSelectModuleFromDropdown(\'' + m.id + '\');closeEquipmentCatalogModal();" style="padding:4px 8px;font-size: 10px;border-color:var(--emerald-400);color:var(--emerald-400);margin-right:4px;">SELECCIONAR</button>' +
-          delBtn +
+      let delBtn = isCustom ? ('<button class="cat-btn cat-btn-delete" onclick="deleteCatalogItem(\'modules\',\'' + m.id + '\')" title="Eliminar"><i data-lucide="x" class="icon-sm"></i></button>') : '';
+      return '<tr style="' + (isCurrent ? 'background:rgba(245,158,11,0.08);' : '') + '">' +
+        '<td><b>' + m.brand + '</b> ' + m.model + (isCurrent ? ' <span class="cat-badge cat-badge-amber">[ACTIVO]</span>' : '') + '</td>' +
+        '<td style="text-align:center;"><span class="cat-badge cat-badge-emerald">' + m.wp + ' Wp</span></td>' +
+        '<td style="text-align:center;">' + m.eff + ' %</td>' +
+        '<td style="text-align:center;font-family:monospace;">' + m.l.toFixed(2) + ' × ' + m.w.toFixed(2) + ' m</td>' +
+        '<td style="text-align:center;color:#FBBF24;font-weight:bold;">' + m.price + ' €</td>' +
+        '<td style="text-align:right;">' +
+          '<div style="display:flex;justify-content:flex-end;align-items:center;gap:4px;">' +
+            '<button class="cat-btn cat-btn-edit" onclick="openEditEquipmentModal(\'modules\', \'' + m.id + '\')"><i data-lucide="edit-2" class="icon-sm"></i> EDITAR</button>' +
+            '<button class="cat-btn cat-btn-select" onclick="onSelectModuleFromDropdown(\'' + m.id + '\');closeEquipmentCatalogModal();">SELECCIONAR</button>' +
+            delBtn +
+          '</div>' +
         '</td>' +
       '</tr>';
     }).join('');
@@ -6388,24 +6391,26 @@ function populateEquipmentModalUI() {
   if (invTable) {
     invTable.innerHTML = equipmentCatalog.inverters.map((inv, idx) => {
       const isCustom = idx >= 5;
-      let delBtn = isCustom ? ('<button class="doc-mini-btn" onclick="deleteCatalogItem(\'inverters\',\'' + inv.id + '\')" style="padding:4px 6px;font-size: 10px;color:var(--rose-500);"><i data-lucide=\"x\" class=\"icon-sm\"></i></button>') : '';
+      let delBtn = isCustom ? ('<button class="cat-btn cat-btn-delete" onclick="deleteCatalogItem(\'inverters\',\'' + inv.id + '\')" title="Eliminar"><i data-lucide="x" class="icon-sm"></i></button>') : '';
       const inputs = inv.inputsPerMppt || 1;
       const vMin = inv.vMpptMin || inv.vMpptNomMin || 160;
       const vMax = inv.vMpptMax || inv.vMpptNomMax || 850;
       const iOper = (inv.iMaxOperA || (inv.iMaxScA ? Math.round(inv.iMaxScA * 0.75 * 10) / 10 : 15.0)).toFixed(1);
       const iSc = (inv.iMaxScA || 25.0).toFixed(1);
 
-      return '<tr style="border-bottom:1px solid rgba(255,255,255,0.06);font-size: 10px;">' +
-        '<td style="padding:6px 8px;"><b>' + inv.brand + '</b> ' + inv.model + '<br><span style="font-size: 10px;color:var(--text-slate-400);">' + (inv.type || 'Híbrido') + '</span></td>' +
-        '<td style="padding:6px 8px;text-align:center;"><span style="color:var(--blue-400);font-weight:bold;">' + inv.kw + ' kW</span></td>' +
-        '<td style="padding:6px 8px;text-align:center;">' + inv.mppt + ' MPPT <span style="font-size: 10px;color:var(--emerald-400);">(' + inputs + ' str/mppt)</span></td>' +
-        '<td style="padding:6px 8px;text-align:center;font-family:monospace;font-size: 10px;">' + (inv.vDcMax || 1000) + 'V <span style="color:var(--text-slate-400);">(' + vMin + '-' + vMax + 'V)</span></td>' +
-        '<td style="padding:6px 8px;text-align:center;font-family:monospace;font-size: 10px;"><b style="color:var(--amber-400);">' + iOper + 'A</b> / <span style="color:var(--emerald-400);">' + iSc + 'A</span></td>' +
-        '<td style="padding:6px 8px;text-align:center;color:var(--amber-400);font-weight:bold;">' + inv.price + ' €</td>' +
-        '<td style="padding:6px 8px;text-align:right;">' +
-          '<button class="doc-mini-btn" onclick="openEditEquipmentModal(\'inverters\', \'' + inv.id + '\')" style="padding:3px 6px;font-size: 10px;border-color:var(--sky-400);color:var(--sky-400);margin-right:3px;"><i data-lucide=\"edit-2\" class=\"icon-sm\"></i> EDITAR</button>' +
-          '<button class="doc-mini-btn" onclick="applyInverterFromCatalog(\'' + inv.id + '\');closeEquipmentCatalogModal();" style="padding:3px 6px;font-size: 10px;border-color:var(--blue-400);color:var(--blue-400);margin-right:3px;">APLICAR</button>' +
-          delBtn +
+      return '<tr>' +
+        '<td><b>' + inv.brand + '</b> ' + inv.model + '<br><span style="font-size:10px;color:var(--text-slate-400);">' + (inv.type || 'Híbrido') + '</span></td>' +
+        '<td style="text-align:center;"><span class="cat-badge cat-badge-blue">' + inv.kw + ' kW</span></td>' +
+        '<td style="text-align:center;">' + inv.mppt + ' MPPT <span style="font-size:10px;color:#34D399;">(' + inputs + ' str/mppt)</span></td>' +
+        '<td style="text-align:center;font-family:monospace;font-size:10px;">' + (inv.vDcMax || 1000) + 'V <span style="color:var(--text-slate-400);">(' + vMin + '-' + vMax + 'V)</span></td>' +
+        '<td style="text-align:center;font-family:monospace;font-size:10px;"><b style="color:#FBBF24;">' + iOper + 'A</b> / <span style="color:#34D399;">' + iSc + 'A</span></td>' +
+        '<td style="text-align:center;color:#FBBF24;font-weight:bold;">' + inv.price + ' €</td>' +
+        '<td style="text-align:right;">' +
+          '<div style="display:flex;justify-content:flex-end;align-items:center;gap:4px;">' +
+            '<button class="cat-btn cat-btn-edit" onclick="openEditEquipmentModal(\'inverters\', \'' + inv.id + '\')"><i data-lucide="edit-2" class="icon-sm"></i> EDITAR</button>' +
+            '<button class="cat-btn cat-btn-apply" onclick="applyInverterFromCatalog(\'' + inv.id + '\');closeEquipmentCatalogModal();">APLICAR</button>' +
+            delBtn +
+          '</div>' +
         '</td>' +
       '</tr>';
     }).join('');
@@ -6416,16 +6421,18 @@ function populateEquipmentModalUI() {
   if (batTable) {
     batTable.innerHTML = equipmentCatalog.batteries.map((bat, idx) => {
       const isCustom = idx >= 6;
-      let delBtn = isCustom ? ('<button class="doc-mini-btn" onclick="deleteCatalogItem(\'batteries\',\'' + bat.id + '\')" style="padding:4px 6px;font-size: 10px;color:var(--rose-500);"><i data-lucide=\"x\" class=\"icon-sm\"></i></button>') : '';
-      return '<tr style="border-bottom:1px solid rgba(255,255,255,0.06);">' +
-        '<td style="padding:8px 10px;"><b>' + bat.brand + '</b> ' + bat.model + '</td>' +
-        '<td style="padding:8px 10px;text-align:center;"><span style="color:var(--emerald-400);font-weight:bold;">' + bat.kwh + ' kWh</span></td>' +
-        '<td style="padding:8px 10px;text-align:center;">' + (bat.type || 'LFP') + '</td>' +
-        '<td style="padding:8px 10px;text-align:center;color:var(--amber-400);font-weight:bold;">' + bat.price + ' €</td>' +
-        '<td style="padding:8px 10px;text-align:right;">' +
-          '<button class="doc-mini-btn" onclick="openEditEquipmentModal(\'batteries\', \'' + bat.id + '\')" style="padding:4px 8px;font-size: 10px;border-color:var(--sky-400);color:var(--sky-400);margin-right:4px;"><i data-lucide=\"edit-2\" class=\"icon-sm\"></i> EDITAR</button>' +
-            '<button class="doc-mini-btn" onclick="applyBatteryFromCatalog(\'' + bat.id + '\');closeEquipmentCatalogModal();" style="padding:4px 8px;font-size: 10px;border-color:var(--emerald-400);color:var(--emerald-400);margin-right:4px;">APLICAR</button>' +
-          delBtn +
+      let delBtn = isCustom ? ('<button class="cat-btn cat-btn-delete" onclick="deleteCatalogItem(\'batteries\',\'' + bat.id + '\')" title="Eliminar"><i data-lucide="x" class="icon-sm"></i></button>') : '';
+      return '<tr>' +
+        '<td><b>' + bat.brand + '</b> ' + bat.model + '</td>' +
+        '<td style="text-align:center;"><span class="cat-badge cat-badge-emerald">' + bat.kwh + ' kWh</span></td>' +
+        '<td style="text-align:center;">' + (bat.type || 'LFP') + '</td>' +
+        '<td style="text-align:center;color:#FBBF24;font-weight:bold;">' + bat.price + ' €</td>' +
+        '<td style="text-align:right;">' +
+          '<div style="display:flex;justify-content:flex-end;align-items:center;gap:4px;">' +
+            '<button class="cat-btn cat-btn-edit" onclick="openEditEquipmentModal(\'batteries\', \'' + bat.id + '\')"><i data-lucide="edit-2" class="icon-sm"></i> EDITAR</button>' +
+            '<button class="cat-btn cat-btn-select" onclick="applyBatteryFromCatalog(\'' + bat.id + '\');closeEquipmentCatalogModal();">APLICAR</button>' +
+            delBtn +
+          '</div>' +
         '</td>' +
       '</tr>';
     }).join('');
@@ -6436,17 +6443,24 @@ function populateEquipmentModalUI() {
   if (mlpeTable) {
     mlpeTable.innerHTML = equipmentCatalog.microinverters.map((mi, idx) => {
       const isCustom = idx >= 4;
-      let delBtn = isCustom ? ('<button class="doc-mini-btn" onclick="deleteCatalogItem(\'microinverters\',\'' + mi.id + '\')" style="padding:4px 6px;font-size: 10px;color:var(--rose-500);"><i data-lucide=\"x\" class=\"icon-sm\"></i></button>') : '<span style="font-size: 10px;color:var(--text-slate-400);">OFICIAL</span>';
-      return '<tr style="border-bottom:1px solid rgba(255,255,255,0.06);">' +
-        '<td style="padding:8px 10px;"><b>' + mi.brand + '</b> ' + mi.model + '</td>' +
-        '<td style="padding:8px 10px;text-align:center;"><span style="color:var(--emerald-400);font-weight:bold;">' + (mi.kw * 1000) + ' W</span></td>' +
-        '<td style="padding:8px 10px;text-align:center;">' + (mi.type || 'Microinversor') + '</td>' +
-        '<td style="padding:8px 10px;text-align:center;color:var(--amber-400);font-weight:bold;">' + mi.price + ' €</td>' +
-        '<td style="padding:8px 10px;text-align:right;">' +
-          delBtn +
+      let delBtn = isCustom ? ('<button class="cat-btn cat-btn-delete" onclick="deleteCatalogItem(\'microinverters\',\'' + mi.id + '\')" title="Eliminar"><i data-lucide="x" class="icon-sm"></i></button>') : '<span class="cat-badge cat-badge-cyan" style="font-size:9.5px;">OFICIAL</span>';
+      return '<tr>' +
+        '<td><b>' + mi.brand + '</b> ' + mi.model + '</td>' +
+        '<td style="text-align:center;"><span class="cat-badge cat-badge-cyan">' + (mi.kw * 1000) + ' W</span></td>' +
+        '<td style="text-align:center;">' + (mi.type || 'Microinversor') + '</td>' +
+        '<td style="text-align:center;color:#FBBF24;font-weight:bold;">' + mi.price + ' €</td>' +
+        '<td style="text-align:right;">' +
+          '<div style="display:flex;justify-content:flex-end;align-items:center;gap:4px;">' +
+            '<button class="cat-btn cat-btn-edit" onclick="openEditEquipmentModal(\'microinverters\', \'' + mi.id + '\')"><i data-lucide="edit-2" class="icon-sm"></i> EDITAR</button>' +
+            delBtn +
+          '</div>' +
         '</td>' +
       '</tr>';
     }).join('');
+  }
+
+  if (typeof lucide !== 'undefined' && lucide.createIcons) {
+    try { lucide.createIcons(); } catch(e){}
   }
 }
 
@@ -6621,9 +6635,18 @@ function wpRenderBattery3D(inverterCartesian) {
 window.wpRenderBattery3D = wpRenderBattery3D;
 
 function deleteCatalogItem(category, id) {
+  if (category === 'wind_turbines') {
+    if (window.RAWindCatalog && typeof window.RAWindCatalog.remove === 'function') {
+      window.RAWindCatalog.remove(id);
+      window.RAWindCatalog.refreshPanel();
+      showStatus('AEROGENERADOR ELIMINADO DEL CATÁLOGO', 1800);
+    }
+    return;
+  }
   if (!equipmentCatalog[category]) return;
   equipmentCatalog[category] = equipmentCatalog[category].filter(item => item.id !== id);
   saveEquipmentCatalog();
+  populateEquipmentModalUI();
   showStatus('ELEMENTO ELIMINADO DEL CATÁLOGO', 1800);
 }
 
@@ -6640,7 +6663,7 @@ function addNewEquipmentFromForm() {
     const l = Math.max(parseFloat(document.getElementById('new-mod-largo').value) || 2.10, 0.4);
     const w = Math.max(parseFloat(document.getElementById('new-mod-ancho').value) || 1.05, 0.3);
     const eff = Math.max(parseFloat(document.getElementById('new-mod-eff').value) || 21.5, 1);
-    const tec = document.getElementById('new-mod-tec').value || 'Monocristalino';
+    const tec = (document.getElementById('new-mod-tec') ? document.getElementById('new-mod-tec').value : 'Monocristalino') || 'Monocristalino';
 
     equipmentCatalog.modules.push({
       id, brand, model, tec, l, w, wp, eff, price,
@@ -6662,7 +6685,7 @@ function addNewEquipmentFromForm() {
     const vStart = parseFloat(document.getElementById('new-inv-vstart').value) || 120;
     const iMaxOperA = parseFloat(document.getElementById('new-inv-imaxoper').value) || 15.0;
     const iMaxScA = parseFloat(document.getElementById('new-inv-imaxsc').value) || 25.0;
-    const invType = document.getElementById('new-inv-type').value || 'Híbrido';
+    const invType = (document.getElementById('new-inv-type') ? document.getElementById('new-inv-type').value : 'Híbrido') || 'Híbrido';
 
     equipmentCatalog.inverters.push({
       id, brand, model, kw, mppt, inputsPerMppt: inputs,
@@ -6677,13 +6700,59 @@ function addNewEquipmentFromForm() {
     showStatus('NUEVO INVERSOR AÑADIDO Y APLICADO', 2500);
   } else if (type === 'battery') {
     const kwh = Math.max(parseFloat(document.getElementById('new-bat-kwh').value) || 5.0, 1.0);
-    const batType = document.getElementById('new-bat-type').value || 'LFP Litio';
+    const batType = (document.getElementById('new-bat-type') ? document.getElementById('new-bat-type').value : 'LFP Litio') || 'LFP Litio';
 
     equipmentCatalog.batteries.push({ id, brand, model, kwh, type: batType, price });
     saveEquipmentCatalog();
     applyBatteryFromCatalog(id);
     switchCatalogTab('batteries');
     showStatus('NUEVA BATERÍA AÑADIDA Y APLICADA', 2500);
+  } else if (type === 'microinverter') {
+    const kw = Math.max(parseFloat(document.getElementById('new-mi-kw') ? document.getElementById('new-mi-kw').value : 0.45) || 0.45, 0.1);
+    const miType = (document.getElementById('new-mi-type') ? document.getElementById('new-mi-type').value : 'Microinversor') || 'Microinversor';
+
+    equipmentCatalog.microinverters.push({ id, brand, model, kw, type: miType, price });
+    saveEquipmentCatalog();
+    switchCatalogTab('microinverters');
+    showStatus('NUEVO MICROINVERSOR AÑADIDO', 2500);
+  } else if (type === 'wind_turbine') {
+    const kw = Math.max(parseFloat(document.getElementById('new-wt-kw') ? document.getElementById('new-wt-kw').value : 10) || 10, 0.5);
+    const diam = Math.max(parseFloat(document.getElementById('new-wt-diameter') ? document.getElementById('new-wt-diameter').value : 5) || 5, 0.5);
+    const wtType = (document.getElementById('new-wt-type') ? document.getElementById('new-wt-type').value : 'HAWT') || 'HAWT';
+    const heightsStr = (document.getElementById('new-wt-heights') ? document.getElementById('new-wt-heights').value : '12, 18, 24') || '12, 18, 24';
+    const hubHeights = heightsStr.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n) && n > 0);
+    const iec = (document.getElementById('new-wt-iec') ? document.getElementById('new-wt-iec').value : 'III') || 'III';
+    const noise = Math.max(parseFloat(document.getElementById('new-wt-noise') ? document.getElementById('new-wt-noise').value : 95) || 95, 30);
+
+    const turbineId = window.RAWindCatalog && typeof window.RAWindCatalog.generateId === 'function'
+      ? window.RAWindCatalog.generateId(brand, model)
+      : ('wt_' + Date.now());
+
+    const newTurbine = {
+      id: turbineId,
+      manufacturer: brand,
+      model: model,
+      type: wtType,
+      ratedPowerW: Math.round(kw * 1000),
+      rotorDiameterM: diam,
+      bladeCount: (wtType === 'VAWT') ? 2 : 3,
+      hubHeightsAvailableM: hubHeights.length > 0 ? hubHeights : [12, 18, 24],
+      cutInSpeedMs: 2.5,
+      ratedSpeedMs: 11.0,
+      cutOutSpeedMs: 25.0,
+      survivalSpeedMs: 59.5,
+      iecClass: iec,
+      acousticPowerLwaDba: noise,
+      priceEur: price,
+      powerCurve: []
+    };
+
+    if (window.RAWindCatalog && typeof window.RAWindCatalog.upsert === 'function') {
+      window.RAWindCatalog.upsert(newTurbine);
+      window.RAWindCatalog.refreshPanel();
+    }
+    switchCatalogTab('wind_turbines');
+    showStatus('NUEVO AEROGENERADOR AÑADIDO Y DISPONIBLE', 2500);
   }
 }
 
@@ -6901,7 +6970,7 @@ function wpOpenSmartInverterMatchingModal() {
     shadingDiagnostics: shading,
     selectedObjective: cfg.selectedObjective,
     selectedTopology: cfg.selectedTopology,
-    tempMinC: cfg.tempMinC ?? -5,
+    tempMinC: cfg.tempMinC,
     tempMaxCellC: cfg.tempMaxCellC ?? 70
   });
 

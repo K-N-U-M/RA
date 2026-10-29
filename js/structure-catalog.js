@@ -246,6 +246,100 @@
     },
 
     // ── 5. RENDERIZADO DE INTERFAZ EN EL MODAL DE EQUIPOS ─────────────────────
+    
+    getStructurePartItem: function(partKey) {
+      const currentMfg = activeGlobalManufacturer || 'sunfer';
+      const mfg = structuresState[currentMfg] || structuresState.sunfer;
+      const partNames = {
+        railPricePerMeter: 'Perfil carril guía de aluminio 40x40 EN AW-6063 T6 (m lineal)',
+        splicePrice: 'Pieza corredera de empalme de carril con tornillos Inox A2',
+        tileHookPrice: 'Salvatejas regulable Inox A2 (cubierta teja)',
+        sheetScrewPrice: 'Tornillo autorroscante bimetálico EPDM (cubierta chapa)',
+        trianglePrice: 'Escuadra A-Frame de aluminio premontada (plana/suelo)',
+        ballastBlockPrice: 'Bloque prefabricado de hormigón para lastre',
+        endClampPrice: 'Grapa final de aluminio anodizado (End Clamp)',
+        midClampPrice: 'Grapa intermedia con puesta a tierra (Mid Clamp)',
+        tieBarPrice: 'Viga riostra horizontal de arriostramiento'
+      };
+      if (mfg && mfg[partKey] !== undefined) {
+        return {
+          id: partKey,
+          brand: mfg.brand,
+          model: partNames[partKey] || partKey,
+          price: mfg[partKey],
+          partKey: partKey,
+          mfgId: currentMfg
+        };
+      }
+      return null;
+    },
+
+    saveStructurePartItem: function(partKey, price) {
+      const currentMfg = activeGlobalManufacturer || 'sunfer';
+      if (structuresState[currentMfg] && structuresState[currentMfg][partKey] !== undefined) {
+        const num = parseFloat(price);
+        if (!isNaN(num) && num >= 0) {
+          structuresState[currentMfg][partKey] = num;
+          saveStructuresState();
+          this.renderStructuresCatalogUI();
+          return true;
+        }
+      }
+      return false;
+    },
+
+    getInstallationCostItem: function(itemKey) {
+      const parts = itemKey.split('.');
+      if (parts.length === 2) {
+        const cat = parts[0];
+        const field = parts[1];
+        if (installationCostsState[cat] && installationCostsState[cat][field] !== undefined) {
+          const names = {
+            'labor.mechanicalHoursPerPanel': 'Mano de Obra: Montaje mecánico (h/mód)',
+            'labor.electricalHoursPerPanel': 'Mano de Obra: Conexionado eléctrico DC/AC (h/mód)',
+            'labor.commissioningHoursFixed': 'Mano de Obra: Puesta en marcha fija (h)',
+            'labor.hourlyRate': 'Mano de Obra: Tarifa horaria oficial (€/h)',
+            'engineering.technicalProject': 'Ingeniería: Memoria Técnica / Proyecto visado (€)',
+            'engineering.siteSupervision': 'Ingeniería: Dirección facultativa de obra (€)',
+            'engineering.adminCIE': 'Ingeniería: Tramitación legal / CIE / Distribuidora (€)',
+            'permits.urbanPermitFixed': 'Permisos: Tasa urbanística municipal fija (€)',
+            'permits.wasteDeposit': 'Permisos: Fianza de gestión de residuos (€)',
+            'permits.urbanPermitRatePct': 'Permisos: Impuesto ICIO (% sobre PEM)',
+            'auxiliary.lifelineSafety': 'Seguridad: Línea de vida provisional y EPIs (€)',
+            'auxiliary.scaffoldingLift': 'Seguridad: Medios auxiliares (andamio/elevador) (€)',
+            'smallMaterials.perPanelSmallMaterials': 'Material: Pequeño material eléctrico (€/mód)'
+          };
+          return {
+            id: itemKey,
+            brand: 'Instalación & Soft Costs',
+            model: names[itemKey] || itemKey,
+            price: installationCostsState[cat][field],
+            category: cat,
+            field: field
+          };
+        }
+      }
+      return null;
+    },
+
+    saveInstallationCostItem: function(itemKey, value) {
+      const parts = itemKey.split('.');
+      if (parts.length === 2) {
+        const cat = parts[0];
+        const field = parts[1];
+        if (installationCostsState[cat] && installationCostsState[cat][field] !== undefined) {
+          const num = parseFloat(value);
+          if (!isNaN(num) && num >= 0) {
+            installationCostsState[cat][field] = num;
+            saveInstallationCostsState();
+            this.renderInstallationCostsUI();
+            return true;
+          }
+        }
+      }
+      return false;
+    },
+
     renderStructuresCatalogUI: function(container) {
       const pane = container || document.getElementById('cat-pane-structures');
       if (!pane) return;
@@ -262,14 +356,14 @@
                 const s = structuresState[k];
                 const isActive = (k === currentMfg);
                 return `
-                  <button type="button" class="doc-mini-btn" style="padding:4px 10px;font-size:10px;font-weight:${isActive ? '900' : '600'};background:${isActive ? 'rgba(56,189,248,0.2)' : 'rgba(0,0,0,0.3)'};color:${isActive ? '#38BDF8' : '#94A3B8'};border-color:${isActive ? '#38BDF8' : 'rgba(255,255,255,0.1)'};" onclick="RAStructureCatalog.setActiveManufacturer('${k}'); RAStructureCatalog.renderStructuresCatalogUI();">
+                  <button type="button" class="cat-btn ${isActive ? 'cat-btn-edit' : ''}" style="padding:4px 10px;font-size:10px;${isActive ? 'background:rgba(56,189,248,0.2);color:#38BDF8;' : 'color:#94A3B8;'}" onclick="RAStructureCatalog.setActiveManufacturer('${k}'); RAStructureCatalog.renderStructuresCatalogUI();">
                     ${s.brand}
                   </button>
                 `;
               }).join('')}
             </div>
           </div>
-          <button type="button" class="doc-mini-btn" style="color:var(--text-slate-400);font-size: 10px;" onclick="RAStructureCatalog.resetStructures()">
+          <button type="button" class="cat-btn" style="color:var(--text-slate-400);font-size:10px;" onclick="RAStructureCatalog.resetStructures()">
             ↩ Restaurar Precios Fábrica
           </button>
         </div>
@@ -279,91 +373,99 @@
           <div style="font-size:10px;color:var(--text-slate-400);">${mfg.description}</div>
         </div>
 
-        <table style="width:100%;border-collapse:collapse;text-align:left;font-size:11px;">
-          <thead>
-            <tr style="border-bottom:2px solid #334155;color:var(--text-slate-400);font-size: 10px;text-transform:uppercase;">
-              <th style="padding:6px 10px;">Componente / Partida Técnica</th>
-              <th style="padding:6px 10px;text-align:center;">Unidad</th>
-              <th style="padding:6px 10px;text-align:center;">Formato Comercial</th>
-              <th style="padding:6px 10px;text-align:right;">Precio Unitario (€)</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
-              <td style="padding:7px 10px;font-weight:600;color:#fff;">Perfil carril guía de aluminio 40x40 EN AW-6063 T6</td>
-              <td style="padding:7px 10px;text-align:center;color:var(--text-slate-400);">m lineal</td>
-              <td style="padding:7px 10px;text-align:center;color:#38BDF8;">Barras de ${mfg.barLengthM.toFixed(2)} m (${(mfg.railPricePerMeter * mfg.barLengthM).toFixed(2)} €/barra)</td>
-              <td style="padding:7px 10px;text-align:right;">
-                <input type="number" step="0.10" min="0" value="${mfg.railPricePerMeter.toFixed(2)}" style="width:75px;padding:3px 6px;font-size:11px;background:#0F172A;border:1px solid #334155;color:#F8FAFC;border-radius:4px;text-align:right;" onchange="RAStructureCatalog.updatePrice('${currentMfg}', 'railPricePerMeter', this.value)">
-              </td>
-            </tr>
-            <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
-              <td style="padding:7px 10px;font-weight:600;color:#fff;">Pieza corredera de empalme de carril con tornillos Inox A2</td>
-              <td style="padding:7px 10px;text-align:center;color:var(--text-slate-400);">ud</td>
-              <td style="padding:7px 10px;text-align:center;color:var(--text-slate-400);">Kit unión con prisioneros</td>
-              <td style="padding:7px 10px;text-align:right;">
-                <input type="number" step="0.10" min="0" value="${mfg.splicePrice.toFixed(2)}" style="width:75px;padding:3px 6px;font-size:11px;background:#0F172A;border:1px solid #334155;color:#F8FAFC;border-radius:4px;text-align:right;" onchange="RAStructureCatalog.updatePrice('${currentMfg}', 'splicePrice', this.value)">
-              </td>
-            </tr>
-            <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
-              <td style="padding:7px 10px;font-weight:600;color:#fff;">Salvatejas regulable Inox A2 (fijación cubierta de teja)</td>
-              <td style="padding:7px 10px;text-align:center;color:var(--text-slate-400);">ud</td>
-              <td style="padding:7px 10px;text-align:center;color:var(--text-slate-400);">Regulable con tirafondos forjado</td>
-              <td style="padding:7px 10px;text-align:right;">
-                <input type="number" step="0.10" min="0" value="${mfg.tileHookPrice.toFixed(2)}" style="width:75px;padding:3px 6px;font-size:11px;background:#0F172A;border:1px solid #334155;color:#F8FAFC;border-radius:4px;text-align:right;" onchange="RAStructureCatalog.updatePrice('${currentMfg}', 'tileHookPrice', this.value)">
-              </td>
-            </tr>
-            <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
-              <td style="padding:7px 10px;font-weight:600;color:#fff;">Tornillo autorroscante bimetálico con arandela vulcanizada EPDM</td>
-              <td style="padding:7px 10px;text-align:center;color:var(--text-slate-400);">ud</td>
-              <td style="padding:7px 10px;text-align:center;color:var(--text-slate-400);">Fijación greca cubierta chapa</td>
-              <td style="padding:7px 10px;text-align:right;">
-                <input type="number" step="0.05" min="0" value="${mfg.sheetScrewPrice.toFixed(2)}" style="width:75px;padding:3px 6px;font-size:11px;background:#0F172A;border:1px solid #334155;color:#F8FAFC;border-radius:4px;text-align:right;" onchange="RAStructureCatalog.updatePrice('${currentMfg}', 'sheetScrewPrice', this.value)">
-              </td>
-            </tr>
-            <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
-              <td style="padding:7px 10px;font-weight:600;color:#fff;">Escuadra A-Frame de aluminio premontada (cubierta plana / suelo)</td>
-              <td style="padding:7px 10px;text-align:center;color:var(--text-slate-400);">ud</td>
-              <td style="padding:7px 10px;text-align:center;color:var(--text-slate-400);">Triángulo 15º / 30º con tornillería</td>
-              <td style="padding:7px 10px;text-align:right;">
-                <input type="number" step="0.50" min="0" value="${mfg.trianglePrice.toFixed(2)}" style="width:75px;padding:3px 6px;font-size:11px;background:#0F172A;border:1px solid #334155;color:#F8FAFC;border-radius:4px;text-align:right;" onchange="RAStructureCatalog.updatePrice('${currentMfg}', 'trianglePrice', this.value)">
-              </td>
-            </tr>
-            <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
-              <td style="padding:7px 10px;font-weight:600;color:#fff;">Bloque prefabricado de hormigón para lastre (cubierta plana)</td>
-              <td style="padding:7px 10px;text-align:center;color:var(--text-slate-400);">ud</td>
-              <td style="padding:7px 10px;text-align:center;color:var(--text-slate-400);">
-                <div style="display:inline-flex;align-items:center;justify-content:center;gap:4px;">
-                  <span>Peso:</span>
-                  <input type="number" step="1" min="5" max="150" value="${(mfg.ballastBlockWeightKg || 45).toFixed(0)}" style="width:48px;padding:2px 4px;font-size:10px;background:#0F172A;border:1px solid #334155;color:#38BDF8;border-radius:4px;text-align:center;font-weight:bold;" onchange="RAStructureCatalog.updatePrice('${currentMfg}', 'ballastBlockWeightKg', this.value)" title="Peso unitario en kg de cada bloque de hormigón">
-                  <span>kg</span>
-                </div>
-              </td>
-              <td style="padding:7px 10px;text-align:right;">
-                <input type="number" step="0.25" min="0" value="${mfg.ballastBlockPrice.toFixed(2)}" style="width:75px;padding:3px 6px;font-size:11px;background:#0F172A;border:1px solid #334155;color:#F8FAFC;border-radius:4px;text-align:right;" onchange="RAStructureCatalog.updatePrice('${currentMfg}', 'ballastBlockPrice', this.value)">
-              </td>
-            </tr>
-            <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
-              <td style="padding:7px 10px;font-weight:600;color:#fff;">Grapa final de aluminio anodizado (End Clamp) con tornillo allen Inox</td>
-              <td style="padding:7px 10px;text-align:center;color:var(--text-slate-400);">ud</td>
-              <td style="padding:7px 10px;text-align:center;color:var(--text-slate-400);">Extremos de fila de módulos</td>
-              <td style="padding:7px 10px;text-align:right;">
-                <input type="number" step="0.05" min="0" value="${mfg.endClampPrice.toFixed(2)}" style="width:75px;padding:3px 6px;font-size:11px;background:#0F172A;border:1px solid #334155;color:#F8FAFC;border-radius:4px;text-align:right;" onchange="RAStructureCatalog.updatePrice('${currentMfg}', 'endClampPrice', this.value)">
-              </td>
-            </tr>
-            <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
-              <td style="padding:7px 10px;font-weight:600;color:#fff;">Grapa intermedia (Mid Clamp) con arandela de puesta a tierra</td>
-              <td style="padding:7px 10px;text-align:center;color:var(--text-slate-400);">ud</td>
-              <td style="padding:7px 10px;text-align:center;color:var(--text-slate-400);">Unión entre paneles contiguos</td>
-              <td style="padding:7px 10px;text-align:right;">
-                <input type="number" step="0.05" min="0" value="${mfg.midClampPrice.toFixed(2)}" style="width:75px;padding:3px 6px;font-size:11px;background:#0F172A;border:1px solid #334155;color:#F8FAFC;border-radius:4px;text-align:right;" onchange="RAStructureCatalog.updatePrice('${currentMfg}', 'midClampPrice', this.value)">
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="cat-table-wrap">
+          <table class="cat-table">
+            <thead>
+              <tr>
+                <th style="width:40%;">Componente / Partida Técnica</th>
+                <th style="text-align:center;width:10%;">Unidad</th>
+                <th style="text-align:center;width:25%;">Formato Comercial</th>
+                <th style="text-align:center;width:12%;">Precio (€)</th>
+                <th style="text-align:right;width:13%;">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><b>Perfil carril guía de aluminio 40x40 EN AW-6063 T6</b></td>
+                <td style="text-align:center;"><span class="cat-badge cat-badge-blue">m lineal</span></td>
+                <td style="text-align:center;color:#38BDF8;">Barras de ${mfg.barLengthM.toFixed(2)} m (${(mfg.railPricePerMeter * mfg.barLengthM).toFixed(2)} €/barra)</td>
+                <td style="text-align:center;font-weight:bold;color:#FBBF24;">${mfg.railPricePerMeter.toFixed(2)} €</td>
+                <td style="text-align:right;">
+                  <button class="cat-btn cat-btn-edit" onclick="if(window.openEditEquipmentModal) window.openEditEquipmentModal('structures', 'railPricePerMeter');"><i data-lucide="edit-2" class="icon-sm"></i> EDITAR</button>
+                </td>
+              </tr>
+              <tr>
+                <td><b>Pieza corredera de empalme de carril con tornillos Inox A2</b></td>
+                <td style="text-align:center;"><span class="cat-badge cat-badge-blue">ud</span></td>
+                <td style="text-align:center;color:var(--text-slate-400);">Kit unión con prisioneros</td>
+                <td style="text-align:center;font-weight:bold;color:#FBBF24;">${mfg.splicePrice.toFixed(2)} €</td>
+                <td style="text-align:right;">
+                  <button class="cat-btn cat-btn-edit" onclick="if(window.openEditEquipmentModal) window.openEditEquipmentModal('structures', 'splicePrice');"><i data-lucide="edit-2" class="icon-sm"></i> EDITAR</button>
+                </td>
+              </tr>
+              <tr>
+                <td><b>Salvatejas regulable Inox A2 (cubierta teja)</b></td>
+                <td style="text-align:center;"><span class="cat-badge cat-badge-blue">ud</span></td>
+                <td style="text-align:center;color:var(--text-slate-400);">Regulable con tirafondos forjado</td>
+                <td style="text-align:center;font-weight:bold;color:#FBBF24;">${mfg.tileHookPrice.toFixed(2)} €</td>
+                <td style="text-align:right;">
+                  <button class="cat-btn cat-btn-edit" onclick="if(window.openEditEquipmentModal) window.openEditEquipmentModal('structures', 'tileHookPrice');"><i data-lucide="edit-2" class="icon-sm"></i> EDITAR</button>
+                </td>
+              </tr>
+              <tr>
+                <td><b>Tornillo autorroscante bimetálico EPDM (cubierta chapa)</b></td>
+                <td style="text-align:center;"><span class="cat-badge cat-badge-blue">ud</span></td>
+                <td style="text-align:center;color:var(--text-slate-400);">Fijación greca cubierta chapa</td>
+                <td style="text-align:center;font-weight:bold;color:#FBBF24;">${mfg.sheetScrewPrice.toFixed(2)} €</td>
+                <td style="text-align:right;">
+                  <button class="cat-btn cat-btn-edit" onclick="if(window.openEditEquipmentModal) window.openEditEquipmentModal('structures', 'sheetScrewPrice');"><i data-lucide="edit-2" class="icon-sm"></i> EDITAR</button>
+                </td>
+              </tr>
+              <tr>
+                <td><b>Escuadra A-Frame de aluminio premontada (plana/suelo)</b></td>
+                <td style="text-align:center;"><span class="cat-badge cat-badge-blue">ud</span></td>
+                <td style="text-align:center;color:var(--text-slate-400);">Triángulo 15º / 30º con tornillería</td>
+                <td style="text-align:center;font-weight:bold;color:#FBBF24;">${mfg.trianglePrice.toFixed(2)} €</td>
+                <td style="text-align:right;">
+                  <button class="cat-btn cat-btn-edit" onclick="if(window.openEditEquipmentModal) window.openEditEquipmentModal('structures', 'trianglePrice');"><i data-lucide="edit-2" class="icon-sm"></i> EDITAR</button>
+                </td>
+              </tr>
+              <tr>
+                <td><b>Bloque prefabricado de hormigón para lastre (cubierta plana)</b></td>
+                <td style="text-align:center;"><span class="cat-badge cat-badge-blue">ud</span></td>
+                <td style="text-align:center;color:#38BDF8;">Masa: ${(mfg.ballastBlockWeightKg || 45).toFixed(0)} kg</td>
+                <td style="text-align:center;font-weight:bold;color:#FBBF24;">${mfg.ballastBlockPrice.toFixed(2)} €</td>
+                <td style="text-align:right;">
+                  <button class="cat-btn cat-btn-edit" onclick="if(window.openEditEquipmentModal) window.openEditEquipmentModal('structures', 'ballastBlockPrice');"><i data-lucide="edit-2" class="icon-sm"></i> EDITAR</button>
+                </td>
+              </tr>
+              <tr>
+                <td><b>Grapa final de aluminio anodizado (End Clamp)</b></td>
+                <td style="text-align:center;"><span class="cat-badge cat-badge-blue">ud</span></td>
+                <td style="text-align:center;color:var(--text-slate-400);">Extremos de fila de módulos</td>
+                <td style="text-align:center;font-weight:bold;color:#FBBF24;">${mfg.endClampPrice.toFixed(2)} €</td>
+                <td style="text-align:right;">
+                  <button class="cat-btn cat-btn-edit" onclick="if(window.openEditEquipmentModal) window.openEditEquipmentModal('structures', 'endClampPrice');"><i data-lucide="edit-2" class="icon-sm"></i> EDITAR</button>
+                </td>
+              </tr>
+              <tr>
+                <td><b>Grapa intermedia con puesta a tierra (Mid Clamp)</b></td>
+                <td style="text-align:center;"><span class="cat-badge cat-badge-blue">ud</span></td>
+                <td style="text-align:center;color:var(--text-slate-400);">Unión entre paneles contiguos</td>
+                <td style="text-align:center;font-weight:bold;color:#FBBF24;">${mfg.midClampPrice.toFixed(2)} €</td>
+                <td style="text-align:right;">
+                  <button class="cat-btn cat-btn-edit" onclick="if(window.openEditEquipmentModal) window.openEditEquipmentModal('structures', 'midClampPrice');"><i data-lucide="edit-2" class="icon-sm"></i> EDITAR</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       `;
 
       pane.innerHTML = html;
+      if (typeof lucide !== 'undefined' && lucide.createIcons) {
+        try { lucide.createIcons(); } catch(e){}
+      }
     },
 
     renderInstallationCostsUI: function(container) {
@@ -389,7 +491,7 @@
           <div style="font-size:11px;font-weight:700;color:var(--text-slate-300);">
             DESGLOSE ECONÓMICO DE MANO DE OBRA, INGENIERÍA Y GASTOS DIRECTOS
           </div>
-          <button type="button" class="doc-mini-btn" style="color:var(--text-slate-400);font-size: 10px;" onclick="RAStructureCatalog.resetInstallationCosts()">
+          <button type="button" class="cat-btn" style="color:var(--text-slate-400);font-size:10px;" onclick="RAStructureCatalog.resetInstallationCosts()">
             ↩ Restaurar Valores Fábrica
           </button>
         </div>
@@ -398,37 +500,37 @@
           
           <!-- Bloque 1: Mano de Obra -->
           <div style="background:rgba(30,41,59,0.3);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:12px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
               <span style="font-weight:800;font-size:11.5px;color:#38BDF8;">👷 Mano de Obra Especialista</span>
-              <span style="font-weight:800;font-size:11px;color:#38BDF8;">${laborTotal.toFixed(2)} €</span>
+              <span class="cat-badge cat-badge-cyan">${laborTotal.toFixed(2)} €</span>
             </div>
-            <div style="display:flex;flex-direction:column;gap:6px;font-size:10.5px;">
+            <div style="display:flex;flex-direction:column;gap:8px;font-size:10.5px;">
               <div style="display:flex;justify-content:space-between;align-items:center;">
                 <span style="color:var(--text-slate-300);">Montaje mecánico estructura:</span>
-                <div style="display:flex;align-items:center;gap:4px;">
-                  <input type="number" step="0.05" min="0" value="${costs.labor.mechanicalHoursPerPanel}" style="width:55px;padding:2px 4px;font-size:10.5px;background:#0F172A;border:1px solid #334155;color:#F8FAFC;border-radius:4px;text-align:right;" onchange="RAStructureCatalog.updateInstallationCost('labor', 'mechanicalHoursPerPanel', this.value)">
-                  <span style="font-size: 10px;color:var(--text-slate-400);">h/mód (${mechH} h)</span>
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <span style="font-size:10.5px;color:#fff;font-weight:600;">${costs.labor.mechanicalHoursPerPanel} h/mód</span>
+                  <button class="cat-btn cat-btn-edit" onclick="if(window.openEditEquipmentModal) window.openEditEquipmentModal('installation_costs', 'labor.mechanicalHoursPerPanel');"><i data-lucide="edit-2" class="icon-sm"></i></button>
                 </div>
               </div>
               <div style="display:flex;justify-content:space-between;align-items:center;">
                 <span style="color:var(--text-slate-300);">Conexionado eléctrico DC/AC:</span>
-                <div style="display:flex;align-items:center;gap:4px;">
-                  <input type="number" step="0.05" min="0" value="${costs.labor.electricalHoursPerPanel}" style="width:55px;padding:2px 4px;font-size:10.5px;background:#0F172A;border:1px solid #334155;color:#F8FAFC;border-radius:4px;text-align:right;" onchange="RAStructureCatalog.updateInstallationCost('labor', 'electricalHoursPerPanel', this.value)">
-                  <span style="font-size: 10px;color:var(--text-slate-400);">h/mód (${elecH} h)</span>
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <span style="font-size:10.5px;color:#fff;font-weight:600;">${costs.labor.electricalHoursPerPanel} h/mód</span>
+                  <button class="cat-btn cat-btn-edit" onclick="if(window.openEditEquipmentModal) window.openEditEquipmentModal('installation_costs', 'labor.electricalHoursPerPanel');"><i data-lucide="edit-2" class="icon-sm"></i></button>
                 </div>
               </div>
               <div style="display:flex;justify-content:space-between;align-items:center;">
                 <span style="color:var(--text-slate-300);">Puesta en marcha y verificación:</span>
-                <div style="display:flex;align-items:center;gap:4px;">
-                  <input type="number" step="0.5" min="0" value="${costs.labor.commissioningHoursFixed}" style="width:55px;padding:2px 4px;font-size:10.5px;background:#0F172A;border:1px solid #334155;color:#F8FAFC;border-radius:4px;text-align:right;" onchange="RAStructureCatalog.updateInstallationCost('labor', 'commissioningHoursFixed', this.value)">
-                  <span style="font-size: 10px;color:var(--text-slate-400);">h fijas</span>
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <span style="font-size:10.5px;color:#fff;font-weight:600;">${costs.labor.commissioningHoursFixed} h fijas</span>
+                  <button class="cat-btn cat-btn-edit" onclick="if(window.openEditEquipmentModal) window.openEditEquipmentModal('installation_costs', 'labor.commissioningHoursFixed');"><i data-lucide="edit-2" class="icon-sm"></i></button>
                 </div>
               </div>
-              <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px dashed rgba(255,255,255,0.1);padding-top:4px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px dashed rgba(255,255,255,0.1);padding-top:6px;">
                 <span style="color:#F59E0B;font-weight:700;">Tarifa horaria oficial:</span>
-                <div style="display:flex;align-items:center;gap:4px;">
-                  <input type="number" step="1.0" min="0" value="${costs.labor.hourlyRate}" style="width:65px;padding:2px 4px;font-size:10.5px;background:#0F172A;border:1px solid #334155;color:#F59E0B;font-weight:700;border-radius:4px;text-align:right;" onchange="RAStructureCatalog.updateInstallationCost('labor', 'hourlyRate', this.value)">
-                  <span style="font-size: 10px;color:var(--text-slate-400);">€/hora</span>
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <span style="font-size:11px;color:#F59E0B;font-weight:bold;">${costs.labor.hourlyRate.toFixed(2)} €/h</span>
+                  <button class="cat-btn cat-btn-edit" onclick="if(window.openEditEquipmentModal) window.openEditEquipmentModal('installation_costs', 'labor.hourlyRate');"><i data-lucide="edit-2" class="icon-sm"></i></button>
                 </div>
               </div>
             </div>
@@ -436,68 +538,92 @@
 
           <!-- Bloque 2: Ingeniería y Legalización -->
           <div style="background:rgba(30,41,59,0.3);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:12px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
               <span style="font-weight:800;font-size:11.5px;color:#A78BFA;">📐 Ingeniería y Legalización</span>
-              <span style="font-weight:800;font-size:11px;color:#A78BFA;">${engTotal.toFixed(2)} €</span>
+              <span class="cat-badge cat-badge-purple">${engTotal.toFixed(2)} €</span>
             </div>
-            <div style="display:flex;flex-direction:column;gap:6px;font-size:10.5px;">
+            <div style="display:flex;flex-direction:column;gap:8px;font-size:10.5px;">
               <div style="display:flex;justify-content:space-between;align-items:center;">
                 <span style="color:var(--text-slate-300);">Memoria Técnica / Proyecto visado:</span>
-                <input type="number" step="25" min="0" value="${costs.engineering.technicalProject}" style="width:75px;padding:2px 4px;font-size:10.5px;background:#0F172A;border:1px solid #334155;color:#F8FAFC;border-radius:4px;text-align:right;" onchange="RAStructureCatalog.updateInstallationCost('engineering', 'technicalProject', this.value)">
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <span style="font-size:10.5px;color:#fff;font-weight:600;">${costs.engineering.technicalProject.toFixed(2)} €</span>
+                  <button class="cat-btn cat-btn-edit" onclick="if(window.openEditEquipmentModal) window.openEditEquipmentModal('installation_costs', 'engineering.technicalProject');"><i data-lucide="edit-2" class="icon-sm"></i></button>
+                </div>
               </div>
               <div style="display:flex;justify-content:space-between;align-items:center;">
                 <span style="color:var(--text-slate-300);">Dirección facultativa de obra:</span>
-                <input type="number" step="25" min="0" value="${costs.engineering.siteSupervision}" style="width:75px;padding:2px 4px;font-size:10.5px;background:#0F172A;border:1px solid #334155;color:#F8FAFC;border-radius:4px;text-align:right;" onchange="RAStructureCatalog.updateInstallationCost('engineering', 'siteSupervision', this.value)">
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <span style="font-size:10.5px;color:#fff;font-weight:600;">${costs.engineering.siteSupervision.toFixed(2)} €</span>
+                  <button class="cat-btn cat-btn-edit" onclick="if(window.openEditEquipmentModal) window.openEditEquipmentModal('installation_costs', 'engineering.siteSupervision');"><i data-lucide="edit-2" class="icon-sm"></i></button>
+                </div>
               </div>
               <div style="display:flex;justify-content:space-between;align-items:center;">
                 <span style="color:var(--text-slate-300);">Tramitación y Boletín CIE:</span>
-                <input type="number" step="10" min="0" value="${costs.engineering.adminCIE}" style="width:75px;padding:2px 4px;font-size:10.5px;background:#0F172A;border:1px solid #334155;color:#F8FAFC;border-radius:4px;text-align:right;" onchange="RAStructureCatalog.updateInstallationCost('engineering', 'adminCIE', this.value)">
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <span style="font-size:10.5px;color:#fff;font-weight:600;">${costs.engineering.adminCIE.toFixed(2)} €</span>
+                  <button class="cat-btn cat-btn-edit" onclick="if(window.openEditEquipmentModal) window.openEditEquipmentModal('installation_costs', 'engineering.adminCIE');"><i data-lucide="edit-2" class="icon-sm"></i></button>
+                </div>
               </div>
             </div>
           </div>
 
           <!-- Bloque 3: Permisos y Tasas -->
           <div style="background:rgba(30,41,59,0.3);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:12px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
               <span style="font-weight:800;font-size:11.5px;color:#F59E0B;">🏛️ Permisos y Tasas Municipales</span>
-              <span style="font-weight:800;font-size:11px;color:#F59E0B;">${permitsTotal.toFixed(2)} €</span>
+              <span class="cat-badge cat-badge-amber">${permitsTotal.toFixed(2)} €</span>
             </div>
-            <div style="display:flex;flex-direction:column;gap:6px;font-size:10.5px;">
+            <div style="display:flex;flex-direction:column;gap:8px;font-size:10.5px;">
               <div style="display:flex;justify-content:space-between;align-items:center;">
                 <span style="color:var(--text-slate-300);">Comunicación previa / Tasa urbanística:</span>
-                <input type="number" step="10" min="0" value="${costs.permits.urbanPermitFixed}" style="width:75px;padding:2px 4px;font-size:10.5px;background:#0F172A;border:1px solid #334155;color:#F8FAFC;border-radius:4px;text-align:right;" onchange="RAStructureCatalog.updateInstallationCost('permits', 'urbanPermitFixed', this.value)">
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <span style="font-size:10.5px;color:#fff;font-weight:600;">${costs.permits.urbanPermitFixed.toFixed(2)} €</span>
+                  <button class="cat-btn cat-btn-edit" onclick="if(window.openEditEquipmentModal) window.openEditEquipmentModal('installation_costs', 'permits.urbanPermitFixed');"><i data-lucide="edit-2" class="icon-sm"></i></button>
+                </div>
               </div>
               <div style="display:flex;justify-content:space-between;align-items:center;">
                 <span style="color:var(--text-slate-300);">Fianza de gestión de residuos:</span>
-                <input type="number" step="10" min="0" value="${costs.permits.wasteDeposit}" style="width:75px;padding:2px 4px;font-size:10.5px;background:#0F172A;border:1px solid #334155;color:#F8FAFC;border-radius:4px;text-align:right;" onchange="RAStructureCatalog.updateInstallationCost('permits', 'wasteDeposit', this.value)">
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <span style="font-size:10.5px;color:#fff;font-weight:600;">${costs.permits.wasteDeposit.toFixed(2)} €</span>
+                  <button class="cat-btn cat-btn-edit" onclick="if(window.openEditEquipmentModal) window.openEditEquipmentModal('installation_costs', 'permits.wasteDeposit');"><i data-lucide="edit-2" class="icon-sm"></i></button>
+                </div>
               </div>
               <div style="display:flex;justify-content:space-between;align-items:center;">
                 <span style="color:var(--text-slate-300);">Impuesto ICIO (% sobre PEM):</span>
-                <input type="number" step="0.25" min="0" value="${costs.permits.urbanPermitRatePct}" style="width:75px;padding:2px 4px;font-size:10.5px;background:#0F172A;border:1px solid #334155;color:#F8FAFC;border-radius:4px;text-align:right;" onchange="RAStructureCatalog.updateInstallationCost('permits', 'urbanPermitRatePct', this.value)">
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <span style="font-size:10.5px;color:#fff;font-weight:600;">${costs.permits.urbanPermitRatePct.toFixed(2)} %</span>
+                  <button class="cat-btn cat-btn-edit" onclick="if(window.openEditEquipmentModal) window.openEditEquipmentModal('installation_costs', 'permits.urbanPermitRatePct');"><i data-lucide="edit-2" class="icon-sm"></i></button>
+                </div>
               </div>
             </div>
           </div>
 
           <!-- Bloque 4: Medios Auxiliares y Seguridad -->
           <div style="background:rgba(30,41,59,0.3);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:12px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
               <span style="font-weight:800;font-size:11.5px;color:#10B981;">🦺 Seguridad y Pequeño Material</span>
-              <span style="font-weight:800;font-size:11px;color:#10B981;">${(auxTotal + smallMatTotal).toFixed(2)} €</span>
+              <span class="cat-badge cat-badge-emerald">${(auxTotal + smallMatTotal).toFixed(2)} €</span>
             </div>
-            <div style="display:flex;flex-direction:column;gap:6px;font-size:10.5px;">
+            <div style="display:flex;flex-direction:column;gap:8px;font-size:10.5px;">
               <div style="display:flex;justify-content:space-between;align-items:center;">
                 <span style="color:var(--text-slate-300);">Línea de vida provisional y EPIs:</span>
-                <input type="number" step="25" min="0" value="${costs.auxiliary.lifelineSafety}" style="width:75px;padding:2px 4px;font-size:10.5px;background:#0F172A;border:1px solid #334155;color:#F8FAFC;border-radius:4px;text-align:right;" onchange="RAStructureCatalog.updateInstallationCost('auxiliary', 'lifelineSafety', this.value)">
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <span style="font-size:10.5px;color:#fff;font-weight:600;">${costs.auxiliary.lifelineSafety.toFixed(2)} €</span>
+                  <button class="cat-btn cat-btn-edit" onclick="if(window.openEditEquipmentModal) window.openEditEquipmentModal('installation_costs', 'auxiliary.lifelineSafety');"><i data-lucide="edit-2" class="icon-sm"></i></button>
+                </div>
               </div>
               <div style="display:flex;justify-content:space-between;align-items:center;">
                 <span style="color:var(--text-slate-300);">Medios auxiliares (andamio / elevador):</span>
-                <input type="number" step="25" min="0" value="${costs.auxiliary.scaffoldingLift}" style="width:75px;padding:2px 4px;font-size:10.5px;background:#0F172A;border:1px solid #334155;color:#F8FAFC;border-radius:4px;text-align:right;" onchange="RAStructureCatalog.updateInstallationCost('auxiliary', 'scaffoldingLift', this.value)">
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <span style="font-size:10.5px;color:#fff;font-weight:600;">${costs.auxiliary.scaffoldingLift.toFixed(2)} €</span>
+                  <button class="cat-btn cat-btn-edit" onclick="if(window.openEditEquipmentModal) window.openEditEquipmentModal('installation_costs', 'auxiliary.scaffoldingLift');"><i data-lucide="edit-2" class="icon-sm"></i></button>
+                </div>
               </div>
-              <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px dashed rgba(255,255,255,0.1);padding-top:4px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px dashed rgba(255,255,255,0.1);padding-top:6px;">
                 <span style="color:var(--text-slate-300);">Pequeño material eléctrico (${totalPanels} mód.):</span>
-                <div style="display:flex;align-items:center;gap:4px;">
-                  <input type="number" step="0.5" min="0" value="${costs.smallMaterials.perPanelSmallMaterials}" style="width:55px;padding:2px 4px;font-size:10.5px;background:#0F172A;border:1px solid #334155;color:#F8FAFC;border-radius:4px;text-align:right;" onchange="RAStructureCatalog.updateInstallationCost('smallMaterials', 'perPanelSmallMaterials', this.value)">
-                  <span style="font-size: 10px;color:var(--text-slate-400);">€/mód</span>
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <span style="font-size:10.5px;color:#fff;font-weight:600;">${costs.smallMaterials.perPanelSmallMaterials.toFixed(2)} €/mód</span>
+                  <button class="cat-btn cat-btn-edit" onclick="if(window.openEditEquipmentModal) window.openEditEquipmentModal('installation_costs', 'smallMaterials.perPanelSmallMaterials');"><i data-lucide="edit-2" class="icon-sm"></i></button>
                 </div>
               </div>
             </div>
@@ -507,6 +633,9 @@
       `;
 
       pane.innerHTML = html;
+      if (typeof lucide !== 'undefined' && lucide.createIcons) {
+        try { lucide.createIcons(); } catch(e){}
+      }
     }
   };
 

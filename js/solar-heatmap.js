@@ -620,6 +620,7 @@
           uVec,
           vVec,
           normalWorld: norm,
+          ignore3DTilesShadows: !!(poly.ignore3DTilesShadows || (pInfo && pInfo.ignore3DTilesShadows)),
           obstacles2D
         });
 
@@ -764,6 +765,7 @@
     polylines.forEach((poly, polyIdx) => {
       if (!poly.roofInfo && typeof computeSinglePolylineRoofInfo === 'function') {
         poly.roofInfo = computeSinglePolylineRoofInfo(poly.points, poly);
+        if (poly.roofInfo) poly.roofInfo.ignore3DTilesShadows = !!poly.ignore3DTilesShadows;
       }
       if (livePanels) {
         const matchingLive = livePanels.filter(lp => lp && (lp.polyIdx === polyIdx || (!lp.polyIdx && polyIdx === 0)));

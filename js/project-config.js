@@ -518,11 +518,17 @@ function step3UpdateHardwareSelection() {
   if (elImp) {
     const modImp = mod.imp || 13.0;
     const totalImp = modImp * _stringsPerMppt;
-    const invImaxOper = inv.iMaxOperA || (inv.iMaxScA ? Math.round(inv.iMaxScA * 0.75 * 10) / 10 : 15.0);
-    const hasClipping = totalImp > invImaxOper;
-    const strLabel = _stringsPerMppt === 1 ? '1 string/MPPT' : (_stringsPerMppt + ' strings/MPPT');
-    elImp.innerHTML = totalImp.toFixed(1) + ' A (' + strLabel + ') ≤ ' + invImaxOper.toFixed(1) + ' A (' + (hasClipping ? '<i data-lucide="alert-triangle" class="icon-sm"></i> CLIPPING' : 'Óptimo') + ')';
-    elImp.style.color = hasClipping ? '#F59E0B' : '#10B981';
+    // [AUD-2026 · H4] Sin corriente máxima en el datasheet no se inventa un valor.
+    const invImaxOper = inv.iMaxOperA || (inv.iMaxScA ? Math.round(inv.iMaxScA * 0.75 * 10) / 10 : null);
+    if (invImaxOper == null) {
+      elImp.textContent = 'sin dato (falta iMaxOperA en el catálogo)';
+      elImp.style.color = '#94a3b8';
+    } else {
+      const hasClipping = totalImp > invImaxOper;
+      const strLabel = _stringsPerMppt === 1 ? '1 string/MPPT' : (_stringsPerMppt + ' strings/MPPT');
+      elImp.innerHTML = totalImp.toFixed(1) + ' A (' + strLabel + ') ≤ ' + invImaxOper.toFixed(1) + ' A (' + (hasClipping ? '<i data-lucide="alert-triangle" class="icon-sm"></i> CLIPPING' : 'Óptimo') + ')';
+      elImp.style.color = hasClipping ? '#F59E0B' : '#10B981';
+    }
   }
 
   // Verificación de Seguridad de Intensidad de Cortocircuito (Isc vs Imax_inversor)
@@ -530,11 +536,16 @@ function step3UpdateHardwareSelection() {
   if (elIsc) {
     const modIsc = mod.isc || 14.0;
     const totalIsc = modIsc * _stringsPerMppt;
-    const invImaxSc = inv.iMaxScA || 30.0;
-    const isSafe = totalIsc <= invImaxSc;
-    const strLabel = _stringsPerMppt === 1 ? '1 string/MPPT' : (_stringsPerMppt + ' strings/MPPT');
-    elIsc.innerHTML = totalIsc.toFixed(1) + ' A (' + strLabel + ') ≤ ' + invImaxSc.toFixed(1) + ' A (' + (isSafe ? 'OK' : '<i data-lucide="alert-triangle" class="icon-sm"></i> ATENCIÓN') + ')';
-    elIsc.style.color = isSafe ? '#10B981' : '#EF4444';
+    const invImaxSc = inv.iMaxScA || null;
+    if (invImaxSc == null) {
+      elIsc.textContent = 'sin dato (falta iMaxScA en el catálogo)';
+      elIsc.style.color = '#94a3b8';
+    } else {
+      const isSafe = totalIsc <= invImaxSc;
+      const strLabel = _stringsPerMppt === 1 ? '1 string/MPPT' : (_stringsPerMppt + ' strings/MPPT');
+      elIsc.innerHTML = totalIsc.toFixed(1) + ' A (' + strLabel + ') ≤ ' + invImaxSc.toFixed(1) + ' A (' + (isSafe ? 'OK' : '<i data-lucide="alert-triangle" class="icon-sm"></i> ATENCIÓN') + ')';
+      elIsc.style.color = isSafe ? '#10B981' : '#EF4444';
+    }
   }
 
   if (window.lucide && typeof window.lucide.createIcons === 'function') {
@@ -720,10 +731,36 @@ function wpUpdateStep4Checklist() {
   }
 
   if (chkRebt) {
-    const sState = (typeof window !== 'undefined' && window.inverterEquipmentState) ? window.inverterEquipmentState : null; const dVdc = (sState && Number.isFinite(sState.dV_dc_pct)) ? sState.dV_dc_pct : 0.8; const dVac = (sState && Number.isFinite(sState.dV_ac_pct)) ? sState.dV_ac_pct : 0.6; const globalCheck = (typeof calculateGlobalVoltageDrop === 'function') ? calculateGlobalVoltageDrop(dVdc, dVac) : { totalPct: Math.round((dVdc + dVac) * 100) / 100, valid: (dVdc + dVac) <= 2.5 }; const totalDropPct = Number.isFinite(globalCheck.totalPct) ? globalCheck.totalPct : (dVdc + dVac); const dcFail = Boolean((sState && sState.dcNonCompliantWarning) || (dVdc > 1.5)); const acFail = Boolean((sState && sState.acNonCompliantWarning) || (dVac > 1.5)); const globalFail = Boolean((sState && sState.globalNonCompliantWarning) || !globalCheck.valid || (totalDropPct > 2.5)); if (dcFail || acFail) { chkRebt.textContent = '⚠️ REBT: ΔV > 1.5% (DC ' + dVdc.toFixed(1) + '% / AC ' + dVac.toFixed(1) + '%)'; chkRebt.style.color = '#EF4444'; chkRebt.style.background = 'rgba(239,68,68,0.15)'; chkRebt.style.borderColor = 'rgba(239,68,68,0.35)'; chkRebt.title = 'Incumplimiento REBT ITC-BT-40: caída de tensión en tramo supera el 1.5% máximo admisible.'; } else if (globalFail) { chkRebt.textContent = '⚠️ REBT: ΔV Total ' + totalDropPct.toFixed(1) + '% > 2.5%'; chkRebt.style.color = '#F59E0B'; chkRebt.style.background = 'rgba(245,158,11,0.15)'; chkRebt.style.borderColor = 'rgba(245,158,11,0.35)'; chkRebt.title = 'Advertencia REBT ITC-BT-40 / IDAE: la caída de tensión acumulada DC + AC (' + totalDropPct.toFixed(2) + '%) supera el 2.5% recomendado.'; } else { chkRebt.textContent = '✓ REBT: ΔV ≤ 1.5% (Total ' + totalDropPct.toFixed(1) + '%)'; chkRebt.style.color = '#10B981'; chkRebt.style.background = 'rgba(16,185,129,0.15)'; chkRebt.style.borderColor = 'rgba(16,185,129,0.3)'; chkRebt.title = ''; } return;
-    chkRebt.style.color = '#10B981';
-    chkRebt.style.background = 'rgba(16,185,129,0.15)';
-    chkRebt.style.borderColor = 'rgba(16,185,129,0.3)';
+    const sState = (typeof window !== 'undefined' && window.inverterEquipmentState) ? window.inverterEquipmentState : null;
+    const dVdc = (sState && Number.isFinite(sState.dV_dc_pct)) ? sState.dV_dc_pct : 0.8;
+    const dVac = (sState && Number.isFinite(sState.dV_ac_pct)) ? sState.dV_ac_pct : 0.6;
+    const globalCheck = (typeof calculateGlobalVoltageDrop === 'function')
+      ? calculateGlobalVoltageDrop(dVdc, dVac)
+      : { totalPct: Math.round((dVdc + dVac) * 100) / 100, valid: (dVdc + dVac) <= 2.5 };
+    const totalDropPct = Number.isFinite(globalCheck.totalPct) ? globalCheck.totalPct : (dVdc + dVac);
+    const dcFail = Boolean((sState && sState.dcNonCompliantWarning) || (dVdc > 1.5));
+    const acFail = Boolean((sState && sState.acNonCompliantWarning) || (dVac > 1.5));
+    const globalFail = Boolean((sState && sState.globalNonCompliantWarning) || !globalCheck.valid || (totalDropPct > 2.5));
+    // [AUD-2026 · H5/H6] Atribución canónica (el 1,5 % es criterio de proyecto) y sin código muerto.
+    if (dcFail || acFail) {
+      chkRebt.textContent = '⚠️ ΔV tramo > 1.5% (DC ' + dVdc.toFixed(1) + '% / AC ' + dVac.toFixed(1) + '%)';
+      chkRebt.style.color = '#EF4444';
+      chkRebt.style.background = 'rgba(239,68,68,0.15)';
+      chkRebt.style.borderColor = 'rgba(239,68,68,0.35)';
+      chkRebt.title = 'Caída de tensión en tramo supera el 1.5 % (criterio de proyecto · guía ITC-BT-40 / ITC-BT-19).';
+    } else if (globalFail) {
+      chkRebt.textContent = '⚠️ ΔV Total ' + totalDropPct.toFixed(1) + '% > 2.5%';
+      chkRebt.style.color = '#F59E0B';
+      chkRebt.style.background = 'rgba(245,158,11,0.15)';
+      chkRebt.style.borderColor = 'rgba(245,158,11,0.35)';
+      chkRebt.title = 'La caída de tensión acumulada DC + AC (' + totalDropPct.toFixed(2) + '%) supera el 2.5 % (criterio de proyecto).';
+    } else {
+      chkRebt.textContent = '✓ ΔV ≤ 1.5% (Total ' + totalDropPct.toFixed(1) + '%)';
+      chkRebt.style.color = '#10B981';
+      chkRebt.style.background = 'rgba(16,185,129,0.15)';
+      chkRebt.style.borderColor = 'rgba(16,185,129,0.3)';
+      chkRebt.title = '';
+    }
   }
 }
 window.wpUpdateStep4Checklist = wpUpdateStep4Checklist;
@@ -888,11 +925,7 @@ function wpComputeAutoSizing(forcedCount) {
 
   const prevInvCount = cfg.autoSizing.inverters.count;
   cfg.autoSizing.inverters.autoCount = autoInverters;
-  if (!cfg.autoSizing.inverters.isManual || cfg.autoSizing.inverters.count > autoInverters * 2 || autoInverters > cfg.autoSizing.inverters.count * 3) {
-    if (cfg.autoSizing.inverters.isManual && cfg.autoSizing.inverters.count !== autoInverters) {
-      console.log('[RA-AutoSizing] Auto-resetting manual inverter count due to drastic layout change');
-      cfg.autoSizing.inverters.isManual = false;
-    }
+  if (!cfg.autoSizing.inverters.isManual) {
     cfg.autoSizing.inverters.count = autoInverters;
   }
   if (prevInvCount !== cfg.autoSizing.inverters.count) {
@@ -903,18 +936,12 @@ function wpComputeAutoSizing(forcedCount) {
   }
 
   cfg.autoSizing.microinverters.autoCount = autoMicros;
-  if (!cfg.autoSizing.microinverters.isManual || cfg.autoSizing.microinverters.count > autoMicros * 2 || autoMicros > cfg.autoSizing.microinverters.count * 3) {
-    if (cfg.autoSizing.microinverters.isManual && cfg.autoSizing.microinverters.count !== autoMicros) {
-      cfg.autoSizing.microinverters.isManual = false;
-    }
+  if (!cfg.autoSizing.microinverters.isManual) {
     cfg.autoSizing.microinverters.count = autoMicros;
   }
 
   cfg.autoSizing.batteries.autoCount = autoBats;
-  if (!cfg.autoSizing.batteries.isManual || cfg.autoSizing.batteries.count === 0 || cfg.autoSizing.batteries.count > autoBats * 2 || autoBats > cfg.autoSizing.batteries.count * 3) {
-    if (cfg.autoSizing.batteries.isManual && cfg.autoSizing.batteries.count !== autoBats) {
-      cfg.autoSizing.batteries.isManual = false;
-    }
+  if (!cfg.autoSizing.batteries.isManual) {
     cfg.autoSizing.batteries.count = autoBats;
   }
 
@@ -1089,7 +1116,8 @@ function wpSetManualQuantity(type, val) {
   if (!cfg.autoSizing || !cfg.autoSizing[type]) return;
 
   const minVal = (type === 'batteries' || type === 'microinverters') ? 0 : 1;
-  const nextVal = Math.max(minVal, parseInt(val, 10) || minVal);
+  const parsed = parseInt(val, 10);
+  const nextVal = Math.max(minVal, isNaN(parsed) ? minVal : parsed);
 
   cfg.autoSizing[type].count = nextVal;
   cfg.autoSizing[type].isManual = true;
@@ -1125,9 +1153,9 @@ function step3SyncBudgetHardwareCosts(inv, mi, bat) {
     totalInvCost = invCount * (inv.price || 1200);
   }
 
-  const batCount = (cfg.autoSizing && cfg.autoSizing.batteries) ? Math.max(1, cfg.autoSizing.batteries.count) : 1;
+  const batCount = (cfg.autoSizing && cfg.autoSizing.batteries) ? Math.max(0, cfg.autoSizing.batteries.count) : 0;
   const hasValidBat = (bat && bat.id !== 'bat_none' && (bat.kwh > 0 || bat.price > 0));
-  const totalBatCost = hasValidBat ? (batCount * (bat.price || 0)) : 0;
+  const totalBatCost = (hasValidBat && batCount > 0) ? (batCount * (bat.price || 0)) : 0;
 
   if (invCostEl) invCostEl.value = Math.round(totalInvCost);
   if (batCostEl) batCostEl.value = Math.round(totalBatCost);
@@ -1342,7 +1370,7 @@ function wpAutoSelectOptimalEngineering(force = false) {
     gridSupply: gridSupply,
     distinctOrientations: distinctOrientations,
     shadingDiagnostics: shading,
-    selectedObjective: cfg.selectedObjective, tempMinC: cfg.tempMinC ?? -5, tempMaxCellC: cfg.tempMaxCellC ?? 70
+    selectedObjective: cfg.selectedObjective, tempMinC: cfg.tempMinC, tempMaxCellC: cfg.tempMaxCellC ?? 70
   });
 
   const bestTopology = match.recommendedTopology || 'inverter';
@@ -1630,7 +1658,7 @@ function wpRefreshAutoEngineeringBanner(preferredTopology) {
       gridSupply: gridSupply,
       distinctOrientations: distinctOrientations,
       shadingDiagnostics: shading,
-      selectedObjective: cfg.selectedObjective, tempMinC: cfg.tempMinC ?? -5, tempMaxCellC: cfg.tempMaxCellC ?? 70,
+      selectedObjective: cfg.selectedObjective, tempMinC: cfg.tempMinC, tempMaxCellC: cfg.tempMaxCellC ?? 70,
       selectedTopology: topo
     });
   }
@@ -2219,38 +2247,118 @@ function wpRenderStep4SingleLineDiagramUI() {
   const catalog = (typeof window.equipmentCatalog !== 'undefined') ? window.equipmentCatalog : null;
   const invSpec = (catalog && catalog.inverters && catalog.inverters.find(i => i.id === cfg.selectedInverterId)) || { kw: 5, brand: 'Inversor' };
 
+  // Cantidad real de inversores dimensionados o seleccionados
+  const invCount = Math.max(1, (cfg.autoSizing && cfg.autoSizing.inverters && cfg.autoSizing.inverters.count) || cfg.inverterCount || 1);
+
   const numRoofs = polylines.length;
-  const svgHeight = Math.max(120, numRoofs * 32 + 25);
-  const svgWidth = 320;
+  // Calculamos altura dinámica en base al elemento que requiera más espacio vertical
+  const svgHeight = Math.max(140, Math.max(numRoofs, invCount) * 36 + 25);
+  const svgWidth = 340;
+
+  // Calculamos posiciones de los inversores
+  const invWidth = 60;
+  const invHeight = 28;
+  const invX = 165;
+  const invSpacing = Math.min(42, (svgHeight - 30) / Math.max(1, invCount));
+  const invStartY = (svgHeight - ((invCount - 1) * invSpacing + invHeight)) / 2;
+
+  const inverters = [];
+  for (let i = 0; i < invCount; i++) {
+    const iy = invStartY + (i * invSpacing);
+    inverters.push({
+      idx: i,
+      x: invX,
+      y: iy,
+      midY: iy + (invHeight / 2),
+      kw: invSpec.kw || 5,
+      brand: invSpec.brand || 'INV'
+    });
+  }
+
+  // Identificamos faldones activos y los distribuimos balanceadamente entre inversores
+  const activeRoofs = [];
+  polylines.forEach((p, idx) => {
+    const nP = (p.roofInfo && Array.isArray(p.roofInfo.panels)) ? p.roofInfo.panels.filter(x => !x.deleted).length : 0;
+    if (nP > 0) activeRoofs.push(idx);
+  });
 
   let faldonNodes = '';
   let linePaths = '';
 
-  const invX = 180;
-  const invY = svgHeight / 2 - 18;
-  const gridX = 275;
-  const gridY = svgHeight / 2 - 12;
+  const roofSpacing = (svgHeight - 20) / Math.max(1, numRoofs);
+  const roofStartY = 16;
 
   polylines.forEach((p, idx) => {
-    const y = 18 + (idx * 30);
+    const y = roofStartY + (idx * roofSpacing);
     const nP = (p.roofInfo && Array.isArray(p.roofInfo.panels)) ? p.roofInfo.panels.filter(x => !x.deleted).length : 0;
     const isSel = (window.step4RoofScopeState && window.step4RoofScopeState.activeScope === idx);
-    const fillRect = isSel ? '#F59E0B' : '#1E293B';
-    const strokeRect = isSel ? '#FBBF24' : '#475569';
-    const textColor = isSel ? '#0F172A' : '#F1F5F9';
+    const hasPanels = nP > 0;
+
+    const fillRect = isSel ? '#F59E0B' : (hasPanels ? '#1E293B' : '#0F172A');
+    const strokeRect = isSel ? '#FBBF24' : (hasPanels ? '#475569' : '#334155');
+    const textColor = isSel ? '#0F172A' : (hasPanels ? '#F1F5F9' : '#64748B');
+    const opacity = hasPanels ? '1' : '0.45';
 
     faldonNodes += `
-      <g style="cursor:pointer;" onclick="wpSetStep4RoofScope(${idx})">
-        <rect x="10" y="${y - 10}" width="80" height="20" rx="4" fill="${fillRect}" stroke="${strokeRect}" stroke-width="1.2"/>
-        <text x="50" y="${y + 3}" fill="${textColor}" font-size="8.5" font-weight="900" text-anchor="middle">F${idx + 1} (${nP}p)</text>
+      <g style="cursor:pointer;opacity:${opacity};" onclick="wpSetStep4RoofScope(${idx})">
+        <rect x="10" y="${y - 10}" width="75" height="20" rx="4" fill="${fillRect}" stroke="${strokeRect}" stroke-width="1.2"/>
+        <text x="47" y="${y + 3}" fill="${textColor}" font-size="8.5" font-weight="900" text-anchor="middle">F${idx + 1} (${nP}p)</text>
       </g>
     `;
 
-    // Conexión DC del faldón al Inversor/MPPT
-    linePaths += `
-      <path d="M 90 ${y} C 130 ${y}, 140 ${invY + 18}, ${invX} ${invY + 18}" fill="none" stroke="${isSel ? '#F59E0B' : '#38BDF8'}" stroke-width="1.5" stroke-dasharray="${isSel ? 'none' : '3,2'}"/>
+    // Conexión DC del faldón: solo si tiene placas activas
+    if (hasPanels) {
+      // Asignar al inversor correspondiente según orden de faldón activo
+      const activeIdx = activeRoofs.indexOf(idx);
+      const targetInv = inverters[activeIdx % invCount] || inverters[0];
+      const targetY = targetInv.midY;
+
+      linePaths += `
+        <path d="M 85 ${y} C 120 ${y}, 130 ${targetY}, ${invX} ${targetY}" fill="none" stroke="${isSel ? '#F59E0B' : '#38BDF8'}" stroke-width="1.5" stroke-dasharray="${isSel ? 'none' : '3,2'}"/>
+      `;
+    }
+  });
+
+  // Renderizar N inversores
+  let inverterNodes = '';
+  let acLinePaths = '';
+
+  // Cuadro de Protección AC / Embarrado General
+  const busX = 245;
+  const busY = (svgHeight / 2) - 16;
+  const gridX = 290;
+  const gridY = (svgHeight / 2) - 12;
+
+  inverters.forEach((inv, i) => {
+    const invLabel = invCount > 1 ? `INV ${i + 1} (${inv.kw}k)` : `INV ${inv.kw} kW`;
+    inverterNodes += `
+      <g>
+        <rect x="${inv.x}" y="${inv.y}" width="${invWidth}" height="${invHeight}" rx="4" fill="#0F172A" stroke="#10B981" stroke-width="1.5"/>
+        <text x="${inv.x + (invWidth / 2)}" y="${inv.y + 12}" fill="#34D399" font-size="7.5" font-weight="900" text-anchor="middle">${invLabel}</text>
+        <text x="${inv.x + (invWidth / 2)}" y="${inv.y + 22}" fill="#94A3B8" font-size="6.5" font-weight="600" text-anchor="middle">MPPT AUTO</text>
+      </g>
+    `;
+
+    // Líneas AC desde cada inversor hacia el Cuadro/Bus General AC
+    acLinePaths += `
+      <path d="M ${inv.x + invWidth} ${inv.midY} C ${inv.x + invWidth + 12} ${inv.midY}, ${busX - 8} ${busY + 16}, ${busX} ${busY + 16}" fill="none" stroke="#10B981" stroke-width="1.5"/>
     `;
   });
+
+  // Cuadro AC / Embarrado
+  const busNode = invCount > 1 ? `
+    <!-- Cuadro de Protección AC / Embarrado -->
+    <g>
+      <rect x="${busX}" y="${busY}" width="22" height="32" rx="3" fill="#0F172A" stroke="#10B981" stroke-dasharray="2,1" stroke-width="1.2"/>
+      <text x="${busX + 11}" y="${busY + 14}" fill="#34D399" font-size="6.5" font-weight="900" text-anchor="middle">CUADRO</text>
+      <text x="${busX + 11}" y="${busY + 23}" fill="#94A3B8" font-size="5.5" font-weight="700" text-anchor="middle">AC GEN</text>
+    </g>
+    <!-- Línea del Cuadro AC a la Red -->
+    <path d="M ${busX + 22} ${busY + 16} L ${gridX} ${gridY + 12}" fill="none" stroke="#10B981" stroke-width="2"/>
+  ` : `
+    <!-- Línea directa Inversor a Red -->
+    <path d="M ${invX + invWidth} ${inverters[0].midY} L ${gridX} ${gridY + 12}" fill="none" stroke="#10B981" stroke-width="2"/>
+  `;
 
   const svgContent = `
     <svg viewBox="0 0 ${svgWidth} ${svgHeight}" style="width:100%;height:auto;display:block;">
@@ -2260,27 +2368,25 @@ function wpRenderStep4SingleLineDiagramUI() {
       <!-- Nodos de Faldones -->
       ${faldonNodes}
 
-      <!-- Inversor / Centro de Conversión -->
-      <g>
-        <rect x="${invX}" y="${invY}" width="55" height="36" rx="5" fill="#0F172A" stroke="#10B981" stroke-width="1.8"/>
-        <text x="${invX + 27}" y="${invY + 14}" fill="#34D399" font-size="8" font-weight="900" text-anchor="middle">INV ${invSpec.kw || 5} kW</text>
-        <text x="${invX + 27}" y="${invY + 26}" fill="#94A3B8" font-size="7" font-weight="700" text-anchor="middle">MPPT AUTO</text>
-      </g>
+      <!-- Inversores -->
+      ${inverterNodes}
 
-      <!-- Línea AC Inversor a Red -->
-      <path d="M ${invX + 55} ${invY + 18} L ${gridX} ${gridY + 12}" fill="none" stroke="#10B981" stroke-width="2"/>
+      <!-- Líneas AC y Cuadro General -->
+      ${acLinePaths}
+      ${busNode}
 
       <!-- Cuadro AC & Red General -->
       <g>
-        <rect x="${gridX}" y="${gridY}" width="36" height="24" rx="4" fill="#0F172A" stroke="#38BDF8" stroke-width="1.5"/>
-        <text x="${gridX + 18}" y="${gridY + 12}" fill="#38BDF8" font-size="7.5" font-weight="900" text-anchor="middle">RED</text>
-        <text x="${gridX + 18}" y="${gridY + 20}" fill="#94A3B8" font-size="6.5" text-anchor="middle">230/400V</text>
+        <rect x="${gridX}" y="${gridY}" width="42" height="24" rx="4" fill="#0F172A" stroke="#38BDF8" stroke-width="1.5"/>
+        <text x="${gridX + 21}" y="${gridY + 11}" fill="#38BDF8" font-size="7.5" font-weight="900" text-anchor="middle">RED</text>
+        <text x="${gridX + 21}" y="${gridY + 20}" fill="#94A3B8" font-size="6.5" text-anchor="middle">230/400V</text>
       </g>
     </svg>
   `;
 
   svgWrapper.innerHTML = svgContent;
 }
+
 window.wpRenderStep4SingleLineDiagramUI = wpRenderStep4SingleLineDiagramUI;
 
 // ══════════════════════════════════════════════════════════════════════════

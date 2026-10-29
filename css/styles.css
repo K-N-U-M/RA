@@ -3220,3 +3220,127 @@ body.ra-capture-mode-active .ra-status-hud {
   color: #E0F2FE !important;
   box-shadow: 0 0 12px rgba(56, 189, 248, 0.3) !important;
 }
+
+/* ──────────────────────────────────────────────────────────────────────────
+   CATÁLOGO DE PRODUCTOS: TABLAS, FILAS Y BOTONES UNIFICADOS (TAILWIND CAD)
+   ────────────────────────────────────────────────────────────────────────── */
+.cat-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(15, 23, 42, 0.5);
+}
+
+.cat-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 11px;
+}
+
+.cat-table thead th {
+  padding: 8px 12px;
+  background: rgba(15, 23, 42, 0.95);
+  border-bottom: 2px solid rgba(51, 65, 85, 0.8);
+  color: #94A3B8;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.cat-table tbody tr {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  transition: background 0.15s ease;
+}
+
+.cat-table tbody tr:hover {
+  background: rgba(30, 41, 59, 0.5) !important;
+}
+
+.cat-table tbody td {
+  padding: 8px 12px;
+  vertical-align: middle;
+}
+
+/* Botones de acción estándar del catálogo */
+.cat-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 4px 9px;
+  font-size: 10.5px;
+  font-weight: 600;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+  white-space: nowrap;
+  outline: none;
+}
+
+.cat-btn-edit {
+  background: rgba(56, 189, 248, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: #38BDF8;
+}
+.cat-btn-edit:hover {
+  background: rgba(56, 189, 248, 0.22);
+  border-color: #38BDF8;
+  color: #E0F2FE;
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.3);
+}
+
+.cat-btn-select {
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #10B981;
+}
+.cat-btn-select:hover {
+  background: rgba(16, 185, 129, 0.25);
+  border-color: #10B981;
+  color: #D1FAE5;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.3);
+}
+
+.cat-btn-apply {
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  color: #60A5FA;
+}
+.cat-btn-apply:hover {
+  background: rgba(59, 130, 246, 0.25);
+  border-color: #3B82F6;
+  color: #DBEAFE;
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.3);
+}
+
+.cat-btn-delete {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #EF4444;
+  padding: 4px 7px;
+}
+.cat-btn-delete:hover {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: #EF4444;
+  color: #FEE2E2;
+}
+
+.cat-badge {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.cat-badge-cyan { background: rgba(6, 182, 212, 0.15); color: #22D3EE; border: 1px solid rgba(6, 182, 212, 0.3); }
+.cat-badge-emerald { background: rgba(16, 185, 129, 0.15); color: #34D399; border: 1px solid rgba(16, 185, 129, 0.3); }
+.cat-badge-amber { background: rgba(245, 158, 11, 0.15); color: #FBBF24; border: 1px solid rgba(245, 158, 11, 0.3); }
+.cat-badge-purple { background: rgba(168, 85, 247, 0.15); color: #C084FC; border: 1px solid rgba(168, 85, 247, 0.3); }
+.cat-badge-blue { background: rgba(59, 130, 246, 0.15); color: #60A5FA; border: 1px solid rgba(59, 130, 246, 0.3); }
+

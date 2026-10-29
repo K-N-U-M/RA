@@ -592,7 +592,14 @@
       }
 
       const maxAllowedOverload = inv.maxOverload || 1.35;
-      const limits = calculateDynamicMPPTStringLimits(moduleSpec, inv, options.climParams || {});
+      // [AUD-2026 · H1] Los llamadores pasaban tempMinC/tempMaxCellC como claves de nivel
+      // superior que el motor ignoraba (solo leía options.climParams). Ahora se traducen:
+      // si vienen definidas, llegan al cálculo; si no, el motor aplica su Tmin zonal CTE.
+      const climParams = options.climParams || {
+        Tmin: options.tempMinC,
+        TmaxCell: options.tempMaxCellC
+      };
+      const limits = calculateDynamicMPPTStringLimits(moduleSpec, inv, climParams);
       const _maxModsPerString = limits.Ns_max || 18;
       const _minModsPerString = limits.Ns_min || 5;
       const _modsPerString = options.modulesPerString || _maxModsPerString;

@@ -120,6 +120,9 @@ function raExportProjectData() {
             if (match.center) p.center = { x: match.center.x, y: match.center.y, z: match.center.z };
             if (Array.isArray(match.corners)) p.corners = match.corners.map(c => ({ x: c.x, y: c.y, z: c.z }));
             if (typeof match.rot === 'number') p.rot = match.rot;
+            if (typeof match.u === 'number') p.u = match.u;
+            if (typeof match.v === 'number') p.v = match.v;
+            poly._hasManualPanels = true;
           }
         });
       }
@@ -134,6 +137,8 @@ function raExportProjectData() {
         panelsVisible: poly.panelsVisible !== false,
         points: Array.isArray(poly.points) ? poly.points.map(pt => ({ x: pt.x, y: pt.y, z: pt.z })) : [],
         color: poly.color,
+        hasManualPanels: !!(poly._hasManualPanels || (poly.roofInfo && Array.isArray(poly.roofInfo.panels) && poly.roofInfo.panels.some(p => p && p.isManual))),
+        preserveImportedPanels: !!(poly._preserveImportedPanels || poly._hasManualPanels || (poly.roofInfo && Array.isArray(poly.roofInfo.panels) && poly.roofInfo.panels.some(p => p && p.isManual))),
         planeIdx: (typeof poly.planeIdx === 'number') ? poly.planeIdx : 0,
         structureType: poly.structureType || 'coplanar_teja',
         estructura: poly.estructura ? JSON.parse(JSON.stringify(poly.estructura)) : null,
@@ -881,6 +886,9 @@ async function raImportProjectData(projectData, options = {}) {
             center: _raToCartesian3(dp.center)
           })) : [],
           roofInfo: rInfo,
+          hasManualPanels: !!(poly.hasManualPanels || (rInfo && Array.isArray(rInfo.panels) && rInfo.panels.some(p => p && p.isManual))),
+          _hasManualPanels: !!(poly.hasManualPanels || (rInfo && Array.isArray(rInfo.panels) && rInfo.panels.some(p => p && p.isManual))),
+          _preserveImportedPanels: !!(poly.preserveImportedPanels || poly.hasManualPanels || (rInfo && Array.isArray(rInfo.panels) && rInfo.panels.some(p => p && p.isManual))),
           _fromProjectImport: true
         });
       });
