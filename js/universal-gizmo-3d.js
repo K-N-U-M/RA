@@ -1204,6 +1204,9 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
       if (typeof fnUpdate === 'function') {
         try { fnUpdate(obs, target); } catch(eObsT) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eObsT, 'Entidad/Primitiva Cesium'); }
       }
+      if (typeof window !== 'undefined' && window.LiveSolarProbe && window.LiveSolarProbe.enabled) {
+        window.LiveSolarProbe.evaluate();
+      }
     } else if (target.type === 'wind_turbine_entity' && target.rawObj) {
       const wt = target.rawObj;
       if (window.RAWind && window.RAWind.Entity) {
@@ -1311,6 +1314,9 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
         });
       } else if (panelOutlineEntity && p.corners && p.corners.length === 4) {
         panelOutlineEntity.polyline.positions = [p.corners[0], p.corners[1], p.corners[2], p.corners[3], Cesium.Cartesian3.clone(p.corners[0])];
+      }
+      if (typeof window !== 'undefined' && window.LiveSolarProbe && window.LiveSolarProbe.enabled) {
+        window.LiveSolarProbe.evaluate();
       }
     } else if (target.type === 'workplane' && target.rawObj) {
       const pl = target.rawObj;

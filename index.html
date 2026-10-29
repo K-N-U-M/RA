@@ -15667,6 +15667,9 @@ window.toggleSolarHUD = toggleSolarHUD;
     updateUniversalTargetTransform(p.target, p.newPos, p.newRotDeg, p.deltaDeg, p.rotAxis);
     _isGizmoDirty = false;
     _pendingGizmoUpdate = null;
+    if (window.LiveSolarProbe && window.LiveSolarProbe.enabled) {
+      window.LiveSolarProbe.evaluate();
+    }
   }
   function queueGizmoUpdate(target, newPos, newRotDeg, deltaDeg, rotAxis) {
     _pendingGizmoUpdate = { target, newPos, newRotDeg, deltaDeg, rotAxis };
@@ -16164,6 +16167,9 @@ window.toggleSolarHUD = toggleSolarHUD;
         }
       }
       showStatus('<i data-lucide="check" class="icon-sm"></i> POSICIÓN Y ROTACIÓN FIJADAS', 1200);
+      if (window.LiveSolarProbe && window.LiveSolarProbe.enabled) {
+        window.LiveSolarProbe.evaluate(true);
+      }
       if (_gizmoWasDragging && window.RAundo && typeof window.RAundo.commitDrag === 'function') {
         window.RAundo.commitDrag();
       } else if (window.RAundo && typeof window.RAundo.cancelDrag === 'function') {

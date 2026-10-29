@@ -20,10 +20,10 @@
 
   // Configuración de paleta de estrés térmico/sombras (Gradiente termográfico CAD)
   const TINT_COLORS = {
-    CLEAR: null,                           // Aspecto original del panel (0% sombra)
-    LOW_SHADE: { r: 0.15, g: 0.75, b: 0.35, a: 0.85 },    // Sombra leve puntual (<10%)
-    MEDIUM_SHADE: { r: 0.95, g: 0.70, b: 0.10, a: 0.85 }, // Sombra moderada (10%-25%)
-    SEVERE_SHADE: { r: 0.92, g: 0.22, b: 0.18, a: 0.90 }  // Sombra crítica / inviable (>25%)
+    CLEAR: { r: 0.06, g: 0.72, b: 0.51, a: 0.35 },        // Esmeralda translúcido sutil (0% sombra)
+    LOW_SHADE: { r: 0.52, g: 0.80, b: 0.09, a: 0.65 },    // Sombra leve puntual (<10%) - Lima/Amarillo verdoso
+    MEDIUM_SHADE: { r: 0.96, g: 0.62, b: 0.04, a: 0.80 }, // Sombra moderada (10%-25%) - Ámbar
+    SEVERE_SHADE: { r: 0.93, g: 0.27, b: 0.27, a: 0.88 }  // Sombra crítica / inviable (>25%) - Rojo carmesí
   };
 
   class LiveSolarProbeEngine {
@@ -34,6 +34,7 @@
       this._throttleMs = 30; // ~30 FPS para arrastres pesados con cientos de módulos
       this._activeTints = new Map();
       this._isEvaluating = false;
+      this._overlayPrimitive = null;
     }
 
     /**
@@ -79,21 +80,19 @@
      * Limpia los tintes aplicados restaurando la apariencia nativa de los módulos
      */
     clearOverlay() {
-      const rendered = global.allRenderedPanels;
-      if (!Array.isArray(rendered) || rendered.length === 0) return;
-
-      rendered.forEach(p => {
-        if (!p || !p.primitive) return;
-        // Restaurar material estándar si estaba tintado
-        if (p._liveShadeTinted) {
-          if (p.originalColor) {
-            try {
-              if (p.primitive.color) p.primitive.color = p.originalColor;
-            } catch (e) {}
+      const viewer = global.viewer;
+      if (this._overlayPrimitive && viewer && viewer.scene && viewer.scene.primitives) {
+        try {
+          viewer.scene.primitives.remove(this._overlayPrimitive);
+          if (typeof this._overlayPrimitive.destroy === 'function' && !this._overlayPrimitive.isDestroyed()) {
+            this._overlayPrimitive.destroy();
           }
-          p._liveShadeTinted = false;
+        } catch (e) {}
+        this._overlayPrimitive = null;
+        if (viewer.scene && typeof viewer.scene.requestRender === 'function') {
+          viewer.scene.requestRender();
         }
-      });
+      }
       this._activeTints.clear();
     }
 
@@ -128,18 +127,29 @@
      */
     _runEvaluationCore() {
       const rendered = global.allRenderedPanels;
-      if (!Array.isArray(rendered) || rendered.length === 0) return;
+      if (!Array.isArray(rendered) || rendered.length === 0) {
+        this.clearOverlay();
+        return;
+      }
 
-      const wp = global.wpState;
-      if (!wp || !Array.isArray(wp.polylines) || wp.polylines.length === 0) return;
+      const wp = global.wpState || (typeof global.WP !== 'undefined' ? global.WP : null);
+      if (!wp || !Array.isArray(wp.polylines) || wp.polylines.length === 0) {
+        this.clearOverlay();
+        return;
+      }
 
       // Lista de obstáculos activos en el proyecto
       const obsList = Array.isArray(global.obstacles) ? global.obstacles.filter(o => o && !o.deleted) : [];
       const bldList = Array.isArray(global.buildings) ? global.buildings.filter(b => b && b.visible !== false) : [];
 
-      // Si no hay ningún obstáculo, todos los paneles están 100% limpios
+      // Si no hay ningún obstáculo, todos los paneles están limpios (tinte esmeralda traslúcido de confirmación activa)
       if (obsList.length === 0 && bldList.length === 0) {
-        this.clearOverlay();
+        const clearTints = rendered.map(panel => ({
+          panel: panel,
+          shadeRatio: 0.0,
+          tint: TINT_COLORS.CLEAR
+        }));
+        this._renderHeatmapOverlay(clearTints);
         return;
       }
 
@@ -148,34 +158,50 @@
 
       // Obtener los vectores solares de prueba
       const probeSunVectors = this._getProbeSunVectors(lat, lng);
-      if (probeSunVectors.length === 0) return;
+      if (!probeSunVectors || probeSunVectors.length === 0) return;
 
       // Precalcular las siluetas de sombra de obstáculos para cada faldón y cada vector solar
-      // Mapa: faldonIdx -> Array de polígonos de sombra por vector
       const roofShadowMaps = new Map();
 
       wp.polylines.forEach((poly, polyIdx) => {
-        const pInfo = poly.roofInfo || {};
-        const uVec = pInfo.uVec || { x: 1, y: 0, z: 0 };
-        const vVec = pInfo.vVec || { x: 0, y: 1, z: 0 };
+        const pInfo = poly.roofInfo || (typeof global.computeSinglePolylineRoofInfo === 'function' ? global.computeSinglePolylineRoofInfo(poly.points, poly) : null);
+        if (!pInfo) return;
+
+        const uVec = pInfo.uVec || (typeof Cesium !== 'undefined' ? new Cesium.Cartesian3(1, 0, 0) : { x: 1, y: 0, z: 0 });
+        const vVec = pInfo.vVec || (typeof Cesium !== 'undefined' ? new Cesium.Cartesian3(0, 1, 0) : { x: 0, y: 1, z: 0 });
 
         const vectorsData = probeSunVectors.map(sp => {
-          const sU = sp.sDirENU.x * uVec.x + sp.sDirENU.y * uVec.y + sp.sDirENU.z * uVec.z;
-          const sV = sp.sDirENU.x * vVec.x + sp.sDirENU.y * vVec.y + sp.sDirENU.z * vVec.z;
-          const shadowLen = sp.shadowLenPerM;
+          let sU = 0, sV = 0;
+          if (typeof Cesium !== 'undefined' && Cesium.Cartesian3 && sp.sDirENU) {
+            const sENU = (typeof sp.sDirENU.x === 'number')
+              ? sp.sDirENU
+              : new Cesium.Cartesian3(sp.sDirENU.x || 0, sp.sDirENU.y || 0, 0);
+            sU = Cesium.Cartesian3.dot(sENU, uVec);
+            sV = Cesium.Cartesian3.dot(sENU, vVec);
+          } else {
+            sU = (sp.sDirENU ? sp.sDirENU.x : 0) * (uVec.x || 1) + (sp.sDirENU ? sp.sDirENU.y : 0) * (uVec.y || 0);
+            sV = (sp.sDirENU ? sp.sDirENU.x : 0) * (vVec.x || 0) + (sp.sDirENU ? sp.sDirENU.y : 0) * (vVec.y || 1);
+          }
 
           const quads = [];
 
           // Obstáculos paramétricos estándar
           obsList.forEach(obs => {
+            if (typeof global.getObstacleShadowPolygons2DForRoof === 'function') {
+              const oQuads = global.getObstacleShadowPolygons2DForRoof(obs, pInfo, sU, sV, sp.shadowLenPerM);
+              if (Array.isArray(oQuads) && oQuads.length > 0) {
+                quads.push(...oQuads);
+                return;
+              }
+            }
             const pts = (typeof global.getObstaclePolygon2DForRoof === 'function')
               ? global.getObstaclePolygon2DForRoof(obs, 0.0, pInfo)
               : ((obs.points2D && obs.points2D[polyIdx]) || obs.poly2D);
 
             if (pts && pts.length >= 3) {
               const hObs = obs.height || obs.h || 1.2;
-              const dU = sU * shadowLen * hObs;
-              const dV = sV * shadowLen * hObs;
+              const dU = sU * sp.shadowLenPerM * hObs;
+              const dV = sV * sp.shadowLenPerM * hObs;
               const topPoly = pts.map(pt => ({ u: pt.u + dU, v: pt.v + dV }));
               const hull = this._convexHull2D([...pts, ...topPoly]);
               if (hull && hull.length >= 3) {
@@ -186,13 +212,20 @@
 
           // Edificios adyacentes
           bldList.forEach(bld => {
+            if (typeof global.getBuildingShadowPolygons2DForRoof === 'function') {
+              const bQuads = global.getBuildingShadowPolygons2DForRoof(bld, pInfo, sU, sV, sp.shadowLenPerM, poly);
+              if (Array.isArray(bQuads) && bQuads.length > 0) {
+                quads.push(...bQuads);
+                return;
+              }
+            }
             if (!bld.points || bld.points.length < 3) return;
             const bldObs = (typeof global.getBuildingPolygon2DForRoof === 'function')
               ? global.getBuildingPolygon2DForRoof(bld, pInfo, poly)
               : null;
             if (bldObs && bldObs.points2D && bldObs.points2D.length >= 3 && bldObs.height > 0.05) {
-              const dU = sU * shadowLen * bldObs.height;
-              const dV = sV * shadowLen * bldObs.height;
+              const dU = sU * sp.shadowLenPerM * bldObs.height;
+              const dV = sV * sp.shadowLenPerM * bldObs.height;
               const pts = bldObs.points2D;
               const topPoly = pts.map(pt => ({ u: pt.u + dU, v: pt.v + dV }));
               const hull = this._convexHull2D([...pts, ...topPoly]);
@@ -205,37 +238,57 @@
           return quads;
         });
 
-        roofShadowMaps.set(polyIdx, vectorsData);
+        roofShadowMaps.set(polyIdx, { pInfo: pInfo, vectorsData: vectorsData });
       });
 
       // Evaluar cada panel proyectado contra las siluetas precalculadas
+      const panelTints = [];
+
       rendered.forEach(panel => {
         if (!panel || panel.deleted) return;
-        const polyIdx = panel.polyIdx || 0;
-        const vectorsQuads = roofShadowMaps.get(polyIdx);
-        if (!vectorsQuads) return;
+        const polyIdx = (typeof panel.polyIdx === 'number') ? panel.polyIdx : 0;
+        const roofEntry = roofShadowMaps.get(polyIdx);
+        if (!roofEntry) return;
 
-        const u = (typeof panel.u === 'number') ? panel.u : 0;
-        const v = (typeof panel.v === 'number') ? panel.v : 0;
-        const w = panel.w || 1.05;
-        const h = panel.h || 2.15;
+        const { pInfo, vectorsData } = roofEntry;
+        if (!vectorsData || vectorsData.length === 0) return;
 
-        // Bounding box / polígono rápido del panel
-        const pQuad = (panel.poly2D && panel.poly2D.length === 4) ? panel.poly2D : [
-          { u: u - w / 2, v: v - h / 2 },
-          { u: u + w / 2, v: v - h / 2 },
-          { u: u + w / 2, v: v + h / 2 },
-          { u: u - w / 2, v: v + h / 2 }
-        ];
+        // Bounding box / polígono del panel en espacio paramétrico (U, V)
+        let pQuad = null;
+        const invT = (pInfo && pInfo.invTransform) || (pInfo && pInfo.transform && typeof Cesium !== 'undefined' && Cesium.Matrix4 ? Cesium.Matrix4.inverse(pInfo.transform, new Cesium.Matrix4()) : null);
+
+        if (Array.isArray(panel.corners) && panel.corners.length === 4 && invT && pInfo && pInfo.uVec && pInfo.vVec) {
+          pQuad = panel.corners.map(c => {
+            const locPt = Cesium.Matrix4.multiplyByPoint(invT, c, new Cesium.Cartesian3());
+            return {
+              u: Cesium.Cartesian3.dot(locPt, pInfo.uVec),
+              v: Cesium.Cartesian3.dot(locPt, pInfo.vVec)
+            };
+          });
+        } else if (typeof panel.u === 'number' && typeof panel.v === 'number') {
+          const hw = (panel.w || 1.13) / 2;
+          const hh = (panel.h || 2.27) / 2;
+          pQuad = [
+            { u: panel.u - hw, v: panel.v - hh },
+            { u: panel.u + hw, v: panel.v - hh },
+            { u: panel.u + hw, v: panel.v + hh },
+            { u: panel.u - hw, v: panel.v + hh }
+          ];
+        }
+
+        if (!pQuad || pQuad.length < 3) return;
 
         let shadedHits = 0;
-        const totalProbes = vectorsQuads.length;
+        const totalProbes = vectorsData.length;
 
         for (let i = 0; i < totalProbes; i++) {
-          const quads = vectorsQuads[i];
+          const quads = vectorsData[i];
           let hitInInstant = false;
           for (let q = 0; q < quads.length; q++) {
-            if (this._polygonsIntersect2D(pQuad, quads[q])) {
+            const fnIntersect = (typeof global.polygonsIntersect2D === 'function')
+              ? global.polygonsIntersect2D
+              : this._polygonsIntersect2D.bind(this);
+            if (fnIntersect(pQuad, quads[q])) {
               hitInInstant = true;
               break;
             }
@@ -243,41 +296,153 @@
           if (hitInInstant) shadedHits++;
         }
 
-        const shadeRatio = shadedHits / totalProbes;
-        this._applyPanelLiveTint(panel, shadeRatio);
+        const shadeRatio = totalProbes > 0 ? (shadedHits / totalProbes) : 0;
+        let tint = TINT_COLORS.CLEAR;
+        if (shadeRatio >= 0.25) {
+          tint = TINT_COLORS.SEVERE_SHADE;
+        } else if (shadeRatio >= 0.10) {
+          tint = TINT_COLORS.MEDIUM_SHADE;
+        } else if (shadeRatio > 0.0) {
+          tint = TINT_COLORS.LOW_SHADE;
+        }
+
+        panelTints.push({
+          panel: panel,
+          shadeRatio: shadeRatio,
+          tint: tint
+        });
       });
+
+      this._renderHeatmapOverlay(panelTints);
     }
 
     /**
-     * Aplica el color semafórico correspondiente sobre el panel en Cesium Viewer
+     * Genera y actualiza la superposición Cesium 3D en tiempo real sobre los paneles
      * @private
      */
-    _applyPanelLiveTint(panel, shadeRatio) {
-      if (!panel.primitive) return;
+    _renderHeatmapOverlay(panelTints) {
+      const viewer = global.viewer;
+      if (!viewer || !viewer.scene || !viewer.scene.primitives || typeof Cesium === 'undefined') return;
 
-      if (!panel.originalColor && panel.primitive.color) {
-        panel.originalColor = (typeof panel.primitive.color.clone === 'function')
-          ? panel.primitive.color.clone()
-          : Object.assign({}, panel.primitive.color);
+      if (this._overlayPrimitive) {
+        try {
+          viewer.scene.primitives.remove(this._overlayPrimitive);
+          if (typeof this._overlayPrimitive.destroy === 'function' && !this._overlayPrimitive.isDestroyed()) {
+            this._overlayPrimitive.destroy();
+          }
+        } catch (e) {}
+        this._overlayPrimitive = null;
       }
 
-      let tintDef = null;
-      if (shadeRatio >= 0.50) {
-        tintDef = TINT_COLORS.SEVERE_SHADE; // >50% sombra en los instantes evaluados
-      } else if (shadeRatio >= 0.25) {
-        tintDef = TINT_COLORS.MEDIUM_SHADE; // 25%-50%
-      } else if (shadeRatio > 0.0) {
-        tintDef = TINT_COLORS.LOW_SHADE;    // <25%
-      }
-
-      if (tintDef && typeof Cesium !== 'undefined' && Cesium.Color) {
-        panel.primitive.color = new Cesium.Color(tintDef.r, tintDef.g, tintDef.b, tintDef.a);
-        panel._liveShadeTinted = true;
-      } else {
-        if (panel._liveShadeTinted && panel.originalColor) {
-          panel.primitive.color = panel.originalColor;
-          panel._liveShadeTinted = false;
+      if (!panelTints || panelTints.length === 0) {
+        if (viewer.scene && typeof viewer.scene.requestRender === 'function') {
+          viewer.scene.requestRender();
         }
+        return;
+      }
+
+      const instances = [];
+
+      for (let i = 0; i < panelTints.length; i++) {
+        const item = panelTints[i];
+        const pData = item.panel;
+        const tint = item.tint;
+
+        if (!pData || !Array.isArray(pData.corners) || pData.corners.length < 4 || !tint) {
+          continue;
+        }
+
+        const c0 = pData.corners[0];
+        const c1 = pData.corners[1];
+        const c2 = pData.corners[2];
+        const c3 = pData.corners[3];
+
+        const v1 = Cesium.Cartesian3.subtract(c1, c0, new Cesium.Cartesian3());
+        const v2 = Cesium.Cartesian3.subtract(c3, c0, new Cesium.Cartesian3());
+        let norm = Cesium.Cartesian3.cross(v1, v2, new Cesium.Cartesian3());
+        if (Cesium.Cartesian3.magnitude(norm) > 0.001) {
+          Cesium.Cartesian3.normalize(norm, norm);
+        } else {
+          norm = new Cesium.Cartesian3(0, 0, 1);
+        }
+
+        // Elevación de 2.5 cm sobre el panel para asegurar perfecta visibilidad sobre PBR
+        const offset = Cesium.Cartesian3.multiplyByScalar(norm, 0.025, new Cesium.Cartesian3());
+        const elevated = [
+          Cesium.Cartesian3.add(c0, offset, new Cesium.Cartesian3()),
+          Cesium.Cartesian3.add(c1, offset, new Cesium.Cartesian3()),
+          Cesium.Cartesian3.add(c2, offset, new Cesium.Cartesian3()),
+          Cesium.Cartesian3.add(c3, offset, new Cesium.Cartesian3())
+        ];
+
+        const positions = new Float64Array([
+          elevated[0].x, elevated[0].y, elevated[0].z,
+          elevated[1].x, elevated[1].y, elevated[1].z,
+          elevated[2].x, elevated[2].y, elevated[2].z,
+          elevated[3].x, elevated[3].y, elevated[3].z
+        ]);
+
+        const normals = new Float32Array([
+          norm.x, norm.y, norm.z,
+          norm.x, norm.y, norm.z,
+          norm.x, norm.y, norm.z,
+          norm.x, norm.y, norm.z
+        ]);
+
+        const indices = new Uint16Array([0, 1, 2, 0, 2, 3]);
+
+        const polyGeom = new Cesium.Geometry({
+          attributes: {
+            position: new Cesium.GeometryAttribute({
+              componentDatatype: Cesium.ComponentDatatype.DOUBLE,
+              componentsPerAttribute: 3,
+              values: positions
+            }),
+            normal: new Cesium.GeometryAttribute({
+              componentDatatype: Cesium.ComponentDatatype.FLOAT,
+              componentsPerAttribute: 3,
+              values: normals
+            })
+          },
+          indices: indices,
+          primitiveType: Cesium.PrimitiveType.TRIANGLES,
+          boundingSphere: Cesium.BoundingSphere.fromPoints(elevated)
+        });
+
+        const color = new Cesium.Color(tint.r, tint.g, tint.b, tint.a);
+
+        instances.push(new Cesium.GeometryInstance({
+          geometry: polyGeom,
+          attributes: {
+            color: Cesium.ColorGeometryInstanceAttribute.fromColor(color)
+          },
+          id: 'live_probe_p_' + i
+        }));
+      }
+
+      if (instances.length === 0) return;
+
+      const renderState = (typeof Cesium.RenderState.fromCache === 'function')
+        ? Cesium.RenderState.fromCache({
+            depthTest: { enabled: true },
+            depthMask: false,
+            polygonOffset: { enabled: true, factor: -3.0, units: -3.0 }
+          })
+        : undefined;
+
+      const overlayPrimitive = new Cesium.Primitive({
+        geometryInstances: instances,
+        appearance: new Cesium.PerInstanceColorAppearance({
+          translucent: true,
+          flat: true,
+          renderState: renderState
+        }),
+        asynchronous: false
+      });
+
+      this._overlayPrimitive = viewer.scene.primitives.add(overlayPrimitive);
+      if (viewer.scene && typeof viewer.scene.requestRender === 'function') {
+        viewer.scene.requestRender();
       }
     }
 
@@ -286,24 +451,41 @@
      * @private
      */
     _getProbeSunVectors(lat, lng) {
-      // 4 Instantes representativos: Solsticio Invierno (Mediodía), Equinoccio (10h y 14h), Solsticio Verano (16h)
-      const probes = [
-        { doy: 355, hour: 12.5 }, // Solsticio Invierno (Sombras más largas del año)
-        { doy: 80,  hour: 10.0 }, // Equinoccio mañana
-        { doy: 80,  hour: 14.5 }, // Equinoccio tarde
-        { doy: 172, hour: 16.0 }  // Solsticio Verano tarde
-      ];
+      const result = [];
 
-      return probes.map(p => {
-        const utcHour = p.hour - (lng * 4) / 60;
-        const sp = this._computeSolarPosition(lat, lng, p.doy, utcHour);
-        const elevRad = Math.max(0.08, (sp.elevDeg || 15) * Math.PI / 180);
-        return {
-          elevDeg: sp.elevDeg,
-          sDirENU: sp.sDirHorizontal,
-          shadowLenPerM: Math.min(1 / Math.tan(elevRad), 6.0)
-        };
-      });
+      // 1. Instante solar actual en pantalla (si el sol está activo en el visor)
+      if (global.solarSimState && global.solarSimState.currentSolarPos && global.solarSimState.currentSolarPos.isDaylight) {
+        const cur = global.solarSimState.currentSolarPos;
+        const curElev = (typeof cur.alt === 'number') ? cur.alt : (typeof cur.elevationDeg === 'number' ? cur.elevationDeg : 30);
+        result.push({
+          elevDeg: curElev,
+          sDirENU: cur.sDirENU || { x: 0, y: -1, z: 0 },
+          shadowLenPerM: cur.shadowLenPerM || Math.min(1 / Math.tan(Math.max(0.08, curElev * Math.PI / 180)), 6.0)
+        });
+      }
+
+      // 2. Si el modo es compuesto o si no hay sol activo, evaluar instantes clave anuales
+      if (this.mode === 'composite_solstices' || result.length === 0) {
+        const annualInstants = [
+          { doy: 355, hour: 12.5 }, // Solsticio Invierno (Sombras más largas del año)
+          { doy: 80,  hour: 10.0 }, // Equinoccio mañana
+          { doy: 80,  hour: 14.5 }, // Equinoccio tarde
+          { doy: 172, hour: 16.0 }  // Solsticio Verano tarde
+        ];
+
+        annualInstants.forEach(p => {
+          const utcHour = p.hour - (lng * 4) / 60;
+          const sp = this._computeSolarPosition(lat, lng, p.doy, utcHour);
+          const elevRad = Math.max(0.08, (sp.elevDeg || 15) * Math.PI / 180);
+          result.push({
+            elevDeg: sp.elevDeg,
+            sDirENU: sp.sDirHorizontal,
+            shadowLenPerM: Math.min(1 / Math.tan(elevRad), 6.0)
+          });
+        });
+      }
+
+      return result;
     }
 
     /**
@@ -419,6 +601,12 @@
         btn.classList.toggle('active', this.enabled);
         btn.style.borderColor = this.enabled ? 'var(--emerald-500, #10B981)' : 'rgba(255,255,255,0.18)';
         btn.style.color = this.enabled ? '#10B981' : '#fff';
+        const badge = btn.querySelector('.badge');
+        if (badge) {
+          badge.textContent = this.enabled ? 'ACTIVO' : 'PROBE';
+          badge.style.background = this.enabled ? 'rgba(16,185,129,0.25)' : 'rgba(245,158,11,0.2)';
+          badge.style.color = this.enabled ? '#10B981' : '#f59e0b';
+        }
       }
     }
   }
