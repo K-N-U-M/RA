@@ -651,6 +651,7 @@
             areaM2: p.areaM2 || (w * h),
             tiltDeg: p.tiltDeg !== undefined ? p.tiltDeg : (pInfo.tiltDeg || 20),
             azDeg: p.azDeg !== undefined ? p.azDeg : (pInfo.azDeg || 180),
+            hasOptimizer: !!(p.hasOptimizer || p.optimizerModelId),
             poly2D: poly2D,
             normalWorld: norm
           });

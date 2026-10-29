@@ -421,14 +421,21 @@ self.onmessage = function(e) {
           ? (shadedSubstringsCount / 3.0)
           : (isShaded ? 1.0 : 0.0);
 
+        // Topología eléctrica: Si el módulo cuenta con optimizador MLPE (o microinversor),
+        // la pérdida se limita estrictamente a la fracción física de substrings sombreados (bypass diode).
+        // Si es un string estándar sin optimizador, la corriente del string se estrangula al cuello de botella.
+        const hasOpt = !!pData.hasOptimizer;
+        const electricalMismatchFactor = hasOpt ? 1.0 : (shadedSubstringsCount > 0 ? (shadedSubstringsCount >= 2 ? 1.0 : 0.85) : 0.0);
+        const effectiveLossFraction = hasOpt ? beamShadedFraction : Math.min(1.0, beamShadedFraction * (1.0 + electricalMismatchFactor * 0.35));
+
         if (isShaded && beamShadedFraction > 0) {
           res.shadowHits += mw * hourStepDt;
           res.activeDiodesHits += shadedSubstringsCount * mw * hourStepDt;
-          const instantLossW = instantPotentialW * beamShadedFraction;
+          const instantLossW = instantPotentialW * effectiveLossFraction;
           res.annualShadedLoss += instantLossW * mw * hourStepDt;
         }
 
-        const effectiveLossW = (isShaded && beamShadedFraction > 0) ? (instantPotentialW * beamShadedFraction) : 0;
+        const effectiveLossW = (isShaded && effectiveLossFraction > 0) ? (instantPotentialW * effectiveLossFraction) : 0;
         _monthlyNetWh[m] += (instantPotentialW - effectiveLossW) * mw * hourStepDt;
       });
     }
