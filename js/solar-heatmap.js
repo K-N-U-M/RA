@@ -251,8 +251,6 @@
       curSimState.panelShadowOverlayPool.clear();
     }
     const overlayPool = curSimState.panelShadowOverlayPool;
-    const activeOverlayIds = new Set();
-
     if (curSimState.obstacleShadowSurfaceEntities) {
       curSimState.obstacleShadowSurfaceEntities.forEach(e => viewer.entities.remove(e));
     }
@@ -873,8 +871,6 @@
     const monthsReal = monthsDoy.map(doyToMonthIdx);
     // [B6] Acumulador de energía neta real por mes calendario (reparto mensual de los documentos).
     const _monthlyNetWh = new Array(12).fill(0);
-    const year = new Date().getFullYear();
-
     let lat = (window.solarProjectConfig && typeof window.solarProjectConfig.lat === 'number') ? window.solarProjectConfig.lat : null;
     let lng = (window.solarProjectConfig && typeof window.solarProjectConfig.lng === 'number') ? window.solarProjectConfig.lng : null;
     if (lat === null && typeof polygonAnalysis === 'function') {

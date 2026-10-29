@@ -2375,8 +2375,6 @@ if (typeof window !== 'undefined') {
     // Espaciado y padding adaptativo según layoutStyle
     var isEditorial = (layoutStyle === 'editorial');
     var isInfographic = (layoutStyle === 'infographic');
-    var isTechnical = (layoutStyle === 'technical');
-
     var cardPad = isEditorial ? '18px 20px' : (isInfographic ? '16px 18px' : '12px 14px');
     var cardMargin = isEditorial ? '20px 0' : (isInfographic ? '16px 0' : '12px 0');
     var cardShadow = isEditorial ? '0 4px 16px rgba(0,0,0,0.05)' : '0 2px 8px rgba(0,0,0,0.04)';
@@ -4998,7 +4996,6 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   }
 
   // Desglose medio diario equivalente para compatibilidad y telemetría
-  const totalAutoconsumo = annualAutoconsumoDirecto / 365.0;
   const totalBateria = annualBateriaKWh / 365.0;
   const totalExcedente = annualExcedenteKWh / 365.0;
   const costeRed = annualCosteRed / 365.0;

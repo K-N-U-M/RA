@@ -634,16 +634,12 @@ function runPhysicalModel(kwp, latDeg, lonDeg, tiltDeg, azimutDeg, cfg, customMo
   const loss_mismatch = _lc ? _lc.mismatch : 0.020;
   const loss_soiling  = _lc ? _lc.soiling : 0.025;
   const loss_avail    = _lc ? _lc.availability : 0.005;
-  const _seShade = getShadingStrategy();
-  const loss_mlpe_bonus = (_seShade === 'mlpe' && lastAnalysisResults && lastAnalysisResults.mlpeCount > 0) ? 0.005 : 0;
-
   let monthlyYields = [];
   let totalAnnualWh = 0;
   let totalTempLoss = 0, totalIAMLoss = 0, totalSoilingLoss = 0;
   let totalGPOA = 0, totalGSTC = 0;
   let totalClippedWh = 0;
 
-  const HOURS_PER_DAY = 24;
   const midDay = [17,47,75,105,135,162,198,228,258,288,318,344]; // representative day of each month
 
   let usedNasaCache = false;
@@ -2100,8 +2096,6 @@ function wpRenderDynamicObstacleShadows(solarPos) {
   }
 
   const shadowMatObs = Cesium.Color.fromCssColorString('#0B0F19').withAlpha(0.68);
-  const shadowMatBld = shadowMatObs;
-
   function _syncShadowEntity(entId, pts) {
     activeShadowIds.add(entId);
     let shadowEnt = viewer.entities.getById(entId);
