@@ -1439,6 +1439,12 @@
             p.annualLossPct = mejor.annualLossPct;
             p.annualYieldPct = mejor.annualYieldPct;
             p.annualKwh = mejor.annualKwh;
+            // Heredar también la base bruta simulada: sin esto el panel conserva la bruta
+            // paramétrica previa (sin sombras) y, al recalcular pérdidas, la producción sube.
+            p.annualGrossKwh = mejor.annualGrossKwh;
+            p._lastPrSys = mejor._lastPrSys;
+            p.annualTotalPotential = mejor.annualTotalPotential;
+            p.annualShadedLoss = mejor.annualShadedLoss;
             p.relativeYieldPct = mejor.relativeYieldPct;
             p.heatmapColor = mejor.heatmapColor;
             p.annualTotalInsolation = mejor.annualTotalInsolation;

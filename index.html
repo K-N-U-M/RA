@@ -40,7 +40,7 @@ window.RA_App = window.RA_App || {};
   <script src="js/universal-gizmo-3d.js?v=1793254625038"></script>
   <script src="js/buildings.js?v=20261016d"></script>
     <script src="js/radiation-engine.js?v=20261014a"></script>
-    <script src="js/solar-heatmap.js?v=20261016b"></script>
+    <script src="js/solar-heatmap.js?v=20261029a"></script>
     <script src="js/ra-env.js"></script>
 <script src="js/config.js?v=20261028a"></script>
     <script src="js/modules-breakdown.js?v=20261020a"></script>
@@ -7274,9 +7274,17 @@ function recalculateSolarYield(force = false) {
         basePanelGross = subArrayAnnualGross.get(sa.polyIdx) / sa.nPanels;
       }
 
+      // Base bruta coherente: si la bruta guardada no cuadra con la neta y el PR con que se
+      // generó (bruta obsoleta de un cálculo paramétrico previo), manda la neta simulada.
+      let storedGross = (typeof p.annualGrossKwh === 'number' && p.annualGrossKwh > 0) ? p.annualGrossKwh : 0;
+      if (storedGross > 0 && typeof p.annualKwh === 'number' && p.annualKwh > 0 &&
+          typeof p._lastPrSys === 'number' && p._lastPrSys > 0) {
+        const impliedGross = p.annualKwh / p._lastPrSys;
+        if (Math.abs(storedGross - impliedGross) > Math.max(1, impliedGross * 0.02)) storedGross = impliedGross;
+      }
       const gross = hasSimulatedPanels
-        ? (typeof p.annualGrossKwh === 'number' && p.annualGrossKwh > 0
-            ? p.annualGrossKwh
+        ? (storedGross > 0
+            ? storedGross
             : (typeof p.annualKwh === 'number' && p.annualKwh > 0 ? (p.annualKwh / (p._lastPrSys || prSys || 0.885)) : (basePanelGross * pYieldFactor)))
         : (basePanelGross * pYieldFactor);
 
