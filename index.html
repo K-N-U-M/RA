@@ -13508,32 +13508,56 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
 
   // 7b. VALIDACIÓN DE CAPACIDAD DEL INVERSOR: nº de strings por MPPT vs entradas físicas
   {
-    const invCfg = (window.solarProjectConfig && window.solarProjectConfig.calculatedLimits &&
-                    window.solarProjectConfig.calculatedLimits.inverter) || null;
-    if (invCfg && typeof invCfg.mppt === 'number') {
-      const stringsByMppt = {};
-      allTargetPanels.forEach(p => {
-        if (!p.stringName) return;
-        const k = p.mpptId || 1;
-        (stringsByMppt[k] = stringsByMppt[k] || new Set()).add(p.stringName);
-      });
-      const inputsPerMppt = invCfg.inputsPerMppt || 1;
-      const maxStrings = invCfg.mppt * inputsPerMppt;
-      let totalStrings = 0, maxPerChannel = 0;
-      Object.values(stringsByMppt).forEach(set => {
-        totalStrings += set.size;
-        maxPerChannel = Math.max(maxPerChannel, set.size);
-      });
-      if (maxPerChannel > inputsPerMppt || totalStrings > maxStrings) {
-        if (typeof showStatus === 'function') {
-          showStatus(`<i data-lucide="alert-triangle" class="icon-sm"></i> ⚠ SOBRECARGA DE ENTRADAS: ${totalStrings} strings sobre ${invCfg.mppt} MPPT × ${inputsPerMppt} entrada(s) (máx. ${maxStrings}). El diseño NO es cableable con este inversor.`, 6000);
+    const cfg = window.solarProjectConfig || {};
+    const topo = cfg.selectedTopology || 'inverter';
+
+    // En topología de microinversores, la conversión y MPPT es distribuida por módulo: no aplica límite de inversor central
+    if (topo !== 'microinverter') {
+      const invCfg = (cfg.calculatedLimits && cfg.calculatedLimits.inverter) || null;
+      if (invCfg && typeof invCfg.mppt === 'number') {
+        const stringsByMppt = {};
+        allTargetPanels.forEach(p => {
+          if (!p.stringName) return;
+          const k = p.mpptId || 1;
+          (stringsByMppt[k] = stringsByMppt[k] || new Set()).add(p.stringName);
+        });
+
+        // Contabilizar la cantidad real de inversores dimensionados (Nx)
+        const invCount = (cfg.autoSizing && cfg.autoSizing.inverters && cfg.autoSizing.inverters.count > 0)
+          ? cfg.autoSizing.inverters.count
+          : (cfg.inverterCount || 1);
+
+        const inputsPerMppt = invCfg.inputsPerMppt || 1;
+        const totalMppts = invCfg.mppt * invCount;
+        const maxStrings = totalMppts * inputsPerMppt;
+
+        let totalStrings = 0, maxPerChannel = 0;
+        Object.values(stringsByMppt).forEach(set => {
+          totalStrings += set.size;
+          maxPerChannel = Math.max(maxPerChannel, set.size);
+        });
+
+        // Si el número de strings excede la capacidad de inversores actual, disparar auto-dimensionamiento
+        if (totalStrings > maxStrings && typeof wpComputeAutoSizing === 'function') {
+          wpComputeAutoSizing(allTargetPanels.length);
         }
-        window.solarProjectConfig.inverterCapacityWarning = {
-          totalStrings, maxStrings, mppt: invCfg.mppt, inputsPerMppt,
-          exceeded: true, checkedAt: new Date().toISOString()
-        };
-      } else {
-        window.solarProjectConfig.inverterCapacityWarning = { totalStrings, maxStrings, exceeded: false };
+
+        const updatedInvCount = (cfg.autoSizing && cfg.autoSizing.inverters && cfg.autoSizing.inverters.count > 0)
+          ? cfg.autoSizing.inverters.count
+          : invCount;
+        const updatedMaxStrings = invCfg.mppt * updatedInvCount * inputsPerMppt;
+
+        if (totalStrings > updatedMaxStrings) {
+          if (typeof showStatus === 'function') {
+            showStatus(`<i data-lucide="alert-triangle" class="icon-sm"></i> ⚠ SOBRECARGA DE ENTRADAS: ${totalStrings} strings sobre ${updatedInvCount}x Inversor (${invCfg.mppt * updatedInvCount} MPPT · máx. ${updatedMaxStrings} entradas). Selecciona un inversor comercial multi-MPPT o microinversores en Fase 4.`, 6000);
+          }
+          window.solarProjectConfig.inverterCapacityWarning = {
+            totalStrings, maxStrings: updatedMaxStrings, mppt: invCfg.mppt * updatedInvCount, inputsPerMppt,
+            exceeded: true, checkedAt: new Date().toISOString()
+          };
+        } else {
+          window.solarProjectConfig.inverterCapacityWarning = { totalStrings, maxStrings: updatedMaxStrings, exceeded: false };
+        }
       }
     }
   }
