@@ -2600,62 +2600,64 @@ if (typeof window !== 'undefined') {
     };
   }
 
-  function buildCELPageHTML(d, m, pal, cel, pageNum, totPages, companyName) {
+  function buildCELPageHTML(d, m, pal, cel, pageNum, totPages, companyName, pageNum2) {
     pal = pal || { primary: '#059669', light: '#d1fae5', accent: '#10b981', dark: '#065f46' };
     cel = cel || calculateCELMetrics(d, m);
     d = d || {};
     pageNum = pageNum || 5;
-    totPages = totPages || 7;
+    pageNum2 = pageNum2 || (pageNum + 1);
+    totPages = totPages || 8;
     companyName = companyName || 'SOLAR 3D PRO';
 
     var autoW = Math.max(15, cel.autoPct);
     var batW = cel.batPct > 0 ? Math.max(10, cel.batPct) : 0;
     var excW = Math.max(15, 100 - autoW - batW);
 
-    // SVG Radar de Cobertura 5.000 metros (78,5 km² según RDL 7/2026)
+    // SVG Radar de Cobertura 5.000 metros (78,5 km² según RDL 7/2026) ampliado y de alta legibilidad
     var radarSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 200" width="100%" height="100%" style="display:block;">' +
       '<defs>' +
         '<radialGradient id="celRadarGlow" cx="50%" cy="50%" r="50%">' +
-          '<stop offset="0%" stop-color="' + pal.primary + '" stop-opacity="0.25"/>' +
-          '<stop offset="65%" stop-color="' + pal.accent + '" stop-opacity="0.10"/>' +
-          '<stop offset="100%" stop-color="' + pal.primary + '" stop-opacity="0.01"/>' +
+          '<stop offset="0%" stop-color="' + pal.primary + '" stop-opacity="0.30"/>' +
+          '<stop offset="65%" stop-color="' + pal.accent + '" stop-opacity="0.14"/>' +
+          '<stop offset="100%" stop-color="' + pal.primary + '" stop-opacity="0.02"/>' +
         '</radialGradient>' +
       '</defs>' +
       '<rect x="0" y="0" width="440" height="200" rx="8" fill="#0f172a"/>' +
-      '<line x1="220" y1="8" x2="220" y2="192" stroke="#334155" stroke-width="1" stroke-dasharray="3,3"/>' +
-      '<line x1="20" y1="100" x2="420" y2="100" stroke="#334155" stroke-width="1" stroke-dasharray="3,3"/>' +
-      '<circle cx="220" cy="100" r="88" fill="url(#celRadarGlow)" stroke="' + pal.primary + '" stroke-width="2" stroke-dasharray="4,2"/>' +
-      '<circle cx="220" cy="100" r="54" fill="none" stroke="#475569" stroke-width="1" stroke-dasharray="2,3"/>' +
-      '<circle cx="220" cy="100" r="26" fill="none" stroke="#475569" stroke-width="1"/>' +
-      '<text x="223" y="76" fill="#94a3b8" font-size="7" font-family="monospace">1.000 m (1 km)</text>' +
-      '<text x="223" y="48" fill="#94a3b8" font-size="7" font-family="monospace">2.500 m (2,5 km)</text>' +
-      '<text x="223" y="14" fill="' + pal.accent + '" font-size="8" font-weight="900" font-family="monospace">RADIO 5.000 m · MARCO RDL 7/2026 (78,5 km²)</text>' +
-      '<line x1="220" y1="100" x2="155" y2="50" stroke="' + pal.accent + '" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.85"/>' +
-      '<line x1="220" y1="100" x2="295" y2="55" stroke="' + pal.accent + '" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.85"/>' +
-      '<line x1="220" y1="100" x2="315" y2="140" stroke="' + pal.accent + '" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.85"/>' +
-      '<line x1="220" y1="100" x2="135" y2="145" stroke="' + pal.accent + '" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.85"/>' +
-      '<line x1="220" y1="100" x2="220" y2="182" stroke="' + pal.accent + '" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.85"/>' +
-      '<circle cx="155" cy="50" r="4.5" fill="#38bdf8"/>' +
-      '<text x="150" y="42" fill="#f8fafc" font-size="7" font-weight="700" text-anchor="end">🏡 Viviendas (1,2 km)</text>' +
-      '<circle cx="295" cy="55" r="4.5" fill="#f59e0b"/>' +
-      '<text x="301" y="49" fill="#f8fafc" font-size="7" font-weight="700">🏪 Comercio (2,1 km)</text>' +
-      '<circle cx="315" cy="140" r="4.5" fill="#a855f7"/>' +
-      '<text x="321" y="147" fill="#f8fafc" font-size="7" font-weight="700">🏫 Colegio (3,8 km)</text>' +
-      '<circle cx="135" cy="145" r="4.5" fill="#34d399"/>' +
-      '<text x="130" y="153" fill="#f8fafc" font-size="7" font-weight="700" text-anchor="end">🏭 PYME / Taller (4,4 km)</text>' +
-      '<circle cx="220" cy="182" r="4.5" fill="#ec4899"/>' +
-      '<text x="228" y="190" fill="#f8fafc" font-size="7" font-weight="700">🏢 Comunidad (4,9 km)</text>' +
-      '<circle cx="220" cy="100" r="13" fill="' + pal.primary + '" opacity="0.35"/>' +
-      '<circle cx="220" cy="100" r="7.5" fill="#ffffff" stroke="' + pal.primary + '" stroke-width="2.5"/>' +
-      '<circle cx="220" cy="100" r="3" fill="' + pal.dark + '"/>' +
-      '<rect x="175" y="112" width="90" height="14" rx="3" fill="rgba(15,23,42,0.88)" stroke="' + pal.primary + '" stroke-width="1"/>' +
-      '<text x="220" y="122" fill="#ffffff" font-size="7" font-weight="900" text-anchor="middle">☀️ TU HUB GENERADOR</text>' +
-      '<rect x="10" y="10" width="112" height="24" rx="4" fill="rgba(30,41,59,0.85)" stroke="#475569" stroke-width="1"/>' +
-      '<text x="16" y="21" fill="#38bdf8" font-size="7" font-weight="800">REPARTO LOCAL P2P</text>' +
-      '<text x="16" y="30" fill="#cbd5e1" font-size="6.5">Telemedida horaria βh</text>' +
+      '<line x1="220" y1="8" x2="220" y2="192" stroke="#334155" stroke-width="1.2" stroke-dasharray="3,3"/>' +
+      '<line x1="20" y1="100" x2="420" y2="100" stroke="#334155" stroke-width="1.2" stroke-dasharray="3,3"/>' +
+      '<circle cx="220" cy="100" r="88" fill="url(#celRadarGlow)" stroke="' + pal.primary + '" stroke-width="2.5" stroke-dasharray="5,2"/>' +
+      '<circle cx="220" cy="100" r="54" fill="none" stroke="#475569" stroke-width="1.2" stroke-dasharray="3,3"/>' +
+      '<circle cx="220" cy="100" r="26" fill="none" stroke="#475569" stroke-width="1.2"/>' +
+      '<text x="223" y="75" fill="#cbd5e1" font-size="9" font-weight="700" font-family="monospace">1.000 m (1 km)</text>' +
+      '<text x="223" y="46" fill="#cbd5e1" font-size="9" font-weight="700" font-family="monospace">2.500 m (2,5 km)</text>' +
+      '<text x="223" y="16" fill="' + pal.accent + '" font-size="10.5" font-weight="900" font-family="monospace">RADIO 5.000 m · MARCO RDL 7/2026 (78,5 km²)</text>' +
+      '<line x1="220" y1="100" x2="155" y2="50" stroke="' + pal.accent + '" stroke-width="1.8" stroke-dasharray="3,3" opacity="0.9"/>' +
+      '<line x1="220" y1="100" x2="295" y2="55" stroke="' + pal.accent + '" stroke-width="1.8" stroke-dasharray="3,3" opacity="0.9"/>' +
+      '<line x1="220" y1="100" x2="315" y2="140" stroke="' + pal.accent + '" stroke-width="1.8" stroke-dasharray="3,3" opacity="0.9"/>' +
+      '<line x1="220" y1="100" x2="135" y2="145" stroke="' + pal.accent + '" stroke-width="1.8" stroke-dasharray="3,3" opacity="0.9"/>' +
+      '<line x1="220" y1="100" x2="220" y2="180" stroke="' + pal.accent + '" stroke-width="1.8" stroke-dasharray="3,3" opacity="0.9"/>' +
+      '<circle cx="155" cy="50" r="6" fill="#38bdf8" stroke="#ffffff" stroke-width="1.5"/>' +
+      '<text x="145" y="42" fill="#ffffff" font-size="9.5" font-weight="800" text-anchor="end">🏡 Viviendas (1,2 km)</text>' +
+      '<circle cx="295" cy="55" r="6" fill="#f59e0b" stroke="#ffffff" stroke-width="1.5"/>' +
+      '<text x="305" y="49" fill="#ffffff" font-size="9.5" font-weight="800">🏪 Comercio (2,1 km)</text>' +
+      '<circle cx="315" cy="140" r="6" fill="#a855f7" stroke="#ffffff" stroke-width="1.5"/>' +
+      '<text x="325" y="147" fill="#ffffff" font-size="9.5" font-weight="800">🏫 Colegio (3,8 km)</text>' +
+      '<circle cx="135" cy="145" r="6" fill="#34d399" stroke="#ffffff" stroke-width="1.5"/>' +
+      '<text x="125" y="153" fill="#ffffff" font-size="9.5" font-weight="800" text-anchor="end">🏭 PYME / Taller (4,4 km)</text>' +
+      '<circle cx="220" cy="180" r="6" fill="#ec4899" stroke="#ffffff" stroke-width="1.5"/>' +
+      '<text x="232" y="188" fill="#ffffff" font-size="9.5" font-weight="800">🏢 Comunidad (4,9 km)</text>' +
+      '<circle cx="220" cy="100" r="16" fill="' + pal.primary + '" opacity="0.4"/>' +
+      '<circle cx="220" cy="100" r="9" fill="#ffffff" stroke="' + pal.primary + '" stroke-width="3"/>' +
+      '<circle cx="220" cy="100" r="4" fill="' + pal.dark + '"/>' +
+      '<rect x="165" y="113" width="110" height="18" rx="4" fill="rgba(15,23,42,0.92)" stroke="' + pal.primary + '" stroke-width="1.2"/>' +
+      '<text x="220" y="126" fill="#ffffff" font-size="9" font-weight="900" text-anchor="middle">☀️ TU HUB GENERADOR</text>' +
+      '<rect x="12" y="12" width="130" height="28" rx="5" fill="rgba(30,41,59,0.9)" stroke="#475569" stroke-width="1"/>' +
+      '<text x="18" y="25" fill="#38bdf8" font-size="8.5" font-weight="900">REPARTO LOCAL P2P</text>' +
+      '<text x="18" y="35" fill="#e2e8f0" font-size="8">Telemedida horaria βh</text>' +
     '</svg>';
 
-    return '<div class="page-sheet">' +
+    // HOJA 1 CEL: MODELO ECONÓMICO Y HOMOLOGACIÓN
+    var page1Html = '<div class="page-sheet">' +
       '<div>' +
         '<div class="cover-header">' +
           '<div class="company-text">' +
@@ -2666,147 +2668,170 @@ if (typeof window !== 'undefined') {
         '</div>' +
 
         '<!-- 4 HEROS MONUMENTALES DE COMUNIDAD ENERGÉTICA -->' +
-        '<div class="hero-grid" style="grid-template-columns: repeat(4, 1fr); margin: 8px 0 14px;">' +
+        '<div class="hero-grid" style="grid-template-columns: repeat(4, 1fr); margin: 12px 0 20px;">' +
           '<div class="hero-card" style="border-top: 3px solid #f59e0b; background: #fffbeb;">' +
             '<div class="hero-lbl" style="color: #b45309;">Excedente Solar Anual</div>' +
-            '<div class="hero-val" style="color: #b45309; font-size: 19px;">' + cel.excKWh.toLocaleString('es-ES') + ' kWh</div>' +
-            '<div style="font-size: 8.5px; color: #92400e; margin-top: 2px;">' + cel.excPct + '% de tu producción total</div>' +
+            '<div class="hero-val" style="color: #b45309; font-size: 20px;">' + cel.excKWh.toLocaleString('es-ES') + ' kWh</div>' +
+            '<div style="font-size: 9px; color: #92400e; margin-top: 4px;">' + cel.excPct + '% de tu producción total</div>' +
           '</div>' +
           '<div class="hero-card highlight" style="border-top: 3px solid ' + pal.primary + '; background: linear-gradient(135deg, ' + pal.light + ', #ffffff);">' +
             '<div class="hero-lbl" style="color: ' + pal.dark + ';">Valorización CEL (0,11 €/kWh)</div>' +
-            '<div class="hero-val primary" style="font-size: 20px;">+' + cel.ingresoCELAnual.toLocaleString('es-ES') + ' €/año</div>' +
-            '<div style="font-size: 8.5px; color: ' + pal.dark + '; margin-top: 2px; font-weight: 700;">+' + cel.beneficioExtraCEL.toLocaleString('es-ES') + ' € más que vertiendo a red</div>' +
+            '<div class="hero-val primary" style="font-size: 21px;">+' + cel.ingresoCELAnual.toLocaleString('es-ES') + ' €/año</div>' +
+            '<div style="font-size: 9px; color: ' + pal.dark + '; margin-top: 4px; font-weight: 700;">+' + cel.beneficioExtraCEL.toLocaleString('es-ES') + ' € más que vertiendo a red</div>' +
           '</div>' +
           '<div class="hero-card" style="border-top: 3px solid #0284c7; background: #f0f9ff;">' +
             '<div class="hero-lbl" style="color: #0369a1;">Payback Acelerado</div>' +
-            '<div class="hero-val" style="color: #0284c7; font-size: 19px;">' + cel.paybackCEL.toFixed(1) + ' Años</div>' +
-            '<div style="font-size: 8.5px; color: #0284c7; margin-top: 2px; font-weight: 700;">-' + cel.reduccionPaybackAnios.toFixed(1) + ' años de amortización</div>' +
+            '<div class="hero-val" style="color: #0284c7; font-size: 20px;">' + cel.paybackCEL.toFixed(1) + ' Años</div>' +
+            '<div style="font-size: 9px; color: #0284c7; margin-top: 4px; font-weight: 700;">-' + cel.reduccionPaybackAnios.toFixed(1) + ' años de amortización</div>' +
           '</div>' +
           '<div class="hero-card" style="border-top: 3px solid #10b981; background: #f0fdf4;">' +
             '<div class="hero-lbl" style="color: #047857;">Impacto en el Barrio</div>' +
-            '<div class="hero-val" style="color: #10b981; font-size: 19px;">~' + cel.familiasBeneficiadas + ' Familias</div>' +
-            '<div style="font-size: 8.5px; color: #065f46; margin-top: 2px;">abastecidas con energía km 0</div>' +
+            '<div class="hero-val" style="color: #10b981; font-size: 20px;">~' + cel.familiasBeneficiadas + ' Familias</div>' +
+            '<div style="font-size: 9px; color: #065f46; margin-top: 4px;">abastecidas con energía km 0</div>' +
           '</div>' +
         '</div>' +
 
         '<!-- CARA A CARA: RED CONVENCIONAL VS COMUNIDAD ENERGÉTICA LOCAL -->' +
-        '<div style="display: grid; grid-template-columns: 1fr 1.15fr; gap: 12px; margin-bottom: 14px;">' +
-          '<div style="border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 11px 13px; background: #f8fafc; display: flex; flex-direction: column; justify-content: space-between;">' +
+        '<div style="display: grid; grid-template-columns: 1fr 1.15fr; gap: 16px; margin-bottom: 22px;">' +
+          '<div style="border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 14px 16px; background: #f8fafc; display: flex; flex-direction: column; justify-content: space-between;">' +
             '<div>' +
-              '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">' +
-                '<span style="font-size: 8.5px; font-weight: 800; color: #64748b; text-transform: uppercase;">RÉGIMEN TRADICIONAL (RD 244/2019)</span>' +
-                '<span style="font-size: 8px; background: #e2e8f0; color: #475569; padding: 2px 6px; border-radius: 4px; font-weight: 700;">RED GENERAL</span>' +
+              '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">' +
+                '<span style="font-size: 9px; font-weight: 800; color: #64748b; text-transform: uppercase;">RÉGIMEN TRADICIONAL (RD 244/2019)</span>' +
+                '<span style="font-size: 8.5px; background: #e2e8f0; color: #475569; padding: 2px 7px; border-radius: 4px; font-weight: 700;">RED GENERAL</span>' +
               '</div>' +
-              '<div style="font-size: 11.5px; font-weight: 900; color: #1e293b;">Compensación Simplificada en Factura</div>' +
-              '<div style="font-size: 20px; font-weight: 900; color: #64748b; margin: 3px 0;">0,05 €/kWh <span style="font-size: 9.5px; font-weight: 600; color: #94a3b8;">(precio medio pool)</span></div>' +
-              '<div style="font-size: 9px; color: #475569; line-height: 1.35; margin-top: 3px;">' +
+              '<div style="font-size: 13px; font-weight: 900; color: #1e293b;">Compensación Simplificada en Factura</div>' +
+              '<div style="font-size: 22px; font-weight: 900; color: #64748b; margin: 4px 0;">0,05 €/kWh <span style="font-size: 10px; font-weight: 600; color: #94a3b8;">(precio medio pool)</span></div>' +
+              '<div style="font-size: 10px; color: #475569; line-height: 1.4; margin-top: 4px;">' +
                 'Ingreso anual estimado: <b>~' + cel.ingresoPoolAnual.toLocaleString('es-ES') + ' €/año</b>.' +
               '</div>' +
             '</div>' +
-            '<div style="margin-top: 7px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; padding: 5px 7px; font-size: 8px; color: #991b1b; line-height: 1.3;">' +
+            '<div style="margin-top: 10px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; padding: 8px 10px; font-size: 9px; color: #991b1b; line-height: 1.35;">' +
               '⚠️ <b>Tope Legal Mensual a 0 €:</b> Todo kWh vertido por encima del importe de energía de tu factura se regala obligatoriamente a la eléctrica sin retribución alguna.' +
             '</div>' +
           '</div>' +
 
-          '<div style="border: 2px solid ' + pal.primary + '; border-radius: 10px; padding: 11px 13px; background: #ffffff; box-shadow: 0 4px 14px rgba(0,0,0,0.06); display: flex; flex-direction: column; justify-content: space-between; position: relative;">' +
-            '<div style="position: absolute; top: -9px; right: 12px; background: ' + pal.primary + '; color: #fff; font-size: 8px; font-weight: 900; padding: 2px 8px; border-radius: 10px; letter-spacing: 0.5px;">¡+120% MÁS RENTABLE!</div>' +
+          '<div style="border: 2px solid ' + pal.primary + '; border-radius: 10px; padding: 14px 16px; background: #ffffff; box-shadow: 0 4px 14px rgba(0,0,0,0.06); display: flex; flex-direction: column; justify-content: space-between; position: relative;">' +
+            '<div style="position: absolute; top: -10px; right: 14px; background: ' + pal.primary + '; color: #fff; font-size: 8.5px; font-weight: 900; padding: 3px 10px; border-radius: 10px; letter-spacing: 0.5px;">¡+120% MÁS RENTABLE!</div>' +
             '<div>' +
-              '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">' +
-                '<span style="font-size: 8.5px; font-weight: 800; color: ' + pal.dark + '; text-transform: uppercase;">MARCO REGULATORIO RDL 7/2026</span>' +
-                '<span style="font-size: 8px; background: ' + pal.light + '; color: ' + pal.dark + '; padding: 2px 6px; border-radius: 4px; font-weight: 800;">RADIO HASTA 5 KM</span>' +
+              '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">' +
+                '<span style="font-size: 9px; font-weight: 800; color: ' + pal.dark + '; text-transform: uppercase;">MARCO REGULATORIO RDL 7/2026</span>' +
+                '<span style="font-size: 8.5px; background: ' + pal.light + '; color: ' + pal.dark + '; padding: 2px 7px; border-radius: 4px; font-weight: 800;">RADIO HASTA 5 KM</span>' +
               '</div>' +
-              '<div style="font-size: 11.5px; font-weight: 900; color: #0f172a;">Comunidad Energética Local (CEL) P2P</div>' +
-              '<div style="font-size: 22px; font-weight: 900; color: ' + pal.primary + '; margin: 3px 0;">0,11 €/kWh <span style="font-size: 9.5px; font-weight: 700; color: ' + pal.dark + ';">precio local justo acordado</span></div>' +
-              '<div style="font-size: 9px; color: #334155; line-height: 1.35; margin-top: 3px;">' +
-                'Ingreso anual estimado: <b style="color:' + pal.primary + ';font-size:10.5px;">+' + cel.ingresoCELAnual.toLocaleString('es-ES') + ' €/año</b> (<b style="color:#059669;">+' + cel.beneficioExtraCEL.toLocaleString('es-ES') + ' €/año netos extra</b>).' +
+              '<div style="font-size: 13px; font-weight: 900; color: #0f172a;">Comunidad Energética Local (CEL) P2P</div>' +
+              '<div style="font-size: 24px; font-weight: 900; color: ' + pal.primary + '; margin: 4px 0;">0,11 €/kWh <span style="font-size: 10.5px; font-weight: 700; color: ' + pal.dark + ';">precio local justo acordado</span></div>' +
+              '<div style="font-size: 10px; color: #334155; line-height: 1.4; margin-top: 4px;">' +
+                'Ingreso anual estimado: <b style="color:' + pal.primary + ';font-size:11px;">+' + cel.ingresoCELAnual.toLocaleString('es-ES') + ' €/año</b> (<b style="color:#059669;">+' + cel.beneficioExtraCEL.toLocaleString('es-ES') + ' €/año netos extra</b>).' +
               '</div>' +
             '</div>' +
-            '<div style="margin-top: 7px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 5px 7px; font-size: 8px; color: #166534; line-height: 1.3;">' +
+            '<div style="margin-top: 10px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 8px 10px; font-size: 9px; color: #166534; line-height: 1.35;">' +
               '✅ <b>Sin Límite de Factura:</b> Liquidación íntegra hora a hora mediante coeficientes de reparto dinámicos βh (Orden TED/1247/2021). Tus vecinos ahorran un 35% y tú duplicas ingresos.' +
             '</div>' +
           '</div>' +
         '</div>' +
 
-        '<!-- SECCIÓN TÉCNICA: DESPACHO ENERGÉTICO 4 VÍAS & RADAR 5 KM -->' +
-        '<div style="display: grid; grid-template-columns: 1.05fr 1fr; gap: 12px; margin-bottom: 12px; align-items: stretch;">' +
-          '<div style="border: 1px solid #e2e8f0; border-radius: 10px; padding: 11px; background: #f8fafc; display: flex; flex-direction: column; justify-content: space-between;">' +
-            '<div>' +
-              '<div style="font-size: 10px; font-weight: 900; color: #1e293b; text-transform: uppercase; margin-bottom: 7px; display: flex; align-items: center; gap: 6px;">' +
-                '<span>⚡</span>' +
-                '<span>1. Despacho del Flujo Energético Generado</span>' +
-              '</div>' +
-              '<div style="width: 100%; height: 24px; border-radius: 6px; overflow: hidden; display: flex; margin-bottom: 8px; border: 1px solid #cbd5e1; box-shadow: inset 0 1px 3px rgba(0,0,0,0.08);">' +
-                '<div style="width:' + autoW + '%; background: linear-gradient(135deg, #059669, #10b981); color: #fff; font-size: 8px; font-weight: 900; display: flex; align-items: center; justify-content: center; padding: 0 4px; white-space: nowrap;">' +
-                  cel.autoPct + '% Autoconsumo' +
-                '</div>' +
-                (cel.batPct > 0 ? (
-                  '<div style="width:' + batW + '%; background: linear-gradient(135deg, #0284c7, #38bdf8); color: #fff; font-size: 8px; font-weight: 900; display: flex; align-items: center; justify-content: center; padding: 0 4px; white-space: nowrap;">' +
-                    cel.batPct + '% Batería' +
-                  '</div>'
-                ) : '') +
-                '<div style="width:' + excW + '%; background: linear-gradient(135deg, #d97706, #f59e0b); color: #fff; font-size: 8px; font-weight: 900; display: flex; align-items: center; justify-content: center; padding: 0 4px; white-space: nowrap;">' +
-                  cel.excPct + '% Inyección CEL (5 km)' +
-                '</div>' +
-              '</div>' +
-              '<div style="display: flex; flex-direction: column; gap: 4px; font-size: 8.5px; line-height: 1.3;">' +
-                '<div style="display: flex; align-items: flex-start; gap: 6px;">' +
-                  '<span style="color: #059669; font-weight: 900;">■</span>' +
-                  '<div><b>Autoconsumo Inmueble (' + cel.autoKWh.toLocaleString('es-ES') + ' kWh/año):</b> Cubre consumos instantáneos diurnos a coste 0 €.</div>' +
-                '</div>' +
-                (cel.batKWh > 0 ? (
-                  '<div style="display: flex; align-items: flex-start; gap: 6px;">' +
-                    '<span style="color: #0284c7; font-weight: 900;">■</span>' +
-                    '<div><b>Batería LFP (' + cel.batKWh.toLocaleString('es-ES') + ' kWh/año):</b> Reserva energética para consumos nocturnos.</div>' +
-                  '</div>'
-                ) : '') +
-                '<div style="display: flex; align-items: flex-start; gap: 6px;">' +
-                  '<span style="color: #d97706; font-weight: 900;">■</span>' +
-                  '<div><b>Inyección CEL (' + cel.excKWh.toLocaleString('es-ES') + ' kWh/año):</b> Compartida con el barrio en radio de 5 km a <b>' + cel.precioCEL.toFixed(2) + ' €/kWh</b>.</div>' +
-                '</div>' +
-                '<div style="display: flex; align-items: flex-start; gap: 6px;">' +
-                  '<span style="color: #64748b; font-weight: 900;">■</span>' +
-                  '<div><b>Respaldo de Red:</b> Suministro ininterrumpido 24 horas y balance de seguridad permanente.</div>' +
-                '</div>' +
-              '</div>' +
-            '</div>' +
-          '</div>' +
-
-          '<div style="border: 1px solid #e2e8f0; border-radius: 10px; padding: 9px 11px; background: #f8fafc; display: flex; flex-direction: column; justify-content: space-between;">' +
-            '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">' +
-              '<div style="font-size: 10px; font-weight: 900; color: #1e293b; text-transform: uppercase;">2. Radar de Cobertura 5 km</div>' +
-              '<span style="font-size: 8px; font-weight: 800; color: ' + pal.primary + '; background: ' + pal.light + '; padding: 2px 6px; border-radius: 4px;">RDL 7/2026 · 78,5 km²</span>' +
-            '</div>' +
-            '<div style="width: 100%; height: 145px; border-radius: 6px; overflow: hidden; background: #0f172a;">' +
-              radarSvg +
-            '</div>' +
-          '</div>' +
-        '</div>' +
-
         '<!-- SELLO DE HOMOLOGACIÓN CEL-READY -->' +
-        '<div style="border: 1.5px solid #10b981; border-radius: 8px; padding: 9px 12px; background: linear-gradient(135deg, #f0fdf4, #ffffff); display: flex; align-items: center; justify-content: space-between; gap: 12px; box-shadow: 0 2px 6px rgba(16,185,129,0.06);">' +
-          '<div style="display: flex; align-items: center; gap: 10px;">' +
-            '<span style="font-size: 24px;">🛡️</span>' +
+        '<div style="border: 1.5px solid #10b981; border-radius: 8px; padding: 14px 16px; background: linear-gradient(135deg, #f0fdf4, #ffffff); display: flex; align-items: center; justify-content: space-between; gap: 14px; box-shadow: 0 2px 6px rgba(16,185,129,0.06); margin-top: 10px;">' +
+          '<div style="display: flex; align-items: center; gap: 12px;">' +
+            '<span style="font-size: 28px;">🛡️</span>' +
             '<div>' +
-              '<div style="font-size: 10.5px; font-weight: 900; color: #065f46; letter-spacing: 0.3px;">DISEÑO DE INGENIERÍA 100% HOMOLOGADO CEL-READY</div>' +
-              '<div style="font-size: 8px; color: #047857; margin-top: 2px; line-height: 1.35;">' +
+              '<div style="font-size: 11.5px; font-weight: 900; color: #065f46; letter-spacing: 0.3px;">DISEÑO DE INGENIERÍA 100% HOMOLOGADO CEL-READY</div>' +
+              '<div style="font-size: 9px; color: #047857; margin-top: 3px; line-height: 1.4;">' +
                 'La instalación incorpora <b>telemedida horaria bidireccional</b> homologada y soporte de coeficientes dinámicos <b>βh (Orden TED/1247/2021)</b>. No requiere obras de tendido vecinal ni cableado exterior: la energía se comparte a través de la red de distribución existente según el <b>Real Decreto-ley 7/2026</b>.' +
               '</div>' +
             '</div>' +
           '</div>' +
           '<div style="text-align: right; white-space: nowrap;">' +
-            '<span style="font-size: 8.5px; font-weight: 900; color: #065f46; background: #d1fae5; padding: 3px 8px; border-radius: 5px; border: 1px solid #10b981; display: inline-block;">COMPATIBLE RDL 7/2026</span>' +
+            '<span style="font-size: 9.5px; font-weight: 900; color: #065f46; background: #d1fae5; padding: 4px 10px; border-radius: 5px; border: 1px solid #10b981; display: inline-block;">COMPATIBLE RDL 7/2026</span>' +
           '</div>' +
         '</div>' +
       '</div>' +
 
-      '<!-- PIE DE HOJA -->' +
+      '<!-- PIE DE HOJA CEL 1 -->' +
       '<div class="cover-footer">' +
         '<span>Marco legal: RDL 7/2026 (BOE) · Orden TED/1247/2021 · RD 244/2019 · REBT ITC-BT-40</span>' +
         '<span>' + companyName + ' · Ref: ' + (d.refNum || 'PROY') + '</span>' +
       '</div>' +
     '</div>';
-  }
 
+    // HOJA 2 CEL: FLUJO DE DESPACHO ENERGÉTICO Y RADAR DE COBERTURA 5 KM (ESPACIOSO)
+    var page2Html = '<div class="page-sheet">' +
+      '<div>' +
+        '<div class="cover-header">' +
+          '<div class="company-text">' +
+            '<div class="name">DISTRIBUCIÓN ENERGÉTICA &amp; <span style="color:' + pal.primary + '">COBERTURA 5 KM</span></div>' +
+            '<div class="sub">Despacho Horario de Generación · Radio de Reparto Vecinal P2P de 78,5 km²</div>' +
+          '</div>' +
+          '<div class="doc-ref-box"><b>Ref: ' + (d.refNum || 'PROY') + '</b><br>Hoja ' + pageNum2 + ' de ' + totPages + '</div>' +
+        '</div>' +
+
+        '<!-- 1. DESPACHO DEL FLUJO ENERGÉTICO EN GRAN FORMATO -->' +
+        '<div style="border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 16px 18px; background: #f8fafc; margin: 12px 0 18px;">' +
+          '<div style="font-size: 12px; font-weight: 900; color: #1e293b; text-transform: uppercase; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">' +
+            '<div style="display: flex; align-items: center; gap: 8px;"><span>⚡</span><span>1. Despacho del Flujo Energético Generado</span></div>' +
+            '<span style="font-size: 9.5px; font-weight: 800; color: ' + pal.primary + '; background: ' + pal.light + '; padding: 3px 8px; border-radius: 4px;">Balance 100% Optimizado</span>' +
+          '</div>' +
+
+          '<div style="width: 100%; height: 34px; border-radius: 8px; overflow: hidden; display: flex; margin-bottom: 14px; border: 1.5px solid #cbd5e1; box-shadow: inset 0 2px 4px rgba(0,0,0,0.08);">' +
+            '<div style="width:' + autoW + '%; background: linear-gradient(135deg, #059669, #10b981); color: #fff; font-size: 10px; font-weight: 900; display: flex; align-items: center; justify-content: center; padding: 0 6px; white-space: nowrap;">' +
+              cel.autoPct + '% Autoconsumo' +
+            '</div>' +
+            (cel.batPct > 0 ? (
+              '<div style="width:' + batW + '%; background: linear-gradient(135deg, #0284c7, #38bdf8); color: #fff; font-size: 10px; font-weight: 900; display: flex; align-items: center; justify-content: center; padding: 0 6px; white-space: nowrap;">' +
+                cel.batPct + '% Batería' +
+              '</div>'
+            ) : '') +
+            '<div style="width:' + excW + '%; background: linear-gradient(135deg, #d97706, #f59e0b); color: #fff; font-size: 10px; font-weight: 900; display: flex; align-items: center; justify-content: center; padding: 0 6px; white-space: nowrap;">' +
+              cel.excPct + '% Inyección CEL (5 km)' +
+            '</div>' +
+          '</div>' +
+
+          '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 10px; line-height: 1.45;">' +
+            '<div style="display: flex; align-items: flex-start; gap: 8px; background: #ffffff; padding: 10px 12px; border-radius: 6px; border: 1px solid #e2e8f0;">' +
+              '<span style="color: #059669; font-weight: 900; font-size: 13px;">■</span>' +
+              '<div><b>Autoconsumo Inmueble (' + cel.autoKWh.toLocaleString('es-ES') + ' kWh/año):</b> Cubre consumos instantáneos diurnos a coste 0 €. Máxima prioridad operativa.</div>' +
+            '</div>' +
+            (cel.batKWh > 0 ? (
+              '<div style="display: flex; align-items: flex-start; gap: 8px; background: #ffffff; padding: 10px 12px; border-radius: 6px; border: 1px solid #e2e8f0;">' +
+                '<span style="color: #0284c7; font-weight: 900; font-size: 13px;">■</span>' +
+                '<div><b>Batería LFP (' + cel.batKWh.toLocaleString('es-ES') + ' kWh/año):</b> Reserva energética gestionada para consumos nocturnos o picos tarifarios.</div>' +
+              '</div>'
+            ) : '') +
+            '<div style="display: flex; align-items: flex-start; gap: 8px; background: #ffffff; padding: 10px 12px; border-radius: 6px; border: 1px solid #e2e8f0;">' +
+              '<span style="color: #d97706; font-weight: 900; font-size: 13px;">■</span>' +
+              '<div><b>Inyección CEL (' + cel.excKWh.toLocaleString('es-ES') + ' kWh/año):</b> Compartida con consumidores del barrio en radio de 5 km a <b>' + cel.precioCEL.toFixed(2) + ' €/kWh</b>.</div>' +
+            '</div>' +
+            '<div style="display: flex; align-items: flex-start; gap: 8px; background: #ffffff; padding: 10px 12px; border-radius: 6px; border: 1px solid #e2e8f0;">' +
+              '<span style="color: #64748b; font-weight: 900; font-size: 13px;">■</span>' +
+              '<div><b>Respaldo de Red Eléctrica:</b> Suministro ininterrumpido 24 horas y balance de seguridad permanente ante cualquier contingencia.</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+
+        '<!-- 2. RADAR DE COBERTURA 5 KM EN GRAN FORMATO -->' +
+        '<div style="border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 16px 18px; background: #f8fafc;">' +
+          '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">' +
+            '<div style="font-size: 12px; font-weight: 900; color: #1e293b; text-transform: uppercase;">2. Radar de Cobertura y Topología de Reparto (5 km)</div>' +
+            '<span style="font-size: 9.5px; font-weight: 800; color: ' + pal.primary + '; background: ' + pal.light + '; padding: 3px 8px; border-radius: 4px;">RDL 7/2026 · 78,5 km² de Cobertura</span>' +
+          '</div>' +
+          '<div style="width: 100%; height: 260px; border-radius: 8px; overflow: hidden; background: #0f172a; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">' +
+            radarSvg +
+          '</div>' +
+          '<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 9.5px; color: #64748b;">' +
+            '<span>Topología de reparto P2P certificada para consumidores residenciales, comerciales e industriales en baja y media tensión.</span>' +
+            '<span style="font-weight: 700; color: ' + pal.primary + ';">Telemedida horaria activa</span>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+
+      '<!-- PIE DE HOJA CEL 2 -->' +
+      '<div class="cover-footer">' +
+        '<span>Marco legal: RDL 7/2026 (BOE) · Orden TED/1247/2021 · RD 244/2019 · REBT ITC-BT-40</span>' +
+        '<span>' + companyName + ' · Ref: ' + (d.refNum || 'PROY') + '</span>' +
+      '</div>' +
+    '</div>';
+
+    return page1Html + page2Html;
+  }
 function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, themeOverride) {
   const d = getProjectCalcs();
   // Resiliencia AAA: si getProjectCalcs devuelve 0 paneles, intentar recuperar de caché conocida
@@ -3073,7 +3098,9 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   let _pageTracker = 3;
   const _pageIndexComparativa = _hasThreePkgs ? ++_pageTracker : 0;
   const _pageIndexProduccion = ++_pageTracker;
+  const _pageIndexGarantias = ++_pageTracker;
   const _pageIndexCEL = _includeCEL ? ++_pageTracker : 0;
+  const _pageIndexCEL2 = _includeCEL ? ++_pageTracker : 0;
   const _pageIndexPresupuesto = ++_pageTracker;
   const _pageIndexDecision = ++_pageTracker;
   const _totPages = _pageTracker;
@@ -3898,6 +3925,12 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
           </div>
         </div>
       </div>
+
+      <!-- PIE DE HOJA 3 -->
+      <div class="cover-footer" style="margin-top:auto;padding-top:12px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;font-size:9px;color:#64748b;">
+        <span>Simulación Tridimensional · Integración Arquitectónica · Marcado CE</span>
+        <span>${companyName} · Ref: ${d.refNum}</span>
+      </div>
     </div>
 
     ${(function() {
@@ -3908,132 +3941,168 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       return `
       <!-- PÁGINA INTERMEDIA: COMPARATIVA DE 3 PAQUETES (GOOD / BETTER / BEST) -->
       <div class="page-sheet">
-        ${_infografias.caraACara}
-        ${_infografias.relojSolar}
-        <div class="cover-header">
-          <div class="company-text">
-            <div class="name">PLANES &amp; <span style="color:${pal.primary}">MODALIDADES DE INVERSIÓN</span></div>
-            <div class="sub">Comparativa Estratégica: Esencial · Óptimo Recomendado · Independencia Total</div>
+        <div>
+          <div class="cover-header">
+            <div class="company-text">
+              <div class="name">PLANES &amp; <span style="color:${pal.primary}">MODALIDADES DE INVERSIÓN</span></div>
+              <div class="sub">Comparativa Estratégica: Esencial · Óptimo Recomendado · Independencia Total</div>
+            </div>
+            <div class="doc-ref-box"><b>Ref: ${d.refNum}</b><br>Hoja ${_pageIndexComparativa} de ${_totPages}</div>
           </div>
-          <div class="doc-ref-box"><b>Ref: ${d.refNum}</b><br>Hoja ${_pageIndexComparativa} de ${_totPages}</div>
+          <h2>Elige el nivel de independencia energética para tu inmueble</h2>
+          <p style="font-size:10px;color:#64748b;margin-bottom:14px;">Hemos preparado tres alternativas equilibradas para adaptarse a tu presupuesto y objetivos de ahorro a largo plazo:</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:18px;">
+            
+            <div style="border:1px solid #cbd5e1;border-radius:8px;padding:14px 12px;background:#f8fafc;display:flex;flex-direction:column;justify-content:space-between;">
+              <div>
+                <div style="font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;">${pkgs.essential.title}</div>
+                <div style="font-size:9.5px;color:#64748b;margin:4px 0 10px;line-height:1.35;">${pkgs.essential.desc}</div>
+                <div style="font-size:20px;font-weight:900;color:#0f172a;">${pkgs.essential.capex.toLocaleString('es-ES')} €</div>
+                <div style="font-size:9px;color:#64748b;">IVA 21% incluido</div>
+              </div>
+              <div style="margin-top:12px;border-top:1px solid #e2e8f0;padding-top:8px;font-size:10px;line-height:1.6;">
+                <div>• Ahorro: <b>${pkgs.essential.ahorroAnual.toLocaleString('es-ES')} €/año</b></div>
+                <div>• Retorno: <b>${pkgs.essential.payback} años</b></div>
+                <div>• Autarquía solar: <b>~${pkgs.essential.autarquia}%</b></div>
+              </div>
+            </div>
+
+            <div style="border:2.5px solid ${pal.primary};border-radius:8px;padding:14px 12px;background:#ffffff;box-shadow:0 6px 20px rgba(0,0,0,0.06);display:flex;flex-direction:column;justify-content:space-between;position:relative;">
+              <div style="position:absolute;top:-10px;right:10px;background:${pal.primary};color:#fff;font-size:8.5px;font-weight:900;padding:2px 8px;border-radius:10px;letter-spacing:0.5px;">PROYECTO ACTUAL</div>
+              <div>
+                <div style="font-size:11px;font-weight:900;color:${pal.dark};text-transform:uppercase;">${pkgs.optimal.title}</div>
+                <div style="font-size:9.5px;color:#64748b;margin:4px 0 10px;line-height:1.35;">${pkgs.optimal.desc}</div>
+                <div style="font-size:22px;font-weight:900;color:${pal.primary};">${pkgs.optimal.capex.toLocaleString('es-ES')} €</div>
+                <div style="font-size:9px;color:#64748b;">IVA 21% incluido</div>
+              </div>
+              <div style="margin-top:12px;border-top:1px solid #e2e8f0;padding-top:8px;font-size:10px;line-height:1.6;">
+                <div>• Ahorro: <b>${pkgs.optimal.ahorroAnual.toLocaleString('es-ES')} €/año</b></div>
+                <div>• Retorno: <b>${pkgs.optimal.payback} años</b></div>
+                <div>• Autarquía solar: <b>~${pkgs.optimal.autarquia}%</b></div>
+              </div>
+            </div>
+
+            <div style="border:1px solid #cbd5e1;border-radius:8px;padding:14px 12px;background:#f8fafc;display:flex;flex-direction:column;justify-content:space-between;">
+              <div>
+                <div style="font-size:11px;font-weight:800;color:#0369a1;text-transform:uppercase;">${pkgs.premium.title}</div>
+                <div style="font-size:9.5px;color:#64748b;margin:4px 0 10px;line-height:1.35;">${pkgs.premium.desc}</div>
+                <div style="font-size:20px;font-weight:900;color:#0369a1;">${pkgs.premium.capex.toLocaleString('es-ES')} €</div>
+                <div style="font-size:9px;color:#64748b;">IVA 21% incluido</div>
+              </div>
+              <div style="margin-top:12px;border-top:1px solid #e2e8f0;padding-top:8px;font-size:10px;line-height:1.6;">
+                <div>• Ahorro: <b>${pkgs.premium.ahorroAnual.toLocaleString('es-ES')} €/año</b></div>
+                <div>• Retorno: <b>${pkgs.premium.payback} años</b></div>
+                <div>• Autarquía solar: <b>~${pkgs.premium.autarquia}%</b></div>
+              </div>
+            </div>
+
+          </div>
+          ${_infografias.caraACara}
+          ${_infografias.relojSolar}
         </div>
-        <h2>Elige el nivel de independencia energética para tu inmueble</h2>
-        <p style="font-size:10px;color:#64748b;margin-bottom:14px;">Hemos preparado tres alternativas equilibradas para adaptarse a tu presupuesto y objetivos de ahorro a largo plazo:</p>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:18px;">
-          
-          <div style="border:1px solid #cbd5e1;border-radius:8px;padding:14px 12px;background:#f8fafc;display:flex;flex-direction:column;justify-content:space-between;">
-            <div>
-              <div style="font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;">${pkgs.essential.title}</div>
-              <div style="font-size:9.5px;color:#64748b;margin:4px 0 10px;line-height:1.35;">${pkgs.essential.desc}</div>
-              <div style="font-size:20px;font-weight:900;color:#0f172a;">${pkgs.essential.capex.toLocaleString('es-ES')} €</div>
-              <div style="font-size:9px;color:#64748b;">IVA 21% incluido</div>
-            </div>
-            <div style="margin-top:12px;border-top:1px solid #e2e8f0;padding-top:8px;font-size:10px;line-height:1.6;">
-              <div>• Ahorro: <b>${pkgs.essential.ahorroAnual.toLocaleString('es-ES')} €/año</b></div>
-              <div>• Retorno: <b>${pkgs.essential.payback} años</b></div>
-              <div>• Autarquía solar: <b>~${pkgs.essential.autarquia}%</b></div>
-            </div>
-          </div>
 
-          <div style="border:2.5px solid ${pal.primary};border-radius:8px;padding:14px 12px;background:#ffffff;box-shadow:0 6px 20px rgba(0,0,0,0.06);display:flex;flex-direction:column;justify-content:space-between;position:relative;">
-            <div style="position:absolute;top:-10px;right:10px;background:${pal.primary};color:#fff;font-size:8.5px;font-weight:900;padding:2px 8px;border-radius:10px;letter-spacing:0.5px;">PROYECTO ACTUAL</div>
-            <div>
-              <div style="font-size:11px;font-weight:900;color:${pal.dark};text-transform:uppercase;">${pkgs.optimal.title}</div>
-              <div style="font-size:9.5px;color:#64748b;margin:4px 0 10px;line-height:1.35;">${pkgs.optimal.desc}</div>
-              <div style="font-size:22px;font-weight:900;color:${pal.primary};">${pkgs.optimal.capex.toLocaleString('es-ES')} €</div>
-              <div style="font-size:9px;color:#64748b;">IVA 21% incluido</div>
-            </div>
-            <div style="margin-top:12px;border-top:1px solid #e2e8f0;padding-top:8px;font-size:10px;line-height:1.6;">
-              <div>• Ahorro: <b>${pkgs.optimal.ahorroAnual.toLocaleString('es-ES')} €/año</b></div>
-              <div>• Retorno: <b>${pkgs.optimal.payback} años</b></div>
-              <div>• Autarquía solar: <b>~${pkgs.optimal.autarquia}%</b></div>
-            </div>
-          </div>
-
-          <div style="border:1px solid #cbd5e1;border-radius:8px;padding:14px 12px;background:#f8fafc;display:flex;flex-direction:column;justify-content:space-between;">
-            <div>
-              <div style="font-size:11px;font-weight:800;color:#0369a1;text-transform:uppercase;">${pkgs.premium.title}</div>
-              <div style="font-size:9.5px;color:#64748b;margin:4px 0 10px;line-height:1.35;">${pkgs.premium.desc}</div>
-              <div style="font-size:20px;font-weight:900;color:#0369a1;">${pkgs.premium.capex.toLocaleString('es-ES')} €</div>
-              <div style="font-size:9px;color:#64748b;">IVA 21% incluido</div>
-            </div>
-            <div style="margin-top:12px;border-top:1px solid #e2e8f0;padding-top:8px;font-size:10px;line-height:1.6;">
-              <div>• Ahorro: <b>${pkgs.premium.ahorroAnual.toLocaleString('es-ES')} €/año</b></div>
-              <div>• Retorno: <b>${pkgs.premium.payback} años</b></div>
-              <div>• Autarquía solar: <b>~${pkgs.premium.autarquia}%</b></div>
-            </div>
-          </div>
-
+        <!-- PIE DE HOJA COMPARATIVA -->
+        <div class="cover-footer" style="margin-top:auto;padding-top:12px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;font-size:9px;color:#64748b;">
+          <span>Planes de Autarquía e Independencia Energética · Garantía de Rendimiento</span>
+          <span>${companyName} · Ref: ${d.refNum}</span>
         </div>
       </div>`;
     })()}
-    <!-- PÁGINA 3: PRODUCCIÓN SOLAR, ANÁLISIS FINANCIERO Y GARANTÍAS -->
+    <!-- PÁGINA 5A: PRODUCCIÓN SOLAR Y ANÁLISIS FINANCIERO -->
     <div class="page-sheet">
-      <div class="cover-header">
-        <div class="company-text">
-          <div class="name">PRODUCCIÓN &amp; <span style="color:${pal.primary}">RENTABILIDAD</span></div>
-          <div class="sub">Histograma Mensual · Curva de Amortización a 25 Años · Garantías</div>
-        </div>
-        <div class="doc-ref-box"><b>Ref: ${d.refNum}</b><br>Hoja ${_pageIndexProduccion} de ${_totPages}</div>
-      </div>
-
-      <h2>Histograma de producción fotovoltaica mensual estimada</h2>
-      <div class="chart-box">
-        <div class="chart-title">☀️ Producción Mensual Estimada — ${Math.round(annualYieldKWh).toLocaleString('es-ES')} kWh/año · ${m.kwp.toFixed(2)} kWp instalados</div>
-        ${histogramSVG}
-      </div>
-
-      <h2>Curva de amortización y retorno de inversión acumulado (25 años)</h2>
-      <div class="chart-box">
-        <div class="chart-title">📈 Cashflow Acumulado — Payback en ${m.paybackYears.toFixed(1)} años · VAN ${Math.round(m.van).toLocaleString('es-ES')} € · TIR ${m.tirString || ((m.tir != null && isFinite(m.tir)) ? m.tir.toFixed(1) + "%" : "N/D")}</div>
-        ${amortSVG}
-      </div>
-
-      ${(window.RA && window.RA.billAuditor && window.RA.billAuditor.currentBill && window.RA.billAuditor.comparison) ? `
-      <h2>Auditoría y contraste con factura actual del cliente</h2>
-      <table>
-        <tr><th>Concepto Auditado</th><th>Factura Actual (Sin Solar)</th><th class="text-right" style="color:${pal.primary}">Con Proyecto Solar 3D</th></tr>
-        <tr><td>Compañía y Tarifa</td><td>${window.RA.billAuditor.currentBill.comercializadora} (${window.RA.billAuditor.currentBill.tarifaAcceso || '2.0TD'})</td><td class="text-right" style="color:${pal.primary}">Autoconsumo + Compensación</td></tr>
-        <tr><td>Gasto Mensual Facturado</td><td>${window.RA.billAuditor.comparison.gastoMensualActualEUR} €/mes</td><td class="text-right" style="font-weight:800;color:${pal.primary}">${window.RA.billAuditor.comparison.gastoMensualConSolarEUR} €/mes</td></tr>
-        <tr style="background:${pal.light};font-weight:800;"><td>AHORRO S/ FACTURA (auditoría)</td><td>—</td><td class="text-right" style="color:${pal.primary}">${window.RA.billAuditor.comparison.ahorroAnualEUR.toLocaleString('es-ES')} €/año (-${window.RA.billAuditor.comparison.porcentajeAhorro}%)</td></tr>
-        <tr><td>Ahorro s/ modelo energético (SSOT)</td><td>—</td><td class="text-right" style="font-weight:700;color:${pal.primary}">${Math.round(m.ahorroLuzAnio1).toLocaleString('es-ES')} €/año</td></tr>
-      </table>
-      <p style="font-size:9px;color:#64748b;margin:4px 0 0 0;">La fila de auditoría incluye término de potencia e impuestos de la factura; el modelo energético solo valora energía. Las métricas de rentabilidad usan la segunda.</p>` : ''}
-
-      ${_infografias.tejadoBlindado}
-      ${_infografias.cascadaFiscal}
-      <h2>Garantías oficiales incluidas</h2>
-      <table>
-        <tr><th>Componente</th><th>Garantía de Producto</th><th>Garantía de Rendimiento</th><th>Garantía de Instalación</th></tr>
-        <tr><td>Módulos Fotovoltaicos</td><td>${warMod} años</td><td>${warPower} años (≥84.8%)</td><td rowspan="${eqWarranties.hasBat ? '4' : '3'}" style="vertical-align:middle;text-align:center;">${warMo} años<br>mano de obra</td></tr>
-        <tr><td>Inversor & Monitorización</td><td>${warInv} años${eqWarranties.isMicro ? ' (Microinversor oficial)' : ''}</td><td>—</td></tr>
-        ${eqWarranties.hasBat ? '<tr><td>Batería de Litio LFP</td><td>' + warBat + ' años (o 6.000 ciclos)</td><td>—</td></tr>' : ''}
-        <tr><td>Estructura & Fijaciones</td><td>10 años inox A2</td><td>—</td></tr>
-      </table>
-
-      <div class="sig-box-grid" style="margin-top:24px;">
-        <div class="sig-card">
-          <strong>Conforme y Aceptado por el Cliente</strong><br><br><br>
-          Firma: ________________________<br>
-          D./Dña. ${d.tit.nombre}<br>
-          NIF: ${d.tit.nif}<br>
-          Fecha: ___ / ___ / 2026
-        </div>
-        <div class="sig-card">
-          <div class="sig-logo-box">
-            ${logoDataUrl ? '<img src="' + logoDataUrl + '" style="max-height:36px;max-width:100px;object-fit:contain;">' : '<span style="font-size:20px;">🏢</span>'}
-            <div style="text-align:left;"><div style="font-weight:900;font-size:11px;">${companyName}</div>${companyCIF ? '<div style="font-size: 10px;color:#64748b;">CIF: ' + companyCIF + '</div>' : ''}</div>
+      <div>
+        <div class="cover-header">
+          <div class="company-text">
+            <div class="name">PRODUCCIÓN &amp; <span style="color:${pal.primary}">RENTABILIDAD</span></div>
+            <div class="sub">Histograma Mensual · Curva de Amortización a 25 Años · Auditoría de Factura</div>
           </div>
-          Por la Empresa Instaladora<br><br>
-          Firma y Sello: ________________________<br>
-          ${d.tit.tecnico} (${d.tit.titulacion})<br>
-          ${contactBlock ? contactBlock + '<br>' : ''}
-          <div style="margin-top:6px;">${['⚡ REBT ITC-BT-40','🛡 RD 244/2019','✅ IEC 61215'].map(t => '<span class="pill">'+t+'</span>').join('')}</div>
+          <div class="doc-ref-box"><b>Ref: ${d.refNum}</b><br>Hoja ${_pageIndexProduccion} de ${_totPages}</div>
         </div>
+
+        <h2>Histograma de producción fotovoltaica mensual estimada</h2>
+        <div class="chart-box">
+          <div class="chart-title">☀️ Producción Mensual Estimada — ${Math.round(annualYieldKWh).toLocaleString('es-ES')} kWh/año · ${m.kwp.toFixed(2)} kWp instalados</div>
+          ${histogramSVG}
+        </div>
+
+        <h2>Curva de amortización y retorno de inversión acumulado (25 años)</h2>
+        <div class="chart-box">
+          <div class="chart-title">📈 Cashflow Acumulado — Payback en ${m.paybackYears.toFixed(1)} años · VAN ${Math.round(m.van).toLocaleString('es-ES')} € · TIR ${m.tirString || ((m.tir != null && isFinite(m.tir)) ? m.tir.toFixed(1) + "%" : "N/D")}</div>
+          ${amortSVG}
+        </div>
+
+        ${(window.RA && window.RA.billAuditor && window.RA.billAuditor.currentBill && window.RA.billAuditor.comparison) ? `
+        <h2>Auditoría y contraste con factura actual del cliente</h2>
+        <table>
+          <tr><th>Concepto Auditado</th><th>Factura Actual (Sin Solar)</th><th class="text-right" style="color:${pal.primary}">Con Proyecto Solar 3D</th></tr>
+          <tr><td>Compañía y Tarifa</td><td>${window.RA.billAuditor.currentBill.comercializadora} (${window.RA.billAuditor.currentBill.tarifaAcceso || '2.0TD'})</td><td class="text-right" style="color:${pal.primary}">Autoconsumo + Compensación</td></tr>
+          <tr><td>Gasto Mensual Facturado</td><td>${window.RA.billAuditor.comparison.gastoMensualActualEUR} €/mes</td><td class="text-right" style="font-weight:800;color:${pal.primary}">${window.RA.billAuditor.comparison.gastoMensualConSolarEUR} €/mes</td></tr>
+          <tr style="background:${pal.light};font-weight:800;"><td>AHORRO S/ FACTURA (auditoría)</td><td>—</td><td class="text-right" style="color:${pal.primary}">${window.RA.billAuditor.comparison.ahorroAnualEUR.toLocaleString('es-ES')} €/año (-${window.RA.billAuditor.comparison.porcentajeAhorro}%)</td></tr>
+          <tr><td>Ahorro s/ modelo energético (SSOT)</td><td>—</td><td class="text-right" style="font-weight:700;color:${pal.primary}">${Math.round(m.ahorroLuzAnio1).toLocaleString('es-ES')} €/año</td></tr>
+        </table>
+        <p style="font-size:9px;color:#64748b;margin:4px 0 0 0;">La fila de auditoría incluye término de potencia e impuestos de la factura; el modelo energético solo valora energía. Las métricas de rentabilidad usan la segunda.</p>` : ''}
+      </div>
+
+      <!-- PIE DE HOJA PRODUCCIÓN -->
+      <div class="cover-footer" style="margin-top:auto;padding-top:12px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;font-size:9px;color:#64748b;">
+        <span>Modelo Energético Horario · Radiación PVGIS/NASA · Simulación de Retorno</span>
+        <span>${companyName} · Ref: ${d.refNum}</span>
       </div>
     </div>
 
-    ${_includeCEL ? buildCELPageHTML(d, m, pal, _celMetrics, _pageIndexCEL, _totPages, companyName) : ''}
+    <!-- PÁGINA 5B: GARANTÍAS OFICIALES Y FORMALIZACIÓN -->
+    <div class="page-sheet">
+      <div>
+        <div class="cover-header">
+          <div class="company-text">
+            <div class="name">GARANTÍAS &amp; <span style="color:${pal.primary}">COMPROMISO TÉCNICO</span></div>
+            <div class="sub">Escudo de Protección · Certificaciones de Calidad · Formalización de Proyecto</div>
+          </div>
+          <div class="doc-ref-box"><b>Ref: ${d.refNum}</b><br>Hoja ${_pageIndexGarantias} de ${_totPages}</div>
+        </div>
+
+        ${_infografias.tejadoBlindado}
+        ${_infografias.cascadaFiscal}
+
+        <h2>Garantías oficiales incluidas</h2>
+        <table>
+          <tr><th>Componente</th><th>Garantía de Producto</th><th>Garantía de Rendimiento</th><th>Garantía de Instalación</th></tr>
+          <tr><td>Módulos Fotovoltaicos</td><td>${warMod} años</td><td>${warPower} años (≥84.8%)</td><td rowspan="${eqWarranties.hasBat ? '4' : '3'}" style="vertical-align:middle;text-align:center;">${warMo} años<br>mano de obra</td></tr>
+          <tr><td>Inversor & Monitorización</td><td>${warInv} años${eqWarranties.isMicro ? ' (Microinversor oficial)' : ''}</td><td>—</td></tr>
+          ${eqWarranties.hasBat ? '<tr><td>Batería de Litio LFP</td><td>' + warBat + ' años (o 6.000 ciclos)</td><td>—</td></tr>' : ''}
+          <tr><td>Estructura & Fijaciones</td><td>10 años inox A2</td><td>—</td></tr>
+        </table>
+
+        <div class="sig-box-grid" style="margin-top:24px;">
+          <div class="sig-card">
+            <strong>Conforme y Aceptado por el Cliente</strong><br><br><br>
+            Firma: ________________________<br>
+            D./Dña. ${d.tit.nombre}<br>
+            NIF: ${d.tit.nif}<br>
+            Fecha: ___ / ___ / 2026
+          </div>
+          <div class="sig-card">
+            <div class="sig-logo-box">
+              ${logoDataUrl ? '<img src="' + logoDataUrl + '" style="max-height:36px;max-width:100px;object-fit:contain;">' : '<span style="font-size:20px;">🏢</span>'}
+              <div style="text-align:left;"><div style="font-weight:900;font-size:11px;">${companyName}</div>${companyCIF ? '<div style="font-size: 10px;color:#64748b;">CIF: ' + companyCIF + '</div>' : ''}</div>
+            </div>
+            Por la Empresa Instaladora<br><br>
+            Firma y Sello: ________________________<br>
+            ${d.tit.tecnico} (${d.tit.titulacion})<br>
+            ${contactBlock ? contactBlock + '<br>' : ''}
+            <div style="margin-top:6px;">${['⚡ REBT ITC-BT-40','🛡 RD 244/2019','✅ IEC 61215'].map(t => '<span class="pill">'+t+'</span>').join('')}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PIE DE HOJA GARANTÍAS -->
+      <div class="cover-footer" style="margin-top:auto;padding-top:12px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;font-size:9px;color:#64748b;">
+        <span>Garantía Oficial de Producto y Rendimiento · Homologación Marcado CE · REBT ITC-BT-40</span>
+        <span>${companyName} · Ref: ${d.refNum}</span>
+      </div>
+    </div>
+
+    ${_includeCEL ? buildCELPageHTML(d, m, pal, _celMetrics, _pageIndexCEL, _totPages, companyName, _pageIndexCEL2) : ''}
 
     <!-- PÁGINA PRESUPUESTO: PRESUPUESTO ECONÓMICO EPC Y AYUDAS FISCALES -->
     <div class="page-sheet">
