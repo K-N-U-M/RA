@@ -3379,23 +3379,24 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       /* Estilos para modo edición interactivo (redimensionar, arrastrar y borrar) */
       body.mode-edit-layout [data-editable-box] {
         position: relative !important;
-        cursor: move !important;
-        resize: both !important;
-        overflow: auto !important;
+        cursor: grab !important;
         transition: outline 0.15s ease, box-shadow 0.15s ease;
       }
+      body.mode-edit-layout [data-editable-box]:active {
+        cursor: grabbing !important;
+      }
       body.mode-edit-layout [data-editable-box]:hover {
-        outline: 1.5px dashed ${pal.primary} !important;
+        outline: 2px dashed ${pal.primary} !important;
         box-shadow: 0 0 10px rgba(0,0,0,0.12) !important;
       }
       body.mode-edit-layout [data-editable-box].selected-edit-box {
-        outline: 2px solid ${pal.primary} !important;
+        outline: 2.5px solid ${pal.primary} !important;
         box-shadow: 0 0 14px rgba(0,0,0,0.2) !important;
       }
       .ra-edit-del-btn {
         position: absolute;
-        top: -9px;
-        right: -9px;
+        top: 6px;
+        right: 6px;
         width: 22px;
         height: 22px;
         background: #ef4444;
@@ -3405,11 +3406,11 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         display: none;
         align-items: center;
         justify-content: center;
-        font-size: 12px;
+        font-size: 11px;
         font-weight: 900;
         cursor: pointer;
-        z-index: 99999;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+        z-index: 10000;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.4);
         user-select: none;
         line-height: 1;
       }
@@ -4409,17 +4410,29 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
                 el.classList.add('selected-edit-box');
               });
 
+              el.addEventListener('mousedown', function(ev) {
+                if (!document.body.classList.contains('mode-edit-layout')) return;
+                // Si el clic es sobre un botón de borrado o sobre un elemento editable de texto directo, no forzar drag
+                if (ev.target.closest('.ra-edit-del-btn')) return;
+                const isDirectTextEdit = ['INPUT', 'TEXTAREA'].includes(ev.target.tagName);
+                if (isDirectTextEdit) return;
+                el.setAttribute('draggable', 'true');
+              });
+
               el.addEventListener('dragstart', function(ev) {
                 if (!document.body.classList.contains('mode-edit-layout')) return;
                 _draggedElement = el;
                 ev.dataTransfer.effectAllowed = 'move';
                 try { ev.dataTransfer.setData('text/plain', ''); } catch(e) {}
-                el.style.opacity = '0.45';
+                setTimeout(() => {
+                  if (_draggedElement) _draggedElement.style.opacity = '0.4';
+                }, 0);
               });
 
               el.addEventListener('dragend', function() {
                 if (_draggedElement) _draggedElement.style.opacity = '1';
                 _draggedElement = null;
+                document.querySelectorAll('.drag-over-active').forEach(item => item.classList.remove('drag-over-active'));
               });
 
               el.addEventListener('dragover', function(ev) {
@@ -4428,14 +4441,24 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
                 ev.dataTransfer.dropEffect = 'move';
               });
 
+              el.addEventListener('dragenter', function(ev) {
+                if (!document.body.classList.contains('mode-edit-layout') || !_draggedElement || _draggedElement === el) return;
+                el.classList.add('drag-over-active');
+              });
+
+              el.addEventListener('dragleave', function(ev) {
+                el.classList.remove('drag-over-active');
+              });
+
               el.addEventListener('drop', function(ev) {
                 if (!document.body.classList.contains('mode-edit-layout') || !_draggedElement || _draggedElement === el) return;
                 ev.preventDefault();
                 ev.stopPropagation();
+                el.classList.remove('drag-over-active');
                 const parent = el.parentNode;
                 if (!parent) return;
                 const rect = el.getBoundingClientRect();
-                const next = (ev.clientY - rect.top) > (rect.height / 2);
+                const next = (ev.clientY - rect.top) > (rect.height / 2) || (ev.clientX - rect.left) > (rect.width / 2);
                 parent.insertBefore(_draggedElement, next ? el.nextSibling : el);
               });
             });
