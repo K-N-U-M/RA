@@ -617,12 +617,14 @@
         const isCurrentSafe = !inv.iMaxScA || (_iscPerMppt <= inv.iMaxScA);
         const hasImpClipping = !!(inv.iMaxOperA && _impPerMppt > inv.iMaxOperA);
 
-        // REBT ITC-BT-40 Punto 4.2: Desequilibrio máximo entre dos fases cualesquiera <= 5.0 kW
-        // Al repartir N inversores monofásicos entre las 3 fases L1, L2, L3, el desfase entre la fase más cargada y la menos cargada es (ceil(N/3) - floor(N/3)) * P_unit
+        // Art. 12.2 RD 1699/2011 (modificado por RD 244/2019) y REBT ITC-BT-40:
+        // 1) Si la potencia nominal supera 15 kW, la conexión será obligatoriamente trifásica.
+        // 2) Conexión trifásica con desequilibrio entre fases inferior a 5 kW (< 5.0 kW).
+        const exceedsSinglePhaseLimit = (gridSupply === 'single_phase' && ((invCount * inv.kw) > 15.0 || totalKwp > 15.0));
         const maxPhaseUnits = Math.ceil(invCount / 3);
         const minPhaseUnits = Math.floor(invCount / 3);
         const maxPhaseDeltaKw = (maxPhaseUnits - minPhaseUnits) * (inv.kw || 0);
-        const hasPhaseUnbalance = (gridSupply === 'three_phase' && isInvSinglePhase && maxPhaseDeltaKw > 5.0);
+        const hasPhaseUnbalance = (gridSupply === 'three_phase' && isInvSinglePhase && maxPhaseDeltaKw >= 5.0);
 
         const isMLPE = (options.selectedTopology === 'optimizer' || options.selectedTopology === 'microinverter');
         const effectiveOrientations = isMLPE ? Math.min(distinctOrientations, 2) : distinctOrientations;
@@ -644,7 +646,8 @@
           actualOverload <= maxAllowedOverload &&
           isCurrentSafe &&
           isVoltageSafe &&
-          !hasPhaseUnbalance;
+          !hasPhaseUnbalance &&
+          !exceedsSinglePhaseLimit;
 
         if (!isMatch) return null;
 
@@ -743,7 +746,9 @@
           if (inv.iMaxScA && _isc > inv.iMaxScA) countCurrentMismatch++;
         });
 
-        if (countPhaseMismatch === catalog.length) {
+        if (gridSupply === 'single_phase' && totalKwp > 15.0) {
+          bottleneckReason = `Potencia instalada de ${totalKwp.toFixed(1)} kWp superior a 15 kW: el Art. 12.2 del RD 1699/2011 (modificado por RD 244/2019) prohíbe la conexión monofásica a la red de distribución y exige conexión trifásica con desequilibrio entre fases < 5 kW.`;
+        } else if (countPhaseMismatch === catalog.length) {
           bottleneckReason = 'Todos los inversores del catálogo son trifásicos, pero el suministro configurado es monofásico (≤6 kWp).';
         } else if (countCurrentMismatch >= Math.ceil(catalog.length / 2)) {
           bottleneckReason = `La corriente Isc acumulada por MPPT (${((moduleSpec.isc || 14.0) * 2).toFixed(1)} A) excede la capacidad de entrada admisible de los inversores en catálogo.`;
@@ -755,7 +760,7 @@
       }
 
       // Generar Inversor Paramétrico Virtual Ideal
-      const isThreePhase = (gridSupply === 'three_phase' || totalKwp > 6.0);
+      const isThreePhase = (gridSupply === 'three_phase' || totalKwp > 6.0 || totalKwp > 15.0);
       const targetOverload = 1.18;
       let idealKw = Math.max(1.0, Math.round((totalKwp / targetOverload) * 10) / 10);
       let invCount = 1;
@@ -783,7 +788,7 @@
         brand: 'Paramétrico (Auto-Generado)',
         model: `Inversor Ideal ${unitKw} kW (${mpptReq} MPPT)`,
         kw: unitKw,
-        type: isThreePhase ? 'Trifásico Industrial' : 'Monofásico Residencial',
+        type: isThreePhase ? (totalKwp > 15.0 ? 'Trifásico (RD 1699/2011 Art. 12.2)' : 'Trifásico Industrial') : 'Monofásico Residencial',
         mppt: mpptReq,
         inputsPerMppt: inputsPerMppt,
         vDcMax: isThreePhase ? 1100 : 600,
@@ -851,7 +856,7 @@
     // 1) Opción A: Inversor Centralizado (1x)
     let singleInvMatch = singleCandidates[0] || (virtualInverterMatch && virtualInverterMatch.count === 1 ? virtualInverterMatch : null);
     if (!singleInvMatch && totalKwp > 0) {
-      const isThreePhase = (gridSupply === 'three_phase' || totalKwp > 6.0);
+      const isThreePhase = (gridSupply === 'three_phase' || totalKwp > 6.0 || totalKwp > 15.0);
       const unitKwA = Math.max(1.0, Math.round((totalKwp / 1.18) * 10) / 10);
       const mpptReqA = Math.max(distinctOrientations, isThreePhase ? (unitKwA >= 25 ? 4 : 2) : 2);
       const estPriceA = isThreePhase
@@ -864,7 +869,7 @@
           brand: 'Paramétrico (Auto-Generado)',
           model: `Inversor Central ${unitKwA} kW (${mpptReqA} MPPT)`,
           kw: unitKwA,
-          type: isThreePhase ? 'Trifásico' : 'Monofásico',
+          type: isThreePhase ? (totalKwp > 15.0 ? 'Trifásico (RD 1699/2011 Art. 12.2)' : 'Trifásico') : 'Monofásico',
           mppt: mpptReqA,
           vDcMax: isThreePhase ? 1100 : 600,
           price: estPriceA,
@@ -886,7 +891,7 @@
     // 2) Opción B: Modular Distribuida (Nx con N >= 2 de equipos menores)
     let multiInvMatch = multiCandidates[0];
     if (!multiInvMatch && totalKwp > 0) {
-      const isThreePhase = (gridSupply === 'three_phase' || totalKwp > 6.0);
+      const isThreePhase = (gridSupply === 'three_phase' || totalKwp > 6.0 || totalKwp > 15.0);
       const nUnitsB = totalKwp > 60.0 ? Math.max(2, Math.ceil(totalKwp / 45.0)) : 2;
       const unitKwB = Math.max(1.0, Math.round((totalKwp / (nUnitsB * 1.18)) * 10) / 10);
       const mpptReqB = Math.max(2, Math.ceil(distinctOrientations / nUnitsB));
@@ -900,7 +905,7 @@
           brand: 'Paramétrico (Auto-Generado)',
           model: `Inversor Modular ${unitKwB} kW (${mpptReqB} MPPT)`,
           kw: unitKwB,
-          type: isThreePhase ? 'Trifásico' : 'Monofásico',
+          type: isThreePhase ? (totalKwp > 15.0 ? 'Trifásico (RD 1699/2011 Art. 12.2)' : 'Trifásico') : 'Monofásico',
           mppt: mpptReqB,
           vDcMax: isThreePhase ? 1100 : 600,
           price: estPriceB,
@@ -2206,7 +2211,11 @@
   const INV_SIZES = [0.6, 1.0, 1.5, 2.0, 3.0, 3.68, 4.0, 5.0, 6.0, 8.0, 10.0, 12.0, 15.0, 20.0, 25.0, 30.0, 50.0, 100.0];
   const inv_kW = activeInvKw > 0 ? activeInvKw : (INV_SIZES.find(s => s >= P_ac_kW) || Math.ceil(P_ac_kW));
   const _selInv = (window.solarProjectConfig && window.solarProjectConfig.calculatedLimits && window.solarProjectConfig.calculatedLimits.inverter) || null;
-  const monofasico = (activeInv && typeof activeInv.phases === 'number') ? (activeInv.phases === 1) : ((typeof window.raInverterPhases === 'function' && _selInv) ? (window.raInverterPhases(_selInv) === 1) : (inv_kW <= 5.0));
+  let monofasico = (activeInv && typeof activeInv.phases === 'number') ? (activeInv.phases === 1) : ((typeof window.raInverterPhases === 'function' && _selInv) ? (window.raInverterPhases(_selInv) === 1) : (inv_kW <= 5.0));
+  // Salvaguarda RD 1699/2011 Art. 12.2 (mod. RD 244/2019): Pn > 15 kW es obligatoriamente trifásica
+  if (inv_kW > 15.0 || P_ac_kW > 15.0) {
+    monofasico = false;
+  }
   const V_ac = monofasico ? 230 : 400;
   // Factor de potencia de inyección (0.95 en baseline histórico; configurable si el inversor declara cosPhi)
   const cosPhiAc = (activeInv && typeof activeInv.cosPhi === 'number' && activeInv.cosPhi > 0) ? activeInv.cosPhi : 0.95;

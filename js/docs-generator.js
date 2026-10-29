@@ -912,6 +912,7 @@ function generateMemoria(skipPricingModal) {
     '<table><tr><th>Referencia<\/th><th>Descripción<\/th><\/tr>' +
     '<tr><td>RD 842/2002 (REBT)<\/td><td>Reglamento Electrotécnico de Baja Tensión<\/td><\/tr>' +
     '<tr><td>ITC-BT-40<\/td><td>Instalaciones generadoras de baja tensión<\/td><\/tr>' +
+    '<tr><td>RD 1699/2011 (mod. RD 244/2019)<\/td><td>Conexión a red de instalaciones de generación (Art. 12.2: Conexión trifásica obligatoria &gt; 15 kW y desequilibrio de fases &lt; 5 kW)<\/td><\/tr>' +
     '<tr><td>RD 244/2019<\/td><td>Condiciones técnicas y económicas del autoconsumo<\/td><\/tr>' +
     '<tr><td>RD 1183/2020<\/td><td>Acceso y conexión a redes de distribución<\/td><\/tr>' +
     '<tr><td>UNE-EN IEC 62446-1<\/td><td>Documentación de sistemas FV conectados a red<\/td><\/tr>' +
@@ -975,6 +976,7 @@ function generateMemoria(skipPricingModal) {
         '<tr><td>Marca y Modelo<\/td><td><strong>' + (inv.fullName || 'Inversor Solar Central') + '</strong><\/td><td>Certificación RD 1699/2011 / UNE 217001<\/td><\/tr>' +
         '<tr><td>Potencia nominal AC<\/td><td><strong>' + invNomKw + ' kW' + (invCount > 1 ? ' (' + invCount + ' uds · ' + invTotalKw + ' kW total)' : '') + '</strong><\/td><td>Pn a cos φ = 1,0<\/td><\/tr>' +
         '<tr><td>Tensión y Tipo de Red<\/td><td>' + invPhases + '<\/td><td>50 Hz ± 1 Hz<\/td><\/tr>' +
+        '<tr><td>Régimen de Conexión a Red<\/td><td><strong>' + (Number(invTotalKw) > 15.0 ? 'Conexión Trifásica 400 V Obligatoria (RD 1699/2011 Art. 12.2)' : (d.monofasico ? 'Monofásica 230 V (admisible Pn ≤ 15 kW)' : 'Trifásica 400 V (desequilibrio de fases &lt; 5 kW)')) + '<\/strong><\/td><td>RD 1699/2011 Art. 12.2 (mod. RD 244/2019)<\/td><\/tr>' +
         '<tr><td>Número de Entradas MPPT<\/td><td>' + invMppts + ' seguidor(es) MPPT independientes<\/td><td>Algoritmo de seguimiento continuo<\/td><\/tr>' +
         '<tr><td>Rango de tensión MPPT<\/td><td>' + invVmpptMin + ' V – ' + invVmpptMax + ' V CC<\/td><td>Ventana de tracking óptimo<\/td><\/tr>' +
         '<tr><td>Tensión máxima admisible (Vmax,dc)<\/td><td>' + invVmax + ' V CC<\/td><td>Límite destructivo de entrada<\/td><\/tr>' +

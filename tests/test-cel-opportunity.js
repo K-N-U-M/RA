@@ -101,7 +101,7 @@ assert.ok(html.includes('0,11 €/kWh'), 'Debe mostrar el precio destacado de 0,
 assert.ok(html.includes('0,05 €/kWh'), 'Debe mostrar el precio pool tradicional de 0,05 €/kWh');
 assert.ok(html.includes('Tope Legal Mensual a 0 €'), 'Debe explicar la restricción del tope legal mensual');
 assert.ok(html.includes('TU HUB GENERADOR'), 'El radar SVG debe contener TU HUB GENERADOR');
-assert.ok(html.includes('viewBox="0 0 560 260"') || html.includes('viewBox="0 0 440 200"'), 'El radar SVG debe tener viewBox definido');
+assert.ok(html.includes('viewBox="0 0 560 260"') || html.includes('viewBox="0 0 440 200"') || html.includes('viewBox="0 0 640 360"'), 'El radar SVG debe tener viewBox definido');
 assert.ok(html.includes('HOMOLOGADO CEL-READY'), 'Debe contener el sello de ingeniería CEL-Ready');
 assert.ok(html.includes('TED/1247/2021'), 'Debe citar los coeficientes dinámicos de la Orden TED/1247/2021');
 

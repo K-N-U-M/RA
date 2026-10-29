@@ -209,24 +209,103 @@ function step3SetTopology(topo) {
   if (typeof wpRefreshAutoEngineeringBanner === 'function') wpRefreshAutoEngineeringBanner(topo);
 }
 
-function wpSetGridSupply(supply, manual = true) {
-  if (!window.solarProjectConfig) window.solarProjectConfig = {};
-  window.solarProjectConfig.gridSupply = supply;
-  if (manual) window.solarProjectConfig.userManuallySelectedGridSupply = true;
+function wpSyncGridSupplyUI(totalKwp) {
+  const cfg = window.solarProjectConfig || {};
+  let kwp = (typeof totalKwp === 'number' && totalKwp >= 0) ? totalKwp : null;
+  if (kwp === null) {
+    const totalPanels = (typeof WP !== 'undefined' && Array.isArray(WP.placedPanels)) ? WP.placedPanels.length : (cfg.totalPanels || 0);
+    const catalog = (typeof window !== 'undefined' && window.equipmentCatalog) ? window.equipmentCatalog : {};
+    const mod = (catalog.modules && catalog.modules.find(m => m.id === cfg.selectedModuleId)) || (catalog.modules && catalog.modules[0]) || { wp: 450 };
+    kwp = (totalPanels * (mod.wp || 450)) / 1000.0;
+  }
+
+  const isOver15kW = kwp > 15.0;
+  const isTri = (cfg.gridSupply === 'three_phase' || isOver15kW);
 
   const btnMono = document.getElementById('step3-grid-single-phase');
   const btnTri = document.getElementById('step3-grid-three-phase');
+  const noticeEl = document.getElementById('step3-grid-supply-notice');
+
   if (btnMono && btnTri) {
-    const isTri = (supply === 'three_phase');
-    btnMono.classList.toggle('active', !isTri);
-    btnTri.classList.toggle('active', isTri);
-    btnMono.style.background = !isTri ? 'rgba(14,165,233,0.3)' : 'rgba(14,165,233,0.06)';
-    btnMono.style.borderColor = !isTri ? '#38BDF8' : 'rgba(14,165,233,0.25)';
-    btnMono.style.color = !isTri ? '#38BDF8' : '#cbd5e1';
-    btnTri.style.background = isTri ? 'rgba(16,185,129,0.3)' : 'rgba(14,165,233,0.06)';
-    btnTri.style.borderColor = isTri ? '#10B981' : 'rgba(14,165,233,0.25)';
-    btnTri.style.color = isTri ? '#34D399' : '#cbd5e1';
+    if (isOver15kW) {
+      btnMono.disabled = true;
+      btnMono.style.opacity = '0.4';
+      btnMono.style.cursor = 'not-allowed';
+      btnMono.title = 'Bloqueado por RD 1699/2011 Art. 12.2: Para P > 15 kW la conexión debe ser trifásica con desequilibrio < 5 kW.';
+      btnMono.classList.remove('active');
+      btnMono.style.background = 'rgba(0,0,0,0.2)';
+      btnMono.style.borderColor = 'rgba(255,255,255,0.1)';
+      btnMono.style.color = '#64748b';
+
+      btnTri.disabled = false;
+      btnTri.style.opacity = '1.0';
+      btnTri.style.cursor = 'pointer';
+      btnTri.title = 'Conexión Trifásica reglamentaria (RD 1699/2011 Art. 12.2)';
+      btnTri.classList.add('active');
+      btnTri.style.background = 'rgba(16,185,129,0.3)';
+      btnTri.style.borderColor = '#10B981';
+      btnTri.style.color = '#34D399';
+    } else {
+      btnMono.disabled = false;
+      btnMono.style.opacity = '1.0';
+      btnMono.style.cursor = 'pointer';
+      btnMono.title = 'Conexión Monofásica 230 V (admisible para P ≤ 15 kW según RD 1699/2011)';
+      btnMono.classList.toggle('active', !isTri);
+      btnMono.style.background = !isTri ? 'rgba(14,165,233,0.3)' : 'rgba(14,165,233,0.06)';
+      btnMono.style.borderColor = !isTri ? '#38BDF8' : 'rgba(14,165,233,0.25)';
+      btnMono.style.color = !isTri ? '#38BDF8' : '#cbd5e1';
+
+      btnTri.disabled = false;
+      btnTri.style.opacity = '1.0';
+      btnTri.style.cursor = 'pointer';
+      btnTri.title = 'Conexión Trifásica 400 V (desequilibrio de fases < 5 kW)';
+      btnTri.classList.toggle('active', isTri);
+      btnTri.style.background = isTri ? 'rgba(16,185,129,0.3)' : 'rgba(14,165,233,0.06)';
+      btnTri.style.borderColor = isTri ? '#10B981' : 'rgba(14,165,233,0.25)';
+      btnTri.style.color = isTri ? '#34D399' : '#cbd5e1';
+    }
   }
+
+  if (noticeEl) {
+    if (isOver15kW) {
+      noticeEl.style.display = 'flex';
+      noticeEl.style.alignItems = 'center';
+      noticeEl.style.gap = '6px';
+      noticeEl.style.background = 'rgba(245, 158, 11, 0.12)';
+      noticeEl.style.border = '1px solid rgba(245, 158, 11, 0.35)';
+      noticeEl.style.color = '#FBBF24';
+      noticeEl.innerHTML = '<span style="font-size:12px;">⚖️</span> <span><strong>RD 1699/2011 (Art. 12.2 / RD 244/2019):</strong> Potencia nominal &gt; 15 kW (' + kwp.toFixed(1) + ' kWp). Conexión trifásica obligatoria con desequilibrio entre fases &lt; 5 kW.</span>';
+    } else {
+      noticeEl.style.display = 'none';
+      noticeEl.innerHTML = '';
+    }
+  }
+}
+window.wpSyncGridSupplyUI = wpSyncGridSupplyUI;
+
+function wpSetGridSupply(supply, manual = true) {
+  if (!window.solarProjectConfig) window.solarProjectConfig = {};
+  const cfg = window.solarProjectConfig;
+
+  // Evaluar potencia pico actual para salvaguarda normativa RD 1699/2011 Art. 12.2
+  const totalPanels = (typeof WP !== 'undefined' && Array.isArray(WP.placedPanels)) ? WP.placedPanels.length : (cfg.totalPanels || 0);
+  const catalog = (typeof window !== 'undefined' && window.equipmentCatalog) ? window.equipmentCatalog : {};
+  const mod = (catalog.modules && catalog.modules.find(m => m.id === cfg.selectedModuleId)) || (catalog.modules && catalog.modules[0]) || { wp: 450 };
+  const currentKwp = (totalPanels * (mod.wp || 450)) / 1000.0;
+
+  if (supply === 'single_phase' && currentKwp > 15.0) {
+    cfg.gridSupply = 'three_phase';
+    if (manual) cfg.userManuallySelectedGridSupply = true;
+    wpSyncGridSupplyUI(currentKwp);
+    if (typeof showToast === 'function') {
+      showToast('⚠️ RD 1699/2011 Art. 12.2: Para potencias > 15 kW la conexión debe ser trifásica obligatoriamente.', 'warning');
+    }
+    return;
+  }
+
+  cfg.gridSupply = supply;
+  if (manual) cfg.userManuallySelectedGridSupply = true;
+  wpSyncGridSupplyUI(currentKwp);
 
   // Si se cambia el tipo de red, auto-reajustar el inversor óptimo si no está fijado a mano
   if (typeof wpAutoSelectOptimalEngineering === 'function') {
@@ -1414,26 +1493,16 @@ function wpAutoSelectOptimalEngineering(force = false) {
   // 3. Obtener diagnóstico de sombras 3D (Paso 3)
   const shading = (typeof wpEvaluateMLPENecessity === 'function') ? wpEvaluateMLPENecessity() : null;
 
-  // 4. Tipo de red (suministro) respetando elección de usuario o autodetectando por potencia
+  // 4. Tipo de red (suministro) respetando elección de usuario salvo exigencia legal RD 1699/2011 Art. 12.2 (>15 kW)
   let gridSupply = cfg.gridSupply;
-  if (!gridSupply || !cfg.userManuallySelectedGridSupply) {
+  if (totalKwp > 15.0) {
+    gridSupply = 'three_phase';
+    cfg.gridSupply = 'three_phase';
+  } else if (!gridSupply || !cfg.userManuallySelectedGridSupply) {
     gridSupply = (totalKwp > 6.0) ? 'three_phase' : 'single_phase';
     cfg.gridSupply = gridSupply;
-    // Sincronizar UI de los botones si están en el DOM
-    const btnMono = document.getElementById('step3-grid-single-phase');
-    const btnTri = document.getElementById('step3-grid-three-phase');
-    if (btnMono && btnTri) {
-      const isTri = (gridSupply === 'three_phase');
-      btnMono.classList.toggle('active', !isTri);
-      btnTri.classList.toggle('active', isTri);
-      btnMono.style.background = !isTri ? 'rgba(14,165,233,0.3)' : 'rgba(14,165,233,0.06)';
-      btnMono.style.borderColor = !isTri ? '#38BDF8' : 'rgba(14,165,233,0.25)';
-      btnMono.style.color = !isTri ? '#38BDF8' : '#cbd5e1';
-      btnTri.style.background = isTri ? 'rgba(16,185,129,0.3)' : 'rgba(14,165,233,0.06)';
-      btnTri.style.borderColor = isTri ? '#10B981' : 'rgba(14,165,233,0.25)';
-      btnTri.style.color = isTri ? '#34D399' : '#cbd5e1';
-    }
   }
+  if (typeof wpSyncGridSupplyUI === 'function') wpSyncGridSupplyUI(totalKwp);
 
   // 5. Casación de inversor desde el motor electrotécnico
   if (typeof matchInvertersFromCatalog !== 'function') return null;
@@ -1723,10 +1792,14 @@ function wpRefreshAutoEngineeringBanner(preferredTopology) {
 
   const shading = (typeof wpEvaluateMLPENecessity === 'function') ? wpEvaluateMLPENecessity() : null;
   let gridSupply = cfg.gridSupply;
-  if (!gridSupply || !cfg.userManuallySelectedGridSupply) {
+  if (totalKwp > 15.0) {
+    gridSupply = 'three_phase';
+    cfg.gridSupply = 'three_phase';
+  } else if (!gridSupply || !cfg.userManuallySelectedGridSupply) {
     gridSupply = (totalKwp > 6.0) ? 'three_phase' : 'single_phase';
     cfg.gridSupply = gridSupply;
   }
+  if (typeof wpSyncGridSupplyUI === 'function') wpSyncGridSupplyUI(totalKwp);
 
   let match = null;
   if (typeof matchInvertersFromCatalog === 'function') {
