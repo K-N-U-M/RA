@@ -3032,13 +3032,19 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   // Legalización absorbe únicamente el residuo de redondeo de enteros entre partidas base
   const _cLeg = Math.max(0, _baseEquipTotal - (_cPan + _cEst + _cInv + _cBat + _cCab + _cMo + _cWind));
   // Recuperación resiliente de fotos personalizadas persistidas (por proyecto o sesión)
+  const _defaultCoverImg = (typeof window !== 'undefined' && window.RA_DEFAULT_COVER_IMAGE) ? window.RA_DEFAULT_COVER_IMAGE : 'assets/coopgreen-cover.jpg';
   const _propPhotos = (function() {
     try {
       const mem = (typeof window !== 'undefined' && window.RA && window.RA._proposalCustomPhotos) ? window.RA._proposalCustomPhotos : null;
-      if (mem) return mem;
+      if (mem) {
+        if (!mem.cover) mem.cover = _defaultCoverImg;
+        return mem;
+      }
       const ss = (typeof sessionStorage !== 'undefined') ? JSON.parse(sessionStorage.getItem('ra_proposal_custom_photos') || '{}') : {};
-      return ss || {};
-    } catch (e) { return {}; }
+      const res = ss || {};
+      if (!res.cover) res.cover = _defaultCoverImg;
+      return res;
+    } catch (e) { return { cover: _defaultCoverImg }; }
   })();
 
   // Captura automática de snapshot 3D Cesium WebGL
@@ -3306,7 +3312,9 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       /* Estilos para Página de Fotos e Implantación 3D */
       .photo-grid-main { display: flex; flex-direction: column; gap: 12px; margin-top: 10px; }
       .photo-card-hero { height: 112mm; border: 1.5px solid #cbd5e1; border-radius: 8px; overflow: hidden; background: #f8fafc; position: relative; display: flex; flex-direction: column; }
-      .cover-photo-card { height: 74mm; border: 1.5px solid #cbd5e1; border-radius: 10px; overflow: hidden; background: #f8fafc; position: relative; display: flex; flex-direction: column; margin: 12px 0 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.03); }
+      .cover-photo-card { height: 74mm; border: 1.5px solid #cbd5e1; border-radius: 10px; overflow: hidden; background: #ffffff; position: relative; display: flex; flex-direction: column; margin: 12px 0 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.03); }
+      .cover-photo-card .photo-img-wrap { background: #ffffff; }
+      .cover-photo-card .photo-img-wrap img { object-fit: contain; }
       .photo-card-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; height: 80mm; }
       .photo-card-sub { border: 1.5px solid #cbd5e1; border-radius: 8px; overflow: hidden; background: #f8fafc; position: relative; display: flex; flex-direction: column; }
       .photo-img-wrap { flex: 1; position: relative; overflow: hidden; background: #0f172a; display: flex; align-items: center; justify-content: center; cursor: pointer; }
@@ -3562,13 +3570,6 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
               </div>
             `)}
             <div class="photo-upload-overlay">📸 Cambiar foto de portada</div>
-          </div>
-          <div class="photo-caption-bar">
-            <div>
-              <div class="photo-caption-title" contenteditable="true">IMPLANTACIÓN SOLAR Y ENTORNO ARQUITECTÓNICO</div>
-              <div class="photo-caption-desc" contenteditable="true">Estudio de integración fotovoltaica sobre cubierta · ${d.tit.mun || ''} (${d.tit.prov || ''})</div>
-            </div>
-            <div style="font-size:9px;font-weight:800;color:${pal.primary};background:#f8fafc;padding:3px 8px;border-radius:4px;border:1px solid #e2e8f0;">VISTA DE PORTADA</div>
           </div>
         </div>
 
