@@ -159,4 +159,23 @@ bom = BOMTreeEngine.computeBOMTree();
 assert.strictEqual(bom.summary.totalPanels, 8, 'El presupuesto BOM vuelve a computar los 8 paneles');
 console.log('   OK: Reactivación completa y retorno a estado original');
 
+// 7. Desactivar TODAS las mesas y verificar que el HUD e indicadores caen estrictamente a 0
+console.log('7. Verificando desactivación total (todas las mesas OFF) en HUD y métricas...');
+require('../js/project-status-hud.js');
+ProjectHierarchy.togglePanelsActive(0);
+ProjectHierarchy.togglePanelsActive(1);
+assert.strictEqual(globalObj.WP.polylines[0].panelsDisabled, true);
+assert.strictEqual(globalObj.WP.polylines[1].panelsDisabled, true);
+
+tree = ProjectHierarchy.getTree();
+assert.strictEqual(tree.totals.panelsCount, 0, 'Árbol debe reportar exactamente 0 paneles cuando todo está OFF');
+assert.strictEqual(tree.totals.totalKwp, 0.0, 'Árbol debe reportar 0 kWp');
+
+const hudState = globalObj.RAProjectStatusHUD.inspect();
+assert.strictEqual(hudState.numPanels, 0, 'HUD debe reflejar 0 paneles activos cuando todo está apagado');
+assert.strictEqual(hudState.kwp, 0, 'HUD debe reflejar 0 kWp');
+assert.strictEqual(hudState.annualKWh, 0, 'HUD no debe inventar energía neta cuando todo está OFF');
+assert.strictEqual(hudState.theoreticalAnnualKWh, 0, 'HUD no debe mostrar energía teórica cuando todo está OFF');
+console.log('   OK: Desactivación total pone a cero rigurosamente todos los marcadores del HUD');
+
 console.log('--- TODOS LOS TESTS DE DESACTIVACIÓN DE MESAS PASARON CON ÉXITO ---');

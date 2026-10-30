@@ -384,6 +384,47 @@
         }
       }
 
+      // 4.6 Mapear Aerogeneradores Eólicos 3D (RA-Wind)
+      const windTurbinesList = [];
+      const rawTurbines = (typeof global.windTurbines !== 'undefined' && Array.isArray(global.windTurbines))
+        ? global.windTurbines
+        : [];
+      const selectedWtId = (global.RAWindVisualizer && typeof global.RAWindVisualizer.getSelectedId === 'function')
+        ? global.RAWindVisualizer.getSelectedId()
+        : null;
+
+      rawTurbines.forEach(function(wt, wtIdx) {
+        if (!wt) return;
+        const catalog = wt._catalog || {};
+        const pKw = catalog.ratedPowerKw || 5.0;
+        const hubH = (wt.supportStructure && wt.supportStructure.hubHeightM) || 18;
+        const isEnabled = !wt.operationalState || wt.operationalState.enabled !== false;
+        let posCartesian = null;
+        if (wt.positionCartographic && global.Cesium) {
+          try {
+            posCartesian = global.Cesium.Cartesian3.fromRadians(
+              wt.positionCartographic.longitudeRad,
+              wt.positionCartographic.latitudeRad,
+              wt.positionCartographic.altitudeM || 0
+            );
+          } catch (ePos) {}
+        }
+
+        windTurbinesList.push({
+          id: wt.id || ('wt_' + wtIdx),
+          index: wtIdx,
+          type: 'wind_turbine',
+          name: wt.name || ('Aerogenerador #' + (wtIdx + 1)),
+          ratedPowerKw: pKw,
+          hubHeightM: hubH,
+          rotorDiameterM: catalog.rotorDiameterM || 5.0,
+          position: posCartesian,
+          visible: isEnabled,
+          operational: isEnabled,
+          isSelected: selectedWtId === wt.id
+        });
+      });
+
       // 5. Metrado Total de Proyecto
       let totalPanels = 0, totalKwp = 0.0, totalArea = 0.0;
       bldNodes.forEach(function(b) {
@@ -410,17 +451,51 @@
         standalonePolylines: standalonePolylines,
         obstacles: globalObstacles,
         electrical: electricalEquipment,
+        windTurbines: windTurbinesList,
         totals: {
           buildingsCount: buildings.length,
           planesCount: planes.length,
           polylinesCount: polylines.length,
           obstaclesCount: obstacles.length,
           electricalCount: electricalEquipment.length,
+          windTurbinesCount: windTurbinesList.length,
           panelsCount: totalPanels,
           totalKwp: totalKwp,
           totalAreaM2: totalArea
         }
       };
+    },
+
+    selectWindTurbine: function(wtId, shouldFly) {
+      if (!wtId) return;
+      const wt = (global.windTurbines && Array.isArray(global.windTurbines))
+        ? global.windTurbines.find(function(t) { return t.id === wtId; })
+        : null;
+      if (wt && wt.operationalState && wt.operationalState.enabled === false) {
+        if (typeof global.showToast === 'function') global.showToast('TURBINA DESACTIVADA', 'Activa la turbina para poder seleccionarla.', 'warning', 2500);
+      }
+      if (global.RAWindUI && typeof global.RAWindUI.selectTurbineForInspect === 'function') {
+        global.RAWindUI.selectTurbineForInspect(wtId);
+      } else if (global.RAWindVisualizer && typeof global.RAWindVisualizer.selectTurbine === 'function') {
+        global.RAWindVisualizer.selectTurbine(wtId);
+      }
+      if (typeof global.renderTriad2D === 'function') global.renderTriad2D();
+
+      if (shouldFly !== false && wt && wt.positionCartographic && global.viewer && global.Cesium) {
+        try {
+          const pos = global.Cesium.Cartesian3.fromRadians(
+            wt.positionCartographic.longitudeRad,
+            wt.positionCartographic.latitudeRad,
+            wt.positionCartographic.altitudeM || 0
+          );
+          const bs = new global.Cesium.BoundingSphere(pos, 25.0);
+          global.viewer.camera.flyToBoundingSphere(bs, {
+            duration: 1.0,
+            offset: new global.Cesium.HeadingPitchRange(global.viewer.camera.heading, global.Cesium.Math.toRadians(-45.0), bs.radius * 2.2)
+          });
+        } catch(eCam) { console.warn('[selectWindTurbine flyTo]', eCam); }
+      }
+      this.notify('wind_turbine_selected', { id: wtId });
     },
 
     selectElectrical: function(elecId, shouldFly) {
@@ -696,18 +771,27 @@
         if (typeof global.renderTriad2D === 'function') global.renderTriad2D();
         if (global.viewer && global.viewer.scene && typeof global.viewer.scene.requestRender === 'function') global.viewer.scene.requestRender();
       } else if (type === 'wind_turbine') {
-        if (global.RAWindTurbine && typeof global.RAWindTurbine.toggleVisibility === 'function') {
+        const wt = (global.windTurbines && Array.isArray(global.windTurbines))
+          ? global.windTurbines.find(function(t) { return t.id === idOrIdx; })
+          : null;
+        if (wt && wt.operationalState) {
+          const newVis = (wt.operationalState.enabled === false);
+          wt.operationalState.enabled = newVis;
+          if (global.RAWind && global.RAWind.Entity && typeof global.RAWind.Entity.emitChange === 'function') {
+            global.RAWind.Entity.emitChange('wind_turbine_modified', wt);
+          }
+          if (global.RAWindVisualizer && typeof global.RAWindVisualizer.renderTurbine === 'function') {
+            global.RAWindVisualizer.renderTurbine(wt, wt.id === (global.RAWindVisualizer.getSelectedId && global.RAWindVisualizer.getSelectedId()));
+          }
+          if (global.RAWind && global.RAWind.Entity && typeof global.RAWind.Entity.recalculateAllEngineering === 'function') {
+            global.RAWind.Entity.recalculateAllEngineering();
+          }
+        } else if (global.RAWindTurbine && typeof global.RAWindTurbine.toggleVisibility === 'function') {
           global.RAWindTurbine.toggleVisibility(idOrIdx);
         } else if (Array.isArray(global.obstacles)) {
           const o = (typeof idOrIdx === 'string') ? global.obstacles.find(function(item) { return item.id === idOrIdx; }) : global.obstacles[idOrIdx];
           if (o) {
             o.visible = (o.visible === false) ? true : false;
-            if (o.visible === false && (global.selectedObstacleId === o.id || (typeof window !== 'undefined' && window.selectedObstacleId === o.id))) {
-              if (typeof global.selectObstacle === 'function') global.selectObstacle(null);
-              else if (typeof window !== 'undefined' && typeof window.selectObstacle === 'function') window.selectObstacle(null);
-              global.selectedObstacleId = null;
-              if (typeof window !== 'undefined') window.selectedObstacleId = null;
-            }
           }
         }
         if (global.viewer && global.viewer.scene && typeof global.viewer.scene.requestRender === 'function') global.viewer.scene.requestRender();
@@ -724,6 +808,17 @@
           if (typeof global.render3DObstaclesInCesium === 'function') global.render3DObstaclesInCesium();
           if (typeof global.renderTriad2D === 'function') global.renderTriad2D();
           if (global.viewer && global.viewer.scene && typeof global.viewer.scene.requestRender === 'function') global.viewer.scene.requestRender();
+        }
+      } else if (type === 'wind_turbine') {
+        if (global.RAWind && global.RAWind.Entity && typeof global.RAWind.Entity.removeFromScene === 'function') {
+          global.RAWind.Entity.removeFromScene(idOrIdx);
+          if (global.RAWindVisualizer && typeof global.RAWindVisualizer.selectTurbine === 'function') {
+            global.RAWindVisualizer.selectTurbine(null);
+          }
+          if (typeof global.renderTriad2D === 'function') global.renderTriad2D();
+          if (typeof global.showToast === 'function') {
+            global.showToast('AEROGENERADOR ELIMINADO', 'El aerogenerador se ha retirado de la escena.', 'info', 2500);
+          }
         }
       } else if (type === 'electrical') {
         const s = global.inverterEquipmentState;
@@ -802,10 +897,19 @@
         global.wpFastRenderSimulatedPanels(true, polyIdx);
       }
       if (typeof global.recalculateSolarYield === 'function') {
-        global.recalculateSolarYield();
+        global.recalculateSolarYield(true);
       }
       if (typeof global.updateAllVisuals === 'function') {
         global.updateAllVisuals();
+      }
+      if (typeof global.wpUpdateLayoutFastMetrics === 'function') {
+        global.wpUpdateLayoutFastMetrics();
+      }
+      if (typeof global.raUpdateEnergyHUD === 'function') {
+        global.raUpdateEnergyHUD();
+      }
+      if (typeof global.RAProjectStatusHUD !== 'undefined' && typeof global.RAProjectStatusHUD.update === 'function') {
+        global.RAProjectStatusHUD.update();
       }
       if (typeof global.UIOutliner !== 'undefined' && typeof global.UIOutliner.render === 'function') {
         global.UIOutliner.render();
@@ -856,6 +960,17 @@
           global.selectedObstacleId = o.id;
           if (typeof global.deleteSelectedObstacle === 'function') {
             global.deleteSelectedObstacle();
+          }
+        }
+      } else if (type === 'wind_turbine') {
+        if (global.RAWind && global.RAWind.Entity && typeof global.RAWind.Entity.removeFromScene === 'function') {
+          global.RAWind.Entity.removeFromScene(idOrIdx);
+          if (global.RAWindVisualizer && typeof global.RAWindVisualizer.selectTurbine === 'function') {
+            global.RAWindVisualizer.selectTurbine(null);
+          }
+          if (typeof global.renderTriad2D === 'function') global.renderTriad2D();
+          if (typeof global.showToast === 'function') {
+            global.showToast('AEROGENERADOR ELIMINADO', 'El aerogenerador se ha retirado de la escena.', 'info', 2500);
           }
         }
       } else if (type === 'electrical') {

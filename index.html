@@ -67,6 +67,7 @@ window.RA_App = window.RA_App || {};
   <script src="js/wind/wind-shadow-flicker.js?v=20261025a"></script>
   <script src="js/wind/wind-worker.js?v=20261024b"></script>
   <script src="js/wind/wind-entity.js?v=20261025_eng1"></script>
+  <script src="js/wind/wind-obstacle-interference.js?v=20261030a"></script>
   <script src="js/wind/wind-visualizer.js?v=20261025_eng1"></script>
   <script src="js/wind/wind-ui.js?v=20261025_eng1"></script>
 
@@ -7138,11 +7139,12 @@ function recalculateSolarYield(force = false) {
   // <i data-lucide=\"rocket\" class=\"icon-sm\"></i> SOPORTE TOTAL MULTI-CUBIERTA / PLANOS DE TRABAJO (WP.polylines)
   let totalPanelsCount = 0;
   let dominantRoofInfo = null;
-  if (typeof WP !== 'undefined' && WP && WP.polylines && WP.polylines.length > 0) {
-    // Si hay un faldón seleccionado por el usuario, darle prioridad como faldón de referencia
+  const hasPolys = (typeof WP !== 'undefined' && WP && WP.polylines && WP.polylines.length > 0);
+  if (hasPolys) {
+    // Si hay un faldón seleccionado por el usuario y está activo, darle prioridad como faldón de referencia
     const selIdx = (WP.selectedPolyIdx >= 0 && WP.selectedPolyIdx < WP.polylines.length) ? WP.selectedPolyIdx : 0;
     const selPoly = WP.polylines[selIdx];
-    if (selPoly) {
+    if (selPoly && !selPoly.panelsDisabled) {
       dominantRoofInfo = selPoly.roofInfo || (typeof computeSinglePolylineRoofInfo === 'function' ? computeSinglePolylineRoofInfo(selPoly.points, selPoly) : null);
     }
 
@@ -7156,7 +7158,7 @@ function recalculateSolarYield(force = false) {
     });
   }
 
-  const roofInfo = dominantRoofInfo || computeRoofPanelsData();
+  const roofInfo = dominantRoofInfo || (hasPolys ? null : computeRoofPanelsData());
   const renderedPanelsCount = (typeof window.allRenderedPanels !== 'undefined' && Array.isArray(window.allRenderedPanels))
     ? window.allRenderedPanels.filter(p => !p.deleted && !p.disabled).length
     : 0;
@@ -7164,12 +7166,32 @@ function recalculateSolarYield(force = false) {
     ? renderedPanelsCount
     : (totalPanelsCount > 0
         ? totalPanelsCount
-        : ((roofInfo && roofInfo.panels && roofInfo.panels.length > 0)
+        : (hasPolys ? 0 : ((roofInfo && roofInfo.panels && roofInfo.panels.length > 0)
             ? roofInfo.panels.length
-            : 0));
+            : 0)));
 
   if (numPanels === 0) {
     resetSolarDashboard();
+    if (typeof window !== 'undefined' && window.RA) {
+      window.RA.solarStats = {
+        numPanels: 0,
+        peakPowerKW: 0,
+        annualYieldKWh: 0,
+        annualGrossKWh: 0,
+        annualShadowLossKWh: 0,
+        annualSystemLossKWh: 0,
+        annualKWh: 0,
+        theoreticalAnnualKWh: 0,
+        performanceRatio: 0,
+        co2AvoidedTonsYear: 0,
+        treesEquivalent: 0,
+        specificYield: 0,
+        monthlyKWh: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      };
+    }
+    if (typeof raUpdateEnergyHUD === 'function') {
+      raUpdateEnergyHUD();
+    }
     if (typeof ProjectStatusHUD !== 'undefined' && ProjectStatusHUD && typeof ProjectStatusHUD.update === 'function') {
       ProjectStatusHUD.update();
     } else if (typeof RAProjectStatusHUD !== 'undefined' && RAProjectStatusHUD && typeof RAProjectStatusHUD.update === 'function') {
@@ -7623,8 +7645,17 @@ function raUpdateEnergyHUD() {
 
   const sStats = (window.RA && window.RA.solarStats) ? window.RA.solarStats : {};
   let numPanels = typeof sStats.numPanels === 'number' ? sStats.numPanels : 0;
-  if (!numPanels && Array.isArray(window.allRenderedPanels)) {
-    numPanels = window.allRenderedPanels.filter(p => p && !p.deleted).length;
+  if (typeof WP !== 'undefined' && WP && Array.isArray(WP.polylines) && WP.polylines.length > 0) {
+    let activeInPolys = 0;
+    WP.polylines.forEach(p => {
+      if (p.panelsDisabled === true) return;
+      if (p.roofInfo && Array.isArray(p.roofInfo.panels)) {
+        activeInPolys += p.roofInfo.panels.filter(x => !x.deleted && !x.disabled).length;
+      }
+    });
+    numPanels = activeInPolys;
+  } else if (!numPanels && Array.isArray(window.allRenderedPanels)) {
+    numPanels = window.allRenderedPanels.filter(p => p && !p.deleted && !p.disabled).length;
   }
   const solarNetKWh = numPanels > 0 ? Math.round(sStats.annualYieldKWh || 0) : 0;
   const solarGrossKWh = numPanels > 0 ? Math.round(sStats.annualGrossKWh || solarNetKWh) : 0;
@@ -13542,7 +13573,7 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
         lblCol._isPanelNumberCollection = true;
         for (let i = 0; i < allTargetPanels.length; i++) {
           const pData = allTargetPanels[i];
-          if (!pData.corners || pData.corners.length < 4) continue;
+          if (!pData.corners || pData.corners.length < 4 || pData.disabled) continue;
 
           // Tomar la esquina superior izquierda (C0) con una ligera elevación (+0.04m)
           const corner0 = pData.corners[0];
@@ -13643,7 +13674,7 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
 
         // Si el número de strings excede la capacidad de inversores actual, disparar auto-dimensionamiento
         if (totalStrings > maxStrings && typeof wpComputeAutoSizing === 'function') {
-          wpComputeAutoSizing(allTargetPanels.length);
+          wpComputeAutoSizing(allTargetPanels.filter(p => !p.deleted && !p.disabled).length);
         }
 
         const updatedInvCount = (cfg.autoSizing && cfg.autoSizing.inverters && cfg.autoSizing.inverters.count > 0)
@@ -15393,162 +15424,196 @@ window.toggleSolarHUD = toggleSolarHUD;
       return;
     }
 
-    // ── MUESTREO 3D DE ENTIDAD BAJO EL CURSOR
+    // ── MUESTREO 3D DE ENTIDAD BAJO EL CURSOR Y FILTRO CAD
     const pickedObj = (scene && typeof scene.pick === 'function') ? scene.pick(click.position) : null;
+    const filter = (typeof window.cadSelectionFilter === 'string') ? window.cadSelectionFilter : 'all';
 
-    // -0A. Comprobar clic sobre vértice maestro del plano de trabajo activo (Paso 1)
-    const curStepForClick = (typeof wpCurrentStep !== 'undefined') ? wpCurrentStep : ((typeof window !== 'undefined' && window.wpCurrentStep) || 1);
-    if (curStepForClick === 1 && typeof WP !== 'undefined' && WP && typeof wpGetActivePlane === 'function') {
-      const actPl = wpGetActivePlane();
-      if (actPl && Array.isArray(actPl.pts3D) && actPl.pts3D.length >= 3 && actPl.visible !== false) {
-        let hitPlaneVtxIdx = -1;
-        // 1. Pick Cesium de entidad de vértice de plano
-        if (pickedObj && pickedObj.id) {
-          const pId = (typeof pickedObj.id === 'string') ? pickedObj.id : (typeof pickedObj.id.id === 'string' ? pickedObj.id.id : '');
-          if (pId.startsWith('wp_active_plane_vtx_')) {
-            hitPlaneVtxIdx = parseInt(pId.replace('wp_active_plane_vtx_', ''), 10);
+    // ── NIVEL 1: MANIPULADOR TRIDIMENSIONAL (GIZMO / TRÍADA)
+    // Si el clic impacta directamente en las manillas o flechas del gizmo, no cambiar selección
+    const hitGizmoDirect = (typeof checkUniversalGizmoHit === 'function') ? checkUniversalGizmoHit(click.position.x, click.position.y) : null;
+    if (hitGizmoDirect) {
+      return; // El gizmo universal gestiona el arrastre y transformación
+    }
+
+    // ── NIVEL 2: VÉRTICES Y PUNTOS (DIMENSIÓN 0 · IMÁN UNIFICADO DE 20px)
+    if (filter === 'all' || filter === 'vertices') {
+      // 2A. Vértice de Plano de Trabajo Activo (Paso 1)
+      const curStepForClick = (typeof wpCurrentStep !== 'undefined') ? wpCurrentStep : ((typeof window !== 'undefined' && window.wpCurrentStep) || 1);
+      if (curStepForClick === 1 && typeof WP !== 'undefined' && WP && typeof wpGetActivePlane === 'function') {
+        const actPl = wpGetActivePlane();
+        if (actPl && Array.isArray(actPl.pts3D) && actPl.pts3D.length >= 3 && actPl.visible !== false) {
+          let hitPlaneVtxIdx = -1;
+          if (pickedObj && pickedObj.id) {
+            const pId = (typeof pickedObj.id === 'string') ? pickedObj.id : (typeof pickedObj.id.id === 'string' ? pickedObj.id.id : '');
+            if (pId.startsWith('wp_active_plane_vtx_')) {
+              hitPlaneVtxIdx = parseInt(pId.replace('wp_active_plane_vtx_', ''), 10);
+            }
+          }
+          if (hitPlaneVtxIdx < 0 || isNaN(hitPlaneVtxIdx)) {
+            let minPVtxDist = 20.0;
+            for (let vi = 0; vi < 3; vi++) {
+              const pt = actPl.pts3D[vi];
+              if (!pt) continue;
+              const pWin = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, pt);
+              if (pWin) {
+                const d = Math.hypot(click.position.x - pWin.x, click.position.y - pWin.y);
+                if (d <= minPVtxDist) {
+                  minPVtxDist = d;
+                  hitPlaneVtxIdx = vi;
+                }
+              }
+            }
+          }
+          if (hitPlaneVtxIdx >= 0 && hitPlaneVtxIdx < 3) {
+            WP.selectedPlaneVtxIdx = hitPlaneVtxIdx;
+            WP.selectedVtxIdx = -1;
+            renderTriad2D();
+            const vtxLabels = ['P1 (Origen)', 'P2 (Eje X)', 'P3 (Eje Y)'];
+            showStatus('VÉRTICE #' + (hitPlaneVtxIdx + 1) + ' (' + vtxLabels[hitPlaneVtxIdx] + ') SELECCIONADO PARA EDICIÓN DIRECTA', 2500);
+            return;
           }
         }
-        // 2. Proximidad en pantalla (tolerancia 24px)
-        if (hitPlaneVtxIdx < 0 || isNaN(hitPlaneVtxIdx)) {
-          let minPVtxDist = 24.0;
-          for (let vi = 0; vi < 3; vi++) {
-            const pt = actPl.pts3D[vi];
+      }
+
+      // 2B. Vértice de Polilínea / Faldón (Activa o Visibles)
+      if (typeof WP !== 'undefined' && WP && Array.isArray(WP.polylines) && WP.polylines.length > 0) {
+        // Primero verificar si hay una entidad 3D explícita de vértice guardado
+        if (pickedObj && pickedObj.id && typeof pickedObj.id.id === 'string' && pickedObj.id.id.startsWith('wp_saved_vtx_')) {
+          const parts = pickedObj.id.id.replace('wp_saved_vtx_', '').split('_');
+          const pIdx = parseInt(parts[0], 10);
+          const vIdx = parseInt(parts[1], 10);
+          if (!isNaN(pIdx) && !isNaN(vIdx)) {
+            if (WP.polylines[pIdx] && WP.polylines[pIdx].visible !== false) {
+              if (WP.selectedPolyIdx !== pIdx) wpSelectPolyline(pIdx);
+              wpSelectVertex(vIdx);
+              return;
+            }
+          }
+        }
+
+        // Imán de proximidad unificado (20px) sobre vértices de faldón
+        let nearestPolyIdx = -1;
+        let nearestVtxIdx = -1;
+        let minVtxDist = 20.0;
+
+        const searchList = (typeof WP.selectedPolyIdx === 'number' && WP.selectedPolyIdx >= 0 && WP.polylines[WP.selectedPolyIdx])
+          ? [ { poly: WP.polylines[WP.selectedPolyIdx], pIdx: WP.selectedPolyIdx } ]
+          : WP.polylines.map((p, i) => ({ poly: p, pIdx: i }));
+
+        for (const item of searchList) {
+          const poly = item.poly;
+          if (!poly || poly.visible === false || !Array.isArray(poly.points)) continue;
+          for (let vi = 0; vi < poly.points.length; vi++) {
+            const pt = poly.points[vi];
             if (!pt) continue;
             const pWin = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, pt);
             if (pWin) {
               const d = Math.hypot(click.position.x - pWin.x, click.position.y - pWin.y);
-              if (d < minPVtxDist) {
-                minPVtxDist = d;
-                hitPlaneVtxIdx = vi;
+              if (d <= minVtxDist) {
+                minVtxDist = d;
+                nearestPolyIdx = item.pIdx;
+                nearestVtxIdx = vi;
               }
             }
           }
+          if (nearestVtxIdx >= 0) break;
         }
-        if (hitPlaneVtxIdx >= 0 && hitPlaneVtxIdx < 3) {
-          WP.selectedPlaneVtxIdx = hitPlaneVtxIdx;
-          WP.selectedVtxIdx = -1;
-          renderTriad2D();
-          const vtxLabels = ['P1 (Origen)', 'P2 (Eje X)', 'P3 (Eje Y)'];
-          showStatus('VÉRTICE #' + (hitPlaneVtxIdx + 1) + ' (' + vtxLabels[hitPlaneVtxIdx] + ') SELECCIONADO PARA EDICIÓN DIRECTA', 2500);
+
+        if (nearestVtxIdx >= 0 && nearestPolyIdx >= 0) {
+          if (WP.selectedPolyIdx !== nearestPolyIdx) wpSelectPolyline(nearestPolyIdx);
+          wpSelectVertex(nearestVtxIdx);
           return;
         }
       }
-    }
 
-    // -0B. Comprobar clic sobre superficie o borde del plano de trabajo activo (para deseleccionar su vértice y volver a seleccionar el plano completo)
-    if (curStepForClick === 1 && typeof WP !== 'undefined' && WP && typeof wpGetActivePlane === 'function') {
-      const actPl = wpGetActivePlane();
-      if (actPl && actPl.visible !== false && pickedObj && pickedObj.id) {
-        const pId = (typeof pickedObj.id === 'string') ? pickedObj.id : (typeof pickedObj.id.id === 'string' ? pickedObj.id.id : '');
-        if (pId === 'wp_active_plane_mesh' || pId === 'wp_active_plane_border') {
-          WP.selectedPlaneVtxIdx = -1;
-          WP.selectedVtxIdx = -1;
-          renderTriad2D();
-          showStatus('<i data-lucide="compass" class="icon-sm"></i> ' + (actPl.name || 'PLANO DE TRABAJO').toUpperCase() + ' SELECCIONADO', 2000);
-          return;
-        }
-      }
-    }
-
-    // 0. Comprobar clic sobre Manipulador o proximidad de Vértice de Huella de Edificio
-    let hitBldVtx = null;
-    if (pickedObj && pickedObj.id) {
-      const pIdStr = (typeof pickedObj.id === 'string') ? pickedObj.id : (typeof pickedObj.id.id === 'string' ? pickedObj.id.id : '');
-      if (pIdStr.startsWith('bld_vtx_handle_')) {
-        const parts = pIdStr.replace('bld_vtx_handle_', '').split('_');
-        const vi = parseInt(parts.pop(), 10);
-        const bId = parts.join('_');
-        const targetB = Array.isArray(buildings) ? buildings.find(b => b.id === bId) : null;
-        if (targetB && targetB.visible !== false) {
-          hitBldVtx = { bldId: bId, vtxIdx: vi };
-        }
-      }
-    }
-    // Proximidad en pantalla (tolerancia de 24px en base o coronación) para selección precisa en cualquier ángulo
-    if (!hitBldVtx && Array.isArray(buildings) && buildings.length > 0) {
-      let closestDist = 24.0;
-      const bldList = selectedBuildingId ? [buildings.find(b => b.id === selectedBuildingId)].filter(Boolean) : buildings;
-      for (const b of bldList) {
-        if (!b.points || b.visible === false) continue;
-        const bH = b.height || 6.0;
-        for (let vi = 0; vi < b.points.length; vi++) {
-          const ptBase = b.points[vi];
-          if (!ptBase) continue;
-
-          // Detección en la base
-          const wPosBase = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, ptBase);
-          if (wPosBase) {
-            const d = Math.hypot(click.position.x - wPosBase.x, click.position.y - wPosBase.y);
-            if (d < closestDist) {
-              closestDist = d;
-              hitBldVtx = { bldId: b.id, vtxIdx: vi };
-            }
+      // 2C. Vértice de Huella de Edificio (Base o Alero)
+      let hitBldVtx = null;
+      if (pickedObj && pickedObj.id) {
+        const pIdStr = (typeof pickedObj.id === 'string') ? pickedObj.id : (typeof pickedObj.id.id === 'string' ? pickedObj.id.id : '');
+        if (pIdStr.startsWith('bld_vtx_handle_')) {
+          const parts = pIdStr.replace('bld_vtx_handle_', '').split('_');
+          const vi = parseInt(parts.pop(), 10);
+          const bId = parts.join('_');
+          const targetB = Array.isArray(buildings) ? buildings.find(b => b.id === bId) : null;
+          if (targetB && targetB.visible !== false) {
+            hitBldVtx = { bldId: bId, vtxIdx: vi };
           }
-
-          // Detección en la coronación / alero
-          const c = Cesium.Cartographic.fromCartesian(ptBase);
-          if (c) {
-            const ptRoof = Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, c.height + bH);
-            const wPosRoof = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, ptRoof);
-            if (wPosRoof) {
-              const dRoof = Math.hypot(click.position.x - wPosRoof.x, click.position.y - wPosRoof.y);
-              if (dRoof < closestDist) {
-                closestDist = dRoof;
+        }
+      }
+      if (!hitBldVtx && Array.isArray(buildings) && buildings.length > 0) {
+        let closestDist = 20.0;
+        const bldList = selectedBuildingId ? [buildings.find(b => b.id === selectedBuildingId)].filter(Boolean) : buildings;
+        for (const b of bldList) {
+          if (!b.points || b.visible === false) continue;
+          const bH = b.height || 6.0;
+          for (let vi = 0; vi < b.points.length; vi++) {
+            const ptBase = b.points[vi];
+            if (!ptBase) continue;
+            const wPosBase = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, ptBase);
+            if (wPosBase) {
+              const d = Math.hypot(click.position.x - wPosBase.x, click.position.y - wPosBase.y);
+              if (d <= closestDist) {
+                closestDist = d;
                 hitBldVtx = { bldId: b.id, vtxIdx: vi };
               }
             }
+            const c = Cesium.Cartographic.fromCartesian(ptBase);
+            if (c) {
+              const ptRoof = Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, c.height + bH);
+              const wPosRoof = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, ptRoof);
+              if (wPosRoof) {
+                const dRoof = Math.hypot(click.position.x - wPosRoof.x, click.position.y - wPosRoof.y);
+                if (dRoof <= closestDist) {
+                  closestDist = dRoof;
+                  hitBldVtx = { bldId: b.id, vtxIdx: vi };
+                }
+              }
+            }
+          }
+          if (hitBldVtx) break;
+        }
+      }
+      if (hitBldVtx) {
+        if (selectedBuildingId !== hitBldVtx.bldId) selectBuilding(hitBldVtx.bldId);
+        selectBuildingVertex(hitBldVtx.vtxIdx);
+        return;
+      }
+    }
+
+    // ── NIVEL 3: OBJETOS COMPACTOS (PANELES, AEROGENERADORES, EQUIPOS ELÉCTRICOS, OBSTÁCULOS)
+    // 3A. Paneles Solares FV
+    if (filter === 'all' || filter === 'panels') {
+      const panelIdx = (typeof pickPanelUnderCursor === 'function')
+        ? pickPanelUnderCursor(click.position)
+        : getPanelIndexFromPick(pickedObj);
+      if (panelIdx >= 0) {
+        if (typeof selectObstacle === 'function') selectObstacle(null);
+        if (typeof selectElectricalObject === 'function') selectElectricalObject(null);
+        const isShift = !!(window._raIsShiftDown || (typeof window.event !== 'undefined' && window.event && window.event.shiftKey));
+        const pickedPan = (Array.isArray(window.allRenderedPanels) && window.allRenderedPanels[panelIdx]) ? window.allRenderedPanels[panelIdx] : null;
+
+        if (pickedPan && pickedPan.isGhost) {
+          if (typeof wpToggleGhostPanel === 'function') {
+            wpToggleGhostPanel(panelIdx);
+            showToast('PLACA INCORPORADA', 'Módulo activado e integrado en la instalación (CEL-Ready)', 'success', 2500);
+            return;
           }
         }
+
+        selectPanel(panelIdx, isShift);
+        renderTriad2D();
+        const count = (window.selectedPanelIndices && window.selectedPanelIndices.length) || 1;
+        const isDis = pickedPan && pickedPan.disabled;
+        const statusText = isDis
+          ? `MÓDULO FV #${panelIdx + 1} (DESACTIVADO · Excluido de mediciones y presupuesto)`
+          : (count > 1 ? `${count} MÓDULOS FV SELECCIONADOS (Shift+Clic para añadir/quitar)` : ('MÓDULO FV #' + (panelIdx + 1) + ' SELECCIONADO'));
+        showStatus(statusText, 2500);
+        return;
       }
     }
-    if (hitBldVtx) {
-      if (selectedBuildingId !== hitBldVtx.bldId) selectBuilding(hitBldVtx.bldId);
-      selectBuildingVertex(hitBldVtx.vtxIdx);
-      return;
-    }
 
-    // 0A. Comprobar clic sobre Equipo Eléctrico 3D (Inversor, Combiner, Contador)
-    const clickedElec = pickElectricalObjectUnderCursor(click.position);
-    if (clickedElec) {
-      if (typeof selectObstacle === 'function') selectObstacle(null);
-      if (typeof selectPanel === 'function') selectPanel(-1);
-      selectElectricalObject(clickedElec.id);
-      return;
-    }
-
-    // 0B. Comprobar clic sobre panel FV 3D
-    const panelIdx = (typeof pickPanelUnderCursor === 'function')
-      ? pickPanelUnderCursor(click.position)
-      : getPanelIndexFromPick(pickedObj);
-    if (panelIdx >= 0) {
-      if (typeof selectObstacle === 'function') selectObstacle(null);
-      if (typeof selectElectricalObject === 'function') selectElectricalObject(null);
-      const isShift = !!(window._raIsShiftDown || (typeof window.event !== 'undefined' && window.event && window.event.shiftKey));
-      const pickedPan = (Array.isArray(window.allRenderedPanels) && window.allRenderedPanels[panelIdx]) ? window.allRenderedPanels[panelIdx] : null;
-
-      if (pickedPan && pickedPan.isGhost) {
-        // [GHOST-CLICK] Conmutar módulo fantasma e incorporarlo a la instalación
-        if (typeof wpToggleGhostPanel === 'function') {
-          wpToggleGhostPanel(panelIdx);
-          showToast('PLACA INCORPORADA', 'Módulo activado e integrado en la instalación (CEL-Ready)', 'success', 2500);
-          return;
-        }
-      }
-
-      selectPanel(panelIdx, isShift);
-      renderTriad2D();
-      const count = (window.selectedPanelIndices && window.selectedPanelIndices.length) || 1;
-      const isDis = pickedPan && pickedPan.disabled;
-      const statusText = isDis
-        ? `MÓDULO FV #${panelIdx + 1} (DESACTIVADO · Excluido de mediciones y presupuesto)`
-        : (count > 1 ? `${count} MÓDULOS FV SELECCIONADOS (Shift+Clic para añadir/quitar)` : ('MÓDULO FV #' + (panelIdx + 1) + ' SELECCIONADO'));
-      showStatus(statusText, 2500);
-      return;
-    }
-
-    // 0C-Wind. Comprobar clic sobre Aerogenerador 3D (RA-Wind)
-    if (pickedObj && window.RAWind && window.RAWind.Entity && Array.isArray(window.windTurbines) && window.windTurbines.length > 0) {
+    // 3B. Aerogeneradores 3D (RA-Wind)
+    if (filter === 'all' && pickedObj && window.RAWind && window.RAWind.Entity && Array.isArray(window.windTurbines) && window.windTurbines.length > 0) {
       let wtHitId = null;
       if (pickedObj.primitive && pickedObj.primitive._windTurbineId) {
         wtHitId = pickedObj.primitive._windTurbineId;
@@ -15573,160 +15638,108 @@ window.toggleSolarHUD = toggleSolarHUD;
       }
     }
 
-    // 0C. Comprobar clic sobre obstáculo 3D
-    const clickedObs = pickObstacleUnderCursor(click.position);
-    if (clickedObs) {
-      if (selectedPanelIndex >= 0) selectPanel(-1);
-      if (typeof selectElectricalObject === 'function') selectElectricalObject(null);
-      if (typeof WP !== 'undefined' && WP) { WP.selectedVtxIdx = -1; }
-      if (typeof selectedVertexIndex !== 'undefined') { selectedVertexIndex = -1; }
-      if (typeof wpSyncVertexInputs === 'function') { wpSyncVertexInputs(); }
-      selectObstacle(clickedObs.id);
-      renderTriad2D();
-      return;
-    }
-
-    // 0D. Comprobar clic sobre Edificio 3D para seleccionarlo y editarlo
-    // Si estamos en pasos solares (Paso 2, 3 o 4), no saltar al Paso 0 de edificio por un clic en la escena
-    const activeStep = (typeof currentStep !== 'undefined') ? currentStep : ((typeof WP !== 'undefined' && WP) ? WP.step : 1);
-    let clickedBld = null;
-    if (activeStep <= 1) {
-      if (pickedObj) {
-        const pId = (typeof pickedObj.id === 'string') ? pickedObj.id : (pickedObj.id && typeof pickedObj.id.id === 'string' ? pickedObj.id.id : '');
-        if (pId) {
-          clickedBld = buildings.find(b => (pId.startsWith(b.id) || pId.includes(b.id)) && b.visible !== false);
-        }
-      }
-      if (!clickedBld) {
-        const clickPos3D = (typeof get3DPosition === 'function') ? get3DPosition(click.position) : null;
-        if (clickPos3D && typeof findBuildingUnderPosition === 'function') {
-          clickedBld = findBuildingUnderPosition(clickPos3D);
-        }
-      }
-    }
-    if (clickedBld && typeof WP !== "undefined" && WP && WP.mode !== "draw-poly" && WP.mode !== "define-plane" && WP.mode !== "place-obs") {
-      if (typeof selectObstacle === 'function') selectObstacle(null);
-      if (typeof selectPanel === 'function') selectPanel(-1);
-      if (typeof selectElectricalObject === 'function') selectElectricalObject(null);
-      selectBuilding(clickedBld.id);
-      if (typeof setStep === 'function') setStep(0);
-      showToast('EDIFICIO SELECCIONADO', clickedBld.name + ' (' + clickedBld.height + 'm de altura)', 'info', 2500);
-      return;
-    }
-
-    // 0E. Deselección si se hace clic en vacío fuera del gizmo del objeto activo
-    const hitUGizmo = (typeof checkUniversalGizmoHit === 'function') ? checkUniversalGizmoHit(click.position.x, click.position.y) : null;
-    if (!hitUGizmo) {
-      // Verificar si el clic fue sobre la geometría del obstáculo seleccionado antes de deseleccionar
-      const isClickOnSelectedObs = selectedObstacleId && pickedObj && (
-        (typeof pickedObj.id === 'string' && pickedObj.id.includes(selectedObstacleId)) ||
-        (pickedObj.id && typeof pickedObj.id.id === 'string' && pickedObj.id.includes(selectedObstacleId))
-      );
-
-      // Verificar si el clic fue sobre algún panel (o en grupo de selección)
-      const isClickOnAnyPanel = (typeof pickPanelUnderCursor === 'function' && pickPanelUnderCursor(click.position) >= 0);
-      const isClickOnSelectedPanel = isClickOnAnyPanel || (selectedPanelIndex >= 0 && pickedObj && (
-        (typeof pickedObj.id === 'string' && (
-          pickedObj.id === 'pv_panel_tex_' + selectedPanelIndex ||
-          pickedObj.id === 'pv_panel_instance_' + selectedPanelIndex ||
-          pickedObj.id.startsWith('pv_panel_pool_' + selectedPanelIndex)
-        )) ||
-        (pickedObj.id && typeof pickedObj.id.id === 'string' && (
-          pickedObj.id.id === 'pv_panel_tex_' + selectedPanelIndex ||
-          pickedObj.id.id === 'pv_panel_instance_' + selectedPanelIndex ||
-          pickedObj.id.id.startsWith('pv_panel_pool_' + selectedPanelIndex)
-        ))
-      ));
-
-      if (!isClickOnSelectedObs && !isClickOnSelectedPanel) {
-        if (typeof clearAllCADSelection === 'function') {
-          clearAllCADSelection(false);
-        } else {
-          if (selectedElectricalId) selectElectricalObject(null);
-          if (typeof selectPanel === 'function') selectPanel(-1);
-          if (selectedObstacleId && !obsPlacement.active) selectObstacle(null);
-          renderTriad2D();
-        }
+    // 3C. Equipos Eléctricos 3D
+    if (filter === 'all') {
+      const clickedElec = pickElectricalObjectUnderCursor(click.position);
+      if (clickedElec) {
+        if (typeof selectObstacle === 'function') selectObstacle(null);
+        if (typeof selectPanel === 'function') selectPanel(-1);
+        selectElectricalObject(clickedElec.id);
+        return;
       }
     }
 
-    // F. Selección de vértices de polilínea por proximidad de pantalla
-    if (WP.polylines && WP.selectedPolyIdx >= 0) {
-      const activePoly = WP.polylines[WP.selectedPolyIdx];
-      if (activePoly && activePoly.visible !== false && activePoly.points && activePoly.points.length > 0) {
-        let nearestVtxIdx = -1;
-        let minVtxDist = 20.0;
-        for (let vi = 0; vi < activePoly.points.length; vi++) {
-          const pWin = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, activePoly.points[vi]);
-          if (pWin) {
-            const d = Math.hypot(click.position.x - pWin.x, click.position.y - pWin.y);
-            if (d < minVtxDist) {
-              minVtxDist = d;
-              nearestVtxIdx = vi;
-            }
+    // 3D. Obstáculos 3D
+    if (filter === 'all' || filter === 'obstacles') {
+      const clickedObs = pickObstacleUnderCursor(click.position);
+      if (clickedObs) {
+        if (selectedPanelIndex >= 0) selectPanel(-1);
+        if (typeof selectElectricalObject === 'function') selectElectricalObject(null);
+        if (typeof WP !== 'undefined' && WP) { WP.selectedVtxIdx = -1; }
+        if (typeof selectedVertexIndex !== 'undefined') { selectedVertexIndex = -1; }
+        if (typeof wpSyncVertexInputs === 'function') { wpSyncVertexInputs(); }
+        selectObstacle(clickedObs.id);
+        renderTriad2D();
+        return;
+      }
+    }
+
+    // ── NIVEL 4: SUPERFICIES Y CONTORNOS (POLILÍNEAS / FALDONES Y PLANOS DE TRABAJO)
+    if (filter === 'all' || filter === 'polylines') {
+      // 4A. Polilínea / Faldón por entidad 3D guardada (relleno o borde)
+      if (pickedObj && pickedObj.id && typeof pickedObj.id.id === 'string') {
+        const entId = pickedObj.id.id;
+        if (entId.startsWith('wp_poly_fill_') || entId.startsWith('wp_poly_line_')) {
+          const prefix = entId.startsWith('wp_poly_fill_') ? 'wp_poly_fill_' : 'wp_poly_line_';
+          const pIdx = parseInt(entId.replace(prefix, '').split('_')[0], 10);
+          if (!isNaN(pIdx) && WP && WP.polylines && WP.polylines[pIdx] && WP.polylines[pIdx].visible !== false) {
+            wpSelectPolyline(pIdx);
+            return;
           }
         }
-        if (nearestVtxIdx >= 0) {
-          wpSelectVertex(nearestVtxIdx);
+      }
+      // 4B. Polilínea por test de polígono 2D en pantalla
+      const isPointPolyFunc = (typeof isPointIn2DPolygon === 'function') ? isPointIn2DPolygon : (window.isPointIn2DPolygon || null);
+      if (isPointPolyFunc && WP && Array.isArray(WP.polylines)) {
+        for (let pi = 0; pi < WP.polylines.length; pi++) {
+          const poly = WP.polylines[pi];
+          if (!poly || poly.visible === false || !Array.isArray(poly.points) || poly.points.length < 3) continue;
+          const scrPts = poly.points.map(p => Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, p)).filter(Boolean);
+          if (scrPts.length >= 3 && isPointPolyFunc(click.position, scrPts)) {
+            wpSelectPolyline(pi);
+            return;
+          }
+        }
+      }
+    }
+
+    // 4C. Superficie o borde del Plano de Trabajo Activo
+    const curStepForPlane = (typeof wpCurrentStep !== 'undefined') ? wpCurrentStep : ((typeof window !== 'undefined' && window.wpCurrentStep) || 1);
+    if (filter === 'all' && curStepForPlane === 1 && typeof WP !== 'undefined' && WP && typeof wpGetActivePlane === 'function') {
+      const actPl = wpGetActivePlane();
+      if (actPl && actPl.visible !== false && pickedObj && pickedObj.id) {
+        const pId = (typeof pickedObj.id === 'string') ? pickedObj.id : (typeof pickedObj.id.id === 'string' ? pickedObj.id.id : '');
+        if (pId === 'wp_active_plane_mesh' || pId === 'wp_active_plane_border') {
+          WP.selectedPlaneVtxIdx = -1;
+          WP.selectedVtxIdx = -1;
+          renderTriad2D();
+          showStatus('<i data-lucide="compass" class="icon-sm"></i> ' + (actPl.name || 'PLANO DE TRABAJO').toUpperCase() + ' SELECCIONADO', 2000);
           return;
         }
       }
     }
 
-    // F2. Selección por entidades 3D guardadas (vértice o relleno)
-    if (pickedObj && pickedObj.id && typeof pickedObj.id.id === 'string') {
-      const entId = pickedObj.id.id;
-      if (entId.startsWith('wp_saved_vtx_')) {
-        const parts = entId.replace('wp_saved_vtx_', '').split('_');
-        const pIdx = parseInt(parts[0], 10);
-        const vIdx = parseInt(parts[1], 10);
-        if (!isNaN(pIdx) && !isNaN(vIdx)) {
-          if (WP.polylines && WP.polylines[pIdx] && WP.polylines[pIdx].visible === false) return;
-          if (WP.selectedPolyIdx !== pIdx) wpSelectPolyline(pIdx);
-          wpSelectVertex(vIdx);
-          return;
+    // ── NIVEL 5: VOLÚMENES ARQUITECTÓNICOS (EDIFICIOS COMPLETOS)
+    if (filter === 'all') {
+      const activeStep = (typeof currentStep !== 'undefined') ? currentStep : ((typeof WP !== 'undefined' && WP) ? WP.step : 1);
+      let clickedBld = null;
+      if (activeStep <= 1) {
+        if (pickedObj) {
+          const pId = (typeof pickedObj.id === 'string') ? pickedObj.id : (pickedObj.id && typeof pickedObj.id.id === 'string' ? pickedObj.id.id : '');
+          if (pId) {
+            clickedBld = buildings.find(b => (pId.startsWith(b.id) || pId.includes(b.id)) && b.visible !== false);
+          }
         }
-      } else if (entId.startsWith('wp_poly_fill_') || entId.startsWith('wp_poly_line_')) {
-        const prefix = entId.startsWith('wp_poly_fill_') ? 'wp_poly_fill_' : 'wp_poly_line_';
-        const pIdx = parseInt(entId.replace(prefix, '').split('_')[0], 10);
-        if (!isNaN(pIdx)) {
-          if (WP.polylines && WP.polylines[pIdx] && WP.polylines[pIdx].visible === false) return;
-          wpSelectPolyline(pIdx);
-          return;
+        if (!clickedBld) {
+          const clickPos3D = (typeof get3DPosition === 'function') ? get3DPosition(click.position) : null;
+          if (clickPos3D && typeof findBuildingUnderPosition === 'function') {
+            clickedBld = findBuildingUnderPosition(clickPos3D);
+          }
         }
+      }
+      if (clickedBld && typeof WP !== "undefined" && WP && WP.mode !== "draw-poly" && WP.mode !== "define-plane" && WP.mode !== "place-obs") {
+        if (typeof selectObstacle === 'function') selectObstacle(null);
+        if (typeof selectPanel === 'function') selectPanel(-1);
+        if (typeof selectElectricalObject === 'function') selectElectricalObject(null);
+        selectBuilding(clickedBld.id);
+        if (typeof setStep === 'function') setStep(0);
+        showToast('EDIFICIO SELECCIONADO', clickedBld.name + ' (' + clickedBld.height + 'm de altura)', 'info', 2500);
+        return;
       }
     }
 
-    // G. Si hay un vértice seleccionado y se hace clic en vacío fuera de la Tríada, deseleccionar
-    if (typeof WP !== 'undefined' && WP && WP.selectedPlaneVtxIdx >= 0) {
-      const hitVtx = (typeof checkUniversalGizmoHit === 'function') ? checkUniversalGizmoHit(click.position.x, click.position.y) : null;
-      if (!hitVtx) {
-        WP.selectedPlaneVtxIdx = -1;
-        renderTriad2D();
-      }
-    }
-    if (WP.selectedVtxIdx >= 0) {
-      const hitVtx = (typeof checkUniversalGizmoHit === 'function') ? checkUniversalGizmoHit(click.position.x, click.position.y) : null;
-      if (!hitVtx) {
-        WP.selectedVtxIdx = -1;
-        selectedVertexIndex = -1;
-        wpSyncVertexInputs();
-        wpRenderAllPolylines();
-        wpUpdateUI();
-        renderTriad2D();
-      }
-    }
-    if (typeof bldFootprintState !== 'undefined' && bldFootprintState && bldFootprintState.selectedVtxIdx >= 0) {
-      const hitVtx = (typeof checkUniversalGizmoHit === 'function') ? checkUniversalGizmoHit(click.position.x, click.position.y) : null;
-      if (!hitVtx) {
-        bldFootprintState.selectedVtxIdx = -1;
-        if (typeof updateBuildingFootprintUI === 'function') updateBuildingFootprintUI();
-        if (typeof render3DBuildingsInCesium === 'function') render3DBuildingsInCesium();
-        renderTriad2D();
-      }
-    }
-
-    // ── REGLA DE ORO CAD: Clic en zona vacía del visor -> Deseleccionar cualquier elemento activo
+    // ── NIVEL 6: ESPACIO VACÍO (DESELECCIÓN LIMPIA Y GARANTIZADA)
+    // Se ejecuta única y exclusivamente si ningún nivel previo atrapó nada y no hay interacción con gizmo
     const hitGizmoAtEnd = (typeof checkUniversalGizmoHit === 'function') ? checkUniversalGizmoHit(click.position.x, click.position.y) : null;
     if (!hitGizmoAtEnd && typeof clearAllCADSelection === 'function') {
       clearAllCADSelection(true);
@@ -16050,6 +16063,15 @@ window.toggleSolarHUD = toggleSolarHUD;
         if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Edificio desplazado');
       } else if (draggedTargetType === 'obstacle') {
         if (typeof recalculateLayoutAndObstacles === 'function') recalculateLayoutAndObstacles();
+        if (window.RAWind && window.RAWind.Entity && typeof window.RAWind.Entity.recalculateAllEngineering === 'function') {
+          window.RAWind.Entity.recalculateAllEngineering();
+          if (window.RAWindUI && typeof window.RAWindUI.renderStep2Panel === 'function') {
+            window.RAWindUI.renderStep2Panel();
+          }
+          if (window.RAWindVisualizer && typeof window.RAWindVisualizer.renderAll === 'function') {
+            window.RAWindVisualizer.renderAll();
+          }
+        }
       } else if (draggedTargetType === 'wind_turbine_entity') {
         if (window.RAWind && window.RAWind.Entity) {
           window.RAWind.Entity.recalculateAllEngineering();
@@ -16540,11 +16562,11 @@ window.toggleSolarHUD = toggleSolarHUD;
           }
         }
       }
-      if (selectedObstacleId) {
-        deleteSelectedObstacle();
+      if (typeof deleteUniversalSelectedObject === 'function' && deleteUniversalSelectedObject()) {
         return;
       }
-      if (typeof deleteUniversalSelectedObject === 'function' && deleteUniversalSelectedObject()) {
+      if (selectedObstacleId) {
+        deleteSelectedObstacle();
         return;
       }
       if (selectedPanelIndex >= 0 || (Array.isArray(window.selectedPanelIndices) && window.selectedPanelIndices.length > 0)) {
@@ -17038,6 +17060,11 @@ window.toggleSolarHUD = toggleSolarHUD;
       <i data-lucide="tag" class="icon-sm"></i>
       <span style="font-weight:700;">ETIQUETAS</span>
       <span id="tag-labels-status" class="card-tag" style="background:rgba(16,185,129,0.2);color:#34D399;font-size: 10px;font-weight:900;padding:2px 4px;border-radius:4px;">ON</span>
+    </button>
+    <button type="button" class="btn-action-secondary" id="btn-cad-filter" onclick="cycleCADSelectionFilter()" style="padding:0 12px; height:48px; border-radius:24px; font-size:10px; border:1px solid rgba(56,189,248,0.4); display:flex; gap:6px; align-items:center; background:rgba(15,23,42,0.88); backdrop-filter:blur(16px); color:#fff; cursor:pointer; box-shadow:0 4px 16px rgba(0,0,0,0.4);" title="Filtro de Puntería CAD: Alterna selección entre Todo, Placas, Vértices, etc. (Atajo: F)">
+      <i data-lucide="filter" class="icon-sm"></i>
+      <span style="font-weight:700;">FILTRO CAD</span>
+      <span id="tag-cad-filter" class="card-tag" style="background:rgba(56,189,248,0.2);color:#38BDF8;font-size: 10px;font-weight:900;padding:2px 4px;border-radius:4px;">TODO</span>
     </button>
     <button type="button" class="btn-action-secondary" id="btn-toggle-cad-focus" onclick="toggleCADFocusMode()" style="padding:0 12px; height:48px; border-radius:24px; font-size:10px; border:1px solid rgba(56,189,248,0.4); display:flex; gap:6px; align-items:center; background:rgba(15,23,42,0.88); backdrop-filter:blur(16px); color:#fff; cursor:pointer; box-shadow:0 4px 16px rgba(0,0,0,0.4);" title="Modo Foco CAD: Atenúa cubiertas inactivas (Atajo: Shift+F)">
       <i data-lucide="crosshair" class="icon-sm"></i>

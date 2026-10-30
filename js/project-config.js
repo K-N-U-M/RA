@@ -2587,16 +2587,25 @@ function wpRenderStep4SingleLineDiagramUI() {
       </g>
     `;
 
-    // Conexión DC del faldón: solo si tiene placas activas
+    // Conexión DC del faldón: si hay múltiples inversores y pocos faldones, balancear la potencia
     if (hasPanels) {
-      // Asignar al inversor correspondiente según orden de faldón activo
       const activeIdx = activeRoofs.indexOf(idx);
-      const targetInv = inverters[activeIdx % invCount] || inverters[0];
-      const targetY = targetInv.midY;
-
-      linePaths += `
-        <path d="M 85 ${y} C 120 ${y}, 130 ${targetY}, ${invX} ${targetY}" fill="none" stroke="${isSel ? '#F59E0B' : '#38BDF8'}" stroke-width="1.5" stroke-dasharray="${isSel ? 'none' : '3,2'}"/>
-      `;
+      // Si la instalación tiene más inversores que faldones activos (ej. 1 faldón grande y 2+ inversores),
+      // repartir las conexiones y cadenas proporcionalmente entre todos los inversores.
+      if (activeRoofs.length < invCount) {
+        inverters.forEach((invObj, invI) => {
+          const targetY = invObj.midY;
+          linePaths += `
+            <path d="M 85 ${y} C 120 ${y}, 130 ${targetY}, ${invX} ${targetY}" fill="none" stroke="${isSel ? '#F59E0B' : '#38BDF8'}" stroke-width="1.5" stroke-dasharray="${isSel ? 'none' : '3,2'}"/>
+          `;
+        });
+      } else {
+        const targetInv = inverters[activeIdx % invCount] || inverters[0];
+        const targetY = targetInv.midY;
+        linePaths += `
+          <path d="M 85 ${y} C 120 ${y}, 130 ${targetY}, ${invX} ${targetY}" fill="none" stroke="${isSel ? '#F59E0B' : '#38BDF8'}" stroke-width="1.5" stroke-dasharray="${isSel ? 'none' : '3,2'}"/>
+        `;
+      }
     }
   });
 
@@ -2612,11 +2621,25 @@ function wpRenderStep4SingleLineDiagramUI() {
 
   inverters.forEach((inv, i) => {
     const invLabel = invCount > 1 ? `INV ${i + 1} (${inv.kw}k)` : `INV ${inv.kw} kW`;
+    let subText = 'MPPT AUTO';
+    // Si hay un faldón dominante repartido entre múltiples inversores, calcular su cuota exacta de módulos
+    if (activeRoofs.length === 1 && invCount > 1) {
+      const fIdx = activeRoofs[0];
+      const polyTotalP = (polylines[fIdx] && polylines[fIdx].roofInfo && Array.isArray(polylines[fIdx].roofInfo.panels))
+        ? polylines[fIdx].roofInfo.panels.filter(x => !x.deleted).length
+        : 0;
+      if (polyTotalP > 0) {
+        const baseShare = Math.floor(polyTotalP / invCount);
+        const rem = polyTotalP % invCount;
+        const assignedP = baseShare + (i < rem ? 1 : 0);
+        subText = `${assignedP} MOD / AUTO`;
+      }
+    }
     inverterNodes += `
       <g>
         <rect x="${inv.x}" y="${inv.y}" width="${invWidth}" height="${invHeight}" rx="4" fill="#0F172A" stroke="#10B981" stroke-width="1.5"/>
         <text x="${inv.x + (invWidth / 2)}" y="${inv.y + 12}" fill="#34D399" font-size="7.5" font-weight="900" text-anchor="middle">${invLabel}</text>
-        <text x="${inv.x + (invWidth / 2)}" y="${inv.y + 22}" fill="#94A3B8" font-size="6.5" font-weight="600" text-anchor="middle">MPPT AUTO</text>
+        <text x="${inv.x + (invWidth / 2)}" y="${inv.y + 22}" fill="#94A3B8" font-size="6" font-weight="700" text-anchor="middle">${subText}</text>
       </g>
     `;
 

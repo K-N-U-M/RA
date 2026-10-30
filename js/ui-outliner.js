@@ -20,7 +20,8 @@
     planes: false,
     standalone: false,
     obstacles: false,
-    electrical: false
+    electrical: false,
+    wind: false
   };
 
   const UIOutliner = {
@@ -56,9 +57,14 @@
         if (hdr) global.makeElementDraggable(container, hdr, 'ra_outliner_pos');
       }
 
-      // Suscribirse a cambios en la jerarquía BIM
+      // Suscribirse a cambios en la jerarquía BIM y eventos eólicos
       if (global.ProjectHierarchy && typeof global.ProjectHierarchy.subscribe === 'function') {
         global.ProjectHierarchy.subscribe(function() {
+          UIOutliner.render();
+        });
+      }
+      if (global.RAWind && global.RAWind.Entity && typeof global.RAWind.Entity.subscribe === 'function') {
+        global.RAWind.Entity.subscribe(function() {
           UIOutliner.render();
         });
       }
@@ -505,6 +511,40 @@
               </div>
             `;
           }
+        });
+        html += `</div></div>`;
+      }
+
+      // ── 6. AEROGENERADORES EÓLICOS 3D (RA-WIND) ──
+      if (tree.windTurbines && tree.windTurbines.length > 0) {
+        const windCol = !!sectionCollapsedState.wind;
+        html += `
+          <div class="outliner-accordion-group">
+            <div class="outliner-group-header" onclick="UIOutliner.toggleSection('wind', event)">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <span class="outliner-chevron" id="outliner-chev-wind">${windCol ? '▶' : '▼'}</span>
+                <span>💨 AEROGENERADORES (${tree.windTurbines.length})</span>
+              </div>
+              <span class="outliner-group-count">${tree.windTurbines.length}</span>
+            </div>
+            <div class="outliner-group-content" id="outliner-grp-wind" style="display:${windCol ? 'none' : 'flex'};">
+        `;
+        tree.windTurbines.forEach(function(wt) {
+          const wtSel = wt.isSelected ? 'selected-obs active-node' : '';
+          const wtVis = wt.visible !== false;
+          html += `
+            <div class="outliner-obs-item ${wtSel} ${wtVis ? '' : 'is-hidden-node'}" onclick="ProjectHierarchy.selectWindTurbine('${wt.id}', true)">
+              <div style="display:flex;align-items:center;gap:4px;flex:1;overflow:hidden;">
+                <span class="node-icon">💨</span>
+                <span class="node-label obs-name" title="${wt.name}">${wt.name}</span>
+              </div>
+              <div class="node-meta">
+                <span class="badge-dim">${wt.ratedPowerKw} kW · H:${wt.hubHeightM}m</span>
+                <button type="button" class="node-action-btn" title="Alternar activación/visibilidad" onclick="event.stopPropagation();ProjectHierarchy.toggleVisibility('wind_turbine', '${wt.id}');">${wtVis ? '👁️' : '🙈'}</button>
+                <button type="button" class="node-action-btn delete-btn" title="Eliminar aerogenerador" onclick="event.stopPropagation();ProjectHierarchy.deleteItem('wind_turbine', '${wt.id}');">🗑️</button>
+              </div>
+            </div>
+          `;
         });
         html += `</div></div>`;
       }

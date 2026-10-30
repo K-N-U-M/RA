@@ -21,6 +21,25 @@
   var _selectedTurbineForPlacement = null;
   var _selectedTurbineIdForInspect = null;
   var _selectedWindSource = 'era5';
+  var _showAdvancedResource = false;
+  var _resourceActiveMetrics = {
+    wpd: true,
+    profile: true,
+    sectors: true,
+    iec: true
+  };
+
+  function toggleAdvancedResource() {
+    _showAdvancedResource = !_showAdvancedResource;
+    renderStep2Panel();
+  }
+
+  function toggleResourceMetric(metricKey) {
+    if (Object.prototype.hasOwnProperty.call(_resourceActiveMetrics, metricKey)) {
+      _resourceActiveMetrics[metricKey] = !_resourceActiveMetrics[metricKey];
+      renderStep2Panel();
+    }
+  }
 
   function _getYawCardinal(deg) {
     var d = ((Number(deg) % 360) + 360) % 360;
@@ -496,7 +515,8 @@
     html += '  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
     html += '    <div>';
     html += '      <span style="font-size:11px;font-weight:700;color:#38BDF8;text-transform:uppercase;letter-spacing:0.5px;">💨 Parque Mini-Eólico</span>';
-    html += '      <div style="font-size:10px;color:var(--text-slate-400);">' + turbines.length + ' aerogenerador(es) | <b style="color:#FBBF24;">' + totalKw.toFixed(1) + ' kW</b> | <b style="color:#34D399;">' + (parkSummary.totalAepNetKwh || 0).toLocaleString('es-ES') + ' kWh/año</b></div>';
+    var parkHoursText = parkSummary.annualOperatingHours ? (' | <b style="color:#38BDF8;">' + Number(parkSummary.annualOperatingHours).toLocaleString('es-ES') + ' h recurso/año</b>') : '';
+    html += '      <div style="font-size:10px;color:var(--text-slate-400);">' + turbines.length + ' aerogenerador(es) | <b style="color:#FBBF24;">' + totalKw.toFixed(1) + ' kW</b> | <b style="color:#34D399;">' + (parkSummary.totalAepNetKwh || 0).toLocaleString('es-ES') + ' kWh/año</b>' + parkHoursText + '</div>';
     html += '    </div>';
     html += '    <button class="doc-mini-btn" onclick="if(typeof openEquipmentCatalogModal===\'function\'){openEquipmentCatalogModal(\'wind_turbines\');}" style="background:rgba(56,189,248,0.15);color:#38BDF8;border:1px solid rgba(56,189,248,0.45);font-weight:700;padding:4px 9px;font-size:10.5px;cursor:pointer;">+ Añadir Turbina</button>';
     html += '  </div>';
@@ -525,7 +545,10 @@
     html += '  <div style="margin-bottom:8px;background:rgba(15,23,42,0.65);border:1px solid rgba(56,189,248,0.25);border-radius:6px;padding:6px 8px;">';
     html += '    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">';
     html += '      <span style="font-size:9.5px;font-weight:700;color:#38BDF8;">🌐 FUENTE DE DATOS EÓLICOS</span>';
-    html += '      <span style="font-size:8.5px;color:#94A3B8;font-family:monospace;">' + (resCfg.sourceName || 'Manual / IDAE') + '</span>';
+    html += '      <div style="display:flex;align-items:center;gap:6px;">';
+    html += '        <span style="font-size:8.5px;color:#94A3B8;font-family:monospace;">' + (resCfg.sourceName || 'Manual / IDAE') + '</span>';
+    html += '        <button type="button" onclick="if(window.RAWindUI)window.RAWindUI.toggleAdvancedResource()" style="background:' + (_showAdvancedResource ? 'rgba(56,189,248,0.25)' : 'rgba(255,255,255,0.06)') + ';border:1px solid ' + (_showAdvancedResource ? 'rgba(56,189,248,0.5)' : 'rgba(255,255,255,0.15)') + ';color:' + (_showAdvancedResource ? '#38BDF8' : '#CBD5E1') + ';border-radius:4px;padding:1px 6px;font-size:8.5px;font-weight:700;cursor:pointer;" title="Alternar panel de telemetría eólica avanzada">' + (_showAdvancedResource ? '▴ Resumen' : '▾ Avanzado') + '</button>';
+    html += '      </div>';
     html += '    </div>';
     html += '    <div style="display:flex;gap:6px;margin-bottom:8px;">';
     html += '      <select id="wind-source-select" onchange="if(window.RAWindUI)window.RAWindUI.setWindSource(this.value)" style="flex:1;background:#0F172A;color:#E2E8F0;border:1px solid #334155;border-radius:4px;padding:3px 6px;font-size:10px;">';
@@ -541,19 +564,33 @@
 
     // Rosa de los Vientos polar (12 sectores) + Telemetría Climática Multi-Altura
     var prevDir = typeof resCfg.prevailingWindDirDeg === 'number' ? resCfg.prevailingWindDirDeg : 270;
-    var v50Display = resCfg.vMean50mMs || Number((resCfg.vMeanRefMs * Math.pow(50.0 / 10.0, resCfg.shearExponentAlpha || 0.143)).toFixed(2));
+    var v10 = Number(resCfg.vMeanRefMs) || 5.5;
+    var alphaShear = Number(resCfg.shearExponentAlpha || 0.143);
+    var v50Display = resCfg.vMean50mMs || Number((v10 * Math.pow(50.0 / 10.0, alphaShear)).toFixed(2));
     var rhoStdSite = (RAWind.Resource && typeof RAWind.Resource.calculateAirDensity === 'function')
       ? RAWind.Resource.calculateAirDensity(resCfg.siteAltitudeM || 100, resCfg.ambientTempC || 15)
       : 1.21;
     var autoYawOn = (resCfg.autoYawToWind !== false);
 
+    var wK = Number(resCfg.weibullK || 2.0);
+    var ke = Math.max(1.2, Math.min(3.5, 1.0 + 3.69 / (wK * wK)));
+    var wpd10 = Math.round(ke * 0.5 * rhoStdSite * Math.pow(v10, 3));
+    var wpd50 = Math.round(ke * 0.5 * rhoStdSite * Math.pow(v50Display, 3));
+    var iecClass = (v50Display >= 8.5) ? 'Clase I' : (v50Display >= 7.5 ? 'Clase II' : (v50Display >= 6.0 ? 'Clase III' : 'Clase IV'));
+
     html += '    <div style="display:flex;align-items:center;gap:10px;background:rgba(2,6,23,0.55);border:1px solid rgba(255,255,255,0.07);border-radius:6px;padding:7px 8px;">';
     html += '      ' + _buildWindRoseSVG(resCfg.sectors, prevDir);
     html += '      <div style="flex:1;display:flex;flex-direction:column;gap:3px;font-size:9.5px;color:#CBD5E1;">';
     html += '        <div style="display:flex;justify-content:space-between;"><span>Rumbo Dominante:</span><b style="color:#FBBF24;font-family:monospace;">' + prevDir + '° (' + _getYawCardinal(prevDir) + ')</b></div>';
-    html += '        <div style="display:flex;justify-content:space-between;"><span>V<sub>10m</sub> / V<sub>50m</sub>:</span><b style="color:#38BDF8;font-family:monospace;">' + Number(resCfg.vMeanRefMs).toFixed(2) + ' / ' + Number(v50Display).toFixed(2) + ' m/s</b></div>';
-    html += '        <div style="display:flex;justify-content:space-between;"><span>Weibull k / Cizalla α:</span><b style="color:#E2E8F0;font-family:monospace;">k=' + Number(resCfg.weibullK || 2.0).toFixed(2) + ' · α=' + Number(resCfg.shearExponentAlpha || 0.143).toFixed(3) + '</b></div>';
+    html += '        <div style="display:flex;justify-content:space-between;"><span>V<sub>10m</sub> / V<sub>50m</sub>:</span><b style="color:#38BDF8;font-family:monospace;">' + Number(v10).toFixed(2) + ' / ' + Number(v50Display).toFixed(2) + ' m/s</b></div>';
+    html += '        <div style="display:flex;justify-content:space-between;"><span>Weibull k / Cizalla α:</span><b style="color:#E2E8F0;font-family:monospace;">k=' + Number(wK).toFixed(2) + ' · α=' + Number(alphaShear).toFixed(3) + '</b></div>';
+    if (_resourceActiveMetrics.wpd) {
+      html += '        <div style="display:flex;justify-content:space-between;"><span>Potencia Viento:</span><b style="color:#F59E0B;font-family:monospace;">' + wpd10 + ' W/m² (10m)</b></div>';
+    }
     html += '        <div style="display:flex;justify-content:space-between;"><span>Densidad ρ / Temp.:</span><b style="color:#34D399;font-family:monospace;">' + rhoStdSite + ' kg/m³ · ' + Number(resCfg.ambientTempC || 15).toFixed(1) + '°C</b></div>';
+        if (parkSummary && parkSummary.annualOperatingHours) {
+          html += '        <div style="display:flex;justify-content:space-between;"><span>Horas Viento Útil:</span><b style="color:#38BDF8;font-family:monospace;">' + Number(parkSummary.annualOperatingHours).toLocaleString('es-ES') + ' h/año (v ≥ v_arranque)</b></div>';
+        }
     html += '        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px;padding-top:3px;border-top:1px dashed rgba(255,255,255,0.08);">';
     html += '          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:9px;color:#94A3B8;" title="Orientar automáticamente las turbinas nuevas y existentes al viento predominante">';
     html += '            <input type="checkbox" ' + (autoYawOn ? 'checked' : '') + ' onchange="if(window.RAWindUI)window.RAWindUI.toggleAutoYaw(this.checked)" style="accent-color:#FBBF24;"> Auto-Yaw';
@@ -562,6 +599,63 @@
     html += '        </div>';
     html += '      </div>';
     html += '    </div>';
+
+    // Panel Desplegable de Telemetría Avanzada
+    if (_showAdvancedResource) {
+      var v20 = Number((v10 * Math.pow(20.0 / 10.0, alphaShear)).toFixed(2));
+      var v30 = Number((v10 * Math.pow(30.0 / 10.0, alphaShear)).toFixed(2));
+      var v100 = Number((v10 * Math.pow(100.0 / 10.0, alphaShear)).toFixed(2));
+      var sortedSectors = (Array.isArray(resCfg.sectors) ? resCfg.sectors.slice() : []).sort(function(a, b) { return (b.freq || 0) - (a.freq || 0); }).slice(0, 3);
+
+      html += '    <div style="margin-top:6px;padding-top:6px;border-top:1px dashed rgba(56,189,248,0.25);display:flex;flex-direction:column;gap:5px;">';
+      html += '      <div style="display:flex;justify-content:space-between;align-items:center;">';
+      html += '        <span style="font-size:8.5px;font-weight:700;color:#94A3B8;text-transform:uppercase;">Seleccionar Métricas:</span>';
+      html += '        <div style="display:flex;gap:3px;">';
+      html += '          <button type="button" onclick="if(window.RAWindUI)window.RAWindUI.toggleResourceMetric(\'wpd\')" style="background:' + (_resourceActiveMetrics.wpd ? 'rgba(245,158,11,0.22)' : 'rgba(255,255,255,0.04)') + ';border:1px solid ' + (_resourceActiveMetrics.wpd ? 'rgba(245,158,11,0.5)' : 'rgba(255,255,255,0.1)') + ';color:' + (_resourceActiveMetrics.wpd ? '#FBBF24' : '#64748B') + ';border-radius:3px;padding:1px 5px;font-size:8px;font-weight:700;cursor:pointer;" title="Conmutar densidad de potencia">⚡ Potencia</button>';
+      html += '          <button type="button" onclick="if(window.RAWindUI)window.RAWindUI.toggleResourceMetric(\'profile\')" style="background:' + (_resourceActiveMetrics.profile ? 'rgba(56,189,248,0.22)' : 'rgba(255,255,255,0.04)') + ';border:1px solid ' + (_resourceActiveMetrics.profile ? 'rgba(56,189,248,0.5)' : 'rgba(255,255,255,0.1)') + ';color:' + (_resourceActiveMetrics.profile ? '#38BDF8' : '#64748B') + ';border-radius:3px;padding:1px 5px;font-size:8px;font-weight:700;cursor:pointer;" title="Conmutar perfil vertical">📈 Alturas</button>';
+      html += '          <button type="button" onclick="if(window.RAWindUI)window.RAWindUI.toggleResourceMetric(\'sectors\')" style="background:' + (_resourceActiveMetrics.sectors ? 'rgba(52,211,153,0.22)' : 'rgba(255,255,255,0.04)') + ';border:1px solid ' + (_resourceActiveMetrics.sectors ? 'rgba(52,211,153,0.5)' : 'rgba(255,255,255,0.1)') + ';color:' + (_resourceActiveMetrics.sectors ? '#34D399' : '#64748B') + ';border-radius:3px;padding:1px 5px;font-size:8px;font-weight:700;cursor:pointer;" title="Conmutar top sectores">🧭 Sectores</button>';
+      html += '        </div>';
+      html += '      </div>';
+
+      if (_resourceActiveMetrics.wpd) {
+        html += '      <div style="background:rgba(15,23,42,0.8);border:1px solid rgba(245,158,11,0.25);border-radius:4px;padding:5px 6px;font-size:9px;">';
+        html += '        <div style="display:flex;justify-content:space-between;margin-bottom:2px;">';
+        html += '          <span style="color:#CBD5E1;">⚡ Densidad Potencia (WPD):</span>';
+        html += '          <b style="color:#FBBF24;font-family:monospace;">' + wpd10 + ' W/m² (10m) · ' + wpd50 + ' W/m² (50m)</b>';
+        html += '        </div>';
+        html += '        <div style="display:flex;justify-content:space-between;">';
+        html += '          <span style="color:#94A3B8;">Clasificación IEC 61400:</span>';
+        html += '          <b style="color:#E2E8F0;">' + iecClass + '</b>';
+        html += '        </div>';
+        html += '      </div>';
+      }
+
+      if (_resourceActiveMetrics.profile) {
+        html += '      <div style="background:rgba(15,23,42,0.8);border:1px solid rgba(56,189,248,0.25);border-radius:4px;padding:5px 6px;font-size:9px;">';
+        html += '        <div style="color:#38BDF8;font-weight:700;margin-bottom:3px;font-size:8.5px;">📈 PERFIL VERTICAL DE VIENTO (CAPA LÍMITE)</div>';
+        html += '        <div style="display:grid;grid-template-columns:repeat(5, 1fr);gap:4px;text-align:center;font-family:monospace;font-size:8.5px;">';
+        html += '          <div style="background:rgba(2,6,23,0.5);padding:2px;border-radius:3px;"><div style="color:#94A3B8;">10m</div><b style="color:#E2E8F0;">' + v10 + '</b></div>';
+        html += '          <div style="background:rgba(2,6,23,0.5);padding:2px;border-radius:3px;"><div style="color:#94A3B8;">20m</div><b style="color:#E2E8F0;">' + v20 + '</b></div>';
+        html += '          <div style="background:rgba(2,6,23,0.5);padding:2px;border-radius:3px;"><div style="color:#94A3B8;">30m</div><b style="color:#E2E8F0;">' + v30 + '</b></div>';
+        html += '          <div style="background:rgba(2,6,23,0.5);padding:2px;border-radius:3px;"><div style="color:#38BDF8;">50m</div><b style="color:#38BDF8;">' + v50Display + '</b></div>';
+        html += '          <div style="background:rgba(2,6,23,0.5);padding:2px;border-radius:3px;"><div style="color:#94A3B8;">100m</div><b style="color:#E2E8F0;">' + v100 + '</b></div>';
+        html += '        </div>';
+        html += '      </div>';
+      }
+
+      if (_resourceActiveMetrics.sectors && sortedSectors.length > 0) {
+        html += '      <div style="background:rgba(15,23,42,0.8);border:1px solid rgba(52,211,153,0.25);border-radius:4px;padding:5px 6px;font-size:9px;">';
+        html += '        <div style="color:#34D399;font-weight:700;margin-bottom:2px;font-size:8.5px;">🧭 TOP SECTORES DOMINANTES</div>';
+        html += '        <div style="display:flex;justify-content:space-between;font-size:8.5px;font-family:monospace;">';
+        sortedSectors.forEach(function(sec, sIdx) {
+          var pct = ((sec.freq || 0) * 100).toFixed(1);
+          html += '          <span>#' + (sIdx + 1) + ' <b style="color:#FBBF24;">' + (sec.label || sec.dirDeg + '°') + '</b>: ' + pct + '%</span>';
+        });
+        html += '        </div>';
+        html += '      </div>';
+      }
+      html += '    </div>';
+    }
     html += '  </div>';
 
     if (turbines.length === 0) {
@@ -702,12 +796,41 @@
     html += '  </div>';
     html += '</div>';
 
+    // Tarjeta 1.5: Interferencia 3D con Obstáculos y Entorno (Árboles, Chimeneas, Muros)
+    var obsEvalNow = (RAWind.ObstacleInterference && typeof RAWind.ObstacleInterference.evaluateTurbineObstacleInterference === 'function')
+      ? RAWind.ObstacleInterference.evaluateTurbineObstacleInterference(activeTurbine, (resCfg && resCfg.prevailingWindDirDeg) || 270)
+      : null;
+
+    if (obsEvalNow) {
+      var obColor = obsEvalNow.hasSevereInterference ? '#EF4444' : (obsEvalNow.hasModerateInterference ? '#F59E0B' : '#10B981');
+      var obBadge = obsEvalNow.hasSevereInterference ? 'SOMBRA SEVERA' : (obsEvalNow.hasModerateInterference ? 'ESTELA TURBULENTA' : 'FLUJO DESPEJADO');
+      var critName = obsEvalNow.criticalObstacle ? (obsEvalNow.criticalObstacle.name || 'Obstáculo próximo') : 'Ninguno';
+
+      html += '<div style="background:rgba(15,23,42,0.8);border-left:3px solid ' + obColor + ';border-radius:4px;padding:7px 9px;margin-bottom:6px;font-size:10px;">';
+      html += '  <div style="display:flex;justify-content:space-between;font-weight:700;color:' + obColor + ';margin-bottom:3px;">';
+      html += '    <span>🌪️ INTERFERENCIA 3D ENTORNO</span>';
+      html += '    <span>' + obBadge + '</span>';
+      html += '  </div>';
+      html += '  <div style="color:var(--text-slate-300);line-height:1.4;">';
+      if (obsEvalNow.hasInterference) {
+        html += '    Obstáculo crítico: <b style="color:#fff;">' + critName + '</b> | Pérdida velocidad: <b style="color:' + obColor + ';">-' + obsEvalNow.maxVelocityDeficitPct + '%</b><br>';
+        html += '    Turbulencia inducida: <b>+' + (obsEvalNow.addedTurbulence * 100).toFixed(0) + '%</b> · V_efectiva: <b>' + (obsEvalNow.effectiveSpeedFactor * 100).toFixed(0) + '%</b>';
+      } else {
+        html += '    Sin obstáculos aguas arriba en el cono de incidencia. Flujo libre 100%.';
+      }
+      html += '  </div>';
+      html += '</div>';
+    }
+
+
     // Tarjeta 1: Producción AEP, Weibull, Estelas de Jensen y CFD Cubierta
     html += '<div style="background:rgba(15,23,42,0.8);border-left:3px solid #38BDF8;border-radius:4px;padding:7px 9px;margin-bottom:6px;font-size:10px;">';
+    var operHours = actSim.operatingHoursPerYear || Math.round(8760 * ((actSim.operatingAvailabilityPct || 85.0) / 100));
     html += '  <div style="display:flex;justify-content:space-between;font-weight:700;color:#7DD3FC;margin-bottom:3px;">';
     html += '    <span>🌬️ RECURSO WEIBULL & ESTELAS JENSEN</span>';
-    html += '    <span>FC: ' + (((actSim.capacityFactor || 0) * 100).toFixed(1)) + '% (' + (actSim.equivalentFullLoadHours || 0) + ' h)</span>';
+    html += '    <span>FC: ' + (((actSim.capacityFactor || 0) * 100).toFixed(1)) + '% (' + (actSim.equivalentFullLoadHours || 0) + ' h equiv.)</span>';
     html += '  </div>';
+    html += '  <div style="display:flex;justify-content:space-between;background:rgba(2,6,23,0.45);border-radius:3px;padding:2px 4px;margin-bottom:3px;font-size:9.5px;"><span>Horas Recurso Útil (anual):</span><b style="color:#38BDF8;font-family:monospace;">' + Number(operHours).toLocaleString('es-ES') + ' h/año (' + (actSim.operatingAvailabilityPct || ((operHours / 8760) * 100).toFixed(1)) + '%)</b></div>';
     html += '  <div style="color:var(--text-slate-300);line-height:1.4;">';
     html += '    V<sub>buje</sub>: <b>' + (actSim.hubWindSpeedMeanMs || 0) + ' m/s</b> (ρ=' + (actSim.airDensityKgM3 || 1.22) + ' kg/m³) · Pérdida estela: <b>' + (actSim.wakeLossPercentage || 0) + '%</b>';
     if (actMount === 'rooftop' && actRoof) {
@@ -978,6 +1101,10 @@
     toggleRings3D: toggleRings3D,
     toggleAutoYaw: toggleAutoYaw,
     orientAllToWindNow: orientAllToWindNow,
+    toggleAdvancedResource: toggleAdvancedResource,
+    toggleResourceMetric: toggleResourceMetric,
+    isAdvancedResourceOpen: function () { return _showAdvancedResource; },
+    getResourceActiveMetrics: function () { return _resourceActiveMetrics; },
     setWindSource: setWindSource,
     fetchSelectedWindSource: fetchSelectedWindSource,
     fetchERA5WindData: fetchSelectedWindSource,

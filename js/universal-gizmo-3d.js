@@ -188,6 +188,36 @@ function getUniversalSelectedTarget() {
   // B. Obstáculos 3D
   if (typeof selectedObstacleId !== 'undefined' && selectedObstacleId && typeof getSelectedObstacle === 'function') {
     const obs = getSelectedObstacle();
+    // B0. Si el obstáculo seleccionado es en realidad un aerogenerador eólico
+    if (obs && obs.type === 'wind_turbine' && window.RAWind && window.RAWind.Entity) {
+      const wt = (typeof window.windTurbines !== 'undefined' && Array.isArray(window.windTurbines))
+        ? window.windTurbines.find(t => t && (t.id === obs.id || t.name === obs.name))
+        : null;
+      if (wt && wt.positionCartographic) {
+        const basePos = Cesium.Cartesian3.fromRadians(
+          wt.positionCartographic.longitudeRad,
+          wt.positionCartographic.latitudeRad,
+          wt.positionCartographic.altitudeM || 0
+        );
+        const enuMat = Cesium.Transforms.eastNorthUpToFixedFrame(basePos);
+        const uVec = new Cesium.Cartesian3(enuMat[0], enuMat[1], enuMat[2]);
+        const vVec = new Cesium.Cartesian3(enuMat[4], enuMat[5], enuMat[6]);
+        const normal = new Cesium.Cartesian3(enuMat[8], enuMat[9], enuMat[10]);
+        return {
+          type: 'wind_turbine_entity',
+          id: wt.id,
+          name: (wt.name || 'Aerogenerador').toUpperCase(),
+          pos: basePos,
+          rot: Cesium.Math.toDegrees(wt.orientationRad || 0),
+          height: (wt.supportStructure && wt.supportStructure.hubHeightM) || 18,
+          rawObj: wt,
+          wp: { origin: basePos, normal: normal, uVec: uVec, vVec: vVec, plane: { origin: basePos, normal: normal } },
+          color: '#38BDF8',
+          accentColor: 'rgba(56, 189, 248, 0.45)'
+        };
+      }
+    }
+
     if (obs && obs.visible !== false) {
       const wp = typeof getObstacleActivePlane === 'function' ? getObstacleActivePlane(obs) : null;
       let baseCenter = null;
@@ -874,6 +904,17 @@ function deleteUniversalSelectedObject() {
   const target = getUniversalSelectedTarget();
   if (!target) return false;
 
+  if (target.type === 'wind_turbine_entity') {
+    if (window.RAWind && window.RAWind.Entity && typeof window.RAWind.Entity.removeFromScene === 'function') {
+      window.RAWind.Entity.removeFromScene(target.id);
+      if (window.RAWindVisualizer && typeof window.RAWindVisualizer.selectTurbine === 'function') {
+        window.RAWindVisualizer.selectTurbine(null);
+      }
+      if (typeof renderTriad2D === 'function') renderTriad2D();
+      if (typeof showStatus === 'function') showStatus('<i data-lucide="trash-2" class="icon-sm"></i> AEROGENERADOR ELIMINADO', 2500);
+      return true;
+    }
+  }
   if (target.type === 'electrical') {
     deleteSelectedElectricalEquipment();
     return true;
@@ -1180,6 +1221,9 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
       }
 
       obs.cartesian = Cesium.Cartesian3.clone(baseCenter);
+      try {
+        obs.carto = Cesium.Cartographic.fromCartesian(baseCenter);
+      } catch (eC) {}
       target.pos = Cesium.Cartesian3.add(
         baseCenter,
         Cesium.Cartesian3.multiplyByScalar(normal, hOffset, new Cesium.Cartesian3()),
@@ -1208,7 +1252,11 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
         window.LiveSolarProbe.evaluate();
       }
     } else if (target.type === 'wind_turbine_entity' && target.rawObj) {
-      const wt = target.rawObj;
+      let wt = target.rawObj;
+      if (window.RAWind && window.RAWind.Entity && typeof window.RAWind.Entity.getById === 'function') {
+        const liveWt = window.RAWind.Entity.getById(wt.id);
+        if (liveWt) wt = liveWt;
+      }
       if (window.RAWind && window.RAWind.Entity) {
         window.RAWind.Entity.updatePosition(wt.id, carto.longitude, carto.latitude, carto.height || 0);
       }

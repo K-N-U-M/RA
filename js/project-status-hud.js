@@ -326,13 +326,14 @@
    */
   function inspectProjectState() {
     let numPanels = 0;
-    if (typeof window !== 'undefined' && Array.isArray(window.allRenderedPanels)) {
-      numPanels = window.allRenderedPanels.length;
-    } else if (typeof WP !== 'undefined' && WP && Array.isArray(WP.polylines)) {
+    if (typeof WP !== 'undefined' && WP && Array.isArray(WP.polylines) && WP.polylines.length > 0) {
       WP.polylines.forEach(p => {
-        if (p.roofInfo && Array.isArray(p.roofInfo.panels)) numPanels += p.roofInfo.panels.length;
-        else if (Array.isArray(p.panels)) numPanels += p.panels.length;
+        if (p.panelsDisabled === true) return;
+        if (p.roofInfo && Array.isArray(p.roofInfo.panels)) numPanels += p.roofInfo.panels.filter(x => !x.deleted && !x.disabled).length;
+        else if (Array.isArray(p.panels)) numPanels += p.panels.filter(x => !x.deleted && !x.disabled).length;
       });
+    } else if (typeof window !== 'undefined' && Array.isArray(window.allRenderedPanels)) {
+      numPanels = window.allRenderedPanels.filter(p => p && !p.deleted && !p.disabled).length;
     }
 
     const cfg = (typeof window !== 'undefined' && window.solarProjectConfig) ? window.solarProjectConfig : {};
@@ -348,17 +349,17 @@
     if (typeof window !== 'undefined' && window.ProjectHierarchy && typeof window.ProjectHierarchy.getTree === 'function') {
       try {
         const tree = window.ProjectHierarchy.getTree();
-        if (tree && tree.totals && tree.totals.panelsCount > 0 && tree.totals.totalKwp > 0) {
+        if (tree && tree.totals && typeof tree.totals.panelsCount === 'number') {
           numPanels = tree.totals.panelsCount;
-          kwp = tree.totals.totalKwp;
+          kwp = tree.totals.totalKwp || 0;
         }
       } catch (eTree) {}
     } else if (typeof window !== 'undefined' && typeof window.getProjectModulesBreakdown === 'function') {
       try {
         const mb = window.getProjectModulesBreakdown();
-        if (mb && typeof mb.totalPanels === 'number' && mb.totalPanels > 0 && typeof mb.totalKwp === 'number' && mb.totalKwp > 0) {
+        if (mb && typeof mb.totalPanels === 'number') {
           numPanels = mb.totalPanels;
-          kwp = mb.totalKwp;
+          kwp = mb.totalKwp || 0;
         }
       } catch (eMb) {}
     }
@@ -407,6 +408,11 @@
     }
     if (!annualKWh && kwp > 0) {
       annualKWh = theoreticalAnnualKWh || (kwp * 1450);
+    }
+    if (numPanels === 0) {
+      kwp = 0;
+      annualKWh = 0;
+      theoreticalAnnualKWh = 0;
     }
 
     let projLat = null, projLng = null;
@@ -537,9 +543,10 @@
 
     const s = inspectProjectState();
 
-    // Ocultar si no hay ni paneles ni aerogeneradores o en pantallas móviles (<= 768px)
+    // Ocultar si no hay ni faldones ni aerogeneradores o en pantallas móviles (<= 768px)
+    const hasRoofs = (typeof WP !== 'undefined' && WP && Array.isArray(WP.polylines) && WP.polylines.length > 0);
     const isMobile = (typeof window !== 'undefined' && window.innerWidth <= 768);
-    if (isMobile || (s.numPanels === 0 && s.numTurbines === 0)) {
+    if (isMobile || (!hasRoofs && s.numPanels === 0 && s.numTurbines === 0)) {
       hudContainer.style.display = 'none';
       return;
     } else {
@@ -595,7 +602,9 @@
       if (compactKwpEl) compactKwpEl.textContent = `${s.kwp.toFixed(2)} kWp`;
       if (compactPanelsEl) compactPanelsEl.textContent = `(${s.numPanels} pnl)`;
       if (subEl) {
-        if (currentStep >= 4) {
+        if (s.numPanels === 0 && hasRoofs) {
+          subEl.textContent = '0 paneles activos · Desactivado';
+        } else if (currentStep >= 4) {
           subEl.textContent = `${s.numPanels} paneles · ${s.invKw > 0 ? (s.invKw.toFixed(1) + ' kW AC') : 'Sin inversor'}`;
         } else {
           subEl.textContent = `${s.numPanels} paneles instalados`;

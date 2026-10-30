@@ -193,6 +193,11 @@
     return (k / c) * Math.pow(ratio, k - 1) * Math.exp(-Math.pow(ratio, k));
   }
 
+  function weibullCdf(v, k, c) {
+    if (v <= 0 || c <= 0 || k <= 0) return 0;
+    return 1.0 - Math.exp(-Math.pow(v / c, k));
+  }
+
   /**
    * Interpola la potencia eléctrica P(v) y el coeficiente de empuje Ct(v) de la curva del fabricante,
    * escalando la velocidad efectiva o potencia según la relación de densidades IEC 61400-12-1.
@@ -360,10 +365,16 @@
       return invalidRes;
     }
 
-    var siteAlt = (turbineInstance.positionCartographic && turbineInstance.positionCartographic.altitudeM)
+        var siteBaseAlt = Number(cfg.siteAltitudeM) || 100;
+    var turbAltitudeM = (turbineInstance.positionCartographic && typeof turbineInstance.positionCartographic.altitudeM === "number")
       ? turbineInstance.positionCartographic.altitudeM
-      : (cfg.siteAltitudeM || 100);
-    var rho = calculateAirDensity(siteAlt + hubH, cfg.ambientTempC);
+      : siteBaseAlt;
+    // Elevación neta vertical del aerogenerador sobre la rasante de referencia del terreno:
+    var deltaZTerrain = Math.max(0, turbAltitudeM - siteBaseAlt);
+    // Altura efectiva del buje respecto a la capa límite del suelo:
+    var effectiveHubHeightM = Math.max(hubH, hubH + deltaZTerrain);
+
+    var rho = calculateAirDensity(turbAltitudeM + hubH, cfg.ambientTempC);
 
     // Evaluar efecto de cubierta (Wilson 1979) si aplica
     var roofCtx = rooftopResult || (RAWind.RooftopCFD
@@ -371,11 +382,11 @@
       : { speedupFactor: 1.0, insideSeparationBubble: false });
     var speedup = (roofCtx && roofCtx.speedupFactor) ? Number(roofCtx.speedupFactor) : 1.0;
 
-    // Velocidad media libre en el buje (sin speedup de cubierta)
+    // Velocidad media libre en el buje extrapolada con la cota efectiva:
     var vHubFree = extrapolateWindSpeed(
       cfg.vMeanRefMs,
       cfg.refHeightM,
-      hubH,
+      effectiveHubHeightM,
       cfg.roughnessLengthM,
       cfg.shearExponentAlpha
     );
@@ -394,6 +405,7 @@
     var grossPowerFreeAvgW = 0; // Sin speedup ni estelas (para medir ganancia de cubierta)
     var grossPowerRoofAvgW = 0; // Con speedup de cubierta, sin estelas
     var netPowerWakeAvgW = 0;   // Con speedup de cubierta y con estelas de Jensen
+    var totalOperatingProb = 0; // Probabilidad acumulada en rango [cutIn, cutOut]
 
     // Integración direccional (12 sectores de 30°) y de velocidad (bins de 0.5 m/s de 0.5 a 30 m/s)
     var activeSectors = (Array.isArray(cfg.sectors) && cfg.sectors.length === 12)
@@ -413,6 +425,14 @@
         if (def > 0) {
           sumSqDeficit += def * def;
         }
+      }
+      // Incorporar interferencia analítica de obstáculos 3D del entorno (árboles, chimeneas, edificios)
+      var obsEval = (RAWind.ObstacleInterference && typeof RAWind.ObstacleInterference.evaluateTurbineObstacleInterference === "function")
+        ? RAWind.ObstacleInterference.evaluateTurbineObstacleInterference(turbineInstance, sec.dirDeg)
+        : null;
+      var obsDeficit = (obsEval && obsEval.hasInterference) ? (1.0 - obsEval.effectiveSpeedFactor) : 0.0;
+      if (obsDeficit > 0) {
+        sumSqDeficit += obsDeficit * obsDeficit;
       }
       var totalWakeDeficit = Math.min(0.75, Math.sqrt(sumSqDeficit));
 
@@ -441,6 +461,8 @@
       grossPowerFreeAvgW += freq * secPFree;
       grossPowerRoofAvgW += freq * secPRoof;
       netPowerWakeAvgW += freq * secPWake;
+      var secOperProb = Math.max(0, weibullCdf(cutOutMs, kBase, cWake) - weibullCdf(cutInMs, kBase, cWake));
+      totalOperatingProb += freq * secOperProb;
     }
 
     var hoursPerYear = 8760;
@@ -461,12 +483,15 @@
     var ratedKw = ratedPowerW / 1000;
     var eqHours = ratedKw > 0 ? (aepNetKwh / ratedKw) : 0;
     var capFactor = eqHours / hoursPerYear;
+    var operatingHours = Math.round(hoursPerYear * Math.min(1.0, Math.max(0.0, totalOperatingProb)));
 
     var result = {
       aepGrossKwh: Math.round(aepGrossKwh),
       aepNetKwh: Math.round(aepNetKwh),
       capacityFactor: Number(capFactor.toFixed(3)),
       equivalentFullLoadHours: Math.round(eqHours),
+      operatingHoursPerYear: operatingHours,
+      operatingAvailabilityPct: Number((totalOperatingProb * 100).toFixed(1)),
       wakeLossPercentage: Number(wakeLossPct.toFixed(1)),
       rooftopSpeedupGainPercentage: Number(rooftopGainPct.toFixed(1)),
       hubWindSpeedMeanMs: Number(vHubWithRoof.toFixed(2)),
@@ -534,6 +559,7 @@
       totalAepNetKwh: Math.round(totalAepNetKwh),
       averageCapacityFactor: Number(avgCapFactor.toFixed(3)),
       equivalentHours: totalRatedKw > 0 ? Math.round(totalAepNetKwh / totalRatedKw) : 0,
+      annualOperatingHours: perTurbine.length > 0 ? Math.round(perTurbine.reduce(function(a, b){ return a + ((b.results && b.results.operatingHoursPerYear) || 0); }, 0) / perTurbine.length) : 0,
       parkWakeLossPercentage: Number(parkWakeLossPct.toFixed(1)),
       monthlyKwh: monthlyKwh,
       perTurbine: perTurbine,
@@ -946,6 +972,7 @@
     calculateAirDensity: calculateAirDensity,
     extrapolateWindSpeed: extrapolateWindSpeed,
     weibullPdf: weibullPdf,
+    weibullCdf: weibullCdf,
     interpolatePowerCurve: interpolatePowerCurve,
     calculateJensenWakeDeficit: calculateJensenWakeDeficit,
     computeTurbineAEP: computeTurbineAEP,

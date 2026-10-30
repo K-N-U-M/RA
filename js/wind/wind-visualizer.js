@@ -36,6 +36,7 @@
 
   var _pulsePhase = 0.0;
   var _pulseAnimationRunning = false;
+  var _instanceGen = 0;
 
   var COLORS = {
     mast:     '#94A3B8',
@@ -78,33 +79,34 @@
     var baseCenter = _toCartesian3(turbineInstance.positionCartographic);
     if (!baseCenter) return null;
 
-    var normal = Cesium.Cartesian3.normalize(baseCenter, new Cesium.Cartesian3());
-    var uVec = Cesium.Cartesian3.cross(normal, Cesium.Cartesian3.UNIT_Z, new Cesium.Cartesian3());
-    if (Cesium.Cartesian3.magnitude(uVec) < 0.01) {
-      uVec = Cesium.Cartesian3.cross(normal, Cesium.Cartesian3.UNIT_X, new Cesium.Cartesian3());
-    }
-    uVec = Cesium.Cartesian3.normalize(uVec, uVec);
-    var vVec = Cesium.Cartesian3.normalize(
-      Cesium.Cartesian3.cross(normal, uVec, new Cesium.Cartesian3()),
-      new Cesium.Cartesian3()
-    );
+    // Marco de referencia local canónico geodésico ENU (Este = +X, Norte = +Y, Arriba = +Z)
+    var enuFrame = Cesium.Transforms.eastNorthUpToFixedFrame(baseCenter);
+    var enuRot = Cesium.Matrix4.getMatrix3(enuFrame, new Cesium.Matrix3());
+    var eastVec = Cesium.Matrix3.getColumn(enuRot, 0, new Cesium.Cartesian3());
+    var northVec = Cesium.Matrix3.getColumn(enuRot, 1, new Cesium.Cartesian3());
+    var upVec = Cesium.Matrix3.getColumn(enuRot, 2, new Cesium.Cartesian3());
 
+    // Orientación náutica (azimut): 0° = Norte, 90° = Este.
+    // Local +Y apunta hacia donde mira el buje: sin(yaw)*East + cos(yaw)*North.
+    // Local +X apunta a estribor / 90° a la derecha de +Y: cos(yaw)*East - sin(yaw)*North.
     var yawRad = turbineInstance.orientationRad || 0;
-    var cYaw = Math.cos(yawRad), sYaw = Math.sin(yawRad);
-    var rEast = new Cesium.Cartesian3();
-    var rNorth = new Cesium.Cartesian3();
+    var sYaw = Math.sin(yawRad), cYaw = Math.cos(yawRad);
+
+    var localY = new Cesium.Cartesian3();
     var tmp = new Cesium.Cartesian3();
-    Cesium.Cartesian3.multiplyByScalar(uVec, cYaw, rEast);
-    Cesium.Cartesian3.multiplyByScalar(vVec, sYaw, tmp);
-    Cesium.Cartesian3.add(rEast, tmp, rEast);
-    Cesium.Cartesian3.multiplyByScalar(uVec, -sYaw, rNorth);
-    Cesium.Cartesian3.multiplyByScalar(vVec, cYaw, tmp);
-    Cesium.Cartesian3.add(rNorth, tmp, rNorth);
+    Cesium.Cartesian3.multiplyByScalar(eastVec, sYaw, localY);
+    Cesium.Cartesian3.multiplyByScalar(northVec, cYaw, tmp);
+    Cesium.Cartesian3.add(localY, tmp, localY);
+
+    var localX = new Cesium.Cartesian3();
+    Cesium.Cartesian3.multiplyByScalar(eastVec, cYaw, localX);
+    Cesium.Cartesian3.multiplyByScalar(northVec, -sYaw, tmp);
+    Cesium.Cartesian3.add(localX, tmp, localX);
 
     var rotBaseMat3 = new Cesium.Matrix3(
-      rEast.x, rNorth.x, normal.x,
-      rEast.y, rNorth.y, normal.y,
-      rEast.z, rNorth.z, normal.z
+      localX.x, localY.x, upVec.x,
+      localX.y, localY.y, upVec.y,
+      localX.z, localY.z, upVec.z
     );
     return Cesium.Matrix4.fromRotationTranslation(rotBaseMat3, baseCenter, new Cesium.Matrix4());
   }
@@ -153,11 +155,12 @@
   /**
    * Helper: añade a `ringInstances` las geometrías de un anillo según el estilo configurado.
    */
-  function _appendRingGeometries(ringInstances, layerKey, radiusM, hexColor, zBase, turbineId, isSelected) {
+  function _appendRingGeometries(ringInstances, layerKey, radiusM, hexColor, zBase, turbineId, isSelected, optGenId) {
     var Cesium = _getCesium();
     var VF = Cesium.PerInstanceColorAppearance.VERTEX_FORMAT;
     var style = _visualConfig.style || 'neon';
     var userAlpha = Math.max(0.1, Math.min(1.0, _visualConfig.opacity));
+    var suffix = (optGenId || '') + '_' + turbineId;
 
     // Ajuste de brillo según selección o modo pulso
     var pulseMod = 1.0;
@@ -180,7 +183,7 @@
         vertexFormat: VF
       });
       ringInstances.push(new Cesium.GeometryInstance({
-        id: 'wt_' + layerKey + '_disk_' + turbineId,
+        id: 'wt_' + layerKey + '_disk_' + suffix,
         geometry: diskGeom,
         modelMatrix: Cesium.Matrix4.fromTranslation(new Cesium.Cartesian3(0, 0, zBase + diskH / 2), new Cesium.Matrix4()),
         attributes: {
@@ -203,7 +206,7 @@
       vertexFormat: VF
     });
     ringInstances.push(new Cesium.GeometryInstance({
-      id: 'wt_' + layerKey + '_rim_' + turbineId,
+      id: 'wt_' + layerKey + '_rim_' + suffix,
       geometry: rimGeom,
       modelMatrix: Cesium.Matrix4.fromTranslation(new Cesium.Cartesian3(0, 0, zBase + 0.10), new Cesium.Matrix4()),
       attributes: {
@@ -222,6 +225,8 @@
     if (!Cesium || !viewer || !turbineInstance) return null;
     if (turbineInstance.operationalState && turbineInstance.operationalState.enabled === false) return null;
 
+    _instanceGen++;
+    var genId = '_' + _instanceGen;
     var ringInstances = [];
 
     // 1. Radio de seguridad mecánica por caída libre (1.1 x H_punta) — Azul Cyan Neón
@@ -229,7 +234,7 @@
       var fallRadiusM = (RAWind.Entity && typeof RAWind.Entity.getFallRadius === 'function')
         ? RAWind.Entity.getFallRadius(turbineInstance)
         : 22.0;
-      _appendRingGeometries(ringInstances, 'fall', fallRadiusM, '#00E5FF', 0.12, turbineInstance.id, isSelected);
+      _appendRingGeometries(ringInstances, 'fall', fallRadiusM, '#00E5FF', 0.12, turbineInstance.id, isSelected, genId);
     }
 
     // Datos acústicos
@@ -245,12 +250,12 @@
 
     // 2. Isófona Diurna 45 dBA (RD 1367/2007) — Ámbar Fuego
     if (_visualConfig.showIso45Day && audit && audit.radiusDay45M > 2 && audit.radiusDay45M < 400) {
-      _appendRingGeometries(ringInstances, 'iso45', audit.radiusDay45M, '#FF9100', 0.08, turbineInstance.id, isSelected);
+      _appendRingGeometries(ringInstances, 'iso45', audit.radiusDay45M, '#FF9100', 0.08, turbineInstance.id, isSelected, genId);
     }
 
     // 3. Isófona Nocturna 35 dBA (RD 1367/2007) — Violeta / Rosa Silencioso
     if (_visualConfig.showIso35Night && audit && audit.radiusNight35M > 2 && audit.radiusNight35M < 600) {
-      _appendRingGeometries(ringInstances, 'iso35', audit.radiusNight35M, '#F43F5E', 0.04, turbineInstance.id, isSelected);
+      _appendRingGeometries(ringInstances, 'iso35', audit.radiusNight35M, '#F43F5E', 0.04, turbineInstance.id, isSelected, genId);
     }
 
     // 4. Cono de Estela de Jensen (5D aguas abajo) + Vector de Viento Predominante
@@ -261,14 +266,16 @@
         : { prevailingWindDirDeg: 270, roughnessLengthM: 0.10 };
       var windDirRad = ((Number(rCfg.prevailingWindDirDeg) || 270) * Math.PI) / 180.0;
       var yawRad = turbineInstance.orientationRad || 0;
-      // En el sistema local de la turbina (+Y apunta hacia orientationRad):
-      // El ángulo relativo desde donde viene el viento respecto al eje +Y local es deltaRad = windDirRad - yawRad
+            // En el sistema local de la turbina orientada por yaw (donde +Y local es la dirección del rotor):
+      // Si la turbina mira a yawRad y el viento viene desde windDirRad:
+      // El ángulo relativo desde donde viene el viento es deltaRad = windDirRad - yawRad.
+      // Cuando la turbina está alineada con el viento (yawRad === windDirRad), el viento viene de frente (+Y)
+      // y la estela turbulenta viaja aguas abajo hacia la cola (-Y).
       var deltaRad = windDirRad - yawRad;
-      var upX = Math.sin(deltaRad);
-      var upY = Math.cos(deltaRad);
-      // Aguas abajo (hacia donde viaja la estela):
-      var downX = -upX;
-      var downY = -upY;
+      var downX = -Math.sin(deltaRad);
+      var downY = -Math.cos(deltaRad);
+      var upX = -downX;
+      var upY = -downY;
 
       var mastH = Math.max(2.0, (turbineInstance.supportStructure ? turbineInstance.supportStructure.hubHeightM : 18));
       var rotorD = Math.max(2.0, (turbineInstance._catalog && turbineInstance._catalog.rotorDiameterM) ? turbineInstance._catalog.rotorDiameterM : 5.0);
@@ -293,8 +300,19 @@
         downY * (wakeLen * 0.5 + 0.6),
         mastH
       );
-      var wakeAlpha = Math.min(0.45, Math.max(0.12, (_visualConfig.opacity || 0.65) * 0.32));
-      var wakeColor = Cesium.Color.fromCssColorString('#38BDF8').withAlpha(wakeAlpha);
+      // Evaluar interferencia de obstáculos 3D circundantes (árboles, chimeneas, edificios)
+      var obsInterf = (RAWind.ObstacleInterference && typeof RAWind.ObstacleInterference.evaluateTurbineObstacleInterference === 'function')
+        ? RAWind.ObstacleInterference.evaluateTurbineObstacleInterference(turbineInstance, Number(rCfg.prevailingWindDirDeg) || 270)
+        : null;
+
+      var wakeAlpha = Math.min(0.55, Math.max(0.15, (_visualConfig.opacity || 0.65) * 0.38));
+      var wakeHex = '#38BDF8'; // Azul cian estándar
+      if (obsInterf && obsInterf.hasSevereInterference) {
+        wakeHex = '#EF4444'; // Rojo alarma: atrapado en sombra severa de obstáculo
+      } else if (obsInterf && obsInterf.hasModerateInterference) {
+        wakeHex = '#F59E0B'; // Ámbar advertencia: estela turbulenta de árbol/obstáculo
+      }
+      var wakeColor = Cesium.Color.fromCssColorString(wakeHex).withAlpha(wakeAlpha);
 
       var wakeGeom = new Cesium.CylinderGeometry({
         length: wakeLen,
@@ -304,13 +322,56 @@
         vertexFormat: VF
       });
       ringInstances.push(new Cesium.GeometryInstance({
-        id: 'wt_wake_cone_' + turbineInstance.id,
+        id: 'wt_wake_cone_' + turbineInstance.id + genId,
         geometry: wakeGeom,
         modelMatrix: Cesium.Matrix4.fromRotationTranslation(rotWakeMat3, wakeCenter, new Cesium.Matrix4()),
         attributes: {
           color: Cesium.ColorGeometryInstanceAttribute.fromColor(wakeColor)
         }
       }));
+
+      // 4.1. Silueta 2D de Sombra de Obstáculos proyectada en el plano base (Cero sobrecoste GPU)
+      if (obsInterf && obsInterf.affectedObstacles && obsInterf.affectedObstacles.length > 0) {
+        obsInterf.affectedObstacles.forEach(function (aff, aIdx) {
+          var dist = Math.max(3.0, aff.distanceM || 15.0);
+          var shadowWidth = Math.max(2.5, (aff.obstacle ? (aff.obstacle.w || 3.0) : 3.0) * 1.4);
+          var shadowLen = Math.min(dist + 6.0, 60.0);
+
+          // Caja aplanada en el plano base simulando la alfombra de sombra turbulenta
+          var shadowBoxGeom = Cesium.BoxGeometry.fromDimensions({
+            dimensions: new Cesium.Cartesian3(shadowWidth, shadowLen, 0.08),
+            vertexFormat: VF
+          });
+
+          var shadowColorHex = aff.deficitPct >= 20 ? '#EF4444' : '#F59E0B';
+          var shadowColor = Cesium.Color.fromCssColorString(shadowColorHex).withAlpha(0.28);
+
+          // Posicionada aguas arriba entre el obstáculo y la turbina
+          var shadowCenter = new Cesium.Cartesian3(
+            upX * (shadowLen * 0.45),
+            upY * (shadowLen * 0.45),
+            0.05
+          );
+
+          var zAxisSha = new Cesium.Cartesian3(0, 0, 1);
+          var yAxisSha = new Cesium.Cartesian3(upX, upY, 0);
+          var xAxisSha = new Cesium.Cartesian3(-upY, upX, 0);
+          var rotShaMat3 = new Cesium.Matrix3(
+            xAxisSha.x, yAxisSha.x, zAxisSha.x,
+            xAxisSha.y, yAxisSha.y, zAxisSha.y,
+            xAxisSha.z, yAxisSha.z, zAxisSha.z
+          );
+
+          ringInstances.push(new Cesium.GeometryInstance({
+            id: 'wt_obs_shadow_' + turbineInstance.id + '_' + aIdx + genId,
+            geometry: shadowBoxGeom,
+            modelMatrix: Cesium.Matrix4.fromRotationTranslation(rotShaMat3, shadowCenter, new Cesium.Matrix4()),
+            attributes: {
+              color: Cesium.ColorGeometryInstanceAttribute.fromColor(shadowColor)
+            }
+          }));
+        });
+      }
 
       // Vector de viento entrante (aguas arriba del rotor, color verde esmeralda / cian brillante)
       var arrowLen = Math.max(4.5, rotorD * 1.15);
@@ -345,7 +406,7 @@
       });
 
       ringInstances.push(new Cesium.GeometryInstance({
-        id: 'wt_wind_shaft_' + turbineInstance.id,
+        id: 'wt_wind_shaft_' + turbineInstance.id + genId,
         geometry: shaftGeom,
         modelMatrix: Cesium.Matrix4.fromRotationTranslation(rotWakeMat3, shaftCenter, new Cesium.Matrix4()),
         attributes: {
@@ -353,7 +414,7 @@
         }
       }));
       ringInstances.push(new Cesium.GeometryInstance({
-        id: 'wt_wind_head_' + turbineInstance.id,
+        id: 'wt_wind_head_' + turbineInstance.id + genId,
         geometry: headGeom,
         modelMatrix: Cesium.Matrix4.fromRotationTranslation(rotWakeMat3, headCenter, new Cesium.Matrix4()),
         attributes: {
@@ -534,9 +595,15 @@
         asynchronous: false
       }));
       prim._windTurbineId = turbineInstance.id;
-      var ringsPrim = _buildOverlayRingsPrimitive(turbineInstance, rootModelMatrix, isSelected);
+      var ringsPrim = null;
+      try {
+        ringsPrim = _buildOverlayRingsPrimitive(turbineInstance, rootModelMatrix, isSelected);
+      } catch (errRings) {
+        console.error('[RAWindVisualizer] Fallo construyendo anillos/estela:', errRings);
+      }
       return { primitive: prim, ringsPrimitive: ringsPrim };
     } catch (errPrim) {
+      console.error('[RAWindVisualizer] Fallo construyendo turbina:', errPrim);
       return null;
     }
   }
@@ -548,8 +615,20 @@
     var newMat4 = _computeRootModelMatrix(turbineInstance);
     if (!newMat4) return false;
     entry.primitive.modelMatrix = newMat4;
-    if (entry.ringsPrimitive && !entry.ringsPrimitive.isDestroyed()) {
-      entry.ringsPrimitive.modelMatrix = newMat4;
+
+    // Reconstruir en caliente las primitivas de anillos, cono de estela y sombra de suelo para reactividad continua
+    var viewer = _getViewer();
+    if (viewer && viewer.scene && viewer.scene.primitives) {
+      if (entry.ringsPrimitive && !entry.ringsPrimitive.isDestroyed()) {
+        try { viewer.scene.primitives.remove(entry.ringsPrimitive); } catch (eR) {}
+      }
+      var isSel = (turbineInstance.id === _selectedId);
+      try {
+        entry.ringsPrimitive = _buildOverlayRingsPrimitive(turbineInstance, newMat4, isSel);
+      } catch (errLive) {
+        entry.ringsPrimitive = null;
+        console.error('[RAWindVisualizer] Fallo actualizando anillos en vivo:', errLive);
+      }
     }
     _requestSceneRender();
     return true;

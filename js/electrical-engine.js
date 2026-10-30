@@ -1911,6 +1911,34 @@
     // Si está perfectamente ajustado
     const loadPercent = Math.round((totalKwp / totalInvNomKw) * 100);
     const invCountText = invCount > 1 ? `${invCount}x Inversores (${totalInvNomKw.toFixed(1)} kW AC total)` : `Inversor (${invNomKw} kW AC)`;
+
+    // Desglose en vivo de conexión serie/paralelo por canal MPPT
+    let mpptBreakdownHtml = '';
+    const activePanelsList = Array.isArray(root.allRenderedPanels) ? root.allRenderedPanels.filter(p => p && !p.deleted && !p.disabled && p.stringName && p.mpptId) : [];
+    if (activePanelsList.length > 0) {
+      const mpptMap = new Map();
+      activePanelsList.forEach(p => {
+        if (!mpptMap.has(p.mpptId)) mpptMap.set(p.mpptId, new Map());
+        const sMap = mpptMap.get(p.mpptId);
+        sMap.set(p.stringName, (sMap.get(p.stringName) || 0) + 1);
+      });
+      const mpptPills = [];
+      Array.from(mpptMap.keys()).sort((a, b) => a - b).forEach(mId => {
+        const sMap = mpptMap.get(mId);
+        const sNames = Array.from(sMap.keys());
+        const isParallel = sNames.length > 1;
+        const counts = sNames.map(s => sMap.get(s));
+        const desc = isParallel
+          ? `<b>${sNames.length} ramas en paralelo</b> (${sNames.map((n, idx) => n + ':' + counts[idx] + 'p').join(' // ')})`
+          : `1 rama en serie (${sNames[0]}: ${counts[0]}p)`;
+        const badgeColor = isParallel ? 'rgba(56,189,248,0.18)' : 'rgba(255,255,255,0.06)';
+        const borderColor = isParallel ? 'rgba(56,189,248,0.45)' : 'rgba(255,255,255,0.12)';
+        mpptPills.push(`<div style="background:${badgeColor};border:1px solid ${borderColor};border-radius:4px;padding:3px 6px;font-size:9px;display:flex;justify-content:space-between;align-items:center;"><span style="color:#38BDF8;font-weight:800;">MPPT ${mId}:</span><span style="color:#E2E8F0;font-family:monospace;">${desc}</span></div>`);
+      });
+      if (mpptPills.length > 0) {
+        mpptBreakdownHtml = `<div style="display:flex;flex-direction:column;gap:3px;margin-top:3px;padding-top:4px;border-top:1px dashed rgba(255,255,255,0.12);"><div style="font-size:8.5px;color:#94A3B8;font-weight:700;text-transform:uppercase;">Reparto Serie / Paralelo por Canal MPPT:</div>${mpptPills.join('')}</div>`;
+      }
+    }
     container.style.display = 'block';
     container.innerHTML = `
       <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.3);border-radius:6px;padding:5px 8px;display:flex;flex-direction:column;gap:4px;">
@@ -1925,6 +1953,7 @@
         <div style="font-size: 9.5px;color:var(--text-slate-300);">
           ${invCountText} · Capacidad máx admisible: ${totalMaxCapacityKwp.toFixed(1)} kWp
         </div>
+        ${mpptBreakdownHtml}
         ${exceedsSinglePhase5kW && invCount === 1 ? `
           <div style="font-size: 9.5px;color:#FBBF24;background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.3);padding:3px 6px;border-radius:4px;display:flex;align-items:center;gap:4px;">
             <i data-lucide="alert-triangle" class="icon-sm"></i> <b>Aviso Distribuidora:</b> Equipo monofásico > 5 kW (${currentInv.kw} kW). Las distribuidoras en España (Endesa/Iberdrola/UFD) suelen exigir acometida trifásica para P > 5 kW (REBT ITC-BT-40).

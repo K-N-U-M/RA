@@ -59,6 +59,9 @@
           totalOptimizers: 0,
           totalMicroinverters: 0,
           totalInverters: 0,
+          totalWindTurbines: 0,
+          totalWindKw: 0,
+          windTotalEur: 0,
           subtotalEur: 0,
           pecDirectCostEur: 0,
           municipalTaxesEur: 0,
@@ -66,6 +69,15 @@
           loadWarning: false
         },
         roofs: [],
+        wind: {
+          turbines: [],
+          grouped: [],
+          totalTurbines: 0,
+          totalWindKw: 0,
+          turbinesOnlyEur: 0,
+          supportAndAuxEur: 0,
+          totalEur: 0
+        },
         electrical: {
           inverters: [],
           microinverters: [],
@@ -418,6 +430,81 @@
         });
       }
 
+      // ── 1.6 GENERACIÓN MINIEÓLICA (RA-Wind SSOT) ───────────────────────────
+      if (typeof window !== 'undefined' && Array.isArray(window.windTurbines)) {
+        const groupedWindMap = new Map();
+        window.windTurbines.forEach((wt, wtIdx) => {
+          if (!wt) return;
+          const isEnabled = !wt.operationalState || wt.operationalState.enabled !== false;
+          const freshCat = (typeof window.RAWindCatalog !== 'undefined' && window.RAWindCatalog && typeof window.RAWindCatalog.getById === 'function' && wt.catalogId)
+            ? window.RAWindCatalog.getById(wt.catalogId)
+            : null;
+          const cat = Object.assign({}, wt._catalog || {}, freshCat || {});
+          const pKw = cat.ratedPowerW ? (cat.ratedPowerW / 1000) : (cat.ratedPowerKw || 5.0);
+          const mastH = (wt.supportStructure && wt.supportStructure.hubHeightM) || 18;
+          const brand = cat.manufacturer || cat.brand || 'Minieólica';
+          const model = cat.model || wt.name || ('Aerogenerador #' + (wtIdx + 1));
+          const unitPrice = (typeof cat.priceEur === 'number' && cat.priceEur > 0) ? cat.priceEur : Math.round(pKw * 1450);
+          const supportCost = (wt.supportStructure && typeof wt.supportStructure.costEur === 'number' && wt.supportStructure.costEur > 0) ? wt.supportStructure.costEur : 0;
+          const totalUnitCost = unitPrice + supportCost;
+
+          tree.obstacles.push({
+            id: wt.id,
+            type: 'Aerogenerador Eólico',
+            name: wt.name || (brand + ' ' + model),
+            dimensions: `P:${pKw} kW | H_buje:${mastH}m | D:${cat.rotorDiameterM || 5}m`
+          });
+
+          if (!isEnabled) return;
+
+          tree.wind.turbines.push({
+            id: wt.id,
+            catalogId: wt.catalogId || cat.id || ('wt_cat_' + wtIdx),
+            brand: brand,
+            model: model,
+            type: cat.type || 'HAWT',
+            kwNominal: pKw,
+            hubHeightM: mastH,
+            mountingType: wt.mountingType || 'ground',
+            count: 1,
+            unitPrice: unitPrice,
+            supportCostEur: supportCost,
+            totalPriceEur: parseFloat(totalUnitCost.toFixed(2))
+          });
+
+          const grpKey = `${brand}|${model}|${pKw}|${mastH}|${unitPrice}`;
+          if (!groupedWindMap.has(grpKey)) {
+            groupedWindMap.set(grpKey, {
+              brand: brand,
+              model: model,
+              type: cat.type || 'HAWT',
+              kwNominal: pKw,
+              hubHeightM: mastH,
+              count: 0,
+              unitPrice: unitPrice,
+              supportCostEur: 0,
+              totalPriceEur: 0
+            });
+          }
+          const grp = groupedWindMap.get(grpKey);
+          grp.count += 1;
+          grp.supportCostEur = parseFloat((grp.supportCostEur + supportCost).toFixed(2));
+          grp.totalPriceEur = parseFloat((grp.totalPriceEur + totalUnitCost).toFixed(2));
+
+          tree.wind.totalTurbines += 1;
+          tree.wind.totalWindKw = parseFloat((tree.wind.totalWindKw + pKw).toFixed(2));
+          tree.wind.turbinesOnlyEur = parseFloat((tree.wind.turbinesOnlyEur + unitPrice).toFixed(2));
+          tree.wind.supportAndAuxEur = parseFloat((tree.wind.supportAndAuxEur + supportCost).toFixed(2));
+          tree.wind.totalEur = parseFloat((tree.wind.totalEur + totalUnitCost).toFixed(2));
+        });
+
+        tree.wind.grouped = Array.from(groupedWindMap.values());
+        tree.summary.totalWindTurbines = tree.wind.totalTurbines;
+        tree.summary.totalWindKw = tree.wind.totalWindKw;
+        tree.summary.windTotalEur = tree.wind.totalEur;
+        tree.summary.subtotalEur += tree.wind.totalEur;
+      }
+
       // ── 2. MÓDULOS FOTOVOLTAICOS GLOBALES ──────────────────────────────────
       const globalModulesBreakdown = {};
       tree.roofs.forEach(r => {
@@ -487,11 +574,27 @@
             totalPriceEur: parseFloat(totalMiCost.toFixed(2))
           });
         } else {
-          const invCount = (projectConfig.autoSizing && projectConfig.autoSizing.inverters && projectConfig.autoSizing.inverters.count) || 1;
+          const invSizing = projectConfig.autoSizing && projectConfig.autoSizing.inverters ? projectConfig.autoSizing.inverters : null;
+          if (invSizing && !invSizing.isManual && typeof invSizing.autoCount === 'number' && invSizing.autoCount > 1 && invSizing.count < invSizing.autoCount) {
+            invSizing.count = invSizing.autoCount;
+          }
           const invId = projectConfig.selectedInverterId || (catalog.inverters && catalog.inverters[0] ? catalog.inverters[0].id : null);
           const invSpec = (catalog.inverters && catalog.inverters.find(i => i.id === invId))
             || ((projectConfig.lastVirtualInverter && projectConfig.lastVirtualInverter.id === invId) ? projectConfig.lastVirtualInverter : null)
             || (catalog.inverters ? catalog.inverters[0] : { kw: 10, price: 1750, brand: 'Inversor' });
+
+          let invCount = (invSizing && invSizing.count) || 1;
+          if (invSpec && (!invSizing || !invSizing.isManual)) {
+            const maxDcPerInv = (invSpec.kw || 10.0) * (invSpec.maxOverload || 1.35);
+            const minInvByPower = Math.max(1, Math.ceil(tree.summary.totalKwp / maxDcPerInv));
+            if (invCount < minInvByPower) {
+              invCount = minInvByPower;
+              if (invSizing) {
+                invSizing.count = invCount;
+                invSizing.autoCount = Math.max(invSizing.autoCount || 1, invCount);
+              }
+            }
+          }
 
           if (invSpec) {
             const totalInvCost = invCount * (invSpec.price || 1500);
@@ -770,6 +873,12 @@
           `).join('')
         : '';
         
+      let windHtml = (tree.wind && Array.isArray(tree.wind.grouped) && tree.wind.grouped.length > 0)
+        ? tree.wind.grouped.map(w => `
+            <div class="bom-subitem">💨 ${w.count}x ${w.brand} ${w.model} (${w.kwNominal} kW · H=${w.hubHeightM}m · ${w.unitPrice.toLocaleString('es-ES')} €/ud) · <b>${w.totalPriceEur.toLocaleString('es-ES')} €</b></div>
+          `).join('')
+        : '';
+
       let obstaclesHtml = (tree.obstacles && tree.obstacles.length > 0)
         ? tree.obstacles.map(obs => `
             <div class="bom-subitem bom-interactive-item" onclick="BOMTreeEngine.flyToObstacle('${obs.id}')" style="cursor:pointer; display:flex; justify-content:space-between; align-items:center;" title="Clic para enfocar cámara">
@@ -779,7 +888,7 @@
           `).join('')
         : '<div class="bom-subitem" style="color:var(--text-muted, #94a3b8); font-style:italic;">No hay obstáculos en la escena</div>';
 
-      const isEmptyProject = tree.summary.totalPanels === 0;
+      const isEmptyProject = (tree.summary.totalPanels === 0 && tree.summary.totalWindTurbines === 0);
 
       hudEl.innerHTML = `
         <div class="bom-hud-header">
@@ -818,6 +927,7 @@
             <div class="bom-kpi"><span>AC NOMINAL:</span> <b>${tree.summary.totalAcKw} kW</b></div>
             <div class="bom-kpi"><span>MÓDULOS:</span> <b>${tree.summary.totalPanels} u.</b></div>
             ${tree.summary.totalStorageKwh > 0 ? `<div class="bom-kpi" style="border-color:rgba(52,211,153,0.3);background:rgba(52,211,153,0.1);"><span style="color:#34D399;">BATERÍA:</span> <b style="color:#34D399;">${tree.summary.totalStorageKwh} kWh</b></div>` : ''}
+            ${tree.summary.totalWindTurbines > 0 ? `<div class="bom-kpi" style="border-color:rgba(56,189,248,0.3);background:rgba(56,189,248,0.1);"><span style="color:#38BDF8;">EÓLICA:</span> <b style="color:#38BDF8;">${tree.summary.totalWindTurbines}x (${tree.summary.totalWindKw} kW)</b></div>` : ''}
           </div>
           
           
@@ -857,6 +967,7 @@
             <div class="bom-section-title">ELECTRÓNICA & POTENCIA</div>
             ${invertersHtml}
             ${batteriesHtml}
+            ${windHtml}
             ${tree.electrical.optimizers ? `<div class="bom-subitem">⚡ ${tree.electrical.optimizers.count}x ${tree.electrical.optimizers.model} · <b>${tree.electrical.optimizers.totalCostEur} €</b></div>` : ''}
 
             <div class="bom-section-title">CABLEADO, CUADROS & TIERRAS</div>

@@ -11,6 +11,7 @@
 
   // --- ESTADO GLOBAL DE LA SUITE CAD ---
   global.cadFocusMode = true; // Por defecto activado: planos inactivos en modo ghosting
+  global.cadSelectionFilter = 'all'; // Filtro de puntería: 'all' | 'panels' | 'vertices' | 'obstacles' | 'polylines'
   global.cadHoverTarget = null;
   global.cadCyclingState = {
     lastClickPos: null,
@@ -26,6 +27,61 @@
     currentY: 0,
     isShift: false
   };
+
+  // --- 0. FILTROS DE PUNTERÍA CAD (TARGET FILTERS) ---
+  const CAD_FILTERS = [
+    { id: 'all', label: 'TODO', desc: 'Selección universal multiescala' },
+    { id: 'panels', label: 'PLACAS', desc: 'Selección exclusiva de paneles solares FV' },
+    { id: 'vertices', label: 'VÉRTICES', desc: 'Selección exclusiva de esquinas y vértices 3D' },
+    { id: 'obstacles', label: 'OBSTÁCULOS', desc: 'Selección exclusiva de chimeneas y casetones' },
+    { id: 'polylines', label: 'FALDONES', desc: 'Selección exclusiva de contornos y faldones' }
+  ];
+
+  function setCADSelectionFilter(filterId) {
+    const found = CAD_FILTERS.find(f => f.id === filterId);
+    if (!found) return;
+    global.cadSelectionFilter = found.id;
+    updateCADFilterUI(found);
+  }
+  global.setCADSelectionFilter = setCADSelectionFilter;
+
+  function cycleCADSelectionFilter() {
+    const curIdx = CAD_FILTERS.findIndex(f => f.id === (global.cadSelectionFilter || 'all'));
+    const nextIdx = (curIdx + 1) % CAD_FILTERS.length;
+    const nextF = CAD_FILTERS[nextIdx];
+    global.cadSelectionFilter = nextF.id;
+    updateCADFilterUI(nextF);
+  }
+  global.cycleCADSelectionFilter = cycleCADSelectionFilter;
+
+  function updateCADFilterUI(filterObj) {
+    const tag = document.getElementById('tag-cad-filter');
+    const btn = document.getElementById('btn-cad-filter');
+    if (tag) {
+      tag.textContent = filterObj.label;
+      if (filterObj.id === 'all') {
+        tag.style.background = 'rgba(56,189,248,0.2)';
+        tag.style.color = '#38BDF8';
+      } else {
+        tag.style.background = 'rgba(245,158,11,0.25)';
+        tag.style.color = '#FBBF24';
+      }
+    }
+    if (btn) {
+      btn.style.borderColor = (filterObj.id === 'all') ? 'rgba(56,189,248,0.4)' : 'rgba(245,158,11,0.6)';
+    }
+    if (typeof global.showToast === 'function') {
+      global.showToast(
+        `FILTRO CAD: ${filterObj.label}`,
+        filterObj.desc + ' (Atajo: F)',
+        (filterObj.id === 'all') ? 'info' : 'warning',
+        2000
+      );
+    }
+    if (typeof global.renderTriad2D === 'function') {
+      global.renderTriad2D();
+    }
+  }
 
   // --- 1. MODO FOCO (GHOSTING DE PLANOS INACTIVOS) ---
   function toggleCADFocusMode() {
@@ -86,74 +142,117 @@
 
   function evaluateHoverTarget(screenPos, scene) {
     let target = null;
+    const filter = global.cadSelectionFilter || 'all';
 
-    // A. Detectar vértice de polilínea activa
-    if (global.WP && global.WP.polylines && global.WP.selectedPolyIdx >= 0) {
-      const activePoly = global.WP.polylines[global.WP.selectedPolyIdx];
-      if (activePoly && activePoly.visible !== false && Array.isArray(activePoly.points)) {
-        for (let vi = 0; vi < activePoly.points.length; vi++) {
-          const ptWin = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, activePoly.points[vi]);
-          if (ptWin && Math.hypot(screenPos.x - ptWin.x, screenPos.y - ptWin.y) < 14) {
-            target = {
-              type: 'vertex',
-              polyIdx: global.WP.selectedPolyIdx,
-              vIdx: vi,
-              screenPos: ptWin,
-              point3D: activePoly.points[vi]
-            };
-            break;
-          }
-        }
-      }
-    }
-
-    // A2. Detectar vértice de huella de edificio (en base o cubierta)
-    if (!target && Array.isArray(global.buildings) && global.buildings.length > 0) {
-      const selBld = (typeof global.selectedBuildingId !== 'undefined' && global.selectedBuildingId)
-        ? global.buildings.find(b => b.id === global.selectedBuildingId)
-        : null;
-      const bldList = selBld ? [selBld] : global.buildings;
-      for (const b of bldList) {
-        if (!b.points || b.visible === false) continue;
-        const bH = b.height || 6.0;
-        for (let vi = 0; vi < b.points.length; vi++) {
-          const ptBase = b.points[vi];
-          if (!ptBase) continue;
-          const ptWin = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, ptBase);
-          if (ptWin && Math.hypot(screenPos.x - ptWin.x, screenPos.y - ptWin.y) < 16) {
-            target = {
-              type: 'vertex',
-              subType: 'building_vertex',
-              bldId: b.id,
-              vIdx: vi,
-              screenPos: ptWin,
-              point3D: ptBase
-            };
-            break;
-          }
-          const c = Cesium.Cartographic.fromCartesian(ptBase);
-          if (c) {
-            const ptRoof = Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, c.height + bH);
-            const ptWinRoof = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, ptRoof);
-            if (ptWinRoof && Math.hypot(screenPos.x - ptWinRoof.x, screenPos.y - ptWinRoof.y) < 16) {
+    // ── NIVEL 2: VÉRTICES Y PUNTOS (DIMENSIÓN 0 · IMÁN UNIFICADO DE 20px)
+    if (filter === 'all' || filter === 'vertices') {
+      // A. Vértice de plano de trabajo activo (Paso 1)
+      const curStepForHover = (typeof global.wpCurrentStep !== 'undefined') ? global.wpCurrentStep : ((typeof global.WP !== 'undefined' && global.WP) ? global.WP.step : 1);
+      if (curStepForHover === 1 && global.WP && typeof global.wpGetActivePlane === 'function') {
+        const actPl = global.wpGetActivePlane();
+        if (actPl && Array.isArray(actPl.pts3D) && actPl.pts3D.length >= 3 && actPl.visible !== false) {
+          for (let vi = 0; vi < 3; vi++) {
+            const pt = actPl.pts3D[vi];
+            if (!pt) continue;
+            const ptWin = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, pt);
+            if (ptWin && Math.hypot(screenPos.x - ptWin.x, screenPos.y - ptWin.y) <= 20) {
+              const vtxLabels = ['P1 (Origen)', 'P2 (Eje X)', 'P3 (Eje Y)'];
               target = {
                 type: 'vertex',
-                subType: 'building_vertex',
-                bldId: b.id,
+                subType: 'plane_vertex',
                 vIdx: vi,
-                screenPos: ptWinRoof,
-                point3D: ptBase
+                label: `VÉRTICE PLANO #${vi + 1} (${vtxLabels[vi]})`,
+                screenPos: ptWin,
+                point3D: pt
               };
               break;
             }
           }
         }
-        if (target) break;
+      }
+
+      // B. Vértice de polilínea / faldón (activa o visibles)
+      if (!target && global.WP && global.WP.polylines && global.WP.polylines.length > 0) {
+        const selIdx = (typeof global.WP.selectedPolyIdx === 'number') ? global.WP.selectedPolyIdx : -1;
+        const searchList = (selIdx >= 0 && global.WP.polylines[selIdx])
+          ? [ { poly: global.WP.polylines[selIdx], idx: selIdx } ]
+          : global.WP.polylines.map((p, i) => ({ poly: p, idx: i }));
+
+        for (const item of searchList) {
+          const poly = item.poly;
+          if (!poly || poly.visible === false || !Array.isArray(poly.points)) continue;
+          for (let vi = 0; vi < poly.points.length; vi++) {
+            const pt = poly.points[vi];
+            if (!pt) continue;
+            const ptWin = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, pt);
+            if (ptWin && Math.hypot(screenPos.x - ptWin.x, screenPos.y - ptWin.y) <= 20) {
+              target = {
+                type: 'vertex',
+                subType: 'polyline_vertex',
+                polyIdx: item.idx,
+                vIdx: vi,
+                label: `VÉRTICE FALFÓN #${vi + 1}`,
+                screenPos: ptWin,
+                point3D: pt
+              };
+              break;
+            }
+          }
+          if (target) break;
+        }
+      }
+
+      // C. Vértice de huella de edificio (base y coronación)
+      if (!target && Array.isArray(global.buildings) && global.buildings.length > 0) {
+        const selBld = (typeof global.selectedBuildingId !== 'undefined' && global.selectedBuildingId)
+          ? global.buildings.find(b => b.id === global.selectedBuildingId)
+          : null;
+        const bldList = selBld ? [selBld] : global.buildings;
+        for (const b of bldList) {
+          if (!b.points || b.visible === false) continue;
+          const bH = b.height || 6.0;
+          for (let vi = 0; vi < b.points.length; vi++) {
+            const ptBase = b.points[vi];
+            if (!ptBase) continue;
+            const ptWin = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, ptBase);
+            if (ptWin && Math.hypot(screenPos.x - ptWin.x, screenPos.y - ptWin.y) <= 20) {
+              target = {
+                type: 'vertex',
+                subType: 'building_vertex',
+                bldId: b.id,
+                vIdx: vi,
+                label: `VÉRTICE EDIFICIO #${vi + 1}`,
+                screenPos: ptWin,
+                point3D: ptBase
+              };
+              break;
+            }
+            const c = Cesium.Cartographic.fromCartesian(ptBase);
+            if (c) {
+              const ptRoof = Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, c.height + bH);
+              const ptWinRoof = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, ptRoof);
+              if (ptWinRoof && Math.hypot(screenPos.x - ptWinRoof.x, screenPos.y - ptWinRoof.y) <= 20) {
+                target = {
+                  type: 'vertex',
+                  subType: 'building_vertex',
+                  bldId: b.id,
+                  vIdx: vi,
+                  label: `VÉRTICE ALERO #${vi + 1}`,
+                  screenPos: ptWinRoof,
+                  point3D: ptBase
+                };
+                break;
+              }
+            }
+          }
+          if (target) break;
+        }
       }
     }
 
-    // B. Detectar panel solar bajo el cursor
-    if (!target && typeof global.pickPanelUnderCursor === 'function') {
+    // ── NIVEL 3: OBJETOS COMPACTOS (PANELES, AEROGENERADORES, EQUIPOS ELÉCTRICOS, OBSTÁCULOS)
+    // A. Detectar panel solar bajo el cursor
+    if (!target && (filter === 'all' || filter === 'panels') && typeof global.pickPanelUnderCursor === 'function') {
       const pIdx = global.pickPanelUnderCursor(screenPos);
       if (pIdx >= 0 && Array.isArray(global.allRenderedPanels) && global.allRenderedPanels[pIdx]) {
         const pan = global.allRenderedPanels[pIdx];
@@ -161,29 +260,94 @@
           target = {
             type: 'panel',
             index: pIdx,
-            panel: pan
+            panel: pan,
+            label: `MÓDULO FV #${pIdx + 1}`
           };
         }
       }
     }
 
-    // C. Detectar obstáculo o faldón por scene.pick
-    if (!target && typeof scene.pick === 'function') {
-      try {
-        const picked = scene.pick(screenPos);
-        if (picked && picked.id) {
-          const idStr = (typeof picked.id === 'string') ? picked.id : (picked.id.id || '');
-          if (idStr.startsWith('obs_') || (global.obstacles && global.obstacles.some(o => o.id === idStr))) {
-            target = { type: 'obstacle', id: idStr };
-          } else if (idStr.startsWith('wp_poly_fill_') || idStr.startsWith('wp_poly_line_')) {
-            const prefix = idStr.startsWith('wp_poly_fill_') ? 'wp_poly_fill_' : 'wp_poly_line_';
-            const polyIdx = parseInt(idStr.replace(prefix, '').split('_')[0], 10);
-            if (!isNaN(polyIdx) && global.WP.polylines && global.WP.polylines[polyIdx]) {
-              target = { type: 'polyline', index: polyIdx, poly: global.WP.polylines[polyIdx] };
+    // B. Detectar obstáculo 3D
+    if (!target && (filter === 'all' || filter === 'obstacles') && typeof global.pickObstacleUnderCursor === 'function') {
+      const obs = global.pickObstacleUnderCursor(screenPos);
+      if (obs) {
+        target = {
+          type: 'obstacle',
+          id: obs.id,
+          label: `OBSTÁCULO: ${obs.name || 'Chimenea'}`
+        };
+      }
+    }
+
+    // C. Detectar equipamiento eléctrico
+    if (!target && filter === 'all' && typeof global.pickElectricalObjectUnderCursor === 'function') {
+      const elec = global.pickElectricalObjectUnderCursor(screenPos);
+      if (elec) {
+        target = {
+          type: 'electrical',
+          id: elec.id,
+          label: `EQUIPO: ${elec.name || 'Inversor'}`
+        };
+      }
+    }
+
+    // ── NIVEL 4: SUPERFICIES Y CONTORNOS (POLILÍNEAS / FALDONES Y PLANOS)
+    if (!target && (filter === 'all' || filter === 'polylines')) {
+      if (typeof scene.pick === 'function') {
+        try {
+          const picked = scene.pick(screenPos);
+          if (picked && picked.id) {
+            const idStr = (typeof picked.id === 'string') ? picked.id : (picked.id.id || '');
+            if (idStr.startsWith('wp_poly_fill_') || idStr.startsWith('wp_poly_line_')) {
+              const prefix = idStr.startsWith('wp_poly_fill_') ? 'wp_poly_fill_' : 'wp_poly_line_';
+              const polyIdx = parseInt(idStr.replace(prefix, '').split('_')[0], 10);
+              if (!isNaN(polyIdx) && global.WP && global.WP.polylines && global.WP.polylines[polyIdx]) {
+                target = {
+                  type: 'polyline',
+                  index: polyIdx,
+                  poly: global.WP.polylines[polyIdx],
+                  label: global.WP.polylines[polyIdx].name || `Faldón #${polyIdx + 1}`
+                };
+              }
             }
           }
+        } catch (_) {}
+      }
+      if (!target && global.WP && Array.isArray(global.WP.polylines)) {
+        for (let pi = 0; pi < global.WP.polylines.length; pi++) {
+          const poly = global.WP.polylines[pi];
+          if (!poly || poly.visible === false || !Array.isArray(poly.points) || poly.points.length < 3) continue;
+          const scrPts = poly.points.map(p => Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, p)).filter(Boolean);
+          if (scrPts.length >= 3 && isPointIn2DPolygon(screenPos, scrPts)) {
+            target = {
+              type: 'polyline',
+              index: pi,
+              poly: poly,
+              label: poly.name || `Faldón #${pi + 1}`
+            };
+            break;
+          }
         }
-      } catch (_) {}
+      }
+    }
+
+    // ── NIVEL 5: VOLÚMENES ARQUITECTÓNICOS (EDIFICIOS COMPLETOS)
+    if (!target && filter === 'all') {
+      const activeStep = (typeof global.currentStep !== 'undefined') ? global.currentStep : ((typeof global.WP !== 'undefined' && global.WP) ? global.WP.step : 1);
+      if (activeStep <= 1 && Array.isArray(global.buildings)) {
+        for (const b of global.buildings) {
+          if (!b || b.visible === false || !Array.isArray(b.points) || b.points.length < 3) continue;
+          const scrPts = b.points.map(p => Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, p)).filter(Boolean);
+          if (scrPts.length >= 3 && isPointIn2DPolygon(screenPos, scrPts)) {
+            target = {
+              type: 'building',
+              id: b.id,
+              label: `Edificio: ${b.name}`
+            };
+            break;
+          }
+        }
+      }
     }
 
     global.cadHoverTarget = target;
@@ -224,7 +388,7 @@
 
       // Etiqueta tooltip flotante
       ctx.font = 'bold 9px "JetBrains Mono", monospace';
-      const label = (t.subType === 'building_vertex') ? `EDIFICIO #${t.vIdx + 1}` : `VÉRTICE #${t.vIdx + 1}`;
+      const label = t.label || ((t.subType === 'building_vertex') ? `EDIFICIO #${t.vIdx + 1}` : `VÉRTICE #${t.vIdx + 1}`);
       const textW = ctx.measureText(label).width;
       ctx.fillStyle = 'rgba(15,23,42,0.85)';
       ctx.fillRect(t.screenPos.x + 12, t.screenPos.y - 12, textW + 8, 16);
@@ -250,6 +414,23 @@
         ctx.lineWidth = 2.0;
         ctx.shadowColor = '#38BDF8';
         ctx.shadowBlur = 6;
+        ctx.stroke();
+      }
+    } else if (t.type === 'polyline' && t.poly && Array.isArray(t.poly.points) && t.poly.points.length >= 3) {
+      // Contorno suave animado del faldón
+      const scrPts = t.poly.points.map(p => Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, p)).filter(Boolean);
+      if (scrPts.length >= 3) {
+        ctx.beginPath();
+        ctx.moveTo(scrPts[0].x, scrPts[0].y);
+        for (let i = 1; i < scrPts.length; i++) {
+          ctx.lineTo(scrPts[i].x, scrPts[i].y);
+        }
+        ctx.closePath();
+        ctx.strokeStyle = '#38BDF8';
+        ctx.lineWidth = 2.0;
+        ctx.setLineDash([6, 4]);
+        ctx.fillStyle = 'rgba(56, 189, 248, 0.08)';
+        ctx.fill();
         ctx.stroke();
       }
     }
@@ -388,6 +569,7 @@
   }
 
   function initCADCyclingListeners() {
+    if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') return;
     // Tecla Tab para ciclar en profundidad
     window.addEventListener('keydown', function(e) {
       if (e.key === 'Tab') {
@@ -445,6 +627,13 @@
           e.preventDefault();
           toggleCADFocusMode();
         }
+      } else if ((e.key === 'f' || e.key === 'F') && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        // Atajo F: Ciclar Filtro de Puntería CAD
+        const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
+        if (activeTag !== 'input' && activeTag !== 'textarea' && activeTag !== 'select') {
+          e.preventDefault();
+          cycleCADSelectionFilter();
+        }
       }
     });
 
@@ -473,6 +662,7 @@
 
   // --- 4. SELECCIÓN POR VENTANA / MARCO (MARQUEE BOX SELECTION) ---
   function initCADMarqueeListeners() {
+    if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') return;
     const container = document.getElementById('cesiumContainer') || document.body;
 
     window.addEventListener('pointerdown', function(e) {
@@ -563,7 +753,8 @@
     // x2 < x1:  Arrastre Derecha -> Izquierda: Ventana Verde (Intersección / Cruce)
     const isWindowInclusion = (x2 >= x1);
 
-    const panels = (Array.isArray(global.allRenderedPanels) && global.allRenderedPanels.length > 0)
+    const filter = global.cadSelectionFilter || 'all';
+    const panels = (filter === 'all' || filter === 'panels') && Array.isArray(global.allRenderedPanels) && global.allRenderedPanels.length > 0
       ? global.allRenderedPanels : [];
 
     const matchedIndices = [];
@@ -593,6 +784,18 @@
       }
     });
 
+    // Detectar obstáculos dentro del marco
+    const matchedObs = [];
+    if ((filter === 'all' || filter === 'obstacles') && Array.isArray(global.obstacles) && global.obstacles.length > 0) {
+      global.obstacles.forEach(o => {
+        if (!o || o.visible === false || !o.cartesian) return;
+        const sc = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, o.cartesian);
+        if (sc && sc.x >= minX && sc.x <= maxX && sc.y >= minY && sc.y <= maxY) {
+          matchedObs.push(o);
+        }
+      });
+    }
+
     if (matchedIndices.length > 0) {
       if (isAdditive && Array.isArray(global.selectedPanelIndices)) {
         matchedIndices.forEach(idx => {
@@ -611,9 +814,20 @@
           2500
         );
       }
+    } else if (matchedObs.length > 0) {
+      if (typeof global.selectObstacle === 'function') {
+        global.selectObstacle(matchedObs[0].id);
+      }
+      if (typeof global.showStatus === 'function') {
+        global.showStatus(`<i data-lucide="box" class="icon-sm"></i> OBSTÁCULO SELECCIONADO POR MARCO: ${matchedObs[0].name || 'Chimenea'}`, 2500);
+      }
     } else {
       if (!isAdditive) {
-        if (typeof global.selectPanel === 'function') global.selectPanel(-1);
+        if (typeof global.clearAllCADSelection === 'function') {
+          global.clearAllCADSelection(false);
+        } else if (typeof global.selectPanel === 'function') {
+          global.selectPanel(-1);
+        }
       }
     }
   }
@@ -685,6 +899,7 @@
     }
     return inside;
   }
+  global.isPointIn2DPolygon = isPointIn2DPolygon;
 
   // --- INICIALIZACIÓN AUTOMÁTICA AL CARGAR EL DOM ---
   function initCADSelectionSuite() {

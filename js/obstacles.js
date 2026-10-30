@@ -1316,7 +1316,16 @@ function updateSelectedObstacleProps() {
 
 function deleteSelectedObstacle() {
   if (!selectedObstacleId) return;
-  const name = (obstacles.find(o => o.id === selectedObstacleId) || {}).name || 'OBSTÁCULO';
+  const obsToDelete = obstacles.find(o => o.id === selectedObstacleId);
+  const name = (obsToDelete || {}).name || 'OBSTÁCULO';
+  if (obsToDelete && obsToDelete.type === 'wind_turbine') {
+    if (global.RAWind && global.RAWind.Entity && typeof global.RAWind.Entity.removeFromScene === 'function') {
+      global.RAWind.Entity.removeFromScene(selectedObstacleId);
+    }
+    if (global.RAWindVisualizer && typeof global.RAWindVisualizer.removeTurbine === 'function') {
+      global.RAWindVisualizer.removeTurbine(selectedObstacleId);
+    }
+  }
   if (global.RAundo) global.RAundo.snapObstacles();
   obstacles = obstacles.filter(o => o.id !== selectedObstacleId);
   global.obstacles = obstacles;

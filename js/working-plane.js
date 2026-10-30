@@ -4132,9 +4132,13 @@ function wpUpdateLayoutFastMetrics() {
     const poly = WP.polylines[WP.selectedPolyIdx];
     const cardModLbl = document.getElementById('faldon-card-stats');
     if (cardModLbl && poly && poly.roofInfo && Array.isArray(poly.roofInfo.panels)) {
-      const c = poly.roofInfo.panels.length;
-      const kw = (c * wpGetPolyWp(poly) / 1000).toFixed(2);
-      cardModLbl.innerHTML = c + ' mods <span style="font-size: 10px;color:var(--amber-400);margin-left:4px;">· ' + kw + ' kWp</span>';
+      if (poly.panelsDisabled === true) {
+        cardModLbl.innerHTML = '<span style="color:#ef4444;font-weight:700;">DESACTIVADO</span> <span style="font-size: 10px;color:var(--text-muted);margin-left:4px;">· 0 kWp</span>';
+      } else {
+        const c = poly.roofInfo.panels.filter(x => !x.deleted && !x.disabled).length;
+        const kw = (c * wpGetPolyWp(poly) / 1000).toFixed(2);
+        cardModLbl.innerHTML = c + ' mods <span style="font-size: 10px;color:var(--amber-400);margin-left:4px;">· ' + kw + ' kWp</span>';
+      }
     }
   }
 
@@ -4143,12 +4147,14 @@ function wpUpdateLayoutFastMetrics() {
   let totalCount = 0;
   let totalWp = 0;
   polys.forEach(p => {
-    const cnt = (p.roofInfo && Array.isArray(p.roofInfo.panels)) ? p.roofInfo.panels.length : 0;
+    if (p.panelsDisabled === true) return;
+    const cnt = (p.roofInfo && Array.isArray(p.roofInfo.panels)) ? p.roofInfo.panels.filter(x => !x.deleted && !x.disabled).length : 0;
     totalCount += cnt;
     totalWp += cnt * wpGetPolyWp(p);
   });
-  if (totalCount === 0 && typeof window.allRenderedPanels !== 'undefined' && Array.isArray(window.allRenderedPanels)) {
-    const activePanels = window.allRenderedPanels.filter(p => p && !p.deleted);
+  const hasPolys = polys.length > 0;
+  if (!hasPolys && totalCount === 0 && typeof window.allRenderedPanels !== 'undefined' && Array.isArray(window.allRenderedPanels)) {
+    const activePanels = window.allRenderedPanels.filter(p => p && !p.deleted && !p.disabled);
     totalCount = activePanels.length;
     const defWp = (typeof panelConfig !== 'undefined' && panelConfig && panelConfig.potencia) ? panelConfig.potencia : 450;
     totalWp = totalCount * defWp;
@@ -4164,6 +4170,23 @@ function wpUpdateLayoutFastMetrics() {
   const elStatPower = document.getElementById('stat-total-power');
   if (elStatPanels) elStatPanels.textContent = totalCount;
   if (elStatPower) elStatPower.textContent = kwpVal + ' kWp';
+
+  if (typeof window !== 'undefined' && window.RA) {
+    if (!window.RA.solarStats) window.RA.solarStats = {};
+    window.RA.solarStats.numPanels = totalCount;
+    window.RA.solarStats.peakPowerKW = parseFloat(kwpVal);
+    if (totalCount === 0) {
+      window.RA.solarStats.annualYieldKWh = 0;
+      window.RA.solarStats.annualGrossKWh = 0;
+      window.RA.solarStats.annualShadowLossKWh = 0;
+      window.RA.solarStats.annualSystemLossKWh = 0;
+      window.RA.solarStats.annualKWh = 0;
+      window.RA.solarStats.theoreticalAnnualKWh = 0;
+    }
+  }
+  if (typeof raUpdateEnergyHUD === 'function') {
+    raUpdateEnergyHUD();
+  }
 
   // 4. Producción estimada. [AUD-2026 · Lazy Evaluation] En Pasos 1-2 NO se ejecuta la
   // física pesada: solo se marca el estado como sucio y se difiere a la entrada al Paso 3.
@@ -4198,11 +4221,12 @@ function wpUpdateStep3UI() {
   // ── Métricas globales (badges del Paso 2) ──
   let totalModules = 0, totalWp = 0;
   polys.forEach(p => {
-    const pCount = (p.roofInfo && p.roofInfo.panels) ? p.roofInfo.panels.length : 0;
+    if (p.panelsDisabled === true) return;
+    const pCount = (p.roofInfo && p.roofInfo.panels) ? p.roofInfo.panels.filter(x => !x.deleted && !x.disabled).length : 0;
     totalModules += pCount;
     totalWp += pCount * wpGetPolyWp(p);
   });
-  if (totalModules === 0 && typeof simulatedPanelEntities !== 'undefined') {
+  if (polys.length === 0 && totalModules === 0 && typeof simulatedPanelEntities !== 'undefined') {
     totalModules = simulatedPanelEntities.length;
     const _defWp = (typeof panelConfig !== 'undefined' && panelConfig && panelConfig.potencia) ? panelConfig.potencia : 450;
     totalWp = totalModules * _defWp;
@@ -4214,8 +4238,8 @@ function wpUpdateStep3UI() {
   if (p3Kwp) p3Kwp.textContent = (totalWp / 1000).toFixed(2) + ' kWp';
 
   let _realStringCount = 0;
-  if (typeof window !== 'undefined' && window.allRenderedPanels && window.allRenderedPanels.length > 0) {
-    _realStringCount = new Set(window.allRenderedPanels.filter(p => p && p.stringName).map(p => p.stringName)).size;
+  if (totalModules > 0 && typeof window !== 'undefined' && window.allRenderedPanels && window.allRenderedPanels.length > 0) {
+    _realStringCount = new Set(window.allRenderedPanels.filter(p => p && !p.disabled && !p.deleted && p.stringName).map(p => p.stringName)).size;
   }
   if (p3Strings) p3Strings.textContent = _realStringCount > 0 ? (_realStringCount + (_realStringCount === 1 ? ' String' : ' Strings')) : '—';
 
@@ -4232,8 +4256,9 @@ function wpUpdateStep3UI() {
         : '';
       const pArea = (typeof poly.area === 'number') ? poly.area : 0;
       const modCount = (poly.roofInfo && poly.roofInfo.panels) ? poly.roofInfo.panels.length : 0;
+      const disabledTag = poly.panelsDisabled === true ? ' [DESACTIVADO · 0 mods]' : (' (' + modCount + ' mods · ' + pArea.toFixed(1) + ' m²)');
       return '<option value="' + idx + '"' + (idx === WP.selectedPolyIdx ? ' selected' : '') + '>' +
-        pName + planeTag + ' (' + modCount + ' mods · ' + pArea.toFixed(1) + ' m²)</option>';
+        pName + planeTag + disabledTag + '</option>';
     }).join('');
   }
   const countBadge = document.getElementById('faldon-count-badge');
@@ -4302,7 +4327,13 @@ function wpPopulateFaldonCard() {
   }
   var kwp = (modCount * polyModWp / 1000).toFixed(2);
   var statsEl = document.getElementById('faldon-card-stats');
-  if (statsEl) statsEl.innerHTML = modCount + ' mods <span style="font-size: 10px;color:var(--amber-400);margin-left:4px;">· ' + kwp + ' kWp</span>';
+  if (statsEl) {
+    if (poly.panelsDisabled === true) {
+      statsEl.innerHTML = '<span style="color:#ef4444;font-weight:700;">DESACTIVADO</span> <span style="font-size: 10px;color:var(--text-muted);margin-left:4px;">· 0 kWp</span>';
+    } else {
+      statsEl.innerHTML = modCount + ' mods <span style="font-size: 10px;color:var(--amber-400);margin-left:4px;">· ' + kwp + ' kWp</span>';
+    }
+  }
 
   // ── Selector de módulo FV ──
   var modSelect = document.getElementById('faldon-module-select');

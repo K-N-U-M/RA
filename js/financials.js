@@ -113,11 +113,28 @@ function resolveEquipmentNames() {
       result.invModel = inv.model || '';
       result.invKw = inv.kw || inv.kw_nominal || 0;
       result.invMPPTs = inv.mppt || inv.mpptCount || inv.mppts || inv.nMppt || 0;
+      result.invUnitPrice = inv.price || 1500;
       var sizing = cfg.autoSizing && cfg.autoSizing.inverters;
+      if (sizing && !sizing.isManual && typeof sizing.autoCount === 'number' && sizing.autoCount > 1 && sizing.count < sizing.autoCount) {
+        sizing.count = sizing.autoCount;
+      }
       var countFromSizing = (sizing && sizing.count) ? sizing.count : 1;
-      if (inv.kw >= 10.0 && countFromSizing > 1 && !cfg.inverters && !cfg.selectedInverters) {
-        countFromSizing = 1;
-        if (sizing) sizing.count = 1;
+      if (!sizing || !sizing.isManual) {
+        var nPanEst = (typeof window !== 'undefined' && Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0)
+          ? window.allRenderedPanels.filter(function(p) { return p && !p.deleted && !p.disabled; }).length
+          : (cfg.lastEstimatedPanels || 0);
+        var kwpEst = (nPanEst * (result.modWp || 450)) / 1000.0;
+        var maxDcPerInv = (result.invKw || 10.0) * (inv.maxOverload || 1.35);
+        if (kwpEst > 0 && maxDcPerInv > 0) {
+          var minReqInv = Math.max(1, Math.ceil(kwpEst / maxDcPerInv));
+          if (countFromSizing < minReqInv) {
+            countFromSizing = minReqInv;
+            if (sizing) {
+              sizing.count = countFromSizing;
+              sizing.autoCount = Math.max(sizing.autoCount || 1, countFromSizing);
+            }
+          }
+        }
       }
       result.invCount = countFromSizing;
       result.totalAcKw = Math.round((result.invKw * result.invCount) * 100) / 100;
@@ -136,14 +153,15 @@ function resolveEquipmentNames() {
           count: result.invCount,
           totalKw: result.totalAcKw,
           mppt: result.invMPPTs,
-          totalMPPTs: result.totalMPPTs
+          totalMPPTs: result.totalMPPTs,
+          unitPrice: result.invUnitPrice
         }]
       };
-      var mpptTxt = result.invMPPTs > 0 ? (' · ' + result.invMPPTs + ' MPPT') : '';
+      var mpptTxt = result.totalMPPTs > 0 ? (' · ' + result.totalMPPTs + ' MPPT') : '';
       if (result.invCount > 1) {
-        result.invName = result.invCount + '× ' + result.invBrand + ' ' + result.invModel + ' (' + result.totalAcKw.toFixed(1) + ' kW total · ' + result.totalMPPTs + ' MPPT)';
+        result.invName = result.invCount + '× ' + result.invBrand + ' ' + result.invModel + ' (' + result.invKw + ' kW c/u · ' + result.totalAcKw.toFixed(1) + ' kW total' + mpptTxt + ' · ' + Math.round(result.invUnitPrice).toLocaleString('es-ES') + ' €/ud)';
       } else {
-        result.invName = result.invBrand + ' ' + result.invModel + ' (' + result.invKw + ' kW' + mpptTxt + ')';
+        result.invName = '1× ' + result.invBrand + ' ' + result.invModel + ' (' + result.invKw + ' kW' + mpptTxt + ' · ' + Math.round(result.invUnitPrice).toLocaleString('es-ES') + ' €/ud)';
       }
     }
   }
@@ -214,9 +232,9 @@ function resolveEquipmentNames() {
         }]
       };
       if (result.batCount > 1) {
-        result.batName = result.batCount + '× ' + result.batBrand + ' ' + result.batModel + ' (' + result.totalBatKwh.toFixed(1) + ' kWh total)';
+        result.batName = result.batCount + '× ' + result.batBrand + ' ' + result.batModel + ' (' + result.batKwh + ' kWh c/u · ' + result.totalBatKwh.toFixed(1) + ' kWh total · ' + Math.round(bat.price || 2400).toLocaleString('es-ES') + ' €/ud)';
       } else {
-        result.batName = result.batBrand + ' ' + result.batModel + ' (' + result.totalBatKwh.toFixed(1) + ' kWh)';
+        result.batName = '1× ' + result.batBrand + ' ' + result.batModel + ' (' + result.totalBatKwh.toFixed(1) + ' kWh · ' + Math.round(bat.price || 2400).toLocaleString('es-ES') + ' €/ud)';
       }
     } else {
       result.hasBat = false;
@@ -225,7 +243,7 @@ function resolveEquipmentNames() {
       result.batKwh = 0;
       result.batCount = 0;
       result.totalBatKwh = 0;
-      result.batName = 'Sin batería (Conexión Directa)';
+      result.batName = '0× módulos (Sin acumulación electroquímica)';
       result.batteriesBreakdown = { isMulti: false, totalCount: 0, totalCapacityKwh: 0, items: [] };
     }
   }
@@ -239,13 +257,13 @@ function resolveEquipmentNames() {
       var micSizing = cfg.autoSizing && cfg.autoSizing.microinverters;
       result.microCount = (micSizing && micSizing.count) ? micSizing.count : 0;
       result.hasMicro = true;
-      result.microName = result.microBrand + ' ' + result.microModel;
       var micKw = mic.kw || (mic.va ? mic.va / 1000 : 0.8);
       result.totalMicroKw = Math.round((micKw * result.microCount) * 100) / 100;
+      result.microName = Math.max(1, result.microCount) + '× ' + result.microBrand + ' ' + result.microModel + ' (' + result.totalMicroKw.toFixed(1) + ' kW AC total · ' + Math.round(mic.price || 175).toLocaleString('es-ES') + ' €/ud)';
     }
   }
 
-  // ── Generación Mini-Eólica (Hibridación) ──
+  // ── Generación Mini-Eólica (Hibridación desde SSOT) ──
   var activeTurbines = (typeof window !== 'undefined' && Array.isArray(window.windTurbines))
     ? window.windTurbines.filter(function(t) { return t && (!t.operationalState || t.operationalState.enabled !== false); })
     : [];
@@ -254,35 +272,58 @@ function resolveEquipmentNames() {
   result.hasWind = activeTurbines.length > 0;
   result.windCount = activeTurbines.length;
   result.windTotalKw = 0;
+  result.windTotalEur = 0;
   result.windAepNetKwh = (wPark && wPark.totalAepNetKwh) ? Math.round(wPark.totalAepNetKwh) : 0;
-  result.windName = 'Mini-Eólica de Alta Eficiencia';
-  result.windDesc = 'Turbina(s) eólica(s) con acoplamiento AC';
+  result.windName = '0× aerogeneradores (Sin generación minieólica)';
+  result.windDesc = '0× aerogeneradores montados en el proyecto';
   result.windItems = [];
 
   if (result.hasWind) {
     var totalW = 0;
+    var totalWindEur = 0;
     var modelsMap = {};
     activeTurbines.forEach(function(t, idx) {
-      var c = t._catalog || {};
+      var freshCat = (typeof window !== 'undefined' && window.RAWindCatalog && typeof window.RAWindCatalog.getById === 'function' && t.catalogId)
+        ? window.RAWindCatalog.getById(t.catalogId)
+        : null;
+      var c = Object.assign({}, t._catalog || {}, freshCat || {});
       var st = t.supportStructure || {};
       var ratedKw = c.ratedPowerW ? (c.ratedPowerW / 1000) : (t.ratedPowerKw || 3.0);
+      var unitPrice = (typeof c.priceEur === 'number' && c.priceEur > 0) ? c.priceEur : Math.round(ratedKw * 1450);
+      var supCost = (st && typeof st.costEur === 'number' && st.costEur > 0) ? st.costEur : 0;
       totalW += ratedKw;
-      var mName = (c.brand ? (c.brand + ' ') : '') + (c.model || t.name || ('Aerogenerador #' + (idx + 1)));
+      totalWindEur += (unitPrice + supCost);
+      var brand = c.manufacturer || c.brand || '';
+      var mName = (brand ? (brand + ' ') : '') + (c.model || t.name || ('Aerogenerador #' + (idx + 1)));
       if (!modelsMap[mName]) {
-        modelsMap[mName] = { count: 0, ratedKw: ratedKw, hubH: st.hubHeightM || 18, type: c.type || 'HAWT' };
+        modelsMap[mName] = { count: 0, ratedKw: ratedKw, hubH: st.hubHeightM || 18, type: c.type || 'HAWT', unitPrice: unitPrice, totalEur: 0 };
       }
       modelsMap[mName].count++;
+      modelsMap[mName].totalEur += (unitPrice + supCost);
     });
 
     result.windTotalKw = Math.round(totalW * 10) / 10;
+    result.windTotalEur = Math.round(totalWindEur);
     var mKeys = Object.keys(modelsMap);
+    result.windItems = mKeys.map(function(k) {
+      var item = modelsMap[k];
+      return {
+        fullName: k,
+        count: item.count,
+        ratedKw: item.ratedKw,
+        hubH: item.hubH,
+        type: item.type,
+        unitPrice: item.unitPrice,
+        totalEur: item.totalEur
+      };
+    });
     if (mKeys.length === 1) {
       var single = modelsMap[mKeys[0]];
-      result.windName = (single.count > 1 ? (single.count + '× ') : '') + mKeys[0];
-      result.windDesc = single.ratedKw + ' kW unitario · Mástil ' + single.hubH + ' m · Rotor ' + single.type + ' · Acoplamiento AC ITC-BT-40';
+      result.windName = single.count + '× ' + mKeys[0] + ' (' + (single.count * single.ratedKw).toFixed(1) + ' kW · Mástil ' + single.hubH + 'm · ' + Math.round(single.unitPrice).toLocaleString('es-ES') + ' €/ud)';
+      result.windDesc = single.count + '× ' + mKeys[0] + ' (' + single.ratedKw + ' kW c/u · H=' + single.hubH + 'm · ' + Math.round(single.unitPrice).toLocaleString('es-ES') + ' €/ud)';
     } else {
-      result.windName = 'Parque Mini-Eólico (' + activeTurbines.length + ' turbinas)';
-      result.windDesc = mKeys.map(function(k) { return modelsMap[k].count + '× ' + k + ' (' + modelsMap[k].ratedKw + ' kW)'; }).join(' · ');
+      result.windName = activeTurbines.length + '× Aerogeneradores (' + result.windTotalKw.toFixed(1) + ' kW total): ' + mKeys.map(function(k) { return modelsMap[k].count + '× ' + k; }).join(' + ');
+      result.windDesc = mKeys.map(function(k) { return modelsMap[k].count + '× ' + k + ' (' + modelsMap[k].ratedKw + ' kW · ' + Math.round(modelsMap[k].unitPrice).toLocaleString('es-ES') + ' €/ud)'; }).join(' · ');
     }
   }
 
@@ -649,8 +690,24 @@ var RAPricing = {
         }
       });
     }
-    var invCnt = (cfg.autoSizing && cfg.autoSizing.inverters && cfg.autoSizing.inverters.count) || 1;
+    var invSizing = cfg.autoSizing && cfg.autoSizing.inverters;
+    if (invSizing && !invSizing.isManual && typeof invSizing.autoCount === 'number' && invSizing.autoCount > 1 && invSizing.count < invSizing.autoCount) {
+      invSizing.count = invSizing.autoCount;
+    }
+    var invCnt = (invSizing && invSizing.count) || 1;
     var batCnt = (cfg.autoSizing && cfg.autoSizing.batteries && cfg.autoSizing.batteries.count) || 0;
+    var windSig = 'no_wind';
+    if (typeof window !== 'undefined' && Array.isArray(window.windTurbines) && window.windTurbines.length > 0) {
+      var enabledWts = window.windTurbines.filter(function(t) { return t && (!t.operationalState || t.operationalState.enabled !== false); });
+      if (enabledWts.length > 0) {
+        windSig = enabledWts.map(function(t) {
+          var fc = (window.RAWindCatalog && typeof window.RAWindCatalog.getById === 'function' && t.catalogId) ? window.RAWindCatalog.getById(t.catalogId) : null;
+          var pr = (fc && fc.priceEur) || (t._catalog && t._catalog.priceEur) || 0;
+          var hh = (t.supportStructure && t.supportStructure.hubHeightM) || 18;
+          return (t.catalogId || (t._catalog && t._catalog.model) || 'wt') + ':' + hh + ':' + pr;
+        }).join(',');
+      }
+    }
     return [
       nPan || 0,
       cfg.selectedModuleId || 'mod',
@@ -658,7 +715,8 @@ var RAPricing = {
       invCnt,
       cfg.selectedBatteryId || 'bat',
       batCnt,
-      cfg.selectedTopology || 'inverter'
+      cfg.selectedTopology || 'inverter',
+      windSig
     ].join('|');
   },
 
@@ -855,25 +913,51 @@ var RAPricing = {
     var bTot = Math.round(batPrice);
     var cTot = Math.round(cabPrice);
     var mTot = Math.round(moPrice);
-    // 8. Partida Eólica (Fase 3): Aerogeneradores, mástil, zapata y dump load
+    // 8. Partida Eólica desde el SSOT (tree.wind) o fallback directo de catálogo
     var windTot = 0;
     var windCount = 0;
     var windKw = 0;
-    if (typeof window !== 'undefined' && Array.isArray(window.windTurbines) && window.windTurbines.length > 0) {
+    if (tree && tree.wind && typeof tree.wind.totalTurbines === 'number') {
+      windTot = tree.wind.totalEur || 0;
+      windCount = tree.wind.totalTurbines || 0;
+      windKw = tree.wind.totalWindKw || 0;
+    } else if (typeof window !== 'undefined' && Array.isArray(window.windTurbines) && window.windTurbines.length > 0) {
       window.windTurbines.forEach(function (t) {
         if (!t || (t.operationalState && t.operationalState.enabled === false)) return;
-        var cat = t._catalog || {};
-        var kw = (cat.ratedPowerW ? (cat.ratedPowerW / 1000) : 5);
+        var freshCat = (window.RAWindCatalog && typeof window.RAWindCatalog.getById === 'function' && t.catalogId)
+          ? window.RAWindCatalog.getById(t.catalogId)
+          : null;
+        var cat = Object.assign({}, t._catalog || {}, freshCat || {});
+        var kw = (cat.ratedPowerW ? (cat.ratedPowerW / 1000) : (cat.ratedPowerKw || 5));
         var costTurbine = (cat.priceEur && cat.priceEur > 0) ? cat.priceEur : Math.round(kw * 1450);
-        var mastH = (t.supportStructure && t.supportStructure.hubHeightM) || 18;
-        var costMast = Math.round(mastH * 220);
-        windTot += (costTurbine + costMast);
+        var costSupport = (t.supportStructure && typeof t.supportStructure.costEur === 'number' && t.supportStructure.costEur > 0) ? t.supportStructure.costEur : 0;
+        windTot += (costTurbine + costSupport);
         windCount++;
         windKw += kw;
       });
     }
     var wTot = Math.round(windTot);
     var lTot = Math.round(legPrice);
+
+    // Extraer contadores físicos del SSOT BOM para mostrar unidades montadas en cada partida
+    var structBarsCount = 0, structFixingsCount = 0, structClampsCount = 0;
+    if (tree && Array.isArray(tree.roofs)) {
+      tree.roofs.forEach(function(r) {
+        if (r && r.structure) {
+          structBarsCount += (r.structure.standardBarsCount || 0);
+          structFixingsCount += (r.structure.fixingsCount || 0);
+        }
+        if (r && r.clamps) {
+          structClampsCount += ((r.clamps.midCount || 0) + (r.clamps.endCount || 0));
+        }
+      });
+    }
+    var dcPanelsCount = (tree && tree.electrical && Array.isArray(tree.electrical.dcPanels)) ? tree.electrical.dcPanels.reduce(function(acc, p) { return acc + (p.count || 1); }, 0) : 1;
+    var acPanelsCount = (tree && tree.electrical && Array.isArray(tree.electrical.acPanels)) ? tree.electrical.acPanels.reduce(function(acc, p) { return acc + (p.count || 1); }, 0) : 1;
+    var dcCableMeters = (tree && tree.electrical && Array.isArray(tree.electrical.cables) && tree.electrical.cables[0]) ? tree.electrical.cables[0].meters : 0;
+    var acCableMeters = (tree && tree.electrical && Array.isArray(tree.electrical.cables) && tree.electrical.cables[1]) ? tree.electrical.cables[1].meters : 0;
+    var earthRodsCount = (tree && tree.electrical && Array.isArray(tree.electrical.grounding) && tree.electrical.grounding[0]) ? tree.electrical.grounding[0].earthRods : 1;
+    var optimizersCount = (tree && tree.electrical && tree.electrical.optimizers && tree.electrical.optimizers.count) ? tree.electrical.optimizers.count : 0;
 
     return {
       numPanels: numPanels,
@@ -882,14 +966,23 @@ var RAPricing = {
       estPrice: eTot,
       isPergola: isAnyPergola,
       pergolaClearance: pergolaClearance,
+      structBarsCount: structBarsCount,
+      structFixingsCount: structFixingsCount,
+      structClampsCount: structClampsCount,
       estDescription: isAnyPergola ? ('Pérgola elevada de aluminio/acero (H = ' + pergolaClearance.toFixed(2) + ' m)') : 'Estructura soporte y perfilería',
       invPrice: iTot,
       invOnlyPrice: Math.round(invOnlyPrice),
       mlpePrice: Math.round(mlpePrice),
+      optimizersCount: optimizersCount,
       batPrice: bTot,
       cabPrice: cTot,
       cablesOnlyPrice: Math.round(cablesOnlyPrice),
       protOnlyPrice: Math.round(protOnlyPrice),
+      dcPanelsCount: dcPanelsCount,
+      acPanelsCount: acPanelsCount,
+      dcCableMeters: dcCableMeters,
+      acCableMeters: acCableMeters,
+      earthRodsCount: earthRodsCount,
       moPrice: mTot,
       legPrice: lTot,
       icioTaxEur: Math.round(icioTaxEur),
@@ -1433,7 +1526,7 @@ function wpOpenPricingReviewModal(onConfirm) {
             '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05);">' +
               '<div>' +
                 '<div style="font-size:11px;font-weight:800;color:#f8fafc;display:flex;align-items:center;gap:5px;"><span>👷</span> Mano de Obra &amp; Montaje</div>' +
-                '<div style="font-size: 10px;color:#94a3b8;">Instalación completa, seguridad en altura y puesta en marcha</div>' +
+                '<div id="pricing-subtext-mo" style="font-size: 10px;color:#94a3b8;">Instalación completa, seguridad en altura y puesta en marcha</div>' +
               '</div>' +
               '<div style="display:flex;align-items:center;gap:4px;">' +
                 '<input type="number" id="pricing-input-mo-price" min="0" max="30000" step="50" style="width:90px;padding:4px 6px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:6px;color:#fff;font-size:11px;font-weight:700;text-align:right;">' +
@@ -1443,7 +1536,7 @@ function wpOpenPricingReviewModal(onConfirm) {
             '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;">' +
               '<div>' +
                 '<div style="font-size:11px;font-weight:800;color:#f8fafc;display:flex;align-items:center;gap:5px;"><span>📑</span> Legalización, Proyecto &amp; CIE</div>' +
-                '<div style="font-size: 10px;color:#94a3b8;">Memoria técnica / proyecto, tasas de Industria y boletín oficial</div>' +
+                '<div id="pricing-subtext-leg" style="font-size: 10px;color:#94a3b8;">Memoria técnica / proyecto, tasas de Industria y boletín oficial</div>' +
               '</div>' +
               '<div style="display:flex;align-items:center;gap:4px;">' +
                 '<input type="number" id="pricing-input-leg-price" min="0" max="15000" step="25" style="width:90px;padding:4px 6px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:6px;color:#fff;font-size:11px;font-weight:700;text-align:right;">' +
@@ -1628,7 +1721,7 @@ function wpOpenPricingReviewModal(onConfirm) {
   var eq = (typeof resolveEquipmentNames === 'function') ? resolveEquipmentNames() : null;
 
   if (projInfo) {
-    projInfo.textContent = 'Proyecto: ' + numPanels + ' módulos (' + kwp.toFixed(2) + ' kWp)' + (mb && mb.isMultiModule ? ' [Multi-Modelo]' : '');
+    projInfo.textContent = 'Proyecto: ' + numPanels + '× módulos (' + kwp.toFixed(2) + ' kWp)' + (eq && eq.hasWind ? (' + ' + eq.windCount + '× Eólica (' + eq.windTotalKw.toFixed(1) + ' kW)') : '') + (mb && mb.isMultiModule ? ' [Multi-Modelo]' : '');
   }
   if (titlePanels) {
     if (mb && mb.isMultiModule) {
@@ -1644,31 +1737,61 @@ function wpOpenPricingReviewModal(onConfirm) {
     }
   }
   if (equipInfo) {
-    var invDesc = eq ? (eq.invBrand ? (eq.invBrand + ' ' + eq.invModel) : eq.invName) : 'Inversor principal';
-    var batDesc = (eq && eq.hasBat) ? (eq.batBrand ? (eq.batBrand + ' ' + eq.batModel) : eq.batName) : 'Sin batería';
-    equipInfo.textContent = invDesc + ' · ' + batDesc;
+    var invDesc = eq ? (eq.topology === 'microinverter' && eq.hasMicro ? eq.microName : eq.invName) : 'Inversor principal';
+    var batDesc = (eq && eq.hasBat) ? eq.batName : 'Sin batería';
+    var windTopDesc = (eq && eq.hasWind) ? (' · ' + eq.windName) : '';
+    equipInfo.textContent = invDesc + ' · ' + batDesc + windTopDesc;
   }
   if (subtextPanels) {
     if (mb && mb.isMultiModule && window.RAModulesBreakdown && typeof window.RAModulesBreakdown.formatModuleSummaryText === 'function') {
       subtextPanels.textContent = window.RAModulesBreakdown.formatModuleSummaryText(mb);
     } else {
-      subtextPanels.textContent = numPanels + ' módulos de ' + (d.cfg && d.cfg.potencia ? d.cfg.potencia : 450) + ' Wp instalados en cubierta';
+      subtextPanels.textContent = numPanels + '× módulos de ' + (d.cfg && d.cfg.potencia ? d.cfg.potencia : 450) + ' Wp instalados en cubierta (' + kwp.toFixed(2) + ' kWp total)';
     }
   }
+  // Pre-cargar valores dinámicos calculados desde la ingeniería del proyecto actual (SSOT)
+  var designCosts = RAPricing.computeDesignCosts(numPanels);
   if (subtextInv && eq) {
-    subtextInv.textContent = eq.invName || 'Sistema de conversión e inversor';
+    var baseInvTxt = (eq.topology === 'microinverter' && eq.hasMicro) ? eq.microName : (eq.invName || 'Sistema de conversión e inversor');
+    if (designCosts && designCosts.optimizersCount > 0) {
+      baseInvTxt += ' + ' + designCosts.optimizersCount + '× Optimizadores DC (' + Math.round(designCosts.mlpePrice).toLocaleString('es-ES') + ' €)';
+    }
+    subtextInv.textContent = baseInvTxt;
   }
   if (subtextBat && eq) {
-    subtextBat.textContent = eq.hasBat ? eq.batName : 'Sin sistema de acumulación electroquímica';
+    subtextBat.textContent = eq.hasBat ? eq.batName : '0× módulos (Sin sistema de acumulación electroquímica)';
   }
-  // Pre-cargar valores dinámicos calculados desde la ingeniería del proyecto actual
-  var designCosts = RAPricing.computeDesignCosts(numPanels);
   var subtextEst = document.getElementById('pricing-subtext-est');
   if (subtextEst && designCosts) {
+    var barsTxt = designCosts.structBarsCount > 0 ? (designCosts.structBarsCount + '× barras aluminio, ' + designCosts.structFixingsCount + '× fijaciones A2 y ' + designCosts.structClampsCount + '× grapas') : 'Perfilería continua de aluminio y fijaciones A2';
     if (designCosts.isPergola) {
-      subtextEst.innerHTML = '<b style="color:#38BDF8;">Pérgola Elevada (H = ' + designCosts.pergolaClearance.toFixed(2) + ' m)</b> · Pórticos y pilares anclados a forjado';
+      subtextEst.innerHTML = '<b style="color:#38BDF8;">Pérgola Elevada para ' + numPanels + '× módulos (H = ' + designCosts.pergolaClearance.toFixed(2) + ' m)</b> · ' + barsTxt;
     } else {
-      subtextEst.textContent = 'Perfilería continua de aluminio y fijaciones A2';
+      subtextEst.textContent = 'Soporte para ' + numPanels + '× módulos (' + barsTxt + ')';
+    }
+  }
+  var subtextCab = document.getElementById('pricing-subtext-cab');
+  if (subtextCab && designCosts) {
+    subtextCab.textContent = (designCosts.dcPanelsCount || 1) + '× Cuadro DC + ' + (designCosts.acPanelsCount || 1) + '× Cuadro AC, ' + (designCosts.dcCableMeters || 0) + 'm cable DC ZZ-F, ' + (designCosts.acCableMeters || 0) + 'm AC y ' + (designCosts.earthRodsCount || 1) + '× pica(s) tierra';
+  }
+  var subtextMo = document.getElementById('pricing-subtext-mo');
+  if (subtextMo) {
+    var invUnitsMo = (eq && eq.topology === 'microinverter' && eq.hasMicro) ? (eq.microCount + '× microinversor(es)') : ((eq ? eq.invCount : 1) + '× inversor(es)');
+    var batUnitsMo = (eq && eq.hasBat) ? (', ' + eq.batCount + '× batería(s)') : '';
+    var windUnitsMo = (designCosts && designCosts.windCount > 0) ? (', ' + designCosts.windCount + '× aerogenerador(es)') : '';
+    subtextMo.textContent = 'Montaje de ' + numPanels + '× módulos, ' + invUnitsMo + batUnitsMo + windUnitsMo + ' y puesta en marcha';
+  }
+  var subtextLeg = document.getElementById('pricing-subtext-leg');
+  if (subtextLeg) {
+    var docTypeLeg = (kwp > 10 || (designCosts && designCosts.windKw > 0)) ? '1× Proyecto Técnico Visado' : '1× Memoria Técnica de Diseño (MTD)';
+    subtextLeg.textContent = docTypeLeg + ', 1× Dirección/Certificación y 1× Boletín CIE (' + kwp.toFixed(2) + ' kWp' + (designCosts && designCosts.windKw > 0 ? ' + ' + designCosts.windKw.toFixed(1) + ' kW eólicos' : '') + ')';
+  }
+  var subtextWind = document.getElementById('pricing-subtext-wind');
+  if (subtextWind) {
+    if (eq && eq.hasWind && eq.windCount > 0) {
+      subtextWind.textContent = eq.windDesc || eq.windName;
+    } else {
+      subtextWind.textContent = '0× aerogeneradores montados en el proyecto';
     }
   }
   var hasActiveSessionOverride = Boolean(RAPricing.currentSessionPricing && RAPricing.currentSessionPricing.projectFingerprint === RAPricing.getProjectFingerprint(numPanels));
@@ -1690,9 +1813,11 @@ function wpOpenPricingReviewModal(onConfirm) {
   if (legInput) legInput.value = Math.round(initialLegPrice);
   var windInp = document.getElementById('pricing-input-wind-price');
   var rowWind = document.getElementById('pricing-row-wind');
-  var initWind = (pricing && typeof pricing.windPrice === 'number' && pricing.windPrice >= 0) ? pricing.windPrice : (designCosts.windPrice || 0);
+  var initWind = (designCosts.windCount > 0)
+    ? ((hasActiveSessionOverride && pricing && typeof pricing.windPrice === 'number' && pricing.windPrice >= 0) ? pricing.windPrice : (designCosts.windPrice || 0))
+    : 0;
   if (windInp) windInp.value = Math.round(initWind);
-  if (rowWind) rowWind.style.display = (designCosts.windKw > 0 || initWind > 0) ? 'flex' : 'none';
+  if (rowWind) rowWind.style.display = (designCosts.windCount > 0 || initWind > 0) ? 'flex' : 'none';
   if (mgInput) mgInput.value = initialMarginPct;
 
   // ── INICIALIZAR Y POBLAR CAMPOS DE FACTURA & CLIENTE (SSOT) ──
@@ -2007,7 +2132,7 @@ function wpOpenPricingReviewModal(onConfirm) {
 
   recalculateLive();
 
-  [pInput, estInput, invInput, batInput, cabInput, moInput, legInput, mgInput, custConsumoInput, custPotContrInput, custPrecioKwhInput, celPriceInput].forEach(function(inp) {
+  [pInput, estInput, invInput, batInput, cabInput, moInput, legInput, windInp, mgInput, custConsumoInput, custPotContrInput, custPrecioKwhInput, celPriceInput].forEach(function(inp) {
     if (inp) inp.oninput = recalculateLive;
   });
   if (celCheckInput) celCheckInput.onchange = recalculateLive;

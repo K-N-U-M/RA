@@ -508,6 +508,11 @@
     var viewer = root.viewer;
     if (!viewer || !viewer.scene || !viewer.scene.primitives) return;
 
+    if (root.RAWindVisualizer && root.RAWind && root.RAWind.Entity) {
+      cleanAll();
+      return;
+    }
+
     var activeIds = {};
     (root.obstacles || []).forEach(function (obs) {
       if (obs.type === 'wind_turbine') {
