@@ -7147,16 +7147,19 @@ function recalculateSolarYield(force = false) {
     }
 
     WP.polylines.forEach(poly => {
+      if (poly.panelsDisabled === true) return;
       const pInf = poly.roofInfo || (typeof computeSinglePolylineRoofInfo === 'function' ? computeSinglePolylineRoofInfo(poly.points, poly) : null);
       if (pInf && pInf.panels) {
-        totalPanelsCount += pInf.panels.length;
+        totalPanelsCount += pInf.panels.filter(p => !p.deleted && !p.disabled).length;
         if (!dominantRoofInfo) dominantRoofInfo = pInf;
       }
     });
   }
 
   const roofInfo = dominantRoofInfo || computeRoofPanelsData();
-  const renderedPanelsCount = (typeof window.allRenderedPanels !== 'undefined' && Array.isArray(window.allRenderedPanels)) ? window.allRenderedPanels.length : 0;
+  const renderedPanelsCount = (typeof window.allRenderedPanels !== 'undefined' && Array.isArray(window.allRenderedPanels))
+    ? window.allRenderedPanels.filter(p => !p.deleted && !p.disabled).length
+    : 0;
   const numPanels = renderedPanelsCount > 0
     ? renderedPanelsCount
     : (totalPanelsCount > 0
@@ -7216,8 +7219,9 @@ function recalculateSolarYield(force = false) {
   const subArrays = [];
   if (typeof WP !== 'undefined' && WP && Array.isArray(WP.polylines) && WP.polylines.length > 0) {
     WP.polylines.forEach((poly, pIdx) => {
+      if (poly.panelsDisabled === true) return;
       const pInf = poly.roofInfo || (typeof computeSinglePolylineRoofInfo === 'function' ? computeSinglePolylineRoofInfo(poly.points, poly) : null);
-      const pCount = (pInf && Array.isArray(pInf.panels)) ? pInf.panels.length : 0;
+      const pCount = (pInf && Array.isArray(pInf.panels)) ? pInf.panels.filter(p => !p.deleted && !p.disabled).length : 0;
       if (pCount <= 0) return;
       const pWp = (typeof wpGetPolyWp === 'function') ? wpGetPolyWp(poly) : modulePowerW;
       const pTilt = (pInf && typeof pInf.moduleTiltDeg === 'number')
@@ -7307,6 +7311,7 @@ function recalculateSolarYield(force = false) {
   let totalPanelsCountForShadows = 0;
 
   const gatherPanelLoss = p => {
+    if (!p || p.deleted || p.disabled) return;
     if (typeof p.annualTotalPotential === 'number' && p.annualTotalPotential > 0) {
       sumPotentialWh += p.annualTotalPotential;
       sumShadedLossWh += (p.annualShadedLoss || 0);
@@ -7355,6 +7360,7 @@ function recalculateSolarYield(force = false) {
     let simulatedTotalKWh = 0;
     let simulatedGrossKWh = 0;
     window.allRenderedPanels.forEach(p => {
+      if (!p || p.deleted || p.disabled) return;
       const pYieldFactor = (typeof p.annualYieldPct === 'number') ? (p.annualYieldPct / 100.0) : shadowLossFactor;
       const pPolyIdx = (typeof p.polyIdx === 'number') ? p.polyIdx : 0;
       const sa = subArrays.find(s => s.polyIdx === pPolyIdx);
@@ -7446,6 +7452,7 @@ function recalculateSolarYield(force = false) {
   if (window.allRenderedPanels && window.allRenderedPanels.length > 0) {
     const stringMap = {};
     window.allRenderedPanels.forEach(p => {
+      if (!p || p.deleted || p.disabled) return;
       const sId = p.stringId || p.stringName || 'S1';
       stringMap[sId] = (stringMap[sId] || 0) + 1;
     });
@@ -12523,6 +12530,7 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
         p.layoutIndex = idx;
         p.localIdx = idx;
         p.polyIdx = polyIdx;
+        p.disabled = (poly.panelsDisabled === true);
         if (!p.panelId) p.panelId = 'pan_' + polyIdx + '_' + idx;
 
         if (prevPanelsMap && prevPanelsMap.length > 0) {
@@ -12775,6 +12783,7 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
           h: panelData.h,
           tiltDeg: panelData.tiltDeg,
           azimuthDeg: panelData.azimuthDeg,
+          disabled: (poly.panelsDisabled === true) || !!panelData.disabled,
           annualLossPct: panelData.annualLossPct || 0
         });
       });
@@ -12885,6 +12894,7 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
           h: panelData.h,
           tiltDeg: panelData.tiltDeg,
           azimuthDeg: panelData.azimuthDeg,
+          disabled: (poly.panelsDisabled === true) || !!panelData.disabled,
           annualLossPct: panelData.annualLossPct || 0
         });
       });
@@ -12936,11 +12946,12 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
             isNormal: panelData.isNormal,
             requiresMLPE: panelData.requiresMLPE,
             isUnviable: panelData.isUnviable,
+            disabled: (poly.panelsDisabled === true) || !!panelData.disabled,
             heatmapColor: panelData.heatmapColor || getHeatmapColor(0)
           });
         });
 
-        if (shouldRenderElectricalStrings) {
+        if (shouldRenderElectricalStrings && !poly.panelsDisabled) {
           // <i data-lucide=\"rocket\" class=\"icon-sm\"></i> CABLEADO EN SERPIENTE CONTIGUO CON CURVAS CATENARIAS 3D (UNE-EN 62305)
           const norm = (pInfo && pInfo.normal) ? pInfo.normal : new Cesium.Cartesian3(0, 0, 1);
           const validPanels = stringPanels.filter(p => p && p.center);
@@ -13161,16 +13172,20 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
 
       instancesByFaldon.forEach((instances, fIdx) => {
         if (instances.length === 0) return;
+        const isFaldonDisabled = hasPolys && WP.polylines[fIdx] && (WP.polylines[fIdx].panelsDisabled === true);
+        const faldonMat = isFaldonDisabled
+          ? Cesium.Material.fromType('Color', { color: new Cesium.Color(0.38, 0.42, 0.48, 0.45) })
+          : mat;
         const primitive = new Cesium.Primitive({
           geometryInstances: instances,
           appearance: new Cesium.MaterialAppearance({
-            material: mat,
+            material: faldonMat,
             flat: true,
-            translucent: false,
-            renderState: panelRenderState
+            translucent: isFaldonDisabled,
+            renderState: isFaldonDisabled ? undefined : panelRenderState
           }),
           asynchronous: false,
-          shadows: (typeof Cesium !== 'undefined' && Cesium.ShadowMode ? Cesium.ShadowMode.ENABLED : 1)
+          shadows: isFaldonDisabled ? 0 : (typeof Cesium !== 'undefined' && Cesium.ShadowMode ? Cesium.ShadowMode.ENABLED : 1)
         });
         if (currentRenderId !== _raRenderGenerationId) return;
         primitive._isRAPanelPrimitive = true;
@@ -13224,7 +13239,10 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
           const polyGeom = new Cesium.Geometry({  attributes: {    position: new Cesium.GeometryAttribute({ componentDatatype: Cesium.ComponentDatatype.DOUBLE, componentsPerAttribute: 3, values: positions }),    st: new Cesium.GeometryAttribute({ componentDatatype: Cesium.ComponentDatatype.FLOAT, componentsPerAttribute: 2, values: st }),    normal: new Cesium.GeometryAttribute({ componentDatatype: Cesium.ComponentDatatype.FLOAT, componentsPerAttribute: 3, values: normals })  },  indices: indices,  primitiveType: Cesium.PrimitiveType.TRIANGLES,  boundingSphere: Cesium.BoundingSphere.fromPoints(pData.corners)});
 
           let color;
-          if (pData.isGhost) {
+          if (pData.disabled) {
+            // [DEACTIVATED] Tinte grisáceo apagado translúcido para módulos excluidos de ingeniería
+            color = new Cesium.Color(0.38, 0.42, 0.48, 0.40);
+          } else if (pData.isGhost) {
             // [GHOST-PANEL] Modo translúcido cian/esmeralda para placas de reserva / CEL
             color = new Cesium.Color(0.06, 0.72, 0.51, 0.28);
           } else if (isHeatmapMode) {
@@ -15521,7 +15539,11 @@ window.toggleSolarHUD = toggleSolarHUD;
       selectPanel(panelIdx, isShift);
       renderTriad2D();
       const count = (window.selectedPanelIndices && window.selectedPanelIndices.length) || 1;
-      showStatus(count > 1 ? `${count} MÓDULOS FV SELECCIONADOS (Shift+Clic para añadir/quitar)` : ('MÓDULO FV #' + (panelIdx + 1) + ' SELECCIONADO'), 2000);
+      const isDis = pickedPan && pickedPan.disabled;
+      const statusText = isDis
+        ? `MÓDULO FV #${panelIdx + 1} (DESACTIVADO · Excluido de mediciones y presupuesto)`
+        : (count > 1 ? `${count} MÓDULOS FV SELECCIONADOS (Shift+Clic para añadir/quitar)` : ('MÓDULO FV #' + (panelIdx + 1) + ' SELECCIONADO'));
+      showStatus(statusText, 2500);
       return;
     }
 

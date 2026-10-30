@@ -229,6 +229,11 @@
                   const polySel = poly.isSelected ? 'selected-poly' : '';
                   const areaBadge = (typeof poly.areaM2 === 'number' && poly.areaM2 > 0) ? (poly.areaM2.toFixed(1) + ' m²') : 'CAD';
                   const pVis = poly.panelsVisible !== false;
+                  const pDisabled = poly.panelsDisabled === true;
+                  const pClass = (pVis ? '' : 'is-hidden-node') + (pDisabled ? ' is-deactivated-node' : '');
+                  const pBadge = pDisabled
+                    ? `<span class="badge-stats is-deactivated" title="Mesa desactivada: excluida de mediciones y presupuestos">${poly.totalPanelsCount || poly.panelsCount} pl · OFF</span>`
+                    : `<span class="badge-stats" title="Módulos y potencia instalada en ${poly.name}">${poly.panelsCount} pl · ${poly.kwp.toFixed(2)} kWp</span>`;
                   html += `
                     <div class="outliner-poly-group">
                       <div class="outliner-poly-item ${polySel} ${poly.visible ? '' : 'is-hidden-node'}" onclick="ProjectHierarchy.selectPolyline(${poly.index}, true)">
@@ -242,14 +247,15 @@
                           <button type="button" class="node-action-btn delete-btn" title="Eliminar faldón" onclick="event.stopPropagation();ProjectHierarchy.deleteItem('polyline', ${poly.index});">🗑️</button>
                         </div>
                       </div>
-                      <div class="outliner-panels-item ${pVis ? '' : 'is-hidden-node'}" onclick="ProjectHierarchy.selectAllPanelsInPolyline(${poly.index})">
+                      <div class="outliner-panels-item ${pClass}" onclick="ProjectHierarchy.selectAllPanelsInPolyline(${poly.index})">
                         <div style="display:flex;align-items:center;gap:4px;flex:1;overflow:hidden;padding-left:14px;">
                           <span class="node-bullet">└ ☀️</span>
                           <span class="node-label panels-node-name" title="Clic para seleccionar las placas FV de ${poly.name}">Placas FV</span>
                         </div>
                         <div class="node-meta">
-                          <span class="badge-stats" title="Módulos y potencia instalada en ${poly.name}">${poly.panelsCount} pl · ${poly.kwp.toFixed(2)} kWp</span>
-                          <button type="button" class="node-action-btn" title="Mostrar/Ocultar placas FV de este faldón" onclick="event.stopPropagation();ProjectHierarchy.toggleVisibility('poly_panels', ${poly.index});">${pVis ? '👁️' : '🙈'}</button>
+                          ${pBadge}
+                          <button type="button" class="node-action-btn toggle-active-btn" title="${pDisabled ? 'Placas desactivadas. Clic para ACTIVAR e incluir en mediciones y presupuesto.' : 'Placas activas. Clic para DESACTIVAR y excluir de mediciones y presupuesto.'}" onclick="event.stopPropagation();ProjectHierarchy.togglePanelsActive(${poly.index});">${pDisabled ? '<span style="color:#f87171;font-weight:bold;font-size:9.5px;padding:1px 4px;border-radius:2px;background:rgba(239,68,68,0.18);border:1px solid rgba(239,68,68,0.4);">OFF</span>' : '<span style="color:#34d399;font-weight:bold;font-size:9.5px;padding:1px 4px;border-radius:2px;background:rgba(16,185,129,0.18);border:1px solid rgba(16,185,129,0.4);">ON</span>'}</button>
+                          <button type="button" class="node-action-btn" title="Mostrar/Ocultar placas FV en 3D" onclick="event.stopPropagation();ProjectHierarchy.toggleVisibility('poly_panels', ${poly.index});">${pVis ? '👁️' : '🙈'}</button>
                         </div>
                       </div>
                     </div>
@@ -332,6 +338,11 @@
               const polySel = poly.isSelected ? 'selected-poly' : '';
               const areaBadge = (typeof poly.areaM2 === 'number' && poly.areaM2 > 0) ? (poly.areaM2.toFixed(1) + ' m²') : 'CAD';
               const pVis = poly.panelsVisible !== false;
+              const pDisabled = poly.panelsDisabled === true;
+              const pClass = (pVis ? '' : 'is-hidden-node') + (pDisabled ? ' is-deactivated-node' : '');
+              const pBadge = pDisabled
+                ? `<span class="badge-stats is-deactivated" title="Mesa desactivada: excluida de mediciones y presupuestos">${poly.totalPanelsCount || poly.panelsCount} pl · OFF</span>`
+                : `<span class="badge-stats" title="Módulos y potencia instalada en ${poly.name}">${poly.panelsCount} pl · ${poly.kwp.toFixed(2)} kWp</span>`;
               html += `
                 <div class="outliner-poly-group">
                   <div class="outliner-poly-item ${polySel} ${poly.visible ? '' : 'is-hidden-node'}" onclick="ProjectHierarchy.selectPolyline(${poly.index}, true)">
@@ -345,14 +356,15 @@
                       <button type="button" class="node-action-btn delete-btn" title="Eliminar faldón" onclick="event.stopPropagation();ProjectHierarchy.deleteItem('polyline', ${poly.index});">🗑️</button>
                     </div>
                   </div>
-                  <div class="outliner-panels-item ${pVis ? '' : 'is-hidden-node'}" onclick="ProjectHierarchy.selectAllPanelsInPolyline(${poly.index})">
+                  <div class="outliner-panels-item ${pClass}" onclick="ProjectHierarchy.selectAllPanelsInPolyline(${poly.index})">
                     <div style="display:flex;align-items:center;gap:4px;flex:1;overflow:hidden;padding-left:14px;">
                       <span class="node-bullet">└ ☀️</span>
                       <span class="node-label panels-node-name" title="Clic para seleccionar las placas FV de ${poly.name}">Placas FV</span>
                     </div>
                     <div class="node-meta">
-                      <span class="badge-stats" title="Módulos y potencia instalada en ${poly.name}">${poly.panelsCount} pl · ${poly.kwp.toFixed(2)} kWp</span>
-                      <button type="button" class="node-action-btn" title="Mostrar/Ocultar placas FV de este faldón" onclick="event.stopPropagation();ProjectHierarchy.toggleVisibility('poly_panels', ${poly.index});">${pVis ? '👁️' : '🙈'}</button>
+                      ${pBadge}
+                      <button type="button" class="node-action-btn toggle-active-btn" title="${pDisabled ? 'Placas desactivadas. Clic para ACTIVAR e incluir en mediciones y presupuesto.' : 'Placas activas. Clic para DESACTIVAR y excluir de mediciones y presupuesto.'}" onclick="event.stopPropagation();ProjectHierarchy.togglePanelsActive(${poly.index});">${pDisabled ? '<span style="color:#f87171;font-weight:bold;font-size:9.5px;padding:1px 4px;border-radius:2px;background:rgba(239,68,68,0.18);border:1px solid rgba(239,68,68,0.4);">OFF</span>' : '<span style="color:#34d399;font-weight:bold;font-size:9.5px;padding:1px 4px;border-radius:2px;background:rgba(16,185,129,0.18);border:1px solid rgba(16,185,129,0.4);">ON</span>'}</button>
+                      <button type="button" class="node-action-btn" title="Mostrar/Ocultar placas FV en 3D" onclick="event.stopPropagation();ProjectHierarchy.toggleVisibility('poly_panels', ${poly.index});">${pVis ? '👁️' : '🙈'}</button>
                     </div>
                   </div>
                 </div>
@@ -386,6 +398,11 @@
           const polySel = poly.isSelected ? 'selected-poly' : '';
           const areaBadge = (typeof poly.areaM2 === 'number' && poly.areaM2 > 0) ? (poly.areaM2.toFixed(1) + ' m²') : 'CAD';
           const pVis = poly.panelsVisible !== false;
+          const pDisabled = poly.panelsDisabled === true;
+          const pClass = (pVis ? '' : 'is-hidden-node') + (pDisabled ? ' is-deactivated-node' : '');
+          const pBadge = pDisabled
+            ? `<span class="badge-stats is-deactivated" title="Mesa desactivada: excluida de mediciones y presupuestos">${poly.totalPanelsCount || poly.panelsCount} pl · OFF</span>`
+            : `<span class="badge-stats" title="Módulos y potencia instalada en ${poly.name}">${poly.panelsCount} pl · ${poly.kwp.toFixed(2)} kWp</span>`;
           html += `
             <div class="outliner-poly-group">
               <div class="outliner-poly-item ${polySel} ${poly.visible ? '' : 'is-hidden-node'}" onclick="ProjectHierarchy.selectPolyline(${poly.index}, true)">
@@ -399,14 +416,15 @@
                   <button type="button" class="node-action-btn delete-btn" title="Eliminar faldón" onclick="event.stopPropagation();ProjectHierarchy.deleteItem('polyline', ${poly.index});">🗑️</button>
                 </div>
               </div>
-              <div class="outliner-panels-item ${pVis ? '' : 'is-hidden-node'}" onclick="ProjectHierarchy.selectAllPanelsInPolyline(${poly.index})">
+              <div class="outliner-panels-item ${pClass}" onclick="ProjectHierarchy.selectAllPanelsInPolyline(${poly.index})">
                 <div style="display:flex;align-items:center;gap:4px;flex:1;overflow:hidden;padding-left:12px;">
                   <span class="node-bullet">└ ☀️</span>
                   <span class="node-label panels-node-name" title="Clic para seleccionar las placas FV de ${poly.name}">Placas FV</span>
                 </div>
                 <div class="node-meta">
-                  <span class="badge-stats" title="Módulos y potencia instalada en ${poly.name}">${poly.panelsCount} pl · ${poly.kwp.toFixed(2)} kWp</span>
-                  <button type="button" class="node-action-btn" title="Mostrar/Ocultar placas FV de este faldón" onclick="event.stopPropagation();ProjectHierarchy.toggleVisibility('poly_panels', ${poly.index});">${pVis ? '👁️' : '🙈'}</button>
+                  ${pBadge}
+                  <button type="button" class="node-action-btn toggle-active-btn" title="${pDisabled ? 'Placas desactivadas. Clic para ACTIVAR e incluir en mediciones y presupuesto.' : 'Placas activas. Clic para DESACTIVAR y excluir de mediciones y presupuesto.'}" onclick="event.stopPropagation();ProjectHierarchy.togglePanelsActive(${poly.index});">${pDisabled ? '<span style="color:#f87171;font-weight:bold;font-size:9.5px;padding:1px 4px;border-radius:2px;background:rgba(239,68,68,0.18);border:1px solid rgba(239,68,68,0.4);">OFF</span>' : '<span style="color:#34d399;font-weight:bold;font-size:9.5px;padding:1px 4px;border-radius:2px;background:rgba(16,185,129,0.18);border:1px solid rgba(16,185,129,0.4);">ON</span>'}</button>
+                  <button type="button" class="node-action-btn" title="Mostrar/Ocultar placas FV en 3D" onclick="event.stopPropagation();ProjectHierarchy.toggleVisibility('poly_panels', ${poly.index});">${pVis ? '👁️' : '🙈'}</button>
                 </div>
               </div>
             </div>
@@ -845,6 +863,28 @@
 
         .is-hidden-node {
           opacity: 0.48;
+        }
+
+        .is-deactivated-node {
+          opacity: 0.58;
+          border-left-color: #ef4444 !important;
+          background: rgba(239, 68, 68, 0.05) !important;
+        }
+
+        .is-deactivated-node .panels-node-name {
+          color: #fca5a5 !important;
+          text-decoration: line-through;
+        }
+
+        .badge-stats.is-deactivated {
+          background: rgba(239, 68, 68, 0.15) !important;
+          color: #f87171 !important;
+          border: 1px solid rgba(239, 68, 68, 0.35) !important;
+        }
+
+        .toggle-active-btn {
+          padding: 1px 2px;
+          cursor: pointer;
         }
 
         .outliner-poly-item.selected-poly {

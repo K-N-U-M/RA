@@ -106,11 +106,31 @@
         const estType = stType;
         const structCfg = poly.structureConfig || { type: estType, tiltDeg: isTriangular ? 30.0 : 0.0, azimuthDeg: 180.0 };
 
+        const isFaldonDisabled = (poly && poly.panelsDisabled === true);
+        if (isFaldonDisabled) {
+          tree.roofs.push({
+            id: polyId,
+            name: polyName + ' (DESACTIVADO)',
+            roofType: roofType,
+            panelCount: 0,
+            disabled: true,
+            kwp: 0,
+            totalKwp: 0,
+            areaM2: 0,
+            structureType: structCfg.type || 'coplanar',
+            tiltDeg: structCfg.tiltDeg || 0,
+            azimuthDeg: structCfg.azimuthDeg || 180,
+            moduleDistribution: {},
+            models: []
+          });
+          return;
+        }
+
         // Single Source of Truth: Priorizar los módulos reales renderizados en 3D para este faldón
         let panels = [];
         if (typeof root !== 'undefined' && Array.isArray(root.allRenderedPanels) && root.allRenderedPanels.length > 0) {
           panels = root.allRenderedPanels.filter(p => {
-            if (!p || p.deleted) return false;
+            if (!p || p.deleted || p.disabled) return false;
             if (typeof p.polyIdx === 'number') return p.polyIdx === polyIdx;
             if (typeof p.faldonIndex === 'number') return p.faldonIndex === polyIdx;
             if (p.rawPanel && typeof p.rawPanel.polyIdx === 'number') return p.rawPanel.polyIdx === polyIdx;
@@ -120,15 +140,15 @@
         // Fallback robusto a arrays de faldón si no se encontró en allRenderedPanels
         if (panels.length === 0) {
           if (Array.isArray(poly.panels) && poly.panels.length > 0) {
-            panels = poly.panels.filter(p => p && !p.deleted);
+            panels = poly.panels.filter(p => p && !p.deleted && !p.disabled);
           } else if (poly.roofInfo && Array.isArray(poly.roofInfo.panels) && poly.roofInfo.panels.length > 0) {
-            panels = poly.roofInfo.panels.filter(p => p && !p.deleted);
+            panels = poly.roofInfo.panels.filter(p => p && !p.deleted && !p.disabled);
           } else if (typeof root.computeSinglePolylineRoofInfo === 'function' && Array.isArray(poly.points) && poly.points.length >= 3) {
             try {
               const freshInfo = root.computeSinglePolylineRoofInfo(poly.points, poly);
               if (freshInfo && Array.isArray(freshInfo.panels)) {
                 poly.roofInfo = freshInfo;
-                panels = freshInfo.panels.filter(p => p && !p.deleted);
+                panels = freshInfo.panels.filter(p => p && !p.deleted && !p.disabled);
               }
             } catch(eRec) {}
           }
@@ -1023,15 +1043,20 @@
         setTimeout(bindHierarchy, 400);
       }
     };
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', bindHierarchy);
-    } else {
-      setTimeout(bindHierarchy, 200);
+    if (typeof document !== 'undefined') {
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bindHierarchy);
+      } else {
+        setTimeout(bindHierarchy, 200);
+      }
     }
   }
 
   // Exportar al ámbito global
   root.BOMTreeEngine = BOMTreeEngine;
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = BOMTreeEngine;
+  }
 
 })(typeof window !== 'undefined' ? window : global);
 

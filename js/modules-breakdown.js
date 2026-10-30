@@ -132,22 +132,25 @@
       var effModId = poly.moduleId || poly.assignedModuleId || globalModId;
       var modSpec = resolveModuleSpec(effModId, catalog);
 
+      var isDisabled = poly.panelsDisabled === true;
+
       // Obtener paneles reales asignados a este faldón
       var faldonPanels = [];
-      if (renderedPanels && renderedPanels.length > 0) {
+      if (!isDisabled && renderedPanels && renderedPanels.length > 0) {
         faldonPanels = renderedPanels.filter(function (p) {
+          if (!p || p.deleted || p.disabled) return false;
           if (typeof p.polyIdx === 'number') return p.polyIdx === polyIdx;
           if (typeof p.faldonIndex === 'number') return p.faldonIndex === polyIdx;
           return polylines.length <= 1;
         });
       }
 
-      if (faldonPanels.length === 0 && poly.roofInfo && Array.isArray(poly.roofInfo.panels)) {
-        faldonPanels = poly.roofInfo.panels.filter(function (p) { return !p.deleted; });
+      if (!isDisabled && faldonPanels.length === 0 && poly.roofInfo && Array.isArray(poly.roofInfo.panels)) {
+        faldonPanels = poly.roofInfo.panels.filter(function (p) { return !p.deleted && !p.disabled; });
       }
 
-      var panelCount = faldonPanels.length;
-      if (panelCount === 0 && poly.panelCount && typeof poly.panelCount === 'number') {
+      var panelCount = isDisabled ? 0 : faldonPanels.length;
+      if (!isDisabled && panelCount === 0 && poly.panelCount && typeof poly.panelCount === 'number') {
         panelCount = poly.panelCount;
       }
 

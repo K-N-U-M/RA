@@ -48,14 +48,18 @@
 
               function getPolylineStats(poly, polyIdx) {
           let pCount = 0;
+          let activeCount = 0;
+          const isDisabled = (poly && poly.panelsDisabled === true);
           if (renderedPanels.length > 0) {
-            pCount = renderedPanels.filter(function(p) {
+            const matches = renderedPanels.filter(function(p) {
               if (!p || p.deleted) return false;
               if (typeof p.polyIdx === 'number') return p.polyIdx === polyIdx;
               if (typeof p.faldonIndex === 'number') return p.faldonIndex === polyIdx;
               if (p.rawPanel && typeof p.rawPanel.polyIdx === 'number') return p.rawPanel.polyIdx === polyIdx;
               return polylines.length <= 1;
-            }).length;
+            });
+            pCount = matches.length;
+            activeCount = isDisabled ? 0 : matches.filter(function(p) { return !p.disabled; }).length;
           }
           if (pCount === 0) {
             if (poly && Array.isArray(poly.panels) && poly.panels.length > 0) {
@@ -73,6 +77,7 @@
                 }
               } catch(eRec) {}
             }
+            activeCount = isDisabled ? 0 : pCount;
           }
           let modW = (poly && poly.moduleConfig && (poly.moduleConfig.wp || poly.moduleConfig.potencia));
           if (!modW && poly && poly.moduleId && global.equipmentCatalog && Array.isArray(global.equipmentCatalog.modules)) {
@@ -95,9 +100,9 @@
           }
           if (!modW) modW = 450;
   
-          const kwp = (pCount * modW) / 1000.0;
+          const kwp = (activeCount * modW) / 1000.0;
           const area = (poly && poly.area) || (poly && poly.roofInfo && poly.roofInfo.area3D) || 0;
-          return { panelsCount: pCount, kwp: kwp, areaM2: area, modW: modW };
+          return { panelsCount: pCount, activeCount: activeCount, kwp: kwp, areaM2: area, modW: modW, panelsDisabled: isDisabled };
         }
 
       const assignedPlaneIndices = new Set();
@@ -148,9 +153,9 @@
               if (poly && (poly.planeIdx === pIdx || poly.buildingId === bld.id)) {
                 assignedPolyIndices.add(polyIdx);
                 const stats = getPolylineStats(poly, polyIdx);
-                pNode.panelsCount += stats.panelsCount;
+                pNode.panelsCount += stats.activeCount;
                 pNode.totalKwp += stats.kwp;
-                bNode.panelsCount += stats.panelsCount;
+                bNode.panelsCount += stats.activeCount;
                 bNode.totalKwp += stats.kwp;
                 bNode.totalAreaM2 += stats.areaM2;
 
@@ -161,8 +166,10 @@
                   buildingId: bld.id,
                   name: poly.name || ('Faldón #' + (polyIdx + 1)),
                   areaM2: stats.areaM2,
-                  panelsCount: stats.panelsCount,
+                  panelsCount: stats.activeCount,
+                  totalPanelsCount: stats.panelsCount,
                   kwp: stats.kwp,
+                  panelsDisabled: stats.panelsDisabled,
                   isSelected: polyIdx === wp.selectedPolyIdx,
                   visible: poly.visible !== false,
                   panelsVisible: poly.panelsVisible !== false
@@ -218,7 +225,7 @@
             if (poly && poly.planeIdx === pIdx) {
               assignedPolyIndices.add(polyIdx);
               const stats = getPolylineStats(poly, polyIdx);
-              pNode.panelsCount += stats.panelsCount;
+              pNode.panelsCount += stats.activeCount;
               pNode.totalKwp += stats.kwp;
 
               pNode.polylines.push({
@@ -227,8 +234,10 @@
                 planeIdx: pIdx,
                 name: poly.name || ('Faldón #' + (polyIdx + 1)),
                 areaM2: stats.areaM2,
-                panelsCount: stats.panelsCount,
+                panelsCount: stats.activeCount,
+                totalPanelsCount: stats.panelsCount,
                 kwp: stats.kwp,
+                panelsDisabled: stats.panelsDisabled,
                 isSelected: polyIdx === wp.selectedPolyIdx,
                 visible: poly.visible !== false,
                 panelsVisible: poly.panelsVisible !== false
@@ -251,8 +260,10 @@
             planeIdx: poly.planeIdx !== undefined ? poly.planeIdx : -1,
             name: poly.name || ('Faldón #' + (polyIdx + 1)),
             areaM2: stats.areaM2,
-            panelsCount: stats.panelsCount,
+            panelsCount: stats.activeCount,
+            totalPanelsCount: stats.panelsCount,
             kwp: stats.kwp,
+            panelsDisabled: stats.panelsDisabled,
             isSelected: polyIdx === wp.selectedPolyIdx,
             visible: poly.visible !== false,
             panelsVisible: poly.panelsVisible !== false
@@ -739,6 +750,77 @@
       this.notify('visibility_changed', { type: type, target: idOrIdx });
     },
 
+    togglePanelsActive: function(polyIdx) {
+      const wp = global.WP;
+      if (!wp || !wp.polylines || !wp.polylines[polyIdx]) return;
+      const poly = wp.polylines[polyIdx];
+      const newState = !poly.panelsDisabled;
+      poly.panelsDisabled = newState;
+
+      // Actualizar paneles vivos en allRenderedPanels
+      if (Array.isArray(global.allRenderedPanels)) {
+        global.allRenderedPanels.forEach(function(p) {
+          if (p && (p.polyIdx === polyIdx || p.faldonIndex === polyIdx)) {
+            p.disabled = newState;
+          }
+        });
+      }
+      if (poly.roofInfo && Array.isArray(poly.roofInfo.panels)) {
+        poly.roofInfo.panels.forEach(function(p) {
+          if (p) p.disabled = newState;
+        });
+      }
+
+      // Si se desactivó, deseleccionar paneles de este faldón
+      if (newState) {
+        if (Array.isArray(global.selectedPanelIndices) && global.selectedPanelIndices.length > 0) {
+          global.selectedPanelIndices = global.selectedPanelIndices.filter(function(idx) {
+            const p = (global.allRenderedPanels && global.allRenderedPanels[idx]);
+            return !p || (p.polyIdx !== polyIdx && p.faldonIndex !== polyIdx);
+          });
+          if (typeof window !== 'undefined') window.selectedPanelIndices = global.selectedPanelIndices;
+        }
+        if (typeof global.selectedPanelIndex === 'number' && global.selectedPanelIndex >= 0) {
+          const selP = (global.allRenderedPanels && global.allRenderedPanels[global.selectedPanelIndex]);
+          if (selP && (selP.polyIdx === polyIdx || selP.faldonIndex === polyIdx)) {
+            global.selectedPanelIndex = -1;
+            if (typeof window !== 'undefined') window.selectedPanelIndex = -1;
+          }
+        }
+        if (typeof global.updatePanelSelectionUI === 'function') global.updatePanelSelectionUI();
+        if (typeof global.showToast === 'function') {
+          global.showToast('PLACAS DESACTIVADAS', 'Las placas de ' + (poly.name || ('Faldón #' + (polyIdx + 1))) + ' se han excluido de mediciones y presupuesto.', 'warning', 3000);
+        }
+      } else {
+        if (typeof global.showToast === 'function') {
+          global.showToast('PLACAS ACTIVADAS', 'Las placas de ' + (poly.name || ('Faldón #' + (polyIdx + 1))) + ' vuelven a computar en el proyecto.', 'success', 3000);
+        }
+      }
+
+      // Refrescar 3D y todos los motores de cálculo en cascada
+      if (typeof global.wpFastRenderSimulatedPanels === 'function') {
+        global.wpFastRenderSimulatedPanels(true, polyIdx);
+      }
+      if (typeof global.recalculateSolarYield === 'function') {
+        global.recalculateSolarYield();
+      }
+      if (typeof global.updateAllVisuals === 'function') {
+        global.updateAllVisuals();
+      }
+      if (typeof global.UIOutliner !== 'undefined' && typeof global.UIOutliner.render === 'function') {
+        global.UIOutliner.render();
+      }
+      if (typeof global.BOMTreeEngine !== 'undefined' && typeof global.BOMTreeEngine.renderTree === 'function') {
+        global.BOMTreeEngine.renderTree();
+      }
+      if (typeof global.wpUpdateStep3UI === 'function') global.wpUpdateStep3UI();
+      if (typeof global.updateFinancialMetrics === 'function') global.updateFinancialMetrics();
+      if (global.viewer && global.viewer.scene && typeof global.viewer.scene.requestRender === 'function') {
+        global.viewer.scene.requestRender();
+      }
+      this.notify('panels_active_changed', { polyIdx: polyIdx, disabled: newState });
+    },
+
     deleteItem: function(type, idOrIdx) {
       const wp = global.WP;
       if (type === 'building' && Array.isArray(global.buildings)) {
@@ -819,6 +901,9 @@
   };
 
   global.ProjectHierarchy = ProjectHierarchy;
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = ProjectHierarchy;
+  }
 
 })(typeof window !== 'undefined' ? window : this);
 

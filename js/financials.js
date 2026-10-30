@@ -639,11 +639,14 @@ var RAPricing = {
     var cfg = (typeof window !== 'undefined' && window.solarProjectConfig) ? window.solarProjectConfig : {};
     var nPan = (typeof forcedPanels === 'number' && forcedPanels > 0) ? forcedPanels : 0;
     if (!nPan && typeof window !== 'undefined' && Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0) {
-      nPan = window.allRenderedPanels.filter(function(p) { return p && !p.deleted; }).length;
+      nPan = window.allRenderedPanels.filter(function(p) { return p && !p.deleted && !p.disabled; }).length;
     }
     if (!nPan && typeof WP !== 'undefined' && WP && Array.isArray(WP.polylines)) {
       WP.polylines.forEach(function(p) {
-        if (p && p.roofInfo && Array.isArray(p.roofInfo.panels)) nPan += p.roofInfo.panels.length;
+        if (p && p.panelsDisabled === true) return;
+        if (p && p.roofInfo && Array.isArray(p.roofInfo.panels)) {
+          nPan += p.roofInfo.panels.filter(function(pan) { return !pan.deleted && !pan.disabled; }).length;
+        }
       });
     }
     var invCnt = (cfg.autoSizing && cfg.autoSizing.inverters && cfg.autoSizing.inverters.count) || 1;
@@ -686,7 +689,7 @@ var RAPricing = {
       : ((tree && tree.summary && tree.summary.totalPanels > 0)
           ? tree.summary.totalPanels
           : ((typeof window !== 'undefined' && Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0)
-              ? window.allRenderedPanels.filter(function(p) { return p && !p.deleted; }).length
+              ? window.allRenderedPanels.filter(function(p) { return p && !p.deleted && !p.disabled; }).length
               : (cfg.lastEstimatedPanels || 1)));
 
     // 1. Precio unitario real y coste total de módulos (con soporte Multi-Módulo)
@@ -2947,10 +2950,10 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   if (!numPanelsFinal || numPanelsFinal === 0) {
     numPanelsFinal =
       (window.allRenderedPanels && window.allRenderedPanels.length > 0
-        ? window.allRenderedPanels.length
+        ? window.allRenderedPanels.filter(p => p && !p.deleted && !p.disabled).length
         : 0) ||
       (window.lastRoofInfo && window.lastRoofInfo.panels && window.lastRoofInfo.panels.length > 0
-        ? window.lastRoofInfo.panels.length
+        ? window.lastRoofInfo.panels.filter(p => p && !p.deleted && !p.disabled).length
         : 0) ||
       (window.solarProjectConfig && window.solarProjectConfig.lastEstimatedPanels > 0
         ? window.solarProjectConfig.lastEstimatedPanels

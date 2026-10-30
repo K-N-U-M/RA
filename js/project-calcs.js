@@ -36,22 +36,26 @@ function getProjectCalcs() {
   let numPanels = 0;
   let mlpeCount = 0;
   if (typeof window !== 'undefined' && Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0) {
-    numPanels = window.allRenderedPanels.length;
-    mlpeCount = window.allRenderedPanels.filter(p => p.hasMLPE).length;
+    const activePanels = window.allRenderedPanels.filter(p => p && !p.deleted && !p.disabled);
+    numPanels = activePanels.length;
+    mlpeCount = activePanels.filter(p => p.hasMLPE).length;
   } else if (typeof WP !== 'undefined' && WP && WP.polylines && WP.polylines.length > 0) {
     WP.polylines.forEach(poly => {
+      if (poly.panelsDisabled === true) return;
       const pInf = poly.roofInfo || (typeof computeSinglePolylineRoofInfo === 'function' ? computeSinglePolylineRoofInfo(poly.points, poly) : null);
       if (pInf && pInf.panels) {
-        numPanels += pInf.panels.length;
-        mlpeCount += pInf.panels.filter(p => p.hasMLPE).length;
+        const activeP = pInf.panels.filter(p => p && !p.deleted && !p.disabled);
+        numPanels += activeP.length;
+        mlpeCount += activeP.filter(p => p.hasMLPE).length;
       }
     });
   } else {
     const roofInfo = (typeof computeRoofPanelsData === 'function') ? computeRoofPanelsData() : null;
-    numPanels = (roofInfo && roofInfo.panels && roofInfo.panels.length > 0)
-      ? roofInfo.panels.length
+    const activeRPanels = (roofInfo && roofInfo.panels) ? roofInfo.panels.filter(p => p && !p.deleted && !p.disabled) : [];
+    numPanels = (activeRPanels.length > 0)
+      ? activeRPanels.length
       : ((typeof simulatedPanelEntities !== 'undefined' && simulatedPanelEntities.length) || 0);
-    mlpeCount = (roofInfo && roofInfo.panels) ? roofInfo.panels.filter(p => p.hasMLPE).length : 0;
+    mlpeCount = activeRPanels.filter(p => p.hasMLPE).length;
   }
 
   let tiltDeg = pa ? pa.tiltDeg : 30;
