@@ -107,6 +107,51 @@
       }
     }
 
+    // A2. Detectar vértice de huella de edificio (en base o cubierta)
+    if (!target && Array.isArray(global.buildings) && global.buildings.length > 0) {
+      const selBld = (typeof global.selectedBuildingId !== 'undefined' && global.selectedBuildingId)
+        ? global.buildings.find(b => b.id === global.selectedBuildingId)
+        : null;
+      const bldList = selBld ? [selBld] : global.buildings;
+      for (const b of bldList) {
+        if (!b.points || b.visible === false) continue;
+        const bH = b.height || 6.0;
+        for (let vi = 0; vi < b.points.length; vi++) {
+          const ptBase = b.points[vi];
+          if (!ptBase) continue;
+          const ptWin = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, ptBase);
+          if (ptWin && Math.hypot(screenPos.x - ptWin.x, screenPos.y - ptWin.y) < 16) {
+            target = {
+              type: 'vertex',
+              subType: 'building_vertex',
+              bldId: b.id,
+              vIdx: vi,
+              screenPos: ptWin,
+              point3D: ptBase
+            };
+            break;
+          }
+          const c = Cesium.Cartographic.fromCartesian(ptBase);
+          if (c) {
+            const ptRoof = Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, c.height + bH);
+            const ptWinRoof = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, ptRoof);
+            if (ptWinRoof && Math.hypot(screenPos.x - ptWinRoof.x, screenPos.y - ptWinRoof.y) < 16) {
+              target = {
+                type: 'vertex',
+                subType: 'building_vertex',
+                bldId: b.id,
+                vIdx: vi,
+                screenPos: ptWinRoof,
+                point3D: ptBase
+              };
+              break;
+            }
+          }
+        }
+        if (target) break;
+      }
+    }
+
     // B. Detectar panel solar bajo el cursor
     if (!target && typeof global.pickPanelUnderCursor === 'function') {
       const pIdx = global.pickPanelUnderCursor(screenPos);
@@ -179,7 +224,7 @@
 
       // Etiqueta tooltip flotante
       ctx.font = 'bold 9px "JetBrains Mono", monospace';
-      const label = `VÉRTICE #${t.vIdx + 1}`;
+      const label = (t.subType === 'building_vertex') ? `EDIFICIO #${t.vIdx + 1}` : `VÉRTICE #${t.vIdx + 1}`;
       const textW = ctx.measureText(label).width;
       ctx.fillStyle = 'rgba(15,23,42,0.85)';
       ctx.fillRect(t.screenPos.x + 12, t.screenPos.y - 12, textW + 8, 16);

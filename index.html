@@ -15054,16 +15054,34 @@ window.toggleSolarHUD = toggleSolarHUD;
       }
     }
 
-    // ── B1. Clic directo sobre vértice de huella de edificio (distancia de pantalla <= 24px) para seleccionarlo e iniciar arrastre
-    if (!uTarget) {
-      let nearestBldVtx = null;
+    // ── B1. Clic directo sobre vértice de huella de edificio (distancia de pantalla <= 24px o pick de handle) para seleccionarlo e iniciar arrastre
+    let nearestBldVtx = null;
+    const pickedDown = (scene && typeof scene.pick === 'function') ? scene.pick(down.position) : null;
+    if (pickedDown && pickedDown.id) {
+      const pIdStr = (typeof pickedDown.id === 'string') ? pickedDown.id : (typeof pickedDown.id.id === 'string' ? pickedDown.id.id : '');
+      if (pIdStr.startsWith('bld_vtx_handle_')) {
+        const parts = pIdStr.replace('bld_vtx_handle_', '').split('_');
+        const vi = parseInt(parts.pop(), 10);
+        const bId = parts.join('_');
+        const targetB = Array.isArray(buildings) ? buildings.find(b => b.id === bId) : null;
+        if (targetB && targetB.visible !== false) {
+          nearestBldVtx = { bldId: bId, vtxIdx: vi };
+        }
+      }
+    }
+    if (!nearestBldVtx && Array.isArray(buildings) && buildings.length > 0) {
       let minBldVtxDist = 24.0;
       const _selBld = (typeof selectedBuildingId !== 'undefined' && selectedBuildingId) ? buildings.find(b => b.id === selectedBuildingId) : null;
-      const _bldList = _selBld ? [_selBld] : (Array.isArray(buildings) ? buildings : []);
+      const _bldList = _selBld ? [_selBld] : buildings;
       for (const _b of _bldList) {
-        if (!_b.points) continue;
+        if (!_b.points || _b.visible === false) continue;
+        const bH = _b.height || 6.0;
         for (let _vi = 0; _vi < _b.points.length; _vi++) {
-          const _pWin = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, _b.points[_vi]);
+          const ptBase = _b.points[_vi];
+          if (!ptBase) continue;
+
+          // Proyección en base
+          const _pWin = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, ptBase);
           if (_pWin) {
             const _d = Math.hypot(down.position.x - _pWin.x, down.position.y - _pWin.y);
             if (_d < minBldVtxDist) {
@@ -15071,46 +15089,60 @@ window.toggleSolarHUD = toggleSolarHUD;
               nearestBldVtx = { bldId: _b.id, vtxIdx: _vi };
             }
           }
-        }
-      }
-      if (nearestBldVtx) {
-        if (typeof selectedBuildingId !== 'undefined' && selectedBuildingId !== nearestBldVtx.bldId && typeof selectBuilding === 'function') {
-          selectBuilding(nearestBldVtx.bldId);
-        }
-        if (typeof selectBuildingVertex === 'function') selectBuildingVertex(nearestBldVtx.vtxIdx);
 
-        const _bldPt = (function() {
-          const _bT = buildings.find(b => b.id === nearestBldVtx.bldId);
-          return (_bT && _bT.points && _bT.points[nearestBldVtx.vtxIdx]) ? _bT.points[nearestBldVtx.vtxIdx] : null;
-        })();
-
-        universalGizmoState.active = true;
-        universalGizmoState.wasDragging = false;
-        universalGizmoState.mode = 'center-drag';
-        universalGizmoState.targetType = 'vertex';
-        if (window.RAundo && typeof window.RAundo.beginDrag === 'function') window.RAundo.beginDrag('vertex');
-        universalGizmoState.startMouse = { x: down.position.x, y: down.position.y };
-        universalGizmoState.startPos = _bldPt ? Cesium.Cartesian3.clone(_bldPt) : null;
-        universalGizmoState.startRot = 0;
-        universalGizmoState.startAngleRad = 0;
-        if (typeof getSelectedVertexData === 'function') {
-          try {
-            const _wpData = getSelectedVertexData();
-            if (_wpData && _wpData.wp) universalGizmoState.wp = _wpData.wp;
-          } catch(_e) {
-            if (typeof window.RA !== 'undefined' && window.RA.log) window.RA.log.warn('Error fetching object data', _e);
+          // Proyección en alero / cubierta
+          const c = Cesium.Cartographic.fromCartesian(ptBase);
+          if (c) {
+            const ptRoof = Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, c.height + bH);
+            const _pWinRoof = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, ptRoof);
+            if (_pWinRoof) {
+              const _dRoof = Math.hypot(down.position.x - _pWinRoof.x, down.position.y - _pWinRoof.y);
+              if (_dRoof < minBldVtxDist) {
+                minBldVtxDist = _dRoof;
+                nearestBldVtx = { bldId: _b.id, vtxIdx: _vi };
+              }
+            }
           }
         }
-
-        if (scene && scene.screenSpaceCameraController) {
-          scene.screenSpaceCameraController.enableRotate = false;
-          scene.screenSpaceCameraController.enableTranslate = false;
-          scene.screenSpaceCameraController.enableTilt = false;
-          scene.screenSpaceCameraController.enableLook = false;
-          scene.screenSpaceCameraController.enableZoom = false;
-        }
-        return;
       }
+    }
+    if (nearestBldVtx) {
+      if (typeof selectedBuildingId !== 'undefined' && selectedBuildingId !== nearestBldVtx.bldId && typeof selectBuilding === 'function') {
+        selectBuilding(nearestBldVtx.bldId);
+      }
+      if (typeof selectBuildingVertex === 'function') selectBuildingVertex(nearestBldVtx.vtxIdx);
+
+      const _bldPt = (function() {
+        const _bT = buildings.find(b => b.id === nearestBldVtx.bldId);
+        return (_bT && _bT.points && _bT.points[nearestBldVtx.vtxIdx]) ? _bT.points[nearestBldVtx.vtxIdx] : null;
+      })();
+
+      universalGizmoState.active = true;
+      universalGizmoState.wasDragging = false;
+      universalGizmoState.mode = 'center-drag';
+      universalGizmoState.targetType = 'vertex';
+      if (window.RAundo && typeof window.RAundo.beginDrag === 'function') window.RAundo.beginDrag('vertex');
+      universalGizmoState.startMouse = { x: down.position.x, y: down.position.y };
+      universalGizmoState.startPos = _bldPt ? Cesium.Cartesian3.clone(_bldPt) : null;
+      universalGizmoState.startRot = 0;
+      universalGizmoState.startAngleRad = 0;
+      if (typeof getUniversalSelectedTarget === 'function') {
+        try {
+          const _uT = getUniversalSelectedTarget();
+          if (_uT && _uT.wp) universalGizmoState.wp = _uT.wp;
+        } catch(_e) {
+          if (typeof window.RA !== 'undefined' && window.RA.log) window.RA.log.warn('Error fetching vertex data', _e);
+        }
+      }
+
+      if (scene && scene.screenSpaceCameraController) {
+        scene.screenSpaceCameraController.enableRotate = false;
+        scene.screenSpaceCameraController.enableTranslate = false;
+        scene.screenSpaceCameraController.enableTilt = false;
+        scene.screenSpaceCameraController.enableLook = false;
+        scene.screenSpaceCameraController.enableZoom = false;
+      }
+      return;
     }
 
     // ── B. Clic directo sobre vértice de polilínea activa (distancia de pantalla <= 22px) para seleccionarlo e iniciar arrastre
@@ -15343,6 +15375,9 @@ window.toggleSolarHUD = toggleSolarHUD;
       return;
     }
 
+    // ── MUESTREO 3D DE ENTIDAD BAJO EL CURSOR
+    const pickedObj = (scene && typeof scene.pick === 'function') ? scene.pick(click.position) : null;
+
     // -0A. Comprobar clic sobre vértice maestro del plano de trabajo activo (Paso 1)
     const curStepForClick = (typeof wpCurrentStep !== 'undefined') ? wpCurrentStep : ((typeof window !== 'undefined' && window.wpCurrentStep) || 1);
     if (curStepForClick === 1 && typeof WP !== 'undefined' && WP && typeof wpGetActivePlane === 'function') {
@@ -15400,7 +15435,6 @@ window.toggleSolarHUD = toggleSolarHUD;
 
     // 0. Comprobar clic sobre Manipulador o proximidad de Vértice de Huella de Edificio
     let hitBldVtx = null;
-    const pickedObj = scene.pick(click.position);
     if (pickedObj && pickedObj.id) {
       const pIdStr = (typeof pickedObj.id === 'string') ? pickedObj.id : (typeof pickedObj.id.id === 'string' ? pickedObj.id.id : '');
       if (pIdStr.startsWith('bld_vtx_handle_')) {
@@ -15413,20 +15447,38 @@ window.toggleSolarHUD = toggleSolarHUD;
         }
       }
     }
-    // Proximidad en pantalla (tolerancia de 24px) para selección precisa en cualquier ángulo
+    // Proximidad en pantalla (tolerancia de 24px en base o coronación) para selección precisa en cualquier ángulo
     if (!hitBldVtx && Array.isArray(buildings) && buildings.length > 0) {
       let closestDist = 24.0;
       const bldList = selectedBuildingId ? [buildings.find(b => b.id === selectedBuildingId)].filter(Boolean) : buildings;
       for (const b of bldList) {
         if (!b.points || b.visible === false) continue;
+        const bH = b.height || 6.0;
         for (let vi = 0; vi < b.points.length; vi++) {
-          const pt = b.points[vi];
-          const wPos = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, pt);
-          if (wPos) {
-            const d = Math.hypot(click.position.x - wPos.x, click.position.y - wPos.y);
+          const ptBase = b.points[vi];
+          if (!ptBase) continue;
+
+          // Detección en la base
+          const wPosBase = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, ptBase);
+          if (wPosBase) {
+            const d = Math.hypot(click.position.x - wPosBase.x, click.position.y - wPosBase.y);
             if (d < closestDist) {
               closestDist = d;
               hitBldVtx = { bldId: b.id, vtxIdx: vi };
+            }
+          }
+
+          // Detección en la coronación / alero
+          const c = Cesium.Cartographic.fromCartesian(ptBase);
+          if (c) {
+            const ptRoof = Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, c.height + bH);
+            const wPosRoof = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, ptRoof);
+            if (wPosRoof) {
+              const dRoof = Math.hypot(click.position.x - wPosRoof.x, click.position.y - wPosRoof.y);
+              if (dRoof < closestDist) {
+                closestDist = dRoof;
+                hitBldVtx = { bldId: b.id, vtxIdx: vi };
+              }
             }
           }
         }
@@ -15969,6 +16021,7 @@ window.toggleSolarHUD = toggleSolarHUD;
       } else if (draggedTargetType === 'vertex') {
         if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
         if (typeof render3DBuildingsInCesium === 'function') render3DBuildingsInCesium();
+        if (typeof updateBuildingFootprintUI === 'function') updateBuildingFootprintUI();
         if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Vértice desplazado (faldón o edificio)');
       } else if (draggedTargetType === 'building') {
         if (typeof render3DBuildingsInCesium === 'function') render3DBuildingsInCesium();
@@ -16299,6 +16352,100 @@ window.toggleSolarHUD = toggleSolarHUD;
         renderTriad2D();
 
         showStatus('<i data-lucide=\"plus\" class=\"icon-sm\"></i> NUEVO VÉRTICE INSERTADO EN ARISTA (TOTAL: ' + poly.points.length + ' VÉRTICES)', 2500);
+        return;
+      }
+    }
+
+    // ── B. Doble clic sobre arista de edificio para insertar un nuevo vértice en su huella
+    if (doubleClick && doubleClick.position && Array.isArray(buildings) && buildings.length > 0) {
+      const clickPos = doubleClick.position;
+      const selBld = (typeof selectedBuildingId !== 'undefined' && selectedBuildingId)
+        ? buildings.find(b => b.id === selectedBuildingId)
+        : null;
+      const bldCandidates = selBld ? [selBld] : buildings;
+
+      let hitBld = null;
+      let hitSegmentIdx = -1;
+      let hitT = 0.5;
+      let minBldDist = 24.0; // Tolerancia en píxeles
+
+      for (const b of bldCandidates) {
+        if (!b.points || b.points.length < 3 || b.visible === false) continue;
+        const bH = b.height || 6.0;
+        const n = b.points.length;
+
+        for (let i = 0; i < n; i++) {
+          const pt1Base = b.points[i];
+          const pt2Base = b.points[(i + 1) % n];
+          if (!pt1Base || !pt2Base) continue;
+
+          // 1. Detección en arista base
+          const p1WinBase = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, pt1Base);
+          const p2WinBase = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, pt2Base);
+          if (p1WinBase && p2WinBase) {
+            const projBase = projectPointOnSegment2D(clickPos.x, clickPos.y, p1WinBase.x, p1WinBase.y, p2WinBase.x, p2WinBase.y);
+            if (projBase.dist < minBldDist) {
+              minBldDist = projBase.dist;
+              hitBld = b;
+              hitSegmentIdx = i;
+              hitT = projBase.t;
+            }
+          }
+
+          // 2. Detección en arista de coronación / alero
+          const c1 = Cesium.Cartographic.fromCartesian(pt1Base);
+          const c2 = Cesium.Cartographic.fromCartesian(pt2Base);
+          if (c1 && c2) {
+            const pt1Roof = Cesium.Cartesian3.fromRadians(c1.longitude, c1.latitude, c1.height + bH);
+            const pt2Roof = Cesium.Cartesian3.fromRadians(c2.longitude, c2.latitude, c2.height + bH);
+            const p1WinRoof = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, pt1Roof);
+            const p2WinRoof = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, pt2Roof);
+            if (p1WinRoof && p2WinRoof) {
+              const projRoof = projectPointOnSegment2D(clickPos.x, clickPos.y, p1WinRoof.x, p1WinRoof.y, p2WinRoof.x, p2WinRoof.y);
+              if (projRoof.dist < minBldDist) {
+                minBldDist = projRoof.dist;
+                hitBld = b;
+                hitSegmentIdx = i;
+                hitT = projRoof.t;
+              }
+            }
+          }
+        }
+      }
+
+      if (hitBld && hitSegmentIdx >= 0) {
+        if (typeof selectedBuildingId !== 'undefined' && selectedBuildingId !== hitBld.id && typeof selectBuilding === 'function') {
+          selectBuilding(hitBld.id);
+        }
+
+        const p1_3D = hitBld.points[hitSegmentIdx];
+        const p2_3D = hitBld.points[(hitSegmentIdx + 1) % hitBld.points.length];
+        const segVec = Cesium.Cartesian3.subtract(p2_3D, p1_3D, new Cesium.Cartesian3());
+        const newPt3D = Cesium.Cartesian3.add(p1_3D, Cesium.Cartesian3.multiplyByScalar(segVec, hitT, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+
+        if (window.RAundo && typeof window.RAundo.snapBuildings === 'function') {
+          window.RAundo.snapBuildings('Insertar vértice en edificio');
+        }
+
+        hitBld.isRectangular = false;
+        hitBld.points.splice(hitSegmentIdx + 1, 0, newPt3D);
+
+        if (typeof selectBuildingVertex === 'function') {
+          selectBuildingVertex(hitSegmentIdx + 1);
+        }
+        if (typeof render3DBuildingsInCesium === 'function') {
+          render3DBuildingsInCesium();
+        }
+        if (typeof updateBuildingFootprintUI === 'function') {
+          updateBuildingFootprintUI();
+        }
+        if (typeof renderTriad2D === 'function') {
+          renderTriad2D();
+        }
+
+        if (typeof showStatus === 'function') {
+          showStatus('<i data-lucide="plus" class="icon-sm"></i> NUEVO VÉRTICE INSERTADO EN ARISTA DE EDIFICIO (TOTAL: ' + hitBld.points.length + ' VÉRTICES)', 2500);
+        }
         return;
       }
     }
