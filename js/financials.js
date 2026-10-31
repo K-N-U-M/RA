@@ -1275,12 +1275,12 @@ function wpSetProposalFormat(fmt) {
 }
 function wpDownloadSelectedProposal() {
   if (window._selectedProposalFormat === 'portrait') {
-    if (typeof generatePropuestaComercialPDF === 'function') generatePropuestaComercialPDF();
+    if (typeof generatePropuestaComercialPDF === 'function') generatePropuestaComercialPDF(true);
   } else {
-    if (window.CommercialProposalDossier && typeof window.CommercialProposalDossier.openConfig === 'function') {
-      window.CommercialProposalDossier.openConfig();
+    if (window.CommercialProposalDossier && typeof window.CommercialProposalDossier.generate === 'function') {
+      window.CommercialProposalDossier.generate();
     } else if (typeof generatePropuestaComercialPDF === 'function') {
-      generatePropuestaComercialPDF();
+      generatePropuestaComercialPDF(true);
     }
   }
 }
@@ -2893,7 +2893,7 @@ if (typeof window !== 'undefined') {
     '</svg>'
 
     // HOJA 1 CEL: MODELO ECONÓMICO Y HOMOLOGACIÓN
-    var page1Html = '<div class="page-sheet">' +
+    var page1Html = '<div class="page-sheet" data-section-id="cel">' +
       '<div>' +
         '<div class="cover-header">' +
           '<div class="company-text">' +
@@ -2990,7 +2990,7 @@ if (typeof window !== 'undefined') {
     '</div>';
 
     // HOJA 2 CEL: FLUJO DE DESPACHO ENERGÉTICO Y RADAR DE COBERTURA 5 KM (ESPACIOSO)
-    var page2Html = '<div class="page-sheet">' +
+    var page2Html = '<div class="page-sheet" data-section-id="cel">' +
       '<div>' +
         '<div class="cover-header">' +
           '<div class="company-text">' +
@@ -3153,7 +3153,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   const warMo        = eqWarranties.warMo    || branding.warMo    || '5';
   const warBat       = eqWarranties.warBat   || '10';
 
-  // ── Paleta de color por tema ──────────────────────────────────────────────
+  // ── Paleta de color por tema (sincronizada con Estudio Maestro si existe) ──
   const THEMES = {
     emerald: { primary: '#059669', light: '#d1fae5', accent: '#10b981', dark: '#065f46' },
     sky:     { primary: '#0284c7', light: '#e0f2fe', accent: '#38bdf8', dark: '#0c4a6e' },
@@ -3162,7 +3162,10 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     rose:    { primary: '#e11d48', light: '#ffe4e6', accent: '#f43f5e', dark: '#881337' }
   };
   THEMES.blue = THEMES.sky;
-  const pal = THEMES[theme] || THEMES.emerald;
+  const _studioPal = (typeof window !== 'undefined' && window.RAProposalStyleStudio && typeof window.RAProposalStyleStudio.getResolvedPalette === 'function')
+    ? window.RAProposalStyleStudio.getResolvedPalette(themeOverride)
+    : null;
+  const pal = _studioPal || THEMES[theme] || THEMES.emerald;
 
   // ── Datos de producción (motor preciso si disponible, fallback a docs-generator) ──
   const solarStats = (window.RA && window.RA.solarStats) ? window.RA.solarStats : null;
@@ -3266,8 +3269,25 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
 
   // ── Resolución de equipos del catálogo (SSOT) ──────────────────────────────
   const _eqp = resolveEquipmentNames();
-  // ── Resumen comercial para el cliente ──────────────────────────────────────
-  const _summaryHTML = generateCommercialSummary(d, m, _eqp);
+  const _studioCfg = (typeof window !== 'undefined' && window.RAProposalStyleStudio && typeof window.RAProposalStyleStudio.getActiveConfig === 'function')
+    ? window.RAProposalStyleStudio.getActiveConfig()
+    : null;
+  // ── Resumen comercial para el cliente (Plantilla fija instantánea o generador SSOT) ──
+  const _summaryHTML = (_studioCfg && _studioCfg.lockedTexts && _studioCfg.lockedTexts.useLockedSummary && _studioCfg.lockedTexts.summaryTemplate)
+    ? window.RAProposalStyleStudio.interpolateText(_studioCfg.lockedTexts.summaryTemplate, {
+        clientName: d.tit.nombre,
+        companyName: companyName,
+        kwp: m.kwp.toFixed(2),
+        numPanels: m.numPanels,
+        windCount: _eqp.hasWind ? (_eqp.windCount || 1) : 0,
+        windKw: _eqp.hasWind ? (_eqp.windTotalKw || 0) : 0,
+        annualYield: Math.round(annualYieldKWh).toLocaleString('es-ES'),
+        ahorroAnual: Math.round(m.ahorroLuzAnio1).toLocaleString('es-ES'),
+        payback: m.paybackYears.toFixed(1),
+        capexBruto: Math.round(m.capexBruto).toLocaleString('es-ES'),
+        capexNeto: Math.round(m.capexNeto).toLocaleString('es-ES')
+      })
+    : generateCommercialSummary(d, m, _eqp);
 
 
   // ── Logo de empresa ───────────────────────────────────────────────────────
@@ -3326,8 +3346,12 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   const windTurbineCount = (typeof window !== 'undefined' && Array.isArray(window.windTurbines))
     ? window.windTurbines.filter(t => t && (!t.operationalState || t.operationalState.enabled !== false)).length
     : ((typeof designCosts !== 'undefined' && designCosts && designCosts.windCount) || 0);
-  const _hasThreePkgs = Boolean(_commCfgForPages && _commCfgForPages.showThreePackagesComparison);
-  const _includeCEL = (_commCfgForPages && _commCfgForPages.includeCEL !== undefined) ? _commCfgForPages.includeCEL : false;
+  const _hasThreePkgs = (_studioCfg && _studioCfg.sectionsEnabled && typeof _studioCfg.sectionsEnabled.packages_comparison === 'boolean')
+    ? _studioCfg.sectionsEnabled.packages_comparison
+    : Boolean(_commCfgForPages && _commCfgForPages.showThreePackagesComparison);
+  const _includeCEL = (_studioCfg && _studioCfg.sectionsEnabled && typeof _studioCfg.sectionsEnabled.cel === 'boolean')
+    ? _studioCfg.sectionsEnabled.cel
+    : ((_commCfgForPages && _commCfgForPages.includeCEL !== undefined) ? _commCfgForPages.includeCEL : false);
   const _customCelPrice = (_commCfgForPages && typeof _commCfgForPages.celPriceEur === 'number') ? _commCfgForPages.celPriceEur : 0.11;
   const _celMetrics = calculateCELMetrics(d, m, _customCelPrice);
 
@@ -3421,7 +3445,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         display: flex;
         flex-direction: column;
         justify-content: space-between;
-        padding: 24mm 22mm 20mm;
+        padding: 15mm 18mm 13mm;
         background: #ffffff;
         position: relative;
       }
@@ -3429,7 +3453,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding-bottom: 18px;
+        padding-bottom: 12px;
         border-bottom: 3.5px solid ${pal.primary};
       }
       .cover-brand-meta {
@@ -3439,7 +3463,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         line-height: 1.5;
       }
       .cover-hero-title {
-        margin: 16px 0 12px;
+        margin: 12px 0 9px;
         text-align: center;
       }
       .cover-hero-tag {
@@ -3452,22 +3476,25 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         letter-spacing: 1.5px;
         padding: 4px 14px;
         border-radius: 20px;
-        margin-bottom: 12px;
+        margin-bottom: 10px;
         border: 1px solid ${pal.accent};
       }
       .cover-hero-h1 {
-        font-size: 26px;
+        font-size: 24px;
         font-weight: 900;
         color: #0f172a;
         letter-spacing: -0.6px;
-        line-height: 1.25;
+        line-height: 1.18;
         text-transform: uppercase;
+        text-wrap: balance;
       }
       .cover-hero-sub {
-        font-size: 13px;
+        font-size: 12.5px;
         color: #64748b;
-        margin-top: 8px;
+        margin-top: 6px;
         font-weight: 600;
+        line-height: 1.32;
+        text-wrap: balance;
       }
       .cover-client-card {
         background: #f8fafc;
@@ -3498,20 +3525,20 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       .cover-specs-grid {
         display: grid;
         grid-template-columns: repeat(4, 1fr);
-        gap: 10px;
-        margin: 6px 0 14px;
+        gap: 9px;
+        margin: 5px 0 10px;
       }
       .cover-spec-box {
         background: #f8fafc;
         border: 1.5px solid #e2e8f0;
         border-radius: 10px;
-        padding: 10px 8px;
+        padding: 8px 6px;
         display: flex;
         flex-direction: column;
         align-items: center;
         text-align: center;
         justify-content: space-between;
-        min-height: 110px;
+        min-height: 92px;
         box-shadow: 0 2px 6px rgba(0,0,0,0.03);
         transition: all 0.2s ease;
       }
@@ -3521,42 +3548,46 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         box-shadow: 0 4px 14px rgba(0,0,0,0.06);
       }
       .cover-spec-icon {
-        width: 48px;
-        height: 48px;
+        width: 40px;
+        height: 40px;
         display: flex;
         align-items: center;
         justify-content: center;
         background: #ffffff;
         border: 1.5px solid #e2e8f0;
-        border-radius: 12px;
-        margin-bottom: 8px;
+        border-radius: 10px;
+        margin-bottom: 5px;
         box-shadow: 0 1px 4px rgba(0,0,0,0.03);
       }
       .cover-spec-label {
-        font-size: 9.5px;
+        font-size: 9px;
         font-weight: 800;
         color: #64748b;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 4px;
+        letter-spacing: 0.4px;
+        margin-bottom: 3px;
+        line-height: 1.22;
+        text-wrap: balance;
       }
       .cover-spec-val {
-        font-size: 18px;
+        font-size: 16.5px;
         font-weight: 900;
         color: #0f172a;
-        line-height: 1.2;
+        line-height: 1.15;
+        white-space: nowrap;
       }
       .cover-spec-val.primary {
         color: ${pal.primary};
       }
       .cover-spec-sub {
-        font-size: 9px;
+        font-size: 8.5px;
         color: #64748b;
-        margin-top: 4px;
+        margin-top: 3px;
         font-weight: 600;
+        line-height: 1.22;
       }
       .cover-footer {
-        padding-top: 14px;
+        padding-top: 9px;
         border-top: 1px solid #e2e8f0;
         display: flex;
         justify-content: space-between;
@@ -3576,7 +3607,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       /* Estilos para Página de Fotos e Implantación 3D */
       .photo-grid-main { display: flex; flex-direction: column; gap: 12px; margin-top: 10px; }
       .photo-card-hero { height: 96mm; border: 1.5px solid #cbd5e1; border-radius: 8px; overflow: hidden; background: #f8fafc; position: relative; display: flex; flex-direction: column; }
-      .cover-photo-card { height: 74mm; border: none; border-radius: 10px; overflow: hidden; background: transparent; position: relative; display: flex; flex-direction: column; margin: 12px 0 16px; box-shadow: none; }
+      .cover-photo-card { height: 58mm; border: none; border-radius: 10px; overflow: hidden; background: transparent; position: relative; display: flex; flex-direction: column; margin: 8px 0 10px; box-shadow: none; }
       .cover-photo-card .photo-img-wrap { background: transparent; }
       .cover-photo-card .photo-img-wrap img { object-fit: contain; }
       .photo-card-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; height: 68mm; }
@@ -3844,6 +3875,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         table { margin: 4px 0 10px; }
         td, th { padding: 4.5px 7px; }
       }
+      ${(typeof window !== 'undefined' && window.RAProposalStyleStudio && typeof window.RAProposalStyleStudio.buildInjectedStylesheet === 'function') ? window.RAProposalStyleStudio.buildInjectedStylesheet('portrait', themeOverride) : ''}
     </style>
   </head>
   <body>
@@ -3900,7 +3932,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     </div>
 
     <!-- PÁGINA 1: PORTADA Y PRESENTACIÓN INICIAL DEL PROYECTO -->
-    <div class="page-sheet cover-page">
+    <div class="page-sheet cover-page" data-section-id="cover">
       <div>
         <!-- Cabecera de Portada: Logo y Datos de Empresa -->
         <div class="cover-brand-row">
@@ -3922,8 +3954,16 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
 
         <!-- Bloque Titular de Presentación -->
         <div class="cover-hero-title">
-          <h1 class="cover-hero-h1">PROYECTO INTEGRAL DE GENERACIÓN RENOVABLE</h1>
-          <div class="cover-hero-sub">Estudio de viabilidad técnica, diseño CAD 3D y análisis de rentabilidad para autoconsumo</div>
+          <h1 class="cover-hero-h1">${
+            (_studioCfg && _studioCfg.lockedTexts && _studioCfg.lockedTexts.coverMainTitle && window.RAProposalStyleStudio && typeof window.RAProposalStyleStudio.formatManualLineBreaks === 'function')
+              ? window.RAProposalStyleStudio.formatManualLineBreaks(_studioCfg.lockedTexts.coverMainTitle)
+              : 'PROYECTO INTEGRAL DE<br>GENERACIÓN RENOVABLE'
+          }</h1>
+          <div class="cover-hero-sub">${
+            (_studioCfg && _studioCfg.lockedTexts && _studioCfg.lockedTexts.coverSubtitle && window.RAProposalStyleStudio && typeof window.RAProposalStyleStudio.formatManualLineBreaks === 'function')
+              ? window.RAProposalStyleStudio.formatManualLineBreaks(_studioCfg.lockedTexts.coverSubtitle)
+              : 'Estudio de viabilidad técnica, diseño CAD 3D y análisis de rentabilidad para autoconsumo'
+          }</div>
         </div>
 
         <!-- CUADRO CENTRAL DE IMAGEN PRINCIPAL DE PORTADA / GEMELO 3D -->
@@ -3949,7 +3989,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         </div>
 
         <!-- 4 Cajas Principales de Características Técnicas de la Instalación -->
-        <div style="font-size:11px;font-weight:900;color:#1e293b;text-transform:uppercase;letter-spacing:0.6px;margin:18px 0 8px;border-left:4px solid ${pal.primary};padding-left:10px;">
+        <div style="font-size:10.5px;font-weight:900;color:#1e293b;text-transform:uppercase;letter-spacing:0.6px;margin:10px 0 6px;border-left:4px solid ${pal.primary};padding-left:10px;">
           CARACTERÍSTICAS PRINCIPALES DE LA INSTALACIÓN
         </div>
 
@@ -4026,7 +4066,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     </div>
 
     <!-- PÁGINA 2: ESPECIFICACIÓN TÉCNICA Y CATÁLOGO DE EQUIPAMIENTO -->
-    <div class="page-sheet">
+    <div class="page-sheet" data-section-id="installation">
       <div>
         <div class="cover-header">
           <div class="company-text">
@@ -4180,7 +4220,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     </div>
 
     <!-- PÁGINA 3: IMPLANTACIÓN SOLAR Y VISTAS DEL PROYECTO (FOTOS Y SIMULACIÓN 3D) -->
-    <div class="page-sheet">
+    <div class="page-sheet" data-section-id="installation">
       <div>
         <div class="cover-header">
           <div class="company-text">
@@ -4289,7 +4329,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       if (!pkgs) return '';
       return `
       <!-- PÁGINA 4A: COMPARATIVA DE 3 PAQUETES (ESENCIAL / ÓPTIMO / TOTAL) -->
-      <div class="page-sheet">
+      <div class="page-sheet" data-section-id="packages_comparison">
         <div>
           <div class="cover-header">
             <div class="company-text">
@@ -4360,7 +4400,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       </div>
 
       <!-- PÁGINA 4B: IMPACTO FINANCIERO MENSUAL Y CICLO SOLAR 24H -->
-      <div class="page-sheet">
+      <div class="page-sheet" data-section-id="energy_balance">
         <div>
           <div class="cover-header">
             <div class="company-text">
@@ -4381,7 +4421,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       </div>`;
     })()}
     <!-- PÁGINA 5A: PRODUCCIÓN SOLAR Y ANÁLISIS FINANCIERO -->
-    <div class="page-sheet">
+    <div class="page-sheet" data-section-id="energy_balance">
       <div>
         <div class="cover-header">
           <div class="company-text">
@@ -4423,7 +4463,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     </div>
 
     <!-- PÁGINA 5B: GARANTÍAS OFICIALES Y FORMALIZACIÓN -->
-    <div class="page-sheet">
+    <div class="page-sheet" data-section-id="cashflow_25y">
       <div>
         <div class="cover-header">
           <div class="company-text">
@@ -4477,7 +4517,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     ${_includeCEL ? buildCELPageHTML(d, m, pal, _celMetrics, _pageIndexCEL, _totPages, companyName, _pageIndexCEL2) : ''}
 
     <!-- PÁGINA PRESUPUESTO: PRESUPUESTO ECONÓMICO EPC Y AYUDAS FISCALES -->
-    <div class="page-sheet">
+    <div class="page-sheet" data-section-id="economics">
       <div>
         <div class="cover-header">
           <div class="company-text">
@@ -4495,47 +4535,47 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
             var html = '';
             // Cap 1: Módulos FV
             if (m.modulesBreakdown && m.modulesBreakdown.isMultiModule) {
-              html += '<tr><td>Cap. ' + (cNum++) + '</td><td><strong>Módulos Solares Fotovoltaicos (' + m.numPanels + ' uds · ' + m.modulesBreakdown.uniqueModelsCount + ' modelos Tier-1 · ' + m.kwp.toFixed(2) + ' kWp)</strong><br>' +
-                m.modulesBreakdown.byModel.map(bm => '<span style="font-size: 10px;color:#475569;display:inline-block;margin-left:6px;">• ' + bm.fullName + ' (' + bm.wp + ' Wp): ' + bm.count + ' uds</span>').join('<br>') +
-                '</td><td class="text-right">' + _cPan.toLocaleString('es-ES') + ' €</td></tr>';
+              html += '<tr class="ra-econ-item-row"><td>Cap. ' + (cNum++) + '</td><td><strong>Módulos Solares Fotovoltaicos (' + m.numPanels + ' uds · ' + m.modulesBreakdown.uniqueModelsCount + ' modelos Tier-1 · ' + m.kwp.toFixed(2) + ' kWp)</strong><br>' +
+                m.modulesBreakdown.byModel.map(bm => '<span style="font-size: 10px;color:#475569;display:inline-block;margin-left:6px;">• ' + bm.count + '× ' + bm.fullName + ' (' + bm.wp + ' Wp)</span>').join('<br>') +
+                '</td><td class="text-right ra-econ-item-price">' + _cPan.toLocaleString('es-ES') + ' €</td></tr>';
             } else {
               var puPanStr = (_cPan / (m.numPanels || 1)).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-              html += '<tr><td>Cap. ' + (cNum++) + '</td><td>Módulos Solares Fotovoltaicos de Alta Eficiencia (' + m.numPanels + ' uds × ' + puPanStr + ' €/ud)</td><td class="text-right">' + _cPan.toLocaleString('es-ES') + ' €</td></tr>';
+              html += '<tr class="ra-econ-item-row"><td>Cap. ' + (cNum++) + '</td><td>Módulos Solares Fotovoltaicos de Alta Eficiencia (' + m.numPanels + '× ' + (d.cfg.modelo || 'Módulos Tier-1') + '<span class="ra-econ-unit-price"> · ' + puPanStr + ' €/ud</span>)</td><td class="text-right ra-econ-item-price">' + _cPan.toLocaleString('es-ES') + ' €</td></tr>';
             }
             // Cap 2: Estructura
-            html += '<tr><td>Cap. ' + (cNum++) + '</td><td>Estructura de Soporte y Fijación Certificada (Aluminio / Inox A2)</td><td class="text-right">' + _cEst.toLocaleString('es-ES') + ' €</td></tr>';
+            html += '<tr class="ra-econ-item-row"><td>Cap. ' + (cNum++) + '</td><td>Estructura de Soporte y Fijación Certificada (' + m.numPanels + '× soportes Aluminio / Inox A2)</td><td class="text-right ra-econ-item-price">' + _cEst.toLocaleString('es-ES') + ' €</td></tr>';
             // Cap 3: Inversor
             if (_eqp.invCount > 1 || (_eqp.invertersBreakdown && _eqp.invertersBreakdown.isMulti)) {
-              html += '<tr><td>Cap. ' + (cNum++) + '</td><td><strong>Inversores de Conexión a Red & Monitorización (' + _eqp.invCount + ' uds · ' + _eqp.totalAcKw.toFixed(2) + ' kW AC total)</strong><br>' +
+              html += '<tr class="ra-econ-item-row"><td>Cap. ' + (cNum++) + '</td><td><strong>Inversores de Conexión a Red & Monitorización (' + _eqp.invCount + ' uds · ' + _eqp.totalAcKw.toFixed(2) + ' kW AC total)</strong><br>' +
                 ((_eqp.invertersBreakdown && _eqp.invertersBreakdown.items && _eqp.invertersBreakdown.items.length > 0)
-                  ? _eqp.invertersBreakdown.items.map(it => '<span style="font-size: 10px;color:#475569;display:inline-block;margin-left:6px;">• ' + it.count + '× ' + (it.fullName || (it.brand + ' ' + it.model)) + ' (' + it.kw + ' kW · ' + (it.mppt || 2) + ' MPPT): ' + Math.round((_cInv * (it.count * it.kw / (_eqp.totalAcKw || 1)))).toLocaleString('es-ES') + ' €</span>').join('<br>')
+                  ? _eqp.invertersBreakdown.items.map(it => '<span style="font-size: 10px;color:#475569;display:inline-block;margin-left:6px;">• ' + it.count + '× ' + (it.fullName || (it.brand + ' ' + it.model)) + ' (' + it.kw + ' kW · ' + (it.mppt || 2) + ' MPPT)<span class="ra-econ-unit-price">: ' + Math.round((_cInv * (it.count * it.kw / (_eqp.totalAcKw || 1)))).toLocaleString('es-ES') + ' €</span></span>').join('<br>')
                   : '<span style="font-size: 10px;color:#475569;display:inline-block;margin-left:6px;">• ' + _eqp.invCount + '× ' + _eqp.invBrand + ' ' + _eqp.invModel + ' (' + _eqp.invKw + ' kW · ' + _eqp.invMPPTs + ' MPPT)</span>'
-                ) + '</td><td class="text-right">' + _cInv.toLocaleString('es-ES') + ' €</td></tr>';
+                ) + '</td><td class="text-right ra-econ-item-price">' + _cInv.toLocaleString('es-ES') + ' €</td></tr>';
             } else {
-              html += '<tr><td>Cap. ' + (cNum++) + '</td><td>Inversor de Conexión a Red, Monitorización Inteligente & Protecciones (' + _eqp.invName + ')</td><td class="text-right">' + _cInv.toLocaleString('es-ES') + ' €</td></tr>';
+              html += '<tr class="ra-econ-item-row"><td>Cap. ' + (cNum++) + '</td><td>Inversor de Conexión a Red, Monitorización Inteligente & Protecciones (1× ' + _eqp.invName + ')</td><td class="text-right ra-econ-item-price">' + _cInv.toLocaleString('es-ES') + ' €</td></tr>';
             }
             // Cap 4: Batería (si existe)
             if (_cBat > 0) {
               if (_eqp.batCount > 1 || (_eqp.batteriesBreakdown && _eqp.batteriesBreakdown.isMulti)) {
-                html += '<tr><td>Cap. ' + (cNum++) + '</td><td><strong>Sistema de Almacenamiento Electroquímico (' + _eqp.batCount + ' uds · ' + _eqp.totalBatKwh.toFixed(1) + ' kWh total)</strong><br>' +
+                html += '<tr class="ra-econ-item-row"><td>Cap. ' + (cNum++) + '</td><td><strong>Sistema de Almacenamiento Electroquímico (' + _eqp.batCount + ' uds · ' + _eqp.totalBatKwh.toFixed(1) + ' kWh total)</strong><br>' +
                   ((_eqp.batteriesBreakdown && _eqp.batteriesBreakdown.items && _eqp.batteriesBreakdown.items.length > 0)
-                    ? _eqp.batteriesBreakdown.items.map(it => '<span style="font-size: 10px;color:#475569;display:inline-block;margin-left:6px;">• ' + it.count + '× ' + (it.fullName || (it.brand + ' ' + it.model)) + ' (' + it.kwh + ' kWh c/u · BMS integrado): ' + Math.round((_cBat * (it.count * it.kwh / (_eqp.totalBatKwh || 1)))).toLocaleString('es-ES') + ' €</span>').join('<br>')
+                    ? _eqp.batteriesBreakdown.items.map(it => '<span style="font-size: 10px;color:#475569;display:inline-block;margin-left:6px;">• ' + it.count + '× ' + (it.fullName || (it.brand + ' ' + it.model)) + ' (' + it.kwh + ' kWh c/u · BMS integrado)<span class="ra-econ-unit-price">: ' + Math.round((_cBat * (it.count * it.kwh / (_eqp.totalBatKwh || 1)))).toLocaleString('es-ES') + ' €</span></span>').join('<br>')
                     : '<span style="font-size: 10px;color:#475569;display:inline-block;margin-left:6px;">• ' + _eqp.batCount + '× ' + _eqp.batBrand + ' ' + _eqp.batModel + ' (' + _eqp.batKwh + ' kWh c/u · BMS integrado)</span>'
-                  ) + '</td><td class="text-right">' + _cBat.toLocaleString('es-ES') + ' €</td></tr>';
+                  ) + '</td><td class="text-right ra-econ-item-price">' + _cBat.toLocaleString('es-ES') + ' €</td></tr>';
               } else {
-                html += '<tr><td>Cap. ' + (cNum++) + '</td><td>Sistema de Almacenamiento en Batería LFP Litio-Ferrofosfato (' + _eqp.batName + ')</td><td class="text-right">' + _cBat.toLocaleString('es-ES') + ' €</td></tr>';
+                html += '<tr class="ra-econ-item-row"><td>Cap. ' + (cNum++) + '</td><td>Sistema de Almacenamiento en Batería LFP Litio-Ferrofosfato (1× ' + _eqp.batName + ')</td><td class="text-right ra-econ-item-price">' + _cBat.toLocaleString('es-ES') + ' €</td></tr>';
               }
             }
             // Cap Minieólica (si existe)
             if (_cWind > 0) {
-              html += '<tr><td>Cap. ' + (cNum++) + '</td><td>Sistema de Generación Minieólica Certificada (' + (windTurbineCount || 1) + ' aerogenerador(es) con control MPPT y mástil)</td><td class="text-right">' + _cWind.toLocaleString('es-ES') + ' €</td></tr>';
+              html += '<tr class="ra-econ-item-row"><td>Cap. ' + (cNum++) + '</td><td>Sistema de Generación Minieólica Certificada (' + (windTurbineCount || 1) + '× ' + (_eqp.windName || 'Aerogenerador') + ' con control MPPT y mástil)</td><td class="text-right ra-econ-item-price">' + _cWind.toLocaleString('es-ES') + ' €</td></tr>';
             }
             // Cap Cableado y protecciones
-            html += '<tr><td>Cap. ' + (cNum++) + '</td><td>Líneas Eléctricas DC/AC Solar ZZ-F y Cuadros con SPD Tipo II e IGA</td><td class="text-right">' + _cCab.toLocaleString('es-ES') + ' €</td></tr>';
+            html += '<tr class="ra-econ-item-row"><td>Cap. ' + (cNum++) + '</td><td>Líneas Eléctricas DC/AC Solar ZZ-F y Cuadros con SPD Tipo II e IGA (1× lote REBT)</td><td class="text-right ra-econ-item-price">' + _cCab.toLocaleString('es-ES') + ' €</td></tr>';
             // Cap Mano de obra y montaje
-            html += '<tr><td>Cap. ' + (cNum++) + '</td><td>Montaje Mecánico, Mano de Obra Cualificada y Puesta en Servicio</td><td class="text-right">' + _cMo.toLocaleString('es-ES') + ' €</td></tr>';
+            html += '<tr class="ra-econ-item-row"><td>Cap. ' + (cNum++) + '</td><td>Montaje Mecánico, Mano de Obra Cualificada y Puesta en Servicio (1× equipo)</td><td class="text-right ra-econ-item-price">' + _cMo.toLocaleString('es-ES') + ' €</td></tr>';
             // Cap Legalización e ingeniería
-            html += '<tr><td>Cap. ' + (cNum++) + '</td><td>Ingeniería Técnica, Dirección de Obra y Tramitación Legal (CIE / Industria)</td><td class="text-right">' + _cLeg.toLocaleString('es-ES') + ' €</td></tr>';
+            html += '<tr class="ra-econ-item-row"><td>Cap. ' + (cNum++) + '</td><td>Ingeniería Técnica, Dirección de Obra y Tramitación Legal CIE / Industria (1× expediente)</td><td class="text-right ra-econ-item-price">' + _cLeg.toLocaleString('es-ES') + ' €</td></tr>';
             return html;
           })()}
           ${(function() {
@@ -4545,7 +4585,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
             if (!activeAddons.length) return '';
             return activeAddons.map(function(ad, idx) {
               var tot = (Number(ad.qty) || 1) * (Number(ad.unitPrice) || 0);
-              return '<tr style="background:#f0fdf4;"><td style="color:#16a34a;font-weight:700;">Extra ' + (idx + 1) + '</td><td><strong>' + ad.name + '</strong> (' + (ad.qty || 1) + ' ud)</td><td class="text-right" style="font-weight:700;color:#16a34a;">' + tot.toLocaleString('es-ES') + ' €</td></tr>';
+              return '<tr class="ra-econ-item-row" style="background:#f0fdf4;"><td style="color:#16a34a;font-weight:700;">Extra ' + (idx + 1) + '</td><td><strong>' + (ad.qty || 1) + '× ' + ad.name + '</strong></td><td class="text-right ra-econ-item-price" style="font-weight:700;color:#16a34a;">' + tot.toLocaleString('es-ES') + ' €</td></tr>';
             }).join('');
           })()}
           ${(m.discountEur && m.discountEur > 0) ? '<tr style="background:#fef2f2;color:#dc2626;"><td style="font-weight:700;">Promoción</td><td><strong>' + (m.discountLabel || 'Descuento Comercial Especial') + '</strong></td><td class="text-right" style="font-weight:800;">- ' + Math.round(m.discountEur).toLocaleString('es-ES') + ' €</td></tr>' : ''}
@@ -4554,6 +4594,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
           <tr class="total-row"><td>TOTAL PRESUPUESTO</td><td>INVERSIÓN TOTAL LLAVE EN MANO (IVA INCLUIDO)</td><td class="text-right">${Math.round(m.capexBruto).toLocaleString('es-ES')} €</td></tr>
         </table>
 
+        <div class="ra-tax-benefits-block">
         <h2>4. Subvenciones y beneficios fiscales estimados</h2>
         <table>
           <tr><th>Concepto Fiscal</th><th>Detalle / Normativa Aplicable</th><th class="text-right">Ahorro Estimado</th></tr>
@@ -4564,12 +4605,13 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
           <tr><td style="color:#64748b;font-size:10px;">Desembolso inicial (base de TIR y payback)</td><td style="color:#64748b;font-size:10px;">CAPEX bruto: las deducciones se computan como flujo positivo en los años 1..N</td><td class="text-right" style="color:#64748b;font-size:10px;">${Math.round(m.capexBruto).toLocaleString('es-ES')} €</td></tr>
           <tr><td style="color:#64748b;font-size:10px;">Bonificación ICIO*</td><td style="color:#64748b;font-size:10px;">Exención del 95% en Impuesto de Construcciones y Obras (ahorro en tasa municipal ajeno a la factura)</td><td class="text-right" style="color:#64748b;font-size:10px;">${Math.round(m.ahorroICIO).toLocaleString('es-ES')} €</td></tr>
         </table>
+        </div>
       </div>
       <p style="font-size: 9.5px;color:#64748b;margin:6px 0 0 0;line-height:1.35;border-top:1px solid #f1f5f9;padding-top:6px;">Nota: bonificaciones y deducciones fiscales son estimaciones comerciales sujetas a vigencia normativa y ordenanzas municipales. Verificar con asesoría fiscal antes de incluirlas en contrato. La TIR y el payback se calculan sobre el <strong>desembolso inicial (CAPEX bruto)</strong>; la "inversión neta" es informativa y no es la base de esas métricas. Quedan excluidas tasas urbanísticas municipales (ICIO), ocupación de vía pública y medios de elevación extraordinarios salvo expresa contratación en el capítulo de extras.</p>
     </div>
 
     <!-- PÁGINA CIERRE: HOJA DE DECISIÓN EJECUTIVA -->
-    <div class="page-sheet">
+    <div class="page-sheet" data-section-id="closing">
       <div class="cover-header">
         <div class="company-block">
           ${logoBlock}
@@ -4624,7 +4666,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       </div>
 
       <!-- COMPARATIVA DE PAGO: CONTADO vs FINANCIACIÓN 100% -->
-      <div class="decision-boxes">
+      <div class="decision-boxes ra-financing-options-block">
         <div class="decision-card featured">
           <div class="decision-title" style="color:${pal.dark};">
             <span>OPCIÓN A: PAGO LLAVE EN MANO</span>
@@ -5344,6 +5386,8 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       window.exportPropDocx = exportPropDocx;
       window.exportPropWord = exportPropWord;
       window.exportPropHtml = exportPropHtml;
+      ${(typeof window !== 'undefined' && window.RAProposalStyleStudio && typeof window.RAProposalStyleStudio.getSectionPaginationAndOrderScript === 'function') ? window.RAProposalStyleStudio.getSectionPaginationAndOrderScript('.page-sheet') : ''}
+      ${(typeof window !== 'undefined' && window.RAProposalStyleStudio && typeof window.RAProposalStyleStudio.getAutoFitClientScript === 'function') ? window.RAProposalStyleStudio.getAutoFitClientScript('.page-sheet') : ''}
     </script>
   </body>
   </html>
@@ -5362,9 +5406,10 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   w.document.write(code);
   w.document.close();
 
-  // ── Enriquecimiento IA async (si hay API Key configurada) ──
-  // La plantilla ya es visible. Gemini reemplaza el texto si responde OK.
-  enrichSummaryWithGemini(w, d, m, _eqp);
+  // ── Enriquecimiento IA async (solo si no se usa plantilla fija bloqueada) ──
+  if (!(_studioCfg && _studioCfg.lockedTexts && _studioCfg.lockedTexts.useLockedSummary)) {
+    enrichSummaryWithGemini(w, d, m, _eqp);
+  }
 }
 
 // ═════════════════════════════════════════════════════════════════════════════

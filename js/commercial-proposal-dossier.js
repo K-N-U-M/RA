@@ -45,6 +45,9 @@
   };
 
   function getThemeColors(themeName) {
+    if (global.RAProposalStyleStudio && typeof global.RAProposalStyleStudio.getResolvedPalette === 'function') {
+      return global.RAProposalStyleStudio.getResolvedPalette(themeName);
+    }
     var THEMES = {
       rose:    { primary: '#e11d48', secondary: '#f97316', light: '#fff1f2', text: '#881337', dark: '#4c0519', border: '#fecdd3' },
       emerald: { primary: '#059669', secondary: '#10b981', light: '#ecfdf5', text: '#065f46', dark: '#022c22', border: '#a7f3d0' },
@@ -89,17 +92,18 @@
    * Exportada para pruebas conductuales (`_audit`).
    */
   function computeCapexBreakdown(designCosts, totalCost, numPanels, addonsCost) {
-    var panPart, invPart, estPart, cabPart, moPart, legPart;
+    var panPart, invPart, estPart, cabPart, moPart, legPart, windPart = 0;
     var panels = (typeof numPanels === 'number' && numPanels > 0) ? numPanels : 0;
     var effectiveTotal = Math.max(0, totalCost - (Number(addonsCost) || 0));
     if (designCosts && designCosts.directCostTotal > 0) {
       var scale = effectiveTotal / designCosts.directCostTotal;
-      panPart = Math.round((designCosts.panelTotalCost || (designCosts.panelPrice * panels)) * scale);
-      invPart = Math.round(((designCosts.invPrice || 0) + (designCosts.batPrice || 0)) * scale);
-      estPart = Math.round((designCosts.estPrice || 0) * scale);
-      cabPart = Math.round((designCosts.cabPrice || 0) * scale);
-      moPart  = Math.round((designCosts.moPrice || 0) * scale);
-      legPart = Math.max(0, Math.round(effectiveTotal) - (panPart + invPart + estPart + cabPart + moPart));
+      panPart  = Math.round((designCosts.panelTotalCost || (designCosts.panelPrice * panels)) * scale);
+      invPart  = Math.round(((designCosts.invPrice || 0) + (designCosts.batPrice || 0)) * scale);
+      estPart  = Math.round((designCosts.estPrice || 0) * scale);
+      cabPart  = Math.round((designCosts.cabPrice || 0) * scale);
+      moPart   = Math.round((designCosts.moPrice || 0) * scale);
+      windPart = Math.round((designCosts.windPrice || 0) * scale);
+      legPart  = Math.max(0, Math.round(effectiveTotal) - (panPart + invPart + estPart + cabPart + moPart + windPart));
     } else {
       panPart = Math.round(effectiveTotal * 0.32);
       invPart = Math.round(effectiveTotal * 0.18);
@@ -110,7 +114,7 @@
     }
     return {
       panPart: panPart, invPart: invPart, estPart: estPart,
-      cabPart: cabPart, moPart: moPart, legPart: legPart
+      cabPart: cabPart, moPart: moPart, legPart: legPart, windPart: windPart
     };
   }
 
@@ -250,6 +254,10 @@
     var cabPart = capexParts.cabPart;
     var moPart  = capexParts.moPart;
     var legPart = capexParts.legPart;
+    var windPart = capexParts.windPart || 0;
+    var windCount = (eq && eq.hasWind) ? (eq.windCount || 1) : ((designCosts && designCosts.windCount) || 0);
+    var windTotalKw = (eq && eq.hasWind) ? (eq.windTotalKw || 0) : ((designCosts && designCosts.windTotalKw) || 0);
+    var windName = (eq && eq.windName) ? eq.windName : 'Aerogenerador Minieólico';
 
     // Cálculos Bancables: Préstamo Verde a 8 años (96 meses @ 5,5% TIN)
     var nMonths = 96;
@@ -339,6 +347,13 @@
         capexElectrical: cabPart.toLocaleString('es-ES'),
         capexLabor: moPart.toLocaleString('es-ES'),
         capexPermits: legPart.toLocaleString('es-ES'),
+        capexWind: windPart > 0 ? windPart.toLocaleString('es-ES') : null,
+        windCount: windCount,
+        windTotalKw: windTotalKw,
+        windName: windName,
+        invCount: (eq && eq.invCount) ? eq.invCount : ((designCosts && designCosts.invCount) || 1),
+        batCount: (eq && eq.batCount) ? eq.batCount : ((designCosts && designCosts.batCount) || 0),
+        batName: (eq && eq.batName) ? eq.batName : '',
         cuotaPrestamo: cuotaPrestamo.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
         ahorroMensual: ahorroMensual.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
         saldoNetoMensual: Math.abs(saldoNetoMensual).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
@@ -1015,6 +1030,7 @@
       '  .gantt-label { font-weight: 700; color: #334155; }',
       '  .gantt-track { background: #f1f5f9; border-radius: 6px; height: 18px; position: relative; overflow: hidden; display: flex; align-items: center; }',
       '  .gantt-bar { height: 100%; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 8.5px; font-weight: 800; box-shadow: 0 1px 3px rgba(0,0,0,0.15); }',
+      (global.RAProposalStyleStudio && typeof global.RAProposalStyleStudio.buildInjectedStylesheet === 'function' ? global.RAProposalStyleStudio.buildInjectedStylesheet('landscape') : ''),
       '</style>',
       '</head>',
       '<body>',
@@ -1088,15 +1104,23 @@
       '<div id="dossier-container">',
       '',
       '<!-- ── LÁMINA 1: PORTADA ────────────────────────────────────────────────── -->',
-      '<div class="sheet">',
+      '<div class="sheet" data-section-id="cover">',
       '  <div class="sheet-head">',
       '    <div class="editable-field" contenteditable="true" style="font-size:24px;font-weight:900;color:' + pal.primary + ';">' + (companyLogo ? '<img src="' + companyLogo + '" style="max-height:45px;vertical-align:middle;"/>' : companyName) + '</div>',
       '    <div class="editable-field" contenteditable="true" style="font-size:18px;font-weight:800;color:' + pal.primary + ';">' + companyWeb + '</div>',
       '  </div>',
       '  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">',
       '    <div>',
-      '      <h1 class="editable-field" contenteditable="true" style="font-size:44px;font-weight:900;margin:0 0 6px 0;color:#0f172a;letter-spacing:-0.5px;">Autoconsumo Fotovoltaico</h1>',
-      '      <p class="editable-field" contenteditable="true" style="font-size:19px;color:#475569;margin:0;font-weight:600;">Propuesta técnica y económica de generación solar distribuida</p>',
+      '      <h1 class="editable-field" contenteditable="true" style="font-size:40px;font-weight:900;margin:0 0 6px 0;color:#0f172a;letter-spacing:-0.5px;">' + (
+        (studioCfg && studioCfg.lockedTexts && studioCfg.lockedTexts.coverMainTitle && global.RAProposalStyleStudio && typeof global.RAProposalStyleStudio.formatManualLineBreaks === 'function')
+          ? global.RAProposalStyleStudio.formatManualLineBreaks(studioCfg.lockedTexts.coverMainTitle)
+          : 'Autoconsumo Fotovoltaico'
+      ) + '</h1>',
+      '      <p class="editable-field" contenteditable="true" style="font-size:18px;color:#475569;margin:0;font-weight:600;">' + (
+        (studioCfg && studioCfg.lockedTexts && studioCfg.lockedTexts.coverSubtitle && global.RAProposalStyleStudio && typeof global.RAProposalStyleStudio.formatManualLineBreaks === 'function')
+          ? global.RAProposalStyleStudio.formatManualLineBreaks(studioCfg.lockedTexts.coverSubtitle)
+          : 'Propuesta técnica y económica de generación solar distribuida'
+      ) + '</p>',
       '    </div>',
       '    <div style="background:' + pal.light + ';border:1.5px solid ' + pal.primary + ';border-radius:12px;padding:10px 18px;text-align:right;">',
       '      <div class="editable-field" contenteditable="true" style="font-size:22px;font-weight:900;color:' + pal.dark + ';">' + clientName + '</div>',
@@ -1115,7 +1139,7 @@
       '</div>',
       '',
       '<!-- ── LÁMINA 2: 01. RESUMEN ────────────────────────────────────────────── -->',
-      '<div class="sheet">',
+      '<div class="sheet" data-section-id="summary">',
       '  <div class="sheet-head">',
       '    <div class="editable-field" contenteditable="true" style="font-size:22px;font-weight:900;color:' + pal.primary + ';">' + companyName + '</div>',
       '    <div class="editable-field" contenteditable="true" style="font-size:17px;font-weight:800;color:' + pal.primary + ';">01. Resumen Ejecutivo</div>',
@@ -1157,7 +1181,24 @@
       makeCard(
         '<div>' +
         '  <h4 class="editable-field" contenteditable="true" style="color:' + pal.primary + ';margin:0 0 6px 0;font-size:16px;font-weight:800;">01. Solución de Ingeniería ' + raw.metrics.profileType + '</h4>' +
-        '  <p class="editable-field" contenteditable="true" style="font-size:13.5px;color:#475569;line-height:1.5;margin:0 0 10px 0;">' + (raw.metrics.isCommercial ? 'Instalación de ingeniería fotovoltaica orientada a la reducción directa de costes operativos (OPEX), mejora del reporte ESG y desacoplamiento frente a la volatilidad de precios en el mercado eléctrico mayorista (OMIE).' : 'Proyecto integral de autoconsumo residencial diseñado a medida para su inmueble, garantizando la máxima independencia energética, revalorización de la vivienda (+4-6%) y un ahorro directo e inmediato en factura.') + '</p>' +
+        '  <p class="editable-field" contenteditable="true" style="font-size:13.5px;color:#475569;line-height:1.5;margin:0 0 10px 0;">' + (function() {
+          var stCfg = (global.RAProposalStyleStudio && typeof global.RAProposalStyleStudio.getActiveConfig === 'function') ? global.RAProposalStyleStudio.getActiveConfig() : null;
+          if (stCfg && stCfg.lockedTexts && stCfg.lockedTexts.useLockedSummary && stCfg.lockedTexts.summaryTemplate) {
+            return global.RAProposalStyleStudio.interpolateText(stCfg.lockedTexts.summaryTemplate, {
+              clientName: clientName,
+              companyName: companyName,
+              kwp: kwp,
+              numPanels: raw.metrics.numPanels,
+              windCount: raw.metrics.windCount || 0,
+              windKw: raw.metrics.windTotalKw || 0,
+              annualYield: annualYield,
+              ahorroAnual: ahorroAnual,
+              payback: payback,
+              capexBruto: raw.metrics.totalCostGross
+            });
+          }
+          return (raw.metrics.isCommercial ? 'Instalación de ingeniería fotovoltaica orientada a la reducción directa de costes operativos (OPEX), mejora del reporte ESG y desacoplamiento frente a la volatilidad de precios en el mercado eléctrico mayorista (OMIE).' : 'Proyecto integral de autoconsumo residencial diseñado a medida para su inmueble, garantizando la máxima independencia energética, revalorización de la vivienda (+4-6%) y un ahorro directo e inmediato en factura.');
+        })() + '</p>' +
         '  <h4 class="editable-field" contenteditable="true" style="color:' + pal.primary + ';margin:0 0 6px 0;font-size:16px;font-weight:800;">03. Digitalización & Gemelo Digital 3D</h4>' +
         '  <p class="editable-field" contenteditable="true" style="font-size:13.5px;color:#475569;line-height:1.5;margin:0;">Simulación física mediante ray-tracing 3D de alta precisión que modela sombras cercanas y lejanas para calcular una curva de generación bancable y transparente respaldada por datos PVGIS/SARAH-3.</p>' +
         '</div>'
@@ -1183,7 +1224,7 @@
       '</div>',
       '',
       '<!-- ── LÁMINA 3: 02. ESTUDIO PRELIMINAR (FACTURA) ───────────────────────── -->',
-      '<div class="sheet">',
+      '<div class="sheet" data-section-id="bill_audit">',
       '  <div class="sheet-head">',
       '    <div class="editable-field" contenteditable="true" style="font-size:20px;font-weight:900;color:' + pal.primary + ';">' + companyName + '</div>',
       '    <div class="editable-field" contenteditable="true" style="font-size:16px;font-weight:800;color:' + pal.primary + ';">02. Estudio preliminar</div>',
@@ -1217,7 +1258,7 @@
       '</div>',
       '',
       '<!-- ── LÁMINA 4: 03. INSTALACIÓN PROYECTADA ────────────────────────────── -->',
-      '<div class="sheet">',
+      '<div class="sheet" data-section-id="installation">',
       '  <div class="sheet-head">',
       '    <div class="editable-field" contenteditable="true" style="font-size:20px;font-weight:900;color:' + pal.primary + ';">' + companyName + '</div>',
       '    <div class="editable-field" contenteditable="true" style="font-size:16px;font-weight:800;color:' + pal.primary + ';">03. Instalación Proyectada</div>',
@@ -1240,7 +1281,7 @@
       '</div>',
       '',
       '<!-- ── LÁMINA 5: 04. BALANCE MENSUAL ────────────────────────────────────── -->',
-      '<div class="sheet">',
+      '<div class="sheet" data-section-id="energy_balance">',
       '  <div class="sheet-head">',
       '    <div class="editable-field" contenteditable="true" style="font-size:20px;font-weight:900;color:' + pal.primary + ';">' + companyName + '</div>',
       '    <div class="editable-field" contenteditable="true" style="font-size:16px;font-weight:800;color:' + pal.primary + ';">04. Tu Nueva Situación</div>',
@@ -1293,7 +1334,7 @@
       '</div>',
       '',
       '<!-- ── LÁMINA 6: 05. GRÁFICAS DE BALANCE ────────────────────────────────── -->',
-      '<div class="sheet">',
+      '<div class="sheet" data-section-id="energy_balance">',
       '  <div class="sheet-head">',
       '    <div class="editable-field" contenteditable="true" style="font-size:20px;font-weight:900;color:' + pal.primary + ';">' + companyName + '</div>',
       '    <div class="editable-field" contenteditable="true" style="font-size:16px;font-weight:800;color:' + pal.primary + ';">05. Balance Gráfico</div>',
@@ -1331,7 +1372,7 @@
       '</div>',
       '',
       '<!-- ── LÁMINA 7: 06. EQUIPAMIENTO TÉCNICO & GARANTÍAS ────────────────────── -->',
-      '<div class="sheet">',
+      '<div class="sheet" data-section-id="installation">',
       '  <div class="sheet-head">',
       '    <div class="editable-field" contenteditable="true" style="font-size:22px;font-weight:900;color:' + pal.primary + ';">' + companyName + '</div>',
       '    <div class="editable-field" contenteditable="true" style="font-size:17px;font-weight:800;color:' + pal.primary + ';">06. Equipamiento & Calidad</div>',
@@ -1420,7 +1461,7 @@
       '</div>',
       '',
       '<!-- ── LÁMINA 8: 07. PROPUESTA ECONÓMICA BANCABLE ────────────────────────── -->',
-      '<div class="sheet">',
+      '<div class="sheet" data-section-id="economics">',
       '  <div class="sheet-head">',
       '    <div class="editable-field" contenteditable="true" style="font-size:20px;font-weight:900;color:' + pal.primary + ';">' + companyName + '</div>',
       '    <div class="editable-field" contenteditable="true" style="font-size:16px;font-weight:800;color:' + pal.primary + ';">07. Propuesta Económica Bancable</div>',
@@ -1440,15 +1481,16 @@
         '    <span class="badge-bankable badge-bankable-sky">Transparencia EPC</span>' +
         '  </div>' +
         '  <table class="table-clean" style="font-size:12.5px;margin-bottom:8px;">' +
-        '    <tr><td style="padding:4px 6px;">1. Módulos FV Tier-1 (' + raw.metrics.numPanels + ' uds)</td><td style="text-align:right;font-weight:700;padding:4px 6px;">' + raw.metrics.capexModules + ' €</td></tr>' +
-        '    <tr><td style="padding:4px 6px;">2. Inversores & Electrónica de Red</td><td style="text-align:right;font-weight:700;padding:4px 6px;">' + raw.metrics.capexInverters + ' €</td></tr>' +
-        '    <tr><td style="padding:4px 6px;">3. Estructuras de Soporte Certificadas</td><td style="text-align:right;font-weight:700;padding:4px 6px;">' + raw.metrics.capexStructure + ' €</td></tr>' +
-        '    <tr><td style="padding:4px 6px;">4. Cuadro DC/AC, Protecciones & Cable</td><td style="text-align:right;font-weight:700;padding:4px 6px;">' + raw.metrics.capexElectrical + ' €</td></tr>' +
-        '    <tr><td style="padding:4px 6px;">5. Montaje Mecánico & Conexionado REBT</td><td style="text-align:right;font-weight:700;padding:4px 6px;">' + raw.metrics.capexLabor + ' €</td></tr>' +
-        '    <tr><td style="padding:4px 6px;">6. Ingeniería, Tasas & Legalización CIE</td><td style="text-align:right;font-weight:700;padding:4px 6px;">' + raw.metrics.capexPermits + ' €</td></tr>' +
+        '    <tr class="ra-econ-item-row"><td style="padding:4px 6px;">1. Módulos FV Tier-1 (' + raw.metrics.numPanels + '× ' + raw.equipment.modModel + ')</td><td class="ra-econ-item-price" style="text-align:right;font-weight:700;padding:4px 6px;">' + raw.metrics.capexModules + ' €</td></tr>' +
+        '    <tr class="ra-econ-item-row"><td style="padding:4px 6px;">2. Inversores & Electrónica (' + (raw.metrics.invCount || 1) + '× ' + raw.equipment.invModel + (raw.metrics.batCount > 0 ? ' + ' + raw.metrics.batCount + '× ' + raw.metrics.batName : '') + ')</td><td class="ra-econ-item-price" style="text-align:right;font-weight:700;padding:4px 6px;">' + raw.metrics.capexInverters + ' €</td></tr>' +
+        '    <tr class="ra-econ-item-row"><td style="padding:4px 6px;">3. Estructuras de Soporte (' + raw.metrics.numPanels + '× soportes aluminio/inox A2)</td><td class="ra-econ-item-price" style="text-align:right;font-weight:700;padding:4px 6px;">' + raw.metrics.capexStructure + ' €</td></tr>' +
+        (raw.metrics.capexWind ? '    <tr class="ra-econ-item-row"><td style="padding:4px 6px;">4. Generación Minieólica (' + (raw.metrics.windCount || 1) + '× ' + raw.metrics.windName + ' · ' + Number(raw.metrics.windTotalKw || 0).toFixed(1) + ' kW)</td><td class="ra-econ-item-price" style="text-align:right;font-weight:700;padding:4px 6px;">' + raw.metrics.capexWind + ' €</td></tr>' : '') +
+        '    <tr class="ra-econ-item-row"><td style="padding:4px 6px;">' + (raw.metrics.capexWind ? '5' : '4') + '. Cuadro DC/AC, Protecciones & Cable (1× lote REBT)</td><td class="ra-econ-item-price" style="text-align:right;font-weight:700;padding:4px 6px;">' + raw.metrics.capexElectrical + ' €</td></tr>' +
+        '    <tr class="ra-econ-item-row"><td style="padding:4px 6px;">' + (raw.metrics.capexWind ? '6' : '5') + '. Montaje Mecánico & Conexionado REBT (1× equipo)</td><td class="ra-econ-item-price" style="text-align:right;font-weight:700;padding:4px 6px;">' + raw.metrics.capexLabor + ' €</td></tr>' +
+        '    <tr class="ra-econ-item-row"><td style="padding:4px 6px;">' + (raw.metrics.capexWind ? '7' : '6') + '. Ingeniería, Tasas & Legalización CIE (1× expediente)</td><td class="ra-econ-item-price" style="text-align:right;font-weight:700;padding:4px 6px;">' + raw.metrics.capexPermits + ' €</td></tr>' +
         (raw.activeAddons && raw.activeAddons.length > 0 ? raw.activeAddons.map(function(ad, i) {
           var p = (Number(ad.qty) || 1) * (Number(ad.unitPrice) || 0);
-          return '    <tr style="background:#f0fdf4;"><td style="color:#16a34a;font-weight:600;padding:4px 6px;">+ ' + ad.name + '</td><td style="text-align:right;font-weight:700;color:#16a34a;padding:4px 6px;">' + p.toLocaleString('es-ES') + ' €</td></tr>';
+          return '    <tr class="ra-econ-item-row" style="background:#f0fdf4;"><td style="color:#16a34a;font-weight:600;padding:4px 6px;">+ ' + (ad.qty || 1) + '× ' + ad.name + '</td><td class="ra-econ-item-price" style="text-align:right;font-weight:700;color:#16a34a;padding:4px 6px;">' + p.toLocaleString('es-ES') + ' €</td></tr>';
         }).join('') : '') +
         '  </table>' +
         '  <div style="background:' + pal.light + ';border:1.5px solid ' + pal.primary + ';border-radius:8px;padding:6px 10px;text-align:center;">' +
@@ -1540,7 +1582,7 @@
       '</div>',
       '',
       '<!-- ── LÁMINA 9: 08. AMORTIZACIÓN A 25 AÑOS & CRONOGRAMA ────────────────────── -->',
-      '<div class="sheet">',
+      '<div class="sheet" data-section-id="cashflow_25y">',
       '  <div class="sheet-head">',
       '    <div class="editable-field" contenteditable="true" style="font-size:20px;font-weight:900;color:' + pal.primary + ';">' + companyName + '</div>',
       '    <div class="editable-field" contenteditable="true" style="font-size:16px;font-weight:800;color:' + pal.primary + ';">08. Retorno & Ejecución</div>',
@@ -1602,7 +1644,7 @@
       '</div>',
       '',
       '<!-- ── LÁMINA 10: CIERRE Y FIRMA ─────────────────────────────────────────── -->',
-      '<div class="sheet">',
+      '<div class="sheet" data-section-id="closing">',
       '  <div class="sheet-head">',
       '    <div class="editable-field" contenteditable="true" style="font-size:20px;font-weight:900;color:' + pal.primary + ';">' + companyName + '</div>',
       '    <div class="editable-field" contenteditable="true" style="font-size:16px;font-weight:800;color:' + pal.primary + ';">10. Formalización contractual</div>',
@@ -1628,11 +1670,21 @@
         '  </div>' +
         '  <div style="margin-top:8px;padding-top:6px;border-top:1px solid #e2e8f0;">' +
         '    <div style="font-size:15px;font-weight:800;color:' + pal.dark + ';margin-bottom:8px;">HITOS DE PAGO ESTÁNDAR BANCABLE (MODALIDAD CAPEX)</div>' +
-        '    <table class="table-clean" style="font-size:13.5px;">' +
-        '      <tr><td><strong>1º Hito (30%):</strong></td><td>A la firma de contrato (reserva de equipos y tramitación de licencias)</td><td style="font-weight:bold;text-align:right;">' + fmtEsCurrency(Math.round(totalCostGrossNum * 0.30)) + '</td></tr>' +
-        '      <tr><td><strong>2º Hito (50%):</strong></td><td>Al acopio de materiales en cubierta y comienzo de montaje mecánico</td><td style="font-weight:bold;text-align:right;">' + fmtEsCurrency(Math.round(totalCostGrossNum * 0.50)) + '</td></tr>' +
-        '      <tr><td><strong>3º Hito (20%):</strong></td><td>A la puesta en marcha, emisión de CIE y entrega de documentación legal</td><td style="font-weight:bold;text-align:right;">' + fmtEsCurrency(Math.round(totalCostGrossNum * 0.20)) + '</td></tr>' +
-        '    </table>' +
+        (function() {
+          var stCfg = (global.RAProposalStyleStudio && typeof global.RAProposalStyleStudio.getActiveConfig === 'function') ? global.RAProposalStyleStudio.getActiveConfig() : null;
+          var lt = (stCfg && stCfg.lockedTexts) ? stCfg.lockedTexts : {};
+          var p1 = lt.milestone1Pct !== undefined ? Number(lt.milestone1Pct) : 30;
+          var p2 = lt.milestone2Pct !== undefined ? Number(lt.milestone2Pct) : 50;
+          var p3 = lt.milestone3Pct !== undefined ? Number(lt.milestone3Pct) : 20;
+          var t1 = lt.milestone1Text || 'A la firma de contrato (reserva de equipos y tramitación de licencias)';
+          var t2 = lt.milestone2Text || 'Al acopio de materiales en cubierta y comienzo de montaje mecánico';
+          var t3 = lt.milestone3Text || 'A la puesta en marcha, emisión de CIE y entrega de documentación legal';
+          return '    <table class="table-clean" style="font-size:13.5px;">' +
+            '      <tr><td><strong>1º Hito (' + p1 + '%):</strong></td><td>' + t1 + '</td><td style="font-weight:bold;text-align:right;">' + fmtEsCurrency(Math.round(totalCostGrossNum * (p1 / 100))) + '</td></tr>' +
+            '      <tr><td><strong>2º Hito (' + p2 + '%):</strong></td><td>' + t2 + '</td><td style="font-weight:bold;text-align:right;">' + fmtEsCurrency(Math.round(totalCostGrossNum * (p2 / 100))) + '</td></tr>' +
+            '      <tr><td><strong>3º Hito (' + p3 + '%):</strong></td><td>' + t3 + '</td><td style="font-weight:bold;text-align:right;">' + fmtEsCurrency(Math.round(totalCostGrossNum * (p3 / 100))) + '</td></tr>' +
+            '    </table>';
+        })() +
         '  </div>' +
         '</div>'
       ),
@@ -1641,9 +1693,23 @@
         '<div>' +
         '  <div style="font-size:15px;font-weight:800;color:' + pal.primary + ';margin-bottom:10px;border-bottom:2px solid #e2e8f0;padding-bottom:5px;">CONDICIONES CONTRACTUALES & VINCULACIÓN</div>' +
         '  <div class="editable-field" contenteditable="true" style="font-size:13.5px;color:#475569;line-height:1.6;margin-bottom:14px;">' +
-        '    • <strong>Validez:</strong> La presente oferta económica y técnica es vinculante durante 30 días naturales desde su emisión.<br>' +
-        '    • <strong>Alcance Integral:</strong> Incluye ingeniería técnica, suministro de equipos Tier-1, montaje con línea de vida, legalización eléctrica CIE ante Industria y configuración de plataforma de telemetría.<br>' +
-        '    • <strong>Fiscalidad:</strong> La empresa instaladora asistirá al cliente en la tramitación de bonificaciones de IBI e ICIO municipales.' +
+        (function() {
+          var stCfg = (global.RAProposalStyleStudio && typeof global.RAProposalStyleStudio.getActiveConfig === 'function') ? global.RAProposalStyleStudio.getActiveConfig() : null;
+          var lt = (stCfg && stCfg.lockedTexts) ? stCfg.lockedTexts : {};
+          var valDays = lt.validityDays || 30;
+          if (lt.legalNotes && global.RAProposalStyleStudio && typeof global.RAProposalStyleStudio.interpolateText === 'function') {
+            return global.RAProposalStyleStudio.interpolateText(lt.legalNotes, {
+              clientName: clientName,
+              companyName: companyName,
+              kwp: kwp,
+              numPanels: raw.metrics.numPanels,
+              validityDays: valDays
+            });
+          }
+          return '    • <strong>Validez:</strong> La presente oferta económica y técnica es vinculante durante ' + valDays + ' días naturales desde su emisión.<br>' +
+            '    • <strong>Alcance Integral:</strong> Incluye ingeniería técnica, suministro de equipos Tier-1, montaje con línea de vida, legalización eléctrica CIE ante Industria y configuración de plataforma de telemetría.<br>' +
+            '    • <strong>Fiscalidad:</strong> La empresa instaladora asistirá al cliente en la tramitación de bonificaciones de IBI e ICIO municipales.';
+        })() +
         '  </div>' +
         '  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px;border-top:1px dashed #cbd5e1;padding-top:8px;">' +
         '    <div style="display:flex;flex-direction:column;align-items:center;text-align:center;">' +
@@ -2295,6 +2361,8 @@
       '};',
       '',
       '// Inicializar tras renderizado',
+      (global.RAProposalStyleStudio && typeof global.RAProposalStyleStudio.getSectionPaginationAndOrderScript === 'function' ? global.RAProposalStyleStudio.getSectionPaginationAndOrderScript('.sheet') : ''),
+      (global.RAProposalStyleStudio && typeof global.RAProposalStyleStudio.getAutoFitClientScript === 'function' ? global.RAProposalStyleStudio.getAutoFitClientScript('.sheet') : ''),
       'window.addEventListener("DOMContentLoaded", function() { DossierWYSIWYG.init(); });',
       'setTimeout(function() { DossierWYSIWYG.init(); }, 300);',
       '</script>',
