@@ -5,6 +5,7 @@
 > **Alcance:** Stack completo — `server.js` (Node nativo), `functions/index.js` (Cloud Functions v2), Firebase (Hosting/Firestore/Storage/Auth), cliente Vanilla JS (CesiumJS/WebGL, monolito `index.html` + 63 módulos `js/`), batería de tests y CI.
 > **Método:** Revisión de código estática + forense de historial Git + verificación en vivo de producción + revisión de reglas de seguridad y pipeline de despliegue.
 > **Nota:** Esta auditoría es complementaria a la ola `AUD-2026` (commit `8f7938d`), que ya validó y blindó el servidor estático, el proxy GWA y las reglas de Firestore/Storage. Aquí se listan los hallazgos **restantes observados el 29/10/2026**, verificados primero.
+> **v2 (31/10/2026):** Segunda pasada tras la ola de agentes IA — rango `16774d2..HEAD` (7 commits, 28 archivos, ≈3.900 líneas) + módulo nuevo sin trackear `js/proposal-style-studio.js` (1.719 líneas, integrado en `index.html:116`). La sección 3 recoge el **estado de los hallazgos v1** y **41 hallazgos nuevos** (verificación forense re-hecha).
 
 ---
 
@@ -24,6 +25,8 @@ window.RA_ENV = {
 **Estado:** `js/ra-env.js` pasa el guardia de git (está en `.gitignore` y el test `test-no-secrets.js` lo valida)… pero **nadie le dijo lo mismo a Firebase Hosting**. El `firebase.json` de hosting **no excluye** ese archivo, y el caché de despliegue `.firebase/hosting..cache` (línea 15) confirma que entró en el upload del despliegue del 27/10/2026. Si las claves de Google Maps y/o Cesium ion no están **restringidas por referrer/API/cuota** en sus consolas correspondientes, cualquier bot puede vaciar la cuota de facturación del proyecto. Además, esas **mismas claves están en el histórico de Git** (fue `js/config.js` en al menos 6 commits: `f3a2dc5`, `2c62930`, `81ca039`, `5facbde`, `5909768`, `c02868b`), lo que confirma que **deben rotarse** aunque se limpien los repos.
 
 El resto de la batería está sorprendentemente sano (ver Anexo A: crédito a la ola previa). Los hallazgos restantes giran en torno a 3 críticos/altos principales y una cola de medios y bajos de higiene.
+
+> 🔁 **Re-verificado el 31/10/2026:** la fuga de producción **sigue activa sin corregir** (mismo HTTP 200, mismas claves sin rotar) y la ola de agentes IA de los últimos días **no tocó ninguna consulta de esta lista**; además introdujo una lluvia de sumideros XSS en el pipeline comercial nuevo (ver sección 3). El estado v1 → v2 está tabulado en 3.1.
 
 ---
 
@@ -323,7 +326,119 @@ if (gwaRateLimited(ip)) { sendJson(res, 429, { error: 'Demasiadas peticiones' })
 
 ---
 
-## 3. PLAN DE ACCIÓN PASO A PASO
+## 3. OLA v2 — HALLAZGOS EN CAMBIOS DE AGENTES IA (31/10/2026)
+
+### 3.1 Estado de los hallazgos v1 tras la ola
+
+| v1 | Estado tras la ola | Nota |
+|:---|:-------------------|:-----|
+| SEC-01 | 🔴 **SIN CORREGIR** | Verificado en vivo 31/10: `ra-solar-3d.web.app/js/ra-env.js` sigue sirviendo las claves antiguas. Sigue siendo el paso 1 del plan |
+| SEC-02 | 🔴 **SIN CORREGIR** | Claves siguen en histórico; sin rotación ni BFG |
+| SEC-03 | 🟠 **SIN CORREGIR** | `DENIED_FILES` sigue sin `ra-env.js` (verificado por grep) |
+| SEC-04 | 🟠 **EMPEORADO** → vira a SEC2-01 | El sumidero `financials.js:660` fue "parcheado" con blacklist regex (`script|on\w+=|javascript:` en líneas 616-625) que es evadible: `<base>`, `<a href=//evil>`, `<form>`, `<img src=…>` pasan. Corregir con `RASanitize.richText` como la ruta del modal |
+| SEC-05 | 🟡 SIN CORREGIR | Import no tocada por la ola |
+| SEC-06/07 | 🟡 SIN CORREGIR | Tests y App Check sin cambios |
+| PERF-01 | 🟡 **EMPEORADO** | Monolito creció: 958 KB→**988 KB**, 15.260→**15.451 líneas**, 77→**79 `<script>`** |
+| ARC-01/SEC-08 | 🟡 SIN CORREGIR | Parser y rate-limit local sin cambios |
+| ARC-02 | 🟡 **EMPEORADO** | +14 sumideros infantiles nuevos (SEC2-02…15) |
+| QUA-01/02/03, SEC-09, PERM-01 | 🟢 SIN CAMBIOS | Bajos pendientes |
+
+### 3.2 Seguridad de la ola (auditor especial de seguridad)
+
+Método: agentes revisión de sumideros de HTML sobre los archivos nuevos/modificados. Resultado: la infraestructura siguió bien (0 secretos nuevos, cabecera `x-goog-api-key`, 0 escrituras cloud fuera de reglas)… pero el **pipeline comercial nuevo** (dossier + style studio) interpola datos de cliente/proyecto **sin escapar** en HTML que luego se exporta a DOCX/PDF.
+
+| ID | Sev. | Ubicación | Problema → Fix |
+|:---|:-----|:----------|:---------------|
+| SEC2-01 | 🔴 Crítico (v1) | `financials.js:660` (+616-625) | Resumen Gemini → `innerHTML` con **blacklist regex evadible**. La ruta del modal sí usa `RASanitize` (2391-2394). Fix: única función `renderAiSummary(text)` que SIEMPRE aplique `RASanitize.richText` — eliminar la regex |
+| SEC2-02 | 🟠 Alto | `proposal-style-studio.js:794-796` → `financials.js:3276-3290, 4727` | `interpolateText()` sustituye `{{clientName}}/{{companyName}}` crudos y el resultado entra entero en el HTML de la oferta. Fix: escapar los valores del mapa antes de interpolar |
+| SEC2-03 | 🟠 Alto | `commercial-proposal-dossier.js:1183-1198` | Mismo patrón: `clientName` y `profileType` crudos en tarjetas del dossier. Fix: `escapeHtml()` / `formatManualLineBreaks()` |
+| SEC2-04 | 🟠 Alto | `commercial-proposal-dossier.js:2373-2376` | `win.document.write(html)` en ventana same-origin con datos de proyecto sin escapar. Fix: escapar al construir `html[]` |
+| SEC2-05 | 🟠 Alto | `commercial-proposal-dossier.js:2114-2119` | Restaurar borrador: `container.innerHTML = saved` crudo desde localStorage (borrador contenteditable). Fix: `RASanitize.richText(saved)` |
+| SEC2-06 | 🟡 Medio | `commercial-proposal-dossier.js:519` | Atributos `value="' + data.client.name + '"` sin escape de comillas (modal de 2.553 líneas concatenadas). Fix: `replace(/"/g,'&quot;')` (patrón ya usado en studio:1245) |
+| SEC2-07 | 🟡 Medio | `financials.js:2292-2295` | Precios IA (`panelPrice`/`resumen` crudos en `aiText.innerHTML`). Fix: `Number() \|\| 0` + escapar `resumen` |
+| SEC2-08 | 🟡 Medio | `financials.js:415` + búsqueda de index | `alt="' + file.name + '"` sin escapar comillas → rompe atributo con `x" onerror=…>`. Fix: escape o `setAttribute('alt', …)` |
+| SEC2-09 | 🟡 Medio | `project-status-hud.js:57-77`, `viewer.js:403` → `docs-generator.js:2731-2735`, dossier 2376 | `display_name` de Nominatim/Catastro (terceros) se guarda en config y llega a `document.write` de los PDFs sin escapar. Fix: `escapeHtml()` en generadores (`loc`, `t.dir`) |
+| SEC2-10 | 🟡 Medio | `solar-engine.js:785-807` | Producción PVGIS vía proxies CORS públicos (corsproxy/allorigins/codetabs) sin validar rangos → NaN/energías falsadas alimentan presupuesto y TIR. Fix: acotar resultados (`isFinite && >0 && < kwp×2500`) + cross-check con SSOT local |
+| SEC2-11 | 🟢 Bajo | `proposal-style-studio.js:1468` | Plantilla inyectada en `<textarea>` sin escapar `</textarea>`. Fix: `&`/`<` escape |
+| SEC2-12 | 🟢 Bajo | `ui-outliner.js:186-552` | Nombres de edificios/obstáculos/equipos crudos en el árbol. Fix: helper `esc()` local |
+| SEC2-13 | 🟢 Bajo | `bom-tree.js:847-886` | Nombres/dimensiones crudos en HUD BOM. Fix: ídem |
+| SEC2-14 | 🟢 Bajo | `docs-generator.js:415` | `alt` de imagen con `file.name` sin escape (hallazgo v1 pendiente). Fix: escape de comillas |
+| SEC2-15 | 🟢 Bajo (v1) | `financials.js:2544` | `EngineeringExplainer.generateExecutiveSummaryHTML` crudo (otra ruta sin sanitizar). Fix: consolidar en `renderAiSummary` |
+
+**Estrategia recomendada (un movimiento, quince apagones):** módulo `js/html-sanitize.js` con `window.RAHtml = { esc(), rich() }` (esc = escape de `& < > " '` + strip tags; rich = puente a `RASanitize.richText`), y reemplazo mecánico de las interpolaciones listadas. El lint de contrato (sección 4, paso 17) se hace OBLIGATORIO tras esta ola para que no vuelva a ocurrir.
+
+### 3.3 Rendimiento y memoria de la ola (auditor especial de rendimiento)
+
+Nada de lo arrastrado respetó del todo la regla dura del proyecto. Los 4 hallazgos "Alta" ocurren **durante el drag de objetos** y explican la sensación de jank reciente del Paso 1/2.
+
+| ID | Sev. | Ubicación | Problema → Fix |
+|:---|:-----|:----------|:---------------|
+| PERF2-01 | 🟠 Alta | `wind-visualizer.js:623-626` (vía gizmo `universal-gizmo-3d.js:1031,1264`) | `updateLiveModelMatrix` **destruye y recrea** la Primitive de anillos/estela cada llamada en el drag de turbina (violación regla dura). Los anillos no cambian con la posición: cachear geometría y actualizar solo `modelMatrix` |
+| PERF2-02 | 🟠 Alta | `solar-live-probe.js` via gizmo rAF (1251-1253; flushGizmoUpdate index.html ~15758) | `evaluate()` completo de sombras en cada frame de drag; throttle 30 ms insuficiente. Fix: throttle 120-150 ms + diferir a idle tras el último MOVE, con muestreo degradado durante drag |
+| PERF2-03 | 🟠 Alta | `solar-live-probe.js:128-317` | Análisis de sombras 100% en hilo principal: O(paneles × instantes × quads) por tick. Fix: migrar `_runEvaluationCore` a Worker (los datos ya son transferibles) o cachear quads por obstáculo |
+| PERF2-04 | 🟠 Alta | `solar-live-probe.js:327-335, 433-443` | `_renderHeatmapOverlay` destruye/recrea la Primitive batch de TODOS los paneles en cada evaluate. Fix: Primitive persistente para paneles sin cambio + rebatch solo del subconjunto tintado |
+| PERF2-05 | 🟡 Medio | `solar-live-probe.js:284-297` | `fnIntersect` resuelto por ternario dentro del doble bucle. Fix: hoist fuera + broadphase AABB antes del SAT |
+| PERF2-06 | 🟡 Medio | index.html ~16072 | Soltar drag de obstáculo → `RAWindVisualizer.renderAll()` reconstruye TODAS las turbinas. Fix: `updateLiveModelMatrix` por turbina o solo las cercanas |
+| PERF2-07 | 🟡 Medio | `wind-entity.js:130-131` | Slider de yaw dispara por `oninput` toda la cadena de ingeniería (AEP+Acoustics+Structural+Electrical+HUDs). Fix: debounce 150-250 ms o emitir en `onchange` |
+| PERF2-08 | 🟡 Medio | `cad-selection-suite.js:210-241` | Hover itera TODOS los edificios × vértices con proyecciones geodésicas por frame de ratón. Fix: quick-reject por bounding screen rect + limitar al edificio activo |
+| PERF2-09 | 🟡 Medio | `ui-outliner.js:57-70` | Doble suscripción → 2 renders completos (innerHTML) por evento de turbina. Fix: dirty-flag + flush por rAF |
+| PERF2-10 | 🟡 Medio | `wind-obstacle-interference.js:37-64` | `extractSceneObstacles()` re-extracta y normaliza sin caché en cada evaluación. Fix: cachear por generation counter de obstáculos |
+| PERF2-11 | 🟢 Bajo | `wind-ui.js:1066-1077` | `renderStep2Panel()` completo por cada evento del slider. Fix: rAF-coalesce o sub-render por tarjeta |
+| PERF2-12 | 🟢 Bajo | `wind-visualizer.js:701-741` | Loop de pulso con `setTimeout(80)` sin cancelación externa → renders GPU a 12 fps indefinidos en idle. Fix: exponer `stopPulse()` y arrancar solo por interacción |
+
+### 3.4 Arquitectura de la ola (auditor especial de arquitectura)
+
+La regla 6 (bloque inline congelado) se respetó en lo funcional: **0 funciones nuevas inline**; pero se coló una asignación de hook global y los módulos nuevos traen 3 puntos de calidad:
+
+| ID | Sev. | Ubicación | Problema → Fix |
+|:---|:-----|:----------|:---------------|
+| ARC2-01 | ℹ️ Info | `index.html:116` | El módulo nuevo está cargado vía `<script src>` con cache-buster — integración correcta, sin hallazgo |
+| ARC2-02 | 🟡 Medio | index.html (diff: `+window.RA.solarStats`) | Tercera/dupla escritura inline de `window.RA.solarStats` (4+ sitios: 7177/7610/8716 + working-plane.js:4175) → condiciones de carrera. Fix: inicializar una sola vez en `js/*.js`, solo lectura desde HTML |
+| ARC2-03 | 🟡 Medio | `proposal-style-studio.js:602/1097/1609` | 3 funciones >100 líneas (167/177/230) que regeneran HTML+CSS por strings. Fix: extraer handlers y plantilla de estilos |
+| ARC2-04 | 🟢 Bajo | `proposal-style-studio.js` (todo) | 227 `var` y 0 `const/let` — estilo legacy en módulo NUEVO. Fix: migración a const/let o excepción documentada |
+| ARC2-05 | 🟢 Bajo | `proposal-style-studio.js:1836` | Exporta `window.RAProposalStyleStudio` sin alias en namespace `RA`. Fix: `window.RA.ProposalStyleStudio = window.RAProposalStyleStudio` |
+| ARC2-06 | 🟢 Bajo | `project-config.js:212` | `wpSyncGridSupplyUI` recalcula kWp inline (paneles×Wp/1000) fuera del SSOT de calcs. Fix: consumir `getProjectCalcs()` |
+| ARC2-07 | 🟢 Bajo | `project-config.js:24` | Alias `window.RA.projectConfig` (2ª vía al objeto mutable) puede saltar la persistencia. Fix: unificar acceso |
+| ARC2-08 | ℹ️ Info | diff index.html | 0 `<style>` y 0 `@media` nuevos añadidos al HTML (regla CSS del monolito respetada; el CSS que genera studio es por string JS en runtime → parte de ARC2-03) |
+
+### 3.5 Permisos y base de datos de la ola (auditor especial de BD)
+
+| ID | Sev. | Ubicación | Problema → Fix |
+|:---|:-----|:----------|:---------------|
+| PERM2-01 | 🟡 Medio | `firebase-service.js:196` | Única ruta de escritura cloud sigue siendo `saveProjectToCloud` (doc `projects` con `set merge:true`): los datos nuevos (jerarquía, dossier, estilo) van empaquetados dentro del mismo doc → crecimiento hacia el límite de 1 MB/doc. Fix: limitar/cachear payload en `exportProjectData` o mover jerarquía a subcolección |
+| PERM2-04 | 🟡 Medio | `functions/index.js:117-128, 150` | Confirmado: `RATE_LIMIT.hits` Map sin prune NUNCA borra entradas y acepta `x-forwarded-for` (spoofable) como clave → crecimiento indefinido por instancias falsificadas. Fix: sweep de entradas expiradas en cada insert (o LRU con tope ~50k) + usar `req.ip` de infraestructura |
+| PERM2-05 | 🟢 Bajo | `storage.rules:14-18` | DOCX no está en allowlist, pero **ningún módulo sube DOCX** (solo descarga client-side): gap teórico. Fix: solo si se empieza a subir DOCX, añadir MIME Office + validar filename sin `/` |
+| PERM2-06 | 🟢 Bajo | `firebase-service.js:246-247` | Fallback `userId='anon'` en `uploadPDFToStorage` genera error confuso según reglas. Fix: throw explícito si no hay sesión |
+| PERM2-02/03 | ℹ️ Info | js de la ola | 0 escrituras directas nuevas; nadie fuera de las 3 familias de reglas — benigno confirmado |
+
+### 3.6 Lo que la ola hizo bien (créditos)
+
+- Respeto integral de la regla 6: 0 funciones nuevas en el bloque inline congelado (1 hook global colado → ARC2-02).
+- 0 secretos/literales nuevos (`test-no-secrets` seguiría dando verde).
+- 0 CSS global nuevo en el HTML; integración correcta y cargada del módulo nuevo, con STORAGE_KEY propia sin colisión.
+- 0 escrituras cloud fuera de reglas; tests nuevos con su suite (`test-rd1699-grid-phase`, `test-solar-live-probe`, `test-cad-selection-suite`, etc.).
+
+### 3.7 Cómo resolver la ola (integrado con la sección 4)
+
+Los pasos 9–22 de la sección 4 siguen vigentes. A ellos se suben, como **cambios URGENTE de esta ola**:
+
+1. **(Fase 0+, con `adelante`) Apagón XSS de la ola:** crear `js/html-sanitize.js` (`RAHtml.esc/rich`) y aplicar los fixes de severidad Crítica y Alta (SEC2-01…05) y los medios (06–09) en un único pase de ~1-2 horas; corregir la blacklist regex de `financials.js:616-625`.
+2. **(Fase 0+) Hotfix de drag:** cachear anillos/estela y no destruir primitivas en drag (PERF2-01, PERF2-04); subir throttle y diferir `evaluate()` a idle (PERF2-02). Son 3 parches acotados que devuelven el fluidez del Paso 1/2.
+3. **(Fase 1, paso 9-10 ampliado)** Añadir al suite: `test-sanitize-contract.js` (prohíbe `innerHTML =` sin RAHtml/RASanitize en js/) y `test-project-import-fuzz.js` (ya estaba en v1) — ambos obligatorios antes de más features comerciales.
+4. **(Fase 2)** Worker para `solar-live-probe` (PERF2-03), debounce del pipeline eólico (PERF2-07), prune del rate-limit de la Cloud Function (PERM2-04), límite de payload del doc `projects` (PERM2-01), migración var→const/let del studio (ARC2-04).
+
+**Verificación rápida de la ola:**
+```bash
+grep -n "renderAiSummary" js/financials.js                     # debe existir y usarse en TODAS las rutas de resumen
+grep -c "RASanitize" js/commercial-proposal-dossier.js         # ≥ 3 (borrador, dossier, export)
+grep -n "people\|forEach" js/solar-live-probe.js | head        # tras el worker: sin bucles de sombra en hilo principal
+grep -n "hits.delete\|prune" functions/index.js                # ≥ 1 tras el fix del rate-limit
+node tests/run-all.js --only=test-sanitize --bail              # verde (nuevo contrato)
+```
+
+---
+
+## 4. PLAN DE ACCIÓN PASO A PASO
 
 ### 🚨 FASE 0 — HOY MISMO (≤ 45 min, orden estricto)
 
@@ -420,3 +535,4 @@ git log -S "AIzaSyAj-cG-tvA" --all | wc -l                                     #
 
 - Ningún código del proyecto ha sido modificado como resultado de la auditoría (regla 3 de AGENTS.md: diagnóstico primero, aprobación antes de tocar). El Plan de Acción está diseñado para paso a paso con confirmación.
 - Los hashes de commits referenciales son del checkout del 29/10/2026.
+- **v2:** pasada del 31/10/2026 con cuatro perfiles de auditoría en paralelo (seguridad, rendimiento, arquitectura, permisos/BD) sobre la ola `16774d2..HEAD` + `proposal-style-studio.js`; el documento ahora se estructura en 4 secciones: resumen v1, hallazgos v1 en detalle, análisis de la ola v2 y plan de acción integrado.
