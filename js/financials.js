@@ -616,12 +616,18 @@ async function requestCommercialSummaryFromGemini(d, m, equipment) {
           var cleanHtml = String(text.trim())
             .replace(/^```(?:html)?\s*/i, '')
             .replace(/\s*```$/i, '')
-            .replace(/<\s*(?:script|iframe|object|embed|style|link|meta)[^>]*>[\s\S]*?<\s*\/\s*(?:script|iframe|object|embed|style|link|meta)\s*>/gi, '')
-            .replace(/<\s*(?:script|iframe|object|embed|style|link|meta)[^>]*>/gi, '')
-            .replace(/\bon\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
-            .replace(/href\s*=\s*['"]?javascript:[^'">\s]*/gi, '')
             .trim();
-
+          // [AUD-2026 v2 · SEC2-01] Saneado oficial por allowlist. Fallback (solo entornos sin
+          // RASanitize, p.ej. tests Node): saneado conservador que respeta el HTML legítimo.
+          if (typeof window !== 'undefined' && window.RASanitize && typeof window.RASanitize.richText === 'function') {
+            cleanHtml = window.RASanitize.richText(cleanHtml);
+          } else {
+            cleanHtml = String(cleanHtml)
+              .replace(/<\s*(script|iframe|object|embed|style|link|meta|base|form)[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi, '')
+              .replace(/<\s*(script|iframe|object|embed|style|link|meta|base|form)[^>]*>/gi, '')
+              .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+              .replace(/(href|src|action|formaction)\s*=\s*javascript:[^"'\s>]*/gi, '$1=');
+          }
           if (cleanHtml) return cleanHtml;
         }
       }
@@ -657,7 +663,11 @@ async function enrichSummaryWithGemini(targetWindow, d, m, equipment) {
   try {
     var generatedText = await requestCommercialSummaryFromGemini(d, m, equipment);
     if (generatedText && generatedText.trim()) {
-      container.innerHTML = generatedText;
+      // [AUD-2026 v2 · SEC2-01] Documentación: generatedText ya sale saneado de la fuente;
+      // se re-aplica el allowlist como cinturón de tirantes (doble comprobación).
+      container.innerHTML = (window.RAHtml && window.RAHtml.rich)
+        ? window.RAHtml.rich(generatedText)
+        : ((window.RASanitize && window.RASanitize.richText) ? window.RASanitize.richText(generatedText) : generatedText);
       if (badge) badge.innerHTML = '✨ Resumen generado con IA · Google Gemini';
     }
   } catch(err) {
@@ -2289,10 +2299,16 @@ function wpOpenPricingReviewModal(onConfirm) {
         if (jsonResult && (jsonResult.panelPrice > 0 || jsonResult.estPrice > 0 || jsonResult.invPrice > 0)) {
           suggestedAiPrices = jsonResult;
           if (aiText) {
-            aiText.innerHTML = '<b>Sugerencia Gemini:</b> Módulo: <b>' + jsonResult.panelPrice + ' €/ud</b> · ' +
-              'Estructura: <b>' + Math.round(jsonResult.estPrice) + ' €</b> · Inversor: <b>' + Math.round(jsonResult.invPrice) + ' €</b> · ' +
-              'M.O.: <b>' + Math.round(jsonResult.moPrice) + ' €</b> · Cables/Cuadros: <b>' + Math.round(jsonResult.cabPrice) + ' €</b>.<br>' +
-              '<span style="font-size:9px;color:#D8B4FE;">' + (jsonResult.resumen || '') + '</span>';
+            var _pP = Number(jsonResult.panelPrice) || 0;
+            var _eP = Math.round(Number(jsonResult.estPrice) || 0);
+            var _iP = Math.round(Number(jsonResult.invPrice) || 0);
+            var _mP = Math.round(Number(jsonResult.moPrice) || 0);
+            var _cP = Math.round(Number(jsonResult.cabPrice) || 0);
+            var _res = String(jsonResult.resumen || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            aiText.innerHTML = '<b>Sugerencia Gemini:</b> Módulo: <b>' + _pP + ' €/ud</b> · ' +
+              'Estructura: <b>' + _eP + ' €</b> · Inversor: <b>' + _iP + ' €</b> · ' +
+              'M.O.: <b>' + _mP + ' €</b> · Cables/Cuadros: <b>' + _cP + ' €</b>.<br>' +
+              '<span style="font-size:9px;color:#D8B4FE;">' + _res + '</span>';
           }
           if (applyAiBtn) applyAiBtn.style.display = 'inline-block';
         } else {
@@ -3273,10 +3289,15 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     ? window.RAProposalStyleStudio.getActiveConfig()
     : null;
   // ── Resumen comercial para el cliente (Plantilla fija instantánea o generador SSOT) ──
+  // [AUD-2026 v2 · SEC2-02] Los valores interpolados en la plantilla van escapados (vienen de
+  // datos del proyecto/usuario); los números pasan por el escape sin alterarse.
+  const _escInterp = (typeof window.RAHtml === 'object' && typeof window.RAHtml.esc === 'function')
+    ? window.RAHtml.esc
+    : function(v) { return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); };
   const _summaryHTML = (_studioCfg && _studioCfg.lockedTexts && _studioCfg.lockedTexts.useLockedSummary && _studioCfg.lockedTexts.summaryTemplate)
     ? window.RAProposalStyleStudio.interpolateText(_studioCfg.lockedTexts.summaryTemplate, {
-        clientName: d.tit.nombre,
-        companyName: companyName,
+        clientName: d.tit.nombre != null ? _escInterp(d.tit.nombre) : undefined,
+        companyName: companyName != null ? _escInterp(companyName) : undefined,
         kwp: m.kwp.toFixed(2),
         numPanels: m.numPanels,
         windCount: _eqp.hasWind ? (_eqp.windCount || 1) : 0,
@@ -3989,70 +4010,72 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         </div>
 
         <!-- 4 Cajas Principales de Características Técnicas de la Instalación -->
-        <div style="font-size:10.5px;font-weight:900;color:#1e293b;text-transform:uppercase;letter-spacing:0.6px;margin:10px 0 6px;border-left:4px solid ${pal.primary};padding-left:10px;">
-          CARACTERÍSTICAS PRINCIPALES DE LA INSTALACIÓN
-        </div>
-
-        <div class="cover-specs-grid">
-          <!-- Caja 1: Número de placas / aerogeneradores -->
-          <div class="cover-spec-box">
-            <div class="cover-spec-icon">
-              ${(window.RA_SvgCatalog ? window.RA_SvgCatalog.render('panel', pal.primary, 34) : '')}
-            </div>
-            <div>
-              <div class="cover-spec-label">${(windTurbineCount > 0) ? 'Generadores Instalados' : 'Módulos Solares'}</div>
-              <div class="cover-spec-val primary">${m.numPanels} ${(windTurbineCount > 0) ? ('+ ' + windTurbineCount + ' aero') : 'Placas'}</div>
-              <div class="cover-spec-sub">${
-                (windTurbineCount > 0)
-                  ? (m.numPanels + ' módulos FV + ' + windTurbineCount + ' turbina(s)')
-                  : (m.modulesBreakdown && m.modulesBreakdown.isMultiModule)
-                    ? ('Tier-1 Multi-modelo (' + m.modulesBreakdown.uniqueModelsCount + ' mod · ' + m.kwp.toFixed(2) + ' kWp)')
-                    : ('Tecnología Tier-1 ' + (d.cfg && d.cfg.potencia ? d.cfg.potencia : 450) + ' Wp')
-              }</div>
-            </div>
+        <div class="cover-specs-section">
+          <div class="cover-specs-heading" style="font-size:10.5px;font-weight:900;color:#1e293b;text-transform:uppercase;letter-spacing:0.6px;margin:10px 0 8px;border-left:4px solid ${pal.primary};padding-left:10px;">
+            CARACTERÍSTICAS PRINCIPALES DE LA INSTALACIÓN
           </div>
 
-          <!-- Caja 2: Potencia Pico / Instalada -->
-          <div class="cover-spec-box">
-            <div class="cover-spec-icon">
-              ${(window.RA_SvgCatalog ? window.RA_SvgCatalog.render('inverter', pal.primary, 34) : '')}
+          <div class="cover-specs-grid">
+            <!-- Caja 1: Número de placas / aerogeneradores -->
+            <div class="cover-spec-box">
+              <div class="cover-spec-icon">
+                ${(window.RA_SvgCatalog ? window.RA_SvgCatalog.render('panel', pal.primary, 34) : '')}
+              </div>
+              <div>
+                <div class="cover-spec-label">${(windTurbineCount > 0) ? 'Generadores Instalados' : 'Módulos Solares'}</div>
+                <div class="cover-spec-val primary">${m.numPanels} ${(windTurbineCount > 0) ? ('+ ' + windTurbineCount + ' aero') : 'Placas'}</div>
+                <div class="cover-spec-sub">${
+                  (windTurbineCount > 0)
+                    ? (m.numPanels + ' módulos FV + ' + windTurbineCount + ' turbina(s)')
+                    : (m.modulesBreakdown && m.modulesBreakdown.isMultiModule)
+                      ? ('Tier-1 Multi-modelo (' + m.modulesBreakdown.uniqueModelsCount + ' mod · ' + m.kwp.toFixed(2) + ' kWp)')
+                      : ('Tecnología Tier-1 ' + (d.cfg && d.cfg.potencia ? d.cfg.potencia : 450) + ' Wp')
+                }</div>
+              </div>
             </div>
-            <div>
-              <div class="cover-spec-label">${_eqp.hasWind ? 'Potencia Híbrida Total' : 'Potencia Pico Total'}</div>
-              <div class="cover-spec-val">${_eqp.hasWind ? ((m.kwp + _eqp.windTotalKw).toFixed(2) + ' kW') : (m.kwp.toFixed(2) + ' kWp')}</div>
-              <div class="cover-spec-sub">${
-                _eqp.hasWind
-                  ? (m.kwp.toFixed(2) + ' kWp Solar · ' + _eqp.windTotalKw.toFixed(1) + ' kW Eólica')
-                  : (_eqp.totalAcKw > 0 ? (_eqp.totalAcKw.toFixed(1) + ' kW AC nominal') : 'Conversión de alta eficiencia')
-              }</div>
-            </div>
-          </div>
 
-          <!-- Caja 3: Energía Generada Año 1 -->
-          <div class="cover-spec-box">
-            <div class="cover-spec-icon">
-              ${(window.RA_SvgCatalog ? window.RA_SvgCatalog.render('peakSun', pal.primary, 34) : '')}
+            <!-- Caja 2: Potencia Pico / Instalada -->
+            <div class="cover-spec-box">
+              <div class="cover-spec-icon">
+                ${(window.RA_SvgCatalog ? window.RA_SvgCatalog.render('inverter', pal.primary, 34) : '')}
+              </div>
+              <div>
+                <div class="cover-spec-label">${_eqp.hasWind ? 'Potencia Híbrida Total' : 'Potencia Pico Total'}</div>
+                <div class="cover-spec-val">${_eqp.hasWind ? ((m.kwp + _eqp.windTotalKw).toFixed(2) + ' kW') : (m.kwp.toFixed(2) + ' kWp')}</div>
+                <div class="cover-spec-sub">${
+                  _eqp.hasWind
+                    ? (m.kwp.toFixed(2) + ' kWp Solar · ' + _eqp.windTotalKw.toFixed(1) + ' kW Eólica')
+                    : (_eqp.totalAcKw > 0 ? (_eqp.totalAcKw.toFixed(1) + ' kW AC nominal') : 'Conversión de alta eficiencia')
+                }</div>
+              </div>
             </div>
-            <div>
-              <div class="cover-spec-label">${_eqp.hasWind ? 'Producción Anual Total' : 'Producción Anual'}</div>
-              <div class="cover-spec-val primary">${Math.round(annualYieldKWh + (_eqp.hasWind ? _eqp.windAepNetKwh : 0)).toLocaleString('es-ES')} kWh</div>
-              <div class="cover-spec-sub">${
-                _eqp.hasWind
-                  ? ('☀️ ' + Math.round(annualYieldKWh).toLocaleString('es-ES') + ' kWh FV + 💨 ' + Math.round(_eqp.windAepNetKwh).toLocaleString('es-ES') + ' kWh Eól.')
-                  : '~100% calibrado por gemelo 3D'
-              }</div>
-            </div>
-          </div>
 
-          <!-- Caja 4: Precio / Inversión Llave en Mano -->
-          <div class="cover-spec-box highlight">
-            <div class="cover-spec-icon" style="border-color:${pal.primary};background:${pal.light};">
-              ${(window.RA_SvgCatalog ? window.RA_SvgCatalog.render('piggyBank', pal.primary, 34) : '')}
+            <!-- Caja 3: Energía Generada Año 1 -->
+            <div class="cover-spec-box">
+              <div class="cover-spec-icon">
+                ${(window.RA_SvgCatalog ? window.RA_SvgCatalog.render('peakSun', pal.primary, 34) : '')}
+              </div>
+              <div>
+                <div class="cover-spec-label">${_eqp.hasWind ? 'Producción Anual Total' : 'Producción Anual'}</div>
+                <div class="cover-spec-val primary">${Math.round(annualYieldKWh + (_eqp.hasWind ? _eqp.windAepNetKwh : 0)).toLocaleString('es-ES')} kWh</div>
+                <div class="cover-spec-sub">${
+                  _eqp.hasWind
+                    ? ('☀️ ' + Math.round(annualYieldKWh).toLocaleString('es-ES') + ' kWh FV + 💨 ' + Math.round(_eqp.windAepNetKwh).toLocaleString('es-ES') + ' kWh Eól.')
+                    : '~100% calibrado por gemelo 3D'
+                }</div>
+              </div>
             </div>
-            <div>
-              <div class="cover-spec-label" style="color:${pal.dark};">Inversión Llave en Mano</div>
-              <div class="cover-spec-val" style="color:${pal.dark};font-size:19px;">${Math.round(m.capexBruto).toLocaleString('es-ES')} €</div>
-              <div class="cover-spec-sub" style="color:${pal.dark};font-weight:700;">IVA 21% inc. · ${Math.round(m.capexNeto).toLocaleString('es-ES')} € neto subv.</div>
+
+            <!-- Caja 4: Precio / Inversión Llave en Mano -->
+            <div class="cover-spec-box highlight">
+              <div class="cover-spec-icon" style="border-color:${pal.primary};background:${pal.light};">
+                ${(window.RA_SvgCatalog ? window.RA_SvgCatalog.render('piggyBank', pal.primary, 34) : '')}
+              </div>
+              <div>
+                <div class="cover-spec-label" style="color:${pal.dark};">Inversión Llave en Mano</div>
+                <div class="cover-spec-val" style="color:${pal.dark};font-size:19px;">${Math.round(m.capexBruto).toLocaleString('es-ES')} €</div>
+                <div class="cover-spec-sub" style="color:${pal.dark};font-weight:700;">IVA 21% inc. · ${Math.round(m.capexNeto).toLocaleString('es-ES')} € neto subv.</div>
+              </div>
             </div>
           </div>
         </div>

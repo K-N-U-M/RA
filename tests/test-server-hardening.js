@@ -69,7 +69,7 @@ function waitForServer(child) {
     await waitForServer(child);
 
     // 1. Allowlist: código, tests y configuración no deben servirse.
-    for (const denied of ['/server.js', '/functions/index.js', '/tests/test-js-syntax.js', '/.gitignore', '/package.json']) {
+    for (const denied of ['/server.js', '/functions/index.js', '/tests/test-js-syntax.js', '/.gitignore', '/package.json', '/js/ra-env.example.js']) {
       const r = await request(denied);
       assert.strictEqual(r.status, 404, `${denied} debe responder 404 (recibido ${r.status})`);
     }

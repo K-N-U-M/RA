@@ -55,7 +55,11 @@
         borderStyle: 'rounded',     // rounded | sharp | minimal
         inkMode: 'light',           // light | luxury_dark
         autoFitA4: true,
-        // Controles finos de interlineado, espaciado, saltos de línea y color de textos
+        // Controles finos de interlineado, espaciado, tamaños independientes, saltos de línea y color de textos
+        heroFontSize: 23.5,
+        sectionFontSize: 13.0,
+        bodyFontSize: 11.0,
+        kpiFontSize: 16.5,
         headingLineHeight: 1.18,
         headingLetterSpacing: -0.5,
         subtitleLineHeight: 1.32,
@@ -65,6 +69,12 @@
         tableLineHeight: 1.28,
         textWrapBalance: true,
         compactKpiBoxes: true,
+        coverFillSheet: true,
+        coverHeaderGap: 20,
+        coverPhotoGap: 18,
+        coverPhotoHeightMm: 78,
+        coverSpecsGap: 18,
+        coverSpecBoxHeightPx: 112,
         paragraphAlign: 'left',     // left | justify | center
         useCustomTextColors: false,
         headingTextColor: '#0f172a',
@@ -124,6 +134,10 @@
         borderStyle: 'sharp',
         inkMode: 'luxury_dark',
         autoFitA4: true,
+        heroFontSize: 22.0,
+        sectionFontSize: 12.5,
+        bodyFontSize: 10.5,
+        kpiFontSize: 16.0,
         headingLineHeight: 1.15,
         headingLetterSpacing: -0.4,
         subtitleLineHeight: 1.28,
@@ -133,6 +147,12 @@
         tableLineHeight: 1.22,
         textWrapBalance: true,
         compactKpiBoxes: true,
+        coverFillSheet: true,
+        coverHeaderGap: 18,
+        coverPhotoGap: 16,
+        coverPhotoHeightMm: 74,
+        coverSpecsGap: 16,
+        coverSpecBoxHeightPx: 106,
         paragraphAlign: 'justify',
         useCustomTextColors: false,
         headingTextColor: '#0f172a',
@@ -192,6 +212,10 @@
         borderStyle: 'rounded',
         inkMode: 'luxury_dark',
         autoFitA4: true,
+        heroFontSize: 24.0,
+        sectionFontSize: 13.5,
+        bodyFontSize: 11.0,
+        kpiFontSize: 17.0,
         headingLineHeight: 1.20,
         headingLetterSpacing: -0.5,
         subtitleLineHeight: 1.36,
@@ -201,6 +225,12 @@
         tableLineHeight: 1.32,
         textWrapBalance: true,
         compactKpiBoxes: true,
+        coverFillSheet: true,
+        coverHeaderGap: 22,
+        coverPhotoGap: 20,
+        coverPhotoHeightMm: 82,
+        coverSpecsGap: 20,
+        coverSpecBoxHeightPx: 116,
         paragraphAlign: 'left',
         useCustomTextColors: false,
         headingTextColor: '#0f172a',
@@ -611,8 +641,29 @@
     var sheetPadLandscape = isCompact ? '7mm 13mm 7mm 13mm' : (isEditorial ? '12mm 18mm 10mm 18mm' : '9.5mm 15mm 8.5mm 15mm');
     var sheetPadPortrait  = isCompact ? '13mm 15mm' : (isEditorial ? '18mm 20mm' : '15mm 18mm');
     var tablePad = isCompact ? '4px 7px' : (isEditorial ? '8px 11px' : '6px 9px');
-    var baseFontLandscape = (14.2 * scaleRatio).toFixed(2) + 'px';
-    var baseFontPortrait  = (11.0 * scaleRatio).toFixed(2) + 'px';
+
+    // 4 Tamaños de letra independientes por rol jerárquico (en px, modulados además por Escala Global si se usa)
+    var heroSizeBase = Number(cfg.heroFontSize) || 23.5;
+    var secSizeBase  = Number(cfg.sectionFontSize) || 13.0;
+    var bodySizeBase = Number(cfg.bodyFontSize) || 11.0;
+    var kpiSizeBase  = Number(cfg.kpiFontSize) || 16.5;
+
+    var heroPxPortrait  = (heroSizeBase * scaleRatio).toFixed(1) + 'px';
+    var secPxPortrait   = (secSizeBase * scaleRatio).toFixed(1) + 'px';
+    var subPxPortrait   = (Math.max(9.5, secSizeBase * 0.90) * scaleRatio).toFixed(1) + 'px';
+    var bodyPxPortrait  = (bodySizeBase * scaleRatio).toFixed(1) + 'px';
+    var tblPxPortrait   = (Math.max(8.5, bodySizeBase * 0.95) * scaleRatio).toFixed(1) + 'px';
+    var kpiPxPortrait   = (kpiSizeBase * scaleRatio).toFixed(1) + 'px';
+    var kpiLblPortrait  = (Math.max(7.5, kpiSizeBase * 0.53) * scaleRatio).toFixed(1) + 'px';
+    var kpiSubPortrait  = (Math.max(7.5, kpiSizeBase * 0.50) * scaleRatio).toFixed(1) + 'px';
+
+    var heroPxLandscape = (heroSizeBase * 1.55 * scaleRatio).toFixed(1) + 'px';
+    var secPxLandscape  = (secSizeBase * 1.50 * scaleRatio).toFixed(1) + 'px';
+    var subPxLandscape  = (secSizeBase * 1.25 * scaleRatio).toFixed(1) + 'px';
+    var bodyPxLandscape = (bodySizeBase * 1.25 * scaleRatio).toFixed(1) + 'px';
+    var tblPxLandscape  = (bodySizeBase * 1.16 * scaleRatio).toFixed(1) + 'px';
+    var kpiPxLandscape  = (kpiSizeBase * 1.35 * scaleRatio).toFixed(1) + 'px';
+    var kpiLblLandscape = (Math.max(8.5, kpiSizeBase * 0.62) * scaleRatio).toFixed(1) + 'px';
 
     // Parámetros tipográficos por rol de texto
     var hLH = Number(cfg.headingLineHeight) || 1.18;
@@ -687,9 +738,15 @@
 
     if (orientation === 'landscape') {
       css.push(
-        '.sheet { font-family: ' + fontStack + ' !important; padding: ' + sheetPadLandscape + ' !important; font-size: ' + baseFontLandscape + ' !important; }',
+        '.sheet { font-family: ' + fontStack + ' !important; padding: ' + sheetPadLandscape + ' !important; font-size: ' + bodyPxLandscape + ' !important; }',
+        '.sheet[data-section-id="cover"] h1 { font-size: ' + heroPxLandscape + ' !important; }',
+        '.sheet[data-section-id="cover"] p { font-size: ' + subPxLandscape + ' !important; }',
+        '.sheet-title-txt { font-size: ' + secPxLandscape + ' !important; }',
+        '.sheet p:not(.cover-sub), .sheet li { font-size: ' + bodyPxLandscape + ' !important; }',
+        '.hero-val { font-size: ' + kpiPxLandscape + ' !important; }',
+        '.hero-lbl { font-size: ' + kpiLblLandscape + ' !important; }',
         '.card { border-radius: ' + cardRadius + ' !important; padding: ' + (isCompact ? '8px 12px' : (isEditorial ? '14px 18px' : '11px 15px')) + ' !important; }',
-        '.table-clean th, .table-clean td { padding: ' + tablePad + ' !important; font-size: ' + (12.8 * scaleRatio).toFixed(1) + 'px !important; line-height: ' + tblLH + ' !important; }'
+        '.table-clean th, .table-clean td { padding: ' + tablePad + ' !important; font-size: ' + tblPxLandscape + ' !important; line-height: ' + tblLH + ' !important; }'
       );
       if (cfg.borderStyle === 'minimal') {
         css.push('.card { border: 1px solid #f1f5f9 !important; background-image: none !important; box-shadow: 0 2px 8px rgba(0,0,0,0.03) !important; }');
@@ -705,28 +762,46 @@
       }
     } else {
       css.push(
-        '.page-sheet { font-family: ' + fontStack + ' !important; padding: ' + sheetPadPortrait + ' !important; font-size: ' + baseFontPortrait + ' !important; }',
+        '.page-sheet { font-family: ' + fontStack + ' !important; padding: ' + sheetPadPortrait + ' !important; font-size: ' + bodyPxPortrait + ' !important; }',
+        '.cover-hero-h1 { font-size: ' + heroPxPortrait + ' !important; }',
+        '.cover-hero-sub { font-size: ' + subPxPortrait + ' !important; }',
+        'h2 { margin: ' + (isCompact ? '10px 0 6px' : (isEditorial ? '18px 0 10px' : '13px 0 8px')) + ' !important; font-size: ' + secPxPortrait + ' !important; }',
+        'p, li, #ra-ai-summary-content, .decision-row { font-size: ' + bodyPxPortrait + ' !important; }',
         '.tech-card, .hero-card, .closer-hero-card, .decision-card, .cover-spec-box, .cover-client-card, .chart-box { border-radius: ' + cardRadius + ' !important; }',
-        'table th, table td { padding: ' + tablePad + ' !important; font-size: ' + (10.5 * scaleRatio).toFixed(1) + 'px !important; line-height: ' + tblLH + ' !important; }',
-        'h2 { margin: ' + (isCompact ? '10px 0 6px' : (isEditorial ? '18px 0 10px' : '13px 0 8px')) + ' !important; font-size: ' + (12.8 * scaleRatio).toFixed(1) + 'px !important; }'
+        'table th, table td { padding: ' + tablePad + ' !important; font-size: ' + tblPxPortrait + ' !important; line-height: ' + tblLH + ' !important; }',
+        '.cover-spec-val, .hero-val, .closer-hero-val { font-size: ' + kpiPxPortrait + ' !important; line-height: 1.15 !important; }',
+        '.cover-spec-label, .hero-lbl, .closer-hero-lbl { font-size: ' + kpiLblPortrait + ' !important; }',
+        '.cover-spec-sub, .closer-hero-sub { font-size: ' + kpiSubPortrait + ' !important; }'
       );
-      // Compactación inteligente de Portada Vertical para que las 4 cajas KPI y el pie jamás se corten
-      if (compactKpi) {
-        css.push(
-          '.page-sheet.cover-page { padding: 15mm 18mm 13mm !important; }',
-          '.cover-brand-row { padding-bottom: 12px !important; }',
-          '.cover-hero-title { margin: 11px 0 9px !important; }',
-          '.cover-hero-h1 { font-size: ' + (23.5 * scaleRatio).toFixed(1) + 'px !important; }',
-          '.cover-photo-card { height: 58mm !important; margin: 8px 0 10px !important; }',
-          '.cover-specs-grid { gap: 9px !important; margin: 5px 0 8px !important; }',
-          '.cover-spec-box { min-height: 92px !important; padding: 8px 6px !important; }',
-          '.cover-spec-icon { width: 40px !important; height: 40px !important; margin-bottom: 5px !important; border-radius: 10px !important; }',
-          '.cover-spec-label { font-size: 8.8px !important; line-height: 1.22 !important; margin-bottom: 3px !important; }',
-          '.cover-spec-val { font-size: 16.5px !important; line-height: 1.15 !important; white-space: nowrap !important; }',
-          '.cover-spec-sub { font-size: 8.3px !important; line-height: 1.2 !important; margin-top: 3px !important; }',
-          '.cover-footer { padding-top: 9px !important; }'
-        );
-      }
+      // Control de Distribución Vertical y Espaciado de Bloques de Portada
+      var fillSheet = cfg.coverFillSheet !== false;
+      var cHdrGap   = (cfg.coverHeaderGap !== undefined ? Number(cfg.coverHeaderGap) : 20);
+      var cPhoGap   = (cfg.coverPhotoGap !== undefined ? Number(cfg.coverPhotoGap) : 18);
+      var cPhoH     = (cfg.coverPhotoHeightMm !== undefined ? Number(cfg.coverPhotoHeightMm) : 78);
+      var cSpcGap   = (cfg.coverSpecsGap !== undefined ? Number(cfg.coverSpecsGap) : 18);
+      var cBoxH     = (cfg.coverSpecBoxHeightPx !== undefined ? Number(cfg.coverSpecBoxHeightPx) : 112);
+      var cIconPx   = Math.round(Math.max(36, Math.min(54, cBoxH * 0.38)));
+      var cBoxPadV  = Math.round(Math.max(7, Math.min(18, (cBoxH - 80) * 0.30 + 8)));
+
+      css.push(
+        '.page-sheet.cover-page { padding: 15mm 18mm 13mm !important; display: flex !important; flex-direction: column !important; justify-content: space-between !important; }',
+        '.page-sheet.cover-page > div:first-child {' +
+          (fillSheet
+            ? ' flex: 1 1 auto !important; display: flex !important; flex-direction: column !important; justify-content: space-between !important; padding-bottom: 10px !important;'
+            : ' display: block !important;') +
+        ' }',
+        '.cover-brand-row { padding-bottom: 12px !important; flex-shrink: 0 !important; }',
+        '.cover-hero-title { margin-top: ' + cHdrGap + 'px !important; margin-bottom: ' + cPhoGap + 'px !important; flex-shrink: 0 !important; }',
+        '.cover-photo-card { height: ' + cPhoH + 'mm !important; min-height: ' + Math.max(40, cPhoH - 12) + 'mm !important; ' + (fillSheet ? 'flex: 1 1 auto !important; max-height: ' + (cPhoH + 28) + 'mm !important;' : '') + ' margin: 0 0 ' + cSpcGap + 'px 0 !important; }',
+        '.cover-specs-section { flex-shrink: 0 !important; margin-top: ' + (fillSheet ? 'auto' : '0') + ' !important; }',
+        '.cover-specs-grid { gap: 10px !important; margin: 6px 0 8px !important; }',
+        '.cover-spec-box { min-height: ' + cBoxH + 'px !important; padding: ' + cBoxPadV + 'px 8px !important; justify-content: space-around !important; }',
+        '.cover-spec-icon { width: ' + cIconPx + 'px !important; height: ' + cIconPx + 'px !important; margin-bottom: 6px !important; border-radius: 10px !important; }',
+        '.cover-spec-label { line-height: 1.24 !important; margin-bottom: 4px !important; }',
+        '.cover-spec-val { white-space: nowrap !important; }',
+        '.cover-spec-sub { line-height: 1.22 !important; margin-top: 4px !important; }',
+        '.cover-footer { padding-top: 10px !important; flex-shrink: 0 !important; }'
+      );
       if (cfg.borderStyle === 'minimal') {
         css.push('.tech-card, .hero-card, .closer-hero-card, .decision-card, .cover-spec-box { border-color: #f1f5f9 !important; box-shadow: none !important; }');
       }
@@ -1096,6 +1171,11 @@
 
   function buildTypographyTabHTML(cfg, pal) {
     var lt = cfg.lockedTexts || {};
+    var heroSize = Number(cfg.heroFontSize) || 23.5;
+    var secSize  = Number(cfg.sectionFontSize) || 13.0;
+    var bodySize = Number(cfg.bodyFontSize) || 11.0;
+    var kpiSize  = Number(cfg.kpiFontSize) || 16.5;
+
     var hLH = Number(cfg.headingLineHeight) || 1.18;
     var hLS = cfg.headingLetterSpacing !== undefined ? Number(cfg.headingLetterSpacing) : -0.5;
     var subLH = Number(cfg.subtitleLineHeight) || 1.32;
@@ -1106,6 +1186,12 @@
     var pAlign = cfg.paragraphAlign || 'left';
     var useBalance = cfg.textWrapBalance !== false;
     var compactKpi = cfg.compactKpiBoxes !== false;
+    var fillSheet = cfg.coverFillSheet !== false;
+    var cHdrGap   = cfg.coverHeaderGap !== undefined ? Number(cfg.coverHeaderGap) : 20;
+    var cPhoGap   = cfg.coverPhotoGap !== undefined ? Number(cfg.coverPhotoGap) : 18;
+    var cPhoH     = cfg.coverPhotoHeightMm !== undefined ? Number(cfg.coverPhotoHeightMm) : 78;
+    var cSpcGap   = cfg.coverSpecsGap !== undefined ? Number(cfg.coverSpecsGap) : 18;
+    var cBoxH     = cfg.coverSpecBoxHeightPx !== undefined ? Number(cfg.coverSpecBoxHeightPx) : 112;
     var useTxtCol = !!cfg.useCustomTextColors;
     var colHead = cfg.headingTextColor || '#0f172a';
     var colBody = cfg.bodyTextColor || '#334155';
@@ -1117,32 +1203,75 @@
     var previewBodyCol = useTxtCol ? colBody : '#334155';
     var previewMutedCol = useTxtCol ? colMuted : '#64748b';
     var previewHtmlTitle = formatManualLineBreaks(coverTitleVal);
+    var prevHeroPx = Math.round(heroSize * 0.82 * 10) / 10;
+    var prevSubPx  = Math.round(secSize * 0.88 * 10) / 10;
+    var prevBodyPx = bodySize;
+    var prevKpiValPx = Math.round(kpiSize * 0.82 * 10) / 10;
+    var prevKpiLblPx = Math.max(7.5, Math.round(kpiSize * 0.50 * 10) / 10);
 
     return [
       // 1. VISTA PREVIA EN TIEMPO REAL
       '<div style="background:#ffffff;border:2px solid ' + pal.primary + ';border-radius:10px;padding:14px 18px;color:#0f172a;box-shadow:0 8px 25px rgba(0,0,0,0.35);">',
       '  <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid ' + pal.primary + ';padding-bottom:6px;margin-bottom:10px;">',
-      '    <span style="font-size:10px;font-weight:900;color:' + pal.primary + ';letter-spacing:0.8px;text-transform:uppercase;">👁️ VISTA PREVIA EN VIVO (PORTADA & PÁRRAFOS)</span>',
+      '    <span style="font-size:10px;font-weight:900;color:' + pal.primary + ';letter-spacing:0.8px;text-transform:uppercase;">👁️ VISTA PREVIA EN VIVO (TAMAÑOS, INTERLINEADO & COLORES)</span>',
       '    <span style="font-size:9.5px;font-weight:800;background:' + pal.light + ';color:' + pal.dark + ';padding:2px 8px;border-radius:4px;">SIMULACIÓN A4 REAL</span>',
       '  </div>',
       '  <div id="pss-live-preview-box" style="font-family:' + getFontStack(cfg.fontFamily).replace(/"/g, "'") + ';">',
-      '    <div id="pss-prev-h1" style="font-size:19px;font-weight:900;text-align:center;text-transform:uppercase;color:' + previewHeadCol + ';line-height:' + hLH + ';letter-spacing:' + hLS + 'px;' + (useBalance ? 'text-wrap:balance;' : '') + '">' + previewHtmlTitle + '</div>',
-      '    <div id="pss-prev-sub" style="font-size:11.5px;font-weight:600;text-align:center;color:' + previewMutedCol + ';line-height:' + subLH + ';margin-top:' + subGap + 'px;margin-bottom:10px;' + (useBalance ? 'text-wrap:balance;' : '') + '">' + formatManualLineBreaks(coverSubVal) + '</div>',
-      '    <p id="pss-prev-p1" style="font-size:11px;color:' + previewBodyCol + ';line-height:' + bodyLH + ';margin:0 0 ' + pGap + 'px 0;text-align:' + pAlign + ';">Propuesta técnica llave en mano diseñada mediante gemelo digital 3D. Optimiza la captación solar e integra almacenamiento inteligente para maximizar el ahorro desde el primer día.</p>',
-      '    <p id="pss-prev-p2" style="font-size:11px;color:' + previewBodyCol + ';line-height:' + bodyLH + ';margin:0 0 10px 0;text-align:' + pAlign + ';">Todos los componentes cumplen normativa REBT ITC-BT-40 y cuentan con garantía oficial de rendimiento de 25 años.</p>',
+      '    <div id="pss-prev-h1" style="font-size:' + prevHeroPx + 'px;font-weight:900;text-align:center;text-transform:uppercase;color:' + previewHeadCol + ';line-height:' + hLH + ';letter-spacing:' + hLS + 'px;' + (useBalance ? 'text-wrap:balance;' : '') + '">' + previewHtmlTitle + '</div>',
+      '    <div id="pss-prev-sub" style="font-size:' + prevSubPx + 'px;font-weight:600;text-align:center;color:' + previewMutedCol + ';line-height:' + subLH + ';margin-top:' + subGap + 'px;margin-bottom:10px;' + (useBalance ? 'text-wrap:balance;' : '') + '">' + formatManualLineBreaks(coverSubVal) + '</div>',
+      '    <p id="pss-prev-p1" style="font-size:' + prevBodyPx + 'px;color:' + previewBodyCol + ';line-height:' + bodyLH + ';margin:0 0 ' + pGap + 'px 0;text-align:' + pAlign + ';">Propuesta técnica llave en mano diseñada mediante gemelo digital 3D. Optimiza la captación solar e integra almacenamiento inteligente para maximizar el ahorro desde el primer día.</p>',
+      '    <p id="pss-prev-p2" style="font-size:' + prevBodyPx + 'px;color:' + previewBodyCol + ';line-height:' + bodyLH + ';margin:0 0 10px 0;text-align:' + pAlign + ';">Todos los componentes cumplen normativa REBT ITC-BT-40 y cuentan con garantía oficial de rendimiento de 25 años.</p>',
       '    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;border-top:1px solid #e2e8f0;padding-top:8px;">',
       '      <div style="background:#f8fafc;border:1px solid #cbd5e1;border-radius:6px;padding:6px;text-align:center;">',
-      '        <div class="pss-prev-kpi-lbl" style="font-size:8.5px;font-weight:800;color:' + previewMutedCol + ';line-height:' + subLH + ';">POTENCIA HÍBRIDA TOTAL</div>',
-      '        <div class="pss-prev-kpi-val" style="font-size:13px;font-weight:900;color:' + previewHeadCol + ';line-height:' + tblLH + ';">102,94 kW</div>',
+      '        <div class="pss-prev-kpi-lbl" style="font-size:' + prevKpiLblPx + 'px;font-weight:800;color:' + previewMutedCol + ';line-height:' + subLH + ';">POTENCIA HÍBRIDA TOTAL</div>',
+      '        <div class="pss-prev-kpi-val" style="font-size:' + prevKpiValPx + 'px;font-weight:900;color:' + previewHeadCol + ';line-height:' + tblLH + ';">102,94 kW</div>',
       '      </div>',
       '      <div style="background:#f8fafc;border:1px solid #cbd5e1;border-radius:6px;padding:6px;text-align:center;">',
-      '        <div class="pss-prev-kpi-lbl" style="font-size:8.5px;font-weight:800;color:' + previewMutedCol + ';line-height:' + subLH + ';">PRODUCCIÓN ANUAL</div>',
-      '        <div style="font-size:13px;font-weight:900;color:' + pal.primary + ';line-height:' + tblLH + ';">211.597 kWh</div>',
+      '        <div class="pss-prev-kpi-lbl" style="font-size:' + prevKpiLblPx + 'px;font-weight:800;color:' + previewMutedCol + ';line-height:' + subLH + ';">PRODUCCIÓN ANUAL</div>',
+      '        <div class="pss-prev-kpi-val-accent" style="font-size:' + prevKpiValPx + 'px;font-weight:900;color:' + pal.primary + ';line-height:' + tblLH + ';">211.597 kWh</div>',
       '      </div>',
       '      <div style="background:' + pal.light + ';border:1.5px solid ' + pal.primary + ';border-radius:6px;padding:6px;text-align:center;">',
-      '        <div class="pss-prev-kpi-lbl" style="font-size:8.5px;font-weight:800;color:' + pal.dark + ';line-height:' + subLH + ';">INVERSIÓN LLAVE EN MANO</div>',
-      '        <div style="font-size:13px;font-weight:900;color:' + pal.dark + ';line-height:' + tblLH + ';">110.451 €</div>',
+      '        <div class="pss-prev-kpi-lbl" style="font-size:' + prevKpiLblPx + 'px;font-weight:800;color:' + pal.dark + ';line-height:' + subLH + ';">INVERSIÓN LLAVE EN MANO</div>',
+      '        <div class="pss-prev-kpi-val-accent" style="font-size:' + prevKpiValPx + 'px;font-weight:900;color:' + pal.dark + ';line-height:' + tblLH + ';">110.451 €</div>',
       '      </div>',
+      '    </div>',
+      '  </div>',
+      '</div>',
+
+      // 1.5 CONTROLADORES INDEPENDIENTES DE TAMAÑO DE LETRA POR JERARQUÍA
+      '<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:12px 14px;">',
+      '  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">',
+      '    <span style="font-size:11.5px;font-weight:800;color:#34d399;">🔠 TAMAÑO DE LETRA INDEPENDIENTE POR JERARQUÍA (PX)</span>',
+      '    <span style="font-size:10px;color:#94a3b8;">Ajusta cada nivel por separado sin deformar el resto de la hoja</span>',
+      '  </div>',
+      '  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;">',
+      '    <div>',
+      '      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px;">',
+      '        <span style="color:#cbd5e1;font-weight:700;">1. Titular Principal Portada (H1):</span>',
+      '        <span id="pss-val-size-hero" style="color:#34d399;font-weight:900;">' + heroSize.toFixed(1) + ' px</span>',
+      '      </div>',
+      '      <input type="range" id="pss-size-hero" min="16.0" max="34.0" step="0.5" value="' + heroSize + '" style="width:100%;accent-color:#10b981;cursor:pointer;">',
+      '    </div>',
+      '    <div>',
+      '      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px;">',
+      '        <span style="color:#cbd5e1;font-weight:700;">2. Títulos de Sección y Subtítulos (H2):</span>',
+      '        <span id="pss-val-size-section" style="color:#38bdf8;font-weight:900;">' + secSize.toFixed(1) + ' px</span>',
+      '      </div>',
+      '      <input type="range" id="pss-size-section" min="10.0" max="20.0" step="0.5" value="' + secSize + '" style="width:100%;accent-color:#38bdf8;cursor:pointer;">',
+      '    </div>',
+      '    <div>',
+      '      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px;">',
+      '        <span style="color:#cbd5e1;font-weight:700;">3. Párrafos y Tablas (Cuerpo):</span>',
+      '        <span id="pss-val-size-body" style="color:#f59e0b;font-weight:900;">' + bodySize.toFixed(1) + ' px</span>',
+      '      </div>',
+      '      <input type="range" id="pss-size-body" min="8.5" max="15.0" step="0.5" value="' + bodySize + '" style="width:100%;accent-color:#f59e0b;cursor:pointer;">',
+      '    </div>',
+      '    <div>',
+      '      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px;">',
+      '        <span style="color:#cbd5e1;font-weight:700;">4. Cifras en Cajas Resumen (KPIs):</span>',
+      '        <span id="pss-val-size-kpi" style="color:#c084fc;font-weight:900;">' + kpiSize.toFixed(1) + ' px</span>',
+      '      </div>',
+      '      <input type="range" id="pss-size-kpi" min="12.0" max="24.0" step="0.5" value="' + kpiSize + '" style="width:100%;accent-color:#c084fc;cursor:pointer;">',
       '    </div>',
       '  </div>',
       '</div>',
@@ -1236,7 +1365,55 @@
       '  </div>',
       '</div>',
 
-      // 4. CONTROL DE SALTOS DE LÍNEA, CAJAS KPI Y ALINEACIÓN
+      // 4. DISTRIBUCIÓN VERTICAL DE PORTADA (LLENADO COMPLETO DE HOJA A4)
+      '<div style="background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.28);border-radius:10px;padding:12px 14px;">',
+      '  <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;">',
+      '    <span style="font-size:11.5px;font-weight:800;color:#34d399;">📐 DISTRIBUCIÓN Y ESPACIADO VERTICAL DE PORTADA (LLENAR HOJA A4)</span>',
+      '    <label style="display:inline-flex;align-items:center;gap:7px;background:#0f172a;border:1px solid #10b981;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:10.5px;font-weight:800;color:#34d399;">',
+      '      <input type="checkbox" id="pss-cover-fill-sheet" ' + (fillSheet ? 'checked' : '') + ' style="accent-color:#10b981;width:15px;height:15px;cursor:pointer;">',
+      '      <span>✨ Auto-Distribuir Bloques para Llenar Toda la Hoja A4</span>',
+      '    </label>',
+      '  </div>',
+      '  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;">',
+      '    <div>',
+      '      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px;">',
+      '        <span style="color:#cbd5e1;font-weight:700;">1. Hueco Cabecera ↔ Titular Principal:</span>',
+      '        <span id="pss-val-chdr-gap" style="color:#34d399;font-weight:900;">' + cHdrGap + ' px</span>',
+      '      </div>',
+      '      <input type="range" id="pss-cover-hdr-gap" min="6" max="48" step="2" value="' + cHdrGap + '" style="width:100%;accent-color:#10b981;cursor:pointer;">',
+      '    </div>',
+      '    <div>',
+      '      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px;">',
+      '        <span style="color:#cbd5e1;font-weight:700;">2. Hueco Titular ↔ Imagen Central:</span>',
+      '        <span id="pss-val-cpho-gap" style="color:#38bdf8;font-weight:900;">' + cPhoGap + ' px</span>',
+      '      </div>',
+      '      <input type="range" id="pss-cover-pho-gap" min="6" max="50" step="2" value="' + cPhoGap + '" style="width:100%;accent-color:#38bdf8;cursor:pointer;">',
+      '    </div>',
+      '    <div>',
+      '      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px;">',
+      '        <span style="color:#cbd5e1;font-weight:700;">3. Altura de Imagen Central / Logo:</span>',
+      '        <span id="pss-val-cpho-h" style="color:#f59e0b;font-weight:900;">' + cPhoH + ' mm</span>',
+      '      </div>',
+      '      <input type="range" id="pss-cover-pho-h" min="45" max="115" step="2" value="' + cPhoH + '" style="width:100%;accent-color:#f59e0b;cursor:pointer;">',
+      '    </div>',
+      '    <div>',
+      '      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px;">',
+      '        <span style="color:#cbd5e1;font-weight:700;">4. Hueco Imagen ↔ Cajas Inferiores:</span>',
+      '        <span id="pss-val-cspc-gap" style="color:#38bdf8;font-weight:900;">' + cSpcGap + ' px</span>',
+      '      </div>',
+      '      <input type="range" id="pss-cover-spc-gap" min="6" max="48" step="2" value="' + cSpcGap + '" style="width:100%;accent-color:#38bdf8;cursor:pointer;">',
+      '    </div>',
+      '    <div style="grid-column:1 / -1;">',
+      '      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px;">',
+      '        <span style="color:#cbd5e1;font-weight:700;">5. Altura y Aire Interior de las 4 Cajas Resumen (Iconos + Textos):</span>',
+      '        <span id="pss-val-cbox-h" style="color:#c084fc;font-weight:900;">' + cBoxH + ' px</span>',
+      '      </div>',
+      '      <input type="range" id="pss-cover-box-h" min="88" max="145" step="2" value="' + cBoxH + '" style="width:100%;accent-color:#c084fc;cursor:pointer;">',
+      '    </div>',
+      '  </div>',
+      '</div>',
+
+      // 5. CONTROL DE SALTOS DE LÍNEA, CAJAS KPI Y ALINEACIÓN
       '<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:12px 14px;">',
       '  <div style="font-size:11.5px;font-weight:800;color:#34d399;margin-bottom:8px;">↵ CONTROL DE SALTO DE LÍNEA, ALINEACIÓN Y ENCAJE DE CAJAS</div>',
       '  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">',
@@ -1465,7 +1642,8 @@
       '      <span>Fijar plantilla instantánea</span>',
       '    </label>',
       '  </div>',
-      '  <textarea id="pss-summary-template" rows="3" style="width:100%;padding:8px 10px;background:#1e293b;border:1px solid #475569;border-radius:6px;color:#f8fafc;font-size:11.5px;line-height:1.45;resize:vertical;">' + (lt.summaryTemplate || '') + '</textarea>',
+      // [AUD-2026 v2 · SEC2-11] Escape de & y < para que la plantilla no cierre el textarea por su cuenta.
+      '  <textarea id="pss-summary-template" rows="3" style="width:100%;padding:8px 10px;background:#1e293b;border:1px solid #475569;border-radius:6px;color:#f8fafc;font-size:11.5px;line-height:1.45;resize:vertical;">' + String(lt.summaryTemplate || '').replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</textarea>',
       '</div>',
 
       '<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:14px;">',
@@ -1506,6 +1684,10 @@
       if (g('pss-ink-mode')) cfg.inkMode = g('pss-ink-mode').value;
       if (g('pss-autofit-a4')) cfg.autoFitA4 = g('pss-autofit-a4').checked;
     } else if (_activeModalTab === 'typography') {
+      if (g('pss-size-hero')) cfg.heroFontSize = parseFloat(g('pss-size-hero').value) || 23.5;
+      if (g('pss-size-section')) cfg.sectionFontSize = parseFloat(g('pss-size-section').value) || 13.0;
+      if (g('pss-size-body')) cfg.bodyFontSize = parseFloat(g('pss-size-body').value) || 11.0;
+      if (g('pss-size-kpi')) cfg.kpiFontSize = parseFloat(g('pss-size-kpi').value) || 16.5;
       if (g('pss-heading-lh')) cfg.headingLineHeight = parseFloat(g('pss-heading-lh').value) || 1.18;
       if (g('pss-subtitle-lh')) cfg.subtitleLineHeight = parseFloat(g('pss-subtitle-lh').value) || 1.32;
       if (g('pss-body-lh')) cfg.bodyLineHeight = parseFloat(g('pss-body-lh').value) || 1.48;
@@ -1519,6 +1701,12 @@
       if (g('pss-paragraph-align')) cfg.paragraphAlign = g('pss-paragraph-align').value;
       if (g('pss-wrap-balance')) cfg.textWrapBalance = g('pss-wrap-balance').checked;
       if (g('pss-compact-kpi')) cfg.compactKpiBoxes = g('pss-compact-kpi').checked;
+      if (g('pss-cover-fill-sheet')) cfg.coverFillSheet = g('pss-cover-fill-sheet').checked;
+      if (g('pss-cover-hdr-gap')) cfg.coverHeaderGap = parseInt(g('pss-cover-hdr-gap').value, 10) || 20;
+      if (g('pss-cover-pho-gap')) cfg.coverPhotoGap = parseInt(g('pss-cover-pho-gap').value, 10) || 18;
+      if (g('pss-cover-pho-h')) cfg.coverPhotoHeightMm = parseInt(g('pss-cover-pho-h').value, 10) || 78;
+      if (g('pss-cover-spc-gap')) cfg.coverSpecsGap = parseInt(g('pss-cover-spc-gap').value, 10) || 18;
+      if (g('pss-cover-box-h')) cfg.coverSpecBoxHeightPx = parseInt(g('pss-cover-box-h').value, 10) || 112;
       cfg.lockedTexts = cfg.lockedTexts || {};
       if (g('pss-cover-main-title')) cfg.lockedTexts.coverMainTitle = g('pss-cover-main-title').value;
       if (g('pss-cover-subtitle')) cfg.lockedTexts.coverSubtitle = g('pss-cover-subtitle').value;
@@ -1545,6 +1733,11 @@
   function updateTypographyLivePreview(modal) {
     if (!modal) return;
     var q = function(sel) { return modal.querySelector(sel); };
+    var heroSize = q('#pss-size-hero') ? parseFloat(q('#pss-size-hero').value) : 23.5;
+    var secSize  = q('#pss-size-section') ? parseFloat(q('#pss-size-section').value) : 13.0;
+    var bodySize = q('#pss-size-body') ? parseFloat(q('#pss-size-body').value) : 11.0;
+    var kpiSize  = q('#pss-size-kpi') ? parseFloat(q('#pss-size-kpi').value) : 16.5;
+
     var hLH = q('#pss-heading-lh') ? parseFloat(q('#pss-heading-lh').value) : 1.18;
     var subLH = q('#pss-subtitle-lh') ? parseFloat(q('#pss-subtitle-lh').value) : 1.32;
     var bodyLH = q('#pss-body-lh') ? parseFloat(q('#pss-body-lh').value) : 1.48;
@@ -1560,6 +1753,11 @@
     var titleRaw = q('#pss-cover-main-title') ? q('#pss-cover-main-title').value : '';
     var subRaw = q('#pss-cover-subtitle') ? q('#pss-cover-subtitle').value : '';
 
+    if (q('#pss-val-size-hero')) q('#pss-val-size-hero').textContent = heroSize.toFixed(1) + ' px';
+    if (q('#pss-val-size-section')) q('#pss-val-size-section').textContent = secSize.toFixed(1) + ' px';
+    if (q('#pss-val-size-body')) q('#pss-val-size-body').textContent = bodySize.toFixed(1) + ' px';
+    if (q('#pss-val-size-kpi')) q('#pss-val-size-kpi').textContent = kpiSize.toFixed(1) + ' px';
+
     if (q('#pss-val-hlh')) q('#pss-val-hlh').textContent = hLH.toFixed(2);
     if (q('#pss-val-sublh')) q('#pss-val-sublh').textContent = subLH.toFixed(2);
     if (q('#pss-val-bodylh')) q('#pss-val-bodylh').textContent = bodyLH.toFixed(2);
@@ -1567,8 +1765,21 @@
     if (q('#pss-val-subgap')) q('#pss-val-subgap').textContent = subGap + ' px';
     if (q('#pss-val-tbllh')) q('#pss-val-tbllh').textContent = tblLH.toFixed(2);
 
+    var cHdrGap = q('#pss-cover-hdr-gap') ? parseInt(q('#pss-cover-hdr-gap').value, 10) : 20;
+    var cPhoGap = q('#pss-cover-pho-gap') ? parseInt(q('#pss-cover-pho-gap').value, 10) : 18;
+    var cPhoH   = q('#pss-cover-pho-h') ? parseInt(q('#pss-cover-pho-h').value, 10) : 78;
+    var cSpcGap = q('#pss-cover-spc-gap') ? parseInt(q('#pss-cover-spc-gap').value, 10) : 18;
+    var cBoxH   = q('#pss-cover-box-h') ? parseInt(q('#pss-cover-box-h').value, 10) : 112;
+
+    if (q('#pss-val-chdr-gap')) q('#pss-val-chdr-gap').textContent = cHdrGap + ' px';
+    if (q('#pss-val-cpho-gap')) q('#pss-val-cpho-gap').textContent = cPhoGap + ' px';
+    if (q('#pss-val-cpho-h')) q('#pss-val-cpho-h').textContent = cPhoH + ' mm';
+    if (q('#pss-val-cspc-gap')) q('#pss-val-cspc-gap').textContent = cSpcGap + ' px';
+    if (q('#pss-val-cbox-h')) q('#pss-val-cbox-h').textContent = cBoxH + ' px';
+
     var prevH1 = q('#pss-prev-h1');
     if (prevH1) {
+      prevH1.style.fontSize = (Math.round(heroSize * 0.82 * 10) / 10) + 'px';
       prevH1.style.lineHeight = String(hLH);
       prevH1.style.color = colHead;
       prevH1.style.textWrap = useBalance ? 'balance' : 'wrap';
@@ -1576,6 +1787,7 @@
     }
     var prevSub = q('#pss-prev-sub');
     if (prevSub) {
+      prevSub.style.fontSize = (Math.round(secSize * 0.88 * 10) / 10) + 'px';
       prevSub.style.lineHeight = String(subLH);
       prevSub.style.marginTop = subGap + 'px';
       prevSub.style.color = colMuted;
@@ -1585,19 +1797,28 @@
     ['#pss-prev-p1', '#pss-prev-p2'].forEach(function(id, idx) {
       var pEl = q(id);
       if (pEl) {
+        pEl.style.fontSize = bodySize + 'px';
         pEl.style.lineHeight = String(bodyLH);
         pEl.style.color = colBody;
         pEl.style.textAlign = pAlign;
         if (idx === 0) pEl.style.marginBottom = pGap + 'px';
       }
     });
+    var kpiLblPx = Math.max(7.5, Math.round(kpiSize * 0.50 * 10) / 10) + 'px';
+    var kpiValPx = (Math.round(kpiSize * 0.82 * 10) / 10) + 'px';
     modal.querySelectorAll('.pss-prev-kpi-lbl').forEach(function(el, i) {
+      el.style.fontSize = kpiLblPx;
       el.style.lineHeight = String(subLH);
       if (i < 2) el.style.color = colMuted;
     });
     modal.querySelectorAll('.pss-prev-kpi-val').forEach(function(el) {
+      el.style.fontSize = kpiValPx;
       el.style.lineHeight = String(tblLH);
       el.style.color = colHead;
+    });
+    modal.querySelectorAll('.pss-prev-kpi-val-accent').forEach(function(el) {
+      el.style.fontSize = kpiValPx;
+      el.style.lineHeight = String(tblLH);
     });
   }
 
@@ -1678,8 +1899,10 @@
 
     // Eventos en pestaña Interlineado & Textos (Vista previa en tiempo real)
     [
+      '#pss-size-hero', '#pss-size-section', '#pss-size-body', '#pss-size-kpi',
       '#pss-heading-lh', '#pss-subtitle-lh', '#pss-body-lh',
       '#pss-paragraph-gap', '#pss-subtitle-gap', '#pss-table-lh',
+      '#pss-cover-fill-sheet', '#pss-cover-hdr-gap', '#pss-cover-pho-gap', '#pss-cover-pho-h', '#pss-cover-spc-gap', '#pss-cover-box-h',
       '#pss-use-custom-text-colors', '#pss-col-heading', '#pss-col-body', '#pss-col-muted',
       '#pss-paragraph-align', '#pss-wrap-balance', '#pss-compact-kpi',
       '#pss-cover-main-title', '#pss-cover-subtitle'

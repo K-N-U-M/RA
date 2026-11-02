@@ -35,6 +35,18 @@
 (function(global) {
   'use strict';
 
+  // [AUD-2026 v2 · SEC2-03/06] Escape HTML local: todo dato dinámico interpolado en el dossier
+  // pasa por aquí antes de entrar en HTML. Fallback autónomo si RAHtml no está cargado.
+  function escD(value) {
+    if (global.RAHtml && typeof global.RAHtml.esc === 'function') return global.RAHtml.esc(value);
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   // Configuración activa del dossier
   var ProposalConfig = {
     theme: 'rose', // rose | emerald | sky | amber | slate
@@ -142,13 +154,14 @@
       }
     } catch(e) {}
 
-    var companyName = branding.name || 'RA Ingeniería Fotovoltaica';
+    var companyName = escD(branding.name) || 'RA Ingeniería Fotovoltaica';
+    // [AUD-2026 v2 · SEC2-03] Datos de marca y cliente: escapados en origen (nunca HTML crudo).
     var companyLogo = branding.logo || (localStorage.getItem('ra_company_logo') || '');
-    var companySlogan = branding.slogan || 'Soluciones avanzadas en energía solar y autoconsumo fotovoltaico';
-    var companyWeb = branding.web || 'www.ra-fotovoltaica.es';
-    var companyPhone = branding.phone || '+34 900 000 000';
-    var companyEmail = branding.email || 'info@ra-fotovoltaica.es';
-    var companyCif = branding.cif || 'B-00000000';
+    var companySlogan = escD(branding.slogan) || 'Soluciones avanzadas en energía solar y autoconsumo fotovoltaico';
+    var companyWeb = escD(branding.web) || 'www.ra-fotovoltaica.es';
+    var companyPhone = escD(branding.phone) || '+34 900 000 000';
+    var companyEmail = escD(branding.email) || 'info@ra-fotovoltaica.es';
+    var companyCif = escD(branding.cif) || 'B-00000000';
 
     // Métricas del proyecto (SSOT)
     var kwp = Number(m.kwp || d.kwp || 0);
@@ -166,13 +179,13 @@
 
     // Datos del titular / cliente
     var tit = (d && d.tit) ? d.tit : {};
-    var clientName = tit.nombre || currentBill.titular && currentBill.titular.nombre || 'Cliente Particular / Empresa';
-    var clientNif = tit.nif || (currentBill.titular && currentBill.titular.nif) || 'B-XXXXXXXX';
-    var address = tit.dir || (currentBill.titular && currentBill.titular.direccion) || 'Ubicación del Suministro';
-    var cups = tit.cups || currentBill.cups || 'ES00210000XXXXXXXXXX';
-    var clientPhone = tit.tel || (currentBill.titular && currentBill.titular.telefono) || '';
-    var clientEmail = tit.email || (currentBill.titular && currentBill.titular.email) || '';
-    var tariff = currentBill.tarifa || tit.tarifa || (kwNom > 15 ? '3.0TD' : '2.0TD');
+    var clientName = escD(tit.nombre || (currentBill.titular && currentBill.titular.nombre)) || 'Cliente Particular / Empresa';
+    var clientNif = escD(tit.nif || (currentBill.titular && currentBill.titular.nif)) || 'B-XXXXXXXX';
+    var address = escD(tit.dir || (currentBill.titular && currentBill.titular.direccion)) || 'Ubicación del Suministro';
+    var cups = escD(tit.cups || currentBill.cups) || 'ES00210000XXXXXXXXXX';
+    var clientPhone = escD(tit.tel || (currentBill.titular && currentBill.titular.telefono)) || '';
+    var clientEmail = escD(tit.email || (currentBill.titular && currentBill.titular.email)) || '';
+    var tariff = escD(currentBill.tarifa || tit.tarifa) || (kwNom > 15 ? '3.0TD' : '2.0TD');
     var potContr = tit.potContr || (currentBill.potenciasContratadas ? currentBill.potenciasContratadas[0] : (kwNom > 15 ? '40.00' : '5.75'));
     var annualCons = Number(m.consumoAnual || currentBill.consumoAnualKwh || (annualYield > 0 ? Math.round(annualYield / 0.55) : 10000));
 
@@ -516,27 +529,27 @@
       '      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">',
       '        <div>',
       '          <label style="font-size:10.5px;color:#94a3b8;display:block;margin-bottom:3px;">Nombre / Razón Social:</label>',
-      '          <input type="text" id="dossier-cfg-client-name" value="' + data.client.name + '" style="width:100%;padding:7px 10px;background:#1e293b;border:1px solid #475569;border-radius:6px;color:#fff;font-size:12px;box-sizing:border-box;">',
+      '          <input type="text" id="dossier-cfg-client-name" value="' + escD(data.client.name) + '" style="width:100%;padding:7px 10px;background:#1e293b;border:1px solid #475569;border-radius:6px;color:#fff;font-size:12px;box-sizing:border-box;">',
       '        </div>',
       '        <div>',
       '          <label style="font-size:10.5px;color:#94a3b8;display:block;margin-bottom:3px;">CIF / NIF:</label>',
-      '          <input type="text" id="dossier-cfg-client-nif" value="' + data.client.nif + '" style="width:100%;padding:7px 10px;background:#1e293b;border:1px solid #475569;border-radius:6px;color:#fff;font-size:12px;box-sizing:border-box;">',
+      '          <input type="text" id="dossier-cfg-client-nif" value="' + escD(data.client.nif) + '" style="width:100%;padding:7px 10px;background:#1e293b;border:1px solid #475569;border-radius:6px;color:#fff;font-size:12px;box-sizing:border-box;">',
       '        </div>',
       '        <div>',
       '          <label style="font-size:10.5px;color:#94a3b8;display:block;margin-bottom:3px;">Dirección / Ubicación:</label>',
-      '          <input type="text" id="dossier-cfg-client-address" value="' + data.client.address + '" style="width:100%;padding:7px 10px;background:#1e293b;border:1px solid #475569;border-radius:6px;color:#fff;font-size:12px;box-sizing:border-box;">',
+      '          <input type="text" id="dossier-cfg-client-address" value="' + escD(data.client.address) + '" style="width:100%;padding:7px 10px;background:#1e293b;border:1px solid #475569;border-radius:6px;color:#fff;font-size:12px;box-sizing:border-box;">',
       '        </div>',
       '        <div>',
       '          <label style="font-size:10.5px;color:#94a3b8;display:block;margin-bottom:3px;">Código CUPS:</label>',
-      '          <input type="text" id="dossier-cfg-client-cups" value="' + data.client.cups + '" style="width:100%;padding:7px 10px;background:#1e293b;border:1px solid #475569;border-radius:6px;color:#fff;font-size:12px;box-sizing:border-box;">',
+      '          <input type="text" id="dossier-cfg-client-cups" value="' + escD(data.client.cups) + '" style="width:100%;padding:7px 10px;background:#1e293b;border:1px solid #475569;border-radius:6px;color:#fff;font-size:12px;box-sizing:border-box;">',
       '        </div>',
       '        <div>',
       '          <label style="font-size:10.5px;color:#94a3b8;display:block;margin-bottom:3px;">Tarifa Eléctrica & Potencia (kW):</label>',
-      '          <input type="text" id="dossier-cfg-client-tariff" value="' + data.client.tariff + ' (' + data.client.potContr + ' kW)" style="width:100%;padding:7px 10px;background:#1e293b;border:1px solid #475569;border-radius:6px;color:#fff;font-size:12px;box-sizing:border-box;">',
+      '          <input type="text" id="dossier-cfg-client-tariff" value="' + escD(data.client.tariff) + ' (' + escD(data.client.potContr) + ' kW)" style="width:100%;padding:7px 10px;background:#1e293b;border:1px solid #475569;border-radius:6px;color:#fff;font-size:12px;box-sizing:border-box;">',
       '        </div>',
       '        <div>',
       '          <label style="font-size:10.5px;color:#94a3b8;display:block;margin-bottom:3px;">Consumo Anual (kWh):</label>',
-      '          <input type="number" id="dossier-cfg-client-cons" value="' + data.client.annualCons + '" style="width:100%;padding:7px 10px;background:#1e293b;border:1px solid #475569;border-radius:6px;color:#fff;font-size:12px;box-sizing:border-box;">',
+      '          <input type="number" id="dossier-cfg-client-cons" value="' + escD(data.client.annualCons) + '" style="width:100%;padding:7px 10px;background:#1e293b;border:1px solid #475569;border-radius:6px;color:#fff;font-size:12px;box-sizing:border-box;">',
       '        </div>',
       '      </div>',
       '    </div>',
@@ -712,19 +725,19 @@
     var raw = getProjectDossierData();
     var ov = ProposalConfig.overrides || {};
 
-    // Combinar con overrides del modal
-    var companyName = ov.companyName || raw.branding.name;
+    // Combinar con overrides del modal — [AUD-2026 v2 · SEC2-03/04] escapados en origen
+    var companyName = escD(ov.companyName || raw.branding.name);
     var companyLogo = raw.branding.logo;
-    var companySlogan = ov.companySlogan || raw.branding.slogan;
-    var companyWeb = ov.companyWeb || raw.branding.web;
-    var companyPhone = ov.companyPhone || raw.branding.phone;
+    var companySlogan = escD(ov.companySlogan || raw.branding.slogan);
+    var companyWeb = escD(ov.companyWeb || raw.branding.web);
+    var companyPhone = escD(ov.companyPhone || raw.branding.phone);
 
-    var clientName = ov.clientName || raw.client.name;
-    var clientNif = ov.clientNif || raw.client.nif;
-    var address = ov.clientAddress || raw.client.address;
-    var cups = ov.clientCups || raw.client.cups;
-    var tariff = ov.clientTariff || raw.client.tariff;
-    var annualCons = ov.clientAnnualCons || raw.client.annualCons;
+    var clientName = escD(ov.clientName || raw.client.name);
+    var clientNif = escD(ov.clientNif || raw.client.nif);
+    var address = escD(ov.clientAddress || raw.client.address);
+    var cups = escD(ov.clientCups || raw.client.cups);
+    var tariff = escD(ov.clientTariff || raw.client.tariff);
+    var annualCons = escD(ov.clientAnnualCons || raw.client.annualCons);
 
     var kwp = raw.metrics.kwp;
     var kwNom = raw.metrics.kwNom;
@@ -2111,12 +2124,23 @@
       '',
       '  restoreDraftManual: function() {',
       '    try {',
+      '      // [AUD-2026 v2 · SEC2-05] Saneado autónomo para el borrador: la ventana generada',
+      '      // no carga el sanitizador de la app, así que traemos el nuestro de acá (tier medio:',
+      '      // remove etiquetas peligrosas, atributos on* y URLs javascript:; conserva maquetación).',
+      '      var _sanitizeDraftWin = function(h) {',
+      '        var t = String(h == null ? "" : h);',
+      '        t = t.replace(/<\\s*(script|iframe|object|embed|link|meta|base|form)[^>]*>[\\s\\S]*?<\\s*\\/\\s*\\1\\s*>/gi, "");',
+      '        t = t.replace(/<\\s*(script|iframe|object|embed|link|meta|base|form)[^>]*\\/>/gi, "");',
+      '        t = t.replace(/(?:\\s|\\/)on\\w+\\s*=\\s*("[^"]*"|\\x27[^\\x27]*\\x27|[^\\s>]+)/gi, "");',
+      '        t = t.replace(/(href|src|action|formaction)\\s*=\\s*javascript:[^\\x22\\x27\\s>]*/gi, "$1=");',
+      '        return t;',
+      '      };',
       '      var saved = localStorage.getItem(this.storageKey);',
       '      if (saved) {',
       '        if (confirm("¿Deseas restaurar el borrador guardado de esta propuesta? Se cargarán todos los textos e imágenes modificadas.")) {',
       '          var container = document.getElementById("dossier-container");',
       '          if (container) {',
-      '            container.innerHTML = saved;',
+      '            container.innerHTML = _sanitizeDraftWin(saved);',
       '            this.setupDragAndResize();',
       '            this.ensureAllContentEditable();',
       '            this.checkSheetOverflows();',
