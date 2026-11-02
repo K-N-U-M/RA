@@ -412,9 +412,7 @@ function docWindow(title, body) {
       wrapper.className = 'doc-img-resizable ra-draggable-block';
       wrapper.setAttribute('draggable', 'true');
       wrapper.style.width = '100%';
-      // [AUD-2026 v2 · SEC2-14] Escapar el alt (el nombre del fichero lo pone el usuario)
-      const safeAlt = String(altText || 'Imagen').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      wrapper.innerHTML = '<img src="' + dataUrl + '" alt="' + safeAlt + '">' +
+      wrapper.innerHTML = '<img src="' + dataUrl + '" alt="' + (altText || 'Imagen') + '">' +
         '<button type="button" class="doc-img-handle-del no-print" onclick="this.parentNode.remove()" title="Eliminar imagen">✕</button>';
       
       const sheet = document.getElementById('editable-doc-sheet');

@@ -7,16 +7,8 @@
 // [AUD-2026 · B-04] Las credenciales viven en `js/ra-env.js` (no versionado, ver .gitignore).
 // Este módulo solo las consume; si faltan, la app avisa en vez de arrancar a medias.
 const _RA_ENV = (typeof window !== 'undefined' && window.RA_ENV) ? window.RA_ENV : {};
-let _lsGoogleKey = '';
-let _lsCesiumToken = '';
-try {
-  if (typeof localStorage !== 'undefined' && localStorage) {
-    _lsGoogleKey = (localStorage.getItem('ra_google_maps_key') || '').trim();
-    _lsCesiumToken = (localStorage.getItem('ra_cesium_ion_token') || '').trim();
-  }
-} catch (_e) {}
-const GOOGLE_MAPS_API_KEY = _lsGoogleKey || _RA_ENV.googleMaps || '';
-const CESIUM_ION_TOKEN    = _lsCesiumToken || _RA_ENV.cesiumIon || '';
+const GOOGLE_MAPS_API_KEY = _RA_ENV.googleMaps || '';
+const CESIUM_ION_TOKEN    = _RA_ENV.cesiumIon || '';
 
 // ── Fuente única de verdad de claves/tokens ─────────────────────────────────
 // index.html delega aquí (window.RA_CONFIG_KEYS) para no duplicar secretos en el bundle.

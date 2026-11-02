@@ -179,13 +179,10 @@ const ALLOWED_EXT = new Set([
 const DENIED_SEGMENTS = new Set([
   'node_modules', 'functions', 'tests', 'doc', 'scripts', '.git', '.firebase', 'assets/private'
 ]);
-// Código y configuración de backend que nunca debe descargarse desde el navegador.
-// Nota: `js/ra-env.js` DEBE servirse en local para que el visor 3D (Cesium/Google 3D Tiles)
-// reciba sus credenciales en el navegador; su protección frente al repositorio vive en .gitignore.
+// Código y configuración que nunca debe descargarse desde el navegador.
 const DENIED_FILES = new Set([
   'server.js', 'package.json', 'package-lock.json', 'firebase.json',
-  'firestore.rules', 'storage.rules', 'firestore.indexes.json', '.firebaserc',
-  'ra-env.example.js'
+  'firestore.rules', 'storage.rules', 'firestore.indexes.json', '.firebaserc'
 ]);
 const DENIED_EXT = new Set(['.md', '.rules', '.log', '.env']);
 const LOOPBACK_ONLY = !process.argv.includes('--lan');

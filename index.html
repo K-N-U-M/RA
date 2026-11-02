@@ -33,7 +33,6 @@ window.RA_App = window.RA_App || {};
   <script src="js/ui-viewport-controls.js?v=20261016a"></script>
   <script src="js/error-handler.js"></script>
 <script src="js/sanitizer.js?v=20261028a"></script>
-<script src="js/html-sanitize.js?v=20261031a"></script>
   <script src="js/project-config.js?v=20261029d"></script>
   <script src="js/polygon-shadow-math.js?v=1793234328702"></script>
   <script src="js/building-footprint-cad.js?v=1793254482833"></script>
@@ -44,14 +43,14 @@ window.RA_App = window.RA_App || {};
     <script src="js/solar-heatmap.js?v=20261029b"></script>
     <script src="js/solar-live-probe.js?v=20261029a"></script>
     <script src="js/ra-env.js"></script>
-<script src="js/config.js?v=20261102a"></script>
+<script src="js/config.js?v=20261028a"></script>
     <script src="js/modules-breakdown.js?v=20261020a"></script>
     <!-- Catálogo Canónico de Iconografía e Ilustraciones SVG Monocromáticas (SSOT) -->
   <script src="assets/default-cover-image.js?v=20261029a"></script>
   <script src="js/svg-catalog.js?v=20261023b"></script>
   <script src="js/docx-exporter.js?v=20261027a"></script>
-  <script src="js/financials.js?v=20261102a"></script>
-  <script src="js/viewer.js?v=20261102a"></script>
+  <script src="js/financials.js?v=20261029f"></script>
+  <script src="js/viewer.js?v=20261016a"></script>
   <script src="js/solar-engine.js?v=20260929b"></script>
   <script src="js/production-source.js?v=20261028a"></script>
   <script src="js/solar-optimizer.js?v=20261016a"></script>
@@ -16915,14 +16914,6 @@ window.toggleSolarHUD = toggleSolarHUD;
                 <span style="font-size: 10px;background:rgba(255,255,255,0.1);color:#fff;padding:1px 4px;border-radius:3px;">SATÉLITE</span>
               </div>
               <div class="engine-card-desc">Imágenes satelitales World Imagery sobre modelo de elevación global continuo.</div>
-            </div>
-          </div>
-          <div id="ra-google3d-diag" style="display:none;margin-top:10px;padding:10px;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.35);border-radius:8px;font-size:11px;color:#fde68a;line-height:1.45;">
-            <div id="ra-google3d-diag-msg" style="margin-bottom:8px;font-weight:600;"></div>
-            <div style="display:flex;flex-direction:column;gap:6px;">
-              <input id="ra-custom-gkey-input" type="password" placeholder="Clave API Google Maps (Map Tiles API activo)" style="width:100%;padding:6px 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.18);background:rgba(15,23,42,0.85);color:#f8fafc;font-size:11px;">
-              <input id="ra-custom-cion-input" type="password" placeholder="Token Cesium Ion (opcional)" style="width:100%;padding:6px 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.18);background:rgba(15,23,42,0.85);color:#f8fafc;font-size:11px;">
-              <button type="button" onclick="applyCustom3DCredentials()" style="padding:6px 10px;border-radius:6px;border:none;background:#f59e0b;color:#0f172a;font-weight:800;font-size:11px;cursor:pointer;">Guardar Clave y Conectar Google 3D</button>
             </div>
           </div>
         </div>

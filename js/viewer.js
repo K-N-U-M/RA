@@ -17,9 +17,7 @@ async function switchEngine(engine) {
   currentEngine = engine;
   showStatus(`ACTIVANDO: ${engine.toUpperCase()} 3D...`);
 
-  document.querySelectorAll('.engine-opt, .engine-card-opt').forEach(el => {
-    if (el.id && el.id.startsWith('opt-engine-')) el.classList.remove('active');
-  });
+  document.querySelectorAll('.engine-opt').forEach(el => el.classList.remove('active'));
   const activeOpt = document.getElementById(`opt-engine-${engine}`);
   if (activeOpt) activeOpt.classList.add('active');
 
@@ -93,28 +91,7 @@ async function loadGoogle3D() {
   }
   show3DTilesLoading('Conectando con Google Photorealistic 3D...', 0);
 
-  let _customGoogleKey = '';
-  let _customCesiumToken = '';
-  try {
-    if (typeof localStorage !== 'undefined' && localStorage) {
-      _customGoogleKey = (localStorage.getItem('ra_google_maps_key') || '').trim();
-      _customCesiumToken = (localStorage.getItem('ra_cesium_ion_token') || '').trim();
-    }
-  } catch (_e) {}
-
-  if (_customCesiumToken && typeof Cesium !== 'undefined' && Cesium.Ion) {
-    Cesium.Ion.defaultAccessToken = _customCesiumToken;
-  }
-  const gKey = _customGoogleKey ||
-               (typeof GOOGLE_MAPS_API_KEY !== 'undefined' && GOOGLE_MAPS_API_KEY) ||
-               (window.RA_CONFIG_KEYS && window.RA_CONFIG_KEYS.googleMaps) ||
-               (window.RA_ENV && window.RA_ENV.googleMaps) || '';
-  if (gKey && typeof Cesium !== 'undefined' && Cesium.GoogleMaps) {
-    Cesium.GoogleMaps.defaultApiKey = gKey;
-  }
-
   if (!google3DTileset) {
-    let lastErrorMsg = '';
     try {
       google3DTileset = await Cesium.Cesium3DTileset.fromIonAssetId(2275207, {
         maximumScreenSpaceError: 16,
@@ -139,14 +116,11 @@ async function loadGoogle3D() {
       scene.primitives.add(google3DTileset);
       globe.show = false;
       return;
-    } catch (e1) {
-      lastErrorMsg = (e1 && e1.message) ? String(e1.message) : String(e1 || '');
-      window.RA && window.RA.log && window.RA.log.warn('[Google 3D via Ion 2275207]', e1);
-    }
+    } catch(e1) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e1); }
 
     try {
       google3DTileset = await Cesium.createGooglePhotorealistic3DTileset({
-        key: gKey,
+        key: GOOGLE_MAPS_API_KEY,
         maximumScreenSpaceError: 16, // Alta fidelidad geométrica
         maximumMemoryUsage: 512,     // 512MB de caché optimizado para GPUs integradas y portátiles
         preloadWhenStationary: true,
@@ -171,36 +145,9 @@ async function loadGoogle3D() {
       globe.show = false;
       return;
     } catch (e2) {
-      const err2Str = (e2 && e2.message) ? String(e2.message) : String(e2 || '');
-      window.RA && window.RA.log && window.RA.log.warn('[Google 3D Direct API]', e2);
       await loadCesium3D();
-      currentEngine = 'cesium';
-      document.querySelectorAll('.engine-opt, .engine-card-opt').forEach(el => {
-        if (el.id && el.id.startsWith('opt-engine-')) el.classList.remove('active');
-      });
-      const cesiumOpt = document.getElementById('opt-engine-cesium');
-      if (cesiumOpt) cesiumOpt.classList.add('active');
       const b = document.getElementById('active-engine-badge');
       if (b) b.textContent = 'CESIUM 3D';
-      if (typeof updateDockEngineUI === 'function') updateDockEngineUI('cesium');
-      const isQuota = /429|quota/i.test(lastErrorMsg) || /429|quota/i.test(err2Str);
-      const isEeaOrPerm = /403|EEA|not available|PERMISSION_DENIED/i.test(err2Str);
-      const diagEl = document.getElementById('ra-google3d-diag');
-      if (diagEl) {
-        diagEl.style.display = 'block';
-        const diagText = document.getElementById('ra-google3d-diag-msg');
-        if (diagText) {
-          diagText.textContent = isQuota && isEeaOrPerm
-            ? '⚠️ Google rechazó la conexión: Cuota global de Cesium Ion agotada (HTTP 429) y restricción regional EEA en tu clave de Google Cloud (HTTP 403). Introduce abajo una clave con Map Tiles API habilitado.'
-            : (isQuota ? '⚠️ Cuota diaria de Google 3D Tiles agotada (HTTP 429). Introduce una clave propia de Google Maps Platform abajo.' : '⚠️ Google 3D Tiles rechazó la conexión (HTTP 403/429). Verifica tu clave de Map Tiles API abajo.');
-        }
-      }
-      if (typeof showToast === 'function') {
-        const reason = isQuota && isEeaOrPerm
-          ? 'Cuota diaria de Cesium Ion agotada (429) y restricción EEA/Map Tiles en clave Google (403). Activado motor Cesium 3D OSM de respaldo.'
-          : (isQuota ? 'Cuota diaria de Google 3D Tiles alcanzada (HTTP 429). Activado motor Cesium 3D OSM.' : 'Google 3D Tiles no disponible temporalmente. Activado motor Cesium 3D OSM.');
-        showToast('MOTOR 3D EN MODO RESPALDO (CESIUM OSM)', reason, 'warning', 6500);
-      }
     }
   } else {
     google3DTileset.show = true;
@@ -1018,44 +965,9 @@ function _initTriadOnce() {
     if (_initTriadRemove) { _initTriadRemove(); _initTriadRemove = null; }
   }
 
-  function applyCustom3DCredentials() {
-    const gInput = document.getElementById('ra-custom-gkey-input');
-    const cInput = document.getElementById('ra-custom-cion-input');
-    const newGKey = gInput ? gInput.value.trim() : '';
-    const newCToken = cInput ? cInput.value.trim() : '';
-    try {
-      if (typeof localStorage !== 'undefined' && localStorage) {
-        if (newGKey) localStorage.setItem('ra_google_maps_key', newGKey);
-        else localStorage.removeItem('ra_google_maps_key');
-        if (newCToken) localStorage.setItem('ra_cesium_ion_token', newCToken);
-        else localStorage.removeItem('ra_cesium_ion_token');
-      }
-    } catch (_e) {}
-
-    if (newGKey) {
-      if (window.RA_CONFIG_KEYS) window.RA_CONFIG_KEYS.googleMaps = newGKey;
-      if (window.RA_ENV) window.RA_ENV.googleMaps = newGKey;
-      if (typeof Cesium !== 'undefined' && Cesium.GoogleMaps) Cesium.GoogleMaps.defaultApiKey = newGKey;
-    }
-    if (newCToken) {
-      if (window.RA_CONFIG_KEYS) window.RA_CONFIG_KEYS.cesiumIon = newCToken;
-      if (window.RA_ENV) window.RA_ENV.cesiumIon = newCToken;
-      if (typeof Cesium !== 'undefined' && Cesium.Ion) Cesium.Ion.defaultAccessToken = newCToken;
-    }
-    if (google3DTileset) {
-      try { scene.primitives.remove(google3DTileset); } catch (_e) {}
-      google3DTileset = null;
-      window.google3DTileset = null;
-    }
-    const diagEl = document.getElementById('ra-google3d-diag');
-    if (diagEl) diagEl.style.display = 'none';
-    switchEngine('google');
-  }
-
   // ── EXPORTACIÓN AL NAMESPACE GLOBAL Y WINDOW.RA ─────────────────────────────
   global.RA = global.RA || {};
 
-  global.applyCustom3DCredentials = applyCustom3DCredentials;
   global.switchEngine = switchEngine;
   global.attachTilesetLoadMonitor = attachTilesetLoadMonitor;
   global.loadGoogle3D = loadGoogle3D;

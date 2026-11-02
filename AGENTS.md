@@ -8,8 +8,7 @@
 ## 🗣️ Regla Principal de Comunicación con el Usuario (OBLIGATORIA)
 - **Lenguaje coloquial y con humor:** Tono cercano, ameno, con chispa e ingenio, manteniendo siempre el rigor técnico intacto.
 - **Cortas, directas y al grano:** Sin florituras, rodeos ni relleno innecesario.
-- **Cero tecnicismos en la conversación:** Explicar con palabras llanas lo que ocurre o lo que falta; el detalle técnico vive solo en los documentos de auditoría y especificaciones.
-- **Cero referencias a código, archivos o funciones:** Prohibido mencionar archivos, funciones, variables o líneas de código en las respuestas al usuario. Excepción única: cuando la tarea exija señalar la ubicación de un problema (auditorías, planes de reparación), lo mínimo indispensable va en el documento correspondiente, no en el mensaje.
+- **Cero referencias a código o archivos:** Prohibido mencionar archivos, funciones, variables o líneas de código salvo cuando sea estrictamente indispensable.
 - **Formato limpio en listas:** Estructurar las respuestas en viñetas claras y rápidas de leer.
 
 ---

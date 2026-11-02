@@ -31,18 +31,10 @@
       this.enabled = false;
       this.mode = 'composite_solstices'; // 'composite_solstices' | 'current_sun'
       this._lastEvaluationTs = 0;
-      // [AUD-2026 v2 · PERF2-02] Cadencia 125 ms (~8 Hz) durante el gesto + pase final diferido;
-      // el coste por pase baja drásticamente con el batch persistente (PERF2-04).
-      this._throttleMs = 125;
-      this._trailingTimer = null;
+      this._throttleMs = 30; // ~30 FPS para arrastres pesados con cientos de módulos
       this._activeTints = new Map();
       this._isEvaluating = false;
       this._overlayPrimitive = null;
-      // [AUD-2026 v2 · PERF2-04] Estado del batch persistente (evita rebatch completo por pase).
-      this._overlayIds = null;
-      this._overlayTints = null;
-      this._overlayPanelIdx = null;
-      this._overlayCorners = null;
     }
 
     /**
@@ -88,11 +80,6 @@
      * Limpia los tintes aplicados restaurando la apariencia nativa de los módulos
      */
     clearOverlay() {
-      // [PERF2-02] Cancelar el pase final diferido pendiente al limpiar la capa.
-      if (this._trailingTimer != null) {
-        clearTimeout(this._trailingTimer);
-        this._trailingTimer = null;
-      }
       const viewer = global.viewer;
       if (this._overlayPrimitive && viewer && viewer.scene && viewer.scene.primitives) {
         try {
@@ -106,68 +93,7 @@
           viewer.scene.requestRender();
         }
       }
-      // [PERF2-04] El registro del batch persistente también muere con la capa.
-      this._overlayIds = null;
-      this._overlayTints = null;
-      this._overlayPanelIdx = null;
-      this._overlayCorners = null;
       this._activeTints.clear();
-    }
-
-    /**
-     * [AUD-2026 v2 · PERF2-04] ¿Sigue intacta la geometría del panelado (posición/orientación)?
-     * Compara, índice a índice, los 4 vértices de cada panel contra el snapshot del batch vivo.
-     * @private
-     */
-    _panelSetUnchanged(panelTints) {
-      const snap = this._overlayCorners;
-      if (!snap || snap.length !== panelTints.length) return false;
-      for (let i = 0; i < panelTints.length; i++) {
-        const item = panelTints[i];
-        const corners = (item && item.panel) ? item.panel.corners : null;
-        const saved = snap[i];
-        const valid = Array.isArray(corners) && corners.length >= 4 && !!item.tint;
-        if (!valid) {
-          if (saved) return false;
-          continue;
-        }
-        if (!saved) return false;
-        for (let k = 0; k < 4; k++) {
-          const c = corners[k];
-          const s = saved[k];
-          if (Math.abs(c.x - s[0]) > 1e-6 || Math.abs(c.y - s[1]) > 1e-6 || Math.abs(c.z - s[2]) > 1e-6) {
-            return false;
-          }
-        }
-      }
-      return true;
-    }
-
-    /**
-     * [PERF2-04] Re-tintado incremental por atributos de instancia: solo toca las instancias
-     * cuyo color cambió; la geometría permanece en GPU. Devuelve false si hay que rebatchear.
-     * @private
-     */
-    _retintOverlayAttributes(panelTints) {
-      if (typeof Cesium === 'undefined') return false;
-      const prim = this._overlayPrimitive;
-      if (!prim || (prim.isDestroyed && prim.isDestroyed())) return false;
-      if (prim.ready !== true) return false;
-      try {
-        for (let j = 0; j < this._overlayIds.length; j++) {
-          const tint = panelTints[this._overlayPanelIdx[j]].tint;
-          const eff = this._overlayTints[j];
-          if (eff.r !== tint.r || eff.g !== tint.g || eff.b !== tint.b || eff.a !== tint.a) {
-            const attrs = prim.getGeometryInstanceAttributes(this._overlayIds[j]);
-            attrs.color = Cesium.ColorGeometryInstanceAttribute.fromColor(new Cesium.Color(tint.r, tint.g, tint.b, tint.a));
-            eff.r = tint.r; eff.g = tint.g; eff.b = tint.b; eff.a = tint.a;
-          }
-        }
-        return true;
-      } catch (e) {
-        // Atributos no disponibles (estado imprevisto): cae al rebatch completo, sin riesgo.
-        return false;
-      }
     }
 
     /**
@@ -179,16 +105,7 @@
 
       const now = performance.now();
       if (!forceForcedImmediate && (now - this._lastEvaluationTs) < this._throttleMs) {
-        // [PERF2-02] Cambio dentro de la ventana: agenda un pase final al expirar la cadencia,
-        // así no se pierde la última posición sea cual sea la longitud del gesto.
-        if (this._trailingTimer == null) {
-          this._trailingTimer = setTimeout(() => { this._trailingTimer = null; this.evaluate(); }, this._throttleMs + 15);
-        }
         return;
-      }
-      if (this._trailingTimer != null) {
-        clearTimeout(this._trailingTimer);
-        this._trailingTimer = null;
       }
       this._lastEvaluationTs = now;
 
@@ -407,18 +324,6 @@
       const viewer = global.viewer;
       if (!viewer || !viewer.scene || !viewer.scene.primitives || typeof Cesium === 'undefined') return;
 
-      // [AUD-2026 v2 · PERF2-04] Capa persistente: si el panelado no movió ni un milímetro y la
-      // primitiva está lista, solo se re-tintan las instancias cuyo color cambió (cero rebatch).
-      if (panelTints && panelTints.length > 0 &&
-          this._overlayPrimitive && !this._overlayPrimitive.isDestroyed() &&
-          this._panelSetUnchanged(panelTints) &&
-          this._retintOverlayAttributes(panelTints)) {
-        if (viewer.scene && typeof viewer.scene.requestRender === 'function') {
-          viewer.scene.requestRender();
-        }
-        return;
-      }
-
       if (this._overlayPrimitive) {
         try {
           viewer.scene.primitives.remove(this._overlayPrimitive);
@@ -428,11 +333,6 @@
         } catch (e) {}
         this._overlayPrimitive = null;
       }
-      // [PERF2-04] El rebatch completo invalida el registro del batch persistente.
-      this._overlayIds = null;
-      this._overlayTints = null;
-      this._overlayPanelIdx = null;
-      this._overlayCorners = null;
 
       if (!panelTints || panelTints.length === 0) {
         if (viewer.scene && typeof viewer.scene.requestRender === 'function') {
@@ -442,11 +342,6 @@
       }
 
       const instances = [];
-      // [PERF2-04] Registro del batch persistente (alineado por índice de panelTints).
-      const idAcc = [];
-      const tintAcc = [];
-      const panelIdxAcc = [];
-      const cornersSnap = [];
 
       for (let i = 0; i < panelTints.length; i++) {
         const item = panelTints[i];
@@ -454,7 +349,6 @@
         const tint = item.tint;
 
         if (!pData || !Array.isArray(pData.corners) || pData.corners.length < 4 || !tint) {
-          cornersSnap.push(null);
           continue;
         }
 
@@ -524,13 +418,6 @@
           },
           id: 'live_probe_p_' + i
         }));
-        idAcc.push('live_probe_p_' + i);
-        tintAcc.push({ r: tint.r, g: tint.g, b: tint.b, a: tint.a });
-        panelIdxAcc.push(i);
-        cornersSnap.push([
-          c0.x, c0.y, c0.z, c1.x, c1.y, c1.z,
-          c2.x, c2.y, c2.z, c3.x, c3.y, c3.z
-        ]);
       }
 
       if (instances.length === 0) return;
@@ -554,11 +441,6 @@
       });
 
       this._overlayPrimitive = viewer.scene.primitives.add(overlayPrimitive);
-      // [PERF2-04] Batch persistente registrado tras la primera construcción.
-      this._overlayIds = idAcc;
-      this._overlayTints = tintAcc;
-      this._overlayPanelIdx = panelIdxAcc;
-      this._overlayCorners = cornersSnap;
       if (viewer.scene && typeof viewer.scene.requestRender === 'function') {
         viewer.scene.requestRender();
       }

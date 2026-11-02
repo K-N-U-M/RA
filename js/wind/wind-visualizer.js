@@ -608,42 +608,6 @@
     }
   }
 
-  // [AUD-2026 v2 · PERF2-01] Reconstrucción diferida de anillos/estela: cada gesto en vivo cancela
-  // el pase pendiente y solo se ejecuta cuando el arrastre queda en reposo (equivalente al LEFT_UP).
-  var _ringRebuildTimers = {};
-
-  function _scheduleOverlayRebuild(turbineInstance) {
-    if (!turbineInstance || !turbineInstance.id) return;
-    var tid = turbineInstance.id;
-    if (_ringRebuildTimers[tid]) {
-      clearTimeout(_ringRebuildTimers[tid]);
-    }
-    _ringRebuildTimers[tid] = setTimeout(function() {
-      delete _ringRebuildTimers[tid];
-      _rebuildOverlayForTurbine(turbineInstance);
-    }, 150);
-  }
-
-  function _rebuildOverlayForTurbine(turbineInstance) {
-    if (!turbineInstance) return;
-    var entry = _primitivesByTurbineId[turbineInstance.id];
-    if (!entry || !entry.primitive || entry.primitive.isDestroyed()) return;
-    var viewer = _getViewer();
-    if (!viewer || !viewer.scene || !viewer.scene.primitives) return;
-    var isSel = (turbineInstance.id === _selectedId);
-    if (entry.ringsPrimitive && !entry.ringsPrimitive.isDestroyed()) {
-      try { viewer.scene.primitives.remove(entry.ringsPrimitive); } catch (eR2) {}
-      entry.ringsPrimitive = null;
-    }
-    try {
-      entry.ringsPrimitive = _buildOverlayRingsPrimitive(turbineInstance, _computeRootModelMatrix(turbineInstance), isSel);
-    } catch (errReb) {
-      entry.ringsPrimitive = null;
-      // Silencio deliberado: el siguiente gesto en vivo reintenta vía _scheduleOverlayRebuild.
-    }
-    _requestSceneRender();
-  }
-
   function updateLiveModelMatrix(turbineInstance) {
     if (!turbineInstance || !turbineInstance.id) return false;
     var entry = _primitivesByTurbineId[turbineInstance.id];
@@ -652,14 +616,20 @@
     if (!newMat4) return false;
     entry.primitive.modelMatrix = newMat4;
 
-    // [AUD-2026 v2 · PERF2-01] Anillos/estela sin reconstrucción en caliente (regla dura del drag):
-    // geometría estática en el marco local de la turbina → basta actualizar su modelMatrix.
-    // La reconstrucción completa (sombra de suelo/estela dependientes de la posición y del cambio
-    // de radio/altura) se difiere a un pase único cuando el gesto queda en reposo.
-    if (entry.ringsPrimitive && !entry.ringsPrimitive.isDestroyed()) {
-      try { entry.ringsPrimitive.modelMatrix = newMat4; } catch (eR) {}
+    // Reconstruir en caliente las primitivas de anillos, cono de estela y sombra de suelo para reactividad continua
+    var viewer = _getViewer();
+    if (viewer && viewer.scene && viewer.scene.primitives) {
+      if (entry.ringsPrimitive && !entry.ringsPrimitive.isDestroyed()) {
+        try { viewer.scene.primitives.remove(entry.ringsPrimitive); } catch (eR) {}
+      }
+      var isSel = (turbineInstance.id === _selectedId);
+      try {
+        entry.ringsPrimitive = _buildOverlayRingsPrimitive(turbineInstance, newMat4, isSel);
+      } catch (errLive) {
+        entry.ringsPrimitive = null;
+        console.error('[RAWindVisualizer] Fallo actualizando anillos en vivo:', errLive);
+      }
     }
-    _scheduleOverlayRebuild(turbineInstance);
     _requestSceneRender();
     return true;
   }
