@@ -21,6 +21,22 @@
   var _selectedTurbineForPlacement = null;
   var _selectedTurbineIdForInspect = null;
   var _selectedWindSource = 'era5';
+  var _uiCalcCache = {
+    optRec: null,
+    optRecKey: '',
+    dispatch: null,
+    dispatchKey: '',
+    flicker: null,
+    flickerKey: ''
+  };
+  function _invalidateUiCalcCache() {
+    _uiCalcCache.optRec = null;
+    _uiCalcCache.optRecKey = '';
+    _uiCalcCache.dispatch = null;
+    _uiCalcCache.dispatchKey = '';
+    _uiCalcCache.flicker = null;
+    _uiCalcCache.flickerKey = '';
+  }
   var _showAdvancedResource = false;
   var _resourceActiveMetrics = {
     wpd: true,
@@ -1010,7 +1026,12 @@
         }
       }
 
-      var flicker = global.RAWind.ShadowFlicker.evaluateAnnualShadowFlicker(activeTurbine, null, solarTarget);
+      var flKey = (activeTurbine ? activeTurbine.id : '') + '_' + ((activeTurbine && activeTurbine.supportStructure) ? activeTurbine.supportStructure.hubHeightM : 0) + '_' + (solarTarget ? (solarTarget.latDeg.toFixed(4) + '_' + solarTarget.lonDeg.toFixed(4)) : 'none');
+      if (_uiCalcCache.flickerKey !== flKey) {
+        _uiCalcCache.flicker = global.RAWind.ShadowFlicker.evaluateAnnualShadowFlicker(activeTurbine, null, solarTarget);
+        _uiCalcCache.flickerKey = flKey;
+      }
+      var flicker = _uiCalcCache.flicker;
       var flColor = flicker.isAcceptable ? '#10B981' : (flicker.compliesNorm30hYear ? '#F59E0B' : '#EF4444');
       var flBadge = flicker.isAcceptable ? 'CUMPLE NORMA (≤30h)' : (flicker.compliesNorm30hYear ? 'PICO DIARIO (>30m)' : 'EXCEDE 30 h/AÑO');
 
@@ -1064,6 +1085,7 @@
   }
 
   function onTurbinesChanged(eventType, data) {
+    _invalidateUiCalcCache();
     renderStep2Panel();
   }
 

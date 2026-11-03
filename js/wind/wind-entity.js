@@ -84,7 +84,8 @@
         electrical: catalogItem.electrical || null,
         structural: catalogItem.structural || null,
         priceEur: catalogItem.priceEur || 20000,
-        powerCurve: catalogItem.powerCurve || []
+        powerCurve: catalogItem.powerCurve || [],
+        cpAudit: catalogItem.cpAudit || (global.RAWindCatalog && typeof global.RAWindCatalog.validatePowerCurve === 'function' ? global.RAWindCatalog.validatePowerCurve(catalogItem) : null)
       }
     };
   }
@@ -310,7 +311,8 @@
           electrical: catalogItem.electrical || null,
           structural: catalogItem.structural || null,
           priceEur: catalogItem.priceEur || 20000,
-          powerCurve: catalogItem.powerCurve || []
+          powerCurve: catalogItem.powerCurve || [],
+          cpAudit: catalogItem.cpAudit || (global.RAWindCatalog && typeof global.RAWindCatalog.validatePowerCurve === 'function' ? global.RAWindCatalog.validatePowerCurve(catalogItem) : null)
         } : { type: 'HAWT', ratedPowerW: 10000, rotorDiameterM: 5.0, bladeCount: 3, hubHeightsAvailableM: [12, 18, 24], acousticPowerLwaDba: 100, powerCurve: [] }
       };
       global.windTurbines.push(inst);

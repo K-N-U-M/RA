@@ -65,13 +65,13 @@ assert.strictEqual(park.invalidCurves.length, 1);
 assert.strictEqual(park.totalAepNetKwh, 0, 'El parque no puede sumar AEP de una curva inválida');
 console.log(`  ✓ PASS: parque marca ${park.invalidCurves.length} curva(s) inválida(s) y no suma AEP`);
 
-// 4. El catálogo por defecto queda protegido (6/6 inválidas hoy).
+// 4. El catálogo por defecto queda validado y genera producción coherente
 const catalog = (global.RAWindCatalog && typeof global.RAWindCatalog.getAll === 'function')
   ? global.RAWindCatalog.getAll() : [];
 assert.ok(catalog.length > 0, 'El catálogo por defecto debe cargarse');
-const allInvalid = catalog.every(t => t.cpAudit && t.cpAudit.valid === false);
-assert.ok(allInvalid, 'Los datos actuales del catálogo deben seguir marcados como inválidos');
-console.log(`  ✓ PASS: ${catalog.length} equipos del catálogo siguen marcados (pendientes de datasheet)`);
+const allValid = catalog.every(t => t.cpAudit && t.cpAudit.valid === true);
+assert.ok(allValid, 'Todos los equipos del catálogo por defecto deben ser válidos físicamente');
+console.log('  ✓ PASS: ' + catalog.length + ' equipos del catálogo auditados y físicamente coherentes');
 
 console.log('═════════════════════════════════════════════════════════════════════');
 console.log('🎉 GUARDA DE AEP: TODAS LAS COMPROBACIONES PASARON');

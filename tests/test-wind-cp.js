@@ -50,13 +50,14 @@ assert.strictEqual(Catalog.validatePowerCurve({}).valid, false);
 assert.strictEqual(Catalog.validatePowerCurve({ rotorDiameterM: 0, powerCurve: [] }).valid, false);
 console.log('  ✓ PASS: entradas incompletas se rechazan sin excepción');
 
-// 4. El catálogo por defecto queda auditado (y hoy debe marcar los equipos imposibles).
+// 4. El catálogo por defecto queda auditado y recalibrado (todos válidos con Cp <= 0.45)
 const all = Catalog.getAll();
 assert.ok(Array.isArray(all) && all.length > 0, 'El catálogo por defecto no puede estar vacío');
-all.forEach(t => assert.ok(t.cpAudit && typeof t.cpAudit.valid === 'boolean', `Falta cpAudit en ${t.model}`));
+all.forEach(t => assert.ok(t.cpAudit && typeof t.cpAudit.valid === 'boolean', 'Falta cpAudit en ' + t.model));
 const invalid = all.filter(t => !t.cpAudit.valid);
-console.log(`  ✓ PASS: ${all.length} equipos auditados · ${invalid.length} con Cp > Betz (pendientes de datasheet)`);
-assert.ok(invalid.length > 0, 'Los datos actuales deben quedar marcados: son físicamente imposibles');
+console.log('  ✓ PASS: ' + all.length + ' equipos auditados · ' + invalid.length + ' inválidos (todos válidos y realistas con Cp <= 0.45)');
+assert.strictEqual(invalid.length, 0, 'Todas las turbinas del catálogo deben ser válidas tras la recalibración física');
+all.forEach(t => assert.ok(t.cpAudit.maxCp <= 0.45, 'Cp_max (' + t.cpAudit.maxCp + ') debe ser <= 0.45 en ' + t.model));
 
 console.log('═════════════════════════════════════════════════════════════════════');
 console.log('🎉 VALIDACIÓN BETZ: TODAS LAS COMPROBACIONES PASARON');

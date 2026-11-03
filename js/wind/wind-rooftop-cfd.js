@@ -114,21 +114,62 @@
       L = customBuildingDims.L || L;
       xSetback = customBuildingDims.xSetback !== undefined ? customBuildingDims.xSetback : xSetback;
     } else {
-      // Intentar inferir dimensiones del edificio más cercano en la escena
+            // Detectar el edificio de soporte real que contiene o subyace a la turbina
       var blds = (typeof global.buildings !== 'undefined' && Array.isArray(global.buildings))
         ? global.buildings
         : [];
-      if (blds.length > 0) {
-        var b0 = blds[0];
-        if (b0 && Number(b0.height) > 0) H = Number(b0.height);
-        if (b0 && Number(b0.rectLadoA) > 0) W = Number(b0.rectLadoA);
-        if (b0 && Number(b0.rectLadoB) > 0) L = Number(b0.rectLadoB);
+      var matchedBld = null;
+      var tPos = turbineInstance.positionCartographic;
+      var minDist = Infinity;
+
+      if (blds.length > 0 && tPos) {
+        for (var bi = 0; bi < blds.length; bi++) {
+          var b = blds[bi];
+          if (!b || b.visible === false) continue;
+          var pts = Array.isArray(b.points) ? b.points : (Array.isArray(b.polygonPoints) ? b.polygonPoints : null);
+          if (!pts || pts.length === 0) continue;
+
+          var cx = 0, cy = 0, cz = 0;
+          for (var pi = 0; pi < pts.length; pi++) {
+            cx += pts[pi].x; cy += pts[pi].y; cz += pts[pi].z;
+          }
+          var center = { x: cx / pts.length, y: cy / pts.length, z: cz / pts.length };
+
+          if (typeof global.Cesium !== 'undefined' && global.Cesium.Cartographic) {
+            try {
+              var cCarto = global.Cesium.Cartographic.fromCartesian(center);
+              if (cCarto) {
+                var dLatM = (tPos.latitudeRad - cCarto.latitude) * 6371000;
+                var dLonM = (tPos.longitudeRad - cCarto.longitude) * 6371000 * Math.cos(tPos.latitudeRad);
+                var distM = Math.sqrt(dLatM * dLatM + dLonM * dLonM);
+                if (distM < minDist) {
+                  minDist = distM;
+                  matchedBld = b;
+                }
+              }
+            } catch (eM) {}
+          }
+        }
+      }
+
+      if (!matchedBld && blds.length > 0) matchedBld = blds[0];
+
+      if (matchedBld) {
+        if (Number(matchedBld.height) > 0) H = Number(matchedBld.height);
+        if (Number(matchedBld.rectLadoA) > 0) W = Number(matchedBld.rectLadoA);
+        if (Number(matchedBld.rectLadoB) > 0) L = Number(matchedBld.rectLadoB);
+        if (isFinite(minDist) && minDist < Math.max(W, L)) {
+          xSetback = Math.max(0.5, Math.min(L * 0.85, minDist));
+        } else {
+          xSetback = Math.max(1.0, L * 0.25);
+        }
       } else if (global.WP && Array.isArray(global.WP.polylines) && global.WP.polylines.length > 0) {
         var p0 = global.WP.polylines[0];
         if (p0 && Number(p0.area) > 0) {
           var side = Math.sqrt(p0.area);
           W = Math.max(6, side);
           L = Math.max(6, side);
+          xSetback = Math.max(1.0, side * 0.25);
         }
       }
     }

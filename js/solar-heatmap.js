@@ -576,8 +576,37 @@
 
         const obstacles2D = [];
         const obsList = (typeof obstacles !== 'undefined' && Array.isArray(obstacles))
-          ? obstacles
-          : ((typeof window !== 'undefined' && Array.isArray(window.obstacles)) ? window.obstacles : []);
+          ? obstacles.slice()
+          : ((typeof window !== 'undefined' && Array.isArray(window.obstacles)) ? window.obstacles.slice() : []);
+        const wTurbines = (typeof windTurbines !== 'undefined' && Array.isArray(windTurbines))
+          ? windTurbines
+          : ((typeof window !== 'undefined' && Array.isArray(window.windTurbines)) ? window.windTurbines : []);
+        if (wTurbines && wTurbines.length > 0) {
+          wTurbines.forEach(t => {
+            if (!t || (t.operationalState && t.operationalState.enabled === false)) return;
+            const hubH = (t.supportStructure && t.supportStructure.hubHeightM) ? t.supportStructure.hubHeightM : 18;
+            const rotorR = (t._catalog && t._catalog.rotorDiameterM) ? (t._catalog.rotorDiameterM / 2) : 3;
+            let cart = null;
+            if (t.cartesian) cart = t.cartesian;
+            else if (t.positionCartographic && typeof Cesium !== 'undefined' && Cesium.Cartesian3) {
+              try {
+                cart = Cesium.Cartesian3.fromRadians(t.positionCartographic.longitudeRad, t.positionCartographic.latitudeRad, t.positionCartographic.altitudeM || 0);
+              } catch (eC) {}
+            }
+            obsList.push({
+              id: t.id,
+              type: 'wind_turbine',
+              name: t.name || 'Aerogenerador',
+              mastHeight: hubH + rotorR,
+              h: hubH + rotorR,
+              w: 1.5,
+              l: 1.5,
+              cartesian: cart,
+              positionCartographic: t.positionCartographic,
+              isTurbine: true
+            });
+          });
+        }
         if (obsList && obsList.length > 0) {
           obsList.forEach(obs => {
             if (!obs || obs.deleted) return;

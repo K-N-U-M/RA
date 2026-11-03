@@ -323,7 +323,10 @@
     var netAnnualSavingsEur = Math.max(0, (billBeforeEur - billEnergyAfterEur) + powerChargeSavingEur);
 
     // LCOE Híbrido a 25 años (Tasa descuento 4%, degradación FV 0.5%/a, eólica 0.8%/a, OPEX 1.5% CAPEX)
-    var totalCapex = (p.capexSolarEur || 0) + (p.capexWindEur || 0) + (battCap * 420);
+    var battCost = (p.batteryIncludedInSolarCapex || (p.capexSolarEur && global._lastFinModel && Math.abs(global._lastFinModel.capexTotal - p.capexSolarEur) < 1.0 && global._lastFinModel.capexBattery > 0))
+      ? 0
+      : (battCap * 420);
+    var totalCapex = (p.capexSolarEur || 0) + (p.capexWindEur || 0) + battCost;
     var opexAnnual = totalCapex * 0.015;
     var discountRate = 0.04;
     var npvCost = totalCapex;

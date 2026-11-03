@@ -99,11 +99,13 @@
         var recDist = payload.receptorDistanceM || resourceConfig.receptorDistanceM || 35;
         var t0 = turbines[0];
         if (t0) {
+          var tLatRad = t0.positionCartographic.latitudeRad;
+          var cosLat = Math.max(0.01, Math.cos(tLatRad));
           return RAWind.ShadowFlicker.evaluateAnnualShadowFlicker(t0, [{
             id: 'rec_audit',
             name: 'Receptor Lindero (' + recDist + 'm)',
-            latDeg: (t0.positionCartographic.latitudeRad * 180.0 / Math.PI),
-            lonDeg: (t0.positionCartographic.longitudeRad * 180.0 / Math.PI) + (recDist / 111132.95)
+            latDeg: (tLatRad * 180.0 / Math.PI),
+            lonDeg: (t0.positionCartographic.longitudeRad * 180.0 / Math.PI) + (recDist / (111132.95 * cosLat))
           }], payload.solarFieldBounds);
         }
       }
@@ -146,7 +148,9 @@
         'wind-resource.js',
         'wind-acoustics.js',
         'wind-structural.js',
-        'wind-electrical.js'
+        'wind-electrical.js',
+        'wind-shadow-flicker.js',
+        'wind-hybrid-dispatch.js'
       );
     } catch (e) {
       // Si ya estaban cargados o falla ruta relativa, continuar con fallback

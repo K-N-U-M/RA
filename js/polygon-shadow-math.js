@@ -263,7 +263,42 @@ function defaultPanelFilter(center, corners, dims, ctx) {
 
   const obsSetback = typeof ctx.obsSetback === "number" ? ctx.obsSetback : 0.50;
   const roof = ctx.roof || null;
-  const obstacleList = Array.isArray(ctx.obstacles) ? ctx.obstacles : (typeof obstacles !== "undefined" ? obstacles : []);
+  let obstacleList = Array.isArray(ctx.obstacles) ? ctx.obstacles.slice() : ((typeof obstacles !== "undefined" && Array.isArray(obstacles)) ? obstacles.slice() : []);
+  const turbines = (typeof windTurbines !== 'undefined' && Array.isArray(windTurbines))
+    ? windTurbines
+    : ((typeof window !== 'undefined' && Array.isArray(window.windTurbines)) ? window.windTurbines : []);
+
+  if (turbines.length > 0) {
+    turbines.forEach(t => {
+      if (!t || (t.operationalState && t.operationalState.enabled === false)) return;
+      const hubH = (t.supportStructure && t.supportStructure.hubHeightM) ? t.supportStructure.hubHeightM : 18;
+      const rotorR = (t._catalog && t._catalog.rotorDiameterM) ? (t._catalog.rotorDiameterM / 2) : 3;
+      let cartesian = null;
+      if (t.cartesian) {
+        cartesian = t.cartesian;
+      } else if (t.positionCartographic && typeof Cesium !== 'undefined' && Cesium.Cartesian3) {
+        try {
+          cartesian = Cesium.Cartesian3.fromRadians(
+            t.positionCartographic.longitudeRad,
+            t.positionCartographic.latitudeRad,
+            t.positionCartographic.altitudeM || 0
+          );
+        } catch (eC) {}
+      }
+      obstacleList.push({
+        id: t.id,
+        type: 'wind_turbine',
+        name: t.name || 'Aerogenerador',
+        mastHeight: hubH + rotorR,
+        h: hubH + rotorR,
+        w: 1.5,
+        l: 1.5,
+        cartesian: cartesian,
+        positionCartographic: t.positionCartographic,
+        isTurbine: true
+      });
+    });
+  }
 
   // 1. Deteccion rigurosa de obstaculos y casetones 3D (excluir cualquier panel que colisione)
   for (const obs of obstacleList) {

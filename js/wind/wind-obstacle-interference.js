@@ -85,21 +85,25 @@
     rawBlds.forEach(function (b, bIdx) {
       if (!b || b.visible === false) return;
       var bH = Math.max(2.5, Number(b.height || b.h || 6.0));
-      var bW = Math.max(4.0, Number(b.width || b.w || 15.0));
-      var bL = Math.max(4.0, Number(b.length || b.l || 20.0));
+      var bW = Math.max(2.0, Number(b.rectLadoA || b.width || b.w || 15.0));
+      var bL = Math.max(2.0, Number(b.rectLadoB || b.length || b.l || 20.0));
       var bCarto = null;
       var bCartesian = null;
+      var pts = Array.isArray(b.points) ? b.points : (Array.isArray(b.polygonPoints) ? b.polygonPoints : null);
 
       if (b.cartesian) {
         bCartesian = b.cartesian;
       } else if (b.positionCartographic) {
         bCarto = b.positionCartographic;
-      } else if (Array.isArray(b.polygonPoints) && b.polygonPoints.length > 0 && typeof global.Cesium !== 'undefined') {
+      } else if (pts && pts.length > 0) {
         try {
-          var p0 = b.polygonPoints[0];
-          if (p0 instanceof global.Cesium.Cartesian3) {
-            bCartesian = p0;
-            bCarto = global.Cesium.Cartographic.fromCartesian(p0);
+          var cx = 0, cy = 0, cz = 0;
+          for (var pi = 0; pi < pts.length; pi++) {
+            cx += pts[pi].x; cy += pts[pi].y; cz += pts[pi].z;
+          }
+          bCartesian = { x: cx / pts.length, y: cy / pts.length, z: cz / pts.length };
+          if (global.Cesium && global.Cesium.Cartographic && typeof global.Cesium.Cartographic.fromCartesian === 'function') {
+            bCarto = global.Cesium.Cartographic.fromCartesian(bCartesian);
           }
         } catch (eBld) {}
       }
