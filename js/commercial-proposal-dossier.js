@@ -179,15 +179,21 @@
 
     // Datos del titular / cliente
     var tit = (d && d.tit) ? d.tit : {};
-    var clientName = escD(tit.nombre || (currentBill.titular && currentBill.titular.nombre)) || 'Cliente Particular / Empresa';
-    var clientNif = escD(tit.nif || (currentBill.titular && currentBill.titular.nif)) || 'B-XXXXXXXX';
-    var address = escD(tit.dir || (currentBill.titular && currentBill.titular.direccion)) || 'Ubicación del Suministro';
+    var clientName = escD(tit.nombre || (currentBill.titular && (currentBill.titular.nombre || currentBill.titular))) || 'Cliente Particular / Empresa';
+    var clientNif = escD(tit.nif || (currentBill.titular && (currentBill.titular.nif || currentBill.cifNif))) || 'B-XXXXXXXX';
+    var address = escD(tit.dir || (currentBill.titular && (currentBill.titular.direccion || currentBill.direccionSuministro))) || 'Ubicación del Suministro';
     var cups = escD(tit.cups || currentBill.cups) || 'ES00210000XXXXXXXXXX';
     var clientPhone = escD(tit.tel || (currentBill.titular && currentBill.titular.telefono)) || '';
     var clientEmail = escD(tit.email || (currentBill.titular && currentBill.titular.email)) || '';
-    var tariff = escD(currentBill.tarifa || tit.tarifa) || (kwNom > 15 ? '3.0TD' : '2.0TD');
-    var potContr = tit.potContr || (currentBill.potenciasContratadas ? currentBill.potenciasContratadas[0] : (kwNom > 15 ? '40.00' : '5.75'));
-    var annualCons = Number(m.consumoAnual || currentBill.consumoAnualKwh || (annualYield > 0 ? Math.round(annualYield / 0.55) : 10000));
+    var tariff = escD(currentBill.tarifaAcceso || currentBill.tarifa || tit.tarifa) || (kwNom > 15 ? '3.0TD' : '2.0TD');
+    var potFromBill = null;
+    if (currentBill.potenciasContratadasKW && typeof currentBill.potenciasContratadasKW.p1 === 'number') {
+      potFromBill = currentBill.potenciasContratadasKW.p1.toFixed(2);
+    } else if (Array.isArray(currentBill.potenciasContratadas) && currentBill.potenciasContratadas.length > 0) {
+      potFromBill = String(currentBill.potenciasContratadas[0]);
+    }
+    var potContr = tit.potContr || potFromBill || (kwNom > 15 ? '40.00' : '5.75');
+    var annualCons = Number(m.consumoAnual || currentBill.consumoAnualKwh || (currentBill.consumosKWh && currentBill.consumosKWh.total) || (annualYield > 0 ? Math.round(annualYield / 0.55) : 10000));
 
     // Producción mensual en kWh (SSOT)
     var monthlySolarKwh = new Array(12).fill(0);
@@ -272,14 +278,20 @@
     var windTotalKw = (eq && eq.hasWind) ? (eq.windTotalKw || 0) : ((designCosts && designCosts.windTotalKw) || 0);
     var windName = (eq && eq.windName) ? eq.windName : 'Aerogenerador Minieólico';
 
-    // Cálculos Bancables: Préstamo Verde a 8 años (96 meses @ 5,5% TIN)
-    var nMonths = 96;
-    var tinAnual = 0.055;
-    var tinMensual = tinAnual / 12.0;
-    var cuotaPrestamo = (totalCostConIva > 0 && nMonths > 0)
-      ? (totalCostConIva * (tinMensual * Math.pow(1 + tinMensual, nMonths))) / (Math.pow(1 + tinMensual, nMonths) - 1)
-      : 0;
-    var ahorroMensual = ahorroAnual / 12.0;
+    // Cálculos Bancables: Financiación sincronizada estrictamente con SSOT (calculateFinancialModel)
+    var nMonths = (m && m.mesesFin) ? m.mesesFin : 96;
+    var cuotaPrestamo = (m && typeof m.cuotaMensual === 'number' && m.cuotaMensual > 0)
+      ? m.cuotaMensual
+      : ((totalCostConIva > 0 && nMonths > 0)
+        ? (function() {
+            var tinAnual = (m && typeof m.tinAnualPct === 'number') ? (m.tinAnualPct / 100.0) : 0.055;
+            var tinMensual = tinAnual / 12.0;
+            return (tinMensual > 0)
+              ? (totalCostConIva * (tinMensual * Math.pow(1 + tinMensual, nMonths))) / (Math.pow(1 + tinMensual, nMonths) - 1)
+              : totalCostConIva / nMonths;
+          })()
+        : 0);
+    var ahorroMensual = (m && typeof m.ahorroMensualLuz === 'number') ? m.ahorroMensualLuz : (ahorroAnual / 12.0);
     var saldoNetoMensual = ahorroMensual - cuotaPrestamo;
 
     // Renting Solar / PPA Operativo (0 € inversión, 8 años / 96 meses)
@@ -468,11 +480,47 @@
     },
 
     // Curva de amortización 25 años
-    amortization25: function(pal, paybackYears, totalCost, ahorroAnual) {
+    amortization25: function(pal, paybackYears, totalCost, ahorroAnual, finModel) {
       var W = 420, H = 160, PAD_L = 40, PAD_B = 25, PAD_T = 15, PAD_R = 15;
       var cW = W - PAD_L - PAD_R, cH = H - PAD_B - PAD_T;
       var bars = '';
       var pb = Number(paybackYears) || 4;
+      var schedule = (finModel && Array.isArray(finModel.financialSchedule25) && finModel.financialSchedule25.length === 25)
+        ? finModel.financialSchedule25
+        : null;
+
+      if (schedule) {
+        var cumValues = schedule.map(function(r) { return r.cumulativeCashFlowEUR; });
+        var maxCum = Math.max.apply(null, cumValues.concat([100]));
+        var minCum = Math.min.apply(null, cumValues.concat([0]));
+        var span = (maxCum - minCum) || 1;
+        var zeroY = PAD_T + cH - ((0 - minCum) / span) * cH;
+
+        for (var y = 1; y <= 25; y++) {
+          var val = schedule[y - 1].cumulativeCashFlowEUR;
+          var x = PAD_L + (y - 1) * (cW / 25) + 1;
+          var barW = Math.max(2, cW / 25 - 2);
+          var bY, bH, color;
+          if (val >= 0) {
+            bY = PAD_T + cH - ((val - minCum) / span) * cH;
+            bH = Math.max(3, zeroY - bY);
+            color = pal.primary;
+          } else {
+            bY = zeroY;
+            bH = Math.max(3, (PAD_T + cH - ((val - minCum) / span) * cH) - zeroY);
+            color = '#ef4444';
+          }
+          bars += '<rect x="' + x.toFixed(1) + '" y="' + bY.toFixed(1) + '" width="' + barW.toFixed(1) + '" height="' + bH.toFixed(1) + '" fill="' + color + '" rx="1.5"/>';
+        }
+
+        return '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;display:block;">' +
+          '<line x1="' + PAD_L + '" y1="' + zeroY.toFixed(1) + '" x2="' + (W - PAD_R) + '" y2="' + zeroY.toFixed(1) + '" stroke="#94a3b8" stroke-width="1" stroke-dasharray="2,2"/>' +
+          bars +
+          '<text x="' + PAD_L + '" y="' + (H - 5) + '" font-size="8" fill="#64748b">Año 1</text>' +
+          '<text x="' + (PAD_L + (Math.min(25, pb) / 25) * cW).toFixed(1) + '" y="' + (H - 5) + '" font-size="8" fill="' + pal.primary + '" font-weight="bold" text-anchor="middle">Retorno (Año ' + Math.ceil(pb) + ')</text>' +
+          '<text x="' + (W - PAD_R) + '" y="' + (H - 5) + '" font-size="8" fill="#64748b" text-anchor="end">Año 25</text>' +
+          '</svg>';
+      }
 
       for (var y = 1; y <= 25; y++) {
         var hPct = (y / 25);
@@ -1668,7 +1716,7 @@
       makeCard(
         '<div>' +
         '  <div class="editable-field" contenteditable="true" style="font-size:15px;font-weight:800;margin-bottom:8px;">PROYECCIÓN DE CASHFLOW ACUMULADO (AÑOS 1 A 25)</div>' +
-        Charts.amortization25(pal, payback, totalCost, ahorroAnual) +
+        Charts.amortization25(pal, payback, totalCost, ahorroAnual, m) +
         '  <div style="margin-top:6px;border-top:1px solid #e2e8f0;padding-top:4px;">' +
         '    <div style="font-size:14px;font-weight:800;color:' + pal.primary + ';margin-bottom:6px;">PARÁMETROS MACROECONÓMICOS BANCABLES</div>' +
         '    <table class="table-clean" style="font-size:13.5px;">' +

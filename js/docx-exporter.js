@@ -121,6 +121,21 @@
     return out;
   }
 
+  // Helper para codificar en quoted-printable seguro (escapa '=' a '=3D' y líneas largas)
+  function encodeQuotedPrintable(str) {
+    return str
+      .replace(/=/g, '=3D')
+      .replace(/[^\x09\x0A\x0D\x20-\x7E]/g, function(ch) {
+        const bytes = new TextEncoder().encode(ch);
+        let hex = '';
+        for (let b = 0; b < bytes.length; b++) {
+          const h = bytes[b].toString(16).toUpperCase();
+          hex += '=' + (h.length === 1 ? '0' + h : h);
+        }
+        return hex;
+      });
+  }
+
   // ── 2. Generador OpenXML DOCX con MHTML altChunk ──
   function buildDocxBlobFromHtml(htmlContent, options) {
     options = options || {};
@@ -145,13 +160,7 @@
     });
 
     const boundary = '----=_Part_RA_DOCX_' + Date.now();
-    let mhtml = 'MIME-Version: 1.0\r\n' +
-      'Content-Type: multipart/related; boundary="' + boundary + '"; type="text/html"\r\n\r\n' +
-      '--' + boundary + '\r\n' +
-      'Content-Type: text/html; charset="utf-8"\r\n' +
-      'Content-Transfer-Encoding: quoted-printable\r\n' +
-      'Content-Location: document.html\r\n\r\n' +
-      '<!DOCTYPE html>\r\n<html><head><meta charset="utf-8"><title>' + (options.title || 'Documento') + '</title>\r\n' +
+    const rawHtmlDoc = '<!DOCTYPE html>\r\n<html><head><meta charset="utf-8"><title>' + (options.title || 'Documento') + '</title>\r\n' +
       '<style>\r\n' +
       '@page Section1 { size: ' + (isLandscape ? '297mm 210mm' : '210mm 297mm') + '; margin: 12mm 14mm 14mm 12mm; mso-page-orientation: ' + (isLandscape ? 'landscape' : 'portrait') + '; }\r\n' +
       'div.Section1 { page: Section1; font-family: Segoe UI, Aptos, Arial, sans-serif; }\r\n' +
@@ -162,7 +171,17 @@
       (options.styles || '') + '\r\n' +
       '</style></head><body><div class="Section1">\r\n' +
       processedHtml + '\r\n' +
-      '</div></body></html>\r\n\r\n';
+      '</div></body></html>';
+
+    const qpEncodedHtml = encodeQuotedPrintable(rawHtmlDoc);
+
+    let mhtml = 'MIME-Version: 1.0\r\n' +
+      'Content-Type: multipart/related; boundary="' + boundary + '"; type="text/html"\r\n\r\n' +
+      '--' + boundary + '\r\n' +
+      'Content-Type: text/html; charset="utf-8"\r\n' +
+      'Content-Transfer-Encoding: quoted-printable\r\n' +
+      'Content-Location: document.html\r\n\r\n' +
+      qpEncodedHtml + '\r\n\r\n';
 
     for (let ii = 0; ii < images.length; ii++) {
       const img = images[ii];

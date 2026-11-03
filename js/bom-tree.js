@@ -672,7 +672,15 @@
         const numStrings = (allStrList && allStrList.length > 0)
           ? allStrList.length
           : Math.max(1, Math.ceil(tree.summary.totalPanels / 12));
-        const totalDcMeters = Math.round(estDcLengthM * 2 * numStrings);
+        
+        let totalDcMeters = 0;
+        if (sState && sState.cableBreakdown && typeof sState.cableBreakdown.totalDcCableMeters === 'number' && sState.cableBreakdown.totalDcCableMeters > 0) {
+          totalDcMeters = Math.round(sState.cableBreakdown.totalDcCableMeters);
+        } else if (sState && Array.isArray(sState.stringTelemetry) && sState.stringTelemetry.length > 0) {
+          totalDcMeters = Math.round(sState.stringTelemetry.reduce((acc, st) => acc + ((st.posHomerunLength || st.homerunLength || estDcLengthM) + (st.negHomerunLength || st.homerunLength || estDcLengthM) + (st.returnConductorLength || 0)), 0));
+        } else {
+          totalDcMeters = Math.round(estDcLengthM * 2 * numStrings);
+        }
 
         const dcCableCost = totalDcMeters * dcCableItem.pricePerMeter;
         const acCableCost = estAcLengthM * acCableItem.pricePerMeter;

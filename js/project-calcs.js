@@ -215,9 +215,12 @@ function getProjectCalcs() {
   const subtotal = Math.round(_directCost * (1 + (_marginPct / 100.0)));
   const iva = Math.round(subtotal * 0.21);
   const total_pres = subtotal + iva;
-  const _cachedFin = (typeof window !== 'undefined' && window._lastFinModel && window._lastFinModel.numPanels === numPanels) ? window._lastFinModel : null;
-  // [AUD-2026 · D-06] Sin modelo financiero no se inventa un ahorro con un precio suelto.
-  // Se declara 0 y el payback queda como «—»; el modelo se recalcula en cuanto haya datos.
+  let _cachedFin = (typeof window !== 'undefined' && window._lastFinModel && window._lastFinModel.numPanels === numPanels) ? window._lastFinModel : null;
+  if (!_cachedFin && typeof window !== 'undefined' && typeof window.calculateFinancialModel === 'function' && !window._isComputingFinModel) {
+    try {
+      _cachedFin = window.calculateFinancialModel();
+    } catch(eFin) {}
+  }
   const precio_kwh = 0.18; // precio de referencia para etiquetas (no para calcular ahorro)
   const ahorro_anual = (_cachedFin && _cachedFin.ahorroLuzAnio1 > 0) ? Math.round(_cachedFin.ahorroLuzAnio1) : 0;
   const payback = (_cachedFin && typeof _cachedFin.paybackYears === 'number' && isFinite(_cachedFin.paybackYears))

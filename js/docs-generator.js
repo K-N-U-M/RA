@@ -1245,8 +1245,14 @@ function generatePresupuesto(skipPricingModal) {
   const lAcReal = d.L_ac || 15.0;
   const sDcReal = d.S_dc_real || d.S_str || 6;
   const sAcReal = d.S_ac_real || d.S_ac || 10;
-  const totalMetrosDC = Math.round(lDcReal * Math.max(d.numStrings || 1, 1) * 2); // Polaridad (+) y (-)
-  const totalMetrosAC = Math.round(lAcReal * (d.monofasico ? 3 : 5)); // Fases + Neutro + Tierra
+  const sStateDoc = (typeof window !== 'undefined' && window.inverterEquipmentState) ? window.inverterEquipmentState : null;
+  let totalMetrosDC = Math.round(lDcReal * Math.max(d.numStrings || 1, 1) * 2); // Polaridad (+) y (-)
+  if (sStateDoc && sStateDoc.cableBreakdown && typeof sStateDoc.cableBreakdown.totalDcCableMeters === 'number' && sStateDoc.cableBreakdown.totalDcCableMeters > 0) {
+    totalMetrosDC = Math.round(sStateDoc.cableBreakdown.totalDcCableMeters);
+  } else if (sStateDoc && Array.isArray(sStateDoc.stringTelemetry) && sStateDoc.stringTelemetry.length > 0) {
+    totalMetrosDC = Math.round(sStateDoc.stringTelemetry.reduce((acc, st) => acc + ((st.posHomerunLength || st.homerunLength || lDcReal) + (st.negHomerunLength || st.homerunLength || lDcReal) + (st.returnConductorLength || 0)), 0));
+  }
+  const totalMetrosAC = Math.round(lAcReal); // Metros lineales de manguera multipolar RV-K (ITC-BT-40)
 
   // Sincronización estricta con el Modelo Financiero SSOT
   const estCostTotal = (m && m.estCost > 0) ? m.estCost : (d.pres_est || (d.numPanels * 45.0));
@@ -1387,6 +1393,9 @@ function generatePresupuesto(skipPricingModal) {
   }
 
   let itemRows = '', sumRows = '';
+  const totalCapsPEM = caps.reduce((accum, cap) => {
+    return accum + cap.items.reduce((s, it) => s + (it.q * it.pu), 0);
+  }, 0);
   let subtotalCalc = 0;
   caps.forEach(cap => {
     const capTotal = cap.items.reduce((s, it) => s + it.q * it.pu, 0);
@@ -1401,7 +1410,8 @@ function generatePresupuesto(skipPricingModal) {
         '</td><td style="text-align:right;font-weight:700">' + imp.toLocaleString('es-ES', {minimumFractionDigits:2}) + ' €</td></tr>';
     });
     itemRows += '<tr class="trow-total"><td colspan="5" style="text-align:right">SUBTOTAL ' + cap.titulo.split('—')[0].trim() + '</td><td style="text-align:right;font-weight:900;color:#1d4ed8">' + capTotal.toLocaleString('es-ES', {minimumFractionDigits:2}) + ' €</td></tr>';
-    sumRows += '<tr><td>' + cap.titulo + '</td><td style="text-align:right;font-weight:700">' + capTotal.toLocaleString('es-ES', {minimumFractionDigits:2}) + ' €</td><td style="text-align:right;color:#6b7280">' + (subtotalCalc > 0 ? (capTotal / subtotalCalc * 100).toFixed(1) : '0.0') + ' %</td></tr>';
+    const capPctOfTotal = (totalCapsPEM > 0) ? ((capTotal / totalCapsPEM) * 100).toFixed(1) : '0.0';
+    sumRows += '<tr><td>' + cap.titulo + '</td><td style="text-align:right;font-weight:700">' + capTotal.toLocaleString('es-ES', {minimumFractionDigits:2}) + ' €</td><td style="text-align:right;color:#6b7280">' + capPctOfTotal + ' %</td></tr>';
   });
 
   // Sincronización milimétrica con el SSOT Financiero Bancable (evita redondeos flotantes divergentes)

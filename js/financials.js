@@ -5590,15 +5590,30 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
 // Nota: La física solar y simulación anual se calculan exclusivamente en solar-engine.js (v3.0)
 // ═════════════════════════════════════════════════════════════════════════════
   function calculateFinancialModel(overrides) {
+  if (typeof window !== 'undefined') window._isComputingFinModel = true;
+  try {
   const d = (overrides && overrides.d) || getProjectCalcs();
   const mb = (d && d.modulesBreakdown) || (typeof window !== 'undefined' && window.RAModulesBreakdown && typeof window.RAModulesBreakdown.getProjectModulesBreakdown === 'function' ? window.RAModulesBreakdown.getProjectModulesBreakdown() : null);
   const numPanels = (overrides && overrides.numPanels > 0) ? overrides.numPanels : ((mb && mb.totalPanels > 0) ? mb.totalPanels : (d.numPanels || 1));
   const kwp = (mb && mb.totalKwp > 0) ? mb.totalKwp : ((numPanels * (d.cfg.potencia || 450)) / 1000.0);
-  // [SSOT] Producción física anual: priorizar simulación 3D precisa con pérdidas de sombras reales
+  // [SSOT] Producción física anual: priorizar simulación 3D precisa con pérdidas de sombras reales + producción minieólica neta
   const solarStats = (typeof window !== 'undefined' && window.RA && window.RA.solarStats) ? window.RA.solarStats : null;
-  const annualYieldKWh = (solarStats && Number.isFinite(solarStats.annualYieldKWh) && solarStats.annualYieldKWh > 0)
+  const solarYieldKWh = (solarStats && Number.isFinite(solarStats.annualYieldKWh) && solarStats.annualYieldKWh > 0)
     ? Math.round(solarStats.annualYieldKWh)
     : (d.annualKWh || (kwp * 1450));
+  const activeWindTurbines = (typeof window !== 'undefined' && Array.isArray(window.windTurbines))
+    ? window.windTurbines.filter(t => t && (!t.operationalState || t.operationalState.enabled !== false))
+    : [];
+  const wPark = (typeof window !== 'undefined' && window.windParkSummary) ? window.windParkSummary : null;
+  let windYieldKWh = 0;
+  if (activeWindTurbines.length > 0) {
+    if (wPark && Number.isFinite(wPark.totalAepNetKwh) && wPark.totalAepNetKwh > 0) {
+      windYieldKWh = Math.round(wPark.totalAepNetKwh);
+    } else {
+      windYieldKWh = Math.round(activeWindTurbines.reduce((sum, t) => sum + ((t.results && Number.isFinite(t.results.aepNetKwh)) ? t.results.aepNetKwh : 0), 0));
+    }
+  }
+  const annualYieldKWh = solarYieldKWh + windYieldKWh;
 
   const designCosts = (typeof RAPricing !== 'undefined' && typeof RAPricing.computeDesignCosts === 'function')
     ? RAPricing.computeDesignCosts(numPanels)
@@ -5702,22 +5717,34 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   const capexBruto = subtotal + iva;
   const capexTachado = (discountEur > 0) ? Math.round(subtotalPreDiscount * 1.21) : null;
 
-  // Fiscalidad
-  const ibiCuota = _input('tax-ibi-cuota', 650);
-  const ibiOpt = _sel('tax-ibi-opt', '0.50_3');
+  // Fiscalidad con sincronización SSOT y respaldo desde configuración persistida
+  const _commTax = (commercialCfg && commercialCfg.taxShield) ? commercialCfg.taxShield : {};
+  const ibiCuota = _input('tax-ibi-cuota', (_commTax.ibiAnualEur !== undefined ? _commTax.ibiAnualEur : 650));
+  const ibiOpt = _sel('tax-ibi-opt', (_commTax.ibiYears === 5 ? '0.50_5' : (_commTax.ibiYears === 3 ? '0.50_3' : '0.50_3')));
   let ahorroIBITotal = 0;
-  if (ibiOpt === '0.30_3') ahorroIBITotal = ibiCuota * 0.30 * 3;
+  if (_commTax.ibiEnabled === false) {
+    ahorroIBITotal = 0;
+  } else if (ibiOpt === '0.30_3') ahorroIBITotal = ibiCuota * 0.30 * 3;
   else if (ibiOpt === '0.50_3') ahorroIBITotal = ibiCuota * 0.50 * 3;
   else if (ibiOpt === '0.50_5') ahorroIBITotal = ibiCuota * 0.50 * 5;
+  else if (_commTax.ibiBonifPct && _commTax.ibiYears) {
+    ahorroIBITotal = ibiCuota * (_commTax.ibiBonifPct / 100.0) * _commTax.ibiYears;
+  }
 
-  // [P0] El elemento 'tax-irpf-opt' no existe en el DOM: leer el select del modal como fuente real.
+  // Lector robusto de IRPF con respaldo en configuración persistida
   const irpfEl = document.getElementById('tax-irpf-opt') || document.getElementById('modal-tax-irpf-opt');
-  const irpfPct = parseFloat((irpfEl || {value:'0'}).value) || 0;
-  const maxBaseIrpf = irpfPct >= 0.50 ? 15000 : (irpfPct >= 0.30 ? 7500 : 5000);
+  let irpfPct = parseFloat((irpfEl || {}).value);
+  if (!Number.isFinite(irpfPct) && _commTax.irpfEnabled !== false && typeof _commTax.irpfPct === 'number') {
+    irpfPct = _commTax.irpfPct / 100.0;
+  }
+  if (!Number.isFinite(irpfPct)) irpfPct = 0;
+  const maxBaseIrpf = (_commTax.irpfMaxBaseEur && _commTax.irpfMaxBaseEur > 0)
+    ? _commTax.irpfMaxBaseEur
+    : (irpfPct >= 0.50 ? 15000 : (irpfPct >= 0.30 ? 7500 : 5000));
   const baseIrpf = Math.min(capexBruto, maxBaseIrpf);
-  const ahorroIRPF = baseIrpf * irpfPct;
+  const ahorroIRPF = (_commTax.irpfEnabled === false) ? 0 : (baseIrpf * irpfPct);
 
-  const icioPct = _input('tax-icio-opt', 0.95);
+  const icioPct = _input('tax-icio-opt', (_commTax.icioBonifPct ? _commTax.icioBonifPct / 100.0 : 0.95));
   const tasaICIO = designCosts && designCosts.icioTaxEur > 0 ? designCosts.icioTaxEur : Math.round(directCost * 0.035);
   const ahorroICIO = Math.round(tasaICIO * icioPct);
 
@@ -6105,9 +6132,11 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   const totalCosteDescontado = capexDesembolsoInicial + discountedCostsSum;
   const lcoe = (discountedYieldSum > 0) ? (totalCosteDescontado / discountedYieldSum) : (totalCoste25 > 0 ? (totalCoste25 / Math.max(totalGenerado25, 1)) : 0.038);
 
-  // Financiación
-  const meses = _input('fin-plazo-meses', 120);
-  const tinAnual = _input('fin-tin-pct', 5.95) / 100.0;
+  // Financiación con respaldo desde configuración persistida
+  const _commFin = (commercialCfg && commercialCfg.financing) ? commercialCfg.financing : {};
+  const meses = _input('fin-plazo-meses', (_commFin.loanMonths || 120));
+  const defaultTin = (typeof _commFin.loanTinPct === 'number') ? _commFin.loanTinPct : 5.95;
+  const tinAnual = _input('fin-tin-pct', defaultTin) / 100.0;
   const tinMensual = tinAnual / 12.0;
   let cuotaMensual = 0;
   if (meses > 0 && capexBruto > 0) {
@@ -6215,6 +6244,9 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     window._lastFinModel = resultModel;
   }
   return resultModel;
+  } finally {
+    if (typeof window !== 'undefined') window._isComputingFinModel = false;
+  }
 }
 
 // Exportar motor financiero al namespace global
