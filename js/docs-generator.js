@@ -1013,7 +1013,7 @@ function generateMemoria(skipPricingModal) {
     '<tr><td>Módulos por string<\/td><td>' + d.modsActual + ' uds<\/td><td>⌊' + d.V_max_inv + '\/' + d.Voc_cold.toFixed(2) + '⌋<\/td><\/tr>' +
     '<tr><td>Strings en paralelo<\/td><td>' + d.numStrings + '<\/td><td>⌈' + d.numPanels + '\/' + d.modsActual + '⌉<\/td><\/tr>' +
     '<tr><td>Voc string (STC)<\/td><td>' + d.Voc_string.toFixed(1) + ' V<\/td><td>' + d.modsActual + ' × ' + d.Voc + ' V<\/td><\/tr>' +
-    '<tr><td>Voc string (T_min)<\/td><td>' + d.Voc_str_cold.toFixed(1) + ' V ✓ ≤ 1000 V<\/td><td>' + d.modsActual + ' × ' + d.Voc_cold.toFixed(2) + ' V<\/td><\/tr>' +
+    '<tr><td>Voc string (T_min)<\/td><td>' + d.Voc_str_cold.toFixed(1) + ' V ' + (d.Voc_str_cold <= (d.V_max_inv || 1000) ? '✓ ≤ ' + (d.V_max_inv || 1000) + ' V' : '⚠️ > ' + (d.V_max_inv || 1000) + ' V') + '<\/td><td>' + d.modsActual + ' × ' + d.Voc_cold.toFixed(2) + ' V<\/td><\/tr>' +
     '<tr><td>Corriente Isc total DC<\/td><td>' + d.I_total_dc.toFixed(1) + ' A<\/td><td>' + d.numStrings + ' × ' + d.Isc + ' A<\/td><\/tr>' +
     '<tr><td>Potencia pico total<\/td><td><strong>' + d.P_dc_kW.toFixed(3) + ' kWp<\/strong><\/td><td>' + d.numPanels + ' × ' + d.cfg.potencia + ' W<\/td><\/tr>' +
     '<tr><td>Potencia AC nominal<\/td><td>' + d.P_ac_kW.toFixed(3) + ' kW<\/td><td>P_dc × 0,95<\/td><\/tr>' +
@@ -1031,7 +1031,7 @@ function generateMemoria(skipPricingModal) {
     (d.useFuses ? '<tr><td>Fusibles string gPV<\/td><td>' + d.fuse_std + ' A \/ 1.000 V CC (IEC 60269-6)<\/td><td>Caja conexiones DC<\/td><\/tr>' : '<tr><td colspan="3"><em>Sin fusibles de string (≤ 2 strings en paralelo)<\/em><\/td><\/tr>') +
     '<tr><td>Seccionador DC + SPD Clase II<\/td><td>Carga en carga \/ Up ≤ 2,5 kV<\/td><td>Junto al inversor<\/td><\/tr>' +
     '<tr><td>IGA<\/td><td>Curva C ' + d.I_iga + ' A ' + (d.monofasico ? '1P+N' : '3P+N') + '<\/td><td>Cuadro AC<\/td><\/tr>' +
-    '<tr><td>Interruptor diferencial<\/td><td>30 mA Clase A, ' + d.dif_amp + ' A ' + (d.monofasico ? '2P' : '4P') + '<\/td><td>Cuadro AC<\/td><\/tr>' +
+    '<tr><td>Interruptor diferencial<\/td><td>' + (d.rcdSensMa || 30) + ' mA ' + (d.rcdType || 'Clase A') + ', ' + d.dif_amp + ' A ' + (d.monofasico ? '2P' : '4P') + '<\/td><td>Cuadro AC<\/td><\/tr>' +
     '<tr><td>SPD CA Clase II<\/td><td>Up ≤ 2,5 kV<\/td><td>Cuadro AC<\/td><\/tr>' +
     '<tr><td>Toma de tierra<\/td><td>R ≤ ' + d.R_tierra + ' Ω · Electrodos Cu<\/td><td>Instalación completa<\/td><\/tr>' +
     (d.hasBattery && d.battery ? ('<tr><td>Protección DC Batería<\/td><td>Seccionador bipolar CC + Fusibles gBat (IEC 60269-7)<\/td><td>Entre acumulador e inversor híbrido<\/td><\/tr>') : '') +
@@ -1074,24 +1074,39 @@ function generateMemoria(skipPricingModal) {
     '<p style="font-size:8pt;color:#64748b;margin-top:4px;">* Factores de corrección reglamentarios aplicados: Factor térmico a 50 °C en cubierta f_t = 0,82; Factor de agrupamiento en bandeja/tubo f_agrup = 0,80 (UNE-HD 60364-5-52). Cobre clase 5 con resistividad a 90 °C ρ = 0,023 Ω·mm²/m.<\/p>' +
 
     '<h3>5.3 Comprobación de Ventana MPPT y Sobrecarga Mecánica (IEC 62548 / CTE DB-SE-AE)<\/h3>' +
-    '<table><tr><th>Comprobación Normativa<\/th><th>Parámetro Calculado<\/th><th>Criterio / Límite Admisible<\/th><th>Resultado<\/th><\/tr>' +
-    '<tr><td>Tensión Máxima en Frío (-10 °C)<\/td><td>' + d.Voc_str_cold.toFixed(1) + ' V<\/td><td>≤ ' + d.V_max_inv + ' V (IEC 62548 / Tensión máx. inversor)<\/td><td><strong style="color:#10b981">✓ Conforme (Margen ' + (d.V_max_inv - d.Voc_str_cold).toFixed(1) + ' V)<\/strong><\/td><\/tr>' +
-    '<tr><td>Tensión Mínima MPPT en Calor (+65 °C)<\/td><td>' + (d.modsActual * d.Vmp * 0.88).toFixed(1) + ' V<\/td><td>≥ ' + (d.V_mppt_min || 160.0).toFixed(1) + ' V (Tensión mínima de tracking MPPT)<\/td><td><strong style="color:#10b981">✓ Conforme (Rango óptimo)<\/strong><\/td><\/tr>' +
-    '<tr><td>Corriente Máxima de Entrada<\/td><td>' + d.Isc + ' A<\/td><td>≤ 15,0 A (Isc admisible por entrada MPPT)<\/td><td><strong style="color:#10b981">✓ Conforme<\/strong><\/td><\/tr>' +
     (function() {
+      var vocLimit = d.V_max_inv || 1000;
+      var vocVal = d.Voc_str_cold || (d.modsActual * (d.Voc_mod_cold || (d.Voc_cold || 45)));
+      var vocMargin = (vocLimit - vocVal).toFixed(1);
+      var vocOk = vocVal <= vocLimit;
+
+      var vmpMinLimit = d.V_mppt_min || 160.0;
+      var vmpHotVal = d.Vmp_str_hot || (d.modsActual * d.Vmp * 0.88);
+      var vmpOk = vmpHotVal >= vmpMinLimit;
+
+      var iscLimit = (d.inverter && d.inverter.maxInputCurrent) ? d.inverter.maxInputCurrent : 15.0;
+      var iscOk = d.Isc <= iscLimit;
+
       var wTot = 12.5;
       try {
         if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.computeBOMTree === 'function') {
           var t = BOMTreeEngine.computeBOMTree();
-          if (t && t.structuralLoads && t.structuralLoads.maxWeightPerSqmKg) {
+          if (t && t.summary && t.summary.maxLoadKgM2 > 0) {
+            wTot = t.summary.maxLoadKgM2;
+          } else if (t && t.structuralLoads && t.structuralLoads.maxWeightPerSqmKg) {
             wTot = t.structuralLoads.maxWeightPerSqmKg;
           }
         }
       } catch(e) {}
-      var isOk = wTot <= 25.0;
-      return '<tr><td>Sobrecarga Estructural en Cubierta<\/td><td>' + wTot.toFixed(1) + ' kg/m² (Módulo + Estructura)<\/td><td>≤ 25,0 kg/m² (CTE DB-SE-AE sobrecarga admisible)<\/td><td><strong style="color:' + (isOk ? '#10b981' : '#f59e0b') + '">' + (isOk ? '✓ Conforme (Sin refuerzo estructural)' : '⚠️ Requiere verificación de forjado') + '<\/strong><\/td><\/tr>';
+      var structOk = wTot <= 25.0;
+
+      return '<table><tr><th>Comprobación Normativa<\/th><th>Parámetro Calculado<\/th><th>Criterio / Límite Admisible<\/th><th>Resultado<\/th><\/tr>' +
+        '<tr><td>Tensión Máxima en Frío (-10 °C)<\/td><td>' + vocVal.toFixed(1) + ' V<\/td><td>≤ ' + vocLimit + ' V (IEC 62548 / Tensión máx. inversor)<\/td><td><strong style="color:' + (vocOk ? '#10b981' : '#ef4444') + '">' + (vocOk ? '✓ Conforme (Margen ' + vocMargin + ' V)' : '✗ No conforme (Sobretensión en frío)') + '<\/strong><\/td><\/tr>' +
+        '<tr><td>Tensión Mínima MPPT en Calor (+65 °C)<\/td><td>' + vmpHotVal.toFixed(1) + ' V<\/td><td>≥ ' + vmpMinLimit.toFixed(1) + ' V (Tensión mínima de tracking MPPT)<\/td><td><strong style="color:' + (vmpOk ? '#10b981' : '#f59e0b') + '">' + (vmpOk ? '✓ Conforme (Rango óptimo)' : '⚠️ Tensión MPPT fuera de rango inferior') + '<\/strong><\/td><\/tr>' +
+        '<tr><td>Corriente Máxima de Entrada<\/td><td>' + d.Isc.toFixed(1) + ' A<\/td><td>≤ ' + iscLimit.toFixed(1) + ' A (Isc admisible por entrada MPPT)<\/td><td><strong style="color:' + (iscOk ? '#10b981' : '#f59e0b') + '">' + (iscOk ? '✓ Conforme' : '⚠️ Supera corriente máx. inversor') + '<\/strong><\/td><\/tr>' +
+        '<tr><td>Sobrecarga Estructural en Cubierta<\/td><td>' + wTot.toFixed(1) + ' kg/m² (Módulo + Estructura)<\/td><td>≤ 25,0 kg/m² (CTE DB-SE-AE sobrecarga admisible)<\/td><td><strong style="color:' + (structOk ? '#10b981' : '#f59e0b') + '">' + (structOk ? '✓ Conforme (Sin refuerzo estructural)' : '⚠️ Requiere verificación de forjado') + '<\/strong><\/td><\/tr>' +
+        '<\/table>';
     })() +
-    '<\/table>' +
 
     '<h2>6. ANÁLISIS ECONÓMICO Y FINANCIERO BANCABLE (25 AÑOS)<\/h2>' +
     '<p>Evaluación financiera proyectada a 25 años bajo metodología de Flujos de Caja Descontados (DCF) con coste ponderado del capital WACC del 4,0 %, degradación celular compuesta (0,5 %/año) y mantenimiento anual indexado al IPC (2,0 %/año).<\/p>' +
@@ -1177,7 +1192,7 @@ function generatePliego() {
     '<h3>Artículo 6. Estructura Soporte<\/h3>' +
     '<p>Aluminio anodizado o acero galvanizado en caliente, calculada para cargas de nieve y viento según <strong>CTE DB-SE-AE<\/strong>. Fijaciones al tejado estancas con sellado silicona neutra. No se admitirán anclajes que dañen la impermeabilización sin posterior reparación garantizada.<\/p>' +
     '<h3>Artículo 7. Protecciones<\/h3>' +
-    '<p>Fusibles tipo <strong>gPV<\/strong> ≥ 1.000 V CC (IEC 60269-6) donde aplique. Diferencial <strong>Clase A<\/strong> (sensible a CA y CC pulsante), 30 mA, IEC 61008. IGA curva C, Icc ≥ 6 kA.<\/p>' +
+    '<p>Fusibles tipo <strong>gPV<\/strong> ≥ 1.000 V CC (IEC 60269-6) ' + (d.useFuses ? '(incorporados, > 2 strings en paralelo)' : '(no requeridos, ≤ 2 strings en paralelo)') + '. Diferencial <strong>' + (d.rcdType || 'Clase A') + '<\/strong> (' + ((d.rcdType === 'Clase B') ? 'sensible a componentes continuas y de alta frecuencia según UNE-EN 62423' : 'sensible a CA y CC pulsante según UNE-EN 61008') + '), ' + (d.rcdSensMa || 30) + ' mA. IGA curva C ' + d.I_iga + ' A, Icc ≥ 6 kA.<\/p>' +
 
     '<h2>CAPÍTULO III — EJECUCIÓN<\/h2>' +
     '<h3>Artículo 8. Empresa Instaladora<\/h3>' +

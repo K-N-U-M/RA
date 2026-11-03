@@ -100,7 +100,10 @@
       Ns_min,
       Voc_Tmin,
       Vmp_Tmax,
-      Vmp_Tmin
+      Vmp_Tmin,
+      vocCold: Voc_Tmin,
+      vmpHot: Vmp_Tmax,
+      vmpCold: Vmp_Tmin
     };
   }
 
@@ -2239,16 +2242,22 @@
   const P_ac_kW = activeInvKw > 0 ? activeInvKw : (P_dc_kW / 1.15);
   const INV_SIZES = [0.6, 1.0, 1.5, 2.0, 3.0, 3.68, 4.0, 5.0, 6.0, 8.0, 10.0, 12.0, 15.0, 20.0, 25.0, 30.0, 50.0, 100.0];
   const inv_kW = activeInvKw > 0 ? activeInvKw : (INV_SIZES.find(s => s >= P_ac_kW) || Math.ceil(P_ac_kW));
-  const _selInv = (window.solarProjectConfig && window.solarProjectConfig.calculatedLimits && window.solarProjectConfig.calculatedLimits.inverter) || null;
-  let monofasico = (activeInv && typeof activeInv.phases === 'number') ? (activeInv.phases === 1) : ((typeof window.raInverterPhases === 'function' && _selInv) ? (window.raInverterPhases(_selInv) === 1) : (inv_kW <= 5.0));
+  const invCount = (generator && (generator.invCount || generator.inverterCount))
+    || (cfg && (cfg.inverterCount || (cfg.autoSizing && cfg.autoSizing.inverters && cfg.autoSizing.inverters.count)))
+    || (typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.autoSizing && window.solarProjectConfig.autoSizing.inverters && window.solarProjectConfig.autoSizing.inverters.count)
+    || 1;
+  const total_P_ac_kW = inv_kW * invCount;
+  const total_ac_kW = total_P_ac_kW;
+  const _selInv = (typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.calculatedLimits && window.solarProjectConfig.calculatedLimits.inverter) || null;
+  let monofasico = (activeInv && typeof activeInv.phases === 'number') ? (activeInv.phases === 1) : ((typeof window !== 'undefined' && typeof window.raInverterPhases === 'function' && _selInv) ? (window.raInverterPhases(_selInv) === 1) : (inv_kW <= 5.0));
   // Salvaguarda RD 1699/2011 Art. 12.2 (mod. RD 244/2019): Pn > 15 kW es obligatoriamente trifásica
-  if (inv_kW > 15.0 || P_ac_kW > 15.0) {
+  if (total_ac_kW > 15.0 || P_dc_kW > 15.0) {
     monofasico = false;
   }
   const V_ac = monofasico ? 230 : 400;
   // Factor de potencia de inyección (0.95 en baseline histórico; configurable si el inversor declara cosPhi)
   const cosPhiAc = (activeInv && typeof activeInv.cosPhi === 'number' && activeInv.cosPhi > 0) ? activeInv.cosPhi : 0.95;
-  const I_ac = monofasico ? (inv_kW * 1000) / (V_ac * cosPhiAc) : (inv_kW * 1000) / (Math.sqrt(3) * V_ac * cosPhiAc);
+  const I_ac = monofasico ? (total_ac_kW * 1000) / (V_ac * cosPhiAc) : (total_ac_kW * 1000) / (Math.sqrt(3) * V_ac * cosPhiAc);
 
   // [AUD-2026 · F-01] Sin la constante global, usar el valor normativo del proyecto
   // en lugar de propagar NaN a toda la tabla de secciones.
@@ -2326,10 +2335,12 @@
 
   const isCompliantREBT = isDcCompliant && (dVdc_pct <= 1.5) && isAcCompliant && (dVac_pct <= 1.5);
 
-  const STD_IGA = [16, 20, 25, 32, 40, 50, 63, 80, 100, 125];
-  const I_iga = STD_IGA.find(i => i >= I_ac_design) || 63;
+  const STD_IGA = [16, 20, 25, 32, 40, 50, 63, 80, 100, 125, 160, 200, 250];
+  const I_iga = STD_IGA.find(i => i >= I_ac_design) || (I_ac_design > 125 ? Math.ceil(I_ac_design / 10) * 10 : 63);
   const dif_amp = I_iga;
   const spdType = "Tipo I+II (1000 V CC / 400 V AC - 40 kA)";
+  const rcdType = (!monofasico || total_ac_kW > 10.0) ? 'Clase B' : 'Clase A';
+  const rcdSensMa = (!monofasico && total_ac_kW > 15.0) ? 300 : 30;
 
   const prInfo = (typeof window !== 'undefined' && typeof window.raCalculateSystemPR === 'function')
     ? window.raCalculateSystemPR(1.0 - 0.075) // derating térmico estándar 7.5%
@@ -2348,16 +2359,21 @@
 
   return {
     P_dc_kW,
-    P_ac_kW,
+    P_ac_kW: total_ac_kW,
     inv_kW,
+    invCount,
+    total_P_ac_kW,
     monofasico,
     V_ac,
     V_max_inv: V_dc_max,
     V_mppt_min: V_mppt_min,
     V_mppt_max: V_mppt_max,
     activeInv: activeInv,
+    Voc_mod_cold: Math.round(Voc_cold * 100) / 100,
     I_ac: Math.round(I_ac * 10) / 10,
     I_ac_design: Math.round(I_ac_design * 10) / 10,
+    rcdType,
+    rcdSensMa,
     numStrings,
     modsPerString,
     minModsPerString,

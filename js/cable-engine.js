@@ -1235,8 +1235,19 @@
             { Tmin: climColdC, TmaxCell: climHotC }
           )
         : null;
-      var vmpHotMod = (dynLim && dynLim.vmpHot > 0) ? dynLim.vmpHot : (vmpNom * (1 + (modCfg.tempCoeffPmax ?? -0.0034) * (70 - 25)));
-      var vocColdMod = (dynLim && dynLim.vocCold > 0) ? dynLim.vocCold : (vocNom * (1 + (modCfg.tempCoeffVoc ?? -0.0026) * (-10 - 25)));
+
+      // Normalizar coeficientes térmicos garantizando base unitaria (dividir entre 100 si vienen en porcentaje)
+      var rawCoeffPmax = modCfg.tempCoeffPmax ?? modCfg.gammaPmp ?? -0.0034;
+      var effCoeffPmax = Math.abs(rawCoeffPmax) > 0.05 ? rawCoeffPmax / 100.0 : rawCoeffPmax;
+      var rawCoeffVoc = modCfg.tempCoeffVoc ?? modCfg.gammaVoc ?? -0.0026;
+      var effCoeffVoc = Math.abs(rawCoeffVoc) > 0.05 ? rawCoeffVoc / 100.0 : rawCoeffVoc;
+
+      var vmpHotMod = (dynLim && (dynLim.Vmp_Tmax > 0 || dynLim.vmpHot > 0))
+        ? (dynLim.Vmp_Tmax || dynLim.vmpHot)
+        : (vmpNom * (1 + effCoeffPmax * (70 - 25)));
+      var vocColdMod = (dynLim && (dynLim.Voc_Tmin > 0 || dynLim.vocCold > 0))
+        ? (dynLim.Voc_Tmin || dynLim.vocCold)
+        : (vocNom * (1 + effCoeffVoc * (-10 - 25)));
       var rho90 = (global.ELEC_CONSTANTS && global.ELEC_CONSTANTS.RHO_CU_90) ? global.ELEC_CONSTANTS.RHO_CU_90 : 0.023;
       var imp = modCfg.imp || 13.05;
       var secDc = sState.S_dc_recommended || 6;
