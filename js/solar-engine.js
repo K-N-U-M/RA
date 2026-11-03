@@ -310,7 +310,7 @@ function rayCastingIsShaded(modulePoint, sunVec, obstacleBoxes) {
   return false;
 }
 
-function computeHighPrecisionSolarPosition(latDeg, lonDeg, doy, solarDecimalHour) {
+function computeHighPrecisionSolarPosition(latDeg, lonDeg, doy, solarDecimalHour, isUtc = true) {
   const latRad = (typeof Cesium !== 'undefined' && Cesium.Math) ? Cesium.Math.toRadians(latDeg) : (latDeg * Math.PI) / 180;
   const gamma = (2 * Math.PI / 365) * (doy - 1 + (solarDecimalHour - 12) / 24);
 
@@ -328,7 +328,8 @@ function computeHighPrecisionSolarPosition(latDeg, lonDeg, doy, solarDecimalHour
     0.002697 * Math.cos(3 * gamma) + 0.00148 * Math.sin(3 * gamma);
 
   // Tiempo Solar Verdadero y Ángulo Horario (omega)
-  const solarTime = solarDecimalHour + (4 * lonDeg + Et) / 60;
+  // Si ya se entrega hora solar (isUtc === false), no sumar de nuevo el desfase de longitud
+  const solarTime = isUtc ? (solarDecimalHour + (4 * lonDeg + Et) / 60) : solarDecimalHour;
   const omegaRad = ((solarTime - 12) * 15 * Math.PI) / 180;
 
   // Altitud Solar (Elevación)
@@ -630,10 +631,10 @@ function runPhysicalModel(kwp, latDeg, lonDeg, tiltDeg, azimutDeg, cfg, customMo
   // System losses (cascade)
   // Árbol de pérdidas configurable (Paso 4 · ventana Pérdidas del Sistema)
   const _lc = (typeof window !== 'undefined' && window.solarLossConfig) ? window.solarLossConfig : null;
-  const loss_wiring   = _lc ? _lc.wiring : 0.015;
-  const loss_mismatch = _lc ? _lc.mismatch : 0.020;
-  const loss_soiling  = _lc ? _lc.soiling : 0.025;
-  const loss_avail    = _lc ? _lc.availability : 0.005;
+  const loss_wiring   = (_lc && typeof _lc.wiring === 'number') ? _lc.wiring : 0.015;
+  const loss_mismatch = (_lc && typeof _lc.mismatch === 'number') ? _lc.mismatch : 0.020;
+  const loss_soiling  = (_lc && typeof _lc.soiling === 'number') ? _lc.soiling : 0.025;
+  const loss_avail    = (_lc && typeof _lc.availability === 'number') ? _lc.availability : 0.005;
   let monthlyYields = [];
   let totalAnnualWh = 0;
   let totalTempLoss = 0, totalIAMLoss = 0, totalSoilingLoss = 0;
@@ -685,8 +686,15 @@ function runPhysicalModel(kwp, latDeg, lonDeg, tiltDeg, azimutDeg, cfg, customMo
       const azFromNorth = solarAzimuthAtan2(latDeg, decl, ha);
       // Compass (0°=N, 180°=S) → convención Sur del motor (0°=S, -90°=E, +90°=O). Rango [-180,180).
       const azSur = azFromNorth - 180;
-      // azimutDeg llega en convención brújula (180°=Sur); el motor usa 0°=Sur
-      const poa = computePOAIrradiance(GHI_instant, latDeg, tiltDeg, azimutDeg - 180, altDeg, azSur, 0.20, doy);
+      // Normalizar azimut: el motor usa convención 0°=Sur.
+      // Si azimutDeg viene en brújula (0°=Norte, 180°=Sur, rango [90, 270]), normalizar restando 180.
+      let azSurModule = azimutDeg;
+      if (azSurModule > 90 || azSurModule < -90) {
+        if (Math.abs(azSurModule - 180) <= 90) {
+          azSurModule = azSurModule - 180;
+        }
+      }
+      const poa = computePOAIrradiance(GHI_instant, latDeg, tiltDeg, azSurModule, altDeg, azSur, 0.20, doy);
       const GPOA = poa.G_poa;
       const iamFactor = poa.iamFactor;
       const Tcell = calcTcell(tAmb[m], GPOA, NOCT);
@@ -879,7 +887,7 @@ function runPVsystCompatible(kwp, latDeg, lonDeg, tiltDeg, azimutDeg, cfg, physi
 
   // Apply additional PVsyst-specific correction factors
   const _lc2 = (typeof window !== 'undefined' && window.solarLossConfig) ? window.solarLossConfig : null;
-  const loss_iam_angular = _lc2 ? _lc2.iamAngular : 0.028;  // configurable (Paso 4)
+  const loss_iam_angular = (_lc2 && typeof _lc2.iamAngular === 'number') ? _lc2.iamAngular : 0.028;  // configurable (Paso 4)
   const loss_spectral    = _lc2 ? _lc2.spectral : 0.010;    // configurable (Paso 4)
   const loss_bypass      = getShadingStrategy() === 'mlpe' ? (_lc2 ? _lc2.bypassMlpe : 0.005) : (_lc2 ? _lc2.bypass : 0.025);
   const loss_lid         = cfg.tecnologia && cfg.tecnologia.includes('N-Type') ? 0.000 : 0.015; // LID only in p-type
@@ -1578,7 +1586,7 @@ function showDailyCurve(mode) {
     const altDeg = solarAltitude(latDeg, decl, hourAngle(hSolar));
     let powerKW = 0;
     if (altDeg > 0) {
-      const GHI = Math.max(kwp * 1000 * 1.15 * Math.sin(altDeg * Math.PI / 180), 0);
+      const GHI = Math.max((mode === 'summer' ? 1050 : 850) * Math.sin(altDeg * Math.PI / 180), 0);
       const DHI = GHI * 0.30;
       const GPOA = calcPOA(GHI, DHI, latDeg, tiltDeg, azimutDeg, doy, hSolar);
       const Tcell = calcTcell(mode === 'summer' ? 28 : 8, GPOA);

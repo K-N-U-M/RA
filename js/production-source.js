@@ -19,10 +19,20 @@
   var _cache = {};
 
   function signature(o) {
+    var c = o.cfg || {};
+    var lc = (typeof root !== 'undefined' && root.solarLossConfig) || (typeof window !== 'undefined' && window.solarLossConfig) || {};
+    var invKw = c.pAcNominalW || (typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.selectedInverterId) || 0;
+    var lossesSig = [lc.soiling, lc.iamAngular, lc.mismatch, lc.wiring, lc.inverter].join(':');
+    var ghiSig = Array.isArray(o.customMonthlyGHI) ? o.customMonthlyGHI.map(function(v){ return Math.round(v); }).join(',') : '';
     return [
       o.kwp, o.lat, o.lon, o.tilt, o.azimuth,
-      (o.cfg && o.cfg.modelo) || '',
-      (o.cfg && o.cfg.potencia) || 0
+      c.modelo || '',
+      c.potencia || 0,
+      c.tecnologia || '',
+      c.gammaPmp || c.tempCoeffPmax || 0,
+      invKw,
+      lossesSig,
+      ghiSig
     ].join('|');
   }
 
@@ -79,7 +89,7 @@
 
   function clearCache() { _cache = {}; }
 
-  var api = { computePhysical: computePhysical, resolve: resolve, clearCache: clearCache };
+  var api = { computePhysical: computePhysical, resolve: resolve, clearCache: clearCache, signature: signature };
   if (!root.RA) root.RA = {};
   root.RA.Production = api;
   root.RAProduction = api;

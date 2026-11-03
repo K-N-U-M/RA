@@ -207,8 +207,10 @@ self.onmessage = function(e) {
     panels,
     faldones,
     climaticZone,
-    moduleProps
+    moduleProps,
+    monthlyGHI
   } = data;
+  const customMonthlyGHI = Array.isArray(monthlyGHI) ? monthlyGHI : null;
 
   let monthsDoy = [15, 45, 74, 105, 135, 166, 196, 227, 258, 288, 319, 349];
   let monthDaysW = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
@@ -262,7 +264,9 @@ self.onmessage = function(e) {
   for (let mIdx = 0; mIdx < monthsDoy.length; mIdx++) {
     const m = monthsReal[mIdx];
     const tAmbMonth = (_T_AMB_TABLE[climaticZone] || _T_AMB_TABLE.interior)[m];
-    const GHI_daily_Wh = 4600 * (1 + 0.32 * Math.sin((m - 2) * Math.PI / 6));
+    const GHI_daily_Wh = (customMonthlyGHI && customMonthlyGHI[m] > 0)
+      ? customMonthlyGHI[m]
+      : (4600 * (1 + 0.32 * Math.sin((m - 2) * Math.PI / 6)));
 
     const _gammaM = (2 * Math.PI / 365) * (monthsDoy[mIdx] - 1);
     const _EtM = 229.18 * (0.000075 + 0.001868 * Math.cos(_gammaM) - 0.032077 * Math.sin(_gammaM)
@@ -327,6 +331,27 @@ self.onmessage = function(e) {
             }
           }
         });
+
+        // Autosombreado Inter-filas entre paneles elevados de la misma cubierta
+        if (faldon.interRowEdges && faldon.interRowEdges.length > 0) {
+          faldon.interRowEdges.forEach(edge => {
+            const dU = sU * edge.effHMod * shadowLen;
+            const dV = sV * edge.effHMod * shadowLen;
+            const dLen = Math.hypot(dU, dV);
+            if (dLen >= 0.04) {
+              const dirU = dU / dLen, dirV = dV / dLen;
+              const offset = 0.06;
+              const quad = [
+                { u: edge.u1 + dirU * offset, v: edge.v1 + dirV * offset },
+                { u: edge.u2 + dirU * offset, v: edge.v2 + dirV * offset },
+                { u: edge.u2 + dU, v: edge.v2 + dV },
+                { u: edge.u1 + dU, v: edge.v1 + dV }
+              ];
+              quad.sourcePanelIdx = edge.sourceIdx;
+              quads.push(quad);
+            }
+          });
+        }
         faldonShadowQuads.set(fIdx, quads);
       });
 
@@ -337,18 +362,24 @@ self.onmessage = function(e) {
 
         const faldon = faldones[pData.polyIdx] || faldones[0] || {};
 
-        // Proyección de ángulo de incidencia cosTheta
-        const pNorm = pData.normalWorld || { x: 0, y: 0, z: 1 };
+        // Proyección de ángulo de incidencia cosTheta con vector normal en coordenadas ENU
+        const pNorm = pData.normalENU || pData.normalWorld || { x: 0, y: 0, z: 1 };
         const cosTheta = Math.max(0, sp.sunVecENU.x * pNorm.x + sp.sunVecENU.y * pNorm.y + sp.sunVecENU.z * pNorm.z);
 
-        // Modelo Hay-Davies
+        // Modelo Hay-Davies: índice de anisotropía extraterrestre Ai = G_dni / I0
         const Rb = (sinAlt > 0.05) ? Math.max(0, cosTheta / sinAlt) : 0;
-        const Ai = (GHI_instant > 10) ? Math.min(1.0, G_dni * sinAlt / GHI_instant) : 0;
+        const e0 = (1 + 0.033 * Math.cos(2 * Math.PI * (monthsDoy[mIdx] - 1) / 365));
+        const I0 = SOLAR_CONST * e0;
+        const Ai = Math.max(0, Math.min(1.0, G_dni / (I0 + 1e-3)));
         const tiltRad = (pData.tiltDeg || 20) * Math.PI / 180;
         const fViewSky = (1 + Math.cos(tiltRad)) / 2;
         const fViewGround = (1 - Math.cos(tiltRad)) / 2;
 
-        const G_beam = G_dni * cosTheta;
+        // Factor de pérdidas angulares IAM ASHRAE
+        const iamB0 = (moduleProps && moduleProps.iamB0) || 0.05;
+        const iam = (cosTheta > 0.005) ? Math.max(0, 1 - iamB0 * (1 / Math.max(cosTheta, 0.01) - 1)) : 0;
+
+        const G_beam = G_dni * cosTheta * iam;
         const G_diff = G_dhi * (Ai * Rb + (1 - Ai) * fViewSky);
         const G_refl = GHI_instant * 0.20 * fViewGround;
         let G_poa = G_beam + G_diff + G_refl;
@@ -428,14 +459,21 @@ self.onmessage = function(e) {
         const electricalMismatchFactor = hasOpt ? 1.0 : (shadedSubstringsCount > 0 ? (shadedSubstringsCount >= 2 ? 1.0 : 0.85) : 0.0);
         const effectiveLossFraction = hasOpt ? beamShadedFraction : Math.min(1.0, beamShadedFraction * (1.0 + electricalMismatchFactor * 0.35));
 
-        if (isShaded && beamShadedFraction > 0) {
+        // Separación física: el obstáculo bloquea la radiación directa (G_beam).
+        // La radiación difusa y albedo persisten salvo la fracción geométrica aislada por bypass.
+        const beamLossW = (isShaded && effectiveLossFraction > 0) ? (G_beam * thermalFactor * effectiveLossFraction) : 0;
+        const diffuseLossW = (!hasOpt && shadedSubstringsCount > 0)
+          ? ((G_diff + G_refl + (isBifacial ? G_refl * bifacialityFactor : 0)) * thermalFactor * (beamShadedFraction / 3.0))
+          : 0;
+        const instantLossW = beamLossW + diffuseLossW;
+
+        if (isShaded && instantLossW > 0) {
           res.shadowHits += mw * hourStepDt;
           res.activeDiodesHits += shadedSubstringsCount * mw * hourStepDt;
-          const instantLossW = instantPotentialW * effectiveLossFraction;
           res.annualShadedLoss += instantLossW * mw * hourStepDt;
         }
 
-        const effectiveLossW = (isShaded && effectiveLossFraction > 0) ? (instantPotentialW * effectiveLossFraction) : 0;
+        const effectiveLossW = (isShaded && instantLossW > 0) ? instantLossW : 0;
         _monthlyNetWh[m] += (instantPotentialW - effectiveLossW) * mw * hourStepDt;
       });
     }

@@ -613,16 +613,43 @@
           });
         }
 
+        const pList = Array.isArray(poly.panels) ? poly.panels : (pInfo.panels || []);
+        const interRowEdges = [];
+        const structType = pInfo.structureType || (pInfo.estructura && pInfo.estructura.tipo);
+        const pergSubtype = pInfo.pergolaSubtype || (pInfo.estructura && pInfo.estructura.subtype) || 'continuous';
+        const isContinuousPergola = (structType === 'pergola' && pergSubtype !== 'spaced_rows');
+        if (!pInfo.coplanar && !isContinuousPergola && pList.length >= 2) {
+          let hModGlobal = 0;
+          if (typeof pInfo.moduleTiltDeg === 'number' && pInfo.moduleTiltDeg > 5) {
+            const deltaTilt = Math.max(0, pInfo.moduleTiltDeg - (pInfo.tiltDeg || 0));
+            hModGlobal = (pList[0].h || 2.10) * Math.sin(deltaTilt * Math.PI / 180);
+          } else if (pInfo.structureType && (pInfo.structureType.includes('triangle') || pInfo.structureType.includes('east_west'))) {
+            hModGlobal = (pList[0].h || 2.10) * Math.sin(15 * Math.PI / 180);
+          }
+          if (hModGlobal >= 0.04) {
+            pList.forEach((p, pIdx) => {
+              const halfW = (p.w || 1.05) / 2;
+              const halfH = (p.h || 2.10) / 2;
+              interRowEdges.push({
+                u1: p.u - halfW, v1: p.v + halfH,
+                u2: p.u + halfW, v2: p.v + halfH,
+                effHMod: hModGlobal,
+                sourceIdx: (p.layoutIndex !== undefined) ? p.layoutIndex : pIdx
+              });
+            });
+          }
+        }
+
         faldones.push({
           polyIdx,
           uVec,
           vVec,
           normalWorld: norm,
           ignore3DTilesShadows: !!(poly.ignore3DTilesShadows || (pInfo && pInfo.ignore3DTilesShadows)),
-          obstacles2D
+          obstacles2D,
+          interRowEdges
         });
 
-        const pList = Array.isArray(poly.panels) ? poly.panels : (pInfo.panels || []);
         pList.forEach((p, idx) => {
           const pId = p.panelId || p.id || ('panel_' + polyIdx + '_' + idx);
           const u = typeof p.u === 'number' ? p.u : 0;
@@ -640,6 +667,16 @@
                 { u: u - halfW, v: v + halfH }
               ];
 
+          const tiltVal = p.tiltDeg !== undefined ? p.tiltDeg : (pInfo.tiltDeg || 20);
+          const azVal = p.azDeg !== undefined ? p.azDeg : (pInfo.azDeg || 180);
+          const tiltR = (tiltVal * Math.PI) / 180;
+          const azR = (azVal * Math.PI) / 180;
+          const normalENU = {
+            x: Math.sin(tiltR) * Math.sin(azR),
+            y: Math.sin(tiltR) * Math.cos(azR),
+            z: Math.cos(tiltR)
+          };
+
           panels.push({
             id: pId,
             polyIdx,
@@ -649,11 +686,12 @@
             h: h,
             w: w,
             areaM2: p.areaM2 || (w * h),
-            tiltDeg: p.tiltDeg !== undefined ? p.tiltDeg : (pInfo.tiltDeg || 20),
-            azDeg: p.azDeg !== undefined ? p.azDeg : (pInfo.azDeg || 180),
+            tiltDeg: tiltVal,
+            azDeg: azVal,
             hasOptimizer: !!(p.hasOptimizer || p.optimizerModelId),
             poly2D: poly2D,
-            normalWorld: norm
+            normalWorld: norm,
+            normalENU: normalENU
           });
         });
       });
@@ -690,7 +728,8 @@
         panels,
         faldones,
         climaticZone: cfg.climaticZone,
-        moduleProps: cfg.moduleProps
+        moduleProps: cfg.moduleProps,
+        monthlyGHI: cfg.monthlyGHI
       });
     });
   }
@@ -990,8 +1029,12 @@
             noct: noctModule,
             gammaCoeff: gammaCoeff,
             isBifacial: isBifacial,
-            bifacialityFactor: bifacialityFactor
-          }
+            bifacialityFactor: bifacialityFactor,
+            iamB0: (activeModule && (activeModule.iamB0 || activeModule.b0)) || 0.05
+          },
+          monthlyGHI: (typeof getRobustMonthlyGHI === 'function')
+            ? [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(m => getRobustMonthlyGHI(lat, lng, m))
+            : null
         }, onProgressCallback, progressBar, progressFill, totalPanelsCount);
 
         if (workerResults && workerResults.simGenerationId === _activeSimGenerationId) {
@@ -1300,16 +1343,22 @@
               ? (shadedSubstringsCount / 3.0)
               : (isShaded ? 1.0 : 0.0);
 
-            if (isShaded && beamShadedFraction > 0) {
+            // Separación física: el obstáculo bloquea la radiación directa (G_beam).
+            // La radiación difusa y albedo persisten salvo la fracción geométrica aislada por bypass.
+            const beamLossW = (isShaded && beamShadedFraction > 0) ? (G_beam * tempFactor * beamShadedFraction) : 0;
+            const diffuseLossW = (!pData.hasOptimizer && shadedSubstringsCount > 0)
+              ? ((G_diffuse + G_albedo + albedoGain) * tempFactor * (beamShadedFraction / 3.0))
+              : 0;
+            const instantLossW = beamLossW + diffuseLossW;
+
+            if (isShaded && instantLossW > 0) {
               pData.shadowHits = (pData.shadowHits || 0) + mw * hourStepDt;
               pData.activeDiodesHits = (pData.activeDiodesHits || 0) + shadedSubstringsCount * mw * hourStepDt;
-              // Pérdida proporcional a los diodos de bypass activados según IEC 61215
-              const instantLossW = instantPotentialW * beamShadedFraction;
               pData.annualShadedLoss += instantLossW * mw * hourStepDt;
             }
 
             // [B6] Energía neta real del mes calendario (para el reparto mensual de la memoria/oferta).
-            const effectiveLossW = (isShaded && beamShadedFraction > 0) ? (instantPotentialW * beamShadedFraction) : 0;
+            const effectiveLossW = (isShaded && instantLossW > 0) ? instantLossW : 0;
             _monthlyNetWh[m] += (instantPotentialW - effectiveLossW) * mw * hourStepDt;
           });
         });
@@ -1411,7 +1460,8 @@
       for (let _i = 0; _i < monthsReal.length; _i++) {
         const _start = (_i === 0) ? 0 : monthsReal[_i];
         const _end = (_i + 1 < monthsReal.length) ? monthsReal[_i + 1] : 12;
-        const _blockVal = (_monthlyNetWh[monthsReal[_i]] * (heatmapStride || 1)) / 1000.0 * pKwp * prSys;
+        const effStride = workerHandled ? 1 : (heatmapStride || 1);
+        const _blockVal = (_monthlyNetWh[monthsReal[_i]] * effStride) / 1000.0 * pKwp * prSys;
         let _wSum = 0;
         for (let _k = _start; _k < _end; _k++) _wSum += _ghiW[_k];
         if (_wSum <= 0) _wSum = (_end - _start) || 1;
@@ -1424,7 +1474,7 @@
 
     // ── Interpolación de paneles no muestreados: heredan del panel muestreado más
     // cercano dentro de su mismo faldón (misma retícula ⇒ sombreado similar) ──
-    if (heatmapStride > 1) {
+    if (heatmapStride > 1 && !workerHandled) {
       polylines.forEach(poly => {
         const panels = Array.isArray(poly.panels) ? poly.panels : (poly.roofInfo && Array.isArray(poly.roofInfo.panels) ? poly.roofInfo.panels : []);
         const samples = panels.filter(p => p.heatmapSample && typeof p.annualLossPct === 'number');

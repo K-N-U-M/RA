@@ -344,8 +344,18 @@
         if (foundM && foundM.wp) modWp = foundM.wp;
       }
 
-      // Radiación base anual típica de referencia para la península (kWh/kWp)
-      const baseSolarResource = 1520; 
+      // Radiación base anual adaptada a la localización geográfica (kWh/kWp)
+      let baseSolarResource = 1520;
+      const optLat = (typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.lat) || (poly && poly.roofInfo && poly.roofInfo.lat) || 40.4;
+      const optLng = (typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.lng) || (poly && poly.roofInfo && poly.roofInfo.lng) || -3.7;
+      if (typeof getRobustMonthlyGHI === 'function') {
+        const mDays = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+        let sumGhiKwh = 0;
+        for (let m = 0; m < 12; m++) {
+          sumGhiKwh += (getRobustMonthlyGHI(optLat, optLng, m) * mDays[m]) / 1000;
+        }
+        if (sumGhiKwh > 800) baseSolarResource = Math.round(sumGhiKwh * 0.80);
+      }
 
       for (const sc of scenariosToTest) {
         // En cubiertas con inclinación sobre estructura (triángulos/balasto/E-W), SOLO
