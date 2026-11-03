@@ -949,13 +949,52 @@ function render3DBuildingsInCesium() {
     const arr = (typeof window !== 'undefined' && Array.isArray(window.buildings)) ? window.buildings : [];
     const idx = arr.findIndex(b => b && b.id === bldId);
     if (idx === -1) return false;
-    if (window.RAundo) window.RAundo.snapBuildings();
+    const bld = arr[idx];
+    if (window.RAundo && typeof window.RAundo.push === 'function') {
+      window.RAundo.push('project', 'Eliminar edificio ' + (bld.name || bldId));
+    } else if (window.RAundo && typeof window.RAundo.snapBuildings === 'function') {
+      window.RAundo.snapBuildings();
+    }
+
+    // 1. Limpieza en cascada de planos de cubierta y faldones/paneles asociados
+    if (typeof window.WP !== 'undefined' && window.WP) {
+      const wp = window.WP;
+      const removedPlaneIndices = new Set();
+      if (Array.isArray(wp.planes)) {
+        wp.planes.forEach((pl, pIdx) => {
+          if (pl && pl.buildingId === bldId) removedPlaneIndices.add(pIdx);
+        });
+        wp.planes = wp.planes.filter(pl => !pl || pl.buildingId !== bldId);
+        if (wp.activePlaneIdx >= wp.planes.length) wp.activePlaneIdx = Math.max(0, wp.planes.length - 1);
+      }
+      if (Array.isArray(wp.polylines)) {
+        wp.polylines = wp.polylines.filter(poly => {
+          if (!poly) return false;
+          return poly.buildingId !== bldId && !removedPlaneIndices.has(poly.planeIdx);
+        });
+        if (wp.selectedPolyIdx >= wp.polylines.length) wp.selectedPolyIdx = Math.max(-1, wp.polylines.length - 1);
+      }
+    }
+
+    // 2. Limpieza en cascada de obstáculos asociados a la cubierta
+    if (typeof window.obstacles !== 'undefined' && Array.isArray(window.obstacles)) {
+      window.obstacles = window.obstacles.filter(obs => !obs || obs.buildingId !== bldId);
+    }
+
+    // 3. Eliminar edificio
     arr.splice(idx, 1);
     if (typeof window.selectedBuildingId !== 'undefined') window.selectedBuildingId = null;
-    if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Edificio eliminado');
+
+    // 4. Refrescar escena y motores
+    if (typeof window.wpClearAllPlaneGizmos === 'function') window.wpClearAllPlaneGizmos();
+    if (typeof window.wpRenderAllPolylines === 'function') window.wpRenderAllPolylines();
+    if (typeof window.wpFastRenderSimulatedPanels === 'function') window.wpFastRenderSimulatedPanels();
     if (typeof window.render3DBuildingsInCesium === 'function') window.render3DBuildingsInCesium();
+    if (typeof window.render3DObstaclesInCesium === 'function') window.render3DObstaclesInCesium();
     if (typeof window.recalculateLayoutAndObstacles === 'function') window.recalculateLayoutAndObstacles();
-    if (typeof window.showToast === 'function') window.showToast('EDIFICIO ELIMINADO', 'Edificio eliminado del proyecto. CTRL+Z para deshacer.', 'info', 2600);
+    if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Edificio y faldones eliminados');
+    if (typeof window.wpUpdateUI === 'function') window.wpUpdateUI();
+    if (typeof window.showToast === 'function') window.showToast('EDIFICIO ELIMINADO', 'Edificio y faldones asociados eliminados en cascada. CTRL+Z para deshacer.', 'info', 2600);
     return true;
   }
   window.deleteBuilding = deleteBuilding;

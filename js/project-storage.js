@@ -93,6 +93,8 @@ function raExportProjectData() {
     ? WP.planes.map(p => ({
         id: p.id,
         name: p.name,
+        buildingId: p.buildingId || null,
+        isRoof: !!p.isRoof,
         p1: p.p1 ? { x: p.p1.x, y: p.p1.y, z: p.p1.z } : null,
         p2: p.p2 ? { x: p.p2.x, y: p.p2.y, z: p.p2.z } : null,
         p3: p.p3 ? { x: p.p3.x, y: p.p3.y, z: p.p3.z } : null,
@@ -133,6 +135,11 @@ function raExportProjectData() {
     ? WP.polylines.map((poly, pIdx) => ({
         id: poly.id || ('wp_poly_' + Date.now() + '_' + pIdx),
         name: poly.name || ('Faldon #' + (pIdx + 1)),
+        buildingId: poly.buildingId || null,
+        isRoof: !!poly.isRoof,
+        assignedTopology: poly.assignedTopology || null,
+        optimizerCoverage: poly.optimizerCoverage || null,
+        panelsDisabled: !!poly.panelsDisabled,
         visible: poly.visible !== false,
         panelsVisible: poly.panelsVisible !== false,
         points: Array.isArray(poly.points) ? poly.points.map(pt => ({ x: pt.x, y: pt.y, z: pt.z })) : [],
@@ -427,7 +434,9 @@ function raExportProjectData() {
           customCommercialSummary: customSummary || null
         };
       } catch(ePr) { return null; }
-    })()
+    })(),
+    lastVirtualInverter: (typeof window !== 'undefined' && window.lastVirtualInverter) ? JSON.parse(JSON.stringify(window.lastVirtualInverter)) : null,
+    solarLossConfig: (typeof window !== 'undefined' && window.solarLossConfig) ? JSON.parse(JSON.stringify(window.solarLossConfig)) : null
   };
 }
 
@@ -786,6 +795,21 @@ async function raImportProjectData(projectData, options = {}) {
     if (typeof window !== 'undefined') {
       window.windTurbines = [];
       window.windParkSummary = null;
+      window.inverterEquipmentState = {
+        position: null,
+        carto: null,
+        rotation: 0,
+        dcProtectionPosition: null,
+        dcProtectionCarto: null,
+        dcProtectionRotation: 0,
+        batteryPosition: null,
+        batteryCarto: null,
+        batteryRotation: 0,
+        gridMeter: { position: null, carto: null, rotation: 0 },
+        combinerBox: { isEnabled: false, position: null, carto: null, rotation: 0 },
+        routes: { dc: [], ac: [] },
+        cabling: null
+      };
     }
     if ((!options || !options.preserveUndoHistory) && window.RAundo && typeof window.RAundo.clear === 'function') {
       window.RAundo.clear();
@@ -818,6 +842,8 @@ async function raImportProjectData(projectData, options = {}) {
         WP.planes.push({
           id: p.id || ('wp_plane_' + Date.now()),
           name: p.name || 'Plano de Trabajo',
+          buildingId: p.buildingId || null,
+          isRoof: !!p.isRoof,
           p1: pt1,
           p2: pt2,
           p3: pt3,
@@ -880,6 +906,11 @@ async function raImportProjectData(projectData, options = {}) {
         WP.polylines.push({
           id: poly.id || ('wp_poly_' + Date.now() + '_' + pIdx),
           name: poly.name || ('Faldon #' + (pIdx + 1)),
+          buildingId: poly.buildingId || null,
+          isRoof: !!poly.isRoof,
+          assignedTopology: poly.assignedTopology || null,
+          optimizerCoverage: poly.optimizerCoverage || null,
+          panelsDisabled: !!poly.panelsDisabled,
           visible: poly.visible !== false,
           panelsVisible: poly.panelsVisible !== false,
           planeIdx: (typeof poly.planeIdx === 'number') ? poly.planeIdx : (WP.activePlaneIdx || 0),
@@ -1168,6 +1199,14 @@ async function raImportProjectData(projectData, options = {}) {
       if (projectData.solarSimState.viewMode) solarSimState.viewMode = projectData.solarSimState.viewMode;
       if (typeof updateSolarTimeUI === 'function') updateSolarTimeUI();
       if (typeof updateSolarPosition === 'function') updateSolarPosition();
+    }
+
+    // [AUDIT v2.5] Restaurar inversor virtual y configuracion de perdidas solares
+    if (projectData.lastVirtualInverter && typeof window !== 'undefined') {
+      window.lastVirtualInverter = JSON.parse(JSON.stringify(projectData.lastVirtualInverter));
+    }
+    if (projectData.solarLossConfig && typeof window !== 'undefined') {
+      window.solarLossConfig = JSON.parse(JSON.stringify(projectData.solarLossConfig));
     }
 
     // [AUDIT v2.3] Restaurar cotas y mediciones 3D

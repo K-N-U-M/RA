@@ -22,6 +22,7 @@
   var undoStack = [];
   var redoStack = [];
   var _pendingDrag = null;
+  var _isRestoring = false;
 
   // Claves que nunca se clonan: referencias a objetos GPU/DOM que se recrean al renderizar
   var SKIP_KEYS = {
@@ -153,6 +154,13 @@
         return {
           inverterEquipmentState: global.inverterEquipmentState ? deepClone(global.inverterEquipmentState, 0) : null,
           cableRoutingState: global.cableRoutingState ? deepClone(global.cableRoutingState, 0) : null
+        };
+      }
+      if (kind === 'wind_turbines') {
+        var wtArr = (typeof window !== 'undefined' && Array.isArray(window.windTurbines)) ? window.windTurbines : (global.windTurbines || []);
+        return {
+          windTurbines: Array.isArray(wtArr) ? deepClone(wtArr, 0) : [],
+          selectedId: (global.RAWind && global.RAWind.selectedTurbineId) || (typeof window !== 'undefined' && window.selectedWindTurbineId) || null
         };
       }
       if (kind === 'project') {
@@ -296,10 +304,34 @@
       return true;
     }
 
+    if (kind === 'wind_turbines') {
+      var wtArr = (typeof window !== 'undefined' && Array.isArray(window.windTurbines)) ? window.windTurbines : (global.windTurbines || []);
+      var restoredWT = revive(data.windTurbines || []);
+      wtArr.length = 0;
+      restoredWT.forEach(function (w) { wtArr.push(w); });
+      if (data.selectedId && global.RAWind) {
+        global.RAWind.selectedTurbineId = data.selectedId;
+      }
+      if (global.RAWindVisualizer && typeof global.RAWindVisualizer.renderAllInCesium === 'function') {
+        global.RAWindVisualizer.renderAllInCesium();
+      }
+      if (typeof global.updateWindTurbineInspectorUI === 'function') {
+        global.updateWindTurbineInspectorUI();
+      }
+      if (typeof global.wpInvalidateHeatmap === 'function') {
+        global.wpInvalidateHeatmap('Aerogeneradores restaurados');
+      }
+      return true;
+    }
+
     if (kind === 'project') {
       if (typeof global.raImportProjectData === 'function' && data) {
-        global.raImportProjectData(data, { preserveUndoHistory: true });
-        return true;
+        return Promise.resolve(global.raImportProjectData(data, { preserveUndoHistory: true })).then(function() {
+          return true;
+        }).catch(function(err) {
+          if (global.RA && global.RA.log) global.RA.log.warn('Error restaurando proyecto en Undo:', err);
+          return false;
+        });
       }
     }
 
@@ -358,14 +390,15 @@
 
   // ── DESHACER (UNDO) Y REHACER (REDO) ──────────────────────────────────────
 
-  function undo() {
+  async function undo() {
+    if (_isRestoring) return false;
     var entry = undoStack.pop();
     if (!entry) {
       if (typeof global.showStatus === 'function') global.showStatus('NADA QUE DESHACER', 1200);
       return false;
     }
+    _isRestoring = true;
     try {
-      // Capturar estado actual de este subsistema antes de sobreescribirlo para el Redo
       var currentState = captureState(entry.kind, entry.meta);
       if (currentState) {
         redoStack.push({
@@ -378,7 +411,7 @@
         if (redoStack.length > MAX_UNDO_STEPS) redoStack.shift();
       }
 
-      var ok = restoreState(entry);
+      var ok = await Promise.resolve(restoreState(entry));
       updateUIButtons();
 
       if (ok && typeof global.showToast === 'function') {
@@ -388,17 +421,20 @@
     } catch (err) {
       if (global.RA && global.RA.log) global.RA.log.warn('RAundo.undo falló:', err);
       return false;
+    } finally {
+      _isRestoring = false;
     }
   }
 
-  function redo() {
+  async function redo() {
+    if (_isRestoring) return false;
     var entry = redoStack.pop();
     if (!entry) {
       if (typeof global.showStatus === 'function') global.showStatus('NADA QUE REHACER', 1200);
       return false;
     }
+    _isRestoring = true;
     try {
-      // Capturar estado actual para permitir un nuevo Undo simétrico
       var currentState = captureState(entry.kind, entry.meta);
       if (currentState) {
         undoStack.push({
@@ -411,7 +447,7 @@
         if (undoStack.length > MAX_UNDO_STEPS) undoStack.shift();
       }
 
-      var ok = restoreState(entry);
+      var ok = await Promise.resolve(restoreState(entry));
       updateUIButtons();
 
       if (ok && typeof global.showToast === 'function') {
@@ -421,6 +457,8 @@
     } catch (err) {
       if (global.RA && global.RA.log) global.RA.log.warn('RAundo.redo falló:', err);
       return false;
+    } finally {
+      _isRestoring = false;
     }
   }
 
@@ -431,9 +469,12 @@
     var label = 'Mover elemento';
     var meta = null;
 
-    if (targetType === 'vertex') {
+    if (targetType === 'vertex' || targetType === 'workplane_vertex') {
       kind = 'polylines';
-      label = 'Mover vértice';
+      label = 'Mover vértice de faldón';
+    } else if (targetType === 'building_vertex') {
+      kind = 'buildings';
+      label = 'Mover vértice de edificio';
     } else if (targetType === 'building') {
       kind = 'buildings';
       label = 'Mover edificio';
@@ -443,7 +484,13 @@
     } else if (targetType === 'panel') {
       kind = 'polylines';
       label = 'Mover panel';
-    } else if (targetType === 'equipment' || targetType === 'inverter' || targetType === 'gridMeter') {
+    } else if (targetType === 'workplane' || targetType === 'plane') {
+      kind = 'planes';
+      label = 'Mover plano de trabajo';
+    } else if (targetType === 'wind_turbine_entity' || targetType === 'wind_turbine' || targetType === 'wind_turbines') {
+      kind = 'wind_turbines';
+      label = 'Mover aerogenerador';
+    } else if (targetType === 'equipment' || targetType === 'inverter' || targetType === 'gridMeter' || targetType === 'electrical') {
       kind = 'electrical';
       label = 'Mover equipo eléctrico';
     }

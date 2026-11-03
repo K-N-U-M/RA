@@ -1278,7 +1278,7 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
         }
       }
       target.pos = Cesium.Cartesian3.clone(newPos);
-      if (typeof render3DBuildingsInCesium === 'function') render3DBuildingsInCesium();
+      // Reconstruccion GPU pesada de edificio diferida a LEFT_UP para garantizar 60 FPS
     } else if (target.type === 'panel' && target.rawObj) {
       const p = target.rawObj;
       const delta = Cesium.Cartesian3.subtract(newPos, p.center, new Cesium.Cartesian3());

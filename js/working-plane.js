@@ -3114,17 +3114,28 @@ function wpRenderAllPolylines() {
 }
 
 function wpClearEntGroup(key) {
-  const curViewer = (typeof viewer !== 'undefined' && viewer) ? viewer : (window.viewer || null);
-  if (curViewer && curViewer.entities) {
-    (WP.ents[key] || []).forEach(e => {
+  const curViewer = (typeof viewer !== 'undefined' && viewer) ? viewer : ((typeof window !== 'undefined' && window.viewer) ? window.viewer : null);
+  const ents = (WP && WP.ents) ? (WP.ents[key] || []) : [];
+  if (ents.length > 0) {
+    ents.forEach(e => {
       if (e) {
         try {
-          curViewer.entities.remove(e);
+          if (typeof removeLabel2DEntity === 'function') {
+            removeLabel2DEntity(e);
+          } else if (typeof window !== 'undefined' && Array.isArray(window.labels2DRegistry)) {
+            const eId = (typeof e === 'string') ? e : (e.id || (e._labelItem && e._labelItem.id));
+            if (eId) {
+              window.labels2DRegistry = window.labels2DRegistry.filter(l => l && l.id !== eId);
+            }
+          }
+          if (curViewer && curViewer.entities) {
+            curViewer.entities.remove(e);
+          }
         } catch (err) {}
       }
     });
   }
-  WP.ents[key] = [];
+  if (WP && WP.ents) WP.ents[key] = [];
   if (curViewer && curViewer.scene && typeof curViewer.scene.requestRender === 'function') {
     try { curViewer.scene.requestRender(); } catch (eR) {}
   }
