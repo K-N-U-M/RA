@@ -125,6 +125,13 @@
 - [x] **6.4. Altura relativa tridimensional en sombras de aerogeneradores (`js/polygon-shadow-math.js`)**: Descontar la cota de la cubierta ($Z_{\text{tip}} - Z_{\text{roof}}$) para que turbinas en suelo con cota inferior a la nave no proyecten sombras hacia arriba sobre el tejado.
 - [x] **6.5. Corrección de exportación de filtros de obstáculos y soporte `b.polygon` (`js/polygon-shadow-math.js`, `js/wind/wind-obstacle-interference.js`)**: Exportar `defaultPanelFilter` eliminando la referencia no definida `checkPanelObstacles` y habilitar soporte para jerarquías poligonales Cesium.
 
+### Fase 7 — Beneficios Fiscales, Régimen de IVA y Fiscalidad Corporativa [COMPLETADA]
+- [x] **7.1. Selector de IVA dinámico (21% General, 10% Reducido Reforma/Vivienda, 0% Exento/IGIC)**: Erradicar el 21% hardcodeado en `js/financials.js` y `js/commercial-proposal-dossier.js`, parametrizando `ivaRate` a través de toda la cadena de cálculo y propuesta comercial.
+- [x] **7.2. Perfil fiscal de cliente (Particular vs Empresa)**: Selector bidireccional en UI y cálculo que diferencia cliente residencial sujeto a IRPF de persona jurídica / empresa sujeta al Impuesto sobre Sociedades.
+- [x] **7.3. IRPF Autoconsumo 2026 (10-20%) y tramos de Eficiencia Energética (20-60%)**: Incorporar deducciones generales de autoconsumo con tope de base legal de 5.000 € junto a los tres tramos de reducción de demanda térmica (5.000 €), primaria (7.500 €) y edificio residencial (15.000 €).
+- [x] **7.4. Libertad de Amortización en Impuesto sobre Sociedades (DA 17ª LIS / RDL 18/2022)**: Cálculo del escudo fiscal acelerado en el Año 1 para instalaciones de autoconsumo corporativas (tipos 25% general, 23% pymes, 15% nueva creación, 0%), inyectándolo en el flujo de caja anual y descontando el IVA deducible.
+- [x] **7.5. Persistencia SSOT en .raproject y visualización en Cascada Fiscal**: Serialización y restauración íntegra de `taxSettings` en `js/project-storage.js`, y adaptación dinámica de la Cascada del Escudo Fiscal en el dossier comercial y propuesta ejecutiva.
+
 ---
 
 ## 🏆 Resumen de Auditoría y Estado Final
@@ -137,8 +144,9 @@
 | **Fase 4** | Realismo Físico Eólico, Betz, CFD y UI Asíncrona | **COMPLETADA** | 5/5 PASS |
 | **Fase 5** | Higiene CAD 3D, Deshacer/Rehacer y Persistencia Total | **COMPLETADA** | 5/5 PASS |
 | **Fase 6** | Remate de Precisión Quirúrgica (Auditoría Competencia) | **COMPLETADA** | 5/5 PASS |
+| **Fase 7** | Beneficios Fiscales, IVA Reducido y Sociedades | **COMPLETADA** | 5/5 PASS |
 
-**Total Desviaciones Subsanadas**: 32 / 32 (100%)  
+**Total Desviaciones Subsanadas**: 37 / 37 (100%)  
 **Módulos JS Auditados y Verificados**: 73 / 73 (100% Sintaxis y Cero Errores)  
-**Batería de Pruebas Unitarias**: 6 Suites / 27 Tests (100% PASS)  
+**Batería de Pruebas Unitarias**: 7 Suites / 32 Tests (100% PASS)  
 **Calidad del Software**: Nivel AAA de Producción Certificado

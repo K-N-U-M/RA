@@ -167,9 +167,10 @@
     var kwp = Number(m.kwp || d.kwp || 0);
     var kwNom = Number(d.P_ac_kW || (kwp > 0 ? (kwp * 0.9) : 5.0));
     var numPanels = Number(m.numPanels || d.numPanels || 0);
-    // [SSOT Fiscal] m.subtotal es la Base Imponible neta (sin IVA). m.capexBruto incluye 21% IVA.
-    var totalCostSinIva = Number(m.subtotal || d.subtotal || (m.capexBruto ? (m.capexBruto / 1.21) : null) || (numPanels * 350) || 5000);
-    var totalCostConIva = Number(m.capexBruto || (totalCostSinIva * 1.21));
+    // [SSOT Fiscal] m.subtotal es la Base Imponible neta (sin IVA). m.capexBruto incluye IVA dinámico.
+    var ivaRate = (m && typeof m.ivaRate === 'number') ? m.ivaRate : 0.21;
+    var totalCostSinIva = Number(m.subtotal || d.subtotal || (m.capexBruto ? (m.capexBruto / (1 + ivaRate)) : null) || (numPanels * 350) || 5000);
+    var totalCostConIva = Number(m.capexBruto || (totalCostSinIva * (1 + ivaRate)));
     var totalCost = totalCostSinIva; // El campo de la UI es "Coste Instalación (€ sin IVA)"
     var annualYield = Math.round(Number(d.annualKWh || (kwp * 1450)));
     var ahorroAnual = Number(m.ahorroLuzAnio1 || (annualYield * 0.12));
@@ -809,7 +810,8 @@
       return Number(n || 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
     };
     var totalCostNum = ov.totalCost ? parseEsNum(ov.totalCost, raw.metrics.totalCostNum) : raw.metrics.totalCostNum;
-    var totalCostGrossNum = Math.round(totalCostNum * 1.21 * 100) / 100;
+    var ivaRate = (raw && raw.m && typeof raw.m.ivaRate === 'number') ? raw.m.ivaRate : 0.21;
+    var totalCostGrossNum = Math.round(totalCostNum * (1 + ivaRate) * 100) / 100;
     var totalCostGross = totalCostGrossNum.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     if (ov.totalCost && raw.metrics.totalCostNum > 0 && Math.abs(totalCostNum - raw.metrics.totalCostNum) > 1) {
       var capexRatio = totalCostNum / raw.metrics.totalCostNum;
@@ -1617,7 +1619,7 @@
         '  <div style="background:' + pal.light + ';border:1.5px solid ' + pal.primary + ';border-radius:8px;padding:6px 10px;text-align:center;">' +
         '    <div class="editable-field" contenteditable="true" style="font-size:12px;font-weight:800;color:' + pal.dark + ';">BASE IMPONIBLE (SIN IVA)</div>' +
         '    <div class="editable-field" contenteditable="true" style="font-size:26px;font-weight:900;color:' + pal.primary + ';margin:4px 0 2px;">' + totalCost + ' €</div>' +
-        '    <div class="editable-field" contenteditable="true" style="font-size:13px;color:#475569;font-weight:700;">Total con IVA (21%): ' + raw.metrics.totalCostGross + ' €</div>' +
+        '    <div class="editable-field" contenteditable="true" style="font-size:13px;color:#475569;font-weight:700;">Total con IVA (' + Math.round(((raw && raw.m && typeof raw.m.ivaRate === 'number') ? raw.m.ivaRate : 0.21) * 100) + '%): ' + raw.metrics.totalCostGross + ' €</div>' +
         '  </div>' +
         '  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;">' +
         '    <div style="background:#f8fafc;padding:5px;border-radius:6px;border:1px solid #e2e8f0;text-align:center;">' +

@@ -309,7 +309,16 @@ function raExportProjectData() {
       inverterCapacityWarning: window.solarProjectConfig.inverterCapacityWarning || null,
       manualAnnualConsumptionKWh: window.solarProjectConfig.manualAnnualConsumptionKWh || null,
       billCostMonth: window.solarProjectConfig.billCostMonth || null,
-      gridSupply: window.solarProjectConfig.gridSupply || null
+      gridSupply: window.solarProjectConfig.gridSupply || null,
+      taxSettings: (window.solarProjectConfig.taxSettings) || {
+        profile: (typeof document !== 'undefined' && (document.getElementById('modal-tax-profile-opt') || {}).value) || 'particular',
+        ivaRate: (typeof document !== 'undefined' && parseFloat((document.getElementById('modal-tax-iva-opt') || {}).value)) || 0.21,
+        ibiCuota: (typeof document !== 'undefined' && parseFloat((document.getElementById('modal-tax-ibi-cuota') || {}).value)) || 650,
+        ibiOpt: (typeof document !== 'undefined' && (document.getElementById('modal-tax-ibi-opt') || {}).value) || '0.50_3',
+        irpfOpt: (typeof document !== 'undefined' && (document.getElementById('modal-tax-irpf-opt') || {}).value) || '0.40',
+        isRate: (typeof document !== 'undefined' && parseFloat((document.getElementById('modal-tax-is-opt') || {}).value)) || 0.25,
+        icioOpt: (typeof document !== 'undefined' && parseFloat((document.getElementById('modal-tax-icio-opt') || {}).value)) || 0.95
+      }
     } : null,
     solarSimState: (typeof solarSimState !== 'undefined' && solarSimState) ? {
       monthIdx: solarSimState.monthIdx,
@@ -1175,6 +1184,26 @@ async function raImportProjectData(projectData, options = {}) {
     if (projectData.projectConfig && typeof window !== 'undefined') {
       if (!window.solarProjectConfig) window.solarProjectConfig = {};
       Object.assign(window.solarProjectConfig, projectData.projectConfig);
+      if (projectData.projectConfig.taxSettings && typeof document !== 'undefined') {
+        const t = projectData.projectConfig.taxSettings;
+        const pEl = document.getElementById('modal-tax-profile-opt');
+        if (pEl && t.profile) pEl.value = t.profile;
+        const ivaEl = document.getElementById('modal-tax-iva-opt');
+        if (ivaEl && t.ivaRate != null) ivaEl.value = String(t.ivaRate);
+        const ibiCEl = document.getElementById('modal-tax-ibi-cuota');
+        if (ibiCEl && t.ibiCuota != null) ibiCEl.value = t.ibiCuota;
+        const ibiOEl = document.getElementById('modal-tax-ibi-opt');
+        if (ibiOEl && t.ibiOpt) ibiOEl.value = t.ibiOpt;
+        const irpfOEl = document.getElementById('modal-tax-irpf-opt');
+        if (irpfOEl && t.irpfOpt) irpfOEl.value = t.irpfOpt;
+        const isOEl = document.getElementById('modal-tax-is-opt');
+        if (isOEl && t.isRate != null) isOEl.value = String(t.isRate);
+        const icioOEl = document.getElementById('modal-tax-icio-opt');
+        if (icioOEl && t.icioOpt != null) icioOEl.value = String(t.icioOpt);
+        if (typeof syncModalTaxProfile === 'function') {
+          syncModalTaxProfile(pEl ? pEl.value : 'particular');
+        }
+      }
       if (typeof window.populateStep3EquipmentSelectors === 'function') {
         try { window.populateStep3EquipmentSelectors(); } catch(eEq2) {}
       }

@@ -3131,12 +3131,29 @@ window.RA_App = window.RA_App || {};
         <div class="ui-card" style="margin:0;background:rgba(30,41,59,0.5);border:1px solid rgba(255,255,255,0.08);padding:14px;border-radius:8px;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.06);padding-bottom:6px;">
             <span style="font-size:11px;font-weight:800;color:var(--sky-400);text-transform:uppercase;">2. Bonificaciones Fiscales &amp; Ayudas (España)</span>
-            <span class="card-tag" style="font-size: 10px;">IBI · ICIO · IRPF</span>
+            <span class="card-tag" style="font-size: 10px;">IBI · ICIO · IRPF · IS · IVA</span>
+          </div>
+
+          <div class="field-row" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:10.5px;color:var(--text-slate-300);">Perfil Fiscal Cliente:</span>
+            <select id="modal-tax-profile-opt" onchange="syncModalTaxProfile(this.value); syncModalInputToBudget('tax-profile-opt', this.value)" style="width:165px;background:rgba(0,0,0,0.5);border:1px solid var(--border-subtle);color:#fff;font-size:10px;padding:4px 6px;border-radius:6px;outline:none;">
+              <option value="particular" selected>Particular / Residencial (IRPF)</option>
+              <option value="empresa">Empresa / Pyme (Sociedades)</option>
+            </select>
+          </div>
+
+          <div class="field-row" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:10.5px;color:var(--text-slate-300);">Tipo de IVA Aplicable:</span>
+            <select id="modal-tax-iva-opt" onchange="syncModalInputToBudget('tax-iva-opt', this.value)" style="width:165px;background:rgba(0,0,0,0.5);border:1px solid var(--border-subtle);color:#fff;font-size:10px;padding:4px 6px;border-radius:6px;outline:none;">
+              <option value="0.21" selected>21% (IVA General)</option>
+              <option value="0.10">10% (IVA Reducido Reforma)</option>
+              <option value="0.0">0% (Exento / IGIC Canarias)</option>
+            </select>
           </div>
 
           <div class="field-row" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
             <span style="font-size:10.5px;color:var(--text-slate-300);">Cuota Anual IBI Inmueble (€/año):</span>
-            <input type="number" id="modal-tax-ibi-cuota" step="50" min="0" class="field-input" style="width:90px;font-size:11px;text-align:right;" oninput="syncModalInputToBudget('tax-ibi-cuota', this.value)">
+            <input type="number" id="modal-tax-ibi-cuota" step="50" min="0" value="650" class="field-input" style="width:90px;font-size:11px;text-align:right;" oninput="syncModalInputToBudget('tax-ibi-cuota', this.value)">
           </div>
 
           <div class="field-row" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
@@ -3144,25 +3161,39 @@ window.RA_App = window.RA_App || {};
             <select id="modal-tax-ibi-opt" onchange="syncModalInputToBudget('tax-ibi-opt', this.value)" style="width:165px;background:rgba(0,0,0,0.5);border:1px solid var(--border-subtle);color:#fff;font-size:10px;padding:4px 6px;border-radius:6px;outline:none;">
               <option value="0">Sin bonificación</option>
               <option value="0.30_3">30% durante 3 años</option>
-              <option value="0.50_3">50% durante 3 años (Común)</option>
+              <option value="0.50_3" selected>50% durante 3 años (Común)</option>
               <option value="0.50_5">50% durante 5 años (Madrid/Bcn)</option>
             </select>
           </div>
 
-          <div class="field-row" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
-            <span style="font-size:10.5px;color:var(--text-slate-300);">Deducción IRPF Eficiencia:</span>
+          <!-- Fila IRPF (visible en modo particular) -->
+          <div class="field-row" id="modal-tax-irpf-row" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:10.5px;color:var(--text-slate-300);">Deducción IRPF:</span>
             <select id="modal-tax-irpf-opt" onchange="syncModalInputToBudget('tax-irpf-opt', this.value)" style="width:165px;background:rgba(0,0,0,0.5);border:1px solid var(--border-subtle);color:#fff;font-size:10px;padding:4px 6px;border-radius:6px;outline:none;">
               <option value="0">0% (Sin deducción)</option>
-              <option value="0.20">20% (Reducción 7% dem.)</option>
-              <option value="0.40">40% (Reducción 30% dem.)</option>
-              <option value="0.60">60% (Edificio residencial)</option>
+              <option value="0.10">10% (Autoconsumo general 2026)</option>
+              <option value="0.20_auto">20% (Autoconsumo general 2026)</option>
+              <option value="0.20">20% (Reducción 7% dem. térm.)</option>
+              <option value="0.40" selected>40% (Reducción 30% dem. prim.)</option>
+              <option value="0.60">60% (Edificio residencial compl.)</option>
+            </select>
+          </div>
+
+          <!-- Fila Impuesto sobre Sociedades (visible en modo empresa) -->
+          <div class="field-row" id="modal-tax-is-row" style="margin-bottom:8px;display:none;justify-content:space-between;align-items:center;">
+            <span style="font-size:10.5px;color:var(--text-slate-300);">Libertad Amortización (IS):</span>
+            <select id="modal-tax-is-opt" onchange="syncModalInputToBudget('tax-is-opt', this.value)" style="width:165px;background:rgba(0,0,0,0.5);border:1px solid var(--border-subtle);color:#fff;font-size:10px;padding:4px 6px;border-radius:6px;outline:none;">
+              <option value="0.25" selected>25% Escudo Fiscal (Tipo General)</option>
+              <option value="0.23">23% Escudo Fiscal (Pymes &lt; 1M€)</option>
+              <option value="0.15">15% Escudo Fiscal (Nueva creación)</option>
+              <option value="0">0% (Sin libertad amortización)</option>
             </select>
           </div>
 
           <div class="field-row" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
             <span style="font-size:10.5px;color:var(--text-slate-300);">Bonificación ICIO:</span>
             <select id="modal-tax-icio-opt" onchange="syncModalInputToBudget('tax-icio-opt', this.value)" style="width:165px;background:rgba(0,0,0,0.5);border:1px solid var(--border-subtle);color:#fff;font-size:10px;padding:4px 6px;border-radius:6px;outline:none;">
-              <option value="0.95">95% Bonificación ICIO</option>
+              <option value="0.95" selected>95% Bonificación ICIO</option>
               <option value="0.50">50% Bonificación</option>
               <option value="0">Sin bonificación</option>
             </select>
@@ -3170,7 +3201,7 @@ window.RA_App = window.RA_App || {};
 
           <div class="stat-grid-2" style="margin-top:6px;gap:6px;">
             <div class="stat-pill" style="padding:6px 8px;">
-              <span class="stat-pill-label" style="font-size: 9.5px;" title="Deducción IRPF estatal/autonómica + bonificación del IBI municipal">Bonif. EPC (IBI + IRPF)</span>
+              <span class="stat-pill-label" id="modal-tax-label-deduccion" style="font-size: 9.5px;" title="Deducción IRPF estatal/autonómica o Impuesto Sociedades + bonificación del IBI municipal">Bonif. EPC (IBI + IRPF)</span>
               <span class="stat-pill-value emerald" id="modal-tax-total-savings" style="font-size:13px;">0 €</span>
             </div>
             <div class="stat-pill" style="padding:6px 8px;">
@@ -3589,6 +3620,26 @@ function openCostBreakdownModal() {
     vBatCheck.checked = !!(_cfg && _cfg.hasVirtualBattery);
   }
 
+  // Sincronizar configuración fiscal persistida
+  if (_cfg && _cfg.taxSettings) {
+    const t = _cfg.taxSettings;
+    const pEl = document.getElementById('modal-tax-profile-opt');
+    if (pEl && t.profile) pEl.value = t.profile;
+    const ivaEl = document.getElementById('modal-tax-iva-opt');
+    if (ivaEl && t.ivaRate != null) ivaEl.value = String(t.ivaRate);
+    const ibiCEl = document.getElementById('modal-tax-ibi-cuota');
+    if (ibiCEl && t.ibiCuota != null) ibiCEl.value = t.ibiCuota;
+    const ibiOEl = document.getElementById('modal-tax-ibi-opt');
+    if (ibiOEl && t.ibiOpt) ibiOEl.value = t.ibiOpt;
+    const irpfOEl = document.getElementById('modal-tax-irpf-opt');
+    if (irpfOEl && t.irpfOpt) irpfOEl.value = t.irpfOpt;
+    const isOEl = document.getElementById('modal-tax-is-opt');
+    if (isOEl && t.isRate != null) isOEl.value = String(t.isRate);
+    const icioOEl = document.getElementById('modal-tax-icio-opt');
+    if (icioOEl && t.icioOpt != null) icioOEl.value = String(t.icioOpt);
+    if (typeof syncModalTaxProfile === 'function') syncModalTaxProfile(pEl ? pEl.value : 'particular');
+  }
+
   // Actualizar métricas
   if (typeof updateBudgetUI === 'function') updateBudgetUI();
   if (typeof raRenderCommercialAddonsUI === 'function') raRenderCommercialAddonsUI();
@@ -3726,6 +3777,15 @@ function syncCostModalMetrics() {
   set('modal-budget-num-panels', m.numPanels);
   set('modal-budget-paneles', Math.round(m.panCost).toLocaleString('es-ES') + ' €');
   set('modal-budget-total', Math.round(m.capexBruto).toLocaleString('es-ES') + ' €');
+  const isEmpresa = (m.customerProfile === 'empresa');
+  const lblDeduc = document.getElementById('modal-tax-label-deduccion');
+  if (lblDeduc) lblDeduc.textContent = isEmpresa ? 'Bonif. EPC (IBI + Sociedades)' : 'Bonif. EPC (IBI + IRPF)';
+  const irpfRow = document.getElementById('modal-tax-irpf-row');
+  const isRow = document.getElementById('modal-tax-is-row');
+  if (irpfRow && isRow) {
+    irpfRow.style.display = isEmpresa ? 'none' : 'flex';
+    isRow.style.display = isEmpresa ? 'flex' : 'none';
+  }
   set('modal-tax-total-savings', Math.round(m.totalAhorroFiscal).toLocaleString('es-ES') + ' €');
   set('modal-tax-icio-savings', Math.round(m.ahorroICIO || 0).toLocaleString('es-ES') + ' €');
   set('modal-tax-net-investment', Math.round(m.capexNeto).toLocaleString('es-ES') + ' €');
@@ -3741,6 +3801,19 @@ function syncCostModalMetrics() {
 }
 
 // [MODULARIZACION SSOT] Modal de identidad corporativa y logotipo delegado a js/company-branding.js
+function syncModalTaxProfile(profile) {
+  const isEmpresa = (profile === 'empresa');
+  const irpfRow = document.getElementById('modal-tax-irpf-row');
+  const isRow = document.getElementById('modal-tax-is-row');
+  const lbl = document.getElementById('modal-tax-label-deduccion');
+  if (irpfRow) irpfRow.style.display = isEmpresa ? 'none' : 'flex';
+  if (isRow) isRow.style.display = isEmpresa ? 'flex' : 'none';
+  if (lbl) lbl.textContent = isEmpresa ? 'Bonif. EPC (IBI + Sociedades)' : 'Bonif. EPC (IBI + IRPF)';
+  if (typeof updateBudgetUI === 'function') updateBudgetUI();
+  if (typeof syncCostModalMetrics === 'function') syncCostModalMetrics();
+}
+window.syncModalTaxProfile = syncModalTaxProfile;
+
 window.openCostBreakdownModal = openCostBreakdownModal;
 window.closeCostBreakdownModal = closeCostBreakdownModal;
 window.syncModalInputToBudget = syncModalInputToBudget;

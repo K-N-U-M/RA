@@ -1105,9 +1105,13 @@ var RAPricing = {
     ],
     customAddons: [],
     taxShield: {
+      customerProfile: 'particular', // 'particular' | 'empresa'
+      ivaRate: 0.21,                // 0.21 | 0.10 | 0.0
       irpfEnabled: true,
       irpfPct: 40,
       irpfMaxBaseEur: 7500,
+      isRate: 0.25,                 // 0.25 | 0.23 | 0.15 | 0.0
+      isAmortizacionLibre: true,
       ibiEnabled: true,
       ibiAnualEur: 600,
       ibiBonifPct: 50,
@@ -1195,10 +1199,12 @@ var RAPricing = {
     var baseDirect = m.directCost || 10000;
     var mgPct = (typeof m.marginPct === 'number') ? m.marginPct : 20;
 
+    var ivaRate = (typeof m.ivaRate === 'number') ? m.ivaRate : 0.21;
+
     // Paquete 1: Esencial (Autoconsumo puro diurno, sin batería ni extras)
     var p1Direct = Math.round(baseDirect - (m.batCost || 0));
     var p1Subtotal = Math.round(p1Direct * (1 + mgPct / 100));
-    var p1Capex = Math.round(p1Subtotal * 1.21);
+    var p1Capex = Math.round(p1Subtotal * (1 + ivaRate));
     var p1Ahorro = Math.round((m.ahorroLuzAnio1 || 1200) * (m.batCost > 0 ? 0.65 : 1.0));
 
     // Paquete 2: Óptimo Recomendado (Diseño 3D actual del usuario)
@@ -1209,7 +1215,7 @@ var RAPricing = {
     var batExtra = (m.batCost > 0) ? 2200 : 3800; // batería o ampliación
     var p3Direct = baseDirect + batExtra;
     var p3Subtotal = Math.round(p3Direct * (1 + mgPct / 100));
-    var p3Capex = Math.round(p3Subtotal * 1.21);
+    var p3Capex = Math.round(p3Subtotal * (1 + ivaRate));
     var p3Ahorro = Math.round(p2Ahorro * 1.25);
 
     // [SSOT Metodológico] Coherencia en amortización: aplicar factor dinámico con deducción fiscal
@@ -2037,10 +2043,17 @@ function wpOpenPricingReviewModal(onConfirm) {
       }
     }
 
+    var ivaElOpt = document.getElementById('tax-iva-opt') || document.getElementById('modal-tax-iva-opt');
+    var ivaRate = (ivaElOpt && ivaElOpt.value !== undefined && ivaElOpt.value !== '') ? parseFloat(ivaElOpt.value) : undefined;
+    if (!Number.isFinite(ivaRate) && workingCommCfg && workingCommCfg.taxShield && typeof workingCommCfg.taxShield.ivaRate === 'number') {
+      ivaRate = workingCommCfg.taxShield.ivaRate;
+    }
+    if (!Number.isFinite(ivaRate)) ivaRate = 0.21;
+
     var subtotal = Math.max(100, Math.round(subtotalPreDiscount - discountEur));
-    var iva = Math.round(subtotal * 0.21);
+    var iva = Math.round(subtotal * ivaRate);
     var capexBruto = subtotal + iva;
-    var capexTachado = (discountEur > 0) ? Math.round(subtotalPreDiscount * 1.21) : null;
+    var capexTachado = (discountEur > 0) ? Math.round(subtotalPreDiscount * (1 + ivaRate)) : null;
 
     // Temporal override en sesión etiquetado con la huella del proyecto actual
     RAPricing.currentSessionPricing = {
@@ -2101,7 +2114,7 @@ function wpOpenPricingReviewModal(onConfirm) {
     }
 
     if (sEl) sEl.textContent = Math.round(subtotal).toLocaleString('es-ES') + ' €';
-    if (iEl) iEl.textContent = Math.round(iva).toLocaleString('es-ES') + ' €';
+    if (iEl) iEl.textContent = Math.round(iva).toLocaleString('es-ES') + ' €' + (Math.abs(ivaRate - 0.21) > 0.001 ? ' (' + Math.round(ivaRate * 100) + '%)' : '');
 
     if (tTachadoEl) {
       if (capexTachado && capexTachado > capexBruto) {
@@ -2827,8 +2840,12 @@ if (typeof window !== 'undefined') {
 
     // 4. Cascada del Escudo Fiscal (Waterfall)
     var ibiEur = Math.round(m.ahorroIBITotal || 0);
-    var irpfEur = Math.round(m.ahorroIRPF || 0);
-    var capexNet = Math.round(m.capexNeto || (m.capexBruto - ibiEur - irpfEur));
+    var isEmpresa = (m.customerProfile === 'empresa');
+    var deducNombre = isEmpresa
+      ? ('Libertad Amortización IS (' + Math.round((m.isRate || 0.25) * 100) + '%)')
+      : ('Deducción IRPF' + (m.irpfPct ? ' (' + Math.round(m.irpfPct * 100) + '%)' : ''));
+    var deducEur = isEmpresa ? Math.round(m.ahorroSociedades || 0) : Math.round(m.ahorroIRPF || 0);
+    var capexNet = Math.round(m.capexNeto || (m.capexBruto - ibiEur - deducEur));
     var infoCascadaFiscal = '<div style="background:#ffffff;border:' + cardBorder + ';border-radius:12px;padding:' + cardPad + ';margin:' + cardMargin + ';box-shadow:' + cardShadow + ';">' +
       '<div style="font-weight:900;font-size:12px;color:#0f172a;text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;">' +
         '<div style="display:flex;align-items:center;gap:8px;">' +
@@ -2849,8 +2866,8 @@ if (typeof window !== 'undefined') {
         '</div>' +
         '<span style="font-size:16px;font-weight:bold;color:#94a3b8;">−</span>' +
         '<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 8px;">' +
-          '<div style="font-size:8.5px;color:#166534;font-weight:700;">Deducción IRPF (40%)</div>' +
-          '<b style="font-size:13px;color:#16a34a;display:block;margin-top:2px;">' + irpfEur.toLocaleString('es-ES') + ' €</b>' +
+          '<div style="font-size:8.5px;color:#166534;font-weight:700;">' + deducNombre + '</div>' +
+          '<b style="font-size:13px;color:#16a34a;display:block;margin-top:2px;">' + deducEur.toLocaleString('es-ES') + ' €</b>' +
         '</div>' +
         '<span style="font-size:16px;font-weight:bold;color:#94a3b8;">=</span>' +
         '<div style="background:' + pal.light + ';border:2px solid ' + pal.primary + ';border-radius:8px;padding:10px 8px;">' +
@@ -3601,8 +3618,12 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     moCost: m.moCost,
     legCost: m.legCost,
     subtotal: m.subtotal,
+    ivaRate: m.ivaRate,
     iva: m.iva,
     capexBruto: m.capexBruto,
+    customerProfile: m.customerProfile,
+    isRate: m.isRate,
+    ahorroSociedades: m.ahorroSociedades,
     ahorroIBITotal: m.ahorroIBITotal,
     ahorroIRPF: m.ahorroIRPF,
     ahorroICIO: m.ahorroICIO,
@@ -4258,7 +4279,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
               <div>
                 <div class="cover-spec-label" style="color:${pal.dark};">Inversión Llave en Mano</div>
                 <div class="cover-spec-val" style="color:${pal.dark};font-size:19px;">${Math.round(m.capexBruto).toLocaleString('es-ES')} €</div>
-                <div class="cover-spec-sub" style="color:${pal.dark};font-weight:700;">IVA 21% inc. · ${Math.round(m.capexNeto).toLocaleString('es-ES')} € neto subv.</div>
+                <div class="cover-spec-sub" style="color:${pal.dark};font-weight:700;">IVA ${Math.round((m.ivaRate != null ? m.ivaRate : 0.21) * 100)}% inc. · ${Math.round(m.capexNeto).toLocaleString('es-ES')} € neto subv.</div>
               </div>
             </div>
           </div>
@@ -4536,7 +4557,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
                 <div style="font-size:14px;font-weight:900;color:#475569;text-transform:uppercase;letter-spacing:0.5px;">${pkgs.essential.title}</div>
                 <div style="font-size:11.5px;color:#64748b;margin:12px 0 22px;line-height:1.55;">${pkgs.essential.desc}</div>
                 <div style="font-size:28px;font-weight:900;color:#0f172a;">${pkgs.essential.capex.toLocaleString('es-ES')} €</div>
-                <div style="font-size:10px;color:#64748b;margin-top:4px;">IVA 21% incluido</div>
+                <div style="font-size:10px;color:#64748b;margin-top:4px;">IVA ${Math.round((m.ivaRate != null ? m.ivaRate : 0.21) * 100)}% incluido</div>
               </div>
               <div style="margin-top:26px;border-top:1.5px solid #e2e8f0;padding-top:18px;font-size:12px;line-height:1.9;">
                 <div style="display:flex;align-items:center;gap:6px;">${_mSvg('bolt', 13, '#475569')} <span>Ahorro: <b>${pkgs.essential.ahorroAnual.toLocaleString('es-ES')} €/año</b></span></div>
@@ -4551,7 +4572,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
                 <div style="font-size:14px;font-weight:900;color:${pal.dark};text-transform:uppercase;letter-spacing:0.5px;">${pkgs.optimal.title}</div>
                 <div style="font-size:11.5px;color:#64748b;margin:12px 0 22px;line-height:1.55;">${pkgs.optimal.desc}</div>
                 <div style="font-size:32px;font-weight:900;color:${pal.primary};">${pkgs.optimal.capex.toLocaleString('es-ES')} €</div>
-                <div style="font-size:10px;color:#64748b;margin-top:4px;">IVA 21% incluido</div>
+                <div style="font-size:10px;color:#64748b;margin-top:4px;">IVA ${Math.round((m.ivaRate != null ? m.ivaRate : 0.21) * 100)}% incluido</div>
               </div>
               <div style="margin-top:26px;border-top:1.5px solid #e2e8f0;padding-top:18px;font-size:12px;line-height:1.9;">
                 <div style="display:flex;align-items:center;gap:6px;">${_mSvg('bolt', 13, pal.primary)} <span>Ahorro: <b>${pkgs.optimal.ahorroAnual.toLocaleString('es-ES')} €/año</b></span></div>
@@ -4565,7 +4586,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
                 <div style="font-size:14px;font-weight:900;color:#0369a1;text-transform:uppercase;letter-spacing:0.5px;">${pkgs.premium.title}</div>
                 <div style="font-size:11.5px;color:#64748b;margin:12px 0 22px;line-height:1.55;">${pkgs.premium.desc}</div>
                 <div style="font-size:28px;font-weight:900;color:#0369a1;">${pkgs.premium.capex.toLocaleString('es-ES')} €</div>
-                <div style="font-size:10px;color:#64748b;margin-top:4px;">IVA 21% incluido</div>
+                <div style="font-size:10px;color:#64748b;margin-top:4px;">IVA ${Math.round((m.ivaRate != null ? m.ivaRate : 0.21) * 100)}% incluido</div>
               </div>
               <div style="margin-top:26px;border-top:1.5px solid #e2e8f0;padding-top:18px;font-size:12px;line-height:1.9;">
                 <div style="display:flex;align-items:center;gap:6px;">${_mSvg('bolt', 13, '#0369a1')} <span>Ahorro: <b>${pkgs.premium.ahorroAnual.toLocaleString('es-ES')} €/año</b></span></div>
@@ -4763,7 +4784,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
           })()}
           ${(m.discountEur && m.discountEur > 0) ? '<tr style="background:#fef2f2;color:#dc2626;"><td style="font-weight:700;">Promoción</td><td><strong>' + (m.discountLabel || 'Descuento Comercial Especial') + '</strong></td><td class="text-right" style="font-weight:800;">- ' + Math.round(m.discountEur).toLocaleString('es-ES') + ' €</td></tr>' : ''}
           <tr style="background:#f8fafc;font-weight:700;border-top:2px solid #cbd5e1;"><td>BASE IMPONIBLE</td><td>Total Ejecución Material y Servicios Llave en Mano</td><td class="text-right" style="color:${pal.primary};">${Math.round(m.subtotal).toLocaleString('es-ES')} €</td></tr>
-          <tr style="background:#f8fafc;"><td>IVA APLICABLE</td><td>Impuesto sobre el Valor Añadido (21%)</td><td class="text-right">${Math.round(m.iva).toLocaleString('es-ES')} €</td></tr>
+          <tr style="background:#f8fafc;"><td>IVA APLICABLE</td><td>Impuesto sobre el Valor Añadido (${Math.round((m.ivaRate != null ? m.ivaRate : 0.21) * 100)}%)</td><td class="text-right">${Math.round(m.iva).toLocaleString('es-ES')} €</td></tr>
           <tr class="total-row"><td>TOTAL PRESUPUESTO</td><td>INVERSIÓN TOTAL LLAVE EN MANO (IVA INCLUIDO)</td><td class="text-right">${Math.round(m.capexBruto).toLocaleString('es-ES')} €</td></tr>
         </table>
 
@@ -4772,8 +4793,12 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         <table>
           <tr><th>Concepto Fiscal</th><th>Detalle / Normativa Aplicable</th><th class="text-right">Ahorro Estimado</th></tr>
           <tr><td>Bonificación IBI</td><td>Bonificación en el Impuesto sobre Bienes Inmuebles</td><td class="text-right">${Math.round(m.ahorroIBITotal).toLocaleString('es-ES')} €</td></tr>
-          <tr><td>Deducción IRPF</td><td>Deducción en IRPF por reducción de demanda / energía primaria (RD 19/2021)</td><td class="text-right">${Math.round(m.ahorroIRPF).toLocaleString('es-ES')} €</td></tr>
-          <tr style="background:${pal.light};font-weight:800;"><td>TOTAL DEDUCCIONES FISCALES</td><td>Deducción fiscal directa acumulada (IBI + IRPF)</td><td class="text-right" style="color:${pal.primary}">- ${Math.round(m.totalAhorroFiscal).toLocaleString('es-ES')} €</td></tr>
+          ${(m.customerProfile === 'empresa') ? `
+          <tr><td>Libertad de Amortización (IS)</td><td>Amortización acelerada 100% Año 1 (DA 17ª LIS / RDL 18/2022, Tipo ${Math.round((m.isRate || 0.25) * 100)}%)</td><td class="text-right">${Math.round(m.ahorroSociedades || 0).toLocaleString('es-ES')} €</td></tr>
+          ` : `
+          <tr><td>Deducción IRPF</td><td>Deducción en IRPF por eficiencia energética / autoconsumo (RD-ley 19/2021)</td><td class="text-right">${Math.round(m.ahorroIRPF).toLocaleString('es-ES')} €</td></tr>
+          `}
+          <tr style="background:${pal.light};font-weight:800;"><td>TOTAL DEDUCCIONES FISCALES</td><td>Deducción fiscal directa acumulada (IBI + ${(m.customerProfile === 'empresa') ? 'Sociedades' : 'IRPF'})</td><td class="text-right" style="color:${pal.primary}">- ${Math.round(m.totalAhorroFiscal).toLocaleString('es-ES')} €</td></tr>
           <tr class="total-row"><td>INVERSIÓN NETA</td><td>COSTE FINAL TRAS DEDUCCIONES FISCALES DIRECTAS</td><td class="text-right" style="color:${pal.dark}">${Math.round(m.capexNeto).toLocaleString('es-ES')} €</td></tr>
           <tr><td style="color:#64748b;font-size:10px;">Desembolso inicial (base de TIR y payback)</td><td style="color:#64748b;font-size:10px;">CAPEX bruto: las deducciones se computan como flujo positivo en los años 1..N</td><td class="text-right" style="color:#64748b;font-size:10px;">${Math.round(m.capexBruto).toLocaleString('es-ES')} €</td></tr>
           <tr><td style="color:#64748b;font-size:10px;">Bonificación ICIO*</td><td style="color:#64748b;font-size:10px;">Exención del 95% en Impuesto de Construcciones y Obras (ahorro en tasa municipal ajeno a la factura)</td><td class="text-right" style="color:#64748b;font-size:10px;">${Math.round(m.ahorroICIO).toLocaleString('es-ES')} €</td></tr>
@@ -4852,14 +4877,14 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
           </div>
           <div class="decision-row" style="color:#059669;font-weight:700;">
             <span>${m.discountLabel}:</span>
-            <span>-${Math.round(m.discountEur * 1.21).toLocaleString('es-ES')} €</span>
+            <span>-${Math.round(m.discountEur * (1 + (m.ivaRate != null ? m.ivaRate : 0.21))).toLocaleString('es-ES')} €</span>
           </div>` : ''}
           <div class="decision-row">
-            <span>Presupuesto Instalación (IVA 21% inc.):</span>
+            <span>Presupuesto Instalación (IVA ${Math.round((m.ivaRate != null ? m.ivaRate : 0.21) * 100)}% inc.):</span>
             <b style="color:${m.capexTachado ? '#059669' : 'inherit'};font-size:${m.capexTachado ? '12px' : '11px'};">${Math.round(m.capexBruto).toLocaleString('es-ES')} €</b>
           </div>
           <div class="decision-row" style="color:${pal.primary};">
-            <span>Bonificaciones Fiscales (IBI/ICIO/IRPF):</span>
+            <span>Bonificaciones Fiscales (IBI/${(m.customerProfile === 'empresa') ? 'Sociedades' : 'IRPF'}):</span>
             <b>- ${Math.round(m.totalAhorroFiscal).toLocaleString('es-ES')} €</b>
           </div>
           <div class="decision-total" style="color:${pal.dark};">
@@ -5718,13 +5743,26 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       discountEur = Math.max(0, Number(commercialCfg.discountValue) || 0);
     }
   }
-  const subtotal = Math.max(100, Math.round(subtotalPreDiscount - discountEur));
-  const iva = Math.round(subtotal * 0.21);
-  const capexBruto = subtotal + iva;
-  const capexTachado = (discountEur > 0) ? Math.round(subtotalPreDiscount * 1.21) : null;
-
   // Fiscalidad con sincronización SSOT y respaldo desde configuración persistida
   const _commTax = (commercialCfg && commercialCfg.taxShield) ? commercialCfg.taxShield : {};
+
+  // Lector de IVA dinámico (21% general, 10% reducido reforma/vivienda, 0% exento/IGIC)
+  const ivaEl = document.getElementById('tax-iva-opt') || document.getElementById('modal-tax-iva-opt');
+  let ivaRate = (ivaEl && ivaEl.value !== undefined && ivaEl.value !== '') ? parseFloat(ivaEl.value) : undefined;
+  if (!Number.isFinite(ivaRate) && _commTax && typeof _commTax.ivaRate === 'number') {
+    ivaRate = _commTax.ivaRate;
+  }
+  if (!Number.isFinite(ivaRate)) ivaRate = 0.21;
+
+  const subtotal = Math.max(100, Math.round(subtotalPreDiscount - discountEur));
+  const iva = Math.round(subtotal * ivaRate);
+  const capexBruto = subtotal + iva;
+  const capexTachado = (discountEur > 0) ? Math.round(subtotalPreDiscount * (1 + ivaRate)) : null;
+
+  // Perfil fiscal del cliente: Particular / Residencial (IRPF) vs Empresa / Pyme (Impuesto sobre Sociedades)
+  const profileEl = document.getElementById('tax-profile-opt') || document.getElementById('modal-tax-profile-opt');
+  const customerProfile = (profileEl && profileEl.value) ? profileEl.value : ((_commTax && _commTax.customerProfile) || 'particular');
+
   const ibiCuota = _input('tax-ibi-cuota', (_commTax.ibiAnualEur !== undefined ? _commTax.ibiAnualEur : 650));
   const ibiOpt = _sel('tax-ibi-opt', (_commTax.ibiYears === 5 ? '0.50_5' : (_commTax.ibiYears === 3 ? '0.50_3' : '0.50_3')));
   let ahorroIBITotal = 0;
@@ -5737,26 +5775,52 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     ahorroIBITotal = ibiCuota * (_commTax.ibiBonifPct / 100.0) * _commTax.ibiYears;
   }
 
-  // Lector robusto de IRPF con respaldo en configuración persistida
+  // Deducción IRPF (Particulares) con soporte autoconsumo 2026 (10-20%) y eficiencia energética (20-60%)
   const irpfEl = document.getElementById('tax-irpf-opt') || document.getElementById('modal-tax-irpf-opt');
-  let irpfPct = parseFloat((irpfEl || {}).value);
+  const irpfOptVal = irpfEl ? String(irpfEl.value) : '';
+  let irpfPct = parseFloat(irpfOptVal);
   if (!Number.isFinite(irpfPct) && _commTax.irpfEnabled !== false && typeof _commTax.irpfPct === 'number') {
     irpfPct = _commTax.irpfPct / 100.0;
   }
   if (!Number.isFinite(irpfPct)) irpfPct = 0;
-  const maxBaseIrpf = (_commTax.irpfMaxBaseEur && _commTax.irpfMaxBaseEur > 0)
-    ? _commTax.irpfMaxBaseEur
-    : (irpfPct >= 0.50 ? 15000 : (irpfPct >= 0.30 ? 7500 : 5000));
+
+  // Límites de base máxima según normativa IRPF (RD-ley 19/2021 y Ley 35/2006 IRPF)
+  let maxBaseIrpf = 5000;
+  if (irpfOptVal === '0.60' || (!irpfOptVal && irpfPct >= 0.50)) {
+    maxBaseIrpf = 15000;
+  } else if (irpfOptVal === '0.40' || (!irpfOptVal && irpfPct >= 0.30)) {
+    maxBaseIrpf = 7500;
+  } else {
+    maxBaseIrpf = 5000;
+  }
+  if (!irpfOptVal && _commTax.irpfMaxBaseEur && _commTax.irpfMaxBaseEur > 0) {
+    maxBaseIrpf = _commTax.irpfMaxBaseEur;
+  }
   const baseIrpf = Math.min(capexBruto, maxBaseIrpf);
-  const ahorroIRPF = (_commTax.irpfEnabled === false) ? 0 : (baseIrpf * irpfPct);
+  let ahorroIRPF = (_commTax.irpfEnabled === false || customerProfile === 'empresa') ? 0 : (baseIrpf * irpfPct);
+
+  // Impuesto sobre Sociedades: Libertad de Amortización (DA 17ª LIS / RDL 18/2022) para Empresas
+  const isEl = document.getElementById('tax-is-opt') || document.getElementById('modal-tax-is-opt');
+  let isRate = (isEl && isEl.value !== undefined && isEl.value !== '') ? parseFloat(isEl.value) : undefined;
+  if (!Number.isFinite(isRate) && _commTax && typeof _commTax.isRate === 'number') {
+    isRate = _commTax.isRate;
+  }
+  if (!Number.isFinite(isRate)) isRate = (customerProfile === 'empresa' ? 0.25 : 0);
+
+  let ahorroSociedades = 0;
+  if (customerProfile === 'empresa' && isRate > 0) {
+    // Escudo fiscal íntegro en Año 1. Base amortizable = subtotal (IVA deducible para empresas)
+    ahorroSociedades = Math.round(subtotal * isRate);
+    ahorroIRPF = 0; // Persona jurídica no desgrava IRPF
+  }
 
   const icioPct = _input('tax-icio-opt', (_commTax.icioBonifPct ? _commTax.icioBonifPct / 100.0 : 0.95));
   const tasaICIO = designCosts && designCosts.icioTaxEur > 0 ? designCosts.icioTaxEur : Math.round(directCost * 0.035);
   const ahorroICIO = Math.round(tasaICIO * icioPct);
 
-  // [SSOT Contable] Como tasaICIO es una tasa municipal externa no cobrada dentro de capexBruto,
-  // el ahorro fiscal que reduce la inversión llave en mano del cliente es IBI + IRPF.
-  const totalAhorroFiscal = ahorroIBITotal + ahorroIRPF;
+  // [SSOT Contable] Deducción directa en el proyecto según perfil fiscal (IBI + IRPF/Sociedades)
+  const ahorroDeduccionDirecta = (customerProfile === 'empresa') ? ahorroSociedades : ahorroIRPF;
+  const totalAhorroFiscal = ahorroIBITotal + ahorroDeduccionDirecta;
   const capexNeto = Math.max(capexBruto - totalAhorroFiscal, 100);
 
   // Autarquía según presencia de batería — con despacho horario y TOU
@@ -6051,9 +6115,9 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     discountedCostsSum += (omY + replY) / Math.pow(1 + r, y);
     discountedYieldSum += yieldY / Math.pow(1 + r, y);
 
-    // Aportación fiscal real sin duplicidad: IRPF en año 1, IBI en años 1 a N_ibi
+    // Aportación fiscal real sin duplicidad: IRPF o Sociedades en año 1, IBI en años 1 a N_ibi
     let fiscalY = 0;
-    if (y === 1) fiscalY += ahorroIRPF;
+    if (y === 1) fiscalY += (customerProfile === 'empresa' ? ahorroSociedades : ahorroIRPF);
     if (y <= ibiYears) fiscalY += ibiAnnualBonus;
 
     const netCF = saveY - omY - replY + fiscalY;
@@ -6183,10 +6247,16 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     capexTachado: capexTachado,
     tasaICIO: tasaICIO,
     subtotal: subtotal,
+    ivaRate: ivaRate,
     iva: iva,
     capexBruto: capexBruto,
+    customerProfile: customerProfile,
+    isRate: isRate,
+    ahorroSociedades: ahorroSociedades,
+    ahorroDeduccionDirecta: ahorroDeduccionDirecta,
     ahorroIBITotal: ahorroIBITotal,
     ahorroIRPF: ahorroIRPF,
+    irpfPct: irpfPct,
     ahorroICIO: ahorroICIO,
     totalAhorroFiscal: totalAhorroFiscal,
     capexNeto: capexNeto,
@@ -6210,6 +6280,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     cuotaMensual: cuotaMensual,
     ahorroMensualLuz: ahorroMensualLuz,
     balanceNetoMensual: balanceNetoMensual,
+    cashflow: cashflow,
     cashflowAcum: acumulado,
     touNombre: tou.name,
     batCap: batCap,
