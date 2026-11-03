@@ -501,6 +501,13 @@
     var curSnapshot = getViewerSnapshot();
     ProposalConfig.renderSnapshot = curSnapshot;
 
+    function _dSvg(name, size, color, extraStyle) {
+      if (global.RA_SvgCatalog && typeof global.RA_SvgCatalog.mini === 'function') {
+        return global.RA_SvgCatalog.mini(name, size || 14, color || 'currentColor', extraStyle || '');
+      }
+      return '<svg width="' + (size || 14) + '" height="' + (size || 14) + '" viewBox="0 0 24 24" fill="none" stroke="' + (color || 'currentColor') + '" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-0.18em;flex-shrink:0;' + (extraStyle || '') + '"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>';
+    }
+
     var modal = document.createElement('div');
     modal.id = 'ra-dossier-config-modal';
     modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,0.85);backdrop-filter:blur(8px);z-index:999999;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;';
@@ -511,13 +518,13 @@
       '  <!-- Header -->',
       '  <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.1);background:#1e293b;">',
       '    <div style="display:flex;align-items:center;gap:10px;">',
-      '      <span style="font-size:22px;">📊</span>',
+      '      <span style="display:inline-flex;color:#38bdf8;">' + _dSvg('chart', 22, '#38bdf8') + '</span>',
       '      <div>',
       '        <h3 style="margin:0;font-size:16px;font-weight:800;letter-spacing:0.02em;">Configuración del Dossier Comercial (10 Láminas A4)</h3>',
       '        <div style="font-size:11px;color:#94a3b8;margin-top:2px;">Personaliza todos los datos técnicos, económicos y visuales antes de generar el documento editable</div>',
       '      </div>',
       '    </div>',
-      '    <button onclick="document.getElementById(\'ra-dossier-config-modal\').remove()" style="background:none;border:none;color:#94a3b8;font-size:20px;cursor:pointer;padding:4px 8px;">✕</button>',
+      '    <button onclick="document.getElementById(\'ra-dossier-config-modal\').remove()" style="background:none;border:none;color:#94a3b8;font-size:20px;cursor:pointer;padding:4px 8px;display:inline-flex;align-items:center;">' + _dSvg('close', 18, '#94a3b8') + '</button>',
       '  </div>',
 
       '  <!-- Body con pestañas/secciones scrolleables -->',
@@ -525,7 +532,7 @@
       
       '    <!-- SECCIÓN 1: DATOS DEL CLIENTE Y SUMINISTRO -->',
       '    <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:14px;">',
-      '      <div style="font-size:12px;font-weight:800;color:#38bdf8;margin-bottom:10px;display:flex;align-items:center;gap:6px;">👤 DATOS DEL CLIENTE & SUMINISTRO (SSOT)</div>',
+      '      <div style="font-size:12px;font-weight:800;color:#38bdf8;margin-bottom:10px;display:flex;align-items:center;gap:6px;">' + _dSvg('user', 14, '#38bdf8') + ' DATOS DEL CLIENTE & SUMINISTRO (SSOT)</div>',
       '      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">',
       '        <div>',
       '          <label style="font-size:10.5px;color:#94a3b8;display:block;margin-bottom:3px;">Nombre / Razón Social:</label>',
@@ -556,7 +563,7 @@
 
       '    <!-- SECCIÓN 2: PARÁMETROS ECONÓMICOS Y COMERCIALES -->',
       '    <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:14px;">',
-      '      <div style="font-size:12px;font-weight:800;color:#10b981;margin-bottom:10px;display:flex;align-items:center;gap:6px;">💰 PROPUESTA ECONÓMICA Y OFERTA (SSOT)</div>',
+      '      <div style="font-size:12px;font-weight:800;color:#10b981;margin-bottom:10px;display:flex;align-items:center;gap:6px;">' + _dSvg('euro', 14, '#10b981') + ' PROPUESTA ECONÓMICA Y OFERTA (SSOT)</div>',
       '      <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:10px;">',
       '        <div>',
       '          <label style="font-size:10.5px;color:#94a3b8;display:block;margin-bottom:3px;">Coste Instalación (€ sin IVA):</label>',
@@ -587,7 +594,7 @@
 
       '    <!-- SECCIÓN 3: IDENTIDAD CORPORATIVA & BRANDING -->',
       '    <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:14px;">',
-      '      <div style="font-size:12px;font-weight:800;color:#f59e0b;margin-bottom:10px;display:flex;align-items:center;gap:6px;">🏢 IDENTIDAD CORPORATIVA & BRANDING</div>',
+      '      <div style="font-size:12px;font-weight:800;color:#f59e0b;margin-bottom:10px;display:flex;align-items:center;gap:6px;">' + _dSvg('building', 14, '#f59e0b') + ' IDENTIDAD CORPORATIVA & BRANDING</div>',
       '      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">',
       '        <div>',
       '          <label style="font-size:10.5px;color:#94a3b8;display:block;margin-bottom:3px;">Nombre Empresa Instaladora:</label>',
@@ -611,9 +618,9 @@
       '      <div style="margin-top:12px;">',
       '        <label style="font-size:10.5px;color:#94a3b8;display:block;margin-bottom:5px;">Estilo de Maquetación & Diseño:</label>',
       '        <select id="dossier-cfg-layout-style" style="width:100%;padding:7px 10px;background:#1e293b;border:1px solid #475569;border-radius:6px;color:#FBBF24;font-size:12px;font-weight:700;box-sizing:border-box;outline:none;">',
-      '          <option value="editorial" ' + (data.branding.layoutStyle === 'editorial' ? 'selected' : '') + '>🎨 Editorial Premium (Espacios diáfanos, vectores aireados)</option>',
-      '          <option value="infographic" ' + (data.branding.layoutStyle === 'infographic' ? 'selected' : '') + '>📊 Infografía Comercial (Foco en KPIs y gráficos)</option>',
-      '          <option value="technical" ' + (data.branding.layoutStyle === 'technical' ? 'selected' : '') + '>📐 Técnico Equilibrado (Ingeniería estructurada)</option>',
+      '          <option value="editorial" ' + (data.branding.layoutStyle === 'editorial' ? 'selected' : '') + '>Editorial Premium (Espacios diáfanos, vectores aireados)</option>',
+      '          <option value="infographic" ' + (data.branding.layoutStyle === 'infographic' ? 'selected' : '') + '>Infografía Comercial (Foco en KPIs y gráficos)</option>',
+      '          <option value="technical" ' + (data.branding.layoutStyle === 'technical' ? 'selected' : '') + '>Técnico Equilibrado (Ingeniería estructurada)</option>',
       '        </select>',
       '      </div>',
       '',
@@ -642,7 +649,7 @@
       '      </div>',
       '      <div style="width:130px;height:75px;border-radius:6px;overflow:hidden;background:#000;border:1px solid #475569;display:flex;align-items:center;justify-content:center;position:relative;">',
       (curSnapshot ? '<img id="dossier-snapshot-preview" src="' + curSnapshot + '" style="width:100%;height:100%;object-fit:cover;" alt="Render"/>' : '<span style="font-size:10px;color:#64748b;">Sin captura</span>'),
-      '        <button type="button" onclick="window.CommercialProposalDossier.refreshSnapshot()" style="position:absolute;bottom:4px;right:4px;background:rgba(15,23,42,0.8);border:1px solid #475569;color:#fff;border-radius:4px;font-size:9px;padding:2px 5px;cursor:pointer;">🔄 Refrescar</button>',
+      '        <button type="button" onclick="window.CommercialProposalDossier.refreshSnapshot()" style="position:absolute;bottom:4px;right:4px;background:rgba(15,23,42,0.8);border:1px solid #475569;color:#fff;border-radius:4px;font-size:9px;padding:2px 5px;cursor:pointer;display:inline-flex;align-items:center;gap:3px;">' + _dSvg('refresh', 10, '#ffffff') + ' Refrescar</button>',
       '      </div>',
       '    </div>',
 
@@ -654,7 +661,7 @@
       '    <div style="display:flex;gap:10px;">',
       '      <button onclick="document.getElementById(\'ra-dossier-config-modal\').remove()" style="padding:9px 18px;background:transparent;border:1px solid #475569;color:#cbd5e1;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">Cancelar</button>',
       '      <button onclick="window.CommercialProposalDossier.generateFromModal()" style="padding:9px 24px;background:linear-gradient(135deg, #e11d48, #f97316);border:none;color:#fff;font-weight:800;border-radius:6px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:8px;box-shadow:0 4px 14px rgba(225,29,72,0.4);">',
-      '        <span>GENERAR DOSSIER EDITABLE</span> ➔',
+      '        <span>GENERAR DOSSIER EDITABLE</span> ' + _dSvg('arrowRight', 14, '#ffffff'),
       '      </button>',
       '    </div>',
       '  </div>',
@@ -781,6 +788,63 @@
     var rgbPri = hexToRgb(pal.primary);
     var layoutStyle = ProposalConfig.layoutStyle || (raw.branding && raw.branding.layoutStyle) || 'editorial';
 
+    // ── Configuración de Logotipo & Encabezados desde el Estudio de Maquetación ──
+    var studioCfg = (global.RAProposalStyleStudio && typeof global.RAProposalStyleStudio.getActiveConfig === 'function')
+      ? global.RAProposalStyleStudio.getActiveConfig()
+      : null;
+    var dossierModality = (studioCfg && studioCfg.installationModality) || 'grid_surplus_cel';
+    var isDossierOffGrid = (dossierModality === 'off_grid');
+    var dossierRefPrice = (studioCfg && typeof studioCfg.referenceGridPriceEUR === 'number' && studioCfg.referenceGridPriceEUR > 0)
+      ? studioCfg.referenceGridPriceEUR
+      : 0.22;
+    if (isDossierOffGrid) {
+      var yieldNum = parseEsNum(annualYield, 4000);
+      var offValAnual = Math.round(yieldNum * dossierRefPrice);
+      var offValMes = Math.round(offValAnual / 12);
+      ahorroAnual = offValAnual.toLocaleString('es-ES');
+      ahorro25 = Math.round(offValAnual * 25 * 1.15).toLocaleString('es-ES');
+      raw.metrics.ahorroMensual = offValMes.toLocaleString('es-ES');
+      raw.metrics.gridPrice = dossierRefPrice.toFixed(2).replace('.', ',') + ' €/kWh';
+      cups = 'Suministro 100% Aislado (Off-Grid)';
+    }
+    var headerLogoScope = (studioCfg && studioCfg.headerLogoScope) || 'all';
+    var headerLogoFormat = (studioCfg && studioCfg.headerLogoFormat) || 'logo_and_title';
+    var headerLogoStyle = (studioCfg && studioCfg.headerLogoStyle) || 'clean';
+    var coverLogoH = (studioCfg && Number(studioCfg.coverLogoHeightPx)) || 45;
+    var innerLogoH = (studioCfg && Number(studioCfg.innerHeaderLogoHeightPx)) || 26;
+    var logoStyleClass = headerLogoStyle === 'pill' ? ' ra-logo-pill' : (headerLogoStyle === 'subtle' ? ' ra-logo-subtle' : '');
+
+    function getDossierInnerLogoHTML() {
+      if (headerLogoScope === 'none') return '';
+      if (!companyLogo) return '';
+      return '<span class="ra-header-logo-wrap' + logoStyleClass + '" style="display:inline-flex;align-items:center;">' +
+        '<img src="' + companyLogo + '" class="ra-header-logo-img" style="height:' + innerLogoH + 'px;max-height:' + innerLogoH + 'px;max-width:160px;object-fit:contain;vertical-align:middle;" alt="Logo"/>' +
+      '</span>';
+    }
+
+    function buildDossierSheetHead(sheetNumTitle) {
+      var innerLogo = getDossierInnerLogoHTML();
+      var leftHTML = '';
+      var rightHTML = '';
+
+      if (headerLogoFormat === 'logo_only') {
+        leftHTML = innerLogo || companyName;
+        rightHTML = sheetNumTitle;
+      } else if (headerLogoFormat === 'right_aligned') {
+        leftHTML = companyName;
+        rightHTML = sheetNumTitle + (innerLogo ? '<span style="border-left:1.5px solid #cbd5e1;height:18px;display:inline-block;margin:0 8px;vertical-align:middle;"></span>' + innerLogo : '');
+      } else {
+        // 'logo_and_title' (default)
+        leftHTML = (innerLogo ? innerLogo + '<span style="border-left:1.5px solid #cbd5e1;height:20px;display:inline-block;margin:0 8px;vertical-align:middle;"></span>' : '') + companyName;
+        rightHTML = sheetNumTitle;
+      }
+
+      return '  <div class="sheet-head">' +
+        '    <div class="editable-field" contenteditable="true" style="font-size:20px;font-weight:900;color:' + pal.primary + ';display:inline-flex;align-items:center;">' + leftHTML + '</div>' +
+        '    <div class="editable-field" contenteditable="true" style="font-size:16px;font-weight:800;color:' + pal.primary + ';display:inline-flex;align-items:center;">' + rightHTML + '</div>' +
+        '  </div>';
+    }
+
     // Helper SVG con fallback de seguridad y soporte multialias
     function getDossierIcon(name, col, sz) {
       var cat = (typeof window !== 'undefined' && (window.RA_SvgCatalog || window.RASvgCatalog)) 
@@ -808,12 +872,19 @@
       '</div>';
     }
 
+    function _dSvg(name, size, color, extraStyle) {
+      if (global.RA_SvgCatalog && typeof global.RA_SvgCatalog.mini === 'function') {
+        return global.RA_SvgCatalog.mini(name, size || 14, color || 'currentColor', extraStyle || '');
+      }
+      return '<svg width="' + (size || 14) + '" height="' + (size || 14) + '" viewBox="0 0 24 24" fill="none" stroke="' + (color || 'currentColor') + '" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-0.18em;flex-shrink:0;' + (extraStyle || '') + '"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>';
+    }
+
     function makeImgBox(imgSrc, altText, extraStyle, labelText) {
       return '<div class="dossier-img-box" style="' + (extraStyle || '') + '">' +
         (imgSrc 
           ? '<img src="' + imgSrc + '" class="dossier-target-img" style="width:100%;height:100%;object-fit:cover;" alt="' + (altText || 'Imagen') + '"/>' 
           : '<div style="color:#cbd5e1;font-size:15px;font-weight:700;text-align:center;padding:20px;">' + (altText || 'Sin imagen') + '</div>') +
-        '<button type="button" class="dossier-img-picker-btn no-print" onclick="DossierWYSIWYG.triggerImageUpload(this)">📁 Seleccionar imagen local (HDD)</button>' +
+        '<button type="button" class="dossier-img-picker-btn no-print" onclick="DossierWYSIWYG.triggerImageUpload(this)">' + _dSvg('folder', 12, '#ffffff', 'margin-right:4px;') + 'Seleccionar imagen local (HDD)</button>' +
         '<input type="file" accept="image/*" class="dossier-file-input no-print" style="display:none;" onchange="DossierWYSIWYG.handleImageUploaded(this)"/>' +
         (labelText ? '<div class="editable-field" contenteditable="true" style="position:absolute;bottom:10px;left:14px;background:rgba(15,23,42,0.85);backdrop-filter:blur(6px);padding:5px 12px;border-radius:6px;color:#fff;font-size:11px;font-weight:700;">' + labelText + '</div>' : '') +
       '</div>';
@@ -830,7 +901,7 @@
       '<title>Propuesta Técnica & Comercial - ' + clientName + '</title>',
       '<link rel="preconnect" href="https://fonts.googleapis.com">',
       '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>',
-      '<link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300;400;600;700&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">',
+      '<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Comfortaa:wght@300;400;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,400..700;1,9..40,400..700&family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&family=Montserrat:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">',
       '<style>',
       '  @page { size: A4 landscape; margin: 0; }',
       '  *, *::before, *::after { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
@@ -1051,24 +1122,24 @@
       '<!-- BARRA DE HERRAMIENTAS INTERACTIVA -->',
       '<div class="dossier-toolbar no-print">',
       '  <div style="display:flex;align-items:center;gap:12px;">',
-      '    <strong style="font-size:13px;letter-spacing:0.04em;">📑 DOSSIER COMERCIAL LANDSCAPE</strong>',
+      '    <strong style="font-size:13px;letter-spacing:0.04em;display:inline-flex;align-items:center;gap:6px;">' + _dSvg('fileText', 15, pal.primary) + ' DOSSIER COMERCIAL LANDSCAPE</strong>',
       '    <span style="font-size:11px;color:#94a3b8;background:#1e293b;padding:3px 8px;border-radius:4px;border:1px solid #334155;">10 Láminas Técnicas</span>',
       '  </div>',
       '  <div style="display:flex;gap:7px;align-items:center;">',
-      '    <button class="toolbar-btn" id="btn-toggle-edit" onclick="DossierWYSIWYG.toggleEditMode()" style="background:#f59e0b;color:#000;">✏️ MODO EDICIÓN WYSIWYG</button>',
-      '    <button class="toolbar-btn" id="btn-save-draft" onclick="DossierWYSIWYG.saveDraftManual()" style="background:#059669;" title="Guardar cambios localmente">💾 GUARDAR BORRADOR</button>',
-      '    <button class="toolbar-btn" id="btn-restore-draft" onclick="DossierWYSIWYG.restoreDraftManual()" style="background:#475569;display:none;" title="Recuperar borrador anterior">🔄 RESTAURAR</button>',
-      '    <button class="toolbar-btn" onclick="DossierWYSIWYG.runTestSuite()" style="background:#8b5cf6;">🧪 TEST WYSIWYG</button>',
-      '    <button class="toolbar-btn" onclick="window.print()" style="background:' + pal.primary + ';">🖨️ IMPRIMIR / PDF</button>',
-      '    <button class="toolbar-btn" id="btn-dossier-docx" onclick="DossierWYSIWYG.exportToWordDocx()" style="background:#2563eb;" title="Descargar documento Word (.docx) con maquetación e imágenes">📄 DESCARGAR WORD (.DOCX)</button>',
-      '    <button class="toolbar-btn" onclick="DossierWYSIWYG.exportToHtml()" style="background:#475569;">🌐 GUARDAR HTML</button>',
-      '    <button class="toolbar-btn" onclick="window.close()" style="background:#ef4444;margin-left:6px;">✕</button>',
+      '    <button class="toolbar-btn" id="btn-toggle-edit" onclick="DossierWYSIWYG.toggleEditMode()" style="background:#f59e0b;color:#000;">' + _dSvg('edit', 13, '#000000') + ' MODO EDICIÓN WYSIWYG</button>',
+      '    <button class="toolbar-btn" id="btn-save-draft" onclick="DossierWYSIWYG.saveDraftManual()" style="background:#059669;" title="Guardar cambios localmente">' + _dSvg('save', 13, '#ffffff') + ' GUARDAR BORRADOR</button>',
+      '    <button class="toolbar-btn" id="btn-restore-draft" onclick="DossierWYSIWYG.restoreDraftManual()" style="background:#475569;display:none;" title="Recuperar borrador anterior">' + _dSvg('refresh', 13, '#ffffff') + ' RESTAURAR</button>',
+      '    <button class="toolbar-btn" onclick="DossierWYSIWYG.runTestSuite()" style="background:#8b5cf6;">' + _dSvg('flask', 13, '#ffffff') + ' TEST WYSIWYG</button>',
+      '    <button class="toolbar-btn" onclick="window.print()" style="background:' + pal.primary + ';">' + _dSvg('printer', 13, '#ffffff') + ' IMPRIMIR / PDF</button>',
+      '    <button class="toolbar-btn" id="btn-dossier-docx" onclick="DossierWYSIWYG.exportToWordDocx()" style="background:#2563eb;" title="Descargar documento Word (.docx) con maquetación e imágenes">' + _dSvg('fileText', 13, '#ffffff') + ' DESCARGAR WORD (.DOCX)</button>',
+      '    <button class="toolbar-btn" onclick="DossierWYSIWYG.exportToHtml()" style="background:#475569;">' + _dSvg('globe', 13, '#ffffff') + ' GUARDAR HTML</button>',
+      '    <button class="toolbar-btn" onclick="window.close()" style="background:#ef4444;margin-left:6px;">' + _dSvg('close', 14, '#ffffff') + '</button>',
       '  </div>',
       '</div>',
       '',
       '<!-- BARRA FLOTANTE CONTEXTUAL DE FORMATO -->',
       '<div id="dossier-format-bar" class="no-print">',
-      '  <div style="font-size:11px;font-weight:800;color:' + pal.primary + ';margin-right:2px;display:flex;align-items:center;gap:4px;">✏️ FORMATO</div>',
+      '  <div style="font-size:11px;font-weight:800;color:' + pal.primary + ';margin-right:2px;display:flex;align-items:center;gap:4px;">' + _dSvg('edit', 12, pal.primary) + ' FORMATO</div>',
       '  <div class="fmt-sep"></div>',
       '  <!-- Selector de Fuente / Tipografía -->',
       '  <select class="fmt-select" id="fmt-font-family" onchange="DossierWYSIWYG.changeFontFamily(this.value)" title="Tipo de fuente">',
@@ -1109,9 +1180,9 @@
       '  <input type="color" class="fmt-color-picker" id="fmt-custom-color" onchange="DossierWYSIWYG.applyColor(this.value)" title="Elegir color personalizado"/>',
       '  <div class="fmt-sep"></div>',
       '  <!-- Alineación -->',
-      '  <button type="button" class="fmt-btn" onclick="DossierWYSIWYG.execFormat(\'justifyLeft\')" title="Alinear a la izquierda">⬅</button>',
-      '  <button type="button" class="fmt-btn" onclick="DossierWYSIWYG.execFormat(\'justifyCenter\')" title="Centrar">⬌</button>',
-      '  <button type="button" class="fmt-btn" onclick="DossierWYSIWYG.execFormat(\'justifyRight\')" title="Alinear a la derecha">➡</button>',
+      '  <button type="button" class="fmt-btn" onclick="DossierWYSIWYG.execFormat(\'justifyLeft\')" title="Alinear a la izquierda">⇤</button>',
+      '  <button type="button" class="fmt-btn" onclick="DossierWYSIWYG.execFormat(\'justifyCenter\')" title="Centrar">≡</button>',
+      '  <button type="button" class="fmt-btn" onclick="DossierWYSIWYG.execFormat(\'justifyRight\')" title="Alinear a la derecha">⇥</button>',
       '</div>',
       '',
       '<div id="dossier-container">',
@@ -1119,7 +1190,7 @@
       '<!-- ── LÁMINA 1: PORTADA ────────────────────────────────────────────────── -->',
       '<div class="sheet" data-section-id="cover">',
       '  <div class="sheet-head">',
-      '    <div class="editable-field" contenteditable="true" style="font-size:24px;font-weight:900;color:' + pal.primary + ';">' + (companyLogo ? '<img src="' + companyLogo + '" style="max-height:45px;vertical-align:middle;"/>' : companyName) + '</div>',
+      '    <div class="editable-field" contenteditable="true" style="font-size:24px;font-weight:900;color:' + pal.primary + ';display:inline-flex;align-items:center;">' + (companyLogo ? '<span class="ra-header-logo-wrap' + logoStyleClass + '"><img src="' + companyLogo + '" class="ra-cover-logo-img" style="height:' + coverLogoH + 'px;max-height:' + coverLogoH + 'px;max-width:200px;object-fit:contain;vertical-align:middle;"/></span>' : companyName) + '</div>',
       '    <div class="editable-field" contenteditable="true" style="font-size:18px;font-weight:800;color:' + pal.primary + ';">' + companyWeb + '</div>',
       '  </div>',
       '  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">',
@@ -1153,10 +1224,7 @@
       '',
       '<!-- ── LÁMINA 2: 01. RESUMEN ────────────────────────────────────────────── -->',
       '<div class="sheet" data-section-id="summary">',
-      '  <div class="sheet-head">',
-      '    <div class="editable-field" contenteditable="true" style="font-size:22px;font-weight:900;color:' + pal.primary + ';">' + companyName + '</div>',
-      '    <div class="editable-field" contenteditable="true" style="font-size:17px;font-weight:800;color:' + pal.primary + ';">01. Resumen Ejecutivo</div>',
-      '  </div>',
+      buildDossierSheetHead('01. Resumen Ejecutivo'),
       '  <div style="display:flex;justify-content:space-between;align-items:center;">',
       '    <div><span class="sheet-title-num editable-field" contenteditable="true">01.</span><span class="sheet-title-txt editable-field" contenteditable="true">Resumen Ejecutivo & Filosofía</span></div>',
       '    <span class="badge-bankable badge-bankable-sky">Perfil: ' + raw.metrics.profileType + '</span>',
@@ -1179,9 +1247,9 @@
       '      </div>',
       '      <div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:10px 8px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.03);">',
       '        <div style="display:flex;justify-content:center;margin-bottom:4px;">' + getDossierIcon('piggyBank', '#16a34a', 30) + '</div>',
-      '        <div style="font-size:12px;color:#64748b;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;">AHORRO ANUAL ESTIMADO</div>',
+      '        <div style="font-size:12px;color:#64748b;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;">' + (isDossierOffGrid ? 'VALOR ENERGÍA GENERADA' : 'AHORRO ANUAL ESTIMADO') + '</div>',
       '        <div style="font-size:26px;font-weight:900;color:#16a34a;margin:4px 0 2px;">' + ahorroAnual + ' €</div>',
-      '        <div style="font-size:13px;color:#64748b;font-weight:700;">Año 1 de explotación</div>',
+      '        <div style="font-size:13px;color:#64748b;font-weight:700;">' + (isDossierOffGrid ? 'No comprada a la red (Año 1)' : 'Año 1 de explotación') + '</div>',
       '      </div>',
       '      <div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:10px 8px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.03);">',
       '        <div style="display:flex;justify-content:center;margin-bottom:4px;">' + getDossierIcon('energyFlow24h', pal.primary, 30) + '</div>',
@@ -1238,13 +1306,11 @@
       '',
       '<!-- ── LÁMINA 3: 02. ESTUDIO PRELIMINAR (FACTURA) ───────────────────────── -->',
       '<div class="sheet" data-section-id="bill_audit">',
-      '  <div class="sheet-head">',
-      '    <div class="editable-field" contenteditable="true" style="font-size:20px;font-weight:900;color:' + pal.primary + ';">' + companyName + '</div>',
-      '    <div class="editable-field" contenteditable="true" style="font-size:16px;font-weight:800;color:' + pal.primary + ';">02. Estudio preliminar</div>',
-      '  </div>',
+      buildDossierSheetHead('02. Estudio preliminar'),
       '  <div><span class="sheet-title-num editable-field" contenteditable="true">02.</span><span class="sheet-title-txt editable-field" contenteditable="true">Estudio Preliminar & Consumos</span></div>',
       divGrad,
-      '  <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:20px;margin-top:10px;align-items:center;">',
+      '  <div class="sheet-body-content">',
+      '    <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:20px;margin-top:10px;align-items:center;">',
       makeCard(
         '<div>' +
         '  <div class="editable-field" contenteditable="true" style="background:#1e293b;color:#fff;padding:6px 12px;border-radius:6px;font-size:15px;font-weight:800;margin-bottom:10px;">CONSUMO MENSUAL ESTIMADO (kWh)</div>' +
@@ -1263,6 +1329,7 @@
         '  </table>' +
         '</div>'
       ),
+      '    </div>',
       '  </div>',
       '  <div class="sheet-footer">',
       '    <span class="editable-field" contenteditable="true">' + companySlogan + '</span>',
@@ -1272,19 +1339,18 @@
       '',
       '<!-- ── LÁMINA 4: 03. INSTALACIÓN PROYECTADA ────────────────────────────── -->',
       '<div class="sheet" data-section-id="installation">',
-      '  <div class="sheet-head">',
-      '    <div class="editable-field" contenteditable="true" style="font-size:20px;font-weight:900;color:' + pal.primary + ';">' + companyName + '</div>',
-      '    <div class="editable-field" contenteditable="true" style="font-size:16px;font-weight:800;color:' + pal.primary + ';">03. Instalación Proyectada</div>',
-      '  </div>',
+      buildDossierSheetHead('03. Instalación Proyectada'),
       '  <div><span class="sheet-title-num editable-field" contenteditable="true">03.</span><span class="sheet-title-txt editable-field" contenteditable="true">Ingeniería & Distribución en Cubierta</span></div>',
       divGrad,
-      '  <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:20px;margin-top:10px;align-items:center;">',
+      '  <div class="sheet-body-content">',
+      '    <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:20px;margin-top:10px;align-items:center;">',
       makeImgBox(renderSnapshot, 'Plano Cenital 3D', 'height:190px;width:100%;border-radius:10px;', 'Vista Cenital Fotogramétrica'),
-      '    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">',
+      '      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">',
       makeCard('<div class="editable-field" contenteditable="true" style="font-size:26px;font-weight:900;color:' + pal.primary + ';">' + kwp + ' kWp</div><div class="editable-field" contenteditable="true" style="font-size:14.5px;color:#64748b;font-weight:700;">Potencia Pico</div>', 'text-align:center;padding:10px;'),
       makeCard('<div class="editable-field" contenteditable="true" style="font-size:26px;font-weight:900;color:' + pal.primary + ';">' + kwNom + ' kWn</div><div class="editable-field" contenteditable="true" style="font-size:14.5px;color:#64748b;font-weight:700;">Potencia Nominal</div>', 'text-align:center;padding:10px;'),
       makeCard('<div class="editable-field" contenteditable="true" style="font-size:26px;font-weight:900;color:#1e293b;">' + numPanels + '</div><div class="editable-field" contenteditable="true" style="font-size:14.5px;color:#64748b;font-weight:700;">Módulos FV</div>', 'text-align:center;padding:10px;'),
       makeCard('<div class="editable-field" contenteditable="true" style="font-size:24px;font-weight:900;color:#1e293b;">' + (raw.equipment.structure.indexOf('Coplanar') !== -1 ? 'COPLANAR' : 'INCLINADA') + '</div><div class="editable-field" contenteditable="true" style="font-size:14.5px;color:#64748b;font-weight:700;">Estructura</div>', 'text-align:center;padding:10px;'),
+      '      </div>',
       '    </div>',
       '  </div>',
       '  <div class="sheet-footer">',
@@ -1295,13 +1361,11 @@
       '',
       '<!-- ── LÁMINA 5: 04. BALANCE MENSUAL ────────────────────────────────────── -->',
       '<div class="sheet" data-section-id="energy_balance">',
-      '  <div class="sheet-head">',
-      '    <div class="editable-field" contenteditable="true" style="font-size:20px;font-weight:900;color:' + pal.primary + ';">' + companyName + '</div>',
-      '    <div class="editable-field" contenteditable="true" style="font-size:16px;font-weight:800;color:' + pal.primary + ';">04. Tu Nueva Situación</div>',
-      '  </div>',
+      buildDossierSheetHead('04. Tu Nueva Situación'),
       '  <div><span class="sheet-title-num editable-field" contenteditable="true">04.</span><span class="sheet-title-txt editable-field" contenteditable="true">Balance Energético Mensual</span></div>',
       divGrad,
-      '  <div style="margin-top:8px;">',
+      '  <div class="sheet-body-content">',
+      '    <div style="margin-top:8px;">',
       makeCard(
         '<table class="table-clean" style="text-align:right;">' +
         '  <thead><tr style="background:#f8fafc;">' +
@@ -1339,6 +1403,7 @@
         '  </tbody>' +
         '</table>'
       ),
+      '    </div>',
       '  </div>',
       '  <div class="sheet-footer">',
       '    <span class="editable-field" contenteditable="true">' + companySlogan + '</span>',
@@ -1348,20 +1413,18 @@
       '',
       '<!-- ── LÁMINA 6: 05. GRÁFICAS DE BALANCE ────────────────────────────────── -->',
       '<div class="sheet" data-section-id="energy_balance">',
-      '  <div class="sheet-head">',
-      '    <div class="editable-field" contenteditable="true" style="font-size:20px;font-weight:900;color:' + pal.primary + ';">' + companyName + '</div>',
-      '    <div class="editable-field" contenteditable="true" style="font-size:16px;font-weight:800;color:' + pal.primary + ';">05. Balance Gráfico</div>',
-      '  </div>',
+      buildDossierSheetHead('05. Balance Gráfico'),
       '  <div><span class="sheet-title-num editable-field" contenteditable="true">05.</span><span class="sheet-title-txt editable-field" contenteditable="true">Curvas de Producción & Cobertura</span></div>',
       divGrad,
-      '  <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:20px;margin-top:10px;align-items:center;">',
+      '  <div class="sheet-body-content">',
+      '    <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:20px;margin-top:10px;align-items:center;">',
       makeCard(
         '<div>' +
         '  <div class="editable-field" contenteditable="true" style="font-size:15px;font-weight:800;margin-bottom:10px;">CURVA HORARIA DIARIA DE AUTOCONSUMO</div>' +
         Charts.dailyCurve(pal, kwp, annualCons / 365) +
         '</div>'
       ),
-      '    <div style="display:flex;justify-content:space-around;align-items:center;">',
+      '      <div style="display:flex;justify-content:space-around;align-items:center;">',
       makeCard(
         '<div style="text-align:center;">' +
         '  <div class="editable-field" contenteditable="true" style="font-size:15px;font-weight:800;margin-bottom:8px;">Consumo Cubierto</div>' +
@@ -1376,6 +1439,7 @@
         '  <div class="editable-field" contenteditable="true" style="font-size:14px;color:#64748b;font-weight:700;margin-top:6px;">' + raw.metrics.totalDestAuto + '% Autoconsumo</div>' +
         '</div>'
       ),
+      '      </div>',
       '    </div>',
       '  </div>',
       '  <div class="sheet-footer">',
@@ -1386,10 +1450,7 @@
       '',
       '<!-- ── LÁMINA 7: 06. EQUIPAMIENTO TÉCNICO & GARANTÍAS ────────────────────── -->',
       '<div class="sheet" data-section-id="installation">',
-      '  <div class="sheet-head">',
-      '    <div class="editable-field" contenteditable="true" style="font-size:22px;font-weight:900;color:' + pal.primary + ';">' + companyName + '</div>',
-      '    <div class="editable-field" contenteditable="true" style="font-size:17px;font-weight:800;color:' + pal.primary + ';">06. Equipamiento & Calidad</div>',
-      '  </div>',
+      buildDossierSheetHead('06. Equipamiento & Calidad'),
       '  <div style="display:flex;justify-content:space-between;align-items:center;">',
       '    <div><span class="sheet-title-num editable-field" contenteditable="true">06.</span><span class="sheet-title-txt editable-field" contenteditable="true">Tu Nuevo Equipo & Matriz de Garantías Tier-1</span></div>',
       '    <span class="badge-bankable badge-bankable-emerald">Componentes Bancables BloombergNEF</span>',
@@ -1466,6 +1527,7 @@
         '  </div>' +
         '</div>'
       ),
+      '    </div>',
       '  </div>',
       '  <div class="sheet-footer">',
       '    <span class="editable-field" contenteditable="true">' + companySlogan + '</span>',
@@ -1475,16 +1537,14 @@
       '',
       '<!-- ── LÁMINA 8: 07. PROPUESTA ECONÓMICA BANCABLE ────────────────────────── -->',
       '<div class="sheet" data-section-id="economics">',
-      '  <div class="sheet-head">',
-      '    <div class="editable-field" contenteditable="true" style="font-size:20px;font-weight:900;color:' + pal.primary + ';">' + companyName + '</div>',
-      '    <div class="editable-field" contenteditable="true" style="font-size:16px;font-weight:800;color:' + pal.primary + ';">07. Propuesta Económica Bancable</div>',
-      '  </div>',
+      buildDossierSheetHead('07. Propuesta Económica Bancable'),
       '  <div style="display:flex;justify-content:space-between;align-items:center;">',
       '    <div><span class="sheet-title-num editable-field" contenteditable="true">07.</span><span class="sheet-title-txt editable-field" contenteditable="true">Inversión & Triple Modalidad Financiera</span></div>',
       '    <span class="badge-bankable badge-bankable-emerald">Oferta Bancable Llave en Mano</span>',
       '  </div>',
       divGrad,
-      '  <div style="display:grid;grid-template-columns:1fr 1.35fr;gap:14px;margin-top:6px;">',
+      '  <div class="sheet-body-content">',
+      '    <div style="display:grid;grid-template-columns:1fr 1.35fr;gap:14px;margin-top:6px;">',
       '    <!-- COLUMNA IZQUIERDA: DESGLOSE DE CAPEX Y PRECIO TOTAL -->',
       '    <div>',
       makeCard(
@@ -1558,7 +1618,7 @@
         '    <div style="font-size:15px;font-weight:900;color:' + pal.primary + ';">' + raw.metrics.cuotaPrestamo + ' €/m</div>' +
         '  </div>' +
         '  <div style="background:#f8fafc;padding:4px;border-radius:6px;">' +
-        '    <div style="font-size:11px;color:#64748b;font-weight:700;">Ahorro Factura</div>' +
+        '    <div style="font-size:11px;color:#64748b;font-weight:700;">' + (isDossierOffGrid ? 'Valor Energía Mes' : 'Ahorro Factura') + '</div>' +
         '    <div style="font-size:15px;font-weight:900;color:#16a34a;">~' + raw.metrics.ahorroMensual + ' €/m</div>' +
         '  </div>' +
         '  <div style="background:#ecfdf5;border:1px solid #86efac;padding:4px;border-radius:6px;">' +
@@ -1596,16 +1656,14 @@
       '',
       '<!-- ── LÁMINA 9: 08. AMORTIZACIÓN A 25 AÑOS & CRONOGRAMA ────────────────────── -->',
       '<div class="sheet" data-section-id="cashflow_25y">',
-      '  <div class="sheet-head">',
-      '    <div class="editable-field" contenteditable="true" style="font-size:20px;font-weight:900;color:' + pal.primary + ';">' + companyName + '</div>',
-      '    <div class="editable-field" contenteditable="true" style="font-size:16px;font-weight:800;color:' + pal.primary + ';">08. Retorno & Ejecución</div>',
-      '  </div>',
+      buildDossierSheetHead('08. Retorno & Ejecución'),
       '  <div style="display:flex;justify-content:space-between;align-items:center;">',
       '    <div><span class="sheet-title-num editable-field" contenteditable="true">08.</span><span class="sheet-title-txt editable-field" contenteditable="true">Flujo de Caja a 25 Años & Cronograma Operativo</span></div>',
       '    <span class="badge-bankable badge-bankable-sky">Modelo Financiero & Hitos de Obra</span>',
       '  </div>',
       divGrad,
-      '  <div style="display:grid;grid-template-columns:1.15fr 1fr;gap:14px;margin-top:6px;">',
+      '  <div class="sheet-body-content">',
+      '    <div style="display:grid;grid-template-columns:1.15fr 1fr;gap:14px;margin-top:6px;">',
       '    <!-- COLUMNA IZQUIERDA: GRÁFICA CASHFLOW Y PARÁMETROS MACRO -->',
       makeCard(
         '<div>' +
@@ -1649,6 +1707,7 @@
         '  </div>' +
         '</div>'
       ),
+      '    </div>',
       '  </div>',
       '  <div class="sheet-footer">',
       '    <span class="editable-field" contenteditable="true">' + companySlogan + '</span>',
@@ -1658,16 +1717,14 @@
       '',
       '<!-- ── LÁMINA 10: CIERRE Y FIRMA ─────────────────────────────────────────── -->',
       '<div class="sheet" data-section-id="closing">',
-      '  <div class="sheet-head">',
-      '    <div class="editable-field" contenteditable="true" style="font-size:20px;font-weight:900;color:' + pal.primary + ';">' + companyName + '</div>',
-      '    <div class="editable-field" contenteditable="true" style="font-size:16px;font-weight:800;color:' + pal.primary + ';">10. Formalización contractual</div>',
-      '  </div>',
+      buildDossierSheetHead('10. Formalización contractual'),
       '  <div style="display:flex;justify-content:space-between;align-items:center;">',
       '    <div><span class="sheet-title-num editable-field" contenteditable="true">10.</span><span class="sheet-title-txt editable-field" contenteditable="true">Aceptación de Oferta & Condiciones de Ejecución</span></div>',
       '    <span class="badge-bankable badge-bankable-emerald">Oferta Vinculante (30 Días)</span>',
       '  </div>',
       divGrad,
-      '  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px;">',
+      '  <div class="sheet-body-content">',
+      '    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px;">',
       '    <!-- COLUMNA IZQUIERDA: DATOS FISCALES & HITOS DE PAGO LLAVE EN MANO -->',
       makeCard(
         '<div>' +
@@ -1738,6 +1795,7 @@
         '  </div>' +
         '</div>'
       ),
+      '    </div>',
       '  </div>',
       '  <div class="sheet-footer">',
       '    <span class="editable-field" contenteditable="true">' + companySlogan + '</span>',
@@ -1771,12 +1829,12 @@
       '    var body = document.body;',
       '    if (this.isEditMode) {',
       '      body.classList.add("edit-mode-active");',
-      '      btn.textContent = "💾 EDICIÓN ACTIVA (CLIC EN TEXTOS)";',
+      '      btn.innerHTML = \'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-0.18em;margin-right:4px;"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg> EDICIÓN ACTIVA (CLIC EN TEXTOS)\';',
       '      btn.style.background = "#10b981";',
       '      btn.style.color = "#fff";',
       '    } else {',
       '      body.classList.remove("edit-mode-active");',
-      '      btn.textContent = "✏️ MODO EDICIÓN WYSIWYG";',
+      '      btn.innerHTML = \'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-0.18em;margin-right:4px;"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> MODO EDICIÓN WYSIWYG\';',
       '      btn.style.background = "#f59e0b";',
       '      btn.style.color = "#000";',
       '      this.hideFormatBar();',
@@ -2086,7 +2144,7 @@
       '        if (!warn) {',
       '          warn = document.createElement("div");',
       '          warn.className = "dossier-overflow-warn no-print";',
-      '          warn.innerHTML = "⚠️ Desborde A4: Lámina " + (idx + 1) + " (reduce texto)";',
+      '          warn.innerHTML = \'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4M12 17h.01"/></svg> Desborde A4: Lámina \' + (idx + 1) + " (reduce texto)";',
       '          sh.appendChild(warn);',
       '        }',
       '      } else if (warn) {',
@@ -2112,7 +2170,7 @@
       '      var btnSave = document.getElementById("btn-save-draft");',
       '      if (btnSave && !silent) {',
       '        var orig = btnSave.innerHTML;',
-      '        btnSave.innerHTML = "✓ GUARDADO";',
+      '        btnSave.innerHTML = \'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> GUARDADO\';',
       '        btnSave.style.background = "#10b981";',
       '        setTimeout(function() { btnSave.innerHTML = orig; btnSave.style.background = "#059669"; }, 2000);',
       '      }',
@@ -2175,7 +2233,7 @@
       '  exportToWordDocx: function() {',
       '    var btn = document.getElementById("btn-dossier-docx");',
       '    var origText = btn ? btn.innerHTML : "";',
-      '    if (btn) { btn.innerHTML = "⏳ GENERANDO DOCX..."; btn.disabled = true; }',
+      '    if (btn) { btn.innerHTML = "GENERANDO DOCX..."; btn.disabled = true; }',
       '    try {',
       '      var container = document.getElementById("dossier-container");',
       '      var sanitized = this.getSanitizedClone(container);',
@@ -2207,7 +2265,7 @@
       '      console.error("Error exportando dossier a DOCX:", errDocx);',
       '      alert("Error al exportar a DOCX: " + (errDocx.message || errDocx));',
       '    } finally {',
-      '      if (btn) { btn.innerHTML = origText || "📄 DESCARGAR WORD (.DOCX)"; btn.disabled = false; }',
+      '      if (btn) { btn.innerHTML = origText || "DESCARGAR WORD (.DOCX)"; btn.disabled = false; }',
       '    }',
       '  },',
       '',
@@ -2345,8 +2403,8 @@
       '',
       '    var rows = results.map(function(r) {',
       '      var badge = r.passed ',
-      '        ? \'<span style="background:#059669;color:#fff;font-weight:800;padding:2px 8px;border-radius:4px;font-size:10px;">PASS ✓</span>\' ',
-      '        : \'<span style="background:#dc2626;color:#fff;font-weight:800;padding:2px 8px;border-radius:4px;font-size:10px;">FAIL ✗</span>\';',
+      '        ? \'<span style="background:#059669;color:#fff;font-weight:800;padding:2px 8px;border-radius:4px;font-size:10px;">PASS</span>\' ',
+      '        : \'<span style="background:#dc2626;color:#fff;font-weight:800;padding:2px 8px;border-radius:4px;font-size:10px;">FAIL</span>\';',
       '      return \'<div style="padding:10px;background:#1e293b;border:1px solid #334155;border-radius:8px;display:flex;flex-direction:column;gap:4px;">\' +',
       '        \'<div style="display:flex;justify-content:space-between;align-items:center;">\' +',
       '        \'  <strong style="color:#f8fafc;font-size:12px;">\' + r.id + \': \' + r.title + \'</strong>\' +',
@@ -2364,17 +2422,17 @@
       '      \'<div style="background:#0f172a;border:2px solid \' + (allPassed ? "#10b981" : "#f59e0b") + \';border-radius:14px;max-width:580px;width:100%;padding:22px;box-shadow:0 20px 40px rgba(0,0,0,0.6);display:flex;flex-direction:column;gap:14px;color:#fff;max-height:90vh;overflow-y:auto;">\',',
       '      \'  <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #334155;padding-bottom:12px;">\',',
       '      \'    <div style="display:flex;align-items:center;gap:10px;">\',',
-      '      \'      <span style="font-size:22px;">\' + (allPassed ? "✅" : "⚠️") + "</span>",',
+      '      \'      <span style="display:inline-flex;color:\' + (allPassed ? "#10b981" : "#f59e0b") + \';"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg></span>\',',
       '      \'      <div>\',',
       '      \'        <h3 style="margin:0;font-size:15px;color:#f8fafc;">BATERÍA DE PRUEBAS WYSIWYG & ARQUITECTURA</h3>\',',
       '      \'        <div style="font-size:11px;color:#94a3b8;">Validación de movilidad confinada, escalado A4, optimización Canvas, persistencia y sanitización</div>\',',
       '      \'      </div>\',',
       '      \'    </div>\',',
-      '      \'    <button onclick="document.getElementById(\\\'dossier-test-modal\\\').remove()" style="background:#334155;border:none;color:#fff;padding:6px 10px;border-radius:6px;cursor:pointer;font-weight:bold;">✕</button>\',',
+      '      \'    <button onclick="document.getElementById(\\\'dossier-test-modal\\\').remove()" style="background:#334155;border:none;color:#fff;padding:6px 10px;border-radius:6px;cursor:pointer;font-weight:bold;">×</button>\',',
       '      \'  </div>\',',
       '      \'  <div style="display:flex;flex-direction:column;gap:8px;">\' + rows + "</div>",',
       '      \'  <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid #334155;padding-top:12px;">\',',
-      '      \'    <span style="font-size:11.5px;color:\' + (allPassed ? "#10b981" : "#f59e0b") + \';font-weight:700;">\' + (allPassed ? "✓ Todos los tests han superado la validación técnica con éxito." : "Se encontraron advertencias.") + "</span>",',
+      '      \'    <span style="font-size:11.5px;color:\' + (allPassed ? "#10b981" : "#f59e0b") + \';font-weight:700;">\' + (allPassed ? "Todos los tests han superado la validación técnica con éxito." : "Se encontraron advertencias.") + "</span>",',
       '      \'    <button onclick="document.getElementById(\\\'dossier-test-modal\\\').remove()" style="background:#10b981;border:none;color:#fff;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:bold;font-size:11.5px;">Aceptar y Continuar</button>\',',
       '      \'  </div>\',',
       '      \'</div>\'',

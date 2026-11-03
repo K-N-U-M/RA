@@ -324,6 +324,69 @@
       const viewer = global.viewer;
       if (!viewer || !viewer.scene || !viewer.scene.primitives || typeof Cesium === 'undefined') return;
 
+      if (!panelTints || panelTints.length === 0) {
+        if (this._overlayPrimitive) {
+          try {
+            viewer.scene.primitives.remove(this._overlayPrimitive);
+            if (typeof this._overlayPrimitive.destroy === 'function' && !this._overlayPrimitive.isDestroyed()) {
+              this._overlayPrimitive.destroy();
+            }
+          } catch (e) {}
+          this._overlayPrimitive = null;
+          this._overlayInstanceCount = 0;
+        }
+        if (viewer.scene && typeof viewer.scene.requestRender === 'function') {
+          viewer.scene.requestRender();
+        }
+        return;
+      }
+
+      // Fast-path Zero-Recreation: mutar el buffer de color por instancia en GPU si la topología de paneles no ha cambiado
+      if (
+        this._overlayPrimitive &&
+        typeof this._overlayPrimitive.isDestroyed === 'function' &&
+        !this._overlayPrimitive.isDestroyed() &&
+        this._overlayPrimitive.ready &&
+        this._overlayInstanceCount === panelTints.length &&
+        typeof this._overlayPrimitive.getGeometryInstanceAttributes === 'function'
+      ) {
+        let updatedInPlace = true;
+        for (let i = 0; i < panelTints.length; i++) {
+          const item = panelTints[i];
+          const tint = item && item.tint;
+          if (!tint) continue;
+          try {
+            const attrs = this._overlayPrimitive.getGeometryInstanceAttributes('live_probe_p_' + i);
+            if (attrs && attrs.color) {
+              const rByte = Math.round(Math.min(1, Math.max(0, tint.r)) * 255);
+              const gByte = Math.round(Math.min(1, Math.max(0, tint.g)) * 255);
+              const bByte = Math.round(Math.min(1, Math.max(0, tint.b)) * 255);
+              const aByte = Math.round(Math.min(1, Math.max(0, tint.a)) * 255);
+              if (
+                attrs.color[0] !== rByte ||
+                attrs.color[1] !== gByte ||
+                attrs.color[2] !== bByte ||
+                attrs.color[3] !== aByte
+              ) {
+                attrs.color = [rByte, gByte, bByte, aByte];
+              }
+            } else {
+              updatedInPlace = false;
+              break;
+            }
+          } catch (e) {
+            updatedInPlace = false;
+            break;
+          }
+        }
+        if (updatedInPlace) {
+          if (viewer.scene && typeof viewer.scene.requestRender === 'function') {
+            viewer.scene.requestRender();
+          }
+          return;
+        }
+      }
+
       if (this._overlayPrimitive) {
         try {
           viewer.scene.primitives.remove(this._overlayPrimitive);
@@ -332,13 +395,7 @@
           }
         } catch (e) {}
         this._overlayPrimitive = null;
-      }
-
-      if (!panelTints || panelTints.length === 0) {
-        if (viewer.scene && typeof viewer.scene.requestRender === 'function') {
-          viewer.scene.requestRender();
-        }
-        return;
+        this._overlayInstanceCount = 0;
       }
 
       const instances = [];
@@ -437,10 +494,12 @@
           flat: true,
           renderState: renderState
         }),
+        releaseGeometryInstances: false,
         asynchronous: false
       });
 
       this._overlayPrimitive = viewer.scene.primitives.add(overlayPrimitive);
+      this._overlayInstanceCount = instances.length;
       if (viewer.scene && typeof viewer.scene.requestRender === 'function') {
         viewer.scene.requestRender();
       }

@@ -126,16 +126,22 @@
     if (!viewer || !viewer.scene) return;
     const scene = viewer.scene;
 
-    // No evaluar hover si la cámara está navegando, si hay un gizmo arrastrándose o dibujando
+    // [PERF AAA] Congelar hover completamente si la cámara está en movimiento, con botón pulsado o arrastrando gizmo
+    if (global._isCameraMoving || global._isPointerButtonsDown) return;
     if (global.universalGizmoState && global.universalGizmoState.active) return;
     if (global.cadMarqueeState.active) return;
     if (global.WP && (global.WP.mode === 'draw-poly' || global.WP.mode === 'draw-building' || global.WP.mode === 'place-obs' || global.WP.mode === 'stamp-poly')) return;
+
+    // Descarte sub-píxel: si el ratón se movió menos de 2px, no re-evaluar
+    if (Math.abs(screenPos.x - _lastHoverX) < 2 && Math.abs(screenPos.y - _lastHoverY) < 2) return;
 
     _lastHoverX = screenPos.x;
     _lastHoverY = screenPos.y;
 
     if (_hoverRafId) cancelAnimationFrame(_hoverRafId);
     _hoverRafId = requestAnimationFrame(() => {
+      _hoverRafId = null;
+      if (global._isCameraMoving || global._isPointerButtonsDown) return;
       evaluateHoverTarget(screenPos, scene);
     });
   }
@@ -251,9 +257,10 @@
     }
 
     // ── NIVEL 3: OBJETOS COMPACTOS (PANELES, AEROGENERADORES, EQUIPOS ELÉCTRICOS, OBSTÁCULOS)
-    // A. Detectar panel solar bajo el cursor
+    // [PERF AAA · ZERO-READPIXELS]: Durante hover continuo usamos proyección matemática 2D pura (0 ms GPU stall).
+    // A. Detectar panel solar bajo el cursor (pasando true para omitir scene.pick/drillPick)
     if (!target && (filter === 'all' || filter === 'panels') && typeof global.pickPanelUnderCursor === 'function') {
-      const pIdx = global.pickPanelUnderCursor(screenPos);
+      const pIdx = global.pickPanelUnderCursor(screenPos, true);
       if (pIdx >= 0 && Array.isArray(global.allRenderedPanels) && global.allRenderedPanels[pIdx]) {
         const pan = global.allRenderedPanels[pIdx];
         if (pan && pan.corners && pan.corners.length === 4) {
@@ -267,9 +274,9 @@
       }
     }
 
-    // B. Detectar obstáculo 3D
+    // B. Detectar obstáculo 3D (modo analítico 2D/UV sin bloquear GPU)
     if (!target && (filter === 'all' || filter === 'obstacles') && typeof global.pickObstacleUnderCursor === 'function') {
-      const obs = global.pickObstacleUnderCursor(screenPos);
+      const obs = global.pickObstacleUnderCursor(screenPos, true);
       if (obs) {
         target = {
           type: 'obstacle',
@@ -279,9 +286,9 @@
       }
     }
 
-    // C. Detectar equipamiento eléctrico
+    // C. Detectar equipamiento eléctrico (modo analítico 2D en pantalla sin bloquear GPU)
     if (!target && filter === 'all' && typeof global.pickElectricalObjectUnderCursor === 'function') {
-      const elec = global.pickElectricalObjectUnderCursor(screenPos);
+      const elec = global.pickElectricalObjectUnderCursor(screenPos, true);
       if (elec) {
         target = {
           type: 'electrical',
@@ -291,29 +298,9 @@
       }
     }
 
-    // ── NIVEL 4: SUPERFICIES Y CONTORNOS (POLILÍNEAS / FALDONES Y PLANOS)
+    // ── NIVEL 4: SUPERFICIES Y CONTORNOS (POLILÍNEAS / FALDONES Y PLANOS · TEST 2D PURO)
     if (!target && (filter === 'all' || filter === 'polylines')) {
-      if (typeof scene.pick === 'function') {
-        try {
-          const picked = scene.pick(screenPos);
-          if (picked && picked.id) {
-            const idStr = (typeof picked.id === 'string') ? picked.id : (picked.id.id || '');
-            if (idStr.startsWith('wp_poly_fill_') || idStr.startsWith('wp_poly_line_')) {
-              const prefix = idStr.startsWith('wp_poly_fill_') ? 'wp_poly_fill_' : 'wp_poly_line_';
-              const polyIdx = parseInt(idStr.replace(prefix, '').split('_')[0], 10);
-              if (!isNaN(polyIdx) && global.WP && global.WP.polylines && global.WP.polylines[polyIdx]) {
-                target = {
-                  type: 'polyline',
-                  index: polyIdx,
-                  poly: global.WP.polylines[polyIdx],
-                  label: global.WP.polylines[polyIdx].name || `Faldón #${polyIdx + 1}`
-                };
-              }
-            }
-          }
-        } catch (_) {}
-      }
-      if (!target && global.WP && Array.isArray(global.WP.polylines)) {
+      if (global.WP && Array.isArray(global.WP.polylines)) {
         for (let pi = 0; pi < global.WP.polylines.length; pi++) {
           const poly = global.WP.polylines[pi];
           if (!poly || poly.visible === false || !Array.isArray(poly.points) || poly.points.length < 3) continue;
@@ -350,6 +337,10 @@
       }
     }
 
+    // Renderizar en el canvas 2D solo si el objetivo de hover ha cambiado respecto al frame previo
+    const prevT = global.cadHoverTarget;
+    const changed = (!prevT && !!target) || (!!prevT && !target) ||
+      (prevT && target && (prevT.type !== target.type || prevT.index !== target.index || prevT.id !== target.id || prevT.vIdx !== target.vIdx));
     global.cadHoverTarget = target;
     if (scene.canvas) {
       if (target) {
@@ -359,26 +350,29 @@
       }
     }
 
-    // Forzar redibujado de la capa 2D de overlays
-    if (typeof global.renderTriad2D === 'function') {
+    if (changed && typeof global.renderTriad2D === 'function') {
       global.renderTriad2D();
     }
   }
 
-  // Renderizar feedback visual del Hover en el canvas 2D
+  // Renderizar feedback visual del Hover en el canvas 2D (Zero-ShadowBlur Hardware Accelerated)
   function renderCADHoverOverlay(ctx, scene) {
     const t = global.cadHoverTarget;
     if (!t || !ctx || !scene) return;
 
     ctx.save();
     if (t.type === 'vertex' && t.screenPos) {
-      // Anillo cian radiante con pulso sutil
+      // Halo exterior translúcido rápido (sustituye shadowBlur por software)
+      ctx.beginPath();
+      ctx.arc(t.screenPos.x, t.screenPos.y, 11, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.28)';
+      ctx.lineWidth = 4.0;
+      ctx.stroke();
+
       ctx.beginPath();
       ctx.arc(t.screenPos.x, t.screenPos.y, 8, 0, Math.PI * 2);
       ctx.strokeStyle = '#38BDF8';
       ctx.lineWidth = 2.5;
-      ctx.shadowColor = '#00F0FF';
-      ctx.shadowBlur = 8;
       ctx.stroke();
 
       ctx.beginPath();
@@ -390,7 +384,7 @@
       ctx.font = 'bold 9px "JetBrains Mono", monospace';
       const label = t.label || ((t.subType === 'building_vertex') ? `EDIFICIO #${t.vIdx + 1}` : `VÉRTICE #${t.vIdx + 1}`);
       const textW = ctx.measureText(label).width;
-      ctx.fillStyle = 'rgba(15,23,42,0.85)';
+      ctx.fillStyle = 'rgba(15,23,42,0.88)';
       ctx.fillRect(t.screenPos.x + 12, t.screenPos.y - 12, textW + 8, 16);
       ctx.strokeStyle = 'rgba(56,189,248,0.6)';
       ctx.lineWidth = 1;
@@ -399,7 +393,7 @@
       ctx.fillText(label, t.screenPos.x + 16, t.screenPos.y);
 
     } else if (t.type === 'panel' && t.panel && Array.isArray(t.panel.corners)) {
-      // Marco sutil cian pre-selección sobre las 4 esquinas proyectadas
+      // Marco sutil cian pre-selección sobre las 4 esquinas proyectadas (sin shadowBlur)
       const scrCorners = t.panel.corners.map(c => Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, c)).filter(Boolean);
       if (scrCorners.length === 4) {
         ctx.beginPath();
@@ -408,12 +402,10 @@
         ctx.lineTo(scrCorners[2].x, scrCorners[2].y);
         ctx.lineTo(scrCorners[3].x, scrCorners[3].y);
         ctx.closePath();
-        ctx.fillStyle = 'rgba(56,189,248,0.12)';
+        ctx.fillStyle = 'rgba(56,189,248,0.14)';
         ctx.fill();
         ctx.strokeStyle = '#38BDF8';
         ctx.lineWidth = 2.0;
-        ctx.shadowColor = '#38BDF8';
-        ctx.shadowBlur = 6;
         ctx.stroke();
       }
     } else if (t.type === 'polyline' && t.poly && Array.isArray(t.poly.points) && t.poly.points.length >= 3) {
@@ -639,24 +631,35 @@
 
     // Clics consecutivos en el mismo punto para alternar capas
     window.addEventListener('pointerdown', function(e) {
+      global._isPointerButtonsDown = true;
       if (e.target && e.target.id === 'cesiumContainer' || (e.target && e.target.tagName === 'CANVAS')) {
         const now = Date.now();
         const pos = { x: e.clientX, y: e.clientY };
         const s = global.cadCyclingState;
 
         if (s.lastClickPos && Math.hypot(pos.x - s.lastClickPos.x, pos.y - s.lastClickPos.y) < 6 && (now - s.lastClickTime) < 1200) {
-          // Es un clic sucesivo en el mismo píxel: ciclar profundidad
+          // Es un clic sucesivo en el mismo píxel: regenerar candidatos perezosamente solo si aún no se calcularon
+          if (!s.candidates || s.candidates.length === 0) {
+            s.candidates = getCandidateEntitiesUnderScreenPos(pos);
+            s.candidateIdx = 0;
+          }
           if (s.candidates && s.candidates.length > 1) {
             cycleNextCADSelection(false);
           }
         } else {
-          // Nuevo clic en punto diferente: regenerar lista de candidatos
+          // Nuevo clic: guardar posición sin ejecutar drillPick en pointerdown (0 ms bloqueo al iniciar giro de cámara)
           s.lastClickPos = pos;
           s.lastClickTime = now;
-          s.candidates = getCandidateEntitiesUnderScreenPos(pos);
+          s.candidates = null;
           s.candidateIdx = 0;
         }
       }
+    });
+    window.addEventListener('pointerup', function() {
+      global._isPointerButtonsDown = false;
+    });
+    window.addEventListener('pointercancel', function() {
+      global._isPointerButtonsDown = false;
     });
   }
 

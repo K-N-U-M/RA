@@ -732,10 +732,7 @@ function _requestHoverFadeNextFrame() {
   _hoverFadeRafId = requestAnimationFrame(() => {
     _hoverFadeRafId = null;
     if (typeof renderTriad2D === 'function') renderTriad2D();
-    const scene = typeof viewer !== 'undefined' && viewer ? viewer.scene : (window.viewer ? window.viewer.scene : null);
-    if (scene && typeof scene.requestRender === 'function') {
-      scene.requestRender();
-    }
+    // [PERF AAA] El canvas 2D es un overlay HTML independiente; no forzar scene.requestRender() WebGL 3D por un fade de etiqueta 2D
   });
 }
 
@@ -1286,12 +1283,10 @@ function renderTriad2D() {
           }
           hState.box = { x: boxX, y: boxY, w: boxW, h: boxH };
 
-          // Fondo badge translúcido AAA
-          triadCtx.fillStyle = isActive ? "rgba(15, 23, 42, 0.88)" : "rgba(15, 23, 42, 0.72)";
+          // Fondo badge translúcido AAA (Zero-ShadowBlur para 60 FPS en Canvas 2D)
+          triadCtx.fillStyle = isActive ? "rgba(15, 23, 42, 0.90)" : "rgba(15, 23, 42, 0.76)";
           triadCtx.strokeStyle = isActive ? "rgba(56, 189, 248, 0.85)" : "rgba(148, 163, 184, 0.4)";
           triadCtx.lineWidth = isActive ? 1.5 : 1.0;
-          triadCtx.shadowColor = "rgba(0, 0, 0, 0.6)";
-          triadCtx.shadowBlur = isActive ? 8 : 4;
 
           triadCtx.beginPath();
           if (triadCtx.roundRect) {
@@ -1300,7 +1295,6 @@ function renderTriad2D() {
             triadCtx.rect(boxX, boxY, boxW, boxH);
           }
           triadCtx.fill();
-          triadCtx.shadowBlur = 0;
           triadCtx.stroke();
 
           // Texto
@@ -1455,12 +1449,10 @@ function renderTriad2D() {
           }
           hState.box = { x: boxX, y: boxY, w: boxW, h: boxH };
 
-          // Fondo
-          triadCtx.fillStyle = (item.opts && item.opts.bg) ? item.opts.bg : "rgba(15, 23, 42, 0.90)";
+          // Fondo (Zero-ShadowBlur para evitar penalización de CPU en postRender)
+          triadCtx.fillStyle = (item.opts && item.opts.bg) ? item.opts.bg : "rgba(15, 23, 42, 0.92)";
           triadCtx.strokeStyle = (item.opts && item.opts.borderColor) ? item.opts.borderColor : "rgba(56, 189, 248, 0.75)";
           triadCtx.lineWidth = 1.2;
-          triadCtx.shadowColor = "rgba(0, 0, 0, 0.55)";
-          triadCtx.shadowBlur = 6;
 
           triadCtx.beginPath();
           if (triadCtx.roundRect) {
@@ -1469,7 +1461,6 @@ function renderTriad2D() {
             triadCtx.rect(boxX, boxY, boxW, boxH);
           }
           triadCtx.fill();
-          triadCtx.shadowBlur = 0;
           triadCtx.stroke();
 
           // Renderizar líneas
@@ -4335,6 +4326,39 @@ function wpPopulateFaldonCard() {
     }
   }
 
+  // Actualizar botón inteligente de Restaurar Malla (detecta borrados, giros/movimientos individuales o desplazamientos de rejilla)
+  var resetMeshBtn = document.getElementById('faldon-reset-mesh-btn');
+  if (resetMeshBtn) {
+    var deletedCount = Array.isArray(poly.deletedPanels) ? poly.deletedPanels.length : 0;
+    var manualCount = 0;
+    if (poly.roofInfo && Array.isArray(poly.roofInfo.panels)) {
+      poly.roofInfo.panels.forEach(function(p) {
+        if (p && (p.isManual || (p.rawPanel && p.rawPanel.isManual))) manualCount++;
+      });
+    } else if (Array.isArray(window.allRenderedPanels)) {
+      window.allRenderedPanels.forEach(function(p) {
+        if (p && p.polyIdx === WP.selectedPolyIdx && (p.isManual || (p.rawPanel && p.rawPanel.isManual))) manualCount++;
+      });
+    }
+    var hasShift = Math.abs(poly.matrixShiftA || 0) > 0.001 || Math.abs(poly.matrixShiftB || 0) > 0.001;
+    var totalEdits = deletedCount + manualCount + (hasShift ? 1 : 0);
+
+    if (totalEdits > 0 || poly.panelsDisabled === true) {
+      resetMeshBtn.style.background = 'rgba(245,158,11,0.22)';
+      resetMeshBtn.style.borderColor = 'var(--amber-400)';
+      resetMeshBtn.style.color = '#FBBF24';
+      var badgeTxt = (deletedCount + manualCount) > 0 ? ' (' + (deletedCount + manualCount) + ')' : '';
+      resetMeshBtn.innerHTML = '<i data-lucide="rotate-ccw" class="icon-sm"></i> RESET MALLA' + badgeTxt;
+      resetMeshBtn.title = 'Restaurar distribución original de este faldón (' + deletedCount + ' borradas, ' + manualCount + ' movidas/giradas' + (hasShift ? ', rejilla desplazada' : '') + ')';
+    } else {
+      resetMeshBtn.style.background = 'rgba(56,189,248,0.12)';
+      resetMeshBtn.style.borderColor = 'rgba(56,189,248,0.3)';
+      resetMeshBtn.style.color = '#38BDF8';
+      resetMeshBtn.innerHTML = '<i data-lucide="rotate-ccw" class="icon-sm"></i> RESET MALLA';
+      resetMeshBtn.title = 'Restaurar distribución limpia de paneles en este faldón';
+    }
+  }
+
   // ── Selector de módulo FV ──
   var modSelect = document.getElementById('faldon-module-select');
   if (modSelect && typeof equipmentCatalog !== 'undefined' && equipmentCatalog && Array.isArray(equipmentCatalog.modules)) {
@@ -5127,6 +5151,9 @@ function wpShiftPolylinePanels(polyIdx, deltaA, deltaB) {
   if (typeof wpUpdateFaldonShiftUI === 'function') {
     wpUpdateFaldonShiftUI(polyIdx);
   }
+  if (typeof wpPopulateFaldonCard === 'function') {
+    wpPopulateFaldonCard();
+  }
   if (typeof wpUpdateLayoutFastMetrics === 'function') {
     wpUpdateLayoutFastMetrics();
   }
@@ -5156,6 +5183,9 @@ function wpResetPolylinePanelsShift(polyIdx) {
   if (typeof wpUpdateFaldonShiftUI === 'function') {
     wpUpdateFaldonShiftUI(polyIdx);
   }
+  if (typeof wpPopulateFaldonCard === 'function') {
+    wpPopulateFaldonCard();
+  }
   if (typeof wpUpdateLayoutFastMetrics === 'function') {
     wpUpdateLayoutFastMetrics();
   }
@@ -5164,6 +5194,137 @@ function wpResetPolylinePanelsShift(polyIdx) {
   }
 }
 window.wpResetPolylinePanelsShift = wpResetPolylinePanelsShift;
+
+/**
+ * Restaura por completo la malla fotovoltaica del faldón activo:
+ * - Recupera todas las placas borradas manualmente (deletedPanels = [])
+ * - Deshace desplazamientos y giros manuales individuales (isManual = false)
+ * - Centra el desplazamiento milimétrico longitudinal/transversal (matrixShiftA/B = 0)
+ * - Reactiva el faldón si estaba desactivado y guarda snapshot en el sistema de Deshacer (Ctrl+Z)
+ */
+function wpResetFaldonPanels(polyIdx) {
+  if (polyIdx === undefined || polyIdx === null || polyIdx < 0) {
+    polyIdx = (typeof WP !== 'undefined' && typeof WP.selectedPolyIdx === 'number') ? WP.selectedPolyIdx : 0;
+  }
+  if (!WP || !Array.isArray(WP.polylines) || !WP.polylines[polyIdx]) {
+    if (typeof showToast === 'function') {
+      showToast('FALDÓN NO SELECCIONADO', 'Selecciona un faldón activo para restaurar su malla.', 'warning', 2500);
+    }
+    return;
+  }
+
+  const poly = WP.polylines[polyIdx];
+
+  // Guardar estado previo en el gestor de Undo (Ctrl+Z)
+  if (typeof window !== 'undefined' && window.RAundo) {
+    if (typeof window.RAundo.snapPolylines === 'function') {
+      window.RAundo.snapPolylines('Restaurar malla de faldón #' + (polyIdx + 1));
+    } else if (typeof window.RAundo.snapPanelDelete === 'function') {
+      window.RAundo.snapPanelDelete(polyIdx);
+    }
+  }
+
+  const deletedCount = Array.isArray(poly.deletedPanels) ? poly.deletedPanels.length : 0;
+  let manualCount = 0;
+
+  // 1. Limpiar registro de paneles borrados y desplazamientos de matriz en el faldón
+  poly.deletedPanels = [];
+  poly.panelsDisabled = false;
+  poly.matrixShiftA = 0;
+  poly.matrixShiftB = 0;
+  poly.matrixShiftU = 0;
+  poly.matrixShiftV = 0;
+  delete poly._fromProjectImport;
+  poly._calcSig = '';
+
+  // 2. Purgar marcas manuales (isManual) en roofInfo y en allRenderedPanels para que computeRoofPanelsData no re-inyecte posiciones movidas/rotadas
+  if (poly.roofInfo && Array.isArray(poly.roofInfo.panels)) {
+    poly.roofInfo.panels.forEach(p => {
+      if (p && (p.isManual || (p.rawPanel && p.rawPanel.isManual))) {
+        manualCount++;
+        p.isManual = false;
+        if (p.rawPanel) p.rawPanel.isManual = false;
+      }
+    });
+  }
+  poly.roofInfo = null;
+
+  if (Array.isArray(window.allRenderedPanels)) {
+    for (let i = window.allRenderedPanels.length - 1; i >= 0; i--) {
+      const rp = window.allRenderedPanels[i];
+      if (rp && (rp.polyIdx === polyIdx || (rp.polyIdx === undefined && polyIdx === 0))) {
+        if (rp.isManual || (rp.rawPanel && rp.rawPanel.isManual)) {
+          manualCount++;
+          rp.isManual = false;
+          if (rp.rawPanel) rp.rawPanel.isManual = false;
+        }
+        window.allRenderedPanels.splice(i, 1);
+      }
+    }
+  }
+
+  // 3. Limpiar selección individual activa de paneles
+  if (typeof window.selectPanel === 'function') {
+    window.selectPanel(-1);
+  }
+  window.selectedPanelIndices = [];
+  window.selectedPanelIndex = -1;
+
+  // 4. Invalidar cachés de geometría y heatmap y regenerar limpiamente el faldón
+  if (typeof roofPanelsCache !== 'undefined' && roofPanelsCache) {
+    roofPanelsCache.sig = '';
+    roofPanelsCache.data = null;
+  }
+  if (typeof computeSinglePolylineRoofInfo === 'function') {
+    poly.roofInfo = computeSinglePolylineRoofInfo(poly.points, poly);
+  }
+  if (typeof window.wpInvalidateHeatmap === 'function') {
+    window.wpInvalidateHeatmap('Malla de faldón restaurada');
+  }
+
+  // 5. Renderizar inmediatamente y sincronizar todas las métricas, inversores y UI
+  if (typeof wpFastRenderSimulatedPanels === 'function') {
+    wpFastRenderSimulatedPanels(true, polyIdx);
+  }
+  if (typeof recalculateSolarYield === 'function') {
+    recalculateSolarYield();
+  }
+  if (typeof wpCalculateAndRenderInverterCables === 'function') {
+    wpCalculateAndRenderInverterCables();
+  }
+  if (typeof wpUpdateFaldonShiftUI === 'function') {
+    wpUpdateFaldonShiftUI(polyIdx);
+  }
+  if (typeof wpUpdateLayoutFastMetrics === 'function') {
+    wpUpdateLayoutFastMetrics();
+  }
+  if (typeof wpPopulateFaldonCard === 'function') {
+    wpPopulateFaldonCard();
+  }
+  if (typeof wpUpdateStep3UI === 'function') {
+    wpUpdateStep3UI();
+  }
+  if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') {
+    BOMTreeEngine.refresh();
+  }
+  if (window.lucide && typeof window.lucide.createIcons === 'function') {
+    window.lucide.createIcons();
+  }
+
+  const newTotal = (poly.roofInfo && Array.isArray(poly.roofInfo.panels)) ? poly.roofInfo.panels.length : 0;
+  const fName = poly.name || ('Faldón #' + (polyIdx + 1));
+  if (typeof showToast === 'function') {
+    showToast(
+      'MALLA RESTAURADA · ' + fName.toUpperCase(),
+      `Distribución limpia regenerada (${newTotal} módulos FV). Recuperadas ${deletedCount} placas borradas y restablecidas posiciones/giros.`,
+      'success',
+      3000
+    );
+  } else if (typeof showStatus === 'function') {
+    showStatus(`<i data-lucide="rotate-ccw" class="icon-sm"></i> ${fName.toUpperCase()} RESTAURADO · ${newTotal} MÓDULOS FV`, 2800);
+  }
+}
+window.wpResetFaldonPanels = wpResetFaldonPanels;
 
 function wpUpdateFaldonShiftUI(polyIdx) {
   if (polyIdx === undefined || polyIdx === null || polyIdx < 0) polyIdx = (typeof WP !== 'undefined') ? WP.selectedPolyIdx : 0;

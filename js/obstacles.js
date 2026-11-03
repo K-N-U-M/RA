@@ -398,12 +398,12 @@ function checkObstacleGizmoHit(mx, my) {
   return null;
 }
 
-function pickObstacleUnderCursor(screenPos) {
+function pickObstacleUnderCursor(screenPos, skipGpuPick) {
   const obsList = (typeof global !== 'undefined' && Array.isArray(global.obstacles)) ? global.obstacles : (typeof obstacles !== 'undefined' && Array.isArray(obstacles) ? obstacles : []);
   if (!Array.isArray(obsList) || obsList.length === 0) return null;
 
-  // A. Primero intentar pick 3D nativo de Cesium (entidades de caja, árbol o etiquetas)
-  try {
+  // A. Primero intentar pick 3D nativo de Cesium (omitido en hover rápido para 0 ms GPU stall)
+  if (!skipGpuPick) try {
     const pickedObj = scene.pick(screenPos);
     if (pickedObj && pickedObj.id) {
       const entId = typeof pickedObj.id === 'string' ? pickedObj.id : (pickedObj.id.id || '');

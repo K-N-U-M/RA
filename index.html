@@ -11,7 +11,7 @@
   <!-- Google Fonts: Inter & JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Comfortaa:wght@300;400;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,400..700;1,9..40,400..700&family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&family=Montserrat:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
 
   <!-- jsPDF: Carga perezosa bajo demanda (Lazy Loading) gestionada por js/lazy-loader.js -->
 
@@ -1231,6 +1231,7 @@ window.RA_App = window.RA_App || {};
                       <span id="faldon-card-name" style="font-size: 10px;font-weight:bold;color:#fff;">Faldón</span>
                     </div>
                     <div style="display:flex;align-items:center;gap:6px;">
+                      <button type="button" id="faldon-reset-mesh-btn" class="doc-mini-btn" style="padding:1px 6px;font-size: 10px;font-weight:bold;color:#38BDF8;border-color:rgba(56,189,248,0.35);background:rgba(56,189,248,0.14);" onclick="wpResetFaldonPanels(WP.selectedPolyIdx)" title="Restaurar malla original de este faldón (recupera placas borradas, movidas o rotadas)"><i data-lucide="rotate-ccw" class="icon-sm"></i> RESET MALLA</button>
                       <button type="button" class="doc-mini-btn" style="padding:1px 6px;font-size: 10px;font-weight:bold;color:var(--emerald-400);border-color:rgba(16,185,129,0.3);background:rgba(16,185,129,0.15);" onclick="wpStartStampPolyline(WP.selectedPolyIdx)" title="Duplicar este faldón con todos sus paneles y obstáculos (Ctrl+D)"><i data-lucide="copy" class="icon-sm"></i> DUPLICAR</button>
                       <span id="faldon-card-stats" style="font-size: 10px;font-weight:bold;color:var(--emerald-400);">0 mods · 0.00 kWp</span>
                     </div>
@@ -1503,7 +1504,7 @@ window.RA_App = window.RA_App || {};
                     <!-- Botón Centrar / Restablecer + atajo de teclado explicativo -->
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px;">
                       <span style="font-size:9px;color:#94A3B8;">⌨ Flechas: ±1cm (Shift: ±10cm)</span>
-                      <button type="button" class="doc-mini-btn" style="padding:1px 7px;font-size:9px;font-weight:700;background:rgba(239,68,68,0.12);color:#F87171;border-color:rgba(239,68,68,0.3);" onclick="wpResetPolylinePanelsShift(WP.selectedPolyIdx)" title="Restablecer posición por defecto">
+                      <button type="button" class="doc-mini-btn" style="padding:1px 7px;font-size:9px;font-weight:700;background:rgba(56,189,248,0.15);color:#38BDF8;border-color:rgba(56,189,248,0.35);margin-right:3px;" onclick="wpResetFaldonPanels(WP.selectedPolyIdx)" title="Recuperar todas las placas borradas, movidas o rotadas en este faldón"><i data-lucide="refresh-cw" class="icon-sm"></i> RESTAURAR MALLA</button><button type="button" class="doc-mini-btn" style="padding:1px 7px;font-size:9px;font-weight:700;background:rgba(239,68,68,0.12);color:#F87171;border-color:rgba(239,68,68,0.3);" onclick="wpResetPolylinePanelsShift(WP.selectedPolyIdx)" title="Restablecer posición por defecto">
                         <i data-lucide="rotate-ccw" class="icon-sm"></i> CENTRAR
                       </button>
                     </div>
@@ -6309,32 +6310,34 @@ function getPanelIndexFromPick(picked) {
   return -1;
 }
 
-function pickPanelUnderCursor(screenPos) {
+function pickPanelUnderCursor(screenPos, skipGpuPick) {
   if (!screenPos) return -1;
   const scene = (typeof viewer !== 'undefined' && viewer) ? viewer.scene : ((typeof window !== 'undefined' && window.viewer) ? window.viewer.scene : null);
   if (!scene) return -1;
 
-  // 1. Detección rápida por scene.pick nativo de Cesium
-  try {
-    if (typeof scene.pick === 'function') {
-      const picked = scene.pick(screenPos);
-      const pIdx = getPanelIndexFromPick(picked);
-      if (pIdx >= 0) return pIdx;
-    }
-  } catch(ePick) {}
+  if (!skipGpuPick) {
+    // 1. Detección rápida por scene.pick nativo de Cesium (solo en clic explícito)
+    try {
+      if (typeof scene.pick === 'function') {
+        const picked = scene.pick(screenPos);
+        const pIdx = getPanelIndexFromPick(picked);
+        if (pIdx >= 0) return pIdx;
+      }
+    } catch(ePick) {}
 
-  // 2. Detección profunda con drillPick (traspasa mallas de faldón wp_poly_fill, canalizaciones o sombras)
-  try {
-    if (typeof scene.drillPick === 'function') {
-      const pickedList = scene.drillPick(screenPos, 15);
-      if (Array.isArray(pickedList)) {
-        for (let i = 0; i < pickedList.length; i++) {
-          const pIdx = getPanelIndexFromPick(pickedList[i]);
-          if (pIdx >= 0) return pIdx;
+    // 2. Detección profunda con drillPick (traspasa mallas de faldón wp_poly_fill, canalizaciones o sombras)
+    try {
+      if (typeof scene.drillPick === 'function') {
+        const pickedList = scene.drillPick(screenPos, 15);
+        if (Array.isArray(pickedList)) {
+          for (let i = 0; i < pickedList.length; i++) {
+            const pIdx = getPanelIndexFromPick(pickedList[i]);
+            if (pIdx >= 0) return pIdx;
+          }
         }
       }
-    }
-  } catch(eDrill) {}
+    } catch(eDrill) {}
+  }
 
   // 3. Fallback geométrico 2D exacto en pantalla (proyección de esquinas a ventana)
   const panelsList = (Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0)
@@ -6513,6 +6516,7 @@ function clearAllCADSelection(notify = false) {
     selectedPanelIndex = -1;
     if (typeof window !== 'undefined') window.selectedPanelIndex = -1;
     if (typeof updatePanelSelectionUI === 'function') updatePanelSelectionUI();
+              if (typeof wpPopulateFaldonCard === 'function') wpPopulateFaldonCard();
   }
 
   // B. Obstáculos 3D
@@ -6876,6 +6880,7 @@ function rotateSelectedPanel() {
   p.isManual = true;
   updatePanelSelectionUI();
   if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Panel girado individualmente');
+  if (typeof wpPopulateFaldonCard === 'function') wpPopulateFaldonCard();
   if (typeof wpFastRenderSimulatedPanels === 'function') wpFastRenderSimulatedPanels();
   showStatus(`PANEL #${selectedPanelIndex + 1} · ${p.orientation === 'landscape' ? 'HORIZONTAL (LANDSCAPE)' : 'VERTICAL (PORTRAIT)'}`, 2500);
 }
@@ -6895,6 +6900,7 @@ function restoreSelectedPanel() {
   p.corners = s.corners.map(c => Cesium.Cartesian3.clone(c));
   updatePanelSelectionUI();
   if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Panel restaurado');
+  if (typeof wpPopulateFaldonCard === 'function') wpPopulateFaldonCard();
   if (typeof wpFastRenderSimulatedPanels === 'function') wpFastRenderSimulatedPanels();
   showStatus(`PANEL #${selectedPanelIndex + 1} RESTAURADO A SU POSICIÓN Y ORIENTACIÓN ORIGINALES`, 2500);
 }
@@ -9794,12 +9800,12 @@ function selectElectricalObject(id) {
   if (typeof renderTriad2D === 'function') renderTriad2D();
 }
 
-function pickElectricalObjectUnderCursor(screenPos) {
+function pickElectricalObjectUnderCursor(screenPos, skipGpuPick) {
   if (!window.inverterEquipmentState || typeof viewer === 'undefined' || !viewer) return null;
   const s = window.inverterEquipmentState;
 
-  // A. Pick por Entidad Cesium
-  try {
+  // A. Pick por Entidad Cesium (omitido en hover rápido para 0 ms GPU stall)
+  if (!skipGpuPick) try {
     const pickedObj = scene.pick(screenPos);
     if (pickedObj && pickedObj.id) {
       const entId = typeof pickedObj.id === 'string' ? pickedObj.id : (pickedObj.id.id || '');
@@ -14157,6 +14163,7 @@ let _isHoverRafPending = false;
 let _pendingHoverMousePos = null;
 
 function handleHeatmapPanelHover(mousePos) {
+  if (window._isCameraMoving || window._isPointerButtonsDown) return;
   _pendingHoverMousePos = mousePos;
   if (!_isHoverRafPending) {
     _isHoverRafPending = true;
@@ -15833,6 +15840,9 @@ window.toggleSolarHUD = toggleSolarHUD;
 
     // <i data-lucide=\"rocket\" class=\"icon-sm\"></i> THROTTLE GPU: limitar eventos de movimiento a ~30 FPS para evitar saturación de gl.readPixels
     if (!universalGizmoState.active) {
+      if (window._isCameraMoving || window._isPointerButtonsDown) {
+        return; // Durante el giro/paneo de cámara no ejecutar hover ni raycasts secundarios
+      }
       const _nowMs = Date.now();
       if (_nowMs - _lastPickTime < _PICK_THROTTLE_MS) {
         return; // frame demasiado próximo: skip para mantener 60 FPS estables
