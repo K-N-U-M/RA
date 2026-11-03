@@ -89,7 +89,7 @@
       var bL = Math.max(2.0, Number(b.rectLadoB || b.length || b.l || 20.0));
       var bCarto = null;
       var bCartesian = null;
-      var pts = Array.isArray(b.points) ? b.points : (Array.isArray(b.polygonPoints) ? b.polygonPoints : null);
+      var pts = Array.isArray(b.points) ? b.points : (Array.isArray(b.polygonPoints) ? b.polygonPoints : (Array.isArray(b.polygon) ? b.polygon : null));
 
       if (b.cartesian) {
         bCartesian = b.cartesian;

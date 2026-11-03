@@ -226,7 +226,28 @@ window.getBuildingShadowPolygons2DForRoof = getBuildingShadowPolygons2DForRoof;
 function getObstacleShadowPolygons2DForRoof(obs, roof, sU, sV, shadowLenPerM) {
   // Para aerogeneradores, la sombra sobre cubierta proviene del fuste/mástil cilíndrico esbelto
   const isTurbine = (obs.type === 'wind_turbine');
-  const h = isTurbine ? (Math.max(obs.mastHeight || 6.0, 1.0)) : Math.max(obs.h || 1.2, 0.2);
+  let h = Math.max(obs.h || 1.2, 0.2);
+  if (isTurbine) {
+    const mastH = Math.max(obs.mastHeight || 6.0, 1.0);
+    let roofZ = 0;
+    if (roof && roof.carto && typeof roof.carto.height === 'number') {
+      roofZ = roof.carto.height;
+    } else if (roof && roof.center && typeof Cesium !== 'undefined' && Cesium.Cartographic) {
+      const c = Cesium.Cartographic.fromCartesian(roof.center);
+      if (c) roofZ = c.height;
+    }
+    let turbineZ = 0;
+    if (obs.positionCartographic && typeof obs.positionCartographic.altitudeM === 'number') {
+      turbineZ = obs.positionCartographic.altitudeM;
+    } else if (obs.cartesian && typeof Cesium !== 'undefined' && Cesium.Cartographic) {
+      const c = Cesium.Cartographic.fromCartesian(obs.cartesian);
+      if (c) turbineZ = c.height;
+    }
+    const tipZ = turbineZ + mastH;
+    const effH = tipZ - roofZ;
+    if (effH <= 0.2) return null; // La punta de la turbina no sobrepasa la cota del tejado
+    h = effH;
+  }
   const shadowLen = h * (shadowLenPerM || 0);
   
   // <i data-lucide=\"zap\" class=\"icon-sm\"></i> SEPARACIÓN DE SEGURIDAD (5 cm): Iniciar la sombra a 0.05m del obstáculo para erradicar artefactos y shadow acne
@@ -355,5 +376,6 @@ if (typeof window !== 'undefined') {
   window.convexHull2D = convexHull2D;
   window.getBuildingPolygon2DForRoof = getBuildingPolygon2DForRoof;
   window.getBuildingShadowPolygons2DForRoof = getBuildingShadowPolygons2DForRoof;
-  window.checkPanelObstacles = checkPanelObstacles;
+  window.defaultPanelFilter = defaultPanelFilter;
+  if (typeof checkPanelObstacles !== 'undefined') window.checkPanelObstacles = checkPanelObstacles;
 }

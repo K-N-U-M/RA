@@ -2175,8 +2175,10 @@
   const Vmp = cfg.vmp || 34.5;
   const Isc = cfg.isc || 13.8;
   const Imp = cfg.imp || 13.05;
-  const betaVoc = cfg.betaVoc || -0.0027;
-  const gammaPmp = cfg.gammaPmp || -0.0035;
+  const rawBeta = cfg.betaVoc || cfg.gammaVoc || cfg.tempCoeffVoc || -0.0027;
+  const betaVoc = -Math.abs(Math.abs(rawBeta) > 0.05 ? rawBeta / 100.0 : rawBeta);
+  const rawGamma = cfg.gammaPmp || cfg.tempCoeffPmax || -0.0035;
+  const gammaPmp = -Math.abs(Math.abs(rawGamma) > 0.05 ? rawGamma / 100.0 : rawGamma);
 
   const T_min = (typeof SOLAR_ENGINE_CONSTANTS !== 'undefined' && SOLAR_ENGINE_CONSTANTS.T_MIN_SPAIN)
     ? SOLAR_ENGINE_CONSTANTS.T_MIN_SPAIN

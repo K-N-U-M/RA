@@ -765,13 +765,13 @@ var RAPricing = {
       ? BOMTreeEngine.computeBOMTree()
       : null;
 
-    var numPanels = (typeof forcedPanels === 'number' && forcedPanels > 0)
+    var numPanels = (typeof forcedPanels === 'number')
       ? forcedPanels
-      : ((tree && tree.summary && tree.summary.totalPanels > 0)
+      : ((tree && tree.summary && typeof tree.summary.totalPanels === 'number')
           ? tree.summary.totalPanels
           : ((typeof window !== 'undefined' && Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0)
               ? window.allRenderedPanels.filter(function(p) { return p && !p.deleted && !p.disabled; }).length
-              : (cfg.lastEstimatedPanels || 1)));
+              : (typeof cfg.lastEstimatedPanels === 'number' ? cfg.lastEstimatedPanels : 0)));
 
     // 1. Precio unitario real y coste total de módulos (con soporte Multi-Módulo)
     var mb = (typeof window !== 'undefined' && window.RAModulesBreakdown && typeof window.RAModulesBreakdown.getProjectModulesBreakdown === 'function')
@@ -5594,13 +5594,19 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   try {
   const d = (overrides && overrides.d) || getProjectCalcs();
   const mb = (d && d.modulesBreakdown) || (typeof window !== 'undefined' && window.RAModulesBreakdown && typeof window.RAModulesBreakdown.getProjectModulesBreakdown === 'function' ? window.RAModulesBreakdown.getProjectModulesBreakdown() : null);
-  const numPanels = (overrides && overrides.numPanels > 0) ? overrides.numPanels : ((mb && mb.totalPanels > 0) ? mb.totalPanels : (d.numPanels || 1));
+  const numPanels = (overrides && typeof overrides.numPanels === 'number')
+    ? overrides.numPanels
+    : ((mb && typeof mb.totalPanels === 'number')
+        ? mb.totalPanels
+        : (typeof d.numPanels === 'number' ? d.numPanels : 0));
   const kwp = (mb && mb.totalKwp > 0) ? mb.totalKwp : ((numPanels * (d.cfg.potencia || 450)) / 1000.0);
   // [SSOT] Producción física anual: priorizar simulación 3D precisa con pérdidas de sombras reales + producción minieólica neta
   const solarStats = (typeof window !== 'undefined' && window.RA && window.RA.solarStats) ? window.RA.solarStats : null;
-  const solarYieldKWh = (solarStats && Number.isFinite(solarStats.annualYieldKWh) && solarStats.annualYieldKWh > 0)
-    ? Math.round(solarStats.annualYieldKWh)
-    : (d.annualKWh || (kwp * 1450));
+  const solarYieldKWh = (numPanels <= 0)
+    ? 0
+    : ((solarStats && Number.isFinite(solarStats.annualYieldKWh) && solarStats.annualYieldKWh > 0)
+        ? Math.round(solarStats.annualYieldKWh)
+        : (d.annualKWh || (kwp * 1450)));
   const activeWindTurbines = (typeof window !== 'undefined' && Array.isArray(window.windTurbines))
     ? window.windTurbines.filter(t => t && (!t.operationalState || t.operationalState.enabled !== false))
     : [];

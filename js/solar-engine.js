@@ -471,6 +471,13 @@ function solarAzimuth(latDeg, declDeg, haDeg, altDeg) {
 
 function calcPOA(GHI, DHI, latDeg, tiltDeg, azimutPanelDeg, dayOfYear, hourSolar) {
   if (GHI <= 0) return 0;
+  // Normalizar azimutPanelDeg: soportar tanto 0°=Sur como brújula 180°=Sur
+  let panelAzSur = azimutPanelDeg || 0;
+  if (panelAzSur > 90 || panelAzSur < -90) {
+    if (Math.abs(panelAzSur - 180) <= 90) {
+      panelAzSur = panelAzSur - 180;
+    }
+  }
   // [B2] Motor único de radiación: calcular geometría solar y delegar en RA.Radiation.poa
   if (typeof global !== 'undefined' && global.RA && global.RA.Radiation && typeof global.RA.Radiation.poa === 'function') {
     const decl = solarDeclination(dayOfYear);
@@ -480,8 +487,6 @@ function calcPOA(GHI, DHI, latDeg, tiltDeg, azimutPanelDeg, dayOfYear, hourSolar
     const azFromNorth = solarAzimuthAtan2(latDeg, decl, ha);
     // Compass (0°=N, 180°=S) → convención Sur del motor (0°=S, -90°=E, +90°=O). Rango [-180,180).
     const sunAzSur = azFromNorth - 180;
-    // azimutPanelDeg llega en convención brújula (180°=Sur); el motor usa 0°=Sur
-    const panelAzSur = azimutPanelDeg - 180;
     return global.RA.Radiation.poa(GHI, latDeg, tiltDeg, panelAzSur, altDeg, sunAzSur, 0.20).G_poa;
   }
   // Fallback legacy (Perez simplificado) para entornos sin el módulo
@@ -496,7 +501,7 @@ function calcPOA(GHI, DHI, latDeg, tiltDeg, azimutPanelDeg, dayOfYear, hourSolar
   // Convención Duffie & Beckman: gamma = 0° es Sur, +90° Oeste, -90° Este, 180° Norte.
   // La aplicación utiliza la convención náutica / brújula: 0° Norte, 90° Este, 180° Sur, 270° Oeste.
   // Transformación canónica: gamma_Duffie = azimutPanelDeg - 180°.
-  const azPanel = (azimutPanelDeg - 180) * Math.PI / 180;
+  const azPanel = panelAzSur * Math.PI / 180;
   const cosTheta = (
     Math.sin(decl)*Math.sin(lat)*Math.cos(tilt)
     - Math.sin(decl)*Math.cos(lat)*Math.sin(tilt)*Math.cos(azPanel)
