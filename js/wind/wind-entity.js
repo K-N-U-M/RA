@@ -93,6 +93,15 @@
   // ── Añadir turbina a la escena ────────────────────────────────────
   function addToScene(turbineInstance) {
     if (!turbineInstance || !turbineInstance.id) return;
+    // Si la curva viola Betz o carece de curva válida, auto-calibrar para garantizar viabilidad física
+    if (turbineInstance._catalog) {
+      var audit = turbineInstance._catalog.cpAudit;
+      if (!audit || !audit.valid) {
+        if (global.RAWindCatalog && typeof global.RAWindCatalog.calibratePowerCurveToBetz === 'function') {
+          global.RAWindCatalog.calibratePowerCurveToBetz(turbineInstance._catalog, 0.42);
+        }
+      }
+    }
     global.windTurbines.push(turbineInstance);
     recalculateAllEngineering();
     _emitChange('wind_turbine_added', turbineInstance);

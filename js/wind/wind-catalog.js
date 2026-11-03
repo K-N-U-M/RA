@@ -268,6 +268,71 @@
     };
   }
 
+  /**
+   * Genera o calibra una curva de potencia físicamente realista respetando la aerodinámica (Cp <= 0.42).
+   * Si la turbina carece de curva o viola Betz (Cp > 0.593), ajusta cada punto a la potencia máxima
+   * aerodinámicamente posible para el área del rotor o sintetiza la curva estándar de minieólica.
+   */
+  function calibratePowerCurveToBetz(turbine, targetMaxCp) {
+    if (!turbine || typeof turbine !== 'object') return turbine;
+    var maxAllowedCp = (typeof targetMaxCp === 'number' && targetMaxCp > 0 && targetMaxCp <= BETZ_LIMIT) ? targetMaxCp : 0.42;
+    var D = Math.max(0.6, Number(turbine.rotorDiameterM) || 5.0);
+    var pNomW = Math.max(100, Number(turbine.ratedPowerW) || 5000);
+    var cutIn = Math.max(1.5, Number(turbine.cutInSpeedMs) || 2.5);
+    var ratedSpeed = Math.max(cutIn + 2, Number(turbine.ratedSpeedMs) || 11.0);
+    var cutOut = Math.max(ratedSpeed + 3, Number(turbine.cutOutSpeedMs) || 25.0);
+    var area = Math.PI * D * D / 4;
+
+    var existingCurve = Array.isArray(turbine.powerCurve) ? turbine.powerCurve : [];
+    var newCurve = [];
+
+    if (existingCurve.length >= 2) {
+      newCurve = existingCurve.map(function(pt) {
+        var v = Number(pt.v);
+        var pOrig = Number(pt.p);
+        var ct = (typeof pt.ct === 'number') ? pt.ct : 0.40;
+        if (v < cutIn || v > cutOut) {
+          return { v: v, p: 0, ct: 0.05 };
+        }
+        var pWind = 0.5 * AIR_DENSITY_KGM3 * area * Math.pow(v, 3);
+        var pMaxAerodynamic = pWind * maxAllowedCp;
+        var pClamped = Math.min(pOrig, pMaxAerodynamic);
+        pClamped = Math.min(pClamped, pNomW);
+        return {
+          v: v,
+          p: Math.round(pClamped),
+          ct: Math.max(0.15, Math.min(0.55, ct))
+        };
+      });
+    } else {
+      for (var vInt = 2; vInt <= cutOut; vInt++) {
+        if (vInt < cutIn) {
+          newCurve.push({ v: vInt, p: 0, ct: 0.05 });
+          continue;
+        }
+        var pWind = 0.5 * AIR_DENSITY_KGM3 * area * Math.pow(vInt, 3);
+        var pMaxAero = pWind * maxAllowedCp;
+        var pPch = 0;
+        if (vInt >= ratedSpeed) {
+          pPch = Math.min(pNomW, pMaxAero);
+        } else {
+          var frac = (vInt - cutIn) / Math.max(1.0, ratedSpeed - cutIn);
+          pPch = Math.min(pNomW * Math.pow(frac, 2.5), pMaxAero);
+        }
+        var ctVal = vInt <= 6 ? 0.44 : (vInt <= 9 ? 0.41 : (vInt <= 12 ? 0.35 : 0.20));
+        newCurve.push({
+          v: vInt,
+          p: Math.round(pPch),
+          ct: ctVal
+        });
+      }
+    }
+
+    turbine.powerCurve = newCurve;
+    turbine.cpAudit = computePowerCurveAudit(turbine);
+    return turbine;
+  }
+
   function auditCatalogEntry(turbine) {
     if (!turbine || typeof turbine !== 'object') return turbine;
     var audit = computePowerCurveAudit(turbine);
@@ -285,6 +350,7 @@
     _catalog: null,
 
     validatePowerCurve: computePowerCurveAudit,
+    calibratePowerCurveToBetz: calibratePowerCurveToBetz,
 
     // Carga desde localStorage o retorna los valores por defecto
     load: function () {
@@ -326,6 +392,11 @@
     upsert: function (turbine) {
       this.load();
       if (!turbine || !turbine.id) return;
+      // Auto-calibrar si no tiene curva válida o viola Betz
+      var audit = computePowerCurveAudit(turbine);
+      if (!audit || !audit.valid) {
+        calibratePowerCurveToBetz(turbine, 0.42);
+      }
       var idx = this._catalog.findIndex(function (t) { return t.id === turbine.id; });
       if (idx >= 0) {
         this._catalog[idx] = turbine;

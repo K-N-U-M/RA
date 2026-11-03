@@ -177,6 +177,42 @@
   }
   if (typeof window !== 'undefined') window.getPanelNormalWorld = getPanelNormalWorld;
 
+  function getCombinedObstaclesAndTurbinesList() {
+    const list = (typeof obstacles !== 'undefined' && Array.isArray(obstacles))
+      ? obstacles.slice()
+      : ((typeof window !== 'undefined' && Array.isArray(window.obstacles)) ? window.obstacles.slice() : []);
+    const wTurbines = (typeof windTurbines !== 'undefined' && Array.isArray(windTurbines))
+      ? windTurbines
+      : ((typeof window !== 'undefined' && Array.isArray(window.windTurbines)) ? window.windTurbines : []);
+    if (wTurbines && wTurbines.length > 0) {
+      wTurbines.forEach(t => {
+        if (!t || (t.operationalState && t.operationalState.enabled === false)) return;
+        const hubH = (t.supportStructure && t.supportStructure.hubHeightM) ? t.supportStructure.hubHeightM : 18;
+        const rotorR = (t._catalog && t._catalog.rotorDiameterM) ? (t._catalog.rotorDiameterM / 2) : 3;
+        let cart = null;
+        if (t.cartesian) cart = t.cartesian;
+        else if (t.positionCartographic && typeof Cesium !== 'undefined' && Cesium.Cartesian3) {
+          try {
+            cart = Cesium.Cartesian3.fromRadians(t.positionCartographic.longitudeRad, t.positionCartographic.latitudeRad, t.positionCartographic.altitudeM || 0);
+          } catch (eC) {}
+        }
+        list.push({
+          id: t.id,
+          type: 'wind_turbine',
+          name: t.name || 'Aerogenerador',
+          mastHeight: hubH + rotorR,
+          h: hubH + rotorR,
+          w: 1.5,
+          l: 1.5,
+          cartesian: cart,
+          positionCartographic: t.positionCartographic,
+          isTurbine: true
+        });
+      });
+    }
+    return list;
+  }
+
   /**
    * Calcula los polígonos de sombra 2D arrojados por las aristas superiores de paneles elevados
    * sobre las filas adyacentes (Autosombreado Inter-Filas / Self-shading).
@@ -191,9 +227,10 @@
     const pergSubtype = pInfo.pergolaSubtype || (pInfo.estructura && pInfo.estructura.subtype) || 'continuous';
     const isContinuousPergola = (structType === 'pergola' && pergSubtype !== 'spaced_rows');
 
-    // En cubiertas coplanares o marquesinas/pérgolas continuas (tejadillo corrido),
-    // todos los paneles forman un único plano continuo sin autosombreado inter-filas
-    if (pInfo.coplanar || isContinuousPergola) return [];
+    // En cubiertas coplanares o marquesinas continuas (tejadillo corrido sin desnivel entre filas),
+    // si no hay desnivel geométrico en vértices 3D, no hay autosombreado inter-filas
+    const hasPergolaTilt = (structType === 'pergola' && typeof pInfo.moduleTiltDeg === 'number' && pInfo.moduleTiltDeg > 2);
+    if ((pInfo.coplanar || isContinuousPergola) && !hasPergolaTilt) return [];
 
     let hModGlobal = 0;
     if (typeof pInfo.moduleTiltDeg === 'number' && pInfo.moduleTiltDeg > 5) {
@@ -344,8 +381,9 @@
       }
 
       const polyShadowQuads2D = [];
-      if (solarPos.isDaylight && typeof obstacles !== "undefined" && obstacles && obstacles.length > 0) {
-        obstacles.forEach(obs => {
+      const activeObstacles = getCombinedObstaclesAndTurbinesList();
+      if (solarPos.isDaylight && activeObstacles && activeObstacles.length > 0) {
+        activeObstacles.forEach(obs => {
           if (typeof getObstacleShadowPolygons2DForRoof === "function") {
             const quads = getObstacleShadowPolygons2DForRoof(obs, pInfo, sU, sV, solarPos.shadowLenPerM);
             if (quads && quads.length > 0) polyShadowQuads2D.push(...quads);
@@ -692,7 +730,8 @@
         const structType = pInfo.structureType || (pInfo.estructura && pInfo.estructura.tipo);
         const pergSubtype = pInfo.pergolaSubtype || (pInfo.estructura && pInfo.estructura.subtype) || 'continuous';
         const isContinuousPergola = (structType === 'pergola' && pergSubtype !== 'spaced_rows');
-        if (!pInfo.coplanar && !isContinuousPergola && pList.length >= 2) {
+        const hasPergolaTilt = (structType === 'pergola' && typeof pInfo.moduleTiltDeg === 'number' && pInfo.moduleTiltDeg > 2);
+        if ((!pInfo.coplanar && !isContinuousPergola || hasPergolaTilt) && pList.length >= 2) {
           let hModGlobal = 0;
           if (typeof pInfo.moduleTiltDeg === 'number' && pInfo.moduleTiltDeg > 5) {
             const deltaTilt = Math.max(0, pInfo.moduleTiltDeg - (pInfo.tiltDeg || 0));
@@ -1250,8 +1289,9 @@
             : (poly.modStructure === 'pergola' ? 1.80 : 0);
 
           const polyShadowQuads2D = [];
-          if (typeof obstacles !== "undefined" && obstacles && obstacles.length > 0) {
-            obstacles.forEach(obs => {
+          const activeObstacles = getCombinedObstaclesAndTurbinesList();
+          if (activeObstacles && activeObstacles.length > 0) {
+            activeObstacles.forEach(obs => {
               const obsH = typeof obs.h === 'number' ? obs.h : (obs.height || 0.5);
               if (effClearance > 0 && obsH <= effClearance + 0.10) return;
               if (typeof getObstacleShadowPolygons2DForRoof === "function") {

@@ -522,8 +522,11 @@
     if (parkSummary && parkSummary.hasInvalidCurves) {
       var _badNames = (parkSummary.invalidCurves || []).map(function(c) { return c.name || c.id; }).join(', ');
       html += '<div style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.5);border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:10px;color:#FCA5A5;line-height:1.4;">' +
-        '<b>⚠️ Curva de potencia no válida:</b> ' + _badNames + '. El AEP de esos equipos se muestra como 0 kWh porque la curva declara más energía que la contenida en el viento (Cp &gt; 0,593). Corrige el datasheet (potencia o diámetro de rotor) antes de usar estas cifras.' +
-        '</div>';
+        '<b>⚠️ Curva de potencia no válida:</b> ' + _badNames + '. El AEP de esos equipos se muestra como 0 kWh porque la curva declara más energía que la contenida en el viento (Cp &gt; 0,593).' +
+        '<div style="margin-top:6px;display:flex;align-items:center;justify-content:space-between;gap:8px;">' +
+        '<span style="font-size:9.5px;color:#FCA5A5;opacity:0.9;">Puedes auto-calibrar las curvas al límite físico realista (Cp ≤ 0,42) para desbloquear la producción.</span>' +
+        '<button class="doc-mini-btn" onclick="if(window.RAWindUI&&typeof window.RAWindUI.autoCalibrateBetzViolations===\'function\'){window.RAWindUI.autoCalibrateBetzViolations();}" style="background:rgba(245,158,11,0.25);color:#FBBF24;border:1px solid rgba(245,158,11,0.6);font-weight:700;padding:4px 8px;font-size:10px;cursor:pointer;white-space:nowrap;">🔧 Calibrar y Desbloquear</button>' +
+        '</div></div>';
     }
 
     // ── 1. Cabecera del Parque Mini-Eólico ─────────────────────────────
@@ -1108,6 +1111,32 @@
     }
   }
 
+  function autoCalibrateBetzViolations() {
+    var turbList = global.windTurbines;
+    if (!Array.isArray(turbList) || turbList.length === 0) return;
+    var count = 0;
+    turbList.forEach(function (t) {
+      if (t && t._catalog) {
+        var audit = t._catalog.cpAudit || (global.RAWindCatalog && global.RAWindCatalog.validatePowerCurve(t._catalog));
+        if (!audit || !audit.valid) {
+          if (global.RAWindCatalog && typeof global.RAWindCatalog.calibratePowerCurveToBetz === 'function') {
+            global.RAWindCatalog.calibratePowerCurveToBetz(t._catalog, 0.42);
+            t.cpAudit = t._catalog.cpAudit;
+            count++;
+          }
+        }
+      }
+    });
+
+    if (global.RAWind && global.RAWind.Entity && typeof global.RAWind.Entity.recalculateAllEngineering === 'function') {
+      global.RAWind.Entity.recalculateAllEngineering();
+    }
+    renderStep2Panel();
+    if (typeof global.showToast === 'function') {
+      global.showToast('CURVAS CALIBRADAS', count + ' turbina(s) ajustada(s) al límite aerodinámico realista (Cp ≤ 0,42). Producción desbloqueada.', 'success', 4000);
+    }
+  }
+
   var RAWindUI = {
     init: init,
     isPlacementActive: isPlacementActive,
@@ -1123,6 +1152,7 @@
     toggleRings3D: toggleRings3D,
     toggleAutoYaw: toggleAutoYaw,
     orientAllToWindNow: orientAllToWindNow,
+    autoCalibrateBetzViolations: autoCalibrateBetzViolations,
     toggleAdvancedResource: toggleAdvancedResource,
     toggleResourceMetric: toggleResourceMetric,
     isAdvancedResourceOpen: function () { return _showAdvancedResource; },

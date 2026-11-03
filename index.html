@@ -14130,6 +14130,9 @@ function _getOcclusionExcludeList(scene) {
   if (window._faldonPanelsPrimitives && typeof window._faldonPanelsPrimitives.forEach === 'function') {
     window._faldonPanelsPrimitives.forEach(p => { if (p) toExclude.push(p); });
   }
+  if (window._faldonPergolaPrimitives && typeof window._faldonPergolaPrimitives.forEach === 'function') {
+    window._faldonPergolaPrimitives.forEach(p => { if (p) toExclude.push(p); });
+  }
   if (window.simulatedStringsPolylineCollection) toExclude.push(window.simulatedStringsPolylineCollection);
   if (window.simulatedSupportsPolylineCollection) toExclude.push(window.simulatedSupportsPolylineCollection);
   if (window._raCableEnginePrimitives) toExclude.push(window._raCableEnginePrimitives);
