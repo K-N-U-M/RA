@@ -133,6 +133,50 @@
     });
   }
 
+  const _scratchV1 = (typeof Cesium !== 'undefined' && Cesium.Cartesian3) ? new Cesium.Cartesian3() : null;
+  const _scratchV2 = (typeof Cesium !== 'undefined' && Cesium.Cartesian3) ? new Cesium.Cartesian3() : null;
+  const _scratchUp = (typeof Cesium !== 'undefined' && Cesium.Cartesian3) ? new Cesium.Cartesian3() : null;
+
+  function getPanelNormalWorld(pData, roofNorm, transform) {
+    if (typeof Cesium === 'undefined' || !Cesium.Cartesian3) {
+      return roofNorm || { x: 0, y: 0, z: 1 };
+    }
+    if (pData && pData.corners && pData.corners.length >= 3) {
+      const c0 = pData.corners[0];
+      const c1 = pData.corners[1];
+      const c3 = pData.corners[3];
+      const v1 = _scratchV1 || new Cesium.Cartesian3();
+      const v2 = _scratchV2 || new Cesium.Cartesian3();
+      Cesium.Cartesian3.subtract(c1, c0, v1);
+      Cesium.Cartesian3.subtract(c3, c0, v2);
+      const n = Cesium.Cartesian3.cross(v1, v2, new Cesium.Cartesian3());
+      if (Cesium.Cartesian3.magnitude(n) > 1e-6) {
+        Cesium.Cartesian3.normalize(n, n);
+        const upScratch = _scratchUp || new Cesium.Cartesian3();
+        const up = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(pData.center || c0, upScratch);
+        if (Cesium.Cartesian3.dot(n, up) < 0) {
+          Cesium.Cartesian3.negate(n, n);
+        }
+        return n;
+      }
+    }
+    // Si disponemos de la matriz de transformación del faldón, transformar el vector normal a ECEF
+    if (transform && roofNorm) {
+      let nWorld = new Cesium.Cartesian3();
+      if (typeof Cesium.Matrix4.multiplyByPointAsVector === "function") {
+        nWorld = Cesium.Matrix4.multiplyByPointAsVector(transform, roofNorm, nWorld);
+      } else {
+        nWorld = Cesium.Matrix4.multiplyByPoint(transform, roofNorm, nWorld);
+      }
+      return Cesium.Cartesian3.normalize(nWorld, nWorld);
+    }
+    if (roofNorm) {
+      return Cesium.Cartesian3.clone(roofNorm);
+    }
+    return new Cesium.Cartesian3(0, 0, 1);
+  }
+  if (typeof window !== 'undefined') window.getPanelNormalWorld = getPanelNormalWorld;
+
   /**
    * Calcula los polígonos de sombra 2D arrojados por las aristas superiores de paneles elevados
    * sobre las filas adyacentes (Autosombreado Inter-Filas / Self-shading).
@@ -385,10 +429,11 @@
         }
 
         if (!isShaded && solarPos.isDaylight && sunDirWorld && pData.center) {
-          // [AAA FÍSICA SOLAR] Si el sol incide por la espalda del plano/panel (espalda al sol), sombra propia directa
-          if (normWorld && Cesium.Cartesian3.dot(normWorld, sunDirWorld) <= 0.001) {
+          const effPanelNorm = getPanelNormalWorld(pData, normWorld, transform);
+          // [AAA FÍSICA SOLAR] Si el sol incide por la espalda del panel real (espalda al sol), sombra propia directa
+          if (effPanelNorm && Cesium.Cartesian3.dot(effPanelNorm, sunDirWorld) <= 0.001) {
             isShaded = true;
-          } else if (!poly.ignore3DTilesShadows && !(pInfo && pInfo.ignore3DTilesShadows) && typeof isPanelOccludedBy3DEnvironment === "function" && isPanelOccludedBy3DEnvironment(pData.center, normWorld, sunDirWorld)) {
+          } else if (!poly.ignore3DTilesShadows && !(pInfo && pInfo.ignore3DTilesShadows) && typeof isPanelOccludedBy3DEnvironment === "function" && isPanelOccludedBy3DEnvironment(pData.center, effPanelNorm, sunDirWorld)) {
             isShaded = true;
           }
         }
@@ -696,8 +741,8 @@
                 { u: u - halfW, v: v + halfH }
               ];
 
-          const tiltVal = p.tiltDeg !== undefined ? p.tiltDeg : (pInfo.tiltDeg || 20);
-          const azVal = p.azDeg !== undefined ? p.azDeg : (pInfo.azDeg || 180);
+          const tiltVal = p.tiltDeg !== undefined ? p.tiltDeg : (pInfo.moduleTiltDeg !== undefined ? pInfo.moduleTiltDeg : (pInfo.tiltDeg || 20));
+          const azVal = p.azimuthDeg !== undefined ? (180 - p.azimuthDeg) : (p.azDeg !== undefined ? p.azDeg : (pInfo.moduleAzimuthDeg !== undefined ? (180 - pInfo.moduleAzimuthDeg) : (pInfo.azDeg || 180)));
           const tiltR = (tiltVal * Math.PI) / 180;
           const azR = (azVal * Math.PI) / 180;
           const normalENU = {
@@ -705,6 +750,10 @@
             y: Math.sin(tiltR) * Math.cos(azR),
             z: Math.cos(tiltR)
           };
+
+          const pNormWorld = (typeof getPanelNormalWorld === 'function')
+            ? getPanelNormalWorld(p, norm, pInfo.transform)
+            : norm;
 
           panels.push({
             id: pId,
@@ -719,7 +768,7 @@
             azDeg: azVal,
             hasOptimizer: !!(p.hasOptimizer || p.optimizerModelId),
             poly2D: poly2D,
-            normalWorld: norm,
+            normalWorld: pNormWorld,
             normalENU: normalENU
           });
         });
