@@ -3315,8 +3315,10 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   const MES_CORTOS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
   // ── SVG Histograma mensual ────────────────────────────────────────────────
-  function buildMonthlyHistogramSVG(yields, paleta) {
-    const W = 720, H = 200, PAD_L = 50, PAD_B = 35, PAD_T = 20, PAD_R = 10;
+  function buildMonthlyHistogramSVG(yields, paleta, studioCfg) {
+    const cfg = studioCfg || {};
+    const H = (typeof cfg.histogramHeightPx === 'number' && cfg.histogramHeightPx >= 100) ? cfg.histogramHeightPx : 200;
+    const W = 720, PAD_L = 50, PAD_B = 35, PAD_T = 20, PAD_R = 10;
     const chartW = W - PAD_L - PAD_R;
     const chartH = H - PAD_B - PAD_T;
     const maxVal = Math.max(...yields, 1);
@@ -3324,12 +3326,36 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     const barGap = (chartW / 12) * 0.35;
     let bars = '', labels = '', vals = '', grid = '';
 
+    const isGrad = (cfg.histogramFillMode !== 'solid');
+    const colBar = cfg.histogramBarColor || paleta.accent || '#38bdf8';
+    const colBarEnd = cfg.histogramBarColorEnd || paleta.primary || '#0284c7';
+    const colPeak = cfg.histogramPeakColor || paleta.primary || '#10b981';
+    const colPeakEnd = cfg.histogramPeakColorEnd || paleta.dark || '#059669';
+
+    const valFontSize = Number(cfg.histogramValueFontSize) || 7.5;
+    const lblFontSize = Number(cfg.histogramLabelFontSize) || 8.0;
+    const axisFontSize = Number(cfg.histogramAxisFontSize) || 8.0;
+
+    let defs = '';
+    if (isGrad) {
+      defs = `<defs>
+        <linearGradient id="ra-histo-grad-bar" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="${colBar}"/>
+          <stop offset="100%" stop-color="${colBarEnd}"/>
+        </linearGradient>
+        <linearGradient id="ra-histo-grad-peak" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="${colPeak}"/>
+          <stop offset="100%" stop-color="${colPeakEnd}"/>
+        </linearGradient>
+      </defs>`;
+    }
+
     // Grid horizontal
     for (let g = 0; g <= 4; g++) {
       const y = PAD_T + chartH - (g / 4) * chartH;
       const gVal = Math.round((g / 4) * maxVal);
       grid += `<line x1="${PAD_L}" y1="${y.toFixed(1)}" x2="${W - PAD_R}" y2="${y.toFixed(1)}" stroke="#e2e8f0" stroke-width="1"/>`;
-      grid += `<text x="${PAD_L - 5}" y="${(y + 4).toFixed(1)}" text-anchor="end" font-size="8" fill="#94a3b8">${gVal.toLocaleString('es-ES')}</text>`;
+      grid += `<text x="${PAD_L - 5}" y="${(y + 3.5).toFixed(1)}" text-anchor="end" font-size="${axisFontSize}" fill="#94a3b8">${gVal.toLocaleString('es-ES')}</text>`;
     }
 
     yields.forEach((kWh, i) => {
@@ -3337,20 +3363,27 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       const barH = chartH * (kWh / maxVal);
       const y = PAD_T + chartH - barH;
       const isTop = kWh === maxVal;
-      bars   += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${barH.toFixed(1)}" rx="2" fill="${isTop ? paleta.primary : paleta.accent}" opacity="${isTop ? '1' : '0.75'}"/>`;
-      labels += `<text x="${(x + barW/2).toFixed(1)}" y="${(H - PAD_B + 12).toFixed(1)}" text-anchor="middle" font-size="8" fill="#475569">${MES_CORTOS[i]}</text>`;
-      vals   += `<text x="${(x + barW/2).toFixed(1)}" y="${(y - 4).toFixed(1)}" text-anchor="middle" font-size="7.5" fill="${paleta.dark}" font-weight="700">${kWh.toLocaleString('es-ES')}</text>`;
+      const fillAttr = isGrad
+        ? (isTop ? 'url(#ra-histo-grad-peak)' : 'url(#ra-histo-grad-bar)')
+        : (isTop ? colPeak : colBar);
+      const opac = isGrad ? '1' : (isTop ? '1' : '0.85');
+
+      bars   += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${barH.toFixed(1)}" rx="2" fill="${fillAttr}" opacity="${opac}"/>`;
+      labels += `<text x="${(x + barW/2).toFixed(1)}" y="${(H - PAD_B + 13).toFixed(1)}" text-anchor="middle" font-size="${lblFontSize}" fill="#475569">${MES_CORTOS[i]}</text>`;
+      vals   += `<text x="${(x + barW/2).toFixed(1)}" y="${(y - 4).toFixed(1)}" text-anchor="middle" font-size="${valFontSize}" fill="${paleta.dark}" font-weight="700">${kWh.toLocaleString('es-ES')}</text>`;
     });
 
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="100%" style="display:block;max-width:100%;">
-      ${grid}${bars}${labels}${vals}
-      <text x="${W/2}" y="${H - 2}" text-anchor="middle" font-size="8" fill="#94a3b8">Producción estimada mensual (kWh/mes)</text>
+      ${defs}${grid}${bars}${labels}${vals}
+      <text x="${W/2}" y="${H - 2}" text-anchor="middle" font-size="${axisFontSize}" fill="#94a3b8">Producción estimada mensual (kWh/mes)</text>
     </svg>`;
   }
 
   // ── SVG Curva de amortización (cashflow acumulado 25 años) ─────────────────
-  function buildAmortizationSVG(cashflowAcum, capexBruto, paybackYears, paleta) {
-    const W = 720, H = 200, PAD_L = 60, PAD_B = 35, PAD_T = 20, PAD_R = 10;
+  function buildAmortizationSVG(cashflowAcum, capexBruto, paybackYears, paleta, studioCfg) {
+    const cfg = studioCfg || {};
+    const H = (typeof cfg.amortHeightPx === 'number' && cfg.amortHeightPx >= 120) ? cfg.amortHeightPx : 200;
+    const W = 720, PAD_L = 60, PAD_B = 35, PAD_T = 20, PAD_R = 10;
     const chartW = W - PAD_L - PAD_R;
     const chartH = H - PAD_B - PAD_T;
     const n = cashflowAcum.length;
@@ -3361,54 +3394,75 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     const xOf = i => PAD_L + (i / (n - 1)) * chartW;
     const yOf = v => PAD_T + chartH - ((v - minVal) / totalRange) * chartH;
 
+    // Colores y tipografía desde Studio o fallback a paleta
+    const isGradient = (cfg.amortFillMode !== 'solid');
+    const lineColor = cfg.amortLineColor || paleta.primary;
+    const areaColorStart = cfg.amortAreaColor || paleta.light;
+    const areaColorEnd = cfg.amortAreaColorEnd || paleta.secondary || paleta.primary;
+    const paybackColor = cfg.amortPaybackColor || paleta.primary;
+    const axisFontSize = (typeof cfg.amortAxisFontSize === 'number') ? cfg.amortAxisFontSize : 8.0;
+    const pbFontSize = (typeof cfg.amortPaybackFontSize === 'number') ? cfg.amortPaybackFontSize : 8.0;
+
+    let defs = '';
+    let fillAttr = areaColorStart;
+    if (isGradient) {
+      defs = `<defs>
+        <linearGradient id="ra-amort-grad-area" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stop-color="${areaColorStart}" stop-opacity="0.85"/>
+          <stop offset="100%" stop-color="${areaColorEnd}" stop-opacity="0.15"/>
+        </linearGradient>
+      </defs>`;
+      fillAttr = 'url(#ra-amort-grad-area)';
+    }
+
     // Línea cero
     const yZero = yOf(0);
-    let svgContent = `<line x1="${PAD_L}" y1="${yZero.toFixed(1)}" x2="${W - PAD_R}" y2="${yZero.toFixed(1)}" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4,3"/>`;
+    let svgContent = `${defs}<line x1="${PAD_L}" y1="${yZero.toFixed(1)}" x2="${W - PAD_R}" y2="${yZero.toFixed(1)}" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4,3"/>`;
 
     // Área rellena
     let pts = `${PAD_L.toFixed(1)},${yZero.toFixed(1)} `;
     cashflowAcum.forEach((v, i) => { pts += `${xOf(i).toFixed(1)},${yOf(v).toFixed(1)} `; });
     const lastX = xOf(n-1);
     pts += `${lastX.toFixed(1)},${yZero.toFixed(1)}`;
-    svgContent += `<polygon points="${pts}" fill="${paleta.light}" opacity="0.8"/>`;
+    svgContent += `<polygon points="${pts}" fill="${fillAttr}" opacity="0.9"/>`;
 
     // Línea principal
     const linePoints = cashflowAcum.map((v, i) => `${xOf(i).toFixed(1)},${yOf(v).toFixed(1)}`).join(' ');
-    svgContent += `<polyline points="${linePoints}" fill="none" stroke="${paleta.primary}" stroke-width="2.5" stroke-linejoin="round"/>`;
+    svgContent += `<polyline points="${linePoints}" fill="none" stroke="${lineColor}" stroke-width="2.5" stroke-linejoin="round"/>`;
 
     // Punto de payback
     if (paybackYears > 0 && paybackYears < n) {
       const pbX = PAD_L + (paybackYears / (n - 1)) * chartW;
-      svgContent += `<circle cx="${pbX.toFixed(1)}" cy="${yZero.toFixed(1)}" r="5" fill="${paleta.primary}"/>
-        <text x="${pbX.toFixed(1)}" y="${(yZero - 8).toFixed(1)}" text-anchor="middle" font-size="8" fill="${paleta.dark}" font-weight="800">Payback ${paybackYears.toFixed(1)}a</text>`;
+      svgContent += `<circle cx="${pbX.toFixed(1)}" cy="${yZero.toFixed(1)}" r="5" fill="${paybackColor}"/>
+        <text x="${pbX.toFixed(1)}" y="${(yZero - 8).toFixed(1)}" text-anchor="middle" font-size="${pbFontSize}" fill="${paleta.dark}" font-weight="800">Payback ${paybackYears.toFixed(1)}a</text>`;
     }
 
     // Eje X — años
     for (let y = 0; y <= n - 1; y += 5) {
       const xx = xOf(y);
-      svgContent += `<text x="${xx.toFixed(1)}" y="${(H - PAD_B + 12).toFixed(1)}" text-anchor="middle" font-size="8" fill="#475569">Año ${y}</text>`;
+      svgContent += `<text x="${xx.toFixed(1)}" y="${(H - PAD_B + 12).toFixed(1)}" text-anchor="middle" font-size="${axisFontSize}" fill="#475569">Año ${y}</text>`;
     }
     // Etiqueta Y
     const fmtK = v => v >= 0 ? '+' + Math.round(v/1000) + 'k€' : Math.round(v/1000) + 'k€';
-    svgContent += `<text x="${PAD_L - 5}" y="${PAD_T.toFixed(1)}" text-anchor="end" font-size="7.5" fill="#94a3b8">${fmtK(maxVal)}</text>`;
-    svgContent += `<text x="${PAD_L - 5}" y="${(H - PAD_B).toFixed(1)}" text-anchor="end" font-size="7.5" fill="#94a3b8">${fmtK(minVal)}</text>`;
+    svgContent += `<text x="${PAD_L - 5}" y="${PAD_T.toFixed(1)}" text-anchor="end" font-size="${Math.max(6.5, axisFontSize - 0.5)}" fill="#94a3b8">${fmtK(maxVal)}</text>`;
+    svgContent += `<text x="${PAD_L - 5}" y="${(H - PAD_B).toFixed(1)}" text-anchor="end" font-size="${Math.max(6.5, axisFontSize - 0.5)}" fill="#94a3b8">${fmtK(minVal)}</text>`;
 
-    svgContent += `<text x="${W/2}" y="${H - 2}" text-anchor="middle" font-size="8" fill="#94a3b8">Retorno de inversión acumulado a 25 años (€)</text>`;
+    svgContent += `<text x="${W/2}" y="${H - 2}" text-anchor="middle" font-size="${axisFontSize}" fill="#94a3b8">Retorno de inversión acumulado a 25 años (€)</text>`;
 
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="100%" style="display:block;max-width:100%;">${svgContent}</svg>`;
   }
-
-  const histogramSVG = buildMonthlyHistogramSVG(monthlyYields, pal);
-  const cashflowData = m.cashflowAcum || [];
-  const amortSVG = cashflowData.length > 0
-    ? buildAmortizationSVG(cashflowData, m.capexBruto, m.paybackYears, pal)
-    : '<p style="color:#94a3b8;font-size:10px;text-align:center">Configure los datos financieros para ver la curva de amortización.</p>';
 
   // ── Resolución de equipos del catálogo (SSOT) ──────────────────────────────
   const _eqp = resolveEquipmentNames();
   const _studioCfg = (typeof window !== 'undefined' && window.RAProposalStyleStudio && typeof window.RAProposalStyleStudio.getActiveConfig === 'function')
     ? window.RAProposalStyleStudio.getActiveConfig()
     : null;
+
+  const histogramSVG = buildMonthlyHistogramSVG(monthlyYields, pal, _studioCfg);
+  const cashflowData = m.cashflowAcum || [];
+  const amortSVG = cashflowData.length > 0
+    ? buildAmortizationSVG(cashflowData, m.capexBruto, m.paybackYears, pal, _studioCfg)
+    : '<p style="color:#94a3b8;font-size:10px;text-align:center">Configure los datos financieros para ver la curva de amortización.</p>';
   // ── Resumen comercial para el cliente (Plantilla fija instantánea o generador SSOT) ──
   // [AUD-2026 v2 · SEC2-02] Los valores interpolados en la plantilla van escapados (vienen de
   // datos del proyecto/usuario); los números pasan por el escape sin alterarse.
@@ -3583,6 +3637,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   const _pageIndexCEL = _includeCEL ? ++_pageTracker : 0;
   const _pageIndexCEL2 = _includeCEL ? ++_pageTracker : 0;
   const _pageIndexPresupuesto = ++_pageTracker;
+  const _pageIndexFiscal = ++_pageTracker;
   const _pageIndexDecision = ++_pageTracker;
   const _totPages = _pageTracker;
   const _infografias = buildInfografiasHTML(m, pal, annualYieldKWh, layoutStyle, {
@@ -3822,14 +3877,23 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         color: #94a3b8;
       }
       .tech-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 16px 0 20px; }
+      .tech-grid.compact-4 { grid-template-columns: repeat(4, 1fr); gap: 9px; margin: 10px 0 14px; }
       .tech-card { border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 18px 14px; background: #f8fafc; display: flex; flex-direction: column; align-items: center; text-align: center; justify-content: space-between; min-height: 195px; box-shadow: 0 2px 6px rgba(0,0,0,0.03); transition: all 0.2s ease; }
       .tech-card:hover { border-color: ${pal.primary}; box-shadow: 0 6px 16px rgba(0,0,0,0.06); }
+      .tech-grid.compact-4 .tech-card { padding: 9px 8px; min-height: 140px; border-radius: 9px; }
       .tech-icon-box { width: 68px; height: 68px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: #ffffff; border: 2px solid #e2e8f0; border-radius: 16px; margin-bottom: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+      .tech-grid.compact-4 .tech-icon-box { width: 44px; height: 44px; border-radius: 10px; margin-bottom: 6px; }
+      .tech-grid.compact-4 .tech-icon-box svg { width: 32px !important; height: 32px !important; }
       .tech-info { width: 100%; display: flex; flex-direction: column; align-items: center; margin-bottom: 10px; }
+      .tech-grid.compact-4 .tech-info { margin-bottom: 6px; }
       .tech-label { font-size: 9px; font-weight: 900; color: #64748b; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 4px; }
+      .tech-grid.compact-4 .tech-label { font-size: 8px; letter-spacing: 0.4px; margin-bottom: 2px; }
       .tech-name { font-size: 11.5px; font-weight: 900; color: #0f172a; line-height: 1.35; max-width: 100%; word-break: break-word; }
+      .tech-grid.compact-4 .tech-name { font-size: 10px; line-height: 1.25; }
       .tech-sub { font-size: 9.5px; color: #64748b; line-height: 1.3; margin-top: 4px; }
+      .tech-grid.compact-4 .tech-sub { font-size: 8.5px; line-height: 1.2; margin-top: 2px; }
       .tech-badge { width: 100%; text-align: center; background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 6px 8px; font-size: 11.5px; font-weight: 900; color: ${pal.primary}; box-shadow: 0 1px 3px rgba(0,0,0,0.02); }
+      .tech-grid.compact-4 .tech-badge { padding: 4px 5px; font-size: 9.5px; border-radius: 6px; }
       /* Estilos para Página de Fotos e Implantación 3D */
       .photo-grid-main { display: flex; flex-direction: column; gap: 12px; margin-top: 10px; }
       .photo-card-hero { height: 96mm; border: 1.5px solid #cbd5e1; border-radius: 8px; overflow: hidden; background: #f8fafc; position: relative; display: flex; flex-direction: column; }
@@ -4307,7 +4371,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         </table>
 
         <h2>2. Configuración técnica seleccionada</h2>
-        <div class="tech-grid">
+        <div class="tech-grid${(5 + (_eqp.hasWind ? 1 : 0) + (_eqp.hasMicro ? 1 : 0)) > 6 ? ' compact-4' : ''}">
           <!-- 1. Módulos -->
           <div class="tech-card">
             <div class="tech-icon-box">
@@ -4716,10 +4780,10 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
 
     ${_includeCEL ? buildCELPageHTML(d, m, pal, _celMetrics, _pageIndexCEL, _totPages, companyName, _pageIndexCEL2, buildInnerHeaderHTML) : ''}
 
-    <!-- PÁGINA PRESUPUESTO: PRESUPUESTO ECONÓMICO EPC Y AYUDAS FISCALES -->
+    <!-- PÁGINA PRESUPUESTO: PRESUPUESTO ECONÓMICO EPC -->
     <div class="page-sheet" data-section-id="economics">
       <div>
-        ${buildInnerHeaderHTML('PRESUPUESTO <span style="color:' + pal.primary + '">LLAVE EN MANO &amp; BENEFICIOS</span>', 'Desglose de Partidas · Impuestos · Subvenciones &amp; Deducciones Estimadas', _pageIndexPresupuesto)}
+        ${buildInnerHeaderHTML('PRESUPUESTO <span style="color:' + pal.primary + '">LLAVE EN MANO</span>', 'Desglose Detallado de Partidas EPC · Base Imponible · Impuestos', _pageIndexPresupuesto)}
 
         <h2>3. Presupuesto detallado llave en mano</h2>
         <table>
@@ -4787,25 +4851,51 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
           <tr style="background:#f8fafc;"><td>IVA APLICABLE</td><td>Impuesto sobre el Valor Añadido (${Math.round((m.ivaRate != null ? m.ivaRate : 0.21) * 100)}%)</td><td class="text-right">${Math.round(m.iva).toLocaleString('es-ES')} €</td></tr>
           <tr class="total-row"><td>TOTAL PRESUPUESTO</td><td>INVERSIÓN TOTAL LLAVE EN MANO (IVA INCLUIDO)</td><td class="text-right">${Math.round(m.capexBruto).toLocaleString('es-ES')} €</td></tr>
         </table>
+      </div>
+
+      <!-- PIE DE HOJA PRESUPUESTO -->
+      <div class="cover-footer" style="margin-top:auto;padding-top:12px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;font-size:9px;color:#64748b;">
+        <span>Presupuesto EPC Llave en Mano · Validez 30 días · Precios con IVA incluido</span>
+        <span>${companyName} · Ref: ${d.refNum}</span>
+      </div>
+    </div>
+
+    <!-- PÁGINA BENEFICIOS FISCALES: SUBVENCIONES Y RETORNO FISCAL -->
+    <div class="page-sheet" data-section-id="tax_benefits">
+      <div>
+        ${buildInnerHeaderHTML('SUBVENCIONES &amp; <span style="color:' + pal.primary + '">BENEFICIOS FISCALES</span>', 'Bonificaciones Municipales · Deducciones Fiscales · Retorno de Inversión Neta', _pageIndexFiscal)}
 
         <div class="ra-tax-benefits-block">
         <h2>4. Subvenciones y beneficios fiscales estimados</h2>
         <table>
           <tr><th>Concepto Fiscal</th><th>Detalle / Normativa Aplicable</th><th class="text-right">Ahorro Estimado</th></tr>
-          <tr><td>Bonificación IBI</td><td>Bonificación en el Impuesto sobre Bienes Inmuebles</td><td class="text-right">${Math.round(m.ahorroIBITotal).toLocaleString('es-ES')} €</td></tr>
+          <tr><td>Bonificación IBI</td><td>Bonificación en el Impuesto sobre Bienes Inmuebles (TRLRHL art. 74.5)</td><td class="text-right">${Math.round(m.ahorroIBITotal).toLocaleString('es-ES')} €</td></tr>
           ${(m.customerProfile === 'empresa') ? `
           <tr><td>Libertad de Amortización (IS)</td><td>Amortización acelerada 100% Año 1 (DA 17ª LIS / RDL 18/2022, Tipo ${Math.round((m.isRate || 0.25) * 100)}%)</td><td class="text-right">${Math.round(m.ahorroSociedades || 0).toLocaleString('es-ES')} €</td></tr>
           ` : `
-          <tr><td>Deducción IRPF</td><td>Deducción en IRPF por eficiencia energética / autoconsumo (RD-ley 19/2021)</td><td class="text-right">${Math.round(m.ahorroIRPF).toLocaleString('es-ES')} €</td></tr>
+          <tr><td>Deducción IRPF Estatal</td><td>Deducción por eficiencia energética CEE (RD-ley 19/2021)</td><td class="text-right">${Math.round(m.ahorroIRPFEstatal != null ? m.ahorroIRPFEstatal : m.ahorroIRPF).toLocaleString('es-ES')} €</td></tr>
+          ${(m.ahorroIRPFAutonomico && m.ahorroIRPFAutonomico > 0) ? `
+          <tr><td>Deducción IRPF Autonómica</td><td>Tramo autonómico por inversión en autoconsumo residencial</td><td class="text-right">${Math.round(m.ahorroIRPFAutonomico).toLocaleString('es-ES')} €</td></tr>
+          ` : ''}
           `}
-          <tr style="background:${pal.light};font-weight:800;"><td>TOTAL DEDUCCIONES FISCALES</td><td>Deducción fiscal directa acumulada (IBI + ${(m.customerProfile === 'empresa') ? 'Sociedades' : 'IRPF'})</td><td class="text-right" style="color:${pal.primary}">- ${Math.round(m.totalAhorroFiscal).toLocaleString('es-ES')} €</td></tr>
+          ${(m.ahorroCAE && m.ahorroCAE > 0) ? `
+          <tr><td>Ayudas Directas / CAEs</td><td>Certificados de Ahorro Energético (CAE) y ayudas no reintegrables</td><td class="text-right">${Math.round(m.ahorroCAE).toLocaleString('es-ES')} €</td></tr>
+          ` : ''}
+          <tr style="background:${pal.light};font-weight:800;"><td>TOTAL DEDUCCIONES FISCALES</td><td>Deducción fiscal directa acumulada (IBI + ${(m.customerProfile === 'empresa') ? 'Sociedades' : 'IRPF'}${m.ahorroCAE > 0 ? ' + CAEs' : ''})</td><td class="text-right" style="color:${pal.primary}">- ${Math.round(m.totalAhorroFiscal).toLocaleString('es-ES')} €</td></tr>
           <tr class="total-row"><td>INVERSIÓN NETA</td><td>COSTE FINAL TRAS DEDUCCIONES FISCALES DIRECTAS</td><td class="text-right" style="color:${pal.dark}">${Math.round(m.capexNeto).toLocaleString('es-ES')} €</td></tr>
           <tr><td style="color:#64748b;font-size:10px;">Desembolso inicial (base de TIR y payback)</td><td style="color:#64748b;font-size:10px;">CAPEX bruto: las deducciones se computan como flujo positivo en los años 1..N</td><td class="text-right" style="color:#64748b;font-size:10px;">${Math.round(m.capexBruto).toLocaleString('es-ES')} €</td></tr>
           <tr><td style="color:#64748b;font-size:10px;">Bonificación ICIO*</td><td style="color:#64748b;font-size:10px;">Exención del 95% en Impuesto de Construcciones y Obras (ahorro en tasa municipal ajeno a la factura)</td><td class="text-right" style="color:#64748b;font-size:10px;">${Math.round(m.ahorroICIO).toLocaleString('es-ES')} €</td></tr>
         </table>
         </div>
+
+        <p style="font-size: 9.5px;color:#64748b;margin:16px 0 0 0;line-height:1.4;border-top:1px solid #f1f5f9;padding-top:10px;">Nota: bonificaciones y deducciones fiscales son estimaciones comerciales sujetas a vigencia normativa y ordenanzas municipales. Verificar con asesoría fiscal antes de incluirlas en contrato. La TIR y el payback se calculan sobre el <strong>desembolso inicial (CAPEX bruto)</strong>; la "inversión neta" es informativa y no es la base de esas métricas. Quedan excluidas tasas urbanísticas municipales (ICIO), ocupación de vía pública y medios de elevación extraordinarios salvo expresa contratación en el capítulo de extras.</p>
       </div>
-      <p style="font-size: 9.5px;color:#64748b;margin:6px 0 0 0;line-height:1.35;border-top:1px solid #f1f5f9;padding-top:6px;">Nota: bonificaciones y deducciones fiscales son estimaciones comerciales sujetas a vigencia normativa y ordenanzas municipales. Verificar con asesoría fiscal antes de incluirlas en contrato. La TIR y el payback se calculan sobre el <strong>desembolso inicial (CAPEX bruto)</strong>; la "inversión neta" es informativa y no es la base de esas métricas. Quedan excluidas tasas urbanísticas municipales (ICIO), ocupación de vía pública y medios de elevación extraordinarios salvo expresa contratación en el capítulo de extras.</p>
+
+      <!-- PIE DE HOJA FISCALIDAD -->
+      <div class="cover-footer" style="margin-top:auto;padding-top:12px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;font-size:9px;color:#64748b;">
+        <span>Estimaciones fiscales no vinculantes · Deducciones aplicables según fiscalidad del cliente</span>
+        <span>${companyName} · Ref: ${d.refNum}</span>
+      </div>
     </div>
 
     <!-- PÁGINA CIERRE: HOJA DE DECISIÓN EJECUTIVA -->
@@ -5764,18 +5854,33 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   const customerProfile = (profileEl && profileEl.value) ? profileEl.value : ((_commTax && _commTax.customerProfile) || 'particular');
 
   const ibiCuota = _input('tax-ibi-cuota', (_commTax.ibiAnualEur !== undefined ? _commTax.ibiAnualEur : 650));
-  const ibiOpt = _sel('tax-ibi-opt', (_commTax.ibiYears === 5 ? '0.50_5' : (_commTax.ibiYears === 3 ? '0.50_3' : '0.50_3')));
+  const ibiOpt = _sel('tax-ibi-opt', (_commTax.ibiYears === 5 ? '0.50_5' : (_commTax.ibiYears === 10 ? '0.50_10' : (_commTax.ibiYears === 3 ? '0.50_3' : '0.50_3'))));
   let ahorroIBITotal = 0;
-  if (_commTax.ibiEnabled === false) {
+  let ibiFormulaStr = '';
+  if (_commTax.ibiEnabled === false || ibiOpt === '0') {
     ahorroIBITotal = 0;
-  } else if (ibiOpt === '0.30_3') ahorroIBITotal = ibiCuota * 0.30 * 3;
-  else if (ibiOpt === '0.50_3') ahorroIBITotal = ibiCuota * 0.50 * 3;
-  else if (ibiOpt === '0.50_5') ahorroIBITotal = ibiCuota * 0.50 * 5;
-  else if (_commTax.ibiBonifPct && _commTax.ibiYears) {
-    ahorroIBITotal = ibiCuota * (_commTax.ibiBonifPct / 100.0) * _commTax.ibiYears;
+    ibiFormulaStr = 'IBI: 0% sin bonificación municipal';
+  } else if (ibiOpt === '0.50_3') {
+    ahorroIBITotal = Math.round(ibiCuota * 0.50 * 3);
+    ibiFormulaStr = `IBI: ${ibiCuota} €/año × 50% × 3 años = ${ahorroIBITotal} €`;
+  } else if (ibiOpt === '0.50_5') {
+    ahorroIBITotal = Math.round(ibiCuota * 0.50 * 5);
+    ibiFormulaStr = `IBI: ${ibiCuota} €/año × 50% × 5 años = ${ahorroIBITotal} €`;
+  } else if (ibiOpt === '0.50_10') {
+    ahorroIBITotal = Math.round(ibiCuota * 0.50 * 10);
+    ibiFormulaStr = `IBI: ${ibiCuota} €/año × 50% × 10 años (TRLRHL) = ${ahorroIBITotal} €`;
+  } else if (ibiOpt === '0.30_3') {
+    ahorroIBITotal = Math.round(ibiCuota * 0.30 * 3);
+    ibiFormulaStr = `IBI: ${ibiCuota} €/año × 30% × 3 años = ${ahorroIBITotal} €`;
+  } else if (ibiOpt === '0.25_5') {
+    ahorroIBITotal = Math.round(ibiCuota * 0.25 * 5);
+    ibiFormulaStr = `IBI: ${ibiCuota} €/año × 25% × 5 años = ${ahorroIBITotal} €`;
+  } else if (_commTax.ibiBonifPct && _commTax.ibiYears) {
+    ahorroIBITotal = Math.round(ibiCuota * (_commTax.ibiBonifPct / 100.0) * _commTax.ibiYears);
+    ibiFormulaStr = `IBI: ${ibiCuota} €/año × ${_commTax.ibiBonifPct}% × ${_commTax.ibiYears} años = ${ahorroIBITotal} €`;
   }
 
-  // Deducción IRPF (Particulares) con soporte autoconsumo 2026 (10-20%) y eficiencia energética (20-60%)
+  // Deducción IRPF Estatal (RD-ley 19/2021)
   const irpfEl = document.getElementById('tax-irpf-opt') || document.getElementById('modal-tax-irpf-opt');
   const irpfOptVal = irpfEl ? String(irpfEl.value) : '';
   let irpfPct = parseFloat(irpfOptVal);
@@ -5784,7 +5889,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   }
   if (!Number.isFinite(irpfPct)) irpfPct = 0;
 
-  // Límites de base máxima según normativa IRPF (RD-ley 19/2021 y Ley 35/2006 IRPF)
+  // Límites de base máxima según RD-ley 19/2021
   let maxBaseIrpf = 5000;
   if (irpfOptVal === '0.60' || (!irpfOptVal && irpfPct >= 0.50)) {
     maxBaseIrpf = 15000;
@@ -5796,8 +5901,40 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   if (!irpfOptVal && _commTax.irpfMaxBaseEur && _commTax.irpfMaxBaseEur > 0) {
     maxBaseIrpf = _commTax.irpfMaxBaseEur;
   }
-  const baseIrpf = Math.min(capexBruto, maxBaseIrpf);
-  let ahorroIRPF = (_commTax.irpfEnabled === false || customerProfile === 'empresa') ? 0 : (baseIrpf * irpfPct);
+  const baseIrpfEstatal = Math.min(capexBruto, maxBaseIrpf);
+  let ahorroIRPFEstatal = (_commTax.irpfEnabled === false || customerProfile === 'empresa') ? 0 : Math.round(baseIrpfEstatal * irpfPct);
+
+  // Tramo Autonómico IRPF según CCAA
+  const regionEl = document.getElementById('tax-region-opt') || document.getElementById('modal-tax-region-opt');
+  const regionOpt = (regionEl && regionEl.value) ? regionEl.value : (_commTax.regionOpt || 'estatal_only');
+  let ahorroIRPFAutonomico = 0;
+  let autoFormulaStr = '';
+
+  if (customerProfile === 'particular' && regionOpt !== 'estatal_only') {
+    if (regionOpt === 'valencia') {
+      const baseAuto = Math.min(capexBruto, 8000);
+      ahorroIRPFAutonomico = Math.round(baseAuto * 0.40);
+      autoFormulaStr = `IRPF Comunitat Valenciana: 40% s/ base máx. ${baseAuto.toLocaleString('es-ES')} € = ${ahorroIRPFAutonomico} €`;
+    } else if (regionOpt === 'galicia') {
+      const baseAuto = Math.min(capexBruto, 9000);
+      ahorroIRPFAutonomico = Math.round(baseAuto * 0.20);
+      autoFormulaStr = `IRPF Galicia: 20% s/ base máx. ${baseAuto.toLocaleString('es-ES')} € = ${ahorroIRPFAutonomico} €`;
+    } else if (regionOpt === 'baleares') {
+      const baseAuto = Math.min(capexBruto, 10000);
+      ahorroIRPFAutonomico = Math.round(baseAuto * 0.50);
+      autoFormulaStr = `IRPF Illes Balears: 50% s/ base máx. ${baseAuto.toLocaleString('es-ES')} € = ${ahorroIRPFAutonomico} €`;
+    } else if (regionOpt === 'murcia') {
+      const baseAuto = Math.min(capexBruto, 10000);
+      ahorroIRPFAutonomico = Math.min(Math.round(baseAuto * 0.10), 1000);
+      autoFormulaStr = `IRPF Región de Murcia: 10% (tope 1.000 €) = ${ahorroIRPFAutonomico} €`;
+    } else if (regionOpt === 'castillaleon') {
+      const baseAuto = Math.min(capexBruto, 10000);
+      ahorroIRPFAutonomico = Math.min(Math.round(baseAuto * 0.15), 2000);
+      autoFormulaStr = `IRPF Castilla y León: 15% (tope 2.000 €) = ${ahorroIRPFAutonomico} €`;
+    }
+  }
+
+  const ahorroIRPF = ahorroIRPFEstatal + ahorroIRPFAutonomico;
 
   // Impuesto sobre Sociedades: Libertad de Amortización (DA 17ª LIS / RDL 18/2022) para Empresas
   const isEl = document.getElementById('tax-is-opt') || document.getElementById('modal-tax-is-opt');
@@ -5808,20 +5945,42 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   if (!Number.isFinite(isRate)) isRate = (customerProfile === 'empresa' ? 0.25 : 0);
 
   let ahorroSociedades = 0;
+  let isFormulaStr = '';
   if (customerProfile === 'empresa' && isRate > 0) {
-    // Escudo fiscal íntegro en Año 1. Base amortizable = subtotal (IVA deducible para empresas)
     ahorroSociedades = Math.round(subtotal * isRate);
-    ahorroIRPF = 0; // Persona jurídica no desgrava IRPF
+    isFormulaStr = `Sociedades (LIS DA 17ª): Subtotal ${subtotal.toLocaleString('es-ES')} € × ${Math.round(isRate * 100)}% = ${ahorroSociedades} €`;
   }
 
+  // Bonificación ICIO
   const icioPct = _input('tax-icio-opt', (_commTax.icioBonifPct ? _commTax.icioBonifPct / 100.0 : 0.95));
   const tasaICIO = designCosts && designCosts.icioTaxEur > 0 ? designCosts.icioTaxEur : Math.round(directCost * 0.035);
   const ahorroICIO = Math.round(tasaICIO * icioPct);
+  const icioFormulaStr = `ICIO: Tasa estimada ${tasaICIO} € × ${Math.round(icioPct * 100)}% bonif. = ${ahorroICIO} €`;
 
-  // [SSOT Contable] Deducción directa en el proyecto según perfil fiscal (IBI + IRPF/Sociedades)
+  // Ayudas directas o Certificados de Ahorro Energético (CAEs)
+  const caeInp = document.getElementById('tax-cae-eur') || document.getElementById('modal-tax-cae-eur');
+  const ahorroCAE = (caeInp && parseFloat(caeInp.value) > 0) ? parseFloat(caeInp.value) : (_commTax.caeEur || 0);
+
+  // [SSOT Contable] Deducción directa en el proyecto según perfil fiscal (IBI + IRPF/Sociedades + Ayudas/CAEs)
   const ahorroDeduccionDirecta = (customerProfile === 'empresa') ? ahorroSociedades : ahorroIRPF;
-  const totalAhorroFiscal = ahorroIBITotal + ahorroDeduccionDirecta;
+  const totalAhorroFiscal = ahorroIBITotal + ahorroDeduccionDirecta + ahorroCAE;
   const capexNeto = Math.max(capexBruto - totalAhorroFiscal, 100);
+
+  // Generar líneas de fórmulas transparentes para la UI
+  const taxFormulaLines = [];
+  if (customerProfile === 'particular') {
+    if (irpfPct > 0) {
+      taxFormulaLines.push(`IRPF Estatal (RD-ley 19/2021): ${Math.round(irpfPct * 100)}% s/ base máx. ${baseIrpfEstatal.toLocaleString('es-ES')} € = ${ahorroIRPFEstatal.toLocaleString('es-ES')} €`);
+    } else {
+      taxFormulaLines.push(`IRPF Estatal: 0 € (Sin certificado CEE seleccionado)`);
+    }
+    if (autoFormulaStr) taxFormulaLines.push(autoFormulaStr);
+  } else {
+    taxFormulaLines.push(isFormulaStr || 'Sociedades: Sin libertad de amortización');
+  }
+  if (ibiFormulaStr) taxFormulaLines.push(ibiFormulaStr);
+  if (ahorroCAE > 0) taxFormulaLines.push(`Ayudas / CAEs: Subvención directa asignada = ${ahorroCAE.toLocaleString('es-ES')} €`);
+  taxFormulaLines.push(icioFormulaStr);
 
   // Autarquía según presencia de batería — con despacho horario y TOU
   // [SSOT] Capacidad de batería desde el catálogo cuando hay selección (antes sólo el input).
@@ -6256,6 +6415,10 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     ahorroDeduccionDirecta: ahorroDeduccionDirecta,
     ahorroIBITotal: ahorroIBITotal,
     ahorroIRPF: ahorroIRPF,
+    ahorroIRPFEstatal: ahorroIRPFEstatal,
+    ahorroIRPFAutonomico: ahorroIRPFAutonomico,
+    ahorroCAE: ahorroCAE,
+    taxFormulaLines: taxFormulaLines,
     irpfPct: irpfPct,
     ahorroICIO: ahorroICIO,
     totalAhorroFiscal: totalAhorroFiscal,

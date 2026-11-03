@@ -4038,6 +4038,9 @@ async function wpGoToStep(step, force = false) {
     if (typeof wpUpdateStep5PricingBadge === 'function') {
       wpUpdateStep5PricingBadge();
     }
+    if (typeof window !== 'undefined' && window.RAProposalStyleStudio && typeof window.RAProposalStyleStudio.updateStep5IndicatorUI === 'function') {
+      window.RAProposalStyleStudio.updateStep5IndicatorUI();
+    }
   }
 
   if (typeof wpUpdateControlsAvailability === 'function') {

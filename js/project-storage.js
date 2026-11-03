@@ -317,7 +317,9 @@ function raExportProjectData() {
         ibiOpt: (typeof document !== 'undefined' && (document.getElementById('modal-tax-ibi-opt') || {}).value) || '0.50_3',
         irpfOpt: (typeof document !== 'undefined' && (document.getElementById('modal-tax-irpf-opt') || {}).value) || '0.40',
         isRate: (typeof document !== 'undefined' && parseFloat((document.getElementById('modal-tax-is-opt') || {}).value)) || 0.25,
-        icioOpt: (typeof document !== 'undefined' && parseFloat((document.getElementById('modal-tax-icio-opt') || {}).value)) || 0.95
+        icioOpt: (typeof document !== 'undefined' && parseFloat((document.getElementById('modal-tax-icio-opt') || {}).value)) || 0.95,
+        regionOpt: (typeof document !== 'undefined' && (document.getElementById('modal-tax-region-opt') || {}).value) || 'estatal_only',
+        caeEur: (typeof document !== 'undefined' && parseFloat((document.getElementById('modal-tax-cae-eur') || {}).value)) || 0
       }
     } : null,
     solarSimState: (typeof solarSimState !== 'undefined' && solarSimState) ? {
@@ -1200,6 +1202,10 @@ async function raImportProjectData(projectData, options = {}) {
         if (isOEl && t.isRate != null) isOEl.value = String(t.isRate);
         const icioOEl = document.getElementById('modal-tax-icio-opt');
         if (icioOEl && t.icioOpt != null) icioOEl.value = String(t.icioOpt);
+        const regEl = document.getElementById('modal-tax-region-opt');
+        if (regEl && t.regionOpt) regEl.value = t.regionOpt;
+        const caeEl = document.getElementById('modal-tax-cae-eur');
+        if (caeEl && t.caeEur != null) caeEl.value = t.caeEur;
         if (typeof syncModalTaxProfile === 'function') {
           syncModalTaxProfile(pEl ? pEl.value : 'particular');
         }

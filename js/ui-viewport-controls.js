@@ -140,7 +140,7 @@
       ldScreen.classList.add('fade-out');
       setTimeout(() => {
         if (ldScreen.parentNode) ldScreen.remove();
-      }, 600);
+      }, 2100);
     }
   }
 

@@ -336,11 +336,12 @@
   function auditCatalogEntry(turbine) {
     if (!turbine || typeof turbine !== 'object') return turbine;
     var audit = computePowerCurveAudit(turbine);
-    turbine.cpAudit = audit;
-    if (!audit.valid && typeof console !== 'undefined') {
-      console.warn('[RAWindCatalog] Curva no válida (' + (turbine.manufacturer || '?') + ' ' +
-        (turbine.model || '?') + '): Cp_max=' + audit.maxCp + ' > ' + BETZ_LIMIT);
+    if (!audit || !audit.valid) {
+      // Auto-calibrar al cargar para sanear modelos antiguos guardados en localStorage
+      calibratePowerCurveToBetz(turbine, 0.42);
+      audit = turbine.cpAudit || computePowerCurveAudit(turbine);
     }
+    turbine.cpAudit = audit;
     return turbine;
   }
 

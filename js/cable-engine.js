@@ -727,9 +727,15 @@
 
       if (sState.__isRenderingCables) return;
       sState.__isRenderingCables = true;
+      if (!Array.isArray(sState.dcCableEntities)) {
+        sState.dcCableEntities = [];
+      }
       try {
         // 1. Limpiar entidades y primitivas GPU anteriores
         this.clearAllCables();
+        if (!Array.isArray(sState.dcCableEntities)) {
+          sState.dcCableEntities = [];
+        }
 
       // 2. Recolectar strings y asegurar equipos
       var allStrings = this.gatherAllStrings();

@@ -93,6 +93,23 @@
         coverSpecsGap: 18,
         coverSpecBoxHeightPx: 112,
         balanceCardHeightPx: 145,
+        histogramHeightPx: 200,
+        histogramFillMode: 'gradient', // 'solid' | 'gradient'
+        histogramBarColor: '#38bdf8',
+        histogramBarColorEnd: '#0284c7',
+        histogramPeakColor: '#10b981',
+        histogramPeakColorEnd: '#059669',
+        histogramValueFontSize: 7.5,
+        histogramLabelFontSize: 8.0,
+        histogramAxisFontSize: 8.0,
+        amortHeightPx: 200,
+        amortFillMode: 'gradient', // 'solid' | 'gradient'
+        amortLineColor: '#059669',
+        amortAreaColor: '#10b981',
+        amortAreaColorEnd: '#d1fae5',
+        amortPaybackColor: '#047857',
+        amortAxisFontSize: 8.0,
+        amortPaybackFontSize: 8.0,
         installationModality: 'grid_surplus_cel', // grid_zero | grid_surplus_cel | grid_backup | off_grid
         referenceGridPriceEUR: 0.22,
         paragraphAlign: 'left',     // left | justify | center
@@ -184,6 +201,23 @@
         coverSpecsGap: 16,
         coverSpecBoxHeightPx: 106,
         balanceCardHeightPx: 140,
+        histogramHeightPx: 200,
+        histogramFillMode: 'gradient',
+        histogramBarColor: '#0284c7',
+        histogramBarColorEnd: '#0369a1',
+        histogramPeakColor: '#059669',
+        histogramPeakColorEnd: '#047857',
+        histogramValueFontSize: 7.5,
+        histogramLabelFontSize: 8.0,
+        histogramAxisFontSize: 8.0,
+        amortHeightPx: 200,
+        amortFillMode: 'gradient',
+        amortLineColor: '#0284c7',
+        amortAreaColor: '#38bdf8',
+        amortAreaColorEnd: '#e0f2fe',
+        amortPaybackColor: '#0369a1',
+        amortAxisFontSize: 8.0,
+        amortPaybackFontSize: 8.0,
         installationModality: 'grid_zero',
         referenceGridPriceEUR: 0.22,
         paragraphAlign: 'justify',
@@ -275,6 +309,23 @@
         coverSpecsGap: 20,
         coverSpecBoxHeightPx: 116,
         balanceCardHeightPx: 150,
+        histogramHeightPx: 200,
+        histogramFillMode: 'gradient',
+        histogramBarColor: '#f59e0b',
+        histogramBarColorEnd: '#d97706',
+        histogramPeakColor: '#10b981',
+        histogramPeakColorEnd: '#059669',
+        histogramValueFontSize: 7.5,
+        histogramLabelFontSize: 8.0,
+        histogramAxisFontSize: 8.0,
+        amortHeightPx: 200,
+        amortFillMode: 'gradient',
+        amortLineColor: '#d97706',
+        amortAreaColor: '#f59e0b',
+        amortAreaColorEnd: '#fef3c7',
+        amortPaybackColor: '#b45309',
+        amortAxisFontSize: 8.0,
+        amortPaybackFontSize: 8.0,
         installationModality: 'grid_backup',
         referenceGridPriceEUR: 0.22,
         paragraphAlign: 'left',
@@ -1627,6 +1678,23 @@
     var cSpcGap   = cfg.coverSpecsGap !== undefined ? Number(cfg.coverSpecsGap) : 18;
     var cBoxH     = cfg.coverSpecBoxHeightPx !== undefined ? Number(cfg.coverSpecBoxHeightPx) : 112;
     var balCardH  = cfg.balanceCardHeightPx !== undefined ? Number(cfg.balanceCardHeightPx) : 145;
+    var histoH    = cfg.histogramHeightPx !== undefined ? Number(cfg.histogramHeightPx) : 200;
+    var histoMode = cfg.histogramFillMode || 'gradient';
+    var histoBarCol = cfg.histogramBarColor || '#38bdf8';
+    var histoBarColEnd = cfg.histogramBarColorEnd || '#0284c7';
+    var histoPeakCol = cfg.histogramPeakColor || '#10b981';
+    var histoPeakColEnd = cfg.histogramPeakColorEnd || '#059669';
+    var histoValSize = cfg.histogramValueFontSize !== undefined ? Number(cfg.histogramValueFontSize) : 7.5;
+    var histoLblSize = cfg.histogramLabelFontSize !== undefined ? Number(cfg.histogramLabelFontSize) : 8.0;
+    var histoAxSize  = cfg.histogramAxisFontSize !== undefined ? Number(cfg.histogramAxisFontSize) : 8.0;
+    var amortH       = cfg.amortHeightPx !== undefined ? Number(cfg.amortHeightPx) : 200;
+    var amortMode    = cfg.amortFillMode || 'gradient';
+    var amortLineCol = cfg.amortLineColor || pal.primary || '#059669';
+    var amortAreaCol = cfg.amortAreaColor || pal.primary || '#10b981';
+    var amortAreaColEnd = cfg.amortAreaColorEnd || pal.light || '#d1fae5';
+    var amortPbCol   = cfg.amortPaybackColor || pal.dark || '#047857';
+    var amortAxSize  = cfg.amortAxisFontSize !== undefined ? Number(cfg.amortAxisFontSize) : 8.0;
+    var amortPbSize  = cfg.amortPaybackFontSize !== undefined ? Number(cfg.amortPaybackFontSize) : 8.0;
     var useTxtCol = !!cfg.useCustomTextColors;
     var colHead = cfg.headingTextColor || '#0f172a';
     var colBody = cfg.bodyTextColor || '#334155';
@@ -1863,6 +1931,129 @@
       '        <span id="pss-val-balcard-h" style="color:#38bdf8;font-weight:900;">' + balCardH + ' px</span>',
       '      </div>',
       '      <input type="range" id="pss-balance-card-h" min="110" max="230" step="2" value="' + balCardH + '" style="width:100%;accent-color:#38bdf8;cursor:pointer;">',
+      '    </div>',
+      '  </div>',
+      '</div>',
+      '',
+      '<!-- 4B. CONFIGURACIÓN DEL HISTOGRAMA DE PRODUCCIÓN MENSUAL -->',
+      '<div style="background:rgba(56,189,248,0.05);border:1px solid rgba(56,189,248,0.3);border-radius:10px;padding:12px 14px;">',
+      '  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">',
+      '    <div style="font-size:11.5px;font-weight:800;color:#38bdf8;display:inline-flex;align-items:center;gap:5px;">' + _sSvg('barChart', 14, '#38bdf8') + ' HISTOGRAMA DE PRODUCCIÓN MENSUAL (ALTURA, COLORES, DEGRADADOS Y LETRAS)</div>',
+      '    <span style="font-size:9.5px;font-weight:800;background:rgba(56,189,248,0.15);color:#38bdf8;padding:2px 8px;border-radius:4px;">PRODUCCIÓN Y RENTABILIDAD</span>',
+      '  </div>',
+      '  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;margin-bottom:10px;">',
+      '    <div>',
+      '      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px;">',
+      '        <span style="color:#cbd5e1;font-weight:700;">Altura del Histograma:</span>',
+      '        <span id="pss-val-histo-h" style="color:#38bdf8;font-weight:900;">' + histoH + ' px</span>',
+      '      </div>',
+      '      <input type="range" id="pss-histogram-h" min="120" max="320" step="4" value="' + histoH + '" style="width:100%;accent-color:#38bdf8;cursor:pointer;">',
+      '    </div>',
+      '    <div>',
+      '      <div style="font-size:11px;color:#cbd5e1;font-weight:700;margin-bottom:4px;">Modo de Color de Barras:</div>',
+      '      <select id="pss-histogram-fill-mode" style="width:100%;padding:6px 8px;background:#1e293b;border:1px solid #475569;border-radius:6px;color:#fff;font-size:11px;font-weight:700;">',
+      '        <option value="gradient" ' + (histoMode === 'gradient' ? 'selected' : '') + '>Degradado suave vertical</option>',
+      '        <option value="solid" ' + (histoMode === 'solid' ? 'selected' : '') + '>Color plano uniforme (Sólido)</option>',
+      '      </select>',
+      '    </div>',
+      '  </div>',
+      '  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px;">',
+      '    <div style="background:#1e293b;border:1px solid #475569;border-radius:6px;padding:6px 8px;display:flex;align-items:center;justify-content:space-between;">',
+      '      <div><div style="font-size:10px;font-weight:800;color:#f8fafc;">Barras (Inicio)</div><div style="font-size:8.5px;color:#94a3b8;">Base superior</div></div>',
+      '      <input type="color" id="pss-col-histo-bar" value="' + histoBarCol + '" style="width:28px;height:24px;border:1px solid #64748b;border-radius:4px;background:transparent;cursor:pointer;">',
+      '    </div>',
+      '    <div id="pss-wrap-histo-bar-end" style="background:#1e293b;border:1px solid #475569;border-radius:6px;padding:6px 8px;display:' + (histoMode === 'gradient' ? 'flex' : 'none') + ';align-items:center;justify-content:space-between;">',
+      '      <div><div style="font-size:10px;font-weight:800;color:#f8fafc;">Barras (Fin)</div><div style="font-size:8.5px;color:#94a3b8;">Base inferior</div></div>',
+      '      <input type="color" id="pss-col-histo-bar-end" value="' + histoBarColEnd + '" style="width:28px;height:24px;border:1px solid #64748b;border-radius:4px;background:transparent;cursor:pointer;">',
+      '    </div>',
+      '    <div style="background:#1e293b;border:1px solid #475569;border-radius:6px;padding:6px 8px;display:flex;align-items:center;justify-content:space-between;">',
+      '      <div><div style="font-size:10px;font-weight:800;color:#f8fafc;">Mes Récord (Top)</div><div style="font-size:8.5px;color:#94a3b8;">Máx producción</div></div>',
+      '      <input type="color" id="pss-col-histo-peak" value="' + histoPeakCol + '" style="width:28px;height:24px;border:1px solid #64748b;border-radius:4px;background:transparent;cursor:pointer;">',
+      '    </div>',
+      '    <div id="pss-wrap-histo-peak-end" style="background:#1e293b;border:1px solid #475569;border-radius:6px;padding:6px 8px;display:' + (histoMode === 'gradient' ? 'flex' : 'none') + ';align-items:center;justify-content:space-between;">',
+      '      <div><div style="font-size:10px;font-weight:800;color:#f8fafc;">Mes Récord (Fin)</div><div style="font-size:8.5px;color:#94a3b8;">Degradado récord</div></div>',
+      '      <input type="color" id="pss-col-histo-peak-end" value="' + histoPeakColEnd + '" style="width:28px;height:24px;border:1px solid #64748b;border-radius:4px;background:transparent;cursor:pointer;">',
+      '    </div>',
+      '  </div>',
+      '  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">',
+      '    <div>',
+      '      <div style="display:flex;justify-content:space-between;font-size:10.5px;margin-bottom:2px;">',
+      '        <span style="color:#cbd5e1;font-weight:700;">Cifras sobre barras (kWh):</span>',
+      '        <span id="pss-val-histo-valsize" style="color:#fbbf24;font-weight:900;">' + histoValSize.toFixed(1) + ' pt</span>',
+      '      </div>',
+      '      <input type="range" id="pss-histo-valsize" min="6.0" max="14.0" step="0.5" value="' + histoValSize + '" style="width:100%;accent-color:#fbbf24;cursor:pointer;">',
+      '    </div>',
+      '    <div>',
+      '      <div style="display:flex;justify-content:space-between;font-size:10.5px;margin-bottom:2px;">',
+      '        <span style="color:#cbd5e1;font-weight:700;">Nombres de meses (Eje X):</span>',
+      '        <span id="pss-val-histo-lblsize" style="color:#38bdf8;font-weight:900;">' + histoLblSize.toFixed(1) + ' pt</span>',
+      '      </div>',
+      '      <input type="range" id="pss-histo-lblsize" min="6.0" max="14.0" step="0.5" value="' + histoLblSize + '" style="width:100%;accent-color:#38bdf8;cursor:pointer;">',
+      '    </div>',
+      '    <div>',
+      '      <div style="display:flex;justify-content:space-between;font-size:10.5px;margin-bottom:2px;">',
+      '        <span style="color:#cbd5e1;font-weight:700;">Leyenda y Eje Y:</span>',
+      '        <span id="pss-val-histo-axsize" style="color:#34d399;font-weight:900;">' + histoAxSize.toFixed(1) + ' pt</span>',
+      '      </div>',
+      '      <input type="range" id="pss-histo-axsize" min="6.0" max="12.0" step="0.5" value="' + histoAxSize + '" style="width:100%;accent-color:#34d399;cursor:pointer;">',
+      '    </div>',
+      '  </div>',
+      '</div>',
+      '',
+      '<!-- 4C. CONFIGURACIÓN DE LA CURVA DE AMORTIZACIÓN Y RETORNO (25 AÑOS) -->',
+      '<div style="background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.3);border-radius:10px;padding:12px 14px;">',
+      '  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">',
+      '    <div style="font-size:11.5px;font-weight:800;color:#34d399;display:inline-flex;align-items:center;gap:5px;">' + _sSvg('trendUp', 14, '#34d399') + ' CURVA DE AMORTIZACIÓN (ALTURA, TRAZADO, DEGRADADOS Y LETRAS)</div>',
+      '    <span style="font-size:9.5px;font-weight:800;background:rgba(16,185,129,0.15);color:#34d399;padding:2px 8px;border-radius:4px;">CASHFLOW 25 AÑOS</span>',
+      '  </div>',
+      '  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;margin-bottom:10px;">',
+      '    <div>',
+      '      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px;">',
+      '        <span style="color:#cbd5e1;font-weight:700;">Altura de la Gráfica:</span>',
+      '        <span id="pss-val-amort-h" style="color:#34d399;font-weight:900;">' + amortH + ' px</span>',
+      '      </div>',
+      '      <input type="range" id="pss-amort-h" min="120" max="320" step="4" value="' + amortH + '" style="width:100%;accent-color:#10b981;cursor:pointer;">',
+      '    </div>',
+      '    <div>',
+      '      <div style="font-size:11px;color:#cbd5e1;font-weight:700;margin-bottom:4px;">Relleno de Área Acumulada:</div>',
+      '      <select id="pss-amort-fill-mode" style="width:100%;padding:6px 8px;background:#1e293b;border:1px solid #475569;border-radius:6px;color:#fff;font-size:11px;font-weight:700;">',
+      '        <option value="gradient" ' + (amortMode === 'gradient' ? 'selected' : '') + '>Degradado suave vertical</option>',
+      '        <option value="solid" ' + (amortMode === 'solid' ? 'selected' : '') + '>Color plano uniforme (Sólido)</option>',
+      '      </select>',
+      '    </div>',
+      '  </div>',
+      '  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px;">',
+      '    <div style="background:#1e293b;border:1px solid #475569;border-radius:6px;padding:6px 8px;display:flex;align-items:center;justify-content:space-between;">',
+      '      <div><div style="font-size:10px;font-weight:800;color:#f8fafc;">Línea Cashflow</div><div style="font-size:8.5px;color:#94a3b8;">Trazado curva</div></div>',
+      '      <input type="color" id="pss-col-amort-line" value="' + amortLineCol + '" style="width:28px;height:24px;border:1px solid #64748b;border-radius:4px;background:transparent;cursor:pointer;">',
+      '    </div>',
+      '    <div style="background:#1e293b;border:1px solid #475569;border-radius:6px;padding:6px 8px;display:flex;align-items:center;justify-content:space-between;">',
+      '      <div><div style="font-size:10px;font-weight:800;color:#f8fafc;">Área (Superior)</div><div style="font-size:8.5px;color:#94a3b8;">Relleno base</div></div>',
+      '      <input type="color" id="pss-col-amort-area" value="' + amortAreaCol + '" style="width:28px;height:24px;border:1px solid #64748b;border-radius:4px;background:transparent;cursor:pointer;">',
+      '    </div>',
+      '    <div id="pss-wrap-amort-area-end" style="background:#1e293b;border:1px solid #475569;border-radius:6px;padding:6px 8px;display:' + (amortMode === 'gradient' ? 'flex' : 'none') + ';align-items:center;justify-content:space-between;">',
+      '      <div><div style="font-size:10px;font-weight:800;color:#f8fafc;">Área (Inferior)</div><div style="font-size:8.5px;color:#94a3b8;">Fin degradado</div></div>',
+      '      <input type="color" id="pss-col-amort-area-end" value="' + amortAreaColEnd + '" style="width:28px;height:24px;border:1px solid #64748b;border-radius:4px;background:transparent;cursor:pointer;">',
+      '    </div>',
+      '    <div style="background:#1e293b;border:1px solid #475569;border-radius:6px;padding:6px 8px;display:flex;align-items:center;justify-content:space-between;">',
+      '      <div><div style="font-size:10px;font-weight:800;color:#f8fafc;">Punto Payback</div><div style="font-size:8.5px;color:#94a3b8;">Hito de retorno</div></div>',
+      '      <input type="color" id="pss-col-amort-pb" value="' + amortPbCol + '" style="width:28px;height:24px;border:1px solid #64748b;border-radius:4px;background:transparent;cursor:pointer;">',
+      '    </div>',
+      '  </div>',
+      '  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">',
+      '    <div>',
+      '      <div style="display:flex;justify-content:space-between;font-size:10.5px;margin-bottom:2px;">',
+      '        <span style="color:#cbd5e1;font-weight:700;">Etiqueta de Payback (Retorno):</span>',
+      '        <span id="pss-val-amort-pbsize" style="color:#34d399;font-weight:900;">' + amortPbSize.toFixed(1) + ' pt</span>',
+      '      </div>',
+      '      <input type="range" id="pss-amort-pbsize" min="6.0" max="14.0" step="0.5" value="' + amortPbSize + '" style="width:100%;accent-color:#10b981;cursor:pointer;">',
+      '    </div>',
+      '    <div>',
+      '      <div style="display:flex;justify-content:space-between;font-size:10.5px;margin-bottom:2px;">',
+      '        <span style="color:#cbd5e1;font-weight:700;">Años y Ejes (X / Y / Leyenda):</span>',
+      '        <span id="pss-val-amort-axsize" style="color:#38bdf8;font-weight:900;">' + amortAxSize.toFixed(1) + ' pt</span>',
+      '      </div>',
+      '      <input type="range" id="pss-amort-axsize" min="6.0" max="12.0" step="0.5" value="' + amortAxSize + '" style="width:100%;accent-color:#38bdf8;cursor:pointer;">',
       '    </div>',
       '  </div>',
       '</div>',
@@ -2301,6 +2492,23 @@
       if (g('pss-cover-spc-gap')) cfg.coverSpecsGap = parseInt(g('pss-cover-spc-gap').value, 10) || 18;
       if (g('pss-cover-box-h')) cfg.coverSpecBoxHeightPx = parseInt(g('pss-cover-box-h').value, 10) || 112;
       if (g('pss-balance-card-h')) cfg.balanceCardHeightPx = parseInt(g('pss-balance-card-h').value, 10) || 145;
+      if (g('pss-histogram-h')) cfg.histogramHeightPx = parseInt(g('pss-histogram-h').value, 10) || 200;
+      if (g('pss-histogram-fill-mode')) cfg.histogramFillMode = g('pss-histogram-fill-mode').value;
+      if (g('pss-col-histo-bar')) cfg.histogramBarColor = g('pss-col-histo-bar').value;
+      if (g('pss-col-histo-bar-end')) cfg.histogramBarColorEnd = g('pss-col-histo-bar-end').value;
+      if (g('pss-col-histo-peak')) cfg.histogramPeakColor = g('pss-col-histo-peak').value;
+      if (g('pss-col-histo-peak-end')) cfg.histogramPeakColorEnd = g('pss-col-histo-peak-end').value;
+      if (g('pss-histo-valsize')) cfg.histogramValueFontSize = parseFloat(g('pss-histo-valsize').value) || 7.5;
+      if (g('pss-histo-lblsize')) cfg.histogramLabelFontSize = parseFloat(g('pss-histo-lblsize').value) || 8.0;
+      if (g('pss-histo-axsize')) cfg.histogramAxisFontSize = parseFloat(g('pss-histo-axsize').value) || 8.0;
+      if (g('pss-amort-h')) cfg.amortHeightPx = parseInt(g('pss-amort-h').value, 10) || 200;
+      if (g('pss-amort-fill-mode')) cfg.amortFillMode = g('pss-amort-fill-mode').value;
+      if (g('pss-col-amort-line')) cfg.amortLineColor = g('pss-col-amort-line').value;
+      if (g('pss-col-amort-area')) cfg.amortAreaColor = g('pss-col-amort-area').value;
+      if (g('pss-col-amort-area-end')) cfg.amortAreaColorEnd = g('pss-col-amort-area-end').value;
+      if (g('pss-col-amort-pb')) cfg.amortPaybackColor = g('pss-col-amort-pb').value;
+      if (g('pss-amort-pbsize')) cfg.amortPaybackFontSize = parseFloat(g('pss-amort-pbsize').value) || 8.0;
+      if (g('pss-amort-axsize')) cfg.amortAxisFontSize = parseFloat(g('pss-amort-axsize').value) || 8.0;
       cfg.lockedTexts = cfg.lockedTexts || {};
       if (g('pss-cover-main-title')) cfg.lockedTexts.coverMainTitle = g('pss-cover-main-title').value;
       if (g('pss-cover-subtitle')) cfg.lockedTexts.coverSubtitle = g('pss-cover-subtitle').value;
@@ -2368,6 +2576,14 @@
     var cSpcGap = q('#pss-cover-spc-gap') ? parseInt(q('#pss-cover-spc-gap').value, 10) : 18;
     var cBoxH   = q('#pss-cover-box-h') ? parseInt(q('#pss-cover-box-h').value, 10) : 112;
     var balCardH = q('#pss-balance-card-h') ? parseInt(q('#pss-balance-card-h').value, 10) : 145;
+    var histoH   = q('#pss-histogram-h') ? parseInt(q('#pss-histogram-h').value, 10) : 200;
+    var histoValSize = q('#pss-histo-valsize') ? parseFloat(q('#pss-histo-valsize').value) : 7.5;
+    var histoLblSize = q('#pss-histo-lblsize') ? parseFloat(q('#pss-histo-lblsize').value) : 8.0;
+    var histoAxSize  = q('#pss-histo-axsize') ? parseFloat(q('#pss-histo-axsize').value) : 8.0;
+
+    var amortH       = q('#pss-amort-h') ? parseInt(q('#pss-amort-h').value, 10) : 200;
+    var amortPbSize  = q('#pss-amort-pbsize') ? parseFloat(q('#pss-amort-pbsize').value) : 8.0;
+    var amortAxSize  = q('#pss-amort-axsize') ? parseFloat(q('#pss-amort-axsize').value) : 8.0;
 
     if (q('#pss-val-chdr-gap')) q('#pss-val-chdr-gap').textContent = cHdrGap + ' px';
     if (q('#pss-val-cpho-gap')) q('#pss-val-cpho-gap').textContent = cPhoGap + ' px';
@@ -2375,6 +2591,23 @@
     if (q('#pss-val-cspc-gap')) q('#pss-val-cspc-gap').textContent = cSpcGap + ' px';
     if (q('#pss-val-cbox-h')) q('#pss-val-cbox-h').textContent = cBoxH + ' px';
     if (q('#pss-val-balcard-h')) q('#pss-val-balcard-h').textContent = balCardH + ' px';
+    if (q('#pss-val-histo-h')) q('#pss-val-histo-h').textContent = histoH + ' px';
+    if (q('#pss-val-histo-valsize')) q('#pss-val-histo-valsize').textContent = histoValSize.toFixed(1) + ' pt';
+    if (q('#pss-val-histo-lblsize')) q('#pss-val-histo-lblsize').textContent = histoLblSize.toFixed(1) + ' pt';
+    if (q('#pss-val-histo-axsize')) q('#pss-val-histo-axsize').textContent = histoAxSize.toFixed(1) + ' pt';
+
+    if (q('#pss-val-amort-h')) q('#pss-val-amort-h').textContent = amortH + ' px';
+    if (q('#pss-val-amort-pbsize')) q('#pss-val-amort-pbsize').textContent = amortPbSize.toFixed(1) + ' pt';
+    if (q('#pss-val-amort-axsize')) q('#pss-val-amort-axsize').textContent = amortAxSize.toFixed(1) + ' pt';
+
+    var histoModeSel = q('#pss-histogram-fill-mode');
+    var isGrad = !histoModeSel || histoModeSel.value === 'gradient';
+    if (q('#pss-wrap-histo-bar-end')) q('#pss-wrap-histo-bar-end').style.display = isGrad ? 'flex' : 'none';
+    if (q('#pss-wrap-histo-peak-end')) q('#pss-wrap-histo-peak-end').style.display = isGrad ? 'flex' : 'none';
+
+    var amortModeSel = q('#pss-amort-fill-mode');
+    var isAmortGrad = !amortModeSel || amortModeSel.value === 'gradient';
+    if (q('#pss-wrap-amort-area-end')) q('#pss-wrap-amort-area-end').style.display = isAmortGrad ? 'flex' : 'none';
 
     var prevH1 = q('#pss-prev-h1');
     if (prevH1) {
@@ -2582,6 +2815,10 @@
       '#pss-heading-lh', '#pss-subtitle-lh', '#pss-body-lh',
       '#pss-paragraph-gap', '#pss-subtitle-gap', '#pss-table-lh',
       '#pss-cover-fill-sheet', '#pss-cover-hdr-gap', '#pss-cover-pho-gap', '#pss-cover-pho-h', '#pss-cover-spc-gap', '#pss-cover-box-h', '#pss-balance-card-h',
+      '#pss-histogram-h', '#pss-histogram-fill-mode', '#pss-col-histo-bar', '#pss-col-histo-bar-end', '#pss-col-histo-peak', '#pss-col-histo-peak-end',
+      '#pss-histo-valsize', '#pss-histo-lblsize', '#pss-histo-axsize',
+      '#pss-amort-h', '#pss-amort-fill-mode', '#pss-col-amort-line', '#pss-col-amort-area', '#pss-col-amort-area-end', '#pss-col-amort-pb',
+      '#pss-amort-pbsize', '#pss-amort-axsize',
       '#pss-use-custom-text-colors', '#pss-col-heading', '#pss-col-body', '#pss-col-muted',
       '#pss-paragraph-align', '#pss-wrap-balance', '#pss-compact-kpi',
       '#pss-cover-main-title', '#pss-cover-subtitle'
