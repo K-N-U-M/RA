@@ -4746,27 +4746,35 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         </table>
 
         <div class="sig-box-grid" style="margin-top:24px;">
-          <div class="sig-card">
-            <strong>Conforme y Aceptado por el Cliente</strong><br><br><br>
-            Firma: ________________________<br>
-            D./Dña. ${d.tit.nombre}<br>
-            NIF: ${d.tit.nif}<br>
-            Fecha: ___ / ___ / 2026
-          </div>
-          <div class="sig-card">
-            <div class="sig-logo-box">
-              ${logoDataUrl ? '<img src="' + logoDataUrl + '" style="max-height:36px;max-width:100px;object-fit:contain;">' : '<span style="display:inline-flex;color:' + pal.primary + ';">' + _mSvg('building', 20, pal.primary) + '</span>'}
-              <div style="text-align:left;"><div style="font-weight:900;font-size:11px;">${companyName}</div>${companyCIF ? '<div style="font-size: 10px;color:#64748b;">CIF: ' + companyCIF + '</div>' : ''}</div>
+          <div class="sig-card" style="display:flex;flex-direction:column;justify-content:space-between;min-height:165px;">
+            <div style="font-weight:800;font-size:11px;color:#0f172a;">Conforme y Aceptado por el Cliente</div>
+            <div style="margin-top:auto;padding-top:36px;">
+              <div style="border-bottom:1px solid #475569;width:75%;margin:0 auto 6px auto;"></div>
+              <div style="font-size:10px;font-weight:700;color:#334155;">Firma del Cliente</div>
+              <div style="font-size:9.5px;color:#475569;margin-top:2px;">D./Dña. ${d.tit.nombre}</div>
+              <div style="font-size:9px;color:#64748b;">NIF: ${d.tit.nif}</div>
+              <div style="font-size:9px;color:#64748b;margin-top:2px;">Fecha: ___ / ___ / 2026</div>
             </div>
-            Por la Empresa Instaladora<br><br>
-            Firma y Sello: ________________________<br>
-            ${d.tit.tecnico} (${d.tit.titulacion})<br>
-            ${contactBlock ? contactBlock + '<br>' : ''}
-            <div style="margin-top:6px;">${[
-              _mSvg('bolt', 10, pal.primary, 'margin-right:3px;') + 'REBT ITC-BT-40',
-              _mSvg('shield', 10, pal.primary, 'margin-right:3px;') + 'RD 244/2019',
-              _mSvg('checkCircle', 10, pal.primary, 'margin-right:3px;') + 'IEC 61215'
-            ].map(t => '<span class="pill" style="display:inline-flex;align-items:center;">'+t+'</span>').join('')}</div>
+          </div>
+          <div class="sig-card" style="display:flex;flex-direction:column;justify-content:space-between;min-height:165px;">
+            <div>
+              <div class="sig-logo-box">
+                ${logoDataUrl ? '<img src="' + logoDataUrl + '" style="max-height:36px;max-width:100px;object-fit:contain;">' : '<span style="display:inline-flex;color:' + pal.primary + ';">' + _mSvg('building', 20, pal.primary) + '</span>'}
+                <div style="text-align:left;"><div style="font-weight:900;font-size:11px;">${companyName}</div>${companyCIF ? '<div style="font-size: 10px;color:#64748b;">CIF: ' + companyCIF + '</div>' : ''}</div>
+              </div>
+              <div style="font-size:10px;font-weight:700;color:#475569;">Por la Empresa Instaladora</div>
+            </div>
+            <div style="margin-top:auto;padding-top:24px;">
+              <div style="border-bottom:1px solid #475569;width:75%;margin:0 auto 6px auto;"></div>
+              <div style="font-size:10px;font-weight:700;color:#334155;">Firma y Sello</div>
+              <div style="font-size:9.5px;color:#475569;margin-top:2px;">${d.tit.tecnico} (${d.tit.titulacion})</div>
+              ${contactBlock ? '<div style="font-size:9px;color:#64748b;">' + contactBlock + '</div>' : ''}
+              <div style="margin-top:6px;">${[
+                _mSvg('bolt', 10, pal.primary, 'margin-right:3px;') + 'REBT ITC-BT-40',
+                _mSvg('shield', 10, pal.primary, 'margin-right:3px;') + 'RD 244/2019',
+                _mSvg('checkCircle', 10, pal.primary, 'margin-right:3px;') + 'IEC 61215'
+              ].map(t => '<span class="pill" style="display:inline-flex;align-items:center;">'+t+'</span>').join('')}</div>
+            </div>
           </div>
         </div>
       </div>
