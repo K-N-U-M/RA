@@ -6275,6 +6275,14 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   const ipcTech = 0.012; // 1.2%/año inflación neta de electrónica de potencia
   const invReplacementCost12 = isMicro ? 0 : Math.round(invBasePrice * Math.pow(1 + ipcTech, 12));
 
+  // Reposición automática indexada de batería en Año 10 (garantía estándar LFP: 10 años / 6.000 ciclos)
+  const batReplacementYear = 10;
+  const ipcBat = -0.020; // -2.0%/año deflación tecnológica proyectada en módulos de almacenamiento
+  const batBaseCost = (bat > 0) ? bat : (batCap > 0 ? (batCap * 380) : 0);
+  const batReplacementCost10 = (batCap > 0 || bat > 0)
+    ? Math.round(Math.min(batBaseCost * 0.70, (batCap || 5.0) * 220) * Math.pow(1 + ipcBat, batReplacementYear))
+    : 0;
+
   // OPEX de año 1: Mantenimiento preventivo, monitorización y seguro (~1% subtotal o 15€/kWp)
   const opexYear1 = Math.max(90, Math.max(kwp * 15, subtotal * 0.01));
   const ipcOpex = 0.020; // 2.0%/año IPC servicios de mantenimiento
@@ -6326,8 +6334,10 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     totalOpex25 += omY;
     totalCoste25 += omY;
 
-    // Inversor replacement en año 12 (según potencia nominal e IPC tecnológico)
-    const replY = (y === 12) ? invReplacementCost12 : 0;
+    // Inversor replacement en año 12 y Batería en año 10 (con deflación tecnológica)
+    const invReplY = (y === 12) ? invReplacementCost12 : 0;
+    const batReplY = (y === batReplacementYear) ? batReplacementCost10 : 0;
+    const replY = invReplY + batReplY;
     totalCoste25 += replY;
 
     // Acumular flujos descontados para LCOE bancable (WACC 4%)
@@ -6531,6 +6541,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     totalOpex25: Math.round(totalOpex25),
     annualOpex25: annualOpex25,
     inverterReplacementCostYr12: invReplacementCost12,
+    batteryReplacementCostYr10: batReplacementCost10,
     opexYear1: Math.round(opexYear1),
     ipcOpexPct: ipcOpex * 100,
     invBasePrice: Math.round(invBasePrice),
