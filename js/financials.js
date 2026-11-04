@@ -3389,16 +3389,16 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   }
 
   // ── SVG Curva de amortización (cashflow acumulado 25 años) ─────────────────
-  function buildAmortizationSVG(cashflowAcum, capexBruto, paybackYears, paleta, studioCfg) {
+  function buildAmortizationSVG(cashflowAcum, capexBruto, paybackYears, paleta, studioCfg, finModel) {
     const cfg = studioCfg || {};
     const H = (typeof cfg.amortHeightPx === 'number' && cfg.amortHeightPx >= 120) ? cfg.amortHeightPx : 200;
-    const W = 720, PAD_L = 60, PAD_B = 35, PAD_T = 20, PAD_R = 10;
+    const W = 720, PAD_L = 75, PAD_B = 35, PAD_T = 20, PAD_R = 15;
     const chartW = W - PAD_L - PAD_R;
     const chartH = H - PAD_B - PAD_T;
     const n = cashflowAcum.length;
     const minVal = Math.min(...cashflowAcum, -capexBruto * 0.1);
     const maxVal = Math.max(...cashflowAcum, 0);
-    const totalRange = maxVal - minVal;
+    const totalRange = (maxVal - minVal) || 1;
 
     const xOf = i => PAD_L + (i / (n - 1)) * chartW;
     const yOf = v => PAD_T + chartH - ((v - minVal) / totalRange) * chartH;
@@ -3424,41 +3424,189 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       fillAttr = 'url(#ra-amort-grad-area)';
     }
 
-    // Línea cero
-    const yZero = yOf(0);
-    let svgContent = `${defs}<line x1="${PAD_L}" y1="${yZero.toFixed(1)}" x2="${W - PAD_R}" y2="${yZero.toFixed(1)}" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4,3"/>`;
+    // Identificar hitos singulares con sus valores y colores
+    const fm = finModel || {};
+    const milestones = [];
+
+    // Año 0: Desembolso CAPEX
+    if (cashflowAcum.length > 0) {
+      milestones.push({
+        year: 0,
+        val: cashflowAcum[0],
+        label: 'Año 0: Desembolso',
+        desc: 'Inversión inicial CAPEX',
+        color: '#dc2626',
+        bg: '#fef2f2',
+        border: '#fecaca',
+        dash: '3,3'
+      });
+    }
+
+    // Año 1: Rescate fiscal IRPF / Sociedades + Ahorro
+    if (cashflowAcum.length > 1) {
+      milestones.push({
+        year: 1,
+        val: cashflowAcum[1],
+        label: 'Año 1: Rescate fiscal',
+        desc: 'Deducción IRPF / Sociedades + Ahorro',
+        color: '#2563eb',
+        bg: '#eff6ff',
+        border: '#bfdbfe',
+        dash: '3,3'
+      });
+    }
+
+    // Año 5: Fin bonificación IBI municipal
+    if (cashflowAcum.length > 5) {
+      milestones.push({
+        year: 5,
+        val: cashflowAcum[5],
+        label: 'Año 5: Fin bonif. IBI',
+        desc: 'Término de rebaja IBI municipal',
+        color: '#6366f1',
+        bg: '#eef2ff',
+        border: '#c7d2fe',
+        dash: '2,3'
+      });
+    }
+
+    // Año 10: Reposición de batería LFP (si existe o tiene coste de reemplazo)
+    if (cashflowAcum.length > 10 && (fm.batCap > 0 || (fm.batteryReplacementCostYr10 && fm.batteryReplacementCostYr10 > 0))) {
+      milestones.push({
+        year: 10,
+        val: cashflowAcum[10],
+        label: 'Año 10: Reposición batería',
+        desc: 'Reemplazo acumulador LFP indexado',
+        color: '#d97706',
+        bg: '#fffbeb',
+        border: '#fde68a',
+        dash: '4,2'
+      });
+    }
+
+    // Año 12: Reposición electrónica inversor central/híbrido
+    if (cashflowAcum.length > 12 && (fm.inverterReplacementCostYr12 == null || fm.inverterReplacementCostYr12 > 0)) {
+      milestones.push({
+        year: 12,
+        val: cashflowAcum[12],
+        label: 'Año 12: Reposición inversor',
+        desc: 'Sustitución de inversor central',
+        color: '#ea580c',
+        bg: '#fff7ed',
+        border: '#fed7aa',
+        dash: '4,2'
+      });
+    }
+
+    // Payback (Retorno 0€)
+    const hasPayback = (typeof paybackYears === 'number' && paybackYears > 0 && paybackYears < n);
+    if (hasPayback) {
+      milestones.push({
+        year: Math.round(paybackYears * 10) / 10,
+        val: 0,
+        label: `Año ${paybackYears.toFixed(1)}: Payback`,
+        desc: 'Retorno neto de inversión (0 €)',
+        color: paybackColor || '#059669',
+        bg: '#ecfdf5',
+        border: '#a7f3d0',
+        dash: '4,3',
+        isPayback: true
+      });
+    }
+
+    // Año 25: Beneficio neto acumulado
+    if (cashflowAcum.length > 25) {
+      milestones.push({
+        year: 25,
+        val: cashflowAcum[25],
+        label: 'Año 25: Beneficio neto',
+        desc: 'Cashflow total acumulado 25 años',
+        color: '#059669',
+        bg: '#f0fdf4',
+        border: '#bbf7d0',
+        dash: '2,2'
+      });
+    }
+
+    const fmtK = v => (v >= 0 ? '+' : '') + Math.round(v / 1000) + 'k€';
+
+    // Líneas guía horizontales hacia el eje Y para cada hito
+    let guidesContent = '';
+    milestones.forEach(mItem => {
+      const yPos = yOf(mItem.val);
+      // Evitar pintar fuera del área gráfica
+      if (yPos >= PAD_T && yPos <= PAD_T + chartH) {
+        const isZeroLine = Math.abs(mItem.val) < 1;
+        const lineStroke = isZeroLine ? '#64748b' : (mItem.color || '#94a3b8');
+        const lineOpacity = isZeroLine ? '0.75' : '0.45';
+        const lineDash = mItem.dash || '3,3';
+        guidesContent += `<line x1="${PAD_L}" y1="${yPos.toFixed(1)}" x2="${W - PAD_R}" y2="${yPos.toFixed(1)}" stroke="${lineStroke}" stroke-width="${isZeroLine ? '1.2' : '0.85'}" stroke-dasharray="${lineDash}" stroke-opacity="${lineOpacity}"/>`;
+        guidesContent += `<text x="${PAD_L - 4}" y="${(yPos + 2.5).toFixed(1)}" text-anchor="end" font-size="${Math.max(6.0, axisFontSize - 1.5)}" fill="${mItem.color}" font-weight="600">${fmtK(mItem.val)}</text>`;
+      }
+    });
 
     // Área rellena
+    const yZero = yOf(0);
     let pts = `${PAD_L.toFixed(1)},${yZero.toFixed(1)} `;
     cashflowAcum.forEach((v, i) => { pts += `${xOf(i).toFixed(1)},${yOf(v).toFixed(1)} `; });
     const lastX = xOf(n-1);
     pts += `${lastX.toFixed(1)},${yZero.toFixed(1)}`;
-    svgContent += `<polygon points="${pts}" fill="${fillAttr}" opacity="0.9"/>`;
+    let areaPolygon = `<polygon points="${pts}" fill="${fillAttr}" opacity="0.88"/>`;
 
-    // Línea principal
+    // Línea principal de cashflow
     const linePoints = cashflowAcum.map((v, i) => `${xOf(i).toFixed(1)},${yOf(v).toFixed(1)}`).join(' ');
-    svgContent += `<polyline points="${linePoints}" fill="none" stroke="${lineColor}" stroke-width="2.5" stroke-linejoin="round"/>`;
+    let mainPolyline = `<polyline points="${linePoints}" fill="none" stroke="${lineColor}" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>`;
 
-    // Punto de payback
-    if (paybackYears > 0 && paybackYears < n) {
-      const pbX = PAD_L + (paybackYears / (n - 1)) * chartW;
-      svgContent += `<circle cx="${pbX.toFixed(1)}" cy="${yZero.toFixed(1)}" r="5" fill="${paybackColor}"/>
-        <text x="${pbX.toFixed(1)}" y="${(yZero - 8).toFixed(1)}" text-anchor="middle" font-size="${pbFontSize}" fill="${paleta.dark}" font-weight="800">Payback ${paybackYears.toFixed(1)}a</text>`;
-    }
+    // Marcadores circulares para cada hito
+    let markersContent = '';
+    milestones.forEach(mItem => {
+      let xPos;
+      if (mItem.isPayback) {
+        xPos = PAD_L + (paybackYears / (n - 1)) * chartW;
+      } else {
+        const idx = Math.min(Math.max(0, mItem.year), n - 1);
+        xPos = xOf(idx);
+      }
+      const yPos = yOf(mItem.val);
+      const dotRadius = mItem.isPayback ? 5 : 3.5;
+      markersContent += `<circle cx="${xPos.toFixed(1)}" cy="${yPos.toFixed(1)}" r="${dotRadius}" fill="${mItem.color}" stroke="#ffffff" stroke-width="1.5"/>`;
+
+      if (mItem.isPayback) {
+        markersContent += `<text x="${xPos.toFixed(1)}" y="${(yPos - 9).toFixed(1)}" text-anchor="middle" font-size="${pbFontSize}" fill="${paleta.dark}" font-weight="800">Payback ${paybackYears.toFixed(1)}a</text>`;
+      }
+    });
 
     // Eje X — años
+    let xAxisContent = '';
     for (let y = 0; y <= n - 1; y += 5) {
       const xx = xOf(y);
-      svgContent += `<text x="${xx.toFixed(1)}" y="${(H - PAD_B + 12).toFixed(1)}" text-anchor="middle" font-size="${axisFontSize}" fill="#475569">Año ${y}</text>`;
+      xAxisContent += `<text x="${xx.toFixed(1)}" y="${(H - PAD_B + 13).toFixed(1)}" text-anchor="middle" font-size="${axisFontSize}" fill="#475569" font-weight="600">Año ${y}</text>`;
     }
-    // Etiqueta Y
-    const fmtK = v => v >= 0 ? '+' + Math.round(v/1000) + 'k€' : Math.round(v/1000) + 'k€';
-    svgContent += `<text x="${PAD_L - 5}" y="${PAD_T.toFixed(1)}" text-anchor="end" font-size="${Math.max(6.5, axisFontSize - 0.5)}" fill="#94a3b8">${fmtK(maxVal)}</text>`;
-    svgContent += `<text x="${PAD_L - 5}" y="${(H - PAD_B).toFixed(1)}" text-anchor="end" font-size="${Math.max(6.5, axisFontSize - 0.5)}" fill="#94a3b8">${fmtK(minVal)}</text>`;
 
-    svgContent += `<text x="${W/2}" y="${H - 2}" text-anchor="middle" font-size="${axisFontSize}" fill="#94a3b8">Retorno de inversión acumulado a 25 años (€)</text>`;
+    const svgChart = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="100%" style="display:block;max-width:100%;">
+      ${defs}
+      ${guidesContent}
+      ${areaPolygon}
+      ${mainPolyline}
+      ${markersContent}
+      ${xAxisContent}
+      <text x="${W/2}" y="${H - 3}" text-anchor="middle" font-size="${axisFontSize}" fill="#64748b">Retorno de inversión acumulado a 25 años (€)</text>
+    </svg>`;
 
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="100%" style="display:block;max-width:100%;">${svgContent}</svg>`;
+    // Hilera de pastillas explicativas (badge pills) bajo el gráfico
+    let pillsHTML = '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:stretch;margin-top:10px;justify-content:flex-start;">';
+    milestones.forEach(mItem => {
+      pillsHTML += `<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 8px;background:${mItem.bg};border:1px solid ${mItem.border};border-radius:14px;font-size:9px;line-height:1.2;color:#1e293b;">
+        <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${mItem.color};flex-shrink:0;"></span>
+        <div>
+          <strong style="color:${mItem.color};font-weight:700;">${mItem.label}</strong>
+          <span style="color:#64748b;margin-left:3px;font-size:8.5px;">(${fmtK(mItem.val)})</span>
+        </div>
+      </div>`;
+    });
+    pillsHTML += '</div>';
+
+    return svgChart + pillsHTML;
   }
 
   // ── Resolución de equipos del catálogo (SSOT) ──────────────────────────────
@@ -3470,7 +3618,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   const histogramSVG = buildMonthlyHistogramSVG(monthlyYields, pal, _studioCfg);
   const cashflowData = m.cashflowAcum || [];
   const amortSVG = cashflowData.length > 0
-    ? buildAmortizationSVG(cashflowData, m.capexBruto, m.paybackYears, pal, _studioCfg)
+    ? buildAmortizationSVG(cashflowData, m.capexBruto, m.paybackYears, pal, _studioCfg, m)
     : '<p style="color:#94a3b8;font-size:10px;text-align:center">Configure los datos financieros para ver la curva de amortización.</p>';
   // ── Resumen comercial para el cliente (Plantilla fija instantánea o generador SSOT) ──
   // [AUD-2026 v2 · SEC2-02] Los valores interpolados en la plantilla van escapados (vienen de
