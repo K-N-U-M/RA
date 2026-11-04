@@ -483,27 +483,6 @@
 
         if (isShaded && pData.corners && pData.corners.length >= 3) {
           shadedCount++;
-          const tiltAngle = (typeof pInfo.tiltDeg === 'number') ? pInfo.tiltDeg : 15;
-          const zOffset = 0.025 + 0.015 * Math.sin(Cesium.Math.toRadians(tiltAngle));
-
-          // [AAA VISUAL SHADOW OVERLAY] Proyectar polígono de sombra oscuro translúcido sobre el panel
-          if (curSimState.viewMode !== 'heatmap' && typeof Cesium !== 'undefined' && viewer && viewer.entities) {
-            const overlayPositions = pData.corners.map(c => {
-              return Cesium.Cartesian3.add(
-                c,
-                Cesium.Cartesian3.multiplyByScalar(norm, zOffset, new Cesium.Cartesian3()),
-                new Cesium.Cartesian3()
-              );
-            });
-            const overlayEnt = viewer.entities.add({
-              polygon: {
-                hierarchy: new Cesium.PolygonHierarchy(overlayPositions),
-                material: new Cesium.Color(0.04, 0.06, 0.12, 0.65), // Sombra realista fría y nítida
-                perPositionHeight: true
-              }
-            });
-            overlayPool.set('overlay_' + panelGlobalCounter, overlayEnt);
-          }
 
           if (requiresMLPE) {
             const badgePos = Cesium.Cartesian3.add(
