@@ -40,7 +40,7 @@ window.RA_App = window.RA_App || {};
   <script src="js/universal-gizmo-3d.js?v=1793254625038"></script>
   <script src="js/buildings.js?v=20261016d"></script>
     <script src="js/radiation-engine.js?v=20261014a"></script>
-    <script src="js/solar-heatmap.js?v=20261104a"></script>
+    <script src="js/solar-heatmap.js?v=20261104b"></script>
     <script src="js/solar-live-probe.js?v=20261029a"></script>
     <script src="js/ra-env.js"></script>
 <script src="js/config.js?v=20261028a"></script>
@@ -12938,7 +12938,17 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
           tiltDeg: panelData.tiltDeg,
           azimuthDeg: panelData.azimuthDeg,
           disabled: (poly.panelsDisabled === true) || !!panelData.disabled,
-          annualLossPct: panelData.annualLossPct || 0
+          annualLossPct: panelData.annualLossPct || 0,
+          annualYieldPct: panelData.annualYieldPct,
+          annualGrossKwh: panelData.annualGrossKwh,
+          _lastPrSys: panelData._lastPrSys,
+          annualKwh: panelData.annualKwh,
+          relativeYieldPct: panelData.relativeYieldPct,
+          annualTotalInsolation: panelData.annualTotalInsolation,
+          isNormal: panelData.isNormal,
+          requiresMLPE: panelData.requiresMLPE,
+          isUnviable: panelData.isUnviable,
+          heatmapColor: panelData.heatmapColor || (typeof getHeatmapColor === 'function' ? getHeatmapColor(panelData.annualLossPct || 0) : { hex: '#10b981' })
         });
       });
 
@@ -13049,7 +13059,17 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
           tiltDeg: panelData.tiltDeg,
           azimuthDeg: panelData.azimuthDeg,
           disabled: (poly.panelsDisabled === true) || !!panelData.disabled,
-          annualLossPct: panelData.annualLossPct || 0
+          annualLossPct: panelData.annualLossPct || 0,
+          annualYieldPct: panelData.annualYieldPct,
+          annualGrossKwh: panelData.annualGrossKwh,
+          _lastPrSys: panelData._lastPrSys,
+          annualKwh: panelData.annualKwh,
+          relativeYieldPct: panelData.relativeYieldPct,
+          annualTotalInsolation: panelData.annualTotalInsolation,
+          isNormal: panelData.isNormal,
+          requiresMLPE: panelData.requiresMLPE,
+          isUnviable: panelData.isUnviable,
+          heatmapColor: panelData.heatmapColor || (typeof getHeatmapColor === 'function' ? getHeatmapColor(panelData.annualLossPct || 0) : { hex: '#10b981' })
         });
       });
 
@@ -13396,11 +13416,14 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
           if (pData.disabled) {
             // [DEACTIVATED] Tinte grisáceo apagado translúcido para módulos excluidos de ingeniería
             color = new Cesium.Color(0.38, 0.42, 0.48, 0.40);
-          } else if (pData.isGhost) {
-            // [GHOST-PANEL] Modo translúcido cian/esmeralda para placas de reserva / CEL
-            color = new Cesium.Color(0.06, 0.72, 0.51, 0.28);
           } else if (isHeatmapMode) {
-            color = pData.heatmapColor ? Cesium.Color.fromCssColorString(pData.heatmapColor.hex) : Cesium.Color.fromCssColorString('#10b981');
+            // [HEATMAP] Prioridad absoluta: gradiente térmico de radiación anual para todos los módulos
+            const hex = (pData.heatmapColor && (pData.heatmapColor.hex || pData.heatmapColor)) ||
+              (typeof getHeatmapColor === 'function' ? getHeatmapColor(pData.annualLossPct || 0).hex : '#10b981');
+            color = Cesium.Color.fromCssColorString(hex);
+          } else if (pData.isGhost) {
+            // [GHOST-PANEL] Modo translúcido cian/esmeralda para placas de reserva / CEL en modos no térmicos
+            color = new Cesium.Color(0.06, 0.72, 0.51, 0.28);
           } else {
             // Tinte fotovoltaico distintivo por String (elegante, contrastado y reconocible en 3D)
             const rawStrCol = Cesium.Color.fromCssColorString(pData.stringColor || '#00F0FF');
@@ -13447,10 +13470,12 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
               }
             })
           : undefined;
-        const hasGhostPanels = allTargetPanels.some(p => p.isGhost);
+        const hasTranslucentPanels = isHeatmapMode
+          ? allTargetPanels.some(p => p.disabled)
+          : allTargetPanels.some(p => p.isGhost || p.disabled);
         const appearance = Cesium.PerInstanceColorAppearance ? new Cesium.PerInstanceColorAppearance({
           flat: true,
-          translucent: hasGhostPanels,
+          translucent: hasTranslucentPanels,
           closed: false,
           renderState: panelRenderState
         }) : undefined;

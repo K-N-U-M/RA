@@ -884,6 +884,9 @@
           p.annualYieldPct = res.annualYieldPct;
           p.shadowHits = res.shadowHits;
           p.activeDiodesHits = res.activeDiodesHits;
+          p.heatmapColor = (typeof getHeatmapColor === 'function')
+            ? getHeatmapColor(res.annualLossPct || 0)
+            : { hex: '#10b981' };
         }
       });
     });
