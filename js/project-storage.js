@@ -422,12 +422,22 @@ function raExportProjectData() {
     })(),
     financialSettings: (() => {
       const g = (id, def) => {
-        const el = document.getElementById(id);
+        const el = document.getElementById(id) || document.getElementById('modal-' + id);
         return el ? (parseFloat(el.value) || def) : def;
       };
+      const gStr = (id, def) => {
+        const el = document.getElementById(id) || document.getElementById('modal-' + id);
+        return el ? (el.value || def) : def;
+      };
       return {
+        mode: gStr('fin-mode', 'both'),
+        entradaEur: g('fin-entrada-eur', 0),
         plazoMeses: g('fin-plazo-meses', 120),
-        tinPct: g('fin-tin-pct', 5.95)
+        tinPct: g('fin-tin-pct', 5.95),
+        aperturaPct: g('fin-apertura-pct', 1.0),
+        carenciaMeses: g('fin-carencia-meses', 0),
+        seguroMensual: g('fin-seguro-mensual', 0),
+        notariaEur: g('fin-notaria-eur', 0)
       };
     })(),
     pricingOverrides: (() => {
@@ -1332,14 +1342,25 @@ async function raImportProjectData(projectData, options = {}) {
       } catch (eClient) { console.warn('[RA Storage] Error restaurando cliente:', eClient); }
     }
 
-    // [AUDIT v2.3] Restaurar parámetros financieros (plazo, TIN)
+    // [AUDIT v2.3] Restaurar parámetros financieros (plazo, TIN, entrada, carencia, apertura, seguro)
     if (projectData.financialSettings && typeof document !== 'undefined') {
       try {
         const fs = projectData.financialSettings;
-        const elPlazo = document.getElementById('fin-plazo-meses');
-        if (elPlazo && typeof fs.plazoMeses === 'number') elPlazo.value = fs.plazoMeses;
-        const elTin = document.getElementById('fin-tin-pct');
-        if (elTin && typeof fs.tinPct === 'number') elTin.value = fs.tinPct;
+        const setFinVal = (id, val) => {
+          if (val === undefined || val === null) return;
+          const el1 = document.getElementById(id);
+          if (el1) el1.value = val;
+          const el2 = document.getElementById('modal-' + id);
+          if (el2) el2.value = val;
+        };
+        setFinVal('fin-mode', fs.mode);
+        setFinVal('fin-entrada-eur', fs.entradaEur);
+        setFinVal('fin-plazo-meses', fs.plazoMeses);
+        setFinVal('fin-tin-pct', fs.tinPct);
+        setFinVal('fin-apertura-pct', fs.aperturaPct);
+        setFinVal('fin-carencia-meses', fs.carenciaMeses);
+        setFinVal('fin-seguro-mensual', fs.seguroMensual);
+        setFinVal('fin-notaria-eur', fs.notariaEur);
       } catch (eFin) {}
     }
 

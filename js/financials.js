@@ -1119,8 +1119,15 @@ var RAPricing = {
       icioBonifPct: 95
     },
     financing: {
-      loanTinPct: 5.50,
-      loanMonths: 84,
+      mode: 'both',                 // 'both' (ambas) | 'cash' (solo contado) | 'financed' (solo financiado)
+      downPaymentEur: 0,            // Entrada inicial en € directos
+      loanTinPct: 5.95,             // TIN nominal anual (%)
+      loanMonths: 120,              // Plazo en meses (ej. 60, 96, 120, 144)
+      openingFeePct: 1.0,           // Comisión de apertura (%)
+      feeFinanced: true,            // ¿Comisión de apertura financiada en el crédito o pagada al contado?
+      graceMonths: 0,               // Meses de carencia inicial (0 a 3 meses)
+      monthlyInsuranceEur: 0,       // Seguro de protección de pagos o mantenimiento añadido en cuota (€/mes)
+      notaryEur: 0,                 // Gastos de formalización o notaría (€ directos)
       milestones: [
         { label: '1º Hito: Reserva e Ingeniería (a la firma)', pct: 20 },
         { label: '2º Hito: Acopio de Equipos e Inicio de Montaje', pct: 50 },
@@ -5161,12 +5168,13 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         </div>
       </div>
 
-      <!-- COMPARATIVA DE PAGO: CONTADO vs FINANCIACIÓN 100% -->
-      <div class="decision-boxes ra-financing-options-block">
+      <!-- COMPARATIVA DE PAGO: CONTADO vs FINANCIACIÓN -->
+      <div class="decision-boxes ra-financing-options-block" style="${m.finMode === 'cash' || m.finMode === 'financed' ? 'grid-template-columns: 1fr;' : ''}">
+        ${m.finMode !== 'financed' ? `
         <div class="decision-card featured">
           <div class="decision-title" style="color:${pal.dark};">
             <span>OPCIÓN A: PAGO LLAVE EN MANO</span>
-            <span style="font-size: 10px;background:${pal.light};color:${pal.dark};padding:2px 6px;border-radius:4px;">RECOMENDADA</span>
+            <span style="font-size: 10px;background:${pal.light};color:${pal.dark};padding:2px 6px;border-radius:4px;">${m.finMode === 'cash' ? 'MODALIDAD SELECCIONADA' : 'RECOMENDADA'}</span>
           </div>
           ${m.capexTachado ? `
           <div class="decision-row" style="text-decoration:line-through;color:#94a3b8;font-size:10px;">
@@ -5192,17 +5200,32 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
           <div style="font-size: 10px;color:#64748b;margin-top:6px;">
             Ganancia neta acumulada (VAN 25a): <b>${Math.round(m.van).toLocaleString('es-ES')} €</b>
           </div>
-        </div>
+        </div>` : ''}
 
+        ${m.finMode !== 'cash' ? `
         <div class="decision-card">
           <div class="decision-title" style="color:#2563eb;">
-            <span>OPCIÓN B: FINANCIACIÓN 100%</span>
-            <span style="font-size: 10px;background:#dbeafe;color:#1e40af;padding:2px 6px;border-radius:4px;">0 € ENTRADA</span>
+            <span>${m.entradaEur > 0 ? 'OPCIÓN B: FINANCIACIÓN A MEDIDA' : 'OPCIÓN B: FINANCIACIÓN 100%'}</span>
+            <span style="font-size: 10px;background:#dbeafe;color:#1e40af;padding:2px 6px;border-radius:4px;">${m.entradaEur > 0 ? (Math.round(m.entradaEur).toLocaleString('es-ES') + ' € ENTRADA') : '0 € ENTRADA'}</span>
           </div>
+          ${m.entradaEur > 0 ? `
+          <div class="decision-row" style="color:#0f172a;">
+            <span>Aportación Entrada Inicial:</span>
+            <b>${Math.round(m.entradaEur).toLocaleString('es-ES')} €</b>
+          </div>
+          <div class="decision-row" style="font-size:9.5px;color:#64748b;">
+            <span>Capital Neto Financiado:</span>
+            <span>${Math.round(m.capitalBaseFinanciar).toLocaleString('es-ES')} €</span>
+          </div>` : ''}
           <div class="decision-row">
-            <span>Cuota mensual (${m.mesesFin / 12} años):</span>
+            <span>Cuota mensual (${m.mesesFin / 12} años · TAE ${m.taeCalculadaPct}%):</span>
             <b style="color:#2563eb;">${Math.round(m.cuotaMensual)} €/mes</b>
           </div>
+          ${m.mesesCarencia > 0 ? `
+          <div class="decision-row" style="font-size:9px;color:#475569;">
+            <span>Carencia inicial (${m.mesesCarencia} meses):</span>
+            <span>${m.cuotaDuranteCarencia} €/mes (solo int.)</span>
+          </div>` : ''}
           <div class="decision-row" style="color:${pal.primary};">
             <span>${_isOffGrid ? 'Valor mensual energía generada:' : 'Ahorro estimado en tu factura:'}</span>
             <b>+ ${_isOffGrid ? _offGridMonthlyValueEUR : Math.round(m.ahorroMensualLuz)} €/mes</b>
@@ -5214,7 +5237,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
           <div style="font-size: 10px;color:#64748b;margin-top:6px;">
             ${_isOffGrid ? 'La energía generada supera el valor de comprarla a la red desde el primer mes.' : 'La instalación se paga sola con el ahorro de luz desde el primer mes.'}
           </div>
-        </div>
+        </div>` : ''}
       </div>
 
       <!-- RESUMEN EJECUTIVO / IMPACTO AMBIENTAL -->
@@ -6579,19 +6602,68 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   const totalCosteDescontado = capexDesembolsoInicial + discountedCostsSum;
   const lcoe = (discountedYieldSum > 0) ? (totalCosteDescontado / discountedYieldSum) : (totalCoste25 > 0 ? (totalCoste25 / Math.max(totalGenerado25, 1)) : 0.038);
 
-  // Financiación con respaldo desde configuración persistida
+  // Financiación bancaria rigurosa (Francés con entrada, carencia, apertura y seguro)
   const _commFin = (commercialCfg && commercialCfg.financing) ? commercialCfg.financing : {};
-  const meses = _input('fin-plazo-meses', (_commFin.loanMonths || 120));
+  const finMode = (typeof _commFin.mode === 'string') ? _commFin.mode : 'both'; // 'both' | 'cash' | 'financed'
+  const entradaEur = Math.max(0, _input('fin-entrada-eur', (_commFin.downPaymentEur != null ? _commFin.downPaymentEur : 0)));
+  const meses = Math.max(1, _input('fin-plazo-meses', (_commFin.loanMonths || 120)));
   const defaultTin = (typeof _commFin.loanTinPct === 'number') ? _commFin.loanTinPct : 5.95;
-  const tinAnual = _input('fin-tin-pct', defaultTin) / 100.0;
+  const tinAnual = Math.max(0, _input('fin-tin-pct', defaultTin)) / 100.0;
+  const comisionAperturaPct = Math.max(0, _input('fin-apertura-pct', (_commFin.openingFeePct != null ? _commFin.openingFeePct : 1.0))) / 100.0;
+  const aperturaFinanciada = (typeof _commFin.feeFinanced !== 'undefined') ? Boolean(_commFin.feeFinanced) : true;
+  const mesesCarencia = Math.max(0, Math.min(12, Math.round(_input('fin-carencia-meses', (_commFin.graceMonths || 0)))));
+  const seguroMensualEur = Math.max(0, _input('fin-seguro-mensual', (_commFin.monthlyInsuranceEur || 0)));
+  const notariaEur = Math.max(0, _input('fin-notaria-eur', (_commFin.notaryEur || 0)));
+
+  // Capital efectivo a financiar: Presupuesto bruto menos entrada
+  const capitalBaseFinanciar = Math.max(0, capexBruto - entradaEur);
+  const comisionAperturaEur = Math.round(capitalBaseFinanciar * comisionAperturaPct);
+  const capitalPrincipalCredito = capitalBaseFinanciar + (aperturaFinanciada ? comisionAperturaEur : 0) + (aperturaFinanciada ? notariaEur : 0);
+  const gastosInicialesContado = entradaEur + (!aperturaFinanciada ? comisionAperturaEur : 0) + (!aperturaFinanciada ? notariaEur : 0);
+
+  // Amortización con carencia (durante carencia se abonan solo intereses del capital)
+  const mesesAmortizacion = Math.max(1, meses - mesesCarencia);
   const tinMensual = tinAnual / 12.0;
-  let cuotaMensual = 0;
-  if (meses > 0 && capexBruto > 0) {
-    cuotaMensual = (tinMensual > 0)
-      ? (capexBruto * (tinMensual * Math.pow(1 + tinMensual, meses))) / (Math.pow(1 + tinMensual, meses) - 1)
-      : capexBruto / meses;
-    if (!Number.isFinite(cuotaMensual)) cuotaMensual = 0;
+  let cuotaAmortizacion = 0;
+  if (mesesAmortizacion > 0 && capitalPrincipalCredito > 0) {
+    cuotaAmortizacion = (tinMensual > 0)
+      ? (capitalPrincipalCredito * (tinMensual * Math.pow(1 + tinMensual, mesesAmortizacion))) / (Math.pow(1 + tinMensual, mesesAmortizacion) - 1)
+      : (capitalPrincipalCredito / mesesAmortizacion);
+    if (!Number.isFinite(cuotaAmortizacion)) cuotaAmortizacion = 0;
   }
+  const cuotaDuranteCarencia = (capitalPrincipalCredito * tinMensual) + seguroMensualEur;
+  const cuotaMensualCredito = cuotaAmortizacion + seguroMensualEur;
+  const cuotaMensual = Math.round(cuotaMensualCredito);
+
+  // Cálculo de TAE real con flujos de caja del préstamo
+  let taeCalculadaPct = tinAnual * 100.0;
+  if (capitalBaseFinanciar > 0 && meses > 0) {
+    try {
+      // Flujo neto inicial recibido: capitalBaseFinanciar - comisiones/gastos iniciales si no financiados
+      const desembolsoNetoPrestamo = capitalBaseFinanciar - (!aperturaFinanciada ? comisionAperturaEur : 0) - (!aperturaFinanciada ? notariaEur : 0);
+      // Flujos mensuales a pagar
+      const flujosPrestamo = [-desembolsoNetoPrestamo];
+      for (let fm = 1; fm <= meses; fm++) {
+        flujosPrestamo.push(fm <= mesesCarencia ? cuotaDuranteCarencia : cuotaMensualCredito);
+      }
+      // Resolver TIR mensual mediante bisección
+      let rMin = 0.0, rMax = 0.10, rMid = 0.0;
+      for (let iter = 0; iter < 40; iter++) {
+        rMid = (rMin + rMax) / 2.0;
+        let npvF = 0;
+        for (let t = 0; t < flujosPrestamo.length; t++) {
+          npvF += flujosPrestamo[t] / Math.pow(1 + rMid, t);
+        }
+        if (npvF > 0) rMin = rMid;
+        else rMax = rMid;
+      }
+      const taeReal = (Math.pow(1 + rMid, 12) - 1) * 100.0;
+      if (Number.isFinite(taeReal) && taeReal > 0) taeCalculadaPct = taeReal;
+    } catch (eTae) {
+      taeCalculadaPct = ((Math.pow(1 + tinMensual, 12) - 1) * 100.0) + (comisionAperturaPct * 100.0 / (meses / 12.0));
+    }
+  }
+
   const ahorroMensualLuz = ahorroLuzAnio1 / 12.0;
   const balanceNetoMensual = ahorroMensualLuz - cuotaMensual;
 
@@ -6658,6 +6730,19 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     lcoe: lcoe,
     mesesFin: meses,
     tinAnualPct: tinAnual * 100,
+    finMode: finMode,
+    entradaEur: entradaEur,
+    capitalBaseFinanciar: capitalBaseFinanciar,
+    capitalPrincipalCredito: capitalPrincipalCredito,
+    comisionAperturaEur: comisionAperturaEur,
+    comisionAperturaPct: comisionAperturaPct * 100,
+    aperturaFinanciada: aperturaFinanciada,
+    mesesCarencia: mesesCarencia,
+    cuotaDuranteCarencia: Math.round(cuotaDuranteCarencia),
+    seguroMensualEur: seguroMensualEur,
+    notariaEur: notariaEur,
+    gastosInicialesContado: gastosInicialesContado,
+    taeCalculadaPct: Math.round(taeCalculadaPct * 100) / 100,
     cuotaMensual: cuotaMensual,
     ahorroMensualLuz: ahorroMensualLuz,
     balanceNetoMensual: balanceNetoMensual,

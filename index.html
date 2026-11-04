@@ -3321,26 +3321,82 @@ window.RA_App = window.RA_App || {};
           </div>
         </div>
 
-        <!-- Simulación de Financiación Bancaria -->
+        <!-- Simulación de Financiación Bancaria Avanzada -->
         <div class="ui-card" style="margin:0;background:rgba(30,41,59,0.5);border:1px solid rgba(255,255,255,0.08);padding:14px;border-radius:8px;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.06);padding-bottom:6px;">
-            <span style="font-size:11px;font-weight:800;color:var(--amber-400);text-transform:uppercase;">4. Simulación Financiación Bancaria</span>
-            <span class="card-tag" style="font-size: 10px;">CUOTA VS AHORRO</span>
+            <span style="font-size:11px;font-weight:800;color:var(--amber-400);text-transform:uppercase;">4. Condiciones de Financiación Bancaria</span>
+            <span class="card-tag" style="font-size: 10px;">CRÉDITO A MEDIDA</span>
           </div>
 
+          <!-- Modalidad Comercial de Oferta -->
           <div class="field-row" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
-            <span style="font-size:10.5px;color:var(--text-slate-300);">Plazo del Préstamo:</span>
-            <select id="modal-fin-plazo-meses" onchange="syncModalInputToBudget('fin-plazo-meses', this.value)" style="width:165px;background:rgba(0,0,0,0.5);border:1px solid var(--border-subtle);color:#fff;font-size:10px;padding:4px 6px;border-radius:6px;outline:none;">
-              <option value="60">5 Años (60 cuotas)</option>
-              <option value="96">8 Años (96 cuotas)</option>
-              <option value="120">10 Años (120 cuotas)</option>
-              <option value="144">12 Años (144 cuotas)</option>
+            <span style="font-size:10.5px;color:var(--text-slate-300);">Modalidad de Pago Oferta:</span>
+            <select id="modal-fin-mode" onchange="raSyncFinancingMode(this.value)" style="width:165px;background:rgba(0,0,0,0.5);border:1px solid var(--amber-400);color:#fbbf24;font-size:10px;padding:4px 6px;border-radius:6px;outline:none;font-weight:700;">
+              <option value="both">Comparativa (Contado vs Financiado)</option>
+              <option value="cash">Solo Pago al Contado (Llave en mano)</option>
+              <option value="financed">Solo Financiación (Crédito)</option>
             </select>
           </div>
 
+          <!-- Entrada Directa en Euros -->
           <div class="field-row" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
-            <span style="font-size:10.5px;color:var(--text-slate-300);">Tipo de Interés (TIN %):</span>
-            <input type="number" id="modal-fin-tin-pct" step="0.25" min="0" max="20" class="field-input" style="width:90px;font-size:11px;text-align:right;" oninput="syncModalInputToBudget('fin-tin-pct', this.value)">
+            <div style="display:flex;flex-direction:column;">
+              <span style="font-size:10.5px;color:var(--text-slate-300);">Entrada Inicial Aportada (€):</span>
+              <span style="font-size:9px;color:var(--text-slate-400);">Resta del capital principal a financiar</span>
+            </div>
+            <input type="number" id="modal-fin-entrada-eur" step="250" min="0" value="0" placeholder="0 €" class="field-input" style="width:105px;font-size:11px;text-align:right;" oninput="syncModalInputToBudget('fin-entrada-eur', this.value)">
+          </div>
+
+          <!-- Plazo del Préstamo -->
+          <div class="field-row" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:10.5px;color:var(--text-slate-300);">Plazo del Préstamo:</span>
+            <select id="modal-fin-plazo-meses" onchange="syncModalInputToBudget('fin-plazo-meses', this.value)" style="width:165px;background:rgba(0,0,0,0.5);border:1px solid var(--border-subtle);color:#fff;font-size:10px;padding:4px 6px;border-radius:6px;outline:none;">
+              <option value="36">3 Años (36 cuotas)</option>
+              <option value="60">5 Años (60 cuotas)</option>
+              <option value="84">7 Años (84 cuotas)</option>
+              <option value="96">8 Años (96 cuotas)</option>
+              <option value="120" selected>10 Años (120 cuotas)</option>
+              <option value="144">12 Años (144 cuotas)</option>
+              <option value="180">15 Años (180 cuotas)</option>
+            </select>
+          </div>
+
+          <!-- Tipo de Interés TIN y TAE Calculada -->
+          <div class="field-row" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:10.5px;color:var(--text-slate-300);">Tipo de Interés Nominal (TIN %):</span>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <input type="number" id="modal-fin-tin-pct" step="0.10" min="0" max="25" class="field-input" style="width:75px;font-size:11px;text-align:right;" oninput="syncModalInputToBudget('fin-tin-pct', this.value)">
+              <span id="modal-fin-badge-tae" style="font-size:9.5px;font-weight:700;color:var(--amber-400);background:rgba(245,158,11,0.12);padding:3px 6px;border-radius:4px;border:1px solid rgba(245,158,11,0.25);">TAE: 5.95%</span>
+            </div>
+          </div>
+
+          <!-- Comisión de Apertura y Carencia -->
+          <div class="field-row" style="margin-bottom:8px;display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <div>
+              <span style="font-size:9.5px;color:var(--text-slate-300);display:block;margin-bottom:2px;">Comisión Apertura (%):</span>
+              <input type="number" id="modal-fin-apertura-pct" step="0.25" min="0" max="10" value="1.0" class="field-input" style="width:100%;font-size:10.5px;text-align:right;" oninput="syncModalInputToBudget('fin-apertura-pct', this.value)">
+            </div>
+            <div>
+              <span style="font-size:9.5px;color:var(--text-slate-300);display:block;margin-bottom:2px;">Carencia Inicial (Meses):</span>
+              <select id="modal-fin-carencia-meses" onchange="syncModalInputToBudget('fin-carencia-meses', this.value)" style="width:100%;background:rgba(0,0,0,0.5);border:1px solid var(--border-subtle);color:#fff;font-size:10px;padding:4px 6px;border-radius:6px;outline:none;">
+                <option value="0" selected>Sin carencia (0 m)</option>
+                <option value="1">1 mes de carencia</option>
+                <option value="2">2 meses de carencia</option>
+                <option value="3">3 meses de carencia</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Seguros / Mantenimiento en Cuota y Notaría -->
+          <div class="field-row" style="margin-bottom:8px;display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <div>
+              <span style="font-size:9.5px;color:var(--text-slate-300);display:block;margin-bottom:2px;">Seguro/Mant. en Cuota (€/mes):</span>
+              <input type="number" id="modal-fin-seguro-mensual" step="2" min="0" value="0" placeholder="0 €/m" class="field-input" style="width:100%;font-size:10.5px;text-align:right;" oninput="syncModalInputToBudget('fin-seguro-mensual', this.value)">
+            </div>
+            <div>
+              <span style="font-size:9.5px;color:var(--text-slate-300);display:block;margin-bottom:2px;">Gastos Formalización (€):</span>
+              <input type="number" id="modal-fin-notaria-eur" step="25" min="0" value="0" placeholder="0 €" class="field-input" style="width:100%;font-size:10.5px;text-align:right;" oninput="syncModalInputToBudget('fin-notaria-eur', this.value)">
+            </div>
           </div>
 
           <div class="field-row" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;background:rgba(56,189,248,0.08);padding:6px 8px;border-radius:6px;border:1px solid rgba(56,189,248,0.2);">
@@ -3355,7 +3411,11 @@ window.RA_App = window.RA_App || {};
 
           <div style="margin-top:10px;padding:12px;background:rgba(0,0,0,0.3);border-radius:8px;border:1px solid rgba(16,185,129,0.2);display:flex;flex-direction:column;gap:6px;">
             <div style="display:flex;justify-content:space-between;align-items:center;">
-              <span style="font-size:10px;color:var(--text-slate-300);">Cuota Mensual Financiación:</span>
+              <span style="font-size:10px;color:var(--text-slate-300);">Capital Financiado Neto:</span>
+              <b id="modal-fin-capital-financiado" style="font-family:var(--font-mono);font-size:12px;color:#fff;">0 €</b>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-size:10px;color:var(--text-slate-300);">Cuota Mensual Crédito:</span>
               <b id="modal-fin-cuota-mensual" style="font-family:var(--font-mono);font-size:13px;color:var(--amber-400);">0 €/mes</b>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center;">
@@ -3651,6 +3711,21 @@ function openCostBreakdownModal() {
   const vBatCheck = document.getElementById('modal-cfg-virtual-bat');
   if (vBatCheck) {
     vBatCheck.checked = !!(_cfg && _cfg.hasVirtualBattery);
+  }
+
+  // Sincronizar configuración de financiación persistida
+  if (typeof RAPricing !== 'undefined' && typeof RAPricing.getCommercialConfig === 'function') {
+    const _cCfg = RAPricing.getCommercialConfig();
+    const _fin = (_cCfg && _cCfg.financing) ? _cCfg.financing : {};
+    const setVal = (id, val) => { const el = document.getElementById(id); if (el && val !== undefined) el.value = val; };
+    setVal('modal-fin-mode', _fin.mode || 'both');
+    setVal('modal-fin-entrada-eur', _fin.downPaymentEur || 0);
+    setVal('modal-fin-plazo-meses', _fin.loanMonths || 120);
+    setVal('modal-fin-tin-pct', (_fin.loanTinPct !== undefined ? _fin.loanTinPct : 5.95));
+    setVal('modal-fin-apertura-pct', (_fin.openingFeePct !== undefined ? _fin.openingFeePct : 1.0));
+    setVal('modal-fin-carencia-meses', _fin.graceMonths || 0);
+    setVal('modal-fin-seguro-mensual', _fin.monthlyInsuranceEur || 0);
+    setVal('modal-fin-notaria-eur', _fin.notaryEur || 0);
   }
 
   // Sincronizar configuración fiscal persistida
