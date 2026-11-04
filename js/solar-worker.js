@@ -315,8 +315,10 @@ self.onmessage = function(e) {
         const quads = [];
         faldon.obstacles2D.forEach(obs => {
           const hObs = obs.height || 1.2;
-          const dU = sU * shadowLen * hObs;
-          const dV = sV * shadowLen * hObs;
+          const maxObsShadowLen = 45.0; // Límite físico para evitar proyecciones infinitas
+          const effShadowLen = Math.min(shadowLen * hObs, maxObsShadowLen);
+          const dU = sU * effShadowLen;
+          const dV = sV * effShadowLen;
           const basePoly = obs.points2D || [];
           if (basePoly.length >= 3) {
             const topPoly = basePoly.map(pt => ({ u: pt.u + dU, v: pt.v + dV }));

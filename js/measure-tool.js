@@ -13,7 +13,7 @@
  *       * Equipos eléctricos (inversor, contador, cuadro DC)
  *   - Líneas de cota técnicas con etiquetas flotantes de alta legibilidad
  *   - Mini-HUD de control flotante con toggle interactivo de Snap y botón de purga
- *   - Atajos de teclado ergonómicos: [M] Activar/Desactivar, [S] Conmutar Snap, [Esc] Cancelar
+ *   - Atajos de teclado ergonómicos: [M] Activar/Desactivar, [X] Conmutar Snap, [Esc] Cancelar
  * ============================================================================
  */
 (function(global) {
@@ -911,7 +911,7 @@
     requestSceneRender();
   }
 
-  // ── ATAJOS DE TECLADO GLOBALES ([M], [S], [Escape]) ───────────────────────
+  // ── ATAJOS DE TECLADO GLOBALES ([M], [X], [Escape]) ───────────────────────
   function setupKeyboardShortcuts() {
     if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') return;
     window.addEventListener('keydown', function(e) {
@@ -928,8 +928,8 @@
         return;
       }
 
-      // Tecla S: Alternar snap SOLO si la herramienta de medición está activa
-      if (key === 's' && _state.active && !e.ctrlKey && !e.altKey && !e.metaKey) {
+      // Tecla X: Alternar snap SOLO si la herramienta de medición está activa
+      if (key === 'x' && _state.active && !e.ctrlKey && !e.altKey && !e.metaKey) {
         e.preventDefault();
         toggleSnapping();
         return;

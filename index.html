@@ -16740,7 +16740,7 @@ window.toggleSolarHUD = toggleSolarHUD;
 
     // ── Atajos de bloqueo de eje para Tríada de Vértices (X, Y, Z / U, V, N)
     if (WP.selectedPolyIdx >= 0 && WP.selectedVtxIdx >= 0) {
-      if (e.key === 'x' || e.key === 'X' || e.key === 'u' || e.key === 'U') {
+      if (e.key === 'u' || e.key === 'U') {
         vtxGizmoState.axisLock = (vtxGizmoState.axisLock === 'u' ? null : 'u');
         showStatus('<i data-lucide="lock" class="icon-sm"></i> RESTRICCIÓN DE EJE: ' + (vtxGizmoState.axisLock ? 'EJE U (LONGITUDINAL)' : 'LIBRE'), 1500);
         renderTriad2D();
@@ -16786,11 +16786,14 @@ window.toggleSolarHUD = toggleSolarHUD;
       if (typeof wpRestoreCameraNavigation === 'function') {
         wpRestoreCameraNavigation();
       }
-    } else if (e.key === 's' || e.key === 'S') {
+    } else if (e.key === 'x' || e.key === 'X') {
+      const activeEl = document.activeElement;
+      if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable)) return;
       magneticSnapActive = !magneticSnapActive;
+      window.magneticSnapActive = magneticSnapActive;
       const snapChk = document.getElementById('chk-snap-vert');
       if (snapChk) snapChk.checked = magneticSnapActive;
-      showStatus(magneticSnapActive ? '<i data-lucide=\"magnet\" class=\"icon-sm\"></i> SNAP MAGNÉTICO ACTIVADO [S]' : '<i data-lucide=\"circle\" class=\"icon-sm\"></i> SNAP MAGNÉTICO DESACTIVADO [S]', 1500);
+      showStatus(magneticSnapActive ? '<i data-lucide=\"magnet\" class=\"icon-sm\"></i> SNAP MAGNÉTICO ACTIVADO [X]' : '<i data-lucide=\"circle\" class=\"icon-sm\"></i> SNAP MAGNÉTICO DESACTIVADO [X]', 1500);
     } else if (e.key === '+' || e.key === '=' || e.code === 'NumpadAdd') {
       changeTriadScale(+0.25);
     } else if (e.key === '-' || e.key === '_' || e.code === 'NumpadSubtract') {

@@ -93,7 +93,7 @@ c:/TRABAJOS/RA/
 | Tecla | Acción | Contexto |
 | :---: | :--- | :--- |
 | `M` | Alternar la cinta métrica 3D (medición física 3D, 2D y desnivel) | Global |
-| `S` | Conmutar el snap magnético de la cinta métrica (con `M` activa) | Cinta métrica |
+| `X` | Conmutar el snap magnético de la cinta métrica (con `M` activa) | Cinta métrica |
 | `T` | Alternar textura PBR fotorrealista en módulos FV | Paso 2 / 3 |
 | `L` / `H` | Alternar etiquetas 3D / visibilidad de paneles | Global |
 | `C` | Alternar modo captura limpia (screenshots) | Global |

@@ -231,7 +231,7 @@ Estado en `window.solarProjectConfig`:
 | Tecla | Acción | Contexto |
 | :---: | :--- | :--- |
 | `M` | Toggle CINTA MÉTRICA 3D (`RAMeasureTool`): medición física 3D, 2D y desnivel ΔH | Global |
-| `S` | Toggle SNAP MAGNÉTICO (ON / OFF) de cinta métrica | Cinta métrica activa |
+| `X` | Toggle SNAP MAGNÉTICO (ON / OFF) de cinta métrica | Cinta métrica activa |
 | `T` | Toggle textura PBR paneles | Paso 2 y 3 |
 | `L` / `H` | Toggle labels 3D de paneles | Global |
 | `C` | Toggle modo CAPTURA LIMPIA (`window.RACapture`): oculta vértices, polilíneas, planos y tríada para screenshots; botón flotante 📷 | Global |

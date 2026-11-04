@@ -200,8 +200,10 @@
 
             if (pts && pts.length >= 3) {
               const hObs = obs.height || obs.h || 1.2;
-              const dU = sU * sp.shadowLenPerM * hObs;
-              const dV = sV * sp.shadowLenPerM * hObs;
+              const maxObsShadowLen = 45.0;
+              const effShadowLen = Math.min(hObs * (sp.shadowLenPerM || 0), maxObsShadowLen);
+              const dU = sU * effShadowLen;
+              const dV = sV * effShadowLen;
               const topPoly = pts.map(pt => ({ u: pt.u + dU, v: pt.v + dV }));
               const hull = this._convexHull2D([...pts, ...topPoly]);
               if (hull && hull.length >= 3) {

@@ -98,11 +98,29 @@ function getObstacleActivePlane(optPolyOrPlaneIdx) {
     const poly = WP.polylines[pIdx];
     if (poly) {
       if (poly.roofInfo && poly.roofInfo.normal && poly.roofInfo.origin && poly.roofInfo.uVec && poly.roofInfo.vVec) {
+        let worldNormal = poly.roofInfo.normal;
+        let uVec = poly.roofInfo.uVec;
+        let vVec = poly.roofInfo.vVec;
+        if (poly.roofInfo.transform && typeof Cesium !== 'undefined' && Cesium.Matrix4) {
+          worldNormal = Cesium.Cartesian3.normalize(
+            Cesium.Matrix4.multiplyByPointAsVector(poly.roofInfo.transform, poly.roofInfo.normal, new Cesium.Cartesian3()),
+            new Cesium.Cartesian3()
+          );
+          uVec = Cesium.Cartesian3.normalize(
+            Cesium.Matrix4.multiplyByPointAsVector(poly.roofInfo.transform, poly.roofInfo.uVec, new Cesium.Cartesian3()),
+            new Cesium.Cartesian3()
+          );
+          vVec = Cesium.Cartesian3.normalize(
+            Cesium.Matrix4.multiplyByPointAsVector(poly.roofInfo.transform, poly.roofInfo.vVec, new Cesium.Cartesian3()),
+            new Cesium.Cartesian3()
+          );
+        } else {
+          worldNormal = Cesium.Cartesian3.normalize(worldNormal, new Cesium.Cartesian3());
+          uVec = Cesium.Cartesian3.normalize(uVec, new Cesium.Cartesian3());
+          vVec = Cesium.Cartesian3.normalize(vVec, new Cesium.Cartesian3());
+        }
         const origin = Cesium.Cartesian3.clone(poly.roofInfo.origin);
-        const normal = Cesium.Cartesian3.normalize(poly.roofInfo.normal, new Cesium.Cartesian3());
-        const uVec = Cesium.Cartesian3.normalize(poly.roofInfo.uVec, new Cesium.Cartesian3());
-        const vVec = Cesium.Cartesian3.normalize(poly.roofInfo.vVec, new Cesium.Cartesian3());
-        return { origin, normal, uVec, vVec, plane: { origin, normal } };
+        return { origin, normal: worldNormal, uVec, vVec, plane: { origin, normal: worldNormal } };
       }
       if (poly.points && poly.points.length >= 3 && typeof polygonAnalysis === 'function') {
         const pa = polygonAnalysis(poly.points);
