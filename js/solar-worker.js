@@ -386,6 +386,8 @@ self.onmessage = function(e) {
                 { u: edge.u1 + dU, v: edge.v1 + dV }
               ];
               quad.sourcePanelIdx = edge.sourceIdx;
+              quad.sourceU = edge.sourceU;
+              quad.sourceV = edge.sourceV;
               quads.push(quad);
             }
           });
@@ -465,7 +467,20 @@ self.onmessage = function(e) {
             : [panelPoly];
           const subShaded = new Array(subStrings.length).fill(false);
 
+          const myIndex = (pData.layoutIndex !== undefined) ? pData.layoutIndex : (pData.idx !== undefined ? pData.idx : -1);
+          const panelH = pData.h || 2.10;
+
           for (const quad of shadowQuads) {
+            // [AAA FÍSICA SOLAR] Descarte riguroso de auto-sombreado propio y de la misma fila:
+            if (quad.sourcePanelIdx !== undefined) {
+              if (quad.sourcePanelIdx === myIndex) continue; // Un panel jamás se hace sombra a sí mismo
+              if (typeof quad.sourceV === 'number' && typeof pData.v === 'number') {
+                if (typeof quad.sourceU === 'number' && Math.abs(quad.sourceU - pData.u) < 0.05 && Math.abs(quad.sourceV - pData.v) < 0.05) continue;
+                // Si ambos paneles pertenecen a la misma fila física transversal (dentro del 40% del peralte del panel)
+                if (Math.abs(quad.sourceV - pData.v) < panelH * 0.40) continue;
+              }
+            }
+
             let qUMin = Infinity, qUMax = -Infinity, qVMin = Infinity, qVMax = -Infinity;
             for (let qi = 0; qi < quad.length; qi++) {
               const qpt = quad[qi];

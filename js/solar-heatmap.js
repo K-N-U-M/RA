@@ -486,6 +486,24 @@
           const tiltAngle = (typeof pInfo.tiltDeg === 'number') ? pInfo.tiltDeg : 15;
           const zOffset = 0.025 + 0.015 * Math.sin(Cesium.Math.toRadians(tiltAngle));
 
+          // [AAA VISUAL SHADOW OVERLAY] Proyectar polígono de sombra oscuro translúcido sobre el panel
+          if (curSimState.viewMode !== 'heatmap' && typeof Cesium !== 'undefined' && viewer && viewer.entities) {
+            const overlayPositions = pData.corners.map(c => {
+              return Cesium.Cartesian3.add(
+                c,
+                Cesium.Cartesian3.multiplyByScalar(norm, zOffset, new Cesium.Cartesian3()),
+                new Cesium.Cartesian3()
+              );
+            });
+            const overlayEnt = viewer.entities.add({
+              polygon: {
+                hierarchy: new Cesium.PolygonHierarchy(overlayPositions),
+                material: new Cesium.Color(0.04, 0.06, 0.12, 0.65), // Sombra realista fría y nítida
+                perPositionHeight: true
+              }
+            });
+            overlayPool.set('overlay_' + panelGlobalCounter, overlayEnt);
+          }
 
           if (requiresMLPE) {
             const badgePos = Cesium.Cartesian3.add(
@@ -513,11 +531,6 @@
         }
       });
     });
-
-    overlayPool.forEach((ent, id) => {
-      try { viewer.entities.remove(ent); } catch(e) {}
-    });
-    overlayPool.clear();
 
     const shadedCountEl = document.getElementById("solar-telemetry-shaded") || document.getElementById("hud-shaded-count");
     const mlpeCountEl = document.getElementById("solar-telemetry-mlpe") || document.getElementById("hud-mlpe-count");
@@ -743,11 +756,14 @@
             pList.forEach((p, pIdx) => {
               const halfW = (p.w || 1.05) / 2;
               const halfH = (p.h || 2.10) / 2;
+              const myLayoutIdx = (p.layoutIndex !== undefined) ? p.layoutIndex : pIdx;
               interRowEdges.push({
                 u1: p.u - halfW, v1: p.v + halfH,
                 u2: p.u + halfW, v2: p.v + halfH,
                 effHMod: hModGlobal,
-                sourceIdx: (p.layoutIndex !== undefined) ? p.layoutIndex : pIdx
+                sourceIdx: myLayoutIdx,
+                sourceU: p.u,
+                sourceV: p.v
               });
             });
           }
