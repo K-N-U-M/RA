@@ -253,6 +253,42 @@ self.onmessage = function(e) {
     });
   });
 
+  // [AAA ARCHITECTURE] Pre-cálculo estático del Factor de Visión de Cielo (SVF) por panel.
+  // Modela la oclusión ambiental difusa producida por obstáculos cercanos (chimeneas, muros, petos).
+  const panelSvfMap = new Map();
+  panels.forEach(p => {
+    const faldon = faldones[p.polyIdx] || faldones[0] || {};
+    const obsList = faldon.obstacles2D || [];
+    let diffuseOcclusion = 0.0;
+    if (obsList.length > 0) {
+      const pu = p.u || 0, pv = p.v || 0;
+      for (let oi = 0; oi < obsList.length; oi++) {
+        const o = obsList[oi];
+        const pts = o.points2D || [];
+        if (pts.length === 0) continue;
+        let cU = 0, cV = 0;
+        for (let pi = 0; pi < pts.length; pi++) {
+          cU += pts[pi].u;
+          cV += pts[pi].v;
+        }
+        cU /= pts.length;
+        cV /= pts.length;
+        const dist = Math.hypot(pu - cU, pv - cV);
+        const hObs = o.height || 1.2;
+        if (dist > 0.1 && dist < 25.0) {
+          // Ángulo cenital subtendido por el obstáculo sobre la semiesfera celeste
+          const elevAng = Math.atan2(hObs, dist);
+          // Fracción sólida angular de la bóveda celeste ocluida por el obstáculo
+          const solidAngleFrac = (1 - Math.cos(elevAng)) * 0.5;
+          diffuseOcclusion += solidAngleFrac;
+        }
+      }
+    }
+    // El factor de cielo no puede caer por debajo del 20% en cubiertas abiertas
+    const svf = Math.max(0.20, Math.min(1.0, 1.0 - diffuseOcclusion));
+    panelSvfMap.set(p.id, svf);
+  });
+
   const totalSteps = monthsDoy.length * hours.length;
   let currentStep = 0;
 
@@ -381,8 +417,9 @@ self.onmessage = function(e) {
         const iamB0 = (moduleProps && moduleProps.iamB0) || 0.05;
         const iam = (cosTheta > 0.005) ? Math.max(0, 1 - iamB0 * (1 / Math.max(cosTheta, 0.01) - 1)) : 0;
 
+        const svfAmbient = panelSvfMap.get(pData.id) || 1.0;
         const G_beam = G_dni * cosTheta * iam;
-        const G_diff = G_dhi * (Ai * Rb + (1 - Ai) * fViewSky);
+        const G_diff = G_dhi * (Ai * Rb + (1 - Ai) * fViewSky * svfAmbient);
         const G_refl = GHI_instant * 0.20 * fViewGround;
         let G_poa = G_beam + G_diff + G_refl;
 
@@ -446,6 +483,28 @@ self.onmessage = function(e) {
             if (subShaded.every(s => s)) break;
           }
 
+          // [AAA ARCHITECTURE] Umbra y Penumbra Óptica (Efecto de disco solar de 0.53°).
+          // La zona de penumbra suaviza la transición de sombra en función de la distancia del obstáculo al módulo.
+          let penumbraAttenuation = 1.0;
+          let minObsDist = Infinity;
+          const pu = pData.u || 0, pv = pData.v || 0;
+          for (let oi = 0; oi < (faldon.obstacles2D || []).length; oi++) {
+            const ob = faldon.obstacles2D[oi];
+            const pts = ob.points2D || [];
+            if (pts.length > 0) {
+              const d = Math.hypot(pu - pts[0].u, pv - pts[0].v);
+              if (d < minObsDist) minObsDist = d;
+            }
+          }
+          if (minObsDist < Infinity && minObsDist > 0.5) {
+            // Ancho de penumbra: W_penumbra = 2 * dist * tan(0.265°) ≈ dist * 0.00925
+            const penumbraWidth = minObsDist * 0.00925;
+            // Para bordes lejanos (>10m), la penumbra suaviza hasta un 15% el impacto de bordes tangenciales
+            if (penumbraWidth > 0.08) {
+              penumbraAttenuation = Math.max(0.85, 1.0 - (penumbraWidth / 2.0));
+            }
+          }
+
           shadedSubstringsCount = subShaded.filter(Boolean).length;
           if (shadedSubstringsCount > 0) isShaded = true;
         }
@@ -461,9 +520,9 @@ self.onmessage = function(e) {
         const electricalMismatchFactor = hasOpt ? 1.0 : (shadedSubstringsCount > 0 ? (shadedSubstringsCount >= 2 ? 1.0 : 0.85) : 0.0);
         const effectiveLossFraction = hasOpt ? beamShadedFraction : Math.min(1.0, beamShadedFraction * (1.0 + electricalMismatchFactor * 0.35));
 
-        // Separación física: el obstáculo bloquea la radiación directa (G_beam).
+        // Separación física: el obstáculo bloquea la radiación directa (G_beam), modulada por la penumbra óptica (penumbraAttenuation).
         // La radiación difusa y albedo persisten salvo la fracción geométrica aislada por bypass.
-        const beamLossW = (isShaded && effectiveLossFraction > 0) ? (G_beam * thermalFactor * effectiveLossFraction) : 0;
+        const beamLossW = (isShaded && effectiveLossFraction > 0) ? (G_beam * thermalFactor * effectiveLossFraction * (penumbraAttenuation || 1.0)) : 0;
         const diffuseLossW = (!hasOpt && shadedSubstringsCount > 0)
           ? ((G_diff + G_refl + (isBifacial ? G_refl * bifacialityFactor : 0)) * thermalFactor * (beamShadedFraction / 3.0))
           : 0;
