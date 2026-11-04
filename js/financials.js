@@ -3626,6 +3626,10 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     : ((_studioCfg && _studioCfg.sectionsEnabled && typeof _studioCfg.sectionsEnabled.cel === 'boolean')
         ? _studioCfg.sectionsEnabled.cel
         : ((_commCfgForPages && _commCfgForPages.includeCEL !== undefined) ? _commCfgForPages.includeCEL : false));
+  const _hasBillAudit = (!_isOffGrid && typeof window !== 'undefined' && window.RA && window.RA.billAuditor && window.RA.billAuditor.currentBill && window.RA.billAuditor.comparison);
+  const _includeBillAuditPage = (_studioCfg && _studioCfg.sectionsEnabled && typeof _studioCfg.sectionsEnabled.bill_audit === 'boolean')
+    ? (_studioCfg.sectionsEnabled.bill_audit && _hasBillAudit)
+    : Boolean(_hasBillAudit);
   const _customCelPrice = (_commCfgForPages && typeof _commCfgForPages.celPriceEur === 'number') ? _commCfgForPages.celPriceEur : 0.11;
   const _celMetrics = calculateCELMetrics(d, m, _customCelPrice);
 
@@ -3633,6 +3637,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   const _pageIndexComparativa = _hasThreePkgs ? ++_pageTracker : 0;
   const _pageIndexInfografias = _hasThreePkgs ? ++_pageTracker : 0;
   const _pageIndexProduccion = ++_pageTracker;
+  const _pageIndexBillAudit = _includeBillAuditPage ? ++_pageTracker : 0;
   const _pageIndexGarantias = ++_pageTracker;
   const _pageIndexCEL = _includeCEL ? ++_pageTracker : 0;
   const _pageIndexCEL2 = _includeCEL ? ++_pageTracker : 0;
@@ -4692,10 +4697,10 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         </div>
       </div>`;
     })()}
-    <!-- PÁGINA 5A: PRODUCCIÓN SOLAR Y ANÁLISIS FINANCIERO -->
+    <!-- PÁGINA 5A: PRODUCCIÓN SOLAR Y RETORNO DE INVERSIÓN (GRÁFICAS) -->
     <div class="page-sheet" data-section-id="energy_balance">
       <div>
-        ${buildInnerHeaderHTML('PRODUCCIÓN &amp; <span style="color:' + pal.primary + '">RENTABILIDAD</span>', _isOffGrid ? 'Histograma Mensual · Retorno s/ Valor de Energía Generada (25 Años)' : 'Histograma Mensual · Curva de Amortización a 25 Años · Auditoría de Factura', _pageIndexProduccion)}
+        ${buildInnerHeaderHTML('PRODUCCIÓN &amp; <span style="color:' + pal.primary + '">RENTABILIDAD</span>', _isOffGrid ? 'Histograma Mensual · Retorno s/ Valor de Energía Generada (25 Años)' : 'Histograma de Producción Mensual · Curva de Amortización a 25 Años', _pageIndexProduccion)}
 
         <h2>Histograma de producción fotovoltaica mensual estimada</h2>
         <div class="chart-box">
@@ -4708,17 +4713,6 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
           <div class="chart-title" style="display:flex;align-items:center;gap:6px;">${_mSvg('trendUp', 13, pal.primary)} <span>Cashflow Acumulado — Payback en ${m.paybackYears.toFixed(1)} años · VAN ${Math.round(m.van).toLocaleString('es-ES')} € · TIR ${m.tirString || ((m.tir != null && isFinite(m.tir)) ? m.tir.toFixed(1) + "%" : "N/D")}</span></div>
           ${amortSVG}
         </div>
-
-        ${(!_isOffGrid && window.RA && window.RA.billAuditor && window.RA.billAuditor.currentBill && window.RA.billAuditor.comparison) ? `
-        <h2>Auditoría y contraste con factura actual del cliente</h2>
-        <table>
-          <tr><th>Concepto Auditado</th><th>Factura Actual (Sin Solar)</th><th class="text-right" style="color:${pal.primary}">Con Proyecto Solar 3D</th></tr>
-          <tr><td>Compañía y Tarifa</td><td>${window.RA.billAuditor.currentBill.comercializadora} (${window.RA.billAuditor.currentBill.tarifaAcceso || '2.0TD'})</td><td class="text-right" style="color:${pal.primary}">Autoconsumo + Compensación</td></tr>
-          <tr><td>Gasto Mensual Facturado</td><td>${window.RA.billAuditor.comparison.gastoMensualActualEUR} €/mes</td><td class="text-right" style="font-weight:800;color:${pal.primary}">${window.RA.billAuditor.comparison.gastoMensualConSolarEUR} €/mes</td></tr>
-          <tr style="background:${pal.light};font-weight:800;"><td>AHORRO S/ FACTURA (auditoría)</td><td>—</td><td class="text-right" style="color:${pal.primary}">${window.RA.billAuditor.comparison.ahorroAnualEUR.toLocaleString('es-ES')} €/año (-${window.RA.billAuditor.comparison.porcentajeAhorro}%)</td></tr>
-          <tr><td>Ahorro s/ modelo energético (SSOT)</td><td>—</td><td class="text-right" style="font-weight:700;color:${pal.primary}">${Math.round(m.ahorroLuzAnio1).toLocaleString('es-ES')} €/año</td></tr>
-        </table>
-        <p style="font-size:9px;color:#64748b;margin:4px 0 0 0;">La fila de auditoría incluye término de potencia e impuestos de la factura; el modelo energético solo valora energía. Las métricas de rentabilidad usan la segunda.</p>` : ''}
       </div>
 
       <!-- PIE DE HOJA PRODUCCIÓN -->
@@ -4727,6 +4721,55 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         <span>${companyName} · Ref: ${d.refNum}</span>
       </div>
     </div>
+
+    <!-- PÁGINA 5B: AUDITORÍA Y CONTRASTE CON FACTURA ACTUAL DEL CLIENTE (HOJA PROPIA EXCLUSIVA) -->
+    ${_includeBillAuditPage ? `
+    <div class="page-sheet" data-section-id="bill_audit">
+      <div>
+        ${buildInnerHeaderHTML('AUDITORÍA &amp; <span style="color:' + pal.primary + '">CONTRASTE ENERGÉTICO</span>', 'Estudio de Suministro · Comparativa con Factura Real · Ahorro Neto Facturable', _pageIndexBillAudit)}
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:12px;">
+            <div style="font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;margin-bottom:6px;">Datos de Suministro Auditado</div>
+            <div style="font-size:11px;color:#0f172a;line-height:1.6;">
+              <div><strong>Titular:</strong> ${window.RA.billAuditor.comparison.titular || d.tit.nombre || 'Titular de suministro'}</div>
+              <div><strong>CUPS:</strong> <span style="font-family:monospace;font-size:10px;">${window.RA.billAuditor.comparison.cups || d.tit.cups || 'ES00...'}</span></div>
+              <div><strong>Comercializadora:</strong> ${window.RA.billAuditor.currentBill.comercializadora || 'Comercializadora actual'}</div>
+              <div><strong>Tarifa de Acceso:</strong> ${window.RA.billAuditor.currentBill.tarifaAcceso || '2.0TD'}</div>
+            </div>
+          </div>
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:12px;">
+            <div style="font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;margin-bottom:6px;">Parámetros de Potencia & Consumo</div>
+            <div style="font-size:11px;color:#0f172a;line-height:1.6;">
+              <div><strong>Potencia P1 / P2:</strong> ${window.RA.billAuditor.currentBill.potenciaP1 || window.RA.billAuditor.comparison.potenciaContratadaP1 || d.tit.potP1 || 4.6} kW / ${window.RA.billAuditor.currentBill.potenciaP2 || d.tit.potP2 || 4.6} kW</div>
+              <div><strong>Consumo Auditado:</strong> ${Math.round(window.RA.billAuditor.comparison.consumoAnualKWh || d.tit.consumoAnual || 4500).toLocaleString('es-ES')} kWh/año</div>
+              <div><strong>Precio Medio Energía:</strong> ${(window.RA.billAuditor.comparison.precioMedioKWh || 0.18).toFixed(3)} €/kWh</div>
+              <div><strong>Modalidad Proyecto:</strong> Autoconsumo con Compensación</div>
+            </div>
+          </div>
+        </div>
+
+        <h2>Auditoría y contraste con factura actual del cliente</h2>
+        <table>
+          <tr><th>Concepto Auditado</th><th>Factura Actual (Sin Solar)</th><th class="text-right" style="color:${pal.primary}">Con Proyecto Solar 3D</th></tr>
+          <tr><td>Compañía y Tarifa</td><td>${window.RA.billAuditor.currentBill.comercializadora} (${window.RA.billAuditor.currentBill.tarifaAcceso || '2.0TD'})</td><td class="text-right" style="color:${pal.primary}">Autoconsumo + Compensación de Excedentes</td></tr>
+          <tr><td>Gasto Mensual Facturado</td><td>${window.RA.billAuditor.comparison.gastoMensualActualEUR} €/mes</td><td class="text-right" style="font-weight:800;color:${pal.primary}">${window.RA.billAuditor.comparison.gastoMensualConSolarEUR} €/mes</td></tr>
+          <tr style="background:${pal.light};font-weight:800;"><td>AHORRO S/ FACTURA (auditoría)</td><td>—</td><td class="text-right" style="color:${pal.primary}">${window.RA.billAuditor.comparison.ahorroAnualEUR.toLocaleString('es-ES')} €/año (-${window.RA.billAuditor.comparison.porcentajeAhorro}%)</td></tr>
+          <tr><td>Ahorro s/ modelo energético (SSOT)</td><td>—</td><td class="text-right" style="font-weight:700;color:${pal.primary}">${Math.round(m.ahorroLuzAnio1).toLocaleString('es-ES')} €/año</td></tr>
+        </table>
+
+        <div style="background:#f1f5f9;border-left:3px solid ${pal.primary};border-radius:4px;padding:10px 14px;margin-top:14px;font-size:9.5px;color:#475569;line-height:1.5;">
+          <strong style="color:#0f172a;">Metodología de cálculo contrastada:</strong>
+          La fila de auditoría computa el impacto real sobre la factura mensual del cliente incluyendo el término fijo de potencia contratada, alquiler de contador e impuestos específicos (Impuesto Eléctrico e IVA). El modelo energético cuantifica la valorización directa de los kWh autogenerados y consumidos. Ambas magnitudes demuestran una reducción drástica del coste energético neto desde el primer mes de puesta en marcha.
+        </div>
+      </div>
+
+      <!-- PIE DE HOJA AUDITORÍA FACTURA -->
+      <div class="cover-footer" style="margin-top:auto;padding-top:12px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;font-size:9px;color:#64748b;">
+        <span>Auditoría de Suministro Eléctrico · Contraste con Datos de Facturación Real · RD 244/2019</span>
+        <span>${companyName} · Ref: ${d.refNum}</span>
+      </div>
+    </div>` : ''}
 
     <!-- PÁGINA 5B: GARANTÍAS OFICIALES Y FORMALIZACIÓN -->
     <div class="page-sheet" data-section-id="cashflow_25y">
