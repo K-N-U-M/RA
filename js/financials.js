@@ -342,7 +342,7 @@ function resolveEquipmentWarranties(eq) {
   var result = {
     warPower: '25',    // Garantía lineal de rendimiento módulos (25 años estándar)
     warMod: '15',      // Garantía de producto módulos (12-15 años estándar, 25-30 para All-Black/TOPCon/ABC)
-    warInv: '10',      // Garantía de inversor (10 años central de red / híbrido, 25 años microinversores)
+    warInv: '12',      // Garantía de inversor estándar (12 años central de red / híbrido, 25 años microinversores)
     warMo: '5',        // Garantía de montaje e instalación (5 años)
     warBat: '10',      // Garantía de batería (10 años / 6.000 ciclos LiFePO4)
     isMicro: (eq && eq.hasMicro) || (cfg.selectedTopology === 'microinverter'),
@@ -372,9 +372,9 @@ function resolveEquipmentWarranties(eq) {
     if (invObj && invObj.warYears) {
       result.warInv = String(invObj.warYears);
     } else if (invObj && invObj.brand && /fronius|solaredge/i.test(invObj.brand)) {
-      result.warInv = '10';
+      result.warInv = '12';
     } else {
-      result.warInv = '10';
+      result.warInv = '12';
     }
   }
 
@@ -388,7 +388,7 @@ function resolveEquipmentWarranties(eq) {
     }
     if (b.warPower && b.warPower !== '25') result.warPower = String(b.warPower);
     if (b.warMod && b.warMod !== '15') result.warMod = String(b.warMod);
-    if (b.warInv && b.warInv !== '10' && !result.isMicro) result.warInv = String(b.warInv);
+    if (b.warInv && b.warInv !== '12' && b.warInv !== '10' && !result.isMicro) result.warInv = String(b.warInv);
     if (b.warMo && b.warMo !== '5') result.warMo = String(b.warMo);
   } catch(e) {}
 
@@ -3295,7 +3295,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   const eqWarranties = (typeof resolveEquipmentWarranties === 'function') ? resolveEquipmentWarranties() : {};
   const warPower     = eqWarranties.warPower || branding.warPower || '25';
   const warMod       = eqWarranties.warMod   || branding.warMod   || '15';
-  const warInv       = eqWarranties.warInv   || branding.warInv   || '10';
+  const warInv       = eqWarranties.warInv   || branding.warInv   || '12';
   const warMo        = eqWarranties.warMo    || branding.warMo    || '5';
   const warBat       = eqWarranties.warBat   || '10';
 

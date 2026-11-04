@@ -804,7 +804,7 @@ function generateMemoria(skipPricingModal) {
   }
   const t = d.tit;
   const loc = (t.dir ? t.dir + ', ' : '') + (t.mun || '') + (t.prov ? ', ' + t.prov : '');
-  const _eqWar = (typeof resolveEquipmentWarranties === 'function') ? resolveEquipmentWarranties() : { warMod: '15', warPower: '25', warInv: '10', warMo: '5', warBat: '10', hasBat: false, isMicro: false };
+  const _eqWar = (typeof resolveEquipmentWarranties === 'function') ? resolveEquipmentWarranties() : { warMod: '15', warPower: '25', warInv: '12', warMo: '5', warBat: '10', hasBat: false, isMicro: false };
 
   // [B6] El reparto mensual del PDF se toma de la SIMULACIÓN REAL si está disponible.
   const _simMonthly = (typeof raGetSimulatedMonthlyKwh === 'function') ? raGetSimulatedMonthlyKwh() : null;
