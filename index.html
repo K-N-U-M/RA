@@ -2631,12 +2631,17 @@ window.RA_App = window.RA_App || {};
 
     <!-- Leyenda del Mapa de Calor (Visible en modo heatmap) -->
     <div id="solar-heatmap-legend" class="solar-heatmap-legend" style="display:none;">
-      <span style="color:#94a3b8;font-weight:bold;">PÉRDIDAS ANUALES:</span>
-      <div class="legend-step"><div class="legend-color-box" style="background:#10B981;"></div><span>&lt;3% Óptimo</span></div>
-      <div class="legend-step"><div class="legend-color-box" style="background:#84CC16;"></div><span>3-8% Leve</span></div>
-      <div class="legend-step"><div class="legend-color-box" style="background:#F59E0B;"></div><span>8-15% Media</span></div>
-      <div class="legend-step"><div class="legend-color-box" style="background:#F97316;"></div><span>15-25% Alta</span></div>
-      <div class="legend-step"><div class="legend-color-box" style="background:#EF4444;"></div><span>&gt;25% Crítica</span></div>
+      <span style="color:#94a3b8;font-weight:bold;">PÉRDIDAS:</span>
+      <div class="legend-step" title="≤2%"><div class="legend-color-box" style="background:#059669;"></div><span>≤2%</span></div>
+      <div class="legend-step" title="2-4%"><div class="legend-color-box" style="background:#10B981;"></div><span>≤4%</span></div>
+      <div class="legend-step" title="4-6%"><div class="legend-color-box" style="background:#84CC16;"></div><span>≤6%</span></div>
+      <div class="legend-step" title="6-8%"><div class="legend-color-box" style="background:#A3E635;"></div><span>≤8%</span></div>
+      <div class="legend-step" title="8-11%"><div class="legend-color-box" style="background:#FACC15;"></div><span>≤11%</span></div>
+      <div class="legend-step" title="11-15%"><div class="legend-color-box" style="background:#F59E0B;"></div><span>≤15%</span></div>
+      <div class="legend-step" title="15-20%"><div class="legend-color-box" style="background:#F97316;"></div><span>≤20%</span></div>
+      <div class="legend-step" title="20-25%"><div class="legend-color-box" style="background:#EA580C;"></div><span>≤25%</span></div>
+      <div class="legend-step" title="25-35%"><div class="legend-color-box" style="background:#EF4444;"></div><span>≤35%</span></div>
+      <div class="legend-step" title=">35%"><div class="legend-color-box" style="background:#991B1B;"></div><span>>35%</span></div>
     </div>
 
     <!-- Presets de Días Críticos (Solsticios y Equinoccios) -->
@@ -12140,11 +12145,16 @@ function getPolylineStringColor(polyIdx) {
 
 // ── GRADIENTE TÉRMICO PARA MAPA DE CALOR DE IRRADIANCIA ANUAL ──────────────
 function getHeatmapColor(lossPct) {
-  if (lossPct <= 3.0) return { hex: "#10B981", css: "rgba(16, 185, 129, 0.95)", label: "Óptimo (<3%)" };
-  if (lossPct <= 8.0) return { hex: "#84CC16", css: "rgba(132, 204, 22, 0.95)", label: "Excelente (3-8%)" };
-  if (lossPct <= 15.0) return { hex: "#F59E0B", css: "rgba(245, 158, 11, 0.95)", label: "Sombra Leve (8-15%)" };
-  if (lossPct <= 25.0) return { hex: "#F97316", css: "rgba(249, 115, 22, 0.95)", label: "Sombra Media (15-25%)" };
-  return { hex: "#EF4444", css: "rgba(239, 68, 68, 0.95)", label: "Sombra Severa (>25%)" };
+  if (lossPct <= 2.0) return { hex: "#059669", css: "rgba(5, 150, 105, 0.95)", label: "Excelente (≤2%)" };
+  if (lossPct <= 4.0) return { hex: "#10B981", css: "rgba(16, 185, 129, 0.95)", label: "Óptimo (2-4%)" };
+  if (lossPct <= 6.0) return { hex: "#84CC16", css: "rgba(132, 204, 22, 0.95)", label: "Muy Bueno (4-6%)" };
+  if (lossPct <= 8.0) return { hex: "#A3E635", css: "rgba(163, 230, 53, 0.95)", label: "Bueno (6-8%)" };
+  if (lossPct <= 11.0) return { hex: "#FACC15", css: "rgba(250, 204, 21, 0.95)", label: "Aceptable (8-11%)" };
+  if (lossPct <= 15.0) return { hex: "#F59E0B", css: "rgba(245, 158, 11, 0.95)", label: "Sombra Leve (11-15%)" };
+  if (lossPct <= 20.0) return { hex: "#F97316", css: "rgba(249, 115, 22, 0.95)", label: "Sombra Media (15-20%)" };
+  if (lossPct <= 25.0) return { hex: "#EA580C", css: "rgba(234, 88, 12, 0.95)", label: "Sombra Alta (20-25%)" };
+  if (lossPct <= 35.0) return { hex: "#EF4444", css: "rgba(239, 68, 68, 0.95)", label: "Severa (25-35%)" };
+  return { hex: "#991B1B", css: "rgba(153, 27, 27, 0.95)", label: "Crítica (>35%)" };
 }
 
 // ── ESTADO GLOBAL DEL MOTOR SOLAR Y SOMBRAS ─────────────────────────────────
@@ -15014,10 +15024,8 @@ function wpAutoMinimizeSolarHUD(reason) {
 window.wpAutoMinimizeSolarHUD = wpAutoMinimizeSolarHUD;
 
 function wpAutoRestoreSolarHUD(reason) {
-  if (window._solarHUDWasAutoHidden) {
-    window._solarHUDWasAutoHidden = false;
-    toggleSolarHUD(true);
-  }
+  // Desactivada la apertura automática por petición del usuario: el HUD solo se despliega por acción explícita.
+  window._solarHUDWasAutoHidden = false;
 }
 window.wpAutoRestoreSolarHUD = wpAutoRestoreSolarHUD;
 

@@ -1548,11 +1548,16 @@
           : null;
         let hexColor = heatCol ? heatCol.hex : '#10b981';
         if (!heatCol) {
-          if (p.annualLossPct <= 3.0) hexColor = '#10b981';
-          else if (p.annualLossPct <= 8.0) hexColor = '#84cc16';
+          if (p.annualLossPct <= 2.0) hexColor = '#059669';
+          else if (p.annualLossPct <= 4.0) hexColor = '#10b981';
+          else if (p.annualLossPct <= 6.0) hexColor = '#84cc16';
+          else if (p.annualLossPct <= 8.0) hexColor = '#a3e635';
+          else if (p.annualLossPct <= 11.0) hexColor = '#facc15';
           else if (p.annualLossPct <= 15.0) hexColor = '#f59e0b';
-          else if (p.annualLossPct <= 25.0) hexColor = '#f97316';
-          else hexColor = '#ef4444';
+          else if (p.annualLossPct <= 20.0) hexColor = '#f97316';
+          else if (p.annualLossPct <= 25.0) hexColor = '#ea580c';
+          else if (p.annualLossPct <= 35.0) hexColor = '#ef4444';
+          else hexColor = '#991b1b';
         }
         p.heatmapColor = heatCol || { hex: hexColor };
 
