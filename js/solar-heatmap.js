@@ -1226,7 +1226,8 @@
             shadowLenPerM: sp.elevDeg >= 10.0 ? Math.min(1 / Math.tan(elevRad_), 5.67) : 0
           };
         } else if (typeof computeSolarPosition === 'function') {
-          solarPos = computeSolarPosition(d, lat, lng);
+          const dLegacy = new Date(Date.UTC(2026, m, 15, Math.floor(utcHour), Math.floor((utcHour % 1) * 60)));
+          solarPos = computeSolarPosition(dLegacy, lat, lng);
         }
 
         const elevation = solarPos ? solarPos.elevationDeg : -90;
@@ -1243,9 +1244,7 @@
         // [B2] Desagregación Erbs vía motor único de radiación (RA.Radiation). Fallback inline si el módulo no está.
         let G_dhi, G_dni;
         // [AUD-2026 · D-04] Día del año para corregir la excentricidad orbital en Erbs.
-        const _doyHeat = (d && typeof d.getFullYear === 'function')
-          ? (Math.floor((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - Date.UTC(d.getFullYear(), 0, 1)) / 86400000) + 1)
-          : null;
+        const _doyHeat = (typeof monthsDoy !== 'undefined' && monthsDoy[mIdx]) ? monthsDoy[mIdx] : 180;
         if (typeof window !== 'undefined' && window.RA && window.RA.Radiation && typeof window.RA.Radiation.decomposeErbs === 'function') {
           const _dec = window.RA.Radiation.decomposeErbs(GHI_instant, elevation, _doyHeat);
           G_dhi = _dec.dhi;

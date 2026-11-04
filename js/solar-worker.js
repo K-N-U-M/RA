@@ -440,6 +440,7 @@ self.onmessage = function(e) {
         // Evaluación de sombreado
         let isShaded = false;
         let shadedSubstringsCount = 0;
+        let penumbraAttenuation = 1.0;
 
         const shadowQuads = faldonShadowQuads.get(pData.polyIdx) || [];
         const panelPoly = (pData.poly2D && pData.poly2D.length >= 3) ? pData.poly2D : [
@@ -485,7 +486,7 @@ self.onmessage = function(e) {
 
           // [AAA ARCHITECTURE] Umbra y Penumbra Óptica (Efecto de disco solar de 0.53°).
           // La zona de penumbra suaviza la transición de sombra en función de la distancia del obstáculo al módulo.
-          let penumbraAttenuation = 1.0;
+          penumbraAttenuation = 1.0;
           let minObsDist = Infinity;
           const pu = pData.u || 0, pv = pData.v || 0;
           for (let oi = 0; oi < (faldon.obstacles2D || []).length; oi++) {
