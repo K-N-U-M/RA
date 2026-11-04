@@ -643,7 +643,7 @@
     return new Promise((resolve, reject) => {
       let worker;
       try {
-        worker = new Worker('js/solar-worker.js');
+        worker = new Worker('js/solar-worker.js?v=20261104a');
       } catch (err) {
         return reject(err);
       }
