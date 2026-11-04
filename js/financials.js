@@ -2947,7 +2947,7 @@ if (typeof window !== 'undefined') {
     };
   }
 
-  function buildCELPageHTML(d, m, pal, cel, pageNum, totPages, companyName, pageNum2, buildInnerHeaderFn) {
+  function buildCELPageHTML(d, m, pal, cel, pageNum, totPages, companyName, pageNum2, buildInnerHeaderFn, studioCfg) {
     pal = pal || { primary: '#059669', light: '#d1fae5', accent: '#10b981', dark: '#065f46' };
     cel = cel || calculateCELMetrics(d, m);
     d = d || {};
@@ -2955,6 +2955,15 @@ if (typeof window !== 'undefined') {
     pageNum2 = pageNum2 || (pageNum + 1);
     totPages = totPages || 8;
     companyName = companyName || 'SOLAR 3D PRO';
+
+    const cfg = studioCfg || {};
+    const flowH = (typeof cfg.celFlowBarHeightPx === 'number' && cfg.celFlowBarHeightPx >= 18) ? cfg.celFlowBarHeightPx : 26;
+    const flowSize = (typeof cfg.celFlowFontSize === 'number') ? cfg.celFlowFontSize : 9.5;
+    const flowDescSize = (typeof cfg.celFlowDescFontSize === 'number') ? cfg.celFlowDescFontSize : 9.0;
+    const radarH = (typeof cfg.celRadarHeightPx === 'number' && cfg.celRadarHeightPx >= 160) ? cfg.celRadarHeightPx : 235;
+    const radarLblSize = (typeof cfg.celRadarLabelFontSize === 'number') ? cfg.celRadarLabelFontSize : 11.5;
+    const radarDistSize = (typeof cfg.celRadarDistanceFontSize === 'number') ? cfg.celRadarDistanceFontSize : 10.5;
+    const celCardsGap = (typeof cfg.celCardsGapPx === 'number') ? cfg.celCardsGapPx : 8;
 
     var autoW = Math.max(15, cel.autoPct);
     var batW = cel.batPct > 0 ? Math.max(10, cel.batPct) : 0;
@@ -2981,8 +2990,8 @@ if (typeof window !== 'undefined') {
       '<circle cx="320" cy="185" r="45" fill="none" stroke="#334155" stroke-width="1.4"/>' +
       
       // Etiquetas de distancia concéntricas despejadas y legibles
-      '<text x="325" y="147" fill="#94a3b8" font-size="10.5" font-weight="800" font-family="monospace">1.000 m (1 km)</text>' +
-      '<text x="325" y="102" fill="#94a3b8" font-size="10.5" font-weight="800" font-family="monospace">2.500 m (2,5 km)</text>' +
+      '<text x="325" y="147" fill="#94a3b8" font-size="' + radarDistSize + '" font-weight="800" font-family="monospace">1.000 m (1 km)</text>' +
+      '<text x="325" y="102" fill="#94a3b8" font-size="' + radarDistSize + '" font-weight="800" font-family="monospace">2.500 m (2,5 km)</text>' +
       '<text x="320" y="32" fill="' + pal.accent + '" font-size="12" font-weight="900" font-family="monospace" text-anchor="middle" letter-spacing="0.8">RADIO PERIMETRAL 5.000 m · MARCO RDL 7/2026 (78,5 km²)</text>' +
       
       // Líneas de enlace a los nodos de reparto
@@ -2994,23 +3003,23 @@ if (typeof window !== 'undefined') {
       
       // Nodo 1: Viviendas (Noroeste)
       '<circle cx="225" cy="95" r="8" fill="#38bdf8" stroke="#ffffff" stroke-width="2.5"/>' +
-      '<text x="210" y="99" fill="#ffffff" font-size="11.5" font-weight="800" text-anchor="end">Viviendas (1,2 km)</text>' +
+      '<text x="210" y="99" fill="#ffffff" font-size="' + radarLblSize + '" font-weight="800" text-anchor="end">Viviendas (1,2 km)</text>' +
       
       // Nodo 2: Comercio (Noreste)
       '<circle cx="435" cy="100" r="8" fill="#f59e0b" stroke="#ffffff" stroke-width="2.5"/>' +
-      '<text x="450" y="104" fill="#ffffff" font-size="11.5" font-weight="800">Comercio (2,1 km)</text>' +
+      '<text x="450" y="104" fill="#ffffff" font-size="' + radarLblSize + '" font-weight="800">Comercio (2,1 km)</text>' +
       
       // Nodo 3: Colegio (Sureste)
       '<circle cx="455" cy="245" r="8" fill="#a855f7" stroke="#ffffff" stroke-width="2.5"/>' +
-      '<text x="470" y="249" fill="#ffffff" font-size="11.5" font-weight="800">Colegio (3,8 km)</text>' +
+      '<text x="470" y="249" fill="#ffffff" font-size="' + radarLblSize + '" font-weight="800">Colegio (3,8 km)</text>' +
       
       // Nodo 4: PYME / Taller (Suroeste)
       '<circle cx="185" cy="250" r="8" fill="#34d399" stroke="#ffffff" stroke-width="2.5"/>' +
-      '<text x="170" y="254" fill="#ffffff" font-size="11.5" font-weight="800" text-anchor="end">PYME / Taller (4,4 km)</text>' +
+      '<text x="170" y="254" fill="#ffffff" font-size="' + radarLblSize + '" font-weight="800" text-anchor="end">PYME / Taller (4,4 km)</text>' +
       
       // Nodo 5: Comunidad (Sur)
       '<circle cx="320" cy="315" r="8" fill="#ec4899" stroke="#ffffff" stroke-width="2.5"/>' +
-      '<text x="336" y="319" fill="#ffffff" font-size="11.5" font-weight="800">Comunidad (4,9 km)</text>' +
+      '<text x="336" y="319" fill="#ffffff" font-size="' + radarLblSize + '" font-weight="800">Comunidad (4,9 km)</text>' +
       
       // Núcleo: TU HUB GENERADOR
       '<circle cx="320" cy="185" r="26" fill="' + pal.primary + '" opacity="0.35"/>' +
@@ -3138,27 +3147,27 @@ if (typeof window !== 'undefined') {
             '</div>')) +
 
         '<!-- 1. DESPACHO DEL FLUJO ENERGÉTICO EN GRAN FORMATO -->' +
-        '<div class="tech-card cel-card cel-flow-card" style="border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; background: #f8fafc; margin: 4px 0 8px; position: relative;">' +
+        '<div class="tech-card cel-card cel-flow-card" style="border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; background: #f8fafc; margin: 4px 0 ' + celCardsGap + 'px; position: relative;">' +
           '<div style="font-size: 11px; font-weight: 900; color: #1e293b; text-transform: uppercase; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;">' +
             '<div style="display: flex; align-items: center; gap: 6px;"><span style="display:inline-flex;color:' + pal.primary + ';">' + _mSvg('bolt', 14, pal.primary) + '</span><span>1. Despacho del Flujo Energético Generado</span></div>' +
             '<span style="font-size: 8.5px; font-weight: 800; color: ' + pal.primary + '; background: ' + pal.light + '; padding: 2px 7px; border-radius: 4px;">Balance 100% Optimizado</span>' +
           '</div>' +
 
-          '<div style="width: 100%; height: 26px; border-radius: 6px; overflow: hidden; display: flex; margin-bottom: 8px; border: 1.5px solid #cbd5e1; box-shadow: inset 0 2px 4px rgba(0,0,0,0.08);">' +
-            '<div style="width:' + autoW + '%; background: linear-gradient(135deg, #059669, #10b981); color: #fff; font-size: 9.5px; font-weight: 900; display: flex; align-items: center; justify-content: center; padding: 0 4px; white-space: nowrap;">' +
+          '<div style="width: 100%; height: ' + flowH + 'px; border-radius: 6px; overflow: hidden; display: flex; margin-bottom: 8px; border: 1.5px solid #cbd5e1; box-shadow: inset 0 2px 4px rgba(0,0,0,0.08);">' +
+            '<div style="width:' + autoW + '%; background: linear-gradient(135deg, #059669, #10b981); color: #fff; font-size: ' + flowSize + 'pt; font-weight: 900; display: flex; align-items: center; justify-content: center; padding: 0 4px; white-space: nowrap;">' +
               cel.autoPct + '% Autoconsumo' +
             '</div>' +
             (cel.batPct > 0 ? (
-              '<div style="width:' + batW + '%; background: linear-gradient(135deg, #0284c7, #38bdf8); color: #fff; font-size: 9.5px; font-weight: 900; display: flex; align-items: center; justify-content: center; padding: 0 4px; white-space: nowrap;">' +
+              '<div style="width:' + batW + '%; background: linear-gradient(135deg, #0284c7, #38bdf8); color: #fff; font-size: ' + flowSize + 'pt; font-weight: 900; display: flex; align-items: center; justify-content: center; padding: 0 4px; white-space: nowrap;">' +
                 cel.batPct + '% Batería' +
               '</div>'
             ) : '') +
-            '<div style="width:' + excW + '%; background: linear-gradient(135deg, #d97706, #f59e0b); color: #fff; font-size: 9.5px; font-weight: 900; display: flex; align-items: center; justify-content: center; padding: 0 4px; white-space: nowrap;">' +
+            '<div style="width:' + excW + '%; background: linear-gradient(135deg, #d97706, #f59e0b); color: #fff; font-size: ' + flowSize + 'pt; font-weight: 900; display: flex; align-items: center; justify-content: center; padding: 0 4px; white-space: nowrap;">' +
               cel.excPct + '% Inyección CEL (5 km)' +
             '</div>' +
           '</div>' +
 
-          '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 9px; line-height: 1.35;">' +
+          '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: ' + celCardsGap + 'px; font-size: ' + flowDescSize + 'pt; line-height: 1.35;">' +
             '<div style="display: flex; align-items: flex-start; gap: 6px; background: #ffffff; padding: 6px 10px; border-radius: 6px; border: 1px solid #e2e8f0;">' +
               '<span style="color: #059669; font-weight: 900; font-size: 11px;">■</span>' +
               '<div><b>Autoconsumo Inmueble (' + cel.autoKWh.toLocaleString('es-ES') + ' kWh/año):</b> Cubre consumos instantáneos diurnos a coste 0 €. Máxima prioridad operativa.</div>' +
@@ -3186,7 +3195,7 @@ if (typeof window !== 'undefined') {
             '<div style="font-size: 11.5px; font-weight: 900; color: #0f172a; text-transform: uppercase; letter-spacing: -0.2px;">2. Radar de Cobertura y Topología de Reparto (5 km)</div>' +
             '<span style="font-size: 8.5px; font-weight: 800; color: ' + pal.primary + '; background: ' + pal.light + '; padding: 2px 8px; border-radius: 5px;">RDL 7/2026 · 78,5 km² de Cobertura</span>' +
           '</div>' +
-          '<div class="cel-radar-inner" style="width: 100%; height: 235px; min-height: 200px; border-radius: 8px; overflow: hidden; background: #0b1329; box-shadow: 0 4px 16px rgba(0,0,0,0.2);">' +
+          '<div class="cel-radar-inner" style="width: 100%; height: ' + radarH + 'px; min-height: 160px; border-radius: 8px; overflow: hidden; background: #0b1329; box-shadow: 0 4px 16px rgba(0,0,0,0.2);">' +
             radarSvg +
           '</div>' +
           '<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px; font-size: 9px; color: #64748b; line-height: 1.35; gap: 12px;">' +
@@ -4829,7 +4838,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       </div>
     </div>
 
-    ${_includeCEL ? buildCELPageHTML(d, m, pal, _celMetrics, _pageIndexCEL, _totPages, companyName, _pageIndexCEL2, buildInnerHeaderHTML) : ''}
+    ${_includeCEL ? buildCELPageHTML(d, m, pal, _celMetrics, _pageIndexCEL, _totPages, companyName, _pageIndexCEL2, buildInnerHeaderHTML, _studioCfg) : ''}
 
     <!-- PÁGINA PRESUPUESTO: PRESUPUESTO ECONÓMICO EPC -->
     <div class="page-sheet" data-section-id="economics">
