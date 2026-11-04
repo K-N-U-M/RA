@@ -420,17 +420,38 @@ function pickObstacleUnderCursor(screenPos, skipGpuPick) {
   const obsList = (typeof global !== 'undefined' && Array.isArray(global.obstacles)) ? global.obstacles : (typeof obstacles !== 'undefined' && Array.isArray(obstacles) ? obstacles : []);
   if (!Array.isArray(obsList) || obsList.length === 0) return null;
 
-  // A. Primero intentar pick 3D nativo de Cesium (omitido en hover rápido para 0 ms GPU stall)
+  // A. Primero intentar pick 3D nativo de Cesium (directo y profundo con drillPick para no ser tapado por 3D Tiles)
   if (!skipGpuPick) try {
     const pickedObj = scene.pick(screenPos);
     if (pickedObj && pickedObj.id) {
       const entId = typeof pickedObj.id === 'string' ? pickedObj.id : (pickedObj.id.id || '');
-      if (entId.startsWith('obs_box_') || entId.startsWith('obs_box_prim_') || entId.startsWith('obs_entity_') ||
+      if (entId.startsWith('obs_box_') || entId.startsWith('obs_box_prim_') || entId.startsWith('obs_buffer_prim_') || entId.startsWith('obs_entity_') ||
           entId.startsWith('obs_tree_trunk_prim_') || entId.startsWith('obs_tree_canopy_prim_') ||
           entId.startsWith('obs_label_')) {
-        // [P2] Coincidencia por sufijo exacto (includes podía cruzar ids con prefijos comunes)
         const found = obsList.find(o => entId === o.id || entId.endsWith('_' + o.id));
         if (found && found.visible !== false) return found;
+      }
+    }
+    if (typeof scene.drillPick === 'function') {
+      const drilled = scene.drillPick(screenPos, 15);
+      if (Array.isArray(drilled)) {
+        for (let j = 0; j < drilled.length; j++) {
+          const it = drilled[j];
+          if (!it) continue;
+          if (it.primitive && it.primitive._obsId) {
+            const foundPrim = obsList.find(o => o.id === it.primitive._obsId);
+            if (foundPrim && foundPrim.visible !== false) return foundPrim;
+          }
+          if (it.id) {
+            const entId = typeof it.id === 'string' ? it.id : (it.id.id || '');
+            if (entId.startsWith('obs_box_') || entId.startsWith('obs_box_prim_') || entId.startsWith('obs_buffer_prim_') || entId.startsWith('obs_entity_') ||
+                entId.startsWith('obs_tree_trunk_prim_') || entId.startsWith('obs_tree_canopy_prim_') ||
+                entId.startsWith('obs_label_')) {
+              const found = obsList.find(o => entId === o.id || entId.endsWith('_' + o.id));
+              if (found && found.visible !== false) return found;
+            }
+          }
+        }
       }
     }
   } catch(err) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', err); }
@@ -482,9 +503,29 @@ function pickObstacleUnderCursor(screenPos, skipGpuPick) {
     }
     if (pos3D) {
       const pWin = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, pos3D);
+      // Altura del obstáculo para proyectar también su punto superior
+      const effH = (typeof obs.h === 'number') ? obs.h : (obs.height || 1.2);
+      const normUp = (typeof Cesium !== 'undefined' && Cesium.Ellipsoid && Cesium.Ellipsoid.WGS84)
+        ? Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(pos3D, new Cesium.Cartesian3())
+        : new Cesium.Cartesian3(0, 0, 1);
+      const topPos3D = Cesium.Cartesian3.add(pos3D, Cesium.Cartesian3.multiplyByScalar(normUp, effH, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+      const pWinTop = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, topPos3D);
+
       if (pWin) {
-        const d = Math.hypot(screenPos.x - pWin.x, screenPos.y - pWin.y);
-        const radiusPx = Math.max(20, Math.min(50, (obs.w || 1.0) * 12));
+        let d = Math.hypot(screenPos.x - pWin.x, screenPos.y - pWin.y);
+        if (pWinTop) {
+          // Distancia mínima al segmento entre base y coronación del obstáculo en pantalla
+          const dx = pWinTop.x - pWin.x, dy = pWinTop.y - pWin.y;
+          const len2 = dx * dx + dy * dy;
+          if (len2 > 0) {
+            let t = ((screenPos.x - pWin.x) * dx + (screenPos.y - pWin.y) * dy) / len2;
+            t = Math.max(0, Math.min(1, t));
+            const projX = pWin.x + t * dx;
+            const projY = pWin.y + t * dy;
+            d = Math.hypot(screenPos.x - projX, screenPos.y - projY);
+          }
+        }
+        const radiusPx = Math.max(28, Math.min(65, (obs.w || 1.0) * 16));
         if (d <= radiusPx) {
           const areaScore = (obs.w || 1.0) * (obs.l || 1.0);
           const score = d + areaScore * 2.0;
