@@ -128,7 +128,8 @@
   function syncDimensions(obs) {
     if (!obs || obs.type !== 'wind_turbine') return;
     ensureProps(obs);
-    obs.h = Math.round((obs.mastHeight + (obs.turbineType === 'hawt' ? obs.bladeRadius : 0)) * 10) / 10;
+    var vawtTopExtra = (obs.turbineType === 'vawt') ? Math.max(0, (obs.mastHeight * 0.65 + (obs.bladeLength || 3.5)/2) - obs.mastHeight) : 0;
+    obs.h = Math.round((obs.mastHeight + (obs.turbineType === 'hawt' ? obs.bladeRadius : vawtTopExtra)) * 10) / 10;
     obs.w = Math.round(obs.bladeRadius * 2 * 10) / 10;
     obs.l = Math.round(obs.bladeRadius * 2 * 10) / 10;
 
@@ -354,7 +355,7 @@
       addInstance(vMastGeom, col('mast'), new Cesium.Cartesian3(0, 0, elev + mastH / 2), null, 'wt_vmast_' + obs.id);
 
       // Palas verticales y brazos
-      var vBladeH     = mastH * 0.50;
+      var vBladeH     = Math.max(0.5, obs.bladeLength || (mastH * 0.50));
       var vBladeMid   = mastH * 0.65;
       var armTopH     = vBladeMid + vBladeH / 2;
       var armBotH     = vBladeMid - vBladeH / 2;
