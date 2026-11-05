@@ -732,18 +732,46 @@
             hModGlobal = (pList[0].h || 2.10) * Math.sin(15 * Math.PI / 180);
           }
           if (hModGlobal >= 0.04) {
+            const invT = pInfo.invTransform || (pInfo.transform && typeof Cesium !== 'undefined' && Cesium.Matrix4 ? Cesium.Matrix4.inverse(pInfo.transform, new Cesium.Matrix4()) : null);
             pList.forEach((p, pIdx) => {
-              const halfW = (p.w || 1.05) / 2;
-              const halfH = (p.h || 2.10) / 2;
               const myLayoutIdx = (p.layoutIndex !== undefined) ? p.layoutIndex : pIdx;
-              interRowEdges.push({
-                u1: p.u - halfW, v1: p.v + halfH,
-                u2: p.u + halfW, v2: p.v + halfH,
-                effHMod: hModGlobal,
-                sourceIdx: myLayoutIdx,
-                sourceU: p.u,
-                sourceV: p.v
-              });
+              let topU1, topV1, topU2, topV2;
+              let effHMod = hModGlobal;
+              if (Array.isArray(p.corners) && p.corners.length === 4 && invT && pInfo.uVec && pInfo.vVec && pInfo.normal) {
+                const pts = p.corners.map(c => {
+                  const loc = Cesium.Matrix4.multiplyByPoint(invT, c, new Cesium.Cartesian3());
+                  return {
+                    u: Cesium.Cartesian3.dot(loc, pInfo.uVec),
+                    v: Cesium.Cartesian3.dot(loc, pInfo.vVec),
+                    h: Cesium.Cartesian3.dot(loc, pInfo.normal)
+                  };
+                });
+                pts.sort((a, b) => b.h - a.h);
+                const hTop = (pts[0].h + pts[1].h) / 2;
+                const hBot = (pts[2].h + pts[3].h) / 2;
+                effHMod = hTop - hBot;
+                topU1 = pts[0].u;
+                topV1 = pts[0].v;
+                topU2 = pts[1].u;
+                topV2 = pts[1].v;
+              } else {
+                const halfW = (p.w || 1.05) / 2;
+                const halfH = (p.h || 2.10) / 2;
+                topU1 = p.u - halfW;
+                topV1 = p.v + halfH;
+                topU2 = p.u + halfW;
+                topV2 = p.v + halfH;
+              }
+              if (effHMod >= 0.04) {
+                interRowEdges.push({
+                  u1: topU1, v1: topV1,
+                  u2: topU2, v2: topV2,
+                  effHMod: effHMod,
+                  sourceIdx: myLayoutIdx,
+                  sourceU: p.u,
+                  sourceV: p.v
+                });
+              }
             });
           }
         }
@@ -766,14 +794,28 @@
           const h = p.h || 2.15;
           const halfW = w / 2;
           const halfH = h / 2;
-          const poly2D = (p.poly2D && p.poly2D.length >= 3)
-            ? p.poly2D.map(pt => ({ u: pt.u, v: pt.v }))
-            : [
-                { u: u - halfW, v: v - halfH },
-                { u: u + halfW, v: v - halfH },
-                { u: u + halfW, v: v + halfH },
-                { u: u - halfW, v: v + halfH }
-              ];
+          let poly2D = null;
+          const invT = pInfo.invTransform || (pInfo.transform && typeof Cesium !== 'undefined' && Cesium.Matrix4 ? Cesium.Matrix4.inverse(pInfo.transform, new Cesium.Matrix4()) : null);
+          if (Array.isArray(p.corners) && p.corners.length === 4 && invT && pInfo.uVec && pInfo.vVec) {
+            poly2D = p.corners.map(c => {
+              const loc = Cesium.Matrix4.multiplyByPoint(invT, c, new Cesium.Cartesian3());
+              return {
+                u: Cesium.Cartesian3.dot(loc, pInfo.uVec),
+                v: Cesium.Cartesian3.dot(loc, pInfo.vVec)
+              };
+            });
+          } else if (p.corners2D && Array.isArray(p.corners2D) && p.corners2D.length >= 3) {
+            poly2D = p.corners2D.map(pt => ({ u: pt.u, v: pt.v }));
+          } else if (p.poly2D && Array.isArray(p.poly2D) && p.poly2D.length >= 3) {
+            poly2D = p.poly2D.map(pt => ({ u: pt.u, v: pt.v }));
+          } else {
+            poly2D = [
+              { u: u - halfW, v: v - halfH },
+              { u: u + halfW, v: v - halfH },
+              { u: u + halfW, v: v + halfH },
+              { u: u - halfW, v: v + halfH }
+            ];
+          }
 
           const tiltVal = p.tiltDeg !== undefined ? p.tiltDeg : (pInfo.moduleTiltDeg !== undefined ? pInfo.moduleTiltDeg : (pInfo.tiltDeg || 20));
           const azVal = p.azimuthDeg !== undefined ? (180 - p.azimuthDeg) : (p.azDeg !== undefined ? p.azDeg : (pInfo.moduleAzimuthDeg !== undefined ? (180 - pInfo.moduleAzimuthDeg) : (pInfo.azDeg || 180)));
