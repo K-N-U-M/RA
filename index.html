@@ -8747,7 +8747,10 @@ function evaluateModuleLayouts(roof, module, cfg) {
     const isExplicitAz = (!isEastWest && cfg.moduleAzimuthSur !== undefined && cfg.moduleAzimuthSur !== "" && cfg.moduleAzimuthSur !== "auto");
     const directAzDeg = isExplicitAz ? parseFloat(cfg.moduleAzimuthSur) : 0;
     const directAngleRad = degToRad(directAzDeg);
-    const alignToPlane = (cfg.alignToPlane !== false) && !isExplicitAz && !isEastWest && !(isOptimal && (slopeDeg <= flatThreshold || !isSouthQuadrant));
+    // Con estructura inclinada (deltaTilt ≥ 1°) el eje A del módulo DEBE coincidir con el azimut de captación:
+    // alinear la retícula a la arista del faldón (ángulo 0 = eje u, horizontal paralelo a cumbrera) haría
+    // bascular el módulo lateralmente (Este/Oeste) en lugar de hacia el sol.
+    const alignToPlane = coplanar && (cfg.alignToPlane !== false) && !isExplicitAz && !isEastWest && !(isOptimal && (slopeDeg <= flatThreshold || !isSouthQuadrant));
     const anglesToTest = alignToPlane
       ? [0]
       : (isEastWest ? [azAngle] : (isExplicitAz ? [azAngle] : ((coplanar || (isOptimal && slopeDeg > flatThreshold && isSouthQuadrant)) ? uniqueAngles : [azAngle])));
@@ -10763,8 +10766,11 @@ function computeSinglePolylineRoofInfo(ptsIn, polyOpts) {
     const sinDelta = Math.sin(deltaTiltRad);
     const cosDelta = Math.cos(deltaTiltRad);
     const frame = best.frame || {};
-    const AuvN = { x: frame.Lu || 1, y: frame.Lv || 0 };
-    const BuvN = { x: frame.Wu || 0, y: frame.Wv || 1 };
+    // Componentes 0 son válidas (eje A paralelo a v en faldones Sur): no usar `||` como fallback.
+    const hasFrameA = (typeof frame.Lu === 'number' && typeof frame.Lv === 'number' && Math.hypot(frame.Lu, frame.Lv) > 1e-6);
+    const hasFrameB = (typeof frame.Wu === 'number' && typeof frame.Wv === 'number' && Math.hypot(frame.Wu, frame.Wv) > 1e-6);
+    const AuvN = hasFrameA ? { x: frame.Lu, y: frame.Lv } : { x: 1, y: 0 };
+    const BuvN = hasFrameB ? { x: frame.Wu, y: frame.Wv } : { x: 0, y: 1 };
 
     // Altura base: si es coplanar reposa en el tejado (+2cm); si esta inclinada, la arista inferior se eleva +5cm.
     // ESTRUCTURA PARAMÉTRICA: pérgola eleva todo el plano a la altura libre; balasto apoya la
