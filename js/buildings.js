@@ -2383,8 +2383,77 @@ function render3DBuildingsInCesium() {
     return true;
   }
 
+  // ─────────────────────────────────────────────────────────────────
+  // PLANTA EN L PARAMÉTRICA (CAD AAA)
+  // Genera automáticamente una huella en forma de L de 6 vértices
+  // ─────────────────────────────────────────────────────────────────
+  function startDrawingBuildingL() {
+    if (typeof viewer === 'undefined' || !viewer || !viewer.scene) {
+      if (typeof window.showToast === 'function') window.showToast('AVISO', 'Visor 3D no inicializado.', 'warning', 2500);
+      return;
+    }
+    const centerCarto = viewer.scene.camera.positionCartographic;
+    if (!centerCarto) return;
+
+    const R_EARTH = 6378137.0;
+    const cosLat = Math.cos(centerCarto.latitude);
+    const cLon = centerCarto.longitude;
+    const cLat = centerCarto.latitude;
+    const h = centerCarto.height > 0 ? 0 : 0;
+
+    // Dimensiones proporcionales en metros (Ala principal 24x10m, Ala secundaria 14x10m)
+    const ptsOffsets = [
+      { x: -12, y: -10 },
+      { x:  12, y: -10 },
+      { x:  12, y:   2 },
+      { x:   0, y:   2 },  // Vértice cóncavo interior reflexivo
+      { x:   0, y:  14 },
+      { x: -12, y:  14 }
+    ];
+
+    const pts3D = ptsOffsets.map(off => Cesium.Cartesian3.fromRadians(
+      cLon + off.x / (R_EARTH * cosLat),
+      cLat + off.y / R_EARTH,
+      h
+    ));
+
+    const newBld = {
+      id: 'bld_l_' + Date.now(),
+      name: 'Edificio en L #' + ((window.buildings ? window.buildings.length : 0) + 1),
+      points: pts3D,
+      height: 6.5,
+      roofType: 'l_shape',
+      roofPitch: 25,
+      roofAzimuth: 180,
+      roofThickness: 0.20,
+      overhang: 0.25,
+      facadeColor: '#F1F5F9',
+      roofColor: '#E2E8F0',
+      edgeColor: '#334155',
+      visible: true
+    };
+
+    if (!Array.isArray(window.buildings)) window.buildings = [];
+    if (window.RAundo && typeof window.RAundo.snapBuildings === 'function') {
+      window.RAundo.snapBuildings('Crear ' + newBld.name);
+    }
+    window.buildings.push(newBld);
+    window.selectedBuildingId = newBld.id;
+
+    if (typeof window.selectBuilding === 'function') {
+      window.selectBuilding(newBld.id);
+    } else {
+      render3DBuildingsInCesium();
+    }
+
+    if (typeof window.showToast === 'function') {
+      window.showToast('EDIFICIO EN L CREADO', 'Se ha posicionado una nave en L con cubierta adaptada y limahoya en el centro de tu vista.', 'success', 4500);
+    }
+  }
+
   // Exportar funciones del Rectángulo CAD y Ejes Constructivos
   window.startDrawingBuildingRect = startDrawingBuildingRect;
+  window.startDrawingBuildingL = startDrawingBuildingL;
   window.handleBuildingRectClick = handleBuildingRectClick;
   window.updateBuildingRectPreview = updateBuildingRectPreview;
   window.finishBuildingRect = finishBuildingRect;

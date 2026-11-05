@@ -747,6 +747,9 @@ window.RA_App = window.RA_App || {};
                 <button type="button" class="btn-action-primary" id="btn-draw-building-rect" onclick="startDrawingBuildingRect()" style="flex:1;padding:8px 4px;font-size: 10px;background:linear-gradient(135deg, #4f46e5, #4338ca);border-color:#818cf8;" aria-label="Rectángulo CAD" title="Trazar huella rectangular paramétrica en 2 clics (P1 -> P2 -> Fondo)">
                   <span><i data-lucide="square" class="icon-sm"></i> + RECTÁNGULO CAD</span>
                 </button>
+                <button type="button" class="btn-action-primary" id="btn-draw-building-l" onclick="startDrawingBuildingL()" style="flex:1;padding:8px 4px;font-size: 10px;background:linear-gradient(135deg, #059669, #047857);border-color:#34d399;" aria-label="Planta en L" title="Generar huella paramétrica en forma de L con cubierta adaptada">
+                  <span><i data-lucide="corner-down-right" class="icon-sm"></i> + PLANTA EN L</span>
+                </button>
               </div>
               <div style="display:flex;gap:4px;margin-bottom:6px;">
                 <button type="button" class="btn-action-primary" id="btn-finish-building-panel" onclick="if (typeof WP !== 'undefined' && WP.mode === 'draw-building-rect') finishBuildingRect(); else finishActiveBuilding();" style="flex:1;padding:8px 4px;font-size: 10px;background:linear-gradient(135deg, #10b981, #059669);border-color:#34d399;" aria-label="Cerrar y Extruir">
