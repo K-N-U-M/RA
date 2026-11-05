@@ -129,6 +129,14 @@
       t.orientationRad = Number(value) || 0;
     } else if (key === 'mountingType') {
       t.mountingType = value;
+    } else if (key === 'rotorDiameterM') {
+      var dVal = Math.max(0.2, Number(value) || 1.0);
+      t.rotorDiameterM = dVal;
+      if (t._catalog) t._catalog.rotorDiameterM = dVal;
+    } else if (key === 'bladeLength') {
+      var lVal = Math.max(0.2, Number(value) || 1.0);
+      t.bladeLength = lVal;
+      if (t._catalog) t._catalog.bladeLength = lVal;
     } else if (key === 'enabled') {
       t.operationalState.enabled = !!value;
     } else if (key === 'curtailmentRulesActive') {

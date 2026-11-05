@@ -703,7 +703,33 @@
     html += '  </div>';
 
     if (ringsActive) {
-      html += '  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;">';
+      var isVawt = (activeTurbine._catalog && activeTurbine._catalog.type === 'VAWT') || (activeTurbine.turbineType === 'vawt');
+    if (isVawt) {
+      var actRotorD = (typeof activeTurbine.rotorDiameterM === 'number' && activeTurbine.rotorDiameterM > 0)
+        ? activeTurbine.rotorDiameterM
+        : ((activeTurbine._catalog && activeTurbine._catalog.rotorDiameterM) || 3.8);
+      var actBladeL = (typeof activeTurbine.bladeLength === 'number' && activeTurbine.bladeLength > 0)
+        ? activeTurbine.bladeLength
+        : ((activeTurbine._catalog && activeTurbine._catalog.bladeLength) || Math.round(actHubH * 0.55 * 10) / 10);
+
+      html += '  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;background:rgba(56,189,248,0.08);padding:6px;border-radius:4px;border:1px dashed rgba(56,189,248,0.25);">';
+      html += '    <div>';
+      html += '      <label style="display:block;font-size:9px;color:#38BDF8;font-weight:600;">Diámetro Rotor VAWT</label>';
+      html += '      <div style="display:flex;align-items:center;gap:4px;">';
+      html += '        <input type="number" min="0.5" max="25" step="0.1" value="' + actRotorD + '" onchange="if(window.RAWind && window.RAWind.Entity){ window.RAWind.Entity.updateProp(\'' + activeTurbine.id + '\',\'rotorDiameterM\',Number(this.value)); if(window.RAWindVisualizer){ window.RAWindVisualizer.renderAll(); } }" style="width:100%;background:#0F172A;color:#38BDF8;border:1px solid #0284C7;border-radius:4px;padding:3px 4px;font-size:10px;font-weight:700;">';
+      html += '        <span style="font-size:9px;color:var(--text-slate-400);">m</span>';
+      html += '      </div>';
+      html += '    </div>';
+      html += '    <div>';
+      html += '      <label style="display:block;font-size:9px;color:#38BDF8;font-weight:600;">Longitud Palas VAWT</label>';
+      html += '      <div style="display:flex;align-items:center;gap:4px;">';
+      html += '        <input type="number" min="0.5" max="30" step="0.1" value="' + actBladeL + '" onchange="if(window.RAWind && window.RAWind.Entity){ window.RAWind.Entity.updateProp(\'' + activeTurbine.id + '\',\'bladeLength\',Number(this.value)); if(window.RAWindVisualizer){ window.RAWindVisualizer.renderAll(); } }" style="width:100%;background:#0F172A;color:#38BDF8;border:1px solid #0284C7;border-radius:4px;padding:3px 4px;font-size:10px;font-weight:700;">';
+      html += '        <span style="font-size:9px;color:var(--text-slate-400);">m</span>';
+      html += '      </div>';
+      html += '    </div>';
+      html += '  </div>';
+    }
+    html += '  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;">';
       html += '    <div>';
       html += '      <label style="display:block;font-size:8.5px;color:var(--text-slate-400);">Estilo Visual</label>';
       html += '      <select onchange="if(window.RAWindUI)window.RAWindUI.updateVisualParam(\'style\', this.value)" style="width:100%;background:#0F172A;color:#38BDF8;border:1px solid #334155;border-radius:4px;padding:2px 4px;font-size:9.5px;">';
