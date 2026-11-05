@@ -8581,6 +8581,7 @@ function evaluateModuleLayouts(roof, module, cfg) {
   let moduleTiltDeg;
   let moduleAzN;
   let moduleAzSur;
+  const rawUserTilt = (cfg.moduleTiltDeg !== undefined && cfg.moduleTiltDeg !== "" && !isNaN(parseFloat(cfg.moduleTiltDeg))) ? parseFloat(cfg.moduleTiltDeg) : null;
 
   if (isOptimal) {
     // <i data-lucide=\"sun\" class=\"icon-sm\"></i> MODO HÍBRIDO INTELIGENTE CARA AL SOL (PVsyst / Helioscope)
@@ -8608,7 +8609,6 @@ function evaluateModuleLayouts(roof, module, cfg) {
     moduleAzSur = (roof.azimuthSur !== undefined) ? roof.azimuthSur : normalizeAzimuth(180 - moduleAzN);
   } else {
     // <i data-lucide=\"settings\" class=\"icon-sm\"></i> PERSONALIZADA (Valores directos de los controles de usuario)
-    const rawUserTilt = (cfg.moduleTiltDeg !== undefined && cfg.moduleTiltDeg !== "" && !isNaN(parseFloat(cfg.moduleTiltDeg))) ? parseFloat(cfg.moduleTiltDeg) : null;
     const isZeroTiltOnSlope = (rawUserTilt === 0 && slopeDeg >= flatThreshold);
     if (isZeroTiltOnSlope) {
       moduleTiltDeg = slopeDeg;
