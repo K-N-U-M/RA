@@ -297,6 +297,8 @@
       quad.sourcePanelIdx = (p.layoutIndex !== undefined) ? p.layoutIndex : pIdx;
       quad.sourceU = p.u;
       quad.sourceV = p.v;
+      quad.gridA = (typeof p.gridA === 'number') ? p.gridA : ((p.frame && typeof p.frame.Lu === 'number') ? (p.u * p.frame.Lu + p.v * p.frame.Lv) : null);
+      quad.frame = p.frame || null;
       quads.push(quad);
     });
 
@@ -450,13 +452,27 @@
           const myIndex = (pData.layoutIndex !== undefined) ? pData.layoutIndex : pIdx;
           const panelH = pData.h || 2.10;
           for (const quad of polyShadowQuads2D) {
-            // Evitar que el panel se auto-sombre con su propia sombra arrojada
+            // Evitar que el panel se auto-sombre con su propia sombra arrojada o con módulos de su misma fila
             if (quad.sourcePanelIdx !== undefined) {
               if (quad.sourcePanelIdx === myIndex) continue;
               if (typeof quad.sourceU === 'number' && typeof quad.sourceV === 'number' && typeof pData.u === 'number' && typeof pData.v === 'number') {
                 if (Math.abs(quad.sourceU - pData.u) < 0.05 && Math.abs(quad.sourceV - pData.v) < 0.05) continue;
-                // Si ambos módulos pertenecen a la misma fila física (misma cota V dentro del 40% del panel)
-                if (Math.abs(quad.sourceV - pData.v) < panelH * 0.40) continue;
+                // Descarte por fila física transversal (gridA o proyección frame.Lu/Lv):
+                const pGridA = (typeof pData.gridA === 'number') ? pData.gridA : ((pData.frame && typeof pData.frame.Lu === 'number') ? (pData.u * pData.frame.Lu + pData.v * pData.frame.Lv) : null);
+                if (typeof quad.gridA === 'number' && typeof pGridA === 'number') {
+                  if (Math.abs(quad.gridA - pGridA) < panelH * 0.40) continue;
+                } else if (pData.frame && typeof pData.frame.Lu === 'number') {
+                  const qRowProj = quad.sourceU * pData.frame.Lu + quad.sourceV * pData.frame.Lv;
+                  const pRowProj = pData.u * pData.frame.Lu + pData.v * pData.frame.Lv;
+                  if (Math.abs(qRowProj - pRowProj) < panelH * 0.40) continue;
+                } else if (quad.frame && typeof quad.frame.Lu === 'number') {
+                  const qRowProj = quad.sourceU * quad.frame.Lu + quad.sourceV * quad.frame.Lv;
+                  const pRowProj = pData.u * quad.frame.Lu + pData.v * quad.frame.Lv;
+                  if (Math.abs(qRowProj - pRowProj) < panelH * 0.40) continue;
+                } else {
+                  if (Math.abs(quad.sourceV - pData.v) < panelH * 0.40) continue;
+                  if (Math.abs(quad.sourceU - pData.u) < (pData.w || 1.05) * 0.40) continue;
+                }
               }
             }
             if (typeof polygonsIntersect2D === "function" && polygonsIntersect2D(panelPoly2D, quad)) {
@@ -769,7 +785,9 @@
                   effHMod: effHMod,
                   sourceIdx: myLayoutIdx,
                   sourceU: p.u,
-                  sourceV: p.v
+                  sourceV: p.v,
+                  gridA: (typeof p.gridA === 'number') ? p.gridA : ((p.frame && typeof p.frame.Lu === 'number') ? (p.u * p.frame.Lu + p.v * p.frame.Lv) : null),
+                  frame: p.frame ? { Lu: p.frame.Lu, Lv: p.frame.Lv, Wu: p.frame.Wu, Wv: p.frame.Wv } : null
                 });
               }
             });
@@ -844,6 +862,8 @@
             azDeg: azVal,
             hasOptimizer: !!(p.hasOptimizer || p.optimizerModelId),
             poly2D: poly2D,
+            gridA: (typeof p.gridA === 'number') ? p.gridA : ((p.frame && typeof p.frame.Lu === 'number') ? (p.u * p.frame.Lu + p.v * p.frame.Lv) : null),
+            frame: p.frame ? { Lu: p.frame.Lu, Lv: p.frame.Lv, Wu: p.frame.Wu, Wv: p.frame.Wv } : null,
             normalWorld: pNormWorld,
             normalENU: normalENU
           });
@@ -1453,8 +1473,21 @@
                     const curIdx = (pData.layoutIndex !== undefined) ? pData.layoutIndex : pIdx;
                     if (quad.sourcePanelIdx === curIdx) continue; // Un panel jamás se hace sombra a sí mismo
 
-                    // Si ambos paneles están en la misma fila (misma cota V dentro del 40% de la altura del panel)
-                    if (Math.abs(quad.sourceV - pData.v) < (pData.h || 2.10) * 0.40) continue;
+                    const pGridA = (typeof pData.gridA === 'number') ? pData.gridA : ((pData.frame && typeof pData.frame.Lu === 'number') ? (pData.u * pData.frame.Lu + pData.v * pData.frame.Lv) : null);
+                    if (typeof quad.gridA === 'number' && typeof pGridA === 'number') {
+                      if (Math.abs(quad.gridA - pGridA) < (pData.h || 2.10) * 0.40) continue;
+                    } else if (pData.frame && typeof pData.frame.Lu === 'number') {
+                      const qRowProj = quad.sourceU * pData.frame.Lu + quad.sourceV * pData.frame.Lv;
+                      const pRowProj = pData.u * pData.frame.Lu + pData.v * pData.frame.Lv;
+                      if (Math.abs(qRowProj - pRowProj) < (pData.h || 2.10) * 0.40) continue;
+                    } else if (quad.frame && typeof quad.frame.Lu === 'number') {
+                      const qRowProj = quad.sourceU * quad.frame.Lu + quad.sourceV * quad.frame.Lv;
+                      const pRowProj = pData.u * quad.frame.Lu + pData.v * quad.frame.Lv;
+                      if (Math.abs(qRowProj - pRowProj) < (pData.h || 2.10) * 0.40) continue;
+                    } else {
+                      if (Math.abs(quad.sourceV - pData.v) < (pData.h || 2.10) * 0.40) continue;
+                      if (Math.abs(quad.sourceU - pData.u) < (pData.w || 1.05) * 0.40) continue;
+                    }
                   }
 
                   // AABB Broadphase check: si la caja envolvente de la sombra no toca la del panel, descartar inmediatamente

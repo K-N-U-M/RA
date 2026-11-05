@@ -5387,6 +5387,22 @@ function wpTogglePolyLockRowPitch(polyIdx, locked) {
 }
 window.wpTogglePolyLockRowPitch = wpTogglePolyLockRowPitch;
 
+function wpSetPolyRowPitchWindow(polyIdx, hours) {
+  if (polyIdx === undefined || polyIdx === null || polyIdx < 0) polyIdx = (typeof WP !== 'undefined') ? WP.selectedPolyIdx : 0;
+  if (!WP.polylines || !WP.polylines[polyIdx]) return;
+  const poly = WP.polylines[polyIdx];
+  poly.rowPitchDesignWindowH = (hours >= 1 && hours <= 3.5) ? hours : 2.0;
+  if (roofPanelsCache) roofPanelsCache.sig = "";
+  delete poly._calcSig;
+  if (typeof computeSinglePolylineRoofInfo === "function") {
+    poly.roofInfo = computeSinglePolylineRoofInfo(poly.points, poly);
+  }
+  if (typeof wpFastRenderSimulatedPanels === "function") wpFastRenderSimulatedPanels(true, polyIdx);
+  if (typeof wpUpdateFaldonRowPitchUI === "function") wpUpdateFaldonRowPitchUI(polyIdx);
+  if (typeof wpUpdateLayoutFastMetrics === "function") wpUpdateLayoutFastMetrics();
+}
+window.wpSetPolyRowPitchWindow = wpSetPolyRowPitchWindow;
+
 function wpTogglePolyIgnoreTilesShadows(polyIdx, ignore) {
   if (polyIdx === undefined || polyIdx === null || polyIdx < 0) polyIdx = (typeof WP !== 'undefined') ? WP.selectedPolyIdx : 0;
   if (!WP.polylines || !WP.polylines[polyIdx]) return;
@@ -5484,6 +5500,8 @@ function wpUpdateLiveSweetSpotTelemetry(polyIdx) {
   const totalEl = document.getElementById('faldon-live-total-yield');
   const lockChk = document.getElementById('faldon-lock-row-pitch-chk');
   if (lockChk) lockChk.checked = !!poly.lockRowPitch;
+  const winSel = document.getElementById('faldon-row-pitch-window-sel');
+  if (winSel) winSel.value = String(poly.rowPitchDesignWindowH || 2);
   const ignoreTilesChk = document.getElementById('faldon-ignore-tiles-shadows-chk');
   if (ignoreTilesChk) ignoreTilesChk.checked = !!poly.ignore3DTilesShadows;
 

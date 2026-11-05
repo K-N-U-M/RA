@@ -388,6 +388,8 @@ self.onmessage = function(e) {
               quad.sourcePanelIdx = edge.sourceIdx;
               quad.sourceU = edge.sourceU;
               quad.sourceV = edge.sourceV;
+              quad.gridA = (typeof edge.gridA === 'number') ? edge.gridA : ((edge.frame && typeof edge.frame.Lu === 'number') ? (edge.sourceU * edge.frame.Lu + edge.sourceV * edge.frame.Lv) : null);
+              quad.frame = edge.frame || null;
               quads.push(quad);
             }
           });
@@ -474,10 +476,23 @@ self.onmessage = function(e) {
             // [AAA FÍSICA SOLAR] Descarte riguroso de auto-sombreado propio y de la misma fila:
             if (quad.sourcePanelIdx !== undefined) {
               if (quad.sourcePanelIdx === myIndex) continue; // Un panel jamás se hace sombra a sí mismo
-              if (typeof quad.sourceV === 'number' && typeof pData.v === 'number') {
-                if (typeof quad.sourceU === 'number' && Math.abs(quad.sourceU - pData.u) < 0.05 && Math.abs(quad.sourceV - pData.v) < 0.05) continue;
-                // Si ambos paneles pertenecen a la misma fila física transversal (dentro del 40% del peralte del panel)
-                if (Math.abs(quad.sourceV - pData.v) < panelH * 0.40) continue;
+              if (typeof quad.sourceU === 'number' && typeof quad.sourceV === 'number' && typeof pData.u === 'number' && typeof pData.v === 'number') {
+                if (Math.abs(quad.sourceU - pData.u) < 0.05 && Math.abs(quad.sourceV - pData.v) < 0.05) continue;
+                const pGridA = (typeof pData.gridA === 'number') ? pData.gridA : ((pData.frame && typeof pData.frame.Lu === 'number') ? (pData.u * pData.frame.Lu + pData.v * pData.frame.Lv) : null);
+                if (typeof quad.gridA === 'number' && typeof pGridA === 'number') {
+                  if (Math.abs(quad.gridA - pGridA) < panelH * 0.40) continue;
+                } else if (pData.frame && typeof pData.frame.Lu === 'number') {
+                  const qRowProj = quad.sourceU * pData.frame.Lu + quad.sourceV * pData.frame.Lv;
+                  const pRowProj = pData.u * pData.frame.Lu + pData.v * pData.frame.Lv;
+                  if (Math.abs(qRowProj - pRowProj) < panelH * 0.40) continue;
+                } else if (quad.frame && typeof quad.frame.Lu === 'number') {
+                  const qRowProj = quad.sourceU * quad.frame.Lu + quad.sourceV * quad.frame.Lv;
+                  const pRowProj = pData.u * quad.frame.Lu + pData.v * quad.frame.Lv;
+                  if (Math.abs(qRowProj - pRowProj) < panelH * 0.40) continue;
+                } else {
+                  if (Math.abs(quad.sourceV - pData.v) < panelH * 0.40) continue;
+                  if (Math.abs(quad.sourceU - pData.u) < (pData.w || 1.05) * 0.40) continue;
+                }
               }
             }
 

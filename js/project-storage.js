@@ -160,6 +160,7 @@ function raExportProjectData() {
         modTilt: poly.modTilt || 'auto',
         modAzimuth: poly.modAzimuth || 'auto',
         lockRowPitch: !!poly.lockRowPitch,
+        rowPitchDesignWindowH: (typeof poly.rowPitchDesignWindowH === 'number') ? poly.rowPitchDesignWindowH : 2.0,
         ignore3DTilesShadows: !!poly.ignore3DTilesShadows,
         area: (typeof poly.area === 'number') ? poly.area : (poly.roofInfo && typeof poly.roofInfo.area === 'number' ? poly.roofInfo.area : 0),
         deletedPanels: Array.isArray(poly.deletedPanels) ? poly.deletedPanels.map(dp => ({
@@ -949,6 +950,7 @@ async function raImportProjectData(projectData, options = {}) {
           modTilt: poly.modTilt || 'auto',
           modAzimuth: poly.modAzimuth || 'auto',
           lockRowPitch: !!poly.lockRowPitch,
+        rowPitchDesignWindowH: (typeof poly.rowPitchDesignWindowH === 'number') ? poly.rowPitchDesignWindowH : 2.0,
           ignore3DTilesShadows: !!(poly.ignore3DTilesShadows || (poly.roofInfo && poly.roofInfo.ignore3DTilesShadows)),
           matrixShiftA: (typeof poly.matrixShiftA === 'number') ? poly.matrixShiftA : ((typeof poly.matrixShiftU === 'number') ? poly.matrixShiftU : 0),
           matrixShiftB: (typeof poly.matrixShiftB === 'number') ? poly.matrixShiftB : ((typeof poly.matrixShiftV === 'number') ? poly.matrixShiftV : 0),

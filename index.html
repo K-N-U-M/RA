@@ -1453,6 +1453,11 @@ window.RA_App = window.RA_App || {};
                           <input id="faldon-lock-row-pitch-chk" type="checkbox" style="accent-color:#10B981;cursor:pointer;margin:0;" onchange="if (typeof wpTogglePolyLockRowPitch === 'function') wpTogglePolyLockRowPitch(WP.selectedPolyIdx, this.checked);" />
                           <span>🔒 Fijar nº placas al inclinar</span>
                         </label>
+                        <select id="faldon-row-pitch-window-sel" style="font-size:9px;padding:1px 3px;background:#0f172a;color:#CBD5E1;border:1px solid rgba(255,255,255,0.15);border-radius:4px;" title="Ventana horaria libre de sombra entre filas el 21 de diciembre (más horas = más pasillo, menos placas y menos pérdidas)" onchange="if (typeof wpSetPolyRowPitchWindow === 'function') wpSetPolyRowPitchWindow(WP.selectedPolyIdx, parseFloat(this.value));">
+                          <option value="2">☀️ 10-14 h (CTE)</option>
+                          <option value="2.5">☀️ 9:30-14:30 h</option>
+                          <option value="3">☀️ 9-15 h</option>
+                        </select>
                         <button class="doc-mini-btn" style="padding:2px 6px;font-size:9px;background:rgba(245,158,11,0.18);color:#FBBF24;border-color:rgba(245,158,11,0.4);font-weight:800;" onclick="if (typeof wpSnapPolyToSweetSpot === 'function') wpSnapPolyToSweetSpot(WP.selectedPolyIdx, false);" title="Ajusta automáticamente Inclinación y Orientación al máximo absoluto anual">🎯 Clavar en el Pico</button>
                       </div>
                       <div style="display:flex;align-items:center;gap:6px;padding-top:3px;border-top:1px solid rgba(255,255,255,0.06);">
@@ -8329,7 +8334,7 @@ function invalidateRoofPanelsCache() {
   if (typeof lastRoofInfo !== 'undefined') lastRoofInfo = null;
 }
 
-function calculatePVsystRowPitch(moduleLengthM, deltaTiltDeg, roofSlopeDeg, moduleAzSurDeg, latDeg, safetyMarginM = 0.20) {
+function calculatePVsystRowPitch(moduleLengthM, deltaTiltDeg, roofSlopeDeg, moduleAzSurDeg, latDeg, safetyMarginM = 0.20, designWindowH = 2.0) {
   if (deltaTiltDeg < 1.0) {
     return moduleLengthM + 0.04; // Coplanar
   }
@@ -8337,7 +8342,9 @@ function calculatePVsystRowPitch(moduleLengthM, deltaTiltDeg, roofSlopeDeg, modu
   // Solsticio de invierno (21 Dic) a las 10:00 h solar (CTE DB-HE5 / UNE-EN 62446)
   const latRad = degToRad(typeof latDeg === 'number' ? latDeg : 40.4168);
   const declRad = degToRad(-23.45);
-  const haRad = degToRad(-30.0); // 10:00h = -30°
+  // Ventana libre de sombras: ±designWindowH horas respecto al mediodía solar (2.0 h = 10:00-14:00, criterio CTE)
+  const winH = Math.max(1.0, Math.min(3.5, Number(designWindowH) || 2.0));
+  const haRad = degToRad(-15.0 * winH);
 
   const sinAlt = Math.sin(latRad) * Math.sin(declRad) + Math.cos(latRad) * Math.cos(declRad) * Math.cos(haRad);
   const altRad = Math.asin(Math.max(-1, Math.min(1, sinAlt)));
@@ -8678,7 +8685,7 @@ function evaluateModuleLayouts(roof, module, cfg) {
 
     let rowPitch = (coplanar || isContinuousCanopy)
       ? (footprintA + gap)
-      : calculatePVsystRowPitch(modLen, deltaTilt, slopeDeg, moduleAzSur, lat, safety);
+      : calculatePVsystRowPitch(modLen, deltaTilt, slopeDeg, moduleAzSur, lat, safety, cfg.rowPitchDesignWindowH);
 
     if (cfg && cfg.lockRowPitch && typeof cfg.lockedRowPitchM === 'number' && cfg.lockedRowPitchM > 0 && !coplanar && !isContinuousCanopy && !isEastWest) {
       rowPitch = Math.max(footprintA + gap, cfg.lockedRowPitchM);
@@ -10695,6 +10702,7 @@ function computeSinglePolylineRoofInfo(ptsIn, polyOpts) {
     matrixShiftB: (typeof opts.matrixShiftB === 'number') ? opts.matrixShiftB : ((typeof opts.matrixShiftV === 'number') ? opts.matrixShiftV : 0),
     lockRowPitch: !!(opts && opts.lockRowPitch),
     lockedRowPitchM: (opts && typeof opts.lockedRowPitchM === 'number') ? opts.lockedRowPitchM : 0,
+    rowPitchDesignWindowH: (opts && typeof opts.rowPitchDesignWindowH === 'number') ? opts.rowPitchDesignWindowH : 2.0,
     panelFilter: defaultPanelFilter,
     hasWalkway: !!opts.hasWalkway,
     walkwayWidth: (typeof opts.walkwayWidth === 'number') ? opts.walkwayWidth : 0.80,
@@ -10848,7 +10856,7 @@ window.computeSinglePolylineRoofInfo = computeSinglePolylineRoofInfo;
 function computeRoofPanelsData() {
   const orientPref = (typeof userPanelOrientationPref !== "undefined" && userPanelOrientationPref) ? userPanelOrientationPref : "auto";
   const polySig = (typeof WP !== "undefined" && WP && WP.polylines && WP.polylines.length > 0)
-    ? WP.polylines.map((pl, pi) => "P" + pi + ":" + (pl.points || []).filter(p => p && typeof p.x === "number").map(p => p.x.toFixed(3) + "," + p.y.toFixed(3) + "," + p.z.toFixed(3)).join(";") + ":mod=" + (pl.moduleId || "def") + ":arr=" + (pl.arrangementMode || "def") + ":az=" + (pl.modAzimuth || "auto") + ":t=" + (pl.modTilt || "auto") + ":lk=" + (pl.lockRowPitch ? (pl.lockedRowPitchM || 1) : 0) + ":or=" + (pl.orientationPref || "portrait")).join("|")
+    ? WP.polylines.map((pl, pi) => "P" + pi + ":" + (pl.points || []).filter(p => p && typeof p.x === "number").map(p => p.x.toFixed(3) + "," + p.y.toFixed(3) + "," + p.z.toFixed(3)).join(";") + ":mod=" + (pl.moduleId || "def") + ":arr=" + (pl.arrangementMode || "def") + ":az=" + (pl.modAzimuth || "auto") + ":t=" + (pl.modTilt || "auto") + ":lk=" + (pl.lockRowPitch ? (pl.lockedRowPitchM || 1) : 0) + ":dw=" + (pl.rowPitchDesignWindowH || 2) + ":or=" + (pl.orientationPref || "portrait")).join("|")
     : (polygonPoints || []).filter(p => p && typeof p.x === "number").map(p => p.x.toFixed(3) + "," + p.y.toFixed(3) + "," + p.z.toFixed(3)).join(";");
 
   const curObj = (typeof window !== "undefined" && window.solarProjectConfig && window.solarProjectConfig.selectedObjective) ? window.solarProjectConfig.selectedObjective : "optimal_inv";
@@ -12145,15 +12153,16 @@ function getPolylineStringColor(polyIdx) {
 
 // ── GRADIENTE TÉRMICO PARA MAPA DE CALOR DE IRRADIANCIA ANUAL ──────────────
 function getHeatmapColor(lossPct) {
-  if (lossPct <= 2.0) return { hex: "#059669", css: "rgba(5, 150, 105, 0.95)", label: "Excelente (≤2%)" };
-  if (lossPct <= 4.0) return { hex: "#10B981", css: "rgba(16, 185, 129, 0.95)", label: "Óptimo (2-4%)" };
-  if (lossPct <= 6.0) return { hex: "#84CC16", css: "rgba(132, 204, 22, 0.95)", label: "Muy Bueno (4-6%)" };
-  if (lossPct <= 8.0) return { hex: "#A3E635", css: "rgba(163, 230, 53, 0.95)", label: "Bueno (6-8%)" };
-  if (lossPct <= 11.0) return { hex: "#FACC15", css: "rgba(250, 204, 21, 0.95)", label: "Aceptable (8-11%)" };
-  if (lossPct <= 15.0) return { hex: "#F59E0B", css: "rgba(245, 158, 11, 0.95)", label: "Sombra Leve (11-15%)" };
-  if (lossPct <= 20.0) return { hex: "#F97316", css: "rgba(249, 115, 22, 0.95)", label: "Sombra Media (15-20%)" };
-  if (lossPct <= 25.0) return { hex: "#EA580C", css: "rgba(234, 88, 12, 0.95)", label: "Sombra Alta (20-25%)" };
-  if (lossPct <= 35.0) return { hex: "#EF4444", css: "rgba(239, 68, 68, 0.95)", label: "Severa (25-35%)" };
+  // Umbrales calibrados a práctica industrial (PVsyst/Helioscope): 10-15% es típico en filas inclinadas
+  if (lossPct <= 2.5) return { hex: "#059669", css: "rgba(5, 150, 105, 0.95)", label: "Excelente (≤2.5%)" };
+  if (lossPct <= 5.0) return { hex: "#10B981", css: "rgba(16, 185, 129, 0.95)", label: "Óptimo (2.5-5%)" };
+  if (lossPct <= 7.5) return { hex: "#84CC16", css: "rgba(132, 204, 22, 0.95)", label: "Muy Bueno (5-7.5%)" };
+  if (lossPct <= 10.0) return { hex: "#A3E635", css: "rgba(163, 230, 53, 0.95)", label: "Bueno (7.5-10%)" };
+  if (lossPct <= 15.0) return { hex: "#FACC15", css: "rgba(250, 204, 21, 0.95)", label: "Típico filas (10-15%)" };
+  if (lossPct <= 20.0) return { hex: "#F59E0B", css: "rgba(245, 158, 11, 0.95)", label: "Atención (15-20%)" };
+  if (lossPct <= 25.0) return { hex: "#F97316", css: "rgba(249, 115, 22, 0.95)", label: "Sombra Media (20-25%)" };
+  if (lossPct <= 30.0) return { hex: "#EA580C", css: "rgba(234, 88, 12, 0.95)", label: "Sombra Alta (25-30%)" };
+  if (lossPct <= 40.0) return { hex: "#EF4444", css: "rgba(239, 68, 68, 0.95)", label: "Severa (30-40%)" };
   return { hex: "#991B1B", css: "rgba(153, 27, 27, 0.95)", label: "Crítica (>35%)" };
 }
 
