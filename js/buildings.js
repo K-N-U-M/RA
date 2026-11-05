@@ -672,7 +672,7 @@ function render3DBuildingsInCesium() {
               id: (bld.id || 'bld') + '_gable_hastial_wall_' + i
             }));
 
-            // Cierre frontal del tímpano triangular sobre el plano de fachada
+            // Cierre hermético del tímpano triangular sobre el plano de fachada (hastial completo)
             const pATop = wallTopPositions[i];
             const pBTop = wallTopPositions[nextI];
             const pRidgeTop = Cesium.Cartesian3.fromRadians(
@@ -680,8 +680,14 @@ function render3DBuildingsInCesium() {
               cA.latitude  + t * (cB.latitude  - cA.latitude),
               ridgeHeight
             );
+            // Triangulación frontal y dorsal para garantizar visibilidad sin backface culling
             addRoofTriangle(pATop, pRidgeTop, pBTop, facadeColor);
             addRoofTriangle(pATop, pBTop, pRidgeTop, facadeColor);
+
+            // Sellar también el contacto con el sofito / losa del alero superior
+            const rMidPoint = Math.abs(projR[i] - minR) <= Math.abs(projR[i] - maxR) ? r1 : r2;
+            addRoofTriangle(pATop, rMidPoint, pRidgeTop, facadeColor);
+            addRoofTriangle(pBTop, rMidPoint, pRidgeTop, facadeColor);
           } else {
             // Muro lateral longitudinal (paralelo a cumbrera, cota constante roofHeight)
             wallInstances.push(new Cesium.GeometryInstance({

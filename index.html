@@ -7477,9 +7477,13 @@ function recalculateSolarYield(force = false) {
       const pCount = (pInf && Array.isArray(pInf.panels)) ? pInf.panels.filter(p => !p.deleted && !p.disabled).length : 0;
       if (pCount <= 0) return;
       const pWp = (typeof wpGetPolyWp === 'function') ? wpGetPolyWp(poly) : modulePowerW;
-      const pTilt = (pInf && typeof pInf.moduleTiltDeg === 'number')
+      const roofSlope = (pInf && typeof pInf.tiltDeg === 'number') ? pInf.tiltDeg : ((poly.roofInfo && typeof poly.roofInfo.tiltDeg === 'number') ? poly.roofInfo.tiltDeg : 0);
+      let pTilt = (pInf && typeof pInf.moduleTiltDeg === 'number')
         ? pInf.moduleTiltDeg
         : ((typeof poly.modTilt === 'number') ? poly.modTilt : modTilt);
+      if (pTilt === 0 && roofSlope > 3) {
+        pTilt = roofSlope;
+      }
       let pAzSur = (pInf && typeof pInf.moduleAzimuthDeg === 'number')
         ? pInf.moduleAzimuthDeg
         : ((typeof poly.modAzimuth === 'number') ? (poly.modAzimuth - 180) : modAzSigned);
@@ -8604,8 +8608,15 @@ function evaluateModuleLayouts(roof, module, cfg) {
     moduleAzSur = (roof.azimuthSur !== undefined) ? roof.azimuthSur : normalizeAzimuth(180 - moduleAzN);
   } else {
     // <i data-lucide=\"settings\" class=\"icon-sm\"></i> PERSONALIZADA (Valores directos de los controles de usuario)
-    moduleTiltDeg = (cfg.moduleTiltDeg !== undefined && cfg.moduleTiltDeg !== "" && !isNaN(parseFloat(cfg.moduleTiltDeg)))
-      ? (isEastWest ? 12 : parseFloat(cfg.moduleTiltDeg)) : (slopeDeg >= flatThreshold ? slopeDeg : optimalTilt);
+    const rawUserTilt = (cfg.moduleTiltDeg !== undefined && cfg.moduleTiltDeg !== "" && !isNaN(parseFloat(cfg.moduleTiltDeg))) ? parseFloat(cfg.moduleTiltDeg) : null;
+    const isZeroTiltOnSlope = (rawUserTilt === 0 && slopeDeg >= flatThreshold);
+    if (isZeroTiltOnSlope) {
+      moduleTiltDeg = slopeDeg;
+    } else {
+      moduleTiltDeg = (rawUserTilt !== null)
+        ? (isEastWest ? 12 : rawUserTilt)
+        : (slopeDeg >= flatThreshold ? slopeDeg : optimalTilt);
+    }
 
     let rawAz = isEastWest ? 90 : 180;
     if (!isEastWest && cfg.moduleAzimuthGeo !== undefined && cfg.moduleAzimuthGeo !== "" && cfg.moduleAzimuthGeo !== "auto") {
@@ -8623,7 +8634,8 @@ function evaluateModuleLayouts(roof, module, cfg) {
   const pergolaSubtype = cfg.pergolaSubtype || (cfg.estructura && cfg.estructura.subtype) || 'continuous';
   const isContinuousCanopy = isPergola && (pergolaSubtype !== 'spaced_rows');
 
-  const deltaTilt = isCoplanar ? 0 : (isEastWest ? 12 : Math.max(moduleTiltDeg - slopeDeg, 0));
+  const isZeroTiltOnSlope = (rawUserTilt === 0 && slopeDeg >= flatThreshold);
+  const deltaTilt = (isCoplanar || isZeroTiltOnSlope) ? 0 : (isEastWest ? 12 : Math.max(moduleTiltDeg - slopeDeg, 0));
   const coplanar = (deltaTilt < 1);
 
   const nMod = normalFromTiltAzimuth(moduleTiltDeg, moduleAzN);

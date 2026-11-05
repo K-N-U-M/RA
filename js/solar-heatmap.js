@@ -230,7 +230,8 @@
     // En cubiertas coplanares o marquesinas continuas (tejadillo corrido sin desnivel entre filas),
     // si no hay desnivel geométrico en vértices 3D, no hay autosombreado inter-filas
     const hasPergolaTilt = (structType === 'pergola' && typeof pInfo.moduleTiltDeg === 'number' && pInfo.moduleTiltDeg > 2);
-    if ((pInfo.coplanar || isContinuousPergola) && !hasPergolaTilt) return [];
+    const isZeroTiltOnSlope = (pInfo.tiltDeg > 3 && (pInfo.moduleTiltDeg === 0 || pInfo.moduleTiltDeg === pInfo.tiltDeg));
+    if ((pInfo.coplanar || isContinuousPergola || isZeroTiltOnSlope) && !hasPergolaTilt) return [];
 
     let hModGlobal = 0;
     if (typeof pInfo.moduleTiltDeg === 'number' && pInfo.moduleTiltDeg > 5) {
@@ -1080,7 +1081,11 @@
             ];
           }
 
-          const tiltVal = p.tiltDeg !== undefined ? p.tiltDeg : (pInfo.moduleTiltDeg !== undefined ? pInfo.moduleTiltDeg : (pInfo.tiltDeg || 20));
+          const roofSlopeVal = (pInfo && typeof pInfo.tiltDeg === 'number') ? pInfo.tiltDeg : 0;
+          let tiltVal = p.tiltDeg !== undefined ? p.tiltDeg : (pInfo.moduleTiltDeg !== undefined ? pInfo.moduleTiltDeg : (pInfo.tiltDeg || 20));
+          if (tiltVal === 0 && roofSlopeVal > 3) {
+            tiltVal = roofSlopeVal;
+          }
           const azVal = p.azimuthDeg !== undefined ? (180 - p.azimuthDeg) : (p.azDeg !== undefined ? p.azDeg : (pInfo.moduleAzimuthDeg !== undefined ? (180 - pInfo.moduleAzimuthDeg) : (pInfo.azDeg || 180)));
           const tiltR = (tiltVal * Math.PI) / 180;
           const azR = (azVal * Math.PI) / 180;
