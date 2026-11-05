@@ -13098,7 +13098,7 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
               isNormal: panelData.isNormal,
               requiresMLPE: panelData.requiresMLPE,
               isUnviable: panelData.isUnviable,
-              heatmapColor: panelData.heatmapColor || (window.solarSimState && window.solarSimState.annualHeatmapDirty ? '#64748B' : getHeatmapColor(0))
+              heatmapColor: panelData.heatmapColor || (window.solarSimState && window.solarSimState.annualHeatmapDirty ? '#64748B' : (typeof getHeatmapColor === 'function' ? getHeatmapColor(panelData.annualLossPct || 0) : { hex: '#10b981' }))
             });
           });
 
@@ -13215,7 +13215,7 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
             requiresMLPE: panelData.requiresMLPE,
             isUnviable: panelData.isUnviable,
             disabled: (poly.panelsDisabled === true) || !!panelData.disabled,
-            heatmapColor: panelData.heatmapColor || getHeatmapColor(0)
+            heatmapColor: panelData.heatmapColor || (typeof getHeatmapColor === 'function' ? getHeatmapColor(panelData.annualLossPct || 0) : { hex: '#10b981' })
           });
         });
 
@@ -14087,11 +14087,14 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
                 const groundFront = projectPointToRoof(pair.low);
                 let groundBack = projectPointToRoof(pair.high);
 
+                // Vector de base real en cubierta confinado bajo la proyección del panel (sin extensiones artificiales):
                 const baseVec = Cesium.Cartesian3.subtract(groundBack, groundFront, new Cesium.Cartesian3());
                 const baseLen = Cesium.Cartesian3.magnitude(baseVec);
-                if (baseLen > 0.05 && baseLen < 1.40) {
+                if (baseLen > 0.05) {
                   const dir = Cesium.Cartesian3.normalize(baseVec, new Cesium.Cartesian3());
-                  groundBack = Cesium.Cartesian3.add(groundFront, Cesium.Cartesian3.multiplyByScalar(dir, 1.40, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+                  // Limitar la longitud de la zapata al intradós del marco para no sobresalir hacia adelante ni atrás
+                  const maxBaseLen = Math.min(baseLen, (p.h || 2.10) * 0.95);
+                  groundBack = Cesium.Cartesian3.add(groundFront, Cesium.Cartesian3.multiplyByScalar(dir, maxBaseLen, new Cesium.Cartesian3()), new Cesium.Cartesian3());
                 }
 
                 // Triángulo estructural cerrado A-Frame (confinado bajo el marco, acabado aluminio anodizado oscuro)

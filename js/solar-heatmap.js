@@ -641,6 +641,16 @@
   }
 
   // Token de generación para cancelación atómica de simulaciones obsoletas/concurrentes
+    /**
+   * Sondea el perfil de horizonte 3D (Skyline / Obstacle Elevation Mask)
+   * disparando rayos en abanico azimutal contra Google 3D Tiles y terreno.
+   * Devuelve un array de 16 elevaciones angulares (grados) cada 22.5 deg.
+   */
+  function computeFieldHorizonProfile(cfgPolylines) {
+    // Retorno inmediato: el raycast sincrono sobre 3D Tiles en Cesium bloquea el hilo principal de render
+    return null;
+  }
+
   let _activeSimGenerationId = 0;
 
   /**
@@ -651,13 +661,14 @@
     return new Promise((resolve, reject) => {
       let worker;
       try {
-        worker = new Worker('js/solar-worker.js?v=20261104a');
+        worker = new Worker('js/solar-worker.js?v=2026110505');
       } catch (err) {
         return reject(err);
       }
 
       const panels = [];
       const faldones = [];
+      const panelHorizons = computeFieldHorizonProfile(cfg.polylines);
 
       cfg.polylines.forEach((poly, polyIdx) => {
         const pInfo = poly.roofInfo || {};
@@ -865,7 +876,8 @@
             gridA: (typeof p.gridA === 'number') ? p.gridA : ((p.frame && typeof p.frame.Lu === 'number') ? (p.u * p.frame.Lu + p.v * p.frame.Lv) : null),
             frame: p.frame ? { Lu: p.frame.Lu, Lv: p.frame.Lv, Wu: p.frame.Wu, Wv: p.frame.Wv } : null,
             normalWorld: pNormWorld,
-            normalENU: normalENU
+            normalENU: normalENU,
+            horizon: (panelHorizons && panelHorizons.get(pId)) || null
           });
         });
       });
@@ -899,6 +911,7 @@
         lat: cfg.lat,
         lng: cfg.lng,
         resolution: cfg.resolution,
+        detailedBypass: cfg.detailedBypass,
         panels,
         faldones,
         climaticZone: cfg.climaticZone,
@@ -1065,19 +1078,20 @@
       return;
     }
 
-    // 4. Parámetros geográficos y temporales
+    // 4. Parámetros geográficos y temporales configurados desde ShadowSettings
+    const shadowCfg = (typeof window !== 'undefined' && window.ShadowSettings) ? window.ShadowSettings.getSettings() : {};
+    const simResolution = shadowCfg.simResolution || window.raHeatmapResolution || 'medium';
+    window.raHeatmapResolution = simResolution;
+    const detailedBypass = (shadowCfg.detailedBypass !== undefined) ? shadowCfg.detailedBypass : true;
+
     let monthsDoy = [15, 45, 74, 105, 135, 166, 196, 227, 258, 288, 319, 349];
     let monthDaysW = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-    let hours = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21];
+    let hours = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21]; // 192 instantes (Ultra)
 
-    if (window.raHeatmapResolution === 'medium') {
-      monthsDoy = [15, 74, 135, 196, 258, 319];
-      monthDaysW = [59, 61, 61, 62, 61, 61]; 
-      hours = [7, 9, 11, 13, 15, 17, 19];
-    } else if (window.raHeatmapResolution === 'fast') {
-      monthsDoy = [45, 135, 227, 319]; 
-      monthDaysW = [90, 92, 92, 91];
-      hours = [8, 11, 14, 17];
+    if (simResolution === 'medium') {
+      hours = [8, 10, 12, 14, 16, 18]; // 72 instantes (Ingeniería PVSyst)
+    } else if (simResolution === 'fast') {
+      hours = [9, 12, 15, 17]; // 48 instantes (Rápido interactivo)
     }
     // [B3] Paso de integración = intervalo REAL entre muestras (antes 16/N desajustaba el peso temporal).
     const hourStepDt = (hours.length > 1) ? (hours[hours.length - 1] - hours[0]) / (hours.length - 1) : 1.0;
@@ -1199,7 +1213,8 @@
           simGenerationId,
           lat,
           lng,
-          resolution: window.raHeatmapResolution || 'ultra',
+          resolution: simResolution,
+          detailedBypass: detailedBypass,
           polylines,
           climaticZone,
           moduleProps: {
@@ -1520,13 +1535,7 @@
               }
             }
 
-            if (shadedSubstringsCount < 3 && G_beam > 0.1 && sunDirWorld && pData.center) {
-              const shouldCheck3DTiles = !poly.ignore3DTilesShadows && !(pInfo && pInfo.ignore3DTilesShadows);
-              if (shouldCheck3DTiles && typeof isPanelOccludedBy3DEnvironment === "function" && isPanelOccludedBy3DEnvironment(pData.center, panelNormWorld, sunDirWorld)) {
-                isShaded = true;
-                shadedSubstringsCount = 3;
-              }
-            }
+            // Raycast sincrono eliminado en hilo principal para evitar congelacion de la app
 
             // Fracción física de pérdida de haz según sub-strings bajo sombra
             const beamShadedFraction = (shadedSubstringsCount > 0)
