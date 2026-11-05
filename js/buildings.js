@@ -639,22 +639,58 @@ function render3DBuildingsInCesium() {
         });
       }
 
-      // ── Muros verticales segmentados por cara plana ───────────────
+      // ── Muros verticales perimetrales con hastiales integrados (CAD AAA) ───
       try {
         const wallInstances = [];
         const nWalls = basePositions.length;
         for (let i = 0; i < nWalls; i++) {
+          const nextI = (i + 1) % nWalls;
           const pA = basePositions[i];
-          const pB = basePositions[(i + 1) % nWalls];
-          wallInstances.push(new Cesium.GeometryInstance({
-            geometry: new Cesium.WallGeometry({
-              positions: [pA, pB],
-              minimumHeights: [avgBaseHeight, avgBaseHeight],
-              maximumHeights: [roofHeight, roofHeight]
-            }),
-            attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(facadeColor) },
-            id: (bld.id || 'bld') + '_gable_wall_' + i
-          }));
+          const pB = basePositions[nextI];
+          const sA = projS[i], sB = projS[nextI];
+          const rA = projR[i], rB = projR[nextI];
+          const sSpan = Math.abs(sA - sB);
+          const rSpan = Math.abs(rA - rB);
+          const rMid = (rA + rB) / 2;
+
+          // Si el muro cruza transversalmente el edificio (hastial / testero),
+          // sube triangularmente hasta la cumbrera en el centro (midS).
+          if (sSpan > halfW * 0.4 && (Math.abs(rMid - minR) < ridgeSpan * 0.35 || Math.abs(rMid - maxR) < ridgeSpan * 0.35)) {
+            const nearR = Math.abs(rMid - minR) < Math.abs(rMid - maxR) ? minR : maxR;
+            // Coordenadas geográficas del punto de cumbrera directamente sobre este muro
+            const ridgeLon = cLon + (midS * sX + nearR * rX) / (R_EARTH * cosLat);
+            const ridgeLat = cLat + (midS * sY + nearR * rY) / R_EARTH;
+            const pRidgeBase = Cesium.Cartesian3.fromRadians(ridgeLon, ridgeLat, avgBaseHeight);
+
+            // Muro de 3 segmentos de altura: pA(roofHeight) -> pRidge(ridgeHeight) -> pB(roofHeight)
+            wallInstances.push(new Cesium.GeometryInstance({
+              geometry: new Cesium.WallGeometry({
+                positions: [pA, pRidgeBase, pB],
+                minimumHeights: [avgBaseHeight, avgBaseHeight, avgBaseHeight],
+                maximumHeights: [roofHeight, ridgeHeight, roofHeight]
+              }),
+              attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(facadeColor) },
+              id: (bld.id || 'bld') + '_gable_hastial_wall_' + i
+            }));
+
+            // Triángulo de cierre hermético del frontón sobre el plano de fachada
+            const pATop = wallTopPositions[i];
+            const pBTop = wallTopPositions[nextI];
+            const pRidgeTop = Cesium.Cartesian3.fromRadians(ridgeLon, ridgeLat, ridgeHeight);
+            addRoofTriangle(pATop, pBTop, pRidgeTop, facadeColor);
+            addRoofTriangle(pATop, pRidgeTop, pBTop, facadeColor);
+          } else {
+            // Muro lateral longitudinal (bajo el alero)
+            wallInstances.push(new Cesium.GeometryInstance({
+              geometry: new Cesium.WallGeometry({
+                positions: [pA, pB],
+                minimumHeights: [avgBaseHeight, avgBaseHeight],
+                maximumHeights: [roofHeight, roofHeight]
+              }),
+              attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(facadeColor) },
+              id: (bld.id || 'bld') + '_gable_wall_' + i
+            }));
+          }
         }
         window._buildingPrimitives.push(viewer.scene.primitives.add(new Cesium.Primitive({
           geometryInstances: wallInstances,
