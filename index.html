@@ -6801,6 +6801,22 @@ function clearAllCADSelection(notify = false) {
     window.cadCyclingState.candidateIdx = -1;
   }
 
+  // H. Aerogeneradores 3D (RA-Wind)
+  if (typeof window !== 'undefined') {
+    if (window.RAWindUI && typeof window.RAWindUI.selectTurbineForInspect === 'function') {
+      if (typeof window.RAWindUI.getSelectedTurbineId === 'function' && window.RAWindUI.getSelectedTurbineId()) {
+        hadAnySelection = true;
+      }
+      window.RAWindUI.selectTurbineForInspect(null);
+    }
+    if (window.RAWindVisualizer && typeof window.RAWindVisualizer.selectTurbine === 'function') {
+      if (typeof window.RAWindVisualizer.getSelectedId === 'function' && window.RAWindVisualizer.getSelectedId()) {
+        hadAnySelection = true;
+      }
+      window.RAWindVisualizer.selectTurbine(null);
+    }
+  }
+
   if (hadAnySelection && notify && typeof showStatus === 'function') {
     showStatus('<i data-lucide="x-circle" class="icon-sm"></i> SELECCIÓN DESPEJADA', 1200);
   }

@@ -242,9 +242,9 @@
   }
 
   function selectTurbineForInspect(id) {
-    _selectedTurbineIdForInspect = id;
+    _selectedTurbineIdForInspect = id || null;
     if (global.RAWindVisualizer && typeof global.RAWindVisualizer.selectTurbine === 'function') {
-      global.RAWindVisualizer.selectTurbine(id);
+      global.RAWindVisualizer.selectTurbine(id || null);
     }
     renderStep2Panel();
   }
@@ -687,9 +687,14 @@
       return;
     }
 
-    // Asegurar turbina seleccionada para inspección
-    var activeTurbine = turbines.find(function (t) { return t.id === _selectedTurbineIdForInspect; }) || turbines[0];
-    _selectedTurbineIdForInspect = activeTurbine.id;
+    // Comprobar si hay una turbina activa seleccionada para inspección
+    var activeTurbine = null;
+    if (_selectedTurbineIdForInspect) {
+      activeTurbine = turbines.find(function (t) { return t.id === _selectedTurbineIdForInspect; }) || null;
+      if (!activeTurbine) {
+        _selectedTurbineIdForInspect = null;
+      }
+    }
 
     // ── 2. Lista de Aerogeneradores con Controles Rápidos ──────────────
     var visualCfg = (global.RAWindVisualizer && typeof global.RAWindVisualizer.getVisualConfig === 'function')
@@ -750,7 +755,7 @@
       var kw = (cat.ratedPowerW ? (cat.ratedPowerW / 1000).toFixed(1) : '?');
       var hubH = t.supportStructure ? t.supportStructure.hubHeightM : 18;
       var isEnabled = t.operationalState ? t.operationalState.enabled !== false : true;
-      var isSel = (t.id === activeTurbine.id);
+      var isSel = (activeTurbine && t.id === activeTurbine.id);
       var aepKwh = (t.simulationResults && t.simulationResults.aepNetKwh) ? t.simulationResults.aepNetKwh : 0;
 
       html += '<div onclick="if(window.RAWindUI)window.RAWindUI.selectTurbineForInspect(\'' + t.id + '\')" style="display:flex;align-items:center;justify-content:space-between;background:' + (isSel ? 'rgba(56,189,248,0.14)' : 'rgba(30,41,59,0.7)') + ';padding:6px 8px;border-radius:6px;cursor:pointer;border:1px solid ' + (isSel ? '#38BDF8' : (isEnabled ? 'rgba(255,255,255,0.08)' : 'rgba(239,68,68,0.3)')) + ';">';
@@ -768,7 +773,8 @@
     html += '</div>';
 
     // ── 3. Inspector y Diagnóstico de Ingeniería Fase 2 de la Turbina Activa ──
-    var actCat = activeTurbine._catalog || {};
+    if (activeTurbine) {
+      var actCat = activeTurbine._catalog || {};
     var availHeights = Array.isArray(actCat.hubHeightsAvailableM) && actCat.hubHeightsAvailableM.length > 0
       ? actCat.hubHeightsAvailableM
       : [6, 9, 12, 18, 24, 30];
@@ -1080,6 +1086,12 @@
       html += '  </div>';
       html += '</div>';
     }
+  } else {
+    html += '<div style="background:rgba(15,23,42,0.5);border:1px dashed rgba(148,163,184,0.2);border-radius:6px;padding:12px;text-align:center;margin-bottom:8px;">';
+    html += '  <div style="color:#94A3B8;font-size:10px;font-weight:600;">Ningún aerogenerador seleccionado</div>';
+    html += '  <div style="color:#64748B;font-size:9px;margin-top:2px;">Haz clic en una unidad de la lista o en el visor 3D para inspeccionar y configurar.</div>';
+    html += '</div>';
+  }
 
     html += '</div>';
     panel.innerHTML = html;
@@ -1173,6 +1185,7 @@
     showPlacementHint: showPlacementHint,
     hidePlacementHint: hidePlacementHint,
     selectTurbineForInspect: selectTurbineForInspect,
+    getSelectedTurbineId: function () { return _selectedTurbineIdForInspect; },
     updateResourceParam: updateResourceParam,
     updateVisualParam: updateVisualParam,
     toggleRings3D: toggleRings3D,
