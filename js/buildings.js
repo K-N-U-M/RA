@@ -648,21 +648,20 @@ function render3DBuildingsInCesium() {
           const pA = basePositions[i];
           const pB = basePositions[nextI];
           const sA = projS[i], sB = projS[nextI];
-          const rA = projR[i], rB = projR[nextI];
-          const sSpan = Math.abs(sA - sB);
-          const rSpan = Math.abs(rA - rB);
-          const rMid = (rA + rB) / 2;
+          const sDiff = sB - sA;
 
-          // Si el muro cruza transversalmente el edificio (hastial / testero),
-          // sube triangularmente hasta la cumbrera en el centro (midS).
-          if (sSpan > halfW * 0.4 && (Math.abs(rMid - minR) < ridgeSpan * 0.35 || Math.abs(rMid - maxR) < ridgeSpan * 0.35)) {
-            const nearR = Math.abs(rMid - minR) < Math.abs(rMid - maxR) ? minR : maxR;
-            // Coordenadas geográficas del punto de cumbrera directamente sobre este muro
-            const ridgeLon = cLon + (midS * sX + nearR * rX) / (R_EARTH * cosLat);
-            const ridgeLat = cLat + (midS * sY + nearR * rY) / R_EARTH;
-            const pRidgeBase = Cesium.Cartesian3.fromRadians(ridgeLon, ridgeLat, avgBaseHeight);
+          // Un muro es testero / hastial si su segmento cruza el plano del eje de cumbrera (midS)
+          if ((sA - midS) * (sB - midS) <= 1e-6 && Math.abs(sDiff) > 1e-4) {
+            const t = (midS - sA) / sDiff;
+            const cA = cartoList[i];
+            const cB = cartoList[nextI];
+            const pRidgeBase = Cesium.Cartesian3.fromRadians(
+              cA.longitude + t * (cB.longitude - cA.longitude),
+              cA.latitude  + t * (cB.latitude  - cA.latitude),
+              avgBaseHeight
+            );
 
-            // Muro de 3 segmentos de altura: pA(roofHeight) -> pRidge(ridgeHeight) -> pB(roofHeight)
+            // Muro continuo de 3 vértices: asciende triangularmente hasta ridgeHeight en el cruce de cumbrera
             wallInstances.push(new Cesium.GeometryInstance({
               geometry: new Cesium.WallGeometry({
                 positions: [pA, pRidgeBase, pB],
@@ -673,14 +672,18 @@ function render3DBuildingsInCesium() {
               id: (bld.id || 'bld') + '_gable_hastial_wall_' + i
             }));
 
-            // Triángulo de cierre hermético del frontón sobre el plano de fachada
+            // Cierre frontal del tímpano triangular sobre el plano de fachada
             const pATop = wallTopPositions[i];
             const pBTop = wallTopPositions[nextI];
-            const pRidgeTop = Cesium.Cartesian3.fromRadians(ridgeLon, ridgeLat, ridgeHeight);
-            addRoofTriangle(pATop, pBTop, pRidgeTop, facadeColor);
+            const pRidgeTop = Cesium.Cartesian3.fromRadians(
+              cA.longitude + t * (cB.longitude - cA.longitude),
+              cA.latitude  + t * (cB.latitude  - cA.latitude),
+              ridgeHeight
+            );
             addRoofTriangle(pATop, pRidgeTop, pBTop, facadeColor);
+            addRoofTriangle(pATop, pBTop, pRidgeTop, facadeColor);
           } else {
-            // Muro lateral longitudinal (bajo el alero)
+            // Muro lateral longitudinal (paralelo a cumbrera, cota constante roofHeight)
             wallInstances.push(new Cesium.GeometryInstance({
               geometry: new Cesium.WallGeometry({
                 positions: [pA, pB],
