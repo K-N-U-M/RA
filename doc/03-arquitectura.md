@@ -39,7 +39,10 @@ La aplicación es un **monolito cliente** organizado en capas lógicas accesible
 ### 2.3 Motores JS (`js/`)
 Funciones y objetos modulares por dominio. Interactúan con Cesium a través del visor global `viewer`/`viewer.scene`/`viewer.camera` (nunca referencias directas a `scene` o `camera` declaradas en otro scope) y se registran en `window` para interoperar con `index.html`.
 
-### 2.4 Render
+### 2.4 Simulación Solar Off-Thread (`js/solar-worker.js`)
+Para evitar congelar el bucle de renderizado de Cesium (60 FPS estables), el cálculo intensivo de insolación anual y sombreado multivariable (Spencer / Erbs / Hay-Davies) se delega a un Web Worker dedicado. Se ejecuta de forma asíncrona mediante paso de mensajes (`postMessage`), soportando resoluciones de 48, 72 o 192 instantes astronómicos y análisis sub-celular de diodos bypass.
+
+### 2.5 Render
 - **CesiumJS:** globos, tiles, terreno, primitivas 3D (edificios, obstáculos, paneles, sombras). Es el **único motor 3D**; no hay Three.js.
 - **Overlay 2D:** `canvas#ra-triad-overlay` con `position:fixed`, `100vw×100vh`, `pointer-events:none`. En este canvas se dibujan: cursor CAD/fallback, tríada ortogonal, gizmo de vértice y **gizmo universal**.
 

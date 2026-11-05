@@ -23,7 +23,7 @@
 - **Empaquetamiento de Paneles:** Algoritmos booleano-geométricos, retranqueos euclídeos, paso inter-filas anti-autosombreado (solsticio de invierno), orientaciones este-oeste (V-Dome), comparador visual de orientación (vertical/horizontal con kWp en vivo) y pasillos automáticos de mantenimiento (0.80 m).
 - **Ingeniería Eléctrica REBT:** Strings por MPPT, enrutamiento leapfrog (UNE-EN 62305), secciones ZZ-F DC y RV-K AC, caída de tensión ≤1.5% (REBT ITC-BT-40).
 - **Catálogo de Equipos:** CRUD de módulos, inversores, baterías, microinversores; singleton `window.equipmentCatalog` con persistencia `localStorage`.
-- **Simulación Anual:** 192 instantes solares asíncrono no bloqueante, heatmap por panel, diagnóstico MLPE.
+- **Simulación Anual:** Web Worker dedicado off-thread (48, 72 o 192 instantes solares, ~30-50ms sin congelación), heatmap por panel con gradiente de 10 tramos y diagnóstico MLPE.
 - **Presupuesto y Entrega:** CAPEX/OPEX, VAN, TIR, auditoría de facturas, exportación PDF.
 
 ---
@@ -34,40 +34,56 @@
 c:/TRABAJOS/RA/
 ├── index.html                       # Aplicación completa (HTML/CSS/JS monolito cliente)
 ├── AGENTS.md                        # ← ESTE ARCHIVO. Fuente de verdad para agentes IA.
-├── MEMORY.md                        # Memoria viva del proyecto: decisiones, estado, deuda técnica
-├── MANUAL_TECNICO_INGENIERIA_RA.md  # Física solar y formulación matemática
-├── MANUAL_CIENTIFICO_TECNICO_EOLICO_HIBRIDO.md # Manual científico eólico y normativo
-├── ESPECIFICACION_ARQUITECTURA_MODULO_EOLICO.md # Arquitectura técnica AAA eólica
+├── README.md                        # Documentación ejecutiva del repositorio
 ├── css/styles.css                   # Estilos complementarios
+├── doc/                             # Documentación canónica de arquitectura y manuales
+│   ├── README.md                    # Índice general de documentación
+│   ├── 01-especificaciones.md       # Especificaciones funcionales y requisitos
+│   ├── 02-tecnologia.md             # Stack tecnológico, Web Workers y librerías
+│   ├── 03-arquitectura.md           # Arquitectura de 5 pasos y capas lógicas
+│   ├── 04-convenciones.md           # Reglas de codificación para IA y desarrolladores
+│   ├── manuales/                    # Manuales vivos de ingeniería y memoria científica
+│   │   ├── MEMORY.md                # Memoria viva del proyecto: decisiones y trazabilidad
+│   │   ├── MANUAL_TECNICO_INGENIERIA_RA.md  # Física solar y formulación matemática
+│   │   ├── MANUAL_CIENTIFICO_TECNICO_EOLICO_HIBRIDO.md # Manual científico eólico
+│   │   ├── ESPECIFICACION_ARQUITECTURA_MODULO_EOLICO.md # Arquitectura módulo eólico
+│   │   └── GUIA_IMPLEMENTACION_MODULO_EOLICO.md # Guía de integración eólica
+│   ├── planes/                      # Planes maestros de desarrollo vigentes
+│   │   ├── PLAN_MAESTRO_INGENIERIA_SOLAR_V5.md
+│   │   ├── PLAN_INVERSORES_EN_CASCADA.md
+│   │   └── PLAN_BACKEND_FIREBASE_CATALOGO.md
+│   └── historico_auditorias/        # Auditorías cerradas e históricos archivados
 ├── js/
 │   ├── workflow-orchestrator.js     # Máquina de estados del stepper (5 pasos)
 │   ├── working-plane.js             # Planos de trabajo, faldones, tríada CAD
 │   ├── capture-mode.js              # Modo captura limpia (oculta andamiaje CAD, tecla C)
 │   ├── buildings.js                 # Edificios 3D y extrusión perimetral
 │   ├── obstacles.js                 # Obstáculos 3D (chimeneas, HVAC, árboles)
+│   ├── shadow-settings.js           # Gestión unificada de sombras 3D y calibración
 │   ├── solar-engine.js              # Algoritmos astronómicos (Spencer, Perez, Hay-Davies)
-│   ├── solar-heatmap.js             # Simulación anual y diagnóstico MLPE
+│   ├── solar-heatmap.js             # Orquestador del heatmap anual y mapas cromáticos
+│   ├── solar-worker.js              # Web Worker dedicado off-thread (simulación solar multivariable)
 │   ├── solar-materials.js           # Shaders y materiales PBR fotovoltaicos
 │   ├── electrical-engine.js         # Secciones REBT, strings MPPT y reasignación balanceada
 │   ├── undo-manager.js              # Deshacer borrados (obstáculos/edificios/paneles/vértices)
-│   ├── bill-auditor.js              # Auditoría de facturas eléctricas (doble motor: IA multimodal Gemini + local Datadis)
-│   ├── financials.js                # CAPEX/OPEX, VAN, TIR, oferta comercial + resumen IA híbrido
-│   ├── company-branding.js          # Identidad corporativa, gestión y persistencia de logotipo y Gemini API
+│   ├── bill-auditor.js              # Auditoría de facturas eléctricas (Gemini + Datadis)
+│   ├── financials.js                # CAPEX/OPEX, VAN, TIR, oferta comercial + resumen IA
+│   ├── company-branding.js          # Identidad corporativa, logotipo y Gemini API
 │   ├── docs-generator.js            # Exportación de memorias y ofertas en PDF
 │   ├── bom-tree.js                  # Árbol de materiales (BOM)
 │   ├── project-hierarchy.js         # Scene graph jerárquico del proyecto
-│   ├── project-storage.js           # Almacenamiento, exportación e importación de proyectos (.raproject)
-│   ├── ui-viewport-controls.js      # Alertas toast, pantalla de carga y controles de visualización 3D
+│   ├── project-storage.js           # Almacenamiento, exportación e importación .raproject
+│   ├── ui-viewport-controls.js      # Alertas toast, pantalla de carga y controles 3D
 │   ├── ui-outliner.js               # Outliner de objetos de escena
 │   ├── engineering-explainer.js     # Explicaciones guiadas de ingeniería
-│   ├── wind-turbine.js              # Generadores eólicos 3D (HAWT/VAWT) paramétricos AAA
+│   ├── wind-turbine.js              # Generadores eólicos 3D (HAWT/VAWT) paramétricos
 │   ├── measure-tool.js              # Cinta métrica 3D con desglose físico y snap magnético
-│   ├── config.js                    # Constantes globales y paletas (credenciales vía js/ra-env.js)
+│   ├── config.js                    # Constantes globales y paletas
 │   ├── sanitizer.js                 # Saneado por allowlist de HTML generado por IA
-│   ├── wind/                        # 13 módulos del motor eólico (recurso, estructura, ruido, flicker…)
+│   ├── wind/                        # 13 módulos del motor eólico
 │   └── viewer.js                    # Configuración del visor Cesium
 ├── tests/                           # 38 pruebas; runner agregado en tests/run-all.js
-└── doc/                             # Documentación canónica de arquitectura
+
 ```
 
 > **Inventario real (2026-10-28):** 63 archivos JS (50 en `js/` + 13 en `js/wind/`). Este árbol es una selección de los núcleos; `node tests/test-js-syntax.js` recorre el inventario completo.
