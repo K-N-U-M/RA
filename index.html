@@ -897,6 +897,25 @@ window.RA_App = window.RA_App || {};
                   <input type="number" id="bld-overhang" min="0" max="1.5" step="0.05" value="0.2" class="field-input" style="width:65px;font-size: 10px;padding:3px 6px;text-align:right;" onwheel="this.blur()" oninput="updateSelectedBuildingProps()" onchange="updateSelectedBuildingProps()">
                 </div>
 
+                <!-- Canto / Grosor de Cubierta (Propuesta 1) -->
+                <div class="field-row" id="bld-thickness-row" style="display:none;justify-content:space-between;align-items:center;">
+                  <span style="font-size: 10px;color:var(--text-slate-300);">Grosor de Faldón / Losa (m):</span>
+                  <input type="number" id="bld-roof-thickness" min="0.05" max="0.80" step="0.05" value="0.20" class="field-input" style="width:65px;font-size: 10px;padding:3px 6px;text-align:right;" onwheel="this.blur()" oninput="updateSelectedBuildingProps()" onchange="updateSelectedBuildingProps()">
+                </div>
+
+                <!-- Lucernarios / Buhardillas (Propuesta 2) -->
+                <div class="field-row" id="bld-skylights-row" style="display:none;justify-content:space-between;align-items:center;">
+                  <span style="font-size: 10px;color:var(--text-slate-300);">Lucernarios / Buhardillas:</span>
+                  <div style="display:flex;gap:4px;align-items:center;">
+                    <select id="bld-skylight-count" onchange="updateSelectedBuildingProps()" style="background:rgba(15,23,42,0.9);border:1px solid rgba(56,189,248,0.4);color:#f8fafc;font-size: 10px;padding:2px 4px;border-radius:3px;">
+                      <option value="0">Ninguno</option>
+                      <option value="1">1 Ventana</option>
+                      <option value="2">2 Ventanas</option>
+                      <option value="4">4 Ventanas (2x2)</option>
+                    </select>
+                  </div>
+                </div>
+
                 <!-- Color y Acabado de Tejado, Fachadas y Aristas -->
                 <div class="field-row" style="display:flex;justify-content:space-between;align-items:center;">
                   <span style="font-size: 10px;color:var(--text-slate-300);">Fachada / Tejado / Aristas:</span>
