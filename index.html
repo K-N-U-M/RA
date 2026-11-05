@@ -14784,14 +14784,17 @@ function updateSolarCalcHUD(pct, currentMonthIdx, totalPanels, extraOpts) {
     speedTxt.textContent = 'Paso ' + currentStep + ' de ' + totalSteps;
   }
 
+  // Las pastillas corresponden a los 12 meses cronológicos (0 = ENE .. 11 = DIC).
+  // Se marcan según el mes calendario activo (currentMonthIdx) y la fracción de progreso global completada:
+  const completedMonthIndex = Math.floor((safePct / 100) * 12);
   const pills = document.querySelectorAll('.solar-calc-month-pill');
   pills.forEach((p, idx) => {
-    if (idx < currentMonthIdx) {
-      p.classList.remove('current');
-      p.classList.add('done');
-    } else if (idx === currentMonthIdx) {
+    if (idx === currentMonthIdx) {
       p.classList.remove('done');
       p.classList.add('current');
+    } else if (idx < completedMonthIndex || (idx < currentMonthIdx && opts.phaseText !== 'Escaneo 3D')) {
+      p.classList.remove('current');
+      p.classList.add('done');
     } else {
       p.classList.remove('done', 'current');
     }
