@@ -866,10 +866,12 @@
               Cesium.Cartesian3.normalize(sunDirWorld, sunDirWorld);
 
               let isOccluded = 0;
-              if (Cesium.Cartesian3.dot(pProbe.normal, sunDirWorld) <= 0.05) {
-                isOccluded = 1;
-              } else if (isPanelOccludedBy3DEnvironment(pProbe.center, pProbe.normal, sunDirWorld, pProbe.pInfo)) {
-                isOccluded = 1;
+              // La oclusión ambiental 3D sólo evalúa apantallamiento de objetos externos (edificios/árboles/terreno)
+              // La incidencia angular directa (cosTheta <= 0) se calcula rigurosamente en el modelo POA del Worker.
+              if (Cesium.Cartesian3.dot(pProbe.normal, sunDirWorld) > 0.001) {
+                if (isPanelOccludedBy3DEnvironment(pProbe.center, pProbe.normal, sunDirWorld, pProbe.pInfo)) {
+                  isOccluded = 1;
+                }
               }
 
               occlusion3DMap.get(pProbe.id)[stepIdx] = isOccluded;
@@ -1087,17 +1089,27 @@
             tiltVal = roofSlopeVal;
           }
           const azVal = p.azimuthDeg !== undefined ? (180 - p.azimuthDeg) : (p.azDeg !== undefined ? p.azDeg : (pInfo.moduleAzimuthDeg !== undefined ? (180 - pInfo.moduleAzimuthDeg) : (pInfo.azDeg || 180)));
-          const tiltR = (tiltVal * Math.PI) / 180;
-          const azR = (azVal * Math.PI) / 180;
-          const normalENU = {
-            x: Math.sin(tiltR) * Math.sin(azR),
-            y: Math.sin(tiltR) * Math.cos(azR),
-            z: Math.cos(tiltR)
-          };
 
           const pNormWorld = (typeof getPanelNormalWorld === 'function')
             ? getPanelNormalWorld(p, norm, pInfo.transform)
             : norm;
+
+          let normalENU;
+          if (pNormWorld && pInfo && pInfo.center && typeof Cesium !== 'undefined' && Cesium.Transforms && Cesium.Matrix4) {
+            const enuFrame = Cesium.Transforms.eastNorthUpToFixedFrame(pInfo.center);
+            const invENU = Cesium.Matrix4.inverse(enuFrame, new Cesium.Matrix4());
+            const nENU = Cesium.Matrix4.multiplyByPointAsVector(invENU, pNormWorld, new Cesium.Cartesian3());
+            Cesium.Cartesian3.normalize(nENU, nENU);
+            normalENU = { x: nENU.x, y: nENU.y, z: nENU.z };
+          } else {
+            const tiltR = (tiltVal * Math.PI) / 180;
+            const azR = (azVal * Math.PI) / 180;
+            normalENU = {
+              x: Math.sin(tiltR) * Math.sin(azR),
+              y: Math.sin(tiltR) * Math.cos(azR),
+              z: Math.cos(tiltR)
+            };
+          }
 
           panels.push({
             id: pId,
