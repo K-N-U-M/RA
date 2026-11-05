@@ -1661,11 +1661,15 @@ function recalculateLayoutAndObstacles(targetPolyIdx) {
     if (typeof targetPolyIdx === 'number' && targetPolyIdx >= 0 && targetPolyIdx < WP.polylines.length) {
       if (WP.polylines[targetPolyIdx]) {
         WP.polylines[targetPolyIdx]._calcSig = null;
+        WP.polylines[targetPolyIdx]._geometryDirty = true;
+        WP.polylines[targetPolyIdx].roofInfo = null;
       }
     } else {
       WP.polylines.forEach(pl => {
         if (pl) {
           pl._calcSig = null;
+          pl._geometryDirty = true;
+          pl.roofInfo = null;
         }
       });
     }

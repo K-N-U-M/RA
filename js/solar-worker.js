@@ -232,17 +232,22 @@ self.onmessage = function(e) {
   const customMonthlyGHI = Array.isArray(monthlyGHI) ? monthlyGHI : null;
   const useDetailedBypass = (detailedBypass !== undefined) ? !!detailedBypass : true;
 
-  // 12 meses astronómicos reales con ponderación de días de calendario
-  const monthsDoy = [15, 45, 74, 105, 135, 166, 196, 227, 258, 288, 319, 349];
-  const monthDaysW = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  // Configuración temporal adaptable según modo de resolución
+  let monthsDoy = [15, 45, 74, 105, 135, 166, 196, 227, 258, 288, 319, 349];
+  let monthDaysW = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
   let hours = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21]; // 16h = 192 instantes (Ultra)
 
-  if (resolution === 'medium') {
-    // 12 meses x 6 horas clave (8:00 a 18:00) = 72 instantes (Ingeniería PVSyst estándar, <1.2s)
+  if (resolution === 'sketch') {
+    // Modo Skyline 360° instantáneo (<0.1s): 12 meses x 6 horas de cálculo puro sin raycast previo por panel
     hours = [8, 10, 12, 14, 16, 18];
   } else if (resolution === 'fast') {
-    // 12 meses x 4 horas clave (9:00 a 17:00) = 48 instantes (Rápido interactivo, <400ms)
+    // Modo Rápida Solsticios y Equinoccios (Opción 3): 4 fechas cardinales x 4 horas clave = 16 instantes (~0.3s)
+    monthsDoy = [15, 105, 196, 288]; // Ene (Invierno), Abr (Primavera), Jul (Verano), Oct (Otoño)
+    monthDaysW = [90, 91, 92, 92];    // Ponderación trimestral canónica
     hours = [9, 12, 15, 17];
+  } else if (resolution === 'medium') {
+    // 12 meses x 6 horas clave = 72 instantes (Ingeniería PVSyst)
+    hours = [8, 10, 12, 14, 16, 18];
   }
 
   const hourStepDt = (hours.length > 1) ? (hours[hours.length - 1] - hours[0]) / (hours.length - 1) : 1.0;
@@ -394,7 +399,8 @@ self.onmessage = function(e) {
       fViewSky: fViewSky,
       fViewGround: fViewGround,
       hasOptimizer: !!pData.hasOptimizer,
-      horizon: pData.horizon || null
+      horizon: pData.horizon || null,
+      occlusion3D: pData.occlusion3D || null
     };
   });
 
@@ -636,19 +642,22 @@ self.onmessage = function(e) {
           }
         }
 
-        const effectiveShaded = isShaded || isOccludedByHorizon;
-        const totalEffectiveLossFraction = isOccludedByHorizon ? 1.0 : effectiveLossFraction;
+        const isOccludedBy3D = (p.occlusion3D && p.occlusion3D[currentStep - 1] === 1);
+        const isEnvironmentOccluded = isOccludedByHorizon || isOccludedBy3D;
 
-        const beamLossW = (effectiveShaded && totalEffectiveLossFraction > 0) ? (G_beam * thermalFactor * totalEffectiveLossFraction * (isOccludedByHorizon ? 1.0 : p.penumbraAttenuation)) : 0;
-        const skyOcclusionFactor = isOccludedByHorizon ? 0.35 : 0.0;
+        const effectiveShaded = isShaded || isEnvironmentOccluded;
+        const totalEffectiveLossFraction = isEnvironmentOccluded ? 1.0 : effectiveLossFraction;
+
+        const beamLossW = (effectiveShaded && totalEffectiveLossFraction > 0) ? (G_beam * thermalFactor * totalEffectiveLossFraction * (isEnvironmentOccluded ? 1.0 : p.penumbraAttenuation)) : 0;
+        const skyOcclusionFactor = isEnvironmentOccluded ? 0.35 : 0.0;
         const diffuseLossW = (!hasOpt && shadedSubstringsCount > 0)
           ? ((G_diff + G_refl + (isBifacial ? G_refl * bifacialityFactor : 0)) * thermalFactor * (beamShadedFraction / 3.0))
-          : (isOccludedByHorizon ? (G_diff * thermalFactor * skyOcclusionFactor) : 0);
+          : (isEnvironmentOccluded ? (G_diff * thermalFactor * skyOcclusionFactor) : 0);
         const instantLossW = beamLossW + diffuseLossW;
 
         if (effectiveShaded && instantLossW > 0) {
           res.shadowHits += mw * hourStepDt;
-          res.activeDiodesHits += (isOccludedByHorizon ? 3 : shadedSubstringsCount) * mw * hourStepDt;
+          res.activeDiodesHits += (isEnvironmentOccluded ? 3 : shadedSubstringsCount) * mw * hourStepDt;
           res.annualShadedLoss += instantLossW * mw * hourStepDt;
         }
 
@@ -657,13 +666,16 @@ self.onmessage = function(e) {
       });
     }
 
-    // Progreso mensual
-    const progressPct = Math.min(100, Math.round((currentStep / totalSteps) * 100));
+    // Progreso mensual (fase worker cubre del 35% al 100%)
+    const progressPct = Math.min(100, Math.round(35 + (currentStep / totalSteps) * 65));
     self.postMessage({
       type: 'PROGRESS',
       simGenerationId,
       progressPct,
       mIdx,
+      monthReal: m,
+      stepIndex: mIdx + 1,
+      totalStepsCount: monthsDoy.length,
       totalPanels: panels.length
     });
   }

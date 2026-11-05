@@ -40,7 +40,7 @@ window.RA_App = window.RA_App || {};
   <script src="js/universal-gizmo-3d.js?v=1793254625038"></script>
   <script src="js/buildings.js?v=20261016d"></script>
     <script src="js/radiation-engine.js?v=20261014a"></script>
-    <script src="js/solar-heatmap.js?v=20261104b"></script>
+    <script src="js/solar-heatmap.js?v=20261105_1330"></script>
     <script src="js/solar-live-probe.js?v=20261029a"></script>
     <script src="js/ra-env.js"></script>
 <script src="js/config.js?v=20261028a"></script>
@@ -112,7 +112,7 @@ window.RA_App = window.RA_App || {};
   <script src="js/ra-lod-manager.js?v=20261019a"></script>
   <script src="js/storage-cache.js?v=20261019a"></script>
   <script src="js/lazy-loader.js?v=20261019a"></script>
-  <script src="js/shadow-settings.js?v=20261023a"></script>
+  <script src="js/shadow-settings.js?v=20261105_1330"></script>
   <script src="js/proposal-style-studio.js?v=20261030a"></script>
   <script src="js/commercial-proposal-dossier.js?v=20261030a"></script>
 
@@ -11613,11 +11613,30 @@ function step5RegenerateLayout() {
   
   isPolygonDesignConfirmed = true;
 
+  // 🚀 PURGA COMPLETA DE CACHÉS Y RESIDUOS MANUALES PARA REGENERACIÓN LIMPIA
+  if (typeof roofPanelsCache !== 'undefined' && roofPanelsCache) {
+    roofPanelsCache.sig = '';
+    roofPanelsCache.data = null;
+  }
+  if (typeof WP !== 'undefined' && WP && Array.isArray(WP.polylines)) {
+    WP.polylines.forEach(pl => {
+      if (pl) {
+        pl._calcSig = null;
+        pl._geometryDirty = true;
+        pl.roofInfo = null;
+        delete pl._fromProjectImport;
+      }
+    });
+  }
+  if (typeof window !== 'undefined') {
+    window.allRenderedPanels = [];
+  }
+
   try { 
     if (typeof recalculateLayoutAndObstacles === 'function') {
       recalculateLayoutAndObstacles();
     } else if (typeof wpFastRenderSimulatedPanels === 'function') {
-      wpFastRenderSimulatedPanels();
+      wpFastRenderSimulatedPanels(true);
     }
     window.RA.log.warn('[FORENSIC] layout regeneration SUCCESS');
   } catch(e) { 
@@ -12165,6 +12184,61 @@ function getHeatmapColor(lossPct) {
   if (lossPct <= 40.0) return { hex: "#EF4444", css: "rgba(239, 68, 68, 0.95)", label: "Severa (30-40%)" };
   return { hex: "#991B1B", css: "rgba(153, 27, 27, 0.95)", label: "Crítica (>35%)" };
 }
+
+function getRelativeYieldColor(relPct) {
+  // Escala relativa al líder de la instalación (100% = verde esmeralda brillante)
+  const val = (typeof relPct === 'number' && !isNaN(relPct)) ? relPct : 100;
+  if (val >= 99.0) return { hex: "#059669", css: "rgba(5, 150, 105, 0.95)", label: "Líder (≥99%)" };
+  if (val >= 96.0) return { hex: "#10B981", css: "rgba(16, 185, 129, 0.95)", label: "Excelente (96-99%)" };
+  if (val >= 92.0) return { hex: "#84CC16", css: "rgba(132, 204, 22, 0.95)", label: "Muy Bueno (92-96%)" };
+  if (val >= 88.0) return { hex: "#A3E635", css: "rgba(163, 230, 53, 0.95)", label: "Bueno (88-92%)" };
+  if (val >= 83.0) return { hex: "#FACC15", css: "rgba(250, 204, 21, 0.95)", label: "Medio (83-88%)" };
+  if (val >= 77.0) return { hex: "#F59E0B", css: "rgba(245, 158, 11, 0.95)", label: "Aceptable (77-83%)" };
+  if (val >= 70.0) return { hex: "#F97316", css: "rgba(249, 115, 22, 0.95)", label: "Bajo (70-77%)" };
+  if (val >= 60.0) return { hex: "#EA580C", css: "rgba(234, 88, 12, 0.95)", label: "Muy Bajo (60-70%)" };
+  if (val >= 50.0) return { hex: "#EF4444", css: "rgba(239, 68, 68, 0.95)", label: "Crítico (50-60%)" };
+  return { hex: "#991B1B", css: "rgba(153, 27, 27, 0.95)", label: "Severo (<50%)" };
+}
+
+function getActiveHeatmapColorForPanel(p) {
+  if (!p) return { hex: "#10b981" };
+  const useRel = (typeof window !== 'undefined' && window.raRelativeColorScale) ||
+                 (typeof window !== 'undefined' && window.ShadowSettings && window.ShadowSettings.getSettings().relativeColorScale);
+  if (useRel && typeof p.relativeYieldPct === 'number') {
+    return getRelativeYieldColor(p.relativeYieldPct);
+  }
+  return getHeatmapColor(p.annualLossPct || 0);
+}
+
+function wpReapplyHeatmapColors() {
+  const hasPolys = typeof WP !== "undefined" && WP && WP.polylines && WP.polylines.length > 0;
+  const polylinesList = hasPolys ? WP.polylines : (typeof lastRoofInfo !== "undefined" && lastRoofInfo ? [{ points: polygonPoints, roofInfo: lastRoofInfo }] : []);
+
+  // Recalcular colores en objetos de datos
+  polylinesList.forEach(poly => {
+    const panels = Array.isArray(poly.panels) ? poly.panels : (poly.roofInfo && Array.isArray(poly.roofInfo.panels) ? poly.roofInfo.panels : []);
+    panels.forEach(p => {
+      p.heatmapColor = getActiveHeatmapColorForPanel(p);
+    });
+  });
+
+  if (Array.isArray(window.allRenderedPanels)) {
+    window.allRenderedPanels.forEach(p => {
+      if (p) p.heatmapColor = getActiveHeatmapColorForPanel(p);
+    });
+  }
+
+  // Renderizar de nuevo
+  if (typeof wpRenderHeatmapVisuals === 'function') {
+    wpRenderHeatmapVisuals();
+  }
+  if (typeof wpFastRenderSimulatedPanelsAsync === 'function') {
+    wpFastRenderSimulatedPanelsAsync(true);
+  }
+}
+window.wpReapplyHeatmapColors = wpReapplyHeatmapColors;
+window.getActiveHeatmapColorForPanel = getActiveHeatmapColorForPanel;
+window.getRelativeYieldColor = getRelativeYieldColor;
 
 // ── ESTADO GLOBAL DEL MOTOR SOLAR Y SOMBRAS ─────────────────────────────────
 if (typeof window.solarSimState === "undefined" || !window.solarSimState) {
@@ -12841,9 +12915,8 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
             if (prev.rawPanel) matchedAsyncPrevPanels.add(prev.rawPanel);
           }
           if (poly._geometryDirty) {
-          // Geometría de cubierta editada: no arrastrar coordenadas manuales obsoletas del faldón viejo
-          delete poly._geometryDirty;
-        } else if (prev && (prev.isManual || (prev.rawPanel && prev.rawPanel.isManual))) {
+            // Geometría de cubierta editada: no arrastrar coordenadas manuales obsoletas del faldón viejo
+          } else if (prev && (prev.isManual || (prev.rawPanel && prev.rawPanel.isManual))) {
             p.isManual = true;
             p.gridA = undefined;
             p.gridB = undefined;
@@ -12866,7 +12939,7 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
           }
         }
       });
-      if (prevPanelsMap && prevPanelsMap.length > 0) {
+      if (!poly._geometryDirty && prevPanelsMap && prevPanelsMap.length > 0) {
         prevPanelsMap.forEach(op => {
           if (!op) return;
           const isMan = op.isManual || (op.rawPanel && op.rawPanel.isManual);
@@ -12891,6 +12964,9 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
             }
           }
         });
+      }
+      if (poly._geometryDirty) {
+        delete poly._geometryDirty;
       }
       pInfo.panels = pInfo.panels.filter(p => !p.deleted);
     }
@@ -14313,13 +14389,14 @@ function _getOcclusionExcludeList(scene) {
   return toExclude;
 }
 
-function isPanelOccludedBy3DEnvironment(panelCenter, norm, sunDirWorld) {
+function isPanelOccludedBy3DEnvironment(panelCenter, norm, sunDirWorld, pInfo) {
   if (typeof viewer === "undefined" || !viewer || !viewer.scene) return false;
   const scene = viewer.scene;
 
   // Raycast contra 3D Tilesets (Google 3D Photorealistic Tiles, Cesium OSM Buildings)
-  const hasTileset = (typeof google3DTileset !== "undefined" && google3DTileset) ||
-                     (typeof cesiumOsmBuildings !== "undefined" && cesiumOsmBuildings);
+  const gTileset = (typeof google3DTileset !== "undefined" && google3DTileset) || (typeof window !== "undefined" && window.google3DTileset);
+  const osmTileset = (typeof cesiumOsmBuildings !== "undefined" && cesiumOsmBuildings) || (typeof window !== "undefined" && window.cesiumOsmBuildings);
+  const hasTileset = gTileset || osmTileset || (scene.primitives && scene.primitives.length > 0);
   if (!hasTileset) return false;
   if (typeof scene.pickFromRay !== "function" || typeof Cesium.Ray !== "function") return false;
 
@@ -14345,17 +14422,34 @@ function isPanelOccludedBy3DEnvironment(panelCenter, norm, sunDirWorld) {
     const toExclude = _getOcclusionExcludeList(scene);
     const hit = scene.pickFromRay(ray, toExclude);
     if (hit && Cesium.defined(hit.position) && hit.object) {
-      // VERIFICACIÓN ESTRICTA: El impacto TIENE que pertenecer al tileset 3D (Google Photorealistic o Cesium OSM)
+      // VERIFICACIÓN: El impacto pertenece a una malla tridimensional (3D Tileset / Feature / Modelo)
+      const objPrim = hit.object.primitive;
       const is3DTile = (
         (typeof Cesium.Cesium3DTileFeature !== "undefined" && hit.object instanceof Cesium.Cesium3DTileFeature) ||
-        (hit.object.primitive && (hit.object.primitive === google3DTileset || hit.object.primitive === cesiumOsmBuildings)) ||
-        (hit.object.tileset && (hit.object.tileset === google3DTileset || hit.object.tileset === cesiumOsmBuildings))
+        (typeof Cesium.Cesium3DTileset !== "undefined" && (objPrim instanceof Cesium.Cesium3DTileset || hit.object instanceof Cesium.Cesium3DTileset)) ||
+        (objPrim && (objPrim === gTileset || objPrim === osmTileset)) ||
+        (hit.object.tileset && (hit.object.tileset === gTileset || hit.object.tileset === osmTileset)) ||
+        (hit.object.content && hit.object.content.tileset)
       );
 
       if (is3DTile) {
+        // [Filtro de auto-impacto de la propia cubierta]
+        // Si el rayo impacta contra la losa del faldón a poca altura (< 1.2m) dentro del perímetro, es la propia cubierta
+        if (pInfo && pInfo.invTransform) {
+          try {
+            const locHit = Cesium.Matrix4.multiplyByPoint(pInfo.invTransform, hit.position, new Cesium.Cartesian3());
+            const u = Cesium.Cartesian3.dot(locHit, pInfo.uVec || Cesium.Cartesian3.UNIT_X);
+            const v = Cesium.Cartesian3.dot(locHit, pInfo.vVec || Cesium.Cartesian3.UNIT_Y);
+            const n = pInfo.normal || Cesium.Cartesian3.UNIT_Z;
+            const h = Math.abs(Cesium.Cartesian3.dot(locHit, n));
+            if (h < 1.2 && pInfo.poly2D && typeof isPointInPolygon2D === 'function' && isPointInPolygon2D({ u, v }, pInfo.poly2D)) {
+              return false;
+            }
+          } catch(eHit) {}
+        }
+
         const dist = Cesium.Cartesian3.distance(rayOrigin, hit.position);
-        // Despegue de 0.50m (el origen ya está elevado 0.35m sobre la normal del panel para evitar auto-impacto).
-        // Detecta parapetos, casetones y edificios colindantes entre 0.5m y 1200m.
+        // Despegue de 0.85m para evitar auto-intersecciones de geometría local
         if (dist > 0.85 && dist < 1200.0) return true;
       }
     }
@@ -14626,21 +14720,27 @@ function showSolarCalcHUD(title, subtitle) {
   });
 }
 
-function updateSolarCalcHUD(pct, currentMonthIdx, totalPanels) {
+function updateSolarCalcHUD(pct, currentMonthIdx, totalPanels, extraOpts) {
   const pctLbl = document.getElementById('solar-calc-pct-label');
   const fill = document.getElementById('solar-calc-bar-fill');
   const statusTxt = document.getElementById('solar-calc-status-text');
   const speedTxt = document.getElementById('solar-calc-speed-text');
 
-  if (pctLbl) pctLbl.textContent = pct + '%';
-  if (fill) fill.style.width = pct + '%';
+  const safePct = Math.max(0, Math.min(100, Math.round(pct || 0)));
+  if (pctLbl) pctLbl.textContent = safePct + '%';
+  if (fill) fill.style.width = safePct + '%';
   
+  const opts = extraOpts || {};
+  const currentStep = typeof opts.stepIndex === 'number' ? opts.stepIndex : (currentMonthIdx + 1);
+  const totalSteps = typeof opts.totalStepsCount === 'number' ? opts.totalStepsCount : 12;
+  const phase = opts.phaseText ? (' [' + opts.phaseText + ']') : '';
+
   const mName = _solarMonthNames[currentMonthIdx] || ('Mes ' + (currentMonthIdx + 1));
   if (statusTxt) {
-    statusTxt.textContent = 'Mes ' + (currentMonthIdx + 1) + '/12 (' + mName + ') · ' + (totalPanels || '') + ' módulos evaluados';
+    statusTxt.textContent = mName + phase + ' · ' + (totalPanels || '') + ' módulos evaluados';
   }
   if (speedTxt) {
-    speedTxt.textContent = 'Paso ' + (currentMonthIdx + 1) + ' de 12';
+    speedTxt.textContent = 'Paso ' + currentStep + ' de ' + totalSteps;
   }
 
   const pills = document.querySelectorAll('.solar-calc-month-pill');
@@ -17275,6 +17375,14 @@ window.toggleSolarHUD = toggleSolarHUD;
                 </div>
               </div>
             </div>
+            <div style="height:1px; background:rgba(255,255,255,0.05); margin:4px 0;"></div>
+            <label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:4px 0;" title="Alterna entre escala relativa (verde = mejor módulo) y escala fija según % de pérdida">
+              <div style="display:flex;flex-direction:column;">
+                <span style="font-size:11px;font-weight:600;color:#e2e8f0;">Escala Relativa vs. Líder</span>
+                <span style="font-size:9.5px;color:#64748b;line-height:1.2;">Verde = mejor módulo (100%), Rojo = peor módulo</span>
+              </div>
+              <input type="checkbox" id="heatmap-relscale-toggle" style="accent-color:var(--emerald-500, #10b981);cursor:pointer;" onchange="if(window.ShadowSettings && typeof window.ShadowSettings.setRelativeColorScale === 'function') window.ShadowSettings.setRelativeColorScale(this.checked); else { window.raRelativeColorScale = this.checked; if(typeof wpReapplyHeatmapColors === 'function') wpReapplyHeatmapColors(); }">
+            </label>
             <script>
               window.raHeatmapResolution = 'ultra';
               function setHeatmapResolution(res) {

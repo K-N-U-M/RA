@@ -450,7 +450,13 @@
     var catalog = turbineInstance._catalog || {};
     var type = (catalog.type === 'VAWT') ? 'vawt' : 'hawt';
     var mastH = Math.max(2.0, (turbineInstance.supportStructure ? turbineInstance.supportStructure.hubHeightM : 18));
-    var bladeR = Math.max(0.5, (catalog.rotorDiameterM || 6.0) / 2);
+    var rotorD = (typeof turbineInstance.rotorDiameterM === 'number' && turbineInstance.rotorDiameterM > 0)
+      ? turbineInstance.rotorDiameterM
+      : (catalog.rotorDiameterM || 6.0);
+    var bladeR = Math.max(0.2, rotorD / 2);
+    var vBladeLength = (typeof turbineInstance.bladeLength === 'number' && turbineInstance.bladeLength > 0)
+      ? turbineInstance.bladeLength
+      : ((typeof catalog.bladeLength === 'number' && catalog.bladeLength > 0) ? catalog.bladeLength : (mastH * 0.55));
 
     function col(typeKey) {
       var hex = isSelected ? COLORS.selected : (COLORS[typeKey] || '#CBD5E1');
@@ -484,8 +490,8 @@
       });
       addInstance(vMastGeom, col('mast'), new Cesium.Cartesian3(0, 0, mastH / 2), null, 'wt_mast_' + turbineInstance.id);
 
-      var vBladeH = mastH * 0.55;
-      var vBladeMid = mastH * 0.65;
+      var vBladeH = Math.max(0.5, vBladeLength);
+      var vBladeMid = Math.max(vBladeH / 2 + 0.3, mastH * 0.65);
       var armTopH = vBladeMid + vBladeH / 2;
       var armBotH = vBladeMid - vBladeH / 2;
       var vBladeThick = Math.max(0.03, bladeR * 0.035);

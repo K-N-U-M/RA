@@ -55,8 +55,9 @@
     biasMeters: 0.08,
     selfShadows: true,
     terrainShadows: true,
-    simResolution: 'medium', // 'fast' (48h) | 'medium' (72h) | 'ultra' (192h)
-    detailedBypass: true     // true: 3 sub-strings | false: monolítico
+    simResolution: 'medium', // 'sketch' | 'fast' (16h) | 'medium' (72h) | 'ultra' (192h)
+    detailedBypass: true,    // true: 3 sub-strings | false: monolítico
+    relativeColorScale: false // true: escala relativa al líder (100% = verde) | false: escala absoluta por pérdidas
   };
 
   function loadSettings() {
@@ -80,6 +81,7 @@
   if (typeof global !== 'undefined') {
     global.wpShadowBiasMeters = Number(currentSettings.biasMeters) || 0.08;
     global.raHeatmapResolution = currentSettings.simResolution || 'medium';
+    global.raRelativeColorScale = !!currentSettings.relativeColorScale;
   }
 
   /**
@@ -260,7 +262,7 @@
   }
 
   function setSimResolution(resKey) {
-    if (resKey !== 'fast' && resKey !== 'medium' && resKey !== 'ultra') return;
+    if (resKey !== 'sketch' && resKey !== 'fast' && resKey !== 'medium' && resKey !== 'ultra') return;
     currentSettings.simResolution = resKey;
     if (typeof global !== 'undefined') {
       global.raHeatmapResolution = resKey;
@@ -273,6 +275,22 @@
     currentSettings.detailedBypass = !!enabled;
     saveSettings(currentSettings);
     updateUI();
+  }
+
+  function setRelativeColorScale(enabled) {
+    currentSettings.relativeColorScale = !!enabled;
+    if (typeof global !== 'undefined') {
+      global.raRelativeColorScale = !!enabled;
+    }
+    saveSettings(currentSettings);
+    updateUI();
+
+    // Actualizar dinámicamente colores del heatmap si ya está calculado y visible
+    if (typeof global.wpReapplyHeatmapColors === 'function') {
+      global.wpReapplyHeatmapColors();
+    } else if (typeof global.wpFastRenderSimulatedPanelsAsync === 'function') {
+      global.wpFastRenderSimulatedPanelsAsync(true);
+    }
   }
 
   function updateUI() {
@@ -316,7 +334,7 @@
     }
 
     // 6. Selector de resolución de simulación solar (Estudio de Sombras)
-    var simKeys = ['fast', 'medium', 'ultra'];
+    var simKeys = ['sketch', 'fast', 'medium', 'ultra'];
     simKeys.forEach(function(k) {
       var el = document.getElementById('btn-sim-res-' + k);
       if (el) {
@@ -330,14 +348,20 @@
 
     var simBadge = document.getElementById('sim-res-status-badge');
     if (simBadge) {
-      if (currentSettings.simResolution === 'fast') simBadge.innerText = 'RÁPIDO (48h)';
-      else if (currentSettings.simResolution === 'ultra') simBadge.innerText = 'ULTRA (192h)';
-      else simBadge.innerText = 'INGENIERÍA (72h)';
+      if (currentSettings.simResolution === 'sketch') simBadge.innerText = 'BOCETO SKYLINE (<0.1s)';
+      else if (currentSettings.simResolution === 'fast') simBadge.innerText = 'RÁPIDO (16h ~0.3s)';
+      else if (currentSettings.simResolution === 'ultra') simBadge.innerText = 'ULTRA (192h ~3s)';
+      else simBadge.innerText = 'INGENIERÍA (72h ~1s)';
     }
 
     var chkBypass = document.getElementById('ra-sim-bypass-toggle');
     if (chkBypass) {
       chkBypass.checked = (currentSettings.detailedBypass !== false);
+    }
+
+    var chkRelScale = document.getElementById('ra-sim-relscale-toggle');
+    if (chkRelScale) {
+      chkRelScale.checked = !!currentSettings.relativeColorScale;
     }
   }
 
@@ -442,6 +466,15 @@
       '    <input type="checkbox" id="ra-sim-bypass-toggle" style="accent-color:var(--emerald-500, #10b981);cursor:pointer;"',
       '      onchange="window.ShadowSettings.setDetailedBypass(this.checked);">',
       '  </label>',
+      '  <div style="height:1px;background:rgba(255,255,255,0.06);margin-top:2px;"></div>',
+      '  <label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;margin-top:2px;" title="Activa degradado verde a rojo normalizado al módulo con mayor producción">',
+      '    <div style="display:flex;flex-direction:column;">',
+      '      <span style="font-size:11px;font-weight:600;color:#e2e8f0;">Escala Relativa vs. Líder</span>',
+      '      <span style="font-size:9px;color:#64748b;">Verde = mejor módulo (100%), Rojo = peor módulo</span>',
+      '    </div>',
+      '    <input type="checkbox" id="ra-sim-relscale-toggle" style="accent-color:var(--emerald-500, #10b981);cursor:pointer;"',
+      '      onchange="window.ShadowSettings.setRelativeColorScale(this.checked);">',
+      '  </label>',
       '</div>'
     ].join('\n');
 
@@ -474,6 +507,7 @@
     setTerrainShadows: setTerrainShadows,
     setSimResolution: setSimResolution,
     setDetailedBypass: setDetailedBypass,
+    setRelativeColorScale: setRelativeColorScale,
     apply: applySettings,
     configureShadowMap: configureCesiumShadowMap,
     requestSettleFrames: requestShadowSettleFrames,
