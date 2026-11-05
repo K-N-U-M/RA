@@ -597,12 +597,12 @@ function selectBuilding(bldId) {
   if (roofColEl) roofColEl.value = bld.roofColor || '#E2E8F0';
   if (edgeColEl) edgeColEl.value = bld.edgeColor || '#334155';
 
-  const isPitched = (rType === 'gable' || rType === 'shed' || rType === 'hip');
+  const isPitched = (rType === 'gable' || rType === 'shed' || rType === 'hip' || rType === 'l_shape');
   if (pitchRow) pitchRow.style.display = isPitched ? 'flex' : 'none';
   if (azRow) azRow.style.display = isPitched ? 'flex' : 'none';
   if (ovhRow) ovhRow.style.display = isPitched ? 'flex' : 'none';
   if (thkRow) thkRow.style.display = isPitched ? 'flex' : 'none';
-  if (skyRow) skyRow.style.display = (rType === 'gable' || rType === 'shed') ? 'flex' : 'none';
+  if (skyRow) skyRow.style.display = (rType === 'gable' || rType === 'shed' || rType === 'l_shape') ? 'flex' : 'none';
   if (parRow) parRow.style.display = (rType === 'flat') ? 'flex' : 'none';
   if (parWRow) parWRow.style.display = (rType === 'flat') ? 'flex' : 'none';
 
@@ -706,14 +706,14 @@ function updateSelectedBuildingProps() {
   setElemText('bld-selected-title', (bld.name || 'EDIFICIO').toUpperCase());
 
   const rType = bld.roofType || 'flat';
-  const isPitched = (rType === 'gable' || rType === 'shed' || rType === 'hip');
+  const isPitched = (rType === 'gable' || rType === 'shed' || rType === 'hip' || rType === 'l_shape');
   if (pitchRow) pitchRow.style.display = (rType === 'flat') ? 'none' : 'flex';
-  if (azRow) azRow.style.display = (rType === 'shed' || rType === 'gable') ? 'flex' : 'none';
+  if (azRow) azRow.style.display = (rType === 'shed' || rType === 'gable' || rType === 'l_shape') ? 'flex' : 'none';
   if (parRow) parRow.style.display = (rType === 'flat') ? 'flex' : 'none';
   if (parWRow) parWRow.style.display = (rType === 'flat') ? 'flex' : 'none';
   if (ovhRow) ovhRow.style.display = (rType === 'flat') ? 'none' : 'flex';
   if (thkRow) thkRow.style.display = isPitched ? 'flex' : 'none';
-  if (skyRow) skyRow.style.display = (rType === 'gable' || rType === 'shed') ? 'flex' : 'none';
+  if (skyRow) skyRow.style.display = (rType === 'gable' || rType === 'shed' || rType === 'l_shape') ? 'flex' : 'none';
 
   if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Configuración de edificio modificada');
   render3DBuildingsInCesium();

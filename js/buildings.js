@@ -1018,6 +1018,206 @@ function render3DBuildingsInCesium() {
         });
         window._buildingEntities.push(eavesOutline);
       } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+
+    // ─────────────────────────────────────────────────────────────────
+    // E. CUBIERTA EN FORMA DE L (ALAS CON LIMAHOYA / VALLE EN ENCUENTRO)
+    // ─────────────────────────────────────────────────────────────────
+    } else if (rType === 'l_shape') {
+      const N = cartoList.length;
+      let cLon = 0, cLat = 0;
+      roofCartoList.forEach(c => { cLon += c.longitude; cLat += c.latitude; });
+      cLon /= roofCartoList.length;
+      cLat /= roofCartoList.length;
+
+      const R_EARTH = 6378137.0;
+      const cosLat = Math.cos(cLat);
+      const localPts = roofCartoList.map(c => ({
+        x: (c.longitude - cLon) * R_EARTH * cosLat,
+        y: (c.latitude  - cLat) * R_EARTH
+      }));
+
+      // 1. Identificar el vértice de esquina cóncava interior (esquina de la L)
+      let reflexIdx = -1;
+      let minCross = 0;
+      for (let i = 0; i < N; i++) {
+        const prev = localPts[(i - 1 + N) % N];
+        const curr = localPts[i];
+        const next = localPts[(i + 1) % N];
+        const dx1 = curr.x - prev.x, dy1 = curr.y - prev.y;
+        const dx2 = next.x - curr.x, dy2 = next.y - curr.y;
+        const cross = dx1 * dy2 - dy1 * dx2;
+        if (cross < minCross) {
+          minCross = cross;
+          reflexIdx = i;
+        }
+      }
+      if (reflexIdx < 0) reflexIdx = 0; // Fallback por convexidad suave
+
+      // 2. Muros perimetrales del volumen completo en L
+      try {
+        const wallInstances = [];
+        const nWalls = basePositions.length;
+        for (let i = 0; i < nWalls; i++) {
+          const pA = basePositions[i];
+          const pB = basePositions[(i + 1) % nWalls];
+          wallInstances.push(new Cesium.GeometryInstance({
+            geometry: new Cesium.WallGeometry({
+              positions: [pA, pB],
+              minimumHeights: [avgBaseHeight, avgBaseHeight],
+              maximumHeights: [roofHeight, roofHeight]
+            }),
+            attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(facadeColor) },
+            id: (bld.id || 'bld') + '_l_wall_' + i
+          }));
+        }
+        window._buildingPrimitives.push(viewer.scene.primitives.add(new Cesium.Primitive({
+          geometryInstances: wallInstances,
+          appearance: createBuildingMatteAppearance(true),
+          shadows: Cesium.ShadowMode.ENABLED,
+          asynchronous: false
+        })));
+      } catch(eLWall) { window.RA && window.RA.log && window.RA.log.warn('[L wall]', eLWall); }
+
+      // 3. Geometría de cubiertas: cumbreras de ala 1 y ala 2 con unión en limahoya
+      const pEaves = roofCartoList.map(c => Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, roofHeight));
+      const roofThk = Math.max(0.05, bld.roofThickness || 0.20);
+      const eavesUnder = roofCartoList.map(c =>
+        Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, Math.max(avgBaseHeight + 0.5, roofHeight - roofThk)));
+
+      // Centro del encuentro y nudo de limahoya
+      const reflexPt = pEaves[reflexIdx];
+      const oppIdx = (reflexIdx + Math.floor(N / 2)) % N;
+      const oppPt = pEaves[oppIdx];
+
+      // Altura de cumbrera principal basada en la luz transversal del ala
+      const avgWingSpan = Math.max(3.0, Cesium.Cartesian3.distance(reflexPt, oppPt) * 0.45);
+      const ridgeHeight = roofHeight + avgWingSpan * Math.tan(pitchRad);
+
+      // Cumbrera central de unión (nodo de cumbrera)
+      const c1 = Cesium.Cartographic.fromCartesian(reflexPt);
+      const c2 = Cesium.Cartographic.fromCartesian(oppPt);
+      const ridgeHub = Cesium.Cartesian3.fromRadians(
+        (c1.longitude + c2.longitude) / 2,
+        (c1.latitude + c2.latitude) / 2,
+        ridgeHeight
+      );
+
+      // Triangulación de faldones hacia las cumbreras articuladas
+      for (let i = 0; i < N; i++) {
+        const nextI = (i + 1) % N;
+        const A = pEaves[i];
+        const B = pEaves[nextI];
+        const C = ridgeHub;
+
+        if (Cesium.Cartesian3.distance(A, B) > 0.05) {
+          try {
+            const triInst = new Cesium.GeometryInstance({
+              geometry: Cesium.PolygonGeometry.fromPositions({
+                positions: [A, B, C],
+                perPositionHeight: true
+              }),
+              attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(roofColor) },
+              id: (bld.id || 'bld') + '_l_roof_' + i
+            });
+            window._buildingPrimitives.push(viewer.scene.primitives.add(new Cesium.Primitive({
+              geometryInstances: triInst,
+              appearance: createBuildingMatteAppearance(true),
+              shadows: Cesium.ShadowMode.ENABLED,
+              asynchronous: false
+            })));
+
+            // Canto de alero en el perímetro
+            const f1 = new Cesium.GeometryInstance({
+              geometry: Cesium.PolygonGeometry.fromPositions({
+                positions: [A, B, eavesUnder[nextI]],
+                perPositionHeight: true
+              }),
+              attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(edgeColor) }
+            });
+            const f2 = new Cesium.GeometryInstance({
+              geometry: Cesium.PolygonGeometry.fromPositions({
+                positions: [A, eavesUnder[nextI], eavesUnder[i]],
+                perPositionHeight: true
+              }),
+              attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(edgeColor) }
+            });
+            window._buildingPrimitives.push(viewer.scene.primitives.add(new Cesium.Primitive({
+              geometryInstances: [f1, f2],
+              appearance: createBuildingMatteAppearance(true),
+              shadows: Cesium.ShadowMode.ENABLED,
+              asynchronous: false
+            })));
+          } catch(eTriL) {}
+        }
+      }
+
+      // Sofito de cierre inferior si hay voladizo
+      if (overhang > 0) {
+        const wallTopPos = cartoList.map(c => Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, roofHeight));
+        for (let i = 0; i < N; i++) {
+          const nextI = (i + 1) % N;
+          try {
+            const s1 = new Cesium.GeometryInstance({
+              geometry: Cesium.PolygonGeometry.fromPositions({
+                positions: [wallTopPos[i], wallTopPos[nextI], eavesUnder[nextI]],
+                perPositionHeight: true
+              }),
+              attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(facadeColor) }
+            });
+            const s2 = new Cesium.GeometryInstance({
+              geometry: Cesium.PolygonGeometry.fromPositions({
+                positions: [wallTopPos[i], eavesUnder[nextI], eavesUnder[i]],
+                perPositionHeight: true
+              }),
+              attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(facadeColor) }
+            });
+            window._buildingPrimitives.push(viewer.scene.primitives.add(new Cesium.Primitive({
+              geometryInstances: [s1, s2],
+              appearance: createBuildingMatteAppearance(true),
+              shadows: Cesium.ShadowMode.ENABLED,
+              asynchronous: false
+            })));
+          } catch(eSofL) {}
+        }
+      }
+
+      // Limahoya en el rincón entrante (valle que desagua hacia el vértice cóncavo)
+      try {
+        const valleyLine = viewer.entities.add({
+          name: (bld.name || 'Edificio 3D') + ' - Limahoya (Valle)',
+          polyline: {
+            positions: [reflexPt, ridgeHub],
+            width: 4.5,
+            material: Cesium.Color.fromCssColorString('#38bdf8'),
+            arcType: Cesium.ArcType.NONE,
+            clampToGround: false,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY
+          }
+        });
+        window._buildingEntities.push(valleyLine);
+
+        const hubElevated = Cesium.Cartesian3.fromRadians(
+          Cesium.Cartographic.fromCartesian(ridgeHub).longitude,
+          Cesium.Cartographic.fromCartesian(ridgeHub).latitude,
+          Cesium.Cartographic.fromCartesian(ridgeHub).height + 0.08
+        );
+        const pEavesElevated = pEaves.map(p => {
+          const c = Cesium.Cartographic.fromCartesian(p);
+          return Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, c.height + 0.08);
+        });
+
+        const eavesOutline = viewer.entities.add({
+          polyline: {
+            positions: [...pEavesElevated, pEavesElevated[0]],
+            width: isSel ? 4.0 : 3.0,
+            material: edgeColor,
+            arcType: Cesium.ArcType.NONE,
+            clampToGround: false,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY
+          }
+        });
+        window._buildingEntities.push(eavesOutline);
+      } catch(eVal) {}
     }
 
     // Aristas Base Comunes y Columnas
