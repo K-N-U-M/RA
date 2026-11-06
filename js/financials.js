@@ -159,9 +159,9 @@ function resolveEquipmentNames() {
       };
       var mpptTxt = result.totalMPPTs > 0 ? (' · ' + result.totalMPPTs + ' MPPT') : '';
       if (result.invCount > 1) {
-        result.invName = result.invCount + '× ' + result.invBrand + ' ' + result.invModel + ' (' + result.invKw + ' kW c/u · ' + result.totalAcKw.toFixed(1) + ' kW total' + mpptTxt + ' · ' + Math.round(result.invUnitPrice).toLocaleString('es-ES') + ' €/ud)';
+        result.invName = result.invCount + '× ' + result.invBrand + ' ' + result.invModel + ' (' + result.invKw + ' kW c/u · ' + result.totalAcKw.toFixed(1) + ' kW total' + mpptTxt + ')';
       } else {
-        result.invName = '1× ' + result.invBrand + ' ' + result.invModel + ' (' + result.invKw + ' kW' + mpptTxt + ' · ' + Math.round(result.invUnitPrice).toLocaleString('es-ES') + ' €/ud)';
+        result.invName = '1× ' + result.invBrand + ' ' + result.invModel + ' (' + result.invKw + ' kW' + mpptTxt + ')';
       }
     }
   }
@@ -232,9 +232,9 @@ function resolveEquipmentNames() {
         }]
       };
       if (result.batCount > 1) {
-        result.batName = result.batCount + '× ' + result.batBrand + ' ' + result.batModel + ' (' + result.batKwh + ' kWh c/u · ' + result.totalBatKwh.toFixed(1) + ' kWh total · ' + Math.round(bat.price || 2400).toLocaleString('es-ES') + ' €/ud)';
+        result.batName = result.batCount + '× ' + result.batBrand + ' ' + result.batModel + ' (' + result.batKwh + ' kWh c/u · ' + result.totalBatKwh.toFixed(1) + ' kWh total)';
       } else {
-        result.batName = '1× ' + result.batBrand + ' ' + result.batModel + ' (' + result.totalBatKwh.toFixed(1) + ' kWh · ' + Math.round(bat.price || 2400).toLocaleString('es-ES') + ' €/ud)';
+        result.batName = '1× ' + result.batBrand + ' ' + result.batModel + ' (' + result.totalBatKwh.toFixed(1) + ' kWh)';
       }
     } else {
       result.hasBat = false;
@@ -259,7 +259,7 @@ function resolveEquipmentNames() {
       result.hasMicro = true;
       var micKw = mic.kw || (mic.va ? mic.va / 1000 : 0.8);
       result.totalMicroKw = Math.round((micKw * result.microCount) * 100) / 100;
-      result.microName = Math.max(1, result.microCount) + '× ' + result.microBrand + ' ' + result.microModel + ' (' + result.totalMicroKw.toFixed(1) + ' kW AC total · ' + Math.round(mic.price || 175).toLocaleString('es-ES') + ' €/ud)';
+      result.microName = Math.max(1, result.microCount) + '× ' + result.microBrand + ' ' + result.microModel + ' (' + result.totalMicroKw.toFixed(1) + ' kW AC total)';
     }
   }
 
@@ -319,11 +319,11 @@ function resolveEquipmentNames() {
     });
     if (mKeys.length === 1) {
       var single = modelsMap[mKeys[0]];
-      result.windName = single.count + '× ' + mKeys[0] + ' (' + (single.count * single.ratedKw).toFixed(1) + ' kW · Mástil ' + single.hubH + 'm · ' + Math.round(single.unitPrice).toLocaleString('es-ES') + ' €/ud)';
-      result.windDesc = single.count + '× ' + mKeys[0] + ' (' + single.ratedKw + ' kW c/u · H=' + single.hubH + 'm · ' + Math.round(single.unitPrice).toLocaleString('es-ES') + ' €/ud)';
+      result.windName = single.count + '× ' + mKeys[0] + ' (' + (single.count * single.ratedKw).toFixed(1) + ' kW · Mástil ' + single.hubH + 'm)';
+      result.windDesc = single.count + '× ' + mKeys[0] + ' (' + single.ratedKw + ' kW c/u · H=' + single.hubH + 'm)';
     } else {
       result.windName = activeTurbines.length + '× Aerogeneradores (' + result.windTotalKw.toFixed(1) + ' kW total): ' + mKeys.map(function(k) { return modelsMap[k].count + '× ' + k; }).join(' + ');
-      result.windDesc = mKeys.map(function(k) { return modelsMap[k].count + '× ' + k + ' (' + modelsMap[k].ratedKw + ' kW · ' + Math.round(modelsMap[k].unitPrice).toLocaleString('es-ES') + ' €/ud)'; }).join(' · ');
+      result.windDesc = mKeys.map(function(k) { return modelsMap[k].count + '× ' + k + ' (' + modelsMap[k].ratedKw + ' kW)'; }).join(' · ');
     }
   }
 
