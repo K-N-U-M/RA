@@ -344,21 +344,23 @@
 
     if (obs.turbineType === 'vawt') {
       // ══════════════ VAWT (Eje Vertical) ══════════════
-      // Mástil
-      var vMastScale = Math.max(0.4, Math.min(3.0, mastH / 6.0));
-      var vMastTopR  = Math.max(0.06, 0.10 * vMastScale);
-      var vMastBotR  = Math.max(0.09, 0.16 * vMastScale);
-      var vMastGeom  = new Cesium.CylinderGeometry({
-        length: mastH, topRadius: vMastTopR, bottomRadius: vMastBotR,
-        slices: 12, vertexFormat: VF
-      });
-      addInstance(vMastGeom, col('mast'), new Cesium.Cartesian3(0, 0, elev + mastH / 2), null, 'wt_vmast_' + obs.id);
-
-      // Palas verticales y brazos
-      var vBladeH     = Math.max(0.5, obs.bladeLength || (mastH * 0.50));
-      var vBladeMid   = mastH * 0.65;
+      // Palas verticales y brazos sincronizados con medidas de catálogo
+      var vBladeH     = Math.max(0.5, obs.bladeHeightM || obs.bladeLength || (bladeR * 2 * 1.4));
+      var vBladeMid   = Math.max(vBladeH / 2 + 0.3, mastH);
       var armTopH     = vBladeMid + vBladeH / 2;
-      var armBotH     = vBladeMid - vBladeH / 2;
+      var armBotH     = Math.max(0.2, vBladeMid - vBladeH / 2);
+
+      // Mástil: asciende y termina EXACTAMENTE en armTopH (al ras del eje superior de palas),
+      // sin sobresalir por encima:
+      var totalMastH  = armTopH;
+      var vMastScale  = Math.max(0.4, Math.min(3.0, totalMastH / 6.0));
+      var vMastTopR   = Math.max(0.05, 0.08 * vMastScale);
+      var vMastBotR   = Math.max(0.08, 0.14 * vMastScale);
+      var vMastGeom   = new Cesium.CylinderGeometry({
+        length: totalMastH, topRadius: vMastTopR, bottomRadius: vMastBotR,
+        slices: 16, vertexFormat: VF
+      });
+      addInstance(vMastGeom, col('mast'), new Cesium.Cartesian3(0, 0, elev + totalMastH / 2), null, 'wt_vmast_' + obs.id);
       var vBladeThick = Math.max(0.03, bladeR * 0.035);
       var vBladeChord = Math.max(0.12, bladeR * 0.12);
 
