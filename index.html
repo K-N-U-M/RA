@@ -3223,6 +3223,7 @@ window.RA_App = window.RA_App || {};
             <span style="font-size:10.5px;color:var(--text-slate-300);">Almacenamiento Batería:</span>
             <select id="modal-cfg-pres-bat-opt" onchange="syncModalInputToBudget('cfg-pres-bat-opt', this.value); updateBatteryCost();" style="width:165px;background:rgba(0,0,0,0.5);border:1px solid var(--border-subtle);color:#fff;font-size:10px;padding:4px 6px;border-radius:6px;outline:none;">
               <option value="0">Sin Baterías (0 kWh)</option>
+              <option value="custom" id="modal-cfg-pres-bat-opt-custom" style="display:none;"></option>
               <option value="5">5.12 kWh LFP (+2.400 €)</option>
               <option value="10">10.24 kWh LFP (+4.200 €)</option>
               <option value="15">15.36 kWh LFP (+6.100 €)</option>
@@ -3247,6 +3248,11 @@ window.RA_App = window.RA_App || {};
           <div class="field-row" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
             <span style="font-size:10.5px;color:var(--text-slate-300);">Ingeniería &amp; Legalización (€):</span>
             <input type="number" id="modal-cfg-pres-leg" step="50" min="0" class="field-input" style="width:90px;font-size:11px;text-align:right;" oninput="syncModalInputToBudget('cfg-pres-leg', this.value)">
+          </div>
+
+          <div class="field-row" id="modal-row-wind" style="display:none;margin-bottom:8px;justify-content:space-between;align-items:center;">
+            <span style="font-size:10.5px;color:var(--text-slate-300);"><span id="modal-wind-label">Mini-Eólica &amp; Estructura (€):</span></span>
+            <input type="number" id="modal-cfg-pres-wind" step="100" min="0" class="field-input" style="width:90px;font-size:11px;text-align:right;" oninput="syncModalInputToBudget('cfg-pres-wind', this.value)">
           </div>
 
           <!-- Total Bruto -->
@@ -3811,22 +3817,55 @@ function openCostBreakdownModal() {
     : (designCosts ? designCosts.legPrice : null);
   setInp('modal-cfg-pres-leg', legVal);
 
-  // Sincronizar selección de batería oficial de solarProjectConfig / catálogo
+  // Sincronizar selección de batería oficial de solarProjectConfig / catálogo (SSOT)
+  const batOptSelect = document.getElementById('modal-cfg-pres-bat-opt');
+  const customOpt = document.getElementById('modal-cfg-pres-bat-opt-custom');
   if (_cat && _cfg && _cfg.selectedBatteryId && _cfg.selectedBatteryId !== 'bat_none') {
     const _bSpec = (_cat.batteries || []).find(b => b.id === _cfg.selectedBatteryId);
     if (_bSpec && (_bSpec.kwh > 0 || _bSpec.price > 0)) {
       const _bCnt = Math.max(1, (_cfg.autoSizing && _cfg.autoSizing.batteries && _cfg.autoSizing.batteries.count) || 1);
       const _bCost = Math.round(_bSpec.price * _bCnt);
       setInp('modal-cfg-pres-bat', _bCost);
-      const batOptSelect = document.getElementById('modal-cfg-pres-bat-opt');
       if (batOptSelect) {
-        if (_bSpec.kwh <= 6) batOptSelect.value = '5';
-        else if (_bSpec.kwh <= 12) batOptSelect.value = '10';
-        else batOptSelect.value = '15';
+        const totalCap = Math.round((_bSpec.kwh * _bCnt) * 10) / 10;
+        if (customOpt) {
+          customOpt.style.display = 'block';
+          customOpt.value = 'custom';
+          customOpt.textContent = `${_bCnt > 1 ? _bCnt + 'x ' : ''}${_bSpec.brand || ''} ${_bSpec.model || 'Batería'} (${totalCap} kWh · ${_bCost.toLocaleString('es-ES')} €)`;
+        }
+        batOptSelect.value = 'custom';
       }
     }
-  } else if (pricing && typeof pricing.batPrice === 'number') {
+  } else if (pricing && typeof pricing.batPrice === 'number' && pricing.batPrice > 0) {
     setInp('modal-cfg-pres-bat', pricing.batPrice);
+    if (batOptSelect && customOpt) {
+      customOpt.style.display = 'block';
+      customOpt.value = 'custom';
+      customOpt.textContent = `Batería Personalizada (${pricing.batPrice.toLocaleString('es-ES')} €)`;
+      batOptSelect.value = 'custom';
+    }
+  } else {
+    setInp('modal-cfg-pres-bat', 0);
+    if (batOptSelect) batOptSelect.value = '0';
+    if (customOpt) customOpt.style.display = 'none';
+  }
+
+  // Sincronizar partida de Mini-Eólica (si el gemelo digital tiene aerogeneradores activos)
+  const windRow = document.getElementById('modal-row-wind');
+  const windLbl = document.getElementById('modal-wind-label');
+  if (windRow) {
+    const wCount = (designCosts && designCosts.windCount) || (typeof window !== 'undefined' && Array.isArray(window.windTurbines) && window.windTurbines.filter(t => t && (!t.operationalState || t.operationalState.enabled !== false)).length) || 0;
+    const wVal = (pricing && typeof pricing.windPrice === 'number' && pricing.windPrice >= 0)
+      ? pricing.windPrice
+      : (designCosts ? designCosts.windPrice : 0);
+    if (wCount > 0 || wVal > 0) {
+      windRow.style.display = 'flex';
+      setInp('modal-cfg-pres-wind', wVal);
+      if (windLbl) windLbl.textContent = `Mini-Eólica (${wCount} aero${wCount > 1 ? 's' : ''}) (€):`;
+    } else {
+      windRow.style.display = 'none';
+      setInp('modal-cfg-pres-wind', 0);
+    }
   }
 
   // Visibilidad campo coste batería
@@ -3903,6 +3942,7 @@ function syncModalInputToBudget(targetId, val) {
     const currentFp = RAPricing.getProjectFingerprint(numPanels);
     const prev = RAPricing.getEffectivePricing();
     
+    const windInpVal = document.getElementById('modal-cfg-pres-wind') ? parseFloat(document.getElementById('modal-cfg-pres-wind').value) : null;
     RAPricing.currentSessionPricing = Object.assign({}, prev, {
       projectFingerprint: currentFp,
       panelPrice: prev.panelPrice || 125,
@@ -3912,6 +3952,7 @@ function syncModalInputToBudget(targetId, val) {
       cabPrice: parseFloat((document.getElementById('modal-cfg-pres-cab') || {}).value) || prev.cabPrice,
       moPrice: parseFloat((document.getElementById('modal-cfg-pres-mo') || {}).value) || prev.moPrice,
       legPrice: parseFloat((document.getElementById('modal-cfg-pres-leg') || {}).value) || prev.legPrice,
+      windPrice: (windInpVal !== null && !isNaN(windInpVal)) ? windInpVal : prev.windPrice,
       marginPct: prev.marginPct || 20,
       skipReview: false
     });
@@ -5507,21 +5548,37 @@ function updateStructureCost() {
 }
 
 function updateBatteryCost() {
-  const cap = parseFloat((document.getElementById('cfg-pres-bat-opt') || {value:'0'}).value) || 0;
-  const rowBat = document.getElementById('row-bat-cost');
-  const batInput = document.getElementById('cfg-pres-bat');
-  const invInput = document.getElementById('cfg-pres-inv');
+  const batOptEl = document.getElementById('modal-cfg-pres-bat-opt') || document.getElementById('cfg-pres-bat-opt') || {value:'0'};
+  const optVal = batOptEl.value;
+  const rowBat = document.getElementById('modal-row-bat-cost') || document.getElementById('row-bat-cost');
+  const batInput = document.getElementById('modal-cfg-pres-bat') || document.getElementById('cfg-pres-bat');
+  const invInput = document.getElementById('modal-cfg-pres-inv') || document.getElementById('cfg-pres-inv');
 
-  if (cap > 0) {
+  if (optVal === 'custom') {
     if (rowBat) rowBat.style.display = 'flex';
-    const cost = cap === 5 ? 2400 : (cap === 10 ? 4200 : 6100);
-    if (batInput) batInput.value = cost;
-    // Upgrade inverter to hybrid
-    if (invInput && parseFloat(invInput.value) < 1600) invInput.value = 1650;
+    // Mantiene el precio del catálogo o cálculo actual del diseño
+    const cat = (typeof window !== 'undefined' && window.equipmentCatalog) ? window.equipmentCatalog : null;
+    const cfg = (typeof window !== 'undefined' && window.solarProjectConfig) ? window.solarProjectConfig : null;
+    if (cat && cfg && cfg.selectedBatteryId && cfg.selectedBatteryId !== 'bat_none') {
+      const bSpec = (cat.batteries || []).find(b => b.id === cfg.selectedBatteryId);
+      if (bSpec && bSpec.price > 0) {
+        const bCnt = Math.max(1, (cfg.autoSizing && cfg.autoSizing.batteries && cfg.autoSizing.batteries.count) || 1);
+        if (batInput) batInput.value = Math.round(bSpec.price * bCnt);
+      }
+    }
   } else {
-    if (rowBat) rowBat.style.display = 'none';
-    if (batInput) batInput.value = 0;
+    const cap = parseFloat(optVal) || 0;
+    if (cap > 0) {
+      if (rowBat) rowBat.style.display = 'flex';
+      const cost = cap === 5 ? 2400 : (cap === 10 ? 4200 : 6100);
+      if (batInput) batInput.value = cost;
+      if (invInput && parseFloat(invInput.value) < 1600) invInput.value = 1650;
+    } else {
+      if (rowBat) rowBat.style.display = 'none';
+      if (batInput) batInput.value = 0;
+    }
   }
+  if (typeof syncCostModalMetrics === 'function') syncCostModalMetrics();
   updateBudgetUI();
 }
 
