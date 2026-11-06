@@ -267,6 +267,47 @@
     return Math.round((Math.PI * D * D / 4) * 100) / 100;
   }
 
+  /**
+   * Convierte un array de puntos [{v, p, ct}] a texto editable multilinea "v, p, ct".
+   */
+  function formatPowerCurveText(curve) {
+    if (!Array.isArray(curve) || curve.length === 0) return '';
+    return curve.map(function(pt) {
+      var v = Number(pt.v || 0).toFixed(1);
+      var p = Math.round(Number(pt.p || 0));
+      var ct = (typeof pt.ct === 'number') ? Number(pt.ct).toFixed(2) : '0.40';
+      return v + ', ' + p + ', ' + ct;
+    }).join('\n');
+  }
+
+  /**
+   * Parsea un texto multilinea "v, p, ct" (separado por coma, dos puntos o espacios) a array [{v, p, ct}].
+   */
+  function parsePowerCurveText(text) {
+    if (!text || typeof text !== 'string') return [];
+    var lines = text.split(/\r?\n/);
+    var pts = [];
+    lines.forEach(function(line) {
+      var trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('//')) return;
+      var parts = trimmed.split(/[,:;\t ]+/).filter(Boolean);
+      if (parts.length >= 2) {
+        var v = parseFloat(parts[0]);
+        var p = parseFloat(parts[1]);
+        var ct = parts.length >= 3 ? parseFloat(parts[2]) : 0.40;
+        if (!isNaN(v) && !isNaN(p) && v >= 0 && p >= 0) {
+          pts.push({
+            v: Math.round(v * 10) / 10,
+            p: Math.round(p),
+            ct: Math.max(0.01, Math.min(1.0, isNaN(ct) ? 0.40 : ct))
+          });
+        }
+      }
+    });
+    pts.sort(function(a, b) { return a.v - b.v; });
+    return pts;
+  }
+
   function computePowerCurveAudit(turbine) {
     var D = Number(turbine && turbine.rotorDiameterM);
     var pts = (turbine && Array.isArray(turbine.powerCurve)) ? turbine.powerCurve : [];
@@ -381,6 +422,8 @@
     _catalog: null,
 
     computeRotorSweptArea: computeRotorSweptArea,
+    formatPowerCurveText: formatPowerCurveText,
+    parsePowerCurveText: parsePowerCurveText,
     validatePowerCurve: computePowerCurveAudit,
     calibratePowerCurveToBetz: calibratePowerCurveToBetz,
 
@@ -570,7 +613,9 @@
           naturalFrequencyHz: parseFloat(raw.naturalFrequencyHz) || 0.8
         },
         priceEur: parseFloat(raw.priceEur) || 20000,
-        powerCurve: Array.isArray(raw.powerCurve) ? raw.powerCurve : []
+        turbulenceIntensityPct: Math.max(5, Math.min(30, parseFloat(raw.turbulenceIntensityPct) || 14.0)),
+        lowLoadEfficiencyPct: Math.max(50, Math.min(98, parseFloat(raw.lowLoadEfficiencyPct) || 80.0)),
+        powerCurve: Array.isArray(raw.powerCurve) ? raw.powerCurve : (typeof raw.powerCurve === 'string' ? parsePowerCurveText(raw.powerCurve) : [])
       };
       return turbine;
     },

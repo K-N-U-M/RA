@@ -57,9 +57,9 @@ window.RA_App = window.RA_App || {};
   <script src="js/obstacles.js?v=20261104a"></script>
   <script src="js/wind-turbine.js?v=20261011a"></script>
   <script src="js/wind/wind-constants.js?v=20261024b"></script>
-  <script src="js/wind/wind-catalog.js?v=20261106_fase1c"></script>
+  <script src="js/wind/wind-catalog.js?v=20261106_fase2"></script>
   <script src="js/wind/wind-rooftop-cfd.js?v=20261024b"></script>
-  <script src="js/wind/wind-resource.js?v=20261106_fase1c"></script>
+  <script src="js/wind/wind-resource.js?v=20261106_fase2"></script>
   <script src="js/wind/wind-acoustics.js?v=20261024b"></script>
   <script src="js/wind/wind-structural.js?v=20261024b"></script>
   <script src="js/wind/wind-electrical.js?v=20261024b"></script>
@@ -91,7 +91,7 @@ window.RA_App = window.RA_App || {};
   <script src="js/geometry-validate.js?v=20260929b"></script>
   <script src="js/docs-generator.js?v=1793265148380"></script>
   <script src="js/workflow-orchestrator.js?v=20260929b"></script>
-  <script src="js/working-plane.js?v=20261106_fase1b"></script>
+  <script src="js/working-plane.js?v=20261106_fase2"></script>
   <script src="js/cad-selection-suite.js?v=20261026a"></script>
   <script src="js/cable-engine.js?v=20261016a"></script>
   <script src="js/capture-mode.js?v=20260929b"></script>
@@ -2953,6 +2953,33 @@ window.RA_App = window.RA_App || {};
               <span id="new-wt-area-calc-text"><i data-lucide="info" class="icon-sm"></i> Área de captación calculada: <b id="new-wt-area-val">19.63 m² (Círculo de barrido: π × Ø² / 4)</b></span>
               <span id="new-wt-area-calc-pill" class="card-tag" style="background:#0284C7;color:#fff;font-weight:700;">HAWT CIRCULAR (π·Ø²/4)</span>
             </div>
+            <!-- Desplegable técnico AAA: Turbulencia, Rendimiento a baja carga y Curva de potencia -->
+            <details id="new-wt-advanced-details" style="grid-column: span 2; background: rgba(15, 23, 42, 0.65); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 6px; padding: 10px; margin-top: 4px;">
+              <summary style="cursor: pointer; font-size: 11px; font-weight: 700; color: #38BDF8; display: flex; align-items: center; justify-content: space-between; user-select: none;">
+                <span><i data-lucide="sliders" class="icon-sm"></i> PARÁMETROS AVANZADOS DE INGENIERÍA & CURVA DE POTENCIA (IEC 61400)</span>
+                <span class="card-tag" style="background: rgba(56, 189, 248, 0.15); color: #38BDF8; font-weight: 800;">CALIDAD AAA</span>
+              </summary>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; border-top: 1px dashed rgba(255,255,255,0.08); padding-top: 10px;">
+                <div class="doc-field">
+                  <label>Intensidad de Turbulencia Iref (%):</label>
+                  <input type="number" id="new-wt-ti" min="5" max="30" step="0.5" value="14.0" title="Categoría A: 16%, B: 14%, C: 12%">
+                </div>
+                <div class="doc-field">
+                  <label>Rendimiento Inversor/Tren a Baja Carga (% a 15% Pn):</label>
+                  <input type="number" id="new-wt-lowload-eff" min="50" max="98" step="1" value="80.0" title="Eficiencia de conversión con viento suave">
+                </div>
+                <div class="doc-field full" style="grid-column: span 2;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                    <label style="margin: 0; font-size: 10px; color: var(--text-slate-300);">Curva de Potencia Certificada (v: m/s, P: W, Ct: empuje 0-1):</label>
+                    <button type="button" class="btn-xs" style="background: #0284C7; color: #fff; border: none; border-radius: 4px; padding: 3px 8px; font-size: 10px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px;" onclick="if(window.autoCalibrateCurveInNew) window.autoCalibrateCurveInNew();">
+                      <i data-lucide="zap" class="icon-xs"></i> Autocalibrar según Betz
+                    </button>
+                  </div>
+                  <textarea id="new-wt-curve-text" rows="5" style="width: 100%; font-family: monospace; font-size: 10px; background: #0F172A; color: #38BDF8; border: 1px solid #0284C7; border-radius: 4px; padding: 6px; resize: vertical;" placeholder="v, p, ct (un punto por línea, ej: 3.0, 350, 0.40)" oninput="if(window.auditCurveInNew) window.auditCurveInNew();"></textarea>
+                  <div id="new-wt-curve-audit-badge" style="font-size: 10px; margin-top: 4px; color: var(--text-slate-400);">Auditoría de curva: <b style="color: #34D399;">Físicamente viable</b></div>
+                </div>
+              </div>
+            </details>
           </div>
 
           <button class="btn-action-primary" onclick="addNewEquipmentFromForm()">
@@ -3059,6 +3086,33 @@ window.RA_App = window.RA_App || {};
               <span id="edit-wt-area-calc-text"><i data-lucide="info" class="icon-sm"></i> Área de captación calculada: <b id="edit-wt-area-val">—</b></span>
               <span id="edit-wt-area-calc-pill" class="card-tag" style="background:#0284C7;color:#fff;font-weight:700;">ÁREA REAL</span>
             </div>
+            <!-- Desplegable técnico AAA: Turbulencia, Rendimiento a baja carga y Curva de potencia -->
+            <details id="edit-wt-advanced-details" style="grid-column: span 2; background: rgba(15, 23, 42, 0.65); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 6px; padding: 10px; margin-top: 4px;">
+              <summary style="cursor: pointer; font-size: 11px; font-weight: 700; color: #38BDF8; display: flex; align-items: center; justify-content: space-between; user-select: none;">
+                <span><i data-lucide="sliders" class="icon-sm"></i> PARÁMETROS AVANZADOS DE INGENIERÍA & CURVA DE POTENCIA (IEC 61400)</span>
+                <span class="card-tag" style="background: rgba(56, 189, 248, 0.15); color: #38BDF8; font-weight: 800;">CALIDAD AAA</span>
+              </summary>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; border-top: 1px dashed rgba(255,255,255,0.08); padding-top: 10px;">
+                <div class="doc-field">
+                  <label>Intensidad de Turbulencia Iref (%):</label>
+                  <input type="number" id="edit-wt-ti" min="5" max="30" step="0.5" value="14.0" title="Categoría A: 16%, B: 14%, C: 12%">
+                </div>
+                <div class="doc-field">
+                  <label>Rendimiento Inversor/Tren a Baja Carga (% a 15% Pn):</label>
+                  <input type="number" id="edit-wt-lowload-eff" min="50" max="98" step="1" value="80.0" title="Eficiencia de conversión con viento suave">
+                </div>
+                <div class="doc-field full" style="grid-column: span 2;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                    <label style="margin: 0; font-size: 10px; color: var(--text-slate-300);">Curva de Potencia Certificada (v: m/s, P: W, Ct: empuje 0-1):</label>
+                    <button type="button" class="btn-xs" style="background: #0284C7; color: #fff; border: none; border-radius: 4px; padding: 3px 8px; font-size: 10px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px;" onclick="if(window.autoCalibrateCurveInEdit) window.autoCalibrateCurveInEdit();">
+                      <i data-lucide="zap" class="icon-xs"></i> Autocalibrar según Betz
+                    </button>
+                  </div>
+                  <textarea id="edit-wt-curve-text" rows="5" style="width: 100%; font-family: monospace; font-size: 10px; background: #0F172A; color: #38BDF8; border: 1px solid #0284C7; border-radius: 4px; padding: 6px; resize: vertical;" placeholder="v, p, ct (un punto por línea, ej: 3.0, 350, 0.40)" oninput="if(window.auditCurveInEdit) window.auditCurveInEdit();"></textarea>
+                  <div id="edit-wt-curve-audit-badge" style="font-size: 10px; margin-top: 4px; color: var(--text-slate-400);">Auditoría de curva: <b style="color: #34D399;">Físicamente viable</b></div>
+                </div>
+              </div>
+            </details>
           </div>
 
           <!-- Campos específicos Parámetro Estructura / Coste Instalación -->
@@ -11325,6 +11379,135 @@ window.addNewEquipmentFromForm = addNewEquipmentFromForm;
 window.resetEquipmentCatalogToDefault = resetEquipmentCatalogToDefault;
 
 
+
+window.autoCalibrateCurveInEdit = function() {
+  const kw = Math.max(0.1, parseFloat(document.getElementById('edit-wt-kw').value) || 10.0);
+  const diam = Math.max(0.5, parseFloat(document.getElementById('edit-wt-diameter').value) || 5.0);
+  const type = document.getElementById('edit-wt-type').value || 'HAWT';
+  const bladeH = parseFloat(document.getElementById('edit-wt-blade-height').value) || (type === 'VAWT' ? diam * 1.4 : diam / 2);
+  const cutin = parseFloat(document.getElementById('edit-wt-cutin').value) || 2.5;
+  const rated = parseFloat(document.getElementById('edit-wt-ratedspeed').value) || 11.0;
+  const cutout = parseFloat(document.getElementById('edit-wt-cutout').value) || 25.0;
+
+  const mock = {
+    ratedPowerW: Math.round(kw * 1000),
+    rotorDiameterM: diam,
+    bladeHeightM: bladeH,
+    bladeLength: bladeH,
+    type: type,
+    cutInSpeedMs: cutin,
+    ratedSpeedMs: rated,
+    cutOutSpeedMs: cutout,
+    powerCurve: []
+  };
+
+  if (window.RAWindCatalog && typeof window.RAWindCatalog.calibratePowerCurveToBetz === 'function') {
+    window.RAWindCatalog.calibratePowerCurveToBetz(mock, type === 'VAWT' ? 0.35 : 0.42);
+    const txtArea = document.getElementById('edit-wt-curve-text');
+    if (txtArea && typeof window.RAWindCatalog.formatPowerCurveText === 'function') {
+      txtArea.value = window.RAWindCatalog.formatPowerCurveText(mock.powerCurve);
+    }
+  }
+  window.auditCurveInEdit();
+};
+
+window.auditCurveInEdit = function() {
+  const txtArea = document.getElementById('edit-wt-curve-text');
+  const badge = document.getElementById('edit-wt-curve-audit-badge');
+  if (!txtArea || !badge) return;
+  const pts = window.RAWindCatalog && typeof window.RAWindCatalog.parsePowerCurveText === 'function'
+    ? window.RAWindCatalog.parsePowerCurveText(txtArea.value)
+    : [];
+
+  const diam = Math.max(0.5, parseFloat(document.getElementById('edit-wt-diameter').value) || 5.0);
+  const type = document.getElementById('edit-wt-type').value || 'HAWT';
+  const bladeH = parseFloat(document.getElementById('edit-wt-blade-height').value) || (type === 'VAWT' ? diam * 1.4 : diam / 2);
+
+  const mock = {
+    rotorDiameterM: diam,
+    bladeHeightM: bladeH,
+    bladeLength: bladeH,
+    type: type,
+    powerCurve: pts
+  };
+
+  const audit = window.RAWindCatalog && typeof window.RAWindCatalog.validatePowerCurve === 'function'
+    ? window.RAWindCatalog.validatePowerCurve(mock)
+    : { valid: true, maxCp: 0.38 };
+
+  if (pts.length === 0) {
+    badge.innerHTML = 'Auditoría de curva: <b style="color:#F59E0B;">Curva vacía (se autocalculará al guardar)</b>';
+  } else if (!audit.valid) {
+    badge.innerHTML = 'Auditoría de curva: <b style="color:#EF4444;">Incompatible con Betz (Cp_máx = ' + audit.maxCp + ' > 0,593)</b>';
+  } else {
+    badge.innerHTML = 'Auditoría de curva: <b style="color:#34D399;">Físicamente viable (Cp_máx = ' + audit.maxCp + ') · ' + pts.length + ' puntos</b>';
+  }
+};
+
+window.autoCalibrateCurveInNew = function() {
+  const kw = Math.max(0.1, parseFloat(document.getElementById('new-wt-kw').value) || 10.0);
+  const diam = Math.max(0.5, parseFloat(document.getElementById('new-wt-diameter').value) || 5.0);
+  const type = document.getElementById('new-wt-type').value || 'HAWT';
+  const bladeH = parseFloat(document.getElementById('new-wt-blade-height').value) || (type === 'VAWT' ? diam * 1.4 : diam / 2);
+  const cutin = parseFloat(document.getElementById('new-wt-cutin').value) || 2.5;
+  const rated = parseFloat(document.getElementById('new-wt-ratedspeed').value) || 11.0;
+  const cutout = parseFloat(document.getElementById('new-wt-cutout').value) || 25.0;
+
+  const mock = {
+    ratedPowerW: Math.round(kw * 1000),
+    rotorDiameterM: diam,
+    bladeHeightM: bladeH,
+    bladeLength: bladeH,
+    type: type,
+    cutInSpeedMs: cutin,
+    ratedSpeedMs: rated,
+    cutOutSpeedMs: cutout,
+    powerCurve: []
+  };
+
+  if (window.RAWindCatalog && typeof window.RAWindCatalog.calibratePowerCurveToBetz === 'function') {
+    window.RAWindCatalog.calibratePowerCurveToBetz(mock, type === 'VAWT' ? 0.35 : 0.42);
+    const txtArea = document.getElementById('new-wt-curve-text');
+    if (txtArea && typeof window.RAWindCatalog.formatPowerCurveText === 'function') {
+      txtArea.value = window.RAWindCatalog.formatPowerCurveText(mock.powerCurve);
+    }
+  }
+  window.auditCurveInNew();
+};
+
+window.auditCurveInNew = function() {
+  const txtArea = document.getElementById('new-wt-curve-text');
+  const badge = document.getElementById('new-wt-curve-audit-badge');
+  if (!txtArea || !badge) return;
+  const pts = window.RAWindCatalog && typeof window.RAWindCatalog.parsePowerCurveText === 'function'
+    ? window.RAWindCatalog.parsePowerCurveText(txtArea.value)
+    : [];
+
+  const diam = Math.max(0.5, parseFloat(document.getElementById('new-wt-diameter').value) || 5.0);
+  const type = document.getElementById('new-wt-type').value || 'HAWT';
+  const bladeH = parseFloat(document.getElementById('new-wt-blade-height').value) || (type === 'VAWT' ? diam * 1.4 : diam / 2);
+
+  const mock = {
+    rotorDiameterM: diam,
+    bladeHeightM: bladeH,
+    bladeLength: bladeH,
+    type: type,
+    powerCurve: pts
+  };
+
+  const audit = window.RAWindCatalog && typeof window.RAWindCatalog.validatePowerCurve === 'function'
+    ? window.RAWindCatalog.validatePowerCurve(mock)
+    : { valid: true, maxCp: 0.38 };
+
+  if (pts.length === 0) {
+    badge.innerHTML = 'Auditoría de curva: <b style="color:#F59E0B;">Curva vacía (se autocalculará al guardar)</b>';
+  } else if (!audit.valid) {
+    badge.innerHTML = 'Auditoría de curva: <b style="color:#EF4444;">Incompatible con Betz (Cp_máx = ' + audit.maxCp + ' > 0,593)</b>';
+  } else {
+    badge.innerHTML = 'Auditoría de curva: <b style="color:#34D399;">Físicamente viable (Cp_máx = ' + audit.maxCp + ') · ' + pts.length + ' puntos</b>';
+  }
+};
+
 window.updateNewWindTurbineAreaPreview = function(isTypeToggle) {
   const typeIn = document.getElementById('new-wt-type');
   const diamIn = document.getElementById('new-wt-diameter');
@@ -11514,6 +11697,17 @@ function openEditEquipmentModal(category, id) {
     if (ratedIn) ratedIn.value = turbine.ratedSpeedMs || 11.0;
     if (cutoutIn) cutoutIn.value = turbine.cutOutSpeedMs || 25.0;
     if (survIn) survIn.value = turbine.survivalSpeedMs || 59.5;
+
+    const tiIn = document.getElementById('edit-wt-ti');
+    const lowLoadIn = document.getElementById('edit-wt-lowload-eff');
+    const curveIn = document.getElementById('edit-wt-curve-text');
+
+    if (tiIn) tiIn.value = (turbine.turbulenceIntensityPct !== undefined ? turbine.turbulenceIntensityPct : 14.0).toFixed(1);
+    if (lowLoadIn) lowLoadIn.value = (turbine.lowLoadEfficiencyPct !== undefined ? turbine.lowLoadEfficiencyPct : 80.0).toFixed(0);
+    if (curveIn && window.RAWindCatalog && typeof window.RAWindCatalog.formatPowerCurveText === 'function') {
+      curveIn.value = window.RAWindCatalog.formatPowerCurveText(turbine.powerCurve);
+    }
+    if (typeof window.auditCurveInEdit === 'function') window.auditCurveInEdit();
 
     if (titleEl) {
       titleEl.innerHTML = '<i data-lucide="edit-2" class="icon-sm"></i> MODIFICAR AEROGENERADOR: ' + (turbine.manufacturer || '') + ' ' + (turbine.model || '');
@@ -11710,7 +11904,12 @@ function saveEditedEquipment() {
       ratedSpeedMs: ratedSpeed,
       cutOutSpeedMs: cutout,
       survivalSpeedMs: survival,
-      priceEur: priceEur
+      priceEur: priceEur,
+      turbulenceIntensityPct: Math.max(5, Math.min(30, parseFloat(document.getElementById('edit-wt-ti') ? document.getElementById('edit-wt-ti').value : 14.0) || 14.0)),
+      lowLoadEfficiencyPct: Math.max(50, Math.min(98, parseFloat(document.getElementById('edit-wt-lowload-eff') ? document.getElementById('edit-wt-lowload-eff').value : 80.0) || 80.0)),
+      powerCurve: (window.RAWindCatalog && typeof window.RAWindCatalog.parsePowerCurveText === 'function' && document.getElementById('edit-wt-curve-text'))
+        ? window.RAWindCatalog.parsePowerCurveText(document.getElementById('edit-wt-curve-text').value)
+        : (existing.powerCurve || [])
     });
 
     window.RAWindCatalog.upsert(updatedTurbine);

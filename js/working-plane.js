@@ -6574,8 +6574,12 @@ function switchCatalogTab(tabName) {
     }
   } else if (tabName === 'add_new') {
     const newEqSel = document.getElementById('new-eq-type');
-    if (newEqSel && newEqSel.value === 'wind_turbine' && typeof window.updateNewWindTurbineAreaPreview === 'function') {
-      window.updateNewWindTurbineAreaPreview(false);
+    if (newEqSel && newEqSel.value === 'wind_turbine') {
+      if (typeof window.updateNewWindTurbineAreaPreview === 'function') window.updateNewWindTurbineAreaPreview(false);
+      const newCurveEl = document.getElementById('new-wt-curve-text');
+      if (newCurveEl && !newCurveEl.value && typeof window.autoCalibrateCurveInNew === 'function') {
+        window.autoCalibrateCurveInNew();
+      }
     }
   } else if (tabName === 'edit') {
     if (typeof window !== 'undefined' && typeof window.updateWindTurbineAreaPreview === 'function') {
@@ -6995,6 +6999,11 @@ function addNewEquipmentFromForm() {
       iecClass: iec,
       acousticPowerLwaDba: noise,
       priceEur: price,
+      turbulenceIntensityPct: Math.max(5, Math.min(30, parseFloat(document.getElementById('new-wt-ti') ? document.getElementById('new-wt-ti').value : 14.0) || 14.0)),
+      lowLoadEfficiencyPct: Math.max(50, Math.min(98, parseFloat(document.getElementById('new-wt-lowload-eff') ? document.getElementById('new-wt-lowload-eff').value : 80.0) || 80.0)),
+      powerCurve: (window.RAWindCatalog && typeof window.RAWindCatalog.parsePowerCurveText === 'function' && document.getElementById('new-wt-curve-text'))
+        ? window.RAWindCatalog.parsePowerCurveText(document.getElementById('new-wt-curve-text').value)
+        : [],
       electrical: {
         generatorType: 'PMSG',
         outputVoltageV: 400,
