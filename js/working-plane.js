@@ -6572,6 +6572,10 @@ function switchCatalogTab(tabName) {
     if (typeof window !== 'undefined' && window.RAWindCatalog && typeof window.RAWindCatalog.refreshPanel === 'function') {
       window.RAWindCatalog.refreshPanel();
     }
+  } else if (tabName === 'edit') {
+    if (typeof window !== 'undefined' && typeof window.updateWindTurbineAreaPreview === 'function') {
+      window.updateWindTurbineAreaPreview(false);
+    }
   } else if (tabName === 'ai_import') {
     if (typeof window !== 'undefined' && window.RAEquipmentAIImporter && typeof window.RAEquipmentAIImporter.renderInitialUI === 'function') {
       window.RAEquipmentAIImporter.renderInitialUI(document.getElementById('cat-pane-ai_import'));

@@ -57,9 +57,9 @@ window.RA_App = window.RA_App || {};
   <script src="js/obstacles.js?v=20261104a"></script>
   <script src="js/wind-turbine.js?v=20261011a"></script>
   <script src="js/wind/wind-constants.js?v=20261024b"></script>
-  <script src="js/wind/wind-catalog.js?v=20261106_fase1"></script>
+  <script src="js/wind/wind-catalog.js?v=20261106_fase1b"></script>
   <script src="js/wind/wind-rooftop-cfd.js?v=20261024b"></script>
-  <script src="js/wind/wind-resource.js?v=20261106_fase1"></script>
+  <script src="js/wind/wind-resource.js?v=20261106_fase1b"></script>
   <script src="js/wind/wind-acoustics.js?v=20261024b"></script>
   <script src="js/wind/wind-structural.js?v=20261024b"></script>
   <script src="js/wind/wind-electrical.js?v=20261024b"></script>
@@ -91,7 +91,7 @@ window.RA_App = window.RA_App || {};
   <script src="js/geometry-validate.js?v=20260929b"></script>
   <script src="js/docs-generator.js?v=1793265148380"></script>
   <script src="js/workflow-orchestrator.js?v=20260929b"></script>
-  <script src="js/working-plane.js?v=20261106_0846"></script>
+  <script src="js/working-plane.js?v=20261106_fase1b"></script>
   <script src="js/cad-selection-suite.js?v=20261026a"></script>
   <script src="js/cable-engine.js?v=20261016a"></script>
   <script src="js/capture-mode.js?v=20260929b"></script>
@@ -3026,7 +3026,7 @@ window.RA_App = window.RA_App || {};
               </select>
             </div>
             <div class="doc-field" id="edit-wt-blade-wrap">
-              <label id="edit-wt-blade-label">Altura de Pala Vertical (H, en m):</label>
+              <label id="edit-wt-blade-label">Longitud / Altura de Pala (m):</label>
               <input type="number" id="edit-wt-blade-height" step="0.1" min="0.2" placeholder="Ej. 2.5" oninput="if(window.updateWindTurbineAreaPreview) window.updateWindTurbineAreaPreview();">
             </div>
             <div class="doc-field"><label>Alturas de Mástil (m, separadas por coma):</label><input type="text" id="edit-wt-heights" placeholder="Ej. 12, 18, 24, 30"></div>
@@ -11321,18 +11321,22 @@ window.updateWindTurbineAreaPreview = function(isTypeToggle) {
   const pill = document.getElementById('edit-wt-area-calc-pill');
   if (!typeIn || !diamIn) return;
 
-  const isVawt = (typeIn.value === 'VAWT');
+  const isVawt = (typeIn.value === 'VAWT' || typeIn.value === 'vawt');
   const D = Math.max(0.1, parseFloat(diamIn.value) || 0);
 
   if (isTypeToggle && bladeIn) {
     if (isVawt) {
-      bladeIn.value = Math.round(D * 1.4 * 10) / 10;
+      bladeIn.value = (Math.round(D * 1.4 * 10) / 10).toFixed(1);
     } else {
-      bladeIn.value = Math.round(D / 2 * 10) / 10;
+      bladeIn.value = (Math.round(D / 2 * 10) / 10).toFixed(1);
     }
   }
 
-  const H = Math.max(0.1, parseFloat(bladeIn ? bladeIn.value : 0) || (isVawt ? D * 1.4 : D / 2));
+  let H = parseFloat(bladeIn ? bladeIn.value : 0);
+  if (!(H > 0)) {
+    H = isVawt ? (Math.round(D * 1.4 * 10) / 10) : (Math.round(D / 2 * 10) / 10);
+    if (bladeIn) bladeIn.value = H.toFixed(1);
+  }
 
   if (lbl) {
     lbl.textContent = isVawt 
@@ -11454,6 +11458,9 @@ function openEditEquipmentModal(category, id) {
     if (titleEl) {
       titleEl.innerHTML = '<i data-lucide="edit-2" class="icon-sm"></i> MODIFICAR AEROGENERADOR: ' + (turbine.manufacturer || '') + ' ' + (turbine.model || '');
       if (window.lucide && typeof window.lucide.createIcons === 'function') try { window.lucide.createIcons(); } catch(e) {}
+    }
+    if (typeof window.updateWindTurbineAreaPreview === 'function') {
+      window.updateWindTurbineAreaPreview(false);
     }
     switchCatalogTab('edit');
     return;
