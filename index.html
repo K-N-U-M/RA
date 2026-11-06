@@ -40,7 +40,7 @@ window.RA_App = window.RA_App || {};
   <script src="js/universal-gizmo-3d.js?v=1793254625038"></script>
   <script src="js/buildings.js?v=20261016d"></script>
     <script src="js/radiation-engine.js?v=20261014a"></script>
-    <script src="js/solar-heatmap.js?v=20261105_1330"></script>
+    <script src="js/solar-heatmap.js?v=20261106_0835"></script>
     <script src="js/solar-live-probe.js?v=20261029a"></script>
     <script src="js/ra-env.js"></script>
 <script src="js/config.js?v=20261028a"></script>
@@ -91,7 +91,7 @@ window.RA_App = window.RA_App || {};
   <script src="js/geometry-validate.js?v=20260929b"></script>
   <script src="js/docs-generator.js?v=1793265148380"></script>
   <script src="js/workflow-orchestrator.js?v=20260929b"></script>
-  <script src="js/working-plane.js?v=20261016g"></script>
+  <script src="js/working-plane.js?v=20261106_0846"></script>
   <script src="js/cad-selection-suite.js?v=20261026a"></script>
   <script src="js/cable-engine.js?v=20261016a"></script>
   <script src="js/capture-mode.js?v=20260929b"></script>
@@ -1408,6 +1408,25 @@ window.RA_App = window.RA_App || {};
                       <div>
                         <div style="font-size: 10px;color:var(--text-slate-400);text-transform:uppercase;letter-spacing:0.3px;">Paso total (fila a fila):</div>
                         <div id="faldon-total-pitch-val" style="font-size:10.5px;font-weight:bold;color:#FBBF24;font-family:monospace;">-- m</div>
+                      </div>
+                    </div>
+                    <!-- Deslizador Interactivo de Separación Manual (Opción B) -->
+                    <div id="faldon-row-pitch-slider-container" style="margin-top:5px;padding-top:5px;border-top:1px solid rgba(255,255,255,0.08);">
+                      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+                        <span style="font-size:9.5px;color:#CBD5E1;font-weight:700;display:flex;align-items:center;gap:4px;">
+                          <i data-lucide="sliders-horizontal" class="icon-sm" style="width:11px;height:11px;color:#38BDF8;"></i>
+                          Ajuste Pasillo Manual:
+                        </span>
+                        <div style="display:flex;align-items:center;gap:4px;">
+                          <button id="faldon-row-pitch-reset-btn" type="button" class="doc-mini-btn" style="padding:1px 5px;font-size:9px;background:rgba(56,189,248,0.15);color:#38BDF8;border:1px solid rgba(56,189,248,0.3);font-weight:800;border-radius:3px;cursor:pointer;" onclick="wpResetPolyRowPitchToAuto(WP.selectedPolyIdx)" title="Restablecer al paso óptimo normativo sin sombras (CTE/IDAE)">AUTO</button>
+                          <span id="faldon-row-pitch-slider-val" style="font-size:10px;font-weight:800;color:#38BDF8;font-family:monospace;min-width:38px;text-align:right;">-- m</span>
+                        </div>
+                      </div>
+                      <input id="faldon-row-pitch-slider" type="range" min="0.20" max="6.00" step="0.05" value="2.50" style="width:100%;accent-color:#38BDF8;cursor:pointer;margin:2px 0;" oninput="wpSetPolyManualRowPitchRealtime(WP.selectedPolyIdx, this.value);" onchange="wpSetPolyManualRowPitchCommit(WP.selectedPolyIdx, this.value);" />
+                      <div style="display:flex;justify-content:space-between;font-size:8.5px;color:#64748B;font-family:monospace;">
+                        <span>0.20 m (Mín)</span>
+                        <span id="faldon-row-pitch-auto-marker" style="color:#34D399;font-weight:700;">CTE: -- m</span>
+                        <span>6.00 m (Máx)</span>
                       </div>
                     </div>
                     <div id="faldon-pitch-note" style="font-size: 10px;color:#94A3B8;margin-top:3px;display:flex;align-items:center;gap:3px;">
@@ -8685,7 +8704,7 @@ function evaluateModuleLayouts(roof, module, cfg) {
   const isContinuousCanopy = isPergola && (pergolaSubtype !== 'spaced_rows');
 
   const isZeroTiltOnSlope = (rawUserTilt === 0 && slopeDeg >= flatThreshold);
-  const deltaTilt = (isCoplanar || isZeroTiltOnSlope) ? 0 : (isEastWest ? 12 : Math.max(moduleTiltDeg - slopeDeg, 0));
+  const deltaTilt = (isCoplanar || isZeroTiltOnSlope || isContinuousCanopy) ? 0 : (isEastWest ? 12 : Math.max(moduleTiltDeg - slopeDeg, 0));
   const coplanar = (deltaTilt < 1);
 
   const nMod = normalFromTiltAzimuth(moduleTiltDeg, moduleAzN);
@@ -14458,6 +14477,7 @@ function _getOcclusionExcludeList(scene) {
   if (scene.skyBox) toExclude.push(scene.skyBox);
   if (scene.skyAtmosphere) toExclude.push(scene.skyAtmosphere);
   if (window._solarHeatmapLabelCollection) toExclude.push(window._solarHeatmapLabelCollection);
+  if (window._panelNumberLabelCollection) toExclude.push(window._panelNumberLabelCollection);
   if (window.simulatedPanelsPrimitive) toExclude.push(window.simulatedPanelsPrimitive);
   if (window._faldonPanelsPrimitives && typeof window._faldonPanelsPrimitives.forEach === 'function') {
     window._faldonPanelsPrimitives.forEach(p => { if (p) toExclude.push(p); });
@@ -14467,6 +14487,12 @@ function _getOcclusionExcludeList(scene) {
   }
   if (window.simulatedStringsPolylineCollection) toExclude.push(window.simulatedStringsPolylineCollection);
   if (window.simulatedSupportsPolylineCollection) toExclude.push(window.simulatedSupportsPolylineCollection);
+  if (window._faldonSupportCollections && typeof window._faldonSupportCollections.forEach === 'function') {
+    window._faldonSupportCollections.forEach(p => { if (p) toExclude.push(p); });
+  }
+  if (window._faldonWirePrimitives && typeof window._faldonWirePrimitives.forEach === 'function') {
+    window._faldonWirePrimitives.forEach(p => { if (p) toExclude.push(p); });
+  }
   if (window._raCableEnginePrimitives) toExclude.push(window._raCableEnginePrimitives);
   if (window.inverterEntity) toExclude.push(window.inverterEntity);
   if (window.dcBoxEntity) toExclude.push(window.dcBoxEntity);
@@ -14533,7 +14559,10 @@ function isPanelOccludedBy3DEnvironment(panelCenter, norm, sunDirWorld, pInfo) {
             const v = Cesium.Cartesian3.dot(locHit, pInfo.vVec || Cesium.Cartesian3.UNIT_Y);
             const n = pInfo.normal || Cesium.Cartesian3.UNIT_Z;
             const h = Math.abs(Cesium.Cartesian3.dot(locHit, n));
-            if (h < 1.2 && pInfo.poly2D && typeof isPointInPolygon2D === 'function' && isPointInPolygon2D({ u, v }, pInfo.poly2D)) {
+            const structType = pInfo.structureType || (pInfo.estructura && pInfo.estructura.tipo);
+            const pergClearance = (pInfo.clearance || (pInfo.estructura && pInfo.estructura.clearance) || (structType === 'pergola' ? 3.5 : 0));
+            const maxDeckH = Math.max(1.2, pergClearance + 1.2);
+            if (h < maxDeckH && pInfo.poly2D && typeof isPointInPolygon2D === 'function' && isPointInPolygon2D({ u, v }, pInfo.poly2D)) {
               return false;
             }
           } catch(eHit) {}

@@ -7460,7 +7460,9 @@ function wpUpdateFaldonRowPitchUI(polyIdx) {
   const totalEl = document.getElementById('faldon-total-pitch-val');
   const noteEl = document.getElementById('faldon-pitch-note');
 
+  const sliderCont = document.getElementById('faldon-row-pitch-slider-container');
   if (isCoplanar || isContinuousCanopy) {
+    if (sliderCont) sliderCont.style.display = 'none';
     if (statusBadge) {
       statusBadge.textContent = isContinuousCanopy ? 'Tejadillo continuo' : 'Coplanar continuo';
       statusBadge.style.background = 'rgba(56,189,248,0.15)';
@@ -7480,6 +7482,8 @@ function wpUpdateFaldonRowPitchUI(polyIdx) {
     if (window.lucide) try { lucide.createIcons(); } catch(e) {}
     return;
   }
+
+  if (sliderCont) sliderCont.style.display = 'block';
 
   const pInfo = poly.roofInfo;
   let modDimension = 2.20;
@@ -7505,19 +7509,155 @@ function wpUpdateFaldonRowPitchUI(polyIdx) {
       useCTEWindow: true
     });
 
-    if (statusBadge) {
-      statusBadge.textContent = 'Sin sombras (Invierno)';
-      statusBadge.style.background = 'rgba(16,185,129,0.15)';
-      statusBadge.style.color = '#34D399';
+    const footprintA = Math.max(0.20, pCalc.totalPitchM - pCalc.clearSpacingM);
+    const isManualLocked = !!(poly.lockRowPitch && (typeof poly.manualClearSpacingM === 'number' || (typeof poly.lockedRowPitchM === 'number' && poly.lockedRowPitchM > 0)));
+    let clearVal = pCalc.clearSpacingM;
+    let totalVal = pCalc.totalPitchM;
+
+    if (isManualLocked) {
+      if (typeof poly.manualClearSpacingM === 'number') {
+        clearVal = poly.manualClearSpacingM;
+        totalVal = footprintA + clearVal;
+      } else if (typeof poly.lockedRowPitchM === 'number' && poly.lockedRowPitchM > 0) {
+        totalVal = poly.lockedRowPitchM;
+        clearVal = Math.max(0.04, totalVal - footprintA);
+      }
     }
-    if (clearEl) clearEl.textContent = pCalc.clearSpacingM.toFixed(2) + ' m';
-    if (totalEl) totalEl.textContent = pCalc.totalPitchM.toFixed(2) + ' m';
+
+    const slider = document.getElementById('faldon-row-pitch-slider');
+    const sliderVal = document.getElementById('faldon-row-pitch-slider-val');
+    const autoMarker = document.getElementById('faldon-row-pitch-auto-marker');
+    const resetBtn = document.getElementById('faldon-row-pitch-reset-btn');
+
+    if (autoMarker) autoMarker.textContent = `CTE: ${pCalc.clearSpacingM.toFixed(2)} m`;
+    if (slider) slider.value = clearVal.toFixed(2);
+    if (sliderVal) sliderVal.textContent = clearVal.toFixed(2) + ' m';
+    if (resetBtn) resetBtn.style.display = isManualLocked ? 'inline-block' : 'none';
+
+    if (clearEl) clearEl.textContent = clearVal.toFixed(2) + ' m';
+    if (totalEl) totalEl.textContent = totalVal.toFixed(2) + ' m';
+
+    if (statusBadge) {
+      if (isManualLocked) {
+        const delta = clearVal - pCalc.clearSpacingM;
+        if (delta < -0.05) {
+          statusBadge.textContent = `⚠️ Manual (-${Math.abs(delta).toFixed(2)}m)`;
+          statusBadge.style.background = 'rgba(245,158,11,0.2)';
+          statusBadge.style.color = '#FBBF24';
+        } else {
+          statusBadge.textContent = 'Manual (Sin sombras)';
+          statusBadge.style.background = 'rgba(16,185,129,0.15)';
+          statusBadge.style.color = '#34D399';
+        }
+      } else {
+        statusBadge.textContent = 'Sin sombras (Invierno)';
+        statusBadge.style.background = 'rgba(16,185,129,0.15)';
+        statusBadge.style.color = '#34D399';
+      }
+    }
+
     if (noteEl) {
       const orientTxt = isLandscape ? 'horizontal' : 'vertical';
       const labelPrefix = isPergola ? 'Pérgola elevada' : 'Placa';
-      noteEl.innerHTML = `<i data-lucide="shield-check" class="icon-sm" style="color:#34D399;width:10px;height:10px;"></i> <span>${labelPrefix} en ${orientTxt} (${tiltVal}°): 4h sol libre en solsticio (CTE/IDAE)</span>`;
+      if (isManualLocked && (clearVal < pCalc.clearSpacingM - 0.05)) {
+        noteEl.innerHTML = `<i data-lucide="alert-triangle" class="icon-sm" style="color:#FBBF24;width:10px;height:10px;"></i> <span>Pasillo manual menor al CTE (${pCalc.clearSpacingM.toFixed(2)} m): mayor densidad de placas con posibles sombras en solsticio</span>`;
+      } else if (isManualLocked) {
+        noteEl.innerHTML = `<i data-lucide="check-circle" class="icon-sm" style="color:#34D399;width:10px;height:10px;"></i> <span>Pasillo manual fijado a ${clearVal.toFixed(2)} m: holgado sin sombras de invierno</span>`;
+      } else {
+        noteEl.innerHTML = `<i data-lucide="shield-check" class="icon-sm" style="color:#34D399;width:10px;height:10px;"></i> <span>${labelPrefix} en ${orientTxt} (${tiltVal}°): 4h sol libre en solsticio (CTE/IDAE)</span>`;
+      }
     }
   }
   if (window.lucide) try { lucide.createIcons(); } catch(e) {}
 }
 window.wpUpdateFaldonRowPitchUI = wpUpdateFaldonRowPitchUI;
+
+function wpSetPolyManualRowPitchRealtime(polyIdx, val) {
+  if (polyIdx === undefined || polyIdx === null || polyIdx < 0) polyIdx = (typeof WP !== 'undefined') ? WP.selectedPolyIdx : 0;
+  if (!WP.polylines || !WP.polylines[polyIdx]) return;
+  const poly = WP.polylines[polyIdx];
+  const clearM = Math.max(0.10, Math.min(10.0, parseFloat(val) || 0.20));
+
+  const pInfo = poly.roofInfo;
+  let modDimension = 2.20;
+  const isLandscape = (poly.orientationPref === 'landscape');
+  if (pInfo && pInfo.panels && pInfo.panels.length > 0) {
+    const p0 = pInfo.panels[0];
+    modDimension = isLandscape ? (p0.w || 1.13) : (p0.h || 2.20);
+  } else {
+    modDimension = isLandscape ? 1.13 : 2.20;
+  }
+  const stType = poly.structureType || (poly.estructura && poly.estructura.tipo);
+  const tiltVal = (typeof poly.modTilt === 'number') ? poly.modTilt : ((stType === 'triangles_30') ? 30 : 15);
+  const slopeDeg = (pInfo && typeof pInfo.tiltDeg === 'number') ? pInfo.tiltDeg : 0;
+  const deltaTilt = Math.max(0, tiltVal - slopeDeg);
+  const footprintA = modDimension * Math.cos(deltaTilt * Math.PI / 180);
+  const totalPitch = footprintA + clearM;
+
+  poly.lockRowPitch = true;
+  poly.manualClearSpacingM = clearM;
+  poly.lockedRowPitchM = totalPitch;
+
+  if (typeof roofPanelsCache !== 'undefined' && roofPanelsCache) roofPanelsCache.sig = "";
+  delete poly._calcSig;
+
+  if (typeof computeSinglePolylineRoofInfo === "function") {
+    poly.roofInfo = computeSinglePolylineRoofInfo(poly.points, poly);
+  }
+  if (typeof wpFastRenderSimulatedPanels === "function") {
+    wpFastRenderSimulatedPanels(true, polyIdx);
+  }
+  if (typeof wpUpdateFaldonRowPitchUI === "function") {
+    wpUpdateFaldonRowPitchUI(polyIdx);
+  }
+  if (typeof wpUpdateLayoutFastMetrics === "function") {
+    wpUpdateLayoutFastMetrics();
+  }
+}
+window.wpSetPolyManualRowPitchRealtime = wpSetPolyManualRowPitchRealtime;
+
+function wpSetPolyManualRowPitchCommit(polyIdx, val) {
+  wpSetPolyManualRowPitchRealtime(polyIdx, val);
+  if (typeof window.wpInvalidateHeatmap === 'function') {
+    window.wpInvalidateHeatmap('Separación entre filas modificada manualmente');
+  }
+  if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') {
+    BOMTreeEngine.refresh();
+  }
+}
+window.wpSetPolyManualRowPitchCommit = wpSetPolyManualRowPitchCommit;
+
+function wpResetPolyRowPitchToAuto(polyIdx) {
+  if (polyIdx === undefined || polyIdx === null || polyIdx < 0) polyIdx = (typeof WP !== 'undefined') ? WP.selectedPolyIdx : 0;
+  if (!WP.polylines || !WP.polylines[polyIdx]) return;
+  const poly = WP.polylines[polyIdx];
+  poly.lockRowPitch = false;
+  delete poly.manualClearSpacingM;
+  delete poly.lockedRowPitchM;
+
+  if (typeof roofPanelsCache !== 'undefined' && roofPanelsCache) roofPanelsCache.sig = "";
+  delete poly._calcSig;
+
+  if (typeof computeSinglePolylineRoofInfo === "function") {
+    poly.roofInfo = computeSinglePolylineRoofInfo(poly.points, poly);
+  }
+  if (typeof wpFastRenderSimulatedPanels === "function") {
+    wpFastRenderSimulatedPanels(true, polyIdx);
+  }
+  if (typeof wpUpdateFaldonRowPitchUI === "function") {
+    wpUpdateFaldonRowPitchUI(polyIdx);
+  }
+  if (typeof wpUpdateLayoutFastMetrics === "function") {
+    wpUpdateLayoutFastMetrics();
+  }
+  if (typeof window.wpInvalidateHeatmap === 'function') {
+    window.wpInvalidateHeatmap('Separación automática restablecida');
+  }
+  if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') {
+    BOMTreeEngine.refresh();
+  }
+  if (typeof showToast === 'function') {
+    showToast('PASO ENTRE FILAS', 'Separación automática óptima (CTE/IDAE) restablecida', 'success', 2500);
+  }
+}
+window.wpResetPolyRowPitchToAuto = wpResetPolyRowPitchToAuto;

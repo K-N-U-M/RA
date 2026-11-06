@@ -453,7 +453,9 @@ self.onmessage = function(e) {
       // Pre-calcular siluetas de sombra de obstáculos por faldón para esta hora (O(F) en vez de O(N*F))
       const faldonShadowQuads = new Map();
       faldones.forEach((faldon, fIdx) => {
-        if (!faldon.obstacles2D || faldon.obstacles2D.length === 0) {
+        const hasObs = Array.isArray(faldon.obstacles2D) && faldon.obstacles2D.length > 0;
+        const hasInterRow = Array.isArray(faldon.interRowEdges) && faldon.interRowEdges.length > 0;
+        if (!hasObs && !hasInterRow) {
           faldonShadowQuads.set(fIdx, []);
           return;
         }
@@ -465,7 +467,8 @@ self.onmessage = function(e) {
         const shadowLen = sp.shadowLenPerM;
 
         const quads = [];
-        faldon.obstacles2D.forEach(obs => {
+        if (hasObs) {
+          faldon.obstacles2D.forEach(obs => {
           const hObs = obs.height || 1.2;
           const maxObsShadowLen = 45.0; // Límite físico para evitar proyecciones infinitas
           const effShadowLen = Math.min(shadowLen * hObs, maxObsShadowLen);
@@ -484,7 +487,8 @@ self.onmessage = function(e) {
               }
             }
           }
-        });
+          });
+        }
 
         // Autosombreado Inter-filas entre paneles elevados de la misma cubierta
         if (faldon.interRowEdges && faldon.interRowEdges.length > 0) {

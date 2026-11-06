@@ -226,12 +226,13 @@
     const structType = pInfo.structureType || (pInfo.estructura && pInfo.estructura.tipo);
     const pergSubtype = pInfo.pergolaSubtype || (pInfo.estructura && pInfo.estructura.subtype) || 'continuous';
     const isContinuousPergola = (structType === 'pergola' && pergSubtype !== 'spaced_rows');
+    const hasPergolaSpacedRows = (structType === 'pergola' && pergSubtype === 'spaced_rows');
 
     // En cubiertas coplanares o marquesinas continuas (tejadillo corrido sin desnivel entre filas),
-    // si no hay desnivel geométrico en vértices 3D, no hay autosombreado inter-filas
-    const hasPergolaTilt = (structType === 'pergola' && typeof pInfo.moduleTiltDeg === 'number' && pInfo.moduleTiltDeg > 2);
+    // todos los paneles forman un plano continuo coplanar sin autosombreado inter-filas.
+    // Solo pérgolas con filas separadas (spaced_rows) o triángulos sobre cubierta plana generan sombras inter-filas.
     const isZeroTiltOnSlope = (pInfo.tiltDeg > 3 && (pInfo.moduleTiltDeg === 0 || pInfo.moduleTiltDeg === pInfo.tiltDeg));
-    if ((pInfo.coplanar || isContinuousPergola || isZeroTiltOnSlope) && !hasPergolaTilt) return [];
+    if (pInfo.coplanar || (isContinuousPergola && !hasPergolaSpacedRows) || isZeroTiltOnSlope) return [];
 
     let hModGlobal = 0;
     if (typeof pInfo.moduleTiltDeg === 'number' && pInfo.moduleTiltDeg > 5) {
@@ -666,6 +667,17 @@
       const pPanels = Array.isArray(poly.panels) ? poly.panels : (pInfo && Array.isArray(pInfo.panels) ? pInfo.panels : []);
       if (!pPanels || pPanels.length === 0) return;
 
+      const roofElevations = new Array(NUM_SECTORS).fill(0);
+
+      // Si el faldón tiene desactivadas las sombras de fotogrametría 3D, horizonte despejado 100%
+      if (poly.ignore3DTilesShadows || (pInfo && pInfo.ignore3DTilesShadows)) {
+        pPanels.forEach((p, idx) => {
+          const pId = p.panelId || p.id || ('pan_' + polyIdx + '_' + idx);
+          horizonMap.set(pId, roofElevations);
+        });
+        return;
+      }
+
       // Calcular centroide medio del faldón para no saturar con rayos
       let roofCenter = null;
       let validCount = 0;
@@ -684,12 +696,27 @@
       const enuFrame = transform || Cesium.Transforms.eastNorthUpToFixedFrame(roofCenter);
       const toExclude = (typeof _getOcclusionExcludeList === 'function') ? _getOcclusionExcludeList(scene) : [];
 
-      // Elevación de sondeo a 0.5m sobre la cubierta
+      // Elevación de sondeo sobre la cota superior real de los paneles del faldón
       const upVec = Cesium.Matrix4.multiplyByPointAsVector(enuFrame, new Cesium.Cartesian3(0, 0, 1), new Cesium.Cartesian3());
       Cesium.Cartesian3.normalize(upVec, upVec);
-      const probeOrigin = Cesium.Cartesian3.add(roofCenter, Cesium.Cartesian3.multiplyByScalar(upVec, 0.50, new Cesium.Cartesian3()), new Cesium.Cartesian3());
 
-      const roofElevations = new Array(NUM_SECTORS).fill(0);
+      let maxCornerH = 0;
+      pPanels.forEach(p => {
+        if (Array.isArray(p.corners)) {
+          p.corners.forEach(c => {
+            if (c) {
+              const diff = Cesium.Cartesian3.subtract(c, roofCenter, new Cesium.Cartesian3());
+              const hDot = Cesium.Cartesian3.dot(diff, upVec);
+              if (hDot > maxCornerH) maxCornerH = hDot;
+            }
+          });
+        }
+      });
+      const probeOrigin = Cesium.Cartesian3.add(
+        roofCenter,
+        Cesium.Cartesian3.multiplyByScalar(upVec, Math.max(0.50, maxCornerH + 0.35), new Cesium.Cartesian3()),
+        new Cesium.Cartesian3()
+      );
 
       // Probar los 16 sectores azimutales (Norte a Norte en sentido horario)
       for (let s = 0; s < NUM_SECTORS; s++) {
@@ -713,10 +740,33 @@
           const ray = new Cesium.Ray(probeOrigin, dirWorld);
           try {
             const hit = scene.pickFromRay(ray, toExclude);
-            if (hit && Cesium.defined(hit.position)) {
-              const dist = Cesium.Cartesian3.distance(probeOrigin, hit.position);
-              if (dist > 1.2 && dist < 1200.0) {
-                maxFoundElev = testAngles[a];
+            if (hit && Cesium.defined(hit.position) && hit.object) {
+              const objPrim = hit.object.primitive;
+              const is3DTile = (
+                (typeof Cesium.Cesium3DTileFeature !== "undefined" && hit.object instanceof Cesium.Cesium3DTileFeature) ||
+                (typeof Cesium.Cesium3DTileset !== "undefined" && (objPrim instanceof Cesium.Cesium3DTileset || hit.object instanceof Cesium.Cesium3DTileset)) ||
+                (objPrim && (objPrim === gTileset || objPrim === osmTileset)) ||
+                (hit.object.tileset && (hit.object.tileset === gTileset || hit.object.tileset === osmTileset)) ||
+                (hit.object.content && hit.object.content.tileset)
+              );
+
+              if (is3DTile) {
+                // Descarte de impacto contra la propia huella / losa del faldón o suelo bajo la pérgola
+                if (pInfo && pInfo.invTransform && pInfo.poly2D) {
+                  try {
+                    const locHit = Cesium.Matrix4.multiplyByPoint(pInfo.invTransform, hit.position, new Cesium.Cartesian3());
+                    const u = Cesium.Cartesian3.dot(locHit, pInfo.uVec || Cesium.Cartesian3.UNIT_X);
+                    const v = Cesium.Cartesian3.dot(locHit, pInfo.vVec || Cesium.Cartesian3.UNIT_Y);
+                    if (typeof isPointInPolygon2D === 'function' && isPointInPolygon2D({ u, v }, pInfo.poly2D)) {
+                      continue;
+                    }
+                  } catch (eHit) {}
+                }
+
+                const dist = Cesium.Cartesian3.distance(probeOrigin, hit.position);
+                if (dist > 2.0 && dist < 1200.0) {
+                  maxFoundElev = testAngles[a];
+                }
               }
             }
           } catch(e) {}
@@ -743,7 +793,7 @@
   async function runHeatmapInDedicatedWorker(cfg, onProgressCallback, progressBar, progressFill, totalPanelsCount) {
     let worker;
     try {
-      worker = new Worker('js/solar-worker.js?v=20261105_1330');
+      worker = new Worker('js/solar-worker.js?v=20261106_0835');
     } catch (err) {
       throw err;
     }
@@ -986,8 +1036,8 @@
         const structType = pInfo.structureType || (pInfo.estructura && pInfo.estructura.tipo);
         const pergSubtype = pInfo.pergolaSubtype || (pInfo.estructura && pInfo.estructura.subtype) || 'continuous';
         const isContinuousPergola = (structType === 'pergola' && pergSubtype !== 'spaced_rows');
-        const hasPergolaTilt = (structType === 'pergola' && typeof pInfo.moduleTiltDeg === 'number' && pInfo.moduleTiltDeg > 2);
-        if ((!pInfo.coplanar && !isContinuousPergola || hasPergolaTilt) && pList.length >= 2) {
+        const hasPergolaSpacedRows = (structType === 'pergola' && pergSubtype === 'spaced_rows');
+        if ((!pInfo.coplanar && (!isContinuousPergola || hasPergolaSpacedRows)) && pList.length >= 2) {
           let hModGlobal = 0;
           if (typeof pInfo.moduleTiltDeg === 'number' && pInfo.moduleTiltDeg > 5) {
             const deltaTilt = Math.max(0, pInfo.moduleTiltDeg - (pInfo.tiltDeg || 0));
