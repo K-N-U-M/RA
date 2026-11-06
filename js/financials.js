@@ -4201,8 +4201,18 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         font-size: 10px;
         color: #94a3b8;
       }
-      .tech-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 16px 0 20px; }
+      .tech-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 14px 0 18px; }
+      .tech-grid.has-7-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 12px 0 16px; }
+      .tech-grid.has-7-cards > .tech-card:last-child { grid-column: 2; }
       .tech-grid.compact-4 { grid-template-columns: repeat(4, 1fr); gap: 9px; margin: 10px 0 14px; }
+      .tech-grid.has-7-cards .tech-card { padding: 11px 9px; min-height: 152px; border-radius: 10px; }
+      .tech-grid.has-7-cards .tech-icon-box { width: 48px; height: 48px; border-radius: 12px; margin-bottom: 6px; }
+      .tech-grid.has-7-cards .tech-icon-box svg { width: 36px !important; height: 36px !important; }
+      .tech-grid.has-7-cards .tech-info { margin-bottom: 6px; }
+      .tech-grid.has-7-cards .tech-label { font-size: 8.5px; letter-spacing: 0.5px; margin-bottom: 2px; }
+      .tech-grid.has-7-cards .tech-name { font-size: 10.5px; line-height: 1.28; }
+      .tech-grid.has-7-cards .tech-sub { font-size: 9px; line-height: 1.22; margin-top: 2px; }
+      .tech-grid.has-7-cards .tech-badge { padding: 4px 6px; font-size: 10px; border-radius: 7px; }
       .tech-card { border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 18px 14px; background: #f8fafc; display: flex; flex-direction: column; align-items: center; text-align: center; justify-content: space-between; min-height: 195px; box-shadow: 0 2px 6px rgba(0,0,0,0.03); transition: all 0.2s ease; }
       .tech-card:hover { border-color: ${pal.primary}; box-shadow: 0 6px 16px rgba(0,0,0,0.06); }
       .tech-grid.compact-4 .tech-card { padding: 9px 8px; min-height: 140px; border-radius: 9px; }
@@ -4696,7 +4706,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         </table>
 
         <h2>2. Configuración técnica seleccionada</h2>
-        <div class="tech-grid${(5 + (_eqp.hasWind ? 1 : 0) + (_eqp.hasMicro ? 1 : 0)) > 6 ? ' compact-4' : ''}">
+        <div class="tech-grid${(5 + (_eqp.hasWind ? 1 : 0) + (_eqp.hasMicro ? 1 : 0)) === 7 ? ' has-7-cards' : ((5 + (_eqp.hasWind ? 1 : 0) + (_eqp.hasMicro ? 1 : 0)) > 7 ? ' compact-4' : '')}">
           <!-- 1. Módulos -->
           <div class="tech-card">
             <div class="tech-icon-box">
