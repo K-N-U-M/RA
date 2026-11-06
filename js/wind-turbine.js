@@ -353,9 +353,10 @@
       // Mástil: asciende y termina EXACTAMENTE en armTopH (al ras del eje superior de palas),
       // sin sobresalir por encima:
       var totalMastH  = armTopH;
-      var vMastScale  = Math.max(0.4, Math.min(3.0, totalMastH / 6.0));
-      var vMastTopR   = Math.max(0.05, 0.08 * vMastScale);
-      var vMastBotR   = Math.max(0.08, 0.14 * vMastScale);
+      // Mástil cónico proporcional: base nominal 50cm (r=0.25m), coronación 25cm (r=0.125m)
+      var vMastScale  = Math.max(0.6, Math.min(2.5, Math.sqrt(totalMastH / 12.0)));
+      var vMastBotR   = Math.max(0.18, 0.25 * vMastScale);
+      var vMastTopR   = Math.max(0.09, 0.125 * vMastScale);
       var vMastGeom   = new Cesium.CylinderGeometry({
         length: totalMastH, topRadius: vMastTopR, bottomRadius: vMastBotR,
         slices: 16, vertexFormat: VF
@@ -397,12 +398,13 @@
     } else {
       // ══════════════ HAWT (Eje Horizontal) ══════════════
       // 1. Mástil
-      var mastScale = Math.max(0.4, Math.min(3.0, mastH / 8.0));
-      var mastTopR  = Math.max(0.08, 0.18 * mastScale);
-      var mastBotR  = Math.max(0.14, 0.32 * mastScale);
+      // Mástil cónico proporcional: base nominal 50cm (r=0.25m), coronación 25cm (r=0.125m)
+      var mastScale = Math.max(0.6, Math.min(2.5, Math.sqrt(mastH / 12.0)));
+      var mastBotR  = Math.max(0.18, 0.25 * mastScale);
+      var mastTopR  = Math.max(0.09, 0.125 * mastScale);
       var mastGeom  = new Cesium.CylinderGeometry({
         length: mastH, topRadius: mastTopR, bottomRadius: mastBotR,
-        slices: 14, vertexFormat: VF
+        slices: 16, vertexFormat: VF
       });
       addInstance(mastGeom, col('mast'), new Cesium.Cartesian3(0, 0, elev + mastH / 2), null, 'wt_mast_' + obs.id);
 
