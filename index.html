@@ -57,9 +57,9 @@ window.RA_App = window.RA_App || {};
   <script src="js/obstacles.js?v=20261104a"></script>
   <script src="js/wind-turbine.js?v=20261011a"></script>
   <script src="js/wind/wind-constants.js?v=20261024b"></script>
-  <script src="js/wind/wind-catalog.js?v=20261024b"></script>
+  <script src="js/wind/wind-catalog.js?v=20261106_fase1"></script>
   <script src="js/wind/wind-rooftop-cfd.js?v=20261024b"></script>
-  <script src="js/wind/wind-resource.js?v=20261025_eng1"></script>
+  <script src="js/wind/wind-resource.js?v=20261106_fase1"></script>
   <script src="js/wind/wind-acoustics.js?v=20261024b"></script>
   <script src="js/wind/wind-structural.js?v=20261024b"></script>
   <script src="js/wind/wind-electrical.js?v=20261024b"></script>
@@ -3018,12 +3018,16 @@ window.RA_App = window.RA_App || {};
           <!-- Campos específicos Aerogenerador -->
           <div id="edit-wt-wrap" style="display:none;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;border-top:1px solid rgba(255,255,255,0.08);padding-top:10px;">
             <div class="doc-field"><label>Potencia Nominal (kW):</label><input type="number" id="edit-wt-kw" step="0.5"></div>
-            <div class="doc-field"><label>Diámetro del Rotor (m):</label><input type="number" id="edit-wt-diameter" step="0.1"></div>
+            <div class="doc-field"><label>Diámetro del Rotor (m):</label><input type="number" id="edit-wt-diameter" step="0.1" oninput="if(window.updateWindTurbineAreaPreview) window.updateWindTurbineAreaPreview();"></div>
             <div class="doc-field"><label>Tipo de Turbina:</label>
-              <select id="edit-wt-type">
+              <select id="edit-wt-type" onchange="if(window.updateWindTurbineAreaPreview) window.updateWindTurbineAreaPreview(true);">
                 <option value="HAWT">Eje Horizontal (HAWT)</option>
                 <option value="VAWT">Eje Vertical (VAWT)</option>
               </select>
+            </div>
+            <div class="doc-field" id="edit-wt-blade-wrap">
+              <label id="edit-wt-blade-label">Altura de Pala Vertical (H, en m):</label>
+              <input type="number" id="edit-wt-blade-height" step="0.1" min="0.2" placeholder="Ej. 2.5" oninput="if(window.updateWindTurbineAreaPreview) window.updateWindTurbineAreaPreview();">
             </div>
             <div class="doc-field"><label>Alturas de Mástil (m, separadas por coma):</label><input type="text" id="edit-wt-heights" placeholder="Ej. 12, 18, 24, 30"></div>
             <div class="doc-field"><label>Clase IEC Eólica:</label>
@@ -3039,6 +3043,10 @@ window.RA_App = window.RA_App || {};
             <div class="doc-field"><label>V. Nominal Rated (m/s):</label><input type="number" id="edit-wt-ratedspeed" step="0.5"></div>
             <div class="doc-field"><label>V. Corte Cut-out (m/s):</label><input type="number" id="edit-wt-cutout" step="1"></div>
             <div class="doc-field"><label>V. Supervivencia (m/s):</label><input type="number" id="edit-wt-survival" step="1"></div>
+            <div class="doc-field" style="grid-column: span 2; background: rgba(56, 189, 248, 0.08); border: 1px dashed rgba(56, 189, 248, 0.3); border-radius: 6px; padding: 7px 12px; font-size: 11px; color: #38BDF8; display: flex; align-items: center; justify-content: space-between;">
+              <span id="edit-wt-area-calc-text"><i data-lucide="info" class="icon-sm"></i> Área de captación calculada: <b id="edit-wt-area-val">—</b></span>
+              <span id="edit-wt-area-calc-pill" class="card-tag" style="background:#0284C7;color:#fff;font-weight:700;">ÁREA REAL</span>
+            </div>
           </div>
 
           <!-- Campos específicos Parámetro Estructura / Coste Instalación -->
@@ -11303,6 +11311,50 @@ window.applyBatteryFromCatalog = applyBatteryFromCatalog;
 window.deleteCatalogItem = deleteCatalogItem;
 window.addNewEquipmentFromForm = addNewEquipmentFromForm;
 window.resetEquipmentCatalogToDefault = resetEquipmentCatalogToDefault;
+
+window.updateWindTurbineAreaPreview = function(isTypeToggle) {
+  const typeIn = document.getElementById('edit-wt-type');
+  const diamIn = document.getElementById('edit-wt-diameter');
+  const bladeIn = document.getElementById('edit-wt-blade-height');
+  const lbl = document.getElementById('edit-wt-blade-label');
+  const areaVal = document.getElementById('edit-wt-area-val');
+  const pill = document.getElementById('edit-wt-area-calc-pill');
+  if (!typeIn || !diamIn) return;
+
+  const isVawt = (typeIn.value === 'VAWT');
+  const D = Math.max(0.1, parseFloat(diamIn.value) || 0);
+
+  if (isTypeToggle && bladeIn) {
+    if (isVawt) {
+      bladeIn.value = Math.round(D * 1.4 * 10) / 10;
+    } else {
+      bladeIn.value = Math.round(D / 2 * 10) / 10;
+    }
+  }
+
+  const H = Math.max(0.1, parseFloat(bladeIn ? bladeIn.value : 0) || (isVawt ? D * 1.4 : D / 2));
+
+  if (lbl) {
+    lbl.textContent = isVawt 
+      ? 'Altura Pala Vertical (H, en m):' 
+      : 'Longitud de Pala (Radio ≈ Ø / 2, en m):';
+  }
+
+  let area = 0;
+  let formulaText = '';
+  if (isVawt) {
+    area = D * H;
+    formulaText = area.toFixed(2) + ' m² (Cilindro de captación: Ø ' + D.toFixed(1) + 'm × H ' + H.toFixed(1) + 'm)';
+    if (pill) { pill.textContent = 'VAWT CILÍNDRICO (Ø × H)'; pill.style.background = '#8B5CF6'; }
+  } else {
+    area = Math.PI * D * D / 4;
+    formulaText = area.toFixed(2) + ' m² (Círculo de barrido: π × Ø² / 4)';
+    if (pill) { pill.textContent = 'HAWT CIRCULAR (π·Ø²/4)'; pill.style.background = '#0284C7'; }
+  }
+
+  if (areaVal) areaVal.textContent = formulaText;
+};
+
 window.openEditEquipmentModal = openEditEquipmentModal;
 window.saveEditedEquipment = saveEditedEquipment;
 window.cancelEditEquipment = cancelEditEquipment;
@@ -11373,6 +11425,7 @@ function openEditEquipmentModal(category, id) {
 
     const kwIn = document.getElementById('edit-wt-kw');
     const diamIn = document.getElementById('edit-wt-diameter');
+    const bladeIn = document.getElementById('edit-wt-blade-height');
     const typeIn = document.getElementById('edit-wt-type');
     const hIn = document.getElementById('edit-wt-heights');
     const iecIn = document.getElementById('edit-wt-iec');
@@ -11384,7 +11437,12 @@ function openEditEquipmentModal(category, id) {
 
     if (kwIn) kwIn.value = (turbine.ratedPowerW ? turbine.ratedPowerW / 1000 : 10).toFixed(1);
     if (diamIn) diamIn.value = turbine.rotorDiameterM || 5.0;
-    if (typeIn) typeIn.value = turbine.type || 'HAWT';
+    const isVawt = (turbine.type === 'VAWT' || turbine.type === 'vawt');
+    if (typeIn) typeIn.value = isVawt ? 'VAWT' : 'HAWT';
+    if (bladeIn) {
+      const bH = turbine.bladeHeightM || turbine.bladeLength || (isVawt ? Math.round((turbine.rotorDiameterM || 5.0) * 1.4 * 10) / 10 : Math.round((turbine.rotorDiameterM || 5.0) / 2 * 10) / 10);
+      bladeIn.value = bH;
+    }
     if (hIn) hIn.value = Array.isArray(turbine.hubHeightsAvailableM) ? turbine.hubHeightsAvailableM.join(', ') : '12, 18, 24';
     if (iecIn) iecIn.value = turbine.iecClass || 'III';
     if (noiseIn) noiseIn.value = turbine.acousticPowerLwaDba || 95;
@@ -11556,6 +11614,10 @@ function saveEditedEquipment() {
     const kw = Math.max(0.1, parseFloat(document.getElementById('edit-wt-kw').value) || 10.0);
     const diameter = Math.max(0.5, parseFloat(document.getElementById('edit-wt-diameter').value) || 5.0);
     const type = document.getElementById('edit-wt-type').value || 'HAWT';
+    const bladeInEl = document.getElementById('edit-wt-blade-height');
+    const bladeHeight = (bladeInEl && parseFloat(bladeInEl.value) > 0)
+      ? parseFloat(bladeInEl.value)
+      : (type === 'VAWT' ? Math.round(diameter * 1.4 * 10) / 10 : Math.round(diameter / 2 * 10) / 10);
     const heightsStr = document.getElementById('edit-wt-heights').value || '12, 18, 24';
     const hubHeights = heightsStr.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n) && n > 0);
     const iec = document.getElementById('edit-wt-iec').value || 'III';
@@ -11572,6 +11634,8 @@ function saveEditedEquipment() {
       type: type,
       ratedPowerW: Math.round(kw * 1000),
       rotorDiameterM: diameter,
+      bladeHeightM: bladeHeight,
+      bladeLength: bladeHeight,
       hubHeightsAvailableM: hubHeights.length > 0 ? hubHeights : (existing.hubHeightsAvailableM || [12, 18, 24]),
       iecClass: iec,
       acousticPowerLwaDba: noise,

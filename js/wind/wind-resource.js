@@ -261,6 +261,24 @@
    * Calcula el déficit de velocidad fraccional δv (0 a 1) que la turbina aguas arriba (upTurbine)
    * provoca sobre la turbina aguas abajo (downTurbine) para una dirección de viento dada (modelo N.O. Jensen, 1983).
    */
+  /**
+   * Obtiene el diámetro efectivo de estela (m).
+   * Para VAWT, el diámetro circular equivalente se deduce del área cilíndrica Deq = sqrt(4 * D * H / π).
+   */
+  function getEffectiveRotorDiameter(turb) {
+    if (!turb) return 6.0;
+    var cat = turb._catalog || turb;
+    var D = Number(cat.rotorDiameterM) || 6.0;
+    var isVawt = (cat.type === 'VAWT' || cat.type === 'vawt');
+    if (isVawt) {
+      var H = Number(cat.bladeHeightM || cat.bladeLength || (turb.supportStructure && turb.supportStructure.bladeLength) || (D * 1.4));
+      if (!(H > 0)) H = D * 1.4;
+      var area = D * H;
+      return Math.max(0.5, Math.sqrt((4.0 * area) / Math.PI));
+    }
+    return Math.max(0.5, D);
+  }
+
   function calculateJensenWakeDeficit(upTurbine, downTurbine, windDirDeg, kWake) {
     if (!upTurbine || !downTurbine || upTurbine.id === downTurbine.id) return 0;
     if (upTurbine.operationalState && upTurbine.operationalState.enabled === false) return 0;
@@ -290,9 +308,9 @@
     var dz = zDown - zUp;
     var radialOffset = Math.sqrt(latPerp * latPerp + dz * dz);
 
-    var dUp = (upTurbine._catalog && upTurbine._catalog.rotorDiameterM) || 6.0;
+    var dUp = getEffectiveRotorDiameter(upTurbine);
     var rUp = dUp / 2;
-    var dDown = (downTurbine._catalog && downTurbine._catalog.rotorDiameterM) || 6.0;
+    var dDown = getEffectiveRotorDiameter(downTurbine);
     var rDown = dDown / 2;
 
     var kw = Number(kWake) || 0.075; // Constante de expansión de estela onshore
