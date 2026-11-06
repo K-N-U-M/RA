@@ -817,9 +817,13 @@
     var actRotorD = (typeof activeTurbine.rotorDiameterM === 'number' && activeTurbine.rotorDiameterM > 0)
       ? activeTurbine.rotorDiameterM
       : (actCat.rotorDiameterM || (isVawt ? 3.8 : 5.0));
-    var actBladeL = (typeof activeTurbine.bladeLength === 'number' && activeTurbine.bladeLength > 0)
-      ? activeTurbine.bladeLength
-      : (actCat.bladeLength || (isVawt ? Math.round(actHubH * 0.55 * 10) / 10 : Math.round(actRotorD * 0.48 * 10) / 10));
+    var actBladeL = (typeof activeTurbine.bladeHeightM === 'number' && activeTurbine.bladeHeightM > 0)
+      ? activeTurbine.bladeHeightM
+      : ((typeof activeTurbine.bladeLength === 'number' && activeTurbine.bladeLength > 0)
+        ? activeTurbine.bladeLength
+        : ((typeof actCat.bladeHeightM === 'number' && actCat.bladeHeightM > 0)
+          ? actCat.bladeHeightM
+          : (actCat.bladeLength || (isVawt ? Math.round(actRotorD * 1.45 * 10) / 10 : Math.round(actRotorD * 0.48 * 10) / 10))));
 
     html += '  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;background:rgba(56,189,248,0.08);padding:6px;border-radius:4px;border:1px dashed rgba(56,189,248,0.25);">';
     html += '    <div>';
