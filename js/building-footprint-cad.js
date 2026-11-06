@@ -567,6 +567,10 @@ function selectBuilding(bldId) {
   const parWRow    = document.getElementById('bld-parapet-width-row');
   const ovhEl      = document.getElementById('bld-overhang');
   const ovhRow     = document.getElementById('bld-overhang-row');
+  const thkEl      = document.getElementById('bld-roof-thickness');
+  const thkRow     = document.getElementById('bld-thickness-row');
+  const skyEl      = document.getElementById('bld-skylight-count');
+  const skyRow     = document.getElementById('bld-skylights-row');
   const colorEl    = document.getElementById('bld-facade-color');
   const roofColEl  = document.getElementById('bld-roof-color');
   const edgeColEl  = document.getElementById('bld-edge-color');
@@ -587,14 +591,18 @@ function selectBuilding(bldId) {
   if (parEl) parEl.value = (typeof bld.parapetHeight === 'number') ? bld.parapetHeight : 0.6;
   if (parWEl) parWEl.value = (typeof bld.parapetWidth === 'number') ? bld.parapetWidth : 0.25;
   if (ovhEl) ovhEl.value = (typeof bld.overhang === 'number') ? bld.overhang : 0.2;
+  if (thkEl) thkEl.value = (typeof bld.roofThickness === 'number') ? bld.roofThickness : 0.20;
+  if (skyEl) skyEl.value = (typeof bld.skylightCount === 'number') ? bld.skylightCount : 0;
   if (colorEl) colorEl.value = bld.facadeColor || '#F1F5F9';
   if (roofColEl) roofColEl.value = bld.roofColor || '#E2E8F0';
   if (edgeColEl) edgeColEl.value = bld.edgeColor || '#334155';
 
-  const isPitched = (rType === 'gable' || rType === 'shed' || rType === 'hip');
+  const isPitched = (rType === 'gable' || rType === 'shed' || rType === 'hip' || rType === 'l_shape');
   if (pitchRow) pitchRow.style.display = isPitched ? 'flex' : 'none';
   if (azRow) azRow.style.display = isPitched ? 'flex' : 'none';
   if (ovhRow) ovhRow.style.display = isPitched ? 'flex' : 'none';
+  if (thkRow) thkRow.style.display = isPitched ? 'flex' : 'none';
+  if (skyRow) skyRow.style.display = (rType === 'gable' || rType === 'shed' || rType === 'l_shape') ? 'flex' : 'none';
   if (parRow) parRow.style.display = (rType === 'flat') ? 'flex' : 'none';
   if (parWRow) parWRow.style.display = (rType === 'flat') ? 'flex' : 'none';
 
@@ -665,6 +673,10 @@ function updateSelectedBuildingProps() {
   const parWRow   = document.getElementById('bld-parapet-width-row');
   const ovhEl     = document.getElementById('bld-overhang');
   const ovhRow    = document.getElementById('bld-overhang-row');
+  const thkEl     = document.getElementById('bld-roof-thickness');
+  const thkRow    = document.getElementById('bld-thickness-row');
+  const skyEl     = document.getElementById('bld-skylight-count');
+  const skyRow    = document.getElementById('bld-skylights-row');
   const colorEl   = document.getElementById('bld-facade-color');
   const roofColEl = document.getElementById('bld-roof-color');
   const edgeColEl = document.getElementById('bld-edge-color');
@@ -677,6 +689,8 @@ function updateSelectedBuildingProps() {
   if (parEl) bld.parapetHeight = parseFloat(parEl.value) || 0;
   if (parWEl) bld.parapetWidth = parseFloat(parWEl.value) || 0.25;
   if (ovhEl) bld.overhang = parseFloat(ovhEl.value) || 0;
+  if (thkEl) bld.roofThickness = parseFloat(thkEl.value) || 0.20;
+  if (skyEl) bld.skylightCount = parseInt(skyEl.value, 10) || 0;
   if (colorEl) bld.facadeColor = colorEl.value;
   if (roofColEl) bld.roofColor = roofColEl.value;
   if (edgeColEl) bld.edgeColor = edgeColEl.value;
@@ -692,11 +706,14 @@ function updateSelectedBuildingProps() {
   setElemText('bld-selected-title', (bld.name || 'EDIFICIO').toUpperCase());
 
   const rType = bld.roofType || 'flat';
+  const isPitched = (rType === 'gable' || rType === 'shed' || rType === 'hip' || rType === 'l_shape');
   if (pitchRow) pitchRow.style.display = (rType === 'flat') ? 'none' : 'flex';
-  if (azRow) azRow.style.display = (rType === 'shed' || rType === 'gable') ? 'flex' : 'none';
+  if (azRow) azRow.style.display = (rType === 'shed' || rType === 'gable' || rType === 'l_shape') ? 'flex' : 'none';
   if (parRow) parRow.style.display = (rType === 'flat') ? 'flex' : 'none';
   if (parWRow) parWRow.style.display = (rType === 'flat') ? 'flex' : 'none';
   if (ovhRow) ovhRow.style.display = (rType === 'flat') ? 'none' : 'flex';
+  if (thkRow) thkRow.style.display = isPitched ? 'flex' : 'none';
+  if (skyRow) skyRow.style.display = (rType === 'gable' || rType === 'shed' || rType === 'l_shape') ? 'flex' : 'none';
 
   if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Configuración de edificio modificada');
   render3DBuildingsInCesium();

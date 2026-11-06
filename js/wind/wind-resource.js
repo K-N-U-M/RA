@@ -261,6 +261,24 @@
    * Calcula el déficit de velocidad fraccional δv (0 a 1) que la turbina aguas arriba (upTurbine)
    * provoca sobre la turbina aguas abajo (downTurbine) para una dirección de viento dada (modelo N.O. Jensen, 1983).
    */
+  /**
+   * Obtiene el diámetro efectivo de estela (m).
+   * Para VAWT, el diámetro circular equivalente se deduce del área cilíndrica Deq = sqrt(4 * D * H / π).
+   */
+  function getEffectiveRotorDiameter(turb) {
+    if (!turb) return 6.0;
+    var cat = turb._catalog || turb;
+    var D = Number(cat.rotorDiameterM) || 6.0;
+    var isVawt = (cat.type === 'VAWT' || cat.type === 'vawt');
+    if (isVawt) {
+      var H = Number(cat.bladeHeightM || cat.bladeLength || (turb.supportStructure && turb.supportStructure.bladeLength) || (D * 1.4));
+      if (!(H > 0)) H = D * 1.4;
+      var area = D * H;
+      return Math.max(0.5, Math.sqrt((4.0 * area) / Math.PI));
+    }
+    return Math.max(0.5, D);
+  }
+
   function calculateJensenWakeDeficit(upTurbine, downTurbine, windDirDeg, kWake) {
     if (!upTurbine || !downTurbine || upTurbine.id === downTurbine.id) return 0;
     if (upTurbine.operationalState && upTurbine.operationalState.enabled === false) return 0;
@@ -290,9 +308,9 @@
     var dz = zDown - zUp;
     var radialOffset = Math.sqrt(latPerp * latPerp + dz * dz);
 
-    var dUp = (upTurbine._catalog && upTurbine._catalog.rotorDiameterM) || 6.0;
+    var dUp = getEffectiveRotorDiameter(upTurbine);
     var rUp = dUp / 2;
-    var dDown = (downTurbine._catalog && downTurbine._catalog.rotorDiameterM) || 6.0;
+    var dDown = getEffectiveRotorDiameter(downTurbine);
     var rDown = dDown / 2;
 
     var kw = Number(kWake) || 0.075; // Constante de expansión de estela onshore
@@ -448,14 +466,29 @@
       var secPRoof = 0;
       var secPWake = 0;
 
+      // Parámetros de calidad profesional: Turbulencia (IEC 61400-12-1) y Eficiencia Electromecánica no lineal
+      var ti = Math.max(0.05, Math.min(0.30, Number(cat.turbulenceIntensityPct || 14.0) / 100.0));
+      var deltaTi = Math.max(0, ti - 0.10); // Degradación por encima de referencia 10%
+      var etaNom = Number(cfg.electricalEfficiency || 0.95);
+      var etaLow = Math.max(0.50, Math.min(etaNom, Number(cat.lowLoadEfficiencyPct || 80.0) / 100.0));
+
       for (var v = 0.5; v <= 28.0; v += dv) {
         var pCurvePt = interpolatePowerCurve(cat.powerCurve, v, rho, ratedPowerW, cutInMs, cutOutMs);
         var pW = pCurvePt.powerW;
         if (pW <= 0) continue;
 
-        secPFree += pW * weibullPdf(v, kBase, cFree) * dv;
-        secPRoof += pW * weibullPdf(v, kBase, cRoof) * dv;
-        secPWake += pW * weibullPdf(v, kBase, cWake) * dv;
+        // 1. Corrección física por turbulencia en zona no lineal (desprendimiento de capa límite y desalineación dinámica)
+        var loadFrac = Math.max(0, Math.min(1.0, pW / ratedPowerW));
+        var tiLossFactor = 1.0 - (0.22 * deltaTi * (1.0 - loadFrac));
+        var pWAero = pW * tiLossFactor;
+
+        // 2. Modelo de eficiencia electromecánica no lineal (Schmidt-Häberlin / inversores PMSG a carga parcial)
+        var etaElec = etaNom - (etaNom - etaLow) * Math.exp(-5.0 * loadFrac);
+        var pWGrid = pWAero * etaElec;
+
+        secPFree += pWGrid * weibullPdf(v, kBase, cFree) * dv;
+        secPRoof += pWGrid * weibullPdf(v, kBase, cRoof) * dv;
+        secPWake += pWGrid * weibullPdf(v, kBase, cWake) * dv;
       }
 
       grossPowerFreeAvgW += freq * secPFree;
@@ -466,11 +499,12 @@
     }
 
     var hoursPerYear = 8760;
-    var lossFactor = (cfg.availabilityFactor || 0.97) * (cfg.electricalEfficiency || 0.95);
+    // La eficiencia eléctrica ya se integró dinámicamente punto a punto; aplicamos disponibilidad técnica
+    var availability = (cfg.availabilityFactor || 0.97);
 
-    var aepFreeKwh = (grossPowerFreeAvgW * hoursPerYear / 1000) * lossFactor;
-    var aepGrossKwh = (grossPowerRoofAvgW * hoursPerYear / 1000) * lossFactor;
-    var aepNetKwh = (netPowerWakeAvgW * hoursPerYear / 1000) * lossFactor;
+    var aepFreeKwh = (grossPowerFreeAvgW * hoursPerYear / 1000) * availability;
+    var aepGrossKwh = (grossPowerRoofAvgW * hoursPerYear / 1000) * availability;
+    var aepNetKwh = (netPowerWakeAvgW * hoursPerYear / 1000) * availability;
 
     var wakeLossPct = aepGrossKwh > 1
       ? Math.max(0, ((aepGrossKwh - aepNetKwh) / aepGrossKwh) * 100)

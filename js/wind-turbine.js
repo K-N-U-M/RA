@@ -59,7 +59,7 @@
   };
 
   var HAWT_DEFAULTS = { mastHeight: 8, bladeRadius: 2.5 };
-  var VAWT_DEFAULTS = { mastHeight: 6, bladeRadius: 1.0 };
+  var VAWT_DEFAULTS = { mastHeight: 6, bladeRadius: 1.0, bladeLength: 3.5 };
 
   // ════════════════════════════════════════════════════════════════
   //  2. REGISTRO EN OBSTACLE_DEFS
@@ -118,7 +118,9 @@
     var defs = obs.turbineType === 'vawt' ? VAWT_DEFAULTS : HAWT_DEFAULTS;
     if (obs.bladeRadius === undefined) obs.bladeRadius = defs.bladeRadius;
     if (obs.mastHeight === undefined)  obs.mastHeight  = defs.mastHeight;
-    obs.h = Math.round((obs.mastHeight + (obs.turbineType === 'hawt' ? obs.bladeRadius : 0)) * 10) / 10;
+    if (obs.bladeLength === undefined) obs.bladeLength = (obs.turbineType === 'vawt' ? (defs.bladeLength || 3.5) : (obs.bladeRadius * 2));
+    var vawtTopExtra = (obs.turbineType === 'vawt') ? Math.max(0, (obs.mastHeight * 0.65 + (obs.bladeLength || 3.5)/2) - obs.mastHeight) : 0;
+    obs.h = Math.round((obs.mastHeight + (obs.turbineType === 'hawt' ? obs.bladeRadius : vawtTopExtra)) * 10) / 10;
     if (obs.w === undefined || obs.w < 0.5) obs.w = Math.round(obs.bladeRadius * 2 * 10) / 10;
     if (obs.l === undefined || obs.l < 0.5) obs.l = Math.round(obs.bladeRadius * 2 * 10) / 10;
   }
@@ -126,7 +128,8 @@
   function syncDimensions(obs) {
     if (!obs || obs.type !== 'wind_turbine') return;
     ensureProps(obs);
-    obs.h = Math.round((obs.mastHeight + (obs.turbineType === 'hawt' ? obs.bladeRadius : 0)) * 10) / 10;
+    var vawtTopExtra = (obs.turbineType === 'vawt') ? Math.max(0, (obs.mastHeight * 0.65 + (obs.bladeLength || 3.5)/2) - obs.mastHeight) : 0;
+    obs.h = Math.round((obs.mastHeight + (obs.turbineType === 'hawt' ? obs.bladeRadius : vawtTopExtra)) * 10) / 10;
     obs.w = Math.round(obs.bladeRadius * 2 * 10) / 10;
     obs.l = Math.round(obs.bladeRadius * 2 * 10) / 10;
 
@@ -341,21 +344,23 @@
 
     if (obs.turbineType === 'vawt') {
       // ══════════════ VAWT (Eje Vertical) ══════════════
-      // Mástil
-      var vMastScale = Math.max(0.4, Math.min(3.0, mastH / 6.0));
-      var vMastTopR  = Math.max(0.06, 0.10 * vMastScale);
-      var vMastBotR  = Math.max(0.09, 0.16 * vMastScale);
-      var vMastGeom  = new Cesium.CylinderGeometry({
-        length: mastH, topRadius: vMastTopR, bottomRadius: vMastBotR,
-        slices: 12, vertexFormat: VF
-      });
-      addInstance(vMastGeom, col('mast'), new Cesium.Cartesian3(0, 0, elev + mastH / 2), null, 'wt_vmast_' + obs.id);
-
-      // Palas verticales y brazos
-      var vBladeH     = mastH * 0.50;
-      var vBladeMid   = mastH * 0.65;
+      // Palas verticales y brazos sincronizados con medidas de catálogo
+      var vBladeH     = Math.max(0.5, obs.bladeHeightM || obs.bladeLength || (bladeR * 2 * 1.4));
+      var vBladeMid   = Math.max(vBladeH / 2 + 0.3, mastH);
       var armTopH     = vBladeMid + vBladeH / 2;
-      var armBotH     = vBladeMid - vBladeH / 2;
+      var armBotH     = Math.max(0.2, vBladeMid - vBladeH / 2);
+
+      // Mástil: asciende y termina EXACTAMENTE en armTopH (al ras del eje superior de palas),
+      // sin sobresalir por encima:
+      var totalMastH  = armTopH;
+      var vMastScale  = Math.max(0.4, Math.min(3.0, totalMastH / 6.0));
+      var vMastTopR   = Math.max(0.05, 0.08 * vMastScale);
+      var vMastBotR   = Math.max(0.08, 0.14 * vMastScale);
+      var vMastGeom   = new Cesium.CylinderGeometry({
+        length: totalMastH, topRadius: vMastTopR, bottomRadius: vMastBotR,
+        slices: 16, vertexFormat: VF
+      });
+      addInstance(vMastGeom, col('mast'), new Cesium.Cartesian3(0, 0, elev + totalMastH / 2), null, 'wt_vmast_' + obs.id);
       var vBladeThick = Math.max(0.03, bladeR * 0.035);
       var vBladeChord = Math.max(0.12, bladeR * 0.12);
 
@@ -656,12 +661,27 @@
         '<span style="font-size: 10px;color:#64748b;">m</span>' +
       '</div>' +
 
-      '<div style="display:flex;gap:4px;align-items:center;">' +
-        '<span style="font-size: 10px;color:#94a3b8;width:60px;">ASPAS:</span>' +
-        '<input type="number" id="wt-blade-radius" class="cfg-input" value="' + obs.bladeRadius +
-          '" min="0.3" max="25" step="0.25" style="flex:1;font-size:10px;" oninput="RAWindTurbine.onBladeChange(this.value)">' +
-        '<span style="font-size: 10px;color:#64748b;">m radio</span>' +
-      '</div>' +
+      (obs.turbineType === 'vawt' ?
+        ('<div style="display:flex;gap:4px;align-items:center;">' +
+          '<span style="font-size: 10px;color:#94a3b8;width:60px;">DIÁMETRO:</span>' +
+          '<input type="number" id="wt-rotor-diameter" class="cfg-input" value="' + (obs.bladeRadius * 2).toFixed(2) +
+            '" min="0.4" max="30" step="0.1" style="flex:1;font-size:10px;" oninput="RAWindTurbine.onRotorDiameterChange(this.value)">' +
+          '<span style="font-size: 10px;color:#64748b;">m</span>' +
+        '</div>' +
+        '<div style="display:flex;gap:4px;align-items:center;">' +
+          '<span style="font-size: 10px;color:#94a3b8;width:60px;">LARGO PALAS:</span>' +
+          '<input type="number" id="wt-blade-length" class="cfg-input" value="' + (obs.bladeLength || 3.5).toFixed(2) +
+            '" min="0.5" max="30" step="0.1" style="flex:1;font-size:10px;" oninput="RAWindTurbine.onBladeLengthChange(this.value)">' +
+          '<span style="font-size: 10px;color:#64748b;">m</span>' +
+        '</div>')
+        :
+        ('<div style="display:flex;gap:4px;align-items:center;">' +
+          '<span style="font-size: 10px;color:#94a3b8;width:60px;">ASPAS:</span>' +
+          '<input type="number" id="wt-blade-radius" class="cfg-input" value="' + obs.bladeRadius +
+            '" min="0.3" max="25" step="0.25" style="flex:1;font-size:10px;" oninput="RAWindTurbine.onBladeChange(this.value)">' +
+          '<span style="font-size: 10px;color:#64748b;">m radio</span>' +
+        '</div>')
+      ) +
 
       '<div style="font-size: 10px;color:#475569;line-height:1.3;margin-top:2px;">' +
         'Altura total: <b id="wt-total-height">' + totalH + '</b> m' +
@@ -707,6 +727,24 @@
     invalidateAndRerender('Radio de aspas eólicas modificado');
   }
 
+  function onRotorDiameterChange(value) {
+    var obs = getSelectedWT();
+    if (!obs) return;
+    var d = Math.max(0.4, parseFloat(value) || 2.0);
+    obs.bladeRadius = d / 2;
+    syncDimensions(obs);
+    invalidateAndRerender('Diámetro de rotor de turbina modificado');
+  }
+
+  function onBladeLengthChange(value) {
+    var obs = getSelectedWT();
+    if (!obs) return;
+    var len = Math.max(0.5, parseFloat(value) || 3.5);
+    obs.bladeLength = len;
+    syncDimensions(obs);
+    invalidateAndRerender('Largo de palas verticales modificado');
+  }
+
   function toggleVisibility(idOrIdx) {
     var obsList = (typeof root !== 'undefined' && Array.isArray(root.obstacles)) ? root.obstacles : (typeof global !== 'undefined' && Array.isArray(global.obstacles) ? global.obstacles : []);
     var obs = (typeof idOrIdx === 'string')
@@ -740,6 +778,8 @@
     onTypeChange:          onTypeChange,
     onMastChange:          onMastChange,
     onBladeChange:         onBladeChange,
+    onRotorDiameterChange: onRotorDiameterChange,
+    onBladeLengthChange:   onBladeLengthChange,
     updateLiveModelMatrix: updateLiveModelMatrix,
     toggleVisibility:      toggleVisibility
   };

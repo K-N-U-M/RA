@@ -152,8 +152,11 @@
       const resColPitch = resModWid + gap;
 
       const frame = baseLayout.frame || {};
-      const AuvN = { x: frame.Lu || 1, y: frame.Lv || 0 };
-      const BuvN = { x: frame.Wu || 0, y: frame.Wv || 1 };
+      // Componentes 0 son válidas: no usar `||` como fallback (corrompía ejes alineados con u/v)
+      const _hasA = (typeof frame.Lu === 'number' && typeof frame.Lv === 'number' && Math.hypot(frame.Lu, frame.Lv) > 1e-6);
+      const _hasB = (typeof frame.Wu === 'number' && typeof frame.Wv === 'number' && Math.hypot(frame.Wu, frame.Wv) > 1e-6);
+      const AuvN = _hasA ? { x: frame.Lu, y: frame.Lv } : { x: 1, y: 0 };
+      const BuvN = _hasB ? { x: frame.Wu, y: frame.Wv } : { x: 0, y: 1 };
 
       // Bounding box en espacio (A, B)
       const aMin = Math.min(...poly.map(p => p.u * AuvN.x + p.v * AuvN.y));

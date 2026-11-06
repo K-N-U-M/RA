@@ -6,12 +6,12 @@
   <title>RA — Visor Planetario Fotogramétrico, Editor 3D & Simulación Solar</title>
   <meta name="description" content="RA — Sistema de visualización planetaria 3D con fotogrametría real de Google Earth, editor de polígonos 3D, validación de diseño y simulación de instalación fotovoltaica.">
 
-  <link rel="icon" type="image/png" href="assets/ra-logo.png">
+  <link rel="icon" type="image/png" href="assets/ra-logo.png?v=20261105b">
 
   <!-- Google Fonts: Inter & JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Comfortaa:wght@300;400;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,400..700;1,9..40,400..700&family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&family=Montserrat:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <!-- jsPDF: Carga perezosa bajo demanda (Lazy Loading) gestionada por js/lazy-loader.js -->
 
@@ -29,18 +29,18 @@ window.RA_App = window.RA_App || {};
   <script src="js/cesium-safety.js?v=20261007a"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
 
-  <script src="js/procedural-skybox.js?v=1793234401633"></script>
+  <script src="js/procedural-skybox.js?v=20261104a"></script>
   <script src="js/ui-viewport-controls.js?v=20261016a"></script>
   <script src="js/error-handler.js"></script>
 <script src="js/sanitizer.js?v=20261028a"></script>
   <script src="js/project-config.js?v=20261029d"></script>
-  <script src="js/polygon-shadow-math.js?v=1793234328702"></script>
+  <script src="js/polygon-shadow-math.js?v=20261104a"></script>
   <script src="js/building-footprint-cad.js?v=1793254482833"></script>
   <script src="js/cable-routing-ui.js?v=1793254551222"></script>
   <script src="js/universal-gizmo-3d.js?v=1793254625038"></script>
   <script src="js/buildings.js?v=20261016d"></script>
     <script src="js/radiation-engine.js?v=20261014a"></script>
-    <script src="js/solar-heatmap.js?v=20261029b"></script>
+    <script src="js/solar-heatmap.js?v=20261106_0835"></script>
     <script src="js/solar-live-probe.js?v=20261029a"></script>
     <script src="js/ra-env.js"></script>
 <script src="js/config.js?v=20261028a"></script>
@@ -49,17 +49,17 @@ window.RA_App = window.RA_App || {};
   <script src="assets/default-cover-image.js?v=20261029a"></script>
   <script src="js/svg-catalog.js?v=20261023b"></script>
   <script src="js/docx-exporter.js?v=20261027a"></script>
-  <script src="js/financials.js?v=20261029f"></script>
+  <script src="js/financials.js?v=20261106a"></script>
   <script src="js/viewer.js?v=20261016a"></script>
   <script src="js/solar-engine.js?v=20260929b"></script>
   <script src="js/production-source.js?v=20261028a"></script>
   <script src="js/solar-optimizer.js?v=20261016a"></script>
-  <script src="js/obstacles.js?v=20261016a"></script>
-  <script src="js/wind-turbine.js?v=20261011a"></script>
+  <script src="js/obstacles.js?v=20261104a"></script>
+  <script src="js/wind-turbine.js?v=20261106_flush_mast_v2"></script>
   <script src="js/wind/wind-constants.js?v=20261024b"></script>
-  <script src="js/wind/wind-catalog.js?v=20261024b"></script>
+  <script src="js/wind/wind-catalog.js?v=20261106_fase2"></script>
   <script src="js/wind/wind-rooftop-cfd.js?v=20261024b"></script>
-  <script src="js/wind/wind-resource.js?v=20261025_eng1"></script>
+  <script src="js/wind/wind-resource.js?v=20261106_fase2"></script>
   <script src="js/wind/wind-acoustics.js?v=20261024b"></script>
   <script src="js/wind/wind-structural.js?v=20261024b"></script>
   <script src="js/wind/wind-electrical.js?v=20261024b"></script>
@@ -68,8 +68,8 @@ window.RA_App = window.RA_App || {};
   <script src="js/wind/wind-worker.js?v=20261024b"></script>
   <script src="js/wind/wind-entity.js?v=20261025_eng1"></script>
   <script src="js/wind/wind-obstacle-interference.js?v=20261030a"></script>
-  <script src="js/wind/wind-visualizer.js?v=20261025_eng1"></script>
-  <script src="js/wind/wind-ui.js?v=20261025_eng1"></script>
+  <script src="js/wind/wind-visualizer.js?v=20261106_flush_mast_v2"></script>
+  <script src="js/wind/wind-ui.js?v=20261106_flush_mast_v2"></script>
 
 
 
@@ -91,11 +91,11 @@ window.RA_App = window.RA_App || {};
   <script src="js/geometry-validate.js?v=20260929b"></script>
   <script src="js/docs-generator.js?v=1793265148380"></script>
   <script src="js/workflow-orchestrator.js?v=20260929b"></script>
-  <script src="js/working-plane.js?v=20261016g"></script>
+  <script src="js/working-plane.js?v=20261106_fase2"></script>
   <script src="js/cad-selection-suite.js?v=20261026a"></script>
   <script src="js/cable-engine.js?v=20261016a"></script>
   <script src="js/capture-mode.js?v=20260929b"></script>
-  <script src="js/measure-tool.js?v=20261016a"></script>
+  <script src="js/measure-tool.js?v=20261104a"></script>
   <script src="js/project-hierarchy.js?v=20261016a"></script>
   <script src="js/project-storage.js?v=20261027_ssot1"></script>
   <script src="js/company-branding.js?v=20261016a"></script>
@@ -112,7 +112,7 @@ window.RA_App = window.RA_App || {};
   <script src="js/ra-lod-manager.js?v=20261019a"></script>
   <script src="js/storage-cache.js?v=20261019a"></script>
   <script src="js/lazy-loader.js?v=20261019a"></script>
-  <script src="js/shadow-settings.js?v=20261023a"></script>
+  <script src="js/shadow-settings.js?v=20261105_1330"></script>
   <script src="js/proposal-style-studio.js?v=20261030a"></script>
   <script src="js/commercial-proposal-dossier.js?v=20261030a"></script>
 
@@ -193,7 +193,7 @@ window.RA_App = window.RA_App || {};
   <!-- PANTALLA DE CARGA -->
   <div id="ra-loading">
     <div class="ld-brand-box">
-      <img src="assets/ra-logo.png" alt="RA Renewal Architecture" class="ld-logo-img">
+      <img src="assets/ra-logo.png?v=20261105b" alt="RA Renewal Architecture" class="ld-logo-img">
       <div class="ld-sub">Visor Planetario 3D · Suite Fotovoltaica</div>
     </div>
     <div class="ld-track"><div class="ld-bar" id="ld-bar"></div></div>
@@ -508,7 +508,7 @@ window.RA_App = window.RA_App || {};
     <!-- Cabecera de Marca -->
     <div class="sb-header">
       <div class="sb-brand">
-        <img src="assets/ra-logo.png" alt="RA Renewal Architecture" class="sb-brand-logo">
+        <img src="assets/ra-logo.png?v=20261105b" alt="RA Renewal Architecture" class="sb-brand-logo">
         <span id="active-engine-badge" style="display:none;"></span>
       </div>
       <div class="sb-header-actions">
@@ -747,6 +747,9 @@ window.RA_App = window.RA_App || {};
                 <button type="button" class="btn-action-primary" id="btn-draw-building-rect" onclick="startDrawingBuildingRect()" style="flex:1;padding:8px 4px;font-size: 10px;background:linear-gradient(135deg, #4f46e5, #4338ca);border-color:#818cf8;" aria-label="Rectángulo CAD" title="Trazar huella rectangular paramétrica en 2 clics (P1 -> P2 -> Fondo)">
                   <span><i data-lucide="square" class="icon-sm"></i> + RECTÁNGULO CAD</span>
                 </button>
+                <button type="button" class="btn-action-primary" id="btn-draw-building-l" onclick="startDrawingBuildingL()" style="flex:1;padding:8px 4px;font-size: 10px;background:linear-gradient(135deg, #059669, #047857);border-color:#34d399;" aria-label="Planta en L" title="Generar huella paramétrica en forma de L con cubierta adaptada">
+                  <span><i data-lucide="corner-down-right" class="icon-sm"></i> + PLANTA EN L</span>
+                </button>
               </div>
               <div style="display:flex;gap:4px;margin-bottom:6px;">
                 <button type="button" class="btn-action-primary" id="btn-finish-building-panel" onclick="if (typeof WP !== 'undefined' && WP.mode === 'draw-building-rect') finishBuildingRect(); else finishActiveBuilding();" style="flex:1;padding:8px 4px;font-size: 10px;background:linear-gradient(135deg, #10b981, #059669);border-color:#34d399;" aria-label="Cerrar y Extruir">
@@ -846,6 +849,7 @@ window.RA_App = window.RA_App || {};
                     <option value="shed">A 1 Agua (Monopitch)</option>
                     <option value="gable">A 2 Aguas (Cumbrera)</option>
                     <option value="hip">A 4 Aguas (Pabellón)</option>
+                    <option value="l_shape">En L (Alas con Limahoya)</option>
                   </select>
                 </div>
 
@@ -895,6 +899,25 @@ window.RA_App = window.RA_App || {};
                 <div class="field-row" id="bld-overhang-row" style="display:none;justify-content:space-between;align-items:center;">
                   <span style="font-size: 10px;color:var(--text-slate-300);">Alero / Voladizo (m):</span>
                   <input type="number" id="bld-overhang" min="0" max="1.5" step="0.05" value="0.2" class="field-input" style="width:65px;font-size: 10px;padding:3px 6px;text-align:right;" onwheel="this.blur()" oninput="updateSelectedBuildingProps()" onchange="updateSelectedBuildingProps()">
+                </div>
+
+                <!-- Canto / Grosor de Cubierta (Propuesta 1) -->
+                <div class="field-row" id="bld-thickness-row" style="display:none;justify-content:space-between;align-items:center;">
+                  <span style="font-size: 10px;color:var(--text-slate-300);">Grosor de Faldón / Losa (m):</span>
+                  <input type="number" id="bld-roof-thickness" min="0.05" max="0.80" step="0.05" value="0.20" class="field-input" style="width:65px;font-size: 10px;padding:3px 6px;text-align:right;" onwheel="this.blur()" oninput="updateSelectedBuildingProps()" onchange="updateSelectedBuildingProps()">
+                </div>
+
+                <!-- Lucernarios / Buhardillas (Propuesta 2) -->
+                <div class="field-row" id="bld-skylights-row" style="display:none;justify-content:space-between;align-items:center;">
+                  <span style="font-size: 10px;color:var(--text-slate-300);">Lucernarios / Buhardillas:</span>
+                  <div style="display:flex;gap:4px;align-items:center;">
+                    <select id="bld-skylight-count" onchange="updateSelectedBuildingProps()" style="background:rgba(15,23,42,0.9);border:1px solid rgba(56,189,248,0.4);color:#f8fafc;font-size: 10px;padding:2px 4px;border-radius:3px;">
+                      <option value="0">Ninguno</option>
+                      <option value="1">1 Ventana</option>
+                      <option value="2">2 Ventanas</option>
+                      <option value="4">4 Ventanas (2x2)</option>
+                    </select>
+                  </div>
                 </div>
 
                 <!-- Color y Acabado de Tejado, Fachadas y Aristas -->
@@ -1387,6 +1410,25 @@ window.RA_App = window.RA_App || {};
                         <div id="faldon-total-pitch-val" style="font-size:10.5px;font-weight:bold;color:#FBBF24;font-family:monospace;">-- m</div>
                       </div>
                     </div>
+                    <!-- Deslizador Interactivo de Separación Manual (Opción B) -->
+                    <div id="faldon-row-pitch-slider-container" style="margin-top:5px;padding-top:5px;border-top:1px solid rgba(255,255,255,0.08);">
+                      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+                        <span style="font-size:9.5px;color:#CBD5E1;font-weight:700;display:flex;align-items:center;gap:4px;">
+                          <i data-lucide="sliders-horizontal" class="icon-sm" style="width:11px;height:11px;color:#38BDF8;"></i>
+                          Ajuste Pasillo Manual:
+                        </span>
+                        <div style="display:flex;align-items:center;gap:4px;">
+                          <button id="faldon-row-pitch-reset-btn" type="button" class="doc-mini-btn" style="padding:1px 5px;font-size:9px;background:rgba(56,189,248,0.15);color:#38BDF8;border:1px solid rgba(56,189,248,0.3);font-weight:800;border-radius:3px;cursor:pointer;" onclick="wpResetPolyRowPitchToAuto(WP.selectedPolyIdx)" title="Restablecer al paso óptimo normativo sin sombras (CTE/IDAE)">AUTO</button>
+                          <span id="faldon-row-pitch-slider-val" style="font-size:10px;font-weight:800;color:#38BDF8;font-family:monospace;min-width:38px;text-align:right;">-- m</span>
+                        </div>
+                      </div>
+                      <input id="faldon-row-pitch-slider" type="range" min="0.20" max="6.00" step="0.05" value="2.50" style="width:100%;accent-color:#38BDF8;cursor:pointer;margin:2px 0;" oninput="wpSetPolyManualRowPitchRealtime(WP.selectedPolyIdx, this.value);" onchange="wpSetPolyManualRowPitchCommit(WP.selectedPolyIdx, this.value);" />
+                      <div style="display:flex;justify-content:space-between;font-size:8.5px;color:#64748B;font-family:monospace;">
+                        <span>0.20 m (Mín)</span>
+                        <span id="faldon-row-pitch-auto-marker" style="color:#34D399;font-weight:700;">CTE: -- m</span>
+                        <span>6.00 m (Máx)</span>
+                      </div>
+                    </div>
                     <div id="faldon-pitch-note" style="font-size: 10px;color:#94A3B8;margin-top:3px;display:flex;align-items:center;gap:3px;">
                       <i data-lucide="shield-check" class="icon-sm" style="color:#34D399;width:10px;height:10px;"></i>
                       <span>Garantiza 4h libres de sombra en solsticio (10:00 - 14:00 solar) según CTE/IDAE</span>
@@ -1453,6 +1495,11 @@ window.RA_App = window.RA_App || {};
                           <input id="faldon-lock-row-pitch-chk" type="checkbox" style="accent-color:#10B981;cursor:pointer;margin:0;" onchange="if (typeof wpTogglePolyLockRowPitch === 'function') wpTogglePolyLockRowPitch(WP.selectedPolyIdx, this.checked);" />
                           <span>🔒 Fijar nº placas al inclinar</span>
                         </label>
+                        <select id="faldon-row-pitch-window-sel" style="font-size:9px;padding:1px 3px;background:#0f172a;color:#CBD5E1;border:1px solid rgba(255,255,255,0.15);border-radius:4px;" title="Ventana horaria libre de sombra entre filas el 21 de diciembre (más horas = más pasillo, menos placas y menos pérdidas)" onchange="if (typeof wpSetPolyRowPitchWindow === 'function') wpSetPolyRowPitchWindow(WP.selectedPolyIdx, parseFloat(this.value));">
+                          <option value="2">☀️ 10-14 h (CTE)</option>
+                          <option value="2.5">☀️ 9:30-14:30 h</option>
+                          <option value="3">☀️ 9-15 h</option>
+                        </select>
                         <button class="doc-mini-btn" style="padding:2px 6px;font-size:9px;background:rgba(245,158,11,0.18);color:#FBBF24;border-color:rgba(245,158,11,0.4);font-weight:800;" onclick="if (typeof wpSnapPolyToSweetSpot === 'function') wpSnapPolyToSweetSpot(WP.selectedPolyIdx, false);" title="Ajusta automáticamente Inclinación y Orientación al máximo absoluto anual">🎯 Clavar en el Pico</button>
                       </div>
                       <div style="display:flex;align-items:center;gap:6px;padding-top:3px;border-top:1px solid rgba(255,255,255,0.06);">
@@ -2631,12 +2678,17 @@ window.RA_App = window.RA_App || {};
 
     <!-- Leyenda del Mapa de Calor (Visible en modo heatmap) -->
     <div id="solar-heatmap-legend" class="solar-heatmap-legend" style="display:none;">
-      <span style="color:#94a3b8;font-weight:bold;">PÉRDIDAS ANUALES:</span>
-      <div class="legend-step"><div class="legend-color-box" style="background:#10B981;"></div><span>&lt;3% Óptimo</span></div>
-      <div class="legend-step"><div class="legend-color-box" style="background:#84CC16;"></div><span>3-8% Leve</span></div>
-      <div class="legend-step"><div class="legend-color-box" style="background:#F59E0B;"></div><span>8-15% Media</span></div>
-      <div class="legend-step"><div class="legend-color-box" style="background:#F97316;"></div><span>15-25% Alta</span></div>
-      <div class="legend-step"><div class="legend-color-box" style="background:#EF4444;"></div><span>&gt;25% Crítica</span></div>
+      <span style="color:#94a3b8;font-weight:bold;">PÉRDIDAS:</span>
+      <div class="legend-step" title="≤2%"><div class="legend-color-box" style="background:#059669;"></div><span>≤2%</span></div>
+      <div class="legend-step" title="2-4%"><div class="legend-color-box" style="background:#10B981;"></div><span>≤4%</span></div>
+      <div class="legend-step" title="4-6%"><div class="legend-color-box" style="background:#84CC16;"></div><span>≤6%</span></div>
+      <div class="legend-step" title="6-8%"><div class="legend-color-box" style="background:#A3E635;"></div><span>≤8%</span></div>
+      <div class="legend-step" title="8-11%"><div class="legend-color-box" style="background:#FACC15;"></div><span>≤11%</span></div>
+      <div class="legend-step" title="11-15%"><div class="legend-color-box" style="background:#F59E0B;"></div><span>≤15%</span></div>
+      <div class="legend-step" title="15-20%"><div class="legend-color-box" style="background:#F97316;"></div><span>≤20%</span></div>
+      <div class="legend-step" title="20-25%"><div class="legend-color-box" style="background:#EA580C;"></div><span>≤25%</span></div>
+      <div class="legend-step" title="25-35%"><div class="legend-color-box" style="background:#EF4444;"></div><span>≤35%</span></div>
+      <div class="legend-step" title=">35%"><div class="legend-color-box" style="background:#991B1B;"></div><span>>35%</span></div>
     </div>
 
     <!-- Presets de Días Críticos (Solsticios y Equinoccios) -->
@@ -2813,7 +2865,7 @@ window.RA_App = window.RA_App || {};
                 document.getElementById('inv-fields-wrap').style.display = this.value==='inverter'?'grid':'none';
                 document.getElementById('bat-fields-wrap').style.display = this.value==='battery'?'grid':'none';
                 document.getElementById('mi-fields-wrap').style.display = this.value==='microinverter'?'grid':'none';
-                document.getElementById('wt-fields-wrap').style.display = this.value==='wind_turbine'?'grid':'none';
+                document.getElementById('wt-fields-wrap').style.display = this.value==='wind_turbine'?'grid':'none'; if(this.value==='wind_turbine' && window.updateNewWindTurbineAreaPreview) window.updateNewWindTurbineAreaPreview();
               ">
                 <option value="module" selected>Módulo Solar Fotovoltaico</option>
                 <option value="inverter">Inversor de Conexión a Red</option>
@@ -2872,12 +2924,16 @@ window.RA_App = window.RA_App || {};
           <!-- Campos específicos Aerogenerador -->
           <div id="wt-fields-wrap" style="display:none;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;border-top:1px solid rgba(255,255,255,0.08);padding-top:10px;">
             <div class="doc-field"><label>Potencia Nominal (kW):</label><input type="number" id="new-wt-kw" value="10.0" step="0.5"></div>
-            <div class="doc-field"><label>Diámetro del Rotor (m):</label><input type="number" id="new-wt-diameter" value="5.0" step="0.1"></div>
+            <div class="doc-field"><label>Diámetro del Rotor (m):</label><input type="number" id="new-wt-diameter" value="5.0" step="0.1" oninput="if(window.updateNewWindTurbineAreaPreview) window.updateNewWindTurbineAreaPreview();"></div>
             <div class="doc-field"><label>Tipo de Turbina:</label>
-              <select id="new-wt-type">
+              <select id="new-wt-type" onchange="if(window.updateNewWindTurbineAreaPreview) window.updateNewWindTurbineAreaPreview(true);">
                 <option value="HAWT" selected>Eje Horizontal (HAWT)</option>
                 <option value="VAWT">Eje Vertical (VAWT)</option>
               </select>
+            </div>
+            <div class="doc-field" id="new-wt-blade-wrap">
+              <label id="new-wt-blade-label">Longitud de Pala (Radio ≈ Ø / 2, en m):</label>
+              <input type="number" id="new-wt-blade-height" value="2.5" step="0.1" min="0.2" placeholder="Ej. 2.5" oninput="if(window.updateNewWindTurbineAreaPreview) window.updateNewWindTurbineAreaPreview();">
             </div>
             <div class="doc-field"><label>Altura Mástil Disponible (m):</label><input type="text" id="new-wt-heights" value="12, 18, 24" placeholder="Ej. 12, 18, 24"></div>
             <div class="doc-field"><label>Clase IEC Eólica:</label>
@@ -2889,6 +2945,41 @@ window.RA_App = window.RA_App || {};
               </select>
             </div>
             <div class="doc-field"><label>Nivel de Potencia Acústica LwA (dBA):</label><input type="number" id="new-wt-noise" value="95" step="1"></div>
+            <div class="doc-field"><label>V. Arranque Cut-in (m/s):</label><input type="number" id="new-wt-cutin" value="2.5" step="0.5"></div>
+            <div class="doc-field"><label>V. Nominal Rated (m/s):</label><input type="number" id="new-wt-ratedspeed" value="11.0" step="0.5"></div>
+            <div class="doc-field"><label>V. Corte Cut-out (m/s):</label><input type="number" id="new-wt-cutout" value="25.0" step="1"></div>
+            <div class="doc-field"><label>V. Supervivencia (m/s):</label><input type="number" id="new-wt-survival" value="59.5" step="1"></div>
+            <div class="doc-field" style="grid-column: span 2; background: rgba(56, 189, 248, 0.08); border: 1px dashed rgba(56, 189, 248, 0.3); border-radius: 6px; padding: 7px 12px; font-size: 11px; color: #38BDF8; display: flex; align-items: center; justify-content: space-between;">
+              <span id="new-wt-area-calc-text"><i data-lucide="info" class="icon-sm"></i> Área de captación calculada: <b id="new-wt-area-val">19.63 m² (Círculo de barrido: π × Ø² / 4)</b></span>
+              <span id="new-wt-area-calc-pill" class="card-tag" style="background:#0284C7;color:#fff;font-weight:700;">HAWT CIRCULAR (π·Ø²/4)</span>
+            </div>
+            <!-- Desplegable técnico AAA: Turbulencia, Rendimiento a baja carga y Curva de potencia -->
+            <details id="new-wt-advanced-details" style="grid-column: span 2; background: rgba(15, 23, 42, 0.65); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 6px; padding: 10px; margin-top: 4px;">
+              <summary style="cursor: pointer; font-size: 11px; font-weight: 700; color: #38BDF8; display: flex; align-items: center; justify-content: space-between; user-select: none;">
+                <span><i data-lucide="sliders" class="icon-sm"></i> PARÁMETROS AVANZADOS DE INGENIERÍA & CURVA DE POTENCIA (IEC 61400)</span>
+                <span class="card-tag" style="background: rgba(56, 189, 248, 0.15); color: #38BDF8; font-weight: 800;">CALIDAD AAA</span>
+              </summary>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; border-top: 1px dashed rgba(255,255,255,0.08); padding-top: 10px;">
+                <div class="doc-field">
+                  <label>Intensidad de Turbulencia Iref (%):</label>
+                  <input type="number" id="new-wt-ti" min="5" max="30" step="0.5" value="14.0" title="Categoría A: 16%, B: 14%, C: 12%">
+                </div>
+                <div class="doc-field">
+                  <label>Rendimiento Inversor/Tren a Baja Carga (% a 15% Pn):</label>
+                  <input type="number" id="new-wt-lowload-eff" min="50" max="98" step="1" value="80.0" title="Eficiencia de conversión con viento suave">
+                </div>
+                <div class="doc-field full" style="grid-column: span 2;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                    <label style="margin: 0; font-size: 10px; color: var(--text-slate-300);">Curva de Potencia Certificada (v: m/s, P: W, Ct: empuje 0-1):</label>
+                    <button type="button" class="btn-xs" style="background: #0284C7; color: #fff; border: none; border-radius: 4px; padding: 3px 8px; font-size: 10px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px;" onclick="if(window.autoCalibrateCurveInNew) window.autoCalibrateCurveInNew();">
+                      <i data-lucide="zap" class="icon-xs"></i> Autocalibrar según Betz
+                    </button>
+                  </div>
+                  <textarea id="new-wt-curve-text" rows="5" style="width: 100%; font-family: monospace; font-size: 10px; background: #0F172A; color: #38BDF8; border: 1px solid #0284C7; border-radius: 4px; padding: 6px; resize: vertical;" placeholder="v, p, ct (un punto por línea, ej: 3.0, 350, 0.40)" oninput="if(window.auditCurveInNew) window.auditCurveInNew();"></textarea>
+                  <div id="new-wt-curve-audit-badge" style="font-size: 10px; margin-top: 4px; color: var(--text-slate-400);">Auditoría de curva: <b style="color: #34D399;">Físicamente viable</b></div>
+                </div>
+              </div>
+            </details>
           </div>
 
           <button class="btn-action-primary" onclick="addNewEquipmentFromForm()">
@@ -2966,12 +3057,16 @@ window.RA_App = window.RA_App || {};
           <!-- Campos específicos Aerogenerador -->
           <div id="edit-wt-wrap" style="display:none;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;border-top:1px solid rgba(255,255,255,0.08);padding-top:10px;">
             <div class="doc-field"><label>Potencia Nominal (kW):</label><input type="number" id="edit-wt-kw" step="0.5"></div>
-            <div class="doc-field"><label>Diámetro del Rotor (m):</label><input type="number" id="edit-wt-diameter" step="0.1"></div>
+            <div class="doc-field"><label>Diámetro del Rotor (m):</label><input type="number" id="edit-wt-diameter" step="0.1" oninput="if(window.updateWindTurbineAreaPreview) window.updateWindTurbineAreaPreview();"></div>
             <div class="doc-field"><label>Tipo de Turbina:</label>
-              <select id="edit-wt-type">
+              <select id="edit-wt-type" onchange="if(window.updateWindTurbineAreaPreview) window.updateWindTurbineAreaPreview(true);">
                 <option value="HAWT">Eje Horizontal (HAWT)</option>
                 <option value="VAWT">Eje Vertical (VAWT)</option>
               </select>
+            </div>
+            <div class="doc-field" id="edit-wt-blade-wrap">
+              <label id="edit-wt-blade-label">Longitud / Altura de Pala (m):</label>
+              <input type="number" id="edit-wt-blade-height" step="0.1" min="0.2" placeholder="Ej. 2.5" oninput="if(window.updateWindTurbineAreaPreview) window.updateWindTurbineAreaPreview();">
             </div>
             <div class="doc-field"><label>Alturas de Mástil (m, separadas por coma):</label><input type="text" id="edit-wt-heights" placeholder="Ej. 12, 18, 24, 30"></div>
             <div class="doc-field"><label>Clase IEC Eólica:</label>
@@ -2987,6 +3082,37 @@ window.RA_App = window.RA_App || {};
             <div class="doc-field"><label>V. Nominal Rated (m/s):</label><input type="number" id="edit-wt-ratedspeed" step="0.5"></div>
             <div class="doc-field"><label>V. Corte Cut-out (m/s):</label><input type="number" id="edit-wt-cutout" step="1"></div>
             <div class="doc-field"><label>V. Supervivencia (m/s):</label><input type="number" id="edit-wt-survival" step="1"></div>
+            <div class="doc-field" style="grid-column: span 2; background: rgba(56, 189, 248, 0.08); border: 1px dashed rgba(56, 189, 248, 0.3); border-radius: 6px; padding: 7px 12px; font-size: 11px; color: #38BDF8; display: flex; align-items: center; justify-content: space-between;">
+              <span id="edit-wt-area-calc-text"><i data-lucide="info" class="icon-sm"></i> Área de captación calculada: <b id="edit-wt-area-val">—</b></span>
+              <span id="edit-wt-area-calc-pill" class="card-tag" style="background:#0284C7;color:#fff;font-weight:700;">ÁREA REAL</span>
+            </div>
+            <!-- Desplegable técnico AAA: Turbulencia, Rendimiento a baja carga y Curva de potencia -->
+            <details id="edit-wt-advanced-details" style="grid-column: span 2; background: rgba(15, 23, 42, 0.65); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 6px; padding: 10px; margin-top: 4px;">
+              <summary style="cursor: pointer; font-size: 11px; font-weight: 700; color: #38BDF8; display: flex; align-items: center; justify-content: space-between; user-select: none;">
+                <span><i data-lucide="sliders" class="icon-sm"></i> PARÁMETROS AVANZADOS DE INGENIERÍA & CURVA DE POTENCIA (IEC 61400)</span>
+                <span class="card-tag" style="background: rgba(56, 189, 248, 0.15); color: #38BDF8; font-weight: 800;">CALIDAD AAA</span>
+              </summary>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; border-top: 1px dashed rgba(255,255,255,0.08); padding-top: 10px;">
+                <div class="doc-field">
+                  <label>Intensidad de Turbulencia Iref (%):</label>
+                  <input type="number" id="edit-wt-ti" min="5" max="30" step="0.5" value="14.0" title="Categoría A: 16%, B: 14%, C: 12%">
+                </div>
+                <div class="doc-field">
+                  <label>Rendimiento Inversor/Tren a Baja Carga (% a 15% Pn):</label>
+                  <input type="number" id="edit-wt-lowload-eff" min="50" max="98" step="1" value="80.0" title="Eficiencia de conversión con viento suave">
+                </div>
+                <div class="doc-field full" style="grid-column: span 2;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                    <label style="margin: 0; font-size: 10px; color: var(--text-slate-300);">Curva de Potencia Certificada (v: m/s, P: W, Ct: empuje 0-1):</label>
+                    <button type="button" class="btn-xs" style="background: #0284C7; color: #fff; border: none; border-radius: 4px; padding: 3px 8px; font-size: 10px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px;" onclick="if(window.autoCalibrateCurveInEdit) window.autoCalibrateCurveInEdit();">
+                      <i data-lucide="zap" class="icon-xs"></i> Autocalibrar según Betz
+                    </button>
+                  </div>
+                  <textarea id="edit-wt-curve-text" rows="5" style="width: 100%; font-family: monospace; font-size: 10px; background: #0F172A; color: #38BDF8; border: 1px solid #0284C7; border-radius: 4px; padding: 6px; resize: vertical;" placeholder="v, p, ct (un punto por línea, ej: 3.0, 350, 0.40)" oninput="if(window.auditCurveInEdit) window.auditCurveInEdit();"></textarea>
+                  <div id="edit-wt-curve-audit-badge" style="font-size: 10px; margin-top: 4px; color: var(--text-slate-400);">Auditoría de curva: <b style="color: #34D399;">Físicamente viable</b></div>
+                </div>
+              </div>
+            </details>
           </div>
 
           <!-- Campos específicos Parámetro Estructura / Coste Instalación -->
@@ -3321,26 +3447,82 @@ window.RA_App = window.RA_App || {};
           </div>
         </div>
 
-        <!-- Simulación de Financiación Bancaria -->
+        <!-- Simulación de Financiación Bancaria Avanzada -->
         <div class="ui-card" style="margin:0;background:rgba(30,41,59,0.5);border:1px solid rgba(255,255,255,0.08);padding:14px;border-radius:8px;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.06);padding-bottom:6px;">
-            <span style="font-size:11px;font-weight:800;color:var(--amber-400);text-transform:uppercase;">4. Simulación Financiación Bancaria</span>
-            <span class="card-tag" style="font-size: 10px;">CUOTA VS AHORRO</span>
+            <span style="font-size:11px;font-weight:800;color:var(--amber-400);text-transform:uppercase;">4. Condiciones de Financiación Bancaria</span>
+            <span class="card-tag" style="font-size: 10px;">CRÉDITO A MEDIDA</span>
           </div>
 
+          <!-- Modalidad Comercial de Oferta -->
           <div class="field-row" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
-            <span style="font-size:10.5px;color:var(--text-slate-300);">Plazo del Préstamo:</span>
-            <select id="modal-fin-plazo-meses" onchange="syncModalInputToBudget('fin-plazo-meses', this.value)" style="width:165px;background:rgba(0,0,0,0.5);border:1px solid var(--border-subtle);color:#fff;font-size:10px;padding:4px 6px;border-radius:6px;outline:none;">
-              <option value="60">5 Años (60 cuotas)</option>
-              <option value="96">8 Años (96 cuotas)</option>
-              <option value="120">10 Años (120 cuotas)</option>
-              <option value="144">12 Años (144 cuotas)</option>
+            <span style="font-size:10.5px;color:var(--text-slate-300);">Modalidad de Pago Oferta:</span>
+            <select id="modal-fin-mode" onchange="raSyncFinancingMode(this.value)" style="width:165px;background:rgba(0,0,0,0.5);border:1px solid var(--amber-400);color:#fbbf24;font-size:10px;padding:4px 6px;border-radius:6px;outline:none;font-weight:700;">
+              <option value="both">Comparativa (Contado vs Financiado)</option>
+              <option value="cash">Solo Pago al Contado (Llave en mano)</option>
+              <option value="financed">Solo Financiación (Crédito)</option>
             </select>
           </div>
 
+          <!-- Entrada Directa en Euros -->
           <div class="field-row" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
-            <span style="font-size:10.5px;color:var(--text-slate-300);">Tipo de Interés (TIN %):</span>
-            <input type="number" id="modal-fin-tin-pct" step="0.25" min="0" max="20" class="field-input" style="width:90px;font-size:11px;text-align:right;" oninput="syncModalInputToBudget('fin-tin-pct', this.value)">
+            <div style="display:flex;flex-direction:column;">
+              <span style="font-size:10.5px;color:var(--text-slate-300);">Entrada Inicial Aportada (€):</span>
+              <span style="font-size:9px;color:var(--text-slate-400);">Resta del capital principal a financiar</span>
+            </div>
+            <input type="number" id="modal-fin-entrada-eur" step="250" min="0" value="0" placeholder="0 €" class="field-input" style="width:105px;font-size:11px;text-align:right;" oninput="syncModalInputToBudget('fin-entrada-eur', this.value)">
+          </div>
+
+          <!-- Plazo del Préstamo -->
+          <div class="field-row" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:10.5px;color:var(--text-slate-300);">Plazo del Préstamo:</span>
+            <select id="modal-fin-plazo-meses" onchange="syncModalInputToBudget('fin-plazo-meses', this.value)" style="width:165px;background:rgba(0,0,0,0.5);border:1px solid var(--border-subtle);color:#fff;font-size:10px;padding:4px 6px;border-radius:6px;outline:none;">
+              <option value="36">3 Años (36 cuotas)</option>
+              <option value="60">5 Años (60 cuotas)</option>
+              <option value="84">7 Años (84 cuotas)</option>
+              <option value="96">8 Años (96 cuotas)</option>
+              <option value="120" selected>10 Años (120 cuotas)</option>
+              <option value="144">12 Años (144 cuotas)</option>
+              <option value="180">15 Años (180 cuotas)</option>
+            </select>
+          </div>
+
+          <!-- Tipo de Interés TIN y TAE Calculada -->
+          <div class="field-row" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:10.5px;color:var(--text-slate-300);">Tipo de Interés Nominal (TIN %):</span>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <input type="number" id="modal-fin-tin-pct" step="0.10" min="0" max="25" class="field-input" style="width:75px;font-size:11px;text-align:right;" oninput="syncModalInputToBudget('fin-tin-pct', this.value)">
+              <span id="modal-fin-badge-tae" style="font-size:9.5px;font-weight:700;color:var(--amber-400);background:rgba(245,158,11,0.12);padding:3px 6px;border-radius:4px;border:1px solid rgba(245,158,11,0.25);">TAE: 5.95%</span>
+            </div>
+          </div>
+
+          <!-- Comisión de Apertura y Carencia -->
+          <div class="field-row" style="margin-bottom:8px;display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <div>
+              <span style="font-size:9.5px;color:var(--text-slate-300);display:block;margin-bottom:2px;">Comisión Apertura (%):</span>
+              <input type="number" id="modal-fin-apertura-pct" step="0.25" min="0" max="10" value="1.0" class="field-input" style="width:100%;font-size:10.5px;text-align:right;" oninput="syncModalInputToBudget('fin-apertura-pct', this.value)">
+            </div>
+            <div>
+              <span style="font-size:9.5px;color:var(--text-slate-300);display:block;margin-bottom:2px;">Carencia Inicial (Meses):</span>
+              <select id="modal-fin-carencia-meses" onchange="syncModalInputToBudget('fin-carencia-meses', this.value)" style="width:100%;background:rgba(0,0,0,0.5);border:1px solid var(--border-subtle);color:#fff;font-size:10px;padding:4px 6px;border-radius:6px;outline:none;">
+                <option value="0" selected>Sin carencia (0 m)</option>
+                <option value="1">1 mes de carencia</option>
+                <option value="2">2 meses de carencia</option>
+                <option value="3">3 meses de carencia</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Seguros / Mantenimiento en Cuota y Notaría -->
+          <div class="field-row" style="margin-bottom:8px;display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <div>
+              <span style="font-size:9.5px;color:var(--text-slate-300);display:block;margin-bottom:2px;">Seguro/Mant. en Cuota (€/mes):</span>
+              <input type="number" id="modal-fin-seguro-mensual" step="2" min="0" value="0" placeholder="0 €/m" class="field-input" style="width:100%;font-size:10.5px;text-align:right;" oninput="syncModalInputToBudget('fin-seguro-mensual', this.value)">
+            </div>
+            <div>
+              <span style="font-size:9.5px;color:var(--text-slate-300);display:block;margin-bottom:2px;">Gastos Formalización (€):</span>
+              <input type="number" id="modal-fin-notaria-eur" step="25" min="0" value="0" placeholder="0 €" class="field-input" style="width:100%;font-size:10.5px;text-align:right;" oninput="syncModalInputToBudget('fin-notaria-eur', this.value)">
+            </div>
           </div>
 
           <div class="field-row" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;background:rgba(56,189,248,0.08);padding:6px 8px;border-radius:6px;border:1px solid rgba(56,189,248,0.2);">
@@ -3355,7 +3537,11 @@ window.RA_App = window.RA_App || {};
 
           <div style="margin-top:10px;padding:12px;background:rgba(0,0,0,0.3);border-radius:8px;border:1px solid rgba(16,185,129,0.2);display:flex;flex-direction:column;gap:6px;">
             <div style="display:flex;justify-content:space-between;align-items:center;">
-              <span style="font-size:10px;color:var(--text-slate-300);">Cuota Mensual Financiación:</span>
+              <span style="font-size:10px;color:var(--text-slate-300);">Capital Financiado Neto:</span>
+              <b id="modal-fin-capital-financiado" style="font-family:var(--font-mono);font-size:12px;color:#fff;">0 €</b>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-size:10px;color:var(--text-slate-300);">Cuota Mensual Crédito:</span>
               <b id="modal-fin-cuota-mensual" style="font-family:var(--font-mono);font-size:13px;color:var(--amber-400);">0 €/mes</b>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center;">
@@ -3651,6 +3837,21 @@ function openCostBreakdownModal() {
   const vBatCheck = document.getElementById('modal-cfg-virtual-bat');
   if (vBatCheck) {
     vBatCheck.checked = !!(_cfg && _cfg.hasVirtualBattery);
+  }
+
+  // Sincronizar configuración de financiación persistida
+  if (typeof RAPricing !== 'undefined' && typeof RAPricing.getCommercialConfig === 'function') {
+    const _cCfg = RAPricing.getCommercialConfig();
+    const _fin = (_cCfg && _cCfg.financing) ? _cCfg.financing : {};
+    const setVal = (id, val) => { const el = document.getElementById(id); if (el && val !== undefined) el.value = val; };
+    setVal('modal-fin-mode', _fin.mode || 'both');
+    setVal('modal-fin-entrada-eur', _fin.downPaymentEur || 0);
+    setVal('modal-fin-plazo-meses', _fin.loanMonths || 120);
+    setVal('modal-fin-tin-pct', (_fin.loanTinPct !== undefined ? _fin.loanTinPct : 5.95));
+    setVal('modal-fin-apertura-pct', (_fin.openingFeePct !== undefined ? _fin.openingFeePct : 1.0));
+    setVal('modal-fin-carencia-meses', _fin.graceMonths || 0);
+    setVal('modal-fin-seguro-mensual', _fin.monthlyInsuranceEur || 0);
+    setVal('modal-fin-notaria-eur', _fin.notaryEur || 0);
   }
 
   // Sincronizar configuración fiscal persistida
@@ -5637,19 +5838,21 @@ function updateBudgetUI() {
     bEl.style.color = val >= 0 ? 'var(--emerald-500)' : 'var(--rose-500)';
   }
 
-  renderCashflowChart(m.cashflowAcum);
+  renderCashflowChart(m.cashflowAcum, m.cashflowAcumFinanciado);
 }
 
-function renderCashflowChart(data) {
+function renderCashflowChart(data, dataFin) {
   const svg = document.getElementById('cashflow-svg-chart');
   if (!svg || !data || data.length < 2) return;
   svg.innerHTML = '';
 
-  const minVal = Math.min(...data);
-  const maxVal = Math.max(...data, 1000);
+  const hasFin = Array.isArray(dataFin) && dataFin.length === data.length;
+  const allVals = hasFin ? data.concat(dataFin) : data;
+  const minVal = Math.min(...allVals);
+  const maxVal = Math.max(...allVals, 1000);
   const range = maxVal - minVal;
   const H = 100, W = 310;
-  const padL = 10, padR = 10, padT = 10, padB = 20;
+  const padL = 10, padR = 10, padT = 12, padB = 20;
   const plotW = W - padL - padR;
   const plotH = H - padT - padB;
 
@@ -5663,7 +5866,7 @@ function renderCashflowChart(data) {
   zLine.setAttribute('stroke-dasharray', '3,3');
   svg.appendChild(zLine);
 
-  // Bars & Path
+  // Bars & Path Contado
   const stepX = plotW / (data.length - 1);
   let pathD = '';
 
@@ -5690,16 +5893,48 @@ function renderCashflowChart(data) {
   path.setAttribute('stroke-width', '2.5');
   svg.appendChild(path);
 
-  // Break-even dot
+  // Break-even dot Contado
   for (let i = 1; i < data.length; i++) {
     if (data[i] >= 0 && data[i-1] < 0) {
       const x = padL + i * stepX;
       const y = padT + ((maxVal - data[i]) / range) * plotH;
       const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
       dot.setAttribute('cx', x); dot.setAttribute('cy', y); dot.setAttribute('r', '4');
-      dot.setAttribute('fill', 'var(--amber-400)');
+      dot.setAttribute('fill', 'var(--emerald-400)');
       svg.appendChild(dot);
       break;
+    }
+  }
+
+  // Curva Financiada (segunda opción comparativa)
+  if (hasFin) {
+    let pathDFin = '';
+    dataFin.forEach((val, i) => {
+      const x = padL + i * stepX;
+      const y = padT + ((maxVal - val) / range) * plotH;
+      if (i === 0) pathDFin += `M ${x} ${y}`;
+      else pathDFin += ` L ${x} ${y}`;
+    });
+
+    const pathFin = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    pathFin.setAttribute('d', pathDFin);
+    pathFin.setAttribute('fill', 'none');
+    pathFin.setAttribute('stroke', '#38BDF8');
+    pathFin.setAttribute('stroke-width', '2.0');
+    pathFin.setAttribute('stroke-dasharray', '4,3');
+    svg.appendChild(pathFin);
+
+    // Break-even dot Financiado
+    for (let i = 1; i < dataFin.length; i++) {
+      if (dataFin[i] >= 0 && dataFin[i-1] < 0) {
+        const x = padL + i * stepX;
+        const y = padT + ((maxVal - dataFin[i]) / range) * plotH;
+        const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        dot.setAttribute('cx', x); dot.setAttribute('cy', y); dot.setAttribute('r', '3.5');
+        dot.setAttribute('fill', '#38BDF8');
+        svg.appendChild(dot);
+        break;
+      }
     }
   }
 }
@@ -6693,6 +6928,22 @@ function clearAllCADSelection(notify = false) {
     window.cadCyclingState.candidateIdx = -1;
   }
 
+  // H. Aerogeneradores 3D (RA-Wind)
+  if (typeof window !== 'undefined') {
+    if (window.RAWindUI && typeof window.RAWindUI.selectTurbineForInspect === 'function') {
+      if (typeof window.RAWindUI.getSelectedTurbineId === 'function' && window.RAWindUI.getSelectedTurbineId()) {
+        hadAnySelection = true;
+      }
+      window.RAWindUI.selectTurbineForInspect(null);
+    }
+    if (window.RAWindVisualizer && typeof window.RAWindVisualizer.selectTurbine === 'function') {
+      if (typeof window.RAWindVisualizer.getSelectedId === 'function' && window.RAWindVisualizer.getSelectedId()) {
+        hadAnySelection = true;
+      }
+      window.RAWindVisualizer.selectTurbine(null);
+    }
+  }
+
   if (hadAnySelection && notify && typeof showStatus === 'function') {
     showStatus('<i data-lucide="x-circle" class="icon-sm"></i> SELECCIÓN DESPEJADA', 1200);
   }
@@ -7369,9 +7620,13 @@ function recalculateSolarYield(force = false) {
       const pCount = (pInf && Array.isArray(pInf.panels)) ? pInf.panels.filter(p => !p.deleted && !p.disabled).length : 0;
       if (pCount <= 0) return;
       const pWp = (typeof wpGetPolyWp === 'function') ? wpGetPolyWp(poly) : modulePowerW;
-      const pTilt = (pInf && typeof pInf.moduleTiltDeg === 'number')
+      const roofSlope = (pInf && typeof pInf.tiltDeg === 'number') ? pInf.tiltDeg : ((poly.roofInfo && typeof poly.roofInfo.tiltDeg === 'number') ? poly.roofInfo.tiltDeg : 0);
+      let pTilt = (pInf && typeof pInf.moduleTiltDeg === 'number')
         ? pInf.moduleTiltDeg
         : ((typeof poly.modTilt === 'number') ? poly.modTilt : modTilt);
+      if (pTilt === 0 && roofSlope > 3) {
+        pTilt = roofSlope;
+      }
       let pAzSur = (pInf && typeof pInf.moduleAzimuthDeg === 'number')
         ? pInf.moduleAzimuthDeg
         : ((typeof poly.modAzimuth === 'number') ? (poly.modAzimuth - 180) : modAzSigned);
@@ -8249,7 +8504,7 @@ function invalidateRoofPanelsCache() {
   if (typeof lastRoofInfo !== 'undefined') lastRoofInfo = null;
 }
 
-function calculatePVsystRowPitch(moduleLengthM, deltaTiltDeg, roofSlopeDeg, moduleAzSurDeg, latDeg, safetyMarginM = 0.20) {
+function calculatePVsystRowPitch(moduleLengthM, deltaTiltDeg, roofSlopeDeg, moduleAzSurDeg, latDeg, safetyMarginM = 0.20, designWindowH = 2.0) {
   if (deltaTiltDeg < 1.0) {
     return moduleLengthM + 0.04; // Coplanar
   }
@@ -8257,7 +8512,9 @@ function calculatePVsystRowPitch(moduleLengthM, deltaTiltDeg, roofSlopeDeg, modu
   // Solsticio de invierno (21 Dic) a las 10:00 h solar (CTE DB-HE5 / UNE-EN 62446)
   const latRad = degToRad(typeof latDeg === 'number' ? latDeg : 40.4168);
   const declRad = degToRad(-23.45);
-  const haRad = degToRad(-30.0); // 10:00h = -30°
+  // Ventana libre de sombras: ±designWindowH horas respecto al mediodía solar (2.0 h = 10:00-14:00, criterio CTE)
+  const winH = Math.max(1.0, Math.min(3.5, Number(designWindowH) || 2.0));
+  const haRad = degToRad(-15.0 * winH);
 
   const sinAlt = Math.sin(latRad) * Math.sin(declRad) + Math.cos(latRad) * Math.cos(declRad) * Math.cos(haRad);
   const altRad = Math.asin(Math.max(-1, Math.min(1, sinAlt)));
@@ -8467,6 +8724,7 @@ function evaluateModuleLayouts(roof, module, cfg) {
   let moduleTiltDeg;
   let moduleAzN;
   let moduleAzSur;
+  const rawUserTilt = (cfg.moduleTiltDeg !== undefined && cfg.moduleTiltDeg !== "" && !isNaN(parseFloat(cfg.moduleTiltDeg))) ? parseFloat(cfg.moduleTiltDeg) : null;
 
   if (isOptimal) {
     // <i data-lucide=\"sun\" class=\"icon-sm\"></i> MODO HÍBRIDO INTELIGENTE CARA AL SOL (PVsyst / Helioscope)
@@ -8494,8 +8752,14 @@ function evaluateModuleLayouts(roof, module, cfg) {
     moduleAzSur = (roof.azimuthSur !== undefined) ? roof.azimuthSur : normalizeAzimuth(180 - moduleAzN);
   } else {
     // <i data-lucide=\"settings\" class=\"icon-sm\"></i> PERSONALIZADA (Valores directos de los controles de usuario)
-    moduleTiltDeg = (cfg.moduleTiltDeg !== undefined && cfg.moduleTiltDeg !== "" && !isNaN(parseFloat(cfg.moduleTiltDeg)))
-      ? (isEastWest ? 12 : parseFloat(cfg.moduleTiltDeg)) : (slopeDeg >= flatThreshold ? slopeDeg : optimalTilt);
+    const isZeroTiltOnSlope = (rawUserTilt === 0 && slopeDeg >= flatThreshold);
+    if (isZeroTiltOnSlope) {
+      moduleTiltDeg = slopeDeg;
+    } else {
+      moduleTiltDeg = (rawUserTilt !== null)
+        ? (isEastWest ? 12 : rawUserTilt)
+        : (slopeDeg >= flatThreshold ? slopeDeg : optimalTilt);
+    }
 
     let rawAz = isEastWest ? 90 : 180;
     if (!isEastWest && cfg.moduleAzimuthGeo !== undefined && cfg.moduleAzimuthGeo !== "" && cfg.moduleAzimuthGeo !== "auto") {
@@ -8513,7 +8777,8 @@ function evaluateModuleLayouts(roof, module, cfg) {
   const pergolaSubtype = cfg.pergolaSubtype || (cfg.estructura && cfg.estructura.subtype) || 'continuous';
   const isContinuousCanopy = isPergola && (pergolaSubtype !== 'spaced_rows');
 
-  const deltaTilt = isCoplanar ? 0 : (isEastWest ? 12 : Math.max(moduleTiltDeg - slopeDeg, 0));
+  const isZeroTiltOnSlope = (rawUserTilt === 0 && slopeDeg >= flatThreshold);
+  const deltaTilt = (isCoplanar || isZeroTiltOnSlope || isContinuousCanopy) ? 0 : (isEastWest ? 12 : Math.max(moduleTiltDeg - slopeDeg, 0));
   const coplanar = (deltaTilt < 1);
 
   const nMod = normalFromTiltAzimuth(moduleTiltDeg, moduleAzN);
@@ -8598,7 +8863,7 @@ function evaluateModuleLayouts(roof, module, cfg) {
 
     let rowPitch = (coplanar || isContinuousCanopy)
       ? (footprintA + gap)
-      : calculatePVsystRowPitch(modLen, deltaTilt, slopeDeg, moduleAzSur, lat, safety);
+      : calculatePVsystRowPitch(modLen, deltaTilt, slopeDeg, moduleAzSur, lat, safety, cfg.rowPitchDesignWindowH);
 
     if (cfg && cfg.lockRowPitch && typeof cfg.lockedRowPitchM === 'number' && cfg.lockedRowPitchM > 0 && !coplanar && !isContinuousCanopy && !isEastWest) {
       rowPitch = Math.max(footprintA + gap, cfg.lockedRowPitchM);
@@ -8625,7 +8890,10 @@ function evaluateModuleLayouts(roof, module, cfg) {
     const isExplicitAz = (!isEastWest && cfg.moduleAzimuthSur !== undefined && cfg.moduleAzimuthSur !== "" && cfg.moduleAzimuthSur !== "auto");
     const directAzDeg = isExplicitAz ? parseFloat(cfg.moduleAzimuthSur) : 0;
     const directAngleRad = degToRad(directAzDeg);
-    const alignToPlane = (cfg.alignToPlane !== false) && !isExplicitAz && !isEastWest && !(isOptimal && (slopeDeg <= flatThreshold || !isSouthQuadrant));
+    // Con estructura inclinada (deltaTilt ≥ 1°) el eje A del módulo DEBE coincidir con el azimut de captación:
+    // alinear la retícula a la arista del faldón (ángulo 0 = eje u, horizontal paralelo a cumbrera) haría
+    // bascular el módulo lateralmente (Este/Oeste) en lugar de hacia el sol.
+    const alignToPlane = coplanar && (cfg.alignToPlane !== false) && !isExplicitAz && !isEastWest && !(isOptimal && (slopeDeg <= flatThreshold || !isSouthQuadrant));
     const anglesToTest = alignToPlane
       ? [0]
       : (isEastWest ? [azAngle] : (isExplicitAz ? [azAngle] : ((coplanar || (isOptimal && slopeDeg > flatThreshold && isSouthQuadrant)) ? uniqueAngles : [azAngle])));
@@ -10615,6 +10883,7 @@ function computeSinglePolylineRoofInfo(ptsIn, polyOpts) {
     matrixShiftB: (typeof opts.matrixShiftB === 'number') ? opts.matrixShiftB : ((typeof opts.matrixShiftV === 'number') ? opts.matrixShiftV : 0),
     lockRowPitch: !!(opts && opts.lockRowPitch),
     lockedRowPitchM: (opts && typeof opts.lockedRowPitchM === 'number') ? opts.lockedRowPitchM : 0,
+    rowPitchDesignWindowH: (opts && typeof opts.rowPitchDesignWindowH === 'number') ? opts.rowPitchDesignWindowH : 2.0,
     panelFilter: defaultPanelFilter,
     hasWalkway: !!opts.hasWalkway,
     walkwayWidth: (typeof opts.walkwayWidth === 'number') ? opts.walkwayWidth : 0.80,
@@ -10640,8 +10909,11 @@ function computeSinglePolylineRoofInfo(ptsIn, polyOpts) {
     const sinDelta = Math.sin(deltaTiltRad);
     const cosDelta = Math.cos(deltaTiltRad);
     const frame = best.frame || {};
-    const AuvN = { x: frame.Lu || 1, y: frame.Lv || 0 };
-    const BuvN = { x: frame.Wu || 0, y: frame.Wv || 1 };
+    // Componentes 0 son válidas (eje A paralelo a v en faldones Sur): no usar `||` como fallback.
+    const hasFrameA = (typeof frame.Lu === 'number' && typeof frame.Lv === 'number' && Math.hypot(frame.Lu, frame.Lv) > 1e-6);
+    const hasFrameB = (typeof frame.Wu === 'number' && typeof frame.Wv === 'number' && Math.hypot(frame.Wu, frame.Wv) > 1e-6);
+    const AuvN = hasFrameA ? { x: frame.Lu, y: frame.Lv } : { x: 1, y: 0 };
+    const BuvN = hasFrameB ? { x: frame.Wu, y: frame.Wv } : { x: 0, y: 1 };
 
     // Altura base: si es coplanar reposa en el tejado (+2cm); si esta inclinada, la arista inferior se eleva +5cm.
     // ESTRUCTURA PARAMÉTRICA: pérgola eleva todo el plano a la altura libre; balasto apoya la
@@ -10768,7 +11040,7 @@ window.computeSinglePolylineRoofInfo = computeSinglePolylineRoofInfo;
 function computeRoofPanelsData() {
   const orientPref = (typeof userPanelOrientationPref !== "undefined" && userPanelOrientationPref) ? userPanelOrientationPref : "auto";
   const polySig = (typeof WP !== "undefined" && WP && WP.polylines && WP.polylines.length > 0)
-    ? WP.polylines.map((pl, pi) => "P" + pi + ":" + (pl.points || []).filter(p => p && typeof p.x === "number").map(p => p.x.toFixed(3) + "," + p.y.toFixed(3) + "," + p.z.toFixed(3)).join(";") + ":mod=" + (pl.moduleId || "def") + ":arr=" + (pl.arrangementMode || "def") + ":az=" + (pl.modAzimuth || "auto") + ":t=" + (pl.modTilt || "auto") + ":lk=" + (pl.lockRowPitch ? (pl.lockedRowPitchM || 1) : 0) + ":or=" + (pl.orientationPref || "portrait")).join("|")
+    ? WP.polylines.map((pl, pi) => "P" + pi + ":" + (pl.points || []).filter(p => p && typeof p.x === "number").map(p => p.x.toFixed(3) + "," + p.y.toFixed(3) + "," + p.z.toFixed(3)).join(";") + ":mod=" + (pl.moduleId || "def") + ":arr=" + (pl.arrangementMode || "def") + ":az=" + (pl.modAzimuth || "auto") + ":t=" + (pl.modTilt || "auto") + ":lk=" + (pl.lockRowPitch ? (pl.lockedRowPitchM || 1) : 0) + ":dw=" + (pl.rowPitchDesignWindowH || 2) + ":or=" + (pl.orientationPref || "portrait")).join("|")
     : (polygonPoints || []).filter(p => p && typeof p.x === "number").map(p => p.x.toFixed(3) + "," + p.y.toFixed(3) + "," + p.z.toFixed(3)).join(";");
 
   const curObj = (typeof window !== "undefined" && window.solarProjectConfig && window.solarProjectConfig.selectedObjective) ? window.solarProjectConfig.selectedObjective : "optimal_inv";
@@ -11105,6 +11377,231 @@ window.applyBatteryFromCatalog = applyBatteryFromCatalog;
 window.deleteCatalogItem = deleteCatalogItem;
 window.addNewEquipmentFromForm = addNewEquipmentFromForm;
 window.resetEquipmentCatalogToDefault = resetEquipmentCatalogToDefault;
+
+
+
+window.autoCalibrateCurveInEdit = function() {
+  const kw = Math.max(0.1, parseFloat(document.getElementById('edit-wt-kw').value) || 10.0);
+  const diam = Math.max(0.5, parseFloat(document.getElementById('edit-wt-diameter').value) || 5.0);
+  const type = document.getElementById('edit-wt-type').value || 'HAWT';
+  const bladeH = parseFloat(document.getElementById('edit-wt-blade-height').value) || (type === 'VAWT' ? diam * 1.4 : diam / 2);
+  const cutin = parseFloat(document.getElementById('edit-wt-cutin').value) || 2.5;
+  const rated = parseFloat(document.getElementById('edit-wt-ratedspeed').value) || 11.0;
+  const cutout = parseFloat(document.getElementById('edit-wt-cutout').value) || 25.0;
+
+  const mock = {
+    ratedPowerW: Math.round(kw * 1000),
+    rotorDiameterM: diam,
+    bladeHeightM: bladeH,
+    bladeLength: bladeH,
+    type: type,
+    cutInSpeedMs: cutin,
+    ratedSpeedMs: rated,
+    cutOutSpeedMs: cutout,
+    powerCurve: []
+  };
+
+  if (window.RAWindCatalog && typeof window.RAWindCatalog.calibratePowerCurveToBetz === 'function') {
+    window.RAWindCatalog.calibratePowerCurveToBetz(mock, type === 'VAWT' ? 0.35 : 0.42);
+    const txtArea = document.getElementById('edit-wt-curve-text');
+    if (txtArea && typeof window.RAWindCatalog.formatPowerCurveText === 'function') {
+      txtArea.value = window.RAWindCatalog.formatPowerCurveText(mock.powerCurve);
+    }
+  }
+  window.auditCurveInEdit();
+};
+
+window.auditCurveInEdit = function() {
+  const txtArea = document.getElementById('edit-wt-curve-text');
+  const badge = document.getElementById('edit-wt-curve-audit-badge');
+  if (!txtArea || !badge) return;
+  const pts = window.RAWindCatalog && typeof window.RAWindCatalog.parsePowerCurveText === 'function'
+    ? window.RAWindCatalog.parsePowerCurveText(txtArea.value)
+    : [];
+
+  const diam = Math.max(0.5, parseFloat(document.getElementById('edit-wt-diameter').value) || 5.0);
+  const type = document.getElementById('edit-wt-type').value || 'HAWT';
+  const bladeH = parseFloat(document.getElementById('edit-wt-blade-height').value) || (type === 'VAWT' ? diam * 1.4 : diam / 2);
+
+  const mock = {
+    rotorDiameterM: diam,
+    bladeHeightM: bladeH,
+    bladeLength: bladeH,
+    type: type,
+    powerCurve: pts
+  };
+
+  const audit = window.RAWindCatalog && typeof window.RAWindCatalog.validatePowerCurve === 'function'
+    ? window.RAWindCatalog.validatePowerCurve(mock)
+    : { valid: true, maxCp: 0.38 };
+
+  if (pts.length === 0) {
+    badge.innerHTML = 'Auditoría de curva: <b style="color:#F59E0B;">Curva vacía (se autocalculará al guardar)</b>';
+  } else if (!audit.valid) {
+    badge.innerHTML = 'Auditoría de curva: <b style="color:#EF4444;">Incompatible con Betz (Cp_máx = ' + audit.maxCp + ' > 0,593)</b>';
+  } else {
+    badge.innerHTML = 'Auditoría de curva: <b style="color:#34D399;">Físicamente viable (Cp_máx = ' + audit.maxCp + ') · ' + pts.length + ' puntos</b>';
+  }
+};
+
+window.autoCalibrateCurveInNew = function() {
+  const kw = Math.max(0.1, parseFloat(document.getElementById('new-wt-kw').value) || 10.0);
+  const diam = Math.max(0.5, parseFloat(document.getElementById('new-wt-diameter').value) || 5.0);
+  const type = document.getElementById('new-wt-type').value || 'HAWT';
+  const bladeH = parseFloat(document.getElementById('new-wt-blade-height').value) || (type === 'VAWT' ? diam * 1.4 : diam / 2);
+  const cutin = parseFloat(document.getElementById('new-wt-cutin').value) || 2.5;
+  const rated = parseFloat(document.getElementById('new-wt-ratedspeed').value) || 11.0;
+  const cutout = parseFloat(document.getElementById('new-wt-cutout').value) || 25.0;
+
+  const mock = {
+    ratedPowerW: Math.round(kw * 1000),
+    rotorDiameterM: diam,
+    bladeHeightM: bladeH,
+    bladeLength: bladeH,
+    type: type,
+    cutInSpeedMs: cutin,
+    ratedSpeedMs: rated,
+    cutOutSpeedMs: cutout,
+    powerCurve: []
+  };
+
+  if (window.RAWindCatalog && typeof window.RAWindCatalog.calibratePowerCurveToBetz === 'function') {
+    window.RAWindCatalog.calibratePowerCurveToBetz(mock, type === 'VAWT' ? 0.35 : 0.42);
+    const txtArea = document.getElementById('new-wt-curve-text');
+    if (txtArea && typeof window.RAWindCatalog.formatPowerCurveText === 'function') {
+      txtArea.value = window.RAWindCatalog.formatPowerCurveText(mock.powerCurve);
+    }
+  }
+  window.auditCurveInNew();
+};
+
+window.auditCurveInNew = function() {
+  const txtArea = document.getElementById('new-wt-curve-text');
+  const badge = document.getElementById('new-wt-curve-audit-badge');
+  if (!txtArea || !badge) return;
+  const pts = window.RAWindCatalog && typeof window.RAWindCatalog.parsePowerCurveText === 'function'
+    ? window.RAWindCatalog.parsePowerCurveText(txtArea.value)
+    : [];
+
+  const diam = Math.max(0.5, parseFloat(document.getElementById('new-wt-diameter').value) || 5.0);
+  const type = document.getElementById('new-wt-type').value || 'HAWT';
+  const bladeH = parseFloat(document.getElementById('new-wt-blade-height').value) || (type === 'VAWT' ? diam * 1.4 : diam / 2);
+
+  const mock = {
+    rotorDiameterM: diam,
+    bladeHeightM: bladeH,
+    bladeLength: bladeH,
+    type: type,
+    powerCurve: pts
+  };
+
+  const audit = window.RAWindCatalog && typeof window.RAWindCatalog.validatePowerCurve === 'function'
+    ? window.RAWindCatalog.validatePowerCurve(mock)
+    : { valid: true, maxCp: 0.38 };
+
+  if (pts.length === 0) {
+    badge.innerHTML = 'Auditoría de curva: <b style="color:#F59E0B;">Curva vacía (se autocalculará al guardar)</b>';
+  } else if (!audit.valid) {
+    badge.innerHTML = 'Auditoría de curva: <b style="color:#EF4444;">Incompatible con Betz (Cp_máx = ' + audit.maxCp + ' > 0,593)</b>';
+  } else {
+    badge.innerHTML = 'Auditoría de curva: <b style="color:#34D399;">Físicamente viable (Cp_máx = ' + audit.maxCp + ') · ' + pts.length + ' puntos</b>';
+  }
+};
+
+window.updateNewWindTurbineAreaPreview = function(isTypeToggle) {
+  const typeIn = document.getElementById('new-wt-type');
+  const diamIn = document.getElementById('new-wt-diameter');
+  const bladeIn = document.getElementById('new-wt-blade-height');
+  const lbl = document.getElementById('new-wt-blade-label');
+  const areaVal = document.getElementById('new-wt-area-val');
+  const pill = document.getElementById('new-wt-area-calc-pill');
+  if (!typeIn || !diamIn || !areaVal) return;
+
+  const isVawt = (typeIn.value === 'VAWT' || typeIn.value === 'vawt');
+  const D = Math.max(0.1, parseFloat(diamIn.value) || 0);
+
+  if (isTypeToggle && bladeIn) {
+    if (isVawt) {
+      bladeIn.value = (Math.round(D * 1.4 * 10) / 10).toFixed(1);
+    } else {
+      bladeIn.value = (Math.round(D / 2 * 10) / 10).toFixed(1);
+    }
+  }
+
+  let H = parseFloat(bladeIn ? bladeIn.value : 0);
+  if (!(H > 0)) {
+    H = isVawt ? (Math.round(D * 1.4 * 10) / 10) : (Math.round(D / 2 * 10) / 10);
+    if (bladeIn) bladeIn.value = H.toFixed(1);
+  }
+
+  if (lbl) {
+    lbl.textContent = isVawt 
+      ? 'Altura Pala Vertical (H, en m):' 
+      : 'Longitud de Pala (Radio ≈ Ø / 2, en m):';
+  }
+
+  let area = 0;
+  let formulaText = '';
+  if (isVawt) {
+    area = D * H;
+    formulaText = area.toFixed(2) + ' m² (Cilindro de captación: Ø ' + D.toFixed(1) + 'm × H ' + H.toFixed(1) + 'm)';
+    if (pill) { pill.textContent = 'VAWT CILÍNDRICO (Ø × H)'; pill.style.background = '#8B5CF6'; }
+  } else {
+    area = Math.PI * D * D / 4;
+    formulaText = area.toFixed(2) + ' m² (Círculo de barrido: π × Ø² / 4)';
+    if (pill) { pill.textContent = 'HAWT CIRCULAR (π·Ø²/4)'; pill.style.background = '#0284C7'; }
+  }
+
+  areaVal.textContent = formulaText;
+};
+
+window.updateWindTurbineAreaPreview = function(isTypeToggle) {
+  const typeIn = document.getElementById('edit-wt-type');
+  const diamIn = document.getElementById('edit-wt-diameter');
+  const bladeIn = document.getElementById('edit-wt-blade-height');
+  const lbl = document.getElementById('edit-wt-blade-label');
+  const areaVal = document.getElementById('edit-wt-area-val');
+  const pill = document.getElementById('edit-wt-area-calc-pill');
+  if (!typeIn || !diamIn) return;
+
+  const isVawt = (typeIn.value === 'VAWT' || typeIn.value === 'vawt');
+  const D = Math.max(0.1, parseFloat(diamIn.value) || 0);
+
+  if (isTypeToggle && bladeIn) {
+    if (isVawt) {
+      bladeIn.value = (Math.round(D * 1.4 * 10) / 10).toFixed(1);
+    } else {
+      bladeIn.value = (Math.round(D / 2 * 10) / 10).toFixed(1);
+    }
+  }
+
+  let H = parseFloat(bladeIn ? bladeIn.value : 0);
+  if (!(H > 0)) {
+    H = isVawt ? (Math.round(D * 1.4 * 10) / 10) : (Math.round(D / 2 * 10) / 10);
+    if (bladeIn) bladeIn.value = H.toFixed(1);
+  }
+
+  if (lbl) {
+    lbl.textContent = isVawt 
+      ? 'Altura Pala Vertical (H, en m):' 
+      : 'Longitud de Pala (Radio ≈ Ø / 2, en m):';
+  }
+
+  let area = 0;
+  let formulaText = '';
+  if (isVawt) {
+    area = D * H;
+    formulaText = area.toFixed(2) + ' m² (Cilindro de captación: Ø ' + D.toFixed(1) + 'm × H ' + H.toFixed(1) + 'm)';
+    if (pill) { pill.textContent = 'VAWT CILÍNDRICO (Ø × H)'; pill.style.background = '#8B5CF6'; }
+  } else {
+    area = Math.PI * D * D / 4;
+    formulaText = area.toFixed(2) + ' m² (Círculo de barrido: π × Ø² / 4)';
+    if (pill) { pill.textContent = 'HAWT CIRCULAR (π·Ø²/4)'; pill.style.background = '#0284C7'; }
+  }
+
+  if (areaVal) areaVal.textContent = formulaText;
+};
+
 window.openEditEquipmentModal = openEditEquipmentModal;
 window.saveEditedEquipment = saveEditedEquipment;
 window.cancelEditEquipment = cancelEditEquipment;
@@ -11175,6 +11672,7 @@ function openEditEquipmentModal(category, id) {
 
     const kwIn = document.getElementById('edit-wt-kw');
     const diamIn = document.getElementById('edit-wt-diameter');
+    const bladeIn = document.getElementById('edit-wt-blade-height');
     const typeIn = document.getElementById('edit-wt-type');
     const hIn = document.getElementById('edit-wt-heights');
     const iecIn = document.getElementById('edit-wt-iec');
@@ -11186,7 +11684,12 @@ function openEditEquipmentModal(category, id) {
 
     if (kwIn) kwIn.value = (turbine.ratedPowerW ? turbine.ratedPowerW / 1000 : 10).toFixed(1);
     if (diamIn) diamIn.value = turbine.rotorDiameterM || 5.0;
-    if (typeIn) typeIn.value = turbine.type || 'HAWT';
+    const isVawt = (turbine.type === 'VAWT' || turbine.type === 'vawt');
+    if (typeIn) typeIn.value = isVawt ? 'VAWT' : 'HAWT';
+    if (bladeIn) {
+      const bH = turbine.bladeHeightM || turbine.bladeLength || (isVawt ? Math.round((turbine.rotorDiameterM || 5.0) * 1.4 * 10) / 10 : Math.round((turbine.rotorDiameterM || 5.0) / 2 * 10) / 10);
+      bladeIn.value = bH;
+    }
     if (hIn) hIn.value = Array.isArray(turbine.hubHeightsAvailableM) ? turbine.hubHeightsAvailableM.join(', ') : '12, 18, 24';
     if (iecIn) iecIn.value = turbine.iecClass || 'III';
     if (noiseIn) noiseIn.value = turbine.acousticPowerLwaDba || 95;
@@ -11195,9 +11698,23 @@ function openEditEquipmentModal(category, id) {
     if (cutoutIn) cutoutIn.value = turbine.cutOutSpeedMs || 25.0;
     if (survIn) survIn.value = turbine.survivalSpeedMs || 59.5;
 
+    const tiIn = document.getElementById('edit-wt-ti');
+    const lowLoadIn = document.getElementById('edit-wt-lowload-eff');
+    const curveIn = document.getElementById('edit-wt-curve-text');
+
+    if (tiIn) tiIn.value = (turbine.turbulenceIntensityPct !== undefined ? turbine.turbulenceIntensityPct : 14.0).toFixed(1);
+    if (lowLoadIn) lowLoadIn.value = (turbine.lowLoadEfficiencyPct !== undefined ? turbine.lowLoadEfficiencyPct : 80.0).toFixed(0);
+    if (curveIn && window.RAWindCatalog && typeof window.RAWindCatalog.formatPowerCurveText === 'function') {
+      curveIn.value = window.RAWindCatalog.formatPowerCurveText(turbine.powerCurve);
+    }
+    if (typeof window.auditCurveInEdit === 'function') window.auditCurveInEdit();
+
     if (titleEl) {
       titleEl.innerHTML = '<i data-lucide="edit-2" class="icon-sm"></i> MODIFICAR AEROGENERADOR: ' + (turbine.manufacturer || '') + ' ' + (turbine.model || '');
       if (window.lucide && typeof window.lucide.createIcons === 'function') try { window.lucide.createIcons(); } catch(e) {}
+    }
+    if (typeof window.updateWindTurbineAreaPreview === 'function') {
+      window.updateWindTurbineAreaPreview(false);
     }
     switchCatalogTab('edit');
     return;
@@ -11358,6 +11875,10 @@ function saveEditedEquipment() {
     const kw = Math.max(0.1, parseFloat(document.getElementById('edit-wt-kw').value) || 10.0);
     const diameter = Math.max(0.5, parseFloat(document.getElementById('edit-wt-diameter').value) || 5.0);
     const type = document.getElementById('edit-wt-type').value || 'HAWT';
+    const bladeInEl = document.getElementById('edit-wt-blade-height');
+    const bladeHeight = (bladeInEl && parseFloat(bladeInEl.value) > 0)
+      ? parseFloat(bladeInEl.value)
+      : (type === 'VAWT' ? Math.round(diameter * 1.4 * 10) / 10 : Math.round(diameter / 2 * 10) / 10);
     const heightsStr = document.getElementById('edit-wt-heights').value || '12, 18, 24';
     const hubHeights = heightsStr.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n) && n > 0);
     const iec = document.getElementById('edit-wt-iec').value || 'III';
@@ -11374,6 +11895,8 @@ function saveEditedEquipment() {
       type: type,
       ratedPowerW: Math.round(kw * 1000),
       rotorDiameterM: diameter,
+      bladeHeightM: bladeHeight,
+      bladeLength: bladeHeight,
       hubHeightsAvailableM: hubHeights.length > 0 ? hubHeights : (existing.hubHeightsAvailableM || [12, 18, 24]),
       iecClass: iec,
       acousticPowerLwaDba: noise,
@@ -11381,7 +11904,12 @@ function saveEditedEquipment() {
       ratedSpeedMs: ratedSpeed,
       cutOutSpeedMs: cutout,
       survivalSpeedMs: survival,
-      priceEur: priceEur
+      priceEur: priceEur,
+      turbulenceIntensityPct: Math.max(5, Math.min(30, parseFloat(document.getElementById('edit-wt-ti') ? document.getElementById('edit-wt-ti').value : 14.0) || 14.0)),
+      lowLoadEfficiencyPct: Math.max(50, Math.min(98, parseFloat(document.getElementById('edit-wt-lowload-eff') ? document.getElementById('edit-wt-lowload-eff').value : 80.0) || 80.0)),
+      powerCurve: (window.RAWindCatalog && typeof window.RAWindCatalog.parsePowerCurveText === 'function' && document.getElementById('edit-wt-curve-text'))
+        ? window.RAWindCatalog.parsePowerCurveText(document.getElementById('edit-wt-curve-text').value)
+        : (existing.powerCurve || [])
     });
 
     window.RAWindCatalog.upsert(updatedTurbine);
@@ -11525,11 +12053,30 @@ function step5RegenerateLayout() {
   
   isPolygonDesignConfirmed = true;
 
+  // 🚀 PURGA COMPLETA DE CACHÉS Y RESIDUOS MANUALES PARA REGENERACIÓN LIMPIA
+  if (typeof roofPanelsCache !== 'undefined' && roofPanelsCache) {
+    roofPanelsCache.sig = '';
+    roofPanelsCache.data = null;
+  }
+  if (typeof WP !== 'undefined' && WP && Array.isArray(WP.polylines)) {
+    WP.polylines.forEach(pl => {
+      if (pl) {
+        pl._calcSig = null;
+        pl._geometryDirty = true;
+        pl.roofInfo = null;
+        delete pl._fromProjectImport;
+      }
+    });
+  }
+  if (typeof window !== 'undefined') {
+    window.allRenderedPanels = [];
+  }
+
   try { 
     if (typeof recalculateLayoutAndObstacles === 'function') {
       recalculateLayoutAndObstacles();
     } else if (typeof wpFastRenderSimulatedPanels === 'function') {
-      wpFastRenderSimulatedPanels();
+      wpFastRenderSimulatedPanels(true);
     }
     window.RA.log.warn('[FORENSIC] layout regeneration SUCCESS');
   } catch(e) { 
@@ -12065,12 +12612,73 @@ function getPolylineStringColor(polyIdx) {
 
 // ── GRADIENTE TÉRMICO PARA MAPA DE CALOR DE IRRADIANCIA ANUAL ──────────────
 function getHeatmapColor(lossPct) {
-  if (lossPct <= 3.0) return { hex: "#10B981", css: "rgba(16, 185, 129, 0.95)", label: "Óptimo (<3%)" };
-  if (lossPct <= 8.0) return { hex: "#84CC16", css: "rgba(132, 204, 22, 0.95)", label: "Excelente (3-8%)" };
-  if (lossPct <= 15.0) return { hex: "#F59E0B", css: "rgba(245, 158, 11, 0.95)", label: "Sombra Leve (8-15%)" };
-  if (lossPct <= 25.0) return { hex: "#F97316", css: "rgba(249, 115, 22, 0.95)", label: "Sombra Media (15-25%)" };
-  return { hex: "#EF4444", css: "rgba(239, 68, 68, 0.95)", label: "Sombra Severa (>25%)" };
+  // Umbrales calibrados a práctica industrial (PVsyst/Helioscope): 10-15% es típico en filas inclinadas
+  if (lossPct <= 2.5) return { hex: "#059669", css: "rgba(5, 150, 105, 0.95)", label: "Excelente (≤2.5%)" };
+  if (lossPct <= 5.0) return { hex: "#10B981", css: "rgba(16, 185, 129, 0.95)", label: "Óptimo (2.5-5%)" };
+  if (lossPct <= 7.5) return { hex: "#84CC16", css: "rgba(132, 204, 22, 0.95)", label: "Muy Bueno (5-7.5%)" };
+  if (lossPct <= 10.0) return { hex: "#A3E635", css: "rgba(163, 230, 53, 0.95)", label: "Bueno (7.5-10%)" };
+  if (lossPct <= 15.0) return { hex: "#FACC15", css: "rgba(250, 204, 21, 0.95)", label: "Típico filas (10-15%)" };
+  if (lossPct <= 20.0) return { hex: "#F59E0B", css: "rgba(245, 158, 11, 0.95)", label: "Atención (15-20%)" };
+  if (lossPct <= 25.0) return { hex: "#F97316", css: "rgba(249, 115, 22, 0.95)", label: "Sombra Media (20-25%)" };
+  if (lossPct <= 30.0) return { hex: "#EA580C", css: "rgba(234, 88, 12, 0.95)", label: "Sombra Alta (25-30%)" };
+  if (lossPct <= 40.0) return { hex: "#EF4444", css: "rgba(239, 68, 68, 0.95)", label: "Severa (30-40%)" };
+  return { hex: "#991B1B", css: "rgba(153, 27, 27, 0.95)", label: "Crítica (>35%)" };
 }
+
+function getRelativeYieldColor(relPct) {
+  // Escala relativa al líder de la instalación (100% = verde esmeralda brillante)
+  const val = (typeof relPct === 'number' && !isNaN(relPct)) ? relPct : 100;
+  if (val >= 99.0) return { hex: "#059669", css: "rgba(5, 150, 105, 0.95)", label: "Líder (≥99%)" };
+  if (val >= 96.0) return { hex: "#10B981", css: "rgba(16, 185, 129, 0.95)", label: "Excelente (96-99%)" };
+  if (val >= 92.0) return { hex: "#84CC16", css: "rgba(132, 204, 22, 0.95)", label: "Muy Bueno (92-96%)" };
+  if (val >= 88.0) return { hex: "#A3E635", css: "rgba(163, 230, 53, 0.95)", label: "Bueno (88-92%)" };
+  if (val >= 83.0) return { hex: "#FACC15", css: "rgba(250, 204, 21, 0.95)", label: "Medio (83-88%)" };
+  if (val >= 77.0) return { hex: "#F59E0B", css: "rgba(245, 158, 11, 0.95)", label: "Aceptable (77-83%)" };
+  if (val >= 70.0) return { hex: "#F97316", css: "rgba(249, 115, 22, 0.95)", label: "Bajo (70-77%)" };
+  if (val >= 60.0) return { hex: "#EA580C", css: "rgba(234, 88, 12, 0.95)", label: "Muy Bajo (60-70%)" };
+  if (val >= 50.0) return { hex: "#EF4444", css: "rgba(239, 68, 68, 0.95)", label: "Crítico (50-60%)" };
+  return { hex: "#991B1B", css: "rgba(153, 27, 27, 0.95)", label: "Severo (<50%)" };
+}
+
+function getActiveHeatmapColorForPanel(p) {
+  if (!p) return { hex: "#10b981" };
+  const useRel = (typeof window !== 'undefined' && window.raRelativeColorScale) ||
+                 (typeof window !== 'undefined' && window.ShadowSettings && window.ShadowSettings.getSettings().relativeColorScale);
+  if (useRel && typeof p.relativeYieldPct === 'number') {
+    return getRelativeYieldColor(p.relativeYieldPct);
+  }
+  return getHeatmapColor(p.annualLossPct || 0);
+}
+
+function wpReapplyHeatmapColors() {
+  const hasPolys = typeof WP !== "undefined" && WP && WP.polylines && WP.polylines.length > 0;
+  const polylinesList = hasPolys ? WP.polylines : (typeof lastRoofInfo !== "undefined" && lastRoofInfo ? [{ points: polygonPoints, roofInfo: lastRoofInfo }] : []);
+
+  // Recalcular colores en objetos de datos
+  polylinesList.forEach(poly => {
+    const panels = Array.isArray(poly.panels) ? poly.panels : (poly.roofInfo && Array.isArray(poly.roofInfo.panels) ? poly.roofInfo.panels : []);
+    panels.forEach(p => {
+      p.heatmapColor = getActiveHeatmapColorForPanel(p);
+    });
+  });
+
+  if (Array.isArray(window.allRenderedPanels)) {
+    window.allRenderedPanels.forEach(p => {
+      if (p) p.heatmapColor = getActiveHeatmapColorForPanel(p);
+    });
+  }
+
+  // Renderizar de nuevo
+  if (typeof wpRenderHeatmapVisuals === 'function') {
+    wpRenderHeatmapVisuals();
+  }
+  if (typeof wpFastRenderSimulatedPanelsAsync === 'function') {
+    wpFastRenderSimulatedPanelsAsync(true);
+  }
+}
+window.wpReapplyHeatmapColors = wpReapplyHeatmapColors;
+window.getActiveHeatmapColorForPanel = getActiveHeatmapColorForPanel;
+window.getRelativeYieldColor = getRelativeYieldColor;
 
 // ── ESTADO GLOBAL DEL MOTOR SOLAR Y SOMBRAS ─────────────────────────────────
 if (typeof window.solarSimState === "undefined" || !window.solarSimState) {
@@ -12747,9 +13355,8 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
             if (prev.rawPanel) matchedAsyncPrevPanels.add(prev.rawPanel);
           }
           if (poly._geometryDirty) {
-          // Geometría de cubierta editada: no arrastrar coordenadas manuales obsoletas del faldón viejo
-          delete poly._geometryDirty;
-        } else if (prev && (prev.isManual || (prev.rawPanel && prev.rawPanel.isManual))) {
+            // Geometría de cubierta editada: no arrastrar coordenadas manuales obsoletas del faldón viejo
+          } else if (prev && (prev.isManual || (prev.rawPanel && prev.rawPanel.isManual))) {
             p.isManual = true;
             p.gridA = undefined;
             p.gridB = undefined;
@@ -12772,7 +13379,7 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
           }
         }
       });
-      if (prevPanelsMap && prevPanelsMap.length > 0) {
+      if (!poly._geometryDirty && prevPanelsMap && prevPanelsMap.length > 0) {
         prevPanelsMap.forEach(op => {
           if (!op) return;
           const isMan = op.isManual || (op.rawPanel && op.rawPanel.isManual);
@@ -12797,6 +13404,9 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
             }
           }
         });
+      }
+      if (poly._geometryDirty) {
+        delete poly._geometryDirty;
       }
       pInfo.panels = pInfo.panels.filter(p => !p.deleted);
     }
@@ -12938,7 +13548,17 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
           tiltDeg: panelData.tiltDeg,
           azimuthDeg: panelData.azimuthDeg,
           disabled: (poly.panelsDisabled === true) || !!panelData.disabled,
-          annualLossPct: panelData.annualLossPct || 0
+          annualLossPct: panelData.annualLossPct || 0,
+          annualYieldPct: panelData.annualYieldPct,
+          annualGrossKwh: panelData.annualGrossKwh,
+          _lastPrSys: panelData._lastPrSys,
+          annualKwh: panelData.annualKwh,
+          relativeYieldPct: panelData.relativeYieldPct,
+          annualTotalInsolation: panelData.annualTotalInsolation,
+          isNormal: panelData.isNormal,
+          requiresMLPE: panelData.requiresMLPE,
+          isUnviable: panelData.isUnviable,
+          heatmapColor: panelData.heatmapColor || (typeof getHeatmapColor === 'function' ? getHeatmapColor(panelData.annualLossPct || 0) : { hex: '#10b981' })
         });
       });
 
@@ -12994,7 +13614,7 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
               isNormal: panelData.isNormal,
               requiresMLPE: panelData.requiresMLPE,
               isUnviable: panelData.isUnviable,
-              heatmapColor: panelData.heatmapColor || (window.solarSimState && window.solarSimState.annualHeatmapDirty ? '#64748B' : getHeatmapColor(0))
+              heatmapColor: panelData.heatmapColor || (window.solarSimState && window.solarSimState.annualHeatmapDirty ? '#64748B' : (typeof getHeatmapColor === 'function' ? getHeatmapColor(panelData.annualLossPct || 0) : { hex: '#10b981' }))
             });
           });
 
@@ -13049,7 +13669,17 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
           tiltDeg: panelData.tiltDeg,
           azimuthDeg: panelData.azimuthDeg,
           disabled: (poly.panelsDisabled === true) || !!panelData.disabled,
-          annualLossPct: panelData.annualLossPct || 0
+          annualLossPct: panelData.annualLossPct || 0,
+          annualYieldPct: panelData.annualYieldPct,
+          annualGrossKwh: panelData.annualGrossKwh,
+          _lastPrSys: panelData._lastPrSys,
+          annualKwh: panelData.annualKwh,
+          relativeYieldPct: panelData.relativeYieldPct,
+          annualTotalInsolation: panelData.annualTotalInsolation,
+          isNormal: panelData.isNormal,
+          requiresMLPE: panelData.requiresMLPE,
+          isUnviable: panelData.isUnviable,
+          heatmapColor: panelData.heatmapColor || (typeof getHeatmapColor === 'function' ? getHeatmapColor(panelData.annualLossPct || 0) : { hex: '#10b981' })
         });
       });
 
@@ -13101,7 +13731,7 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
             requiresMLPE: panelData.requiresMLPE,
             isUnviable: panelData.isUnviable,
             disabled: (poly.panelsDisabled === true) || !!panelData.disabled,
-            heatmapColor: panelData.heatmapColor || getHeatmapColor(0)
+            heatmapColor: panelData.heatmapColor || (typeof getHeatmapColor === 'function' ? getHeatmapColor(panelData.annualLossPct || 0) : { hex: '#10b981' })
           });
         });
 
@@ -13396,11 +14026,14 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
           if (pData.disabled) {
             // [DEACTIVATED] Tinte grisáceo apagado translúcido para módulos excluidos de ingeniería
             color = new Cesium.Color(0.38, 0.42, 0.48, 0.40);
-          } else if (pData.isGhost) {
-            // [GHOST-PANEL] Modo translúcido cian/esmeralda para placas de reserva / CEL
-            color = new Cesium.Color(0.06, 0.72, 0.51, 0.28);
           } else if (isHeatmapMode) {
-            color = pData.heatmapColor ? Cesium.Color.fromCssColorString(pData.heatmapColor.hex) : Cesium.Color.fromCssColorString('#10b981');
+            // [HEATMAP] Prioridad absoluta: gradiente térmico de radiación anual para todos los módulos
+            const hex = (pData.heatmapColor && (pData.heatmapColor.hex || pData.heatmapColor)) ||
+              (typeof getHeatmapColor === 'function' ? getHeatmapColor(pData.annualLossPct || 0).hex : '#10b981');
+            color = Cesium.Color.fromCssColorString(hex);
+          } else if (pData.isGhost) {
+            // [GHOST-PANEL] Modo translúcido cian/esmeralda para placas de reserva / CEL en modos no térmicos
+            color = new Cesium.Color(0.06, 0.72, 0.51, 0.28);
           } else {
             // Tinte fotovoltaico distintivo por String (elegante, contrastado y reconocible en 3D)
             const rawStrCol = Cesium.Color.fromCssColorString(pData.stringColor || '#00F0FF');
@@ -13447,10 +14080,12 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
               }
             })
           : undefined;
-        const hasGhostPanels = allTargetPanels.some(p => p.isGhost);
+        const hasTranslucentPanels = isHeatmapMode
+          ? allTargetPanels.some(p => p.disabled)
+          : allTargetPanels.some(p => p.isGhost || p.disabled);
         const appearance = Cesium.PerInstanceColorAppearance ? new Cesium.PerInstanceColorAppearance({
           flat: true,
-          translucent: hasGhostPanels,
+          translucent: hasTranslucentPanels,
           closed: false,
           renderState: panelRenderState
         }) : undefined;
@@ -13968,11 +14603,14 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
                 const groundFront = projectPointToRoof(pair.low);
                 let groundBack = projectPointToRoof(pair.high);
 
+                // Vector de base real en cubierta confinado bajo la proyección del panel (sin extensiones artificiales):
                 const baseVec = Cesium.Cartesian3.subtract(groundBack, groundFront, new Cesium.Cartesian3());
                 const baseLen = Cesium.Cartesian3.magnitude(baseVec);
-                if (baseLen > 0.05 && baseLen < 1.40) {
+                if (baseLen > 0.05) {
                   const dir = Cesium.Cartesian3.normalize(baseVec, new Cesium.Cartesian3());
-                  groundBack = Cesium.Cartesian3.add(groundFront, Cesium.Cartesian3.multiplyByScalar(dir, 1.40, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+                  // Limitar la longitud de la zapata al intradós del marco para no sobresalir hacia adelante ni atrás
+                  const maxBaseLen = Math.min(baseLen, (p.h || 2.10) * 0.95);
+                  groundBack = Cesium.Cartesian3.add(groundFront, Cesium.Cartesian3.multiplyByScalar(dir, maxBaseLen, new Cesium.Cartesian3()), new Cesium.Cartesian3());
                 }
 
                 // Triángulo estructural cerrado A-Frame (confinado bajo el marco, acabado aluminio anodizado oscuro)
@@ -14169,6 +14807,7 @@ function _getOcclusionExcludeList(scene) {
   if (scene.skyBox) toExclude.push(scene.skyBox);
   if (scene.skyAtmosphere) toExclude.push(scene.skyAtmosphere);
   if (window._solarHeatmapLabelCollection) toExclude.push(window._solarHeatmapLabelCollection);
+  if (window._panelNumberLabelCollection) toExclude.push(window._panelNumberLabelCollection);
   if (window.simulatedPanelsPrimitive) toExclude.push(window.simulatedPanelsPrimitive);
   if (window._faldonPanelsPrimitives && typeof window._faldonPanelsPrimitives.forEach === 'function') {
     window._faldonPanelsPrimitives.forEach(p => { if (p) toExclude.push(p); });
@@ -14178,6 +14817,12 @@ function _getOcclusionExcludeList(scene) {
   }
   if (window.simulatedStringsPolylineCollection) toExclude.push(window.simulatedStringsPolylineCollection);
   if (window.simulatedSupportsPolylineCollection) toExclude.push(window.simulatedSupportsPolylineCollection);
+  if (window._faldonSupportCollections && typeof window._faldonSupportCollections.forEach === 'function') {
+    window._faldonSupportCollections.forEach(p => { if (p) toExclude.push(p); });
+  }
+  if (window._faldonWirePrimitives && typeof window._faldonWirePrimitives.forEach === 'function') {
+    window._faldonWirePrimitives.forEach(p => { if (p) toExclude.push(p); });
+  }
   if (window._raCableEnginePrimitives) toExclude.push(window._raCableEnginePrimitives);
   if (window.inverterEntity) toExclude.push(window.inverterEntity);
   if (window.dcBoxEntity) toExclude.push(window.dcBoxEntity);
@@ -14191,13 +14836,14 @@ function _getOcclusionExcludeList(scene) {
   return toExclude;
 }
 
-function isPanelOccludedBy3DEnvironment(panelCenter, norm, sunDirWorld) {
+function isPanelOccludedBy3DEnvironment(panelCenter, norm, sunDirWorld, pInfo) {
   if (typeof viewer === "undefined" || !viewer || !viewer.scene) return false;
   const scene = viewer.scene;
 
   // Raycast contra 3D Tilesets (Google 3D Photorealistic Tiles, Cesium OSM Buildings)
-  const hasTileset = (typeof google3DTileset !== "undefined" && google3DTileset) ||
-                     (typeof cesiumOsmBuildings !== "undefined" && cesiumOsmBuildings);
+  const gTileset = (typeof google3DTileset !== "undefined" && google3DTileset) || (typeof window !== "undefined" && window.google3DTileset);
+  const osmTileset = (typeof cesiumOsmBuildings !== "undefined" && cesiumOsmBuildings) || (typeof window !== "undefined" && window.cesiumOsmBuildings);
+  const hasTileset = gTileset || osmTileset || (scene.primitives && scene.primitives.length > 0);
   if (!hasTileset) return false;
   if (typeof scene.pickFromRay !== "function" || typeof Cesium.Ray !== "function") return false;
 
@@ -14223,17 +14869,37 @@ function isPanelOccludedBy3DEnvironment(panelCenter, norm, sunDirWorld) {
     const toExclude = _getOcclusionExcludeList(scene);
     const hit = scene.pickFromRay(ray, toExclude);
     if (hit && Cesium.defined(hit.position) && hit.object) {
-      // VERIFICACIÓN ESTRICTA: El impacto TIENE que pertenecer al tileset 3D (Google Photorealistic o Cesium OSM)
+      // VERIFICACIÓN: El impacto pertenece a una malla tridimensional (3D Tileset / Feature / Modelo)
+      const objPrim = hit.object.primitive;
       const is3DTile = (
         (typeof Cesium.Cesium3DTileFeature !== "undefined" && hit.object instanceof Cesium.Cesium3DTileFeature) ||
-        (hit.object.primitive && (hit.object.primitive === google3DTileset || hit.object.primitive === cesiumOsmBuildings)) ||
-        (hit.object.tileset && (hit.object.tileset === google3DTileset || hit.object.tileset === cesiumOsmBuildings))
+        (typeof Cesium.Cesium3DTileset !== "undefined" && (objPrim instanceof Cesium.Cesium3DTileset || hit.object instanceof Cesium.Cesium3DTileset)) ||
+        (objPrim && (objPrim === gTileset || objPrim === osmTileset)) ||
+        (hit.object.tileset && (hit.object.tileset === gTileset || hit.object.tileset === osmTileset)) ||
+        (hit.object.content && hit.object.content.tileset)
       );
 
       if (is3DTile) {
+        // [Filtro de auto-impacto de la propia cubierta]
+        // Si el rayo impacta contra la losa del faldón a poca altura (< 1.2m) dentro del perímetro, es la propia cubierta
+        if (pInfo && pInfo.invTransform) {
+          try {
+            const locHit = Cesium.Matrix4.multiplyByPoint(pInfo.invTransform, hit.position, new Cesium.Cartesian3());
+            const u = Cesium.Cartesian3.dot(locHit, pInfo.uVec || Cesium.Cartesian3.UNIT_X);
+            const v = Cesium.Cartesian3.dot(locHit, pInfo.vVec || Cesium.Cartesian3.UNIT_Y);
+            const n = pInfo.normal || Cesium.Cartesian3.UNIT_Z;
+            const h = Math.abs(Cesium.Cartesian3.dot(locHit, n));
+            const structType = pInfo.structureType || (pInfo.estructura && pInfo.estructura.tipo);
+            const pergClearance = (pInfo.clearance || (pInfo.estructura && pInfo.estructura.clearance) || (structType === 'pergola' ? 3.5 : 0));
+            const maxDeckH = Math.max(1.2, pergClearance + 1.2);
+            if (h < maxDeckH && pInfo.poly2D && typeof isPointInPolygon2D === 'function' && isPointInPolygon2D({ u, v }, pInfo.poly2D)) {
+              return false;
+            }
+          } catch(eHit) {}
+        }
+
         const dist = Cesium.Cartesian3.distance(rayOrigin, hit.position);
-        // Despegue de 0.50m (el origen ya está elevado 0.35m sobre la normal del panel para evitar auto-impacto).
-        // Detecta parapetos, casetones y edificios colindantes entre 0.5m y 1200m.
+        // Despegue de 0.85m para evitar auto-intersecciones de geometría local
         if (dist > 0.85 && dist < 1200.0) return true;
       }
     }
@@ -14504,31 +15170,40 @@ function showSolarCalcHUD(title, subtitle) {
   });
 }
 
-function updateSolarCalcHUD(pct, currentMonthIdx, totalPanels) {
+function updateSolarCalcHUD(pct, currentMonthIdx, totalPanels, extraOpts) {
   const pctLbl = document.getElementById('solar-calc-pct-label');
   const fill = document.getElementById('solar-calc-bar-fill');
   const statusTxt = document.getElementById('solar-calc-status-text');
   const speedTxt = document.getElementById('solar-calc-speed-text');
 
-  if (pctLbl) pctLbl.textContent = pct + '%';
-  if (fill) fill.style.width = pct + '%';
+  const safePct = Math.max(0, Math.min(100, Math.round(pct || 0)));
+  if (pctLbl) pctLbl.textContent = safePct + '%';
+  if (fill) fill.style.width = safePct + '%';
   
+  const opts = extraOpts || {};
+  const currentStep = typeof opts.stepIndex === 'number' ? opts.stepIndex : (currentMonthIdx + 1);
+  const totalSteps = typeof opts.totalStepsCount === 'number' ? opts.totalStepsCount : 12;
+  const phase = opts.phaseText ? (' [' + opts.phaseText + ']') : '';
+
   const mName = _solarMonthNames[currentMonthIdx] || ('Mes ' + (currentMonthIdx + 1));
   if (statusTxt) {
-    statusTxt.textContent = 'Mes ' + (currentMonthIdx + 1) + '/12 (' + mName + ') · ' + (totalPanels || '') + ' módulos evaluados';
+    statusTxt.textContent = mName + phase + ' · ' + (totalPanels || '') + ' módulos evaluados';
   }
   if (speedTxt) {
-    speedTxt.textContent = 'Paso ' + (currentMonthIdx + 1) + ' de 12';
+    speedTxt.textContent = 'Paso ' + currentStep + ' de ' + totalSteps;
   }
 
+  // Las pastillas corresponden a los 12 meses cronológicos (0 = ENE .. 11 = DIC).
+  // Se marcan según el mes calendario activo (currentMonthIdx) y la fracción de progreso global completada:
+  const completedMonthIndex = Math.floor((safePct / 100) * 12);
   const pills = document.querySelectorAll('.solar-calc-month-pill');
   pills.forEach((p, idx) => {
-    if (idx < currentMonthIdx) {
-      p.classList.remove('current');
-      p.classList.add('done');
-    } else if (idx === currentMonthIdx) {
+    if (idx === currentMonthIdx) {
       p.classList.remove('done');
       p.classList.add('current');
+    } else if (idx < completedMonthIndex || (idx < currentMonthIdx && opts.phaseText !== 'Escaneo 3D')) {
+      p.classList.remove('current');
+      p.classList.add('done');
     } else {
       p.classList.remove('done', 'current');
     }
@@ -14914,10 +15589,8 @@ function wpAutoMinimizeSolarHUD(reason) {
 window.wpAutoMinimizeSolarHUD = wpAutoMinimizeSolarHUD;
 
 function wpAutoRestoreSolarHUD(reason) {
-  if (window._solarHUDWasAutoHidden) {
-    window._solarHUDWasAutoHidden = false;
-    toggleSolarHUD(true);
-  }
+  // Desactivada la apertura automática por petición del usuario: el HUD solo se despliega por acción explícita.
+  window._solarHUDWasAutoHidden = false;
 }
 window.wpAutoRestoreSolarHUD = wpAutoRestoreSolarHUD;
 
@@ -16193,6 +16866,7 @@ window.toggleSolarHUD = toggleSolarHUD;
         if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Edificio desplazado');
       } else if (draggedTargetType === 'obstacle') {
         if (typeof recalculateLayoutAndObstacles === 'function') recalculateLayoutAndObstacles();
+        if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Obstáculo movido');
         if (window.RAWind && window.RAWind.Entity && typeof window.RAWind.Entity.recalculateAllEngineering === 'function') {
           window.RAWind.Entity.recalculateAllEngineering();
           if (window.RAWindUI && typeof window.RAWindUI.renderStep2Panel === 'function') {
@@ -16740,7 +17414,7 @@ window.toggleSolarHUD = toggleSolarHUD;
 
     // ── Atajos de bloqueo de eje para Tríada de Vértices (X, Y, Z / U, V, N)
     if (WP.selectedPolyIdx >= 0 && WP.selectedVtxIdx >= 0) {
-      if (e.key === 'x' || e.key === 'X' || e.key === 'u' || e.key === 'U') {
+      if (e.key === 'u' || e.key === 'U') {
         vtxGizmoState.axisLock = (vtxGizmoState.axisLock === 'u' ? null : 'u');
         showStatus('<i data-lucide="lock" class="icon-sm"></i> RESTRICCIÓN DE EJE: ' + (vtxGizmoState.axisLock ? 'EJE U (LONGITUDINAL)' : 'LIBRE'), 1500);
         renderTriad2D();
@@ -16786,11 +17460,14 @@ window.toggleSolarHUD = toggleSolarHUD;
       if (typeof wpRestoreCameraNavigation === 'function') {
         wpRestoreCameraNavigation();
       }
-    } else if (e.key === 's' || e.key === 'S') {
+    } else if (e.key === 'x' || e.key === 'X') {
+      const activeEl = document.activeElement;
+      if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable)) return;
       magneticSnapActive = !magneticSnapActive;
+      window.magneticSnapActive = magneticSnapActive;
       const snapChk = document.getElementById('chk-snap-vert');
       if (snapChk) snapChk.checked = magneticSnapActive;
-      showStatus(magneticSnapActive ? '<i data-lucide=\"magnet\" class=\"icon-sm\"></i> SNAP MAGNÉTICO ACTIVADO [S]' : '<i data-lucide=\"circle\" class=\"icon-sm\"></i> SNAP MAGNÉTICO DESACTIVADO [S]', 1500);
+      showStatus(magneticSnapActive ? '<i data-lucide=\"magnet\" class=\"icon-sm\"></i> SNAP MAGNÉTICO ACTIVADO [X]' : '<i data-lucide=\"circle\" class=\"icon-sm\"></i> SNAP MAGNÉTICO DESACTIVADO [X]', 1500);
     } else if (e.key === '+' || e.key === '=' || e.code === 'NumpadAdd') {
       changeTriadScale(+0.25);
     } else if (e.key === '-' || e.key === '_' || e.code === 'NumpadSubtract') {
@@ -17151,6 +17828,14 @@ window.toggleSolarHUD = toggleSolarHUD;
                 </div>
               </div>
             </div>
+            <div style="height:1px; background:rgba(255,255,255,0.05); margin:4px 0;"></div>
+            <label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:4px 0;" title="Alterna entre escala relativa (verde = mejor módulo) y escala fija según % de pérdida">
+              <div style="display:flex;flex-direction:column;">
+                <span style="font-size:11px;font-weight:600;color:#e2e8f0;">Escala Relativa vs. Líder</span>
+                <span style="font-size:9.5px;color:#64748b;line-height:1.2;">Verde = mejor módulo (100%), Rojo = peor módulo</span>
+              </div>
+              <input type="checkbox" id="heatmap-relscale-toggle" style="accent-color:var(--emerald-500, #10b981);cursor:pointer;" onchange="if(window.ShadowSettings && typeof window.ShadowSettings.setRelativeColorScale === 'function') window.ShadowSettings.setRelativeColorScale(this.checked); else { window.raRelativeColorScale = this.checked; if(typeof wpReapplyHeatmapColors === 'function') wpReapplyHeatmapColors(); }">
+            </label>
             <script>
               window.raHeatmapResolution = 'ultra';
               function setHeatmapResolution(res) {

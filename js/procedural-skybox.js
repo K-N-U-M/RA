@@ -208,5 +208,5 @@ window.wpUpdateAtmosphericSky = function(alt) {
 
 if (typeof window !== 'undefined') {
   window.createProceduralSkybox = createProceduralSkybox;
-  window.updateSkyboxMode = updateSkyboxMode;
+  window.updateSkyboxMode = window.wpUpdateAtmosphericSky;
 }

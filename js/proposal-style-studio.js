@@ -110,6 +110,13 @@
         amortPaybackColor: '#047857',
         amortAxisFontSize: 8.0,
         amortPaybackFontSize: 8.0,
+        celFlowBarHeightPx: 26,
+        celFlowFontSize: 9.5,
+        celFlowDescFontSize: 9.0,
+        celRadarHeightPx: 235,
+        celRadarLabelFontSize: 11.5,
+        celRadarDistanceFontSize: 10.5,
+        celCardsGapPx: 8,
         installationModality: 'grid_surplus_cel', // grid_zero | grid_surplus_cel | grid_backup | off_grid
         referenceGridPriceEUR: 0.22,
         paragraphAlign: 'left',     // left | justify | center
@@ -218,6 +225,13 @@
         amortPaybackColor: '#0369a1',
         amortAxisFontSize: 8.0,
         amortPaybackFontSize: 8.0,
+        celFlowBarHeightPx: 26,
+        celFlowFontSize: 9.5,
+        celFlowDescFontSize: 9.0,
+        celRadarHeightPx: 235,
+        celRadarLabelFontSize: 11.5,
+        celRadarDistanceFontSize: 10.5,
+        celCardsGapPx: 8,
         installationModality: 'grid_zero',
         referenceGridPriceEUR: 0.22,
         paragraphAlign: 'justify',
@@ -326,6 +340,13 @@
         amortPaybackColor: '#b45309',
         amortAxisFontSize: 8.0,
         amortPaybackFontSize: 8.0,
+        celFlowBarHeightPx: 26,
+        celFlowFontSize: 9.5,
+        celFlowDescFontSize: 9.0,
+        celRadarHeightPx: 235,
+        celRadarLabelFontSize: 11.5,
+        celRadarDistanceFontSize: 10.5,
+        celCardsGapPx: 8,
         installationModality: 'grid_backup',
         referenceGridPriceEUR: 0.22,
         paragraphAlign: 'left',
@@ -1695,6 +1716,13 @@
     var amortPbCol   = cfg.amortPaybackColor || pal.dark || '#047857';
     var amortAxSize  = cfg.amortAxisFontSize !== undefined ? Number(cfg.amortAxisFontSize) : 8.0;
     var amortPbSize  = cfg.amortPaybackFontSize !== undefined ? Number(cfg.amortPaybackFontSize) : 8.0;
+    var celFlowH     = cfg.celFlowBarHeightPx !== undefined ? Number(cfg.celFlowBarHeightPx) : 26;
+    var celFlowSize  = cfg.celFlowFontSize !== undefined ? Number(cfg.celFlowFontSize) : 9.5;
+    var celFlowDescSize = cfg.celFlowDescFontSize !== undefined ? Number(cfg.celFlowDescFontSize) : 9.0;
+    var celRadarH    = cfg.celRadarHeightPx !== undefined ? Number(cfg.celRadarHeightPx) : 235;
+    var celRadarLblSize = cfg.celRadarLabelFontSize !== undefined ? Number(cfg.celRadarLabelFontSize) : 11.5;
+    var celRadarDistSize = cfg.celRadarDistanceFontSize !== undefined ? Number(cfg.celRadarDistanceFontSize) : 10.5;
+    var celGap       = cfg.celCardsGapPx !== undefined ? Number(cfg.celCardsGapPx) : 8;
     var useTxtCol = !!cfg.useCustomTextColors;
     var colHead = cfg.headingTextColor || '#0f172a';
     var colBody = cfg.bodyTextColor || '#334155';
@@ -2057,7 +2085,58 @@
       '    </div>',
       '  </div>',
       '</div>',
-
+      '',
+      '<!-- 4D. CONFIGURACIÓN DE DISTRIBUCIÓN ENERGÉTICA & RADAR CEL (5 KM) -->',
+      '<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:12px 14px;">',
+      '  <div style="font-size:11.5px;font-weight:800;color:#60a5fa;margin-bottom:8px;display:inline-flex;align-items:center;gap:5px;">' + _sSvg('globe', 14, '#60a5fa') + ' DISTRIBUCIÓN ENERGÉTICA & RADAR CEL DE REPARTO (5 KM)</div>',
+      '  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;">',
+      '    <div>',
+      '      <div style="display:flex;justify-content:space-between;font-size:10.5px;margin-bottom:2px;">',
+      '        <span style="color:#cbd5e1;font-weight:700;">Altura Barra de Despacho (Flujo):</span>',
+      '        <span id="pss-val-celflow-h" style="color:#60a5fa;font-weight:900;">' + celFlowH + ' px</span>',
+      '      </div>',
+      '      <input type="range" id="pss-celflow-h" min="18" max="48" step="1" value="' + celFlowH + '" style="width:100%;accent-color:#3b82f6;cursor:pointer;">',
+      '    </div>',
+      '    <div>',
+      '      <div style="display:flex;justify-content:space-between;font-size:10.5px;margin-bottom:2px;">',
+      '        <span style="color:#cbd5e1;font-weight:700;">Altura Lienzo Radar (5 km):</span>',
+      '        <span id="pss-val-celradar-h" style="color:#60a5fa;font-weight:900;">' + celRadarH + ' px</span>',
+      '      </div>',
+      '      <input type="range" id="pss-celradar-h" min="160" max="340" step="5" value="' + celRadarH + '" style="width:100%;accent-color:#3b82f6;cursor:pointer;">',
+      '    </div>',
+      '  </div>',
+      '  <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;">',
+      '    <div>',
+      '      <div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:2px;">',
+      '        <span style="color:#cbd5e1;font-weight:700;">Texto Barra:</span>',
+      '        <span id="pss-val-celflow-size" style="color:#34d399;font-weight:900;">' + celFlowSize.toFixed(1) + ' pt</span>',
+      '      </div>',
+      '      <input type="range" id="pss-celflow-size" min="7.0" max="13.0" step="0.5" value="' + celFlowSize + '" style="width:100%;accent-color:#10b981;cursor:pointer;">',
+      '    </div>',
+      '    <div>',
+      '      <div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:2px;">',
+      '        <span style="color:#cbd5e1;font-weight:700;">Texto Tarjetas:</span>',
+      '        <span id="pss-val-celflow-descsize" style="color:#34d399;font-weight:900;">' + celFlowDescSize.toFixed(1) + ' pt</span>',
+      '      </div>',
+      '      <input type="range" id="pss-celflow-descsize" min="6.5" max="12.0" step="0.5" value="' + celFlowDescSize + '" style="width:100%;accent-color:#10b981;cursor:pointer;">',
+      '    </div>',
+      '    <div>',
+      '      <div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:2px;">',
+      '        <span style="color:#cbd5e1;font-weight:700;">Nodos Radar:</span>',
+      '        <span id="pss-val-celradar-lblsize" style="color:#38bdf8;font-weight:900;">' + celRadarLblSize.toFixed(1) + ' pt</span>',
+      '      </div>',
+      '      <input type="range" id="pss-celradar-lblsize" min="8.0" max="15.0" step="0.5" value="' + celRadarLblSize + '" style="width:100%;accent-color:#38bdf8;cursor:pointer;">',
+      '    </div>',
+      '    <div>',
+      '      <div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:2px;">',
+      '        <span style="color:#cbd5e1;font-weight:700;">Separación:</span>',
+      '        <span id="pss-val-celgap" style="color:#f59e0b;font-weight:900;">' + celGap + ' px</span>',
+      '      </div>',
+      '      <input type="range" id="pss-celgap" min="2" max="18" step="1" value="' + celGap + '" style="width:100%;accent-color:#f59e0b;cursor:pointer;">',
+      '    </div>',
+      '  </div>',
+      '</div>',
+      '',
       // 5. CONTROL DE SALTOS DE LÍNEA, CAJAS KPI Y ALINEACIÓN
       '<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:12px 14px;">',
       '  <div style="font-size:11.5px;font-weight:800;color:#34d399;margin-bottom:8px;display:inline-flex;align-items:center;gap:5px;">' + _sSvg('sliders', 14, '#34d399') + ' CONTROL DE SALTO DE LÍNEA, ALINEACIÓN Y ENCAJE DE CAJAS</div>',
@@ -2509,6 +2588,13 @@
       if (g('pss-col-amort-pb')) cfg.amortPaybackColor = g('pss-col-amort-pb').value;
       if (g('pss-amort-pbsize')) cfg.amortPaybackFontSize = parseFloat(g('pss-amort-pbsize').value) || 8.0;
       if (g('pss-amort-axsize')) cfg.amortAxisFontSize = parseFloat(g('pss-amort-axsize').value) || 8.0;
+      if (g('pss-celflow-h')) cfg.celFlowBarHeightPx = parseInt(g('pss-celflow-h').value, 10) || 26;
+      if (g('pss-celflow-size')) cfg.celFlowFontSize = parseFloat(g('pss-celflow-size').value) || 9.5;
+      if (g('pss-celflow-descsize')) cfg.celFlowDescFontSize = parseFloat(g('pss-celflow-descsize').value) || 9.0;
+      if (g('pss-celradar-h')) cfg.celRadarHeightPx = parseInt(g('pss-celradar-h').value, 10) || 235;
+      if (g('pss-celradar-lblsize')) cfg.celRadarLabelFontSize = parseFloat(g('pss-celradar-lblsize').value) || 11.5;
+      if (g('pss-celradar-distsize')) cfg.celRadarDistanceFontSize = parseFloat(g('pss-celradar-distsize').value) || 10.5;
+      if (g('pss-celgap')) cfg.celCardsGapPx = parseInt(g('pss-celgap').value, 10) || 8;
       cfg.lockedTexts = cfg.lockedTexts || {};
       if (g('pss-cover-main-title')) cfg.lockedTexts.coverMainTitle = g('pss-cover-main-title').value;
       if (g('pss-cover-subtitle')) cfg.lockedTexts.coverSubtitle = g('pss-cover-subtitle').value;
@@ -2585,6 +2671,13 @@
     var amortPbSize  = q('#pss-amort-pbsize') ? parseFloat(q('#pss-amort-pbsize').value) : 8.0;
     var amortAxSize  = q('#pss-amort-axsize') ? parseFloat(q('#pss-amort-axsize').value) : 8.0;
 
+    var celFlowH     = q('#pss-celflow-h') ? parseInt(q('#pss-celflow-h').value, 10) : 26;
+    var celFlowSize  = q('#pss-celflow-size') ? parseFloat(q('#pss-celflow-size').value) : 9.5;
+    var celFlowDescSize = q('#pss-celflow-descsize') ? parseFloat(q('#pss-celflow-descsize').value) : 9.0;
+    var celRadarH    = q('#pss-celradar-h') ? parseInt(q('#pss-celradar-h').value, 10) : 235;
+    var celRadarLblSize = q('#pss-celradar-lblsize') ? parseFloat(q('#pss-celradar-lblsize').value) : 11.5;
+    var celGap       = q('#pss-celgap') ? parseInt(q('#pss-celgap').value, 10) : 8;
+
     if (q('#pss-val-chdr-gap')) q('#pss-val-chdr-gap').textContent = cHdrGap + ' px';
     if (q('#pss-val-cpho-gap')) q('#pss-val-cpho-gap').textContent = cPhoGap + ' px';
     if (q('#pss-val-cpho-h')) q('#pss-val-cpho-h').textContent = cPhoH + ' mm';
@@ -2599,6 +2692,13 @@
     if (q('#pss-val-amort-h')) q('#pss-val-amort-h').textContent = amortH + ' px';
     if (q('#pss-val-amort-pbsize')) q('#pss-val-amort-pbsize').textContent = amortPbSize.toFixed(1) + ' pt';
     if (q('#pss-val-amort-axsize')) q('#pss-val-amort-axsize').textContent = amortAxSize.toFixed(1) + ' pt';
+
+    if (q('#pss-val-celflow-h')) q('#pss-val-celflow-h').textContent = celFlowH + ' px';
+    if (q('#pss-val-celflow-size')) q('#pss-val-celflow-size').textContent = celFlowSize.toFixed(1) + ' pt';
+    if (q('#pss-val-celflow-descsize')) q('#pss-val-celflow-descsize').textContent = celFlowDescSize.toFixed(1) + ' pt';
+    if (q('#pss-val-celradar-h')) q('#pss-val-celradar-h').textContent = celRadarH + ' px';
+    if (q('#pss-val-celradar-lblsize')) q('#pss-val-celradar-lblsize').textContent = celRadarLblSize.toFixed(1) + ' pt';
+    if (q('#pss-val-celgap')) q('#pss-val-celgap').textContent = celGap + ' px';
 
     var histoModeSel = q('#pss-histogram-fill-mode');
     var isGrad = !histoModeSel || histoModeSel.value === 'gradient';
@@ -2819,6 +2919,7 @@
       '#pss-histo-valsize', '#pss-histo-lblsize', '#pss-histo-axsize',
       '#pss-amort-h', '#pss-amort-fill-mode', '#pss-col-amort-line', '#pss-col-amort-area', '#pss-col-amort-area-end', '#pss-col-amort-pb',
       '#pss-amort-pbsize', '#pss-amort-axsize',
+      '#pss-celflow-h', '#pss-celflow-size', '#pss-celflow-descsize', '#pss-celradar-h', '#pss-celradar-lblsize', '#pss-celradar-distsize', '#pss-celgap',
       '#pss-use-custom-text-colors', '#pss-col-heading', '#pss-col-body', '#pss-col-muted',
       '#pss-paragraph-align', '#pss-wrap-balance', '#pss-compact-kpi',
       '#pss-cover-main-title', '#pss-cover-subtitle'

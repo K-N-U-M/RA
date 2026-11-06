@@ -127,7 +127,7 @@
     finEntry: '0',
     warPower: '25',
     warMod: '15',
-    warInv: '10',
+    warInv: '12',
     warMo: '5',
     logo: ''
   };
@@ -261,7 +261,7 @@
         finEntry: getVal('cfg-fin-entry') || _currentBranding.finEntry || '0',
         warPower: getVal('cfg-war-power') || _currentBranding.warPower || '25',
         warMod: getVal('cfg-war-mod') || _currentBranding.warMod || '15',
-        warInv: getVal('cfg-war-inv') || _currentBranding.warInv || '10',
+        warInv: getVal('cfg-war-inv') || _currentBranding.warInv || '12',
         warMo: getVal('cfg-war-mo') || _currentBranding.warMo || '5'
       };
 

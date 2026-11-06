@@ -54,7 +54,10 @@
     radius: 400,
     biasMeters: 0.08,
     selfShadows: true,
-    terrainShadows: true
+    terrainShadows: true,
+    simResolution: 'medium', // 'sketch' | 'fast' (16h) | 'medium' (72h) | 'ultra' (192h)
+    detailedBypass: true,    // true: 3 sub-strings | false: monolítico
+    relativeColorScale: false // true: escala relativa al líder (100% = verde) | false: escala absoluta por pérdidas
   };
 
   function loadSettings() {
@@ -77,6 +80,8 @@
   var currentSettings = loadSettings();
   if (typeof global !== 'undefined') {
     global.wpShadowBiasMeters = Number(currentSettings.biasMeters) || 0.08;
+    global.raHeatmapResolution = currentSettings.simResolution || 'medium';
+    global.raRelativeColorScale = !!currentSettings.relativeColorScale;
   }
 
   /**
@@ -256,6 +261,38 @@
     updateUI();
   }
 
+  function setSimResolution(resKey) {
+    if (resKey !== 'sketch' && resKey !== 'fast' && resKey !== 'medium' && resKey !== 'ultra') return;
+    currentSettings.simResolution = resKey;
+    if (typeof global !== 'undefined') {
+      global.raHeatmapResolution = resKey;
+    }
+    saveSettings(currentSettings);
+    updateUI();
+  }
+
+  function setDetailedBypass(enabled) {
+    currentSettings.detailedBypass = !!enabled;
+    saveSettings(currentSettings);
+    updateUI();
+  }
+
+  function setRelativeColorScale(enabled) {
+    currentSettings.relativeColorScale = !!enabled;
+    if (typeof global !== 'undefined') {
+      global.raRelativeColorScale = !!enabled;
+    }
+    saveSettings(currentSettings);
+    updateUI();
+
+    // Actualizar dinámicamente colores del heatmap si ya está calculado y visible
+    if (typeof global.wpReapplyHeatmapColors === 'function') {
+      global.wpReapplyHeatmapColors();
+    } else if (typeof global.wpFastRenderSimulatedPanelsAsync === 'function') {
+      global.wpFastRenderSimulatedPanelsAsync(true);
+    }
+  }
+
   function updateUI() {
     // 1. Selector de calidad de sombras
     var keys = ['low', 'medium', 'high', 'ultra'];
@@ -294,6 +331,37 @@
     var badge = document.getElementById('shadow-quality-status-badge');
     if (badge && QUALITY_PRESETS[currentSettings.quality]) {
       badge.innerText = QUALITY_PRESETS[currentSettings.quality].tag + ' (' + currentSettings.radius + 'm)';
+    }
+
+    // 6. Selector de resolución de simulación solar (Estudio de Sombras)
+    var simKeys = ['sketch', 'fast', 'medium', 'ultra'];
+    simKeys.forEach(function(k) {
+      var el = document.getElementById('btn-sim-res-' + k);
+      if (el) {
+        if (k === currentSettings.simResolution) {
+          el.classList.add('active');
+        } else {
+          el.classList.remove('active');
+        }
+      }
+    });
+
+    var simBadge = document.getElementById('sim-res-status-badge');
+    if (simBadge) {
+      if (currentSettings.simResolution === 'sketch') simBadge.innerText = 'BOCETO SKYLINE (<0.1s)';
+      else if (currentSettings.simResolution === 'fast') simBadge.innerText = 'RÁPIDO (16h ~0.3s)';
+      else if (currentSettings.simResolution === 'ultra') simBadge.innerText = 'ULTRA (192h ~3s)';
+      else simBadge.innerText = 'INGENIERÍA (72h ~1s)';
+    }
+
+    var chkBypass = document.getElementById('ra-sim-bypass-toggle');
+    if (chkBypass) {
+      chkBypass.checked = (currentSettings.detailedBypass !== false);
+    }
+
+    var chkRelScale = document.getElementById('ra-sim-relscale-toggle');
+    if (chkRelScale) {
+      chkRelScale.checked = !!currentSettings.relativeColorScale;
     }
   }
 
@@ -368,6 +436,45 @@
       '        onchange="window.ShadowSettings.setTerrainShadows(this.checked);">',
       '    </label>',
       '  </div>',
+      '  <div style="height:1px;background:rgba(255,255,255,0.06);"></div>',
+      '  <!-- Estudio Solar Anual (Heatmap & Sombras) -->',
+      '  <div style="display:flex;flex-direction:column;gap:6px;">',
+      '    <div style="display:flex;justify-content:space-between;align-items:center;">',
+      '      <span style="font-size:11px;font-weight:600;color:#e2e8f0;">Precisión Estudio Solar (Heatmap)</span>',
+      '      <span class="card-tag" id="sim-res-status-badge" style="background:var(--emerald-500, #10b981);color:#000;font-weight:900;font-size:9px;padding:2px 6px;border-radius:4px;">INGENIERÍA (72h)</span>',
+      '    </div>',
+      '    <div class="engine-cards-group" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;">',
+      '      <div class="engine-card-opt" id="btn-sim-res-fast" onclick="window.ShadowSettings.setSimResolution(\'fast\')" style="padding:6px 4px;text-align:center;">',
+      '        <div class="engine-card-title" style="font-size:10px;font-weight:700;"><span>Rápida</span></div>',
+      '        <div class="engine-card-desc" style="font-size:8.5px;color:#94a3b8;line-height:1.1;">48h (~0.2s)</div>',
+      '      </div>',
+      '      <div class="engine-card-opt" id="btn-sim-res-medium" onclick="window.ShadowSettings.setSimResolution(\'medium\')" style="padding:6px 4px;text-align:center;">',
+      '        <div class="engine-card-title" style="font-size:10px;font-weight:700;"><span>Ingeniería</span></div>',
+      '        <div class="engine-card-desc" style="font-size:8.5px;color:#94a3b8;line-height:1.1;">72h (~0.8s)</div>',
+      '      </div>',
+      '      <div class="engine-card-opt" id="btn-sim-res-ultra" onclick="window.ShadowSettings.setSimResolution(\'ultra\')" style="padding:6px 4px;text-align:center;">',
+      '        <div class="engine-card-title" style="font-size:10px;font-weight:700;"><span>Ultra</span></div>',
+      '        <div class="engine-card-desc" style="font-size:8.5px;color:#94a3b8;line-height:1.1;">192h (~2s)</div>',
+      '      </div>',
+      '    </div>',
+      '  </div>',
+      '  <label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;margin-top:2px;">',
+      '    <div style="display:flex;flex-direction:column;">',
+      '      <span style="font-size:11px;color:#e2e8f0;">Diodos Bypass / Sub-strings</span>',
+      '      <span style="font-size:9px;color:#64748b;">Subdivide el módulo en 3 zonas eléctricas</span>',
+      '    </div>',
+      '    <input type="checkbox" id="ra-sim-bypass-toggle" style="accent-color:var(--emerald-500, #10b981);cursor:pointer;"',
+      '      onchange="window.ShadowSettings.setDetailedBypass(this.checked);">',
+      '  </label>',
+      '  <div style="height:1px;background:rgba(255,255,255,0.06);margin-top:2px;"></div>',
+      '  <label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;margin-top:2px;" title="Activa degradado verde a rojo normalizado al módulo con mayor producción">',
+      '    <div style="display:flex;flex-direction:column;">',
+      '      <span style="font-size:11px;font-weight:600;color:#e2e8f0;">Escala Relativa vs. Líder</span>',
+      '      <span style="font-size:9px;color:#64748b;">Verde = mejor módulo (100%), Rojo = peor módulo</span>',
+      '    </div>',
+      '    <input type="checkbox" id="ra-sim-relscale-toggle" style="accent-color:var(--emerald-500, #10b981);cursor:pointer;"',
+      '      onchange="window.ShadowSettings.setRelativeColorScale(this.checked);">',
+      '  </label>',
       '</div>'
     ].join('\n');
 
@@ -398,6 +505,9 @@
     setBiasMeters: setBiasMeters,
     setSelfShadows: setSelfShadows,
     setTerrainShadows: setTerrainShadows,
+    setSimResolution: setSimResolution,
+    setDetailedBypass: setDetailedBypass,
+    setRelativeColorScale: setRelativeColorScale,
     apply: applySettings,
     configureShadowMap: configureCesiumShadowMap,
     requestSettleFrames: requestShadowSettleFrames,

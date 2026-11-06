@@ -23,6 +23,8 @@
       type: 'HAWT',
       ratedPowerW: 25000,
       rotorDiameterM: 9.8,
+      bladeLength: 4.9,
+      bladeHeightM: 9.8,
       bladeCount: 3,
       hubHeightsAvailableM: [12, 18, 24, 30],
       cutInSpeedMs: 2.5,
@@ -58,6 +60,8 @@
       type: 'HAWT',
       ratedPowerW: 6000,
       rotorDiameterM: 5.2,
+      bladeLength: 2.6,
+      bladeHeightM: 5.2,
       bladeCount: 3,
       hubHeightsAvailableM: [6, 9, 12, 18],
       cutInSpeedMs: 2.5,
@@ -93,6 +97,8 @@
       type: 'HAWT',
       ratedPowerW: 30000,
       rotorDiameterM: 10.5,
+      bladeLength: 5.25,
+      bladeHeightM: 10.5,
       bladeCount: 3,
       hubHeightsAvailableM: [18, 24, 30, 36],
       cutInSpeedMs: 2.0,
@@ -128,6 +134,8 @@
       type: 'HAWT',
       ratedPowerW: 10000,
       rotorDiameterM: 6.8,
+      bladeLength: 3.4,
+      bladeHeightM: 6.8,
       bladeCount: 3,
       hubHeightsAvailableM: [12, 18, 24],
       cutInSpeedMs: 2.0,
@@ -163,6 +171,8 @@
       type: 'VAWT',
       ratedPowerW: 2500,
       rotorDiameterM: 3.8,
+      bladeLength: 4.2,
+      bladeHeightM: 4.2,
       bladeCount: 3,
       hubHeightsAvailableM: [4, 6, 9, 12],
       cutInSpeedMs: 2.0,
@@ -198,6 +208,8 @@
       type: 'HAWT',
       ratedPowerW: 100000,
       rotorDiameterM: 21.0,
+      bladeLength: 10.5,
+      bladeHeightM: 21.0,
       bladeCount: 3,
       hubHeightsAvailableM: [30, 36, 42, 50],
       cutInSpeedMs: 3.0,
@@ -238,13 +250,71 @@
   var AIR_DENSITY_KGM3 = 1.225;
   var BETZ_LIMIT = 0.593;
 
+  /**
+   * Calcula el área de captación aerodinámica real (m²) distinguiendo:
+   * - HAWT (eje horizontal): círculo de barrido A = π · D² / 4
+   * - VAWT (eje vertical: Darrieus/Savonius/H-rotor): cilindro proyectado A = D · H
+   */
+  function computeRotorSweptArea(turbine) {
+    if (!turbine) return 0;
+    var D = Math.max(0.4, Number(turbine.rotorDiameterM) || 5.0);
+    var isVawt = (turbine.type === 'VAWT' || turbine.type === 'vawt');
+    if (isVawt) {
+      var H = Number(turbine.bladeHeightM || turbine.bladeLength || (turbine.supportStructure && turbine.supportStructure.bladeLength) || (D * 1.4));
+      if (!(H > 0)) H = D * 1.4;
+      return Math.round(D * H * 100) / 100;
+    }
+    return Math.round((Math.PI * D * D / 4) * 100) / 100;
+  }
+
+  /**
+   * Convierte un array de puntos [{v, p, ct}] a texto editable multilinea "v, p, ct".
+   */
+  function formatPowerCurveText(curve) {
+    if (!Array.isArray(curve) || curve.length === 0) return '';
+    return curve.map(function(pt) {
+      var v = Number(pt.v || 0).toFixed(1);
+      var p = Math.round(Number(pt.p || 0));
+      var ct = (typeof pt.ct === 'number') ? Number(pt.ct).toFixed(2) : '0.40';
+      return v + ', ' + p + ', ' + ct;
+    }).join('\n');
+  }
+
+  /**
+   * Parsea un texto multilinea "v, p, ct" (separado por coma, dos puntos o espacios) a array [{v, p, ct}].
+   */
+  function parsePowerCurveText(text) {
+    if (!text || typeof text !== 'string') return [];
+    var lines = text.split(/\r?\n/);
+    var pts = [];
+    lines.forEach(function(line) {
+      var trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('//')) return;
+      var parts = trimmed.split(/[,:;\t ]+/).filter(Boolean);
+      if (parts.length >= 2) {
+        var v = parseFloat(parts[0]);
+        var p = parseFloat(parts[1]);
+        var ct = parts.length >= 3 ? parseFloat(parts[2]) : 0.40;
+        if (!isNaN(v) && !isNaN(p) && v >= 0 && p >= 0) {
+          pts.push({
+            v: Math.round(v * 10) / 10,
+            p: Math.round(p),
+            ct: Math.max(0.01, Math.min(1.0, isNaN(ct) ? 0.40 : ct))
+          });
+        }
+      }
+    });
+    pts.sort(function(a, b) { return a.v - b.v; });
+    return pts;
+  }
+
   function computePowerCurveAudit(turbine) {
     var D = Number(turbine && turbine.rotorDiameterM);
     var pts = (turbine && Array.isArray(turbine.powerCurve)) ? turbine.powerCurve : [];
     if (!(D > 0) || pts.length === 0) {
       return { valid: false, maxCp: null, reason: 'Diámetro de rotor o curva de potencia ausentes' };
     }
-    var area = Math.PI * D * D / 4;
+    var area = computeRotorSweptArea(turbine);
     var maxCp = 0;
     var atV = null;
     var violations = [];
@@ -275,13 +345,14 @@
    */
   function calibratePowerCurveToBetz(turbine, targetMaxCp) {
     if (!turbine || typeof turbine !== 'object') return turbine;
-    var maxAllowedCp = (typeof targetMaxCp === 'number' && targetMaxCp > 0 && targetMaxCp <= BETZ_LIMIT) ? targetMaxCp : 0.42;
+    var isVawt = (turbine.type === 'VAWT' || turbine.type === 'vawt');
+    var maxAllowedCp = (typeof targetMaxCp === 'number' && targetMaxCp > 0 && targetMaxCp <= BETZ_LIMIT) ? targetMaxCp : (isVawt ? 0.35 : 0.42);
     var D = Math.max(0.6, Number(turbine.rotorDiameterM) || 5.0);
     var pNomW = Math.max(100, Number(turbine.ratedPowerW) || 5000);
     var cutIn = Math.max(1.5, Number(turbine.cutInSpeedMs) || 2.5);
     var ratedSpeed = Math.max(cutIn + 2, Number(turbine.ratedSpeedMs) || 11.0);
     var cutOut = Math.max(ratedSpeed + 3, Number(turbine.cutOutSpeedMs) || 25.0);
-    var area = Math.PI * D * D / 4;
+    var area = computeRotorSweptArea(turbine);
 
     var existingCurve = Array.isArray(turbine.powerCurve) ? turbine.powerCurve : [];
     var newCurve = [];
@@ -350,6 +421,9 @@
 
     _catalog: null,
 
+    computeRotorSweptArea: computeRotorSweptArea,
+    formatPowerCurveText: formatPowerCurveText,
+    parsePowerCurveText: parsePowerCurveText,
     validatePowerCurve: computePowerCurveAudit,
     calibratePowerCurveToBetz: calibratePowerCurveToBetz,
 
@@ -516,6 +590,8 @@
         type: (raw.type === 'VAWT') ? 'VAWT' : 'HAWT',
         ratedPowerW: Math.max(100, parseFloat(raw.ratedPowerW) || 10000),
         rotorDiameterM: Math.max(0.5, parseFloat(raw.rotorDiameterM) || 5.0),
+        bladeHeightM: parseFloat(raw.bladeHeightM || raw.bladeLength) || ((raw.type === 'VAWT') ? Math.round((parseFloat(raw.rotorDiameterM) || 5.0) * 1.4 * 10) / 10 : (parseFloat(raw.rotorDiameterM) || 5.0)),
+        bladeLength: parseFloat(raw.bladeLength || raw.bladeHeightM) || ((raw.type === 'VAWT') ? Math.round((parseFloat(raw.rotorDiameterM) || 5.0) * 1.4 * 10) / 10 : Math.round((parseFloat(raw.rotorDiameterM) || 5.0) / 2 * 10) / 10),
         bladeCount: parseInt(raw.bladeCount, 10) || 3,
         hubHeightsAvailableM: Array.isArray(raw.hubHeightsAvailableM) ? raw.hubHeightsAvailableM : [12, 18, 24],
         cutInSpeedMs: parseFloat(raw.cutInSpeedMs) || 2.5,
@@ -537,7 +613,9 @@
           naturalFrequencyHz: parseFloat(raw.naturalFrequencyHz) || 0.8
         },
         priceEur: parseFloat(raw.priceEur) || 20000,
-        powerCurve: Array.isArray(raw.powerCurve) ? raw.powerCurve : []
+        turbulenceIntensityPct: Math.max(5, Math.min(30, parseFloat(raw.turbulenceIntensityPct) || 14.0)),
+        lowLoadEfficiencyPct: Math.max(50, Math.min(98, parseFloat(raw.lowLoadEfficiencyPct) || 80.0)),
+        powerCurve: Array.isArray(raw.powerCurve) ? raw.powerCurve : (typeof raw.powerCurve === 'string' ? parsePowerCurveText(raw.powerCurve) : [])
       };
       return turbine;
     },
@@ -553,12 +631,16 @@
         var hMin = t.hubHeightsAvailableM ? t.hubHeightsAvailableM[0] : '?';
         var hMax = t.hubHeightsAvailableM ? t.hubHeightsAvailableM[t.hubHeightsAvailableM.length - 1] : '?';
         var price = t.priceEur ? (t.priceEur.toLocaleString('es-ES') + ' €') : '—';
+        var isVawt = (t.type === 'VAWT');
+        var bH = t.bladeHeightM || t.bladeLength || (isVawt ? Math.round(t.rotorDiameterM * 1.4 * 10) / 10 : null);
+        var rotorDisplay = isVawt ? (t.rotorDiameterM + ' m <span style="color:#A78BFA;font-size:9.5px;font-weight:600;">(H=' + (bH ? bH + 'm' : '—') + ')</span>') : (t.rotorDiameterM + ' m');
+        var sweptArea = computeRotorSweptArea(t);
         return '<tr>' +
           '<td><b>' + t.manufacturer + '</b><br>' +
           '<span style="color:#38BDF8;font-size:10.5px;">' + t.model + '</span></td>' +
           '<td style="text-align:center;"><span class="cat-badge cat-badge-cyan">' + t.type + '</span></td>' +
           '<td style="text-align:center;"><span class="cat-badge cat-badge-amber">' + kw + ' kW</span></td>' +
-          '<td style="text-align:center;font-family:monospace;">' + t.rotorDiameterM + ' m</td>' +
+          '<td style="text-align:center;font-family:monospace;" title="Área de captación: ' + sweptArea + ' m² (' + (isVawt ? 'cilindro Ø×H' : 'círculo π·Ø²/4') + ')">' + rotorDisplay + '</td>' +
           '<td style="text-align:center;font-size:10.5px;">' + hMin + '–' + hMax + ' m</td>' +
           '<td style="text-align:center;"><span class="cat-badge cat-badge-purple">' + t.iecClass + '</span></td>' +
           '<td style="text-align:center;font-size:10.5px;color:var(--text-slate-300);">' + t.acousticPowerLwaDba + ' dB(A)</td>' +

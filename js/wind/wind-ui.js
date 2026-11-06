@@ -242,9 +242,9 @@
   }
 
   function selectTurbineForInspect(id) {
-    _selectedTurbineIdForInspect = id;
+    _selectedTurbineIdForInspect = id || null;
     if (global.RAWindVisualizer && typeof global.RAWindVisualizer.selectTurbine === 'function') {
-      global.RAWindVisualizer.selectTurbine(id);
+      global.RAWindVisualizer.selectTurbine(id || null);
     }
     renderStep2Panel();
   }
@@ -687,9 +687,14 @@
       return;
     }
 
-    // Asegurar turbina seleccionada para inspección
-    var activeTurbine = turbines.find(function (t) { return t.id === _selectedTurbineIdForInspect; }) || turbines[0];
-    _selectedTurbineIdForInspect = activeTurbine.id;
+    // Comprobar si hay una turbina activa seleccionada para inspección
+    var activeTurbine = null;
+    if (_selectedTurbineIdForInspect) {
+      activeTurbine = turbines.find(function (t) { return t.id === _selectedTurbineIdForInspect; }) || null;
+      if (!activeTurbine) {
+        _selectedTurbineIdForInspect = null;
+      }
+    }
 
     // ── 2. Lista de Aerogeneradores con Controles Rápidos ──────────────
     var visualCfg = (global.RAWindVisualizer && typeof global.RAWindVisualizer.getVisualConfig === 'function')
@@ -703,7 +708,7 @@
     html += '  </div>';
 
     if (ringsActive) {
-      html += '  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;">';
+    html += '  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;">';
       html += '    <div>';
       html += '      <label style="display:block;font-size:8.5px;color:var(--text-slate-400);">Estilo Visual</label>';
       html += '      <select onchange="if(window.RAWindUI)window.RAWindUI.updateVisualParam(\'style\', this.value)" style="width:100%;background:#0F172A;color:#38BDF8;border:1px solid #334155;border-radius:4px;padding:2px 4px;font-size:9.5px;">';
@@ -750,7 +755,7 @@
       var kw = (cat.ratedPowerW ? (cat.ratedPowerW / 1000).toFixed(1) : '?');
       var hubH = t.supportStructure ? t.supportStructure.hubHeightM : 18;
       var isEnabled = t.operationalState ? t.operationalState.enabled !== false : true;
-      var isSel = (t.id === activeTurbine.id);
+      var isSel = (activeTurbine && t.id === activeTurbine.id);
       var aepKwh = (t.simulationResults && t.simulationResults.aepNetKwh) ? t.simulationResults.aepNetKwh : 0;
 
       html += '<div onclick="if(window.RAWindUI)window.RAWindUI.selectTurbineForInspect(\'' + t.id + '\')" style="display:flex;align-items:center;justify-content:space-between;background:' + (isSel ? 'rgba(56,189,248,0.14)' : 'rgba(30,41,59,0.7)') + ';padding:6px 8px;border-radius:6px;cursor:pointer;border:1px solid ' + (isSel ? '#38BDF8' : (isEnabled ? 'rgba(255,255,255,0.08)' : 'rgba(239,68,68,0.3)')) + ';">';
@@ -768,7 +773,8 @@
     html += '</div>';
 
     // ── 3. Inspector y Diagnóstico de Ingeniería Fase 2 de la Turbina Activa ──
-    var actCat = activeTurbine._catalog || {};
+    if (activeTurbine) {
+      var actCat = activeTurbine._catalog || {};
     var availHeights = Array.isArray(actCat.hubHeightsAvailableM) && actCat.hubHeightsAvailableM.length > 0
       ? actCat.hubHeightsAvailableM
       : [6, 9, 12, 18, 24, 30];
@@ -803,6 +809,36 @@
     html += '        <option value="ground"' + (actMount === 'ground' ? ' selected' : '') + '>⛰️ Suelo (Zapata HA-25)</option>';
     html += '        <option value="rooftop"' + (actMount === 'rooftop' ? ' selected' : '') + '>🏢 Cubierta (Bancada)</option>';
     html += '      </select>';
+    html += '    </div>';
+    html += '  </div>';
+
+    // Controles de geometría interactiva de aerogenerador (VAWT / HAWT)
+    var isVawt = (actCat.type === 'VAWT') || (activeTurbine.turbineType === 'vawt');
+    var actRotorD = (typeof activeTurbine.rotorDiameterM === 'number' && activeTurbine.rotorDiameterM > 0)
+      ? activeTurbine.rotorDiameterM
+      : (actCat.rotorDiameterM || (isVawt ? 3.8 : 5.0));
+    var actBladeL = (typeof activeTurbine.bladeHeightM === 'number' && activeTurbine.bladeHeightM > 0)
+      ? activeTurbine.bladeHeightM
+      : ((typeof activeTurbine.bladeLength === 'number' && activeTurbine.bladeLength > 0)
+        ? activeTurbine.bladeLength
+        : ((typeof actCat.bladeHeightM === 'number' && actCat.bladeHeightM > 0)
+          ? actCat.bladeHeightM
+          : (actCat.bladeLength || (isVawt ? Math.round(actRotorD * 1.45 * 10) / 10 : Math.round(actRotorD * 0.48 * 10) / 10))));
+
+    html += '  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;background:rgba(56,189,248,0.08);padding:6px;border-radius:4px;border:1px dashed rgba(56,189,248,0.25);">';
+    html += '    <div>';
+    html += '      <label style="display:block;font-size:9px;color:#38BDF8;font-weight:600;">' + (isVawt ? 'Diámetro Rotor VAWT' : 'Diámetro Rotor') + '</label>';
+    html += '      <div style="display:flex;align-items:center;gap:4px;">';
+    html += '        <input type="number" min="0.5" max="30" step="0.1" value="' + actRotorD + '" onchange="if(window.RAWind && window.RAWind.Entity){ window.RAWind.Entity.updateProp(\'' + activeTurbine.id + '\',\'rotorDiameterM\',Number(this.value)); if(window.RAWindVisualizer){ window.RAWindVisualizer.renderAll(); } }" style="width:100%;background:#0F172A;color:#38BDF8;border:1px solid #0284C7;border-radius:4px;padding:3px 4px;font-size:10px;font-weight:700;">';
+    html += '        <span style="font-size:9px;color:var(--text-slate-400);">m</span>';
+    html += '      </div>';
+    html += '    </div>';
+    html += '    <div>';
+    html += '      <label style="display:block;font-size:9px;color:#38BDF8;font-weight:600;">' + (isVawt ? 'Longitud Palas VAWT' : 'Longitud Pala') + '</label>';
+    html += '      <div style="display:flex;align-items:center;gap:4px;">';
+    html += '        <input type="number" min="0.5" max="30" step="0.1" value="' + actBladeL + '" onchange="if(window.RAWind && window.RAWind.Entity){ window.RAWind.Entity.updateProp(\'' + activeTurbine.id + '\',\'bladeLength\',Number(this.value)); if(window.RAWindVisualizer){ window.RAWindVisualizer.renderAll(); } }" style="width:100%;background:#0F172A;color:#38BDF8;border:1px solid #0284C7;border-radius:4px;padding:3px 4px;font-size:10px;font-weight:700;">';
+    html += '        <span style="font-size:9px;color:var(--text-slate-400);">m</span>';
+    html += '      </div>';
     html += '    </div>';
     html += '  </div>';
 
@@ -1054,6 +1090,12 @@
       html += '  </div>';
       html += '</div>';
     }
+  } else {
+    html += '<div style="background:rgba(15,23,42,0.5);border:1px dashed rgba(148,163,184,0.2);border-radius:6px;padding:12px;text-align:center;margin-bottom:8px;">';
+    html += '  <div style="color:#94A3B8;font-size:10px;font-weight:600;">Ningún aerogenerador seleccionado</div>';
+    html += '  <div style="color:#64748B;font-size:9px;margin-top:2px;">Haz clic en una unidad de la lista o en el visor 3D para inspeccionar y configurar.</div>';
+    html += '</div>';
+  }
 
     html += '</div>';
     panel.innerHTML = html;
@@ -1147,6 +1189,7 @@
     showPlacementHint: showPlacementHint,
     hidePlacementHint: hidePlacementHint,
     selectTurbineForInspect: selectTurbineForInspect,
+    getSelectedTurbineId: function () { return _selectedTurbineIdForInspect; },
     updateResourceParam: updateResourceParam,
     updateVisualParam: updateVisualParam,
     toggleRings3D: toggleRings3D,

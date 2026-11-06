@@ -513,6 +513,8 @@ function render3DBuildingsInCesium() {
 
       const pEaves = roofCartoList.map(c =>
         Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, roofHeight));
+      const nVtx = cartoList.length;
+      const wallTopPositions = cartoList.map(c => Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, roofHeight));
 
       // ── Helper: triángulo → PolygonGeometry (patrón idéntico al HIP) ──
       // PolygonGeometry.fromPositions con perPositionHeight:true solo funciona
@@ -564,28 +566,140 @@ function render3DBuildingsInCesium() {
 
       // ── Hastiales triangulares (frontones) ───────────────────────
       const ridgeSpan = maxR - minR;
-      const eps = ridgeSpan * 0.05;
+      const eps = Math.max(ridgeSpan * 0.05, 0.05);
       const hastialMinPts = pEaves.filter((_, i) => projR[i] <= minR + eps);
       const hastialMaxPts = pEaves.filter((_, i) => projR[i] >= maxR - eps);
       fanTriangles([...hastialMinPts, r1], hastialColor);
       fanTriangles([...hastialMaxPts, r2], hastialColor);
 
-      // ── Muros verticales segmentados por cara plana ───────────────
+      // Cierre hermético de hastiales y tímpanos (Opción B)
+      // Conectar vértice superior de cumbrera r1 y r2 con cada arista perimétrica
+      for (let i = 0; i < nVtx; i++) {
+        const nextI = (i + 1) % nVtx;
+        const e1 = pEaves[i];
+        const e2 = pEaves[nextI];
+        const rMid = (projR[i] + projR[nextI]) / 2;
+        if (Math.abs(rMid - minR) < ridgeSpan * 0.35) {
+          addRoofTriangle(e1, e2, r1, hastialColor);
+        } else if (Math.abs(rMid - maxR) < ridgeSpan * 0.35) {
+          addRoofTriangle(e1, e2, r2, hastialColor);
+        }
+      }
+
+      // ── Canto de losa y sofito inferior de alero (Propuesta 1) ────
+      const roofThk = Math.max(0.05, bld.roofThickness || 0.20);
+      const eavesUnder = roofCartoList.map(c =>
+        Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, Math.max(avgBaseHeight + 0.5, roofHeight - roofThk)));
+      const r1Under = Cesium.Cartesian3.fromRadians(cLon + (midS * sX + minR * rX) / (R_EARTH * cosLat), cLat + (midS * sY + minR * rY) / R_EARTH, ridgeHeight - roofThk);
+      const r2Under = Cesium.Cartesian3.fromRadians(cLon + (midS * sX + maxR * rX) / (R_EARTH * cosLat), cLat + (midS * sY + maxR * rY) / R_EARTH, ridgeHeight - roofThk);
+
+      // Fascia perimetral (borde de alero con grosor)
+      for (let i = 0; i < nVtx; i++) {
+        const nextI = (i + 1) % nVtx;
+        addRoofTriangle(pEaves[i], pEaves[nextI], eavesUnder[nextI], edgeColor);
+        addRoofTriangle(pEaves[i], eavesUnder[nextI], eavesUnder[i], edgeColor);
+      }
+
+      // Sofito de cierre entre fachada base y voladizo
+      if (overhang > 0) {
+        for (let i = 0; i < nVtx; i++) {
+          const nextI = (i + 1) % nVtx;
+          const wA = wallTopPositions[i];
+          const wB = wallTopPositions[nextI];
+          const eA = eavesUnder[i];
+          const eB = eavesUnder[nextI];
+          addRoofTriangle(wA, wB, eB, facadeColor);
+          addRoofTriangle(wA, eB, eA, facadeColor);
+        }
+      }
+
+      // ── Lucernarios y Buhardillas paramétricas (Propuesta 2) ──────
+      const numSkylights = parseInt(bld.skylightCount, 10) || 0;
+      if (numSkylights > 0) {
+        const skyCol = Cesium.Color.fromCssColorString('#0284c7').withAlpha(0.85);
+        const frameCol = Cesium.Color.fromCssColorString('#0f172a');
+        const sOffsetA = midS + halfW * 0.5;
+        const sOffsetB = midS - halfW * 0.5;
+        const rDeltas = (numSkylights === 1) ? [0] : (numSkylights === 2 ? [-ridgeSpan * 0.22, ridgeSpan * 0.22] : [-ridgeSpan * 0.25, ridgeSpan * 0.25]);
+
+        rDeltas.forEach((dr, sIdx) => {
+          const sSide = (numSkylights === 1 || sIdx % 2 === 0) ? sOffsetA : sOffsetB;
+          const sDist = Math.abs(sSide - midS);
+          const zBase = roofHeight + (halfW - sDist) * Math.tan(pitchRad) + 0.05;
+          const cX = (sSide * sX + ((minR + maxR) / 2 + dr) * rX);
+          const cY = (sSide * sY + ((minR + maxR) / 2 + dr) * rY);
+          const skyW = 0.9, skyL = 1.3;
+          const p1 = Cesium.Cartesian3.fromRadians(cLon + (cX - sX*skyW/2 - rX*skyL/2)/(R_EARTH*cosLat), cLat + (cY - sY*skyW/2 - rY*skyL/2)/R_EARTH, zBase);
+          const p2 = Cesium.Cartesian3.fromRadians(cLon + (cX + sX*skyW/2 - rX*skyL/2)/(R_EARTH*cosLat), cLat + (cY + sY*skyW/2 - rY*skyL/2)/R_EARTH, zBase + skyW*Math.tan(pitchRad)*0.5);
+          const p3 = Cesium.Cartesian3.fromRadians(cLon + (cX + sX*skyW/2 + rX*skyL/2)/(R_EARTH*cosLat), cLat + (cY + sY*skyW/2 + rY*skyL/2)/R_EARTH, zBase + skyW*Math.tan(pitchRad)*0.5);
+          const p4 = Cesium.Cartesian3.fromRadians(cLon + (cX - sX*skyW/2 + rX*skyL/2)/(R_EARTH*cosLat), cLat + (cY - sY*skyW/2 + rY*skyL/2)/R_EARTH, zBase);
+          addRoofTriangle(p1, p2, p3, skyCol);
+          addRoofTriangle(p1, p3, p4, skyCol);
+          addRoofTriangle(p1, p2, Cesium.Cartesian3.fromRadians(cLon + cX/(R_EARTH*cosLat), cLat + cY/R_EARTH, zBase + 0.15), frameCol);
+        });
+      }
+
+      // ── Muros verticales perimetrales con hastiales integrados (CAD AAA) ───
       try {
         const wallInstances = [];
         const nWalls = basePositions.length;
         for (let i = 0; i < nWalls; i++) {
+          const nextI = (i + 1) % nWalls;
           const pA = basePositions[i];
-          const pB = basePositions[(i + 1) % nWalls];
-          wallInstances.push(new Cesium.GeometryInstance({
-            geometry: new Cesium.WallGeometry({
-              positions: [pA, pB],
-              minimumHeights: [avgBaseHeight, avgBaseHeight],
-              maximumHeights: [roofHeight, roofHeight]
-            }),
-            attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(facadeColor) },
-            id: (bld.id || 'bld') + '_gable_wall_' + i
-          }));
+          const pB = basePositions[nextI];
+          const sA = projS[i], sB = projS[nextI];
+          const sDiff = sB - sA;
+
+          // Un muro es testero / hastial si su segmento cruza el plano del eje de cumbrera (midS)
+          if ((sA - midS) * (sB - midS) <= 1e-6 && Math.abs(sDiff) > 1e-4) {
+            const t = (midS - sA) / sDiff;
+            const cA = cartoList[i];
+            const cB = cartoList[nextI];
+            const pRidgeBase = Cesium.Cartesian3.fromRadians(
+              cA.longitude + t * (cB.longitude - cA.longitude),
+              cA.latitude  + t * (cB.latitude  - cA.latitude),
+              avgBaseHeight
+            );
+
+            // Muro continuo de 3 vértices: asciende triangularmente hasta ridgeHeight en el cruce de cumbrera
+            wallInstances.push(new Cesium.GeometryInstance({
+              geometry: new Cesium.WallGeometry({
+                positions: [pA, pRidgeBase, pB],
+                minimumHeights: [avgBaseHeight, avgBaseHeight, avgBaseHeight],
+                maximumHeights: [roofHeight, ridgeHeight, roofHeight]
+              }),
+              attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(facadeColor) },
+              id: (bld.id || 'bld') + '_gable_hastial_wall_' + i
+            }));
+
+            // Cierre hermético del tímpano triangular sobre el plano de fachada (hastial completo)
+            const pATop = wallTopPositions[i];
+            const pBTop = wallTopPositions[nextI];
+            const pRidgeTop = Cesium.Cartesian3.fromRadians(
+              cA.longitude + t * (cB.longitude - cA.longitude),
+              cA.latitude  + t * (cB.latitude  - cA.latitude),
+              ridgeHeight
+            );
+            // Triangulación frontal y dorsal para garantizar visibilidad sin backface culling
+            addRoofTriangle(pATop, pRidgeTop, pBTop, facadeColor);
+            addRoofTriangle(pATop, pBTop, pRidgeTop, facadeColor);
+
+            // Sellar también el contacto con el sofito / losa del alero superior
+            const rMidPoint = Math.abs(projR[i] - minR) <= Math.abs(projR[i] - maxR) ? r1 : r2;
+            addRoofTriangle(pATop, rMidPoint, pRidgeTop, facadeColor);
+            addRoofTriangle(pBTop, rMidPoint, pRidgeTop, facadeColor);
+          } else {
+            // Muro lateral longitudinal (paralelo a cumbrera, cota constante roofHeight)
+            wallInstances.push(new Cesium.GeometryInstance({
+              geometry: new Cesium.WallGeometry({
+                positions: [pA, pB],
+                minimumHeights: [avgBaseHeight, avgBaseHeight],
+                maximumHeights: [roofHeight, roofHeight]
+              }),
+              attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(facadeColor) },
+              id: (bld.id || 'bld') + '_gable_wall_' + i
+            }));
+          }
         }
         window._buildingPrimitives.push(viewer.scene.primitives.add(new Cesium.Primitive({
           geometryInstances: wallInstances,
@@ -696,6 +810,69 @@ function render3DBuildingsInCesium() {
       } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
 
       try {
+        const roofThk = Math.max(0.05, bld.roofThickness || 0.20);
+        const slopeUnder = slopePositions.map(p => {
+          const c = Cesium.Cartographic.fromCartesian(p);
+          return Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, Math.max(avgBaseHeight + 0.5, c.height - roofThk));
+        });
+
+        // Fascia perimetral de canto
+        const fasciaInstances = [];
+        const nShed = slopePositions.length;
+        for (let i = 0; i < nShed; i++) {
+          const nextI = (i + 1) % nShed;
+          fasciaInstances.push(new Cesium.GeometryInstance({
+            geometry: Cesium.PolygonGeometry.fromPositions({
+              positions: [slopePositions[i], slopePositions[nextI], slopeUnder[nextI]],
+              perPositionHeight: true
+            }),
+            attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(edgeColor) }
+          }));
+          fasciaInstances.push(new Cesium.GeometryInstance({
+            geometry: Cesium.PolygonGeometry.fromPositions({
+              positions: [slopePositions[i], slopeUnder[nextI], slopeUnder[i]],
+              perPositionHeight: true
+            }),
+            attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(edgeColor) }
+          }));
+        }
+        if (fasciaInstances.length > 0) {
+          window._buildingPrimitives.push(viewer.scene.primitives.add(new Cesium.Primitive({
+            geometryInstances: fasciaInstances,
+            appearance: createBuildingMatteAppearance(true),
+            shadows: Cesium.ShadowMode.ENABLED,
+            asynchronous: false
+          })));
+        }
+
+        // Lucernario en monopitch
+        const numSkylights = parseInt(bld.skylightCount, 10) || 0;
+        if (numSkylights > 0 && nShed >= 3) {
+          const skyCol = Cesium.Color.fromCssColorString('#0284c7').withAlpha(0.85);
+          const cCarto = Cesium.Cartographic.fromRadians(cLon, cLat, roofHeight + 0.5);
+          const cCenter = Cesium.Cartesian3.fromRadians(cLon, cLat, roofHeight + 0.5);
+          const skyInst = new Cesium.GeometryInstance({
+            geometry: Cesium.PolygonGeometry.fromPositions({
+              positions: [
+                Cesium.Cartesian3.fromRadians(cLon - 0.00001, cLat - 0.00001, roofHeight + 0.6),
+                Cesium.Cartesian3.fromRadians(cLon + 0.00001, cLat - 0.00001, roofHeight + 0.7),
+                Cesium.Cartesian3.fromRadians(cLon + 0.00001, cLat + 0.00001, roofHeight + 0.7),
+                Cesium.Cartesian3.fromRadians(cLon - 0.00001, cLat + 0.00001, roofHeight + 0.6)
+              ],
+              perPositionHeight: true
+            }),
+            attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(skyCol) }
+          });
+          window._buildingPrimitives.push(viewer.scene.primitives.add(new Cesium.Primitive({
+            geometryInstances: skyInst,
+            appearance: createBuildingMatteAppearance(true),
+            shadows: Cesium.ShadowMode.ENABLED,
+            asynchronous: false
+          })));
+        }
+      } catch(eThk) { window.RA && window.RA.log && window.RA.log.warn('[shed thickness]', eThk); }
+
+      try {
         const elevatedSlopePositions = slopePositions.map(p => {
           const c = Cesium.Cartographic.fromCartesian(p);
           return Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, c.height + 0.08);
@@ -792,6 +969,68 @@ function render3DBuildingsInCesium() {
         } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
       }
 
+      const roofThk = Math.max(0.05, bld.roofThickness || 0.20);
+      const eavesUnder = roofCartoList.map(c =>
+        Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, Math.max(avgBaseHeight + 0.5, roofHeight - roofThk)));
+      const apexUnder = Cesium.Cartesian3.fromRadians(cLon, cLat, Math.max(avgBaseHeight + 0.5, apexHeight - roofThk));
+
+      // Fascia perimetral de alero (canto del faldón hip)
+      for (let i = 0; i < pEaves.length; i++) {
+        const nextI = (i + 1) % pEaves.length;
+        try {
+          const f1 = new Cesium.GeometryInstance({
+            geometry: Cesium.PolygonGeometry.fromPositions({
+              positions: [pEaves[i], pEaves[nextI], eavesUnder[nextI]],
+              perPositionHeight: true
+            }),
+            attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(edgeColor) }
+          });
+          const f2 = new Cesium.GeometryInstance({
+            geometry: Cesium.PolygonGeometry.fromPositions({
+              positions: [pEaves[i], eavesUnder[nextI], eavesUnder[i]],
+              perPositionHeight: true
+            }),
+            attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(edgeColor) }
+          });
+          window._buildingPrimitives.push(viewer.scene.primitives.add(new Cesium.Primitive({
+            geometryInstances: [f1, f2],
+            appearance: createBuildingMatteAppearance(true),
+            shadows: Cesium.ShadowMode.ENABLED,
+            asynchronous: false
+          })));
+        } catch(eFascia) {}
+      }
+
+      // Sofito de cierre entre fachada base y voladizo
+      if (overhang > 0) {
+        const wallTopPos = cartoList.map(c => Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, roofHeight));
+        for (let i = 0; i < wallTopPos.length; i++) {
+          const nextI = (i + 1) % wallTopPos.length;
+          try {
+            const s1 = new Cesium.GeometryInstance({
+              geometry: Cesium.PolygonGeometry.fromPositions({
+                positions: [wallTopPos[i], wallTopPos[nextI], eavesUnder[nextI]],
+                perPositionHeight: true
+              }),
+              attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(facadeColor) }
+            });
+            const s2 = new Cesium.GeometryInstance({
+              geometry: Cesium.PolygonGeometry.fromPositions({
+                positions: [wallTopPos[i], eavesUnder[nextI], eavesUnder[i]],
+                perPositionHeight: true
+              }),
+              attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(facadeColor) }
+            });
+            window._buildingPrimitives.push(viewer.scene.primitives.add(new Cesium.Primitive({
+              geometryInstances: [s1, s2],
+              appearance: createBuildingMatteAppearance(true),
+              shadows: Cesium.ShadowMode.ENABLED,
+              asynchronous: false
+            })));
+          } catch(eSof) {}
+        }
+      }
+
       const elevatedApex = Cesium.Cartesian3.fromRadians(cLon, cLat, apexHeight + 0.08);
       const elevatedPEaves = roofCartoList.map(c => Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, roofHeight + 0.08));
 
@@ -824,6 +1063,206 @@ function render3DBuildingsInCesium() {
         });
         window._buildingEntities.push(eavesOutline);
       } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
+
+    // ─────────────────────────────────────────────────────────────────
+    // E. CUBIERTA EN FORMA DE L (ALAS CON LIMAHOYA / VALLE EN ENCUENTRO)
+    // ─────────────────────────────────────────────────────────────────
+    } else if (rType === 'l_shape') {
+      const N = cartoList.length;
+      let cLon = 0, cLat = 0;
+      roofCartoList.forEach(c => { cLon += c.longitude; cLat += c.latitude; });
+      cLon /= roofCartoList.length;
+      cLat /= roofCartoList.length;
+
+      const R_EARTH = 6378137.0;
+      const cosLat = Math.cos(cLat);
+      const localPts = roofCartoList.map(c => ({
+        x: (c.longitude - cLon) * R_EARTH * cosLat,
+        y: (c.latitude  - cLat) * R_EARTH
+      }));
+
+      // 1. Identificar el vértice de esquina cóncava interior (esquina de la L)
+      let reflexIdx = -1;
+      let minCross = 0;
+      for (let i = 0; i < N; i++) {
+        const prev = localPts[(i - 1 + N) % N];
+        const curr = localPts[i];
+        const next = localPts[(i + 1) % N];
+        const dx1 = curr.x - prev.x, dy1 = curr.y - prev.y;
+        const dx2 = next.x - curr.x, dy2 = next.y - curr.y;
+        const cross = dx1 * dy2 - dy1 * dx2;
+        if (cross < minCross) {
+          minCross = cross;
+          reflexIdx = i;
+        }
+      }
+      if (reflexIdx < 0) reflexIdx = 0; // Fallback por convexidad suave
+
+      // 2. Muros perimetrales del volumen completo en L
+      try {
+        const wallInstances = [];
+        const nWalls = basePositions.length;
+        for (let i = 0; i < nWalls; i++) {
+          const pA = basePositions[i];
+          const pB = basePositions[(i + 1) % nWalls];
+          wallInstances.push(new Cesium.GeometryInstance({
+            geometry: new Cesium.WallGeometry({
+              positions: [pA, pB],
+              minimumHeights: [avgBaseHeight, avgBaseHeight],
+              maximumHeights: [roofHeight, roofHeight]
+            }),
+            attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(facadeColor) },
+            id: (bld.id || 'bld') + '_l_wall_' + i
+          }));
+        }
+        window._buildingPrimitives.push(viewer.scene.primitives.add(new Cesium.Primitive({
+          geometryInstances: wallInstances,
+          appearance: createBuildingMatteAppearance(true),
+          shadows: Cesium.ShadowMode.ENABLED,
+          asynchronous: false
+        })));
+      } catch(eLWall) { window.RA && window.RA.log && window.RA.log.warn('[L wall]', eLWall); }
+
+      // 3. Geometría de cubiertas: cumbreras de ala 1 y ala 2 con unión en limahoya
+      const pEaves = roofCartoList.map(c => Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, roofHeight));
+      const roofThk = Math.max(0.05, bld.roofThickness || 0.20);
+      const eavesUnder = roofCartoList.map(c =>
+        Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, Math.max(avgBaseHeight + 0.5, roofHeight - roofThk)));
+
+      // Centro del encuentro y nudo de limahoya
+      const reflexPt = pEaves[reflexIdx];
+      const oppIdx = (reflexIdx + Math.floor(N / 2)) % N;
+      const oppPt = pEaves[oppIdx];
+
+      // Altura de cumbrera principal basada en la luz transversal del ala
+      const avgWingSpan = Math.max(3.0, Cesium.Cartesian3.distance(reflexPt, oppPt) * 0.45);
+      const ridgeHeight = roofHeight + avgWingSpan * Math.tan(pitchRad);
+
+      // Cumbrera central de unión (nodo de cumbrera)
+      const c1 = Cesium.Cartographic.fromCartesian(reflexPt);
+      const c2 = Cesium.Cartographic.fromCartesian(oppPt);
+      const ridgeHub = Cesium.Cartesian3.fromRadians(
+        (c1.longitude + c2.longitude) / 2,
+        (c1.latitude + c2.latitude) / 2,
+        ridgeHeight
+      );
+
+      // Triangulación de faldones hacia las cumbreras articuladas
+      for (let i = 0; i < N; i++) {
+        const nextI = (i + 1) % N;
+        const A = pEaves[i];
+        const B = pEaves[nextI];
+        const C = ridgeHub;
+
+        if (Cesium.Cartesian3.distance(A, B) > 0.05) {
+          try {
+            const triInst = new Cesium.GeometryInstance({
+              geometry: Cesium.PolygonGeometry.fromPositions({
+                positions: [A, B, C],
+                perPositionHeight: true
+              }),
+              attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(roofColor) },
+              id: (bld.id || 'bld') + '_l_roof_' + i
+            });
+            window._buildingPrimitives.push(viewer.scene.primitives.add(new Cesium.Primitive({
+              geometryInstances: triInst,
+              appearance: createBuildingMatteAppearance(true),
+              shadows: Cesium.ShadowMode.ENABLED,
+              asynchronous: false
+            })));
+
+            // Canto de alero en el perímetro
+            const f1 = new Cesium.GeometryInstance({
+              geometry: Cesium.PolygonGeometry.fromPositions({
+                positions: [A, B, eavesUnder[nextI]],
+                perPositionHeight: true
+              }),
+              attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(edgeColor) }
+            });
+            const f2 = new Cesium.GeometryInstance({
+              geometry: Cesium.PolygonGeometry.fromPositions({
+                positions: [A, eavesUnder[nextI], eavesUnder[i]],
+                perPositionHeight: true
+              }),
+              attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(edgeColor) }
+            });
+            window._buildingPrimitives.push(viewer.scene.primitives.add(new Cesium.Primitive({
+              geometryInstances: [f1, f2],
+              appearance: createBuildingMatteAppearance(true),
+              shadows: Cesium.ShadowMode.ENABLED,
+              asynchronous: false
+            })));
+          } catch(eTriL) {}
+        }
+      }
+
+      // Sofito de cierre inferior si hay voladizo
+      if (overhang > 0) {
+        const wallTopPos = cartoList.map(c => Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, roofHeight));
+        for (let i = 0; i < N; i++) {
+          const nextI = (i + 1) % N;
+          try {
+            const s1 = new Cesium.GeometryInstance({
+              geometry: Cesium.PolygonGeometry.fromPositions({
+                positions: [wallTopPos[i], wallTopPos[nextI], eavesUnder[nextI]],
+                perPositionHeight: true
+              }),
+              attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(facadeColor) }
+            });
+            const s2 = new Cesium.GeometryInstance({
+              geometry: Cesium.PolygonGeometry.fromPositions({
+                positions: [wallTopPos[i], eavesUnder[nextI], eavesUnder[i]],
+                perPositionHeight: true
+              }),
+              attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(facadeColor) }
+            });
+            window._buildingPrimitives.push(viewer.scene.primitives.add(new Cesium.Primitive({
+              geometryInstances: [s1, s2],
+              appearance: createBuildingMatteAppearance(true),
+              shadows: Cesium.ShadowMode.ENABLED,
+              asynchronous: false
+            })));
+          } catch(eSofL) {}
+        }
+      }
+
+      // Limahoya en el rincón entrante (valle que desagua hacia el vértice cóncavo)
+      try {
+        const valleyLine = viewer.entities.add({
+          name: (bld.name || 'Edificio 3D') + ' - Limahoya (Valle)',
+          polyline: {
+            positions: [reflexPt, ridgeHub],
+            width: 4.5,
+            material: Cesium.Color.fromCssColorString('#38bdf8'),
+            arcType: Cesium.ArcType.NONE,
+            clampToGround: false,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY
+          }
+        });
+        window._buildingEntities.push(valleyLine);
+
+        const hubElevated = Cesium.Cartesian3.fromRadians(
+          Cesium.Cartographic.fromCartesian(ridgeHub).longitude,
+          Cesium.Cartographic.fromCartesian(ridgeHub).latitude,
+          Cesium.Cartographic.fromCartesian(ridgeHub).height + 0.08
+        );
+        const pEavesElevated = pEaves.map(p => {
+          const c = Cesium.Cartographic.fromCartesian(p);
+          return Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, c.height + 0.08);
+        });
+
+        const eavesOutline = viewer.entities.add({
+          polyline: {
+            positions: [...pEavesElevated, pEavesElevated[0]],
+            width: isSel ? 4.0 : 3.0,
+            material: edgeColor,
+            arcType: Cesium.ArcType.NONE,
+            clampToGround: false,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY
+          }
+        });
+        window._buildingEntities.push(eavesOutline);
+      } catch(eVal) {}
     }
 
     // Aristas Base Comunes y Columnas
@@ -1823,8 +2262,207 @@ function render3DBuildingsInCesium() {
     return true;
   }
 
+  // ─────────────────────────────────────────────────────────────────
+  // PROPUESTA 4: GENERACIÓN AUTOMÁTICA DE PLANO DE TRABAJO SOLAR
+  // Convierte la cubierta o faldón activo del edificio en Plano FV con 1 Clic
+  // ─────────────────────────────────────────────────────────────────
+  function createSolarPlaneFromBuildingRoof() {
+    const bldId = (typeof window !== 'undefined') ? window.selectedBuildingId : null;
+    const arr = (typeof window !== 'undefined' && Array.isArray(window.buildings)) ? window.buildings : [];
+    const bld = arr.find(b => b && b.id === bldId);
+    if (!bld || !Array.isArray(bld.points) || bld.points.length < 3) {
+      if (typeof window.showToast === 'function') {
+        window.showToast('SELECCIÓN REQUERIDA', 'Selecciona primero un edificio 3D con huella válida.', 'warning', 3000);
+      }
+      return false;
+    }
+
+    if (typeof window.WP === 'undefined' || !window.WP) {
+      if (typeof window.showToast === 'function') {
+        window.showToast('ERROR', 'Módulo de planos de trabajo no disponible.', 'error', 3000);
+      }
+      return false;
+    }
+
+    const WP = window.WP;
+    const rType = bld.roofType || 'flat';
+    const pitch = (typeof bld.roofPitch === 'number') ? bld.roofPitch : (rType === 'flat' ? 0 : 25);
+    const azimuth = (typeof bld.roofAzimuth === 'number') ? bld.roofAzimuth : 180;
+
+    // Obtener los 3 puntos representativos de la superficie superior
+    const rawCartoList = bld.points.map(p => Cesium.Cartographic.fromCartesian(p)).filter(Boolean);
+    if (rawCartoList.length < 3) return false;
+
+    let avgBaseHeight = 0;
+    rawCartoList.forEach(c => { avgBaseHeight += (c.height || 0); });
+    avgBaseHeight /= rawCartoList.length;
+    const roofHeight = avgBaseHeight + Math.max(bld.height || 6.0, 1.0);
+
+    const c1 = rawCartoList[0];
+    const c2 = rawCartoList[1];
+    const c3 = rawCartoList[2];
+
+    const p1 = Cesium.Cartesian3.fromRadians(c1.longitude, c1.latitude, roofHeight);
+    const p2 = Cesium.Cartesian3.fromRadians(c2.longitude, c2.latitude, roofHeight);
+    const p3 = Cesium.Cartesian3.fromRadians(c3.longitude, c3.latitude, roofHeight);
+
+    let planeData = null;
+    if (typeof window.wpComputePlaneFrom3Points === 'function') {
+      planeData = window.wpComputePlaneFrom3Points(p1, p2, p3, 'p1p2');
+    }
+
+    if (!planeData) {
+      const up = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(p1, new Cesium.Cartesian3());
+      const v1 = Cesium.Cartesian3.subtract(p2, p1, new Cesium.Cartesian3());
+      const uVec = Cesium.Cartesian3.normalize(v1, new Cesium.Cartesian3());
+      const vVec = Cesium.Cartesian3.normalize(Cesium.Cartesian3.cross(up, uVec, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+      planeData = {
+        origin: p1,
+        normal: up,
+        uVec: uVec,
+        vVec: vVec,
+        tiltDeg: pitch,
+        azimuthDeg: azimuth
+      };
+    } else {
+      if (rType !== 'flat') {
+        planeData.tiltDeg = pitch;
+        planeData.azimuthDeg = azimuth;
+      }
+    }
+
+    const planeObj = Object.assign({
+      id: 'plane_roof_' + bld.id + '_' + Date.now(),
+      name: 'Cubierta ' + (bld.name || 'Edificio') + ' (' + planeData.tiltDeg.toFixed(0) + '°)',
+      pts3D: [p1, p2, p3],
+      origin: planeData.origin,
+      normal: planeData.normal,
+      uVec: planeData.uVec,
+      vVec: planeData.vVec,
+      tiltDeg: planeData.tiltDeg,
+      azimuthDeg: planeData.azimuthDeg,
+      buildingId: bld.id
+    }, planeData);
+
+    if (window.RAundo && typeof window.RAundo.snapPlanes === 'function') {
+      window.RAundo.snapPlanes('Crear ' + planeObj.name);
+    }
+    WP.planes.push(planeObj);
+    WP.activePlaneIdx = WP.planes.length - 1;
+
+    // Crear automáticamente el polígono contorno útil de la cubierta
+    const roof3DPts = rawCartoList.map(c => Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, roofHeight));
+    const areaCalc = (typeof window.wpPolylineArea3D === 'function') ? window.wpPolylineArea3D(roof3DPts) : 50;
+
+    const polyObj = {
+      id: 'wp_poly_roof_' + Date.now(),
+      name: 'Faldón ' + (bld.name || 'Edificio'),
+      planeIdx: WP.activePlaneIdx,
+      buildingId: bld.id,
+      points: roof3DPts,
+      area: areaCalc,
+      alignToPlane: true,
+      orientationPref: (typeof window.userPanelOrientationPref !== 'undefined') ? window.userPanelOrientationPref : 'portrait',
+      modTilt: 'auto',
+      modAzimuth: 'auto',
+      lineEnt: null,
+      fillEnt: null
+    };
+
+    if (window.RAundo && typeof window.RAundo.snapPolylines === 'function') {
+      window.RAundo.snapPolylines('Crear ' + polyObj.name);
+    }
+    WP.polylines.push(polyObj);
+    WP.selectedPolyIdx = WP.polylines.length - 1;
+
+    if (typeof window.wpRenderActivePlaneGizmo === 'function') window.wpRenderActivePlaneGizmo();
+    if (typeof window.wpRenderAllPolylines === 'function') window.wpRenderAllPolylines();
+    if (typeof window.wpUpdateUI === 'function') window.wpUpdateUI();
+    if (typeof window.wpUpdateControlsAvailability === 'function') window.wpUpdateControlsAvailability();
+    if (typeof window.wpFastRenderSimulatedPanels === 'function') window.wpFastRenderSimulatedPanels();
+
+    if (typeof window.showToast === 'function') {
+      window.showToast('PLANO Y FALDON CREADOS', 'Cubierta vinculada al estudio solar. Contorno útil: ' + areaCalc.toFixed(1) + ' m².', 'success', 4000);
+    }
+
+    const brushPanel = document.getElementById('ra-brush-panel') || document.getElementById('btn-draw-polyline');
+    if (brushPanel) brushPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    if (window.viewer && window.viewer.scene) window.viewer.scene.requestRender();
+    return true;
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  // PLANTA EN L PARAMÉTRICA (CAD AAA)
+  // Genera automáticamente una huella en forma de L de 6 vértices
+  // ─────────────────────────────────────────────────────────────────
+  function startDrawingBuildingL() {
+    if (typeof viewer === 'undefined' || !viewer || !viewer.scene) {
+      if (typeof window.showToast === 'function') window.showToast('AVISO', 'Visor 3D no inicializado.', 'warning', 2500);
+      return;
+    }
+    const centerCarto = viewer.scene.camera.positionCartographic;
+    if (!centerCarto) return;
+
+    const R_EARTH = 6378137.0;
+    const cosLat = Math.cos(centerCarto.latitude);
+    const cLon = centerCarto.longitude;
+    const cLat = centerCarto.latitude;
+    const h = centerCarto.height > 0 ? 0 : 0;
+
+    // Dimensiones proporcionales en metros (Ala principal 24x10m, Ala secundaria 14x10m)
+    const ptsOffsets = [
+      { x: -12, y: -10 },
+      { x:  12, y: -10 },
+      { x:  12, y:   2 },
+      { x:   0, y:   2 },  // Vértice cóncavo interior reflexivo
+      { x:   0, y:  14 },
+      { x: -12, y:  14 }
+    ];
+
+    const pts3D = ptsOffsets.map(off => Cesium.Cartesian3.fromRadians(
+      cLon + off.x / (R_EARTH * cosLat),
+      cLat + off.y / R_EARTH,
+      h
+    ));
+
+    const newBld = {
+      id: 'bld_l_' + Date.now(),
+      name: 'Edificio en L #' + ((window.buildings ? window.buildings.length : 0) + 1),
+      points: pts3D,
+      height: 6.5,
+      roofType: 'l_shape',
+      roofPitch: 25,
+      roofAzimuth: 180,
+      roofThickness: 0.20,
+      overhang: 0.25,
+      facadeColor: '#F1F5F9',
+      roofColor: '#E2E8F0',
+      edgeColor: '#334155',
+      visible: true
+    };
+
+    if (!Array.isArray(window.buildings)) window.buildings = [];
+    if (window.RAundo && typeof window.RAundo.snapBuildings === 'function') {
+      window.RAundo.snapBuildings('Crear ' + newBld.name);
+    }
+    window.buildings.push(newBld);
+    window.selectedBuildingId = newBld.id;
+
+    if (typeof window.selectBuilding === 'function') {
+      window.selectBuilding(newBld.id);
+    } else {
+      render3DBuildingsInCesium();
+    }
+
+    if (typeof window.showToast === 'function') {
+      window.showToast('EDIFICIO EN L CREADO', 'Se ha posicionado una nave en L con cubierta adaptada y limahoya en el centro de tu vista.', 'success', 4500);
+    }
+  }
+
   // Exportar funciones del Rectángulo CAD y Ejes Constructivos
   window.startDrawingBuildingRect = startDrawingBuildingRect;
+  window.startDrawingBuildingL = startDrawingBuildingL;
   window.handleBuildingRectClick = handleBuildingRectClick;
   window.updateBuildingRectPreview = updateBuildingRectPreview;
   window.finishBuildingRect = finishBuildingRect;
@@ -1836,6 +2474,7 @@ function render3DBuildingsInCesium() {
   window.syncBuildingAxesInspectorUI = syncBuildingAxesInspectorUI;
   window.setBuildingAxisMode = setBuildingAxisMode;
   window.cycleBuildingReferenceWall = cycleBuildingReferenceWall;
+  window.createSolarPlaneFromBuildingRoof = createSolarPlaneFromBuildingRoof;
 
   // Exportar al namespace global
   window.render3DBuildingsInCesium = render3DBuildingsInCesium;
@@ -1855,7 +2494,8 @@ function render3DBuildingsInCesium() {
       syncUI: syncRectInspectorUI,
       computeAxes: computeBuildingConstructionAxes,
       setAxisMode: setBuildingAxisMode,
-      cycleReferenceWall: cycleBuildingReferenceWall
+      cycleReferenceWall: cycleBuildingReferenceWall,
+      createSolarPlaneFromRoof: createSolarPlaneFromBuildingRoof
     };
   }
 

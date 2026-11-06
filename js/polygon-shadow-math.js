@@ -218,10 +218,12 @@ function getBuildingShadowPolygons2DForRoof(building, roof, sU, sV, shadowLenPer
 
   return [unifiedShadow];
 }
-window.getObstaclePolygon2DForRoof = getObstaclePolygon2DForRoof;
-window.getObstacleShadowPolygons2DForRoof = getObstacleShadowPolygons2DForRoof;
-window.getBuildingPolygon2DForRoof = getBuildingPolygon2DForRoof;
-window.getBuildingShadowPolygons2DForRoof = getBuildingShadowPolygons2DForRoof;
+if (typeof window !== 'undefined') {
+  if (typeof getObstaclePolygon2DForRoof === 'function') window.getObstaclePolygon2DForRoof = getObstaclePolygon2DForRoof;
+  window.getObstacleShadowPolygons2DForRoof = getObstacleShadowPolygons2DForRoof;
+  window.getBuildingPolygon2DForRoof = getBuildingPolygon2DForRoof;
+  window.getBuildingShadowPolygons2DForRoof = getBuildingShadowPolygons2DForRoof;
+}
 
 function getObstacleShadowPolygons2DForRoof(obs, roof, sU, sV, shadowLenPerM) {
   // Para aerogeneradores, la sombra sobre cubierta proviene del fuste/mástil cilíndrico esbelto
@@ -248,7 +250,8 @@ function getObstacleShadowPolygons2DForRoof(obs, roof, sU, sV, shadowLenPerM) {
     if (effH <= 0.2) return null; // La punta de la turbina no sobrepasa la cota del tejado
     h = effH;
   }
-  const shadowLen = h * (shadowLenPerM || 0);
+  const maxObstacleShadowLen = 45.0; // Límite físico para evitar proyecciones infinitas con sol rasante
+  const shadowLen = Math.min(h * (shadowLenPerM || 0), maxObstacleShadowLen);
   
   // <i data-lucide=\"zap\" class=\"icon-sm\"></i> SEPARACIÓN DE SEGURIDAD (5 cm): Iniciar la sombra a 0.05m del obstáculo para erradicar artefactos y shadow acne
   const SHADOW_OFFSET_START_M = 0.05;

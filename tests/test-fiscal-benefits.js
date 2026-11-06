@@ -123,7 +123,7 @@ console.log('\n▶ TEST 2: Comprobación de tramos IRPF Autoconsumo vs Eficienci
   // Caso 4: 60% Eficiencia Edificio (máx 15.000 €)
   domMock.set('modal-tax-irpf-opt', '0.60');
   const mIrpf60 = calculateFinancialModel();
-  assert.strictEqual(mIrpf60.ahorroIRPF, Math.min(mIrpf60.capexBruto, 15000) * 0.60, 'IRPF 60% eficiencia debe calcular 60% de base máx 15.000 €');
+  assert.strictEqual(mIrpf60.ahorroIRPF, Math.round(Math.min(mIrpf60.capexBruto, 15000) * 0.60), 'IRPF 60% eficiencia debe calcular 60% de base máx 15.000 €');
 
   console.log(`  -> PASS: IRPF 10%: ${mIrpf10.ahorroIRPF} € | IRPF 20%: ${mIrpf20Auto.ahorroIRPF} € | IRPF 40%: ${mIrpf40.ahorroIRPF} € | IRPF 60%: ${mIrpf60.ahorroIRPF} €`);
 }

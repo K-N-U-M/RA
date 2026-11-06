@@ -73,6 +73,8 @@
         type: catalogItem.type || 'HAWT',
         ratedPowerW: catalogItem.ratedPowerW || 10000,
         rotorDiameterM: catalogItem.rotorDiameterM || 5.0,
+        bladeHeightM: catalogItem.bladeHeightM || catalogItem.bladeLength || ((catalogItem.type === 'VAWT') ? Math.round((catalogItem.rotorDiameterM || 5.0) * 1.4 * 10) / 10 : (catalogItem.rotorDiameterM || 5.0)),
+        bladeLength: catalogItem.bladeLength || catalogItem.bladeHeightM || ((catalogItem.type === 'VAWT') ? Math.round((catalogItem.rotorDiameterM || 5.0) * 1.4 * 10) / 10 : Math.round((catalogItem.rotorDiameterM || 5.0) / 2 * 10) / 10),
         bladeCount: catalogItem.bladeCount || 3,
         hubHeightsAvailableM: catalogItem.hubHeightsAvailableM || [12, 18, 24],
         cutInSpeedMs: catalogItem.cutInSpeedMs || 2.5,
@@ -129,6 +131,18 @@
       t.orientationRad = Number(value) || 0;
     } else if (key === 'mountingType') {
       t.mountingType = value;
+    } else if (key === 'rotorDiameterM') {
+      var dVal = Math.max(0.2, Number(value) || 1.0);
+      t.rotorDiameterM = dVal;
+      if (t._catalog) t._catalog.rotorDiameterM = dVal;
+    } else if (key === 'bladeLength' || key === 'bladeHeightM') {
+      var lVal = Math.max(0.2, Number(value) || 1.0);
+      t.bladeLength = lVal;
+      t.bladeHeightM = lVal;
+      if (t._catalog) {
+        t._catalog.bladeLength = lVal;
+        t._catalog.bladeHeightM = lVal;
+      }
     } else if (key === 'enabled') {
       t.operationalState.enabled = !!value;
     } else if (key === 'curtailmentRulesActive') {

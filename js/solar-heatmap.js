@@ -226,11 +226,13 @@
     const structType = pInfo.structureType || (pInfo.estructura && pInfo.estructura.tipo);
     const pergSubtype = pInfo.pergolaSubtype || (pInfo.estructura && pInfo.estructura.subtype) || 'continuous';
     const isContinuousPergola = (structType === 'pergola' && pergSubtype !== 'spaced_rows');
+    const hasPergolaSpacedRows = (structType === 'pergola' && pergSubtype === 'spaced_rows');
 
     // En cubiertas coplanares o marquesinas continuas (tejadillo corrido sin desnivel entre filas),
-    // si no hay desnivel geométrico en vértices 3D, no hay autosombreado inter-filas
-    const hasPergolaTilt = (structType === 'pergola' && typeof pInfo.moduleTiltDeg === 'number' && pInfo.moduleTiltDeg > 2);
-    if ((pInfo.coplanar || isContinuousPergola) && !hasPergolaTilt) return [];
+    // todos los paneles forman un plano continuo coplanar sin autosombreado inter-filas.
+    // Solo pérgolas con filas separadas (spaced_rows) o triángulos sobre cubierta plana generan sombras inter-filas.
+    const isZeroTiltOnSlope = (pInfo.tiltDeg > 3 && (pInfo.moduleTiltDeg === 0 || pInfo.moduleTiltDeg === pInfo.tiltDeg));
+    if (pInfo.coplanar || (isContinuousPergola && !hasPergolaSpacedRows) || isZeroTiltOnSlope) return [];
 
     let hModGlobal = 0;
     if (typeof pInfo.moduleTiltDeg === 'number' && pInfo.moduleTiltDeg > 5) {
@@ -297,6 +299,8 @@
       quad.sourcePanelIdx = (p.layoutIndex !== undefined) ? p.layoutIndex : pIdx;
       quad.sourceU = p.u;
       quad.sourceV = p.v;
+      quad.gridA = (typeof p.gridA === 'number') ? p.gridA : ((p.frame && typeof p.frame.Lu === 'number') ? (p.u * p.frame.Lu + p.v * p.frame.Lv) : null);
+      quad.frame = p.frame || null;
       quads.push(quad);
     });
 
@@ -450,13 +454,27 @@
           const myIndex = (pData.layoutIndex !== undefined) ? pData.layoutIndex : pIdx;
           const panelH = pData.h || 2.10;
           for (const quad of polyShadowQuads2D) {
-            // Evitar que el panel se auto-sombre con su propia sombra arrojada
+            // Evitar que el panel se auto-sombre con su propia sombra arrojada o con módulos de su misma fila
             if (quad.sourcePanelIdx !== undefined) {
               if (quad.sourcePanelIdx === myIndex) continue;
               if (typeof quad.sourceU === 'number' && typeof quad.sourceV === 'number' && typeof pData.u === 'number' && typeof pData.v === 'number') {
                 if (Math.abs(quad.sourceU - pData.u) < 0.05 && Math.abs(quad.sourceV - pData.v) < 0.05) continue;
-                // Si ambos módulos pertenecen a la misma fila física (misma cota V dentro del 40% del panel)
-                if (Math.abs(quad.sourceV - pData.v) < panelH * 0.40) continue;
+                // Descarte por fila física transversal (gridA o proyección frame.Lu/Lv):
+                const pGridA = (typeof pData.gridA === 'number') ? pData.gridA : ((pData.frame && typeof pData.frame.Lu === 'number') ? (pData.u * pData.frame.Lu + pData.v * pData.frame.Lv) : null);
+                if (typeof quad.gridA === 'number' && typeof pGridA === 'number') {
+                  if (Math.abs(quad.gridA - pGridA) < panelH * 0.40) continue;
+                } else if (pData.frame && typeof pData.frame.Lu === 'number') {
+                  const qRowProj = quad.sourceU * pData.frame.Lu + quad.sourceV * pData.frame.Lv;
+                  const pRowProj = pData.u * pData.frame.Lu + pData.v * pData.frame.Lv;
+                  if (Math.abs(qRowProj - pRowProj) < panelH * 0.40) continue;
+                } else if (quad.frame && typeof quad.frame.Lu === 'number') {
+                  const qRowProj = quad.sourceU * quad.frame.Lu + quad.sourceV * quad.frame.Lv;
+                  const pRowProj = pData.u * quad.frame.Lu + pData.v * quad.frame.Lv;
+                  if (Math.abs(qRowProj - pRowProj) < panelH * 0.40) continue;
+                } else {
+                  if (Math.abs(quad.sourceV - pData.v) < panelH * 0.40) continue;
+                  if (Math.abs(quad.sourceU - pData.u) < (pData.w || 1.05) * 0.40) continue;
+                }
               }
             }
             if (typeof polygonsIntersect2D === "function" && polygonsIntersect2D(panelPoly2D, quad)) {
@@ -471,7 +489,7 @@
           // [AAA FÍSICA SOLAR] Si el sol incide por la espalda del panel real (espalda al sol), sombra propia directa
           if (effPanelNorm && Cesium.Cartesian3.dot(effPanelNorm, sunDirWorld) <= 0.001) {
             isShaded = true;
-          } else if (!poly.ignore3DTilesShadows && !(pInfo && pInfo.ignore3DTilesShadows) && typeof isPanelOccludedBy3DEnvironment === "function" && isPanelOccludedBy3DEnvironment(pData.center, effPanelNorm, sunDirWorld)) {
+          } else if (!poly.ignore3DTilesShadows && !(pInfo && pInfo.ignore3DTilesShadows) && typeof isPanelOccludedBy3DEnvironment === "function" && isPanelOccludedBy3DEnvironment(pData.center, effPanelNorm, sunDirWorld, pInfo)) {
             isShaded = true;
           }
         }
@@ -483,9 +501,6 @@
 
         if (isShaded && pData.corners && pData.corners.length >= 3) {
           shadedCount++;
-          const tiltAngle = (typeof pInfo.tiltDeg === 'number') ? pInfo.tiltDeg : 15;
-          const zOffset = 0.025 + 0.015 * Math.sin(Cesium.Math.toRadians(tiltAngle));
-
 
           if (requiresMLPE) {
             const badgePos = Cesium.Cartesian3.add(
@@ -513,11 +528,6 @@
         }
       });
     });
-
-    overlayPool.forEach((ent, id) => {
-      try { viewer.entities.remove(ent); } catch(e) {}
-    });
-    overlayPool.clear();
 
     const shadedCountEl = document.getElementById("solar-telemetry-shaded") || document.getElementById("hud-shaded-count");
     const mlpeCountEl = document.getElementById("solar-telemetry-mlpe") || document.getElementById("hud-mlpe-count");
@@ -633,23 +643,319 @@
   }
 
   // Token de generación para cancelación atómica de simulaciones obsoletas/concurrentes
+    /**
+   * Sondea el perfil de horizonte 3D (Skyline / Obstacle Elevation Mask)
+   * disparando rayos en abanico azimutal contra Google 3D Tiles y terreno.
+   * Devuelve un Map(panelId => array de 16 elevaciones angulares en grados).
+   * Al ejecutarse una sola vez en abanico cilíndrico (16 direcciones fijas),
+   * procesa toda la cubierta en < 20 ms sin ralentizar la app.
+   */
+  function computeFieldHorizonProfile(cfgPolylines) {
+    if (typeof viewer === 'undefined' || !viewer || !viewer.scene) return null;
+    const scene = viewer.scene;
+    const gTileset = (typeof google3DTileset !== 'undefined' && google3DTileset) || (typeof window !== 'undefined' && window.google3DTileset);
+    const osmTileset = (typeof cesiumOsmBuildings !== 'undefined' && cesiumOsmBuildings) || (typeof window !== 'undefined' && window.cesiumOsmBuildings);
+    if (!gTileset && !osmTileset && (!scene.primitives || scene.primitives.length === 0)) return null;
+
+    const horizonMap = new Map();
+    const NUM_SECTORS = 16;
+    const SECTOR_DEG = 360 / NUM_SECTORS; // 22.5°
+
+    cfgPolylines.forEach((poly, polyIdx) => {
+      const pInfo = poly.roofInfo || {};
+      const transform = pInfo.transform;
+      const pPanels = Array.isArray(poly.panels) ? poly.panels : (pInfo && Array.isArray(pInfo.panels) ? pInfo.panels : []);
+      if (!pPanels || pPanels.length === 0) return;
+
+      const roofElevations = new Array(NUM_SECTORS).fill(0);
+
+      // Si el faldón tiene desactivadas las sombras de fotogrametría 3D, horizonte despejado 100%
+      if (poly.ignore3DTilesShadows || (pInfo && pInfo.ignore3DTilesShadows)) {
+        pPanels.forEach((p, idx) => {
+          const pId = p.panelId || p.id || ('pan_' + polyIdx + '_' + idx);
+          horizonMap.set(pId, roofElevations);
+        });
+        return;
+      }
+
+      // Calcular centroide medio del faldón para no saturar con rayos
+      let roofCenter = null;
+      let validCount = 0;
+      pPanels.forEach(p => {
+        if (!p || p.deleted) return;
+        const c = p.center || (Array.isArray(p.corners) && p.corners[0]);
+        if (c && typeof Cesium !== 'undefined') {
+          if (!roofCenter) roofCenter = new Cesium.Cartesian3(0, 0, 0);
+          Cesium.Cartesian3.add(roofCenter, c, roofCenter);
+          validCount++;
+        }
+      });
+      if (!roofCenter || validCount === 0) return;
+      Cesium.Cartesian3.divideByScalar(roofCenter, validCount, roofCenter);
+
+      const enuFrame = transform || Cesium.Transforms.eastNorthUpToFixedFrame(roofCenter);
+      const toExclude = (typeof _getOcclusionExcludeList === 'function') ? _getOcclusionExcludeList(scene) : [];
+
+      // Elevación de sondeo sobre la cota superior real de los paneles del faldón
+      const upVec = Cesium.Matrix4.multiplyByPointAsVector(enuFrame, new Cesium.Cartesian3(0, 0, 1), new Cesium.Cartesian3());
+      Cesium.Cartesian3.normalize(upVec, upVec);
+
+      let maxCornerH = 0;
+      pPanels.forEach(p => {
+        if (Array.isArray(p.corners)) {
+          p.corners.forEach(c => {
+            if (c) {
+              const diff = Cesium.Cartesian3.subtract(c, roofCenter, new Cesium.Cartesian3());
+              const hDot = Cesium.Cartesian3.dot(diff, upVec);
+              if (hDot > maxCornerH) maxCornerH = hDot;
+            }
+          });
+        }
+      });
+      const probeOrigin = Cesium.Cartesian3.add(
+        roofCenter,
+        Cesium.Cartesian3.multiplyByScalar(upVec, Math.max(0.50, maxCornerH + 0.35), new Cesium.Cartesian3()),
+        new Cesium.Cartesian3()
+      );
+
+      // Probar los 16 sectores azimutales (Norte a Norte en sentido horario)
+      for (let s = 0; s < NUM_SECTORS; s++) {
+        // azSur = s * 22.5. azFromNorth = azSur + 180
+        const azRad = ((s * SECTOR_DEG + 180) * Math.PI) / 180;
+        
+        // Sondeo vertical por bisección angular rápida (10°, 25°, 45°, 65°)
+        const testAngles = [10, 25, 45, 65];
+        let maxFoundElev = 0;
+
+        for (let a = 0; a < testAngles.length; a++) {
+          const elevRad = (testAngles[a] * Math.PI) / 180;
+          const dirENU = new Cesium.Cartesian3(
+            Math.cos(elevRad) * Math.sin(azRad),
+            Math.cos(elevRad) * Math.cos(azRad),
+            Math.sin(elevRad)
+          );
+          const dirWorld = Cesium.Matrix4.multiplyByPointAsVector(enuFrame, dirENU, new Cesium.Cartesian3());
+          Cesium.Cartesian3.normalize(dirWorld, dirWorld);
+
+          const ray = new Cesium.Ray(probeOrigin, dirWorld);
+          try {
+            const hit = scene.pickFromRay(ray, toExclude);
+            if (hit && Cesium.defined(hit.position) && hit.object) {
+              const objPrim = hit.object.primitive;
+              const is3DTile = (
+                (typeof Cesium.Cesium3DTileFeature !== "undefined" && hit.object instanceof Cesium.Cesium3DTileFeature) ||
+                (typeof Cesium.Cesium3DTileset !== "undefined" && (objPrim instanceof Cesium.Cesium3DTileset || hit.object instanceof Cesium.Cesium3DTileset)) ||
+                (objPrim && (objPrim === gTileset || objPrim === osmTileset)) ||
+                (hit.object.tileset && (hit.object.tileset === gTileset || hit.object.tileset === osmTileset)) ||
+                (hit.object.content && hit.object.content.tileset)
+              );
+
+              if (is3DTile) {
+                // Descarte de impacto contra la propia huella / losa del faldón o suelo bajo la pérgola
+                if (pInfo && pInfo.invTransform && pInfo.poly2D) {
+                  try {
+                    const locHit = Cesium.Matrix4.multiplyByPoint(pInfo.invTransform, hit.position, new Cesium.Cartesian3());
+                    const u = Cesium.Cartesian3.dot(locHit, pInfo.uVec || Cesium.Cartesian3.UNIT_X);
+                    const v = Cesium.Cartesian3.dot(locHit, pInfo.vVec || Cesium.Cartesian3.UNIT_Y);
+                    if (typeof isPointInPolygon2D === 'function' && isPointInPolygon2D({ u, v }, pInfo.poly2D)) {
+                      continue;
+                    }
+                  } catch (eHit) {}
+                }
+
+                const dist = Cesium.Cartesian3.distance(probeOrigin, hit.position);
+                if (dist > 2.0 && dist < 1200.0) {
+                  maxFoundElev = testAngles[a];
+                }
+              }
+            }
+          } catch(e) {}
+        }
+        roofElevations[s] = maxFoundElev;
+      }
+
+      // Asignar el perfil de horizonte a todos los paneles de este faldón
+      pPanels.forEach((p, idx) => {
+        const pId = p.panelId || p.id || ('pan_' + polyIdx + '_' + idx);
+        horizonMap.set(pId, roofElevations);
+      });
+    });
+
+    return horizonMap;
+  }
+
   let _activeSimGenerationId = 0;
 
   /**
    * Ejecuta el cálculo masivo de 192 instantes en un Web Worker off-thread.
    * Evita congelar el render loop de CesiumJS (preserva 60 FPS estables).
    */
-  function runHeatmapInDedicatedWorker(cfg, onProgressCallback, progressBar, progressFill, totalPanelsCount) {
-    return new Promise((resolve, reject) => {
-      let worker;
-      try {
-        worker = new Worker('js/solar-worker.js');
-      } catch (err) {
-        return reject(err);
+  async function runHeatmapInDedicatedWorker(cfg, onProgressCallback, progressBar, progressFill, totalPanelsCount) {
+    let worker;
+    try {
+      worker = new Worker('js/solar-worker.js?v=20261106_0835');
+    } catch (err) {
+      throw err;
+    }
+
+    // Configuración temporal compartida con el worker
+    let monthsDoy = [15, 45, 74, 105, 135, 166, 196, 227, 258, 288, 319, 349];
+    let hours = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21];
+    if (cfg.resolution === 'sketch') {
+      // Modo Skyline 360° instantáneo: cálculo analítico puro en worker sin trazado de rayos por panel
+      hours = [8, 10, 12, 14, 16, 18];
+    } else if (cfg.resolution === 'fast') {
+      // Modo Rápida Solsticios (Opción 3): 4 fechas cardinales x 4 horas = 16 instantes
+      monthsDoy = [15, 105, 196, 288];
+      hours = [9, 12, 15, 17];
+    } else if (cfg.resolution === 'medium') {
+      hours = [8, 10, 12, 14, 16, 18];
+    }
+    const totalSteps = monthsDoy.length * hours.length;
+
+    // Entorno 3D activo (Google Photorealistic 3D Tiles / OSM Buildings)
+    const has3DEnvironment = (typeof google3DTileset !== 'undefined' && google3DTileset) ||
+                             (typeof cesiumOsmBuildings !== 'undefined' && cesiumOsmBuildings);
+
+    const _MONTH_START_DOY = [1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335];
+    const doyToMonthIdx = (doy) => {
+      let mi = 11;
+      for (let k = 0; k < 12; k++) {
+        if (doy >= _MONTH_START_DOY[k]) mi = k;
+      }
+      return mi;
+    };
+    const monthsReal = monthsDoy.map(doyToMonthIdx);
+
+    const occlusion3DMap = new Map();
+
+    if (cfg.resolution !== 'sketch' && has3DEnvironment && typeof isPanelOccludedBy3DEnvironment === 'function') {
+      const panelsToProbe = [];
+      cfg.polylines.forEach((poly, polyIdx) => {
+        const pInfo = poly.roofInfo || {};
+        if (poly.ignore3DTilesShadows || (pInfo && pInfo.ignore3DTilesShadows)) return;
+        const norm = pInfo.normal || (typeof Cesium !== 'undefined' && Cesium.Cartesian3 ? new Cesium.Cartesian3(0, 0, 1) : null);
+        const transform = pInfo.transform;
+        const pPanels = Array.isArray(poly.panels) ? poly.panels : (pInfo && Array.isArray(pInfo.panels) ? pInfo.panels : []);
+
+        pPanels.forEach((p, pIdx) => {
+          if (!p || p.deleted) return;
+          const pId = p.panelId || p.id || ('pan_' + polyIdx + '_' + pIdx);
+
+          let centerCart = p.center;
+          if (!centerCart && Array.isArray(p.corners) && p.corners.length >= 3 && typeof Cesium !== 'undefined') {
+            centerCart = new Cesium.Cartesian3(0, 0, 0);
+            p.corners.forEach(c => Cesium.Cartesian3.add(centerCart, c, centerCart));
+            Cesium.Cartesian3.divideByScalar(centerCart, p.corners.length, centerCart);
+          } else if (!centerCart && typeof p.u === 'number' && typeof p.v === 'number' && transform && typeof Cesium !== 'undefined') {
+            const loc = new Cesium.Cartesian3(p.u, p.v, 0);
+            centerCart = Cesium.Matrix4.multiplyByPoint(transform, loc, new Cesium.Cartesian3());
+          }
+          if (!centerCart) return;
+
+          const pNormWorld = (typeof getPanelNormalWorld === 'function')
+            ? getPanelNormalWorld(p, norm, transform)
+            : norm;
+
+          panelsToProbe.push({
+            id: pId,
+            center: centerCart,
+            normal: pNormWorld,
+            pInfo: pInfo,
+            transform: transform
+          });
+          occlusion3DMap.set(pId, new Uint8Array(totalSteps));
+        });
+      });
+      if (typeof console !== 'undefined' && console.log) {
+        console.log('[SOLAR 3D] Paneles listos para escaneo 3D Tiles:', panelsToProbe.length);
       }
 
+      if (panelsToProbe.length > 0) {
+        for (let mIdx = 0; mIdx < monthsDoy.length; mIdx++) {
+          if (cfg.simGenerationId !== _activeSimGenerationId) {
+            worker.terminate();
+            throw new Error('Simulación cancelada');
+          }
+
+          const doy = monthsDoy[mIdx];
+          const _gammaM = (2 * Math.PI / 365) * (doy - 1);
+          const _EtM = 229.18 * (0.000075 + 0.001868 * Math.cos(_gammaM) - 0.032077 * Math.sin(_gammaM)
+            - 0.014615 * Math.cos(2 * _gammaM) - 0.040849 * Math.sin(2 * _gammaM));
+
+          for (let hIdx = 0; hIdx < hours.length; hIdx++) {
+            const h = hours[hIdx];
+            const stepIdx = mIdx * hours.length + hIdx;
+            const utcHour = h - (4 * cfg.lng + _EtM) / 60;
+
+            let sp = null;
+            if (typeof computeHighPrecisionSolarPosition === 'function') {
+              sp = computeHighPrecisionSolarPosition(cfg.lat, cfg.lng, doy, utcHour);
+            }
+            if (!sp || !sp.isDay || sp.elevDeg < 10.0) continue;
+
+            const elevRad = sp.elevRad;
+            const azNRad = (sp.azDegFromNorth * Math.PI) / 180;
+            const sunVecENU = new Cesium.Cartesian3(
+              Math.cos(elevRad) * Math.sin(azNRad),
+              Math.cos(elevRad) * Math.cos(azNRad),
+              Math.sin(elevRad)
+            );
+
+            const probeStride = (cfg.resolution === 'fast') ? 3 : 1;
+            for (let pi = 0; pi < panelsToProbe.length; pi += probeStride) {
+              const pProbe = panelsToProbe[pi];
+              let sunDirWorld = null;
+              if (pProbe.transform) {
+                sunDirWorld = Cesium.Matrix4.multiplyByPointAsVector(pProbe.transform, sunVecENU, new Cesium.Cartesian3());
+              } else if (pProbe.center) {
+                const enuFrame = Cesium.Transforms.eastNorthUpToFixedFrame(pProbe.center);
+                sunDirWorld = Cesium.Matrix4.multiplyByPointAsVector(enuFrame, sunVecENU, new Cesium.Cartesian3());
+              }
+              if (!sunDirWorld) continue;
+              Cesium.Cartesian3.normalize(sunDirWorld, sunDirWorld);
+
+              let isOccluded = 0;
+              // La oclusión ambiental 3D sólo evalúa apantallamiento de objetos externos (edificios/árboles/terreno)
+              // La incidencia angular directa (cosTheta <= 0) se calcula rigurosamente en el modelo POA del Worker.
+              if (Cesium.Cartesian3.dot(pProbe.normal, sunDirWorld) > 0.001) {
+                if (isPanelOccludedBy3DEnvironment(pProbe.center, pProbe.normal, sunDirWorld, pProbe.pInfo)) {
+                  isOccluded = 1;
+                }
+              }
+
+              occlusion3DMap.get(pProbe.id)[stepIdx] = isOccluded;
+
+              if (probeStride > 1) {
+                for (let s = 1; s < probeStride && (pi + s) < panelsToProbe.length; s++) {
+                  const neighbor = panelsToProbe[pi + s];
+                  if (neighbor && neighbor.pInfo === pProbe.pInfo) {
+                    occlusion3DMap.get(neighbor.id)[stepIdx] = isOccluded;
+                  }
+                }
+              }
+            }
+          }
+
+          const preScanPct = Math.round(((mIdx + 1) / monthsDoy.length) * 35);
+          const currentRealMonth = monthsReal[mIdx];
+          if (typeof updateSolarCalcHUD === 'function') {
+            updateSolarCalcHUD(preScanPct, currentRealMonth, totalPanelsCount, {
+              stepIndex: mIdx + 1,
+              totalStepsCount: monthsDoy.length,
+              phaseText: 'Escaneo 3D'
+            });
+          }
+          if (progressFill) progressFill.style.width = preScanPct + '%';
+          await new Promise(r => setTimeout(r, 0));
+        }
+      }
+    }
+
+    return new Promise((resolve, reject) => {
       const panels = [];
       const faldones = [];
+      const panelHorizons = computeFieldHorizonProfile(cfg.polylines);
 
       cfg.polylines.forEach((poly, polyIdx) => {
         const pInfo = poly.roofInfo || {};
@@ -730,8 +1036,8 @@
         const structType = pInfo.structureType || (pInfo.estructura && pInfo.estructura.tipo);
         const pergSubtype = pInfo.pergolaSubtype || (pInfo.estructura && pInfo.estructura.subtype) || 'continuous';
         const isContinuousPergola = (structType === 'pergola' && pergSubtype !== 'spaced_rows');
-        const hasPergolaTilt = (structType === 'pergola' && typeof pInfo.moduleTiltDeg === 'number' && pInfo.moduleTiltDeg > 2);
-        if ((!pInfo.coplanar && !isContinuousPergola || hasPergolaTilt) && pList.length >= 2) {
+        const hasPergolaSpacedRows = (structType === 'pergola' && pergSubtype === 'spaced_rows');
+        if ((!pInfo.coplanar && (!isContinuousPergola || hasPergolaSpacedRows)) && pList.length >= 2) {
           let hModGlobal = 0;
           if (typeof pInfo.moduleTiltDeg === 'number' && pInfo.moduleTiltDeg > 5) {
             const deltaTilt = Math.max(0, pInfo.moduleTiltDeg - (pInfo.tiltDeg || 0));
@@ -740,15 +1046,48 @@
             hModGlobal = (pList[0].h || 2.10) * Math.sin(15 * Math.PI / 180);
           }
           if (hModGlobal >= 0.04) {
+            const invT = pInfo.invTransform || (pInfo.transform && typeof Cesium !== 'undefined' && Cesium.Matrix4 ? Cesium.Matrix4.inverse(pInfo.transform, new Cesium.Matrix4()) : null);
             pList.forEach((p, pIdx) => {
-              const halfW = (p.w || 1.05) / 2;
-              const halfH = (p.h || 2.10) / 2;
-              interRowEdges.push({
-                u1: p.u - halfW, v1: p.v + halfH,
-                u2: p.u + halfW, v2: p.v + halfH,
-                effHMod: hModGlobal,
-                sourceIdx: (p.layoutIndex !== undefined) ? p.layoutIndex : pIdx
-              });
+              const myLayoutIdx = (p.layoutIndex !== undefined) ? p.layoutIndex : pIdx;
+              let topU1, topV1, topU2, topV2;
+              let effHMod = hModGlobal;
+              if (Array.isArray(p.corners) && p.corners.length === 4 && invT && pInfo.uVec && pInfo.vVec && pInfo.normal) {
+                const pts = p.corners.map(c => {
+                  const loc = Cesium.Matrix4.multiplyByPoint(invT, c, new Cesium.Cartesian3());
+                  return {
+                    u: Cesium.Cartesian3.dot(loc, pInfo.uVec),
+                    v: Cesium.Cartesian3.dot(loc, pInfo.vVec),
+                    h: Cesium.Cartesian3.dot(loc, pInfo.normal)
+                  };
+                });
+                pts.sort((a, b) => b.h - a.h);
+                const hTop = (pts[0].h + pts[1].h) / 2;
+                const hBot = (pts[2].h + pts[3].h) / 2;
+                effHMod = hTop - hBot;
+                topU1 = pts[0].u;
+                topV1 = pts[0].v;
+                topU2 = pts[1].u;
+                topV2 = pts[1].v;
+              } else {
+                const halfW = (p.w || 1.05) / 2;
+                const halfH = (p.h || 2.10) / 2;
+                topU1 = p.u - halfW;
+                topV1 = p.v + halfH;
+                topU2 = p.u + halfW;
+                topV2 = p.v + halfH;
+              }
+              if (effHMod >= 0.04) {
+                interRowEdges.push({
+                  u1: topU1, v1: topV1,
+                  u2: topU2, v2: topV2,
+                  effHMod: effHMod,
+                  sourceIdx: myLayoutIdx,
+                  sourceU: p.u,
+                  sourceV: p.v,
+                  gridA: (typeof p.gridA === 'number') ? p.gridA : ((p.frame && typeof p.frame.Lu === 'number') ? (p.u * p.frame.Lu + p.v * p.frame.Lv) : null),
+                  frame: p.frame ? { Lu: p.frame.Lu, Lv: p.frame.Lv, Wu: p.frame.Wu, Wv: p.frame.Wv } : null
+                });
+              }
             });
           }
         }
@@ -764,35 +1103,63 @@
         });
 
         pList.forEach((p, idx) => {
-          const pId = p.panelId || p.id || ('panel_' + polyIdx + '_' + idx);
+          const pId = p.panelId || p.id || ('pan_' + polyIdx + '_' + idx);
           const u = typeof p.u === 'number' ? p.u : 0;
           const v = typeof p.v === 'number' ? p.v : 0;
           const w = p.w || 1.05;
           const h = p.h || 2.15;
           const halfW = w / 2;
           const halfH = h / 2;
-          const poly2D = (p.poly2D && p.poly2D.length >= 3)
-            ? p.poly2D.map(pt => ({ u: pt.u, v: pt.v }))
-            : [
-                { u: u - halfW, v: v - halfH },
-                { u: u + halfW, v: v - halfH },
-                { u: u + halfW, v: v + halfH },
-                { u: u - halfW, v: v + halfH }
-              ];
+          let poly2D = null;
+          const invT = pInfo.invTransform || (pInfo.transform && typeof Cesium !== 'undefined' && Cesium.Matrix4 ? Cesium.Matrix4.inverse(pInfo.transform, new Cesium.Matrix4()) : null);
+          if (Array.isArray(p.corners) && p.corners.length === 4 && invT && pInfo.uVec && pInfo.vVec) {
+            poly2D = p.corners.map(c => {
+              const loc = Cesium.Matrix4.multiplyByPoint(invT, c, new Cesium.Cartesian3());
+              return {
+                u: Cesium.Cartesian3.dot(loc, pInfo.uVec),
+                v: Cesium.Cartesian3.dot(loc, pInfo.vVec)
+              };
+            });
+          } else if (p.corners2D && Array.isArray(p.corners2D) && p.corners2D.length >= 3) {
+            poly2D = p.corners2D.map(pt => ({ u: pt.u, v: pt.v }));
+          } else if (p.poly2D && Array.isArray(p.poly2D) && p.poly2D.length >= 3) {
+            poly2D = p.poly2D.map(pt => ({ u: pt.u, v: pt.v }));
+          } else {
+            poly2D = [
+              { u: u - halfW, v: v - halfH },
+              { u: u + halfW, v: v - halfH },
+              { u: u + halfW, v: v + halfH },
+              { u: u - halfW, v: v + halfH }
+            ];
+          }
 
-          const tiltVal = p.tiltDeg !== undefined ? p.tiltDeg : (pInfo.moduleTiltDeg !== undefined ? pInfo.moduleTiltDeg : (pInfo.tiltDeg || 20));
+          const roofSlopeVal = (pInfo && typeof pInfo.tiltDeg === 'number') ? pInfo.tiltDeg : 0;
+          let tiltVal = p.tiltDeg !== undefined ? p.tiltDeg : (pInfo.moduleTiltDeg !== undefined ? pInfo.moduleTiltDeg : (pInfo.tiltDeg || 20));
+          if (tiltVal === 0 && roofSlopeVal > 3) {
+            tiltVal = roofSlopeVal;
+          }
           const azVal = p.azimuthDeg !== undefined ? (180 - p.azimuthDeg) : (p.azDeg !== undefined ? p.azDeg : (pInfo.moduleAzimuthDeg !== undefined ? (180 - pInfo.moduleAzimuthDeg) : (pInfo.azDeg || 180)));
-          const tiltR = (tiltVal * Math.PI) / 180;
-          const azR = (azVal * Math.PI) / 180;
-          const normalENU = {
-            x: Math.sin(tiltR) * Math.sin(azR),
-            y: Math.sin(tiltR) * Math.cos(azR),
-            z: Math.cos(tiltR)
-          };
 
           const pNormWorld = (typeof getPanelNormalWorld === 'function')
             ? getPanelNormalWorld(p, norm, pInfo.transform)
             : norm;
+
+          let normalENU;
+          if (pNormWorld && pInfo && pInfo.center && typeof Cesium !== 'undefined' && Cesium.Transforms && Cesium.Matrix4) {
+            const enuFrame = Cesium.Transforms.eastNorthUpToFixedFrame(pInfo.center);
+            const invENU = Cesium.Matrix4.inverse(enuFrame, new Cesium.Matrix4());
+            const nENU = Cesium.Matrix4.multiplyByPointAsVector(invENU, pNormWorld, new Cesium.Cartesian3());
+            Cesium.Cartesian3.normalize(nENU, nENU);
+            normalENU = { x: nENU.x, y: nENU.y, z: nENU.z };
+          } else {
+            const tiltR = (tiltVal * Math.PI) / 180;
+            const azR = (azVal * Math.PI) / 180;
+            normalENU = {
+              x: Math.sin(tiltR) * Math.sin(azR),
+              y: Math.sin(tiltR) * Math.cos(azR),
+              z: Math.cos(tiltR)
+            };
+          }
 
           panels.push({
             id: pId,
@@ -807,8 +1174,12 @@
             azDeg: azVal,
             hasOptimizer: !!(p.hasOptimizer || p.optimizerModelId),
             poly2D: poly2D,
+            gridA: (typeof p.gridA === 'number') ? p.gridA : ((p.frame && typeof p.frame.Lu === 'number') ? (p.u * p.frame.Lu + p.v * p.frame.Lv) : null),
+            frame: p.frame ? { Lu: p.frame.Lu, Lv: p.frame.Lv, Wu: p.frame.Wu, Wv: p.frame.Wv } : null,
             normalWorld: pNormWorld,
-            normalENU: normalENU
+            normalENU: normalENU,
+            horizon: (panelHorizons && panelHorizons.get(pId)) || null,
+            occlusion3D: (occlusion3DMap && occlusion3DMap.get(pId)) || null
           });
         });
       });
@@ -818,12 +1189,17 @@
         if (!msg) return;
 
         if (msg.type === 'PROGRESS') {
+          const currentRealMonth = (typeof msg.monthReal === 'number') ? msg.monthReal : (monthsReal[msg.mIdx] !== undefined ? monthsReal[msg.mIdx] : msg.mIdx);
           if (typeof updateSolarCalcHUD === 'function') {
-            updateSolarCalcHUD(msg.progressPct, msg.mIdx, totalPanelsCount);
+            updateSolarCalcHUD(msg.progressPct, currentRealMonth, totalPanelsCount, {
+              stepIndex: (typeof msg.stepIndex === 'number') ? msg.stepIndex : (msg.mIdx + 1),
+              totalStepsCount: (typeof msg.totalStepsCount === 'number') ? msg.totalStepsCount : monthsDoy.length,
+              phaseText: 'Simulación'
+            });
           }
           if (progressFill) progressFill.style.width = msg.progressPct + '%';
           if (typeof onProgressCallback === 'function') {
-            onProgressCallback(msg.progressPct, msg.mIdx, totalPanelsCount);
+            onProgressCallback(msg.progressPct, currentRealMonth, totalPanelsCount);
           }
         } else if (msg.type === 'DONE') {
           worker.terminate();
@@ -842,6 +1218,7 @@
         lat: cfg.lat,
         lng: cfg.lng,
         resolution: cfg.resolution,
+        detailedBypass: cfg.detailedBypass,
         panels,
         faldones,
         climaticZone: cfg.climaticZone,
@@ -884,6 +1261,9 @@
           p.annualYieldPct = res.annualYieldPct;
           p.shadowHits = res.shadowHits;
           p.activeDiodesHits = res.activeDiodesHits;
+          p.heatmapColor = (typeof getActiveHeatmapColorForPanel === 'function')
+            ? getActiveHeatmapColorForPanel(p)
+            : ((typeof getHeatmapColor === 'function') ? getHeatmapColor(res.annualLossPct || 0) : { hex: '#10b981' });
         }
       });
     });
@@ -1005,19 +1385,26 @@
       return;
     }
 
-    // 4. Parámetros geográficos y temporales
+    // 4. Parámetros geográficos y temporales configurados desde ShadowSettings
+    const shadowCfg = (typeof window !== 'undefined' && window.ShadowSettings) ? window.ShadowSettings.getSettings() : {};
+    const simResolution = shadowCfg.simResolution || window.raHeatmapResolution || 'medium';
+    window.raHeatmapResolution = simResolution;
+    const detailedBypass = (shadowCfg.detailedBypass !== undefined) ? shadowCfg.detailedBypass : true;
+
     let monthsDoy = [15, 45, 74, 105, 135, 166, 196, 227, 258, 288, 319, 349];
     let monthDaysW = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-    let hours = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21];
+    let hours = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21]; // 192 instantes (Ultra)
 
-    if (window.raHeatmapResolution === 'medium') {
-      monthsDoy = [15, 74, 135, 196, 258, 319];
-      monthDaysW = [59, 61, 61, 62, 61, 61]; 
-      hours = [7, 9, 11, 13, 15, 17, 19];
-    } else if (window.raHeatmapResolution === 'fast') {
-      monthsDoy = [45, 135, 227, 319]; 
-      monthDaysW = [90, 92, 92, 91];
-      hours = [8, 11, 14, 17];
+    if (simResolution === 'sketch') {
+      // Modo Skyline 360° instantáneo (<0.1s): 12 meses x 6 horas de cálculo puro
+      hours = [8, 10, 12, 14, 16, 18];
+    } else if (simResolution === 'fast') {
+      // Modo Rápida Solsticios (Opción 3): 4 fechas cardinales x 4 horas = 16 instantes (~0.3s)
+      monthsDoy = [15, 105, 196, 288];
+      monthDaysW = [90, 91, 92, 92];
+      hours = [9, 12, 15, 17];
+    } else if (simResolution === 'medium') {
+      hours = [8, 10, 12, 14, 16, 18]; // 72 instantes (Ingeniería PVSyst)
     }
     // [B3] Paso de integración = intervalo REAL entre muestras (antes 16/N desajustaba el peso temporal).
     const hourStepDt = (hours.length > 1) ? (hours[hours.length - 1] - hours[0]) / (hours.length - 1) : 1.0;
@@ -1139,7 +1526,8 @@
           simGenerationId,
           lat,
           lng,
-          resolution: window.raHeatmapResolution || 'ultra',
+          resolution: simResolution,
+          detailedBypass: detailedBypass,
           polylines,
           climaticZone,
           moduleProps: {
@@ -1226,7 +1614,8 @@
             shadowLenPerM: sp.elevDeg >= 10.0 ? Math.min(1 / Math.tan(elevRad_), 5.67) : 0
           };
         } else if (typeof computeSolarPosition === 'function') {
-          solarPos = computeSolarPosition(d, lat, lng);
+          const dLegacy = new Date(Date.UTC(2026, m, 15, Math.floor(utcHour), Math.floor((utcHour % 1) * 60)));
+          solarPos = computeSolarPosition(dLegacy, lat, lng);
         }
 
         const elevation = solarPos ? solarPos.elevationDeg : -90;
@@ -1243,9 +1632,7 @@
         // [B2] Desagregación Erbs vía motor único de radiación (RA.Radiation). Fallback inline si el módulo no está.
         let G_dhi, G_dni;
         // [AUD-2026 · D-04] Día del año para corregir la excentricidad orbital en Erbs.
-        const _doyHeat = (d && typeof d.getFullYear === 'function')
-          ? (Math.floor((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - Date.UTC(d.getFullYear(), 0, 1)) / 86400000) + 1)
-          : null;
+        const _doyHeat = (typeof monthsDoy !== 'undefined' && monthsDoy[mIdx]) ? monthsDoy[mIdx] : 180;
         if (typeof window !== 'undefined' && window.RA && window.RA.Radiation && typeof window.RA.Radiation.decomposeErbs === 'function') {
           const _dec = window.RA.Radiation.decomposeErbs(GHI_instant, elevation, _doyHeat);
           G_dhi = _dec.dhi;
@@ -1414,8 +1801,21 @@
                     const curIdx = (pData.layoutIndex !== undefined) ? pData.layoutIndex : pIdx;
                     if (quad.sourcePanelIdx === curIdx) continue; // Un panel jamás se hace sombra a sí mismo
 
-                    // Si ambos paneles están en la misma fila (misma cota V dentro del 40% de la altura del panel)
-                    if (Math.abs(quad.sourceV - pData.v) < (pData.h || 2.10) * 0.40) continue;
+                    const pGridA = (typeof pData.gridA === 'number') ? pData.gridA : ((pData.frame && typeof pData.frame.Lu === 'number') ? (pData.u * pData.frame.Lu + pData.v * pData.frame.Lv) : null);
+                    if (typeof quad.gridA === 'number' && typeof pGridA === 'number') {
+                      if (Math.abs(quad.gridA - pGridA) < (pData.h || 2.10) * 0.40) continue;
+                    } else if (pData.frame && typeof pData.frame.Lu === 'number') {
+                      const qRowProj = quad.sourceU * pData.frame.Lu + quad.sourceV * pData.frame.Lv;
+                      const pRowProj = pData.u * pData.frame.Lu + pData.v * pData.frame.Lv;
+                      if (Math.abs(qRowProj - pRowProj) < (pData.h || 2.10) * 0.40) continue;
+                    } else if (quad.frame && typeof quad.frame.Lu === 'number') {
+                      const qRowProj = quad.sourceU * quad.frame.Lu + quad.sourceV * quad.frame.Lv;
+                      const pRowProj = pData.u * quad.frame.Lu + pData.v * quad.frame.Lv;
+                      if (Math.abs(qRowProj - pRowProj) < (pData.h || 2.10) * 0.40) continue;
+                    } else {
+                      if (Math.abs(quad.sourceV - pData.v) < (pData.h || 2.10) * 0.40) continue;
+                      if (Math.abs(quad.sourceU - pData.u) < (pData.w || 1.05) * 0.40) continue;
+                    }
                   }
 
                   // AABB Broadphase check: si la caja envolvente de la sombra no toca la del panel, descartar inmediatamente
@@ -1448,13 +1848,7 @@
               }
             }
 
-            if (shadedSubstringsCount < 3 && G_beam > 0.1 && sunDirWorld && pData.center) {
-              const shouldCheck3DTiles = !poly.ignore3DTilesShadows && !(pInfo && pInfo.ignore3DTilesShadows);
-              if (shouldCheck3DTiles && typeof isPanelOccludedBy3DEnvironment === "function" && isPanelOccludedBy3DEnvironment(pData.center, panelNormWorld, sunDirWorld)) {
-                isShaded = true;
-                shadedSubstringsCount = 3;
-              }
-            }
+            // Raycast sincrono eliminado en hilo principal para evitar congelacion de la app
 
             // Fracción física de pérdida de haz según sub-strings bajo sombra
             const beamShadedFraction = (shadedSubstringsCount > 0)
@@ -1488,12 +1882,17 @@
             return;
           }
           const progressPct = Math.min(100, Math.round((currentStep / totalSteps) * 100));
+          const currentRealMonth = (monthsReal && monthsReal[mIdx] !== undefined) ? monthsReal[mIdx] : mIdx;
           if (typeof updateSolarCalcHUD === 'function') {
-            updateSolarCalcHUD(progressPct, mIdx, totalPanelsCount);
+            updateSolarCalcHUD(progressPct, currentRealMonth, totalPanelsCount, {
+              stepIndex: mIdx + 1,
+              totalStepsCount: monthsDoy.length,
+              phaseText: 'Cálculo analítico'
+            });
           }
           if (progressFill) progressFill.style.width = progressPct + '%';
           if (typeof onProgressCallback === 'function') {
-            onProgressCallback(progressPct, mIdx, totalPanelsCount);
+            onProgressCallback(progressPct, currentRealMonth, totalPanelsCount);
           }
           await new Promise(resolve => setTimeout(resolve, 0));
           if (simGenerationId !== _activeSimGenerationId) return;
@@ -1545,17 +1944,22 @@
         const relativeYield = netWh / maxNetWh;
         p.relativeYieldPct = Math.round(relativeYield * 1000) / 10;
 
-        // [OPCIÓN A] Gradiente cromático canónico basado estrictamente en Pérdidas por Sombra (SSOT getHeatmapColor)
-        const heatCol = (typeof getHeatmapColor === 'function')
-          ? getHeatmapColor(p.annualLossPct)
-          : null;
+        // Gradiente cromático (Relativo vs. Líder o Pérdidas por Sombra según configuración)
+        const heatCol = (typeof getActiveHeatmapColorForPanel === 'function')
+          ? getActiveHeatmapColorForPanel(p)
+          : ((typeof getHeatmapColor === 'function') ? getHeatmapColor(p.annualLossPct) : null);
         let hexColor = heatCol ? heatCol.hex : '#10b981';
         if (!heatCol) {
-          if (p.annualLossPct <= 3.0) hexColor = '#10b981';
-          else if (p.annualLossPct <= 8.0) hexColor = '#84cc16';
+          if (p.annualLossPct <= 2.0) hexColor = '#059669';
+          else if (p.annualLossPct <= 4.0) hexColor = '#10b981';
+          else if (p.annualLossPct <= 6.0) hexColor = '#84cc16';
+          else if (p.annualLossPct <= 8.0) hexColor = '#a3e635';
+          else if (p.annualLossPct <= 11.0) hexColor = '#facc15';
           else if (p.annualLossPct <= 15.0) hexColor = '#f59e0b';
-          else if (p.annualLossPct <= 25.0) hexColor = '#f97316';
-          else hexColor = '#ef4444';
+          else if (p.annualLossPct <= 20.0) hexColor = '#f97316';
+          else if (p.annualLossPct <= 25.0) hexColor = '#ea580c';
+          else if (p.annualLossPct <= 35.0) hexColor = '#ef4444';
+          else hexColor = '#991b1b';
         }
         p.heatmapColor = heatCol || { hex: hexColor };
 

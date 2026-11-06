@@ -9,7 +9,7 @@
 | **Entrada** | Navegador moderno (Chromium recomendado) | Web app cliente, sin instalación. |
 | **Lenguaje base** | HTML5 + CSS3 + JavaScript (Vanilla, ES6+) | `index.html` monolítico (~1 MB). Sin framework de UI. |
 | **3D Geoespecial** | CesiumJS (WebGL) | Globos, tiles fotorrealistas, DTM/OSM, primitivas, `ScreenSpaceEventHandler`, sombras GPU. Es el **único motor 3D**; no hay capa Three.js. |
-| **Cálculo matemático** | JavaScript (Vanilla, en módulos `js/`) | Vectores, geometría 2D/3D, sombras y física solar viven en los motores `js/*.js` y en el bloque inline de `index.html`. No existe capa `src/*.ts`. |
+| **Cálculo matemático** | JavaScript (Vanilla, módulos `js/` + Web Worker) | Vectores, geometría 2D/3D, sombras y física solar viven en los motores `js/*.js` y en el worker dedicado off-thread `js/solar-worker.js`. |
 | **Persistencia** | `localStorage` | Catálogo (`ra_equipment_catalog`), proyecto y configuraciones. |
 | **PDF/Informes** | Generación en cliente | `js/docs-generator.js`. |
 | **Datos geográficos** | Google Photorealistic 3D Tiles | Fuente base del terreno/edificios de contexto. |
@@ -28,8 +28,10 @@
 | `working-plane.js` | Planos de trabajo 3D, faldones, tríada CAD, gizmos y empaquetamiento booleano. |
 | `buildings.js` | Edificios 3D: huella perimetral, extrusión volumétrica y tipologías de tejado. |
 | `obstacles.js` | Obstáculos (chimeneas, casetones, árboles), sombras y coordenadas UV. |
+| `shadow-settings.js` | Gestión unificada de sombras 3D (calidad 1K-8K, sesgo físico, radio y presets de simulación). |
 | `solar-engine.js` | Astrofísica solar, algoritmo de Spencer, sombras GPU y analíticas. |
-| `solar-heatmap.js` | Simulación anual no bloqueante (192 instantes), heatmap y diagnóstico MLPE. |
+| `solar-heatmap.js` | Simulación anual no bloqueante, mapas cromáticos de 10 tramos y diagnóstico MLPE. |
+| `solar-worker.js` | Web Worker dedicado off-thread: simulación solar multivariable (Spencer/Erbs/Hay-Davies) a 60 FPS. |
 | `solar-materials.js` | Materiales PBR y shaders fotovoltaicos. |
 | `electrical-engine.js` | Cálculo eléctrico, casación de inversores, strings MPPT y cableado REBT ITC-BT-40. |
 | `bill-auditor.js` | Auditoría de facturas eléctricas y contraste de consumo real. |
