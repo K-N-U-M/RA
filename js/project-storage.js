@@ -258,7 +258,7 @@ function raExportProjectData() {
 
   return {
     format: 'RA_SOLAR_PROJECT',
-    version: '2.3',
+    version: '2.4',
     timestamp: new Date().toISOString(),
     metadata: {
       name: _raCurrentProjectName || 'Instalación Solar',
@@ -313,17 +313,32 @@ function raExportProjectData() {
       manualAnnualConsumptionKWh: window.solarProjectConfig.manualAnnualConsumptionKWh || null,
       billCostMonth: window.solarProjectConfig.billCostMonth || null,
       gridSupply: window.solarProjectConfig.gridSupply || null,
-      taxSettings: (window.solarProjectConfig.taxSettings) || {
-        profile: (typeof document !== 'undefined' && (document.getElementById('modal-tax-profile-opt') || {}).value) || 'particular',
-        ivaRate: (typeof document !== 'undefined' && parseFloat((document.getElementById('modal-tax-iva-opt') || {}).value)) || 0.21,
-        ibiCuota: (typeof document !== 'undefined' && parseFloat((document.getElementById('modal-tax-ibi-cuota') || {}).value)) || 650,
-        ibiOpt: (typeof document !== 'undefined' && (document.getElementById('modal-tax-ibi-opt') || {}).value) || '0.50_3',
-        irpfOpt: (typeof document !== 'undefined' && (document.getElementById('modal-tax-irpf-opt') || {}).value) || '0.40',
-        isRate: (typeof document !== 'undefined' && parseFloat((document.getElementById('modal-tax-is-opt') || {}).value)) || 0.25,
-        icioOpt: (typeof document !== 'undefined' && parseFloat((document.getElementById('modal-tax-icio-opt') || {}).value)) || 0.95,
-        regionOpt: (typeof document !== 'undefined' && (document.getElementById('modal-tax-region-opt') || {}).value) || 'estatal_only',
-        caeEur: (typeof document !== 'undefined' && parseFloat((document.getElementById('modal-tax-cae-eur') || {}).value)) || 0
-      }
+      taxSettings: (() => {
+        const soilEl = (typeof document !== 'undefined') ? (document.getElementById('tax-soil-type') || document.getElementById('modal-tax-soil-type')) : null;
+        const profileEl = (typeof document !== 'undefined') ? (document.getElementById('tax-profile-opt') || document.getElementById('modal-tax-profile-opt')) : null;
+        const ivaEl = (typeof document !== 'undefined') ? (document.getElementById('modal-tax-iva-opt')) : null;
+        const ibiCEl = (typeof document !== 'undefined') ? (document.getElementById('tax-ibi-cuota') || document.getElementById('modal-tax-ibi-cuota')) : null;
+        const ibiOEl = (typeof document !== 'undefined') ? (document.getElementById('tax-ibi-opt') || document.getElementById('modal-tax-ibi-opt')) : null;
+        const irpfOEl = (typeof document !== 'undefined') ? (document.getElementById('tax-irpf-opt') || document.getElementById('modal-tax-irpf-opt')) : null;
+        const isOEl = (typeof document !== 'undefined') ? (document.getElementById('tax-is-opt') || document.getElementById('modal-tax-is-opt')) : null;
+        const icioOEl = (typeof document !== 'undefined') ? (document.getElementById('tax-icio-opt') || document.getElementById('modal-tax-icio-opt')) : null;
+        const regEl = (typeof document !== 'undefined') ? (document.getElementById('tax-region-opt') || document.getElementById('modal-tax-region-opt')) : null;
+        const caeEl = (typeof document !== 'undefined') ? (document.getElementById('tax-cae-eur') || document.getElementById('modal-tax-cae-eur')) : null;
+
+        const prev = window.solarProjectConfig.taxSettings || {};
+        return {
+          soilType: (soilEl && soilEl.value) || prev.soilType || 'urbano',
+          profile: (profileEl && profileEl.value) || prev.profile || 'particular',
+          ivaRate: (ivaEl && parseFloat(ivaEl.value)) || (prev.ivaRate != null ? prev.ivaRate : 0.21),
+          ibiCuota: (ibiCEl && parseFloat(ibiCEl.value)) || (prev.ibiCuota != null ? prev.ibiCuota : 650),
+          ibiOpt: (ibiOEl && ibiOEl.value) || prev.ibiOpt || '0.50_3',
+          irpfOpt: (irpfOEl && irpfOEl.value) || prev.irpfOpt || '0.40',
+          isRate: (isOEl && parseFloat(isOEl.value)) || (prev.isRate != null ? prev.isRate : 0.25),
+          icioOpt: (icioOEl && parseFloat(icioOEl.value)) || (prev.icioOpt != null ? prev.icioOpt : 0.95),
+          regionOpt: (regEl && regEl.value) || prev.regionOpt || 'estatal_only',
+          caeEur: (caeEl && parseFloat(caeEl.value)) || (prev.caeEur != null ? prev.caeEur : 0)
+        };
+      })()
     } : null,
     solarSimState: (typeof solarSimState !== 'undefined' && solarSimState) ? {
       monthIdx: solarSimState.monthIdx,
@@ -460,12 +475,76 @@ function raExportProjectData() {
       } catch(ePr) { return null; }
     })(),
     lastVirtualInverter: (typeof window !== 'undefined' && window.lastVirtualInverter) ? JSON.parse(JSON.stringify(window.lastVirtualInverter)) : null,
-    solarLossConfig: (typeof window !== 'undefined' && window.solarLossConfig) ? JSON.parse(JSON.stringify(window.solarLossConfig)) : null
+    solarLossConfig: (typeof window !== 'undefined' && window.solarLossConfig) ? JSON.parse(JSON.stringify(window.solarLossConfig)) : null,
+    // [AUDIT v2.4] Persistencia completa de Maquetación, Personalización de Catálogo, Fotos y Marca
+    proposalStyleStudio: (() => {
+      try {
+        if (typeof window !== 'undefined' && window.RAProposalStyleStudio && typeof window.RAProposalStyleStudio.getFullStudioState === 'function') {
+          return window.RAProposalStyleStudio.getFullStudioState();
+        }
+        if (typeof localStorage !== 'undefined') {
+          const raw = localStorage.getItem('ra_proposal_style_studio_v1');
+          return raw ? JSON.parse(raw) : null;
+        }
+      } catch (eStudio) { console.warn('[RA Storage] Error exportando proposalStyleStudio:', eStudio); }
+      return null;
+    })(),
+    customEquipment: (() => {
+      try {
+        const cat = (typeof window !== 'undefined' && window.equipmentCatalog) ? window.equipmentCatalog : null;
+        const res = {};
+        if (cat) {
+          const defMods = (typeof DEFAULT_EQUIPMENT_CATALOG !== 'undefined' && Array.isArray(DEFAULT_EQUIPMENT_CATALOG.modules))
+            ? DEFAULT_EQUIPMENT_CATALOG.modules.map(m => m.id) : [];
+          const defInvs = (typeof DEFAULT_EQUIPMENT_CATALOG !== 'undefined' && Array.isArray(DEFAULT_EQUIPMENT_CATALOG.inverters))
+            ? DEFAULT_EQUIPMENT_CATALOG.inverters.map(i => i.id) : [];
+          const defBats = (typeof DEFAULT_EQUIPMENT_CATALOG !== 'undefined' && Array.isArray(DEFAULT_EQUIPMENT_CATALOG.batteries))
+            ? DEFAULT_EQUIPMENT_CATALOG.batteries.map(b => b.id) : [];
+          const defMicros = (typeof DEFAULT_EQUIPMENT_CATALOG !== 'undefined' && Array.isArray(DEFAULT_EQUIPMENT_CATALOG.microinverters))
+            ? DEFAULT_EQUIPMENT_CATALOG.microinverters.map(m => m.id) : [];
+
+          if (Array.isArray(cat.modules)) res.modules = cat.modules.filter(m => m && !defMods.includes(m.id));
+          if (Array.isArray(cat.inverters)) res.inverters = cat.inverters.filter(i => i && !defInvs.includes(i.id));
+          if (Array.isArray(cat.batteries)) res.batteries = cat.batteries.filter(b => b && !defBats.includes(b.id));
+          if (Array.isArray(cat.microinverters)) res.microinverters = cat.microinverters.filter(m => m && !defMicros.includes(m.id));
+        }
+        if (typeof window !== 'undefined' && window.RAWindCatalog && typeof window.RAWindCatalog.getAll === 'function') {
+          const allTurbines = window.RAWindCatalog.getAll();
+          const defTurbineIds = ['bornay-wind-25.3', 'bornay-wind-13plus', 'enair-70pro', 'kliux-geo-4k'];
+          res.windTurbines = allTurbines.filter(t => t && !defTurbineIds.includes(t.id));
+        }
+        return res;
+      } catch (eCat) { return null; }
+    })(),
+    proposalPhotos: (() => {
+      try {
+        const mem = (typeof window !== 'undefined' && window.RA && window.RA._proposalCustomPhotos) ? window.RA._proposalCustomPhotos : null;
+        if (mem) return JSON.parse(JSON.stringify(mem));
+        if (typeof sessionStorage !== 'undefined') {
+          const ss = sessionStorage.getItem('ra_proposal_custom_photos');
+          return ss ? JSON.parse(ss) : null;
+        }
+      } catch (ePhotos) { return null; }
+      return null;
+    })(),
+    companyBranding: (() => {
+      try {
+        if (typeof localStorage !== 'undefined') {
+          const branding = localStorage.getItem('ra_company_branding');
+          const logo = localStorage.getItem('ra_company_logo');
+          return {
+            branding: branding ? JSON.parse(branding) : null,
+            logo: logo || null
+          };
+        }
+      } catch (eBrand) { return null; }
+      return null;
+    })()
   };
 }
 
 // 2. Deserializar e Importar Proyecto Completo
-const RA_PROJECT_CURRENT_VERSION = '2.3';
+const RA_PROJECT_CURRENT_VERSION = '2.4';
 
 /**
  * [C5/M9] Migración de esquema de los archivos .raproject (retrocompatibilidad al abrir).
@@ -1204,24 +1283,26 @@ async function raImportProjectData(projectData, options = {}) {
       Object.assign(window.solarProjectConfig, projectData.projectConfig);
       if (projectData.projectConfig.taxSettings && typeof document !== 'undefined') {
         const t = projectData.projectConfig.taxSettings;
-        const pEl = document.getElementById('modal-tax-profile-opt');
+        const setVal = function(id, val) {
+          const el1 = document.getElementById(id);
+          if (el1 && val != null) el1.value = String(val);
+          const el2 = document.getElementById('modal-' + id);
+          if (el2 && val != null) el2.value = String(val);
+        };
+        const pEl = document.getElementById('modal-tax-profile-opt') || document.getElementById('tax-profile-opt');
         if (pEl && t.profile) pEl.value = t.profile;
+        const soilEl = document.getElementById('modal-tax-soil-type') || document.getElementById('tax-soil-type');
+        if (soilEl && t.soilType) soilEl.value = t.soilType;
         const ivaEl = document.getElementById('modal-tax-iva-opt');
         if (ivaEl && t.ivaRate != null) ivaEl.value = String(t.ivaRate);
-        const ibiCEl = document.getElementById('modal-tax-ibi-cuota');
-        if (ibiCEl && t.ibiCuota != null) ibiCEl.value = t.ibiCuota;
-        const ibiOEl = document.getElementById('modal-tax-ibi-opt');
-        if (ibiOEl && t.ibiOpt) ibiOEl.value = t.ibiOpt;
-        const irpfOEl = document.getElementById('modal-tax-irpf-opt');
-        if (irpfOEl && t.irpfOpt) irpfOEl.value = t.irpfOpt;
-        const isOEl = document.getElementById('modal-tax-is-opt');
-        if (isOEl && t.isRate != null) isOEl.value = String(t.isRate);
-        const icioOEl = document.getElementById('modal-tax-icio-opt');
-        if (icioOEl && t.icioOpt != null) icioOEl.value = String(t.icioOpt);
-        const regEl = document.getElementById('modal-tax-region-opt');
-        if (regEl && t.regionOpt) regEl.value = t.regionOpt;
-        const caeEl = document.getElementById('modal-tax-cae-eur');
-        if (caeEl && t.caeEur != null) caeEl.value = t.caeEur;
+        setVal('tax-ibi-cuota', t.ibiCuota);
+        setVal('tax-ibi-opt', t.ibiOpt);
+        setVal('tax-irpf-opt', t.irpfOpt);
+        setVal('tax-is-opt', t.isRate);
+        setVal('tax-icio-opt', t.icioOpt);
+        setVal('tax-region-opt', t.regionOpt);
+        setVal('tax-cae-eur', t.caeEur);
+
         if (typeof syncModalTaxProfile === 'function') {
           syncModalTaxProfile(pEl ? pEl.value : 'particular');
         }
@@ -1399,6 +1480,71 @@ async function raImportProjectData(projectData, options = {}) {
           window.setCustomCommercialSummary(po.customCommercialSummary);
         }
       } catch (ePricing) { console.warn('[RA Storage] Error restaurando pricingOverrides:', ePricing); }
+    }
+
+    // [AUDIT v2.4] Restaurar Estudio de Estilo y Maquetación de Propuesta
+    if (projectData.proposalStyleStudio && typeof window !== 'undefined' && window.RAProposalStyleStudio && typeof window.RAProposalStyleStudio.setFullStudioState === 'function') {
+      try {
+        window.RAProposalStyleStudio.setFullStudioState(projectData.proposalStyleStudio);
+        if (typeof window.RAProposalStyleStudio.updateStep5IndicatorUI === 'function') {
+          window.RAProposalStyleStudio.updateStep5IndicatorUI();
+        }
+      } catch (eStudio) { console.warn('[RA Storage] Error restaurando proposalStyleStudio:', eStudio); }
+    }
+
+    // [AUDIT v2.4] Restaurar Equipos Personalizados en el Catálogo local
+    if (projectData.customEquipment && typeof window !== 'undefined') {
+      try {
+        const ce = projectData.customEquipment;
+        const cat = window.equipmentCatalog;
+        let modified = false;
+        if (cat) {
+          ['modules', 'inverters', 'batteries', 'microinverters'].forEach(catKey => {
+            if (Array.isArray(ce[catKey]) && Array.isArray(cat[catKey])) {
+              ce[catKey].forEach(item => {
+                if (item && item.id && !cat[catKey].some(existing => existing.id === item.id)) {
+                  cat[catKey].push(item);
+                  modified = true;
+                }
+              });
+            }
+          });
+          if (modified && typeof window.saveEquipmentCatalog === 'function') {
+            window.saveEquipmentCatalog();
+          }
+        }
+        if (Array.isArray(ce.windTurbines) && window.RAWindCatalog && typeof window.RAWindCatalog.upsert === 'function') {
+          ce.windTurbines.forEach(t => {
+            if (t && t.id) window.RAWindCatalog.upsert(t);
+          });
+        }
+      } catch (eCat) { console.warn('[RA Storage] Error restaurando customEquipment:', eCat); }
+    }
+
+    // [AUDIT v2.4] Restaurar Fotografías Reales de la Propuesta
+    if (projectData.proposalPhotos) {
+      try {
+        if (typeof window !== 'undefined') {
+          if (!window.RA) window.RA = {};
+          window.RA._proposalCustomPhotos = JSON.parse(JSON.stringify(projectData.proposalPhotos));
+        }
+        if (typeof sessionStorage !== 'undefined') {
+          sessionStorage.setItem('ra_proposal_custom_photos', JSON.stringify(projectData.proposalPhotos));
+        }
+      } catch (ePhotos) { console.warn('[RA Storage] Error restaurando proposalPhotos:', ePhotos); }
+    }
+
+    // [AUDIT v2.4] Restaurar Identidad Corporativa y Logotipo de Empresa
+    if (projectData.companyBranding && projectData.companyBranding.branding && typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem('ra_company_branding', JSON.stringify(projectData.companyBranding.branding));
+        if (projectData.companyBranding.logo) {
+          localStorage.setItem('ra_company_logo', projectData.companyBranding.logo);
+        }
+        if (typeof window !== 'undefined' && window.RACompanyBranding && typeof window.RACompanyBranding.refreshUI === 'function') {
+          window.RACompanyBranding.refreshUI();
+        }
+      } catch (eBrand) { console.warn('[RA Storage] Error restaurando companyBranding:', eBrand); }
     }
 
     // Navegar al paso correspondiente del proyecto

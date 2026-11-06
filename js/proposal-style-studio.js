@@ -732,6 +732,28 @@
     } catch (e) {}
   }
 
+  function getFullStudioState() {
+    var st = loadState();
+    return {
+      activePresetId: st.activePresetId || "residencial_rapido",
+      activeConfig: cloneObj(st.activeConfig),
+      customPresets: cloneObj(st.customPresets || {})
+    };
+  }
+
+  function setFullStudioState(incoming) {
+    if (!incoming || typeof incoming !== "object") return;
+    var st = loadState();
+    if (incoming.activePresetId) st.activePresetId = incoming.activePresetId;
+    if (incoming.customPresets && typeof incoming.customPresets === "object") {
+      st.customPresets = cloneObj(incoming.customPresets);
+    }
+    if (incoming.activeConfig && typeof incoming.activeConfig === "object") {
+      st.activeConfig = mergeConfigWithDefaults(incoming.activeConfig);
+    }
+    saveState();
+  }
+
   function getActiveConfig() {
     return loadState().activeConfig;
   }
@@ -3065,6 +3087,8 @@
 
   // API Pública Modular
   global.RAProposalStyleStudio = {
+    getFullStudioState: getFullStudioState,
+    setFullStudioState: setFullStudioState,
     getActiveConfig: getActiveConfig,
     getAllPresets: getAllPresets,
     selectPreset: selectPreset,
