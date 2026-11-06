@@ -499,6 +499,13 @@
         });
 
         tree.wind.grouped = Array.from(groupedWindMap.values());
+        // Incorporar desglose analítico de las 6 partidas eólicas
+        if (typeof window !== 'undefined' && typeof window.computeWindTurbineCostBreakdown === 'function') {
+          tree.wind.breakdown = window.computeWindTurbineCostBreakdown(window.windTurbines);
+          if (tree.wind.breakdown && tree.wind.breakdown.totalEur > 0) {
+            tree.wind.totalEur = parseFloat(tree.wind.breakdown.totalEur.toFixed(2));
+          }
+        }
         tree.summary.totalWindTurbines = tree.wind.totalTurbines;
         tree.summary.totalWindKw = tree.wind.totalWindKw;
         tree.summary.windTotalEur = tree.wind.totalEur;

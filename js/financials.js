@@ -695,6 +695,128 @@ async function enrichSummaryWithGemini(targetWindow, d, m, equipment) {
 // ============================================================================
 // SISTEMA DE PRECIOS Y MARGEN COMERCIAL (RAPricing)
 // ============================================================================
+// ═══════════════════════════════════════════════════════════════════════════════
+// CÁLCULO ANALÍTICO DE PARTIDAS EÓLICAS LLAVE EN MANO (6 PARTIDAS IEC / CTE)
+// ═══════════════════════════════════════════════════════════════════════════════
+function computeWindTurbineCostBreakdown(turbines) {
+  var list = Array.isArray(turbines) ? turbines.filter(function(t) {
+    return t && (!t.operationalState || t.operationalState.enabled !== false);
+  }) : [];
+
+  if (list.length === 0) {
+    return {
+      turbineCount: 0,
+      totalKw: 0,
+      turbineEquipmentEur: 0,
+      mastStructureEur: 0,
+      foundationCivilEur: 0,
+      inverterPowerElecEur: 0,
+      electricalInstallEur: 0,
+      engineeringCommissioningEur: 0,
+      totalEur: 0,
+      concreteVolumeTotalM3: 0,
+      avgHubHeightM: 0
+    };
+  }
+
+  var totalKw = 0;
+  var sumTurbineEq = 0;
+  var sumMast = 0;
+  var sumFoundation = 0;
+  var sumElecInverter = 0;
+  var sumElectricalInstall = 0;
+  var sumEngCommissioning = 0;
+  var sumConcreteM3 = 0;
+  var sumHeights = 0;
+
+  list.forEach(function(t) {
+    var freshCat = (typeof window !== 'undefined' && window.RAWindCatalog && typeof window.RAWindCatalog.getById === 'function' && t.catalogId)
+      ? window.RAWindCatalog.getById(t.catalogId)
+      : null;
+    var c = Object.assign({}, t._catalog || {}, freshCat || {});
+    var pKw = c.ratedPowerW ? (c.ratedPowerW / 1000) : (t.ratedPowerKw || 5.0);
+    var hubH = (t.supportStructure && t.supportStructure.hubHeightM) || 18;
+    var mount = t.mountingType || 'ground';
+    totalKw += pKw;
+    sumHeights += hubH;
+
+    // 1. Aerogenerador certificado (Precio unitario catálogo o ~1.450 €/kW)
+    var costTurbine = (typeof c.priceEur === 'number' && c.priceEur > 0)
+      ? c.priceEur
+      : Math.round(pKw * 1450);
+    sumTurbineEq += costTurbine;
+
+    // 2. Mástil y estructura de sustentación (Rango base 2.000 - 5.000 € escalado según altura de buje)
+    // Torre de 6-9m ~ 2.000-2.600 €; Torre de 18m ~ 3.500 €; Torre de 24-30m ~ 4.500-5.000 €
+    var mastCost = Math.round(1600 + (hubH * 115) + (pKw * 45));
+    mastCost = Math.max(1800, Math.min(6500, mastCost));
+    sumMast += mastCost;
+
+    // 3. Cimentación (Rango base 1.500 - 3.000 € vinculado a volumen de hormigón calculado o bancada)
+    var concreteM3 = 0;
+    if (typeof window !== 'undefined' && window.RAWind && window.RAWind.Structural && typeof window.RAWind.Structural.evaluateStructuralSafety === 'function') {
+      try {
+        var sRep = window.RAWind.Structural.evaluateStructuralSafety(t);
+        if (sRep && sRep.foundation && typeof sRep.foundation.concreteVolumeM3 === 'number') {
+          concreteM3 = sRep.foundation.concreteVolumeM3;
+        }
+      } catch(eStr) {}
+    }
+    if (!concreteM3) {
+      // Estimación conservadora por zapata superficial si no se calculó aún: V ≈ 0.35 * (H/5)^1.2
+      concreteM3 = Math.round(Math.max(1.8, Math.pow(hubH / 5.5, 1.35) * (pKw / 5)) * 10) / 10;
+    }
+    sumConcreteM3 += concreteM3;
+
+    var foundationCost = 0;
+    if (mount === 'rooftop') {
+      // Bancada de reparto en cubierta + anclajes químicos a pilares
+      foundationCost = Math.round(1500 + (pKw * 120));
+      foundationCost = Math.max(1500, Math.min(3200, foundationCost));
+    } else {
+      // Zapata de hormigón armado HA-25: ~240 €/m³ (hormigón + excavación + ferralla B500S + encofrado) + pernos de anclaje
+      foundationCost = Math.round(1200 + (concreteM3 * 250));
+      foundationCost = Math.max(1500, Math.min(4500, foundationCost));
+    }
+    sumFoundation += foundationCost;
+
+    // 4. Inversor y electrónica de potencia (1.500 - 3.000 €: inversor híbrido/eólico + rectificador + Dump Load)
+    var invElecCost = Math.round(1350 + (pKw * 135));
+    invElecCost = Math.max(1500, Math.min(3800, invElecCost));
+    sumElecInverter += invElecCost;
+
+    // 5. Instalación eléctrica e interconexión REBT (1.000 - 2.000 €: cableado libre de halógenos, SPD Tipo 1+2, diferencial clase B, picas)
+    var elecInstallCost = Math.round(950 + (hubH * 22) + (pKw * 40));
+    elecInstallCost = Math.max(1000, Math.min(2500, elecInstallCost));
+    sumElectricalInstall += elecInstallCost;
+
+    // 6. Ingeniería, montaje y puesta en marcha (2.000 - 4.000 €: visado colegial, dirección facultativa, grúa de izado, ensayo de parada y CIE)
+    var engMontageCost = Math.round(1800 + (hubH * 65) + (pKw * 60));
+    engMontageCost = Math.max(2000, Math.min(4800, engMontageCost));
+    sumEngCommissioning += engMontageCost;
+  });
+
+  var totalAll = sumTurbineEq + sumMast + sumFoundation + sumElecInverter + sumElectricalInstall + sumEngCommissioning;
+
+  return {
+    turbineCount: list.length,
+    totalKw: Math.round(totalKw * 10) / 10,
+    turbineEquipmentEur: sumTurbineEq,
+    mastStructureEur: sumMast,
+    foundationCivilEur: sumFoundation,
+    inverterPowerElecEur: sumElecInverter,
+    electricalInstallEur: sumElectricalInstall,
+    engineeringCommissioningEur: sumEngCommissioning,
+    totalEur: totalAll,
+    concreteVolumeTotalM3: Math.round(sumConcreteM3 * 10) / 10,
+    avgHubHeightM: list.length > 0 ? Math.round(sumHeights / list.length) : 0
+  };
+}
+if (typeof window !== 'undefined') {
+  window.computeWindTurbineCostBreakdown = computeWindTurbineCostBreakdown;
+}
+
+
 var RAPricing = {
   STORAGE_KEY: 'ra_pricing_defaults',
   currentSessionPricing: null,
@@ -742,6 +864,7 @@ var RAPricing = {
       windSig
     ].join('|');
   },
+
 
   computeDesignCosts: function(forcedPanels) {
     // Guardia anti-recursión: computeDesignCosts -> modulesBreakdown -> getEffectivePricing -> getDefaults -> computeDesignCosts
@@ -936,29 +1059,11 @@ var RAPricing = {
     var bTot = Math.round(batPrice);
     var cTot = Math.round(cabPrice);
     var mTot = Math.round(moPrice);
-    // 8. Partida Eólica desde el SSOT (tree.wind) o fallback directo de catálogo
-    var windTot = 0;
-    var windCount = 0;
-    var windKw = 0;
-    if (tree && tree.wind && typeof tree.wind.totalTurbines === 'number') {
-      windTot = tree.wind.totalEur || 0;
-      windCount = tree.wind.totalTurbines || 0;
-      windKw = tree.wind.totalWindKw || 0;
-    } else if (typeof window !== 'undefined' && Array.isArray(window.windTurbines) && window.windTurbines.length > 0) {
-      window.windTurbines.forEach(function (t) {
-        if (!t || (t.operationalState && t.operationalState.enabled === false)) return;
-        var freshCat = (window.RAWindCatalog && typeof window.RAWindCatalog.getById === 'function' && t.catalogId)
-          ? window.RAWindCatalog.getById(t.catalogId)
-          : null;
-        var cat = Object.assign({}, t._catalog || {}, freshCat || {});
-        var kw = (cat.ratedPowerW ? (cat.ratedPowerW / 1000) : (cat.ratedPowerKw || 5));
-        var costTurbine = (cat.priceEur && cat.priceEur > 0) ? cat.priceEur : Math.round(kw * 1450);
-        var costSupport = (t.supportStructure && typeof t.supportStructure.costEur === 'number' && t.supportStructure.costEur > 0) ? t.supportStructure.costEur : 0;
-        windTot += (costTurbine + costSupport);
-        windCount++;
-        windKw += kw;
-      });
-    }
+    // 8. Partida Eólica Integral (6 partidas analíticas llave en mano)
+    var windBreakdown = computeWindTurbineCostBreakdown((typeof window !== 'undefined' && window.windTurbines) || []);
+    var windTot = windBreakdown.totalEur || 0;
+    var windCount = windBreakdown.turbineCount || 0;
+    var windKw = windBreakdown.totalKw || 0;
     var wTot = Math.round(windTot);
     var lTot = Math.round(legPrice);
 
@@ -1012,6 +1117,7 @@ var RAPricing = {
       windPrice: wTot,
       windCount: windCount,
       windKw: Number(windKw.toFixed(1)),
+      windBreakdown: windBreakdown,
       directCostTotal: pTot + eTot + iTot + bTot + cTot + mTot + lTot + wTot
     };
   },
@@ -1825,7 +1931,20 @@ function wpOpenPricingReviewModal(onConfirm) {
   var subtextWind = document.getElementById('pricing-subtext-wind');
   if (subtextWind) {
     if (eq && eq.hasWind && eq.windCount > 0) {
-      subtextWind.textContent = eq.windDesc || eq.windName;
+      var wBk = (designCosts && designCosts.windBreakdown) ? designCosts.windBreakdown : null;
+      if (wBk && wBk.turbineCount > 0) {
+        subtextWind.innerHTML = '<span style="color:#e2e8f0;font-weight:700;">' + (eq.windDesc || eq.windName) + '</span><br>' +
+          '<span style="font-size:9.5px;color:#38bdf8;line-height:1.4;display:inline-block;margin-top:2px;">' +
+          '• Turbina: ' + Math.round(wBk.turbineEquipmentEur).toLocaleString('es-ES') + ' € · ' +
+          '• Mástil (' + wBk.avgHubHeightM + 'm): ' + Math.round(wBk.mastStructureEur).toLocaleString('es-ES') + ' € · ' +
+          '• Zapata (' + wBk.concreteVolumeTotalM3 + 'm³ HA-25): ' + Math.round(wBk.foundationCivilEur).toLocaleString('es-ES') + ' €<br>' +
+          '• Inversor/Dump Load: ' + Math.round(wBk.inverterPowerElecEur).toLocaleString('es-ES') + ' € · ' +
+          '• REBT e interconexión: ' + Math.round(wBk.electricalInstallEur).toLocaleString('es-ES') + ' € · ' +
+          '• Montaje/CIE: ' + Math.round(wBk.engineeringCommissioningEur).toLocaleString('es-ES') + ' €' +
+          '</span>';
+      } else {
+        subtextWind.textContent = eq.windDesc || eq.windName;
+      }
     } else {
       subtextWind.textContent = '0× aerogeneradores montados en el proyecto';
     }
