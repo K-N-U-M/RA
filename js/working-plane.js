@@ -6572,6 +6572,11 @@ function switchCatalogTab(tabName) {
     if (typeof window !== 'undefined' && window.RAWindCatalog && typeof window.RAWindCatalog.refreshPanel === 'function') {
       window.RAWindCatalog.refreshPanel();
     }
+  } else if (tabName === 'add_new') {
+    const newEqSel = document.getElementById('new-eq-type');
+    if (newEqSel && newEqSel.value === 'wind_turbine' && typeof window.updateNewWindTurbineAreaPreview === 'function') {
+      window.updateNewWindTurbineAreaPreview(false);
+    }
   } else if (tabName === 'edit') {
     if (typeof window !== 'undefined' && typeof window.updateWindTurbineAreaPreview === 'function') {
       window.updateWindTurbineAreaPreview(false);
@@ -6955,10 +6960,18 @@ function addNewEquipmentFromForm() {
     const kw = Math.max(parseFloat(document.getElementById('new-wt-kw') ? document.getElementById('new-wt-kw').value : 10) || 10, 0.5);
     const diam = Math.max(parseFloat(document.getElementById('new-wt-diameter') ? document.getElementById('new-wt-diameter').value : 5) || 5, 0.5);
     const wtType = (document.getElementById('new-wt-type') ? document.getElementById('new-wt-type').value : 'HAWT') || 'HAWT';
+    const bladeInEl = document.getElementById('new-wt-blade-height');
+    const bladeHeight = (bladeInEl && parseFloat(bladeInEl.value) > 0)
+      ? parseFloat(bladeInEl.value)
+      : (wtType === 'VAWT' ? Math.round(diam * 1.4 * 10) / 10 : Math.round(diam / 2 * 10) / 10);
     const heightsStr = (document.getElementById('new-wt-heights') ? document.getElementById('new-wt-heights').value : '12, 18, 24') || '12, 18, 24';
     const hubHeights = heightsStr.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n) && n > 0);
     const iec = (document.getElementById('new-wt-iec') ? document.getElementById('new-wt-iec').value : 'III') || 'III';
     const noise = Math.max(parseFloat(document.getElementById('new-wt-noise') ? document.getElementById('new-wt-noise').value : 95) || 95, 30);
+    const cutin = parseFloat(document.getElementById('new-wt-cutin') ? document.getElementById('new-wt-cutin').value : 2.5) || 2.5;
+    const ratedSpeed = parseFloat(document.getElementById('new-wt-ratedspeed') ? document.getElementById('new-wt-ratedspeed').value : 11.0) || 11.0;
+    const cutout = parseFloat(document.getElementById('new-wt-cutout') ? document.getElementById('new-wt-cutout').value : 25.0) || 25.0;
+    const survival = parseFloat(document.getElementById('new-wt-survival') ? document.getElementById('new-wt-survival').value : 59.5) || 59.5;
 
     const turbineId = window.RAWindCatalog && typeof window.RAWindCatalog.generateId === 'function'
       ? window.RAWindCatalog.generateId(brand, model)
@@ -6971,15 +6984,29 @@ function addNewEquipmentFromForm() {
       type: wtType,
       ratedPowerW: Math.round(kw * 1000),
       rotorDiameterM: diam,
+      bladeHeightM: bladeHeight,
+      bladeLength: bladeHeight,
       bladeCount: (wtType === 'VAWT') ? 2 : 3,
       hubHeightsAvailableM: hubHeights.length > 0 ? hubHeights : [12, 18, 24],
-      cutInSpeedMs: 2.5,
-      ratedSpeedMs: 11.0,
-      cutOutSpeedMs: 25.0,
-      survivalSpeedMs: 59.5,
+      cutInSpeedMs: cutin,
+      ratedSpeedMs: ratedSpeed,
+      cutOutSpeedMs: cutout,
+      survivalSpeedMs: survival,
       iecClass: iec,
       acousticPowerLwaDba: noise,
       priceEur: price,
+      electrical: {
+        generatorType: 'PMSG',
+        outputVoltageV: 400,
+        rectifierIncluded: true,
+        dumpLoadRequiredKw: Math.round(kw * 1.2)
+      },
+      structural: {
+        nacelleMassKg: Math.round(kw * 30),
+        rotorMassKg: Math.round(kw * 12),
+        maxThrustKn: Math.round(kw * 0.8 * 10) / 10,
+        naturalFrequencyHz: 0.8
+      },
       powerCurve: []
     };
 

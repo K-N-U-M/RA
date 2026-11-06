@@ -57,9 +57,9 @@ window.RA_App = window.RA_App || {};
   <script src="js/obstacles.js?v=20261104a"></script>
   <script src="js/wind-turbine.js?v=20261011a"></script>
   <script src="js/wind/wind-constants.js?v=20261024b"></script>
-  <script src="js/wind/wind-catalog.js?v=20261106_fase1b"></script>
+  <script src="js/wind/wind-catalog.js?v=20261106_fase1c"></script>
   <script src="js/wind/wind-rooftop-cfd.js?v=20261024b"></script>
-  <script src="js/wind/wind-resource.js?v=20261106_fase1b"></script>
+  <script src="js/wind/wind-resource.js?v=20261106_fase1c"></script>
   <script src="js/wind/wind-acoustics.js?v=20261024b"></script>
   <script src="js/wind/wind-structural.js?v=20261024b"></script>
   <script src="js/wind/wind-electrical.js?v=20261024b"></script>
@@ -2865,7 +2865,7 @@ window.RA_App = window.RA_App || {};
                 document.getElementById('inv-fields-wrap').style.display = this.value==='inverter'?'grid':'none';
                 document.getElementById('bat-fields-wrap').style.display = this.value==='battery'?'grid':'none';
                 document.getElementById('mi-fields-wrap').style.display = this.value==='microinverter'?'grid':'none';
-                document.getElementById('wt-fields-wrap').style.display = this.value==='wind_turbine'?'grid':'none';
+                document.getElementById('wt-fields-wrap').style.display = this.value==='wind_turbine'?'grid':'none'; if(this.value==='wind_turbine' && window.updateNewWindTurbineAreaPreview) window.updateNewWindTurbineAreaPreview();
               ">
                 <option value="module" selected>Módulo Solar Fotovoltaico</option>
                 <option value="inverter">Inversor de Conexión a Red</option>
@@ -2924,12 +2924,16 @@ window.RA_App = window.RA_App || {};
           <!-- Campos específicos Aerogenerador -->
           <div id="wt-fields-wrap" style="display:none;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;border-top:1px solid rgba(255,255,255,0.08);padding-top:10px;">
             <div class="doc-field"><label>Potencia Nominal (kW):</label><input type="number" id="new-wt-kw" value="10.0" step="0.5"></div>
-            <div class="doc-field"><label>Diámetro del Rotor (m):</label><input type="number" id="new-wt-diameter" value="5.0" step="0.1"></div>
+            <div class="doc-field"><label>Diámetro del Rotor (m):</label><input type="number" id="new-wt-diameter" value="5.0" step="0.1" oninput="if(window.updateNewWindTurbineAreaPreview) window.updateNewWindTurbineAreaPreview();"></div>
             <div class="doc-field"><label>Tipo de Turbina:</label>
-              <select id="new-wt-type">
+              <select id="new-wt-type" onchange="if(window.updateNewWindTurbineAreaPreview) window.updateNewWindTurbineAreaPreview(true);">
                 <option value="HAWT" selected>Eje Horizontal (HAWT)</option>
                 <option value="VAWT">Eje Vertical (VAWT)</option>
               </select>
+            </div>
+            <div class="doc-field" id="new-wt-blade-wrap">
+              <label id="new-wt-blade-label">Longitud de Pala (Radio ≈ Ø / 2, en m):</label>
+              <input type="number" id="new-wt-blade-height" value="2.5" step="0.1" min="0.2" placeholder="Ej. 2.5" oninput="if(window.updateNewWindTurbineAreaPreview) window.updateNewWindTurbineAreaPreview();">
             </div>
             <div class="doc-field"><label>Altura Mástil Disponible (m):</label><input type="text" id="new-wt-heights" value="12, 18, 24" placeholder="Ej. 12, 18, 24"></div>
             <div class="doc-field"><label>Clase IEC Eólica:</label>
@@ -2941,6 +2945,14 @@ window.RA_App = window.RA_App || {};
               </select>
             </div>
             <div class="doc-field"><label>Nivel de Potencia Acústica LwA (dBA):</label><input type="number" id="new-wt-noise" value="95" step="1"></div>
+            <div class="doc-field"><label>V. Arranque Cut-in (m/s):</label><input type="number" id="new-wt-cutin" value="2.5" step="0.5"></div>
+            <div class="doc-field"><label>V. Nominal Rated (m/s):</label><input type="number" id="new-wt-ratedspeed" value="11.0" step="0.5"></div>
+            <div class="doc-field"><label>V. Corte Cut-out (m/s):</label><input type="number" id="new-wt-cutout" value="25.0" step="1"></div>
+            <div class="doc-field"><label>V. Supervivencia (m/s):</label><input type="number" id="new-wt-survival" value="59.5" step="1"></div>
+            <div class="doc-field" style="grid-column: span 2; background: rgba(56, 189, 248, 0.08); border: 1px dashed rgba(56, 189, 248, 0.3); border-radius: 6px; padding: 7px 12px; font-size: 11px; color: #38BDF8; display: flex; align-items: center; justify-content: space-between;">
+              <span id="new-wt-area-calc-text"><i data-lucide="info" class="icon-sm"></i> Área de captación calculada: <b id="new-wt-area-val">19.63 m² (Círculo de barrido: π × Ø² / 4)</b></span>
+              <span id="new-wt-area-calc-pill" class="card-tag" style="background:#0284C7;color:#fff;font-weight:700;">HAWT CIRCULAR (π·Ø²/4)</span>
+            </div>
           </div>
 
           <button class="btn-action-primary" onclick="addNewEquipmentFromForm()">
@@ -11311,6 +11323,54 @@ window.applyBatteryFromCatalog = applyBatteryFromCatalog;
 window.deleteCatalogItem = deleteCatalogItem;
 window.addNewEquipmentFromForm = addNewEquipmentFromForm;
 window.resetEquipmentCatalogToDefault = resetEquipmentCatalogToDefault;
+
+
+window.updateNewWindTurbineAreaPreview = function(isTypeToggle) {
+  const typeIn = document.getElementById('new-wt-type');
+  const diamIn = document.getElementById('new-wt-diameter');
+  const bladeIn = document.getElementById('new-wt-blade-height');
+  const lbl = document.getElementById('new-wt-blade-label');
+  const areaVal = document.getElementById('new-wt-area-val');
+  const pill = document.getElementById('new-wt-area-calc-pill');
+  if (!typeIn || !diamIn || !areaVal) return;
+
+  const isVawt = (typeIn.value === 'VAWT' || typeIn.value === 'vawt');
+  const D = Math.max(0.1, parseFloat(diamIn.value) || 0);
+
+  if (isTypeToggle && bladeIn) {
+    if (isVawt) {
+      bladeIn.value = (Math.round(D * 1.4 * 10) / 10).toFixed(1);
+    } else {
+      bladeIn.value = (Math.round(D / 2 * 10) / 10).toFixed(1);
+    }
+  }
+
+  let H = parseFloat(bladeIn ? bladeIn.value : 0);
+  if (!(H > 0)) {
+    H = isVawt ? (Math.round(D * 1.4 * 10) / 10) : (Math.round(D / 2 * 10) / 10);
+    if (bladeIn) bladeIn.value = H.toFixed(1);
+  }
+
+  if (lbl) {
+    lbl.textContent = isVawt 
+      ? 'Altura Pala Vertical (H, en m):' 
+      : 'Longitud de Pala (Radio ≈ Ø / 2, en m):';
+  }
+
+  let area = 0;
+  let formulaText = '';
+  if (isVawt) {
+    area = D * H;
+    formulaText = area.toFixed(2) + ' m² (Cilindro de captación: Ø ' + D.toFixed(1) + 'm × H ' + H.toFixed(1) + 'm)';
+    if (pill) { pill.textContent = 'VAWT CILÍNDRICO (Ø × H)'; pill.style.background = '#8B5CF6'; }
+  } else {
+    area = Math.PI * D * D / 4;
+    formulaText = area.toFixed(2) + ' m² (Círculo de barrido: π × Ø² / 4)';
+    if (pill) { pill.textContent = 'HAWT CIRCULAR (π·Ø²/4)'; pill.style.background = '#0284C7'; }
+  }
+
+  areaVal.textContent = formulaText;
+};
 
 window.updateWindTurbineAreaPreview = function(isTypeToggle) {
   const typeIn = document.getElementById('edit-wt-type');
