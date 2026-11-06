@@ -1535,6 +1535,12 @@
       modSel.onchange = function() {
         var val = this.value;
         setInstallationModality(val);
+        if (typeof updateBudgetUI === 'function') {
+          try { updateBudgetUI(); } catch (e) { console.warn('[StyleStudio] updateBudgetUI error:', e); }
+        }
+        if (typeof syncCostModalMetrics === 'function') {
+          try { syncCostModalMetrics(); } catch (e) { console.warn('[StyleStudio] syncCostModalMetrics error:', e); }
+        }
         if (global.showToast) {
           var found = INSTALLATION_MODALITIES.find(function(x) { return x.id === val; });
           global.showToast('MODALIDAD DE PRESUPUESTO', found ? found.shortLabel : 'Modalidad actualizada', 'info', 2200);

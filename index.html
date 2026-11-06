@@ -3305,6 +3305,14 @@ window.RA_App = window.RA_App || {};
           </div>
 
           <div class="field-row" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:10.5px;color:var(--text-slate-300);">Calificación Suelo / Finca:</span>
+            <select id="modal-tax-soil-type" onchange="syncModalInputToBudget('tax-soil-type', this.value)" style="width:165px;background:rgba(0,0,0,0.5);border:1px solid var(--border-subtle);color:#fff;font-size:10px;padding:4px 6px;border-radius:6px;outline:none;">
+              <option value="urbano" selected>Urbano / Residencial (IBI Bonificable)</option>
+              <option value="rustico">Rústico / Finca Aislada (Sin IBI urbano)</option>
+            </select>
+          </div>
+
+          <div class="field-row" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
             <span style="font-size:10.5px;color:var(--text-slate-300);">Cuota Anual IBI Inmueble (€/año):</span>
             <input type="number" id="modal-tax-ibi-cuota" step="50" min="0" value="650" class="field-input" style="width:90px;font-size:11px;text-align:right;" oninput="syncModalInputToBudget('tax-ibi-cuota', this.value)">
           </div>
@@ -3356,6 +3364,16 @@ window.RA_App = window.RA_App || {};
           <div class="field-row" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
             <span style="font-size:10.5px;color:var(--text-slate-300);">Ayudas Directas / CAEs (€):</span>
             <input type="number" id="modal-tax-cae-eur" step="50" min="0" value="0" class="field-input" placeholder="0 €" style="width:90px;font-size:11px;text-align:right;" oninput="syncModalInputToBudget('tax-cae-eur', this.value)">
+          </div>
+
+          <!-- Alerta Normativa Aislada de Red -->
+          <div id="modal-offgrid-tax-alert" style="display:none;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:6px;padding:8px 10px;margin-bottom:8px;font-size:9.5px;line-height:1.4;color:#fde68a;">
+            <div style="font-weight:800;display:flex;align-items:center;gap:5px;margin-bottom:2px;color:#fbbf24;">
+              <span>⚠️ PECULIARIDADES AISLADA DE RED (OFF-GRID):</span>
+            </div>
+            <div>• <b>IRPF:</b> Exige CEE previo registrado o justificar sustitución de grupo electrógeno fósil.</div>
+            <div>• <b>IBI:</b> Inmuebles en suelo rústico generalmente no califican para bonificación municipal.</div>
+            <div id="modal-offgrid-diesel-kpi" style="margin-top:4px;padding-top:4px;border-top:1px dashed rgba(245,158,11,0.25);color:#34d399;font-weight:700;"></div>
           </div>
 
           <!-- Cuadro de Fórmulas y Cálculos Transparentes en Tiempo Real -->
@@ -4068,6 +4086,19 @@ function syncCostModalMetrics() {
     irpfRow.style.display = isEmpresa ? 'none' : 'flex';
     isRow.style.display = isEmpresa ? 'flex' : 'none';
   }
+  // Actualizar alerta de modalidad aislada y KPI de diésel
+  const isOffGridMod = (m.isOffGrid || (window.RAProposalStyleStudio && window.RAProposalStyleStudio.getActiveConfig && window.RAProposalStyleStudio.getActiveConfig().installationModality === 'off_grid'));
+  const offGridAlert = document.getElementById('modal-offgrid-tax-alert');
+  const dieselKpi = document.getElementById('modal-offgrid-diesel-kpi');
+  if (offGridAlert) {
+    offGridAlert.style.display = isOffGridMod ? 'block' : 'none';
+  }
+  if (dieselKpi && isOffGridMod && m.dieselLitersAvoided > 0) {
+    dieselKpi.textContent = '⛽ Ahorro en Generador Fósil: ~' + m.dieselLitersAvoided.toLocaleString('es-ES') + ' L/año evitados (~' + Math.round(m.ahorroDieselAnio1 || 0).toLocaleString('es-ES') + ' €/año)';
+  }
+  const soilSel = document.getElementById('modal-tax-soil-type');
+  if (soilSel && m.soilType) soilSel.value = m.soilType;
+
   set('modal-tax-total-savings', Math.round(m.totalAhorroFiscal).toLocaleString('es-ES') + ' €');
   set('modal-tax-icio-savings', Math.round(m.ahorroICIO || 0).toLocaleString('es-ES') + ' €');
   set('modal-tax-net-investment', Math.round(m.capexNeto).toLocaleString('es-ES') + ' €');

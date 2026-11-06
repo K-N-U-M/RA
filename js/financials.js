@@ -6236,6 +6236,15 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   const capexBruto = subtotal + iva;
   const capexTachado = (discountEur > 0) ? Math.round(subtotalPreDiscount * (1 + ivaRate)) : null;
 
+  // Modalidad de instalación (Aislada vs Red) y Calificación de Suelo (Urbano vs Rústico)
+  const _studioCfg = (typeof window !== "undefined" && window.RAProposalStyleStudio && typeof window.RAProposalStyleStudio.getActiveConfig === "function")
+    ? window.RAProposalStyleStudio.getActiveConfig()
+    : null;
+  const isOffGrid = Boolean(_studioCfg && _studioCfg.installationModality === "off_grid");
+
+  const soilEl = document.getElementById("tax-soil-type") || document.getElementById("modal-tax-soil-type");
+  const soilType = (soilEl && soilEl.value) ? soilEl.value : ((_commTax && _commTax.soilType) || "urbano");
+
   // Perfil fiscal del cliente: Particular / Residencial (IRPF) vs Empresa / Pyme (Impuesto sobre Sociedades)
   const profileEl = document.getElementById('tax-profile-opt') || document.getElementById('modal-tax-profile-opt');
   const customerProfile = (profileEl && profileEl.value) ? profileEl.value : ((_commTax && _commTax.customerProfile) || 'particular');
@@ -6244,7 +6253,10 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   const ibiOpt = _sel('tax-ibi-opt', (_commTax.ibiYears === 5 ? '0.50_5' : (_commTax.ibiYears === 10 ? '0.50_10' : (_commTax.ibiYears === 3 ? '0.50_3' : '0.50_3'))));
   let ahorroIBITotal = 0;
   let ibiFormulaStr = '';
-  if (_commTax.ibiEnabled === false || ibiOpt === '0') {
+  if (soilType === 'rustico') {
+    ahorroIBITotal = 0;
+    ibiFormulaStr = 'IBI: 0 € (Finca rústica / Suelo no urbano sin bonificación municipal)';
+  } else if (_commTax.ibiEnabled === false || ibiOpt === '0') {
     ahorroIBITotal = 0;
     ibiFormulaStr = 'IBI: 0% sin bonificación municipal';
   } else if (ibiOpt === '0.50_3') {
@@ -6358,6 +6370,9 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   if (customerProfile === 'particular') {
     if (irpfPct > 0) {
       taxFormulaLines.push(`IRPF Estatal (RD-ley 19/2021): ${Math.round(irpfPct * 100)}% s/ base máx. ${baseIrpfEstatal.toLocaleString('es-ES')} € = ${ahorroIRPFEstatal.toLocaleString('es-ES')} €`);
+      if (isOffGrid) {
+        taxFormulaLines.push('Aviso Aislada: Deducción IRPF condicionada a CEE previo o sustitución de grupo electrógeno');
+      }
     } else {
       taxFormulaLines.push(`IRPF Estatal: 0 € (Sin certificado CEE seleccionado)`);
     }
@@ -6887,6 +6902,10 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     isRate: isRate,
     ahorroSociedades: ahorroSociedades,
     ahorroDeduccionDirecta: ahorroDeduccionDirecta,
+    isOffGrid: isOffGrid,
+    soilType: soilType,
+    dieselLitersAvoided: Math.round(annualYieldKWh * 0.32),
+    ahorroDieselAnio1: Math.round(annualYieldKWh * 0.32 * 1.45),
     ahorroIBITotal: ahorroIBITotal,
     ahorroIRPF: ahorroIRPF,
     ahorroIRPFEstatal: ahorroIRPFEstatal,
