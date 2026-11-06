@@ -2024,6 +2024,9 @@
               <button type="button" onclick="wpStartGridMeterPlacement()" class="doc-mini-btn" style="font-size: 10px;padding:2px 5px;color:#38BDF8;border-color:rgba(56,189,248,0.4);" title="Mover contador">
                 <i data-lucide="plug" class="icon-sm"></i> Contador
               </button>
+              <button type="button" onclick="wpStartBatteryPlacement()" class="doc-mini-btn" style="font-size: 10px;padding:2px 5px;color:#34D399;border-color:rgba(16,185,129,0.4);" title="Mover batería">
+                <i data-lucide="battery-charging" class="icon-sm"></i> Batería
+              </button>
             </div>
           </div>
           <div style="font-size: 10px;color:var(--text-slate-300);line-height:1.3;">

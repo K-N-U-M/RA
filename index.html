@@ -2387,7 +2387,10 @@ window.RA_App = window.RA_App || {};
                   <button type="button" class="btn-action-primary" onclick="wpStartGridMeterPlacement()" style="padding:6px 4px;font-size: 10px;background:rgba(56,189,248,0.2);border:1px solid #38BDF8;color:#38BDF8;font-weight:800;">
                     <span><i data-lucide="plug" class="icon-sm"></i> SITUAR CONTADOR</span>
                   </button>
-                  <button type="button" class="btn-action-primary" onclick="wpStartCombinerBoxPlacement()" title="Cuadro de agrupación de strings DC (opcional)" style="padding:6px 4px;font-size: 10px;background:rgba(217,119,6,0.2);border:1px solid #D97706;color:#FBBF24;font-weight:800;grid-column:1 / -1;">
+                  <button type="button" class="btn-action-primary" onclick="wpStartBatteryPlacement()" title="Ubicar bancada de almacenamiento LFP" style="padding:6px 4px;font-size: 10px;background:rgba(16,185,129,0.2);border:1px solid #10B981;color:#34D399;font-weight:800;">
+                    <span><i data-lucide="battery-charging" class="icon-sm"></i> SITUAR BATERÍA</span>
+                  </button>
+                  <button type="button" class="btn-action-primary" onclick="wpStartCombinerBoxPlacement()" title="Cuadro de agrupación de strings DC (opcional)" style="padding:6px 4px;font-size: 10px;background:rgba(217,119,6,0.2);border:1px solid #D97706;color:#FBBF24;font-weight:800;">
                     <span><i data-lucide="layout-grid" class="icon-sm"></i> SITUAR CUADRO DC</span>
                   </button>
                 </div>
@@ -9933,6 +9936,79 @@ function wpCalculateAndRenderACCables() {
 }
 
 // B. UBICAR CAJA DE STRINGS / COMBINER BOX EN CUBIERTA
+
+// C. UBICAR MÓDULO O BANCADA DE BATERÍAS EN ESCENA 3D
+function wpStartBatteryPlacement() {
+  if (!window.inverterEquipmentState) window.inverterEquipmentState = {};
+  window.inverterEquipmentState.isPlacingBattery = true;
+  window.inverterEquipmentState.isPlacing = false;
+  if (window.inverterEquipmentState.gridMeter) window.inverterEquipmentState.gridMeter.isPlacing = false;
+  if (window.inverterEquipmentState.combinerBox) window.inverterEquipmentState.combinerBox.isPlacing = false;
+
+  // Si no hay batería seleccionada, seleccionar automáticamente una batería LFP Tier-1 de 5kWh
+  const cfg = window.solarProjectConfig = window.solarProjectConfig || {};
+  if (!cfg.selectedBatteryId || cfg.selectedBatteryId === 'bat_none') {
+    const cat = (typeof equipmentCatalog !== 'undefined') ? equipmentCatalog : null;
+    const defaultBat = (cat && cat.batteries && cat.batteries.find(b => b.id !== 'bat_none')) || { id: 'bat_huawei_luna_5kwh', kwh: 5.0, brand: 'LFP' };
+    cfg.selectedBatteryId = defaultBat.id;
+    cfg.autoSizing = cfg.autoSizing || {};
+    cfg.autoSizing.batteries = cfg.autoSizing.batteries || { count: 1, capacityKwh: defaultBat.kwh || 5.0 };
+    if (typeof showToast === 'function') {
+      showToast('BATERÍA ACTIVADA', 'Se ha añadido la batería al proyecto para su posicionamiento.', 'info', 3000);
+    }
+  }
+
+  if (typeof viewer !== 'undefined' && viewer && viewer.canvas) {
+    viewer.canvas.style.cursor = 'crosshair';
+  }
+  if (typeof showToast === 'function') {
+    showToast('UBICACIÓN DE BATERÍA', '🎯 Haz clic en cualquier suelo, pared o sala técnica 3D para ubicar la batería.', 'info', 4000);
+  }
+  showStatus('<i data-lucide="battery-charging" class="icon-sm"></i> HAZ CLIC EN EL MODELO 3D PARA UBICAR LA BATERÍA LFP', 4000);
+}
+
+function wpPlaceBatteryAtPosition(cartesian) {
+  if (!cartesian || typeof Cesium === 'undefined' || typeof viewer === 'undefined' || !viewer) return;
+  if (!window.inverterEquipmentState) window.inverterEquipmentState = {};
+
+  const carto = Cesium.Cartographic.fromCartesian(cartesian);
+  const latDeg = Cesium.Math.toDegrees(carto.latitude);
+  const lonDeg = Cesium.Math.toDegrees(carto.longitude);
+  const heightM = carto.height;
+
+  window.inverterEquipmentState.isPlacingBattery = false;
+  window.inverterEquipmentState.batteryPosition = cartesian;
+  window.inverterEquipmentState.batteryCarto = { latitude: latDeg, longitude: lonDeg, height: heightM };
+
+  if (typeof viewer !== 'undefined' && viewer && viewer.canvas) {
+    viewer.canvas.style.cursor = 'default';
+  }
+
+  // Renderizar la entidad de la batería en la posición indicada
+  if (typeof wpRenderBattery3D === 'function') {
+    wpRenderBattery3D(window.inverterEquipmentState.position || cartesian);
+  }
+
+  // Recalcular cables de interconexión con el inversor
+  if (typeof wpCalculateAndRenderInverterCables === 'function') {
+    wpCalculateAndRenderInverterCables();
+  }
+  if (typeof updateConfigAndSimulate === 'function') updateConfigAndSimulate();
+  if (typeof updateBudgetUI === 'function') updateBudgetUI();
+  if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') {
+    BOMTreeEngine.refresh();
+  }
+  if (typeof ProjectHierarchy !== 'undefined' && typeof ProjectHierarchy.notify === 'function') {
+    ProjectHierarchy.notify('electrical_updated');
+  }
+
+  if (typeof showToast === 'function') {
+    showToast('BATERÍA UBICADA', 'Batería LFP situada a ' + heightM.toFixed(1) + ' m con cableado de almacenamiento actualizado.', 'success', 3500);
+  }
+}
+window.wpStartBatteryPlacement = wpStartBatteryPlacement;
+window.wpPlaceBatteryAtPosition = wpPlaceBatteryAtPosition;
+
 function wpStartCombinerBoxPlacement() {
   if (!window.inverterEquipmentState) window.inverterEquipmentState = {};
   if (!window.inverterEquipmentState.combinerBox) window.inverterEquipmentState.combinerBox = {};
@@ -16063,8 +16139,9 @@ window.toggleSolarHUD = toggleSolarHUD;
       const isPlacingInv = window.inverterEquipmentState.isPlacing;
       const isPlacingMeter = window.inverterEquipmentState.gridMeter && window.inverterEquipmentState.gridMeter.isPlacing;
       const isPlacingCB = window.inverterEquipmentState.combinerBox && window.inverterEquipmentState.combinerBox.isPlacing;
+      const isPlacingBattery = window.inverterEquipmentState.isPlacingBattery;
 
-      if (isPlacingInv || isPlacingMeter || isPlacingCB) {
+      if (isPlacingInv || isPlacingMeter || isPlacingCB || isPlacingBattery) {
         let clickPos3D = null;
         if (typeof get3DElectricalClickPosition === 'function') {
           clickPos3D = get3DElectricalClickPosition(click.position);
@@ -16089,6 +16166,9 @@ window.toggleSolarHUD = toggleSolarHUD;
             return;
           } else if (isPlacingCB) {
             wpPlaceCombinerBoxAtPosition(clickPos3D);
+            return;
+          } else if (isPlacingBattery) {
+            wpPlaceBatteryAtPosition(clickPos3D);
             return;
           }
         }
