@@ -49,7 +49,7 @@ window.RA_App = window.RA_App || {};
   <script src="assets/default-cover-image.js?v=20261029a"></script>
   <script src="js/svg-catalog.js?v=20261023b"></script>
   <script src="js/docx-exporter.js?v=20261027a"></script>
-  <script src="js/financials.js?v=20261029f"></script>
+  <script src="js/financials.js?v=20261106a"></script>
   <script src="js/viewer.js?v=20261016a"></script>
   <script src="js/solar-engine.js?v=20260929b"></script>
   <script src="js/production-source.js?v=20261028a"></script>
@@ -5745,19 +5745,21 @@ function updateBudgetUI() {
     bEl.style.color = val >= 0 ? 'var(--emerald-500)' : 'var(--rose-500)';
   }
 
-  renderCashflowChart(m.cashflowAcum);
+  renderCashflowChart(m.cashflowAcum, m.cashflowAcumFinanciado);
 }
 
-function renderCashflowChart(data) {
+function renderCashflowChart(data, dataFin) {
   const svg = document.getElementById('cashflow-svg-chart');
   if (!svg || !data || data.length < 2) return;
   svg.innerHTML = '';
 
-  const minVal = Math.min(...data);
-  const maxVal = Math.max(...data, 1000);
+  const hasFin = Array.isArray(dataFin) && dataFin.length === data.length;
+  const allVals = hasFin ? data.concat(dataFin) : data;
+  const minVal = Math.min(...allVals);
+  const maxVal = Math.max(...allVals, 1000);
   const range = maxVal - minVal;
   const H = 100, W = 310;
-  const padL = 10, padR = 10, padT = 10, padB = 20;
+  const padL = 10, padR = 10, padT = 12, padB = 20;
   const plotW = W - padL - padR;
   const plotH = H - padT - padB;
 
@@ -5771,7 +5773,7 @@ function renderCashflowChart(data) {
   zLine.setAttribute('stroke-dasharray', '3,3');
   svg.appendChild(zLine);
 
-  // Bars & Path
+  // Bars & Path Contado
   const stepX = plotW / (data.length - 1);
   let pathD = '';
 
@@ -5798,16 +5800,48 @@ function renderCashflowChart(data) {
   path.setAttribute('stroke-width', '2.5');
   svg.appendChild(path);
 
-  // Break-even dot
+  // Break-even dot Contado
   for (let i = 1; i < data.length; i++) {
     if (data[i] >= 0 && data[i-1] < 0) {
       const x = padL + i * stepX;
       const y = padT + ((maxVal - data[i]) / range) * plotH;
       const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
       dot.setAttribute('cx', x); dot.setAttribute('cy', y); dot.setAttribute('r', '4');
-      dot.setAttribute('fill', 'var(--amber-400)');
+      dot.setAttribute('fill', 'var(--emerald-400)');
       svg.appendChild(dot);
       break;
+    }
+  }
+
+  // Curva Financiada (segunda opción comparativa)
+  if (hasFin) {
+    let pathDFin = '';
+    dataFin.forEach((val, i) => {
+      const x = padL + i * stepX;
+      const y = padT + ((maxVal - val) / range) * plotH;
+      if (i === 0) pathDFin += `M ${x} ${y}`;
+      else pathDFin += ` L ${x} ${y}`;
+    });
+
+    const pathFin = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    pathFin.setAttribute('d', pathDFin);
+    pathFin.setAttribute('fill', 'none');
+    pathFin.setAttribute('stroke', '#38BDF8');
+    pathFin.setAttribute('stroke-width', '2.0');
+    pathFin.setAttribute('stroke-dasharray', '4,3');
+    svg.appendChild(pathFin);
+
+    // Break-even dot Financiado
+    for (let i = 1; i < dataFin.length; i++) {
+      if (dataFin[i] >= 0 && dataFin[i-1] < 0) {
+        const x = padL + i * stepX;
+        const y = padT + ((maxVal - dataFin[i]) / range) * plotH;
+        const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        dot.setAttribute('cx', x); dot.setAttribute('cy', y); dot.setAttribute('r', '3.5');
+        dot.setAttribute('fill', '#38BDF8');
+        svg.appendChild(dot);
+        break;
+      }
     }
   }
 }

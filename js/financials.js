@@ -3403,8 +3403,13 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     const chartW = W - PAD_L - PAD_R;
     const chartH = H - PAD_B - PAD_T;
     const n = cashflowAcum.length;
-    const minVal = Math.min(...cashflowAcum, -capexBruto * 0.1);
-    const maxVal = Math.max(...cashflowAcum, 0);
+    const fm = finModel || {};
+    const cfFinanciado = Array.isArray(fm.cashflowAcumFinanciado) && fm.cashflowAcumFinanciado.length === n
+      ? fm.cashflowAcumFinanciado
+      : null;
+    const allValues = cfFinanciado ? cashflowAcum.concat(cfFinanciado) : cashflowAcum;
+    const minVal = Math.min(...allValues, -capexBruto * 0.1);
+    const maxVal = Math.max(...allValues, 0);
     const totalRange = (maxVal - minVal) || 1;
 
     const xOf = i => PAD_L + (i / (n - 1)) * chartW;
@@ -3432,7 +3437,6 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     }
 
     // Identificar hitos singulares con sus valores y colores
-    const fm = finModel || {};
     const milestones = [];
 
     // Año 0: Desembolso CAPEX
@@ -3552,7 +3556,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       }
     });
 
-    // Área rellena
+    // Área rellena (Opción al Contado)
     const yZero = yOf(0);
     let pts = `${PAD_L.toFixed(1)},${yZero.toFixed(1)} `;
     cashflowAcum.forEach((v, i) => { pts += `${xOf(i).toFixed(1)},${yOf(v).toFixed(1)} `; });
@@ -3560,9 +3564,40 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     pts += `${lastX.toFixed(1)},${yZero.toFixed(1)}`;
     let areaPolygon = `<polygon points="${pts}" fill="${fillAttr}" opacity="0.88"/>`;
 
-    // Línea principal de cashflow
+    // Línea principal de cashflow al contado
     const linePoints = cashflowAcum.map((v, i) => `${xOf(i).toFixed(1)},${yOf(v).toFixed(1)}`).join(' ');
     let mainPolyline = `<polyline points="${linePoints}" fill="none" stroke="${lineColor}" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>`;
+
+    // Segunda línea comparativa: Financiado (si está disponible)
+    let financedContent = '';
+    const pbFin = (typeof fm.paybackFinanciadoYears === 'number') ? fm.paybackFinanciadoYears : null;
+    if (cfFinanciado) {
+      const finLinePoints = cfFinanciado.map((v, i) => `${xOf(i).toFixed(1)},${yOf(v).toFixed(1)}`).join(' ');
+      const finColor = '#3b82f6'; // Azul corporativo de contraste
+      financedContent += `<polyline points="${finLinePoints}" fill="none" stroke="${finColor}" stroke-width="2.4" stroke-dasharray="6,4" stroke-linejoin="round" stroke-linecap="round"/>`;
+
+      // Hito Payback Financiado
+      if (pbFin && pbFin > 0 && pbFin < n) {
+        const xPosFin = PAD_L + (pbFin / (n - 1)) * chartW;
+        const yPosFin = yOf(0);
+        financedContent += `<circle cx="${xPosFin.toFixed(1)}" cy="${yPosFin.toFixed(1)}" r="4.5" fill="${finColor}" stroke="#ffffff" stroke-width="1.5"/>`;
+        financedContent += `<text x="${xPosFin.toFixed(1)}" y="${(yPosFin + 14).toFixed(1)}" text-anchor="middle" font-size="${pbFontSize}" fill="${finColor}" font-weight="800">Payback Fin. ${pbFin.toFixed(1)}a</text>`;
+      }
+    }
+
+    // Leyenda de comparación en cabecera del gráfico
+    let legendContent = `
+      <g transform="translate(${PAD_L}, ${PAD_T - 8})">
+        <line x1="0" y1="0" x2="16" y2="0" stroke="${lineColor}" stroke-width="2.6"/>
+        <circle cx="8" cy="0" r="2.5" fill="${lineColor}"/>
+        <text x="22" y="3" font-size="${axisFontSize}" fill="#334155" font-weight="700">Al Contado (Desembolso 100%)</text>
+        ${cfFinanciado ? `
+          <line x1="180" y1="0" x2="200" y2="0" stroke="#3b82f6" stroke-width="2.4" stroke-dasharray="4,3"/>
+          <circle cx="190" cy="0" r="2.5" fill="#3b82f6"/>
+          <text x="206" y="3" font-size="${axisFontSize}" fill="#1e40af" font-weight="700">Financiado (${fm.meses || 120} meses · Cuota ${fm.cuotaMensual || 0} €/m)</text>
+        ` : ''}
+      </g>
+    `;
 
     // Marcadores circulares para cada hito
     let markersContent = '';
@@ -3579,7 +3614,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       markersContent += `<circle cx="${xPos.toFixed(1)}" cy="${yPos.toFixed(1)}" r="${dotRadius}" fill="${mItem.color}" stroke="#ffffff" stroke-width="1.5"/>`;
 
       if (mItem.isPayback) {
-        markersContent += `<text x="${xPos.toFixed(1)}" y="${(yPos - 9).toFixed(1)}" text-anchor="middle" font-size="${pbFontSize}" fill="${paleta.dark}" font-weight="800">Payback ${paybackYears.toFixed(1)}a</text>`;
+        markersContent += `<text x="${xPos.toFixed(1)}" y="${(yPos - 9).toFixed(1)}" text-anchor="middle" font-size="${pbFontSize}" fill="${paleta.dark}" font-weight="800">Payback Contado ${paybackYears.toFixed(1)}a</text>`;
       }
     });
 
@@ -3592,12 +3627,14 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
 
     const svgChart = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="100%" style="display:block;max-width:100%;">
       ${defs}
+      ${legendContent}
       ${guidesContent}
       ${areaPolygon}
       ${mainPolyline}
+      ${financedContent}
       ${markersContent}
       ${xAxisContent}
-      <text x="${W/2}" y="${H - 3}" text-anchor="middle" font-size="${axisFontSize}" fill="#64748b">Retorno de inversión acumulado a 25 años (€)</text>
+      <text x="${W/2}" y="${H - 3}" text-anchor="middle" font-size="${axisFontSize}" fill="#64748b">Retorno de inversión acumulado a 25 años (€) · Comparativa Contado vs Financiado</text>
     </svg>`;
 
     // Hilera de pastillas explicativas (badge pills) bajo el gráfico
@@ -6667,6 +6704,34 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   const ahorroMensualLuz = ahorroLuzAnio1 / 12.0;
   const balanceNetoMensual = ahorroMensualLuz - cuotaMensual;
 
+  // ── Amortización con Financiación Bancaria (Curva Financiada a 25 Años) ──
+  const cashflowFinanciado = [-gastosInicialesContado];
+  const acumuladoFinanciado = [-gastosInicialesContado];
+  for (let y = 1; y <= 25; y++) {
+    // Cuotas satisfechas en el año y (12 meses por año hasta completar el plazo del préstamo)
+    let cuotaAnualY = 0;
+    const startM = (y - 1) * 12 + 1;
+    const endM = y * 12;
+    for (let mIdx = startM; mIdx <= endM; mIdx++) {
+      if (mIdx <= meses) {
+        cuotaAnualY += (mIdx <= mesesCarencia ? cuotaDuranteCarencia : cuotaMensualCredito);
+      }
+    }
+    const netCFFin = (annualSavings25[y - 1] || 0) - (annualOpex25[y - 1] || 0) - ((y === 12 ? invReplacementCost12 : 0) + (y === batReplacementYear ? batReplacementCost10 : 0)) + (y === 1 ? (customerProfile === 'empresa' ? ahorroSociedades : ahorroIRPF) : 0) + (y <= ibiYears ? ibiAnnualBonus : 0) - cuotaAnualY;
+    cashflowFinanciado.push(Math.round(netCFFin));
+    acumuladoFinanciado.push(Math.round(acumuladoFinanciado[y - 1] + netCFFin));
+  }
+
+  let paybackFinanciadoYears = 25;
+  for (let y = 1; y <= 25; y++) {
+    if (acumuladoFinanciado[y] >= 0) {
+      const prev = acumuladoFinanciado[y - 1];
+      const diff = acumuladoFinanciado[y] - prev;
+      paybackFinanciadoYears = diff > 0 ? (y - 1) + (-prev / diff) : y;
+      break;
+    }
+  }
+
   const ahorroTotal25 = Math.round(annualSavings25.reduce((a, b) => a + b, 0));
   const redKWhAnual = Math.max(0, Math.round(consumoAnual - annualAutoconsumoDirecto - annualBateriaKWh));
 
@@ -6748,6 +6813,12 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     balanceNetoMensual: balanceNetoMensual,
     cashflow: cashflow,
     cashflowAcum: acumulado,
+    cashflowContado: cashflow,
+    cashflowAcumContado: acumulado,
+    paybackContadoYears: paybackYears,
+    cashflowFinanciado: cashflowFinanciado,
+    cashflowAcumFinanciado: acumuladoFinanciado,
+    paybackFinanciadoYears: paybackFinanciadoYears,
     touNombre: tou.name,
     batCap: batCap,
     batSoCdiaria: Math.round(batSoC * 10) / 10,
