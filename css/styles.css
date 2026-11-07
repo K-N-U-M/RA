@@ -2441,7 +2441,7 @@
   width: 380px;
   max-width: 90vw;
   max-height: calc(100vh - 195px);
-  display: flex;
+  display: none;
   flex-direction: column;
   background: rgba(11, 17, 32, 0.94);
   backdrop-filter: blur(20px);

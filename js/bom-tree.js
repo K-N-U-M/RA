@@ -851,6 +851,7 @@
         hudEl = document.createElement('div');
         hudEl.id = 'ra-bom-tree-hud';
         hudEl.className = 'ra-bom-hud-container';
+        hudEl.style.display = 'none';
         document.body.appendChild(hudEl);
       }
 
@@ -1144,7 +1145,14 @@
     },
 
     refresh: function() {
-      this.renderHUD();
+      const hudEl = document.getElementById('ra-bom-tree-hud');
+      if (hudEl && hudEl.style.display === 'none') {
+        const prev = hudEl.style.display;
+        this.renderHUD();
+        hudEl.style.display = prev;
+      } else if (hudEl && hudEl.style.display !== 'none') {
+        this.renderHUD();
+      }
     }
   };
 

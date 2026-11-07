@@ -590,6 +590,13 @@
         if (btn) btn.textContent = '◀';
         if (toggleIcon) toggleIcon.textContent = '◀';
       }
+      // Asegurar que árboles flotantes no se abran automáticamente en arranque
+      if (global.UIOutliner && typeof global.UIOutliner.close === 'function') {
+        global.UIOutliner.close();
+      }
+      if (typeof global.BOMTreeEngine !== 'undefined' && typeof global.BOMTreeEngine.close === 'function') {
+        global.BOMTreeEngine.close();
+      }
     }
 
     // Vincular botón flotante del Árbol de Proyecto (UIOutliner)
