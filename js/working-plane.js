@@ -7289,8 +7289,58 @@ function wpOpenSmartInverterMatchingModal() {
   const scA = match.recommendedScenarioA;
   const scB = match.recommendedScenarioB;
   const scC = match.recommendedScenarioC;
+  const compatibleList = Array.isArray(match.compatible) ? match.compatible : [];
 
-  window._lastSmartInverterScenarios = { scA, scB, scC };
+  window._lastSmartInverterScenarios = { scA, scB, scC, compatibleList };
+
+  // Renderizar listado de modelos reales compatibles del catálogo
+  let catalogListHtml = '';
+  if (compatibleList.length > 0) {
+    catalogListHtml = `
+      <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(56,189,248,0.25);border-radius:6px;padding:8px;margin-bottom:8px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <span style="font-size:10px;font-weight:900;color:#38BDF8;display:flex;align-items:center;gap:4px;">
+            <i data-lucide="check-circle" class="icon-sm"></i> MODELOS REALES COMPATIBLES EN CATÁLOGO (${compatibleList.length})
+          </span>
+          <span style="font-size:9px;color:#94a3b8;">Verificados por REBT / IEC</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px;max-height:190px;overflow-y:auto;padding-right:2px;" class="custom-scrollbar">
+          ${compatibleList.map((c, idx) => {
+            const isSingle = c.count === 1;
+            const overloadColor = (c.overloadPct >= 105 && c.overloadPct <= 130) ? '#34D399' : '#FBBF24';
+            return `
+              <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(255,255,255,0.08);border-radius:5px;padding:6px 8px;display:flex;justify-content:space-between;align-items:center;gap:6px;">
+                <div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0;">
+                  <div style="display:flex;align-items:center;gap:5px;">
+                    <span style="font-size:10px;font-weight:bold;color:#F1F5F9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                      ${c.count}x ${c.inverter.brand} ${c.inverter.model}
+                    </span>
+                    <span class="card-tag" style="background:${isSingle ? 'rgba(56,189,248,0.2)' : 'rgba(168,85,247,0.2)'};color:${isSingle ? '#38BDF8' : '#C084FC'};font-size:8.5px;padding:1px 4px;">
+                      ${isSingle ? '1x Central' : c.count + 'x Modular'}
+                    </span>
+                  </div>
+                  <div style="display:flex;gap:6px;font-size:9px;color:#94A3B8;">
+                    <span>${c.totalAcKw} kW AC</span>
+                    <span>·</span>
+                    <span style="color:${overloadColor};font-weight:bold;">${c.overloadPct}% DC/AC</span>
+                    <span>·</span>
+                    <span>${c.mpptCount} MPPTs</span>
+                    ${c.hasImpClipping ? '<span style="color:#F87171;" title="Posible recorte leve por corriente en picos">⚠️ Clipping</span>' : ''}
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+                  <span style="font-size:10.5px;font-weight:900;color:#34D399;">${c.totalCostEur} €</span>
+                  <button type="button" class="doc-mini-btn" onclick="wpApplyInverterScenario('${c.inverter.id}', ${c.count}, 'inverter', 'compat_${idx}')" style="background:#0284C7;border-color:#0284C7;color:#fff;font-size:9.5px;font-weight:bold;padding:3px 7px;cursor:pointer;">
+                    Elegir
+                  </button>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  }
 
   const catalogMicros = (typeof equipmentCatalog !== 'undefined' && equipmentCatalog && Array.isArray(equipmentCatalog.microinverters)) ? equipmentCatalog.microinverters : [];
   const microId = (scC && scC.inverter && scC.inverter.id)
@@ -7311,6 +7361,9 @@ function wpOpenSmartInverterMatchingModal() {
         El sistema ha analizado la potencia de campo (${totalKwp.toFixed(1)} kWp) y las ${distinctOrientations} orientaciones para calcular 3 alternativas técnicas:
       </div>
 
+      ${catalogListHtml}
+
+      <div style="font-size: 10px;font-weight:900;color:#CBD5E1;margin:8px 0 4px 0;text-transform:uppercase;letter-spacing:0.4px;"><i data-lucide="sliders" class="icon-sm"></i> Escenarios de Arquitectura Comparados:</div>
       <!-- Opción A: Centralizada 1x -->
       ${scA ? `
       <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(245,158,11,0.3);border-radius:6px;padding:8px;margin-bottom:6px;">
@@ -7406,7 +7459,15 @@ function wpApplyInverterScenario(invId, count, topology, scenarioKey) {
   if (window.solarProjectConfig) {
     window.solarProjectConfig.userManuallySelectedInverter = true;
   }
-  const scenarioObj = (scenarioKey && window._lastSmartInverterScenarios) ? window._lastSmartInverterScenarios[scenarioKey] : null;
+  let scenarioObj = null;
+  if (scenarioKey && window._lastSmartInverterScenarios) {
+    if (scenarioKey.startsWith('compat_')) {
+      const idx = parseInt(scenarioKey.replace('compat_', ''), 10);
+      scenarioObj = (window._lastSmartInverterScenarios.compatibleList && window._lastSmartInverterScenarios.compatibleList[idx]) ? window._lastSmartInverterScenarios.compatibleList[idx] : null;
+    } else {
+      scenarioObj = window._lastSmartInverterScenarios[scenarioKey];
+    }
+  }
 
   if (window.solarProjectConfig) {
     if (topology === 'microinverter') {
