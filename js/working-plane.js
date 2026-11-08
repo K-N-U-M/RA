@@ -6700,6 +6700,7 @@ function populateEquipmentModalUI() {
         '<td style="text-align:right;">' +
           '<div style="display:flex;justify-content:flex-end;align-items:center;gap:4px;">' +
             '<button class="cat-btn cat-btn-edit" onclick="openEditEquipmentModal(\'microinverters\', \'' + mi.id + '\')"><i data-lucide="edit-2" class="icon-sm"></i> EDITAR</button>' +
+            '<button class="cat-btn cat-btn-select" onclick="applyMicroinverterFromCatalog(\'' + mi.id + '\');closeEquipmentCatalogModal();">APLICAR</button>' +
             delBtn +
           '</div>' +
         '</td>' +
@@ -6713,6 +6714,9 @@ function populateEquipmentModalUI() {
 }
 
 function applyInverterFromCatalog(invId) {
+  if (typeof window !== 'undefined' && window.solarProjectConfig) {
+    window.solarProjectConfig.userManuallySelectedInverter = true;
+  }
   const inv = equipmentCatalog.inverters.find(i => i.id === invId);
   if (!inv) return;
   if (typeof window !== 'undefined' && window.solarProjectConfig) {
@@ -6730,7 +6734,40 @@ function applyInverterFromCatalog(invId) {
   showStatus('INVERSOR ASIGNADO: ' + inv.brand + ' ' + inv.model + ' (' + inv.kw + ' kW)', 2500);
 }
 
+function applyMicroinverterFromCatalog(miId) {
+  const cat = (typeof equipmentCatalog !== 'undefined') ? equipmentCatalog : window.equipmentCatalog;
+  if (!cat || !Array.isArray(cat.microinverters)) return;
+  const mi = cat.microinverters.find(function(m) { return m.id === miId; });
+  if (!mi) return;
+  if (typeof window !== 'undefined' && window.solarProjectConfig) {
+    window.solarProjectConfig.selectedTopology = 'microinverter';
+    window.solarProjectConfig.selectedMicroinverterId = miId;
+    window.solarProjectConfig.userManuallySelectedInverter = true;
+  }
+  if (typeof step3SetTopology === 'function') {
+    step3SetTopology('microinverter');
+  }
+  if (typeof populateStep3EquipmentSelectors === 'function') {
+    populateStep3EquipmentSelectors();
+  }
+  const selMi = document.getElementById('step3-sel-microinverter');
+  if (selMi) selMi.value = miId;
+  if (typeof step3UpdateHardwareSelection === 'function') {
+    step3UpdateHardwareSelection();
+  } else if (typeof updateBudgetUI === 'function') {
+    updateBudgetUI();
+  }
+  if (typeof showStatus === 'function') {
+    showStatus('MICROINVERSOR ASIGNADO: ' + mi.brand + ' ' + mi.model + ' (' + (mi.kw * 1000) + ' W)', 2500);
+  }
+}
+window.applyMicroinverterFromCatalog = applyMicroinverterFromCatalog;
+
 function applyBatteryFromCatalog(batId) {
+  if (typeof window !== 'undefined' && window.solarProjectConfig) {
+    window.solarProjectConfig.userManuallySelectedBattery = true;
+    window.solarProjectConfig.userManuallySelectedInverter = true;
+  }
   const bat = equipmentCatalog.batteries.find(b => b.id === batId);
   if (!bat) return;
   if (typeof window !== 'undefined' && window.solarProjectConfig) {
@@ -7366,6 +7403,9 @@ function wpOpenSmartInverterMatchingModal() {
 }
 
 function wpApplyInverterScenario(invId, count, topology, scenarioKey) {
+  if (window.solarProjectConfig) {
+    window.solarProjectConfig.userManuallySelectedInverter = true;
+  }
   const scenarioObj = (scenarioKey && window._lastSmartInverterScenarios) ? window._lastSmartInverterScenarios[scenarioKey] : null;
 
   if (window.solarProjectConfig) {

@@ -321,6 +321,7 @@ function raExportProjectData() {
       batteries: (Array.isArray(window.solarProjectConfig.batteries) && window.solarProjectConfig.batteries.length > 0) ? JSON.parse(JSON.stringify(window.solarProjectConfig.batteries)) : null,
       selectedBatteries: (Array.isArray(window.solarProjectConfig.selectedBatteries) && window.solarProjectConfig.selectedBatteries.length > 0) ? JSON.parse(JSON.stringify(window.solarProjectConfig.selectedBatteries)) : null,
       userManuallySelectedInverter: !!window.solarProjectConfig.userManuallySelectedInverter,
+      userManuallySelectedBattery: !!window.solarProjectConfig.userManuallySelectedBattery,
       stringWiringTopology: window.solarProjectConfig.stringWiringTopology || 'leapfrog',
       manualAnnualConsumptionKWh: window.solarProjectConfig.manualAnnualConsumptionKWh || null,
       billCostMonth: window.solarProjectConfig.billCostMonth || null,
@@ -1322,6 +1323,11 @@ async function raImportProjectData(projectData, options = {}) {
     if (projectData.projectConfig && typeof window !== 'undefined') {
       if (!window.solarProjectConfig) window.solarProjectConfig = {};
       Object.assign(window.solarProjectConfig, projectData.projectConfig);
+      // [LOCK-HARDWARE] Bloquear explícitamente sobreescrituras automáticas para proyectos importados
+      window.solarProjectConfig.userManuallySelectedInverter = true;
+      if (projectData.projectConfig.selectedBatteryId) {
+        window.solarProjectConfig.userManuallySelectedBattery = true;
+      }
       if (projectData.projectConfig.taxSettings && typeof document !== 'undefined') {
         const t = projectData.projectConfig.taxSettings;
         const setVal = function(id, val) {
@@ -1615,6 +1621,34 @@ async function raImportProjectData(projectData, options = {}) {
     if (typeof wpCurrentStep !== 'undefined') wpCurrentStep = targetStep;
     if (typeof wpGoToStep === 'function') {
       try { await wpGoToStep(targetStep, true); } catch (eStep) { window.RA && window.RA.log && window.RA.log.debug('Paso ' + targetStep + ' activado tras importación:', eStep); }
+    }
+
+    // [AUDIT-LOCK] Re-asegurar que tras la navegación de paso no se hayan alterado los equipos importados
+    if (projectData.projectConfig && window.solarProjectConfig) {
+      if (projectData.projectConfig.selectedInverterId) {
+        window.solarProjectConfig.selectedInverterId = projectData.projectConfig.selectedInverterId;
+        const invEl = document.getElementById('step3-sel-inverter');
+        if (invEl) invEl.value = projectData.projectConfig.selectedInverterId;
+      }
+      if (projectData.projectConfig.selectedBatteryId) {
+        window.solarProjectConfig.selectedBatteryId = projectData.projectConfig.selectedBatteryId;
+        const batEl = document.getElementById('step3-sel-battery');
+        if (batEl) batEl.value = projectData.projectConfig.selectedBatteryId;
+      }
+      if (projectData.projectConfig.selectedMicroinverterId) {
+        window.solarProjectConfig.selectedMicroinverterId = projectData.projectConfig.selectedMicroinverterId;
+        const miEl = document.getElementById('step3-sel-microinverter');
+        if (miEl) miEl.value = projectData.projectConfig.selectedMicroinverterId;
+      }
+      if (projectData.projectConfig.selectedTopology && typeof window.step3SetTopology === 'function') {
+        try { window.step3SetTopology(projectData.projectConfig.selectedTopology); } catch(eT) {}
+      }
+      if (typeof window.step3UpdateHardwareSelection === 'function') {
+        try { window.step3UpdateHardwareSelection(); } catch(eHw2) {}
+      }
+      if (typeof window.updateBudgetUI === 'function') {
+        try { window.updateBudgetUI(); } catch(eBgt2) {}
+      }
     }
     
     if (typeof ProjectHierarchy !== 'undefined' && ProjectHierarchy.notify) {

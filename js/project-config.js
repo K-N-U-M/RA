@@ -411,6 +411,7 @@ function step3UpdateHardwareSelection() {
       }
     }
     window.solarProjectConfig.selectedInverterId = invSel.value;
+    window.solarProjectConfig.userManuallySelectedInverter = true;
   }
   let newModValue = null;
   if (typeof document !== 'undefined' && document.activeElement === faldonModSel && faldonModSel && faldonModSel.value) {
@@ -473,6 +474,7 @@ function step3UpdateHardwareSelection() {
       }
     }
     window.solarProjectConfig.selectedMicroinverterId = miSel.value;
+    window.solarProjectConfig.userManuallySelectedInverter = true;
   }
 
   const prevBatId = (window.solarProjectConfig && window.solarProjectConfig.selectedBatteryId) ? window.solarProjectConfig.selectedBatteryId : null;
@@ -499,6 +501,7 @@ function step3UpdateHardwareSelection() {
       } catch(e) {}
     }
     window.solarProjectConfig.selectedBatteryId = batSel.value;
+    window.solarProjectConfig.userManuallySelectedBattery = true;
   }
 
   const catalog = (typeof window !== 'undefined' && window.equipmentCatalog) ? window.equipmentCatalog : ((typeof equipmentCatalog !== 'undefined') ? equipmentCatalog : null);
@@ -1451,7 +1454,8 @@ function wpAutoSelectOptimalEngineering(force = false) {
   if (!cfg) return null;
 
   // Si el usuario ya seleccionó manualmente un equipo y no está forzando re-optimización, respetar su decisión
-  if (!force && cfg.userManuallySelectedInverter) {
+  if (!force && (cfg.userManuallySelectedInverter || (cfg.selectedInverterId && cfg.selectedInverterId !== 'inv_huawei_5ktl_l1')) ) {
+    cfg.userManuallySelectedInverter = true;
     wpRenderAutoEngineeringBanner(null, true);
     return null;
   }
@@ -1570,15 +1574,17 @@ function wpAutoSelectOptimalEngineering(force = false) {
     delete cfg.lastVirtualInverter;
   }
 
-  // Auto-dimensionar batería LFP si procede (residencial / híbrido <= 15 kWp)
-  if (totalKwp <= 15.0 && Array.isArray(catalog.batteries) && catalog.batteries.length > 0) {
-    const targetKwh = Math.max(5.0, totalKwp * 1.0);
-    const sortedBats = [...catalog.batteries].filter(b => b && b.kwh > 0).sort((a, b) => Math.abs(a.kwh - targetKwh) - Math.abs(b.kwh - targetKwh));
-    if (sortedBats.length > 0) {
-      cfg.selectedBatteryId = sortedBats[0].id;
-      if (!cfg.autoSizing.batteries) cfg.autoSizing.batteries = {};
-      cfg.autoSizing.batteries.count = 1;
-      cfg.autoSizing.batteries.isManual = false;
+  // Auto-dimensionar batería LFP solo si el usuario no tiene una batería fijada manualmente
+  if (!cfg.userManuallySelectedBattery && (!cfg.selectedBatteryId || cfg.selectedBatteryId === 'bat_none' || force)) {
+    if (totalKwp <= 15.0 && Array.isArray(catalog.batteries) && catalog.batteries.length > 0) {
+      const targetKwh = Math.max(5.0, totalKwp * 1.0);
+      const sortedBats = [...catalog.batteries].filter(b => b && b.kwh > 0).sort((a, b) => Math.abs(a.kwh - targetKwh) - Math.abs(b.kwh - targetKwh));
+      if (sortedBats.length > 0) {
+        cfg.selectedBatteryId = sortedBats[0].id;
+        if (!cfg.autoSizing.batteries) cfg.autoSizing.batteries = {};
+        cfg.autoSizing.batteries.count = 1;
+        cfg.autoSizing.batteries.isManual = false;
+      }
     }
   }
 
@@ -1638,7 +1644,7 @@ function wpRenderAutoEngineeringBanner(info, isManualOverride = false) {
           <button type="button" class="doc-mini-btn" onclick="wpOpenSmartInverterMatchingModal()" style="background:rgba(56,189,248,0.15);border:1px solid #38BDF8;color:#38BDF8;font-size:9.5px;font-weight:bold;padding:3px 7px;cursor:pointer;" title="Comparar alternativas técnicas 1x Central vs Nx Modulares vs MLPE">
             <i data-lucide="sparkles" class="icon-sm"></i> ALTERNATIVAS
           </button>
-          <button type="button" class="doc-mini-btn" onclick="if(window.solarProjectConfig) window.solarProjectConfig.userManuallySelectedInverter=false; wpAutoSelectOptimalEngineering(true);" style="background:linear-gradient(135deg,#10B981,#059669);border:none;color:#fff;font-size:9.5px;font-weight:900;padding:3px 8px;border-radius:4px;cursor:pointer;" title="Volver a calcular la topología e inversor óptimo por IA">
+          <button type="button" class="doc-mini-btn" onclick="if(window.solarProjectConfig) window.solarProjectConfig.userManuallySelectedInverter=false; window.solarProjectConfig.userManuallySelectedBattery=false; wpAutoSelectOptimalEngineering(true);" style="background:linear-gradient(135deg,#10B981,#059669);border:none;color:#fff;font-size:9.5px;font-weight:900;padding:3px 8px;border-radius:4px;cursor:pointer;" title="Volver a calcular la topología e inversor óptimo por IA">
             <i data-lucide="rotate-ccw" class="icon-sm"></i> RESTAURAR AUTO
           </button>
         </div>
