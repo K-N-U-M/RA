@@ -2613,6 +2613,9 @@ function wpOpenPricingReviewModal(onConfirm) {
       var mgPct = parseFloat(mgInput ? mgInput.value : 20) || 0;
 
       var newCfg = {
+        projectFingerprint: (typeof RAPricing !== 'undefined' && typeof RAPricing.getProjectFingerprint === 'function')
+          ? RAPricing.getProjectFingerprint(numPanels)
+          : null,
         panelPrice: pPrice,
         estPrice: estPrice,
         invPrice: invPrice,
@@ -2628,7 +2631,7 @@ function wpOpenPricingReviewModal(onConfirm) {
       if (checkSave && checkSave.checked) {
         RAPricing.saveDefaults(newCfg);
       } else {
-        RAPricing.currentSessionPricing = newCfg;
+        RAPricing.currentSessionPricing = Object.assign({}, newCfg);
       }
 
       // Sincronizar inputs del desglose DOM si existen

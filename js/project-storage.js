@@ -473,7 +473,7 @@ function raExportProjectData() {
     })(),
     pricingOverrides: (() => {
       try {
-        const pricing = (typeof RAPricing !== 'undefined') ? RAPricing.getDefaults() : null;
+        const pricing = (typeof RAPricing !== 'undefined') ? (RAPricing.currentSessionPricing || RAPricing.getDefaults()) : null;
         const commCfg = (typeof RAPricing !== 'undefined' && typeof RAPricing.getCommercialConfig === 'function')
           ? RAPricing.getCommercialConfig()
           : null;
@@ -1520,6 +1520,10 @@ async function raImportProjectData(projectData, options = {}) {
       try {
         const po = projectData.pricingOverrides;
         if (po.pricing && typeof RAPricing !== 'undefined') {
+          // Reconstruir huella fresca del proyecto si faltaba para garantizar persistencia activa
+          if (!po.pricing.projectFingerprint && typeof RAPricing.getProjectFingerprint === 'function') {
+            po.pricing.projectFingerprint = RAPricing.getProjectFingerprint();
+          }
           RAPricing.currentSessionPricing = Object.assign({}, po.pricing);
           const setVal = function(id, val) {
             const el1 = document.getElementById(id);
@@ -1665,6 +1669,20 @@ async function raImportProjectData(projectData, options = {}) {
     // Esto garantiza que ningún re-render, selección o navegación de paso
     // pueda desorientar o desplazar la vista exacta guardada por el usuario.
     _raApplyCamera(projectData.camera);
+
+    // [AUDIT-LOCK] Re-reforzar precios personalizados tras navegación y sincronización
+    if (projectData.pricingOverrides && projectData.pricingOverrides.pricing && typeof RAPricing !== 'undefined') {
+      try {
+        if (!RAPricing.currentSessionPricing || RAPricing.currentSessionPricing !== projectData.pricingOverrides.pricing) {
+          RAPricing.currentSessionPricing = Object.assign({}, projectData.pricingOverrides.pricing);
+          if (typeof RAPricing.getProjectFingerprint === 'function') {
+            RAPricing.currentSessionPricing.projectFingerprint = RAPricing.getProjectFingerprint();
+          }
+        }
+        if (typeof wpUpdateStep5PricingBadge === 'function') wpUpdateStep5PricingBadge();
+        if (typeof updateBudgetUI === 'function') updateBudgetUI();
+      } catch(eReBgt) {}
+    }
 
     if (typeof wpPopulateStep3BillFromSSOT === 'function') {
       try { wpPopulateStep3BillFromSSOT(); } catch (ePop) {}
