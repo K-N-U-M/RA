@@ -6398,6 +6398,7 @@ const DEFAULT_EQUIPMENT_CATALOG = {
 
 let equipmentCatalog = loadEquipmentCatalog();
 window.equipmentCatalog = equipmentCatalog;
+window.DEFAULT_EQUIPMENT_CATALOG = DEFAULT_EQUIPMENT_CATALOG;
 let currentCatalogTab = 'modules';
 
 function loadEquipmentCatalog() {
@@ -6439,6 +6440,7 @@ function saveEquipmentCatalog() {
     localStorage.setItem('ra_equipment_catalog', JSON.stringify(equipmentCatalog));
   } catch (e) {}
   window.equipmentCatalog = equipmentCatalog;
+window.DEFAULT_EQUIPMENT_CATALOG = DEFAULT_EQUIPMENT_CATALOG;
   populateModuleDropdown();
   populateEquipmentModalUI();
   if (typeof populateStep3EquipmentSelectors === 'function') {
@@ -6452,6 +6454,7 @@ function resetEquipmentCatalogToDefault() {
   if (confirm('¿Deseas restaurar el catálogo oficial de equipos FV a los valores de fábrica?')) {
     equipmentCatalog = JSON.parse(JSON.stringify(DEFAULT_EQUIPMENT_CATALOG));
     window.equipmentCatalog = equipmentCatalog;
+window.DEFAULT_EQUIPMENT_CATALOG = DEFAULT_EQUIPMENT_CATALOG;
     saveEquipmentCatalog();
     showStatus('CATÁLOGO DE EQUIPOS RESTAURADO', 2000);
   }

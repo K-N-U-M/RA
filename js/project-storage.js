@@ -304,12 +304,24 @@ function raExportProjectData() {
       selectedInverterId: window.solarProjectConfig.selectedInverterId || null,
       selectedMicroinverterId: window.solarProjectConfig.selectedMicroinverterId || null,
       selectedBatteryId: window.solarProjectConfig.selectedBatteryId || null,
+      selectedOptimizerId: window.solarProjectConfig.selectedOptimizerId || null,
+      selectedProtectionDcId: window.solarProjectConfig.selectedProtectionDcId || null,
+      selectedProtectionAcId: window.solarProjectConfig.selectedProtectionAcId || null,
+      selectedCableDcId: window.solarProjectConfig.selectedCableDcId || null,
+      selectedCableAcId: window.solarProjectConfig.selectedCableAcId || null,
       selectedTopology: window.solarProjectConfig.selectedTopology || null,
       selectedObjective: window.solarProjectConfig.selectedObjective || null,
       targetKwp: window.solarProjectConfig.targetKwp || null,
-      autoSizing: window.solarProjectConfig.autoSizing || null,
-      calculatedLimits: window.solarProjectConfig.calculatedLimits || null,
-      inverterCapacityWarning: window.solarProjectConfig.inverterCapacityWarning || null,
+      lastEstimatedPanels: window.solarProjectConfig.lastEstimatedPanels || null,
+      autoSizing: window.solarProjectConfig.autoSizing ? JSON.parse(JSON.stringify(window.solarProjectConfig.autoSizing)) : null,
+      calculatedLimits: window.solarProjectConfig.calculatedLimits ? JSON.parse(JSON.stringify(window.solarProjectConfig.calculatedLimits)) : null,
+      inverterCapacityWarning: window.solarProjectConfig.inverterCapacityWarning ? JSON.parse(JSON.stringify(window.solarProjectConfig.inverterCapacityWarning)) : null,
+      inverters: (Array.isArray(window.solarProjectConfig.inverters) && window.solarProjectConfig.inverters.length > 0) ? JSON.parse(JSON.stringify(window.solarProjectConfig.inverters)) : null,
+      selectedInverters: (Array.isArray(window.solarProjectConfig.selectedInverters) && window.solarProjectConfig.selectedInverters.length > 0) ? JSON.parse(JSON.stringify(window.solarProjectConfig.selectedInverters)) : null,
+      batteries: (Array.isArray(window.solarProjectConfig.batteries) && window.solarProjectConfig.batteries.length > 0) ? JSON.parse(JSON.stringify(window.solarProjectConfig.batteries)) : null,
+      selectedBatteries: (Array.isArray(window.solarProjectConfig.selectedBatteries) && window.solarProjectConfig.selectedBatteries.length > 0) ? JSON.parse(JSON.stringify(window.solarProjectConfig.selectedBatteries)) : null,
+      userManuallySelectedInverter: !!window.solarProjectConfig.userManuallySelectedInverter,
+      stringWiringTopology: window.solarProjectConfig.stringWiringTopology || 'leapfrog',
       manualAnnualConsumptionKWh: window.solarProjectConfig.manualAnnualConsumptionKWh || null,
       billCostMonth: window.solarProjectConfig.billCostMonth || null,
       gridSupply: window.solarProjectConfig.gridSupply || null,
@@ -918,6 +930,35 @@ async function raImportProjectData(projectData, options = {}) {
       window.RAundo.clear();
     }
 
+    // [AUDIT v2.6] Restaurar Equipos Personalizados en el Catálogo local TEMPRANO (antes de geometrías, 3D y selectores)
+    if (projectData.customEquipment && typeof window !== 'undefined') {
+      try {
+        const ce = projectData.customEquipment;
+        const cat = window.equipmentCatalog;
+        let modified = false;
+        if (cat) {
+          ['modules', 'inverters', 'batteries', 'microinverters'].forEach(catKey => {
+            if (Array.isArray(ce[catKey]) && Array.isArray(cat[catKey])) {
+              ce[catKey].forEach(item => {
+                if (item && item.id && !cat[catKey].some(existing => existing.id === item.id)) {
+                  cat[catKey].push(item);
+                  modified = true;
+                }
+              });
+            }
+          });
+          if (modified && typeof window.saveEquipmentCatalog === 'function') {
+            window.saveEquipmentCatalog();
+          }
+        }
+        if (Array.isArray(ce.windTurbines) && window.RAWindCatalog && typeof window.RAWindCatalog.upsert === 'function') {
+          ce.windTurbines.forEach(t => {
+            if (t && t.id) window.RAWindCatalog.upsert(t);
+          });
+        }
+      } catch (eCat) { console.warn('[RA Storage] Error restaurando customEquipment temprano:', eCat); }
+    }
+
     // 2. Restaurar Cámara (Fase temprana: orienta frustum y activa streaming 3D)
     _raApplyCamera(projectData.camera);
 
@@ -1309,6 +1350,23 @@ async function raImportProjectData(projectData, options = {}) {
       }
       if (typeof window.populateStep3EquipmentSelectors === 'function') {
         try { window.populateStep3EquipmentSelectors(); } catch(eEq2) {}
+      }
+      // [AUDIT v2.6] Sincronizar topología visual de arquitectura (inversor central / microinversores / optimizadores)
+      if (projectData.projectConfig.selectedTopology && typeof window.step3SetTopology === 'function') {
+        try { window.step3SetTopology(projectData.projectConfig.selectedTopology); } catch(eTopo) {}
+      }
+      // [AUDIT v2.6] Forzar actualización de selecciones hardware, sincronización de costes de presupuesto y modelo 3D de batería
+      if (typeof window.step3UpdateHardwareSelection === 'function') {
+        try { window.step3UpdateHardwareSelection(); } catch(eHw) {}
+      }
+      if (typeof window.wpRenderBattery3D === 'function') {
+        try { window.wpRenderBattery3D(); } catch(eBat3d) {}
+      }
+      if (typeof window.updateBudgetUI === 'function') {
+        try { window.updateBudgetUI(); } catch(eBgt) {}
+      }
+      if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') {
+        try { BOMTreeEngine.refresh(); } catch(eBom) {}
       }
       if (typeof wpFastRenderSimulatedPanels === 'function') {
         try { wpFastRenderSimulatedPanels(); } catch(ePanels) {}
