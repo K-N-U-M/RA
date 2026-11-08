@@ -1125,6 +1125,10 @@ var RAPricing = {
   getDefaults: function() {
     var currentFp = this.getProjectFingerprint();
     if (this.currentSessionPricing) {
+      // Si el usuario modificó manualmente los precios, blindar la persistencia activa: NUNCA auto-recalcular
+      if (this.currentSessionPricing.isManualOverride) {
+        return this.currentSessionPricing;
+      }
       if (!this.currentSessionPricing.projectFingerprint || this.currentSessionPricing.projectFingerprint === currentFp) {
         return this.currentSessionPricing;
       }
@@ -1142,7 +1146,8 @@ var RAPricing = {
       legPrice: designCosts.legPrice,
       windPrice: (typeof designCosts.windPrice === 'number') ? designCosts.windPrice : null,
       marginPct: 20,
-      skipReview: false
+      skipReview: false,
+      isManualOverride: false
     };
     try {
       var saved = localStorage.getItem(this.STORAGE_KEY);
@@ -1161,7 +1166,8 @@ var RAPricing = {
 
   saveDefaults: function(cfg) {
     var fp = this.getProjectFingerprint();
-    this.currentSessionPricing = Object.assign({}, cfg, { projectFingerprint: fp });
+    var isManual = !!(cfg && (cfg.isManualOverride || cfg.isManualOverride === undefined));
+    this.currentSessionPricing = Object.assign({}, cfg, { projectFingerprint: fp, isManualOverride: isManual });
     try {
       // Guardar en localStorage únicamente preferencias comerciales transversales (margen %), nunca partidas absolutas de otro proyecto
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify({
@@ -1183,7 +1189,9 @@ var RAPricing = {
       }
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify({ marginPct: mg, skipReview: false }));
     } catch (e) {}
-    return this.computeDesignCosts();
+    var fresh = this.computeDesignCosts();
+    if (fresh) fresh.isManualOverride = false;
+    return fresh;
   },
 
 
@@ -1949,7 +1957,12 @@ function wpOpenPricingReviewModal(onConfirm) {
       subtextWind.textContent = '0× aerogeneradores montados en el proyecto';
     }
   }
-  var hasActiveSessionOverride = Boolean(RAPricing.currentSessionPricing && RAPricing.currentSessionPricing.projectFingerprint === RAPricing.getProjectFingerprint(numPanels));
+  var hasActiveSessionOverride = Boolean(
+    RAPricing.currentSessionPricing && (
+      RAPricing.currentSessionPricing.isManualOverride ||
+      RAPricing.currentSessionPricing.projectFingerprint === RAPricing.getProjectFingerprint(numPanels)
+    )
+  );
   var initialPanelPrice = (hasActiveSessionOverride && pricing.panelPrice > 0) ? pricing.panelPrice : designCosts.panelPrice;
   var initialEstPrice = (hasActiveSessionOverride && typeof pricing.estPrice === 'number' && pricing.estPrice >= 0) ? pricing.estPrice : designCosts.estPrice;
   var initialInvPrice = (hasActiveSessionOverride && typeof pricing.invPrice === 'number' && pricing.invPrice >= 0) ? pricing.invPrice : designCosts.invPrice;
@@ -2182,6 +2195,7 @@ function wpOpenPricingReviewModal(onConfirm) {
     var capexTachado = (discountEur > 0) ? Math.round(subtotalPreDiscount * (1 + ivaRate)) : null;
 
     // Temporal override en sesión etiquetado con la huella del proyecto actual
+    var priorIsManual = Boolean(RAPricing.currentSessionPricing && RAPricing.currentSessionPricing.isManualOverride);
     RAPricing.currentSessionPricing = {
       projectFingerprint: RAPricing.getProjectFingerprint(numPanels),
       panelPrice: pPrice,
@@ -2193,7 +2207,8 @@ function wpOpenPricingReviewModal(onConfirm) {
       legPrice: legPrice,
       windPrice: windPrice,
       marginPct: mgPct,
-      skipReview: false
+      skipReview: false,
+      isManualOverride: priorIsManual
     };
 
     // Actualizar temporalmente consumo y parámetros en window.solarProjectConfig para métricas en vivo
@@ -2492,6 +2507,9 @@ function wpOpenPricingReviewModal(onConfirm) {
   var resetDesignBtn = document.getElementById('btn-reset-pricing-to-design');
   if (resetDesignBtn) {
     resetDesignBtn.onclick = function() {
+      if (RAPricing.currentSessionPricing) {
+        RAPricing.currentSessionPricing.isManualOverride = false;
+      }
       var fresh = RAPricing.resetToDesign();
       if (pInput) pInput.value = fresh.panelPrice;
       if (estInput) estInput.value = fresh.estPrice;
@@ -2625,7 +2643,8 @@ function wpOpenPricingReviewModal(onConfirm) {
         legPrice: legPrice,
         windPrice: windPrice,
         marginPct: mgPct,
-        skipReview: false
+        skipReview: false,
+        isManualOverride: true
       };
 
       if (checkSave && checkSave.checked) {
@@ -6140,7 +6159,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     ? RAPricing.computeDesignCosts(numPanels)
     : null;
   const pricing = (typeof RAPricing !== 'undefined') ? RAPricing.getEffectivePricing() : { panelPrice: 125, moPrice: 1400, marginPct: 20 };
-  const hasSessionOverride = !!(pricing && pricing.projectFingerprint);
+  const hasSessionOverride = !!(pricing && (pricing.isManualOverride || pricing.projectFingerprint));
   const unitPanelPrice = (pricing && pricing.panelPrice > 0) ? pricing.panelPrice : (designCosts ? designCosts.panelPrice : (d.cfg.precio || 125));
   const panCost = (mb && mb.totalPanelsCost > 0 && (!hasSessionOverride || (designCosts && Math.abs(unitPanelPrice - designCosts.panelPrice) < 0.05)))
     ? Math.round(mb.totalPanelsCost)

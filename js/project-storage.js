@@ -474,6 +474,13 @@ function raExportProjectData() {
     pricingOverrides: (() => {
       try {
         const pricing = (typeof RAPricing !== 'undefined') ? (RAPricing.currentSessionPricing || RAPricing.getDefaults()) : null;
+        let pricingToSave = null;
+        if (pricing) {
+          pricingToSave = Object.assign({}, pricing);
+          if (typeof RAPricing !== 'undefined' && RAPricing.currentSessionPricing) {
+            pricingToSave.isManualOverride = true;
+          }
+        }
         const commCfg = (typeof RAPricing !== 'undefined' && typeof RAPricing.getCommercialConfig === 'function')
           ? RAPricing.getCommercialConfig()
           : null;
@@ -481,7 +488,7 @@ function raExportProjectData() {
           ? window.getCustomCommercialSummary()
           : null;
         return {
-          pricing: pricing ? Object.assign({}, pricing) : null,
+          pricing: pricingToSave,
           commercialConfig: commCfg ? JSON.parse(JSON.stringify(commCfg)) : null,
           customCommercialSummary: customSummary || null
         };
@@ -1524,7 +1531,7 @@ async function raImportProjectData(projectData, options = {}) {
           if (!po.pricing.projectFingerprint && typeof RAPricing.getProjectFingerprint === 'function') {
             po.pricing.projectFingerprint = RAPricing.getProjectFingerprint();
           }
-          RAPricing.currentSessionPricing = Object.assign({}, po.pricing);
+          RAPricing.currentSessionPricing = Object.assign({}, po.pricing, { isManualOverride: (po.pricing.isManualOverride !== false) });
           const setVal = function(id, val) {
             const el1 = document.getElementById(id);
             if (el1) el1.value = val;
@@ -1674,7 +1681,7 @@ async function raImportProjectData(projectData, options = {}) {
     if (projectData.pricingOverrides && projectData.pricingOverrides.pricing && typeof RAPricing !== 'undefined') {
       try {
         if (!RAPricing.currentSessionPricing || RAPricing.currentSessionPricing !== projectData.pricingOverrides.pricing) {
-          RAPricing.currentSessionPricing = Object.assign({}, projectData.pricingOverrides.pricing);
+          RAPricing.currentSessionPricing = Object.assign({}, projectData.pricingOverrides.pricing, { isManualOverride: (projectData.pricingOverrides.pricing.isManualOverride !== false) });
           if (typeof RAPricing.getProjectFingerprint === 'function') {
             RAPricing.currentSessionPricing.projectFingerprint = RAPricing.getProjectFingerprint();
           }
