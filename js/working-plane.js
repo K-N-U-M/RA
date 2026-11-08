@@ -6619,7 +6619,8 @@ window._catSortState = window._catSortState || {
 };
 
 function sortCatalogCategory(category, columnKey) {
-  if (!equipmentCatalog || !Array.isArray(equipmentCatalog[category])) return;
+  const targetCat = window.equipmentCatalog || equipmentCatalog;
+  if (!targetCat || !Array.isArray(targetCat[category])) return;
   const state = window._catSortState[category] || { col: null, asc: true };
   if (state.col === columnKey) {
     state.asc = !state.asc;
@@ -6629,25 +6630,25 @@ function sortCatalogCategory(category, columnKey) {
   }
   window._catSortState[category] = state;
 
-  equipmentCatalog[category].sort((a, b) => {
-    let valA = '';
-    let valB = '';
+  targetCat[category].sort((a, b) => {
     if (columnKey === 'brand_model') {
-      valA = ((a.brand || '') + ' ' + (a.model || '')).toLowerCase();
-      valB = ((b.brand || '') + ' ' + (b.model || '')).toLowerCase();
-    } else if (columnKey === 'type') {
-      valA = String(a.type || '').toLowerCase();
-      valB = String(b.type || '').toLowerCase();
-    } else {
-      valA = a[columnKey];
-      valB = b[columnKey];
-      if (typeof valA === 'string') valA = valA.toLowerCase();
-      if (typeof valB === 'string') valB = valB.toLowerCase();
+      const strA = ((a.brand || '') + ' ' + (a.model || '')).trim();
+      const strB = ((b.brand || '') + ' ' + (b.model || '')).trim();
+      return state.asc ? strA.localeCompare(strB, 'es', { numeric: true, sensitivity: 'base' })
+                       : strB.localeCompare(strA, 'es', { numeric: true, sensitivity: 'base' });
     }
 
-    if (valA < valB) return state.asc ? -1 : 1;
-    if (valA > valB) return state.asc ? 1 : -1;
-    return 0;
+    const valA = a[columnKey];
+    const valB = b[columnKey];
+
+    if (typeof valA === 'number' && typeof valB === 'number') {
+      return state.asc ? (valA - valB) : (valB - valA);
+    }
+
+    const strA = String(valA !== undefined && valA !== null ? valA : '').trim();
+    const strB = String(valB !== undefined && valB !== null ? valB : '').trim();
+    return state.asc ? strA.localeCompare(strB, 'es', { numeric: true, sensitivity: 'base' })
+                     : strB.localeCompare(strA, 'es', { numeric: true, sensitivity: 'base' });
   });
 
   populateEquipmentModalUI();
@@ -6657,9 +6658,9 @@ window.sortCatalogCategory = sortCatalogCategory;
 function _getSortIconHtml(category, columnKey) {
   const state = window._catSortState && window._catSortState[category];
   if (!state || state.col !== columnKey) {
-    return ' <span style="opacity:0.35;font-size:9px;">⇅</span>';
+    return ' <span class="cat-sort-icon" style="pointer-events:none;opacity:0.35;font-size:9px;">⇅</span>';
   }
-  return state.asc ? ' <span style="color:#38BDF8;font-size:9px;font-weight:bold;">▲</span>' : ' <span style="color:#38BDF8;font-size:9px;font-weight:bold;">▼</span>';
+  return state.asc ? ' <span class="cat-sort-icon" style="pointer-events:none;color:#38BDF8;font-size:9px;font-weight:bold;">▲</span>' : ' <span class="cat-sort-icon" style="pointer-events:none;color:#38BDF8;font-size:9px;font-weight:bold;">▼</span>';
 }
 window._getSortIconHtml = _getSortIconHtml;
 
@@ -6669,9 +6670,29 @@ function updateCatalogHeaderIcons() {
     const thList = document.querySelectorAll('#cat-pane-' + cat + ' th[data-sort-col]');
     thList.forEach(th => {
       const col = th.getAttribute('data-sort-col');
-      const baseLabel = th.getAttribute('data-base-label') || th.innerText.replace(/[⇅▲▼]/g, '').trim();
-      if (!th.getAttribute('data-base-label')) th.setAttribute('data-base-label', baseLabel);
-      th.innerHTML = baseLabel + _getSortIconHtml(cat, col);
+      const iconSpan = th.querySelector('.cat-sort-icon');
+      if (iconSpan) {
+        const state = window._catSortState && window._catSortState[cat];
+        if (!state || state.col !== col) {
+          iconSpan.style.opacity = '0.35';
+          iconSpan.style.color = '';
+          iconSpan.style.fontWeight = 'normal';
+          iconSpan.textContent = '⇅';
+        } else if (state.asc) {
+          iconSpan.style.opacity = '1';
+          iconSpan.style.color = '#38BDF8';
+          iconSpan.style.fontWeight = 'bold';
+          iconSpan.textContent = '▲';
+        } else {
+          iconSpan.style.opacity = '1';
+          iconSpan.style.color = '#38BDF8';
+          iconSpan.style.fontWeight = 'bold';
+          iconSpan.textContent = '▼';
+        }
+      } else {
+        const baseLabel = th.getAttribute('data-base-label') || (th.textContent || '').replace(/[⇅▲▼]/g, '').trim();
+        th.innerHTML = baseLabel + _getSortIconHtml(cat, col);
+      }
     });
   });
 }
