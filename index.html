@@ -2793,11 +2793,11 @@ window.RA_App = window.RA_App || {};
         <table style="width:100%;border-collapse:collapse;text-align:left;">
           <thead>
             <tr style="border-bottom:2px solid #334155;color:var(--text-slate-400);font-size: 10px;text-transform:uppercase;">
-              <th style="padding:6px 10px;">Fabricante & Modelo</th>
-              <th style="padding:6px 10px;text-align:center;">Potencia</th>
-              <th style="padding:6px 10px;text-align:center;">Rendimiento</th>
-              <th style="padding:6px 10px;text-align:center;">Dimensiones</th>
-              <th style="padding:6px 10px;text-align:center;">Precio Unit.</th>
+              <th style="padding:6px 10px;cursor:pointer;user-select:none;" data-sort-col="brand_model" onclick="sortCatalogCategory('modules', 'brand_model')" title="Ordenar por Fabricante y Modelo">Fabricante & Modelo <span style="opacity:0.35;font-size:9px;">⇅</span></th>
+              <th style="padding:6px 10px;text-align:center;cursor:pointer;user-select:none;" data-sort-col="wp" onclick="sortCatalogCategory('modules', 'wp')" title="Ordenar por Potencia">Potencia <span style="opacity:0.35;font-size:9px;">⇅</span></th>
+              <th style="padding:6px 10px;text-align:center;cursor:pointer;user-select:none;" data-sort-col="eff" onclick="sortCatalogCategory('modules', 'eff')" title="Ordenar por Rendimiento">Rendimiento <span style="opacity:0.35;font-size:9px;">⇅</span></th>
+              <th style="padding:6px 10px;text-align:center;cursor:pointer;user-select:none;" data-sort-col="l" onclick="sortCatalogCategory('modules', 'l')" title="Ordenar por Dimensiones">Dimensiones <span style="opacity:0.35;font-size:9px;">⇅</span></th>
+              <th style="padding:6px 10px;text-align:center;cursor:pointer;user-select:none;" data-sort-col="price" onclick="sortCatalogCategory('modules', 'price')" title="Ordenar por Precio">Precio Unit. <span style="opacity:0.35;font-size:9px;">⇅</span></th>
               <th style="padding:6px 10px;text-align:right;">Acciones</th>
             </tr>
           </thead>
@@ -2810,12 +2810,12 @@ window.RA_App = window.RA_App || {};
         <table style="width:100%;border-collapse:collapse;text-align:left;">
           <thead>
             <tr style="border-bottom:2px solid #334155;color:var(--text-slate-400);font-size: 10px;text-transform:uppercase;">
-              <th style="padding:6px 8px;">Marca &amp; Modelo</th>
-              <th style="padding:6px 8px;text-align:center;">Potencia</th>
-              <th style="padding:6px 8px;text-align:center;">MPPT (Entr.)</th>
-              <th style="padding:6px 8px;text-align:center;">Tensión Vdc (MPPT)</th>
-              <th style="padding:6px 8px;text-align:center;">Corrientes (Imp / Isc)</th>
-              <th style="padding:6px 8px;text-align:center;">Precio</th>
+              <th style="padding:6px 8px;cursor:pointer;user-select:none;" data-sort-col="brand_model" onclick="sortCatalogCategory('inverters', 'brand_model')" title="Ordenar por Marca y Modelo">Marca &amp; Modelo <span style="opacity:0.35;font-size:9px;">⇅</span></th>
+              <th style="padding:6px 8px;text-align:center;cursor:pointer;user-select:none;" data-sort-col="kw" onclick="sortCatalogCategory('inverters', 'kw')" title="Ordenar por Potencia">Potencia <span style="opacity:0.35;font-size:9px;">⇅</span></th>
+              <th style="padding:6px 8px;text-align:center;cursor:pointer;user-select:none;" data-sort-col="mppt" onclick="sortCatalogCategory('inverters', 'mppt')" title="Ordenar por Canales MPPT">MPPT (Entr.) <span style="opacity:0.35;font-size:9px;">⇅</span></th>
+              <th style="padding:6px 8px;text-align:center;cursor:pointer;user-select:none;" data-sort-col="vDcMax" onclick="sortCatalogCategory('inverters', 'vDcMax')" title="Ordenar por Tensión Vdc">Tensión Vdc (MPPT) <span style="opacity:0.35;font-size:9px;">⇅</span></th>
+              <th style="padding:6px 8px;text-align:center;cursor:pointer;user-select:none;" data-sort-col="type" onclick="sortCatalogCategory('inverters', 'type')" title="Ordenar por Tipo">Tipo / Corrientes <span style="opacity:0.35;font-size:9px;">⇅</span></th>
+              <th style="padding:6px 8px;text-align:center;cursor:pointer;user-select:none;" data-sort-col="price" onclick="sortCatalogCategory('inverters', 'price')" title="Ordenar por Precio">Precio <span style="opacity:0.35;font-size:9px;">⇅</span></th>
               <th style="padding:6px 8px;text-align:right;">Acciones</th>
             </tr>
           </thead>
@@ -2828,10 +2828,10 @@ window.RA_App = window.RA_App || {};
         <table style="width:100%;border-collapse:collapse;text-align:left;">
           <thead>
             <tr style="border-bottom:2px solid #334155;color:var(--text-slate-400);font-size: 10px;text-transform:uppercase;">
-              <th style="padding:6px 10px;">Marca & Modelo</th>
-              <th style="padding:6px 10px;text-align:center;">Capacidad Útil</th>
-              <th style="padding:6px 10px;text-align:center;">Química / Tipo</th>
-              <th style="padding:6px 10px;text-align:center;">Coste Pack</th>
+              <th style="padding:6px 10px;cursor:pointer;user-select:none;" data-sort-col="brand_model" onclick="sortCatalogCategory('batteries', 'brand_model')" title="Ordenar por Marca y Modelo">Marca & Modelo <span style="opacity:0.35;font-size:9px;">⇅</span></th>
+              <th style="padding:6px 10px;text-align:center;cursor:pointer;user-select:none;" data-sort-col="kwh" onclick="sortCatalogCategory('batteries', 'kwh')" title="Ordenar por Capacidad">Capacidad Útil <span style="opacity:0.35;font-size:9px;">⇅</span></th>
+              <th style="padding:6px 10px;text-align:center;cursor:pointer;user-select:none;" data-sort-col="type" onclick="sortCatalogCategory('batteries', 'type')" title="Ordenar por Tipo">Química / Tipo <span style="opacity:0.35;font-size:9px;">⇅</span></th>
+              <th style="padding:6px 10px;text-align:center;cursor:pointer;user-select:none;" data-sort-col="price" onclick="sortCatalogCategory('batteries', 'price')" title="Ordenar por Coste">Coste Pack <span style="opacity:0.35;font-size:9px;">⇅</span></th>
               <th style="padding:6px 10px;text-align:right;">Acciones</th>
             </tr>
           </thead>
@@ -2844,10 +2844,10 @@ window.RA_App = window.RA_App || {};
         <table style="width:100%;border-collapse:collapse;text-align:left;">
           <thead>
             <tr style="border-bottom:2px solid #334155;color:var(--text-slate-400);font-size: 10px;text-transform:uppercase;">
-              <th style="padding:6px 10px;">Marca & Modelo</th>
-              <th style="padding:6px 10px;text-align:center;">Potencia AC</th>
-              <th style="padding:6px 10px;text-align:center;">Topología</th>
-              <th style="padding:6px 10px;text-align:center;">Precio Unitario</th>
+              <th style="padding:6px 10px;cursor:pointer;user-select:none;" data-sort-col="brand_model" onclick="sortCatalogCategory('microinverters', 'brand_model')" title="Ordenar por Marca y Modelo">Marca & Modelo <span style="opacity:0.35;font-size:9px;">⇅</span></th>
+              <th style="padding:6px 10px;text-align:center;cursor:pointer;user-select:none;" data-sort-col="kw" onclick="sortCatalogCategory('microinverters', 'kw')" title="Ordenar por Potencia">Potencia AC <span style="opacity:0.35;font-size:9px;">⇅</span></th>
+              <th style="padding:6px 10px;text-align:center;cursor:pointer;user-select:none;" data-sort-col="type" onclick="sortCatalogCategory('microinverters', 'type')" title="Ordenar por Topología">Topología <span style="opacity:0.35;font-size:9px;">⇅</span></th>
+              <th style="padding:6px 10px;text-align:center;cursor:pointer;user-select:none;" data-sort-col="price" onclick="sortCatalogCategory('microinverters', 'price')" title="Ordenar por Precio">Precio Unitario <span style="opacity:0.35;font-size:9px;">⇅</span></th>
               <th style="padding:6px 10px;text-align:right;">Acciones</th>
             </tr>
           </thead>

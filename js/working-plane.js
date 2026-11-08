@@ -6609,6 +6609,73 @@ function switchCatalogTab(tabName) {
   }
 }
 
+
+// ── GESTIÓN DE ORDENACIÓN EN CATÁLOGO DE EQUIPOS ───────────────────────
+window._catSortState = window._catSortState || {
+  modules: { col: null, asc: true },
+  inverters: { col: null, asc: true },
+  batteries: { col: null, asc: true },
+  microinverters: { col: null, asc: true }
+};
+
+function sortCatalogCategory(category, columnKey) {
+  if (!equipmentCatalog || !Array.isArray(equipmentCatalog[category])) return;
+  const state = window._catSortState[category] || { col: null, asc: true };
+  if (state.col === columnKey) {
+    state.asc = !state.asc;
+  } else {
+    state.col = columnKey;
+    state.asc = true;
+  }
+  window._catSortState[category] = state;
+
+  equipmentCatalog[category].sort((a, b) => {
+    let valA = '';
+    let valB = '';
+    if (columnKey === 'brand_model') {
+      valA = ((a.brand || '') + ' ' + (a.model || '')).toLowerCase();
+      valB = ((b.brand || '') + ' ' + (b.model || '')).toLowerCase();
+    } else if (columnKey === 'type') {
+      valA = String(a.type || '').toLowerCase();
+      valB = String(b.type || '').toLowerCase();
+    } else {
+      valA = a[columnKey];
+      valB = b[columnKey];
+      if (typeof valA === 'string') valA = valA.toLowerCase();
+      if (typeof valB === 'string') valB = valB.toLowerCase();
+    }
+
+    if (valA < valB) return state.asc ? -1 : 1;
+    if (valA > valB) return state.asc ? 1 : -1;
+    return 0;
+  });
+
+  populateEquipmentModalUI();
+}
+window.sortCatalogCategory = sortCatalogCategory;
+
+function _getSortIconHtml(category, columnKey) {
+  const state = window._catSortState && window._catSortState[category];
+  if (!state || state.col !== columnKey) {
+    return ' <span style="opacity:0.35;font-size:9px;">⇅</span>';
+  }
+  return state.asc ? ' <span style="color:#38BDF8;font-size:9px;font-weight:bold;">▲</span>' : ' <span style="color:#38BDF8;font-size:9px;font-weight:bold;">▼</span>';
+}
+window._getSortIconHtml = _getSortIconHtml;
+
+function updateCatalogHeaderIcons() {
+  const categories = ['modules', 'inverters', 'batteries', 'microinverters'];
+  categories.forEach(cat => {
+    const thList = document.querySelectorAll('#cat-pane-' + cat + ' th[data-sort-col]');
+    thList.forEach(th => {
+      const col = th.getAttribute('data-sort-col');
+      const baseLabel = th.getAttribute('data-base-label') || th.innerText.replace(/[⇅▲▼]/g, '').trim();
+      if (!th.getAttribute('data-base-label')) th.setAttribute('data-base-label', baseLabel);
+      th.innerHTML = baseLabel + _getSortIconHtml(cat, col);
+    });
+  });
+}
+
 function populateEquipmentModalUI() {
   // 1. Módulos
   const modTable = document.getElementById('cat-modules-table-body');
@@ -6711,6 +6778,7 @@ function populateEquipmentModalUI() {
   if (typeof lucide !== 'undefined' && lucide.createIcons) {
     try { lucide.createIcons(); } catch(e){}
   }
+  if (typeof updateCatalogHeaderIcons === 'function') updateCatalogHeaderIcons();
 }
 
 function applyInverterFromCatalog(invId) {
