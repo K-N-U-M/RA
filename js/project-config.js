@@ -219,7 +219,8 @@ function wpSyncGridSupplyUI(totalKwp) {
     kwp = (totalPanels * (mod.wp || 450)) / 1000.0;
   }
 
-  const isOver15kW = kwp > 15.0;
+  // [RD 1699/2011 Art. 12.2]: Límite legal 15 kW en AC nominal del inversor. Con sobredimensionamiento habitual DC/AC (hasta 1.35x), se admite hasta 20.25 kWp en monofásico.
+  const isOver15kW = (kwp > 20.25);
   const isTri = (cfg.gridSupply === 'three_phase' || isOver15kW);
 
   const btnMono = document.getElementById('step3-grid-single-phase');
@@ -274,7 +275,7 @@ function wpSyncGridSupplyUI(totalKwp) {
       noticeEl.style.background = 'rgba(245, 158, 11, 0.12)';
       noticeEl.style.border = '1px solid rgba(245, 158, 11, 0.35)';
       noticeEl.style.color = '#FBBF24';
-      noticeEl.innerHTML = '<span style="font-size:12px;">⚖️</span> <span><strong>RD 1699/2011 (Art. 12.2 / RD 244/2019):</strong> Potencia nominal &gt; 15 kW (' + kwp.toFixed(1) + ' kWp). Conexión trifásica obligatoria con desequilibrio entre fases &lt; 5 kW.</span>';
+      noticeEl.innerHTML = '<span style="font-size:12px;">⚖️</span> <span><strong>RD 1699/2011 (Art. 12.2 / RD 244/2019):</strong> Potencia instalada &gt; 20.25 kWp (' + kwp.toFixed(1) + ' kWp) supera los 15 kW AC nominales. Conexión trifásica obligatoria con desequilibrio entre fases &lt; 5 kW.</span>';
     } else {
       noticeEl.style.display = 'none';
       noticeEl.innerHTML = '';
@@ -293,12 +294,13 @@ function wpSetGridSupply(supply, manual = true) {
   const mod = (catalog.modules && catalog.modules.find(m => m.id === cfg.selectedModuleId)) || (catalog.modules && catalog.modules[0]) || { wp: 450 };
   const currentKwp = (totalPanels * (mod.wp || 450)) / 1000.0;
 
-  if (supply === 'single_phase' && currentKwp > 15.0) {
+  // [RD 1699/2011 Art. 12.2]: Permite hasta 20.25 kWp monofásico si la potencia nominal AC del inversor se limita a 15 kW
+  if (supply === 'single_phase' && currentKwp > 20.25) {
     cfg.gridSupply = 'three_phase';
     if (manual) cfg.userManuallySelectedGridSupply = true;
     wpSyncGridSupplyUI(currentKwp);
     if (typeof showToast === 'function') {
-      showToast('⚠️ RD 1699/2011 Art. 12.2: Para potencias > 15 kW la conexión debe ser trifásica obligatoriamente.', 'warning');
+      showToast('⚠️ RD 1699/2011 Art. 12.2: Para potencias superiores a 20.25 kWp (>15 kW nominales en AC) la conexión debe ser trifásica obligatoriamente.', 'warning');
     }
     return;
   }

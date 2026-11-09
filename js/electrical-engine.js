@@ -623,7 +623,8 @@
         // Art. 12.2 RD 1699/2011 (modificado por RD 244/2019) y REBT ITC-BT-40:
         // 1) Si la potencia nominal supera 15 kW, la conexión será obligatoriamente trifásica.
         // 2) Conexión trifásica con desequilibrio entre fases inferior a 5 kW (< 5.0 kW).
-        const exceedsSinglePhaseLimit = (gridSupply === 'single_phase' && ((invCount * inv.kw) > 15.0 || totalKwp > 15.0));
+        // [RD 1699/2011 Art. 12.2]: El límite legal de 15 kW aplica a la potencia nominal en alterna (invCount * inv.kw <= 15.0 kW). Con ratio DC/AC típico de 1.35x, el campo solar puede alcanzar hasta 20.25 kWp en monofásico.
+        const exceedsSinglePhaseLimit = (gridSupply === 'single_phase' && ((invCount * inv.kw) > 15.0 || totalKwp > 20.25));
         const maxPhaseUnits = Math.ceil(invCount / 3);
         const minPhaseUnits = Math.floor(invCount / 3);
         const maxPhaseDeltaKw = (maxPhaseUnits - minPhaseUnits) * (inv.kw || 0);
@@ -749,8 +750,8 @@
           if (inv.iMaxScA && _isc > inv.iMaxScA) countCurrentMismatch++;
         });
 
-        if (gridSupply === 'single_phase' && totalKwp > 15.0) {
-          bottleneckReason = `Potencia instalada de ${totalKwp.toFixed(1)} kWp superior a 15 kW: el Art. 12.2 del RD 1699/2011 (modificado por RD 244/2019) prohíbe la conexión monofásica a la red de distribución y exige conexión trifásica con desequilibrio entre fases < 5 kW.`;
+        if (gridSupply === 'single_phase' && totalKwp > 20.25) {
+          bottleneckReason = `Potencia instalada de ${totalKwp.toFixed(1)} kWp superior a 20.25 kWp (> 15 kW nominales con sobrecarga máx 1.35): el Art. 12.2 del RD 1699/2011 (modificado por RD 244/2019) exige conexión trifásica con desequilibrio entre fases < 5 kW.`;
         } else if (countPhaseMismatch === catalog.length) {
           bottleneckReason = 'Todos los inversores del catálogo son trifásicos, pero el suministro configurado es monofásico (≤6 kWp).';
         } else if (countCurrentMismatch >= Math.ceil(catalog.length / 2)) {
@@ -763,7 +764,7 @@
       }
 
       // Generar Inversor Paramétrico Virtual Ideal
-      const isThreePhase = (gridSupply === 'three_phase' || totalKwp > 6.0 || totalKwp > 15.0);
+      const isThreePhase = (gridSupply === 'three_phase' || (gridSupply !== 'single_phase' && totalKwp > 6.0) || totalKwp > 20.25);
       const targetOverload = 1.18;
       let idealKw = Math.max(1.0, Math.round((totalKwp / targetOverload) * 10) / 10);
       let invCount = 1;
@@ -859,7 +860,7 @@
     // 1) Opción A: Inversor Centralizado (1x)
     let singleInvMatch = singleCandidates[0] || (virtualInverterMatch && virtualInverterMatch.count === 1 ? virtualInverterMatch : null);
     if (!singleInvMatch && totalKwp > 0) {
-      const isThreePhase = (gridSupply === 'three_phase' || totalKwp > 6.0 || totalKwp > 15.0);
+      const isThreePhase = (gridSupply === 'three_phase' || (gridSupply !== 'single_phase' && totalKwp > 6.0) || totalKwp > 20.25);
       const unitKwA = Math.max(1.0, Math.round((totalKwp / 1.18) * 10) / 10);
       const mpptReqA = Math.max(distinctOrientations, isThreePhase ? (unitKwA >= 25 ? 4 : 2) : 2);
       const estPriceA = isThreePhase
@@ -894,7 +895,7 @@
     // 2) Opción B: Modular Distribuida (Nx con N >= 2 de equipos menores)
     let multiInvMatch = multiCandidates[0];
     if (!multiInvMatch && totalKwp > 0) {
-      const isThreePhase = (gridSupply === 'three_phase' || totalKwp > 6.0 || totalKwp > 15.0);
+      const isThreePhase = (gridSupply === 'three_phase' || (gridSupply !== 'single_phase' && totalKwp > 6.0) || totalKwp > 20.25);
       const nUnitsB = totalKwp > 60.0 ? Math.max(2, Math.ceil(totalKwp / 45.0)) : 2;
       const unitKwB = Math.max(1.0, Math.round((totalKwp / (nUnitsB * 1.18)) * 10) / 10);
       const mpptReqB = Math.max(2, Math.ceil(distinctOrientations / nUnitsB));
@@ -2255,8 +2256,8 @@
   const total_ac_kW = total_P_ac_kW;
   const _selInv = (typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.calculatedLimits && window.solarProjectConfig.calculatedLimits.inverter) || null;
   let monofasico = (activeInv && typeof activeInv.phases === 'number') ? (activeInv.phases === 1) : ((typeof window !== 'undefined' && typeof window.raInverterPhases === 'function' && _selInv) ? (window.raInverterPhases(_selInv) === 1) : (inv_kW <= 5.0));
-  // Salvaguarda RD 1699/2011 Art. 12.2 (mod. RD 244/2019): Pn > 15 kW es obligatoriamente trifásica
-  if (total_ac_kW > 15.0 || P_dc_kW > 15.0) {
+  // Salvaguarda RD 1699/2011 Art. 12.2 (mod. RD 244/2019): Pn > 15 kW en AC es obligatoriamente trifásica (admisible hasta 20.25 kWp en DC con ratio 1.35x)
+  if (total_ac_kW > 15.0 || P_dc_kW > 20.25) {
     monofasico = false;
   }
   const V_ac = monofasico ? 230 : 400;
