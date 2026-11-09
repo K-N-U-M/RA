@@ -9216,43 +9216,86 @@ function renderSolarBarChart(data) {
   const safeData = (Array.isArray(data) && data.length > 0) ? data : (Array.isArray(window.lastMonthlyYields) ? window.lastMonthlyYields : [0,0,0,0,0,0,0,0,0,0,0,0]);
   window.lastMonthlyYields = [...safeData];
   data = safeData;
+
   const chartTargets = [
     { svgId: 'bom-solar-svg-chart', infoId: 'bom-chart-hover-info' }
   ];
 
-  // Escala canónica del eje Y (redondeo estándar CAD a múltiplos canónicos limpios)
-  const rawMax = Math.max(...data, 10);
+  // Extraer desglose mensual de energía bancable si está disponible
+  let finModel = null;
+  if (typeof calculateFinancialModel === 'function') {
+    try { finModel = calculateFinancialModel(); } catch (eFin) {}
+  }
+
+  const breakdown = (finModel && Array.isArray(finModel.monthlyEnergyBreakdown) && finModel.monthlyEnergyBreakdown.length === 12)
+    ? finModel.monthlyEnergyBreakdown
+    : null;
+
+  // Curvas mensuales normalizadas
+  const solarWeights = [0.045, 0.058, 0.082, 0.098, 0.118, 0.126, 0.132, 0.120, 0.095, 0.068, 0.046, 0.032];
+  const consWeights = [0.098, 0.090, 0.085, 0.076, 0.072, 0.078, 0.095, 0.092, 0.079, 0.076, 0.089, 0.090];
+  const totalAnnualSolar = data.reduce((s, v) => s + v, 0);
+  const totalAnnualCons = (finModel && finModel.consumoAnual > 0) ? finModel.consumoAnual : 3500;
+
+  const monthsData = [];
+  for (let i = 0; i < 12; i++) {
+    const gen = Math.round(data[i] || (solarWeights[i] * totalAnnualSolar) || 0);
+    let auto = 0, exc = 0, cons = 0;
+    if (breakdown && breakdown[i]) {
+      auto = Math.min(gen, Math.round(breakdown[i].autoconsumoKWh || 0));
+      exc = Math.max(0, gen - auto);
+      cons = Math.round(breakdown[i].consumoKWh || 0);
+    } else {
+      cons = Math.round(consWeights[i] * totalAnnualCons);
+      auto = Math.min(cons, Math.round(gen * 0.70));
+      exc = Math.max(0, gen - auto);
+    }
+    monthsData.push({
+      gen: gen,
+      auto: auto,
+      exc: exc,
+      cons: cons
+    });
+  }
+
+  // Escala dinámica del eje Y: cubrir el valor más alto entre producción y consumo
+  const maxSeriesVal = Math.max(...monthsData.map(m => Math.max(m.gen, m.cons)), 10);
   let yMax = 100;
-  if (rawMax <= 50) yMax = 50;
-  else if (rawMax <= 100) yMax = 100;
-  else if (rawMax <= 250) yMax = 250;
-  else if (rawMax <= 500) yMax = 500;
-  else if (rawMax <= 1000) yMax = 1000;
-  else if (rawMax <= 1500) yMax = 1500;
-  else if (rawMax <= 2000) yMax = 2000;
-  else if (rawMax <= 3000) yMax = 3000;
-  else if (rawMax <= 5000) yMax = 5000;
-  else if (rawMax <= 10000) yMax = 10000;
+  if (maxSeriesVal <= 50) yMax = 50;
+  else if (maxSeriesVal <= 100) yMax = 100;
+  else if (maxSeriesVal <= 250) yMax = 250;
+  else if (maxSeriesVal <= 500) yMax = 500;
+  else if (maxSeriesVal <= 1000) yMax = 1000;
+  else if (maxSeriesVal <= 1500) yMax = 1500;
+  else if (maxSeriesVal <= 2000) yMax = 2000;
+  else if (maxSeriesVal <= 3000) yMax = 3000;
+  else if (maxSeriesVal <= 5000) yMax = 5000;
+  else if (maxSeriesVal <= 10000) yMax = 10000;
   else {
-    const exp = Math.pow(10, Math.floor(Math.log10(rawMax)));
-    const frac = rawMax / exp;
+    const exp = Math.pow(10, Math.floor(Math.log10(maxSeriesVal)));
+    const frac = maxSeriesVal / exp;
     yMax = (frac <= 2 ? 2 : (frac <= 5 ? 5 : 10)) * exp;
   }
 
-  const totalAnnual = data.reduce((s, v) => s + v, 0);
-  const avgMonthly = Math.round(totalAnnual / 12);
-  const chartHeight = 90;
-  const barWidth = 24;
-  const gap = 6;
+  const chartHeight = 85;
+  const barWidth = 22;
+  const gap = 8;
   const startX = 40;
+  const baseY = chartHeight + 10;
 
   chartTargets.forEach(tgt => {
     const svg = document.getElementById(tgt.svgId);
     if (!svg) return;
-    
+
     const isInitialized = svg.getAttribute('data-initialized') === 'true';
-    const defaultInfoText = totalAnnual > 0 ? `TOTAL: ${totalAnnual.toLocaleString('es-ES')} KWH/AÑO<br>(MEDIA: ${avgMonthly} KWH/MES)` : 'PASA EL RATÓN<br>POR LAS BARRAS';
-    
+    const totalConsKWh = monthsData.reduce((s, m) => s + m.cons, 0);
+    const totalAutoKWh = monthsData.reduce((s, m) => s + m.auto, 0);
+    const totalExcKWh = monthsData.reduce((s, m) => s + m.exc, 0);
+
+    const defaultInfoText = totalAnnualSolar > 0
+      ? ('GEN: ' + totalAnnualSolar.toLocaleString('es-ES') + ' kWh/a · CONS: ' + totalConsKWh.toLocaleString('es-ES') + ' kWh/a<br><span style="color:#10b981;">AUTO: ' + totalAutoKWh.toLocaleString('es-ES') + ' kWh</span> · <span style="color:#38bdf8;">VOLCADO: ' + totalExcKWh.toLocaleString('es-ES') + ' kWh</span>')
+      : 'PASA EL RATÓN<br>POR LAS BARRAS';
+
     const infoEl = document.getElementById(tgt.infoId);
     if (infoEl) {
       infoEl.dataset.defaultText = defaultInfoText;
@@ -9262,7 +9305,19 @@ function renderSolarBarChart(data) {
     if (!isInitialized) {
       svg.innerHTML = '';
 
-      // Línea guía de referencia de escala máxima del eje Y
+      // Defs para gradientes modernos de autoconsumo y vertido
+      const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+      defs.innerHTML = '<linearGradient id="grad-bar-auto" x1="0" y1="0" x2="0" y2="1">' +
+        '<stop offset="0%" stop-color="#10b981"/>' +
+        '<stop offset="100%" stop-color="#047857"/>' +
+        '</linearGradient>' +
+        '<linearGradient id="grad-bar-surplus" x1="0" y1="0" x2="0" y2="1">' +
+        '<stop offset="0%" stop-color="#38bdf8"/>' +
+        '<stop offset="100%" stop-color="#0284c7"/>' +
+        '</linearGradient>';
+      svg.appendChild(defs);
+
+      // Línea guía de referencia de escala máxima
       const refLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
       refLine.setAttribute('x1', '10');
       refLine.setAttribute('y1', '15');
@@ -9279,87 +9334,184 @@ function renderSolarBarChart(data) {
       yMaxLabel.setAttribute('y', '12');
       yMaxLabel.setAttribute('text-anchor', 'start');
       yMaxLabel.setAttribute('fill', 'rgba(255,255,255,0.7)');
-      yMaxLabel.setAttribute('font-size', '13px'); // AUMENTADO 2 PUNTOS
+      yMaxLabel.setAttribute('font-size', '12px');
       yMaxLabel.setAttribute('font-weight', 'bold');
       yMaxLabel.setAttribute('font-family', 'monospace');
       svg.appendChild(yMaxLabel);
 
-      // Eje Y base (Línea vertical)
+      // Eje Y (vertical)
       const yAxisLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
       yAxisLine.setAttribute('x1', '35');
       yAxisLine.setAttribute('y1', '15');
       yAxisLine.setAttribute('x2', '35');
-      yAxisLine.setAttribute('y2', chartHeight + 10);
-      yAxisLine.setAttribute('stroke', 'rgba(247,165,32,0.4)');
+      yAxisLine.setAttribute('y2', baseY);
+      yAxisLine.setAttribute('stroke', 'rgba(16,185,129,0.3)');
       yAxisLine.setAttribute('stroke-width', '1');
       svg.appendChild(yAxisLine);
 
-      // Eje X base (Línea horizontal)
+      // Eje X (horizontal)
       const axisLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
       axisLine.setAttribute('x1', '10');
-      axisLine.setAttribute('y1', chartHeight + 10);
+      axisLine.setAttribute('y1', baseY);
       axisLine.setAttribute('x2', '394');
-      axisLine.setAttribute('y2', chartHeight + 10);
-      axisLine.setAttribute('stroke', 'rgba(247,165,32,0.4)');
+      axisLine.setAttribute('y2', baseY);
+      axisLine.setAttribute('stroke', 'rgba(16,185,129,0.3)');
       axisLine.setAttribute('stroke-width', '1');
       svg.appendChild(axisLine);
-      
-      // Crear barras pre-inicializadas
-      for(let i=0; i<12; i++) {
+
+      // Grupo de barras apiladas (autoconsumo abajo + excedente arriba)
+      const barsGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      barsGroup.id = tgt.svgId + '-bars-group';
+      svg.appendChild(barsGroup);
+
+      for (let i = 0; i < 12; i++) {
         const x = startX + i * (barWidth + gap);
-        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-        rect.id = tgt.svgId + '-bar-' + i;
-        rect.setAttribute('class', 'bar-rect');
-        rect.setAttribute('x', x);
-        rect.setAttribute('width', barWidth);
-        rect.setAttribute('rx', '0');
-        rect.style.transition = 'height 0.25s ease-out, y 0.25s ease-out';
-        
-        rect.addEventListener('mouseenter', (e) => {
+
+        // Rectángulo inferior: Autoconsumo
+        const rectAuto = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rectAuto.id = tgt.svgId + '-bar-auto-' + i;
+        rectAuto.setAttribute('x', x);
+        rectAuto.setAttribute('width', barWidth);
+        rectAuto.setAttribute('fill', 'url(#grad-bar-auto)');
+        rectAuto.setAttribute('rx', '1');
+        rectAuto.style.cursor = 'pointer';
+        rectAuto.style.transition = 'height 0.25s ease-out, y 0.25s ease-out';
+        barsGroup.appendChild(rectAuto);
+
+        // Rectángulo superior: Excedente volcado a red
+        const rectSurplus = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rectSurplus.id = tgt.svgId + '-bar-surplus-' + i;
+        rectSurplus.setAttribute('x', x);
+        rectSurplus.setAttribute('width', barWidth);
+        rectSurplus.setAttribute('fill', 'url(#grad-bar-surplus)');
+        rectSurplus.setAttribute('rx', '1');
+        rectSurplus.style.cursor = 'pointer';
+        rectSurplus.style.transition = 'height 0.25s ease-out, y 0.25s ease-out';
+        barsGroup.appendChild(rectSurplus);
+
+        // Rectángulo invisible para capturar hover de toda la columna
+        const hitRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        hitRect.id = tgt.svgId + '-hit-' + i;
+        hitRect.setAttribute('x', x);
+        hitRect.setAttribute('y', '15');
+        hitRect.setAttribute('width', barWidth);
+        hitRect.setAttribute('height', baseY - 15);
+        hitRect.setAttribute('fill', 'transparent');
+        hitRect.style.cursor = 'pointer';
+
+        hitRect.addEventListener('mouseenter', () => {
           if (!infoEl) return;
-          const val = parseFloat(e.target.dataset.val);
-          const total = parseFloat(e.target.dataset.total);
+          const mData = monthsData[i];
           infoEl.style.transition = 'opacity 100ms ease';
           infoEl.style.opacity = '1';
-          infoEl.innerHTML = `${MONTH_NAMES[i].toUpperCase()}: ${val.toLocaleString('es-ES')} KWH<br>(${total > 0 ? ((val / total) * 100).toFixed(1) : 0}% DEL TOTAL)`;
+          infoEl.innerHTML = '<span style="color:#f1f5f9;font-weight:bold;">' + MONTH_NAMES[i].toUpperCase() + '</span> · GEN: ' + mData.gen.toLocaleString('es-ES') + ' kWh | CONS: ' + mData.cons.toLocaleString('es-ES') + ' kWh<br><span style="color:#10b981;">✔ Autoconsumo: ' + mData.auto.toLocaleString('es-ES') + ' kWh</span> · <span style="color:#38bdf8;">⚡ Volcado: ' + mData.exc.toLocaleString('es-ES') + ' kWh</span>';
         });
-        rect.addEventListener('mouseleave', () => {
+
+        hitRect.addEventListener('mouseleave', () => {
           if (!infoEl) return;
           infoEl.style.transition = 'opacity 100ms ease';
           infoEl.style.opacity = '1';
           infoEl.innerHTML = infoEl.dataset.defaultText;
         });
 
-        svg.appendChild(rect);
+        barsGroup.appendChild(hitRect);
 
+        // Etiqueta del mes
         const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
         text.setAttribute('class', 'bar-label');
         text.setAttribute('x', x + barWidth / 2);
-        text.setAttribute('y', chartHeight + 20);
+        text.setAttribute('y', baseY + 12);
         text.textContent = MONTH_NAMES[i];
         svg.appendChild(text);
       }
-      
+
+      // Línea de consumo superpuesta (polilínea con puntos conectores)
+      const consLine = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+      consLine.id = tgt.svgId + '-cons-line';
+      consLine.setAttribute('fill', 'none');
+      consLine.setAttribute('stroke', '#f59e0b');
+      consLine.setAttribute('stroke-width', '2');
+      consLine.setAttribute('stroke-linecap', 'round');
+      consLine.setAttribute('stroke-linejoin', 'round');
+      consLine.setAttribute('stroke-dasharray', '3,2');
+      svg.appendChild(consLine);
+
+      // Puntos de consumo
+      const pointsGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      pointsGroup.id = tgt.svgId + '-points-group';
+      for (let i = 0; i < 12; i++) {
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.id = tgt.svgId + '-cons-point-' + i;
+        circle.setAttribute('r', '2.5');
+        circle.setAttribute('fill', '#f59e0b');
+        circle.setAttribute('stroke', '#0f172a');
+        circle.setAttribute('stroke-width', '1');
+        pointsGroup.appendChild(circle);
+      }
+      svg.appendChild(pointsGroup);
+
+      // Leyenda compacta inferior en el SVG
+      const legendGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      legendGroup.setAttribute('transform', 'translate(50, 115)');
+      legendGroup.innerHTML = '<rect x="0" y="-6" width="8" height="8" rx="1" fill="#10b981"/>' +
+        '<text x="11" y="1" font-size="8.5" fill="#94a3b8" font-family="sans-serif">Autoconsumo</text>' +
+        '<rect x="82" y="-6" width="8" height="8" rx="1" fill="#38bdf8"/>' +
+        '<text x="93" y="1" font-size="8.5" fill="#94a3b8" font-family="sans-serif">Volcado a red</text>' +
+        '<line x1="162" y1="-2" x2="174" y2="-2" stroke="#f59e0b" stroke-width="2" stroke-dasharray="3,2"/>' +
+        '<circle cx="168" cy="-2" r="2" fill="#f59e0b"/>' +
+        '<text x="178" y="1" font-size="8.5" fill="#94a3b8" font-family="sans-serif">Consumo</text>';
+      svg.appendChild(legendGroup);
+
       svg.setAttribute('data-initialized', 'true');
     }
-    
-    // Actualizar datos
+
+    // Actualizar cota máxima
     const yMaxLabel = document.getElementById(tgt.svgId + '-ymax');
     if (yMaxLabel) {
-      yMaxLabel.textContent = `${yMax.toLocaleString('es-ES')} kWh`;
+      yMaxLabel.textContent = yMax.toLocaleString('es-ES') + ' kWh';
     }
 
-    data.forEach((val, i) => {
-      const h = (val / yMax) * (chartHeight - 15);
-      const y = chartHeight + 10 - h;
-      const rect = document.getElementById(tgt.svgId + '-bar-' + i);
-      if (rect) {
-        rect.setAttribute('height', Math.max(h, 2));
-        rect.setAttribute('y', y);
-        rect.dataset.val = val;
-        rect.dataset.total = totalAnnual;
+    // Actualizar alturas de barras apiladas y puntos de la línea de consumo
+    const availableH = chartHeight - 15;
+    const linePoints = [];
+
+    monthsData.forEach((item, i) => {
+      const x = startX + i * (barWidth + gap);
+      const cx = x + barWidth / 2;
+
+      const hAuto = (item.auto / yMax) * availableH;
+      const hSurplus = (item.exc / yMax) * availableH;
+      const hCons = (item.cons / yMax) * availableH;
+
+      const yAuto = baseY - Math.max(hAuto, item.auto > 0 ? 1 : 0);
+      const ySurplus = yAuto - Math.max(hSurplus, item.exc > 0 ? 1 : 0);
+      const yCons = baseY - Math.max(hCons, 1);
+
+      linePoints.push(cx.toFixed(1) + ',' + yCons.toFixed(1));
+
+      const rectAuto = document.getElementById(tgt.svgId + '-bar-auto-' + i);
+      if (rectAuto) {
+        rectAuto.setAttribute('y', yAuto.toFixed(1));
+        rectAuto.setAttribute('height', Math.max(hAuto, item.auto > 0 ? 1 : 0).toFixed(1));
+      }
+
+      const rectSurplus = document.getElementById(tgt.svgId + '-bar-surplus-' + i);
+      if (rectSurplus) {
+        rectSurplus.setAttribute('y', ySurplus.toFixed(1));
+        rectSurplus.setAttribute('height', Math.max(hSurplus, item.exc > 0 ? 1 : 0).toFixed(1));
+      }
+
+      const point = document.getElementById(tgt.svgId + '-cons-point-' + i);
+      if (point) {
+        point.setAttribute('cx', cx.toFixed(1));
+        point.setAttribute('cy', yCons.toFixed(1));
       }
     });
+
+    const consLine = document.getElementById(tgt.svgId + '-cons-line');
+    if (consLine) {
+      consLine.setAttribute('points', linePoints.join(' '));
+    }
   });
 }
 

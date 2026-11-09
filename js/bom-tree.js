@@ -949,10 +949,10 @@
           
           
           ${!isEmptyProject ? `
-          <div class="bom-section-title" style="margin-top: 12px;">PRODUCCIÓN ANUAL ESTIMADA</div>
+          <div class="bom-section-title" style="margin-top: 12px;">PRODUCCIÓN &amp; BALANCE ENERGÉTICO ANUAL</div>
           <div style="background:rgba(0,0,0,0.35);border:1px solid rgba(16,185,129,0.25);border-radius:6px;padding:10px;margin-bottom:12px;margin-top:6px;">
             <div class="chart-head-bar" style="display:flex;justify-content:space-between;align-items:flex-start;font-size:11px;margin-bottom:8px;min-height:28px;">
-              <span style="color:var(--emerald-400);font-weight:bold;width:45%;line-height:1.2;display:block;">HISTOGRAMA DE<br>GENERACIÓN (kWh)</span>
+              <span style="color:var(--emerald-400);font-weight:bold;width:45%;line-height:1.2;display:block;">BALANCE ENERGÉTICO<br>(GENERACIÓN VS CONSUMO)</span>
               <span id="bom-chart-hover-info" style="color:var(--text-slate-400);text-align:right;width:55%;line-height:1.2;display:flex;flex-direction:column;">PASA EL RATÓN<br>POR LAS BARRAS</span>
             </div>
             <div id="bom-chart-placeholder">

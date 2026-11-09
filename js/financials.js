@@ -6502,6 +6502,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   let annualIngresoExcedente = 0;
   let annualIngresoExcedenteEfectivo = 0;
   let annualCosteSinFV = 0;
+  const monthlyEnergyBreakdown = [];
 
   for (let m = 0; m < 12; m++) {
     const daysInMonth = MONTH_DAYS[m];
@@ -6578,6 +6579,27 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     const monthCostGridTotal = monthCostGrid * daysInMonth;
     const monthSurplusIncomeTotal = monthSurplusIncome * daysInMonth;
     const monthEffectiveSurplusIncome = hasVirtualBattery ? monthSurplusIncomeTotal : Math.min(monthSurplusIncomeTotal, monthCostGridTotal);
+
+    const mGenKwh = Math.round(solarMonthKwh);
+    const mDirectKwh = Math.round(monthDirect * daysInMonth);
+    const mBatKwh = Math.round(monthBattery * daysInMonth);
+    const mAutoTotalKwh = mDirectKwh + mBatKwh;
+    const mSurplusKwh = Math.max(0, mGenKwh - mAutoTotalKwh);
+    const mConsKwh = Math.round(loadDailyKwh * daysInMonth);
+    const mGridBuyKwh = Math.round(monthGridBuy * daysInMonth);
+
+    monthlyEnergyBreakdown.push({
+      monthIndex: m,
+      monthName: ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'][m],
+      generationKWh: mGenKwh,
+      autoconsumoKWh: mAutoTotalKwh,
+      autoconsumoDirectoKWh: mDirectKwh,
+      bateriaKWh: mBatKwh,
+      excedenteVolcadoKWh: mSurplusKwh,
+      consumoKWh: mConsKwh,
+      gridImportKWh: mGridBuyKwh,
+      selfSufficiencyPct: mConsKwh > 0 ? Math.min(100, Math.round((mAutoTotalKwh / mConsKwh) * 100)) : 0
+    });
 
     annualAutoconsumoDirecto += monthDirect * daysInMonth;
     annualBateriaKWh += monthBattery * daysInMonth;
@@ -6997,6 +7019,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     bateriaKWh: Math.round(annualBateriaKWh || 0),
     excedenteKWh: Math.round(annualExcedenteKWh || 0),
     redKWh: redKWhAnual,
+    monthlyEnergyBreakdown: monthlyEnergyBreakdown,
     costeRedAnual: Math.round(annualCosteRed || 0),
     ingresoExcedente: Math.round(annualIngresoExcedente || 0),
     ingresoExcedenteEfectivo: Math.round(annualIngresoExcedenteEfectivo || 0),
