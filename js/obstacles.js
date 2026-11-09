@@ -1684,8 +1684,13 @@ function recalculateLayoutAndObstacles(targetPolyIdx) {
     const shouldSimulatePanels = hasPanelsInScene || (typeof isPolygonDesignConfirmed !== 'undefined' && isPolygonDesignConfirmed) || (typeof wpCurrentStep !== 'undefined' && wpCurrentStep >= 2);
 
     if (shouldSimulatePanels) {
-      if (typeof recalculateSolarYield === 'function') {
-        recalculateSolarYield();
+      if (typeof window !== 'undefined' && window.solarSimState) {
+        window.solarSimState.solarYieldDirty = true;
+      }
+      if (typeof wpDebouncedSolarYield === 'function') {
+        wpDebouncedSolarYield();
+      } else if (typeof recalculateSolarYield === 'function') {
+        if (typeof wpCurrentStep === 'undefined' || wpCurrentStep >= 3) recalculateSolarYield();
       }
       if (typeof wpFastRenderSimulatedPanels === 'function') {
         wpFastRenderSimulatedPanels(false, targetPolyIdx);

@@ -13288,6 +13288,22 @@ function getClusterOrderedPanels(panels) {
 window._wpFastRenderDebounceTimer = null;
 let _raRenderGenerationId = 0;
 
+
+// ── OPTIMIZACIÓN RENDIMIENTO CAD: Debounce de física solar pesada ──
+let _wpSolarYieldDebounceTimer = null;
+function wpDebouncedSolarYield(delayMs = 400) {
+  if (_wpSolarYieldDebounceTimer) {
+    clearTimeout(_wpSolarYieldDebounceTimer);
+  }
+  _wpSolarYieldDebounceTimer = setTimeout(() => {
+    _wpSolarYieldDebounceTimer = null;
+    if (typeof recalculateSolarYield === 'function') {
+      try { recalculateSolarYield(true); } catch(e) {}
+    }
+  }, delayMs);
+}
+window.wpDebouncedSolarYield = wpDebouncedSolarYield;
+
 function wpFastRenderSimulatedPanels(immediate = false, targetPolyIdx = null) {
   if (window._wpFastRenderDebounceTimer) {
     clearTimeout(window._wpFastRenderDebounceTimer);
@@ -17166,14 +17182,16 @@ window.toggleSolarHUD = toggleSolarHUD;
         if (typeof wpRenderActivePlaneGizmo === 'function') wpRenderActivePlaneGizmo();
         if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
         if (typeof render3DObstaclesInCesium === 'function') render3DObstaclesInCesium();
-        if (typeof wpFastRenderSimulatedPanels === 'function') wpFastRenderSimulatedPanels(true, null);
+        const _wpActiveIdx = (typeof WP !== 'undefined' && WP) ? WP.activePlaneIdx : null;
+        if (typeof wpFastRenderSimulatedPanels === 'function') wpFastRenderSimulatedPanels(false, _wpActiveIdx);
         if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Plano de trabajo transformado');
         if (typeof showStatus === 'function') showStatus('<i data-lucide="compass" class="icon-sm"></i> PLANO DE TRABAJO TRANSFORMADO CON ÉXITO', 2500);
       } else if (draggedTargetType === 'workplane_vertex') {
         if (typeof wpRenderActivePlaneGizmo === 'function') wpRenderActivePlaneGizmo();
         if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
         if (typeof render3DObstaclesInCesium === 'function') render3DObstaclesInCesium();
-        if (typeof wpFastRenderSimulatedPanels === 'function') wpFastRenderSimulatedPanels(true, null);
+        const _wpActiveIdx = (typeof WP !== 'undefined' && WP) ? WP.activePlaneIdx : null;
+        if (typeof wpFastRenderSimulatedPanels === 'function') wpFastRenderSimulatedPanels(false, _wpActiveIdx);
         if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Vértice de plano de trabajo modificado');
         if (typeof showStatus === 'function') showStatus('<i data-lucide="check" class="icon-sm"></i> VÉRTICE DEL PLANO ACTUALIZADO CON ÉXITO', 2500);
       } else if (draggedTargetType === 'vertex') {
