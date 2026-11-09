@@ -606,7 +606,12 @@
       const _maxModsPerString = limits.Ns_max || 18;
       const _minModsPerString = limits.Ns_min || 5;
       const _modsPerString = options.modulesPerString || _maxModsPerString;
-      const _nStrings = Math.max(distinctOrientations, Math.ceil(totalPanels / _modsPerString));
+      const isMLPE = (options.selectedTopology === 'optimizer' || options.selectedTopology === 'microinverter');
+      // Con Optimizadores DC (MLPE), los módulos de distintos faldones pueden conectarse en serie en la misma cadena
+      // sin pérdidas por desadaptación ("mismatch"). Por tanto, el número de strings requeridos no está inflado por el número de orientaciones.
+      const _nStrings = isMLPE
+        ? Math.max(1, Math.ceil(totalPanels / _modsPerString))
+        : Math.max(distinctOrientations, Math.ceil(totalPanels / _modsPerString));
       const _inputsPerMppt = inv.inputsPerMppt || 1;
       const _mpptCount = inv.mppt || inv.mpptCount || 2;
 
@@ -841,28 +846,40 @@
       if (a.hasEnoughMppts !== b.hasEnoughMppts) return a.hasEnoughMppts ? -1 : 1;
       const clipA = a.hasImpClipping ? 8 : 0;
       const clipB = b.hasImpClipping ? 8 : 0;
-      const scoreA = Math.abs(a.overloadPct - 118) + clipA;
-      const scoreB = Math.abs(b.overloadPct - 118) + clipB;
+      // Ponderar proximidad al ratio óptimo (118%), ausencia de clipping y coste económico
+      const costPenaltyA = (a.totalCostEur || 1500) / 600;
+      const costPenaltyB = (b.totalCostEur || 1500) / 600;
+      const scoreA = Math.abs(a.overloadPct - 118) + clipA + costPenaltyA;
+      const scoreB = Math.abs(b.overloadPct - 118) + clipB + costPenaltyB;
       return scoreA - scoreB;
     });
 
     multiCandidates.sort((a, b) => {
       if (a.hasEnoughMppts !== b.hasEnoughMppts) return a.hasEnoughMppts ? -1 : 1;
-      const fragPenaltyA = (a.count > 3 ? (a.count - 3) * 5 : 0) + (a.hasImpClipping ? 8 : 0);
-      const fragPenaltyB = (b.count > 3 ? (b.count - 3) * 5 : 0) + (b.hasImpClipping ? 8 : 0);
-      const scoreA = Math.abs(a.overloadPct - 118) + fragPenaltyA;
-      const scoreB = Math.abs(b.overloadPct - 118) + fragPenaltyB;
+      // En suministro trifásico, priorizar inversores nativos trifásicos sobre agrupar 3 monofásicos de alto coste
+      const phasePenaltyA = (gridSupply === 'three_phase' && a.inverter && a.inverter.phases === 1) ? 20 : 0;
+      const phasePenaltyB = (gridSupply === 'three_phase' && b.inverter && b.inverter.phases === 1) ? 20 : 0;
+      const fragPenaltyA = (a.count > 3 ? (a.count - 3) * 5 : 0) + (a.hasImpClipping ? 8 : 0) + phasePenaltyA;
+      const fragPenaltyB = (b.count > 3 ? (b.count - 3) * 5 : 0) + (b.hasImpClipping ? 8 : 0) + phasePenaltyB;
+      const costPenaltyA = (a.totalCostEur || 2500) / 600;
+      const costPenaltyB = (b.totalCostEur || 2500) / 600;
+      const scoreA = Math.abs(a.overloadPct - 118) + fragPenaltyA + costPenaltyA;
+      const scoreB = Math.abs(b.overloadPct - 118) + fragPenaltyB + costPenaltyB;
       return scoreA - scoreB;
     });
 
     // Ordenar compatible global preservando compatibilidad y penalizando fragmentación innecesaria
     compatible.sort((a, b) => {
       if (a.hasEnoughMppts !== b.hasEnoughMppts) return a.hasEnoughMppts ? -1 : 1;
-      // Gran penalización a instalaciones multi-inversor si existe opción de 1 solo equipo
-      const countPenaltyA = (a.count - 1) * 35;
-      const countPenaltyB = (b.count - 1) * 35;
-      const scoreA = Math.abs(a.overloadPct - 118) + countPenaltyA + (a.hasImpClipping ? 8 : 0);
-      const scoreB = Math.abs(b.overloadPct - 118) + countPenaltyB + (b.hasImpClipping ? 8 : 0);
+      // Penalización equilibrada a multi-inversor frente a 1 solo equipo
+      const countPenaltyA = (a.count - 1) * 25;
+      const countPenaltyB = (b.count - 1) * 25;
+      const phasePenaltyA = (gridSupply === 'three_phase' && a.inverter && a.inverter.phases === 1) ? 15 : 0;
+      const phasePenaltyB = (gridSupply === 'three_phase' && b.inverter && b.inverter.phases === 1) ? 15 : 0;
+      const costPenaltyA = (a.totalCostEur || 1500) / 500;
+      const costPenaltyB = (b.totalCostEur || 1500) / 500;
+      const scoreA = Math.abs(a.overloadPct - 118) + countPenaltyA + (a.hasImpClipping ? 8 : 0) + phasePenaltyA + costPenaltyA;
+      const scoreB = Math.abs(b.overloadPct - 118) + countPenaltyB + (b.hasImpClipping ? 8 : 0) + phasePenaltyB + costPenaltyB;
       return scoreA - scoreB;
     });
 
