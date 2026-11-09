@@ -1501,7 +1501,7 @@ function wpAutoSelectOptimalEngineering(force = false) {
 
   // 4. Tipo de red (suministro) respetando elección de usuario salvo exigencia legal RD 1699/2011 Art. 12.2 (>15 kW)
   let gridSupply = cfg.gridSupply;
-  if (totalKwp > 15.0) {
+  if (totalKwp > 20.25) {
     gridSupply = 'three_phase';
     cfg.gridSupply = 'three_phase';
   } else if (!gridSupply || !cfg.userManuallySelectedGridSupply) {
@@ -1800,7 +1800,7 @@ function wpRefreshAutoEngineeringBanner(preferredTopology) {
 
   const shading = (typeof wpEvaluateMLPENecessity === 'function') ? wpEvaluateMLPENecessity() : null;
   let gridSupply = cfg.gridSupply;
-  if (totalKwp > 15.0) {
+  if (totalKwp > 20.25) {
     gridSupply = 'three_phase';
     cfg.gridSupply = 'three_phase';
   } else if (!gridSupply || !cfg.userManuallySelectedGridSupply) {
