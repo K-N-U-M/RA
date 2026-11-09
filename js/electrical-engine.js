@@ -645,8 +645,13 @@
         const maxUnitsAllowed = inv.kw <= 5.0 ? 3 : (inv.kw <= 10.0 ? 4 : (inv.kw <= 25.0 ? 6 : 8));
         const isExcessiveFragmentation = invCount > maxUnitsAllowed;
 
+        // Filtro de viabilidad técnico-económica (Anti-Sobredimensionamiento):
+        // En instalaciones modulares (invCount >= 2), se exige ratio DC/AC >= 75% para evitar
+        // multiplicar inversores de gran potencia que quedarían infrautilizados.
+        const minAcceptableRatio = invCount > 1 ? 0.75 : 0.65;
+
         const isMatch = !isExcessiveFragmentation &&
-          actualOverload >= 0.70 &&
+          actualOverload >= minAcceptableRatio &&
           actualOverload <= maxAllowedOverload &&
           isCurrentSafe &&
           isVoltageSafe &&

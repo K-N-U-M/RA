@@ -1060,12 +1060,27 @@ function wpComputeAutoSizing(forcedCount) {
         }
       });
 
+      const isMLPE = Boolean(
+        cfg.selectedTopology === 'optimizer' ||
+        cfg.selectedTopology === 'microinverter' ||
+        (cfg.selectedOptimizerId && cfg.selectedOptimizerId !== 'opt_none')
+      );
+
       let totalMpptsNeeded = 0;
       let totalStringsCount = 0;
       orientationGroups.forEach(grp => {
-        totalMpptsNeeded += Math.max(1, Math.ceil(grp.stringsCount / invInputs));
         totalStringsCount += grp.stringsCount;
+        if (!isMLPE) {
+          totalMpptsNeeded += Math.max(1, Math.ceil(grp.stringsCount / invInputs));
+        }
       });
+
+      if (isMLPE) {
+        // En topología con Optimizadores DC (MLPE), los optimizadores desacoplan faldones y orientaciones físicas.
+        // No es reglamentario ni eficiente forzar un canal MPPT por cada faldón orientado.
+        // Se dimensionan canales únicamente para albergar los strings eléctricos reales.
+        totalMpptsNeeded = Math.max(1, Math.ceil(totalStringsCount / invInputs));
+      }
 
       if (totalMpptsNeeded > 0) {
         autoInvertersByMppt = Math.max(1, Math.ceil(totalMpptsNeeded / invMppt));
@@ -1074,6 +1089,16 @@ function wpComputeAutoSizing(forcedCount) {
       const autoInvertersByInputs = (maxStringsPerInv > 0) ? Math.max(1, Math.ceil(totalStringsCount / maxStringsPerInv)) : 1;
 
       autoInvertersByMppt = Math.max(autoInvertersByMppt, autoInvertersByInputs);
+
+      // Salvaguarda Anti-Sobredimensionamiento Absurdo:
+      // Si multiplicar el inversor por canales MPPT provocaría un ratio DC/AC inferior al 75%
+      // (inversor sobredimensionado y campo solar desaprovechado, ej. 3x 12 kW para 15 kWp):
+      const ratioAtMpptUnits = totalKwp / (autoInvertersByMppt * invNomKw);
+      if (ratioAtMpptUnits < 0.75 && autoInvertersByMppt > autoInvertersByPower) {
+        // No triplicar un inversor de gran potencia para ganar entradas si destruye la eficiencia económica.
+        // Se preserva la potencia nominal adecuada y se evita sobredimensionar la alterna.
+        autoInvertersByMppt = autoInvertersByPower;
+      }
     }
   } catch (errMppt) {
     console.warn('[RA-AutoSizing] Error al evaluar canales MPPT:', errMppt);
@@ -1128,6 +1153,7 @@ function wpComputeAutoSizing(forcedCount) {
   // Sincronizar coste con el presupuesto financiero
   step3SyncBudgetHardwareCosts(inv, mi, bat);
 }
+window.wpComputeAutoSizing = wpComputeAutoSizing;
 
 function step3RenderAutoSizingUI(count, totalKwp, mod, inv, mi, bat, maxKwInput, ratio) {
   const cfg = window.solarProjectConfig;
@@ -1152,9 +1178,13 @@ function step3RenderAutoSizingUI(count, totalKwp, mod, inv, mi, bat, maxKwInput,
     const totalMppts = (inv.mppt || 2) * invCount;
     let warningHtml = '';
     const maxTotalInput = (maxKwInput || 6.5) * invCount;
+    const currentRatioPct = (totalKwp / (invCount * (inv.kw || 5.0))) * 100;
     if (totalKwp > maxTotalInput) {
       warningHtml = '<br><span style="color:var(--rose-400);font-size: 10px;font-weight:bold;margin-top:2px;display:inline-block;"><i data-lucide="alert-triangle" class="icon-sm"></i> PELIGRO REBT/IEC: Sobrecarga DC/AC (' + totalKwp.toFixed(2) + ' kWp &gt; ' + maxTotalInput.toFixed(2) + ' kW máx). ¡Añada inversores!</span>';
       if (inputInv) { inputInv.style.borderColor = 'var(--rose-500)'; inputInv.style.color = 'var(--rose-400)'; }
+    } else if (currentRatioPct < 75.0 && invCount > 1) {
+      warningHtml = '<br><span style="color:#F59E0B;font-size: 10px;font-weight:bold;margin-top:2px;display:inline-block;"><i data-lucide="alert-triangle" class="icon-sm"></i> INVERSOR SOBREDIMENSIONADO: Ratio DC/AC (' + currentRatioPct.toFixed(1) + '% &lt; 75%). Reduzca unidades o elija inversores de menor potencia unitaria (ej. 5 kW).</span>';
+      if (inputInv) { inputInv.style.borderColor = '#F59E0B'; inputInv.style.color = '#FBBF24'; }
     } else {
       if (inputInv) { inputInv.style.borderColor = ''; inputInv.style.color = '#fff'; }
     }
