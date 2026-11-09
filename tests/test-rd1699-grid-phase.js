@@ -56,19 +56,19 @@ const mockModule = {
 };
 
 // TEST 1: Instalación de 18 kWp con gridSupply = 'single_phase'
-console.log('▶ TEST 1: Rechazo de conexión monofásica si P > 15 kW (RD 1699/2011 Art. 12.2)...');
+console.log('▶ TEST 1: Rechazo de conexión monofásica si P > 20.25 kWp (RD 1699/2011 Art. 12.2)...');
 {
   const result = matchInvertersFromCatalog({
     invertersCatalog: mockInverters,
     module: mockModule,
-    totalPanels: 31, // 31 * 580 Wp = 17.98 kWp (~18 kWp)
-    totalKwp: 17.98,
+    totalPanels: 38, // 38 * 580 Wp = 22.04 kWp (> 20.25 kWp)
+    totalKwp: 22.04,
     gridSupply: 'single_phase',
     distinctOrientations: 1
   });
 
   assert.ok(result, 'Debe devolver resultado con diagnóstico');
-  assert.strictEqual(result.hasCatalogMatch, false, 'No debe tener inversores compatibles en catálogo en monofásica para > 15 kW');
+  assert.strictEqual(result.hasCatalogMatch, false, 'No debe tener inversores compatibles en catálogo en monofásica para > 20.25 kWp');
   assert.strictEqual(result.compatible.length, 0, 'La lista compatible debe estar vacía para monofásica > 15 kW');
   assert.ok(result.bottleneckReason.includes('RD 1699/2011'), 'El motivo de cuello de botella debe citar el RD 1699/2011');
   assert.ok(result.bottleneckReason.includes('trifásica'), 'Debe indicar que la conexión debe ser trifásica');
@@ -82,8 +82,8 @@ console.log('▶ TEST 2: Aceptación de inversores trifásicos para P > 15 kW...
   const result = matchInvertersFromCatalog({
     invertersCatalog: mockInverters,
     module: mockModule,
-    totalPanels: 31,
-    totalKwp: 17.98,
+    totalPanels: 38,
+    totalKwp: 22.04,
     gridSupply: 'three_phase',
     distinctOrientations: 1
   });

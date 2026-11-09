@@ -213,7 +213,17 @@ function wpSyncGridSupplyUI(totalKwp) {
   const cfg = window.solarProjectConfig || {};
   let kwp = (typeof totalKwp === 'number' && totalKwp >= 0) ? totalKwp : null;
   if (kwp === null) {
-    const totalPanels = (typeof WP !== 'undefined' && Array.isArray(WP.placedPanels)) ? WP.placedPanels.length : (cfg.totalPanels || 0);
+    let totalPanels = (typeof window !== 'undefined' && Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0)
+      ? window.allRenderedPanels.filter(p => p && !p.deleted).length
+      : 0;
+    if (totalPanels === 0 && typeof WP !== 'undefined' && Array.isArray(WP.polylines)) {
+      WP.polylines.forEach(p => {
+        const pInfo = p.roofInfo || (typeof computeSinglePolylineRoofInfo === 'function' ? computeSinglePolylineRoofInfo(p.points, p) : null);
+        if (pInfo && pInfo.panels) totalPanels += pInfo.panels.length;
+      });
+    }
+    if (totalPanels === 0) totalPanels = cfg.lastEstimatedPanels || (cfg.totalPanels || 0);
+
     const catalog = (typeof window !== 'undefined' && window.equipmentCatalog) ? window.equipmentCatalog : {};
     const mod = (catalog.modules && catalog.modules.find(m => m.id === cfg.selectedModuleId)) || (catalog.modules && catalog.modules[0]) || { wp: 450 };
     kwp = (totalPanels * (mod.wp || 450)) / 1000.0;
@@ -232,7 +242,7 @@ function wpSyncGridSupplyUI(totalKwp) {
       btnMono.disabled = true;
       btnMono.style.opacity = '0.4';
       btnMono.style.cursor = 'not-allowed';
-      btnMono.title = 'Bloqueado por RD 1699/2011 Art. 12.2: Para P > 15 kW la conexión debe ser trifásica con desequilibrio < 5 kW.';
+      btnMono.title = 'Bloqueado por RD 1699/2011 Art. 12.2: Para P > 15 kW en AC (hasta 20.25 kWp DC) la conexión debe ser trifásica con desequilibrio < 5 kW.';
       btnMono.classList.remove('active');
       btnMono.style.background = 'rgba(0,0,0,0.2)';
       btnMono.style.borderColor = 'rgba(255,255,255,0.1)';
@@ -250,7 +260,7 @@ function wpSyncGridSupplyUI(totalKwp) {
       btnMono.disabled = false;
       btnMono.style.opacity = '1.0';
       btnMono.style.cursor = 'pointer';
-      btnMono.title = 'Conexión Monofásica 230 V (admisible para P ≤ 15 kW según RD 1699/2011)';
+      btnMono.title = 'Conexión Monofásica 230 V (admisible para P ≤ 15 kW AC nominal según RD 1699/2011)';
       btnMono.classList.toggle('active', !isTri);
       btnMono.style.background = !isTri ? 'rgba(14,165,233,0.3)' : 'rgba(14,165,233,0.06)';
       btnMono.style.borderColor = !isTri ? '#38BDF8' : 'rgba(14,165,233,0.25)';
@@ -276,6 +286,14 @@ function wpSyncGridSupplyUI(totalKwp) {
       noticeEl.style.border = '1px solid rgba(245, 158, 11, 0.35)';
       noticeEl.style.color = '#FBBF24';
       noticeEl.innerHTML = '<span style="font-size:12px;">⚖️</span> <span><strong>RD 1699/2011 (Art. 12.2 / RD 244/2019):</strong> Potencia instalada &gt; 20.25 kWp (' + kwp.toFixed(1) + ' kWp) supera los 15 kW AC nominales. Conexión trifásica obligatoria con desequilibrio entre fases &lt; 5 kW.</span>';
+    } else if (cfg.gridSupply === 'single_phase') {
+      noticeEl.style.display = 'flex';
+      noticeEl.style.alignItems = 'center';
+      noticeEl.style.gap = '6px';
+      noticeEl.style.background = 'rgba(14, 165, 233, 0.12)';
+      noticeEl.style.border = '1px solid rgba(14, 165, 233, 0.35)';
+      noticeEl.style.color = '#38BDF8';
+      noticeEl.innerHTML = '<span style="font-size:12px;">⚡</span> <span><strong>Suministro Monofásico (230 V):</strong> Configuración activa para ' + kwp.toFixed(1) + ' kWp (potencia nominal de inversores en alterna ≤ 15 kW AC según RD 1699/2011).</span>';
     } else {
       noticeEl.style.display = 'none';
       noticeEl.innerHTML = '';
@@ -289,7 +307,17 @@ function wpSetGridSupply(supply, manual = true) {
   const cfg = window.solarProjectConfig;
 
   // Evaluar potencia pico actual para salvaguarda normativa RD 1699/2011 Art. 12.2
-  const totalPanels = (typeof WP !== 'undefined' && Array.isArray(WP.placedPanels)) ? WP.placedPanels.length : (cfg.totalPanels || 0);
+  let totalPanels = (typeof window !== 'undefined' && Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0)
+    ? window.allRenderedPanels.filter(p => p && !p.deleted).length
+    : 0;
+  if (totalPanels === 0 && typeof WP !== 'undefined' && Array.isArray(WP.polylines)) {
+    WP.polylines.forEach(p => {
+      const pInfo = p.roofInfo || (typeof computeSinglePolylineRoofInfo === 'function' ? computeSinglePolylineRoofInfo(p.points, p) : null);
+      if (pInfo && pInfo.panels) totalPanels += pInfo.panels.length;
+    });
+  }
+  if (totalPanels === 0) totalPanels = cfg.lastEstimatedPanels || (cfg.totalPanels || 0);
+
   const catalog = (typeof window !== 'undefined' && window.equipmentCatalog) ? window.equipmentCatalog : {};
   const mod = (catalog.modules && catalog.modules.find(m => m.id === cfg.selectedModuleId)) || (catalog.modules && catalog.modules[0]) || { wp: 450 };
   const currentKwp = (totalPanels * (mod.wp || 450)) / 1000.0;
@@ -300,23 +328,57 @@ function wpSetGridSupply(supply, manual = true) {
     if (manual) cfg.userManuallySelectedGridSupply = true;
     wpSyncGridSupplyUI(currentKwp);
     if (typeof showToast === 'function') {
-      showToast('⚠️ RD 1699/2011 Art. 12.2: Para potencias superiores a 20.25 kWp (>15 kW nominales en AC) la conexión debe ser trifásica obligatoriamente.', 'warning');
+      showToast('⚠️ BLOQUEO RD 1699/2011: Potencia de ' + currentKwp.toFixed(1) + ' kWp supera los 20.25 kWp admisibles en monofásica (>15 kW nominales en AC).', 'warning', 4500);
     }
     return;
   }
 
+  // Detectar si el inversor actual es incompatible con el cambio de tipo de red
+  const curInv = (catalog.inverters && catalog.inverters.find(i => i.id === cfg.selectedInverterId)) || cfg.lastVirtualInverter;
+  const isInvThreePhase = curInv && (curInv.phases === 3 || (curInv.type && curInv.type.includes('Trifásico')));
+  const isInvSinglePhase = curInv && (curInv.phases === 1 || (curInv.type && curInv.type.includes('Monofásico')));
+  const currentAcKw = curInv ? ((curInv.kw || 5.0) * ((cfg.autoSizing && cfg.autoSizing.inverters && cfg.autoSizing.inverters.count) || 1)) : 0;
+
+  let needsInverterReset = false;
+  if (supply === 'single_phase' && (isInvThreePhase || currentAcKw > 15.0)) {
+    needsInverterReset = true;
+  } else if (supply === 'three_phase' && isInvSinglePhase && currentAcKw >= 5.0) {
+    needsInverterReset = true;
+  }
+
   cfg.gridSupply = supply;
   if (manual) cfg.userManuallySelectedGridSupply = true;
-  wpSyncGridSupplyUI(currentKwp);
 
-  // Si se cambia el tipo de red, auto-reajustar el inversor óptimo si no está fijado a mano
+  if (needsInverterReset) {
+    cfg.userManuallySelectedInverter = false;
+    delete cfg.selectedInverterId;
+  }
+
+  // Auto-reajustar el inversor óptimo adaptado a la nueva red (forzando si había incompatibilidad de fases)
   if (typeof wpAutoSelectOptimalEngineering === 'function') {
-    wpAutoSelectOptimalEngineering(false);
+    wpAutoSelectOptimalEngineering(needsInverterReset);
   } else if (typeof wpComputeAutoSizing === 'function') {
     wpComputeAutoSizing();
   }
-  if (typeof step3UpdateHardwareSelection === 'function') step3UpdateHardwareSelection();
-  if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') BOMTreeEngine.refresh();
+
+  if (typeof populateStep3EquipmentSelectors === 'function') {
+    populateStep3EquipmentSelectors();
+  }
+  if (typeof step3UpdateHardwareSelection === 'function') {
+    step3UpdateHardwareSelection();
+  }
+  wpSyncGridSupplyUI(currentKwp);
+  if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') {
+    BOMTreeEngine.refresh();
+  }
+
+  if (typeof showToast === 'function') {
+    if (supply === 'single_phase') {
+      showToast('⚡ RED MONOFÁSICA ACTIVADA (230 V)', 'Acometida configurada en monofásica (límite 15 kW AC nominales según RD 1699/2011). Equipos adaptados.', 'info', 3500);
+    } else {
+      showToast('⚡⚡⚡ RED TRIFÁSICA ACTIVADA (400 V)', 'Acometida configurada en trifásica equilibrada (desequilibrio de fases < 5 kW). Equipos adaptados.', 'info', 3500);
+    }
+  }
 }
 window.wpSetGridSupply = wpSetGridSupply;
 

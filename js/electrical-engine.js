@@ -767,6 +767,9 @@
       const isThreePhase = (gridSupply === 'three_phase' || (gridSupply !== 'single_phase' && totalKwp > 6.0) || totalKwp > 20.25);
       const targetOverload = 1.18;
       let idealKw = Math.max(1.0, Math.round((totalKwp / targetOverload) * 10) / 10);
+      if (gridSupply === 'single_phase' && idealKw > 15.0) {
+        idealKw = 15.0; // RD 1699/2011 Art. 12.2: Límite nominal de 15 kW en AC para monofásica
+      }
       let invCount = 1;
       let unitKw = idealKw;
 
@@ -792,6 +795,7 @@
         brand: 'Paramétrico (Auto-Generado)',
         model: `Inversor Ideal ${unitKw} kW (${mpptReq} MPPT)`,
         kw: unitKw,
+        phases: isThreePhase ? 3 : 1,
         type: isThreePhase ? (totalKwp > 15.0 ? 'Trifásico (RD 1699/2011 Art. 12.2)' : 'Trifásico Industrial') : 'Monofásico Residencial',
         mppt: mpptReq,
         inputsPerMppt: inputsPerMppt,
@@ -861,7 +865,10 @@
     let singleInvMatch = singleCandidates[0] || (virtualInverterMatch && virtualInverterMatch.count === 1 ? virtualInverterMatch : null);
     if (!singleInvMatch && totalKwp > 0) {
       const isThreePhase = (gridSupply === 'three_phase' || (gridSupply !== 'single_phase' && totalKwp > 6.0) || totalKwp > 20.25);
-      const unitKwA = Math.max(1.0, Math.round((totalKwp / 1.18) * 10) / 10);
+      let unitKwA = Math.max(1.0, Math.round((totalKwp / 1.18) * 10) / 10);
+      if (gridSupply === 'single_phase' && unitKwA > 15.0) {
+        unitKwA = 15.0; // RD 1699/2011 Art. 12.2: Límite nominal de 15 kW en AC para monofásica
+      }
       const mpptReqA = Math.max(distinctOrientations, isThreePhase ? (unitKwA >= 25 ? 4 : 2) : 2);
       const estPriceA = isThreePhase
         ? Math.round(unitKwA * (unitKwA >= 50 ? 45 : (unitKwA >= 20 ? 55 : 75)))
@@ -873,6 +880,7 @@
           brand: 'Paramétrico (Auto-Generado)',
           model: `Inversor Central ${unitKwA} kW (${mpptReqA} MPPT)`,
           kw: unitKwA,
+          phases: isThreePhase ? 3 : 1,
           type: isThreePhase ? (totalKwp > 15.0 ? 'Trifásico (RD 1699/2011 Art. 12.2)' : 'Trifásico') : 'Monofásico',
           mppt: mpptReqA,
           vDcMax: isThreePhase ? 1100 : 600,
@@ -897,7 +905,10 @@
     if (!multiInvMatch && totalKwp > 0) {
       const isThreePhase = (gridSupply === 'three_phase' || (gridSupply !== 'single_phase' && totalKwp > 6.0) || totalKwp > 20.25);
       const nUnitsB = totalKwp > 60.0 ? Math.max(2, Math.ceil(totalKwp / 45.0)) : 2;
-      const unitKwB = Math.max(1.0, Math.round((totalKwp / (nUnitsB * 1.18)) * 10) / 10);
+      let unitKwB = Math.max(1.0, Math.round((totalKwp / (nUnitsB * 1.18)) * 10) / 10);
+      if (gridSupply === 'single_phase' && (unitKwB * nUnitsB) > 15.0) {
+        unitKwB = Math.round((15.0 / nUnitsB) * 10) / 10;
+      }
       const mpptReqB = Math.max(2, Math.ceil(distinctOrientations / nUnitsB));
       const estPriceB = isThreePhase
         ? Math.round(unitKwB * (unitKwB >= 50 ? 45 : (unitKwB >= 20 ? 55 : 75)))
@@ -909,6 +920,7 @@
           brand: 'Paramétrico (Auto-Generado)',
           model: `Inversor Modular ${unitKwB} kW (${mpptReqB} MPPT)`,
           kw: unitKwB,
+          phases: isThreePhase ? 3 : 1,
           type: isThreePhase ? (totalKwp > 15.0 ? 'Trifásico (RD 1699/2011 Art. 12.2)' : 'Trifásico') : 'Monofásico',
           mppt: mpptReqB,
           vDcMax: isThreePhase ? 1100 : 600,
