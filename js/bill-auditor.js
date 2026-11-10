@@ -912,7 +912,7 @@ Normas estrictas:
                     <tr style="border-bottom:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.6);">
                       <th style="text-align:left;padding:4px;">Concepto</th>
                       <th style="text-align:right;padding:4px;color:#ef4444;">Sin Solar</th>
-                      <th style="text-align:right;padding:4px;color:#10b981;">Con Solar 3D</th>
+                      <th style="text-align:right;padding:4px;color:#10b981;">Con RA</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1006,7 +1006,7 @@ Normas estrictas:
         <g>
           <rect x="225" y="${110 - barHeightCon}" width="65" height="${barHeightCon}" rx="4" fill="url(#gradConSolar)" />
           <text x="257.5" y="${102 - barHeightCon}" fill="#34d399" font-size="11" font-weight="900" text-anchor="middle">${con} €/mes</text>
-          <text x="257.5" y="124" fill="#10b981" font-size="9" font-weight="800" text-anchor="middle">CON SOLAR 3D</text>
+          <text x="257.5" y="124" fill="#10b981" font-size="9" font-weight="800" text-anchor="middle">CON RA</text>
         </g>
 
         <path d="M 160 50 Q 190 35 220 50" fill="none" stroke="#fbbf24" stroke-width="2" stroke-dasharray="2,2" />

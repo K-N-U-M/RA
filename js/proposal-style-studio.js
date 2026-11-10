@@ -125,6 +125,7 @@
         bodyTextColor: '#334155',
         mutedTextColor: '#64748b',
         economicBreakdown: 'chapters_units', // turnkey_only | chapters_units | full_open
+        itemPriceDisplay: 'price',           // price | included
         showTaxBenefits: true,
         showFinancingOptions: true,
         sectionOrder: [
@@ -240,6 +241,7 @@
         bodyTextColor: '#334155',
         mutedTextColor: '#64748b',
         economicBreakdown: 'full_open',
+        itemPriceDisplay: 'price',
         showTaxBenefits: true,
         showFinancingOptions: true,
         sectionOrder: [
@@ -355,6 +357,7 @@
         bodyTextColor: '#334155',
         mutedTextColor: '#64748b',
         economicBreakdown: 'full_open',
+        itemPriceDisplay: 'price',
         showTaxBenefits: true,
         showFinancingOptions: true,
         sectionOrder: [
@@ -446,6 +449,7 @@
         bodyTextColor: '#334155',
         mutedTextColor: '#64748b',
         economicBreakdown: 'chapters_units',
+        itemPriceDisplay: 'price',
         showTaxBenefits: true,
         showFinancingOptions: true,
         sectionOrder: [
@@ -1105,8 +1109,8 @@
       '.cover-header.ra-header-flex { display: flex !important; justify-content: space-between !important; align-items: center !important; }'
     );
 
-    // Reglas según nivel de desglose económico
-    if (cfg.economicBreakdown === 'turnkey_only') {
+    // Reglas según nivel de desglose económico y visualización de precios de partida
+    if (cfg.economicBreakdown === 'turnkey_only' || cfg.itemPriceDisplay === 'included') {
       css.push(
         '.ra-econ-item-price { visibility: hidden !important; }',
         '.ra-econ-unit-price { display: none !important; }',
@@ -1453,16 +1457,28 @@
     if (!cfg) return;
     cfg.installationModality = modalityId || 'grid_surplus_cel';
     cfg.sectionsEnabled = cfg.sectionsEnabled || {};
+    cfg.lockedTexts = cfg.lockedTexts || {};
+
     if (cfg.installationModality === 'off_grid') {
       cfg.sectionsEnabled.bill_audit = false;
       cfg.sectionsEnabled.cel = false;
+      cfg.lockedTexts.coverMainTitle = 'PROYECTO INTEGRAL DE | ENERGÍA 100% AISLADA (OFF-GRID)';
+      cfg.lockedTexts.coverSubtitle = 'Independencia energética total sin conexión a red: generación propia, almacenamiento LFP y valor actualizado de tu energía';
     } else if (cfg.installationModality === 'grid_zero') {
       cfg.sectionsEnabled.bill_audit = true;
       cfg.sectionsEnabled.cel = false;
+      cfg.lockedTexts.coverMainTitle = 'PROYECTO INTEGRAL DE | AUTOCONSUMO CON VERTIDO CERO';
+      cfg.lockedTexts.coverSubtitle = 'Estudio de viabilidad técnica y análisis de rentabilidad adaptado a la curva de demanda sin inyección';
     } else if (cfg.installationModality === 'grid_backup') {
       cfg.sectionsEnabled.bill_audit = true;
+      cfg.sectionsEnabled.cel = false;
+      cfg.lockedTexts.coverMainTitle = 'PROYECTO INTEGRAL DE | AUTOCONSUMO HÍBRIDO CON RESPALDO CRÍTICO';
+      cfg.lockedTexts.coverSubtitle = 'Autosuficiencia diurna y nocturna con sistema anti-apagones y almacenamiento de alta disponibilidad';
     } else if (cfg.installationModality === 'grid_surplus_cel') {
       cfg.sectionsEnabled.bill_audit = true;
+      cfg.sectionsEnabled.cel = true;
+      cfg.lockedTexts.coverMainTitle = 'PROYECTO INTEGRAL DE | GENERACIÓN RENOVABLE Y COMUNIDAD ENERGÉTICA';
+      cfg.lockedTexts.coverSubtitle = 'Estudio de viabilidad técnica, diseño CAD 3D, compensación de excedentes y monetización local CEL';
     }
   }
 
@@ -2167,7 +2183,26 @@
       '',
       // 5. CONTROL DE SALTOS DE LÍNEA, CAJAS KPI Y ALINEACIÓN
       '<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:12px 14px;">',
-      '  <div style="font-size:11.5px;font-weight:800;color:#34d399;margin-bottom:8px;display:inline-flex;align-items:center;gap:5px;">' + _sSvg('sliders', 14, '#34d399') + ' CONTROL DE SALTO DE LÍNEA, ALINEACIÓN Y ENCAJE DE CAJAS</div>',
+      '  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px;">',
+      '    <div style="font-size:11.5px;font-weight:800;color:#34d399;display:inline-flex;align-items:center;gap:5px;">' + _sSvg('sliders', 14, '#34d399') + ' CONTROL DE SALTO DE LÍNEA, ALINEACIÓN Y ENCAJE DE CAJAS</div>',
+      '    <div style="display:flex;align-items:center;gap:6px;">',
+      '      <span style="font-size:10px;color:#94a3b8;font-weight:700;">Plantilla según tipología:</span>',
+      '      <select id="pss-cover-header-preset" style="padding:4px 8px;background:#0f172a;border:1px solid #10b981;border-radius:6px;color:#6ee7b7;font-size:10.5px;font-weight:800;cursor:pointer;">',
+      '        <option value="">— Seleccionar encabezado por tipología —</option>',
+      '        <option value="ESTUDIO FOTOVOLTAICO INTEGRADO EN CEL||Generación propia, almacenamiento LFP y valor actualizado de tu energía en Comunidad Energética Local">Comunidad Energética Local (CEL + Batería)</option>',
+      '        <option value="PROYECTO DE AUTOCONSUMO Y PARTICIPACIÓN EN CEL||Generación distribuida km 0, telemedida horaria βh y máxima rentabilidad por excedentes">Comunidad Energética Local (Solo FV · P2P)</option>',
+      '        <option value="PROYECTO DE AUTOCONSUMO SOLAR RESIDENCIAL||Energía limpia en tu hogar, ahorro directo desde el primer día y bonificación fiscal">Autoconsumo Residencial Estándar (Con Excedentes)</option>',
+      '        <option value="SISTEMA SOLAR HÍBRIDO CON BATERÍA LFP||Independencia energética 24 horas, gestión inteligente de excedentes y respaldo nocturno">Híbrido Residencial + Almacenamiento LFP</option>',
+      '        <option value="SISTEMA HÍBRIDO CON RESPALDO ANTI-APAGONES||Seguridad energética continua (Backup 24h), acumulación de litio y ahorro en factura">Autoconsumo + Backup Anti-Apagones (Full-Backup)</option>',
+      '        <option value="INSTALACIÓN SOLAR AISLADA 100% AUTÓNOMA||Autosuficiencia eléctrica total sin red (Off-Grid), generación solar y reserva LFP de alta capacidad">Instalación Aislada de Red (Off-Grid Total)</option>',
+      '        <option value="PROYECTO SOLAR DE VERTIDO CERO A RED||Producción ajustada en tiempo real a tu curva de demanda sin inyección de excedentes">Autoconsumo Conectado con Vertido Cero</option>',
+      '        <option value="PROYECTO FOTOVOLTAICO INDUSTRIAL Y PYME||Reducción de costes operativos, descarbonización corporativa y máxima deducción fiscal">Industrial / Comercial / PYME (Cubierta Nave)</option>',
+      '        <option value="COMUNIDAD SOLAR EN BLOQUE RESIDENCIAL||Autoconsumo colectivo para vecinos y servicios comunes con reparto dinámico horario">Autoconsumo Colectivo en Edificio / Bloque</option>',
+      '        <option value="SISTEMA HÍBRIDO SOLAR + MINIEÓLICA||Generación renovable complementaria día y noche con máxima autarquía anual">Sistema Híbrido Solar + Minieólica</option>',
+      '        <option value="PROYECTO DE BOMBEO Y EXPLOTACIÓN AGRÍCOLA||Energía solar aplicada al riego, reducción de costes de gasóleo y autonomía rural">Bombeo Solar / Explotación Agropecuaria</option>',
+      '      </select>',
+      '    </div>',
+      '  </div>',
       '  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">',
       '    <div>',
       '      <div style="font-size:10.5px;color:#cbd5e1;font-weight:700;margin-bottom:4px;">Titular Principal de Portada (usa <code style="color:#fbbf24;">|</code> para forzar salto de línea exacto):</div>',
@@ -2483,6 +2518,26 @@
       '  </div>',
       '</div>',
 
+      '<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:14px;">',
+      '  <div style="font-size:12px;font-weight:800;color:#38bdf8;margin-bottom:10px;display:inline-flex;align-items:center;gap:5px;">' + _sSvg('tag', 14, '#38bdf8') + ' VISUALIZACIÓN DE PRECIOS POR PARTIDA EN PRESUPUESTO</div>',
+      '  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">',
+      '    <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:' + (cfg.itemPriceDisplay !== 'included' ? 'rgba(56,189,248,0.14)' : 'rgba(15,23,42,0.6)') + ';border:1.5px solid ' + (cfg.itemPriceDisplay !== 'included' ? '#38bdf8' : 'rgba(255,255,255,0.08)') + ';border-radius:8px;cursor:pointer;">',
+      '      <input type="radio" name="pss-item-price-display" value="price" ' + (cfg.itemPriceDisplay !== 'included' ? 'checked' : '') + ' style="accent-color:#38bdf8;margin-top:3px;width:16px;height:16px;">',
+      '      <div>',
+      '        <div style="font-size:12px;font-weight:800;color:#f8fafc;">Mostrar Precios (€)</div>',
+      '        <div style="font-size:10.5px;color:#94a3b8;margin-top:2px;line-height:1.35;">Muestra el importe numérico de cada capítulo o partida.</div>',
+      '      </div>',
+      '    </label>',
+      '    <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:' + (cfg.itemPriceDisplay === 'included' ? 'rgba(16,185,129,0.14)' : 'rgba(15,23,42,0.6)') + ';border:1.5px solid ' + (cfg.itemPriceDisplay === 'included' ? '#10b981' : 'rgba(255,255,255,0.08)') + ';border-radius:8px;cursor:pointer;">',
+      '      <input type="radio" name="pss-item-price-display" value="included" ' + (cfg.itemPriceDisplay === 'included' ? 'checked' : '') + ' style="accent-color:#10b981;margin-top:3px;width:16px;height:16px;">',
+      '      <div>',
+      '        <div style="font-size:12px;font-weight:800;color:#f8fafc;">Texto "Incluido"</div>',
+      '        <div style="font-size:10.5px;color:#94a3b8;margin-top:2px;line-height:1.35;">Sustituye el importe de cada partida por "Incluido" manteniendo el total.</div>',
+      '      </div>',
+      '    </label>',
+      '  </div>',
+      '</div>',
+
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">',
       '  <label style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;">',
       '    <div>',
@@ -2637,6 +2692,8 @@
       }
       var checkedRadio = document.querySelector('input[name="pss-econ-breakdown"]:checked');
       if (checkedRadio) cfg.economicBreakdown = checkedRadio.value;
+      var checkedPriceDisp = document.querySelector('input[name="pss-item-price-display"]:checked');
+      if (checkedPriceDisp) cfg.itemPriceDisplay = checkedPriceDisp.value;
       if (g('pss-show-tax')) cfg.showTaxBenefits = g('pss-show-tax').checked;
       if (g('pss-show-financing')) cfg.showFinancingOptions = g('pss-show-financing').checked;
     } else if (_activeModalTab === 'texts') {
@@ -2964,6 +3021,25 @@
       el.addEventListener('input', handler);
       el.addEventListener('change', handler);
     });
+
+    var coverHeaderPresetSel = modal.querySelector('#pss-cover-header-preset');
+    if (coverHeaderPresetSel) {
+      coverHeaderPresetSel.onchange = function() {
+        var val = this.value;
+        if (!val) return;
+        var parts = val.split('||');
+        var tEl = modal.querySelector('#pss-cover-main-title');
+        var sEl = modal.querySelector('#pss-cover-subtitle');
+        if (tEl && parts[0]) tEl.value = parts[0];
+        if (sEl && parts[1]) sEl.value = parts[1];
+        collectCurrentTabInputsToState();
+        saveState();
+        updateTypographyLivePreview(modal);
+        if (global.showToast) {
+          global.showToast('ENCABEZADO APLICADO', 'Titular y subtítulo adaptados a la tipología seleccionada.', 'success', 2000);
+        }
+      };
+    }
 
     var btnSyncLogo = modal.querySelector('#pss-btn-sync-logo-colors');
     if (btnSyncLogo) {

@@ -248,18 +248,38 @@ function resolveEquipmentNames() {
     }
   }
 
-  // ── Microinversor ──
-  if (cfg.selectedMicroinverterId && cat.microinverters && Array.isArray(cat.microinverters)) {
-    var mic = cat.microinverters.find(function(mi) { return mi.id === cfg.selectedMicroinverterId; });
-    if (mic) {
-      result.microBrand = mic.brand || '';
-      result.microModel = mic.model || '';
-      var micSizing = cfg.autoSizing && cfg.autoSizing.microinverters;
-      result.microCount = (micSizing && micSizing.count) ? micSizing.count : 0;
-      result.hasMicro = true;
-      var micKw = mic.kw || (mic.va ? mic.va / 1000 : 0.8);
-      result.totalMicroKw = Math.round((micKw * result.microCount) * 100) / 100;
-      result.microName = Math.max(1, result.microCount) + '× ' + result.microBrand + ' ' + result.microModel + ' (' + result.totalMicroKw.toFixed(1) + ' kW AC total)';
+  // ── Microinversor / Optimizadores (Topología SSOT) ──
+  var topology = cfg.selectedTopology || 'inverter';
+  result.topology = topology;
+  result.hasMicro = false;
+  result.hasOptimizer = false;
+  result.optimizerCount = 0;
+  result.optimizerName = '';
+
+  if (topology === 'microinverter') {
+    if (cfg.selectedMicroinverterId && cat.microinverters && Array.isArray(cat.microinverters)) {
+      var mic = cat.microinverters.find(function(mi) { return mi.id === cfg.selectedMicroinverterId; });
+      if (mic) {
+        result.microBrand = mic.brand || '';
+        result.microModel = mic.model || '';
+        var micSizing = cfg.autoSizing && cfg.autoSizing.microinverters;
+        result.microCount = (micSizing && micSizing.count) ? micSizing.count : 0;
+        result.hasMicro = true;
+        var micKw = mic.kw || (mic.va ? mic.va / 1000 : 0.8);
+        result.totalMicroKw = Math.round((micKw * result.microCount) * 100) / 100;
+        result.microName = Math.max(1, result.microCount) + '× ' + result.microBrand + ' ' + result.microModel + ' (' + result.totalMicroKw.toFixed(1) + ' kW AC total)';
+      }
+    }
+  } else if (topology === 'optimizer') {
+    var dCosts = (typeof RAPricing !== 'undefined' && typeof RAPricing.computeDesignCosts === 'function')
+      ? RAPricing.computeDesignCosts(cfg.numPanels || 0)
+      : null;
+    var optCnt = (dCosts && dCosts.optimizersCount > 0) ? dCosts.optimizersCount : 0;
+    if (optCnt > 0) {
+      result.hasOptimizer = true;
+      result.optimizerCount = optCnt;
+      var optSpec = (cat.microinverters && cat.microinverters.find(function(mi) { return mi.type && mi.type.includes('Optimizador'); })) || { brand: 'Tier-1', model: 'Optimizador DC' };
+      result.optimizerName = optCnt + '× ' + (optSpec.brand || '') + ' ' + (optSpec.model || 'Optimizador DC');
     }
   }
 
@@ -3053,12 +3073,46 @@ if (typeof window !== 'undefined') {
     var beneficioExtraCEL = Math.max(0, ingresoCELAnual - ingresoPoolAnual);
     var ahorroTotalConCEL = Math.round((m.ahorroLuzAnio1 || 0) + beneficioExtraCEL);
 
-    var paybackTradicional = (m.paybackYears && isFinite(m.paybackYears) && m.paybackYears > 0) ? m.paybackYears : 6.5;
-    var capexNeto = (m.capexNeto && isFinite(m.capexNeto) && m.capexNeto > 0) ? m.capexNeto : (m.capexBruto || 6000);
-    var paybackCEL = (capexNeto > 0 && ahorroTotalConCEL > 0)
-      ? Math.round((capexNeto / ahorroTotalConCEL) * 10) / 10
-      : Math.round(paybackTradicional * 0.72 * 10) / 10;
-    var reduccionPaybackAnios = Math.max(0.4, Math.round((paybackTradicional - paybackCEL) * 10) / 10);
+    // [SSOT Dinámico] Deducir el payback tradicional y CEL del flujo de caja acumulado real (con degradación, rescate fiscal e IPC)
+    var paybackTradicional = 25;
+    if (m && Array.isArray(m.cashflowAcumSinCEL) && m.cashflowAcumSinCEL.length > 1) {
+      for (var yt = 1; yt < m.cashflowAcumSinCEL.length; yt++) {
+        if (m.cashflowAcumSinCEL[yt] >= 0) {
+          var ptv = m.cashflowAcumSinCEL[yt - 1];
+          var dtv = m.cashflowAcumSinCEL[yt] - ptv;
+          paybackTradicional = dtv > 0 ? (yt - 1) + (-ptv / dtv) : yt;
+          break;
+        }
+      }
+    } else if (m.paybackYears && isFinite(m.paybackYears) && m.paybackYears > 0) {
+      paybackTradicional = m.paybackYears;
+    } else {
+      paybackTradicional = 6.5;
+    }
+
+    var paybackCEL = 25;
+    if (m && Array.isArray(m.cashflowAcum) && m.cashflowAcum.length > 1) {
+      for (var yc = 1; yc < m.cashflowAcum.length; yc++) {
+        if (m.cashflowAcum[yc] >= 0) {
+          var pcv = m.cashflowAcum[yc - 1];
+          var dcv = m.cashflowAcum[yc] - pcv;
+          paybackCEL = dcv > 0 ? (yc - 1) + (-pcv / dcv) : yc;
+          break;
+        }
+      }
+    }
+    // Fallback si no cruzó cero en 25 años o no había serie
+    if (!paybackCEL || paybackCEL >= 25) {
+      var capexNeto = (m.capexNeto && isFinite(m.capexNeto) && m.capexNeto > 0) ? m.capexNeto : (m.capexBruto || 6000);
+      paybackCEL = (capexNeto > 0 && ahorroTotalConCEL > 0)
+        ? Math.round((capexNeto / ahorroTotalConCEL) * 10) / 10
+        : Math.round(paybackTradicional * 0.72 * 10) / 10;
+    } else {
+      paybackCEL = Math.round(paybackCEL * 10) / 10;
+    }
+    paybackTradicional = Math.round(paybackTradicional * 10) / 10;
+
+    var reduccionPaybackAnios = Math.max(0.2, Math.round((paybackTradicional - paybackCEL) * 10) / 10);
 
     var familiasBeneficiadas = Math.max(1, Math.round((excKWh / 1800) * 10) / 10);
     var co2EvitadoKg = Math.round(excKWh * (((typeof window !== 'undefined' && window.SOLAR_ENGINE_CONSTANTS && window.SOLAR_ENGINE_CONSTANTS.CO2_FACTOR_SPAIN) || 0.259)));
@@ -3108,7 +3162,7 @@ if (typeof window !== 'undefined') {
     const flowH = (typeof cfg.celFlowBarHeightPx === 'number' && cfg.celFlowBarHeightPx >= 18) ? cfg.celFlowBarHeightPx : 26;
     const flowSize = (typeof cfg.celFlowFontSize === 'number') ? cfg.celFlowFontSize : 9.5;
     const flowDescSize = (typeof cfg.celFlowDescFontSize === 'number') ? cfg.celFlowDescFontSize : 9.0;
-    const radarH = (typeof cfg.celRadarHeightPx === 'number' && cfg.celRadarHeightPx >= 160) ? cfg.celRadarHeightPx : 235;
+    const radarH = (typeof cfg.celRadarHeightPx === 'number' && cfg.celRadarHeightPx >= 160) ? Math.max(cfg.celRadarHeightPx, 290) : 310;
     const radarLblSize = (typeof cfg.celRadarLabelFontSize === 'number') ? cfg.celRadarLabelFontSize : 11.5;
     const radarDistSize = (typeof cfg.celRadarDistanceFontSize === 'number') ? cfg.celRadarDistanceFontSize : 10.5;
     const celCardsGap = (typeof cfg.celCardsGapPx === 'number') ? cfg.celCardsGapPx : 8;
@@ -3117,69 +3171,157 @@ if (typeof window !== 'undefined') {
     var batW = cel.batPct > 0 ? Math.max(10, cel.batPct) : 0;
     var excW = Math.max(15, 100 - autoW - batW);
 
-    // SVG Radar de Cobertura 5.000 metros (78,5 km² según RDL 7/2026) rediseñado con espacio amplio sin solapes
-    var radarSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" width="100%" height="100%" style="display:block;">' +
+    // Desglose proporcional de los excedentes e ingresos por nodo receptor según perfil horario βh
+    var excTotal = Math.max(0, Math.round(cel.excKWh || 0));
+    var ingTotal = Math.max(0, Math.round(cel.ingresoCELAnual || 0));
+    var n1Kwh = Math.round(excTotal * 0.25), n1Eur = Math.round(ingTotal * 0.25); // Viviendas (25%)
+    var n2Kwh = Math.round(excTotal * 0.30), n2Eur = Math.round(ingTotal * 0.30); // Comercio (30%)
+    var n3Kwh = Math.round(excTotal * 0.15), n3Eur = Math.round(ingTotal * 0.15); // Colegio (15%)
+    var n4Kwh = Math.round(excTotal * 0.20), n4Eur = Math.round(ingTotal * 0.20); // PYME / Taller (20%)
+    var n5Kwh = Math.max(0, excTotal - n1Kwh - n2Kwh - n3Kwh - n4Kwh);            // Comunidad Vecinos (10%)
+    var n5Eur = Math.max(0, ingTotal - n1Eur - n2Eur - n3Eur - n4Eur);
+    var pCelStr = (typeof cel.precioCEL === 'number' ? cel.precioCEL.toFixed(2).replace('.', ',') : '0,11');
+
+    // SVG Mapa Técnico-Comercial Clean-Tech de Cobertura 5.000 metros (78,5 km² según RDL 7/2026)
+    // Proporción métrica real (1 km = 25px, 2,5 km = 62,5px, 5 km = 125px) + Tarjetas de Liquidación Horaria βh sin colisiones
+    var radarSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 390" width="100%" height="100%" style="display:block;">' +
       '<defs>' +
-        '<radialGradient id="celRadarGlow" cx="50%" cy="50%" r="50%">' +
-          '<stop offset="0%" stop-color="' + pal.primary + '" stop-opacity="0.25"/>' +
-          '<stop offset="70%" stop-color="' + pal.accent + '" stop-opacity="0.10"/>' +
-          '<stop offset="100%" stop-color="' + pal.primary + '" stop-opacity="0.01"/>' +
+        '<radialGradient id="celRadarGlowClean" cx="50%" cy="50%" r="50%">' +
+          '<stop offset="0%" stop-color="' + pal.primary + '" stop-opacity="0.18"/>' +
+          '<stop offset="55%" stop-color="' + pal.accent + '" stop-opacity="0.08"/>' +
+          '<stop offset="100%" stop-color="#f8fafc" stop-opacity="0.0"/>' +
         '</radialGradient>' +
+        '<linearGradient id="celHeaderBar" x1="0%" y1="0%" x2="100%" y2="0%">' +
+          '<stop offset="0%" stop-color="#0f172a"/>' +
+          '<stop offset="100%" stop-color="#1e293b"/>' +
+        '</linearGradient>' +
+        '<filter id="celCardShadow" x="-8%" y="-8%" width="116%" height="120%">' +
+          '<feDropShadow dx="0" dy="2" stdDeviation="2.5" flood-color="#0f172a" flood-opacity="0.07"/>' +
+        '</filter>' +
       '</defs>' +
-      '<rect x="0" y="0" width="640" height="360" rx="12" fill="#0b1329"/>' +
-      
-      // Ejes y retícula concéntrica
-      '<line x1="320" y1="20" x2="320" y2="340" stroke="#1e293b" stroke-width="1.4" stroke-dasharray="4,4"/>' +
-      '<line x1="20" y1="185" x2="620" y2="185" stroke="#1e293b" stroke-width="1.4" stroke-dasharray="4,4"/>' +
-      
-      // Anillos concéntricos de distancia amplia
-      '<circle cx="320" cy="185" r="135" fill="url(#celRadarGlow)" stroke="' + pal.primary + '" stroke-width="2.2" stroke-dasharray="6,4"/>' +
-      '<circle cx="320" cy="185" r="90" fill="none" stroke="#334155" stroke-width="1.4" stroke-dasharray="4,4"/>' +
-      '<circle cx="320" cy="185" r="45" fill="none" stroke="#334155" stroke-width="1.4"/>' +
-      
-      // Etiquetas de distancia concéntricas despejadas y legibles
-      '<text x="325" y="147" fill="#94a3b8" font-size="' + radarDistSize + '" font-weight="800" font-family="monospace">1.000 m (1 km)</text>' +
-      '<text x="325" y="102" fill="#94a3b8" font-size="' + radarDistSize + '" font-weight="800" font-family="monospace">2.500 m (2,5 km)</text>' +
-      '<text x="320" y="32" fill="' + pal.accent + '" font-size="12" font-weight="900" font-family="monospace" text-anchor="middle" letter-spacing="0.8">RADIO PERIMETRAL 5.000 m · MARCO RDL 7/2026 (78,5 km²)</text>' +
-      
-      // Líneas de enlace a los nodos de reparto
-      '<line x1="320" y1="185" x2="225" y2="95" stroke="' + pal.accent + '" stroke-width="1.8" stroke-dasharray="4,3" opacity="0.85"/>' +
-      '<line x1="320" y1="185" x2="435" y2="100" stroke="' + pal.accent + '" stroke-width="1.8" stroke-dasharray="4,3" opacity="0.85"/>' +
-      '<line x1="320" y1="185" x2="455" y2="245" stroke="' + pal.accent + '" stroke-width="1.8" stroke-dasharray="4,3" opacity="0.85"/>' +
-      '<line x1="320" y1="185" x2="185" y2="250" stroke="' + pal.accent + '" stroke-width="1.8" stroke-dasharray="4,3" opacity="0.85"/>' +
-      '<line x1="320" y1="185" x2="320" y2="315" stroke="' + pal.accent + '" stroke-width="1.8" stroke-dasharray="4,3" opacity="0.85"/>' +
-      
-      // Nodo 1: Viviendas (Noroeste)
-      '<circle cx="225" cy="95" r="8" fill="#38bdf8" stroke="#ffffff" stroke-width="2.5"/>' +
-      '<text x="210" y="99" fill="#ffffff" font-size="' + radarLblSize + '" font-weight="800" text-anchor="end">Viviendas (1,2 km)</text>' +
-      
-      // Nodo 2: Comercio (Noreste)
-      '<circle cx="435" cy="100" r="8" fill="#f59e0b" stroke="#ffffff" stroke-width="2.5"/>' +
-      '<text x="450" y="104" fill="#ffffff" font-size="' + radarLblSize + '" font-weight="800">Comercio (2,1 km)</text>' +
-      
-      // Nodo 3: Colegio (Sureste)
-      '<circle cx="455" cy="245" r="8" fill="#a855f7" stroke="#ffffff" stroke-width="2.5"/>' +
-      '<text x="470" y="249" fill="#ffffff" font-size="' + radarLblSize + '" font-weight="800">Colegio (3,8 km)</text>' +
-      
-      // Nodo 4: PYME / Taller (Suroeste)
-      '<circle cx="185" cy="250" r="8" fill="#34d399" stroke="#ffffff" stroke-width="2.5"/>' +
-      '<text x="170" y="254" fill="#ffffff" font-size="' + radarLblSize + '" font-weight="800" text-anchor="end">PYME / Taller (4,4 km)</text>' +
-      
-      // Nodo 5: Comunidad (Sur)
-      '<circle cx="320" cy="315" r="8" fill="#ec4899" stroke="#ffffff" stroke-width="2.5"/>' +
-      '<text x="336" y="319" fill="#ffffff" font-size="' + radarLblSize + '" font-weight="800">Comunidad (4,9 km)</text>' +
-      
-      // Núcleo: TU HUB GENERADOR
-      '<circle cx="320" cy="185" r="26" fill="' + pal.primary + '" opacity="0.35"/>' +
-      '<circle cx="320" cy="185" r="14" fill="#ffffff" stroke="' + pal.primary + '" stroke-width="3.5"/>' +
-      '<circle cx="320" cy="185" r="6" fill="' + pal.dark + '"/>' +
-      '<rect x="245" y="205" width="150" height="26" rx="5" fill="rgba(15,23,42,0.96)" stroke="' + pal.primary + '" stroke-width="1.5"/>' +
-      '<text x="320" y="222" fill="#ffffff" font-size="11" font-weight="900" text-anchor="middle">TU HUB GENERADOR</text>' +
-      
-      // Insignia flotante superior izquierda holgada sin solapes
-      '<rect x="18" y="16" width="150" height="42" rx="7" fill="rgba(15,23,42,0.92)" stroke="rgba(56,189,248,0.4)" stroke-width="1.2"/>' +
-      '<text x="28" y="34" fill="#38bdf8" font-size="10.5" font-weight="900" letter-spacing="0.5">REPARTO LOCAL P2P</text>' +
-      '<text x="28" y="49" fill="#94a3b8" font-size="9.5" font-weight="600">Telemedida horaria βh</text>' +
+
+      // Fondo Clean-Tech luminoso apto para pantalla e impresión ejecutiva
+      '<rect x="0" y="0" width="680" height="390" rx="10" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.2"/>' +
+
+      // Cabecera integrada sin colisiones
+      '<path d="M 0 10 Q 0 0 10 0 L 670 0 Q 680 0 680 10 L 680 34 L 0 34 Z" fill="url(#celHeaderBar)"/>' +
+      '<circle cx="16" cy="17" r="4.5" fill="#10b981"/>' +
+      '<text x="27" y="21" fill="#f8fafc" font-size="9.5" font-weight="900" letter-spacing="0.4">REPARTO LOCAL P2P · TELEMEDIDA HORARIA βh (ORDEN TED/1247/2021)</text>' +
+      '<rect x="478" y="6" width="192" height="22" rx="4" fill="rgba(16,185,129,0.18)" stroke="#10b981" stroke-width="1"/>' +
+      '<text x="574" y="20.5" fill="#6ee7b7" font-size="9" font-weight="900" text-anchor="middle" letter-spacing="0.3">RADIO LEGAL 5.000 m (78,5 km²)</text>' +
+
+      // Ejes cartesianos y retícula topográfica sutil
+      '<line x1="340" y1="40" x2="340" y2="338" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="3,3"/>' +
+      '<line x1="185" y1="186" x2="495" y2="186" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="3,3"/>' +
+
+      // Anillos concéntricos con escala métrica verdadera (25px = 1 km)
+      // Anillo 5.000 m (r = 125)
+      '<circle cx="340" cy="186" r="125" fill="url(#celRadarGlowClean)" stroke="' + pal.primary + '" stroke-width="2" stroke-dasharray="6,4"/>' +
+      // Anillo 2.500 m (r = 62.5)
+      '<circle cx="340" cy="186" r="62.5" fill="none" stroke="#64748b" stroke-width="1.2" stroke-dasharray="4,4" opacity="0.65"/>' +
+      // Anillo 1.000 m (r = 25)
+      '<circle cx="340" cy="186" r="25" fill="none" stroke="#64748b" stroke-width="1.1" opacity="0.5"/>' +
+
+      // Etiquetas de anillos radiales (con pastilla de lectura limpia)
+      '<rect x="344" y="152" width="52" height="13" rx="3" fill="#ffffff" opacity="0.88"/>' +
+      '<text x="347" y="161" fill="#475569" font-size="8" font-weight="800" font-family="monospace">1,0 km</text>' +
+      '<rect x="344" y="115" width="52" height="13" rx="3" fill="#ffffff" opacity="0.88"/>' +
+      '<text x="347" y="124" fill="#475569" font-size="8" font-weight="800" font-family="monospace">2,5 km</text>' +
+      '<rect x="292" y="53" width="96" height="15" rx="4" fill="' + pal.light + '" stroke="' + pal.primary + '" stroke-width="1"/>' +
+      '<text x="340" y="63.5" fill="' + pal.dark + '" font-size="8.5" font-weight="900" font-family="monospace" text-anchor="middle">PERÍMETRO 5,0 km</text>' +
+
+      //Vectores de despacho energético desde el Hub Central (340, 186) hasta la posición real en escala de cada consumidor
+      // 1. Viviendas (1,2 km -> r=30px, Noroeste: 318, 165) -> Conector a tarjeta Izquierda-Arriba
+      '<polyline points="340,186 318,165 202,92" fill="none" stroke="#0284c7" stroke-width="1.8" stroke-dasharray="3,2"/>' +
+      // 2. Comercio (2,1 km -> r=52.5px, Noreste: 383, 156) -> Conector a tarjeta Derecha-Arriba
+      '<polyline points="340,186 383,156 478,92" fill="none" stroke="#d97706" stroke-width="1.8" stroke-dasharray="3,2"/>' +
+      // 3. Colegio (3,8 km -> r=95px, Sureste: 424, 230) -> Conector a tarjeta Derecha-Abajo
+      '<polyline points="340,186 424,230 478,244" fill="none" stroke="#7c3aed" stroke-width="1.8" stroke-dasharray="3,2"/>' +
+      // 4. PYME / Taller (4,4 km -> r=110px, Suroeste: 242, 236) -> Conector a tarjeta Izquierda-Abajo
+      '<polyline points="340,186 242,236 202,244" fill="none" stroke="#059669" stroke-width="1.8" stroke-dasharray="3,2"/>' +
+      // 5. Comunidad Vecinos (4,9 km -> r=122.5px, Sur: 340, 308.5) -> Conector a tarjeta Sur
+      '<line x1="340" y1="186" x2="340" y2="308.5" stroke="#db2777" stroke-width="1.8" stroke-dasharray="3,2"/>' +
+
+      // Puntos geográficos exactos dentro del radar
+      '<circle cx="318" cy="165" r="6" fill="#0284c7" stroke="#ffffff" stroke-width="2"/>' +
+      '<circle cx="383" cy="156" r="6" fill="#d97706" stroke="#ffffff" stroke-width="2"/>' +
+      '<circle cx="424" cy="230" r="6" fill="#7c3aed" stroke="#ffffff" stroke-width="2"/>' +
+      '<circle cx="242" cy="236" r="6" fill="#059669" stroke="#ffffff" stroke-width="2"/>' +
+      '<circle cx="340" cy="308.5" r="6" fill="#db2777" stroke="#ffffff" stroke-width="2"/>' +
+
+      // ── TARJETA NODO 1: VIVIENDAS (1,2 km · Noroeste) ──
+      '<g filter="url(#celCardShadow)">' +
+        '<rect x="14" y="58" width="188" height="64" rx="7" fill="#ffffff" stroke="#bae6fd" stroke-width="1.5"/>' +
+        '<rect x="14" y="58" width="5" height="64" rx="2.5" fill="#0284c7"/>' +
+        '<text x="26" y="74" fill="#0f172a" font-size="10.5" font-weight="900">Viviendas Residenciales</text>' +
+        '<rect x="150" y="63" width="44" height="14" rx="3" fill="#e0f2fe"/>' +
+        '<text x="172" y="73" fill="#0369a1" font-size="8.5" font-weight="900" text-anchor="middle">1,2 km</text>' +
+        '<text x="26" y="88" fill="#475569" font-size="8.5" font-weight="700">βh = 0,25 · Demanda Tarde / Fin Sem.</text>' +
+        '<text x="26" y="103" fill="#0369a1" font-size="9.5" font-weight="900">' + n1Kwh.toLocaleString('es-ES') + ' kWh/año → +' + n1Eur.toLocaleString('es-ES') + ' €/año</text>' +
+        '<text x="26" y="115" fill="#64748b" font-size="7.8" font-weight="600">Climatización, ACS y electrodomésticos</text>' +
+      '</g>' +
+
+      // ── TARJETA NODO 2: COMERCIO LOCAL (2,1 km · Noreste) ──
+      '<g filter="url(#celCardShadow)">' +
+        '<rect x="478" y="58" width="188" height="64" rx="7" fill="#ffffff" stroke="#fde68a" stroke-width="1.5"/>' +
+        '<rect x="478" y="58" width="5" height="64" rx="2.5" fill="#d97706"/>' +
+        '<text x="490" y="74" fill="#0f172a" font-size="10.5" font-weight="900">Comercio y Hostelería</text>' +
+        '<rect x="614" y="63" width="44" height="14" rx="3" fill="#fef3c7"/>' +
+        '<text x="636" y="73" fill="#b45309" font-size="8.5" font-weight="900" text-anchor="middle">2,1 km</text>' +
+        '<text x="490" y="88" fill="#475569" font-size="8.5" font-weight="700">βh = 0,30 · Curva Plana 09h–21h</text>' +
+        '<text x="490" y="103" fill="#b45309" font-size="9.5" font-weight="900">' + n2Kwh.toLocaleString('es-ES') + ' kWh/año → +' + n2Eur.toLocaleString('es-ES') + ' €/año</text>' +
+        '<text x="490" y="115" fill="#64748b" font-size="7.8" font-weight="600">Cámaras frigoríficas y climatización</text>' +
+      '</g>' +
+
+      // ── TARJETA NODO 3: COLEGIO / EQUIPAMIENTO (3,8 km · Sureste) ──
+      '<g filter="url(#celCardShadow)">' +
+        '<rect x="478" y="210" width="188" height="64" rx="7" fill="#ffffff" stroke="#ddd6fe" stroke-width="1.5"/>' +
+        '<rect x="478" y="210" width="5" height="64" rx="2.5" fill="#7c3aed"/>' +
+        '<text x="490" y="226" fill="#0f172a" font-size="10.5" font-weight="900">Colegio / Centro Público</text>' +
+        '<rect x="614" y="215" width="44" height="14" rx="3" fill="#ede9fe"/>' +
+        '<text x="636" y="225" fill="#6d28d9" font-size="8.5" font-weight="900" text-anchor="middle">3,8 km</text>' +
+        '<text x="490" y="240" fill="#475569" font-size="8.5" font-weight="700">βh = 0,15 · Punta Matinal 08h–16h</text>' +
+        '<text x="490" y="255" fill="#6d28d9" font-size="9.5" font-weight="900">' + n3Kwh.toLocaleString('es-ES') + ' kWh/año → +' + n3Eur.toLocaleString('es-ES') + ' €/año</text>' +
+        '<text x="490" y="267" fill="#64748b" font-size="7.8" font-weight="600">Sincronía 100% con cenit solar diurno</text>' +
+      '</g>' +
+
+      // ── TARJETA NODO 4: PYME / TALLER (4,4 km · Suroeste) ──
+      '<g filter="url(#celCardShadow)">' +
+        '<rect x="14" y="210" width="188" height="64" rx="7" fill="#ffffff" stroke="#a7f3d0" stroke-width="1.5"/>' +
+        '<rect x="14" y="210" width="5" height="64" rx="2.5" fill="#059669"/>' +
+        '<text x="26" y="226" fill="#0f172a" font-size="10.5" font-weight="900">PYME / Taller Industrial</text>' +
+        '<rect x="150" y="215" width="44" height="14" rx="3" fill="#d1fae5"/>' +
+        '<text x="172" y="225" fill="#047857" font-size="8.5" font-weight="900" text-anchor="middle">4,4 km</text>' +
+        '<text x="26" y="240" fill="#475569" font-size="8.5" font-weight="700">βh = 0,20 · Jornada Intensiva L–V</text>' +
+        '<text x="26" y="255" fill="#047857" font-size="9.5" font-weight="900">' + n4Kwh.toLocaleString('es-ES') + ' kWh/año → +' + n4Eur.toLocaleString('es-ES') + ' €/año</text>' +
+        '<text x="26" y="267" fill="#64748b" font-size="7.8" font-weight="600">Maquinaria, compresores y recarga VE</text>' +
+      '</g>' +
+
+      // ── TARJETA NODO 5: COMUNIDAD DE VECINOS (4,9 km · Sur) ──
+      '<g filter="url(#celCardShadow)">' +
+        '<rect x="354" y="286" width="196" height="50" rx="7" fill="#ffffff" stroke="#fbcfe8" stroke-width="1.5"/>' +
+        '<rect x="354" y="286" width="5" height="50" rx="2.5" fill="#db2777"/>' +
+        '<text x="366" y="301" fill="#0f172a" font-size="10" font-weight="900">Comunidad Vecinal (4,9 km)</text>' +
+        '<text x="366" y="314" fill="#475569" font-size="8.2" font-weight="700">βh = 0,10 · Ascensores, garaje y bombeo</text>' +
+        '<text x="366" y="328" fill="#be185d" font-size="9.2" font-weight="900">' + n5Kwh.toLocaleString('es-ES') + ' kWh/año → +' + n5Eur.toLocaleString('es-ES') + ' €/año</text>' +
+      '</g>' +
+
+      // ── NÚCLEO CENTRAL: TU HUB GENERADOR ──
+      '<circle cx="340" cy="186" r="22" fill="' + pal.primary + '" opacity="0.22"/>' +
+      '<circle cx="340" cy="186" r="13" fill="#ffffff" stroke="' + pal.primary + '" stroke-width="3.5"/>' +
+      '<circle cx="340" cy="186" r="5.5" fill="' + pal.dark + '"/>' +
+      '<g filter="url(#celCardShadow)">' +
+        '<rect x="268" y="198" width="144" height="32" rx="6" fill="#0f172a" stroke="' + pal.primary + '" stroke-width="1.5"/>' +
+        '<text x="340" y="211" fill="#ffffff" font-size="9.5" font-weight="900" text-anchor="middle" letter-spacing="0.4">TU HUB GENERADOR</text>' +
+        '<text x="340" y="223" fill="#34d399" font-size="8.5" font-weight="800" text-anchor="middle">Excedente: ' + excTotal.toLocaleString('es-ES') + ' kWh/a</text>' +
+      '</g>' +
+
+      // ── BARRA INFERIOR DE LIQUIDACIÓN ECONÓMICA (EL CIERRE DE VENTAS) ──
+      '<rect x="10" y="344" width="660" height="38" rx="7" fill="#0f172a"/>' +
+      '<text x="24" y="360" fill="#94a3b8" font-size="8.5" font-weight="700">LIQUIDACIÓN ANUAL DE EXCEDENTES (' + excTotal.toLocaleString('es-ES') + ' kWh):</text>' +
+      '<text x="24" y="374" fill="#cbd5e1" font-size="9.5" font-weight="700">Pool Mayorista (0,05 €/kWh): <tspan fill="#f87171" font-weight="900">' + cel.ingresoPoolAnual.toLocaleString('es-ES') + ' €/año</tspan>   vs.   Venta Directa CEL (' + pCelStr + ' €/kWh): <tspan fill="#34d399" font-weight="900">+' + ingTotal.toLocaleString('es-ES') + ' €/año</tspan></text>' +
+      '<rect x="492" y="351" width="168" height="24" rx="5" fill="#059669"/>' +
+      '<text x="576" y="366.5" fill="#ffffff" font-size="9.5" font-weight="900" text-anchor="middle">BENEFICIO EXTRA: +' + cel.beneficioExtraCEL.toLocaleString('es-ES') + ' €/AÑO</text>' +
     '</svg>'
 
     // HOJA 1 CEL: MODELO ECONÓMICO Y HOMOLOGACIÓN
@@ -3343,7 +3485,7 @@ if (typeof window !== 'undefined') {
             '<div style="font-size: 11.5px; font-weight: 900; color: #0f172a; text-transform: uppercase; letter-spacing: -0.2px;">2. Radar de Cobertura y Topología de Reparto (5 km)</div>' +
             '<span style="font-size: 8.5px; font-weight: 800; color: ' + pal.primary + '; background: ' + pal.light + '; padding: 2px 8px; border-radius: 5px;">RDL 7/2026 · 78,5 km² de Cobertura</span>' +
           '</div>' +
-          '<div class="cel-radar-inner" style="width: 100%; height: ' + radarH + 'px; min-height: 160px; border-radius: 8px; overflow: hidden; background: #0b1329; box-shadow: 0 4px 16px rgba(0,0,0,0.2);">' +
+          '<div class="cel-radar-inner" style="width: 100%; height: ' + radarH + 'px; min-height: 280px; border-radius: 10px; overflow: hidden; background: #f8fafc; box-shadow: 0 2px 10px rgba(15,23,42,0.06);">' +
             radarSvg +
           '</div>' +
           '<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px; font-size: 9px; color: #64748b; line-height: 1.35; gap: 12px;">' +
@@ -3471,23 +3613,30 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   const annualYieldKWh = solarStats ? solarStats.annualYieldKWh : d.annualKWh;
   const MES_CORTOS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
-  // ── SVG Histograma mensual ────────────────────────────────────────────────
-  function buildMonthlyHistogramSVG(yields, paleta, studioCfg) {
+  // ── SVG Histograma mensual (con soporte de barras apiladas: Autoconsumo + Excedente) ──
+  function buildMonthlyHistogramSVG(yields, paleta, studioCfg, finModel) {
     const cfg = studioCfg || {};
     const H = (typeof cfg.histogramHeightPx === 'number' && cfg.histogramHeightPx >= 100) ? cfg.histogramHeightPx : 200;
-    const W = 720, PAD_L = 50, PAD_B = 35, PAD_T = 20, PAD_R = 10;
+    const W = 720, PAD_L = 50, PAD_B = 42, PAD_T = 26, PAD_R = 10;
     const chartW = W - PAD_L - PAD_R;
     const chartH = H - PAD_B - PAD_T;
+    const fm = finModel || {};
+    const breakdown = (fm && Array.isArray(fm.monthlyEnergyBreakdown) && fm.monthlyEnergyBreakdown.length === 12)
+      ? fm.monthlyEnergyBreakdown
+      : null;
+
     const maxVal = Math.max(...yields, 1);
     const barW = (chartW / 12) * 0.65;
     const barGap = (chartW / 12) * 0.35;
-    let bars = '', labels = '', vals = '', grid = '';
+    let bars = '', labels = '', vals = '', stackedVals = '', grid = '';
 
     const isGrad = (cfg.histogramFillMode !== 'solid');
-    const colBar = cfg.histogramBarColor || paleta.accent || '#38bdf8';
-    const colBarEnd = cfg.histogramBarColorEnd || paleta.primary || '#0284c7';
-    const colPeak = cfg.histogramPeakColor || paleta.primary || '#10b981';
-    const colPeakEnd = cfg.histogramPeakColorEnd || paleta.dark || '#059669';
+    const colAuto = paleta.primary || '#10b981';
+    const colAutoEnd = paleta.dark || '#059669';
+    const colSurplus = cfg.histogramBarColor || paleta.accent || '#38bdf8';
+    const colSurplusEnd = cfg.histogramBarColorEnd || '#0284c7';
+    const colPeak = cfg.histogramPeakColor || '#f59e0b';
+    const colPeakEnd = cfg.histogramPeakColorEnd || '#d97706';
 
     const valFontSize = Number(cfg.histogramValueFontSize) || 7.5;
     const lblFontSize = Number(cfg.histogramLabelFontSize) || 8.0;
@@ -3496,9 +3645,13 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     let defs = '';
     if (isGrad) {
       defs = `<defs>
-        <linearGradient id="ra-histo-grad-bar" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="${colBar}"/>
-          <stop offset="100%" stop-color="${colBarEnd}"/>
+        <linearGradient id="ra-histo-grad-auto" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="${colAuto}"/>
+          <stop offset="100%" stop-color="${colAutoEnd}"/>
+        </linearGradient>
+        <linearGradient id="ra-histo-grad-surplus" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="${colSurplus}"/>
+          <stop offset="100%" stop-color="${colSurplusEnd}"/>
         </linearGradient>
         <linearGradient id="ra-histo-grad-peak" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stop-color="${colPeak}"/>
@@ -3517,30 +3670,83 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
 
     yields.forEach((kWh, i) => {
       const x = PAD_L + i * (chartW / 12) + barGap / 2;
-      const barH = chartH * (kWh / maxVal);
-      const y = PAD_T + chartH - barH;
       const isTop = kWh === maxVal;
-      const fillAttr = isGrad
-        ? (isTop ? 'url(#ra-histo-grad-peak)' : 'url(#ra-histo-grad-bar)')
-        : (isTop ? colPeak : colBar);
-      const opac = isGrad ? '1' : (isTop ? '1' : '0.85');
+      const midX = (x + barW / 2).toFixed(1);
 
-      bars   += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${barH.toFixed(1)}" rx="2" fill="${fillAttr}" opacity="${opac}"/>`;
-      labels += `<text x="${(x + barW/2).toFixed(1)}" y="${(H - PAD_B + 13).toFixed(1)}" text-anchor="middle" font-size="${lblFontSize}" fill="#475569">${MES_CORTOS[i]}</text>`;
-      vals   += `<text x="${(x + barW/2).toFixed(1)}" y="${(y - 4).toFixed(1)}" text-anchor="middle" font-size="${valFontSize}" fill="${paleta.dark}" font-weight="700">${kWh.toLocaleString('es-ES')}</text>`;
+      if (breakdown) {
+        const mItem = breakdown[i];
+        const autoKWh = mItem ? mItem.autoconsumoKWh : Math.round(kWh * 0.45);
+        const surplusKWh = mItem ? mItem.excedenteVolcadoKWh : Math.max(0, kWh - autoKWh);
+
+        const hAuto = Math.max(0, chartH * (autoKWh / maxVal));
+        const hSurplus = Math.max(0, chartH * (surplusKWh / maxVal));
+
+        const yAuto = PAD_T + chartH - hAuto;
+        const ySurplus = yAuto - hSurplus;
+
+        const fillAuto = isGrad ? 'url(#ra-histo-grad-auto)' : colAuto;
+        const fillSurplus = isGrad ? (isTop ? 'url(#ra-histo-grad-peak)' : 'url(#ra-histo-grad-surplus)') : (isTop ? colPeak : colSurplus);
+
+        // Barra inferior: Autoconsumo directo + batería
+        if (hAuto > 0) {
+          bars += `<rect x="${x.toFixed(1)}" y="${yAuto.toFixed(1)}" width="${barW.toFixed(1)}" height="${hAuto.toFixed(1)}" rx="1.5" fill="${fillAuto}" opacity="0.95"/>`;
+        }
+        // Barra superior apilada: Excedente volcado a red / CEL
+        if (hSurplus > 0) {
+          bars += `<rect x="${x.toFixed(1)}" y="${ySurplus.toFixed(1)}" width="${barW.toFixed(1)}" height="${hSurplus.toFixed(1)}" rx="1.5" fill="${fillSurplus}" opacity="0.90"/>`;
+        }
+
+        const innerFontSize = Math.min(valFontSize, 6.8);
+
+        // [ANTI-OVERFLOW] Valores kWh interiores con umbral mínimo de altura (11px) para evitar solapes y desbordamientos
+        if (hAuto >= 11 && autoKWh > 0) {
+          const midYAuto = (yAuto + hAuto / 2 + 2.5).toFixed(1);
+          stackedVals += `<text x="${midX}" y="${midYAuto}" text-anchor="middle" font-size="${innerFontSize}" fill="#ffffff" font-weight="700">${autoKWh.toLocaleString('es-ES')}</text>`;
+        }
+        if (hSurplus >= 11 && surplusKWh > 0) {
+          const midYSurplus = (ySurplus + hSurplus / 2 + 2.5).toFixed(1);
+          const fillSurplusText = isTop ? '#78350f' : '#0c4a6e';
+          stackedVals += `<text x="${midX}" y="${midYSurplus}" text-anchor="middle" font-size="${innerFontSize}" fill="${fillSurplusText}" font-weight="700">${surplusKWh.toLocaleString('es-ES')}</text>`;
+        }
+      } else {
+        const barH = chartH * (kWh / maxVal);
+        const y = PAD_T + chartH - barH;
+        const fillAttr = isGrad
+          ? (isTop ? 'url(#ra-histo-grad-peak)' : 'url(#ra-histo-grad-auto)')
+          : (isTop ? colPeak : colAuto);
+        bars += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${barH.toFixed(1)}" rx="2" fill="${fillAttr}" opacity="0.92"/>`;
+      }
+
+      const totalH = chartH * (kWh / maxVal);
+      const topY = PAD_T + chartH - totalH;
+
+      labels += `<text x="${midX}" y="${(H - PAD_B + 14).toFixed(1)}" text-anchor="middle" font-size="${lblFontSize}" fill="#475569" font-weight="600">${MES_CORTOS[i]}</text>`;
+      vals   += `<text x="${midX}" y="${(topY - 4).toFixed(1)}" text-anchor="middle" font-size="${valFontSize}" fill="${paleta.dark || '#059669'}" font-weight="700">${kWh.toLocaleString('es-ES')}</text>`;
     });
 
+    // Leyenda de barras apiladas al pie con espaciado distribuido para evitar cualquier solapamiento
+    const legendY = H - 5;
+    const legendContent = breakdown ? `
+      <g transform="translate(${PAD_L}, ${legendY})">
+        <rect x="10" y="-7" width="9" height="7" rx="1.5" fill="${colAuto}"/>
+        <text x="24" y="0" font-size="${axisFontSize}" fill="#334155" font-weight="600">Autoconsumo Directo + Batería</text>
+        <rect x="235" y="-7" width="9" height="7" rx="1.5" fill="${colSurplus}"/>
+        <text x="249" y="0" font-size="${axisFontSize}" fill="#0369a1" font-weight="600">Excedente Volcado (Red / CEL)</text>
+        <rect x="480" y="-7" width="9" height="7" rx="1.5" fill="${colPeak}"/>
+        <text x="494" y="0" font-size="${axisFontSize}" fill="#b45309" font-weight="600">Mes Pico Solar</text>
+      </g>
+    ` : `<text x="${W/2}" y="${legendY}" text-anchor="middle" font-size="${axisFontSize}" fill="#94a3b8">Producción estimada mensual (kWh/mes)</text>`;
+
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="100%" style="display:block;max-width:100%;">
-      ${defs}${grid}${bars}${labels}${vals}
-      <text x="${W/2}" y="${H - 2}" text-anchor="middle" font-size="${axisFontSize}" fill="#94a3b8">Producción estimada mensual (kWh/mes)</text>
+      ${defs}${grid}${bars}${labels}${stackedVals}${vals}${legendContent}
     </svg>`;
   }
 
   // ── SVG Curva de amortización (cashflow acumulado 25 años) ─────────────────
   function buildAmortizationSVG(cashflowAcum, capexBruto, paybackYears, paleta, studioCfg, finModel) {
     const cfg = studioCfg || {};
-    const H = (typeof cfg.amortHeightPx === 'number' && cfg.amortHeightPx >= 120) ? cfg.amortHeightPx : 200;
-    const W = 720, PAD_L = 75, PAD_B = 35, PAD_T = 20, PAD_R = 15;
+    const H = (typeof cfg.amortHeightPx === 'number' && cfg.amortHeightPx >= 120) ? Math.max(cfg.amortHeightPx, 225) : 230;
+    const W = 720, PAD_L = 62, PAD_B = 34, PAD_T = 24, PAD_R = 16;
     const chartW = W - PAD_L - PAD_R;
     const chartH = H - PAD_B - PAD_T;
     const n = cashflowAcum.length;
@@ -3548,13 +3754,34 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     const cfFinanciado = Array.isArray(fm.cashflowAcumFinanciado) && fm.cashflowAcumFinanciado.length === n
       ? fm.cashflowAcumFinanciado
       : null;
-    const allValues = cfFinanciado ? cashflowAcum.concat(cfFinanciado) : cashflowAcum;
+    const cfSinCEL = (fm.isCelActive && Array.isArray(fm.cashflowAcumSinCEL) && fm.cashflowAcumSinCEL.length === n)
+      ? fm.cashflowAcumSinCEL
+      : null;
+    let allValues = cfFinanciado ? cashflowAcum.concat(cfFinanciado) : [...cashflowAcum];
+    if (cfSinCEL) allValues = allValues.concat(cfSinCEL);
     const minVal = Math.min(...allValues, -capexBruto * 0.1);
     const maxVal = Math.max(...allValues, 0);
     const totalRange = (maxVal - minVal) || 1;
 
+    // Escala vertical bipartita adaptativa: garantiza que el tramo de amortización (minVal..0)
+    // disponga siempre de al menos el 28% de la altura gráfica, evitando que en proyectos hiperrentables
+    // (+200k€) la fase inicial de recuperación quede aplastada contra la base.
+    const rawNegShare = Math.abs(minVal) / totalRange;
+    const negShare = (minVal < 0 && maxVal > 0) ? Math.max(rawNegShare, Math.min(0.38, Math.max(0.28, rawNegShare * 1.85))) : rawNegShare;
+    const posShare = 1 - negShare;
+    const yZeroLine = PAD_T + posShare * chartH;
+
     const xOf = i => PAD_L + (i / (n - 1)) * chartW;
-    const yOf = v => PAD_T + chartH - ((v - minVal) / totalRange) * chartH;
+    const yOf = v => {
+      if (minVal < 0 && maxVal > 0) {
+        if (v >= 0) {
+          return yZeroLine - (v / maxVal) * (posShare * chartH);
+        } else {
+          return yZeroLine + (Math.abs(v) / Math.abs(minVal)) * (negShare * chartH);
+        }
+      }
+      return PAD_T + chartH - ((v - minVal) / totalRange) * chartH;
+    };
 
     // Colores y tipografía desde Studio o fallback a paleta
     const isGradient = (cfg.amortFillMode !== 'solid');
@@ -3651,12 +3878,13 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     }
 
     // Payback (Retorno 0€)
-    const hasPayback = (typeof paybackYears === 'number' && paybackYears > 0 && paybackYears < n);
+    const effectivePb = (fm.isCelActive && fm.paybackCEL > 0) ? fm.paybackCEL : paybackYears;
+    const hasPayback = (typeof effectivePb === 'number' && effectivePb > 0 && effectivePb < n);
     if (hasPayback) {
       milestones.push({
-        year: Math.round(paybackYears * 10) / 10,
+        year: Math.round(effectivePb * 10) / 10,
         val: 0,
-        label: `Año ${paybackYears.toFixed(1)}: Payback`,
+        label: fm.isCelActive ? `Año ${effectivePb.toFixed(1)}: Payback CEL` : `Año ${effectivePb.toFixed(1)}: Payback`,
         desc: 'Retorno neto de inversión (0 €)',
         color: paybackColor || '#059669',
         bg: '#ecfdf5',
@@ -3664,6 +3892,32 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         dash: '4,3',
         isPayback: true
       });
+    }
+
+    // Payback Estándar sin CEL (cuando CEL está activa)
+    if (cfSinCEL) {
+      let pbSinCelEst = null;
+      for (let y = 1; y < cfSinCEL.length; y++) {
+        if (cfSinCEL[y] >= 0) {
+          const prev = cfSinCEL[y - 1];
+          const diff = cfSinCEL[y] - prev;
+          pbSinCelEst = diff > 0 ? (y - 1) + (-prev / diff) : y;
+          break;
+        }
+      }
+      if (pbSinCelEst && pbSinCelEst > 0 && pbSinCelEst < n) {
+        milestones.push({
+          year: Math.round(pbSinCelEst * 10) / 10,
+          val: 0,
+          label: `Año ${pbSinCelEst.toFixed(1)}: Payback sin CEL`,
+          desc: 'Retorno estándar sin inyección a CEL',
+          color: '#64748b',
+          bg: '#f8fafc',
+          border: '#cbd5e1',
+          dash: '3,3',
+          isSecondaryPayback: true
+        });
+      }
     }
 
     // Año 25: Beneficio neto acumulado
@@ -3680,11 +3934,36 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       });
     }
 
+    // Pastilla explicativa de Comunidad Energética Local (CEL) sincronizada con Página 9
+    const celIngreso = (fm.isCelActive && (fm.ingresoCELAnual > 0 ? fm.ingresoCELAnual : fm.celExtraBenefitYear1)) || 0;
+    if (fm.isCelActive && celIngreso > 0) {
+      const celTotal25 = Math.round(celIngreso * 25 * 0.92); // Estimación acumulada 25 años con degradación
+      milestones.push({
+        year: -1, // Hito de resumen global (no dibuja punto en el eje X)
+        val: celTotal25,
+        label: `Ingreso CEL: +${celIngreso.toLocaleString('es-ES')} €/año`,
+        desc: `Excedente vertido a CEL (~+${Math.round(celTotal25 / 1000)}k€ en 25 años)`,
+        color: '#0284c7',
+        bg: '#f0f9ff',
+        border: '#bae6fd',
+        dash: '2,2',
+        isSummaryBadge: true
+      });
+    }
+
+    // Priorizar hitos clave (0€, inicio, fin) para que sus etiquetas en el eje Y no se solapen
+    const sortedMilestones = [...milestones].sort((a, b) => {
+      const prio = m => (m.isPayback ? 1 : (m.year === 0 ? 2 : (m.year === 25 ? 3 : 10)));
+      return prio(a) - prio(b);
+    });
+
     const fmtK = v => (v >= 0 ? '+' : '') + Math.round(v / 1000) + 'k€';
 
-    // Líneas guía horizontales hacia el eje Y para cada hito
+    // Líneas guía horizontales hacia el eje Y para cada hito con filtro estricto anti-colisión
     let guidesContent = '';
-    milestones.forEach(mItem => {
+    const renderedLabelY = [];
+    sortedMilestones.forEach(mItem => {
+      if (mItem.isSummaryBadge || mItem.year < 0) return;
       const yPos = yOf(mItem.val);
       // Evitar pintar fuera del área gráfica
       if (yPos >= PAD_T && yPos <= PAD_T + chartH) {
@@ -3693,7 +3972,13 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         const lineOpacity = isZeroLine ? '0.75' : '0.45';
         const lineDash = mItem.dash || '3,3';
         guidesContent += `<line x1="${PAD_L}" y1="${yPos.toFixed(1)}" x2="${W - PAD_R}" y2="${yPos.toFixed(1)}" stroke="${lineStroke}" stroke-width="${isZeroLine ? '1.2' : '0.85'}" stroke-dasharray="${lineDash}" stroke-opacity="${lineOpacity}"/>`;
-        guidesContent += `<text x="${PAD_L - 4}" y="${(yPos + 2.5).toFixed(1)}" text-anchor="end" font-size="${Math.max(6.0, axisFontSize - 1.5)}" fill="${mItem.color}" font-weight="600">${fmtK(mItem.val)}</text>`;
+
+        // Anti-solapamiento de textos en el eje Y: no imprimir si está a menos de 11px de otra etiqueta
+        const hasCollision = renderedLabelY.some(prevY => Math.abs(prevY - yPos) < 11);
+        if (!hasCollision || isZeroLine) {
+          guidesContent += `<text x="${PAD_L - 4}" y="${(yPos + 2.5).toFixed(1)}" text-anchor="end" font-size="${Math.max(6.0, axisFontSize - 1.5)}" fill="${mItem.color}" font-weight="600">${fmtK(mItem.val)}</text>`;
+          renderedLabelY.push(yPos);
+        }
       }
     });
 
@@ -3705,47 +3990,179 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     pts += `${lastX.toFixed(1)},${yZero.toFixed(1)}`;
     let areaPolygon = `<polygon points="${pts}" fill="${fillAttr}" opacity="0.88"/>`;
 
-    // Línea principal de cashflow al contado
+    // ── Línea base sin CEL (Contado Estándar) ──
+    let sinCelContent = '';
+    if (cfSinCEL) {
+      const sinCelPoints = cfSinCEL.map((v, i) => `${xOf(i).toFixed(1)},${yOf(v).toFixed(1)}`).join(' ');
+      const sinCelColor = '#64748b'; // Tono neutro/pizarra distinguible
+      sinCelContent += `<polyline points="${sinCelPoints}" fill="none" stroke="${sinCelColor}" stroke-width="2.0" stroke-dasharray="3,3" stroke-linejoin="round" stroke-linecap="round" opacity="0.85"/>`;
+
+      // Hito Payback Estándar sin CEL
+      let pbSinCel = null;
+      for (let y = 1; y < cfSinCEL.length; y++) {
+        if (cfSinCEL[y] >= 0) {
+          const prev = cfSinCEL[y - 1];
+          const diff = cfSinCEL[y] - prev;
+          pbSinCel = diff > 0 ? (y - 1) + (-prev / diff) : y;
+          break;
+        }
+      }
+      if (pbSinCel && pbSinCel > 0 && pbSinCel < n) {
+        const xPosSin = PAD_L + (pbSinCel / (n - 1)) * chartW;
+        const yPosSin = yOf(0);
+        sinCelContent += `<circle cx="${xPosSin.toFixed(1)}" cy="${yPosSin.toFixed(1)}" r="3.5" fill="${sinCelColor}" stroke="#ffffff" stroke-width="1.2"/>`;
+      }
+    }
+
+    // Línea principal de cashflow al contado (+CEL si está activa)
     const linePoints = cashflowAcum.map((v, i) => `${xOf(i).toFixed(1)},${yOf(v).toFixed(1)}`).join(' ');
     let mainPolyline = `<polyline points="${linePoints}" fill="none" stroke="${lineColor}" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>`;
 
     // Segunda línea comparativa: Financiado (si está disponible)
     let financedContent = '';
-    const pbFin = (typeof fm.paybackFinanciadoYears === 'number') ? fm.paybackFinanciadoYears : null;
+    let pbFin = (typeof fm.paybackFinanciadoYears === 'number') ? fm.paybackFinanciadoYears : null;
+
+    // Si no vino precalculado o era 0/25, deducirlo dinámicamente de la serie acumulada financiada
+    if ((pbFin == null || pbFin <= 0 || pbFin >= n) && cfFinanciado) {
+      let dipped = false;
+      for (let y = 1; y < cfFinanciado.length; y++) {
+        if (cfFinanciado[y] < 0) dipped = true;
+      }
+      if (dipped) {
+        let neg = false;
+        for (let y = 1; y < cfFinanciado.length; y++) {
+          if (cfFinanciado[y] < 0) {
+            neg = true;
+          } else if (neg && cfFinanciado[y] >= 0) {
+            const prev = cfFinanciado[y - 1];
+            const diff = cfFinanciado[y] - prev;
+            pbFin = diff > 0 ? (y - 1) + (-prev / diff) : y;
+            break;
+          }
+        }
+      } else if (cfFinanciado[0] < 0) {
+        for (let y = 1; y < cfFinanciado.length; y++) {
+          if (cfFinanciado[y] >= 0) {
+            const prev = cfFinanciado[y - 1];
+            const diff = cfFinanciado[y] - prev;
+            pbFin = diff > 0 ? (y - 1) + (-prev / diff) : y;
+            break;
+          }
+        }
+      }
+    }
+
     if (cfFinanciado) {
       const finLinePoints = cfFinanciado.map((v, i) => `${xOf(i).toFixed(1)},${yOf(v).toFixed(1)}`).join(' ');
       const finColor = '#3b82f6'; // Azul corporativo de contraste
       financedContent += `<polyline points="${finLinePoints}" fill="none" stroke="${finColor}" stroke-width="2.4" stroke-dasharray="6,4" stroke-linejoin="round" stroke-linecap="round"/>`;
 
-      // Hito Payback Financiado
+      // Puntos de inflexión en la curva financiada (años singulares del modelo: 0, 1, 5, 10, 12, fin préstamo si <= 25, 25)
+      const finInflectionYears = [0, 1, 5];
+      if (fm.batCap > 0 || (fm.batteryReplacementCostYr10 && fm.batteryReplacementCostYr10 > 0)) finInflectionYears.push(10);
+      if (fm.inverterReplacementCostYr12 == null || fm.inverterReplacementCostYr12 > 0) finInflectionYears.push(12);
+      const loanEndYear = Math.round((fm.meses || 120) / 12);
+      if (loanEndYear > 0 && loanEndYear < 25 && !finInflectionYears.includes(loanEndYear)) finInflectionYears.push(loanEndYear);
+      if (n > 25 && !finInflectionYears.includes(25)) finInflectionYears.push(25);
+
+      finInflectionYears.forEach(yr => {
+        if (yr >= 0 && yr < cfFinanciado.length) {
+          const xPt = xOf(yr);
+          const yPt = yOf(cfFinanciado[yr]);
+          financedContent += `<circle cx="${xPt.toFixed(1)}" cy="${yPt.toFixed(1)}" r="3.2" fill="${finColor}" stroke="#ffffff" stroke-width="1.2"/>`;
+        }
+      });
+
+      // Hito Payback Financiado con pastilla protectora elevada/desplazada anti-solape
       if (pbFin && pbFin > 0 && pbFin < n) {
         const xPosFin = PAD_L + (pbFin / (n - 1)) * chartW;
         const yPosFin = yOf(0);
-        financedContent += `<circle cx="${xPosFin.toFixed(1)}" cy="${yPosFin.toFixed(1)}" r="4.5" fill="${finColor}" stroke="#ffffff" stroke-width="1.5"/>`;
-        financedContent += `<text x="${xPosFin.toFixed(1)}" y="${(yPosFin + 14).toFixed(1)}" text-anchor="middle" font-size="${pbFontSize}" fill="${finColor}" font-weight="800">Payback Fin. ${pbFin.toFixed(1)}a</text>`;
+        const finBadgeText = `Payback Fin. ${pbFin.toFixed(1)}a`;
+        const finBadgeW = Math.max(76, Math.round(finBadgeText.length * (pbFontSize * 0.64) + 16));
+        const finBadgeH = Math.round(pbFontSize + 8);
+        const finDotRadius = 4.5;
+
+        // Desplazamiento hacia abajo (o hacia arriba si coincide con el contado) con anclaje visual
+        const isNearContado = typeof effectivePb === 'number' && Math.abs(pbFin - effectivePb) < 3.2;
+        const finYOffset = isNearContado ? (finBadgeH * 1.8) : (finBadgeH * 2.2);
+        const finRectY = yPosFin + finYOffset;
+        const finTextY = finRectY + finBadgeH / 2 + (pbFontSize * 0.35);
+
+        financedContent += `
+          <circle cx="${xPosFin.toFixed(1)}" cy="${yPosFin.toFixed(1)}" r="${finDotRadius}" fill="${finColor}" stroke="#ffffff" stroke-width="1.5"/>
+          <g>
+            <line x1="${xPosFin.toFixed(1)}" y1="${(yPosFin + finDotRadius).toFixed(1)}" x2="${xPosFin.toFixed(1)}" y2="${finRectY.toFixed(1)}" stroke="${finColor}" stroke-width="1.2" stroke-dasharray="2,2" opacity="0.85"/>
+            <rect x="${(xPosFin - finBadgeW / 2).toFixed(1)}" y="${finRectY.toFixed(1)}" width="${finBadgeW}" height="${finBadgeH}" rx="4" fill="#ffffff" stroke="${finColor}" stroke-width="1.2" opacity="0.98" filter="drop-shadow(0 1px 2px rgba(0,0,0,0.06))"/>
+            <text x="${xPosFin.toFixed(1)}" y="${finTextY.toFixed(1)}" text-anchor="middle" font-size="${pbFontSize}" fill="${finColor}" font-weight="800">${finBadgeText}</text>
+          </g>
+        `;
       }
     }
 
-    // Leyenda de comparación en cabecera del gráfico
-    let legendContent = `
-      <g transform="translate(${PAD_L}, ${PAD_T - 8})">
-        <line x1="0" y1="0" x2="16" y2="0" stroke="${lineColor}" stroke-width="2.6"/>
-        <circle cx="8" cy="0" r="2.5" fill="${lineColor}"/>
-        <text x="22" y="3" font-size="${axisFontSize}" fill="#334155" font-weight="700">Al Contado (Desembolso 100%)</text>
-        ${cfFinanciado ? `
-          <line x1="180" y1="0" x2="200" y2="0" stroke="#3b82f6" stroke-width="2.4" stroke-dasharray="4,3"/>
-          <circle cx="190" cy="0" r="2.5" fill="#3b82f6"/>
-          <text x="206" y="3" font-size="${axisFontSize}" fill="#1e40af" font-weight="700">Financiado (${fm.meses || 120} meses · Cuota ${fm.cuotaMensual || 0} €/m)</text>
-        ` : ''}
-      </g>
-    `;
+    // Leyenda de comparación en cabecera del gráfico con distribución amplia anti-solape
+    let legendContent = '';
+    if (cfSinCEL) {
+      // Caso 3 curvas: Contado + CEL (verde sólida), Sin CEL (pizarra discontinua), Financiado (azul discontinuo)
+      const celLegendTag = (celIngreso > 0) ? `
+        <g transform="translate(${PAD_L + (cfFinanciado ? 465 : 295)}, ${PAD_T - 9})">
+          <rect x="0" y="-4" width="7.5" height="7.5" rx="2" fill="#0284c7"/>
+          <text x="11" y="3" font-size="${axisFontSize}" fill="#0369a1" font-weight="700">+CEL Activa (+${celIngreso.toLocaleString('es-ES')} €/a)</text>
+        </g>
+      ` : '';
 
-    // Marcadores circulares para cada hito
+      legendContent = `
+        <g transform="translate(${PAD_L}, ${PAD_T - 9})">
+          <!-- Curva 1: Contado + CEL -->
+          <line x1="0" y1="0" x2="15" y2="0" stroke="${lineColor}" stroke-width="2.6"/>
+          <circle cx="7.5" cy="0" r="2.5" fill="${lineColor}"/>
+          <text x="20" y="3" font-size="${axisFontSize}" fill="#334155" font-weight="700">Al Contado (+CEL)</text>
+
+          <!-- Curva 2: Sin CEL estándar -->
+          <line x1="128" y1="0" x2="143" y2="0" stroke="#64748b" stroke-width="2.0" stroke-dasharray="3,3"/>
+          <circle cx="135.5" cy="0" r="2.5" fill="#64748b"/>
+          <text x="148" y="3" font-size="${axisFontSize}" fill="#475569" font-weight="700">Sin CEL (Estándar)</text>
+
+          <!-- Curva 3: Financiado -->
+          ${cfFinanciado ? `
+            <line x1="262" y1="0" x2="277" y2="0" stroke="#3b82f6" stroke-width="2.4" stroke-dasharray="4,3"/>
+            <circle cx="269.5" cy="0" r="2.5" fill="#3b82f6"/>
+            <text x="282" y="3" font-size="${axisFontSize}" fill="#1e40af" font-weight="700">Financiado (${fm.meses || 120}m · ${fm.cuotaMensual || 0} €/m)</text>
+          ` : ''}
+        </g>
+        ${celLegendTag}
+      `;
+    } else {
+      // Caso 2 curvas estándar (sin CEL)
+      const celLegendX = cfFinanciado ? 465 : 215;
+      const celLegend = (fm.isCelActive && celIngreso > 0) ? `
+        <g transform="translate(${PAD_L + celLegendX}, ${PAD_T - 8})">
+          <rect x="0" y="-4" width="8" height="8" rx="2" fill="#0284c7"/>
+          <text x="12" y="3" font-size="${axisFontSize}" fill="#0369a1" font-weight="700">+CEL Activa (+${celIngreso.toLocaleString('es-ES')} €/a)</text>
+        </g>
+      ` : '';
+
+      legendContent = `
+        <g transform="translate(${PAD_L}, ${PAD_T - 8})">
+          <line x1="0" y1="0" x2="16" y2="0" stroke="${lineColor}" stroke-width="2.6"/>
+          <circle cx="8" cy="0" r="2.5" fill="${lineColor}"/>
+          <text x="22" y="3" font-size="${axisFontSize}" fill="#334155" font-weight="700">Al Contado (100%)</text>
+          ${cfFinanciado ? `
+            <line x1="165" y1="0" x2="181" y2="0" stroke="#3b82f6" stroke-width="2.4" stroke-dasharray="4,3"/>
+            <circle cx="173" cy="0" r="2.5" fill="#3b82f6"/>
+            <text x="187" y="3" font-size="${axisFontSize}" fill="#1e40af" font-weight="700">Financiado (${fm.meses || 120}m · ${fm.cuotaMensual || 0} €/m)</text>
+          ` : ''}
+        </g>
+        ${celLegend}
+      `;
+    }
+
+    // Marcadores circulares y guías solo para hitos con coordenada temporal válida (year >= 0)
     let markersContent = '';
     milestones.forEach(mItem => {
+      if (mItem.isSummaryBadge || mItem.year < 0) return; // Las pastillas de resumen no dibujan punto en la gráfica
       let xPos;
       if (mItem.isPayback) {
-        xPos = PAD_L + (paybackYears / (n - 1)) * chartW;
+        xPos = PAD_L + (effectivePb / (n - 1)) * chartW;
       } else {
         const idx = Math.min(Math.max(0, mItem.year), n - 1);
         xPos = xOf(idx);
@@ -3754,8 +4171,25 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       const dotRadius = mItem.isPayback ? 5 : 3.5;
       markersContent += `<circle cx="${xPos.toFixed(1)}" cy="${yPos.toFixed(1)}" r="${dotRadius}" fill="${mItem.color}" stroke="#ffffff" stroke-width="1.5"/>`;
 
+      // Hito Payback Contado con pastilla protectora elevada (3x altura hacia arriba) para no pisar la gráfica y ancho auto-ajustado al texto
       if (mItem.isPayback) {
-        markersContent += `<text x="${xPos.toFixed(1)}" y="${(yPos - 9).toFixed(1)}" text-anchor="middle" font-size="${pbFontSize}" fill="${paleta.dark}" font-weight="800">Payback Contado ${paybackYears.toFixed(1)}a</text>`;
+        const pbBadgeText = fm.isCelActive ? `Payback CEL ${effectivePb.toFixed(1)}a` : `Payback Contado ${effectivePb.toFixed(1)}a`;
+        // Estimación métrica del ancho según longitud del texto y tamaño tipográfico + padding horizontal generoso
+        const badgeW = Math.max(76, Math.round(pbBadgeText.length * (pbFontSize * 0.64) + 16));
+        const badgeH = Math.round(pbFontSize + 8); // ~16px
+        // Desplazado 3 veces su altura (~48px) hacia arriba desde el punto de la gráfica
+        const yOffset = badgeH * 3; // ~48px
+        const rectY = yPos - yOffset;
+        const textY = rectY + badgeH / 2 + (pbFontSize * 0.35);
+
+        markersContent += `
+          <g>
+            <!-- Línea conectora fina desde el punto exacto de retorno hasta la pastilla elevada -->
+            <line x1="${xPos.toFixed(1)}" y1="${(yPos - dotRadius).toFixed(1)}" x2="${xPos.toFixed(1)}" y2="${(rectY + badgeH).toFixed(1)}" stroke="${mItem.color || paleta.primary || '#10b981'}" stroke-width="1.2" stroke-dasharray="2,2" opacity="0.85"/>
+            <rect x="${(xPos - badgeW / 2).toFixed(1)}" y="${rectY.toFixed(1)}" width="${badgeW}" height="${badgeH}" rx="4" fill="#ffffff" stroke="${mItem.color || paleta.primary || '#10b981'}" stroke-width="1.2" opacity="0.98" filter="drop-shadow(0 1px 2px rgba(0,0,0,0.06))"/>
+            <text x="${xPos.toFixed(1)}" y="${textY.toFixed(1)}" text-anchor="middle" font-size="${pbFontSize}" fill="${mItem.color || paleta.dark || '#059669'}" font-weight="800">${pbBadgeText}</text>
+          </g>
+        `;
       }
     });
 
@@ -3771,6 +4205,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       ${legendContent}
       ${guidesContent}
       ${areaPolygon}
+      ${sinCelContent}
       ${mainPolyline}
       ${financedContent}
       ${markersContent}
@@ -3800,10 +4235,26 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     ? window.RAProposalStyleStudio.getActiveConfig()
     : null;
 
-  const histogramSVG = buildMonthlyHistogramSVG(monthlyYields, pal, _studioCfg);
-  const cashflowData = m.cashflowAcum || [];
+  // ── Sincronización SSOT de métricas CEL (Comunidad Energética Local) ─────────
+  const _commCfgForPages = (typeof RAPricing !== 'undefined' && typeof RAPricing.getCommercialConfig === 'function') ? RAPricing.getCommercialConfig() : null;
+  const _customCelPrice = (_commCfgForPages && typeof _commCfgForPages.celPriceEur === 'number') ? _commCfgForPages.celPriceEur : 0.11;
+  const _celMetrics = calculateCELMetrics(d, m, _customCelPrice);
+
+  if (m.isCelActive && _celMetrics) {
+    m.paybackCEL = _celMetrics.paybackCEL;
+    m.ingresoCELAnual = _celMetrics.ingresoCELAnual;
+    m.beneficioExtraCEL = _celMetrics.beneficioExtraCEL;
+    m.reduccionPaybackAnios = _celMetrics.reduccionPaybackAnios;
+    m.ahorroTotalConCEL = _celMetrics.ahorroTotalConCEL;
+  }
+
+  const histogramSVG = buildMonthlyHistogramSVG(monthlyYields, pal, _studioCfg, m);
+  let rawCashflowData = m.cashflowAcum || [];
+  let cashflowData = rawCashflowData;
+
+  const effectivePaybackYears = (m.isCelActive && m.paybackCEL > 0) ? m.paybackCEL : m.paybackYears;
   const amortSVG = cashflowData.length > 0
-    ? buildAmortizationSVG(cashflowData, m.capexBruto, m.paybackYears, pal, _studioCfg, m)
+    ? buildAmortizationSVG(cashflowData, m.capexBruto, effectivePaybackYears, pal, _studioCfg, m)
     : '<p style="color:#94a3b8;font-size:10px;text-align:center">Configure los datos financieros para ver la curva de amortización.</p>';
   // ── Resumen comercial para el cliente (Plantilla fija instantánea o generador SSOT) ──
   // [AUD-2026 v2 · SEC2-02] Los valores interpolados en la plantilla van escapados (vienen de
@@ -3937,7 +4388,6 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     if (window.RA && window.RA.log) window.RA.log.warn('[PropuestaComercial] Error capturando snapshot 3D:', e);
   }
 
-  const _commCfgForPages = (typeof RAPricing !== 'undefined' && typeof RAPricing.getCommercialConfig === 'function') ? RAPricing.getCommercialConfig() : null;
   const windTurbineCount = (typeof window !== 'undefined' && Array.isArray(window.windTurbines))
     ? window.windTurbines.filter(t => t && (!t.operationalState || t.operationalState.enabled !== false)).length
     : ((typeof designCosts !== 'undefined' && designCosts && designCosts.windCount) || 0);
@@ -3972,8 +4422,6 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   const _includeBillAuditPage = (_studioCfg && _studioCfg.sectionsEnabled && typeof _studioCfg.sectionsEnabled.bill_audit === 'boolean')
     ? (_studioCfg.sectionsEnabled.bill_audit && _hasBillAudit)
     : Boolean(_hasBillAudit);
-  const _customCelPrice = (_commCfgForPages && typeof _commCfgForPages.celPriceEur === 'number') ? _commCfgForPages.celPriceEur : 0.11;
-  const _celMetrics = calculateCELMetrics(d, m, _customCelPrice);
 
   let _pageTracker = 3;
   const _pageIndexComparativa = _hasThreePkgs ? ++_pageTracker : 0;
@@ -4728,7 +5176,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         </table>
 
         <h2>2. Configuración técnica seleccionada</h2>
-        <div class="tech-grid${(5 + (_eqp.hasWind ? 1 : 0) + (_eqp.hasMicro ? 1 : 0)) === 7 ? ' has-7-cards' : ((5 + (_eqp.hasWind ? 1 : 0) + (_eqp.hasMicro ? 1 : 0)) > 7 ? ' compact-4' : '')}">
+        <div class="tech-grid${(4 + (_eqp.hasWind ? 1 : 0) + (_eqp.hasOptimizer ? 1 : 0)) === 7 ? ' has-7-cards' : ((4 + (_eqp.hasWind ? 1 : 0) + (_eqp.hasOptimizer ? 1 : 0)) > 7 ? ' compact-4' : '')}">
           <!-- 1. Módulos -->
           <div class="tech-card">
             <div class="tech-icon-box">
@@ -4748,20 +5196,24 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
             </div>
           </div>
 
-          <!-- 2. Inversor -->
+          <!-- 2. Inversor / Microinversores (según Topología SSOT) -->
           <div class="tech-card">
             <div class="tech-icon-box">
               ${(window.RA_SvgCatalog ? window.RA_SvgCatalog.render('inverter', pal.primary, 52) : '')}
             </div>
             <div class="tech-info">
-              <div class="tech-label">INVERSOR DE RED</div>
-              <div class="tech-name" title="${_eqp.invName}">${_eqp.invName}</div>
-              <div class="tech-sub">${_eqp.invCount > 1 
-                ? (_eqp.invCount + '× ' + _eqp.invKw + ' kW (' + _eqp.totalAcKw.toFixed(1) + ' kW AC total) · ' + _eqp.totalMPPTs + ' MPPT · Conversión de Alta Eficiencia')
-                : 'Conversión DC/AC de Alta Eficiencia + Smart Meter'}</div>
+              <div class="tech-label">${_eqp.topology === 'microinverter' ? 'SISTEMA DE MICROINVERSORES' : 'INVERSOR DE RED'}</div>
+              <div class="tech-name" title="${_eqp.topology === 'microinverter' ? (_eqp.microName || _eqp.invName) : _eqp.invName}">${_eqp.topology === 'microinverter' ? (_eqp.microName || _eqp.invName) : _eqp.invName}</div>
+              <div class="tech-sub">${_eqp.topology === 'microinverter'
+                ? 'Conversión descentralizada AC a nivel de panel · MPPT individual'
+                : (_eqp.invCount > 1 
+                    ? (_eqp.invCount + '× ' + _eqp.invKw + ' kW (' + _eqp.totalAcKw.toFixed(1) + ' kW AC total) · ' + _eqp.totalMPPTs + ' MPPT · Conversión de Alta Eficiencia')
+                    : 'Conversión DC/AC de Alta Eficiencia + Smart Meter')}</div>
             </div>
             <div class="tech-badge">
-              ${_eqp.invCount} ud${_eqp.invCount > 1 ? 's' : ''} · ${_eqp.totalAcKw.toFixed(1)} kW AC
+              ${_eqp.topology === 'microinverter'
+                ? (_eqp.microCount + ' uds · ' + _eqp.totalMicroKw.toFixed(1) + ' kW AC')
+                : (_eqp.invCount + ' ud' + (_eqp.invCount > 1 ? 's' : '') + ' · ' + _eqp.totalAcKw.toFixed(1) + ' kW AC')}
             </div>
           </div>
 
@@ -4808,19 +5260,19 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
           </div>
           ` : ''}
 
-          <!-- 4. Microinversores / Optimizadores o Estructura -->
-          ${_eqp.hasMicro ? `
+          <!-- 4. Optimizadores de Potencia (solo si la topología es optimizer y hay optimizadores) -->
+          ${(_eqp.topology === 'optimizer' && _eqp.hasOptimizer && _eqp.optimizerCount > 0) ? `
           <div class="tech-card">
             <div class="tech-icon-box">
               ${(window.RA_SvgCatalog ? window.RA_SvgCatalog.render('inverter', pal.primary, 52) : '')}
             </div>
             <div class="tech-info">
-              <div class="tech-label">MICROINVERSORES / OPTIMIZADORES</div>
-              <div class="tech-name" title="${_eqp.microName}">${_eqp.microName}</div>
-              <div class="tech-sub">Monitorización y MPPT a nivel de módulo individual</div>
+              <div class="tech-label">OPTIMIZADORES DE POTENCIA</div>
+              <div class="tech-name" title="${_eqp.optimizerName}">${_eqp.optimizerName}</div>
+              <div class="tech-sub">Optimización individual MPPT a nivel de módulo DC</div>
             </div>
             <div class="tech-badge">
-              ${_eqp.microCount} uds
+              ${_eqp.optimizerCount} uds
             </div>
           </div>
           ` : ''}
@@ -5062,7 +5514,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
 
         <h2>Curva de amortización y retorno de inversión acumulado (25 años)</h2>
         <div class="chart-box">
-          <div class="chart-title" style="display:flex;align-items:center;gap:6px;">${_mSvg('trendUp', 13, pal.primary)} <span>Cashflow Acumulado — Payback en ${m.paybackYears.toFixed(1)} años · VAN ${Math.round(m.van).toLocaleString('es-ES')} € · TIR ${m.tirString || ((m.tir != null && isFinite(m.tir)) ? m.tir.toFixed(1) + "%" : "N/D")}</span></div>
+          <div class="chart-title" style="display:flex;align-items:center;gap:6px;">${_mSvg('trendUp', 13, pal.primary)} <span>Cashflow Acumulado — Payback en ${(m.isCelActive && m.paybackCEL ? m.paybackCEL.toFixed(1) : m.paybackYears.toFixed(1))} años${m.isCelActive && m.reduccionPaybackAnios ? ` (Acelerado con CEL · -${m.reduccionPaybackAnios.toFixed(1)}a)` : ''} · VAN ${Math.round(m.van).toLocaleString('es-ES')} € · TIR ${m.tirString || ((m.tir != null && isFinite(m.tir)) ? m.tir.toFixed(1) + "%" : "N/D")}</span></div>
           ${amortSVG}
         </div>
       </div>
@@ -5135,7 +5587,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         <table>
           <tr><th>Componente</th><th>Garantía de Producto</th><th>Garantía de Rendimiento</th><th>Garantía de Instalación</th></tr>
           <tr><td>Módulos Fotovoltaicos</td><td>${warMod} años</td><td>${warPower} años (≥84.8%)</td><td rowspan="${eqWarranties.hasBat ? '4' : '3'}" style="vertical-align:middle;text-align:center;">${warMo} años<br>mano de obra</td></tr>
-          <tr><td>Inversor & Monitorización</td><td>${warInv} años${eqWarranties.isMicro ? ' (Microinversor oficial)' : ''}</td><td>—</td></tr>
+          <tr><td>Inversor & Monitorización</td><td>5 - 10 años (según fabricante)</td><td>—</td></tr>
           ${eqWarranties.hasBat ? '<tr><td>Batería de Litio LFP</td><td>' + warBat + ' años (o 6.000 ciclos)</td><td>—</td></tr>' : ''}
           <tr><td>Estructura & Fijaciones</td><td>10 años inox A2</td><td>—</td></tr>
         </table>
@@ -5271,23 +5723,25 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         <div class="ra-tax-benefits-block">
         <h2>4. Subvenciones y beneficios fiscales estimados</h2>
         <table>
-          <tr><th>Concepto Fiscal</th><th>Detalle / Normativa Aplicable</th><th class="text-right">Ahorro Estimado</th></tr>
-          <tr><td>Bonificación IBI</td><td>Bonificación en el Impuesto sobre Bienes Inmuebles (TRLRHL art. 74.5)</td><td class="text-right">${Math.round(m.ahorroIBITotal).toLocaleString('es-ES')} €</td></tr>
+          <tr><th>Concepto Fiscal</th><th>Detalle / Normativa Aplicable</th><th class="text-right">Importe / Ahorro</th></tr>
+          <tr style="background:#f8fafc;font-weight:700;"><td>INVERSIÓN INICIAL (CAPEX BRUTO)</td><td>Coste llave en mano de la instalación fotovoltaica (IVA incluido)</td><td class="text-right" style="color:#0f172a;">${Math.round(m.capexBruto).toLocaleString('es-ES')} €</td></tr>
+          <tr><td>Bonificación IBI</td><td>Bonificación en el Impuesto sobre Bienes Inmuebles (TRLRHL art. 74.5)</td><td class="text-right" style="color:${pal.primary};">- ${Math.round(m.ahorroIBITotal).toLocaleString('es-ES')} €</td></tr>
           ${(m.customerProfile === 'empresa') ? `
-          <tr><td>Libertad de Amortización (IS)</td><td>Amortización acelerada 100% Año 1 (DA 17ª LIS / RDL 18/2022, Tipo ${Math.round((m.isRate || 0.25) * 100)}%)</td><td class="text-right">${Math.round(m.ahorroSociedades || 0).toLocaleString('es-ES')} €</td></tr>
+          <tr><td>Libertad de Amortización (IS)</td><td>Amortización acelerada 100% Año 1 (DA 17ª LIS / RDL 18/2022, Tipo ${Math.round((m.isRate || 0.25) * 100)}%)</td><td class="text-right" style="color:${pal.primary};">- ${Math.round(m.ahorroSociedades || 0).toLocaleString('es-ES')} €</td></tr>
           ` : `
-          <tr><td>Deducción IRPF Estatal</td><td>Deducción por eficiencia energética CEE (RD-ley 19/2021)</td><td class="text-right">${Math.round(m.ahorroIRPFEstatal != null ? m.ahorroIRPFEstatal : m.ahorroIRPF).toLocaleString('es-ES')} €</td></tr>
+          <tr><td>Deducción IRPF Estatal</td><td>Deducción por eficiencia energética CEE (RD-ley 19/2021)</td><td class="text-right" style="color:${pal.primary};">- ${Math.round(m.ahorroIRPFEstatal != null ? m.ahorroIRPFEstatal : m.ahorroIRPF).toLocaleString('es-ES')} €</td></tr>
           ${(m.ahorroIRPFAutonomico && m.ahorroIRPFAutonomico > 0) ? `
-          <tr><td>Deducción IRPF Autonómica</td><td>Tramo autonómico por inversión en autoconsumo residencial</td><td class="text-right">${Math.round(m.ahorroIRPFAutonomico).toLocaleString('es-ES')} €</td></tr>
+          <tr><td>Deducción IRPF Autonómica</td><td>Tramo autonómico por inversión en autoconsumo residencial</td><td class="text-right" style="color:${pal.primary};">- ${Math.round(m.ahorroIRPFAutonomico).toLocaleString('es-ES')} €</td></tr>
           ` : ''}
           `}
           ${(m.ahorroCAE && m.ahorroCAE > 0) ? `
-          <tr><td>Ayudas Directas / CAEs</td><td>Certificados de Ahorro Energético (CAE) y ayudas no reintegrables</td><td class="text-right">${Math.round(m.ahorroCAE).toLocaleString('es-ES')} €</td></tr>
+          <tr><td>Ayudas Directas / CAEs</td><td>Certificados de Ahorro Energético (CAE) y ayudas no reintegrables</td><td class="text-right" style="color:${pal.primary};">- ${Math.round(m.ahorroCAE).toLocaleString('es-ES')} €</td></tr>
           ` : ''}
-          <tr style="background:${pal.light};font-weight:800;"><td>TOTAL DEDUCCIONES FISCALES</td><td>Deducción fiscal directa acumulada (IBI + ${(m.customerProfile === 'empresa') ? 'Sociedades' : 'IRPF'}${m.ahorroCAE > 0 ? ' + CAEs' : ''})</td><td class="text-right" style="color:${pal.primary}">- ${Math.round(m.totalAhorroFiscal).toLocaleString('es-ES')} €</td></tr>
-          <tr class="total-row"><td>INVERSIÓN NETA</td><td>COSTE FINAL TRAS DEDUCCIONES FISCALES DIRECTAS</td><td class="text-right" style="color:${pal.dark}">${Math.round(m.capexNeto).toLocaleString('es-ES')} €</td></tr>
-          <tr><td style="color:#64748b;font-size:10px;">Desembolso inicial (base de TIR y payback)</td><td style="color:#64748b;font-size:10px;">CAPEX bruto: las deducciones se computan como flujo positivo en los años 1..N</td><td class="text-right" style="color:#64748b;font-size:10px;">${Math.round(m.capexBruto).toLocaleString('es-ES')} €</td></tr>
-          <tr><td style="color:#64748b;font-size:10px;">Bonificación ICIO*</td><td style="color:#64748b;font-size:10px;">Exención del 95% en Impuesto de Construcciones y Obras (ahorro en tasa municipal ajeno a la factura)</td><td class="text-right" style="color:#64748b;font-size:10px;">${Math.round(m.ahorroICIO).toLocaleString('es-ES')} €</td></tr>
+          <tr style="background:${pal.light};font-weight:800;border-top:1.5px solid ${pal.primary};"><td>TOTAL DEDUCCIONES FISCALES</td><td>Deducción fiscal directa acumulada (IBI + ${(m.customerProfile === 'empresa') ? 'Sociedades' : 'IRPF'}${m.ahorroCAE > 0 ? ' + CAEs' : ''})</td><td class="text-right" style="color:${pal.primary};font-weight:900;">- ${Math.round(m.totalAhorroFiscal).toLocaleString('es-ES')} €</td></tr>
+          <tr class="total-row" style="background:#0f172a;color:#ffffff;"><td>INVERSIÓN NETA FINAL</td><td>COSTE EFECTIVO TRAS DEDUCCIONES FISCALES DIRECTAS</td><td class="text-right" style="color:#34d399;font-weight:900;font-size:12px;">${Math.round(m.capexNeto).toLocaleString('es-ES')} €</td></tr>
+          ${(m.ahorroICIO && m.ahorroICIO > 0) ? `
+          <tr style="background:#f1f5f9;color:#64748b;font-size:9.5px;"><td>Bonificación ICIO* (Adicional)</td><td>Exención del 95% en Impuesto de Obras y Construcciones (ahorro en tasa municipal ajeno al presupuesto)</td><td class="text-right" style="color:#475569;">+ ${Math.round(m.ahorroICIO).toLocaleString('es-ES')} € de ahorro extra</td></tr>
+          ` : ''}
         </table>
         </div>
 
@@ -5352,7 +5806,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
           <div style="display:flex;justify-content:center;margin-bottom:8px;">${(window.RA_SvgCatalog ? window.RA_SvgCatalog.render('warranty25', pal.primary, 38) : '')}</div>
           <div class="closer-hero-lbl">Garantía de Potencia</div>
           <div class="closer-hero-val primary">${warPower} Años</div>
-          <div class="closer-hero-sub">${warInv} años en inversor</div>
+          <div class="closer-hero-sub">5 - 10 años en inversor</div>
         </div>
       </div>
 
@@ -6632,6 +7086,33 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   // Flujo de Caja a 25 años
   const inflacion = 0.03; // Inflación luz 3%/año
 
+  // ── INTEGRACIÓN CEL EN FLUJO DE CAJA Y CURVA DE AMORTIZACIÓN ──────────────
+  const _pssState = (typeof window !== 'undefined' && window.RAProposalStyleStudio && typeof window.RAProposalStyleStudio.getFullState === 'function')
+    ? window.RAProposalStyleStudio.getFullState()
+    : null;
+  const _finStudioCfg = _pssState ? _pssState.activeConfig : (_studioCfg || ((typeof window !== 'undefined' && window.solarProposalStudioConfig) ? window.solarProposalStudioConfig : null));
+  const _commCfg = (typeof RAPricing !== 'undefined' && typeof RAPricing.getCommercialConfig === 'function')
+    ? RAPricing.getCommercialConfig()
+    : null;
+
+  const isCelActive = Boolean(
+    (_finStudioCfg && _finStudioCfg.sectionsEnabled && _finStudioCfg.sectionsEnabled.cel) ||
+    (_finStudioCfg && _finStudioCfg.installationModality === 'grid_surplus_cel') ||
+    (_commCfg && _commCfg.includeCEL)
+  );
+
+  const celPriceEur = (_commCfg && typeof _commCfg.celPriceEur === 'number' && _commCfg.celPriceEur > 0)
+    ? _commCfg.celPriceEur
+    : 0.11;
+  const poolPriceEur = (typeof precioCompensacion === 'number' && precioCompensacion > 0)
+    ? precioCompensacion
+    : 0.05;
+
+  // Beneficio neto adicional de venta local CEL en Año 1 (€/año por encima del pool)
+  const celExtraBenefitYear1 = isCelActive
+    ? Math.max(0, Math.round(annualExcedenteKWh * Math.max(0, celPriceEur - poolPriceEur)))
+    : 0;
+
   // ── FASE 2.1: Degradación Anual Acumulativa Rigurosa (IEC 61215 / BloombergNEF Tier-1) ──
   const catalog = (typeof equipmentCatalog !== 'undefined') ? equipmentCatalog : null;
   const projCfg = (typeof window !== 'undefined' && window.solarProjectConfig) ? window.solarProjectConfig : {};
@@ -6697,6 +7178,8 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
 
   let cashflow = [-capexDesembolsoInicial];
   let acumulado = [-capexDesembolsoInicial];
+  let cashflowSinCEL = [-capexDesembolsoInicial];
+  let acumuladoSinCEL = [-capexDesembolsoInicial];
   let van = -capexDesembolsoInicial;
   let totalGenerado25 = 0;
   let totalCoste25 = capexDesembolsoInicial;
@@ -6716,12 +7199,16 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     annualYields25.push(Math.round(yieldY));
     totalGenerado25 += yieldY;
 
-    // Ahorro año 1 anclado estrictamente a ahorroLuzAnio1 (despacho horario 288h / TOU / batería)
+    // Ahorro año 1 anclado a ahorroLuzAnio1 + beneficio CEL adicional si aplica (despacho horario / TOU / excedentes CEL)
     // Años 2 a 25 proyectados por degradación acumulada de módulos y escalado de inflación eléctrica
     const priceY = precioRed * Math.pow(1 + inflacion, y - 1);
-    const saveY = (y === 1)
+    const baseSaveY = (y === 1)
       ? ahorroLuzAnio1
       : (ahorroLuzAnio1 * (yieldY / Math.max(annualYieldKWh, 1)) * Math.pow(1 + inflacion, y - 1));
+    const celExtraY = isCelActive
+      ? ((y === 1) ? celExtraBenefitYear1 : (celExtraBenefitYear1 * (yieldY / Math.max(annualYieldKWh, 1)) * Math.pow(1 + inflacion, y - 1)))
+      : 0;
+    const saveY = baseSaveY + celExtraY;
     annualSavings25.push(Math.round(saveY));
 
     // OPEX indexado anualmente por IPC de servicios
@@ -6746,11 +7233,14 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     if (y <= ibiYears) fiscalY += ibiAnnualBonus;
 
     const netCF = saveY - omY - replY + fiscalY;
+    const netCFSinCEL = baseSaveY - omY - replY + fiscalY;
     const discountedCF = netCF / Math.pow(1 + r, y);
 
     cashflow.push(netCF);
+    cashflowSinCEL.push(netCFSinCEL);
     discountedCashFlow25.push(Math.round(discountedCF));
     acumulado.push(acumulado[y - 1] + netCF);
+    acumuladoSinCEL.push(acumuladoSinCEL[y - 1] + netCFSinCEL);
     van += discountedCF;
 
     financialSchedule25.push({
@@ -6910,13 +7400,42 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     acumuladoFinanciado.push(Math.round(acumuladoFinanciado[y - 1] + netCFFin));
   }
 
-  let paybackFinanciadoYears = 25;
+  let paybackFinanciadoYears = null;
+  // Si la curva entra en negativo durante el préstamo (por cuotas o reemplazos),
+  // el verdadero payback financiado se produce cuando se recupera definitivamente a positivo (>= 0).
+  let dippedBelowZero = false;
   for (let y = 1; y <= 25; y++) {
-    if (acumuladoFinanciado[y] >= 0) {
-      const prev = acumuladoFinanciado[y - 1];
-      const diff = acumuladoFinanciado[y] - prev;
-      paybackFinanciadoYears = diff > 0 ? (y - 1) + (-prev / diff) : y;
-      break;
+    if (acumuladoFinanciado[y] < 0) {
+      dippedBelowZero = true;
+    }
+  }
+
+  if (dippedBelowZero) {
+    let wasNegative = false;
+    for (let y = 1; y <= 25; y++) {
+      if (acumuladoFinanciado[y] < 0) {
+        wasNegative = true;
+      } else if (wasNegative && acumuladoFinanciado[y] >= 0) {
+        const prev = acumuladoFinanciado[y - 1];
+        const diff = acumuladoFinanciado[y] - prev;
+        paybackFinanciadoYears = diff > 0 ? (y - 1) + (-prev / diff) : y;
+        break;
+      }
+    }
+  } else {
+    // Si nunca fue negativa tras el año 0
+    if (acumuladoFinanciado[0] < 0) {
+      for (let y = 1; y <= 25; y++) {
+        if (acumuladoFinanciado[y] >= 0) {
+          const prev = acumuladoFinanciado[y - 1];
+          const diff = acumuladoFinanciado[y] - prev;
+          paybackFinanciadoYears = diff > 0 ? (y - 1) + (-prev / diff) : y;
+          break;
+        }
+      }
+    } else {
+      // Sin desembolso inicial ni saldo negativo acumulado (inversión autofinanciada desde el día 1)
+      paybackFinanciadoYears = 0;
     }
   }
 
@@ -7007,6 +7526,8 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     cashflowAcum: acumulado,
     cashflowContado: cashflow,
     cashflowAcumContado: acumulado,
+    cashflowSinCEL: cashflowSinCEL,
+    cashflowAcumSinCEL: acumuladoSinCEL,
     paybackContadoYears: paybackYears,
     cashflowFinanciado: cashflowFinanciado,
     cashflowAcumFinanciado: acumuladoFinanciado,
@@ -7046,7 +7567,11 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     financialSchedule25: financialSchedule25,
     discountedCashFlow25: discountedCashFlow25,
     capexDesembolsoInicial: Math.round(capexDesembolsoInicial),
-    waccPct: Math.round(r * 1000) / 10
+    waccPct: Math.round(r * 1000) / 10,
+    // Métricas CEL integradas en amortización y cashflow
+    isCelActive: isCelActive,
+    celExtraBenefitYear1: celExtraBenefitYear1,
+    ahorroTotalConCEL: Math.round(ahorroLuzAnio1 + celExtraBenefitYear1)
   };
   if (typeof window !== 'undefined') {
     window._lastFinModel = resultModel;
