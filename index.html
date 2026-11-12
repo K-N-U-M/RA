@@ -3519,7 +3519,7 @@ window.RA_App = window.RA_App || {};
           <!-- Modalidad Comercial de Oferta -->
           <div class="field-row" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
             <span style="font-size:10.5px;color:var(--text-slate-300);">Modalidad de Pago Oferta:</span>
-            <select id="modal-fin-mode" onchange="raSyncFinancingMode(this.value)" style="width:165px;background:rgba(0,0,0,0.5);border:1px solid var(--amber-400);color:#fbbf24;font-size:10px;padding:4px 6px;border-radius:6px;outline:none;font-weight:700;">
+            <select id="modal-fin-mode" onchange="raSyncFinancingControls()" style="width:165px;background:rgba(0,0,0,0.5);border:1px solid var(--amber-400);color:#fbbf24;font-size:10px;padding:4px 6px;border-radius:6px;outline:none;font-weight:700;">
               <option value="both">Comparativa (Contado vs Financiado)</option>
               <option value="cash">Solo Pago al Contado (Llave en mano)</option>
               <option value="financed">Solo Financiación (Crédito)</option>
@@ -3532,13 +3532,13 @@ window.RA_App = window.RA_App || {};
               <span style="font-size:10.5px;color:var(--text-slate-300);">Entrada Inicial Aportada (€):</span>
               <span style="font-size:9px;color:var(--text-slate-400);">Resta del capital principal a financiar</span>
             </div>
-            <input type="number" id="modal-fin-entrada-eur" step="250" min="0" value="0" placeholder="0 €" class="field-input" style="width:105px;font-size:11px;text-align:right;" oninput="syncModalInputToBudget('fin-entrada-eur', this.value)">
+            <input type="number" id="modal-fin-entrada-eur" step="250" min="0" value="0" placeholder="0 €" class="field-input" style="width:105px;font-size:11px;text-align:right;" oninput="raSyncFinancingControls()">
           </div>
 
           <!-- Plazo del Préstamo -->
           <div class="field-row" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
             <span style="font-size:10.5px;color:var(--text-slate-300);">Plazo del Préstamo:</span>
-            <select id="modal-fin-plazo-meses" onchange="syncModalInputToBudget('fin-plazo-meses', this.value)" style="width:165px;background:rgba(0,0,0,0.5);border:1px solid var(--border-subtle);color:#fff;font-size:10px;padding:4px 6px;border-radius:6px;outline:none;">
+            <select id="modal-fin-plazo-meses" onchange="raSyncFinancingControls()" style="width:165px;background:rgba(0,0,0,0.5);border:1px solid var(--border-subtle);color:#fff;font-size:10px;padding:4px 6px;border-radius:6px;outline:none;">
               <option value="36">3 Años (36 cuotas)</option>
               <option value="60">5 Años (60 cuotas)</option>
               <option value="84">7 Años (84 cuotas)</option>
@@ -3553,7 +3553,7 @@ window.RA_App = window.RA_App || {};
           <div class="field-row" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
             <span style="font-size:10.5px;color:var(--text-slate-300);">Tipo de Interés Nominal (TIN %):</span>
             <div style="display:flex;align-items:center;gap:6px;">
-              <input type="number" id="modal-fin-tin-pct" step="0.10" min="0" max="25" class="field-input" style="width:75px;font-size:11px;text-align:right;" oninput="syncModalInputToBudget('fin-tin-pct', this.value)">
+              <input type="number" id="modal-fin-tin-pct" step="0.10" min="0" max="25" class="field-input" style="width:75px;font-size:11px;text-align:right;" oninput="raSyncFinancingControls()">
               <span id="modal-fin-badge-tae" style="font-size:9.5px;font-weight:700;color:var(--amber-400);background:rgba(245,158,11,0.12);padding:3px 6px;border-radius:4px;border:1px solid rgba(245,158,11,0.25);">TAE: 5.95%</span>
             </div>
           </div>
@@ -3562,11 +3562,11 @@ window.RA_App = window.RA_App || {};
           <div class="field-row" style="margin-bottom:8px;display:grid;grid-template-columns:1fr 1fr;gap:8px;">
             <div>
               <span style="font-size:9.5px;color:var(--text-slate-300);display:block;margin-bottom:2px;">Comisión Apertura (%):</span>
-              <input type="number" id="modal-fin-apertura-pct" step="0.25" min="0" max="10" value="1.0" class="field-input" style="width:100%;font-size:10.5px;text-align:right;" oninput="syncModalInputToBudget('fin-apertura-pct', this.value)">
+              <input type="number" id="modal-fin-apertura-pct" step="0.25" min="0" max="10" value="1.0" class="field-input" style="width:100%;font-size:10.5px;text-align:right;" oninput="raSyncFinancingControls()">
             </div>
             <div>
               <span style="font-size:9.5px;color:var(--text-slate-300);display:block;margin-bottom:2px;">Carencia Inicial (Meses):</span>
-              <select id="modal-fin-carencia-meses" onchange="syncModalInputToBudget('fin-carencia-meses', this.value)" style="width:100%;background:rgba(0,0,0,0.5);border:1px solid var(--border-subtle);color:#fff;font-size:10px;padding:4px 6px;border-radius:6px;outline:none;">
+              <select id="modal-fin-carencia-meses" onchange="raSyncFinancingControls()" style="width:100%;background:rgba(0,0,0,0.5);border:1px solid var(--border-subtle);color:#fff;font-size:10px;padding:4px 6px;border-radius:6px;outline:none;">
                 <option value="0" selected>Sin carencia (0 m)</option>
                 <option value="1">1 mes de carencia</option>
                 <option value="2">2 meses de carencia</option>
@@ -3579,11 +3579,11 @@ window.RA_App = window.RA_App || {};
           <div class="field-row" style="margin-bottom:8px;display:grid;grid-template-columns:1fr 1fr;gap:8px;">
             <div>
               <span style="font-size:9.5px;color:var(--text-slate-300);display:block;margin-bottom:2px;">Seguro/Mant. en Cuota (€/mes):</span>
-              <input type="number" id="modal-fin-seguro-mensual" step="2" min="0" value="0" placeholder="0 €/m" class="field-input" style="width:100%;font-size:10.5px;text-align:right;" oninput="syncModalInputToBudget('fin-seguro-mensual', this.value)">
+              <input type="number" id="modal-fin-seguro-mensual" step="2" min="0" value="0" placeholder="0 €/m" class="field-input" style="width:100%;font-size:10.5px;text-align:right;" oninput="raSyncFinancingControls()">
             </div>
             <div>
               <span style="font-size:9.5px;color:var(--text-slate-300);display:block;margin-bottom:2px;">Gastos Formalización (€):</span>
-              <input type="number" id="modal-fin-notaria-eur" step="25" min="0" value="0" placeholder="0 €" class="field-input" style="width:100%;font-size:10.5px;text-align:right;" oninput="syncModalInputToBudget('fin-notaria-eur', this.value)">
+              <input type="number" id="modal-fin-notaria-eur" step="25" min="0" value="0" placeholder="0 €" class="field-input" style="width:100%;font-size:10.5px;text-align:right;" oninput="raSyncFinancingControls()">
             </div>
           </div>
 
@@ -3993,6 +3993,7 @@ function openCostBreakdownModal() {
 }
 
 function closeCostBreakdownModal() {
+  if (typeof raSyncFinancingControls === 'function') raSyncFinancingControls();
   const modal = document.getElementById('ra-cost-breakdown-modal');
   if (modal) modal.style.display = 'none';
   if (typeof updateBudgetUI === 'function') updateBudgetUI();
@@ -4022,6 +4023,9 @@ function syncModalInputToBudget(targetId, val) {
     });
   }
 
+  if (targetId && targetId.startsWith('fin-')) {
+    if (typeof raSyncFinancingControls === 'function') raSyncFinancingControls();
+  }
   const target = document.getElementById(targetId);
   if (target) {
     target.value = val;
@@ -4110,6 +4114,40 @@ function raSyncCommercialControls() {
 window.raRenderCommercialAddonsUI = raRenderCommercialAddonsUI;
 window.raToggleAddon = raToggleAddon;
 window.raSyncCommercialControls = raSyncCommercialControls;
+
+function raSyncFinancingControls() {
+  if (typeof RAPricing === 'undefined' || typeof RAPricing.getCommercialConfig !== 'function') return;
+  const cfg = RAPricing.getCommercialConfig();
+  if (!cfg.financing) cfg.financing = {};
+
+  const modeEl = document.getElementById('modal-fin-mode');
+  const entradaEl = document.getElementById('modal-fin-entrada-eur');
+  const plazoEl = document.getElementById('modal-fin-plazo-meses');
+  const tinEl = document.getElementById('modal-fin-tin-pct');
+  const aperturaEl = document.getElementById('modal-fin-apertura-pct');
+  const carenciaEl = document.getElementById('modal-fin-carencia-meses');
+  const seguroEl = document.getElementById('modal-fin-seguro-mensual');
+  const notariaEl = document.getElementById('modal-fin-notaria-eur');
+
+  if (modeEl) cfg.financing.mode = modeEl.value;
+  if (entradaEl) cfg.financing.downPaymentEur = parseFloat(entradaEl.value) || 0;
+  if (plazoEl) cfg.financing.loanMonths = parseInt(plazoEl.value, 10) || 120;
+  if (tinEl) cfg.financing.loanTinPct = parseFloat(tinEl.value) || 5.95;
+  if (aperturaEl) cfg.financing.openingFeePct = parseFloat(aperturaEl.value) || 1.0;
+  if (carenciaEl) cfg.financing.graceMonths = parseInt(carenciaEl.value, 10) || 0;
+  if (seguroEl) cfg.financing.monthlyInsuranceEur = parseFloat(seguroEl.value) || 0;
+  if (notariaEl) cfg.financing.notaryEur = parseFloat(notariaEl.value) || 0;
+
+  if (typeof window !== 'undefined' && window.solarProjectConfig) {
+    window.solarProjectConfig.commercialConfig = cfg;
+  }
+  RAPricing.saveCommercialConfig(cfg);
+  if (typeof updateBudgetUI === 'function') updateBudgetUI();
+  if (typeof syncCostModalMetrics === 'function') syncCostModalMetrics();
+}
+window.raSyncFinancingControls = raSyncFinancingControls;
+window.raSyncFinancingMode = function(val) { raSyncFinancingControls(); };
+
 
 function syncCostModalMetrics() {
   // [SSOT] Escribir las métricas del modal DIRECTAMENTE desde calculateFinancialModel
