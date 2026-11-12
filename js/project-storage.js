@@ -330,6 +330,8 @@ function raExportProjectData() {
         const soilEl = (typeof document !== 'undefined') ? (document.getElementById('tax-soil-type') || document.getElementById('modal-tax-soil-type')) : null;
         const profileEl = (typeof document !== 'undefined') ? (document.getElementById('tax-profile-opt') || document.getElementById('modal-tax-profile-opt')) : null;
         const ivaEl = (typeof document !== 'undefined') ? (document.getElementById('modal-tax-iva-opt')) : null;
+        const ivaHomeAgeEl = (typeof document !== 'undefined') ? (document.getElementById('modal-tax-iva-home-age')) : null;
+        const ivaMarginLaborEl = (typeof document !== 'undefined') ? (document.getElementById('modal-tax-iva-margin-labor')) : null;
         const ibiCEl = (typeof document !== 'undefined') ? (document.getElementById('tax-ibi-cuota') || document.getElementById('modal-tax-ibi-cuota')) : null;
         const ibiOEl = (typeof document !== 'undefined') ? (document.getElementById('tax-ibi-opt') || document.getElementById('modal-tax-ibi-opt')) : null;
         const irpfOEl = (typeof document !== 'undefined') ? (document.getElementById('tax-irpf-opt') || document.getElementById('modal-tax-irpf-opt')) : null;
@@ -339,10 +341,14 @@ function raExportProjectData() {
         const caeEl = (typeof document !== 'undefined') ? (document.getElementById('tax-cae-eur') || document.getElementById('modal-tax-cae-eur')) : null;
 
         const prev = window.solarProjectConfig.taxSettings || {};
+        const parsedIvaRate = (ivaEl && ivaEl.value !== '') ? parseFloat(ivaEl.value) : NaN;
         return {
           soilType: (soilEl && soilEl.value) || prev.soilType || 'urbano',
           profile: (profileEl && profileEl.value) || prev.profile || 'particular',
-          ivaRate: (ivaEl && parseFloat(ivaEl.value)) || (prev.ivaRate != null ? prev.ivaRate : 0.21),
+          ivaOpt: (ivaEl && ivaEl.value) || prev.ivaOpt || String(prev.ivaRate != null ? prev.ivaRate : 0.21),
+          ivaRate: Number.isFinite(parsedIvaRate) ? parsedIvaRate : (prev.ivaRate != null ? prev.ivaRate : 0.21),
+          ivaHomeAge2Years: ivaHomeAgeEl ? Boolean(ivaHomeAgeEl.checked) : (typeof prev.ivaHomeAge2Years === 'boolean' ? prev.ivaHomeAge2Years : true),
+          ivaMarginLaborOnly: ivaMarginLaborEl ? Boolean(ivaMarginLaborEl.checked) : (typeof prev.ivaMarginLaborOnly === 'boolean' ? prev.ivaMarginLaborOnly : true),
           ibiCuota: (ibiCEl && parseFloat(ibiCEl.value)) || (prev.ibiCuota != null ? prev.ibiCuota : 650),
           ibiOpt: (ibiOEl && ibiOEl.value) || prev.ibiOpt || '0.50_3',
           irpfOpt: (irpfOEl && irpfOEl.value) || prev.irpfOpt || '0.40',
@@ -1348,7 +1354,14 @@ async function raImportProjectData(projectData, options = {}) {
         const soilEl = document.getElementById('modal-tax-soil-type') || document.getElementById('tax-soil-type');
         if (soilEl && t.soilType) soilEl.value = t.soilType;
         const ivaEl = document.getElementById('modal-tax-iva-opt');
-        if (ivaEl && t.ivaRate != null) ivaEl.value = String(t.ivaRate);
+        if (ivaEl) {
+          if (t.ivaOpt) ivaEl.value = String(t.ivaOpt);
+          else if (t.ivaRate != null) ivaEl.value = String(t.ivaRate);
+        }
+        const ivaHomeAgeEl = document.getElementById('modal-tax-iva-home-age');
+        if (ivaHomeAgeEl && typeof t.ivaHomeAge2Years === 'boolean') ivaHomeAgeEl.checked = t.ivaHomeAge2Years;
+        const ivaMarginLaborEl = document.getElementById('modal-tax-iva-margin-labor');
+        if (ivaMarginLaborEl && typeof t.ivaMarginLaborOnly === 'boolean') ivaMarginLaborEl.checked = t.ivaMarginLaborOnly;
         setVal('tax-ibi-cuota', t.ibiCuota);
         setVal('tax-ibi-opt', t.ibiOpt);
         setVal('tax-irpf-opt', t.irpfOpt);

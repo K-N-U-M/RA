@@ -793,7 +793,7 @@
   async function runHeatmapInDedicatedWorker(cfg, onProgressCallback, progressBar, progressFill, totalPanelsCount) {
     let worker;
     try {
-      worker = new Worker('js/solar-worker.js?v=20261106_0835');
+      worker = new Worker('js/solar-worker.js?v=20261111_2325');
     } catch (err) {
       throw err;
     }
@@ -812,6 +812,9 @@
       hours = [8, 10, 12, 14, 16, 18];
     }
     const totalSteps = monthsDoy.length * hours.length;
+    const monthSpan = Math.max(1, Math.round(12 / monthsDoy.length));
+    let preScanSteps = 0;
+    let unifiedTotalSteps = monthsDoy.length;
 
     // Entorno 3D activo (Google Photorealistic 3D Tiles / OSM Buildings)
     const has3DEnvironment = (typeof google3DTileset !== 'undefined' && google3DTileset) ||
@@ -872,6 +875,8 @@
       }
 
       if (panelsToProbe.length > 0) {
+        preScanSteps = monthsDoy.length;
+        unifiedTotalSteps = monthsDoy.length * 2;
         for (let mIdx = 0; mIdx < monthsDoy.length; mIdx++) {
           if (cfg.simGenerationId !== _activeSimGenerationId) {
             worker.terminate();
@@ -942,7 +947,8 @@
           if (typeof updateSolarCalcHUD === 'function') {
             updateSolarCalcHUD(preScanPct, currentRealMonth, totalPanelsCount, {
               stepIndex: mIdx + 1,
-              totalStepsCount: monthsDoy.length,
+              totalStepsCount: unifiedTotalSteps,
+              monthSpan: monthSpan,
               phaseText: 'Escaneo 3D'
             });
           }
@@ -1185,6 +1191,11 @@
       });
 
       worker.onmessage = function(e) {
+        if (cfg.simGenerationId !== _activeSimGenerationId) {
+          worker.terminate();
+          resolve(null);
+          return;
+        }
         const msg = e.data;
         if (!msg) return;
 
@@ -1192,8 +1203,9 @@
           const currentRealMonth = (typeof msg.monthReal === 'number') ? msg.monthReal : (monthsReal[msg.mIdx] !== undefined ? monthsReal[msg.mIdx] : msg.mIdx);
           if (typeof updateSolarCalcHUD === 'function') {
             updateSolarCalcHUD(msg.progressPct, currentRealMonth, totalPanelsCount, {
-              stepIndex: (typeof msg.stepIndex === 'number') ? msg.stepIndex : (msg.mIdx + 1),
-              totalStepsCount: (typeof msg.totalStepsCount === 'number') ? msg.totalStepsCount : monthsDoy.length,
+              stepIndex: preScanSteps + ((typeof msg.stepIndex === 'number') ? msg.stepIndex : (msg.mIdx + 1)),
+              totalStepsCount: unifiedTotalSteps,
+              monthSpan: monthSpan,
               phaseText: 'Simulación'
             });
           }
@@ -1202,6 +1214,8 @@
             onProgressCallback(msg.progressPct, currentRealMonth, totalPanelsCount);
           }
         } else if (msg.type === 'DONE') {
+          msg.unifiedTotalSteps = unifiedTotalSteps;
+          msg.preScanSteps = preScanSteps;
           worker.terminate();
           resolve(msg);
         }
@@ -1219,6 +1233,7 @@
         lng: cfg.lng,
         resolution: cfg.resolution,
         detailedBypass: cfg.detailedBypass,
+        basePct: preScanSteps > 0 ? 35 : 0,
         panels,
         faldones,
         climaticZone: cfg.climaticZone,
@@ -1424,6 +1439,8 @@
     if (lat === null) { lat = 41.3851; lng = 2.1734; }
 
     const totalSteps = monthsDoy.length * hours.length; // 192 instantes en calidad estándar
+    const monthSpan = Math.max(1, Math.round(12 / monthsDoy.length));
+    let unifiedTotalSteps = monthsDoy.length;
     let currentStep = 0;
     let frameStartTime = performance.now();
 
@@ -1542,7 +1559,11 @@
             : null
         }, onProgressCallback, progressBar, progressFill, totalPanelsCount);
 
+        if (simGenerationId !== _activeSimGenerationId) return;
         if (workerResults && workerResults.simGenerationId === _activeSimGenerationId) {
+          if (typeof workerResults.unifiedTotalSteps === 'number') {
+            unifiedTotalSteps = workerResults.unifiedTotalSteps;
+          }
           applyWorkerHeatmapResults(polylines, workerResults.results, workerResults.monthlyNetWh, _monthlyNetWh);
           workerHandled = true;
           if (typeof window !== 'undefined' && window.RA && window.RA.log) {
@@ -1550,6 +1571,7 @@
           }
         }
       } catch (errWorker) {
+        if (simGenerationId !== _activeSimGenerationId) return;
         console.warn('[SOLAR WORKER] Fallback al hilo principal:', errWorker);
       }
     }
@@ -1881,12 +1903,13 @@
             // Abortar silenciosamente esta tarea en segundo plano porque se lanzó una nueva
             return;
           }
-          const progressPct = Math.min(100, Math.round((currentStep / totalSteps) * 100));
+          const progressPct = Math.min(99, Math.round((currentStep / totalSteps) * 100));
           const currentRealMonth = (monthsReal && monthsReal[mIdx] !== undefined) ? monthsReal[mIdx] : mIdx;
           if (typeof updateSolarCalcHUD === 'function') {
             updateSolarCalcHUD(progressPct, currentRealMonth, totalPanelsCount, {
               stepIndex: mIdx + 1,
               totalStepsCount: monthsDoy.length,
+              monthSpan: monthSpan,
               phaseText: 'Cálculo analítico'
             });
           }
@@ -1899,6 +1922,20 @@
           frameStartTime = performance.now();
         }
       }
+      if (simGenerationId !== _activeSimGenerationId) return;
+      const stepPct = Math.min(99, Math.round(((mIdx + 1) / monthsDoy.length) * 100));
+      if (typeof updateSolarCalcHUD === 'function') {
+        updateSolarCalcHUD(stepPct, m, totalPanelsCount, {
+          stepIndex: mIdx + 1,
+          totalStepsCount: monthsDoy.length,
+          monthSpan: monthSpan,
+          phaseText: 'Cálculo analítico'
+        });
+      }
+      if (progressFill) progressFill.style.width = stepPct + '%';
+      await new Promise(resolve => setTimeout(resolve, 0));
+      if (simGenerationId !== _activeSimGenerationId) return;
+      frameStartTime = performance.now();
     }
   }
 
@@ -2128,11 +2165,25 @@
       if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
     }
 
-    // 8. Ocultar HUDs de carga
-    if (typeof hideSolarCalcHUD === 'function') hideSolarCalcHUD();
-    if (progressBar) {
-      setTimeout(() => { progressBar.style.display = 'none'; }, 1500);
+    // 8. Marcar 100% completado en HUD y ceder un fotograma antes del reconstruido 3D
+    if (typeof updateSolarCalcHUD === 'function') {
+      updateSolarCalcHUD(100, 11, totalPanelsCount, {
+        stepIndex: unifiedTotalSteps,
+        totalStepsCount: unifiedTotalSteps,
+        monthSpan: 1,
+        phaseText: 'Completado'
+      });
     }
+    if (progressFill) progressFill.style.width = '100%';
+    await new Promise(r => {
+      let settled = false;
+      const finish = () => { if (!settled) { settled = true; r(); } };
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(() => setTimeout(finish, 60));
+      }
+      setTimeout(finish, 80);
+    });
+    if (simGenerationId !== _activeSimGenerationId) return;
 
     // 9. Actualizar visuales 3D al modo Heatmap
     if (!window.solarSimState) window.solarSimState = {};
@@ -2164,6 +2215,12 @@
     }
     if (typeof wpUpdateCommercialPathsUI === 'function') {
       wpUpdateCommercialPathsUI();
+    }
+
+    // 10. Ocultar HUDs de carga tras completar el repintado 3D
+    if (typeof hideSolarCalcHUD === 'function') hideSolarCalcHUD();
+    if (progressBar) {
+      setTimeout(() => { progressBar.style.display = 'none'; }, 1500);
     }
     } finally {
       if (simGenerationId === _activeSimGenerationId) {

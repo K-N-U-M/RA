@@ -2324,18 +2324,19 @@
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.05);
   color: #64748B;
+  border: 1px solid rgba(148, 163, 184, 0.22);
   transition: all 0.2s ease;
 }
 
 .solar-calc-month-pill.done {
-  background: rgba(16, 185, 129, 0.25);
+  background: rgba(16, 185, 129, 0.28);
   color: #34D399;
-  border: 1px solid rgba(16, 185, 129, 0.4);
+  border: 1px solid rgba(16, 185, 129, 0.55);
 }
 
 .solar-calc-month-pill.current {
   background: rgba(249, 115, 22, 0.35);
-  color: #F97316;
+  color: #FBBF24;
   border: 1px solid #F97316;
   box-shadow: 0 0 8px rgba(249, 115, 22, 0.5);
 }

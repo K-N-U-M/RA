@@ -1787,8 +1787,12 @@ function wpOpenPricingReviewModal(onConfirm) {
               '<b id="pricing-preview-subtotal" style="color:#f8fafc;">0 €</b>' +
             '</div>' +
             '<div style="display:flex;justify-content:space-between;font-size:10.5px;color:#94a3b8;">' +
-              '<span>IVA (21%):</span>' +
+              '<span id="pricing-preview-iva-label">IVA (21%):</span>' +
               '<b id="pricing-preview-iva" style="color:#cbd5e1;">0 €</b>' +
+            '</div>' +
+            '<div id="pricing-preview-iva10-banner" style="display:none;background:rgba(15,23,42,0.85);border:1px solid rgba(245,158,11,0.45);border-radius:6px;padding:6px 8px;margin-top:2px;font-size:9px;color:#e2e8f0;align-items:center;justify-content:space-between;gap:8px;">' +
+              '<span id="pricing-preview-iva10-text">Materiales: 0% s/ B.I.</span>' +
+              '<button type="button" id="btn-pricing-iva10-adjust" onclick="if(typeof raAutoAdjustMaterialsForIva10===\'function\')raAutoAdjustMaterialsForIva10(\'rebalance\')" style="padding:3px 7px;background:rgba(245,158,11,0.22);border:1px solid #f59e0b;border-radius:4px;color:#fde68a;font-size:8.5px;font-weight:800;cursor:pointer;white-space:nowrap;">⚖️ Ajustar ≤ 40%</button>' +
             '</div>' +
             '<hr style="border:0;border-top:1px solid rgba(16,185,129,0.25);margin:4px 0;">' +
             '<div style="display:flex;justify-content:space-between;align-items:center;">' +
@@ -2275,7 +2279,9 @@ function wpOpenPricingReviewModal(onConfirm) {
     }
 
     if (sEl) sEl.textContent = Math.round(subtotal).toLocaleString('es-ES') + ' €';
-    if (iEl) iEl.textContent = Math.round(iva).toLocaleString('es-ES') + ' €' + (Math.abs(ivaRate - 0.21) > 0.001 ? ' (' + Math.round(ivaRate * 100) + '%)' : '');
+    var iLblEl = document.getElementById('pricing-preview-iva-label');
+    if (iLblEl) iLblEl.textContent = 'IVA (' + Math.round(ivaRate * 100) + '%):';
+    if (iEl) iEl.textContent = Math.round(iva).toLocaleString('es-ES') + ' €';
 
     if (tTachadoEl) {
       if (capexTachado && capexTachado > capexBruto) {
@@ -2292,6 +2298,28 @@ function wpOpenPricingReviewModal(onConfirm) {
       if (typeof calculateFinancialModel === 'function') {
         var m = calculateFinancialModel();
         if (m) {
+          var iva10Banner = document.getElementById('pricing-preview-iva10-banner');
+          var iva10Txt = document.getElementById('pricing-preview-iva10-text');
+          var iva10Btn = document.getElementById('btn-pricing-iva10-adjust');
+          if (iva10Banner && m.ivaCompliance) {
+            var ic = m.ivaCompliance;
+            if (ic.isRenovacion10) {
+              iva10Banner.style.display = 'flex';
+              var ok40 = (ic.pctMateriales <= 40.001);
+              iva10Banner.style.borderColor = ic.isCompliant ? 'rgba(16,185,129,0.45)' : 'rgba(245,158,11,0.55)';
+              if (iva10Txt) {
+                iva10Txt.innerHTML = (ic.isCompliant ? '✅ ' : '⚠️ ') + '<b>IVA 10% Renovación:</b> Mat. ' + ic.pctMateriales.toFixed(1) + '% s/ B.I. (' + Math.round(ic.baseMateriales).toLocaleString('es-ES') + ' € / máx ' + Math.round(ic.maxMateriales40Eur).toLocaleString('es-ES') + ' €)';
+              }
+              if (iva10Btn) iva10Btn.style.display = ok40 ? 'none' : 'inline-block';
+            } else if (ic.isRehab10) {
+              iva10Banner.style.display = 'flex';
+              iva10Banner.style.borderColor = 'rgba(56,189,248,0.45)';
+              if (iva10Txt) iva10Txt.innerHTML = 'ℹ️ <b>IVA 10% Rehabilitación / Obra Nueva:</b> Sin tope 40% materiales (' + ic.pctMateriales.toFixed(1) + '%)';
+              if (iva10Btn) iva10Btn.style.display = 'none';
+            } else {
+              iva10Banner.style.display = 'none';
+            }
+          }
           var ahorroEl = document.getElementById('pricing-metric-ahorro');
           var paybackEl = document.getElementById('pricing-metric-payback');
           var tirEl = document.getElementById('pricing-metric-tir');
@@ -4346,17 +4374,22 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   const contactBlock = [companyPhone, companyWeb].filter(Boolean).join(' · ');
 
   // Factor de margen para desglose comercial de cliente (oculta costes directos y margen industrial)
-  const _mFactor = 1 + ((typeof m.marginPct === 'number' ? m.marginPct : 20) / 100.0);
+  // Si el usuario activa "Cargar margen comercial mayoritariamente s/ Mano de Obra e Instalación",
+  // los materiales se presentan a coste directo y el margen se integra en las partidas de montaje e ingeniería.
+  const _marginLaborOnly = Boolean(m.ivaCompliance && m.ivaCompliance.marginOnLaborOnly);
+  const _mFactor = _marginLaborOnly ? 1.0 : (1 + ((typeof m.marginPct === 'number' ? m.marginPct : 20) / 100.0));
   const _cPan = Math.round(m.panCost * _mFactor);
   const _cEst = Math.round(m.estCost * _mFactor);
   const _cInv = Math.round(m.invCost * _mFactor);
   const _cBat = Math.round(m.batCost * _mFactor);
   const _cCab = Math.round(m.cabCost * _mFactor);
-  const _cMo  = Math.round(m.moCost * _mFactor);
   const _cWind = Math.round((m.windCost || 0) * _mFactor);
   // Total de partidas de equipo e instalación base con margen comercial aplicado
   const _baseEquipTotal = Math.round(m.directCost + m.marginEur);
-  // Legalización absorbe únicamente el residuo de redondeo de enteros entre partidas base
+  const _cMo = _marginLaborOnly
+    ? Math.round((m.moCost || 0) + (m.marginEur * 0.80))
+    : Math.round(m.moCost * _mFactor);
+  // Legalización e ingeniería absorbe el 20% restante del margen en modo labor-only y el residuo de redondeo
   const _cLeg = Math.max(0, _baseEquipTotal - (_cPan + _cEst + _cInv + _cBat + _cCab + _cMo + _cWind));
   // Recuperación resiliente de fotos personalizadas persistidas (por proyecto o sesión)
   const _defaultCoverImg = (typeof window !== 'undefined' && window.RA_DEFAULT_COVER_IMAGE) ? window.RA_DEFAULT_COVER_IMAGE : 'assets/coopgreen-cover.jpg';
@@ -5702,8 +5735,8 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
             }).join('');
           })()}
           ${(m.discountEur && m.discountEur > 0) ? '<tr style="background:#fef2f2;color:#dc2626;"><td style="font-weight:700;">Promoción</td><td><strong>' + (m.discountLabel || 'Descuento Comercial Especial') + '</strong></td><td class="text-right" style="font-weight:800;">- ' + Math.round(m.discountEur).toLocaleString('es-ES') + ' €</td></tr>' : ''}
-          <tr style="background:#f8fafc;font-weight:700;border-top:2px solid #cbd5e1;"><td>BASE IMPONIBLE</td><td>Total Ejecución Material y Servicios Llave en Mano</td><td class="text-right" style="color:${pal.primary};">${Math.round(m.subtotal).toLocaleString('es-ES')} €</td></tr>
-          <tr style="background:#f8fafc;"><td>IVA APLICABLE</td><td>Impuesto sobre el Valor Añadido (${Math.round((m.ivaRate != null ? m.ivaRate : 0.21) * 100)}%)</td><td class="text-right">${Math.round(m.iva).toLocaleString('es-ES')} €</td></tr>
+          <tr style="background:#f8fafc;font-weight:700;border-top:2px solid #cbd5e1;"><td>BASE IMPONIBLE</td><td>Total Ejecución Material y Servicios Llave en Mano${(m.ivaCompliance && m.ivaCompliance.isRenovacion10) ? ' <span style="font-size:9px;color:#475569;font-weight:600;">(Materiales: ' + Math.round(m.ivaCompliance.baseMateriales).toLocaleString('es-ES') + ' € [' + m.ivaCompliance.pctMateriales.toFixed(1) + '%] · Instalación y Servicios: ' + Math.round(m.ivaCompliance.baseServicios).toLocaleString('es-ES') + ' €)</span>' : ''}</td><td class="text-right" style="color:${pal.primary};">${Math.round(m.subtotal).toLocaleString('es-ES')} €</td></tr>
+          <tr style="background:#f8fafc;"><td>IVA APLICABLE</td><td>Impuesto sobre el Valor Añadido (${Math.round((m.ivaRate != null ? m.ivaRate : 0.21) * 100)}%${(m.ivaCompliance && m.ivaCompliance.isRenovacion10) ? ' · Tipo Reducido Renovación/Reparación Vivienda Art. 91.Uno.2.10º LIVA' : ((m.ivaCompliance && m.ivaCompliance.isRehab10) ? ' · Rehabilitación Estructural / Obra Nueva Promotor Art. 91.Uno.3.1º LIVA' : '')})</td><td class="text-right">${Math.round(m.iva).toLocaleString('es-ES')} €</td></tr>
           <tr class="total-row"><td>TOTAL PRESUPUESTO</td><td>INVERSIÓN TOTAL LLAVE EN MANO (IVA INCLUIDO)</td><td class="text-right">${Math.round(m.capexBruto).toLocaleString('es-ES')} €</td></tr>
         </table>
       </div>
@@ -5869,15 +5902,19 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
             <span>${m.cuotaDuranteCarencia} €/mes (solo int.)</span>
           </div>` : ''}
           <div class="decision-row" style="color:${pal.primary};">
-            <span>${_isOffGrid ? 'Valor mensual energía generada:' : 'Ahorro estimado en tu factura:'}</span>
-            <b>+ ${_isOffGrid ? _offGridMonthlyValueEUR : Math.round(m.ahorroMensualLuz)} €/mes</b>
+            <span>${_isOffGrid ? 'Valor mensual energía generada:' : 'Factura estimada después amortización:'}</span>
+            <b>${_isOffGrid ? ('~' + _offGridMonthlyValueEUR + ' €/mes') : ('~' + Math.round(gastoMensualConSolar) + ' €/mes')}</b>
           </div>
           <div class="decision-total" style="color:${(_isOffGrid ? _offGridBalanceFinMes : m.balanceNetoMensual) >= 0 ? '#10b981' : '#e11d48'};">
             <span>BALANCE EN TU BOLSILLO:</span>
             <span style="font-size:16px;color:${(_isOffGrid ? _offGridBalanceFinMes : m.balanceNetoMensual) >= 0 ? '#059669' : '#dc2626'};">${(_isOffGrid ? _offGridBalanceFinMes : m.balanceNetoMensual) >= 0 ? '+' : ''}${Math.round(_isOffGrid ? _offGridBalanceFinMes : m.balanceNetoMensual)} €/mes</span>
           </div>
           <div style="font-size: 10px;color:#64748b;margin-top:6px;">
-            ${_isOffGrid ? 'La energía generada supera el valor de comprarla a la red desde el primer mes.' : 'La instalación se paga sola con el ahorro de luz desde el primer mes.'}
+            ${_isOffGrid
+              ? 'La energía generada supera el valor de comprarla a la red desde el primer mes.'
+              : ((_isOffGrid ? _offGridBalanceFinMes : m.balanceNetoMensual) >= 0
+                  ? 'La instalación se paga sola con el ahorro de luz desde el primer mes.'
+                  : `Durante el préstamo el coste total mensual de energía es de ~${Math.round(m.cuotaMensual + gastoMensualConSolar)} €/mes (cuota + luz residual), pasando a solo ~${Math.round(gastoMensualConSolar)} €/mes tras amortizar.`)}
           </div>
         </div>` : ''}
       </div>
@@ -6709,9 +6746,12 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   // Fiscalidad con sincronización SSOT y respaldo desde configuración persistida
   const _commTax = (commercialCfg && commercialCfg.taxShield) ? commercialCfg.taxShield : {};
 
-  // Lector de IVA dinámico (21% general, 10% reducido reforma/vivienda, 0% exento/IGIC)
+  // Lector de IVA dinámico (21% general, 10% renovación ≤40% mat, 10% rehabilitación/obra nueva, 0% exento/IGIC)
   const ivaEl = document.getElementById('tax-iva-opt') || document.getElementById('modal-tax-iva-opt');
-  let ivaRate = (ivaEl && ivaEl.value !== undefined && ivaEl.value !== '') ? parseFloat(ivaEl.value) : undefined;
+  const ivaOptRaw = (ivaEl && ivaEl.value !== undefined && ivaEl.value !== '')
+    ? String(ivaEl.value)
+    : ((_ssotCfg.taxSettings && _ssotCfg.taxSettings.ivaOpt) || (_commTax && _commTax.ivaOpt) || '');
+  let ivaRate = ivaOptRaw !== '' ? parseFloat(ivaOptRaw) : undefined;
   if (!Number.isFinite(ivaRate) && _commTax && typeof _commTax.ivaRate === 'number') {
     ivaRate = _commTax.ivaRate;
   }
@@ -6734,6 +6774,68 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   // Perfil fiscal del cliente: Particular / Residencial (IRPF) vs Empresa / Pyme (Impuesto sobre Sociedades)
   const profileEl = document.getElementById('tax-profile-opt') || document.getElementById('modal-tax-profile-opt');
   const customerProfile = (profileEl && profileEl.value) ? profileEl.value : ((_commTax && _commTax.customerProfile) || 'particular');
+
+  // ── VERIFICACIÓN FISCAL IVA REDUCIDO 10% (Art. 91.Uno.2.10º / Art. 91.Uno.3.1º Ley 37/1992 LIVA) ──
+  const isRehab10 = (ivaOptRaw === '0.10_rehab');
+  const isRenovacion10 = (Math.abs(ivaRate - 0.10) < 0.001 && !isRehab10);
+
+  const homeAgeChk = document.getElementById('modal-tax-iva-home-age') || document.getElementById('tax-iva-home-age');
+  const homeAge2Years = homeAgeChk
+    ? Boolean(homeAgeChk.checked)
+    : ((_ssotCfg.taxSettings && typeof _ssotCfg.taxSettings.ivaHomeAge2Years === 'boolean') ? _ssotCfg.taxSettings.ivaHomeAge2Years : true);
+
+  const marginLaborChk = document.getElementById('modal-tax-iva-margin-labor') || document.getElementById('tax-iva-margin-labor');
+  const marginOnLaborOnly = marginLaborChk
+    ? Boolean(marginLaborChk.checked)
+    : ((_ssotCfg.taxSettings && typeof _ssotCfg.taxSettings.ivaMarginLaborOnly === 'boolean') ? _ssotCfg.taxSettings.ivaMarginLaborOnly : true);
+
+  const costeMaterialesDirecto = Math.round(panCost + est + inv + bat + cab + windCost + addonsCost);
+  const costeServiciosDirecto = Math.round(mo + leg);
+  const discScale = (subtotalPreDiscount > 0) ? (subtotal / subtotalPreDiscount) : 1;
+
+  let baseMateriales = 0;
+  if (marginOnLaborOnly) {
+    // El margen comercial se imputa mayoritariamente/íntegramente sobre Mano de Obra, Instalación e Ingeniería
+    baseMateriales = Math.min(subtotal, Math.max(0, Math.round(costeMaterialesDirecto * discScale)));
+  } else {
+    // El margen comercial se reparte proporcionalmente entre materiales y mano de obra
+    const totalDirectWithAddons = Math.max(1, costeMaterialesDirecto + costeServiciosDirecto);
+    baseMateriales = Math.min(subtotal, Math.max(0, Math.round(subtotal * (costeMaterialesDirecto / totalDirectWithAddons))));
+  }
+  const baseServicios = Math.max(0, subtotal - baseMateriales);
+  const pctMateriales = subtotal > 0 ? (baseMateriales / subtotal) * 100 : 0;
+  const maxMateriales40Eur = Math.floor(subtotal * 0.40);
+  const excesoMaterialesEur = Math.max(0, baseMateriales - maxMateriales40Eur);
+
+  const ivaReasons = [];
+  if (isRenovacion10) {
+    if (customerProfile !== 'particular') {
+      ivaReasons.push('Cliente figura como Empresa/Pyme (se exige Persona Física uso particular)');
+    }
+    if (!homeAge2Years) {
+      ivaReasons.push('Vivienda con menos de 2 años desde construcción o rehabilitación');
+    }
+    if (pctMateriales > 40.001) {
+      ivaReasons.push(`Materiales aportados (${pctMateriales.toFixed(1)}%) superan el 40% de la Base Imponible (+${excesoMaterialesEur.toLocaleString('es-ES')} € sobre tope de ${maxMateriales40Eur.toLocaleString('es-ES')} €)`);
+    }
+  }
+  const ivaCompliance = {
+    ivaOpt: ivaOptRaw || String(ivaRate),
+    ivaRate: ivaRate,
+    isRenovacion10: isRenovacion10,
+    isRehab10: isRehab10,
+    homeAge2Years: homeAge2Years,
+    marginOnLaborOnly: marginOnLaborOnly,
+    costeMaterialesDirecto: costeMaterialesDirecto,
+    costeServiciosDirecto: costeServiciosDirecto,
+    baseMateriales: baseMateriales,
+    baseServicios: baseServicios,
+    pctMateriales: pctMateriales,
+    maxMateriales40Eur: maxMateriales40Eur,
+    excesoMaterialesEur: excesoMaterialesEur,
+    isCompliant: isRenovacion10 ? (ivaReasons.length === 0) : true,
+    reasons: ivaReasons
+  };
 
   const ibiCuota = _input('tax-ibi-cuota', (_commTax.ibiAnualEur !== undefined ? _commTax.ibiAnualEur : 650));
   const ibiOpt = _sel('tax-ibi-opt', (_commTax.ibiYears === 5 ? '0.50_5' : (_commTax.ibiYears === 10 ? '0.50_10' : (_commTax.ibiYears === 3 ? '0.50_3' : '0.50_3'))));
@@ -6853,6 +6955,11 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
 
   // Generar líneas de fórmulas transparentes para la UI
   const taxFormulaLines = [];
+  if (isRenovacion10) {
+    taxFormulaLines.push(`IVA Reducido 10% (Art. 91.Uno.2.10º LIVA): Materiales = ${baseMateriales.toLocaleString('es-ES')} € (${pctMateriales.toFixed(1)}% s/ B.I. ${subtotal.toLocaleString('es-ES')} € · Tope legal ≤40%: ${maxMateriales40Eur.toLocaleString('es-ES')} €) → ${ivaCompliance.isCompliant ? 'CUMPLE' : 'EXCEDE TOPE / REVISAR'}`);
+  } else if (isRehab10) {
+    taxFormulaLines.push(`IVA Reducido 10% (Rehabilitación Estructural / Obra Nueva Promotor): Sin tope del 40% en materiales (${pctMateriales.toFixed(1)}% s/ B.I.)`);
+  }
   if (customerProfile === 'particular') {
     if (irpfPct > 0) {
       taxFormulaLines.push(`IRPF Estatal (RD-ley 19/2021): ${Math.round(irpfPct * 100)}% s/ base máx. ${baseIrpfEstatal.toLocaleString('es-ES')} € = ${ahorroIRPFEstatal.toLocaleString('es-ES')} €`);
@@ -7465,10 +7572,13 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     addonsCost: addonsCost,
     discountEur: discountEur,
     discountLabel: discountLabel,
+    subtotalPreDiscount: subtotalPreDiscount,
     capexTachado: capexTachado,
     tasaICIO: tasaICIO,
     subtotal: subtotal,
     ivaRate: ivaRate,
+    ivaOpt: ivaCompliance.ivaOpt,
+    ivaCompliance: ivaCompliance,
     iva: iva,
     capexBruto: capexBruto,
     customerProfile: customerProfile,

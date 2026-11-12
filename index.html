@@ -3257,7 +3257,7 @@ window.RA_App = window.RA_App || {};
 
           <!-- Total Bruto -->
           <div style="background:rgba(245,158,11,0.12);border:1px solid var(--amber-500);border-radius:8px;padding:12px;display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
-            <span style="font-size:10.5px;font-weight:800;color:var(--amber-400);text-transform:uppercase;">INVERSIÓN TOTAL BRUTA (IVA 21%):</span>
+            <span id="modal-budget-total-label" style="font-size:10.5px;font-weight:800;color:var(--amber-400);text-transform:uppercase;">INVERSIÓN TOTAL BRUTA (IVA 21%):</span>
             <b id="modal-budget-total" style="font-family:var(--font-mono);font-size:17px;color:#fff;font-weight:900;">0 €</b>
           </div>
         </div>
@@ -3298,10 +3298,45 @@ window.RA_App = window.RA_App || {};
           <div class="field-row" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
             <span style="font-size:10.5px;color:var(--text-slate-300);">Tipo de IVA Aplicable:</span>
             <select id="modal-tax-iva-opt" onchange="syncModalInputToBudget('tax-iva-opt', this.value)" style="width:165px;background:rgba(0,0,0,0.5);border:1px solid var(--border-subtle);color:#fff;font-size:10px;padding:4px 6px;border-radius:6px;outline:none;">
-              <option value="0.21" selected>21% (IVA General)</option>
-              <option value="0.10">10% (IVA Reducido Reforma)</option>
-              <option value="0.0">0% (Exento / IGIC Canarias)</option>
+              <option value="0.21" selected>21% · IVA General (Convencional / Equipos)</option>
+              <option value="0.10">10% · Renovación/Reparación Vivienda (≤40% Mat.)</option>
+              <option value="0.10_rehab">10% · Rehabilitación Legal / Obra Nueva Promotor</option>
+              <option value="0.0">0% · Exento / IGIC Canarias</option>
             </select>
+          </div>
+
+          <!-- Panel de Verificación y Ajuste No Bloqueante para IVA 10% (Art. 91.Uno.2.10º / Art. 91.Uno.3.1º LIVA) -->
+          <div id="modal-iva10-compliance-box" style="display:none;margin-bottom:10px;padding:9px 10px;border-radius:7px;background:rgba(15,23,42,0.75);border:1px solid rgba(56,189,248,0.3);font-size:9.5px;line-height:1.4;color:#e2e8f0;">
+            <div id="modal-iva10-renovacion-controls">
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-bottom:5px;color:#cbd5e1;" title="Art. 91.Uno.2.10º LIVA: El destinatario debe ser persona física (uso particular) y la vivienda tener al menos 2 años desde su construcción o última rehabilitación.">
+                <input type="checkbox" id="modal-tax-iva-home-age" checked onchange="syncModalInputToBudget('tax-iva-home-age', this.checked)" style="accent-color:#10b981;margin:0;">
+                <span>Vivienda uso particular con <b>≥ 2 años</b> de antigüedad</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-bottom:7px;color:#cbd5e1;" title="Imputa el margen comercial mayoritariamente sobre las partidas de Mano de Obra, Instalación e Ingeniería, reduciendo el peso porcentual de los materiales aportados sobre la Base Imponible.">
+                <input type="checkbox" id="modal-tax-iva-margin-labor" checked onchange="syncModalInputToBudget('tax-iva-margin-labor', this.checked)" style="accent-color:#38bdf8;margin:0;">
+                <span>Cargar margen comercial mayoritariamente s/ <b>Mano de Obra e Instalación</b></span>
+              </label>
+              <div style="background:rgba(0,0,0,0.35);padding:6px 8px;border-radius:5px;border:1px solid rgba(255,255,255,0.06);margin-bottom:6px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                  <span style="color:#94a3b8;font-weight:700;">Peso Materiales s/ Base Imponible:</span>
+                  <b id="modal-iva10-mat-pct" style="font-family:var(--font-mono);font-size:10.5px;color:#10b981;">0.0% (≤ 40%)</b>
+                </div>
+                <div style="width:100%;height:6px;background:rgba(255,255,255,0.1);border-radius:3px;overflow:hidden;position:relative;margin-bottom:4px;">
+                  <div id="modal-iva10-mat-bar" style="height:100%;width:0%;background:#10b981;transition:width 0.25s ease;"></div>
+                  <div style="position:absolute;left:40%;top:0;bottom:0;width:1.5px;background:#f59e0b;" title="Límite legal 40% Materiales"></div>
+                </div>
+                <div id="modal-iva10-mat-detail" style="font-size:8.5px;color:#94a3b8;font-family:var(--font-mono);">Mat: 0 € · Serv/MO: 0 € · Tope 40%: 0 €</div>
+              </div>
+            </div>
+            <div id="modal-iva10-status-msg" style="font-size:9px;padding:5px 7px;border-radius:5px;margin-bottom:4px;"></div>
+            <div id="modal-iva10-fix-actions" style="display:none;gap:6px;flex-wrap:wrap;margin-top:6px;">
+              <button type="button" onclick="raAutoAdjustMaterialsForIva10('rebalance')" style="flex:1;padding:5px 7px;background:rgba(245,158,11,0.2);border:1px solid #f59e0b;border-radius:5px;color:#fde68a;font-size:9px;font-weight:800;cursor:pointer;text-align:center;" title="Reequilibra el desglose reduciendo el coste imputado a materiales al 39,5% de la Base Imponible y trasladando la diferencia a Mano de Obra e Instalación, manteniendo intacto el precio total llave en mano.">
+                ⚖️ Ajustar Partidas al ≤ 40% (Mantener Total)
+              </button>
+              <button type="button" onclick="raAutoAdjustMaterialsForIva10('cap_materials')" style="padding:5px 7px;background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.45);border-radius:5px;color:#bae6fd;font-size:9px;font-weight:700;cursor:pointer;text-align:center;" title="Reduce directamente las partidas de materiales para que no superen el 40% de la base con la mano de obra actual.">
+                ✂️ Reducir Materiales al 40%
+              </button>
+            </div>
           </div>
 
           <div class="field-row" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
@@ -3572,8 +3607,12 @@ window.RA_App = window.RA_App || {};
               <b id="modal-fin-cuota-mensual" style="font-family:var(--font-mono);font-size:13px;color:var(--amber-400);">0 €/mes</b>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center;">
-              <span style="font-size:10px;color:var(--text-slate-300);">Ahorro Estimado en Factura:</span>
-              <b id="modal-fin-ahorro-mensual" style="font-family:var(--font-mono);font-size:13px;color:var(--emerald-400);">0 €/mes</b>
+              <span style="font-size:10px;color:var(--text-slate-300);">Factura Estimada tras Amortización:</span>
+              <b id="modal-fin-factura-post-amort" style="font-family:var(--font-mono);font-size:13px;color:var(--sky-400);">~0 €/mes</b>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:9.5px;color:#94a3b8;">
+              <span>Ahorro Estimado en Factura:</span>
+              <b id="modal-fin-ahorro-mensual" style="font-family:var(--font-mono);font-size:11.5px;color:var(--emerald-400);">0 €/mes</b>
             </div>
             <hr style="border:0;border-top:1px solid rgba(16,185,129,0.25);margin:2px 0;">
             <div style="display:flex;justify-content:space-between;align-items:center;">
@@ -3920,7 +3959,14 @@ function openCostBreakdownModal() {
     const pEl = document.getElementById('modal-tax-profile-opt');
     if (pEl && t.profile) pEl.value = t.profile;
     const ivaEl = document.getElementById('modal-tax-iva-opt');
-    if (ivaEl && t.ivaRate != null) ivaEl.value = String(t.ivaRate);
+    if (ivaEl) {
+      if (t.ivaOpt) ivaEl.value = String(t.ivaOpt);
+      else if (t.ivaRate != null) ivaEl.value = String(t.ivaRate);
+    }
+    const homeAgeEl = document.getElementById('modal-tax-iva-home-age');
+    if (homeAgeEl && typeof t.ivaHomeAge2Years === 'boolean') homeAgeEl.checked = t.ivaHomeAge2Years;
+    const marginLaborEl = document.getElementById('modal-tax-iva-margin-labor');
+    if (marginLaborEl && typeof t.ivaMarginLaborOnly === 'boolean') marginLaborEl.checked = t.ivaMarginLaborOnly;
     const ibiCEl = document.getElementById('modal-tax-ibi-cuota');
     if (ibiCEl && t.ibiCuota != null) ibiCEl.value = t.ibiCuota;
     const ibiOEl = document.getElementById('modal-tax-ibi-opt');
@@ -4076,7 +4122,74 @@ function syncCostModalMetrics() {
   const set = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
   set('modal-budget-num-panels', m.numPanels);
   set('modal-budget-paneles', Math.round(m.panCost).toLocaleString('es-ES') + ' €');
+  set('modal-budget-total-label', 'INVERSIÓN TOTAL BRUTA (IVA ' + Math.round((m.ivaRate != null ? m.ivaRate : 0.21) * 100) + '%):');
   set('modal-budget-total', Math.round(m.capexBruto).toLocaleString('es-ES') + ' €');
+
+  // Actualizar panel interactivo de verificación legal IVA 10% (No bloqueante + Auto-ajuste)
+  const ivaBox = document.getElementById('modal-iva10-compliance-box');
+  const ic = m.ivaCompliance;
+  if (ivaBox && ic) {
+    if (ic.isRenovacion10 || ic.isRehab10) {
+      ivaBox.style.display = 'block';
+      const renControls = document.getElementById('modal-iva10-renovacion-controls');
+      const statusMsg = document.getElementById('modal-iva10-status-msg');
+      const fixActions = document.getElementById('modal-iva10-fix-actions');
+      const pctEl = document.getElementById('modal-iva10-mat-pct');
+      const barEl = document.getElementById('modal-iva10-mat-bar');
+      const detEl = document.getElementById('modal-iva10-mat-detail');
+
+      if (ic.isRenovacion10) {
+        if (renControls) renControls.style.display = 'block';
+        const pctVal = Math.min(100, Math.max(0, ic.pctMateriales || 0));
+        const matOk = (pctVal <= 40.001);
+        if (pctEl) {
+          pctEl.textContent = pctVal.toFixed(1) + '% ' + (matOk ? '(≤ 40% OK)' : '(> 40% EXCESO)');
+          pctEl.style.color = matOk ? '#10b981' : '#f59e0b';
+        }
+        if (barEl) {
+          barEl.style.width = pctVal.toFixed(1) + '%';
+          barEl.style.background = matOk ? '#10b981' : '#ef4444';
+        }
+        if (detEl) {
+          detEl.textContent = 'Mat: ' + Math.round(ic.baseMateriales).toLocaleString('es-ES') + ' € · Serv/MO: ' + Math.round(ic.baseServicios).toLocaleString('es-ES') + ' € · Máx 40%: ' + Math.round(ic.maxMateriales40Eur).toLocaleString('es-ES') + ' €';
+        }
+        if (ic.isCompliant) {
+          ivaBox.style.borderColor = 'rgba(16,185,129,0.45)';
+          if (statusMsg) {
+            statusMsg.style.background = 'rgba(16,185,129,0.12)';
+            statusMsg.style.border = '1px solid rgba(16,185,129,0.35)';
+            statusMsg.style.color = '#6ee7b7';
+            statusMsg.innerHTML = '✅ <b>Cumplimiento Art. 91.Uno.2.10º LIVA verificado:</b> Persona física, vivienda ≥ 2 años y materiales aportados (' + pctVal.toFixed(1) + '%) dentro del límite legal del 40%.';
+          }
+          if (fixActions) fixActions.style.display = 'none';
+        } else {
+          ivaBox.style.borderColor = 'rgba(245,158,11,0.55)';
+          if (statusMsg) {
+            statusMsg.style.background = 'rgba(245,158,11,0.14)';
+            statusMsg.style.border = '1px solid rgba(245,158,11,0.4)';
+            statusMsg.style.color = '#fde68a';
+            statusMsg.innerHTML = '⚠️ <b>Aviso Fiscal (No Bloqueante):</b> ' + (ic.reasons || []).join(' · ') + '. Se mantiene el cálculo al 10%, pero Hacienda exige ≤ 40% de materiales.';
+          }
+          if (fixActions) {
+            fixActions.style.display = (!matOk) ? 'flex' : 'none';
+          }
+        }
+      } else {
+        // Modo 0.10_rehab (Rehabilitación estructural / Obra nueva promotor)
+        if (renControls) renControls.style.display = 'none';
+        if (fixActions) fixActions.style.display = 'none';
+        ivaBox.style.borderColor = 'rgba(56,189,248,0.45)';
+        if (statusMsg) {
+          statusMsg.style.background = 'rgba(56,189,248,0.12)';
+          statusMsg.style.border = '1px solid rgba(56,189,248,0.35)';
+          statusMsg.style.color = '#bae6fd';
+          statusMsg.innerHTML = 'ℹ️ <b>Art. 91.Uno.3.1º / Art. 20.Uno.22º.B LIVA:</b> Rehabilitación estructural/energética (&gt;25% coste adquisición) o ejecución de obra nueva contratada directamente con el promotor. <b>No aplica el tope del 40% en materiales</b> (actual: ' + (ic.pctMateriales || 0).toFixed(1) + '%).';
+        }
+      }
+    } else {
+      ivaBox.style.display = 'none';
+    }
+  }
   const isEmpresa = (m.customerProfile === 'empresa');
   const lblDeduc = document.getElementById('modal-tax-label-deduccion');
   if (lblDeduc) lblDeduc.textContent = isEmpresa ? 'Bonif. EPC (IBI + Sociedades)' : 'Bonif. EPC (IBI + IRPF)';
@@ -4116,8 +4229,131 @@ function syncCostModalMetrics() {
   set('modal-fin-autarquia', m.autarquiaPct + ' %');
   set('modal-fin-cuota-mensual', Math.round(m.cuotaMensual) + ' €/mes');
   set('modal-fin-ahorro-mensual', Math.round(m.ahorroMensualLuz) + ' €/mes');
+  const gastoSinSolar = (window.RA && window.RA.billAuditor && window.RA.billAuditor.comparison && window.RA.billAuditor.comparison.gastoMensualActualEUR > 0) ? window.RA.billAuditor.comparison.gastoMensualActualEUR : Math.round(((m.consumoAnual || 3500) * (m.precioRedEUR || 0.18)) / 12);
+  const gastoConSolar = (window.RA && window.RA.billAuditor && window.RA.billAuditor.comparison && window.RA.billAuditor.comparison.gastoMensualConSolarEUR > 0) ? window.RA.billAuditor.comparison.gastoMensualConSolarEUR : Math.max(15, Math.round(gastoSinSolar - m.ahorroMensualLuz));
+  set('modal-fin-factura-post-amort', '~' + Math.round(gastoConSolar) + ' €/mes');
   set('modal-fin-balance-neto', (m.balanceNetoMensual >= 0 ? '+' : '') + Math.round(m.balanceNetoMensual) + ' €/mes');
 }
+
+function raAutoAdjustMaterialsForIva10(mode) {
+  if (typeof calculateFinancialModel !== 'function' || typeof RAPricing === 'undefined') return;
+  // Activar imputación de margen sobre Mano de Obra e Instalación para favorecer el ratio legal
+  const marginLaborChk = document.getElementById('modal-tax-iva-margin-labor');
+  if (marginLaborChk && !marginLaborChk.checked) {
+    marginLaborChk.checked = true;
+  }
+  let m;
+  try { m = calculateFinancialModel(); } catch (e) { return; }
+  if (!m || !m.ivaCompliance) return;
+
+  const numPanels = Math.max(1, m.numPanels || 1);
+  const currentFp = RAPricing.getProjectFingerprint(numPanels);
+  const prev = RAPricing.getEffectivePricing() || {};
+
+  // Objetivo seguro: 39.5% de la Base Imponible para evitar que redondeos superen el 40.0%
+  const targetRatio = 0.395;
+  const rawMatTotal = Math.max(1, (m.panCost || 0) + (m.estCost || 0) + (m.invCost || 0) + (m.batCost || 0) + (m.cabCost || 0) + (m.windCost || 0));
+  const addons = m.addonsCost || 0;
+
+  let targetRawMatTotal = rawMatTotal;
+  let newMo = m.moCost || 1400;
+  let newLeg = m.legCost || 500;
+
+  if (mode === 'cap_materials') {
+    // Reducir partidas de materiales manteniendo mano de obra actual (el presupuesto total baja)
+    const currentServDirect = newMo + newLeg;
+    const mgFactor = 1 + ((typeof m.marginPct === 'number' ? m.marginPct : 20) / 100.0);
+    // Con margen cargado a servicios, Base ≈ (M_new + S) * mgFactor + addons - discount
+    // Para que M_new / Base <= 0.395 => M_new <= 0.395 * mgFactor * S / (1 - 0.395 * mgFactor)
+    const denom = Math.max(0.15, 1 - (targetRatio * mgFactor));
+    const maxTotalMatWithAddons = Math.floor((targetRatio * mgFactor * currentServDirect) / denom);
+    targetRawMatTotal = Math.max(100, maxTotalMatWithAddons - addons);
+  } else {
+    // Modo 'rebalance' (por defecto): Mantener EXACTAMENTE el mismo Precio Total Llave en Mano
+    // Trasladando el exceso de coste directo de materiales hacia Mano de Obra e Instalación
+    const discFactor = (m.subtotalPreDiscount > 0) ? (m.subtotal / m.subtotalPreDiscount) : 1;
+    const maxAllowedBaseMat = Math.floor(m.subtotal * targetRatio);
+    const maxDirectMatWithAddons = Math.floor(maxAllowedBaseMat / Math.max(0.1, discFactor));
+    targetRawMatTotal = Math.max(100, maxDirectMatWithAddons - addons);
+  }
+
+  if (targetRawMatTotal >= rawMatTotal) {
+    if (typeof syncCostModalMetrics === 'function') syncCostModalMetrics();
+    return;
+  }
+
+  const scale = targetRawMatTotal / rawMatTotal;
+  const newPanTotal = Math.max(numPanels * 20, Math.round((m.panCost || 0) * scale));
+  const newUnitPanelPrice = Math.round((newPanTotal / numPanels) * 100) / 100;
+  const actualPanTotal = Math.round(newUnitPanelPrice * numPanels);
+  const newEst = Math.round((m.estCost || 0) * scale);
+  const newInv = Math.round((m.invCost || 0) * scale);
+  const newBat = Math.round((m.batCost || 0) * scale);
+  const newWind = Math.round((m.windCost || 0) * scale);
+  const newCab = Math.max(50, targetRawMatTotal - (actualPanTotal + newEst + newInv + newBat + newWind));
+
+  const actualNewMatSum = actualPanTotal + newEst + newInv + newBat + newWind + newCab;
+  const deltaMat = rawMatTotal - actualNewMatSum;
+
+  if (mode !== 'cap_materials' && deltaMat > 0) {
+    // Reequilibrar: 80% del traslado a Mano de Obra & Montaje, 20% a Ingeniería & Dirección de Obra
+    const addMo = Math.round(deltaMat * 0.80);
+    const addLeg = deltaMat - addMo;
+    newMo = Math.round((m.moCost || 0) + addMo);
+    newLeg = Math.round((m.legCost || 0) + addLeg);
+  }
+
+  RAPricing.currentSessionPricing = Object.assign({}, prev, {
+    projectFingerprint: currentFp,
+    panelPrice: newUnitPanelPrice,
+    estPrice: newEst,
+    invPrice: newInv,
+    batPrice: newBat,
+    cabPrice: newCab,
+    moPrice: newMo,
+    legPrice: newLeg,
+    windPrice: newWind,
+    marginPct: (typeof m.marginPct === 'number') ? m.marginPct : (prev.marginPct || 20),
+    skipReview: false,
+    isManualOverride: true
+  });
+
+  // Actualizar inputs visibles del modal de Costes (y del modal de Revisión de Precios si está abierto)
+  const setInpVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = Math.round(v); };
+  setInpVal('modal-cfg-pres-est', newEst);
+  setInpVal('modal-cfg-pres-inv', newInv);
+  setInpVal('modal-cfg-pres-bat', newBat);
+  setInpVal('modal-cfg-pres-cab', newCab);
+  setInpVal('modal-cfg-pres-mo', newMo);
+  setInpVal('modal-cfg-pres-leg', newLeg);
+  setInpVal('modal-cfg-pres-wind', newWind);
+
+  // Sincronizar también inputs del modal de Revisión de Precios (si existe en el DOM)
+  const pPan = document.getElementById('pricing-input-panel');
+  if (pPan) pPan.value = newUnitPanelPrice;
+  setInpVal('pricing-input-est', newEst);
+  setInpVal('pricing-input-inv', newInv);
+  setInpVal('pricing-input-bat', newBat);
+  setInpVal('pricing-input-cab', newCab);
+  setInpVal('pricing-input-mo', newMo);
+  setInpVal('pricing-input-leg', newLeg);
+  setInpVal('pricing-input-wind', newWind);
+  if (pPan && typeof pPan.oninput === 'function') pPan.oninput();
+
+  if (typeof updateBudgetUI === 'function') updateBudgetUI();
+  if (typeof syncCostModalMetrics === 'function') syncCostModalMetrics();
+  if (typeof showToast === 'function') {
+    showToast(
+      'PARTIDAS AJUSTADAS AL ≤ 40% (IVA 10%)',
+      mode === 'cap_materials'
+        ? 'Materiales reducidos por debajo del 40% de la Base Imponible.'
+        : 'Partidas reequilibradas entre materiales y mano de obra manteniendo el precio total.',
+      'success',
+      3500
+    );
+  }
+}
+window.raAutoAdjustMaterialsForIva10 = raAutoAdjustMaterialsForIva10;
 
 // [MODULARIZACION SSOT] Modal de identidad corporativa y logotipo delegado a js/company-branding.js
 function syncModalTaxProfile(profile) {
@@ -15484,17 +15720,25 @@ function _flushHeatmapPanelHover() {
 
 // ── CONTROL DE HUD DE PROGRESO DE CÁLCULO SOLAR ─────────────────────────────
 const _solarMonthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+const _solarQuarterNames = ['Ene–Mar (T1)', 'Abr–Jun (T2)', 'Jul–Sep (T3)', 'Oct–Dic (T4)'];
+let _solarHudHideTimer = null;
 
 function showSolarCalcHUD(title, subtitle) {
   const hud = document.getElementById('ra-solar-calc-hud');
   if (!hud) return;
+  if (_solarHudHideTimer !== null) {
+    clearTimeout(_solarHudHideTimer);
+    _solarHudHideTimer = null;
+  }
   hud.classList.add('active');
   const pctLbl = document.getElementById('solar-calc-pct-label');
   const fill = document.getElementById('solar-calc-bar-fill');
   const statusTxt = document.getElementById('solar-calc-status-text');
+  const speedTxt = document.getElementById('solar-calc-speed-text');
   if (pctLbl) pctLbl.textContent = '0%';
   if (fill) fill.style.width = '0%';
   if (statusTxt) statusTxt.textContent = subtitle || 'Iniciando simulación de insolación y sombras...';
+  if (speedTxt) speedTxt.textContent = 'Preparando...';
 
   const pills = document.querySelectorAll('.solar-calc-month-pill');
   pills.forEach(p => {
@@ -15503,6 +15747,10 @@ function showSolarCalcHUD(title, subtitle) {
 }
 
 function updateSolarCalcHUD(pct, currentMonthIdx, totalPanels, extraOpts) {
+  if (_solarHudHideTimer !== null) {
+    clearTimeout(_solarHudHideTimer);
+    _solarHudHideTimer = null;
+  }
   const pctLbl = document.getElementById('solar-calc-pct-label');
   const fill = document.getElementById('solar-calc-bar-fill');
   const statusTxt = document.getElementById('solar-calc-status-text');
@@ -15513,33 +15761,49 @@ function updateSolarCalcHUD(pct, currentMonthIdx, totalPanels, extraOpts) {
   if (fill) fill.style.width = safePct + '%';
   
   const opts = extraOpts || {};
+  const span = (typeof opts.monthSpan === 'number' && opts.monthSpan > 1) ? opts.monthSpan : 1;
   const currentStep = typeof opts.stepIndex === 'number' ? opts.stepIndex : (currentMonthIdx + 1);
   const totalSteps = typeof opts.totalStepsCount === 'number' ? opts.totalStepsCount : 12;
   const phase = opts.phaseText ? (' [' + opts.phaseText + ']') : '';
 
-  const mName = _solarMonthNames[currentMonthIdx] || ('Mes ' + (currentMonthIdx + 1));
+  const displayMonthIdx = (safePct >= 100) ? 11 : Math.min(11, Math.floor((safePct / 100) * 12));
+  const periodLabel = (safePct >= 100)
+    ? 'Anual (Ene–Dic)'
+    : ((span === 3)
+      ? _solarQuarterNames[Math.min(3, Math.floor(displayMonthIdx / 3))]
+      : (_solarMonthNames[displayMonthIdx] || ('Mes ' + (displayMonthIdx + 1))));
+
   if (statusTxt) {
-    statusTxt.textContent = mName + phase + ' · ' + (totalPanels || '') + ' módulos evaluados';
+    statusTxt.textContent = periodLabel + phase + ' · ' + (totalPanels || 0) + ' módulos evaluados';
   }
   if (speedTxt) {
     speedTxt.textContent = 'Paso ' + currentStep + ' de ' + totalSteps;
   }
 
   // Las pastillas corresponden a los 12 meses cronológicos (0 = ENE .. 11 = DIC).
-  // Se marcan según el mes calendario activo (currentMonthIdx) y la fracción de progreso global completada:
-  const completedMonthIndex = Math.floor((safePct / 100) * 12);
+  // Acoplamiento monotónico con safePct y el ancho de bloque (span = 1 mensual, span = 3 trimestral):
   const pills = document.querySelectorAll('.solar-calc-month-pill');
-  pills.forEach((p, idx) => {
-    if (idx === currentMonthIdx) {
-      p.classList.remove('done');
-      p.classList.add('current');
-    } else if (idx < completedMonthIndex || (idx < currentMonthIdx && opts.phaseText !== 'Escaneo 3D')) {
+  if (safePct >= 100) {
+    pills.forEach(p => {
       p.classList.remove('current');
       p.classList.add('done');
-    } else {
-      p.classList.remove('done', 'current');
-    }
-  });
+    });
+  } else {
+    const completedMonths = Math.min(11, Math.floor((safePct / 100) * 12));
+    const activeStart = Math.floor(completedMonths / span) * span;
+    const activeEnd = Math.min(11, activeStart + span - 1);
+    pills.forEach((p, idx) => {
+      if (idx < activeStart) {
+        p.classList.remove('current');
+        p.classList.add('done');
+      } else if (idx >= activeStart && idx <= activeEnd && safePct > 0) {
+        p.classList.remove('done');
+        p.classList.add('current');
+      } else {
+        p.classList.remove('done', 'current');
+      }
+    });
+  }
 }
 
 function hideSolarCalcHUD() {
@@ -15552,8 +15816,12 @@ function hideSolarCalcHUD() {
   const pctLbl = document.getElementById('solar-calc-pct-label');
   if (pctLbl) pctLbl.textContent = '100%';
 
-  setTimeout(() => {
+  if (_solarHudHideTimer !== null) {
+    clearTimeout(_solarHudHideTimer);
+  }
+  _solarHudHideTimer = setTimeout(() => {
     hud.classList.remove('active');
+    _solarHudHideTimer = null;
   }, 450);
 }
 
@@ -18152,7 +18420,7 @@ window.toggleSolarHUD = toggleSolarHUD;
                 <div class="engine-card-opt" id="btn-res-medium" onclick="setHeatmapResolution('medium')">
                   <div class="engine-card-title">
                     <span>2. MEDIA (Diseño Iterativo)</span>
-                    <span style="font-size: 10px;background:var(--sky-500);color:#fff;padding:1px 4px;border-radius:3px;font-weight:900;">42 RAYOS</span>
+                    <span style="font-size: 10px;background:var(--sky-500);color:#fff;padding:1px 4px;border-radius:3px;font-weight:900;">72 RAYOS</span>
                   </div>
                   <div class="engine-card-desc">Análisis balanceado de solsticios y equinoccios. Útil para iterar rápidamente en la cubierta.</div>
                 </div>
@@ -18175,29 +18443,36 @@ window.toggleSolarHUD = toggleSolarHUD;
               <input type="checkbox" id="heatmap-relscale-toggle" style="accent-color:var(--emerald-500, #10b981);cursor:pointer;" onchange="if(window.ShadowSettings && typeof window.ShadowSettings.setRelativeColorScale === 'function') window.ShadowSettings.setRelativeColorScale(this.checked); else { window.raRelativeColorScale = this.checked; if(typeof wpReapplyHeatmapColors === 'function') wpReapplyHeatmapColors(); }">
             </label>
             <script>
-              window.raHeatmapResolution = 'ultra';
-              function setHeatmapResolution(res) {
+              window.raHeatmapResolution = (window.ShadowSettings && typeof window.ShadowSettings.getSettings === 'function' && window.ShadowSettings.getSettings().simResolution) || 'medium';
+              function setHeatmapResolution(res, silentInit) {
                 window.raHeatmapResolution = res;
-                document.getElementById('btn-res-ultra').classList.remove('active');
-                document.getElementById('btn-res-medium').classList.remove('active');
-                document.getElementById('btn-res-fast').classList.remove('active');
-                document.getElementById('btn-res-' + res).classList.add('active');
+                const btnUltra = document.getElementById('btn-res-ultra');
+                const btnMedium = document.getElementById('btn-res-medium');
+                const btnFast = document.getElementById('btn-res-fast');
+                if (btnUltra) btnUltra.classList.remove('active');
+                if (btnMedium) btnMedium.classList.remove('active');
+                if (btnFast) btnFast.classList.remove('active');
+                const activeBtn = document.getElementById('btn-res-' + res);
+                if (activeBtn) activeBtn.classList.add('active');
                 
                 const badge = document.getElementById('p2-shading-loss-badge');
                 if (badge) {
                   if (res === 'ultra') badge.innerText = '192 INSTANTES (ULTRA)';
-                  else if (res === 'medium') badge.innerText = '42 INSTANTES (MEDIA)';
+                  else if (res === 'medium') badge.innerText = '72 INSTANTES (MEDIA)';
                   else if (res === 'fast') badge.innerText = '16 INSTANTES (RÁPIDA)';
                 }
-                if (typeof window.wpInvalidateHeatmap === 'function') {
-                  window.wpInvalidateHeatmap('Resolución de simulación solar cambiada a ' + res);
+                if (!silentInit) {
+                  if (window.ShadowSettings && typeof window.ShadowSettings.setSimResolution === 'function') {
+                    window.ShadowSettings.setSimResolution(res);
+                  } else if (typeof window.wpInvalidateHeatmap === 'function') {
+                    window.wpInvalidateHeatmap('Resolución de simulación solar cambiada a ' + res);
+                  }
                 }
               }
-              // Inicializar badge si ya existe
+              // Inicializar badge sincronizado con ShadowSettings sin disparar invalidación en falso
               setTimeout(() => {
-                if (document.getElementById('p2-shading-loss-badge')) {
-                  setHeatmapResolution(window.raHeatmapResolution);
-                }
+                const initRes = (window.ShadowSettings && typeof window.ShadowSettings.getSettings === 'function' && window.ShadowSettings.getSettings().simResolution) || window.raHeatmapResolution || 'medium';
+                setHeatmapResolution(initRes, true);
               }, 50);
             </script>
           </div>

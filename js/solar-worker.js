@@ -211,7 +211,7 @@ function precalcQuadAABB(quad) {
   return quad;
 }
 
-self.onmessage = function(e) {
+self.onmessage = async function(e) {
   const data = e.data;
   if (!data || data.type !== 'START_HEATMAP') return;
 
@@ -226,7 +226,8 @@ self.onmessage = function(e) {
     climaticZone,
     moduleProps,
     monthlyGHI,
-    horizonProfile
+    horizonProfile,
+    basePct
   } = data;
   const horizonElevations = (Array.isArray(horizonProfile) && horizonProfile.length === 16) ? horizonProfile : null;
   const customMonthlyGHI = Array.isArray(monthlyGHI) ? monthlyGHI : null;
@@ -670,8 +671,9 @@ self.onmessage = function(e) {
       });
     }
 
-    // Progreso mensual (fase worker cubre del 35% al 100%)
-    const progressPct = Math.min(100, Math.round(35 + (currentStep / totalSteps) * 65));
+    // Progreso mensual/trimestral (fase worker cubre desde startPct hasta 99%, reservando 100% para el cierre)
+    const startPct = (typeof basePct === 'number') ? basePct : 35;
+    const progressPct = Math.min(99, Math.round(startPct + (currentStep / totalSteps) * (100 - startPct)));
     self.postMessage({
       type: 'PROGRESS',
       simGenerationId,
@@ -682,6 +684,7 @@ self.onmessage = function(e) {
       totalStepsCount: monthsDoy.length,
       totalPanels: panels.length
     });
+    await new Promise(r => setTimeout(r, 12));
   }
 
   // Finalizar cálculos
