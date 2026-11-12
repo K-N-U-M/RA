@@ -3271,7 +3271,7 @@ window.RA_App = window.RA_App || {};
 
           <div class="field-row" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
             <span style="font-size:10.5px;color:var(--text-slate-300);">Perfil Fiscal Cliente:</span>
-            <select id="modal-tax-profile-opt" onchange="syncModalTaxProfile(this.value); syncModalInputToBudget('tax-profile-opt', this.value)" style="width:165px;background:rgba(0,0,0,0.5);border:1px solid var(--border-subtle);color:#fff;font-size:10px;padding:4px 6px;border-radius:6px;outline:none;">
+            <select id="modal-tax-profile-opt" onchange="syncModalTaxProfile(this.value); raSyncTaxControls()" style="width:165px;background:rgba(0,0,0,0.5);border:1px solid var(--border-subtle);color:#fff;font-size:10px;padding:4px 6px;border-radius:6px;outline:none;">
               <option value="particular" selected>Particular / Residencial (IRPF)</option>
               <option value="empresa">Empresa / Pyme (Sociedades)</option>
             </select>
@@ -3280,7 +3280,7 @@ window.RA_App = window.RA_App || {};
           <!-- Selector de Comunidad Autónoma para IRPF y fiscalidad -->
           <div class="field-row" id="modal-tax-region-row" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
             <span style="font-size:10.5px;color:var(--text-slate-300);">Comunidad Autónoma (IRPF):</span>
-            <select id="modal-tax-region-opt" onchange="syncModalInputToBudget('tax-region-opt', this.value)" style="width:165px;background:rgba(0,0,0,0.5);border:1px solid var(--border-subtle);color:#fff;font-size:10px;padding:4px 6px;border-radius:6px;outline:none;">
+            <select id="modal-tax-region-opt" onchange="raSyncTaxControls()" style="width:165px;background:rgba(0,0,0,0.5);border:1px solid var(--border-subtle);color:#fff;font-size:10px;padding:4px 6px;border-radius:6px;outline:none;">
               <option value="estatal_only" selected>General / Solo Tramo Estatal</option>
               <option value="valencia">Comunitat Valenciana (hasta 40% · máx 8.000€)</option>
               <option value="madrid">Comunidad de Madrid (Solo Estatal)</option>
@@ -3297,7 +3297,7 @@ window.RA_App = window.RA_App || {};
 
           <div class="field-row" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
             <span style="font-size:10.5px;color:var(--text-slate-300);">Tipo de IVA Aplicable:</span>
-            <select id="modal-tax-iva-opt" onchange="syncModalInputToBudget('tax-iva-opt', this.value)" style="width:165px;background:rgba(0,0,0,0.5);border:1px solid var(--border-subtle);color:#fff;font-size:10px;padding:4px 6px;border-radius:6px;outline:none;">
+            <select id="modal-tax-iva-opt" onchange="raSyncTaxControls()" style="width:165px;background:rgba(0,0,0,0.5);border:1px solid var(--border-subtle);color:#fff;font-size:10px;padding:4px 6px;border-radius:6px;outline:none;">
               <option value="0.21" selected>21% · IVA General (Convencional / Equipos)</option>
               <option value="0.10">10% · Renovación/Reparación Vivienda (≤40% Mat.)</option>
               <option value="0.10_rehab">10% · Rehabilitación Legal / Obra Nueva Promotor</option>
@@ -3309,11 +3309,11 @@ window.RA_App = window.RA_App || {};
           <div id="modal-iva10-compliance-box" style="display:none;margin-bottom:10px;padding:9px 10px;border-radius:7px;background:rgba(15,23,42,0.75);border:1px solid rgba(56,189,248,0.3);font-size:9.5px;line-height:1.4;color:#e2e8f0;">
             <div id="modal-iva10-renovacion-controls">
               <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-bottom:5px;color:#cbd5e1;" title="Art. 91.Uno.2.10º LIVA: El destinatario debe ser persona física (uso particular) y la vivienda tener al menos 2 años desde su construcción o última rehabilitación.">
-                <input type="checkbox" id="modal-tax-iva-home-age" checked onchange="syncModalInputToBudget('tax-iva-home-age', this.checked)" style="accent-color:#10b981;margin:0;">
+                <input type="checkbox" id="modal-tax-iva-home-age" checked onchange="raSyncTaxControls()" style="accent-color:#10b981;margin:0;">
                 <span>Vivienda uso particular con <b>≥ 2 años</b> de antigüedad</span>
               </label>
               <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-bottom:7px;color:#cbd5e1;" title="Imputa el margen comercial mayoritariamente sobre las partidas de Mano de Obra, Instalación e Ingeniería, reduciendo el peso porcentual de los materiales aportados sobre la Base Imponible.">
-                <input type="checkbox" id="modal-tax-iva-margin-labor" checked onchange="syncModalInputToBudget('tax-iva-margin-labor', this.checked)" style="accent-color:#38bdf8;margin:0;">
+                <input type="checkbox" id="modal-tax-iva-margin-labor" checked onchange="raSyncTaxControls()" style="accent-color:#38bdf8;margin:0;">
                 <span>Cargar margen comercial mayoritariamente s/ <b>Mano de Obra e Instalación</b></span>
               </label>
               <div style="background:rgba(0,0,0,0.35);padding:6px 8px;border-radius:5px;border:1px solid rgba(255,255,255,0.06);margin-bottom:6px;">
@@ -3341,7 +3341,7 @@ window.RA_App = window.RA_App || {};
 
           <div class="field-row" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
             <span style="font-size:10.5px;color:var(--text-slate-300);">Calificación Suelo / Finca:</span>
-            <select id="modal-tax-soil-type" onchange="syncModalInputToBudget('tax-soil-type', this.value)" style="width:165px;background:rgba(0,0,0,0.5);border:1px solid var(--border-subtle);color:#fff;font-size:10px;padding:4px 6px;border-radius:6px;outline:none;">
+            <select id="modal-tax-soil-type" onchange="raSyncTaxControls()" style="width:165px;background:rgba(0,0,0,0.5);border:1px solid var(--border-subtle);color:#fff;font-size:10px;padding:4px 6px;border-radius:6px;outline:none;">
               <option value="urbano" selected>Urbano / Residencial (IBI Bonificable)</option>
               <option value="rustico">Rústico / Finca Aislada (Sin IBI urbano)</option>
             </select>
@@ -3349,12 +3349,12 @@ window.RA_App = window.RA_App || {};
 
           <div class="field-row" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
             <span style="font-size:10.5px;color:var(--text-slate-300);">Cuota Anual IBI Inmueble (€/año):</span>
-            <input type="number" id="modal-tax-ibi-cuota" step="50" min="0" value="650" class="field-input" style="width:90px;font-size:11px;text-align:right;" oninput="syncModalInputToBudget('tax-ibi-cuota', this.value)">
+            <input type="number" id="modal-tax-ibi-cuota" step="50" min="0" value="650" class="field-input" style="width:90px;font-size:11px;text-align:right;" oninput="raSyncTaxControls()">
           </div>
 
           <div class="field-row" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
             <span style="font-size:10.5px;color:var(--text-slate-300);">Bonificación IBI (% / Años):</span>
-            <select id="modal-tax-ibi-opt" onchange="syncModalInputToBudget('tax-ibi-opt', this.value)" style="width:165px;background:rgba(0,0,0,0.5);border:1px solid var(--border-subtle);color:#fff;font-size:10px;padding:4px 6px;border-radius:6px;outline:none;">
+            <select id="modal-tax-ibi-opt" onchange="raSyncTaxControls()" style="width:165px;background:rgba(0,0,0,0.5);border:1px solid var(--border-subtle);color:#fff;font-size:10px;padding:4px 6px;border-radius:6px;outline:none;">
               <option value="0">Sin bonificación municipal</option>
               <option value="0.50_3" selected>50% durante 3 años (Estándar)</option>
               <option value="0.50_5">50% durante 5 años (Madrid/Bcn)</option>
@@ -3367,7 +3367,7 @@ window.RA_App = window.RA_App || {};
           <!-- Fila IRPF (visible en modo particular) con CEE riguroso RD-ley 19/2021 -->
           <div class="field-row" id="modal-tax-irpf-row" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
             <span style="font-size:10.5px;color:var(--text-slate-300);">CEE / Deducción Estatal IRPF:</span>
-            <select id="modal-tax-irpf-opt" onchange="syncModalInputToBudget('tax-irpf-opt', this.value)" style="width:165px;background:rgba(0,0,0,0.5);border:1px solid var(--border-subtle);color:#fff;font-size:10px;padding:4px 6px;border-radius:6px;outline:none;">
+            <select id="modal-tax-irpf-opt" onchange="raSyncTaxControls()" style="width:165px;background:rgba(0,0,0,0.5);border:1px solid var(--border-subtle);color:#fff;font-size:10px;padding:4px 6px;border-radius:6px;outline:none;">
               <option value="0">Sin deducción IRPF (0%)</option>
               <option value="0.20">20% (CEE: Reducción 7% dem. térmica · máx 5.000€)</option>
               <option value="0.40" selected>40% (CEE: Reducción 30% energ. no renov. / Cl. A-B · máx 7.500€)</option>
@@ -3378,7 +3378,7 @@ window.RA_App = window.RA_App || {};
           <!-- Fila Impuesto sobre Sociedades (visible en modo empresa) -->
           <div class="field-row" id="modal-tax-is-row" style="margin-bottom:8px;display:none;justify-content:space-between;align-items:center;">
             <span style="font-size:10.5px;color:var(--text-slate-300);">Libertad Amortización (IS):</span>
-            <select id="modal-tax-is-opt" onchange="syncModalInputToBudget('tax-is-opt', this.value)" style="width:165px;background:rgba(0,0,0,0.5);border:1px solid var(--border-subtle);color:#fff;font-size:10px;padding:4px 6px;border-radius:6px;outline:none;">
+            <select id="modal-tax-is-opt" onchange="raSyncTaxControls()" style="width:165px;background:rgba(0,0,0,0.5);border:1px solid var(--border-subtle);color:#fff;font-size:10px;padding:4px 6px;border-radius:6px;outline:none;">
               <option value="0.25" selected>25% Escudo Fiscal (Tipo General)</option>
               <option value="0.23">23% Escudo Fiscal (Pymes &lt; 1M€)</option>
               <option value="0.15">15% Escudo Fiscal (Nueva creación)</option>
@@ -3388,7 +3388,7 @@ window.RA_App = window.RA_App || {};
 
           <div class="field-row" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
             <span style="font-size:10.5px;color:var(--text-slate-300);">Bonificación ICIO:</span>
-            <select id="modal-tax-icio-opt" onchange="syncModalInputToBudget('tax-icio-opt', this.value)" style="width:165px;background:rgba(0,0,0,0.5);border:1px solid var(--border-subtle);color:#fff;font-size:10px;padding:4px 6px;border-radius:6px;outline:none;">
+            <select id="modal-tax-icio-opt" onchange="raSyncTaxControls()" style="width:165px;background:rgba(0,0,0,0.5);border:1px solid var(--border-subtle);color:#fff;font-size:10px;padding:4px 6px;border-radius:6px;outline:none;">
               <option value="0.95" selected>95% Bonificación ICIO (Máx. Ley)</option>
               <option value="0.50">50% Bonificación ICIO</option>
               <option value="0">Sin bonificación</option>
@@ -3398,7 +3398,7 @@ window.RA_App = window.RA_App || {};
           <!-- Fila Ayudas Directas y CAEs (Certificados de Ahorro Energético) -->
           <div class="field-row" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
             <span style="font-size:10.5px;color:var(--text-slate-300);">Ayudas Directas / CAEs (€):</span>
-            <input type="number" id="modal-tax-cae-eur" step="50" min="0" value="0" class="field-input" placeholder="0 €" style="width:90px;font-size:11px;text-align:right;" oninput="syncModalInputToBudget('tax-cae-eur', this.value)">
+            <input type="number" id="modal-tax-cae-eur" step="50" min="0" value="0" class="field-input" placeholder="0 €" style="width:90px;font-size:11px;text-align:right;" oninput="raSyncTaxControls()">
           </div>
 
           <!-- Alerta Normativa Aislada de Red -->
@@ -3549,12 +3549,14 @@ window.RA_App = window.RA_App || {};
             </select>
           </div>
 
-          <!-- Tipo de Interés TIN y TAE Calculada -->
+          <!-- Tipo de Interés TIN y TAE Bidireccionales -->
           <div class="field-row" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
-            <span style="font-size:10.5px;color:var(--text-slate-300);">Tipo de Interés Nominal (TIN %):</span>
-            <div style="display:flex;align-items:center;gap:6px;">
-              <input type="number" id="modal-fin-tin-pct" step="0.10" min="0" max="25" class="field-input" style="width:75px;font-size:11px;text-align:right;" oninput="raSyncFinancingControls()">
-              <span id="modal-fin-badge-tae" style="font-size:9.5px;font-weight:700;color:var(--amber-400);background:rgba(245,158,11,0.12);padding:3px 6px;border-radius:4px;border:1px solid rgba(245,158,11,0.25);">TAE: 5.95%</span>
+            <span style="font-size:10.5px;color:var(--text-slate-300);">Tasas Financiación (TIN / TAE):</span>
+            <div style="display:flex;align-items:center;gap:4px;">
+              <span style="font-size:9.5px;color:var(--text-slate-400);font-weight:600;">TIN</span>
+              <input type="number" id="modal-fin-tin-pct" step="0.05" min="0" max="30" class="field-input" style="width:62px;font-size:11px;text-align:right;padding:3px 5px;" oninput="raOnTinInput(this.value)" placeholder="TIN %">
+              <span style="font-size:9.5px;color:var(--amber-400);font-weight:700;margin-left:3px;">TAE</span>
+              <input type="number" id="modal-fin-tae-pct" step="0.05" min="0" max="35" class="field-input" style="width:62px;font-size:11px;text-align:right;padding:3px 5px;border-color:rgba(245,158,11,0.4);color:#fbbf24;" oninput="raOnTaeInput(this.value)" placeholder="TAE %">
             </div>
           </div>
 
@@ -3946,18 +3948,26 @@ function openCostBreakdownModal() {
     setVal('modal-fin-mode', _fin.mode || 'both');
     setVal('modal-fin-entrada-eur', _fin.downPaymentEur || 0);
     setVal('modal-fin-plazo-meses', _fin.loanMonths || 120);
-    setVal('modal-fin-tin-pct', (_fin.loanTinPct !== undefined ? _fin.loanTinPct : 5.95));
+    const _tinVal = (_fin.loanTinPct !== undefined ? _fin.loanTinPct : 5.95);
+    setVal('modal-fin-tin-pct', _tinVal);
+    const _plazoVal = _fin.loanMonths || 120;
+    const _apVal = (_fin.openingFeePct !== undefined ? _fin.openingFeePct : 1.0);
+    const _initTae = (typeof raComputeTaeFromTin === 'function') ? raComputeTaeFromTin(_tinVal, _plazoVal, _apVal) : 5.95;
+    setVal('modal-fin-tae-pct', _initTae.toFixed(2));
     setVal('modal-fin-apertura-pct', (_fin.openingFeePct !== undefined ? _fin.openingFeePct : 1.0));
     setVal('modal-fin-carencia-meses', _fin.graceMonths || 0);
     setVal('modal-fin-seguro-mensual', _fin.monthlyInsuranceEur || 0);
     setVal('modal-fin-notaria-eur', _fin.notaryEur || 0);
   }
 
-  // Sincronizar configuración fiscal persistida
-  if (_cfg && _cfg.taxSettings) {
-    const t = _cfg.taxSettings;
+  // Sincronizar configuración fiscal persistida (con fallback a RAPricing.getCommercialConfig().taxShield)
+  const _commTaxShield = (typeof RAPricing !== 'undefined' && typeof RAPricing.getCommercialConfig === 'function' && RAPricing.getCommercialConfig().taxShield)
+    ? RAPricing.getCommercialConfig().taxShield
+    : null;
+  const t = (_cfg && _cfg.taxSettings) ? _cfg.taxSettings : _commTaxShield;
+  if (t) {
     const pEl = document.getElementById('modal-tax-profile-opt');
-    if (pEl && t.profile) pEl.value = t.profile;
+    if (pEl && (t.profile || t.customerProfile)) pEl.value = t.profile || t.customerProfile;
     const ivaEl = document.getElementById('modal-tax-iva-opt');
     if (ivaEl) {
       if (t.ivaOpt) ivaEl.value = String(t.ivaOpt);
@@ -3968,7 +3978,7 @@ function openCostBreakdownModal() {
     const marginLaborEl = document.getElementById('modal-tax-iva-margin-labor');
     if (marginLaborEl && typeof t.ivaMarginLaborOnly === 'boolean') marginLaborEl.checked = t.ivaMarginLaborOnly;
     const ibiCEl = document.getElementById('modal-tax-ibi-cuota');
-    if (ibiCEl && t.ibiCuota != null) ibiCEl.value = t.ibiCuota;
+    if (ibiCEl && (t.ibiCuota != null || t.ibiAnualEur != null)) ibiCEl.value = (t.ibiCuota != null ? t.ibiCuota : t.ibiAnualEur);
     const ibiOEl = document.getElementById('modal-tax-ibi-opt');
     if (ibiOEl && t.ibiOpt) ibiOEl.value = t.ibiOpt;
     const irpfOEl = document.getElementById('modal-tax-irpf-opt');
@@ -3980,7 +3990,9 @@ function openCostBreakdownModal() {
     const regEl = document.getElementById('modal-tax-region-opt');
     if (regEl && t.regionOpt) regEl.value = t.regionOpt;
     const caeEl = document.getElementById('modal-tax-cae-eur');
-    if (caeEl && t.caeEur != null) caeEl.value = t.caeEur;
+    if (caeEl && (t.caeEur != null || t.ahorroCAE != null)) caeEl.value = (t.caeEur != null ? t.caeEur : t.ahorroCAE);
+    const soilEl = document.getElementById('modal-tax-soil-type');
+    if (soilEl && t.soilType) soilEl.value = t.soilType;
     if (typeof syncModalTaxProfile === 'function') syncModalTaxProfile(pEl ? pEl.value : 'particular');
   }
 
@@ -3994,6 +4006,7 @@ function openCostBreakdownModal() {
 
 function closeCostBreakdownModal() {
   if (typeof raSyncFinancingControls === 'function') raSyncFinancingControls();
+  if (typeof raSyncTaxControls === 'function') raSyncTaxControls();
   const modal = document.getElementById('ra-cost-breakdown-modal');
   if (modal) modal.style.display = 'none';
   if (typeof updateBudgetUI === 'function') updateBudgetUI();
@@ -4115,6 +4128,163 @@ window.raRenderCommercialAddonsUI = raRenderCommercialAddonsUI;
 window.raToggleAddon = raToggleAddon;
 window.raSyncCommercialControls = raSyncCommercialControls;
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// CONVERSIÓN BIDIRECCIONAL TIN <-> TAE Y PERSISTENCIA FINANCIERA & FISCAL
+// ═══════════════════════════════════════════════════════════════════════════════
+let raIsSyncingLoanRates = false;
+
+function raComputeTaeFromTin(tinPct, meses, aperturaPct) {
+  const tinAnual = (parseFloat(tinPct) || 0) / 100.0;
+  const mesesFin = parseInt(meses, 10) || 120;
+  const apPct = (aperturaPct != null ? parseFloat(aperturaPct) : 1.0) / 100.0;
+  const capitalBase = 10000;
+  const comisionApertura = capitalBase * apPct;
+  const principal = capitalBase + comisionApertura;
+  const tinM = tinAnual / 12.0;
+  const cuota = (tinM > 0)
+    ? (principal * tinM * Math.pow(1 + tinM, mesesFin)) / (Math.pow(1 + tinM, mesesFin) - 1)
+    : (principal / mesesFin);
+  const flujos = [-capitalBase];
+  for (let i = 1; i <= mesesFin; i++) flujos.push(cuota);
+  let rMin = 0.0, rMax = 0.50, rMid = 0.0;
+  for (let iter = 0; iter < 45; iter++) {
+    rMid = (rMin + rMax) / 2.0;
+    let npv = 0;
+    for (let t = 0; t < flujos.length; t++) npv += flujos[t] / Math.pow(1 + rMid, t);
+    if (npv > 0) rMin = rMid;
+    else rMax = rMid;
+  }
+  return (Math.pow(1 + rMid, 12) - 1) * 100.0;
+}
+
+function raComputeTinFromTae(taePct, meses, aperturaPct) {
+  const targetTae = parseFloat(taePct) || 0;
+  if (targetTae <= 0) return 0;
+  let low = 0.0, high = 40.0, mid = 0.0;
+  for (let iter = 0; iter < 45; iter++) {
+    mid = (low + high) / 2.0;
+    const testTae = raComputeTaeFromTin(mid, meses, aperturaPct);
+    if (testTae < targetTae) low = mid;
+    else high = mid;
+  }
+  return mid;
+}
+
+function raOnTinInput(val) {
+  if (raIsSyncingLoanRates) return;
+  raIsSyncingLoanRates = true;
+  try {
+    const tinNum = parseFloat(val);
+    const plazoEl = document.getElementById('modal-fin-plazo-meses');
+    const apEl = document.getElementById('modal-fin-apertura-pct');
+    const meses = plazoEl ? parseInt(plazoEl.value, 10) || 120 : 120;
+    const apPct = apEl ? parseFloat(apEl.value) || 1.0 : 1.0;
+    const taeEl = document.getElementById('modal-fin-tae-pct');
+    if (taeEl && !isNaN(tinNum) && tinNum >= 0) {
+      const calcTae = raComputeTaeFromTin(tinNum, meses, apPct);
+      taeEl.value = calcTae.toFixed(2);
+    }
+    raSyncFinancingControls();
+  } finally {
+    raIsSyncingLoanRates = false;
+  }
+}
+
+function raOnTaeInput(val) {
+  if (raIsSyncingLoanRates) return;
+  raIsSyncingLoanRates = true;
+  try {
+    const taeNum = parseFloat(val);
+    const plazoEl = document.getElementById('modal-fin-plazo-meses');
+    const apEl = document.getElementById('modal-fin-apertura-pct');
+    const meses = plazoEl ? parseInt(plazoEl.value, 10) || 120 : 120;
+    const apPct = apEl ? parseFloat(apEl.value) || 1.0 : 1.0;
+    const tinEl = document.getElementById('modal-fin-tin-pct');
+    if (tinEl && !isNaN(taeNum) && taeNum >= 0) {
+      const calcTin = raComputeTinFromTae(taeNum, meses, apPct);
+      tinEl.value = calcTin.toFixed(2);
+    }
+    raSyncFinancingControls();
+  } finally {
+    raIsSyncingLoanRates = false;
+  }
+}
+
+window.raComputeTaeFromTin = raComputeTaeFromTin;
+window.raComputeTinFromTae = raComputeTinFromTae;
+window.raOnTinInput = raOnTinInput;
+window.raOnTaeInput = raOnTaeInput;
+
+function raSyncTaxControls() {
+  if (typeof RAPricing === 'undefined' || typeof RAPricing.getCommercialConfig !== 'function') return;
+  const cfg = RAPricing.getCommercialConfig();
+  if (!cfg.taxShield) cfg.taxShield = {};
+
+  const profileEl = document.getElementById('modal-tax-profile-opt');
+  const regionEl = document.getElementById('modal-tax-region-opt');
+  const ivaEl = document.getElementById('modal-tax-iva-opt');
+  const homeAgeEl = document.getElementById('modal-tax-iva-home-age');
+  const marginLaborEl = document.getElementById('modal-tax-iva-margin-labor');
+  const soilEl = document.getElementById('modal-tax-soil-type');
+  const ibiCuotaEl = document.getElementById('modal-tax-ibi-cuota');
+  const ibiOptEl = document.getElementById('modal-tax-ibi-opt');
+  const irpfOptEl = document.getElementById('modal-tax-irpf-opt');
+  const isOptEl = document.getElementById('modal-tax-is-opt');
+  const icioOptEl = document.getElementById('modal-tax-icio-opt');
+  const caeEl = document.getElementById('modal-tax-cae-eur');
+
+  const ivaOptVal = ivaEl ? ivaEl.value : '0.21';
+  let ivaRateNum = 0.21;
+  if (ivaOptVal === '0.10' || ivaOptVal === '0.10_rehab') ivaRateNum = 0.10;
+  else if (ivaOptVal === '0.0') ivaRateNum = 0.0;
+  else if (ivaOptVal === '0.21') ivaRateNum = 0.21;
+  else {
+    const parsed = parseFloat(ivaOptVal);
+    if (!isNaN(parsed)) ivaRateNum = parsed;
+  }
+
+  // Actualizar taxShield en commercialConfig
+  cfg.taxShield.customerProfile = profileEl ? profileEl.value : (cfg.taxShield.customerProfile || 'particular');
+  cfg.taxShield.regionOpt = regionEl ? regionEl.value : (cfg.taxShield.regionOpt || 'estatal_only');
+  cfg.taxShield.ivaOpt = ivaOptVal;
+  cfg.taxShield.ivaRate = ivaRateNum;
+  cfg.taxShield.ivaHomeAge2Years = homeAgeEl ? !!homeAgeEl.checked : true;
+  cfg.taxShield.ivaMarginLaborOnly = marginLaborEl ? !!marginLaborEl.checked : true;
+  cfg.taxShield.soilType = soilEl ? soilEl.value : (cfg.taxShield.soilType || 'urbano');
+  if (ibiCuotaEl) cfg.taxShield.ibiAnualEur = parseFloat(ibiCuotaEl.value) || 0;
+  if (ibiOptEl) cfg.taxShield.ibiOpt = ibiOptEl.value;
+  if (irpfOptEl) cfg.taxShield.irpfOpt = irpfOptEl.value;
+  if (isOptEl) cfg.taxShield.isRate = parseFloat(isOptEl.value) || 0;
+  if (icioOptEl) cfg.taxShield.icioOpt = icioOptEl.value;
+  if (caeEl) cfg.taxShield.caeEur = parseFloat(caeEl.value) || 0;
+
+  // Actualizar window.solarProjectConfig.taxSettings (persistencia en fichero .ra)
+  if (typeof window !== 'undefined') {
+    window.solarProjectConfig = window.solarProjectConfig || {};
+    window.solarProjectConfig.taxSettings = {
+      profile: cfg.taxShield.customerProfile,
+      regionOpt: cfg.taxShield.regionOpt,
+      ivaOpt: cfg.taxShield.ivaOpt,
+      ivaRate: cfg.taxShield.ivaRate,
+      ivaHomeAge2Years: cfg.taxShield.ivaHomeAge2Years,
+      ivaMarginLaborOnly: cfg.taxShield.ivaMarginLaborOnly,
+      soilType: cfg.taxShield.soilType,
+      ibiCuota: cfg.taxShield.ibiAnualEur,
+      ibiOpt: cfg.taxShield.ibiOpt,
+      irpfOpt: cfg.taxShield.irpfOpt,
+      isRate: cfg.taxShield.isRate,
+      icioOpt: cfg.taxShield.icioOpt,
+      caeEur: cfg.taxShield.caeEur
+    };
+    window.solarProjectConfig.commercialConfig = cfg;
+  }
+
+  RAPricing.saveCommercialConfig(cfg);
+  if (typeof updateBudgetUI === 'function') updateBudgetUI();
+  if (typeof syncCostModalMetrics === 'function') syncCostModalMetrics();
+}
+window.raSyncTaxControls = raSyncTaxControls;
+
 function raSyncFinancingControls() {
   if (typeof RAPricing === 'undefined' || typeof RAPricing.getCommercialConfig !== 'function') return;
   const cfg = RAPricing.getCommercialConfig();
@@ -4124,6 +4294,7 @@ function raSyncFinancingControls() {
   const entradaEl = document.getElementById('modal-fin-entrada-eur');
   const plazoEl = document.getElementById('modal-fin-plazo-meses');
   const tinEl = document.getElementById('modal-fin-tin-pct');
+  const taeEl = document.getElementById('modal-fin-tae-pct');
   const aperturaEl = document.getElementById('modal-fin-apertura-pct');
   const carenciaEl = document.getElementById('modal-fin-carencia-meses');
   const seguroEl = document.getElementById('modal-fin-seguro-mensual');
@@ -4132,11 +4303,22 @@ function raSyncFinancingControls() {
   if (modeEl) cfg.financing.mode = modeEl.value;
   if (entradaEl) cfg.financing.downPaymentEur = parseFloat(entradaEl.value) || 0;
   if (plazoEl) cfg.financing.loanMonths = parseInt(plazoEl.value, 10) || 120;
-  if (tinEl) cfg.financing.loanTinPct = parseFloat(tinEl.value) || 5.95;
+  if (tinEl && !raIsSyncingLoanRates) {
+    cfg.financing.loanTinPct = parseFloat(tinEl.value) || 5.95;
+  }
   if (aperturaEl) cfg.financing.openingFeePct = parseFloat(aperturaEl.value) || 1.0;
   if (carenciaEl) cfg.financing.graceMonths = parseInt(carenciaEl.value, 10) || 0;
   if (seguroEl) cfg.financing.monthlyInsuranceEur = parseFloat(seguroEl.value) || 0;
   if (notariaEl) cfg.financing.notaryEur = parseFloat(notariaEl.value) || 0;
+
+  // Si cambia plazo o apertura y no estamos tecleando en TAE, refrescar TAE reflejada
+  if (!raIsSyncingLoanRates && taeEl && tinEl && plazoEl && aperturaEl) {
+    const curTin = parseFloat(tinEl.value) || 5.95;
+    const curMeses = parseInt(plazoEl.value, 10) || 120;
+    const curAp = parseFloat(aperturaEl.value) || 1.0;
+    const newTae = raComputeTaeFromTin(curTin, curMeses, curAp);
+    taeEl.value = newTae.toFixed(2);
+  }
 
   if (typeof window !== 'undefined' && window.solarProjectConfig) {
     window.solarProjectConfig.commercialConfig = cfg;
