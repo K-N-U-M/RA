@@ -2392,18 +2392,23 @@ function raNewProjectConfirm() {
     }
   });
 
-  // Atajo de teclado global Ctrl+S / Cmd+S
+  // Atajos de teclado globales Ctrl+B / Ctrl+S (respetando editores rich-text contenteditable)
   window.addEventListener('keydown', (e) => {
-    const isInput = (typeof isTextInputActive === 'function')
+    const active = (typeof document !== 'undefined') ? document.activeElement : null;
+    const isRichEditable = Boolean(
+      (e.target && (e.target.isContentEditable || (e.target.closest && e.target.closest('[contenteditable="true"]')))) ||
+      (active && (active.isContentEditable || (active.closest && active.closest('[contenteditable="true"]'))))
+    );
+    const isInput = isRichEditable || ((typeof isTextInputActive === 'function')
       ? isTextInputActive(e.target)
-      : (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable));
+      : (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT')));
     if (isInput) return;
-    if ((e.ctrlKey || e.metaKey) && e.key && e.key.toLowerCase() === 'b') {
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key && e.key.toLowerCase() === 'b') {
       e.preventDefault();
       if (typeof toggleSidebarCollapse === 'function') toggleSidebarCollapse();
       return;
     }
-    if ((e.ctrlKey || e.metaKey) && e.key && e.key.toLowerCase() === 's') {
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key && e.key.toLowerCase() === 's') {
       e.preventDefault();
       raSaveProjectToFile(false);
     }

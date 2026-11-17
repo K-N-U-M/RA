@@ -679,11 +679,10 @@
   // Atajo de teclado 'H' para conmutar el heatmap interactivo
   if (typeof document !== 'undefined') {
     document.addEventListener('keydown', function(e) {
-      if (e.target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
-      if (e.key === 'h' || e.key === 'H') {
-        if (!e.ctrlKey && !e.metaKey && !e.altKey) {
-          instance.toggle();
-        }
+      const t = e.target;
+      if (t && (['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName) || t.isContentEditable || (t.closest && t.closest('[contenteditable="true"]')))) return;
+      if ((e.key === 'h' || e.key === 'H') && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        instance.toggle();
       }
     });
   }

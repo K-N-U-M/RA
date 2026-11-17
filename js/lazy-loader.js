@@ -78,16 +78,29 @@
     },
 
     /**
+     * Carga bajo demanda la portada base64 por defecto para propuestas/dossiers.
+     */
+    loadDefaultCoverImage: async function() {
+      if (global.RA_DEFAULT_COVER_IMAGE) {
+        return global.RA_DEFAULT_COVER_IMAGE;
+      }
+      await loadScriptAsync('assets/default-cover-image.js?v=20261029a');
+      return global.RA_DEFAULT_COVER_IMAGE || null;
+    },
+
+    /**
      * Pre-carga silenciosa de fondo (Prefetch) en momentos de baja actividad de CPU.
      */
     prefetchStep5Dependencies: function() {
       if ('requestIdleCallback' in global) {
         global.requestIdleCallback(() => {
           RALazyLoader.loadJsPDF().catch(() => {});
+          RALazyLoader.loadDefaultCoverImage().catch(() => {});
         });
       } else {
         setTimeout(() => {
           RALazyLoader.loadJsPDF().catch(() => {});
+          RALazyLoader.loadDefaultCoverImage().catch(() => {});
         }, 1500);
       }
     }
@@ -96,5 +109,6 @@
   global.RALazyLoader = RALazyLoader;
   global.ensureJsPdfLoaded = () => RALazyLoader.loadJsPDF();
   global.ensureJSZipLoaded = () => RALazyLoader.loadJSZip();
+  global.ensureDefaultCoverLoaded = () => RALazyLoader.loadDefaultCoverImage();
 
 })(typeof window !== 'undefined' ? window : this);

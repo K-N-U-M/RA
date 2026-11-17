@@ -63,9 +63,9 @@
           }
           if (pCount === 0) {
             if (poly && Array.isArray(poly.panels) && poly.panels.length > 0) {
-              pCount = poly.panels.filter(function(p) { return p && !p.deleted; }).length;
+              pCount = poly.panels.filter(function(p) { return p && !p.deleted && !p.disabled; }).length;
             } else if (poly && poly.roofInfo && Array.isArray(poly.roofInfo.panels) && poly.roofInfo.panels.length > 0) {
-              pCount = poly.roofInfo.panels.filter(function(p) { return p && !p.deleted; }).length;
+              pCount = poly.roofInfo.panels.filter(function(p) { return p && !p.deleted && !p.disabled; }).length;
             } else if (poly && typeof poly.panelCount === 'number' && poly.panelCount > 0) {
               pCount = poly.panelCount;
             } else if (typeof global.computeSinglePolylineRoofInfo === 'function' && poly && Array.isArray(poly.points) && poly.points.length >= 3) {
@@ -73,25 +73,26 @@
                 const freshInfo = global.computeSinglePolylineRoofInfo(poly.points, poly);
                 if (freshInfo && Array.isArray(freshInfo.panels)) {
                   poly.roofInfo = freshInfo;
-                  pCount = freshInfo.panels.filter(function(p) { return p && !p.deleted; }).length;
+                  pCount = freshInfo.panels.filter(function(p) { return p && !p.deleted && !p.disabled; }).length;
                 }
               } catch(eRec) {}
             }
             activeCount = isDisabled ? 0 : pCount;
           }
-          let modW = (poly && poly.moduleConfig && (poly.moduleConfig.wp || poly.moduleConfig.potencia));
-          if (!modW && poly && poly.moduleId && global.equipmentCatalog && Array.isArray(global.equipmentCatalog.modules)) {
-            const polyMod = global.equipmentCatalog.modules.find(function(m) { return m.id === poly.moduleId; });
-            if (polyMod && (polyMod.wp || polyMod.potencia)) modW = polyMod.wp || polyMod.potencia;
+          // Resolución SSOT unificada (alineada con RAModulesBreakdown y BOMTreeEngine)
+          const effModId = (poly && (poly.moduleId || poly.assignedModuleId))
+            || (global.solarProjectConfig && global.solarProjectConfig.selectedModuleId)
+            || null;
+          let modW = 0;
+          if (global.RAModulesBreakdown && typeof global.RAModulesBreakdown.resolveModuleSpec === 'function') {
+            const spec = global.RAModulesBreakdown.resolveModuleSpec(effModId);
+            if (spec && (spec.wp || spec.potencia)) modW = spec.wp || spec.potencia;
           }
-          if (!modW && global.solarProjectConfig && global.solarProjectConfig.selectedModule && (global.solarProjectConfig.selectedModule.wp || global.solarProjectConfig.selectedModule.potencia)) {
-            modW = global.solarProjectConfig.selectedModule.wp || global.solarProjectConfig.selectedModule.potencia;
-          }
-          if (!modW && global.solarProjectConfig && global.solarProjectConfig.selectedModuleId && global.equipmentCatalog) {
+          if (!modW && effModId && global.equipmentCatalog) {
             const mod = (typeof global.equipmentCatalog.getModule === 'function')
-              ? global.equipmentCatalog.getModule(global.solarProjectConfig.selectedModuleId)
+              ? global.equipmentCatalog.getModule(effModId)
               : (Array.isArray(global.equipmentCatalog.modules)
-                  ? global.equipmentCatalog.modules.find(function(m) { return m.id === global.solarProjectConfig.selectedModuleId; })
+                  ? global.equipmentCatalog.modules.find(function(m) { return m.id === effModId; })
                   : null);
             if (mod && (mod.wp || mod.potencia)) modW = mod.wp || mod.potencia;
           }
@@ -99,7 +100,7 @@
             modW = global.panelConfig.wp || global.panelConfig.potencia;
           }
           if (!modW) modW = 450;
-  
+
           const kwp = (activeCount * modW) / 1000.0;
           const area = (poly && poly.area) || (poly && poly.roofInfo && poly.roofInfo.area3D) || 0;
           return { panelsCount: pCount, activeCount: activeCount, kwp: kwp, areaM2: area, modW: modW, panelsDisabled: isDisabled };
@@ -148,9 +149,9 @@
               totalKwp: 0.0
             };
 
-            // Faldones de este plano o del edificio
+            // Faldones de este plano o del edificio (evitando doble conteo en edificios multiplano)
             polylines.forEach(function(poly, polyIdx) {
-              if (poly && (poly.planeIdx === pIdx || poly.buildingId === bld.id)) {
+              if (poly && !assignedPolyIndices.has(polyIdx) && (poly.planeIdx === pIdx || ((typeof poly.planeIdx !== 'number' || poly.planeIdx < 0) && poly.buildingId === bld.id))) {
                 assignedPolyIndices.add(polyIdx);
                 const stats = getPolylineStats(poly, polyIdx);
                 pNode.panelsCount += stats.activeCount;
@@ -222,7 +223,7 @@
           };
 
           polylines.forEach(function(poly, polyIdx) {
-            if (poly && poly.planeIdx === pIdx) {
+            if (poly && !assignedPolyIndices.has(polyIdx) && poly.planeIdx === pIdx) {
               assignedPolyIndices.add(polyIdx);
               const stats = getPolylineStats(poly, polyIdx);
               pNode.panelsCount += stats.activeCount;

@@ -60,7 +60,10 @@
         ivaEUR: 0,
         totalFacturaEUR: 0,
         historicoMensualKWh: null,
+        historicoMensualEtiquetas: null,
+        consumoAnualLiteralKWh: null,
         consumoAnualEstimadoKWh: null,
+        annualSourceMode: null,
         diagnosticoIA: null,
         titular: { nombre: null, nif: null, direccion: null, cp: null, municipio: null, provincia: null, telefono: null, email: null },
         fuente: 'local',
@@ -243,7 +246,10 @@
         ivaEUR: parseFloat((totalEur * 0.21).toFixed(2)),
         totalFacturaEUR: parseFloat(totalEur.toFixed(2)),
         historicoMensualKWh: null,
+        historicoMensualEtiquetas: null,
+        consumoAnualLiteralKWh: null,
         consumoAnualEstimadoKWh: null,
+        annualSourceMode: null,
         diagnosticoIA: null,
         titular: { nombre: null, nif: null, direccion: null, cp: null, municipio: null, provincia: null, telefono: null, email: null },
         fuente: 'local'
@@ -268,8 +274,11 @@
           alquilerContadorEUR: obj.alquilerContadorEUR || 0.85,
           ivaEUR: obj.ivaEUR || 18,
           totalFacturaEUR: obj.totalFacturaEUR || 102.85,
-          historicoMensualKWh: obj.historicoMensualKWh || null,
+          historicoMensualKWh: Array.isArray(obj.historicoMensualKWh) ? obj.historicoMensualKWh : null,
+          historicoMensualEtiquetas: Array.isArray(obj.historicoMensualEtiquetas) ? obj.historicoMensualEtiquetas : null,
+          consumoAnualLiteralKWh: obj.consumoAnualLiteralKWh || null,
           consumoAnualEstimadoKWh: obj.consumoAnualEstimadoKWh || null,
+          annualSourceMode: obj.annualSourceMode || null,
           diagnosticoIA: obj.diagnosticoIA || null,
           titular: obj.titular || {
             nombre: obj.titularNombre || null,
@@ -408,13 +417,15 @@ Devuelve EXCLUSIVAMENTE un objeto JSON válido con la siguiente estructura exact
   "ivaEUR": 17.50,
   "totalFacturaEUR": 101.85,
   "historicoMensualKWh": null,
+  "historicoMensualEtiquetas": null,
+  "consumoAnualLiteralFacturaKWh": null,
   "consumoAnualEstimadoKWh": null,
   "diagnosticoIA": "Diagnóstico breve (máx 35 palabras) evaluando si la potencia está sobredimensionada y la competitividad del precio por kWh para amortización solar."
 }
 
 Normas estrictas:
-1. Si detectas el gráfico de barras de consumo mensual (los últimos 12 meses), extrae los 12 números de kWh en 'historicoMensualKWh' y su suma en 'consumoAnualEstimadoKWh'.
-2. Si la factura indica expresamente el dato de 'Consumo acumulado último año' o similar, asígnalo a 'consumoAnualEstimadoKWh'.
+1. Si detectas el gráfico de barras de consumo mensual (últimos 12 meses), extrae los valores numéricos mensuales (en kWh totales del mes, de izquierda a derecha, hasta 12 meses más recientes) en 'historicoMensualKWh' y sus etiquetas cortas de mes (ej. 'May', 'Jun') en 'historicoMensualEtiquetas'. NO incluyas barras repetidas si hay 13 columnas ni las promedies.
+2. Si la factura indica expresamente en texto un dato oficial de 'Consumo acumulado último año' o 'Consumo últimos 12 meses', asígnalo POR SEPARADO a 'consumoAnualLiteralFacturaKWh' (o null si no aparece escrito). En 'consumoAnualEstimadoKWh' pon el literal oficial si existe o la suma del gráfico.
 3. Los importes y consumos deben ser números flotantes limpios (no strings con símbolos).
 4. No inventes cifras. Si un dato no figura, usa 0 o null.
 5. Devuelve solo el JSON puro sin bloques markdown ni texto conversational.`;
@@ -503,14 +514,53 @@ Normas estrictas:
       if (!totalKwh && totalEur > 0) totalKwh = Math.round((totalEur * 0.70) / 0.18);
 
       let histArray = null;
+      let histTrimmed13 = false;
       if (Array.isArray(d.historicoMensualKWh) && d.historicoMensualKWh.length >= 6) {
-        histArray = d.historicoMensualKWh.map(v => parseFloat(v) || 0);
+        const cleanedHist = d.historicoMensualKWh
+          .map(v => parseFloat(v))
+          .filter(v => Number.isFinite(v) && v >= 0);
+        if (cleanedHist.length >= 6) {
+          if (cleanedHist.length > 12) {
+            histTrimmed13 = true;
+            histArray = cleanedHist.slice(cleanedHist.length - 12);
+          } else {
+            histArray = cleanedHist;
+          }
+        }
       }
 
-      let consumoAnualEst = parseFloat(d.consumoAnualEstimadoKWh) || 0;
-      if (!consumoAnualEst && histArray && histArray.length === 12) {
-        consumoAnualEst = histArray.reduce((acc, curr) => acc + curr, 0);
+      let histLabels = null;
+      if (Array.isArray(d.historicoMensualEtiquetas) && histArray) {
+        const rawLbl = d.historicoMensualEtiquetas.map(s => String(s || '').trim().slice(0, 8));
+        histLabels = rawLbl.length > histArray.length
+          ? rawLbl.slice(rawLbl.length - histArray.length)
+          : rawLbl;
       }
+
+      const rawLiteral = parseFloat(d.consumoAnualLiteralFacturaKWh);
+      const rawEstimado = parseFloat(d.consumoAnualEstimadoKWh);
+      const chartSum = histArray ? histArray.reduce((acc, curr) => acc + curr, 0) : 0;
+
+      // Separar consumo anual literal de texto vs suma visual de barras del gráfico
+      let literalKwh = (Number.isFinite(rawLiteral) && rawLiteral > 0) ? Math.round(rawLiteral) : null;
+      if (!literalKwh && Number.isFinite(rawEstimado) && rawEstimado > 0) {
+        if (!histArray || Math.abs(rawEstimado - chartSum) > 5) {
+          literalKwh = Math.round(rawEstimado);
+        }
+      }
+
+      let consumoAnualEst = literalKwh || 0;
+      if (!consumoAnualEst && histArray && histArray.length === 12) {
+        consumoAnualEst = Math.round(chartSum);
+      } else if (!consumoAnualEst && histArray && histArray.length >= 6) {
+        consumoAnualEst = Math.round((chartSum / histArray.length) * 12);
+      }
+
+      const initialSourceMode = literalKwh
+        ? 'literal'
+        : (histArray && histArray.length === 12
+            ? 'chart'
+            : (histArray && histArray.length >= 6 ? 'chart_partial' : 'extrapolated'));
 
       return {
         cups: d.cups ? String(d.cups).replace(/\s+/g, '').toUpperCase() : null,
@@ -572,7 +622,11 @@ Normas estrictas:
         ivaEUR: parseFloat(d.ivaEUR) || parseFloat((totalEur * 0.21).toFixed(2)),
         totalFacturaEUR: totalEur,
         historicoMensualKWh: histArray,
+        historicoMensualEtiquetas: histLabels,
+        histTrimmed13: histTrimmed13,
+        consumoAnualLiteralKWh: literalKwh,
         consumoAnualEstimadoKWh: consumoAnualEst > 0 ? Math.round(consumoAnualEst) : null,
+        annualSourceMode: initialSourceMode,
         diagnosticoIA: d.diagnosticoIA || null,
         titular: {
           nombre: d.titularNombre ? String(d.titularNombre).trim() : null,
@@ -588,6 +642,209 @@ Normas estrictas:
       };
     }
   };
+
+  /**
+   * Resuelve con trazabilidad completa cómo se obtiene el consumo anual de red acumulado (kWh/año),
+   * separando dato literal de factura, suma de gráfico de barras y extrapolación por días.
+   */
+  const SEASONAL_MONTH_WEIGHTS = [1.18, 1.12, 1.02, 0.92, 0.84, 0.88, 1.06, 1.02, 0.94, 0.94, 1.02, 1.16];
+  const MONTH_LABELS_ES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+  function _parseMonthLabelToIndex(lbl) {
+    if (!lbl) return -1;
+    const raw = String(lbl).trim().toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    if (!raw) return -1;
+    const keys = [
+      ['ene', 'jan'], ['feb'], ['mar'], ['abr', 'apr'], ['may'], ['jun'],
+      ['jul'], ['ago', 'aug'], ['sep', 'set'], ['oct'], ['nov'], ['dic', 'dec']
+    ];
+    for (let m = 0; m < keys.length; m++) {
+      for (let k = 0; k < keys[m].length; k++) {
+        if (raw.startsWith(keys[m][k]) || raw.indexOf(keys[m][k]) !== -1) return m;
+      }
+    }
+    const isoMatch = raw.match(/(?:^|\D)(?:20\d{2})[-/](0?[1-9]|1[0-2])(?:\D|$)/);
+    if (isoMatch) return parseInt(isoMatch[1], 10) - 1;
+    const slashMatch = raw.match(/^(0?[1-9]|1[0-2])[-/](?:\d{2}|\d{4})$/);
+    if (slashMatch) return parseInt(slashMatch[1], 10) - 1;
+    return -1;
+  }
+
+  /**
+   * Mapea historicoMensualKWh + etiquetas al calendario real Ene..Dic (12 valores en kWh).
+   */
+  function _resolveMonthlyCalendarConsumption(bill, targetAnnualKWh) {
+    const annualTarget = (Number.isFinite(targetAnnualKWh) && targetAnnualKWh > 0) ? targetAnnualKWh : 4500;
+    const rawHist = (bill && Array.isArray(bill.historicoMensualKWh))
+      ? bill.historicoMensualKWh.map(v => parseFloat(v))
+      : [];
+    const validEntries = rawHist.filter(v => Number.isFinite(v) && v >= 0);
+
+    if (validEntries.length === 0) {
+      const wSum = SEASONAL_MONTH_WEIGHTS.reduce((a, b) => a + b, 0);
+      return {
+        monthlyKWh: SEASONAL_MONTH_WEIGHTS.map(w => Math.round(annualTarget * (w / wSum))),
+        source: 'seasonal_weights',
+        hasMonthlyData: false
+      };
+    }
+
+    const labels = (bill && Array.isArray(bill.historicoMensualEtiquetas)) ? bill.historicoMensualEtiquetas : [];
+    const cal = new Array(12).fill(null);
+    let labelMatches = 0;
+    for (let i = 0; i < rawHist.length; i++) {
+      const val = rawHist[i];
+      if (!Number.isFinite(val) || val < 0) continue;
+      const mIdx = _parseMonthLabelToIndex(labels[i]);
+      if (mIdx >= 0 && mIdx < 12) {
+        cal[mIdx] = val;
+        labelMatches++;
+      }
+    }
+
+    const minMatchesRequired = Math.min(validEntries.length, 3);
+    if (labelMatches < minMatchesRequired) {
+      for (let m = 0; m < 12; m++) cal[m] = null;
+      const limit = Math.min(12, rawHist.length);
+      for (let i = 0; i < limit; i++) {
+        if (Number.isFinite(rawHist[i]) && rawHist[i] >= 0) cal[i] = rawHist[i];
+      }
+    }
+
+    let sumKnown = 0;
+    let knownCount = 0;
+    let missingWeightSum = 0;
+    for (let m = 0; m < 12; m++) {
+      if (typeof cal[m] === 'number' && Number.isFinite(cal[m])) {
+        sumKnown += cal[m];
+        knownCount++;
+      } else {
+        missingWeightSum += SEASONAL_MONTH_WEIGHTS[m];
+      }
+    }
+
+    if (knownCount < 12 && missingWeightSum > 0) {
+      const residual = Math.max(0, annualTarget - sumKnown);
+      const fallbackTotal = residual > 0 ? residual : (sumKnown > 0 ? (sumKnown / Math.max(knownCount, 1)) * (12 - knownCount) : annualTarget);
+      for (let m = 0; m < 12; m++) {
+        if (cal[m] === null) {
+          cal[m] = fallbackTotal * (SEASONAL_MONTH_WEIGHTS[m] / missingWeightSum);
+        }
+      }
+    }
+
+    const sumCal = cal.reduce((a, b) => a + (Number.isFinite(b) ? b : 0), 0);
+    // Si el anual objetivo coincide con la suma mensual editada ('chart'), preservar valores exactos kWh a kWh;
+    // si viene de literal de factura distinto (>2%), escalar manteniendo la forma horaria/estacional exacta.
+    const needsScale = (sumCal > 0 && annualTarget > 0 && Math.abs(sumCal - annualTarget) > Math.max(12, annualTarget * 0.015));
+    const scaleFactor = needsScale ? (annualTarget / sumCal) : 1.0;
+
+    return {
+      monthlyKWh: cal.map(v => Math.max(0, Math.round((Number.isFinite(v) ? v : 0) * scaleFactor))),
+      source: knownCount >= 12 ? 'bill_monthly' : 'bill_partial',
+      hasMonthlyData: true
+    };
+  }
+
+  function _syncMonthlyConsumptionSSOT(bill, comp) {
+    if (typeof window === 'undefined') return;
+    if (!window.solarProjectConfig) window.solarProjectConfig = {};
+    const targetAnnual = (comp && comp.consumoAnualKWh > 0) ? comp.consumoAnualKWh : 4500;
+    const trace = _resolveMonthlyCalendarConsumption(bill, targetAnnual);
+    if (bill) bill._resolvedMonthlyKWh = trace.monthlyKWh.slice();
+    if (trace.hasMonthlyData) {
+      window.solarProjectConfig.billMonthlyConsumptionKWh = {
+        monthlyKWh: trace.monthlyKWh.slice(),
+        source: trace.source,
+        labels: (bill && Array.isArray(bill.historicoMensualEtiquetas)) ? bill.historicoMensualEtiquetas.slice() : MONTH_LABELS_ES.slice(),
+        historicoMensualKWh: (bill && Array.isArray(bill.historicoMensualKWh)) ? bill.historicoMensualKWh.slice() : null,
+        updatedAt: Date.now()
+      };
+    } else if (window.solarProjectConfig.billMonthlyConsumptionKWh) {
+      delete window.solarProjectConfig.billMonthlyConsumptionKWh;
+    }
+    return trace;
+  }
+
+  function _resolveAnnualGridConsumption(bill) {
+    const days = Math.max(parseInt(bill && bill.diasFactura, 10) || 30, 1);
+    const factorAnual = 365.0 / days;
+    const periodKwh = Math.max(0, parseFloat(bill && bill.consumosKWh && bill.consumosKWh.total) || 0);
+    const extrapolatedKWh = periodKwh > 0 ? Math.round(periodKwh * factorAnual) : 0;
+
+    const rawHist = (bill && Array.isArray(bill.historicoMensualKWh))
+      ? bill.historicoMensualKWh.map(v => parseFloat(v)).filter(v => Number.isFinite(v) && v >= 0)
+      : [];
+    const chartMonthsCount = rawHist.length;
+    const chartRawSum = rawHist.reduce((a, b) => a + b, 0);
+    const chartAnnualKWh = chartMonthsCount >= 12
+      ? Math.round(chartRawSum)
+      : (chartMonthsCount >= 6 ? Math.round((chartRawSum / chartMonthsCount) * 12) : 0);
+
+    const literalKWh = (bill && Number.isFinite(parseFloat(bill.consumoAnualLiteralKWh)) && parseFloat(bill.consumoAnualLiteralKWh) > 0)
+      ? Math.round(parseFloat(bill.consumoAnualLiteralKWh))
+      : ((bill && Number.isFinite(parseFloat(bill.consumoAnualEstimadoKWh)) && parseFloat(bill.consumoAnualEstimadoKWh) > 0 && chartMonthsCount === 0)
+          ? Math.round(parseFloat(bill.consumoAnualEstimadoKWh))
+          : 0);
+
+    const hasBothHistorical = (literalKWh > 0 && chartAnnualKWh > 0);
+    const discrepancyPct = hasBothHistorical
+      ? Math.round((Math.abs(chartAnnualKWh - literalKWh) / Math.max(literalKWh, 1)) * 1000) / 10
+      : 0;
+    const hasDiscrepancy = hasBothHistorical && discrepancyPct > 5.0;
+
+    let mode = (bill && bill.annualSourceMode) || null;
+    if (mode === 'literal' && literalKWh <= 0) mode = null;
+    if (mode === 'chart' && chartMonthsCount < 12) mode = chartMonthsCount >= 6 ? 'chart_partial' : null;
+    if (mode === 'chart_partial' && chartMonthsCount < 6) mode = null;
+    if (mode === 'extrapolated' && extrapolatedKWh <= 0 && !periodKwh) mode = null;
+
+    if (!mode) {
+      if (literalKWh > 0) mode = 'literal';
+      else if (chartMonthsCount >= 12) mode = 'chart';
+      else if (chartMonthsCount >= 6) mode = 'chart_partial';
+      else if (extrapolatedKWh > 0) mode = 'extrapolated';
+      else mode = 'fallback';
+    }
+
+    let annualKWh = 4500;
+    let badgeLabel = 'Estimación base';
+    let formulaText = 'Sin consumo facturado ni histórico; referencia base de 4.500 kWh/año.';
+
+    if (mode === 'literal') {
+      annualKWh = literalKWh;
+      badgeLabel = 'Literal factura';
+      formulaText = 'Dato explícito leído en factura ("últimos 12 meses"): ' + literalKWh.toLocaleString('es-ES') + ' kWh/año.';
+    } else if (mode === 'chart') {
+      annualKWh = chartAnnualKWh;
+      badgeLabel = 'Gráfico 12m';
+      formulaText = 'Suma exacta de las ' + chartMonthsCount + ' barras mensuales = ' + chartAnnualKWh.toLocaleString('es-ES') + ' kWh/año' + (bill.histTrimmed13 ? ' (recortado a los últimos 12 meses).' : '.');
+    } else if (mode === 'chart_partial') {
+      annualKWh = chartAnnualKWh;
+      badgeLabel = 'Media ' + chartMonthsCount + 'm';
+      formulaText = 'Media anualizada de ' + chartMonthsCount + ' barras: ' + Math.round(chartRawSum).toLocaleString('es-ES') + ' kWh ÷ ' + chartMonthsCount + ' × 12 = ' + chartAnnualKWh.toLocaleString('es-ES') + ' kWh/año.';
+    } else if (mode === 'extrapolated' && extrapolatedKWh > 0) {
+      annualKWh = extrapolatedKWh;
+      badgeLabel = 'Extrapolado (' + days + 'd)';
+      formulaText = 'Regla de tres del periodo actual: ' + Math.round(periodKwh).toLocaleString('es-ES') + ' kWh ÷ ' + days + ' días × 365 = ' + extrapolatedKWh.toLocaleString('es-ES') + ' kWh/año.';
+    }
+
+    return {
+      annualKWh: Math.round(annualKWh),
+      mode: mode,
+      badgeLabel: badgeLabel,
+      formulaText: formulaText,
+      literalKWh: literalKWh,
+      chartAnnualKWh: chartAnnualKWh,
+      chartRawSum: Math.round(chartRawSum),
+      chartMonthsCount: chartMonthsCount,
+      extrapolatedKWh: extrapolatedKWh,
+      hasBothHistorical: hasBothHistorical,
+      discrepancyPct: discrepancyPct,
+      hasDiscrepancy: hasDiscrepancy
+    };
+  }
 
   /**
    * 2. MOTOR DE COMPARATIVA FOTOVOLTAICA (BEFORE VS AFTER SOLAR)
@@ -612,10 +869,12 @@ Normas estrictas:
     const days = bill.diasFactura || 30;
     const factorAnual = 365.0 / Math.max(days, 1);
 
-    // [SSOT Precisión]: Si la IA o factura extrajo consumo anual histórico real, usarlo directamente
-    const consumoAnualKWh = (bill.consumoAnualEstimadoKWh && bill.consumoAnualEstimadoKWh > 0)
-      ? bill.consumoAnualEstimadoKWh
-      : (bill.consumosKWh.total > 0 ? (bill.consumosKWh.total * factorAnual) : 4500);
+    // [SSOT Trazabilidad]: Separar literal de factura, suma de gráfico de barras y extrapolación por días
+    const annualTrace = _resolveAnnualGridConsumption(bill);
+    const consumoAnualKWh = annualTrace.annualKWh;
+    const monthlyTrace = _resolveMonthlyCalendarConsumption(bill, consumoAnualKWh);
+    bill._resolvedMonthlyKWh = monthlyTrace.monthlyKWh.slice();
+    BILL_AUDITOR_STATE.currentBill = bill;
 
     const gastoAnualActualEUR = bill.totalFacturaEUR > 0 ? (bill.totalFacturaEUR * factorAnual) : (consumoAnualKWh * 0.22);
     const gastoMensualActualEUR = gastoAnualActualEUR / 12.0;
@@ -663,8 +922,29 @@ Normas estrictas:
       balanceNetoConFinanciacion = ahorroMensualEUR - cuotaFinanciacionMensual;
     }
 
+    const titOut = bill.titular || {};
+    const potMaxKW = Math.max(
+      (bill.potenciasContratadasKW && bill.potenciasContratadasKW.p1) || 0,
+      (bill.potenciasContratadasKW && bill.potenciasContratadasKW.p2) || 0
+    );
+
     return {
       consumoAnualKWh: Math.round(consumoAnualKWh),
+      annualTrace: annualTrace,
+      monthlyConsumptionKWh: monthlyTrace.monthlyKWh.slice(),
+      monthlyConsumptionSource: monthlyTrace.source,
+      titular: titOut.nombre || '',
+      cifNif: titOut.nif || '',
+      telefono: titOut.telefono || '',
+      email: titOut.email || '',
+      direccionSuministro: titOut.direccion || '',
+      municipio: titOut.municipio || '',
+      provincia: titOut.provincia || '',
+      cp: titOut.cp || '',
+      cups: bill.cups || '',
+      distribuidora: bill.distribuidora || '',
+      potenciaContratadaP1: potMaxKW,
+      precioMedioKWh: Number(precioMedioCompra.toFixed(4)),
       gastoAnualActualEUR: Math.round(gastoAnualActualEUR),
       gastoMensualActualEUR: Math.round(gastoMensualActualEUR),
       gastoAnualConSolarEUR: Math.round(gastoAnualConSolarEUR),
@@ -817,13 +1097,26 @@ Normas estrictas:
                   </div>
                 </div>
 
-                <!-- Tarjeta de Histórico Anual Proyectado -->
-                <div id="bill-ai-history-card" style="display:none;background:linear-gradient(135deg, rgba(14,165,233,0.15), rgba(16,185,129,0.1));border:1px solid rgba(14,165,233,0.35);border-radius:6px;padding:6px 10px;justify-content:space-between;align-items:center;">
-                  <div style="display:flex;align-items:center;gap:6px;">
-                    <span style="font-size:12px;">📊</span>
-                    <span style="font-size: 10px;font-weight:700;color:#7dd3fc;">Histórico Anual Detectado en Factura:</span>
+                <!-- Tarjeta Transparente de Trazabilidad del Consumo Anual de Red -->
+                <div id="bill-ai-history-card" style="display:none;flex-direction:column;gap:6px;background:linear-gradient(135deg, rgba(14,165,233,0.14), rgba(16,185,129,0.08));border:1px solid rgba(14,165,233,0.35);border-radius:7px;padding:8px 10px;">
+                  <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;">
+                    <div style="display:flex;align-items:center;gap:6px;">
+                      <span style="font-size:12px;">📊</span>
+                      <span style="font-size:10px;font-weight:800;color:#e0f2fe;">Consumo Anual Acumulado:</span>
+                      <span id="bill-annual-source-pill" style="font-size:9px;font-weight:800;padding:1px 6px;border-radius:4px;background:rgba(56,189,248,0.2);border:1px solid rgba(56,189,248,0.45);color:#7dd3fc;">--</span>
+                    </div>
+                    <span id="bill-ai-history-kwh" style="font-size:12px;font-weight:900;color:#38bdf8;">0 kWh/año</span>
                   </div>
-                  <span id="bill-ai-history-kwh" style="font-size:11px;font-weight:900;color:#38bdf8;">0 kWh/año</span>
+                  <div id="bill-annual-formula-text" style="font-size:9.5px;color:#cbd5e1;line-height:1.35;">--</div>
+                  <div id="bill-annual-discrepancy-alert" style="display:none;background:rgba(245,158,11,0.14);border:1px solid rgba(245,158,11,0.45);border-radius:5px;padding:5px 8px;font-size:9.5px;color:#fde68a;line-height:1.35;"></div>
+                  <div id="bill-annual-mode-switch" style="display:none;flex-wrap:wrap;gap:4px;"></div>
+                  <div id="bill-monthly-bars-wrap" style="display:none;flex-direction:column;gap:4px;border-top:1px dashed rgba(255,255,255,0.14);padding-top:6px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;font-size:9px;color:#94a3b8;font-weight:700;">
+                      <span>MESES EXTRAÍDOS DEL GRÁFICO (EDITABLES EN kWh):</span>
+                      <span id="bill-monthly-bars-sum" style="color:#38bdf8;font-weight:800;">0 kWh</span>
+                    </div>
+                    <div id="bill-monthly-bars-strip" style="display:grid;grid-template-columns:repeat(6, minmax(0, 1fr));gap:4px;"></div>
+                  </div>
                 </div>
 
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
@@ -927,7 +1220,10 @@ Normas estrictas:
                       <td id="table-val-anual-con" style="text-align:right;padding:4px;font-weight:700;color:#10b981;">420 €</td>
                     </tr>
                     <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
-                      <td style="padding:4px;">Consumo Red (kWh/año)</td>
+                      <td style="padding:4px;">
+                        <div>Consumo Red (kWh/año)</div>
+                        <div id="table-val-kwh-source" style="font-size:8.5px;color:#7dd3fc;opacity:0.85;">--</div>
+                      </td>
                       <td id="table-val-kwh-sin" style="text-align:right;padding:4px;">5.450 kWh</td>
                       <td id="table-val-kwh-con" style="text-align:right;padding:4px;color:#38bdf8;">1.635 kWh</td>
                     </tr>
@@ -1028,6 +1324,178 @@ Normas estrictas:
     wrap.innerHTML = svgHTML;
   }
 
+  function _renderAnnualProvenanceUI(bill, comp) {
+    const histCard = document.getElementById('bill-ai-history-card');
+    if (!histCard) return;
+
+    const trace = (comp && comp.annualTrace) ? comp.annualTrace : _resolveAnnualGridConsumption(bill);
+    histCard.style.display = 'flex';
+
+    const pillEl = document.getElementById('bill-annual-source-pill');
+    const histText = document.getElementById('bill-ai-history-kwh');
+    const formulaEl = document.getElementById('bill-annual-formula-text');
+    const alertEl = document.getElementById('bill-annual-discrepancy-alert');
+    const switchEl = document.getElementById('bill-annual-mode-switch');
+    const barsWrap = document.getElementById('bill-monthly-bars-wrap');
+    const barsStrip = document.getElementById('bill-monthly-bars-strip');
+    const barsSumEl = document.getElementById('bill-monthly-bars-sum');
+
+    if (pillEl) pillEl.textContent = trace.badgeLabel || '--';
+    if (histText) histText.textContent = trace.annualKWh.toLocaleString('es-ES') + ' kWh/año';
+    if (formulaEl) formulaEl.textContent = trace.formulaText || '';
+
+    if (alertEl) {
+      if (trace.hasDiscrepancy) {
+        alertEl.style.display = 'block';
+        alertEl.textContent = '⚠️ Discrepancia del ' + trace.discrepancyPct.toFixed(1) + '% entre fuentes: Factura literal (' + trace.literalKWh.toLocaleString('es-ES') + ' kWh) vs Gráfico de barras (' + trace.chartAnnualKWh.toLocaleString('es-ES') + ' kWh). Revisa o edita los meses abajo.';
+      } else {
+        alertEl.style.display = 'none';
+        alertEl.textContent = '';
+      }
+    }
+
+    if (switchEl) {
+      while (switchEl.firstChild) switchEl.removeChild(switchEl.firstChild);
+      const options = [];
+      if (trace.literalKWh > 0) {
+        options.push({ id: 'literal', label: 'Usar literal (' + trace.literalKWh.toLocaleString('es-ES') + ')' });
+      }
+      if (trace.chartMonthsCount >= 6) {
+        const chartMode = trace.chartMonthsCount >= 12 ? 'chart' : 'chart_partial';
+        options.push({ id: chartMode, label: 'Usar gráfico (' + trace.chartAnnualKWh.toLocaleString('es-ES') + ')' });
+      }
+      if (trace.extrapolatedKWh > 0) {
+        options.push({ id: 'extrapolated', label: 'Extrapolar periodo (' + trace.extrapolatedKWh.toLocaleString('es-ES') + ')' });
+      }
+
+      if (options.length > 1) {
+        switchEl.style.display = 'flex';
+        options.forEach(opt => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.textContent = opt.label;
+          const isActive = (trace.mode === opt.id);
+          btn.style.cssText = 'font-size:9px;font-weight:800;padding:2px 7px;border-radius:4px;cursor:pointer;border:1px solid ' +
+            (isActive ? '#38bdf8' : 'rgba(255,255,255,0.2)') + ';background:' +
+            (isActive ? 'rgba(56,189,248,0.25)' : 'rgba(0,0,0,0.35)') + ';color:' +
+            (isActive ? '#e0f2fe' : '#cbd5e1') + ';';
+          btn.onclick = () => {
+            bill.annualSourceMode = opt.id;
+            BILL_AUDITOR_STATE.comparison = computeComparison(bill);
+            updateModalUI(bill, BILL_AUDITOR_STATE.comparison);
+          };
+          switchEl.appendChild(btn);
+        });
+      } else {
+        switchEl.style.display = 'none';
+      }
+    }
+
+    function _applyComparisonToSummaryDOM(c, b) {
+      if (!c) return;
+      const traceC = c.annualTrace || _resolveAnnualGridConsumption(b);
+      if (pillEl) pillEl.textContent = traceC.badgeLabel || '--';
+      if (histText) histText.textContent = traceC.annualKWh.toLocaleString('es-ES') + ' kWh/año';
+      if (formulaEl) formulaEl.textContent = traceC.formulaText || '';
+      const ahorroAnualEl = document.getElementById('bill-resumen-ahorro-anual');
+      if (ahorroAnualEl) ahorroAnualEl.textContent = c.ahorroAnualEUR.toLocaleString('es-ES') + ' € / año';
+      const ahorroMesEl = document.getElementById('bill-resumen-ahorro-mes');
+      if (ahorroMesEl) ahorroMesEl.textContent = c.ahorroMensualEUR.toLocaleString('es-ES') + ' € / mes de reducción';
+      const pctAhorroEl = document.getElementById('bill-resumen-pct-ahorro');
+      if (pctAhorroEl) pctAhorroEl.textContent = '-' + c.porcentajeAhorro + '%';
+      const autarquiaEl = document.getElementById('bill-resumen-autarquia');
+      if (autarquiaEl) autarquiaEl.textContent = 'Autarquía: ' + c.autarquiaPct + '%';
+      const kwhSin = document.getElementById('table-val-kwh-sin');
+      if (kwhSin) kwhSin.textContent = c.consumoAnualKWh.toLocaleString('es-ES') + ' kWh';
+      const kwhCon = document.getElementById('table-val-kwh-con');
+      if (kwhCon) kwhCon.textContent = Math.round(c.consumoAnualKWh * (1 - c.autarquiaPct / 100)).toLocaleString('es-ES') + ' kWh';
+      renderComparisonSVG(c);
+    }
+
+    if (barsWrap && barsStrip) {
+      const histArr = Array.isArray(bill.historicoMensualKWh) ? bill.historicoMensualKWh : [];
+      barsWrap.style.display = 'flex';
+      while (barsStrip.firstChild) barsStrip.removeChild(barsStrip.firstChild);
+
+      if (histArr.length >= 1) {
+        barsStrip.style.gridTemplateColumns = 'repeat(6, minmax(0, 1fr))';
+        if (barsSumEl) {
+          const sumVal = Math.round(histArr.reduce((a, b) => a + (parseFloat(b) || 0), 0));
+          barsSumEl.textContent = sumVal.toLocaleString('es-ES') + ' kWh (' + histArr.length + 'm)';
+        }
+        const labels = Array.isArray(bill.historicoMensualEtiquetas) ? bill.historicoMensualEtiquetas : [];
+
+        histArr.forEach((val, idx) => {
+          const cell = document.createElement('div');
+          cell.style.cssText = 'display:flex;flex-direction:column;gap:2px;background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.12);border-radius:4px;padding:3px 4px;';
+          const lbl = document.createElement('span');
+          lbl.textContent = (labels[idx] && String(labels[idx]).trim()) ? String(labels[idx]).trim() : (MONTH_LABELS_ES[idx] || ('M' + (idx + 1)));
+          lbl.style.cssText = 'font-size:8px;color:#94a3b8;font-weight:700;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+          const inp = document.createElement('input');
+          inp.type = 'number';
+          inp.min = '0';
+          inp.step = '1';
+          inp.value = Math.round(parseFloat(val) || 0);
+          inp.style.cssText = 'width:100%;box-sizing:border-box;background:transparent;border:none;border-top:1px solid rgba(255,255,255,0.08);color:#38bdf8;font-size:9.5px;font-weight:800;text-align:center;padding:2px 0;outline:none;';
+
+          const _applyMonthInputChange = (fullRefresh) => {
+            const newVal = Math.max(0, parseFloat(inp.value) || 0);
+            bill.historicoMensualKWh[idx] = Math.round(newVal);
+            bill.annualSourceMode = (bill.historicoMensualKWh.length >= 12) ? 'chart' : 'chart_partial';
+            const updatedSum = Math.round(bill.historicoMensualKWh.reduce((a, b) => a + (parseFloat(b) || 0), 0));
+            bill.consumoAnualEstimadoKWh = (bill.historicoMensualKWh.length >= 12)
+              ? updatedSum
+              : Math.round((updatedSum / bill.historicoMensualKWh.length) * 12);
+            if (barsSumEl) {
+              barsSumEl.textContent = updatedSum.toLocaleString('es-ES') + ' kWh (' + bill.historicoMensualKWh.length + 'm)';
+            }
+            BILL_AUDITOR_STATE.comparison = computeComparison(bill);
+            _syncMonthlyConsumptionSSOT(bill, BILL_AUDITOR_STATE.comparison);
+            if (fullRefresh) {
+              updateModalUI(bill, BILL_AUDITOR_STATE.comparison);
+              if (typeof window.renderSolarBarChart === 'function' && Array.isArray(window.lastMonthlyYields)) {
+                window.renderSolarBarChart(window.lastMonthlyYields);
+              }
+              if (typeof window.dispatchEvent === 'function') {
+                try { window.dispatchEvent(new CustomEvent('ra-project-changed', { detail: { reason: 'bill_monthly_updated' } })); } catch (eEv) {}
+              }
+            } else {
+              _applyComparisonToSummaryDOM(BILL_AUDITOR_STATE.comparison, bill);
+            }
+          };
+
+          inp.oninput = () => _applyMonthInputChange(false);
+          inp.onchange = () => _applyMonthInputChange(true);
+          cell.appendChild(lbl);
+          cell.appendChild(inp);
+          barsStrip.appendChild(cell);
+        });
+      } else {
+        barsStrip.style.gridTemplateColumns = '1fr';
+        if (barsSumEl) barsSumEl.textContent = 'Sin desglose';
+        const seedBtn = document.createElement('button');
+        seedBtn.type = 'button';
+        seedBtn.textContent = '📅 Introducir consumos mensuales (Ene–Dic)';
+        seedBtn.style.cssText = 'width:100%;font-size:10px;font-weight:800;padding:6px 10px;border-radius:5px;cursor:pointer;border:1px dashed rgba(56,189,248,0.5);background:rgba(14,165,233,0.12);color:#7dd3fc;';
+        seedBtn.onclick = () => {
+          const baseAnnual = (trace && trace.annualKWh > 0) ? trace.annualKWh : 4500;
+          const seeded = _resolveMonthlyCalendarConsumption(null, baseAnnual);
+          bill.historicoMensualKWh = seeded.monthlyKWh.slice();
+          bill.historicoMensualEtiquetas = MONTH_LABELS_ES.slice();
+          bill.consumoAnualEstimadoKWh = bill.historicoMensualKWh.reduce((a, b) => a + b, 0);
+          bill.annualSourceMode = 'chart';
+          BILL_AUDITOR_STATE.comparison = computeComparison(bill);
+          _syncMonthlyConsumptionSSOT(bill, BILL_AUDITOR_STATE.comparison);
+          updateModalUI(bill, BILL_AUDITOR_STATE.comparison);
+          if (typeof window.renderSolarBarChart === 'function' && Array.isArray(window.lastMonthlyYields)) {
+            window.renderSolarBarChart(window.lastMonthlyYields);
+          }
+        };
+        barsStrip.appendChild(seedBtn);
+      }
+    }
+  }
+
   /**
    * 5. ACTUALIZAR INTERFAZ DEL MODAL CON LOS DATOS DE FACTURA
    */
@@ -1072,17 +1540,9 @@ Normas estrictas:
       }
     }
 
-    // Tarjeta Histórico 12 Meses
-    const histCard = document.getElementById('bill-ai-history-card');
-    const histText = document.getElementById('bill-ai-history-kwh');
-    if (histCard && histText) {
-      if (bill.consumoAnualEstimadoKWh && bill.consumoAnualEstimadoKWh > 0) {
-        histText.textContent = bill.consumoAnualEstimadoKWh.toLocaleString('es-ES') + ' kWh/año';
-        histCard.style.display = 'flex';
-      } else {
-        histCard.style.display = 'none';
-      }
-    }
+    // Tarjeta Transparente de Trazabilidad del Consumo Anual
+    _renderAnnualProvenanceUI(bill, comp);
+    _syncMonthlyConsumptionSSOT(bill, comp);
 
     const tit = bill.titular || {};
     const titBlock = document.getElementById('bill-titular-block');
@@ -1097,6 +1557,11 @@ Normas estrictas:
     fillTit('bill-edit-tit-cp', tit.cp);
     fillTit('bill-edit-tit-mun', tit.municipio);
     fillTit('bill-edit-tit-prov', tit.provincia);
+
+    // Sincronización automática ligera con #doc-* y solarProjectConfig cuando llega una factura real
+    if (bill.fuente === 'ia' || bill.fuente === 'local') {
+      _syncBillClientToDocFields(bill, false);
+    }
 
     const cupsEl = document.getElementById('bill-edit-cups');
     if (cupsEl && bill.cups) cupsEl.value = bill.cups;
@@ -1153,6 +1618,11 @@ Normas estrictas:
 
       const kwhSin = document.getElementById('table-val-kwh-sin');
       if (kwhSin) kwhSin.textContent = comp.consumoAnualKWh.toLocaleString('es-ES') + ' kWh';
+
+      const kwhSourceEl = document.getElementById('table-val-kwh-source');
+      if (kwhSourceEl && comp.annualTrace) {
+        kwhSourceEl.textContent = '[' + comp.annualTrace.badgeLabel + '] ' + comp.annualTrace.formulaText;
+      }
 
       const kwhCon = document.getElementById('table-val-kwh-con');
       if (kwhCon) kwhCon.textContent = Math.round(comp.consumoAnualKWh * (1 - comp.autarquiaPct / 100)).toLocaleString('es-ES') + ' kWh';
@@ -1424,8 +1894,11 @@ Normas estrictas:
         const priceP1 = parseFloat(document.getElementById('bill-edit-price-p1').value) || 0.20;
         const priceP3 = parseFloat(document.getElementById('bill-edit-price-p3').value) || 0.11;
 
-        // Conservar diagnóstico y consumo anual previo si existían
+        // Conservar histórico/literal previo; si el usuario modificó kWh o días del periodo, conmutar a extrapolado para que el cambio surta efecto inmediato
         const prev = BILL_AUDITOR_STATE.currentBill || {};
+        const prevKwh = (prev.consumosKWh && prev.consumosKWh.total) || 0;
+        const prevDays = prev.diasFactura || 30;
+        const periodChanged = (Math.abs(prevKwh - kwh) > 0.5) || (prevDays !== days);
 
         BILL_AUDITOR_STATE.currentBill = {
           cups: cups,
@@ -1440,7 +1913,11 @@ Normas estrictas:
           costeEnergiaEUR: parseFloat((total * 0.65).toFixed(2)),
           totalFacturaEUR: total,
           historicoMensualKWh: prev.historicoMensualKWh || null,
+          historicoMensualEtiquetas: prev.historicoMensualEtiquetas || null,
+          histTrimmed13: Boolean(prev.histTrimmed13),
+          consumoAnualLiteralKWh: prev.consumoAnualLiteralKWh || null,
           consumoAnualEstimadoKWh: prev.consumoAnualEstimadoKWh || null,
+          annualSourceMode: periodChanged ? 'extrapolated' : (prev.annualSourceMode || null),
           diagnosticoIA: prev.diagnosticoIA || null,
           titular: collectTitularFromModal(),
           fuente: 'manual'
@@ -1462,6 +1939,26 @@ Normas estrictas:
         applyBillToBudget();
         closeModal();
       };
+    }
+
+    // Sincronizar edición en vivo de campos de titular y CUPS hacia currentBill y #doc-*
+    ['nombre', 'nif', 'tel', 'email', 'dir', 'cp', 'mun', 'prov'].forEach((k) => {
+      const inp = document.getElementById('bill-edit-tit-' + k);
+      if (!inp) return;
+      inp.addEventListener('input', () => {
+        if (!BILL_AUDITOR_STATE.currentBill) return;
+        BILL_AUDITOR_STATE.currentBill.titular = collectTitularFromModal();
+        BILL_AUDITOR_STATE.comparison = computeComparison(BILL_AUDITOR_STATE.currentBill);
+        _syncBillClientToDocFields(BILL_AUDITOR_STATE.currentBill, true);
+      });
+    });
+    const cupsEditEl = document.getElementById('bill-edit-cups');
+    if (cupsEditEl) {
+      cupsEditEl.addEventListener('input', () => {
+        if (!BILL_AUDITOR_STATE.currentBill) return;
+        BILL_AUDITOR_STATE.currentBill.cups = cupsEditEl.value.trim();
+        _syncBillClientToDocFields(BILL_AUDITOR_STATE.currentBill, true);
+      });
     }
   }
 
@@ -1607,13 +2104,88 @@ Normas estrictas:
     };
   }
 
+  function _isDocTemplateDefault(id, val, el) {
+    const clean = String(val || '').trim();
+    if (!clean) return true;
+    if (el && el.defaultValue && clean === String(el.defaultValue).trim()) return true;
+    return /^(PROPIETARIO EJEMPLO S\.?L\.?|Titular de la Instalación|B12345678|XXXXXXXXX|\+34 600 123 456|contacto@empresa\.es|Pol[íi]gono Industrial Sur, Parcela 12|ES00210000XXXXXXXXXX|ES0021000000000000XX|Madrid|28001)$/i.test(clean);
+  }
+
+  function _syncBillClientToDocFields(bill, overwriteNonEmpty) {
+    if (!bill || typeof document === 'undefined') return;
+    const tit = bill.titular || {};
+    const setDocField = (id, value, clearIfTemplateOnly) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const cur = String(el.value || '').trim();
+      const isTpl = _isDocTemplateDefault(id, cur, el);
+      if (value && (overwriteNonEmpty || isTpl)) {
+        el.value = value;
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      } else if (!value && clearIfTemplateOnly && isTpl) {
+        // Evitar dejar datos falsos de demo (e.g. PROPIETARIO EJEMPLO / 28001) cuando hay una factura real cargada sin ese campo
+        el.value = '';
+      }
+    };
+
+    const hasRealBill = (bill.fuente === 'ia' || bill.fuente === 'local');
+    setDocField('doc-cups', bill.cups, hasRealBill);
+    setDocField('doc-nombre', tit.nombre, hasRealBill);
+    setDocField('doc-nif', tit.nif, hasRealBill);
+    setDocField('doc-tel', tit.telefono, hasRealBill);
+    setDocField('doc-email', tit.email, hasRealBill);
+    setDocField('doc-dir', tit.direccion, hasRealBill);
+    setDocField('doc-mun', tit.municipio, hasRealBill);
+    setDocField('doc-prov', tit.provincia, hasRealBill);
+    setDocField('doc-cp', tit.cp, hasRealBill);
+
+    const potP1 = (bill.potenciasContratadasKW && bill.potenciasContratadasKW.p1) || 0;
+    const potP2 = (bill.potenciasContratadasKW && bill.potenciasContratadasKW.p2) || 0;
+    const potContrReal = Math.max(potP1, potP2);
+    if (potContrReal > 0) {
+      setDocField('doc-potcontr', String(Math.round(potContrReal * 100) / 100), false);
+    }
+
+    if (bill.distribuidora && bill.distribuidora !== 'Desconocida') {
+      const distEl = document.getElementById('doc-dist');
+      if (distEl && distEl.tagName === 'SELECT' && (overwriteNonEmpty || distEl.selectedIndex === 0)) {
+        const needle = String(bill.distribuidora).toLowerCase();
+        for (let i = 0; i < distEl.options.length; i++) {
+          const text = distEl.options[i].text.toLowerCase();
+          if (text.includes(needle) || needle.includes(text.split(' ')[0])) {
+            distEl.selectedIndex = i;
+            break;
+          }
+        }
+      }
+    }
+
+    if (typeof window !== 'undefined') {
+      if (!window.solarProjectConfig) window.solarProjectConfig = {};
+      window.solarProjectConfig.clientData = Object.assign({}, window.solarProjectConfig.clientData || {}, {
+        nombre: tit.nombre || (window.solarProjectConfig.clientData && window.solarProjectConfig.clientData.nombre) || '',
+        nif: tit.nif || (window.solarProjectConfig.clientData && window.solarProjectConfig.clientData.nif) || '',
+        telefono: tit.telefono || (window.solarProjectConfig.clientData && window.solarProjectConfig.clientData.telefono) || '',
+        email: tit.email || (window.solarProjectConfig.clientData && window.solarProjectConfig.clientData.email) || '',
+        direccion: tit.direccion || (window.solarProjectConfig.clientData && window.solarProjectConfig.clientData.direccion) || '',
+        municipio: tit.municipio || (window.solarProjectConfig.clientData && window.solarProjectConfig.clientData.municipio) || '',
+        provincia: tit.provincia || (window.solarProjectConfig.clientData && window.solarProjectConfig.clientData.provincia) || '',
+        cp: tit.cp || (window.solarProjectConfig.clientData && window.solarProjectConfig.clientData.cp) || '',
+        cups: bill.cups || (window.solarProjectConfig.clientData && window.solarProjectConfig.clientData.cups) || '',
+        distribuidora: bill.distribuidora || (window.solarProjectConfig.clientData && window.solarProjectConfig.clientData.distribuidora) || ''
+      });
+    }
+  }
+
   /**
    * 11. APLICAR DATOS DE FACTURA AL PRESUPUESTO & ESTUDIO DE LA APLICACIÓN
    */
   function applyBillToBudget() {
     const bill = BILL_AUDITOR_STATE.currentBill;
+    if (!bill) return;
+    BILL_AUDITOR_STATE.comparison = computeComparison(bill);
     const comp = BILL_AUDITOR_STATE.comparison;
-    if (!bill || !comp) return;
+    if (!comp) return;
 
     const facturaInput = document.getElementById('cfg-pres-factura-mes');
     if (facturaInput) {
@@ -1627,48 +2199,12 @@ Normas estrictas:
       consumoInput.dispatchEvent(new Event('input', { bubbles: true }));
     }
 
-    // Volcar datos del titular/cliente a la documentación técnica (#doc-*).
-    // Solo si el campo está vacío o aún conserva su valor por defecto (no sobrescribe datos ya introducidos).
-    const fillIfUntouched = (id, value) => {
-      if (!value) return;
-      const el = document.getElementById(id);
-      if (!el) return;
-      const cur = String(el.value || '');
-      if (!cur.trim() || cur === el.defaultValue) {
-        el.value = value;
-        el.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-    };
+    // Volcar datos reales del titular/cliente y consumos mensuales a documentación y configuración SSOT
+    _syncBillClientToDocFields(bill, true);
+    _syncMonthlyConsumptionSSOT(bill, comp);
 
-    fillIfUntouched('doc-cups', bill.cups);
-    const tit = bill.titular || {};
-    fillIfUntouched('doc-nombre', tit.nombre);
-    fillIfUntouched('doc-nif', tit.nif);
-    fillIfUntouched('doc-tel', tit.telefono);
-    fillIfUntouched('doc-email', tit.email);
-    fillIfUntouched('doc-dir', tit.direccion);
-    fillIfUntouched('doc-mun', tit.municipio);
-    fillIfUntouched('doc-prov', tit.provincia);
-    fillIfUntouched('doc-cp', tit.cp);
-
-    // Potencia contratada nominal (P1 punta / P2 valle: RD 244/2019 usa el máximo) → #doc-potcontr
-    const potP1 = (bill.potenciasContratadasKW && bill.potenciasContratadasKW.p1) || 0;
-    const potP2 = (bill.potenciasContratadasKW && bill.potenciasContratadasKW.p2) || 0;
-    const potContrReal = Math.max(potP1, potP2);
-    if (potContrReal > 0) fillIfUntouched('doc-potcontr', String(Math.round(potContrReal * 100) / 100));
-
-    // Distribuidora → #doc-dist (select): casar por texto, solo si sigue en su opción por defecto
-    if (bill.distribuidora && bill.distribuidora !== 'Desconocida') {
-      const distEl = document.getElementById('doc-dist');
-      if (distEl && distEl.tagName === 'SELECT' && distEl.selectedIndex === 0) {
-        const needle = String(bill.distribuidora).toLowerCase();
-        let matched = false;
-        for (let i = 0; i < distEl.options.length; i++) {
-          const text = distEl.options[i].text.toLowerCase();
-          if (text.includes(needle) || needle.includes(text.split(' ')[0])) { distEl.selectedIndex = i; matched = true; break; }
-        }
-        if (!matched && distEl.options.length > 0) distEl.selectedIndex = distEl.options.length - 1;
-      }
+    if (typeof window.renderSolarBarChart === 'function' && Array.isArray(window.lastMonthlyYields)) {
+      window.renderSolarBarChart(window.lastMonthlyYields);
     }
 
     // Sincronizar targetKwp en solarProjectConfig según el consumo anual auditado
@@ -1719,8 +2255,8 @@ Normas estrictas:
     }
 
     if (typeof showToast === 'function') {
-      const detailStr = (bill.consumoAnualEstimadoKWh ? ' [Histórico 12m]' : '');
-      showToast('¡Datos de factura aplicados al presupuesto! Meta: ' + targetKwp + ' kWp (' + Math.round(comp.consumoAnualKWh) + ' kWh/año)' + detailStr, 'success', 4500);
+      const traceLabel = (comp && comp.annualTrace && comp.annualTrace.badgeLabel) ? (' [' + comp.annualTrace.badgeLabel + ']') : '';
+      showToast('¡Datos de factura aplicados al presupuesto! Meta: ' + targetKwp + ' kWp (' + Math.round(comp.consumoAnualKWh) + ' kWh/año)' + traceLabel, 'success', 4500);
     }
   }
 
@@ -1750,7 +2286,10 @@ Normas estrictas:
         costeEnergiaEUR: curFactura * 0.65,
         totalFacturaEUR: curFactura,
         historicoMensualKWh: null,
+        historicoMensualEtiquetas: null,
+        consumoAnualLiteralKWh: null,
         consumoAnualEstimadoKWh: null,
+        annualSourceMode: null,
         diagnosticoIA: null,
         titular: { nombre: null, nif: null, direccion: null, cp: null, municipio: null, provincia: null, telefono: null, email: null },
         fuente: 'manual'
@@ -1768,6 +2307,12 @@ Normas estrictas:
     parseJSON: (j) => BillParser.parseJSON(j),
     analyzeWithAI: (params) => AIBillParser.analyzeDocument(params),
     computeComparison: computeComparison,
+    getMonthlyConsumptionKWh: (annualFallback) => {
+      const b = BILL_AUDITOR_STATE.currentBill;
+      const c = BILL_AUDITOR_STATE.comparison;
+      const target = (annualFallback > 0) ? annualFallback : ((c && c.consumoAnualKWh > 0) ? c.consumoAnualKWh : 4500);
+      return _resolveMonthlyCalendarConsumption(b, target);
+    },
     getState: () => BILL_AUDITOR_STATE,
     applyToBudget: applyBillToBudget,
     setEngine: (eng) => { BILL_AUDITOR_STATE.activeEngine = eng; },

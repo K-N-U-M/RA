@@ -68,6 +68,9 @@
   }
 
 function render3DBuildingsInCesium() {
+  if (typeof window !== 'undefined' && window.RAMeasureTool && typeof window.RAMeasureTool.invalidateSnapCandidates === 'function') {
+    window.RAMeasureTool.invalidateSnapCandidates();
+  }
   // 1. Limpiar Primitivas WebGL directas previas
   if (window._buildingPrimitives && Array.isArray(window._buildingPrimitives)) {
     window._buildingPrimitives.forEach(p => {
@@ -124,43 +127,45 @@ function render3DBuildingsInCesium() {
     // [P2] Si fromCartesian falla (punto degenerado), antes se dibujaba un vértice en
     // lat/lon 0 (Golfo de Guinea) en silencio. Ahora se descarta el vértice y se avisa.
     let _degenerateVtx = false;
-    const rawCartoList = [];
-    bld.points.forEach(p => {
+    const rawItems = [];
+    bld.points.forEach((p, origIdx) => {
       const c = Cesium.Cartographic.fromCartesian(p);
-      if (c) rawCartoList.push(c); else _degenerateVtx = true;
+      if (c) rawItems.push({ carto: c, origIdx: origIdx }); else _degenerateVtx = true;
     });
     if (_degenerateVtx && typeof window !== 'undefined' && typeof window.showToast === 'function') {
       window.showToast('GEOMETRÍA INVÁLIDA', (bld.name || 'Edificio') + ' tiene vértices con coordenadas inválidas y fueron descartados. Redibuja la huella si falta geometría.', 'warning', 4500);
     }
 
     // Filtro estricto anti-colapso WebGL: Eliminar vértices idénticos/coincidentes (distancia < 0.05 metros)
-    let cartoList = [];
-    for (let i = 0; i < rawCartoList.length; i++) {
-      if (cartoList.length > 0) {
-        const last = cartoList[cartoList.length - 1];
-        const dLon = rawCartoList[i].longitude - last.longitude;
-        const dLat = rawCartoList[i].latitude - last.latitude;
+    let cartoItems = [];
+    for (let i = 0; i < rawItems.length; i++) {
+      if (cartoItems.length > 0) {
+        const last = cartoItems[cartoItems.length - 1].carto;
+        const dLon = rawItems[i].carto.longitude - last.longitude;
+        const dLat = rawItems[i].carto.latitude - last.latitude;
         if (Math.hypot(dLon, dLat) < 1e-7) continue; 
       }
-      cartoList.push(rawCartoList[i]);
+      cartoItems.push(rawItems[i]);
     }
     // Asegurar que el último y el primero no coincidan
-    if (cartoList.length > 2) {
-      const dLon = cartoList[0].longitude - cartoList[cartoList.length - 1].longitude;
-      const dLat = cartoList[0].latitude - cartoList[cartoList.length - 1].latitude;
-      if (Math.hypot(dLon, dLat) < 1e-7) cartoList.pop();
+    if (cartoItems.length > 2) {
+      const dLon = cartoItems[0].carto.longitude - cartoItems[cartoItems.length - 1].carto.longitude;
+      const dLat = cartoItems[0].carto.latitude - cartoItems[cartoItems.length - 1].carto.latitude;
+      if (Math.hypot(dLon, dLat) < 1e-7) cartoItems.pop();
     }
-    if (cartoList.length < 3) return;
+    if (cartoItems.length < 3) return;
 
     let signedArea = 0;
-    for (let i = 0; i < cartoList.length; i++) {
-      const j = (i + 1) % cartoList.length;
-      signedArea += (cartoList[i].longitude * cartoList[j].latitude - cartoList[j].longitude * cartoList[i].latitude);
+    for (let i = 0; i < cartoItems.length; i++) {
+      const j = (i + 1) % cartoItems.length;
+      signedArea += (cartoItems[i].carto.longitude * cartoItems[j].carto.latitude - cartoItems[j].carto.longitude * cartoItems[i].carto.latitude);
     }
     if (signedArea < 0) {
-      cartoList.reverse();
-      if (Array.isArray(bld.points)) bld.points.reverse();
+      // Invertir solo la lista local de renderizado CCW; jamás mutar bld.points en render
+      cartoItems.reverse();
     }
+    const cartoList = cartoItems.map(item => item.carto);
+    const origIndices = cartoItems.map(item => item.origIdx);
 
     let avgBaseHeight = 0;
     cartoList.forEach(c => { avgBaseHeight += (c.height || 0); });
@@ -756,13 +761,18 @@ function render3DBuildingsInCesium() {
 
       const R_EARTH = 6378137.0;
       const cosLat = Math.cos(cLat);
-      const slopePositions = roofCartoList.map(c => {
+      const rawSlopeHeights = roofCartoList.map(c => {
         const dx = (c.longitude - cLon) * R_EARTH * cosLat;
         const dy = (c.latitude - cLat) * R_EARTH;
         const proj = dx * dirX + dy * dirY;
-        const vHeight = roofHeight + proj * Math.tan(pitchRad);
-        return Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, Math.max(vHeight, avgBaseHeight + 1.0));
+        return roofHeight + proj * Math.tan(pitchRad);
       });
+      // Desplazar rígidamente todo el faldón si el alero bajo cae de la cota mínima (evita alabeo por clamp individual)
+      const minSlopeH = rawSlopeHeights.length > 0 ? Math.min(...rawSlopeHeights) : roofHeight;
+      const shedLift = Math.max(0, (avgBaseHeight + 1.0) - minSlopeH);
+      const slopePositions = roofCartoList.map((c, idx) =>
+        Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, rawSlopeHeights[idx] + shedLift)
+      );
 
       try {
         const wallInstances = [];
@@ -1065,9 +1075,28 @@ function render3DBuildingsInCesium() {
       } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
 
     // ─────────────────────────────────────────────────────────────────
-    // E. CUBIERTA EN FORMA DE L (ALAS CON LIMAHOYA / VALLE EN ENCUENTRO)
+    // E. CUBIERTA EN FORMA DE L (CATÁLOGO ARQUITECTÓNICO & ÁNGULO VARIABLE)
     // ─────────────────────────────────────────────────────────────────
     } else if (rType === 'l_shape') {
+      let handledL = false;
+      if (typeof window !== 'undefined' && window.RALBuilding && typeof window.RALBuilding.renderLBuilding === 'function') {
+        handledL = !!window.RALBuilding.renderLBuilding({
+          bld: bld,
+          viewer: viewer,
+          cartoList: cartoList,
+          roofCartoList: roofCartoList,
+          avgBaseHeight: avgBaseHeight,
+          bldHeight: bldHeight,
+          isSel: isSel,
+          facadeColor: facadeColor,
+          roofColor: roofColor,
+          hastialColor: hastialColor,
+          edgeColor: edgeColor,
+          ridgeColor: ridgeColor,
+          createAppearance: createBuildingMatteAppearance
+        });
+      }
+      if (!handledL) {
       const N = cartoList.length;
       let cLon = 0, cLat = 0;
       roofCartoList.forEach(c => { cLon += c.longitude; cLat += c.latitude; });
@@ -1263,6 +1292,7 @@ function render3DBuildingsInCesium() {
         });
         window._buildingEntities.push(eavesOutline);
       } catch(eVal) {}
+      }
     }
 
     // Aristas Base Comunes y Columnas
@@ -1282,10 +1312,11 @@ function render3DBuildingsInCesium() {
 
     basePositions.forEach((bPos, vi) => {
       const c = cartoList[vi];
+      const realIdx = (Array.isArray(origIndices) && typeof origIndices[vi] === 'number') ? origIndices[vi] : vi;
       const rPos = Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, roofHeight);
       try {
         const colEnt = viewer.entities.add({
-          name: (bld.name || 'Edificio 3D') + ' - Columna #' + (vi + 1),
+          name: (bld.name || 'Edificio 3D') + ' - Columna #' + (realIdx + 1),
           polyline: {
             positions: [bPos, rPos],
             width: isSel ? 3.5 : 2.5,
@@ -1300,12 +1331,12 @@ function render3DBuildingsInCesium() {
       // Vértices de Control Interactivos de la Huella (Esferas de manipulación CAD)
       if (isSel) {
         const bldState = (typeof window !== 'undefined' && window.bldFootprintState) || (typeof bldFootprintState !== 'undefined' ? bldFootprintState : null);
-        const isVtxSel = (bldState && bldState.selectedVtxIdx === vi);
+        const isVtxSel = (bldState && bldState.selectedVtxIdx === realIdx);
         const vtxHandleColor = isVtxSel ? Cesium.Color.fromCssColorString('#F59E0B') : Cesium.Color.fromCssColorString('#38BDF8');
         try {
           const vtxHandle = viewer.entities.add({
-            id: 'bld_vtx_handle_' + bld.id + '_' + vi,
-            name: (bld.name || 'Edificio') + ' - Vértice Huella #' + (vi + 1),
+            id: 'bld_vtx_handle_' + bld.id + '_' + realIdx,
+            name: (bld.name || 'Edificio') + ' - Vértice Huella #' + (realIdx + 1),
             position: Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, avgBaseHeight + 0.1),
             point: {
               pixelSize: isVtxSel ? 16 : 11,
@@ -1325,11 +1356,12 @@ function render3DBuildingsInCesium() {
     if (isSel && typeof computeBuildingConstructionAxes === 'function') {
       try {
         const bAxes = computeBuildingConstructionAxes(bld);
-        if (bAxes && bAxes.axisMode === 'wall' && typeof bAxes.edgeIdx === 'number' && basePositions[bAxes.edgeIdx]) {
+        if (bAxes && bAxes.axisMode === 'wall' && typeof bAxes.edgeIdx === 'number' && Array.isArray(bld.points) && bld.points[bAxes.edgeIdx]) {
           const eIdx = bAxes.edgeIdx;
-          const nextIdx = (eIdx + 1) % basePositions.length;
-          const c1 = cartoList[eIdx];
-          const c2 = cartoList[nextIdx];
+          const nextIdx = (eIdx + 1) % bld.points.length;
+          const c1 = Cesium.Cartographic.fromCartesian(bld.points[eIdx]);
+          const c2 = Cesium.Cartographic.fromCartesian(bld.points[nextIdx]);
+          if (c1 && c2) {
           const refP1 = Cesium.Cartesian3.fromRadians(c1.longitude, c1.latitude, avgBaseHeight + 0.14);
           const refP2 = Cesium.Cartesian3.fromRadians(c2.longitude, c2.latitude, avgBaseHeight + 0.14);
 
@@ -1371,6 +1403,7 @@ function render3DBuildingsInCesium() {
             }
           });
           window._buildingEntities.push(refOrthoEnt);
+          }
         }
       } catch(eAxesVis) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', eAxesVis); }
     }
@@ -1389,35 +1422,55 @@ function render3DBuildingsInCesium() {
     const idx = arr.findIndex(b => b && b.id === bldId);
     if (idx === -1) return false;
     const bld = arr[idx];
-    if (window.RAundo && typeof window.RAundo.push === 'function') {
-      window.RAundo.push('project', 'Eliminar edificio ' + (bld.name || bldId));
+    if (window.RAundo && typeof window.RAundo.snapProject === 'function') {
+      window.RAundo.snapProject('Eliminar edificio ' + (bld.name || bldId));
     } else if (window.RAundo && typeof window.RAundo.snapBuildings === 'function') {
-      window.RAundo.snapBuildings();
+      window.RAundo.snapBuildings('Eliminar edificio ' + (bld.name || bldId));
     }
 
-    // 1. Limpieza en cascada de planos de cubierta y faldones/paneles asociados
+    // 1. Limpieza en cascada in-place de planos de cubierta y faldones/paneles asociados
     if (typeof window.WP !== 'undefined' && window.WP) {
       const wp = window.WP;
+      const oldPlanes = Array.isArray(wp.planes) ? wp.planes : [];
       const removedPlaneIndices = new Set();
+      const indexMap = new Map();
+      let nextPlaneIdx = 0;
+      for (let i = 0; i < oldPlanes.length; i++) {
+        const pl = oldPlanes[i];
+        if (!pl || pl.buildingId === bldId || (pl.id && (pl.id.startsWith('plane_roof_' + bldId) || pl.id.includes(bldId)))) {
+          removedPlaneIndices.add(i);
+        } else {
+          indexMap.set(i, nextPlaneIdx++);
+        }
+      }
       if (Array.isArray(wp.planes)) {
-        wp.planes.forEach((pl, pIdx) => {
-          if (pl && pl.buildingId === bldId) removedPlaneIndices.add(pIdx);
-        });
-        wp.planes = wp.planes.filter(pl => !pl || pl.buildingId !== bldId);
-        if (wp.activePlaneIdx >= wp.planes.length) wp.activePlaneIdx = Math.max(0, wp.planes.length - 1);
+        for (let i = wp.planes.length - 1; i >= 0; i--) {
+          if (removedPlaneIndices.has(i)) wp.planes.splice(i, 1);
+        }
+        if (wp.activePlaneIdx >= wp.planes.length) wp.activePlaneIdx = Math.max(-1, wp.planes.length - 1);
+        if (wp.activePlaneIdx < 0 && wp.planes.length > 0) wp.activePlaneIdx = 0;
       }
       if (Array.isArray(wp.polylines)) {
-        wp.polylines = wp.polylines.filter(poly => {
-          if (!poly) return false;
-          return poly.buildingId !== bldId && !removedPlaneIndices.has(poly.planeIdx);
-        });
+        for (let i = wp.polylines.length - 1; i >= 0; i--) {
+          const poly = wp.polylines[i];
+          if (!poly || poly.buildingId === bldId || removedPlaneIndices.has(poly.planeIdx)) {
+            wp.polylines.splice(i, 1);
+          } else if (typeof poly.planeIdx === 'number' && indexMap.has(poly.planeIdx)) {
+            poly.planeIdx = indexMap.get(poly.planeIdx);
+          }
+        }
         if (wp.selectedPolyIdx >= wp.polylines.length) wp.selectedPolyIdx = Math.max(-1, wp.polylines.length - 1);
       }
     }
 
-    // 2. Limpieza en cascada de obstáculos asociados a la cubierta
+    // 2. Limpieza en cascada in-place de obstáculos asociados (preserva alias de array compartido)
     if (typeof window.obstacles !== 'undefined' && Array.isArray(window.obstacles)) {
-      window.obstacles = window.obstacles.filter(obs => !obs || obs.buildingId !== bldId);
+      for (let i = window.obstacles.length - 1; i >= 0; i--) {
+        const obs = window.obstacles[i];
+        if (!obs || obs.buildingId === bldId || (obs.planeId && obs.planeId.includes(bldId))) {
+          window.obstacles.splice(i, 1);
+        }
+      }
     }
 
     // 3. Eliminar edificio
@@ -2289,6 +2342,103 @@ function render3DBuildingsInCesium() {
     const pitch = (typeof bld.roofPitch === 'number') ? bld.roofPitch : (rType === 'flat' ? 0 : 25);
     const azimuth = (typeof bld.roofAzimuth === 'number') ? bld.roofAzimuth : 180;
 
+    // Extracción multifaldón en 1 clic para edificios paramétricos en L (6 diseños arquitectónicos)
+    if ((rType === 'l_shape' || (bld.lParams && bld.lParams.isLParametric)) &&
+        typeof window.RALBuilding !== 'undefined' && typeof window.RALBuilding.extractSolarFaces === 'function') {
+      const solarFaces = window.RALBuilding.extractSolarFaces(bld);
+      if (Array.isArray(solarFaces) && solarFaces.length > 0) {
+        if (window.RAundo && typeof window.RAundo.snapProject === 'function') {
+          window.RAundo.snapProject('Extraer faldones solares de ' + (bld.name || 'Edificio en L'));
+        }
+
+        // Reemplazar en sitio planos y polilíneas previos vinculados a este edificio para evitar duplicados
+        const oldPlanes = Array.isArray(WP.planes) ? WP.planes : [];
+        const removedP = new Set();
+        const pMap = new Map();
+        let nextIdx = 0;
+        for (let pi = 0; pi < oldPlanes.length; pi++) {
+          const pl = oldPlanes[pi];
+          if (!pl || pl.buildingId === bld.id || (pl.id && pl.id.indexOf('plane_roof_' + bld.id) === 0)) {
+            removedP.add(pi);
+          } else {
+            pMap.set(pi, nextIdx++);
+          }
+        }
+        if (Array.isArray(WP.polylines)) {
+          for (let li = WP.polylines.length - 1; li >= 0; li--) {
+            const ply = WP.polylines[li];
+            if (!ply || ply.buildingId === bld.id || removedP.has(ply.planeIdx)) {
+              WP.polylines.splice(li, 1);
+            } else if (typeof ply.planeIdx === 'number' && pMap.has(ply.planeIdx)) {
+              ply.planeIdx = pMap.get(ply.planeIdx);
+            }
+          }
+        }
+        if (Array.isArray(WP.planes)) {
+          for (let pi = WP.planes.length - 1; pi >= 0; pi--) {
+            if (removedP.has(pi)) WP.planes.splice(pi, 1);
+          }
+        }
+
+        const firstAddedPlaneIdx = WP.planes.length;
+        const firstAddedPolyIdx = WP.polylines.length;
+        const baseTs = Date.now();
+
+        solarFaces.forEach(function(face, fIdx) {
+          const pts3D = face.pts3D;
+          if (!Array.isArray(pts3D) || pts3D.length < 3) return;
+          let pData = null;
+          if (typeof window.wpComputePlaneFrom3Points === 'function') {
+            pData = window.wpComputePlaneFrom3Points(pts3D[0], pts3D[1], pts3D[2], 'p1p2');
+          }
+          if (!pData) {
+            const up = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(pts3D[0], new Cesium.Cartesian3());
+            const v1 = Cesium.Cartesian3.subtract(pts3D[1], pts3D[0], new Cesium.Cartesian3());
+            const uV = Cesium.Cartesian3.normalize(v1, new Cesium.Cartesian3());
+            const vV = Cesium.Cartesian3.normalize(Cesium.Cartesian3.cross(up, uV, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+            pData = { origin: pts3D[0], normal: up, uVec: uV, vVec: vV, tiltDeg: 0, azimuthDeg: azimuth };
+          }
+          const planeObj = Object.assign({
+            id: 'plane_roof_' + bld.id + '_' + baseTs + '_' + fIdx,
+            name: (bld.name || 'Edificio L') + ' · ' + (face.name || ('Faldón ' + (fIdx + 1))) + ' (' + pData.tiltDeg.toFixed(0) + '°)',
+            pts3D: [pts3D[0], pts3D[1], pts3D[2]],
+            buildingId: bld.id
+          }, pData);
+
+          WP.planes.push(planeObj);
+          const pIdxAdded = WP.planes.length - 1;
+          const areaCalc = (typeof window.wpPolylineArea3D === 'function') ? window.wpPolylineArea3D(pts3D) : 25;
+          WP.polylines.push({
+            id: 'wp_poly_roof_' + baseTs + '_' + fIdx,
+            name: (bld.name || 'Edificio L') + ' · ' + (face.name || ('Faldón ' + (fIdx + 1))),
+            planeIdx: pIdxAdded,
+            buildingId: bld.id,
+            points: pts3D.map(function(p) { return Cesium.Cartesian3.clone(p); }),
+            area: areaCalc,
+            alignToPlane: true,
+            orientationPref: (typeof window.userPanelOrientationPref !== 'undefined') ? window.userPanelOrientationPref : 'portrait',
+            modTilt: 'auto',
+            modAzimuth: 'auto',
+            lineEnt: null,
+            fillEnt: null
+          });
+        });
+
+        WP.activePlaneIdx = firstAddedPlaneIdx;
+        WP.selectedPolyIdx = firstAddedPolyIdx;
+        if (typeof window.wpRenderActivePlaneGizmo === 'function') window.wpRenderActivePlaneGizmo();
+        if (typeof window.wpRenderAllPolylines === 'function') window.wpRenderAllPolylines();
+        if (typeof window.wpUpdateUI === 'function') window.wpUpdateUI();
+        if (typeof window.wpUpdateControlsAvailability === 'function') window.wpUpdateControlsAvailability();
+        if (typeof window.wpFastRenderSimulatedPanels === 'function') window.wpFastRenderSimulatedPanels();
+        if (window.viewer && window.viewer.scene) window.viewer.scene.requestRender();
+        if (typeof window.showToast === 'function') {
+          window.showToast('FALDONES EN L EXTRAÍDOS', 'Se han generado ' + solarFaces.length + ' superficies solares independientes desde ' + (bld.name || 'el edificio en L') + '.', 'success', 4500);
+        }
+        return true;
+      }
+    }
+
     // Obtener los 3 puntos representativos de la superficie superior
     const rawCartoList = bld.points.map(p => Cesium.Cartographic.fromCartesian(p)).filter(Boolean);
     if (rawCartoList.length < 3) return false;
@@ -2401,46 +2551,90 @@ function render3DBuildingsInCesium() {
       if (typeof window.showToast === 'function') window.showToast('AVISO', 'Visor 3D no inicializado.', 'warning', 2500);
       return;
     }
-    const centerCarto = viewer.scene.camera.positionCartographic;
-    if (!centerCarto) return;
+    const camCarto = viewer.scene.camera.positionCartographic;
+    if (!camCarto) return;
 
     const R_EARTH = 6378137.0;
-    const cosLat = Math.cos(centerCarto.latitude);
-    const cLon = centerCarto.longitude;
-    const cLat = centerCarto.latitude;
-    const h = centerCarto.height > 0 ? 0 : 0;
+    let targetCarto = null;
+    try {
+      const sc = viewer.scene;
+      const canvas = sc.canvas;
+      if (canvas && canvas.clientWidth > 0 && canvas.clientHeight > 0) {
+        const centerPx = new Cesium.Cartesian2(canvas.clientWidth * 0.5, canvas.clientHeight * 0.5);
+        let hitPos = null;
+        if (sc.pickPositionSupported) {
+          try { hitPos = sc.pickPosition(centerPx); } catch (_) { hitPos = null; }
+        }
+        if (!hitPos && sc.globe) {
+          const ray = sc.camera.getPickRay(centerPx);
+          if (ray) hitPos = sc.globe.pick(ray, sc);
+        }
+        if (!hitPos) {
+          hitPos = sc.camera.pickEllipsoid(centerPx, Cesium.Ellipsoid.WGS84);
+        }
+        if (hitPos) {
+          targetCarto = Cesium.Cartographic.fromCartesian(hitPos);
+        }
+      }
+    } catch (_) { targetCarto = null; }
 
-    // Dimensiones proporcionales en metros (Ala principal 24x10m, Ala secundaria 14x10m)
-    const ptsOffsets = [
-      { x: -12, y: -10 },
-      { x:  12, y: -10 },
-      { x:  12, y:   2 },
-      { x:   0, y:   2 },  // Vértice cóncavo interior reflexivo
-      { x:   0, y:  14 },
-      { x: -12, y:  14 }
-    ];
+    const cLon = targetCarto ? targetCarto.longitude : camCarto.longitude;
+    const cLat = targetCarto ? targetCarto.latitude : camCarto.latitude;
+    const cosLat = Math.cos(cLat);
 
-    const pts3D = ptsOffsets.map(off => Cesium.Cartesian3.fromRadians(
-      cLon + off.x / (R_EARTH * cosLat),
-      cLat + off.y / R_EARTH,
-      h
-    ));
+    let h = (targetCarto && Number.isFinite(targetCarto.height)) ? targetCarto.height : NaN;
+    if (!Number.isFinite(h) && viewer.scene.globe && typeof viewer.scene.globe.getHeight === 'function') {
+      try {
+        const gh = viewer.scene.globe.getHeight(new Cesium.Cartographic(cLon, cLat, 0));
+        if (Number.isFinite(gh)) h = gh;
+      } catch (_) {}
+    }
+    if (!Number.isFinite(h) && Array.isArray(window.buildings) && window.buildings.length > 0 && Array.isArray(window.buildings[0].points) && window.buildings[0].points[0]) {
+      const bc = Cesium.Cartographic.fromCartesian(window.buildings[0].points[0]);
+      if (bc && Number.isFinite(bc.height)) h = bc.height;
+    }
+    if (!Number.isFinite(h) && typeof WP !== 'undefined' && WP && WP.origin) {
+      const wc = Cesium.Cartographic.fromCartesian(WP.origin);
+      if (wc && Number.isFinite(wc.height)) h = wc.height;
+    }
+    if (!Number.isFinite(h)) h = 0;
 
-    const newBld = {
-      id: 'bld_l_' + Date.now(),
-      name: 'Edificio en L #' + ((window.buildings ? window.buildings.length : 0) + 1),
-      points: pts3D,
-      height: 6.5,
-      roofType: 'l_shape',
-      roofPitch: 25,
-      roofAzimuth: 180,
-      roofThickness: 0.20,
-      overhang: 0.25,
-      facadeColor: '#F1F5F9',
-      roofColor: '#E2E8F0',
-      edgeColor: '#334155',
-      visible: true
-    };
+    let newBld;
+    if (typeof window !== 'undefined' && window.RALBuilding && typeof window.RALBuilding.createDefaultLBuilding === 'function') {
+      newBld = window.RALBuilding.createDefaultLBuilding(cLon, cLat, h);
+    } else {
+      // Dimensiones proporcionales en metros (Ala principal 24x10m, Ala secundaria 14x10m)
+      const ptsOffsets = [
+        { x: -12, y: -10 },
+        { x:  12, y: -10 },
+        { x:  12, y:   2 },
+        { x:   0, y:   2 },  // Vértice cóncavo interior reflexivo
+        { x:   0, y:  14 },
+        { x: -12, y:  14 }
+      ];
+
+      const pts3D = ptsOffsets.map(off => Cesium.Cartesian3.fromRadians(
+        cLon + off.x / (R_EARTH * cosLat),
+        cLat + off.y / R_EARTH,
+        h
+      ));
+
+      newBld = {
+        id: 'bld_l_' + Date.now(),
+        name: 'Edificio en L #' + ((window.buildings ? window.buildings.length : 0) + 1),
+        points: pts3D,
+        height: 6.5,
+        roofType: 'l_shape',
+        roofPitch: 25,
+        roofAzimuth: 180,
+        roofThickness: 0.20,
+        overhang: 0.25,
+        facadeColor: '#F1F5F9',
+        roofColor: '#E2E8F0',
+        edgeColor: '#334155',
+        visible: true
+      };
+    }
 
     if (!Array.isArray(window.buildings)) window.buildings = [];
     if (window.RAundo && typeof window.RAundo.snapBuildings === 'function') {

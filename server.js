@@ -47,19 +47,34 @@ function parseWAsPLib(libText) {
 
   const parts2 = lines[1].split(/\s+/).map(Number);
   const numRough = parts2[0], numHeights = parts2[1], numSectors = parts2[2];
+  const isInt = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
+  if (!isInt(numRough, 1, 8) || !isInt(numHeights, 1, 12) || !isInt(numSectors, 1, 36)) {
+    throw new Error('Cabecera .lib fuera de rango (rough/heights/sectors)');
+  }
+  const needed = 4 + numRough * (1 + numHeights * 2);
+  if (lines.length < needed) throw new Error('Fichero .lib truncado');
+
   const roughnesses = lines[2].split(/\s+/).map(Number);
   const heights = lines[3].split(/\s+/).map(Number);
+  if (roughnesses.length < numRough || heights.length < numHeights) {
+    throw new Error('Cabecera .lib con rugosidades o alturas incompletas');
+  }
 
   let curLine = 4;
   const roughnessBlocks = [];
   for (let r = 0; r < numRough; r++) {
     const freqs = lines[curLine++].split(/\s+/).map(Number);
+    if (freqs.length < numSectors) throw new Error('Frecuencias .lib incompletas');
     const heightData = [];
     for (let h = 0; h < numHeights; h++) {
       const A = lines[curLine++].split(/\s+/).map(Number);
       const k = lines[curLine++].split(/\s+/).map(Number);
+      if (A.length < numSectors || k.length < numSectors) throw new Error('Sectores Weibull .lib incompletos');
       let vMean = 0;
       for (let s = 0; s < numSectors; s++) {
+        if (!Number.isFinite(A[s]) || !Number.isFinite(k[s]) || k[s] <= 0 || !Number.isFinite(freqs[s])) {
+          throw new Error('Valores Weibull .lib inválidos');
+        }
         const vSec = A[s] * lanczosGamma(1 + 1 / k[s]);
         vMean += (freqs[s] / 100) * vSec;
       }
@@ -69,8 +84,9 @@ function parseWAsPLib(libText) {
   }
 
   const fieldBlock = roughnessBlocks.find(b => Math.abs(b.z0 - 0.03) < 0.01) || roughnessBlocks[1] || roughnessBlocks[0];
-  const h10 = fieldBlock.heightData.find(d => d.heightM === 10) || fieldBlock.heightData[0];
-  const h50 = fieldBlock.heightData.find(d => d.heightM === 50) || fieldBlock.heightData[1];
+  const h10 = fieldBlock && (fieldBlock.heightData.find(d => d.heightM === 10) || fieldBlock.heightData[0]);
+  const h50 = fieldBlock && (fieldBlock.heightData.find(d => d.heightM === 50) || fieldBlock.heightData[1] || h10);
+  if (!h10 || !h50) throw new Error('Alturas de referencia .lib ausentes');
   const alpha = (h50.vMean > h10.vMean && h10.vMean > 0)
     ? Math.log(h50.vMean / h10.vMean) / Math.log(50 / 10)
     : 0.143;
@@ -116,11 +132,18 @@ function fetchTextLimited(rawUrl, opts) {
   return new Promise((resolve, reject) => {
     let parsed;
     try { parsed = new URL(rawUrl); } catch (e) { return reject(new Error('URL inválida')); }
-    if (allowedHostSuffix && !parsed.hostname.endsWith(allowedHostSuffix)) {
-      return reject(new Error('Host no permitido: ' + parsed.hostname));
+    if (parsed.protocol !== 'https:') {
+      return reject(new Error('Protocolo no permitido: ' + parsed.protocol));
+    }
+    if (allowedHostSuffix) {
+      const host = parsed.hostname.toLowerCase();
+      const suffix = String(allowedHostSuffix).toLowerCase().replace(/^\./, '');
+      if (host !== suffix && !host.endsWith('.' + suffix)) {
+        return reject(new Error('Host no permitido: ' + parsed.hostname));
+      }
     }
     const req = https.get(parsed, { headers: { 'User-Agent': 'RenewableArchitecture/1.0' } }, (resp) => {
-      if (resp.statusCode && resp.statusCode >= 400) {
+      if (resp.statusCode && resp.statusCode >= 300) {
         resp.resume();
         return reject(new Error('HTTP ' + resp.statusCode));
       }
@@ -177,8 +200,9 @@ const ALLOWED_EXT = new Set([
   '.ico', '.wasm', '.txt', '.webmanifest', '.map', '.pdf'
 ]);
 const DENIED_SEGMENTS = new Set([
-  'node_modules', 'functions', 'tests', 'doc', 'scripts', '.git', '.firebase', 'assets/private'
+  'node_modules', 'functions', 'tests', 'doc', 'scripts', '.git', '.firebase'
 ]);
+const DENIED_PREFIXES = ['assets/private'];
 // Código y configuración que nunca debe descargarse desde el navegador.
 const DENIED_FILES = new Set([
   'server.js', 'package.json', 'package-lock.json', 'firebase.json',
@@ -218,6 +242,10 @@ function resolveSafePath(rawUrl) {
     if (seg.startsWith('.')) return { error: 404 };
     if (DENIED_SEGMENTS.has(seg.toLowerCase())) return { error: 404 };
   }
+  const normalizedRel = segments.map(s => s.toLowerCase()).join('/');
+  if (DENIED_PREFIXES.some(p => normalizedRel === p || normalizedRel.startsWith(p + '/'))) {
+    return { error: 404 };
+  }
 
   const filePath = path.resolve(BASE_DIR, '.' + path.sep + segments.join(path.sep));
   const rootWithSep = BASE_DIR.endsWith(path.sep) ? BASE_DIR : BASE_DIR + path.sep;
@@ -251,7 +279,13 @@ const server = http.createServer((req, res) => {
   let reqUrl = (req.url || '/').split('?')[0];
 
   if (reqUrl === '/api/gwa') {
-    const urlObj = new URL(req.url, 'http://' + (req.headers.host || 'localhost:8080'));
+    let urlObj;
+    try {
+      urlObj = new URL(req.url, 'http://' + (req.headers.host || 'localhost:8080'));
+    } catch (e) {
+      sendJson(res, 400, { error: 'Petición o cabecera Host inválida' });
+      return;
+    }
     const lat = parseFloat(urlObj.searchParams.get('lat'));
     const lon = parseFloat(urlObj.searchParams.get('lon'));
     if (isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {

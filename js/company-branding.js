@@ -148,13 +148,28 @@
     return Object.assign({}, DEFAULT_BRANDING, _currentBranding);
   }
 
+  function _isSafeRasterImage(src) {
+    if (global.RASanitize && typeof global.RASanitize.safeImageSrc === 'function') {
+      return Boolean(global.RASanitize.safeImageSrc(src));
+    }
+    return typeof src === 'string' && /^data:image\/(?:png|jpeg|jpg|webp|gif);base64,[A-Za-z0-9+/=]+$/i.test(src.trim());
+  }
+
   /**
    * Actualiza el contenedor visual de previsualización de logo
    */
   function updateLogoPreview(targetEl, logoDataUrl) {
     if (!targetEl) return;
-    if (logoDataUrl && typeof logoDataUrl === 'string' && logoDataUrl.startsWith('data:image/')) {
-      targetEl.innerHTML = '<img src="' + logoDataUrl + '" style="max-width:100%;max-height:100%;object-fit:contain;" alt="Logotipo Corporativo">';
+    if (_isSafeRasterImage(logoDataUrl)) {
+      const safeSrc = (global.RASanitize && typeof global.RASanitize.safeImageSrc === 'function')
+        ? global.RASanitize.safeImageSrc(logoDataUrl)
+        : logoDataUrl.trim();
+      targetEl.innerHTML = '';
+      const img = document.createElement('img');
+      img.src = safeSrc;
+      img.style.cssText = 'max-width:100%;max-height:100%;object-fit:contain;';
+      img.alt = 'Logotipo Corporativo';
+      targetEl.appendChild(img);
       targetEl.style.border = '1px solid var(--emerald-500, #10B981)';
     } else {
       targetEl.innerHTML = '<span style="font-size:26px;color:var(--text-slate-500, #64748B);"><i data-lucide="building" class="icon-sm"></i></span>';
@@ -303,9 +318,9 @@
     const file = event && event.target && event.target.files && event.target.files[0];
     if (!file) return;
 
-    if (!file.type.match(/^image\//)) {
+    if (!file.type.match(/^image\/(png|jpeg|jpg|webp|gif)$/i)) {
       if (typeof global.showToast === 'function') {
-        global.showToast('FORMATO NO VÁLIDO', 'Por favor selecciona un archivo de imagen (PNG, JPG o SVG).', 'warning', 3500);
+        global.showToast('FORMATO NO VÁLIDO', 'Por favor selecciona una imagen raster segura (PNG, JPG, WebP o GIF). SVG no está permitido por seguridad.', 'warning', 3500);
       }
       return;
     }

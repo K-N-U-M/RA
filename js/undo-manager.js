@@ -27,6 +27,8 @@
   // Claves que nunca se clonan: referencias a objetos GPU/DOM que se recrean al renderizar
   var SKIP_KEYS = {
     entity: true, entities: true, primitive: true, primitives: true,
+    dcProtectionEntity: true, batteryEntity: true,
+    label2D: true, dcProtectionLabel2D: true, batteryLabel2D: true,
     label: true, billboard: true, point: true, polygon: true, polyline: true,
     material: true, appearance: true, geometry: true, modelMatrix: true,
     lineEnt: true, fillEnt: true, activePanelDragEntity: true,
@@ -54,7 +56,7 @@
     if (depth > 14) return null;
     if (isCesiumGPUObject(v)) return null;
     if (Array.isArray(v)) {
-      return v.map(function (item) { return deepClone(item, depth + 1); }).filter(function(item) { return item !== null; });
+      return v.map(function (item) { return deepClone(item, depth + 1); });
     }
     if (v && typeof v === 'object') {
       if (v instanceof Date) return new Date(v.getTime());
@@ -147,7 +149,10 @@
         var WPpln = global.WP;
         return {
           planes: (WPpln && Array.isArray(WPpln.planes)) ? deepClone(WPpln.planes, 0) : [],
-          activePlaneIdx: (WPpln && typeof WPpln.activePlaneIdx === 'number') ? WPpln.activePlaneIdx : 0
+          activePlaneIdx: (WPpln && typeof WPpln.activePlaneIdx === 'number') ? WPpln.activePlaneIdx : 0,
+          polylines: (WPpln && Array.isArray(WPpln.polylines)) ? deepClone(WPpln.polylines, 0) : [],
+          selectedPolyIdx: (WPpln && typeof WPpln.selectedPolyIdx === 'number') ? WPpln.selectedPolyIdx : -1,
+          polygonPoints: (Array.isArray(global.polygonPoints)) ? deepClone(global.polygonPoints, 0) : []
         };
       }
       if (kind === 'electrical') {
@@ -263,8 +268,20 @@
       if (WPpln && Array.isArray(WPpln.planes)) {
         replaceInPlace(WPpln.planes, revive(data.planes));
         WPpln.activePlaneIdx = (typeof data.activePlaneIdx === 'number') ? data.activePlaneIdx : (WPpln.planes.length > 0 ? 0 : -1);
+        if (Array.isArray(data.polylines) && Array.isArray(WPpln.polylines)) {
+          replaceInPlace(WPpln.polylines, revive(data.polylines));
+          WPpln.selectedPolyIdx = (typeof data.selectedPolyIdx === 'number') ? data.selectedPolyIdx : (WPpln.polylines.length > 0 ? 0 : -1);
+          if (Array.isArray(data.polygonPoints) && Array.isArray(global.polygonPoints)) {
+            replaceInPlace(global.polygonPoints, revive(data.polygonPoints));
+          }
+        }
         if (typeof global.wpRenderActivePlaneGizmo === 'function') global.wpRenderActivePlaneGizmo();
+        if (typeof global.wpRenderAllPolylines === 'function') global.wpRenderAllPolylines();
+        if (typeof global.wpFastRenderSimulatedPanels === 'function') global.wpFastRenderSimulatedPanels();
         if (typeof global.wpUpdateUI === 'function') global.wpUpdateUI();
+        if (typeof global.wpSyncVertexInputs === 'function') global.wpSyncVertexInputs();
+        if (typeof global.recalculateSolarYield === 'function') global.recalculateSolarYield();
+        if (typeof global.renderTriad2D === 'function') global.renderTriad2D();
         if (global.ProjectHierarchy && typeof global.ProjectHierarchy.notify === 'function') global.ProjectHierarchy.notify('plane_restored');
         if (typeof global.wpInvalidateHeatmap === 'function') global.wpInvalidateHeatmap('Planos restaurados');
         return true;
@@ -273,25 +290,75 @@
 
     if (kind === 'electrical') {
       if (data.inverterEquipmentState && global.inverterEquipmentState) {
+        var st = global.inverterEquipmentState;
         var revInv = revive(data.inverterEquipmentState);
-        var liveCableEntities = global.inverterEquipmentState.dcCableEntities || [];
+        var liveRefs = {
+          entity: st.entity || null,
+          label2D: st.label2D || null,
+          dcProtectionEntity: st.dcProtectionEntity || null,
+          dcProtectionLabel2D: st.dcProtectionLabel2D || null,
+          batteryEntity: st.batteryEntity || null,
+          batteryLabel2D: st.batteryLabel2D || null,
+          cbEntity: (st.combinerBox && st.combinerBox.entity) || null,
+          cbLabel2D: (st.combinerBox && st.combinerBox.label2D) || null,
+          gmEntity: (st.gridMeter && st.gridMeter.entity) || null,
+          gmLabel2D: (st.gridMeter && st.gridMeter.label2D) || null,
+          dcCableEntities: st.dcCableEntities || []
+        };
+
         for (var k in revInv) {
-          if (k !== 'dcCableEntities') {
-            global.inverterEquipmentState[k] = revInv[k];
+          if (!Object.prototype.hasOwnProperty.call(revInv, k)) continue;
+          if (k === 'dcCableEntities' || k === 'entity' || k === 'label2D' || k === 'dcProtectionEntity' || k === 'dcProtectionLabel2D' || k === 'batteryEntity' || k === 'batteryLabel2D') continue;
+          if (k === 'combinerBox' && revInv.combinerBox && typeof revInv.combinerBox === 'object') {
+            st.combinerBox = Object.assign({}, revInv.combinerBox, { entity: liveRefs.cbEntity, label2D: liveRefs.cbLabel2D });
+          } else if (k === 'gridMeter' && revInv.gridMeter && typeof revInv.gridMeter === 'object') {
+            st.gridMeter = Object.assign({}, revInv.gridMeter, { entity: liveRefs.gmEntity, label2D: liveRefs.gmLabel2D });
+          } else {
+            st[k] = revInv[k];
           }
         }
-        global.inverterEquipmentState.dcCableEntities = liveCableEntities;
+        st.entity = liveRefs.entity;
+        st.label2D = liveRefs.label2D;
+        st.dcProtectionEntity = liveRefs.dcProtectionEntity;
+        st.dcProtectionLabel2D = liveRefs.dcProtectionLabel2D;
+        st.batteryEntity = liveRefs.batteryEntity;
+        st.batteryLabel2D = liveRefs.batteryLabel2D;
+        st.dcCableEntities = liveRefs.dcCableEntities;
 
-        // Sincronizar entidad 3D en Cesium
-        if (global.inverterEquipmentState.position && !global.inverterEquipmentState.entity) {
-          if (typeof global.wpPlaceInverterAtPosition === 'function') {
-            global.wpPlaceInverterAtPosition(global.inverterEquipmentState.position);
+        function _syncEqEntityAndLabel(ent, lbl2d, pos, labelPrefix) {
+          if (!pos) return;
+          if (ent && typeof Cesium !== 'undefined') {
+            ent.position = new Cesium.ConstantPositionProperty(pos);
+            if (ent.label && labelPrefix && Cesium.Cartographic) {
+              var c = Cesium.Cartographic.fromCartesian(pos);
+              if (c && Number.isFinite(c.height)) ent.label.text = labelPrefix + '\n' + c.height.toFixed(1) + ' m';
+            }
           }
-        } else if (!global.inverterEquipmentState.position && global.inverterEquipmentState.entity) {
+          if (lbl2d && typeof Cesium !== 'undefined' && Cesium.Cartesian3) {
+            lbl2d.position = Cesium.Cartesian3.clone(pos);
+          }
+        }
+
+        // Sincronizar entidad 3D principal del inversor y equipos auxiliares
+        if (st.position && !st.entity) {
+          if (typeof global.wpPlaceInverterAtPosition === 'function') {
+            global.wpPlaceInverterAtPosition(st.position);
+          }
+        } else if (!st.position && st.entity) {
           if (typeof global.wpClearInverterAndCables === 'function') {
             global.wpClearInverterAndCables();
           }
+        } else {
+          _syncEqEntityAndLabel(st.entity, st.label2D, st.position, '⚡ CUADRO & INVERSOR');
         }
+        if (st.combinerBox) {
+          _syncEqEntityAndLabel(st.combinerBox.entity, st.combinerBox.label2D, st.combinerBox.position, '📦 COMBINER BOX');
+        }
+        _syncEqEntityAndLabel(st.dcProtectionEntity, st.dcProtectionLabel2D, st.dcProtectionPosition, '🛡️ CUADRO DC (SPD II)');
+        if (st.gridMeter) {
+          _syncEqEntityAndLabel(st.gridMeter.entity, st.gridMeter.label2D, st.gridMeter.position, '🔌 CONTADOR DE RED');
+        }
+        _syncEqEntityAndLabel(st.batteryEntity, st.batteryLabel2D, st.batteryPosition, '🔋 BATERÍA LFP');
       }
       if (data.cableRoutingState && global.cableRoutingState) {
         var revCr = revive(data.cableRoutingState);
@@ -300,6 +367,8 @@
       if (typeof global.wpCalculateAndRenderInverterCables === 'function') global.wpCalculateAndRenderInverterCables();
       if (global.RACableEngine && typeof global.RACableEngine.redrawAll === 'function') global.RACableEngine.redrawAll();
       if (typeof global.wpUpdateStep4UI === 'function') global.wpUpdateStep4UI();
+      if (typeof global.renderTriad2D === 'function') global.renderTriad2D();
+      if (typeof global.renderUniversalGizmo2D === 'function') global.renderUniversalGizmo2D();
       if (global.ProjectHierarchy && typeof global.ProjectHierarchy.notify === 'function') global.ProjectHierarchy.notify('electrical_restored');
       return true;
     }
@@ -469,9 +538,12 @@
     var label = 'Mover elemento';
     var meta = null;
 
-    if (targetType === 'vertex' || targetType === 'workplane_vertex') {
+    if (targetType === 'vertex') {
       kind = 'polylines';
       label = 'Mover vértice de faldón';
+    } else if (targetType === 'workplane_vertex') {
+      kind = 'planes';
+      label = 'Mover vértice de plano de trabajo';
     } else if (targetType === 'building_vertex') {
       kind = 'buildings';
       label = 'Mover vértice de edificio';

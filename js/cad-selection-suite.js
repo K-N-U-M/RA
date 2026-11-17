@@ -459,7 +459,8 @@
         if (Array.isArray(drilled)) {
           drilled.forEach(item => {
             if (!item || !item.id) return;
-            const idStr = (typeof item.id === 'string') ? item.id : (item.id.id || '');
+            const rawId = (typeof item.id === 'string') ? item.id : (item.id.id || '');
+            const idStr = rawId.replace(/^(obs_box_prim_|obs_tree_trunk_prim_|obs_tree_canopy_prim_|obs_buffer_prim_)/, '');
             if (global.obstacles && global.obstacles.some(o => o.id === idStr)) {
               const obsObj = global.obstacles.find(o => o.id === idStr);
               if (!candidates.some(c => c.type === 'obstacle' && c.id === idStr)) {
@@ -564,10 +565,16 @@
     if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') return;
     // Tecla Tab para ciclar en profundidad
     window.addEventListener('keydown', function(e) {
-      if (e.key === 'Tab') {
-        const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
-        if (activeTag === 'input' || activeTag === 'textarea' || activeTag === 'select') return;
+      const isEditingText = (function () {
+        if (typeof global.isTextInputActive === 'function' && global.isTextInputActive(e.target)) return true;
+        const active = document.activeElement;
+        if (!active) return false;
+        const tag = active.tagName ? active.tagName.toLowerCase() : '';
+        return tag === 'input' || tag === 'textarea' || tag === 'select' || active.isContentEditable || (typeof active.closest === 'function' && Boolean(active.closest('[contenteditable="true"]')));
+      })();
+      if (isEditingText) return;
 
+      if (e.key === 'Tab') {
         // Si el ratón está en la escena, interceptar Tab para ciclar capas CAD
         const mousePos = { x: _lastHoverX, y: _lastHoverY };
         if (mousePos.x > 0 && mousePos.y > 0) {
@@ -578,10 +585,7 @@
             cycleNextCADSelection(e.shiftKey);
           }
         }
-      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-        const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
-        if (activeTag === 'input' || activeTag === 'textarea' || activeTag === 'select') return;
-
+      } else if (!e.ctrlKey && !e.altKey && !e.metaKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
         // Desplazamiento de precisión de placas (Opción 2) si hay placas seleccionadas o faldón activo
         const hasSelectedPanels = (Array.isArray(global.selectedPanelIndices) && global.selectedPanelIndices.length > 0) || (typeof global.selectedPanelIndex === 'number' && global.selectedPanelIndex >= 0);
         const activePolyIdx = (global.WP && typeof global.WP.selectedPolyIdx === 'number') ? global.WP.selectedPolyIdx : -1;
@@ -612,13 +616,10 @@
             return;
           }
         }
-      } else if ((e.key === 'f' || e.key === 'F') && e.shiftKey) {
+      } else if ((e.key === 'f' || e.key === 'F') && e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
         // Atajo Shift + F: Alternar Modo Foco
-        const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
-        if (activeTag !== 'input' && activeTag !== 'textarea') {
-          e.preventDefault();
-          toggleCADFocusMode();
-        }
+        e.preventDefault();
+        toggleCADFocusMode();
       } else if ((e.key === 'f' || e.key === 'F') && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
         // Atajo F: Ciclar Filtro de Puntería CAD
         const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
@@ -681,9 +682,10 @@
       const hitGizmo = (typeof global.checkUniversalGizmoHit === 'function') ? global.checkUniversalGizmoHit(e.clientX, e.clientY) : null;
       if (hitGizmo) return;
 
-      // Si pulsamos Shift O es un clic sin elemento directo detectado
+      // Si pulsamos Shift sobre el canvas sin arrastrar gizmo -> iniciar Marquee sin choque con órbita Cesium
       const shouldStartMarquee = e.shiftKey;
       if (shouldStartMarquee) {
+        e.stopPropagation();
         global.cadMarqueeState.active = true;
         global.cadMarqueeState.startX = e.clientX;
         global.cadMarqueeState.startY = e.clientY;
@@ -700,7 +702,7 @@
           scene.screenSpaceCameraController.enableTilt = false;
         }
       }
-    });
+    }, true);
 
     window.addEventListener('pointermove', function(e) {
       updateCADHover({ x: e.clientX, y: e.clientY });
@@ -714,31 +716,36 @@
       }
     });
 
-    window.addEventListener('pointerup', function(e) {
-      if (global.cadMarqueeState.active) {
-        const m = global.cadMarqueeState;
-        m.active = false;
+    function finishOrCancelMarquee(e, cancelled) {
+      if (!global.cadMarqueeState.active) return;
+      const m = global.cadMarqueeState;
+      m.active = false;
 
-        // Restaurar navegación de cámara
-        const scene = global.viewer ? global.viewer.scene : null;
-        if (scene && scene.screenSpaceCameraController) {
-          scene.screenSpaceCameraController.enableRotate = true;
-          scene.screenSpaceCameraController.enableTranslate = true;
-          scene.screenSpaceCameraController.enableZoom = true;
-          scene.screenSpaceCameraController.enableTilt = true;
-        }
+      // Restaurar navegación de cámara
+      const scene = global.viewer ? global.viewer.scene : null;
+      if (scene && scene.screenSpaceCameraController) {
+        scene.screenSpaceCameraController.enableRotate = true;
+        scene.screenSpaceCameraController.enableTranslate = true;
+        scene.screenSpaceCameraController.enableZoom = true;
+        scene.screenSpaceCameraController.enableTilt = true;
+      }
 
+      if (!cancelled) {
         const dx = m.currentX - m.startX;
         const dy = m.currentY - m.startY;
         if (Math.hypot(dx, dy) > 8) {
-          executeMarqueeBoxSelection(m.startX, m.startY, m.currentX, m.currentY, e.ctrlKey || e.metaKey);
-        }
-
-        if (typeof global.renderTriad2D === 'function') {
-          global.renderTriad2D();
+          m._justFinishedAt = Date.now();
+          executeMarqueeBoxSelection(m.startX, m.startY, m.currentX, m.currentY, e && (e.ctrlKey || e.metaKey));
         }
       }
-    });
+
+      if (typeof global.renderTriad2D === 'function') {
+        global.renderTriad2D();
+      }
+    }
+
+    window.addEventListener('pointerup', function(e) { finishOrCancelMarquee(e, false); });
+    window.addEventListener('pointercancel', function(e) { finishOrCancelMarquee(e, true); });
   }
 
   function executeMarqueeBoxSelection(x1, y1, x2, y2, isAdditive) {

@@ -82,15 +82,18 @@ function readTitular() {
   };
 }
 
-function getProjectCalcs() {
+function _docGetProjectCalcs() {
   if (typeof RA !== 'undefined' && RA.ProjectCalcs && typeof RA.ProjectCalcs.getProjectCalcs === 'function') {
     return RA.ProjectCalcs.getProjectCalcs();
   }
   if (typeof window !== 'undefined' && typeof window._canonicalGetProjectCalcs === 'function') {
     return window._canonicalGetProjectCalcs();
   }
+  if (typeof window !== 'undefined' && typeof window.getProjectCalcs === 'function') {
+    return window.getProjectCalcs();
+  }
   if (typeof window !== 'undefined' && window.RA && window.RA.log) {
-    window.RA.log.warn('getProjectCalcs: motor canónico no disponible aún');
+    window.RA.log.warn('_docGetProjectCalcs: motor canónico no disponible aún');
   }
   return {
     numPanels: 0, monthly: [], annualKWh: 0, hspAnual: 0, kwp: 0,
@@ -105,11 +108,13 @@ function getProjectCalcs() {
 // ============================================================================
 
 function docWindow(title, body) {
+  const safeTitle = escapeHtml(title);
+  const safeFileBase = String(title || 'documento').replace(/[^a-z0-9_\-\.]/gi, '_');
   const htmlContent = `<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>${title}</title>
+  <title>${safeTitle}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Comfortaa:wght@300;400;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,400..700;1,9..40,400..700&family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&family=Montserrat:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
@@ -343,9 +348,9 @@ function docWindow(title, body) {
   </div>
 
   <div class="doc-top-bar no-print">
-    <div class="doc-bar-title"><span>DOCUMENTACIÓN FV</span> ${title}</div>
+    <div class="doc-bar-title"><span>DOCUMENTACIÓN FV</span> ${safeTitle}</div>
     <div class="doc-bar-btns">
-      <input type="file" id="doc-img-upload-input" accept="image/*" style="display:none;" onchange="handleDocImageInsert(this)">
+      <input type="file" id="doc-img-upload-input" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none;" onchange="handleDocImageInsert(this)">
       <button class="doc-btn" style="background:#0284c7;color:#fff;" onclick="triggerDocImageUpload()" title="Añadir una imagen desde tu equipo">🖼️ AÑADIR IMAGEN</button>
       <button class="doc-btn" style="background:#8b5cf6;color:#fff;" onclick="capture3DViewToDoc()" title="Capturar la vista 3D actual del proyecto e insertarla aquí">📸 CAPTURAR VISTA 3D</button>
       <button class="doc-btn doc-btn-edit" id="btn-edit-toggle" onclick="toggleEditMode()">✏️ MODO EDICIÓN</button>
@@ -375,6 +380,11 @@ function docWindow(title, body) {
     function handleDocImageInsert(input) {
       if (!input.files || !input.files[0]) return;
       const file = input.files[0];
+      if (!/^image\/(png|jpeg|jpg|webp|gif)$/i.test(file.type || '')) {
+        alert('Formato no permitido. Usa únicamente imágenes PNG, JPG, WebP o GIF.');
+        input.value = '';
+        return;
+      }
       const reader = new FileReader();
       reader.onload = function(e) {
         insertImageIntoDoc(e.target.result, file.name);
@@ -408,12 +418,26 @@ function docWindow(title, body) {
     }
 
     function insertImageIntoDoc(dataUrl, altText) {
+      const s = String(dataUrl || '').trim();
+      if (!/^data:image\/(?:png|jpeg|jpg|webp|gif);base64,[A-Za-z0-9+/=]+$/i.test(s)) {
+        alert('Imagen inválida o formato no soportado.');
+        return;
+      }
       const wrapper = document.createElement('div');
       wrapper.className = 'doc-img-resizable ra-draggable-block';
       wrapper.setAttribute('draggable', 'true');
       wrapper.style.width = '100%';
-      wrapper.innerHTML = '<img src="' + dataUrl + '" alt="' + (altText || 'Imagen') + '">' +
-        '<button type="button" class="doc-img-handle-del no-print" onclick="this.parentNode.remove()" title="Eliminar imagen">✕</button>';
+      const img = document.createElement('img');
+      img.src = s;
+      img.alt = altText || 'Imagen';
+      const delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.className = 'doc-img-handle-del no-print';
+      delBtn.title = 'Eliminar imagen';
+      delBtn.textContent = '✕';
+      delBtn.onclick = function() { if (wrapper.parentNode) wrapper.parentNode.removeChild(wrapper); };
+      wrapper.appendChild(img);
+      wrapper.appendChild(delBtn);
       
       const sheet = document.getElementById('editable-doc-sheet');
       const sel = window.getSelection();
@@ -581,13 +605,13 @@ function docWindow(title, body) {
           docxBlob = window.opener.RADocxExporter.buildDocxBlobFromHtml(cloneSheet.outerHTML, {
             orientation: 'portrait',
             styles: styles,
-            title: document.title || '${title}'
+            title: document.title || ${JSON.stringify(String(title || ''))}
           });
         } else if (typeof buildDocxBlobFromHtml === 'function') {
           docxBlob = buildDocxBlobFromHtml(cloneSheet.outerHTML, {
             orientation: 'portrait',
             styles: styles,
-            title: document.title || '${title}'
+            title: document.title || ${JSON.stringify(String(title || ''))}
           });
         } else {
           throw new Error('Módulo RADocxExporter no disponible');
@@ -595,7 +619,7 @@ function docWindow(title, body) {
 
         const a = document.createElement('a');
         a.href = URL.createObjectURL(docxBlob);
-        a.download = '${title.replace(/[^a-z0-9_\\-\\.]/gi, '_')}.docx';
+        a.download = '${safeFileBase}.docx';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -619,7 +643,7 @@ function docWindow(title, body) {
       const blob = new Blob(['\\ufeff' + clone.outerHTML], { type: 'text/html;charset=utf-8' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = '${title.replace(/[^a-z0-9_\-\.]/gi, '_')}.html';
+      a.download = '${safeFileBase}.html';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -796,7 +820,7 @@ function generateMemoria(skipPricingModal) {
     });
     return;
   }
-  const d = getProjectCalcs();
+  const d = _docGetProjectCalcs();
   const dcEs3D = !!d.L_dc_esMedida3D;
   const acEs3D = !!d.L_ac_esMedida3D;
   if (d.numPanels === 0) {
@@ -1144,7 +1168,7 @@ function generateMemoria(skipPricingModal) {
 // ============================================================================
 function generatePliego() {
   if (typeof raEnsureAnalysisReadyForDoc === 'function' && !raEnsureAnalysisReadyForDoc()) return;
-  const d = getProjectCalcs();
+  const d = _docGetProjectCalcs();
   const t = d.tit;
   const loc = (t.dir ? t.dir + ', ' : '') + (t.mun || '') + (t.prov ? ', ' + t.prov : '');
 
@@ -1246,7 +1270,7 @@ function generatePresupuesto(skipPricingModal) {
     });
     return;
   }
-  const d = getProjectCalcs();
+  const d = _docGetProjectCalcs();
   const t = d.tit;
   const m = (typeof calculateFinancialModel === 'function') ? calculateFinancialModel() : null;
 
@@ -1571,7 +1595,7 @@ function generatePresupuesto(skipPricingModal) {
 }
 
 function generateUnifilar() {
-  const d = getProjectCalcs();
+  const d = _docGetProjectCalcs();
   if (d.numPanels === 0) {
     alert('Define primero el polígono de la instalación en el visor 3D.');
     return;
@@ -2261,7 +2285,7 @@ function generatePlanoPlanta() {
     return;
   }
 
-  const d = getProjectCalcs();
+  const d = _docGetProjectCalcs();
   const roofData = computeRoofPanelsData();
 
   if (!roofData) {
@@ -2753,7 +2777,7 @@ function generatePlanoPlanta() {
 
 
 function generateFormulario() {
-  const d = getProjectCalcs();
+  const d = _docGetProjectCalcs();
   const t = d.tit;
   const loc = (t.dir ? t.dir + ', ' : '') + (t.mun || '') + (t.prov ? ', ' + t.prov : '');
 
@@ -2874,7 +2898,7 @@ async function generateDeliveryPack(skipPricingModal) {
     return;
   }
 
-  const d = getProjectCalcs();
+  const d = _docGetProjectCalcs();
   if (d.numPanels === 0) {
     alert('Diseña primero el polígono de la instalación en el visor 3D.');
     return;

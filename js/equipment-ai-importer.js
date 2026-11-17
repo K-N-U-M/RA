@@ -735,7 +735,7 @@ NORMAS ESTRICTAS DE EXTRACCIÓN:
         <div style="text-align:center;padding:50px 20px;max-width:480px;margin:0 auto;">
           <div class="ra-spinner" style="width:36px;height:36px;border:3px solid rgba(56,189,248,0.2);border-top-color:var(--sky-400);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 16px auto;"></div>
           <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:6px;">Analizando ficha técnica con IA</div>
-          <div style="font-size:11px;color:var(--text-slate-400);line-height:1.4;">${msg || 'Extrayendo parámetros de ingeniería...'}</div>
+          <div style="font-size:11px;color:var(--text-slate-400);line-height:1.4;">${this.escapeHtml(msg || 'Extrayendo parámetros de ingeniería...')}</div>
           <button class="doc-mini-btn" onclick="if(window.cancelGeminiAnalysis) window.cancelGeminiAnalysis();" style="margin-top:18px;border-color:var(--text-slate-400);color:var(--text-slate-400);padding:6px 14px;font-size:11px;">Cancelar</button>
         </div>
       `;
@@ -774,7 +774,7 @@ NORMAS ESTRICTAS DE EXTRACCIÓN:
           <div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:24px;max-width:550px;margin:30px auto;text-align:center;">
             <i data-lucide="alert-triangle" style="width:32px;height:32px;color:var(--rose-500);margin-bottom:10px;"></i>
             <div style="font-size:13px;font-weight:bold;color:var(--rose-400);margin-bottom:8px;">No se pudo extraer la información</div>
-            <div style="font-size:11px;color:var(--text-slate-300);margin-bottom:20px;line-height:1.5;">${errMsg}</div>
+            <div style="font-size:11px;color:var(--text-slate-300);margin-bottom:20px;line-height:1.5;">${this.escapeHtml(errMsg)}</div>
             <button class="doc-mini-btn" onclick="RAEquipmentAIImporter.renderInitialUI(document.getElementById('cat-pane-ai_import'))" style="border-color:var(--sky-400);color:var(--sky-400);padding:6px 14px;font-size:11px;">Intentar de nuevo</button>
           </div>
         `;
@@ -865,7 +865,7 @@ NORMAS ESTRICTAS DE EXTRACCIÓN:
             </div>
             <div style="background:rgba(0,0,0,0.25);padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.05);">
               <span style="color:var(--text-slate-400);font-size: 10px;display:block;">Tipo de Red</span>
-              <span style="color:#fff;font-size:11px;">${data.type}</span>
+              <span style="color:#fff;font-size:11px;">${this.escapeHtml(data.type)}</span>
             </div>
             <div style="background:rgba(0,0,0,0.25);padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.05);">
               <span style="color:var(--text-slate-400);font-size: 10px;display:block;">Eficiencia Máx</span>
@@ -886,7 +886,7 @@ NORMAS ESTRICTAS DE EXTRACCIÓN:
             </div>
             <div style="background:rgba(0,0,0,0.25);padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.05);">
               <span style="color:var(--text-slate-400);font-size: 10px;display:block;">Química / Tipo</span>
-              <b style="color:#fff;font-size:11px;">${data.type}</b>
+              <b style="color:#fff;font-size:11px;">${this.escapeHtml(data.type)}</b>
             </div>
           </div>
         `;
@@ -896,15 +896,15 @@ NORMAS ESTRICTAS DE EXTRACCIÓN:
           <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:10px;margin-bottom:14px;font-size:11px;">
             <div style="background:rgba(0,0,0,0.25);padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.05);">
               <span style="color:var(--text-slate-400);font-size: 10px;display:block;">Potencia Nominal</span>
-              <b style="color:#38BDF8;font-size:14px;">${kw} kW</b>
+              <b style="color:#38BDF8;font-size:14px;">${this.escapeHtml(kw)} kW</b>
             </div>
             <div style="background:rgba(0,0,0,0.25);padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.05);">
               <span style="color:var(--text-slate-400);font-size: 10px;display:block;">Tipo & Rotor</span>
-              <b style="color:#fff;font-size:12px;">${data.type} · Ø ${data.rotorDiameterM}m</b>
+              <b style="color:#fff;font-size:12px;">${this.escapeHtml(data.type)} · Ø ${this.escapeHtml(data.rotorDiameterM)}m</b>
             </div>
             <div style="background:rgba(0,0,0,0.25);padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.05);">
               <span style="color:var(--text-slate-400);font-size: 10px;display:block;">Ruido & Clase</span>
-              <b style="color:#FBBF24;font-size:12px;">${data.acousticPowerLwaDba} dBA · Clase ${data.iecClass}</b>
+              <b style="color:#FBBF24;font-size:12px;">${this.escapeHtml(data.acousticPowerLwaDba)} dBA · Clase ${this.escapeHtml(data.iecClass)}</b>
             </div>
           </div>
         `;
@@ -913,15 +913,15 @@ NORMAS ESTRICTAS DE EXTRACCIÓN:
           <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:10px;margin-bottom:14px;font-size:11px;">
             <div style="background:rgba(0,0,0,0.25);padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.05);">
               <span style="color:var(--text-slate-400);font-size: 10px;display:block;">Potencia Nominal</span>
-              <b style="color:var(--emerald-400);font-size:14px;">${data.kw * 1000} W</b>
+              <b style="color:var(--emerald-400);font-size:14px;">${this.escapeHtml(data.kw * 1000)} W</b>
             </div>
             <div style="background:rgba(0,0,0,0.25);padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.05);">
               <span style="color:var(--text-slate-400);font-size: 10px;display:block;">Topología</span>
-              <b style="color:#fff;font-size:11px;">${data.type}</b>
+              <b style="color:#fff;font-size:11px;">${this.escapeHtml(data.type)}</b>
             </div>
             <div style="background:rgba(0,0,0,0.25);padding:8px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.05);">
               <span style="color:var(--text-slate-400);font-size: 10px;display:block;">Canales MPPT</span>
-              <b style="color:#fff;font-size:11px;">${data.mppt} MPPT</b>
+              <b style="color:#fff;font-size:11px;">${this.escapeHtml(data.mppt)} MPPT</b>
             </div>
           </div>
         `;
@@ -939,7 +939,7 @@ NORMAS ESTRICTAS DE EXTRACCIÓN:
               <span style="display:inline-block;padding:3px 8px;border-radius:4px;background:rgba(16,185,129,0.15);color:var(--emerald-400);font-size: 10px;font-weight:bold;letter-spacing:0.5px;">
                 ✓ PARÁMETROS HOMOLOGADOS
               </span>
-              <span style="font-size:10px;color:var(--text-slate-400);text-transform:uppercase;">${catLabels[data.category] || data.category}</span>
+              <span style="font-size:10px;color:var(--text-slate-400);text-transform:uppercase;">${this.escapeHtml(catLabels[data.category] || data.category)}</span>
             </div>
             <button class="doc-mini-btn" onclick="RAEquipmentAIImporter.renderInitialUI(document.getElementById('cat-pane-ai_import'))" style="font-size:10px;color:var(--text-slate-400);">
               ↺ Subir otro documento

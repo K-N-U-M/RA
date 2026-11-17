@@ -746,11 +746,17 @@ function updateObstacleLiveModelMatrix(obs, target) {
   if (typeof wpCheckObstacleInsideRoof === 'function') {
     wpCheckObstacleInsideRoof(obs);
   }
+  if (typeof window !== 'undefined' && window.RAMeasureTool && typeof window.RAMeasureTool.invalidateSnapCandidates === 'function') {
+    window.RAMeasureTool.invalidateSnapCandidates();
+  }
 }
 global.updateObstacleLiveModelMatrix = updateObstacleLiveModelMatrix;
 if (typeof window !== 'undefined') window.updateObstacleLiveModelMatrix = updateObstacleLiveModelMatrix;
 
 function render3DObstaclesInCesium() {
+  if (typeof window !== 'undefined' && window.RAMeasureTool && typeof window.RAMeasureTool.invalidateSnapCandidates === 'function') {
+    window.RAMeasureTool.invalidateSnapCandidates();
+  }
   if (typeof viewer === 'undefined' || !viewer || !viewer.scene || !viewer.scene.primitives) return;
 
   if (window._obsEntities) {
@@ -1385,8 +1391,10 @@ function deleteSelectedObstacle() {
       global.RAWindVisualizer.removeTurbine(selectedObstacleId);
     }
   }
-  if (global.RAundo) global.RAundo.snapObstacles();
-  obstacles = obstacles.filter(o => o.id !== selectedObstacleId);
+  if (global.RAundo) global.RAundo.snapObstacles('Eliminar ' + name);
+  for (let i = obstacles.length - 1; i >= 0; i--) {
+    if (!obstacles[i] || obstacles[i].id === selectedObstacleId) obstacles.splice(i, 1);
+  }
   global.obstacles = obstacles;
   if (typeof window !== 'undefined') window.obstacles = obstacles;
   // [P0] Sin auto-selección del siguiente obstáculo: con Supr repetido se borraba

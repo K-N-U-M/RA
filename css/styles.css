@@ -194,55 +194,7 @@
     }
 
     
-    /* ── STEPPER 1-2-3 DE DISEÑO SOLAR EN CUBIERTA ──────────────────────── */
-    .wp-stepper-header {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 4px;
-      background: rgba(0, 0, 0, 0.4);
-      padding: 4px;
-      border-radius: 10px;
-      border: 1px solid var(--border-subtle);
-      margin-bottom: 10px;
-    }
-    .wp-step-btn {
-      background: transparent;
-      border: 1px solid transparent;
-      border-radius: 8px;
-      padding: 6px 4px;
-      cursor: pointer;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 2px;
-      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-    .wp-step-btn:hover {
-      background: rgba(255, 255, 255, 0.05);
-    }
-    .wp-step-btn.active {
-      background: rgba(245, 158, 11, 0.15);
-      border-color: var(--amber-500);
-      box-shadow: 0 0 12px rgba(245, 158, 11, 0.2);
-    }
-    .wp-step-num {
-      font-size: 14px;
-      font-weight: 900;
-      color: var(--text-slate-400);
-      letter-spacing: 0.5px;
-    }
-    .wp-step-btn.active .wp-step-num {
-      color: var(--amber-400);
-    }
-    .wp-step-title {
-      font-size: 10px;
-      font-weight: 800;
-      color: var(--text-slate-300);
-      text-transform: uppercase;
-    }
-    .wp-step-btn.active .wp-step-title {
-      color: #fff;
-    }
+    /* Botones de stepper / HUD deshabilitados */
     .wp-step-btn.disabled {
       opacity: 0.28 !important;
       cursor: not-allowed !important;
@@ -1479,6 +1431,11 @@
       opacity: 1;
       transform: translateX(-50%) translateY(0);
       pointer-events: auto;
+    }
+
+    /* Toasts siempre por encima de modales (999999) y cajones móviles */
+    #ra-toast-container {
+      z-index: 2000000 !important;
     }
 
     #ra-autorot {
@@ -2730,9 +2687,10 @@ body.ra-capture-mode-active .ra-status-hud {
     max-width: 94vw;
     max-height: 92vh;
   }
-  #equipment-catalog-modal,
-  #cost-breakdown-modal,
-  #company-branding-modal {
+  #ra-equipment-catalog-modal > div,
+  #ra-cost-breakdown-modal > div,
+  #ra-company-branding-modal > div,
+  #ra-projects-modal > div {
     max-width: 95vw !important;
     max-height: 92vh !important;
   }

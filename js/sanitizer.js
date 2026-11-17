@@ -40,6 +40,24 @@
       .replace(/<(script|style|iframe|object|embed|svg|math|template|link|meta)\b[^>]*\/?>/gi, '');
   }
 
+  function safeImageSrc(src) {
+    var s = String(src == null ? '' : src).trim();
+    if (!s || /["'<>\\`\r\n]/.test(s)) return '';
+    if (/^data:image\/(?:png|jpeg|jpg|webp|gif);base64,[A-Za-z0-9+/=]+$/i.test(s)) {
+      return s;
+    }
+    if (/^assets\/[A-Za-z0-9_.\-\/]+\.(?:png|jpe?g|webp|gif)$/i.test(s) && s.indexOf('..') === -1) {
+      return s;
+    }
+    return '';
+  }
+
+  function safeCssUrl(src) {
+    var safe = safeImageSrc(src);
+    if (!safe || /[()]/.test(safe)) return '';
+    return safe;
+  }
+
   function richText(html) {
     var source = stripDangerousBlocks(html);
 
@@ -48,11 +66,11 @@
 
     var doc;
     try {
-      doc = new root.DOMParser().parseFromString('<div id="ra-sanitize-root">' + source + '</div>', 'text/html');
+      doc = new root.DOMParser().parseFromString(source, 'text/html');
     } catch (e) {
       return plain(source);
     }
-    var host = doc.getElementById('ra-sanitize-root');
+    var host = doc && doc.body;
     if (!host) return plain(source);
 
     var walk = function (node) {
@@ -81,7 +99,7 @@
     return host.innerHTML;
   }
 
-  var api = { richText: richText, plain: plain };
+  var api = { richText: richText, plain: plain, safeImageSrc: safeImageSrc, safeCssUrl: safeCssUrl };
   if (!root.RA) root.RA = {};
   root.RASanitize = api;
   root.RA.Sanitize = api;

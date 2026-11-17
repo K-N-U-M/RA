@@ -34,7 +34,8 @@
     'ra_active_shape',         // Forma elástica en trazado activo
     'bld_vtx_handle_',         // Esferas de manipulación de vértices de edificios 3D
     'ra_route_handle_',        // Nodos interactivos de codo de cableado ortogonal
-    'meas_',                   // Pines y etiquetas de la cinta métrica
+    'ra_meas_',                // Pines y etiquetas de la cinta métrica (RAMeasureTool)
+    'meas_',                   // Compatibilidad legacy de pines de medición
     'pv_label_',               // Rótulos 3D de paneles
     'pv_heatmap_label_',       // Etiquetas 3D de producción solar / heatmap
     'pv_panel_active_drag_',   // Vista previa de arrastre de panel

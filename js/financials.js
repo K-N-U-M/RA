@@ -695,9 +695,9 @@ async function enrichSummaryWithGemini(targetWindow, d, m, equipment) {
     if (generatedText && generatedText.trim()) {
       // [AUD-2026 v2 · SEC2-01] Documentación: generatedText ya sale saneado de la fuente;
       // se re-aplica el allowlist como cinturón de tirantes (doble comprobación).
-      container.innerHTML = (window.RAHtml && window.RAHtml.rich)
-        ? window.RAHtml.rich(generatedText)
-        : ((window.RASanitize && window.RASanitize.richText) ? window.RASanitize.richText(generatedText) : generatedText);
+      container.innerHTML = (window.RASanitize && typeof window.RASanitize.richText === 'function')
+        ? window.RASanitize.richText(generatedText)
+        : String(generatedText).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
       if (badge) badge.innerHTML = _mSvg('sparkles', 12, 'currentColor', 'margin-right:4px;') + 'Resumen generado con IA · Google Gemini';
       if (targetWindow && typeof targetWindow.RA_runA4AutoFit === 'function') {
         setTimeout(targetWindow.RA_runA4AutoFit, 60);
@@ -1490,12 +1490,16 @@ function wpOpenPricingReviewModal(onConfirm) {
 
           '<!-- SECCIÓN 1: DATOS DE FACTURACIÓN DEL CLIENTE -->' +
           '<div style="background:rgba(30,41,59,0.5);border:1px solid rgba(56,189,248,0.2);border-radius:8px;padding:11px 12px;display:flex;flex-direction:column;gap:8px;">' +
-            '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">' +
               '<div style="display:flex;align-items:center;gap:6px;">' +
                 '<span style="display:inline-flex;">' + _mSvg('user', 13, '#38BDF8') + '</span>' +
                 '<span style="font-size:10.5px;font-weight:900;color:#38BDF8;text-transform:uppercase;letter-spacing:0.5px;">Datos de Facturación del Cliente</span>' +
+                '<span id="pricing-bill-sync-badge" style="font-size:9px;font-weight:800;padding:1px 6px;border-radius:4px;background:rgba(148,163,184,0.16);color:#94a3b8;border:1px solid rgba(148,163,184,0.3);">Manual</span>' +
               '</div>' +
-              '<span style="font-size:9.5px;color:#94a3b8;">Verifica los datos fiscales antes de emitir</span>' +
+              '<div style="display:flex;align-items:center;gap:6px;">' +
+                '<button type="button" id="btn-pricing-sync-bill" style="display:none;background:rgba(16,185,129,0.16);border:1px solid rgba(52,211,153,0.45);color:#6ee7b7;font-size:9px;font-weight:800;padding:2px 7px;border-radius:4px;cursor:pointer;">↻ Traer de Factura</button>' +
+                '<span style="font-size:9.5px;color:#94a3b8;">Verifica los datos fiscales antes de emitir</span>' +
+              '</div>' +
             '</div>' +
             '<div style="display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:8px;">' +
               '<div>' +
@@ -2012,7 +2016,7 @@ function wpOpenPricingReviewModal(onConfirm) {
   if (rowWind) rowWind.style.display = (designCosts.windCount > 0 || initWind > 0) ? 'flex' : 'none';
   if (mgInput) mgInput.value = initialMarginPct;
 
-  // ── INICIALIZAR Y POBLAR CAMPOS DE FACTURA & CLIENTE (SSOT) ──
+  // ── INICIALIZAR Y POBLAR CAMPOS DE FACTURA & CLIENTE (SSOT SINCRONIZADO) ──
   var custNombreInput = document.getElementById('pricing-cust-nombre');
   var custNifInput = document.getElementById('pricing-cust-nif');
   var custTelInput = document.getElementById('pricing-cust-tel');
@@ -2026,31 +2030,136 @@ function wpOpenPricingReviewModal(onConfirm) {
   var custConsumoInput = document.getElementById('pricing-cust-consumo');
   var custPotContrInput = document.getElementById('pricing-cust-potcontr');
   var custPrecioKwhInput = document.getElementById('pricing-cust-precio-kwh');
+  var syncBillBadge = document.getElementById('pricing-bill-sync-badge');
+  var btnSyncBill = document.getElementById('btn-pricing-sync-bill');
 
-  var curTit = (typeof readTitular === 'function') ? readTitular() : (d.tit || {});
-  var curBillComp = (typeof window !== 'undefined' && window.RA && window.RA.billAuditor && window.RA.billAuditor.comparison) ? window.RA.billAuditor.comparison : null;
-  var curManualCons = (typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.manualAnnualConsumptionKWh) || 0;
-  if (!curManualCons) {
-    var rawManualEl = document.getElementById('cfg-pres-consumo-anual') || document.getElementById('modal-cfg-pres-consumo-anual');
-    if (rawManualEl && parseFloat(rawManualEl.value) > 0) curManualCons = parseFloat(rawManualEl.value);
+  function _isClientDemoDefault(val) {
+    var clean = String(val || '').trim();
+    if (!clean) return true;
+    return /^(PROPIETARIO EJEMPLO S\.?L\.?|Titular de la Instalación|B12345678|XXXXXXXXX|\+34 600 123 456|contacto@empresa\.es|Pol[íi]gono Industrial Sur, Parcela 12|ES00210000XXXXXXXXXX|ES0021000000000000XX)$/i.test(clean);
   }
-  var initConsumo = (curBillComp && curBillComp.consumoAnualKWh > 0) ? curBillComp.consumoAnualKWh : (curManualCons > 0 ? curManualCons : ((kwp >= 12) ? 18000 : 4500));
-  var curPriceKwh = (curBillComp && curBillComp.precioMedioKWh > 0) ? curBillComp.precioMedioKWh : 0.18;
-  var curPot = curTit.potContr || (curBillComp && curBillComp.potenciaContratadaP1) || 5.75;
 
-  if (custNombreInput) custNombreInput.value = (curTit.nombre && curTit.nombre !== 'Titular de la Instalación') ? curTit.nombre : (curBillComp && curBillComp.titular ? curBillComp.titular : (curTit.nombre || ''));
-  if (custNifInput) custNifInput.value = (curTit.nif && curTit.nif !== 'XXXXXXXXX') ? curTit.nif : (curBillComp && curBillComp.cifNif ? curBillComp.cifNif : (curTit.nif || ''));
-  if (custTelInput) custTelInput.value = curTit.tel || '';
-  if (custEmailInput) custEmailInput.value = curTit.email || '';
-  if (custDirInput) custDirInput.value = curTit.dir || (curBillComp && curBillComp.direccionSuministro ? curBillComp.direccionSuministro : (window.solarProjectConfig && window.solarProjectConfig.address ? window.solarProjectConfig.address : ''));
-  if (custMunInput) custMunInput.value = curTit.mun || (window.solarProjectConfig && window.solarProjectConfig.address ? window.solarProjectConfig.address.split(',')[0].trim() : 'Madrid');
-  if (custProvInput) custProvInput.value = curTit.prov || 'Madrid';
-  if (custCpInput) custCpInput.value = curTit.cp || '28001';
-  if (custCupsInput) custCupsInput.value = (curTit.cups && curTit.cups !== 'ES00210000XXXXXXXXXX') ? curTit.cups : (curBillComp && curBillComp.cups ? curBillComp.cups : (curTit.cups || ''));
-  if (custDistSelect && curTit.dist) custDistSelect.value = curTit.dist;
-  if (custConsumoInput) custConsumoInput.value = Math.round(initConsumo);
-  if (custPotContrInput) custPotContrInput.value = curPot.toFixed(2);
-  if (custPrecioKwhInput) custPrecioKwhInput.value = curPriceKwh.toFixed(3);
+  function populateBillingFieldsFromSSOT(preferBill) {
+    var curTit = (typeof readTitular === 'function') ? readTitular() : (d.tit || {});
+    var billMod = (typeof window !== 'undefined' && window.RA && window.RA.billAuditor) ? window.RA.billAuditor : null;
+    var curBill = billMod ? billMod.currentBill : null;
+    var curBillComp = billMod ? billMod.comparison : null;
+    var cfg = (typeof window !== 'undefined' && window.solarProjectConfig) ? window.solarProjectConfig : {};
+    var cfgClient = cfg.clientData || {};
+
+    var rawBillTit = (curBill && curBill.titular) ? Object.assign({}, curBill.titular) : {};
+    // Recoger también posibles ediciones vivas en el modal del auditor de facturas
+    var _liveBillVal = function(id) {
+      var el = document.getElementById(id);
+      return (el && el.value) ? el.value.trim() : '';
+    };
+    var hasLoadedBill = !!(curBill && (curBill.fuente === 'ia' || curBill.fuente === 'local'));
+    if (hasLoadedBill) {
+      rawBillTit.nombre = _liveBillVal('bill-edit-tit-nombre') || rawBillTit.nombre || (curBillComp && curBillComp.titular) || '';
+      rawBillTit.nif = _liveBillVal('bill-edit-tit-nif') || rawBillTit.nif || (curBillComp && curBillComp.cifNif) || '';
+      rawBillTit.telefono = _liveBillVal('bill-edit-tit-tel') || rawBillTit.telefono || '';
+      rawBillTit.email = _liveBillVal('bill-edit-tit-email') || rawBillTit.email || '';
+      rawBillTit.direccion = _liveBillVal('bill-edit-tit-dir') || rawBillTit.direccion || (curBillComp && curBillComp.direccionSuministro) || '';
+      rawBillTit.municipio = _liveBillVal('bill-edit-tit-mun') || rawBillTit.municipio || (curBillComp && curBillComp.municipio) || '';
+      rawBillTit.provincia = _liveBillVal('bill-edit-tit-prov') || rawBillTit.provincia || (curBillComp && curBillComp.provincia) || '';
+      rawBillTit.cp = _liveBillVal('bill-edit-tit-cp') || rawBillTit.cp || (curBillComp && curBillComp.cp) || '';
+    }
+
+    var docReal = function(val, id) {
+      var v = String(val || '').trim();
+      if (_isClientDemoDefault(v)) return '';
+      var el = id ? document.getElementById(id) : null;
+      if (el && el.defaultValue && v === String(el.defaultValue).trim() && hasLoadedBill) return '';
+      return v;
+    };
+
+    var pickField = function(billVal, docVal, cfgVal, fallbackVal) {
+      var b = String(billVal || '').trim();
+      var dc = String(docVal || '').trim();
+      var cf = String(cfgVal || '').trim();
+      if (preferBill && b) return b;
+      if (hasLoadedBill && b) return b;
+      return dc || b || cf || fallbackVal || '';
+    };
+
+    var addrParts = cfg.address ? String(cfg.address).split(',').map(function(s) { return s.trim(); }).filter(Boolean) : [];
+    var fallbackMun = addrParts[0] || '';
+    var docMunRaw = docReal(curTit.mun, 'doc-mun');
+    var docProvRaw = docReal(curTit.prov, 'doc-prov');
+    var docCpRaw = docReal(curTit.cp, 'doc-cp');
+    if (docCpRaw === '28001' && ((docMunRaw && !/madrid/i.test(docMunRaw)) || (rawBillTit.municipio && !/madrid/i.test(rawBillTit.municipio)))) {
+      docCpRaw = '';
+    }
+
+    var curManualCons = cfg.manualAnnualConsumptionKWh || 0;
+    if (!curManualCons) {
+      var rawManualEl = document.getElementById('cfg-pres-consumo-anual') || document.getElementById('modal-cfg-pres-consumo-anual');
+      if (rawManualEl && parseFloat(rawManualEl.value) > 0) curManualCons = parseFloat(rawManualEl.value);
+    }
+    var initConsumo = (curBillComp && curBillComp.consumoAnualKWh > 0) ? curBillComp.consumoAnualKWh : (curManualCons > 0 ? curManualCons : ((kwp >= 12) ? 18000 : 4500));
+    var curPriceKwh = (curBillComp && curBillComp.precioMedioKWh > 0) ? curBillComp.precioMedioKWh : 0.18;
+    var billPotMax = (curBill && curBill.potenciasContratadasKW) ? Math.max(curBill.potenciasContratadasKW.p1 || 0, curBill.potenciasContratadasKW.p2 || 0) : 0;
+    var curPot = (hasLoadedBill && billPotMax > 0)
+      ? billPotMax
+      : ((curBillComp && curBillComp.potenciaContratadaP1 > 0) ? curBillComp.potenciaContratadaP1 : (curTit.potContr || 5.75));
+
+    if (custNombreInput) custNombreInput.value = pickField(rawBillTit.nombre, docReal(curTit.nombre, 'doc-nombre'), cfgClient.nombre, '');
+    if (custNifInput) custNifInput.value = pickField(rawBillTit.nif, docReal(curTit.nif, 'doc-nif'), cfgClient.nif, '');
+    if (custTelInput) custTelInput.value = pickField(rawBillTit.telefono, docReal(curTit.tel, 'doc-tel'), cfgClient.telefono, '');
+    if (custEmailInput) custEmailInput.value = pickField(rawBillTit.email, docReal(curTit.email, 'doc-email'), cfgClient.email, '');
+    if (custDirInput) custDirInput.value = pickField(rawBillTit.direccion, docReal(curTit.dir, 'doc-dir'), cfgClient.direccion, cfg.address || '');
+    if (custMunInput) custMunInput.value = pickField(rawBillTit.municipio, docMunRaw, cfgClient.municipio, fallbackMun);
+    if (custProvInput) custProvInput.value = pickField(rawBillTit.provincia, docProvRaw, cfgClient.provincia, '');
+    if (custCpInput) custCpInput.value = pickField(rawBillTit.cp, docCpRaw, cfgClient.cp, '');
+
+    var billCups = _liveBillVal('bill-edit-cups') || (curBill && curBill.cups) || (curBillComp && curBillComp.cups) || '';
+    if (_isClientDemoDefault(billCups)) billCups = '';
+    if (custCupsInput) custCupsInput.value = pickField(billCups, docReal(curTit.cups, 'doc-cups'), cfgClient.cups, '');
+
+    var billDist = (curBill && curBill.distribuidora && curBill.distribuidora !== 'Desconocida') ? curBill.distribuidora : ((curBillComp && curBillComp.distribuidora) || '');
+    var effDist = pickField(billDist, curTit.dist, cfgClient.distribuidora, '');
+    if (custDistSelect && effDist) {
+      var needle = String(effDist).toLowerCase();
+      for (var di = 0; di < custDistSelect.options.length; di++) {
+        var optTxt = custDistSelect.options[di].text.toLowerCase();
+        if (optTxt === needle || optTxt.indexOf(needle) >= 0 || needle.indexOf(optTxt.split(' ')[0]) >= 0) {
+          custDistSelect.selectedIndex = di;
+          break;
+        }
+      }
+    }
+
+    if (custConsumoInput) custConsumoInput.value = Math.round(initConsumo);
+    if (custPotContrInput) custPotContrInput.value = Number(curPot || 5.75).toFixed(2);
+    if (custPrecioKwhInput) custPrecioKwhInput.value = Number(curPriceKwh || 0.18).toFixed(3);
+
+    if (syncBillBadge) {
+      if (hasLoadedBill) {
+        syncBillBadge.textContent = '🔗 Sincronizado con Factura (' + (curBill.comercializadora || 'Auditor') + ')';
+        syncBillBadge.style.background = 'rgba(16,185,129,0.18)';
+        syncBillBadge.style.borderColor = 'rgba(52,211,153,0.45)';
+        syncBillBadge.style.color = '#6ee7b7';
+      } else {
+        syncBillBadge.textContent = 'Edición manual / sin factura';
+        syncBillBadge.style.background = 'rgba(148,163,184,0.16)';
+        syncBillBadge.style.borderColor = 'rgba(148,163,184,0.3)';
+        syncBillBadge.style.color = '#94a3b8';
+      }
+    }
+    if (btnSyncBill) {
+      btnSyncBill.style.display = curBill ? 'inline-flex' : 'none';
+    }
+  }
+
+  populateBillingFieldsFromSSOT(false);
+  if (btnSyncBill) {
+    btnSyncBill.onclick = function() {
+      populateBillingFieldsFromSSOT(true);
+      if (typeof showToast === 'function') {
+        showToast('DATOS DE FACTURA SINCRONIZADOS', 'Campos de facturación alineados con la última factura auditada.', 'info', 2500);
+      }
+    };
+  }
 
   // Inicializar estado comercial (CEL, Add-ons y Descuentos)
   var curCommCfg = (typeof RAPricing !== 'undefined' && typeof RAPricing.getCommercialConfig === 'function') ? RAPricing.getCommercialConfig() : {};
@@ -2527,11 +2636,19 @@ function wpOpenPricingReviewModal(onConfirm) {
           }
           if (applyAiBtn) applyAiBtn.style.display = 'inline-block';
         } else {
-          var detail = lastHttpError ? (' (' + lastHttpError + ')') : (lastRawText ? ' (Respuesta: ' + lastRawText.substring(0, 80) + '...)' : '');
+          var _escF = function(v) {
+            return (window.RASanitize && typeof window.RASanitize.plain === 'function')
+              ? window.RASanitize.plain(v)
+              : String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+          };
+          var detail = lastHttpError ? (' (' + _escF(lastHttpError) + ')') : (lastRawText ? ' (Respuesta: ' + _escF(lastRawText.substring(0, 80)) + '...)' : '');
           if (aiText) aiText.innerHTML = _mSvg('errorCircle', 12, '#f87171', 'margin-right:4px;') + 'No se pudo interpretar la respuesta de Gemini' + detail + '. Comprueba la conexión o intenta de nuevo.';
         }
       } catch (errAi) {
-        if (aiText) aiText.innerHTML = _mSvg('errorCircle', 12, '#f87171', 'margin-right:4px;') + 'Error de conexión al consultar Gemini: ' + (errAi.message || errAi);
+        var _escErr = (window.RASanitize && typeof window.RASanitize.plain === 'function')
+          ? window.RASanitize.plain(errAi && errAi.message ? errAi.message : errAi)
+          : String(errAi && errAi.message ? errAi.message : errAi).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        if (aiText) aiText.innerHTML = _mSvg('errorCircle', 12, '#f87171', 'margin-right:4px;') + 'Error de conexión al consultar Gemini: ' + _escErr;
       }
     };
   }
@@ -2634,7 +2751,10 @@ function wpOpenPricingReviewModal(onConfirm) {
         if (eGen.message === 'NO_API_KEY') {
           if (modalAiSummaryStatus) modalAiSummaryStatus.innerHTML = _mSvg('errorCircle', 12, '#f87171', 'margin-right:4px;') + 'Introduce tu API Key de Gemini en el Paso 5 (Datos & Logo Empresa).';
         } else {
-          if (modalAiSummaryStatus) modalAiSummaryStatus.innerHTML = _mSvg('errorCircle', 12, '#f87171', 'margin-right:4px;') + 'No se pudo conectar con Gemini (' + (eGen.message || 'error') + '). Mostrando plantilla.';
+          var _escEgen = (window.RASanitize && typeof window.RASanitize.plain === 'function')
+            ? window.RASanitize.plain(eGen && eGen.message ? eGen.message : 'error')
+            : String(eGen && eGen.message ? eGen.message : 'error').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          if (modalAiSummaryStatus) modalAiSummaryStatus.innerHTML = _mSvg('errorCircle', 12, '#f87171', 'margin-right:4px;') + 'No se pudo conectar con Gemini (' + _escEgen + '). Mostrando plantilla.';
         }
         if (modalAiSummaryBox) modalAiSummaryBox.innerHTML = generateCommercialSummary(liveD || d, liveM || m, liveEq || eq);
       }
@@ -2731,14 +2851,14 @@ function wpOpenPricingReviewModal(onConfirm) {
       var cPot = custPotContrInput ? (parseFloat(custPotContrInput.value) || 0) : 0;
       var cPrecio = custPrecioKwhInput ? (parseFloat(custPrecioKwhInput.value) || 0) : 0;
 
-      if (cNom) setVal('doc-nombre', cNom);
-      if (cNif) setVal('doc-nif', cNif);
-      if (cTel) setVal('doc-tel', cTel);
-      if (cEmail) setVal('doc-email', cEmail);
-      if (cDir) setVal('doc-dir', cDir);
-      if (cMun) setVal('doc-mun', cMun);
-      if (cProv) setVal('doc-prov', cProv);
-      if (cCp) setVal('doc-cp', cCp);
+      setVal('doc-nombre', cNom);
+      setVal('doc-nif', cNif);
+      setVal('doc-tel', cTel);
+      setVal('doc-email', cEmail);
+      setVal('doc-dir', cDir);
+      setVal('doc-mun', cMun);
+      setVal('doc-prov', cProv);
+      setVal('doc-cp', cCp);
       if (cCups) setVal('doc-cups', cCups);
       if (cDist) setVal('doc-dist', cDist);
       if (cPot > 0) setVal('doc-potcontr', cPot.toFixed(2));
@@ -2750,13 +2870,56 @@ function wpOpenPricingReviewModal(onConfirm) {
         if (cDir || cMun) {
           window.solarProjectConfig.address = (cDir && cMun) ? (cDir + ', ' + cMun) : (cDir || cMun);
         }
-        if (window.RA && window.RA.billAuditor && window.RA.billAuditor.comparison) {
-          if (cConsumo > 0) window.RA.billAuditor.comparison.consumoAnualKWh = cConsumo;
-          if (cPrecio > 0) window.RA.billAuditor.comparison.precioMedioKWh = cPrecio;
-          if (cCups) window.RA.billAuditor.comparison.cups = cCups;
-          if (cNom) window.RA.billAuditor.comparison.titular = cNom;
-          if (cNif) window.RA.billAuditor.comparison.cifNif = cNif;
-          if (cDir) window.RA.billAuditor.comparison.direccionSuministro = cDir;
+        window.solarProjectConfig.clientData = {
+          nombre: cNom, nif: cNif, telefono: cTel, email: cEmail,
+          direccion: cDir, municipio: cMun, provincia: cProv, cp: cCp,
+          cups: cCups, distribuidora: cDist
+        };
+        if (window.RA && window.RA.billAuditor) {
+          if (window.RA.billAuditor.currentBill) {
+            var cb = window.RA.billAuditor.currentBill;
+            cb.titular = cb.titular || {};
+            cb.titular.nombre = cNom || null;
+            cb.titular.nif = cNif || null;
+            cb.titular.telefono = cTel || null;
+            cb.titular.email = cEmail || null;
+            cb.titular.direccion = cDir || null;
+            cb.titular.municipio = cMun || null;
+            cb.titular.provincia = cProv || null;
+            cb.titular.cp = cCp || null;
+            if (cCups) cb.cups = cCups;
+            if (cDist) cb.distribuidora = cDist;
+            if (cPot > 0) {
+              cb.potenciasContratadasKW = cb.potenciasContratadasKW || {};
+              cb.potenciasContratadasKW.p1 = cPot;
+            }
+          }
+          // Sincronizar también inputs si el auditor sigue montado en DOM
+          setVal('bill-edit-tit-nombre', cNom);
+          setVal('bill-edit-tit-nif', cNif);
+          setVal('bill-edit-tit-tel', cTel);
+          setVal('bill-edit-tit-email', cEmail);
+          setVal('bill-edit-tit-dir', cDir);
+          setVal('bill-edit-tit-mun', cMun);
+          setVal('bill-edit-tit-prov', cProv);
+          setVal('bill-edit-tit-cp', cCp);
+          if (cCups) setVal('bill-edit-cups', cCups);
+
+          if (window.RA.billAuditor.comparison) {
+            if (cConsumo > 0) window.RA.billAuditor.comparison.consumoAnualKWh = cConsumo;
+            if (cPrecio > 0) window.RA.billAuditor.comparison.precioMedioKWh = cPrecio;
+            if (cCups) window.RA.billAuditor.comparison.cups = cCups;
+            window.RA.billAuditor.comparison.titular = cNom;
+            window.RA.billAuditor.comparison.cifNif = cNif;
+            window.RA.billAuditor.comparison.telefono = cTel;
+            window.RA.billAuditor.comparison.email = cEmail;
+            window.RA.billAuditor.comparison.direccionSuministro = cDir;
+            window.RA.billAuditor.comparison.municipio = cMun;
+            window.RA.billAuditor.comparison.provincia = cProv;
+            window.RA.billAuditor.comparison.cp = cCp;
+            if (cDist) window.RA.billAuditor.comparison.distribuidora = cDist;
+            if (cPot > 0) window.RA.billAuditor.comparison.potenciaContratadaP1 = cPot;
+          }
         }
       }
 
@@ -3592,6 +3755,10 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     }
   } catch(e) { branding = {}; }
 
+  const _escProp = function(v) {
+    if (window.RASanitize && typeof window.RASanitize.plain === 'function') return window.RASanitize.plain(v);
+    return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  };
   const companyName  = (branding.name || 'SOLAR 3D PRO').trim();
   const companyCIF   = (branding.cif  || '').trim();
   const companyPhone = (branding.phone || '').trim();
@@ -3608,6 +3775,9 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       }
     } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
   }
+  logoDataUrl = (window.RASanitize && typeof window.RASanitize.safeImageSrc === 'function')
+    ? window.RASanitize.safeImageSrc(logoDataUrl)
+    : ((typeof logoDataUrl === 'string' && /^data:image\/(?:png|jpeg|jpg|webp|gif);base64,[A-Za-z0-9+/=]+$/i.test(logoDataUrl.trim())) ? logoDataUrl.trim() : '');
   const theme        = themeOverride || branding.theme || 'emerald';
   const layoutStyle  = branding.layoutStyle || 'editorial'; // editorial | infographic | technical
   const eqWarranties = (typeof resolveEquipmentWarranties === 'function') ? resolveEquipmentWarranties() : {};
@@ -3653,10 +3823,13 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       ? fm.monthlyEnergyBreakdown
       : null;
 
-    const maxVal = Math.max(...yields, 1);
+    const maxSolarVal = Math.max(...yields, 1);
+    const consValues = breakdown ? breakdown.map(b => Math.max(0, Math.round((b && b.consumoKWh) || 0))) : null;
+    const maxConsVal = consValues ? Math.max(...consValues, 0) : 0;
+    const maxVal = Math.max(maxSolarVal, maxConsVal, 1);
     const barW = (chartW / 12) * 0.65;
     const barGap = (chartW / 12) * 0.35;
-    let bars = '', labels = '', vals = '', stackedVals = '', grid = '';
+    let bars = '', labels = '', vals = '', stackedVals = '', grid = '', consPoints = [], consMarkers = '', consLabels = '';
 
     const isGrad = (cfg.histogramFillMode !== 'solid');
     const colAuto = paleta.primary || '#10b981';
@@ -3698,13 +3871,14 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
 
     yields.forEach((kWh, i) => {
       const x = PAD_L + i * (chartW / 12) + barGap / 2;
-      const isTop = kWh === maxVal;
+      const isTop = kWh === maxSolarVal;
       const midX = (x + barW / 2).toFixed(1);
 
       if (breakdown) {
         const mItem = breakdown[i];
-        const autoKWh = mItem ? mItem.autoconsumoKWh : Math.round(kWh * 0.45);
-        const surplusKWh = mItem ? mItem.excedenteVolcadoKWh : Math.max(0, kWh - autoKWh);
+        const genBarKWh = Math.round(kWh);
+        const autoKWh = mItem ? Math.min(genBarKWh, Math.max(0, Math.round(mItem.autoconsumoKWh))) : Math.round(genBarKWh * 0.45);
+        const surplusKWh = Math.max(0, genBarKWh - autoKWh);
 
         const hAuto = Math.max(0, chartH * (autoKWh / maxVal));
         const hSurplus = Math.max(0, chartH * (surplusKWh / maxVal));
@@ -3748,25 +3922,45 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       const totalH = chartH * (kWh / maxVal);
       const topY = PAD_T + chartH - totalH;
 
+      if (consValues) {
+        const cVal = consValues[i] || 0;
+        const yCons = PAD_T + chartH - chartH * (cVal / maxVal);
+        consPoints.push(`${midX},${yCons.toFixed(1)}`);
+        consMarkers += `<circle cx="${midX}" cy="${yCons.toFixed(1)}" r="3.2" fill="#ffffff" stroke="#e11d48" stroke-width="1.8"/>`;
+        if (cVal > 0) {
+          const nearGenTop = Math.abs(yCons - topY) < 13;
+          const consLblY = nearGenTop ? (yCons + 12) : (yCons - 6);
+          consLabels += `<text x="${midX}" y="${consLblY.toFixed(1)}" text-anchor="middle" font-size="6.8" fill="#be123c" font-weight="800" stroke="#ffffff" stroke-width="2.4" paint-order="stroke">${cVal.toLocaleString('es-ES')}</text>`;
+        }
+      }
+
       labels += `<text x="${midX}" y="${(H - PAD_B + 14).toFixed(1)}" text-anchor="middle" font-size="${lblFontSize}" fill="#475569" font-weight="600">${MES_CORTOS[i]}</text>`;
       vals   += `<text x="${midX}" y="${(topY - 4).toFixed(1)}" text-anchor="middle" font-size="${valFontSize}" fill="${paleta.dark || '#059669'}" font-weight="700">${kWh.toLocaleString('es-ES')}</text>`;
     });
 
-    // Leyenda de barras apiladas al pie con espaciado distribuido para evitar cualquier solapamiento
+    const consOverlay = consPoints.length === 12
+      ? `<polyline points="${consPoints.join(' ')}" fill="none" stroke="#e11d48" stroke-width="1.9" stroke-dasharray="4,2.5" stroke-linejoin="round"/>${consMarkers}${consLabels}`
+      : '';
+
+    // Leyenda de barras apiladas + línea de consumo al pie con espaciado distribuido
     const legendY = H - 5;
+    const legFs = Math.min(axisFontSize, 7.6);
     const legendContent = breakdown ? `
       <g transform="translate(${PAD_L}, ${legendY})">
-        <rect x="10" y="-7" width="9" height="7" rx="1.5" fill="${colAuto}"/>
-        <text x="24" y="0" font-size="${axisFontSize}" fill="#334155" font-weight="600">Autoconsumo Directo + Batería</text>
-        <rect x="235" y="-7" width="9" height="7" rx="1.5" fill="${colSurplus}"/>
-        <text x="249" y="0" font-size="${axisFontSize}" fill="#0369a1" font-weight="600">Excedente Volcado (Red / CEL)</text>
-        <rect x="480" y="-7" width="9" height="7" rx="1.5" fill="${colPeak}"/>
-        <text x="494" y="0" font-size="${axisFontSize}" fill="#b45309" font-weight="600">Mes Pico Solar</text>
+        <rect x="0" y="-7" width="8" height="7" rx="1.5" fill="${colAuto}"/>
+        <text x="12" y="0" font-size="${legFs}" fill="#334155" font-weight="600">Autoconsumo Directo + Batería</text>
+        <rect x="190" y="-7" width="8" height="7" rx="1.5" fill="${colSurplus}"/>
+        <text x="202" y="0" font-size="${legFs}" fill="#0369a1" font-weight="600">Excedente Volcado (Red / CEL)</text>
+        <rect x="385" y="-7" width="8" height="7" rx="1.5" fill="${colPeak}"/>
+        <text x="397" y="0" font-size="${legFs}" fill="#b45309" font-weight="600">Mes Pico Solar</text>
+        <line x1="490" y1="-3.5" x2="504" y2="-3.5" stroke="#e11d48" stroke-width="1.9" stroke-dasharray="3,2"/>
+        <circle cx="497" cy="-3.5" r="2.3" fill="#ffffff" stroke="#e11d48" stroke-width="1.4"/>
+        <text x="510" y="0" font-size="${legFs}" fill="#be123c" font-weight="700">Consumo Factura</text>
       </g>
     ` : `<text x="${W/2}" y="${legendY}" text-anchor="middle" font-size="${axisFontSize}" fill="#94a3b8">Producción estimada mensual (kWh/mes)</text>`;
 
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="100%" style="display:block;max-width:100%;">
-      ${defs}${grid}${bars}${labels}${stackedVals}${vals}${legendContent}
+      ${defs}${grid}${bars}${consOverlay}${labels}${stackedVals}${vals}${legendContent}
     </svg>`;
   }
 
@@ -4287,9 +4481,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   // ── Resumen comercial para el cliente (Plantilla fija instantánea o generador SSOT) ──
   // [AUD-2026 v2 · SEC2-02] Los valores interpolados en la plantilla van escapados (vienen de
   // datos del proyecto/usuario); los números pasan por el escape sin alterarse.
-  const _escInterp = (typeof window.RAHtml === 'object' && typeof window.RAHtml.esc === 'function')
-    ? window.RAHtml.esc
-    : function(v) { return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); };
+  const _escInterp = _escProp;
   const _summaryHTML = (_studioCfg && _studioCfg.lockedTexts && _studioCfg.lockedTexts.useLockedSummary && _studioCfg.lockedTexts.summaryTemplate)
     ? window.RAProposalStyleStudio.interpolateText(_studioCfg.lockedTexts.summaryTemplate, {
         clientName: d.tit.nombre != null ? _escInterp(d.tit.nombre) : undefined,
@@ -4318,7 +4510,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   const logoBlock = logoDataUrl
     ? `<span class="ra-header-logo-wrap${_logoStyleWrapClass}"><img src="${logoDataUrl}" class="ra-cover-logo-img" style="height:${_coverLogoH}px;max-height:${_coverLogoH}px;max-width:180px;object-fit:contain;" alt="Logo empresa"/></span>`
     : `<div style="font-size:22px;font-weight:900;color:${pal.primary};letter-spacing:-0.5px;display:inline-flex;align-items:center;gap:4px;">
-        ${companyName.split(' ').slice(0,2).join(_mSvg('bolt', 18, pal.accent))}
+        ${companyName.split(' ').slice(0,2).map(w => _escProp(w)).join(_mSvg('bolt', 18, pal.accent))}
       </div>`;
 
   function renderInnerHeaderLogoHTML() {
@@ -4391,6 +4583,10 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     : Math.round(m.moCost * _mFactor);
   // Legalización e ingeniería absorbe el 20% restante del margen en modo labor-only y el residuo de redondeo
   const _cLeg = Math.max(0, _baseEquipTotal - (_cPan + _cEst + _cInv + _cBat + _cCab + _cMo + _cWind));
+  // Pre-carga no bloqueante de portada por defecto para próximas entregas
+  if (typeof window !== 'undefined' && window.RALazyLoader && typeof window.RALazyLoader.loadDefaultCoverImage === 'function') {
+    window.RALazyLoader.loadDefaultCoverImage().catch(function() {});
+  }
   // Recuperación resiliente de fotos personalizadas persistidas (por proyecto o sesión)
   const _defaultCoverImg = (typeof window !== 'undefined' && window.RA_DEFAULT_COVER_IMAGE) ? window.RA_DEFAULT_COVER_IMAGE : 'assets/coopgreen-cover.jpg';
   const _propPhotos = (function() {
@@ -5067,9 +5263,9 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
           <div style="display:flex;align-items:center;gap:16px;">
             ${logoBlock}
             <div>
-              <div style="font-size:20px;font-weight:900;color:#0f172a;letter-spacing:-0.4px;">${companyName}</div>
+              <div style="font-size:20px;font-weight:900;color:#0f172a;letter-spacing:-0.4px;">${_escProp(companyName)}</div>
               <div style="font-size:10px;font-weight:700;color:${pal.primary};text-transform:uppercase;letter-spacing:1px;margin-top:2px;">Oficina Técnica &amp; Ingeniería de Energías Renovables</div>
-              ${companyCIF ? '<div style="font-size:10px;color:#64748b;margin-top:2px;">CIF: ' + companyCIF + (contactBlock ? ' · ' + contactBlock : '') + '</div>' : (contactBlock ? '<div style="font-size:10px;color:#64748b;margin-top:2px;">' + contactBlock + '</div>' : '')}
+              ${companyCIF ? '<div style="font-size:10px;color:#64748b;margin-top:2px;">CIF: ' + _escProp(companyCIF) + (contactBlock ? ' · ' + _escProp(contactBlock) : '') + '</div>' : (contactBlock ? '<div style="font-size:10px;color:#64748b;margin-top:2px;">' + _escProp(contactBlock) + '</div>' : '')}
             </div>
           </div>
           <div class="cover-brand-meta">
@@ -5569,10 +5765,10 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
           <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:12px;">
             <div style="font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;margin-bottom:6px;">Datos de Suministro Auditado</div>
             <div style="font-size:11px;color:#0f172a;line-height:1.6;">
-              <div><strong>Titular:</strong> ${window.RA.billAuditor.comparison.titular || d.tit.nombre || 'Titular de suministro'}</div>
-              <div><strong>CUPS:</strong> <span style="font-family:monospace;font-size:10px;">${window.RA.billAuditor.comparison.cups || d.tit.cups || 'ES00...'}</span></div>
-              <div><strong>Comercializadora:</strong> ${window.RA.billAuditor.currentBill.comercializadora || 'Comercializadora actual'}</div>
-              <div><strong>Tarifa de Acceso:</strong> ${window.RA.billAuditor.currentBill.tarifaAcceso || '2.0TD'}</div>
+              <div><strong>Titular:</strong> ${_escProp(window.RA.billAuditor.comparison.titular) || d.tit.nombre || 'Titular de suministro'}</div>
+              <div><strong>CUPS:</strong> <span style="font-family:monospace;font-size:10px;">${_escProp(window.RA.billAuditor.comparison.cups) || d.tit.cups || 'ES00...'}</span></div>
+              <div><strong>Comercializadora:</strong> ${_escProp(window.RA.billAuditor.currentBill.comercializadora || 'Comercializadora actual')}</div>
+              <div><strong>Tarifa de Acceso:</strong> ${_escProp(window.RA.billAuditor.currentBill.tarifaAcceso || '2.0TD')}</div>
             </div>
           </div>
           <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:12px;">
@@ -5589,7 +5785,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         <h2>Auditoría y contraste con factura actual del cliente</h2>
         <table>
           <tr><th>Concepto Auditado</th><th>Factura Actual (Sin Solar)</th><th class="text-right" style="color:${pal.primary}">Con Proyecto Solar 3D</th></tr>
-          <tr><td>Compañía y Tarifa</td><td>${window.RA.billAuditor.currentBill.comercializadora} (${window.RA.billAuditor.currentBill.tarifaAcceso || '2.0TD'})</td><td class="text-right" style="color:${pal.primary}">Autoconsumo + Compensación de Excedentes</td></tr>
+          <tr><td>Compañía y Tarifa</td><td>${_escProp(window.RA.billAuditor.currentBill.comercializadora || '')} (${_escProp(window.RA.billAuditor.currentBill.tarifaAcceso || '2.0TD')})</td><td class="text-right" style="color:${pal.primary}">Autoconsumo + Compensación de Excedentes</td></tr>
           <tr><td>Gasto Mensual Facturado</td><td>${window.RA.billAuditor.comparison.gastoMensualActualEUR} €/mes</td><td class="text-right" style="font-weight:800;color:${pal.primary}">${window.RA.billAuditor.comparison.gastoMensualConSolarEUR} €/mes</td></tr>
           <tr style="background:${pal.light};font-weight:800;"><td>AHORRO S/ FACTURA (auditoría)</td><td>—</td><td class="text-right" style="color:${pal.primary}">${window.RA.billAuditor.comparison.ahorroAnualEUR.toLocaleString('es-ES')} €/año (-${window.RA.billAuditor.comparison.porcentajeAhorro}%)</td></tr>
           <tr><td>Ahorro s/ modelo energético (SSOT)</td><td>—</td><td class="text-right" style="font-weight:700;color:${pal.primary}">${Math.round(m.ahorroLuzAnio1).toLocaleString('es-ES')} €/año</td></tr>
@@ -5731,10 +5927,10 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
             if (!activeAddons.length) return '';
             return activeAddons.map(function(ad, idx) {
               var tot = (Number(ad.qty) || 1) * (Number(ad.unitPrice) || 0);
-              return '<tr class="ra-econ-item-row" style="background:#f0fdf4;"><td style="color:#16a34a;font-weight:700;">Extra ' + (idx + 1) + '</td><td><strong>' + (ad.qty || 1) + '× ' + ad.name + '</strong></td><td class="text-right ra-econ-item-price" style="font-weight:700;color:#16a34a;">' + tot.toLocaleString('es-ES') + ' €</td></tr>';
+              return '<tr class="ra-econ-item-row" style="background:#f0fdf4;"><td style="color:#16a34a;font-weight:700;">Extra ' + (idx + 1) + '</td><td><strong>' + (Number(ad.qty) || 1) + '× ' + _escProp(ad.name) + '</strong></td><td class="text-right ra-econ-item-price" style="font-weight:700;color:#16a34a;">' + tot.toLocaleString('es-ES') + ' €</td></tr>';
             }).join('');
           })()}
-          ${(m.discountEur && m.discountEur > 0) ? '<tr style="background:#fef2f2;color:#dc2626;"><td style="font-weight:700;">Promoción</td><td><strong>' + (m.discountLabel || 'Descuento Comercial Especial') + '</strong></td><td class="text-right" style="font-weight:800;">- ' + Math.round(m.discountEur).toLocaleString('es-ES') + ' €</td></tr>' : ''}
+          ${(m.discountEur && m.discountEur > 0) ? '<tr style="background:#fef2f2;color:#dc2626;"><td style="font-weight:700;">Promoción</td><td><strong>' + _escProp(m.discountLabel || 'Descuento Comercial Especial') + '</strong></td><td class="text-right" style="font-weight:800;">- ' + Math.round(m.discountEur).toLocaleString('es-ES') + ' €</td></tr>' : ''}
           <tr style="background:#f8fafc;font-weight:700;border-top:2px solid #cbd5e1;"><td>BASE IMPONIBLE</td><td>Total Ejecución Material y Servicios Llave en Mano${(m.ivaCompliance && m.ivaCompliance.isRenovacion10) ? ' <span style="font-size:9px;color:#475569;font-weight:600;">(Materiales: ' + Math.round(m.ivaCompliance.baseMateriales).toLocaleString('es-ES') + ' € [' + m.ivaCompliance.pctMateriales.toFixed(1) + '%] · Instalación y Servicios: ' + Math.round(m.ivaCompliance.baseServicios).toLocaleString('es-ES') + ' €)</span>' : ''}</td><td class="text-right" style="color:${pal.primary};">${Math.round(m.subtotal).toLocaleString('es-ES')} €</td></tr>
           <tr style="background:#f8fafc;"><td>IVA APLICABLE</td><td>Impuesto sobre el Valor Añadido (${Math.round((m.ivaRate != null ? m.ivaRate : 0.21) * 100)}%${(m.ivaCompliance && m.ivaCompliance.isRenovacion10) ? ' · Tipo Reducido Renovación/Reparación Vivienda Art. 91.Uno.2.10º LIVA' : ((m.ivaCompliance && m.ivaCompliance.isRehab10) ? ' · Rehabilitación Estructural / Obra Nueva Promotor Art. 91.Uno.3.1º LIVA' : '')})</td><td class="text-right">${Math.round(m.iva).toLocaleString('es-ES')} €</td></tr>
           <tr class="total-row"><td>TOTAL PRESUPUESTO</td><td>INVERSIÓN TOTAL LLAVE EN MANO (IVA INCLUIDO)</td><td class="text-right">${Math.round(m.capexBruto).toLocaleString('es-ES')} €</td></tr>
@@ -5794,9 +5990,9 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         <div class="company-block">
           ${logoBlock}
           <div class="company-text">
-            <div class="name">${companyName}</div>
+            <div class="name">${_escProp(companyName)}</div>
             <div class="sub">Estudio de Ingeniería · Propuesta Fotovoltaica</div>
-            ${companyCIF ? '<div class="contact">CIF: ' + companyCIF + (contactBlock ? ' · ' + contactBlock : '') + '</div>' : (contactBlock ? '<div class="contact">' + contactBlock : '')}
+            ${companyCIF ? '<div class="contact">CIF: ' + _escProp(companyCIF) + (contactBlock ? ' · ' + _escProp(contactBlock) : '') + '</div>' : (contactBlock ? '<div class="contact">' + _escProp(contactBlock) + '</div>' : '')}
           </div>
         </div>
         <div class="doc-ref-box">
@@ -6997,18 +7193,20 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   // Perfil solar horario normalizado (kWh por kWh diario producido)
   const SOLAR_PROFILE = [0.00,0.00,0.00,0.00,0.00,0.00,0.02,0.05,0.08,0.10,0.11,0.11,0.10,0.09,0.08,0.06,0.04,0.02,0.00,0.00,0.00,0.00,0.00,0.00];
 
-  // Curva de consumo doméstico normalizada (kWh por kWh diario consumido, suma exacta 1.000)
-  const rawLoadProfile = [0.030,0.025,0.022,0.020,0.020,0.028,0.040,0.050,0.045,0.035,0.032,0.035,0.038,0.032,0.030,0.038,0.050,0.065,0.070,0.062,0.052,0.048,0.042,0.036];
+  // Curva de consumo horaria normalizada según perfil (empresa diurna vs vivienda doméstica)
+  const rawLoadProfile = (customerProfile === 'empresa')
+    ? [0.015,0.014,0.014,0.014,0.015,0.018,0.028,0.052,0.078,0.088,0.088,0.086,0.082,0.072,0.068,0.072,0.070,0.064,0.052,0.038,0.028,0.022,0.018,0.016]
+    : [0.030,0.025,0.022,0.020,0.020,0.028,0.040,0.050,0.045,0.035,0.032,0.035,0.038,0.032,0.030,0.038,0.050,0.065,0.070,0.062,0.052,0.048,0.042,0.036];
   const sumRawLoad = rawLoadProfile.reduce((a, b) => a + b, 0);
   const LOAD_PROFILE = rawLoadProfile.map(v => v / sumRawLoad);
 
-  // [P0] Consumo anual: factura auditada del cliente (bill-auditor) cuando exista,
-  // o consumo manual definido por el usuario, o perfil estándar de vivienda/industria
-  // desacoplado del tamaño del campo solar.
-  const billComp = (typeof window !== 'undefined' && window.RA && window.RA.billAuditor && window.RA.billAuditor.comparison) ? window.RA.billAuditor.comparison : null;
+  // [P0] Consumo anual y reparto mensual real desde Auditoría de Factura (bill-auditor) cuando exista,
+  // o consumo manual definido por el usuario, o perfil estándar desacoplado del tamaño del campo solar.
+  const billAud = (typeof window !== 'undefined' && window.RA && window.RA.billAuditor) ? window.RA.billAuditor : null;
+  const billComp = (billAud && billAud.comparison) ? billAud.comparison : null;
   const manualConsKwh = _input('cfg-pres-consumo-anual', 0) || (typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.manualAnnualConsumptionKWh) || 0;
   const defaultBaseConsKwh = (kwp >= 12) ? 18000 : 4500;
-  const consumoAnual = (billComp && Number.isFinite(billComp.consumoAnualKWh) && billComp.consumoAnualKWh > 0)
+  let consumoAnual = (billComp && Number.isFinite(billComp.consumoAnualKWh) && billComp.consumoAnualKWh > 0)
     ? billComp.consumoAnualKWh
     : (manualConsKwh > 0 ? manualConsKwh : defaultBaseConsKwh);
 
@@ -7016,22 +7214,58 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   const MONTH_DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
   const MONTH_LOAD_WEIGHTS = [1.18, 1.12, 1.02, 0.92, 0.84, 0.88, 1.06, 1.02, 0.94, 0.94, 1.02, 1.16]; // Climatización estacional peninsular
 
-  // Producción mensual en kWh (SSOT: solarSimState.monthlyKwh si existe, o desglose estacional)
+  let monthlyConsSource = 'seasonal_weights';
+  let monthlyConsKwh = MONTH_LOAD_WEIGHTS.map((w, m) => (consumoAnual / 365.0) * w * MONTH_DAYS[m]);
+  const _billMonthlyTrace = (billAud && typeof billAud.getMonthlyConsumptionKWh === 'function')
+    ? billAud.getMonthlyConsumptionKWh(consumoAnual)
+    : null;
+  const _cfgBillMonthly = (typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.billMonthlyConsumptionKWh && Array.isArray(window.solarProjectConfig.billMonthlyConsumptionKWh.monthlyKWh) && window.solarProjectConfig.billMonthlyConsumptionKWh.monthlyKWh.length === 12)
+    ? window.solarProjectConfig.billMonthlyConsumptionKWh
+    : null;
+  if (_billMonthlyTrace && _billMonthlyTrace.hasMonthlyData && Array.isArray(_billMonthlyTrace.monthlyKWh) && _billMonthlyTrace.monthlyKWh.length === 12) {
+    monthlyConsKwh = _billMonthlyTrace.monthlyKWh.map(v => Math.max(0, Number(v) || 0));
+    monthlyConsSource = _billMonthlyTrace.source || 'bill_monthly';
+    const sumAuditedMonths = monthlyConsKwh.reduce((a, b) => a + b, 0);
+    if (sumAuditedMonths > 0) consumoAnual = sumAuditedMonths;
+  } else if (billComp && Array.isArray(billComp.monthlyConsumptionKWh) && billComp.monthlyConsumptionKWh.length === 12 && billComp.monthlyConsumptionSource && billComp.monthlyConsumptionSource !== 'seasonal_weights') {
+    monthlyConsKwh = billComp.monthlyConsumptionKWh.map(v => Math.max(0, Number(v) || 0));
+    monthlyConsSource = billComp.monthlyConsumptionSource;
+    const sumAuditedMonths = monthlyConsKwh.reduce((a, b) => a + b, 0);
+    if (sumAuditedMonths > 0) consumoAnual = sumAuditedMonths;
+  } else if (_cfgBillMonthly) {
+    monthlyConsKwh = _cfgBillMonthly.monthlyKWh.map(v => Math.max(0, Number(v) || 0));
+    monthlyConsSource = _cfgBillMonthly.source || 'bill_monthly';
+    const sumAuditedMonths = monthlyConsKwh.reduce((a, b) => a + b, 0);
+    if (sumAuditedMonths > 0 && !(billComp && billComp.consumoAnualKWh > 0)) consumoAnual = sumAuditedMonths;
+  }
+
+  // Producción mensual en kWh (SSOT: solarSimState.monthlyKwh si existe y vigente, si no solarStats.monthlyYields, o desglose estacional)
   // [AUD-2026 · D-08] Se declara el origen para no presentar como simulación una curva tipo.
   let monthlySource = 'simulation';
   let monthlySolarKwh = new Array(12).fill(0);
-  if (typeof window !== 'undefined' && window.solarSimState && Array.isArray(window.solarSimState.monthlyKwh) && window.solarSimState.monthlyKwh.length === 12) {
+  const _ssotSolarStats = (typeof window !== 'undefined' && window.RA && window.RA.solarStats) ? window.RA.solarStats : null;
+  if (typeof window !== 'undefined' && window.solarSimState && !window.solarSimState.annualHeatmapDirty && Array.isArray(window.solarSimState.monthlyKwh) && window.solarSimState.monthlyKwh.length === 12 && window.solarSimState.monthlyKwh.some(v => v > 0)) {
     monthlySolarKwh = window.solarSimState.monthlyKwh.slice();
+  } else if (_ssotSolarStats && Array.isArray(_ssotSolarStats.monthlyYields) && _ssotSolarStats.monthlyYields.length === 12 && _ssotSolarStats.monthlyYields.some(v => v > 0)) {
+    monthlySource = _ssotSolarStats.hasSimulation ? 'simulation' : 'physical-monthly';
+    const rawArr = _ssotSolarStats.monthlyYields.map(v => Math.max(0, Number(v) || 0));
+    const rawSum = rawArr.reduce((a, b) => a + b, 0);
+    const scaleS = (rawSum > 0 && annualYieldKWh > 0) ? (annualYieldKWh / rawSum) : 1.0;
+    monthlySolarKwh = rawArr.map(v => v * scaleS);
   } else {
     monthlySource = 'fallback-weights';
     const solarWeights = [0.045, 0.058, 0.082, 0.098, 0.118, 0.126, 0.132, 0.120, 0.095, 0.068, 0.046, 0.032];
-    monthlySolarKwh = solarWeights.map(w => w * annualYieldKWh);
+    const wSolSum = solarWeights.reduce((a, b) => a + b, 0);
+    monthlySolarKwh = solarWeights.map(w => (w / wSolSum) * annualYieldKWh);
   }
 
-  // Normalización del perfil solar para cada mes según horas solares reales (latitud ~40°N)
+  // Normalización del perfil solar por mes en hora oficial española (~40°N: 9.0h invierno a 14.8h verano)
   const getMonthlySolarProfile = (m) => {
-    const sunrise = 7.8 - 1.8 * Math.sin((m - 2) * Math.PI / 6);
-    const sunset = 17.2 + 2.8 * Math.sin((m - 2) * Math.PI / 6);
+    const isDST = (m >= 3 && m <= 9);
+    const solarNoonClock = isDST ? 14.15 : 13.25;
+    const halfDayLen = 5.95 + 1.45 * Math.sin((m - 2) * Math.PI / 6);
+    const sunrise = solarNoonClock - halfDayLen;
+    const sunset = solarNoonClock + halfDayLen;
     const profile = new Array(24).fill(0);
     let sum = 0;
     for (let h = 0; h < 24; h++) {
@@ -7071,8 +7305,8 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     const solarDailyKwh = solarMonthKwh / daysInMonth;
     const solarHourlyProfile = getMonthlySolarProfile(m);
 
-    const loadMonthWeight = MONTH_LOAD_WEIGHTS[m];
-    const loadDailyKwh = (consumoAnual / 365.0) * loadMonthWeight;
+    const loadMonthKwh = Math.max(0, Number(monthlyConsKwh[m]) || 0);
+    const loadDailyKwh = loadMonthKwh / daysInMonth;
 
     let monthDirect = 0;
     let monthBattery = 0;
@@ -7144,9 +7378,9 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     const mGenKwh = Math.round(solarMonthKwh);
     const mDirectKwh = Math.round(monthDirect * daysInMonth);
     const mBatKwh = Math.round(monthBattery * daysInMonth);
-    const mAutoTotalKwh = mDirectKwh + mBatKwh;
+    const mAutoTotalKwh = Math.min(mGenKwh, Math.max(0, mDirectKwh + mBatKwh));
     const mSurplusKwh = Math.max(0, mGenKwh - mAutoTotalKwh);
-    const mConsKwh = Math.round(loadDailyKwh * daysInMonth);
+    const mConsKwh = Math.round(loadMonthKwh);
     const mGridBuyKwh = Math.round(monthGridBuy * daysInMonth);
 
     monthlyEnergyBreakdown.push({
@@ -7646,6 +7880,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     batCap: batCap,
     batSoCdiaria: Math.round(batSoC * 10) / 10,
     consumoAnual: Math.round(consumoAnual || 0),
+    consumoMensualSource: monthlyConsSource,
     autoconsumoDirecto: Math.round(annualAutoconsumoDirecto || 0),
     bateriaKWh: Math.round(annualBateriaKWh || 0),
     excedenteKWh: Math.round(annualExcedenteKWh || 0),

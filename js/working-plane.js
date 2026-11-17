@@ -6,7 +6,7 @@
     const el = (typeof document !== 'undefined') ? document.getElementById(id) : null;
     if (el) el.textContent = val;
   }
-  if (typeof window !== 'undefined' && typeof window.setElemText === 'undefined') {
+  if (typeof window !== 'undefined') {
     window.setElemText = setElemText;
   }
 
@@ -37,34 +37,17 @@
 
 
 
-// ── PALETA DE COLORES PROFESIONAL PARA STRINGS INDEPENDIENTES ───────────────
-window.RA_STRING_PALETTE = window.RA_STRING_PALETTE || [
-  { name: "String #1", hex: "#00F0FF", rgb: [0, 240, 255], css: "#00F0FF" },   // Cyan Eléctrico
-  { name: "String #2", hex: "#A855F7", rgb: [168, 85, 247], css: "#A855F7" }, // Violeta Neón
-  { name: "String #3", hex: "#10B981", rgb: [16, 185, 129], css: "#10B981" }, // Verde Esmeralda
-  { name: "String #4", hex: "#F59E0B", rgb: [245, 158, 11], css: "#F59E0B" }, // Ámbar Solar
-  { name: "String #5", hex: "#F43F5E", rgb: [244, 63, 94], css: "#F43F5E" },   // Rosa / Fucsia
-  { name: "String #6", hex: "#3B82F6", rgb: [59, 130, 246], css: "#3B82F6" }, // Azul Cobalto
-  { name: "String #7", hex: "#84CC16", rgb: [132, 204, 22], css: "#84CC16" }, // Lima Neón
-  { name: "String #8", hex: "#FF6B00", rgb: [255, 107, 0], css: "#FF6B00" },   // Naranja Fuego
-  { name: "String #9", hex: "#14B8A6", rgb: [20, 184, 166], css: "#14B8A6" }, // Turquesa
-  { name: "String #10", hex: "#EAB308", rgb: [234, 179, 8], css: "#EAB308" }, // Oro Brillante
-  { name: "String #11", hex: "#EF4444", rgb: [239, 68, 68], css: "#EF4444" }, // Rojo Carmín
-  { name: "String #12", hex: "#8B5CF6", rgb: [139, 92, 246], css: "#8B5CF6" } // Púrpura Imperial
-];
-
 function getPolylineStringColor(polyIdx) {
   if (typeof window !== 'undefined' && window.RA && window.RA.Electrical && typeof window.RA.Electrical.getPolylineStringColor === 'function') {
     try {
       return window.RA.Electrical.getPolylineStringColor(polyIdx);
     } catch (e) {}
   }
-  const item = RA_STRING_PALETTE[polyIdx % RA_STRING_PALETTE.length];
+  const palette = (typeof window !== 'undefined' && Array.isArray(window.RA_STRING_PALETTE)) ? window.RA_STRING_PALETTE : [];
+  if (!palette.length) return "#00F0FF";
+  const item = palette[polyIdx % palette.length];
   return item ? item.hex : "#00F0FF";
 }
-
-
-'use strict';
 
 // SISTEMA INTEGRAL DE PLANOS DE TRABAJO 3D, MULTIPLANO Y TRÍADA RGB CAD
 // ═════════════════════════════════════════════════════════════════════════════
@@ -623,6 +606,7 @@ let obsGizmoState = (typeof window !== 'undefined' && window.obsGizmoState) ? wi
 if (typeof window !== 'undefined') window.obsGizmoState = obsGizmoState;
 
 function getSelectedPanel() {
+  if (typeof window !== 'undefined' && typeof window.getSelectedPanel === 'function' && window.getSelectedPanel !== getSelectedPanel) return window.getSelectedPanel();
   if (selectedPanelIndex < 0) return null;
   // Preferir allRenderedPanels (multi-faldón instanciado) sobre lastRoofInfo.panels (legacy)
   if (window.allRenderedPanels && window.allRenderedPanels.length > 0) {
@@ -1322,7 +1306,10 @@ function renderTriad2D() {
           // 1. LOD Contextual por Fase: Si estamos en diseño de plano o polígono (Pasos 1 o 2), ocultar cables DC/AC para no saturar
           if (curStep < 3 && item.opts && item.opts.category === "cable") return;
 
-          const pos3D = (typeof item.position === "function") ? item.position() : item.position;
+          let pos3D = (typeof item.position === "function") ? item.position() : item.position;
+          if (pos3D && typeof pos3D.getValue === "function") {
+            pos3D = pos3D.getValue(typeof Cesium !== "undefined" && Cesium.JulianDate ? Cesium.JulianDate.now() : undefined);
+          }
           if (!pos3D) return;
 
           // Frustum Culling & Distancia a cámara
@@ -1381,8 +1368,8 @@ function renderTriad2D() {
                     targetPoly = WP.polylines[idx];
                   }
                 }
-                if (targetPoly && (targetPoly.pts3D || targetPoly.pts)) {
-                  const pts = targetPoly.pts3D || targetPoly.pts;
+                if (targetPoly && (targetPoly.points || targetPoly.pts3D || targetPoly.pts)) {
+                  const pts = targetPoly.points || targetPoly.pts3D || targetPoly.pts;
                   const sPolyPts = pts.map(p => toScreen(p)).filter(Boolean);
                   if (sPolyPts.length >= 3 && _isPointInScreenPolygon(hoverMouseX, hoverMouseY, sPolyPts)) {
                     isHovered = true;
@@ -2088,6 +2075,9 @@ function wpClearAllPlaneGizmos() {
 window.wpClearAllPlaneGizmos = wpClearAllPlaneGizmos;
 
 function wpRenderActivePlaneGizmo() {
+  if (typeof window !== 'undefined' && window.RAMeasureTool && typeof window.RAMeasureTool.invalidateSnapCandidates === 'function') {
+    window.RAMeasureTool.invalidateSnapCandidates();
+  }
   wpClearEntGroup("activePlaneMarker");
   wpClearEntGroup("inactivePlanes");
 
@@ -2804,7 +2794,6 @@ function wpCloseActivePolyline() {
   if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Nuevo faldón añadido');
   if (typeof wpUpdateStep3UI === 'function') wpUpdateStep3UI();
   if (typeof wpPopulateFaldonCard === 'function') wpPopulateFaldonCard();
-  if (typeof wpSyncStep6Controls === 'function') wpSyncStep6Controls();
   if (typeof wpUpdateLayoutFastMetrics === "function") wpUpdateLayoutFastMetrics();
   if (typeof wpFastRenderSimulatedPanels === "function") wpFastRenderSimulatedPanels();
   if (typeof ProjectHierarchy !== 'undefined' && ProjectHierarchy.notify) {
@@ -2949,6 +2938,9 @@ function wpRenderActivePolylineVisuals() {
 }
 
 function wpRenderAllPolylines() {
+  if (typeof window !== 'undefined' && window.RAMeasureTool && typeof window.RAMeasureTool.invalidateSnapCandidates === 'function') {
+    window.RAMeasureTool.invalidateSnapCandidates();
+  }
   wpClearEntGroup('polys');
   const curViewer = (typeof viewer !== 'undefined' && viewer) ? viewer : (window.viewer || null);
   if (curViewer && curViewer.entities) {
@@ -3180,7 +3172,6 @@ function wpSelectPolyline(polyIdx) {
   wpRenderAllPolylines();
   wpUpdateUI();
   if (typeof wpPopulateFaldonCard === 'function') wpPopulateFaldonCard();
-  if (typeof wpSyncStep6Controls === 'function') wpSyncStep6Controls();
   // updateAllVisuals();
 
   if (typeof wpUpdateLayoutFastMetrics === 'function') wpUpdateLayoutFastMetrics();
@@ -3214,18 +3205,23 @@ function wpSelectVertex(vtxIdx) {
   }
 
   WP.selectedVtxIdx = vtxIdx;
-    selectedVertexIndex = vtxIdx;
-    if (typeof setAppMode === 'function') setAppMode('edit');
-    else if (typeof window !== 'undefined' && typeof window.appMode !== 'undefined') window.appMode = 'edit';
-    
-    if (typeof universalGizmoState !== 'undefined') {
-      universalGizmoState.active = true;
-      universalGizmoState.targetType = 'vertex';
-      universalGizmoState.mode = 'idle'; // Fixed
-      if (typeof getUniversalSelectedTarget === 'function') {
-        universalGizmoState.target = getUniversalSelectedTarget();
-      }
+  selectedVertexIndex = vtxIdx;
+  if (typeof window !== 'undefined') window.selectedBuildingId = null;
+  if (typeof selectedBuildingId !== 'undefined') selectedBuildingId = null;
+  if (typeof bldFootprintState !== 'undefined' && bldFootprintState) {
+    bldFootprintState.selectedVtxIdx = -1;
+  }
+  if (typeof setAppMode === 'function') setAppMode('edit');
+  else if (typeof window !== 'undefined' && typeof window.appMode !== 'undefined') window.appMode = 'edit';
+
+  if (typeof universalGizmoState !== 'undefined') {
+    universalGizmoState.active = false;
+    universalGizmoState.targetType = 'vertex';
+    universalGizmoState.mode = null;
+    if (typeof getUniversalSelectedTarget === 'function') {
+      universalGizmoState.target = getUniversalSelectedTarget();
     }
+  }
   if (typeof triadState !== 'undefined' && triadState) {
     triadState.active = false;
   }
@@ -3291,6 +3287,10 @@ function wpApplySelectedVtxCoords() {
     showStatus('COORDENADAS INVÁLIDAS', 2000);
     wpSyncVertexInputs();
     return;
+  }
+
+  if (typeof window !== 'undefined' && window.RAundo && typeof window.RAundo.snapVertex === 'function') {
+    window.RAundo.snapVertex(WP.selectedPolyIdx, 'Editar coordenadas de vértice');
   }
 
   poly.points[WP.selectedVtxIdx] = new Cesium.Cartesian3(x, y, z);
@@ -3364,6 +3364,10 @@ function wpInsertPointInSelectedPoly() {
   const nextIdx = (curIdx + 1) % poly.points.length;
   const midPoint = Cesium.Cartesian3.midpoint(poly.points[curIdx], poly.points[nextIdx], new Cesium.Cartesian3());
 
+  if (typeof window !== 'undefined' && window.RAundo && typeof window.RAundo.snapVertex === 'function') {
+    window.RAundo.snapVertex(WP.selectedPolyIdx, 'Insertar vértice de faldón');
+  }
+
   poly.points.splice(curIdx + 1, 0, midPoint);
   poly.area = wpPolylineArea3D(poly.points);
   poly._geometryDirty = true;
@@ -3413,7 +3417,6 @@ function wpDeleteSelectedPolyline() {
   wpUpdateUI();
   if (typeof wpUpdateStep3UI === 'function') wpUpdateStep3UI();
   if (typeof wpPopulateFaldonCard === 'function') wpPopulateFaldonCard();
-  if (typeof wpSyncStep6Controls === 'function') wpSyncStep6Controls();
 
   if (typeof window.wpInvalidateHeatmap === 'function') {
     window.wpInvalidateHeatmap('Faldón eliminado');
@@ -3740,9 +3743,6 @@ function wpCommitStampPolyline(targetPos3D) {
   if (typeof wpPopulateFaldonCard === 'function') {
     wpPopulateFaldonCard();
   }
-  if (typeof wpSyncStep6Controls === 'function') {
-    wpSyncStep6Controls();
-  }
   if (typeof wpUpdateStep3UI === 'function') {
     wpUpdateStep3UI();
   }
@@ -3797,13 +3797,9 @@ function wpCancelStampPolyline(isCommit) {
 // Aquí solo se lee/escribe; NO redeclarar (un let aquí rompe el bloque inline con SyntaxError).
 if (typeof window !== 'undefined' && typeof window.wpCurrentStep === 'undefined') window.wpCurrentStep = 1;
 
+let _wpGoToStepSeq = 0;
 async function wpGoToStep(step, force = false) {
-  // 1. Delegar el bloqueo arquitectónico al Orquestador Central
-  if (typeof window.WorkflowOrchestrator !== 'undefined') {
-    if (!window.WorkflowOrchestrator.goToStep(step, force)) {
-      return; 
-    }
-  }
+  const mySeq = ++_wpGoToStepSeq;
 
   // 1.1 Bloqueo de pasos no desbloqueados por falta de prerrequisitos
   const targetBtn = document.getElementById('wp-step-' + step + '-btn');
@@ -3812,6 +3808,17 @@ async function wpGoToStep(step, force = false) {
       showToast('PASO BLOQUEADO', targetBtn.title || 'Completa los pasos previos requeridos', 'warning', 2500);
     }
     return;
+  }
+
+  // 1. Validar y abrir transición en el Orquestador (emitirá step_changed al finalizar UI/async)
+  let _orchTx = null;
+  if (typeof window.WorkflowOrchestrator !== 'undefined') {
+    if (typeof window.WorkflowOrchestrator.beginStepTransition === 'function') {
+      _orchTx = window.WorkflowOrchestrator.beginStepTransition(step, force);
+      if (!_orchTx || !_orchTx.allowed) return;
+    } else if (!window.WorkflowOrchestrator.goToStep(step, force)) {
+      return;
+    }
   }
 
   // Asegurar que la pestaña contenedora principal #pane-geometria y .only-draw estén visibles
@@ -3896,21 +3903,6 @@ async function wpGoToStep(step, force = false) {
     if (el) el.style.display = 'none';
   });
 
-  // 4. Actualizar Banner Informativo del Paso Activo (5 Pasos Canónicos v3.0)
-  const bannerPhase = document.getElementById('wp-banner-phase');
-  const bannerTitle = document.getElementById('wp-banner-step-title');
-  const stepTitles = {
-    1: { phase: 'FASE I · EMPLAZAMIENTO', title: 'Paso 1: Emplazamiento - Plano, Faldones & Obstáculos' },
-    2: { phase: 'FASE II · CAMPO SOLAR', title: 'Paso 2: Campo Solar - Módulos FV, Disposición & Orientación' },
-    3: { phase: 'FASE III · ANÁLISIS SOLAR', title: 'Paso 3: Análisis Solar - Sombras 3D, Heatmap & Factura' },
-    4: { phase: 'FASE IV · INGENIERÍA ELÉCTRICA', title: 'Paso 4: Ingeniería - Inversores, Strings & Cableado' },
-    5: { phase: 'FASE V · ENTREGA & MEDICIONES', title: 'Paso 5: Entrega - Viabilidad, Presupuesto & Memoria PDF' }
-  };
-  if (stepTitles[step]) {
-    if (bannerPhase) bannerPhase.textContent = stepTitles[step].phase;
-    if (bannerTitle) bannerTitle.textContent = stepTitles[step].title;
-  }
-
   // 5. Mapeo Canónico Virtual a los 5 Pasos Canónicos (Flujo v3.0):
   
   // [MOVER TARJETAS DE FALDONES ENTRE PASOS 1 Y 2]
@@ -3949,7 +3941,6 @@ async function wpGoToStep(step, force = false) {
       roofPanelsCache.data = null;
     }
     if (typeof populateStep3EquipmentSelectors === 'function') populateStep3EquipmentSelectors();
-    if (typeof wpSyncStep6Controls === 'function') wpSyncStep6Controls();
     // NOTA: isPolygonDesignConfirmed NO se fuerza aquí. Lo activa step5RegenerateLayout /
     // wpFastRenderSimulatedPanels cuando el layout se genera de verdad (evita desbloquear
     // pasos 3-5 con 0 paneles).
@@ -3961,6 +3952,7 @@ async function wpGoToStep(step, force = false) {
     } else if (typeof wpFastRenderSimulatedPanels === 'function') {
       await wpFastRenderSimulatedPanels();
     }
+    if (mySeq !== _wpGoToStepSeq) return;
     if (typeof wpRenderMonthlyProductionChart === 'function') {
       wpRenderMonthlyProductionChart();
     }
@@ -4009,6 +4001,7 @@ async function wpGoToStep(step, force = false) {
     if (typeof wpFastRenderSimulatedPanels === 'function') {
       try { await wpFastRenderSimulatedPanels(true); }
       catch (eS4a) { console.warn('[Step4-refresh]', eS4a && eS4a.message); }
+      if (mySeq !== _wpGoToStepSeq) return;
     }
     if (typeof wpCalculateAndRenderInverterCables === 'function') _safe4(wpCalculateAndRenderInverterCables);
     if (typeof wpUpdateCableRoutesUI === 'function') _safe4(wpUpdateCableRoutesUI);
@@ -4045,6 +4038,9 @@ async function wpGoToStep(step, force = false) {
 
   if (typeof wpUpdateControlsAvailability === 'function') {
     wpUpdateControlsAvailability();
+  }
+  if (_orchTx && typeof window.WorkflowOrchestrator !== 'undefined' && typeof window.WorkflowOrchestrator.completeStepTransition === 'function') {
+    window.WorkflowOrchestrator.completeStepTransition(_orchTx.previousStep, _orchTx.step);
   }
 
   // Renderizar iconos SVG de Lucide en todos los pasos
@@ -4609,7 +4605,6 @@ function wpSelectFaldon(idx) {
   wpRenderAllPolylines();
   wpUpdateUI();
   wpPopulateFaldonCard();
-  if (typeof wpSyncStep6Controls === 'function') wpSyncStep6Controls();
 
   if (typeof wpUpdateLayoutFastMetrics === 'function') wpUpdateLayoutFastMetrics();
 
@@ -4644,6 +4639,9 @@ function wpSetPolyModule(polyIdx, modId) {
   if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Módulo FV modificado');
   if (typeof wpFastRenderSimulatedPanels === "function") wpFastRenderSimulatedPanels();
   if (typeof wpUpdateLayoutFastMetrics === "function") wpUpdateLayoutFastMetrics();
+  if (typeof wpComputeAutoSizing === "function") wpComputeAutoSizing();
+  if (typeof BOMTreeEngine !== "undefined" && typeof BOMTreeEngine.refresh === "function") BOMTreeEngine.refresh();
+  if (typeof window.ProjectStatusHUD !== "undefined" && typeof window.ProjectStatusHUD.update === "function") window.ProjectStatusHUD.update();
 
   let modName = modId;
   if (typeof equipmentCatalog !== 'undefined' && equipmentCatalog && Array.isArray(equipmentCatalog.modules)) {
@@ -4679,6 +4677,9 @@ function wpApplyPolyModuleToAll(sourcePolyIdx) {
   if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Módulo FV aplicado a todos los faldones');
   if (typeof wpFastRenderSimulatedPanels === "function") wpFastRenderSimulatedPanels();
   if (typeof wpUpdateLayoutFastMetrics === "function") wpUpdateLayoutFastMetrics();
+  if (typeof wpComputeAutoSizing === "function") wpComputeAutoSizing();
+  if (typeof BOMTreeEngine !== "undefined" && typeof BOMTreeEngine.refresh === "function") BOMTreeEngine.refresh();
+  if (typeof window.ProjectStatusHUD !== "undefined" && typeof window.ProjectStatusHUD.update === "function") window.ProjectStatusHUD.update();
 
   let modName = targetModId;
   if (typeof equipmentCatalog !== 'undefined' && equipmentCatalog && Array.isArray(equipmentCatalog.modules)) {
@@ -4768,7 +4769,6 @@ function wpApplyPanelArrangement(polyIdx, mode) {
   if (typeof wpFastRenderSimulatedPanels === 'function') wpFastRenderSimulatedPanels(true, polyIdx);
   if (typeof wpUpdateLayoutFastMetrics === 'function') wpUpdateLayoutFastMetrics();
   if (typeof wpPopulateFaldonCard === 'function') wpPopulateFaldonCard();
-  if (typeof wpSyncStep6Controls === 'function') wpSyncStep6Controls();
   if (typeof wpSyncEstructuraUI === 'function') wpSyncEstructuraUI();
   if (typeof recalculateSolarYield === 'function') recalculateSolarYield(true);
 
@@ -4799,7 +4799,6 @@ function wpApplyPanelArrangementToAll(sourcePolyIdx) {
   if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Disposición propagada a todos los faldones');
   if (typeof wpFastRenderSimulatedPanels === 'function') wpFastRenderSimulatedPanels();
   if (typeof wpUpdateLayoutFastMetrics === 'function') wpUpdateLayoutFastMetrics();
-  if (typeof wpSyncStep6Controls === 'function') wpSyncStep6Controls();
 
   showStatus(`<i data-lucide="check" class="icon-sm"></i> DISPOSICIÓN PROPAGADA A TODOS LOS FALDONES (${WP.polylines.length} CUBIERTAS)`, 3000);
 }
@@ -4867,7 +4866,6 @@ function wpSetPolyAzimuthRealtime(polyIdx, val) {
       }
       if (typeof wpUpdateFaldonRowPitchUI === "function") wpUpdateFaldonRowPitchUI(polyIdx);
       if (typeof wpUpdateLayoutFastMetrics === "function") wpUpdateLayoutFastMetrics();
-      if (typeof wpSyncStep6Controls === "function") wpSyncStep6Controls();
     });
   } else {
     const poly = WP.polylines[polyIdx];
@@ -4885,7 +4883,6 @@ function wpSetPolyAzimuthRealtime(polyIdx, val) {
     }
     if (typeof wpUpdateFaldonRowPitchUI === "function") wpUpdateFaldonRowPitchUI(polyIdx);
     if (typeof wpUpdateLayoutFastMetrics === "function") wpUpdateLayoutFastMetrics();
-    if (typeof wpSyncStep6Controls === "function") wpSyncStep6Controls();
   }
 }
 
@@ -4893,7 +4890,6 @@ function wpCommitPolyAzimuth(polyIdx) {
   if (typeof window.wpInvalidateHeatmap === 'function') {
     window.wpInvalidateHeatmap('Azimut de módulo fijado');
   }
-  if (typeof wpSyncStep6Controls === 'function') wpSyncStep6Controls();
   if (typeof recalculateSolarYield === 'function') recalculateSolarYield(true);
   if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') BOMTreeEngine.refresh();
 }
@@ -4918,7 +4914,6 @@ function wpSetPolyOrientation(polyIdx, orientation) {
   }
   if (typeof wpFastRenderSimulatedPanels === "function") wpFastRenderSimulatedPanels();
   wpUpdateStep3UI();
-  if (typeof wpSyncStep6Controls === 'function') wpSyncStep6Controls();
 
   var orientName = orientation === "landscape" ? "HORIZONTAL" : (orientation === "hybrid" ? "HÍBRIDA MIXTA (V+H)" : "VERTICAL");
   showStatus("DISPOSICIÓN " + orientName + " EN " + (WP.polylines[polyIdx].name || ("FALDÓN #" + (polyIdx + 1))), 2000);
@@ -5132,7 +5127,6 @@ if (lbl) lbl.textContent = (val === "auto" || val === "") ? "Auto (faldón)" : (
       }
       if (typeof wpUpdateFaldonRowPitchUI === "function") wpUpdateFaldonRowPitchUI(polyIdx);
       if (typeof wpUpdateLayoutFastMetrics === "function") wpUpdateLayoutFastMetrics();
-      if (typeof wpSyncStep6Controls === "function") wpSyncStep6Controls();
     });
   } else {
     wpSetPolyTilt(polyIdx, val);
@@ -5567,7 +5561,6 @@ function wpCommitPolyTilt(polyIdx) {
   if (typeof window.wpInvalidateHeatmap === 'function') {
     window.wpInvalidateHeatmap('Inclinación de módulo fijada');
   }
-  if (typeof wpSyncStep6Controls === 'function') wpSyncStep6Controls();
   if (typeof recalculateSolarYield === 'function') recalculateSolarYield(true);
   if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') BOMTreeEngine.refresh();
 }
@@ -5680,7 +5673,6 @@ function wpSetPolyStructure(polyIdx, val) {
   }
 
   if (typeof wpUpdateLayoutFastMetrics === 'function') wpUpdateLayoutFastMetrics();
-  if (typeof wpSyncStep6Controls === 'function') wpSyncStep6Controls();
   if (typeof wpSyncEstructuraUI === 'function') wpSyncEstructuraUI();
   if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') {
     BOMTreeEngine.refresh();
@@ -5803,7 +5795,6 @@ function wpApplyPolyStructureToAll(sourcePolyIdx) {
   }
   if (typeof wpUpdateLayoutFastMetrics === 'function') wpUpdateLayoutFastMetrics();
   if (typeof wpPopulateFaldonCard === 'function') wpPopulateFaldonCard();
-  if (typeof wpSyncStep6Controls === 'function') wpSyncStep6Controls();
   if (typeof wpSyncEstructuraUI === 'function') wpSyncEstructuraUI();
   if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') {
     BOMTreeEngine.refresh();
@@ -6130,7 +6121,6 @@ function wpUpdateUI() {
   // Autoguardado con debounce tras cada actualización de UI/estado (P0 sesión)
   if (typeof wpAutoSaveProjectDebounced === 'function') wpAutoSaveProjectDebounced();
   if (typeof wpUpdateStep3UI === 'function') wpUpdateStep3UI();
-  if (typeof render3DObstaclesInCesium === 'function') render3DObstaclesInCesium();
   const report = document.getElementById('wp-polyline-list-report');
   if (report) {
     if (WP.polylines.length === 0) {
@@ -7315,18 +7305,29 @@ function wpOpenSmartInverterMatchingModal() {
   const allModules = (typeof equipmentCatalog !== 'undefined' && equipmentCatalog && Array.isArray(equipmentCatalog.modules)) ? equipmentCatalog.modules : [];
   const selectedMod = allModules.find(m => m.id === cfg.selectedModuleId) || allModules[0] || (typeof panelConfig !== 'undefined' ? panelConfig : { wp: 450, isc: 13.8, voc: 41.5, vmp: 34.5, imp: 13.05 });
 
-  let totalPanels = (Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0)
-    ? window.allRenderedPanels.filter(p => p && !p.deleted).length
-    : 0;
-  if (totalPanels === 0 && typeof WP !== 'undefined' && Array.isArray(WP.polylines)) {
-    WP.polylines.forEach(p => {
-      const pInfo = p.roofInfo || (typeof computeSinglePolylineRoofInfo === 'function' ? computeSinglePolylineRoofInfo(p.points, p) : null);
-      if (pInfo && pInfo.panels) totalPanels += pInfo.panels.length;
+  let totalPanels = 0;
+  let totalKwp = 0;
+  if (typeof window.RAModulesBreakdown !== 'undefined' && typeof window.RAModulesBreakdown.getEffectiveFieldTotals === 'function') {
+    const _ft = window.RAModulesBreakdown.getEffectiveFieldTotals({
+      fallbackEstimated: cfg.lastEstimatedPanels || 24,
+      moduleId: cfg.selectedModuleId
     });
+    totalPanels = _ft.totalPanels;
+    totalKwp = _ft.totalKwp;
+  } else {
+    totalPanels = (Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0)
+      ? window.allRenderedPanels.filter(p => p && !p.deleted && !p.disabled).length
+      : 0;
+    if (totalPanels === 0 && typeof WP !== 'undefined' && Array.isArray(WP.polylines)) {
+      WP.polylines.forEach(p => {
+        if (p && p.panelsDisabled === true) return;
+        const pInfo = p.roofInfo || (typeof computeSinglePolylineRoofInfo === 'function' ? computeSinglePolylineRoofInfo(p.points, p) : null);
+        if (pInfo && pInfo.panels) totalPanels += pInfo.panels.filter(x => x && !x.deleted && !x.disabled).length;
+      });
+    }
+    if (totalPanels === 0) totalPanels = cfg.lastEstimatedPanels || 24;
+    totalKwp = (totalPanels * (selectedMod.wp || selectedMod.potencia || 450)) / 1000.0;
   }
-  if (totalPanels === 0) totalPanels = cfg.lastEstimatedPanels || 24;
-
-  const totalKwp = (totalPanels * (selectedMod.wp || selectedMod.potencia || 450)) / 1000.0;
 
   // Analizar orientaciones distintas de faldones
   let distinctOrientations = 1;

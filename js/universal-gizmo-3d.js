@@ -804,6 +804,91 @@ function renderUniversalGizmo2D() {
 
   universalGizmoState.screen.badgeBox = { x: badgeX, y: badgeY - 14, w: textWidth + 16, h: 20 };
 
+  // 8. Tirador 3D de Ángulo para Edificios Paramétricos en L (45° - 165°)
+  universalGizmoState.screen.lAngleHandle = null;
+  if (target.type === 'building' && target.rawObj && typeof window !== 'undefined' && window.RALBuilding && typeof window.RALBuilding.getAngleHandle3D === 'function') {
+    const lh = window.RALBuilding.getAngleHandle3D(target.rawObj);
+    if (lh && lh.cornerPos && lh.handlePos && lh.wingAPos) {
+      const pC = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, lh.cornerPos);
+      const pH = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, lh.handlePos);
+      const pA = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, lh.wingAPos);
+      if (pC && pH && pA && Number.isFinite(pH.x) && Number.isFinite(pH.y)) {
+        const isLHover = (hovered === 'l-angle-drag' || universalGizmoState.mode === 'l-angle-drag');
+
+        // Previsualización wireframe en vivo a 60 FPS durante arrastre del ángulo
+        if (universalGizmoState.active && universalGizmoState.mode === 'l-angle-drag' && Array.isArray(target.rawObj.points) && target.rawObj.points.length >= 3) {
+          const topH = lh.planeHeight + Math.max(target.rawObj.height || 6.5, 1.0);
+          const scrPts = target.rawObj.points.map(pt => {
+            const c = Cesium.Cartographic.fromCartesian(pt);
+            const ptTop = c ? Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, topH) : pt;
+            return Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, ptTop);
+          }).filter(sPt => sPt && Number.isFinite(sPt.x));
+          if (scrPts.length >= 3) {
+            ctx.beginPath();
+            scrPts.forEach((sp, idx) => {
+              if (idx === 0) ctx.moveTo(sp.x, sp.y);
+              else ctx.lineTo(sp.x, sp.y);
+            });
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(16, 185, 129, 0.16)';
+            ctx.fill();
+            ctx.setLineDash([6, 4]);
+            ctx.strokeStyle = '#34D399';
+            ctx.lineWidth = 2.5;
+            ctx.stroke();
+            ctx.setLineDash([]);
+          }
+        }
+
+        // Líneas guía esquina exterior -> puntas de alas + manejador circular interactivo
+        ctx.save();
+        ctx.setLineDash([5, 4]);
+        ctx.strokeStyle = isLHover ? '#6EE7B7' : 'rgba(52, 211, 153, 0.75)';
+        ctx.lineWidth = isLHover ? 2.5 : 1.8;
+        ctx.beginPath();
+        ctx.moveTo(pA.x, pA.y);
+        ctx.lineTo(pC.x, pC.y);
+        ctx.lineTo(pH.x, pH.y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        const hRadius = (isLHover ? 11 : 9) * scale;
+        ctx.beginPath();
+        ctx.arc(pH.x, pH.y, hRadius, 0, Math.PI * 2);
+        ctx.fillStyle = isLHover ? '#34D399' : '#059669';
+        ctx.fill();
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = 2.2;
+        ctx.stroke();
+
+        const angLbl = '∠ ' + Math.round(lh.angleDeg) + '°';
+        ctx.font = 'bold 10px "JetBrains Mono", monospace';
+        const tw = ctx.measureText(angLbl).width;
+        const bx = pH.x + 12;
+        const by = pH.y - 10;
+        ctx.fillStyle = 'rgba(6, 78, 59, 0.94)';
+        ctx.strokeStyle = '#34D399';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.roundRect(bx, by - 12, tw + 12, 18, 4);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#ECFDF5';
+        ctx.fillText(angLbl, bx + 6, by);
+        ctx.restore();
+
+        universalGizmoState.screen.lAngleHandle = {
+          x: pH.x,
+          y: pH.y,
+          r: 15 * scale,
+          cornerPos: lh.cornerPos,
+          wingAPos: lh.wingAPos,
+          planeHeight: lh.planeHeight
+        };
+      }
+    }
+  }
+
   ctx.restore();
 }
 
@@ -819,6 +904,11 @@ function checkUniversalGizmoHit(mx, my) {
   // A. Click sobre el badge para alternar modo [W / E]
   if (s.badgeBox && mx >= s.badgeBox.x && mx <= s.badgeBox.x + s.badgeBox.w && my >= s.badgeBox.y && my <= s.badgeBox.y + s.badgeBox.h) {
     return 'badge-toggle';
+  }
+
+  // A2. Tirador 3D de ángulo para edificios paramétricos en L
+  if (s.lAngleHandle && Math.hypot(mx - s.lAngleHandle.x, my - s.lAngleHandle.y) <= s.lAngleHandle.r) {
+    return 'l-angle-drag';
   }
 
   // B. Centroide (Arrastre Libre 3D)
@@ -1021,6 +1111,9 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
           bld.roofAzimuth = Math.round(normRot);
         }
         if (typeof syncBuildingAxesInspectorUI === 'function') syncBuildingAxesInspectorUI(bld);
+        if (typeof window !== 'undefined' && window.RALBuilding && typeof window.RALBuilding.syncAnchorFromPoints === 'function') {
+          window.RALBuilding.syncAnchorFromPoints(bld);
+        }
       } else {
         bld.roofAzimuth = Math.round(normRot);
       }
@@ -1156,6 +1249,7 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
     } else if (target.type === 'electrical') {
       const sState = window.inverterEquipmentState;
       const posProp = new Cesium.ConstantPositionProperty(newPos);
+      const labelPos = Cesium.Cartesian3.clone(newPos);
       if (target.id === 'inverter') {
         sState.position = newPos;
         sState.carto = { latitude: latDeg, longitude: lonDeg, height: carto.height };
@@ -1163,7 +1257,7 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
           sState.entity.position = posProp;
           if (sState.entity.label) sState.entity.label.text = '⚡ CUADRO & INVERSOR\n' + carto.height.toFixed(1) + ' m';
         }
-          if (sState.label2D) sState.label2D.position = posProp;
+        if (sState.label2D) sState.label2D.position = labelPos;
       } else if (target.id === 'combiner' && sState.combinerBox) {
         sState.combinerBox.position = newPos;
         sState.combinerBox.carto = { latitude: latDeg, longitude: lonDeg, height: carto.height };
@@ -1171,7 +1265,7 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
           sState.combinerBox.entity.position = posProp;
           if (sState.combinerBox.entity.label) sState.combinerBox.entity.label.text = '📦 COMBINER BOX\n' + carto.height.toFixed(1) + ' m';
         }
-          if (sState.combinerBox.label2D) sState.combinerBox.label2D.position = posProp;
+        if (sState.combinerBox.label2D) sState.combinerBox.label2D.position = labelPos;
       } else if (target.id === 'dc_protection') {
         sState.dcProtectionPosition = newPos;
         sState.dcProtectionCarto = { latitude: latDeg, longitude: lonDeg, height: carto.height };
@@ -1179,7 +1273,7 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
           sState.dcProtectionEntity.position = posProp;
           if (sState.dcProtectionEntity.label) sState.dcProtectionEntity.label.text = '🛡️ CUADRO DC (SPD II)\n' + carto.height.toFixed(1) + ' m';
         }
-          if (sState.dcProtectionLabel2D) sState.dcProtectionLabel2D.position = posProp;
+        if (sState.dcProtectionLabel2D) sState.dcProtectionLabel2D.position = labelPos;
       } else if (target.id === 'meter' && sState.gridMeter) {
         sState.gridMeter.position = newPos;
         sState.gridMeter.carto = { latitude: latDeg, longitude: lonDeg, height: carto.height };
@@ -1187,7 +1281,7 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
           sState.gridMeter.entity.position = posProp;
           if (sState.gridMeter.entity.label) sState.gridMeter.entity.label.text = '🔌 CONTADOR DE RED\n' + carto.height.toFixed(1) + ' m';
         }
-          if (sState.gridMeter.label2D) sState.gridMeter.label2D.position = posProp;
+        if (sState.gridMeter.label2D) sState.gridMeter.label2D.position = labelPos;
       } else if (target.id === 'battery') {
         sState.batteryPosition = newPos;
         sState.batteryCarto = { latitude: latDeg, longitude: lonDeg, height: carto.height };
@@ -1195,7 +1289,7 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
           sState.batteryEntity.position = posProp;
           if (sState.batteryEntity.label) sState.batteryEntity.label.text = '🔋 BATERÍA LFP\n' + carto.height.toFixed(1) + ' m';
         }
-        if (sState.batteryLabel2D) sState.batteryLabel2D.position = newPos;
+        if (sState.batteryLabel2D) sState.batteryLabel2D.position = labelPos;
       }
       target.pos = Cesium.Cartesian3.clone(newPos);
       // [P2] Cables NO se regeneran por frame durante el drag (regla §5): LEFT_UP ya los re-renderiza
@@ -1278,6 +1372,9 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
         }
       }
       target.pos = Cesium.Cartesian3.clone(newPos);
+      if (typeof window !== 'undefined' && window.RALBuilding && typeof window.RALBuilding.syncAnchorFromPoints === 'function') {
+        window.RALBuilding.syncAnchorFromPoints(bld);
+      }
       // Reconstruccion GPU pesada de edificio diferida a LEFT_UP para garantizar 60 FPS
     } else if (target.type === 'panel' && target.rawObj) {
       const p = target.rawObj;
@@ -1328,16 +1425,24 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
             otherP.isManual = true;
             otherP.gridA = undefined;
             otherP.gridB = undefined;
-            if (roofInfo && roofInfo.invTransform && roofInfo.uVec && roofInfo.vVec) {
-              const locPt = Cesium.Matrix4.multiplyByPoint(roofInfo.invTransform, otherP.center, new Cesium.Cartesian3());
-              otherP.u = Cesium.Cartesian3.dot(locPt, roofInfo.uVec);
-              otherP.v = Cesium.Cartesian3.dot(locPt, roofInfo.vVec);
+            const otherPoly = (typeof WP !== 'undefined' && WP.polylines && typeof otherP.polyIdx === 'number') ? WP.polylines[otherP.polyIdx] : null;
+            const otherRoof = (otherPoly && otherPoly.roofInfo) ? otherPoly.roofInfo : roofInfo;
+            if (otherRoof && otherRoof.invTransform && otherRoof.uVec && otherRoof.vVec) {
+              const locPt = Cesium.Matrix4.multiplyByPoint(otherRoof.invTransform, otherP.center, new Cesium.Cartesian3());
+              otherP.u = Cesium.Cartesian3.dot(locPt, otherRoof.uVec);
+              otherP.v = Cesium.Cartesian3.dot(locPt, otherRoof.vVec);
+            }
+            if (!otherP.rawPanel && otherRoof && Array.isArray(otherRoof.panels)) {
+              const backing = otherP.panelId
+                ? otherRoof.panels.find(rp => rp && rp.panelId === otherP.panelId)
+                : (typeof otherP.layoutIndex === 'number' ? otherRoof.panels[otherP.layoutIndex] : null);
+              if (backing) otherP.rawPanel = backing;
             }
             if (otherP.rawPanel) {
               if (typeof otherP.u === 'number') otherP.rawPanel.u = otherP.u;
               if (typeof otherP.v === 'number') otherP.rawPanel.v = otherP.v;
               otherP.rawPanel.center = Cesium.Cartesian3.clone(otherP.center);
-              otherP.rawPanel.corners = otherP.corners;
+              otherP.rawPanel.corners = otherP.corners.map(c => Cesium.Cartesian3.clone(c));
               otherP.rawPanel.isManual = true;
               otherP.rawPanel.gridA = undefined;
               otherP.rawPanel.gridB = undefined;
@@ -1423,6 +1528,10 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
         if (typeof wpUpdateUI === 'function') wpUpdateUI();
       }
     }
+  }
+
+  if (typeof window !== 'undefined' && window.RAMeasureTool && typeof window.RAMeasureTool.invalidateSnapCandidates === 'function') {
+    window.RAMeasureTool.invalidateSnapCandidates();
   }
 
   return true;

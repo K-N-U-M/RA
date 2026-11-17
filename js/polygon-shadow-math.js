@@ -154,15 +154,21 @@ function getBuildingPolygon2DForRoof(building, roof, poly) {
 
   const uVec = roof.uVec || new Cesium.Cartesian3(1, 0, 0);
   const vVec = roof.vVec || new Cesium.Cartesian3(0, 1, 0);
-  const invT = roof.invTransform || (roof.transform && typeof Cesium !== 'undefined' && Cesium.Matrix4
-    ? Cesium.Matrix4.inverse(roof.transform, new Cesium.Matrix4())
-    : (roof.center && typeof Cesium !== 'undefined' && Cesium.Transforms
-      ? Cesium.Matrix4.inverse(Cesium.Transforms.eastNorthUpToFixedFrame(roof.center), new Cesium.Matrix4())
-      : null));
-
   const roofOrigin = roof.origin || roof.center || (roof.points && roof.points[0]) || building.points[0];
+  let invT = roof.invTransform || null;
+  if (!invT && roof.transform && typeof Cesium !== 'undefined' && Cesium.Matrix4) {
+    invT = Cesium.Matrix4.inverse(roof.transform, new Cesium.Matrix4());
+  }
+  if (!invT && roofOrigin && typeof Cesium !== 'undefined' && Cesium.Transforms && Cesium.Matrix4) {
+    invT = Cesium.Matrix4.inverse(Cesium.Transforms.eastNorthUpToFixedFrame(roofOrigin), new Cesium.Matrix4());
+  }
 
-  // Proyectar la huella del edificio en el plano local 2D (U, V) de la cubierta
+  let originCarto = null;
+  if (!invT && roofOrigin && typeof Cesium !== 'undefined' && Cesium.Cartographic) {
+    originCarto = Cesium.Cartographic.fromCartesian(roofOrigin);
+  }
+
+  // Proyectar la huella del edificio en marco homogéneo ENU local 2D (U, V) de la cubierta
   const basePoly = rawCartoList.map(c => {
     const wallAtRoofZ = Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, roofZ);
     if (invT) {
@@ -171,12 +177,19 @@ function getBuildingPolygon2DForRoof(building, roof, poly) {
         u: Cesium.Cartesian3.dot(locPt, uVec),
         v: Cesium.Cartesian3.dot(locPt, vVec)
       };
-    } else {
-      const diff = Cesium.Cartesian3.subtract(wallAtRoofZ, roofOrigin, new Cesium.Cartesian3());
+    } else if (originCarto) {
+      const R_EARTH = 6378137.0;
+      const locEnu = new Cesium.Cartesian3(
+        (c.longitude - originCarto.longitude) * R_EARTH * Math.cos(originCarto.latitude),
+        (c.latitude - originCarto.latitude) * R_EARTH,
+        roofZ - (originCarto.height || 0)
+      );
       return {
-        u: Cesium.Cartesian3.dot(diff, uVec),
-        v: Cesium.Cartesian3.dot(diff, vVec)
+        u: Cesium.Cartesian3.dot(locEnu, uVec),
+        v: Cesium.Cartesian3.dot(locEnu, vVec)
       };
+    } else {
+      return { u: 0, v: 0 };
     }
   });
 

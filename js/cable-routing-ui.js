@@ -306,18 +306,4 @@ function wpUpdateCableRoutesUI() {
   if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
 }
 window.wpUpdateCableRoutesUI = wpUpdateCableRoutesUI;
-
-function wpCalculateAndRenderInverterCables() {
-  // [BLINDAJE CAD FASES 1-2-3]: El cableado troncal y cuadros eléctricos solo se calculan en Paso 4 (Ingeniería)
-  const currentStep = (typeof wpCurrentStep !== 'undefined') ? wpCurrentStep : ((typeof window !== 'undefined' && window.wpCurrentStep) || 1);
-  if (currentStep < 4) {
-    if (typeof RACableEngine !== 'undefined' && typeof RACableEngine.clearAllCables === 'function') {
-      RACableEngine.clearAllCables();
-    }
-    return;
-  }
-  if (typeof RACableEngine !== 'undefined' && typeof RACableEngine.renderAllCables === 'function') {
-    return RACableEngine.renderAllCables();
-  }
-}
-window.wpCalculateAndRenderInverterCables = wpCalculateAndRenderInverterCables;
+// [B1] wpCalculateAndRenderInverterCables se define de forma canónica en js/cable-engine.js

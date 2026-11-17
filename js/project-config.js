@@ -607,9 +607,8 @@ function step3UpdateHardwareSelection() {
     battery: bat
   };
 
-  // Ejecutar inmediatamente motor de dimensionamiento automático multi-equipo
-  const currentTotalPanels = (typeof lastRoofInfo !== "undefined" && lastRoofInfo && lastRoofInfo.panels) ? lastRoofInfo.panels.length : 0;
-  wpComputeAutoSizing(currentTotalPanels > 0 ? currentTotalPanels : undefined);
+  // Ejecutar inmediatamente motor de dimensionamiento automático multi-equipo (SSOT heterogéneo)
+  wpComputeAutoSizing();
 
   // Actualizar PanelConfig global para generación 3D
   if (typeof panelConfig !== 'undefined') {
@@ -942,34 +941,42 @@ function wpUpdateStep4Checklist() {
 }
 window.wpUpdateStep4Checklist = wpUpdateStep4Checklist;
 
-function wpComputeAutoSizing(forcedCount) {
+function _resolveProjectFieldTotals(catalog, mod, cfg, forcedCount, fallbackEst) {
+  if (typeof window !== 'undefined' && window.RAModulesBreakdown && typeof window.RAModulesBreakdown.getEffectiveFieldTotals === 'function') {
+    return window.RAModulesBreakdown.getEffectiveFieldTotals({
+      forcedCount: forcedCount,
+      fallbackEstimated: fallbackEst,
+      moduleId: cfg ? cfg.selectedModuleId : null,
+      catalog: catalog
+    });
+  }
   let count = (typeof forcedCount === 'number' && forcedCount > 0) ? forcedCount : 0;
   if (count === 0 && typeof window !== 'undefined' && Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0) {
-    count = window.allRenderedPanels.filter(p => p && !p.deleted).length;
+    count = window.allRenderedPanels.filter(p => p && !p.deleted && !p.disabled).length;
   }
-  if (count === 0) {
-    if (typeof WP !== 'undefined' && WP && WP.polylines && WP.polylines.length > 0) {
-      WP.polylines.forEach(p => {
-        // Conteo perezoso: si roofInfo no está en cache (p.ej. primer arranque del
-        // Paso 4 tras restaurar sesion), se calcula al vuelo. Antes caia al fallback
-        // lastEstimatedPanels y recomendaba N inverters de un proyecto anterior.
-        const pInfo = p.roofInfo || (typeof computeSinglePolylineRoofInfo === 'function' ? computeSinglePolylineRoofInfo(p.points, p) : null);
-        if (pInfo && pInfo.panels) count += pInfo.panels.length;
-      });
-    }
+  if (count === 0 && typeof WP !== 'undefined' && WP && WP.polylines && WP.polylines.length > 0) {
+    WP.polylines.forEach(p => {
+      if (p && p.panelsDisabled === true) return;
+      const pInfo = p.roofInfo || (typeof computeSinglePolylineRoofInfo === 'function' ? computeSinglePolylineRoofInfo(p.points, p) : null);
+      if (pInfo && pInfo.panels) count += pInfo.panels.filter(x => x && !x.deleted && !x.disabled).length;
+    });
   }
   if (count === 0 && typeof lastRoofInfo !== 'undefined' && lastRoofInfo && lastRoofInfo.panels) {
-    count = lastRoofInfo.panels.length;
+    count = lastRoofInfo.panels.filter(x => x && !x.deleted && !x.disabled).length;
   }
   if (count === 0 && typeof simulatedPanelEntities !== 'undefined' && simulatedPanelEntities.length > 0) {
     count = simulatedPanelEntities.length;
   }
-  if (count === 0) {
-    count = window.solarProjectConfig.lastEstimatedPanels || 1;
-  } else {
-    window.solarProjectConfig.lastEstimatedPanels = count;
-  }
+  if (count === 0) count = fallbackEst;
+  const modWp = (mod && (mod.wp || mod.potencia)) || 450;
+  return {
+    totalPanels: count,
+    totalKwp: parseFloat(((count * modWp) / 1000.0).toFixed(3)),
+    primaryModel: mod
+  };
+}
 
+function wpComputeAutoSizing(forcedCount) {
   const catalog = (typeof window !== 'undefined' && window.equipmentCatalog) ? window.equipmentCatalog : ((typeof equipmentCatalog !== 'undefined') ? equipmentCatalog : null);
   if (!catalog) return;
 
@@ -981,7 +988,10 @@ function wpComputeAutoSizing(forcedCount) {
   const mi  = (catalog.microinverters && catalog.microinverters.find(m => m.id === cfg.selectedMicroinverterId)) || (catalog.microinverters && catalog.microinverters[0]) || { model: '', type: '' };
   const bat = (catalog.batteries && catalog.batteries.find(b => b.id === cfg.selectedBatteryId)) || (catalog.batteries && catalog.batteries[0]) || { kwh: 0 };
 
-  const totalKwp = (count * (mod.wp || 450)) / 1000.0;
+  const fieldTotals = _resolveProjectFieldTotals(catalog, mod, cfg, forcedCount, cfg.lastEstimatedPanels || 1);
+  const count = fieldTotals.totalPanels;
+  const totalKwp = fieldTotals.totalKwp;
+  if (count > 0) cfg.lastEstimatedPanels = count;
 
   // 1. Inversores String Requeridos (unificado con matchInvertersFromCatalog: maxOverload || 1.35):
   const invNomKw = inv.kw || 5.0;
@@ -1557,20 +1567,11 @@ function wpAutoSelectOptimalEngineering(force = false) {
   const catalog = (typeof window !== 'undefined' && window.equipmentCatalog) ? window.equipmentCatalog : ((typeof equipmentCatalog !== 'undefined') ? equipmentCatalog : null);
   if (!catalog || !Array.isArray(catalog.inverters) || catalog.inverters.length === 0) return null;
 
-  // 1. Obtener conteo real de módulos y potencia
-  let totalPanels = (Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0)
-    ? window.allRenderedPanels.filter(p => p && !p.deleted).length
-    : 0;
-  if (totalPanels === 0 && typeof WP !== 'undefined' && Array.isArray(WP.polylines)) {
-    WP.polylines.forEach(p => {
-      const pInfo = p.roofInfo || (typeof computeSinglePolylineRoofInfo === 'function' ? computeSinglePolylineRoofInfo(p.points, p) : null);
-      if (pInfo && pInfo.panels) totalPanels += pInfo.panels.length;
-    });
-  }
-  if (totalPanels === 0) totalPanels = cfg.lastEstimatedPanels || 24;
-
+  // 1. Obtener conteo real de módulos y potencia desde SSOT heterogéneo
   const mod = (catalog.modules && catalog.modules.find(m => m.id === cfg.selectedModuleId)) || (catalog.modules && catalog.modules[0]) || { wp: 450, isc: 13.8, voc: 41.5 };
-  const totalKwp = (totalPanels * (mod.wp || 450)) / 1000.0;
+  const fieldTotals = _resolveProjectFieldTotals(catalog, mod, cfg, null, cfg.lastEstimatedPanels || 24);
+  const totalPanels = fieldTotals.totalPanels;
+  const totalKwp = fieldTotals.totalKwp;
 
   // 2. Analizar orientaciones distintas de faldones
   let distinctOrientations = 1;
@@ -1861,19 +1862,10 @@ function wpRefreshAutoEngineeringBanner(preferredTopology) {
   const catalog = (typeof window !== 'undefined' && window.equipmentCatalog) ? window.equipmentCatalog : ((typeof equipmentCatalog !== 'undefined') ? equipmentCatalog : null);
   if (!catalog) return;
 
-  let totalPanels = (Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0)
-    ? window.allRenderedPanels.filter(p => p && !p.deleted).length
-    : 0;
-  if (totalPanels === 0 && typeof WP !== 'undefined' && Array.isArray(WP.polylines)) {
-    WP.polylines.forEach(p => {
-      const pInfo = p.roofInfo || (typeof computeSinglePolylineRoofInfo === 'function' ? computeSinglePolylineRoofInfo(p.points, p) : null);
-      if (pInfo && pInfo.panels) totalPanels += pInfo.panels.length;
-    });
-  }
-  if (totalPanels === 0) totalPanels = cfg.lastEstimatedPanels || 24;
-
   const mod = (catalog.modules && catalog.modules.find(m => m.id === cfg.selectedModuleId)) || (catalog.modules && catalog.modules[0]) || { wp: 450, isc: 13.8, voc: 41.5 };
-  const totalKwp = (totalPanels * (mod.wp || 450)) / 1000.0;
+  const fieldTotals = _resolveProjectFieldTotals(catalog, mod, cfg, null, cfg.lastEstimatedPanels || 24);
+  const totalPanels = fieldTotals.totalPanels;
+  const totalKwp = fieldTotals.totalKwp;
 
   let distinctOrientations = 1;
   const orientations = [];
@@ -2895,10 +2887,13 @@ function wpSaveRoofOverride(polyIdx) {
   const modalEl = document.getElementById('step4-roof-override-modal');
   if (modalEl) modalEl.style.display = 'none';
 
-  // Refrescar vistas
+  // Refrescar vistas y fuentes SSOT (Paso 4, BOM BIM y HUD superior)
   if (typeof wpRenderStep4RoofScopeUI === 'function') wpRenderStep4RoofScopeUI();
   if (typeof wpRenderStep4SingleLineDiagramUI === 'function') wpRenderStep4SingleLineDiagramUI();
   if (typeof step3UpdateHardwareSelection === 'function') step3UpdateHardwareSelection();
+  if (typeof wpComputeAutoSizing === 'function') wpComputeAutoSizing();
+  if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') BOMTreeEngine.refresh();
+  if (typeof window.ProjectStatusHUD !== 'undefined' && typeof window.ProjectStatusHUD.update === 'function') window.ProjectStatusHUD.update();
 
   if (typeof window.showToast === 'function') {
     window.showToast('FALDÓN ACTUALIZADO', `Configuración guardada para Faldón ${polyIdx + 1}.`, 'success', 3000);

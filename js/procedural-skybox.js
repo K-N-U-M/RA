@@ -4,14 +4,67 @@
 
 const _raSkyboxCache = {};
 let _raCurrentSkyMode = 'day';
+let _raCurrentSkyZenith = null;
+let _raSkyboxMoveBound = false;
+
+function _resolveSkyboxZenithTeme(refCartesian) {
+  let ux = 0, uy = 0, uz = 1;
+  if (typeof Cesium === 'undefined') return { x: ux, y: uy, z: uz };
+
+  let pos = refCartesian || null;
+  if (!pos && typeof WP !== 'undefined' && WP && WP.origin) pos = WP.origin;
+  if (!pos && typeof viewer !== 'undefined' && viewer && viewer.camera && viewer.camera.positionWC) {
+    pos = viewer.camera.positionWC;
+  }
+
+  let upFixed = null;
+  if (pos && Cesium.Ellipsoid && Cesium.Ellipsoid.WGS84 && typeof Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal === 'function') {
+    try {
+      upFixed = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(pos, new Cesium.Cartesian3());
+    } catch (_) { upFixed = null; }
+  }
+  if (!upFixed && pos) {
+    const magP = Cesium.Cartesian3.magnitude(pos);
+    if (magP > 1.0) {
+      upFixed = Cesium.Cartesian3.normalize(pos, new Cesium.Cartesian3());
+    }
+  }
+  if (!upFixed) return { x: ux, y: uy, z: uz };
+
+  // Cesium.SkyBox muestrea v_texCoord en el marco TEME tras rotar por czm_temeToPseudoFixed.
+  // Transformamos el cenit topocéntrico ENU local (Fixed/ECEF) al marco TEME del cubemap.
+  let upTeme = upFixed;
+  if (Cesium.Transforms && typeof Cesium.Transforms.computeTemeToPseudoFixedMatrix === 'function' && Cesium.Matrix3) {
+    try {
+      const julianTime = (typeof viewer !== 'undefined' && viewer && viewer.clock && viewer.clock.currentTime)
+        ? viewer.clock.currentTime
+        : Cesium.JulianDate.now();
+      const temeToFixed = Cesium.Transforms.computeTemeToPseudoFixedMatrix(julianTime, new Cesium.Matrix3());
+      if (temeToFixed) {
+        const fixedToTeme = Cesium.Matrix3.transpose(temeToFixed, new Cesium.Matrix3());
+        upTeme = Cesium.Matrix3.multiplyByVector(fixedToTeme, upFixed, new Cesium.Cartesian3());
+        Cesium.Cartesian3.normalize(upTeme, upTeme);
+      }
+    } catch (_) { upTeme = upFixed; }
+  }
+  return { x: upTeme.x, y: upTeme.y, z: upTeme.z };
+}
+
+function _zenithDot(a, b) {
+  if (!a || !b) return -1;
+  return a.x * b.x + a.y * b.y + a.z * b.z;
+}
 
 // ☀️ SKYBOX ESFÉRICO TOPOCÉNTRICO ANALÍTICO AAA (SEAMLESS CONTINUO & LUMINOSO)
-// Proyecta el color por vector director 3D analítico (sinElev = dz):
-// Garantiza continuidad matemática exacta C^inf en las 6 aristas del cubo y cénit vertical a 90°.
-function createProceduralSkybox(mode) {
+// Proyecta el color respecto al vector cenit topocéntrico ENU local real en cualquier coordenada:
+// Garantiza continuidad matemática exacta C^inf en las 6 aristas del cubo y horizonte horizontal real.
+function createProceduralSkybox(mode, refCartesian) {
   mode = mode || 'day';
-  if (_raSkyboxCache[mode]) {
-    return new Cesium.SkyBox({ sources: _raSkyboxCache[mode] });
+  const zenith = _resolveSkyboxZenithTeme(refCartesian);
+  const cached = _raSkyboxCache[mode];
+  if (cached && cached.sources && _zenithDot(cached.up, zenith) >= 0.9994) {
+    _raCurrentSkyZenith = cached.up;
+    return new Cesium.SkyBox({ sources: cached.sources });
   }
 
   const size = 128; // Resolución ultra-ligera (0 ms) con interpolación bilineal suave en GPU
@@ -69,10 +122,12 @@ function createProceduralSkybox(mode) {
         else if (face === 'negZ') { vx = -u;   vy = -v;   vz = -1.0; }
 
         const mag = Math.hypot(vx, vy, vz) || 1.0;
+        const dx = vx / mag;
+        const dy = vy / mag;
         const dz = vz / mag;
 
-        // Altitud cenital sobre el horizonte local (dz in [-1, 1])
-        const sinElev = dz;
+        // Altitud cenital sobre el horizonte topocéntrico ENU local (producto escalar con cenit)
+        const sinElev = dx * zenith.x + dy * zenith.y + dz * zenith.z;
 
         let r, g, b;
         if (sinElev >= 0) {
@@ -96,7 +151,7 @@ function createProceduralSkybox(mode) {
         }
 
         if (mode === 'night' && sinElev > 0.12) {
-          const hash = Math.sin((vx / mag) * 127.1 + (vy / mag) * 311.7 + dz * 74.3) * 43758.5453;
+          const hash = Math.sin(dx * 127.1 + dy * 311.7 + dz * 74.3) * 43758.5453;
           const starVal = hash - Math.floor(hash);
           if (starVal > 0.985) {
             const starBrite = Math.min(255, Math.floor(180 + starVal * 75));
@@ -126,14 +181,38 @@ function createProceduralSkybox(mode) {
     positiveZ: renderSide('posZ'),
     negativeZ: renderSide('negZ')
   };
-  _raSkyboxCache[mode] = sources;
+  _raSkyboxCache[mode] = { up: zenith, sources: sources };
+  _raCurrentSkyZenith = zenith;
 
   return new Cesium.SkyBox({ sources: sources });
+}
+
+function _bindSkyboxMoveListener() {
+  if (_raSkyboxMoveBound || typeof viewer === 'undefined' || !viewer || !viewer.camera || !viewer.camera.moveEnd) return;
+  _raSkyboxMoveBound = true;
+  try {
+    viewer.camera.moveEnd.addEventListener(function() {
+      const sc = viewer && viewer.scene;
+      if (!sc) return;
+      const curZenith = _resolveSkyboxZenithTeme();
+      if (!_raCurrentSkyZenith || _zenithDot(_raCurrentSkyZenith, curZenith) < 0.9994) {
+        try {
+          if (sc.skyBox && typeof sc.skyBox.destroy === 'function' && !sc.skyBox.isDestroyed()) {
+            sc.skyBox.destroy();
+          }
+          sc.skyBox = createProceduralSkybox(_raCurrentSkyMode || 'day');
+          if (sc.skyBox) sc.skyBox.show = true;
+          if (typeof sc.requestRender === 'function') sc.requestRender();
+        } catch (_) {}
+      }
+    });
+  } catch (_) {}
 }
 
 window.wpUpdateAtmosphericSky = function(alt) {
   if (typeof viewer === 'undefined' || !viewer || !viewer.scene) return;
   const sc = viewer.scene;
+  _bindSkyboxMoveListener();
   
   // Modos reactivos según la física solar
   let targetMode = 'day';
@@ -147,7 +226,9 @@ window.wpUpdateAtmosphericSky = function(alt) {
     targetMode = 'day';
   }
 
-  if (_raCurrentSkyMode !== targetMode || !sc.skyBox) {
+  const curZenith = _resolveSkyboxZenithTeme();
+  const zenithChanged = !_raCurrentSkyZenith || _zenithDot(_raCurrentSkyZenith, curZenith) < 0.9994;
+  if (_raCurrentSkyMode !== targetMode || !sc.skyBox || zenithChanged) {
     _raCurrentSkyMode = targetMode;
     try {
       if (sc.skyBox && typeof sc.skyBox.destroy === 'function' && !sc.skyBox.isDestroyed()) {

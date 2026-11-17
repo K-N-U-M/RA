@@ -169,32 +169,26 @@
       try { global.cesiumOsmBuildings.shadows = shadowMode; } catch(eO) {}
     }
 
-    // 4. Sincronizar primitivas de edificios y obstáculos
+    // 4. Sincronizar primitivas de edificios y obstáculos (respetando ShadowMode.DISABLED explícito)
+    var hasShadowEnum = (typeof Cesium !== 'undefined' && Cesium.ShadowMode);
+    function _enableUnlessDisabled(prim) {
+      if (!hasShadowEnum || !prim || typeof prim.isDestroyed !== 'function' || prim.isDestroyed()) return;
+      if (prim._isSetbackBuffer) return;
+      if (prim.shadows === Cesium.ShadowMode.DISABLED) return;
+      try { prim.shadows = Cesium.ShadowMode.ENABLED; } catch(ePrim) {}
+    }
+
     if (global._buildingPrimitives && Array.isArray(global._buildingPrimitives)) {
-      global._buildingPrimitives.forEach(function(prim) {
-        if (prim && typeof prim.isDestroyed === 'function' && !prim.isDestroyed()) {
-          try { prim.shadows = Cesium.ShadowMode.ENABLED; } catch(eB) {}
-        }
-      });
+      global._buildingPrimitives.forEach(_enableUnlessDisabled);
     }
     if (global._obsPrimitives && Array.isArray(global._obsPrimitives)) {
-      global._obsPrimitives.forEach(function(prim) {
-        if (prim && typeof prim.isDestroyed === 'function' && !prim.isDestroyed()) {
-          try { prim.shadows = Cesium.ShadowMode.ENABLED; } catch(eOb) {}
-        }
-      });
+      global._obsPrimitives.forEach(_enableUnlessDisabled);
     }
 
     // 5. Módulos fotovoltaicos simulados
-    if (global.simulatedPanelsPrimitive && typeof global.simulatedPanelsPrimitive.isDestroyed === 'function' && !global.simulatedPanelsPrimitive.isDestroyed()) {
-      try { global.simulatedPanelsPrimitive.shadows = Cesium.ShadowMode.ENABLED; } catch(eP) {}
-    }
+    _enableUnlessDisabled(global.simulatedPanelsPrimitive);
     if (global._faldonPanelsPrimitives && typeof global._faldonPanelsPrimitives.forEach === 'function') {
-      global._faldonPanelsPrimitives.forEach(function(prim) {
-        if (prim && typeof prim.isDestroyed === 'function' && !prim.isDestroyed()) {
-          try { prim.shadows = Cesium.ShadowMode.ENABLED; } catch(eFP) {}
-        }
-      });
+      global._faldonPanelsPrimitives.forEach(_enableUnlessDisabled);
     }
 
     // Solicitar 2 frames de asentamiento (settling) para que el FBO de cascadas converja limpio

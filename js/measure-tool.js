@@ -905,8 +905,9 @@
     if (_state.snapIndicatorEntity) {
       try { _state.snapIndicatorEntity.show = isVisible; } catch(e) {}
     }
-    if (_state.hudElement) {
-      _state.hudElement.style.display = (isVisible && _state.active) ? 'block' : 'none';
+    var hudEl = _state.hudElement || (typeof document !== 'undefined' ? document.getElementById('ra-measure-hud') : null);
+    if (hudEl) {
+      hudEl.style.visibility = (isVisible && _state.active) ? '' : 'hidden';
     }
     requestSceneRender();
   }
@@ -915,9 +916,9 @@
   function setupKeyboardShortcuts() {
     if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') return;
     window.addEventListener('keydown', function(e) {
-      // Ignorar si el usuario escribe en un campo de texto
+      // Ignorar si el usuario escribe en un campo de texto o editor enriquecido
       var tag = e.target && e.target.tagName ? e.target.tagName.toLowerCase() : '';
-      if (tag === 'input' || tag === 'textarea' || (e.target && e.target.isContentEditable)) return;
+      if (tag === 'input' || tag === 'textarea' || tag === 'select' || (e.target && (e.target.isContentEditable || (e.target.closest && e.target.closest('[contenteditable="true"]'))))) return;
 
       var key = e.key ? e.key.toLowerCase() : '';
 
@@ -928,16 +929,18 @@
         return;
       }
 
-      // Tecla X: Alternar snap SOLO si la herramienta de medición está activa
+      // Tecla X: Alternar snap SOLO si la herramienta de medición está activa (evita colisión con snap magnético CAD)
       if (key === 'x' && _state.active && !e.ctrlKey && !e.altKey && !e.metaKey) {
         e.preventDefault();
+        e.stopPropagation();
         toggleSnapping();
         return;
       }
 
-      // Tecla Escape: Salir o cancelar tramo activo
+      // Tecla Escape: Salir o cancelar tramo activo sin propagar a navegación global
       if (e.key === 'Escape' && _state.active) {
         e.preventDefault();
+        e.stopPropagation();
         if (_state.points.length > 0) {
           _state.points = [];
           clearPreviewEntities();

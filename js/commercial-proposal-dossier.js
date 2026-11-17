@@ -36,9 +36,9 @@
   'use strict';
 
   // [AUD-2026 v2 · SEC2-03/06] Escape HTML local: todo dato dinámico interpolado en el dossier
-  // pasa por aquí antes de entrar en HTML. Fallback autónomo si RAHtml no está cargado.
+  // pasa por aquí antes de entrar en HTML.
   function escD(value) {
-    if (global.RAHtml && typeof global.RAHtml.esc === 'function') return global.RAHtml.esc(value);
+    if (global.RASanitize && typeof global.RASanitize.plain === 'function') return global.RASanitize.plain(value);
     return String(value == null ? '' : value)
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
@@ -207,27 +207,45 @@
       monthlySolarKwh = solarWeights.map(function(w) { return Math.round(w * annualYield); });
     }
 
-    // Consumo mensual en kWh (SSOT)
+    // Consumo mensual en kWh (SSOT: consumos mensuales auditados de factura cuando existan)
     var monthlyConsKwh = new Array(12).fill(0);
-    var consumWeights = [0.098, 0.090, 0.085, 0.076, 0.072, 0.078, 0.095, 0.092, 0.079, 0.076, 0.089, 0.090];
-    monthlyConsKwh = consumWeights.map(function(w) { return Math.round(w * annualCons); });
+    var _billMonthlyDossier = (global.RA && global.RA.billAuditor && typeof global.RA.billAuditor.getMonthlyConsumptionKWh === 'function')
+      ? global.RA.billAuditor.getMonthlyConsumptionKWh(annualCons)
+      : null;
+    if (_billMonthlyDossier && _billMonthlyDossier.hasMonthlyData && Array.isArray(_billMonthlyDossier.monthlyKWh) && _billMonthlyDossier.monthlyKWh.length === 12) {
+      monthlyConsKwh = _billMonthlyDossier.monthlyKWh.map(function(v) { return Math.round(Number(v) || 0); });
+    } else if (global.solarProjectConfig && global.solarProjectConfig.billMonthlyConsumptionKWh && Array.isArray(global.solarProjectConfig.billMonthlyConsumptionKWh.monthlyKWh) && global.solarProjectConfig.billMonthlyConsumptionKWh.monthlyKWh.length === 12) {
+      monthlyConsKwh = global.solarProjectConfig.billMonthlyConsumptionKWh.monthlyKWh.map(function(v) { return Math.round(Number(v) || 0); });
+    } else {
+      var consumWeights = [0.098, 0.090, 0.085, 0.076, 0.072, 0.078, 0.095, 0.092, 0.079, 0.076, 0.089, 0.090];
+      monthlyConsKwh = consumWeights.map(function(w) { return Math.round(w * annualCons); });
+    }
 
-    // Desglose del balance mes a mes
+    // Desglose del balance mes a mes (SSOT: priorizar monthlyEnergyBreakdown del modelo financiero 288h)
     var monthlyBalance = [];
     var totGen = 0, totAuto = 0, totExc = 0, totRedSin = 0, totRedCon = 0;
+    var _fmBreakdown = (m && Array.isArray(m.monthlyEnergyBreakdown) && m.monthlyEnergyBreakdown.length === 12)
+      ? m.monthlyEnergyBreakdown
+      : null;
 
     for (var i = 0; i < 12; i++) {
-      var gKwh = Math.round(monthlySolarKwh[i] || 0);
-      var cKwh = Math.round(monthlyConsKwh[i] || 0);
-      // [SSOT] Autoconsumo alineado con el modelo financiero bancable (despacho horario 288h)
-      var ssotAutoRatio = (m && m.annualYieldKWh > 0 && m.autoconsumoDirecto > 0)
-        ? ((m.autoconsumoDirecto + (m.bateriaKWh || 0)) / m.annualYieldKWh)
-        : null;
-      var autoRatio = (ssotAutoRatio && ssotAutoRatio > 0 && ssotAutoRatio <= 1.0)
-        ? Math.min(0.95, ssotAutoRatio * (1.0 + 0.10 * Math.sin((i - 2) * Math.PI / 6)))
-        : Math.min(0.85, 0.90 - 0.22 * Math.min(1.2, gKwh / Math.max(cKwh, 1)));
-      var aKwh = Math.round(Math.min(cKwh * 0.95, gKwh * autoRatio));
-      var eKwh = Math.max(0, gKwh - aKwh);
+      var _fmRow = _fmBreakdown ? _fmBreakdown[i] : null;
+      var gKwh = Math.round(monthlySolarKwh[i] || (_fmRow ? _fmRow.generationKWh : 0) || 0);
+      var cKwh = Math.round((_fmRow && typeof _fmRow.consumoKWh === 'number' && _fmRow.consumoKWh > 0) ? _fmRow.consumoKWh : (monthlyConsKwh[i] || 0));
+      var aKwh, eKwh;
+      if (_fmRow && typeof _fmRow.autoconsumoKWh === 'number') {
+        aKwh = Math.min(gKwh, Math.max(0, Math.round(_fmRow.autoconsumoKWh)));
+        eKwh = Math.max(0, gKwh - aKwh);
+      } else {
+        var ssotAutoRatio = (m && m.annualYieldKWh > 0 && m.autoconsumoDirecto > 0)
+          ? ((m.autoconsumoDirecto + (m.bateriaKWh || 0)) / m.annualYieldKWh)
+          : null;
+        var autoRatio = (ssotAutoRatio && ssotAutoRatio > 0 && ssotAutoRatio <= 1.0)
+          ? Math.min(0.95, ssotAutoRatio * (1.0 + 0.10 * Math.sin((i - 2) * Math.PI / 6)))
+          : Math.min(0.85, 0.90 - 0.22 * Math.min(1.2, gKwh / Math.max(cKwh, 1)));
+        aKwh = Math.round(Math.min(cKwh * 0.95, gKwh * autoRatio));
+        eKwh = Math.max(0, gKwh - aKwh);
+      }
       var rSinKwh = cKwh;
       var rConKwh = Math.max(0, cKwh - aKwh);
       var covPct = cKwh > 0 ? ((aKwh / cKwh) * 100).toFixed(1) : '0.0';
@@ -543,6 +561,9 @@
 
   // Abre el panel integral de configuración antes de generar el dossier
   function openDossierConfigModal() {
+    if (global.RALazyLoader && typeof global.RALazyLoader.loadDefaultCoverImage === 'function') {
+      global.RALazyLoader.loadDefaultCoverImage().catch(function() {});
+    }
     var exist = document.getElementById('ra-dossier-config-modal');
     if (exist) { exist.remove(); }
 
@@ -1613,7 +1634,7 @@
         '    <tr class="ra-econ-item-row"><td style="padding:4px 6px;">' + (raw.metrics.capexWind ? '7' : '6') + '. Ingeniería, Tasas & Legalización CIE (1× expediente)</td><td class="ra-econ-item-price" style="text-align:right;font-weight:700;padding:4px 6px;">' + raw.metrics.capexPermits + ' €</td></tr>' +
         (raw.activeAddons && raw.activeAddons.length > 0 ? raw.activeAddons.map(function(ad, i) {
           var p = (Number(ad.qty) || 1) * (Number(ad.unitPrice) || 0);
-          return '    <tr class="ra-econ-item-row" style="background:#f0fdf4;"><td style="color:#16a34a;font-weight:600;padding:4px 6px;">+ ' + (ad.qty || 1) + '× ' + ad.name + '</td><td class="ra-econ-item-price" style="text-align:right;font-weight:700;color:#16a34a;padding:4px 6px;">' + p.toLocaleString('es-ES') + ' €</td></tr>';
+          return '    <tr class="ra-econ-item-row" style="background:#f0fdf4;"><td style="color:#16a34a;font-weight:600;padding:4px 6px;">+ ' + (Number(ad.qty) || 1) + '× ' + escD(ad.name) + '</td><td class="ra-econ-item-price" style="text-align:right;font-weight:700;color:#16a34a;padding:4px 6px;">' + p.toLocaleString('es-ES') + ' €</td></tr>';
         }).join('') : '') +
         '  </table>' +
         '  <div style="background:' + pal.light + ';border:1.5px solid ' + pal.primary + ';border-radius:8px;padding:6px 10px;text-align:center;">' +
@@ -1796,9 +1817,9 @@
           var p1 = lt.milestone1Pct !== undefined ? Number(lt.milestone1Pct) : 30;
           var p2 = lt.milestone2Pct !== undefined ? Number(lt.milestone2Pct) : 50;
           var p3 = lt.milestone3Pct !== undefined ? Number(lt.milestone3Pct) : 20;
-          var t1 = lt.milestone1Text || 'A la firma de contrato (reserva de equipos y tramitación de licencias)';
-          var t2 = lt.milestone2Text || 'Al acopio de materiales en cubierta y comienzo de montaje mecánico';
-          var t3 = lt.milestone3Text || 'A la puesta en marcha, emisión de CIE y entrega de documentación legal';
+          var t1 = escD(lt.milestone1Text || 'A la firma de contrato (reserva de equipos y tramitación de licencias)');
+          var t2 = escD(lt.milestone2Text || 'Al acopio de materiales en cubierta y comienzo de montaje mecánico');
+          var t3 = escD(lt.milestone3Text || 'A la puesta en marcha, emisión de CIE y entrega de documentación legal');
           return '    <table class="table-clean" style="font-size:13.5px;">' +
             '      <tr><td><strong>1º Hito (' + p1 + '%):</strong></td><td>' + t1 + '</td><td style="font-weight:bold;text-align:right;">' + fmtEsCurrency(Math.round(totalCostGrossNum * (p1 / 100))) + '</td></tr>' +
             '      <tr><td><strong>2º Hito (' + p2 + '%):</strong></td><td>' + t2 + '</td><td style="font-weight:bold;text-align:right;">' + fmtEsCurrency(Math.round(totalCostGrossNum * (p2 / 100))) + '</td></tr>' +
@@ -2232,16 +2253,31 @@
       '',
       '  restoreDraftManual: function() {',
       '    try {',
-      '      // [AUD-2026 v2 · SEC2-05] Saneado autónomo para el borrador: la ventana generada',
-      '      // no carga el sanitizador de la app, así que traemos el nuestro de acá (tier medio:',
-      '      // remove etiquetas peligrosas, atributos on* y URLs javascript:; conserva maquetación).',
+      '      // Saneado DOM real del borrador almacenado en localStorage (elimina bypass de regex)',
       '      var _sanitizeDraftWin = function(h) {',
-      '        var t = String(h == null ? "" : h);',
-      '        t = t.replace(/<\\s*(script|iframe|object|embed|link|meta|base|form)[^>]*>[\\s\\S]*?<\\s*\\/\\s*\\1\\s*>/gi, "");',
-      '        t = t.replace(/<\\s*(script|iframe|object|embed|link|meta|base|form)[^>]*\\/>/gi, "");',
-      '        t = t.replace(/(?:\\s|\\/)on\\w+\\s*=\\s*("[^"]*"|\\x27[^\\x27]*\\x27|[^\\s>]+)/gi, "");',
-      '        t = t.replace(/(href|src|action|formaction)\\s*=\\s*javascript:[^\\x22\\x27\\s>]*/gi, "$1=");',
-      '        return t;',
+      '        var src = String(h == null ? "" : h);',
+      '        if (typeof DOMParser !== "function") return "";',
+      '        var doc = new DOMParser().parseFromString(src, "text/html");',
+      '        if (!doc || !doc.body) return "";',
+      '        var blocked = doc.body.querySelectorAll("script,iframe,object,embed,link,meta,base,form,template,style,foreignobject,animate,set");',
+      '        for (var b = 0; b < blocked.length; b++) {',
+      '          if (blocked[b].parentNode) blocked[b].parentNode.removeChild(blocked[b]);',
+      '        }',
+      '        var all = doc.body.querySelectorAll("*");',
+      '        for (var i = 0; i < all.length; i++) {',
+      '          var el = all[i];',
+      '          var attrs = Array.prototype.slice.call(el.attributes || []);',
+      '          for (var j = 0; j < attrs.length; j++) {',
+      '            var an = attrs[j].name.toLowerCase();',
+      '            var av = String(attrs[j].value || "").replace(/[\\u0000-\\u0020]+/g, "").toLowerCase();',
+      '            if (an.indexOf("on") === 0 || an === "srcdoc") {',
+      '              el.removeAttribute(attrs[j].name);',
+      '            } else if ((an === "href" || an === "src" || an === "xlink:href" || an === "action" || an === "formaction") && (/^(javascript|vbscript):/.test(av) || /^data:(text\\/html|image\\/svg\\+xml)/.test(av))) {',
+      '              el.removeAttribute(attrs[j].name);',
+      '            }',
+      '          }',
+      '        }',
+      '        return doc.body.innerHTML;',
       '      };',
       '      var saved = localStorage.getItem(this.storageKey);',
       '      if (saved) {',

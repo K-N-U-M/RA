@@ -66,7 +66,7 @@
       var found = cat.modules.find(function (m) { return m.id === moduleId; });
       if (found) {
         return Object.assign({}, DEFAULT_PANEL, found, {
-          wp: found.wp || 450,
+          wp: found.wp || found.potencia || 450,
           price: (typeof found.price === 'number' && found.price > 0) ? found.price : 125.0,
           l: found.l || found.largo || 2.10,
           w: found.w || found.ancho || 1.05,
@@ -141,12 +141,25 @@
           if (!p || p.deleted || p.disabled) return false;
           if (typeof p.polyIdx === 'number') return p.polyIdx === polyIdx;
           if (typeof p.faldonIndex === 'number') return p.faldonIndex === polyIdx;
+          if (p.rawPanel && typeof p.rawPanel.polyIdx === 'number') return p.rawPanel.polyIdx === polyIdx;
           return polylines.length <= 1;
         });
       }
 
-      if (!isDisabled && faldonPanels.length === 0 && poly.roofInfo && Array.isArray(poly.roofInfo.panels)) {
-        faldonPanels = poly.roofInfo.panels.filter(function (p) { return !p.deleted && !p.disabled; });
+      if (!isDisabled && faldonPanels.length === 0) {
+        if (poly.roofInfo && Array.isArray(poly.roofInfo.panels)) {
+          faldonPanels = poly.roofInfo.panels.filter(function (p) { return p && !p.deleted && !p.disabled; });
+        } else if (Array.isArray(poly.panels) && poly.panels.length > 0) {
+          faldonPanels = poly.panels.filter(function (p) { return p && !p.deleted && !p.disabled; });
+        } else if (typeof window !== 'undefined' && typeof window.computeSinglePolylineRoofInfo === 'function' && Array.isArray(poly.points) && poly.points.length >= 3) {
+          try {
+            var freshRoofInfo = window.computeSinglePolylineRoofInfo(poly.points, poly);
+            if (freshRoofInfo && Array.isArray(freshRoofInfo.panels)) {
+              poly.roofInfo = freshRoofInfo;
+              faldonPanels = freshRoofInfo.panels.filter(function (p) { return p && !p.deleted && !p.disabled; });
+            }
+          } catch (eRec) {}
+        }
       }
 
       var panelCount = isDisabled ? 0 : faldonPanels.length;
@@ -171,16 +184,46 @@
       var structureMfg = poly.structureMfg || 'sunfer';
 
       // Precio unitario efectivo: prioridad a override de pricing si existe y es aplicable
-      var unitPrice = modSpec.price || 125.0;
-      if (pricing && typeof pricing.panelPrice === 'number' && pricing.panelPrice > 0) {
-        // Si el precio de pricing es general y coincide con un único modelo, lo usamos
-        if (polylines.length === 1 || !modSpec.price) {
-          unitPrice = pricing.panelPrice;
+      function getEffectiveUnitPrice(spec) {
+        var uPrice = (spec && spec.price) || 125.0;
+        if (pricing && typeof pricing.panelPrice === 'number' && pricing.panelPrice > 0) {
+          if (polylines.length === 1 || !(spec && spec.price)) {
+            uPrice = pricing.panelPrice;
+          }
+        }
+        return uPrice;
+      }
+      var unitPrice = getEffectiveUnitPrice(modSpec);
+
+      // Sumar potencia y coste respetando overrides individuales por panel si existen
+      var subtotalKwp = 0;
+      var subtotalCost = 0;
+      var perRoofModelCounts = [];
+      if (faldonPanels.length > 0) {
+        var roofModelAgg = new Map();
+        faldonPanels.forEach(function (fp) {
+          var fpModId = (fp && (fp.moduleId || (fp.rawPanel && fp.rawPanel.moduleId))) || effModId;
+          var fpSpec = (fpModId === effModId) ? modSpec : resolveModuleSpec(fpModId, catalog);
+          var fpPrice = (fpModId === effModId) ? unitPrice : getEffectiveUnitPrice(fpSpec);
+          var fpKwp = (fpSpec.wp || 450) / 1000.0;
+          subtotalKwp += fpKwp;
+          subtotalCost += fpPrice;
+          if (!roofModelAgg.has(fpModId)) {
+            roofModelAgg.set(fpModId, { id: fpModId, spec: fpSpec, unitPrice: fpPrice, count: 0, kwp: 0, cost: 0 });
+          }
+          var agg = roofModelAgg.get(fpModId);
+          agg.count += 1;
+          agg.kwp += fpKwp;
+          agg.cost += fpPrice;
+        });
+        perRoofModelCounts = Array.from(roofModelAgg.values());
+      } else {
+        subtotalKwp = (panelCount * (modSpec.wp || 450)) / 1000.0;
+        subtotalCost = panelCount * unitPrice;
+        if (panelCount > 0) {
+          perRoofModelCounts.push({ id: effModId, spec: modSpec, unitPrice: unitPrice, count: panelCount, kwp: subtotalKwp, cost: subtotalCost });
         }
       }
-
-      var subtotalKwp = (panelCount * (modSpec.wp || 450)) / 1000.0;
-      var subtotalCost = panelCount * unitPrice;
 
       var roofItem = {
         roofIndex: polyIdx,
@@ -219,45 +262,53 @@
         totalKwp += subtotalKwp;
         totalPanelsCost += subtotalCost;
 
-        // Agregación por modelo
-        if (!modelMap.has(effModId)) {
-          modelMap.set(effModId, {
-            moduleId: effModId,
-            brand: modSpec.brand || '',
-            model: modSpec.model || effModId,
-            fullName: (modSpec.brand ? modSpec.brand + ' ' : '') + (modSpec.model || effModId),
-            wp: modSpec.wp || 450,
-            voc: modSpec.voc || 41.5,
-            vmp: modSpec.vmp || 34.5,
-            isc: modSpec.isc || 13.8,
-            imp: modSpec.imp || 13.05,
-            efficiency: modSpec.efficiency || 21.0,
-            tempCoeffPmax: modSpec.tempCoeffPmax || -0.35,
-            length: modSpec.l || 2.10,
-            width: modSpec.w || 1.05,
-            weightKg: modSpec.weightKg || 24.0,
-            technology: modSpec.tecnologia || 'Monocristalino N-Type TOPCon',
-            unitPrice: unitPrice,
-            count: 0,
-            kwp: 0,
-            totalCost: 0,
-            roofIndices: [],
-            roofNames: []
-          });
-        }
+        // Agregación por modelo (soporta heterogeneidad intra-faldón e inter-faldón)
+        perRoofModelCounts.forEach(function (agg) {
+          var rmId = agg.id;
+          var rmSpec = agg.spec;
+          if (!modelMap.has(rmId)) {
+            modelMap.set(rmId, {
+              moduleId: rmId,
+              brand: rmSpec.brand || '',
+              model: rmSpec.model || rmId,
+              fullName: (rmSpec.brand ? rmSpec.brand + ' ' : '') + (rmSpec.model || rmId),
+              wp: rmSpec.wp || 450,
+              voc: rmSpec.voc || 41.5,
+              vmp: rmSpec.vmp || 34.5,
+              isc: rmSpec.isc || 13.8,
+              imp: rmSpec.imp || 13.05,
+              efficiency: rmSpec.efficiency || 21.0,
+              tempCoeffPmax: rmSpec.tempCoeffPmax || -0.35,
+              length: rmSpec.l || 2.10,
+              width: rmSpec.w || 1.05,
+              weightKg: rmSpec.weightKg || 24.0,
+              technology: rmSpec.tecnologia || 'Monocristalino N-Type TOPCon',
+              unitPrice: agg.unitPrice,
+              count: 0,
+              kwp: 0,
+              totalCost: 0,
+              roofIndices: [],
+              roofNames: []
+            });
+          }
 
-        var mEntry = modelMap.get(effModId);
-        mEntry.count += panelCount;
-        mEntry.kwp = parseFloat((mEntry.kwp + subtotalKwp).toFixed(3));
-        mEntry.totalCost = Math.round((mEntry.totalCost + subtotalCost) * 100) / 100;
-        mEntry.roofIndices.push(polyIdx);
-        mEntry.roofNames.push(roofItem.name);
+          var mEntry = modelMap.get(rmId);
+          mEntry.count += agg.count;
+          mEntry.kwp = parseFloat((mEntry.kwp + agg.kwp).toFixed(3));
+          mEntry.totalCost = Math.round((mEntry.totalCost + agg.cost) * 100) / 100;
+          if (mEntry.roofIndices.indexOf(polyIdx) === -1) {
+            mEntry.roofIndices.push(polyIdx);
+            mEntry.roofNames.push(roofItem.name);
+          }
+        });
       }
     });
 
     // Caso de borde: si no hay faldones poligonales o se usa el layout plano por defecto
     if (byRoof.length === 0 && totalPanels === 0) {
-      var fallbackCount = (renderedPanels && renderedPanels.length) || 0;
+      var fallbackCount = renderedPanels
+        ? renderedPanels.filter(function (p) { return p && !p.deleted && !p.disabled; }).length
+        : 0;
       if (fallbackCount === 0 && typeof window !== 'undefined' && window.simulatedPanelEntities) {
         fallbackCount = window.simulatedPanelEntities.length;
       }
@@ -465,8 +516,37 @@
     return html;
   }
 
+  /**
+   * Resuelve conteo efectivo y potencia pico total (kWp) usando el desglose SSOT,
+   * soportando conteo forzado o estimación preliminar cuando aún no hay geometría.
+   */
+  function getEffectiveFieldTotals(options) {
+    var opts = options || {};
+    var projCfg = (typeof window !== 'undefined' && window.solarProjectConfig) ? window.solarProjectConfig : {};
+    var globalMod = resolveModuleSpec(opts.moduleId || projCfg.selectedModuleId || 'ja_550', opts.catalog);
+    var mb = getProjectModulesBreakdown(opts.overrideData);
+    var totalPanels = (mb && typeof mb.totalPanels === 'number') ? mb.totalPanels : 0;
+    var totalKwp = (mb && typeof mb.totalKwp === 'number') ? mb.totalKwp : 0;
+
+    if (typeof opts.forcedCount === 'number' && opts.forcedCount > 0) {
+      totalPanels = opts.forcedCount;
+      totalKwp = (totalPanels * (globalMod.wp || 450)) / 1000.0;
+    } else if (totalPanels === 0 && typeof opts.fallbackEstimated === 'number' && opts.fallbackEstimated > 0) {
+      totalPanels = opts.fallbackEstimated;
+      totalKwp = (totalPanels * (globalMod.wp || 450)) / 1000.0;
+    }
+
+    return {
+      totalPanels: totalPanels,
+      totalKwp: parseFloat(totalKwp.toFixed(3)),
+      primaryModel: (mb && mb.primaryModel) || globalMod,
+      breakdown: mb
+    };
+  }
+
   return {
     getProjectModulesBreakdown: getProjectModulesBreakdown,
+    getEffectiveFieldTotals: getEffectiveFieldTotals,
     resolveModuleSpec: resolveModuleSpec,
     formatModuleSummaryText: formatModuleSummaryText,
     renderSubfieldsTableHTML: renderSubfieldsTableHTML,

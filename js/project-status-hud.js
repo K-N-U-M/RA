@@ -346,7 +346,15 @@
       if (mObj && (mObj.wp || mObj.potencia)) pModW = mObj.wp || mObj.potencia;
     }
     let kwp = (numPanels * pModW) / 1000.0;
-    if (typeof window !== 'undefined' && window.ProjectHierarchy && typeof window.ProjectHierarchy.getTree === 'function') {
+    if (typeof window !== 'undefined' && typeof window.getProjectModulesBreakdown === 'function') {
+      try {
+        const mb = window.getProjectModulesBreakdown();
+        if (mb && typeof mb.totalPanels === 'number' && (mb.totalPanels > 0 || (Array.isArray(mb.byRoof) && mb.byRoof.length > 0))) {
+          numPanels = mb.totalPanels;
+          kwp = mb.totalKwp || 0;
+        }
+      } catch (eMb) {}
+    } else if (typeof window !== 'undefined' && window.ProjectHierarchy && typeof window.ProjectHierarchy.getTree === 'function') {
       try {
         const tree = window.ProjectHierarchy.getTree();
         if (tree && tree.totals && typeof tree.totals.panelsCount === 'number') {
@@ -354,14 +362,6 @@
           kwp = tree.totals.totalKwp || 0;
         }
       } catch (eTree) {}
-    } else if (typeof window !== 'undefined' && typeof window.getProjectModulesBreakdown === 'function') {
-      try {
-        const mb = window.getProjectModulesBreakdown();
-        if (mb && typeof mb.totalPanels === 'number') {
-          numPanels = mb.totalPanels;
-          kwp = mb.totalKwp || 0;
-        }
-      } catch (eMb) {}
     }
 
     // Inversor seleccionado (exclusivo para Paso 4+)
@@ -832,7 +832,7 @@
       requestHUDUpdate();
     }, { passive: true });
 
-    // 5. Hooks no invasivos en funciones globales clave si ya existen
+    // 5. Hooks no invasivos en funciones globales y Orquestador de 5 pasos
     if (typeof window.wpUpdateUI === 'function') {
       const origWpUpdateUI = window.wpUpdateUI;
       window.wpUpdateUI = function() {
@@ -842,13 +842,10 @@
       };
     }
 
-    if (typeof window.wpSetStep === 'function') {
-      const origWpSetStep = window.wpSetStep;
-      window.wpSetStep = function() {
-        const res = origWpSetStep.apply(this, arguments);
+    if (typeof window.WorkflowOrchestrator !== 'undefined' && typeof window.WorkflowOrchestrator.on === 'function') {
+      window.WorkflowOrchestrator.on('step_changed', () => {
         requestHUDUpdate();
-        return res;
-      };
+      });
     }
 
     // 6. Heartbeat pasivo ultra-ligero de respaldo (5 segundos):

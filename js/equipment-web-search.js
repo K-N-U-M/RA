@@ -604,12 +604,24 @@ REGLAS DE RIGOR TÉCNICO:
       `;
     },
 
+    _esc: function (str) {
+      if (root.RASanitize && typeof root.RASanitize.plain === 'function') {
+        return root.RASanitize.plain(str);
+      }
+      return String(str == null ? '' : str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    },
+
     renderLoadingState: function (query) {
       return `
         <div style="border:1px solid #334155;border-radius:10px;padding:40px 20px;text-align:center;background:rgba(15,23,42,0.7);box-shadow:0 8px 25px rgba(0,0,0,0.5);">
           <div class="modal-spinner" style="width:44px;height:44px;border:3px solid rgba(167,139,250,0.2);border-top-color:#a78bfa;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 16px auto;"></div>
           <div style="font-size:14px;font-weight:bold;color:#fff;margin-bottom:6px;">Buscando equipos comerciales en la red...</div>
-          <div style="font-size:11.5px;color:#c084fc;font-weight:600;margin-bottom:8px;">"${query}"</div>
+          <div style="font-size:11.5px;color:#c084fc;font-weight:600;margin-bottom:8px;">"${this._esc(query)}"</div>
           <div style="font-size:10.5px;color:var(--text-slate-400);line-height:1.4;max-width:480px;margin:0 auto;">
             Extrayendo curvas IV, coeficientes térmicos, rangos MPPT y dimensiones físicas bajo estándares IEC 62548.
           </div>
@@ -638,51 +650,52 @@ REGLAS DE RIGOR TÉCNICO:
 
       const cardsHtml = results.map((item, idx) => {
         const cat = catBadges[item.category] || catBadges.modules;
+        const _e = (v) => this._esc(v);
 
         let specsPills = '';
         if (item.category === 'modules') {
           specsPills = `
             <div style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0;">
-              <span class="ai-spec-pill"><i data-lucide="zap" class="icon-sm" style="color:var(--amber-400);"></i> <b>${item.wp} Wp</b></span>
-              <span class="ai-spec-pill"><i data-lucide="percent" class="icon-sm" style="color:#38BDF8;"></i> ${item.eff}% STC</span>
-              <span class="ai-spec-pill"><i data-lucide="maximize" class="icon-sm" style="color:#10B981;"></i> ${item.l}×${item.w} m</span>
-              <span class="ai-spec-pill">Voc: ${item.voc}V · Isc: ${item.isc}A</span>
-              <span class="ai-spec-pill" style="color:var(--text-slate-400);">${item.technology || 'N-Type'}</span>
+              <span class="ai-spec-pill"><i data-lucide="zap" class="icon-sm" style="color:var(--amber-400);"></i> <b>${_e(item.wp)} Wp</b></span>
+              <span class="ai-spec-pill"><i data-lucide="percent" class="icon-sm" style="color:#38BDF8;"></i> ${_e(item.eff)}% STC</span>
+              <span class="ai-spec-pill"><i data-lucide="maximize" class="icon-sm" style="color:#10B981;"></i> ${_e(item.l)}×${_e(item.w)} m</span>
+              <span class="ai-spec-pill">Voc: ${_e(item.voc)}V · Isc: ${_e(item.isc)}A</span>
+              <span class="ai-spec-pill" style="color:var(--text-slate-400);">${_e(item.technology || 'N-Type')}</span>
             </div>
           `;
         } else if (item.category === 'inverters') {
           specsPills = `
             <div style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0;">
-              <span class="ai-spec-pill" style="color:#38BDF8;"><i data-lucide="zap" class="icon-sm"></i> <b>${item.kw} kW</b></span>
-              <span class="ai-spec-pill">MPPT: ${item.mppt} (${item.inputsPerMppt || 1} entr/canal)</span>
-              <span class="ai-spec-pill">VdcMax: ${item.vDcMax}V</span>
-              <span class="ai-spec-pill">Rango MPPT: ${item.vMpptMin}-${item.vMpptMax}V</span>
-              <span class="ai-spec-pill">${item.type}</span>
+              <span class="ai-spec-pill" style="color:#38BDF8;"><i data-lucide="zap" class="icon-sm"></i> <b>${_e(item.kw)} kW</b></span>
+              <span class="ai-spec-pill">MPPT: ${_e(item.mppt)} (${_e(item.inputsPerMppt || 1)} entr/canal)</span>
+              <span class="ai-spec-pill">VdcMax: ${_e(item.vDcMax)}V</span>
+              <span class="ai-spec-pill">Rango MPPT: ${_e(item.vMpptMin)}-${_e(item.vMpptMax)}V</span>
+              <span class="ai-spec-pill">${_e(item.type)}</span>
             </div>
           `;
         } else if (item.category === 'batteries') {
           specsPills = `
             <div style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0;">
-              <span class="ai-spec-pill" style="color:#10B981;"><i data-lucide="battery" class="icon-sm"></i> <b>${item.kwh} kWh</b></span>
-              <span class="ai-spec-pill">${item.type}</span>
+              <span class="ai-spec-pill" style="color:#10B981;"><i data-lucide="battery" class="icon-sm"></i> <b>${_e(item.kwh)} kWh</b></span>
+              <span class="ai-spec-pill">${_e(item.type)}</span>
             </div>
           `;
         } else if (item.category === 'wind_turbines') {
-          const kw = (item.ratedPowerW ? (item.ratedPowerW / 1000).toFixed(1) : '?');
+          const kw = (item.ratedPowerW ? (Number(item.ratedPowerW) / 1000).toFixed(1) : '?');
           specsPills = `
             <div style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0;">
-              <span class="ai-spec-pill" style="color:#38BDF8;"><i data-lucide="wind" class="icon-sm"></i> <b>${kw} kW</b></span>
-              <span class="ai-spec-pill"><i data-lucide="circle-dot" class="icon-sm" style="color:#FBBF24;"></i> Ø ${item.rotorDiameterM}m</span>
-              <span class="ai-spec-pill">Tipo: ${item.type}</span>
-              <span class="ai-spec-pill">V.Nominal: ${item.ratedSpeedMs} m/s</span>
-              <span class="ai-spec-pill">LwA: ${item.acousticPowerLwaDba} dBA</span>
+              <span class="ai-spec-pill" style="color:#38BDF8;"><i data-lucide="wind" class="icon-sm"></i> <b>${_e(kw)} kW</b></span>
+              <span class="ai-spec-pill"><i data-lucide="circle-dot" class="icon-sm" style="color:#FBBF24;"></i> Ø ${_e(item.rotorDiameterM)}m</span>
+              <span class="ai-spec-pill">Tipo: ${_e(item.type)}</span>
+              <span class="ai-spec-pill">V.Nominal: ${_e(item.ratedSpeedMs)} m/s</span>
+              <span class="ai-spec-pill">LwA: ${_e(item.acousticPowerLwaDba)} dBA</span>
             </div>
           `;
         } else if (item.category === 'microinverters') {
           specsPills = `
             <div style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0;">
-              <span class="ai-spec-pill" style="color:#A78BFA;"><i data-lucide="cpu" class="icon-sm"></i> <b>${item.kw} kW</b></span>
-              <span class="ai-spec-pill">${item.type}</span>
+              <span class="ai-spec-pill" style="color:#A78BFA;"><i data-lucide="cpu" class="icon-sm"></i> <b>${_e(item.kw)} kW</b></span>
+              <span class="ai-spec-pill">${_e(item.type)}</span>
             </div>
           `;
         }
@@ -695,11 +708,11 @@ REGLAS DE RIGOR TÉCNICO:
                   <span style="display:inline-flex;align-items:center;gap:4px;font-size: 10px;font-weight:bold;color:${cat.color};background:${cat.bg};border:1px solid ${cat.border};padding:2px 8px;border-radius:4px;margin-bottom:6px;text-transform:uppercase;">
                     <i data-lucide="${cat.icon}" class="icon-sm"></i> ${cat.label}
                   </span>
-                  <div style="font-size:13px;font-weight:900;color:#fff;">${item.brand}</div>
-                  <div style="font-size:11.5px;color:var(--text-slate-300);">${item.model}</div>
+                  <div style="font-size:13px;font-weight:900;color:#fff;">${_e(item.brand)}</div>
+                  <div style="font-size:11.5px;color:var(--text-slate-300);">${_e(item.model)}</div>
                 </div>
                 <div style="text-align:right;flex-shrink:0;">
-                  <div style="font-size:13px;font-weight:bold;color:var(--amber-400);font-family:monospace;">~${item.price} €</div>
+                  <div style="font-size:13px;font-weight:bold;color:var(--amber-400);font-family:monospace;">~${_e(item.price)} €</div>
                   <div style="font-size: 10px;color:var(--text-slate-400);">PVP est.</div>
                 </div>
               </div>
@@ -765,7 +778,7 @@ REGLAS DE RIGOR TÉCNICO:
             <div style="border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:30px 20px;text-align:center;background:rgba(239,68,68,0.08);">
               <i data-lucide="alert-circle" style="width:36px;height:36px;color:var(--rose-400);margin-bottom:10px;"></i>
               <div style="font-size:14px;font-weight:bold;color:#fff;margin-bottom:6px;">Error en la búsqueda web con IA</div>
-              <div style="font-size:11px;color:var(--text-slate-300);max-width:500px;margin:0 auto 16px auto;line-height:1.5;">${err.message || 'No se pudo conectar con el servicio de IA.'}</div>
+              <div style="font-size:11px;color:var(--text-slate-300);max-width:500px;margin:0 auto 16px auto;line-height:1.5;">${this._esc(err.message || 'No se pudo conectar con el servicio de IA.')}</div>
               <button type="button" id="ai-web-retry-btn" class="doc-mini-btn" style="border-color:#a78bfa;color:#c084fc;padding:6px 16px;font-weight:bold;font-size:11px;">
                 <i data-lucide="rotate-cw" class="icon-sm"></i> Reintentar
               </button>

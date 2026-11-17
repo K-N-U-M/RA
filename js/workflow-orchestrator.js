@@ -251,12 +251,13 @@
     }
 
     /**
-     * Transición de estado con validación formal
-     * @param {number} targetStep 
+     * Inicia una transición de estado con validación y actualización atómica de paso
+     * antes de emitir eventos reactivos (evita desincronía con listeners async).
+     * @param {number} targetStep
      * @param {boolean} [force=false]
-     * @returns {boolean} True si la transición fue admitida
+     * @returns {{ allowed: boolean, previousStep?: number, step?: number }}
      */
-    goToStep(targetStep, force = false) {
+    beginStepTransition(targetStep, force = false) {
       const step = parseInt(targetStep, 10);
       const check = force ? { allowed: true } : this.canEnterStep(step);
 
@@ -265,7 +266,7 @@
           global.showToast('PASO BLOQUEADO', check.reason || 'Completa los pasos previos requeridos', 'warning', 2800);
         }
         this.emit('step_blocked', { from: this._currentStep, to: step, reason: check.reason });
-        return false;
+        return { allowed: false };
       }
 
       const previousStep = this._currentStep;
@@ -289,16 +290,37 @@
       }
 
       this._currentStep = step;
-
-      // Actualizar estado del Stepper HUD
+      if (typeof global !== 'undefined') global.wpCurrentStep = step;
       this.refreshGating();
 
+      return { allowed: true, previousStep: previousStep, step: step };
+    }
+
+    /**
+     * Completa la transición emitiendo step_changed tras actualizar la UI/DOM.
+     */
+    completeStepTransition(previousStep, step) {
+      const s = parseInt(step, 10) || this._currentStep;
+      this._currentStep = s;
+      if (typeof global !== 'undefined') global.wpCurrentStep = s;
+      this.refreshGating();
       this.emit('step_changed', {
         step: this._currentStep,
         previousStep: previousStep,
         def: STEP_DEFINITIONS[this._currentStep]
       });
+    }
 
+    /**
+     * Transición de estado con validación formal
+     * @param {number} targetStep 
+     * @param {boolean} [force=false]
+     * @returns {boolean} True si la transición fue admitida
+     */
+    goToStep(targetStep, force = false) {
+      const tx = this.beginStepTransition(targetStep, force);
+      if (!tx || !tx.allowed) return false;
+      this.completeStepTransition(tx.previousStep, tx.step);
       return true;
     }
 

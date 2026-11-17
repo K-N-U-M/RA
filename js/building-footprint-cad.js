@@ -118,6 +118,10 @@ function deleteSelectedBuildingVertex() {
     return;
   }
 
+  if (window.RAundo && typeof window.RAundo.snapBuildings === 'function') {
+    window.RAundo.snapBuildings('Eliminar vértice de ' + (bld.name || 'Edificio'));
+  }
+
   bld.points.splice(vIdx, 1);
   bldFootprintState.selectedVtxIdx = Math.min(vIdx, bld.points.length - 1);
   updateBuildingFootprintUI();
@@ -145,8 +149,9 @@ window._raIsShiftDown = false;
 window._raOrthoMode = false;
 window.addEventListener('keydown', function(e) { 
   if (e.key === 'Shift') window._raIsShiftDown = true; 
-  if (e.code === 'KeyO' || e.key === 'o' || e.key === 'O') {
-    if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
+  if (!e.ctrlKey && !e.metaKey && !e.altKey && (e.code === 'KeyO' || e.key === 'o' || e.key === 'O')) {
+    const activeEl = document.activeElement;
+    if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT' || activeEl.isContentEditable || (activeEl.closest && activeEl.closest('[contenteditable="true"]')))) return;
     window._raOrthoMode = !window._raOrthoMode;
     showToast('MODO ORTOGONAL', window._raOrthoMode ? 'ACTIVADO (Teclado: O)' : 'DESACTIVADO', 'info', 2000);
   }
@@ -317,10 +322,26 @@ function finishActiveBuilding() {
     return;
   }
 
+  // Normalizar sentido CCW solo al cerrar/confirmar la huella (nunca mutar durante renderizado)
+  if (typeof Cesium !== 'undefined' && Cesium.Cartographic) {
+    const closeCartos = activeBuildingPts.map(p => Cesium.Cartographic.fromCartesian(p));
+    if (closeCartos.every(Boolean) && closeCartos.length >= 3) {
+      let signedArea = 0;
+      for (let i = 0; i < closeCartos.length; i++) {
+        const j = (i + 1) % closeCartos.length;
+        signedArea += (closeCartos[i].longitude * closeCartos[j].latitude - closeCartos[j].longitude * closeCartos[i].latitude);
+      }
+      if (signedArea < 0) activeBuildingPts.reverse();
+    }
+  }
+
   // Comprobar si estamos redibujando un edificio existente
   if (window._redrawingBuildingId) {
     const existingBld = buildings.find(b => b.id === window._redrawingBuildingId);
     if (existingBld) {
+      if (window.RAundo && typeof window.RAundo.snapBuildings === 'function') {
+        window.RAundo.snapBuildings('Redibujar huella de ' + (existingBld.name || 'Edificio'));
+      }
       existingBld.points = [...activeBuildingPts];
       window._redrawingBuildingId = null;
       activeBuildingPts = [];
@@ -597,17 +618,24 @@ function selectBuilding(bldId) {
   if (roofColEl) roofColEl.value = bld.roofColor || '#E2E8F0';
   if (edgeColEl) edgeColEl.value = bld.edgeColor || '#334155';
 
-  const isPitched = (rType === 'gable' || rType === 'shed' || rType === 'hip' || rType === 'l_shape');
+  const lDesign = (bld.lParams && bld.lParams.roofDesign) || bld.lRoofDesign || 'l_gable';
+  const isLStepped = (rType === 'l_shape' && lDesign === 'l_stepped');
+  const isLMixed = (rType === 'l_shape' && lDesign === 'l_mixed');
+  const isLShed = (rType === 'l_shape' && lDesign === 'l_shed');
+  const isPitched = (rType === 'gable' || rType === 'shed' || rType === 'hip' || (rType === 'l_shape' && !isLStepped));
   if (pitchRow) pitchRow.style.display = isPitched ? 'flex' : 'none';
-  if (azRow) azRow.style.display = isPitched ? 'flex' : 'none';
+  if (azRow) azRow.style.display = (rType === 'shed' || rType === 'gable' || isLShed) ? 'flex' : 'none';
   if (ovhRow) ovhRow.style.display = isPitched ? 'flex' : 'none';
   if (thkRow) thkRow.style.display = isPitched ? 'flex' : 'none';
-  if (skyRow) skyRow.style.display = (rType === 'gable' || rType === 'shed' || rType === 'l_shape') ? 'flex' : 'none';
-  if (parRow) parRow.style.display = (rType === 'flat') ? 'flex' : 'none';
-  if (parWRow) parWRow.style.display = (rType === 'flat') ? 'flex' : 'none';
+  if (skyRow) skyRow.style.display = (rType === 'gable' || rType === 'shed' || (rType === 'l_shape' && !isLStepped)) ? 'flex' : 'none';
+  if (parRow) parRow.style.display = (rType === 'flat' || isLStepped || isLMixed) ? 'flex' : 'none';
+  if (parWRow) parWRow.style.display = (rType === 'flat' || isLStepped || isLMixed) ? 'flex' : 'none';
 
   if (typeof syncRectInspectorUI === 'function') {
     syncRectInspectorUI(bld);
+  }
+  if (typeof window.RALBuilding !== 'undefined' && typeof window.RALBuilding.syncInspectorUI === 'function') {
+    window.RALBuilding.syncInspectorUI(bld);
   }
 
   render3DBuildingsInCesium();
@@ -706,14 +734,22 @@ function updateSelectedBuildingProps() {
   setElemText('bld-selected-title', (bld.name || 'EDIFICIO').toUpperCase());
 
   const rType = bld.roofType || 'flat';
-  const isPitched = (rType === 'gable' || rType === 'shed' || rType === 'hip' || rType === 'l_shape');
-  if (pitchRow) pitchRow.style.display = (rType === 'flat') ? 'none' : 'flex';
-  if (azRow) azRow.style.display = (rType === 'shed' || rType === 'gable' || rType === 'l_shape') ? 'flex' : 'none';
-  if (parRow) parRow.style.display = (rType === 'flat') ? 'flex' : 'none';
-  if (parWRow) parWRow.style.display = (rType === 'flat') ? 'flex' : 'none';
-  if (ovhRow) ovhRow.style.display = (rType === 'flat') ? 'none' : 'flex';
+  const lDesign = (bld.lParams && bld.lParams.roofDesign) || bld.lRoofDesign || 'l_gable';
+  const isLStepped = (rType === 'l_shape' && lDesign === 'l_stepped');
+  const isLMixed = (rType === 'l_shape' && lDesign === 'l_mixed');
+  const isLShed = (rType === 'l_shape' && lDesign === 'l_shed');
+  const isPitched = (rType === 'gable' || rType === 'shed' || rType === 'hip' || (rType === 'l_shape' && !isLStepped));
+  if (pitchRow) pitchRow.style.display = isPitched ? 'flex' : 'none';
+  if (azRow) azRow.style.display = (rType === 'shed' || rType === 'gable' || isLShed) ? 'flex' : 'none';
+  if (parRow) parRow.style.display = (rType === 'flat' || isLStepped || isLMixed) ? 'flex' : 'none';
+  if (parWRow) parWRow.style.display = (rType === 'flat' || isLStepped || isLMixed) ? 'flex' : 'none';
+  if (ovhRow) ovhRow.style.display = isPitched ? 'flex' : 'none';
   if (thkRow) thkRow.style.display = isPitched ? 'flex' : 'none';
-  if (skyRow) skyRow.style.display = (rType === 'gable' || rType === 'shed' || rType === 'l_shape') ? 'flex' : 'none';
+  if (skyRow) skyRow.style.display = (rType === 'gable' || rType === 'shed' || (rType === 'l_shape' && !isLStepped)) ? 'flex' : 'none';
+
+  if (typeof window.RALBuilding !== 'undefined' && typeof window.RALBuilding.syncInspectorUI === 'function') {
+    window.RALBuilding.syncInspectorUI(bld);
+  }
 
   if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Configuración de edificio modificada');
   render3DBuildingsInCesium();
@@ -734,6 +770,12 @@ function deleteSelectedBuilding() {
     const bld = (typeof buildings !== 'undefined' && Array.isArray(buildings)) ? buildings.find(b => b && b.id === bldId) : null;
     const bldName = bld ? bld.name : 'Edificio';
 
+    if (window.RAundo && typeof window.RAundo.snapProject === 'function') {
+      window.RAundo.snapProject('Eliminar edificio ' + bldName);
+    } else if (window.RAundo && typeof window.RAundo.snapBuildings === 'function') {
+      window.RAundo.snapBuildings('Eliminar ' + bldName);
+    }
+
     // 1. Resetear estado de edición de huella
     if (typeof bldFootprintState !== 'undefined' && bldFootprintState) {
       bldFootprintState.editing = false;
@@ -741,28 +783,35 @@ function deleteSelectedBuilding() {
       bldFootprintState.activeBuildingId = null;
     }
 
-    // 2. Identificar y eliminar Planos de Trabajo asociados a la cubierta del edificio
+    // 2. Identificar y eliminar in-place Planos de Trabajo y faldones asociados al edificio
     if (typeof WP !== 'undefined' && WP && Array.isArray(WP.planes)) {
-      const planeIndicesToRemove = [];
+      const planeIndicesToRemove = new Set();
+      const planeIndexMap = new Map();
+      let nextPIdx = 0;
       WP.planes.forEach((p, pIdx) => {
-        if (p && (p.buildingId === bldId || (p.id && (p.id.startsWith('plane_roof_' + bldId) || p.id.includes(bldId))))) {
-          planeIndicesToRemove.push(pIdx);
+        if (!p || p.buildingId === bldId || (p.id && (p.id.startsWith('plane_roof_' + bldId) || p.id.includes(bldId)))) {
+          planeIndicesToRemove.add(pIdx);
+        } else {
+          planeIndexMap.set(pIdx, nextPIdx++);
         }
       });
 
-      // Eliminar polilíneas asociadas a esos planos o creadas sobre el edificio
       if (Array.isArray(WP.polylines)) {
-        WP.polylines = WP.polylines.filter(poly => {
-          const matchesPlane = poly && planeIndicesToRemove.includes(poly.planeIdx);
-          const matchesBld = poly && (poly.buildingId === bldId);
-          return !matchesPlane && !matchesBld;
-        });
+        for (let i = WP.polylines.length - 1; i >= 0; i--) {
+          const poly = WP.polylines[i];
+          if (!poly || poly.buildingId === bldId || planeIndicesToRemove.has(poly.planeIdx)) {
+            WP.polylines.splice(i, 1);
+          } else if (typeof poly.planeIdx === 'number' && planeIndexMap.has(poly.planeIdx)) {
+            poly.planeIdx = planeIndexMap.get(poly.planeIdx);
+          }
+        }
         WP.selectedPolyIdx = -1;
         WP.selectedVtxIdx = -1;
       }
 
-      // Filtrar los planos de trabajo
-      WP.planes = WP.planes.filter((p, pIdx) => !planeIndicesToRemove.includes(pIdx));
+      for (let i = WP.planes.length - 1; i >= 0; i--) {
+        if (planeIndicesToRemove.has(i)) WP.planes.splice(i, 1);
+      }
       WP.activePlaneIdx = WP.planes.length > 0 ? 0 : -1;
     }
 
@@ -800,9 +849,11 @@ function deleteSelectedBuilding() {
       isPolygonDesignConfirmed = false;
     }
 
-    // 6. Eliminar el edificio del array global
+    // 6. Eliminar el edificio in-place (preserva alias del array compartido)
     if (typeof buildings !== 'undefined' && Array.isArray(buildings)) {
-      buildings = buildings.filter(b => b && b.id !== bldId);
+      for (let i = buildings.length - 1; i >= 0; i--) {
+        if (!buildings[i] || buildings[i].id === bldId) buildings.splice(i, 1);
+      }
     }
     if (typeof selectedBuildingId !== 'undefined') {
       selectedBuildingId = null;
@@ -860,109 +911,4 @@ function deleteSelectedBuilding() {
 // [ARQUITECTURA v2] Versión canónica en js/buildings.js — este inline actúa como fallback
 // [ARQUITECTURA AAA] render3DBuildingsInCesium delegada a js/buildings.js
 
-function createSolarPlaneFromBuildingRoof() {
-  if (!selectedBuildingId) {
-    showToast('AVISO', 'Selecciona primero un edificio en el panel.', 'info', 2500);
-    return;
-  }
-  const bld = buildings.find(b => b.id === selectedBuildingId);
-  if (!bld || !bld.points || bld.points.length < 3) return;
-
-  // Calcular puntos a cota de cubierta
-  let avgBaseHeight = 0;
-  bld.points.forEach(p => {
-    const carto = Cesium.Cartographic.fromCartesian(p);
-    avgBaseHeight += (carto ? carto.height : 0);
-  });
-  avgBaseHeight /= bld.points.length;
-  const roofHeight = avgBaseHeight + bld.height;
-
-  // Elevar puntos cartesianos a la cota del tejado
-  const roofCartesians = bld.points.map(p => {
-    const carto = Cesium.Cartographic.fromCartesian(p);
-    return Cesium.Cartesian3.fromRadians(carto.longitude, carto.latitude, roofHeight);
-  });
-
-  // Si tenemos sistema de planos de trabajo, crear plano formal con ejes alineados a los lados de construcción
-  if (typeof WP !== 'undefined' && WP) {
-    const bldAxes = (typeof computeBuildingConstructionAxes === 'function')
-      ? computeBuildingConstructionAxes(bld)
-      : null;
-    const calculatedTilt = (bld.roofType === 'flat' ? 0 : (bld.roofPitch !== undefined ? bld.roofPitch : 20));
-    const defaultAz = (bldAxes && typeof bldAxes.normalAzimuthDeg === 'number') ? Math.round(bldAxes.normalAzimuthDeg) : 180;
-    const calculatedAzimuth = (bld.roofType === 'flat' ? defaultAz : (bld.roofAzimuth !== undefined ? bld.roofAzimuth : defaultAz));
-
-    let planeNormal, planeUVec, planeVVec;
-    if (bldAxes && bldAxes.normal && bldAxes.uVec && bldAxes.vVec) {
-      planeNormal = Cesium.Cartesian3.clone(bldAxes.normal);
-      planeUVec   = Cesium.Cartesian3.clone(bldAxes.uVec);
-      planeVVec   = Cesium.Cartesian3.clone(bldAxes.vVec);
-    } else {
-      planeNormal = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(roofCartesians[0], new Cesium.Cartesian3());
-      planeUVec   = Cesium.Cartesian3.normalize(Cesium.Cartesian3.subtract(roofCartesians[1], roofCartesians[0], new Cesium.Cartesian3()), new Cesium.Cartesian3());
-      planeVVec   = Cesium.Cartesian3.normalize(Cesium.Cartesian3.cross(planeNormal, planeUVec, new Cesium.Cartesian3()), new Cesium.Cartesian3());
-    }
-
-    const pOrigin = roofCartesians[0];
-    const pAlongU = Cesium.Cartesian3.add(pOrigin, Cesium.Cartesian3.multiplyByScalar(planeUVec, 5.0, new Cesium.Cartesian3()), new Cesium.Cartesian3());
-    const pAlongV = Cesium.Cartesian3.add(pOrigin, Cesium.Cartesian3.multiplyByScalar(planeVVec, 5.0, new Cesium.Cartesian3()), new Cesium.Cartesian3());
-
-    const newPlane = {
-      id: 'plane_roof_' + bld.id,
-      name: 'Cubierta ' + bld.name,
-      origin: pOrigin,
-      p1: pOrigin,
-      p2: pAlongU,
-      p3: pAlongV,
-      pts3D: [pOrigin, pAlongU, pAlongV],
-      axisMode: 'edge',
-      tiltDeg: calculatedTilt,
-      azimuthDeg: calculatedAzimuth,
-      pitch: calculatedTilt,
-      azimuth: calculatedAzimuth,
-      normal: planeNormal,
-      uVec: planeUVec,
-      vVec: planeVVec,
-      isRoof: true,
-      buildingId: bld.id
-    };
-
-    WP.planes.push(newPlane);
-    WP.activePlaneIdx = WP.planes.length - 1;
-
-    // Crear polilínea solar directamente sobre la cubierta (Adaptado a Arquitectura WP v3)
-    const area = (typeof wpPolylineArea3D === 'function') ? wpPolylineArea3D(roofCartesians) : 0;
-    const polyObj = {
-      id: "wp_poly_" + Date.now(),
-      name: "Faldón FV " + bld.name,
-      planeIdx: WP.activePlaneIdx,
-      points: [...roofCartesians],
-      area: area,
-      orientationPref: "portrait",
-      modTilt: "auto",
-      modAzimuth: "auto",
-      lineEnt: null,
-      fillEnt: null
-    };
-
-    WP.polylines.push(polyObj);
-    WP.selectedPolyIdx = WP.polylines.length - 1;
-    polygonPoints = [...roofCartesians];
-    isPolygonDesignConfirmed = true;
-
-    if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
-    if (typeof clearSimulatedPV === 'function') clearSimulatedPV();
-    // El equipo electrico colocado se conserva: los homerun se recalculan con la
-    // nueva topologia al re-renderizar (posiciones de inversor/contador intactas).
-    if (typeof recalculateSolarYield === 'function') recalculateSolarYield();
-    if (typeof wpFastRenderSimulatedPanels === 'function') wpFastRenderSimulatedPanels();
-    
-    if (scene && typeof scene.requestRender === 'function') scene.requestRender();
-
-    if (typeof ProjectHierarchy !== 'undefined' && ProjectHierarchy && typeof ProjectHierarchy.notify === 'function') {
-      ProjectHierarchy.notify('solar_roof_created', { buildingId: bld.id });
-    }
-    showToast('CUBIERTA SOLAR CREADA', 'La superficie superior de ' + bld.name + ' ha sido convertida en plano de trabajo solar.', 'success', 3500);
-    if (typeof wpGoToStep === 'function') wpGoToStep(2); // Ir a Configuración FV
-  }
-}
+// [B1] createSolarPlaneFromBuildingRoof reside de forma canónica en js/buildings.js

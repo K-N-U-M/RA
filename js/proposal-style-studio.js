@@ -587,13 +587,42 @@
     return '';
   }
 
+  function _escStudio(v) {
+    if (global.RASanitize && typeof global.RASanitize.plain === 'function') return global.RASanitize.plain(v);
+    return String(v == null ? '' : v)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function _safeStudioImageSrc(src) {
+    if (global.RASanitize && typeof global.RASanitize.safeImageSrc === 'function') {
+      return global.RASanitize.safeImageSrc(src);
+    }
+    var s = String(src == null ? '' : src).trim();
+    if (!s || /["'<>\\`\r\n]/.test(s)) return '';
+    if (/^data:image\/(?:png|jpeg|jpg|webp|gif);base64,[A-Za-z0-9+/=]+$/i.test(s)) return s;
+    if (/^assets\/[A-Za-z0-9_.\-\/]+\.(?:png|jpe?g|webp|gif)$/i.test(s) && s.indexOf('..') === -1) return s;
+    return '';
+  }
+
+  function _safeStudioCssUrl(src) {
+    if (global.RASanitize && typeof global.RASanitize.safeCssUrl === 'function') {
+      return global.RASanitize.safeCssUrl(src);
+    }
+    var s = _safeStudioImageSrc(src);
+    return (s && !/[()]/.test(s)) ? s : '';
+  }
+
   function renderHeaderLogo(isCover, isClosing) {
     var cfg = getActiveConfig();
     var scope = cfg.headerLogoScope || 'all';
     if (scope === 'none' && !isCover) return '';
     if (scope === 'cover_closing' && !isCover && !isClosing) return '';
 
-    var logoSrc = getCompanyLogoSrc();
+    var logoSrc = _safeStudioImageSrc(getCompanyLogoSrc());
     if (!logoSrc) return '';
 
     var h = isCover ? (Number(cfg.coverLogoHeightPx) || 48) : (Number(cfg.innerHeaderLogoHeightPx) || 28);
@@ -1152,7 +1181,7 @@
     if (cfg.watermarkEnabled) {
       var wmType = cfg.watermarkType || 'logo';
       var wmOpacity = typeof cfg.watermarkOpacity === 'number' ? Math.max(0.01, Math.min(0.5, cfg.watermarkOpacity)) : 0.06;
-      var logoWatermarkSrc = getCompanyLogoSrc();
+      var logoWatermarkSrc = _safeStudioCssUrl(getCompanyLogoSrc());
 
       if (wmType === 'logo' && logoWatermarkSrc) {
         css.push(
@@ -1237,7 +1266,7 @@
       validityDays: (getActiveConfig().lockedTexts && getActiveConfig().lockedTexts.validityDays) || 30
     };
 
-    return String(templateStr).replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, function(match, key) {
+    return _escStudio(String(templateStr)).replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, function(match, key) {
       return map[key] !== undefined ? String(map[key]) : match;
     });
   }
@@ -1501,7 +1530,7 @@
     if (sel) {
       var presets = getAllPresets();
       sel.innerHTML = presets.map(function(p) {
-        return '<option value="' + p.id + '" ' + (p.id === st.activePresetId ? 'selected' : '') + '>' + p.name + '</option>';
+        return '<option value="' + _escStudio(p.id) + '" ' + (p.id === st.activePresetId ? 'selected' : '') + '>' + _escStudio(p.name) + '</option>';
       }).join('');
     }
     var modSel = document.getElementById('step5-installation-modality-select');
@@ -1615,6 +1644,9 @@
   var _activeModalTab = 'visual'; // visual | sections | economics | texts
 
   function openModal(onApplyCallback) {
+    if (global.RALazyLoader && typeof global.RALazyLoader.loadDefaultCoverImage === 'function') {
+      global.RALazyLoader.loadDefaultCoverImage().catch(function() {});
+    }
     var existing = document.getElementById('ra-proposal-style-studio-modal');
     if (existing) existing.remove();
 
@@ -1637,7 +1669,7 @@
     var pal = getResolvedPalette();
 
     var presetOptions = presets.map(function(p) {
-      return '<option value="' + p.id + '" ' + (p.id === st.activePresetId ? 'selected' : '') + '>' + p.name + '</option>';
+      return '<option value="' + _escStudio(p.id) + '" ' + (p.id === st.activePresetId ? 'selected' : '') + '>' + _escStudio(p.name) + '</option>';
     }).join('');
 
     var isCustomPreset = st.activePresetId && String(st.activePresetId).indexOf('custom_') === 0;
@@ -2402,7 +2434,7 @@
       '    </div>',
       '    <div>',
       '      <div style="font-size:11px;font-weight:700;color:#94a3b8;margin-bottom:4px;">Texto (si aplica):</div>',
-      '      <input type="text" id="pss-watermark-text" value="' + (cfg.watermarkText || 'CONFIDENCIAL') + '" placeholder="CONFIDENCIAL" style="width:100%;padding:6px 9px;background:#1e293b;border:1px solid #475569;border-radius:6px;color:#fff;font-size:11.5px;font-weight:700;box-sizing:border-box;">',
+      '      <input type="text" id="pss-watermark-text" value="' + _escStudio(cfg.watermarkText || 'CONFIDENCIAL') + '" placeholder="CONFIDENCIAL" style="width:100%;padding:6px 9px;background:#1e293b;border:1px solid #475569;border-radius:6px;color:#fff;font-size:11.5px;font-weight:700;box-sizing:border-box;">',
       '    </div>',
       '    <div>',
       '      <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;margin-bottom:4px;">',
@@ -2586,14 +2618,14 @@
       '  </div>',
       '  <div style="display:grid;grid-template-columns:80px 1fr;gap:6px;margin-bottom:6px;align-items:center;">',
       '    <input type="number" id="pss-m1-pct" value="' + (lt.milestone1Pct !== undefined ? lt.milestone1Pct : 30) + '" style="padding:6px;background:#1e293b;border:1px solid #475569;border-radius:5px;color:#34d399;font-weight:800;font-size:11.5px;text-align:center;">',
-      '    <input type="text" id="pss-m1-txt" value="' + (lt.milestone1Text || '') + '" style="padding:6px 10px;background:#1e293b;border:1px solid #475569;border-radius:5px;color:#fff;font-size:11.5px;">',
+      '    <input type="text" id="pss-m1-txt" value="' + _escStudio(lt.milestone1Text || '') + '" style="padding:6px 10px;background:#1e293b;border:1px solid #475569;border-radius:5px;color:#fff;font-size:11.5px;">',
       '    <input type="number" id="pss-m2-pct" value="' + (lt.milestone2Pct !== undefined ? lt.milestone2Pct : 50) + '" style="padding:6px;background:#1e293b;border:1px solid #475569;border-radius:5px;color:#34d399;font-weight:800;font-size:11.5px;text-align:center;">',
-      '    <input type="text" id="pss-m2-txt" value="' + (lt.milestone2Text || '') + '" style="padding:6px 10px;background:#1e293b;border:1px solid #475569;border-radius:5px;color:#fff;font-size:11.5px;">',
+      '    <input type="text" id="pss-m2-txt" value="' + _escStudio(lt.milestone2Text || '') + '" style="padding:6px 10px;background:#1e293b;border:1px solid #475569;border-radius:5px;color:#fff;font-size:11.5px;">',
       '    <input type="number" id="pss-m3-pct" value="' + (lt.milestone3Pct !== undefined ? lt.milestone3Pct : 20) + '" style="padding:6px;background:#1e293b;border:1px solid #475569;border-radius:5px;color:#34d399;font-weight:800;font-size:11.5px;text-align:center;">',
-      '    <input type="text" id="pss-m3-txt" value="' + (lt.milestone3Text || '') + '" style="padding:6px 10px;background:#1e293b;border:1px solid #475569;border-radius:5px;color:#fff;font-size:11.5px;">',
+      '    <input type="text" id="pss-m3-txt" value="' + _escStudio(lt.milestone3Text || '') + '" style="padding:6px 10px;background:#1e293b;border:1px solid #475569;border-radius:5px;color:#fff;font-size:11.5px;">',
       '  </div>',
       '  <div style="font-size:11px;color:#94a3b8;margin:8px 0 4px;font-weight:700;">Nota Legal y Alcance al Pie:</div>',
-      '  <textarea id="pss-legal-notes" rows="2" style="width:100%;padding:7px 10px;background:#1e293b;border:1px solid #475569;border-radius:6px;color:#f8fafc;font-size:11px;line-height:1.4;resize:vertical;">' + (lt.legalNotes || '') + '</textarea>',
+      '  <textarea id="pss-legal-notes" rows="2" style="width:100%;padding:7px 10px;background:#1e293b;border:1px solid #475569;border-radius:6px;color:#f8fafc;font-size:11px;line-height:1.4;resize:vertical;">' + String(lt.legalNotes || '').replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</textarea>',
       '</div>'
     ].join('\n');
   }
