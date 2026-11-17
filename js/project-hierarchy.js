@@ -130,9 +130,17 @@
           totalAreaM2: 0.0
         };
 
-        // Planos asociados a este edificio
+        // Planos asociados a este edificio (delimitación estricta para evitar colisión bld_1 vs bld_10)
         planes.forEach(function(pl, pIdx) {
-          const isPlaneOfBld = (pl.buildingId === bld.id) || (pl.id && (pl.id.startsWith('plane_roof_' + bld.id) || pl.id.includes(bld.id)));
+          const plId = pl.id ? String(pl.id) : '';
+          const bldIdStr = bld.id != null ? String(bld.id) : '';
+          const matchesIdToken = Boolean(bldIdStr) && (
+            plId === ('plane_roof_' + bldIdStr) ||
+            plId.startsWith('plane_roof_' + bldIdStr + '_') ||
+            plId.endsWith('_' + bldIdStr) ||
+            plId.includes('_' + bldIdStr + '_')
+          );
+          const isPlaneOfBld = (pl.buildingId === bld.id) || matchesIdToken;
           if (isPlaneOfBld) {
             assignedPlaneIndices.add(pIdx);
             const pNode = {
@@ -182,9 +190,18 @@
           }
         });
 
-        // Obstáculos situados en la cubierta de este edificio
+        // Obstáculos situados en la cubierta de este edificio (delimitación estricta bld_1 vs bld_10)
         obstacles.forEach(function(o, oIdx) {
-          if (o && (o.buildingId === bld.id || (o.planeId && o.planeId.includes(bld.id)))) {
+          const bldIdStr = bld.id != null ? String(bld.id) : '';
+          const pIdStr = (o && o.planeId) ? String(o.planeId) : '';
+          const matchesPlaneBld = Boolean(bldIdStr) && Boolean(pIdStr) && (
+            pIdStr === bldIdStr ||
+            pIdStr === ('plane_roof_' + bldIdStr) ||
+            pIdStr.startsWith('plane_roof_' + bldIdStr + '_') ||
+            pIdStr.includes('_' + bldIdStr + '_') ||
+            pIdStr.endsWith('_' + bldIdStr)
+          );
+          if (o && (o.buildingId === bld.id || matchesPlaneBld)) {
             assignedObsIndices.add(oIdx);
             bNode.obstacles.push({
               id: o.id || ('obs_' + oIdx),
@@ -397,7 +414,7 @@
       rawTurbines.forEach(function(wt, wtIdx) {
         if (!wt) return;
         const catalog = wt._catalog || {};
-        const pKw = catalog.ratedPowerKw || 5.0;
+        const pKw = catalog.ratedPowerKw || (catalog.ratedPowerW ? (catalog.ratedPowerW / 1000.0) : 5.0);
         const hubH = (wt.supportStructure && wt.supportStructure.hubHeightM) || 18;
         const isEnabled = !wt.operationalState || wt.operationalState.enabled !== false;
         let posCartesian = null;

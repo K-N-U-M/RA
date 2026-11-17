@@ -137,6 +137,37 @@
       } catch (e) {
         return null;
       }
+    },
+
+    deleteCachedAssetAsync: async function(url) {
+      try {
+        const db = await getDB();
+        return new Promise((resolve, reject) => {
+          const tx = db.transaction(STORE_ASSETS, 'readwrite');
+          const store = tx.objectStore(STORE_ASSETS);
+          const req = store.delete(url);
+          req.onsuccess = () => resolve(true);
+          req.onerror = () => reject(req.error);
+        });
+      } catch (e) {
+        return false;
+      }
+    },
+
+    deleteProjectAsync: async function(projectId) {
+      try {
+        const db = await getDB();
+        return new Promise((resolve, reject) => {
+          const tx = db.transaction(STORE_PROJECTS, 'readwrite');
+          const store = tx.objectStore(STORE_PROJECTS);
+          const req = store.delete(projectId);
+          req.onsuccess = () => resolve(true);
+          req.onerror = () => reject(req.error);
+        });
+      } catch (e) {
+        try { localStorage.removeItem('ra_proj_' + projectId); } catch (_) {}
+        return false;
+      }
     }
   };
 

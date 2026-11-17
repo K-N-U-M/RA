@@ -269,9 +269,10 @@ function selectElectricalObject(id) {
   if (typeof id === 'object' && id && id.id === 'route_handle') {
     window.selectedRouteVertex = { type: id.type, index: id.index };
     selectedElectricalId = null;
-    showStatus('<i data-lucide="route" class="icon-sm"></i> CODO #' + (id.index + 1) + ' DE CANALIZACIÓN ' + id.type.toUpperCase() + ' SELECCIONADO — Pulsa [Supr] para eliminar', 3000);
+    if (typeof renderTriad2D === 'function') renderTriad2D();
+    showStatus('<i data-lucide="route" class="icon-sm"></i> CODO #' + (id.index + 1) + ' DE CANALIZACIÓN ' + id.type.toUpperCase() + ' SELECCIONADO — Arrastra el Gizmo 3D o pulsa [Supr] para eliminar', 3000);
     if (typeof showToast === 'function') {
-      showToast('CODO SELECCIONADO', 'Vértice #' + (id.index + 1) + ' de canalización ' + id.type.toUpperCase() + '. Pulsa SUPR para eliminar.', 'info', 2500);
+      showToast('CODO SELECCIONADO', 'Vértice #' + (id.index + 1) + ' de canalización ' + id.type.toUpperCase() + '. Usa el Gizmo 3D para moverlo o pulsa SUPR.', 'info', 2500);
     }
     return;
   }
@@ -345,13 +346,23 @@ function pickElectricalObjectUnderCursor(screenPos, skipGpuPick) {
   } catch(err) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(err, 'Entidad/Primitiva Cesium'); }
 
   // B. Fallback: Proximidad de Proyección en Pantalla (28px de radio)
-  const candidates = [
+  const candidates = [];
+  if (s.routes) {
+    ['dc', 'ac'].forEach(rType => {
+      if (Array.isArray(s.routes[rType])) {
+        s.routes[rType].forEach((pt, idx) => {
+          if (pt) candidates.push({ id: { id: 'route_handle', type: rType, index: idx }, pos: pt, entity: null });
+        });
+      }
+    });
+  }
+  candidates.push(
     { id: 'inverter', pos: s.position, entity: s.entity },
     { id: 'dc_protection', pos: (s.dcProtectionEntity && s.dcProtectionPosition) ? s.dcProtectionPosition : null, entity: s.dcProtectionEntity },
     { id: 'battery', pos: (s.batteryEntity && s.batteryPosition) ? s.batteryPosition : null, entity: s.batteryEntity },
     { id: 'combiner', pos: (s.combinerBox && s.combinerBox.isEnabled) ? s.combinerBox.position : null, entity: s.combinerBox ? s.combinerBox.entity : null },
     { id: 'meter', pos: (s.gridMeter && s.gridMeter.position) ? s.gridMeter.position : null, entity: s.gridMeter ? s.gridMeter.entity : null }
-  ];
+  );
 
   for (let c of candidates) {
     if (!c.pos) continue;

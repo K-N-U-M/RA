@@ -247,7 +247,8 @@
           verticalDecay = 0.0;
         }
 
-        var zRel = turbHubAbsAlt / Math.max(1.0, obsTopAbsAlt);
+        var turbHubAgl = (turbineInstance.supportStructure && turbineInstance.supportStructure.hubHeightM) || 18;
+        var zRel = turbHubAgl / Math.max(1.0, obsH);
         var porosityFactor = 1.0 - (obs.porosity || 0.35); // 0.60 para árboles, 0.95 para muros
         var distDecay = Math.max(0.0, 1.0 - (distRel / 20.0));
         var obstacleDeficit = 0.55 * porosityFactor * distDecay * verticalDecay;
@@ -258,6 +259,7 @@
             maxVelocityDeficit = obstacleDeficit;
             criticalObstacle = obs;
           }
+          sumSqObsDeficit = (typeof sumSqObsDeficit === 'number' ? sumSqObsDeficit : 0) + obstacleDeficit * obstacleDeficit;
           totalTurbulenceBoost += addedTurb;
 
           affectedObstacles.push({
@@ -271,10 +273,11 @@
       }
     });
 
-    // Factor neto de velocidad efectiva (1.0 = sin afección, <1.0 = frenado por obstáculo)
-    var effectiveSpeedFactor = Math.max(0.35, 1.0 - maxVelocityDeficit);
-    var hasSevereInterference = maxVelocityDeficit >= 0.20;
-    var hasModerateInterference = maxVelocityDeficit >= 0.08 && maxVelocityDeficit < 0.20;
+    var combinedDeficit = Math.min(0.75, Math.sqrt(typeof sumSqObsDeficit === 'number' ? sumSqObsDeficit : (maxVelocityDeficit * maxVelocityDeficit)));
+    // Factor neto de velocidad efectiva (1.0 = sin afección, <1.0 = frenado combinado por obstáculos)
+    var effectiveSpeedFactor = Math.max(0.35, 1.0 - combinedDeficit);
+    var hasSevereInterference = combinedDeficit >= 0.20;
+    var hasModerateInterference = combinedDeficit >= 0.08 && combinedDeficit < 0.20;
 
     return {
       effectiveSpeedFactor: Number(effectiveSpeedFactor.toFixed(3)),

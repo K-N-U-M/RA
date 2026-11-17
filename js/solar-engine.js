@@ -311,6 +311,9 @@ function rayCastingIsShaded(modulePoint, sunVec, obstacleBoxes) {
 }
 
 function computeHighPrecisionSolarPosition(latDeg, lonDeg, doy, solarDecimalHour, isUtc = true) {
+  if (typeof global !== 'undefined' && global.RA && global.RA.Radiation && typeof global.RA.Radiation.computeSolarPosition === 'function') {
+    return global.RA.Radiation.computeSolarPosition(latDeg, lonDeg, doy, solarDecimalHour, isUtc);
+  }
   const latRad = (typeof Cesium !== 'undefined' && Cesium.Math) ? Cesium.Math.toRadians(latDeg) : (latDeg * Math.PI) / 180;
   const gamma = (2 * Math.PI / 365) * (doy - 1 + (solarDecimalHour - 12) / 24);
 
@@ -405,12 +408,13 @@ function computePOAIrradiance(G_ghi, latDeg, tiltDeg, azSurDeg, sunElevDeg, sunA
   // Componente Reflejada (Albedo)
   const G_r_poa = G_ghi * albedo * ((1 - Math.cos(tiltRad)) / 2);
 
-  // Modificador de Ángulo de Incidencia (IAM - ASHRAE)
+  // Modificador de Ángulo de Incidencia (IAM - ASHRAE) por componente
   const b0 = 0.05;
   const iamFactor = (cosTheta > 0.01) ? Math.max(0, 1 - b0 * ((1 / cosTheta) - 1)) : 0;
+  const iamDiff = Math.max(0, 1 - b0 * (1 / Math.cos(60 * Math.PI / 180) - 1));
+  const iamAlb = Math.max(0, 1 - b0 * (1 / Math.cos(68 * Math.PI / 180) - 1));
 
-  const G_poa_raw = G_b_poa + G_d_poa + G_r_poa;
-  const G_poa_effective = G_poa_raw * (0.85 + 0.15 * iamFactor);
+  const G_poa_effective = G_b_poa * iamFactor + G_d_poa * iamDiff + G_r_poa * iamAlb;
 
   return {
     G_poa: G_poa_effective,
@@ -471,23 +475,21 @@ function solarAzimuth(latDeg, declDeg, haDeg, altDeg) {
 
 function calcPOA(GHI, DHI, latDeg, tiltDeg, azimutPanelDeg, dayOfYear, hourSolar) {
   if (GHI <= 0) return 0;
-  // Normalizar azimutPanelDeg: soportar tanto 0°=Sur como brújula 180°=Sur
-  let panelAzSur = azimutPanelDeg || 0;
-  if (panelAzSur > 90 || panelAzSur < -90) {
-    if (Math.abs(panelAzSur - 180) <= 90) {
-      panelAzSur = panelAzSur - 180;
-    }
-  }
-  // [B2] Motor único de radiación: calcular geometría solar y delegar en RA.Radiation.poa
-  if (typeof global !== 'undefined' && global.RA && global.RA.Radiation && typeof global.RA.Radiation.poa === 'function') {
+  const _radMod = (typeof global !== 'undefined' && global.RA && global.RA.Radiation) ? global.RA.Radiation : null;
+  let panelAzSur = (_radMod && typeof _radMod.normalizePanelAzSur === 'function')
+    ? _radMod.normalizePanelAzSur(azimutPanelDeg, 'auto')
+    : ((azimutPanelDeg > 90 && azimutPanelDeg <= 360) ? (((azimutPanelDeg - 180) % 360 + 540) % 360 - 180) : (azimutPanelDeg || 0));
+
+  // [B2] Motor único de radiación: calcular geometría solar y delegar en RA.Radiation.poa (honrando DHI explícito)
+  if (_radMod && typeof _radMod.poa === 'function') {
     const decl = solarDeclination(dayOfYear);
     const ha = hourAngle(hourSolar);
     const altDeg = solarAltitude(latDeg, decl, ha);
     if (altDeg <= 0) return 0;
     const azFromNorth = solarAzimuthAtan2(latDeg, decl, ha);
-    // Compass (0°=N, 180°=S) → convención Sur del motor (0°=S, -90°=E, +90°=O). Rango [-180,180).
     const sunAzSur = azFromNorth - 180;
-    return global.RA.Radiation.poa(GHI, latDeg, tiltDeg, panelAzSur, altDeg, sunAzSur, 0.20).G_poa;
+    const explicitDhi = (typeof DHI === 'number' && Number.isFinite(DHI) && DHI >= 0) ? DHI : undefined;
+    return _radMod.poa(GHI, latDeg, tiltDeg, panelAzSur, altDeg, sunAzSur, 0.20, dayOfYear, explicitDhi).G_poa;
   }
   // Fallback legacy (Perez simplificado) para entornos sin el módulo
   const DNI = Math.max((GHI - DHI) / Math.max(Math.sin(solarAltitude(latDeg, solarDeclination(dayOfYear), hourAngle(hourSolar)) * Math.PI / 180), 0.01), 0);
@@ -642,8 +644,8 @@ function runPhysicalModel(kwp, latDeg, lonDeg, tiltDeg, azimutDeg, cfg, customMo
   const loss_avail    = (_lc && typeof _lc.availability === 'number') ? _lc.availability : 0.005;
   let monthlyYields = [];
   let totalAnnualWh = 0;
-  let totalTempLoss = 0, totalIAMLoss = 0, totalSoilingLoss = 0;
-  let totalGPOA = 0, totalGSTC = 0;
+  let totalTempLoss = 0, totalIAMLoss = 0, totalSoilingLoss = 0, totalWiringLoss = 0, totalMismatchLoss = 0, totalInvLoss = 0, totalAvailLoss = 0;
+  let totalGPOA = 0, totalGPOA_raw = 0, totalGSTC = 0;
   let totalClippedWh = 0;
 
   const midDay = [17,47,75,105,135,162,198,228,258,288,318,344]; // representative day of each month
@@ -691,25 +693,25 @@ function runPhysicalModel(kwp, latDeg, lonDeg, tiltDeg, azimutDeg, cfg, customMo
       const azFromNorth = solarAzimuthAtan2(latDeg, decl, ha);
       // Compass (0°=N, 180°=S) → convención Sur del motor (0°=S, -90°=E, +90°=O). Rango [-180,180).
       const azSur = azFromNorth - 180;
-      // Normalizar azimut: el motor usa convención 0°=Sur.
-      // Si azimutDeg viene en brújula (0°=Norte, 180°=Sur, rango [90, 270]), normalizar restando 180.
-      let azSurModule = azimutDeg;
-      if (azSurModule > 90 || azSurModule < -90) {
-        if (Math.abs(azSurModule - 180) <= 90) {
-          azSurModule = azSurModule - 180;
-        }
-      }
+      const _radModRM = (typeof global !== 'undefined' && global.RA && global.RA.Radiation) ? global.RA.Radiation : null;
+      const azSurModule = (_radModRM && typeof _radModRM.normalizePanelAzSur === 'function')
+        ? _radModRM.normalizePanelAzSur(azimutDeg, (cfg && cfg.azimuthConvention) || 'auto')
+        : ((azimutDeg > 90 && azimutDeg <= 360) ? (((azimutDeg - 180) % 360 + 540) % 360 - 180) : (azimutDeg || 0));
       const poa = computePOAIrradiance(GHI_instant, latDeg, tiltDeg, azSurModule, altDeg, azSur, 0.20, doy);
       const GPOA = poa.G_poa;
+      const GPOA_raw = (typeof poa.G_poa_raw === 'number') ? poa.G_poa_raw : GPOA;
       const iamFactor = poa.iamFactor;
       const Tcell = calcTcell(tAmb[m], GPOA, NOCT);
 
       const P_raw = calcPpanel(Pstc * kwp * 1000 / Pstc, GPOA, Tcell, gamma);
       const tempLossW = calcPpanel(Pstc * kwp * 1000 / Pstc, GPOA, 25, gamma) - P_raw;
+      const iamLossW = Math.max(0, calcPpanel(Pstc * kwp * 1000 / Pstc, GPOA_raw, Tcell, gamma) - P_raw);
 
-      const loadFrac = P_raw / (kwp * 1000 * 1.1);
+      const loadFrac = P_raw / (pAcNominal > 0 ? pAcNominal * 1.1 : kwp * 1000 * 1.1);
       const eta_inv = invEfficiency(loadFrac);
-      let P_ac = P_raw * (1 - loss_wiring) * (1 - loss_mismatch) * (1 - loss_soiling) * (1 - loss_avail) * eta_inv;
+      const P_dc_net = P_raw * (1 - loss_wiring) * (1 - loss_mismatch) * (1 - loss_soiling) * (1 - loss_avail);
+      let P_ac = P_dc_net * eta_inv;
+      const invLossW = Math.max(0, P_dc_net - P_ac);
       if (pAcNominal > 0 && P_ac > pAcNominal) {
         totalClippedWh += P_ac - pAcNominal;
         P_ac = pAcNominal;
@@ -717,10 +719,16 @@ function runPhysicalModel(kwp, latDeg, lonDeg, tiltDeg, azimutDeg, cfg, customMo
 
       monthlyWh += P_ac;
       totalGPOA += GPOA * nDays;
+      totalGPOA_raw += GPOA_raw * nDays;
       totalGSTC += 1000 * nDays;
       if (GHI_instant > 10) {
         mTempLoss += tempLossW;
-        mIAMLoss += P_raw * (1 - iamFactor);
+        mIAMLoss += iamLossW;
+        totalWiringLoss += P_raw * loss_wiring * nDays;
+        totalMismatchLoss += P_raw * (1 - loss_wiring) * loss_mismatch * nDays;
+        totalSoilingLoss += P_raw * (1 - loss_wiring) * (1 - loss_mismatch) * loss_soiling * nDays;
+        totalAvailLoss += P_raw * (1 - loss_wiring) * (1 - loss_mismatch) * (1 - loss_soiling) * loss_avail * nDays;
+        totalInvLoss += invLossW * nDays;
       }
     }
 
@@ -729,25 +737,24 @@ function runPhysicalModel(kwp, latDeg, lonDeg, tiltDeg, azimutDeg, cfg, customMo
     totalAnnualWh += monthlyWh * nDays;
     totalTempLoss += mTempLoss * nDays;
     totalIAMLoss += mIAMLoss * nDays;
-    totalSoilingLoss += monthlyWh * nDays * loss_soiling;
   }
 
   const annualKWh = totalAnnualWh / 1000;
   const PR = annualKWh / (kwp * (totalGPOA / 1000 + 0.001));
 
-  // Cascade losses (for waterfall chart)
-  const stcNominal = kwp * 1000 * 8760 * 0.12; // rough nominal
+  // Cascade losses reales en kWh (base = energía ideal sin pérdidas sobre POA bruto)
+  const poaIdealKWh = kwp * (totalGPOA_raw / 1000);
   const cascadeLosses = {
-    stc: kwp * 1000,
-    irrad: -stcNominal * 0.08,
-    temp: -totalTempLoss / 1000,
-    iam: -totalIAMLoss / 1000,
-    shading: -annualKWh * 0.03,
-    soiling: -annualKWh * loss_soiling,
-    mismatch: -annualKWh * loss_mismatch,
-    wiring: -annualKWh * loss_wiring,
-    inverter: -annualKWh * 0.025,
-    net: annualKWh
+    stc: Math.round(poaIdealKWh),
+    irrad: 0,
+    temp: -Math.round(totalTempLoss / 1000),
+    iam: -Math.round(totalIAMLoss / 1000),
+    shading: 0,
+    soiling: -Math.round(totalSoilingLoss / 1000),
+    mismatch: -Math.round(totalMismatchLoss / 1000),
+    wiring: -Math.round(totalWiringLoss / 1000),
+    inverter: -Math.round((totalInvLoss + totalClippedWh + totalAvailLoss) / 1000),
+    net: Math.round(annualKWh)
   };
 
   // [AUD-2026 · D-03] El PR es un indicador de salud: no se recorta en silencio.
@@ -879,6 +886,9 @@ async function runNASAPower(latDeg, lonDeg) {
         localStorage.setItem(cacheKey, JSON.stringify({ data: monthlyGHI, ts: Date.now() }));
       }
     } catch(e) {}
+    if (typeof global !== 'undefined' && global.RAProduction && typeof global.RAProduction.clearCache === 'function') {
+      global.RAProduction.clearCache();
+    }
 
     return { monthlyGHI_kWhm2: monthlyGHI, source: 'NASA POWER (20 años)' };
   } catch(e) {
@@ -890,14 +900,14 @@ async function runNASAPower(latDeg, lonDeg) {
 function runPVsystCompatible(kwp, latDeg, lonDeg, tiltDeg, azimutDeg, cfg, physicalResult) {
   if (!physicalResult || !physicalResult.annualKWh) return null;
 
-  // Apply additional PVsyst-specific correction factors
+  // Apply additional PVsyst-specific correction factors (IAM ya aplicado por componente en runPhysicalModel/RA.Radiation)
   const _lc2 = (typeof window !== 'undefined' && window.solarLossConfig) ? window.solarLossConfig : null;
-  const loss_iam_angular = (_lc2 && typeof _lc2.iamAngular === 'number') ? _lc2.iamAngular : 0.028;  // configurable (Paso 4)
+  const loss_iam_angular = 0;
   const loss_spectral    = _lc2 ? _lc2.spectral : 0.010;    // configurable (Paso 4)
   const loss_bypass      = getShadingStrategy() === 'mlpe' ? (_lc2 ? _lc2.bypassMlpe : 0.005) : (_lc2 ? _lc2.bypass : 0.025);
   const loss_lid         = cfg.tecnologia && cfg.tecnologia.includes('N-Type') ? 0.000 : 0.015; // LID only in p-type
 
-  const totalExtraLoss = loss_iam_angular + loss_spectral + loss_bypass + loss_lid;
+  const totalExtraLoss = loss_spectral + loss_bypass + loss_lid;
   const annualKWh = physicalResult.annualKWh * (1 - totalExtraLoss);
   const monthlyKWh = physicalResult.monthlyKWh.map(m => Math.round(m * (1 - totalExtraLoss)));
   const PR = physicalResult.PR * (1 - totalExtraLoss);
@@ -912,23 +922,25 @@ function runPVsystCompatible(kwp, latDeg, lonDeg, tiltDeg, azimutDeg, cfg, physi
   };
 }
 
+let _energyComparisonGenId = 0;
 async function runEnergyComparison() {
   if (polygonPoints.length < 3) {
     showToast('POLÍGONO REQUERIDO', 'Traza primero el polígono de la cubierta para obtener los parámetros.', 'warning');
     switchSidebarTab('geometria');
     return;
   }
+  const myGenId = ++_energyComparisonGenId;
 
   const btn = document.getElementById('btn-run-analysis');
   if (btn) { btn.textContent = '⏳ ANALIZANDO... CONSULTANDO APIs'; btn.disabled = true; }
 
   const d = getProjectCalcs();
-  const kwp = d.kwp || 5.0;
+  const kwp = Number(d.kwp) || 5.0;
   const latDeg = d.latDeg || 40.4;
   const lonDeg = d.lonDeg || -3.7;
   const tiltDeg = d.tiltDeg || 30;
   const azimutDeg = d.azimutDeg || 0;
-  const cfg = d.cfg;
+  const cfg = Object.assign({}, d.cfg || {}, { azimuthConvention: 'solar' });
 
   // Loss percentage for PVGIS (all system losses)
   const lossPercent = 14;
@@ -940,13 +952,14 @@ async function runEnergyComparison() {
     runPVGISCalc(kwp, latDeg, lonDeg, tiltDeg, azimutDeg, lossPercent),
     runNASAPower(latDeg, lonDeg)
   ]);
+  if (myGenId !== _energyComparisonGenId) return;
 
   const nasaGHI = (nasaResult && !nasaResult.error && Array.isArray(nasaResult.monthlyGHI_kWhm2)) ? nasaResult.monthlyGHI_kWhm2 : null;
   const physicalResult = runPhysicalModel(kwp, latDeg, lonDeg, tiltDeg, azimutDeg, cfg, nasaGHI);
   const pvsystResult = runPVsystCompatible(kwp, latDeg, lonDeg, tiltDeg, azimutDeg, cfg, physicalResult);
 
   // Current motor (existing simple model)
-  const simpleAnnual = d.annualYieldKWh;
+  const simpleAnnual = Number(d.annualKWh || (window.RA && window.RA.solarStats && window.RA.solarStats.annualYieldKWh) || 0);
   const simpleResult = {
     source: 'Estimación Paramétrica (Motor Actual)',
     annualKWh: Math.round(simpleAnnual),
@@ -1152,10 +1165,13 @@ function renderAnalysisResults(r) {
   setElemText('analysis-pr', (prDisplay * 100).toFixed(1) + ' %');
   setElemText('analysis-sigma', '± ' + (mc.aggregateSigma * 100).toFixed(1) + ' % (1σ) · MC ' + mc.samples.length + ' iteraciones');
 
-  // Also update main solar panel metrics with best result
-  const bestKWh = pvgisOK ? r.pvgis.annualKWh : r.physical.annualKWh;
-  setElemText('sol-annual-yield', bestKWh.toLocaleString('es-ES') + ' kWh/año');
-  if (pvgisOK && r.pvgis.monthlyKWh) renderSolarBarChart(r.pvgis.monthlyKWh);
+  // Solo actualizar métricas principales si no hay una simulación 3D por panel ya vigente
+  const has3DSim = !!(typeof window !== 'undefined' && window.RA && window.RA.solarStats && window.RA.solarStats.hasSimulation);
+  if (!has3DSim) {
+    const bestKWh = pvgisOK ? r.pvgis.annualKWh : r.physical.annualKWh;
+    setElemText('sol-annual-yield', bestKWh.toLocaleString('es-ES') + ' kWh/año');
+    if (pvgisOK && r.pvgis.monthlyKWh) renderSolarBarChart(r.pvgis.monthlyKWh);
+  }
 
   // Render Monte Carlo distribution histogram
   renderMonteCarloHistogram(mc);
@@ -1221,7 +1237,7 @@ function exportEnergyAnalysis() {
         <h1>Comparativa de Métodos de Cálculo Fotovoltaico</h1>
         <p>Informe generado el <b>${r.fecha || '—'}</b> · Referencia <b>${refNum}</b></p>
       </div>
-      <div class="hdr-r"><strong>${(d.kwp || r.kwp || 5).toFixed(2)} kWp</strong>Instalación FV · ${d.numPanels || 0} módulos</div>
+      <div class="hdr-r"><strong>${(Number(d.kwp || r.kwp || 5) || 5).toFixed(2)} kWp</strong>Instalación FV · ${d.numPanels || 0} módulos</div>
     </div>
 
     <div class="info"><b>Localización:</b> ${ubicacion || '—'} · lat ${(r.latDeg || 0).toFixed(5)}° · lon ${(r.lonDeg || 0).toFixed(5)}° · Inclinación módulo ${(r.tiltDeg || 0).toFixed(1)}° · Azimut ${(r.azimutDeg || 0).toFixed(1)}° (convención Sur=0)</div>
@@ -1495,17 +1511,17 @@ function renderWaterfallChart(losses, netKWh) {
   const wrap = document.getElementById('analysis-waterfall-wrap');
   if (!wrap) return;
 
+  const base = (losses && losses.stc > 0) ? losses.stc : Math.max(netKWh || 1, 1);
+  const pctOf = (v) => ((Number(v) || 0) / base) * 100;
   const stages = [
-    { label: 'Nominal\nSTC', value: null, type: 'base', pct: 100 },
-    { label: 'Irrad.\nPOA', value: losses.irrad, type: 'loss', pct: -8.0 },
-    { label: 'Temp.\nCélula', value: losses.temp, type: 'loss', pct: -4.2 },
-    { label: 'IAM\nReflex.', value: losses.iam, type: 'loss', pct: -1.2 },
-    { label: 'Sombras', value: losses.shading, type: 'loss', pct: -2.8 },
-    { label: 'Suciedad', value: losses.soiling, type: 'loss', pct: -2.5 },
-    { label: 'Mismatch', value: losses.mismatch, type: 'loss', pct: -2.0 },
-    { label: 'Cableado', value: losses.wiring, type: 'loss', pct: -1.5 },
-    { label: 'Inversor', value: losses.inverter, type: 'loss', pct: -2.5 },
-    { label: 'AC NETA', value: null, type: 'net', pct: 75.3 }
+    { label: 'Ideal\nPOA', value: base, type: 'base', pct: 100 },
+    { label: 'Temp.\nCélula', value: losses.temp, type: 'loss', pct: pctOf(losses.temp) },
+    { label: 'IAM\nReflex.', value: losses.iam, type: 'loss', pct: pctOf(losses.iam) },
+    { label: 'Suciedad', value: losses.soiling, type: 'loss', pct: pctOf(losses.soiling) },
+    { label: 'Mismatch', value: losses.mismatch, type: 'loss', pct: pctOf(losses.mismatch) },
+    { label: 'Cableado', value: losses.wiring, type: 'loss', pct: pctOf(losses.wiring) },
+    { label: 'Inversor\n& Disp.', value: losses.inverter, type: 'loss', pct: pctOf(losses.inverter) },
+    { label: 'AC NETA', value: netKWh, type: 'net', pct: pctOf(netKWh || (losses && losses.net) || base) }
   ];
 
   const W = 310, barW = 22, gap = 8, H = 100, padB = 28, padT = 10;

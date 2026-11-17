@@ -392,6 +392,7 @@ NORMAS ESTRICTAS DE EXTRACCIÓN:
         validated.cellType = specs.cellType || 'TOPCon Monocristalino';
         validated.bifacial = Boolean(specs.bifacial);
         validated.bifacialityFactor = parseFloat(specs.bifacialityFactor) || 0.80;
+        validated.weightKg = parseFloat(specs.weightKg) || 22.0;
       }
 
       // ── 2. VALIDACIÓN PARA INVERSORES ──────────────────────────────────────
@@ -428,10 +429,14 @@ NORMAS ESTRICTAS DE EXTRACCIÓN:
 
         validated.kw = Math.round(kw * 10) / 10;
         validated.type = specs.type || (kw > 6.0 ? 'Trifásico Híbrido' : 'Monofásico Híbrido');
+        validated.phases = parseInt(specs.phases, 10) || ((validated.type.toLowerCase().includes('trif') || kw > 6.0) ? 3 : 1);
         validated.mppt = mppt;
         validated.inputsPerMppt = inputsPerMppt;
+        validated.inputs = mppt * inputsPerMppt;
         validated.vMpptMin = vMpptMin;
         validated.vMpptMax = vMpptMax;
+        validated.vMpptNomMin = parseInt(specs.vMpptNomMin, 10) || Math.round(vStart * 1.15);
+        validated.vMpptNomMax = parseInt(specs.vMpptNomMax, 10) || Math.round(vMpptMax * 0.9);
         validated.vDcMax = vDcMax;
         validated.vStart = vStart;
         validated.iMaxOperA = Math.round(iMaxOperA * 10) / 10;

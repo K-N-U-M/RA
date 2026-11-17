@@ -115,6 +115,28 @@ function getUniversalSelectedTarget() {
     }
   }
 
+  // A0. Codos editables de canalización DC/AC
+  if (typeof window !== 'undefined' && window.selectedRouteVertex && window.inverterEquipmentState && window.inverterEquipmentState.routes) {
+    const rv = window.selectedRouteVertex;
+    const rArr = window.inverterEquipmentState.routes[rv.type];
+    if (Array.isArray(rArr) && rv.index >= 0 && rv.index < rArr.length && rArr[rv.index]) {
+      const pt = rArr[rv.index];
+      const carto = (typeof Cesium !== 'undefined') ? Cesium.Cartographic.fromCartesian(pt) : null;
+      return {
+        type: 'route_vertex',
+        routeType: rv.type,
+        routeIndex: rv.index,
+        id: 'route_vtx_' + rv.type + '_' + rv.index,
+        name: 'Codo ' + rv.type.toUpperCase() + ' #' + (rv.index + 1),
+        pos: pt,
+        rot: 0,
+        height: carto ? carto.height : 0,
+        color: rv.type === 'ac' ? '#38BDF8' : '#F59E0B',
+        accentColor: rv.type === 'ac' ? 'rgba(56, 189, 248, 0.45)' : 'rgba(245, 158, 11, 0.45)'
+      };
+    }
+  }
+
   // A. Equipos Eléctricos (Inversor, Combiner, Contador)
   if (typeof selectedElectricalId !== 'undefined' && selectedElectricalId && window.inverterEquipmentState) {
     const s = window.inverterEquipmentState;
@@ -642,7 +664,7 @@ function renderUniversalGizmo2D() {
 
   const ctx = triadCtx;
   const hovered = universalGizmoState.hoveredPart;
-  const hasRotation = (target.type !== 'vertex'); // Los vértices no tienen rotación propia
+  const hasRotation = (target.type !== 'vertex' && target.type !== 'route_vertex'); // Los vértices y codos no tienen rotación propia
 
   ctx.save();
 
@@ -916,7 +938,7 @@ function checkUniversalGizmoHit(mx, my) {
     return 'center-drag';
   }
 
-  const isRotateMode = (universalGizmoState.gizmoMode === 'rotate' && target.type !== 'vertex');
+  const isRotateMode = (universalGizmoState.gizmoMode === 'rotate' && target.type !== 'vertex' && target.type !== 'route_vertex');
 
   // C. MODO ROTACIÓN: Hit testing de los 3 anillos elípticos
   if (isRotateMode) {
@@ -1213,7 +1235,18 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
     const latDeg = Cesium.Math.toDegrees(carto.latitude);
     const lonDeg = Cesium.Math.toDegrees(carto.longitude);
 
-    if (target.type === 'vertex') {
+    if (target.type === 'route_vertex') {
+      const sState = window.inverterEquipmentState;
+      const rArr = sState && sState.routes && sState.routes[target.routeType];
+      if (Array.isArray(rArr) && target.routeIndex >= 0 && target.routeIndex < rArr.length) {
+        rArr[target.routeIndex] = Cesium.Cartesian3.clone(newPos);
+        if (typeof viewer !== 'undefined' && viewer && viewer.entities) {
+          const handleEnt = viewer.entities.getById('ra_route_handle_' + target.routeType + '_' + target.routeIndex);
+          if (handleEnt) handleEnt.position = new Cesium.ConstantPositionProperty(Cesium.Cartesian3.clone(newPos));
+        }
+        target.pos = Cesium.Cartesian3.clone(newPos);
+      }
+    } else if (target.type === 'vertex') {
       const bState = (typeof window !== 'undefined' && window.bldFootprintState) || (typeof bldFootprintState !== 'undefined' ? bldFootprintState : null);
       if (target.subType === 'building_vertex' || (bState && bState.selectedVtxIdx >= 0 && selectedBuildingId)) {
         const bld = (typeof buildings !== 'undefined') ? buildings.find(b => b.id === selectedBuildingId) : null;

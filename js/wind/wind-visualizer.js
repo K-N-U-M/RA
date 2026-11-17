@@ -714,50 +714,7 @@
   }
 
   function _startPulseLoop() {
-    if (_pulseAnimationRunning) return;
-    _pulseAnimationRunning = true;
-
-    function loop() {
-      if (_visualConfig.style !== 'pulse' || !_visualConfig.showRings) {
-        _pulseAnimationRunning = false;
-        return;
-      }
-      _pulsePhase += 0.08;
-      if (_pulsePhase > Math.PI * 2) _pulsePhase -= Math.PI * 2;
-
-      // Optimización Zero-Recreation AAA:
-      // En lugar de llamar a renderAll() y destruir/recrear primitivas WebGL,
-      // solo actualizamos la opacidad en las primitivas de anillos ya existentes
-      // o pedimos un fotograma de renderizado limpio a Cesium.
-      var alphaMod = 0.5 + 0.5 * Math.sin(_pulsePhase);
-      var Cesium = _getCesium();
-
-      if (Cesium) {
-        Object.keys(_primitivesByTurbineId).forEach(function (tid) {
-          var entry = _primitivesByTurbineId[tid];
-          if (entry && entry.ringsPrimitive && !entry.ringsPrimitive.isDestroyed()) {
-            try {
-              // Ajustar la apariencia si dispone de material o color dinámico
-              var app = entry.ringsPrimitive.appearance;
-              if (app && app.material && app.material.uniforms) {
-                app.material.uniforms.color.alpha = (_visualConfig.opacity || 0.65) * alphaMod;
-              }
-            } catch (eApp) {}
-          }
-        });
-      }
-
-      _requestSceneRender();
-
-      setTimeout(function () {
-        if (typeof requestAnimationFrame !== 'undefined') {
-          requestAnimationFrame(loop);
-        } else {
-          loop();
-        }
-      }, 80);
-    }
-    loop();
+    _pulseAnimationRunning = false;
   }
 
   function selectTurbine(id) {

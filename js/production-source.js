@@ -22,17 +22,30 @@
     var c = o.cfg || {};
     var lc = (typeof root !== 'undefined' && root.solarLossConfig) || (typeof window !== 'undefined' && window.solarLossConfig) || {};
     var invKw = c.pAcNominalW || (typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.selectedInverterId) || 0;
-    var lossesSig = [lc.soiling, lc.iamAngular, lc.mismatch, lc.wiring, lc.inverter].join(':');
+    var lossesSig = [lc.soiling, lc.iamAngular, lc.mismatch, lc.wiring, lc.availability, lc.spectral, lc.bypass, lc.bypassMlpe].join(':');
     var ghiSig = Array.isArray(o.customMonthlyGHI) ? o.customMonthlyGHI.map(function(v){ return Math.round(v); }).join(',') : '';
+    var nasaTs = 0;
+    try {
+      if (typeof localStorage !== 'undefined' && Number.isFinite(Number(o.lat)) && Number.isFinite(Number(o.lon))) {
+        var nk = 'ra_nasa_ghi_' + Number(o.lat).toFixed(2) + '_' + Number(o.lon).toFixed(2);
+        var rawNasa = localStorage.getItem(nk);
+        if (rawNasa) {
+          var parsedNasa = JSON.parse(rawNasa);
+          if (parsedNasa && parsedNasa.ts) nasaTs = parsedNasa.ts;
+        }
+      }
+    } catch (eNasa) {}
     return [
       o.kwp, o.lat, o.lon, o.tilt, o.azimuth,
+      c.azimuthConvention || '',
       c.modelo || '',
       c.potencia || 0,
       c.tecnologia || '',
       c.gammaPmp || c.tempCoeffPmax || 0,
       invKw,
       lossesSig,
-      ghiSig
+      ghiSig,
+      nasaTs
     ].join('|');
   }
 

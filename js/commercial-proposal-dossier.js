@@ -133,7 +133,9 @@
   function getProjectDossierData() {
     var d = (typeof global.getProjectCalcs === 'function') ? global.getProjectCalcs() : { numPanels: 0 };
     var m = (typeof global.calculateFinancialModel === 'function') ? global.calculateFinancialModel() : {};
-    var eq = (typeof global.resolveEquipmentNames === 'function') ? global.resolveEquipmentNames() : {};
+    var snap = (typeof global.raBuildDocSnapshot === 'function') ? global.raBuildDocSnapshot(d, m) : null;
+    var eq = (snap && snap.eq) || ((typeof global.resolveEquipmentNames === 'function') ? global.resolveEquipmentNames() : {});
+    var eqWarranties = (snap && snap.warranties) || ((typeof global.resolveEquipmentWarranties === 'function') ? global.resolveEquipmentWarranties() : { warPower: '25', warMod: '15', warInv: '12', warMo: '5', warBat: '10' });
 
     // Suministro y Factura desde billAuditor
     var billState = null;
@@ -172,11 +174,11 @@
     var totalCostSinIva = Number(m.subtotal || d.subtotal || (m.capexBruto ? (m.capexBruto / (1 + ivaRate)) : null) || (numPanels * 350) || 5000);
     var totalCostConIva = Number(m.capexBruto || (totalCostSinIva * (1 + ivaRate)));
     var totalCost = totalCostSinIva; // El campo de la UI es "Coste Instalación (€ sin IVA)"
-    var annualYield = Math.round(Number(d.annualKWh || (kwp * 1450)));
-    var ahorroAnual = Number(m.ahorroLuzAnio1 || (annualYield * 0.12));
-    var payback = Number(m.paybackYears || (totalCost > 0 && ahorroAnual > 0 ? (totalCost / ahorroAnual) : 4.5));
-    var tirStr = m.tirString || (m.tir ? (m.tir.toFixed(1) + ' %') : '18.5 %');
-    var ahorro25 = Number(m.ahorroTotal25 || (ahorroAnual * 23.5));
+    var annualYield = Math.round(Number(snap ? snap.annualYieldKWh : (d.annualKWh || (kwp * 1450))));
+    var ahorroAnual = Number(snap ? snap.ahorroLuzAnio1 : (m.ahorroLuzAnio1 || (annualYield * 0.12)));
+    var payback = (snap && snap.paybackYears != null) ? snap.paybackYears : ((typeof m.paybackYears === 'number' && isFinite(m.paybackYears)) ? m.paybackYears : (totalCost > 0 && ahorroAnual > 0 ? (totalCost / ahorroAnual) : 0));
+    var tirStr = snap ? snap.tirStr : (m.tirString || ((typeof m.tir === 'number' && isFinite(m.tir)) ? (m.tir.toFixed(1) + ' %') : 'N/D'));
+    var ahorro25 = Number(snap ? snap.ahorroTotal25 : (m.ahorroTotal25 || (ahorroAnual * 23.5)));
 
     // Datos del titular / cliente
     var tit = (d && d.tit) ? d.tit : {};
@@ -395,9 +397,15 @@
         windCount: windCount,
         windTotalKw: windTotalKw,
         windName: windName,
-        invCount: (eq && eq.invCount) ? eq.invCount : ((designCosts && designCosts.invCount) || 1),
-        batCount: (eq && eq.batCount) ? eq.batCount : ((designCosts && designCosts.batCount) || 0),
+        invCount: snap ? snap.invCount : ((eq && eq.invCount) ? eq.invCount : ((designCosts && designCosts.invCount) || 1)),
+        batCount: snap ? snap.batCount : ((eq && eq.batCount) ? eq.batCount : ((designCosts && designCosts.batCount) || 0)),
+        mlpeCount: snap ? snap.mlpeCount : ((m && typeof m.mlpeCount === 'number') ? m.mlpeCount : 0),
         batName: (eq && eq.batName) ? eq.batName : '',
+        finYears: snap ? snap.finYears : Math.max(1, Math.round(nMonths / 12)),
+        waccPct: snap ? snap.waccPct : ((m && typeof m.waccPct === 'number') ? m.waccPct : 4.0),
+        inflacionPct: snap ? snap.inflacionPct : ((m && typeof m.inflacionPct === 'number') ? m.inflacionPct : 3.0),
+        degAnnualPct: snap ? snap.degAnnualPct : ((m && typeof m.degAnnualPct === 'number') ? m.degAnnualPct : 0.40),
+        remainingPerformanceYr25: snap ? snap.remainingPerformanceYr25 : ((m && typeof m.remainingPerformanceYr25 === 'number') ? m.remainingPerformanceYr25 : 85.0),
         cuotaPrestamo: cuotaPrestamo.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
         ahorroMensual: ahorroMensual.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
         saldoNetoMensual: Math.abs(saldoNetoMensual).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
@@ -413,6 +421,7 @@
         invModel: invModel,
         structure: isCoplanar ? 'Coplanar sobre cubierta' : 'Inclinada / Lastrada con perfilería'
       },
+      warranties: eqWarranties,
       monthlyBalance: monthlyBalance,
       totals: {
         gen: totGen.toLocaleString('es-ES'),
@@ -561,6 +570,7 @@
 
   // Abre el panel integral de configuración antes de generar el dossier
   function openDossierConfigModal() {
+    if (typeof global.raEnsureAnalysisReadyForDoc === 'function' && !global.raEnsureAnalysisReadyForDoc()) return;
     if (global.RALazyLoader && typeof global.RALazyLoader.loadDefaultCoverImage === 'function') {
       global.RALazyLoader.loadDefaultCoverImage().catch(function() {});
     }
@@ -799,6 +809,7 @@
 
   // Genera el documento HTML Landscape e invoca la ventana con edición y exportación
   function buildAndOpenDossierWindow() {
+    if (typeof global.raEnsureAnalysisReadyForDoc === 'function' && !global.raEnsureAnalysisReadyForDoc()) return;
     var raw = getProjectDossierData();
     var ov = ProposalConfig.overrides || {};
 
@@ -1541,9 +1552,9 @@
       makeCard(
         '<div style="text-align:center;padding:2px;">' +
         '  <div style="display:flex;justify-content:center;margin-bottom:4px;">' + getDossierIcon('inverter', pal.primary, 32) + '</div>' +
-        '  <div class="editable-field" contenteditable="true" style="font-size:13px;font-weight:800;color:' + pal.primary + ';letter-spacing:0.5px;">INVERSORES</div>' +
-        '  <div class="editable-field" contenteditable="true" style="font-size:16px;font-weight:900;margin:3px 0 4px;">' + kwNom + ' kWn Híbrido</div>' +
-        '  <div class="editable-field" contenteditable="true" style="font-size:12.5px;color:#475569;line-height:1.4;">Eficiencia 98.6%. MPPT dual, AFCI y telemetría WiFi/App.</div>' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:13px;font-weight:800;color:' + pal.primary + ';letter-spacing:0.5px;">' + (raw.metrics.mlpeCount > 0 && raw.metrics.invCount === 0 ? 'MICROINVERSORES' : 'INVERSORES') + '</div>' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:16px;font-weight:900;margin:3px 0 4px;">' + (raw.metrics.invCount > 0 ? (raw.metrics.invCount + '× ' + kwNom + ' kWn') : (raw.metrics.mlpeCount + '× MLPE')) + '</div>' +
+        '  <div class="editable-field" contenteditable="true" style="font-size:12.5px;color:#475569;line-height:1.4;">' + (raw.metrics.batCount > 0 ? (raw.metrics.batCount + '× ' + (raw.metrics.batName || 'Batería LFP')) : 'Eficiencia >98%. MPPT, protecciones DC/AC y telemetría.') + '</div>' +
         '</div>'
       ),
       makeCard(
@@ -1573,21 +1584,21 @@
         '  <div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:10px;">' +
         '    <div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 6px;text-align:center;">' +
         '      <div style="display:flex;justify-content:center;margin-bottom:4px;">' + getDossierIcon('warranty25', pal.primary, 28) + '</div>' +
-        '      <strong class="editable-field" contenteditable="true" style="font-size:14px;color:' + pal.primary + ';display:block;">25 AÑOS GARANTÍA</strong>' +
-        '      <div class="editable-field" contenteditable="true" style="font-size:13px;font-weight:800;color:#0f172a;margin:3px 0;">Potencia Lineal Tier-1</div>' +
-        '      <div class="editable-field" contenteditable="true" style="font-size:12px;color:#64748b;line-height:1.35;">Rendimiento garantizado ≥85% al año 25 con reaseguro.</div>' +
+        '      <strong class="editable-field" contenteditable="true" style="font-size:14px;color:' + pal.primary + ';display:block;">' + (raw.warranties ? raw.warranties.warPower : '25') + ' AÑOS GARANTÍA</strong>' +
+        '      <div class="editable-field" contenteditable="true" style="font-size:13px;font-weight:800;color:#0f172a;margin:3px 0;">Potencia Lineal (' + (raw.warranties ? raw.warranties.warMod : '15') + 'a prod.)</div>' +
+        '      <div class="editable-field" contenteditable="true" style="font-size:12px;color:#64748b;line-height:1.35;">Rendimiento garantizado ≥' + Number(raw.metrics.remainingPerformanceYr25 || 85).toFixed(1) + '% al año 25 con reaseguro.</div>' +
         '    </div>' +
         '    <div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 6px;text-align:center;">' +
         '      <div style="display:flex;justify-content:center;margin-bottom:4px;">' + getDossierIcon('inverter', pal.primary, 28) + '</div>' +
-        '      <strong class="editable-field" contenteditable="true" style="font-size:14px;color:' + pal.primary + ';display:block;">10-15 AÑOS</strong>' +
+        '      <strong class="editable-field" contenteditable="true" style="font-size:14px;color:' + pal.primary + ';display:block;">' + (raw.warranties ? raw.warranties.warInv : '12') + ' AÑOS</strong>' +
         '      <div class="editable-field" contenteditable="true" style="font-size:13px;font-weight:800;color:#0f172a;margin:3px 0;">Electrónica Inversor</div>' +
-        '      <div class="editable-field" contenteditable="true" style="font-size:12px;color:#64748b;line-height:1.35;">Sustitución directa oficial del fabricante en 48-72h.</div>' +
+        '      <div class="editable-field" contenteditable="true" style="font-size:12px;color:#64748b;line-height:1.35;">Sustitución oficial del fabricante' + (raw.metrics.batCount > 0 ? (' · Batería ' + (raw.warranties ? raw.warranties.warBat : '10') + ' años') : '') + '.</div>' +
         '    </div>' +
         '    <div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 6px;text-align:center;">' +
         '      <div style="display:flex;justify-content:center;margin-bottom:4px;">' + getDossierIcon('structure', pal.primary, 28) + '</div>' +
-        '      <strong class="editable-field" contenteditable="true" style="font-size:14px;color:' + pal.primary + ';display:block;">10 / 5 AÑOS</strong>' +
-        '      <div class="editable-field" contenteditable="true" style="font-size:13px;font-weight:800;color:#0f172a;margin:3px 0;">Estructura & Cubierta</div>' +
-        '      <div class="editable-field" contenteditable="true" style="font-size:12px;color:#64748b;line-height:1.35;">10 años anticorrosión y 5 años estanqueidad CTE.</div>' +
+        '      <strong class="editable-field" contenteditable="true" style="font-size:14px;color:' + pal.primary + ';display:block;">10 / ' + (raw.warranties ? raw.warranties.warMo : '5') + ' AÑOS</strong>' +
+        '      <div class="editable-field" contenteditable="true" style="font-size:13px;font-weight:800;color:#0f172a;margin:3px 0;">Estructura & Mano Obra</div>' +
+        '      <div class="editable-field" contenteditable="true" style="font-size:12px;color:#64748b;line-height:1.35;">10 años anticorrosión y ' + (raw.warranties ? raw.warranties.warMo : '5') + ' años garantía de montaje.</div>' +
         '    </div>' +
         '    <div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 6px;text-align:center;">' +
         '      <div style="display:flex;justify-content:center;margin-bottom:4px;">' + getDossierIcon('certifiedEngineer', pal.primary, 28) + '</div>' +
@@ -1680,8 +1691,8 @@
       ),
       makeCard(
         '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-        '  <div style="font-size:13.5px;font-weight:900;color:' + pal.primary + ';">OPCIÓN B · PRÉSTAMO VERDE (8 AÑOS)</div>' +
-        '  <span class="badge-bankable badge-bankable-emerald">Recomendada</span>' +
+        '  <div style="font-size:13.5px;font-weight:900;color:' + pal.primary + ';">OPCIÓN B · PRÉSTAMO VERDE (' + (raw.metrics.finYears || 8) + ' AÑOS)</div>' +
+        '  <span class="badge-bankable badge-bankable-emerald">' + (raw.metrics.isSaldoNetoPositivo ? 'Autofinanciable' : 'Cuota Fija') + '</span>' +
         '</div>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr 1.2fr;gap:4px;margin-top:3px;text-align:center;">' +
         '  <div style="background:#f8fafc;padding:4px;border-radius:6px;">' +
@@ -1692,12 +1703,12 @@
         '    <div style="font-size:11px;color:#64748b;font-weight:700;">' + (isDossierOffGrid ? 'Valor Energía Mes' : 'Ahorro Factura') + '</div>' +
         '    <div style="font-size:15px;font-weight:900;color:#16a34a;">~' + raw.metrics.ahorroMensual + ' €/m</div>' +
         '  </div>' +
-        '  <div style="background:#ecfdf5;border:1px solid #86efac;padding:4px;border-radius:6px;">' +
-        '    <div style="font-size:11px;color:#15803d;font-weight:800;">Saldo Neto Bolsillo</div>' +
-        '    <div style="font-size:15px;font-weight:900;color:#15803d;">+' + (raw.metrics.isSaldoNetoPositivo ? raw.metrics.saldoNetoMensual : '0,00') + ' €/m</div>' +
+        '  <div style="background:' + (raw.metrics.isSaldoNetoPositivo ? '#ecfdf5;border:1px solid #86efac;' : '#fef2f2;border:1px solid #fecaca;') + 'padding:4px;border-radius:6px;">' +
+        '    <div style="font-size:11px;color:' + (raw.metrics.isSaldoNetoPositivo ? '#15803d' : '#b91c1c') + ';font-weight:800;">Saldo Neto Bolsillo</div>' +
+        '    <div style="font-size:15px;font-weight:900;color:' + (raw.metrics.isSaldoNetoPositivo ? '#15803d' : '#b91c1c') + ';">' + (raw.metrics.isSaldoNetoPositivo ? ('+' + raw.metrics.saldoNetoMensual) : ('-' + raw.metrics.saldoNetoMensual)) + ' €/m</div>' +
         '  </div>' +
         '</div>' +
-        '<div style="font-size:11.5px;color:#475569;margin-top:4px;line-height:1.4;">Entrada 0 €. Se autofinancia desde el mes 1 con el ahorro. Del año 9 al 25: 100% de la energía es ahorro limpio directo.</div>'
+        '<div style="font-size:11.5px;color:#475569;margin-top:4px;line-height:1.4;">' + (raw.metrics.isSaldoNetoPositivo ? 'Se autofinancia desde el mes 1 con el ahorro. ' : 'Aporte neto reducido descontando el ahorro mensual. ') + 'Del año ' + ((raw.metrics.finYears || 8) + 1) + ' al 25: 100% de la energía es ahorro limpio directo.</div>'
       ),
       makeCard(
         '<div style="display:flex;justify-content:space-between;align-items:center;">' +
@@ -1743,9 +1754,9 @@
         '  <div style="margin-top:6px;border-top:1px solid #e2e8f0;padding-top:4px;">' +
         '    <div style="font-size:14px;font-weight:800;color:' + pal.primary + ';margin-bottom:6px;">PARÁMETROS MACROECONÓMICOS BANCABLES</div>' +
         '    <table class="table-clean" style="font-size:13.5px;">' +
-        '      <tr><td><strong>Tasa de Descuento (WACC):</strong></td><td>4,00 % anual</td><td><strong>VAN Proyecto (25 años):</strong></td><td style="font-weight:800;color:' + pal.primary + ';">' + raw.metrics.van + '</td></tr>' +
-        '      <tr><td><strong>IPC Eléctrico Proyectado:</strong></td><td>3,50 % anual</td><td><strong>Degradación Garantizada:</strong></td><td>0,55 % / año lineal</td></tr>' +
-        '      <tr><td><strong>Garantía de Potencia:</strong></td><td>25 años al 85%</td><td><strong>LCOE Generación Solar:</strong></td><td style="font-weight:800;color:#16a34a;">' + raw.metrics.lcoe + '</td></tr>' +
+        '      <tr><td><strong>Tasa de Descuento (WACC):</strong></td><td>' + Number(raw.metrics.waccPct || 4.0).toFixed(2).replace('.', ',') + ' % anual</td><td><strong>VAN Proyecto (25 años):</strong></td><td style="font-weight:800;color:' + pal.primary + ';">' + raw.metrics.van + '</td></tr>' +
+        '      <tr><td><strong>IPC Eléctrico Proyectado:</strong></td><td>' + Number(raw.metrics.inflacionPct || 3.0).toFixed(2).replace('.', ',') + ' % anual</td><td><strong>Degradación Garantizada:</strong></td><td>' + Number(raw.metrics.degAnnualPct || 0.40).toFixed(2).replace('.', ',') + ' % / año lineal</td></tr>' +
+        '      <tr><td><strong>Garantía de Potencia:</strong></td><td>' + (raw.warranties ? raw.warranties.warPower : '25') + ' años al ' + Number(raw.metrics.remainingPerformanceYr25 || 85).toFixed(1).replace('.', ',') + '%</td><td><strong>LCOE Generación Solar:</strong></td><td style="font-weight:800;color:#16a34a;">' + raw.metrics.lcoe + '</td></tr>' +
         '    </table>' +
         '  </div>' +
         '</div>'
@@ -2235,25 +2246,36 @@
       '  saveDraftManual: function(silent) {',
       '    var container = document.getElementById("dossier-container");',
       '    if (!container) return;',
-      '    try {',
-      '      localStorage.setItem(this.storageKey, container.innerHTML);',
-      '      localStorage.setItem(this.storageKey + "_time", new Date().toISOString());',
-      '      var btnSave = document.getElementById("btn-save-draft");',
-      '      if (btnSave && !silent) {',
-      '        var orig = btnSave.innerHTML;',
-      '        btnSave.innerHTML = \'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> GUARDADO\';',
-      '        btnSave.style.background = "#10b981";',
-      '        setTimeout(function() { btnSave.innerHTML = orig; btnSave.style.background = "#059669"; }, 2000);',
-      '      }',
-      '      this.checkDraftAvailability();',
-      '    } catch(e) {',
-      '      console.warn("Storage quota exceeded or disabled", e);',
+      '    var htmlSnapshot = container.innerHTML;',
+      '    var sc = (window.opener && window.opener.RAStorageCache) || (typeof RAStorageCache !== "undefined" ? RAStorageCache : null);',
+      '    var savedIdb = false;',
+      '    if (sc && typeof sc.cacheAssetAsync === "function") {',
+      '      sc.cacheAssetAsync(this.storageKey, { html: htmlSnapshot, time: new Date().toISOString() }).catch(function() {});',
+      '      savedIdb = true;',
       '    }',
+      '    try {',
+      '      localStorage.setItem(this.storageKey + "_time", new Date().toISOString());',
+      '      if (!savedIdb || htmlSnapshot.length < 400000) {',
+      '        localStorage.setItem(this.storageKey, htmlSnapshot);',
+      '      } else {',
+      '        localStorage.setItem(this.storageKey, "__IDB__");',
+      '      }',
+      '    } catch(e) {',
+      '      if (!savedIdb) console.warn("Storage quota exceeded or disabled", e);',
+      '    }',
+      '    var btnSave = document.getElementById("btn-save-draft");',
+      '    if (btnSave && !silent) {',
+      '      var orig = btnSave.innerHTML;',
+      '      btnSave.innerHTML = \'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> GUARDADO\';',
+      '      btnSave.style.background = "#10b981";',
+      '      setTimeout(function() { btnSave.innerHTML = orig; btnSave.style.background = "#059669"; }, 2000);',
+      '    }',
+      '    this.checkDraftAvailability();',
       '  },',
       '',
-      '  restoreDraftManual: function() {',
+      '  restoreDraftManual: async function() {',
       '    try {',
-      '      // Saneado DOM real del borrador almacenado en localStorage (elimina bypass de regex)',
+      '      // Saneado DOM real del borrador almacenado en IndexedDB / localStorage',
       '      var _sanitizeDraftWin = function(h) {',
       '        var src = String(h == null ? "" : h);',
       '        if (typeof DOMParser !== "function") return "";',
@@ -2279,7 +2301,16 @@
       '        }',
       '        return doc.body.innerHTML;',
       '      };',
-      '      var saved = localStorage.getItem(this.storageKey);',
+      '      var sc = (window.opener && window.opener.RAStorageCache) || (typeof RAStorageCache !== "undefined" ? RAStorageCache : null);',
+      '      var saved = null;',
+      '      if (sc && typeof sc.getCachedAssetAsync === "function") {',
+      '        var recIdb = await sc.getCachedAssetAsync(this.storageKey);',
+      '        if (recIdb && recIdb.html) saved = recIdb.html;',
+      '      }',
+      '      if (!saved) {',
+      '        var lsSaved = localStorage.getItem(this.storageKey);',
+      '        if (lsSaved && lsSaved !== "__IDB__") saved = lsSaved;',
+      '      }',
       '      if (saved) {',
       '        if (confirm("¿Deseas restaurar el borrador guardado de esta propuesta? Se cargarán todos los textos e imágenes modificadas.")) {',
       '          var container = document.getElementById("dossier-container");',
@@ -2316,17 +2347,21 @@
       '    return clone;',
       '  },',
       '',
-      '  exportToWordDocx: function() {',
+      '  exportToWordDocx: async function() {',
       '    var btn = document.getElementById("btn-dossier-docx");',
       '    var origText = btn ? btn.innerHTML : "";',
       '    if (btn) { btn.innerHTML = "GENERANDO DOCX..."; btn.disabled = true; }',
       '    try {',
       '      var container = document.getElementById("dossier-container");',
       '      var sanitized = this.getSanitizedClone(container);',
+      '      var exporter = (window.opener && window.opener.RADocxExporter) || (typeof RADocxExporter !== "undefined" ? RADocxExporter : null);',
+      '      if (exporter && typeof exporter.rasterizeSvgsToPng === "function") {',
+      '        await exporter.rasterizeSvgsToPng(sanitized);',
+      '      }',
       '      var styles = document.querySelector("style") ? document.querySelector("style").innerHTML : "";',
       '      var docxBlob = null;',
-      '      if (window.opener && window.opener.RADocxExporter && typeof window.opener.RADocxExporter.buildDocxBlobFromHtml === "function") {',
-      '        docxBlob = window.opener.RADocxExporter.buildDocxBlobFromHtml(sanitized.innerHTML, {',
+      '      if (exporter && typeof exporter.buildDocxBlobFromHtml === "function") {',
+      '        docxBlob = exporter.buildDocxBlobFromHtml(sanitized.innerHTML, {',
       '          orientation: "landscape",',
       '          styles: styles,',
       '          title: "Dossier Comercial - " + clientName',
@@ -2361,12 +2396,10 @@
       '',
       '  exportToHtml: function() {',
       '    var clone = document.documentElement.cloneNode(true);',
-      '    var bar = clone.querySelector(".dossier-toolbar");',
-      '    if (bar) bar.remove();',
-      '    var formatBar = clone.querySelector("#dossier-format-bar");',
-      '    if (formatBar) formatBar.remove();',
-      '    clone.querySelectorAll(".dossier-overflow-warn").forEach(function(w){ w.remove(); });',
-      '    var blob = new Blob(["\ufeff" + clone.outerHTML], { type: "text/html;charset=utf-8" });',
+      '    clone.querySelectorAll(".dossier-toolbar, #dossier-format-bar, .no-print, .dossier-overflow-warn, .dossier-drag-handle, .dossier-resize-handle, .dossier-img-picker-btn, .dossier-file-input").forEach(function(el){ el.remove(); });',
+      '    clone.querySelectorAll("[contenteditable]").forEach(function(el){ el.removeAttribute("contenteditable"); });',
+      '    clone.querySelectorAll(".editable-field").forEach(function(el){ el.classList.remove("editable-field"); });',
+      '    var blob = new Blob(["\\ufeff" + clone.outerHTML], { type: "text/html;charset=utf-8" });',
       '    var a = document.createElement("a");',
       '    a.href = URL.createObjectURL(blob);',
       '    a.download = "Propuesta_Comercial_" + clientName.replace(/[^a-zA-Z0-9_-]/g, "_") + ".html";',

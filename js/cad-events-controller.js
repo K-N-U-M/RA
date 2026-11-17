@@ -1410,6 +1410,7 @@
           wpFastRenderSimulatedPanels();
         }
         if (typeof wpCalculateAndRenderInverterCables === 'function') wpCalculateAndRenderInverterCables();
+        if (draggedTargetType === 'route_vertex' && typeof wpUpdateCableRoutesUI === 'function') wpUpdateCableRoutesUI();
 
         if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') {
           BOMTreeEngine.refresh();

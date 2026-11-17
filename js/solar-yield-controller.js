@@ -363,12 +363,21 @@ function recalculateSolarYield(force = false) {
     }
   }
 
-  // Apply shadow factor to monthly yields as well and scale to match annualYieldKWh
-  monthlyYields = monthlyYields.map(v => Math.round(v * shadowLossFactor));
-  const sumMonthly = monthlyYields.reduce((a, b) => a + b, 0);
-  if (sumMonthly > 0 && annualYieldKWh > 0) {
-    const ratio = annualYieldKWh / sumMonthly;
-    monthlyYields = monthlyYields.map(v => Math.round(v * ratio));
+  // Priorizar perfil mensual simulado por raycast si está vigente y escalado a annualYieldKWh
+  const _simMK = (typeof window !== 'undefined' && window.solarSimState && !window.solarSimState.annualHeatmapDirty && Array.isArray(window.solarSimState.monthlyKwh) && window.solarSimState.monthlyKwh.length === 12 && window.solarSimState.monthlyKwh.some(v => v > 0))
+    ? window.solarSimState.monthlyKwh
+    : null;
+  if (_simMK) {
+    const _simSum = _simMK.reduce((a, b) => a + (Number(b) || 0), 0);
+    const _simRatio = (_simSum > 0 && annualYieldKWh > 0) ? (annualYieldKWh / _simSum) : 1.0;
+    monthlyYields = _simMK.map(v => Math.round((Number(v) || 0) * _simRatio));
+  } else {
+    monthlyYields = monthlyYields.map(v => Math.round(v * shadowLossFactor));
+    const sumMonthly = monthlyYields.reduce((a, b) => a + b, 0);
+    if (sumMonthly > 0 && annualYieldKWh > 0) {
+      const ratio = annualYieldKWh / sumMonthly;
+      monthlyYields = monthlyYields.map(v => Math.round(v * ratio));
+    }
   }
 
   const optTilt = Math.max(latDeg - 10, 25.0);

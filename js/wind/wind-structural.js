@@ -79,7 +79,8 @@
     var qbKpa = qbPa / 1000;
 
     // 2. Empuje aerodinámico máximo en el rotor (kN) y arrastre en el fuste de la torre (kN)
-    var sweptAreaM2 = Math.PI * Math.pow(rotorD / 2, 2);
+    var vawtH = Number(cat.bladeHeightM || cat.rotorHeightM || rotorD);
+    var sweptAreaM2 = (cat.type === 'VAWT') ? (rotorD * vawtH) : (Math.PI * Math.pow(rotorD / 2, 2));
     // Empuje de catálogo o cálculo con coeficiente de empuje en bandera/supervivencia Cf_rotor ≈ 0.18
     var catalogThrustKn = Number(structSpec.maxThrustKn) || 0;
     var calcSurvivalThrustKn = (qbPa * sweptAreaM2 * 0.18) / 1000;
@@ -136,10 +137,18 @@
       // Bancada repartidora de acero sobre forjado (ej. 2.5m x 2.5m o proporcional al mástil)
       var spreaderSpanM = Math.max(2.0, Math.min(5.0, hubH * 0.30));
       var spreaderAreaM2 = spreaderSpanM * spreaderSpanM;
-      // Carga equivalente en apoyos por peso propio + par de vuelco (F_eq = N/A + M_k / (W_modulo))
-      var equivPeakForceKn = totalAxialLoadKn + (overturningMomentCharKnm / (spreaderSpanM * 0.75));
+      var ballastKn = Number(structSpec.ballastWeightKn || (spreaderAreaM2 * 1.2));
+      var totalRoofVertKn = totalAxialLoadKn + ballastKn;
+      var equivPeakForceKn = totalRoofVertKn + (overturningMomentCharKnm / (spreaderSpanM * 0.75));
       var equivLoadKnM2 = equivPeakForceKn / spreaderAreaM2;
       roofDistributedLoadKgM2 = Math.round((equivLoadKnM2 * 1000) / g);
+
+      safetyFactorOverturning = overturningMomentDesignKnm > 0.1
+        ? Number(((totalRoofVertKn * (spreaderSpanM * 0.5)) / overturningMomentDesignKnm).toFixed(2))
+        : 3.0;
+      var safetyFactorSliding = totalShearBaseKn > 0.1
+        ? Number(((totalRoofVertKn * 0.50) / (totalShearBaseKn * 1.50)).toFixed(2))
+        : 3.0;
 
       // CTE DB-SE-AE Tabla 3.1: Cubiertas accesibles solo para conservación = 1.0 - 2.0 kN/m² (100 - 200 kg/m²)
       if (roofDistributedLoadKgM2 > 200 || overturningMomentCharKnm > 18.0) {
@@ -150,11 +159,9 @@
       }
     } else {
       // Cimentación superficial por zapata cuadrada de hormigón armado HA-25 (γ_horm = 24 kN/m³)
-      // Condición de estabilidad al vuelco: M_estab / M_vuelco >= 1.80
-      // M_estab = (W_zapata + W_turbina) · (L / 2) >= 1.80 · M_k
-      // Con canto H_zap ≈ 0.35 · L -> W_zapata = 24 · 0.35 · L³ = 8.4 · L³
-      var targetStabilizingMoment = 1.85 * overturningMomentCharKnm;
-      var L = Math.pow(Math.max(1.5, (targetStabilizingMoment * 2) / 8.5), 0.25);
+      // Cumplir regla del núcleo central (e = M_k / W <= L / 6  =>  W · L >= 6 · M_k) evitando despegue
+      // Con canto H_zap ≈ 0.38 · L -> W_zapata ≈ 24 · 0.38 · L³ = 9.12 · L³ => 9.12 · L⁴ >= 6 · M_k
+      var L = Math.pow(Math.max(1.5, (6.0 * overturningMomentCharKnm) / 9.12), 0.25);
       footingLengthM = Number((Math.ceil(Math.max(1.2, L) * 10) / 10).toFixed(1));
       footingDepthM = Number((Math.ceil(Math.max(0.6, footingLengthM * 0.38) * 10) / 10).toFixed(1));
       concreteVolumeM3 = Number((footingLengthM * footingLengthM * footingDepthM).toFixed(2));

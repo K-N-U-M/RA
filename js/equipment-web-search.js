@@ -329,8 +329,10 @@ REGLAS DE RIGOR TÉCNICO:
           ...base,
           category: 'inverters',
           kw,
+          phases: parseInt(raw.phases, 10) || ((String(raw.type || '').toLowerCase().includes('trif') || kw > 6.0) ? 3 : 1),
           mppt,
           inputsPerMppt,
+          inputs: mppt * inputsPerMppt,
           vDcMax,
           vStart,
           vMpptMin,
@@ -393,6 +395,11 @@ REGLAS DE RIGOR TÉCNICO:
         isc: parseFloat(isc.toFixed(2)),
         vmp: parseFloat(vmp.toFixed(1)),
         imp: parseFloat(imp.toFixed(2)),
+        tempCoeffVoc: parseFloat(raw.tempCoeffVoc) || -0.26,
+        tempCoeffPmax: parseFloat(raw.tempCoeffPmax) || -0.32,
+        bifacial: Boolean(raw.bifacial),
+        bifacialityFactor: parseFloat(raw.bifacialityFactor) || 0.80,
+        weightKg: parseFloat(raw.weightKg) || 22.0,
         technology: String(raw.technology || 'N-Type TOPCon').trim()
       };
     },

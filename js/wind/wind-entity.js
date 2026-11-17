@@ -117,6 +117,9 @@
     t.positionCartographic.latitudeRad = latitudeRad;
     t.positionCartographic.altitudeM = altitudeM;
     t.simulationResults.isDirty = true;
+    if (global.solarSimState && !global.solarSimState.annualHeatmapDirty && typeof global.wpInvalidateHeatmap === 'function') {
+      global.wpInvalidateHeatmap('Aerogenerador reposicionado');
+    }
     // Nota: NO emitimos change en cada frame (MOUSE_MOVE) para no saturar.
     // El llamador emite el evento solo en dragEnd.
   }
@@ -151,6 +154,9 @@
       t.name = value;
     }
     t.simulationResults.isDirty = true;
+    if (global.solarSimState && !global.solarSimState.annualHeatmapDirty && typeof global.wpInvalidateHeatmap === 'function') {
+      global.wpInvalidateHeatmap('Aerogenerador reposicionado');
+    }
     recalculateAllEngineering();
     _emitChange('wind_turbine_modified', t);
   }

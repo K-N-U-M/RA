@@ -696,13 +696,28 @@
         });
         sState.dcCableEntities = [];
       }
-      if (window._raCableEnginePrimitives && window._raCableEnginePrimitives.length === 0) {
+      if (window._raCableEnginePrimitives) {
         try {
+          if (typeof window._raCableEnginePrimitives.removeAll === 'function') {
+            window._raCableEnginePrimitives.removeAll();
+          }
           if (viewer && viewer.scene && viewer.scene.primitives) {
             viewer.scene.primitives.remove(window._raCableEnginePrimitives);
-            window._raCableEnginePrimitives = null;
           }
+          window._raCableEnginePrimitives = null;
         } catch (ePrim) {}
+      }
+      // Purgar posibles handles de ruta remanentes no rastreados
+      if (viewer && viewer.entities && sState && sState.routes) {
+        ['dc', 'ac'].forEach(function (rType) {
+          var arr = sState.routes[rType];
+          if (Array.isArray(arr)) {
+            for (var idx = 0; idx < arr.length; idx++) {
+              var h = viewer.entities.getById('ra_route_handle_' + rType + '_' + idx);
+              if (h) viewer.entities.remove(h);
+            }
+          }
+        });
       }
     },
 
@@ -765,21 +780,24 @@
       }
 
       var hasManualDc = (sState.routes && Array.isArray(sState.routes.dc) && sState.routes.dc.length > 0);
+      var hasManualAc = (sState.routes && Array.isArray(sState.routes.ac) && sState.routes.ac.length > 0);
       var maxLdc = 0;
       var self = this;
 
-      // 3. Renderizar Codos Interactivos si hay ruta manual
-      if (hasManualDc) {
-        sState.routes.dc.forEach(function (pt, pIdx) {
+      // 3. Renderizar Codos Interactivos (DC y AC) si hay rutas manuales
+      function renderRouteHandles(routeType, pts, colorHex) {
+        if (!Array.isArray(pts) || pts.length === 0) return;
+        var labelPrefix = (routeType === 'ac') ? 'Codo de Tubo AC #' : 'Codo de Bandeja DC #';
+        pts.forEach(function (pt, pIdx) {
           var pC3 = self.toCartesian3(pt);
           if (!pC3) return;
           var node = viewer.entities.add({
-            id: 'ra_route_handle_dc_' + pIdx,
-            name: 'Codo de Bandeja DC #' + (pIdx + 1),
+            id: 'ra_route_handle_' + routeType + '_' + pIdx,
+            name: labelPrefix + (pIdx + 1),
             position: pC3,
             point: {
               pixelSize: 10,
-              color: Cesium.Color.fromCssColorString(self.CONFIG.COLOR_TRAY),
+              color: Cesium.Color.fromCssColorString(colorHex),
               outlineColor: Cesium.Color.WHITE,
               outlineWidth: 2,
               disableDepthTestDistance: Number.POSITIVE_INFINITY
@@ -788,34 +806,36 @@
           sState.dcCableEntities.push(node);
         });
       }
+      if (hasManualDc) renderRouteHandles('dc', sState.routes.dc, self.CONFIG.COLOR_TRAY);
+      if (hasManualAc) renderRouteHandles('ac', sState.routes.ac, self.CONFIG.COLOR_AC);
 
       // 4. Determinar Topología (Serie pura vs Paralelo Y) — [C1/G1] fuente única
       var cfg = global.solarProjectConfig || {};
       var _dcTopo = this.getDcTopologyInfo(allStrings.length);
       var isParallelY = _dcTopo.isParallel && allStrings.length >= 2;
 
-      // Si la topología es Paralelo Y: desacoplar nodos Y positivo y negativo en cubierta
+      // Si la topología es Paralelo Y: centroide común positivo y negativo para todos los strings convergentes
       var yBranchNodePos = null;
       var yBranchNodeNeg = null;
       var yBranchNode = null;
       if (isParallelY && allStrings.length >= 2) {
-        var str1 = allStrings[0], str2 = allStrings[1];
-        if (str1.panels && str2.panels && str1.panels.length > 0 && str2.panels.length > 0) {
-          var p1Start = self.toCartesian3(str1.panels[0].center);
-          var p2Start = self.toCartesian3(str2.panels[0].center);
-          var p1End = self.toCartesian3(str1.panels[str1.panels.length - 1].center);
-          var p2End = self.toCartesian3(str2.panels[str2.panels.length - 1].center);
-          if (p1Start && p2Start) {
-            yBranchNodePos = Cesium.Cartesian3.midpoint(p1Start, p2Start, new Cesium.Cartesian3());
+        var sumPos = new Cesium.Cartesian3(0, 0, 0);
+        var sumNeg = new Cesium.Cartesian3(0, 0, 0);
+        var cntPos = 0, cntNeg = 0;
+        allStrings.forEach(function (strItem) {
+          if (strItem && Array.isArray(strItem.panels) && strItem.panels.length > 0) {
+            var pStart = self.toCartesian3(strItem.panels[0].center);
+            var pEnd = self.toCartesian3(strItem.panels[strItem.panels.length - 1].center);
+            if (pStart) { Cesium.Cartesian3.add(sumPos, pStart, sumPos); cntPos++; }
+            if (pEnd) { Cesium.Cartesian3.add(sumNeg, pEnd, sumNeg); cntNeg++; }
           }
-          if (p1End && p2End) {
-            yBranchNodeNeg = Cesium.Cartesian3.midpoint(p1End, p2End, new Cesium.Cartesian3());
-          }
-          if (yBranchNodePos && yBranchNodeNeg) {
-            yBranchNode = Cesium.Cartesian3.midpoint(yBranchNodePos, yBranchNodeNeg, new Cesium.Cartesian3());
-          } else {
-            yBranchNode = yBranchNodePos || yBranchNodeNeg;
-          }
+        });
+        if (cntPos >= 2) yBranchNodePos = Cesium.Cartesian3.divideByScalar(sumPos, cntPos, new Cesium.Cartesian3());
+        if (cntNeg >= 2) yBranchNodeNeg = Cesium.Cartesian3.divideByScalar(sumNeg, cntNeg, new Cesium.Cartesian3());
+        if (yBranchNodePos && yBranchNodeNeg) {
+          yBranchNode = Cesium.Cartesian3.midpoint(yBranchNodePos, yBranchNodeNeg, new Cesium.Cartesian3());
+        } else {
+          yBranchNode = yBranchNodePos || yBranchNodeNeg;
         }
       }
 
@@ -967,9 +987,9 @@
           returnEntities.forEach(function (e) { sState.dcCableEntities.push(e); });
         }
 
-        // Si hay nodo Y en cubierta para este par de strings:
-        var targetForStringPos = (yBranchNodePos && sIdx < 2) ? yBranchNodePos : dcTargetPos;
-        var targetForStringNeg = (yBranchNodeNeg && sIdx < 2) ? yBranchNodeNeg : dcTargetPos;
+        // Si hay nodo Y en cubierta en tipología Paralelo Y, todos los strings convergen al nodo Y
+        var targetForStringPos = (isParallelY && yBranchNodePos) ? yBranchNodePos : dcTargetPos;
+        var targetForStringNeg = (isParallelY && yBranchNodeNeg) ? yBranchNodeNeg : dcTargetPos;
 
         // ── 5.3 TIRADAS PRINCIPALES PAREADAS (HOMERUN EMPAREJADO EN LA MISMA BANDEJA) ─
         // Ambos polos DC+ y DC- viajan juntos con una mínima separación de ±0.02m (cero bucle)
@@ -1080,6 +1100,7 @@
         var yTrunkLen = self.computePathLength(yTrunkPath);
         maxLdc += yTrunkLen;
         totalTrayM += yTrunkLen;
+        totalDcSingleCoreM += (2 * yTrunkLen);
 
         var yTrunkEntities = self.createVolumetricEntity(viewer, yTrunkPath, {
           name: 'Troncal DC Bipolar Paralelo Y (90° Manhattan)',
@@ -1101,6 +1122,7 @@
         var lTrunk = self.computePathLength(trunkPath);
         maxLdc += lTrunk;
         totalTrayM += lTrunk;
+        totalDcSingleCoreM += (2 * lTrunk);
 
         var trunkEntities = self.createVolumetricEntity(viewer, trunkPath, {
           name: 'Troncal DC Combiner ➔ Cuadro/Inversor (90° Manhattan 3D)',
@@ -1123,13 +1145,14 @@
           if (trunkLbl) sState.dcCableEntities.push(trunkLbl);
         }
       } else if (!cbPos && dcBoxPos && invPos && Cesium.Cartesian3.distance(dcBoxPos, invPos) > 0.05) {
-        // Sin combiner box: strings van directo al Cuadro DC
+        // Sin combiner box: strings van directo al Cuadro DC y de ahí al Inversor
         var dcToInvPath = self.buildOrthogonalManhattanPath3D(dcBoxPos, invPos, {
           normalOffset: self.CONFIG.TRAY_OFFSET
         });
         var lDcInv = self.computePathLength(dcToInvPath);
         maxLdc += lDcInv;
         totalTrayM += lDcInv;
+        totalDcSingleCoreM += (Math.max(1, isParallelY ? 1 : allStrings.length) * 2 * lDcInv);
 
         var dcToInvEntities = self.createVolumetricEntity(viewer, dcToInvPath, {
           name: 'Puente DC Cuadro ➔ Inversor (90° Manhattan 3D)',
@@ -1148,6 +1171,7 @@
         var lBridge = self.computePathLength(bridgePath);
         maxLdc += lBridge;
         totalTrayM += lBridge;
+        totalDcSingleCoreM += (2 * lBridge);
 
         var bridgeEntities = self.createVolumetricEntity(viewer, bridgePath, {
           name: 'Puente DC Cuadro ➔ Inversor (90° Manhattan 3D)',
@@ -1292,7 +1316,7 @@
         acCableSpec: 'Manguera RZ1-K (AS) 0,6/1 kV libre de halógenos ' + (sState.S_ac_recommended || 10) + ' mm²',
         totalGroundingMeters: Math.round(totalGroundingM * 10) / 10,
         groundingSpec: 'Cable de cobre desnudo Cu 16 mm² para equipotencialidad de estructuras (ITC-BT-18)',
-        mc4ConnectorPairs: (numStrings * 2) + (isParallelY ? 2 : 0) + totalPanelsCount,
+        mc4ConnectorPairs: (numStrings * 2) + (isParallelY ? Math.max(1, numStrings - 1) * 2 : 0) + totalPanelsCount,
         fillFactorPct: Math.min(40, Math.round(((numStrings * 2 * 35) / (trayWidthMm * 60)) * 100))
       };
 
@@ -1410,8 +1434,12 @@
       var vAc = isMono ? 230 : 400;
       var iAc = isMono ? (pAcKw * 1000) / (vAc * 0.95) : (pAcKw * 1000) / (Math.sqrt(3) * vAc * 0.95);
       var iAcDesign = 1.25 * iAc;
-      var secAcAvail = [2.5, 4, 6, 10, 16, 25, 35, 50];
-      var imaxAcRVK  = [29, 38, 49, 68, 91, 119, 146, 178];
+      var _elecSec = (global.RA && global.RA.Electrical && global.RA.Electrical.SECCIONES) || null;
+      var secAcAvail = (_elecSec && Array.isArray(_elecSec.ac)) ? _elecSec.ac : [2.5, 4, 6, 10, 16, 25, 35, 50, 70];
+      var imaxAcRVK  = (_elecSec && Array.isArray(_elecSec.acIz)) ? _elecSec.acIz : [29, 38, 49, 68, 91, 119, 146, 178, 226];
+      // Ampacidad AC independiente del agrupamiento de strings DC (0.90 temp × agrupamiento por circuitos AC de inversores)
+      var kGroupAc = invCount <= 1 ? 1.0 : (invCount === 2 ? 0.80 : (invCount === 3 ? 0.70 : 0.65));
+      var kAmpacityAc = 0.90 * kGroupAc;
       var sAcOpt = 10, dVacPctOpt = 0.8;
       var acCompliant = false;
 
@@ -1423,7 +1451,7 @@
         var factorPhase = isMono ? 2.0 : Math.sqrt(3);
         var dVa = factorPhase * iAc * lAcVal * ((rho90 / sa) * cosPAc + xMeterAc * sinPAc);
         var dVapct = (dVa / vAc) * 100;
-        if ((imaxAcRVK[j] * kAmpacity) >= iAcDesign && dVapct <= 1.5) {
+        if ((imaxAcRVK[j] * kAmpacityAc) >= iAcDesign && dVapct <= 1.5) {
           sAcOpt = sa;
           dVacPctOpt = dVapct;
           acCompliant = true;
@@ -1432,7 +1460,7 @@
       }
 
       if (!acCompliant) {
-        sAcOpt = secAcAvail[secAcAvail.length - 1]; // 50 mm²
+        sAcOpt = secAcAvail[secAcAvail.length - 1]; // 70 mm²
         var factorPhaseMax = isMono ? 2.0 : Math.sqrt(3);
         var dVaMax = factorPhaseMax * iAc * lAcVal * ((rho90 / sAcOpt) * cosPAc + xMeterAc * sinPAc);
         dVacPctOpt = (dVaMax / vAc) * 100;

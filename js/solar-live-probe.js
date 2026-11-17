@@ -138,8 +138,20 @@
         return;
       }
 
-      // Lista de obstáculos activos en el proyecto
+      // Lista de obstáculos activos en el proyecto (incluyendo aerogeneradores habilitados)
       const obsList = Array.isArray(global.obstacles) ? global.obstacles.filter(o => o && !o.deleted) : [];
+      if (Array.isArray(global.windTurbines) && global.windTurbines.length > 0 && typeof Cesium !== 'undefined' && Cesium.Cartesian3) {
+        global.windTurbines.forEach(t => {
+          if (!t || (t.operationalState && t.operationalState.enabled === false)) return;
+          const hubH = (t.supportStructure && t.supportStructure.hubHeightM) ? t.supportStructure.hubHeightM : 18;
+          const rotorR = (t._catalog && t._catalog.rotorDiameterM) ? (t._catalog.rotorDiameterM / 2) : 3;
+          let cart = t.cartesian || null;
+          if (!cart && t.positionCartographic) {
+            try { cart = Cesium.Cartesian3.fromRadians(t.positionCartographic.longitudeRad, t.positionCartographic.latitudeRad, t.positionCartographic.altitudeM || 0); } catch (_) {}
+          }
+          if (cart) obsList.push({ id: t.id, type: 'wind_turbine', mastHeight: hubH + rotorR, h: hubH + rotorR, w: 1.5, l: 1.5, cartesian: cart, positionCartographic: t.positionCartographic, isTurbine: true });
+        });
+      }
       const bldList = Array.isArray(global.buildings) ? global.buildings.filter(b => b && b.visible !== false) : [];
 
       // Si no hay ningún obstáculo, todos los paneles están limpios (tinte esmeralda traslúcido de confirmación activa)
@@ -554,6 +566,10 @@
      * @private
      */
     _computeSolarPosition(latDeg, lngDeg, dayOfYear, utcHour) {
+      if (global.RA && global.RA.Radiation && typeof global.RA.Radiation.computeSolarPosition === 'function') {
+        const sp = global.RA.Radiation.computeSolarPosition(latDeg, lngDeg, dayOfYear, utcHour, true);
+        return { elevDeg: sp.elevDeg, elevRad: sp.elevRad, sDirHorizontal: sp.sDirENU };
+      }
       const latRad = latDeg * Math.PI / 180;
       const gamma = (2 * Math.PI / 365) * (dayOfYear - 1);
       const decl = 0.006918 - 0.399912 * Math.cos(gamma) + 0.070257 * Math.sin(gamma)

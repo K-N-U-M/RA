@@ -95,20 +95,25 @@
       var mTotal = mKwh[m] || 0;
       var dayTotal = days > 0 ? (mTotal / days) : 0;
 
-      // Duración solar aproximada por mes (de 9h en dic a 15h en jun)
+      // Duración solar aproximada por mes (de ~9h en dic a ~15h en jun) y normalización discreta exacta
       var sunrise = 8.5 - 2.5 * Math.sin(((m - 2) / 12) * Math.PI * 2);
       var sunset = 17.5 + 3.5 * Math.sin(((m - 2) / 12) * Math.PI * 2);
-      var daylightHours = Math.max(sunset - sunrise, 6);
+      var span = Math.max(sunset - sunrise, 1.0);
+      var rawBell = new Array(24);
+      var sumBell = 0;
+      for (var h0 = 0; h0 < 24; h0++) {
+        var bVal = 0;
+        if (h0 + 0.5 > sunrise && h0 + 0.5 < sunset) {
+          var norm = (h0 + 0.5 - sunrise) / span;
+          bVal = Math.max(0, Math.sin(norm * Math.PI));
+        }
+        rawBell[h0] = bVal;
+        sumBell += bVal;
+      }
 
       for (var d = 0; d < days; d++) {
         for (var h = 0; h < 24; h++) {
-          var val = 0;
-          if (h >= sunrise && h <= sunset) {
-            var norm = (h - sunrise) / daylightHours; // 0..1
-            var bell = Math.sin(norm * Math.PI);
-            val = (dayTotal / (daylightHours * 0.6366)) * Math.max(0, bell);
-          }
-          hourly[hourIdx++] = val;
+          hourly[hourIdx++] = sumBell > 0 ? (dayTotal * (rawBell[h] / sumBell)) : 0;
         }
       }
     }
@@ -214,7 +219,7 @@
     var totalCurtailmentKwh = 0;
     var totalGenKwh = 0;
 
-    var currentSocKwh = battCap * 0.20; // 20% inicial
+    var currentSocKwh = 0; // Inicia en 0 para respetar conservación energética en autoconsumo anual
     var battEff = 0.92; // Eficiencia ciclo redondo 92%
 
     var peakDemandWithoutGenKw = 0;

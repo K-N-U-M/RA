@@ -25,6 +25,9 @@
       roofPanelsCache.sig = "";
       roofPanelsCache.data = null;
     }
+    if (typeof window.wpInvalidateHeatmap === 'function') {
+      window.wpInvalidateHeatmap('Panel fantasma conmutado');
+    }
     if (typeof wpFastRenderSimulatedPanels === 'function') {
       wpFastRenderSimulatedPanels(true);
     }
@@ -370,18 +373,16 @@
         if (sunDirWorld) Cesium.Cartesian3.normalize(sunDirWorld, sunDirWorld);
       }
 
-      let normWorld = new Cesium.Cartesian3();
-      if (norm && Cesium.Cartesian3.magnitude(norm) > 0.5) {
-        normWorld = Cesium.Cartesian3.clone(norm);
-      } else if (transform && norm) {
+      let normWorld = new Cesium.Cartesian3(0, 0, 1);
+      if (transform && norm) {
         if (typeof Cesium.Matrix4.multiplyByPointAsVector === "function") {
           normWorld = Cesium.Matrix4.multiplyByPointAsVector(transform, norm, normWorld);
         } else if (typeof Cesium.Matrix4.multiplyByPoint === "function") {
           normWorld = Cesium.Matrix4.multiplyByPoint(transform, norm, normWorld);
         }
         Cesium.Cartesian3.normalize(normWorld, normWorld);
-      } else {
-        normWorld = new Cesium.Cartesian3(0, 0, 1);
+      } else if (norm) {
+        normWorld = Cesium.Cartesian3.clone(norm);
       }
 
       const polyShadowQuads2D = [];
@@ -503,9 +504,10 @@
           shadedCount++;
 
           if (requiresMLPE) {
+            const badgeNorm = getPanelNormalWorld(pData, normWorld, transform) || normWorld;
             const badgePos = Cesium.Cartesian3.add(
               pData.center,
-              Cesium.Cartesian3.multiplyByScalar(norm, 0.40, new Cesium.Cartesian3()),
+              Cesium.Cartesian3.multiplyByScalar(badgeNorm, 0.40, new Cesium.Cartesian3()),
               new Cesium.Cartesian3()
             );
 
@@ -723,8 +725,8 @@
         // azSur = s * 22.5. azFromNorth = azSur + 180
         const azRad = ((s * SECTOR_DEG + 180) * Math.PI) / 180;
         
-        // Sondeo vertical por bisección angular rápida (10°, 25°, 45°, 65°)
-        const testAngles = [10, 25, 45, 65];
+        // Sondeo vertical multi-nivel (5° a 65°)
+        const testAngles = [5, 10, 15, 22, 30, 40, 52, 65];
         let maxFoundElev = 0;
 
         for (let a = 0; a < testAngles.length; a++) {
@@ -785,15 +787,21 @@
   }
 
   let _activeSimGenerationId = 0;
+  let _activeHeatmapWorker = null;
 
   /**
    * Ejecuta el cálculo masivo de 192 instantes en un Web Worker off-thread.
    * Evita congelar el render loop de CesiumJS (preserva 60 FPS estables).
    */
   async function runHeatmapInDedicatedWorker(cfg, onProgressCallback, progressBar, progressFill, totalPanelsCount) {
-    let worker;
+    let worker = null;
     try {
-      worker = new Worker('js/solar-worker.js?v=20261111_2325');
+      if (_activeHeatmapWorker) {
+        try { _activeHeatmapWorker.terminate(); } catch (_) {}
+        _activeHeatmapWorker = null;
+      }
+      worker = new Worker('js/solar-worker.js?v=20261117_d1');
+      _activeHeatmapWorker = worker;
     } catch (err) {
       throw err;
     }
@@ -1217,14 +1225,25 @@
           msg.unifiedTotalSteps = unifiedTotalSteps;
           msg.preScanSteps = preScanSteps;
           worker.terminate();
+          if (_activeHeatmapWorker === worker) _activeHeatmapWorker = null;
           resolve(msg);
         }
       };
 
       worker.onerror = function(err) {
         worker.terminate();
+        if (_activeHeatmapWorker === worker) _activeHeatmapWorker = null;
         reject(err);
       };
+
+      const transferList = [];
+      const seenBuffers = new Set();
+      panels.forEach(p => {
+        if (p && p.occlusion3D && p.occlusion3D.buffer && !seenBuffers.has(p.occlusion3D.buffer)) {
+          seenBuffers.add(p.occlusion3D.buffer);
+          transferList.push(p.occlusion3D.buffer);
+        }
+      });
 
       worker.postMessage({
         type: 'START_HEATMAP',
@@ -1239,7 +1258,7 @@
         climaticZone: cfg.climaticZone,
         moduleProps: cfg.moduleProps,
         monthlyGHI: cfg.monthlyGHI
-      });
+      }, transferList);
     });
   }
 
@@ -1444,43 +1463,6 @@
     let currentStep = 0;
     let frameStartTime = performance.now();
 
-    const _scratchV1 = new Cesium.Cartesian3();
-    const _scratchV2 = new Cesium.Cartesian3();
-    const _scratchUp = new Cesium.Cartesian3();
-
-    function getPanelNormalWorld(pData, roofNorm, transform) {
-      if (pData.corners && pData.corners.length >= 3) {
-        const c0 = pData.corners[0];
-        const c1 = pData.corners[1];
-        const c3 = pData.corners[3];
-        Cesium.Cartesian3.subtract(c1, c0, _scratchV1);
-        Cesium.Cartesian3.subtract(c3, c0, _scratchV2);
-        const n = Cesium.Cartesian3.cross(_scratchV1, _scratchV2, new Cesium.Cartesian3());
-        if (Cesium.Cartesian3.magnitude(n) > 1e-6) {
-          Cesium.Cartesian3.normalize(n, n);
-          const up = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(pData.center || c0, _scratchUp);
-          if (Cesium.Cartesian3.dot(n, up) < 0) {
-            Cesium.Cartesian3.negate(n, n);
-          }
-          return n;
-        }
-      }
-      // Si disponemos de la matriz de transformación del faldón, transformar el vector normal a ECEF
-      if (transform && roofNorm) {
-        let nWorld = new Cesium.Cartesian3();
-        if (typeof Cesium.Matrix4.multiplyByPointAsVector === "function") {
-          nWorld = Cesium.Matrix4.multiplyByPointAsVector(transform, roofNorm, nWorld);
-        } else {
-          nWorld = Cesium.Matrix4.multiplyByPoint(transform, roofNorm, nWorld);
-        }
-        return Cesium.Cartesian3.normalize(nWorld, nWorld);
-      }
-      if (roofNorm) {
-        return Cesium.Cartesian3.clone(roofNorm);
-      }
-      return new Cesium.Cartesian3(0, 0, 1);
-    }
-
     /**
      * Discretiza un cuadrilátero 2D de panel en 3 sub-cadenas (sub-strings S1, S2, S3)
      * representativas de las 3 ramas de diodos de bypass de un módulo comercial estándar / half-cut.
@@ -1660,7 +1642,7 @@
           G_dhi = _dec.dhi;
           G_dni = _dec.dni;
         } else {
-          const _kt = Math.min(0.85, Math.max(0.1, GHI_instant / (1367 * sinAlt + 1e-3)));
+          const _kt = Math.min(1.0, Math.max(0.0, GHI_instant / (1367 * sinAlt + 1e-3)));
           let DHI_fraction;
           if (_kt < 0.22) DHI_fraction = 1.0 - 0.09 * _kt;
           else if (_kt < 0.80) DHI_fraction = 0.9511 - 0.1604 * _kt + 4.388 * _kt * _kt - 16.638 * Math.pow(_kt, 3) + 12.336 * Math.pow(_kt, 4);
@@ -1721,6 +1703,20 @@
           const interRowQuads = generateInterRowShadowQuads2D(pInfo, sU, sV, solarPos.shadowLenPerM);
           if (interRowQuads.length > 0) {
             polyShadowQuads2D.push(...interRowQuads);
+          }
+          // Precalcular AABBs de los quads de sombra una vez por faldón/hora (evita O(T·N²) en bucle de paneles)
+          for (let qi = 0; qi < polyShadowQuads2D.length; qi++) {
+            const q = polyShadowQuads2D[qi];
+            if (!q || q.length === 0 || q.uMin !== undefined) continue;
+            let qUMin = Infinity, qUMax = -Infinity, qVMin = Infinity, qVMax = -Infinity;
+            for (let pi = 0; pi < q.length; pi++) {
+              const qpt = q[pi];
+              if (qpt.u < qUMin) qUMin = qpt.u;
+              if (qpt.u > qUMax) qUMax = qpt.u;
+              if (qpt.v < qVMin) qVMin = qpt.v;
+              if (qpt.v > qVMax) qVMax = qpt.v;
+            }
+            q.uMin = qUMin; q.uMax = qUMax; q.vMin = qVMin; q.vMax = qVMax;
           }
 
           pInfo.panels.forEach((pData, pIdx) => {
@@ -1840,16 +1836,8 @@
                     }
                   }
 
-                  // AABB Broadphase check: si la caja envolvente de la sombra no toca la del panel, descartar inmediatamente
-                  let qUMin = Infinity, qUMax = -Infinity, qVMin = Infinity, qVMax = -Infinity;
-                  for (let qi = 0; qi < quad.length; qi++) {
-                    const qpt = quad[qi];
-                    if (qpt.u < qUMin) qUMin = qpt.u;
-                    if (qpt.u > qUMax) qUMax = qpt.u;
-                    if (qpt.v < qVMin) qVMin = qpt.v;
-                    if (qpt.v > qVMax) qVMax = qpt.v;
-                  }
-                  if (uMax < qUMin || uMin > qUMax || vMax < qVMin || vMin > qVMax) {
+                  // AABB Broadphase check usando AABB precalculada una vez por hora
+                  if (uMax < quad.uMin || uMin > quad.uMax || vMax < quad.vMin || vMin > quad.vMax) {
                     continue; // Sin solapamiento en bounding box
                   }
 
@@ -1877,10 +1865,15 @@
               ? (shadedSubstringsCount / 3.0)
               : (isShaded ? 1.0 : 0.0);
 
+            // Topología eléctrica unificada con solar-worker.js:
+            const hasOpt = !!(pData.hasOptimizer || pData.optimizerModelId);
+            const electricalMismatchFactor = hasOpt ? 1.0 : (shadedSubstringsCount > 0 ? (shadedSubstringsCount >= 2 ? 1.0 : 0.85) : 0.0);
+            const effectiveLossFraction = hasOpt ? beamShadedFraction : Math.min(1.0, beamShadedFraction * (1.0 + electricalMismatchFactor * 0.35));
+
             // Separación física: el obstáculo bloquea la radiación directa (G_beam).
             // La radiación difusa y albedo persisten salvo la fracción geométrica aislada por bypass.
-            const beamLossW = (isShaded && beamShadedFraction > 0) ? (G_beam * tempFactor * beamShadedFraction) : 0;
-            const diffuseLossW = (!pData.hasOptimizer && shadedSubstringsCount > 0)
+            const beamLossW = (isShaded && effectiveLossFraction > 0) ? (G_beam * tempFactor * effectiveLossFraction) : 0;
+            const diffuseLossW = (!hasOpt && shadedSubstringsCount > 0)
               ? ((G_diffuse + G_albedo + albedoGain) * tempFactor * (beamShadedFraction / 3.0))
               : 0;
             const instantLossW = beamLossW + diffuseLossW;
@@ -1971,8 +1964,9 @@
         p.annualYieldPct = Math.max(0, Math.round((100 - p.annualLossPct) * 10) / 10);
 
         const netWh = Math.max(0, p.annualTotalPotential - (p.annualShadedLoss || 0));
+        const panelKwp = ((typeof p.wp === 'number' && p.wp > 0) ? p.wp : pNomW) / 1000.0;
         // Generación bruta anual fotovoltaica y generación neta tras PR de sistema
-        p.annualGrossKwh = (netWh / 1000.0) * pKwp;
+        p.annualGrossKwh = (netWh / 1000.0) * panelKwp;
         p._lastPrSys = prSys;
         p.annualKwh = Math.round(p.annualGrossKwh * prSys);
         p.annualTotalInsolation = Math.round(netWh / 1000.0);
@@ -2238,6 +2232,13 @@
   let _lastInvalToastTs = 0;
   window.wpInvalidateHeatmap = function(reason) {
     _activeSimGenerationId++; // Cancelación atómica inmediata de cualquier simulación asíncrona en curso
+    if (_activeHeatmapWorker) {
+      try { _activeHeatmapWorker.terminate(); } catch (_) {}
+      _activeHeatmapWorker = null;
+    }
+    if (typeof window !== 'undefined' && window.RAProduction && typeof window.RAProduction.clearCache === 'function') {
+      window.RAProduction.clearCache();
+    }
     if (typeof hideSolarCalcHUD === 'function') hideSolarCalcHUD();
     // Reactividad en vivo: si el modo Live Heatmap está activo, reevaluar en caliente
     if (typeof window !== 'undefined' && window.LiveSolarProbe && window.LiveSolarProbe.enabled) {
@@ -2871,7 +2872,10 @@
       window.allRenderedPanels = window.allRenderedPanels.filter(p => !p.deleted);
     }
 
-    // Re-renderizado de paneles
+    // Re-renderizado de paneles e invalidación SSOT
+    if (typeof window.wpInvalidateHeatmap === 'function') {
+      window.wpInvalidateHeatmap('Poda de paneles sombreados');
+    }
     if (typeof wpFastRenderSimulatedPanels === 'function') {
       await wpFastRenderSimulatedPanels();
     }

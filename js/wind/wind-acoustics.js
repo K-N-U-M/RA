@@ -64,9 +64,8 @@
     var alpha = getAtmosphericAbsorption(freqHz || 500, tempC, relHumidity);
     var A_atm = alpha * d;
 
-    // 3. Efecto del suelo simplificado ISO 9613-2 (A_gr)
-    var A_gr_raw = Math.max(0, 4.8 - (2 * hm / d) * (17 + (300 / d)));
-    var A_gr = A_gr_raw * Math.max(0, Math.min(1, G));
+    // 3. Efecto del suelo ISO 9613-2 §7.3.2 (fórmula alternativa global)
+    var A_gr = Math.max(0, 4.8 - (2 * hm / d) * (17 + (300 / d)));
 
     var totalAttenuation = A_div + A_atm + A_gr + aBar;
     return lwaVal - totalAttenuation;
@@ -211,11 +210,18 @@
     var compliesDay = combinedLpDba <= limitDayDba;
     var compliesNight = combinedLpDba <= limitNightDba;
 
-    // Distancia mínima libre recomendada al lindero para cumplir horario nocturno (35 dBA)
+    // Distancia mínima libre recomendada al lindero considerando suma energética multi-turbina (10·log10 N)
     var minSafeNightDistanceM = 0;
-    for (var j = 0; j < perTurbine.length; j++) {
-      if (perTurbine[j].radiusNight35M > minSafeNightDistanceM) {
-        minSafeNightDistanceM = perTurbine[j].radiusNight35M;
+    var enabledLwas = perTurbine.filter(function (p) { return p.enabled; }).map(function (p) { return p.lwaDba; });
+    if (enabledLwas.length > 1) {
+      var eqLwa = combineSoundLevels(enabledLwas);
+      var reqAtten = eqLwa - limitNightDba;
+      minSafeNightDistanceM = Math.max(1.0, Math.pow(10, (reqAtten - 11.0) / 20.0));
+    } else {
+      for (var j = 0; j < perTurbine.length; j++) {
+        if (perTurbine[j].radiusNight35M > minSafeNightDistanceM) {
+          minSafeNightDistanceM = perTurbine[j].radiusNight35M;
+        }
       }
     }
 
@@ -249,9 +255,14 @@
       return { width: steps, height: steps, resolutionM: resM, halfExtentM: extent, data: grid };
     }
 
-    // Centroide cartográfico de referencia
-    var refLon = list[0].positionCartographic ? list[0].positionCartographic.longitudeRad : 0;
-    var refLat = list[0].positionCartographic ? list[0].positionCartographic.latitudeRad : 0;
+    var enabledList = list.filter(function (t) {
+      return t && (!t.operationalState || t.operationalState.enabled !== false);
+    });
+    if (enabledList.length === 0) {
+      return { width: steps, height: steps, resolutionM: resM, halfExtentM: extent, data: grid };
+    }
+    var refLon = enabledList[0].positionCartographic ? enabledList[0].positionCartographic.longitudeRad : 0;
+    var refLat = enabledList[0].positionCartographic ? enabledList[0].positionCartographic.latitudeRad : 0;
     var cosLat = Math.cos(refLat || 0.7);
 
     var localTurbines = list.filter(function (t) {

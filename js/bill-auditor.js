@@ -40,6 +40,35 @@
       return (raw || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
     },
 
+    parseLocaleNumber(rawVal) {
+      if (typeof rawVal === 'number') return Number.isFinite(rawVal) ? rawVal : NaN;
+      if (rawVal == null) return NaN;
+      let s = String(rawVal).trim().replace(/\s+/g, '');
+      if (!s) return NaN;
+      s = s.replace(/[^0-9.,-]/g, '');
+      if (!s) return NaN;
+      const hasComma = s.includes(',');
+      const hasDot = s.includes('.');
+      if (hasComma && hasDot) {
+        if (s.lastIndexOf(',') > s.lastIndexOf('.')) {
+          s = s.replace(/\./g, '').replace(',', '.');
+        } else {
+          s = s.replace(/,/g, '');
+        }
+      } else if (hasDot) {
+        if (/^-?\d{1,3}(\.\d{3})+$/.test(s)) {
+          s = s.replace(/\./g, '');
+        }
+      } else if (hasComma) {
+        if (/^-?\d{1,3}(,\d{3})+$/.test(s)) {
+          s = s.replace(/,/g, '');
+        } else {
+          s = s.replace(',', '.');
+        }
+      }
+      return parseFloat(s);
+    },
+
     parseText(text) {
       const clean = this.cleanText(text);
       const data = {
@@ -122,42 +151,39 @@
       if (nombreMatch) data.titular.nombre = nombreMatch[1].replace(/\s{2,}/g, ' ').trim();
 
       // 4. Importe Total de la Factura (€)
-      const totalMatch = clean.match(/(?:TOTAL\s*FACTURA|TOTAL\s*IMPORTE|IMPORTE\s*TOTAL|TOTAL\s*A\s*PAGAR)[^0-9\n]{0,30}([0-9]{1,4}[,.]\d{2})\s*€?/i) ||
-                         clean.match(/(?:TOTAL|IMPORTE)[^0-9\n]{0,20}([0-9]{1,4}[,.]\d{2})\s*€/i) ||
-                         clean.match(/([0-9]{1,4}[,.]\d{2})\s*€/i);
+      const totalMatch = clean.match(/(?:TOTAL\s*FACTURA|TOTAL\s*IMPORTE|IMPORTE\s*TOTAL|TOTAL\s*A\s*PAGAR)[^0-9\n]{0,30}((?:[0-9]{1,3}(?:\.[0-9]{3})+|[0-9]{1,5})[,.]\d{2})\s*€?/i) ||
+                         clean.match(/(?:TOTAL|IMPORTE)[^0-9\n]{0,20}((?:[0-9]{1,3}(?:\.[0-9]{3})+|[0-9]{1,5})[,.]\d{2})\s*€/i) ||
+                         clean.match(/((?:[0-9]{1,3}(?:\.[0-9]{3})+|[0-9]{1,5})[,.]\d{2})\s*€/i);
       if (totalMatch) {
-        let numStr = totalMatch[1].trim();
-        if (numStr.includes(',') && numStr.includes('.')) {
-          numStr = numStr.replace(/\./g, '').replace(',', '.');
-        } else if (numStr.includes(',')) {
-          numStr = numStr.replace(',', '.');
-        }
-        data.totalFacturaEUR = parseFloat(numStr);
+        const parsedTotal = this.parseLocaleNumber(totalMatch[1]);
+        if (Number.isFinite(parsedTotal)) data.totalFacturaEUR = parsedTotal;
       }
 
-      // 5. Consumo Total de Energía (kWh)
-      const kwhMatches = clean.match(/(?:total\s*energ[ií]a|consumo\s*total|consumo\s*facturado)[^0-9\n]{0,30}([0-9]{1,5}(?:[,.]\d{1,2})?)\s*kWh/i) ||
-                         clean.match(/([0-9]{1,5}(?:[,.]\d{1,2})?)\s*kWh/i);
+      // 5. Consumo Total de Energía (kWh) con soporte de separador de miles español (1.250 -> 1250)
+      const NUM_KWH_RE = '([0-9]{1,3}(?:\\.[0-9]{3})+(?:,[0-9]{1,2})?|[0-9]{1,6}(?:[,.][0-9]{1,2})?)';
+      const kwhMatches = clean.match(new RegExp('(?:total\\s*energ[ií]a|consumo\\s*total|consumo\\s*facturado)[^0-9\\n]{0,30}' + NUM_KWH_RE + '\\s*kWh', 'i')) ||
+                         clean.match(new RegExp(NUM_KWH_RE + '\\s*kWh', 'i'));
       if (kwhMatches) {
-        data.consumosKWh.total = parseFloat(kwhMatches[1].replace(',', '.'));
+        const parsedKwh = this.parseLocaleNumber(kwhMatches[1]);
+        if (Number.isFinite(parsedKwh)) data.consumosKWh.total = parsedKwh;
       }
 
       // Consumos por periodo (P1 a P6 para 2.0TD / 3.0TD / 6.1TD)
-      const p1Match = clean.match(/P1[^0-9\n]{0,20}([0-9]{1,5}(?:[,.]\d{1,2})?)\s*kWh/i);
-      const p2Match = clean.match(/P2[^0-9\n]{0,20}([0-9]{1,5}(?:[,.]\d{1,2})?)\s*kWh/i);
-      const p3Match = clean.match(/P3[^0-9\n]{0,20}([0-9]{1,5}(?:[,.]\d{1,2})?)\s*kWh/i);
-      const p4Match = clean.match(/P4[^0-9\n]{0,20}([0-9]{1,5}(?:[,.]\d{1,2})?)\s*kWh/i);
-      const p5Match = clean.match(/P5[^0-9\n]{0,20}([0-9]{1,5}(?:[,.]\d{1,2})?)\s*kWh/i);
-      const p6Match = clean.match(/P6[^0-9\n]{0,20}([0-9]{1,5}(?:[,.]\d{1,2})?)\s*kWh/i);
-      if (p1Match) data.consumosKWh.p1 = parseFloat(p1Match[1].replace(',', '.'));
-      if (p2Match) data.consumosKWh.p2 = parseFloat(p2Match[1].replace(',', '.'));
-      if (p3Match) data.consumosKWh.p3 = parseFloat(p3Match[1].replace(',', '.'));
-      if (p4Match) data.consumosKWh.p4 = parseFloat(p4Match[1].replace(',', '.'));
-      if (p5Match) data.consumosKWh.p5 = parseFloat(p5Match[1].replace(',', '.'));
-      if (p6Match) data.consumosKWh.p6 = parseFloat(p6Match[1].replace(',', '.'));
+      const p1Match = clean.match(new RegExp('P1[^0-9\\n]{0,20}' + NUM_KWH_RE + '\\s*kWh', 'i'));
+      const p2Match = clean.match(new RegExp('P2[^0-9\\n]{0,20}' + NUM_KWH_RE + '\\s*kWh', 'i'));
+      const p3Match = clean.match(new RegExp('P3[^0-9\\n]{0,20}' + NUM_KWH_RE + '\\s*kWh', 'i'));
+      const p4Match = clean.match(new RegExp('P4[^0-9\\n]{0,20}' + NUM_KWH_RE + '\\s*kWh', 'i'));
+      const p5Match = clean.match(new RegExp('P5[^0-9\\n]{0,20}' + NUM_KWH_RE + '\\s*kWh', 'i'));
+      const p6Match = clean.match(new RegExp('P6[^0-9\\n]{0,20}' + NUM_KWH_RE + '\\s*kWh', 'i'));
+      if (p1Match) data.consumosKWh.p1 = this.parseLocaleNumber(p1Match[1]) || 0;
+      if (p2Match) data.consumosKWh.p2 = this.parseLocaleNumber(p2Match[1]) || 0;
+      if (p3Match) data.consumosKWh.p3 = this.parseLocaleNumber(p3Match[1]) || 0;
+      if (p4Match) data.consumosKWh.p4 = this.parseLocaleNumber(p4Match[1]) || 0;
+      if (p5Match) data.consumosKWh.p5 = this.parseLocaleNumber(p5Match[1]) || 0;
+      if (p6Match) data.consumosKWh.p6 = this.parseLocaleNumber(p6Match[1]) || 0;
       const sumP = (data.consumosKWh.p1 || 0) + (data.consumosKWh.p2 || 0) + (data.consumosKWh.p3 || 0) +
                    (data.consumosKWh.p4 || 0) + (data.consumosKWh.p5 || 0) + (data.consumosKWh.p6 || 0);
-      if (!data.consumosKWh.total && sumP > 0) {
+      if ((!data.consumosKWh.total || (sumP > data.consumosKWh.total && data.consumosKWh.total < 20)) && sumP > 0) {
         data.consumosKWh.total = sumP;
       }
 
@@ -168,12 +194,12 @@
       const potP4 = clean.match(/(?:p4)[^0-9\n]{0,20}([0-9]{1,3}(?:[,.]\d{1,3})?)\s*kW/i);
       const potP5 = clean.match(/(?:p5)[^0-9\n]{0,20}([0-9]{1,3}(?:[,.]\d{1,3})?)\s*kW/i);
       const potP6 = clean.match(/(?:p6)[^0-9\n]{0,20}([0-9]{1,3}(?:[,.]\d{1,3})?)\s*kW/i);
-      if (potP1) data.potenciasContratadasKW.p1 = parseFloat(potP1[1].replace(',', '.'));
-      if (potP2) data.potenciasContratadasKW.p2 = parseFloat(potP2[1].replace(',', '.'));
-      if (potP3) data.potenciasContratadasKW.p3 = parseFloat(potP3[1].replace(',', '.'));
-      if (potP4) data.potenciasContratadasKW.p4 = parseFloat(potP4[1].replace(',', '.'));
-      if (potP5) data.potenciasContratadasKW.p5 = parseFloat(potP5[1].replace(',', '.'));
-      if (potP6) data.potenciasContratadasKW.p6 = parseFloat(potP6[1].replace(',', '.'));
+      if (potP1) data.potenciasContratadasKW.p1 = this.parseLocaleNumber(potP1[1]) || 0;
+      if (potP2) data.potenciasContratadasKW.p2 = this.parseLocaleNumber(potP2[1]) || 0;
+      if (potP3) data.potenciasContratadasKW.p3 = this.parseLocaleNumber(potP3[1]) || 0;
+      if (potP4) data.potenciasContratadasKW.p4 = this.parseLocaleNumber(potP4[1]) || 0;
+      if (potP5) data.potenciasContratadasKW.p5 = this.parseLocaleNumber(potP5[1]) || 0;
+      if (potP6) data.potenciasContratadasKW.p6 = this.parseLocaleNumber(potP6[1]) || 0;
       if (!data.potenciasContratadasKW.p2 && data.potenciasContratadasKW.p1) {
         data.potenciasContratadasKW.p2 = data.potenciasContratadasKW.p1;
       }
@@ -502,22 +528,26 @@ Normas estrictas:
       const p5Pot = (d.potenciasContratadasKW && d.potenciasContratadasKW.p5) || 0;
       const p6Pot = (d.potenciasContratadasKW && d.potenciasContratadasKW.p6) || 0;
 
-      const p1Kwh = (d.consumosKWh && d.consumosKWh.p1) || 0;
-      const p2Kwh = (d.consumosKWh && d.consumosKWh.p2) || 0;
-      const p3Kwh = (d.consumosKWh && d.consumosKWh.p3) || 0;
-      const p4Kwh = (d.consumosKWh && d.consumosKWh.p4) || 0;
-      const p5Kwh = (d.consumosKWh && d.consumosKWh.p5) || 0;
-      const p6Kwh = (d.consumosKWh && d.consumosKWh.p6) || 0;
-      let totalKwh = (d.consumosKWh && d.consumosKWh.total) || (p1Kwh + p2Kwh + p3Kwh + p4Kwh + p5Kwh + p6Kwh);
+      const p1Kwh = this.parseLocaleNumber(d.consumosKWh && d.consumosKWh.p1) || 0;
+      const p2Kwh = this.parseLocaleNumber(d.consumosKWh && d.consumosKWh.p2) || 0;
+      const p3Kwh = this.parseLocaleNumber(d.consumosKWh && d.consumosKWh.p3) || 0;
+      const p4Kwh = this.parseLocaleNumber(d.consumosKWh && d.consumosKWh.p4) || 0;
+      const p5Kwh = this.parseLocaleNumber(d.consumosKWh && d.consumosKWh.p5) || 0;
+      const p6Kwh = this.parseLocaleNumber(d.consumosKWh && d.consumosKWh.p6) || 0;
+      const sumPeriodsKwh = p1Kwh + p2Kwh + p3Kwh + p4Kwh + p5Kwh + p6Kwh;
+      let totalKwh = this.parseLocaleNumber(d.consumosKWh && d.consumosKWh.total) || sumPeriodsKwh;
+      if (sumPeriodsKwh > 0 && totalKwh > 0 && Math.abs(sumPeriodsKwh - totalKwh * 1000) < 50) {
+        totalKwh = sumPeriodsKwh;
+      }
 
-      const totalEur = parseFloat(d.totalFacturaEUR) || 0;
+      const totalEur = this.parseLocaleNumber(d.totalFacturaEUR) || 0;
       if (!totalKwh && totalEur > 0) totalKwh = Math.round((totalEur * 0.70) / 0.18);
 
       let histArray = null;
       let histTrimmed13 = false;
       if (Array.isArray(d.historicoMensualKWh) && d.historicoMensualKWh.length >= 6) {
         const cleanedHist = d.historicoMensualKWh
-          .map(v => parseFloat(v))
+          .map(v => this.parseLocaleNumber(v))
           .filter(v => Number.isFinite(v) && v >= 0);
         if (cleanedHist.length >= 6) {
           if (cleanedHist.length > 12) {
@@ -537,8 +567,8 @@ Normas estrictas:
           : rawLbl;
       }
 
-      const rawLiteral = parseFloat(d.consumoAnualLiteralFacturaKWh);
-      const rawEstimado = parseFloat(d.consumoAnualEstimadoKWh);
+      const rawLiteral = this.parseLocaleNumber(d.consumoAnualLiteralFacturaKWh);
+      const rawEstimado = this.parseLocaleNumber(d.consumoAnualEstimadoKWh);
       const chartSum = histArray ? histArray.reduce((acc, curr) => acc + curr, 0) : 0;
 
       // Separar consumo anual literal de texto vs suma visual de barras del gráfico

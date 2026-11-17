@@ -106,7 +106,6 @@
     var dz = hubH - (receptorLocal.dz || 0);
 
     var dist2D = Math.sqrt(dx * dx + dy * dy);
-    if (dist2D <= 0.1) return true;
     // Más allá de 10x el diámetro de rotor la sombra se difumina por penumbra óptica
     var maxShadowDistM = Math.max(rotorR * 20.0, 300);
     if (dist2D > maxShadowDistM) return false;
@@ -119,31 +118,26 @@
     var sunVy = Math.cos(azRad) * Math.cos(elRad);
     var sunVz = Math.sin(elRad);
 
-    // Ángulo acimutal entre el receptor y el buje
-    var bearingToHubRad = Math.atan2(dx, dy);
-    var deltaAz = Math.abs(bearingToHubRad - azRad);
-    while (deltaAz > Math.PI) deltaAz = Math.abs(deltaAz - 2 * Math.PI);
-
-    // Si el sol no está detrás del aerogenerador visto desde el receptor, no hay sombra
-    if (deltaAz > (45.0 * DEG2RAD)) return false;
-
     // Proyección en la línea de mira receptor -> sol
-    // Punto más cercano del rayo solar al centro del buje
     var tProj = (dx * sunVx + dy * sunVy + dz * sunVz);
-    if (tProj <= 0) return false; // El sol está entre la turbina y el receptor
+    if (tProj <= 0) return false; // El sol está detrás del receptor respecto a la turbina
 
     var closestX = sunVx * tProj;
     var closestY = sunVy * tProj;
     var closestZ = sunVz * tProj;
 
-    var distToHubCenter = Math.sqrt(
-      Math.pow(dx - closestX, 2) +
-      Math.pow(dy - closestY, 2) +
-      Math.pow(dz - closestZ, 2)
-    );
+    // Modelado físico como disco orientado (no esfera): proyectar vector de distancia en el plano del rotor
+    var yawRad = (typeof turbine.orientationRad === 'number') ? turbine.orientationRad : (270 * DEG2RAD);
+    var nx = Math.sin(yawRad), ny = Math.cos(yawRad); // Normal horizontal del plano del rotor
+    var cosFacing = Math.abs(sunVx * nx + sunVy * ny);
+    var effHorizScale = Math.max(0.15, cosFacing);
 
-    // Criterio astronómico: si la distancia más cercana al buje es menor o igual al radio del rotor
-    return distToHubCenter <= (rotorR * 1.05);
+    var rx = dx - closestX;
+    var ry = dy - closestY;
+    var rz = dz - closestZ;
+    var rTangential = Math.sqrt(rx * rx + ry * ry);
+    var rNormalized = Math.sqrt(Math.pow(rTangential / effHorizScale, 2) + rz * rz);
+    return rNormalized <= (rotorR * 1.05);
   }
 
   /**
@@ -277,7 +271,12 @@
     });
 
     var worstHoursYear = Number((maxMinHuman / 60.0).toFixed(1));
-    var maxMinDay = Math.round(maxDayMinutesMap[worstRec.id] || 0);
+    var maxMinDay = 0;
+    targetList.forEach(function (rec) {
+      if (!rec.isSolarField) {
+        maxMinDay = Math.max(maxMinDay, Math.round(maxDayMinutesMap[rec.id] || 0));
+      }
+    });
 
     // Límite normativo internacional: 30 h/año o 30 min/día (World Bank / Guía Alemana WEA)
     var complies30h = worstHoursYear <= 30.0;

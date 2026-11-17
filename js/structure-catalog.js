@@ -197,9 +197,10 @@
 
     setActiveManufacturer: function(mfgId, polyIdx) {
       if (!structuresState[mfgId]) return;
-      activeGlobalManufacturer = mfgId;
       if (typeof polyIdx === 'number' && root.WP && root.WP.polylines && root.WP.polylines[polyIdx]) {
         root.WP.polylines[polyIdx].structureManufacturer = mfgId;
+      } else {
+        activeGlobalManufacturer = mfgId;
       }
       if (root.BOMTreeEngine && typeof root.BOMTreeEngine.refresh === 'function') {
         root.BOMTreeEngine.refresh();
@@ -207,9 +208,15 @@
     },
 
     setPolyManufacturer: function(polyIdx, mfgId) {
-      this.setActiveManufacturer(mfgId, polyIdx);
+      if (!structuresState[mfgId]) return;
+      if (typeof polyIdx === 'number' && root.WP && root.WP.polylines && root.WP.polylines[polyIdx]) {
+        root.WP.polylines[polyIdx].structureManufacturer = mfgId;
+      }
+      if (root.BOMTreeEngine && typeof root.BOMTreeEngine.refresh === 'function') {
+        root.BOMTreeEngine.refresh();
+      }
       if (root.showStatus) {
-        root.showStatus('FABRICANTE DE ESTRUCTURA: ' + (structuresState[mfgId] ? structuresState[mfgId].brand.toUpperCase() : mfgId), 2000);
+        root.showStatus('FABRICANTE DE ESTRUCTURA (FALDÓN #' + ((polyIdx || 0) + 1) + '): ' + (structuresState[mfgId] ? structuresState[mfgId].brand.toUpperCase() : mfgId), 2000);
       }
     },
 

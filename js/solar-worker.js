@@ -10,6 +10,10 @@
 
 'use strict';
 
+try {
+  importScripts('radiation-engine.js?v=20261117_d1');
+} catch (eRadImport) {}
+
 const SOLAR_CONST = 1367;
 
 const _T_AMB_TABLE = {
@@ -121,6 +125,9 @@ function dividePanelIntoSubstrings2D(quad) {
 // ── 2. FÍSICA SOLAR Y MODELO DE RADIACIÓN ───────────────────────────────────
 
 function computeSolarPositionWorker(latDeg, lonDeg, dayOfYear, utcHour) {
+  if (typeof self !== 'undefined' && self.RA && self.RA.Radiation && typeof self.RA.Radiation.computeSolarPosition === 'function') {
+    return self.RA.Radiation.computeSolarPosition(latDeg, lonDeg, dayOfYear, utcHour, true);
+  }
   const gamma = (2 * Math.PI / 365) * (dayOfYear - 1 + (utcHour - 12) / 24);
   const eqtime = 229.18 * (0.000075 + 0.001868 * Math.cos(gamma) - 0.032077 * Math.sin(gamma)
     - 0.014615 * Math.cos(2 * gamma) - 0.040849 * Math.sin(2 * gamma));
@@ -178,6 +185,9 @@ function computeSolarPositionWorker(latDeg, lonDeg, dayOfYear, utcHour) {
 }
 
 function decomposeErbsWorker(ghi, elevation, dayOfYear) {
+  if (typeof self !== 'undefined' && self.RA && self.RA.Radiation && typeof self.RA.Radiation.decomposeErbs === 'function') {
+    return self.RA.Radiation.decomposeErbs(ghi, elevation, dayOfYear);
+  }
   const elevRad = Math.max(0.01, elevation * Math.PI / 180);
   const sinAlt = Math.sin(elevRad);
   // [AUD-2026 · D-04] Excentricidad orbital: I0(n) = 1367·(1 + 0,033·cos(360·n/365)).
@@ -419,7 +429,9 @@ self.onmessage = async function(e) {
     const tAmbMonth = (_T_AMB_TABLE[climaticZone] || _T_AMB_TABLE.interior)[m];
     const GHI_daily_Wh = (customMonthlyGHI && customMonthlyGHI[m] > 0)
       ? customMonthlyGHI[m]
-      : (4600 * (1 + 0.32 * Math.sin((m - 2) * Math.PI / 6)));
+      : ((typeof self !== 'undefined' && self.RA && self.RA.Radiation && typeof self.RA.Radiation.estimateMonthlyGHI === 'function')
+          ? self.RA.Radiation.estimateMonthlyGHI(lat, m)
+          : (4600 * (1 + 0.32 * Math.sin((m - 2) * Math.PI / 6))));
 
     const _gammaM = (2 * Math.PI / 365) * (monthsDoy[mIdx] - 1);
     const _EtM = 229.18 * (0.000075 + 0.001868 * Math.cos(_gammaM) - 0.032077 * Math.sin(_gammaM)
@@ -531,20 +543,29 @@ self.onmessage = async function(e) {
         const pNorm = p.normalENU;
         const cosTheta = Math.max(0, sp.sunVecENU.x * pNorm.x + sp.sunVecENU.y * pNorm.y + sp.sunVecENU.z * pNorm.z);
 
-        // Modelo Hay-Davies: índice de anisotropía extraterrestre Ai = G_dni / I0
-        const Rb = (sinAlt > 0.05) ? Math.max(0, cosTheta / sinAlt) : 0;
-
-        // Factor de pérdidas angulares IAM ASHRAE
-        const iam = (cosTheta > 0.005) ? Math.max(0, 1 - iamB0 * (1 / Math.max(cosTheta, 0.01) - 1)) : 0;
-
-        const G_beam = G_dni * cosTheta * iam;
-        const G_diff = G_dhi * (Ai * Rb + (1 - Ai) * p.fViewSky * p.svfAmbient);
-        const G_refl = GHI_instant * 0.20 * p.fViewGround;
-        let G_poa = G_beam + G_diff + G_refl;
-
-        if (isBifacial && bifacialityFactor > 0) {
-          G_poa += G_refl * bifacialityFactor;
+        let G_beam = 0, G_diff = 0, G_refl = 0;
+        const _radW = (typeof self !== 'undefined' && self.RA && self.RA.Radiation) ? self.RA.Radiation : null;
+        if (_radW && typeof _radW.transposeComponents === 'function') {
+          const _tp = _radW.transposeComponents({
+            ghi: GHI_instant, dhi: G_dhi, dni: G_dni,
+            cosTheta: cosTheta, tiltRad: p.tiltRad,
+            albedo: 0.20, iamB0: iamB0, sunElevDeg: sp.elevDeg,
+            diffuseModel: 'perez'
+          });
+          G_beam = _tp.G_b_eff;
+          G_diff = _tp.G_d_eff * p.svfAmbient;
+          G_refl = _tp.G_r_eff;
+        } else {
+          const Rb = (sinAlt > 0.05) ? Math.max(0, cosTheta / sinAlt) : 0;
+          const iam = (cosTheta > 0.005) ? Math.max(0, 1 - iamB0 * (1 / Math.max(cosTheta, 0.01) - 1)) : 0;
+          G_beam = G_dni * cosTheta * iam;
+          G_diff = G_dhi * (Ai * Rb + (1 - Ai) * p.fViewSky) * p.svfAmbient;
+          G_refl = GHI_instant * 0.20 * p.fViewGround;
         }
+
+        const rearViewFactor = Math.max(0.04, Math.pow(Math.sin(p.tiltRad / 2), 2));
+        const albedoGain = (isBifacial && bifacialityFactor > 0) ? (GHI_instant * 0.20 * rearViewFactor * bifacialityFactor) : 0;
+        const G_poa = G_beam + G_diff + G_refl + albedoGain;
 
         // Derating térmico
         const tCell = tAmbMonth + (noctModule - 20) * (G_poa / 800);

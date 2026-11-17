@@ -713,8 +713,13 @@
         if (tiltVal) tiltVal.textContent = scenario.numTilt + '°';
       }
 
-      // Invalidar caché y regenerar layout
+      // Invalidar caché, heatmap y producción SSOT y regenerar layout
       if (typeof roofPanelsCache !== 'undefined' && roofPanelsCache) roofPanelsCache.sig = '';
+      if (typeof window !== 'undefined' && typeof window.wpInvalidateHeatmap === 'function') {
+        window.wpInvalidateHeatmap('Escenario optimizador aplicado');
+      } else if (typeof window !== 'undefined' && window.RAProduction && typeof window.RAProduction.clearCache === 'function') {
+        window.RAProduction.clearCache();
+      }
       if (typeof computeSinglePolylineRoofInfo === 'function') {
         poly.roofInfo = computeSinglePolylineRoofInfo(poly.points, poly);
       }

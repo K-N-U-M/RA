@@ -157,7 +157,7 @@
         }
       }
 
-      const hasElements = (tree.buildings.length > 0 || tree.planes.length > 0 || tree.standalonePolylines.length > 0 || tree.obstacles.length > 0 || (tree.electrical && tree.electrical.length > 0));
+      const hasElements = (tree.buildings.length > 0 || tree.planes.length > 0 || tree.standalonePolylines.length > 0 || tree.obstacles.length > 0 || (tree.electrical && tree.electrical.length > 0) || (tree.windTurbines && tree.windTurbines.length > 0));
 
       if (!hasElements) {
         treeContent.innerHTML = `

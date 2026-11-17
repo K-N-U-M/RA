@@ -259,21 +259,27 @@
         return el ? el.value : null;
       };
 
-      // Conservar el logo existente a menos que se haya modificado explícitamente
-      const existingLogo = _currentBranding.logo || global.customCompanyLogoBase64 || (global.localStorage ? global.localStorage.getItem(STORAGE_KEY_LOGO) : '');
+      // Si global.customCompanyLogoBase64 fue vaciado explícitamente (''), respetar el borrado del logo
+      const logoClearedExplicitly = (global.customCompanyLogoBase64 === '');
+      const existingLogo = logoClearedExplicitly
+        ? ''
+        : (global.customCompanyLogoBase64 || _currentBranding.logo || (global.localStorage ? global.localStorage.getItem(STORAGE_KEY_LOGO) : ''));
 
       const updated = {
         logo: existingLogo || '',
-        name: (getVal('cfg-company-name') || _currentBranding.name || 'SOLAR 3D PRO').trim(),
-        cif: (getVal('cfg-company-cif') || _currentBranding.cif || '').trim(),
-        phone: (getVal('cfg-company-phone') || _currentBranding.phone || '').trim(),
-        web: (getVal('cfg-company-web') || _currentBranding.web || '').trim(),
+        name: (getVal('cfg-company-name') ?? _currentBranding.name ?? 'SOLAR 3D PRO').trim(),
+        cif: (getVal('cfg-company-cif') ?? _currentBranding.cif ?? '').trim(),
+        phone: (getVal('cfg-company-phone') ?? _currentBranding.phone ?? '').trim(),
+        web: (getVal('cfg-company-web') ?? _currentBranding.web ?? '').trim(),
+        email: (getVal('cfg-company-email') ?? _currentBranding.email ?? '').trim(),
+        slogan: (getVal('cfg-company-slogan') ?? _currentBranding.slogan ?? '').trim(),
         theme: getVal('cfg-proposal-theme') || _currentBranding.theme || 'emerald',
         layoutStyle: getVal('cfg-layout-style') || _currentBranding.layoutStyle || 'editorial',
         status: getVal('cfg-offer-status') || _currentBranding.status || 'vinculante',
         font: getVal('cfg-doc-font') || _currentBranding.font || 'inter',
         finTin: getVal('cfg-fin-tin') || _currentBranding.finTin || '5.95',
         finEntry: getVal('cfg-fin-entry') || _currentBranding.finEntry || '0',
+        finMeses: getVal('cfg-fin-meses') || _currentBranding.finMeses || '96',
         warPower: getVal('cfg-war-power') || _currentBranding.warPower || '25',
         warMod: getVal('cfg-war-mod') || _currentBranding.warMod || '15',
         warInv: getVal('cfg-war-inv') || _currentBranding.warInv || '12',
@@ -282,12 +288,26 @@
 
       _currentBranding = updated;
       global.customCompanyLogoBase64 = updated.logo;
+      if (!global.RA) global.RA = {};
+      global.RA.branding = _currentBranding;
 
       if (global.localStorage) {
-        global.localStorage.setItem(STORAGE_KEY_BRANDING, JSON.stringify(updated));
-        if (updated.logo) {
-          global.localStorage.setItem(STORAGE_KEY_LOGO, updated.logo);
+        try {
+          global.localStorage.setItem(STORAGE_KEY_BRANDING, JSON.stringify(updated));
+        } catch (eQuotaFull) {
+          // Si falla por cuota debido al tamaño del logo, persistir branding ligero sin logo en esa clave
+          try {
+            const light = Object.assign({}, updated, { logo: '' });
+            global.localStorage.setItem(STORAGE_KEY_BRANDING, JSON.stringify(light));
+          } catch (eLight) {}
         }
+        try {
+          if (updated.logo) {
+            global.localStorage.setItem(STORAGE_KEY_LOGO, updated.logo);
+          } else {
+            global.localStorage.removeItem(STORAGE_KEY_LOGO);
+          }
+        } catch (eQuotaLogo) {}
       }
 
       // API Key de Gemini
@@ -299,8 +319,6 @@
         setGeminiApiKey(geminiKey);
       }
 
-      if (!global.RA) global.RA = {};
-      global.RA.branding = _currentBranding;
       global.RA.geminiApiKey = getGeminiApiKey();
 
       refreshAllLogoPreviews();

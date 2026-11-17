@@ -184,15 +184,28 @@
     }
 
     _selectedTurbineIdForInspect = instance.id;
-    RAWind.Entity.addToScene(instance);
-    if (global.RAWindVisualizer && typeof global.RAWindVisualizer.selectTurbine === 'function') {
-      global.RAWindVisualizer.selectTurbine(instance.id);
-    }
-
     _placementActive = false;
     _selectedTurbineForPlacement = null;
     hidePlacementHint();
-    renderStep2Panel();
+
+    try {
+      RAWind.Entity.addToScene(instance);
+    } catch (eAdd) {
+      console.warn('[RAWindUI] Error en addToScene:', eAdd);
+    }
+    try {
+      if (global.RAWindVisualizer && typeof global.RAWindVisualizer.selectTurbine === 'function') {
+        global.RAWindVisualizer.selectTurbine(instance.id);
+      }
+    } catch (eSel) {
+      console.warn('[RAWindUI] Error en selectTurbine:', eSel);
+    }
+
+    try {
+      renderStep2Panel();
+    } catch (eRender) {
+      console.warn('[RAWindUI] Error en renderStep2Panel:', eRender);
+    }
 
     if (typeof global.wpSwitchGenTab === 'function') {
       global.wpSwitchGenTab('wind');
@@ -900,7 +913,13 @@
 
     // Tarjeta 1B: Optimizador de Ingeniería (Altura Óptima de Mástil & Espaciado Anti-Estelas 5D×3D)
     if (RAWind.Resource && typeof RAWind.Resource.recommendOptimalMastAndSpacing === 'function') {
-      var optRec = RAWind.Resource.recommendOptimalMastAndSpacing(activeTurbine, turbines, resCfg);
+      var optRec = null;
+      try {
+        var optKey = [activeTurbine.id, activeTurbine.supportStructure && activeTurbine.supportStructure.hubHeightM, turbines.length, resCfg.vMeanRefMs].join('|');
+        optRec = (_uiCalcCache.optRec && _uiCalcCache.optRecKey === optKey)
+          ? _uiCalcCache.optRec
+          : (_uiCalcCache.optRec = RAWind.Resource.recommendOptimalMastAndSpacing(activeTurbine, turbines, resCfg), _uiCalcCache.optRecKey = optKey, _uiCalcCache.optRec);
+      } catch (eOpt) { console.warn('[RAWindUI] Error en optRec:', eOpt); }
       if (optRec) {
         var needsUpgrade = optRec.recommendedHeightM !== optRec.currentHeightM && optRec.potentialGainPct > 1.0;
         var optBorder = needsUpgrade ? '#F59E0B' : '#10B981';
@@ -994,13 +1013,20 @@
       var solarAnnualKwh = 0;
       var solarMonthlyKwh = null;
 
+      var battCapKwh = 0;
       if (typeof global.getProjectCalcs === 'function') {
         try {
           var pCalcs = global.getProjectCalcs();
           if (pCalcs && typeof pCalcs.annualKWh === 'number' && pCalcs.annualKWh > 0) {
             solarAnnualKwh = pCalcs.annualKWh;
+            if (Array.isArray(pCalcs.monthly) && pCalcs.monthly.length === 12) {
+              solarMonthlyKwh = pCalcs.monthly.map(function (mo) { return Number(mo.kWh || 0); });
+            }
           } else if (pCalcs && typeof pCalcs.produccionAnual === 'number' && pCalcs.produccionAnual > 0) {
             solarAnnualKwh = pCalcs.produccionAnual;
+          }
+          if (pCalcs && pCalcs.battery && typeof pCalcs.battery.totalKwh === 'number') {
+            battCapKwh = pCalcs.battery.totalKwh;
           }
         } catch (eCalcs) {}
       }
@@ -1024,18 +1050,25 @@
       }
 
       var windAnnualKwh = parkSummary.totalAepNetKwh || 0;
-      var consAnnualKwh = (global.solarProjectConfig && global.solarProjectConfig.manualAnnualConsumptionKWh) || 35000;
-      var battCapKwh = (global.inverterEquipmentState && global.inverterEquipmentState.batteryCapacityKwh) || 0;
+      var billCons = (global.RA && global.RA.billAuditor && global.RA.billAuditor.comparison && global.RA.billAuditor.comparison.consumoAnualKWh) || 0;
+      var consAnnualKwh = billCons > 0 ? billCons : ((global.solarProjectConfig && global.solarProjectConfig.manualAnnualConsumptionKWh) || 35000);
 
-      var dispatch = global.RAWind.HybridDispatch.simulateHybridDispatch8760({
-        annualSolarKwh: solarAnnualKwh,
-        monthlySolarKwh: solarMonthlyKwh,
-        annualWindKwh: windAnnualKwh,
-        annualConsumptionKwh: consAnnualKwh,
-        batteryCapacityKwh: battCapKwh,
-        capexSolarEur: (global._lastFinModel && global._lastFinModel.capexTotal) || 0,
-        capexWindEur: (parkSummary.totalRatedKw || 0) * 1450
-      });
+      var dispatch = null;
+      try {
+        var dispKey = [Math.round(solarAnnualKwh), Math.round(windAnnualKwh), Math.round(consAnnualKwh), battCapKwh].join('|');
+        dispatch = (_uiCalcCache.dispatch && _uiCalcCache.dispatchKey === dispKey)
+          ? _uiCalcCache.dispatch
+          : (_uiCalcCache.dispatch = global.RAWind.HybridDispatch.simulateHybridDispatch8760({
+              annualSolarKwh: solarAnnualKwh,
+              monthlySolarKwh: solarMonthlyKwh,
+              annualWindKwh: windAnnualKwh,
+              annualConsumptionKwh: consAnnualKwh,
+              batteryCapacityKwh: battCapKwh,
+              capexSolarEur: (global._lastFinModel && global._lastFinModel.capexTotal) || 0,
+              capexWindEur: (parkSummary.totalRatedKw || 0) * 1450
+            }), _uiCalcCache.dispatchKey = dispKey, _uiCalcCache.dispatch);
+      } catch (eDisp) { console.warn('[RAWindUI] Error en dispatch:', eDisp); }
+      if (dispatch) {
 
       html += '<div style="background:rgba(15,23,42,0.85);border-left:3px solid #8B5CF6;border-radius:4px;padding:7px 9px;margin-bottom:6px;font-size:10px;">';
       html += '  <div style="display:flex;justify-content:space-between;font-weight:700;color:#C4B5FD;margin-bottom:3px;">';
@@ -1049,6 +1082,7 @@
       html += '    Ahorro Total Estimado: <b style="color:#FBBF24;">' + dispatch.annualSavingsEur.toLocaleString('es-ES') + ' €/año</b> · LCOE Híbrido: <b>' + dispatch.lcoeHybridEurKwh.toFixed(3) + ' €/kWh</b>';
       html += '  </div>';
       html += '</div>';
+      }
     }
 
     // Tarjeta 6: Parpadeo de Sombras (Shadow Flicker) sobre Paneles y Receptores

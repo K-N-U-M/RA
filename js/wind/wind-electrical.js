@@ -58,9 +58,10 @@
     var pos = turbineInstance.positionCartographic;
     var Cesium = global.Cesium;
 
-    if (pos && Cesium && (global.inverterPosition || global.gridMeterPosition)) {
+    var eqState = global.inverterEquipmentState || {};
+    var targetCart = eqState.position || (eqState.gridMeter && eqState.gridMeter.position) || global.inverterPosition || global.gridMeterPosition || null;
+    if (pos && Cesium && targetCart) {
       try {
-        var targetCart = global.inverterPosition || global.gridMeterPosition;
         var turbCart = Cesium.Cartesian3.fromRadians(
           pos.longitudeRad || 0,
           pos.latitudeRad || 0,
@@ -104,8 +105,8 @@
     var maxDropPct = C.REBT_MAX_VOLTAGE_DROP_PCT || 1.5;
     var dumpMargin = C.DUMP_LOAD_MARGIN_FACTOR || 1.20;
     var dumpDurationMin = C.DUMP_LOAD_DURATION_MIN || 30;
-    // UNE-HD 60364-5-52 / REBT ITC-BT-40: Conductividad de servicio a 90°C para cables XLPE/EPR (kappa=44, rho=0.0227 Ω·mm²/m)
-    var rhoCu = 0.0227;
+    // UNE-HD 60364-5-52 / REBT ITC-BT-40: Resistividad de servicio unificada a 90°C (0.023 Ω·mm²/m)
+    var rhoCu = 0.023;
 
     var ratedPowerW = Number(cat.ratedPowerW) || 10000;
     var ratedKw = ratedPowerW / 1000;
@@ -156,8 +157,8 @@
     // 3. Dimensionamiento del banco de resistencias de frenado (Dump Load)
     var dumpLoadKw = Number(elecSpec.dumpLoadRequiredKw) || Number((ratedKw * dumpMargin).toFixed(2));
     var dumpLoadW = dumpLoadKw * 1000;
-    // Tensión del bus DC rectificado (V_dc ≈ 1.35 · V_ll en trifásica o V_dc directo en 48V)
-    var dcBusVoltageV = isDcBus ? (voltageV * 1.15) : Math.round(voltageV * 1.35);
+    // Tensión del bus DC (directo en CC, 1.35·V_ll en trifásico, 0.90·V_ln en monofásico rectificado)
+    var dcBusVoltageV = isDcBus ? voltageV : (isThreePhase ? Math.round(voltageV * 1.35) : Math.round(voltageV * 0.90));
     var dumpResistanceOhm = Number(((dcBusVoltageV * dcBusVoltageV) / Math.max(100, dumpLoadW)).toFixed(2));
     var dumpMaxCurrentA = Number((dumpLoadW / dcBusVoltageV).toFixed(1));
     var dumpThermalEnergyKwh = Number((dumpLoadKw * (dumpDurationMin / 60)).toFixed(2));
@@ -192,8 +193,12 @@
         dissipatedEnergy30MinKwh: dumpThermalEnergyKwh
       },
       protections: {
-        mcbSpec: 'Magnetotérmico ' + polesLabel + ' ' + breakerAmps + ' A Curva C (6 kA)',
-        rcdSpec: 'Diferencial ' + polesLabel + ' ' + Math.max(25, breakerAmps) + ' A / 300 mA Clase B (sensible a corrientes continuas alisadas PMSG)',
+        mcbSpec: isDcBus
+          ? ('Interruptor Seccionador CC ' + polesLabel + ' ' + breakerAmps + ' A + Fusibles gPV/CC (1000V DC)')
+          : ('Magnetotérmico ' + polesLabel + ' ' + breakerAmps + ' A Curva C (6 kA)'),
+        rcdSpec: isDcBus
+          ? ('No aplica diferencial AC en bus ' + voltageV + 'V CC (protección por aislamiento/fusible CC)')
+          : ('Diferencial ' + polesLabel + ' ' + Math.max(25, breakerAmps) + ' A / 300 mA Clase B (sensible a corrientes continuas alisadas PMSG)'),
         spdTowerBase: 'Descargador Sobretensiones Tipo 1+2 (Iimp ≥ 12,5 kA 10/350 µs) en base de mástil (ITC-BT-23)',
         spdMainBoard: 'Descargador Sobretensiones Tipo 2 (In ≥ 20 kA 8/20 µs) en cuadro de sincronización',
         earthingSpec: 'Pica de tierra independiente en pie de torre (R_t ≤ 10 Ω) equipotencializada con armadura de zapata'

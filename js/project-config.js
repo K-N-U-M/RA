@@ -1,6 +1,6 @@
 window.solarProjectConfig = {
   selectedModuleId: 'ja_550',
-  selectedInverterId: 'inv_huawei_10k',
+  selectedInverterId: 'inv_huawei_5ktl_l1',
   selectedMicroinverterId: 'mlpe_hoymiles_800',
   selectedBatteryId: 'bat_huawei_5k',
   selectedProtectionDcId: 'panel_dc_2mppt',
@@ -593,7 +593,7 @@ function step3UpdateHardwareSelection() {
     const vOcCold = (mod.voc || 41.5) * (1 + gammaVoc * (tMin - 25));
     const vMpHot = (mod.vmp || 34.5) * (1 + gammaVoc * 1.05 * (tMaxCell - 25));
     nMaxCold = Math.floor((inv.vDcMax || 1000) / vOcCold);
-    nMinMppt = Math.ceil((inv.vMpptNomMin || 180) / vMpHot);
+    nMinMppt = Math.ceil((inv.vMpptMin || inv.vMpptNomMin || 180) / vMpHot);
   }
   const nMaxInvPower = Math.floor(((inv.kw || 5.0) * 1000 * (inv.maxOverload || 1.35)) / (mod.wp || 450));
 
@@ -1116,11 +1116,15 @@ function wpComputeAutoSizing(forcedCount) {
 
   const autoInverters = Math.max(autoInvertersByPower, autoInvertersByMppt);
 
-  // 2. Microinversores MLPE:
+  // 2. Microinversores MLPE (conteo unificado 1/2/4-en-1):
   let ratio = 1;
-  const miTxt = ((mi && mi.model ? mi.model : '') + ' ' + (mi && mi.type ? mi.type : '')).toLowerCase();
-  if (miTxt.includes('2-en-1') || miTxt.includes('2 módulos') || miTxt.includes('800')) ratio = 2;
-  else if (miTxt.includes('4-en-1') || miTxt.includes('4 módulos') || miTxt.includes('1600')) ratio = 4;
+  if (typeof window !== 'undefined' && typeof window.raGetMicroinverterRatio === 'function') {
+    ratio = window.raGetMicroinverterRatio(mi);
+  } else {
+    const miTxt = ((mi && mi.model ? mi.model : '') + ' ' + (mi && mi.type ? mi.type : '')).toLowerCase();
+    if (miTxt.includes('4-en-1') || miTxt.includes('4 módulos') || miTxt.includes('1600') || miTxt.includes('2000')) ratio = 4;
+    else if (miTxt.includes('2-en-1') || miTxt.includes('2 módulos') || miTxt.includes('dual') || miTxt.includes('800')) ratio = 2;
+  }
   const autoMicros = Math.max(1, Math.ceil(count / ratio));
 
   // 3. Baterías LFP:

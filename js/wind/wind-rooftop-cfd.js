@@ -158,10 +158,28 @@
         if (Number(matchedBld.height) > 0) H = Number(matchedBld.height);
         if (Number(matchedBld.rectLadoA) > 0) W = Number(matchedBld.rectLadoA);
         if (Number(matchedBld.rectLadoB) > 0) L = Number(matchedBld.rectLadoB);
-        if (isFinite(minDist) && minDist < Math.max(W, L)) {
-          xSetback = Math.max(0.5, Math.min(L * 0.85, minDist));
+        var windDirDeg = (RAWind.Resource && typeof RAWind.Resource.getConfig === 'function')
+          ? (Number(RAWind.Resource.getConfig().prevailingWindDirDeg) || 270)
+          : 270;
+        var windRad = windDirDeg * Math.PI / 180.0;
+        // Distancia desde el borde de barlovento según la dirección predominante del viento
+        var halfExtentWind = 0.5 * (Math.abs(Math.sin(windRad)) * W + Math.abs(Math.cos(windRad)) * L);
+        if (isFinite(minDist) && matchedBld.points && matchedBld.points.length >= 3 && typeof global.Cesium !== 'undefined') {
+          try {
+            var bCenter = { x: 0, y: 0, z: 0 };
+            matchedBld.points.forEach(function (pt) { bCenter.x += pt.x; bCenter.y += pt.y; bCenter.z += pt.z; });
+            bCenter.x /= matchedBld.points.length; bCenter.y /= matchedBld.points.length; bCenter.z /= matchedBld.points.length;
+            var bc = global.Cesium.Cartographic.fromCartesian(bCenter);
+            var offE = (tPos.longitudeRad - bc.longitude) * 6371000 * Math.cos(tPos.latitudeRad);
+            var offN = (tPos.latitudeRad - bc.latitude) * 6371000;
+            // Proyección aguas abajo desde el borde de barlovento (+1 en dirección hacia donde sopla el viento)
+            var downwindProj = (-offE * Math.sin(windRad)) + (-offN * Math.cos(windRad));
+            xSetback = Math.max(0.5, Math.min(halfExtentWind * 2.0, halfExtentWind + downwindProj));
+          } catch (eSb) {
+            xSetback = Math.max(0.5, halfExtentWind * 0.5);
+          }
         } else {
-          xSetback = Math.max(1.0, L * 0.25);
+          xSetback = Math.max(1.0, halfExtentWind * 0.5);
         }
       } else if (global.WP && Array.isArray(global.WP.polylines) && global.WP.polylines.length > 0) {
         var p0 = global.WP.polylines[0];

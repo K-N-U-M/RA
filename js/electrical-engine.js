@@ -66,8 +66,8 @@
     const liveInv = (root.solarProjectConfig && root.solarProjectConfig.calculatedLimits &&
                      root.solarProjectConfig.calculatedLimits.inverter) || null;
     const Vmax_inv   = invParams.Vmax     || invParams.vDcMax || invParams.vMax || (liveInv ? (liveInv.vDcMax || liveInv.vMax || 1000) : 1000.0);
-    const Vmppt_min  = invParams.VmpptMin || invParams.vMpptMin || invParams.vMpptNomMin || (liveInv ? (liveInv.vMpptNomMin || liveInv.vMpptMin || 200) : 200.0);
-    const Vmppt_max  = invParams.VmpptMax || invParams.vMpptMax || invParams.vMpptNomMax || (liveInv ? (liveInv.vMpptNomMax || liveInv.vMpptMax || 850) : 850.0);
+    const Vmppt_min  = invParams.VmpptMin || invParams.vMpptMin || invParams.vMpptNomMin || (liveInv ? (liveInv.vMpptMin || liveInv.vMpptNomMin || 200) : 200.0);
+    const Vmppt_max  = invParams.VmpptMax || invParams.vMpptMax || invParams.vMpptNomMax || (liveInv ? (liveInv.vMpptMax || liveInv.vMpptNomMax || 850) : 850.0);
 
     // Zonificación térmica peninsular de diseño en frío (CTE DB-HE1 / UNE 206007 / IDAE)
     function getCTEZonificationTmin(lat, lng, altitudM) {
@@ -79,9 +79,10 @@
       return ELEC_CONSTANTS.T_MIN_SPAIN;
     }
 
-    const projLat = climParams.lat || (root.solarProjectConfig && root.solarProjectConfig.lat);
-    const projLng = climParams.lng || (root.solarProjectConfig && root.solarProjectConfig.lng);
-    const defaultTmin = (projLat != null) ? getCTEZonificationTmin(Number(projLat), Number(projLng)) : ELEC_CONSTANTS.T_MIN_SPAIN;
+    const projLat = climParams.lat ?? climParams.latitude ?? (root.solarProjectConfig && (root.solarProjectConfig.lat ?? root.solarProjectConfig.latitude));
+    const projLng = climParams.lng ?? climParams.longitude ?? climParams.lon ?? (root.solarProjectConfig && (root.solarProjectConfig.lng ?? root.solarProjectConfig.longitude ?? root.solarProjectConfig.lon));
+    const projAlt = climParams.altitudM ?? climParams.altitude ?? (root.solarProjectConfig && root.solarProjectConfig.altitude);
+    const defaultTmin = (projLat != null && projLng != null) ? getCTEZonificationTmin(Number(projLat), Number(projLng), projAlt != null ? Number(projAlt) : undefined) : ELEC_CONSTANTS.T_MIN_SPAIN;
 
     const Tmin = climParams.Tmin !== undefined ? climParams.Tmin : (climParams.tMinCold !== undefined ? climParams.tMinCold : defaultTmin);
     const Tmax_cell = climParams.TmaxCell !== undefined ? climParams.TmaxCell : (climParams.tMaxHot !== undefined ? climParams.tMaxHot : 70.0);
@@ -573,6 +574,43 @@
     return 3;
   }
 
+  /**
+   * Ratio unificado de módulos por unidad de microinversor (1/2/4-en-1).
+   */
+  function raGetMicroinverterRatio(miSpec) {
+    if (miSpec && typeof miSpec.inputsPerUnit === 'number' && miSpec.inputsPerUnit >= 1) return Math.round(miSpec.inputsPerUnit);
+    if (miSpec && typeof miSpec.modulesPerUnit === 'number' && miSpec.modulesPerUnit >= 1) return Math.round(miSpec.modulesPerUnit);
+    const txt = (((miSpec && miSpec.model) || '') + ' ' + ((miSpec && miSpec.type) || '')).toLowerCase();
+    if (txt.includes('4-en-1') || txt.includes('4 módulos') || txt.includes('4 modulos') || txt.includes('1600') || txt.includes('2000') || txt.includes('quad')) return 4;
+    if (txt.includes('2-en-1') || txt.includes('2 módulos') || txt.includes('2 modulos') || txt.includes('dual') || txt.includes('800')) return 2;
+    return 1;
+  }
+
+  /**
+   * Cálculo consolidado de protección diferencial AC (REBT ITC-BT-40 / IEC 62109-2).
+   * Calibre mínimo 25 A; Clase B si inversor sin transformador sin certificación RCMU <=6mA DC,
+   * o en trifásico / potencia > 10 kW; Clase A-SI en microinversor o RCMU certificado monofásico <= 10 kW.
+   */
+  function raResolveRcdSpec(opts = {}) {
+    const igaIn = Number(opts.igaIn) || 25;
+    const isThreePhase = Boolean(opts.isThreePhase);
+    const totalAcKw = Number(opts.totalAcKw) || 0;
+    const topo = opts.topology || (typeof root !== 'undefined' && root.solarProjectConfig ? root.solarProjectConfig.selectedTopology : 'inverter');
+    const inv = opts.inv || null;
+    const rcmuCertified = (opts.rcmuCertified !== undefined)
+      ? Boolean(opts.rcmuCertified)
+      : Boolean(inv && (inv.rcmu === true || inv.hasRcmu === true || inv.rcmuCertified === true));
+    const isTransformerIsolatedMicro = (topo === 'microinverter');
+    const requiresClassB = (!isTransformerIsolatedMicro && !rcmuCertified) || isThreePhase || totalAcKw > 10.0;
+    const rcdType = requiresClassB ? 'Clase B' : 'Clase A-SI';
+    const sensMa = (opts.esIndustrial || (isThreePhase && (igaIn >= 63 || totalAcKw > 15.0))) ? 300 : 30;
+    return {
+      inA: Math.max(igaIn, 25),
+      rcdType,
+      sensibilidadMa: sensMa
+    };
+  }
+
   function matchInvertersFromCatalog(options = {}) {
     const catalog = options.invertersCatalog || [];
     const moduleSpec = options.module || {};
@@ -587,8 +625,9 @@
     const compatible = [];
 
     catalog.forEach(inv => {
-      const isInvSinglePhase = inv.type && inv.type.includes('Monofásico');
-      const isInvThreePhase = inv.type && inv.type.includes('Trifásico');
+      const invPhases = raInverterPhases(inv);
+      const isInvSinglePhase = (invPhases === 1);
+      const isInvThreePhase = (invPhases === 3);
 
       if (gridSupply === 'single_phase' && isInvThreePhase) {
         return;
@@ -749,7 +788,7 @@
         let countPhaseMismatch = 0;
         let countCurrentMismatch = 0;
         catalog.forEach(inv => {
-          const isInvThreePhase = inv.type && inv.type.includes('Trifásico');
+          const isInvThreePhase = (raInverterPhases(inv) === 3);
           if (gridSupply === 'single_phase' && isInvThreePhase) countPhaseMismatch++;
           const _modsPerString = options.modulesPerString || 12;
           const _nStrings = Math.max(1, Math.ceil(totalPanels / _modsPerString));
@@ -1140,7 +1179,7 @@
     };
 
     // 2. PROTECCIONES AC (Lado de evacuación / conexión a red)
-    const gridSupply = params.gridSupply || (params.isThreePhase ? 'three_phase' : (inv.type && inv.type.includes('Trifásico') ? 'three_phase' : 'single_phase'));
+    const gridSupply = params.gridSupply || (params.isThreePhase ? 'three_phase' : (raInverterPhases(inv) === 3 ? 'three_phase' : 'single_phase'));
     const isThreePhase = gridSupply === 'three_phase';
     const vac = isThreePhase ? 400 : 230;
 
@@ -1176,20 +1215,26 @@
     // [AUD-2026 · C-04] No se asume RCMU: sin dato explícito del datasheet, la protección
     // correcta para un inversor sin transformador es Tipo B. Antes se asumía "certificado"
     // para cualquier equipo y se especificaba Tipo A-SI sin verificar.
-    const rcmuCertified = (params.rcmuCertified !== undefined)
-      ? !!params.rcmuCertified
-      : !!(inv && (inv.rcmu === true || inv.hasRcmu === true || inv.rcmuCertified === true));
-    const rcdType = rcmuCertified ? 'Tipo A Superinmunizado (A-SI / Hpi / Si)' : 'Tipo B';
-    const sensibilidadMa = (params.esIndustrial || (isThreePhase && igaIn >= 63)) ? 300 : 30;
+    const rcdSpec = raResolveRcdSpec({
+      igaIn,
+      isThreePhase,
+      totalAcKw: params.pAcNomKw || inv.kw || 5.0,
+      topology: params.topology,
+      inv,
+      rcmuCertified: params.rcmuCertified,
+      esIndustrial: params.esIndustrial
+    });
+    const rcdType = rcdSpec.rcdType;
+    const sensibilidadMa = rcdSpec.sensibilidadMa;
 
     const acRcd = {
       tipo: 'Interruptor Diferencial (RCD)',
       clase: rcdType,
-      inA: Math.max(igaIn, 25), // El diferencial debe ser de calibre igual o superior al IGA
+      inA: rcdSpec.inA, // Calibre >= IGA y mínimo 25 A
       sensibilidadMa: sensibilidadMa,
       polos: polosAc,
       norma: 'REBT ITC-BT-40 / IEC 62109-2 / UNE-EN 61008-1',
-      descripcion: `Diferencial ${polosAc} ${Math.max(igaIn, 25)}A / ${sensibilidadMa}mA ${rcdType}`
+      descripcion: `Diferencial ${polosAc} ${rcdSpec.inA}A / ${sensibilidadMa}mA ${rcdType}`
     };
 
     // Descargador de sobretensiones AC (SPD Clase II + POP según UNE-EN 50550 / REBT ITC-BT-23):
@@ -1520,8 +1565,10 @@
       const m = assign.get(p.stringName);
       if (!m) return;
       if (p.mpptId !== m) { p.mpptId = m; changed++; }
-      if (typeof p.tag === 'string' && p.tag.indexOf(':') !== -1) {
-        p.tag = 'MPPT' + m + ':' + p.tag.slice(p.tag.indexOf(':') + 1);
+      if (typeof p.tag === 'string' && p.tag.length > 0) {
+        const hasInPrefix = p.tag.indexOf('[+ IN]') !== -1;
+        const bareTag = p.tag.replace(/^(\[\+\s*IN\]\s*)+/, '').replace(/^MPPT\d+:/i, '');
+        p.tag = (hasInPrefix ? '[+ IN] ' : '') + 'MPPT' + m + ':' + bareTag;
       }
     });
 
@@ -1943,7 +1990,7 @@
     }
 
     // Evaluar si es monofásico pero excede el límite habitual de 5 kW de inyección de distribuidora
-    const isSinglePhase = (currentInv.type && currentInv.type.includes('Monofásico')) || (currentInv.phases === 1);
+    const isSinglePhase = (raInverterPhases(currentInv) === 1);
     const exceedsSinglePhase5kW = isSinglePhase && (currentInv.kw > 5.0);
 
     // Si está perfectamente ajustado
@@ -2289,7 +2336,7 @@
   const total_P_ac_kW = inv_kW * invCount;
   const total_ac_kW = total_P_ac_kW;
   const _selInv = (typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.calculatedLimits && window.solarProjectConfig.calculatedLimits.inverter) || null;
-  let monofasico = (activeInv && typeof activeInv.phases === 'number') ? (activeInv.phases === 1) : ((typeof window !== 'undefined' && typeof window.raInverterPhases === 'function' && _selInv) ? (window.raInverterPhases(_selInv) === 1) : (inv_kW <= 5.0));
+  let monofasico = activeInv ? (raInverterPhases(activeInv) === 1) : (_selInv ? (raInverterPhases(_selInv) === 1) : (inv_kW <= 5.0));
   // Salvaguarda RD 1699/2011 Art. 12.2 (mod. RD 244/2019): Pn > 15 kW en AC es obligatoriamente trifásica (admisible hasta 20.25 kWp en DC con ratio 1.35x)
   if (total_ac_kW > 15.0 || P_dc_kW > 20.25) {
     monofasico = false;
@@ -2314,7 +2361,8 @@
   // Factor de bifacialidad bajo UNE-EN 62548 (ganancia de albedo en strings bifaciales)
   const isBifacialMod = !!(cfg && (cfg.bifacial || cfg.isBifacial || (cfg.bifacialityFactor && cfg.bifacialityFactor > 0)));
   const bifacialGainFactor = isBifacialMod ? 1.15 : 1.0;
-  const I_dc_design = 1.25 * (Isc * bifacialGainFactor);
+  // IEC 62548 Clause 5.2.1: 1.56 × Isc (1.25 × 1.25) alineado con el motor de cableado 3D
+  const I_dc_design = 1.56 * (Isc * bifacialGainFactor);
   // [AUD-2026 · C-05] Fuente única de secciones/ampacidad: js/electrical-engine.js.
   // Si el módulo no está disponible (carga parcial), se usa la copia mínima de respaldo.
   const _RA_SEC = (typeof window !== 'undefined' && window.RA && window.RA.Electrical && window.RA.Electrical.SECCIONES) || null;
@@ -2377,10 +2425,39 @@
 
   const STD_IGA = [16, 20, 25, 32, 40, 50, 63, 80, 100, 125, 160, 200, 250];
   const I_iga = STD_IGA.find(i => i >= I_ac_design) || (I_ac_design > 125 ? Math.ceil(I_ac_design / 10) * 10 : 63);
-  const dif_amp = I_iga;
   const spdType = "Tipo I+II (1000 V CC / 400 V AC - 40 kA)";
-  const rcdType = (!monofasico || total_ac_kW > 10.0) ? 'Clase B' : 'Clase A';
-  const rcdSensMa = (!monofasico && total_ac_kW > 15.0) ? 300 : 30;
+  const rcdSpec = raResolveRcdSpec({
+    igaIn: I_iga,
+    isThreePhase: !monofasico,
+    totalAcKw: total_ac_kW,
+    inv: activeInv || _selInv
+  });
+  const dif_amp = rcdSpec.inA;
+  const rcdType = rcdSpec.rcdType;
+  const rcdSensMa = rcdSpec.sensibilidadMa;
+
+  // Cálculo de fusibles gPV por MPPT (>= 3 cadenas en paralelo en el mismo MPPT, IEC 62548 Cláusula 6.5.3)
+  let stringsPerMpptMax = 1;
+  const renderedActive = (typeof root !== 'undefined' && Array.isArray(root.allRenderedPanels))
+    ? root.allRenderedPanels.filter(p => p && !p.deleted && !p.disabled && p.stringName && p.mpptId)
+    : [];
+  if (renderedActive.length > 0) {
+    const perMpptStrings = new Map();
+    renderedActive.forEach(p => {
+      if (!perMpptStrings.has(p.mpptId)) perMpptStrings.set(p.mpptId, new Set());
+      perMpptStrings.get(p.mpptId).add(p.stringName);
+    });
+    perMpptStrings.forEach(sSet => {
+      if (sSet.size > stringsPerMpptMax) stringsPerMpptMax = sSet.size;
+    });
+  } else {
+    const mpptTotal = Math.max(1, ((activeInv && activeInv.mppt) || 2) * invCount);
+    stringsPerMpptMax = Math.max(1, Math.ceil(numStrings / mpptTotal));
+  }
+  const useFuses = (stringsPerMpptMax >= 3);
+  const fuseMinA = Math.ceil(Isc * 1.56);
+  const fuseRatings = [12, 15, 16, 20, 25, 30, 32];
+  const fuse_std = useFuses ? (fuseRatings.find(f => f >= fuseMinA) || fuseMinA) : null;
 
   const prInfo = (typeof window !== 'undefined' && typeof window.raCalculateSystemPR === 'function')
     ? window.raCalculateSystemPR(1.0 - 0.075) // derating térmico estándar 7.5%
@@ -2415,6 +2492,9 @@
     rcdType,
     rcdSensMa,
     numStrings,
+    stringsPerMpptMax,
+    useFuses,
+    fuse_std,
     modsPerString,
     minModsPerString,
     maxModsPerString,
@@ -2468,6 +2548,8 @@
   root.validateMPPTHomogeneity = validateMPPTHomogeneity;
   root.calculateInverterEfficiencyAndClipping = calculateInverterEfficiencyAndClipping;
   root.raInverterPhases = raInverterPhases;
+  root.raGetMicroinverterRatio = raGetMicroinverterRatio;
+  root.raResolveRcdSpec = raResolveRcdSpec;
 
   if (!root.RA) root.RA = {};
   root.RA.Electrical = {
@@ -2495,6 +2577,8 @@
     validateMPPTHomogeneity: validateMPPTHomogeneity,
     calculateInverterEfficiencyAndClipping: calculateInverterEfficiencyAndClipping,
     raInverterPhases: raInverterPhases,
+    getMicroinverterRatio: raGetMicroinverterRatio,
+    resolveRcdSpec: raResolveRcdSpec,
     updateInverterAssistant: wpUpdateInverterSmartAssistantUI,
     applyRecommendedInverter: wpApplyRecommendedInverter,
     updateMeterPlacementGuide: wpUpdateMeterPlacementGuideUI,

@@ -202,7 +202,7 @@
    * Interpola la potencia eléctrica P(v) y el coeficiente de empuje Ct(v) de la curva del fabricante,
    * escalando la velocidad efectiva o potencia según la relación de densidades IEC 61400-12-1.
    */
-  function interpolatePowerCurve(powerCurve, vMs, airDensity, ratedPowerW, cutInMs, cutOutMs) {
+  function interpolatePowerCurve(powerCurve, vMs, airDensity, ratedPowerW, cutInMs, cutOutMs, ratedSpeedMs) {
     var rhoStd = (RAWind.CONSTANTS && RAWind.CONSTANTS.AIR_DENSITY_STD) || 1.225;
     var rho = Number(airDensity) || rhoStd;
     var cutIn = Number(cutInMs) || 2.5;
@@ -213,13 +213,11 @@
       return { powerW: 0, ct: 0.05 };
     }
 
-    // Corrección IEC 61400-12-1 de velocidad equivalente para turbinas reguladas por pérdida o paso:
-    // v_eq = v · (ρ / ρ_0)^(1/3)
+    // Corrección IEC 61400-12-1 de velocidad equivalente (tras validar cutIn/cutOut físicos):
     var vEq = vMs * Math.pow(rho / rhoStd, 1 / 3);
 
     if (!Array.isArray(powerCurve) || powerCurve.length === 0) {
-      // Curva analítica cúbica de respaldo
-      var vRated = 11.0;
+      var vRated = (Number(ratedSpeedMs) > cutIn) ? Number(ratedSpeedMs) : 11.0;
       if (vEq >= vRated) return { powerW: pRated, ct: 0.32 };
       var norm = (vEq - cutIn) / Math.max(1.0, vRated - cutIn);
       var pEst = pRated * Math.min(1.0, Math.pow(Math.max(0, norm), 2.5));
@@ -227,10 +225,9 @@
     }
 
     if (vEq <= powerCurve[0].v) {
-      if (vEq < cutIn) return { powerW: 0, ct: 0.05 };
-      var frac0 = (vEq - cutIn) / Math.max(0.1, powerCurve[0].v - cutIn);
+      var frac0 = Math.max(0, (vMs - cutIn) / Math.max(0.1, powerCurve[0].v - cutIn));
       return {
-        powerW: Math.max(0, powerCurve[0].p * Math.max(0, Math.min(1, frac0))),
+        powerW: Math.max(0, powerCurve[0].p * Math.min(1, frac0)),
         ct: powerCurve[0].ct || 0.40
       };
     }
@@ -319,14 +316,26 @@
     // Si los discos no se solapan, no hay pérdida por estela
     if (radialOffset >= rWake + rDown) return 0;
 
-    // Fracción de solapamiento geométrico entre el rotor aguas abajo y el cono de estela
+    // Fracción de solapamiento geométrico exacto (intersección de dos círculos)
     var overlapFraction = 1.0;
     if (radialOffset > Math.abs(rWake - rDown)) {
-      overlapFraction = Math.max(0, Math.min(1, (rWake + rDown - radialOffset) / (2 * rDown)));
+      var d2 = radialOffset * radialOffset;
+      var r1_2 = rWake * rWake;
+      var r2_2 = rDown * rDown;
+      var cosA = Math.max(-1, Math.min(1, (d2 + r1_2 - r2_2) / (2 * radialOffset * rWake)));
+      var cosB = Math.max(-1, Math.min(1, (d2 + r2_2 - r1_2) / (2 * radialOffset * rDown)));
+      var areaIntersect = r1_2 * Math.acos(cosA) + r2_2 * Math.acos(cosB) -
+        0.5 * Math.sqrt(Math.max(0, (-radialOffset + rWake + rDown) * (radialOffset + rWake - rDown) * (radialOffset - rWake + rDown) * (radialOffset + rWake + rDown)));
+      var rotorArea = Math.PI * r2_2;
+      overlapFraction = rotorArea > 0 ? Math.max(0, Math.min(1, areaIntersect / rotorArea)) : 0;
     }
 
-    var ct = 0.42; // Coeficiente de empuje medio en zona de operación
-    var baseDeficit = (1 - Math.sqrt(1 - ct)) / Math.pow(1 + (2 * kw * xDown) / dUp, 2);
+    var ct = 0.42;
+    if (upstream._catalog && Array.isArray(upstream._catalog.powerCurve) && upstream._catalog.powerCurve.length > 0) {
+      var midPt = upstream._catalog.powerCurve[Math.floor(upstream._catalog.powerCurve.length / 2)];
+      if (midPt && typeof midPt.ct === 'number' && midPt.ct > 0 && midPt.ct < 1.0) ct = midPt.ct;
+    }
+    var baseDeficit = (1 - Math.sqrt(Math.max(0.01, 1 - ct))) / Math.pow(1 + (2 * kw * xDown) / dUp, 2);
     return Math.max(0, Math.min(0.75, baseDeficit * overlapFraction));
   }
 
@@ -383,14 +392,12 @@
       return invalidRes;
     }
 
-        var siteBaseAlt = Number(cfg.siteAltitudeM) || 100;
+    var siteBaseAlt = Number(cfg.siteAltitudeM) || 100;
     var turbAltitudeM = (turbineInstance.positionCartographic && typeof turbineInstance.positionCartographic.altitudeM === "number")
       ? turbineInstance.positionCartographic.altitudeM
       : siteBaseAlt;
-    // Elevación neta vertical del aerogenerador sobre la rasante de referencia del terreno:
-    var deltaZTerrain = Math.max(0, turbAltitudeM - siteBaseAlt);
-    // Altura efectiva del buje respecto a la capa límite del suelo:
-    var effectiveHubHeightM = Math.max(hubH, hubH + deltaZTerrain);
+    // Altura efectiva AGL sobre cubierta/terreno (sin sumar altitud s.n.m. sobre referencia de 100m)
+    var effectiveHubHeightM = Math.max(2.0, hubH);
 
     var rho = calculateAirDensity(turbAltitudeM + hubH, cfg.ambientTempC);
 
@@ -473,7 +480,7 @@
       var etaLow = Math.max(0.50, Math.min(etaNom, Number(cat.lowLoadEfficiencyPct || 80.0) / 100.0));
 
       for (var v = 0.5; v <= 28.0; v += dv) {
-        var pCurvePt = interpolatePowerCurve(cat.powerCurve, v, rho, ratedPowerW, cutInMs, cutOutMs);
+        var pCurvePt = interpolatePowerCurve(cat.powerCurve, v, rho, ratedPowerW, cutInMs, cutOutMs, cat.ratedSpeedMs);
         var pW = pCurvePt.powerW;
         if (pW <= 0) continue;
 
@@ -593,7 +600,10 @@
       totalAepNetKwh: Math.round(totalAepNetKwh),
       averageCapacityFactor: Number(avgCapFactor.toFixed(3)),
       equivalentHours: totalRatedKw > 0 ? Math.round(totalAepNetKwh / totalRatedKw) : 0,
-      annualOperatingHours: perTurbine.length > 0 ? Math.round(perTurbine.reduce(function(a, b){ return a + ((b.results && b.results.operatingHoursPerYear) || 0); }, 0) / perTurbine.length) : 0,
+      annualOperatingHours: (function () {
+        var enList = perTurbine.filter(function (x) { return x.enabled; });
+        return enList.length > 0 ? Math.round(enList.reduce(function (a, b) { return a + ((b.results && b.results.operatingHoursPerYear) || 0); }, 0) / enList.length) : 0;
+      })(),
       parkWakeLossPercentage: Number(parkWakeLossPct.toFixed(1)),
       monthlyKwh: monthlyKwh,
       perTurbine: perTurbine,
@@ -675,30 +685,40 @@
       var sectorCounts = new Array(12).fill(0);
       var sectorSpeedSums = new Array(12).fill(0);
 
+      var validCount = 0;
+      var validSpeeds = [];
       for (var i = 0; i < nHours; i++) {
-        var vMs = speedsKmh[i] * kmhToMs;
-        speedMsList[i] = vMs;
+        var rawSpd = speedsKmh[i];
+        if (rawSpd === null || rawSpd === undefined || !isFinite(Number(rawSpd))) continue;
+        var vMs = Number(rawSpd) * kmhToMs;
+        validSpeeds.push(vMs);
         sumSpeed += vMs;
-        sumTemp += (tempsC[i] !== undefined ? tempsC[i] : 15.0);
+        var rawT = tempsC[i];
+        sumTemp += (rawT !== null && rawT !== undefined && isFinite(Number(rawT))) ? Number(rawT) : 15.0;
+        validCount++;
 
-        var dDeg = dirsDeg[i] !== undefined ? dirsDeg[i] : 0;
-        var sIdx = Math.floor(((dDeg + 15.0) % 360) / 30.0);
-        if (sIdx >= 0 && sIdx < 12) {
-          sectorCounts[sIdx]++;
-          sectorSpeedSums[sIdx] += vMs;
+        var rawDir = dirsDeg[i];
+        if (rawDir !== null && rawDir !== undefined && isFinite(Number(rawDir))) {
+          var dDeg = ((Number(rawDir) % 360) + 360) % 360;
+          var sIdx = Math.floor(((dDeg + 15.0) % 360) / 30.0);
+          if (sIdx >= 0 && sIdx < 12) {
+            sectorCounts[sIdx]++;
+            sectorSpeedSums[sIdx] += vMs;
+          }
         }
       }
+      if (validCount === 0) throw new Error('ERA5 sin registros válidos de viento');
 
-      var vMean = Number((sumSpeed / nHours).toFixed(2));
-      var tMean = Number((sumTemp / nHours).toFixed(1));
+      var vMean = Number((sumSpeed / validCount).toFixed(2));
+      var tMean = Number((sumTemp / validCount).toFixed(1));
 
       // Estimación del factor de forma Weibull k por método de momentos
       var sumSqDiff = 0;
-      for (var j = 0; j < nHours; j++) {
-        var diff = speedMsList[j] - vMean;
+      for (var j = 0; j < validSpeeds.length; j++) {
+        var diff = validSpeeds[j] - vMean;
         sumSqDiff += (diff * diff);
       }
-      var variance = sumSqDiff / (nHours - 1);
+      var variance = validSpeeds.length > 1 ? (sumSqDiff / (validSpeeds.length - 1)) : 0;
       var sigma = Math.sqrt(variance);
       // Aproximación empírica k ≈ (sigma / vMean)^(-1.086) (Justus / Stevens 1978)
       var weibullK = 2.0;
@@ -813,9 +833,13 @@
         throw new Error('Respuesta inválida de NASA POWER');
       }
 
-      var ws10Annual = Number(props.WS10M.ANN) || 4.0;
-      var ws50Annual = Number(props.WS50M ? props.WS50M.ANN : 0) || (ws10Annual * 1.25);
-      var tempAnnual = Number(props.T2M ? props.T2M.ANN : 15.0) || 15.0;
+      var _validNasa = function (v, fb) {
+        var n = Number(v);
+        return (Number.isFinite(n) && n > -900 && n !== -999) ? n : fb;
+      };
+      var ws10Annual = _validNasa(props.WS10M.ANN, 4.0);
+      var ws50Annual = _validNasa(props.WS50M ? props.WS50M.ANN : null, ws10Annual * 1.25);
+      var tempAnnual = _validNasa(props.T2M ? props.T2M.ANN : null, 15.0);
 
       // Calcular exponente de cizalladura Hellmann empírico a partir de 10m y 50m
       var alphaAlpha = (ws50Annual > ws10Annual && ws10Annual > 0)
@@ -839,7 +863,7 @@
           props.WS10M.JAN, props.WS10M.FEB, props.WS10M.MAR, props.WS10M.APR,
           props.WS10M.MAY, props.WS10M.JUN, props.WS10M.JUL, props.WS10M.AUG,
           props.WS10M.SEP, props.WS10M.OCT, props.WS10M.NOV, props.WS10M.DEC
-        ]
+        ].map(function (v) { return _validNasa(v, ws10Annual); })
       };
 
       try {
@@ -1022,44 +1046,54 @@
       var rotorD = Number(cat.rotorDiameterM) || 5.0;
       var basePrice = Number(cat.priceEur) || 15000;
 
-      // Evaluar cada altura candidata clonando temporalmente hubHeightM
+      // Evaluar cada altura candidata sobre un clon superficial (sin mutar turbineInstance)
       var evaluations = [];
-      var origH = curH;
-      var bestScore = -Infinity;
-      var recommendedH = curH;
+      var maxKwhPerEur = 1e-6;
+      var maxCapFac = 1e-6;
 
       for (var i = 0; i < availHeights.length; i++) {
         var h = Number(availHeights[i]);
-        if (turbineInstance.supportStructure) turbineInstance.supportStructure.hubHeightM = h;
+        var candInst = Object.assign({}, turbineInstance, {
+          supportStructure: Object.assign({}, turbineInstance.supportStructure || {}, { hubHeightM: h })
+        });
         var roofCtx = (RAWind.RooftopCFD && typeof RAWind.RooftopCFD.evaluateTurbineRooftopContext === 'function')
-          ? RAWind.RooftopCFD.evaluateTurbineRooftopContext(turbineInstance)
+          ? RAWind.RooftopCFD.evaluateTurbineRooftopContext(candInst)
           : { isRooftop: false, speedupFactor: 1.0, insideSeparationBubble: false, minRecommendedHubHeightM: 6 };
-        var sim = computeTurbineAEP(turbineInstance, allTurbines, cfg, roofCtx);
-        // Sobrecoste estimado de mástil/zapata por cada metro extra sobre 12m (~220 €/m)
+        var sim = computeTurbineAEP(candInst, allTurbines, cfg, roofCtx);
+        // Sobrecoste estimado de mástil/zapata por cada metro extra sobre 10m (~220 €/m)
         var mastExtraCostEur = Math.max(0, (h - 10) * 220);
         var estTotalCostEur = basePrice + mastExtraCostEur;
         var kwhPerEur = estTotalCostEur > 0 ? (sim.aepNetKwh / estTotalCostEur) : 0;
-
-        // Penalizar fuertemente si queda atrapado dentro de la burbuja turbulenta de cubierta
-        var score = kwhPerEur * (roofCtx.insideSeparationBubble ? 0.35 : 1.0) + (sim.capacityFactor * 0.8);
-        if (score > bestScore) {
-          bestScore = score;
-          recommendedH = h;
-        }
+        if (kwhPerEur > maxKwhPerEur) maxKwhPerEur = kwhPerEur;
+        if (sim.capacityFactor > maxCapFac) maxCapFac = sim.capacityFactor;
 
         evaluations.push({
           heightM: h,
           vHubMs: sim.hubWindSpeedMeanMs,
           aepNetKwh: sim.aepNetKwh,
+          capacityFactor: sim.capacityFactor,
           capacityFactorPct: Number((sim.capacityFactor * 100).toFixed(1)),
           insideBubble: !!roofCtx.insideSeparationBubble,
           extraCostEur: Math.round(mastExtraCostEur),
-          kwhPerEur: Number(kwhPerEur.toFixed(2))
+          kwhPerEur: Number(kwhPerEur.toFixed(2)),
+          _rawKwhPerEur: kwhPerEur
         });
       }
 
-      // Restaurar altura actual y recalcular estado real
-      if (turbineInstance.supportStructure) turbineInstance.supportStructure.hubHeightM = origH;
+      var bestScore = -Infinity;
+      var recommendedH = curH;
+      for (var j = 0; j < evaluations.length; j++) {
+        var ev = evaluations[j];
+        // Puntuación adimensional normalizada [0..1] combinando eficiencia económica y factor de capacidad
+        var normEcon = ev._rawKwhPerEur / maxKwhPerEur;
+        var normCf = ev.capacityFactor / maxCapFac;
+        var score = (0.65 * normEcon + 0.35 * normCf) * (ev.insideBubble ? 0.35 : 1.0);
+        if (score > bestScore) {
+          bestScore = score;
+          recommendedH = ev.heightM;
+        }
+      }
+
       var curSim = computeTurbineAEP(turbineInstance, allTurbines, cfg);
       var recEntry = evaluations.find(function (e) { return e.heightM === recommendedH; }) || evaluations[0];
       var gainKwh = recEntry ? Math.max(0, recEntry.aepNetKwh - curSim.aepNetKwh) : 0;

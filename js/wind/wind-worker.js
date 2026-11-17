@@ -144,7 +144,9 @@
     try {
       self.importScripts(
         'wind-constants.js',
+        'wind-catalog.js',
         'wind-rooftop-cfd.js',
+        'wind-obstacle-interference.js',
         'wind-resource.js',
         'wind-acoustics.js',
         'wind-structural.js',
@@ -205,9 +207,17 @@
           cb.reject(new Error(data.error || 'Error en wind-worker'));
         }
       };
-      _workerInstance.onerror = function () {
+      _workerInstance.onerror = function (errEv) {
         _workerFailed = true;
         _workerInstance = null;
+        var keys = Object.keys(_pendingCallbacks);
+        for (var k = 0; k < keys.length; k++) {
+          var cb = _pendingCallbacks[keys[k]];
+          delete _pendingCallbacks[keys[k]];
+          if (cb && typeof cb.reject === 'function') {
+            cb.reject(new Error((errEv && errEv.message) || 'Error fatal en wind-worker'));
+          }
+        }
       };
       return _workerInstance;
     } catch (e) {

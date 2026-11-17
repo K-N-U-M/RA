@@ -6331,13 +6331,13 @@ function clearActivePolyline() {
 // ============================================================================
 const DEFAULT_EQUIPMENT_CATALOG = {
   modules: [
-    { id: 'ja_550', brand: 'JA Solar', model: 'JAM72S30 550W', tec: 'Mono PERC', l: 2.279, w: 1.134, wp: 550, eff: 21.3, price: 115, voc: 49.9, isc: 14.0, vmp: 41.96, imp: 13.11, tier: 'Tier 1' },
-    { id: 'longi_435', brand: 'Longi Solar', model: 'Hi-MO 6 Explorer 435W', tec: 'HPBC All-Black', l: 1.722, w: 1.134, wp: 435, eff: 22.3, price: 105, voc: 43.6, isc: 12.8, vmp: 36.6, imp: 11.9, tier: 'Tier 1' },
-    { id: 'trina_450', brand: 'Trina Solar', model: 'Vertex S+ 450W', tec: 'N-Type TOPCon Dual-Glass', l: 1.762, w: 1.134, wp: 450, eff: 22.5, price: 110, voc: 52.9, isc: 10.74, vmp: 44.6, imp: 10.09, tier: 'Tier 1' },
-    { id: 'canadian_665', brand: 'Canadian Solar', model: 'HiKu7 Mono 665W', tec: 'Mono PERC Industrial', l: 2.384, w: 1.303, wp: 665, eff: 21.4, price: 145, voc: 45.6, isc: 18.51, vmp: 38.3, imp: 17.37, tier: 'Tier 1' },
-    { id: 'aiko_455', brand: 'Aiko Solar', model: 'Neostar 2S+ 455W', tec: 'All-Black ABC', l: 1.757, w: 1.134, wp: 455, eff: 23.6, price: 135, voc: 40.8, isc: 14.1, vmp: 34.2, imp: 13.3, tier: 'Tier 1' },
-    { id: 'jinko_480', brand: 'Jinko Solar', model: 'Tiger Neo N-Type 480W', tec: 'N-Type TOPCon', l: 1.903, w: 1.134, wp: 480, eff: 22.24, price: 118, voc: 43.16, isc: 14.07, vmp: 35.69, imp: 13.45, tier: 'Tier 1' },
-    { id: 'tier1_std_450', brand: 'Genérico Tier 1', model: 'Mono PERC 450W', tec: 'Monocristalino', l: 2.10, w: 1.05, wp: 450, eff: 21.5, price: 135, voc: 41.5, isc: 11.8, vmp: 34.5, imp: 13.05, tier: 'Tier 1' }
+    { id: 'ja_550', brand: 'JA Solar', model: 'JAM72S30 550W', tec: 'Mono PERC', l: 2.279, w: 1.134, wp: 550, eff: 21.3, price: 115, voc: 49.9, isc: 14.0, vmp: 41.96, imp: 13.11, tempCoeffVoc: -0.275, tempCoeffPmax: -0.35, bifacial: false, weightKg: 28.6, tier: 'Tier 1' },
+    { id: 'longi_435', brand: 'Longi Solar', model: 'Hi-MO 6 Explorer 435W', tec: 'HPBC All-Black', l: 1.722, w: 1.134, wp: 435, eff: 22.3, price: 105, voc: 43.6, isc: 12.8, vmp: 36.6, imp: 11.9, tempCoeffVoc: -0.26, tempCoeffPmax: -0.29, bifacial: false, weightKg: 20.8, tier: 'Tier 1' },
+    { id: 'trina_450', brand: 'Trina Solar', model: 'Vertex S+ 450W', tec: 'N-Type TOPCon Dual-Glass', l: 1.762, w: 1.134, wp: 450, eff: 22.5, price: 110, voc: 52.9, isc: 10.74, vmp: 44.6, imp: 10.09, tempCoeffVoc: -0.24, tempCoeffPmax: -0.30, bifacial: true, bifacialityFactor: 0.80, weightKg: 21.0, tier: 'Tier 1' },
+    { id: 'canadian_665', brand: 'Canadian Solar', model: 'HiKu7 Mono 665W', tec: 'Mono PERC Industrial', l: 2.384, w: 1.303, wp: 665, eff: 21.4, price: 145, voc: 45.6, isc: 18.51, vmp: 38.3, imp: 17.37, tempCoeffVoc: -0.26, tempCoeffPmax: -0.34, bifacial: false, weightKg: 34.4, tier: 'Tier 1' },
+    { id: 'aiko_455', brand: 'Aiko Solar', model: 'Neostar 2S+ 455W', tec: 'All-Black ABC', l: 1.757, w: 1.134, wp: 455, eff: 23.6, price: 135, voc: 40.8, isc: 14.1, vmp: 34.2, imp: 13.3, tempCoeffVoc: -0.22, tempCoeffPmax: -0.26, bifacial: true, bifacialityFactor: 0.70, weightKg: 21.5, tier: 'Tier 1' },
+    { id: 'jinko_480', brand: 'Jinko Solar', model: 'Tiger Neo N-Type 480W', tec: 'N-Type TOPCon', l: 1.903, w: 1.134, wp: 480, eff: 22.24, price: 118, voc: 43.16, isc: 14.07, vmp: 35.69, imp: 13.45, tempCoeffVoc: -0.25, tempCoeffPmax: -0.29, bifacial: false, weightKg: 22.0, tier: 'Tier 1' },
+    { id: 'tier1_std_450', brand: 'Genérico Tier 1', model: 'Mono PERC 450W', tec: 'Monocristalino', l: 2.10, w: 1.05, wp: 450, eff: 21.5, price: 135, voc: 41.5, isc: 11.8, vmp: 34.5, imp: 13.05, tempCoeffVoc: -0.27, tempCoeffPmax: -0.34, bifacial: false, weightKg: 22.5, tier: 'Tier 1' }
   ],
   inverters: [
     { id: 'inv_huawei_5k', brand: 'Huawei', model: 'SUN2000-5KTL-L1', kw: 5.0, phases: 1, type: 'Monofásico Híbrido (1F+N)', mppt: 2, inputsPerMppt: 1, vDcMax: 600, vMpptMin: 90, vMpptMax: 560, vMpptNomMin: 180, vMpptNomMax: 480, vStart: 100, iMaxOperA: 12.5, iMaxScA: 18.0, maxOverload: 1.30, eff: 98.4, price: 1080 },

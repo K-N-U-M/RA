@@ -121,19 +121,150 @@
     return out;
   }
 
-  // Helper para codificar en quoted-printable seguro (escapa '=' a '=3D' y líneas largas)
+  // Helper para codificar en quoted-printable conforme a RFC 2045 (<= 76 chars/línea + CRLF)
   function encodeQuotedPrintable(str) {
-    return str
-      .replace(/=/g, '=3D')
-      .replace(/[^\x09\x0A\x0D\x20-\x7E]/g, function(ch) {
-        const bytes = new TextEncoder().encode(ch);
-        let hex = '';
-        for (let b = 0; b < bytes.length; b++) {
-          const h = bytes[b].toString(16).toUpperCase();
-          hex += '=' + (h.length === 1 ? '0' + h : h);
+    const normalized = String(str || '').replace(/\r?\n/g, '\r\n');
+    const lines = normalized.split('\r\n');
+    const outLines = [];
+    for (let li = 0; li < lines.length; li++) {
+      const line = lines[li];
+      let encodedLine = '';
+      for (let ci = 0; ci < line.length; ci++) {
+        const ch = line[ci];
+        const code = line.charCodeAt(ci);
+        let token;
+        if (ch === '=') {
+          token = '=3D';
+        } else if ((code >= 33 && code <= 126) || code === 32 || code === 9) {
+          // Escapar espacios/tabs al final de la línea física
+          if ((code === 32 || code === 9) && ci === line.length - 1) {
+            token = code === 32 ? '=20' : '=09';
+          } else {
+            token = ch;
+          }
+        } else {
+          const bytes = new TextEncoder().encode(ch);
+          token = '';
+          for (let b = 0; b < bytes.length; b++) {
+            const h = bytes[b].toString(16).toUpperCase();
+            token += '=' + (h.length === 1 ? '0' + h : h);
+          }
         }
-        return hex;
+        if (encodedLine.length + token.length > 75) {
+          outLines.push(encodedLine + '=');
+          encodedLine = token;
+        } else {
+          encodedLine += token;
+        }
+      }
+      outLines.push(encodedLine);
+    }
+    return outLines.join('\r\n');
+  }
+
+  // Helper de limpieza editorial antes de exportar a Word / HTML
+  function sanitizeEditorialHtml(rawHtml) {
+    if (typeof document === 'undefined') return String(rawHtml || '');
+    const wrap = document.createElement('div');
+    wrap.innerHTML = String(rawHtml || '');
+    const junkSelectors = [
+      '.doc-top-bar', '.dossier-toolbar', '#dossier-format-bar', '#doc-format-toolbar',
+      '.no-print', '.dossier-overflow-warn', '.dossier-drag-handle', '.dossier-resize-handle',
+      '.dossier-img-picker-btn', '.dossier-file-input', '.ra-edit-del-btn', '.ra-gap-handle',
+      '#ra-gap-tooltip', '.photo-upload-overlay'
+    ];
+    wrap.querySelectorAll(junkSelectors.join(',')).forEach(function(el) { el.remove(); });
+    wrap.querySelectorAll('[contenteditable]').forEach(function(el) { el.removeAttribute('contenteditable'); });
+    wrap.querySelectorAll('[data-editable-box]').forEach(function(el) {
+      el.removeAttribute('draggable');
+      el.removeAttribute('data-editable-box');
+    });
+    wrap.querySelectorAll('.editable-field').forEach(function(el) { el.classList.remove('editable-field'); });
+    return wrap.innerHTML;
+  }
+
+  // Helper async para rasterizar todos los <svg> (y <img> SVG) a PNG para compatibilidad total con Word
+  async function rasterizeSvgsToPng(rootEl) {
+    if (!rootEl || typeof document === 'undefined' || typeof Image === 'undefined') return rootEl;
+    const scale = 2;
+
+    async function svgMarkupToPngDataUrl(svgString, targetW, targetH) {
+      return new Promise(function(resolve) {
+        try {
+          const w = Math.max(24, Math.min(2000, Math.round(targetW || 400)));
+          const h = Math.max(24, Math.min(2000, Math.round(targetH || 240)));
+          const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const img = new Image();
+          img.onload = function() {
+            try {
+              const canvas = document.createElement('canvas');
+              canvas.width = w * scale;
+              canvas.height = h * scale;
+              const ctx = canvas.getContext('2d');
+              ctx.scale(scale, scale);
+              ctx.drawImage(img, 0, 0, w, h);
+              const pngUrl = canvas.toDataURL('image/png');
+              URL.revokeObjectURL(url);
+              resolve({ pngUrl: pngUrl, w: w, h: h });
+            } catch (eDraw) {
+              URL.revokeObjectURL(url);
+              resolve(null);
+            }
+          };
+          img.onerror = function() {
+            URL.revokeObjectURL(url);
+            resolve(null);
+          };
+          img.src = url;
+        } catch (eOuter) {
+          resolve(null);
+        }
       });
+    }
+
+    const svgs = Array.from(rootEl.querySelectorAll('svg'));
+    for (let i = 0; i < svgs.length; i++) {
+      const svgEl = svgs[i];
+      try {
+        if (!svgEl.getAttribute('xmlns')) svgEl.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        const vb = (svgEl.getAttribute('viewBox') || '').trim().split(/[\s,]+/);
+        const attrW = parseFloat(svgEl.getAttribute('width'));
+        const attrH = parseFloat(svgEl.getAttribute('height'));
+        const rect = (typeof svgEl.getBoundingClientRect === 'function') ? svgEl.getBoundingClientRect() : null;
+        const w = (attrW > 0 ? attrW : (rect && rect.width > 0 ? rect.width : (parseFloat(vb[2]) || 480)));
+        const h = (attrH > 0 ? attrH : (rect && rect.height > 0 ? rect.height : (parseFloat(vb[3]) || 200)));
+        const svgData = new XMLSerializer().serializeToString(svgEl);
+        const res = await svgMarkupToPngDataUrl(svgData, w, h);
+        const imgEl = document.createElement('img');
+        if (res && res.pngUrl) {
+          imgEl.src = res.pngUrl;
+        } else {
+          imgEl.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+        }
+        imgEl.style.cssText = svgEl.style.cssText || 'display:block;max-width:100%;height:auto;';
+        imgEl.setAttribute('width', String(Math.round(w)));
+        imgEl.setAttribute('height', String(Math.round(h)));
+        if (svgEl.parentNode) svgEl.parentNode.replaceChild(imgEl, svgEl);
+      } catch (eSvg) {}
+    }
+
+    // También convertir cualquier <img src="data:image/svg+xml..."> previo a PNG
+    const svgImgs = Array.from(rootEl.querySelectorAll('img[src^="data:image/svg+xml"]'));
+    for (let j = 0; j < svgImgs.length; j++) {
+      const im = svgImgs[j];
+      try {
+        const src = im.getAttribute('src') || '';
+        const idx = src.indexOf('base64,');
+        if (idx === -1) continue;
+        const rawSvg = decodeURIComponent(escape(atob(src.slice(idx + 7))));
+        const w = parseFloat(im.getAttribute('width')) || 400;
+        const h = parseFloat(im.getAttribute('height')) || 200;
+        const res = await svgMarkupToPngDataUrl(rawSvg, w, h);
+        if (res && res.pngUrl) im.setAttribute('src', res.pngUrl);
+      } catch (eImg) {}
+    }
+    return rootEl;
   }
 
   // ── 2. Generador OpenXML DOCX con MHTML altChunk ──
@@ -143,11 +274,12 @@
     const widthDxa = isLandscape ? 16838 : 11906; // A4 dxa (1 mm = 56.7 dxa)
     const heightDxa = isLandscape ? 11906 : 16838;
 
+    const cleanHtml = sanitizeEditorialHtml(htmlContent);
     const images = [];
     let imgIdx = 0;
 
     // Extraer imágenes base64 en src
-    const processedHtml = htmlContent.replace(/src=["'](data:image\/([a-zA-Z0-9\+\-]+);base64,([A-Za-z0-9+/=\r\n]+))["']/gi, function(match, fullDataUrl, ext, b64) {
+    const processedHtml = cleanHtml.replace(/src=["'](data:image\/([a-zA-Z0-9\+\-]+);base64,([A-Za-z0-9+/=\r\n]+))["']/gi, function(match, fullDataUrl, ext, b64) {
       imgIdx++;
       const cleanExt = (ext === 'jpeg' || ext === 'jpg') ? 'jpg' : ((ext === 'svg+xml') ? 'svg' : ext);
       const fName = 'img_' + imgIdx + '.' + cleanExt;
@@ -256,6 +388,9 @@
   const RADocxExporter = {
     createZipSync: createZipSync,
     buildDocxBlobFromHtml: buildDocxBlobFromHtml,
+    rasterizeSvgsToPng: rasterizeSvgsToPng,
+    sanitizeEditorialHtml: sanitizeEditorialHtml,
+    encodeQuotedPrintable: encodeQuotedPrintable,
     downloadDocx: downloadDocx
   };
 

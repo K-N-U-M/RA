@@ -3256,7 +3256,9 @@ if (typeof window !== 'undefined') {
       excKWh = Math.round(genKWh * 0.35); // Estimación canónica de vertido estacional
     }
 
-    var precioPool = 0.05; // €/kWh Compensación simplificada estándar mayorista
+    var precioPool = (m && typeof m.precioCompensacionEUR === 'number' && m.precioCompensacionEUR > 0)
+      ? m.precioCompensacionEUR
+      : 0.05; // Alineado con compensación / pool del motor financiero
     var precioCEL = (typeof customCelPrice === 'number' && customCelPrice > 0) ? customCelPrice : 0.11; // €/kWh Venta local P2P CEL
 
     var ingresoPoolAnual = Math.round(excKWh * precioPool);
@@ -3615,7 +3617,7 @@ if (typeof window !== 'undefined') {
     '</div>';
 
     // HOJA 2 CEL: FLUJO DE DESPACHO ENERGÉTICO Y RADAR DE COBERTURA 5 KM (ESPACIOSO)
-    var page2Html = '<div class="page-sheet" data-section-id="cel">' +
+    var page2Html = '<div class="page-sheet" data-section-id="cel_financials">' +
       '<div>' +
         (typeof buildInnerHeaderFn === 'function'
           ? buildInnerHeaderFn('DISTRIBUCIÓN ENERGÉTICA &amp; <span style="color:' + pal.primary + '">COBERTURA 5 KM</span>', 'Despacho Horario de Generación · Radio de Reparto Vecinal P2P de 78,5 km²', pageNum2)
@@ -3696,6 +3698,7 @@ if (typeof window !== 'undefined') {
     return page1Html + page2Html;
   }
 function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, themeOverride) {
+  if (typeof raEnsureAnalysisReadyForDoc === 'function' && !raEnsureAnalysisReadyForDoc()) return;
   const d = getProjectCalcs();
   // Resiliencia AAA: si getProjectCalcs devuelve 0 paneles, intentar recuperar de caché conocida
   let numPanelsFinal = d.numPanels;
@@ -5544,7 +5547,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     </div>
 
     <!-- PÁGINA 3: IMPLANTACIÓN SOLAR Y VISTAS DEL PROYECTO (FOTOS Y SIMULACIÓN 3D) -->
-    <div class="page-sheet" data-section-id="installation">
+    <div class="page-sheet" data-section-id="installation_views">
       <div>
         ${buildInnerHeaderHTML('IMPLANTACIÓN SOLAR &amp; <span style="color:' + pal.primary + '">VISTAS DEL PROYECTO</span>', 'Simulación Tridimensional · Integración Arquitectónica · Reporte Fotográfico', 3)}
 
@@ -5712,7 +5715,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       </div>
 
       <!-- PÁGINA 4B: IMPACTO FINANCIERO MENSUAL Y CICLO SOLAR 24H -->
-      <div class="page-sheet" data-section-id="energy_balance">
+      <div class="page-sheet" data-section-id="energy_balance_24h">
         <div>
           ${buildInnerHeaderHTML(
             _isOffGrid ? ('VALOR ENERGÉTICO &amp; <span style="color:' + pal.primary + '">AUTONOMÍA 24H</span>') : ('BALANCE FINANCIERO &amp; <span style="color:' + pal.primary + '">AUTARQUÍA 24H</span>'),
@@ -5816,7 +5819,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         <table>
           <tr><th>Componente</th><th>Garantía de Producto</th><th>Garantía de Rendimiento</th><th>Garantía de Instalación</th></tr>
           <tr><td>Módulos Fotovoltaicos</td><td>${warMod} años</td><td>${warPower} años (≥84.8%)</td><td rowspan="${eqWarranties.hasBat ? '4' : '3'}" style="vertical-align:middle;text-align:center;">${warMo} años<br>mano de obra</td></tr>
-          <tr><td>Inversor & Monitorización</td><td>5 - 10 años (según fabricante)</td><td>—</td></tr>
+          <tr><td>Inversor & Monitorización</td><td>${warInv} años (garantía oficial)</td><td>—</td></tr>
           ${eqWarranties.hasBat ? '<tr><td>Batería de Litio LFP</td><td>' + warBat + ' años (o 6.000 ciclos)</td><td>—</td></tr>' : ''}
           <tr><td>Estructura & Fijaciones</td><td>10 años inox A2</td><td>—</td></tr>
         </table>
@@ -6261,13 +6264,22 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
               else if (imgId.indexOf('sub2') !== -1) photoKey = 'sub2';
 
               const mw = getOpenerWindow();
+              let updatedPhotos = {};
               if (mw && mw.RA) {
                 mw.RA._proposalCustomPhotos = mw.RA._proposalCustomPhotos || {};
                 mw.RA._proposalCustomPhotos[photoKey] = optimizedData;
+                updatedPhotos = Object.assign({}, mw.RA._proposalCustomPhotos);
+              } else {
+                updatedPhotos[photoKey] = optimizedData;
               }
-              const currentPhotos = JSON.parse(sessionStorage.getItem('ra_proposal_custom_photos') || '{}');
-              currentPhotos[photoKey] = optimizedData;
-              sessionStorage.setItem('ra_proposal_custom_photos', JSON.stringify(currentPhotos));
+              if (mw && mw.RAStorageCache && typeof mw.RAStorageCache.cacheAssetAsync === 'function') {
+                mw.RAStorageCache.cacheAssetAsync('ra_proposal_custom_photos', updatedPhotos).catch(function() {});
+              }
+              try {
+                const currentPhotos = JSON.parse(sessionStorage.getItem('ra_proposal_custom_photos') || '{}');
+                currentPhotos[photoKey] = optimizedData;
+                sessionStorage.setItem('ra_proposal_custom_photos', JSON.stringify(currentPhotos));
+              } catch (eQuotaSS) {}
             } catch (errPersist) {
               console.warn('[handlePhotoUpload] No se pudo persistir foto:', errPersist);
             }
@@ -6597,9 +6609,16 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
               if (pl) pl.style.display = 'none';
             }
             try {
+              let updatedCoverPhotos = {};
               if (mw && mw.RA) {
                 mw.RA._proposalCustomPhotos = mw.RA._proposalCustomPhotos || {};
                 mw.RA._proposalCustomPhotos.cover = dataUrl;
+                updatedCoverPhotos = Object.assign({}, mw.RA._proposalCustomPhotos);
+              } else {
+                updatedCoverPhotos.cover = dataUrl;
+              }
+              if (mw && mw.RAStorageCache && typeof mw.RAStorageCache.cacheAssetAsync === 'function') {
+                mw.RAStorageCache.cacheAssetAsync('ra_proposal_custom_photos', updatedCoverPhotos).catch(function() {});
               }
               const currentPhotos = JSON.parse(sessionStorage.getItem('ra_proposal_custom_photos') || '{}');
               currentPhotos.cover = dataUrl;
@@ -6683,7 +6702,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         }
       }
 
-      function exportPropDocx() {
+      async function exportPropDocx() {
         const btnWord = document.getElementById('btn-export-docx');
         const origText = btnWord ? btnWord.innerHTML : '';
         if (btnWord) { btnWord.innerHTML = '${_mSvg("refresh", 13, "currentColor")} GENERANDO DOCX...'; btnWord.disabled = true; }
@@ -6695,36 +6714,42 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
           const container = document.createElement('div');
           sheets.forEach(s => {
             const cloneSheet = s.cloneNode(true);
-            cloneSheet.querySelectorAll('.ra-edit-del-btn, .ra-gap-handle').forEach(b => b.remove());
+            cloneSheet.querySelectorAll('.ra-edit-del-btn, .ra-gap-handle, #ra-gap-tooltip, #doc-format-toolbar, .no-print, .photo-upload-overlay').forEach(b => b.remove());
             cloneSheet.querySelectorAll('[data-editable-box]').forEach(el => {
               el.removeAttribute('draggable');
               el.removeAttribute('data-editable-box');
             });
+            cloneSheet.querySelectorAll('[contenteditable]').forEach(el => el.removeAttribute('contenteditable'));
+            cloneSheet.querySelectorAll('.editable-field').forEach(el => el.classList.remove('editable-field'));
             cloneSheet.removeAttribute('contenteditable');
             container.appendChild(cloneSheet);
           });
 
-          const svgs = Array.from(container.querySelectorAll('svg'));
-          for (let i = 0; i < svgs.length; i++) {
-            const svgEl = svgs[i];
-            try {
-              const svgData = new XMLSerializer().serializeToString(svgEl);
-              const svgB64 = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
-              const imgEl = document.createElement('img');
-              imgEl.src = svgB64;
-              imgEl.style.cssText = svgEl.style.cssText || 'display:block;max-width:100%;';
-              if (svgEl.getAttribute('width')) imgEl.setAttribute('width', svgEl.getAttribute('width'));
-              if (svgEl.getAttribute('height')) imgEl.setAttribute('height', svgEl.getAttribute('height'));
-              svgEl.parentNode.replaceChild(imgEl, svgEl);
-            } catch(eSvg) {}
+          const mw = getOpenerWindow();
+          const exporter = (mw && mw.RADocxExporter) || (typeof RADocxExporter !== 'undefined' ? RADocxExporter : null);
+          if (exporter && typeof exporter.rasterizeSvgsToPng === 'function') {
+            await exporter.rasterizeSvgsToPng(container);
+          } else {
+            const svgs = Array.from(container.querySelectorAll('svg'));
+            for (let i = 0; i < svgs.length; i++) {
+              const svgEl = svgs[i];
+              try {
+                const svgData = new XMLSerializer().serializeToString(svgEl);
+                const svgB64 = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+                const imgEl = document.createElement('img');
+                imgEl.src = svgB64;
+                imgEl.style.cssText = svgEl.style.cssText || 'display:block;max-width:100%;';
+                if (svgEl.getAttribute('width')) imgEl.setAttribute('width', svgEl.getAttribute('width'));
+                if (svgEl.getAttribute('height')) imgEl.setAttribute('height', svgEl.getAttribute('height'));
+                svgEl.parentNode.replaceChild(imgEl, svgEl);
+              } catch(eSvg) {}
+            }
           }
 
           const stylesEl = document.querySelector('style');
           const styles = stylesEl ? stylesEl.innerHTML : '';
 
           let docxBlob = null;
-          const mw = getOpenerWindow();
-          const exporter = (mw && mw.RADocxExporter) || (typeof RADocxExporter !== 'undefined' ? RADocxExporter : null);
           if (exporter && typeof exporter.buildDocxBlobFromHtml === 'function') {
             docxBlob = exporter.buildDocxBlobFromHtml(container.innerHTML, {
               orientation: 'portrait',
@@ -6757,7 +6782,9 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       function exportPropHtml() {
         const clone = document.documentElement.cloneNode(true);
         const bar = clone.querySelector('.doc-top-bar'); if (bar) bar.remove();
-        clone.querySelectorAll('.ra-edit-del-btn, .ra-gap-handle, #ra-gap-tooltip').forEach(b => b.remove());
+        clone.querySelectorAll('.ra-edit-del-btn, .ra-gap-handle, #ra-gap-tooltip, #doc-format-toolbar, .no-print, .photo-upload-overlay').forEach(b => b.remove());
+        clone.querySelectorAll('[contenteditable]').forEach(el => el.removeAttribute('contenteditable'));
+        clone.querySelectorAll('.editable-field').forEach(el => el.classList.remove('editable-field'));
         clone.querySelectorAll('[data-editable-box]').forEach(el => {
           el.removeAttribute('draggable');
           el.removeAttribute('data-editable-box');
@@ -6821,11 +6848,12 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         ? mb.totalPanels
         : (typeof d.numPanels === 'number' ? d.numPanels : 0));
   const kwp = (mb && mb.totalKwp > 0) ? mb.totalKwp : ((numPanels * (d.cfg.potencia || 450)) / 1000.0);
-  // [SSOT] Producción física anual: priorizar simulación 3D precisa con pérdidas de sombras reales + producción minieólica neta
+  // [SSOT] Producción física anual: priorizar simulación 3D precisa solo si el mapa de calor está vigente
+  const isHeatmapDirty = !!(typeof window !== 'undefined' && window.solarSimState && window.solarSimState.annualHeatmapDirty);
   const solarStats = (typeof window !== 'undefined' && window.RA && window.RA.solarStats) ? window.RA.solarStats : null;
   const solarYieldKWh = (numPanels <= 0)
     ? 0
-    : ((solarStats && Number.isFinite(solarStats.annualYieldKWh) && solarStats.annualYieldKWh > 0)
+    : ((!isHeatmapDirty && solarStats && Number.isFinite(solarStats.annualYieldKWh) && solarStats.annualYieldKWh > 0)
         ? Math.round(solarStats.annualYieldKWh)
         : (d.annualKWh || (kwp * 1450)));
   const activeWindTurbines = (typeof window !== 'undefined' && Array.isArray(window.windTurbines))
@@ -6906,10 +6934,8 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   if (hasSessionOverride) {
     if (typeof pricing.estPrice === 'number' && pricing.estPrice >= 0) est = pricing.estPrice;
     if (typeof pricing.invPrice === 'number' && pricing.invPrice >= 0) inv = pricing.invPrice;
-    if (typeof pricing.batPrice === 'number' && pricing.batPrice > 0) {
+    if (typeof pricing.batPrice === 'number' && pricing.batPrice >= 0) {
       bat = pricing.batPrice;
-    } else if (pricing.batPrice === 0 && (!_batSel || _batSel.id === 'bat_none')) {
-      bat = 0;
     }
     if (typeof pricing.cabPrice === 'number' && pricing.cabPrice >= 0) cab = pricing.cabPrice;
     if (typeof pricing.moPrice === 'number' && pricing.moPrice >= 0) mo = pricing.moPrice;
@@ -7239,24 +7265,44 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     if (sumAuditedMonths > 0 && !(billComp && billComp.consumoAnualKWh > 0)) consumoAnual = sumAuditedMonths;
   }
 
-  // Producción mensual en kWh (SSOT: solarSimState.monthlyKwh si existe y vigente, si no solarStats.monthlyYields, o desglose estacional)
-  // [AUD-2026 · D-08] Se declara el origen para no presentar como simulación una curva tipo.
-  let monthlySource = 'simulation';
+  // Producción mensual solar + eólica en kWh (respetando annualHeatmapDirty)
+  let monthlySource = isHeatmapDirty ? 'physical-monthly' : 'simulation';
   let monthlySolarKwh = new Array(12).fill(0);
   const _ssotSolarStats = (typeof window !== 'undefined' && window.RA && window.RA.solarStats) ? window.RA.solarStats : null;
-  if (typeof window !== 'undefined' && window.solarSimState && !window.solarSimState.annualHeatmapDirty && Array.isArray(window.solarSimState.monthlyKwh) && window.solarSimState.monthlyKwh.length === 12 && window.solarSimState.monthlyKwh.some(v => v > 0)) {
+  if (!isHeatmapDirty && typeof window !== 'undefined' && window.solarSimState && Array.isArray(window.solarSimState.monthlyKwh) && window.solarSimState.monthlyKwh.length === 12 && window.solarSimState.monthlyKwh.some(v => v > 0)) {
     monthlySolarKwh = window.solarSimState.monthlyKwh.slice();
-  } else if (_ssotSolarStats && Array.isArray(_ssotSolarStats.monthlyYields) && _ssotSolarStats.monthlyYields.length === 12 && _ssotSolarStats.monthlyYields.some(v => v > 0)) {
+  } else if (!isHeatmapDirty && _ssotSolarStats && Array.isArray(_ssotSolarStats.monthlyYields) && _ssotSolarStats.monthlyYields.length === 12 && _ssotSolarStats.monthlyYields.some(v => v > 0)) {
     monthlySource = _ssotSolarStats.hasSimulation ? 'simulation' : 'physical-monthly';
     const rawArr = _ssotSolarStats.monthlyYields.map(v => Math.max(0, Number(v) || 0));
     const rawSum = rawArr.reduce((a, b) => a + b, 0);
-    const scaleS = (rawSum > 0 && annualYieldKWh > 0) ? (annualYieldKWh / rawSum) : 1.0;
+    const scaleS = (rawSum > 0 && solarYieldKWh > 0) ? (solarYieldKWh / rawSum) : 1.0;
     monthlySolarKwh = rawArr.map(v => v * scaleS);
+  } else if (Array.isArray(d.monthly) && d.monthly.length === 12 && d.monthly.some(mo => (mo && mo.kWh > 0))) {
+    monthlySource = 'physical-monthly';
+    const dArr = d.monthly.map(mo => Math.max(0, Number(mo && mo.kWh) || 0));
+    const dSum = dArr.reduce((a, b) => a + b, 0);
+    const scaleD = (dSum > 0 && solarYieldKWh > 0) ? (solarYieldKWh / dSum) : 1.0;
+    monthlySolarKwh = dArr.map(v => v * scaleD);
   } else {
     monthlySource = 'fallback-weights';
     const solarWeights = [0.045, 0.058, 0.082, 0.098, 0.118, 0.126, 0.132, 0.120, 0.095, 0.068, 0.046, 0.032];
     const wSolSum = solarWeights.reduce((a, b) => a + b, 0);
-    monthlySolarKwh = solarWeights.map(w => (w / wSolSum) * annualYieldKWh);
+    monthlySolarKwh = solarWeights.map(w => (w / wSolSum) * solarYieldKWh);
+  }
+
+  // Eólica mensual para despacho híbrido 288h (24h continuas según perfil Weibull estacional)
+  let monthlyWindKwh = new Array(12).fill(0);
+  if (windYieldKWh > 0) {
+    if (wPark && Array.isArray(wPark.monthlyKwh) && wPark.monthlyKwh.length === 12 && wPark.monthlyKwh.some(v => v > 0)) {
+      const wRaw = wPark.monthlyKwh.map(v => Math.max(0, Number(v) || 0));
+      const wRawSum = wRaw.reduce((a, b) => a + b, 0);
+      const wScale = wRawSum > 0 ? (windYieldKWh / wRawSum) : 1.0;
+      monthlyWindKwh = wRaw.map(v => v * wScale);
+    } else {
+      const windWeights = [1.15, 1.08, 1.12, 1.00, 0.88, 0.78, 0.72, 0.70, 0.80, 0.92, 1.05, 1.18];
+      const wSum = windWeights.reduce((a, b) => a + b, 0);
+      monthlyWindKwh = windWeights.map(w => (w / wSum) * windYieldKWh);
+    }
   }
 
   // Normalización del perfil solar por mes en hora oficial española (~40°N: 9.0h invierno a 14.8h verano)
@@ -7302,7 +7348,9 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   for (let m = 0; m < 12; m++) {
     const daysInMonth = MONTH_DAYS[m];
     const solarMonthKwh = monthlySolarKwh[m];
+    const windMonthKwh = monthlyWindKwh[m] || 0;
     const solarDailyKwh = solarMonthKwh / daysInMonth;
+    const windDailyKwh = windMonthKwh / daysInMonth;
     const solarHourlyProfile = getMonthlySolarProfile(m);
 
     const loadMonthKwh = Math.max(0, Number(monthlyConsKwh[m]) || 0);
@@ -7318,7 +7366,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     let monthCostSinFV = 0;
 
     for (let h = 0; h < 24; h++) {
-      const pv = solarDailyKwh * solarHourlyProfile[h];
+      const pv = (solarDailyKwh * solarHourlyProfile[h]) + (windDailyKwh / 24.0);
       const load = loadDailyKwh * LOAD_PROFILE[h];
       const price = tou.horas[h];
       const isValley = price <= Math.min(...tou.horas) * 1.15;
@@ -7375,7 +7423,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     const monthSurplusIncomeTotal = monthSurplusIncome * daysInMonth;
     const monthEffectiveSurplusIncome = hasVirtualBattery ? monthSurplusIncomeTotal : Math.min(monthSurplusIncomeTotal, monthCostGridTotal);
 
-    const mGenKwh = Math.round(solarMonthKwh);
+    const mGenKwh = Math.round(solarMonthKwh + windMonthKwh);
     const mDirectKwh = Math.round(monthDirect * daysInMonth);
     const mBatKwh = Math.round(monthBattery * daysInMonth);
     const mAutoTotalKwh = Math.min(mGenKwh, Math.max(0, mDirectKwh + mBatKwh));
@@ -7387,6 +7435,8 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       monthIndex: m,
       monthName: ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'][m],
       generationKWh: mGenKwh,
+      solarKWh: Math.round(solarMonthKwh),
+      windKWh: Math.round(windMonthKwh),
       autoconsumoKWh: mAutoTotalKwh,
       autoconsumoDirectoKWh: mDirectKwh,
       bateriaKWh: mBatKwh,
@@ -7527,7 +7577,9 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   let discountedCostsSum = 0;
   let discountedYieldSum = 0;
 
-  const ibiYears = ibiOpt.includes('_5') ? 5 : (ibiOpt.includes('_3') ? 3 : 0);
+  const ibiYears = (soilType === 'rustico' || _commTax.ibiEnabled === false || ibiOpt === '0')
+    ? 0
+    : (ibiOpt.includes('_10') ? 10 : (ibiOpt.includes('_5') ? 5 : (ibiOpt.includes('_3') ? 3 : ((_commTax && typeof _commTax.ibiYears === 'number' && _commTax.ibiYears > 0) ? _commTax.ibiYears : 0))));
   const ibiAnnualBonus = (ibiYears > 0) ? (ahorroIBITotal / ibiYears) : 0;
   // Fracción real de la energía solar generada que se autoconsume (directo + batería)
   const selfConsumptionFraction = annualYieldKWh > 0 ? Math.min(1.0, (annualAutoconsumoDirecto + annualBateriaKWh) / annualYieldKWh) : 0;
@@ -7568,9 +7620,9 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     discountedCostsSum += (omY + replY) / Math.pow(1 + r, y);
     discountedYieldSum += yieldY / Math.pow(1 + r, y);
 
-    // Aportación fiscal real sin duplicidad: IRPF o Sociedades en año 1, IBI en años 1 a N_ibi
+    // Aportación fiscal real sin duplicidad: IRPF o Sociedades + CAEs en año 1, IBI en años 1 a N_ibi (incl. 10 años)
     let fiscalY = 0;
-    if (y === 1) fiscalY += (customerProfile === 'empresa' ? ahorroSociedades : ahorroIRPF);
+    if (y === 1) fiscalY += (customerProfile === 'empresa' ? ahorroSociedades : ahorroIRPF) + ahorroCAE;
     if (y <= ibiYears) fiscalY += ibiAnnualBonus;
 
     const netCF = saveY - omY - replY + fiscalY;
@@ -7783,9 +7835,18 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   const ahorroTotal25 = Math.round(annualSavings25.reduce((a, b) => a + b, 0));
   const redKWhAnual = Math.max(0, Math.round(consumoAnual - annualAutoconsumoDirecto - annualBateriaKWh));
 
+  const exportedBatCount = (batCap > 0 || bat > 0) ? Math.max(1, _batCapCount || 1) : 0;
+  const exportedMlpeCount = isMicro
+    ? ((projCfg.autoSizing && projCfg.autoSizing.microinverters && projCfg.autoSizing.microinverters.count) || (designCosts && designCosts.microCount) || numPanels)
+    : ((projCfg.selectedTopology === 'optimizer') ? numPanels : 0);
+
   const resultModel = {
     numPanels: numPanels,
     kwp: kwp,
+    invCount: isMicro ? 0 : invCount,
+    batCount: exportedBatCount,
+    mlpeCount: exportedMlpeCount,
+    topology: projCfg.selectedTopology || 'inverter',
     directCost: directCost,
     marginPct: marginPct,
     marginEur: marginEur,
@@ -7954,6 +8015,81 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   }
   if (typeof togglePropEdit !== 'undefined')
     window.togglePropEdit = togglePropEdit;
+  // ── CAPA ÚNICA DE SNAPSHOT TÉCNICO-ECONÓMICO (SSOT PARA MEMORIA, OFERTA Y DOSSIER) ──
+  function raBuildDocSnapshot(dOpt, mOpt) {
+    const d = dOpt || (typeof getProjectCalcs === 'function' ? getProjectCalcs() : {});
+    const m = mOpt || (typeof calculateFinancialModel === 'function' ? calculateFinancialModel({ d: d }) : null);
+    const eq = (typeof resolveActiveEquipmentSpec === 'function') ? resolveActiveEquipmentSpec() : {};
+    const warranties = (typeof resolveEquipmentWarranties === 'function') ? resolveEquipmentWarranties() : {
+      warPower: '25', warMod: '15', warInv: '12', warMo: '5', warBat: '10', isMicro: false, hasBat: !!(eq && eq.hasBat)
+    };
+    const mesesFin = (m && Number(m.mesesFin) > 0) ? Number(m.mesesFin) : 96;
+    const finYears = Math.max(1, Math.round(mesesFin / 12));
+    const cuotasMes = (m && typeof m.cuotaMensual === 'number') ? m.cuotaMensual : 0;
+    const ahorroMes = (m && typeof m.ahorroMensualLuz === 'number') ? m.ahorroMensualLuz : ((m ? m.ahorroLuzAnio1 : (d.ahorro_anual || 0)) / 12);
+    const balanceMes = ahorroMes - cuotasMes;
+    return {
+      d,
+      m,
+      eq,
+      warranties,
+      numPanels: (m && m.numPanels != null) ? m.numPanels : (d.numPanels || 0),
+      kwp: (m && m.kwp != null) ? m.kwp : (Number(d.kwp) || d.P_dc_kW || 0),
+      invCount: (m && typeof m.invCount === 'number') ? m.invCount : (eq.invCount || 1),
+      batCount: (m && typeof m.batCount === 'number') ? m.batCount : (eq.batCount || 0),
+      mlpeCount: (m && typeof m.mlpeCount === 'number') ? m.mlpeCount : (eq.microCount || eq.optimizerCount || 0),
+      windCount: (eq && eq.hasWind) ? (eq.windCount || 0) : 0,
+      annualYieldKWh: (m && m.annualYieldKWh != null) ? m.annualYieldKWh : (d.annualKWh || 0),
+      subtotal: (m && typeof m.subtotal === 'number') ? m.subtotal : (d.subtotal || 0),
+      ivaRate: (m && typeof m.ivaRate === 'number') ? m.ivaRate : 0.21,
+      iva: (m && typeof m.iva === 'number') ? m.iva : 0,
+      capexBruto: (m && typeof m.capexBruto === 'number') ? m.capexBruto : (d.total || 0),
+      capexNeto: (m && typeof m.capexNeto === 'number') ? m.capexNeto : (d.total || 0),
+      van: (m && typeof m.van === 'number' && isFinite(m.van)) ? m.van : null,
+      tir: (m && typeof m.tir === 'number' && isFinite(m.tir)) ? m.tir : null,
+      tirStr: (m && m.tirString) ? m.tirString : ((m && typeof m.tir === 'number' && isFinite(m.tir)) ? (m.tir.toFixed(1) + ' %') : 'N/D'),
+      lcoe: (m && typeof m.lcoe === 'number' && isFinite(m.lcoe)) ? m.lcoe : null,
+      paybackYears: (m && typeof m.paybackYears === 'number' && isFinite(m.paybackYears)) ? m.paybackYears : null,
+      paybackFinanciadoYears: (m && typeof m.paybackFinanciadoYears === 'number') ? m.paybackFinanciadoYears : null,
+      waccPct: (m && typeof m.waccPct === 'number') ? m.waccPct : 4.0,
+      inflacionPct: (m && typeof m.inflacionPct === 'number') ? m.inflacionPct : 3.0,
+      ipcOpexPct: (m && typeof m.ipcOpexPct === 'number') ? m.ipcOpexPct : 2.0,
+      degAnnualPct: (m && typeof m.degAnnualPct === 'number') ? m.degAnnualPct : 0.40,
+      remainingPerformanceYr25: (m && typeof m.remainingPerformanceYr25 === 'number') ? m.remainingPerformanceYr25 : 85.0,
+      totalGenerado25: (m && typeof m.totalGenerado25 === 'number') ? m.totalGenerado25 : null,
+      ahorroLuzAnio1: (m && typeof m.ahorroLuzAnio1 === 'number') ? m.ahorroLuzAnio1 : (d.ahorro_anual || 0),
+      ahorroTotal25: (m && typeof m.ahorroTotal25 === 'number') ? m.ahorroTotal25 : 0,
+      mesesFin,
+      finYears,
+      cuotaMensual: cuotasMes,
+      ahorroMensualLuz: ahorroMes,
+      balanceNetoMensual: balanceMes,
+      isSaldoNetoPositivo: balanceMes >= 0
+    };
+  }
+  window.raBuildDocSnapshot = raBuildDocSnapshot;
+  if (!window.RA) window.RA = {};
+  window.RA.getDocumentSnapshot = raBuildDocSnapshot;
+
+  // Precargar fotos custom desde IndexedDB (RAStorageCache) hacia window.RA._proposalCustomPhotos tras carga del DOM
+  if (typeof document !== 'undefined') {
+    const _preloadCustomPhotosFromIdb = function() {
+      if (typeof window !== 'undefined' && window.RAStorageCache && typeof window.RAStorageCache.getCachedAssetAsync === 'function') {
+        window.RAStorageCache.getCachedAssetAsync('ra_proposal_custom_photos').then(function(cachedPhotos) {
+          if (cachedPhotos && typeof cachedPhotos === 'object') {
+            if (!window.RA) window.RA = {};
+            window.RA._proposalCustomPhotos = Object.assign({}, cachedPhotos, window.RA._proposalCustomPhotos || {});
+          }
+        }).catch(function() {});
+      }
+    };
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', _preloadCustomPhotosFromIdb);
+    } else {
+      setTimeout(_preloadCustomPhotosFromIdb, 0);
+    }
+  }
+
   if (typeof exportPropDocx !== 'undefined')
     window.exportPropDocx = exportPropDocx;
   if (typeof exportPropWord !== 'undefined')

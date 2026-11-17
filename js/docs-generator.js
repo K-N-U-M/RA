@@ -31,8 +31,9 @@ function raEnsureAnalysisReadyForDoc() {
     if (typeof showToast === 'function') showToast('ANÁLISIS EN CURSO', 'La simulación anual está calculándose. Espera a que termine antes de generar documentos.', 'warning', 5000);
     return false;
   }
-  if (ss && ss.annualHeatmapDirty && ss.annualHeatmapData) {
-    if (typeof showToast === 'function') showToast('ANÁLISIS OBSOLETO', 'La cubierta cambió desde el último mapa de calor. Recalcula en el Paso 3 antes de generar documentos para evitar cifras antiguas.', 'warning', 6000);
+  const hasPanels = (typeof window !== 'undefined' && Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.some(p => p && !p.deleted && !p.disabled));
+  if (ss && ss.annualHeatmapDirty && (ss.annualHeatmapData || hasPanels)) {
+    if (typeof showToast === 'function') showToast('ANÁLISIS OBSOLETO', 'La cubierta o los obstáculos cambiaron desde el último mapa de calor. Recalcula en el Paso 3 antes de generar documentos para evitar cifras caducas.', 'warning', 6000);
     return false;
   }
   return true;
@@ -570,7 +571,7 @@ function docWindow(title, body) {
       }
     }
 
-    function exportToWordDocx() {
+    async function exportToWordDocx() {
       const btnWord = document.getElementById('btn-doc-docx');
       const origText = btnWord ? btnWord.innerHTML : '';
       if (btnWord) { btnWord.innerHTML = '⏳ GENERANDO DOCX...'; btnWord.disabled = true; }
@@ -579,36 +580,42 @@ function docWindow(title, body) {
         const sheet = document.getElementById('editable-doc-sheet');
         if (!sheet) throw new Error('No se encontró la hoja de documento');
         const cloneSheet = sheet.cloneNode(true);
+        cloneSheet.querySelectorAll('.doc-top-bar, #doc-format-toolbar, .no-print, .ra-edit-del-btn, .ra-gap-handle, #ra-gap-tooltip').forEach(el => el.remove());
+        cloneSheet.querySelectorAll('[contenteditable]').forEach(el => el.removeAttribute('contenteditable'));
+        cloneSheet.querySelectorAll('.editable-field').forEach(el => el.classList.remove('editable-field'));
+        cloneSheet.querySelectorAll('[data-editable-box]').forEach(el => {
+          el.removeAttribute('draggable');
+          el.removeAttribute('data-editable-box');
+        });
         cloneSheet.removeAttribute('contenteditable');
 
-        // Convertir cualquier <svg> a <img> base64 para que Word lo renderice fielmente
-        const svgs = Array.from(cloneSheet.querySelectorAll('svg'));
-        for (let i = 0; i < svgs.length; i++) {
-          const svgEl = svgs[i];
-          try {
-            const svgData = new XMLSerializer().serializeToString(svgEl);
-            const svgB64 = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
-            const imgEl = document.createElement('img');
-            imgEl.src = svgB64;
-            imgEl.style.cssText = svgEl.style.cssText || 'display:block;max-width:100%;';
-            if (svgEl.getAttribute('width')) imgEl.setAttribute('width', svgEl.getAttribute('width'));
-            if (svgEl.getAttribute('height')) imgEl.setAttribute('height', svgEl.getAttribute('height'));
-            svgEl.parentNode.replaceChild(imgEl, svgEl);
-          } catch(eSvg) {}
+        const exporter = (window.opener && window.opener.RADocxExporter) || (typeof RADocxExporter !== 'undefined' ? RADocxExporter : null);
+        if (exporter && typeof exporter.rasterizeSvgsToPng === 'function') {
+          await exporter.rasterizeSvgsToPng(cloneSheet);
+        } else {
+          // Convertir cualquier <svg> a <img> base64 si el módulo rasterizador no está accesible
+          const svgs = Array.from(cloneSheet.querySelectorAll('svg'));
+          for (let i = 0; i < svgs.length; i++) {
+            const svgEl = svgs[i];
+            try {
+              const svgData = new XMLSerializer().serializeToString(svgEl);
+              const svgB64 = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+              const imgEl = document.createElement('img');
+              imgEl.src = svgB64;
+              imgEl.style.cssText = svgEl.style.cssText || 'display:block;max-width:100%;';
+              if (svgEl.getAttribute('width')) imgEl.setAttribute('width', svgEl.getAttribute('width'));
+              if (svgEl.getAttribute('height')) imgEl.setAttribute('height', svgEl.getAttribute('height'));
+              svgEl.parentNode.replaceChild(imgEl, svgEl);
+            } catch(eSvg) {}
+          }
         }
 
         const stylesEl = document.querySelector('style');
         const styles = stylesEl ? stylesEl.innerHTML : '';
 
         let docxBlob = null;
-        if (window.opener && window.opener.RADocxExporter && typeof window.opener.RADocxExporter.buildDocxBlobFromHtml === 'function') {
-          docxBlob = window.opener.RADocxExporter.buildDocxBlobFromHtml(cloneSheet.outerHTML, {
-            orientation: 'portrait',
-            styles: styles,
-            title: document.title || ${JSON.stringify(String(title || ''))}
-          });
-        } else if (typeof buildDocxBlobFromHtml === 'function') {
-          docxBlob = buildDocxBlobFromHtml(cloneSheet.outerHTML, {
+        if (exporter && typeof exporter.buildDocxBlobFromHtml === 'function') {
+          docxBlob = exporter.buildDocxBlobFromHtml(cloneSheet.outerHTML, {
             orientation: 'portrait',
             styles: styles,
             title: document.title || ${JSON.stringify(String(title || ''))}
@@ -638,8 +645,13 @@ function docWindow(title, body) {
 
     function exportToHtml() {
       const clone = document.documentElement.cloneNode(true);
-      const bar = clone.querySelector('.doc-top-bar');
-      if (bar) bar.remove();
+      clone.querySelectorAll('.doc-top-bar, #doc-format-toolbar, .no-print, .ra-edit-del-btn, .ra-gap-handle, #ra-gap-tooltip').forEach(el => el.remove());
+      clone.querySelectorAll('[contenteditable]').forEach(el => el.removeAttribute('contenteditable'));
+      clone.querySelectorAll('.editable-field').forEach(el => el.classList.remove('editable-field'));
+      clone.querySelectorAll('[data-editable-box]').forEach(el => {
+        el.removeAttribute('draggable');
+        el.removeAttribute('data-editable-box');
+      });
       const blob = new Blob(['\\ufeff' + clone.outerHTML], { type: 'text/html;charset=utf-8' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
@@ -885,12 +897,19 @@ function generateMemoria(skipPricingModal) {
   // [AUD-2026 · A-03] Sin modelo financiero NO se inventan métricas: se publica 'N/D'
   // y se marca el documento como no bancable (ver `FIN_MODEL_MISSING`).
   const FIN_MODEL_MISSING = !finM;
-  const capexTot = finM ? finM.capexBruto : d.total;
-  const vanVal = finM ? (typeof finM.van === 'number' ? Math.round(finM.van) : finM.van) : 'N/D';
-  const tirVal = finM ? (typeof finM.tir === 'number' ? finM.tir.toFixed(1) : finM.tir) : 'N/D';
-  const lcoeVal = finM ? (typeof finM.lcoe === 'number' ? finM.lcoe.toFixed(3) : finM.lcoe) : 'N/D';
-  const pbYears = finM ? (typeof finM.paybackYears === 'number' ? finM.paybackYears.toFixed(1) : finM.paybackYears) : 'N/D';
-  const ah1 = finM ? Math.round(finM.ahorroLuzAnio1) : d.ahorro_anual;
+  const _snapMem = (typeof window !== 'undefined' && typeof window.raBuildDocSnapshot === 'function')
+    ? window.raBuildDocSnapshot(d, finM)
+    : null;
+  const capexTot = _snapMem ? _snapMem.capexBruto : (finM ? finM.capexBruto : d.total);
+  const vanVal = _snapMem ? (_snapMem.van != null ? Math.round(_snapMem.van) : 'N/D') : (finM ? (typeof finM.van === 'number' ? Math.round(finM.van) : finM.van) : 'N/D');
+  const tirVal = _snapMem ? (_snapMem.tir != null ? _snapMem.tir.toFixed(1) : 'N/D') : (finM ? (typeof finM.tir === 'number' ? finM.tir.toFixed(1) : finM.tir) : 'N/D');
+  const lcoeVal = _snapMem ? (_snapMem.lcoe != null ? _snapMem.lcoe.toFixed(3) : 'N/D') : (finM ? (typeof finM.lcoe === 'number' ? finM.lcoe.toFixed(3) : finM.lcoe) : 'N/D');
+  const pbYears = _snapMem ? (_snapMem.paybackYears != null ? _snapMem.paybackYears.toFixed(1) : 'N/D') : (finM ? (typeof finM.paybackYears === 'number' ? finM.paybackYears.toFixed(1) : finM.paybackYears) : 'N/D');
+  const ah1 = _snapMem ? Math.round(_snapMem.ahorroLuzAnio1) : (finM ? Math.round(finM.ahorroLuzAnio1) : d.ahorro_anual);
+  const waccPctMem = _snapMem ? _snapMem.waccPct : ((finM && typeof finM.waccPct === 'number') ? finM.waccPct : 4.0);
+  const ipcOpexMem = _snapMem ? _snapMem.ipcOpexPct : ((finM && typeof finM.ipcOpexPct === 'number') ? finM.ipcOpexPct : 2.0);
+  const degAnnMem = _snapMem ? _snapMem.degAnnualPct : ((finM && typeof finM.degAnnualPct === 'number') ? finM.degAnnualPct : 0.40);
+  const totalGen25Mem = (_snapMem && _snapMem.totalGenerado25) ? _snapMem.totalGenerado25 : ((finM && finM.totalGenerado25) ? finM.totalGenerado25 : Math.round(d.annualKWh * 23.2));
 
   const keyYears = [1, 5, 10, 15, 20, 25];
   let scheduleRowsHtml = '';
@@ -1133,16 +1152,16 @@ function generateMemoria(skipPricingModal) {
     })() +
 
     '<h2>6. ANÁLISIS ECONÓMICO Y FINANCIERO BANCABLE (25 AÑOS)<\/h2>' +
-    '<p>Evaluación financiera proyectada a 25 años bajo metodología de Flujos de Caja Descontados (DCF) con coste ponderado del capital WACC del 4,0 %, degradación celular compuesta (0,5 %/año) y mantenimiento anual indexado al IPC (2,0 %/año).<\/p>' +
+    '<p>Evaluación financiera proyectada a 25 años bajo metodología de Flujos de Caja Descontados (DCF) con coste ponderado del capital WACC del ' + waccPctMem.toFixed(1) + ' %, degradación celular compuesta (' + degAnnMem.toFixed(2) + ' %/año) y mantenimiento anual indexado al IPC (' + ipcOpexMem.toFixed(1) + ' %/año).<\/p>' +
     '<div class="dgrid">' +
     '<div class="dcard"><label>Inversión Inicial (CAPEX Bruto)<\/label><value>' + capexTot.toLocaleString('es-ES',{minimumFractionDigits:2}) + ' €<\/value><\/div>' +
     '<div class="dcard"><label>Ahorro Anual (Año 1)<\/label><value style="color:#10b981">' + ah1.toLocaleString('es-ES') + ' €/año<\/value><\/div>' +
-    '<div class="dcard"><label>Valor Actual Neto (VAN 25a · WACC 4%)<\/label><value style="color:#10b981"><strong>+' + (typeof vanVal === 'number' ? vanVal.toLocaleString('es-ES') : vanVal) + ' €<\/strong><\/value><\/div>' +
+    '<div class="dcard"><label>Valor Actual Neto (VAN 25a · WACC ' + waccPctMem.toFixed(1) + '%)<\/label><value style="color:' + (typeof vanVal === 'number' && vanVal < 0 ? '#ef4444' : '#10b981') + '"><strong>' + (typeof vanVal === 'number' ? ((vanVal >= 0 ? '+' : '') + vanVal.toLocaleString('es-ES')) : vanVal) + ' €<\/strong><\/value><\/div>' +
     '<div class="dcard"><label>Tasa Interna de Retorno (TIR)<\/label><value style="color:#10b981"><strong>' + tirVal + ' %<\/strong><\/value><small style="display:block;font-size:8px;color:#64748b;">sobre desembolso inicial (CAPEX bruto)<\/small><\/div>' +
     '<div class="dcard"><label>Coste Nivelado (LCOE)<\/label><value>' + lcoeVal + ' €/kWh<\/value><\/div>' +
     '<div class="dcard"><label>Período de Retorno (Payback)<\/label><value><strong>' + pbYears + ' años<\/strong><\/value><small style="display:block;font-size:8px;color:#64748b;">sobre desembolso inicial (CAPEX bruto)<\/small><\/div>' +
     '<div class="dcard"><label>Emisiones CO₂ Evitadas<\/label><value>' + d.co2_evitado + ' t CO₂/año<\/value><\/div>' +
-    '<div class="dcard"><label>Energía Limpia Total (25 años)<\/label><value>' + Math.round(d.annualKWh * 23.2).toLocaleString('es-ES') + ' kWh<\/value><\/div>' +
+    '<div class="dcard"><label>Energía Limpia Total (25 años)<\/label><value>' + totalGen25Mem.toLocaleString('es-ES') + ' kWh<\/value><\/div>' +
     '<\/div>' +
     (scheduleRowsHtml ? (
       '<h4 style="margin-top:14px;">6.1 Matriz de Flujos de Caja Descontados (Hitos Quinquenales y Decenales)<\/h4>' +
@@ -1454,9 +1473,15 @@ function generatePresupuesto(skipPricingModal) {
   });
 
   // Sincronización milimétrica con el SSOT Financiero Bancable (evita redondeos flotantes divergentes)
-  const subtotalFinal = m ? m.subtotal : Math.round(subtotalCalc);
-  const iva = m ? m.iva : Math.round(subtotalFinal * 0.21);
-  const capexBruto = m ? m.capexBruto : (subtotalFinal + iva);
+  const _snapBud = (typeof window !== 'undefined' && typeof window.raBuildDocSnapshot === 'function')
+    ? window.raBuildDocSnapshot(d, m)
+    : null;
+  const ivaRateBud = _snapBud ? _snapBud.ivaRate : ((m && typeof m.ivaRate === 'number') ? m.ivaRate : 0.21);
+  const subtotalFinal = _snapBud ? _snapBud.subtotal : (m ? m.subtotal : Math.round(subtotalCalc));
+  const iva = _snapBud ? _snapBud.iva : (m ? m.iva : Math.round(subtotalFinal * ivaRateBud));
+  const capexBruto = _snapBud ? _snapBud.capexBruto : (m ? m.capexBruto : (subtotalFinal + iva));
+  const degAnnBud = _snapBud ? _snapBud.degAnnualPct : ((m && typeof m.degAnnualPct === 'number') ? m.degAnnualPct : 0.40);
+  const inflBud = _snapBud ? _snapBud.inflacionPct : ((m && typeof m.inflacionPct === 'number') ? m.inflacionPct : 3.0);
 
   // Incentivos y retorno bancable (25 años)
   // [AUD-2026 · A-03] Nunca sustituir por constantes de escaparate (16,4 % / 4,2 años).
@@ -1540,7 +1565,7 @@ function generatePresupuesto(skipPricingModal) {
         <tbody>
           ${sumRows}
           <tr style="background:#f1f5f9;font-weight:700"><td>BASE IMPONIBLE (SUBTOTAL)</td><td style="text-align:right">${subtotalFinal.toLocaleString('es-ES', {minimumFractionDigits:2})} €</td><td style="text-align:right">100.0 %</td></tr>
-          <tr><td>IVA REPERCUTIDO (21%)</td><td style="text-align:right">${iva.toLocaleString('es-ES', {minimumFractionDigits:2})} €</td><td></td></tr>
+          <tr><td>IVA REPERCUTIDO (${Math.round(ivaRateBud * 100)}%)</td><td style="text-align:right">${iva.toLocaleString('es-ES', {minimumFractionDigits:2})} €</td><td></td></tr>
           <tr style="background:#dbeafe;font-weight:900;font-size:11pt"><td>TOTAL PRESUPUESTO (CAPEX BRUTO)</td><td style="text-align:right;color:#1d4ed8">${capexBruto.toLocaleString('es-ES', {minimumFractionDigits:2})} €</td><td></td></tr>
           <tr style="background:#dcfce7;font-weight:800;color:#15803d"><td>COSTE NETO TRAS INCENTIVOS FISCALES</td><td style="text-align:right">${capexNeto.toLocaleString('es-ES', {minimumFractionDigits:2})} €</td><td></td></tr>
         </tbody>
@@ -1549,7 +1574,7 @@ function generatePresupuesto(skipPricingModal) {
       <div class="doc-box" style="background:#f8fafc;border-color:#cbd5e1;display:flex;flex-direction:column;justify-content:space-between">
         <div>
           <div style="font-weight:800;font-size:10.5pt;color:#0f172a;margin-bottom:8px">📊 RENTABILIDAD Y VIABILIDAD FINANCIERA (VAN / TIR)</div>
-          <div style="font-size:8.5pt;color:#475569;margin-bottom:10px">Modelo de flujo de caja descontado a 25 años considerando degradación de paneles (0.5%/año), IPC eléctrico (3.0%/año) y sustitución preventiva de inversor en año 12:</div>
+          <div style="font-size:8.5pt;color:#475569;margin-bottom:10px">Modelo de flujo de caja descontado a 25 años considerando degradación de paneles (${degAnnBud.toFixed(2)}%/año), IPC eléctrico (${inflBud.toFixed(1)}%/año) y sustitución preventiva de inversor en año 12:</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
             <div class="kpi-card" style="background:#fff"><div class="kpi-val" style="color:#10b981">${tirVal} %</div><div class="kpi-lbl">TIR (Rentabilidad Anual)</div></div>
             <div class="kpi-card" style="background:#fff"><div class="kpi-val" style="color:#0284c7">${vanVal} €</div><div class="kpi-lbl">VAN (Valor Actual Neto)</div></div>
@@ -1595,6 +1620,7 @@ function generatePresupuesto(skipPricingModal) {
 }
 
 function generateUnifilar() {
+  if (typeof raEnsureAnalysisReadyForDoc === 'function' && !raEnsureAnalysisReadyForDoc()) return;
   const d = _docGetProjectCalcs();
   if (d.numPanels === 0) {
     alert('Define primero el polígono de la instalación en el visor 3D.');
@@ -2278,6 +2304,7 @@ function generateUnifilarDxfString(D) {
 // DOC 5 — PLANO DE PLANTA ARQUITECTÓNICO / INGENIERÍA (100% FIEL AL VISOR 3D)
 // ============================================================================
 function generatePlanoPlanta() {
+  if (typeof raEnsureAnalysisReadyForDoc === 'function' && !raEnsureAnalysisReadyForDoc()) return;
   const hasPolylines = (typeof WP !== 'undefined' && WP && Array.isArray(WP.polylines) && WP.polylines.some(p => Array.isArray(p.points) && p.points.length >= 3));
   const hasPolygon = (typeof polygonPoints !== 'undefined' && Array.isArray(polygonPoints) && polygonPoints.length >= 3);
   if (!hasPolylines && !hasPolygon) {
@@ -2777,6 +2804,7 @@ function generatePlanoPlanta() {
 
 
 function generateFormulario() {
+  if (typeof raEnsureAnalysisReadyForDoc === 'function' && !raEnsureAnalysisReadyForDoc()) return;
   const d = _docGetProjectCalcs();
   const t = d.tit;
   const loc = (t.dir ? t.dir + ', ' : '') + (t.mun || '') + (t.prov ? ', ' + t.prov : '');
