@@ -108,7 +108,7 @@ function _docGetProjectCalcs() {
 // SUITE DE DOCUMENTACIÓN: OPENDOC / WORD (.DOC), PDF VECTORIAL Y EDICIÓN EN VIVO
 // ============================================================================
 
-function docWindow(title, body) {
+function docWindow(title, body, opt) {
   const safeTitle = escapeHtml(title);
   const safeFileBase = String(title || 'documento').replace(/[^a-z0-9_\-\.]/gi, '_');
   const htmlContent = `<!DOCTYPE html>
@@ -664,6 +664,10 @@ function docWindow(title, body) {
 </body>
 </html>`;
 
+  if (opt && typeof opt === 'object' && opt.returnHtmlOnly) {
+    return htmlContent;
+  }
+
   const w = window.open('', '_blank');
   if (!w) {
     // Si el navegador bloquea la ventana emergente, mostrar en visor modal incrustado
@@ -823,10 +827,11 @@ function buildAmortizationSvg(capex, schedule25) {
   '</div>';
 }
 
-function generateMemoria(skipPricingModal) {
+function generateMemoria(skipPricingModal, opt) {
+  const returnHtmlOnly = !!(opt && typeof opt === 'object' && opt.returnHtmlOnly);
   // [B4] Bloquear entrega si el análisis solar está en curso u obsoleto
-  if (typeof raEnsureAnalysisReadyForDoc === 'function' && !raEnsureAnalysisReadyForDoc()) return;
-  if (!skipPricingModal && typeof wpOpenPricingReviewModal === 'function') {
+  if (!returnHtmlOnly && typeof raEnsureAnalysisReadyForDoc === 'function' && !raEnsureAnalysisReadyForDoc()) return;
+  if (!returnHtmlOnly && !skipPricingModal && typeof wpOpenPricingReviewModal === 'function') {
     wpOpenPricingReviewModal(function() {
       generateMemoria(true);
     });
@@ -1179,14 +1184,18 @@ function generateMemoria(skipPricingModal) {
     '<div class="footer">' + d.refNum + ' — MEMORIA TÉCNICA — Rev. R0 — ' + d.fechaStr + ' — Generado por RA · Sistema de Diseño FV 3D<\/div>';
 
   // Try PDF first, fallback to printable window
+  if (returnHtmlOnly) {
+    return docWindow('MT — ' + d.refNum, body, { returnHtmlOnly: true });
+  }
   docWindow('MT — ' + d.refNum, body);
 }
 
 // ============================================================================
 // DOC 2 — PLIEGO DE CONDICIONES
 // ============================================================================
-function generatePliego() {
-  if (typeof raEnsureAnalysisReadyForDoc === 'function' && !raEnsureAnalysisReadyForDoc()) return;
+function generatePliego(opt) {
+  const returnHtmlOnly = !!(opt && typeof opt === 'object' && opt.returnHtmlOnly);
+  if (!returnHtmlOnly && typeof raEnsureAnalysisReadyForDoc === 'function' && !raEnsureAnalysisReadyForDoc()) return;
   const d = _docGetProjectCalcs();
   const t = d.tit;
   const loc = (t.dir ? t.dir + ', ' : '') + (t.mun || '') + (t.prov ? ', ' + t.prov : '');
@@ -1274,6 +1283,9 @@ function generatePliego() {
     '<div class="sig">Fecha<br><br><br>' + d.fechaStr + '<\/div><\/div>' +
     '<div class="footer">' + d.refNum + ' — PLIEGO DE CONDICIONES — Rev. R0 — ' + d.fechaStr + '<\/div>';
 
+  if (returnHtmlOnly) {
+    return docWindow('PC — ' + d.refNum, body, { returnHtmlOnly: true });
+  }
   docWindow('PC — ' + d.refNum, body);
 }
 
@@ -1281,9 +1293,10 @@ function generatePliego() {
 // ============================================================================
 // DOC 3 — PRESUPUESTO DETALLADO
 // ============================================================================
-function generatePresupuesto(skipPricingModal) {
-  if (typeof raEnsureAnalysisReadyForDoc === 'function' && !raEnsureAnalysisReadyForDoc()) return;
-  if (!skipPricingModal && typeof wpOpenPricingReviewModal === 'function') {
+function generatePresupuesto(skipPricingModal, opt) {
+  const returnHtmlOnly = !!(opt && typeof opt === 'object' && opt.returnHtmlOnly);
+  if (!returnHtmlOnly && typeof raEnsureAnalysisReadyForDoc === 'function' && !raEnsureAnalysisReadyForDoc()) return;
+  if (!returnHtmlOnly && !skipPricingModal && typeof wpOpenPricingReviewModal === 'function') {
     wpOpenPricingReviewModal(function() {
       generatePresupuesto(true);
     });
@@ -1616,6 +1629,9 @@ function generatePresupuesto(skipPricingModal) {
     </div>
   </div>`;
 
+  if (returnHtmlOnly) {
+    return docWindow('Presupuesto Detallado y Estudio Bancable — ' + d.refNum, body, { returnHtmlOnly: true });
+  }
   docWindow('Presupuesto Detallado y Estudio Bancable — ' + d.refNum, body);
 }
 
@@ -1729,7 +1745,7 @@ function generateUnifilar() {
   </div>
 
   <script>
-    const D = ${JSON.stringify(payload)};
+    const D = ${JSON.stringify(payload).replace(/<\/script>/gi, '<\\/script>')};
 
     function downloadSvg() {
       const svgEl = document.getElementById('svgWrap').querySelector('svg');
@@ -1760,7 +1776,7 @@ function generateUnifilar() {
       URL.revokeObjectURL(url);
     }
 
-    ${generateUnifilarDxfString.toString()}
+    ${generateUnifilarDxfString.toString().replace(/<\/script>/gi, '<\\/script>')}
   ${'<'}/script>
 </body>
 </html>
@@ -2121,6 +2137,7 @@ function buildUnifilarSvg(D) {
  */
 function generateUnifilarDxfString(D) {
   let dxf = '';
+  const iAcStr = (typeof D.I_ac === 'number' ? D.I_ac : (parseFloat(D.I_ac) || 0)).toFixed(1);
 
   // Helpers DXF
   function addHeader() {
@@ -2145,7 +2162,7 @@ function generateUnifilarDxfString(D) {
     ];
 
     layers.forEach(l => {
-      dxf += '0\\r\\nLAYER\\r\\n2\\r\\n' + l.name + '\\r\\n70\\r\\n0\\r\\n62\\r\\n' + l.color + '\\r\\n6\\r\\nCONTINUOUS\\r\\n';
+      dxf += '0\r\nLAYER\r\n2\r\n' + l.name + '\r\n70\r\n0\r\n62\r\n' + l.color + '\r\n6\r\nCONTINUOUS\r\n';
     });
 
     dxf += '0\r\nENDTAB\r\n0\r\nENDSEC\r\n';
@@ -2155,7 +2172,7 @@ function generateUnifilarDxfString(D) {
     // Invertimos Y para sistema de coordenadas CAD cartesiano estándar (Y hacia arriba)
     const Y1 = 1131 - y1;
     const Y2 = 1131 - y2;
-    return '0\\r\\nLINE\\r\\n8\\r\\n' + layer + '\\r\\n10\\r\\n' + x1.toFixed(2) + '\\r\\n20\\r\\n' + Y1.toFixed(2) + '\\r\\n30\\r\\n0.0\\r\\n11\\r\\n' + x2.toFixed(2) + '\\r\\n21\\r\\n' + Y2.toFixed(2) + '\\r\\n31\\r\\n0.0\\r\\n';
+    return '0\r\nLINE\r\n8\r\n' + layer + '\r\n10\r\n' + x1.toFixed(2) + '\r\n20\r\n' + Y1.toFixed(2) + '\r\n30\r\n0.0\r\n11\r\n' + x2.toFixed(2) + '\r\n21\r\n' + Y2.toFixed(2) + '\r\n31\r\n0.0\r\n';
   }
 
   function rect(layer, x, y, w, h) {
@@ -2167,13 +2184,13 @@ function generateUnifilarDxfString(D) {
 
   function circle(layer, cx, cy, r) {
     const Y = 1131 - cy;
-    return '0\\r\\nCIRCLE\\r\\n8\\r\\n' + layer + '\\r\\n10\\r\\n' + cx.toFixed(2) + '\\r\\n20\\r\\n' + Y.toFixed(2) + '\\r\\n30\\r\\n0.0\\r\\n40\\r\\n' + r.toFixed(2) + '\\r\\n';
+    return '0\r\nCIRCLE\r\n8\r\n' + layer + '\r\n10\r\n' + cx.toFixed(2) + '\r\n20\r\n' + Y.toFixed(2) + '\r\n30\r\n0.0\r\n40\r\n' + r.toFixed(2) + '\r\n';
   }
 
   function text(layer, x, y, height, str) {
     const Y = 1131 - y;
-    const cleanStr = String(str).replace(/[\\r\\n]/g, ' ');
-    return '0\\r\\nTEXT\\r\\n8\\r\\n' + layer + '\\r\\n10\\r\\n' + x.toFixed(2) + '\\r\\n20\\r\\n' + Y.toFixed(2) + '\\r\\n30\\r\\n0.0\\r\\n40\\r\\n' + height.toFixed(2) + '\\r\\n1\\r\\n' + cleanStr + '\\r\\n';
+    const cleanStr = String(str === undefined || str === null ? '' : str).replace(/[\r\n]+/g, ' ');
+    return '0\r\nTEXT\r\n8\r\n' + layer + '\r\n10\r\n' + x.toFixed(2) + '\r\n20\r\n' + Y.toFixed(2) + '\r\n30\r\n0.0\r\n40\r\n' + height.toFixed(2) + '\r\n1\r\n' + cleanStr + '\r\n';
   }
 
   addHeader();
@@ -2294,9 +2311,9 @@ function generateUnifilarDxfString(D) {
   dxf += text('5_TEXTOS', gridX + 10, gridY, 3.5, D.dist);
   dxf += text('5_TEXTOS', gridX + 10, gridY + 20, 3.0, 'CUPS: ' + D.cups);
 
-  dxf += '0\\r\\nENDSEC\\r\\n0\\r\\nEOF\\r\\n';
+  dxf += '0\r\nENDSEC\r\n0\r\nEOF\r\n';
 
-  return dxf.replace(/\\r\\n/g, '\r\n');
+  return dxf;
 }
 
 
@@ -2803,8 +2820,9 @@ function generatePlanoPlanta() {
 }
 
 
-function generateFormulario() {
-  if (typeof raEnsureAnalysisReadyForDoc === 'function' && !raEnsureAnalysisReadyForDoc()) return;
+function generateFormulario(opt) {
+  const returnHtmlOnly = !!(opt && typeof opt === 'object' && opt.returnHtmlOnly);
+  if (!returnHtmlOnly && typeof raEnsureAnalysisReadyForDoc === 'function' && !raEnsureAnalysisReadyForDoc()) return;
   const d = _docGetProjectCalcs();
   const t = d.tit;
   const loc = (t.dir ? t.dir + ', ' : '') + (t.mun || '') + (t.prov ? ', ' + t.prov : '');
@@ -2901,10 +2919,11 @@ function generateFormulario() {
     '<div class="footer">' + d.refNum + ' — FORMULARIO TRAMITACIÓN RD 244\/2019 — ' + d.fechaStr + ' — Generado por RA · Sistema de Diseño FV 3D<br>' +
     '⚠ Verificar con la normativa autonómica vigente antes de presentar ante la administración.<\/div>';
 
-  const pdf = docWindow('FORM — ' + d.refNum, body, true);
-  if (!pdf) {
-    docWindow('FORM — ' + d.refNum, body);
+  if (returnHtmlOnly) {
+    return docWindow('FORM — ' + d.refNum, body, { returnHtmlOnly: true });
   }
+
+  docWindow('FORM — ' + d.refNum, body);
 }
 
 /**
@@ -2965,8 +2984,17 @@ async function generateDeliveryPack(skipPricingModal) {
 
     const unifilarSvg = buildUnifilarSvg(unifPayload);
     const unifilarDxf = generateUnifilarDxfString(unifPayload);
+    const memoriaHtml = generateMemoria(true, { returnHtmlOnly: true });
+    const pliegoHtml = generatePliego({ returnHtmlOnly: true });
+    const presupuestoHtml = generatePresupuesto(true, { returnHtmlOnly: true });
+    const formularioHtml = generateFormulario({ returnHtmlOnly: true });
+
+    if (memoriaHtml) folder.file('01_Memoria_Tecnica_Oficial_' + ref + '.html', memoriaHtml);
+    if (pliegoHtml) folder.file('02_Pliego_de_Condiciones_' + ref + '.html', pliegoHtml);
+    if (presupuestoHtml) folder.file('03_Presupuesto_Detallado_' + ref + '.html', presupuestoHtml);
     folder.file('04_Esquema_Unifilar_' + ref + '.svg', unifilarSvg);
     folder.file('04_Esquema_Unifilar_' + ref + '.dxf', unifilarDxf);
+    if (formularioHtml) folder.file('05_Formulario_Tramitacion_RD244_' + ref + '.html', formularioHtml);
 
     // 3. Crear archivo Léame / Índice documental
     const readmeText = 'PROYECTO TÉCNICO FOTOVOLTAICO ' + d.refNum + '\r\n' +

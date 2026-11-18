@@ -1052,13 +1052,6 @@ function renderTriad2D() {
           triadCtx.stroke();
 
           triadCtx.restore();
-
-          // Mantener la animación pulsante fluida mientras el cursor permanezca en snap
-          if (typeof requestAnimationFrame === 'function') {
-            requestAnimationFrame(() => {
-              if (typeof renderTriad2D === 'function') renderTriad2D();
-            });
-          }
         }
       } catch(ePolyRubber) {
         console.warn("[PolyRubberBand] error:", ePolyRubber);
@@ -7134,8 +7127,7 @@ function addNewEquipmentFromForm() {
         rotorMassKg: Math.round(kw * 12),
         maxThrustKn: Math.round(kw * 0.8 * 10) / 10,
         naturalFrequencyHz: 0.8
-      },
-      powerCurve: []
+      }
     };
 
     if (window.RAWindCatalog && typeof window.RAWindCatalog.upsert === 'function') {

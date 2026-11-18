@@ -198,6 +198,7 @@
     var downwindDir = (windDir + 180) % 360;
 
     var maxVelocityDeficit = 0.0;
+    var sumSqObsDeficit = 0.0;
     var totalTurbulenceBoost = 0.0;
     var criticalObstacle = null;
     var affectedObstacles = [];

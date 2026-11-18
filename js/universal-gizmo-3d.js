@@ -1044,6 +1044,34 @@ function deleteUniversalSelectedObject() {
     return true;
   }
   if (target.type === 'vertex') {
+    const bState = (typeof window !== 'undefined' && window.bldFootprintState) || (typeof bldFootprintState !== 'undefined' ? bldFootprintState : null);
+    const activeBldId = (typeof selectedBuildingId !== 'undefined' && selectedBuildingId) ? selectedBuildingId : ((typeof window !== 'undefined') ? window.selectedBuildingId : null);
+    if (target.subType === 'building_vertex' || (bState && bState.selectedVtxIdx >= 0 && activeBldId)) {
+      const vIdx = (bState && typeof bState.selectedVtxIdx === 'number') ? bState.selectedVtxIdx : -1;
+      const bldArr = (typeof buildings !== 'undefined' && Array.isArray(buildings)) ? buildings : ((typeof window !== 'undefined' && Array.isArray(window.buildings)) ? window.buildings : []);
+      const bld = bldArr.find(b => b && b.id === activeBldId);
+      if (bld && Array.isArray(bld.points) && vIdx >= 0 && vIdx < bld.points.length) {
+        if (bld.points.length <= 3) {
+          if (typeof showToast === 'function') showToast('MÍNIMO REQUERIDO', 'Un edificio requiere al menos 3 vértices en su huella.', 'warning', 2500);
+          return true;
+        }
+        if (window.RAundo && typeof window.RAundo.snapProject === 'function') {
+          window.RAundo.snapProject('Eliminar vértice de edificio');
+        } else if (window.RAundo && typeof window.RAundo.snapBuildings === 'function') {
+          window.RAundo.snapBuildings('Eliminar vértice de edificio');
+        }
+        bld.points.splice(vIdx, 1);
+        if (bState) bState.selectedVtxIdx = -1;
+        if (typeof window !== 'undefined') window._selectedVtxHandle = null;
+        if (typeof updateBuildingFootprintUI === 'function') updateBuildingFootprintUI();
+        if (typeof render3DBuildingsInCesium === 'function') render3DBuildingsInCesium();
+        if (typeof recalculateLayoutAndObstacles === 'function') recalculateLayoutAndObstacles();
+        if (typeof wpInvalidateHeatmap === 'function') wpInvalidateHeatmap('Vértice de edificio eliminado');
+        if (typeof renderTriad2D === 'function') renderTriad2D();
+        if (typeof showStatus === 'function') showStatus('<i data-lucide="trash-2" class="icon-sm"></i> VÉRTICE DE EDIFICIO ELIMINADO', 2500);
+      }
+      return true;
+    }
     if (typeof wpDeleteSelectedVertexFromList === 'function') {
       wpDeleteSelectedVertexFromList();
     } else if (typeof wpDeleteSelectedVtx === 'function') {

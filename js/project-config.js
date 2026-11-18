@@ -1,6 +1,6 @@
 window.solarProjectConfig = {
   selectedModuleId: 'ja_550',
-  selectedInverterId: 'inv_huawei_5ktl_l1',
+  selectedInverterId: 'inv_huawei_5k',
   selectedMicroinverterId: 'mlpe_hoymiles_800',
   selectedBatteryId: 'bat_huawei_5k',
   selectedProtectionDcId: 'panel_dc_2mppt',
@@ -1562,7 +1562,7 @@ function wpAutoSelectOptimalEngineering(force = false) {
   if (!cfg) return null;
 
   // Si el usuario ya seleccionó manualmente un equipo y no está forzando re-optimización, respetar su decisión
-  if (!force && (cfg.userManuallySelectedInverter || (cfg.selectedInverterId && cfg.selectedInverterId !== 'inv_huawei_5ktl_l1')) ) {
+  if (!force && (cfg.userManuallySelectedInverter || (cfg.selectedInverterId && cfg.selectedInverterId !== 'inv_huawei_5k' && cfg.selectedInverterId !== 'inv_huawei_5ktl_l1')) ) {
     cfg.userManuallySelectedInverter = true;
     wpRenderAutoEngineeringBanner(null, true);
     return null;

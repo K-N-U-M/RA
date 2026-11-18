@@ -331,8 +331,8 @@
     }
 
     var ct = 0.42;
-    if (upstream._catalog && Array.isArray(upstream._catalog.powerCurve) && upstream._catalog.powerCurve.length > 0) {
-      var midPt = upstream._catalog.powerCurve[Math.floor(upstream._catalog.powerCurve.length / 2)];
+    if (upTurbine._catalog && Array.isArray(upTurbine._catalog.powerCurve) && upTurbine._catalog.powerCurve.length > 0) {
+      var midPt = upTurbine._catalog.powerCurve[Math.floor(upTurbine._catalog.powerCurve.length / 2)];
       if (midPt && typeof midPt.ct === 'number' && midPt.ct > 0 && midPt.ct < 1.0) ct = midPt.ct;
     }
     var baseDeficit = (1 - Math.sqrt(Math.max(0.01, 1 - ct))) / Math.pow(1 + (2 * kw * xDown) / dUp, 2);
@@ -1107,7 +1107,7 @@
       var crossDir = (prevDir + 90) % 360;
 
       return {
-        currentHeightM: origH,
+        currentHeightM: curH,
         recommendedHeightM: recommendedH,
         potentialGainKwh: gainKwh,
         potentialGainPct: gainPct,

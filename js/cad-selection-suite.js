@@ -320,7 +320,9 @@
 
     // ── NIVEL 5: VOLÚMENES ARQUITECTÓNICOS (EDIFICIOS COMPLETOS)
     if (!target && filter === 'all') {
-      const activeStep = (typeof global.currentStep !== 'undefined') ? global.currentStep : ((typeof global.WP !== 'undefined' && global.WP) ? global.WP.step : 1);
+      const activeStep = (typeof global.wpCurrentStep !== 'undefined')
+        ? global.wpCurrentStep
+        : ((typeof global.WP !== 'undefined' && global.WP && typeof global.WP.step !== 'undefined') ? global.WP.step : 1);
       if (activeStep <= 1 && Array.isArray(global.buildings)) {
         for (const b of global.buildings) {
           if (!b || b.visible === false || !Array.isArray(b.points) || b.points.length < 3) continue;

@@ -2363,7 +2363,7 @@ function raNewProjectConfirm() {
     window.solarProjectConfig.targetKwp = 5.0;
     window.solarProjectConfig.address = '';
     window.solarProjectConfig.selectedModuleId = 'ja_550';
-    window.solarProjectConfig.selectedInverterId = 'inv_huawei_5ktl_l1';
+    window.solarProjectConfig.selectedInverterId = 'inv_huawei_5k';
     window.solarProjectConfig.selectedBatteryId = 'bat_none';
     window.solarProjectConfig.userManuallySelectedInverter = false;
     window.solarProjectConfig.userManuallySelectedBattery = false;
