@@ -66,6 +66,7 @@
           pecDirectCostEur: 0,
           municipalTaxesEur: 0,
           maxLoadKgM2: 0,
+          maxAllowedLoadKgM2: 25.0,
           loadWarning: false
         },
         roofs: [],
@@ -107,12 +108,41 @@
       // ── 1. PROCESAR CADA FALDOÓN / POLILÍNEA DE CUBIERTA ────────────────────
       const polylines = (WP && Array.isArray(WP.polylines)) ? WP.polylines : [];
 
+      // Helper canónico único CTE DB-SE-AE de sobrecarga estructural admisible en cubierta
+      const getCteLimit = function(rType, stTypeStr, polyObj) {
+        const rt = String(rType || '').toLowerCase();
+        const st = String(stTypeStr || '').toLowerCase();
+        let cteDefault = 25.0; // Cubierta ligera chapa / sándwich / deck (conservador CTE DB-SE-AE)
+        if (rt === 'concrete' || rt === 'hormigon' || rt === 'plana_hormigon' || rt === 'flat_concrete') {
+          cteDefault = 100.0;
+        } else if (rt === 'teja' || rt === 'tile' || (st.indexOf('teja') !== -1 && rt !== 'deck' && rt !== 'chapa' && rt !== 'sandwich_metal')) {
+          cteDefault = 50.0;
+        }
+        const manualLimit = (polyObj && typeof polyObj.maxStructuralLoadKgM2 === 'number' && polyObj.maxStructuralLoadKgM2 > 0)
+          ? polyObj.maxStructuralLoadKgM2
+          : null;
+        if (manualLimit !== null) {
+          if (manualLimit > cteDefault && typeof console !== 'undefined' && console.warn) {
+            console.warn('[CTE DB-SE-AE] Sobrecarga manual en cubierta (' + manualLimit + ' kg/m²) supera el umbral conservador normativo (' + cteDefault + ' kg/m²). Requiere justificación estructural visada.');
+          }
+          return manualLimit;
+        }
+        return cteDefault;
+      };
+      if (typeof root !== 'undefined' && root.RA) {
+        root.RA.getCteRoofLoadLimitKgM2 = function(rType, polyObj) {
+          return getCteLimit(rType, polyObj && polyObj.structureType, polyObj);
+        };
+      }
+
       polylines.forEach((poly, polyIdx) => {
         const polyId = poly.id || `faldon_${polyIdx + 1}`;
         const polyName = poly.name || `Faldón ${polyIdx + 1}`;
         const roofType = poly.roofType || 'sandwich_metal';
-        const cteLimitKgM2 = (roofType === 'deck' || roofType === 'chapa' || (poly.structureType && poly.structureType.indexOf('chapa') !== -1)) ? 40.0 : 100.0;
-        const maxLoad = poly.maxStructuralLoadKgM2 || cteLimitKgM2;
+        const maxLoad = getCteLimit(roofType, poly.structureType, poly);
+        if (polyIdx === 0 || maxLoad < tree.summary.maxAllowedLoadKgM2) {
+          tree.summary.maxAllowedLoadKgM2 = maxLoad;
+        }
         const stType = poly.structureType || 'coplanar_teja';
         const isTriangular = stType.includes('triangle');
         const estType = stType;
@@ -138,11 +168,11 @@
           return;
         }
 
-        // Single Source of Truth: Priorizar los módulos reales renderizados en 3D para este faldón
+        // Single Source of Truth: Priorizar los módulos reales renderizados en 3D para este faldón (excluyendo reserva ghost)
         let panels = [];
         if (typeof root !== 'undefined' && Array.isArray(root.allRenderedPanels) && root.allRenderedPanels.length > 0) {
           panels = root.allRenderedPanels.filter(p => {
-            if (!p || p.deleted || p.disabled) return false;
+            if (!p || p.deleted || p.disabled || p.isGhost) return false;
             if (typeof p.polyIdx === 'number') return p.polyIdx === polyIdx;
             if (typeof p.faldonIndex === 'number') return p.faldonIndex === polyIdx;
             if (p.rawPanel && typeof p.rawPanel.polyIdx === 'number') return p.rawPanel.polyIdx === polyIdx;
@@ -152,15 +182,15 @@
         // Fallback robusto a arrays de faldón si no se encontró en allRenderedPanels
         if (panels.length === 0) {
           if (Array.isArray(poly.panels) && poly.panels.length > 0) {
-            panels = poly.panels.filter(p => p && !p.deleted && !p.disabled);
+            panels = poly.panels.filter(p => p && !p.deleted && !p.disabled && !p.isGhost);
           } else if (poly.roofInfo && Array.isArray(poly.roofInfo.panels) && poly.roofInfo.panels.length > 0) {
-            panels = poly.roofInfo.panels.filter(p => p && !p.deleted && !p.disabled);
+            panels = poly.roofInfo.panels.filter(p => p && !p.deleted && !p.disabled && !p.isGhost);
           } else if (typeof root.computeSinglePolylineRoofInfo === 'function' && Array.isArray(poly.points) && poly.points.length >= 3) {
             try {
               const freshInfo = root.computeSinglePolylineRoofInfo(poly.points, poly);
               if (freshInfo && Array.isArray(freshInfo.panels)) {
                 poly.roofInfo = freshInfo;
-                panels = freshInfo.panels.filter(p => p && !p.deleted && !p.disabled);
+                panels = freshInfo.panels.filter(p => p && !p.deleted && !p.disabled && !p.isGhost);
               }
             } catch(eRec) {}
           }
@@ -881,17 +911,17 @@
         const costSup = engCfg.siteSupervision;
         const costCie = engCfg.adminCIE;
 
-        // Permisos y tasas
+        // Permisos, mano de obra e ICIO sobre base completa de ejecución material (materiales + mano de obra)
         const costUrban = permitsCfg.urbanPermitFixed;
         const costWaste = permitsCfg.wasteDeposit;
-        const costIcio = parseFloat((tree.summary.subtotalEur * ((permitsCfg.urbanPermitRatePct || 3.5) / 100)).toFixed(2));
+        const costSmallMat = parseFloat((totalP * (smallMatCfg.perPanelSmallMaterials || 6.50)).toFixed(2));
+        const pemBaseEur = tree.summary.subtotalEur + costMech + costElec + costComm + costSmallMat;
+        const costIcio = parseFloat((pemBaseEur * ((permitsCfg.urbanPermitRatePct || 3.5) / 100)).toFixed(2));
 
         // Medios auxiliares y seguridad
         const costLifeline = auxCfg.lifelineSafety;
         const costScaffold = (totalP > 25) ? auxCfg.scaffoldingLift : Math.round(auxCfg.scaffoldingLift * 0.6);
 
-        // Pequeño material
-        const costSmallMat = parseFloat((totalP * (smallMatCfg.perPanelSmallMaterials || 6.50)).toFixed(2));
         const jumpersCostVal = (tree.electrical.mc4Jumpers && tree.electrical.mc4Jumpers.totalEur) ? tree.electrical.mc4Jumpers.totalEur : 0;
         tree.electrical.cablesTotalEur = parseFloat((dcCableCost + acCableCost + trayAndConduitCost + mc4ConnectorsCost + jumpersCostVal + earthCost + safetySignageCost + costSmallMat).toFixed(2));
 
@@ -935,7 +965,17 @@
       let hudEl = document.getElementById('ra-bom-tree-hud');
       
       let existingChartWrap = null;
+      const expandedNodeIds = [];
+      let prevScrollTop = 0;
       if (hudEl) {
+        const bodyElPrev = hudEl.querySelector('.bom-hud-body');
+        if (bodyElPrev) prevScrollTop = bodyElPrev.scrollTop || 0;
+        const openNodes = hudEl.querySelectorAll('.bom-node-children');
+        for (let ni = 0; ni < openNodes.length; ni++) {
+          if (openNodes[ni].id && openNodes[ni].style.display !== 'none') {
+            expandedNodeIds.push(openNodes[ni].id);
+          }
+        }
         const wrapEl = hudEl.querySelector('.solar-chart-wrap');
         if (wrapEl) {
           existingChartWrap = wrapEl; // Guardar referencia al nodo existente
@@ -1069,7 +1109,12 @@
               </div>
             </div>
           ` : `
-            <div class="bom-section-title">SUPERFICIES & ESTRUCTURAS</div>
+            <div class="bom-section-title">MÓDULOS FOTOVOLTAICOS</div>
+            ${(tree.modules && tree.modules.length > 0) ? tree.modules.map(m => `
+              <div class="bom-subitem">🔆 <b>${m.count}x</b> ${m.brand} ${m.model} (${m.wp} Wp · ${m.unitPrice} €/ud) · <b>${m.totalPriceEur.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</b></div>
+            `).join('') : '<div class="bom-empty">Sin módulos FV</div>'}
+
+            <div class="bom-section-title">SUPERFICIES &amp; ESTRUCTURAS</div>
             ${roofsHtml || '<div class="bom-empty">Sin faldones trazados</div>'}
             
             <div class="bom-section-title">OBSTÁCULOS & ESCENA 3D</div>
@@ -1134,6 +1179,16 @@
           wrap.appendChild(svg);
           placeholder.appendChild(wrap);
         }
+      }
+
+      // Restaurar estado de acordeones abiertos y scroll vertical del HUD BIM
+      expandedNodeIds.forEach(nId => {
+        const nodeEl = document.getElementById(nId);
+        if (nodeEl) nodeEl.style.display = 'block';
+      });
+      const bodyElNew = hudEl ? hudEl.querySelector('.bom-hud-body') : null;
+      if (bodyElNew && prevScrollTop > 0) {
+        bodyElNew.scrollTop = prevScrollTop;
       }
 
       if (typeof window.renderSolarBarChart === 'function') {

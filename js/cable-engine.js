@@ -227,7 +227,7 @@
           continue;
         }
 
-        var obstacleHit = false;
+        var hits = [];
         for (var o = 0; o < obsList.length; o++) {
           var obs = obsList[o];
           if (!obs) continue;
@@ -243,24 +243,34 @@
           if (t > 0.2 && t < (segLen - 0.2)) {
             var pProj = Cesium.Cartesian3.add(pA, Cesium.Cartesian3.multiplyByScalar(segDir, t, new Cesium.Cartesian3()), new Cesium.Cartesian3());
             var dToSeg = Cesium.Cartesian3.distance(obsCenter, pProj);
-
             if (dToSeg < obsRadius) {
-              obstacleHit = true;
-              var perpDir = isAlongU ? V : U;
-              var vToSeg = Cesium.Cartesian3.subtract(pProj, obsCenter, new Cesium.Cartesian3());
-              var dotPerp = Cesium.Cartesian3.dot(vToSeg, perpDir);
-              var sign = (dotPerp >= 0) ? 1.0 : -1.0;
-              var detourClearance = obsRadius + 0.15;
-              var detourVec = Cesium.Cartesian3.multiplyByScalar(perpDir, sign * detourClearance, new Cesium.Cartesian3());
-
-              var entryPt = Cesium.Cartesian3.subtract(pProj, Cesium.Cartesian3.multiplyByScalar(segDir, obsRadius + 0.05, new Cesium.Cartesian3()), new Cesium.Cartesian3());
-              var corner1 = Cesium.Cartesian3.add(entryPt, detourVec, new Cesium.Cartesian3());
-              var exitPt = Cesium.Cartesian3.add(pProj, Cesium.Cartesian3.multiplyByScalar(segDir, obsRadius + 0.05, new Cesium.Cartesian3()), new Cesium.Cartesian3());
-              var corner2 = Cesium.Cartesian3.add(exitPt, detourVec, new Cesium.Cartesian3());
-
-              newPositions.push(entryPt, corner1, corner2, exitPt);
-              break;
+              hits.push({ t: t, obsCenter: obsCenter, obsRadius: obsRadius, pProj: pProj });
             }
+          }
+        }
+
+        if (hits.length > 0) {
+          hits.sort(function (a, b) { return a.t - b.t; });
+          var lastExitT = 0;
+          var perpDir = isAlongU ? V : U;
+          for (var hi = 0; hi < hits.length; hi++) {
+            var h = hits[hi];
+            var entryT = Math.max(lastExitT, h.t - (h.obsRadius + 0.05));
+            var exitT = Math.min(segLen, h.t + (h.obsRadius + 0.05));
+            if (exitT <= lastExitT + 0.05) continue;
+
+            var vToSeg = Cesium.Cartesian3.subtract(h.pProj, h.obsCenter, new Cesium.Cartesian3());
+            var dotPerp = Cesium.Cartesian3.dot(vToSeg, perpDir);
+            var sign = (dotPerp >= 0) ? 1.0 : -1.0;
+            var detourVec = Cesium.Cartesian3.multiplyByScalar(perpDir, sign * (h.obsRadius + 0.15), new Cesium.Cartesian3());
+
+            var entryPt = Cesium.Cartesian3.add(pA, Cesium.Cartesian3.multiplyByScalar(segDir, entryT, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+            var corner1 = Cesium.Cartesian3.add(entryPt, detourVec, new Cesium.Cartesian3());
+            var exitPt = Cesium.Cartesian3.add(pA, Cesium.Cartesian3.multiplyByScalar(segDir, exitT, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+            var corner2 = Cesium.Cartesian3.add(exitPt, detourVec, new Cesium.Cartesian3());
+
+            newPositions.push(entryPt, corner1, corner2, exitPt);
+            lastExitT = exitT;
           }
         }
 
@@ -399,19 +409,29 @@
       var lateralOffset = (typeof opts.lateralOffset === 'number') ? opts.lateralOffset : 0;
       var latVec = Cesium.Cartesian3.normalize(Cesium.Cartesian3.cross(N, U, new Cesium.Cartesian3()), new Cesium.Cartesian3());
 
-      // Si el usuario proporcionó waypoints manuales (trazado por bandeja), conectar ortogonalmente
+      // Si el usuario proporcionó waypoints manuales (trazado por bandeja), respetar normal de cubierta antes de bajar por fachada
       var customWaypoints = opts.waypoints || [];
       if (Array.isArray(customWaypoints) && customWaypoints.length > 0) {
         var wpShift = (opts.isNeg ? 0.04 : 0) + lateralOffset;
+        var upManual = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(pEnd, new Cesium.Cartesian3());
         var fullPts = [this.elevatePoint(pStart, normalOffset, N)];
         for (var w = 0; w < customWaypoints.length; w++) {
           var cw = this.toCartesian3(customWaypoints[w]);
           if (cw) {
+            var cwHeightDiff = Cesium.Cartesian3.dot(Cesium.Cartesian3.subtract(cw, pEnd, new Cesium.Cartesian3()), upManual);
+            if (cwHeightDiff > 0.35) {
+              cw = this.elevatePoint(cw, normalOffset, N);
+            }
             if (Math.abs(wpShift) > 0.001) {
               cw = Cesium.Cartesian3.add(cw, Cesium.Cartesian3.multiplyByScalar(latVec, wpShift, new Cesium.Cartesian3()), new Cesium.Cartesian3());
             }
             fullPts.push(cw);
           }
+        }
+        var lastManual = fullPts[fullPts.length - 1];
+        var dropManual = Cesium.Cartesian3.dot(Cesium.Cartesian3.subtract(lastManual, pEnd, new Cesium.Cartesian3()), upManual);
+        if (dropManual > 0.35) {
+          fullPts.push(Cesium.Cartesian3.subtract(lastManual, Cesium.Cartesian3.multiplyByScalar(upManual, dropManual, new Cesium.Cartesian3()), new Cesium.Cartesian3()));
         }
         fullPts.push(this.elevatePoint(pEnd, 0.25, N));
         return this.sanitizePositions(fullPts);
@@ -853,7 +873,9 @@
 
         var samplePos = self.toCartesian3(rawPanels[0].center || (rawPanels[0].corners && rawPanels[0].corners[0]));
         var basis = self.getRoofOrthonormalBasis(samplePos);
-        var sPanels = self.sortPanelsForStringing(rawPanels, basis);
+        var activeTopo = (global.solarProjectConfig && global.solarProjectConfig.stringWiringTopology) || 'leapfrog';
+        var alreadyOrdered = (activeTopo === 'leapfrog') || !!strObj.preSorted || (rawPanels.length > 1 && !!rawPanels[0].stringName);
+        var sPanels = alreadyOrdered ? rawPanels.slice() : self.sortPanelsForStringing(rawPanels, basis);
 
         var firstPanel = sPanels[0];
         var termPanel = sPanels[sPanels.length - 1];
@@ -1316,7 +1338,7 @@
         acCableSpec: 'Manguera RZ1-K (AS) 0,6/1 kV libre de halógenos ' + (sState.S_ac_recommended || 10) + ' mm²',
         totalGroundingMeters: Math.round(totalGroundingM * 10) / 10,
         groundingSpec: 'Cable de cobre desnudo Cu 16 mm² para equipotencialidad de estructuras (ITC-BT-18)',
-        mc4ConnectorPairs: (numStrings * 2) + (isParallelY ? Math.max(1, numStrings - 1) * 2 : 0) + totalPanelsCount,
+        mc4ConnectorPairs: (numStrings * 2) + (isParallelY ? Math.max(1, numStrings - 1) * 2 : 0) + (dcProtPos ? numStrings * 2 : 0),
         fillFactorPct: Math.min(40, Math.round(((numStrings * 2 * 35) / (trayWidthMm * 60)) * 100))
       };
 
@@ -1362,13 +1384,13 @@
       var lAcVal = Lac || 15;
       var imp = modCfg.imp || 13.05;
 
-      // Ganancia de corriente por módulo bifacial (TOPCon / HJT / N-Type bifacial) según IEC 61215-1-1
-      var isBifacial = !!(modCfg.bifacial || modCfg.isBifacial || (modCfg.tecnologia && modCfg.tecnologia.toLowerCase().includes('bifacial')));
-      var bifacialGain = isBifacial ? 1.08 : 1.0; // Ganancia trasera estimada media 8%
+      // Ganancia de corriente por módulo bifacial unificada con electrical-engine.js (+15% conservador IEC TS 60904-1-2 / 62548)
+      var isBifacial = !!(modCfg.bifacial || modCfg.isBifacial || (modCfg.bifacialityFactor && modCfg.bifacialityFactor > 0) || (modCfg.tecnologia && modCfg.tecnologia.toLowerCase().includes('bifacial')));
+      var bifacialGain = isBifacial ? 1.15 : 1.0;
       var iscEffective = (modCfg.isc || 13.8) * bifacialGain;
       var impEffective = imp * bifacialGain;
 
-      // Obtener el número real de paneles del circuito para la tensión de trabajo (Vmp real)
+      // Obtener el número real de paneles del circuito y evaluar Vmp_hot a temperatura máxima de célula (70 °C)
       var strList = this.gatherAllStrings();
       var minModPerStr = 12; // fallback prudente
       if (Array.isArray(strList) && strList.length > 0) {
@@ -1380,7 +1402,9 @@
       } else if (global.solarProjectConfig && global.solarProjectConfig.calculatedLimits && global.solarProjectConfig.calculatedLimits.nMinString) {
         minModPerStr = global.solarProjectConfig.calculatedLimits.nMinString;
       }
-      var vmpStr = Math.max(12.0, (modCfg.vmp || 34.5) * Math.max(1, minModPerStr));
+      var gammaPmp = -Math.abs(modCfg.tempCoeffPmax || modCfg.gammaPmp || modCfg.gammaVoc || -0.0035);
+      var vmpHot = (modCfg.vmp || 34.5) * (1 + gammaPmp * (70 - 25));
+      var vmpStr = Math.max(12.0, vmpHot * Math.max(1, minModPerStr));
 
       // [C1/G1] La corriente del troncal se multiplica por el número REAL de grupos en paralelo
       // (fuente única getDcTopologyInfo). Ya no se lee un campo inexistente (dcTopology) que

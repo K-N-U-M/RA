@@ -6484,6 +6484,12 @@ function onSelectModuleFromDropdown(modId) {
   panelConfig.isc = m.isc;
   panelConfig.vmp = m.vmp;
   panelConfig.imp = m.imp;
+  panelConfig.gammaVoc = m.tempCoeffVoc || m.gammaVoc || m.betaVoc || -0.0028;
+  panelConfig.tempCoeffVoc = panelConfig.gammaVoc;
+  panelConfig.tempCoeffPmax = m.tempCoeffPmax || m.gammaPmp || -0.0035;
+  panelConfig.gammaPmp = panelConfig.tempCoeffPmax;
+  panelConfig.bifacial = !!(m.bifacial || m.isBifacial || (m.bifacialityFactor && m.bifacialityFactor > 0) || (m.tec && String(m.tec).toLowerCase().includes('bifacial')));
+  panelConfig.bifacialityFactor = typeof m.bifacialityFactor === 'number' ? m.bifacialityFactor : (panelConfig.bifacial ? 0.75 : 0);
 
   const modInput = document.getElementById('cfg-modelo');
   const tecInput = document.getElementById('cfg-tec');
@@ -7592,7 +7598,7 @@ function wpApplyInverterScenario(invId, count, topology, scenarioKey) {
 
   if (typeof step3SetTopology === 'function') step3SetTopology(topology);
   if (typeof step3UpdateHardwareSelection === 'function') step3UpdateHardwareSelection();
-  if (typeof wpUpdateAutoSizingUI === 'function') wpUpdateAutoSizingUI();
+  if (typeof wpComputeAutoSizing === 'function') wpComputeAutoSizing();
   if (typeof wpUpdateStep4Checklist === 'function') wpUpdateStep4Checklist();
   if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') BOMTreeEngine.refresh();
 

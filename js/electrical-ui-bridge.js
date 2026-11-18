@@ -52,11 +52,11 @@ function wpPlaceBatteryAtPosition(cartesian) {
     wpRenderBattery3D(window.inverterEquipmentState.position || cartesian);
   }
 
-  // Recalcular cables de interconexión con el inversor
+  // Recalcular cables de interconexión con el inversor sin re-renderizar placas
   if (typeof wpCalculateAndRenderInverterCables === 'function') {
     wpCalculateAndRenderInverterCables();
   }
-  if (typeof updateConfigAndSimulate === 'function') updateConfigAndSimulate();
+  if (typeof recalculateSolarYield === 'function') recalculateSolarYield();
   if (typeof updateBudgetUI === 'function') updateBudgetUI();
   if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') {
     BOMTreeEngine.refresh();
@@ -150,10 +150,11 @@ function wpPlaceCombinerBoxAtPosition(cartesian) {
     window.RA && window.RA.log && window.RA.log.debug('Error renderizando Combiner Box:', eEnt);
   }
 
-  // Recalcular cables teniendo en cuenta la Combiner Box
-  wpCalculateAndRenderInverterCables();
-  if (typeof updateConfigAndSimulate === 'function') updateConfigAndSimulate();
+  // Recalcular cables teniendo en cuenta la Combiner Box sin re-renderizar placas
+  if (typeof wpCalculateAndRenderInverterCables === 'function') wpCalculateAndRenderInverterCables();
+  if (typeof recalculateSolarYield === 'function') recalculateSolarYield();
   if (typeof updateBudgetUI === 'function') updateBudgetUI();
+  if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') BOMTreeEngine.refresh();
 
   const tagCB = document.getElementById('cb-status-tag');
   if (tagCB) {

@@ -845,7 +845,7 @@
         model: `Inversor Ideal ${unitKw} kW (${mpptReq} MPPT)`,
         kw: unitKw,
         phases: isThreePhase ? 3 : 1,
-        type: isThreePhase ? (totalKwp > 15.0 ? 'Trifásico (RD 1699/2011 Art. 12.2)' : 'Trifásico Industrial') : 'Monofásico Residencial',
+        type: isThreePhase ? ((unitKw * invCount) > 15.0 ? 'Trifásico (RD 1699/2011 Art. 12.2)' : 'Trifásico Industrial') : 'Monofásico Residencial',
         mppt: mpptReq,
         inputsPerMppt: inputsPerMppt,
         vDcMax: isThreePhase ? 1100 : 600,
@@ -925,8 +925,9 @@
     // 1) Opción A: Inversor Centralizado (1x)
     let singleInvMatch = singleCandidates[0] || (virtualInverterMatch && virtualInverterMatch.count === 1 ? virtualInverterMatch : null);
     if (!singleInvMatch && totalKwp > 0) {
-      const isThreePhase = (gridSupply === 'three_phase' || (gridSupply !== 'single_phase' && totalKwp > 6.0) || totalKwp > 20.25);
-      let unitKwA = Math.max(1.0, Math.round((totalKwp / 1.18) * 10) / 10);
+      const estAcKwA = totalKwp / 1.18;
+      const isThreePhase = (gridSupply === 'three_phase' || (gridSupply !== 'single_phase' && estAcKwA > 6.0) || estAcKwA > 15.0);
+      let unitKwA = Math.max(1.0, Math.round(estAcKwA * 10) / 10);
       if (gridSupply === 'single_phase' && unitKwA > 15.0) {
         unitKwA = 15.0; // RD 1699/2011 Art. 12.2: Límite nominal de 15 kW en AC para monofásica
       }
@@ -942,7 +943,7 @@
           model: `Inversor Central ${unitKwA} kW (${mpptReqA} MPPT)`,
           kw: unitKwA,
           phases: isThreePhase ? 3 : 1,
-          type: isThreePhase ? (totalKwp > 15.0 ? 'Trifásico (RD 1699/2011 Art. 12.2)' : 'Trifásico') : 'Monofásico',
+          type: isThreePhase ? (unitKwA > 15.0 ? 'Trifásico (RD 1699/2011 Art. 12.2)' : 'Trifásico') : 'Monofásico',
           mppt: mpptReqA,
           vDcMax: isThreePhase ? 1100 : 600,
           price: estPriceA,
@@ -964,7 +965,8 @@
     // 2) Opción B: Modular Distribuida (Nx con N >= 2 de equipos menores)
     let multiInvMatch = multiCandidates[0];
     if (!multiInvMatch && totalKwp > 0) {
-      const isThreePhase = (gridSupply === 'three_phase' || (gridSupply !== 'single_phase' && totalKwp > 6.0) || totalKwp > 20.25);
+      const estAcKwB = totalKwp / 1.18;
+      const isThreePhase = (gridSupply === 'three_phase' || (gridSupply !== 'single_phase' && estAcKwB > 6.0) || estAcKwB > 15.0);
       const nUnitsB = totalKwp > 60.0 ? Math.max(2, Math.ceil(totalKwp / 45.0)) : 2;
       let unitKwB = Math.max(1.0, Math.round((totalKwp / (nUnitsB * 1.18)) * 10) / 10);
       if (gridSupply === 'single_phase' && (unitKwB * nUnitsB) > 15.0) {
@@ -982,7 +984,7 @@
           model: `Inversor Modular ${unitKwB} kW (${mpptReqB} MPPT)`,
           kw: unitKwB,
           phases: isThreePhase ? 3 : 1,
-          type: isThreePhase ? (totalKwp > 15.0 ? 'Trifásico (RD 1699/2011 Art. 12.2)' : 'Trifásico') : 'Monofásico',
+          type: isThreePhase ? ((unitKwB * nUnitsB) > 15.0 ? 'Trifásico (RD 1699/2011 Art. 12.2)' : 'Trifásico') : 'Monofásico',
           mppt: mpptReqB,
           vDcMax: isThreePhase ? 1100 : 600,
           price: estPriceB,
@@ -2326,19 +2328,20 @@
   const I_total_dc = numStrings * Isc;
 
   const activeInvKw = (activeInv && (activeInv.kw || activeInv.kw_nominal || activeInv.acKw)) ? (activeInv.kw || activeInv.kw_nominal || activeInv.acKw) : 0;
-  const P_ac_kW = activeInvKw > 0 ? activeInvKw : (P_dc_kW / 1.15);
-  const INV_SIZES = [0.6, 1.0, 1.5, 2.0, 3.0, 3.68, 4.0, 5.0, 6.0, 8.0, 10.0, 12.0, 15.0, 20.0, 25.0, 30.0, 50.0, 100.0];
-  const inv_kW = activeInvKw > 0 ? activeInvKw : (INV_SIZES.find(s => s >= P_ac_kW) || Math.ceil(P_ac_kW));
-  const invCount = (generator && (generator.invCount || generator.inverterCount))
+  const invCount = Math.max(1, (generator && (generator.invCount || generator.inverterCount))
     || (cfg && (cfg.inverterCount || (cfg.autoSizing && cfg.autoSizing.inverters && cfg.autoSizing.inverters.count)))
     || (typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.autoSizing && window.solarProjectConfig.autoSizing.inverters && window.solarProjectConfig.autoSizing.inverters.count)
-    || 1;
+    || 1);
+  const INV_SIZES = [0.6, 1.0, 1.5, 2.0, 3.0, 3.68, 4.0, 5.0, 6.0, 8.0, 10.0, 12.0, 15.0, 20.0, 25.0, 30.0, 50.0, 100.0];
+  const P_ac_unit_target = activeInvKw > 0 ? activeInvKw : ((P_dc_kW / 1.15) / invCount);
+  const inv_kW = activeInvKw > 0 ? activeInvKw : (INV_SIZES.find(s => s >= P_ac_unit_target) || Math.ceil(P_ac_unit_target));
+  const P_ac_kW = inv_kW;
   const total_P_ac_kW = inv_kW * invCount;
   const total_ac_kW = total_P_ac_kW;
   const _selInv = (typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.calculatedLimits && window.solarProjectConfig.calculatedLimits.inverter) || null;
   let monofasico = activeInv ? (raInverterPhases(activeInv) === 1) : (_selInv ? (raInverterPhases(_selInv) === 1) : (inv_kW <= 5.0));
-  // Salvaguarda RD 1699/2011 Art. 12.2 (mod. RD 244/2019): Pn > 15 kW en AC es obligatoriamente trifásica (admisible hasta 20.25 kWp en DC con ratio 1.35x)
-  if (total_ac_kW > 15.0 || P_dc_kW > 20.25) {
+  // Salvaguarda RD 1699/2011 Art. 12.2 (mod. RD 244/2019): Pn > 15 kW nominales AC exige conexión trifásica
+  if (total_ac_kW > 15.0) {
     monofasico = false;
   }
   const V_ac = monofasico ? 230 : 400;
@@ -2358,29 +2361,33 @@
     ? window.inverterEquipmentState.L_ac_measured
     : 15;
 
-  // Factor de bifacialidad bajo UNE-EN 62548 (ganancia de albedo en strings bifaciales)
+  // Factor de bifacialidad unificado bajo UNE-EN 62548 / IEC TS 60904-1-2 (+15% conservador aplicado a protecciones y caída DC)
   const isBifacialMod = !!(cfg && (cfg.bifacial || cfg.isBifacial || (cfg.bifacialityFactor && cfg.bifacialityFactor > 0)));
   const bifacialGainFactor = isBifacialMod ? 1.15 : 1.0;
   // IEC 62548 Clause 5.2.1: 1.56 × Isc (1.25 × 1.25) alineado con el motor de cableado 3D
   const I_dc_design = 1.56 * (Isc * bifacialGainFactor);
+  const I_dc_working = Imp * bifacialGainFactor;
   // [AUD-2026 · C-05] Fuente única de secciones/ampacidad: js/electrical-engine.js.
-  // Si el módulo no está disponible (carga parcial), se usa la copia mínima de respaldo.
   const _RA_SEC = (typeof window !== 'undefined' && window.RA && window.RA.Electrical && window.RA.Electrical.SECCIONES) || null;
   const SEC_DC_AVAIL = (_RA_SEC && Array.isArray(_RA_SEC.dc)) ? _RA_SEC.dc : [4, 6, 10, 16, 25];
   const IMAX_DC_ZZF  = (_RA_SEC && Array.isArray(_RA_SEC.dcIz)) ? _RA_SEC.dcIz : [44, 58, 80, 107, 138];
 
-  // [C6/M6] Factores de corrección de ampacidad (REBT ITC-BT-19 / UNE 20460-5-523):
-  // temperatura ambiente 40–45 °C × agrupamiento en bandeja/conducto.
-  const K_AMPACITY = 0.90 * 0.85;
+  // [C6/M6] Factores de corrección de ampacidad reales (REBT ITC-BT-19 / UNE-HD 60364-5-52):
+  // temperatura ambiente 40–45 °C (0.90) × agrupamiento real kGroup según número de circuitos DC/AC
+  const nCircDc = Math.max(1, numStrings);
+  const kGroupDc = nCircDc === 1 ? 1.0 : (nCircDc === 2 ? 0.80 : (nCircDc === 3 ? 0.70 : (nCircDc <= 5 ? 0.65 : 0.55)));
+  const K_AMPACITY_DC = 0.90 * kGroupDc;
+  const kGroupAc = invCount <= 1 ? 1.0 : (invCount === 2 ? 0.80 : (invCount === 3 ? 0.70 : 0.65));
+  const K_AMPACITY_AC = 0.90 * kGroupAc;
 
   let S_str_opt = null;
   for (let i = 0; i < SEC_DC_AVAIL.length; i++) {
     const s = SEC_DC_AVAIL[i];
     const imax = IMAX_DC_ZZF[i];
-    const dV = (2 * rho90 * L_dc * Imp) / s;
+    const dV = (2 * rho90 * L_dc * I_dc_working) / s;
     const vStrBase = Math.max(Vmp_str_hot, 1.0);
     const dV_pct = (dV / vStrBase) * 100;
-    if ((imax * K_AMPACITY) >= I_dc_design && dV_pct <= 1.5) {
+    if ((imax * K_AMPACITY_DC) >= I_dc_design && dV_pct <= 1.5) {
       S_str_opt = s;
       break;
     }
@@ -2388,7 +2395,7 @@
   const isDcCompliant = (S_str_opt !== null);
   if (!S_str_opt) S_str_opt = SEC_DC_AVAIL[SEC_DC_AVAIL.length - 1];
 
-  const dV_dc = (2 * rho90 * L_dc * Imp) / S_str_opt;
+  const dV_dc = (2 * rho90 * L_dc * I_dc_working) / S_str_opt;
   const dVdc_pct = (dV_dc / Math.max(Vmp_str_hot, 1.0)) * 100;
 
   const I_ac_design = 1.25 * I_ac;
@@ -2406,7 +2413,7 @@
     const factorPhase = monofasico ? 2.0 : Math.sqrt(3);
     const dV = factorPhase * I_ac * L_ac * ((rho90 / s) * cosPAc + xMeterAc * sinPAc);
     const dV_pct = (dV / V_ac) * 100;
-    if ((imax * K_AMPACITY) >= I_ac_design && dV_pct <= 1.5) {
+    if ((imax * K_AMPACITY_AC) >= I_ac_design && dV_pct <= 1.5) {
       S_ac_opt = s;
       break;
     }

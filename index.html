@@ -33,7 +33,7 @@ window.RA_App = window.RA_App || {};
   <script src="js/ui-viewport-controls.js?v=20261118_t1b"></script>
   <script src="js/error-handler.js"></script>
 <script src="js/sanitizer.js?v=20261028a"></script>
-  <script src="js/project-config.js?v=20261118_t3"></script>
+  <script src="js/project-config.js?v=20261118_t4"></script>
   <script src="js/polygon-shadow-math.js?v=20261117_c2"></script>
   <script src="js/building-footprint-cad.js?v=20261117_l2"></script>
   <script src="js/cable-routing-ui.js?v=1793254551222"></script>
@@ -85,29 +85,29 @@ window.RA_App = window.RA_App || {};
     });
   </script>
   <script src="js/solar-materials.js?v=20260930a"></script>
-  <script src="js/electrical-engine.js?v=20261118_t3"></script>
-  <script src="js/project-calcs.js?v=20261117_e3"></script>
+  <script src="js/electrical-engine.js?v=20261118_t4"></script>
+  <script src="js/project-calcs.js?v=20261118_t4"></script>
   <script src="js/undo-manager.js?v=20261117_c3"></script>
   <script src="js/geometry-validate.js?v=20260929b"></script>
-  <script src="js/docs-generator.js?v=20261118_t1"></script>
+  <script src="js/docs-generator.js?v=20261118_t4"></script>
   <script src="js/workflow-orchestrator.js?v=20261118_t3"></script>
-  <script src="js/working-plane.js?v=20261118_t3"></script>
+  <script src="js/working-plane.js?v=20261118_t4"></script>
   <script src="js/solar-yield-controller.js?v=20261118_t3"></script>
-  <script src="js/electrical-ui-bridge.js?v=20261118_t2"></script>
+  <script src="js/electrical-ui-bridge.js?v=20261118_t4"></script>
   <script src="js/panel-renderer-3d.js?v=20261118_t2"></script>
   <script src="js/cad-events-controller.js?v=20261118_t2"></script>
   <script src="js/cad-selection-suite.js?v=20261118_t1"></script>
-  <script src="js/cable-engine.js?v=20261117_e3"></script>
+  <script src="js/cable-engine.js?v=20261118_t4"></script>
   <script src="js/capture-mode.js?v=20261117_c1"></script>
   <script src="js/measure-tool.js?v=20261117_c1"></script>
-  <script src="js/project-hierarchy.js?v=20261117_f3"></script>
+  <script src="js/project-hierarchy.js?v=20261118_t4"></script>
   <script src="js/project-storage.js?v=20261118_t1"></script>
   <script src="js/company-branding.js?v=20261117_f2"></script>
   <script src="js/ui-outliner.js?v=20261117_d3"></script>
   <script src="js/bill-auditor.js?v=20261117_f1"></script>
   <script src="js/structure-catalog.js?v=20261117_e3"></script>
-  <script src="js/bom-tree.js?v=20261117_e3"></script>
-  <script src="js/engineering-explainer.js?v=20260929b"></script>
+  <script src="js/bom-tree.js?v=20261118_t4"></script>
+  <script src="js/engineering-explainer.js?v=20261118_t4"></script>
   <script src="js/equipment-ai-importer.js?v=20261117_e3"></script>
   <script src="js/equipment-web-search.js?v=20261117_e3"></script>
   <script src="js/project-status-hud.js?v=20261025_hud1"></script>
@@ -9867,13 +9867,13 @@ function wpPlaceGridMeterAtPosition(cartesian, skipRecurse = false) {
     window.RA && window.RA.log && window.RA.log.debug('Error al renderizar marcador de contador:', eEnt);
   }
 
-  // Recalcular cables teniendo en cuenta el Contador AC
+  // Recalcular cables teniendo en cuenta el Contador AC (renderAllCables dibuja DC y AC en un paso)
   if (!skipRecurse && typeof wpCalculateAndRenderInverterCables === 'function') {
     wpCalculateAndRenderInverterCables();
   }
-  wpCalculateAndRenderACCables();
-  if (typeof updateConfigAndSimulate === 'function') updateConfigAndSimulate();
+  if (typeof recalculateSolarYield === 'function') recalculateSolarYield();
   if (typeof updateBudgetUI === 'function') updateBudgetUI();
+  if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') BOMTreeEngine.refresh();
   if (typeof wpUpdateMeterPlacementGuideUI === 'function') wpUpdateMeterPlacementGuideUI();
   if (typeof showToast === 'function' && !skipRecurse) {
     showToast('CONTADOR DE RED UBICADO', 'Tirada de cable AC medida a ' + (window.inverterEquipmentState.L_ac_measured || 0).toFixed(1) + ' m.', 'success', 3500);
@@ -10104,14 +10104,12 @@ function wpPlaceInverterAtPosition(cartesian) {
     window.RA && window.RA.log && window.RA.log.debug('Error al renderizar marcador de inversor:', eEnt);
   }
 
-  wpCalculateAndRenderInverterCables();
-  // [FIX-CABLES] El render de cables DC purga dcCableEntities, donde también vive la línea
-  // AC: sin esto, mover/colocar el inversor borraba la acometida AC y no la redibujaba.
-  if (typeof wpCalculateAndRenderACCables === 'function' && window.inverterEquipmentState.gridMeter && window.inverterEquipmentState.gridMeter.position) {
-    wpCalculateAndRenderACCables();
+  if (typeof wpCalculateAndRenderInverterCables === 'function') {
+    wpCalculateAndRenderInverterCables();
   }
-  if (typeof updateConfigAndSimulate === 'function') updateConfigAndSimulate();
+  if (typeof recalculateSolarYield === 'function') recalculateSolarYield();
   if (typeof updateBudgetUI === 'function') updateBudgetUI();
+  if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') BOMTreeEngine.refresh();
   if (typeof wpUpdateMeterPlacementGuideUI === 'function') wpUpdateMeterPlacementGuideUI();
   if (typeof showToast === 'function') {
     showToast('INVERSOR Y CUADRO UBICADO', 'Tirada de cable DC calculada a ' + (window.inverterEquipmentState.L_dc_measured || 0).toFixed(1) + ' m con holguras reglamentarias.', 'success', 3500);
@@ -10821,11 +10819,9 @@ if (window.RA) window.RA.wpState = window.WP;
 // Funciones unificadas disponibles en window.WP, window.RA.wp y window.*.
 
 // ============================================================================
-// CATÁLOGO DE EQUIPOS FOTOVOLTAICOS (Singleton centralizado en window.equipmentCatalog)
+// CATÁLOGO DE EQUIPOS FOTOVOLTAICOS (Singleton único en js/working-plane.js → window.equipmentCatalog)
 // ============================================================================
-if (typeof equipmentCatalog === 'undefined' && typeof window.equipmentCatalog !== 'undefined') {
-  var equipmentCatalog = window.equipmentCatalog;
-}
+if (window.RA) window.RA.equipmentCatalog = window.equipmentCatalog || null;
 
 // [DEDUP] loadEquipmentCatalog -> working-plane.js
 

@@ -246,7 +246,6 @@ function getProjectCalcs() {
     ? ((_scCat.inverters || []).find(i => i.id === _scCfg.selectedInverterId) || ((_scCfg.lastVirtualInverter && _scCfg.lastVirtualInverter.id === _scCfg.selectedInverterId) ? _scCfg.lastVirtualInverter : null))
     : null;
   let _invObjCount = (_scCfg && _scCfg.autoSizing && _scCfg.autoSizing.inverters && _scCfg.autoSizing.inverters.count) || 1;
-  if (_invObjItem && _invObjItem.kw >= 10.0 && _invObjCount > 1 && !_scCfg.inverters && !_scCfg.selectedInverters) { _invObjCount = 1; }
   const inverterObj = _invObjItem ? {
     id: _invObjItem.id,
     brand: _invObjItem.brand || '',

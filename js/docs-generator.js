@@ -1136,6 +1136,9 @@ function generateMemoria(skipPricingModal, opt) {
       var iscOk = d.Isc <= iscLimit;
 
       var wTot = 12.5;
+      var wLimit = (window.RA && typeof window.RA.getCteRoofLoadLimitKgM2 === 'function')
+        ? window.RA.getCteRoofLoadLimitKgM2('sandwich_metal', null)
+        : 25.0;
       try {
         if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.computeBOMTree === 'function') {
           var t = BOMTreeEngine.computeBOMTree();
@@ -1144,15 +1147,18 @@ function generateMemoria(skipPricingModal, opt) {
           } else if (t && t.structuralLoads && t.structuralLoads.maxWeightPerSqmKg) {
             wTot = t.structuralLoads.maxWeightPerSqmKg;
           }
+          if (t && t.summary && t.summary.maxAllowedLoadKgM2 > 0) {
+            wLimit = t.summary.maxAllowedLoadKgM2;
+          }
         }
       } catch(e) {}
-      var structOk = wTot <= 25.0;
+      var structOk = wTot <= wLimit;
 
       return '<table><tr><th>Comprobación Normativa<\/th><th>Parámetro Calculado<\/th><th>Criterio / Límite Admisible<\/th><th>Resultado<\/th><\/tr>' +
         '<tr><td>Tensión Máxima en Frío (-10 °C)<\/td><td>' + vocVal.toFixed(1) + ' V<\/td><td>≤ ' + vocLimit + ' V (IEC 62548 / Tensión máx. inversor)<\/td><td><strong style="color:' + (vocOk ? '#10b981' : '#ef4444') + '">' + (vocOk ? '✓ Conforme (Margen ' + vocMargin + ' V)' : '✗ No conforme (Sobretensión en frío)') + '<\/strong><\/td><\/tr>' +
         '<tr><td>Tensión Mínima MPPT en Calor (+65 °C)<\/td><td>' + vmpHotVal.toFixed(1) + ' V<\/td><td>≥ ' + vmpMinLimit.toFixed(1) + ' V (Tensión mínima de tracking MPPT)<\/td><td><strong style="color:' + (vmpOk ? '#10b981' : '#f59e0b') + '">' + (vmpOk ? '✓ Conforme (Rango óptimo)' : '⚠️ Tensión MPPT fuera de rango inferior') + '<\/strong><\/td><\/tr>' +
         '<tr><td>Corriente Máxima de Entrada<\/td><td>' + d.Isc.toFixed(1) + ' A<\/td><td>≤ ' + iscLimit.toFixed(1) + ' A (Isc admisible por entrada MPPT)<\/td><td><strong style="color:' + (iscOk ? '#10b981' : '#f59e0b') + '">' + (iscOk ? '✓ Conforme' : '⚠️ Supera corriente máx. inversor') + '<\/strong><\/td><\/tr>' +
-        '<tr><td>Sobrecarga Estructural en Cubierta<\/td><td>' + wTot.toFixed(1) + ' kg/m² (Módulo + Estructura)<\/td><td>≤ 25,0 kg/m² (CTE DB-SE-AE sobrecarga admisible)<\/td><td><strong style="color:' + (structOk ? '#10b981' : '#f59e0b') + '">' + (structOk ? '✓ Conforme (Sin refuerzo estructural)' : '⚠️ Requiere verificación de forjado') + '<\/strong><\/td><\/tr>' +
+        '<tr><td>Sobrecarga Estructural en Cubierta<\/td><td>' + wTot.toFixed(1) + ' kg/m² (Módulo + Estructura)<\/td><td>≤ ' + wLimit.toFixed(1) + ' kg/m² (CTE DB-SE-AE sobrecarga admisible)<\/td><td><strong style="color:' + (structOk ? '#10b981' : '#f59e0b') + '">' + (structOk ? '✓ Conforme (Sin refuerzo estructural)' : '⚠️ Requiere verificación de forjado') + '<\/strong><\/td><\/tr>' +
         '<\/table>';
     })() +
 

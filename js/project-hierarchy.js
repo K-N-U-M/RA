@@ -932,11 +932,12 @@
       if (typeof global.UIOutliner !== 'undefined' && typeof global.UIOutliner.render === 'function') {
         global.UIOutliner.render();
       }
-      if (typeof global.BOMTreeEngine !== 'undefined' && typeof global.BOMTreeEngine.renderTree === 'function') {
-        global.BOMTreeEngine.renderTree();
+      if (typeof global.BOMTreeEngine !== 'undefined' && typeof global.BOMTreeEngine.refresh === 'function') {
+        global.BOMTreeEngine.refresh();
       }
       if (typeof global.wpUpdateStep3UI === 'function') global.wpUpdateStep3UI();
-      if (typeof global.updateFinancialMetrics === 'function') global.updateFinancialMetrics();
+      if (typeof global.calculateFinancialModel === 'function') global.calculateFinancialModel();
+      else if (typeof global.updateBudgetUI === 'function') global.updateBudgetUI();
       if (global.viewer && global.viewer.scene && typeof global.viewer.scene.requestRender === 'function') {
         global.viewer.scene.requestRender();
       }

@@ -64,15 +64,30 @@
       const panelsPerInv = Math.ceil(count / Math.max(1, invCount));
       const panelsPerMppt = Math.round(panelsPerInv / Math.max(1, inv.mppt || 2));
 
-      // Sobrecarga mecánica CTE
+      // Sobrecarga mecánica CTE unificada
       const modArea = (mod.l || 2.10) * (mod.w || 1.05);
       let calculatedKgM2 = null;
-      let limitKgM2 = 100.0;
-      if (typeof window !== 'undefined' && window.RABOMTree && typeof window.RABOMTree.buildTree === 'function') {
+      let limitKgM2 = (typeof window !== 'undefined' && window.RA && typeof window.RA.getCteRoofLoadLimitKgM2 === 'function')
+        ? window.RA.getCteRoofLoadLimitKgM2('sandwich_metal', null)
+        : 25.0;
+      if (typeof window !== 'undefined' && window.BOMTreeEngine && typeof window.BOMTreeEngine.computeBOMTree === 'function') {
+        try {
+          const bom = window.BOMTreeEngine.computeBOMTree();
+          if (bom && bom.summary && typeof bom.summary.maxLoadKgM2 === 'number' && bom.summary.maxLoadKgM2 > 0) {
+            calculatedKgM2 = bom.summary.maxLoadKgM2;
+          }
+          if (bom && bom.summary && typeof bom.summary.maxAllowedLoadKgM2 === 'number' && bom.summary.maxAllowedLoadKgM2 > 0) {
+            limitKgM2 = bom.summary.maxAllowedLoadKgM2;
+          }
+        } catch (e) {}
+      } else if (typeof window !== 'undefined' && window.RABOMTree && typeof window.RABOMTree.buildTree === 'function') {
         try {
           const bom = window.RABOMTree.buildTree();
           if (bom && bom.summary && typeof bom.summary.maxLoadKgM2 === 'number' && bom.summary.maxLoadKgM2 > 0) {
             calculatedKgM2 = bom.summary.maxLoadKgM2;
+          }
+          if (bom && bom.summary && typeof bom.summary.maxAllowedLoadKgM2 === 'number' && bom.summary.maxAllowedLoadKgM2 > 0) {
+            limitKgM2 = bom.summary.maxAllowedLoadKgM2;
           }
         } catch (e) {}
       }
@@ -161,8 +176,8 @@
           kgPerM2: kgM2.toFixed(1),
           limitKgM2: limitKgM2,
           isAdmissible: kgM2 <= limitKgM2,
-          isWarning: kgM2 > (limitKgM2 * 0.5),
-          standard: 'CTE DB-SE-AE (Cubiertas planas conservación: máx 100 kg/m²).'
+          isWarning: kgM2 > (limitKgM2 * 0.75),
+          standard: 'CTE DB-SE-AE (Cubierta ligera 25 kg/m² · Teja 50 kg/m² · Forjado hormigón 100 kg/m²).'
         }
       };
 

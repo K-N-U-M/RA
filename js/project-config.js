@@ -38,17 +38,8 @@ function populateStep3EquipmentSelectors() {
     '</option>';
   }).join('');
 
-  const modSel = document.getElementById('step3-sel-module');
-  if (modSel) modSel.innerHTML = modOptionsHtml;
-
   const faldonModSel = document.getElementById('faldon-module-select');
   if (faldonModSel) faldonModSel.innerHTML = modOptionsHtml;
-
-  const modSel2 = document.getElementById('step2-sel-module');
-  if (modSel2) {
-    modSel2.innerHTML = modOptionsHtml;
-    if (typeof wpUpdateStep2ModuleBadge === 'function') wpUpdateStep2ModuleBadge();
-  }
 
   // 2. Inversores
   const invSel = document.getElementById('step3-sel-inverter');
@@ -205,7 +196,7 @@ function step3SetTopology(topo) {
 
   step3UpdateHardwareSelection();
   if (typeof wpUpdateStep4Checklist === 'function') wpUpdateStep4Checklist();
-  if (typeof wpUpdateAutoSizingUI === 'function') wpUpdateAutoSizingUI();
+  if (typeof wpComputeAutoSizing === 'function') wpComputeAutoSizing();
   if (typeof wpRefreshAutoEngineeringBanner === 'function') wpRefreshAutoEngineeringBanner(topo);
 }
 
@@ -409,8 +400,8 @@ function step2SelectModule(id) {
     });
   }
 
-  const selStep3 = document.getElementById('step3-sel-module');
-  if (selStep3) selStep3.value = id;
+  const selFaldon = document.getElementById('faldon-module-select');
+  if (selFaldon) selFaldon.value = id;
 
   const catalog = (typeof window !== 'undefined' && window.equipmentCatalog) ? window.equipmentCatalog : ((typeof equipmentCatalog !== 'undefined') ? equipmentCatalog : null);
   if (catalog && Array.isArray(catalog.modules)) {
@@ -422,6 +413,17 @@ function step2SelectModule(id) {
       panelConfig.precio = m.price || 115;
       panelConfig.modelo = (m.brand || '') + ' ' + (m.model || '');
       panelConfig.rendimiento = m.eff || 21.5;
+      panelConfig.tecnologia = m.tec || panelConfig.tecnologia || 'Monocristalino';
+      panelConfig.voc = m.voc || panelConfig.voc || 41.5;
+      panelConfig.isc = m.isc || panelConfig.isc || 13.8;
+      panelConfig.vmp = m.vmp || panelConfig.vmp || 34.5;
+      panelConfig.imp = m.imp || panelConfig.imp || 13.05;
+      panelConfig.gammaVoc = m.tempCoeffVoc || m.gammaVoc || m.betaVoc || -0.0028;
+      panelConfig.tempCoeffVoc = m.tempCoeffVoc || m.gammaVoc || m.betaVoc || -0.0028;
+      panelConfig.tempCoeffPmax = m.tempCoeffPmax || m.gammaPmp || -0.0035;
+      panelConfig.gammaPmp = panelConfig.tempCoeffPmax;
+      panelConfig.bifacial = !!(m.bifacial || m.isBifacial || (m.bifacialityFactor && m.bifacialityFactor > 0) || (m.tec && String(m.tec).toLowerCase().includes('bifacial')));
+      panelConfig.bifacialityFactor = typeof m.bifacialityFactor === 'number' ? m.bifacialityFactor : (panelConfig.bifacial ? 0.75 : 0);
     }
   }
 
@@ -458,9 +460,7 @@ window.wpUpdateStep2ModuleBadge = wpUpdateStep2ModuleBadge;
 
 function step3UpdateHardwareSelection() {
   const invSel = document.getElementById('step3-sel-inverter');
-  const modSel = document.getElementById('step3-sel-module');
   const faldonModSel = document.getElementById('faldon-module-select');
-  const modSel2 = document.getElementById('step2-sel-module');
   const miSel  = document.getElementById('step3-sel-microinverter');
   const batSel = document.getElementById('step3-sel-battery');
 
@@ -484,7 +484,7 @@ function step3UpdateHardwareSelection() {
       WP.polylines[WP.selectedPolyIdx].moduleId = newModValue;
     }
   } else {
-    newModValue = (modSel && modSel.value) || (modSel2 && modSel2.value) || (faldonModSel && faldonModSel.value);
+    newModValue = faldonModSel && faldonModSel.value;
   }
 
   if (newModValue) {
@@ -610,7 +610,7 @@ function step3UpdateHardwareSelection() {
   // Ejecutar inmediatamente motor de dimensionamiento automático multi-equipo (SSOT heterogéneo)
   wpComputeAutoSizing();
 
-  // Actualizar PanelConfig global para generación 3D
+  // Actualizar PanelConfig global para generación 3D (preservando coeficientes térmicos y bifacialidad completos)
   if (typeof panelConfig !== 'undefined') {
     panelConfig.potencia = mod.wp || 450;
     panelConfig.largo = mod.l || 2.10;
@@ -618,7 +618,17 @@ function step3UpdateHardwareSelection() {
     panelConfig.precio = mod.price || 115;
     panelConfig.modelo = mod.brand + ' ' + mod.model;
     panelConfig.rendimiento = mod.eff || 21.5;
-    panelConfig.gammaVoc = mod.gammaVoc || -0.0028; // para Voc en frío en la memoria
+    panelConfig.tecnologia = mod.tec || panelConfig.tecnologia || 'Monocristalino';
+    panelConfig.voc = mod.voc || panelConfig.voc || 41.5;
+    panelConfig.isc = mod.isc || panelConfig.isc || 13.8;
+    panelConfig.vmp = mod.vmp || panelConfig.vmp || 34.5;
+    panelConfig.imp = mod.imp || panelConfig.imp || 13.05;
+    panelConfig.gammaVoc = mod.tempCoeffVoc || mod.gammaVoc || mod.betaVoc || -0.0028;
+    panelConfig.tempCoeffVoc = panelConfig.gammaVoc;
+    panelConfig.tempCoeffPmax = mod.tempCoeffPmax || mod.gammaPmp || -0.0035;
+    panelConfig.gammaPmp = panelConfig.tempCoeffPmax;
+    panelConfig.bifacial = !!(mod.bifacial || mod.isBifacial || (mod.bifacialityFactor && mod.bifacialityFactor > 0) || (mod.tec && String(mod.tec).toLowerCase().includes('bifacial')));
+    panelConfig.bifacialityFactor = typeof mod.bifacialityFactor === 'number' ? mod.bifacialityFactor : (panelConfig.bifacial ? 0.75 : 0);
   }
 
   const elNmax = document.getElementById('step3-spec-nmax');
@@ -1388,9 +1398,9 @@ function step3SyncBudgetHardwareCosts(inv, mi, bat) {
   const cfg = window.solarProjectConfig;
   const topo = cfg.selectedTopology || 'inverter';
 
-  const invCostEl = document.getElementById('cfg-pres-inv');
-  const batCostEl = document.getElementById('cfg-pres-bat');
-  const rowBat = document.getElementById('row-bat-cost');
+  const invCostEl = document.getElementById('modal-cfg-pres-inv');
+  const batCostEl = document.getElementById('modal-cfg-pres-bat');
+  const rowBat = document.getElementById('modal-row-bat-cost');
 
   let totalInvCost = 0;
   if (topo === 'microinverter') {
@@ -1407,8 +1417,6 @@ function step3SyncBudgetHardwareCosts(inv, mi, bat) {
 
   if (invCostEl) invCostEl.value = Math.round(totalInvCost);
   if (batCostEl) batCostEl.value = Math.round(totalBatCost);
-  const modalBatCostEl = document.getElementById('modal-cfg-pres-bat');
-  if (modalBatCostEl) modalBatCostEl.value = Math.round(totalBatCost);
   const modalBatOpt = document.getElementById('modal-cfg-pres-bat-opt');
   if (modalBatOpt && bat) {
     if (bat.id === 'bat_none' || !bat.kwh) modalBatOpt.value = '0';
@@ -1416,8 +1424,6 @@ function step3SyncBudgetHardwareCosts(inv, mi, bat) {
     else if (bat.kwh <= 12) modalBatOpt.value = '10';
     else modalBatOpt.value = '15';
   }
-  const modalBatCostRow = document.getElementById('modal-row-bat-cost');
-  if (modalBatCostRow) modalBatCostRow.style.display = totalBatCost > 0 ? 'flex' : 'none';
   if (rowBat) rowBat.style.display = totalBatCost > 0 ? 'flex' : 'none';
 
   if (typeof updateBudgetUI === 'function') {
@@ -2024,7 +2030,7 @@ function wpSaveVirtualInverterToCatalog() {
   delete cfg.lastVirtualInverter;
 
   if (typeof populateStep3EquipmentSelectors === 'function') populateStep3EquipmentSelectors();
-  if (typeof populateHardwareDropdowns === 'function') populateHardwareDropdowns();
+  if (typeof populateModuleDropdown === 'function') populateModuleDropdown();
   if (typeof step3UpdateHardwareSelection === 'function') step3UpdateHardwareSelection();
 
   wpAutoSelectOptimalEngineering(true);
@@ -2081,7 +2087,7 @@ function wpAddSuggestedCommercialModelToCatalog(idx) {
   delete cfg.lastVirtualInverter;
 
   if (typeof populateStep3EquipmentSelectors === 'function') populateStep3EquipmentSelectors();
-  if (typeof populateHardwareDropdowns === 'function') populateHardwareDropdowns();
+  if (typeof populateModuleDropdown === 'function') populateModuleDropdown();
   if (typeof step3UpdateHardwareSelection === 'function') step3UpdateHardwareSelection();
 
   wpAutoSelectOptimalEngineering(true);
