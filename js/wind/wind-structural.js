@@ -143,19 +143,22 @@
       var equivLoadKnM2 = equivPeakForceKn / spreaderAreaM2;
       roofDistributedLoadKgM2 = Math.round((equivLoadKnM2 * 1000) / g);
 
-      safetyFactorOverturning = overturningMomentDesignKnm > 0.1
-        ? Number(((totalRoofVertKn * (spreaderSpanM * 0.5)) / overturningMomentDesignKnm).toFixed(2))
+      // Sin doble factor γ_Q: los coeficientes de seguridad característicos (FS ≥ 1.50) evalúan acciones características M_k y H_k
+      safetyFactorOverturning = overturningMomentCharKnm > 0.1
+        ? Number(((totalRoofVertKn * (spreaderSpanM * 0.5)) / overturningMomentCharKnm).toFixed(2))
         : 3.0;
       var safetyFactorSliding = totalShearBaseKn > 0.1
-        ? Number(((totalRoofVertKn * 0.50) / (totalShearBaseKn * 1.50)).toFixed(2))
+        ? Number(((totalRoofVertKn * 0.50) / totalShearBaseKn).toFixed(2))
         : 3.0;
 
-      // CTE DB-SE-AE Tabla 3.1: Cubiertas accesibles solo para conservación = 1.0 - 2.0 kN/m² (100 - 200 kg/m²)
-      if (roofDistributedLoadKgM2 > 200 || overturningMomentCharKnm > 18.0) {
+      // CTE DB-SE-AE Tabla 3.1: conservación/cubierta ligera = 100 kg/m² (conservador por defecto) vs accesible = 200 kg/m²
+      var isRoofAccessible = (turbineInstance.roofAccessible === true || structSpec.roofAccessible === true);
+      var cteRoofLimitKgM2 = isRoofAccessible ? 200 : 100;
+      if (roofDistributedLoadKgM2 > cteRoofLimitKgM2 || overturningMomentCharKnm > 18.0) {
         roofOverloadRisk = true;
         structuralWarning = 'Sobrecarga en cubierta (' + roofDistributedLoadKgM2 + ' kg/m² y M_k=' +
-          overturningMomentCharKnm.toFixed(1) + ' kN·m) supera los 200 kg/m² de un forjado estándar CTE DB-SE-AE. ' +
-          'Anclar bancada directamente a pilares estructurales o instalar en suelo.';
+          overturningMomentCharKnm.toFixed(1) + ' kN·m) supera el umbral normativo CTE DB-SE-AE (' + cteRoofLimitKgM2 + ' kg/m²' +
+          (isRoofAccessible ? ' accesible' : ' cubierta ligera/conservación') + '). Anclar bancada directamente a pilares o instalar en suelo.';
       }
     } else {
       // Cimentación superficial por zapata cuadrada de hormigón armado HA-25 (γ_horm = 24 kN/m³)
@@ -217,8 +220,20 @@
       : null;
     var coreLimitM = footingLengthM > 0 ? footingLengthM / 6 : null;
     var hasUplift = (eccentricityM != null && coreLimitM != null) ? (eccentricityM > coreLimitM) : null;
-    var meetsBearing = hasGeotech
-      ? ((axialForEcc / Math.max(0.01, footingLengthM * footingLengthM)) <= bearingKpa)
+    // Presión máxima de borde por flexocompresión biaxial/Navier (e<=L/6: (N/L²)*(1+6e/L); e>L/6: núcleo fisurado 2N/(3L*(L/2-e)))
+    var edgeBearingKpa = null;
+    if (footingLengthM > 0 && axialForEcc > 0.1 && eccentricityM != null) {
+      var areaSq = footingLengthM * footingLengthM;
+      if (eccentricityM <= footingLengthM / 6) {
+        edgeBearingKpa = Number(((axialForEcc / areaSq) * (1 + (6 * eccentricityM) / footingLengthM)).toFixed(1));
+      } else if (eccentricityM < footingLengthM / 2) {
+        edgeBearingKpa = Number(((2 * axialForEcc) / (3 * footingLengthM * (footingLengthM / 2 - eccentricityM))).toFixed(1));
+      } else {
+        edgeBearingKpa = Infinity;
+      }
+    }
+    var meetsBearing = (hasGeotech && edgeBearingKpa != null)
+      ? (edgeBearingKpa <= bearingKpa)
       : null;
 
     var preliminarilyStable = !hasResonanceRisk && !roofOverloadRisk &&
@@ -261,6 +276,7 @@
         eccentricityM: eccentricityM,
         coreLimitM: (coreLimitM != null) ? Number(coreLimitM.toFixed(2)) : null,
         hasUpliftRisk: hasUplift,
+        edgeBearingKpa: (edgeBearingKpa != null && isFinite(edgeBearingKpa)) ? edgeBearingKpa : null,
         bearingCapacityKpa: hasGeotech ? bearingKpa : null,
         meetsBearingCapacity: meetsBearing
       },

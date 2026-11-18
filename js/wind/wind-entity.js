@@ -125,9 +125,10 @@
   }
 
   // ── Actualizar propiedad de configuración ─────────────────────────
-  function updateProp(id, key, value) {
+  function updateProp(id, key, value, options) {
     var t = getById(id);
     if (!t) return;
+    var liveOnly = !!(options && options.livePreviewOnly);
     if (key === 'hubHeightM') {
       t.supportStructure.hubHeightM = Number(value) || 18;
     } else if (key === 'orientationRad') {
@@ -152,6 +153,9 @@
       t.operationalState.curtailmentRulesActive = !!value;
     } else if (key === 'name') {
       t.name = value;
+    }
+    if (liveOnly) {
+      return;
     }
     t.simulationResults.isDirty = true;
     if (global.solarSimState && !global.solarSimState.annualHeatmapDirty && typeof global.wpInvalidateHeatmap === 'function') {

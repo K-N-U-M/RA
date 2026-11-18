@@ -372,7 +372,7 @@
         return {
           v: v,
           p: Math.round(pClamped),
-          ct: Math.max(0.15, Math.min(0.55, ct))
+          ct: Math.max(0.10, Math.min(0.89, ct))
         };
       });
     } else {
@@ -390,7 +390,7 @@
           var frac = (vInt - cutIn) / Math.max(1.0, ratedSpeed - cutIn);
           pPch = Math.min(pNomW * Math.pow(frac, 2.5), pMaxAero);
         }
-        var ctVal = vInt <= 6 ? 0.44 : (vInt <= 9 ? 0.41 : (vInt <= 12 ? 0.35 : 0.20));
+        var ctVal = vInt <= 7 ? 0.78 : (vInt <= 9 ? 0.70 : (vInt <= 12 ? 0.52 : 0.22));
         newCurve.push({
           v: vInt,
           p: Math.round(pPch),

@@ -170,14 +170,21 @@
         });
       });
     } else {
-      // Receptor de cortesía en el lindero normativo de parcela (35m al Este)
+      // Leer distancia/orientación real de receptor desde configuración eólica o entorno 3D
+      var windCfg = (RAWind.Resource && typeof RAWind.Resource.getConfig === 'function') ? RAWind.Resource.getConfig() : {};
+      var recDist = Math.max(5.0, Number(windCfg.receptorDistanceM) || 35.0);
+      var recAzRad = (Number(windCfg.receptorAzimuthDeg) || 74.0) * DEG2RAD;
+      var recDz = (typeof windCfg.receptorAltitudeM === 'number') ? (windCfg.receptorAltitudeM - tAlt) : 0.0;
+      var dxDef = Number((recDist * Math.sin(recAzRad)).toFixed(1));
+      var dyDef = Number((recDist * Math.cos(recAzRad)).toFixed(1));
       targetList.push({
         id: 'rec_lindero',
-        name: 'Lindero Habitado Más Cercano',
-        dx: 35.0,
-        dy: 10.0,
-        dz: 0.0,
-        dist2D: 36.4
+        name: 'Lindero Habitado (' + recDist + ' m)',
+        dx: dxDef,
+        dy: dyDef,
+        dz: recDz,
+        dist2D: recDist,
+        isDefaultBoundaryFallback: true
       });
     }
 

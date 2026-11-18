@@ -33,15 +33,15 @@ window.RA_App = window.RA_App || {};
   <script src="js/ui-viewport-controls.js?v=20261118_t1b"></script>
   <script src="js/error-handler.js"></script>
 <script src="js/sanitizer.js?v=20261028a"></script>
-  <script src="js/project-config.js?v=20261118_t1"></script>
+  <script src="js/project-config.js?v=20261118_t3"></script>
   <script src="js/polygon-shadow-math.js?v=20261117_c2"></script>
   <script src="js/building-footprint-cad.js?v=20261117_l2"></script>
   <script src="js/cable-routing-ui.js?v=1793254551222"></script>
   <script src="js/universal-gizmo-3d.js?v=20261118_t1"></script>
   <script src="js/l-building-parametric.js?v=20261118_t2"></script>
   <script src="js/buildings.js?v=20261118_t2"></script>
-    <script src="js/radiation-engine.js?v=20261117_d1"></script>
-    <script src="js/solar-heatmap.js?v=20261117_d1"></script>
+    <script src="js/radiation-engine.js?v=20261118_t3"></script>
+    <script src="js/solar-heatmap.js?v=20261118_t3"></script>
     <script src="js/solar-live-probe.js?v=20261117_d1"></script>
     <script src="js/ra-env.js"></script>
 <script src="js/config.js?v=20261028a"></script>
@@ -51,25 +51,25 @@ window.RA_App = window.RA_App || {};
   <script src="js/docx-exporter.js?v=20261117_f2"></script>
   <script src="js/financials.js?v=20261117_f3"></script>
   <script src="js/viewer.js?v=20261118_t1b"></script>
-  <script src="js/solar-engine.js?v=20261117_d1"></script>
+  <script src="js/solar-engine.js?v=20261118_t3"></script>
   <script src="js/production-source.js?v=20261117_d1"></script>
   <script src="js/solar-optimizer.js?v=20261117_d1"></script>
   <script src="js/obstacles.js?v=20261118_t2"></script>
   <script src="js/wind-turbine.js?v=20261106_conic_mast_v3"></script>
   <script src="js/wind/wind-constants.js?v=20261024b"></script>
-  <script src="js/wind/wind-catalog.js?v=20261106_fase2"></script>
-  <script src="js/wind/wind-rooftop-cfd.js?v=20261117_d2"></script>
-  <script src="js/wind/wind-resource.js?v=20261118_t1"></script>
-  <script src="js/wind/wind-acoustics.js?v=20261117_d2"></script>
-  <script src="js/wind/wind-structural.js?v=20261117_d2"></script>
-  <script src="js/wind/wind-electrical.js?v=20261117_d2"></script>
-  <script src="js/wind/wind-hybrid-dispatch.js?v=20261117_d3"></script>
-  <script src="js/wind/wind-shadow-flicker.js?v=20261117_d2"></script>
-  <script src="js/wind/wind-worker.js?v=20261117_d3"></script>
-  <script src="js/wind/wind-entity.js?v=20261117_d1"></script>
+  <script src="js/wind/wind-catalog.js?v=20261118_t3"></script>
+  <script src="js/wind/wind-rooftop-cfd.js?v=20261118_t3"></script>
+  <script src="js/wind/wind-resource.js?v=20261118_t3"></script>
+  <script src="js/wind/wind-acoustics.js?v=20261118_t3"></script>
+  <script src="js/wind/wind-structural.js?v=20261118_t3"></script>
+  <script src="js/wind/wind-electrical.js?v=20261118_t3"></script>
+  <script src="js/wind/wind-hybrid-dispatch.js?v=20261118_t3"></script>
+  <script src="js/wind/wind-shadow-flicker.js?v=20261118_t3"></script>
+  <script src="js/wind/wind-worker.js?v=20261118_t3"></script>
+  <script src="js/wind/wind-entity.js?v=20261118_t3"></script>
   <script src="js/wind/wind-obstacle-interference.js?v=20261118_t1"></script>
-  <script src="js/wind/wind-visualizer.js?v=20261117_d3"></script>
-  <script src="js/wind/wind-ui.js?v=20261117_d3c"></script>
+  <script src="js/wind/wind-visualizer.js?v=20261118_t3"></script>
+  <script src="js/wind/wind-ui.js?v=20261118_t3"></script>
 
 
 
@@ -85,14 +85,14 @@ window.RA_App = window.RA_App || {};
     });
   </script>
   <script src="js/solar-materials.js?v=20260930a"></script>
-  <script src="js/electrical-engine.js?v=20261117_e3"></script>
+  <script src="js/electrical-engine.js?v=20261118_t3"></script>
   <script src="js/project-calcs.js?v=20261117_e3"></script>
   <script src="js/undo-manager.js?v=20261117_c3"></script>
   <script src="js/geometry-validate.js?v=20260929b"></script>
   <script src="js/docs-generator.js?v=20261118_t1"></script>
-  <script src="js/workflow-orchestrator.js?v=20260929b"></script>
-  <script src="js/working-plane.js?v=20261118_t1"></script>
-  <script src="js/solar-yield-controller.js?v=20261117_d1"></script>
+  <script src="js/workflow-orchestrator.js?v=20261118_t3"></script>
+  <script src="js/working-plane.js?v=20261118_t3"></script>
+  <script src="js/solar-yield-controller.js?v=20261118_t3"></script>
   <script src="js/electrical-ui-bridge.js?v=20261118_t2"></script>
   <script src="js/panel-renderer-3d.js?v=20261118_t2"></script>
   <script src="js/cad-events-controller.js?v=20261118_t2"></script>
@@ -2411,6 +2411,9 @@ window.RA_App = window.RA_App || {};
                 </div>
               </div>
             </div>
+
+            <!-- 4.3 INGENIERÍA EÓLICA REBT & FRENADO (OPCIONAL SI HAY TURBINAS) -->
+            <div id="wp-step4-wind-panel" style="display:none;"></div>
 
             <!-- BOTONERA DE NAVEGACIÓN PASO 4 -->
             <div style="display:flex;gap:6px;margin-top:4px;border-top:1px solid rgba(255,255,255,0.08);padding-top:8px;">
@@ -5972,6 +5975,8 @@ var lastRoofGeometry = null; // Cached roof geometry (ENU transform, local frame
 function updateShadingStrategy() {
   const sel = document.getElementById('cfg-shading-strategy');
   if (sel) shadingStrategy = sel.value;
+  window.shadingStrategy = shadingStrategy;
+  if (window.solarProjectConfig) window.solarProjectConfig.shadingStrategy = shadingStrategy;
   // Sincronizar caché del módulo solar-engine (no puede leer esta variable local)
   if (typeof window.setShadingStrategy === 'function') {
     window.setShadingStrategy(shadingStrategy);
@@ -8345,20 +8350,25 @@ function calculatePVsystRowPitch(moduleLengthM, deltaTiltDeg, roofSlopeDeg, modu
   const latRad = degToRad(typeof latDeg === 'number' ? latDeg : 40.4168);
   const declRad = degToRad(-23.45);
   // Ventana libre de sombras: ±designWindowH horas respecto al mediodía solar (2.0 h = 10:00-14:00, criterio CTE)
+  // Se evalúan extremos y mediodía para capturar correctamente orientaciones E/O/N (no solo 10:00 AM).
   const winH = Math.max(1.0, Math.min(3.5, Number(designWindowH) || 2.0));
-  const haRad = degToRad(-15.0 * winH);
-
-  const sinAlt = Math.sin(latRad) * Math.sin(declRad) + Math.cos(latRad) * Math.cos(declRad) * Math.cos(haRad);
-  const altRad = Math.asin(Math.max(-1, Math.min(1, sinAlt)));
-
-  const cosAz = (Math.sin(declRad) * Math.cos(latRad) - Math.cos(declRad) * Math.sin(latRad) * Math.cos(haRad)) / Math.max(Math.cos(altRad), 1e-4);
-  const azSolarSurDeg = -Math.sign(haRad) * radToDeg(Math.acos(Math.max(-1, Math.min(1, cosAz))));
-
-  const azDiffRad = degToRad((moduleAzSurDeg || 0) - azSolarSurDeg);
-  const cosAzDiff = Math.max(0.35, Math.cos(azDiffRad));
-
   const hVert = moduleLengthM * Math.sin(degToRad(deltaTiltDeg));
-  const shadowDist = hVert * (cosAzDiff / Math.max(Math.tan(altRad), 0.15));
+  let shadowDist = 0;
+
+  for (const hSolar of [-winH, 0, winH]) {
+    const haRad = degToRad(15.0 * hSolar);
+    const sinAlt = Math.sin(latRad) * Math.sin(declRad) + Math.cos(latRad) * Math.cos(declRad) * Math.cos(haRad);
+    const altRad = Math.asin(Math.max(-1, Math.min(1, sinAlt)));
+    if (altRad <= 0.02) continue;
+
+    const cosAz = (Math.sin(declRad) * Math.cos(latRad) - Math.cos(declRad) * Math.sin(latRad) * Math.cos(haRad)) / Math.max(Math.cos(altRad), 1e-4);
+    const azSolarSurDeg = Math.sign(haRad || 0) * radToDeg(Math.acos(Math.max(-1, Math.min(1, cosAz))));
+
+    const azDiffRad = degToRad((moduleAzSurDeg || 0) - azSolarSurDeg);
+    const cosAzProj = Math.max(0.35, Math.abs(Math.cos(azDiffRad)));
+    const dist = hVert * (cosAzProj / Math.max(Math.tan(altRad), 0.15));
+    if (dist > shadowDist) shadowDist = dist;
+  }
 
   const footprintA = moduleLengthM * Math.cos(degToRad(deltaTiltDeg));
   const cosRoof = Math.max(0.15, Math.cos(degToRad(Math.min(85, Math.abs(roofSlopeDeg || 0)))));
@@ -8558,6 +8568,10 @@ function evaluateModuleLayouts(roof, module, cfg) {
   let moduleAzSur;
   const rawUserTilt = (cfg.moduleTiltDeg !== undefined && cfg.moduleTiltDeg !== "" && !isNaN(parseFloat(cfg.moduleTiltDeg))) ? parseFloat(cfg.moduleTiltDeg) : null;
 
+  const _toAzSur = (azN) => (typeof RA !== 'undefined' && RA.Radiation && typeof RA.Radiation.normalizePanelAzSur === 'function')
+    ? RA.Radiation.normalizePanelAzSur(azN, 'compass')
+    : (((azN - 180) % 360 + 540) % 360 - 180);
+
   if (isOptimal) {
     // <i data-lucide=\"sun\" class=\"icon-sm\"></i> MODO HÍBRIDO INTELIGENTE CARA AL SOL (PVsyst / Helioscope)
 
@@ -8570,7 +8584,7 @@ function evaluateModuleLayouts(roof, module, cfg) {
       // Caso B: Cubierta inclinada con vertiente Sur favorable: Acoplada al faldón (estética limpia integrada coplanar)
       moduleTiltDeg = slopeDeg;
       moduleAzN = roofAz;
-      moduleAzSur = (roof.azimuthSur !== undefined) ? roof.azimuthSur : normalizeAzimuth(180 - moduleAzN);
+      moduleAzSur = (roof.azimuthSur !== undefined) ? roof.azimuthSur : _toAzSur(moduleAzN);
     } else {
       // Caso C: Cubierta inclinada desorientada (Norte, Este/Oeste cerrado): Diente de sierra rescatado al Sur
       moduleTiltDeg = optimalTilt;
@@ -8581,7 +8595,7 @@ function evaluateModuleLayouts(roof, module, cfg) {
     // <i data-lucide=\"home\" class=\"icon-sm\"></i> COPLANAR CON EL FALDÓN (Paralelo a cubierta, máxima integración)
     moduleTiltDeg = slopeDeg;
     moduleAzN = (roof.azimuthDeg !== undefined) ? roof.azimuthDeg : 180;
-    moduleAzSur = (roof.azimuthSur !== undefined) ? roof.azimuthSur : normalizeAzimuth(180 - moduleAzN);
+    moduleAzSur = (roof.azimuthSur !== undefined) ? roof.azimuthSur : _toAzSur(moduleAzN);
   } else {
     // <i data-lucide=\"settings\" class=\"icon-sm\"></i> PERSONALIZADA (Valores directos de los controles de usuario)
     const isZeroTiltOnSlope = (rawUserTilt === 0 && slopeDeg >= flatThreshold);
@@ -8602,7 +8616,7 @@ function evaluateModuleLayouts(roof, module, cfg) {
       rawAz = (roof.azimuthDeg !== undefined) ? roof.azimuthDeg : 180;
     }
     moduleAzN = normalizeAzimuth(rawAz);
-    moduleAzSur = isEastWest ? 90 : normalizeAzimuth(180 - moduleAzN);
+    moduleAzSur = isEastWest ? 90 : _toAzSur(moduleAzN);
   }
 
   const isPergola = (cfg.structureType === 'pergola' || (cfg.estructura && cfg.estructura.tipo === 'pergola'));
@@ -10484,7 +10498,7 @@ function computeSinglePolylineRoofInfo(ptsIn, polyOpts) {
         ewSide: c.ewSide || null,
         moduleId: effectiveModId,
         tiltDeg: best.moduleTiltDeg,
-        azimuthDeg: best.moduleAzimuthSur,
+        azimuthDeg: c.isEastWest ? (c.ewSide === 'E' ? -90 : 90) : best.moduleAzimuthSur,
         hasMLPE: !!(c.isShaded && (shadingStrategy === "mlpe" || shadingStrategy === "microinverter")),
         frame: best.frame,
         uVec: pa.uVec,

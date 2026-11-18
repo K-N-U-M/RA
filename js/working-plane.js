@@ -4002,6 +4002,9 @@ async function wpGoToStep(step, force = false) {
     if (typeof wpUpdateInverterSmartAssistantUI === 'function') _safe4(wpUpdateInverterSmartAssistantUI);
     if (typeof wpUpdateMeterPlacementGuideUI === 'function') _safe4(wpUpdateMeterPlacementGuideUI);
     if (typeof wpRenderStep4RoofScopeUI === 'function') _safe4(wpRenderStep4RoofScopeUI);
+    if (window.RAWindUI && typeof window.RAWindUI.renderStep4Panel === 'function') {
+      _safe4(() => window.RAWindUI.renderStep4Panel());
+    }
   } else if (step === 5) {
     // <i data-lucide=\"file-text\" class=\"icon-sm\"></i> PASO 5: ENTREGA, PRESUPUESTO & MEMORIA PDF
     const c5 = document.getElementById('wp-step-5-content');
@@ -6224,6 +6227,9 @@ function wpUpdateControlsAvailability() {
     telMlpe.parentElement.style.opacity = hasPanels ? '1' : '0.4';
   }
 
+  const hasWind = (typeof window !== 'undefined' && Array.isArray(window.windTurbines) && window.windTurbines.some(t => t && (!t.operationalState || t.operationalState.enabled !== false)));
+  const hasGenSource = hasPanels || hasWind;
+
   // 4. Stepper: Deshabilitar proactivamente pasos futuros no desbloqueados (5 Pasos Canónicos v3.0)
   if (typeof window.WorkflowOrchestrator !== 'undefined' && typeof window.WorkflowOrchestrator.refreshGating === 'function') {
     window.WorkflowOrchestrator.refreshGating();
@@ -6236,14 +6242,14 @@ function wpUpdateControlsAvailability() {
       let reason = '';
 
       if (s === 2) {
-        if (!hasPolys) {
+        if (!hasPolys && !hasPlane && !hasWind && !(typeof window !== 'undefined' && window.RAWindUI)) {
           canAccess = false;
-          reason = 'Requiere trazar al menos un faldón de cubierta en el Paso 1 (Emplazamiento)';
+          reason = 'Requiere definir un emplazamiento en el Paso 1 (Emplazamiento)';
         }
       } else if (s === 3 || s === 4) {
-        if (!hasPanels) {
+        if (!hasGenSource) {
           canAccess = false;
-          reason = 'Requiere generar la malla de módulos fotovoltaicos en el Paso 2 (Campo Solar)';
+          reason = 'Requiere generar paneles solares o emplazar al menos un aerogenerador en el Paso 2';
         }
       }
 
@@ -6265,18 +6271,18 @@ function wpUpdateControlsAvailability() {
   }
   const tabPresupuesto = document.getElementById('tab-btn-presupuesto');
   if (tabPresupuesto) {
-    tabPresupuesto.classList.toggle('disabled', !hasPanels);
-    tabPresupuesto.title = hasPanels ? 'Costes y Presupuesto' : 'Requiere generar campo solar primero';
+    tabPresupuesto.classList.toggle('disabled', !hasGenSource);
+    tabPresupuesto.title = hasGenSource ? 'Costes y Presupuesto' : 'Requiere definir generación solar o eólica primero';
   }
   const tabDocs = document.getElementById('tab-btn-documentacion');
   if (tabDocs) {
-    tabDocs.classList.toggle('disabled', !hasPanels);
-    tabDocs.title = hasPanels ? 'Documentación Técnica y PDF' : 'Requiere generar campo solar primero';
+    tabDocs.classList.toggle('disabled', !hasGenSource);
+    tabDocs.title = hasGenSource ? 'Documentación Técnica y PDF' : 'Requiere definir generación solar o eólica primero';
   }
   const tabAnalisis = document.getElementById('tab-btn-analisis');
   if (tabAnalisis) {
-    tabAnalisis.classList.toggle('disabled', !hasPanels);
-    tabAnalisis.title = hasPanels ? 'Análisis Energético' : 'Requiere generar campo solar primero';
+    tabAnalisis.classList.toggle('disabled', !hasGenSource);
+    tabAnalisis.title = hasGenSource ? 'Análisis Energético' : 'Requiere definir generación solar o eólica primero';
   }
 }
 window.wpUpdateControlsAvailability = wpUpdateControlsAvailability;

@@ -108,86 +108,158 @@
     var L = 24.0;
     var xSetback = 3.5;
 
+    function _pointInPoly2D(px, py, poly) {
+      var inside = false;
+      for (var i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        var xi = poly[i].x, yi = poly[i].y;
+        var xj = poly[j].x, yj = poly[j].y;
+        var intersect = ((yi > py) !== (yj > py)) && (px < ((xj - xi) * (py - yi)) / ((yj - yi) || 1e-12) + xi);
+        if (intersect) inside = !inside;
+      }
+      return inside;
+    }
+
+    function _upwindEdgeDistance(px, py, poly, vx, vy) {
+      // Rayo desde (px, py) en contra del viento (-vx, -vy) hasta la arista de barlovento
+      var minT = Infinity;
+      var rx = -vx, ry = -vy;
+      for (var i = 0; i < poly.length; i++) {
+        var a = poly[i];
+        var b = poly[(i + 1) % poly.length];
+        var sx = b.x - a.x, sy = b.y - a.y;
+        var denom = rx * sy - ry * sx;
+        if (Math.abs(denom) < 1e-9) continue;
+        var qpx = a.x - px, qpy = a.y - py;
+        var t = (qpx * sy - qpy * sx) / denom;
+        var u = (qpx * ry - qpy * rx) / denom;
+        if (t >= 0 && u >= -1e-4 && u <= 1.0001 && t < minT) {
+          minT = t;
+        }
+      }
+      return isFinite(minT) ? minT : null;
+    }
+
     if (customBuildingDims) {
       H = customBuildingDims.H || H;
       W = customBuildingDims.W || W;
       L = customBuildingDims.L || L;
       xSetback = customBuildingDims.xSetback !== undefined ? customBuildingDims.xSetback : xSetback;
     } else {
-            // Detectar el edificio de soporte real que contiene o subyace a la turbina
+      // Detectar el edificio de soporte real mediante contención poligonal 2D real (fallback por cercanía solo en modo rooftop)
       var blds = (typeof global.buildings !== 'undefined' && Array.isArray(global.buildings))
         ? global.buildings
         : [];
       var matchedBld = null;
+      var matchedPoly2D = null;
+      var matchedBldCenterCarto = null;
+      var matchedRoofAzDeg = null;
       var tPos = turbineInstance.positionCartographic;
       var minDist = Infinity;
 
-      if (blds.length > 0 && tPos) {
+      if (blds.length > 0 && tPos && typeof global.Cesium !== 'undefined' && global.Cesium.Cartographic) {
+        var cosLat = Math.max(0.1, Math.cos(tPos.latitudeRad));
         for (var bi = 0; bi < blds.length; bi++) {
           var b = blds[bi];
           if (!b || b.visible === false) continue;
           var pts = Array.isArray(b.points) ? b.points : (Array.isArray(b.polygonPoints) ? b.polygonPoints : null);
-          if (!pts || pts.length === 0) continue;
+          if (!pts || pts.length < 3) continue;
 
-          var cx = 0, cy = 0, cz = 0;
-          for (var pi = 0; pi < pts.length; pi++) {
-            cx += pts[pi].x; cy += pts[pi].y; cz += pts[pi].z;
-          }
-          var center = { x: cx / pts.length, y: cy / pts.length, z: cz / pts.length };
-
-          if (typeof global.Cesium !== 'undefined' && global.Cesium.Cartographic) {
-            try {
-              var cCarto = global.Cesium.Cartographic.fromCartesian(center);
-              if (cCarto) {
-                var dLatM = (tPos.latitudeRad - cCarto.latitude) * 6371000;
-                var dLonM = (tPos.longitudeRad - cCarto.longitude) * 6371000 * Math.cos(tPos.latitudeRad);
-                var distM = Math.sqrt(dLatM * dLatM + dLonM * dLonM);
-                if (distM < minDist) {
-                  minDist = distM;
-                  matchedBld = b;
-                }
-              }
-            } catch (eM) {}
-          }
+          try {
+            var polyMeters = [];
+            var sx = 0, sy = 0;
+            for (var pi = 0; pi < pts.length; pi++) {
+              var pc = global.Cesium.Cartographic.fromCartesian(pts[pi]);
+              if (!pc) continue;
+              var mx = (pc.longitude - tPos.longitudeRad) * 6371000 * cosLat;
+              var my = (pc.latitude - tPos.latitudeRad) * 6371000;
+              polyMeters.push({ x: mx, y: my });
+              sx += pts[pi].x; sy += pts[pi].y;
+            }
+            if (polyMeters.length < 3) continue;
+            var inside = _pointInPoly2D(0, 0, polyMeters);
+            var cx = 0, cy = 0;
+            polyMeters.forEach(function (m) { cx += m.x; cy += m.y; });
+            cx /= polyMeters.length; cy /= polyMeters.length;
+            var distM = Math.hypot(cx, cy);
+            if (inside) {
+              matchedBld = b;
+              matchedPoly2D = polyMeters;
+              matchedRoofAzDeg = (typeof b.roofAzimuth === 'number') ? b.roofAzimuth : ((typeof b.azimuthDeg === 'number') ? b.azimuthDeg : null);
+              minDist = 0;
+              break;
+            }
+            if (distM < minDist) {
+              minDist = distM;
+              matchedBld = b;
+              matchedPoly2D = polyMeters;
+              matchedRoofAzDeg = (typeof b.roofAzimuth === 'number') ? b.roofAzimuth : ((typeof b.azimuthDeg === 'number') ? b.azimuthDeg : null);
+            }
+          } catch (eM) {}
         }
       }
 
-      if (!matchedBld && blds.length > 0) matchedBld = blds[0];
+      var windDirDeg = (RAWind.Resource && typeof RAWind.Resource.getConfig === 'function')
+        ? (Number(RAWind.Resource.getConfig().prevailingWindDirDeg) || 270)
+        : 270;
+      var windRad = windDirDeg * Math.PI / 180.0;
+      // Vector hacia donde SOPLA el viento desde barlovento (windDirDeg es de donde VIENE el viento)
+      var blowVx = -Math.sin(windRad);
+      var blowVy = -Math.cos(windRad);
 
-      if (matchedBld) {
+      if (matchedBld && matchedPoly2D) {
         if (Number(matchedBld.height) > 0) H = Number(matchedBld.height);
-        if (Number(matchedBld.rectLadoA) > 0) W = Number(matchedBld.rectLadoA);
-        if (Number(matchedBld.rectLadoB) > 0) L = Number(matchedBld.rectLadoB);
-        var windDirDeg = (RAWind.Resource && typeof RAWind.Resource.getConfig === 'function')
-          ? (Number(RAWind.Resource.getConfig().prevailingWindDirDeg) || 270)
-          : 270;
-        var windRad = windDirDeg * Math.PI / 180.0;
-        // Distancia desde el borde de barlovento según la dirección predominante del viento
-        var halfExtentWind = 0.5 * (Math.abs(Math.sin(windRad)) * W + Math.abs(Math.cos(windRad)) * L);
-        if (isFinite(minDist) && matchedBld.points && matchedBld.points.length >= 3 && typeof global.Cesium !== 'undefined') {
-          try {
-            var bCenter = { x: 0, y: 0, z: 0 };
-            matchedBld.points.forEach(function (pt) { bCenter.x += pt.x; bCenter.y += pt.y; bCenter.z += pt.z; });
-            bCenter.x /= matchedBld.points.length; bCenter.y /= matchedBld.points.length; bCenter.z /= matchedBld.points.length;
-            var bc = global.Cesium.Cartographic.fromCartesian(bCenter);
-            var offE = (tPos.longitudeRad - bc.longitude) * 6371000 * Math.cos(tPos.latitudeRad);
-            var offN = (tPos.latitudeRad - bc.latitude) * 6371000;
-            // Proyección aguas abajo desde el borde de barlovento (+1 en dirección hacia donde sopla el viento)
-            var downwindProj = (-offE * Math.sin(windRad)) + (-offN * Math.cos(windRad));
-            xSetback = Math.max(0.5, Math.min(halfExtentWind * 2.0, halfExtentWind + downwindProj));
-          } catch (eSb) {
-            xSetback = Math.max(0.5, halfExtentWind * 0.5);
-          }
+        var azRadB = ((typeof matchedRoofAzDeg === 'number') ? matchedRoofAzDeg : 0) * Math.PI / 180.0;
+        var cosA = Math.cos(azRadB), sinA = Math.sin(azRadB);
+        var minU = Infinity, maxU = -Infinity, minV = Infinity, maxV = -Infinity;
+        matchedPoly2D.forEach(function (p2) {
+          var u = p2.x * cosA - p2.y * sinA;
+          var v = p2.x * sinA + p2.y * cosA;
+          if (u < minU) minU = u; if (u > maxU) maxU = u;
+          if (v < minV) minV = v; if (v > maxV) maxV = v;
+        });
+        var spanU = Math.max(2.0, maxU - minU);
+        var spanV = Math.max(2.0, maxV - minV);
+        var relWindRad = windRad - azRadB;
+        W = Number(matchedBld.rectLadoA) > 0 ? Number(matchedBld.rectLadoA) : (Math.abs(Math.cos(relWindRad)) * spanU + Math.abs(Math.sin(relWindRad)) * spanV);
+        L = Number(matchedBld.rectLadoB) > 0 ? Number(matchedBld.rectLadoB) : (Math.abs(Math.sin(relWindRad)) * spanU + Math.abs(Math.cos(relWindRad)) * spanV);
+
+        var edgeDist = _upwindEdgeDistance(0, 0, matchedPoly2D, blowVx, blowVy);
+        if (edgeDist !== null) {
+          xSetback = Math.max(0.5, edgeDist);
         } else {
-          xSetback = Math.max(1.0, halfExtentWind * 0.5);
+          xSetback = Math.max(1.0, L * 0.25);
         }
-      } else if (global.WP && Array.isArray(global.WP.polylines) && global.WP.polylines.length > 0) {
-        var p0 = global.WP.polylines[0];
-        if (p0 && Number(p0.area) > 0) {
-          var side = Math.sqrt(p0.area);
+      } else if (global.WP && Array.isArray(global.WP.polylines) && global.WP.polylines.length > 0 && tPos && typeof global.Cesium !== 'undefined' && global.Cesium.Cartographic) {
+        var matchedPolyObj = null;
+        var matchedRoofPoly2D = null;
+        for (var wi = 0; wi < global.WP.polylines.length; wi++) {
+          var wp = global.WP.polylines[wi];
+          if (!wp || !Array.isArray(wp.points) || wp.points.length < 3) continue;
+          var wpM = wp.points.map(function (pt) {
+            var pc2 = global.Cesium.Cartographic.fromCartesian(pt);
+            var cosL2 = Math.max(0.1, Math.cos(tPos.latitudeRad));
+            return {
+              x: (pc2.longitude - tPos.longitudeRad) * 6371000 * cosL2,
+              y: (pc2.latitude - tPos.latitudeRad) * 6371000
+            };
+          });
+          if (_pointInPoly2D(0, 0, wpM)) {
+            matchedPolyObj = wp;
+            matchedRoofPoly2D = wpM;
+            break;
+          }
+        }
+        var targetPoly = matchedPolyObj || global.WP.polylines[0];
+        if (targetPoly && Number(targetPoly.area) > 0) {
+          var side = Math.sqrt(targetPoly.area);
           W = Math.max(6, side);
           L = Math.max(6, side);
-          xSetback = Math.max(1.0, side * 0.25);
+          if (matchedRoofPoly2D) {
+            var edWp = _upwindEdgeDistance(0, 0, matchedRoofPoly2D, blowVx, blowVy);
+            xSetback = edWp !== null ? Math.max(0.5, edWp) : Math.max(1.0, side * 0.25);
+          } else {
+            xSetback = Math.max(1.0, side * 0.25);
+          }
         }
       }
     }

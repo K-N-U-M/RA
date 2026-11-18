@@ -26,16 +26,21 @@
     optRecKey: '',
     dispatch: null,
     dispatchKey: '',
+    dispatchMode: 'fast_288',
+    dispatchLoading: false,
     flicker: null,
-    flickerKey: ''
+    flickerKey: '',
+    flickerLoadingKey: ''
   };
   function _invalidateUiCalcCache() {
     _uiCalcCache.optRec = null;
     _uiCalcCache.optRecKey = '';
     _uiCalcCache.dispatch = null;
     _uiCalcCache.dispatchKey = '';
+    _uiCalcCache.dispatchLoading = false;
     _uiCalcCache.flicker = null;
     _uiCalcCache.flickerKey = '';
+    _uiCalcCache.flickerLoadingKey = '';
   }
   var _showAdvancedResource = false;
   var _resourceActiveMetrics = {
@@ -860,7 +865,7 @@
     html += '      <label style="font-size:9px;color:var(--text-slate-400);">Orientación Góndola (Guiñada / Yaw):</label>';
     html += '      <span id="wt-yaw-label" style="font-size:9.5px;font-weight:700;color:#FBBF24;font-family:monospace;">' + yawDeg + '° (' + _getYawCardinal(yawDeg) + ')</span>';
     html += '    </div>';
-    html += '    <input type="range" min="0" max="359" step="5" value="' + yawDeg + '" oninput="document.getElementById(\'wt-yaw-label\').textContent = this.value + \'° (\' + (window.RAWindUI ? window.RAWindUI.getYawCardinal(this.value) : \'\') + \')\'; if(window.RAWind && window.RAWind.Entity){ window.RAWind.Entity.updateProp(\'' + activeTurbine.id + '\', \'orientationRad\', (Number(this.value) * Math.PI / 180.0)); if(window.RAWindVisualizer){ window.RAWindVisualizer.updateLiveModelMatrix(window.RAWind.Entity.getById(\'' + activeTurbine.id + '\')); } }" style="width:100%;height:14px;accent-color:#FBBF24;cursor:pointer;">';
+    html += '    <input type="range" min="0" max="359" step="5" value="' + yawDeg + '" oninput="document.getElementById(\'wt-yaw-label\').textContent = this.value + \'° (\' + (window.RAWindUI ? window.RAWindUI.getYawCardinal(this.value) : \'\') + \')\'; if(window.RAWind && window.RAWind.Entity){ window.RAWind.Entity.updateProp(\'' + activeTurbine.id + '\', \'orientationRad\', (Number(this.value) * Math.PI / 180.0), { livePreviewOnly: true }); if(window.RAWindVisualizer){ window.RAWindVisualizer.updateLiveModelMatrix(window.RAWind.Entity.getById(\'' + activeTurbine.id + '\')); } }" onchange="if(window.RAWind && window.RAWind.Entity){ window.RAWind.Entity.updateProp(\'' + activeTurbine.id + '\', \'orientationRad\', (Number(this.value) * Math.PI / 180.0)); }" style="width:100%;height:14px;accent-color:#FBBF24;cursor:pointer;">';
     html += '  </div>';
     html += '</div>';
 
@@ -1054,31 +1059,76 @@
       var consAnnualKwh = billCons > 0 ? billCons : ((global.solarProjectConfig && global.solarProjectConfig.manualAnnualConsumptionKWh) || 35000);
 
       var dispatch = null;
+      var curDispMode = _uiCalcCache.dispatchMode || 'fast_288';
+      var fmFin = global._lastFinModel || null;
+      var solarCapexEur = fmFin ? Math.max(0, Number(fmFin.capexBruto || fmFin.subtotal || 0) - Number(fmFin.windCost || 0)) : 0;
+      var windCapexEur = (parkSummary.totalRatedKw || 0) * 1450;
+      if (fmFin && Number(fmFin.windCost) > 0) windCapexEur = Number(fmFin.windCost);
+      var batInSolarFin = !!(fmFin && (Number(fmFin.batCost || 0) > 0 || Number(fmFin.capexBattery || 0) > 0));
+      var touKey = (document.getElementById('fin-tou-tarifa') && document.getElementById('fin-tou-tarifa').value) || (fmFin && fmFin.touTarifa) || 'plana';
+      var dispParams = {
+        dispatchMode: curDispMode,
+        annualSolarKwh: solarAnnualKwh,
+        monthlySolarKwh: solarMonthlyKwh,
+        annualWindKwh: windAnnualKwh,
+        annualConsumptionKwh: consAnnualKwh,
+        batteryCapacityKwh: battCapKwh,
+        batteryIncludedInSolarCapex: batInSolarFin,
+        capexSolarEur: solarCapexEur,
+        capexWindEur: windCapexEur,
+        totalRatedKw: (parkSummary.totalRatedKw || 0) + ((fmFin && fmFin.kwp) || 0),
+        touTariff: touKey,
+        feedInPriceEurKwh: (fmFin && typeof fmFin.precioCompensacionEUR === 'number') ? fmFin.precioCompensacionEUR : undefined,
+        hasVirtualBattery: !!(fmFin && fmFin.hasVirtualBattery),
+        degYear1: (fmFin && typeof fmFin.degYear1Pct === 'number') ? (fmFin.degYear1Pct / 100) : 0.020,
+        degAnnual: (fmFin && typeof fmFin.degAnnualPct === 'number') ? (fmFin.degAnnualPct / 100) : 0.0055
+      };
       try {
-        var dispKey = [Math.round(solarAnnualKwh), Math.round(windAnnualKwh), Math.round(consAnnualKwh), battCapKwh].join('|');
-        dispatch = (_uiCalcCache.dispatch && _uiCalcCache.dispatchKey === dispKey)
-          ? _uiCalcCache.dispatch
-          : (_uiCalcCache.dispatch = global.RAWind.HybridDispatch.simulateHybridDispatch8760({
-              annualSolarKwh: solarAnnualKwh,
-              monthlySolarKwh: solarMonthlyKwh,
-              annualWindKwh: windAnnualKwh,
-              annualConsumptionKwh: consAnnualKwh,
-              batteryCapacityKwh: battCapKwh,
-              capexSolarEur: (global._lastFinModel && global._lastFinModel.capexTotal) || 0,
-              capexWindEur: (parkSummary.totalRatedKw || 0) * 1450
-            }), _uiCalcCache.dispatchKey = dispKey, _uiCalcCache.dispatch);
+        var dispKey = [curDispMode, Math.round(solarAnnualKwh), Math.round(windAnnualKwh), Math.round(consAnnualKwh), battCapKwh, Math.round(solarCapexEur), touKey].join('|');
+        if (_uiCalcCache.dispatch && _uiCalcCache.dispatchKey === dispKey) {
+          dispatch = _uiCalcCache.dispatch;
+        } else {
+          // Modo rápido 288h por defecto síncrono (<0.3ms); modo 8760h auditable vía Worker off-thread bajo demanda
+          dispatch = global.RAWind.HybridDispatch.simulateHybridDispatch8760(Object.assign({}, dispParams, { dispatchMode: 'fast_288' }));
+          if (curDispMode === 'full_8760') {
+            if (RAWind.WorkerClient && typeof RAWind.WorkerClient.runAsync === 'function') {
+              _uiCalcCache.dispatchLoading = true;
+              RAWind.WorkerClient.runAsync('COMPUTE_HYBRID_DISPATCH', dispParams, function (errW, resW) {
+                _uiCalcCache.dispatchLoading = false;
+                if (!errW && resW) {
+                  _uiCalcCache.dispatch = resW;
+                  _uiCalcCache.dispatchKey = dispKey;
+                } else {
+                  _uiCalcCache.dispatch = global.RAWind.HybridDispatch.simulateHybridDispatch8760(dispParams);
+                  _uiCalcCache.dispatchKey = dispKey;
+                }
+                renderStep2Panel();
+              });
+            } else {
+              dispatch = global.RAWind.HybridDispatch.simulateHybridDispatch8760(dispParams);
+              _uiCalcCache.dispatch = dispatch;
+              _uiCalcCache.dispatchKey = dispKey;
+            }
+          } else {
+            _uiCalcCache.dispatch = dispatch;
+            _uiCalcCache.dispatchKey = dispKey;
+          }
+        }
       } catch (eDisp) { console.warn('[RAWindUI] Error en dispatch:', eDisp); }
       if (dispatch) {
-
+      var is8760Active = dispatch.isAuditable8760;
       html += '<div style="background:rgba(15,23,42,0.85);border-left:3px solid #8B5CF6;border-radius:4px;padding:7px 9px;margin-bottom:6px;font-size:10px;">';
-      html += '  <div style="display:flex;justify-content:space-between;font-weight:700;color:#C4B5FD;margin-bottom:3px;">';
-      html += '    <span>⚖️ DESPACHO HÍBRIDO FV + VIENTO 8760h</span>';
-      html += '    <span style="color:#A78BFA;">Autosuf: ' + Math.round(dispatch.selfSufficiencyRatio * 100) + '%</span>';
+      html += '  <div style="display:flex;justify-content:space-between;align-items:center;font-weight:700;color:#C4B5FD;margin-bottom:3px;gap:4px;">';
+      html += '    <span>⚖️ DESPACHO HÍBRIDO (' + (is8760Active ? '8760h AUDITABLE' : '288h RÁPIDO') + ')</span>';
+      html += '    <div style="display:flex;align-items:center;gap:4px;">';
+      html += '      <button type="button" onclick="if(window.RAWindUI && window.RAWindUI.toggleDispatchMode) window.RAWindUI.toggleDispatchMode()" style="cursor:pointer;padding:1px 6px;border-radius:4px;font-size:8.5px;font-weight:800;border:1px solid ' + (is8760Active ? '#10B981' : '#A78BFA') + ';background:' + (is8760Active ? 'rgba(16,185,129,0.2)' : 'rgba(139,92,246,0.2)') + ';color:' + (is8760Active ? '#34D399' : '#DDD6FE') + ';">' + (_uiCalcCache.dispatchLoading ? '⏳ Calculando...' : (is8760Active ? '✓ 8760h Activo' : 'Auditar 8760h')) + '</button>';
+      html += '      <span style="color:#A78BFA;">Autosuf: ' + Math.round(dispatch.selfSufficiencyRatio * 100) + '%</span>';
+      html += '    </div>';
       html += '  </div>';
       html += '  <div style="color:var(--text-slate-300);line-height:1.4;">';
       html += '    Generación Híbrida Anual: <b>' + dispatch.annualHybridGenKwh.toLocaleString('es-ES') + ' kWh</b> (☀️ ' + dispatch.annualSolarKwh.toLocaleString('es-ES') + ' + 💨 ' + dispatch.annualWindKwh.toLocaleString('es-ES') + ')<br>';
       html += '    Autoconsumo Útil: <b>' + dispatch.totalSelfConsumptionKwh.toLocaleString('es-ES') + ' kWh</b> (' + Math.round(dispatch.selfConsumptionRatio * 100) + '% del total generado)<br>';
-      html += '    Peak Shaving Potencia: <b style="color:#34D399;">-' + dispatch.peakShavingReductionKw + ' kW (-' + dispatch.peakShavingPct + '%)</b> en horas punta<br>';
+      html += '    Peak Shaving Potencia: <b style="color:#34D399;">-' + dispatch.peakShavingReductionKw + ' kW (-' + dispatch.peakShavingPct + '%)</b> · Tarifa: <b>' + (dispatch.touName || 'Plana') + '</b>' + (dispatch.rd244CapApplied ? ' (Techo RD 244/2019)' : '') + '<br>';
       html += '    Ahorro Total Estimado: <b style="color:#FBBF24;">' + dispatch.annualSavingsEur.toLocaleString('es-ES') + ' €/año</b> · LCOE Híbrido: <b>' + dispatch.lcoeHybridEurKwh.toFixed(3) + ' €/kWh</b>';
       html += '  </div>';
       html += '</div>';
@@ -1101,10 +1151,40 @@
 
       var flKey = (activeTurbine ? activeTurbine.id : '') + '_' + ((activeTurbine && activeTurbine.supportStructure) ? activeTurbine.supportStructure.hubHeightM : 0) + '_' + (solarTarget ? (solarTarget.latDeg.toFixed(4) + '_' + solarTarget.lonDeg.toFixed(4)) : 'none');
       if (_uiCalcCache.flickerKey !== flKey) {
-        _uiCalcCache.flicker = global.RAWind.ShadowFlicker.evaluateAnnualShadowFlicker(activeTurbine, null, solarTarget);
-        _uiCalcCache.flickerKey = flKey;
+        if (RAWind.WorkerClient && typeof RAWind.WorkerClient.runAsync === 'function' && _uiCalcCache.flickerLoadingKey !== flKey) {
+          _uiCalcCache.flickerLoadingKey = flKey;
+          var tSlim = {
+            id: activeTurbine.id,
+            name: activeTurbine.name,
+            orientationRad: activeTurbine.orientationRad,
+            positionCartographic: activeTurbine.positionCartographic,
+            supportStructure: activeTurbine.supportStructure,
+            _catalog: activeTurbine._catalog
+          };
+          RAWind.WorkerClient.runAsync('COMPUTE_SHADOW_FLICKER', {
+            turbines: [tSlim],
+            solarFieldBounds: solarTarget,
+            resourceConfig: (RAWind.Resource && RAWind.Resource.getConfig) ? RAWind.Resource.getConfig() : {}
+          }, function (errF, resF) {
+            if (!errF && resF) {
+              _uiCalcCache.flicker = resF;
+              _uiCalcCache.flickerKey = flKey;
+              _uiCalcCache.flickerLoadingKey = '';
+              renderStep2Panel();
+            }
+          });
+        } else if (!RAWind.WorkerClient || typeof RAWind.WorkerClient.runAsync !== 'function') {
+          _uiCalcCache.flicker = global.RAWind.ShadowFlicker.evaluateAnnualShadowFlicker(activeTurbine, null, solarTarget);
+          _uiCalcCache.flickerKey = flKey;
+        }
       }
-      var flicker = _uiCalcCache.flicker;
+      var flicker = (_uiCalcCache.flickerKey === flKey && _uiCalcCache.flicker) ? _uiCalcCache.flicker : null;
+      if (!flicker) {
+        html += '<div style="background:rgba(15,23,42,0.85);border-left:3px solid #38BDF8;border-radius:4px;padding:7px 9px;font-size:10px;">';
+        html += '  <div style="font-weight:700;color:#7DD3FC;">🌓 SOMBRAS &amp; SHADOW FLICKER</div>';
+        html += '  <div style="color:var(--text-slate-400);font-size:9.5px;margin-top:2px;">⏳ Calculando estudio astronómico anual (365 días × 10 min) en segundo plano...</div>';
+        html += '</div>';
+      } else {
       var flColor = flicker.isAcceptable ? '#10B981' : (flicker.compliesNorm30hYear ? '#F59E0B' : '#EF4444');
       var flBadge = flicker.isAcceptable ? 'CUMPLE NORMA (≤30h)' : (flicker.compliesNorm30hYear ? 'PICO DIARIO (>30m)' : 'EXCEDE 30 h/AÑO');
 
@@ -1123,6 +1203,7 @@
       html += '    Mitigación: ' + (flicker.curtailmentRecommended ? '<b style="color:#EF4444;">Parada programada recomendada en sol bajo</b>' : '<b style="color:#10B981;">No requiere paradas de rotor</b>');
       html += '  </div>';
       html += '</div>';
+      }
     }
   } else {
     html += '<div style="background:rgba(15,23,42,0.5);border:1px dashed rgba(148,163,184,0.2);border-radius:6px;padding:12px;text-align:center;margin-bottom:8px;">';
@@ -1163,9 +1244,52 @@
     renderStep2Panel();
   }
 
+  function renderStep4Panel() {
+    var box = document.getElementById('wp-step4-wind-panel');
+    if (!box) return;
+    var turbs = Array.isArray(global.windTurbines) ? global.windTurbines.filter(function (t) { return t && (!t.operationalState || t.operationalState.enabled !== false); }) : [];
+    if (turbs.length === 0) {
+      box.style.display = 'none';
+      box.innerHTML = '';
+      return;
+    }
+    var summary = (RAWind.Electrical && typeof RAWind.Electrical.evaluateParkElectricalSummary === 'function')
+      ? RAWind.Electrical.evaluateParkElectricalSummary(turbs)
+      : null;
+    box.style.display = 'block';
+    var ok = summary && summary.allComplyREBT;
+    var badgeCol = ok ? '#10B981' : '#EF4444';
+    var html = '<div class="ui-card" style="border:1px solid rgba(56,189,248,0.28);background:rgba(15,23,42,0.88);border-radius:8px;padding:10px;">';
+    html += '  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
+    html += '    <span style="color:#38BDF8;font-weight:900;font-size:10.5px;">💨 4.3 INGENIERÍA ELÉCTRICA EÓLICA (REBT ITC-BT-40)</span>';
+    html += '    <span style="font-size:9px;font-weight:800;color:' + badgeCol + ';background:rgba(16,185,129,0.12);padding:2px 6px;border-radius:4px;border:1px solid ' + badgeCol + ';">' + (ok ? ('CONFORME ΔU=' + summary.worstVoltageDropPct + '%') : 'REVISAR LÍNEA') + '</span>';
+    html += '  </div>';
+    if (summary && Array.isArray(summary.reports)) {
+      summary.reports.forEach(function (rep, idx) {
+        var tName = (turbs[idx] && turbs[idx].name) || ('Aerogenerador #' + (idx + 1));
+        html += '<div style="font-size:9.5px;color:var(--text-slate-300);background:rgba(0,0,0,0.28);padding:6px 8px;border-radius:5px;margin-bottom:4px;line-height:1.45;">';
+        html += '  <b style="color:#7DD3FC;">' + tName + '</b> · ' + rep.systemTopology + ' (I<sub>n</sub>=' + rep.nominalCurrentA + 'A / I<sub>dis</sub>=' + rep.designCurrentA + 'A)<br>';
+        html += '  Línea (' + rep.cable.lengthM + ' m): <b>' + rep.cable.designation + '</b> · ΔU=' + rep.cable.voltageDropPct + '% · I<sub>z corr</sub>=' + rep.cable.ampacityA + 'A<br>';
+        html += '  Freno Reostático (Dump Load): <b>' + rep.dumpLoad.requiredPowerKw + ' kW @ ' + rep.dumpLoad.dcBusVoltageV + ' V<sub>DC</sub></b> (' + rep.dumpLoad.equivalentResistanceOhm + ' Ω)<br>';
+        html += '  Protección: <b>' + rep.protections.mcbSpec + '</b> · <b>' + rep.protections.rcdSpec + '</b>';
+        html += '</div>';
+      });
+    }
+    html += '</div>';
+    box.innerHTML = html;
+  }
+
+  function toggleDispatchMode() {
+    _uiCalcCache.dispatchMode = (_uiCalcCache.dispatchMode === 'full_8760') ? 'fast_288' : 'full_8760';
+    _uiCalcCache.dispatch = null;
+    _uiCalcCache.dispatchKey = '';
+    renderStep2Panel();
+  }
+
   function onTurbinesChanged(eventType, data) {
     _invalidateUiCalcCache();
     renderStep2Panel();
+    renderStep4Panel();
   }
 
   function toggleAutoYaw(enabled) {
@@ -1239,6 +1363,8 @@
     fetchERA5WindData: fetchSelectedWindSource,
     getYawCardinal: _getYawCardinal,
     renderStep2Panel: renderStep2Panel,
+    renderStep4Panel: renderStep4Panel,
+    toggleDispatchMode: toggleDispatchMode,
     focusTurbine: focusTurbine,
     onTurbinesChanged: onTurbinesChanged
   };

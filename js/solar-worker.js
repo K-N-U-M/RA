@@ -11,7 +11,7 @@
 'use strict';
 
 try {
-  importScripts('radiation-engine.js?v=20261117_d1');
+  importScripts('radiation-engine.js?v=20261118_t3');
 } catch (eRadImport) {}
 
 const SOLAR_CONST = 1367;
@@ -180,7 +180,7 @@ function computeSolarPositionWorker(latDeg, lonDeg, dayOfYear, utcHour) {
     isDay: elevDeg > 0,
     sunVecENU,
     sDirENU: sDirHorizontal,
-    shadowLenPerM: elevDeg >= 10.0 ? Math.min(1 / Math.tan(elevRad_), 5.67) : 0
+    shadowLenPerM: elevDeg >= 5.0 ? Math.min(1 / Math.tan(elevRad_), 5.67) : 0
   };
 }
 
@@ -407,6 +407,8 @@ self.onmessage = async function(e) {
       svfAmbient: panelSvfMap.get(pData.id) || 1.0,
       normalENU: pData.normalENU || pData.normalWorld || { x: 0, y: 0, z: 1 },
       tiltRad: tiltRad,
+      coplanar: !!pData.coplanar,
+      clearance: (typeof pData.clearance === 'number') ? pData.clearance : 0,
       fViewSky: fViewSky,
       fViewGround: fViewGround,
       hasOptimizer: !!pData.hasOptimizer,
@@ -441,7 +443,7 @@ self.onmessage = async function(e) {
     for (let _hs = 0; _hs < hours.length; _hs++) {
       const _utcPre = hours[_hs] - (4 * lng + _EtM) / 60;
       const _spPre = computeSolarPositionWorker(lat, lng, monthsDoy[mIdx], _utcPre);
-      if (_spPre && _spPre.isDay && _spPre.elevDeg > 0.0) {
+      if (_spPre && _spPre.isDay && _spPre.elevDeg >= 5.0) {
         _sinAltSum += Math.sin(_spPre.elevDeg * Math.PI / 180);
       }
     }
@@ -454,7 +456,7 @@ self.onmessage = async function(e) {
       const utcHour = h - (4 * lng + _EtM) / 60;
       const sp = computeSolarPositionWorker(lat, lng, monthsDoy[mIdx], utcHour);
 
-      if (!sp || !sp.isDay || sp.elevDeg < 10.0) {
+      if (!sp || !sp.isDay || sp.elevDeg < 5.0) {
         continue;
       }
 
@@ -563,7 +565,13 @@ self.onmessage = async function(e) {
           G_refl = GHI_instant * 0.20 * p.fViewGround;
         }
 
-        const rearViewFactor = Math.max(0.04, Math.pow(Math.sin(p.tiltRad / 2), 2));
+        const isRaised = !p.coplanar || (p.clearance >= 0.25);
+        const clearanceFactor = isRaised
+          ? (p.clearance >= 0.8 ? 0.72 : (p.clearance >= 0.25 ? 0.55 : 0.35))
+          : 0;
+        const rearViewFactor = isRaised
+          ? Math.max(0.06, Math.min(0.85, clearanceFactor * Math.pow(Math.cos(p.tiltRad / 2), 2)))
+          : 0.04;
         const albedoGain = (isBifacial && bifacialityFactor > 0) ? (GHI_instant * 0.20 * rearViewFactor * bifacialityFactor) : 0;
         const G_poa = G_beam + G_diff + G_refl + albedoGain;
 
@@ -677,7 +685,7 @@ self.onmessage = async function(e) {
         const beamLossW = (effectiveShaded && totalEffectiveLossFraction > 0) ? (G_beam * thermalFactor * totalEffectiveLossFraction * (isEnvironmentOccluded ? 1.0 : p.penumbraAttenuation)) : 0;
         const skyOcclusionFactor = isEnvironmentOccluded ? 0.35 : 0.0;
         const diffuseLossW = (!hasOpt && shadedSubstringsCount > 0)
-          ? ((G_diff + G_refl + (isBifacial ? G_refl * bifacialityFactor : 0)) * thermalFactor * (beamShadedFraction / 3.0))
+          ? ((G_diff + G_refl + albedoGain) * thermalFactor * (beamShadedFraction / 3.0))
           : (isEnvironmentOccluded ? (G_diff * thermalFactor * skyOcclusionFactor) : 0);
         const instantLossW = beamLossW + diffuseLossW;
 

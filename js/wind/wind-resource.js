@@ -164,23 +164,32 @@
    * usando el perfil logarítmico de capa límite neutral con desplazamiento de plano cero (Monin-Obukhov):
    * v(z) = vRef · ln((z - d) / z0) / ln((zRef - d) / z0).
    */
-  function extrapolateWindSpeed(vRef, zRef, zHub, z0, alpha, displacementHeightM) {
+  function extrapolateWindSpeed(vRef, zRef, zHub, z0, alpha, displacementHeightM, modelMode) {
     vRef = Math.max(0, Number(vRef) || 0);
     zRef = Math.max(1.5, Number(zRef) || 10.0);
     zHub = Math.max(1.5, Number(zHub) || 18.0);
     z0 = Math.max(0.0002, Number(z0) || 0.10);
 
-    // En entornos con rugosidad alta (urbano/industrial z0 >= 0.20m), las naves generan
-    // una subcapa de rugosidad con plano de desplazamiento cero d ~ 0.7*H_nave
-    var d = Math.max(0, Number(displacementHeightM) || (z0 >= 0.30 ? (z0 * 10.0 * 0.70) : 0));
-    var effectiveZHub = Math.max(z0 * 1.5, zHub - d);
-    var effectiveZRef = Math.max(z0 * 1.5, zRef - d);
+    // Calibración unificada Log-Hellmann (Justus & Mikhail): exponente α coherente con z0
+    var logZ0 = Math.log(z0) / Math.LN10;
+    var alphaFromZ0 = Math.max(0.08, Math.min(0.40, 0.096 * logZ0 + 0.016 * logZ0 * logZ0 + 0.24));
+    var expAlpha = (typeof alpha === 'number' && alpha > 0) ? alpha : alphaFromZ0;
 
-    if (effectiveZHub > z0 * 1.5 && effectiveZRef > z0 * 1.5) {
-      var ratioLog = Math.log(effectiveZHub / z0) / Math.log(effectiveZRef / z0);
-      return vRef * Math.max(0.3, ratioLog);
+    if (modelMode === 'hellmann') {
+      return vRef * Math.pow(zHub / zRef, expAlpha);
     }
-    var expAlpha = Number(alpha) || 0.143;
+
+    // Desplazamiento de plano cero d sólo si existe altura explícita de obstáculo/subcapa, acotado a zRef*0.5
+    var d = (typeof displacementHeightM === 'number' && displacementHeightM > 0)
+      ? Math.min(zRef * 0.5, displacementHeightM)
+      : 0;
+    var effectiveZHub = zHub - d;
+    var effectiveZRef = zRef - d;
+
+    if (effectiveZHub > z0 * 2.0 && effectiveZRef > z0 * 2.0) {
+      var ratioLog = Math.log(effectiveZHub / z0) / Math.log(effectiveZRef / z0);
+      return vRef * Math.max(0.35, ratioLog);
+    }
     return vRef * Math.pow(zHub / zRef, expAlpha);
   }
 
@@ -396,24 +405,31 @@
     var turbAltitudeM = (turbineInstance.positionCartographic && typeof turbineInstance.positionCartographic.altitudeM === "number")
       ? turbineInstance.positionCartographic.altitudeM
       : siteBaseAlt;
-    // Altura efectiva AGL sobre cubierta/terreno (sin sumar altitud s.n.m. sobre referencia de 100m)
-    var effectiveHubHeightM = Math.max(2.0, hubH);
 
-    var rho = calculateAirDensity(turbAltitudeM + hubH, cfg.ambientTempC);
-
-    // Evaluar efecto de cubierta (Wilson 1979) si aplica
+    // Evaluar efecto de cubierta (Wilson 1979) ANTES de calcular cota AGL y extrapolación
     var roofCtx = rooftopResult || (RAWind.RooftopCFD
       ? RAWind.RooftopCFD.evaluateTurbineRooftopContext(turbineInstance)
       : { speedupFactor: 1.0, insideSeparationBubble: false });
     var speedup = (roofCtx && roofCtx.speedupFactor) ? Number(roofCtx.speedupFactor) : 1.0;
 
-    // Velocidad media libre en el buje extrapolada con la cota efectiva:
+    // En montaje sobre cubierta, sumar altura del edificio a la cota del buje desde zRef=10 m
+    var buildingH = (turbineInstance.mountingType === 'rooftop' && roofCtx && roofCtx.isRooftop && Number(roofCtx.buildingHeightM) > 0)
+      ? Number(roofCtx.buildingHeightM)
+      : 0;
+    var effectiveHubHeightM = Math.max(2.0, buildingH + hubH);
+
+    var rho = calculateAirDensity(turbAltitudeM + effectiveHubHeightM, cfg.ambientTempC);
+
+    // Velocidad media libre en el buje extrapolada con la cota efectiva sobre suelo (y desplazamiento parcial en cubierta):
+    var roofDisp = buildingH > 0 ? Math.min(buildingH * 0.65, 5.0) : 0;
     var vHubFree = extrapolateWindSpeed(
       cfg.vMeanRefMs,
       cfg.refHeightM,
       effectiveHubHeightM,
       cfg.roughnessLengthM,
-      cfg.shearExponentAlpha
+      cfg.shearExponentAlpha,
+      roofDisp,
+      cfg.windShearModel
     );
     var vHubWithRoof = vHubFree * speedup;
 

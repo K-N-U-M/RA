@@ -1513,12 +1513,20 @@ function step4ApplyFinancialProfile(profileKey) {
   const selShade = document.getElementById('cfg-shading-strategy');
   const selTipoEst = document.getElementById('cfg-tipo-est');
 
+  const applyShade = (mode) => {
+    shadingStrategy = mode;
+    window.shadingStrategy = mode;
+    if (window.solarProjectConfig) window.solarProjectConfig.shadingStrategy = mode;
+    if (selShade) selShade.value = mode;
+    if (typeof window.setShadingStrategy === 'function') window.setShadingStrategy(mode);
+  };
+
   if (profileKey === 'max_prod') {
     if (cfgMod) cfgMod.value = 'Tier 1 Ultra N-Type 550W';
     if (cfgPot) cfgPot.value = 550;
     if (cfgRend) cfgRend.value = 22.8;
     if (cfgPrecio) cfgPrecio.value = 160;
-    if (selShade) { selShade.value = 'mlpe'; shadingStrategy = 'mlpe'; if (typeof window.setShadingStrategy === 'function') window.setShadingStrategy('mlpe'); }
+    applyShade('mlpe');
     if (selBat) { selBat.value = '10'; if (typeof updateBatteryCost === 'function') updateBatteryCost(); }
     showStatus('PERFIL: MÁXIMA PRODUCCIÓN & AUTARQUÍA APLICADO', 2500);
   } else if (profileKey === 'min_payback') {
@@ -1526,7 +1534,7 @@ function step4ApplyFinancialProfile(profileKey) {
     if (cfgPot) cfgPot.value = 450;
     if (cfgRend) cfgRend.value = 21.5;
     if (cfgPrecio) cfgPrecio.value = 125;
-    if (selShade) { selShade.value = 'exclude'; shadingStrategy = 'exclude'; if (typeof window.setShadingStrategy === 'function') window.setShadingStrategy('exclude'); }
+    applyShade('exclude');
     if (selBat) { selBat.value = '0'; if (typeof updateBatteryCost === 'function') updateBatteryCost(); }
     if (selTipoEst) { selTipoEst.value = 'coplanar_teja'; if (typeof updateStructureCost === 'function') updateStructureCost(); }
     showStatus('PERFIL: MÍNIMO TIEMPO DE AMORTIZACIÓN (<4.5 AÑOS) APLICADO', 2500);
@@ -1535,7 +1543,7 @@ function step4ApplyFinancialProfile(profileKey) {
     if (cfgPot) cfgPot.value = 410;
     if (cfgRend) cfgRend.value = 20.8;
     if (cfgPrecio) cfgPrecio.value = 110;
-    if (selShade) { selShade.value = 'exclude'; shadingStrategy = 'exclude'; if (typeof window.setShadingStrategy === 'function') window.setShadingStrategy('exclude'); }
+    applyShade('exclude');
     if (selBat) { selBat.value = '0'; if (typeof updateBatteryCost === 'function') updateBatteryCost(); }
     showStatus('PERFIL: MÍNIMA INVERSIÓN INICIAL (LOW CAPEX) APLICADO', 2500);
   } else if (profileKey === 'max_tir') {
@@ -1543,7 +1551,7 @@ function step4ApplyFinancialProfile(profileKey) {
     if (cfgPot) cfgPot.value = 450;
     if (cfgRend) cfgRend.value = 21.5;
     if (cfgPrecio) cfgPrecio.value = 130;
-    if (selShade) { selShade.value = 'mlpe'; shadingStrategy = 'mlpe'; if (typeof window.setShadingStrategy === 'function') window.setShadingStrategy('mlpe'); }
+    applyShade('mlpe');
     if (selBat) { selBat.value = '5'; if (typeof updateBatteryCost === 'function') updateBatteryCost(); }
     showStatus('PERFIL: MÁXIMA RENTABILIDAD FINANCIERA (TIR MÁX) APLICADO', 2500);
   }

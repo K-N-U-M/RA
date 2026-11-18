@@ -1393,7 +1393,7 @@
     const byName = new Map();
     const stringPanels = new Map();
     panels.forEach(p => {
-      if (!p || !p.stringName) return;
+      if (!p || !p.stringName || p.isGhost || p.deleted || p.disabled) return;
       if (!byName.has(p.stringName)) {
         let tilt = typeof p.tiltDeg === 'number' ? p.tiltDeg : null;
         let az = typeof p.azimuthDeg === 'number' ? p.azimuthDeg : null;
@@ -1561,7 +1561,7 @@
     // 4. Aplicar a los paneles (mpptId + etiqueta "MPPTn:...")
     let changed = 0;
     panels.forEach(p => {
-      if (!p || !p.stringName) return;
+      if (!p || !p.stringName || p.isGhost || p.deleted || p.disabled) return;
       const m = assign.get(p.stringName);
       if (!m) return;
       if (p.mpptId !== m) { p.mpptId = m; changed++; }
@@ -1622,7 +1622,7 @@
     // Agrupar strings por canal MPPT
     const mpptGroups = new Map();
     targetPanels.forEach(p => {
-      if (!p || !p.stringName || !p.mpptId) return;
+      if (!p || !p.stringName || !p.mpptId || p.isGhost || p.deleted || p.disabled) return;
       if (!mpptGroups.has(p.mpptId)) mpptGroups.set(p.mpptId, new Map());
       const strMap = mpptGroups.get(p.mpptId);
       if (!strMap.has(p.stringName)) {

@@ -74,7 +74,7 @@ function recalculateSolarYield(force = false) {
       if (poly.panelsDisabled === true) return;
       const pInf = poly.roofInfo || (typeof computeSinglePolylineRoofInfo === 'function' ? computeSinglePolylineRoofInfo(poly.points, poly) : null);
       if (pInf && pInf.panels) {
-        totalPanelsCount += pInf.panels.filter(p => !p.deleted && !p.disabled).length;
+        totalPanelsCount += pInf.panels.filter(p => p && !p.deleted && !p.disabled && !p.isGhost).length;
         if (!dominantRoofInfo) dominantRoofInfo = pInf;
       }
     });
@@ -82,14 +82,14 @@ function recalculateSolarYield(force = false) {
 
   const roofInfo = dominantRoofInfo || (hasPolys ? null : computeRoofPanelsData());
   const renderedPanelsCount = (typeof window.allRenderedPanels !== 'undefined' && Array.isArray(window.allRenderedPanels))
-    ? window.allRenderedPanels.filter(p => !p.deleted && !p.disabled).length
+    ? window.allRenderedPanels.filter(p => p && !p.deleted && !p.disabled && !p.isGhost).length
     : 0;
   const numPanels = renderedPanelsCount > 0
     ? renderedPanelsCount
     : (totalPanelsCount > 0
         ? totalPanelsCount
         : (hasPolys ? 0 : ((roofInfo && roofInfo.panels && roofInfo.panels.length > 0)
-            ? roofInfo.panels.length
+            ? roofInfo.panels.filter(p => p && !p.deleted && !p.disabled && !p.isGhost).length
             : 0)));
 
   if (numPanels === 0) {
@@ -165,7 +165,7 @@ function recalculateSolarYield(force = false) {
     WP.polylines.forEach((poly, pIdx) => {
       if (poly.panelsDisabled === true) return;
       const pInf = poly.roofInfo || (typeof computeSinglePolylineRoofInfo === 'function' ? computeSinglePolylineRoofInfo(poly.points, poly) : null);
-      const pCount = (pInf && Array.isArray(pInf.panels)) ? pInf.panels.filter(p => !p.deleted && !p.disabled).length : 0;
+      const pCount = (pInf && Array.isArray(pInf.panels)) ? pInf.panels.filter(p => p && !p.deleted && !p.disabled && !p.isGhost).length : 0;
       if (pCount <= 0) return;
       const pWp = (typeof wpGetPolyWp === 'function') ? wpGetPolyWp(poly) : modulePowerW;
       const roofSlope = (pInf && typeof pInf.tiltDeg === 'number') ? pInf.tiltDeg : ((poly.roofInfo && typeof poly.roofInfo.tiltDeg === 'number') ? poly.roofInfo.tiltDeg : 0);
@@ -259,7 +259,7 @@ function recalculateSolarYield(force = false) {
   let totalPanelsCountForShadows = 0;
 
   const gatherPanelLoss = p => {
-    if (!p || p.deleted || p.disabled) return;
+    if (!p || p.deleted || p.disabled || p.isGhost) return;
     if (typeof p.annualTotalPotential === 'number' && p.annualTotalPotential > 0) {
       sumPotentialWh += p.annualTotalPotential;
       sumShadedLossWh += (p.annualShadedLoss || 0);
@@ -298,17 +298,17 @@ function recalculateSolarYield(force = false) {
 
   // Sincronizar reactivamente cada panel individual en 3D con el nuevo PR
   if (typeof window.allRenderedPanels !== 'undefined' && Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0) {
-    const nPanels = window.allRenderedPanels.length;
+    const activeRendered = window.allRenderedPanels.filter(p => p && !p.deleted && !p.disabled && !p.isGhost);
+    const nPanels = Math.max(1, activeRendered.length);
     const prSys = (typeof prObj.prBOS === 'number') ? prObj.prBOS : (pr / (0.925 * (1 - 0.028)));
 
-    const hasSimulatedPanels = window.allRenderedPanels.some(p =>
+    const hasSimulatedPanels = activeRendered.some(p =>
       (typeof p.annualGrossKwh === 'number' && p.annualGrossKwh > 0) ||
       (typeof p.annualKwh === 'number' && p.annualKwh > 0)
     );
     let simulatedTotalKWh = 0;
     let simulatedGrossKWh = 0;
-    window.allRenderedPanels.forEach(p => {
-      if (!p || p.deleted || p.disabled) return;
+    activeRendered.forEach(p => {
       const pYieldFactor = (typeof p.annualYieldPct === 'number') ? (p.annualYieldPct / 100.0) : shadowLossFactor;
       const pPolyIdx = (typeof p.polyIdx === 'number') ? p.polyIdx : 0;
       const sa = subArrays.find(s => s.polyIdx === pPolyIdx);

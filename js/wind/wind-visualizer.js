@@ -430,9 +430,10 @@
         geometryInstances: ringInstances,
         modelMatrix: rootModelMatrix,
         appearance: new Cesium.PerInstanceColorAppearance({ translucent: true, closed: true }),
+        allowPicking: false,
         asynchronous: false
       }));
-      rPrim._windTurbineId = turbineInstance.id;
+      rPrim._isOverlayRing = true;
       return rPrim;
     } catch (e) {
       return null;

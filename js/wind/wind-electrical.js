@@ -126,9 +126,18 @@
     }
     var designCurrentA = nominalCurrentA * 1.25;
 
-    // 2. Dimensionamiento de línea eléctrica (Caída de tensión ΔU ≤ 1,5% + Criterio térmico Iz ≥ 1,25·In)
+    // 2. Dimensionamiento de línea eléctrica (Caída de tensión ΔU ≤ 1,5% + Criterio térmico Iz ≥ 1,25·In / k_corr)
     var cableLengthM = estimateCableLengthM(turbineInstance, customCableLengthM);
     var maxDeltaV = (maxDropPct / 100) * voltageV;
+
+    // Factores de corrección ITC-BT-19 / UNE-HD 60364-5-52 (temperatura ambiente 40°C aire XLPE 90°C y agrupamiento)
+    var resCfg = (RAWind.Resource && typeof RAWind.Resource.getConfig === 'function') ? RAWind.Resource.getConfig() : {};
+    var ambTempC = (turbineInstance.ambientTempC !== undefined) ? Number(turbineInstance.ambientTempC) : (Number(resCfg.ambientTempC) || 25);
+    var kTemp = ambTempC >= 45 ? 0.87 : (ambTempC >= 40 ? 0.91 : (ambTempC >= 35 ? 0.96 : 1.0));
+    var groupedCircuits = Math.max(1, Number(elecSpec.groupedCircuits || turbineInstance.groupedCircuits || 2));
+    var kGroup = groupedCircuits >= 4 ? 0.65 : (groupedCircuits === 3 ? 0.70 : (groupedCircuits === 2 ? 0.80 : 1.0));
+    var kThermalTotal = Number((kTemp * kGroup).toFixed(3));
+    var requiredRatedAmpacityA = designCurrentA / Math.max(0.4, kThermalTotal);
 
     // S_min por caída de tensión:
     // Trifásica: S = (√3 · L · I · cosφ · ρ) / ΔU_max
@@ -140,14 +149,15 @@
     for (var i = 0; i < STANDARD_CU_SECTIONS.length; i++) {
       var candidate = STANDARD_CU_SECTIONS[i];
       var ampacity = isThreePhase ? candidate.maxAmpacity3Ph : candidate.maxAmpacity1Ph;
-      if (candidate.sectionMm2 >= minSectionByDropMm2 && ampacity >= designCurrentA) {
+      if (candidate.sectionMm2 >= minSectionByDropMm2 && (ampacity * kThermalTotal) >= designCurrentA) {
         chosenSpec = candidate;
         break;
       }
     }
 
     var selectedSectionMm2 = chosenSpec.sectionMm2;
-    var cableAmpacityA = isThreePhase ? chosenSpec.maxAmpacity3Ph : chosenSpec.maxAmpacity1Ph;
+    var rawAmpacityA = isThreePhase ? chosenSpec.maxAmpacity3Ph : chosenSpec.maxAmpacity1Ph;
+    var cableAmpacityA = Number((rawAmpacityA * kThermalTotal).toFixed(1));
     var actualDeltaV = (phaseGeomFactor * cableLengthM * nominalCurrentA * cosPhi * rhoCu) / selectedSectionMm2;
     var actualDropPct = (actualDeltaV / voltageV) * 100;
     var jouleLossW = isThreePhase
@@ -157,8 +167,8 @@
     // 3. Dimensionamiento del banco de resistencias de frenado (Dump Load)
     var dumpLoadKw = Number(elecSpec.dumpLoadRequiredKw) || Number((ratedKw * dumpMargin).toFixed(2));
     var dumpLoadW = dumpLoadKw * 1000;
-    // Tensión del bus DC (directo en CC, 1.35·V_ll en trifásico, 0.90·V_ln en monofásico rectificado)
-    var dcBusVoltageV = isDcBus ? voltageV : (isThreePhase ? Math.round(voltageV * 1.35) : Math.round(voltageV * 0.90));
+    // Tensión del bus DC (directo CC, 1.35·V_ll rectificador trifásico, √2·V_ln en monofásico con filtrado capacitivo/PFC)
+    var dcBusVoltageV = isDcBus ? voltageV : (isThreePhase ? Math.round(voltageV * 1.35) : Math.round(voltageV * Math.SQRT2));
     var dumpResistanceOhm = Number(((dcBusVoltageV * dcBusVoltageV) / Math.max(100, dumpLoadW)).toFixed(2));
     var dumpMaxCurrentA = Number((dumpLoadW / dcBusVoltageV).toFixed(1));
     var dumpThermalEnergyKwh = Number((dumpLoadKw * (dumpDurationMin / 60)).toFixed(2));

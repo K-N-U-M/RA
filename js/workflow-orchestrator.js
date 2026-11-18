@@ -208,10 +208,12 @@
       const hasGenSource = this.hasActiveGenerationSource();
 
       if (step === 2) {
-        if (!hasPolys) {
+        const hasWind = Array.isArray(global.windTurbines) && global.windTurbines.some(t => t && (!t.operationalState || t.operationalState.enabled !== false));
+        const hasSite = !!(hasPlane || hasPolys || hasWind || (global.RAWind && typeof global.RAWindUI !== 'undefined'));
+        if (!hasSite) {
           return {
             allowed: false,
-            reason: 'Requiere trazar al menos un faldón de cubierta en el Paso 1 (Emplazamiento)'
+            reason: 'Requiere definir un emplazamiento (faldón, plano de trabajo o aerogenerador) en el Paso 1'
           };
         }
       } else if (step === 3 || step === 4) {

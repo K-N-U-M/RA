@@ -136,7 +136,7 @@
       isDay: rawElevDeg > 0,
       sunVecENU: sunVecENU,
       sDirENU: sDirENU,
-      shadowLenPerM: rawElevDeg >= 10.0 ? Math.min(1 / Math.tan(clampedElevRad), 5.67) : 0
+      shadowLenPerM: rawElevDeg >= 5.0 ? Math.min(1 / Math.tan(clampedElevRad), 5.67) : 0
     };
   }
 

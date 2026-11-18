@@ -95,18 +95,13 @@
     }
 
     if (command === 'COMPUTE_SHADOW_FLICKER') {
+      if (payload.resourceConfig && RAWind.Resource && typeof RAWind.Resource.updateConfig === 'function') {
+        RAWind.Resource.updateConfig(payload.resourceConfig);
+      }
       if (RAWind.ShadowFlicker && typeof RAWind.ShadowFlicker.evaluateAnnualShadowFlicker === 'function') {
-        var recDist = payload.receptorDistanceM || resourceConfig.receptorDistanceM || 35;
         var t0 = turbines[0];
         if (t0) {
-          var tLatRad = t0.positionCartographic.latitudeRad;
-          var cosLat = Math.max(0.01, Math.cos(tLatRad));
-          return RAWind.ShadowFlicker.evaluateAnnualShadowFlicker(t0, [{
-            id: 'rec_audit',
-            name: 'Receptor Lindero (' + recDist + 'm)',
-            latDeg: (tLatRad * 180.0 / Math.PI),
-            lonDeg: (t0.positionCartographic.longitudeRad * 180.0 / Math.PI) + (recDist / (111132.95 * cosLat))
-          }], payload.solarFieldBounds);
+          return RAWind.ShadowFlicker.evaluateAnnualShadowFlicker(t0, payload.receptors || null, payload.solarFieldBounds || null);
         }
       }
       return computeShadowFlickerHours(turbines, payload.receptorDistanceM || resourceConfig.receptorDistanceM);
@@ -143,16 +138,16 @@
   if (isWorkerContext) {
     try {
       self.importScripts(
-        'wind-constants.js',
-        'wind-catalog.js',
-        'wind-rooftop-cfd.js',
-        'wind-obstacle-interference.js',
-        'wind-resource.js',
-        'wind-acoustics.js',
-        'wind-structural.js',
-        'wind-electrical.js',
-        'wind-shadow-flicker.js',
-        'wind-hybrid-dispatch.js'
+        'wind-constants.js?v=20261118_t3',
+        'wind-catalog.js?v=20261118_t3',
+        'wind-rooftop-cfd.js?v=20261118_t3',
+        'wind-obstacle-interference.js?v=20261118_t3',
+        'wind-resource.js?v=20261118_t3',
+        'wind-acoustics.js?v=20261118_t3',
+        'wind-structural.js?v=20261118_t3',
+        'wind-electrical.js?v=20261118_t3',
+        'wind-shadow-flicker.js?v=20261118_t3',
+        'wind-hybrid-dispatch.js?v=20261118_t3'
       );
     } catch (e) {
       // Si ya estaban cargados o falla ruta relativa, continuar con fallback
@@ -195,7 +190,7 @@
     if (_workerFailed || typeof Worker === 'undefined') return null;
     if (_workerInstance) return _workerInstance;
     try {
-      _workerInstance = new Worker('js/wind/wind-worker.js');
+      _workerInstance = new Worker('js/wind/wind-worker.js?v=20261118_t3');
       _workerInstance.onmessage = function (ev) {
         var data = ev.data || {};
         var cb = _pendingCallbacks[data.taskId];

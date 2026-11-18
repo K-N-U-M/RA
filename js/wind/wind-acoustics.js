@@ -64,8 +64,10 @@
     var alpha = getAtmosphericAbsorption(freqHz || 500, tempC, relHumidity);
     var A_atm = alpha * d;
 
-    // 3. Efecto del suelo ISO 9613-2 §7.3.2 (fórmula alternativa global)
-    var A_gr = Math.max(0, 4.8 - (2 * hm / d) * (17 + (300 / d)));
+    // 3. Efecto del suelo ISO 9613-2 §7.3.2 ponderado por factor de suelo G (0=duro, 1=poroso)
+    var clampedG = Math.max(0.0, Math.min(1.0, G));
+    var A_gr_base = Math.max(0, 4.8 - (2 * hm / d) * (17 + (300 / d)));
+    var A_gr = A_gr_base * clampedG;
 
     var totalAttenuation = A_div + A_atm + A_gr + aBar;
     return lwaVal - totalAttenuation;
@@ -91,10 +93,11 @@
     var slantDistM = Math.sqrt(dh * dh + dz * dz);
     var meanPropHeightM = 0.5 * (hubH + receptorH);
 
-    // Si tiene modo nocturno (curtailmentRulesActive), el giro a bajas RPM reduce ~3.5 dBA la potencia acústica
-    var curtailmentReduction = (turbineInstance.operationalState && turbineInstance.operationalState.curtailmentRulesActive)
-      ? 3.5
-      : 0;
+    // La reducción acústica (-3.5 dBA) por limitación de RPM aplica solo en período nocturno
+    var useNightCurtailment = !options.forceDayFullRpm &&
+      (options.isNight === true || options.curtailmentRulesActive === true ||
+       (options.isNight !== false && turbineInstance.operationalState && turbineInstance.operationalState.curtailmentRulesActive));
+    var curtailmentReduction = useNightCurtailment ? 3.5 : 0;
 
     return calculateOctaveSoundLevel(
       LwA - curtailmentReduction,
@@ -173,7 +176,8 @@
     var limitDayDba = C.ACOUSTIC_LIMIT_DAY_DBA || 45;
     var limitNightDba = C.ACOUSTIC_LIMIT_NIGHT_DBA || 35;
 
-    var individualLevels = [];
+    var individualLevelsDay = [];
+    var individualLevelsNight = [];
     var perTurbine = [];
 
     for (var i = 0; i < list.length; i++) {
@@ -184,31 +188,36 @@
       var hubH = (t.supportStructure && t.supportStructure.hubHeightM) ? t.supportStructure.hubHeightM : 18;
       var curtailed = !!(t.operationalState && t.operationalState.curtailmentRulesActive);
 
-      var lpAtReceptor = isEn ? calculateTurbineSoundPressureAtDistance(t, distM) : 0;
-      if (isEn && lpAtReceptor > 0) {
-        individualLevels.push(lpAtReceptor);
-      }
+      var lpAtReceptorDay = isEn ? calculateTurbineSoundPressureAtDistance(t, distM, { forceDayFullRpm: true }) : 0;
+      var lpAtReceptorNight = isEn ? calculateTurbineSoundPressureAtDistance(t, distM, { isNight: curtailed }) : 0;
+      if (isEn && lpAtReceptorDay > 0) individualLevelsDay.push(lpAtReceptorDay);
+      if (isEn && lpAtReceptorNight > 0) individualLevelsNight.push(lpAtReceptorNight);
 
-      var radiusDay45M = isEn ? findIsophoneRadiusM(lwa, limitDayDba, hubH, { curtailmentRulesActive: curtailed }) : 0;
-      var radiusNight35M = isEn ? findIsophoneRadiusM(lwa, limitNightDba, hubH, { curtailmentRulesActive: curtailed }) : 0;
+      // Isófona diurna de 45 dBA aislada del curtailment nocturno; nocturna de 35 dBA sí aplica curtailment
+      var radiusDay45M = isEn ? findIsophoneRadiusM(lwa, limitDayDba, hubH, { forceDayFullRpm: true, curtailmentRulesActive: false }) : 0;
+      var radiusNight35M = isEn ? findIsophoneRadiusM(lwa, limitNightDba, hubH, { isNight: curtailed, curtailmentRulesActive: curtailed }) : 0;
 
       var tAudit = {
         id: t.id,
         name: t.name,
+        enabled: isEn,
         LwA: lwa,
-        lpAtReceptorDba: Number(lpAtReceptor.toFixed(1)),
+        lwaDba: lwa,
+        lpAtReceptorDba: Number(lpAtReceptorDay.toFixed(1)),
+        lpAtReceptorNightDba: Number(lpAtReceptorNight.toFixed(1)),
         radiusDay45M: radiusDay45M,
         radiusNight35M: radiusNight35M,
-        compliesDay: !isEn || lpAtReceptor <= limitDayDba,
-        compliesNight: !isEn || lpAtReceptor <= limitNightDba
+        compliesDay: !isEn || lpAtReceptorDay <= limitDayDba,
+        compliesNight: !isEn || lpAtReceptorNight <= limitNightDba
       };
       t._acousticAudit = tAudit;
       perTurbine.push(tAudit);
     }
 
-    var combinedLpDba = combineSoundLevels(individualLevels);
+    var combinedLpDba = combineSoundLevels(individualLevelsDay);
+    var combinedLpNightDba = combineSoundLevels(individualLevelsNight);
     var compliesDay = combinedLpDba <= limitDayDba;
-    var compliesNight = combinedLpDba <= limitNightDba;
+    var compliesNight = combinedLpNightDba <= limitNightDba;
 
     // Distancia mínima libre recomendada al lindero considerando suma energética multi-turbina (10·log10 N)
     var minSafeNightDistanceM = 0;

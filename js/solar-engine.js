@@ -473,12 +473,12 @@ function solarAzimuth(latDeg, declDeg, haDeg, altDeg) {
   return az;
 }
 
-function calcPOA(GHI, DHI, latDeg, tiltDeg, azimutPanelDeg, dayOfYear, hourSolar) {
+function calcPOA(GHI, DHI, latDeg, tiltDeg, azimutPanelDeg, dayOfYear, hourSolar, azimuthConvention) {
   if (GHI <= 0) return 0;
   const _radMod = (typeof global !== 'undefined' && global.RA && global.RA.Radiation) ? global.RA.Radiation : null;
   let panelAzSur = (_radMod && typeof _radMod.normalizePanelAzSur === 'function')
-    ? _radMod.normalizePanelAzSur(azimutPanelDeg, 'auto')
-    : ((azimutPanelDeg > 90 && azimutPanelDeg <= 360) ? (((azimutPanelDeg - 180) % 360 + 540) % 360 - 180) : (azimutPanelDeg || 0));
+    ? _radMod.normalizePanelAzSur(azimutPanelDeg, azimuthConvention || 'auto')
+    : ((azimutPanelDeg > 90 && azimutPanelDeg <= 360 && azimuthConvention !== 'solar') ? (((azimutPanelDeg - 180) % 360 + 540) % 360 - 180) : (azimutPanelDeg || 0));
 
   // [B2] Motor único de radiación: calcular geometría solar y delegar en RA.Radiation.poa (honrando DHI explícito)
   if (_radMod && typeof _radMod.poa === 'function') {
@@ -1291,7 +1291,7 @@ function renderGeometryAnalysis(r) {
 
   const tiltDeg = roofInfo.tiltDeg;
   const azimuthDeg = roofInfo.azimuthDeg; // convención local existente (Sur = 0)
-  const azimuthN = roofInfo.azimuthN !== undefined ? roofInfo.azimuthN : normalizeAzimuth(180 - azimuthDeg);
+  const azimuthN = roofInfo.azimuthN !== undefined ? roofInfo.azimuthN : normalizeAzimuth(180 + azimuthDeg);
 
   // Normal del plano en terna Este/Norte/Arriba (ENU) — azimut en convención N=0
   const normal = normalFromTiltAzimuth(tiltDeg, azimuthN);
@@ -1609,7 +1609,7 @@ function showDailyCurve(mode) {
     if (altDeg > 0) {
       const GHI = Math.max((mode === 'summer' ? 1050 : 850) * Math.sin(altDeg * Math.PI / 180), 0);
       const DHI = GHI * 0.30;
-      const GPOA = calcPOA(GHI, DHI, latDeg, tiltDeg, azimutDeg, doy, hSolar);
+      const GPOA = calcPOA(GHI, DHI, latDeg, tiltDeg, azimutDeg, doy, hSolar, 'solar');
       const Tcell = calcTcell(mode === 'summer' ? 28 : 8, GPOA);
       const P = calcPpanel(kwp * 1000, GPOA, Tcell);
       powerKW = P * 0.92 / 1000; // With system losses
@@ -2608,7 +2608,12 @@ function wpSetSolarSpeed(spd) {
   global.runNASAPower = runNASAPower;
   global.runPVsystCompatible = runPVsystCompatible;
   global.runEnergyComparison = runEnergyComparison;
-  global.setShadingStrategy = function(s) { _seShadingStrategy = (s === 'exclude') ? 'exclude' : 'mlpe'; };
+  global.setShadingStrategy = function(s) {
+    const clean = (s === 'exclude') ? 'exclude' : 'mlpe';
+    _seShadingStrategy = clean;
+    global.shadingStrategy = clean;
+    if (global.solarProjectConfig) global.solarProjectConfig.shadingStrategy = clean;
+  };
   global.renderAnalysisResults = renderAnalysisResults;
   global.exportEnergyAnalysis = exportEnergyAnalysis;
   global.renderGeometryAnalysis = renderGeometryAnalysis;
