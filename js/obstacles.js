@@ -18,7 +18,15 @@
   global.activeObstaclePlacing = global.activeObstaclePlacing || null;
 
   var obstacles = global.obstacles;
-  var selectedObstacleId = global.selectedObstacleId;
+  function _getSelectedObstacleId() {
+    return (typeof global.selectedObstacleId !== 'undefined')
+      ? global.selectedObstacleId
+      : (typeof window !== 'undefined' ? window.selectedObstacleId : null);
+  }
+  function _setSelectedObstacleId(obsId) {
+    global.selectedObstacleId = obsId;
+    if (typeof window !== 'undefined') window.selectedObstacleId = obsId;
+  }
   var polygonPoints = global.polygonPoints;
 
   global.obsPlacement = global.obsPlacement || {
@@ -215,8 +223,9 @@ function obsComputeUV(screenPos) {
 }
 
 function getSelectedObstacle() {
-  if (!selectedObstacleId || !Array.isArray(obstacles)) return null;
-  return obstacles.find(o => o.id === selectedObstacleId) || null;
+  const selId = _getSelectedObstacleId();
+  if (!selId || !Array.isArray(obstacles)) return null;
+  return obstacles.find(o => o.id === selId) || null;
 }
 
 function renderObstacleGizmo2D() {
@@ -857,7 +866,7 @@ function render3DObstaclesInCesium() {
 
     if (!baseCenter || !normal || !uVec || !vVec) return;
 
-    const isSel = obs.id === selectedObstacleId;
+    const isSel = obs.id === _getSelectedObstacleId();
     const isTree = (obs.type === 'tree' || obs.isTree);
     const w = Math.max(obs.w || (isTree ? 3.0 : 1.0), 0.2);
     const l = Math.max(obs.l || (isTree ? 3.0 : 1.0), 0.2);
@@ -1125,8 +1134,9 @@ function render3DObstaclesInCesium() {
 }
 
 function scaleSelectedObstacleAxis(axis, factor) {
-  if (!selectedObstacleId) return;
-  const obs = obstacles.find(o => o.id === selectedObstacleId);
+  const selId = _getSelectedObstacleId();
+  if (!selId) return;
+  const obs = obstacles.find(o => o.id === selId);
   if (!obs) return;
 
   if (obs.type === 'wind_turbine' && typeof window !== 'undefined' && window.RAWindTurbine && typeof window.RAWindTurbine.applyScaleAxis === 'function') {
@@ -1161,8 +1171,9 @@ function scaleSelectedObstacleAxis(axis, factor) {
 }
 
 function nudgeSelectedObstacleDim(dim, delta) {
-  if (!selectedObstacleId) return;
-  const obs = obstacles.find(o => o.id === selectedObstacleId);
+  const selId = _getSelectedObstacleId();
+  if (!selId) return;
+  const obs = obstacles.find(o => o.id === selId);
   if (!obs) return;
 
   if (obs.type === 'wind_turbine' && typeof window !== 'undefined' && window.RAWindTurbine && typeof window.RAWindTurbine.applyNudgeDim === 'function') {
@@ -1197,8 +1208,9 @@ function nudgeSelectedObstacleDim(dim, delta) {
 }
 
 function rotateSelectedObstacle(degDelta) {
-  if (!selectedObstacleId) return;
-  const obs = obstacles.find(o => o.id === selectedObstacleId);
+  const selId = _getSelectedObstacleId();
+  if (!selId) return;
+  const obs = obstacles.find(o => o.id === selId);
   if (!obs) return;
   obs.rot = ((obs.rot || 0) + degDelta) % 360;
   if (obs.rot < 0) obs.rot += 360;
@@ -1209,8 +1221,9 @@ function rotateSelectedObstacle(degDelta) {
 }
 
 function nudgeSelectedObstacle(axis, meters) {
-  if (!selectedObstacleId) return;
-  const obs = obstacles.find(o => o.id === selectedObstacleId);
+  const selId = _getSelectedObstacleId();
+  if (!selId) return;
+  const obs = obstacles.find(o => o.id === selId);
   if (!obs) return;
   if (axis === 'u') obs.u = (obs.u || 0) + meters;
   if (axis === 'v') obs.v = (obs.v || 0) + meters;
@@ -1227,9 +1240,7 @@ function selectObstacle(obsId) {
       return;
     }
   }
-  selectedObstacleId = obsId;
-  global.selectedObstacleId = obsId;
-  if (typeof window !== 'undefined') window.selectedObstacleId = obsId;
+  _setSelectedObstacleId(obsId);
 
   if (obsId) {
     if (typeof global.selectedPanelIndex !== 'undefined') global.selectedPanelIndex = -1;
@@ -1306,8 +1317,9 @@ function selectObstacle(obsId) {
 }
 
 function updateSelectedObstacleColor(colorHex) {
-  if (!selectedObstacleId) return;
-  const obs = obstacles.find(o => o.id === selectedObstacleId);
+  const selId = _getSelectedObstacleId();
+  if (!selId) return;
+  const obs = obstacles.find(o => o.id === selId);
   if (!obs) return;
   obs.color = colorHex;
   const picker = (typeof document !== 'undefined') ? document.getElementById('obs-color-picker') : null;
@@ -1331,8 +1343,9 @@ global.updateSelectedObstacleColor = updateSelectedObstacleColor;
 if (typeof window !== 'undefined') window.updateSelectedObstacleColor = updateSelectedObstacleColor;
 
 function setSelectedObstacleAlignment(alignment) {
-  if (!selectedObstacleId) return;
-  const obs = obstacles.find(o => o.id === selectedObstacleId);
+  const selId = _getSelectedObstacleId();
+  if (!selId) return;
+  const obs = obstacles.find(o => o.id === selId);
   if (!obs) return;
   obs.alignment = (alignment === 'coplanar') ? 'coplanar' : 'vertical';
   selectObstacle(obs.id);
@@ -1345,8 +1358,9 @@ if (typeof window !== 'undefined') window.setSelectedObstacleAlignment = setSele
 let _obsPropsDebounceTimer = null;
 
 function updateSelectedObstacleProps() {
-  if (!selectedObstacleId) return;
-  const obs = obstacles.find(o => o.id === selectedObstacleId);
+  const selId = _getSelectedObstacleId();
+  if (!selId) return;
+  const obs = obstacles.find(o => o.id === selId);
   if (!obs) return;
 
   if (obs.type === 'wind_turbine' && typeof window !== 'undefined' && window.RAWindTurbine && typeof window.RAWindTurbine.onGeneralDimInput === 'function') {
@@ -1380,30 +1394,32 @@ function updateSelectedObstacleProps() {
 }
 
 function deleteSelectedObstacle() {
-  if (!selectedObstacleId) return;
-  const obsToDelete = obstacles.find(o => o.id === selectedObstacleId);
+  const selId = _getSelectedObstacleId();
+  if (!selId) return;
+  const obsToDelete = obstacles.find(o => o.id === selId);
   const name = (obsToDelete || {}).name || 'OBSTÁCULO';
   if (obsToDelete && obsToDelete.type === 'wind_turbine') {
     if (global.RAWind && global.RAWind.Entity && typeof global.RAWind.Entity.removeFromScene === 'function') {
-      global.RAWind.Entity.removeFromScene(selectedObstacleId);
+      global.RAWind.Entity.removeFromScene(selId);
     }
     if (global.RAWindVisualizer && typeof global.RAWindVisualizer.removeTurbine === 'function') {
-      global.RAWindVisualizer.removeTurbine(selectedObstacleId);
+      global.RAWindVisualizer.removeTurbine(selId);
     }
   }
   if (global.RAundo) global.RAundo.snapObstacles('Eliminar ' + name);
   for (let i = obstacles.length - 1; i >= 0; i--) {
-    if (!obstacles[i] || obstacles[i].id === selectedObstacleId) obstacles.splice(i, 1);
+    if (!obstacles[i] || obstacles[i].id === selId) obstacles.splice(i, 1);
   }
   global.obstacles = obstacles;
   if (typeof window !== 'undefined') window.obstacles = obstacles;
   // [P0] Sin auto-selección del siguiente obstáculo: con Supr repetido se borraba
   // toda la lista en cascada sin re-selección explícita del usuario.
-  selectedObstacleId = null;
-  global.selectedObstacleId = null;
-  if (typeof window !== 'undefined') window.selectedObstacleId = null;
+  _setSelectedObstacleId(null);
+  const ed = (typeof document !== 'undefined') ? document.getElementById('obstacle-selected-editor') : null;
+  if (ed) ed.style.display = 'none';
   if (typeof render3DObstaclesInCesium === 'function') render3DObstaclesInCesium();
   recalculateLayoutAndObstacles();
+  if (typeof renderTriad2D === 'function') renderTriad2D();
   if (typeof ProjectHierarchy !== 'undefined' && ProjectHierarchy && typeof ProjectHierarchy.notify === 'function') {
     ProjectHierarchy.notify('obstacle_deleted');
   }
@@ -1493,9 +1509,10 @@ function updateObstaclePlacementUI() {
     if (obstacles.length > 0) {
       selectorContainer.style.display = 'block';
       if (countPill) countPill.textContent = obstacles.length + (obstacles.length === 1 ? ' OBSTÁCULO' : ' OBSTÁCULOS');
+      const curSelObsId = _getSelectedObstacleId();
       dropdown.innerHTML = obstacles.map((obs, idx) =>
-        '<option value="' + obs.id + '"' + (obs.id === selectedObstacleId ? ' selected' : '') + '>' +
-          (obs.id === selectedObstacleId ? '★ ' : '') + '#' + (idx + 1) + ' ' + obs.name + ' (' + obs.w + '×' + obs.l + '×' + obs.h + 'm · ' + (obs.rot || 0) + '°)' +
+        '<option value="' + obs.id + '"' + (obs.id === curSelObsId ? ' selected' : '') + '>' +
+          (obs.id === curSelObsId ? '★ ' : '') + '#' + (idx + 1) + ' ' + obs.name + ' (' + obs.w + '×' + obs.l + '×' + obs.h + 'm · ' + (obs.rot || 0) + '°)' +
         '</option>'
       ).join('');
     } else {
@@ -1604,7 +1621,7 @@ function obsPlaceAt(screenPos) {
     global.RAundo.snapObstacles('Añadir ' + (def.name || 'obstáculo'));
   }
   obstacles.push(obs);
-  selectedObstacleId = obs.id;
+  _setSelectedObstacleId(obs.id);
   recalculateLayoutAndObstacles();
   selectObstacle(obs.id);
   cancelObstaclePlacement();
@@ -1710,8 +1727,9 @@ function recalculateLayoutAndObstacles(targetPolyIdx) {
     }
   }
 
-  if (selectedObstacleId) {
-    const curObs = obstacles.find(o => o.id === selectedObstacleId);
+  const curSelObsIdCheck = _getSelectedObstacleId();
+  if (curSelObsIdCheck) {
+    const curObs = obstacles.find(o => o.id === curSelObsIdCheck);
     if (curObs && typeof wpCheckObstacleInsideRoof === 'function') {
       wpCheckObstacleInsideRoof(curObs);
     }
@@ -1742,7 +1760,7 @@ function updateObstacleInsideRoofBadge(isInside, roofName) {
 }
 
 function wpCheckObstacleInsideRoof(optObs, notifyIfOutside) {
-  const curSelId = (typeof selectedObstacleId !== 'undefined' ? selectedObstacleId : (typeof window !== 'undefined' ? window.selectedObstacleId : null));
+  const curSelId = _getSelectedObstacleId();
   const obs = optObs || (curSelId ? obstacles.find(o => o.id === curSelId) : null);
   if (!obs) return { isInside: false, polyName: null, polyIdx: -1 };
 
@@ -1829,7 +1847,7 @@ function wpCheckObstacleInsideRoof(optObs, notifyIfOutside) {
 }
 
 function wpSnapObstacleToRoof(obsId) {
-  const targetId = obsId || (typeof selectedObstacleId !== 'undefined' ? selectedObstacleId : (typeof window !== 'undefined' ? window.selectedObstacleId : null));
+  const targetId = obsId || _getSelectedObstacleId();
   if (!targetId) return;
   const obs = obstacles.find(o => o.id === targetId);
   if (!obs) return;

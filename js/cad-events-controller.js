@@ -815,7 +815,11 @@
 
     // ── NIVEL 5: VOLÚMENES ARQUITECTÓNICOS (EDIFICIOS COMPLETOS)
     if (filter === 'all') {
-      const activeStep = (typeof currentStep !== 'undefined') ? currentStep : ((typeof WP !== 'undefined' && WP) ? WP.step : 1);
+      const activeStep = (typeof wpCurrentStep !== 'undefined')
+        ? wpCurrentStep
+        : ((typeof window !== 'undefined' && typeof window.wpCurrentStep !== 'undefined')
+          ? window.wpCurrentStep
+          : ((typeof WP !== 'undefined' && WP && typeof WP.step !== 'undefined') ? WP.step : 1));
       let clickedBld = null;
       if (activeStep <= 1) {
         if (pickedObj) {
@@ -852,6 +856,9 @@
 
   // Cancelar modo estampar con clic derecho
   handler.setInputAction(function() {
+    if (typeof window.RAMeasureTool !== 'undefined' && window.RAMeasureTool && typeof window.RAMeasureTool.isActive === 'function' && window.RAMeasureTool.isActive()) {
+      return;
+    }
     if (typeof WP !== 'undefined' && WP && WP.mode === 'stamp-poly') {
       if (typeof wpCancelStampPolyline === 'function') wpCancelStampPolyline();
     }
@@ -1156,6 +1163,9 @@
 
   // 4. LEFT_UP: Soltar arrastre y recalcular
   handler.setInputAction(() => {
+    if (typeof window.RAMeasureTool !== 'undefined' && window.RAMeasureTool && typeof window.RAMeasureTool.isActive === 'function' && window.RAMeasureTool.isActive()) {
+      return;
+    }
     // 🛡️ WATCHDOG DE CÁMARA CAD AAA: Asegura que el paneo y la navegación jamás queden congelados tras un clic/soltar
     if (scene && scene.screenSpaceCameraController && !universalGizmoState.active) {
       if (!scene.screenSpaceCameraController.enableTranslate || !scene.screenSpaceCameraController.enableRotate) {
@@ -1189,17 +1199,11 @@
       if (draggedTargetType === 'workplane') {
         if (typeof wpRenderActivePlaneGizmo === 'function') wpRenderActivePlaneGizmo();
         if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
-        if (typeof render3DObstaclesInCesium === 'function') render3DObstaclesInCesium();
-        const _wpActiveIdx = (typeof WP !== 'undefined' && WP) ? WP.activePlaneIdx : null;
-        if (typeof wpFastRenderSimulatedPanels === 'function') wpFastRenderSimulatedPanels(false, _wpActiveIdx);
         if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Plano de trabajo transformado');
         if (typeof showStatus === 'function') showStatus('<i data-lucide="compass" class="icon-sm"></i> PLANO DE TRABAJO TRANSFORMADO CON ÉXITO', 2500);
       } else if (draggedTargetType === 'workplane_vertex') {
         if (typeof wpRenderActivePlaneGizmo === 'function') wpRenderActivePlaneGizmo();
         if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
-        if (typeof render3DObstaclesInCesium === 'function') render3DObstaclesInCesium();
-        const _wpActiveIdx = (typeof WP !== 'undefined' && WP) ? WP.activePlaneIdx : null;
-        if (typeof wpFastRenderSimulatedPanels === 'function') wpFastRenderSimulatedPanels(false, _wpActiveIdx);
         if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Vértice de plano de trabajo modificado');
         if (typeof showStatus === 'function') showStatus('<i data-lucide="check" class="icon-sm"></i> VÉRTICE DEL PLANO ACTUALIZADO CON ÉXITO', 2500);
       } else if (draggedTargetType === 'vertex') {
@@ -1333,7 +1337,9 @@
         if (typeof render3DBuildingsInCesium === 'function') render3DBuildingsInCesium();
       }
 
-      if (typeof updateAllVisuals === 'function') updateAllVisuals();
+      if (draggedTargetType !== 'panel' && draggedTargetType !== 'obstacle' && draggedTargetType !== 'wind_turbine_entity' && typeof updateAllVisuals === 'function') {
+        updateAllVisuals();
+      }
 
       // Limpiar entidad de arrastre al soltar el ratón SIEMPRE
       universalGizmoState.startPoints = null;
@@ -1434,6 +1440,9 @@
   }, Cesium.ScreenSpaceEventType.LEFT_UP);
 
   handler.setInputAction(doubleClick => {
+    if (typeof window.RAMeasureTool !== 'undefined' && window.RAMeasureTool && typeof window.RAMeasureTool.isActive === 'function' && window.RAMeasureTool.isActive()) {
+      return;
+    }
     if (window.cableRoutingState && window.cableRoutingState.active) {
       wpFinishCableRouting();
       return;
@@ -1650,6 +1659,7 @@
   // Cesium ignora los eventos base si se pulsa Shift a menos que se registren explícitamente.
   // Clonamos las acciones para que el Snapping (Shift) no bloquee los clics.
   const actionsToClone = [
+    Cesium.ScreenSpaceEventType.MOUSE_MOVE,
     Cesium.ScreenSpaceEventType.LEFT_CLICK,
     Cesium.ScreenSpaceEventType.LEFT_DOWN,
     Cesium.ScreenSpaceEventType.LEFT_UP,

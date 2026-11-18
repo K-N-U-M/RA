@@ -98,11 +98,9 @@
     var P5 = { x: lenB * uB.x, y: lenB * uB.y };
 
     var pts = [P0, P1, P2, P3, P4, P5];
-    var reflexIdx = 3;
     if (mirrored) {
-      // Al espejar se invierte la orientación; revertir para mantener sentido CCW estricto [P0, P5, P4, P3, P2, P1]
+      // Al espejar se invierte la orientación; revertir para mantener sentido CCW estricto [P5, P4, P3, P2, P1, P0]
       pts.reverse();
-      reflexIdx = 3; // Índice 3 tras invertir [0,1,2,3,4,5] -> [5,4,3,2,1,0] => ojo: es 2!
     }
 
     return {
@@ -303,13 +301,9 @@
   function getCanonicalCornerIndices(N, bld) {
     if (bld && bld.lParams && bld.lParams.isLParametric && N === 6) {
       if (bld.lParams.mirrored) {
-        // Espejado y revertido: P0=5, P1=4, P2=3, P3=2, P4=1, P5=0 -> no, espera:
-        // [P0,P1,P2,P3,P4,P5] reversed => [P5,P4,P3,P2,P1,P0], así que:
-        // index 5=P0, 4=P1, 3=P2, 2=P3, 1=P4, 0=P5 (y en CCW el vecino izq de P0 es 0=P5 y der es 4=P1)
-        // Mapeamos manteniendo sentido CCW local alrededor de P3!
-        // Orden CCW real de vértices en el array si mirrored=true es [P5, P4, P3, P2, P1, P0]:
-        // Tomamos Wing1 = [P0(5)->P5(0)->P4(1)->P3(2)] y Wing2 = [P3(2)->P2(3)->P1(4)->P0(5)]!
-        return { p0: 5, p1: 0, p2: 1, p3: 2, p4: 3, p5: 4, isCCWCanonical: true };
+        // [P0,P1,P2,P3,P4,P5] revertido para sentido CCW => [P5,P4,P3,P2,P1,P0]
+        // Mantener exactamente la correspondencia semántica de alas: P0=5, P1=4, P2=3, P3=2, P4=1, P5=0
+        return { p0: 5, p1: 4, p2: 3, p3: 2, p4: 1, p5: 0, isCCWCanonical: true };
       }
       return { p0: 0, p1: 1, p2: 2, p3: 3, p4: 4, p5: 5, isCCWCanonical: true };
     }
@@ -647,6 +641,7 @@
     if (!geom) return false;
 
     var viewer = ctx.viewer;
+    var triInstances = [];
     var addTri = function (A, B, C, color) {
       if (!A || !B || !C) return;
       if (Cesium.Cartesian3.distance(A, B) < 0.02 || Cesium.Cartesian3.distance(B, C) < 0.02 || Cesium.Cartesian3.distance(A, C) < 0.02) return;
@@ -654,16 +649,10 @@
       var ac = Cesium.Cartesian3.subtract(C, A, new Cesium.Cartesian3());
       if (Cesium.Cartesian3.magnitude(Cesium.Cartesian3.cross(ab, ac, new Cesium.Cartesian3())) < 1e-4) return;
       try {
-        var inst = new Cesium.GeometryInstance({
+        triInstances.push(new Cesium.GeometryInstance({
           geometry: Cesium.PolygonGeometry.fromPositions({ positions: [A, B, C], perPositionHeight: true }),
           attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(color) }
-        });
-        global._buildingPrimitives.push(viewer.scene.primitives.add(new Cesium.Primitive({
-          geometryInstances: inst,
-          appearance: ctx.createAppearance(true),
-          shadows: Cesium.ShadowMode.ENABLED,
-          asynchronous: false
-        })));
+        }));
       } catch (_) {}
     };
 
@@ -737,7 +726,8 @@
       addQuadOrFan(f.pts3D, ctx.roofColor);
     });
 
-    // 4. Pretiles en cubiertas planas / mixtas / escalonadas
+    // 4. Pretiles en cubiertas planas / mixtas / escalonadas (batched en 1 draw call)
+    var parapetInstances = [];
     geom.parapets.forEach(function (par) {
       var nP = par.polyCartos.length;
       for (var k = 0; k < nP; k++) {
@@ -748,19 +738,23 @@
         var pTopA = Cesium.Cartesian3.fromRadians(cA.longitude, cA.latitude, par.topH);
         var pTopB = Cesium.Cartesian3.fromRadians(cB.longitude, cB.latitude, par.topH);
         try {
-          var wInst = new Cesium.GeometryInstance({
+          parapetInstances.push(new Cesium.GeometryInstance({
             geometry: new Cesium.WallGeometry({ positions: [pTopA, pTopB], minimumHeights: [par.floorH, par.floorH], maximumHeights: [par.topH, par.topH] }),
             attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(ctx.hastialColor) }
-          });
-          global._buildingPrimitives.push(viewer.scene.primitives.add(new Cesium.Primitive({
-            geometryInstances: wInst,
-            appearance: ctx.createAppearance(true),
-            shadows: Cesium.ShadowMode.DISABLED,
-            asynchronous: false
-          })));
+          }));
         } catch (_) {}
       }
     });
+    if (parapetInstances.length > 0) {
+      try {
+        global._buildingPrimitives.push(viewer.scene.primitives.add(new Cesium.Primitive({
+          geometryInstances: parapetInstances,
+          appearance: ctx.createAppearance(true),
+          shadows: Cesium.ShadowMode.DISABLED,
+          asynchronous: false
+        })));
+      } catch (_) {}
+    }
 
     // 5. Canto de alero perimetral (en tipologías inclinadas con alero)
     if (geom.design !== 'l_stepped' && geom.design !== 'l_mixed') {
@@ -780,6 +774,17 @@
           addTri(wtA, eavesUnder[eni], eavesUnder[ei], ctx.facadeColor);
         }
       }
+    }
+
+    if (triInstances.length > 0) {
+      try {
+        global._buildingPrimitives.push(viewer.scene.primitives.add(new Cesium.Primitive({
+          geometryInstances: triInstances,
+          appearance: ctx.createAppearance(true),
+          shadows: Cesium.ShadowMode.ENABLED,
+          asynchronous: false
+        })));
+      } catch (_) {}
     }
 
     // 6. Líneas CAD diferenciadas: Cumbreras, Limatesas, Limahoyas y Aleros

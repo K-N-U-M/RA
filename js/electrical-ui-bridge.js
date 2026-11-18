@@ -12,7 +12,7 @@ function wpStartBatteryPlacement() {
   const cfg = window.solarProjectConfig = window.solarProjectConfig || {};
   if (!cfg.selectedBatteryId || cfg.selectedBatteryId === 'bat_none') {
     const cat = (typeof equipmentCatalog !== 'undefined') ? equipmentCatalog : null;
-    const defaultBat = (cat && cat.batteries && cat.batteries.find(b => b.id !== 'bat_none')) || { id: 'bat_huawei_luna_5kwh', kwh: 5.0, brand: 'LFP' };
+    const defaultBat = (cat && cat.batteries && cat.batteries.find(b => b.id !== 'bat_none')) || { id: 'bat_huawei_5k', kwh: 5.0, brand: 'Huawei' };
     cfg.selectedBatteryId = defaultBat.id;
     cfg.autoSizing = cfg.autoSizing || {};
     cfg.autoSizing.batteries = cfg.autoSizing.batteries || { count: 1, capacityKwh: defaultBat.kwh || 5.0 };
@@ -383,6 +383,16 @@ function pickElectricalObjectUnderCursor(screenPos, skipGpuPick) {
 
 
 
+function _removeEqLabel2D(lbl) {
+  if (!lbl) return null;
+  try {
+    if (typeof removeLabel2DEntity === 'function') removeLabel2DEntity(lbl);
+  } catch(e) {
+    if (window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium');
+  }
+  return null;
+}
+
 function deleteSelectedElectricalEquipment() {
   if (!selectedElectricalId || !window.inverterEquipmentState) return;
   const s = window.inverterEquipmentState;
@@ -391,6 +401,7 @@ function deleteSelectedElectricalEquipment() {
     if (s.entity && viewer) {
       try { viewer.entities.remove(s.entity); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
     }
+    s.label2D = _removeEqLabel2D(s.label2D);
     if (window.RACableEngine && typeof window.RACableEngine.clearAllCables === 'function') {
       window.RACableEngine.clearAllCables();
     } else if (s.dcCableEntities && Array.isArray(s.dcCableEntities) && viewer) {
@@ -434,6 +445,7 @@ function deleteSelectedElectricalEquipment() {
       try { viewer.entities.remove(s.combinerBox.entity); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
     }
     if (s.combinerBox) {
+      s.combinerBox.label2D = _removeEqLabel2D(s.combinerBox.label2D);
       s.combinerBox.isEnabled = false;
       s.combinerBox.position = null;
       s.combinerBox.entity = null;
@@ -447,6 +459,7 @@ function deleteSelectedElectricalEquipment() {
     if (s.dcProtectionEntity && viewer) {
       try { viewer.entities.remove(s.dcProtectionEntity); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
     }
+    s.dcProtectionLabel2D = _removeEqLabel2D(s.dcProtectionLabel2D);
     s.dcProtectionEntity = null;
     s.dcProtectionPosition = null;
     s.dcProtectionCarto = null;
@@ -459,11 +472,8 @@ function deleteSelectedElectricalEquipment() {
     if (s.batteryEntity && viewer) {
       try { viewer.entities.remove(s.batteryEntity); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
     }
-    if (s.batteryLabel2D) {
-      try { if (typeof removeLabel2DEntity === 'function') removeLabel2DEntity(s.batteryLabel2D); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
-    }
+    s.batteryLabel2D = _removeEqLabel2D(s.batteryLabel2D);
     s.batteryEntity = null;
-    s.batteryLabel2D = null;
     s.batteryPosition = null;
     s.batteryCarto = null;
     selectedElectricalId = null;
@@ -476,6 +486,7 @@ function deleteSelectedElectricalEquipment() {
       try { viewer.entities.remove(s.gridMeter.entity); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
     }
     if (s.gridMeter) {
+      s.gridMeter.label2D = _removeEqLabel2D(s.gridMeter.label2D);
       s.gridMeter.position = null;
       s.gridMeter.entity = null;
     }
