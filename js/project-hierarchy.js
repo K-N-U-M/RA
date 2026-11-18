@@ -937,7 +937,6 @@
       }
       if (typeof global.wpUpdateStep3UI === 'function') global.wpUpdateStep3UI();
       if (typeof global.calculateFinancialModel === 'function') global.calculateFinancialModel();
-      else if (typeof global.updateBudgetUI === 'function') global.updateBudgetUI();
       if (global.viewer && global.viewer.scene && typeof global.viewer.scene.requestRender === 'function') {
         global.viewer.scene.requestRender();
       }

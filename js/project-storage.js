@@ -1251,7 +1251,6 @@ async function raImportProjectData(projectData, options = {}) {
     if (typeof recalculateSolarYield === 'function') recalculateSolarYield();
     if (typeof wpUpdateUI === 'function') wpUpdateUI();
     if (typeof wpUpdateAllMetrics === 'function') wpUpdateAllMetrics();
-    if (typeof updateBudgetUI === 'function') updateBudgetUI();
     if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Proyecto cargado: recalcular análisis solar');
 
     // Fase 5: Restaurar Gemelo Digital Eléctrico (Inversor, Cuadros, Contador, Cables)
@@ -1429,9 +1428,6 @@ async function raImportProjectData(projectData, options = {}) {
       if (typeof window.wpRenderBattery3D === 'function') {
         try { window.wpRenderBattery3D(); } catch(eBat3d) {}
       }
-      if (typeof window.updateBudgetUI === 'function') {
-        try { window.updateBudgetUI(); } catch(eBgt) {}
-      }
       if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') {
         try { BOMTreeEngine.refresh(); } catch(eBom) {}
       }
@@ -1604,7 +1600,6 @@ async function raImportProjectData(projectData, options = {}) {
           if (typeof po.pricing.legPrice === 'number') setVal('cfg-pres-leg', po.pricing.legPrice);
           if (typeof po.pricing.windPrice === 'number') setVal('cfg-pres-wind', po.pricing.windPrice);
           if (typeof wpUpdateStep5PricingBadge === 'function') wpUpdateStep5PricingBadge();
-          if (typeof updateBudgetUI === 'function') updateBudgetUI();
         }
         if (po.commercialConfig && typeof RAPricing !== 'undefined' && typeof RAPricing.saveCommercialConfig === 'function') {
           RAPricing.saveCommercialConfig(po.commercialConfig);
@@ -1723,9 +1718,6 @@ async function raImportProjectData(projectData, options = {}) {
       if (typeof window.step3UpdateHardwareSelection === 'function') {
         try { window.step3UpdateHardwareSelection(); } catch(eHw2) {}
       }
-      if (typeof window.updateBudgetUI === 'function') {
-        try { window.updateBudgetUI(); } catch(eBgt2) {}
-      }
     }
     
     if (typeof ProjectHierarchy !== 'undefined' && ProjectHierarchy.notify) {
@@ -1753,7 +1745,6 @@ async function raImportProjectData(projectData, options = {}) {
           }
         }
         if (typeof wpUpdateStep5PricingBadge === 'function') wpUpdateStep5PricingBadge();
-        if (typeof updateBudgetUI === 'function') updateBudgetUI();
       } catch(eReBgt) {}
     }
 
@@ -1940,7 +1931,7 @@ function raGetRecentProjects() {
   }
 }
 
-function raSaveToRecentProjects(projectData) {
+async function raSaveToRecentProjects(projectData) {
   try {
     const recents = raGetRecentProjects();
     let storageData = projectData;
@@ -1962,15 +1953,28 @@ function raSaveToRecentProjects(projectData) {
       data: storageData
     };
 
+    const evicted = recents.filter(r => r && r.address === fullItem.address && r.name === fullItem.name);
     const filtered = recents.filter(r => r.address !== fullItem.address || r.name !== fullItem.name);
     const useIdb = (typeof window !== 'undefined' && window.RAStorageCache && typeof window.RAStorageCache.saveProjectAsync === 'function');
 
+    let idbSaved = false;
     if (useIdb) {
-      window.RAStorageCache.saveProjectAsync(projId, storageData).catch(function() {});
+      try {
+        idbSaved = Boolean(await window.RAStorageCache.saveProjectAsync(projId, storageData));
+      } catch (_) {
+        idbSaved = false;
+      }
+      if (typeof window.RAStorageCache.deleteProjectAsync === 'function') {
+        for (let ei = 0; ei < evicted.length; ei++) {
+          if (evicted[ei] && evicted[ei].id) {
+            try { await window.RAStorageCache.deleteProjectAsync(evicted[ei].id); } catch (_) {}
+          }
+        }
+      }
     }
 
     // Guardar en localStorage solo el índice ligero si IndexedDB almacena el payload completo (evita QuotaExceededError)
-    const indexEntry = useIdb ? Object.assign({}, fullItem, { data: null, inIndexedDB: true }) : fullItem;
+    const indexEntry = idbSaved ? Object.assign({}, fullItem, { data: null, inIndexedDB: true }) : fullItem;
     filtered.unshift(indexEntry);
     let trimmed = filtered.slice(0, 6);
 
@@ -1983,7 +1987,11 @@ function raSaveToRecentProjects(projectData) {
         trimmed = trimmed.slice(0, trimmed.length - 1);
       }
     }
-    if (!saved && !useIdb && typeof showToast === 'function') {
+    if (useIdb && typeof window.RAStorageCache.purgeOrphanedProjectsAsync === 'function') {
+      const validIds = trimmed.filter(r => r && r.inIndexedDB && r.id).map(r => r.id);
+      try { await window.RAStorageCache.purgeOrphanedProjectsAsync(validIds); } catch (_) {}
+    }
+    if (!saved && !idbSaved && typeof showToast === 'function') {
       showToast('HISTORIAL NO GUARDADO', 'El diseño supera la cuota del navegador. Expórtalo a archivo .raproject para conservarlo.', 'warning', 6000);
     }
     raRenderRecentProjectsList();
@@ -1991,6 +1999,9 @@ function raSaveToRecentProjects(projectData) {
 }
 
 function _escapeHtml(str) {
+  if (typeof window !== 'undefined' && window.RASanitize && typeof window.RASanitize.plain === 'function') {
+    return window.RASanitize.plain(str);
+  }
   if (str == null) return '';
   return String(str)
     .replace(/&/g, '&amp;')
@@ -2049,27 +2060,46 @@ async function raLoadRecentProjectByIndex(idx) {
     raShowProjectLoadingHUD(projName);
     raUpdateProjectLoadingProgress(5, 'Cargando proyecto desde almacenamiento local...', projName);
     raImportProjectData(dataToImport);
+  } else {
+    // Purgar entrada huérfana cuyo payload ya no existe en IndexedDB
+    recents.splice(idx, 1);
+    try { localStorage.setItem(RA_RECENT_PROJECTS_KEY, JSON.stringify(recents)); } catch (_) {}
+    raRenderRecentProjectsList();
+    if (typeof showToast === 'function') {
+      showToast('PROYECTO NO ENCONTRADO', 'La copia local estaba incompleta o caducó y se limpió del historial.', 'warning', 4500);
+    }
   }
 }
 
-function raDeleteRecentProjectByIndex(idx) {
+async function raDeleteRecentProjectByIndex(idx) {
   const recents = raGetRecentProjects();
   const removed = recents[idx];
   if (removed && removed.id && typeof window !== 'undefined' && window.RAStorageCache && typeof window.RAStorageCache.deleteProjectAsync === 'function') {
-    window.RAStorageCache.deleteProjectAsync(removed.id).catch(function() {});
+    try { await window.RAStorageCache.deleteProjectAsync(removed.id); } catch (_) {}
   }
   recents.splice(idx, 1);
-  localStorage.setItem(RA_RECENT_PROJECTS_KEY, JSON.stringify(recents));
+  try { localStorage.setItem(RA_RECENT_PROJECTS_KEY, JSON.stringify(recents)); } catch (_) {}
   raRenderRecentProjectsList();
 }
 
-function raClearRecentProjects() {
-  if (confirm('¿Deseas vaciar el historial de proyectos recientes?')) {
+async function raClearRecentProjects() {
+  const ok = (typeof raConfirmAsync === 'function')
+    ? await raConfirmAsync('¿Deseas vaciar el historial de proyectos recientes?', 'Vaciar historial')
+    : true;
+  if (ok) {
     const recents = raGetRecentProjects();
-    if (typeof window !== 'undefined' && window.RAStorageCache && typeof window.RAStorageCache.deleteProjectAsync === 'function') {
-      recents.forEach(function(r) {
-        if (r && r.id) window.RAStorageCache.deleteProjectAsync(r.id).catch(function() {});
-      });
+    if (typeof window !== 'undefined' && window.RAStorageCache) {
+      if (typeof window.RAStorageCache.deleteProjectAsync === 'function') {
+        for (let i = 0; i < recents.length; i++) {
+          const r = recents[i];
+          if (r && r.id) {
+            try { await window.RAStorageCache.deleteProjectAsync(r.id); } catch (_) {}
+          }
+        }
+      }
+      if (typeof window.RAStorageCache.purgeOrphanedProjectsAsync === 'function') {
+        try { await window.RAStorageCache.purgeOrphanedProjectsAsync([]); } catch (_) {}
+      }
     }
     localStorage.removeItem(RA_RECENT_PROJECTS_KEY);
     raRenderRecentProjectsList();
@@ -2096,8 +2126,11 @@ function raCloseProjectsModal() {
 }
 window.raCloseProjectsModal = raCloseProjectsModal;
 
-function raNewProjectConfirm() {
-  if (!confirm('¿Deseas iniciar un nuevo proyecto desde cero? Se limpiará toda la escena 3D, equipos, faldones, simulación solar, mediciones y datos de documentos/facturas.')) {
+async function raNewProjectConfirm() {
+  const ok = (typeof raConfirmAsync === 'function')
+    ? await raConfirmAsync('¿Deseas iniciar un nuevo proyecto desde cero? Se limpiará toda la escena 3D, equipos, faldones, simulación solar, mediciones y datos de documentos/facturas.', 'Nuevo proyecto')
+    : true;
+  if (!ok) {
     return;
   }
 
@@ -2162,17 +2195,9 @@ function raNewProjectConfirm() {
   }
   window.selectedElectricalId = null;
 
-  // 5. Limpieza de superposiciones del mapa de calor y sombras solares (panelShadowOverlayPool, etc.)
+  // 5. Limpieza de superposiciones del mapa de calor y sombras solares
   if (window.solarSimState) {
     var ss = window.solarSimState;
-    if (ss.panelShadowOverlayPool) {
-      if (curViewer && curViewer.entities) {
-        ss.panelShadowOverlayPool.forEach(function(ent) {
-          try { curViewer.entities.remove(ent); } catch(_) {}
-        });
-      }
-      ss.panelShadowOverlayPool.clear();
-    }
     if (Array.isArray(ss.obstacleShadowSurfaceEntities)) {
       if (curViewer && curViewer.entities) {
         ss.obstacleShadowSurfaceEntities.forEach(function(e) {
@@ -2356,6 +2381,7 @@ function raNewProjectConfirm() {
   }
   if (window.solarProjectConfig) {
     window.solarProjectConfig.clientInfo = null;
+    window.solarProjectConfig.clientDetails = null;
     window.solarProjectConfig.annualConsumptionKwh = null;
     window.solarProjectConfig.manualAnnualConsumptionKWh = null;
     window.solarProjectConfig.billMonthlyConsumptionKWh = null;
@@ -2380,16 +2406,22 @@ function raNewProjectConfirm() {
     try { populateStep3EquipmentSelectors(); } catch(_) {}
   }
 
-  // 13. Reseteo de formularios y campos de documentos en el DOM (Paso 5 / Titular)
+  // 13. Reseteo de formularios y campos de documentos y presupuesto del cliente en el DOM (Paso 5 / Titular)
   var docFieldsToClear = [
     'doc-nombre', 'doc-nif', 'doc-tel', 'doc-email',
     'doc-dir', 'doc-mun', 'doc-prov', 'doc-cp', 'doc-cups',
-    'doc-potcontr', 'doc-dist'
+    'doc-potcontr', 'doc-dist', 'doc-modalidad',
+    'doc-tecnico', 'doc-titulacion', 'doc-ncol',
+    'pricing-cust-nombre', 'pricing-cust-nif', 'pricing-cust-tel', 'pricing-cust-email',
+    'pricing-cust-dir', 'pricing-cust-mun', 'pricing-cust-prov', 'pricing-cust-cp',
+    'pricing-cust-cups', 'pricing-cust-consumo', 'pricing-cust-potcontr', 'pricing-cust-precio-kwh'
   ];
   docFieldsToClear.forEach(function(id) {
     var el = document.getElementById(id);
     if (el) el.value = '';
   });
+  var prDistEl = document.getElementById('pricing-cust-dist');
+  if (prDistEl && prDistEl.options && prDistEl.options.length > 0) prDistEl.selectedIndex = 0;
 
   // Limpiar overrides del Dossier Comercial
   if (window.CommercialProposalDossier) {

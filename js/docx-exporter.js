@@ -169,9 +169,9 @@
     wrap.innerHTML = String(rawHtml || '');
     const junkSelectors = [
       '.doc-top-bar', '.dossier-toolbar', '#dossier-format-bar', '#doc-format-toolbar',
-      '.no-print', '.dossier-overflow-warn', '.dossier-drag-handle', '.dossier-resize-handle',
-      '.dossier-img-picker-btn', '.dossier-file-input', '.ra-edit-del-btn', '.ra-gap-handle',
-      '#ra-gap-tooltip', '.photo-upload-overlay'
+      '#prop-format-toolbar', '.no-print', '.dossier-overflow-warn', '.dossier-drag-handle',
+      '.dossier-resize-handle', '.dossier-img-picker-btn', '.dossier-file-input',
+      '.ra-edit-del-btn', '.ra-gap-handle', '#ra-gap-tooltip', '.photo-upload-overlay'
     ];
     wrap.querySelectorAll(junkSelectors.join(',')).forEach(function(el) { el.remove(); });
     wrap.querySelectorAll('[contenteditable]').forEach(function(el) { el.removeAttribute('contenteditable'); });
@@ -264,6 +264,69 @@
         if (res && res.pngUrl) im.setAttribute('src', res.pngUrl);
       } catch (eImg) {}
     }
+
+    await inlineExternalAssetsToDataUrls(rootEl);
+    return rootEl;
+  }
+
+  async function inlineExternalAssetsToDataUrls(rootEl, baseHref) {
+    if (!rootEl || typeof document === 'undefined' || typeof fetch !== 'function') return rootEl;
+    const resolveUrl = function(rawUrl) {
+      const u = String(rawUrl || '').trim();
+      if (!u || /^data:/i.test(u) || /^blob:/i.test(u) || /^#/i.test(u) || /^javascript:/i.test(u)) return null;
+      try {
+        const base = baseHref || (typeof location !== 'undefined' && location.href ? location.href : '');
+        return base ? new URL(u, base).href : u;
+      } catch (eUrl) {
+        return u;
+      }
+    };
+    const fetchAsDataUrl = async function(absUrl) {
+      try {
+        const resp = await fetch(absUrl);
+        if (!resp.ok) return null;
+        const blob = await resp.blob();
+        return await new Promise(function(resolve) {
+          const reader = new FileReader();
+          reader.onloadend = function() { resolve(typeof reader.result === 'string' ? reader.result : null); };
+          reader.onerror = function() { resolve(null); };
+          reader.readAsDataURL(blob);
+        });
+      } catch (eFetch) {
+        return null;
+      }
+    };
+
+    const imgs = Array.from(rootEl.querySelectorAll('img[src]'));
+    for (let i = 0; i < imgs.length; i++) {
+      const im = imgs[i];
+      const absUrl = resolveUrl(im.getAttribute('src'));
+      if (!absUrl) continue;
+      const dataUrl = await fetchAsDataUrl(absUrl);
+      if (dataUrl) {
+        im.setAttribute('src', dataUrl);
+      } else {
+        im.setAttribute('src', absUrl);
+      }
+    }
+
+    // Resolver URLs relativas o remotas en style="background-image: url(...)" (ej. marcas de agua)
+    const styledEls = Array.from(rootEl.querySelectorAll('[style*="url("]'));
+    for (let k = 0; k < styledEls.length; k++) {
+      const el = styledEls[k];
+      const stAttr = el.getAttribute('style') || '';
+      const matches = stAttr.match(/url\(\s*(['"]?)([^)'"]+)\1\s*\)/gi);
+      if (!matches) continue;
+      let updated = stAttr;
+      for (let mIdx = 0; mIdx < matches.length; mIdx++) {
+        const inner = matches[mIdx].replace(/^url\(\s*(['"]?)/i, '').replace(/(['"]?)\s*\)$/, '');
+        const absBg = resolveUrl(inner);
+        if (!absBg) continue;
+        const dataBg = await fetchAsDataUrl(absBg);
+        updated = updated.replace(matches[mIdx], 'url("' + (dataBg || absBg) + '")');
+      }
+      if (updated !== stAttr) el.setAttribute('style', updated);
+    }
     return rootEl;
   }
 
@@ -276,10 +339,12 @@
 
     const cleanHtml = sanitizeEditorialHtml(htmlContent);
     const images = [];
+    const dataUrlToFile = Object.create(null);
     let imgIdx = 0;
+    const baseHref = options.baseUrl || (typeof location !== 'undefined' && location.href ? location.href : '');
 
-    // Extraer imágenes base64 en src
-    const processedHtml = cleanHtml.replace(/src=["'](data:image\/([a-zA-Z0-9\+\-]+);base64,([A-Za-z0-9+/=\r\n]+))["']/gi, function(match, fullDataUrl, ext, b64) {
+    function registerDataUrl(fullDataUrl, ext, b64) {
+      if (dataUrlToFile[fullDataUrl]) return dataUrlToFile[fullDataUrl];
       imgIdx++;
       const cleanExt = (ext === 'jpeg' || ext === 'jpg') ? 'jpg' : ((ext === 'svg+xml') ? 'svg' : ext);
       const fName = 'img_' + imgIdx + '.' + cleanExt;
@@ -288,8 +353,36 @@
         contentType: 'image/' + ext,
         base64: b64.replace(/\s+/g, '')
       });
-      return 'src="' + fName + '"';
+      dataUrlToFile[fullDataUrl] = fName;
+      return fName;
+    }
+
+    function absolutizeRelativeUrl(rawUrl) {
+      const u = String(rawUrl || '').trim();
+      if (!u || !baseHref || /^data:/i.test(u) || /^blob:/i.test(u) || /^https?:\/\//i.test(u) || /^#/i.test(u) || /^img_\d+\./i.test(u)) return u;
+      try { return new URL(u, baseHref).href; } catch (eUrl) { return u; }
+    }
+
+    // Extraer imágenes base64 en src y resolver src relativos
+    let processedHtml = cleanHtml.replace(/src=["'](data:image\/([a-zA-Z0-9\+\-]+);base64,([A-Za-z0-9+/=\r\n]+))["']/gi, function(match, fullDataUrl, ext, b64) {
+      return 'src="' + registerDataUrl(fullDataUrl, ext, b64) + '"';
     });
+    processedHtml = processedHtml.replace(/src=["']([^"']+)["']/gi, function(match, rawUrl) {
+      return 'src="' + absolutizeRelativeUrl(rawUrl) + '"';
+    });
+
+    // Extraer data:image/... de CSS url(...) (marcas de agua y fondos) en HTML y estilos CSS
+    const cssUrlRe = /url\(\s*(['"]?)(data:image\/([a-zA-Z0-9\+\-]+);base64,([A-Za-z0-9+/=\r\n]+))\1\s*\)/gi;
+    processedHtml = processedHtml.replace(cssUrlRe, function(match, q, fullDataUrl, ext, b64) {
+      return 'url("' + registerDataUrl(fullDataUrl, ext, b64) + '")';
+    });
+    const resolvedStyles = String(options.styles || '')
+      .replace(cssUrlRe, function(match, q, fullDataUrl, ext, b64) {
+        return 'url("' + registerDataUrl(fullDataUrl, ext, b64) + '")';
+      })
+      .replace(/url\(\s*(['"]?)([^)'"]+)\1\s*\)/gi, function(match, q, rawUrl) {
+        return 'url("' + absolutizeRelativeUrl(rawUrl) + '")';
+      });
 
     const boundary = '----=_Part_RA_DOCX_' + Date.now();
     const rawHtmlDoc = '<!DOCTYPE html>\r\n<html><head><meta charset="utf-8"><title>' + (options.title || 'Documento') + '</title>\r\n' +
@@ -300,7 +393,7 @@
       'table { border-collapse: collapse; width: 100%; mso-table-lspace: 0pt; mso-table-rspace: 0pt; margin: 8pt 0; }\r\n' +
       'td, th { vertical-align: top; font-family: Segoe UI, Aptos, Arial, sans-serif; }\r\n' +
       'img { max-width: 100%; height: auto; }\r\n' +
-      (options.styles || '') + '\r\n' +
+      resolvedStyles + '\r\n' +
       '</style></head><body><div class="Section1">\r\n' +
       processedHtml + '\r\n' +
       '</div></body></html>';
@@ -389,6 +482,7 @@
     createZipSync: createZipSync,
     buildDocxBlobFromHtml: buildDocxBlobFromHtml,
     rasterizeSvgsToPng: rasterizeSvgsToPng,
+    inlineExternalAssetsToDataUrls: inlineExternalAssetsToDataUrls,
     sanitizeEditorialHtml: sanitizeEditorialHtml,
     encodeQuotedPrintable: encodeQuotedPrintable,
     downloadDocx: downloadDocx

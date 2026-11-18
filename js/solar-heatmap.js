@@ -342,15 +342,6 @@
     }
     curSimState.mlpeBadgeEntities = [];
 
-    if (!curSimState.panelShadowOverlayPool) {
-      curSimState.panelShadowOverlayPool = new Map();
-    } else if (curSimState.panelShadowOverlayPool.size > 0) {
-      curSimState.panelShadowOverlayPool.forEach(ent => {
-        try { viewer.entities.remove(ent); } catch(e) {}
-      });
-      curSimState.panelShadowOverlayPool.clear();
-    }
-    const overlayPool = curSimState.panelShadowOverlayPool;
     if (curSimState.obstacleShadowSurfaceEntities) {
       curSimState.obstacleShadowSurfaceEntities.forEach(e => viewer.entities.remove(e));
     }
@@ -2351,14 +2342,6 @@
       solarSimState.viewMode = 'normal';
     }
     if (window.solarSimState) {
-      if (window.solarSimState.panelShadowOverlayPool) {
-        if (typeof viewer !== 'undefined' && viewer && viewer.entities) {
-          window.solarSimState.panelShadowOverlayPool.forEach(e => {
-            try { viewer.entities.remove(e); } catch(_) {}
-          });
-        }
-        window.solarSimState.panelShadowOverlayPool.clear();
-      }
       if (window.solarSimState.obstacleShadowSurfaceEntities && Array.isArray(window.solarSimState.obstacleShadowSurfaceEntities)) {
         if (typeof viewer !== 'undefined' && viewer && viewer.entities) {
           window.solarSimState.obstacleShadowSurfaceEntities.forEach(e => {

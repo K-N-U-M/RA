@@ -2,6 +2,21 @@
 // GEOMETRÍA 2D Y PROYECCIÓN DE SOMBRAS DE EDIFICIOS (MODULARIZADO)
 // ═══════════════════════════════════════════════════════════════════════════
 
+function isPointInPolygon2D(pt, poly) {
+  if (!pt || !Array.isArray(poly) || poly.length < 3) return false;
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const xi = poly[i].u, yi = poly[i].v;
+    const xj = poly[j].u, yj = poly[j].v;
+    const denom = yj - yi;
+    if (denom === 0) continue;
+    const intersect = ((yi > pt.v) !== (yj > pt.v)) && (pt.u < (xj - xi) * (pt.v - yi) / denom + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+if (typeof window !== 'undefined') window.isPointInPolygon2D = isPointInPolygon2D;
+
 function segmentsIntersect2D(p1, p2, p3, p4) {
   function orient(p, q, r) {
     const val = (q.v - p.v) * (r.u - q.u) - (q.u - p.u) * (r.v - q.v);

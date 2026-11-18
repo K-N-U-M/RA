@@ -52,6 +52,8 @@
       typeof v.x === 'number' && typeof v.y === 'number' && typeof v.z === 'number';
   }
 
+  var TRANSIENT_UNDERSCORE_GPU_KEYS = /^_(?:obsEntities|bldEntities|panelNumberEntities|panelNumberLabelCollection|entity|entities|primitive|primitives|billboard|label|label2D|polygon|polyline|geometry|mesh|modelMatrix|lineEnt|fillEnt|gizmo|listener|observer|raf|timer)/i;
+
   function deepClone(v, depth) {
     if (depth > 14) return null;
     if (isCesiumGPUObject(v)) return null;
@@ -64,7 +66,7 @@
       var o = {};
       for (var k in v) {
         if (!Object.prototype.hasOwnProperty.call(v, k)) continue;
-        if (k.charAt(0) === '_' || SKIP_KEYS[k]) continue;
+        if (SKIP_KEYS[k] || TRANSIENT_UNDERSCORE_GPU_KEYS.test(k)) continue;
         var val = v[k];
         if (typeof val === 'function' || isCesiumGPUObject(val)) continue;
         o[k] = deepClone(val, depth + 1);

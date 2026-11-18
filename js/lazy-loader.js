@@ -89,26 +89,111 @@
     },
 
     /**
+     * Carga perezosa bajo demanda del exportador Word DOCX/MHTML.
+     */
+    loadDocxExporter: async function() {
+      if (global.RADocxExporter && typeof global.RADocxExporter.buildDocxBlobFromHtml === 'function') {
+        return global.RADocxExporter;
+      }
+      await loadScriptAsync('js/docx-exporter.js?v=20261118_t5');
+      return global.RADocxExporter || null;
+    },
+
+    /**
+     * Carga perezosa bajo demanda del Dossier Comercial Horizontal.
+     */
+    loadCommercialProposalDossier: async function() {
+      if (global.CommercialProposalDossier && !global.CommercialProposalDossier._isLazyProxy) {
+        return global.CommercialProposalDossier;
+      }
+      const pendingCfg = _lazyDossierConfig ? Object.assign({}, _lazyDossierConfig) : null;
+      await loadScriptAsync('js/commercial-proposal-dossier.js?v=20261118_t6');
+      if (pendingCfg && global.CommercialProposalDossier && typeof global.CommercialProposalDossier.setConfig === 'function') {
+        global.CommercialProposalDossier.setConfig(pendingCfg);
+      }
+      return global.CommercialProposalDossier || null;
+    },
+
+    /**
+     * Carga perezosa bajo demanda de los asistentes IA de catálogo de equipos.
+     */
+    loadEquipmentAIImporter: async function() {
+      if (global.RAEquipmentAIImporter) return global.RAEquipmentAIImporter;
+      await loadScriptAsync('js/equipment-ai-importer.js?v=20261117_e3');
+      return global.RAEquipmentAIImporter || null;
+    },
+
+    loadEquipmentWebSearch: async function() {
+      if (global.RAEquipmentWebSearch) return global.RAEquipmentWebSearch;
+      await loadScriptAsync('js/equipment-web-search.js?v=20261117_e3');
+      return global.RAEquipmentWebSearch || null;
+    },
+
+    /**
      * Pre-carga silenciosa de fondo (Prefetch) en momentos de baja actividad de CPU.
      */
     prefetchStep5Dependencies: function() {
+      const runPrefetch = () => {
+        RALazyLoader.loadJsPDF().catch(() => {});
+        RALazyLoader.loadDefaultCoverImage().catch(() => {});
+        RALazyLoader.loadDocxExporter().catch(() => {});
+        RALazyLoader.loadCommercialProposalDossier().catch(() => {});
+      };
       if ('requestIdleCallback' in global) {
-        global.requestIdleCallback(() => {
-          RALazyLoader.loadJsPDF().catch(() => {});
-          RALazyLoader.loadDefaultCoverImage().catch(() => {});
-        });
+        global.requestIdleCallback(runPrefetch);
       } else {
-        setTimeout(() => {
-          RALazyLoader.loadJsPDF().catch(() => {});
-          RALazyLoader.loadDefaultCoverImage().catch(() => {});
-        }, 1500);
+        setTimeout(runPrefetch, 1200);
       }
     }
   };
+
+  let _lazyDossierConfig = null;
+  if (!global.CommercialProposalDossier) {
+    _lazyDossierConfig = { theme: 'rose', include3DRender: true, overrides: {} };
+    global.CommercialProposalDossier = {
+      _isLazyProxy: true,
+      getConfig: function() {
+        return {
+          theme: _lazyDossierConfig.theme,
+          include3DRender: _lazyDossierConfig.include3DRender,
+          overrides: _lazyDossierConfig.overrides ? JSON.parse(JSON.stringify(_lazyDossierConfig.overrides)) : {}
+        };
+      },
+      setConfig: function(cfg) {
+        if (!cfg || typeof cfg !== 'object') return;
+        if (typeof cfg.theme === 'string') _lazyDossierConfig.theme = cfg.theme;
+        if (typeof cfg.include3DRender === 'boolean') _lazyDossierConfig.include3DRender = cfg.include3DRender;
+        if (cfg.overrides && typeof cfg.overrides === 'object') {
+          _lazyDossierConfig.overrides = JSON.parse(JSON.stringify(cfg.overrides));
+        }
+      },
+      openConfig: async function() {
+        const mod = await RALazyLoader.loadCommercialProposalDossier();
+        if (mod && !mod._isLazyProxy && typeof mod.openConfig === 'function') return mod.openConfig.apply(mod, arguments);
+      },
+      generate: async function() {
+        const mod = await RALazyLoader.loadCommercialProposalDossier();
+        if (mod && !mod._isLazyProxy && typeof mod.generate === 'function') return mod.generate.apply(mod, arguments);
+      },
+      generateFromModal: async function() {
+        const mod = await RALazyLoader.loadCommercialProposalDossier();
+        if (mod && !mod._isLazyProxy && typeof mod.generateFromModal === 'function') return mod.generateFromModal.apply(mod, arguments);
+      },
+      setModalTheme: async function() {
+        const mod = await RALazyLoader.loadCommercialProposalDossier();
+        if (mod && !mod._isLazyProxy && typeof mod.setModalTheme === 'function') return mod.setModalTheme.apply(mod, arguments);
+      },
+      refreshSnapshot: async function() {
+        const mod = await RALazyLoader.loadCommercialProposalDossier();
+        if (mod && !mod._isLazyProxy && typeof mod.refreshSnapshot === 'function') return mod.refreshSnapshot.apply(mod, arguments);
+      }
+    };
+  }
 
   global.RALazyLoader = RALazyLoader;
   global.ensureJsPdfLoaded = () => RALazyLoader.loadJsPDF();
   global.ensureJSZipLoaded = () => RALazyLoader.loadJSZip();
   global.ensureDefaultCoverLoaded = () => RALazyLoader.loadDefaultCoverImage();
+  global.ensureDocxExporterLoaded = () => RALazyLoader.loadDocxExporter();
 
 })(typeof window !== 'undefined' ? window : this);

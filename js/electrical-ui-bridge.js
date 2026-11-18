@@ -57,7 +57,6 @@ function wpPlaceBatteryAtPosition(cartesian) {
     wpCalculateAndRenderInverterCables();
   }
   if (typeof recalculateSolarYield === 'function') recalculateSolarYield();
-  if (typeof updateBudgetUI === 'function') updateBudgetUI();
   if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') {
     BOMTreeEngine.refresh();
   }
@@ -153,7 +152,6 @@ function wpPlaceCombinerBoxAtPosition(cartesian) {
   // Recalcular cables teniendo en cuenta la Combiner Box sin re-renderizar placas
   if (typeof wpCalculateAndRenderInverterCables === 'function') wpCalculateAndRenderInverterCables();
   if (typeof recalculateSolarYield === 'function') recalculateSolarYield();
-  if (typeof updateBudgetUI === 'function') updateBudgetUI();
   if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') BOMTreeEngine.refresh();
 
   const tagCB = document.getElementById('cb-status-tag');
@@ -436,7 +434,6 @@ function deleteSelectedElectricalEquipment() {
     }
 
     selectedElectricalId = null;
-    if (typeof updateBudgetUI === 'function') updateBudgetUI();
     if (typeof populateStep3EquipmentSelectors === 'function') populateStep3EquipmentSelectors();
     if (typeof showToast === 'function') {
       showToast('EQUIPO ELIMINADO', 'Cuadro eléctrico e inversor eliminados.', 'info', 3000);

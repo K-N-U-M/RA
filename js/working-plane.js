@@ -606,15 +606,14 @@ let obsGizmoState = (typeof window !== 'undefined' && window.obsGizmoState) ? wi
 if (typeof window !== 'undefined') window.obsGizmoState = obsGizmoState;
 
 function getSelectedPanel() {
-  if (typeof window !== 'undefined' && typeof window.getSelectedPanel === 'function' && window.getSelectedPanel !== getSelectedPanel) return window.getSelectedPanel();
-  if (selectedPanelIndex < 0) return null;
-  // Preferir allRenderedPanels (multi-faldón instanciado) sobre lastRoofInfo.panels (legacy)
-  if (window.allRenderedPanels && window.allRenderedPanels.length > 0) {
-    return window.allRenderedPanels[selectedPanelIndex] || null;
-  }
-  if (!lastRoofInfo || !lastRoofInfo.panels) return null;
-  return lastRoofInfo.panels[selectedPanelIndex] || null;
+  if (typeof selectedPanelIndex === 'undefined' || selectedPanelIndex < 0) return null;
+  const panelsArray = (window.allRenderedPanels && window.allRenderedPanels.length > 0)
+    ? window.allRenderedPanels
+    : (typeof lastRoofInfo !== 'undefined' && lastRoofInfo ? lastRoofInfo.panels : null);
+  if (!panelsArray || selectedPanelIndex >= panelsArray.length) return null;
+  return panelsArray[selectedPanelIndex] || null;
 }
+if (typeof window !== 'undefined') window.getSelectedPanel = getSelectedPanel;
 
 function checkPanelGizmoHit(mx, my) {
   const panel = getSelectedPanel();
@@ -652,42 +651,102 @@ function renderPanelGizmo2D() {
 }
 
 function deleteSelectedPanel() {
-  if (typeof window !== 'undefined' && typeof window.deleteSelectedPanel === 'function' && window.deleteSelectedPanel !== deleteSelectedPanel) {
-    return window.deleteSelectedPanel();
-  }
-  if (typeof selectedPanelIndex === 'undefined' || selectedPanelIndex < 0) return;
-  const panel = (typeof getSelectedPanel === 'function') ? getSelectedPanel() : null;
-  if (!panel) return;
+  const indicesToDelete = (typeof window !== 'undefined' && Array.isArray(window.selectedPanelIndices) && window.selectedPanelIndices.length > 0)
+    ? Array.from(new Set(window.selectedPanelIndices)).filter(idx => typeof idx === 'number' && idx >= 0).sort((a, b) => b - a)
+    : ((typeof selectedPanelIndex !== 'undefined' && selectedPanelIndex >= 0) ? [selectedPanelIndex] : []);
 
-  panel.deleted = true;
-  if (panel.rawPanel) {
-    panel.rawPanel.deleted = true;
+  if (indicesToDelete.length === 0) return;
+
+  const panelsArray = (window.allRenderedPanels && window.allRenderedPanels.length > 0)
+    ? window.allRenderedPanels
+    : (typeof lastRoofInfo !== 'undefined' && lastRoofInfo ? lastRoofInfo.panels : null);
+  if (!panelsArray || panelsArray.length === 0) return;
+
+  const affectedPolyIndices = new Set();
+  indicesToDelete.forEach(idx => {
+    const p = panelsArray[idx];
+    if (p && typeof p.polyIdx !== 'undefined') affectedPolyIndices.add(p.polyIdx);
+  });
+  if (typeof window !== 'undefined' && window.RAundo && typeof window.RAundo.snapPanelDelete === 'function') {
+    affectedPolyIndices.forEach(pIdx => window.RAundo.snapPanelDelete(pIdx));
   }
 
-  if (typeof WP !== 'undefined' && WP && WP.polylines && panel.polyIdx !== undefined) {
-    const poly = WP.polylines[panel.polyIdx];
-    if (poly) {
-      if (!Array.isArray(poly.deletedPanels)) poly.deletedPanels = [];
-      poly.deletedPanels.push({
-        u: (typeof panel.u === 'number') ? panel.u : (panel.rawPanel && panel.rawPanel.u),
-        v: (typeof panel.v === 'number') ? panel.v : (panel.rawPanel && panel.rawPanel.v),
-        center: panel.center ? Cesium.Cartesian3.clone(panel.center) : (panel.rawPanel && panel.rawPanel.center ? Cesium.Cartesian3.clone(panel.rawPanel.center) : null)
-      });
-      if (poly.roofInfo && Array.isArray(poly.roofInfo.panels)) {
-        poly.roofInfo.panels = poly.roofInfo.panels.filter(p => p !== panel && p !== panel.rawPanel && !p.deleted);
+  indicesToDelete.forEach(idx => {
+    const panel = panelsArray[idx];
+    if (!panel) return;
+    panel.deleted = true;
+    if (panel.rawPanel) panel.rawPanel.deleted = true;
+
+    const pPolyIdx = (typeof panel.polyIdx === 'number') ? panel.polyIdx : ((typeof WP !== 'undefined' && WP && WP.selectedPolyIdx >= 0) ? WP.selectedPolyIdx : 0);
+
+    if (typeof WP !== 'undefined' && WP && WP.polylines && WP.polylines[pPolyIdx]) {
+      const poly = WP.polylines[pPolyIdx];
+      if (poly) {
+        if (!Array.isArray(poly.deletedPanels)) poly.deletedPanels = [];
+        poly.deletedPanels.push({
+          panelId: panel.panelId || (panel.rawPanel && panel.rawPanel.panelId) || ('pan_' + pPolyIdx + '_' + (panel.layoutIndex ?? panel.localIdx ?? idx)),
+          layoutIndex: (typeof panel.layoutIndex === 'number') ? panel.layoutIndex : (panel.rawPanel && panel.rawPanel.layoutIndex),
+          localIdx: (typeof panel.localIdx === 'number') ? panel.localIdx : (panel.rawPanel && panel.rawPanel.localIdx),
+          u: (typeof panel.u === 'number') ? panel.u : (panel.rawPanel && panel.rawPanel.u),
+          v: (typeof panel.v === 'number') ? panel.v : (panel.rawPanel && panel.rawPanel.v),
+          center: panel.center ? Cesium.Cartesian3.clone(panel.center) : (panel.rawPanel && panel.rawPanel.center ? Cesium.Cartesian3.clone(panel.rawPanel.center) : null)
+        });
+        poly.roofInfo = null;
       }
+    } else if (typeof lastRoofInfo !== 'undefined' && lastRoofInfo && Array.isArray(lastRoofInfo.panels)) {
+      lastRoofInfo.panels = lastRoofInfo.panels.filter((p, pIdx) => pIdx !== idx && !p.deleted);
+    }
+  });
+
+  if (typeof viewer !== 'undefined' && viewer && viewer.entities && typeof window !== 'undefined' && Array.isArray(window.panelOutlineEntities)) {
+    window.panelOutlineEntities.forEach(e => { try { viewer.entities.remove(e); } catch(_) {} });
+    window.panelOutlineEntities = [];
+    if (typeof panelOutlineEntity !== 'undefined') panelOutlineEntity = null;
+  }
+
+  if (typeof window !== 'undefined' && window.allRenderedPanels && Array.isArray(window.allRenderedPanels)) {
+    indicesToDelete.forEach(idx => {
+      if (idx >= 0 && idx < window.allRenderedPanels.length) {
+        window.allRenderedPanels.splice(idx, 1);
+      }
+    });
+  }
+
+  if (typeof window !== 'undefined' && window.solarSimState) {
+    if (typeof window.wpInvalidateHeatmap === 'function') {
+      window.wpInvalidateHeatmap('panel_eliminado');
+    } else {
+      window.solarSimState.annualHeatmapData = null;
+      window.solarSimState.annualHeatmapDirty = true;
     }
   }
 
+  const deletedCount = indicesToDelete.length;
+  if (typeof window !== 'undefined') {
+    window.selectedPanelIndices = [];
+    window.selectedPanelIndex = -1;
+  }
   selectedPanelIndex = -1;
+  if (typeof selectPanel === 'function') selectPanel(-1);
   if (typeof updatePanelSelectionUI === 'function') updatePanelSelectionUI();
   if (typeof wpHideUniversalGizmo === 'function') wpHideUniversalGizmo();
-  if (typeof clearSimulatedPV === 'function') clearSimulatedPV();
-  if (typeof startSolarPanelsSimulation === 'function') startSolarPanelsSimulation();
+
+  if (typeof wpFastRenderSimulatedPanels === 'function') wpFastRenderSimulatedPanels(true);
+  if (typeof recalculateSolarYield === 'function') recalculateSolarYield();
+  if (typeof wpCalculateAndRenderInverterCables === 'function') wpCalculateAndRenderInverterCables();
+  if (typeof renderTriad2D === 'function') renderTriad2D();
+  if (typeof wpUpdateStep3UI === 'function') wpUpdateStep3UI();
+  if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') BOMTreeEngine.refresh();
+  if (typeof viewer !== 'undefined' && viewer && viewer.scene && typeof viewer.scene.requestRender === 'function') {
+    viewer.scene.requestRender();
+  }
   if (typeof showStatus === 'function') {
-    showStatus('<i data-lucide=\"trash-2\" class=\"icon-sm\"></i> MÓDULO FV ELIMINADO', 1800);
+    showStatus(deletedCount > 1
+      ? ('<i data-lucide="trash-2" class="icon-sm"></i> ' + deletedCount + ' MÓDULOS FV ELIMINADOS')
+      : '<i data-lucide="trash-2" class="icon-sm"></i> MÓDULO FV ELIMINADO', 2000);
   }
 }
+if (typeof window !== 'undefined') window.deleteSelectedPanel = deleteSelectedPanel;
 
 function toScreen(pos3D) {
   const scene = typeof viewer !== 'undefined' && viewer ? viewer.scene : (window.viewer ? window.viewer.scene : null);
@@ -2405,7 +2464,7 @@ function wpOffsetActivePlaneZ(deltaZ) {
 }
 window.wpOffsetActivePlaneZ = wpOffsetActivePlaneZ;
 
-function wpDeleteActivePlane(skipConfirm = false) {
+async function wpDeleteActivePlane(skipConfirm = false) {
   if (WP.activePlaneIdx < 0 || !WP.planes[WP.activePlaneIdx]) return;
 
   // ── Paso 1: Confirmación ──────────────────────────────────────────────────
@@ -2428,7 +2487,10 @@ function wpDeleteActivePlane(skipConfirm = false) {
     msg += '\n\nPuedes pulsar CTRL+Z para deshacer si lo borras por error.';
   }
 
-  if (!skipConfirm && !window.confirm(msg)) return; // ← el usuario canceló
+  if (!skipConfirm) {
+    const ok = (typeof raConfirmAsync === 'function') ? await raConfirmAsync(msg, 'Eliminar plano') : true;
+    if (!ok) return;
+  }
 
   if (window.RAundo && typeof window.RAundo.snapProject === 'function') {
     window.RAundo.snapProject('Eliminar plano ' + planeName);
@@ -2635,10 +2697,10 @@ function startPolylineDrawMode() {
         return;
       }
     }
-    if (typeof showToast === 'function') {
+    if (typeof raAlert === 'function') {
+      raAlert('Es obligatorio crear primero el plano de trabajo tocando 3 puntos sobre la superficie.', 'warning');
+    } else if (typeof showToast === 'function') {
       showToast('PLANO REQUERIDO', 'Toca 3 puntos sobre el tejado para definir el plano de trabajo antes de dibujar polilíneas.', 'warning', 4500);
-    } else {
-      alert('Es obligatorio crear primero el plano de trabajo tocando 3 puntos sobre la superficie.');
     }
     return;
   }
@@ -3314,7 +3376,7 @@ function wpDeleteSelectedVertexFromList() {
   if (!poly || WP.selectedVtxIdx < 0 || WP.selectedVtxIdx >= poly.points.length) return;
 
   if (poly.points.length <= 3) {
-    alert('Una polilínea cerrada debe tener al menos 3 vértices. Para eliminar la polilínea completa, pulsa "BORRAR POLILÍNEA".');
+    (typeof raAlert === 'function' ? raAlert : console.warn)('Una polilínea cerrada debe tener al menos 3 vértices. Para eliminar la polilínea completa, pulsa "BORRAR POLILÍNEA".', 'warning');
     return;
   }
 
@@ -4020,7 +4082,6 @@ async function wpGoToStep(step, force = false) {
       const pCalcs = (typeof getProjectCalcs === 'function') ? getProjectCalcs() : {};
       sumContainer.innerHTML = EngineeringExplainer.generateExecutiveSummaryHTML(pCalcs);
     }
-    if (typeof updateBudgetUI === 'function') updateBudgetUI();
     if (typeof wpRenderMonthlyProductionChart === 'function') {
       wpRenderMonthlyProductionChart();
     }
@@ -6439,11 +6500,14 @@ window.DEFAULT_EQUIPMENT_CATALOG = DEFAULT_EQUIPMENT_CATALOG;
   }
 }
 
-function resetEquipmentCatalogToDefault() {
-  if (confirm('¿Deseas restaurar el catálogo oficial de equipos FV a los valores de fábrica?')) {
+async function resetEquipmentCatalogToDefault() {
+  const ok = (typeof raConfirmAsync === 'function')
+    ? await raConfirmAsync('¿Deseas restaurar el catálogo oficial de equipos FV a los valores de fábrica?', 'Restaurar catálogo')
+    : true;
+  if (ok) {
     equipmentCatalog = JSON.parse(JSON.stringify(DEFAULT_EQUIPMENT_CATALOG));
     window.equipmentCatalog = equipmentCatalog;
-window.DEFAULT_EQUIPMENT_CATALOG = DEFAULT_EQUIPMENT_CATALOG;
+    window.DEFAULT_EQUIPMENT_CATALOG = DEFAULT_EQUIPMENT_CATALOG;
     saveEquipmentCatalog();
     showStatus('CATÁLOGO DE EQUIPOS RESTAURADO', 2000);
   }
@@ -6584,12 +6648,22 @@ function switchCatalogTab(tabName) {
       window.updateWindTurbineAreaPreview(false);
     }
   } else if (tabName === 'ai_import') {
+    const _aiPane = document.getElementById('cat-pane-ai_import');
     if (typeof window !== 'undefined' && window.RAEquipmentAIImporter && typeof window.RAEquipmentAIImporter.renderInitialUI === 'function') {
-      window.RAEquipmentAIImporter.renderInitialUI(document.getElementById('cat-pane-ai_import'));
+      window.RAEquipmentAIImporter.renderInitialUI(_aiPane);
+    } else if (typeof window !== 'undefined' && window.RALazyLoader && typeof window.RALazyLoader.loadEquipmentAIImporter === 'function') {
+      window.RALazyLoader.loadEquipmentAIImporter().then(function(mod) {
+        if (mod && typeof mod.renderInitialUI === 'function') mod.renderInitialUI(_aiPane);
+      }).catch(function() {});
     }
   } else if (tabName === 'ai_search') {
+    const _wsPane = document.getElementById('cat-pane-ai_search');
     if (typeof window !== 'undefined' && window.RAEquipmentWebSearch && typeof window.RAEquipmentWebSearch.renderUI === 'function') {
-      window.RAEquipmentWebSearch.renderUI(document.getElementById('cat-pane-ai_search'));
+      window.RAEquipmentWebSearch.renderUI(_wsPane);
+    } else if (typeof window !== 'undefined' && window.RALazyLoader && typeof window.RALazyLoader.loadEquipmentWebSearch === 'function') {
+      window.RALazyLoader.loadEquipmentWebSearch().then(function(mod) {
+        if (mod && typeof mod.renderUI === 'function') mod.renderUI(_wsPane);
+      }).catch(function() {});
     }
   } else if (tabName === 'structures') {
     if (typeof window !== 'undefined' && window.RAStructureCatalog && typeof window.RAStructureCatalog.renderStructuresCatalogUI === 'function') {
@@ -6812,8 +6886,6 @@ function applyInverterFromCatalog(invId) {
   if (invCostEl) invCostEl.value = inv.price;
   if (typeof step3UpdateHardwareSelection === 'function') {
     step3UpdateHardwareSelection();
-  } else {
-    updateBudgetUI();
   }
   showStatus('INVERSOR ASIGNADO: ' + inv.brand + ' ' + inv.model + ' (' + inv.kw + ' kW)', 2500);
 }
@@ -6838,8 +6910,6 @@ function applyMicroinverterFromCatalog(miId) {
   if (selMi) selMi.value = miId;
   if (typeof step3UpdateHardwareSelection === 'function') {
     step3UpdateHardwareSelection();
-  } else if (typeof updateBudgetUI === 'function') {
-    updateBudgetUI();
   }
   if (typeof showStatus === 'function') {
     showStatus('MICROINVERSOR ASIGNADO: ' + mi.brand + ' ' + mi.model + ' (' + (mi.kw * 1000) + ' W)', 2500);
@@ -6877,8 +6947,6 @@ function applyBatteryFromCatalog(batId) {
   }
   if (typeof step3UpdateHardwareSelection === 'function') {
     step3UpdateHardwareSelection();
-  } else {
-    updateBudgetUI();
   }
   if (typeof wpRenderBattery3D === 'function') {
     wpRenderBattery3D();

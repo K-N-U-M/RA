@@ -50,6 +50,9 @@ function raGetSimulatedMonthlyKwh() {
 }
 
 function escapeHtml(str) {
+  if (typeof window !== 'undefined' && window.RASanitize && typeof window.RASanitize.plain === 'function') {
+    return window.RASanitize.plain(str);
+  }
   if (str === null || str === undefined) return '';
   return String(str)
     .replace(/&/g, '&amp;')
@@ -378,11 +381,40 @@ function docWindow(title, body, opt) {
       if (input) input.click();
     }
 
+    function _docNotify(msg) {
+      try {
+        const ow = (window.opener && !window.opener.closed) ? window.opener : ((window.parent && window.parent !== window) ? window.parent : null);
+        if (ow && typeof ow.raAlert === 'function') { ow.raAlert(msg); return; }
+      } catch (_) {}
+      const n = document.createElement('div');
+      n.setAttribute('role', 'status');
+      n.style.cssText = 'position:fixed;top:14px;right:14px;z-index:999999;background:#0f172a;color:#fff;padding:10px 14px;border-radius:8px;font-size:12px;box-shadow:0 8px 24px rgba(0,0,0,0.4);max-width:360px;';
+      n.textContent = msg;
+      document.body.appendChild(n);
+      setTimeout(function() { if (n.parentNode) n.parentNode.removeChild(n); }, 4500);
+    }
+
+    function _docConfirmAsync(msg) {
+      try {
+        const ow = (window.opener && !window.opener.closed) ? window.opener : ((window.parent && window.parent !== window) ? window.parent : null);
+        if (ow && typeof ow.raConfirmAsync === 'function') return ow.raConfirmAsync(msg, 'Confirmar');
+      } catch (_) {}
+      return new Promise(function(res) {
+        const ov = document.createElement('div');
+        ov.style.cssText = 'position:fixed;inset:0;background:rgba(2,6,23,0.75);z-index:999999;display:flex;align-items:center;justify-content:center;';
+        ov.innerHTML = '<div style="background:#0f172a;color:#fff;padding:18px;border-radius:10px;max-width:360px;font-family:sans-serif;"><div style="font-size:13px;margin-bottom:14px;"></div><div style="display:flex;justify-content:flex-end;gap:8px;"><button type="button" data-c="0" style="padding:6px 12px;border-radius:6px;border:1px solid #475569;background:#1e293b;color:#fff;cursor:pointer;">Cancelar</button><button type="button" data-c="1" style="padding:6px 12px;border-radius:6px;border:none;background:#059669;color:#fff;font-weight:700;cursor:pointer;">Eliminar</button></div></div>';
+        ov.firstChild.firstChild.textContent = msg;
+        ov.querySelector('[data-c="0"]').onclick = function() { ov.remove(); res(false); };
+        ov.querySelector('[data-c="1"]').onclick = function() { ov.remove(); res(true); };
+        document.body.appendChild(ov);
+      });
+    }
+
     function handleDocImageInsert(input) {
       if (!input.files || !input.files[0]) return;
       const file = input.files[0];
       if (!/^image\/(png|jpeg|jpg|webp|gif)$/i.test(file.type || '')) {
-        alert('Formato no permitido. Usa únicamente imágenes PNG, JPG, WebP o GIF.');
+        _docNotify('Formato no permitido. Usa únicamente imágenes PNG, JPG, WebP o GIF.');
         input.value = '';
         return;
       }
@@ -410,18 +442,18 @@ function docWindow(title, body, opt) {
           const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
           insertImageIntoDoc(dataUrl, 'Captura 3D del Proyecto');
         } else {
-          alert('No se pudo acceder al lienzo 3D de la ventana principal. Asegúrate de tener la ventana del proyecto abierta.');
+          _docNotify('No se pudo acceder al lienzo 3D de la ventana principal. Asegúrate de tener la ventana del proyecto abierta.');
         }
       } catch (err) {
         console.warn('Error capturando vista 3D:', err);
-        alert('Error capturando el lienzo 3D: ' + err.message);
+        _docNotify('Error capturando el lienzo 3D: ' + err.message);
       }
     }
 
     function insertImageIntoDoc(dataUrl, altText) {
       const s = String(dataUrl || '').trim();
       if (!/^data:image\/(?:png|jpeg|jpg|webp|gif);base64,[A-Za-z0-9+/=]+$/i.test(s)) {
-        alert('Imagen inválida o formato no soportado.');
+        _docNotify('Imagen inválida o formato no soportado.');
         return;
       }
       const wrapper = document.createElement('div');
@@ -466,9 +498,9 @@ function docWindow(title, body, opt) {
         delBtn.className = 'ra-block-del-btn no-print';
         delBtn.title = 'Eliminar este bloque';
         delBtn.innerHTML = '✕';
-        delBtn.onclick = function(ev) {
+        delBtn.onclick = async function(ev) {
           ev.stopPropagation();
-          if (confirm('¿Eliminar este bloque del presupuesto?')) {
+          if (await _docConfirmAsync('¿Eliminar este bloque del presupuesto?')) {
             el.remove();
           }
         };
@@ -589,7 +621,12 @@ function docWindow(title, body, opt) {
         });
         cloneSheet.removeAttribute('contenteditable');
 
-        const exporter = (window.opener && window.opener.RADocxExporter) || (typeof RADocxExporter !== 'undefined' ? RADocxExporter : null);
+        let exporter = (window.opener && window.opener.RADocxExporter) || (typeof RADocxExporter !== 'undefined' ? RADocxExporter : null);
+        if (!exporter && window.opener && window.opener.RALazyLoader && typeof window.opener.RALazyLoader.loadDocxExporter === 'function') {
+          exporter = await window.opener.RALazyLoader.loadDocxExporter();
+        } else if (!exporter && typeof RALazyLoader !== 'undefined' && typeof RALazyLoader.loadDocxExporter === 'function') {
+          exporter = await RALazyLoader.loadDocxExporter();
+        }
         if (exporter && typeof exporter.rasterizeSvgsToPng === 'function') {
           await exporter.rasterizeSvgsToPng(cloneSheet);
         } else {
@@ -633,7 +670,7 @@ function docWindow(title, body, opt) {
         setTimeout(() => URL.revokeObjectURL(a.href), 30000);
       } catch(errDocx) {
         console.error('Error exportando documento DOCX:', errDocx);
-        alert('No se pudo generar el archivo DOCX: ' + (errDocx.message || errDocx));
+        _docNotify('No se pudo generar el archivo DOCX: ' + (errDocx.message || errDocx));
       } finally {
         if (btnWord) { btnWord.innerHTML = origText || '📝 WORD (.DOCX)'; btnWord.disabled = false; }
       }
@@ -841,7 +878,7 @@ function generateMemoria(skipPricingModal, opt) {
   const dcEs3D = !!d.L_dc_esMedida3D;
   const acEs3D = !!d.L_ac_esMedida3D;
   if (d.numPanels === 0) {
-    alert('Define primero el polígono de la instalación con al menos 3 vértices.'); return;
+    (typeof raAlert === 'function' ? raAlert : console.warn)('Define primero el polígono de la instalación con al menos 3 vértices.', 'warning'); return;
   }
   const t = d.tit;
   const loc = (t.dir ? t.dir + ', ' : '') + (t.mun || '') + (t.prov ? ', ' + t.prov : '');
@@ -1645,7 +1682,7 @@ function generateUnifilar() {
   if (typeof raEnsureAnalysisReadyForDoc === 'function' && !raEnsureAnalysisReadyForDoc()) return;
   const d = _docGetProjectCalcs();
   if (d.numPanels === 0) {
-    alert('Define primero el polígono de la instalación en el visor 3D.');
+    (typeof raAlert === 'function' ? raAlert : console.warn)('Define primero el polígono de la instalación en el visor 3D.', 'warning');
     return;
   }
 
@@ -2331,7 +2368,7 @@ function generatePlanoPlanta() {
   const hasPolylines = (typeof WP !== 'undefined' && WP && Array.isArray(WP.polylines) && WP.polylines.some(p => Array.isArray(p.points) && p.points.length >= 3));
   const hasPolygon = (typeof polygonPoints !== 'undefined' && Array.isArray(polygonPoints) && polygonPoints.length >= 3);
   if (!hasPolylines && !hasPolygon) {
-    alert('Define primero el polígono de la instalación con al menos 3 vértices en el visor 3D.');
+    (typeof raAlert === 'function' ? raAlert : console.warn)('Define primero el polígono de la instalación con al menos 3 vértices en el visor 3D.', 'warning');
     return;
   }
 
@@ -2339,7 +2376,7 @@ function generatePlanoPlanta() {
   const roofData = computeRoofPanelsData();
 
   if (!roofData) {
-    alert('Error calculando la geometría de la cubierta.');
+    (typeof raAlert === 'function' ? raAlert : console.warn)('Error calculando la geometría de la cubierta.', 'error');
     return;
   }
 
@@ -2817,7 +2854,7 @@ function generatePlanoPlanta() {
 
   const w = window.open('', '_blank');
   if (!w) {
-    alert('Por favor, activa las ventanas emergentes (popups) en tu navegador para visualizar el plano de planta.');
+    (typeof raAlert === 'function' ? raAlert : console.warn)('Por favor, activa las ventanas emergentes (popups) en tu navegador para visualizar el plano de planta.', 'warning');
     return;
   }
   w.document.open();
@@ -2953,7 +2990,7 @@ async function generateDeliveryPack(skipPricingModal) {
 
   const d = _docGetProjectCalcs();
   if (d.numPanels === 0) {
-    alert('Diseña primero el polígono de la instalación en el visor 3D.');
+    (typeof raAlert === 'function' ? raAlert : console.warn)('Diseña primero el polígono de la instalación en el visor 3D.', 'warning');
     return;
   }
 

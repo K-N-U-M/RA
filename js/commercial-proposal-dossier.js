@@ -2312,14 +2312,20 @@
       '        if (lsSaved && lsSaved !== "__IDB__") saved = lsSaved;',
       '      }',
       '      if (saved) {',
-      '        if (confirm("¿Deseas restaurar el borrador guardado de esta propuesta? Se cargarán todos los textos e imágenes modificadas.")) {',
+      '        var _okDraft = false;',
+      '        if (window.opener && typeof window.opener.raConfirmAsync === "function") {',
+      '          _okDraft = await window.opener.raConfirmAsync("¿Deseas restaurar el borrador guardado de esta propuesta? Se cargarán todos los textos e imágenes modificadas.", "Restaurar borrador");',
+      '        } else {',
+      '          _okDraft = await new Promise(function(res){ var ov = document.createElement("div"); ov.style.cssText = "position:fixed;inset:0;background:rgba(2,6,23,0.75);z-index:999999;display:flex;align-items:center;justify-content:center;"; ov.innerHTML = "<div style=\\"background:#0f172a;color:#fff;padding:18px;border-radius:10px;max-width:380px;font-family:sans-serif;\\"><div style=\\"font-size:13px;margin-bottom:14px;\\">¿Deseas restaurar el borrador guardado de esta propuesta? Se cargarán todos los textos e imágenes modificadas.</div><div style=\\"display:flex;justify-content:flex-end;gap:8px;\\"><button type=\\"button\\" data-c=\\"0\\" style=\\"padding:6px 12px;border-radius:6px;border:1px solid #475569;background:#1e293b;color:#fff;cursor:pointer;\\">Cancelar</button><button type=\\"button\\" data-c=\\"1\\" style=\\"padding:6px 12px;border-radius:6px;border:none;background:#059669;color:#fff;font-weight:700;cursor:pointer;\\">Restaurar</button></div></div>"; ov.querySelector("[data-c=\\"0\\"]").onclick=function(){ov.remove();res(false);}; ov.querySelector("[data-c=\\"1\\"]").onclick=function(){ov.remove();res(true);}; document.body.appendChild(ov); });',
+      '        }',
+      '        if (_okDraft) {',
       '          var container = document.getElementById("dossier-container");',
       '          if (container) {',
       '            container.innerHTML = _sanitizeDraftWin(saved);',
       '            this.setupDragAndResize();',
       '            this.ensureAllContentEditable();',
       '            this.checkSheetOverflows();',
-      '            alert("Borrador restaurado con éxito.");',
+      '            if (window.opener && typeof window.opener.raAlert === "function") window.opener.raAlert("Borrador restaurado con éxito.", "success");',
       '          }',
       '        }',
       '      }',
@@ -2355,6 +2361,9 @@
       '      var container = document.getElementById("dossier-container");',
       '      var sanitized = this.getSanitizedClone(container);',
       '      var exporter = (window.opener && window.opener.RADocxExporter) || (typeof RADocxExporter !== "undefined" ? RADocxExporter : null);',
+      '      if (!exporter && window.opener && window.opener.RALazyLoader && typeof window.opener.RALazyLoader.loadDocxExporter === "function") {',
+      '        exporter = await window.opener.RALazyLoader.loadDocxExporter();',
+      '      }',
       '      if (exporter && typeof exporter.rasterizeSvgsToPng === "function") {',
       '        await exporter.rasterizeSvgsToPng(sanitized);',
       '      }',
@@ -2384,7 +2393,7 @@
       '      setTimeout(function() { URL.revokeObjectURL(a.href); }, 30000);',
       '    } catch(errDocx) {',
       '      console.error("Error exportando dossier a DOCX:", errDocx);',
-      '      alert("Error al exportar a DOCX: " + (errDocx.message || errDocx));',
+      '      if (window.opener && typeof window.opener.raAlert === "function") window.opener.raAlert("Error al exportar a DOCX: " + (errDocx.message || errDocx), "error");',
       '    } finally {',
       '      if (btn) { btn.innerHTML = origText || "DESCARGAR WORD (.DOCX)"; btn.disabled = false; }',
       '    }',
@@ -2577,7 +2586,7 @@
       win.document.write(html.join('\n'));
       win.document.close();
     } else {
-      alert('Por favor, permite abrir ventanas emergentes en tu navegador para ver el dossier.');
+      (typeof raAlert === 'function' ? raAlert : console.warn)('Por favor, permite abrir ventanas emergentes en tu navegador para ver el dossier.', 'warning');
     }
   }
 

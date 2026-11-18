@@ -503,7 +503,7 @@ async function requestCommercialSummaryFromGemini(d, m, equipment) {
   var apiKey = '';
   try {
     if (window.RA && typeof window.RA.getGeminiApiKey === 'function') apiKey = window.RA.getGeminiApiKey();
-    if (!apiKey) apiKey = (window.RA && window.RA.geminiApiKey) ? window.RA.geminiApiKey : (localStorage.getItem('ra_gemini_api_key') || '');
+    else if (window.RA && window.RA.geminiApiKey) apiKey = window.RA.geminiApiKey;
   } catch(e) {}
   if (!apiKey) throw new Error('NO_API_KEY');
 
@@ -1318,7 +1318,6 @@ var RAPricing = {
     try {
       localStorage.setItem(this.COMMERCIAL_CONFIG_KEY, JSON.stringify(cfg));
     } catch(e) {}
-    if (typeof updateBudgetUI === 'function') updateBudgetUI();
   },
 
   computeAddonsTotal: function() {
@@ -2483,11 +2482,11 @@ function wpOpenPricingReviewModal(onConfirm) {
       var apiKey = '';
       try {
         if (window.RA && typeof window.RA.getGeminiApiKey === 'function') apiKey = window.RA.getGeminiApiKey();
-        if (!apiKey) apiKey = localStorage.getItem('ra_gemini_api_key') || '';
+        else if (window.RA && window.RA.geminiApiKey) apiKey = window.RA.geminiApiKey;
       } catch(e) {}
 
       if (!apiKey) {
-        alert('Por favor, introduce o verifica tu API Key de Gemini en el menu Datos & Logo Empresa (Paso 5) para activar las consultas de mercado con IA.');
+        (typeof raAlert === 'function' ? raAlert : console.warn)('Por favor, introduce o verifica tu API Key de Gemini en el menu Datos & Logo Empresa (Paso 5) para activar las consultas de mercado con IA.', 'warning');
         return;
       }
 
@@ -2525,6 +2524,9 @@ function wpOpenPricingReviewModal(onConfirm) {
         // 1. Descubrir modelos activos admitidos por la API Key del usuario o usar fallback ordenado
         var modelsToTry = [];
         try {
+          if (!window.RAEquipmentAIImporter && window.RALazyLoader && typeof window.RALazyLoader.loadEquipmentAIImporter === 'function') {
+            await window.RALazyLoader.loadEquipmentAIImporter();
+          }
           if (window.RAEquipmentAIImporter && typeof window.RAEquipmentAIImporter.discoverAvailableModels === 'function') {
             modelsToTry = await window.RAEquipmentAIImporter.discoverAvailableModels(apiKey);
           }
@@ -2937,7 +2939,6 @@ function wpOpenPricingReviewModal(onConfirm) {
       }
 
       wpUpdateStep5PricingBadge();
-      if (typeof updateBudgetUI === 'function') updateBudgetUI();
 
       var sumContainer = document.getElementById('step5-executive-summary-container');
       if (sumContainer && typeof EngineeringExplainer !== 'undefined' && typeof EngineeringExplainer.generateExecutiveSummaryHTML === 'function') {
@@ -3350,6 +3351,10 @@ if (typeof window !== 'undefined') {
     pageNum2 = pageNum2 || (pageNum + 1);
     totPages = totPages || 8;
     companyName = companyName || 'SOLAR 3D PRO';
+    var _escCel = function(v) {
+      if (window.RASanitize && typeof window.RASanitize.plain === 'function') return window.RASanitize.plain(v);
+      return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    };
 
     const cfg = studioCfg || {};
     const flowH = (typeof cfg.celFlowBarHeightPx === 'number' && cfg.celFlowBarHeightPx >= 18) ? cfg.celFlowBarHeightPx : 26;
@@ -3612,7 +3617,7 @@ if (typeof window !== 'undefined') {
       '<!-- PIE DE HOJA CEL 1 -->' +
       '<div class="cover-footer">' +
         '<span>Marco legal: RDL 7/2026 (BOE) · Orden TED/1247/2021 · RD 244/2019 · REBT ITC-BT-40</span>' +
-        '<span>' + companyName + ' · Ref: ' + (d.refNum || 'PROY') + '</span>' +
+        '<span>' + _escCel(companyName) + ' · Ref: ' + _escCel(d.refNum || 'PROY') + '</span>' +
       '</div>' +
     '</div>';
 
@@ -3691,13 +3696,21 @@ if (typeof window !== 'undefined') {
       '<!-- PIE DE HOJA CEL 2 -->' +
       '<div class="cover-footer">' +
         '<span>Marco legal: RDL 7/2026 (BOE) · Orden TED/1247/2021 · RD 244/2019 · REBT ITC-BT-40</span>' +
-        '<span>' + companyName + ' · Ref: ' + (d.refNum || 'PROY') + '</span>' +
+        '<span>' + _escCel(companyName) + ' · Ref: ' + _escCel(d.refNum || 'PROY') + '</span>' +
       '</div>' +
     '</div>';
 
     return page1Html + page2Html;
   }
 function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, themeOverride) {
+  if (typeof window !== 'undefined') {
+    if (window.solarSimState && (window.solarSimState.solarYieldDirty || window.solarSimState.annualHeatmapDirty) && typeof recalculateSolarYield === 'function') {
+      try { recalculateSolarYield(true); } catch (eSol) {}
+    }
+    if (window.RAWind && window.RAWind.dirty && typeof window.RAWind.recalculate === 'function') {
+      try { window.RAWind.recalculate(); } catch (eWnd) {}
+    }
+  }
   if (typeof raEnsureAnalysisReadyForDoc === 'function' && !raEnsureAnalysisReadyForDoc()) return;
   const d = getProjectCalcs();
   // Resiliencia AAA: si getProjectCalcs devuelve 0 paneles, intentar recuperar de caché conocida
@@ -3715,7 +3728,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         : 0);
   }
   if (!numPanelsFinal || numPanelsFinal === 0) {
-    alert('Diseña primero el polígono de la instalación en el visor 3D.');
+    (typeof raAlert === 'function' ? raAlert : console.warn)('Diseña primero el polígono de la instalación en el visor 3D.', 'warning');
     return;
   }
   if (d.numPanels === 0 && numPanelsFinal > 0) {
@@ -4966,28 +4979,20 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       .company-text .contact { font-size: 10px; color: #94a3b8; margin-top: 3px; }
       .doc-ref-box { text-align: right; font-size: 11px; color: #475569; }
       .doc-ref-box b { color: #0f172a; font-size: 13px; }
-      h2 { font-size: 13px; font-weight: 800; color: #1e293b; text-transform: uppercase; letter-spacing: 0.5px; margin: 20px 0 10px; border-left: 4px solid ${pal.primary}; padding-left: 10px; }
       .hero-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 12px 0 20px; }
       .hero-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; text-align: center; }
       .hero-val { font-size: 19px; font-weight: 900; color: #0f172a; margin-top: 4px; }
       .hero-val.primary { color: ${pal.primary}; }
       .hero-lbl { font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; }
-      table { width: 100%; border-collapse: collapse; margin: 8px 0 18px; font-size: 11px; }
-      th { background: #f8fafc; color: #475569; font-weight: 800; text-align: left; padding: 7px 10px; border-bottom: 2px solid #e2e8f0; }
-      td { padding: 7px 10px; border-bottom: 1px solid #f1f5f9; color: #334155; }
       .text-right { text-align: right; }
       .total-row td { font-weight: 900; font-size: 12.5px; color: #0f172a; background: #fffbeb; border-top: 2px solid ${pal.primary}; }
       .chart-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; margin-bottom: 20px; }
       .chart-title { font-size: 11px; font-weight: 800; color: #1e293b; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.3px; }
-      .closer-hero-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 12px 0 16px; }
-      .closer-hero-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 8px; text-align: center; }
       .closer-hero-card.highlight { background: linear-gradient(135deg, ${pal.light}, #ffffff); border: 2px solid ${pal.primary}; }
       .closer-hero-val { font-size: 21px; font-weight: 900; color: #0f172a; margin: 4px 0 2px; }
       .closer-hero-val.primary { color: ${pal.primary}; }
       .closer-hero-lbl { font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
       .closer-hero-sub { font-size: 10px; color: #64748b; margin-top: 2px; font-weight: 600; }
-      .decision-boxes { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 14px 0; }
-      .decision-card { border-radius: 8px; padding: 14px 16px; border: 1px solid #e2e8f0; background: #f8fafc; }
       .decision-card.featured { border: 2px solid ${pal.primary}; background: #ffffff; box-shadow: 0 4px 12px rgba(0,0,0,0.04); }
       .decision-title { font-size: 11.5px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; }
       .decision-row { display: flex; justify-content: space-between; align-items: center; font-size: 10.5px; padding: 3px 0; color: #475569; }
@@ -5390,7 +5395,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       <!-- Pie de Portada -->
       <div class="cover-footer">
         <span>Garantía de rendimiento: ${warPower} años · Marcado CE · Código Técnico de la Edificación (CTE)</span>
-        <span>${companyName} · ${d.refNum}</span>
+        <span>${_escProp(companyName)} · ${_escProp(d.refNum)}</span>
       </div>
     </div>
 
@@ -5401,9 +5406,9 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
 
         <h2>1. Datos del cliente y ubicación</h2>
         <table>
-          <tr><td width="30%"><strong>Cliente / Titular:</strong></td><td>${d.tit.nombre} (${d.tit.nif})</td></tr>
-          <tr><td><strong>Dirección Instalación:</strong></td><td>${d.tit.dir || 'Instalación Solar'}, ${d.tit.mun || ''} (${d.tit.prov || ''})</td></tr>
-          <tr><td><strong>Punto Suministro (CUPS):</strong></td><td>${_isOffGrid ? 'Suministro Aislado Independiente (Sin acometida de red)' : d.tit.cups}</td></tr>
+          <tr><td width="30%"><strong>Cliente / Titular:</strong></td><td>${_escProp(d.tit.nombre)} (${_escProp(d.tit.nif)})</td></tr>
+          <tr><td><strong>Dirección Instalación:</strong></td><td>${_escProp(d.tit.dir || 'Instalación Solar')}, ${_escProp(d.tit.mun || '')} (${_escProp(d.tit.prov || '')})</td></tr>
+          <tr><td><strong>Punto Suministro (CUPS):</strong></td><td>${_isOffGrid ? 'Suministro Aislado Independiente (Sin acometida de red)' : _escProp(d.tit.cups)}</td></tr>
           <tr><td><strong>Modalidad Instalación:</strong></td><td>${_modalTextoFinal}</td></tr>
         </table>
 
@@ -5483,8 +5488,8 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
             </div>
             <div class="tech-info">
               <div class="tech-label">GENERACIÓN MINI-EÓLICA</div>
-              <div class="tech-name" title="${_eqp.windName}">${_eqp.windName}</div>
-              <div class="tech-sub">${_eqp.windDesc}</div>
+              <div class="tech-name" title="${_escProp(_eqp.windName)}">${_escProp(_eqp.windName)}</div>
+              <div class="tech-sub">${_escProp(_eqp.windDesc)}</div>
             </div>
             <div class="tech-badge">
               ${_eqp.windCount} ud${_eqp.windCount > 1 ? 's' : ''} · ${_eqp.windTotalKw.toFixed(1)} kW
@@ -5500,7 +5505,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
             </div>
             <div class="tech-info">
               <div class="tech-label">OPTIMIZADORES DE POTENCIA</div>
-              <div class="tech-name" title="${_eqp.optimizerName}">${_eqp.optimizerName}</div>
+              <div class="tech-name" title="${_escProp(_eqp.optimizerName)}">${_escProp(_eqp.optimizerName)}</div>
               <div class="tech-sub">Optimización individual MPPT a nivel de módulo DC</div>
             </div>
             <div class="tech-badge">
@@ -5542,7 +5547,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       </div>
       <div style="font-size:9.5px;color:#94a3b8;border-top:1px solid #f1f5f9;padding-top:8px;display:flex;justify-content:space-between;">
         <span>Certificaciones: IEC 61215 · IEC 61730 · Marcado CE · Código Técnico Edificación (CTE DB-HE5)</span>
-        <span>${companyName}</span>
+        <span>${_escProp(companyName)}</span>
       </div>
     </div>
 
@@ -5830,8 +5835,8 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
             <div style="margin-top:auto;padding-top:36px;">
               <div style="border-bottom:1px solid #475569;width:75%;margin:0 auto 6px auto;"></div>
               <div style="font-size:10px;font-weight:700;color:#334155;">Firma del Cliente</div>
-              <div style="font-size:9.5px;color:#475569;margin-top:2px;">D./Dña. ${d.tit.nombre}</div>
-              <div style="font-size:9px;color:#64748b;">NIF: ${d.tit.nif}</div>
+              <div style="font-size:9.5px;color:#475569;margin-top:2px;">D./Dña. ${_escProp(d.tit.nombre)}</div>
+              <div style="font-size:9px;color:#64748b;">NIF: ${_escProp(d.tit.nif)}</div>
               <div style="font-size:9px;color:#64748b;margin-top:2px;">Fecha: ___ / ___ / 2026</div>
             </div>
           </div>
@@ -5839,15 +5844,15 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
             <div>
               <div class="sig-logo-box">
                 ${logoDataUrl ? '<img src="' + logoDataUrl + '" style="max-height:36px;max-width:100px;object-fit:contain;">' : '<span style="display:inline-flex;color:' + pal.primary + ';">' + _mSvg('building', 20, pal.primary) + '</span>'}
-                <div style="text-align:left;"><div style="font-weight:900;font-size:11px;">${companyName}</div>${companyCIF ? '<div style="font-size: 10px;color:#64748b;">CIF: ' + companyCIF + '</div>' : ''}</div>
+                <div style="text-align:left;"><div style="font-weight:900;font-size:11px;">${_escProp(companyName)}</div>${companyCIF ? '<div style="font-size: 10px;color:#64748b;">CIF: ' + _escProp(companyCIF) + '</div>' : ''}</div>
               </div>
               <div style="font-size:10px;font-weight:700;color:#475569;">Por la Empresa Instaladora</div>
             </div>
             <div style="margin-top:auto;padding-top:24px;">
               <div style="border-bottom:1px solid #475569;width:75%;margin:0 auto 6px auto;"></div>
               <div style="font-size:10px;font-weight:700;color:#334155;">Firma y Sello</div>
-              <div style="font-size:9.5px;color:#475569;margin-top:2px;">${d.tit.tecnico} (${d.tit.titulacion})</div>
-              ${contactBlock ? '<div style="font-size:9px;color:#64748b;">' + contactBlock + '</div>' : ''}
+              <div style="font-size:9.5px;color:#475569;margin-top:2px;">${_escProp(d.tit.tecnico)} (${_escProp(d.tit.titulacion)})</div>
+              ${contactBlock ? '<div style="font-size:9px;color:#64748b;">' + _escProp(contactBlock) + '</div>' : ''}
               <div style="margin-top:6px;">${[
                 _mSvg('bolt', 10, pal.primary, 'margin-right:3px;') + 'REBT ITC-BT-40',
                 _mSvg('shield', 10, pal.primary, 'margin-right:3px;') + 'RD 244/2019',
@@ -5861,7 +5866,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       <!-- PIE DE HOJA GARANTÍAS -->
       <div class="cover-footer" style="margin-top:auto;padding-top:12px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;font-size:9px;color:#64748b;">
         <span>Garantía Oficial de Producto y Rendimiento · Homologación Marcado CE · REBT ITC-BT-40</span>
-        <span>${companyName} · Ref: ${d.refNum}</span>
+        <span>${_escProp(companyName)} · Ref: ${_escProp(d.refNum)}</span>
       </div>
     </div>
 
@@ -6010,7 +6015,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       <div style="text-align:center;margin:8px 0 14px;">
         <h1 style="font-size:20px;font-weight:900;color:#0f172a;letter-spacing:-0.5px;">PROPUESTA DE DECISIÓN: TU PLAN SOLAR FOTOVOLTAICO</h1>
         <div style="font-size:11px;color:#64748b;margin-top:3px;">
-          Estudio de viabilidad económica y técnica para <b>${d.tit.nombre}</b> · ${d.tit.dir || 'Instalación Solar'}, ${d.tit.mun || ''}
+          Estudio de viabilidad económica y técnica para <b>${_escProp(d.tit.nombre)}</b> · ${_escProp(d.tit.dir || 'Instalación Solar')}, ${_escProp(d.tit.mun || '')}
         </div>
       </div>
 
@@ -6167,7 +6172,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         </div>
         <div style="text-align:right;font-size: 10px;color:#334155;">
           Firma del Cliente: ________________________ Fecha: ___/___/2026<br>
-          <b>${d.tit.nombre}</b> (NIF: ${d.tit.nif || '___________'})
+          <b>${_escProp(d.tit.nombre)}</b> (NIF: ${_escProp(d.tit.nif || '___________')})
         </div>
       </div>
     </div>
@@ -6181,6 +6186,35 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
           if (window.parent && window.parent !== window && window.parent.document) return window.parent;
         } catch(e) {}
         return null;
+      }
+
+      function _propNotify(msg) {
+        try {
+          const mw = getOpenerWindow();
+          if (mw && typeof mw.raAlert === 'function') { mw.raAlert(msg); return; }
+        } catch (_) {}
+        const n = document.createElement('div');
+        n.setAttribute('role', 'status');
+        n.style.cssText = 'position:fixed;top:14px;right:14px;z-index:999999;background:#0f172a;color:#fff;padding:10px 14px;border-radius:8px;font-size:12px;box-shadow:0 8px 24px rgba(0,0,0,0.4);max-width:360px;';
+        n.textContent = msg;
+        document.body.appendChild(n);
+        setTimeout(function() { if (n.parentNode) n.parentNode.removeChild(n); }, 4500);
+      }
+
+      function _propConfirmAsync(msg) {
+        try {
+          const mw = getOpenerWindow();
+          if (mw && typeof mw.raConfirmAsync === 'function') return mw.raConfirmAsync(msg, 'Confirmar');
+        } catch (_) {}
+        return new Promise(function(res) {
+          const ov = document.createElement('div');
+          ov.style.cssText = 'position:fixed;inset:0;background:rgba(2,6,23,0.75);z-index:999999;display:flex;align-items:center;justify-content:center;';
+          ov.innerHTML = '<div style="background:#0f172a;color:#fff;padding:18px;border-radius:10px;max-width:360px;font-family:sans-serif;"><div style="font-size:13px;margin-bottom:14px;"></div><div style="display:flex;justify-content:flex-end;gap:8px;"><button type="button" data-c="0" style="padding:6px 12px;border-radius:6px;border:1px solid #475569;background:#1e293b;color:#fff;cursor:pointer;">Cancelar</button><button type="button" data-c="1" style="padding:6px 12px;border-radius:6px;border:none;background:#059669;color:#fff;font-weight:700;cursor:pointer;">Eliminar</button></div></div>';
+          ov.firstChild.firstChild.textContent = msg;
+          ov.querySelector('[data-c="0"]').onclick = function() { ov.remove(); res(false); };
+          ov.querySelector('[data-c="1"]').onclick = function() { ov.remove(); res(true); };
+          document.body.appendChild(ov);
+        });
       }
 
       function closeProposalViewer() {
@@ -6220,7 +6254,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
           }
         } catch (e) {}
 
-        alert('Paleta guardada. Vuelve a abrir la propuesta para visualizarla con el nuevo tema.');
+        _propNotify('Paleta guardada. Vuelve a abrir la propuesta para visualizarla con el nuevo tema.');
       }
 
       function triggerPhotoUpload(inputId) {
@@ -6310,10 +6344,10 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
               delBtn.className = 'ra-edit-del-btn no-print';
               delBtn.title = 'Eliminar este elemento';
               delBtn.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>';
-              delBtn.onclick = function(ev) {
+              delBtn.onclick = async function(ev) {
                 ev.stopPropagation();
                 ev.preventDefault();
-                if (confirm('¿Eliminar este bloque del documento?')) {
+                if (await _propConfirmAsync('¿Eliminar este bloque del documento?')) {
                   el.remove();
                 }
               };
@@ -6625,12 +6659,12 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
               sessionStorage.setItem('ra_proposal_custom_photos', JSON.stringify(currentPhotos));
             } catch(ePersist) {}
 
-            alert('¡Captura 3D del proyecto actualizada con éxito en la propuesta!');
+            _propNotify('¡Captura 3D del proyecto actualizada con éxito en la propuesta!');
           } else {
-            alert('No se pudo acceder al visor 3D de la ventana principal. Asegúrate de que la ventana del proyecto esté abierta.');
+            _propNotify('No se pudo acceder al visor 3D de la ventana principal. Asegúrate de que la ventana del proyecto esté abierta.');
           }
         } catch (err) {
-          alert('Error capturando vista 3D: ' + err.message);
+          _propNotify('Error capturando vista 3D: ' + err.message);
         }
       }
 
@@ -6714,7 +6748,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
           const container = document.createElement('div');
           sheets.forEach(s => {
             const cloneSheet = s.cloneNode(true);
-            cloneSheet.querySelectorAll('.ra-edit-del-btn, .ra-gap-handle, #ra-gap-tooltip, #doc-format-toolbar, .no-print, .photo-upload-overlay').forEach(b => b.remove());
+            cloneSheet.querySelectorAll('.ra-edit-del-btn, .ra-gap-handle, #ra-gap-tooltip, #doc-format-toolbar, #prop-format-toolbar, .no-print, .photo-upload-overlay').forEach(b => b.remove());
             cloneSheet.querySelectorAll('[data-editable-box]').forEach(el => {
               el.removeAttribute('draggable');
               el.removeAttribute('data-editable-box');
@@ -6726,7 +6760,12 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
           });
 
           const mw = getOpenerWindow();
-          const exporter = (mw && mw.RADocxExporter) || (typeof RADocxExporter !== 'undefined' ? RADocxExporter : null);
+          let exporter = (mw && mw.RADocxExporter) || (typeof RADocxExporter !== 'undefined' ? RADocxExporter : null);
+          if (!exporter && mw && mw.RALazyLoader && typeof mw.RALazyLoader.loadDocxExporter === 'function') {
+            exporter = await mw.RALazyLoader.loadDocxExporter();
+          } else if (!exporter && typeof RALazyLoader !== 'undefined' && typeof RALazyLoader.loadDocxExporter === 'function') {
+            exporter = await RALazyLoader.loadDocxExporter();
+          }
           if (exporter && typeof exporter.rasterizeSvgsToPng === 'function') {
             await exporter.rasterizeSvgsToPng(container);
           } else {
@@ -6771,7 +6810,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
           setTimeout(() => URL.revokeObjectURL(a.href), 30000);
         } catch(errDocx) {
           console.error('Error exportando a DOCX:', errDocx);
-          alert('No se pudo generar el archivo DOCX: ' + (errDocx.message || errDocx));
+          _propNotify('No se pudo generar el archivo DOCX: ' + (errDocx.message || errDocx));
         } finally {
           if (btnWord) { btnWord.innerHTML = origText || '${_mSvg("fileText", 13, "currentColor")} WORD (.DOCX)'; btnWord.disabled = false; }
         }
@@ -6820,7 +6859,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       showEmbeddedDocViewer('Propuesta Comercial Bancable - ' + d.refNum, code);
       return;
     }
-    alert('Por favor, activa las ventanas emergentes (popups) para visualizar la propuesta comercial.');
+    (typeof raAlert === 'function' ? raAlert : console.warn)('Por favor, activa las ventanas emergentes (popups) para visualizar la propuesta comercial.', 'warning');
     return;
   }
   w.document.open();
@@ -7788,7 +7827,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         cuotaAnualY += (mIdx <= mesesCarencia ? cuotaDuranteCarencia : cuotaMensualCredito);
       }
     }
-    const netCFFin = (annualSavings25[y - 1] || 0) - (annualOpex25[y - 1] || 0) - ((y === 12 ? invReplacementCost12 : 0) + (y === batReplacementYear ? batReplacementCost10 : 0)) + (y === 1 ? (customerProfile === 'empresa' ? ahorroSociedades : ahorroIRPF) : 0) + (y <= ibiYears ? ibiAnnualBonus : 0) - cuotaAnualY;
+    const netCFFin = (annualSavings25[y - 1] || 0) - (annualOpex25[y - 1] || 0) - ((y === 12 ? invReplacementCost12 : 0) + (y === batReplacementYear ? batReplacementCost10 : 0)) + (y === 1 ? ((customerProfile === 'empresa' ? ahorroSociedades : ahorroIRPF) + ahorroCAE) : 0) + (y <= ibiYears ? ibiAnnualBonus : 0) - cuotaAnualY;
     cashflowFinanciado.push(Math.round(netCFFin));
     acumuladoFinanciado.push(Math.round(acumuladoFinanciado[y - 1] + netCFFin));
   }

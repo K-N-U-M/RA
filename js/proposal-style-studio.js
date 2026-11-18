@@ -748,11 +748,24 @@
 
   function syncExternalLegacyState(cfg) {
     try {
-      // Sincronizar con RACompanyBranding y CommercialProposalDossier para coherencia total
-      var storedBranding = JSON.parse(localStorage.getItem('ra_company_branding') || '{}');
-      storedBranding.theme = cfg.theme || 'emerald';
-      storedBranding.layoutStyle = cfg.density === 'editorial' ? 'editorial' : (cfg.density === 'compact' ? 'technical' : 'infographic');
-      localStorage.setItem('ra_company_branding', JSON.stringify(storedBranding));
+      // Sincronizar con RACompanyBranding (vía API pública para mantener RA.branding coherente) y CommercialProposalDossier
+      var nextTheme = cfg.theme || 'emerald';
+      var nextLayoutStyle = cfg.density === 'editorial' ? 'editorial' : (cfg.density === 'compact' ? 'technical' : 'infographic');
+      if (global.RACompanyBranding && typeof global.RACompanyBranding.setBrandingFields === 'function') {
+        global.RACompanyBranding.setBrandingFields({
+          theme: nextTheme,
+          layoutStyle: nextLayoutStyle
+        });
+      } else {
+        var storedBranding = JSON.parse(localStorage.getItem('ra_company_branding') || '{}');
+        storedBranding.theme = nextTheme;
+        storedBranding.layoutStyle = nextLayoutStyle;
+        localStorage.setItem('ra_company_branding', JSON.stringify(storedBranding));
+        if (global.RA && global.RA.branding) {
+          global.RA.branding.theme = nextTheme;
+          global.RA.branding.layoutStyle = nextLayoutStyle;
+        }
+      }
       if (global.CommercialProposalDossier && typeof global.CommercialProposalDossier.setConfig === 'function') {
         global.CommercialProposalDossier.setConfig({ theme: cfg.theme || 'emerald' });
       }
@@ -1613,9 +1626,6 @@
       modSel.onchange = function() {
         var val = this.value;
         setInstallationModality(val);
-        if (typeof updateBudgetUI === 'function') {
-          try { updateBudgetUI(); } catch (e) { console.warn('[StyleStudio] updateBudgetUI error:', e); }
-        }
         if (typeof syncCostModalMetrics === 'function') {
           try { syncCostModalMetrics(); } catch (e) { console.warn('[StyleStudio] syncCostModalMetrics error:', e); }
         }
@@ -2920,8 +2930,11 @@
     // Eliminar perfil personalizado
     var btnDelPreset = modal.querySelector('#pss-btn-del-preset');
     if (btnDelPreset) {
-      btnDelPreset.onclick = function() {
-        if (confirm('¿Eliminar este perfil personalizado?')) {
+      btnDelPreset.onclick = async function() {
+        var ok = (typeof global.raConfirmAsync === 'function')
+          ? await global.raConfirmAsync('¿Eliminar este perfil personalizado?', 'Eliminar perfil')
+          : true;
+        if (ok) {
           deleteCustomPreset(st.activePresetId);
           refreshModal(modal, onApplyCallback);
         }

@@ -835,9 +835,6 @@ function step3UpdateHardwareSelection() {
   if (typeof wpUpdateStep4Checklist === 'function') {
     wpUpdateStep4Checklist();
   }
-  if (typeof updateBudgetUI === 'function') {
-    updateBudgetUI();
-  }
   if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') {
     BOMTreeEngine.refresh();
   }
@@ -1425,10 +1422,6 @@ function step3SyncBudgetHardwareCosts(inv, mi, bat) {
     else modalBatOpt.value = '15';
   }
   if (rowBat) rowBat.style.display = totalBatCost > 0 ? 'flex' : 'none';
-
-  if (typeof updateBudgetUI === 'function') {
-    updateBudgetUI();
-  }
 }
 
 // <i data-lucide=\"rocket\" class=\"icon-sm\"></i> PREVISUALIZACIÓN RÁPIDA 3D DESDE EL PASO 3 Y 4

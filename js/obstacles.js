@@ -1722,8 +1722,6 @@ function recalculateLayoutAndObstacles(targetPolyIdx) {
       } else if (typeof startSolarPanelsSimulation === 'function') {
         startSolarPanelsSimulation();
       }
-    } else {
-      if (typeof updateBudgetUI === 'function') updateBudgetUI();
     }
   }
 
@@ -1769,16 +1767,18 @@ function wpCheckObstacleInsideRoof(optObs, notifyIfOutside) {
     return { isInside: false, polyName: null, polyIdx: -1 };
   }
 
-  function ptInPoly(pt, poly) {
-    let inside = false;
-    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-      const xi = poly[i].u, yi = poly[i].v;
-      const xj = poly[j].u, yj = poly[j].v;
-      const intersect = ((yi > pt.v) !== (yj > pt.v)) && (pt.u < (xj - xi) * (pt.v - yi) / (yj - yi) + xi);
-      if (intersect) inside = !inside;
-    }
-    return inside;
-  }
+  const ptInPoly = (typeof window !== 'undefined' && typeof window.isPointInPolygon2D === 'function')
+    ? window.isPointInPolygon2D
+    : function(pt, poly) {
+        let inside = false;
+        for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+          const xi = poly[i].u, yi = poly[i].v;
+          const xj = poly[j].u, yj = poly[j].v;
+          const intersect = ((yi > pt.v) !== (yj > pt.v)) && (pt.u < (xj - xi) * (pt.v - yi) / (yj - yi) + xi);
+          if (intersect) inside = !inside;
+        }
+        return inside;
+      };
 
   let insideResult = false;
   let matchingPoly = null;

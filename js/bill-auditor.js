@@ -928,7 +928,11 @@ Normas estrictas:
       : 0.19;
     const precioCompensacion = (_fin && Number.isFinite(_fin.precioCompensacionEUR)) ? _fin.precioCompensacionEUR : 0.09;
 
-    const costeTerminoFijoAnual = (bill.costePotenciaEUR > 0 ? (bill.costePotenciaEUR * factorAnual) : 220) + (12 * 10);
+    const _alquilerMensualFallback = (typeof window.RA_BILL_METER_RENTAL_EUR_MO === 'number' && Number.isFinite(window.RA_BILL_METER_RENTAL_EUR_MO) && window.RA_BILL_METER_RENTAL_EUR_MO >= 0) ? window.RA_BILL_METER_RENTAL_EUR_MO : 0.85;
+    const costeAlquilerAnual = (typeof bill.alquilerContadorEUR === 'number' && Number.isFinite(bill.alquilerContadorEUR) && bill.alquilerContadorEUR >= 0)
+      ? (bill.alquilerContadorEUR > 0 ? bill.alquilerContadorEUR * factorAnual : 0)
+      : (12 * _alquilerMensualFallback);
+    const costeTerminoFijoAnual = (bill.costePotenciaEUR > 0 ? (bill.costePotenciaEUR * factorAnual) : 220) + costeAlquilerAnual;
     const energiaCompradaRedAnualKWh = Math.max(consumoAnualKWh - autoconsumoAnualKWh, 0);
     const costeEnergiaRedAnual = energiaCompradaRedAnualKWh * precioMedioCompra;
     const ingresoCompensacionExcedenteAnual = excedenteAnualKWh * precioCompensacion;
@@ -1883,7 +1887,7 @@ Normas estrictas:
         const area = document.getElementById('bill-raw-textarea');
         const text = area ? area.value.trim() : '';
         if (!text) {
-          alert('Pega primero el texto de la factura en el cuadro de texto.');
+          (typeof raAlert === 'function' ? raAlert : console.warn)('Pega primero el texto de la factura en el cuadro de texto.');
           return;
         }
         const apiKey = AIBillParser.getApiKey();
@@ -1892,7 +1896,7 @@ Normas estrictas:
             keyBox.style.display = 'flex';
             if (keyInput) keyInput.focus();
           }
-          alert('Para analizar con IA necesitas configurar tu Google Gemini API Key.');
+          (typeof raAlert === 'function' ? raAlert : console.warn)('Para analizar con IA necesitas configurar tu Google Gemini API Key.');
           return;
         }
 
@@ -1906,7 +1910,7 @@ Normas estrictas:
             showToast('Texto analizado con IA: ' + bill.comercializadora + ' · ' + bill.totalFacturaEUR + ' €', 'success', 3500);
           }
         } catch (err) {
-          alert('Error en análisis IA: ' + (err.message || err));
+          (typeof raAlert === 'function' ? raAlert : console.warn)('Error en análisis IA: ' + (err.message || err), 'error');
         } finally {
           setDropzoneLoading(false);
         }
@@ -1936,7 +1940,9 @@ Normas estrictas:
           comercializadora: prev.comercializadora || 'Personalizado',
           tarifaAcceso: tarifa,
           diasFactura: days,
-          potenciasContratadasKW: { p1: 4.6, p2: 4.6, p3: 0 },
+          potenciasContratadasKW: (prev.potenciasContratadasKW && typeof prev.potenciasContratadasKW === 'object')
+            ? Object.assign({ p1: 4.6, p2: 4.6, p3: 0 }, prev.potenciasContratadasKW)
+            : { p1: 4.6, p2: 4.6, p3: 0 },
           costePotenciaEUR: parseFloat((total * 0.25).toFixed(2)),
           consumosKWh: { total: kwh, p1: kwh * 0.35, p2: kwh * 0.30, p3: kwh * 0.35 },
           preciosEnergiaEURKWh: { p1: priceP1, p2: (priceP1 + priceP3) / 2, p3: priceP3 },
@@ -2020,7 +2026,7 @@ Normas estrictas:
     // Caso B: Documentos visuales / multimodales (PDF o Fotos)
     if (isPDF || isImage) {
       if (mode === 'local') {
-        alert('Los documentos en formato PDF o fotos requieren el Motor IA. Cambia al modo "🔄 Auto" o "🧠 Motor IA" para procesarlos.');
+        (typeof raAlert === 'function' ? raAlert : console.warn)('Los documentos en formato PDF o fotos requieren el Motor IA. Cambia al modo "Auto" o "Motor IA" para procesarlos.');
         return;
       }
 
@@ -2033,7 +2039,7 @@ Normas estrictas:
           const keyIn = document.getElementById('bill-gemini-key-input');
           if (keyIn) keyIn.focus();
         }
-        alert('Para procesar facturas en PDF o fotos con IA es necesario conectar tu API Key de Google Gemini. Introdúcela en la ventana emergente.');
+        (typeof raAlert === 'function' ? raAlert : console.warn)('Para procesar facturas en PDF o fotos con IA es necesario conectar tu API Key de Google Gemini. Introdúcela en la ventana emergente.');
         return;
       }
 
@@ -2056,7 +2062,7 @@ Normas estrictas:
         }
       } catch (err) {
         console.error('Error en análisis IA de factura:', err);
-        alert('No se pudo analizar el archivo con IA: ' + (err.message || err) + '\n\nPuedes ingresar los datos manualmente o usar el motor local.');
+        (typeof raAlert === 'function' ? raAlert : console.warn)('No se pudo analizar el archivo con IA: ' + (err.message || err) + '. Puedes ingresar los datos manualmente o usar el motor local.', 'error');
       } finally {
         setDropzoneLoading(false);
       }
@@ -2101,7 +2107,7 @@ Normas estrictas:
     }
 
     if (!bill) {
-      alert('No se pudieron reconocer datos válidos en el archivo. Puedes ingresar los importes manualmente en el formulario.');
+      (typeof raAlert === 'function' ? raAlert : console.warn)('No se pudieron reconocer datos válidos en el archivo. Puedes ingresar los importes manualmente en el formulario.', 'warning');
       return;
     }
 
@@ -2277,9 +2283,6 @@ Normas estrictas:
       wpUpdateCommercialPathsUI();
     }
 
-    if (typeof updateBudgetUI === 'function') {
-      updateBudgetUI();
-    }
     if (typeof wpPopulateStep3BillFromSSOT === 'function') {
       wpPopulateStep3BillFromSSOT();
     }

@@ -225,11 +225,15 @@
       setVal('cfg-company-cif', _currentBranding.cif);
       setVal('cfg-company-phone', _currentBranding.phone);
       setVal('cfg-company-web', _currentBranding.web);
+      setVal('cfg-company-email', _currentBranding.email);
+      setVal('cfg-company-slogan', _currentBranding.slogan);
       setVal('cfg-proposal-theme', _currentBranding.theme);
+      setVal('cfg-layout-style', _currentBranding.layoutStyle || 'editorial');
       setVal('cfg-offer-status', _currentBranding.status);
       setVal('cfg-doc-font', _currentBranding.font);
       setVal('cfg-fin-tin', _currentBranding.finTin);
       setVal('cfg-fin-entry', _currentBranding.finEntry);
+      setVal('cfg-fin-meses', _currentBranding.finMeses);
       setVal('cfg-war-power', _currentBranding.warPower);
       setVal('cfg-war-mod', _currentBranding.warMod);
       setVal('cfg-war-inv', _currentBranding.warInv);
@@ -423,13 +427,20 @@
     setModalVal('cfg-company-cif', b.cif);
     setModalVal('cfg-company-phone', b.phone);
     setModalVal('cfg-company-web', b.web);
+    setModalVal('cfg-company-email', b.email);
+    setModalVal('cfg-company-slogan', b.slogan);
     setModalVal('cfg-proposal-theme', b.theme);
     setModalVal('cfg-layout-style', b.layoutStyle || 'editorial');
     setModalVal('cfg-offer-status', b.status);
+    setModalVal('cfg-doc-font', b.font);
+    setModalVal('cfg-fin-tin', b.finTin);
+    setModalVal('cfg-fin-entry', b.finEntry);
+    setModalVal('cfg-fin-meses', b.finMeses);
     setModalVal('cfg-war-power', b.warPower);
     setModalVal('cfg-war-mod', b.warMod);
     setModalVal('cfg-war-inv', b.warInv);
     setModalVal('cfg-war-mo', b.warMo);
+    setModalVal('cfg-gemini-apikey', getGeminiApiKey());
 
     // Asegurar previsualización de logo en el modal
     const modalLogoPrev = document.getElementById('modal-company-logo-preview');
@@ -526,9 +537,25 @@
     }
   }
 
+  function setBrandingFields(patch) {
+    if (!patch || typeof patch !== 'object') return getBranding();
+    _currentBranding = Object.assign({}, DEFAULT_BRANDING, _currentBranding, patch);
+    if (!global.RA) global.RA = {};
+    global.RA.branding = Object.assign({}, _currentBranding);
+    if (global.localStorage) {
+      try {
+        const raw = global.localStorage.getItem(STORAGE_KEY_BRANDING);
+        const parsed = raw ? JSON.parse(raw) : {};
+        global.localStorage.setItem(STORAGE_KEY_BRANDING, JSON.stringify(Object.assign(parsed, patch)));
+      } catch (e) {}
+    }
+    return getBranding();
+  }
+
   // ── EXPORTACIÓN CANÓNICA DEL MÓDULO ──────────────────────────────────────────
   const RACompanyBranding = {
     getBranding,
+    setBrandingFields,
     loadCompanyBranding,
     saveCompanyBranding,
     handleLogoUpload,

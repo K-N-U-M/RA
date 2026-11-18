@@ -45,7 +45,7 @@
 
   const RAStorageCache = {
     /**
-     * Guarda un proyecto con su gemelo digital sin límite de tamaño
+     * Guarda un proyecto con su gemelo digital sin límite de tamaño (espera commit real de transacción)
      */
     saveProjectAsync: async function(projectId, projectData) {
       try {
@@ -58,9 +58,10 @@
             updatedAt: Date.now(),
             data: projectData
           };
-          const req = store.put(payload);
-          req.onsuccess = () => resolve(true);
-          req.onerror = () => reject(req.error);
+          tx.oncomplete = () => resolve(true);
+          tx.onerror = () => reject(tx.error);
+          tx.onabort = () => reject(tx.error || new Error('Transacción abortada'));
+          store.put(payload);
         });
       } catch (err) {
         console.warn('[RAStorageCache] Fallback a localStorage para proyecto:', err);
@@ -112,9 +113,10 @@
         return new Promise((resolve, reject) => {
           const tx = db.transaction(STORE_ASSETS, 'readwrite');
           const store = tx.objectStore(STORE_ASSETS);
-          const req = store.put({ url: url, blob: dataBlob, cachedAt: Date.now() });
-          req.onsuccess = () => resolve(true);
-          req.onerror = () => reject(req.error);
+          tx.oncomplete = () => resolve(true);
+          tx.onerror = () => reject(tx.error);
+          tx.onabort = () => reject(tx.error || new Error('Transacción abortada'));
+          store.put({ url: url, blob: dataBlob, cachedAt: Date.now() });
         });
       } catch (e) {
         return false;
@@ -145,9 +147,10 @@
         return new Promise((resolve, reject) => {
           const tx = db.transaction(STORE_ASSETS, 'readwrite');
           const store = tx.objectStore(STORE_ASSETS);
-          const req = store.delete(url);
-          req.onsuccess = () => resolve(true);
-          req.onerror = () => reject(req.error);
+          tx.oncomplete = () => resolve(true);
+          tx.onerror = () => reject(tx.error);
+          tx.onabort = () => reject(tx.error || new Error('Transacción abortada'));
+          store.delete(url);
         });
       } catch (e) {
         return false;
@@ -160,13 +163,56 @@
         return new Promise((resolve, reject) => {
           const tx = db.transaction(STORE_PROJECTS, 'readwrite');
           const store = tx.objectStore(STORE_PROJECTS);
-          const req = store.delete(projectId);
-          req.onsuccess = () => resolve(true);
-          req.onerror = () => reject(req.error);
+          tx.oncomplete = () => {
+            try { localStorage.removeItem('ra_proj_' + projectId); } catch (_) {}
+            resolve(true);
+          };
+          tx.onerror = () => reject(tx.error);
+          tx.onabort = () => reject(tx.error || new Error('Transacción abortada'));
+          store.delete(projectId);
         });
       } catch (e) {
         try { localStorage.removeItem('ra_proj_' + projectId); } catch (_) {}
         return false;
+      }
+    },
+
+    listProjectIdsAsync: async function() {
+      try {
+        const db = await getDB();
+        return new Promise((resolve, reject) => {
+          const tx = db.transaction(STORE_PROJECTS, 'readonly');
+          const store = tx.objectStore(STORE_PROJECTS);
+          if (typeof store.getAllKeys === 'function') {
+            const req = store.getAllKeys();
+            req.onsuccess = () => resolve(Array.isArray(req.result) ? req.result : []);
+            req.onerror = () => reject(req.error);
+          } else {
+            const keys = [];
+            const cursorReq = store.openCursor();
+            cursorReq.onsuccess = (ev) => {
+              const cur = ev.target.result;
+              if (cur) { keys.push(cur.key); cur.continue(); } else resolve(keys);
+            };
+            cursorReq.onerror = () => reject(cursorReq.error);
+          }
+        });
+      } catch (e) {
+        return [];
+      }
+    },
+
+    purgeOrphanedProjectsAsync: async function(validIds) {
+      try {
+        const keep = new Set(Array.isArray(validIds) ? validIds : []);
+        const allIds = await RAStorageCache.listProjectIdsAsync();
+        const orphans = allIds.filter((id) => !keep.has(id));
+        for (let i = 0; i < orphans.length; i++) {
+          await RAStorageCache.deleteProjectAsync(orphans[i]);
+        }
+        return orphans.length;
+      } catch (e) {
+        return 0;
       }
     }
   };
