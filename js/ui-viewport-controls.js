@@ -17,6 +17,7 @@
   // ── ESTADO Y VARIABLES DE MÓDULO ───────────────────────────────────────────
   let loadingHidden = false;
   let tilesLoadHideTimer = null;
+  let tilesLoadIsError = false;
   let statusTimer = null;
 
   if (typeof global.isPhotorealisticTextureMode === 'undefined') {
@@ -144,26 +145,89 @@
     }
   }
 
-  function show3DTilesLoading(msg, pendingCount) {
+  function show3DTilesLoading(msg, pendingCount, opt) {
+    const forceClearError = !!(opt && opt.forceClearError);
+    if (tilesLoadIsError && !forceClearError) return;
     const tilesLoadingEl = document.getElementById('ra-3d-tiles-loading');
     const tilesMsgEl = document.getElementById('ra-3d-tiles-msg');
     const tilesCountEl = document.getElementById('ra-3d-tiles-count');
+    const spinnerEl = document.getElementById('ra-3d-tiles-spinner') || (tilesLoadingEl ? tilesLoadingEl.querySelector('.tiles-spinner') : null);
+    const errIconEl = document.getElementById('ra-3d-tiles-err-icon');
+    const actionsEl = document.getElementById('ra-3d-tiles-actions');
     if (!tilesLoadingEl) return;
+
+    tilesLoadIsError = false;
+    tilesLoadingEl.classList.remove('is-error', 'has-actions');
+    if (spinnerEl) spinnerEl.style.display = 'block';
+    if (errIconEl) errIconEl.style.display = 'none';
+    if (actionsEl) actionsEl.style.display = 'none';
+
     if (tilesMsgEl && msg) tilesMsgEl.textContent = msg;
     if (tilesCountEl) {
-      tilesCountEl.textContent = (typeof pendingCount === 'number' && pendingCount > 0) ? (pendingCount + ' tiles') : 'Renderizando 3D';
+      tilesCountEl.textContent = (typeof pendingCount === 'number' && pendingCount > 0) ? (pendingCount + ' teselas') : 'Conectando 3D';
     }
     clearTimeout(tilesLoadHideTimer);
     tilesLoadingEl.classList.add('visible');
   }
 
-  function hide3DTilesLoading(delayMs) {
+  function show3DTilesError(msg, opt) {
+    const o = opt || {};
+    const tilesLoadingEl = document.getElementById('ra-3d-tiles-loading');
+    const tilesMsgEl = document.getElementById('ra-3d-tiles-msg');
+    const tilesCountEl = document.getElementById('ra-3d-tiles-count');
+    const spinnerEl = document.getElementById('ra-3d-tiles-spinner') || (tilesLoadingEl ? tilesLoadingEl.querySelector('.tiles-spinner') : null);
+    const errIconEl = document.getElementById('ra-3d-tiles-err-icon');
+    const actionsEl = document.getElementById('ra-3d-tiles-actions');
+    const fallbackBtn = document.getElementById('btn-fallback-cesium-3d');
+    if (!tilesLoadingEl) return;
+
+    tilesLoadIsError = true;
+    clearTimeout(tilesLoadHideTimer);
+    tilesLoadingEl.classList.add('visible', 'is-error');
+
+    const showActions = (o.showActions !== false);
+    if (actionsEl) actionsEl.style.display = showActions ? 'flex' : 'none';
+    if (showActions) tilesLoadingEl.classList.add('has-actions');
+    else tilesLoadingEl.classList.remove('has-actions');
+
+    if (fallbackBtn) {
+      fallbackBtn.style.display = (o.canSwitchCesium === false) ? 'none' : 'inline-flex';
+    }
+    if (spinnerEl) spinnerEl.style.display = o.isRetrying ? 'block' : 'none';
+    if (errIconEl) errIconEl.style.display = o.isRetrying ? 'none' : 'inline';
+
+    if (tilesMsgEl && msg) tilesMsgEl.textContent = msg;
+    if (tilesCountEl) {
+      if (o.badgeText) {
+        tilesCountEl.textContent = o.badgeText;
+      } else if (typeof o.failCount === 'number' && o.failCount > 0) {
+        tilesCountEl.textContent = o.failCount + (o.failCount === 1 ? ' fallo' : ' fallos');
+      } else {
+        tilesCountEl.textContent = 'Error red';
+      }
+    }
+  }
+
+  function dismiss3DTilesLoading() {
+    global.__raTilesDismissed = true;
+    tilesLoadIsError = false;
+    clearTimeout(tilesLoadHideTimer);
+    const el = document.getElementById('ra-3d-tiles-loading');
+    if (el) {
+      el.classList.remove('visible', 'is-error', 'has-actions');
+    }
+  }
+
+  function hide3DTilesLoading(delayMs, forceClear) {
+    if (tilesLoadIsError && !forceClear) return;
     const tilesLoadingEl = document.getElementById('ra-3d-tiles-loading');
     if (!tilesLoadingEl) return;
     clearTimeout(tilesLoadHideTimer);
     tilesLoadHideTimer = setTimeout(() => {
+      if (tilesLoadIsError && !forceClear) return;
+      tilesLoadIsError = false;
       const el = document.getElementById('ra-3d-tiles-loading');
-      if (el) el.classList.remove('visible');
+      if (el) el.classList.remove('visible', 'is-error', 'has-actions');
     }, delayMs || 600);
   }
 
@@ -679,6 +743,8 @@
     setLoad,
     hideLoading,
     show3DTilesLoading,
+    show3DTilesError,
+    dismiss3DTilesLoading,
     hide3DTilesLoading,
     showStatus,
     hideStatus,
@@ -700,6 +766,8 @@
   global.setLoad = setLoad;
   global.hideLoading = hideLoading;
   global.show3DTilesLoading = show3DTilesLoading;
+  global.show3DTilesError = show3DTilesError;
+  global.dismiss3DTilesLoading = dismiss3DTilesLoading;
   global.hide3DTilesLoading = hide3DTilesLoading;
   global.showStatus = showStatus;
   global.hideStatus = hideStatus;

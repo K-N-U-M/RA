@@ -15,6 +15,15 @@
 
 async function switchEngine(engine) {
   currentEngine = engine;
+  _tilesMonitorState.retryCount = 0;
+  _tilesMonitorState.burstFailed = 0;
+  _tilesMonitorState.burstLoaded = 0;
+  global.__raTilesDismissed = false;
+  if (_tilesMonitorState.recoveryTimer) {
+    clearTimeout(_tilesMonitorState.recoveryTimer);
+    _tilesMonitorState.recoveryTimer = null;
+  }
+  _clearTileWatchdogs();
   showStatus(`ACTIVANDO: ${engine.toUpperCase()} 3D...`);
 
   document.querySelectorAll('.engine-opt').forEach(el => el.classList.remove('active'));
@@ -45,17 +54,238 @@ async function switchEngine(engine) {
   }
 }
 
+// ── CONTROLADOR DE RESILIENCIA 3D TILES (THROTTLING QUIC + REINTENTO + TELEMETRÍA UI) ──
+const _tilesMonitorState = {
+  activeName: 'Google 3D',
+  burstLoaded: 0,
+  burstFailed: 0,
+  lastErrorMsg: '',
+  retryCount: 0,
+  maxAutoRetries: 2,
+  isRecovering: false,
+  recoveryTimer: null,
+  stallTimer: null,
+  lastToastTs: 0,
+  cameraBound: false
+};
+
+function _configureTileRequestScheduler(maxGoogleStreams) {
+  if (typeof Cesium === 'undefined' || !Cesium.RequestScheduler) return;
+  try {
+    Cesium.RequestScheduler.throttleRequests = true;
+    const cap = Math.min(Number(Cesium.RequestScheduler.maximumRequestsPerServer) || 6, 6);
+    Cesium.RequestScheduler.maximumRequestsPerServer = cap;
+    Cesium.RequestScheduler.requestsByServer = Cesium.RequestScheduler.requestsByServer || {};
+    Cesium.RequestScheduler.requestsByServer['tile.googleapis.com:443'] = maxGoogleStreams || 4;
+  } catch (e) {
+    if (window.RA && window.RA.log) window.RA.log.debug('[RA Tiles] RequestScheduler config warn:', e);
+  }
+}
+
+function _bindCameraTileResetOnce() {
+  if (_tilesMonitorState.cameraBound) return;
+  const v = (typeof viewer !== 'undefined' && viewer) ? viewer : window.viewer;
+  if (!v || !v.camera || !v.camera.moveEnd) return;
+  _tilesMonitorState.cameraBound = true;
+  let _lastCamPos = null;
+  v.camera.moveEnd.addEventListener(() => {
+    try {
+      const curPos = v.camera.positionWC ? v.camera.positionWC.clone() : null;
+      const movedMeters = (curPos && _lastCamPos) ? Cesium.Cartesian3.distance(curPos, _lastCamPos) : Infinity;
+      _lastCamPos = curPos;
+      // Si el usuario navegó significativamente (>15m), reiniciar presupuesto de reintentos para la nueva zona
+      if (movedMeters > 15 && !_tilesMonitorState.isRecovering) {
+        _tilesMonitorState.retryCount = 0;
+        _tilesMonitorState.burstFailed = 0;
+        _tilesMonitorState.burstLoaded = 0;
+        global.__raTilesDismissed = false;
+        if (_tilesMonitorState.recoveryTimer) {
+          clearTimeout(_tilesMonitorState.recoveryTimer);
+          _tilesMonitorState.recoveryTimer = null;
+        }
+      }
+    } catch (_eCam) {}
+  });
+}
+
+function _clearTileWatchdogs() {
+  if (_tilesMonitorState.stallTimer) {
+    clearTimeout(_tilesMonitorState.stallTimer);
+    _tilesMonitorState.stallTimer = null;
+  }
+}
+
+function _surfacePersistentTilesError(name, failCount, reasonMsg) {
+  if (global.__raTilesDismissed) return;
+  const errFn = (typeof show3DTilesError === 'function') ? show3DTilesError : global.show3DTilesError;
+  const shortReason = (reasonMsg && /quic|network|failed|timeout|abort/i.test(reasonMsg))
+    ? 'Corte de red / HTTP3 cargando detalle 3D'
+    : 'Error cargando geometría 3D';
+  if (typeof errFn === 'function') {
+    errFn(shortReason + ' (' + name + ')', {
+      failCount: failCount,
+      showActions: true,
+      canSwitchCesium: (typeof currentEngine === 'undefined' || currentEngine !== 'cesium'),
+      isRetrying: false
+    });
+  }
+  const now = Date.now();
+  if (typeof showToast === 'function' && (now - _tilesMonitorState.lastToastTs) > 60000) {
+    _tilesMonitorState.lastToastTs = now;
+    showToast(
+      'TESELAS 3D INCOMPLETAS',
+      'Fallo de conexión descargando detalle 3D (' + failCount + ' teselas). Puedes reintentar o cambiar temporalmente al motor Cesium 3D.',
+      'warning',
+      6500
+    );
+  }
+}
+
+function _scheduleTilesetRecovery(name, delayMs) {
+  if (_tilesMonitorState.isRecovering) return;
+  if (_tilesMonitorState.retryCount >= _tilesMonitorState.maxAutoRetries) {
+    _surfacePersistentTilesError(name, _tilesMonitorState.burstFailed, _tilesMonitorState.lastErrorMsg);
+    return;
+  }
+  if (_tilesMonitorState.recoveryTimer) clearTimeout(_tilesMonitorState.recoveryTimer);
+  _tilesMonitorState.recoveryTimer = setTimeout(() => {
+    _tilesMonitorState.recoveryTimer = null;
+    recoverActiveTileset(false);
+  }, delayMs || 1800);
+}
+
+async function recoverActiveTileset(isManual) {
+  if (_tilesMonitorState.isRecovering) return;
+  const eng = (typeof currentEngine !== 'undefined' && currentEngine) ? currentEngine : 'google';
+  const name = _tilesMonitorState.activeName || (eng === 'cesium' ? 'Cesium Buildings' : 'Google 3D');
+
+  if (isManual) {
+    _tilesMonitorState.retryCount = 0;
+    global.__raTilesDismissed = false;
+  } else if (_tilesMonitorState.retryCount >= _tilesMonitorState.maxAutoRetries) {
+    _surfacePersistentTilesError(name, _tilesMonitorState.burstFailed, _tilesMonitorState.lastErrorMsg);
+    return;
+  }
+
+  _tilesMonitorState.isRecovering = true;
+  if (!isManual) _tilesMonitorState.retryCount++;
+  _tilesMonitorState.burstFailed = 0;
+  _tilesMonitorState.burstLoaded = 0;
+  _clearTileWatchdogs();
+
+  const errFn = (typeof show3DTilesError === 'function') ? show3DTilesError : global.show3DTilesError;
+  if (typeof errFn === 'function') {
+    errFn(
+      isManual
+        ? ('Reintentando carga completa de ' + name + '...')
+        : ('Reintento automático ' + _tilesMonitorState.retryCount + '/' + _tilesMonitorState.maxAutoRetries + ' (' + name + ')...'),
+      { isRetrying: true, showActions: false, badgeText: 'Reconectando' }
+    );
+  }
+
+  try {
+    const activeScene = (typeof scene !== 'undefined' && scene) ? scene : (window.viewer && window.viewer.scene);
+    if (eng === 'google') {
+      _configureTileRequestScheduler(2); // Baja concurrencia QUIC para evitar reset UDP/HTTP3
+      if (typeof google3DTileset !== 'undefined' && google3DTileset) {
+        try {
+          if (activeScene && activeScene.primitives) activeScene.primitives.remove(google3DTileset);
+          if (typeof google3DTileset.isDestroyed === 'function' && !google3DTileset.isDestroyed()) {
+            google3DTileset.destroy();
+          }
+        } catch (_eRm) {}
+        google3DTileset = null;
+        window.google3DTileset = null;
+      }
+      await loadGoogle3D({ recoveryMode: true });
+    } else if (eng === 'cesium') {
+      if (typeof cesiumOsmBuildings !== 'undefined' && cesiumOsmBuildings) {
+        try {
+          if (activeScene && activeScene.primitives) activeScene.primitives.remove(cesiumOsmBuildings);
+          if (typeof cesiumOsmBuildings.isDestroyed === 'function' && !cesiumOsmBuildings.isDestroyed()) {
+            cesiumOsmBuildings.destroy();
+          }
+        } catch (_eRmC) {}
+        cesiumOsmBuildings = null;
+        window.cesiumOsmBuildings = null;
+      }
+      await loadCesium3D();
+    } else {
+      await switchEngine(eng);
+    }
+    if (activeScene && typeof activeScene.requestRender === 'function') {
+      activeScene.requestRender();
+    }
+  } catch (eRec) {
+    console.warn('[RA 3D Tiles] Error durante recuperación de tileset:', eRec);
+    _surfacePersistentTilesError(name, Math.max(1, _tilesMonitorState.burstFailed), (eRec && eRec.message) || '');
+  } finally {
+    _tilesMonitorState.isRecovering = false;
+  }
+}
+
+function retry3DTilesLoad() {
+  return recoverActiveTileset(true);
+}
+
 function attachTilesetLoadMonitor(tileset, name) {
-  if (!tileset) return;
-  show3DTilesLoading('Descargando ' + name + '...', 1);
+  if (!tileset || tileset.__raMonitorAttached) return;
+  tileset.__raMonitorAttached = true;
+  _tilesMonitorState.activeName = name || '3D Tiles';
+  _bindCameraTileResetOnce();
+
+  show3DTilesLoading('Descargando ' + name + '...', 1, { forceClearError: true });
 
   if (tileset.tileLoadProgressEvent) {
-    tileset.tileLoadProgressEvent.addEventListener(pending => {
-      if (pending > 0) {
-        show3DTilesLoading('Cargando geometría 3D (' + name + ')...', pending);
+    tileset.tileLoadProgressEvent.addEventListener((pending, processing) => {
+      const totalActive = (Number(pending) || 0) + (Number(processing) || 0);
+      if (totalActive > 0) {
+        if (!global.__raTilesDismissed) {
+          show3DTilesLoading('Cargando geometría 3D (' + name + ')...', totalActive, {
+            forceClearError: (_tilesMonitorState.burstFailed === 0)
+          });
+        }
+        _clearTileWatchdogs();
+        _tilesMonitorState.stallTimer = setTimeout(() => {
+          _tilesMonitorState.stallTimer = null;
+          if (!global.__raTilesDismissed && typeof show3DTilesError === 'function') {
+            show3DTilesError('Descarga 3D lenta o atascada (' + name + ')', {
+              badgeText: totalActive + ' pend.',
+              showActions: true,
+              canSwitchCesium: (typeof currentEngine === 'undefined' || currentEngine !== 'cesium'),
+              isRetrying: true
+            });
+          }
+        }, 12000);
       } else {
-        hide3DTilesLoading(700);
+        _clearTileWatchdogs();
+        if (_tilesMonitorState.burstFailed > 0) {
+          _scheduleTilesetRecovery(name, 1600 * (_tilesMonitorState.retryCount + 1));
+        } else {
+          hide3DTilesLoading(700, true);
+        }
       }
+    });
+  }
+
+  if (tileset.tileFailed) {
+    tileset.tileFailed.addEventListener(error => {
+      _tilesMonitorState.burstFailed++;
+      _tilesMonitorState.lastErrorMsg = (error && error.message) ? String(error.message) : 'Request has failed.';
+      console.warn('[RA 3D Tiles] Fallo al descargar tesela de ' + name + ':', error && error.url ? error.url : '', _tilesMonitorState.lastErrorMsg);
+
+      if (!global.__raTilesDismissed && typeof show3DTilesError === 'function') {
+        if (_tilesMonitorState.retryCount < _tilesMonitorState.maxAutoRetries) {
+          show3DTilesError('Fallo de red cargando ' + name + ' · Reintento automático...', {
+            failCount: _tilesMonitorState.burstFailed,
+            showActions: false,
+            isRetrying: true
+          });
+        } else {
+          _surfacePersistentTilesError(name, _tilesMonitorState.burstFailed, _tilesMonitorState.lastErrorMsg);
+        }
+      }
+      _scheduleTilesetRecovery(name, 1800 * (_tilesMonitorState.retryCount + 1));
     });
   }
 
@@ -63,13 +293,32 @@ function attachTilesetLoadMonitor(tileset, name) {
     tileset.initialTilesLoaded.addEventListener(() => {
       setLoad(100, name + ' Geometría 3D Lista');
       hideLoading();
-      hide3DTilesLoading(500);
-      showStatus('✓ ' + name.toUpperCase() + ' 3D CARGADO CON ÉXITO', 2200);
+      if (_tilesMonitorState.burstFailed === 0) {
+        hide3DTilesLoading(500, true);
+        showStatus('✓ ' + name.toUpperCase() + ' 3D CARGADO CON ÉXITO', 2200);
+      }
     });
   }
+
+  if (tileset.allTilesLoaded) {
+    tileset.allTilesLoaded.addEventListener(() => {
+      _clearTileWatchdogs();
+      if (_tilesMonitorState.burstFailed === 0) {
+        _configureTileRequestScheduler(4);
+        tileset._raRecoveryMode = false;
+        tileset.loadSiblings = true;
+        hide3DTilesLoading(450, true);
+      } else {
+        _scheduleTilesetRecovery(name, 1500 * (_tilesMonitorState.retryCount + 1));
+      }
+    });
+  }
+
   if (tileset.tileLoad) {
     let _tileThrottleTimer = null;
     tileset.tileLoad.addEventListener(() => {
+      _tilesMonitorState.burstLoaded++;
+      _clearTileWatchdogs();
       if (!_tileThrottleTimer) {
         _tileThrottleTimer = setTimeout(() => {
           _tileThrottleTimer = null;
@@ -82,24 +331,26 @@ function attachTilesetLoadMonitor(tileset, name) {
   }
 }
 
-async function loadGoogle3D() {
+async function loadGoogle3D(opts) {
+  const recoveryMode = !!(opts && opts.recoveryMode);
+  _configureTileRequestScheduler(recoveryMode ? 2 : 4);
   if (cesiumOsmBuildings) {
     cesiumOsmBuildings.show = false;
     if (typeof cesiumOsmBuildings.trimLoadedTiles === 'function') {
       try { cesiumOsmBuildings.trimLoadedTiles(); } catch (e) {}
     }
   }
-  show3DTilesLoading('Conectando con Google Photorealistic 3D...', 0);
+  show3DTilesLoading(recoveryMode ? 'Reconectando Google Photorealistic 3D...' : 'Conectando con Google Photorealistic 3D...', 0, { forceClearError: true });
 
   if (!google3DTileset) {
     try {
       google3DTileset = await Cesium.Cesium3DTileset.fromIonAssetId(2275207, {
         maximumScreenSpaceError: 16,
         maximumMemoryUsage: 512,
-        preloadWhenStationary: true,
-        preloadAncestors: true,
+        preloadWhenStationary: !recoveryMode,
+        preloadAncestors: false,
         skipLevelOfDetail: false, // [FIX HUECOS SOMBRA] No saltar LOD: mantiene geometría continua
-        loadSiblings: true,       // [FIX HUECOS SOMBRA] Cargar tiles hermanos para que proyecten sombra fuera de cámara
+        loadSiblings: !recoveryMode, // Desactivar en recuperación para no saturar flujos HTTP/3 QUIC
         cullWithChildrenBounds: false, // [FIX HUECOS SOMBRA] Evitar culling prematuro de edificios adyacentes
         dynamicScreenSpaceError: false // [FIX HUECOS SOMBRA] Evitar degradación agresiva en bordes de pantalla
       });
@@ -109,8 +360,9 @@ async function loadGoogle3D() {
       google3DTileset.shadows = (typeof Cesium !== 'undefined' && Cesium.ShadowMode) ? initShadowMode : undefined;
       google3DTileset.cullWithChildrenBounds = false;
       google3DTileset.skipLevelOfDetail = false;
-      google3DTileset.loadSiblings = true;
+      google3DTileset.loadSiblings = !recoveryMode;
       google3DTileset.dynamicScreenSpaceError = false;
+      google3DTileset._raRecoveryMode = recoveryMode;
       window.google3DTileset = google3DTileset;
       attachTilesetLoadMonitor(google3DTileset, 'Google 3D');
       scene.primitives.add(google3DTileset);
@@ -123,11 +375,11 @@ async function loadGoogle3D() {
         key: GOOGLE_MAPS_API_KEY,
         maximumScreenSpaceError: 16, // Alta fidelidad geométrica
         maximumMemoryUsage: 512,     // 512MB de caché optimizado para GPUs integradas y portátiles
-        preloadWhenStationary: true,
-        preloadAncestors: true,
+        preloadWhenStationary: !recoveryMode,
+        preloadAncestors: false,
         skipLevelOfDetail: false,    // [FIX HUECOS SOMBRA] No saltar LOD: erradica agujeros en mallas
         immediatelyLoadDesiredLevelOfDetail: false,
-        loadSiblings: true,          // [FIX HUECOS SOMBRA] Cargar tiles hermanos para proyectar sombras
+        loadSiblings: !recoveryMode,
         cullWithChildrenBounds: false, // [FIX HUECOS SOMBRA] No descartar tiles de edificios cercanos
         dynamicScreenSpaceError: false // [FIX HUECOS SOMBRA] Detalle uniforme sin degradación perimetral
       });
@@ -137,14 +389,18 @@ async function loadGoogle3D() {
       google3DTileset.shadows = (typeof Cesium !== 'undefined' && Cesium.ShadowMode) ? initShadowMode : undefined;
       google3DTileset.cullWithChildrenBounds = false;
       google3DTileset.skipLevelOfDetail = false;
-      google3DTileset.loadSiblings = true;
+      google3DTileset.loadSiblings = !recoveryMode;
       google3DTileset.dynamicScreenSpaceError = false;
+      google3DTileset._raRecoveryMode = recoveryMode;
       window.google3DTileset = google3DTileset;
       attachTilesetLoadMonitor(google3DTileset, 'Google 3D');
       scene.primitives.add(google3DTileset);
       globe.show = false;
       return;
     } catch (e2) {
+      if (typeof showToast === 'function') {
+        showToast('MOTOR GOOGLE 3D NO DISPONIBLE', 'No se pudo conectar con Google 3D; cambiando automáticamente al motor Cesium Ion 3D.', 'warning', 5500);
+      }
       await loadCesium3D();
       const b = document.getElementById('active-engine-badge');
       if (b) b.textContent = 'CESIUM 3D';
@@ -153,10 +409,10 @@ async function loadGoogle3D() {
     google3DTileset.show = true;
     google3DTileset.cullWithChildrenBounds = false;
     google3DTileset.skipLevelOfDetail = false;
-    google3DTileset.loadSiblings = true;
+    google3DTileset.loadSiblings = !recoveryMode;
     google3DTileset.dynamicScreenSpaceError = false;
     globe.show = false;
-    show3DTilesLoading('Renderizando Google 3D...', 0);
+    show3DTilesLoading('Renderizando Google 3D...', 0, { forceClearError: true });
     hide3DTilesLoading(800);
   }
 }
@@ -169,7 +425,7 @@ async function loadCesium3D() {
     }
   }
   globe.show = true;
-  show3DTilesLoading('Cargando Cesium OSM Buildings...', 0);
+  show3DTilesLoading('Cargando Cesium OSM Buildings...', 0, { forceClearError: true });
 
   try {
     if (!cesiumTerrainProvider) {
@@ -222,7 +478,7 @@ async function loadArcGIS3D() {
     }
   }
   globe.show = true;
-  show3DTilesLoading('Cargando Ortofoto ArcGIS 3D...', 0);
+  show3DTilesLoading('Cargando Ortofoto ArcGIS 3D...', 0, { forceClearError: true });
 
   if (cesiumTerrainProvider) viewer.terrainProvider = cesiumTerrainProvider;
 
@@ -233,7 +489,7 @@ async function loadArcGIS3D() {
     viewer.imageryLayers.removeAll();
     viewer.imageryLayers.addImageryProvider(ag);
   } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
-  hide3DTilesLoading(1000);
+  hide3DTilesLoading(1000, true);
 }
 
   // ── MOTOR HÍBRIDO INTEGRAL AAA DE BÚSQUEDA Y NAVEGACIÓN ────────────────────
@@ -970,6 +1226,7 @@ function _initTriadOnce() {
 
   global.switchEngine = switchEngine;
   global.attachTilesetLoadMonitor = attachTilesetLoadMonitor;
+  global.retry3DTilesLoad = retry3DTilesLoad;
   global.loadGoogle3D = loadGoogle3D;
   global.loadCesium3D = loadCesium3D;
   global.loadArcGIS3D = loadArcGIS3D;
@@ -997,6 +1254,7 @@ function _initTriadOnce() {
 
   global.RA.Viewer = {
     switchEngine,
+    retry3DTilesLoad,
     loadGoogle3D,
     loadCesium3D,
     loadArcGIS3D,

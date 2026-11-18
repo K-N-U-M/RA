@@ -213,29 +213,83 @@
     /* ── HUD DE CARGA Y PROGRESO DE GEOMETRÍA 3D (3D TILES) ─────────────── */
     #ra-3d-tiles-loading {
       position: absolute;
-      top: 18px;
+      bottom: 128px;
       left: 50%;
-      z-index: 998;
-      background: rgba(15, 23, 42, 0.92);
+      z-index: 9500;
+      background: rgba(15, 23, 42, 0.94);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(245, 158, 11, 0.4);
+      border: 1px solid rgba(245, 158, 11, 0.45);
       border-radius: 99px;
-      padding: 6px 16px;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 0 0 16px rgba(245, 158, 11, 0.15);
+      padding: 6px 14px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65), 0 0 16px rgba(245, 158, 11, 0.16);
       display: flex;
       align-items: center;
       gap: 10px;
+      max-width: min(92vw, 760px);
       pointer-events: none;
       opacity: 0;
       visibility: hidden;
-      transform: translate(-50%, -10px);
-      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      transform: translate(-50%, 10px);
+      transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
     }
     #ra-3d-tiles-loading.visible {
       opacity: 1;
       visibility: visible;
       transform: translate(-50%, 0);
+    }
+    #ra-3d-tiles-loading.has-actions {
+      pointer-events: auto;
+    }
+    #ra-3d-tiles-loading.is-error {
+      border-color: rgba(239, 68, 68, 0.75);
+      background: rgba(30, 14, 18, 0.95);
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.72), 0 0 18px rgba(239, 68, 68, 0.25);
+    }
+    .tiles-error-icon {
+      font-size: 14px;
+      line-height: 1;
+    }
+    .tiles-loading-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-left: 4px;
+      padding-left: 8px;
+      border-left: 1px solid rgba(255, 255, 255, 0.14);
+    }
+    .tiles-act-btn {
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 99px;
+      padding: 3px 10px;
+      font-size: 11px;
+      font-weight: 800;
+      cursor: pointer;
+      color: #fff;
+      background: rgba(255, 255, 255, 0.08);
+      transition: background 0.15s ease, transform 0.15s ease;
+    }
+    .tiles-act-btn:hover { background: rgba(255, 255, 255, 0.18); transform: translateY(-1px); }
+    .tiles-act-retry {
+      background: rgba(245, 158, 11, 0.22);
+      border-color: rgba(245, 158, 11, 0.6);
+      color: #FCD34D;
+    }
+    .tiles-act-retry:hover { background: rgba(245, 158, 11, 0.36); }
+    .tiles-act-fallback {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: rgba(56, 189, 248, 0.55);
+      color: #7DD3FC;
+    }
+    .tiles-act-fallback:hover { background: rgba(56, 189, 248, 0.34); }
+    .tiles-act-close {
+      padding: 3px 7px;
+      color: #CBD5E1;
+    }
+    #ra-3d-tiles-loading.is-error .tiles-loading-badge {
+      background: rgba(239, 68, 68, 0.24);
+      border-color: #EF4444;
+      color: #FCA5A5;
     }
     .tiles-spinner {
       width: 14px;
