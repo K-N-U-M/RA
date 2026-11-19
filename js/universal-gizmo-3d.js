@@ -1267,12 +1267,58 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
       const sState = window.inverterEquipmentState;
       const rArr = sState && sState.routes && sState.routes[target.routeType];
       if (Array.isArray(rArr) && target.routeIndex >= 0 && target.routeIndex < rArr.length) {
-        rArr[target.routeIndex] = Cesium.Cartesian3.clone(newPos);
-        if (typeof viewer !== 'undefined' && viewer && viewer.entities) {
-          const handleEnt = viewer.entities.getById('ra_route_handle_' + target.routeType + '_' + target.routeIndex);
-          if (handleEnt) handleEnt.position = new Cesium.ConstantPositionProperty(Cesium.Cartesian3.clone(newPos));
+        let snappedPos = Cesium.Cartesian3.clone(newPos);
+        let snapMsg = '';
+        if (window.RACableEngine && typeof window.RACableEngine.snapRoutePoint === 'function') {
+          const prevP = (target.routeIndex > 0) ? rArr[target.routeIndex - 1] : ((rArr.length > 1) ? rArr[1] : null);
+          const snapRes = window.RACableEngine.snapRoutePoint(newPos, {
+            prevPoint: prevP,
+            orthogonalLock: Boolean(typeof window !== 'undefined' && window._raShiftKeyDown)
+          });
+          if (snapRes && snapRes.cartesian) {
+            snappedPos = Cesium.Cartesian3.clone(snapRes.cartesian);
+            if (snapRes.snapTag) snapMsg = ' [' + snapRes.snapTag + ']';
+          }
         }
-        target.pos = Cesium.Cartesian3.clone(newPos);
+        rArr[target.routeIndex] = snappedPos;
+        if (typeof viewer !== 'undefined' && viewer && viewer.entities) {
+          const liftM = (window.RACableEngine && window.RACableEngine.auditElevationMode) ? (window.RACableEngine.CONFIG.AUDIT_ELEVATION_M || 0.24) : 0;
+          let visPos = snappedPos;
+          if (liftM > 0) {
+            const upV = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(snappedPos, new Cesium.Cartesian3());
+            visPos = Cesium.Cartesian3.add(snappedPos, Cesium.Cartesian3.multiplyByScalar(upV, liftM, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+          }
+          const handleEnt = viewer.entities.getById('ra_route_handle_' + target.routeType + '_' + target.routeIndex);
+          if (handleEnt) handleEnt.position = new Cesium.ConstantPositionProperty(visPos);
+
+          // Guía ligera de trazado en directo sin reconstruir primitivas GPU hasta soltar el ratón
+          if (!window._raLiveRoutePreviewEnt && rArr.length >= 2) {
+            const guideCol = (target.routeType === 'ac') ? '#38BDF8' : '#F59E0B';
+            window._raLiveRoutePreviewEnt = viewer.entities.add({
+              id: 'ra_live_route_preview',
+              polyline: {
+                positions: new Cesium.CallbackProperty(function () {
+                  const arr = (window.inverterEquipmentState && window.inverterEquipmentState.routes && window.inverterEquipmentState.routes[target.routeType]) || [];
+                  const lM = (window.RACableEngine && window.RACableEngine.auditElevationMode) ? (window.RACableEngine.CONFIG.AUDIT_ELEVATION_M || 0.24) : 0;
+                  if (lM <= 0) return arr;
+                  return arr.map(function (pt) {
+                    const uP = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(pt, new Cesium.Cartesian3());
+                    return Cesium.Cartesian3.add(pt, Cesium.Cartesian3.multiplyByScalar(uP, lM, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+                  });
+                }, false),
+                width: 4.5,
+                arcType: (typeof Cesium !== 'undefined' && Cesium.ArcType) ? Cesium.ArcType.NONE : undefined,
+                material: new Cesium.PolylineDashMaterialProperty({ color: Cesium.Color.fromCssColorString(guideCol), dashLength: 14 })
+              }
+            });
+          }
+        }
+        let routeLen = 0;
+        for (let ri = 0; ri < rArr.length - 1; ri++) routeLen += Cesium.Cartesian3.distance(rArr[ri], rArr[ri + 1]);
+        if (typeof showStatus === 'function') {
+          showStatus('CODO ' + target.routeType.toUpperCase() + ' #' + (target.routeIndex + 1) + ' · Tramo manual: ' + routeLen.toFixed(1) + ' m' + snapMsg + ' (Shift: Ortogonal 90°)', 1500);
+        }
+        target.pos = Cesium.Cartesian3.clone(snappedPos);
       }
     } else if (target.type === 'vertex') {
       const bState = (typeof window !== 'undefined' && window.bldFootprintState) || (typeof bldFootprintState !== 'undefined' ? bldFootprintState : null);

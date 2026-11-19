@@ -685,26 +685,64 @@
           tree.summary.totalStorageKwh = Math.round(sKwh * 10) / 10;
         }
 
-        // ── 5. CUADROS DE PROTECCIÓN DC Y AC (ACORDE A FASES Y POTENCIA) ───────
+        // ── 5. CUADROS DE PROTECCIÓN DC, AC, SMART METER Y BACKUP (REBT / IEC) ───────
         const sState = (typeof window !== 'undefined' && window.inverterEquipmentState) ? window.inverterEquipmentState : null;
+        const cbPre = (sState && sState.cableBreakdown) ? sState.cableBreakdown : null;
+        const isMicroBom = (projectConfig.selectedTopology === 'microinverter');
+        const hasLightningRod = !!(projectConfig && projectConfig.hasExternalLightningRod);
+        const spdTag = hasLightningRod ? 'SPD Tipo 1+2' : 'SPD Tipo 2';
+
         const activeInvSpec = (tree.electrical.inverters && tree.electrical.inverters[0])
           ? ((catalog.inverters && catalog.inverters.find(i => i.id === tree.electrical.inverters[0].id)) || tree.electrical.inverters[0])
           : null;
-        const invPhases = (typeof window !== 'undefined' && typeof window.raInverterPhases === 'function' && activeInvSpec)
-          ? window.raInverterPhases(activeInvSpec)
-          : (tree.summary.totalAcKw > 6.0 ? 3 : 1);
+        const invCountBom = Math.max(1, tree.summary.totalInverters || 1);
+        const totalAcKwPre = tree.summary.totalAcKw || (tree.summary.totalKwp / 1.15);
+        const effInvForPhase = activeInvSpec || { kw: totalAcKwPre };
+        const acLinePhases = (typeof window !== 'undefined' && typeof window.raResolveAcPhases === 'function')
+          ? window.raResolveAcPhases(effInvForPhase, invCountBom, projectConfig)
+          : ((projectConfig.gridSupply === 'single_phase' && totalAcKwPre <= 15.0)
+            ? 1
+            : ((typeof window !== 'undefined' && typeof window.raInverterPhases === 'function' && activeInvSpec)
+              ? window.raInverterPhases(activeInvSpec)
+              : (totalAcKwPre > 6.0 ? 3 : 1)));
+        // [FASE 1 SSOT] Calculadora única canónica compartida con Visor 3D y Memoria Técnica
+        const modCfgForBom = (typeof window !== 'undefined' && window.panelConfig)
+          ? window.panelConfig
+          : { potencia: 450, voc: 41.5, vmp: 34.5, isc: 13.8, imp: 13.05 };
+        const engCanonical = (typeof window !== 'undefined' && window.RA && window.RA.Electrical && typeof window.RA.Electrical.computeSizingEngineering === 'function' && tree.summary.totalPanels > 0)
+          ? window.RA.Electrical.computeSizingEngineering({
+              numPanels: tree.summary.totalPanels,
+              cfg: modCfgForBom,
+              tiltDeg: 15,
+              azimutDeg: 0,
+              latDeg: 40.4,
+              invCount: invCountBom
+            })
+          : null;
+
+        // La línea de evacuación y su IGA/Diferencial siguen las fases reales de salida del sistema inversor (acLinePhases)
+        const invPhases = (engCanonical && typeof engCanonical.monofasico === 'boolean')
+          ? (engCanonical.monofasico ? 1 : 3)
+          : acLinePhases;
         const totalAcKwBom = tree.summary.totalAcKw || (tree.summary.totalKwp / 1.15);
         const vAcBom = invPhases === 1 ? 230 : 400;
-        const iAcDesignBom = 1.25 * (invPhases === 1
-          ? (totalAcKwBom * 1000) / (vAcBom * 0.95)
-          : (totalAcKwBom * 1000) / (Math.sqrt(3) * vAcBom * 0.95));
+        const iAcDesignBom = (engCanonical && engCanonical.I_ac_design > 0)
+          ? engCanonical.I_ac_design
+          : (1.25 * (invPhases === 1
+            ? (totalAcKwBom * 1000) / (vAcBom * 0.95)
+            : (totalAcKwBom * 1000) / (Math.sqrt(3) * vAcBom * 0.95)));
 
         const allStrPre = (typeof RACableEngine !== 'undefined' && typeof RACableEngine.gatherAllStrings === 'function')
           ? RACableEngine.gatherAllStrings()
           : null;
-        const estStringsPre = (allStrPre && allStrPre.length > 0) ? allStrPre.length : Math.max(1, Math.ceil(tree.summary.totalPanels / 12));
-        const totalMpptsBom = Math.max(1, ((activeInvSpec && activeInvSpec.mppt) || 2) * Math.max(1, tree.summary.totalInverters || 1));
-        const needsCombinerFuses = (Math.ceil(estStringsPre / totalMpptsBom) >= 3);
+        const estStringsPre = (allStrPre && allStrPre.length > 0)
+          ? allStrPre.length
+          : ((engCanonical && engCanonical.numStrings > 0) ? engCanonical.numStrings : Math.max(1, Math.ceil(tree.summary.totalPanels / 12)));
+        const totalMpptsBom = Math.max(1, ((activeInvSpec && activeInvSpec.mppt) || 2) * invCountBom);
+        const needsCombinerFuses = !isMicroBom && ((engCanonical && typeof engCanonical.useFuses === 'boolean')
+          ? engCanonical.useFuses
+          : (Math.ceil(estStringsPre / totalMpptsBom) >= 3));
+        const fuseAmpBom = (engCanonical && engCanonical.fuse_std) ? engCanonical.fuse_std : 25;
 
         let dcPanelId = projectConfig.selectedProtectionDcId;
         if (!projectConfig.userManuallySelectedProtectionDc) {
@@ -720,69 +758,220 @@
         const dcPanelSpec = (catalog.electricalPanels && catalog.electricalPanels.find(p => p.id === dcPanelId)) || { model: 'Cuadro DC SPD II', price: 245 };
         const acPanelSpecBase = (catalog.electricalPanels && catalog.electricalPanels.find(p => p.id === acPanelId)) || { model: 'Cuadro General AC CGBT', price: 295, amps: 25 };
 
-        // Si la corriente de diseño AC supera los 40 A del cuadro base, escalar calibre de aparamenta e importe proporcionalmente
+        const stdIgaRatings = [16, 20, 25, 32, 40, 50, 63, 80, 100, 125, 160, 200, 250];
+        const reqIgaA = (engCanonical && engCanonical.I_iga > 0)
+          ? engCanonical.I_iga
+          : (stdIgaRatings.find(a => a >= iAcDesignBom) || Math.ceil(iAcDesignBom));
+
+        // Resolver RCD canónico (SSOT con electrical-engine.js) sin asumir Clase B cuando el equipo certifica RCMU
+        const rcdSpecBom = (typeof window !== 'undefined' && typeof window.raResolveRcdSpec === 'function')
+          ? window.raResolveRcdSpec({
+              igaIn: reqIgaA,
+              isThreePhase: (invPhases === 3),
+              totalAcKw: totalAcKwBom,
+              topology: projectConfig.selectedTopology || 'inverter',
+              inv: activeInvSpec
+            })
+          : { inA: Math.max(reqIgaA, 25), rcdType: 'Clase A-SI', sensibilidadMa: reqIgaA >= 63 ? 300 : 30 };
+
+        // 5.1 Cuadros DC (0 en microinversores; repartidos por inversor sin compartir cuadro entre inversores distintos)
+        let dcPanelCount = 0;
+        let dcPanelCost = 0;
+        if (!isMicroBom) {
+          const dcWays = Math.max(1, estStringsPre);
+          const waysPerBox = Math.max(1, dcPanelSpec.mppt || (needsCombinerFuses ? 4 : 2));
+          dcPanelCount = Math.max(invCountBom, Math.ceil(dcWays / waysPerBox));
+          const compactOnlySpd = Boolean(engCanonical && engCanonical.needsExternalDcPanel === false && !projectConfig.userManuallySelectedProtectionDc);
+          const lightningDcSurcharge = hasLightningRod ? 135.0 : 0;
+          const baseDcPrice = compactOnlySpd ? Math.round((dcPanelSpec.price || 245) * 0.65) : (dcPanelSpec.price || 245);
+          const dcUnitPrice = baseDcPrice + lightningDcSurcharge;
+          dcPanelCost = parseFloat((dcPanelCount * dcUnitPrice).toFixed(2));
+          const dcLabel = needsCombinerFuses
+            ? `Cuadro DC ${dcWays} Strings (${spdTag} por MPPT + Secc. + Fusibles gPV ${fuseAmpBom}A)`
+            : (compactOnlySpd
+              ? `Cofret DC Compacto (${spdTag} por MPPT · Seccionador integrado en inversor)`
+              : `${dcPanelSpec.model.replace('SPD II', spdTag + ' por MPPT')}`);
+          tree.electrical.dcPanels.push({ model: dcLabel, count: dcPanelCount, price: dcPanelCost });
+        } else {
+          // Microinversores: Cajas de derivación AC IP65 en cubierta por faldón/ramal
+          const microBranchesCount = Math.max(1, (cbPre && cbPre.acJunctionBoxes > 0) ? cbPre.acJunctionBoxes : Math.ceil(totalAcKwBom / (invPhases === 1 ? 3.68 : 11.0)));
+          const jBoxCost = parseFloat((microBranchesCount * 48.0).toFixed(2));
+          dcPanelCost = jBoxCost;
+          tree.electrical.dcPanels.push({
+            model: 'Caja Estanca Derivación Bus AC Cubierta IP65 (Microinversores)',
+            count: microBranchesCount,
+            price: jBoxCost
+          });
+        }
+
+        // Protección DC Batería (Seccionador bipolar CC + Fusibles gBat IEC 60269-7) cuando hay batería
+        if (tree.summary.totalStorageKwh > 0) {
+          const batProtCost = 145.0;
+          dcPanelCost = parseFloat((dcPanelCost + batProtCost).toFixed(2));
+          tree.electrical.dcPanels.push({
+            model: 'Cofret Protección DC Batería (Seccionador Bipolar CC + Fusibles gBat IEC 60269-7)',
+            count: 1,
+            price: batProtCost
+          });
+        }
+
+        // 5.2 Cuadro General AC (+ Subcuadro Agrupador Multi-Inversor o Protecciones por Rama en Microinversores)
         const acScaleFactor = iAcDesignBom > 40 ? Math.min(2.8, 1 + ((iAcDesignBom - 40) / 80)) : 1.0;
-        const stdIgaRatings = [25, 32, 40, 50, 63, 80, 100, 125, 160];
-        const reqIgaA = stdIgaRatings.find(a => a >= iAcDesignBom) || Math.ceil(iAcDesignBom);
-        const acPanelModel = iAcDesignBom > 40
-          ? `Cuadro General AC ${invPhases === 1 ? '1F' : '3F'} (IGA ${reqIgaA}A + Dif Clase B + SPD II)`
-          : acPanelSpecBase.model;
-
-        const dcPanelCount = (projectConfig.selectedTopology === 'microinverter') ? 0 : Math.max(1, Math.ceil(estStringsPre / Math.max(1, dcPanelSpec.mppt || 2)));
-        const dcPanelCost = dcPanelCount * (dcPanelSpec.price || 245);
-        const acPanelCost = parseFloat(((acPanelSpecBase.price || 295) * acScaleFactor).toFixed(2));
-        tree.summary.subtotalEur += (dcPanelCost + acPanelCost);
-        tree.electrical.panelsProtTotalEur = parseFloat((dcPanelCost + acPanelCost).toFixed(2));
-
-        if (dcPanelCount > 0) tree.electrical.dcPanels.push({ model: dcPanelSpec.model, count: dcPanelCount, price: dcPanelCost });
+        const lightningAcSurcharge = hasLightningRod ? (invPhases === 1 ? 115.0 : 175.0) : 0;
+        const microBranches = isMicroBom ? Math.max(1, Math.ceil(totalAcKwBom / (invPhases === 1 ? 3.68 : 11.0))) : 0;
+        const acPanelModel = isMicroBom
+          ? `Cuadro General AC ${invPhases === 1 ? '1F' : '3F'} (${microBranches}× Mag. Rama 20A + IGA ${reqIgaA}A + Dif ${rcdSpecBom.sensibilidadMa}mA ${rcdSpecBom.rcdType} + ${spdTag} + POP)`
+          : `Cuadro General AC ${invPhases === 1 ? '1F' : '3F'} (IGA ${reqIgaA}A + Dif ${rcdSpecBom.inA}A/${rcdSpecBom.sensibilidadMa}mA ${rcdSpecBom.rcdType} + ${spdTag} + POP)`;
+        const acPanelCost = parseFloat((((acPanelSpecBase.price || 295) * acScaleFactor) + lightningAcSurcharge + (isMicroBom ? microBranches * 28.0 : 0)).toFixed(2));
         tree.electrical.acPanels.push({ model: acPanelModel, count: 1, price: acPanelCost });
 
-        // ── 6. CABLEADO SOLAR DC & EVACUACIÓN AC (SECCIONES REALES REBT) ───────
-        const estDcLengthM = (sState && typeof sState.L_dc_measured === 'number' && sState.L_dc_measured > 0)
-          ? sState.L_dc_measured
-          : Math.max(25, Math.round(tree.summary.totalPanels * 3.5));
+        let subPanelCost = 0;
+        if (!isMicroBom && invCountBom > 1) {
+          subPanelCost = parseFloat((75.0 + invCountBom * 92.0).toFixed(2));
+          tree.electrical.acPanels.push({
+            model: `Subcuadro Agrupador AC FV (${invCountBom}× Magnetotérmicos + Diferenciales por Inversor)`,
+            count: 1,
+            price: subPanelCost
+          });
+        }
+
+        // 5.3 Smart Meter / Gateway + Bus RS485 (Antivertido RD 244/2019 y Monitorización)
+        const meterUnitCost = isMicroBom ? 245.0 : (invPhases === 1 ? 165.0 : 235.0);
+        const rs485Meters = Math.max(15, Math.round((sState && sState.L_ac_measured) || 15));
+        const meterTotalCost = parseFloat((meterUnitCost + rs485Meters * 1.15).toFixed(2));
+        tree.electrical.smartMeter = {
+          model: isMicroBom
+            ? `Gateway / DTU Comunicaciones + Toroidales + ${rs485Meters}m Bus Datos`
+            : `Vatímetro Smart Meter ${invPhases === 1 ? '1F' : '3F'} + CTs + ${rs485Meters}m Bus RS485 Apantallado (Antivertido RD 244/2019)`,
+          price: meterTotalCost
+        };
+
+        // 5.4 Cuadro de Respaldo / Backup ATS cuando hay batería y está habilitado
+        let backupCost = 0;
+        if (tree.summary.totalStorageKwh > 0 && projectConfig.includeBackupBox !== false) {
+          backupCost = invPhases === 1 ? 420.0 : 680.0;
+          tree.electrical.backupBox = {
+            model: `Cuadro Conmutación Backup / Emergencia ATS ${invPhases === 1 ? '1F' : '3F'} (Cargas Críticas)`,
+            price: backupCost
+          };
+        }
+
+        tree.summary.subtotalEur += (dcPanelCost + acPanelCost + subPanelCost + meterTotalCost + backupCost);
+        tree.electrical.panelsProtTotalEur = parseFloat((dcPanelCost + acPanelCost + subPanelCost + meterTotalCost + backupCost).toFixed(2));
+
+        // ── 6. CABLEADO SOLAR DC, TRONCAL, RAMAS AC, MICRO Y BATERÍA (SSOT REBT) ───────
+        const estDcLengthM = (sState && typeof sState.L_dc_string_measured === 'number' && sState.L_dc_string_measured > 0)
+          ? sState.L_dc_string_measured
+          : ((sState && typeof sState.L_dc_measured === 'number' && sState.L_dc_measured > 0)
+            ? sState.L_dc_measured
+            : Math.max(25, Math.round(tree.summary.totalPanels * 3.5)));
         const estAcLengthM = (sState && typeof sState.L_ac_measured === 'number' && sState.L_ac_measured > 0)
           ? sState.L_ac_measured
           : 20.0;
 
-        const DC_PRICE_BY_SEC = { 4: 1.45, 6: 1.85, 10: 2.90, 16: 4.20, 25: 6.50 };
+        const DC_PRICE_BY_SEC = { 4: 1.45, 6: 1.85, 10: 2.90, 16: 4.20, 25: 6.50, 35: 9.10, 50: 12.80, 70: 17.90 };
         const AC_PRICE_BY_SEC = { 2.5: 2.40, 4: 3.20, 6: 4.40, 10: 6.20, 16: 9.10, 25: 13.80, 35: 18.50, 50: 25.20, 70: 34.50 };
 
-        const targetDcSec = (sState && Number(sState.S_dc_recommended) > 0) ? Number(sState.S_dc_recommended) : null;
-        const targetAcSec = (sState && Number(sState.S_ac_recommended) > 0) ? Number(sState.S_ac_recommended) : null;
+        const targetDcSec = (engCanonical && engCanonical.S_str > 0)
+          ? Number(engCanonical.S_str)
+          : ((sState && Number(sState.S_dc_recommended) > 0) ? Number(sState.S_dc_recommended) : null);
+        const targetDcMdcSec = (engCanonical && engCanonical.S_mdc > 0)
+          ? Number(engCanonical.S_mdc)
+          : ((sState && Number(sState.S_mdc_recommended) > 0) ? Number(sState.S_mdc_recommended) : (targetDcSec || 6));
+        const targetAcSec = (engCanonical && engCanonical.S_ac > 0)
+          ? Number(engCanonical.S_ac)
+          : ((sState && Number(sState.S_ac_recommended) > 0) ? Number(sState.S_ac_recommended) : null);
+        const targetAcBranchSec = (engCanonical && engCanonical.S_ac_branch > 0)
+          ? Number(engCanonical.S_ac_branch)
+          : ((sState && Number(sState.S_ac_branch_recommended) > 0) ? Number(sState.S_ac_branch_recommended) : (targetAcSec || 6));
 
         const dcCableItem = (targetDcSec && catalog.cables && catalog.cables.find(c => Number(c.sec) === targetDcSec && String(c.type || '').toLowerCase().includes('dc')))
           || (targetDcSec ? { sec: targetDcSec, pricePerMeter: DC_PRICE_BY_SEC[targetDcSec] || Math.round((targetDcSec * 0.28 + 0.3) * 100) / 100 } : null)
           || (catalog.cables && catalog.cables.find(c => c.id === (projectConfig.selectedCableDcId || 'cable_dc_zzf_6')))
           || { pricePerMeter: 1.85, sec: 6 };
+        const dcTrunkUnitPrice = DC_PRICE_BY_SEC[targetDcMdcSec] || Math.round((targetDcMdcSec * 0.28 + 0.3) * 100) / 100;
 
         const acCableItem = (targetAcSec && catalog.cables && catalog.cables.find(c => Number(c.sec) === targetAcSec && String(c.type || '').toLowerCase().includes('ac')))
           || (targetAcSec ? { sec: targetAcSec, pricePerMeter: AC_PRICE_BY_SEC[targetAcSec] || Math.round((targetAcSec * 0.50 + 1.1) * 100) / 100 } : null)
           || (catalog.cables && catalog.cables.find(c => c.id === (projectConfig.selectedCableAcId || 'cable_ac_rvk_5g10')))
           || { pricePerMeter: 6.20, sec: 10 };
+        const acBranchUnitPrice = AC_PRICE_BY_SEC[targetAcBranchSec] || Math.round((targetAcBranchSec * 0.50 + 1.1) * 100) / 100;
 
-        const allStrList = allStrPre;
         const numStrings = estStringsPre;
         const cb = (sState && sState.cableBreakdown) ? sState.cableBreakdown : null;
-        
-        let totalDcMeters = 0;
-        if (cb && typeof cb.totalDcCableMeters === 'number' && cb.totalDcCableMeters > 0) {
-          totalDcMeters = Math.round(cb.totalDcCableMeters);
+
+        let dcStringMeters = 0;
+        let dcTrunkMeters = 0;
+        if (isMicroBom || (cb && cb.topology === 'microinverter')) {
+          dcStringMeters = 0;
+          dcTrunkMeters = 0;
+        } else if (cb && (typeof cb.dcStringCableMeters === 'number' || typeof cb.totalDcCableMeters === 'number') && (cb.totalDcCableMeters > 0 || cb.dcStringCableMeters > 0)) {
+          dcTrunkMeters = (typeof cb.dcTrunkCableMeters === 'number' && cb.dcTrunkCableMeters > 0) ? Math.round(cb.dcTrunkCableMeters) : 0;
+          dcStringMeters = (typeof cb.dcStringCableMeters === 'number' && cb.dcStringCableMeters > 0)
+            ? Math.round(cb.dcStringCableMeters)
+            : Math.max(0, Math.round(cb.totalDcCableMeters) - dcTrunkMeters);
         } else if (sState && Array.isArray(sState.stringTelemetry) && sState.stringTelemetry.length > 0) {
-          totalDcMeters = Math.round(sState.stringTelemetry.reduce((acc, st) => acc + ((st.posHomerunLength || st.homerunLength || estDcLengthM) + (st.negHomerunLength || st.homerunLength || estDcLengthM) + (st.returnConductorLength || 0)), 0));
+          dcStringMeters = Math.round(sState.stringTelemetry.reduce((acc, st) => acc + ((st.posHomerunLength || st.homerunLength || estDcLengthM) + (st.negHomerunLength || st.homerunLength || estDcLengthM) + (st.returnConductorLength || 0)), 0));
         } else {
-          totalDcMeters = Math.round(estDcLengthM * 2 * numStrings);
+          dcStringMeters = Math.round(estDcLengthM * 2 * numStrings);
         }
 
-        const dcCableCost = totalDcMeters * dcCableItem.pricePerMeter;
-        const acCableMeters = (cb && typeof cb.totalAcCableMeters === 'number' && cb.totalAcCableMeters > 0) ? Math.round(cb.totalAcCableMeters) : estAcLengthM;
-        const acCableCost = acCableMeters * acCableItem.pricePerMeter;
-        tree.summary.subtotalEur += (dcCableCost + acCableCost);
+        const dcStringCost = dcStringMeters * dcCableItem.pricePerMeter;
+        const dcTrunkCost = dcTrunkMeters * dcTrunkUnitPrice;
+        const totalDcMeters = dcStringMeters + dcTrunkMeters;
+        const dcCableCost = dcStringCost + dcTrunkCost;
+
+        const acMainMeters = (cb && typeof cb.acMainCableMeters === 'number' && cb.acMainCableMeters > 0)
+          ? Math.round(cb.acMainCableMeters)
+          : ((cb && typeof cb.totalAcCableMeters === 'number' && cb.totalAcCableMeters > 0) ? Math.round(cb.totalAcCableMeters) : estAcLengthM);
+        const acBranchMeters = isMicroBom
+          ? ((cb && typeof cb.microTrunkCableMeters === 'number' && cb.microTrunkCableMeters > 0) ? Math.round(cb.microTrunkCableMeters) : Math.round(tree.summary.totalPanels * 1.35))
+          : ((invCountBom > 1) ? ((cb && typeof cb.acBranchCableMeters === 'number' && cb.acBranchCableMeters > 0) ? Math.round(cb.acBranchCableMeters) : (invCountBom * 5)) : 0);
+        const acMainCost = acMainMeters * acCableItem.pricePerMeter;
+        const acBranchCost = acBranchMeters * acBranchUnitPrice;
+        const acCableCost = acMainCost + acBranchCost;
+
+        // Cable de potencia DC Batería -> Inversor Híbrido
+        const batCableMeters = (tree.summary.totalStorageKwh > 0)
+          ? ((cb && typeof cb.batteryCableMeters === 'number' && cb.batteryCableMeters > 0) ? Math.round(cb.batteryCableMeters) : 6)
+          : 0;
+        const batCableSec = (cb && cb.batteryCableSecMm2) || 25;
+        const batCableUnitPrice = DC_PRICE_BY_SEC[batCableSec] || 6.50;
+        const batCableCost = batCableMeters * batCableUnitPrice;
+
+        tree.summary.subtotalEur += (dcCableCost + acCableCost + batCableCost);
 
         tree.electrical.cables.push(
-          { type: 'DC ZZ-F 1500V', secMm2: targetDcSec || dcCableItem.sec || 6, meters: totalDcMeters, unitPrice: dcCableItem.pricePerMeter, totalEur: parseFloat(dcCableCost.toFixed(2)) },
-          { type: 'AC RV-K 0.6/1kV', secMm2: targetAcSec || acCableItem.sec || 10, meters: acCableMeters, unitPrice: acCableItem.pricePerMeter, totalEur: parseFloat(acCableCost.toFixed(2)) }
+          { type: 'DC String H1Z2Z2-K 1,8kV', secMm2: targetDcSec || dcCableItem.sec || 6, meters: dcStringMeters, unitPrice: dcCableItem.pricePerMeter, totalEur: parseFloat(dcStringCost.toFixed(2)) },
+          { type: 'AC General RZ1-K (AS) 0,6/1kV', secMm2: targetAcSec || acCableItem.sec || 10, meters: acMainMeters, unitPrice: acCableItem.pricePerMeter, totalEur: parseFloat(acMainCost.toFixed(2)) }
         );
+        if (dcTrunkMeters > 0) {
+          tree.electrical.cables.push({
+            type: 'DC Troncal Combiner → Inversor H1Z2Z2-K',
+            secMm2: targetDcMdcSec,
+            meters: dcTrunkMeters,
+            unitPrice: dcTrunkUnitPrice,
+            totalEur: parseFloat(dcTrunkCost.toFixed(2))
+          });
+        }
+        if (acBranchMeters > 0) {
+          tree.electrical.cables.push({
+            type: isMicroBom ? 'Bus AC Troncal Cubierta H07RN-F' : 'AC Rama Inversor → Subcuadro RZ1-K',
+            secMm2: isMicroBom ? (targetAcBranchSec || 4) : targetAcBranchSec,
+            meters: acBranchMeters,
+            unitPrice: acBranchUnitPrice,
+            totalEur: parseFloat(acBranchCost.toFixed(2))
+          });
+        }
+        if (batCableMeters > 0) {
+          tree.electrical.cables.push({
+            type: 'Bus DC Batería → Inversor RV-K 1kV',
+            secMm2: batCableSec,
+            meters: batCableMeters,
+            unitPrice: batCableUnitPrice,
+            totalEur: parseFloat(batCableCost.toFixed(2))
+          });
+        }
 
         // ── 6.4 BANDEJAS, TUBOS Y CONECTORES MC4 DESDE cableBreakdown ─────────
         const trayMeters = (cb && typeof cb.totalTrayMeters === 'number' && cb.totalTrayMeters > 0) ? Math.round(cb.totalTrayMeters) : 0;
@@ -813,24 +1002,40 @@
           };
         }
 
-        // ── 6.5 CONECTORES MC4 Y LATIGUILLOS SALTO DE RANA (UNE-EN 62305) ──────
+        // ── 6.5 CONECTORES MC4, LATIGUILLOS MEDIDOS EN 3D Y CONECTORES BUS MICRO ──────
         const stringWiringTopology = (projectConfig && projectConfig.stringWiringTopology) || 'leapfrog';
-        if (stringWiringTopology === 'leapfrog') {
-          const jumpersCount = Math.max(0, tree.summary.totalPanels - (2 * numStrings));
+        const has3DJumperMeasurement = Boolean(cb && typeof cb.interModuleJumperCount === 'number' && cb.totalDcCableMeters > 0);
+        if (!isMicroBom) {
+          const jumpersCount = has3DJumperMeasurement
+            ? cb.interModuleJumperCount
+            : ((stringWiringTopology === 'leapfrog') ? Math.max(0, tree.summary.totalPanels - (2 * numStrings)) : 0);
           if (jumpersCount > 0) {
-            const jumperUnitPrice = 5.20; // 5.20 € por latiguillo MC4 1.5m 6mm² preensamblado
+            const jumperUnitPrice = 5.20;
             const totalJumpersCost = parseFloat((jumpersCount * jumperUnitPrice).toFixed(2));
             tree.summary.subtotalEur += totalJumpersCost;
             tree.electrical.mc4Jumpers = {
               count: jumpersCount,
-              type: 'Latiguillos Alargadores MC4 1.5m (Salto de Rana)',
+              type: has3DJumperMeasurement ? 'Latiguillos Alargadores MC4 1.5m (Medidos en Trazado 3D)' : 'Latiguillos Alargadores MC4 1.5m (Salto de Rana)',
               unitPrice: jumperUnitPrice,
               totalEur: totalJumpersCost
             };
           }
+        } else {
+          const microConnCount = (cb && cb.microBusConnectors > 0)
+            ? cb.microBusConnectors
+            : (Math.max(1, tree.summary.totalMicroinverters) + 2);
+          const microConnUnitPrice = 8.50;
+          const microConnCost = parseFloat((microConnCount * microConnUnitPrice).toFixed(2));
+          tree.summary.subtotalEur += microConnCost;
+          tree.electrical.mc4Connectors = {
+            pairs: microConnCount,
+            label: 'Conectores T Bus AC + Tapones IP68 Microinversor',
+            unitPrice: microConnUnitPrice,
+            totalEur: microConnCost
+          };
         }
         let mc4ConnectorsCost = 0;
-        if (cb && typeof cb.mc4ConnectorPairs === 'number' && cb.mc4ConnectorPairs > 0) {
+        if (!isMicroBom && cb && typeof cb.mc4ConnectorPairs === 'number' && cb.mc4ConnectorPairs > 0) {
           const mc4Pairs = Math.round(cb.mc4ConnectorPairs);
           const mc4PairPrice = 3.40;
           mc4ConnectorsCost = parseFloat((mc4Pairs * mc4PairPrice).toFixed(2));
@@ -842,17 +1047,20 @@
           };
         }
 
-        // ── 7. PUESTA A TIERRA & AUXILIARES (DESDE cableBreakdown) ──────────────
-        const earthRods = Math.max(1, Math.ceil(tree.summary.totalKwp / 25.0));
+        // ── 7. PUESTA A TIERRA & AUXILIARES (SECCIÓN SEGÚN PARARRAYOS ITC-BT-18) ──
+        const earthSecMm2 = (engCanonical && engCanonical.S_earth) || (cb && cb.groundingSecMm2) || (hasLightningRod ? 16 : 6);
+        const earthRods = hasLightningRod ? Math.max(2, Math.ceil(tree.summary.totalKwp / 20.0)) : 1;
         const earthWireM = (cb && typeof cb.totalGroundingMeters === 'number' && cb.totalGroundingMeters > 0)
           ? Math.round(cb.totalGroundingMeters)
           : Math.round(tree.summary.totalPanels * BOM_DEFAULTS.EARTH_WIRE_PER_PANEL_M);
-        const earthCost = (earthRods * 35.0) + (earthWireM * 2.10);
+        const earthWireUnitEur = (earthSecMm2 >= 16) ? 2.10 : 0.95;
+        const earthCost = (earthRods * 35.0) + (earthWireM * earthWireUnitEur);
         tree.summary.subtotalEur += earthCost;
 
         tree.electrical.grounding.push({
           earthRods: earthRods,
           earthWireM: earthWireM,
+          earthSecMm2: earthSecMm2,
           totalEur: parseFloat(earthCost.toFixed(2))
         });
 
@@ -1129,13 +1337,16 @@
             <div class="bom-section-title">CABLEADO, CUADROS & TIERRAS</div>
             ${tree.electrical.dcPanels && tree.electrical.dcPanels.length > 0 ? tree.electrical.dcPanels.map(p => `<div class="bom-subitem bom-interactive-item" onclick="BOMTreeEngine.flyToElectrical('dc_protection')" style="cursor:pointer;" title="Clic para enfocar y seleccionar Cuadro DC en 3D">🔌 ${p.count}x ${p.model} — <b>${p.price} €</b></div>`).join('') : ''}
             ${tree.electrical.acPanels && tree.electrical.acPanels.length > 0 ? tree.electrical.acPanels.map(p => `<div class="bom-subitem bom-interactive-item" onclick="BOMTreeEngine.flyToElectrical('meter')" style="cursor:pointer;" title="Clic para enfocar y seleccionar Cuadro AC / Contador en 3D">🔌 ${p.count}x ${p.model} — <b>${p.price} €</b></div>`).join('') : ''}
-            <div class="bom-subitem">📏 Cable DC: ${tree.electrical.cables[0] ? tree.electrical.cables[0].meters + 'm (' + tree.electrical.cables[0].secMm2 + 'mm²) · <b>' + tree.electrical.cables[0].totalEur.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €</b>' : '0m'}</div>
-            <div class="bom-subitem">🔌 Evacuación AC: ${tree.electrical.cables[1] ? tree.electrical.cables[1].meters + 'm (' + tree.electrical.cables[1].secMm2 + 'mm²) · <b>' + tree.electrical.cables[1].totalEur.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €</b>' : '0m'}</div>
+            ${tree.electrical.smartMeter ? `<div class="bom-subitem">📊 ${tree.electrical.smartMeter.model} — <b>${tree.electrical.smartMeter.price} €</b></div>` : ''}
+            ${tree.electrical.backupBox ? `<div class="bom-subitem">🔋 ${tree.electrical.backupBox.model} — <b>${tree.electrical.backupBox.price} €</b></div>` : ''}
+            <div class="bom-subitem">📏 Cable DC Strings: ${tree.electrical.cables[0] ? tree.electrical.cables[0].meters + 'm (' + tree.electrical.cables[0].secMm2 + 'mm²) · <b>' + tree.electrical.cables[0].totalEur.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €</b>' : '0m'}</div>
+            <div class="bom-subitem">🔌 Evacuación AC General: ${tree.electrical.cables[1] ? tree.electrical.cables[1].meters + 'm (' + tree.electrical.cables[1].secMm2 + 'mm²) · <b>' + tree.electrical.cables[1].totalEur.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €</b>' : '0m'}</div>
+            ${tree.electrical.cables.slice(2).map(c => `<div class="bom-subitem">🔌 ${c.type}: ${c.meters}m (${c.secMm2}mm²) · <b>${c.totalEur.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</b></div>`).join('')}
             ${tree.electrical.tray ? `<div class="bom-subitem">🪜 ${tree.electrical.tray.description}: ${tree.electrical.tray.meters}m · <b>${tree.electrical.tray.totalEur.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</b></div>` : ''}
             ${tree.electrical.acConduit ? `<div class="bom-subitem">🗜️ ${tree.electrical.acConduit.description}: ${tree.electrical.acConduit.meters}m · <b>${tree.electrical.acConduit.totalEur.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</b></div>` : ''}
-            ${tree.electrical.mc4Connectors ? `<div class="bom-subitem">🔗 Parejas MC4: <b>${tree.electrical.mc4Connectors.pairs}x</b> · <b>${tree.electrical.mc4Connectors.totalEur.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</b></div>` : ''}
-            ${tree.electrical.mc4Jumpers ? `<div class="bom-subitem">🔗 Latiguillos MC4 (Salto de Rana): <b>${tree.electrical.mc4Jumpers.count}x</b> 1.5m · <b>${tree.electrical.mc4Jumpers.totalEur.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</b></div>` : ''}
-            ${tree.electrical.grounding && tree.electrical.grounding.length > 0 ? `<div class="bom-subitem">⏚ Puesta a Tierra: ${tree.electrical.grounding[0].earthRods} pica(s) + ${tree.electrical.grounding[0].earthWireM}m conductor Cu 16mm² · <b>${tree.electrical.grounding[0].totalEur.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</b></div>` : ''}
+            ${tree.electrical.mc4Connectors ? `<div class="bom-subitem">🔗 ${tree.electrical.mc4Connectors.label || 'Parejas MC4'}: <b>${tree.electrical.mc4Connectors.pairs}x</b> · <b>${tree.electrical.mc4Connectors.totalEur.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</b></div>` : ''}
+            ${tree.electrical.mc4Jumpers ? `<div class="bom-subitem">🔗 ${tree.electrical.mc4Jumpers.type || 'Latiguillos MC4'}: <b>${tree.electrical.mc4Jumpers.count}x</b> · <b>${tree.electrical.mc4Jumpers.totalEur.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</b></div>` : ''}
+            ${tree.electrical.grounding && tree.electrical.grounding.length > 0 ? `<div class="bom-subitem">⏚ Puesta a Tierra: ${tree.electrical.grounding[0].earthRods} pica(s) + ${tree.electrical.grounding[0].earthWireM}m conductor Cu ${tree.electrical.grounding[0].earthSecMm2 || 6}mm² · <b>${tree.electrical.grounding[0].totalEur.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</b></div>` : ''}
             ${tree.electrical.safetySignage ? `<div class="bom-subitem">⚠️ ${tree.electrical.safetySignage.description} · <b>${tree.electrical.safetySignage.totalEur.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</b></div>` : ''}
 
             <div class="bom-section-title">INSTALACIÓN, INGENIERÍA & MEDIOS</div>

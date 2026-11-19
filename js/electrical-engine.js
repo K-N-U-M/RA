@@ -24,8 +24,8 @@
     DV_MAX_DC_PCT: 1.5,       // Caída de tensión máxima admisible DC (objetivo de diseño)
     DV_MAX_AC_PCT: 1.5,       // Caída de tensión máxima admisible AC (objetivo de diseño)
     DV_MAX_TOTAL_PCT: 2.5,    // [C-02] Restricción vinculante DC+AC (criterio de proyecto)
-    SEC_DC_AVAIL: [4, 6, 10, 16, 25],
-    IMAX_DC_ZZF:  [44, 58, 80, 107, 138],
+    SEC_DC_AVAIL: [4, 6, 10, 16, 25, 35, 50, 70],
+    IMAX_DC_ZZF:  [44, 58, 80, 107, 138, 171, 209, 256],
     SEC_AC_AVAIL: [2.5, 4, 6, 10, 16, 25, 35, 50, 70],
     IMAX_AC_RVK:  [29, 38, 49, 68, 91, 119, 146, 178, 226]
   };
@@ -562,16 +562,42 @@
   }
 
   /**
-   * [C3/G4] Fase real del inversor como DATO propio (NO adivinada del texto del tipo).
-   * Prioridad: inv.phases (1|3) → potencia nominal (umbral legal habitual 6 kW) → texto del tipo.
-   * Así un inversor importado con otro nombre no fuerza un cálculo trifásico erróneo.
+   * [C3/G4] Fase real del inversor como DATO propio.
+   * Prioridad: inv.phases (1|3) → texto explícito del tipo/modelo → potencia nominal (umbral 6 kW).
+   * Así un inversor monofásico de 8-10 kW no se clasifica erróneamente como trifásico.
    */
   function raInverterPhases(inv) {
     if (inv && (inv.phases === 1 || inv.phases === 3)) return inv.phases;
+    var t = ((inv && inv.type) ? String(inv.type) : '') + ' ' + ((inv && inv.model) ? String(inv.model) : '');
+    var tl = t.toLowerCase();
+    if (tl.indexOf('mono') !== -1 || tl.indexOf('1f') !== -1 || tl.indexOf('1p') !== -1 || tl.indexOf('l1') !== -1) return 1;
+    if (tl.indexOf('tri') !== -1 || tl.indexOf('3f') !== -1 || tl.indexOf('3p') !== -1) return 3;
     if (inv && typeof inv.kw === 'number' && isFinite(inv.kw)) return inv.kw <= 6.0 ? 1 : 3;
-    var t = (inv && inv.type) ? String(inv.type).toLowerCase() : '';
-    if (t.indexOf('mono') !== -1 || t.indexOf('1f') !== -1 || t.indexOf('1p') !== -1) return 1;
     return 3;
+  }
+
+  /**
+   * Resuelve el número de fases efectivo (1 o 3) para cálculos de evacuación AC (230 V vs 400 V)
+   * combinando acometida (gridSupply), topología, fases del inversor, nº de equipos y RD 1699 Art. 12.2.
+   */
+  function raResolveAcPhases(inv, invCount, cfg) {
+    var count = (typeof invCount === 'number' && isFinite(invCount) && invCount > 0) ? Math.round(invCount) : 1;
+    var unitKw = (inv && typeof inv.kw === 'number' && isFinite(inv.kw)) ? inv.kw : 5.0;
+    var totalAcKw = unitKw * count;
+    // RD 1699/2011 Art. 12.2: Pn > 15 kW AC exige siempre conexión trifásica
+    if (totalAcKw > 15.0) return 3;
+
+    var gridSupply = (cfg && cfg.gridSupply) ? cfg.gridSupply : null;
+    var topo = (cfg && cfg.selectedTopology) ? cfg.selectedTopology : 'inverter';
+    var invPhases = inv ? raInverterPhases(inv) : (unitKw <= 6.0 ? 1 : 3);
+
+    if (gridSupply === 'single_phase') return 1;
+    if (gridSupply === 'three_phase') {
+      if (topo === 'microinverter' || invPhases === 3 || count >= 2) return 3;
+      // 1 único inversor monofásico <= 5 kW conectado a una fase de red trifásica: su salida AC es 1F 230 V
+      return 1;
+    }
+    return invPhases;
   }
 
   /**
@@ -599,15 +625,18 @@
     const inv = opts.inv || null;
     const rcmuCertified = (opts.rcmuCertified !== undefined)
       ? Boolean(opts.rcmuCertified)
-      : Boolean(inv && (inv.rcmu === true || inv.hasRcmu === true || inv.rcmuCertified === true));
+      : Boolean(inv && (inv.rcmu === true || inv.hasRcmu === true || inv.rcmuCertified === true || inv.rcmuIntegrated !== false));
     const isTransformerIsolatedMicro = (topo === 'microinverter');
-    const requiresClassB = (!isTransformerIsolatedMicro && !rcmuCertified) || isThreePhase || totalAcKw > 10.0;
+    // IEC 62109-2 / REBT ITC-BT-40: Si el inversor integra supervisión RCMU certificada (corte < 6 mA DC)
+    // o es microinversor con aislamiento galvánico HF, se admite Clase A-SI; solo se exige Clase B si carece de RCMU o lo fuerza opts.forceClassB.
+    const requiresClassB = Boolean(opts.forceClassB) || (!isTransformerIsolatedMicro && !rcmuCertified);
     const rcdType = requiresClassB ? 'Clase B' : 'Clase A-SI';
     const sensMa = (opts.esIndustrial || (isThreePhase && (igaIn >= 63 || totalAcKw > 15.0))) ? 300 : 30;
     return {
       inA: Math.max(igaIn, 25),
       rcdType,
-      sensibilidadMa: sensMa
+      sensibilidadMa: sensMa,
+      rcmuCertified
     };
   }
 
@@ -665,14 +694,13 @@
         const hasImpClipping = !!(inv.iMaxOperA && _impPerMppt > inv.iMaxOperA);
 
         // Art. 12.2 RD 1699/2011 (modificado por RD 244/2019) y REBT ITC-BT-40:
-        // 1) Si la potencia nominal supera 15 kW, la conexión será obligatoriamente trifásica.
-        // 2) Conexión trifásica con desequilibrio entre fases inferior a 5 kW (< 5.0 kW).
-        // [RD 1699/2011 Art. 12.2]: El límite legal de 15 kW aplica a la potencia nominal en alterna (invCount * inv.kw <= 15.0 kW). Con ratio DC/AC típico de 1.35x, el campo solar puede alcanzar hasta 20.25 kWp en monofásico.
-        const exceedsSinglePhaseLimit = (gridSupply === 'single_phase' && ((invCount * inv.kw) > 15.0 || totalKwp > 20.25));
+        // 1) Si la potencia nominal AC supera 15 kW, la conexión será obligatoriamente trifásica.
+        // 2) En conexión trifásica, la diferencia entre fases no debe superar 5 kW (<= 5.0 kW admisible).
+        const exceedsSinglePhaseLimit = (gridSupply === 'single_phase' && ((invCount * inv.kw) > 15.0));
         const maxPhaseUnits = Math.ceil(invCount / 3);
         const minPhaseUnits = Math.floor(invCount / 3);
         const maxPhaseDeltaKw = (maxPhaseUnits - minPhaseUnits) * (inv.kw || 0);
-        const hasPhaseUnbalance = (gridSupply === 'three_phase' && isInvSinglePhase && maxPhaseDeltaKw >= 5.0);
+        const hasPhaseUnbalance = (gridSupply === 'three_phase' && isInvSinglePhase && maxPhaseDeltaKw > 5.0);
 
         const isMLPE = (options.selectedTopology === 'optimizer' || options.selectedTopology === 'microinverter');
         const effectiveOrientations = isMLPE ? Math.min(distinctOrientations, 2) : distinctOrientations;
@@ -799,8 +827,8 @@
           if (inv.iMaxScA && _isc > inv.iMaxScA) countCurrentMismatch++;
         });
 
-        if (gridSupply === 'single_phase' && totalKwp > 20.25) {
-          bottleneckReason = `Potencia instalada de ${totalKwp.toFixed(1)} kWp superior a 20.25 kWp (> 15 kW nominales con sobrecarga máx 1.35): el Art. 12.2 del RD 1699/2011 (modificado por RD 244/2019) exige conexión trifásica con desequilibrio entre fases < 5 kW.`;
+        if (gridSupply === 'single_phase' && totalKwp > 22.5) {
+          bottleneckReason = `Potencia instalada de ${totalKwp.toFixed(1)} kWp superior a 22.5 kWp (> 15 kW nominales AC con sobrecarga máx 1.50): el Art. 12.2 del RD 1699/2011 (modificado por RD 244/2019) exige conexión trifásica con desequilibrio entre fases ≤ 5 kW.`;
         } else if (countPhaseMismatch === catalog.length) {
           bottleneckReason = 'Todos los inversores del catálogo son trifásicos, pero el suministro configurado es monofásico (≤6 kWp).';
         } else if (countCurrentMismatch >= Math.ceil(catalog.length / 2)) {
@@ -813,7 +841,7 @@
       }
 
       // Generar Inversor Paramétrico Virtual Ideal
-      const isThreePhase = (gridSupply === 'three_phase' || (gridSupply !== 'single_phase' && totalKwp > 6.0) || totalKwp > 20.25);
+      const isThreePhase = (gridSupply === 'three_phase' || (gridSupply !== 'single_phase' && totalKwp > 6.0) || totalKwp > 22.5);
       const targetOverload = 1.18;
       let idealKw = Math.max(1.0, Math.round((totalKwp / targetOverload) * 10) / 10);
       if (gridSupply === 'single_phase' && idealKw > 15.0) {
@@ -1126,17 +1154,23 @@
       descripcion: `Seccionador DC 2P ${dcSwitchIe}A / ${dcSwitchUe}V DC-PV2`
     };
 
-    // Descargador de sobretensiones transitorias DC (SPD Clase II / Tipo 2 según IEC 61643-31 / UNE-EN 50539-11):
+    // Descargador de sobretensiones transitorias DC (SPD Tipo 2 estándar, o Tipo 1+2 si existe pararrayos exterior CTE SUA 8 / UNE-EN 62305)
     // Ucpv >= 1.20 * Voc_cold
+    const hasLightningRod = (params.hasExternalLightningRod !== undefined)
+      ? Boolean(params.hasExternalLightningRod)
+      : Boolean(typeof root !== 'undefined' && root.solarProjectConfig && root.solarProjectConfig.hasExternalLightningRod);
     const spdDcUcpv = DC_VOLT_RATINGS.find(v => v >= ueVocMin) || 1200;
     const dcSpd = {
       tipo: 'Descargador de sobretensiones transitorias DC (SPD)',
-      clase: 'Clase II (Tipo 2) según IEC 61643-31',
+      clase: hasLightningRod ? 'Tipo 1+2 (Clase I+II · Edificio con pararrayos)' : 'Clase II (Tipo 2) según IEC 61643-31',
       ucpvV: spdDcUcpv,
       inKa: 20,
-      imaxKa: 40,
-      polos: '2P + Tierra (Y-configuration)',
-      descripcion: `SPD DC Clase II Ucpv ${spdDcUcpv}V (In=20kA / Imax=40kA)`
+      imaxKa: hasLightningRod ? 50 : 40,
+      iimpKa: hasLightningRod ? 12.5 : 0,
+      polos: '2P + Tierra por entrada MPPT (Y-configuration)',
+      descripcion: hasLightningRod
+        ? `SPD DC Tipo 1+2 Ucpv ${spdDcUcpv}V (Iimp=12.5kA / In=20kA)`
+        : `SPD DC Clase II Ucpv ${spdDcUcpv}V (In=20kA / Imax=40kA)`
     };
 
     // Fusibles gPV de protección contra corrientes inversas (IEC 62548 cláusula 6.5.3 / IEC 60269-6):
@@ -1239,17 +1273,20 @@
       descripcion: `Diferencial ${polosAc} ${rcdSpec.inA}A / ${sensibilidadMa}mA ${rcdType}`
     };
 
-    // Descargador de sobretensiones AC (SPD Clase II + POP según UNE-EN 50550 / REBT ITC-BT-23):
+    // Descargador de sobretensiones AC (SPD Clase II o Tipo 1+2 + POP según UNE-EN 50550 / REBT ITC-BT-23):
     const acSpd = {
       tipo: 'Protección contra sobretensiones transitorias y permanentes (SPD + POP)',
-      clase: 'Clase II (Tipo 2) transitorias + Bobina de disparo POP permanentes',
+      clase: hasLightningRod ? 'Tipo 1+2 (Clase I+II) + Bobina POP permanentes' : 'Clase II (Tipo 2) transitorias + Bobina de disparo POP permanentes',
       ucV: isThreePhase ? 440 : 275,
       inKa: 20,
-      imaxKa: 40,
+      imaxKa: hasLightningRod ? 50 : 40,
+      iimpKa: hasLightningRod ? 12.5 : 0,
       polos: polosAc,
       asociadoA: 'Bobina de emisión conectada al IGA para desenganche automático',
       norma: 'UNE-EN 50550 / UNE-EN 61643-11 / REBT ITC-BT-23',
-      descripcion: `SPD AC Clase II ${polosAc} (In=20kA / Imax=40kA) + Protector Permanente (POP)`
+      descripcion: hasLightningRod
+        ? `SPD AC Tipo 1+2 ${polosAc} (Iimp=12.5kA / In=20kA) + Protector Permanente (POP)`
+        : `SPD AC Clase II ${polosAc} (In=20kA / Imax=40kA) + Protector Permanente (POP)`
     };
 
     return {
@@ -2234,15 +2271,26 @@
       Voc_str_max: 0,
       Vmp_str_hot: 0,
       I_total_dc: 0,
+      invCount: 1,
       S_str: 6,
+      S_mdc: 10,
       dVdc_pct: 0,
       dV_dc: 0,
       dV_ac: 0,
       S_ac: 10,
+      S_ac_branch: 10,
+      S_earth: 6,
       dVac_pct: 0,
       I_iga: 16,
-      dif_amp: 16,
-      spdType: "Tipo I+II (1000 V CC / 400 V AC - 40 kA)",
+      dif_amp: 25,
+      spdType: "Tipo 2 / Clase II (1000 V CC / 400 V AC - 40 kA)",
+      spdClaseLabel: "Clase II (Tipo 2)",
+      hasExternalLightningRod: false,
+      isMicroinverter: false,
+      includeBackupBox: false,
+      needsExternalDcPanel: true,
+      microBranches: 0,
+      fuseExceedsModRating: false,
       PR: 0.80,
       lossTree: {
         soiling: 2.5,
@@ -2338,8 +2386,12 @@
   const P_ac_kW = inv_kW;
   const total_P_ac_kW = inv_kW * invCount;
   const total_ac_kW = total_P_ac_kW;
-  const _selInv = (typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.calculatedLimits && window.solarProjectConfig.calculatedLimits.inverter) || null;
-  let monofasico = activeInv ? (raInverterPhases(activeInv) === 1) : (_selInv ? (raInverterPhases(_selInv) === 1) : (inv_kW <= 5.0));
+  const _cfgAc = (typeof window !== 'undefined' && window.solarProjectConfig) ? window.solarProjectConfig : null;
+  const _selInv = (_cfgAc && _cfgAc.calculatedLimits && _cfgAc.calculatedLimits.inverter) || null;
+  const _invCountAc = (_cfgAc && _cfgAc.autoSizing && _cfgAc.autoSizing.inverters && Number.isFinite(_cfgAc.autoSizing.inverters.count))
+    ? Math.max(1, _cfgAc.autoSizing.inverters.count) : 1;
+  const _resolvedInv = activeInv || _selInv || { kw: inv_kW };
+  let monofasico = raResolveAcPhases(_resolvedInv, _invCountAc, _cfgAc) === 1;
   // Salvaguarda RD 1699/2011 Art. 12.2 (mod. RD 244/2019): Pn > 15 kW nominales AC exige conexión trifásica
   if (total_ac_kW > 15.0) {
     monofasico = false;
@@ -2354,11 +2406,18 @@
   const rho90 = (typeof SOLAR_ENGINE_CONSTANTS !== 'undefined' && SOLAR_ENGINE_CONSTANTS && Number(SOLAR_ENGINE_CONSTANTS.RHO_CU_90) > 0)
     ? SOLAR_ENGINE_CONSTANTS.RHO_CU_90
     : 0.023;
-  const L_dc = (window.inverterEquipmentState && window.inverterEquipmentState.L_dc_measured > 0)
-    ? window.inverterEquipmentState.L_dc_measured
+  const _sState = (typeof window !== 'undefined' && window.inverterEquipmentState) ? window.inverterEquipmentState : null;
+  const L_dc_string = (_sState && _sState.L_dc_string_measured > 0)
+    ? _sState.L_dc_string_measured
+    : ((_sState && _sState.L_dc_measured > 0) ? _sState.L_dc_measured : 30);
+  const L_dc = (_sState && _sState.L_dc_measured > 0)
+    ? _sState.L_dc_measured
     : 30;
-  const L_ac = (window.inverterEquipmentState && window.inverterEquipmentState.L_ac_measured > 0)
-    ? window.inverterEquipmentState.L_ac_measured
+  const L_mdc_meas = (_sState && _sState.L_dc_trunk_measured > 0)
+    ? _sState.L_dc_trunk_measured
+    : Math.max(5, Math.round(L_dc_string * 0.35));
+  const L_ac = (_sState && _sState.L_ac_measured > 0)
+    ? _sState.L_ac_measured
     : 15;
 
   // Factor de bifacialidad unificado bajo UNE-EN 62548 / IEC TS 60904-1-2 (+15% conservador aplicado a protecciones y caída DC)
@@ -2369,22 +2428,25 @@
   const I_dc_working = Imp * bifacialGainFactor;
   // [AUD-2026 · C-05] Fuente única de secciones/ampacidad: js/electrical-engine.js.
   const _RA_SEC = (typeof window !== 'undefined' && window.RA && window.RA.Electrical && window.RA.Electrical.SECCIONES) || null;
-  const SEC_DC_AVAIL = (_RA_SEC && Array.isArray(_RA_SEC.dc)) ? _RA_SEC.dc : [4, 6, 10, 16, 25];
-  const IMAX_DC_ZZF  = (_RA_SEC && Array.isArray(_RA_SEC.dcIz)) ? _RA_SEC.dcIz : [44, 58, 80, 107, 138];
+  const SEC_DC_AVAIL = (_RA_SEC && Array.isArray(_RA_SEC.dc)) ? _RA_SEC.dc : [4, 6, 10, 16, 25, 35, 50, 70];
+  const IMAX_DC_ZZF  = (_RA_SEC && Array.isArray(_RA_SEC.dcIz)) ? _RA_SEC.dcIz : [44, 58, 80, 107, 138, 171, 209, 256];
 
   // [C6/M6] Factores de corrección de ampacidad reales (REBT ITC-BT-19 / UNE-HD 60364-5-52):
   // temperatura ambiente 40–45 °C (0.90) × agrupamiento real kGroup según número de circuitos DC/AC
   const nCircDc = Math.max(1, numStrings);
   const kGroupDc = nCircDc === 1 ? 1.0 : (nCircDc === 2 ? 0.80 : (nCircDc === 3 ? 0.70 : (nCircDc <= 5 ? 0.65 : 0.55)));
   const K_AMPACITY_DC = 0.90 * kGroupDc;
+  // Línea general AC hacia CGBT/contador es un único circuito agrupado (kGroupMain = 1.0);
+  // kGroupAc aplica solo a las ramas paralelas Inversor -> Subcuadro Agrupador cuando invCount > 1.
+  const K_AMPACITY_AC_MAIN = 0.90;
   const kGroupAc = invCount <= 1 ? 1.0 : (invCount === 2 ? 0.80 : (invCount === 3 ? 0.70 : 0.65));
-  const K_AMPACITY_AC = 0.90 * kGroupAc;
+  const K_AMPACITY_AC_BRANCH = 0.90 * kGroupAc;
 
   let S_str_opt = null;
   for (let i = 0; i < SEC_DC_AVAIL.length; i++) {
     const s = SEC_DC_AVAIL[i];
     const imax = IMAX_DC_ZZF[i];
-    const dV = (2 * rho90 * L_dc * I_dc_working) / s;
+    const dV = (2 * rho90 * L_dc_string * I_dc_working) / s;
     const vStrBase = Math.max(Vmp_str_hot, 1.0);
     const dV_pct = (dV / vStrBase) * 100;
     if ((imax * K_AMPACITY_DC) >= I_dc_design && dV_pct <= 1.5) {
@@ -2395,7 +2457,38 @@
   const isDcCompliant = (S_str_opt !== null);
   if (!S_str_opt) S_str_opt = SEC_DC_AVAIL[SEC_DC_AVAIL.length - 1];
 
-  const dV_dc = (2 * rho90 * L_dc * I_dc_working) / S_str_opt;
+  // Troncal DC desde Combiner Box / Nodo Paralelo Y -> Inversor (S_mdc)
+  const isParallelTopo = !!(_cfgAc && (_cfgAc.dcTopology === 'parallel' || _cfgAc.dcTopology === 'parallel_y' || _cfgAc.selectedTopology === 'parallel' || _cfgAc.selectedTopology === 'parallel_y'));
+  let S_mdc_opt = S_str_opt;
+  if (numStrings > 2 || (isParallelTopo && numStrings >= 2)) {
+    const mpptTotalMdc = Math.max(1, ((activeInv && activeInv.mppt) || 2) * invCount);
+    const stringsPerTrunk = isParallelTopo
+      ? Math.max(2, numStrings)
+      : Math.max(2, Math.ceil(numStrings / mpptTotalMdc));
+    const I_mdc_design = stringsPerTrunk * I_dc_design;
+    const I_mdc_working = stringsPerTrunk * I_dc_working;
+    const L_mdc = L_mdc_meas;
+    const K_AMPACITY_DC_TRUNK = 0.75 * 0.88;
+    let foundMdc = null;
+    for (let i = 0; i < SEC_DC_AVAIL.length; i++) {
+      const s = SEC_DC_AVAIL[i];
+      const imax = IMAX_DC_ZZF[i];
+      const dVm = (2 * rho90 * L_mdc * I_mdc_working) / s;
+      const dVm_pct = (dVm / Math.max(Vmp_str_hot, 1.0)) * 100;
+      if ((imax * K_AMPACITY_DC_TRUNK) >= I_mdc_design && dVm_pct <= 0.5) {
+        foundMdc = s;
+        break;
+      }
+    }
+    S_mdc_opt = foundMdc || SEC_DC_AVAIL[SEC_DC_AVAIL.length - 1];
+    if (S_mdc_opt < S_str_opt) S_mdc_opt = S_str_opt;
+  }
+
+  const dV_dc_str = (2 * rho90 * L_dc_string * I_dc_working) / S_str_opt;
+  const dV_dc_trk = (_sState && _sState.L_dc_trunk_measured > 0)
+    ? ((2 * rho90 * _sState.L_dc_trunk_measured * (Math.max(1, isParallelTopo ? numStrings : 1) * I_dc_working)) / S_mdc_opt)
+    : 0;
+  const dV_dc = dV_dc_str + dV_dc_trk;
   const dVdc_pct = (dV_dc / Math.max(Vmp_str_hot, 1.0)) * 100;
 
   const I_ac_design = 1.25 * I_ac;
@@ -2413,13 +2506,37 @@
     const factorPhase = monofasico ? 2.0 : Math.sqrt(3);
     const dV = factorPhase * I_ac * L_ac * ((rho90 / s) * cosPAc + xMeterAc * sinPAc);
     const dV_pct = (dV / V_ac) * 100;
-    if ((imax * K_AMPACITY_AC) >= I_ac_design && dV_pct <= 1.5) {
+    if ((imax * K_AMPACITY_AC_MAIN) >= I_ac_design && dV_pct <= 1.5) {
       S_ac_opt = s;
       break;
     }
   }
   const isAcCompliant = (S_ac_opt !== null);
   if (!S_ac_opt) S_ac_opt = SEC_AC_AVAIL[SEC_AC_AVAIL.length - 1];
+
+  // Rama AC individual Inversor -> Subcuadro Agrupador cuando invCount > 1
+  let S_ac_branch_opt = S_ac_opt;
+  if (invCount > 1) {
+    const I_ac_unit = I_ac / invCount;
+    const I_ac_unit_design = 1.25 * I_ac_unit;
+    const L_ac_branch = 5;
+    let foundAcBranch = null;
+    for (let i = 0; i < SEC_AC_AVAIL.length; i++) {
+      const s = SEC_AC_AVAIL[i];
+      const imax = IMAX_AC_RVK[i];
+      const xMeterAc = 0.08 / 1000.0;
+      const cosPAc = 0.95;
+      const sinPAc = Math.sqrt(Math.max(0, 1.0 - cosPAc * cosPAc));
+      const factorPhase = monofasico ? 2.0 : Math.sqrt(3);
+      const dV = factorPhase * I_ac_unit * L_ac_branch * ((rho90 / s) * cosPAc + xMeterAc * sinPAc);
+      const dV_pct = (dV / V_ac) * 100;
+      if ((imax * K_AMPACITY_AC_BRANCH) >= I_ac_unit_design && dV_pct <= 1.5) {
+        foundAcBranch = s;
+        break;
+      }
+    }
+    S_ac_branch_opt = foundAcBranch || SEC_AC_AVAIL[SEC_AC_AVAIL.length - 1];
+  }
 
   const xMeterAcOpt = 0.08 / 1000.0;
   const cosPAcOpt = 0.95;
@@ -2432,11 +2549,19 @@
 
   const STD_IGA = [16, 20, 25, 32, 40, 50, 63, 80, 100, 125, 160, 200, 250];
   const I_iga = STD_IGA.find(i => i >= I_ac_design) || (I_ac_design > 125 ? Math.ceil(I_ac_design / 10) * 10 : 63);
-  const spdType = "Tipo I+II (1000 V CC / 400 V AC - 40 kA)";
+  const hasExternalLightningRod = !!(_cfgAc && _cfgAc.hasExternalLightningRod);
+  const isMicroinverter = !!(_cfgAc && _cfgAc.selectedTopology === 'microinverter');
+  const hasBatCfg = !!(_cfgAc && _cfgAc.selectedBatteryId && _cfgAc.selectedBatteryId !== 'bat_none');
+  const includeBackupBox = !!(_cfgAc && _cfgAc.includeBackupBox !== false && hasBatCfg);
+  const spdClaseLabel = hasExternalLightningRod ? "Clase I+II (Tipo 1+2 · CTE SUA 8)" : "Clase II (Tipo 2)";
+  const spdType = hasExternalLightningRod
+    ? "Tipo 1+2 / Clase I+II (1000 V CC / 400 V AC - Iimp 12,5 kA / Imax 40 kA)"
+    : "Tipo 2 / Clase II (1000 V CC / 400 V AC - In 20 kA / Imax 40 kA)";
   const rcdSpec = raResolveRcdSpec({
     igaIn: I_iga,
     isThreePhase: !monofasico,
     totalAcKw: total_ac_kW,
+    topology: isMicroinverter ? 'microinverter' : (_cfgAc && _cfgAc.selectedTopology),
     inv: activeInv || _selInv
   });
   const dif_amp = rcdSpec.inA;
@@ -2461,10 +2586,16 @@
     const mpptTotal = Math.max(1, ((activeInv && activeInv.mppt) || 2) * invCount);
     stringsPerMpptMax = Math.max(1, Math.ceil(numStrings / mpptTotal));
   }
-  const useFuses = (stringsPerMpptMax >= 3);
-  const fuseMinA = Math.ceil(Isc * 1.56);
+  const useFuses = !isMicroinverter && (stringsPerMpptMax >= 3);
+  const fuseMinA = Math.ceil((Isc * bifacialGainFactor) * 1.56);
   const fuseRatings = [12, 15, 16, 20, 25, 30, 32];
   const fuse_std = useFuses ? (fuseRatings.find(f => f >= fuseMinA) || fuseMinA) : null;
+  const maxModFuseA = Number(cfg && (cfg.maxSeriesFuseA || cfg.maxFuseA || 30)) || 30;
+  const fuseExceedsModRating = Boolean(useFuses && fuse_std && fuse_std > maxModFuseA);
+  const S_earth = hasExternalLightningRod ? 16 : 6;
+  const microBranches = isMicroinverter ? Math.max(1, Math.ceil(total_ac_kW / (monofasico ? 3.68 : 11.0))) : 0;
+  const hasIntegratedDcSwitch = !activeInv || (activeInv.integratedDcSwitch !== false);
+  const needsExternalDcPanel = !isMicroinverter && (useFuses || hasExternalLightningRod || L_dc_string > 10 || !hasIntegratedDcSwitch);
 
   const prInfo = (typeof window !== 'undefined' && typeof window.raCalculateSystemPR === 'function')
     ? window.raCalculateSystemPR(1.0 - 0.075) // derating térmico estándar 7.5%
@@ -2510,10 +2641,13 @@
     Vmp_str_hot: Math.round(Vmp_str_hot * 10) / 10,
     I_total_dc: Math.round(I_total_dc * 10) / 10,
     S_str: S_str_opt,
+    S_mdc: S_mdc_opt,
     dVdc_pct: Math.round(dVdc_pct * 100) / 100,
     dV_dc: dV_dc,
     dV_ac: dV_ac,
     S_ac: S_ac_opt,
+    S_ac_branch: S_ac_branch_opt,
+    S_earth,
     dVac_pct: Math.round(dVac_pct * 100) / 100,
     isCompliantREBT,
     isDcCompliant: isDcCompliant && (dVdc_pct <= 1.5),
@@ -2526,6 +2660,13 @@
     I_iga,
     dif_amp,
     spdType,
+    spdClaseLabel,
+    hasExternalLightningRod,
+    isMicroinverter,
+    includeBackupBox,
+    needsExternalDcPanel,
+    microBranches,
+    fuseExceedsModRating,
     PR: PR_calc,
     lossTree: {
       soiling: Math.round(loss_soiling * 1000) / 10,
@@ -2555,6 +2696,7 @@
   root.validateMPPTHomogeneity = validateMPPTHomogeneity;
   root.calculateInverterEfficiencyAndClipping = calculateInverterEfficiencyAndClipping;
   root.raInverterPhases = raInverterPhases;
+  root.raResolveAcPhases = raResolveAcPhases;
   root.raGetMicroinverterRatio = raGetMicroinverterRatio;
   root.raResolveRcdSpec = raResolveRcdSpec;
 
@@ -2584,6 +2726,7 @@
     validateMPPTHomogeneity: validateMPPTHomogeneity,
     calculateInverterEfficiencyAndClipping: calculateInverterEfficiencyAndClipping,
     raInverterPhases: raInverterPhases,
+    raResolveAcPhases: raResolveAcPhases,
     getMicroinverterRatio: raGetMicroinverterRatio,
     resolveRcdSpec: raResolveRcdSpec,
     updateInverterAssistant: wpUpdateInverterSmartAssistantUI,

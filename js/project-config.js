@@ -11,13 +11,15 @@ window.solarProjectConfig = {
   selectedTopology: 'inverter', // 'inverter' | 'microinverter' | 'optimizer'
   selectedObjective: 'optimal_inv',
   targetKwp: 5.0,
-  lastEstimatedPanels: 50,
+  lastEstimatedPanels: 10,
   autoSizing: {
     inverters: { count: 2, autoCount: 2, isManual: false },
     microinverters: { count: 0, autoCount: 0, isManual: false },
     batteries: { count: 1, autoCount: 1, isManual: false }
   },
   stringWiringTopology: 'leapfrog', // 'leapfrog' (Salto de rana anti-bucle UNE-EN 62305) | 'daisy_chain' (Guirnalda continua + retorno compensado)
+  hasExternalLightningRod: false,
+  includeBackupBox: true,
   calculatedLimits: { nMinString: 5, nMaxString: 13, nMaxTotalModules: 22 }
 };
 // ── window.RA alias (Arquitectura v2) ────────────────────────────────────
@@ -41,22 +43,63 @@ function populateStep3EquipmentSelectors() {
   const faldonModSel = document.getElementById('faldon-module-select');
   if (faldonModSel) faldonModSel.innerHTML = modOptionsHtml;
 
-  // 2. Inversores
+  // 2. Inversores (agrupados según compatibilidad de fases con la acometida activa)
   const invSel = document.getElementById('step3-sel-inverter');
   if (invSel && Array.isArray(catalog.inverters)) {
-    const curVal = cfg.selectedInverterId || (catalog.inverters[1] ? catalog.inverters[1].id : (catalog.inverters[0] ? catalog.inverters[0].id : ''));
-    let invOptionsHtml = catalog.inverters.map(i => {
+    const activeGrid = cfg.gridSupply || 'three_phase';
+    const resolvePhases = (inv) => (typeof window.raInverterPhases === 'function')
+      ? window.raInverterPhases(inv)
+      : ((inv && inv.phases === 1) ? 1 : 3);
+
+    const compatibleInvs = [];
+    const incompatibleInvs = [];
+    catalog.inverters.forEach(i => {
+      const ph = resolvePhases(i);
+      if (activeGrid === 'single_phase' && ph === 3) {
+        incompatibleInvs.push(i);
+      } else {
+        compatibleInvs.push(i);
+      }
+    });
+
+    // Ordenar para que los de fase coincidente con la acometida aparezcan primero
+    compatibleInvs.sort((a, b) => {
+      const targetPh = activeGrid === 'single_phase' ? 1 : 3;
+      const aMatch = resolvePhases(a) === targetPh ? 0 : 1;
+      const bMatch = resolvePhases(b) === targetPh ? 0 : 1;
+      if (aMatch !== bMatch) return aMatch - bMatch;
+      return (a.kw || 0) - (b.kw || 0);
+    });
+
+    const fallbackInv = compatibleInvs[0] || catalog.inverters[0];
+    const curVal = cfg.selectedInverterId || (fallbackInv ? fallbackInv.id : '');
+    const formatInvOption = (i, disabled = false) => {
+      const ph = resolvePhases(i);
+      const phTag = ph === 1 ? '1F' : '3F';
       const isSel = (i.id === curVal);
-      return '<option value="' + i.id + '"' + (isSel ? ' selected' : '') + '>' +
-        i.brand + ' · ' + i.model + ' (' + i.kw + ' kW · ' + i.mppt + ' MPPT · ' + (i.maxOverload ? Math.round(i.maxOverload*100) : 130) + '% DC · ' + i.price + ' €)' +
+      return '<option value="' + i.id + '"' + (isSel ? ' selected' : '') + (disabled ? ' disabled' : '') + '>' +
+        '[' + phTag + '] ' + i.brand + ' · ' + i.model + ' (' + i.kw + ' kW · ' + i.mppt + ' MPPT · ' + (i.maxOverload ? Math.round(i.maxOverload * 100) : 130) + '% DC · ' + i.price + ' €)' +
       '</option>';
-    }).join('');
+    };
+
+    let invOptionsHtml = '';
+    if (incompatibleInvs.length > 0) {
+      invOptionsHtml += '<optgroup label="Compatibles con acometida Monofásica (230 V)">' +
+        compatibleInvs.map(i => formatInvOption(i, false)).join('') +
+      '</optgroup>';
+      invOptionsHtml += '<optgroup label="Incompatibles (Trifásicos 400 V — cambiar acometida)">' +
+        incompatibleInvs.map(i => formatInvOption(i, true)).join('') +
+      '</optgroup>';
+    } else {
+      invOptionsHtml = compatibleInvs.map(i => formatInvOption(i, false)).join('');
+    }
 
     // Si el inversor seleccionado es virtual y no está en catálogo, inyectarlo destacado al principio con etiqueta de advertencia
     const vInv = cfg.lastVirtualInverter;
     if (vInv && !catalog.inverters.some(i => i.id === vInv.id)) {
       const isSel = (vInv.id === curVal);
-      invOptionsHtml = `<option value="${vInv.id}" ${isSel ? 'selected' : ''} style="color:#F59E0B;font-weight:bold;">⚠️ [EQUIPO RECOMENDADO FUERA DE CATÁLOGO] ${vInv.brand} · ${vInv.model} (${vInv.kw} kW · ${vInv.price} €)</option>` + invOptionsHtml;
+      const vPh = resolvePhases(vInv) === 1 ? '1F' : '3F';
+      invOptionsHtml = `<option value="${vInv.id}" ${isSel ? 'selected' : ''} style="color:#F59E0B;font-weight:bold;">⚠️ [FUERA DE CATÁLOGO · ${vPh}] ${vInv.brand} · ${vInv.model} (${vInv.kw} kW · ${vInv.price} €)</option>` + invOptionsHtml;
     }
     invSel.innerHTML = invOptionsHtml;
     if (curVal) invSel.value = curVal;
@@ -202,26 +245,39 @@ function step3SetTopology(topo) {
 
 function wpSyncGridSupplyUI(totalKwp) {
   const cfg = window.solarProjectConfig || {};
-  let kwp = (typeof totalKwp === 'number' && totalKwp >= 0) ? totalKwp : null;
-  if (kwp === null) {
-    let totalPanels = (typeof window !== 'undefined' && Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0)
-      ? window.allRenderedPanels.filter(p => p && !p.deleted).length
-      : 0;
-    if (totalPanels === 0 && typeof WP !== 'undefined' && Array.isArray(WP.polylines)) {
-      WP.polylines.forEach(p => {
-        const pInfo = p.roofInfo || (typeof computeSinglePolylineRoofInfo === 'function' ? computeSinglePolylineRoofInfo(p.points, p) : null);
-        if (pInfo && pInfo.panels) totalPanels += pInfo.panels.length;
-      });
-    }
-    if (totalPanels === 0) totalPanels = cfg.lastEstimatedPanels || (cfg.totalPanels || 0);
+  const catalog = (typeof window !== 'undefined' && window.equipmentCatalog) ? window.equipmentCatalog : {};
+  const mod = (catalog.modules && catalog.modules.find(m => m.id === cfg.selectedModuleId)) || (catalog.modules && catalog.modules[0]) || { wp: 450 };
 
-    const catalog = (typeof window !== 'undefined' && window.equipmentCatalog) ? window.equipmentCatalog : {};
-    const mod = (catalog.modules && catalog.modules.find(m => m.id === cfg.selectedModuleId)) || (catalog.modules && catalog.modules[0]) || { wp: 450 };
-    kwp = (totalPanels * (mod.wp || 450)) / 1000.0;
+  let kwp = (typeof totalKwp === 'number' && isFinite(totalKwp) && totalKwp >= 0) ? totalKwp : null;
+  if (kwp === null) {
+    const totals = _resolveProjectFieldTotals(catalog, mod, cfg, null, cfg.lastEstimatedPanels || (cfg.totalPanels || 0));
+    kwp = totals.totalKwp || 0;
   }
 
-  // [RD 1699/2011 Art. 12.2]: Límite legal 15 kW en AC nominal del inversor. Con sobredimensionamiento habitual DC/AC (hasta 1.35x), se admite hasta 20.25 kWp en monofásico.
-  const isOver15kW = (kwp > 20.25);
+  // Calcular potencia nominal AC actual (inversores string o microinversores)
+  const topo = cfg.selectedTopology || 'inverter';
+  let currentAcKw = 0;
+  if (topo === 'microinverter') {
+    const curMi = (catalog.microinverters && catalog.microinverters.find(m => m.id === cfg.selectedMicroinverterId)) || (catalog.microinverters && catalog.microinverters[0]);
+    const miCount = (cfg.autoSizing && cfg.autoSizing.microinverters && cfg.autoSizing.microinverters.count > 0)
+      ? cfg.autoSizing.microinverters.count
+      : 0;
+    currentAcKw = curMi ? ((curMi.kw || 0.8) * miCount) : 0;
+  } else {
+    const curInv = (catalog.inverters && catalog.inverters.find(i => i.id === cfg.selectedInverterId)) || cfg.lastVirtualInverter;
+    const invCount = (cfg.autoSizing && cfg.autoSizing.inverters && cfg.autoSizing.inverters.count > 0)
+      ? cfg.autoSizing.inverters.count
+      : 1;
+    currentAcKw = curInv ? ((curInv.kw || 5.0) * invCount) : 0;
+  }
+
+  // [RD 1699/2011 Art. 12.2]: Límite legal 15 kW nominales AC.
+  // Con sobredimensionamiento máximo 1.50x DC/AC admite hasta 22.5 kWp DC sobre inversor de 15 kW AC.
+  // Si el usuario tiene un campo superior, NO bloqueamos el clic con disabled=true (evita clic mudo sin Toast).
+  const isOver15kW = (kwp > 22.5) || (topo === 'microinverter' && currentAcKw > 15.0);
+  if (isOver15kW && cfg.gridSupply !== 'three_phase') {
+    cfg.gridSupply = 'three_phase';
+  }
   const isTri = (cfg.gridSupply === 'three_phase' || isOver15kW);
 
   const btnMono = document.getElementById('step3-grid-single-phase');
@@ -230,16 +286,18 @@ function wpSyncGridSupplyUI(totalKwp) {
 
   if (btnMono && btnTri) {
     if (isOver15kW) {
-      btnMono.disabled = true;
-      btnMono.style.opacity = '0.4';
+      btnMono.disabled = false;
+      btnMono.setAttribute('aria-disabled', 'true');
+      btnMono.style.opacity = '0.5';
       btnMono.style.cursor = 'not-allowed';
-      btnMono.title = 'Bloqueado por RD 1699/2011 Art. 12.2: Para P > 15 kW en AC (hasta 20.25 kWp DC) la conexión debe ser trifásica con desequilibrio < 5 kW.';
+      btnMono.title = 'Restringido por RD 1699/2011 Art. 12.2: Para Pn > 15 kW AC (> 22.5 kWp DC máx) la conexión debe ser trifásica. Haz clic para ver detalle.';
       btnMono.classList.remove('active');
-      btnMono.style.background = 'rgba(0,0,0,0.2)';
-      btnMono.style.borderColor = 'rgba(255,255,255,0.1)';
-      btnMono.style.color = '#64748b';
+      btnMono.style.background = 'rgba(0,0,0,0.25)';
+      btnMono.style.borderColor = 'rgba(245,158,11,0.35)';
+      btnMono.style.color = '#94a3b8';
 
       btnTri.disabled = false;
+      btnTri.removeAttribute('aria-disabled');
       btnTri.style.opacity = '1.0';
       btnTri.style.cursor = 'pointer';
       btnTri.title = 'Conexión Trifásica reglamentaria (RD 1699/2011 Art. 12.2)';
@@ -249,18 +307,20 @@ function wpSyncGridSupplyUI(totalKwp) {
       btnTri.style.color = '#34D399';
     } else {
       btnMono.disabled = false;
+      btnMono.removeAttribute('aria-disabled');
       btnMono.style.opacity = '1.0';
       btnMono.style.cursor = 'pointer';
-      btnMono.title = 'Conexión Monofásica 230 V (admisible para P ≤ 15 kW AC nominal según RD 1699/2011)';
+      btnMono.title = 'Conexión Monofásica 230 V (admisible hasta 15 kW AC nominales según RD 1699/2011)';
       btnMono.classList.toggle('active', !isTri);
       btnMono.style.background = !isTri ? 'rgba(14,165,233,0.3)' : 'rgba(14,165,233,0.06)';
       btnMono.style.borderColor = !isTri ? '#38BDF8' : 'rgba(14,165,233,0.25)';
       btnMono.style.color = !isTri ? '#38BDF8' : '#cbd5e1';
 
       btnTri.disabled = false;
+      btnTri.removeAttribute('aria-disabled');
       btnTri.style.opacity = '1.0';
       btnTri.style.cursor = 'pointer';
-      btnTri.title = 'Conexión Trifásica 400 V (desequilibrio de fases < 5 kW)';
+      btnTri.title = 'Conexión Trifásica 400 V (desequilibrio entre fases ≤ 5 kW)';
       btnTri.classList.toggle('active', isTri);
       btnTri.style.background = isTri ? 'rgba(16,185,129,0.3)' : 'rgba(14,165,233,0.06)';
       btnTri.style.borderColor = isTri ? '#10B981' : 'rgba(14,165,233,0.25)';
@@ -276,18 +336,26 @@ function wpSyncGridSupplyUI(totalKwp) {
       noticeEl.style.background = 'rgba(245, 158, 11, 0.12)';
       noticeEl.style.border = '1px solid rgba(245, 158, 11, 0.35)';
       noticeEl.style.color = '#FBBF24';
-      noticeEl.innerHTML = '<span style="font-size:12px;">⚖️</span> <span><strong>RD 1699/2011 (Art. 12.2 / RD 244/2019):</strong> Potencia instalada &gt; 20.25 kWp (' + kwp.toFixed(1) + ' kWp) supera los 15 kW AC nominales. Conexión trifásica obligatoria con desequilibrio entre fases &lt; 5 kW.</span>';
-    } else if (cfg.gridSupply === 'single_phase') {
+      noticeEl.innerHTML = '<span style="font-size:12px;">⚖️</span> <span><strong>RD 1699/2011 (Art. 12.2):</strong> Campo de ' + kwp.toFixed(1) + ' kWp (' + currentAcKw.toFixed(1) + ' kW AC) supera el límite monofásico de 15 kW AC (hasta 22.5 kWp DC). Conexión trifásica obligatoria (desequilibrio ≤ 5 kW).</span>';
+    } else if (!isTri) {
+      const highMonoNote = (currentAcKw > 10.0)
+        ? ' <em>(Aviso: algunas distribuidoras limitan acometidas 1F a 10–14,49 kW).</em>'
+        : '';
       noticeEl.style.display = 'flex';
       noticeEl.style.alignItems = 'center';
       noticeEl.style.gap = '6px';
       noticeEl.style.background = 'rgba(14, 165, 233, 0.12)';
       noticeEl.style.border = '1px solid rgba(14, 165, 233, 0.35)';
       noticeEl.style.color = '#38BDF8';
-      noticeEl.innerHTML = '<span style="font-size:12px;">⚡</span> <span><strong>Suministro Monofásico (230 V):</strong> Configuración activa para ' + kwp.toFixed(1) + ' kWp (potencia nominal de inversores en alterna ≤ 15 kW AC según RD 1699/2011).</span>';
+      noticeEl.innerHTML = '<span style="font-size:12px;">⚡</span> <span><strong>Monofásica (230 V):</strong> Activa para ' + kwp.toFixed(1) + ' kWp / ' + currentAcKw.toFixed(1) + ' kW AC (límite legal ≤ 15 kW AC).' + highMonoNote + '</span>';
     } else {
-      noticeEl.style.display = 'none';
-      noticeEl.innerHTML = '';
+      noticeEl.style.display = 'flex';
+      noticeEl.style.alignItems = 'center';
+      noticeEl.style.gap = '6px';
+      noticeEl.style.background = 'rgba(16, 185, 129, 0.10)';
+      noticeEl.style.border = '1px solid rgba(16, 185, 129, 0.30)';
+      noticeEl.style.color = '#34D399';
+      noticeEl.innerHTML = '<span style="font-size:12px;">⚡</span> <span><strong>Trifásica (400 V):</strong> Activa para ' + kwp.toFixed(1) + ' kWp / ' + currentAcKw.toFixed(1) + ' kW AC (desequilibrio entre fases ≤ 5 kW).</span>';
     }
   }
 }
@@ -297,44 +365,56 @@ function wpSetGridSupply(supply, manual = true) {
   if (!window.solarProjectConfig) window.solarProjectConfig = {};
   const cfg = window.solarProjectConfig;
 
-  // Evaluar potencia pico actual para salvaguarda normativa RD 1699/2011 Art. 12.2
-  let totalPanels = (typeof window !== 'undefined' && Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0)
-    ? window.allRenderedPanels.filter(p => p && !p.deleted).length
-    : 0;
-  if (totalPanels === 0 && typeof WP !== 'undefined' && Array.isArray(WP.polylines)) {
-    WP.polylines.forEach(p => {
-      const pInfo = p.roofInfo || (typeof computeSinglePolylineRoofInfo === 'function' ? computeSinglePolylineRoofInfo(p.points, p) : null);
-      if (pInfo && pInfo.panels) totalPanels += pInfo.panels.length;
-    });
-  }
-  if (totalPanels === 0) totalPanels = cfg.lastEstimatedPanels || (cfg.totalPanels || 0);
-
   const catalog = (typeof window !== 'undefined' && window.equipmentCatalog) ? window.equipmentCatalog : {};
   const mod = (catalog.modules && catalog.modules.find(m => m.id === cfg.selectedModuleId)) || (catalog.modules && catalog.modules[0]) || { wp: 450 };
-  const currentKwp = (totalPanels * (mod.wp || 450)) / 1000.0;
+  const totals = _resolveProjectFieldTotals(catalog, mod, cfg, null, cfg.lastEstimatedPanels || (cfg.totalPanels || 0));
+  const currentKwp = totals.totalKwp || 0;
+  const topo = cfg.selectedTopology || 'inverter';
 
-  // [RD 1699/2011 Art. 12.2]: Permite hasta 20.25 kWp monofásico si la potencia nominal AC del inversor se limita a 15 kW
-  if (supply === 'single_phase' && currentKwp > 20.25) {
+  // Evaluar potencia AC actual en microinversores para bloqueo RD 1699 Art. 12.2
+  let microAcKw = 0;
+  if (topo === 'microinverter') {
+    const curMi = (catalog.microinverters && catalog.microinverters.find(m => m.id === cfg.selectedMicroinverterId)) || (catalog.microinverters && catalog.microinverters[0]);
+    const miCount = (cfg.autoSizing && cfg.autoSizing.microinverters && cfg.autoSizing.microinverters.count > 0)
+      ? cfg.autoSizing.microinverters.count : 0;
+    microAcKw = curMi ? ((curMi.kw || 0.8) * miCount) : 0;
+  }
+
+  // [RD 1699/2011 Art. 12.2]: Límite legal 15 kW nominales AC (hasta 22.5 kWp DC a 1.50x)
+  if (supply === 'single_phase' && (currentKwp > 22.5 || (topo === 'microinverter' && microAcKw > 15.0))) {
     cfg.gridSupply = 'three_phase';
     if (manual) cfg.userManuallySelectedGridSupply = true;
     wpSyncGridSupplyUI(currentKwp);
     if (typeof showToast === 'function') {
-      showToast('⚠️ BLOQUEO RD 1699/2011: Potencia de ' + currentKwp.toFixed(1) + ' kWp supera los 20.25 kWp admisibles en monofásica (>15 kW nominales en AC).', 'warning', 4500);
+      showToast(
+        '⚠️ BLOQUEO RD 1699/2011',
+        'Potencia de ' + currentKwp.toFixed(1) + ' kWp supera los 15 kW AC nominales admisibles en monofásica (máx. ~22.5 kWp DC). Reduce placas o mantén trifásica.',
+        'warning',
+        5000
+      );
     }
     return;
   }
 
   // Detectar si el inversor actual es incompatible con el cambio de tipo de red
   const curInv = (catalog.inverters && catalog.inverters.find(i => i.id === cfg.selectedInverterId)) || cfg.lastVirtualInverter;
-  const isInvThreePhase = curInv && (curInv.phases === 3 || (curInv.type && curInv.type.includes('Trifásico')));
-  const isInvSinglePhase = curInv && (curInv.phases === 1 || (curInv.type && curInv.type.includes('Monofásico')));
-  const currentAcKw = curInv ? ((curInv.kw || 5.0) * ((cfg.autoSizing && cfg.autoSizing.inverters && cfg.autoSizing.inverters.count) || 1)) : 0;
+  const invPhases = curInv
+    ? (typeof window.raInverterPhases === 'function' ? window.raInverterPhases(curInv) : (curInv.phases === 1 ? 1 : 3))
+    : 3;
+  const isInvThreePhase = (invPhases === 3);
+  const isInvSinglePhase = (invPhases === 1);
+  const invCount = (cfg.autoSizing && cfg.autoSizing.inverters && cfg.autoSizing.inverters.count > 0)
+    ? cfg.autoSizing.inverters.count : 1;
+  const currentAcKw = curInv ? ((curInv.kw || 5.0) * invCount) : 0;
+  const maxPhaseDeltaKw = curInv ? ((Math.ceil(invCount / 3) - Math.floor(invCount / 3)) * (curInv.kw || 0)) : 0;
 
   let needsInverterReset = false;
-  if (supply === 'single_phase' && (isInvThreePhase || currentAcKw > 15.0)) {
-    needsInverterReset = true;
-  } else if (supply === 'three_phase' && isInvSinglePhase && currentAcKw >= 5.0) {
-    needsInverterReset = true;
+  if (topo !== 'microinverter') {
+    if (supply === 'single_phase' && (isInvThreePhase || currentAcKw > 15.0)) {
+      needsInverterReset = true;
+    } else if (supply === 'three_phase' && isInvSinglePhase && (maxPhaseDeltaKw > 5.0 || currentKwp > 5.0)) {
+      needsInverterReset = true;
+    }
   }
 
   cfg.gridSupply = supply;
@@ -365,13 +445,37 @@ function wpSetGridSupply(supply, manual = true) {
 
   if (typeof showToast === 'function') {
     if (supply === 'single_phase') {
-      showToast('⚡ RED MONOFÁSICA ACTIVADA (230 V)', 'Acometida configurada en monofásica (límite 15 kW AC nominales según RD 1699/2011). Equipos adaptados.', 'info', 3500);
+      showToast('⚡ RED MONOFÁSICA ACTIVADA (230 V)', 'Acometida configurada en monofásica (límite ≤ 15 kW AC según RD 1699/2011). Equipos y cálculo AC adaptados.', 'info', 3500);
     } else {
-      showToast('⚡⚡⚡ RED TRIFÁSICA ACTIVADA (400 V)', 'Acometida configurada en trifásica equilibrada (desequilibrio de fases < 5 kW). Equipos adaptados.', 'info', 3500);
+      showToast('⚡⚡⚡ RED TRIFÁSICA ACTIVADA (400 V)', 'Acometida configurada en trifásica equilibrada (desequilibrio ≤ 5 kW). Equipos y cálculo AC adaptados.', 'info', 3500);
     }
   }
 }
 window.wpSetGridSupply = wpSetGridSupply;
+
+function wpSyncProtectionOptionsUI() {
+  const cfg = window.solarProjectConfig || {};
+  const rodEl = document.getElementById('step4-chk-lightning-rod');
+  const bkpEl = document.getElementById('step4-chk-backup-box');
+  if (rodEl) rodEl.checked = !!cfg.hasExternalLightningRod;
+  if (bkpEl) bkpEl.checked = (cfg.includeBackupBox !== false);
+}
+window.wpSyncProtectionOptionsUI = wpSyncProtectionOptionsUI;
+
+function wpSetProtectionOption(key, checked) {
+  if (!window.solarProjectConfig) window.solarProjectConfig = {};
+  window.solarProjectConfig[key] = !!checked;
+  if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') {
+    BOMTreeEngine.refresh();
+  }
+  if (typeof ProjectHierarchy !== 'undefined' && typeof ProjectHierarchy.notify === 'function') {
+    ProjectHierarchy.notify('electrical_updated');
+  }
+  if (typeof step3UpdateHardwareSelection === 'function') {
+    step3UpdateHardwareSelection();
+  }
+}
+window.wpSetProtectionOption = wpSetProtectionOption;
 
 function step3EditCurrentEquipment(category) {
   const cfg = window.solarProjectConfig || {};
@@ -469,13 +573,26 @@ function step3UpdateHardwareSelection() {
 
   const prevInverterId = (window.solarProjectConfig && window.solarProjectConfig.selectedInverterId) ? window.solarProjectConfig.selectedInverterId : null;
   if (invSel && invSel.value) {
-    if (prevInverterId && prevInverterId !== invSel.value) {
+    const invChanged = !!(prevInverterId && prevInverterId !== invSel.value);
+    if (invChanged) {
       if (window.solarProjectConfig.autoSizing && window.solarProjectConfig.autoSizing.inverters) {
         window.solarProjectConfig.autoSizing.inverters.isManual = false;
       }
+      window.solarProjectConfig.userManuallySelectedInverter = true;
     }
     window.solarProjectConfig.selectedInverterId = invSel.value;
-    window.solarProjectConfig.userManuallySelectedInverter = true;
+    // Sincronizar acometida si el inversor elegido es trifásico y la red seguía en monofásica
+    if (invChanged && window.solarProjectConfig.gridSupply === 'single_phase') {
+      const catRef = (typeof window !== 'undefined' && window.equipmentCatalog) ? window.equipmentCatalog : null;
+      const pickedInv = catRef && Array.isArray(catRef.inverters) ? catRef.inverters.find(i => i.id === invSel.value) : null;
+      const pickedPh = (pickedInv && typeof window.raInverterPhases === 'function')
+        ? window.raInverterPhases(pickedInv)
+        : ((pickedInv && pickedInv.phases === 3) ? 3 : 1);
+      if (pickedPh === 3) {
+        window.solarProjectConfig.gridSupply = 'three_phase';
+        if (typeof wpSyncGridSupplyUI === 'function') wpSyncGridSupplyUI();
+      }
+    }
   }
   let newModValue = null;
   if (typeof document !== 'undefined' && document.activeElement === faldonModSel && faldonModSel && faldonModSel.value) {
@@ -502,8 +619,6 @@ function step3UpdateHardwareSelection() {
         faldonModSel.value = newModValue;
       }
     }
-    if (modSel2 && modSel2.value !== newModValue) modSel2.value = newModValue;
-    if (modSel && modSel.value !== newModValue) modSel.value = newModValue;
     if (typeof wpUpdateStep2ModuleBadge === 'function') wpUpdateStep2ModuleBadge();
     
     // SSOT Sync: Actualizar panelConfig global automáticamente
@@ -1605,7 +1720,7 @@ function wpAutoSelectOptimalEngineering(force = false) {
 
   // 4. Tipo de red (suministro) respetando elección de usuario salvo exigencia legal RD 1699/2011 Art. 12.2 (>15 kW)
   let gridSupply = cfg.gridSupply;
-  if (totalKwp > 20.25) {
+  if (totalKwp > 22.5) {
     gridSupply = 'three_phase';
     cfg.gridSupply = 'three_phase';
   } else if (!gridSupply || !cfg.userManuallySelectedGridSupply) {
@@ -1895,7 +2010,7 @@ function wpRefreshAutoEngineeringBanner(preferredTopology) {
 
   const shading = (typeof wpEvaluateMLPENecessity === 'function') ? wpEvaluateMLPENecessity() : null;
   let gridSupply = cfg.gridSupply;
-  if (totalKwp > 20.25) {
+  if (totalKwp > 22.5) {
     gridSupply = 'three_phase';
     cfg.gridSupply = 'three_phase';
   } else if (!gridSupply || !cfg.userManuallySelectedGridSupply) {

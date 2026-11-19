@@ -7419,7 +7419,7 @@ function wpOpenSmartInverterMatchingModal() {
 
   // Diagnóstico de sombras 3D y suministro de red (monofásico ≤ 6 kWp / trifásico > 6 kWp)
   const shading = (typeof wpEvaluateMLPENecessity === 'function') ? wpEvaluateMLPENecessity() : null;
-  const gridSupply = (cfg.gridSupply && (totalKwp <= 20.25 || cfg.gridSupply === 'three_phase')) ? cfg.gridSupply : ((totalKwp > 6.0) ? 'three_phase' : 'single_phase');
+  const gridSupply = (cfg.gridSupply && (totalKwp <= 22.5 || cfg.gridSupply === 'three_phase')) ? cfg.gridSupply : ((totalKwp > 6.0) ? 'three_phase' : 'single_phase');
 
   if (typeof matchInvertersFromCatalog !== 'function') {
     showStatus('<i data-lucide="alert-triangle" class="icon-sm"></i> Motor de casación no disponible temporalmente', 3000);

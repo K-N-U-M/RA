@@ -74,19 +74,99 @@ function wpStartCableRouting(type) {
 }
 window.wpStartCableRouting = wpStartCableRouting;
 
-function wpAddCableRoutePoint(pos3D) {
+function wpToggleCableAuditElevation(forceVal) {
+  if (!window.RACableEngine || typeof window.RACableEngine.toggleAuditElevation !== 'function') return false;
+  const active = window.RACableEngine.toggleAuditElevation(forceVal);
+
+  const floatBtn = document.getElementById('btn-toggle-cable-audit');
+  const floatTag = document.getElementById('tag-cable-audit-status');
+  if (floatBtn) {
+    floatBtn.style.borderColor = active ? 'rgba(16,185,129,0.75)' : 'rgba(245,158,11,0.4)';
+    floatBtn.style.background = active ? 'rgba(6,78,59,0.92)' : 'rgba(15,23,42,0.88)';
+  }
+  if (floatTag) {
+    floatTag.textContent = active ? '+24cm' : 'OFF';
+    floatTag.style.background = active ? 'rgba(16,185,129,0.3)' : 'rgba(100,116,139,0.25)';
+    floatTag.style.color = active ? '#34D399' : '#94A3B8';
+  }
+
+  const s4Btn = document.getElementById('btn-toggle-cable-audit-step4');
+  if (s4Btn) {
+    s4Btn.style.background = active ? 'rgba(16,185,129,0.25)' : 'rgba(15,23,42,0.7)';
+    s4Btn.style.borderColor = active ? '#10B981' : 'rgba(148,163,184,0.35)';
+    s4Btn.style.color = active ? '#34D399' : '#CBD5E1';
+    s4Btn.innerHTML = active
+      ? '<span><i data-lucide="eye" class="icon-sm"></i> AUDITORÍA CABLES (+24 cm): ON</span>'
+      : '<span><i data-lucide="eye" class="icon-sm"></i> AUDITAR CABLES (+24 cm)</span>';
+    if (typeof lucide !== 'undefined' && lucide.createIcons) try { lucide.createIcons(); } catch (_) {}
+  }
+
+  if (typeof showToast === 'function') {
+    showToast(
+      active ? 'AUDITORÍA DE CABLEADO ACTIVA' : 'VISTA FÍSICA REALISTA RESTAURADA',
+      active
+        ? 'Cables proyectados visualmente +24 cm sobre cubierta para inspección. Mediciones reales intactas.'
+        : 'Los conductos vuelven a su cota constructiva real bajo estructura.',
+      'info',
+      3000
+    );
+  }
+  return active;
+}
+window.wpToggleCableAuditElevation = wpToggleCableAuditElevation;
+
+function wpEditCableRouteVertices(type) {
+  const rType = (type === 'ac') ? 'ac' : 'dc';
+  if (window.RACableEngine && typeof window.RACableEngine.materializeEditableRoute === 'function') {
+    const pts = window.RACableEngine.materializeEditableRoute(rType);
+    if (Array.isArray(pts) && pts.length > 0) {
+      if (typeof showStatus === 'function') {
+        showStatus('CODOS EDITABLES ' + rType.toUpperCase() + ' LISTOS · ARRASTRA UN CODO (Shift: Ortogonal 90° | Clic verde +: Partir | Supr/Doble clic: Borrar)', 4200);
+      }
+      return pts;
+    }
+  }
+  return wpStartCableRouting(rType);
+}
+window.wpEditCableRouteVertices = wpEditCableRouteVertices;
+
+function wpNudgeRouteVertexHeight(deltaM) {
+  if (window.RACableEngine && typeof window.RACableEngine.nudgeSelectedVertexElevation === 'function') {
+    const ok = window.RACableEngine.nudgeSelectedVertexElevation(deltaM);
+    if (ok && typeof showStatus === 'function') {
+      showStatus((deltaM >= 0 ? 'SALTO DE PETO +' : 'BAJADA COTA ') + Math.round(deltaM * 100) + ' cm APLICADO AL CODO', 2000);
+    }
+    return ok;
+  }
+  return false;
+}
+window.wpNudgeRouteVertexHeight = wpNudgeRouteVertexHeight;
+
+function wpAddCableRoutePoint(pos3D, eventModifiers) {
   if (!window.cableRoutingState || !window.cableRoutingState.active) return;
   if (!pos3D || typeof viewer === 'undefined' || !viewer) return;
 
   // [SNAP INTELIGENTE] Si es el primer punto de trazado DC, imantar al terminal de string o nodo Y
+  let snapLabel = null;
   if (window.cableRoutingState.points.length === 0 && window.cableRoutingState.type === 'dc' &&
       window.RACableEngine && typeof window.RACableEngine.findSnapTarget === 'function') {
     const snapPt = window.RACableEngine.findSnapTarget(pos3D, 3.0);
     if (snapPt) {
       pos3D = snapPt;
+      snapLabel = 'Terminal de string';
       if (typeof showToast === 'function') {
         showToast('ORIGEN FIJADO', 'Conectado magnéticamente al string de paneles.', 'info', 2000);
       }
+    }
+  } else if (window.RACableEngine && typeof window.RACableEngine.snapRoutePoint === 'function') {
+    const prevPt = window.cableRoutingState.points.length > 0
+      ? window.cableRoutingState.points[window.cableRoutingState.points.length - 1]
+      : null;
+    const orthoLock = Boolean((eventModifiers && eventModifiers.shiftKey) || (typeof window !== 'undefined' && window._raShiftKeyDown));
+    const snapRes = window.RACableEngine.snapRoutePoint(pos3D, { prevPoint: prevPt, orthogonalLock: orthoLock });
+    if (snapRes && snapRes.cartesian) {
+      pos3D = snapRes.cartesian;
+      snapLabel = snapRes.snapTag || null;
     }
   }
 
@@ -141,7 +221,7 @@ function wpAddCableRoutePoint(pos3D) {
   const cntEl = document.getElementById('cable-routing-count');
   if (cntEl) cntEl.textContent = window.cableRoutingState.points.length + ' pts · ' + cumDist.toFixed(1) + ' m';
 
-  showStatus('<i data-lucide="route" class="icon-sm"></i> VÉRTICE #' + window.cableRoutingState.points.length + ' AÑADIDO (' + cumDist.toFixed(1) + ' m) — HAZ CLIC PARA OTRO CODO O PULSA INTRO PARA CERRAR', 2500);
+  showStatus('<i data-lucide="route" class="icon-sm"></i> VÉRTICE #' + window.cableRoutingState.points.length + ' AÑADIDO (' + cumDist.toFixed(1) + ' m)' + (snapLabel ? ' [' + snapLabel + ']' : '') + ' — SHIFT: ORTOGONAL 90° · INTRO PARA FIJAR', 2500);
 
   if (viewer.scene && viewer.scene.requestRender) viewer.scene.requestRender();
 }
@@ -261,6 +341,11 @@ function wpDeleteSelectedRouteVertex() {
 window.wpDeleteSelectedRouteVertex = wpDeleteSelectedRouteVertex;
 
 function wpUpdateCableRoutesUI() {
+  const stratEl = document.getElementById('step4-cable-routing-strategy');
+  if (stratEl && window.inverterEquipmentState && window.inverterEquipmentState.routingStrategy) {
+    stratEl.value = window.inverterEquipmentState.routingStrategy;
+  }
+
   const container = document.getElementById('cable-routes-summary');
   if (!container) return;
 
@@ -268,12 +353,18 @@ function wpUpdateCableRoutesUI() {
   const hasDC = routes.dc && routes.dc.length > 0;
   const hasAC = routes.ac && routes.ac.length > 0;
 
+  let html = '';
   if (!hasDC && !hasAC) {
-    container.innerHTML = '';
+    html = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:2px;">
+        <button type="button" onclick="wpEditCableRouteVertices('dc')" class="doc-mini-btn" style="padding:3px 5px;font-size:10px;color:#FDE68A;border-color:rgba(245,158,11,0.35);" title="Convierte el trazado automático DC en nodos editables sobre cubierta">✂ Editar codos DC</button>
+        <button type="button" onclick="wpEditCableRouteVertices('ac')" class="doc-mini-btn" style="padding:3px 5px;font-size:10px;color:#BAE6FD;border-color:rgba(56,189,248,0.35);" title="Convierte el trazado automático AC en nodos editables sobre fachada/suelo">✂ Editar codos AC</button>
+      </div>
+    `;
+    container.innerHTML = html;
     return;
   }
 
-  let html = '';
   if (hasDC) {
     let dcL = 0;
     for (let i = 0; i < routes.dc.length - 1; i++) dcL += Cesium.Cartesian3.distance(routes.dc[i], routes.dc[i + 1]);
@@ -282,10 +373,12 @@ function wpUpdateCableRoutesUI() {
         <span><i data-lucide="check" class="icon-sm"></i> <b>Bandeja DC:</b> ${routes.dc.length} codos (${dcL.toFixed(1)} m)</span>
         <div style="display:flex;gap:3px;">
           <button type="button" onclick="wpStartCableRouting('dc')" class="doc-mini-btn" style="padding:1px 4px;font-size: 10px;" title="Retrazar">✎ Retrazar</button>
-          <button type="button" onclick="wpClearCableRoute('dc')" class="doc-mini-btn" style="padding:1px 4px;font-size: 10px;color:#EF4444;" title="Borrar" aria-label="Borrar ruta DC">✕</button>
+          <button type="button" onclick="wpClearCableRoute('dc')" class="doc-mini-btn" style="padding:1px 4px;font-size: 10px;color:#EF4444;" title="Volver a automático" aria-label="Borrar ruta DC">✕</button>
         </div>
       </div>
     `;
+  } else {
+    html += `<button type="button" onclick="wpEditCableRouteVertices('dc')" class="doc-mini-btn" style="padding:3px 5px;font-size:10px;color:#FDE68A;border-color:rgba(245,158,11,0.35);width:100%;margin-top:2px;">✂ Convertir bandeja DC a codos editables</button>`;
   }
 
   if (hasAC) {
@@ -296,7 +389,23 @@ function wpUpdateCableRoutesUI() {
         <span><i data-lucide="check" class="icon-sm"></i> <b>Tubo AC:</b> ${routes.ac.length} codos (${acL.toFixed(1)} m)</span>
         <div style="display:flex;gap:3px;">
           <button type="button" onclick="wpStartCableRouting('ac')" class="doc-mini-btn" style="padding:1px 4px;font-size: 10px;" title="Retrazar">✎ Retrazar</button>
-          <button type="button" onclick="wpClearCableRoute('ac')" class="doc-mini-btn" style="padding:1px 4px;font-size: 10px;color:#EF4444;" title="Borrar" aria-label="Borrar ruta AC">✕</button>
+          <button type="button" onclick="wpClearCableRoute('ac')" class="doc-mini-btn" style="padding:1px 4px;font-size: 10px;color:#EF4444;" title="Volver a automático" aria-label="Borrar ruta AC">✕</button>
+        </div>
+      </div>
+    `;
+  } else {
+    html += `<button type="button" onclick="wpEditCableRouteVertices('ac')" class="doc-mini-btn" style="padding:3px 5px;font-size:10px;color:#BAE6FD;border-color:rgba(56,189,248,0.35);width:100%;margin-top:2px;">✂ Convertir tubo AC a codos editables</button>`;
+  }
+
+  if (window.selectedRouteVertex) {
+    const rv = window.selectedRouteVertex;
+    html += `
+      <div style="font-size:10px;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.4);padding:4px 6px;border-radius:4px;display:flex;justify-content:space-between;align-items:center;margin-top:3px;gap:4px;">
+        <span style="color:#34D399;font-weight:700;">Codo ${rv.type.toUpperCase()} #${rv.index + 1}</span>
+        <div style="display:flex;gap:3px;">
+          <button type="button" onclick="wpNudgeRouteVertexHeight(0.35)" class="doc-mini-btn" style="padding:1px 5px;font-size:10px;" title="Elevar codo +35 cm para saltar peto perimetral">+35cm Peto</button>
+          <button type="button" onclick="wpNudgeRouteVertexHeight(-0.35)" class="doc-mini-btn" style="padding:1px 5px;font-size:10px;" title="Bajar codo -35 cm">-35cm</button>
+          <button type="button" onclick="wpDeleteSelectedRouteVertex()" class="doc-mini-btn" style="padding:1px 5px;font-size:10px;color:#EF4444;" title="Eliminar este codo">Quitar</button>
         </div>
       </div>
     `;

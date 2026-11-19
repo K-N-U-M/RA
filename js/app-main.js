@@ -1171,12 +1171,12 @@ if (globe) {
 }
 scene.backgroundColor = Cesium.Color.fromCssColorString('#0284c7');
 
-// Vista inicial: Barcelona a 400 m en perspectiva
+// Vista inicial: Barcelona a 135 m elipsoidales (~45-50 m sobre cubiertas; el terreno+geoide ronda 62 m y edificios ~85-90 m)
 camera.setView({
-  destination : Cesium.Cartesian3.fromDegrees(2.1734, 41.3851, 400),
+  destination : Cesium.Cartesian3.fromDegrees(2.1734, 41.3851, 135),
   orientation : {
     heading: Cesium.Math.toRadians(30),
-    pitch  : Cesium.Math.toRadians(-30),
+    pitch  : Cesium.Math.toRadians(-35),
     roll   : 0
   },
 });
@@ -7170,18 +7170,18 @@ function getHeatmapColor(lossPct) {
 }
 
 function getRelativeYieldColor(relPct) {
-  // Escala relativa al líder de la instalación (100% = verde esmeralda brillante)
+  // Escala relativa calibrada con transición continua y realista (evita contrastes artificiales por diferencias mínimas)
   const val = (typeof relPct === 'number' && !isNaN(relPct)) ? relPct : 100;
-  if (val >= 99.0) return { hex: "#059669", css: "rgba(5, 150, 105, 0.95)", label: "Líder (≥99%)" };
-  if (val >= 96.0) return { hex: "#10B981", css: "rgba(16, 185, 129, 0.95)", label: "Excelente (96-99%)" };
-  if (val >= 92.0) return { hex: "#84CC16", css: "rgba(132, 204, 22, 0.95)", label: "Muy Bueno (92-96%)" };
-  if (val >= 88.0) return { hex: "#A3E635", css: "rgba(163, 230, 53, 0.95)", label: "Bueno (88-92%)" };
-  if (val >= 83.0) return { hex: "#FACC15", css: "rgba(250, 204, 21, 0.95)", label: "Medio (83-88%)" };
-  if (val >= 77.0) return { hex: "#F59E0B", css: "rgba(245, 158, 11, 0.95)", label: "Aceptable (77-83%)" };
-  if (val >= 70.0) return { hex: "#F97316", css: "rgba(249, 115, 22, 0.95)", label: "Bajo (70-77%)" };
-  if (val >= 60.0) return { hex: "#EA580C", css: "rgba(234, 88, 12, 0.95)", label: "Muy Bajo (60-70%)" };
-  if (val >= 50.0) return { hex: "#EF4444", css: "rgba(239, 68, 68, 0.95)", label: "Crítico (50-60%)" };
-  return { hex: "#991B1B", css: "rgba(153, 27, 27, 0.95)", label: "Severo (<50%)" };
+  if (val >= 95.0) return { hex: "#059669", css: "rgba(5, 150, 105, 0.95)", label: "Líder (≥95%)" };
+  if (val >= 90.0) return { hex: "#10B981", css: "rgba(16, 185, 129, 0.95)", label: "Excelente (90-95%)" };
+  if (val >= 85.0) return { hex: "#84CC16", css: "rgba(132, 204, 22, 0.95)", label: "Muy Bueno (85-90%)" };
+  if (val >= 80.0) return { hex: "#A3E635", css: "rgba(163, 230, 53, 0.95)", label: "Bueno (80-85%)" };
+  if (val >= 74.0) return { hex: "#FACC15", css: "rgba(250, 204, 21, 0.95)", label: "Medio (74-80%)" };
+  if (val >= 68.0) return { hex: "#F59E0B", css: "rgba(245, 158, 11, 0.95)", label: "Aceptable (68-74%)" };
+  if (val >= 60.0) return { hex: "#F97316", css: "rgba(249, 115, 22, 0.95)", label: "Bajo (60-68%)" };
+  if (val >= 52.0) return { hex: "#EA580C", css: "rgba(234, 88, 12, 0.95)", label: "Muy Bajo (52-60%)" };
+  if (val >= 42.0) return { hex: "#EF4444", css: "rgba(239, 68, 68, 0.95)", label: "Crítico (42-52%)" };
+  return { hex: "#991B1B", css: "rgba(153, 27, 27, 0.95)", label: "Severo (<42%)" };
 }
 
 function getActiveHeatmapColorForPanel(p) {
@@ -7562,7 +7562,6 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
 
   window.allRenderedPanels = []; // Expuesto globalmente para picking/selección multi-faldón
   const allTargetPanels = window.allRenderedPanels;
-  const allTargetWires = [];
   const currentStep = (typeof wpCurrentStep !== 'undefined') ? wpCurrentStep : ((typeof window !== 'undefined' && window.wpCurrentStep) || 1);
   const shouldRenderElectricalStrings = (currentStep >= 4);
 
@@ -7916,26 +7915,6 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
               heatmapColor: panelData.heatmapColor || (window.solarSimState && window.solarSimState.annualHeatmapDirty ? '#64748B' : (typeof getHeatmapColor === 'function' ? getHeatmapColor(panelData.annualLossPct || 0) : { hex: '#10b981' }))
             });
           });
-
-          if (shouldRenderElectricalStrings) {
-            // <i data-lucide=\"rocket\" class=\"icon-sm\"></i> CABLEADO EN SERPIENTE CONTIGUO ELEVADO (SNAKE ROUTING UNE-EN 62305)
-            const norm = pInfo.normal || new Cesium.Cartesian3(0, 0, 1);
-            const wirePositions = stringPanels.map(p => {
-              if (!p.center) return null;
-              return Cesium.Cartesian3.add(
-                p.center,
-                Cesium.Cartesian3.multiplyByScalar(norm, 0.04, new Cesium.Cartesian3()),
-                new Cesium.Cartesian3()
-              );
-            }).filter(Boolean);
-            if (wirePositions.length > 0) {
-              allTargetWires.push({
-                positions: wirePositions,
-                polyIdx: polyIdx,
-                stringColor: strColor
-              });
-            }
-          }
         });
       });
     } else {
@@ -8033,132 +8012,6 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
             heatmapColor: panelData.heatmapColor || (typeof getHeatmapColor === 'function' ? getHeatmapColor(panelData.annualLossPct || 0) : { hex: '#10b981' })
           });
         });
-
-        if (shouldRenderElectricalStrings && !poly.panelsDisabled) {
-          // <i data-lucide=\"rocket\" class=\"icon-sm\"></i> CABLEADO EN SERPIENTE CONTIGUO CON CURVAS CATENARIAS 3D (UNE-EN 62305)
-          const norm = (pInfo && pInfo.normal) ? pInfo.normal : new Cesium.Cartesian3(0, 0, 1);
-          const validPanels = stringPanels.filter(p => p && p.center);
-          let catenaryPositionsIda = [];
-          let catenaryPositionsVuelta = [];
-          if (validPanels.length > 1) {
-            const halfIdx = Math.ceil(validPanels.length / 2);
-            for (let pIdx = 0; pIdx < validPanels.length - 1; pIdx++) {
-              const pA = validPanels[pIdx];
-              const pB = validPanels[pIdx + 1];
-              
-              const isIda = pIdx < (halfIdx - 1);
-              const zOffset = 0.05; 
-              const elevOffset = Cesium.Cartesian3.multiplyByScalar(norm, zOffset, new Cesium.Cartesian3());
-              
-              const getAnchor = (pData, isIdaStr) => {
-                  let anchor = pData.center;
-                  if (pData.corners && pData.corners.length >= 2) {
-                      const vW = Cesium.Cartesian3.subtract(pData.corners[1], pData.corners[0], new Cesium.Cartesian3());
-                      if (Cesium.Cartesian3.magnitude(vW) > 0.01) {
-                          Cesium.Cartesian3.normalize(vW, vW);
-                          const shiftDist = isIdaStr ? 0.15 : -0.15;
-                          const shift = Cesium.Cartesian3.multiplyByScalar(vW, shiftDist, new Cesium.Cartesian3());
-                          anchor = Cesium.Cartesian3.add(pData.center, shift, new Cesium.Cartesian3());
-                      }
-                  }
-                  return anchor;
-              };
-              
-              const anchorA = getAnchor(pA, isIda);
-              const anchorB = getAnchor(pB, isIda);
-              
-              const baseOffset = Cesium.Cartesian3.multiplyByScalar(norm, 0.02, new Cesium.Cartesian3());
-              const baseA = Cesium.Cartesian3.add(anchorA, baseOffset, new Cesium.Cartesian3());
-              const baseB = Cesium.Cartesian3.add(anchorB, baseOffset, new Cesium.Cartesian3());
-              
-              const topA = Cesium.Cartesian3.add(anchorA, elevOffset, new Cesium.Cartesian3());
-              const topB = Cesium.Cartesian3.add(anchorB, elevOffset, new Cesium.Cartesian3());
-              
-              // FUNCIÓN BEZIER: Arco puro hacia arriba (evita desplazamientos laterales que causan clipping)
-              const buildOrganicCurve = (startPt, endPt, normal, isIdaStr) => {
-                  const pts = [];
-                  const steps = 15;
-                  
-                  const mid = new Cesium.Cartesian3();
-                  Cesium.Cartesian3.lerp(startPt, endPt, 0.5, mid);
-                  
-                  // Arco estrictamente Hacia Arriba (hacia la cámara/cielo) sobre la normal del tejado
-                  // La altura del arco depende de la distancia para que quede orgánico, mínimo 35 cm.
-                  const dist = Cesium.Cartesian3.distance(startPt, endPt);
-                  const upLift = Math.max(0.35, dist * 0.15); 
-                  
-                  const liftOffset = Cesium.Cartesian3.multiplyByScalar(normal, upLift, new Cesium.Cartesian3());
-                  const controlPt = Cesium.Cartesian3.add(mid, liftOffset, new Cesium.Cartesian3());
-                  
-                  for (let i = 0; i <= steps; i++) {
-                      const t = i / steps;
-                      const u = 1 - t;
-                      const tt = t * t;
-                      const uu = u * u;
-                      
-                      // B(t) = (1-t)^2 * P0 + 2(1-t)t * P1 + t^2 * P2
-                      const p = new Cesium.Cartesian3();
-                      
-                      const term0 = Cesium.Cartesian3.multiplyByScalar(startPt, uu, new Cesium.Cartesian3());
-                      const term1 = Cesium.Cartesian3.multiplyByScalar(controlPt, 2 * u * t, new Cesium.Cartesian3());
-                      const term2 = Cesium.Cartesian3.multiplyByScalar(endPt, tt, new Cesium.Cartesian3());
-                      
-                      Cesium.Cartesian3.add(term0, term1, p);
-                      Cesium.Cartesian3.add(p, term2, p);
-                      
-                      pts.push(p);
-                  }
-                  return pts;
-              };
-
-              const targetArr = isIda ? catenaryPositionsIda : catenaryPositionsVuelta;
-              
-              // Los cables van pegados a la placa (orgánico)
-              const flatA = Cesium.Cartesian3.add(anchorA, baseOffset, new Cesium.Cartesian3());
-              const flatB = Cesium.Cartesian3.add(anchorB, baseOffset, new Cesium.Cartesian3());
-              
-              const curvePts = buildOrganicCurve(flatA, flatB, norm, isIda);
-              
-              if (targetArr.length === 0) {
-                  if (!isIda) {
-                      const anchorAIda = getAnchor(pA, true);
-                      const flatAIda = Cesium.Cartesian3.add(anchorAIda, baseOffset, new Cesium.Cartesian3());
-                      // Curva de puente
-                      const bridgePts = buildOrganicCurve(flatAIda, flatA, norm, true);
-                      bridgePts.forEach(pt => targetArr.push(pt));
-                      curvePts.forEach(pt => targetArr.push(pt));
-                  } else {
-                      curvePts.forEach(pt => targetArr.push(pt));
-                  }
-              } else {
-                  // Omitimos el primer punto para no duplicar vértices
-                  curvePts.slice(1).forEach(pt => targetArr.push(pt));
-              }
-            }
-          } else if (validPanels.length === 1) {
-            const elevOffset = Cesium.Cartesian3.multiplyByScalar(norm, 0.05, new Cesium.Cartesian3());
-            catenaryPositionsIda = [Cesium.Cartesian3.add(validPanels[0].center, elevOffset, new Cesium.Cartesian3())];
-          }
-  
-          // 1. CABLEADO INTER-MÓDULO PROFESIONAL (Latiguillos de string en negro grafito técnico UV con flujo continuo)
-          const wireColorClean = '#334155'; // Slate 700 solar UV
-          if (catenaryPositionsIda.length > 0) {
-            allTargetWires.push({
-              positions: catenaryPositionsIda,
-              polyIdx: polyIdx,
-              stringColor: wireColorClean,
-              direction: 1.0
-            });
-          }
-          if (catenaryPositionsVuelta.length > 0) {
-            allTargetWires.push({
-              positions: catenaryPositionsVuelta,
-              polyIdx: polyIdx,
-              stringColor: wireColorClean,
-              direction: -1.0
-            });
-          }
-        }
         });
       }
       }
@@ -8172,7 +8025,8 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
 
   if (typeof viewer !== "undefined" && viewer) {
     const isHeatmapMode = solarSimState && solarSimState.viewMode === 'heatmap';
-    const isPbrMode = !isHeatmapMode && !!window.isPhotorealisticTextureMode;
+    const isCableXRay = !!(window.RACableEngine && window.RACableEngine.auditElevationMode);
+    const isPbrMode = !isHeatmapMode && !isCableXRay && !!window.isPhotorealisticTextureMode;
 
     // <i data-lucide=\"rocket\" class=\"icon-sm\"></i> 3. INSTANCIACIÓN GPU DE ALTO RENDIMIENTO (1 SOLO DRAW CALL PARA TODAS LAS PLACAS)
     let instancedSuccess = false;
@@ -8344,6 +8198,10 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
             );
           }
 
+          if (isCableXRay && !pData.disabled && !pData.isGhost) {
+            color = new Cesium.Color(color.red, color.green, color.blue, 0.25);
+          }
+
           if (!instancesByFaldon.has(fIdx)) instancesByFaldon.set(fIdx, []);
           instancesByFaldon.get(fIdx).push(new Cesium.GeometryInstance({
             geometry: polyGeom,
@@ -8371,7 +8229,7 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
               depthTest: {
                 enabled: true
               },
-              depthMask: true,
+              depthMask: !isCableXRay,
               polygonOffset: {
                 enabled: true,
                 factor: -2.0,
@@ -8379,9 +8237,9 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
               }
             })
           : undefined;
-        const hasTranslucentPanels = isHeatmapMode
+        const hasTranslucentPanels = isCableXRay || (isHeatmapMode
           ? allTargetPanels.some(p => p.disabled)
-          : allTargetPanels.some(p => p.isGhost || p.disabled);
+          : allTargetPanels.some(p => p.isGhost || p.disabled));
         const appearance = Cesium.PerInstanceColorAppearance ? new Cesium.PerInstanceColorAppearance({
           flat: true,
           translucent: hasTranslucentPanels,
@@ -8395,7 +8253,7 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
             geometryInstances: instances,
             appearance: appearance,
             asynchronous: false,
-            shadows: (typeof Cesium !== 'undefined' && Cesium.ShadowMode ? Cesium.ShadowMode.ENABLED : 1)
+            shadows: isCableXRay ? 0 : (typeof Cesium !== 'undefined' && Cesium.ShadowMode ? Cesium.ShadowMode.ENABLED : 1)
           });
           if (currentRenderId !== _raRenderGenerationId) return;
           primitive._isRAPanelPrimitive = true;
@@ -8462,79 +8320,8 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
       }
     }
 
-    // 4. Líneas de cableado de String en serie agrupadas
-    if (!isHeatmapMode && shouldRenderElectricalStrings && allTargetWires.length > 0) {
-      let wiresBatched = false;
-      if (viewer.scene && viewer.scene.primitives && typeof Cesium.PolylineCollection === "function") {
-        try {
-          if (!Cesium.Material._materialCache.getMaterial('PVFlow')) {
-              Cesium.Material._materialCache.addMaterial('PVFlow', {
-                fabric: {
-                  type: 'PVFlow',
-                  uniforms: { color: new Cesium.Color(1,0,0,1), speed: 3.0, direction: 1.0 },
-                  source: `
-                    czm_material czm_getMaterial(czm_materialInput materialInput) {
-                      czm_material material = czm_getDefaultMaterial(materialInput);
-                      vec2 st = materialInput.st;
-                      // 3. FLUJO ANIMADO: Cable oscuro continuo con brillo azul eléctrico
-                      float t = fract((czm_frameNumber * 0.03 * speed * direction) - st.s * 15.0);
-                      float glow = smoothstep(0.0, 0.2, t) * smoothstep(1.0, 0.7, t);
-                      vec3 electricBlue = vec3(0.0, 0.85, 1.0);
-                      material.diffuse = mix(color.rgb, electricBlue, glow);
-                      material.emission = electricBlue * glow * 1.5;
-                      material.alpha = color.a;
-                      return material;
-                    }
-                  `
-                },
-                translucent: true
-              });
-            }
-
-            const wireCol = new Cesium.PolylineCollection();
-            for (let w = 0; w < allTargetWires.length; w++) {
-              const wire = allTargetWires[w];
-              const poly = wireCol.add({
-                positions: wire.positions,
-                width: 5.0,
-                show: true
-              });
-              if (poly && wire.stringColor) {
-                poly.material = Cesium.Material.fromType('PVFlow', {
-                  color: Cesium.Color.fromCssColorString(wire.stringColor),
-                  speed: 2.0,
-                  direction: wire.direction || 1.0
-                });
-              }
-              simulatedStringEntities.push({ id: 'pv_string_wire_' + w, positions: wire.positions });
-            }
-          if (currentRenderId !== _raRenderGenerationId) return;
-          wireCol._isRAStringWirePrimitive = true;
-          const wPrim = viewer.scene.primitives.add(wireCol);
-          wPrim._isRAStringWirePrimitive = true;
-          window.simulatedStringsPolylineCollection = wPrim;
-          wiresBatched = true;
-        } catch(eWireCol) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eWireCol, 'Entidad/Primitiva Cesium'); }
-      }
-
-      if (!wiresBatched && viewer.entities) {
-        simulatedStringEntities = simulatedStringEntities || [];
-        for (let w = 0; w < allTargetWires.length; w++) {
-          const wire = allTargetWires[w];
-          const wireColor = Cesium.Color.fromCssColorString(wire.stringColor || '#EF4444');
-          const wireEnt = viewer.entities.add({
-            polyline: {
-              positions: wire.positions,
-              width: 5.0,
-              material: wireColor,
-              clampToGround: false
-            }
-          });
-          simulatedStringEntities.push(wireEnt);
-        }
-      }
-
-    }
+    // 4. El renderizado físico y normativo de cableado (latiguillos, retornos, homerun y AC)
+    // se delega de forma única y canónica a RACableEngine (paso 8).
     // 5. <i data-lucide=\"tag\" class=\"icon-sm\"></i> ETIQUETAS Y NUMERACIÓN DE PANELES POR STRING (EN ESQUINA CON FONDO NEGRO Y TEXTO BLANCO)
     if (viewer.scene && viewer.scene.primitives && typeof Cesium.LabelCollection === "function") {
       try {
@@ -9015,7 +8802,7 @@ let _occlusionExcludeListTs = 0;
 
 function _getOcclusionExcludeList(scene) {
   const now = Date.now();
-  if (_occlusionExcludeList && (now - _occlusionExcludeListTs < 3000)) {
+  if (_occlusionExcludeList && (now - _occlusionExcludeListTs < 1500)) {
     return _occlusionExcludeList;
   }
   const toExclude = [];
@@ -9043,8 +8830,28 @@ function _getOcclusionExcludeList(scene) {
   if (window.dcBoxEntity) toExclude.push(window.dcBoxEntity);
   if (window.gridMeterEntity) toExclude.push(window.gridMeterEntity);
   if (window.acometidaACEntity) toExclude.push(window.acometidaACEntity);
-  if (window.inverterEquipmentState && window.inverterEquipmentState.dcProtectionEntity) {
-    toExclude.push(window.inverterEquipmentState.dcProtectionEntity);
+  if (window.inverterEquipmentState) {
+    const eq = window.inverterEquipmentState;
+    if (eq.entity) toExclude.push(eq.entity);
+    if (eq.dcProtectionEntity) toExclude.push(eq.dcProtectionEntity);
+    if (eq.batteryEntity) toExclude.push(eq.batteryEntity);
+    if (eq.combinerBox && eq.combinerBox.entity) toExclude.push(eq.combinerBox.entity);
+    if (eq.gridMeter && eq.gridMeter.entity) toExclude.push(eq.gridMeter.entity);
+    if (Array.isArray(eq.dcCableEntities)) {
+      for (let i = 0; i < eq.dcCableEntities.length; i++) {
+        const ce = eq.dcCableEntities[i];
+        if (!ce) continue;
+        toExclude.push(ce.isCablePrimitive && ce.primitive ? ce.primitive : ce);
+      }
+    }
+  }
+  if (typeof WP !== 'undefined' && WP && Array.isArray(WP.polylines)) {
+    for (let i = 0; i < WP.polylines.length; i++) {
+      const pl = WP.polylines[i];
+      if (!pl) continue;
+      if (pl.lineEnt) toExclude.push(pl.lineEnt);
+      if (pl.fillEnt) toExclude.push(pl.fillEnt);
+    }
   }
   _occlusionExcludeList = toExclude;
   _occlusionExcludeListTs = now;
@@ -9074,7 +8881,7 @@ function isPanelOccludedBy3DEnvironment(panelCenter, norm, sunDirWorld, pInfo) {
 
   const rayOrigin = Cesium.Cartesian3.add(
     panelCenter,
-    Cesium.Cartesian3.multiplyByScalar(normVec, 0.55, _scratchNormScaled || new Cesium.Cartesian3()),
+    Cesium.Cartesian3.multiplyByScalar(normVec, 0.65, _scratchNormScaled || new Cesium.Cartesian3()),
     _scratchRayOrigin || new Cesium.Cartesian3()
   );
 
@@ -9095,27 +8902,58 @@ function isPanelOccludedBy3DEnvironment(panelCenter, norm, sunDirWorld, pInfo) {
       );
 
       if (is3DTile) {
-        // [Filtro de auto-impacto de la propia cubierta]
-        // Si el rayo impacta contra la losa del faldón a poca altura (< 1.2m) dentro del perímetro, es la propia cubierta
-        if (pInfo && pInfo.invTransform) {
-          try {
-            const locHit = Cesium.Matrix4.multiplyByPoint(pInfo.invTransform, hit.position, new Cesium.Cartesian3());
-            const u = Cesium.Cartesian3.dot(locHit, pInfo.uVec || Cesium.Cartesian3.UNIT_X);
-            const v = Cesium.Cartesian3.dot(locHit, pInfo.vVec || Cesium.Cartesian3.UNIT_Y);
-            const n = pInfo.normal || Cesium.Cartesian3.UNIT_Z;
-            const h = Math.abs(Cesium.Cartesian3.dot(locHit, n));
-            const structType = pInfo.structureType || (pInfo.estructura && pInfo.estructura.tipo);
-            const pergClearance = (pInfo.clearance || (pInfo.estructura && pInfo.estructura.clearance) || (structType === 'pergola' ? 3.5 : 0));
-            const maxDeckH = Math.max(1.2, pergClearance + 1.2);
-            if (h < maxDeckH && pInfo.poly2D && typeof isPointInPolygon2D === 'function' && isPointInPolygon2D({ u, v }, pInfo.poly2D)) {
-              return false;
-            }
-          } catch(eHit) {}
+        const dist = Cesium.Cartesian3.distance(rayOrigin, hit.position);
+        // Descarte de auto-intersección inmediata de malla fotogramétrica (aleros/tejas abombadas < 1.8m)
+        if (dist <= 1.8 || dist >= 1200.0) return false;
+
+        // Filtro de ruido de cubierta cercana: si el impacto está muy cerca (< 4.5 m) y apenas sobresale verticalmente (< 0.75 m)
+        // respecto al plano del módulo, corresponde a una irregularidad del propio tejado o alero en fotogrametría 3D.
+        const upLocal = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(panelCenter, new Cesium.Cartesian3());
+        const relHitVec = Cesium.Cartesian3.subtract(hit.position, panelCenter, new Cesium.Cartesian3());
+        const hitRiseM = Cesium.Cartesian3.dot(relHitVec, upLocal);
+        if (dist < 4.5 && hitRiseM < 0.75) {
+          return false;
         }
 
-        const dist = Cesium.Cartesian3.distance(rayOrigin, hit.position);
-        // Despegue de 0.85m para evitar auto-intersecciones de geometría local
-        if (dist > 0.85 && dist < 1200.0) return true;
+        // [Filtro de auto-impacto de la propia cubierta y faldones adyacentes del mismo edificio]
+        const structType = pInfo && (pInfo.structureType || (pInfo.estructura && pInfo.estructura.tipo));
+        const pergClearance = (pInfo && (pInfo.clearance || (pInfo.estructura && pInfo.estructura.clearance) || (structType === 'pergola' ? 3.5 : 0))) || 0;
+        const maxDeckH = Math.max(1.4, pergClearance + 1.4);
+
+        const _isHitOnRoofDeck = (infoObj) => {
+          if (!infoObj || !infoObj.invTransform) return false;
+          try {
+            const locHit = Cesium.Matrix4.multiplyByPoint(infoObj.invTransform, hit.position, new Cesium.Cartesian3());
+            const u = Cesium.Cartesian3.dot(locHit, infoObj.uVec || Cesium.Cartesian3.UNIT_X);
+            const v = Cesium.Cartesian3.dot(locHit, infoObj.vVec || Cesium.Cartesian3.UNIT_Y);
+            const n = infoObj.normal || Cesium.Cartesian3.UNIT_Z;
+            const h = Math.abs(Cesium.Cartesian3.dot(locHit, n));
+            if (h >= maxDeckH) return false;
+            if (infoObj.poly2D && typeof isPointInPolygon2D === 'function' && isPointInPolygon2D({ u, v }, infoObj.poly2D)) {
+              return true;
+            }
+            // Margen de 1.5 m sobre el bbox local del faldón para filtrar aleros/cumbreras fotogramétricas
+            if (typeof infoObj.minU === 'number' && typeof infoObj.maxU === 'number' &&
+                typeof infoObj.minV === 'number' && typeof infoObj.maxV === 'number') {
+              if (u >= infoObj.minU - 1.5 && u <= infoObj.maxU + 1.5 && v >= infoObj.minV - 1.5 && v <= infoObj.maxV + 1.5) {
+                return true;
+              }
+            }
+          } catch (_) {}
+          return false;
+        };
+
+        if (_isHitOnRoofDeck(pInfo)) return false;
+        if (dist < 8.0 && typeof WP !== 'undefined' && WP && Array.isArray(WP.polylines)) {
+          for (let pi = 0; pi < WP.polylines.length; pi++) {
+            const otherInfo = WP.polylines[pi] && WP.polylines[pi].roofInfo;
+            if (otherInfo && otherInfo !== pInfo && _isHitOnRoofDeck(otherInfo)) {
+              return false;
+            }
+          }
+        }
+
+        return true;
       }
     }
   } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }

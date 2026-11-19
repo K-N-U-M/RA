@@ -923,16 +923,29 @@ function generateMemoria(skipPricingModal, opt) {
     }).join('');
   }
   if (!stringRowsHtml) {
-    const okDc = (parseFloat(d.dVdc_p) <= 1.5);
-    stringRowsHtml = '<tr>' +
-      '<td>String Central (General)<\/td>' +
-      '<td style="text-align:center">' + d.modsActual + ' mods<\/td>' +
-      '<td style="text-align:center">' + (d.modsActual * d.Vmp * 0.88).toFixed(1) + ' V / ' + d.Voc_str_cold.toFixed(1) + ' V<\/td>' +
-      '<td style="text-align:center">' + d.L_dc + ' m<\/td>' +
-      '<td style="text-align:center">' + d.S_str + ' mm²<\/td>' +
-      '<td style="text-align:center">' + d.dV_dc.toFixed(2) + ' V (' + parseFloat(d.dVdc_p).toFixed(2) + ' %)<\/td>' +
-      '<td style="text-align:center;font-weight:700;color:' + (okDc ? '#10b981' : '#ef4444') + '">' + (okDc ? '✓ Conforme (≤1,5%)' : '✗ Aumentar sección') + '<\/td>' +
-    '<\/tr>';
+    if (d.isMicroinverter) {
+      const okAc = (parseFloat(d.dVac_p) <= 1.5);
+      stringRowsHtml = '<tr>' +
+        '<td>Bus AC Troncal Cubierta (Microinversores)<\/td>' +
+        '<td style="text-align:center">' + d.numPanels + ' uds<\/td>' +
+        '<td style="text-align:center">' + (d.V_ac || 230) + ' V CA<\/td>' +
+        '<td style="text-align:center">' + d.L_ac + ' m<\/td>' +
+        '<td style="text-align:center">' + (d.S_ac_branch || d.S_ac) + ' mm²<\/td>' +
+        '<td style="text-align:center">&lt; 0,5 % (Bus local)<\/td>' +
+        '<td style="text-align:center;font-weight:700;color:#10b981">' + (okAc ? '✓ Conforme (≤1,5%)' : '✓ Bus local') + '<\/td>' +
+      '<\/tr>';
+    } else {
+      const okDc = (parseFloat(d.dVdc_p) <= 1.5);
+      stringRowsHtml = '<tr>' +
+        '<td>String Central (General)<\/td>' +
+        '<td style="text-align:center">' + d.modsActual + ' mods<\/td>' +
+        '<td style="text-align:center">' + (d.modsActual * d.Vmp * 0.88).toFixed(1) + ' V / ' + d.Voc_str_cold.toFixed(1) + ' V<\/td>' +
+        '<td style="text-align:center">' + d.L_dc + ' m<\/td>' +
+        '<td style="text-align:center">' + d.S_str + ' mm²<\/td>' +
+        '<td style="text-align:center">' + d.dV_dc.toFixed(2) + ' V (' + parseFloat(d.dVdc_p).toFixed(2) + ' %)<\/td>' +
+        '<td style="text-align:center;font-weight:700;color:' + (okDc ? '#10b981' : '#ef4444') + '">' + (okDc ? '✓ Conforme (≤1,5%)' : '✗ Aumentar sección') + '<\/td>' +
+      '<\/tr>';
+    }
   }
 
   // Métricas financieras bancables a 25 años
@@ -1106,20 +1119,34 @@ function generateMemoria(skipPricingModal, opt) {
 
     '<h3>' + (d.hasBattery && d.battery ? '4.5' : '4.4') + ' Conductores (ITC-BT-40)<\/h3>' +
     '<table><tr><th>Tramo<\/th><th>Cable<\/th><th>Sección<\/th><th>Tensión nom.<\/th><th>I diseño<\/th><\/tr>' +
-    '<tr><td>DC String → Combiner<\/td><td>ZZ-F Solar<\/td><td>' + d.S_str + ' mm²<\/td><td>1.800 V CC<\/td><td>' + (1.25*d.Isc).toFixed(1) + ' A<\/td><\/tr>' +
-    '<tr><td>DC Combiner → Inversor<\/td><td>ZZ-F Solar<\/td><td>' + d.S_mdc + ' mm²<\/td><td>1.800 V CC<\/td><td>' + (1.25*d.I_total_dc).toFixed(1) + ' A<\/td><\/tr>' +
-    '<tr><td>AC Inversor → Cuadro<\/td><td>RV-K 0,6\/1 kV<\/td><td>' + d.S_ac + ' mm²<\/td><td>1.000 V CA<\/td><td>' + d.I_ac_d.toFixed(1) + ' A<\/td><\/tr>' +
+    (d.isMicroinverter ? (
+      '<tr><td>Bus AC Troncal Cubierta → Caja IP65<\/td><td>H07RN-F \/ RV-K 0,6\/1 kV<\/td><td>' + (d.S_ac_branch || 4) + ' mm²<\/td><td>' + (d.V_ac || 230) + ' V CA<\/td><td>' + ((d.I_ac_d || 0) / Math.max(1, d.invCount || 1)).toFixed(1) + ' A<\/td><\/tr>' +
+      '<tr><td>AC Caja IP65 → Cuadro General<\/td><td>RZ1-K (AS) 0,6\/1 kV<\/td><td>' + d.S_ac + ' mm²<\/td><td>1.000 V CA<\/td><td>' + d.I_ac_d.toFixed(1) + ' A<\/td><\/tr>'
+    ) : (
+      '<tr><td>DC String → Cuadro DC \/ MPPT<\/td><td>H1Z2Z2-K 1,8 kV<\/td><td>' + d.S_str + ' mm²<\/td><td>1.800 V CC<\/td><td>' + (1.56 * d.Isc).toFixed(1) + ' A<\/td><\/tr>' +
+      '<tr><td>DC Combiner \/ Troncal → Inversor<\/td><td>H1Z2Z2-K 1,8 kV<\/td><td>' + d.S_mdc + ' mm²<\/td><td>1.800 V CC<\/td><td>' + (1.56 * d.I_total_dc).toFixed(1) + ' A<\/td><\/tr>' +
+      ((d.invCount > 1) ? ('<tr><td>AC Inversor → Subcuadro Agrupador<\/td><td>RZ1-K (AS) 0,6\/1 kV<\/td><td>' + (d.S_ac_branch || d.S_ac) + ' mm²<\/td><td>1.000 V CA<\/td><td>' + (d.I_ac_d / Math.max(1, d.invCount)).toFixed(1) + ' A<\/td><\/tr>') : '') +
+      '<tr><td>AC General → Cuadro General<\/td><td>RZ1-K (AS) 0,6\/1 kV<\/td><td>' + d.S_ac + ' mm²<\/td><td>1.000 V CA<\/td><td>' + d.I_ac_d.toFixed(1) + ' A<\/td><\/tr>'
+    )) +
     '<\/table>' +
 
     '<h3>' + (d.hasBattery && d.battery ? '4.6' : '4.5') + ' Protecciones Eléctricas<\/h3>' +
     '<table><tr><th>Protección<\/th><th>Especificación<\/th><th>Ubicación<\/th><\/tr>' +
-    (d.useFuses ? '<tr><td>Fusibles string gPV<\/td><td>' + d.fuse_std + ' A \/ 1.000 V CC (IEC 60269-6)<\/td><td>Caja conexiones DC<\/td><\/tr>' : '<tr><td colspan="3"><em>Sin fusibles de string (≤ 2 strings en paralelo)<\/em><\/td><\/tr>') +
-    '<tr><td>Seccionador DC + SPD Clase II<\/td><td>Carga en carga \/ Up ≤ 2,5 kV<\/td><td>Junto al inversor<\/td><\/tr>' +
-    '<tr><td>IGA<\/td><td>Curva C ' + d.I_iga + ' A ' + (d.monofasico ? '1P+N' : '3P+N') + '<\/td><td>Cuadro AC<\/td><\/tr>' +
-    '<tr><td>Interruptor diferencial<\/td><td>' + (d.rcdSensMa || 30) + ' mA ' + (d.rcdType || 'Clase A') + ', ' + d.dif_amp + ' A ' + (d.monofasico ? '2P' : '4P') + '<\/td><td>Cuadro AC<\/td><\/tr>' +
-    '<tr><td>SPD CA Clase II<\/td><td>Up ≤ 2,5 kV<\/td><td>Cuadro AC<\/td><\/tr>' +
-    '<tr><td>Toma de tierra<\/td><td>R ≤ ' + d.R_tierra + ' Ω · Electrodos Cu<\/td><td>Instalación completa<\/td><\/tr>' +
+    (d.isMicroinverter ? (
+      '<tr><td>Protección Ramas Bus AC Cubierta<\/td><td>Magnetotérmicos 20 A Curva C + Caja Estanca IP65<\/td><td>Cubierta \/ Ramas Bus AC<\/td><\/tr>' +
+      '<tr><td>Descargador Sobretensiones AC<\/td><td>SPD ' + (d.spdClaseLabel || 'Clase II (Tipo 2)') + ' · Up ≤ 2,5 kV · Imax 40 kA<\/td><td>Cuadro AC<\/td><\/tr>'
+    ) : (
+      (d.useFuses ? '<tr><td>Fusibles string gPV<\/td><td>' + d.fuse_std + ' A \/ 1.000 V CC (IEC 60269-6)<\/td><td>Cuadro DC \/ Combiner<\/td><\/tr>' : '<tr><td colspan="3"><em>Sin fusibles de string (≤ 2 strings por entrada MPPT)<\/em><\/td><\/tr>') +
+      '<tr><td>Seccionador DC + SPD ' + (d.spdClaseLabel || 'Clase II (Tipo 2)') + '<\/td><td>Corte en carga \/ Up ≤ 2,5 kV · Imax 40 kA<\/td><td>Cuadro DC \/ Junto al inversor<\/td><\/tr>' +
+      '<tr><td>SPD CA ' + (d.spdClaseLabel || 'Clase II (Tipo 2)') + '<\/td><td>Up ≤ 2,5 kV · Imax 40 kA (ITC-BT-23)<\/td><td>Cuadro AC<\/td><\/tr>'
+    )) +
+    '<tr><td>Interruptor Magnetotérmico General AC (IGA)<\/td><td>Curva C ' + d.I_iga + ' A ' + (d.monofasico ? '1P+N' : '3P+N') + ' · 6 kA<\/td><td>Cuadro AC<\/td><\/tr>' +
+    '<tr><td>Interruptor Diferencial AC<\/td><td>' + (d.rcdSensMa || 30) + ' mA ' + (d.rcdType || 'Clase A-SI') + ', ' + d.dif_amp + ' A ' + (d.monofasico ? '2P' : '4P') + '<\/td><td>Cuadro AC<\/td><\/tr>' +
+    ((d.invCount > 1 && !d.isMicroinverter) ? ('<tr><td>Subcuadro Agrupador AC FV<\/td><td>' + d.invCount + '× protecciones magnetotérmicas y diferenciales dedicadas + embarrado<\/td><td>Sala inversores \/ Cuadro AC<\/td><\/tr>') : '') +
+    '<tr><td>Medida y Control Antivertido (RD 244\/2019)<\/td><td>' + (d.isMicroinverter ? 'Pasarela Gateway \/ DTU + Toroidales CT' : 'Vatímetro Smart Meter Bidireccional + Toroidales CT + Bus RS485') + '<\/td><td>CGBT \/ Punto frontera<\/td><\/tr>' +
+    '<tr><td>Toma de tierra<\/td><td>R ≤ ' + d.R_tierra + ' Ω · Cu ' + (d.S_earth || (d.hasExternalLightningRod ? 16 : 6)) + ' mm² equipotencial único por cubierta<\/td><td>Instalación completa<\/td><\/tr>' +
     (d.hasBattery && d.battery ? ('<tr><td>Protección DC Batería<\/td><td>Seccionador bipolar CC + Fusibles gBat (IEC 60269-7)<\/td><td>Entre acumulador e inversor híbrido<\/td><\/tr>') : '') +
+    ((d.hasBattery && d.battery && d.includeBackupBox) ? ('<tr><td>Cuadro Conmutación Backup (ATS)<\/td><td>Conmutador automático de cargas críticas (' + (d.monofasico ? '1F 230 V' : '3F 400 V') + ')<\/td><td>Junto a inversor híbrido \/ CGBT<\/td><\/tr>') : '') +
     '<\/table>' +
 
     (function() {
@@ -1151,7 +1178,9 @@ function generateMemoria(skipPricingModal, opt) {
     '<p><strong>Producción específica:<\/strong> ' + d.hspAnual.toLocaleString('es-ES') + ' kWh\/kWp·año<\/p>' +
 
     '<h3>5.2 Dimensionamiento Eléctrico y Caída de Tensión por String (REBT ITC-BT-40 / UNE-HD 60364-5-52)<\/h3>' +
-    '<p>' + (dcEs3D ? 'Cálculo de secciones de conductores solares ZZ-F 1500V DC y evacuación AC (RV-K 0,6/1 kV) con verificación de caída de tensión máxima admisible según ITC-BT-40 (ΔV ≤ 1,5 %). Trazado homerun calculado con geometría 3D sobre cubierta.' : 'Cálculo de secciones de conductores solares ZZ-F 1500V DC y evacuación AC (RV-K 0,6/1 kV) con verificación de caída de tensión máxima admisible según ITC-BT-40 (ΔV ≤ 1,5 %). <b>Longitudes estimadas paramétricamente</b>: para longitudes definitivas, realizar el trazado homerun en el visor 3D (Paso 4).') + '<\/p>' +
+    '<p>' + (d.isMicroinverter
+      ? (acEs3D ? 'Cálculo de secciones del bus AC troncal (H07RN-F) y evacuación general AC (RZ1-K 0,6/1 kV) con verificación de caída de tensión máxima admisible según ITC-BT-40 (ΔV ≤ 1,5 %). Trazado calculado con geometría 3D sobre cubierta.' : 'Cálculo de secciones del bus AC troncal y evacuación general AC (RZ1-K 0,6/1 kV) con verificación de caída de tensión máxima admisible según ITC-BT-40 (ΔV ≤ 1,5 %).')
+      : (dcEs3D ? 'Cálculo de secciones de conductores solares H1Z2Z2-K 1500V DC y evacuación AC (RZ1-K 0,6/1 kV) con verificación de caída de tensión máxima admisible según ITC-BT-40 (ΔV ≤ 1,5 %). Trazado homerun calculado con geometría 3D sobre cubierta.' : 'Cálculo de secciones de conductores solares H1Z2Z2-K 1500V DC y evacuación AC (RZ1-K 0,6/1 kV) con verificación de caída de tensión máxima admisible según ITC-BT-40 (ΔV ≤ 1,5 %). <b>Longitudes estimadas paramétricamente</b>: para longitudes definitivas, realizar el trazado homerun en el visor 3D (Paso 4).')) + '<\/p>' +
     '<table><tr><th>Circuito / String<\/th><th>Módulos<\/th><th>Tensión Vmp / Voc,frío<\/th><th>Longitud L (m)<\/th><th>Sección Comercial<\/th><th>ΔV Calculada<\/th><th>Conformidad REBT<\/th><\/tr>' +
     stringRowsHtml +
     '<tr><td>AC Inversor → Cuadro General<\/td><td style="text-align:center">—<\/td><td style="text-align:center">' + (d.monofasico ? '230 V (1F)' : '400 V (3F)') + '<\/td><td style="text-align:center">' + d.L_ac + ' m<\/td><td style="text-align:center">' + d.S_ac + ' mm²<\/td><td style="text-align:center">' + d.dV_ac.toFixed(2) + ' V (' + parseFloat(d.dVac_p).toFixed(2) + ' %)<\/td><td style="text-align:center;font-weight:700;color:' + (d.dVac_p <= 1.5 ? '#10b981' : '#ef4444') + '">' + (d.dVac_p <= 1.5 ? '✓ Conforme (≤1,5%)' : '✗ Aumentar sección') + '<\/td><\/tr>' +
@@ -1283,11 +1312,15 @@ function generatePliego(opt) {
       '<p>Sistema de almacenamiento modular <strong>' + d.battery.fullName + '</strong> (' + d.battery.totalKwh.toFixed(1) + ' kWh útiles, tecnología ' + (d.battery.technology || 'LiFePO4') + '). Conforme a <strong>UNE-EN IEC 62619<\/strong> (seguridad en baterías industriales de litio) y <strong>CEI 0-21<\/strong>. Incluye BMS integrado con equilibrado dinámico de celdas, protección térmica integral, seccionamiento CC y comunicación CAN Bus / RS485 certificada con el inversor híbrido. Garantía mínima de 10 años o 6.000 ciclos de descarga al 90% DoD.<\/p>'
     ) : '') +
     '<h3>Artículo 5. Conductores<\/h3>' +
-    '<p>DC: cable solar <strong>ZZ-F 1.800 V CC<\/strong>, libre de halógenos, UV, humedad (−40 °C a +90 °C). Conectores estancos tipo MC4 certificados. AC: <strong>RV-K 0,6\/1 kV<\/strong> libre de halógenos.<\/p>' +
+    (d.isMicroinverter
+      ? '<p>Bus AC en cubierta: cable flexible exterior <strong>H07RN-F \/ RZ1-K 0,6\/1 kV<\/strong>, UV y humedad (−25 °C a +90 °C), con cajas estancas IP65. Evacuación general AC: <strong>RZ1-K (AS) 0,6\/1 kV<\/strong> libre de halógenos.<\/p>'
+      : '<p>DC: cable solar <strong>H1Z2Z2-K \/ ZZ-F 1.800 V CC<\/strong>, libre de halógenos, UV, humedad (−40 °C a +90 °C). Conectores estancos tipo MC4 certificados. AC: <strong>RZ1-K (AS) 0,6\/1 kV<\/strong> libre de halógenos.<\/p>') +
     '<h3>Artículo 6. Estructura Soporte<\/h3>' +
     '<p>Aluminio anodizado o acero galvanizado en caliente, calculada para cargas de nieve y viento según <strong>CTE DB-SE-AE<\/strong>. Fijaciones al tejado estancas con sellado silicona neutra. No se admitirán anclajes que dañen la impermeabilización sin posterior reparación garantizada.<\/p>' +
     '<h3>Artículo 7. Protecciones<\/h3>' +
-    '<p>Fusibles tipo <strong>gPV<\/strong> ≥ 1.000 V CC (IEC 60269-6) ' + (d.useFuses ? '(incorporados, > 2 strings en paralelo)' : '(no requeridos, ≤ 2 strings en paralelo)') + '. Diferencial <strong>' + (d.rcdType || 'Clase A') + '<\/strong> (' + ((d.rcdType === 'Clase B') ? 'sensible a componentes continuas y de alta frecuencia según UNE-EN 62423' : 'sensible a CA y CC pulsante según UNE-EN 61008') + '), ' + (d.rcdSensMa || 30) + ' mA. IGA curva C ' + d.I_iga + ' A, Icc ≥ 6 kA.<\/p>' +
+    (d.isMicroinverter
+      ? '<p>Protección de ramas bus AC mediante magnetotérmicos curva C en caja IP65, descargadores <strong>SPD ' + (d.spdClaseLabel || 'Clase II (Tipo 2)') + '<\/strong> (ITC-BT-23) y control antivertido por pasarela Gateway\/DTU. Diferencial <strong>' + (d.rcdType || 'Clase A-SI') + '<\/strong> (' + ((d.rcdType === 'Clase B') ? 'sensible a componentes continuas y de alta frecuencia según UNE-EN 62423' : 'sensible a CA y CC pulsante según UNE-EN 61008') + '), ' + (d.rcdSensMa || 30) + ' mA. IGA curva C ' + d.I_iga + ' A, Icc ≥ 6 kA.<\/p>'
+      : '<p>Fusibles tipo <strong>gPV<\/strong> ≥ 1.000 V CC (IEC 60269-6) ' + (d.useFuses ? '(incorporados, ≥ 3 strings por MPPT)' : '(no requeridos, ≤ 2 strings por entrada MPPT)') + ', descargadores <strong>SPD ' + (d.spdClaseLabel || 'Clase II (Tipo 2)') + '<\/strong> CC\/CA y vatímetro Smart Meter bidireccional (RD 244\/2019). Diferencial <strong>' + (d.rcdType || 'Clase A-SI') + '<\/strong> (' + ((d.rcdType === 'Clase B') ? 'sensible a componentes continuas y de alta frecuencia según UNE-EN 62423' : 'sensible a CA y CC pulsante según UNE-EN 61008') + '), ' + (d.rcdSensMa || 30) + ' mA. IGA curva C ' + d.I_iga + ' A, Icc ≥ 6 kA.<\/p>') +
 
     '<h2>CAPÍTULO III — EJECUCIÓN<\/h2>' +
     '<h3>Artículo 8. Empresa Instaladora<\/h3>' +

@@ -353,7 +353,7 @@
         routeClickPos = get3DPosition(click.position);
       }
       if (routeClickPos) {
-        wpAddCableRoutePoint(routeClickPos);
+        wpAddCableRoutePoint(routeClickPos, { shiftKey: Boolean(typeof window !== 'undefined' && window._raShiftKeyDown) });
         return;
       }
     }
@@ -576,6 +576,91 @@
             showStatus('VÉRTICE #' + (hitPlaneVtxIdx + 1) + ' (' + vtxLabels[hitPlaneVtxIdx] + ') SELECCIONADO PARA EDICIÓN DIRECTA', 2500);
             return;
           }
+        }
+      }
+
+      // 2A-bis. Codos editables y puntos medios "+" de canalizaciones eléctricas DC/AC
+      if (typeof window !== 'undefined' && window.inverterEquipmentState && window.inverterEquipmentState.routes) {
+        let hitRouteHandle = null;
+        let hitRouteMid = null;
+        const pIdStr = (pickedObj && pickedObj.id)
+          ? (typeof pickedObj.id === 'string' ? pickedObj.id : (typeof pickedObj.id.id === 'string' ? pickedObj.id.id : ''))
+          : '';
+        if (pIdStr.startsWith('ra_route_handle_')) {
+          const hm = pIdStr.match(/^ra_route_handle_(dc|ac)_(\d+)$/);
+          if (hm) hitRouteHandle = { type: hm[1], index: parseInt(hm[2], 10) };
+        } else if (pIdStr.startsWith('ra_route_mid_')) {
+          const mm = pIdStr.match(/^ra_route_mid_(dc|ac)_(\d+)$/);
+          if (mm) hitRouteMid = { type: mm[1], segIdx: parseInt(mm[2], 10) };
+        }
+
+        // Proximidad 2D en pantalla (22px codos, 18px puntos medios "+")
+        if (!hitRouteHandle && !hitRouteMid) {
+          let bestDistR = 22.0;
+          let bestDistMid = 18.0;
+          const liftR = (window.RACableEngine && window.RACableEngine.auditElevationMode) ? (window.RACableEngine.CONFIG.AUDIT_ELEVATION_M || 0.24) : 0;
+          const toVisPt = (rawPt) => {
+            const c3 = window.RACableEngine ? window.RACableEngine.toCartesian3(rawPt) : rawPt;
+            if (!c3 || liftR <= 0) return c3;
+            const uV = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(c3, new Cesium.Cartesian3());
+            return Cesium.Cartesian3.add(c3, Cesium.Cartesian3.multiplyByScalar(uV, liftR, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+          };
+          ['dc', 'ac'].forEach(rType => {
+            const arr = window.inverterEquipmentState.routes[rType];
+            if (!Array.isArray(arr)) return;
+            for (let ri = 0; ri < arr.length; ri++) {
+              const visR = toVisPt(arr[ri]);
+              if (!visR) continue;
+              const rWin = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, visR);
+              if (rWin) {
+                const dR = Math.hypot(click.position.x - rWin.x, click.position.y - rWin.y);
+                if (dR < bestDistR) {
+                  bestDistR = dR;
+                  hitRouteHandle = { type: rType, index: ri };
+                }
+              }
+              if (ri < arr.length - 1) {
+                const visNext = toVisPt(arr[ri + 1]);
+                if (visNext) {
+                  const mid3D = Cesium.Cartesian3.midpoint(visR, visNext, new Cesium.Cartesian3());
+                  const mWin = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, mid3D);
+                  if (mWin) {
+                    const dM = Math.hypot(click.position.x - mWin.x, click.position.y - mWin.y);
+                    if (dM < bestDistMid) {
+                      bestDistMid = dM;
+                      hitRouteMid = { type: rType, segIdx: ri };
+                    }
+                  }
+                }
+              }
+            }
+          });
+          if (hitRouteHandle) hitRouteMid = null;
+        }
+
+        if (hitRouteMid && window.RACableEngine && typeof window.RACableEngine.insertRouteMidpoint === 'function') {
+          const newIdx = window.RACableEngine.insertRouteMidpoint(hitRouteMid.type, hitRouteMid.segIdx);
+          if (newIdx >= 0) {
+            if (typeof showStatus === 'function') {
+              showStatus('CODO INTERMEDIO ' + hitRouteMid.type.toUpperCase() + ' #' + (newIdx + 1) + ' INSERTADO · ARRASTRA PARA ADAPTAR TRAZADO', 2600);
+            }
+            return;
+          }
+        }
+
+        if (hitRouteHandle) {
+          if (typeof selectPanel === 'function') selectPanel(-1);
+          if (typeof selectObstacle === 'function') selectObstacle(null);
+          if (typeof selectElectricalObject === 'function') selectElectricalObject(null);
+          window.selectedRouteVertex = { type: hitRouteHandle.type, index: hitRouteHandle.index };
+          if (typeof switchUniversalGizmoMode === 'function') switchUniversalGizmoMode('translate');
+          if (typeof wpCalculateAndRenderInverterCables === 'function') wpCalculateAndRenderInverterCables();
+          if (typeof wpUpdateCableRoutesUI === 'function') wpUpdateCableRoutesUI();
+          renderTriad2D();
+          if (typeof showStatus === 'function') {
+            showStatus('CODO ' + hitRouteHandle.type.toUpperCase() + ' #' + (hitRouteHandle.index + 1) + ' SELECCIONADO · ARRASTRA GIZMO (Shift: Ortogonal 90° | Supr/Doble clic: Quitar)', 3000);
+          }
+          return;
         }
       }
 
@@ -1415,6 +1500,10 @@
         if ((draggedTargetType === 'inverter' || draggedTargetType === 'dc_protection' || draggedTargetType === 'combiner_box') && typeof wpFastRenderSimulatedPanels === 'function') {
           wpFastRenderSimulatedPanels();
         }
+        if (draggedTargetType === 'route_vertex' && window._raLiveRoutePreviewEnt && viewer && viewer.entities) {
+          try { viewer.entities.remove(window._raLiveRoutePreviewEnt); } catch (_) {}
+          window._raLiveRoutePreviewEnt = null;
+        }
         if (typeof wpCalculateAndRenderInverterCables === 'function') wpCalculateAndRenderInverterCables();
         if (draggedTargetType === 'route_vertex' && typeof wpUpdateCableRoutesUI === 'function') wpUpdateCableRoutesUI();
 
@@ -1470,6 +1559,21 @@
       }
       wpCloseActivePolyline();
       return;
+    }
+
+    // ── Doble clic sobre codo de canalización eléctrica -> eliminar vértice intermedio
+    if (doubleClick && doubleClick.position && scene && typeof scene.pick === 'function') {
+      const dblPicked = scene.pick(doubleClick.position);
+      const dblId = (dblPicked && dblPicked.id) ? (typeof dblPicked.id === 'string' ? dblPicked.id : (dblPicked.id.id || '')) : '';
+      const dblRouteM = String(dblId).match(/^ra_route_handle_(dc|ac)_(\d+)$/);
+      if (dblRouteM && window.RACableEngine && typeof window.RACableEngine.removeRouteVertex === 'function') {
+        if (window.RACableEngine.removeRouteVertex(dblRouteM[1], parseInt(dblRouteM[2], 10))) {
+          if (typeof showStatus === 'function') {
+            showStatus('CODO DE RUTA ' + dblRouteM[1].toUpperCase() + ' ELIMINADO · CTRL+Z DESHACE', 2200);
+          }
+          return;
+        }
+      }
     }
 
     // ── Doble clic sobre panel FV: Opción 1 - Seleccionar TODAS las placas del faldón y activar modo de desplazamiento
@@ -1693,9 +1797,22 @@
     });
   });
 
+  // Seguimiento de tecla Shift para bloqueo ortogonal 90° en edición de rutas/gizmos
+  (window.RA && window.RA.addListener ? window.RA.addListener : function(t, ev, fn) { t.addEventListener(ev, fn); })(document, 'keyup', function(e) {
+    if (typeof window !== 'undefined') window._raShiftKeyDown = Boolean(e.shiftKey);
+  });
+
   // Atajos de teclado [RA LISTENER — keydown #2: atajos globales de sesión]
   (window.RA && window.RA.addListener ? window.RA.addListener : function(t, ev, fn) { t.addEventListener(ev, fn); })(document, 'keydown', function _raKeydown2(e) {
+    if (typeof window !== 'undefined') window._raShiftKeyDown = Boolean(e.shiftKey);
     if (isTextInputActive(e.target)) return;
+    if (!e.ctrlKey && !e.metaKey && !e.altKey && (e.key === 'c' || e.key === 'C')) {
+      if (typeof window.wpToggleCableAuditElevation === 'function') {
+        e.preventDefault();
+        window.wpToggleCableAuditElevation();
+        return;
+      }
+    }
     if (e.key === 'Delete' || e.key === 'Backspace') {
       e.preventDefault();
       // [P0] DESPACHADOR ÚNICO DE BORRADO (antes: 3 listeners solapados → borrado en cascada).

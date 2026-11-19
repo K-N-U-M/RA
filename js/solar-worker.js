@@ -658,19 +658,37 @@ self.onmessage = async function(e) {
           ? (shadedSubstringsCount / 3.0)
           : (isShaded ? 1.0 : 0.0);
 
-        // Topología eléctrica: Si el módulo cuenta con optimizador MLPE (o microinversor),
-        // la pérdida se limita estrictamente a la fracción física de substrings sombreados (bypass diode).
+        // Topología eléctrica: Suavizado físico realista para módulos half-cut (6 sub-cadenas / 3 diodos de bypass)
+        // Evita el escalón artificial binario entre placas adyacentes cuando solo roza una esquina del módulo.
         const hasOpt = p.hasOptimizer;
-        const electricalMismatchFactor = hasOpt ? 1.0 : (shadedSubstringsCount > 0 ? (shadedSubstringsCount >= 2 ? 1.0 : 0.85) : 0.0);
-        const effectiveLossFraction = hasOpt ? beamShadedFraction : Math.min(1.0, beamShadedFraction * (1.0 + electricalMismatchFactor * 0.35));
+        let effectiveLossFraction = beamShadedFraction;
+        if (!hasOpt && shadedSubstringsCount > 0) {
+          // En half-cut moderno, 1 substring rozado no tumba todo el módulo: la pérdida adicional por mismatch es moderada (10-15%)
+          const mismatchBonus = (shadedSubstringsCount === 1) ? 0.10 : (shadedSubstringsCount === 2 ? 0.14 : 0.0);
+          effectiveLossFraction = Math.min(1.0, beamShadedFraction * (1.0 + mismatchBonus));
+        }
 
         // Separación física: el obstáculo bloquea la radiación directa (G_beam), modulada por la penumbra óptica.
         let isOccludedByHorizon = false;
         const effHorizon = p.horizon || horizonElevations;
-        if (effHorizon && sp && typeof sp.azDegFromNorth === 'number') {
-          const azSur = ((sp.azDegFromNorth - 180) % 360 + 360) % 360;
-          const sectorIdx = Math.min(15, Math.floor((azSur + 11.25) / 22.5) % 16);
-          const blockingAlt = effHorizon[sectorIdx] || 0;
+        if (effHorizon && effHorizon.length >= 4 && sp && typeof sp.azDegFromNorth === 'number') {
+          const nSec = effHorizon.length;
+          let blockingAlt = 0;
+          if (nSec === 16) {
+            // Compatibilidad con perfiles heredados de 16 sectores centrados en el Sur
+            const azSur = ((sp.azDegFromNorth - 180) % 360 + 360) % 360;
+            const sectorIdx = Math.min(15, Math.floor((azSur + 11.25) / 22.5) % 16);
+            blockingAlt = effHorizon[sectorIdx] || 0;
+          } else {
+            // Perfil espacial de 24 sectores (15°, 0° = Norte) con interpolación angular lineal
+            const stepDeg = 360 / nSec;
+            const azNorm = ((sp.azDegFromNorth % 360) + 360) % 360;
+            const fIdx = azNorm / stepDeg;
+            const i0 = Math.floor(fIdx) % nSec;
+            const i1 = (i0 + 1) % nSec;
+            const frac = fIdx - Math.floor(fIdx);
+            blockingAlt = (effHorizon[i0] || 0) * (1 - frac) + (effHorizon[i1] || 0) * frac;
+          }
           if (sp.elevDeg <= blockingAlt) {
             isOccludedByHorizon = true;
           }
@@ -685,7 +703,7 @@ self.onmessage = async function(e) {
         const beamLossW = (effectiveShaded && totalEffectiveLossFraction > 0) ? (G_beam * thermalFactor * totalEffectiveLossFraction * (isEnvironmentOccluded ? 1.0 : p.penumbraAttenuation)) : 0;
         const skyOcclusionFactor = isEnvironmentOccluded ? 0.35 : 0.0;
         const diffuseLossW = (!hasOpt && shadedSubstringsCount > 0)
-          ? ((G_diff + G_refl + albedoGain) * thermalFactor * (beamShadedFraction / 3.0))
+          ? ((G_diff + G_refl + albedoGain) * thermalFactor * (beamShadedFraction * 0.12))
           : (isEnvironmentOccluded ? (G_diff * thermalFactor * skyOcclusionFactor) : 0);
         const instantLossW = beamLossW + diffuseLossW;
 
@@ -713,7 +731,6 @@ self.onmessage = async function(e) {
       totalStepsCount: monthsDoy.length,
       totalPanels: panels.length
     });
-    await new Promise(r => setTimeout(r, 12));
   }
 
   // Finalizar cálculos

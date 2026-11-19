@@ -225,17 +225,7 @@
       const showMicroDetails = (lod === 'HIGH');
       let needsRender = false;
 
-      // 1. Latiguillos de cables inter-módulo (simulatedStringsPolylineCollection)
-      if (global.simulatedStringsPolylineCollection) {
-        const currentStep = (typeof global.wpCurrentStep !== 'undefined') ? global.wpCurrentStep : 1;
-        const shouldShowStrings = showMicroDetails && (currentStep >= 4);
-        if (global.simulatedStringsPolylineCollection.show !== shouldShowStrings) {
-          global.simulatedStringsPolylineCollection.show = shouldShowStrings;
-          needsRender = true;
-        }
-      }
-
-      // 2. Colección de etiquetas de número de módulo (_panelNumberLabelCollection)
+      // 1. Etiquetas de número de módulo (_panelNumberLabelCollection)
       if (global._panelNumberLabelCollection) {
         const shouldShowLabels = showMicroDetails && (global.areLabelsVisible !== false);
         if (global._panelNumberLabelCollection.show !== shouldShowLabels) {
@@ -244,7 +234,7 @@
         }
       }
 
-      // 3. Estructuras portantes si hay más de 200 módulos
+      // 2. Estructuras portantes si hay más de 200 módulos
       const panelCount = (global.allRenderedPanels && global.allRenderedPanels.length) || 0;
       if (panelCount > 200 && global.simulatedSupportsPolylineCollection) {
         if (global.simulatedSupportsPolylineCollection.show !== showMicroDetails) {

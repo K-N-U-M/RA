@@ -323,6 +323,8 @@ function raExportProjectData() {
       userManuallySelectedInverter: !!window.solarProjectConfig.userManuallySelectedInverter,
       userManuallySelectedBattery: !!window.solarProjectConfig.userManuallySelectedBattery,
       stringWiringTopology: window.solarProjectConfig.stringWiringTopology || 'leapfrog',
+      hasExternalLightningRod: !!window.solarProjectConfig.hasExternalLightningRod,
+      includeBackupBox: (window.solarProjectConfig.includeBackupBox !== false),
       manualAnnualConsumptionKWh: window.solarProjectConfig.manualAnnualConsumptionKWh || null,
       billCostMonth: window.solarProjectConfig.billCostMonth || null,
       gridSupply: window.solarProjectConfig.gridSupply || null,
@@ -396,6 +398,7 @@ function raExportProjectData() {
           carto: (s.combinerBox && s.combinerBox.carto) || null,
           rotation: (s.combinerBox && typeof s.combinerBox.rotation === 'number') ? s.combinerBox.rotation : 0
         },
+        routingStrategy: s.routingStrategy || 'auto',
         routes: (s.routes) ? {
           dc: Array.isArray(s.routes.dc) ? s.routes.dc.map(p => ({ x: p.x, y: p.y, z: p.z })) : [],
           ac: Array.isArray(s.routes.ac) ? s.routes.ac.map(p => ({ x: p.x, y: p.y, z: p.z })) : []
@@ -1348,6 +1351,9 @@ async function raImportProjectData(projectData, options = {}) {
         if (typeof elec.cabling.dV_dc_pct === 'number') window.inverterEquipmentState.dV_dc_pct = elec.cabling.dV_dc_pct;
         if (typeof elec.cabling.dV_ac_pct === 'number') window.inverterEquipmentState.dV_ac_pct = elec.cabling.dV_ac_pct;
       }
+      if (elec.routingStrategy && window.inverterEquipmentState) {
+        window.inverterEquipmentState.routingStrategy = elec.routingStrategy;
+      }
       if (elec.routes && typeof Cesium !== 'undefined') {
         window.inverterEquipmentState.routes = {
           dc: Array.isArray(elec.routes.dc) ? elec.routes.dc.map(p => new Cesium.Cartesian3(p.x, p.y, p.z)) : [],
@@ -1378,6 +1384,9 @@ async function raImportProjectData(projectData, options = {}) {
       Object.assign(window.solarProjectConfig, projectData.projectConfig);
       // [LOCK-HARDWARE] Bloquear explícitamente sobreescrituras automáticas para proyectos importados
       window.solarProjectConfig.userManuallySelectedInverter = true;
+      if (typeof window.wpSyncProtectionOptionsUI === 'function') {
+        try { window.wpSyncProtectionOptionsUI(); } catch (_) {}
+      }
       if (projectData.projectConfig.selectedBatteryId) {
         window.solarProjectConfig.userManuallySelectedBattery = true;
       }
