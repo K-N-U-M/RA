@@ -3491,13 +3491,46 @@ function wpDeleteSelectedPolyline() {
 }
 
 // ── MODO ESTAMPAR POLILÍNEA / FALDÓN COMPLETO (OPCIÓN 2) ─────────────────────
-function wpStartStampPolyline(sourcePolyIdx) {
+function wpStartMovePolyline(sourcePolyIdx) {
   if (typeof sourcePolyIdx !== 'number' || sourcePolyIdx < 0 || !WP.polylines || !WP.polylines[sourcePolyIdx]) {
     sourcePolyIdx = WP.selectedPolyIdx;
   }
   if (typeof sourcePolyIdx !== 'number' || sourcePolyIdx < 0 || !WP.polylines || !WP.polylines[sourcePolyIdx]) {
     if (typeof showToast === 'function') {
-      showToast('SELECCIÓN REQUERIDA', 'Selecciona primero una polilínea o faldón para duplicar.', 'warning', 3000);
+      showToast('SELECCIÓN REQUERIDA', 'Selecciona primero un faldón para moverlo.', 'warning', 3000);
+    }
+    return false;
+  }
+  if (WP.stampState) wpCancelStampPolyline(true);
+  // Limpiar selecciones secundarias para que el Gizmo Universal apunte al faldón
+  WP.selectedPolyIdx = sourcePolyIdx;
+  WP.selectedVtxIdx = -1;
+  WP.movePolyGizmoIdx = sourcePolyIdx;
+  if (typeof window !== 'undefined') {
+    window.selectedPanelIndex = -1;
+    window.selectedObstacleId = null;
+    window.selectedElectricalId = null;
+  }
+  if (typeof universalGizmoState !== 'undefined' && universalGizmoState) {
+    universalGizmoState.gizmoMode = 'translate';
+  }
+  if (typeof renderTriad2D === 'function') renderTriad2D();
+  else if (typeof renderUniversalGizmo2D === 'function') renderUniversalGizmo2D();
+  if (typeof viewer !== 'undefined' && viewer && viewer.scene) viewer.scene.requestRender();
+  if (typeof showStatus === 'function') {
+    showStatus('<i data-lucide="move" class="icon-sm"></i> GIZMO FALDÓN ACTIVO: Arrastra ejes U/V o centro (Esc para salir)', 4000);
+  }
+  return true;
+}
+
+function wpStartStampPolyline(sourcePolyIdx, isMoveMode) {
+  const moveMode = !!isMoveMode;
+  if (typeof sourcePolyIdx !== 'number' || sourcePolyIdx < 0 || !WP.polylines || !WP.polylines[sourcePolyIdx]) {
+    sourcePolyIdx = WP.selectedPolyIdx;
+  }
+  if (typeof sourcePolyIdx !== 'number' || sourcePolyIdx < 0 || !WP.polylines || !WP.polylines[sourcePolyIdx]) {
+    if (typeof showToast === 'function') {
+      showToast('SELECCIÓN REQUERIDA', 'Selecciona primero una polilínea o faldón para ' + (moveMode ? 'mover.' : 'duplicar.'), 'warning', 3000);
     }
     return false;
   }
@@ -3554,8 +3587,9 @@ function wpStartStampPolyline(sourcePolyIdx) {
     return c ? Cesium.Cartesian3.subtract(c, centroid, new Cesium.Cartesian3()) : null;
   }).filter(Boolean);
 
-  // 5. Configurar estado de estampar
+  // 5. Configurar estado de estampar / mover
   WP.stampState = {
+    isMoveMode: moveMode,
     sourcePolyIdx: sourcePolyIdx,
     sourcePoly: srcPoly,
     centroid: centroid,
@@ -3609,7 +3643,7 @@ function wpStartStampPolyline(sourcePolyIdx) {
 
     const obsCount = relObs.length;
     const pnlCount = relPanels.length;
-    let labelInfo = '📋 Estampar ' + (srcPoly.name || 'Faldón');
+    let labelInfo = (moveMode ? '↔️ Mover ' : '📋 Estampar ') + (srcPoly.name || 'Faldón');
     if (pnlCount > 0 || obsCount > 0) {
       labelInfo += ' (' + pnlCount + ' paneles' + (obsCount > 0 ? ', ' + obsCount + ' obst.' : '') + ')';
     }
@@ -3649,9 +3683,24 @@ function wpStartStampPolyline(sourcePolyIdx) {
   return true;
 }
 
+function wpProjectStampToSourcePlane(pos3D, srcPoly) {
+  if (!pos3D || !srcPoly) return pos3D;
+  const srcPlane = (typeof srcPoly.planeIdx === 'number' && srcPoly.planeIdx >= 0 && Array.isArray(WP.planes) && WP.planes[srcPoly.planeIdx])
+    ? WP.planes[srcPoly.planeIdx]
+    : null;
+  if (!srcPlane || !srcPlane.origin || !srcPlane.normal) return Cesium.Cartesian3.clone(pos3D);
+  const diff = Cesium.Cartesian3.subtract(pos3D, srcPlane.origin, new Cesium.Cartesian3());
+  const dist = Cesium.Cartesian3.dot(diff, srcPlane.normal);
+  return Cesium.Cartesian3.subtract(
+    pos3D,
+    Cesium.Cartesian3.multiplyByScalar(srcPlane.normal, dist, new Cesium.Cartesian3()),
+    new Cesium.Cartesian3()
+  );
+}
+
 function wpUpdateStampPolylinePreview(cursor3D) {
   if (!WP.stampState || WP.mode !== 'stamp-poly' || !cursor3D) return;
-  WP.stampState.curTargetPos = Cesium.Cartesian3.clone(cursor3D);
+  WP.stampState.curTargetPos = wpProjectStampToSourcePlane(cursor3D, WP.stampState.sourcePoly);
   if (typeof viewer !== 'undefined' && viewer && viewer.scene) {
     viewer.scene.requestRender();
   }
@@ -3666,11 +3715,13 @@ function wpCommitStampPolyline(targetPos3D) {
     return false;
   }
 
+  // Proyectar estrictamente al mismo plano de trabajo del faldón origen
+  const projectedTarget = wpProjectStampToSourcePlane(targetPos3D, srcPoly);
   const centroid = WP.stampState.centroid;
-  const delta = Cesium.Cartesian3.subtract(targetPos3D, centroid, new Cesium.Cartesian3());
+  const delta = Cesium.Cartesian3.subtract(projectedTarget, centroid, new Cesium.Cartesian3());
 
-  // 1. Calcular nuevos vértices desplazados
-  const newPts = WP.stampState.relPoints.map(rel => Cesium.Cartesian3.add(targetPos3D, rel, new Cesium.Cartesian3()));
+  // 1. Calcular nuevos vértices desplazados sobre el mismo plano de trabajo
+  const newPts = WP.stampState.relPoints.map(rel => Cesium.Cartesian3.add(projectedTarget, rel, new Cesium.Cartesian3()));
 
   if (!newPts || newPts.length < 3) {
     if (typeof showToast === 'function') {
@@ -3680,6 +3731,73 @@ function wpCommitStampPolyline(targetPos3D) {
   }
 
   const newArea = wpPolylineArea3D(newPts);
+  const isMoveMode = !!WP.stampState.isMoveMode;
+  const srcPolyIdx = WP.stampState.sourcePolyIdx;
+
+  // ── RAMA MOVER FALDÓN COMPLETO EN EL MISMO PLANO ──────────────────────────
+  if (isMoveMode && typeof srcPolyIdx === 'number' && WP.polylines[srcPolyIdx]) {
+    if (window.RAundo && typeof window.RAundo.snapPolylines === 'function') {
+      window.RAundo.snapPolylines('Mover ' + (srcPoly.name || 'Faldón'));
+    }
+    const relObsListMove = WP.stampState.relObs;
+    if (Array.isArray(relObsListMove) && relObsListMove.length > 0 && window.RAundo && typeof window.RAundo.snapObstacles === 'function') {
+      window.RAundo.snapObstacles('Mover obstáculos con ' + (srcPoly.name || 'Faldón'));
+    }
+
+    srcPoly.points = newPts;
+    srcPoly.area = newArea;
+    if (Array.isArray(srcPoly.deletedPanels) && srcPoly.deletedPanels.length > 0) {
+      srcPoly.deletedPanels = srcPoly.deletedPanels.map(dp => ({
+        u: dp.u,
+        v: dp.v,
+        center: dp.center ? Cesium.Cartesian3.add(dp.center, delta, new Cesium.Cartesian3()) : null
+      }));
+    }
+
+    if (typeof computeSinglePolylineRoofInfo === 'function') {
+      try {
+        srcPoly.roofInfo = computeSinglePolylineRoofInfo(srcPoly.points, srcPoly);
+        if (srcPoly.roofInfo && Array.isArray(srcPoly.roofInfo.panels)) {
+          srcPoly.panels = srcPoly.roofInfo.panels;
+        }
+      } catch (eMoveRoof) {
+        console.warn('[MOVE] Error recalculando roofInfo:', eMoveRoof);
+      }
+    }
+
+    if (Array.isArray(relObsListMove) && relObsListMove.length > 0) {
+      const plMove = (WP.planes && typeof srcPoly.planeIdx === 'number') ? WP.planes[srcPoly.planeIdx] : null;
+      relObsListMove.forEach(({ obs, relPos }) => {
+        if (!obs) return;
+        const newObsCartesian = Cesium.Cartesian3.add(projectedTarget, relPos, new Cesium.Cartesian3());
+        obs.cartesian = newObsCartesian;
+        if (plMove && plMove.origin && plMove.uVec && plMove.vVec) {
+          const relObsPt = Cesium.Cartesian3.subtract(newObsCartesian, plMove.origin, new Cesium.Cartesian3());
+          obs.u = Cesium.Cartesian3.dot(relObsPt, plMove.uVec);
+          obs.v = Cesium.Cartesian3.dot(relObsPt, plMove.vVec);
+        }
+      });
+      if (typeof render3DObstaclesInCesium === 'function') render3DObstaclesInCesium();
+    }
+
+    WP.selectedPolyIdx = srcPolyIdx;
+    if (typeof polygonPoints !== 'undefined') polygonPoints = newPts.map(p => Cesium.Cartesian3.clone(p));
+    wpCancelStampPolyline(true);
+    wpRenderAllPolylines();
+    wpUpdateUI();
+    if (typeof roofPanelsCache !== 'undefined' && roofPanelsCache) roofPanelsCache.sig = "";
+    if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Faldón desplazado: ' + (srcPoly.name || 'Faldón'));
+    if (typeof recalculateLayoutAndObstacles === 'function') recalculateLayoutAndObstacles(srcPolyIdx);
+    if (typeof wpFastRenderSimulatedPanels === 'function') wpFastRenderSimulatedPanels(true, srcPolyIdx);
+    if (typeof recalculateSolarYield === 'function') recalculateSolarYield(true);
+    if (typeof wpUpdateLayoutFastMetrics === 'function') wpUpdateLayoutFastMetrics();
+    if (typeof wpPopulateFaldonCard === 'function') wpPopulateFaldonCard();
+    if (typeof wpUpdateStep3UI === 'function') wpUpdateStep3UI();
+    if (typeof showStatus === 'function') showStatus('<i data-lucide="check" class="icon-sm"></i> ' + (srcPoly.name || 'FALDÓN').toUpperCase() + ' DESPLAZADO', 3000);
+    if (typeof showToast === 'function') showToast('FALDÓN DESPLAZADO', (srcPoly.name || 'Faldón') + ' movido con su contenido sobre el mismo plano.', 'success', 3000);
+    return true;
+  }
+
   const newName = "Faldon #" + (WP.polylines.length + 1);
   const newId = "wp_poly_" + Date.now();
 
@@ -3747,7 +3865,7 @@ function wpCommitStampPolyline(targetPos3D) {
     }
     if (typeof obstacles !== 'undefined' && Array.isArray(obstacles)) {
       relObsList.forEach(({ obs, relPos }) => {
-        const newObsCartesian = Cesium.Cartesian3.add(targetPos3D, relPos, new Cesium.Cartesian3());
+        const newObsCartesian = Cesium.Cartesian3.add(projectedTarget, relPos, new Cesium.Cartesian3());
         const clonedObs = {
           ...JSON.parse(JSON.stringify(obs)),
           id: "obs_" + Date.now() + "-" + (window._obsIdSeq = (window._obsIdSeq || 0) + 1),
@@ -7277,6 +7395,7 @@ function initUnifiedWorkPlaneSystem() {
   if (typeof wpSelectVertex !== 'undefined') window.wpSelectVertex = wpSelectVertex;
   if (typeof wpDeleteSelectedPolyline !== 'undefined') window.wpDeleteSelectedPolyline = wpDeleteSelectedPolyline;
   if (typeof wpStartStampPolyline !== 'undefined') window.wpStartStampPolyline = wpStartStampPolyline;
+  if (typeof wpStartMovePolyline !== 'undefined') window.wpStartMovePolyline = wpStartMovePolyline;
   if (typeof wpUpdateStampPolylinePreview !== 'undefined') window.wpUpdateStampPolylinePreview = wpUpdateStampPolylinePreview;
   if (typeof wpCommitStampPolyline !== 'undefined') window.wpCommitStampPolyline = wpCommitStampPolyline;
   if (typeof wpCancelStampPolyline !== 'undefined') window.wpCancelStampPolyline = wpCancelStampPolyline;

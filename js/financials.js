@@ -419,75 +419,8 @@ if (typeof window !== 'undefined') {
 }
 
 function generateCommercialSummary(d, m, equipment) {
-  var numPanels = (m && m.numPanels) || (d && d.numPanels) || 0;
-  var kwp = (m && m.kwp) || 0;
-  // [AUD-2026 · A-08] Si el modelo no trae kWp, derivarlo del diseño (nº módulos × Wp);
-  // nunca imprimir "0.00 kWp" en una propuesta con módulos.
-  if (!(kwp > 0) && numPanels > 0) {
-    var _wpMod = (d && d.cfg && (d.cfg.potencia || d.cfg.wp)) || 0;
-    if (_wpMod > 0) kwp = (numPanels * _wpMod) / 1000;
-  }
-  var annualKWh = (d && d.annualKWh) || (kwp * 1450);
-  var ahorro = (m && m.ahorroLuzAnio1) || (m && m.ahorroAnualEstimado) || 0;
-  var payback = (m && m.paybackYears) || 0;
-  var autoconsumo = (m && m.pctAutoconsumo) || (m && m.autoconsumoPct) || 0;
-  var tit = (d && d.tit) ? d.tit : {};
-  var ciudad = tit.mun || tit.prov || 'su localidad';
-  var rawNombre = tit.nombre ? String(tit.nombre).trim() : '';
-
-  var isGeneric = !rawNombre || /^(cliente|titular|titular de la instalaci[oó]n|propietario|propietario ejemplo|propietario ejemplo s\.?l\.?|particular|empresa|ejemplo|xxxx+|n\/a)$/i.test(rawNombre);
-
-  // ── Plantilla determinista ──
-  var lines = [];
-  if (!isGeneric) {
-    lines.push('Estimado/a <strong>' + rawNombre.split(' ')[0] + '</strong>,');
-  } else {
-    lines.push('Estimado/a cliente,');
-  }
-  lines.push('');
-  lines.push('Hemos diseñado una instalación fotovoltaica a medida para su propiedad en <strong>' + ciudad + '</strong>.');
-
-  // KWp y paneles
-  var _potTxt = (kwp > 0) ? ' con una potencia total de <strong>' + kwp.toFixed(2) + ' kWp</strong>' : '';
-  lines.push('El sistema propuesto consta de <strong>' + numPanels + ' módulos</strong>' + _potTxt + ', ' +
-    'que generarán aproximadamente <strong>' + Math.round(annualKWh).toLocaleString('es-ES') + ' kWh al año</strong>.');
-
-  // Ahorro y payback
-  if (ahorro > 0) {
-    var _payTxt = (payback > 0) ? ('en tan solo <strong>' + payback.toFixed(1) + ' años</strong>') : 'en un plazo a determinar con el modelo financiero';
-    lines.push('Esto se traduce en un ahorro estimado de <strong>' + Math.round(ahorro).toLocaleString('es-ES') + ' €</strong> en su primer año, ' +
-      'con una recuperación total de la inversión ' + _payTxt + '.');
-  }
-
-  // Autoconsumo
-  if (autoconsumo > 0) {
-    lines.push('Podrá cubrir hasta el <strong>' + Math.round(autoconsumo) + '%</strong> de su consumo eléctrico actual directamente con energía solar.');
-  }
-
-  // Batería
-  if (equipment && equipment.hasBat) {
-    lines.push('Además, el sistema incluye almacenamiento con batería <strong>' + equipment.batName + '</strong>, ' +
-      'que le permitirá aprovechar la energía solar incluso en horario nocturno.');
-  }
-
-  // Comunidad Energética Local (CEL · RDL 7/2026 hasta 5 km)
-  // [AUD-2026 · A-05] La CEL es una HIPÓTESIS comercial opcional: solo se anuncia si el
-  // usuario la ha activado en el modal de precios (includeCEL). Activada por defecto y con
-  // un precio de 0,11 €/kWh sin fuente trazable, inflaba el ahorro de todas las propuestas.
-  var excKwh = (m && m.excedenteKWh != null) ? m.excedenteKWh : Math.round(annualKWh * 0.35);
-  var _celCfg = (typeof RAPricing !== 'undefined' && typeof RAPricing.getCommercialConfig === 'function')
-    ? RAPricing.getCommercialConfig() : null;
-  var _celEnabled = !!(_celCfg && _celCfg.includeCEL === true);
-  if (excKwh > 500 && _celEnabled) {
-    lines.push('Su instalación está <strong>preparada para integrarse en una Comunidad Energética Local</strong>: sus excedentes (~<strong>' + Math.round(excKwh).toLocaleString('es-ES') + ' kWh/año</strong>) podrían monetizarse en el marco normativo aplicable, sujeto a verificación jurídica y a las condiciones de la comunidad.');
-  }
-
-  // Cierre comercial
-  lines.push('');
-  lines.push('Le invitamos a revisar los detalles técnicos y económicos de esta propuesta. ' +
-    'Quedamos a su disposición para resolver cualquier duda y acompañarle en todo el proceso.');
-
-  return lines.join('<br>');
+  return 'Para amortizar la opción A, se recomienda invertir inicialmente el 100% y recuperar las bonificaciones fiscales y subvenciones en su caso. Desde el principio se paga la “nueva factura estimada”.<br>' +
+    'Para amortizar la opción B, se solicita el 100% de financiación hasta 50.000€, durante los años de amortización se paga de media la “cuota mensual”, y al final de la amortización se paga el “balance de tu bolsillo”.';
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -3020,7 +2953,7 @@ if (typeof window !== 'undefined') {
         '<div style="font-weight:900;font-size:12px;color:#0f172a;text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;">' +
           '<div style="display:flex;align-items:center;gap:8px;">' +
             getIcon('savingsChart', pal.primary, 24) +
-            '<span>1. Coste de la Instalación y Valor de tu Energía Generada</span>' +
+            '<span>Coste de la Instalación y Valor de tu Energía Generada</span>' +
           '</div>' +
           '<span style="font-size:9.5px;color:' + pal.primary + ';font-weight:800;letter-spacing:0.5px;">INSTALACIÓN 100% AISLADA DE RED</span>' +
         '</div>' +
@@ -3060,7 +2993,7 @@ if (typeof window !== 'undefined') {
         '<div style="font-weight:900;font-size:12px;color:#0f172a;text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;">' +
           '<div style="display:flex;align-items:center;gap:8px;">' +
             getIcon('savingsChart', pal.primary, 24) +
-            '<span>1. El Cara a Cara de tu Bolsillo (Impacto Mensual)</span>' +
+            '<span>El Cara a Cara de tu Bolsillo (Impacto Mensual)</span>' +
           '</div>' +
           '<span style="font-size:9.5px;color:#64748b;font-weight:700;letter-spacing:0.5px;">' + modeBadge + '</span>' +
         '</div>' +
@@ -3100,8 +3033,8 @@ if (typeof window !== 'undefined') {
     var genDia = Math.round(annualYieldKWh / 365);
     var excDia = Math.round((m.excedenteKWh || annualYieldKWh * 0.35) / 365);
     var relojTitle = isOffGrid
-      ? '2. Ciclo de Autonomía 24 Horas & Reserva Independiente'
-      : (isGridBackup ? '2. Ciclo Solar 24 Horas & Escudo Anti-Apagones' : '2. El Ciclo de 24 Horas de tu Tejado Solar');
+      ? 'Ciclo de Autonomía 24 Horas & Reserva Independiente'
+      : (isGridBackup ? 'Ciclo Solar 24 Horas & Escudo Anti-Apagones' : 'El Ciclo de 24 Horas de tu Tejado Solar');
     var relojBadge = isOffGrid
       ? 'SUPERVIVENCIA OFF-GRID 24/7'
       : (isGridZero ? 'VERTIDO CERO · AJUSTADO A DEMANDA' : (isGridBackup ? 'AUTARQUÍA + BACKUP CRÍTICO' : 'AUTARQUÍA EN TIEMPO REAL'));
@@ -3170,7 +3103,7 @@ if (typeof window !== 'undefined') {
       '<div style="font-weight:900;font-size:12px;color:#0f172a;text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;">' +
         '<div style="display:flex;align-items:center;gap:8px;">' +
           getIcon('shieldCheck', pal.primary, 24) +
-          '<span>3. Seguridad Técnica & Garantías de la Instalación</span>' +
+          '<span>Seguridad Técnica & Garantías de la Instalación</span>' +
         '</div>' +
         '<span style="font-size:9.5px;color:#64748b;font-weight:700;letter-spacing:0.5px;">NORMATIVA CTE & REBT</span>' +
       '</div>' +
@@ -3210,7 +3143,7 @@ if (typeof window !== 'undefined') {
       '<div style="font-weight:900;font-size:12px;color:#0f172a;text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;">' +
         '<div style="display:flex;align-items:center;gap:8px;">' +
           getIcon('certifiedEngineer', pal.primary, 24) +
-          '<span>4. La Cascada del Escudo Fiscal (Tus Ahorros en Impuestos)</span>' +
+          '<span>La Cascada del Escudo Fiscal (Tus Ahorros en Impuestos)</span>' +
         '</div>' +
         '<span style="font-size:9.5px;color:#64748b;font-weight:700;letter-spacing:0.5px;">BONIFICACIONES OFICIALES</span>' +
       '</div>' +
@@ -3536,7 +3469,7 @@ if (typeof window !== 'undefined') {
             '</div>')) +
 
         '<!-- 4 HEROS MONUMENTALES DE COMUNIDAD ENERGÉTICA -->' +
-        '<div class="hero-grid" style="grid-template-columns: repeat(4, 1fr); margin: 12px 0 20px;">' +
+        '<div class="hero-grid" style="grid-template-columns: repeat(4, 1fr); gap: 14px; margin: 26px 0 36px;">' +
           '<div class="hero-card" style="border-top: 3px solid #f59e0b; background: #fffbeb;">' +
             '<div class="hero-lbl" style="color: #b45309;">Excedente Solar Anual</div>' +
             '<div class="hero-val" style="color: #b45309; font-size: 20px;">' + cel.excKWh.toLocaleString('es-ES') + ' kWh</div>' +
@@ -3560,8 +3493,8 @@ if (typeof window !== 'undefined') {
         '</div>' +
 
         '<!-- CARA A CARA: RED CONVENCIONAL VS COMUNIDAD ENERGÉTICA LOCAL -->' +
-        '<div style="display: grid; grid-template-columns: 1fr 1.15fr; gap: 12px; margin-bottom: 12px;">' +
-          '<div class="tech-card cel-card" style="border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; background: #f8fafc; display: flex; flex-direction: column; justify-content: space-between; position: relative;">' +
+        '<div style="display: grid; grid-template-columns: 1fr 1.15fr; gap: 18px; margin-bottom: 36px;">' +
+          '<div class="tech-card cel-card" style="border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 16px 18px; background: #f8fafc; display: flex; flex-direction: column; justify-content: space-between; position: relative;">' +
             '<div>' +
               '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">' +
                 '<span style="font-size: 8.5px; font-weight: 800; color: #64748b; text-transform: uppercase;">RÉGIMEN TRADICIONAL (RD 244/2019)</span>' +
@@ -3578,7 +3511,7 @@ if (typeof window !== 'undefined') {
             '</div>' +
           '</div>' +
 
-          '<div class="tech-card cel-card" style="border: 2px solid ' + pal.primary + '; border-radius: 8px; padding: 10px 14px; background: #ffffff; box-shadow: 0 4px 14px rgba(0,0,0,0.06); display: flex; flex-direction: column; justify-content: space-between; position: relative;">' +
+          '<div class="tech-card cel-card" style="border: 2px solid ' + pal.primary + '; border-radius: 8px; padding: 16px 18px; background: #ffffff; box-shadow: 0 4px 14px rgba(0,0,0,0.06); display: flex; flex-direction: column; justify-content: space-between; position: relative;">' +
             '<div style="position: absolute; top: -9px; right: 12px; background: ' + pal.primary + '; color: #fff; font-size: 8px; font-weight: 900; padding: 2px 8px; border-radius: 8px; letter-spacing: 0.5px;">¡+120% MÁS RENTABLE!</div>' +
             '<div>' +
               '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">' +
@@ -3598,7 +3531,7 @@ if (typeof window !== 'undefined') {
         '</div>' +
 
         '<!-- SELLO DE HOMOLOGACIÓN CEL-READY -->' +
-        '<div class="tech-card cel-card" style="border: 1.5px solid #10b981; border-radius: 8px; padding: 10px 14px; background: linear-gradient(135deg, #f0fdf4, #ffffff); display: flex; align-items: center; justify-content: space-between; gap: 12px; box-shadow: 0 2px 6px rgba(16,185,129,0.06); margin-top: 6px; position: relative;">' +
+        '<div class="tech-card cel-card" style="border: 1.5px solid #10b981; border-radius: 8px; padding: 16px 18px; background: linear-gradient(135deg, #f0fdf4, #ffffff); display: flex; align-items: center; justify-content: space-between; gap: 14px; box-shadow: 0 2px 6px rgba(16,185,129,0.06); margin-top: 24px; position: relative;">' +
           '<div style="display: flex; align-items: center; gap: 10px;">' +
             '<span style="display:inline-flex;color:#059669;">' + _mSvg('shield', 24, '#059669') + '</span>' +
             '<div>' +
@@ -4088,10 +4021,12 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     }
 
     // Año 10: Reposición de batería LFP (si existe o tiene coste de reemplazo)
-    if (cashflowAcum.length > 10 && (fm.batCap > 0 || (fm.batteryReplacementCostYr10 && fm.batteryReplacementCostYr10 > 0))) {
+    const _batReplCostYr10 = Math.round(fm.batteryReplacementCostYr10 || 0);
+    if (cashflowAcum.length > 10 && (_batReplCostYr10 > 0 || fm.batCap > 0)) {
       milestones.push({
         year: 10,
         val: cashflowAcum[10],
+        pillText: _batReplCostYr10 > 0 ? ('−' + _batReplCostYr10.toLocaleString('es-ES') + ' €') : null,
         label: 'Año 10: Reposición batería',
         desc: 'Reemplazo acumulador LFP indexado',
         color: '#d97706',
@@ -4102,10 +4037,12 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     }
 
     // Año 12: Reposición electrónica inversor central/híbrido
-    if (cashflowAcum.length > 12 && (fm.inverterReplacementCostYr12 == null || fm.inverterReplacementCostYr12 > 0)) {
+    const _invReplCostYr12 = Math.round(fm.inverterReplacementCostYr12 || 0);
+    if (cashflowAcum.length > 12 && (fm.inverterReplacementCostYr12 == null || _invReplCostYr12 > 0)) {
       milestones.push({
         year: 12,
         val: cashflowAcum[12],
+        pillText: _invReplCostYr12 > 0 ? ('−' + _invReplCostYr12.toLocaleString('es-ES') + ' €') : null,
         label: 'Año 12: Reposición inversor',
         desc: 'Sustitución de inversor central',
         color: '#ea580c',
@@ -4341,8 +4278,11 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     let legendContent = '';
     if (cfSinCEL) {
       // Caso 3 curvas: Contado + CEL (verde sólida), Sin CEL (pizarra discontinua), Financiado (azul discontinuo)
+      const xSinCel = cfFinanciado ? 148 : 185;
+      const xFin = 238;
+      const xCelTag = cfFinanciado ? 458 : 340;
       const celLegendTag = (celIngreso > 0) ? `
-        <g transform="translate(${PAD_L + (cfFinanciado ? 465 : 295)}, ${PAD_T - 9})">
+        <g transform="translate(${PAD_L + xCelTag}, ${PAD_T - 9})">
           <rect x="0" y="-4" width="7.5" height="7.5" rx="2" fill="#0284c7"/>
           <text x="11" y="3" font-size="${axisFontSize}" fill="#0369a1" font-weight="700">+CEL Activa (+${celIngreso.toLocaleString('es-ES')} €/a)</text>
         </g>
@@ -4351,20 +4291,20 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       legendContent = `
         <g transform="translate(${PAD_L}, ${PAD_T - 9})">
           <!-- Curva 1: Contado + CEL -->
-          <line x1="0" y1="0" x2="15" y2="0" stroke="${lineColor}" stroke-width="2.6"/>
-          <circle cx="7.5" cy="0" r="2.5" fill="${lineColor}"/>
-          <text x="20" y="3" font-size="${axisFontSize}" fill="#334155" font-weight="700">Al Contado (+CEL)</text>
+          <line x1="0" y1="0" x2="14" y2="0" stroke="${lineColor}" stroke-width="2.6"/>
+          <circle cx="7" cy="0" r="2.5" fill="${lineColor}"/>
+          <text x="18" y="3" font-size="${axisFontSize}" fill="#334155" font-weight="700">Al Contado (+CEL)</text>
 
-          <!-- Curva 2: Sin CEL estándar -->
-          <line x1="128" y1="0" x2="143" y2="0" stroke="#64748b" stroke-width="2.0" stroke-dasharray="3,3"/>
-          <circle cx="135.5" cy="0" r="2.5" fill="#64748b"/>
-          <text x="148" y="3" font-size="${axisFontSize}" fill="#475569" font-weight="700">Sin CEL (Estándar)</text>
+          <!-- Curva 2: Sin CEL -->
+          <line x1="${xSinCel}" y1="0" x2="${xSinCel + 14}" y2="0" stroke="#64748b" stroke-width="2.0" stroke-dasharray="3,3"/>
+          <circle cx="${xSinCel + 7}" cy="0" r="2.5" fill="#64748b"/>
+          <text x="${xSinCel + 18}" y="3" font-size="${axisFontSize}" fill="#475569" font-weight="700">Sin CEL</text>
 
           <!-- Curva 3: Financiado -->
           ${cfFinanciado ? `
-            <line x1="262" y1="0" x2="277" y2="0" stroke="#3b82f6" stroke-width="2.4" stroke-dasharray="4,3"/>
-            <circle cx="269.5" cy="0" r="2.5" fill="#3b82f6"/>
-            <text x="282" y="3" font-size="${axisFontSize}" fill="#1e40af" font-weight="700">Financiado (${fm.meses || 120}m · ${fm.cuotaMensual || 0} €/m)</text>
+            <line x1="${xFin}" y1="0" x2="${xFin + 14}" y2="0" stroke="#3b82f6" stroke-width="2.4" stroke-dasharray="4,3"/>
+            <circle cx="${xFin + 7}" cy="0" r="2.5" fill="#3b82f6"/>
+            <text x="${xFin + 18}" y="3" font-size="${axisFontSize}" fill="#1e40af" font-weight="700">Financiado (${fm.meses || 120}m · ${fm.cuotaMensual || 0} €/m)</text>
           ` : ''}
         </g>
         ${celLegendTag}
@@ -4458,7 +4398,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${mItem.color};flex-shrink:0;"></span>
         <div>
           <strong style="color:${mItem.color};font-weight:700;">${mItem.label}</strong>
-          <span style="color:#64748b;margin-left:3px;font-size:8.5px;">(${fmtK(mItem.val)})</span>
+          <span style="color:#64748b;margin-left:3px;font-size:8.5px;">(${mItem.pillText || fmtK(mItem.val)})</span>
         </div>
       </div>`;
     });
@@ -4673,12 +4613,12 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   const _pageIndexInfografias = _hasThreePkgs ? ++_pageTracker : 0;
   const _pageIndexProduccion = ++_pageTracker;
   const _pageIndexBillAudit = _includeBillAuditPage ? ++_pageTracker : 0;
-  const _pageIndexGarantias = ++_pageTracker;
   const _pageIndexCEL = _includeCEL ? ++_pageTracker : 0;
   const _pageIndexCEL2 = _includeCEL ? ++_pageTracker : 0;
   const _pageIndexPresupuesto = ++_pageTracker;
   const _pageIndexFiscal = ++_pageTracker;
   const _pageIndexDecision = ++_pageTracker;
+  const _pageIndexGarantias = ++_pageTracker;
   const _totPages = _pageTracker;
   const _infografias = buildInfografiasHTML(m, pal, annualYieldKWh, layoutStyle, {
     gastoSin: gastoMensualSinSolar,
@@ -5751,7 +5691,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
 
         <h2>Curva de amortización y retorno de inversión acumulado (25 años)</h2>
         <div class="chart-box">
-          <div class="chart-title" style="display:flex;align-items:center;gap:6px;">${_mSvg('trendUp', 13, pal.primary)} <span>Cashflow Acumulado — Payback en ${(m.isCelActive && m.paybackCEL ? m.paybackCEL.toFixed(1) : m.paybackYears.toFixed(1))} años${m.isCelActive && m.reduccionPaybackAnios ? ` (Acelerado con CEL · -${m.reduccionPaybackAnios.toFixed(1)}a)` : ''} · VAN ${Math.round(m.van).toLocaleString('es-ES')} € · TIR ${m.tirString || ((m.tir != null && isFinite(m.tir)) ? m.tir.toFixed(1) + "%" : "N/D")}</span></div>
+          <div class="chart-title" style="display:flex;align-items:center;gap:6px;">${_mSvg('trendUp', 13, pal.primary)} <span>Cashflow Acumulado — Payback en ${(m.isCelActive && m.paybackCEL ? m.paybackCEL.toFixed(1) : m.paybackYears.toFixed(1))} años${m.isCelActive && m.reduccionPaybackAnios ? ` (Acelerado con CEL · -${m.reduccionPaybackAnios.toFixed(1)}a)` : ''} · VAN ${Math.round(m.van).toLocaleString('es-ES')} € · TIR ${m.tirString || ((m.tir != null && isFinite(m.tir)) ? m.tir.toFixed(1) + "%" : "N/D")}${m.finMode !== 'cash' && m.taeCalculadaPct ? ` · TAE ${m.taeCalculadaPct}%` : ''}</span></div>
           ${amortSVG}
         </div>
       </div>
@@ -5812,64 +5752,6 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       </div>
     </div>` : ''}
 
-    <!-- PÁGINA 5B: GARANTÍAS OFICIALES Y FORMALIZACIÓN -->
-    <div class="page-sheet" data-section-id="cashflow_25y">
-      <div>
-        ${buildInnerHeaderHTML('GARANTÍAS &amp; <span style="color:' + pal.primary + '">COMPROMISO TÉCNICO</span>', 'Escudo de Protección · Certificaciones de Calidad · Formalización de Proyecto', _pageIndexGarantias)}
-
-        ${_infografias.tejadoBlindado}
-        ${_infografias.cascadaFiscal}
-
-        <h2>Garantías oficiales incluidas</h2>
-        <table>
-          <tr><th>Componente</th><th>Garantía de Producto</th><th>Garantía de Rendimiento</th><th>Garantía de Instalación</th></tr>
-          <tr><td>Módulos Fotovoltaicos</td><td>${warMod} años</td><td>${warPower} años (≥84.8%)</td><td rowspan="${eqWarranties.hasBat ? '4' : '3'}" style="vertical-align:middle;text-align:center;">${warMo} años<br>mano de obra</td></tr>
-          <tr><td>Inversor & Monitorización</td><td>${warInv} años (garantía oficial)</td><td>—</td></tr>
-          ${eqWarranties.hasBat ? '<tr><td>Batería de Litio LFP</td><td>' + warBat + ' años (o 6.000 ciclos)</td><td>—</td></tr>' : ''}
-          <tr><td>Estructura & Fijaciones</td><td>10 años inox A2</td><td>—</td></tr>
-        </table>
-
-        <div class="sig-box-grid" style="margin-top:24px;">
-          <div class="sig-card" style="display:flex;flex-direction:column;justify-content:space-between;min-height:165px;">
-            <div style="font-weight:800;font-size:11px;color:#0f172a;">Conforme y Aceptado por el Cliente</div>
-            <div style="margin-top:auto;padding-top:36px;">
-              <div style="border-bottom:1px solid #475569;width:75%;margin:0 auto 6px auto;"></div>
-              <div style="font-size:10px;font-weight:700;color:#334155;">Firma del Cliente</div>
-              <div style="font-size:9.5px;color:#475569;margin-top:2px;">D./Dña. ${_escProp(d.tit.nombre)}</div>
-              <div style="font-size:9px;color:#64748b;">NIF: ${_escProp(d.tit.nif)}</div>
-              <div style="font-size:9px;color:#64748b;margin-top:2px;">Fecha: ___ / ___ / 2026</div>
-            </div>
-          </div>
-          <div class="sig-card" style="display:flex;flex-direction:column;justify-content:space-between;min-height:165px;">
-            <div>
-              <div class="sig-logo-box">
-                ${logoDataUrl ? '<img src="' + logoDataUrl + '" style="max-height:36px;max-width:100px;object-fit:contain;">' : '<span style="display:inline-flex;color:' + pal.primary + ';">' + _mSvg('building', 20, pal.primary) + '</span>'}
-                <div style="text-align:left;"><div style="font-weight:900;font-size:11px;">${_escProp(companyName)}</div>${companyCIF ? '<div style="font-size: 10px;color:#64748b;">CIF: ' + _escProp(companyCIF) + '</div>' : ''}</div>
-              </div>
-              <div style="font-size:10px;font-weight:700;color:#475569;">Por la Empresa Instaladora</div>
-            </div>
-            <div style="margin-top:auto;padding-top:24px;">
-              <div style="border-bottom:1px solid #475569;width:75%;margin:0 auto 6px auto;"></div>
-              <div style="font-size:10px;font-weight:700;color:#334155;">Firma y Sello</div>
-              <div style="font-size:9.5px;color:#475569;margin-top:2px;">${_escProp(d.tit.tecnico)} (${_escProp(d.tit.titulacion)})</div>
-              ${contactBlock ? '<div style="font-size:9px;color:#64748b;">' + _escProp(contactBlock) + '</div>' : ''}
-              <div style="margin-top:6px;">${[
-                _mSvg('bolt', 10, pal.primary, 'margin-right:3px;') + 'REBT ITC-BT-40',
-                _mSvg('shield', 10, pal.primary, 'margin-right:3px;') + 'RD 244/2019',
-                _mSvg('checkCircle', 10, pal.primary, 'margin-right:3px;') + 'IEC 61215'
-              ].map(t => '<span class="pill" style="display:inline-flex;align-items:center;">'+t+'</span>').join('')}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- PIE DE HOJA GARANTÍAS -->
-      <div class="cover-footer" style="margin-top:auto;padding-top:12px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;font-size:9px;color:#64748b;">
-        <span>Garantía Oficial de Producto y Rendimiento · Homologación Marcado CE · REBT ITC-BT-40</span>
-        <span>${_escProp(companyName)} · Ref: ${_escProp(d.refNum)}</span>
-      </div>
-    </div>
-
     ${_includeCEL ? buildCELPageHTML(d, m, pal, _celMetrics, _pageIndexCEL, _totPages, companyName, _pageIndexCEL2, buildInnerHeaderHTML, _studioCfg) : ''}
 
     <!-- PÁGINA PRESUPUESTO: PRESUPUESTO ECONÓMICO EPC -->
@@ -5877,7 +5759,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       <div>
         ${buildInnerHeaderHTML('PRESUPUESTO <span style="color:' + pal.primary + '">LLAVE EN MANO</span>', 'Desglose Detallado de Partidas EPC · Base Imponible · Impuestos', _pageIndexPresupuesto)}
 
-        <h2>3. Presupuesto detallado llave en mano</h2>
+        <h2>Presupuesto detallado llave en mano</h2>
         <table>
           <tr><th>Capítulo</th><th>Descripción de la Partida</th><th class="text-right">Importe (€)</th></tr>
           ${(function() {
@@ -5957,8 +5839,10 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       <div>
         ${buildInnerHeaderHTML('SUBVENCIONES &amp; <span style="color:' + pal.primary + '">BENEFICIOS FISCALES</span>', 'Bonificaciones Municipales · Deducciones Fiscales · Retorno de Inversión Neta', _pageIndexFiscal)}
 
+        ${_infografias.cascadaFiscal}
+
         <div class="ra-tax-benefits-block">
-        <h2>4. Subvenciones y beneficios fiscales estimados</h2>
+        <h2>Subvenciones y beneficios fiscales estimados</h2>
         <table>
           <tr><th>Concepto Fiscal</th><th>Detalle / Normativa Aplicable</th><th class="text-right">Importe / Ahorro</th></tr>
           <tr style="background:#f8fafc;font-weight:700;"><td>INVERSIÓN INICIAL (CAPEX BRUTO)</td><td>Coste llave en mano de la instalación fotovoltaica (IVA incluido)</td><td class="text-right" style="color:#0f172a;">${Math.round(m.capexBruto).toLocaleString('es-ES')} €</td></tr>
@@ -6037,7 +5921,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
           <div style="display:flex;justify-content:center;margin-bottom:8px;">${(window.RA_SvgCatalog ? window.RA_SvgCatalog.render('savingsChart', pal.dark, 38) : '')}</div>
           <div class="closer-hero-lbl">Retorno de Inversión</div>
           <div class="closer-hero-val">${m.paybackYears.toFixed(1)} Años</div>
-          <div class="closer-hero-sub">¡Energía gratis 20+ años!</div>
+          <div class="closer-hero-sub">10+ independencia energética</div>
         </div>
         <div class="closer-hero-card">
           <div style="display:flex;justify-content:center;margin-bottom:8px;">${(window.RA_SvgCatalog ? window.RA_SvgCatalog.render('warranty25', pal.primary, 38) : '')}</div>
@@ -6081,7 +5965,17 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
           </div>
         </div>` : ''}
 
-        ${m.finMode !== 'cash' ? `
+        ${m.finMode !== 'cash' ? (() => {
+          const _fAntes = Math.round(gastoMensualSinSolar);
+          const _fAhora = Math.round(gastoMensualConSolar);
+          const _ahorroMes = _isOffGrid ? Math.round(_offGridMonthlyValueEUR) : Math.max(0, _fAntes - _fAhora);
+          const _cuotaMes = Math.round(m.cuotaMensual);
+          const _balMes = _ahorroMes - _cuotaMes;
+          const _balPos = _balMes >= 0;
+          const _aniosFin = Math.round((m.mesesFin || 120) / 12);
+          const _mesLibre = (m.mesesFin || 120) + 1;
+          const _gastoTotalPrestamo = _cuotaMes + _fAhora;
+          return `
         <div class="decision-card">
           <div class="decision-title" style="color:#2563eb;">
             <span>${m.entradaEur > 0 ? 'OPCIÓN B: FINANCIACIÓN A MEDIDA' : 'OPCIÓN B: FINANCIACIÓN 100%'}</span>
@@ -6096,31 +5990,39 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
             <span>Capital Neto Financiado:</span>
             <span>${Math.round(m.capitalBaseFinanciar).toLocaleString('es-ES')} €</span>
           </div>` : ''}
-          <div class="decision-row">
-            <span>Cuota mensual (${m.mesesFin / 12} años · TAE ${m.taeCalculadaPct}%):</span>
-            <b style="color:#2563eb;">${Math.round(m.cuotaMensual)} €/mes</b>
+          <div class="decision-row" style="align-items:baseline;">
+            <span>${_isOffGrid ? 'Valor mensual energía generada' : `Ahorro en luz <span style="font-size:9px;color:#64748b;">(~${_fAntes} € antes − ~${_fAhora} € ahora)</span>`}:</span>
+            <b style="color:#059669;white-space:nowrap;">+${_ahorroMes} €/mes</b>
+          </div>
+          <div class="decision-row" style="align-items:baseline;">
+            <span>Cuota bancaria <span style="font-size:9px;color:#64748b;">(${_aniosFin} años · TAE ${m.taeCalculadaPct}%)</span>:</span>
+            <b style="color:#2563eb;white-space:nowrap;">−${_cuotaMes} €/mes</b>
           </div>
           ${m.mesesCarencia > 0 ? `
           <div class="decision-row" style="font-size:9px;color:#475569;">
             <span>Carencia inicial (${m.mesesCarencia} meses):</span>
             <span>${m.cuotaDuranteCarencia} €/mes (solo int.)</span>
           </div>` : ''}
-          <div class="decision-row" style="color:${pal.primary};">
-            <span>${_isOffGrid ? 'Valor mensual energía generada:' : 'Factura estimada después amortización:'}</span>
-            <b>${_isOffGrid ? ('~' + _offGridMonthlyValueEUR + ' €/mes') : ('~' + Math.round(gastoMensualConSolar) + ' €/mes')}</b>
+          <div style="margin-top:6px;padding:7px 10px;border-radius:7px;background:${_balPos ? '#ecfdf5' : '#fef2f2'};border:1px solid ${_balPos ? '#a7f3d0' : '#fecaca'};">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;">
+              <span style="font-size:10px;font-weight:800;letter-spacing:0.3px;color:${_balPos ? '#065f46' : '#991b1b'};">BALANCE EN TU BOLSILLO</span>
+              <span style="font-size:15px;font-weight:900;color:${_balPos ? '#059669' : '#dc2626'};white-space:nowrap;">${_balPos ? '+' : '−'}${Math.abs(_balMes)} €/mes</span>
+            </div>
+            <div style="font-size:9.5px;font-weight:700;color:#475569;margin-top:2px;font-family:'JetBrains Mono',monospace;">
+              +${_ahorroMes} € (ahorro) − ${_cuotaMes} € (cuota) = <span style="color:${_balPos ? '#059669' : '#dc2626'};">${_balPos ? '+' : '−'}${Math.abs(_balMes)} €/mes</span>
+            </div>
           </div>
-          <div class="decision-total" style="color:${(_isOffGrid ? _offGridBalanceFinMes : m.balanceNetoMensual) >= 0 ? '#10b981' : '#e11d48'};">
-            <span>BALANCE EN TU BOLSILLO:</span>
-            <span style="font-size:16px;color:${(_isOffGrid ? _offGridBalanceFinMes : m.balanceNetoMensual) >= 0 ? '#059669' : '#dc2626'};">${(_isOffGrid ? _offGridBalanceFinMes : m.balanceNetoMensual) >= 0 ? '+' : ''}${Math.round(_isOffGrid ? _offGridBalanceFinMes : m.balanceNetoMensual)} €/mes</span>
-          </div>
-          <div style="font-size: 10px;color:#64748b;margin-top:6px;">
+          <div style="font-size:9.5px;color:#475569;margin-top:6px;line-height:1.4;">
             ${_isOffGrid
-              ? 'La energía generada supera el valor de comprarla a la red desde el primer mes.'
-              : ((_isOffGrid ? _offGridBalanceFinMes : m.balanceNetoMensual) >= 0
-                  ? 'La instalación se paga sola con el ahorro de luz desde el primer mes.'
-                  : `Durante el préstamo el coste total mensual de energía es de ~${Math.round(m.cuotaMensual + gastoMensualConSolar)} €/mes (cuota + luz residual), pasando a solo ~${Math.round(gastoMensualConSolar)} €/mes tras amortizar.`)}
+              ? (_balPos
+                  ? `<div><b>Meses 1–${m.mesesFin || 120}:</b> La energía generada supera la cuota desde el primer mes.</div><div><b>Desde el mes ${_mesLibre}:</b> +${_ahorroMes} €/mes de valor eléctrico libre de cuota.</div>`
+                  : `<div><b>Meses 1–${m.mesesFin || 120}:</b> Aportas ${Math.abs(_balMes)} €/mes netos para amortizar tu central autónoma.</div><div><b>Desde el mes ${_mesLibre}:</b> +${_ahorroMes} €/mes de valor energético sin cuotas.</div>`)
+              : (_balPos
+                  ? `<div><b>Años 1–${_aniosFin}:</b> La instalación se paga sola con el ahorro de luz y ganas +${_balMes} €/mes desde el día 1.</div><div><b>Desde el mes ${_mesLibre}:</b> +${_ahorroMes} €/mes limpios en tu bolsillo (factura residual ~${_fAhora} €/mes).</div>`
+                  : `<div><b>Años 1–${_aniosFin}:</b> Aportas ${Math.abs(_balMes)} €/mes netos sobre tu factura anterior (cuota + luz residual: ~${_gastoTotalPrestamo} €/mes).</div><div><b>Desde el mes ${_mesLibre}:</b> Sin cuota; disfrutas de <b>+${_ahorroMes} €/mes limpios</b> (factura residual ~${_fAhora} €/mes).</div>`)}
           </div>
-        </div>` : ''}
+        </div>`;
+        })() : ''}
       </div>
 
       <!-- RESUMEN EJECUTIVO / IMPACTO AMBIENTAL -->
@@ -6163,17 +6065,62 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
           </div>
         </div>
       </div>
+    </div>
 
-      <!-- CUADRO DE ACEPTACIÓN INMEDIATA (CIERRE COMERCIAL) -->
-      <div class="closer-cta-box">
-        <div>
-          <div style="font-weight:900;font-size:11.5px;color:#0f172a;">ACEPTACIÓN DE LA PROPUESTA Y RESERVA DE INSTALACIÓN</div>
-          <div style="font-size: 10px;color:#64748b;margin-top:2px;">Conforme con las condiciones económicas expuestas para el inicio del proyecto técnico.</div>
+    <!-- PÁGINA FINAL: GARANTÍAS OFICIALES Y FORMALIZACIÓN -->
+    <div class="page-sheet" data-section-id="cashflow_25y">
+      <div>
+        ${buildInnerHeaderHTML('GARANTÍAS &amp; <span style="color:' + pal.primary + '">COMPROMISO TÉCNICO</span>', 'Escudo de Protección · Certificaciones de Calidad · Formalización de Proyecto', _pageIndexGarantias)}
+
+        ${_infografias.tejadoBlindado}
+
+        <h2>Garantías oficiales incluidas</h2>
+        <table>
+          <tr><th>Componente</th><th>Garantía de Producto</th><th>Garantía de Rendimiento</th><th>Garantía de Instalación</th></tr>
+          <tr><td>Módulos Fotovoltaicos</td><td>${warMod} años</td><td>${warPower} años (≥84.8%)</td><td rowspan="${eqWarranties.hasBat ? '4' : '3'}" style="vertical-align:middle;text-align:center;">${warMo} años<br>mano de obra</td></tr>
+          <tr><td>Inversor & Monitorización</td><td>${warInv} años (garantía oficial)</td><td>—</td></tr>
+          ${eqWarranties.hasBat ? '<tr><td>Batería de Litio LFP</td><td>' + warBat + ' años (o 6.000 ciclos)</td><td>—</td></tr>' : ''}
+          <tr><td>Estructura & Fijaciones</td><td>10 años inox A2</td><td>—</td></tr>
+        </table>
+
+        <div class="sig-box-grid" style="margin-top:28px;">
+          <div class="sig-card" style="display:flex;flex-direction:column;justify-content:space-between;min-height:170px;">
+            <div style="font-weight:800;font-size:11px;color:#0f172a;">Conforme y Aceptado por el Cliente</div>
+            <div style="margin-top:auto;padding-top:36px;">
+              <div style="border-bottom:1px solid #475569;width:75%;margin:0 auto 6px auto;"></div>
+              <div style="font-size:10px;font-weight:700;color:#334155;">Firma del Cliente</div>
+              <div style="font-size:9.5px;color:#475569;margin-top:2px;">D./Dña. ${_escProp(d.tit.nombre)}</div>
+              <div style="font-size:9px;color:#64748b;">NIF: ${_escProp(d.tit.nif)}</div>
+              <div style="font-size:9px;color:#64748b;margin-top:2px;">Fecha: ___ / ___ / 2026</div>
+            </div>
+          </div>
+          <div class="sig-card" style="display:flex;flex-direction:column;justify-content:space-between;min-height:170px;">
+            <div>
+              <div class="sig-logo-box">
+                ${logoDataUrl ? '<img src="' + logoDataUrl + '" style="max-height:36px;max-width:100px;object-fit:contain;">' : '<span style="display:inline-flex;color:' + pal.primary + ';">' + _mSvg('building', 20, pal.primary) + '</span>'}
+                <div style="text-align:left;"><div style="font-weight:900;font-size:11px;">${_escProp(companyName)}</div>${companyCIF ? '<div style="font-size: 10px;color:#64748b;">CIF: ' + _escProp(companyCIF) + '</div>' : ''}</div>
+              </div>
+              <div style="font-size:10px;font-weight:700;color:#475569;">Por la Empresa Instaladora</div>
+            </div>
+            <div style="margin-top:auto;padding-top:24px;">
+              <div style="border-bottom:1px solid #475569;width:75%;margin:0 auto 6px auto;"></div>
+              <div style="font-size:10px;font-weight:700;color:#334155;">Firma y Sello</div>
+              <div style="font-size:9.5px;color:#475569;margin-top:2px;">${_escProp(d.tit.tecnico)} (${_escProp(d.tit.titulacion)})</div>
+              ${contactBlock ? '<div style="font-size:9px;color:#64748b;">' + _escProp(contactBlock) + '</div>' : ''}
+              <div style="margin-top:6px;">${[
+                _mSvg('bolt', 10, pal.primary, 'margin-right:3px;') + 'REBT ITC-BT-40',
+                _mSvg('shield', 10, pal.primary, 'margin-right:3px;') + 'RD 244/2019',
+                _mSvg('checkCircle', 10, pal.primary, 'margin-right:3px;') + 'IEC 61215'
+              ].map(t => '<span class="pill" style="display:inline-flex;align-items:center;">'+t+'</span>').join('')}</div>
+            </div>
+          </div>
         </div>
-        <div style="text-align:right;font-size: 10px;color:#334155;">
-          Firma del Cliente: ________________________ Fecha: ___/___/2026<br>
-          <b>${_escProp(d.tit.nombre)}</b> (NIF: ${_escProp(d.tit.nif || '___________')})
-        </div>
+      </div>
+
+      <!-- PIE DE HOJA GARANTÍAS -->
+      <div class="cover-footer" style="margin-top:auto;padding-top:12px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;font-size:9px;color:#64748b;">
+        <span>Garantía Oficial de Producto y Rendimiento · Homologación Marcado CE · REBT ITC-BT-40</span>
+        <span>${_escProp(companyName)} · Ref: ${_escProp(d.refNum)}</span>
       </div>
     </div>
 

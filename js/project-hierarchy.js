@@ -712,28 +712,8 @@
           wp.selectedVtxIdx = -1;
           global.polygonPoints = [];
         }
-        // [AUD-2026] Ocultar un faldón debe ocultar también sus paneles y primitivas asociadas.
-        // Se respeta el estado propio de "paneles" del faldón (poly.panelsVisible) para no
-        // resucitar paneles que el usuario había ocultado por separado.
-        const polyRef = wp.polylines[idOrIdx];
-        const panelsVisible = (polyRef.panelsVisible !== false) && isVis;
-        if (Array.isArray(global.simulatedPanelEntities)) {
-          global.simulatedPanelEntities.forEach(function(pe) {
-            const pIdx = (pe && typeof pe.polyIdx === 'number') ? pe.polyIdx : (pe && pe.pData && typeof pe.pData.polyIdx === 'number' ? pe.pData.polyIdx : null);
-            if (pIdx === idOrIdx) pe.show = panelsVisible;
-          });
-        }
-        if (polyRef.panelsPrimitive && typeof polyRef.panelsPrimitive.show !== 'undefined') {
-          polyRef.panelsPrimitive.show = panelsVisible;
-        }
-        if (global._faldonPanelsPrimitives && typeof global._faldonPanelsPrimitives.get === 'function') {
-          const fp = global._faldonPanelsPrimitives.get(idOrIdx);
-          if (fp) fp.show = panelsVisible;
-        }
-        if (global._faldonSupportCollections && typeof global._faldonSupportCollections.get === 'function') {
-          const sp = global._faldonSupportCollections.get(idOrIdx);
-          if (sp) sp.show = panelsVisible;
-        }
+        // La visibilidad de la polilínea del faldón es independiente de sus placas FV (controladas por poly.panelsVisible).
+        // Al ocultar el contorno del faldón, las placas y sus estructuras permanecen intactas si poly.panelsVisible !== false.
         if (typeof global.wpRenderAllPolylines === 'function') global.wpRenderAllPolylines();
         if (typeof global.renderTriad2D === 'function') global.renderTriad2D();
         if (global.viewer && global.viewer.scene && typeof global.viewer.scene.requestRender === 'function') global.viewer.scene.requestRender();

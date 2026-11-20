@@ -39,6 +39,49 @@ window.getUniversalSelectedTarget = getUniversalSelectedTarget;
 
 // 1. OBTENER INFORMACIÓN DEL OBJETO SELECCIONADO ACTUALMENTE
 function getUniversalSelectedTarget() {
+  // 🌟 PRIORIDAD #0: MODO MOVER FALDÓN COMPLETO CON GIZMO COPLANAR (U/V)
+  if (typeof WP !== 'undefined' && WP && typeof WP.movePolyGizmoIdx === 'number' && WP.movePolyGizmoIdx >= 0 && Array.isArray(WP.polylines) && WP.polylines[WP.movePolyGizmoIdx]) {
+    const poly = WP.polylines[WP.movePolyGizmoIdx];
+    if (poly && Array.isArray(poly.points) && poly.points.length >= 3) {
+      const centroid = new Cesium.Cartesian3(0, 0, 0);
+      for (let i = 0; i < poly.points.length; i++) {
+        Cesium.Cartesian3.add(centroid, poly.points[i], centroid);
+      }
+      Cesium.Cartesian3.divideByScalar(centroid, poly.points.length, centroid);
+      const pl = (typeof poly.planeIdx === 'number' && poly.planeIdx >= 0 && Array.isArray(WP.planes) && WP.planes[poly.planeIdx])
+        ? WP.planes[poly.planeIdx]
+        : null;
+      const norm = (pl && pl.normal)
+        ? Cesium.Cartesian3.normalize(pl.normal, new Cesium.Cartesian3())
+        : Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(centroid, new Cesium.Cartesian3());
+      const uVec = (pl && pl.uVec)
+        ? Cesium.Cartesian3.normalize(pl.uVec, new Cesium.Cartesian3())
+        : Cesium.Cartesian3.normalize(Cesium.Cartesian3.cross(norm, Cesium.Cartesian3.UNIT_Z, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+      const vVec = (pl && pl.vVec)
+        ? Cesium.Cartesian3.normalize(pl.vVec, new Cesium.Cartesian3())
+        : Cesium.Cartesian3.normalize(Cesium.Cartesian3.cross(norm, uVec, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+      return {
+        type: 'polyline',
+        id: poly.id || ('poly_' + WP.movePolyGizmoIdx),
+        name: (poly.name || ('Faldón #' + (WP.movePolyGizmoIdx + 1))).toUpperCase(),
+        pos: centroid,
+        rot: 0,
+        height: 0,
+        rawObj: poly,
+        polyIdx: WP.movePolyGizmoIdx,
+        wp: {
+          origin: centroid,
+          normal: norm,
+          uVec: uVec,
+          vVec: vVec,
+          plane: { origin: centroid, normal: norm }
+        },
+        color: '#38BDF8',
+        accentColor: 'rgba(56, 189, 248, 0.45)'
+      };
+    }
+  }
+
   // 🌟 PRIORIDAD #1: VÉRTICE DE HUELLA DE EDIFICIO SELECCIONADO (Tríada Ámbar y Manipulador 3D)
   const _hasSpecificObjectSelected = (typeof selectedObstacleId !== 'undefined' && selectedObstacleId) ||
                                     (typeof selectedPanelIndex !== 'undefined' && selectedPanelIndex >= 0) ||
@@ -664,7 +707,7 @@ function renderUniversalGizmo2D() {
 
   const ctx = triadCtx;
   const hovered = universalGizmoState.hoveredPart;
-  const hasRotation = (target.type !== 'vertex' && target.type !== 'route_vertex'); // Los vértices y codos no tienen rotación propia
+  const hasRotation = (target.type !== 'vertex' && target.type !== 'route_vertex' && target.type !== 'polyline'); // Los vértices, codos y faldones no rotan con anillo
 
   ctx.save();
 
@@ -1195,6 +1238,47 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
       if (panelOutlineEntity && p.corners && p.corners.length === 4) {
         panelOutlineEntity.polyline.positions = [p.corners[0], p.corners[1], p.corners[2], p.corners[3], Cesium.Cartesian3.clone(p.corners[0])];
       }
+    } else if (target.type === 'polyline' && target.rawObj) {
+      const poly = target.rawObj;
+      let delta = Cesium.Cartesian3.subtract(newPos, target.pos, new Cesium.Cartesian3());
+      // Bloqueo coplanar estricto: eliminar cualquier componente perpendicular al plano de trabajo
+      if (target.wp && target.wp.normal) {
+        const perp = Cesium.Cartesian3.dot(delta, target.wp.normal);
+        delta = Cesium.Cartesian3.subtract(
+          delta,
+          Cesium.Cartesian3.multiplyByScalar(target.wp.normal, perp, new Cesium.Cartesian3()),
+          new Cesium.Cartesian3()
+        );
+      }
+      target.pos = Cesium.Cartesian3.add(target.pos, delta, new Cesium.Cartesian3());
+
+      if (Array.isArray(poly.points)) {
+        poly.points = poly.points.map(pt => Cesium.Cartesian3.add(pt, delta, new Cesium.Cartesian3()));
+        poly._geometryDirty = true;
+      }
+      if (Array.isArray(poly.deletedPanels) && poly.deletedPanels.length > 0) {
+        poly.deletedPanels = poly.deletedPanels.map(dp => ({
+          u: dp.u,
+          v: dp.v,
+          center: dp.center ? Cesium.Cartesian3.add(dp.center, delta, new Cesium.Cartesian3()) : null
+        }));
+      }
+      const moveObs = universalGizmoState.movePolyObs;
+      if (Array.isArray(moveObs) && moveObs.length > 0) {
+        const plMove = (typeof poly.planeIdx === 'number' && WP.planes) ? WP.planes[poly.planeIdx] : null;
+        moveObs.forEach(obs => {
+          if (!obs || !obs.cartesian) return;
+          obs.cartesian = Cesium.Cartesian3.add(obs.cartesian, delta, new Cesium.Cartesian3());
+          if (plMove && plMove.origin && plMove.uVec && plMove.vVec) {
+            const relObsPt = Cesium.Cartesian3.subtract(obs.cartesian, plMove.origin, new Cesium.Cartesian3());
+            obs.u = Cesium.Cartesian3.dot(relObsPt, plMove.uVec);
+            obs.v = Cesium.Cartesian3.dot(relObsPt, plMove.vVec);
+          }
+        });
+        if (typeof render3DObstaclesInCesium === 'function') render3DObstaclesInCesium();
+      }
+      if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
+      if (typeof wpUpdateUI === 'function') wpUpdateUI();
     } else if (target.type === 'workplane' && target.rawObj) {
       const pl = target.rawObj;
       const _rotMode = universalGizmoState.mode;
@@ -1578,6 +1662,47 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
       if (typeof window !== 'undefined' && window.LiveSolarProbe && window.LiveSolarProbe.enabled) {
         window.LiveSolarProbe.evaluate();
       }
+    } else if (target.type === 'polyline' && target.rawObj) {
+      const poly = target.rawObj;
+      let delta = Cesium.Cartesian3.subtract(newPos, target.pos, new Cesium.Cartesian3());
+      // Bloqueo coplanar estricto: eliminar cualquier componente perpendicular al plano de trabajo
+      if (target.wp && target.wp.normal) {
+        const perp = Cesium.Cartesian3.dot(delta, target.wp.normal);
+        delta = Cesium.Cartesian3.subtract(
+          delta,
+          Cesium.Cartesian3.multiplyByScalar(target.wp.normal, perp, new Cesium.Cartesian3()),
+          new Cesium.Cartesian3()
+        );
+      }
+      target.pos = Cesium.Cartesian3.add(target.pos, delta, new Cesium.Cartesian3());
+
+      if (Array.isArray(poly.points)) {
+        poly.points = poly.points.map(pt => Cesium.Cartesian3.add(pt, delta, new Cesium.Cartesian3()));
+        poly._geometryDirty = true;
+      }
+      if (Array.isArray(poly.deletedPanels) && poly.deletedPanels.length > 0) {
+        poly.deletedPanels = poly.deletedPanels.map(dp => ({
+          u: dp.u,
+          v: dp.v,
+          center: dp.center ? Cesium.Cartesian3.add(dp.center, delta, new Cesium.Cartesian3()) : null
+        }));
+      }
+      const moveObs = universalGizmoState.movePolyObs;
+      if (Array.isArray(moveObs) && moveObs.length > 0) {
+        const plMove = (typeof poly.planeIdx === 'number' && WP.planes) ? WP.planes[poly.planeIdx] : null;
+        moveObs.forEach(obs => {
+          if (!obs || !obs.cartesian) return;
+          obs.cartesian = Cesium.Cartesian3.add(obs.cartesian, delta, new Cesium.Cartesian3());
+          if (plMove && plMove.origin && plMove.uVec && plMove.vVec) {
+            const relObsPt = Cesium.Cartesian3.subtract(obs.cartesian, plMove.origin, new Cesium.Cartesian3());
+            obs.u = Cesium.Cartesian3.dot(relObsPt, plMove.uVec);
+            obs.v = Cesium.Cartesian3.dot(relObsPt, plMove.vVec);
+          }
+        });
+        if (typeof render3DObstaclesInCesium === 'function') render3DObstaclesInCesium();
+      }
+      if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
+      if (typeof wpUpdateUI === 'function') wpUpdateUI();
     } else if (target.type === 'workplane' && target.rawObj) {
       const pl = target.rawObj;
       const delta = Cesium.Cartesian3.subtract(newPos, target.pos, new Cesium.Cartesian3());

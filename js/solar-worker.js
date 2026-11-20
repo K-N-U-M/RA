@@ -257,8 +257,8 @@ self.onmessage = async function(e) {
     monthDaysW = [90, 91, 92, 92];    // Ponderación trimestral canónica
     hours = [9, 12, 15, 17];
   } else if (resolution === 'medium') {
-    // 12 meses x 6 horas clave = 72 instantes (Ingeniería PVSyst)
-    hours = [8, 10, 12, 14, 16, 18];
+    // 12 meses x 14 horas continuas = 168 instantes horarios (<20ms off-thread): evita aliasing estroboscópico de sombras
+    hours = [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
   }
 
   const hourStepDt = (hours.length > 1) ? (hours[hours.length - 1] - hours[0]) / (hours.length - 1) : 1.0;
@@ -288,14 +288,20 @@ self.onmessage = async function(e) {
     });
   });
 
-  // [AAA ARCHITECTURE] Pre-cálculo estático del Factor de Visión de Cielo (SVF) por panel.
+  // [AAA ARCHITECTURE] Pre-cálculo estático del Factor de Visión de Cielo (SVF) por panel usando el centroide real de poly2D.
   const panelSvfMap = new Map();
   panels.forEach(p => {
     const faldon = faldones[p.polyIdx] || faldones[0] || {};
     const obsList = faldon.obstacles2D || [];
     let diffuseOcclusion = 0.0;
     if (obsList.length > 0) {
-      const pu = p.u || 0, pv = p.v || 0;
+      let pu = p.u || 0, pv = p.v || 0;
+      if (Array.isArray(p.poly2D) && p.poly2D.length >= 3) {
+        let su = 0, sv = 0;
+        for (let k = 0; k < p.poly2D.length; k++) { su += p.poly2D[k].u; sv += p.poly2D[k].v; }
+        pu = su / p.poly2D.length;
+        pv = sv / p.poly2D.length;
+      }
       for (let oi = 0; oi < obsList.length; oi++) {
         const o = obsList[oi];
         const pts = o.points2D || [];
@@ -320,8 +326,22 @@ self.onmessage = async function(e) {
     panelSvfMap.set(p.id, svf);
   });
 
-  // [AAA ARCHITECTURE] Pre-cálculo estático geométrico de paneles (AABB, Substrings con AABB y Penumbra)
+  // [AAA ARCHITECTURE] Pre-cálculo estático geométrico de paneles (AABB, Substrings con margen de marco activo y Penumbra)
   // O(N) una sola vez durante el inicio, erradicando decenas de miles de operaciones innecesarias en los bucles horarios.
+  const shrinkPolyInward = (poly, marginM) => {
+    if (!poly || poly.length < 3 || marginM <= 0) return poly;
+    let cx = 0, cy = 0;
+    for (let i = 0; i < poly.length; i++) { cx += poly[i].u; cy += poly[i].v; }
+    cx /= poly.length; cy /= poly.length;
+    return poly.map(pt => {
+      const du = pt.u - cx, dv = pt.v - cy;
+      const len = Math.hypot(du, dv);
+      if (len <= marginM * 1.5) return pt;
+      const scale = Math.max(0.5, (len - marginM) / len);
+      return { u: cx + du * scale, v: cy + dv * scale };
+    });
+  };
+
   const preparedPanels = panels.map(pData => {
     const w = pData.w || 1.05;
     const h = pData.h || 2.15;
@@ -335,17 +355,24 @@ self.onmessage = async function(e) {
     ];
 
     let uMin = Infinity, uMax = -Infinity, vMin = Infinity, vMax = -Infinity;
+    let polyCu = 0, polyCv = 0;
     for (let pi = 0; pi < panelPoly.length; pi++) {
       const pt = panelPoly[pi];
+      polyCu += pt.u;
+      polyCv += pt.v;
       if (pt.u < uMin) uMin = pt.u;
       if (pt.u > uMax) uMax = pt.u;
       if (pt.v < vMin) vMin = pt.v;
       if (pt.v > vMax) vMax = pt.v;
     }
+    polyCu /= panelPoly.length;
+    polyCv /= panelPoly.length;
 
-    const rawSubStrings = (useDetailedBypass && panelPoly.length === 4)
-      ? dividePanelIntoSubstrings2D(panelPoly)
-      : [panelPoly];
+    // Área celular activa (descontando ~4.5 cm del marco de aluminio inactivo) para evitar falsos positivos al rozar 1 mm
+    const activeCellPoly = shrinkPolyInward(panelPoly, 0.045);
+    const rawSubStrings = (useDetailedBypass && activeCellPoly.length === 4)
+      ? dividePanelIntoSubstrings2D(activeCellPoly)
+      : [activeCellPoly];
 
     const subStrings = rawSubStrings.map(sub => {
       let suMin = Infinity, suMax = -Infinity, svMin = Infinity, svMax = -Infinity;
@@ -365,7 +392,7 @@ self.onmessage = async function(e) {
 
     const faldon = faldones[pData.polyIdx] || faldones[0] || {};
     let minObsDist = Infinity;
-    const pu = pData.u || 0, pv = pData.v || 0;
+    const pu = polyCu, pv = polyCv;
     const fObs = faldon.obstacles2D || [];
     for (let oi = 0; oi < fObs.length; oi++) {
       const ob = fObs[oi];
@@ -476,32 +503,47 @@ self.onmessage = async function(e) {
         }
         const uVec = faldon.uVec || { x: 1, y: 0, z: 0 };
         const vVec = faldon.vVec || { x: 0, y: 1, z: 0 };
+        const nVec = faldon.normalENU || faldon.normalWorld || { x: 0, y: 0, z: 1 };
         const sDirENU = sp.sDirENU;
+        const sunVec = sp.sunVecENU;
         const sU = sDirENU.x * uVec.x + sDirENU.y * uVec.y + sDirENU.z * uVec.z;
         const sV = sDirENU.x * vVec.x + sDirENU.y * vVec.y + sDirENU.z * vVec.z;
         const shadowLen = sp.shadowLenPerM;
 
+        // Intersección rayo-plano exacta en cubierta inclinada:
+        // Δ = h·Z - t·S con t = (h·Nz) / (S·N), garantizando Δ·N = 0 (proyección real sobre pendiente)
+        const sDotN = sunVec.x * nVec.x + sunVec.y * nVec.y + sunVec.z * nVec.z;
+
         const quads = [];
-        if (hasObs) {
+        if (hasObs && sDotN > 0.02) {
+          const nz = Math.max(0.15, nVec.z || 1.0);
           faldon.obstacles2D.forEach(obs => {
-          const hObs = obs.height || 1.2;
-          const maxObsShadowLen = 45.0; // Límite físico para evitar proyecciones infinitas
-          const effShadowLen = Math.min(shadowLen * hObs, maxObsShadowLen);
-          const dU = sU * effShadowLen;
-          const dV = sV * effShadowLen;
-          const basePoly = obs.points2D || [];
-          if (basePoly.length >= 3) {
-            const topPoly = basePoly.map(pt => ({ u: pt.u + dU, v: pt.v + dV }));
-            const hull = convexHull2D([...basePoly, ...topPoly]);
-            if (hull && hull.length >= 3) {
-              quads.push(precalcQuadAABB(hull));
-            } else {
-              for (let i = 0; i < basePoly.length; i++) {
-                const next = (i + 1) % basePoly.length;
-                quads.push(precalcQuadAABB([basePoly[i], basePoly[next], topPoly[next], topPoly[i]]));
+            const hObs = obs.height || 1.2;
+            const maxObsShadowLen = 45.0; // Límite físico para evitar proyecciones infinitas
+            const tRay = (hObs * nz) / sDotN;
+            let dx = -tRay * sunVec.x;
+            let dy = -tRay * sunVec.y;
+            let dz = hObs - tRay * sunVec.z;
+            const dMag = Math.hypot(dx, dy, dz);
+            if (dMag > maxObsShadowLen && dMag > 1e-4) {
+              const capScale = maxObsShadowLen / dMag;
+              dx *= capScale; dy *= capScale; dz *= capScale;
+            }
+            const dU = dx * uVec.x + dy * uVec.y + dz * uVec.z;
+            const dV = dx * vVec.x + dy * vVec.y + dz * vVec.z;
+            const basePoly = obs.points2D || [];
+            if (basePoly.length >= 3) {
+              const topPoly = basePoly.map(pt => ({ u: pt.u + dU, v: pt.v + dV }));
+              const hull = convexHull2D([...basePoly, ...topPoly]);
+              if (hull && hull.length >= 3) {
+                quads.push(precalcQuadAABB(hull));
+              } else {
+                for (let i = 0; i < basePoly.length; i++) {
+                  const next = (i + 1) % basePoly.length;
+                  quads.push(precalcQuadAABB([basePoly[i], basePoly[next], topPoly[next], topPoly[i]]));
+                }
               }
             }
-          }
           });
         }
 
@@ -668,8 +710,8 @@ self.onmessage = async function(e) {
           effectiveLossFraction = Math.min(1.0, beamShadedFraction * (1.0 + mismatchBonus));
         }
 
-        // Separación física: el obstáculo bloquea la radiación directa (G_beam), modulada por la penumbra óptica.
-        let isOccludedByHorizon = false;
+        // Separación física: transición continua de horizonte en el intervalo temporal (evita escalón binario 0%->100%)
+        let horizonOcclusionFrac = 0.0;
         const effHorizon = p.horizon || horizonElevations;
         if (effHorizon && effHorizon.length >= 4 && sp && typeof sp.azDegFromNorth === 'number') {
           const nSec = effHorizon.length;
@@ -689,27 +731,36 @@ self.onmessage = async function(e) {
             const frac = fIdx - Math.floor(fIdx);
             blockingAlt = (effHorizon[i0] || 0) * (1 - frac) + (effHorizon[i1] || 0) * frac;
           }
-          if (sp.elevDeg <= blockingAlt) {
-            isOccludedByHorizon = true;
+          if (blockingAlt > 0.5) {
+            const halfBand = Math.max(2.5, hourStepDt * 2.5);
+            if (sp.elevDeg <= blockingAlt - halfBand) {
+              horizonOcclusionFrac = 1.0;
+            } else if (sp.elevDeg < blockingAlt + halfBand) {
+              horizonOcclusionFrac = (blockingAlt + halfBand - sp.elevDeg) / (2.0 * halfBand);
+            }
           }
         }
 
         const isOccludedBy3D = (p.occlusion3D && p.occlusion3D[currentStep - 1] === 1);
-        const isEnvironmentOccluded = isOccludedByHorizon || isOccludedBy3D;
+        const envOcclusionFrac = isOccludedBy3D ? 1.0 : horizonOcclusionFrac;
+        const isEnvironmentOccluded = envOcclusionFrac > 0.01;
 
         const effectiveShaded = isShaded || isEnvironmentOccluded;
-        const totalEffectiveLossFraction = isEnvironmentOccluded ? 1.0 : effectiveLossFraction;
+        const localBeamLossFrac = isShaded ? (effectiveLossFraction * p.penumbraAttenuation) : 0.0;
+        const totalEffectiveLossFraction = Math.max(localBeamLossFrac, envOcclusionFrac);
 
-        const beamLossW = (effectiveShaded && totalEffectiveLossFraction > 0) ? (G_beam * thermalFactor * totalEffectiveLossFraction * (isEnvironmentOccluded ? 1.0 : p.penumbraAttenuation)) : 0;
-        const skyOcclusionFactor = isEnvironmentOccluded ? 0.35 : 0.0;
-        const diffuseLossW = (!hasOpt && shadedSubstringsCount > 0)
+        const beamLossW = (effectiveShaded && totalEffectiveLossFraction > 0) ? (G_beam * thermalFactor * totalEffectiveLossFraction) : 0;
+        const skyOcclusionFactor = envOcclusionFrac * 0.25;
+        const diffuseLossLocal = (!hasOpt && shadedSubstringsCount > 0)
           ? ((G_diff + G_refl + albedoGain) * thermalFactor * (beamShadedFraction * 0.12))
-          : (isEnvironmentOccluded ? (G_diff * thermalFactor * skyOcclusionFactor) : 0);
+          : 0;
+        const diffuseLossEnv = isEnvironmentOccluded ? (G_diff * thermalFactor * skyOcclusionFactor) : 0;
+        const diffuseLossW = Math.max(diffuseLossLocal, diffuseLossEnv);
         const instantLossW = beamLossW + diffuseLossW;
 
         if (effectiveShaded && instantLossW > 0) {
-          res.shadowHits += mw * hourStepDt;
-          res.activeDiodesHits += (isEnvironmentOccluded ? 3 : shadedSubstringsCount) * mw * hourStepDt;
+          res.shadowHits += mw * hourStepDt * totalEffectiveLossFraction;
+          res.activeDiodesHits += Math.max(shadedSubstringsCount, envOcclusionFrac * 3) * mw * hourStepDt;
           res.annualShadedLoss += instantLossW * mw * hourStepDt;
         }
 

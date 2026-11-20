@@ -57,14 +57,14 @@
       TRAY_HEIGHT: 0.03,         // Altura estándar bandeja portacables (3 cm)
       COLOR_DC_POS: '#EF4444',   // Rojo solar (DC+)
       COLOR_DC_NEG: '#0284C7',   // Azul grafito alto contraste (DC-)
-      COLOR_DC_RETURN: '#0369A1',// Azul marino retorno anti-bucle
-      COLOR_COMBINER: '#10B981', // Verde esmeralda troncal
+      COLOR_DC_RETURN: '#1E293B',// Grafito carbón retorno anti-bucle (evita falsos azules sobre módulos)
+      COLOR_COMBINER: '#475569', // Gris acero troncal combinada (distinta de tierra y strings)
       COLOR_AC: '#38BDF8',       // Celeste evacuación AC
       COLOR_TRAY: '#64748B',     // Gris metalizado bandeja
       COLOR_GROUNDING: '#16A34A',// Verde tierra equipotencial Cu 16mm² (ITC-BT-18)
-      STRING_COLORS: [           // Paleta armónica para identificación de strings
-        '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6',
-        '#EC4899', '#06B6D4', '#F97316', '#14B8A6'
+      STRING_COLORS: [           // Paleta técnica oscura carbón/grafito con matices diferenciables entre strings
+        '#334155', '#312E81', '#3F2E26', '#1E3A5F',
+        '#1F3A3A', '#3B1D36', '#27272A', '#2E2A1F'
       ],
       SNAP_DISTANCE_METERS: 2.5  // Radio de snap magnético a terminales
     },
@@ -936,10 +936,10 @@
       var WP = global.WP || (typeof window !== 'undefined' ? window.WP : null);
       var srcPolyIdx = (typeof opts.sourcePolyIdx === 'number' && opts.sourcePolyIdx >= 0) ? opts.sourcePolyIdx : null;
 
-      // Helper: encuentra el punto sobre el perímetro (cumbrera/limatesa/alero) de un faldón más cercano a targetC3
-      var findClosestEdgePointOnPoly = function (polyObj, targetC3) {
+      // Helper: encuentra el punto y arista exacta sobre el perímetro de un faldón más cercano a targetC3
+      var findClosestEdgeOnPoly = function (polyObj, targetC3) {
         if (!polyObj || !Array.isArray(polyObj.points) || polyObj.points.length < 3 || !targetC3) return null;
-        var bestPt = null;
+        var best = null;
         var bestD = Infinity;
         for (var ei = 0; ei < polyObj.points.length; ei++) {
           var ea = self.toCartesian3(polyObj.points[ei]);
@@ -952,25 +952,140 @@
           var proj = Math.max(0, Math.min(elen, Cesium.Cartesian3.dot(Cesium.Cartesian3.subtract(targetC3, ea, new Cesium.Cartesian3()), edir)));
           var cand = Cesium.Cartesian3.add(ea, Cesium.Cartesian3.multiplyByScalar(edir, proj, new Cesium.Cartesian3()), new Cesium.Cartesian3());
           var d = Cesium.Cartesian3.distance(cand, targetC3);
-          if (d < bestD) { bestD = d; bestPt = cand; }
+          if (d < bestD) { bestD = d; best = { point: cand, ea: ea, eb: eb, dist: d }; }
         }
-        return bestPt;
+        return best;
+      };
+      var findClosestEdgePointOnPoly = function (polyObj, targetC3) {
+        var hit = findClosestEdgeOnPoly(polyObj, targetC3);
+        return hit ? hit.point : null;
       };
 
-      // Detectar si el destino está sobre OTRO faldón distinto del mismo tejado (ej. caja agrupadora en limatesa/otro faldón)
+      // Helper: Grafo 3D exterior de aristas de cubierta (cumbreras, limatesas y aleros) con Dijkstra.
+      // Garantiza que los cables entre vertientes opuestas viajen SIEMPRE por encima de cumbreras y limatesas sin atravesar el tejado.
+      var findRoofGraphExteriorPath = function (polylinesArr, srcIdx, dstIdx, startC3, endC3) {
+        if (!Array.isArray(polylinesArr) || polylinesArr.length < 2) return null;
+        var nodes = [];
+        var adj = [];
+        var edgeCounts = {};
+
+        var getOrAddNode = function (pt) {
+          for (var ni = 0; ni < nodes.length; ni++) {
+            if (Cesium.Cartesian3.distance(nodes[ni], pt) < 0.55) return ni;
+          }
+          nodes.push(Cesium.Cartesian3.clone(pt));
+          adj.push([]);
+          return nodes.length - 1;
+        };
+
+        // 1. Soldar vértices y detectar aristas compartidas (cumbreras / limatesas)
+        // Nota crítica: NO filtrar por pl.visible === false. El grafo topológico de la cubierta
+        // es invariante e independiente de si el usuario ocultó el contorno del faldón en el árbol de capas.
+        var rawEdges = [];
+        for (var pi = 0; pi < polylinesArr.length; pi++) {
+          var pl = polylinesArr[pi];
+          if (!pl || !Array.isArray(pl.points) || pl.points.length < 3) continue;
+          var pIds = [];
+          for (var vi = 0; vi < pl.points.length; vi++) {
+            var c3 = self.toCartesian3(pl.points[vi]);
+            if (c3) pIds.push(getOrAddNode(c3));
+          }
+          for (var ei = 0; ei < pIds.length; ei++) {
+            var a = pIds[ei], b = pIds[(ei + 1) % pIds.length];
+            if (a === b) continue;
+            var key = a < b ? (a + '_' + b) : (b + '_' + a);
+            edgeCounts[key] = (edgeCounts[key] || 0) + 1;
+            rawEdges.push({ a: a, b: b, key: key });
+          }
+        }
+        if (nodes.length < 3) return null;
+
+        var addedKeys = {};
+        var connectNodes = function (u, v, weightScale) {
+          if (u === v) return;
+          var w = Cesium.Cartesian3.distance(nodes[u], nodes[v]) * (weightScale || 1.0);
+          adj[u].push({ to: v, w: w });
+          adj[v].push({ to: u, w: w });
+        };
+
+        for (var re = 0; re < rawEdges.length; re++) {
+          var ed = rawEdges[re];
+          if (addedKeys[ed.key]) continue;
+          addedKeys[ed.key] = true;
+          // Preferencia ligera (0.78x) por aristas compartidas (cumbreras y limatesas) frente a aleros exteriores
+          var isRidgeOrHip = (edgeCounts[ed.key] || 0) >= 2;
+          connectNodes(ed.a, ed.b, isRidgeOrHip ? 0.78 : 1.0);
+        }
+
+        // 2. Insertar terminales proyectados sobre el perímetro:
+        // El punto de salida del faldón origen se proyecta buscando el borde que mira hacia el destino,
+        // y el punto de llegada en el faldón destino se proyecta sobre el borde más cercano al equipo o destino final.
+        var srcHit = findClosestEdgeOnPoly(polylinesArr[srcIdx], endC3);
+        var dstHit = findClosestEdgeOnPoly(polylinesArr[dstIdx], endC3);
+        if (!srcHit || !dstHit) return null;
+
+        var addTerminal = function (hitObj) {
+          var tid = getOrAddNode(hitObj.point);
+          var na = getOrAddNode(hitObj.ea);
+          var nb = getOrAddNode(hitObj.eb);
+          connectNodes(tid, na, 0.85);
+          connectNodes(tid, nb, 0.85);
+          return tid;
+        };
+
+        var startId = addTerminal(srcHit);
+        var endId = addTerminal(dstHit);
+
+        // 3. Dijkstra sobre el grafo de cubierta (típicamente 8–30 nodos, <0.1 ms)
+        var dist = new Array(nodes.length);
+        var prev = new Array(nodes.length);
+        var visited = new Array(nodes.length);
+        for (var di = 0; di < nodes.length; di++) { dist[di] = Infinity; prev[di] = -1; visited[di] = false; }
+        dist[startId] = 0;
+
+        for (var step = 0; step < nodes.length; step++) {
+          var uBest = -1;
+          var uDist = Infinity;
+          for (var j = 0; j < nodes.length; j++) {
+            if (!visited[j] && dist[j] < uDist) { uDist = dist[j]; uBest = j; }
+          }
+          if (uBest === -1 || uBest === endId) break;
+          visited[uBest] = true;
+          var nbrs = adj[uBest];
+          for (var k = 0; k < nbrs.length; k++) {
+            var v = nbrs[k].to;
+            var nd = uDist + nbrs[k].w;
+            if (nd < dist[v]) { dist[v] = nd; prev[v] = uBest; }
+          }
+        }
+
+        if (!isFinite(dist[endId])) return null;
+        var outPts = [];
+        var cur = endId;
+        while (cur !== -1) {
+          var upN = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(nodes[cur], new Cesium.Cartesian3());
+          outPts.push(Cesium.Cartesian3.add(nodes[cur], Cesium.Cartesian3.multiplyByScalar(upN, normalOffset + 0.08, new Cesium.Cartesian3()), new Cesium.Cartesian3()));
+          cur = prev[cur];
+        }
+        outPts.reverse();
+        return outPts;
+      };
+
+      // Detectar a qué faldón pertenece o hacia cuál debe encaminarse el cable por cubierta.
+      // Si la cubierta tiene múltiples faldones y el origen (srcPolyIdx) no es el faldón más cercano a la bajante/destino,
+      // el cable debe enrutarse por cumbreras/limatesas exteriores hasta el faldón de descenso.
       var targetPolyIdx = null;
       if (WP && Array.isArray(WP.polylines) && WP.polylines.length > 1 && srcPolyIdx !== null) {
         var bestTpDist = Infinity;
         for (var tpi = 0; tpi < WP.polylines.length; tpi++) {
           var tpObj = WP.polylines[tpi];
-          if (!tpObj || tpObj.visible === false || !Array.isArray(tpObj.points) || tpObj.points.length < 3) continue;
+          if (!tpObj || !Array.isArray(tpObj.points) || tpObj.points.length < 3) continue;
           var edgeHit = findClosestEdgePointOnPoly(tpObj, pEnd);
           if (edgeHit) {
             var dEdgeTp = Cesium.Cartesian3.distance(edgeHit, pEnd);
             if (dEdgeTp < bestTpDist) { bestTpDist = dEdgeTp; targetPolyIdx = tpi; }
           }
         }
-        if (bestTpDist > 3.5) targetPolyIdx = null; // Destino en fachada/suelo, no en otro faldón
       }
 
       // Adaptación geométrica por estrategia de cubierta (inclinada / plana / multi-faldón)
@@ -981,7 +1096,7 @@
         var bestScore = Infinity;
         for (var piS = 0; piS < WP.polylines.length; piS++) {
           var polyS = WP.polylines[piS];
-          if (!polyS || polyS.visible === false || !Array.isArray(polyS.points) || polyS.points.length < 3) continue;
+          if (!polyS || !Array.isArray(polyS.points) || polyS.points.length < 3) continue;
           for (var viS = 0; viS < polyS.points.length; viS++) {
             var ea = this.toCartesian3(polyS.points[viS]);
             var eb = this.toCartesian3(polyS.points[(viS + 1) % polyS.points.length]);
@@ -1005,7 +1120,7 @@
         var sumP = new Cesium.Cartesian3(0, 0, 0);
         var cntP = 0;
         WP.polylines.forEach(function (pl) {
-          if (pl && pl.visible !== false && Array.isArray(pl.points) && pl.points.length > 0) {
+          if (pl && Array.isArray(pl.points) && pl.points.length > 0) {
             var pt0 = self.toCartesian3(pl.points[0]);
             if (pt0) { Cesium.Cartesian3.add(sumP, pt0, sumP); cntP++; }
           }
@@ -1025,95 +1140,132 @@
         }
       }
 
-      // Enrutado exterior multi-faldón: si el destino está en otro faldón, subir a la arista exterior compartida (cumbrera/limatesa)
-      // y recorrer la envolvente externa del segundo faldón sin atravesar nunca el desván.
+      // Enrutado exterior multi-faldón por GRAFO DE CUMBRERAS Y LIMATESAS (nunca perfora el tejado):
+      // Si el destino está en otro faldón del edificio (o en la fachada/alero de otro faldón),
+      // sube al borde/cumbrera del faldón origen, recorre cumbreras/limatesas por Dijkstra
+      // hasta la arista/alero del faldón destino, y realiza la transición final limpia hacia el equipo.
+      var path = null;
       if (srcPolyIdx !== null && targetPolyIdx !== null && targetPolyIdx !== srcPolyIdx && WP && WP.polylines[srcPolyIdx] && WP.polylines[targetPolyIdx]) {
-        var exitSrcEdge = findClosestEdgePointOnPoly(WP.polylines[srcPolyIdx], pEnd);
-        var entryDstEdge = findClosestEdgePointOnPoly(WP.polylines[targetPolyIdx], exitSrcEdge || pStart);
-        var dstBasis = this.getRoofOrthonormalBasis(pEnd, targetPolyIdx) || basis;
-        if (exitSrcEdge && entryDstEdge) {
-          var exitElev = this.elevatePoint(exitSrcEdge, normalOffset + 0.08, N);
-          var dispSrc = Cesium.Cartesian3.subtract(exitElev, p0, new Cesium.Cartesian3());
-          var midSrc = Cesium.Cartesian3.add(p0, Cesium.Cartesian3.multiplyByScalar(U, Cesium.Cartesian3.dot(dispSrc, U), new Cesium.Cartesian3()), new Cesium.Cartesian3());
-          var leg1 = [p0, midSrc, exitElev];
+        var graphPts = findRoofGraphExteriorPath(WP.polylines, srcPolyIdx, targetPolyIdx, pStart, pEnd);
+        if (graphPts && graphPts.length >= 2) {
+          var firstRidgePt = graphPts[0];
+          var dispSrc = Cesium.Cartesian3.subtract(firstRidgePt, p0, new Cesium.Cartesian3());
+          var midSrcA = Cesium.Cartesian3.add(p0, Cesium.Cartesian3.multiplyByScalar(U, Cesium.Cartesian3.dot(dispSrc, U), new Cesium.Cartesian3()), new Cesium.Cartesian3());
+          var midSrcB = Cesium.Cartesian3.add(p0, Cesium.Cartesian3.multiplyByScalar(V, Cesium.Cartesian3.dot(dispSrc, V), new Cesium.Cartesian3()), new Cesium.Cartesian3());
+          // Elegir el codo 90° en cubierta origen que queda dentro del faldón y evita rodeos exteriores
+          var srcRefPt = (WP.polylines[srcPolyIdx].roofInfo && WP.polylines[srcPolyIdx].roofInfo.center) ? WP.polylines[srcPolyIdx].roofInfo.center : pEnd;
+          var dA = Cesium.Cartesian3.distance(midSrcA, srcRefPt);
+          var dB = Cesium.Cartesian3.distance(midSrcB, srcRefPt);
+          var leg1 = [p0, (dA <= dB ? midSrcA : midSrcB), firstRidgePt];
           if (opts.avoidObstacles !== false) {
-            leg1 = this.detourAroundObstacles(leg1, basis, opts.obstacleMargin || 0.40);
+            leg1 = this.detourAroundObstacles(leg1, basis, opts.obstacleMargin || 0.50);
           }
 
-          var entryDstElev = this.elevatePoint(entryDstEdge, normalOffset + 0.08, dstBasis.normal);
-          var pEndOnDst = this.elevatePoint(pEnd, normalOffset + 0.06, dstBasis.normal);
-          var dispDst = Cesium.Cartesian3.subtract(pEndOnDst, entryDstElev, new Cesium.Cartesian3());
-          var midDst = Cesium.Cartesian3.add(entryDstElev, Cesium.Cartesian3.multiplyByScalar(dstBasis.uVec, Cesium.Cartesian3.dot(dispDst, dstBasis.uVec), new Cesium.Cartesian3()), new Cesium.Cartesian3());
-          var leg2 = [entryDstElev, midDst, pEndOnDst];
-          if (opts.avoidObstacles !== false) {
-            leg2 = this.detourAroundObstacles(leg2, dstBasis, opts.obstacleMargin || 0.40);
+          var lastRidgePt = graphPts[graphPts.length - 1];
+          var upDst = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(pEnd, new Cesium.Cartesian3());
+          var hDiffDst = Cesium.Cartesian3.dot(Cesium.Cartesian3.subtract(lastRidgePt, pEnd, new Cesium.Cartesian3()), upDst);
+          var distToTarget = Cesium.Cartesian3.distance(lastRidgePt, pEnd);
+
+          var legFinal = [];
+          if (distToTarget > 0.15) {
+            if (hDiffDst > 0.35) {
+              // Bajante vertical exterior desde el alero/arista del faldón destino
+              var dropAtDest = Cesium.Cartesian3.subtract(lastRidgePt, Cesium.Cartesian3.multiplyByScalar(upDst, Math.max(0, hDiffDst), new Cesium.Cartesian3()), new Cesium.Cartesian3());
+              legFinal.push(dropAtDest);
+              var gDispDst = Cesium.Cartesian3.subtract(pEnd, dropAtDest, new Cesium.Cartesian3());
+              if (Cesium.Cartesian3.magnitude(gDispDst) > 0.3) {
+                var eastGroundDst = Cesium.Cartesian3.cross(Cesium.Cartesian3.UNIT_Z, upDst, new Cesium.Cartesian3());
+                if (Cesium.Cartesian3.magnitude(eastGroundDst) < 1e-4) eastGroundDst = Cesium.Cartesian3.UNIT_X;
+                Cesium.Cartesian3.normalize(eastGroundDst, eastGroundDst);
+                var dEastDst = Cesium.Cartesian3.dot(gDispDst, eastGroundDst);
+                legFinal.push(Cesium.Cartesian3.add(dropAtDest, Cesium.Cartesian3.multiplyByScalar(eastGroundDst, dEastDst, new Cesium.Cartesian3()), new Cesium.Cartesian3()));
+              }
+            }
+            legFinal.push(pEnd);
           }
 
-          return this.sanitizePositions(leg1.concat(leg2).concat([pEnd]));
+          path = leg1.concat(graphPts.slice(1)).concat(legFinal);
         }
       }
 
-      var roofPoints;
-      if (strategyIntermediate && Cesium.Cartesian3.distance(p0, strategyIntermediate) > 0.35) {
-        var disp1 = Cesium.Cartesian3.subtract(strategyIntermediate, p0, new Cesium.Cartesian3());
-        var midC = Cesium.Cartesian3.add(p0, Cesium.Cartesian3.multiplyByScalar(U, Cesium.Cartesian3.dot(disp1, U), new Cesium.Cartesian3()), new Cesium.Cartesian3());
-        var disp2 = Cesium.Cartesian3.subtract(roofTarget, strategyIntermediate, new Cesium.Cartesian3());
-        var midC2 = Cesium.Cartesian3.add(strategyIntermediate, Cesium.Cartesian3.multiplyByScalar(V, Cesium.Cartesian3.dot(disp2, V), new Cesium.Cartesian3()), new Cesium.Cartesian3());
-        var endRoof = Cesium.Cartesian3.add(midC2, Cesium.Cartesian3.multiplyByScalar(U, Cesium.Cartesian3.dot(disp2, U), new Cesium.Cartesian3()), new Cesium.Cartesian3());
-        roofPoints = [p0, midC, strategyIntermediate, midC2, endRoof];
-      } else {
-        var disp = Cesium.Cartesian3.subtract(roofTarget, pStart, new Cesium.Cartesian3());
-        var deltaU = Cesium.Cartesian3.dot(disp, U);
-        var deltaV = Cesium.Cartesian3.dot(disp, V);
+      if (!path) {
+        var upCheck = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(pEnd, new Cesium.Cartesian3());
+        var directDistEnd = Cesium.Cartesian3.distance(p0, pEnd);
+        var directHeightDiff = Math.abs(Cesium.Cartesian3.dot(Cesium.Cartesian3.subtract(p0, pEnd, new Cesium.Cartesian3()), upCheck));
+        var isNearSameRoofTarget = (srcPolyIdx !== null && targetPolyIdx === srcPolyIdx) || (directDistEnd < 4.5 && directHeightDiff < 1.25);
 
-        // Codo 1: Tramo a lo largo del eje U (paralelo a hileras de paneles)
-        var corner1 = Cesium.Cartesian3.add(p0, Cesium.Cartesian3.multiplyByScalar(U, deltaU, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+        // Si el equipo destino está pegado al inicio del string (mismo faldón o alero inmediato),
+        // ir directo sobre el plano del tejado sin desviarse a un descentPoint lejano (evita rodeos en U como en S3:01).
+        var effRoofTarget = isNearSameRoofTarget ? pEnd : roofTarget;
 
-        // Codo 2: Tramo a lo largo del eje V a 90° (hacia el pilar/alero de descenso)
-        var corner2 = Cesium.Cartesian3.add(corner1, Cesium.Cartesian3.multiplyByScalar(V, deltaV, new Cesium.Cartesian3()), new Cesium.Cartesian3());
-        roofPoints = [p0, corner1, corner2];
-      }
+        var roofPoints;
+        if (!isNearSameRoofTarget && strategyIntermediate && Cesium.Cartesian3.distance(p0, strategyIntermediate) > 0.35) {
+          var disp1 = Cesium.Cartesian3.subtract(strategyIntermediate, p0, new Cesium.Cartesian3());
+          var midC = Cesium.Cartesian3.add(p0, Cesium.Cartesian3.multiplyByScalar(U, Cesium.Cartesian3.dot(disp1, U), new Cesium.Cartesian3()), new Cesium.Cartesian3());
+          var disp2 = Cesium.Cartesian3.subtract(effRoofTarget, strategyIntermediate, new Cesium.Cartesian3());
+          var midC2 = Cesium.Cartesian3.add(strategyIntermediate, Cesium.Cartesian3.multiplyByScalar(V, Cesium.Cartesian3.dot(disp2, V), new Cesium.Cartesian3()), new Cesium.Cartesian3());
+          var endRoof = Cesium.Cartesian3.add(midC2, Cesium.Cartesian3.multiplyByScalar(U, Cesium.Cartesian3.dot(disp2, U), new Cesium.Cartesian3()), new Cesium.Cartesian3());
+          roofPoints = [p0, midC, strategyIntermediate, midC2, endRoof];
+        } else {
+          var disp = Cesium.Cartesian3.subtract(effRoofTarget, pStart, new Cesium.Cartesian3());
+          var deltaU = Cesium.Cartesian3.dot(disp, U);
+          var deltaV = Cesium.Cartesian3.dot(disp, V);
 
-      // Esquivar obstáculos en el plano de cubierta (si no se ha desactivado explícitamente)
-      if (opts.avoidObstacles !== false) {
-        roofPoints = this.detourAroundObstacles(roofPoints, basis, opts.obstacleMargin || 0.40);
-      }
-      var lastRoofPoint = roofPoints[roofPoints.length - 1];
+          // Elegir entre codo U->V y V->U el que permanece más cerca del centro del faldón (nunca sale disparado hacia fuera)
+          var cUV = Cesium.Cartesian3.add(p0, Cesium.Cartesian3.multiplyByScalar(U, deltaU, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+          var cVU = Cesium.Cartesian3.add(p0, Cesium.Cartesian3.multiplyByScalar(V, deltaV, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+          var cornerEnd = Cesium.Cartesian3.add(cUV, Cesium.Cartesian3.multiplyByScalar(V, deltaV, new Cesium.Cartesian3()), new Cesium.Cartesian3());
 
-      // Codo vertical: Transición hacia el equipo destino (bajante vertical por arista exterior / fachada + zanja ortogonal 90°)
-      var up = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(pEnd, new Cesium.Cartesian3());
-      var heightDiff = Cesium.Cartesian3.dot(Cesium.Cartesian3.subtract(lastRoofPoint, pEnd, new Cesium.Cartesian3()), up);
-      var path = roofPoints.slice();
-      if (heightDiff > 0.35) {
-        // Si estamos en una cubierta con polígono conocido, garantizar que la bajada se produce desde el alero exterior
-        // (el vértice/borde más bajo y cercano a pEnd) en vez de perforar el centro del tejado.
-        var dropOrigin = lastRoofPoint;
-        if (srcPolyIdx !== null && WP && WP.polylines && WP.polylines[srcPolyIdx]) {
-          var eavePt = findClosestEdgePointOnPoly(WP.polylines[srcPolyIdx], pEnd);
-          if (eavePt && Cesium.Cartesian3.distance(eavePt, lastRoofPoint) > 0.35) {
-            var eaveElev = this.elevatePoint(eavePt, normalOffset + 0.05, N);
-            path.push(eaveElev);
-            dropOrigin = eaveElev;
-            heightDiff = Cesium.Cartesian3.dot(Cesium.Cartesian3.subtract(dropOrigin, pEnd, new Cesium.Cartesian3()), up);
+          var chosenCorner = cUV;
+          if (srcPolyIdx !== null && WP && WP.polylines && WP.polylines[srcPolyIdx] && WP.polylines[srcPolyIdx].roofInfo && WP.polylines[srcPolyIdx].roofInfo.center) {
+            var polyCen = WP.polylines[srcPolyIdx].roofInfo.center;
+            if (Cesium.Cartesian3.distance(cVU, polyCen) + 0.15 < Cesium.Cartesian3.distance(cUV, polyCen)) {
+              chosenCorner = cVU;
+            }
+          }
+          roofPoints = [p0, chosenCorner, cornerEnd];
+        }
+
+        // Esquivar obstáculos en el plano de cubierta (si no se ha desactivado explícitamente)
+        if (opts.avoidObstacles !== false) {
+          roofPoints = this.detourAroundObstacles(roofPoints, basis, opts.obstacleMargin || 0.50);
+        }
+        var lastRoofPoint = roofPoints[roofPoints.length - 1];
+
+        // Codo vertical: Transición hacia el equipo destino (bajante vertical por arista exterior / fachada + zanja ortogonal 90°)
+        var up = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(pEnd, new Cesium.Cartesian3());
+        var heightDiff = Cesium.Cartesian3.dot(Cesium.Cartesian3.subtract(lastRoofPoint, pEnd, new Cesium.Cartesian3()), up);
+        path = roofPoints.slice();
+        if (heightDiff > 0.35 && !isNearSameRoofTarget) {
+          // Si estamos en una cubierta con polígono conocido, garantizar que la bajada se produce desde el alero exterior
+          var dropOrigin = lastRoofPoint;
+          if (srcPolyIdx !== null && WP && WP.polylines && WP.polylines[srcPolyIdx]) {
+            var eavePt = findClosestEdgePointOnPoly(WP.polylines[srcPolyIdx], pEnd);
+            if (eavePt && Cesium.Cartesian3.distance(eavePt, lastRoofPoint) > 0.35) {
+              var eaveElev = this.elevatePoint(eavePt, normalOffset + 0.05, N);
+              path.push(eaveElev);
+              dropOrigin = eaveElev;
+              heightDiff = Cesium.Cartesian3.dot(Cesium.Cartesian3.subtract(dropOrigin, pEnd, new Cesium.Cartesian3()), up);
+            }
+          }
+          // 1. Bajada vertical pegada a la fachada exterior hasta cota de suelo / equipo
+          var dropAtStructure = Cesium.Cartesian3.subtract(dropOrigin, Cesium.Cartesian3.multiplyByScalar(up, Math.max(0, heightDiff), new Cesium.Cartesian3()), new Cesium.Cartesian3());
+          path.push(dropAtStructure);
+
+          // 2. Tramo ortogonal 90° en cota de suelo / pared respecto al plano tangente local del terreno
+          var groundDisp = Cesium.Cartesian3.subtract(pEnd, dropAtStructure, new Cesium.Cartesian3());
+          var gDist = Cesium.Cartesian3.magnitude(groundDisp);
+          if (gDist > 0.3) {
+            var eastGround = Cesium.Cartesian3.cross(Cesium.Cartesian3.UNIT_Z, up, new Cesium.Cartesian3());
+            if (Cesium.Cartesian3.magnitude(eastGround) < 1e-4) eastGround = Cesium.Cartesian3.UNIT_X;
+            Cesium.Cartesian3.normalize(eastGround, eastGround);
+            var dEast = Cesium.Cartesian3.dot(groundDisp, eastGround);
+            var groundCorner = Cesium.Cartesian3.add(dropAtStructure, Cesium.Cartesian3.multiplyByScalar(eastGround, dEast, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+            path.push(groundCorner);
           }
         }
-        // 1. Bajada vertical pegada a la fachada exterior hasta cota de suelo / equipo
-        var dropAtStructure = Cesium.Cartesian3.subtract(dropOrigin, Cesium.Cartesian3.multiplyByScalar(up, Math.max(0, heightDiff), new Cesium.Cartesian3()), new Cesium.Cartesian3());
-        path.push(dropAtStructure);
-
-        // 2. Tramo ortogonal 90° en cota de suelo / pared respecto al plano tangente local del terreno
-        var groundDisp = Cesium.Cartesian3.subtract(pEnd, dropAtStructure, new Cesium.Cartesian3());
-        var gDist = Cesium.Cartesian3.magnitude(groundDisp);
-        if (gDist > 0.3) {
-          var eastGround = Cesium.Cartesian3.cross(Cesium.Cartesian3.UNIT_Z, up, new Cesium.Cartesian3());
-          if (Cesium.Cartesian3.magnitude(eastGround) < 1e-4) eastGround = Cesium.Cartesian3.UNIT_X;
-          Cesium.Cartesian3.normalize(eastGround, eastGround);
-          var dEast = Cesium.Cartesian3.dot(groundDisp, eastGround);
-          var groundCorner = Cesium.Cartesian3.add(dropAtStructure, Cesium.Cartesian3.multiplyByScalar(eastGround, dEast, new Cesium.Cartesian3()), new Cesium.Cartesian3());
-          path.push(groundCorner);
-        }
+        path.push(pEnd);
       }
-      path.push(pEnd);
       var cleanPath = this.sanitizePositions(path);
 
       // [AAA BANDEJA VIRTUAL PARALELA] Desplazamiento lateral por carril en tramos intermedios
@@ -1210,9 +1362,17 @@
           show: true
         });
         
-        poly.material = Cesium.Material.fromType('Color', {
-          color: color
-        });
+        if (opts.isGrounding || colorHex === this.CONFIG.COLOR_GROUNDING) {
+          poly.material = Cesium.Material.fromType('PolylineDash', {
+            color: Cesium.Color.fromCssColorString('#16A34A'),
+            gapColor: Cesium.Color.fromCssColorString('#FACC15'),
+            dashLength: 14.0
+          });
+        } else {
+          poly.material = Cesium.Material.fromType('Color', {
+            color: color
+          });
+        }
         
         var mockEntity = {
           isCablePrimitive: true,
@@ -1428,6 +1588,10 @@
               if (window._raCableEnginePrimitives && e.primitive) {
                 window._raCableEnginePrimitives.remove(e.primitive);
               }
+            } else if (e.isCablePointPrimitive) {
+              if (window._raCableJunctionPoints && e.primitive) {
+                window._raCableJunctionPoints.remove(e.primitive);
+              }
             } else if (viewer && viewer.entities) {
               if (typeof global.removeLabel2DEntity === 'function') global.removeLabel2DEntity(e);
               viewer.entities.remove(e);
@@ -1447,6 +1611,17 @@
           window._raCableEnginePrimitives = null;
         } catch (ePrim) {}
       }
+      if (window._raCableJunctionPoints) {
+        try {
+          if (typeof window._raCableJunctionPoints.removeAll === 'function') {
+            window._raCableJunctionPoints.removeAll();
+          }
+          if (viewer && viewer.scene && viewer.scene.primitives) {
+            viewer.scene.primitives.remove(window._raCableJunctionPoints);
+          }
+          window._raCableJunctionPoints = null;
+        } catch (ePtPrim) {}
+      }
       // Purgar posibles handles y puntos medios de ruta remanentes no rastreados
       if (viewer && viewer.entities && sState && sState.routes) {
         ['dc', 'ac'].forEach(function (rType) {
@@ -1461,6 +1636,66 @@
           }
         });
       }
+    },
+
+    /**
+     * Añade un nodo circular de conexión (caja de conexiones / empalme MC4 / extremo de string)
+     * en una única PointPrimitiveCollection GPU (1 draw call para toda la planta, con LOD por distancia).
+     */
+    addJunctionConnectionNode: function (viewer, pos, options) {
+      if (!viewer || !viewer.scene || !viewer.scene.primitives || !pos || typeof Cesium === 'undefined') return null;
+      var opts = options || {};
+      var pC3 = this.toCartesian3(pos);
+      if (!pC3) return null;
+
+      // Elevar +1 cm por encima de la polilínea del cable para evitar z-fighting sobre fotogrametría 3D
+      var isAudit = !!this.auditElevationMode;
+      var liftM = isAudit ? 0.115 : 0.075;
+      var up = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(pC3, new Cesium.Cartesian3());
+      var liftedPos = Cesium.Cartesian3.add(pC3, Cesium.Cartesian3.multiplyByScalar(up, liftM, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+
+      if (!window._raCableJunctionPoints) {
+        window._raCableJunctionPoints = viewer.scene.primitives.add(new Cesium.PointPrimitiveCollection());
+      }
+
+      var role = opts.role || 'mid'; // 'start' (+ rojo) | 'end' (- azul) | 'mid' (string) | 'micro' (ámbar)
+      var ringHex = opts.ringColor || '#334155';
+      var pixelSize = 6.0;
+      var outlineWidth = 2.4;
+      var fillColor = Cesium.Color.WHITE;
+      if (role === 'start') {
+        ringHex = this.CONFIG.COLOR_DC_POS; // Rojo positivo
+        pixelSize = 7.5;
+        outlineWidth = 2.5;
+        fillColor = Cesium.Color.WHITE;
+      } else if (role === 'end') {
+        ringHex = this.CONFIG.COLOR_DC_NEG; // Azul negativo
+        pixelSize = 7.5;
+        outlineWidth = 2.5;
+        fillColor = Cesium.Color.WHITE;
+      } else if (role === 'micro') {
+        ringHex = '#F59E0B';
+        pixelSize = 6.0;
+        outlineWidth = 2.0;
+        fillColor = Cesium.Color.WHITE;
+      } else {
+        // Nodos intermedios sobre cable negro/carbón: núcleo blanco limpio y aro grafito
+        ringHex = '#475569';
+        pixelSize = 5.0;
+        outlineWidth = 1.8;
+      }
+
+      var pt = window._raCableJunctionPoints.add({
+        position: liftedPos,
+        pixelSize: pixelSize,
+        color: fillColor,
+        outlineColor: Cesium.Color.fromCssColorString(ringHex),
+        outlineWidth: outlineWidth,
+        scaleByDistance: new Cesium.NearFarScalar(12.0, 1.15, 115.0, 0.45),
+        distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0.0, 160.0),
+        disableDepthTestDistance: Number.POSITIVE_INFINITY
+      });
+      return { isCablePointPrimitive: true, primitive: pt };
     },
 
     /**
@@ -1592,11 +1827,12 @@
         if (!center && panel.corners && panel.corners.length > 0) center = panel.corners[0];
         if (!center || typeof center.x !== 'number' || isNaN(center.x)) return null;
 
-        // 1. Si disponemos de las 4 esquinas 3D (panel.corners), ubicar la caja en la arista longitudinal superior
+        // 1. Si disponemos de las 4 esquinas 3D (panel.corners), ubicar la caja centrada sobre el eje del módulo
+        // (22% hacia el tercio superior, nunca pegada al marco exterior donde se confunde con la placa adyacente)
         if (Array.isArray(panel.corners) && panel.corners.length === 4) {
           try {
             var topEdgeMid = Cesium.Cartesian3.midpoint(panel.corners[2], panel.corners[3], new Cesium.Cartesian3());
-            var jPos = Cesium.Cartesian3.lerp(center, topEdgeMid, 0.82, new Cesium.Cartesian3());
+            var jPos = Cesium.Cartesian3.lerp(center, topEdgeMid, 0.22, new Cesium.Cartesian3());
             if (!isNaN(jPos.x) && !isNaN(jPos.y) && !isNaN(jPos.z)) {
               return jPos;
             }
@@ -1607,7 +1843,7 @@
         try {
           var basisFb = self.getRoofOrthonormalBasis(center, panel.polyIdx);
           if (basisFb && basisFb.vVec && typeof panel.h === 'number' && !isNaN(panel.h)) {
-            var offset = Cesium.Cartesian3.multiplyByScalar(basisFb.vVec, panel.h * 0.40, new Cesium.Cartesian3());
+            var offset = Cesium.Cartesian3.multiplyByScalar(basisFb.vVec, panel.h * 0.12, new Cesium.Cartesian3());
             var jPos2 = Cesium.Cartesian3.add(center, offset, new Cesium.Cartesian3());
             if (!isNaN(jPos2.x) && !isNaN(jPos2.y) && !isNaN(jPos2.z)) {
               return jPos2;
@@ -1716,7 +1952,10 @@
             for (var mp = 0; mp < branchPanels.length; mp++) {
               var jPt = self.toCartesian3(getJunctionBoxPos(branchPanels[mp]));
               if (jPt) {
-                trunkPts.push(self.elevatePoint(jPt, self.CONFIG.TRAY_OFFSET, rBasis.normal));
+                var elMPt = self.elevatePoint(jPt, self.CONFIG.TRAY_OFFSET, rBasis.normal);
+                trunkPts.push(elMPt);
+                var mNode = self.addJunctionConnectionNode(viewer, elMPt, { role: 'micro' });
+                if (mNode) sState.dcCableEntities.push(mNode);
               }
             }
             var trunkBusLen = 0;
@@ -1918,13 +2157,13 @@
                 var footB = Cesium.Cartesian3.subtract(elevatedB, Cesium.Cartesian3.multiplyByScalar(upB, dropDistB, new Cesium.Cartesian3()), new Cesium.Cartesian3());
                 jumperPts = [elevatedA, footA, footB, elevatedB];
               } else if (isRoofGapJump && pCurBasis && pCurBasis.uVec) {
-                // Salto de hueco o chimenea SOBRE CUBIERTA: trazado ortogonal en el plano del tejado rodeando obstáculos
+                // Salto de hueco o chimenea SOBRE CUBIERTA: trazado ortogonal en el plano del tejado rodeando obstáculos con margen holgado
                 var dispJ = Cesium.Cartesian3.subtract(elevatedB, elevatedA, new Cesium.Cartesian3());
                 var midJ = Cesium.Cartesian3.add(elevatedA, Cesium.Cartesian3.multiplyByScalar(pCurBasis.uVec, Cesium.Cartesian3.dot(dispJ, pCurBasis.uVec), new Cesium.Cartesian3()), new Cesium.Cartesian3());
-                jumperPts = self.detourAroundObstacles([elevatedA, midJ, elevatedB], pCurBasis, 0.35);
+                jumperPts = self.detourAroundObstacles([elevatedA, midJ, elevatedB], pCurBasis, 0.52);
               } else {
-                // Latiguillo normal bajo los módulos de la misma mesa
-                jumperPts = [elevatedA, elevatedB];
+                // Latiguillo normal bajo los módulos de la misma mesa (verificando igualmente holgura frente a chimeneas próximas)
+                jumperPts = self.detourAroundObstacles([elevatedA, elevatedB], pCurBasis, 0.45);
               }
 
               var jLen = self.computePathLength(jumperPts);
@@ -1946,6 +2185,24 @@
         }
         totalInterModuleJumpersM += interModuleM;
 
+        // ── 5.1b NODOS CIRCULARES DE CONEXIÓN POR PLACA (CAJA DE CONEXIONES + EXTREMOS + / -) ──
+        for (var np = 0; np < sPanels.length; np++) {
+          var npPanel = sPanels[np];
+          var npBasis = (np > 0 && typeof npPanel.polyIdx === 'number' && typeof rawPanels[0].polyIdx === 'number' && npPanel.polyIdx !== rawPanels[0].polyIdx)
+            ? self.getRoofOrthonormalBasis(self.toCartesian3(npPanel.center || (npPanel.corners && npPanel.corners[0])), npPanel.polyIdx)
+            : basis;
+          var jNodePos = self.toCartesian3(getJunctionBoxPos(npPanel));
+          if (jNodePos) {
+            var elNodePos = self.elevatePoint(jNodePos, self.CONFIG.JUMPER_OFFSET, npBasis.normal);
+            var nodeRole = (np === 0) ? 'start' : ((np === sPanels.length - 1) ? 'end' : 'mid');
+            var connNode = self.addJunctionConnectionNode(viewer, elNodePos, {
+              role: nodeRole,
+              ringColor: stringColor
+            });
+            if (connNode) sState.dcCableEntities.push(connNode);
+          }
+        }
+
         // ── 5.2 CONDUCTOR DE RETORNO COMPENSADO ANTI-BUCLE (UNE-EN 62305 & IEC 62548) ─
         // Siempre sobre la superficie de cubierta (nunca taladra el forjado hacia abajo al saltar obstáculos).
         var returnPath = [];
@@ -1958,26 +2215,28 @@
               if (segDist > 2.4) {
                 var dispR = Cesium.Cartesian3.subtract(nextPt, prevPt, new Cesium.Cartesian3());
                 var midR = Cesium.Cartesian3.add(prevPt, Cesium.Cartesian3.multiplyByScalar(basis.uVec, Cesium.Cartesian3.dot(dispR, basis.uVec), new Cesium.Cartesian3()), new Cesium.Cartesian3());
-                var detR = self.detourAroundObstacles([prevPt, midR, nextPt], basis, 0.35);
+                var detR = self.detourAroundObstacles([prevPt, midR, nextPt], basis, 0.52);
                 for (var dr = 1; dr < detR.length; dr++) targetPath.push(detR[dr]);
                 return;
               }
+              var detShort = self.detourAroundObstacles([prevPt, nextPt], basis, 0.45);
+              for (var ds = 1; ds < detShort.length; ds++) targetPath.push(detShort[ds]);
+              return;
             }
             targetPath.push(nextPt);
           };
 
-          if (activeTopo === 'leapfrog') {
-            var elTerm = self.elevatePoint(termPos, self.CONFIG.DC_RETURN_OFFSET, basis.normal);
-            var elStart = self.elevatePoint(startPos, self.CONFIG.DC_RETURN_OFFSET, basis.normal);
-            appendReturnSegment(returnPath, elTerm);
-            appendReturnSegment(returnPath, elStart);
-          } else {
-            for (var r = sPanels.length - 1; r >= 0; r--) {
-              var rPos = self.toCartesian3(getJunctionBoxPos(sPanels[r]));
-              if (rPos) {
-                var elR = self.elevatePoint(rPos, self.CONFIG.DC_RETURN_OFFSET, basis.normal);
-                appendReturnSegment(returnPath, elR);
+          // Retorno compensado anti-bucle estricto (UNE-EN 62305): viaja siempre pegado en paralelo
+          // al recorrido exacto de la serie en sentido inverso (nunca abre lazos por fuera de las placas).
+          var retSideVec = (basis && basis.vVec) ? basis.vVec : Cesium.Cartesian3.UNIT_Y;
+          for (var r = sPanels.length - 1; r >= 0; r--) {
+            var rPos = self.toCartesian3(getJunctionBoxPos(sPanels[r]));
+            if (rPos) {
+              var elR = self.elevatePoint(rPos, self.CONFIG.DC_RETURN_OFFSET, basis.normal);
+              if (r > 0 && r < sPanels.length - 1) {
+                elR = Cesium.Cartesian3.add(elR, Cesium.Cartesian3.multiplyByScalar(retSideVec, 0.065, new Cesium.Cartesian3()), new Cesium.Cartesian3());
               }
+              appendReturnSegment(returnPath, elR);
             }
           }
           returnPath = self.sanitizePositions(returnPath);
@@ -1985,9 +2244,9 @@
 
           if (returnPath.length >= 2) {
             var returnEntities = self.createVolumetricEntity(viewer, returnPath, {
-              name: (activeTopo === 'leapfrog' ? 'Cierre Terminal (- OUT) String #' : 'Retorno Compensado Anti-Bucle String #') + (sIdx + 1) + ' (UNE-EN 62305)',
+              name: 'Retorno Compensado Anti-Bucle String #' + (sIdx + 1) + ' (UNE-EN 62305)',
               colorHex: self.CONFIG.COLOR_DC_RETURN,
-              width: activeTopo === 'leapfrog' ? 3.5 : 4.0
+              width: 3.6
             });
             returnEntities.forEach(function (e) { sState.dcCableEntities.push(e); });
           }
@@ -2000,7 +2259,8 @@
         // ── 5.3 TIRADAS PRINCIPALES PAREADAS (HOMERUN EN BANDEJA VIRTUAL PARALELA) ─
         // Carriles deterministas por string y polaridad (±0.075m) para visibilidad limpia sin solapamiento
         var laneIndex = (sIdx % 6);
-        var stringBundleOffset = (laneIndex - Math.min(2.5, (stringsList.length - 1) / 2)) * 0.16;
+        var totalStrCount = (Array.isArray(allStrings) && allStrings.length > 0) ? allStrings.length : 1;
+        var stringBundleOffset = (laneIndex - Math.min(2.5, (totalStrCount - 1) / 2)) * 0.16;
         var srcPolyIdxStr = (firstPanel && typeof firstPanel.polyIdx === 'number') ? firstPanel.polyIdx : null;
 
         var posPath = self.buildOrthogonalManhattanPath3D(startPos, targetForStringPos, {

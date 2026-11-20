@@ -244,43 +244,59 @@
 
     const wiringTopology = (options && options.wiringTopology) ||
       ((typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.stringWiringTopology) ? window.solarProjectConfig.stringWiringTopology : 'leapfrog');
-    
+
     let ordered = [];
     rows.forEach((rObj, rIdx) => {
       const pList = [...rObj.panels].sort((a, b) => getU(a) - getU(b));
       if (pList.length === 0) return;
 
-      // Determinar qué extremo de la hilera está más cercano al equipo DC
+      // Continuidad serpenteante real (boustrophedon):
+      // - En la primera fila, arrancar desde el extremo más cercano al equipo DC.
+      // - En las filas siguientes, arrancar siempre desde el extremo más próximo al último panel de la fila anterior
+      //   para eliminar saltos diagonales cruzados de punta a punta de la cubierta.
       let startFromLeft = true;
-      if (eqPos && pList.length > 1) {
-        const dLeft = getPanelDistanceToTarget(pList[0], eqPos);
-        const dRight = getPanelDistanceToTarget(pList[pList.length - 1], eqPos);
-        if (dRight < dLeft) {
-          startFromLeft = false;
+      if (rIdx === 0) {
+        if (eqPos && pList.length > 1) {
+          const dLeft = getPanelDistanceToTarget(pList[0], eqPos);
+          const dRight = getPanelDistanceToTarget(pList[pList.length - 1], eqPos);
+          if (dRight < dLeft) startFromLeft = false;
+        }
+      } else if (ordered.length > 0 && pList.length > 1) {
+        const prevPanel = ordered[ordered.length - 1];
+        const prevPos = prevPanel.center || prevPanel.center3D || (prevPanel.corners && prevPanel.corners[0]);
+        if (prevPos) {
+          const dLeft = getPanelDistanceToTarget(pList[0], prevPos);
+          const dRight = getPanelDistanceToTarget(pList[pList.length - 1], prevPos);
+          if (dRight < dLeft) startFromLeft = false;
+        } else {
+          startFromLeft = (rIdx % 2 === 0);
         }
       }
       const pRow = startFromLeft ? pList : [...pList].reverse();
 
-      if (wiringTopology === 'daisy_chain') {
-        // Guirnalda continua: conectar secuencialmente (boustrophedon alterna para minimizar puente entre filas)
-        if (rIdx % 2 === 0) {
-          ordered.push(...pRow);
-        } else {
-          ordered.push(...[...pRow].reverse());
+      // Solo aplicar salto de rana alterno (evens/odds) en filas largas e ininterrumpidas (>= 6 módulos sin hueco de chimenea);
+      // en filas residenciales cortas o partidas por obstáculos, usar serpiente continua sin cruces en Z.
+      let hasRowGap = false;
+      const gapLimit = Math.max(pW, pH) * 1.45;
+      for (let gi = 0; gi < pRow.length - 1; gi++) {
+        if (Math.hypot(getU(pRow[gi + 1]) - getU(pRow[gi]), getV(pRow[gi + 1]) - getV(pRow[gi])) > gapLimit) {
+          hasRowGap = true;
+          break;
         }
+      }
+
+      if (wiringTopology === 'leapfrog' && pRow.length >= 6 && !hasRowGap) {
+        // Salto de Rana (Leapfrog UNE-EN 62305 anti-bucle) en mesa larga continua
+        const evens = [];
+        const odds = [];
+        for (let i = 0; i < pRow.length; i++) {
+          if (i % 2 === 0) evens.push(pRow[i]);
+          else odds.push(pRow[i]);
+        }
+        ordered.push(...evens, ...odds.reverse());
       } else {
-        // Salto de Rana (Leapfrog UNE-EN 62305 anti-bucle): pares ida, impares vuelta
-        if (pRow.length > 2) {
-          const evens = [];
-          const odds = [];
-          for (let i = 0; i < pRow.length; i++) {
-            if (i % 2 === 0) evens.push(pRow[i]);
-            else odds.push(pRow[i]);
-          }
-          ordered.push(...evens, ...odds.reverse());
-        } else {
-          ordered.push(...pRow);
-        }
+        // Serpiente continua limpia (cero cruces en Z ni saltos innecesarios sobre chimeneas)
+        ordered.push(...pRow);
       }
     });
     return ordered;

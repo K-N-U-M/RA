@@ -25,8 +25,25 @@
     UL: 1, OL: 1, LI: 1, SPAN: 1, DIV: 1, H3: 1, H4: 1, SMALL: 1
   };
 
+  function unescapePlain(value) {
+    var s = String(value == null ? '' : value);
+    // Colapsar hasta 4 pasadas de doble/triple escapado heredado (p.ej. D&amp;#39;Amunt -> D'Amunt)
+    for (var pass = 0; pass < 4; pass++) {
+      var prev = s;
+      s = s
+        .replace(/&amp;/gi, '&')
+        .replace(/&#0*39;|&#x0*27;|&apos;/gi, "'")
+        .replace(/&quot;|&#0*34;|&#x0*22;/gi, '"')
+        .replace(/&lt;|&#0*60;|&#x0*3c;/gi, '<')
+        .replace(/&gt;|&#0*62;|&#x0*3e;/gi, '>');
+      if (s === prev) break;
+    }
+    return s;
+  }
+
   function plain(value) {
-    return String(value == null ? '' : value)
+    // Idempotente: plain(plain(x)) === plain(x). Nunca produce &amp;#39; ni &amp;amp; y mantiene 100% protección XSS.
+    return unescapePlain(value)
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
@@ -99,7 +116,7 @@
     return host.innerHTML;
   }
 
-  var api = { richText: richText, plain: plain, safeImageSrc: safeImageSrc, safeCssUrl: safeCssUrl };
+  var api = { richText: richText, plain: plain, unescapePlain: unescapePlain, safeImageSrc: safeImageSrc, safeCssUrl: safeCssUrl };
   if (!root.RA) root.RA = {};
   root.RASanitize = api;
   root.RA.Sanitize = api;

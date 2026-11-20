@@ -74,6 +74,26 @@
           universalGizmoState.startPoints = bldPts.map(p => Cesium.Cartesian3.clone(p));
           universalGizmoState.startCenter = Cesium.Cartesian3.clone(uTarget.pos);
         }
+        if (uTarget.type === 'polyline' && uTarget.rawObj) {
+          const polyMove = uTarget.rawObj;
+          const pIdxMove = uTarget.polyIdx;
+          if (window.RAundo && typeof window.RAundo.snapPolylines === 'function') {
+            window.RAundo.snapPolylines('Mover ' + (polyMove.name || 'Faldón'));
+          }
+          const allObsMove = (typeof obstacles !== 'undefined' && Array.isArray(obstacles)) ? obstacles : [];
+          universalGizmoState.movePolyObs = allObsMove.filter(obs => {
+            if (!obs || !obs.cartesian) return false;
+            if (typeof wpCheckObstacleInsideRoof === 'function') {
+              const res = wpCheckObstacleInsideRoof(obs);
+              return res && res.isInside && (res.polyIdx === pIdxMove || res.polyName === polyMove.name);
+            }
+            return false;
+          });
+          if (universalGizmoState.movePolyObs.length > 0 && window.RAundo && typeof window.RAundo.snapObstacles === 'function') {
+            window.RAundo.snapObstacles('Mover obstáculos con ' + (polyMove.name || 'Faldón'));
+          }
+          universalGizmoState.movePolyIdx = pIdxMove;
+        }
         if (uTarget.type === 'workplane' && uTarget.rawObj) {
           const pl = uTarget.rawObj;
           universalGizmoState.startPoints = (pl.pts3D || []).map(p => Cesium.Cartesian3.clone(p));
@@ -1281,7 +1301,30 @@
 
       let _draggedPanelId = null;
       let _affectedPanelIds = [];
-      if (draggedTargetType === 'workplane') {
+      if (draggedTargetType === 'polyline') {
+        const movedIdx = (typeof universalGizmoState.movePolyIdx === 'number') ? universalGizmoState.movePolyIdx : WP.movePolyGizmoIdx;
+        const movedPoly = (typeof WP !== 'undefined' && WP && Array.isArray(WP.polylines) && movedIdx >= 0) ? WP.polylines[movedIdx] : null;
+        if (movedPoly) {
+          if (typeof computeSinglePolylineRoofInfo === 'function') {
+            try {
+              movedPoly.roofInfo = computeSinglePolylineRoofInfo(movedPoly.points, movedPoly);
+              if (movedPoly.roofInfo && Array.isArray(movedPoly.roofInfo.panels)) movedPoly.panels = movedPoly.roofInfo.panels;
+            } catch (ePolyMove) {}
+          }
+          if (typeof polygonPoints !== 'undefined') polygonPoints = movedPoly.points.map(p => Cesium.Cartesian3.clone(p));
+        }
+        universalGizmoState.movePolyObs = null;
+        if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
+        if (typeof roofPanelsCache !== 'undefined' && roofPanelsCache) roofPanelsCache.sig = "";
+        if (typeof window.wpInvalidateHeatmap === 'function' && movedPoly) window.wpInvalidateHeatmap('Faldón desplazado: ' + (movedPoly.name || 'Faldón'));
+        if (typeof recalculateLayoutAndObstacles === 'function' && movedIdx >= 0) recalculateLayoutAndObstacles(movedIdx);
+        if (typeof wpFastRenderSimulatedPanels === 'function' && movedIdx >= 0) wpFastRenderSimulatedPanels(true, movedIdx);
+        if (typeof recalculateSolarYield === 'function') recalculateSolarYield(true);
+        if (typeof wpUpdateLayoutFastMetrics === 'function') wpUpdateLayoutFastMetrics();
+        if (typeof wpPopulateFaldonCard === 'function') wpPopulateFaldonCard();
+        if (typeof wpUpdateStep3UI === 'function') wpUpdateStep3UI();
+        if (typeof showStatus === 'function') showStatus('<i data-lucide="check" class="icon-sm"></i> FALDÓN DESPLAZADO CON GIZMO', 2500);
+      } else if (draggedTargetType === 'workplane') {
         if (typeof wpRenderActivePlaneGizmo === 'function') wpRenderActivePlaneGizmo();
         if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
         if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Plano de trabajo transformado');

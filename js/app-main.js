@@ -177,6 +177,10 @@ addEventListener('keydown', function(e) {
       if (WP.mode === 'stamp-poly') {
         e.stopPropagation();
         if (typeof wpCancelStampPolyline === 'function') wpCancelStampPolyline();
+        if (typeof WP !== 'undefined' && WP && WP.movePolyGizmoIdx >= 0) {
+          WP.movePolyGizmoIdx = -1;
+          if (typeof renderUniversalGizmo2D === 'function') renderUniversalGizmo2D();
+        }
         return;
       }
       if (WP.mode === 'draw-poly') {
@@ -228,6 +232,18 @@ addEventListener('keydown', function(e) {
       e.preventDefault();
       if (typeof wpStartStampPolyline === 'function') wpStartStampPolyline(WP.selectedPolyIdx);
       return;
+    }
+  }
+
+  // 2.6. M (Mover faldón / polilínea seleccionada con su contenido sobre el mismo plano)
+  if (!e.ctrlKey && !e.metaKey && !e.altKey && (e.key === 'm' || e.key === 'M' || e.code === 'KeyM')) {
+    const activeTag = (document.activeElement && document.activeElement.tagName) ? document.activeElement.tagName.toUpperCase() : '';
+    if (activeTag !== 'INPUT' && activeTag !== 'TEXTAREA' && activeTag !== 'SELECT') {
+      if (typeof WP !== 'undefined' && WP && typeof WP.selectedPolyIdx === 'number' && WP.selectedPolyIdx >= 0) {
+        e.preventDefault();
+        if (typeof wpStartMovePolyline === 'function') wpStartMovePolyline(WP.selectedPolyIdx);
+        return;
+      }
     }
   }
 
@@ -8368,6 +8384,7 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
             backgroundPadding: new Cesium.Cartesian2(5, 3),
             horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
             verticalOrigin: Cesium.VerticalOrigin.CENTER,
+            pixelOffset: shouldRenderElectricalStrings ? new Cesium.Cartesian2(0, -14) : new Cesium.Cartesian2(0, 0),
             disableDepthTestDistance: Number.POSITIVE_INFINITY,
             eyeOffset: new Cesium.Cartesian3(0, 0, -1.0),
             distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0.0, 120.0)
@@ -8826,6 +8843,7 @@ function _getOcclusionExcludeList(scene) {
     window._faldonWirePrimitives.forEach(p => { if (p) toExclude.push(p); });
   }
   if (window._raCableEnginePrimitives) toExclude.push(window._raCableEnginePrimitives);
+  if (window._raCableJunctionPoints) toExclude.push(window._raCableJunctionPoints);
   if (window.inverterEntity) toExclude.push(window.inverterEntity);
   if (window.dcBoxEntity) toExclude.push(window.dcBoxEntity);
   if (window.gridMeterEntity) toExclude.push(window.gridMeterEntity);

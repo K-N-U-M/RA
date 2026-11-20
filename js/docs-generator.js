@@ -49,12 +49,31 @@ function raGetSimulatedMonthlyKwh() {
   return mk;
 }
 
+function _unescapePlainDoc(str) {
+  if (typeof window !== 'undefined' && window.RASanitize && typeof window.RASanitize.unescapePlain === 'function') {
+    return window.RASanitize.unescapePlain(str);
+  }
+  if (str === null || str === undefined) return '';
+  let s = String(str);
+  for (let pass = 0; pass < 4; pass++) {
+    const prev = s;
+    s = s
+      .replace(/&amp;/gi, '&')
+      .replace(/&#0*39;|&#x0*27;|&apos;/gi, "'")
+      .replace(/&quot;|&#0*34;|&#x0*22;/gi, '"')
+      .replace(/&lt;|&#0*60;|&#x0*3c;/gi, '<')
+      .replace(/&gt;|&#0*62;|&#x0*3e;/gi, '>');
+    if (s === prev) break;
+  }
+  return s;
+}
+
 function escapeHtml(str) {
   if (typeof window !== 'undefined' && window.RASanitize && typeof window.RASanitize.plain === 'function') {
     return window.RASanitize.plain(str);
   }
   if (str === null || str === undefined) return '';
-  return String(str)
+  return _unescapePlainDoc(str)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
@@ -3073,10 +3092,10 @@ async function generateDeliveryPack(skipPricingModal) {
     if (formularioHtml) folder.file('05_Formulario_Tramitacion_RD244_' + ref + '.html', formularioHtml);
 
     // 3. Crear archivo Léame / Índice documental
-    const readmeText = 'PROYECTO TÉCNICO FOTOVOLTAICO ' + d.refNum + '\r\n' +
+    const readmeText = 'PROYECTO TÉCNICO FOTOVOLTAICO ' + _unescapePlainDoc(d.refNum) + '\r\n' +
       '================================================================\r\n' +
-      'Promotor: ' + d.tit.nombre + ' (' + d.tit.nif + ')\r\n' +
-      'Ubicación: ' + (d.tit.dir || '') + ', ' + (d.tit.mun || '') + ' (' + (d.tit.prov || '') + ')\r\n' +
+      'Promotor: ' + _unescapePlainDoc(d.tit.nombre) + ' (' + _unescapePlainDoc(d.tit.nif) + ')\r\n' +
+      'Ubicación: ' + _unescapePlainDoc(d.tit.dir || '') + ', ' + _unescapePlainDoc(d.tit.mun || '') + ' (' + _unescapePlainDoc(d.tit.prov || '') + ')\r\n' +
       'Potencia Pico: ' + d.P_dc_kW.toFixed(2) + ' kWp (' + d.numPanels + ' módulos ' + d.cfg.potencia + ' Wp)\r\n' +
       'Inversor: ' + (d.inverter ? d.inverter.fullName : (d.P_ac_kW.toFixed(2) + ' kW')) + '\r\n' +
       'Almacenamiento: ' + (d.hasBattery && d.battery ? (d.battery.fullName + ' · ' + d.battery.totalKwh.toFixed(1) + ' kWh') : 'Sin acumulación') + '\r\n' +

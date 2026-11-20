@@ -653,6 +653,87 @@
   const _horizonSpatialCache = new Map();
 
   /**
+   * [AAA SELF-HEALING] Garantiza que poly.roofInfo tenga su marco geométrico 3D/ENU completo
+   * (transform, invTransform, uVec, vVec, normal, poly2D, rangeU/V, coplanar) sin sobrescribir sus paneles.
+   * Corrige proyectos importados cuyo roofInfo solo contenía { area, tilt, azimuth, panels }.
+   */
+  function ensureRoofGeometry(poly) {
+    if (!poly || !Array.isArray(poly.points) || poly.points.length < 3) return poly ? poly.roofInfo : null;
+    const ri = poly.roofInfo || {};
+    const hasGeo = !!(ri.invTransform && ri.transform && ri.uVec && ri.vVec && ri.normal && ri.center && Array.isArray(ri.poly2D) && ri.poly2D.length >= 3);
+    if (hasGeo) {
+      if (typeof ri.coplanar !== 'boolean') {
+        const st = String(poly.structureType || ri.structureType || '').toLowerCase();
+        const estT = String((poly.estructura && poly.estructura.tipo) || (ri.estructura && ri.estructura.tipo) || '').toLowerCase();
+        ri.coplanar = st.includes('coplanar') || estT === 'coplanar' || ((ri.tiltDeg || 0) >= 8 && (!poly.modTilt || poly.modTilt === 'auto' || poly.modTilt === 'coplanar'));
+      }
+      return ri;
+    }
+    if (typeof polygonAnalysis !== 'function' || typeof Cesium === 'undefined' || !Cesium.Matrix4 || !Cesium.Cartesian3) {
+      poly.roofInfo = ri;
+      return ri;
+    }
+    const pa = polygonAnalysis(poly.points);
+    if (!pa) {
+      poly.roofInfo = ri;
+      return ri;
+    }
+    let uVec = pa.uVec, vVec = pa.vVec, normal = pa.normal, poly2D = pa.poly2D;
+    const wpPlane = (typeof WP !== 'undefined' && WP && Array.isArray(WP.planes) && typeof poly.planeIdx === 'number' && poly.planeIdx >= 0)
+      ? WP.planes[poly.planeIdx] : null;
+    if (wpPlane && wpPlane.uVec && wpPlane.vVec && wpPlane.normal && pa.invTransform) {
+      const uLoc = Cesium.Matrix4.multiplyByPointAsVector(pa.invTransform, wpPlane.uVec, new Cesium.Cartesian3());
+      const vLoc = Cesium.Matrix4.multiplyByPointAsVector(pa.invTransform, wpPlane.vVec, new Cesium.Cartesian3());
+      const nLoc = Cesium.Matrix4.multiplyByPointAsVector(pa.invTransform, wpPlane.normal, new Cesium.Cartesian3());
+      if (Cesium.Cartesian3.magnitude(uLoc) > 0.01 && Cesium.Cartesian3.magnitude(vLoc) > 0.01) {
+        uVec = Cesium.Cartesian3.normalize(uLoc, new Cesium.Cartesian3());
+        vVec = Cesium.Cartesian3.normalize(vLoc, new Cesium.Cartesian3());
+        normal = Cesium.Cartesian3.normalize(nLoc, new Cesium.Cartesian3());
+        if (normal.z < 0) Cesium.Cartesian3.negate(normal, normal);
+        poly2D = pa.localPoints.map(pt => ({
+          u: Cesium.Cartesian3.dot(pt, uVec),
+          v: Cesium.Cartesian3.dot(pt, vVec)
+        }));
+      }
+    }
+    let minU = Infinity, maxU = -Infinity, minV = Infinity, maxV = -Infinity;
+    poly2D.forEach(pt => {
+      if (pt.u < minU) minU = pt.u;
+      if (pt.u > maxU) maxU = pt.u;
+      if (pt.v < minV) minV = pt.v;
+      if (pt.v > maxV) maxV = pt.v;
+    });
+    ri.center = pa.center;
+    ri.origin = pa.center;
+    ri.carto = pa.carto;
+    ri.latDeg = pa.latDeg;
+    ri.lonDeg = pa.lonDeg;
+    ri.transform = pa.transform;
+    ri.invTransform = pa.invTransform;
+    ri.localPoints = pa.localPoints;
+    ri.uVec = uVec;
+    ri.vVec = vVec;
+    ri.normal = normal;
+    ri.poly2D = poly2D;
+    ri.minU = minU; ri.maxU = maxU; ri.minV = minV; ri.maxV = maxV;
+    ri.rangeU = maxU - minU; ri.rangeV = maxV - minV;
+    ri.tiltRad = pa.tiltRad;
+    ri.tiltDeg = pa.tiltDeg;
+    ri.azimuthDeg = pa.azimuthDeg;
+    ri.azimuthN = pa.azimuthN;
+    ri.area3D = pa.area3D;
+    ri.structureType = poly.structureType || ri.structureType || 'coplanar_teja';
+    ri.estructura = poly.estructura || ri.estructura || null;
+    if (typeof ri.coplanar !== 'boolean') {
+      const st = String(ri.structureType || '').toLowerCase();
+      const estT = String((ri.estructura && ri.estructura.tipo) || '').toLowerCase();
+      ri.coplanar = st.includes('coplanar') || estT === 'coplanar' || (pa.tiltDeg >= 8 && (!poly.modTilt || poly.modTilt === 'auto' || poly.modTilt === 'coplanar'));
+    }
+    poly.roofInfo = ri;
+    return ri;
+  }
+
+  /**
    * Sondea el perfil de horizonte 3D espacial (Skyline 24 sectores / 15°) mediante búsqueda binaria
    * en elevación, poda hemisférica de sectores sin sol y caché por geometría de cubierta.
    * Interpola por distancia inversa (IDW) hacia cada módulo individual para capturar obstáculos
@@ -671,6 +752,8 @@
     const isNorthernHemisphere = (typeof latDeg === 'number' && !isNaN(latDeg)) ? (latDeg >= 0) : true;
     const toExclude = (typeof _getOcclusionExcludeList === 'function') ? _getOcclusionExcludeList(scene) : [];
     let lastYieldTs = (typeof performance !== 'undefined') ? performance.now() : 0;
+
+    cfgPolylines.forEach(ensureRoofGeometry);
 
     for (let polyIdx = 0; polyIdx < cfgPolylines.length; polyIdx++) {
       const poly = cfgPolylines[polyIdx];
@@ -692,8 +775,9 @@
       const ptsKey = Array.isArray(poly.points)
         ? poly.points.map(pt => pt ? `${Math.round(pt.x * 2)},${Math.round(pt.y * 2)},${Math.round(pt.z * 2)}` : '').join('|')
         : ('p' + polyIdx);
-      const cacheKey = `${ptsKey}|${isNorthernHemisphere ? 'N' : 'S'}|${gTileset ? 1 : 0}${osmTileset ? 1 : 0}`;
+      const cacheKey = `${ptsKey}|${isNorthernHemisphere ? 'N' : 'S'}|${gTileset ? 1 : 0}${osmTileset ? 1 : 0}|v4`;
 
+      let validPanels = [];
       let validPanelCenters = [];
       let roofCenter = null;
       pPanels.forEach(p => {
@@ -703,6 +787,7 @@
           if (!roofCenter) roofCenter = new Cesium.Cartesian3(0, 0, 0);
           Cesium.Cartesian3.add(roofCenter, c, roofCenter);
           validPanelCenters.push(c);
+          validPanels.push(p);
         }
       });
       if (!roofCenter || validPanelCenters.length === 0) continue;
@@ -714,37 +799,55 @@
         const upVec = Cesium.Matrix4.multiplyByPointAsVector(enuFrame, new Cesium.Cartesian3(0, 0, 1), new Cesium.Cartesian3());
         Cesium.Cartesian3.normalize(upVec, upVec);
 
-        let maxCornerH = 0;
-        pPanels.forEach(p => {
-          if (Array.isArray(p.corners)) {
-            p.corners.forEach(c => {
-              if (c) {
-                const diff = Cesium.Cartesian3.subtract(c, roofCenter, new Cesium.Cartesian3());
-                const hDot = Cesium.Cartesian3.dot(diff, upVec);
-                if (hDot > maxCornerH) maxCornerH = hDot;
+        // Pre-recopilar huellas de TODOS los faldones del proyecto y obstáculos modelados
+        // para que el raycast 3D Tiles no haga auto-colisión con vertientes vecinas ni doble-conteo de chimeneas.
+        const allRoofContexts = [];
+        let projectMaxRoofDot = -Infinity;
+        for (let rIdx = 0; rIdx < cfgPolylines.length; rIdx++) {
+          const rp = cfgPolylines[rIdx];
+          const rInfo = rp && rp.roofInfo;
+          if (!rInfo || !rInfo.invTransform) continue;
+          allRoofContexts.push(rInfo);
+          if (Array.isArray(rp.points)) {
+            for (let k = 0; k < rp.points.length; k++) {
+              if (rp.points[k]) {
+                const hd = Cesium.Cartesian3.dot(Cesium.Cartesian3.subtract(rp.points[k], roofCenter, new Cesium.Cartesian3()), upVec);
+                if (hd > projectMaxRoofDot) projectMaxRoofDot = hd;
               }
-            });
+            }
           }
-        });
-        const zLift = Math.max(0.65, maxCornerH + 0.35);
+        }
+        const modeledObstacles = getCombinedObstaclesAndTurbinesList() || [];
+        const obsCenters3D = [];
+        for (let oi = 0; oi < modeledObstacles.length; oi++) {
+          const ob = modeledObstacles[oi];
+          if (!ob || ob.deleted || ob.type === 'wind_turbine') continue;
+          if (ob.cartesian) obsCenters3D.push({ pos: ob.cartesian, r: Math.max(2.0, Math.hypot(ob.w || 1, ob.l || 1) + 1.2) });
+        }
 
-        // Seleccionar entre 1 y 5 puntos ancla espaciales representativos del faldón (centro + extremos distantes ≥ 4 m)
+        // Selección espacialmente balanceada de anclas (centroide + hasta 4 extremos en (u,v), independiente del orden del array)
         const anchorPts = [roofCenter];
         const spanU = (pInfo && typeof pInfo.rangeU === 'number') ? pInfo.rangeU : 0;
         const spanV = (pInfo && typeof pInfo.rangeV === 'number') ? pInfo.rangeV : 0;
-        if ((spanU > 4.5 || spanV > 4.5) && validPanelCenters.length >= 4) {
-          const candidates = [
-            validPanelCenters[0],
-            validPanelCenters[Math.floor(validPanelCenters.length * 0.33)],
-            validPanelCenters[Math.floor(validPanelCenters.length * 0.66)],
-            validPanelCenters[validPanelCenters.length - 1]
-          ];
+        if ((spanU > 4.5 || spanV > 4.5) && validPanels.length >= 4) {
+          let pMinU = null, pMaxU = null, pMinV = null, pMaxV = null;
+          let minU = Infinity, maxU = -Infinity, minV = Infinity, maxV = -Infinity;
+          for (let pi = 0; pi < validPanels.length; pi++) {
+            const vp = validPanels[pi];
+            const vu = typeof vp.u === 'number' ? vp.u : 0;
+            const vv = typeof vp.v === 'number' ? vp.v : 0;
+            if (vu < minU) { minU = vu; pMinU = vp.center || validPanelCenters[pi]; }
+            if (vu > maxU) { maxU = vu; pMaxU = vp.center || validPanelCenters[pi]; }
+            if (vv < minV) { minV = vv; pMinV = vp.center || validPanelCenters[pi]; }
+            if (vv > maxV) { maxV = vv; pMaxV = vp.center || validPanelCenters[pi]; }
+          }
+          const candidates = [pMinU, pMaxU, pMinV, pMaxV];
           for (let ci = 0; ci < candidates.length && anchorPts.length < 5; ci++) {
             const cand = candidates[ci];
             if (!cand) continue;
             let farEnough = true;
             for (let ai = 0; ai < anchorPts.length; ai++) {
-              if (Cesium.Cartesian3.distance(cand, anchorPts[ai]) < 4.0) { farEnough = false; break; }
+              if (Cesium.Cartesian3.distance(cand, anchorPts[ai]) < 3.5) { farEnough = false; break; }
             }
             if (farEnough) anchorPts.push(cand);
           }
@@ -777,24 +880,34 @@
             if (!is3DTile) return false;
 
             const dist = Cesium.Cartesian3.distance(probeOrigin, hit.position);
-            if (dist <= 2.5 || dist >= 1200.0) return false;
+            if (dist <= 3.5 || dist >= 1200.0) return false;
 
             Cesium.Cartesian3.subtract(hit.position, probeOrigin, diffScratch);
             const hitRiseM = Cesium.Cartesian3.dot(diffScratch, upVec);
-            if (dist < 5.0 && hitRiseM < 0.75) return false;
+            if (dist < 6.0 && hitRiseM < 1.0) return false;
 
-            if (pInfo && pInfo.invTransform) {
+            // Ignorar auto-colisión con los obstáculos modelados en CAD (ya simulados exactamente en 2D)
+            for (let oi = 0; oi < obsCenters3D.length; oi++) {
+              if (Cesium.Cartesian3.distance(hit.position, obsCenters3D[oi].pos) < obsCenters3D[oi].r) {
+                return false;
+              }
+            }
+
+            // Ignorar auto-colisión con CUALQUIER faldón de la propia cubierta (no solo el activo)
+            for (let rIdx = 0; rIdx < allRoofContexts.length; rIdx++) {
+              const rCtx = allRoofContexts[rIdx];
               try {
-                Cesium.Matrix4.multiplyByPoint(pInfo.invTransform, hit.position, locScratch);
-                const u = Cesium.Cartesian3.dot(locScratch, pInfo.uVec || Cesium.Cartesian3.UNIT_X);
-                const v = Cesium.Cartesian3.dot(locScratch, pInfo.vVec || Cesium.Cartesian3.UNIT_Y);
-                if (pInfo.poly2D && typeof isPointInPolygon2D === 'function' && isPointInPolygon2D({ u, v }, pInfo.poly2D)) {
+                Cesium.Matrix4.multiplyByPoint(rCtx.invTransform, hit.position, locScratch);
+                const u = Cesium.Cartesian3.dot(locScratch, rCtx.uVec || Cesium.Cartesian3.UNIT_X);
+                const v = Cesium.Cartesian3.dot(locScratch, rCtx.vVec || Cesium.Cartesian3.UNIT_Y);
+                const nDist = Cesium.Cartesian3.dot(locScratch, rCtx.normal || Cesium.Cartesian3.UNIT_Z);
+                if (rCtx.poly2D && Math.abs(nDist) < 2.2 && typeof isPointInPolygon2D === 'function' && isPointInPolygon2D({ u, v }, rCtx.poly2D)) {
                   return false;
                 }
-                if (typeof pInfo.minU === 'number' && typeof pInfo.maxU === 'number' &&
-                    typeof pInfo.minV === 'number' && typeof pInfo.maxV === 'number' &&
-                    Math.abs(Cesium.Cartesian3.dot(locScratch, pInfo.normal || Cesium.Cartesian3.UNIT_Z)) < 1.5 &&
-                    u >= pInfo.minU - 1.5 && u <= pInfo.maxU + 1.5 && v >= pInfo.minV - 1.5 && v <= pInfo.maxV + 1.5) {
+                if (typeof rCtx.minU === 'number' && typeof rCtx.maxU === 'number' &&
+                    typeof rCtx.minV === 'number' && typeof rCtx.maxV === 'number' &&
+                    Math.abs(nDist) < 2.0 &&
+                    u >= rCtx.minU - 1.5 && u <= rCtx.maxU + 1.5 && v >= rCtx.minV - 1.5 && v <= rCtx.maxV + 1.5) {
                   return false;
                 }
               } catch (_) {}
@@ -808,12 +921,13 @@
         cachedAnchors = [];
         for (let ai = 0; ai < anchorPts.length; ai++) {
           const basePt = anchorPts[ai];
+          // Cota física homogénea sobre cada ancla (+0.75 m por encima del plano del panel)
           const probeOrigin = Cesium.Cartesian3.add(
             basePt,
-            Cesium.Cartesian3.multiplyByScalar(upVec, zLift, new Cesium.Cartesian3()),
+            Cesium.Cartesian3.multiplyByScalar(upVec, 0.75, new Cesium.Cartesian3()),
             new Cesium.Cartesian3()
           );
-          const elevArr = new Float32Array(NUM_SECTORS);
+          const rawElevArr = new Float32Array(NUM_SECTORS);
 
           for (let s = 0; s < NUM_SECTORS; s++) {
             const azFromNorth = s * SECTOR_DEG;
@@ -822,22 +936,26 @@
             if (!isNorthernHemisphere && (azFromNorth > 135 && azFromNorth < 225)) continue;
 
             const azRad = (azFromNorth * Math.PI) / 180;
-            // Búsqueda binaria rápida en elevación [5°, 65°]: solo 2 rayos si el cielo está despejado a 12°
-            let foundElev = 0;
-            if (!isRayBlocked(probeOrigin, azRad, 12)) {
-              if (isRayBlocked(probeOrigin, azRad, 6)) {
-                foundElev = isRayBlocked(probeOrigin, azRad, 9) ? 10 : 7;
+            // Barrido robusto en niveles clave para evitar falsos ceros por huecos en fotogrametría 3D Tiles
+            const probeLevels = [6, 14, 24, 38, 54];
+            let highestHitIdx = -1;
+            for (let li = 0; li < probeLevels.length; li++) {
+              if (isRayBlocked(probeOrigin, azRad, probeLevels[li])) {
+                highestHitIdx = li;
               }
-            } else {
-              let lo = 12, hi = 65;
+            }
+            let foundElev = 0;
+            if (highestHitIdx >= 0) {
+              let lo = probeLevels[highestHitIdx];
+              let hi = (highestHitIdx + 1 < probeLevels.length) ? probeLevels[highestHitIdx + 1] : 66;
               for (let iter = 0; iter < 3; iter++) {
                 const mid = (lo + hi) * 0.5;
                 if (isRayBlocked(probeOrigin, azRad, mid)) lo = mid;
                 else hi = mid;
               }
-              foundElev = Math.round(lo);
+              foundElev = Math.round(lo * 10) / 10;
             }
-            elevArr[s] = foundElev;
+            rawElevArr[s] = foundElev;
 
             if (typeof performance !== 'undefined' && (performance.now() - lastYieldTs) > 12) {
               await new Promise(r => setTimeout(r, 0));
@@ -845,7 +963,16 @@
               lastYieldTs = performance.now();
             }
           }
-          cachedAnchors.push({ pos: basePt, elevations: elevArr });
+
+          // Suavizado angular circular [0.2, 0.6, 0.2] para filtrar picos espurios de malla 3D Tiles
+          const smoothElevArr = new Float32Array(NUM_SECTORS);
+          for (let s = 0; s < NUM_SECTORS; s++) {
+            const prev = rawElevArr[(s - 1 + NUM_SECTORS) % NUM_SECTORS];
+            const curr = rawElevArr[s];
+            const next = rawElevArr[(s + 1) % NUM_SECTORS];
+            smoothElevArr[s] = Math.round((prev * 0.2 + curr * 0.6 + next * 0.2) * 10) / 10;
+          }
+          cachedAnchors.push({ pos: basePt, elevations: smoothElevArr });
         }
 
         if (_horizonSpatialCache.size >= 64) {
@@ -855,7 +982,7 @@
         _horizonSpatialCache.set(cacheKey, cachedAnchors);
       }
 
-      // Asignar perfil de horizonte a cada panel mediante interpolación espacial IDW sobre los anclas
+      // Asignar perfil de horizonte a cada panel mediante IDW regularizado suave (sin salto duro en d < 0.25)
       pPanels.forEach((p, idx) => {
         const pId = p.panelId || p.id || ('pan_' + polyIdx + '_' + idx);
         if (cachedAnchors.length === 1 || !p.center) {
@@ -866,11 +993,7 @@
         let wSum = 0;
         for (let ai = 0; ai < cachedAnchors.length; ai++) {
           const d = Cesium.Cartesian3.distance(p.center, cachedAnchors[ai].pos);
-          if (d < 0.25) {
-            horizonMap.set(pId, cachedAnchors[ai].elevations);
-            return;
-          }
-          const w = 1.0 / (d * d);
+          const w = 1.0 / (d * d + 6.0);
           wSum += w;
           const src = cachedAnchors[ai].elevations;
           for (let s = 0; s < NUM_SECTORS; s++) interp[s] += src[s] * w;
@@ -902,7 +1025,7 @@
         try { _activeHeatmapWorker.terminate(); } catch (_) {}
         _activeHeatmapWorker = null;
       }
-      worker = new Worker('js/solar-worker.js?v=20261119_shadow_fix2');
+      worker = new Worker('js/solar-worker.js?v=20261119_shadow_fix3');
       _activeHeatmapWorker = worker;
     } catch (err) {
       throw err;
@@ -917,7 +1040,8 @@
       monthsDoy = [15, 105, 196, 288];
       hours = [9, 12, 15, 17];
     } else if (cfg.resolution === 'medium') {
-      hours = [8, 10, 12, 14, 16, 18];
+      // Muestreo horario continuo (14h x 12m = 168 instantes, <20ms off-thread): elimina aliasing estroboscópico de sombras
+      hours = [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
     }
     const monthSpan = Math.max(1, Math.round(12 / monthsDoy.length));
     const preScanSteps = 0;
@@ -948,7 +1072,7 @@
       const faldones = [];
 
       cfg.polylines.forEach((poly, polyIdx) => {
-        const pInfo = poly.roofInfo || {};
+        const pInfo = ensureRoofGeometry(poly) || poly.roofInfo || {};
         const uVec = pInfo.uVec ? { x: pInfo.uVec.x, y: pInfo.uVec.y, z: pInfo.uVec.z } : { x: 1, y: 0, z: 0 };
         const vVec = pInfo.vVec ? { x: pInfo.vVec.x, y: pInfo.vVec.y, z: pInfo.vVec.z } : { x: 0, y: 1, z: 0 };
         const norm = pInfo.normal ? { x: pInfo.normal.x, y: pInfo.normal.y, z: pInfo.normal.z } : { x: 0, y: 0, z: 1 };
@@ -990,8 +1114,8 @@
                   const signedDistToPlane = Cesium.Cartesian3.dot(locBase, pNorm);
                   const upCos = Math.max(0.25, pNorm.z || 1.0);
                   const effTopAbovePlane = signedDistToPlane + rawObsH * upCos;
-                  if (effTopAbovePlane <= effClearance + 0.10) return;
-                  rawObsH = Math.max(0.10, effTopAbovePlane - effClearance);
+                  if (effTopAbovePlane <= effClearance + 0.12) return;
+                  rawObsH = Math.max(0.10, (effTopAbovePlane - effClearance) / upCos);
                 } else if (effClearance > 0) {
                   if (rawObsH <= effClearance + 0.10) return;
                   rawObsH = Math.max(0.10, rawObsH - effClearance);
@@ -1098,6 +1222,7 @@
           polyIdx,
           uVec,
           vVec,
+          normalENU: norm,
           normalWorld: norm,
           ignore3DTilesShadows: !!(poly.ignore3DTilesShadows || (pInfo && pInfo.ignore3DTilesShadows)),
           obstacles2D,
@@ -1332,6 +1457,8 @@
       if (!poly.roofInfo && typeof computeSinglePolylineRoofInfo === 'function') {
         poly.roofInfo = computeSinglePolylineRoofInfo(poly.points, poly);
         if (poly.roofInfo) poly.roofInfo.ignore3DTilesShadows = !!poly.ignore3DTilesShadows;
+      } else {
+        ensureRoofGeometry(poly);
       }
       if (livePanels) {
         const matchingLive = livePanels.filter(lp => lp && !lp.isGhost && !lp.deleted && (lp.polyIdx === polyIdx || (!lp.polyIdx && polyIdx === 0)));
@@ -1436,7 +1563,7 @@
       monthDaysW = [90, 91, 92, 92];
       hours = [9, 12, 15, 17];
     } else if (simResolution === 'medium') {
-      hours = [8, 10, 12, 14, 16, 18]; // 72 instantes (Ingeniería PVSyst)
+      hours = [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]; // 168 instantes horarios continuos (elimina aliasing)
     }
     // [B3] Paso de integración = intervalo REAL entre muestras (antes 16/N desajustaba el peso temporal).
     const hourStepDt = (hours.length > 1) ? (hours[hours.length - 1] - hours[0]) / (hours.length - 1) : 1.0;
@@ -2262,6 +2389,7 @@
   let _lastInvalToastTs = 0;
   window.wpInvalidateHeatmap = function(reason) {
     _activeSimGenerationId++; // Cancelación atómica inmediata de cualquier simulación asíncrona en curso
+    try { _horizonSpatialCache.clear(); } catch (_) {}
     if (_activeHeatmapWorker) {
       try { _activeHeatmapWorker.terminate(); } catch (_) {}
       _activeHeatmapWorker = null;
