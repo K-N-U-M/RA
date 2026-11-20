@@ -4466,21 +4466,15 @@ function wpPopulateFaldonCard() {
   }
   if (selectorCtr) selectorCtr.style.display = 'block';
 
-  // Asegurar selección válida preferente en el plano activo
+  // Si no hay ningún faldón seleccionado (ej. tras clic en zona vacía), NO re-seleccionar automáticamente
   if (WP.selectedPolyIdx < 0 || WP.selectedPolyIdx >= polys.length) {
-    var matchPlanePoly = polys.findIndex(p => p && p.planeIdx === WP.activePlaneIdx);
-    if (matchPlanePoly !== -1) {
-      WP.selectedPolyIdx = matchPlanePoly;
-    } else {
-      // El plano activo no tiene faldones: mostrar estado vacío sin forzar selección sobre otro plano
-      if (card) card.style.display = 'none';
-      if (emptyState) {
-        emptyState.style.display = 'block';
-        emptyState.innerHTML = '<i data-lucide="layers" class="icon-sm"></i> Este plano de trabajo no tiene faldones trazados.<br>Dibuja una polilínea en el Paso 1 para colocar paneles en este plano.';
-        if (window.lucide) lucide.createIcons();
-      }
-      return;
+    if (card) card.style.display = 'none';
+    if (emptyState) {
+      emptyState.style.display = 'block';
+      emptyState.innerHTML = '<i data-lucide="mouse-pointer-click" class="icon-sm"></i> Ningún faldón seleccionado. Haz clic en un faldón del visor 3D o elígelo en el selector.';
+      if (window.lucide) lucide.createIcons();
     }
+    return;
   }
   if (emptyState) emptyState.style.display = 'none';
   var poly = polys[WP.selectedPolyIdx];

@@ -40,46 +40,50 @@ window.getUniversalSelectedTarget = getUniversalSelectedTarget;
 // 1. OBTENER INFORMACIÓN DEL OBJETO SELECCIONADO ACTUALMENTE
 function getUniversalSelectedTarget() {
   // 🌟 PRIORIDAD #0: MODO MOVER FALDÓN COMPLETO CON GIZMO COPLANAR (U/V)
-  if (typeof WP !== 'undefined' && WP && typeof WP.movePolyGizmoIdx === 'number' && WP.movePolyGizmoIdx >= 0 && Array.isArray(WP.polylines) && WP.polylines[WP.movePolyGizmoIdx]) {
-    const poly = WP.polylines[WP.movePolyGizmoIdx];
-    if (poly && Array.isArray(poly.points) && poly.points.length >= 3) {
-      const centroid = new Cesium.Cartesian3(0, 0, 0);
-      for (let i = 0; i < poly.points.length; i++) {
-        Cesium.Cartesian3.add(centroid, poly.points[i], centroid);
-      }
-      Cesium.Cartesian3.divideByScalar(centroid, poly.points.length, centroid);
-      const pl = (typeof poly.planeIdx === 'number' && poly.planeIdx >= 0 && Array.isArray(WP.planes) && WP.planes[poly.planeIdx])
-        ? WP.planes[poly.planeIdx]
-        : null;
-      const norm = (pl && pl.normal)
-        ? Cesium.Cartesian3.normalize(pl.normal, new Cesium.Cartesian3())
-        : Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(centroid, new Cesium.Cartesian3());
-      const uVec = (pl && pl.uVec)
-        ? Cesium.Cartesian3.normalize(pl.uVec, new Cesium.Cartesian3())
-        : Cesium.Cartesian3.normalize(Cesium.Cartesian3.cross(norm, Cesium.Cartesian3.UNIT_Z, new Cesium.Cartesian3()), new Cesium.Cartesian3());
-      const vVec = (pl && pl.vVec)
-        ? Cesium.Cartesian3.normalize(pl.vVec, new Cesium.Cartesian3())
-        : Cesium.Cartesian3.normalize(Cesium.Cartesian3.cross(norm, uVec, new Cesium.Cartesian3()), new Cesium.Cartesian3());
-      return {
-        type: 'polyline',
-        id: poly.id || ('poly_' + WP.movePolyGizmoIdx),
-        name: (poly.name || ('Faldón #' + (WP.movePolyGizmoIdx + 1))).toUpperCase(),
-        pos: centroid,
-        rot: 0,
-        height: 0,
-        rawObj: poly,
-        polyIdx: WP.movePolyGizmoIdx,
-        wp: {
-          origin: centroid,
-          normal: norm,
-          uVec: uVec,
-          vVec: vVec,
-          plane: { origin: centroid, normal: norm }
-        },
-        color: '#38BDF8',
-        accentColor: 'rgba(56, 189, 248, 0.45)'
-      };
+  const buildPolylineGizmoTarget = (polyIdx) => {
+    const poly = (typeof WP !== 'undefined' && WP && Array.isArray(WP.polylines) && polyIdx >= 0) ? WP.polylines[polyIdx] : null;
+    if (!poly || !Array.isArray(poly.points) || poly.points.length < 3) return null;
+    const centroid = new Cesium.Cartesian3(0, 0, 0);
+    for (let i = 0; i < poly.points.length; i++) {
+      Cesium.Cartesian3.add(centroid, poly.points[i], centroid);
     }
+    Cesium.Cartesian3.divideByScalar(centroid, poly.points.length, centroid);
+    const pl = (typeof poly.planeIdx === 'number' && poly.planeIdx >= 0 && Array.isArray(WP.planes) && WP.planes[poly.planeIdx])
+      ? WP.planes[poly.planeIdx]
+      : null;
+    const norm = (pl && pl.normal)
+      ? Cesium.Cartesian3.normalize(pl.normal, new Cesium.Cartesian3())
+      : Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(centroid, new Cesium.Cartesian3());
+    const uVec = (pl && pl.uVec)
+      ? Cesium.Cartesian3.normalize(pl.uVec, new Cesium.Cartesian3())
+      : Cesium.Cartesian3.normalize(Cesium.Cartesian3.cross(norm, Cesium.Cartesian3.UNIT_Z, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+    const vVec = (pl && pl.vVec)
+      ? Cesium.Cartesian3.normalize(pl.vVec, new Cesium.Cartesian3())
+      : Cesium.Cartesian3.normalize(Cesium.Cartesian3.cross(norm, uVec, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+    return {
+      type: 'polyline',
+      id: poly.id || ('poly_' + polyIdx),
+      name: (poly.name || ('Faldón #' + (polyIdx + 1))).toUpperCase(),
+      pos: centroid,
+      rot: 0,
+      height: 0,
+      rawObj: poly,
+      polyIdx: polyIdx,
+      wp: {
+        origin: centroid,
+        normal: norm,
+        uVec: uVec,
+        vVec: vVec,
+        plane: { origin: centroid, normal: norm }
+      },
+      color: '#38BDF8',
+      accentColor: 'rgba(56, 189, 248, 0.45)'
+    };
+  };
+
+  if (typeof WP !== 'undefined' && WP && typeof WP.movePolyGizmoIdx === 'number' && WP.movePolyGizmoIdx >= 0) {
+    const moveTarget = buildPolylineGizmoTarget(WP.movePolyGizmoIdx);
+    if (moveTarget) return moveTarget;
   }
 
   // 🌟 PRIORIDAD #1: VÉRTICE DE HUELLA DE EDIFICIO SELECCIONADO (Tríada Ámbar y Manipulador 3D)
@@ -518,6 +522,12 @@ function getUniversalSelectedTarget() {
     }
   }
 
+  // E2. Polilínea / Faldón seleccionado (Gizmo automático para mover [W] o girar [E] en su plano)
+  if (typeof WP !== 'undefined' && WP && typeof WP.selectedPolyIdx === 'number' && WP.selectedPolyIdx >= 0) {
+    const selPolyTarget = buildPolylineGizmoTarget(WP.selectedPolyIdx);
+    if (selPolyTarget) return selPolyTarget;
+  }
+
   // F0. Vértice Maestro del Plano de Trabajo Activo (P1, P2 o P3)
   const curStep = (typeof wpCurrentStep !== 'undefined') ? wpCurrentStep : ((typeof window !== 'undefined' && window.wpCurrentStep) || 1);
   if (curStep === 1 && typeof WP !== 'undefined' && WP && typeof WP.selectedPlaneVtxIdx === 'number' && WP.selectedPlaneVtxIdx >= 0) {
@@ -707,7 +717,7 @@ function renderUniversalGizmo2D() {
 
   const ctx = triadCtx;
   const hovered = universalGizmoState.hoveredPart;
-  const hasRotation = (target.type !== 'vertex' && target.type !== 'route_vertex' && target.type !== 'polyline'); // Los vértices, codos y faldones no rotan con anillo
+  const hasRotation = (target.type !== 'vertex' && target.type !== 'route_vertex'); // Los vértices y codos no tienen rotación propia
 
   ctx.save();
 
@@ -1211,6 +1221,39 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
         bld.roofAzimuth = Math.round(normRot);
       }
       // Reconstrucción GPU pesada diferida a LEFT_UP (index.html:15829) para garantizar 60 FPS
+    } else if (target.type === 'polyline' && target.rawObj) {
+      const poly = target.rawObj;
+      if (Array.isArray(poly.points) && Array.isArray(universalGizmoState.startPoints) && universalGizmoState.startPoints.length === poly.points.length && dDeg !== 0) {
+        const rotCenter = universalGizmoState.startCenter || target.pos;
+        const zAxis = (target.wp && target.wp.normal) ? target.wp.normal : effectiveAxis;
+        const rotQuat = Cesium.Quaternion.fromAxisAngle(zAxis, Cesium.Math.toRadians(dDeg));
+        const rotMat3 = Cesium.Matrix3.fromQuaternion(rotQuat);
+        for (let i = 0; i < poly.points.length; i++) {
+          const rel = Cesium.Cartesian3.subtract(universalGizmoState.startPoints[i], rotCenter, new Cesium.Cartesian3());
+          const rotatedRel = Cesium.Matrix3.multiplyByVector(rotMat3, rel, new Cesium.Cartesian3());
+          poly.points[i] = Cesium.Cartesian3.add(rotCenter, rotatedRel, new Cesium.Cartesian3());
+        }
+        poly._geometryDirty = true;
+        const moveObs = universalGizmoState.movePolyObs;
+        const startObsPts = universalGizmoState.startMovePolyObsPts;
+        if (Array.isArray(moveObs) && Array.isArray(startObsPts) && moveObs.length === startObsPts.length) {
+          const plRot = (typeof poly.planeIdx === 'number' && WP.planes) ? WP.planes[poly.planeIdx] : null;
+          moveObs.forEach((obs, idx) => {
+            if (!obs || !startObsPts[idx]) return;
+            const relO = Cesium.Cartesian3.subtract(startObsPts[idx], rotCenter, new Cesium.Cartesian3());
+            const rotO = Cesium.Matrix3.multiplyByVector(rotMat3, relO, new Cesium.Cartesian3());
+            obs.cartesian = Cesium.Cartesian3.add(rotCenter, rotO, new Cesium.Cartesian3());
+            if (plRot && plRot.origin && plRot.uVec && plRot.vVec) {
+              const relObsPt = Cesium.Cartesian3.subtract(obs.cartesian, plRot.origin, new Cesium.Cartesian3());
+              obs.u = Cesium.Cartesian3.dot(relObsPt, plRot.uVec);
+              obs.v = Cesium.Cartesian3.dot(relObsPt, plRot.vVec);
+            }
+          });
+          if (typeof render3DObstaclesInCesium === 'function') render3DObstaclesInCesium();
+        }
+        if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
+        if (typeof wpUpdateUI === 'function') wpUpdateUI();
+      }
     } else if (target.type === 'wind_turbine_entity' && target.rawObj) {
       const wt = target.rawObj;
       wt.orientationRad = Cesium.Math.toRadians(normRot);

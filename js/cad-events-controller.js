@@ -92,6 +92,9 @@
           if (universalGizmoState.movePolyObs.length > 0 && window.RAundo && typeof window.RAundo.snapObstacles === 'function') {
             window.RAundo.snapObstacles('Mover obstáculos con ' + (polyMove.name || 'Faldón'));
           }
+          universalGizmoState.startPoints = Array.isArray(polyMove.points) ? polyMove.points.map(p => Cesium.Cartesian3.clone(p)) : [];
+          universalGizmoState.startCenter = uTarget.pos ? Cesium.Cartesian3.clone(uTarget.pos) : null;
+          universalGizmoState.startMovePolyObsPts = universalGizmoState.movePolyObs.map(o => o && o.cartesian ? Cesium.Cartesian3.clone(o.cartesian) : null);
           universalGizmoState.movePolyIdx = pIdxMove;
         }
         if (uTarget.type === 'workplane' && uTarget.rawObj) {
@@ -908,9 +911,8 @@
       const actPl = wpGetActivePlane();
       if (actPl && actPl.visible !== false && pickedObj && pickedObj.id) {
         const pId = (typeof pickedObj.id === 'string') ? pickedObj.id : (typeof pickedObj.id.id === 'string' ? pickedObj.id.id : '');
-        if (pId === 'wp_active_plane_mesh' || pId === 'wp_active_plane_border') {
-          WP.selectedPlaneVtxIdx = -1;
-          WP.selectedVtxIdx = -1;
+        if (pId === 'wp_active_plane_border') {
+          if (typeof clearAllCADSelection === 'function') clearAllCADSelection(false);
           renderTriad2D();
           showStatus('<i data-lucide="compass" class="icon-sm"></i> ' + (actPl.name || 'PLANO DE TRABAJO').toUpperCase() + ' SELECCIONADO', 2000);
           return;

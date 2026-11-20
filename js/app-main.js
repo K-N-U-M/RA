@@ -2681,15 +2681,22 @@ function clearAllCADSelection(notify = false) {
     if (typeof render3DBuildingsInCesium === 'function') render3DBuildingsInCesium();
   }
 
-  // E. Vértices de faldones o huellas
-  if (typeof WP !== 'undefined' && WP && (WP.selectedVtxIdx >= 0 || WP.selectedVertexIdx >= 0)) {
-    hadAnySelection = true;
-    WP.selectedVtxIdx = -1;
-    WP.selectedVertexIdx = -1;
-    if (typeof selectedVertexIndex !== 'undefined') selectedVertexIndex = -1;
-    if (typeof wpSyncVertexInputs === 'function') wpSyncVertexInputs();
-    if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
-    if (typeof wpUpdateUI === 'function') wpUpdateUI();
+  // E. Vértices, faldones, gizmo de faldón o planos de trabajo
+  if (typeof WP !== 'undefined' && WP) {
+    const hadWpSel = (WP.selectedVtxIdx >= 0 || WP.selectedVertexIdx >= 0 || WP.selectedPolyIdx >= 0 || WP.movePolyGizmoIdx >= 0 || WP.selectedPlaneVtxIdx >= 0);
+    if (hadWpSel) {
+      hadAnySelection = true;
+      WP.selectedVtxIdx = -1;
+      WP.selectedVertexIdx = -1;
+      WP.selectedPolyIdx = -1;
+      WP.movePolyGizmoIdx = -1;
+      WP.selectedPlaneVtxIdx = -1;
+      if (typeof selectedVertexIndex !== 'undefined') selectedVertexIndex = -1;
+      if (typeof wpSyncVertexInputs === 'function') wpSyncVertexInputs();
+      if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
+      if (typeof wpUpdateUI === 'function') wpUpdateUI();
+      if (typeof wpPopulateFaldonCard === 'function') wpPopulateFaldonCard();
+    }
   }
   if (typeof bldFootprintState !== 'undefined' && bldFootprintState && bldFootprintState.selectedVtxIdx >= 0) {
     hadAnySelection = true;
@@ -2727,6 +2734,11 @@ function clearAllCADSelection(notify = false) {
       }
       window.RAWindVisualizer.selectTurbine(null);
     }
+  }
+
+  if (typeof viewer !== 'undefined' && viewer) {
+    viewer.selectedEntity = undefined;
+    if (viewer.scene) viewer.scene.requestRender();
   }
 
   if (hadAnySelection && notify && typeof showStatus === 'function') {
