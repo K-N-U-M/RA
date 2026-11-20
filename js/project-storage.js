@@ -1992,6 +1992,8 @@ function raHandleFileSelect(event) {
   reader.onload = function(e) {
     try {
       const parsed = JSON.parse(e.target.result);
+      if (!parsed.metadata) parsed.metadata = {};
+      parsed.metadata.fileName = file.name;
       raImportProjectData(parsed);
     } catch (err) {
       raHideProjectLoadingHUD();
@@ -2033,11 +2035,45 @@ async function raSaveToRecentProjects(projectData) {
       if (storageData.annualHeatmapData) delete storageData.annualHeatmapData;
     } catch (_) { storageData = projectData; }
 
+    const _extractProjectCoords = (pd) => {
+      try {
+        if (pd && pd.metadata && typeof pd.metadata.lat === 'number' && typeof pd.metadata.lon === 'number') {
+          return { lat: pd.metadata.lat, lon: pd.metadata.lon };
+        }
+        const rawPt = (pd && Array.isArray(pd.polylines) && pd.polylines[0] && Array.isArray(pd.polylines[0].points) && pd.polylines[0].points[0])
+          || (pd && pd.workingPlane && Array.isArray(pd.workingPlane.polylines) && pd.workingPlane.polylines[0] && Array.isArray(pd.workingPlane.polylines[0].points) && pd.workingPlane.polylines[0].points[0])
+          || (pd && pd.camera && pd.camera.position)
+          || (typeof viewer !== 'undefined' && viewer && viewer.camera && viewer.camera.positionWC)
+          || null;
+        if (rawPt && typeof rawPt.x === 'number' && typeof Cesium !== 'undefined' && Cesium.Cartographic) {
+          const c3 = new Cesium.Cartesian3(rawPt.x, rawPt.y, rawPt.z);
+          const carto = Cesium.Cartographic.fromCartesian(c3);
+          if (carto) {
+            return {
+              lat: Number(Cesium.Math.toDegrees(carto.latitude).toFixed(4)),
+              lon: Number(Cesium.Math.toDegrees(carto.longitude).toFixed(4))
+            };
+          }
+        }
+      } catch (_) {}
+      return null;
+    };
+
+    const coords = _extractProjectCoords(projectData);
+    const rawFileName = (_raCurrentFileHandle && _raCurrentFileHandle.name)
+      || (projectData.metadata && projectData.metadata.fileName)
+      || (_raCurrentProjectName && _raCurrentProjectName !== 'Proyecto_Solar' ? _raCurrentProjectName : null)
+      || ((projectData.metadata && projectData.metadata.name) ? projectData.metadata.name : 'Proyecto_Solar');
+    const cleanFileName = /\.raproject$/i.test(rawFileName) ? rawFileName : (rawFileName + '.raproject');
+
     const projId = 'proj_' + Date.now();
     const fullItem = {
       id: projId,
       name: (projectData.metadata && projectData.metadata.name) || 'Proyecto Solar',
+      fileName: cleanFileName,
       address: (projectData.metadata && projectData.metadata.address) || 'Ubicación',
+      lat: coords ? coords.lat : null,
+      lon: coords ? coords.lon : null,
       totalKwp: (projectData.metadata && projectData.metadata.totalKwp) || 0,
       totalPanels: (projectData.metadata && projectData.metadata.totalPanels) || 0,
       timestamp: new Date().toISOString(),
@@ -2115,15 +2151,24 @@ function raRenderRecentProjectsList() {
   let html = '';
   recents.forEach((proj, idx) => {
     const dStr = new Date(proj.timestamp).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
-    const cleanName = _escapeHtml(proj.name || 'Proyecto sin nombre');
-    const cleanAddr = _escapeHtml(proj.address || 'Ubicación no especificada');
+    const rawFile = proj.fileName || ((proj.name || 'Proyecto_Solar') + '.raproject');
+    const cleanFile = _escapeHtml(/\.raproject$/i.test(rawFile) ? rawFile : (rawFile + '.raproject'));
+    const rawAddr = (proj.address || '').trim();
+    const isGenericAddr = !rawAddr || /^ubicaci[oó]n(\s+solar)?$/i.test(rawAddr);
+    let coordsStr = '';
+    if (typeof proj.lat === 'number' && typeof proj.lon === 'number' && Number.isFinite(proj.lat) && Number.isFinite(proj.lon)) {
+      coordsStr = proj.lat.toFixed(4) + '°, ' + proj.lon.toFixed(4) + '°';
+    }
+    const locDisplay = !isGenericAddr
+      ? (_escapeHtml(rawAddr) + (coordsStr ? ' · ' + coordsStr : ''))
+      : (coordsStr || 'Ubicación no especificada');
     const safeKwp = Number(proj.totalKwp || 0).toFixed(2);
     const safePanels = parseInt(proj.totalPanels || 0, 10);
     html += `
       <div style="background:rgba(255,255,255,0.04);border:1px solid var(--border-subtle);border-radius:6px;padding:8px 10px;display:flex;justify-content:space-between;align-items:center;transition:all 0.15s ease;">
         <div style="display:flex;flex-direction:column;gap:2px;overflow:hidden;margin-right:8px;">
-          <span style="font-size:11px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${cleanName}</span>
-          <span style="font-size: 10px;color:var(--text-slate-400);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><i data-lucide="map-pin" class="icon-sm"></i> ${cleanAddr}</span>
+          <span style="font-size:11px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${cleanFile}</span>
+          <span style="font-size: 10px;color:var(--text-slate-400);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><i data-lucide="map-pin" class="icon-sm"></i> ${locDisplay}</span>
           <span style="font-size: 10px;color:var(--amber-400);font-family:var(--font-mono);"><i data-lucide="zap" class="icon-sm"></i> ${safeKwp} kWp (${safePanels} paneles) · ${dStr}</span>
         </div>
         <div style="display:flex;gap:4px;flex-shrink:0;">
@@ -2615,6 +2660,8 @@ async function raNewProjectConfirm() {
         reader.onload = async (ev) => {
           try {
             const data = JSON.parse(ev.target.result);
+            if (!data.metadata) data.metadata = {};
+            data.metadata.fileName = file.name;
             await raImportProjectData(data);
           } catch (err) {
             raHideProjectLoadingHUD();

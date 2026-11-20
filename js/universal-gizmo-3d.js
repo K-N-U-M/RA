@@ -522,12 +522,6 @@ function getUniversalSelectedTarget() {
     }
   }
 
-  // E2. Polilínea / Faldón seleccionado (Gizmo automático para mover [W] o girar [E] en su plano)
-  if (typeof WP !== 'undefined' && WP && typeof WP.selectedPolyIdx === 'number' && WP.selectedPolyIdx >= 0) {
-    const selPolyTarget = buildPolylineGizmoTarget(WP.selectedPolyIdx);
-    if (selPolyTarget) return selPolyTarget;
-  }
-
   // F0. Vértice Maestro del Plano de Trabajo Activo (P1, P2 o P3)
   const curStep = (typeof wpCurrentStep !== 'undefined') ? wpCurrentStep : ((typeof window !== 'undefined' && window.wpCurrentStep) || 1);
   if (curStep === 1 && typeof WP !== 'undefined' && WP && typeof WP.selectedPlaneVtxIdx === 'number' && WP.selectedPlaneVtxIdx >= 0) {
@@ -560,6 +554,12 @@ function getUniversalSelectedTarget() {
         };
       }
     }
+  }
+
+  // E2. Polilínea / Faldón seleccionado (Gizmo automático para mover [W] o girar [E] en su plano)
+  if (typeof WP !== 'undefined' && WP && typeof WP.selectedPolyIdx === 'number' && WP.selectedPolyIdx >= 0) {
+    const selPolyTarget = buildPolylineGizmoTarget(WP.selectedPolyIdx);
+    if (selPolyTarget) return selPolyTarget;
   }
 
   // F. Plano de Trabajo Activo (LCS Transformable: Traslación U/V/Z, Rotación Pitch/Yaw)

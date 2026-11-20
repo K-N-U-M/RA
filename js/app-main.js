@@ -8611,6 +8611,11 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
               const v1_m = Cesium.Cartesian3.subtract(p.corners[1], p.corners[0], new Cesium.Cartesian3());
               const v2_m = Cesium.Cartesian3.subtract(p.corners[3], p.corners[0], new Cesium.Cartesian3());
               const n_m = Cesium.Cartesian3.normalize(Cesium.Cartesian3.cross(v1_m, v2_m, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+              // Garantizar normal hacia el cielo (evita invertir underOffset por encima del cristal)
+              const skyUp = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(p.corners[0], new Cesium.Cartesian3());
+              if (Cesium.Cartesian3.dot(n_m, skyUp) < 0) {
+                Cesium.Cartesian3.negate(n_m, n_m);
+              }
               const underOffset = Cesium.Cartesian3.multiplyByScalar(n_m, -0.05, new Cesium.Cartesian3()); // 50mm por debajo de la superficie del cristal
 
               [pair1, pair2].forEach((pair) => {
@@ -8627,9 +8632,22 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
                 const topLow = Cesium.Cartesian3.add(Cesium.Cartesian3.add(pair.low, underOffset, new Cesium.Cartesian3()), clampInsetLow, new Cesium.Cartesian3());
                 const topHigh = Cesium.Cartesian3.add(Cesium.Cartesian3.add(pair.high, underOffset, new Cesium.Cartesian3()), clampInsetHigh, new Cesium.Cartesian3());
 
-                // Cota real de cubierta bajo los apoyos
-                const groundFront = projectPointToRoof(pair.low);
-                let groundBack = projectPointToRoof(pair.high);
+                // Base del triángulo estrictamente bajo la arista baja del panel (nunca por encima del cristal):
+                // groundFront descansa 3cm bajo topLow; groundBack cae a plomo desde topHigh al mismo plano base.
+                const groundFront = Cesium.Cartesian3.subtract(
+                  topLow,
+                  Cesium.Cartesian3.multiplyByScalar(skyUp, 0.03, new Cesium.Cartesian3()),
+                  new Cesium.Cartesian3()
+                );
+                const dropBackH = Math.max(0.08, Cesium.Cartesian3.dot(
+                  Cesium.Cartesian3.subtract(topHigh, groundFront, new Cesium.Cartesian3()),
+                  skyUp
+                ));
+                let groundBack = Cesium.Cartesian3.subtract(
+                  topHigh,
+                  Cesium.Cartesian3.multiplyByScalar(skyUp, dropBackH, new Cesium.Cartesian3()),
+                  new Cesium.Cartesian3()
+                );
 
                 // Vector de base real en cubierta confinado bajo la proyección del panel (sin extensiones artificiales):
                 const baseVec = Cesium.Cartesian3.subtract(groundBack, groundFront, new Cesium.Cartesian3());
@@ -8660,9 +8678,17 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
                 totalLinesAdded++;
               });
 
-              // Barra transversal estabilizadora entre ambos apoyos en el suelo (arriostramiento inferior)
-              const gFront1 = projectPointToRoof(pair1.low);
-              const gFront2 = projectPointToRoof(pair2.low);
+              // Barra transversal estabilizadora entre ambos apoyos en el suelo (arriostramiento inferior bajo los paneles)
+              const gFront1 = Cesium.Cartesian3.subtract(
+                Cesium.Cartesian3.add(pair1.low, underOffset, new Cesium.Cartesian3()),
+                Cesium.Cartesian3.multiplyByScalar(skyUp, 0.03, new Cesium.Cartesian3()),
+                new Cesium.Cartesian3()
+              );
+              const gFront2 = Cesium.Cartesian3.subtract(
+                Cesium.Cartesian3.add(pair2.low, underOffset, new Cesium.Cartesian3()),
+                Cesium.Cartesian3.multiplyByScalar(skyUp, 0.03, new Cesium.Cartesian3()),
+                new Cesium.Cartesian3()
+              );
 
               const tieBar = supportCol.add({
                 positions: [gFront1, gFront2],

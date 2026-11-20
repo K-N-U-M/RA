@@ -196,6 +196,10 @@
         if (nearestPlaneVtxIdx >= 0) {
           WP.selectedPlaneVtxIdx = nearestPlaneVtxIdx;
           WP.selectedVtxIdx = -1;
+          WP.selectedPolyIdx = -1;
+          WP.movePolyGizmoIdx = -1;
+          if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
+          if (typeof wpPopulateFaldonCard === 'function') wpPopulateFaldonCard();
           renderTriad2D();
 
           const pt = actPl.pts3D[nearestPlaneVtxIdx];
@@ -594,6 +598,10 @@
           if (hitPlaneVtxIdx >= 0 && hitPlaneVtxIdx < 3) {
             WP.selectedPlaneVtxIdx = hitPlaneVtxIdx;
             WP.selectedVtxIdx = -1;
+            WP.selectedPolyIdx = -1;
+            WP.movePolyGizmoIdx = -1;
+            if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
+            if (typeof wpPopulateFaldonCard === 'function') wpPopulateFaldonCard();
             renderTriad2D();
             const vtxLabels = ['P1 (Origen)', 'P2 (Eje X)', 'P3 (Eje Y)'];
             showStatus('VÉRTICE #' + (hitPlaneVtxIdx + 1) + ' (' + vtxLabels[hitPlaneVtxIdx] + ') SELECCIONADO PARA EDICIÓN DIRECTA', 2500);
