@@ -4605,11 +4605,30 @@ function wpPopulateFaldonCard() {
   });
 
   var legendEl = document.getElementById('faldon-arr-legend');
+  function wpGetOptimalTiltForPoly(polyObj) {
+    var latDeg = null;
+    if (polyObj && polyObj.roofInfo && typeof polyObj.roofInfo.latDeg === 'number' && Number.isFinite(polyObj.roofInfo.latDeg)) {
+      latDeg = polyObj.roofInfo.latDeg;
+    } else if (polyObj && Array.isArray(polyObj.points) && polyObj.points[0] && typeof Cesium !== 'undefined' && Cesium.Cartographic) {
+      try {
+        var c = Cesium.Cartographic.fromCartesian(polyObj.points[0]);
+        if (c && Number.isFinite(c.latitude)) latDeg = Cesium.Math.toDegrees(c.latitude);
+      } catch (_) {}
+    }
+    if (latDeg === null && typeof window.solarProjectConfig !== 'undefined' && window.solarProjectConfig && typeof window.solarProjectConfig.latitude === 'number') {
+      latDeg = window.solarProjectConfig.latitude;
+    }
+    if (latDeg === null || !Number.isFinite(latDeg)) latDeg = 40.4168;
+    // Regla estándar PVGIS/IDAE para máxima generación anual en latitud real (ej. Barcelona 41.4° -> 37°)
+    return Math.min(45, Math.max(15, Math.round(Math.abs(latDeg) - 4.5)));
+  }
+
+  var optTiltDisplay = wpGetOptimalTiltForPoly(poly);
   if (legendEl) {
     var leftTxt = arrMode === 'coplanar'
       ? '<i data-lucide="home" class="icon-sm"></i> Paralelo a faldón · Paso 0.04m'
       : (arrMode === 'solar_optimal'
-          ? '<i data-lucide="sun" class="icon-sm"></i> Óptima: 32° · Sur (180°)'
+          ? '<i data-lucide="sun" class="icon-sm"></i> Óptima: ' + optTiltDisplay + '° · Sur (180°)'
           : '<i data-lucide="settings" class="icon-sm"></i> Ajuste personalizado manual');
     var isAntiShadow = (arrMode === 'solar_optimal' || (tilt !== 'auto' && Number(tilt) > 0));
     var rightTxt = isAntiShadow ? '<i data-lucide="check-circle" class="icon-sm"></i> Anti-sombra OK' : 'Coplanar';
@@ -4866,10 +4885,21 @@ function wpApplyPanelArrangement(polyIdx, mode) {
   const poly = WP.polylines[polyIdx];
   WP.selectedPolyIdx = polyIdx;
 
-  const lat = (typeof window.solarProjectConfig !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.latitude) 
-    ? window.solarProjectConfig.latitude 
-    : 40.4168;
-  const optimalTilt = Math.min(35, Math.max(15, Math.round(3.7 + 0.69 * Math.abs(lat))));
+  let lat = (poly && poly.roofInfo && typeof poly.roofInfo.latDeg === 'number' && Number.isFinite(poly.roofInfo.latDeg))
+    ? poly.roofInfo.latDeg
+    : null;
+  if (lat === null && poly && Array.isArray(poly.points) && poly.points[0] && typeof Cesium !== 'undefined' && Cesium.Cartographic) {
+    try {
+      const cLat = Cesium.Cartographic.fromCartesian(poly.points[0]);
+      if (cLat && Number.isFinite(cLat.latitude)) lat = Cesium.Math.toDegrees(cLat.latitude);
+    } catch (_) {}
+  }
+  if (lat === null) {
+    lat = (typeof window.solarProjectConfig !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.latitude)
+      ? window.solarProjectConfig.latitude
+      : 40.4168;
+  }
+  const optimalTilt = Math.min(45, Math.max(15, Math.round(Math.abs(lat) - 4.5)));
 
   if (poly._baselineYieldKwh === undefined && typeof wpComputePolyQuickYield === 'function') {
     const baseStats = wpComputePolyQuickYield(poly);

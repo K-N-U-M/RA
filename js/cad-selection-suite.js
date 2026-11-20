@@ -120,8 +120,14 @@
   let _lastHoverX = -1;
   let _lastHoverY = -1;
 
+  // Safeguard global: evitar que _isPointerButtonsDown quede bloqueado si se suelta el botón fuera del canvas
+  if (typeof window !== 'undefined') {
+    window.addEventListener('pointerup', () => { global._isPointerButtonsDown = false; }, true);
+    window.addEventListener('blur', () => { global._isPointerButtonsDown = false; global._isCameraMoving = false; });
+  }
+
   function updateCADHover(screenPos) {
-    if (!screenPos) return;
+    if (!screenPos || typeof screenPos.x !== 'number' || typeof screenPos.y !== 'number') return;
     const viewer = global.viewer;
     if (!viewer || !viewer.scene) return;
     const scene = viewer.scene;
@@ -132,17 +138,20 @@
     if (global.cadMarqueeState.active) return;
     if (global.WP && (global.WP.mode === 'draw-poly' || global.WP.mode === 'draw-building' || global.WP.mode === 'place-obs' || global.WP.mode === 'stamp-poly')) return;
 
-    // Descarte sub-píxel: si el ratón se movió menos de 2px, no re-evaluar
-    if (Math.abs(screenPos.x - _lastHoverX) < 2 && Math.abs(screenPos.y - _lastHoverY) < 2) return;
+    // Clonar coordenadas (Cesium reutiliza el objeto movement.endPosition entre frames)
+    const posSnap = { x: screenPos.x, y: screenPos.y };
 
-    _lastHoverX = screenPos.x;
-    _lastHoverY = screenPos.y;
+    // Descarte sub-píxel: si el ratón se movió menos de 1.5px, no re-evaluar
+    if (Math.abs(posSnap.x - _lastHoverX) < 1.5 && Math.abs(posSnap.y - _lastHoverY) < 1.5) return;
+
+    _lastHoverX = posSnap.x;
+    _lastHoverY = posSnap.y;
 
     if (_hoverRafId) cancelAnimationFrame(_hoverRafId);
     _hoverRafId = requestAnimationFrame(() => {
       _hoverRafId = null;
       if (global._isCameraMoving || global._isPointerButtonsDown) return;
-      evaluateHoverTarget(screenPos, scene);
+      evaluateHoverTarget(posSnap, scene);
     });
   }
 
