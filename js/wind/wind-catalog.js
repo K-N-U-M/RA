@@ -464,6 +464,39 @@
     },
 
     // Añade o actualiza una turbina
+    normalizeImportedTurbine: function (item) {
+      return {
+        id: this.generateId(item.brand, item.model),
+        manufacturer: item.brand,
+        model: item.model,
+        type: item.type || 'HAWT',
+        ratedPowerW: item.ratedPowerW || 10000,
+        rotorDiameterM: item.rotorDiameterM || 5.0,
+        bladeCount: item.bladeCount || 3,
+        hubHeightsAvailableM: item.hubHeightsAvailableM || [12, 18, 24],
+        cutInSpeedMs: item.cutInSpeedMs || 2.5,
+        ratedSpeedMs: item.ratedSpeedMs || 11.0,
+        cutOutSpeedMs: item.cutOutSpeedMs || 25.0,
+        survivalSpeedMs: item.survivalSpeedMs || 59.5,
+        iecClass: item.iecClass || 'III',
+        acousticPowerLwaDba: item.acousticPowerLwaDba || 98,
+        electrical: {
+          generatorType: item.generatorType || 'PMSG',
+          outputVoltageV: item.outputVoltageV || 400,
+          rectifierIncluded: item.rectifierIncluded !== false,
+          dumpLoadRequiredKw: item.dumpLoadRequiredKw || 12
+        },
+        structural: {
+          nacelleMassKg: item.nacelleMassKg || 200,
+          rotorMassKg: item.rotorMassKg || 80,
+          maxThrustKn: 15,
+          naturalFrequencyHz: 0.8
+        },
+        priceEur: item.price || 15000,
+        powerCurve: []
+      };
+    },
+
     upsert: function (turbine) {
       this.load();
       if (!turbine || !turbine.id) return;

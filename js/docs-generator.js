@@ -69,16 +69,7 @@ function _unescapePlainDoc(str) {
 }
 
 function escapeHtml(str) {
-  if (typeof window !== 'undefined' && window.RASanitize && typeof window.RASanitize.plain === 'function') {
-    return window.RASanitize.plain(str);
-  }
-  if (str === null || str === undefined) return '';
-  return _unescapePlainDoc(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+  return window.RASanitize.plain(str);
 }
 if (typeof window !== 'undefined' && !window.escapeHtml) {
   window.escapeHtml = escapeHtml;

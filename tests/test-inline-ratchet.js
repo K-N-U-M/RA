@@ -72,7 +72,7 @@ console.log(`  ✓ PASS: ${inlineLines} líneas (techo ${BASE.inlineLines}) · $
 
 // Los duplicados conocidos deben delegar o ser utilidades triviales justificadas.
 const KNOWN = new Set([
-  '_initTriadOnce', 'setElemText', 'get3DPosition', 'getSelectedPanel', 'deleteSelectedPanel',
+  'setElemText', 'get3DPosition', 'getSelectedPanel', 'deleteSelectedPanel',
   'isPointInPolygon2D', 'calculateDynamicMPPTStringLimits', 'partitionPanelsIntoMPPTStrings',
   'segmentsIntersect2D', 'polygonsIntersect2D', 'convexHull2D', 'cross', 'getProjectCalcs',
   'getPolylineStringColor', 'getSnakeOrderedPanels', 'initUnifiedWorkPlaneSystem'

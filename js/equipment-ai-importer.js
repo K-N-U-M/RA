@@ -12,18 +12,6 @@
 (function (root) {
   'use strict';
 
-  // [D1+D2] Cliente IA unificado (cabecera x-goog-api-key, timeout y cancelación).
-  // Delega en RA.geminiFetch cuando está disponible; si no, usa fetch nativo con cabecera.
-  function _aiFetch(url, opts, timeoutMs, apiKey) {
-    if (root.RA && typeof root.RA.geminiFetch === 'function') {
-      return root.RA.geminiFetch(url, opts, timeoutMs, apiKey);
-    }
-    const cleanOpts = Object.assign({}, opts || {});
-    cleanOpts.headers = Object.assign({}, cleanOpts.headers || {});
-    if (apiKey) cleanOpts.headers['x-goog-api-key'] = apiKey;
-    return fetch(url, cleanOpts);
-  }
-
   const RAEquipmentAIImporter = {
     state: {
       isProcessing: false,
@@ -32,27 +20,12 @@
     },
 
     /**
-     * Obtiene la clave de API de Gemini configurada
+     * Obtiene la clave de API de Gemini configurada (delega en SSOT RA.getGeminiApiKey)
      */
     getApiKey: function () {
-      try {
-        if (root.RA && typeof root.RA.getGeminiApiKey === 'function') {
-          const unified = root.RA.getGeminiApiKey();
-          if (unified && unified.trim()) return unified.trim();
-        }
-        if (root.RA && root.RA.geminiApiKey) return root.RA.geminiApiKey;
-        const sess = (typeof sessionStorage !== 'undefined') ? (sessionStorage.getItem('ra_gemini_api_key') || '') : '';
-        const leg = (!sess && typeof localStorage !== 'undefined') ? (localStorage.getItem('ra_gemini_api_key') || '') : '';
-        const local = sess || leg;
-        if (leg && typeof sessionStorage !== 'undefined') {
-          try { sessionStorage.setItem('ra_gemini_api_key', leg); localStorage.removeItem('ra_gemini_api_key'); } catch (_) {}
-        }
-        if (local.startsWith('enc:')) {
-          try { return decodeURIComponent(escape(atob(local.slice(4)))).trim(); } catch (e) { return local.slice(4).trim(); }
-        }
-        if (local && local.trim()) return local.trim();
-      } catch (e) {}
-      return '';
+      return (root.RA && typeof root.RA.getGeminiApiKey === 'function')
+        ? (root.RA.getGeminiApiKey() || '').trim()
+        : '';
     },
 
     /**
@@ -187,7 +160,7 @@ NORMAS ESTRICTAS DE EXTRACCIÓN:
       }
       try {
         const url = 'https://generativelanguage.googleapis.com/v1beta/models';
-        const resp = await _aiFetch(url, {}, 20000, apiKey);
+        const resp = await root.RA.geminiFetch(url, {}, 20000, apiKey);
         if (resp.ok) {
           const data = await resp.json();
           if (Array.isArray(data.models)) {
@@ -273,7 +246,7 @@ NORMAS ESTRICTAS DE EXTRACCIÓN:
       for (const model of models) {
         try {
           const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-          const resp = await _aiFetch(url, {
+          const resp = await root.RA.geminiFetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestBody)
@@ -535,36 +508,7 @@ NORMAS ESTRICTAS DE EXTRACCIÓN:
     commitToCatalog: function (item) {
       if (item && item.category === 'wind_turbines') {
         if (root.RAWindCatalog && typeof root.RAWindCatalog.upsert === 'function') {
-          const turbine = {
-            id: root.RAWindCatalog.generateId(item.brand, item.model),
-            manufacturer: item.brand,
-            model: item.model,
-            type: item.type || 'HAWT',
-            ratedPowerW: item.ratedPowerW || 10000,
-            rotorDiameterM: item.rotorDiameterM || 5.0,
-            bladeCount: item.bladeCount || 3,
-            hubHeightsAvailableM: item.hubHeightsAvailableM || [12, 18, 24],
-            cutInSpeedMs: item.cutInSpeedMs || 2.5,
-            ratedSpeedMs: item.ratedSpeedMs || 11.0,
-            cutOutSpeedMs: item.cutOutSpeedMs || 25.0,
-            survivalSpeedMs: item.survivalSpeedMs || 59.5,
-            iecClass: item.iecClass || 'III',
-            acousticPowerLwaDba: item.acousticPowerLwaDba || 98,
-            electrical: {
-              generatorType: item.generatorType || 'PMSG',
-              outputVoltageV: item.outputVoltageV || 400,
-              rectifierIncluded: item.rectifierIncluded !== false,
-              dumpLoadRequiredKw: item.dumpLoadRequiredKw || 12
-            },
-            structural: {
-              nacelleMassKg: item.nacelleMassKg || 200,
-              rotorMassKg: item.rotorMassKg || 80,
-              maxThrustKn: 15,
-              naturalFrequencyHz: 0.8
-            },
-            priceEur: item.price || 15000,
-            powerCurve: []
-          };
+          const turbine = root.RAWindCatalog.normalizeImportedTurbine(item);
           root.RAWindCatalog.upsert(turbine);
           if (typeof root.switchCatalogTab === 'function') root.switchCatalogTab('wind_turbines');
           return turbine.id;

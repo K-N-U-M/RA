@@ -13,16 +13,6 @@
 (function (root) {
   'use strict';
 
-  function _aiFetch(url, opts, timeoutMs, apiKey) {
-    if (root.RA && typeof root.RA.geminiFetch === 'function') {
-      return root.RA.geminiFetch(url, opts, timeoutMs, apiKey);
-    }
-    const cleanOpts = Object.assign({}, opts || {});
-    cleanOpts.headers = Object.assign({}, cleanOpts.headers || {});
-    if (apiKey) cleanOpts.headers['x-goog-api-key'] = apiKey;
-    return fetch(url, cleanOpts);
-  }
-
   const RAEquipmentWebSearch = {
     state: {
       isSearching: false,
@@ -32,24 +22,9 @@
     },
 
     getApiKey: function () {
-      try {
-        if (root.RA && typeof root.RA.getGeminiApiKey === 'function') {
-          const unified = root.RA.getGeminiApiKey();
-          if (unified && unified.trim()) return unified.trim();
-        }
-        if (root.RA && root.RA.geminiApiKey) return root.RA.geminiApiKey;
-        const sess = (typeof sessionStorage !== 'undefined') ? (sessionStorage.getItem('ra_gemini_api_key') || '') : '';
-        const leg = (!sess && typeof localStorage !== 'undefined') ? (localStorage.getItem('ra_gemini_api_key') || '') : '';
-        const local = sess || leg;
-        if (leg && typeof sessionStorage !== 'undefined') {
-          try { sessionStorage.setItem('ra_gemini_api_key', leg); localStorage.removeItem('ra_gemini_api_key'); } catch (_) {}
-        }
-        if (local.startsWith('enc:')) {
-          try { return decodeURIComponent(escape(atob(local.slice(4)))).trim(); } catch (e) { return local.slice(4).trim(); }
-        }
-        if (local && local.trim()) return local.trim();
-      } catch (e) {}
-      return '';
+      return (root.RA && typeof root.RA.getGeminiApiKey === 'function')
+        ? (root.RA.getGeminiApiKey() || '').trim()
+        : '';
     },
 
     discoverAvailableModels: async function (apiKey) {
@@ -222,7 +197,7 @@ REGLAS DE RIGOR TÉCNICO:
       for (const model of models) {
         try {
           const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-          const res = await _aiFetch(url, {
+          const res = await root.RA.geminiFetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestBody)
@@ -424,36 +399,7 @@ REGLAS DE RIGOR TÉCNICO:
 
       const category = item.category || 'modules';
       if (category === 'wind_turbines' && typeof window !== 'undefined' && window.RAWindCatalog && typeof window.RAWindCatalog.upsert === 'function') {
-        const turbine = {
-          id: window.RAWindCatalog.generateId(item.brand, item.model),
-          manufacturer: item.brand,
-          model: item.model,
-          type: item.type || 'HAWT',
-          ratedPowerW: item.ratedPowerW || 10000,
-          rotorDiameterM: item.rotorDiameterM || 5.0,
-          bladeCount: item.bladeCount || 3,
-          hubHeightsAvailableM: item.hubHeightsAvailableM || [12, 18, 24],
-          cutInSpeedMs: item.cutInSpeedMs || 2.5,
-          ratedSpeedMs: item.ratedSpeedMs || 11.0,
-          cutOutSpeedMs: item.cutOutSpeedMs || 25.0,
-          survivalSpeedMs: item.survivalSpeedMs || 59.5,
-          iecClass: item.iecClass || 'III',
-          acousticPowerLwaDba: item.acousticPowerLwaDba || 98,
-          electrical: {
-            generatorType: item.generatorType || 'PMSG',
-            outputVoltageV: item.outputVoltageV || 400,
-            rectifierIncluded: item.rectifierIncluded !== false,
-            dumpLoadRequiredKw: item.dumpLoadRequiredKw || 12
-          },
-          structural: {
-            nacelleMassKg: item.nacelleMassKg || 200,
-            rotorMassKg: item.rotorMassKg || 80,
-            maxThrustKn: 15,
-            naturalFrequencyHz: 0.8
-          },
-          priceEur: item.price || 15000,
-          powerCurve: []
-        };
+        const turbine = window.RAWindCatalog.normalizeImportedTurbine(item);
         window.RAWindCatalog.upsert(turbine);
         if (typeof root.showStatus === 'function') {
           const _esc = (root.RASanitize && typeof root.RASanitize.plain === 'function') ? root.RASanitize.plain : (s => String(s || ''));

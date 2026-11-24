@@ -3,16 +3,7 @@
 (function() {
   'use strict';
 
-  // [D1+D2] Cliente IA unificado (cabecera x-goog-api-key, timeout y cancelación).
-  function _aiFetch(url, opts, timeoutMs, apiKey) {
-    if (window.RA && typeof window.RA.geminiFetch === 'function') {
-      return window.RA.geminiFetch(url, opts, timeoutMs, apiKey);
-    }
-    const cleanOpts = Object.assign({}, opts || {});
-    cleanOpts.headers = Object.assign({}, cleanOpts.headers || {});
-    if (apiKey) cleanOpts.headers['x-goog-api-key'] = apiKey;
-    return fetch(url, cleanOpts);
-  }
+  // [F3-05] Peticiones Gemini delegadas directamente en window.RA.geminiFetch (timeout AbortController obligatorio).
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // RESOLUCIÓN DE EQUIPOS DESDE CATÁLOGO (SSOT → Nombres reales)
@@ -544,7 +535,7 @@ async function requestCommercialSummaryFromGemini(d, m, equipment) {
     var modelName = models[mIdx];
     var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + modelName + ':generateContent';
     try {
-      var resp = await _aiFetch(url, {
+      var resp = await window.RA.geminiFetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -2477,7 +2468,7 @@ function wpOpenPricingReviewModal(onConfirm) {
           var modelName = modelsToTry[mi];
           var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + modelName + ':generateContent';
           
-          var resp = await _aiFetch(url, {
+          var resp = await window.RA.geminiFetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

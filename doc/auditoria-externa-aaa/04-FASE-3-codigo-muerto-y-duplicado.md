@@ -22,11 +22,11 @@
 | **F3-02** | Retirar archivo huérfano `js/wind-turbine.js` (789 L) y arreglar Undo/Redo roto (`renderAllInCesium` -> `renderAll`) | P1 | M | Ninguna | D-02 | `[Hecho]` |
 | **F3-03** | Unificar geometría 2D, sub-strings y física solar duplicadas con deriva entre main thread y `solar-worker.js` | P1 | M | Ninguna | D-04 | `[Hecho]` |
 | **F3-04** | Consolidar `ensureRoofGeometry` duplicada entre `project-storage.js` y `solar-heatmap.js` | P1 | S | Ninguna | D-05 | `[Hecho]` |
-| **F3-05** | Consolidar 4 `_aiFetch`, 2 `getApiKey`, normalización `wind_turbines` y 2 `escapeHtml` duplicados | P1 | M | F0-08 | D-06 | `[Pendiente]` |
-| **F3-06** | Purgar subsistema UI muerto "Análisis Energético Comparativo" (~950 L en `solar-engine.js` y `app-main.js`) | P1 | S | Ninguna | D-09 | `[Pendiente]` |
+| **F3-05** | Consolidar 4 `_aiFetch`, 2 `getApiKey`, normalización `wind_turbines` y 2 `escapeHtml` duplicados | P1 | M | F0-08 | D-06 | `[Hecho]` |
+| **F3-06** | Purgar subsistema UI muerto "Análisis Energético Comparativo" (~950 L en `solar-engine.js` y `app-main.js`) | P1 | S | Ninguna | D-09 | `[Hecho]` |
 | **F3-07** | Auditar y resolver 30+ IDs DOM huérfanos (restaurar `#btn-redo`, `#label-2d3d`, `#fin-tou-tarifa` o limpiar obsoletos) | P1 | L | F3-02, F3-09 | D-14 | `[Pendiente]` |
 | **F3-08** | Consolidar constantes eléctrico-solares, fórmulas manuales de `Voc`/`ΔV` y helpers duplicados en storage/config/SVG/hex | P2 | M | F0-05, F0-06 | D-07 + D-08 | `[Pendiente]` |
-| **F3-09** | Purgar código muerto JS en `app-main.js` (>500 L), `working-plane.js` (12 funciones), `_initTriadOnce`, wrapper shadow y aliases | P2 | M | F3-06 | D-10 + D-11 + D-12 | `[Pendiente]` |
+| **F3-09** | Purgar código muerto JS en `app-main.js` (>500 L), `working-plane.js` (12 funciones), `_initTriadOnce`, wrapper shadow y aliases | P2 | M | F3-06 | D-10 + D-11 + D-12 | `[Hecho]` |
 | **F3-10** | Fusionar selectores CSS duplicados (`.solar-mode-btn`), retirar `<style>` de `index.html` y purgar >300 L CSS muerto | P2 | M | F3-07 | D-15 + D-16 | `[Pendiente]` |
 | **F3-11** | Mover plantilla `ra-env.example.js` fuera de `js/` y migrar los 7 `console.log`/`info` directos de cliente a `RA.log` | P3 | S | Ninguna | D-03 + D-13 | `[Pendiente]` |
 

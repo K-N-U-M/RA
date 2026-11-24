@@ -541,102 +541,7 @@ const { scene, camera, clock } = viewer;
 if (camera && camera.frustum) camera.frustum.near = 0.5;
 const globe = scene.globe;
 
-// ── Calibración de Sombras GPU AAA (Erradica parpadeos, velo negro y acné en 3D Tiles) ──
-function wpConfigureShadowMap(sm) {
-  if (!sm) return;
-  if (typeof window !== 'undefined' && window.ShadowSettings && typeof window.ShadowSettings.configureShadowMap === 'function') {
-    window.ShadowSettings.configureShadowMap(sm);
-    return;
-  }
-  const userCfgRadius = 400.0;
-  sm.enabled = true;
-  sm.size = 4096;
-  sm.softShadows = true;
-  sm.darkness = 0.50;
-  sm.maximumDistance = userCfgRadius;
-  sm._fitNearFar = true;
-  sm.cascadesEnabled = true;
-  sm.numberOfCascades = 4;
-  sm.fadingEnabled = true;
-  const depthBias = Math.max(0.00025, Math.min(0.005, (window.wpShadowBiasMeters || 0.08) / userCfgRadius));
-  if (sm._primitiveBias) {
-    sm._primitiveBias.polygonOffset = true;
-    sm._primitiveBias.polygonOffsetFactor = 1.1;
-    sm._primitiveBias.polygonOffsetUnits = 3.2;
-    sm._primitiveBias.normalOffset = true;
-    sm._primitiveBias.normalOffsetScale = 0.25;
-    sm._primitiveBias.normalShading = false;
-    sm._primitiveBias.depthBias = depthBias;
-  }
-  if (sm._terrainBias) {
-    sm._terrainBias.polygonOffset = true;
-    sm._terrainBias.polygonOffsetFactor = 1.1;
-    sm._terrainBias.polygonOffsetUnits = 3.2;
-    sm._terrainBias.normalOffset = true;
-    sm._terrainBias.normalOffsetScale = 0.35;
-    sm._terrainBias.normalShading = false;
-    sm._terrainBias.depthBias = depthBias * 1.15;
-  }
-}
-window.wpConfigureShadowMap = wpConfigureShadowMap;
-// Diagnóstico y ajuste en vivo del bias de sombras (gemelo digital):
-//   wpShadowDiagnostics()  → estado actual del shadowMap
-//   wpSetShadowBiasMeters(m) → despegue físico de la sombra en metros (0.1-2.0).
-
-// ── Estructuras paramétricas de montaje (Paso 2 · pérgola / balasto) ──
-function wpOnEstructuraChange(tipo, hVal) {
-  const poly = (typeof WP !== 'undefined' && WP && WP.polylines && WP.selectedPolyIdx >= 0) ? WP.polylines[WP.selectedPolyIdx] : null;
-  if (!poly) { if (typeof showToast === 'function') showToast('SIN FALDÓN', 'Selecciona un faldón para aplicarle la estructura.', 'warning', 3000); return; }
-  const h = Math.max(0.05, Math.min(5, parseFloat(hVal) || (tipo === 'pergola' ? 1.50 : 0.20)));
-  poly.estructura = { tipo: tipo, clearance: h };
-  const box = document.getElementById('p2-estructura-h-box');
-  if (box) box.style.display = (tipo === 'coplanar') ? 'none' : 'flex';
-  const hInput = document.getElementById('cfg-p2-estructura-h');
-  if (hInput) hInput.value = h;
-
-  // Coherencia cinemática: Estructura -> Ángulo de montaje
-  if (tipo === 'coplanar') {
-    if (poly.modTilt !== 'auto') {
-      poly.modTilt = 'auto';
-      poly.arrangementMode = 'coplanar';
-    }
-  } else if (tipo === 'balasto') {
-    // Si estaba coplanar o plano, dotar de inclinación estándar de balasto
-    if (poly.modTilt === 'auto' || parseFloat(poly.modTilt) === 0) {
-      poly.modTilt = 15;
-      poly.arrangementMode = 'custom';
-    }
-  }
-
-  if (typeof roofPanelsCache !== 'undefined' && roofPanelsCache) roofPanelsCache.sig = '';
-  if (typeof computeSinglePolylineRoofInfo === 'function') {
-    poly.roofInfo = computeSinglePolylineRoofInfo(poly.points, poly);
-  }
-  if (typeof window.wpInvalidateHeatmap === 'function') {
-    window.wpInvalidateHeatmap('Estructura de montaje modificada (' + tipo + ')');
-  }
-  if (typeof step5RegenerateLayout === 'function') {
-    step5RegenerateLayout();
-  } else if (typeof wpFastRenderSimulatedPanels === 'function') {
-    wpFastRenderSimulatedPanels();
-  }
-  if (typeof showToast === 'function') showToast('ESTRUCTURA: ' + tipo.toUpperCase(), 'Altura libre ' + h.toFixed(2) + ' m. Configuración sincronizada.', 'info', 2500);
-}
-window.wpOnEstructuraChange = wpOnEstructuraChange;
-
-// Sincroniza el selector al faldón activo (llamado desde wpUpdateUI)
-function wpSyncEstructuraUI() {
-  const sel = document.getElementById('cfg-p2-estructura');
-  if (!sel) return;
-  const poly = (typeof WP !== 'undefined' && WP && WP.polylines && WP.selectedPolyIdx >= 0) ? WP.polylines[WP.selectedPolyIdx] : null;
-  const est = (poly && poly.estructura) ? poly.estructura : { tipo: 'coplanar', clearance: 0 };
-  sel.value = est.tipo;
-  const box = document.getElementById('p2-estructura-h-box');
-  if (box) box.style.display = (est.tipo === 'coplanar') ? 'none' : 'flex';
-  const hInput = document.getElementById('cfg-p2-estructura-h');
-  if (hInput && est.clearance > 0) hInput.value = est.clearance;
-}
-window.wpSyncEstructuraUI = wpSyncEstructuraUI;
+// [F3-09] wpConfigureShadowMap canónico reside en js/shadow-settings.js; handlers muertos wpOnEstructuraChange/wpSyncEstructuraUI purgados.
 
 // ── COMPARADOR DE ESCENARIOS (Paso 5) ──
 // E1: diseño actual · E2: microinversores (MLPE) · E3: optimización angular.
@@ -2283,7 +2188,7 @@ function triggerSimulationFromButton() {
   if (typeof recalculateLayoutAndObstacles === 'function') recalculateLayoutAndObstacles();
   if (typeof startSolarPanelsSimulation === 'function') startSolarPanelsSimulation();
   else if (typeof wpFastRenderSimulatedPanels === 'function') wpFastRenderSimulatedPanels();
-  if (typeof wpSyncStep3Metrics === 'function') wpSyncStep3Metrics();
+  if (typeof wpUpdateStep3UI === 'function') wpUpdateStep3UI();
   else if (typeof wpUpdateStep3UI === 'function') wpUpdateStep3UI();
 }
 
@@ -4118,54 +4023,6 @@ function evaluateModuleLayouts(roof, module, cfg) {
 
   layouts.sort((x, y) => y.moduleCount - x.moduleCount || (x.footprintA - y.footprintA));
   return { layouts: layouts, best: layouts[0] || null };
-}
-// ── §37 Auto-test del motor geométrico y solar (casos conocidos) ─────────────
-function runEngineSelfTests() {
-  const results = [];
-  const close = (a, b, tol) => Math.abs(a - b) <= (tol || 1e-6);
-
-  // Test 1: azimut de la normal
-  results.push({ name: 'Azimut Norte (n=+Y) → 0°', pass: close(azimuthFromNormal(v3(0, 1, 0)), 0) });
-  results.push({ name: 'Azimut Este (n=+X) → 90°', pass: close(azimuthFromNormal(v3(1, 0, 0)), 90) });
-  results.push({ name: 'Azimut Sur (n=−Y) → 180°', pass: close(azimuthFromNormal(v3(0, -1, 0)), 180) });
-  results.push({ name: 'Azimut Oeste (n=−X) → 270°', pass: close(azimuthFromNormal(v3(-1, 0, 0)), 270) });
-
-  // Test 2: inclinación
-  results.push({ name: 'Plano horizontal → 0°', pass: close(slopeFromNormal(v3(0, 0, 1)), 0) });
-  results.push({ name: 'Plano vertical → 90°', pass: close(slopeFromNormal(v3(1, 0, 0)), 90) });
-
-  // Test 3: normal N=(0,0,1) → slope 0°
-  results.push({ name: 'Normal (0,0,1) → slope 0°', pass: close(slopeFromThreePoints(v3(0,0,0), v3(1,0,0), v3(0,1,0)), 0) });
-
-  // Test 4: módulo dentro/fuera/borde de polígono
-  const poly = [{ u:0, v:0 }, { u:10, v:0 }, { u:10, v:10 }, { u:0, v:10 }];
-  results.push({ name: 'Punto dentro del polígono', pass: isPointInPolygon2D({ u:5, v:5 }, poly) });
-  results.push({ name: 'Punto fuera del polígono', pass: !isPointInPolygon2D({ u:15, v:5 }, poly) });
-
-  // Test 5: sombra H=1 m, elevación 45° → longitud 1 m
-  results.push({ name: 'Sombra 1 m @ 45° → 1 m', pass: close(obstacleShadowLength(1, 45), 1, 1e-4) });
-
-  // Test 6: azimut de línea N→E = 45°
-  results.push({ name: 'Línea N→E → azimut 45°', pass: close(azimuthFromLine(v3(0,0,0), v3(1,1,0)), 45) });
-
-  // Test 7: normal unitaria y sentido
-  const n3 = planeNormalFromThreePoints(v3(0,0,0), v3(1,0,0), v3(0,1,0));
-  results.push({ name: 'Normal unitaria (|n|=1) y n.z≥0', pass: close(v3Len(n3), 1) && n3.z >= 0 });
-
-  // Test 8: vector solar unitario
-  const sv = sunVector(45, 180);
-  results.push({ name: 'Vector solar unitario (elev 45°, az 180°)', pass: close(v3Len(sv), 1, 1e-6) });
-
-  // Test 9: incidencia normal-sol
-  const incT = incidenceAngle(v3(0,0,1), sv);
-  results.push({ name: 'Incidencia plano horiz. @ sol 45° → 45°', pass: close(incT.thetaDeg, 45, 1e-4) });
-
-  // Test 10: separación de filas (módulo plano → sin sombra propia)
-  const rsFlat = rowSpacing(2.1, 0, 45, 0);
-  results.push({ name: 'RowSpacing módulo plano = L + sombra 0 + margen', pass: close(rsFlat, 2.1, 1e-4) });
-
-  const passed = results.filter(r => r.pass).length;
-  return { results, passed, total: results.length };
 }
 
 function resetSolarDashboard() {
@@ -6112,7 +5969,6 @@ const T_AMB_MONTHLY_ESP = {
 };
 
 // Last analysis results cache
-let lastAnalysisResults = null;
 let currentDailyCurveMode = 'summer';
 
 
@@ -6227,61 +6083,41 @@ window.resetEquipmentCatalogToDefault = resetEquipmentCatalogToDefault;
 
 
 
-window.autoCalibrateCurveInEdit = function() {
-  const kw = Math.max(0.1, parseFloat(document.getElementById('edit-wt-kw').value) || 10.0);
-  const diam = Math.max(0.5, parseFloat(document.getElementById('edit-wt-diameter').value) || 5.0);
-  const type = document.getElementById('edit-wt-type').value || 'HAWT';
-  const bladeH = parseFloat(document.getElementById('edit-wt-blade-height').value) || (type === 'VAWT' ? diam * 1.4 : diam / 2);
-  const cutin = parseFloat(document.getElementById('edit-wt-cutin').value) || 2.5;
-  const rated = parseFloat(document.getElementById('edit-wt-ratedspeed').value) || 11.0;
-  const cutout = parseFloat(document.getElementById('edit-wt-cutout').value) || 25.0;
-
+// [F3-09] Helpers parametrizados para curvas y área de aerogeneradores (Edit / New)
+function _autoCalibrateWindCurve(prefix) {
+  const kw = Math.max(0.1, parseFloat(document.getElementById(prefix + '-wt-kw').value) || 10.0);
+  const diam = Math.max(0.5, parseFloat(document.getElementById(prefix + '-wt-diameter').value) || 5.0);
+  const type = document.getElementById(prefix + '-wt-type').value || 'HAWT';
+  const bladeH = parseFloat(document.getElementById(prefix + '-wt-blade-height').value) || (type === 'VAWT' ? diam * 1.4 : diam / 2);
+  const cutin = parseFloat(document.getElementById(prefix + '-wt-cutin').value) || 2.5;
+  const rated = parseFloat(document.getElementById(prefix + '-wt-ratedspeed').value) || 11.0;
+  const cutout = parseFloat(document.getElementById(prefix + '-wt-cutout').value) || 25.0;
   const mock = {
-    ratedPowerW: Math.round(kw * 1000),
-    rotorDiameterM: diam,
-    bladeHeightM: bladeH,
-    bladeLength: bladeH,
-    type: type,
-    cutInSpeedMs: cutin,
-    ratedSpeedMs: rated,
-    cutOutSpeedMs: cutout,
-    powerCurve: []
+    ratedPowerW: Math.round(kw * 1000), rotorDiameterM: diam, bladeHeightM: bladeH, bladeLength: bladeH,
+    type: type, cutInSpeedMs: cutin, ratedSpeedMs: rated, cutOutSpeedMs: cutout, powerCurve: []
   };
-
   if (window.RAWindCatalog && typeof window.RAWindCatalog.calibratePowerCurveToBetz === 'function') {
     window.RAWindCatalog.calibratePowerCurveToBetz(mock, type === 'VAWT' ? 0.35 : 0.42);
-    const txtArea = document.getElementById('edit-wt-curve-text');
+    const txtArea = document.getElementById(prefix + '-wt-curve-text');
     if (txtArea && typeof window.RAWindCatalog.formatPowerCurveText === 'function') {
       txtArea.value = window.RAWindCatalog.formatPowerCurveText(mock.powerCurve);
     }
   }
-  window.auditCurveInEdit();
-};
+  _auditWindCurve(prefix);
+}
 
-window.auditCurveInEdit = function() {
-  const txtArea = document.getElementById('edit-wt-curve-text');
-  const badge = document.getElementById('edit-wt-curve-audit-badge');
+function _auditWindCurve(prefix) {
+  const txtArea = document.getElementById(prefix + '-wt-curve-text');
+  const badge = document.getElementById(prefix + '-wt-curve-audit-badge');
   if (!txtArea || !badge) return;
-  const pts = window.RAWindCatalog && typeof window.RAWindCatalog.parsePowerCurveText === 'function'
-    ? window.RAWindCatalog.parsePowerCurveText(txtArea.value)
-    : [];
-
-  const diam = Math.max(0.5, parseFloat(document.getElementById('edit-wt-diameter').value) || 5.0);
-  const type = document.getElementById('edit-wt-type').value || 'HAWT';
-  const bladeH = parseFloat(document.getElementById('edit-wt-blade-height').value) || (type === 'VAWT' ? diam * 1.4 : diam / 2);
-
-  const mock = {
-    rotorDiameterM: diam,
-    bladeHeightM: bladeH,
-    bladeLength: bladeH,
-    type: type,
-    powerCurve: pts
-  };
-
-  const audit = window.RAWindCatalog && typeof window.RAWindCatalog.validatePowerCurve === 'function'
-    ? window.RAWindCatalog.validatePowerCurve(mock)
-    : { valid: true, maxCp: 0.38 };
-
+  const pts = (window.RAWindCatalog && typeof window.RAWindCatalog.parsePowerCurveText === 'function')
+    ? window.RAWindCatalog.parsePowerCurveText(txtArea.value) : [];
+  const diam = Math.max(0.5, parseFloat(document.getElementById(prefix + '-wt-diameter').value) || 5.0);
+  const type = document.getElementById(prefix + '-wt-type').value || 'HAWT';
+  const bladeH = parseFloat(document.getElementById(prefix + '-wt-blade-height').value) || (type === 'VAWT' ? diam * 1.4 : diam / 2);
+  const mock = { rotorDiameterM: diam, bladeHeightM: bladeH, bladeLength: bladeH, type: type, powerCurve: pts };
+  const audit = (window.RAWindCatalog && typeof window.RAWindCatalog.validatePowerCurve === 'function')
+    ? window.RAWindCatalog.validatePowerCurve(mock) : { valid: true, maxCp: 0.38 };
   if (pts.length === 0) {
     badge.innerHTML = 'Auditoría de curva: <b style="color:#F59E0B;">Curva vacía (se autocalculará al guardar)</b>';
   } else if (!audit.valid) {
@@ -6289,165 +6125,46 @@ window.auditCurveInEdit = function() {
   } else {
     badge.innerHTML = 'Auditoría de curva: <b style="color:#34D399;">Físicamente viable (Cp_máx = ' + audit.maxCp + ') · ' + pts.length + ' puntos</b>';
   }
-};
+}
 
-window.autoCalibrateCurveInNew = function() {
-  const kw = Math.max(0.1, parseFloat(document.getElementById('new-wt-kw').value) || 10.0);
-  const diam = Math.max(0.5, parseFloat(document.getElementById('new-wt-diameter').value) || 5.0);
-  const type = document.getElementById('new-wt-type').value || 'HAWT';
-  const bladeH = parseFloat(document.getElementById('new-wt-blade-height').value) || (type === 'VAWT' ? diam * 1.4 : diam / 2);
-  const cutin = parseFloat(document.getElementById('new-wt-cutin').value) || 2.5;
-  const rated = parseFloat(document.getElementById('new-wt-ratedspeed').value) || 11.0;
-  const cutout = parseFloat(document.getElementById('new-wt-cutout').value) || 25.0;
-
-  const mock = {
-    ratedPowerW: Math.round(kw * 1000),
-    rotorDiameterM: diam,
-    bladeHeightM: bladeH,
-    bladeLength: bladeH,
-    type: type,
-    cutInSpeedMs: cutin,
-    ratedSpeedMs: rated,
-    cutOutSpeedMs: cutout,
-    powerCurve: []
-  };
-
-  if (window.RAWindCatalog && typeof window.RAWindCatalog.calibratePowerCurveToBetz === 'function') {
-    window.RAWindCatalog.calibratePowerCurveToBetz(mock, type === 'VAWT' ? 0.35 : 0.42);
-    const txtArea = document.getElementById('new-wt-curve-text');
-    if (txtArea && typeof window.RAWindCatalog.formatPowerCurveText === 'function') {
-      txtArea.value = window.RAWindCatalog.formatPowerCurveText(mock.powerCurve);
-    }
-  }
-  window.auditCurveInNew();
-};
-
-window.auditCurveInNew = function() {
-  const txtArea = document.getElementById('new-wt-curve-text');
-  const badge = document.getElementById('new-wt-curve-audit-badge');
-  if (!txtArea || !badge) return;
-  const pts = window.RAWindCatalog && typeof window.RAWindCatalog.parsePowerCurveText === 'function'
-    ? window.RAWindCatalog.parsePowerCurveText(txtArea.value)
-    : [];
-
-  const diam = Math.max(0.5, parseFloat(document.getElementById('new-wt-diameter').value) || 5.0);
-  const type = document.getElementById('new-wt-type').value || 'HAWT';
-  const bladeH = parseFloat(document.getElementById('new-wt-blade-height').value) || (type === 'VAWT' ? diam * 1.4 : diam / 2);
-
-  const mock = {
-    rotorDiameterM: diam,
-    bladeHeightM: bladeH,
-    bladeLength: bladeH,
-    type: type,
-    powerCurve: pts
-  };
-
-  const audit = window.RAWindCatalog && typeof window.RAWindCatalog.validatePowerCurve === 'function'
-    ? window.RAWindCatalog.validatePowerCurve(mock)
-    : { valid: true, maxCp: 0.38 };
-
-  if (pts.length === 0) {
-    badge.innerHTML = 'Auditoría de curva: <b style="color:#F59E0B;">Curva vacía (se autocalculará al guardar)</b>';
-  } else if (!audit.valid) {
-    badge.innerHTML = 'Auditoría de curva: <b style="color:#EF4444;">Incompatible con Betz (Cp_máx = ' + audit.maxCp + ' > 0,593)</b>';
-  } else {
-    badge.innerHTML = 'Auditoría de curva: <b style="color:#34D399;">Físicamente viable (Cp_máx = ' + audit.maxCp + ') · ' + pts.length + ' puntos</b>';
-  }
-};
-
-window.updateNewWindTurbineAreaPreview = function(isTypeToggle) {
-  const typeIn = document.getElementById('new-wt-type');
-  const diamIn = document.getElementById('new-wt-diameter');
-  const bladeIn = document.getElementById('new-wt-blade-height');
-  const lbl = document.getElementById('new-wt-blade-label');
-  const areaVal = document.getElementById('new-wt-area-val');
-  const pill = document.getElementById('new-wt-area-calc-pill');
-  if (!typeIn || !diamIn || !areaVal) return;
-
-  const isVawt = (typeIn.value === 'VAWT' || typeIn.value === 'vawt');
-  const D = Math.max(0.1, parseFloat(diamIn.value) || 0);
-
-  if (isTypeToggle && bladeIn) {
-    if (isVawt) {
-      bladeIn.value = (Math.round(D * 1.4 * 10) / 10).toFixed(1);
-    } else {
-      bladeIn.value = (Math.round(D / 2 * 10) / 10).toFixed(1);
-    }
-  }
-
-  let H = parseFloat(bladeIn ? bladeIn.value : 0);
-  if (!(H > 0)) {
-    H = isVawt ? (Math.round(D * 1.4 * 10) / 10) : (Math.round(D / 2 * 10) / 10);
-    if (bladeIn) bladeIn.value = H.toFixed(1);
-  }
-
-  if (lbl) {
-    lbl.textContent = isVawt 
-      ? 'Altura Pala Vertical (H, en m):' 
-      : 'Longitud de Pala (Radio ≈ Ø / 2, en m):';
-  }
-
-  let area = 0;
-  let formulaText = '';
-  if (isVawt) {
-    area = D * H;
-    formulaText = area.toFixed(2) + ' m² (Cilindro de captación: Ø ' + D.toFixed(1) + 'm × H ' + H.toFixed(1) + 'm)';
-    if (pill) { pill.textContent = 'VAWT CILÍNDRICO (Ø × H)'; pill.style.background = '#8B5CF6'; }
-  } else {
-    area = Math.PI * D * D / 4;
-    formulaText = area.toFixed(2) + ' m² (Círculo de barrido: π × Ø² / 4)';
-    if (pill) { pill.textContent = 'HAWT CIRCULAR (π·Ø²/4)'; pill.style.background = '#0284C7'; }
-  }
-
-  areaVal.textContent = formulaText;
-};
-
-window.updateWindTurbineAreaPreview = function(isTypeToggle) {
-  const typeIn = document.getElementById('edit-wt-type');
-  const diamIn = document.getElementById('edit-wt-diameter');
-  const bladeIn = document.getElementById('edit-wt-blade-height');
-  const lbl = document.getElementById('edit-wt-blade-label');
-  const areaVal = document.getElementById('edit-wt-area-val');
-  const pill = document.getElementById('edit-wt-area-calc-pill');
+function _updateWindTurbineAreaPreview(prefix, isTypeToggle) {
+  const typeIn = document.getElementById(prefix + '-wt-type');
+  const diamIn = document.getElementById(prefix + '-wt-diameter');
+  const bladeIn = document.getElementById(prefix + '-wt-blade-height');
+  const lbl = document.getElementById(prefix + '-wt-blade-label');
+  const areaVal = document.getElementById(prefix + '-wt-area-val');
+  const pill = document.getElementById(prefix + '-wt-area-calc-pill');
   if (!typeIn || !diamIn) return;
-
   const isVawt = (typeIn.value === 'VAWT' || typeIn.value === 'vawt');
   const D = Math.max(0.1, parseFloat(diamIn.value) || 0);
-
   if (isTypeToggle && bladeIn) {
-    if (isVawt) {
-      bladeIn.value = (Math.round(D * 1.4 * 10) / 10).toFixed(1);
-    } else {
-      bladeIn.value = (Math.round(D / 2 * 10) / 10).toFixed(1);
-    }
+    bladeIn.value = (Math.round((isVawt ? D * 1.4 : D / 2) * 10) / 10).toFixed(1);
   }
-
   let H = parseFloat(bladeIn ? bladeIn.value : 0);
   if (!(H > 0)) {
     H = isVawt ? (Math.round(D * 1.4 * 10) / 10) : (Math.round(D / 2 * 10) / 10);
     if (bladeIn) bladeIn.value = H.toFixed(1);
   }
-
   if (lbl) {
-    lbl.textContent = isVawt 
-      ? 'Altura Pala Vertical (H, en m):' 
-      : 'Longitud de Pala (Radio ≈ Ø / 2, en m):';
+    lbl.textContent = isVawt ? 'Altura Pala Vertical (H, en m):' : 'Longitud de Pala (Radio ≈ Ø / 2, en m):';
   }
-
-  let area = 0;
-  let formulaText = '';
-  if (isVawt) {
-    area = D * H;
-    formulaText = area.toFixed(2) + ' m² (Cilindro de captación: Ø ' + D.toFixed(1) + 'm × H ' + H.toFixed(1) + 'm)';
-    if (pill) { pill.textContent = 'VAWT CILÍNDRICO (Ø × H)'; pill.style.background = '#8B5CF6'; }
-  } else {
-    area = Math.PI * D * D / 4;
-    formulaText = area.toFixed(2) + ' m² (Círculo de barrido: π × Ø² / 4)';
-    if (pill) { pill.textContent = 'HAWT CIRCULAR (π·Ø²/4)'; pill.style.background = '#0284C7'; }
+  const area = isVawt ? (D * H) : (Math.PI * D * D / 4);
+  const formulaText = isVawt
+    ? (area.toFixed(2) + ' m² (Cilindro de captación: Ø ' + D.toFixed(1) + 'm × H ' + H.toFixed(1) + 'm)')
+    : (area.toFixed(2) + ' m² (Círculo de barrido: π × Ø² / 4)');
+  if (pill) {
+    pill.textContent = isVawt ? 'VAWT CILÍNDRICO (Ø × H)' : 'HAWT CIRCULAR (π·Ø²/4)';
+    pill.style.background = isVawt ? '#8B5CF6' : '#0284C7';
   }
-
   if (areaVal) areaVal.textContent = formulaText;
-};
+}
+
+window.autoCalibrateCurveInEdit = function() { _autoCalibrateWindCurve('edit'); };
+window.auditCurveInEdit = function() { _auditWindCurve('edit'); };
+window.autoCalibrateCurveInNew = function() { _autoCalibrateWindCurve('new'); };
+window.auditCurveInNew = function() { _auditWindCurve('new'); };
+window.updateNewWindTurbineAreaPreview = function(isTypeToggle) { _updateWindTurbineAreaPreview('new', isTypeToggle); };
+window.updateWindTurbineAreaPreview = function(isTypeToggle) { _updateWindTurbineAreaPreview('edit', isTypeToggle); };
 
 window.openEditEquipmentModal = openEditEquipmentModal;
 window.saveEditedEquipment = saveEditedEquipment;
@@ -6999,158 +6716,7 @@ function getAzimuthCardinalShort(deg) {
   return 'NO (315°)';
 }
 
-function wpApplyStep6Tilt(val, isFinal = false) {
-  const valBadge = document.getElementById('cfg-p2-tilt-val');
-  const slider = document.getElementById('cfg-p2-tilt-slider');
-  const isAuto = (val === 'auto' || val === '' || val === null || val === undefined);
-
-  if (valBadge) {
-    valBadge.textContent = isAuto ? 'Auto (faldón)' : (parseFloat(val).toFixed(0) + '°');
-    valBadge.style.color = isAuto ? 'var(--text-slate-300)' : 'var(--amber-400)';
-  }
-  if (slider && !isAuto) {
-    slider.value = Math.round(parseFloat(val));
-  }
-
-  const cfgTilt = document.getElementById('cfg-mod-tilt');
-  if (cfgTilt) cfgTilt.value = isAuto ? 'auto' : String(Math.round(parseFloat(val)));
-
-  if (typeof WP !== 'undefined' && WP && WP.polylines && WP.polylines.length > 0) {
-    const pIdx = (WP.selectedPolyIdx >= 0 && WP.selectedPolyIdx < WP.polylines.length) ? WP.selectedPolyIdx : 0;
-    const targetTilt = isAuto ? 'auto' : Math.round(parseFloat(val));
-    WP.polylines[pIdx].modTilt = targetTilt;
-    WP.polylines[pIdx].arrangementMode = isAuto ? 'coplanar' : 'custom';
-
-    // Coherencia cinemática: Inclinación -> Estructura de montaje
-    if (!WP.polylines[pIdx].estructura) WP.polylines[pIdx].estructura = { tipo: 'coplanar', clearance: 0 };
-    const structSel = document.getElementById('faldon-structure-select');
-    const curType = WP.polylines[pIdx].structureType;
-    if (curType === 'ballast_blocks') {
-      if (!WP.polylines[pIdx].estructura) {
-        WP.polylines[pIdx].estructura = { tipo: 'balasto_bloques', clearance: 0.10, subtype: 'concrete_blocks', blocksPerPanel: WP.polylines[pIdx].blocksPerPanel || 2 };
-      }
-    } else if (isAuto || targetTilt === 0) {
-      if (WP.polylines[pIdx].estructura.tipo !== 'pergola') {
-        WP.polylines[pIdx].estructura.tipo = 'coplanar';
-        WP.polylines[pIdx].structureType = 'coplanar_teja';
-        if (structSel) structSel.value = 'coplanar_teja';
-      }
-    } else {
-      if (WP.polylines[pIdx].estructura.tipo === 'coplanar') {
-        WP.polylines[pIdx].estructura.tipo = 'balasto';
-        if (!WP.polylines[pIdx].estructura.clearance) WP.polylines[pIdx].estructura.clearance = 0.20;
-      }
-      if (targetTilt === 30) {
-        WP.polylines[pIdx].structureType = 'triangles_30';
-        if (structSel) structSel.value = 'triangles_30';
-      } else if (targetTilt === 15 && WP.polylines[pIdx].modAzimuth === 90) {
-        WP.polylines[pIdx].structureType = 'triangles_15_ew';
-        if (structSel) structSel.value = 'triangles_15_ew';
-      } else {
-        WP.polylines[pIdx].structureType = 'triangles_custom';
-        if (structSel) structSel.value = 'triangles_custom';
-      }
-    }
-    if (typeof wpSyncEstructuraUI === 'function') wpSyncEstructuraUI();
-    WP.selectedPolyIdx = pIdx;
-    if (typeof roofPanelsCache !== 'undefined' && roofPanelsCache) roofPanelsCache.sig = '';
-    if (typeof computeSinglePolylineRoofInfo === 'function') {
-      WP.polylines[pIdx].roofInfo = computeSinglePolylineRoofInfo(WP.polylines[pIdx].points, WP.polylines[pIdx]);
-    }
-    if (typeof window.wpInvalidateHeatmap === 'function') {
-      window.wpInvalidateHeatmap('Inclinación de módulos modificada (' + targetTilt + '°)');
-    }
-  }
-
-  if (typeof step5RegenerateLayout === 'function') {
-    step5RegenerateLayout();
-  } else if (typeof updateConfigAndSimulate === 'function') {
-    updateConfigAndSimulate();
-  }
-  if (isFinal && typeof wpUpdateStep3UI === 'function') wpUpdateStep3UI();
-}
-
-function wpOnStep6TiltSliderInput(val) {
-  wpApplyStep6Tilt(val, false);
-}
-window.wpOnStep6TiltSliderInput = wpOnStep6TiltSliderInput;
-
-function wpOnStep6TiltSliderChange(val) {
-  wpApplyStep6Tilt(val, true);
-}
-window.wpOnStep6TiltSliderChange = wpOnStep6TiltSliderChange;
-
-function wpResetStep6TiltAuto() {
-  if (typeof wpApplyPanelArrangementActive === 'function') {
-    wpApplyPanelArrangementActive('coplanar');
-  } else {
-    wpApplyStep6Tilt('auto', true);
-  }
-}
-window.wpResetStep6TiltAuto = wpResetStep6TiltAuto;
-
-function wpApplyStep6Azimuth(val, isFinal = false) {
-  const valBadge = document.getElementById('cfg-p2-azimuth-val');
-  const slider = document.getElementById('cfg-p2-azimuth-slider');
-  const isAuto = (val === 'auto' || val === '' || val === null || val === undefined);
-
-  if (valBadge) {
-    if (isAuto) {
-      valBadge.textContent = 'Auto (faldón)';
-      valBadge.style.color = 'var(--text-slate-300)';
-    } else {
-      const numDeg = Math.round(parseFloat(val));
-      valBadge.textContent = numDeg + '° · ' + getAzimuthCardinalShort(numDeg);
-      valBadge.style.color = 'var(--cyan-400,#38bdf8)';
-    }
-  }
-  if (slider && !isAuto) {
-    slider.value = Math.round(parseFloat(val));
-  }
-
-  const cfgAz = document.getElementById('cfg-mod-azimuth');
-  if (cfgAz) cfgAz.value = isAuto ? 'auto' : String(Math.round(parseFloat(val)));
-
-  if (typeof WP !== 'undefined' && WP && WP.polylines && WP.polylines.length > 0) {
-    const pIdx = (WP.selectedPolyIdx >= 0 && WP.selectedPolyIdx < WP.polylines.length) ? WP.selectedPolyIdx : 0;
-    WP.polylines[pIdx].modAzimuth = isAuto ? 'auto' : Math.round(parseFloat(val));
-    WP.polylines[pIdx].arrangementMode = isAuto ? 'coplanar' : 'custom';
-    WP.selectedPolyIdx = pIdx;
-    if (typeof roofPanelsCache !== 'undefined' && roofPanelsCache) roofPanelsCache.sig = '';
-    if (typeof computeSinglePolylineRoofInfo === 'function') {
-      WP.polylines[pIdx].roofInfo = computeSinglePolylineRoofInfo(WP.polylines[pIdx].points, WP.polylines[pIdx]);
-    }
-    if (typeof window.wpInvalidateHeatmap === 'function') {
-      window.wpInvalidateHeatmap('Azimut de módulos modificado (' + val + '°)');
-    }
-  }
-
-  if (typeof step5RegenerateLayout === 'function') {
-    step5RegenerateLayout();
-  } else if (typeof updateConfigAndSimulate === 'function') {
-    updateConfigAndSimulate();
-  }
-  if (isFinal && typeof wpUpdateStep3UI === 'function') wpUpdateStep3UI();
-}
-
-function wpOnStep6AzimuthSliderInput(val) {
-  wpApplyStep6Azimuth(val, false);
-}
-window.wpOnStep6AzimuthSliderInput = wpOnStep6AzimuthSliderInput;
-
-function wpOnStep6AzimuthSliderChange(val) {
-  wpApplyStep6Azimuth(val, true);
-}
-window.wpOnStep6AzimuthSliderChange = wpOnStep6AzimuthSliderChange;
-
-function wpResetStep6AzimuthAuto() {
-  if (typeof wpApplyPanelArrangementActive === 'function') {
-    wpApplyPanelArrangementActive('coplanar');
-  } else {
-    wpApplyStep6Azimuth('auto', true);
-  }
-}
-window.wpResetStep6AzimuthAuto = wpResetStep6AzimuthAuto;
+// [F3-09] Handlers muertos Paso 6 (wpApplyStep6Tilt/Azimuth) purgados.
 
 function wpApplyPanelArrangementActive(mode) {
   const activeIdx = (typeof WP !== 'undefined' && WP && WP.selectedPolyIdx >= 0 && WP.polylines && WP.polylines[WP.selectedPolyIdx]) ? WP.selectedPolyIdx : 0;
@@ -7170,202 +6736,7 @@ window.wpApplyActiveArrangementToAll = wpApplyActiveArrangementToAll;
 
 // ── EXPORTACIÓN DE INFORME TÉCNICO PDF PROFESIONAL (PASO 5) ──
 async function generatePdfReport() {
-  // [CANÓNICO v3.0] Delegación unificada a docs-generator.js
-  if (typeof window.generateMemoria === 'function') {
-    return window.generateMemoria();
-  }
-  if (typeof window.ensureJsPdfLoaded === 'function') {
-    await window.ensureJsPdfLoaded().catch(() => {});
-  }
-  const sConf = (window.solarProjectConfig && window.solarProjectConfig.calculatedLimits) ? window.solarProjectConfig : {
-    calculatedLimits: { inverter: { model: 'Inversor Central FV' }, module: { model: 'Módulo Tier-1 450W', wp: 450 } }
-  };
-  const pCalcs = (typeof getProjectCalcs === 'function') ? getProjectCalcs() : null;
-  const count = (window.allRenderedPanels && window.allRenderedPanels.length > 0) 
-    ? window.allRenderedPanels.length 
-    : ((pCalcs && pCalcs.numPanels) ? pCalcs.numPanels : ((typeof lastRoofInfo !== 'undefined' && lastRoofInfo && lastRoofInfo.panels) ? lastRoofInfo.panels.length : 0));
-  
-  const modWp = (sConf.calculatedLimits.module && sConf.calculatedLimits.module.wp) 
-    ? sConf.calculatedLimits.module.wp 
-    : ((pCalcs && pCalcs.potMod) ? pCalcs.potMod : 450);
-    
-  const kwp = (pCalcs && pCalcs.kwp) ? pCalcs.kwp : (count * modWp / 1000.0).toFixed(2);
-  const annualYield = (pCalcs && pCalcs.annualKWh) ? pCalcs.annualKWh : Math.round(count * modWp * 1.65 * 0.78);
-  const annualSavings = (pCalcs && pCalcs.ahorro_anual) ? pCalcs.ahorro_anual : Math.round(annualYield * 0.16);
-  const co2 = (pCalcs && pCalcs.co2Ton) ? pCalcs.co2Ton : (annualYield * 0.259 / 1000.0).toFixed(2);
-
-  // Intentar generar PDF con jsPDF si está disponible
-  if (typeof window.jspdf !== 'undefined' && window.jspdf.jsPDF) {
-    try {
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-
-      // Cabecera RA
-      doc.setFillColor(15, 23, 42); // Dark Slate #0F172A
-      doc.rect(0, 0, 210, 38, 'F');
-      
-      doc.setTextColor(245, 158, 11); // Solar Amber #F59E0B
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(18);
-      doc.text('RA · RENEWABLE ARCHITECTURE', 14, 16);
-
-      doc.setTextColor(203, 213, 225); // Slate-300
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'normal');
-      doc.text('MEMORIA TÉCNICA DE DISEÑO FOTOVOLTAICO 3D & DIMENSIONAMIENTO ELÉCTRICO', 14, 24);
-      doc.text('Fecha: ' + new Date().toLocaleDateString('es-ES') + ' | Generado automáticamente con motor CesiumJS 3D AAA', 14, 30);
-
-      // Bloque 1: Resumen de Instalación
-      doc.setTextColor(15, 23, 42);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(13);
-      doc.text('1. Resumen Ejecutivo del Sistema', 14, 50);
-
-      doc.setDrawColor(226, 232, 240);
-      doc.setFillColor(248, 250, 252);
-      doc.roundedRect(14, 54, 182, 38, 3, 3, 'FD');
-
-      doc.setFontSize(10);
-      doc.setTextColor(51, 65, 85);
-      doc.text('Potencia Pico Total:', 20, 64);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(217, 119, 6);
-      doc.text(kwp + ' kWp (' + count + ' módulos solares)', 75, 64);
-
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(51, 65, 85);
-      doc.text('Inversor Seleccionado:', 20, 72);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(15, 23, 42);
-      doc.text((sConf.calculatedLimits.inverter ? sConf.calculatedLimits.inverter.model : 'Huawei SUN2000-5KTL'), 75, 72);
-
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(51, 65, 85);
-      doc.text('Módulo Fotovoltaico:', 20, 80);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(15, 23, 42);
-      doc.text((sConf.calculatedLimits.module ? sConf.calculatedLimits.module.model : 'LONGi Hi-MO 6 450W'), 75, 80);
-
-      // Bloque 2: Producción y Retorno
-      doc.setTextColor(15, 23, 42);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(13);
-      doc.text('2. Estimación Energética y Medioambiental', 14, 104);
-
-      doc.setFillColor(248, 250, 252);
-      doc.roundedRect(14, 108, 182, 38, 3, 3, 'FD');
-
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(51, 65, 85);
-      doc.text('Producción Anual Estimada:', 20, 118);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(16, 185, 129);
-      doc.text(annualYield.toLocaleString('es-ES') + ' kWh/año', 85, 118);
-
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(51, 65, 85);
-      doc.text('Ahorro Económico Estimado:', 20, 126);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(16, 185, 129);
-      doc.text(annualSavings.toLocaleString('es-ES') + ' €/año', 85, 126);
-
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(51, 65, 85);
-      doc.text('Emisiones de CO2 Evitadas:', 20, 134);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(56, 189, 248);
-      doc.text(co2 + ' Toneladas CO2/año', 85, 134);
-
-      // Pie de Página
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'italic');
-      doc.setTextColor(148, 163, 184);
-      doc.text('Documento técnico oficial emitido por la plataforma RA. Cálculo bajo normativa IEC 62548 y CTE DB-HE5.', 14, 280);
-
-      // ── ANEXO FOTOGRÁFICO: imagen dron realista + irradiación anual ──
-      try {
-        const caps = (window.raCapturasInforme && window.raCapturasInforme.realista) ? window.raCapturasInforme : null;
-        if (caps) {
-          const pagW = 210, margen = 14;
-          const imgW = pagW - margen * 2;
-          const addPaginaImagen = (dataUrl, titulo) => {
-            doc.addPage();
-            doc.setFontSize(13); doc.setTextColor(15, 23, 42);
-            doc.text(titulo, margen, 16);
-            doc.setFontSize(8); doc.setTextColor(100, 116, 139);
-            doc.text('Captura del visor RA (gemelo digital 3D) — ' + new Date().toLocaleDateString('es-ES'), margen, 21);
-            // proporción 1280:(alto+84) de la composición
-            const ratio = caps.ratio || 0.63;
-            doc.addImage(dataUrl, 'JPEG', margen, 26, imgW, imgW * ratio);
-          };
-          addPaginaImagen(caps.realista, 'ANEXO I — IMAGEN DE DRON: PANELES MONTADOS EN CUBIERTA');
-          if (caps.heatmap) addPaginaImagen(caps.heatmap, 'ANEXO II — MAPA DE IRRADIACIÓN ANUAL POR PANEL');
-          doc.setFontSize(9);
-          doc.text('Las pérdidas anuales por sombreado se calculan con ray-tracing 3D sobre la fotogrametría (192 instantes nominales, sol ≥ 10°).', margen, 292);
-        }
-      } catch(eAnexo) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eAnexo, 'anexo fotografico'); }
-
-      // ── ANEXO COMPARATIVA DE ESCENARIOS ──
-      try {
-        const comp = window.ultimoComparativo;
-        if (comp && comp.escenarios && comp.escenarios.length) {
-          doc.addPage();
-          doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(15, 23, 42);
-          doc.text('ANEXO III — COMPARATIVA DE ESCENARIOS', 14, 16);
-          doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(100, 116, 139);
-          doc.text('Producción y rentabilidad por escenario · motores del visor · ' + comp.fecha, 14, 21);
-          let yy = 32;
-          const cols = [
-            { label: 'Escenario', x: 14, align: 'left' },
-            { label: 'kWh/ano', x: 78, align: 'right' },
-            { label: 'CAPEX (EUR)', x: 106, align: 'right' },
-            { label: 'Ahorro/ano', x: 134, align: 'right' },
-            { label: 'Payback', x: 158, align: 'right' },
-            { label: 'VAN 4% (EUR)', x: 182, align: 'right' },
-            { label: 'TIR', x: 203, align: 'right' }
-          ];
-          doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(30, 41, 59);
-          cols.forEach(c => { if (c.align === 'right') doc.text(c.label, c.x, yy, { align: 'right' }); else doc.text(c.label, c.x, yy); });
-          yy += 3;
-          doc.line(14, yy, 203, yy); yy += 5;
-          const mejor = [...comp.escenarios].sort((a, b) => b.van - a.van)[0];
-          comp.escenarios.forEach(s => {
-            const esMejor = s === mejor;
-            doc.setFont('helvetica', esMejor ? 'bold' : 'normal'); doc.setFontSize(7.5);
-            if (esMejor) doc.setTextColor(5, 122, 85); else doc.setTextColor(30, 41, 59);
-            doc.text(s.nombre, 14, yy);
-            doc.text(s.kwh.toLocaleString('es-ES'), 78, yy, { align: 'right' });
-            doc.text(s.capex.toLocaleString('es-ES'), 106, yy, { align: 'right' });
-            doc.text(s.ahorro.toLocaleString('es-ES'), 134, yy, { align: 'right' });
-            doc.text(s.payback ? s.payback.toFixed(1) : '—', 158, yy, { align: 'right' });
-            doc.text(s.van.toLocaleString('es-ES'), 182, yy, { align: 'right' });
-            doc.text(s.tir != null ? s.tir.toFixed(1) + '%' : 'N/D', 203, yy, { align: 'right' });
-            yy += 6;
-          });
-          doc.setFont('helvetica', 'italic'); doc.setFontSize(7); doc.setTextColor(100, 116, 139);
-          doc.text('Mejor VAN: ' + mejor.nombre + '. CAPEX = equipamiento de catalogo + instalacion fija.', 14, yy + 3);
-          doc.text('VAN al 4% a 25 anos con degradacion de paneles 0,45%/ano. Generada el ' + comp.fecha + '.', 14, yy + 8);
-        }
-      } catch(eCompPdf) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eCompPdf, 'anexo comparativa'); }
-
-      doc.save('Memoria_Tecnica_Solar_RA_' + new Date().toISOString().substring(0, 10) + '.pdf');
-      if (typeof showToast === 'function') {
-        showToast('INFORME PDF DESCARGADO', 'Se ha generado y descargado la memoria técnica oficial.', 'success', 3500);
-      }
-      return;
-    } catch(ePdf) {
-      window.RA && window.RA.log && window.RA.log.debug('Fallo al generar jsPDF directo, abriendo pestaña de documentación:', ePdf);
-    }
-  }
-
-  // Fallback: Abrir pestaña de documentación
-  if (typeof switchSidebarTab === 'function') {
-    switchSidebarTab('documentacion');
-    if (typeof showToast === 'function') {
-      showToast('GENERADOR DE INFORMES', 'Accediendo al centro de memorias técnicas y propuestas comerciales.', 'info', 3000);
-    }
-  }
+  if (typeof window.generateMemoria === 'function') return window.generateMemoria();
 }
 
 // [CANÓNICO] wpUpdateStep3UI reside de forma modular en js/working-plane.js

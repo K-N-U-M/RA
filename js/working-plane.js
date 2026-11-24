@@ -3293,7 +3293,7 @@ function wpSelectPolyline(polyIdx) {
 
 function wpStep3SelectPolyline(polyIdx) {
   wpSelectFaldon(polyIdx);
-  wpSyncStep3Metrics();
+  wpUpdateStep3UI();
 }
 
 function wpSelectVertex(vtxIdx) {
@@ -5021,7 +5021,6 @@ function wpApplyPanelArrangement(polyIdx, mode) {
   if (typeof wpFastRenderSimulatedPanels === 'function') wpFastRenderSimulatedPanels(true, polyIdx);
   if (typeof wpUpdateLayoutFastMetrics === 'function') wpUpdateLayoutFastMetrics();
   if (typeof wpPopulateFaldonCard === 'function') wpPopulateFaldonCard();
-  if (typeof wpSyncEstructuraUI === 'function') wpSyncEstructuraUI();
   if (typeof recalculateSolarYield === 'function') recalculateSolarYield(true);
 
   const slopeVal = (poly.roofInfo && poly.roofInfo.tiltDeg !== undefined) ? poly.roofInfo.tiltDeg : 0;
@@ -5925,7 +5924,6 @@ function wpSetPolyStructure(polyIdx, val) {
   }
 
   if (typeof wpUpdateLayoutFastMetrics === 'function') wpUpdateLayoutFastMetrics();
-  if (typeof wpSyncEstructuraUI === 'function') wpSyncEstructuraUI();
   if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') {
     BOMTreeEngine.refresh();
   }
@@ -6047,7 +6045,6 @@ function wpApplyPolyStructureToAll(sourcePolyIdx) {
   }
   if (typeof wpUpdateLayoutFastMetrics === 'function') wpUpdateLayoutFastMetrics();
   if (typeof wpPopulateFaldonCard === 'function') wpPopulateFaldonCard();
-  if (typeof wpSyncEstructuraUI === 'function') wpSyncEstructuraUI();
   if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') {
     BOMTreeEngine.refresh();
   }
@@ -6083,10 +6080,6 @@ function wpGenerateAllPolylinesPanels() {
     BOMTreeEngine.refresh();
   }
   showStatus("TODAS LAS CUBIERTAS RECALCULADAS CON SUS CONFIGURACIONES INDIVIDUALES", 2500);
-}
-
-function wpSyncStep3Metrics() {
-  wpUpdateStep3UI();
 }
 
 var userPanelOrientationPref = "portrait";
@@ -6409,9 +6402,8 @@ function _wpUpdateUINow() {
     nextStepBtn.style.opacity = plane ? '1' : '0.4';
     nextStepBtn.style.cursor = plane ? 'pointer' : 'not-allowed';
   }
-  wpSyncStep3Metrics();
+  wpUpdateStep3UI();
   // Estructura paramétrica del faldón activo → selector del Paso 2
-  if (typeof wpSyncEstructuraUI === 'function') wpSyncEstructuraUI();
   // Autoguardado con debounce tras cada actualización de UI/estado (P0 sesión)
   if (typeof wpAutoSaveProjectDebounced === 'function') wpAutoSaveProjectDebounced();
   if (typeof wpUpdateStep3UI === 'function') wpUpdateStep3UI();
@@ -7991,7 +7983,6 @@ function wpApplyMLPERecommendationAction() {
   if (typeof openEquipmentCatalogModal !== 'undefined') window.openEquipmentCatalogModal = openEquipmentCatalogModal;
   if (typeof saveEditedEquipment !== 'undefined') window.saveEditedEquipment = saveEditedEquipment;
   if (typeof wpFastRenderSimulatedPanels !== 'undefined') window.wpFastRenderSimulatedPanels = wpFastRenderSimulatedPanels;
-  if (typeof wpSyncStep3Metrics !== 'undefined') window.wpSyncStep3Metrics = wpSyncStep3Metrics;
   if (typeof wpUpdateStep3UI !== 'undefined') window.wpUpdateStep3UI = wpUpdateStep3UI;
   if (typeof wpUpdateUI !== 'undefined') window.wpUpdateUI = wpUpdateUI;
   if (typeof wpCancelCurrentMode !== 'undefined') window.wpCancelCurrentMode = wpCancelCurrentMode;

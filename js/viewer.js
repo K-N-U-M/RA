@@ -9,8 +9,6 @@
   'use strict';
 
   // ── ESTADO DEL MOTOR 3D Y VARIABLES COMPARTIDAS ────────────────────────────
-  var _initTriadDone = false;
-  var _initTriadRemove = null;
   var isPitchCenital = false;
 
 async function switchEngine(engine) {
@@ -1213,14 +1211,6 @@ function toggle2D3D() {
   showStatus(isPitchCenital ? 'VISTA CENITAL 2D ACTIVA' : 'VISTA PERSPECTIVA 3D ACTIVA', 2000);
 }
 
-function _initTriadOnce() {
-    if (_initTriadDone) return;
-    _initTriadDone = true;
-    try { ensureTriadCanvas(); } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
-    try { initTriad3DEntities(); } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
-    if (_initTriadRemove) { _initTriadRemove(); _initTriadRemove = null; }
-  }
-
   // ── EXPORTACIÓN AL NAMESPACE GLOBAL Y WINDOW.RA ─────────────────────────────
   global.RA = global.RA || {};
 
@@ -1240,7 +1230,6 @@ function _initTriadOnce() {
   global.resetNorth = resetNorth;
   global.updateWindRose = updateWindRose;
   global.toggle2D3D = toggle2D3D;
-  global._initTriadOnce = _initTriadOnce;
 
   // Nuevas utilidades canónicas del Buscador Universal AAA
   global.initUniversalSearch = initUniversalSearch;

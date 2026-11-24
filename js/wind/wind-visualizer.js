@@ -35,7 +35,6 @@
   };
 
   var _pulsePhase = 0.0;
-  var _pulseAnimationRunning = false;
   var _instanceGen = 0;
 
   var COLORS = {
@@ -135,21 +134,6 @@
     delete _primitivesByTurbineId[turbineId];
     delete _animationAngles[turbineId];
     _requestSceneRender();
-  }
-
-  /**
-   * Helper: genera los vértices de un anillo circular en el plano X-Y local.
-   */
-  function _createCirclePositions(radiusM, segments, zOffset) {
-    var Cesium = _getCesium();
-    var pts = [];
-    var count = segments || 64;
-    var z = zOffset || 0.15;
-    for (var i = 0; i <= count; i++) {
-      var angle = (i / count) * Math.PI * 2;
-      pts.push(new Cesium.Cartesian3(radiusM * Math.cos(angle), radiusM * Math.sin(angle), z));
-    }
-    return pts;
   }
 
   /**
@@ -707,15 +691,8 @@
         }
       });
     }
-    if (_visualConfig.style === 'pulse' && !_pulseAnimationRunning) {
-      _startPulseLoop();
-    }
     renderAll();
     return _visualConfig;
-  }
-
-  function _startPulseLoop() {
-    _pulseAnimationRunning = false;
   }
 
   function selectTurbine(id) {

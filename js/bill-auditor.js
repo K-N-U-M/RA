@@ -21,16 +21,7 @@
     pendingFile: null        // Archivo en espera si se requiere API Key
   };
 
-  // [D1+D2] Cliente IA unificado (cabecera x-goog-api-key, timeout y cancelación).
-  function _aiFetch(url, opts, timeoutMs, apiKey) {
-    if (window.RA && typeof window.RA.geminiFetch === 'function') {
-      return window.RA.geminiFetch(url, opts, timeoutMs, apiKey);
-    }
-    const cleanOpts = Object.assign({}, opts || {});
-    cleanOpts.headers = Object.assign({}, cleanOpts.headers || {});
-    if (apiKey) cleanOpts.headers['x-goog-api-key'] = apiKey;
-    return fetch(url, cleanOpts);
-  }
+  // [F3-05] Usa directamente window.RA.geminiFetch (company-branding.js) para timeout AbortController y x-goog-api-key.
 
   /**
    * 1. PARSER DETERMINISTA LOCAL DE FACTURAS ELÉCTRICAS (ESPAÑA)
@@ -492,7 +483,7 @@ Normas estrictas:
       for (const model of models) {
         try {
           const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-          const resp = await _aiFetch(url, {
+          const resp = await window.RA.geminiFetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestBody)
