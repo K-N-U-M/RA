@@ -57,7 +57,7 @@
         universalGizmoState.wasDragging = false;
         universalGizmoState.mode = hitUGizmo;
         universalGizmoState.targetType = uTarget.type;
-        if (window.RAundo && typeof window.RAundo.beginDrag === 'function') window.RAundo.beginDrag(uTarget.type);
+        if (window.RAundo && typeof window.RAundo.beginDrag === 'function') window.RAundo.beginDrag(uTarget.subType || uTarget.type);
         universalGizmoState.startMouse = { x: down.position.x, y: down.position.y };
         universalGizmoState.startPos = Cesium.Cartesian3.clone(uTarget.pos);
         // [ROT-3D] Capturar el valor del EJE cuyo anillo se agarra (antes siempre el yaw
@@ -77,9 +77,6 @@
         if (uTarget.type === 'polyline' && uTarget.rawObj) {
           const polyMove = uTarget.rawObj;
           const pIdxMove = uTarget.polyIdx;
-          if (window.RAundo && typeof window.RAundo.snapPolylines === 'function') {
-            window.RAundo.snapPolylines('Mover ' + (polyMove.name || 'Faldón'));
-          }
           const allObsMove = (typeof obstacles !== 'undefined' && Array.isArray(obstacles)) ? obstacles : [];
           universalGizmoState.movePolyObs = allObsMove.filter(obs => {
             if (!obs || !obs.cartesian) return false;
@@ -89,9 +86,6 @@
             }
             return false;
           });
-          if (universalGizmoState.movePolyObs.length > 0 && window.RAundo && typeof window.RAundo.snapObstacles === 'function') {
-            window.RAundo.snapObstacles('Mover obstáculos con ' + (polyMove.name || 'Faldón'));
-          }
           universalGizmoState.startPoints = Array.isArray(polyMove.points) ? polyMove.points.map(p => Cesium.Cartesian3.clone(p)) : [];
           universalGizmoState.startCenter = uTarget.pos ? Cesium.Cartesian3.clone(uTarget.pos) : null;
           universalGizmoState.startMovePolyObsPts = universalGizmoState.movePolyObs.map(o => o && o.cartesian ? Cesium.Cartesian3.clone(o.cartesian) : null);
@@ -293,7 +287,7 @@
       universalGizmoState.wasDragging = false;
       universalGizmoState.mode = 'center-drag';
       universalGizmoState.targetType = 'vertex';
-      if (window.RAundo && typeof window.RAundo.beginDrag === 'function') window.RAundo.beginDrag('vertex');
+      if (window.RAundo && typeof window.RAundo.beginDrag === 'function') window.RAundo.beginDrag('building_vertex');
       universalGizmoState.startMouse = { x: down.position.x, y: down.position.y };
       universalGizmoState.startPos = _bldPt ? Cesium.Cartesian3.clone(_bldPt) : null;
       universalGizmoState.startRot = 0;

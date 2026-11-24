@@ -141,11 +141,16 @@
       }
       if (kind === 'polylines') {
         var WPpl = global.WP;
-        return {
+        var snapObj = {
           polylines: (WPpl && Array.isArray(WPpl.polylines)) ? deepClone(WPpl.polylines, 0) : [],
           selectedPolyIdx: (WPpl && typeof WPpl.selectedPolyIdx === 'number') ? WPpl.selectedPolyIdx : -1,
           polygonPoints: (Array.isArray(global.polygonPoints)) ? deepClone(global.polygonPoints, 0) : []
         };
+        if (meta && meta.includeObstacles) {
+          var obsArrPl = (typeof window !== 'undefined' && Array.isArray(window.obstacles)) ? window.obstacles : global.obstacles;
+          if (Array.isArray(obsArrPl)) snapObj.obstacles = deepClone(obsArrPl, 0);
+        }
+        return snapObj;
       }
       if (kind === 'planes') {
         var WPpln = global.WP;
@@ -225,11 +230,16 @@
       if (!poly) return false;
       poly.points = revive(data.points);
       poly.area = data.area;
+      poly._calcSig = null;
+      poly._geometryDirty = true;
+      if (global.roofPanelsCache) global.roofPanelsCache.sig = '';
       if (WPn && WPn.selectedPolyIdx === pIdx && Array.isArray(global.polygonPoints)) {
         replaceInPlace(global.polygonPoints, poly.points.map(p => Cesium.Cartesian3.clone(p)));
       }
+      if (typeof global.computeSinglePolylineRoofInfo === 'function') global.computeSinglePolylineRoofInfo(pIdx);
       if (typeof global.wpRenderAllPolylines === 'function') global.wpRenderAllPolylines();
       if (typeof global.wpSyncVertexInputs === 'function') global.wpSyncVertexInputs();
+      if (typeof global.recalculateLayoutAndObstacles === 'function') global.recalculateLayoutAndObstacles(pIdx);
       if (typeof global.wpFastRenderSimulatedPanels === 'function') global.wpFastRenderSimulatedPanels();
       if (typeof global.wpInvalidateHeatmap === 'function') global.wpInvalidateHeatmap('Vértice restaurado');
       return true;
@@ -251,11 +261,19 @@
       var WPpl = global.WP;
       if (WPpl && Array.isArray(WPpl.polylines)) {
         replaceInPlace(WPpl.polylines, revive(data.polylines));
+        WPpl.polylines.forEach(function (pl) { if (pl) { pl._calcSig = null; pl._geometryDirty = true; } });
+        if (global.roofPanelsCache) global.roofPanelsCache.sig = '';
         WPpl.selectedPolyIdx = (typeof data.selectedPolyIdx === 'number') ? data.selectedPolyIdx : (WPpl.polylines.length > 0 ? 0 : -1);
         if (Array.isArray(data.polygonPoints) && global.polygonPoints) {
           replaceInPlace(global.polygonPoints, revive(data.polygonPoints));
         }
+        if (Array.isArray(data.obstacles)) {
+          var obsArrPlR = (typeof window !== 'undefined' && Array.isArray(window.obstacles)) ? window.obstacles : global.obstacles;
+          if (Array.isArray(obsArrPlR)) replaceInPlace(obsArrPlR, revive(data.obstacles));
+          if (typeof global.render3DObstaclesInCesium === 'function') global.render3DObstaclesInCesium();
+        }
         if (typeof global.wpRenderAllPolylines === 'function') global.wpRenderAllPolylines();
+        if (typeof global.recalculateLayoutAndObstacles === 'function') global.recalculateLayoutAndObstacles();
         if (typeof global.wpFastRenderSimulatedPanels === 'function') global.wpFastRenderSimulatedPanels();
         if (typeof global.wpUpdateUI === 'function') global.wpUpdateUI();
         if (typeof global.wpSyncVertexInputs === 'function') global.wpSyncVertexInputs();
@@ -543,6 +561,10 @@
     if (targetType === 'vertex') {
       kind = 'polylines';
       label = 'Mover vértice de faldón';
+    } else if (targetType === 'polyline') {
+      kind = 'polylines';
+      label = 'Mover faldón';
+      meta = { includeObstacles: true };
     } else if (targetType === 'workplane_vertex') {
       kind = 'planes';
       label = 'Mover vértice de plano de trabajo';
@@ -564,9 +586,9 @@
     } else if (targetType === 'wind_turbine_entity' || targetType === 'wind_turbine' || targetType === 'wind_turbines') {
       kind = 'wind_turbines';
       label = 'Mover aerogenerador';
-    } else if (targetType === 'equipment' || targetType === 'inverter' || targetType === 'gridMeter' || targetType === 'electrical') {
+    } else if (targetType === 'equipment' || targetType === 'inverter' || targetType === 'gridMeter' || targetType === 'electrical' || targetType === 'route_vertex') {
       kind = 'electrical';
-      label = 'Mover equipo eléctrico';
+      label = (targetType === 'route_vertex') ? 'Mover codo de ruta eléctrica' : 'Mover equipo eléctrico';
     }
 
     _pendingDrag = {
