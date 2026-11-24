@@ -2367,7 +2367,7 @@ function wpOpenPricingReviewModal(onConfirm) {
           var autoconsumoEl = document.getElementById('pricing-metric-autoconsumo');
 
           if (ahorroEl) ahorroEl.textContent = Math.round(m.ahorroLuzAnio1 || 0).toLocaleString('es-ES') + ' €/año';
-          if (paybackEl) paybackEl.textContent = (m.paybackYears ? m.paybackYears.toFixed(1) : '—') + ' años';
+          if (paybackEl) paybackEl.textContent = m.paybackString || ((m.paybackYears != null && isFinite(m.paybackYears)) ? (m.paybackYears.toFixed(1) + ' años') : '> 25 años');
           if (tirEl) tirEl.textContent = (m.tir != null && isFinite(m.tir) ? m.tir.toFixed(1) + ' %' : (m.tirString || '—'));
           if (autoconsumoEl) autoconsumoEl.textContent = Math.round(m.pctAutoconsumo || m.autarquiaPct || 0) + ' %';
 
@@ -4452,7 +4452,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         windKw: _eqp.hasWind ? (_eqp.windTotalKw || 0) : 0,
         annualYield: Math.round(annualYieldKWh).toLocaleString('es-ES'),
         ahorroAnual: Math.round(m.ahorroLuzAnio1).toLocaleString('es-ES'),
-        payback: m.paybackYears.toFixed(1),
+        payback: (typeof m.paybackYears === 'number' && isFinite(m.paybackYears)) ? m.paybackYears.toFixed(1) : '> 25',
         capexBruto: Math.round(m.capexBruto).toLocaleString('es-ES'),
         capexNeto: Math.round(m.capexNeto).toLocaleString('es-ES')
       })
@@ -5695,7 +5695,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
 
         <h2>Curva de amortización y retorno de inversión acumulado (25 años)</h2>
         <div class="chart-box">
-          <div class="chart-title" style="display:flex;align-items:center;gap:6px;">${_mSvg('trendUp', 13, pal.primary)} <span>Cashflow Acumulado — Payback en ${(m.isCelActive && m.paybackCEL ? m.paybackCEL.toFixed(1) : m.paybackYears.toFixed(1))} años${m.isCelActive && m.reduccionPaybackAnios ? ` (Acelerado con CEL · -${m.reduccionPaybackAnios.toFixed(1)}a)` : ''} · VAN ${Math.round(m.van).toLocaleString('es-ES')} € · TIR ${m.tirString || ((m.tir != null && isFinite(m.tir)) ? m.tir.toFixed(1) + "%" : "N/D")}${m.finMode !== 'cash' && m.taeCalculadaPct ? ` · TAE ${m.taeCalculadaPct}%` : ''}</span></div>
+          <div class="chart-title" style="display:flex;align-items:center;gap:6px;">${_mSvg('trendUp', 13, pal.primary)} <span>Cashflow Acumulado — Payback en ${(m.isCelActive && m.paybackCEL ? (m.paybackCEL.toFixed(1) + ' años') : (typeof m.paybackYears === 'number' && isFinite(m.paybackYears) ? (m.paybackYears.toFixed(1) + ' años') : '> 25 años'))}${m.isCelActive && m.reduccionPaybackAnios ? ` (Acelerado con CEL · -${m.reduccionPaybackAnios.toFixed(1)}a)` : ''} · VAN ${Math.round(m.van).toLocaleString('es-ES')} € · TIR ${m.tirString || ((m.tir != null && isFinite(m.tir)) ? m.tir.toFixed(1) + "%" : "N/D")}${m.finMode !== 'cash' && m.taeCalculadaPct ? ` · TAE ${m.taeCalculadaPct}%` : ''}</span></div>
           ${amortSVG}
         </div>
       </div>
@@ -5924,7 +5924,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         <div class="closer-hero-card">
           <div style="display:flex;justify-content:center;margin-bottom:8px;">${(window.RA_SvgCatalog ? window.RA_SvgCatalog.render('savingsChart', pal.dark, 38) : '')}</div>
           <div class="closer-hero-lbl">Retorno de Inversión</div>
-          <div class="closer-hero-val">${m.paybackYears.toFixed(1)} Años</div>
+          <div class="closer-hero-val">${(typeof m.paybackYears === 'number' && isFinite(m.paybackYears)) ? (m.paybackYears.toFixed(1) + ' Años') : '> 25 Años'}</div>
           <div class="closer-hero-sub">10+ independencia energética</div>
         </div>
         <div class="closer-hero-card">
@@ -6974,9 +6974,9 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   if (!Number.isFinite(ivaRate)) ivaRate = 0.21;
 
   const subtotal = Math.max(100, Math.round(subtotalPreDiscount - discountEur));
-  const iva = Math.round(subtotal * ivaRate);
-  const capexBruto = subtotal + iva;
-  const capexTachado = (discountEur > 0) ? Math.round(subtotalPreDiscount * (1 + ivaRate)) : null;
+  let iva = Math.round(subtotal * ivaRate);
+  let capexBruto = subtotal + iva;
+  let capexTachado = (discountEur > 0) ? Math.round(subtotalPreDiscount * (1 + ivaRate)) : null;
 
   // Modalidad de instalación (Aislada vs Red) y Calificación de Suelo (Urbano vs Rústico)
   const _studioCfg = (typeof window !== "undefined" && window.RAProposalStyleStudio && typeof window.RAProposalStyleStudio.getActiveConfig === "function")
@@ -7035,6 +7035,22 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       ivaReasons.push(`Materiales aportados (${pctMateriales.toFixed(1)}%) superan el 40% de la Base Imponible (+${excesoMaterialesEur.toLocaleString('es-ES')} € sobre tope de ${maxMateriales40Eur.toLocaleString('es-ES')} €)`);
     }
   }
+  const ivaCompliant = isRenovacion10 ? (ivaReasons.length === 0) : true;
+  let ivaAutoAdjustedFrom10 = false;
+  if (isRenovacion10 && !ivaCompliant) {
+    ivaRate = 0.21;
+    iva = Math.round(subtotal * ivaRate);
+    capexBruto = subtotal + iva;
+    capexTachado = (discountEur > 0) ? Math.round(subtotalPreDiscount * (1 + ivaRate)) : null;
+    ivaAutoAdjustedFrom10 = true;
+    const warnSig = ivaReasons.join(' | ');
+    if (typeof window !== 'undefined' && window._lastIva21WarnSig !== warnSig) {
+      window._lastIva21WarnSig = warnSig;
+      if (typeof window.showToast === 'function') {
+        window.showToast('IVA 10% NO APLICABLE → 21%', 'Se aplica 21% por normativa LIVA: ' + (ivaReasons[0] || 'requisitos no cumplidos'), 'warning', 4500);
+      }
+    }
+  }
   const ivaCompliance = {
     ivaOpt: ivaOptRaw || String(ivaRate),
     ivaRate: ivaRate,
@@ -7049,7 +7065,8 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     pctMateriales: pctMateriales,
     maxMateriales40Eur: maxMateriales40Eur,
     excesoMaterialesEur: excesoMaterialesEur,
-    isCompliant: isRenovacion10 ? (ivaReasons.length === 0) : true,
+    isCompliant: ivaCompliant,
+    wasAutoAdjustedFrom10: ivaAutoAdjustedFrom10,
     reasons: ivaReasons
   };
 
@@ -7646,7 +7663,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   }
 
   // Payback
-  let paybackYears = 25;
+  let paybackYears = null;
   for (let y = 1; y <= 25; y++) {
     if (acumulado[y] >= 0) {
       const prev = acumulado[y - 1];
@@ -7655,8 +7672,9 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       break;
     }
   }
+  const paybackString = (paybackYears != null && isFinite(paybackYears)) ? (paybackYears.toFixed(1) + ' años') : '> 25 años';
 
-  // TIR Calculation (Bisection) sobre capexDesembolsoInicial y cashflow
+  // TIR Calculation (Bisection) sobre capexDesembolsoInicial y cashflow (desde -99% hasta +500%)
   function calcNPV(rate) {
     let npv = -capexDesembolsoInicial;
     for (let t = 1; t <= 25; t++) {
@@ -7664,26 +7682,23 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     }
     return npv;
   }
-  let low = -0.1, high = 1.0, tir = null, tirString = 'N/D';
-  // Verificación de bracketing ampliada (Nivel P2.2):
-  // Soporta proyectos hiperrentables (subvenciones IRPF/IBI/NextGen amortizadas en año 1)
+  let low = -0.99, high = 1.0, tir = null, tirString = 'N/D';
   let npvLow = calcNPV(low);
   let npvHigh = calcNPV(high);
 
   if (isFinite(npvLow) && isFinite(npvHigh)) {
     if (npvHigh > 0) {
-      // Proyecto extraordinariamente rentable: ampliar rango de búsqueda a 500%
       high = 5.0;
       npvHigh = calcNPV(high);
       if (npvHigh > 0) {
-        tir = 5.0;
+        tir = null;
         tirString = '> 500 %';
       }
     }
 
-    if (tir === null) {
+    if (tir === null && tirString === 'N/D') {
       if (npvLow * npvHigh < 0) {
-        for (let iter = 0; iter < 45; iter++) {
+        for (let iter = 0; iter < 50; iter++) {
           const mid = (low + high) / 2;
           const vMid = calcNPV(mid);
           if (Math.abs(vMid) < 1) { tir = mid; break; }
@@ -7899,8 +7914,9 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     ahorroLuzAnio1: ahorroLuzAnio1,
     ahorroTotal25: ahorroTotal25,
     paybackYears: paybackYears,
+    paybackString: paybackString,
     van: van,
-    tir: (tir != null && isFinite(tir)) ? tir * 100 : (tirString.startsWith('>') ? 100.0 : null),
+    tir: (tir != null && isFinite(tir)) ? tir * 100 : null,
     tirString: tirString,
     lcoe: lcoe,
     mesesFin: meses,
@@ -8017,7 +8033,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     const warranties = (typeof resolveEquipmentWarranties === 'function') ? resolveEquipmentWarranties() : {
       warPower: '25', warMod: '15', warInv: '12', warMo: '5', warBat: '10', isMicro: false, hasBat: !!(eq && eq.hasBat)
     };
-    const mesesFin = (m && Number(m.mesesFin) > 0) ? Number(m.mesesFin) : 96;
+    const mesesFin = (m && Number(m.mesesFin) > 0) ? Number(m.mesesFin) : 120;
     const finYears = Math.max(1, Math.round(mesesFin / 12));
     const cuotasMes = (m && typeof m.cuotaMensual === 'number') ? m.cuotaMensual : 0;
     const ahorroMes = (m && typeof m.ahorroMensualLuz === 'number') ? m.ahorroMensualLuz : ((m ? m.ahorroLuzAnio1 : (d.ahorro_anual || 0)) / 12);

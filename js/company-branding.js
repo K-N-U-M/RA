@@ -308,7 +308,7 @@
         font: getVal('cfg-doc-font') || _currentBranding.font || 'inter',
         finTin: getVal('cfg-fin-tin') || _currentBranding.finTin || '5.95',
         finEntry: getVal('cfg-fin-entry') || _currentBranding.finEntry || '0',
-        finMeses: getVal('cfg-fin-meses') || _currentBranding.finMeses || '96',
+        finMeses: getVal('cfg-fin-meses') || _currentBranding.finMeses || '120',
         warPower: getVal('cfg-war-power') || _currentBranding.warPower || '25',
         warMod: getVal('cfg-war-mod') || _currentBranding.warMod || '15',
         warInv: getVal('cfg-war-inv') || _currentBranding.warInv || '12',

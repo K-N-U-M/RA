@@ -976,9 +976,13 @@ function generateMemoria(skipPricingModal, opt) {
     : null;
   const capexTot = _snapMem ? _snapMem.capexBruto : (finM ? finM.capexBruto : d.total);
   const vanVal = _snapMem ? (_snapMem.van != null ? Math.round(_snapMem.van) : 'N/D') : (finM ? (typeof finM.van === 'number' ? Math.round(finM.van) : finM.van) : 'N/D');
-  const tirVal = _snapMem ? (_snapMem.tir != null ? _snapMem.tir.toFixed(1) : 'N/D') : (finM ? (typeof finM.tir === 'number' ? finM.tir.toFixed(1) : finM.tir) : 'N/D');
+  const tirVal = _snapMem
+    ? (_snapMem.tirStr || (_snapMem.tir != null && isFinite(_snapMem.tir) ? _snapMem.tir.toFixed(1) + ' %' : 'N/D'))
+    : (finM ? (finM.tirString || (typeof finM.tir === 'number' && isFinite(finM.tir) ? finM.tir.toFixed(1) + ' %' : 'N/D')) : 'N/D');
   const lcoeVal = _snapMem ? (_snapMem.lcoe != null ? _snapMem.lcoe.toFixed(3) : 'N/D') : (finM ? (typeof finM.lcoe === 'number' ? finM.lcoe.toFixed(3) : finM.lcoe) : 'N/D');
-  const pbYears = _snapMem ? (_snapMem.paybackYears != null ? _snapMem.paybackYears.toFixed(1) : 'N/D') : (finM ? (typeof finM.paybackYears === 'number' ? finM.paybackYears.toFixed(1) : finM.paybackYears) : 'N/D');
+  const pbYears = _snapMem
+    ? (_snapMem.paybackYears != null && isFinite(_snapMem.paybackYears) ? _snapMem.paybackYears.toFixed(1) + ' años' : (FIN_MODEL_MISSING ? 'N/D' : '> 25 años'))
+    : (finM ? (finM.paybackString || (typeof finM.paybackYears === 'number' && isFinite(finM.paybackYears) ? finM.paybackYears.toFixed(1) + ' años' : '> 25 años')) : 'N/D');
   const ah1 = _snapMem ? Math.round(_snapMem.ahorroLuzAnio1) : (finM ? Math.round(finM.ahorroLuzAnio1) : d.ahorro_anual);
   const waccPctMem = _snapMem ? _snapMem.waccPct : ((finM && typeof finM.waccPct === 'number') ? finM.waccPct : 4.0);
   const ipcOpexMem = _snapMem ? _snapMem.ipcOpexPct : ((finM && typeof finM.ipcOpexPct === 'number') ? finM.ipcOpexPct : 2.0);
@@ -1253,9 +1257,9 @@ function generateMemoria(skipPricingModal, opt) {
     '<div class="dcard"><label>Inversión Inicial (CAPEX Bruto)<\/label><value>' + capexTot.toLocaleString('es-ES',{minimumFractionDigits:2}) + ' €<\/value><\/div>' +
     '<div class="dcard"><label>Ahorro Anual (Año 1)<\/label><value style="color:#10b981">' + ah1.toLocaleString('es-ES') + ' €/año<\/value><\/div>' +
     '<div class="dcard"><label>Valor Actual Neto (VAN 25a · WACC ' + waccPctMem.toFixed(1) + '%)<\/label><value style="color:' + (typeof vanVal === 'number' && vanVal < 0 ? '#ef4444' : '#10b981') + '"><strong>' + (typeof vanVal === 'number' ? ((vanVal >= 0 ? '+' : '') + vanVal.toLocaleString('es-ES')) : vanVal) + ' €<\/strong><\/value><\/div>' +
-    '<div class="dcard"><label>Tasa Interna de Retorno (TIR)<\/label><value style="color:#10b981"><strong>' + tirVal + ' %<\/strong><\/value><small style="display:block;font-size:8px;color:#64748b;">sobre desembolso inicial (CAPEX bruto)<\/small><\/div>' +
+    '<div class="dcard"><label>Tasa Interna de Retorno (TIR)<\/label><value style="color:#10b981"><strong>' + tirVal + '<\/strong><\/value><small style="display:block;font-size:8px;color:#64748b;">sobre desembolso inicial (CAPEX bruto)<\/small><\/div>' +
     '<div class="dcard"><label>Coste Nivelado (LCOE)<\/label><value>' + lcoeVal + ' €/kWh<\/value><\/div>' +
-    '<div class="dcard"><label>Período de Retorno (Payback)<\/label><value><strong>' + pbYears + ' años<\/strong><\/value><small style="display:block;font-size:8px;color:#64748b;">sobre desembolso inicial (CAPEX bruto)<\/small><\/div>' +
+    '<div class="dcard"><label>Período de Retorno (Payback)<\/label><value><strong>' + pbYears + '<\/strong><\/value><small style="display:block;font-size:8px;color:#64748b;">sobre desembolso inicial (CAPEX bruto)<\/small><\/div>' +
     '<div class="dcard"><label>Emisiones CO₂ Evitadas<\/label><value>' + d.co2_evitado + ' t CO₂/año<\/value><\/div>' +
     '<div class="dcard"><label>Energía Limpia Total (25 años)<\/label><value>' + totalGen25Mem.toLocaleString('es-ES') + ' kWh<\/value><\/div>' +
     '<\/div>' +
@@ -1267,7 +1271,7 @@ function generateMemoria(skipPricingModal, opt) {
       buildAmortizationSvg(capexTot, finM && finM.financialSchedule25)
     ) : '') +
     '<h2>7. CONCLUSIÓN<\/h2>' +
-    '<p>La instalación fotovoltaica de autoconsumo de <strong>' + d.P_dc_kW.toFixed(2) + ' kWp<\/strong> (' + d.numPanels + ' módulos de ' + d.cfg.potencia + ' Wp con ' + (d.inverter ? d.inverter.fullName : ('inversor de ' + d.P_ac_kW.toFixed(2) + ' kW')) + (d.hasBattery && d.battery ? (' y sistema de almacenamiento en batería ' + d.battery.fullName + ' de ' + d.battery.totalKwh.toFixed(1) + ' kWh') : '') + ') es técnicamente viable y cumple la normativa española vigente. La producción estimada de <strong>' + d.annualKWh.toLocaleString('es-ES') + ' kWh\/año<\/strong> supone un ahorro anual de <strong>' + ah1.toLocaleString('es-ES') + ' €<\/strong> con un período de retorno de <strong>' + pbYears + ' años<\/strong> y una reducción de emisiones de <strong>' + d.co2_evitado + ' t CO₂\/año<\/strong>.<\/p>' +
+    '<p>La instalación fotovoltaica de autoconsumo de <strong>' + d.P_dc_kW.toFixed(2) + ' kWp<\/strong> (' + d.numPanels + ' módulos de ' + d.cfg.potencia + ' Wp con ' + (d.inverter ? d.inverter.fullName : ('inversor de ' + d.P_ac_kW.toFixed(2) + ' kW')) + (d.hasBattery && d.battery ? (' y sistema de almacenamiento en batería ' + d.battery.fullName + ' de ' + d.battery.totalKwh.toFixed(1) + ' kWh') : '') + ') es técnicamente viable y cumple la normativa española vigente. La producción estimada de <strong>' + d.annualKWh.toLocaleString('es-ES') + ' kWh\/año<\/strong> supone un ahorro anual de <strong>' + ah1.toLocaleString('es-ES') + ' €<\/strong> con un período de retorno de <strong>' + pbYears + '<\/strong> y una reducción de emisiones de <strong>' + d.co2_evitado + ' t CO₂\/año<\/strong>.<\/p>' +
 
     '<div class="sig-row"><div class="sig">El Titular<br><br><br>' + t.nombre + '<br>NIF: ' + t.nif + '<\/div>' +
     '<div class="sig">El Técnico Proyectista<br><br><br>' + t.tecnico + '<br>' + t.titulacion + ' — Col. ' + t.ncol + '<\/div>' +
@@ -1594,10 +1598,14 @@ function generatePresupuesto(skipPricingModal, opt) {
   // Incentivos y retorno bancable (25 años)
   // [AUD-2026 · A-03] Nunca sustituir por constantes de escaparate (16,4 % / 4,2 años).
   const FIN_MISSING_BUDGET = !m;
-  const tirVal = m ? (typeof m.tir === 'number' ? m.tir.toFixed(1) : m.tir) : 'N/D';
+  const tirVal = _snapBud
+    ? (_snapBud.tirStr || (_snapBud.tir != null && isFinite(_snapBud.tir) ? _snapBud.tir.toFixed(1) + ' %' : 'N/D'))
+    : (m ? (m.tirString || (typeof m.tir === 'number' && isFinite(m.tir) ? m.tir.toFixed(1) + ' %' : 'N/D')) : 'N/D');
   const vanVal = m ? ((typeof m.van === 'number' && isFinite(m.van)) ? Math.round(m.van).toLocaleString('es-ES') : 'N/D') : 'N/D';
   const lcoeVal = m ? ((typeof m.lcoe === 'number') ? m.lcoe.toFixed(3) : 'N/D') : 'N/D';
-  const paybackVal = m ? ((typeof m.paybackYears === 'number') ? m.paybackYears.toFixed(1) : 'N/D') : 'N/D';
+  const paybackVal = m
+    ? (m.paybackString || ((typeof m.paybackYears === 'number' && isFinite(m.paybackYears)) ? (m.paybackYears.toFixed(1) + ' años') : '> 25 años'))
+    : 'N/D';
   const capexNeto = m ? m.capexNeto : capexBruto;
   const ahorroAnio1 = m ? Math.round(m.ahorroLuzAnio1).toLocaleString('es-ES') : (d.ahorro_anual > 0 ? Math.round(d.ahorro_anual).toLocaleString('es-ES') : 'N/D');
 
@@ -1684,10 +1692,10 @@ function generatePresupuesto(skipPricingModal, opt) {
           <div style="font-weight:800;font-size:10.5pt;color:#0f172a;margin-bottom:8px">📊 RENTABILIDAD Y VIABILIDAD FINANCIERA (VAN / TIR)</div>
           <div style="font-size:8.5pt;color:#475569;margin-bottom:10px">Modelo de flujo de caja descontado a 25 años considerando degradación de paneles (${degAnnBud.toFixed(2)}%/año), IPC eléctrico (${inflBud.toFixed(1)}%/año) y sustitución preventiva de inversor en año 12:</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-            <div class="kpi-card" style="background:#fff"><div class="kpi-val" style="color:#10b981">${tirVal} %</div><div class="kpi-lbl">TIR (Rentabilidad Anual)</div></div>
+            <div class="kpi-card" style="background:#fff"><div class="kpi-val" style="color:#10b981">${tirVal}</div><div class="kpi-lbl">TIR (Rentabilidad Anual)</div></div>
             <div class="kpi-card" style="background:#fff"><div class="kpi-val" style="color:#0284c7">${vanVal} €</div><div class="kpi-lbl">VAN (Valor Actual Neto)</div></div>
             <div class="kpi-card" style="background:#fff"><div class="kpi-val" style="color:#8b5cf6">${lcoeVal} €/kWh</div><div class="kpi-lbl">LCOE (Coste Generación)</div></div>
-            <div class="kpi-card" style="background:#fff"><div class="kpi-val" style="color:#f59e0b">${paybackVal} años</div><div class="kpi-lbl">Retorno de Inversión</div></div>
+            <div class="kpi-card" style="background:#fff"><div class="kpi-val" style="color:#f59e0b">${paybackVal}</div><div class="kpi-lbl">Retorno de Inversión</div></div>
           </div>
         </div>
         <div style="margin-top:10px;padding:8px;background:rgba(16,185,129,0.08);border-left:3px solid #10b981;font-size:8.5pt;color:#065f46">

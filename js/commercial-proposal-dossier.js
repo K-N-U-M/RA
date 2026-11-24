@@ -176,7 +176,7 @@
     var totalCost = totalCostSinIva; // El campo de la UI es "Coste Instalación (€ sin IVA)"
     var annualYield = Math.round(Number(snap ? snap.annualYieldKWh : (d.annualKWh || (kwp * 1450))));
     var ahorroAnual = Number(snap ? snap.ahorroLuzAnio1 : (m.ahorroLuzAnio1 || (annualYield * 0.12)));
-    var payback = (snap && snap.paybackYears != null) ? snap.paybackYears : ((typeof m.paybackYears === 'number' && isFinite(m.paybackYears)) ? m.paybackYears : (totalCost > 0 && ahorroAnual > 0 ? (totalCost / ahorroAnual) : 0));
+    var payback = (snap && snap.paybackYears != null) ? snap.paybackYears : ((typeof m.paybackYears === 'number' && isFinite(m.paybackYears)) ? m.paybackYears : null);
     var tirStr = snap ? snap.tirStr : (m.tirString || ((typeof m.tir === 'number' && isFinite(m.tir)) ? (m.tir.toFixed(1) + ' %') : 'N/D'));
     var ahorro25 = Number(snap ? snap.ahorroTotal25 : (m.ahorroTotal25 || (ahorroAnual * 23.5)));
 
@@ -300,7 +300,7 @@
     var windName = (eq && eq.windName) ? eq.windName : 'Aerogenerador Minieólico';
 
     // Cálculos Bancables: Financiación sincronizada estrictamente con SSOT (calculateFinancialModel)
-    var nMonths = (m && m.mesesFin) ? m.mesesFin : 96;
+    var nMonths = (m && m.mesesFin) ? m.mesesFin : 120;
     var cuotaPrestamo = (m && typeof m.cuotaMensual === 'number' && m.cuotaMensual > 0)
       ? m.cuotaMensual
       : ((totalCostConIva > 0 && nMonths > 0)
@@ -369,7 +369,7 @@
         totalCostGrossNum: totalCostConIva,
         annualYield: annualYield.toLocaleString('es-ES'),
         annualYieldNum: annualYield,
-        payback: payback.toFixed(1),
+        payback: (typeof payback === 'number' && isFinite(payback)) ? payback.toFixed(1) : '> 25',
         ahorroAnual: ahorroAnual.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
         ahorroAnualNum: ahorroAnual,
         tir: tirStr,
@@ -512,7 +512,8 @@
       var W = 420, H = 160, PAD_L = 40, PAD_B = 25, PAD_T = 15, PAD_R = 15;
       var cW = W - PAD_L - PAD_R, cH = H - PAD_B - PAD_T;
       var bars = '';
-      var pb = Number(paybackYears) || 4;
+      var pbRaw = (typeof paybackYears === 'number') ? paybackYears : parseFloat(String(paybackYears || '').replace(',', '.'));
+      var pb = (Number.isFinite(pbRaw) && pbRaw > 0) ? pbRaw : null;
       var schedule = (finModel && Array.isArray(finModel.financialSchedule25) && finModel.financialSchedule25.length === 25)
         ? finModel.financialSchedule25
         : null;
@@ -545,7 +546,9 @@
           '<line x1="' + PAD_L + '" y1="' + zeroY.toFixed(1) + '" x2="' + (W - PAD_R) + '" y2="' + zeroY.toFixed(1) + '" stroke="#94a3b8" stroke-width="1" stroke-dasharray="2,2"/>' +
           bars +
           '<text x="' + PAD_L + '" y="' + (H - 5) + '" font-size="8" fill="#64748b">Año 1</text>' +
-          '<text x="' + (PAD_L + (Math.min(25, pb) / 25) * cW).toFixed(1) + '" y="' + (H - 5) + '" font-size="8" fill="' + pal.primary + '" font-weight="bold" text-anchor="middle">Retorno (Año ' + Math.ceil(pb) + ')</text>' +
+          (pb !== null
+            ? '<text x="' + (PAD_L + (Math.min(25, pb) / 25) * cW).toFixed(1) + '" y="' + (H - 5) + '" font-size="8" fill="' + pal.primary + '" font-weight="bold" text-anchor="middle">Retorno (Año ' + Math.ceil(pb) + ')</text>'
+            : '<text x="' + (PAD_L + cW * 0.5).toFixed(1) + '" y="' + (H - 5) + '" font-size="8" fill="#ef4444" font-weight="bold" text-anchor="middle">Retorno &gt; 25 años</text>') +
           '<text x="' + (W - PAD_R) + '" y="' + (H - 5) + '" font-size="8" fill="#64748b" text-anchor="end">Año 25</text>' +
           '</svg>';
       }
@@ -1677,7 +1680,7 @@
         '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-top:3px;text-align:center;">' +
         '  <div style="background:#f8fafc;padding:4px;border-radius:6px;">' +
         '    <div style="font-size:11px;color:#64748b;font-weight:700;">Amortización Simple</div>' +
-        '    <div style="font-size:15px;font-weight:900;color:' + pal.primary + ';">' + payback + ' años</div>' +
+        '    <div style="font-size:15px;font-weight:900;color:' + pal.primary + ';">' + escD(String(payback).indexOf('año') !== -1 ? payback : (payback + ' años')) + '</div>' +
         '  </div>' +
         '  <div style="background:#f8fafc;padding:4px;border-radius:6px;">' +
         '    <div style="font-size:11px;color:#64748b;font-weight:700;">TIR Proyecto</div>' +
