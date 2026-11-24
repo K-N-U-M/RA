@@ -2849,14 +2849,17 @@ window.deselectAllPanels = function() {
 function movePanelTo(idx, screenPos) {
   const scene = (typeof viewer !== 'undefined' && viewer) ? viewer.scene : ((typeof window !== 'undefined' && window.viewer) ? window.viewer.scene : null);
   const camera = scene ? scene.camera : null;
-  if (!scene || !camera || !lastRoofInfo || !lastRoofInfo.poly2D || !lastRoofInfo.origin || !lastRoofInfo.normal) return;
-  const panelsArr = (window.allRenderedPanels && window.allRenderedPanels.length > 0) ? window.allRenderedPanels : (lastRoofInfo.panels || []);
+  if (!scene || !camera) return;
+  const panelsArr = (window.allRenderedPanels && window.allRenderedPanels.length > 0) ? window.allRenderedPanels : ((lastRoofInfo && lastRoofInfo.panels) || []);
   const p = panelsArr[idx];
   if (!p || !p.corners) return;
+  const polyCtx = (typeof WP !== 'undefined' && WP && Array.isArray(WP.polylines) && typeof p.polyIdx === 'number') ? WP.polylines[p.polyIdx] : null;
+  const roofCtx = (polyCtx && polyCtx.roofInfo && polyCtx.roofInfo.poly2D && polyCtx.roofInfo.origin && polyCtx.roofInfo.normal) ? polyCtx.roofInfo : lastRoofInfo;
+  if (!roofCtx || !roofCtx.poly2D || !roofCtx.origin || !roofCtx.normal) return;
   const ray = camera.getPickRay(screenPos);
   if (!ray) return;
-  const origin = lastRoofInfo.origin;
-  const normal = lastRoofInfo.normal;
+  const origin = roofCtx.origin;
+  const normal = roofCtx.normal;
   const denom = Cesium.Cartesian3.dot(ray.direction, normal);
   if (Math.abs(denom) < 1e-8) return;
   const t = Cesium.Cartesian3.dot(Cesium.Cartesian3.subtract(origin, ray.origin, new Cesium.Cartesian3()), normal) / denom;
@@ -2868,32 +2871,35 @@ function movePanelTo(idx, screenPos) {
   );
   const cornerUV = p.corners.map(c => {
     const r = Cesium.Cartesian3.subtract(c, origin, new Cesium.Cartesian3());
-    return { u: Cesium.Cartesian3.dot(r, lastRoofInfo.uVec), v: Cesium.Cartesian3.dot(r, lastRoofInfo.vVec) };
+    return { u: Cesium.Cartesian3.dot(r, roofCtx.uVec), v: Cesium.Cartesian3.dot(r, roofCtx.vVec) };
   });
-  if (!cornerUV.every(pt => isPointInPolygon2D(pt, lastRoofInfo.poly2D))) return;
+  if (!cornerUV.every(pt => isPointInPolygon2D(pt, roofCtx.poly2D))) return;
   const delta = Cesium.Cartesian3.subtract(hit, p.center, new Cesium.Cartesian3());
   Cesium.Cartesian3.clone(hit, p.center);
   p.corners = p.corners.map(c => Cesium.Cartesian3.add(c, delta, new Cesium.Cartesian3()));
   const rel = Cesium.Cartesian3.subtract(hit, origin, new Cesium.Cartesian3());
-  p.u = Cesium.Cartesian3.dot(rel, lastRoofInfo.uVec);
-  p.v = Cesium.Cartesian3.dot(rel, lastRoofInfo.vVec);
+  p.u = Cesium.Cartesian3.dot(rel, roofCtx.uVec);
+  p.v = Cesium.Cartesian3.dot(rel, roofCtx.vVec);
   if (panelOutlineEntity) {
     panelOutlineEntity.polyline.positions = [p.corners[0], p.corners[1], p.corners[2], p.corners[3], Cesium.Cartesian3.clone(p.corners[0])];
   }
 }
 
 function rotateSelectedPanel() {
-  if (selectedPanelIndex < 0 || !lastRoofInfo) {
+  const panelsArr = (window.allRenderedPanels && window.allRenderedPanels.length > 0) ? window.allRenderedPanels : ((lastRoofInfo && lastRoofInfo.panels) || []);
+  if (selectedPanelIndex < 0 || panelsArr.length === 0) {
     showStatus('SELECCIONA UN PANEL FV HACIENDO CLIC SOBRE ÉL EN EL VISOR', 3000);
     return;
   }
-  const p = lastRoofInfo.panels[selectedPanelIndex];
+  const p = panelsArr[selectedPanelIndex];
   if (!p) return;
+  const polyCtx = (typeof WP !== 'undefined' && WP && Array.isArray(WP.polylines) && typeof p.polyIdx === 'number') ? WP.polylines[p.polyIdx] : null;
+  const roofCtx = (polyCtx && polyCtx.roofInfo && polyCtx.roofInfo.poly2D) ? polyCtx.roofInfo : (lastRoofInfo || {});
   const f = p.frame || { Lu: 0, Lv: 1, Ln: 0, Wu: 1, Wv: 0, Wn: 0 };
-  const uVec = p.uVec || lastRoofInfo.uVec;
-  const vVec = p.vVec || lastRoofInfo.vVec;
-  const normal = p.normal || lastRoofInfo.normal;
-  const transform = p.transform || lastRoofInfo.transform;
+  const uVec = p.uVec || roofCtx.uVec;
+  const vVec = p.vVec || roofCtx.vVec;
+  const normal = p.normal || roofCtx.normal;
+  const transform = p.transform || roofCtx.transform;
   const newW = p.h, newH = p.w;
   const modLen = newH, modWidth = newW;
   const newCenterN = (p.centerN || 0) + ((newH - p.h) / 2) * (f.Ln ? Math.abs(f.Ln) : 0);
@@ -2908,9 +2914,9 @@ function rotateSelectedPanel() {
     Cesium.Cartesian3.add(lp, Cesium.Cartesian3.multiplyByScalar(normal, newCenterN + (sx * modLen / 2) * f.Ln, new Cesium.Cartesian3()), lp);
     newCorners.push(Cesium.Matrix4.multiplyByPoint(transform, lp, new Cesium.Cartesian3()));
   }
-  const fits = !lastRoofInfo.poly2D || newCorners.every(c => {
+  const fits = !roofCtx.poly2D || newCorners.every(c => {
     const r = Cesium.Cartesian3.subtract(c, frameOrigin, new Cesium.Cartesian3());
-    return isPointInPolygon2D({ u: Cesium.Cartesian3.dot(r, uVec), v: Cesium.Cartesian3.dot(r, vVec) }, lastRoofInfo.poly2D);
+    return isPointInPolygon2D({ u: Cesium.Cartesian3.dot(r, uVec), v: Cesium.Cartesian3.dot(r, vVec) }, roofCtx.poly2D);
   });
   if (!fits) {
     showStatus('GIRADO DENEGADO · EL PANEL SALDRÍA DEL POLÍGONO DE CUBIERTA', 2500);
@@ -7624,7 +7630,14 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
 
   if (typeof wpCurrentStep !== 'undefined' && wpCurrentStep < 2 && !_hasExistingDesign) {
     window.RA && window.RA.log && window.RA.log.warn('[TELEMETRÍA FV] ABORTO EN GATING: Paso < 2 sin diseño confirmado.');
-    lastRoofInfo = null;
+    wpCleanupAllSolarPrimitives(isIncrementalTarget ? targetPolyIdx : null);
+    if (!isIncrementalTarget) {
+      wpCleanupPanelNumberLabels();
+      window.allRenderedPanels = [];
+      lastRoofInfo = null;
+    } else if (Array.isArray(window.allRenderedPanels)) {
+      window.allRenderedPanels = window.allRenderedPanels.filter(p => p && p.polyIdx !== targetPolyIdx);
+    }
     if (typeof wpClearInverterAndCables === 'function') wpClearInverterAndCables();
     if (typeof viewer !== 'undefined' && viewer && viewer.scene &&
         typeof viewer.scene.requestRender === 'function') {
@@ -8561,10 +8574,16 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
     }
   }
 
-  lastRoofInfo = {
+  lastRoofInfo = Object.assign({}, lastRoofInfo || {}, {
+    poly2D: (roofInfo && roofInfo.poly2D) || (lastRoofInfo && lastRoofInfo.poly2D) || null,
+    origin: (roofInfo && roofInfo.origin) || (lastRoofInfo && lastRoofInfo.origin) || null,
+    normal: (roofInfo && roofInfo.normal) || (lastRoofInfo && lastRoofInfo.normal) || null,
+    uVec: (roofInfo && roofInfo.uVec) || (lastRoofInfo && lastRoofInfo.uVec) || null,
+    vVec: (roofInfo && roofInfo.vVec) || (lastRoofInfo && lastRoofInfo.vVec) || null,
+    transform: (roofInfo && roofInfo.transform) || (lastRoofInfo && lastRoofInfo.transform) || null,
     panels: allTargetPanels,
     orientation: (roofInfo && roofInfo.orientation) || 'portrait'
-  };
+  });
 
   // 7b. SOPORTES 3D DE ESTRUCTURAS PARAMÉTRICAS (Raíles coplanares, Balastos triangulares y Pérgolas)
   // MIGRACIÓN AAA: Renderizado directo en GPU via viewer.scene.primitives (PolylineCollection)
