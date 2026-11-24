@@ -3590,6 +3590,8 @@ function calculatePVsystRowPitch(moduleLengthM, deltaTiltDeg, roofSlopeDeg, modu
   const hVert = moduleLengthM * Math.sin(degToRad(deltaTiltDeg));
   let shadowDist = 0;
 
+  // [F2-10] Proyección trigonométrica exacta sobre plano inclinado sin suelo arbitrario 0.35
+  const roofSlopeRad = degToRad(Math.min(85, Math.abs(roofSlopeDeg || 0)));
   for (const hSolar of [-winH, 0, winH]) {
     const haRad = degToRad(15.0 * hSolar);
     const sinAlt = Math.sin(latRad) * Math.sin(declRad) + Math.cos(latRad) * Math.cos(declRad) * Math.cos(haRad);
@@ -3600,16 +3602,17 @@ function calculatePVsystRowPitch(moduleLengthM, deltaTiltDeg, roofSlopeDeg, modu
     const azSolarSurDeg = Math.sign(haRad || 0) * radToDeg(Math.acos(Math.max(-1, Math.min(1, cosAz))));
 
     const azDiffRad = degToRad((moduleAzSurDeg || 0) - azSolarSurDeg);
-    const cosAzProj = Math.max(0.35, Math.abs(Math.cos(azDiffRad)));
-    const dist = hVert * (cosAzProj / Math.max(Math.tan(altRad), 0.15));
+    const cosAzProj = Math.max(0.0, Math.cos(azDiffRad));
+    if (cosAzProj <= 1e-3) continue;
+    const denom = Math.tan(altRad) * Math.cos(roofSlopeRad) + Math.sin(roofSlopeRad) * cosAzProj;
+    const dist = hVert * (cosAzProj / Math.max(denom, 0.12));
     if (dist > shadowDist) shadowDist = dist;
   }
 
   const footprintA = moduleLengthM * Math.cos(degToRad(deltaTiltDeg));
-  const cosRoof = Math.max(0.15, Math.cos(degToRad(Math.min(85, Math.abs(roofSlopeDeg || 0)))));
   const minPitch = footprintA + (safetyMarginM || 0.05);
 
-  return Math.max(minPitch, (footprintA + shadowDist + (safetyMarginM || 0.20)) / cosRoof);
+  return Math.max(minPitch, footprintA + shadowDist + (safetyMarginM || 0.20));
 }
 
 // [DEDUP] rowSpacing -> solar-engine.js

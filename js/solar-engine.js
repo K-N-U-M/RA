@@ -1090,26 +1090,22 @@ function renderAnalysisResults(r) {
     const mcSamples = [];
     const numIterations = 5000;
 
-    // Uncertainty sources (relative % standard deviation)
-    const uncertaintySources = {
-      irradiance: 0.045,  // ±4.5% solar resource (PVGIS)
-      temperature: 0.015, // ±1.5% temperature effect
-      inverter: 0.012,    // ±1.2% inverter efficiency
-      soiling: 0.020,     // ±2.0% soiling variability
-      degradation: 0.008, // ±0.8% annual degradation uncertainty
-      model: 0.030        // ±3.0% model uncertainty
+    // [F2-11] Separar variabilidad climática interanual irreducible (~3.5%) de incertidumbre epistémica entre fuentes
+    const climateIrreducibleSigma = 0.035;
+    const epistemicSources = {
+      irradianceModel: 0.028, // ±2.8% incertidumbre satelital/fuente
+      temperature: 0.015,     // ±1.5% efecto térmico
+      inverter: 0.012,        // ±1.2% rendimiento inversor
+      soiling: 0.020,         // ±2.0% suciedad
+      degradation: 0.008,     // ±0.8% degradación
+      model: 0.030            // ±3.0% transposición/modelo
     };
 
-    // Weighted aggregate uncertainty (quadrature sum)
-    let aggregateSigma = 0;
-    Object.values(uncertaintySources).forEach(s => {
-      aggregateSigma += s * s;
-    });
-    aggregateSigma = Math.sqrt(aggregateSigma);
-
-    // Scale by source count: more sources = more confidence
-    const sourceFactor = Math.max(0.6, 1.0 - (sources * 0.05));
-    aggregateSigma *= sourceFactor;
+    let epistemicVar = 0;
+    Object.values(epistemicSources).forEach(s => { epistemicVar += s * s; });
+    const sourceFactor = Math.max(0.65, 1.0 - (Math.max(0, sources - 1) * 0.06));
+    const epistemicSigma = Math.sqrt(epistemicVar) * sourceFactor;
+    const aggregateSigma = Math.sqrt(climateIrreducibleSigma * climateIrreducibleSigma + epistemicSigma * epistemicSigma);
 
     // Monte Carlo draws with correlated random values
     const pLat = (r && r.latDeg) || 40.41;

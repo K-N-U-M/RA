@@ -1696,9 +1696,8 @@ function wpAutoSelectOptimalEngineering(force = false) {
   const cfg = window.solarProjectConfig;
   if (!cfg) return null;
 
-  // Si el usuario ya seleccionó manualmente un equipo y no está forzando re-optimización, respetar su decisión
-  if (!force && (cfg.userManuallySelectedInverter || (cfg.selectedInverterId && cfg.selectedInverterId !== 'inv_huawei_5k' && cfg.selectedInverterId !== 'inv_huawei_5ktl_l1')) ) {
-    cfg.userManuallySelectedInverter = true;
+  // [F2-11] Respetar únicamente la bandera explícita userManuallySelectedInverter (sin bloqueo por ID fijo)
+  if (!force && cfg.userManuallySelectedInverter) {
     wpRenderAutoEngineeringBanner(null, true);
     return null;
   }

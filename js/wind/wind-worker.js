@@ -98,11 +98,24 @@
       if (payload.resourceConfig && RAWind.Resource && typeof RAWind.Resource.updateConfig === 'function') {
         RAWind.Resource.updateConfig(payload.resourceConfig);
       }
-      if (RAWind.ShadowFlicker && typeof RAWind.ShadowFlicker.evaluateAnnualShadowFlicker === 'function') {
-        var t0 = turbines[0];
-        if (t0) {
-          return RAWind.ShadowFlicker.evaluateAnnualShadowFlicker(t0, payload.receptors || null, payload.solarFieldBounds || null);
+      if (RAWind.ShadowFlicker && typeof RAWind.ShadowFlicker.evaluateAnnualShadowFlicker === 'function' && Array.isArray(turbines) && turbines.length > 0) {
+        // [F2-11] Acumular parpadeo (shadow flicker) sobre todas las turbinas activas del parque
+        var accRes = null;
+        for (var ti = 0; ti < turbines.length; ti++) {
+          var tCur = turbines[ti];
+          if (!tCur || (tCur.operationalState && tCur.operationalState.enabled === false)) continue;
+          var rOne = RAWind.ShadowFlicker.evaluateAnnualShadowFlicker(tCur, payload.receptors || null, payload.solarFieldBounds || null);
+          if (!rOne) continue;
+          if (!accRes) {
+            accRes = Object.assign({}, rOne, { turbineCountEvaluated: 1 });
+          } else {
+            accRes.turbineCountEvaluated = (accRes.turbineCountEvaluated || 1) + 1;
+            if (typeof rOne.maxAnnualHours === 'number') accRes.maxAnnualHours = Number(((accRes.maxAnnualHours || 0) + rOne.maxAnnualHours).toFixed(2));
+            if (typeof rOne.annualFlickerHours === 'number') accRes.annualFlickerHours = Number(((accRes.annualFlickerHours || 0) + rOne.annualFlickerHours).toFixed(2));
+            if (typeof rOne.pvAnnualLossPct === 'number') accRes.pvAnnualLossPct = Math.min(100, Number(((accRes.pvAnnualLossPct || 0) + rOne.pvAnnualLossPct).toFixed(2)));
+          }
         }
+        if (accRes) return accRes;
       }
       return computeShadowFlickerHours(turbines, payload.receptorDistanceM || resourceConfig.receptorDistanceM);
     }

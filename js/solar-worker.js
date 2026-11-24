@@ -470,7 +470,7 @@ self.onmessage = async function(e) {
     for (let _hs = 0; _hs < hours.length; _hs++) {
       const _utcPre = hours[_hs] - (4 * lng + _EtM) / 60;
       const _spPre = computeSolarPositionWorker(lat, lng, monthsDoy[mIdx], _utcPre);
-      if (_spPre && _spPre.isDay && _spPre.elevDeg >= 5.0) {
+      if (_spPre && _spPre.isDay && _spPre.elevDeg >= 1.5) {
         _sinAltSum += Math.sin(_spPre.elevDeg * Math.PI / 180);
       }
     }

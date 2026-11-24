@@ -943,8 +943,8 @@
             if (!isNorthernHemisphere && (azFromNorth > 135 && azFromNorth < 225)) continue;
 
             const azRad = (azFromNorth * Math.PI) / 180;
-            // Barrido robusto en niveles clave para evitar falsos ceros por huecos en fotogrametría 3D Tiles
-            const probeLevels = [6, 14, 24, 38, 54];
+            // [F2-12] Barrido angular ampliado desde 1.5° para capturar obstáculos lejanos/orografía invernal
+            const probeLevels = [1.5, 3.5, 6, 12, 22, 36, 54];
             let highestHitIdx = -1;
             for (let li = 0; li < probeLevels.length; li++) {
               if (isRayBlocked(probeOrigin, azRad, probeLevels[li])) {
