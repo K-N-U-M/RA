@@ -7473,6 +7473,7 @@ window.wpCleanupPanelNumberLabels = wpCleanupPanelNumberLabels;
 
 // ── 🛡️ LIMPIEZA CENTRALIZADA DEFENSIVA DE TODAS LAS PRIMITIVAS GPU (PANELES, SOPORTES, PÉRGOLAS, CABLES) ───────────────
 function wpCleanupAllSolarPrimitives(targetPolyIdx = null) {
+  if (typeof window !== "undefined") window._raPrimitivesGeneration = (window._raPrimitivesGeneration || 0) + 1;
   if (typeof viewer === "undefined" || !viewer) return;
   const isInc = (typeof targetPolyIdx === 'number' && targetPolyIdx >= 0);
 
@@ -9035,6 +9036,7 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
   if (typeof wpCalculateAndRenderInverterCables === 'function') {
     wpCalculateAndRenderInverterCables();
   }
+  if (typeof window !== 'undefined') window._raPrimitivesGeneration = (window._raPrimitivesGeneration || 0) + 1;
   if (typeof ProjectHierarchy !== 'undefined' && ProjectHierarchy && typeof ProjectHierarchy.notify === 'function') {
     ProjectHierarchy.notify('panels_rendered');
   }
@@ -9046,11 +9048,17 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
 let _scratchNormScaled = null;
 let _scratchRayOrigin = null;
 let _occlusionExcludeList = null;
-let _occlusionExcludeListTs = 0;
+let _occlusionExcludeListGen = -1;
+if (typeof window !== 'undefined') {
+  window._raPrimitivesGeneration = window._raPrimitivesGeneration || 0;
+  window.raBumpPrimitivesGeneration = function() {
+    window._raPrimitivesGeneration = (window._raPrimitivesGeneration || 0) + 1;
+  };
+}
 
 function _getOcclusionExcludeList(scene) {
-  const now = Date.now();
-  if (_occlusionExcludeList && (now - _occlusionExcludeListTs < 1500)) {
+  const curGen = (typeof window !== 'undefined' && typeof window._raPrimitivesGeneration === 'number') ? window._raPrimitivesGeneration : 0;
+  if (_occlusionExcludeList && _occlusionExcludeListGen === curGen) {
     return _occlusionExcludeList;
   }
   const toExclude = [];
@@ -9079,6 +9087,12 @@ function _getOcclusionExcludeList(scene) {
   if (window.dcBoxEntity) toExclude.push(window.dcBoxEntity);
   if (window.gridMeterEntity) toExclude.push(window.gridMeterEntity);
   if (window.acometidaACEntity) toExclude.push(window.acometidaACEntity);
+  if (Array.isArray(window._obsPrimitives)) {
+    for (let i = 0; i < window._obsPrimitives.length; i++) {
+      const op = window._obsPrimitives[i];
+      if (op && op._isSetbackBuffer) toExclude.push(op);
+    }
+  }
   if (window.inverterEquipmentState) {
     const eq = window.inverterEquipmentState;
     if (eq.entity) toExclude.push(eq.entity);
@@ -9103,7 +9117,7 @@ function _getOcclusionExcludeList(scene) {
     }
   }
   _occlusionExcludeList = toExclude;
-  _occlusionExcludeListTs = now;
+  _occlusionExcludeListGen = curGen;
   return toExclude;
 }
 
@@ -9150,17 +9164,24 @@ function isPanelOccludedBy3DEnvironment(panelCenter, norm, sunDirWorld, pInfo) {
         (hit.object.content && hit.object.content.tileset)
       );
 
-      if (is3DTile) {
-        const dist = Cesium.Cartesian3.distance(rayOrigin, hit.position);
-        // Descarte de auto-intersección inmediata de malla fotogramétrica (aleros/tejas abombadas < 1.8m)
-        if (dist <= 1.8 || dist >= 1200.0) return false;
+      const isCadOccluder = Boolean(
+        objPrim && (
+          (Array.isArray(window._buildingPrimitives) && window._buildingPrimitives.indexOf(objPrim) !== -1) ||
+          (Array.isArray(window._obsPrimitives) && !objPrim._isSetbackBuffer && window._obsPrimitives.indexOf(objPrim) !== -1)
+        )
+      );
 
-        // Filtro de ruido de cubierta cercana: si el impacto está muy cerca (< 4.5 m) y apenas sobresale verticalmente (< 0.75 m)
-        // respecto al plano del módulo, corresponde a una irregularidad del propio tejado o alero en fotogrametría 3D.
+      if (is3DTile || isCadOccluder) {
+        const dist = Cesium.Cartesian3.distance(rayOrigin, hit.position);
+        const minHitDist = isCadOccluder ? 0.25 : 1.8;
+        // Descarte de auto-intersección inmediata (0.25m para CAD preciso, 1.8m para fotogrametría 3D)
+        if (dist <= minHitDist || dist >= 1200.0) return false;
+
+        // Filtro de ruido de cubierta cercana (solo aplica a fotogrametría ruidosa, no a CAD geométrico)
         const upLocal = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(panelCenter, new Cesium.Cartesian3());
         const relHitVec = Cesium.Cartesian3.subtract(hit.position, panelCenter, new Cesium.Cartesian3());
         const hitRiseM = Cesium.Cartesian3.dot(relHitVec, upLocal);
-        if (dist < 4.5 && hitRiseM < 0.75) {
+        if (!isCadOccluder && dist < 4.5 && hitRiseM < 0.75) {
           return false;
         }
 

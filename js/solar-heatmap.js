@@ -877,14 +877,21 @@
               (hit.object.tileset && (hit.object.tileset === gTileset || hit.object.tileset === osmTileset)) ||
               (hit.object.content && hit.object.content.tileset)
             );
-            if (!is3DTile) return false;
+            const isCadOccluder = Boolean(
+              objPrim && (
+                (Array.isArray(window._buildingPrimitives) && window._buildingPrimitives.indexOf(objPrim) !== -1) ||
+                (Array.isArray(window._obsPrimitives) && !objPrim._isSetbackBuffer && window._obsPrimitives.indexOf(objPrim) !== -1)
+              )
+            );
+            if (!is3DTile && !isCadOccluder) return false;
 
             const dist = Cesium.Cartesian3.distance(probeOrigin, hit.position);
-            if (dist <= 3.5 || dist >= 1200.0) return false;
+            const minDist = isCadOccluder ? 0.35 : 3.5;
+            if (dist <= minDist || dist >= 1200.0) return false;
 
             Cesium.Cartesian3.subtract(hit.position, probeOrigin, diffScratch);
             const hitRiseM = Cesium.Cartesian3.dot(diffScratch, upVec);
-            if (dist < 6.0 && hitRiseM < 1.0) return false;
+            if (!isCadOccluder && dist < 6.0 && hitRiseM < 1.0) return false;
 
             // Ignorar auto-colisión con los obstáculos modelados en CAD (ya simulados exactamente en 2D)
             for (let oi = 0; oi < obsCenters3D.length; oi++) {

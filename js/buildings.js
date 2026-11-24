@@ -74,6 +74,7 @@
   }
 
 function render3DBuildingsInCesium() {
+  if (typeof window !== 'undefined') window._raPrimitivesGeneration = (window._raPrimitivesGeneration || 0) + 1;
   if (typeof window !== 'undefined' && window.RAMeasureTool && typeof window.RAMeasureTool.invalidateSnapCandidates === 'function') {
     window.RAMeasureTool.invalidateSnapCandidates();
   }
