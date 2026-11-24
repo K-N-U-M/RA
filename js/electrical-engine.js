@@ -607,6 +607,21 @@
   }
 
   /**
+   * [F2-05] Sección mínima del conductor de protección / tierra según REBT ITC-BT-18 Tabla 2.
+   * Si S_ac <= 16 mm² -> S_pe = S_ac; si 16 < S_ac <= 35 -> 16 mm²; si S_ac > 35 -> S_ac / 2.
+   * Respeta el mínimo mecánico de 6 mm² (o 16 mm² con pararrayos externo).
+   */
+  function computeProtectiveEarthSection(sAcMm2, hasExternalLightningRod) {
+    var s = (typeof sAcMm2 === 'number' && isFinite(sAcMm2) && sAcMm2 > 0) ? sAcMm2 : 6;
+    var sPe = (s <= 16) ? s : (s <= 35 ? 16 : Math.ceil(s / 2));
+    var minFloor = hasExternalLightningRod ? 16 : 6;
+    return Math.max(minFloor, sPe);
+  }
+  if (typeof global !== 'undefined') {
+    global.computeProtectiveEarthSection = computeProtectiveEarthSection;
+  }
+
+  /**
    * Resuelve el número de fases efectivo (1 o 3) para cálculos de evacuación AC (230 V vs 400 V)
    * combinando acometida (gridSupply), topología, fases del inversor, nº de equipos y RD 1699 Art. 12.2.
    */
@@ -621,6 +636,8 @@
     var topo = (cfg && cfg.selectedTopology) ? cfg.selectedTopology : 'inverter';
     var invPhases = inv ? raInverterPhases(inv) : (unitKw <= 6.0 ? 1 : 3);
 
+    // [F2-05] Si el inversor seleccionado es físicamente trifásico, su salida AC es trifásica 400V
+    if (invPhases === 3 && topo !== 'microinverter') return 3;
     if (gridSupply === 'single_phase') return 1;
     if (gridSupply === 'three_phase') {
       if (topo === 'microinverter' || invPhases === 3 || count >= 2) return 3;

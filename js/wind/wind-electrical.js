@@ -139,9 +139,9 @@
     var kThermalTotal = Number((kTemp * kGroup).toFixed(3));
     var requiredRatedAmpacityA = designCurrentA / Math.max(0.4, kThermalTotal);
 
-    // S_min por caída de tensión:
-    // Trifásica: S = (√3 · L · I · cosφ · ρ) / ΔU_max
-    // Monofásica / DC: S = (2 · L · I · cosφ · ρ) / ΔU_max
+    // [F2-09] Término reactivo inductivo X ≈ 0.08 Ω/km en líneas AC + cálculo REBT
+    var sinPhi = Math.sqrt(Math.max(0, 1 - cosPhi * cosPhi));
+    var xIndOhmPerM = isDcBus ? 0 : 0.00008;
     var phaseGeomFactor = isThreePhase ? Math.sqrt(3) : 2.0;
     var minSectionByDropMm2 = (phaseGeomFactor * cableLengthM * nominalCurrentA * cosPhi * rhoCu) / Math.max(0.1, maxDeltaV);
 
@@ -149,7 +149,10 @@
     for (var i = 0; i < STANDARD_CU_SECTIONS.length; i++) {
       var candidate = STANDARD_CU_SECTIONS[i];
       var ampacity = isThreePhase ? candidate.maxAmpacity3Ph : candidate.maxAmpacity1Ph;
-      if (candidate.sectionMm2 >= minSectionByDropMm2 && (ampacity * kThermalTotal) >= designCurrentA) {
+      var rCand = rhoCu * cableLengthM / candidate.sectionMm2;
+      var xCand = xIndOhmPerM * cableLengthM;
+      var dvCand = phaseGeomFactor * nominalCurrentA * (rCand * cosPhi + xCand * sinPhi);
+      if (candidate.sectionMm2 >= minSectionByDropMm2 && dvCand <= maxDeltaV && (ampacity * kThermalTotal) >= designCurrentA) {
         chosenSpec = candidate;
         break;
       }
@@ -158,17 +161,21 @@
     var selectedSectionMm2 = chosenSpec.sectionMm2;
     var rawAmpacityA = isThreePhase ? chosenSpec.maxAmpacity3Ph : chosenSpec.maxAmpacity1Ph;
     var cableAmpacityA = Number((rawAmpacityA * kThermalTotal).toFixed(1));
-    var actualDeltaV = (phaseGeomFactor * cableLengthM * nominalCurrentA * cosPhi * rhoCu) / selectedSectionMm2;
+    var rSel = rhoCu * cableLengthM / selectedSectionMm2;
+    var xSel = xIndOhmPerM * cableLengthM;
+    var actualDeltaV = phaseGeomFactor * nominalCurrentA * (rSel * cosPhi + xSel * sinPhi);
     var actualDropPct = (actualDeltaV / voltageV) * 100;
     var jouleLossW = isThreePhase
-      ? (3 * Math.pow(nominalCurrentA, 2) * (rhoCu * cableLengthM / selectedSectionMm2))
-      : (2 * Math.pow(nominalCurrentA, 2) * (rhoCu * cableLengthM / selectedSectionMm2));
+      ? (3 * Math.pow(nominalCurrentA, 2) * rSel)
+      : (2 * Math.pow(nominalCurrentA, 2) * rSel);
 
-    // 3. Dimensionamiento del banco de resistencias de frenado (Dump Load)
+    // 3. Dimensionamiento del banco de resistencias de frenado (Dump Load) + verificación Voc_overspeed
     var dumpLoadKw = Number(elecSpec.dumpLoadRequiredKw) || Number((ratedKw * dumpMargin).toFixed(2));
     var dumpLoadW = dumpLoadKw * 1000;
-    // Tensión del bus DC (directo CC, 1.35·V_ll rectificador trifásico, √2·V_ln en monofásico con filtrado capacitivo/PFC)
     var dcBusVoltageV = isDcBus ? voltageV : (isThreePhase ? Math.round(voltageV * 1.35) : Math.round(voltageV * Math.SQRT2));
+    var vocOverspeedV = Math.round(dcBusVoltageV * 1.45);
+    var dumpLoadMaxV = Number(elecSpec.dumpLoadMaxV) || (dcBusVoltageV > 500 ? 1000 : 600);
+    var vocOverspeedCompliant = vocOverspeedV <= dumpLoadMaxV;
     var dumpResistanceOhm = Number(((dcBusVoltageV * dcBusVoltageV) / Math.max(100, dumpLoadW)).toFixed(2));
     var dumpMaxCurrentA = Number((dumpLoadW / dcBusVoltageV).toFixed(1));
     var dumpThermalEnergyKwh = Number((dumpLoadKw * (dumpDurationMin / 60)).toFixed(2));
@@ -198,6 +205,9 @@
         requiredPowerKw: dumpLoadKw,
         durationMin: dumpDurationMin,
         dcBusVoltageV: Math.round(dcBusVoltageV),
+        vocOverspeedV: vocOverspeedV,
+        dumpLoadMaxV: dumpLoadMaxV,
+        vocOverspeedCompliant: vocOverspeedCompliant,
         equivalentResistanceOhm: dumpResistanceOhm,
         peakCurrentA: dumpMaxCurrentA,
         dissipatedEnergy30MinKwh: dumpThermalEnergyKwh

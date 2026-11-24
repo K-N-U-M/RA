@@ -2891,6 +2891,10 @@
       } else {
         sState.acNonCompliantWarning = false;
       }
+      // [F2-05] Sección de tierra REBT ITC-BT-18 Tabla 2 en función de S_ac y pararrayos
+      sState.S_earth_recommended = (typeof global.computeProtectiveEarthSection === 'function')
+        ? global.computeProtectiveEarthSection(sAcOpt, !!projCfg.hasExternalLightningRod)
+        : Math.max(projCfg.hasExternalLightningRod ? 16 : 6, sAcOpt <= 16 ? sAcOpt : (sAcOpt <= 35 ? 16 : Math.ceil(sAcOpt / 2)));
 
       var sAcBranchOpt = sAcOpt;
       if (invCount > 1) {

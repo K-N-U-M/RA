@@ -783,15 +783,21 @@
           dcPanelCount = Math.max(invCountBom, Math.ceil(dcWays / waysPerBox));
           const compactOnlySpd = Boolean(engCanonical && engCanonical.needsExternalDcPanel === false && !projectConfig.userManuallySelectedProtectionDc);
           const lightningDcSurcharge = hasLightningRod ? 135.0 : 0;
+          // [F2-08] Escalar aparamenta y SPD DC (1000V / 1200V / 1500V CC) según max(1.20 * Voc_cold, V_dc_max)
+          const vocColdBom = (engCanonical && engCanonical.vocMaxCold > 0) ? engCanonical.vocMaxCold : 600;
+          const vMaxInvDc = (invSpec && invSpec.maxDcV > 0) ? invSpec.maxDcV : 1000;
+          const reqDcUe = Math.max(1.20 * vocColdBom, vMaxInvDc);
+          const dcVoltageRatingV = reqDcUe > 1200 ? 1500 : (reqDcUe > 1000 ? 1200 : 1000);
+          const hvDcSurcharge = dcVoltageRatingV >= 1500 ? 185.0 : (dcVoltageRatingV >= 1200 ? 95.0 : 0);
           const baseDcPrice = compactOnlySpd ? Math.round((dcPanelSpec.price || 245) * 0.65) : (dcPanelSpec.price || 245);
-          const dcUnitPrice = baseDcPrice + lightningDcSurcharge;
+          const dcUnitPrice = baseDcPrice + lightningDcSurcharge + hvDcSurcharge;
           dcPanelCost = parseFloat((dcPanelCount * dcUnitPrice).toFixed(2));
           const dcLabel = needsCombinerFuses
-            ? `Cuadro DC ${dcWays} Strings (${spdTag} por MPPT + Secc. + Fusibles gPV ${fuseAmpBom}A)`
+            ? `Cuadro DC ${dcWays} Strings ${dcVoltageRatingV}V CC (${spdTag} por MPPT + Secc. + Fusibles gPV ${fuseAmpBom}A)`
             : (compactOnlySpd
-              ? `Cofret DC Compacto (${spdTag} por MPPT · Seccionador integrado en inversor)`
-              : `${dcPanelSpec.model.replace('SPD II', spdTag + ' por MPPT')}`);
-          tree.electrical.dcPanels.push({ model: dcLabel, count: dcPanelCount, price: dcPanelCost });
+              ? `Cofret DC Compacto ${dcVoltageRatingV}V CC (${spdTag} por MPPT · Seccionador integrado en inversor)`
+              : `${dcPanelSpec.model.replace('SPD II', spdTag + ' ' + dcVoltageRatingV + 'V CC por MPPT')}`);
+          tree.electrical.dcPanels.push({ model: dcLabel, count: dcPanelCount, price: dcPanelCost, voltageRatingV: dcVoltageRatingV });
         } else {
           // Microinversores: Cajas de derivación AC IP65 en cubierta por faldón/ramal
           const microBranchesCount = Math.max(1, (cbPre && cbPre.acJunctionBoxes > 0) ? cbPre.acJunctionBoxes : Math.ceil(totalAcKwBom / (invPhases === 1 ? 3.68 : 11.0)));
@@ -1114,8 +1120,9 @@
         const costElec = parseFloat((elecH * rate).toFixed(2));
         const costComm = parseFloat((commH * rate).toFixed(2));
 
-        // Ingeniería
-        const costProj = totalKwp > 10 ? Math.max(engCfg.technicalProject, 950.0) : engCfg.technicalProject;
+        // Ingeniería ([F2-05] REBT ITC-BT-04 Grupo c: umbral Proyecto Técnico Visado por potencia nominal AC > 10 kW)
+        const needsTechnicalProject = (typeof totalAcKwBom === 'number' && totalAcKwBom > 10.0);
+        const costProj = needsTechnicalProject ? Math.max(engCfg.technicalProject, 950.0) : engCfg.technicalProject;
         const costSup = engCfg.siteSupervision;
         const costCie = engCfg.adminCIE;
 
@@ -1143,7 +1150,7 @@
           { category: 'labor', description: `Montaje mecánico de estructuras y paneles (${mechH} h @ ${rate} €/h)`, totalEur: costMech },
           { category: 'labor', description: `Conexionado eléctrico DC/AC y cableado (${elecH} h @ ${rate} €/h)`, totalEur: costElec },
           { category: 'labor', description: `Puesta en marcha, ensayos y verificación REBT (${commH} h fijas @ ${rate} €/h)`, totalEur: costComm },
-          { category: 'engineering', description: (totalKwp > 10 ? 'Proyecto Técnico Visado de Ingeniero Colegiado' : 'Memoria Técnica de Diseño (MTD)'), totalEur: costProj },
+          { category: 'engineering', description: (needsTechnicalProject ? 'Proyecto Técnico Visado de Ingeniero Colegiado (Pn AC > 10 kW · ITC-BT-04)' : 'Memoria Técnica de Diseño (MTD · Pn AC ≤ 10 kW)'), totalEur: costProj },
           { category: 'engineering', description: 'Dirección Facultativa y Coordinación de Seguridad', totalEur: costSup },
           { category: 'engineering', description: 'Legalización Administrativa y Tramitación Boletín CIE', totalEur: costCie },
           { category: 'permits', description: 'Tasa Municipal de Comunicación Previa / Urbanística', totalEur: costUrban },
