@@ -122,8 +122,12 @@
 
   // Safeguard global: evitar que _isPointerButtonsDown quede bloqueado si se suelta el botón fuera del canvas
   if (typeof window !== 'undefined') {
-    window.addEventListener('pointerup', () => { global._isPointerButtonsDown = false; }, true);
-    window.addEventListener('blur', () => { global._isPointerButtonsDown = false; global._isCameraMoving = false; });
+    const _regWin = (ev, fn, opts) => {
+      if (global.RA && typeof global.RA.addListener === 'function') global.RA.addListener(window, ev, fn, opts);
+      else window.addEventListener(ev, fn, opts);
+    };
+    _regWin('pointerup', () => { global._isPointerButtonsDown = false; }, true);
+    _regWin('blur', () => { global._isPointerButtonsDown = false; global._isCameraMoving = false; });
   }
 
   function updateCADHover(screenPos) {
@@ -574,8 +578,12 @@
 
   function initCADCyclingListeners() {
     if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') return;
+    const _regWinK = (ev, fn, opts) => {
+      if (global.RA && typeof global.RA.addListener === 'function') global.RA.addListener(window, ev, fn, opts);
+      else window.addEventListener(ev, fn, opts);
+    };
     // Tecla Tab para ciclar en profundidad
-    window.addEventListener('keydown', function(e) {
+    _regWinK('keydown', function(e) {
       const isEditingText = (function () {
         if (typeof global.isTextInputActive === 'function' && global.isTextInputActive(e.target)) return true;
         const active = document.activeElement;
@@ -642,7 +650,7 @@
     });
 
     // Clics consecutivos en el mismo punto para alternar capas
-    window.addEventListener('pointerdown', function(e) {
+    _regWinK('pointerdown', function(e) {
       global._isPointerButtonsDown = true;
       if (e.target && e.target.id === 'cesiumContainer' || (e.target && e.target.tagName === 'CANVAS')) {
         const now = Date.now();
@@ -667,20 +675,18 @@
         }
       }
     });
-    window.addEventListener('pointerup', function() {
-      global._isPointerButtonsDown = false;
-    });
-    window.addEventListener('pointercancel', function() {
-      global._isPointerButtonsDown = false;
-    });
   }
 
   // --- 4. SELECCIÓN POR VENTANA / MARCO (MARQUEE BOX SELECTION) ---
   function initCADMarqueeListeners() {
     if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') return;
     const container = document.getElementById('cesiumContainer') || document.body;
+    const _regWinM2 = (ev, fn, opts) => {
+      if (global.RA && typeof global.RA.addListener === 'function') global.RA.addListener(window, ev, fn, opts);
+      else window.addEventListener(ev, fn, opts);
+    };
 
-    window.addEventListener('pointerdown', function(e) {
+    _regWinM2('pointerdown', function(e) {
       // Activar con Shift + Drag O arrastrar en vacío con botón izquierdo
       if (e.button !== 0) return;
       const targetTag = e.target ? e.target.tagName.toLowerCase() : '';
@@ -715,7 +721,7 @@
       }
     }, true);
 
-    window.addEventListener('pointermove', function(e) {
+    _regWinM2('pointermove', function(e) {
       updateCADHover({ x: e.clientX, y: e.clientY });
 
       if (global.cadMarqueeState.active) {
@@ -755,8 +761,12 @@
       }
     }
 
-    window.addEventListener('pointerup', function(e) { finishOrCancelMarquee(e, false); });
-    window.addEventListener('pointercancel', function(e) { finishOrCancelMarquee(e, true); });
+    const _regWinM = (ev, fn, opts) => {
+      if (global.RA && typeof global.RA.addListener === 'function') global.RA.addListener(window, ev, fn, opts);
+      else window.addEventListener(ev, fn, opts);
+    };
+    _regWinM('pointerup', function(e) { global._isPointerButtonsDown = false; finishOrCancelMarquee(e, false); });
+    _regWinM('pointercancel', function(e) { global._isPointerButtonsDown = false; finishOrCancelMarquee(e, true); });
   }
 
   function executeMarqueeBoxSelection(x1, y1, x2, y2, isAdditive) {

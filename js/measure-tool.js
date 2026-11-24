@@ -278,15 +278,27 @@
     var scratchScrPos = new Cesium.Cartesian2();
     var camPos = v.scene.camera.positionWC || v.scene.camera.position;
     var camDir = v.scene.camera.directionWC || v.scene.camera.direction;
+    var pickRay = (typeof v.scene.camera.getPickRay === 'function') ? v.scene.camera.getPickRay(screenPos) : null;
+    var rayDir = pickRay ? pickRay.direction : null;
+    var rayOrigin = pickRay ? pickRay.origin : camPos;
+    // Coseno angular aproximado para descartar en 3D candidatos fuera de un cono generoso alrededor del cursor
+    var maxConeTan = 0.08;
     var scratchVec = new Cesium.Cartesian3();
 
     for (var i = 0; i < candidates.length; i++) {
       var item = candidates[i];
       if (!item.pos) continue;
 
-      // Descarte rápido en 3D: el punto debe estar delante del plano de la cámara
-      Cesium.Cartesian3.subtract(item.pos, camPos, scratchVec);
-      if (Cesium.Cartesian3.dot(scratchVec, camDir) <= 0.0) continue;
+      // Descarte rápido en 3D: delante de cámara + dentro del cono angular del rayo del cursor (F1-06)
+      Cesium.Cartesian3.subtract(item.pos, rayOrigin, scratchVec);
+      var alongRay = rayDir ? Cesium.Cartesian3.dot(scratchVec, rayDir) : Cesium.Cartesian3.dot(scratchVec, camDir);
+      if (alongRay <= 0.0) continue;
+      if (rayDir) {
+        var distSq = Cesium.Cartesian3.magnitudeSquared(scratchVec);
+        var perpSq = distSq - (alongRay * alongRay);
+        var maxPerp = alongRay * maxConeTan + 1.5;
+        if (perpSq > maxPerp * maxPerp) continue;
+      }
 
       var scr = Cesium.SceneTransforms.wgs84ToWindowCoordinates(v.scene, item.pos, scratchScrPos);
       if (!scr) continue;

@@ -2514,7 +2514,7 @@ function pickPanelUnderCursor(screenPos, skipGpuPick) {
     } catch(eDrill) {}
   }
 
-  // 3. Fallback geométrico 2D exacto en pantalla (proyección de esquinas a ventana)
+  // 3. Fallback geométrico 2D exacto en pantalla con poda espacial por BoundingSphere de faldón (F1-06)
   const panelsList = (Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0)
     ? window.allRenderedPanels
     : ((typeof lastRoofInfo !== 'undefined' && lastRoofInfo && lastRoofInfo.panels) ? lastRoofInfo.panels : null);
@@ -2523,13 +2523,47 @@ function pickPanelUnderCursor(screenPos, skipGpuPick) {
     let bestIdx = -1;
     let minCenterDist = Infinity;
 
+    // Índice espacial ligero por faldón cacheado por generación de primitivas
+    const curGen = (typeof window._raPrimitivesGeneration === 'number') ? window._raPrimitivesGeneration : 0;
+    if (!window._raPanelSpatialIndex || window._raPanelSpatialIndex.gen !== curGen || window._raPanelSpatialIndex.len !== panelsList.length) {
+      const groups = new Map();
+      for (let gi = 0; gi < panelsList.length; gi++) {
+        const gp = panelsList[gi];
+        if (!gp || gp.visible === false || gp.deleted || !gp.center) continue;
+        const fKey = (typeof gp.polyIdx === 'number') ? gp.polyIdx : -1;
+        let grp = groups.get(fKey);
+        if (!grp) { grp = { indices: [], centers: [] }; groups.set(fKey, grp); }
+        grp.indices.push(gi);
+        grp.centers.push(gp.center);
+      }
+      const buckets = [];
+      groups.forEach((grp, fKey) => {
+        const bs = Cesium.BoundingSphere.fromPoints(grp.centers);
+        bs.radius += 2.5;
+        buckets.push({ polyIdx: fKey, sphere: bs, indices: grp.indices });
+      });
+      window._raPanelSpatialIndex = { gen: curGen, len: panelsList.length, buckets };
+    }
+
+    const pickRay = (scene.camera && typeof scene.camera.getPickRay === 'function') ? scene.camera.getPickRay(screenPos) : null;
+    const candidateIndices = [];
+    const buckets = window._raPanelSpatialIndex.buckets;
+    for (let bi = 0; bi < buckets.length; bi++) {
+      const b = buckets[bi];
+      if (b.polyIdx >= 0 && typeof WP !== 'undefined' && WP && WP.polylines && WP.polylines[b.polyIdx] && WP.polylines[b.polyIdx].panelsVisible === false) {
+        continue;
+      }
+      if (pickRay && typeof Cesium.IntersectionTests !== 'undefined' && typeof Cesium.IntersectionTests.raySphere === 'function') {
+        if (!Cesium.IntersectionTests.raySphere(pickRay, b.sphere)) continue;
+      }
+      for (let ki = 0; ki < b.indices.length; ki++) candidateIndices.push(b.indices[ki]);
+    }
+
     // [OPTIMIZACIÓN AAA · O(1) EARLY REJECTION]: Comprobar centro primero antes de calcular 4 proyecciones de esquinas
-    for (let i = 0; i < panelsList.length; i++) {
+    for (let ci = 0; ci < candidateIndices.length; ci++) {
+      const i = candidateIndices[ci];
       const p = panelsList[i];
       if (!p || p.visible === false || p.deleted) continue;
-      if (typeof p.polyIdx === 'number' && typeof WP !== 'undefined' && WP && WP.polylines && WP.polylines[p.polyIdx]) {
-        if (WP.polylines[p.polyIdx].panelsVisible === false) continue;
-      }
       if (!p.corners || p.corners.length !== 4) continue;
 
       try {
