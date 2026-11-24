@@ -1488,7 +1488,9 @@ Normas estrictas:
                 window.renderSolarBarChart(window.lastMonthlyYields);
               }
               if (typeof window.dispatchEvent === 'function') {
-                try { window.dispatchEvent(new CustomEvent('ra-project-changed', { detail: { reason: 'bill_monthly_updated' } })); } catch (eEv) {}
+                if (window.RA && window.RA.EventBus) {
+                  window.RA.EventBus.emit(window.RA.Events.PROJECT_UPDATED, { reason: 'bill_monthly_updated' });
+                }
               }
             } else {
               _applyComparisonToSummaryDOM(BILL_AUDITOR_STATE.comparison, bill);

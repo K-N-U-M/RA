@@ -151,19 +151,20 @@
   if (isWorkerContext) {
     try {
       self.importScripts(
-        'wind-constants.js?v=20261118_t3',
-        'wind-catalog.js?v=20261118_t3',
-        'wind-rooftop-cfd.js?v=20261118_t3',
-        'wind-obstacle-interference.js?v=20261118_t3',
-        'wind-resource.js?v=20261118_t3',
-        'wind-acoustics.js?v=20261118_t3',
-        'wind-structural.js?v=20261118_t3',
-        'wind-electrical.js?v=20261118_t3',
-        'wind-shadow-flicker.js?v=20261118_t3',
-        'wind-hybrid-dispatch.js?v=20261118_t3'
+        'wind-constants.js?v=20261124_f4',
+        'wind-catalog.js?v=20261124_f4',
+        'wind-rooftop-cfd.js?v=20261124_f4',
+        'wind-obstacle-interference.js?v=20261124_f4',
+        'wasp-parser.js?v=20261124_f4',
+        'wind-resource.js?v=20261124_f4',
+        'wind-acoustics.js?v=20261124_f4',
+        'wind-structural.js?v=20261124_f4',
+        'wind-electrical.js?v=20261124_f4',
+        'wind-shadow-flicker.js?v=20261124_f4',
+        'wind-hybrid-dispatch.js?v=20261124_f4'
       );
     } catch (e) {
-      // Si ya estaban cargados o falla ruta relativa, continuar con fallback
+      console.error('[RAWindWorker] Error cargando dependencias en worker:', e);
     }
 
     self.onmessage = function (e) {

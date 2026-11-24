@@ -521,62 +521,18 @@ async function requestCommercialSummaryFromGemini(d, m, equipment) {
     prompt += '- Excedente exportable a Comunidad Energética Local (radio 5 km s/ RDL 7/2026): ' + Math.round(excKwhGemini).toLocaleString('es-ES') + ' kWh/año (monetizable a ~0,11 €/kWh sin límite de compensación de factura).\n';
   }
 
-  var models = [];
-  try {
-    if (typeof discoverAvailableModels === 'function') {
-      models = await discoverAvailableModels(apiKey);
-    }
-  } catch(e) {}
-  if (!models || models.length === 0) {
-    models = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-3.8-flash', 'gemini-3.5-flash'];
+  // [F4-08] Delegación en adaptador centralizado RA.AIService (sin fetch directo a Gemini en el motor financiero)
+  if (!window.RA || !window.RA.AIService || typeof window.RA.AIService.generateText !== 'function') {
+    throw new Error('AI_SERVICE_UNAVAILABLE');
   }
-
-  for (var mIdx = 0; mIdx < models.length; mIdx++) {
-    var modelName = models[mIdx];
-    var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + modelName + ':generateContent';
-    try {
-      var resp = await window.RA.geminiFetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.6,
-            maxOutputTokens: 2500
-          }
-        })
-      }, 30000, apiKey);
-
-      if (!resp.ok) continue;
-      var data = await resp.json().catch(function() { return null; });
-      var candidate = data && data.candidates && data.candidates[0];
-      if (candidate && candidate.content && Array.isArray(candidate.content.parts)) {
-        var textParts = candidate.content.parts
-          .filter(function(p) { return !p.thought && typeof p.text === 'string'; })
-          .map(function(p) { return p.text; });
-        var text = textParts.length > 0 ? textParts.join('') : (candidate.content.parts[0] && candidate.content.parts[0].text ? candidate.content.parts[0].text : '');
-
-        if (text && text.trim()) {
-          var cleanHtml = String(text.trim())
-            .replace(/^```(?:html)?\s*/i, '')
-            .replace(/\s*```$/i, '')
-            .trim();
-          // [AUD-2026 v2 · SEC2-01] Saneado oficial por allowlist. Fallback (solo entornos sin
-          // RASanitize, p.ej. tests Node): saneado conservador que respeta el HTML legítimo.
-          if (typeof window !== 'undefined' && window.RASanitize && typeof window.RASanitize.richText === 'function') {
-            cleanHtml = window.RASanitize.richText(cleanHtml);
-          } else {
-            cleanHtml = String(cleanHtml)
-              .replace(/<\s*(script|iframe|object|embed|style|link|meta|base|form)[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi, '')
-              .replace(/<\s*(script|iframe|object|embed|style|link|meta|base|form)[^>]*>/gi, '')
-              .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
-              .replace(/(href|src|action|formaction)\s*=\s*javascript:[^"'\s>]*/gi, '$1=');
-          }
-          if (cleanHtml) return cleanHtml;
-        }
-      }
-    } catch(eLoop) {}
-  }
+  var aiRes = await window.RA.AIService.generateText(prompt, {
+    apiKey: apiKey,
+    temperature: 0.6,
+    maxOutputTokens: 2500,
+    timeoutMs: 30000,
+    sanitizeHtml: true
+  });
+  if (aiRes && aiRes.text) return aiRes.text;
   throw new Error('NO_RESPONSE');
 }
 
@@ -2445,80 +2401,37 @@ function wpOpenPricingReviewModal(onConfirm) {
           '  "resumen": "Breve explicacion de 2 lineas sobre la tendencia de precios en Espana."\n' +
           '}';
 
-        // 1. Descubrir modelos activos admitidos por la API Key del usuario o usar fallback ordenado
-        var modelsToTry = [];
-        try {
-          if (!window.RAEquipmentAIImporter && window.RALazyLoader && typeof window.RALazyLoader.loadEquipmentAIImporter === 'function') {
-            await window.RALazyLoader.loadEquipmentAIImporter();
-          }
-          if (window.RAEquipmentAIImporter && typeof window.RAEquipmentAIImporter.discoverAvailableModels === 'function') {
-            modelsToTry = await window.RAEquipmentAIImporter.discoverAvailableModels(apiKey);
-          }
-        } catch(eDisc) {}
-
-        if (!modelsToTry || modelsToTry.length === 0) {
-          modelsToTry = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.0-flash-exp'];
-        }
-
+        // [F4-08] Consulta de precios delegada al adaptador centralizado RA.AIService
         var jsonResult = null;
         var lastHttpError = null;
         var lastRawText = '';
 
-        for (var mi = 0; mi < modelsToTry.length; mi++) {
-          var modelName = modelsToTry[mi];
-          var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + modelName + ':generateContent';
-          
-          var resp = await window.RA.geminiFetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ role: 'user', parts: [{ text: prompt }] }],
-              generationConfig: {
-                temperature: 0.2,
-                maxOutputTokens: 900,
-                responseMimeType: 'application/json'
-              }
-            })
-          }, 30000, apiKey);
-
-          if (!resp.ok) {
-            var errData = await resp.json().catch(function() { return {}; });
-            lastHttpError = (errData && errData.error && errData.error.message) ? errData.error.message : ('HTTP ' + resp.status + ' (' + modelName + ')');
-            continue;
+        try {
+          if (!window.RA || !window.RA.AIService || typeof window.RA.AIService.generateJson !== 'function') {
+            throw new Error('Adaptador RA.AIService no disponible');
           }
-
-          var data = await resp.json().catch(function() { return null; });
-          if (!data) continue;
-
-          var rawText = (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0])
-            ? data.candidates[0].content.parts[0].text : '';
-          
-          if (!rawText) continue;
-          lastRawText = rawText;
-
-          // Extracción inteligente y robusta de JSON
-          var cleaned = rawText.replace(/^[^{\[]*([{\[][\s\S]*[}\]])[^}\]]*$/, '$1').trim();
-          try {
-            var parsed = JSON.parse(cleaned);
-            if (parsed && typeof parsed === 'object') {
-              jsonResult = {
-                panelPrice: parseFloat(parsed.panelPrice) || 0,
-                estPrice: parseFloat(parsed.estPrice) || 0,
-                invPrice: parseFloat(parsed.invPrice) || 0,
-                batPrice: parseFloat(parsed.batPrice) || 0,
-                cabPrice: parseFloat(parsed.cabPrice) || 0,
-                moPrice: parseFloat(parsed.moPrice) || 0,
-                legPrice: parseFloat(parsed.legPrice) || 0,
-                resumen: parsed.resumen || parsed.summary || 'Tarifas medias obtenidas vía Google Gemini.'
-              };
-              if (jsonResult.panelPrice > 0 || jsonResult.estPrice > 0 || jsonResult.invPrice > 0) {
-                break;
-              }
-            }
-          } catch(eParse) {
-            // Regex fallback si Gemini incluyó comentarios o trailing commas
+          var aiSurveyRes = await window.RA.AIService.generateJson(prompt, {
+            apiKey: apiKey,
+            temperature: 0.2,
+            maxOutputTokens: 900,
+            timeoutMs: 30000
+          });
+          lastRawText = (aiSurveyRes && aiSurveyRes.rawText) || '';
+          var parsed = aiSurveyRes && aiSurveyRes.data;
+          if (parsed && typeof parsed === 'object') {
+            jsonResult = {
+              panelPrice: parseFloat(parsed.panelPrice) || 0,
+              estPrice: parseFloat(parsed.estPrice) || 0,
+              invPrice: parseFloat(parsed.invPrice) || 0,
+              batPrice: parseFloat(parsed.batPrice) || 0,
+              cabPrice: parseFloat(parsed.cabPrice) || 0,
+              moPrice: parseFloat(parsed.moPrice) || 0,
+              legPrice: parseFloat(parsed.legPrice) || 0,
+              resumen: parsed.resumen || parsed.summary || 'Tarifas medias obtenidas vía Google Gemini.'
+            };
+          } else if (lastRawText) {
             var extractNum = function(regex, defVal) {
-              var match = rawText.match(regex);
+              var match = lastRawText.match(regex);
               return match ? (parseFloat(match[1]) || defVal) : defVal;
             };
             var pPrice = extractNum(/"panelPrice"\s*:\s*([0-9]+(?:\.[0-9]+)?)/i, 0);
@@ -2528,22 +2441,17 @@ function wpOpenPricingReviewModal(onConfirm) {
             var cPrice = extractNum(/"cabPrice"\s*:\s*([0-9]+(?:\.[0-9]+)?)/i, 0);
             var mPrice = extractNum(/"moPrice"\s*:\s*([0-9]+(?:\.[0-9]+)?)/i, 0);
             var lPrice = extractNum(/"legPrice"\s*:\s*([0-9]+(?:\.[0-9]+)?)/i, 0);
-            var resMatch = rawText.match(/"resumen"\s*:\s*"([^"]+)"/i);
-
+            var resMatch = lastRawText.match(/"resumen"\s*:\s*"([^"]+)"/i);
             if (pPrice > 0 || ePrice > 0 || iPrice > 0) {
               jsonResult = {
-                panelPrice: pPrice,
-                estPrice: ePrice,
-                invPrice: iPrice,
-                batPrice: bPrice,
-                cabPrice: cPrice,
-                moPrice: mPrice,
-                legPrice: lPrice,
+                panelPrice: pPrice, estPrice: ePrice, invPrice: iPrice, batPrice: bPrice,
+                cabPrice: cPrice, moPrice: mPrice, legPrice: lPrice,
                 resumen: resMatch ? resMatch[1] : 'Tarifas extraídas mediante análisis sintáctico de Gemini.'
               };
-              break;
             }
           }
+        } catch(eSurvey) {
+          lastHttpError = (eSurvey && eSurvey.message) ? eSurvey.message : String(eSurvey);
         }
 
         if (jsonResult && (jsonResult.panelPrice > 0 || jsonResult.estPrice > 0 || jsonResult.invPrice > 0)) {

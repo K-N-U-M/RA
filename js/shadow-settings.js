@@ -282,8 +282,8 @@
     // Actualizar dinámicamente colores del heatmap si ya está calculado y visible
     if (typeof global.wpReapplyHeatmapColors === 'function') {
       global.wpReapplyHeatmapColors();
-    } else if (typeof global.wpFastRenderSimulatedPanelsAsync === 'function') {
-      global.wpFastRenderSimulatedPanelsAsync(true);
+    } else if (typeof global.wpFastRenderSimulatedPanels === 'function') {
+      global.wpFastRenderSimulatedPanels(true);
     }
   }
 

@@ -6164,6 +6164,9 @@ function wpUpdateUI(immediate) {
     _wpUpdateUiRaf = requestAnimationFrame(() => {
       _wpUpdateUiRaf = null;
       _wpUpdateUINow();
+      if (typeof window !== 'undefined' && window.RA && window.RA.EventBus) {
+        window.RA.EventBus.emit(window.RA.Events.UI_REFRESHED, { source: 'working-plane' });
+      }
     });
     return;
   }
@@ -6172,6 +6175,9 @@ function wpUpdateUI(immediate) {
     _wpUpdateUiRaf = null;
   }
   _wpUpdateUINow();
+  if (typeof window !== 'undefined' && window.RA && window.RA.EventBus) {
+    window.RA.EventBus.emit(window.RA.Events.UI_REFRESHED, { source: 'working-plane' });
+  }
 }
 
 // Coalescer global de lucide.createIcons(): evita múltiples escaneos completos del DOM y forced reflows en el mismo fotograma

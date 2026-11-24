@@ -114,6 +114,9 @@
           }
         });
       }
+      if (global.RA && global.RA.EventBus) {
+        global.RA.EventBus.emit(event, data);
+      }
     }
 
     /**

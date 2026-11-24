@@ -717,7 +717,9 @@ function raApplyLossesRealtime() {
     try { recalculateSolarYield(); } catch (e) { console.warn('[RA-Losses] Error recalculando producción:', e); }
   }
   if (typeof window.dispatchEvent === 'function') {
-    try { window.dispatchEvent(new CustomEvent('ra-project-changed', { detail: { reason: 'losses_updated' } })); } catch (e) {}
+    if (window.RA && window.RA.EventBus) {
+      window.RA.EventBus.emit(window.RA.Events.PROJECT_UPDATED, { reason: 'losses_updated' });
+    }
   }
 }
 window.raApplyLossesRealtime = raApplyLossesRealtime;
@@ -6766,8 +6768,8 @@ function wpReapplyHeatmapColors() {
   if (typeof wpRenderHeatmapVisuals === 'function') {
     wpRenderHeatmapVisuals();
   }
-  if (typeof wpFastRenderSimulatedPanelsAsync === 'function') {
-    wpFastRenderSimulatedPanelsAsync(true);
+  if (typeof wpFastRenderSimulatedPanels === 'function') {
+    wpFastRenderSimulatedPanels(true);
   }
 }
 window.wpReapplyHeatmapColors = wpReapplyHeatmapColors;
@@ -7031,25 +7033,16 @@ function wpCleanupAllSolarPrimitives(targetPolyIdx = null) {
 }
 window.wpCleanupAllSolarPrimitives = wpCleanupAllSolarPrimitives;
 
-let _raRenderActivePromise = Promise.resolve();
+// [F4-04] Serialización única controlada por _wpRenderSerialChain en js/panel-renderer-3d.js (sin doble mutex).
 async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx = null) {
   stopSimulationTimeouts();
   isSimulationRunning = false;
   const currentRenderId = ++_raRenderGenerationId;
 
-  const prevRun = _raRenderActivePromise;
-  let releaseRenderLock = null;
-  _raRenderActivePromise = new Promise(resolve => { releaseRenderLock = resolve; });
-  try {
-    await prevRun.catch(() => {});
-  } catch (_) {}
-
   if (currentRenderId !== _raRenderGenerationId) {
-    if (releaseRenderLock) releaseRenderLock();
     return;
   }
 
-  try {
   const isIncrementalTarget = (typeof targetPolyIdx === 'number' && targetPolyIdx >= 0);
   window._faldonPanelsPrimitives = window._faldonPanelsPrimitives || new Map();
   window._faldonSupportCollections = window._faldonSupportCollections || new Map();
@@ -8419,9 +8412,6 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
   if (typeof window !== 'undefined') window._raPrimitivesGeneration = (window._raPrimitivesGeneration || 0) + 1;
   if (typeof ProjectHierarchy !== 'undefined' && ProjectHierarchy && typeof ProjectHierarchy.notify === 'function') {
     ProjectHierarchy.notify('panels_rendered');
-  }
-  } finally {
-    if (releaseRenderLock) releaseRenderLock();
   }
 }
 

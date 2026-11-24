@@ -36,6 +36,9 @@
       listeners.forEach(function(fn) {
         try { fn(event, data); } catch(err) { console.error('[ProjectHierarchy.notify]', err); }
       });
+      if (global.RA && global.RA.EventBus) {
+        global.RA.EventBus.emit(global.RA.Events.HIERARCHY_CHANGED, { event: event, data: data });
+      }
     },
 
     getTree: function() {

@@ -75,9 +75,7 @@
     toggleAuditElevation: function (forceVal) {
       this.auditElevationMode = (typeof forceVal === 'boolean') ? forceVal : !this.auditElevationMode;
       this.renderAllCables();
-      if (typeof global.wpFastRenderSimulatedPanelsAsync === 'function') {
-        global.wpFastRenderSimulatedPanelsAsync(true);
-      } else if (typeof global.wpFastRenderSimulatedPanels === 'function') {
+      if (typeof global.wpFastRenderSimulatedPanels === 'function') {
         global.wpFastRenderSimulatedPanels(true);
       }
       return this.auditElevationMode;

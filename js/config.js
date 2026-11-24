@@ -177,18 +177,5 @@ if (typeof window !== 'undefined' && typeof window.RA_STRING_PALETTE === 'undefi
     };
   };
 
-  // ── Red de seguridad global de promesas (Fase 4 · arquitectura) ────────────
-  // Ninguna función async del proyecto tenía .catch: un rechazo silencioso dejaba
-  // la app en estado indefinido. Captura cualquier rechazo no gestionado, informa
-  // al usuario y registra el contexto en consola.
-  window.addEventListener('unhandledrejection', function(ev) {
-    const razon = (ev && ev.reason && (ev.reason.message || ev.reason)) || 'desconocida';
-    console.error('[RA] Promesa rechazada sin gestionar:', razon, ev && ev.reason);
-    if (typeof window.showToast === 'function') {
-      try {
-        window.showToast('ERROR INTERNO', 'Operación asíncrona fallida: ' + razon, 'error', 4000);
-      } catch (e) { /* toast no disponible aún */ }
-    }
-    ev.preventDefault();
-  });
+  // [F4-04] Captura global de 'error' y 'unhandledrejection' centralizada exclusivamente en js/error-handler.js.
 })();

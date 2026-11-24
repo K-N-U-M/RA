@@ -815,9 +815,21 @@
     // 1. Render inicial inmediato
     requestHUDUpdate();
 
-    // 2. Escucha reactiva de eventos personalizados de la plataforma
-    window.addEventListener('ra:project-updated', requestHUDUpdate);
-    window.addEventListener('ra:step-changed', requestHUDUpdate);
+    // 2. Escucha reactiva vía Bus de Eventos Canónico (F4-03 — sin polling de 5s ni monkey-patching)
+    if (window.RA && window.RA.EventBus && window.RA.Events) {
+      const bus = window.RA.EventBus;
+      const evs = window.RA.Events;
+      bus.on(evs.PROJECT_UPDATED, requestHUDUpdate);
+      bus.on(evs.STEP_CHANGED, requestHUDUpdate);
+      bus.on(evs.HIERARCHY_CHANGED, requestHUDUpdate);
+      bus.on(evs.UI_REFRESHED, requestHUDUpdate);
+      bus.on(evs.GEOMETRY_MUTATED, requestHUDUpdate);
+      bus.on(evs.HARDWARE_CHANGED, requestHUDUpdate);
+      bus.on(evs.SIMULATION_UPDATED, requestHUDUpdate);
+    } else {
+      window.addEventListener('ra:project-updated', requestHUDUpdate);
+      window.addEventListener('ra:step-changed', requestHUDUpdate);
+    }
     window.addEventListener('resize', requestHUDUpdate);
 
     // 3. Reactividad en cambios de formularios y parámetros (sidebar / modales)
@@ -832,29 +844,10 @@
       requestHUDUpdate();
     }, { passive: true });
 
-    // 5. Hooks no invasivos en funciones globales y Orquestador de 5 pasos
-    if (typeof window.wpUpdateUI === 'function') {
-      const origWpUpdateUI = window.wpUpdateUI;
-      window.wpUpdateUI = function() {
-        const res = origWpUpdateUI.apply(this, arguments);
-        requestHUDUpdate();
-        return res;
-      };
+    if (timerId) {
+      clearInterval(timerId);
+      timerId = null;
     }
-
-    if (typeof window.WorkflowOrchestrator !== 'undefined' && typeof window.WorkflowOrchestrator.on === 'function') {
-      window.WorkflowOrchestrator.on('step_changed', () => {
-        requestHUDUpdate();
-      });
-    }
-
-    // 6. Heartbeat pasivo ultra-ligero de respaldo (5 segundos):
-    //    Si la ventana está en segundo plano o el estado no ha cambiado, consume 0% CPU.
-    if (timerId) clearInterval(timerId);
-    timerId = setInterval(() => {
-      if (typeof document !== 'undefined' && document.hidden) return;
-      updateHUD();
-    }, 5000);
   }
 
   const RAProjectStatusHUD = {
