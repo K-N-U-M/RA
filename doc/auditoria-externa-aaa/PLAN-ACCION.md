@@ -97,3 +97,28 @@
 8. **Recuperación WebGL (opcional dev):** Simular `WEBGL_lose_context` (`loseContext` y luego `restoreContext`) verificando reconstrucción limpia de geometría y skybox.
 
 > ⏸️ **Esperando confirmación manual del usuario (OK) para iniciar Fase 1.**
+
+---
+
+### Fase 1 — Informe de Cierre
+
+- **Estado global Fase 1:** `7/7` tickets en `[Hecho]` (`F1-01` a `F1-07`), todos trazados con commits atómicos en la rama `feat/remediacion-aaa` y con `?v=20261124_f1` actualizado en `index.html`.
+- **Verificación ejecutada:** Revisión manual de diffs y lectura de código; **no se han ejecutado baterías de tests ni comprobaciones automáticas** siguiendo explícitamente las directrices del usuario.
+
+#### Tickets Cerrados (`[Hecho]`)
+- `F1-01` (`541e08a`): Erradicados todos los `CallbackProperty(..., false)` en los módulos 3D, eliminado el bucle `rAF` perpetuo en `ra-benchmark.js` (ahora `0 FPS (SLEEP)` pasivo + pool de 30 barras), coalescido `renderTriad2D()` a 1 ejecución/frame sin `shadowBlur` y acotados los 3 `setInterval` de arranque.
+- `F1-02` (`d5bfb3d`): Caché estática de shaders en edificios y obstáculos, migración a `asynchronous: true` en primitivas 3D, eliminación de alocación muerta de `PolygonHierarchy` por módulo, helper de recoloración in-place `wpRecolorSimulatedPanelsInPlace` y purga de rama muerta en el gizmo 3D.
+- `F1-03` (`4bf2431`): Sustituido el TTL de 1500 ms en `_getOcclusionExcludeList` por versionado determinista `_raPrimitivesGeneration` y habilitado el raycasting real de sombras contra edificios y obstáculos CAD en `isPanelOccludedBy3DEnvironment` y `computeFieldHorizonProfileAsync`.
+- `F1-04` (`bb15ae0`): Blindado `Modo Captura Limpia` frente a cambios de zoom LOD (`applyLod`), multi-selección (`panelOutlineEntities` + colección batched) y guías temporales (`ra_live_route_preview`, `temp_bld_`).
+- `F1-05` (`bb15ae0`): Eliminadas todas las llamadas síncronas `canvas.toDataURL('image/jpeg', 0.92)` en el skybox procedural pasando 6 canvases directos cacheados por banda horaria.
+- `F1-06` (`a9511c6`): Poda espacial por `BoundingSphere` + `raySphere` en `pickPanelUnderCursor`, poda cónica 3D en `findSnapPoint` y unificación de listeners globales vía `RA.addListener` en `cad-selection-suite.js`.
+- `F1-07` (`ef2281a`): Purga de fuga en `_raScaledBoxes`, selección multi-panel batched en una sola `PolylineCollection`, `pickTranslucentDepth = false` al inicio y eliminación de `depthMat` muerto.
+
+#### Checklist de Verificación Manual del Usuario en Navegador
+1. **Reposo 0% GPU/CPU:** Abrir el HUD de rendimiento (`B`) expandido y dejar el ratón quieto >5 segundos; verificar que entra en `0 FPS (SLEEP)` sin actividad continua.
+2. **Sombras de edificios y obstáculos CAD:** Colocar un edificio CAD al sur de un faldón con paneles y lanzar el mapa térmico o vista horaria; verificar que el edificio proyecta sombra real sobre los paneles.
+3. **Captura limpia + Zoom:** Seleccionar varios paneles (`Ctrl+A` o Shift+Arrastre), pulsar `C` (Captura Limpia) y hacer zoom acercando/alejando; verificar que etiquetas y contornos permanecen ocultos hasta volver a pulsar `C`.
+4. **Deslizador solar fluido:** Arrastrar suavemente el deslizador horario de 06:00 a 20:00 comprobando transiciones limpias de cielo sin tirones.
+5. **Escenas grandes y trazado:** Probar trazado de edificios, estampado de faldones, edición de rutas y selección múltiple con `Ctrl+A` comprobando fluidez.
+
+> ⏸️ **Esperando confirmación manual del usuario (OK) para iniciar Fase 2.**

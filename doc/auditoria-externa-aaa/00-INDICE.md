@@ -78,7 +78,7 @@ Pueden lanzarse en paralelo de forma inmediata en ramas aisladas:
 | 8 | `F0-01` | Fase 0 | Corrupción de Undo/Redo CAD en vértices de edificio, polilíneas y rutas | `[Hecho]` |
 | 9 | `F0-02` | Fase 0 | Primitivas GPU huérfanas tras borrar diseño y destrucción de `lastRoofInfo` | `[Hecho]` |
 | 10 | `F0-03` | Fase 0 | Pantalla negra/corrupta tras pérdida de contexto WebGL | `[Hecho]` |
-| 11 | `F1-03` | Fase 1 | Caché de exclusión de raycasting y ceguera de sombras frente a edificios/obstáculos CAD | `[Pendiente]` |
+| 11 | `F1-03` | Fase 1 | Caché de exclusión de raycasting y ceguera de sombras frente a edificios/obstáculos CAD | `[Hecho]` |
 | 12 | `F5-01` | Fase 5 | Tecla `Tab` bloqueada en UI tras mover ratón + stack `Escape` modal roto | `[Pendiente]` |
 | 13 | `F5-02` | Fase 5 | `:focus-visible` suprimido globalmente y zoom móvil bloqueado | `[Pendiente]` |
 | 14 | `F5-03` | Fase 5 | 6 `aria-label` corruptos (hasta 5.380 chars) y 4 `<label for>` apuntando a otro campo | `[Pendiente]` |

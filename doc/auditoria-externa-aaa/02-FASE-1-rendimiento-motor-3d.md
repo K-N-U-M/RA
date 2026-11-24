@@ -10,13 +10,13 @@
 
 | ID | Título | Severidad | Esfuerzo | Dependencias | Origen | Estado |
 | :--- | :--- | :---: | :---: | :--- | :--- | :--- |
-| **F1-01** | Erradicar `CallbackProperty` residuales, bucles `rAF` en reposo y renders múltiples por frame | P1 | L | Ninguna | A-09 | `[Pendiente]` |
-| **F1-02** | Migrar paneles, edificios y obstáculos de rebuild `O(N)` síncrono a instanciación/batching incremental | P1 | XL | Ninguna | A-08 | `[Pendiente]` |
-| **F1-03** | Corregir caché de exclusión 3D y ceguera del raycasting de sombras frente a edificios/obstáculos CAD | P0 | L | F1-02 | A-03 | `[Pendiente]` |
-| **F1-04** | Corregir `Mode Captura Limpia` frente a zoom LOD, multi-selección y previews temporales | P2 | S | F0-04 | A-11 | `[Pendiente]` |
-| **F1-05** | Optimizar Skybox procedural mediante `modelMatrix` sin regeneración JPEG continua | P2 | M | Ninguna | A-12 | `[Pendiente]` |
-| **F1-06** | Indexar picking/snapping en espacio local/BVH (`O(log N)`) y unificar registro de listeners | P2 | L | F0-04 | A-13 | `[Pendiente]` |
-| **F1-07** | Purgar fugas de `_raScaledBoxes`, selección multi-panel batched, shadow map inicial y código muerto de render | P2 | M | F1-02 | A-14 | `[Pendiente]` |
+| **F1-01** | Erradicar `CallbackProperty` residuales, bucles `rAF` en reposo y renders múltiples por frame | P1 | L | Ninguna | A-09 | `[Hecho]` |
+| **F1-02** | Migrar paneles, edificios y obstáculos de rebuild `O(N)` síncrono a instanciación/batching incremental | P1 | XL | Ninguna | A-08 | `[Hecho]` |
+| **F1-03** | Corregir caché de exclusión 3D y ceguera del raycasting de sombras frente a edificios/obstáculos CAD | P0 | L | F1-02 | A-03 | `[Hecho]` |
+| **F1-04** | Corregir `Mode Captura Limpia` frente a zoom LOD, multi-selección y previews temporales | P2 | S | F0-04 | A-11 | `[Hecho]` |
+| **F1-05** | Optimizar Skybox procedural mediante `modelMatrix` sin regeneración JPEG continua | P2 | M | Ninguna | A-12 | `[Hecho]` |
+| **F1-06** | Indexar picking/snapping en espacio local/BVH (`O(log N)`) y unificar registro de listeners | P2 | L | F0-04 | A-13 | `[Hecho]` |
+| **F1-07** | Purgar fugas de `_raScaledBoxes`, selección multi-panel batched, shadow map inicial y código muerto de render | P2 | M | F1-02 | A-14 | `[Hecho]` |
 
 ---
 
