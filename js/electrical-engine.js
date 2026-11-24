@@ -114,6 +114,8 @@
       Voc_Tmin,
       Vmp_Tmax,
       Vmp_Tmin,
+      Tmin,
+      Tmax_cell,
       vocCold: Voc_Tmin,
       vmpHot: Vmp_Tmax,
       vmpCold: Vmp_Tmin
@@ -716,6 +718,7 @@
         const actualOverload = totalKwp / (invCount * inv.kw);
         const _totalMppts = _mpptCount * invCount;
         const _stringsPerMppt = Math.max(1, Math.ceil(_nStrings / _totalMppts));
+        const hasEnoughMpptInputs = (_stringsPerMppt <= _inputsPerMppt);
         const _iscPerMppt = (moduleSpec.isc || 14.0) * 1.25 * _stringsPerMppt;
         const _impPerMppt = (moduleSpec.imp || 13.0) * _stringsPerMppt;
         const isCurrentSafe = !inv.iMaxScA || (_iscPerMppt <= inv.iMaxScA);
@@ -753,6 +756,7 @@
         const isMatch = !isExcessiveFragmentation &&
           actualOverload >= minAcceptableRatio &&
           actualOverload <= maxAllowedOverload &&
+          hasEnoughMpptInputs &&
           isCurrentSafe &&
           isVoltageSafe &&
           !hasPhaseUnbalance &&
@@ -1802,13 +1806,15 @@
       return { valid: true, violations: [] };
     }
 
-    // Agrupar strings por canal MPPT
-    const hasOptTopo = !!(typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.selectedTopology === 'optimizer');
+    // Agrupar strings por canal MPPT respetando flag selectivo p.hasMLPE
+    const cfgCtx = (typeof window !== 'undefined' && window.solarProjectConfig) ? window.solarProjectConfig : {};
+    const hasOptTopo = cfgCtx.selectedTopology === 'optimizer';
     const mpptGroups = new Map();
     targetPanels.forEach(p => {
       if (!p || !p.stringName || !p.mpptId || p.isGhost || p.deleted || p.disabled) return;
       if (!mpptGroups.has(p.mpptId)) mpptGroups.set(p.mpptId, new Map());
       const strMap = mpptGroups.get(p.mpptId);
+      const panelHasMlpe = (typeof p.hasMLPE === 'boolean') ? p.hasMLPE : hasOptTopo;
       if (!strMap.has(p.stringName)) {
         let tilt = typeof p.tiltDeg === 'number' ? p.tiltDeg : null;
         let az = typeof p.azimuthDeg === 'number' ? p.azimuthDeg : null;
@@ -1824,18 +1830,72 @@
           az: az || 0,
           polyIdx: p.polyIdx,
           panelCount: 1,
-          hasMLPE: hasOptTopo || (p.hasMLPE === true)
+          hasMLPE: panelHasMlpe
         });
       } else {
         const curStr = strMap.get(p.stringName);
         curStr.panelCount++;
-        curStr.hasMLPE = curStr.hasMLPE && (hasOptTopo || (p.hasMLPE === true));
+        curStr.hasMLPE = curStr.hasMLPE && panelHasMlpe;
       }
     });
+
+    // Límites eléctricos de inversor/módulo activo (Voc frío, Isc×1.25 e inputsPerMppt)
+    const catCtx = (typeof window !== 'undefined' && window.equipmentCatalog) ? window.equipmentCatalog : null;
+    const invCtx = (cfgCtx.calculatedLimits && cfgCtx.calculatedLimits.inverter)
+      || (catCtx && Array.isArray(catCtx.inverters) && catCtx.inverters.find(i => i && i.id === cfgCtx.selectedInverterId))
+      || null;
+    const modCtx = (cfgCtx.calculatedLimits && cfgCtx.calculatedLimits.module)
+      || (catCtx && Array.isArray(catCtx.modules) && catCtx.modules.find(m => m && m.id === cfgCtx.selectedModuleId))
+      || (typeof window !== 'undefined' && window.panelConfig)
+      || {};
+    const vDcMaxInv = (invCtx && (invCtx.vDcMax || invCtx.vMax || invCtx.vMaxDc)) ? Number(invCtx.vDcMax || invCtx.vMax || invCtx.vMaxDc) : 1000;
+    const inputsPerMppt = (invCtx && Number(invCtx.inputsPerMppt) > 0) ? Number(invCtx.inputsPerMppt) : 1;
+    const iMaxScInv = (invCtx && Number(invCtx.iMaxScA) > 0) ? Number(invCtx.iMaxScA) : 0;
+    const iscMod = Number(modCtx.isc || 13.8);
+    const isBifacialMod = !!(modCtx.bifacial || modCtx.isBifacial || (modCtx.bifacialityFactor > 0));
+    const iscFactor = 1.25 * (isBifacialMod ? 1.15 : 1.0);
+    const dynLimCheck = calculateDynamicMPPTStringLimits(modCtx, invCtx || { vDcMax: vDcMaxInv });
+    const vocColdMod = (dynLimCheck && dynLimCheck.Voc_Tmin > 0) ? dynLimCheck.Voc_Tmin : (Number(modCtx.voc || 41.5) * 1.10);
 
     const violations = [];
     mpptGroups.forEach((strMap, mpptId) => {
       const strings = Array.from(strMap.entries());
+      if (strings.length === 0) return;
+
+      if (invCtx && strings.length > inputsPerMppt) {
+        violations.push({
+          mpptId,
+          blocking: true,
+          code: 'MPPT_INPUTS_EXCEEDED',
+          msg: `⛔ BLOQUEO NORMATIVO MPPT en Canal ${mpptId}: ${strings.length} strings asignados superan las ${inputsPerMppt} entrada(s) física(s) del inversor (IEC 62548).`
+        });
+      }
+
+      if (iMaxScInv > 0) {
+        const iscChannel = strings.length * iscMod * iscFactor;
+        if (iscChannel > iMaxScInv) {
+          violations.push({
+            mpptId,
+            blocking: true,
+            code: 'MPPT_OVERCURRENT_ISC',
+            msg: `⛔ BLOQUEO NORMATIVO MPPT en Canal ${mpptId}: Corriente de cortocircuito en paralelo (${iscChannel.toFixed(1)} A incl. 1.25×) supera el límite Isc máx del inversor (${iMaxScInv.toFixed(1)} A).`
+          });
+        }
+      }
+
+      strings.forEach(([name, data]) => {
+        const strVocCold = data.panelCount * vocColdMod;
+        if (strVocCold > vDcMaxInv) {
+          violations.push({
+            mpptId,
+            stringA: name,
+            blocking: true,
+            code: 'MPPT_OVERVOLTAGE',
+            msg: `⛔ BLOQUEO NORMATIVO MPPT en Canal ${mpptId}: String '${name}' (${data.panelCount} placas) alcanza Voc frío = ${strVocCold.toFixed(0)} V > Vdc máx (${vDcMaxInv} V) (IEC 62548).`
+          });
+        }
+      });
+
       if (strings.length <= 1) return;
       for (let i = 0; i < strings.length; i++) {
         for (let j = i + 1; j < strings.length; j++) {
@@ -1846,7 +1906,7 @@
           if (deltaAz > 180) deltaAz = 360 - deltaAz;
           const deltaCount = Math.abs(dataA.panelCount - dataB.panelCount);
 
-          if (deltaCount > 0) {
+          if (deltaCount > 0 && !(dataA.hasMLPE && dataB.hasMLPE)) {
             const msg = `⛔ BLOQUEO NORMATIVO MPPT en Canal ${mpptId}: Strings '${nameA}' (${dataA.panelCount} módulos) y '${nameB}' (${dataB.panelCount} módulos) en paralelo tienen diferente longitud (ΔN = ${deltaCount}). Provoca desbalance severo de tensión Vmp y corrientes inversas destructivas (IEC 62548).`;
             violations.push({
               mpptId,
@@ -2463,9 +2523,12 @@
   const rawGamma = cfg.gammaPmp || cfg.tempCoeffPmax || -0.0035;
   const gammaPmp = normalizeThermalCoeff(rawGamma, -0.0035);
 
-  const T_min = (typeof SOLAR_ENGINE_CONSTANTS !== 'undefined' && SOLAR_ENGINE_CONSTANTS.T_MIN_SPAIN)
-    ? SOLAR_ENGINE_CONSTANTS.T_MIN_SPAIN
-    : -10;
+  const explicitTmin = (generator && typeof generator.Tmin === 'number')
+    ? generator.Tmin
+    : ((cfg && typeof cfg.tempMinC === 'number') ? cfg.tempMinC : undefined);
+  let T_min = (explicitTmin !== undefined)
+    ? explicitTmin
+    : ((typeof SOLAR_ENGINE_CONSTANTS !== 'undefined' && SOLAR_ENGINE_CONSTANTS.T_MIN_SPAIN) ? SOLAR_ENGINE_CONSTANTS.T_MIN_SPAIN : -10);
   const T_amb_max = (typeof SOLAR_ENGINE_CONSTANTS !== 'undefined' && SOLAR_ENGINE_CONSTANTS.T_AMB_MAX_SPAIN)
     ? SOLAR_ENGINE_CONSTANTS.T_AMB_MAX_SPAIN
     : 40;
@@ -2473,16 +2536,16 @@
   const T_cell_max = (typeof computeCellTemperature === 'function')
     ? computeCellTemperature(T_amb_max, 1000, true, 1.0)
     : (T_amb_max + 25);
-  const betaVmp = cfg.betaVmp || gammaPmp || -0.0035;
+  const betaVmp = normalizeThermalCoeff(cfg.betaVmp || gammaPmp, gammaPmp);
 
-  // [P0.1] Desacoplar inversor: usar el inversor seleccionado del catálogo en lugar de 1000/160/850 fijos
+  // [P0.1] Desacoplar inversor: usar el inversor seleccionado del catálogo en lugar de 1000/200/850 fijos
   let activeInv = null;
   if (typeof window !== 'undefined' && window.solarProjectConfig && window.equipmentCatalog && Array.isArray(window.equipmentCatalog.inverters)) {
     const invId = window.solarProjectConfig.selectedInverterId;
     activeInv = window.equipmentCatalog.inverters.find(i => i && i.id === invId);
   }
   const V_dc_max   = (activeInv && (activeInv.vDcMax || activeInv.vMax || activeInv.vMaxDc)) ? (activeInv.vDcMax || activeInv.vMax || activeInv.vMaxDc) : 1000;
-  const V_mppt_min = (activeInv && activeInv.vMpptMin) ? activeInv.vMpptMin : 160;
+  const V_mppt_min = (activeInv && activeInv.vMpptMin) ? activeInv.vMpptMin : 200;
   const V_mppt_max = (activeInv && activeInv.vMpptMax) ? activeInv.vMpptMax : 850;
 
   let maxModsPerString = 20;
@@ -2493,15 +2556,16 @@
 
   if (typeof window !== 'undefined' && window.RA && window.RA.Electrical && typeof window.RA.Electrical.calculateDynamicMPPTStringLimits === 'function') {
     const limits = window.RA.Electrical.calculateDynamicMPPTStringLimits(
-      { Voc, Vmp, betaVoc, gammaPmp },
+      { Voc, Vmp, betaVoc, betaVmp, gammaPmp },
       { Vmax: V_dc_max, VmpptMin: V_mppt_min, VmpptMax: V_mppt_max },
-      { Tmin: T_min, TmaxCell: T_cell_max }
+      { Tmin: explicitTmin, TmaxCell: T_cell_max }
     );
     maxModsPerString = limits.Ns_max;
     minModsPerString = limits.Ns_min;
     Voc_cold = limits.Voc_Tmin;
     Vmp_hot = limits.Vmp_Tmax;
     Vmp_cold = limits.Vmp_Tmin;
+    if (typeof limits.Tmin === 'number' && Number.isFinite(limits.Tmin)) T_min = limits.Tmin;
   } else {
     const N_max_dc   = Math.floor(V_dc_max / Voc_cold);
     const N_max_mppt = Math.floor(V_mppt_max / Vmp_cold);
@@ -2514,8 +2578,12 @@
   let modsPerString = Math.ceil(numPanels / numStrings);
 
   if (modsPerString < minModsPerString && numPanels >= minModsPerString) {
-    numStrings = Math.max(1, Math.floor(numPanels / minModsPerString));
-    modsPerString = Math.ceil(numPanels / numStrings);
+    const reducedStrings = Math.max(1, Math.floor(numPanels / minModsPerString));
+    const reducedMods = Math.ceil(numPanels / reducedStrings);
+    if (reducedMods <= maxModsPerString) {
+      numStrings = reducedStrings;
+      modsPerString = reducedMods;
+    }
   }
 
   const Voc_str_stc = modsPerString * Voc;

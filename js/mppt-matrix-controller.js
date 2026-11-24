@@ -148,6 +148,8 @@
       invVmpptMin: Number(inv.vMpptMin || inv.vMpptNomMin || 200),
       invVmpptMax: Number(inv.vMpptMax || inv.vMpptNomMax || 850),
       invImaxOper: Number(inv.iMaxOperA || (inv.iMaxScA ? inv.iMaxScA * 0.75 : 26)),
+      invImaxSc: Number(inv.iMaxScA || 0),
+      iscChannelFactor: (mod.bifacial || mod.isBifacial || (mod.bifacialityFactor > 0)) ? 1.15 : 1.0,
       invKw: Number(inv.kw || 5)
     };
   }
@@ -290,6 +292,7 @@
     const vocColdMax = maxLen * hw.vocColdPerMod;
     const vmpHotMin = minLen * hw.vmpHotPerMod;
     const impTotal = populated.length * hw.impMod;
+    const iscTotal = populated.length * hw.iscMod * 1.25 * (hw.iscChannelFactor || 1.0);
 
     if (vocColdMax > hw.invVmax) {
       escalate('red', `Sobretensión en frío (${vocColdMax.toFixed(0)}V > ${hw.invVmax}V)`);
@@ -301,7 +304,9 @@
       escalate('amber', `Tensión mínima caliente baja (${vmpHotMin.toFixed(0)}V < ${hw.invVmpptMin}V)`);
     }
 
-    if (impTotal > hw.invImaxOper) {
+    if (hw.invImaxSc > 0 && iscTotal > hw.invImaxSc) {
+      escalate('red', `Cortocircuito Isc (${iscTotal.toFixed(1)}A > ${hw.invImaxSc.toFixed(1)}A máx inversor)`);
+    } else if (impTotal > hw.invImaxOper) {
       escalate('amber', `Corriente Imp (${impTotal.toFixed(1)}A > ${hw.invImaxOper.toFixed(1)}A, recorte)`);
     }
 
