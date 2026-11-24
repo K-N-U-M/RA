@@ -195,12 +195,13 @@ function wpAddCableRoutePoint(pos3D, eventModifiers) {
   });
   window.cableRoutingState.previewEntities.push(ptEnt);
 
-  // Línea preview entre los puntos trazados
+  // Línea preview entre los puntos trazados (ConstantProperty sin CallbackProperty idle)
   if (window.cableRoutingState.points.length >= 2) {
+    const ptsCopy = window.cableRoutingState.points.slice();
     if (!window.cableRoutingState.previewLine) {
       window.cableRoutingState.previewLine = viewer.entities.add({
         polyline: {
-          positions: new Cesium.CallbackProperty(() => window.cableRoutingState.points, false),
+          positions: new Cesium.ConstantProperty(ptsCopy),
           width: 5.0,
           arcType: (typeof Cesium !== 'undefined' && Cesium.ArcType) ? Cesium.ArcType.NONE : undefined,
           material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString(colorHex)
@@ -209,6 +210,8 @@ function wpAddCableRoutePoint(pos3D, eventModifiers) {
         }
       });
       window.cableRoutingState.previewEntities.push(window.cableRoutingState.previewLine);
+    } else if (window.cableRoutingState.previewLine.polyline) {
+      window.cableRoutingState.previewLine.polyline.positions = new Cesium.ConstantProperty(ptsCopy);
     }
   }
 

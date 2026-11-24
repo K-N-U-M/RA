@@ -1733,13 +1733,11 @@ function render3DBuildingsInCesium() {
       }
 
       bldRectState.cursorPos = Cesium.Cartesian3.clone(flatCursor);
+      const linePts = [bldRectState.p1, bldRectState.cursorPos];
       if (!bldRectState.previewLine) {
         bldRectState.previewLine = window.viewer.entities.add({
           polyline: {
-            positions: new Cesium.CallbackProperty(() => {
-              if (!bldRectState.p1 || !bldRectState.cursorPos) return [];
-              return [bldRectState.p1, bldRectState.cursorPos];
-            }, false),
+            positions: new Cesium.ConstantProperty(linePts),
             width: 3.5,
             material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#818CF8')),
             arcType: Cesium.ArcType.NONE,
@@ -1747,6 +1745,8 @@ function render3DBuildingsInCesium() {
           }
         });
         bldRectState.tempEntities.push(bldRectState.previewLine);
+      } else if (bldRectState.previewLine.polyline) {
+        bldRectState.previewLine.polyline.positions = new Cesium.ConstantProperty(linePts);
       }
       window.viewer.scene.requestRender();
       return;
@@ -1789,22 +1789,18 @@ function render3DBuildingsInCesium() {
       }
     }
 
+    const rectCorners = [bldRectState.p1, bldRectState.p2, bldRectState.p3, bldRectState.p4];
+    const rectLoop = [bldRectState.p1, bldRectState.p2, bldRectState.p3, bldRectState.p4, bldRectState.p1];
     if (!bldRectState.previewRect) {
       bldRectState.previewRect = window.viewer.entities.add({
         polygon: {
-          hierarchy: new Cesium.CallbackProperty(() => {
-            if (!bldRectState.p1 || !bldRectState.p2 || !bldRectState.p3 || !bldRectState.p4) return new Cesium.PolygonHierarchy([]);
-            return new Cesium.PolygonHierarchy([bldRectState.p1, bldRectState.p2, bldRectState.p3, bldRectState.p4]);
-          }, false),
+          hierarchy: new Cesium.ConstantProperty(new Cesium.PolygonHierarchy(rectCorners)),
           material: Cesium.Color.fromCssColorString('#818CF8').withAlpha(0.35),
           perPositionHeight: true,
           arcType: Cesium.ArcType.NONE
         },
         polyline: {
-          positions: new Cesium.CallbackProperty(() => {
-            if (!bldRectState.p1 || !bldRectState.p2 || !bldRectState.p3 || !bldRectState.p4) return [];
-            return [bldRectState.p1, bldRectState.p2, bldRectState.p3, bldRectState.p4, bldRectState.p1];
-          }, false),
+          positions: new Cesium.ConstantProperty(rectLoop),
           width: 3.5,
           material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#38BDF8')),
           arcType: Cesium.ArcType.NONE,
@@ -1812,6 +1808,13 @@ function render3DBuildingsInCesium() {
         }
       });
       bldRectState.tempEntities.push(bldRectState.previewRect);
+    } else {
+      if (bldRectState.previewRect.polygon) {
+        bldRectState.previewRect.polygon.hierarchy = new Cesium.ConstantProperty(new Cesium.PolygonHierarchy(rectCorners));
+      }
+      if (bldRectState.previewRect.polyline) {
+        bldRectState.previewRect.polyline.positions = new Cesium.ConstantProperty(rectLoop);
+      }
     }
   }
 

@@ -245,32 +245,30 @@ function handleBuildingClick(cartesian) {
   if (!window._tempBuildingEntities) window._tempBuildingEntities = [];
   window._tempBuildingEntities.push(ptEnt);
 
-  // Renderizar o actualizar polilínea de trazado con línea elástica reutilizando addPolylineEntity
+  // Renderizar o actualizar polilínea de trazado con línea elástica (ConstantProperty sin CallbackProperty idle)
+  const _computeBldPreviewPts = () => {
+    if (!activeBuildingPts || activeBuildingPts.length === 0) return [];
+    const pts = [...activeBuildingPts];
+    if (window._bldCursorPos) pts.push(window._bldCursorPos);
+    if (pts.length >= 3) pts.push(pts[0]);
+    if (pts.length === 1) pts.push(Cesium.Cartesian3.clone(pts[0]));
+    return pts;
+  };
+  window.syncBuildingPreviewLine = () => {
+    if (!window._tempBuildingLineEntity || !window._tempBuildingLineEntity.polyline) return;
+    window._tempBuildingLineEntity.polyline.positions = new Cesium.ConstantProperty(_computeBldPreviewPts());
+  };
   if (activeBuildingPts.length >= 1) {
     if (window._tempBuildingLineEntity) {
       try { viewer.entities.remove(window._tempBuildingLineEntity); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
     }
-    const dynamicPositions = new Cesium.CallbackProperty(() => {
-      if (!activeBuildingPts || activeBuildingPts.length === 0) return [];
-      const pts = [...activeBuildingPts];
-      if (window._bldCursorPos) {
-        pts.push(window._bldCursorPos);
-      }
-      if (pts.length >= 3) {
-        pts.push(pts[0]);
-      }
-      // [FIX] Cesium Polyline exige mínimo 2 vértices. Si length es 1, duplica el punto para evitar un cuelgue silencioso del render.
-      if (pts.length === 1) {
-        pts.push(Cesium.Cartesian3.clone(pts[0]));
-      }
-      return pts;
-    }, false);
+    const staticPositions = new Cesium.ConstantProperty(_computeBldPreviewPts());
 
     window._tempBuildingLineEntity = (typeof addPolylineEntity === 'function')
-      ? addPolylineEntity(dynamicPositions, '#38BDF8', 3.5, 0.85, 1.0, 'temp_bld_line_preview')
+      ? addPolylineEntity(staticPositions, '#38BDF8', 3.5, 0.85, 1.0, 'temp_bld_line_preview')
       : viewer.entities.add({
           polyline: {
-            positions: dynamicPositions,
+            positions: staticPositions,
             width: 3.5,
             material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#38BDF8')),
             // depthFailMaterial removed,

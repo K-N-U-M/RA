@@ -828,7 +828,31 @@ function _updateLabelHoverAlpha(key, isHovered, now) {
   return state;
 }
 
-function renderTriad2D() {
+let _triadRenderRafId = null;
+function scheduleTriad2DRender() {
+  if (_triadRenderRafId !== null) return;
+  _triadRenderRafId = requestAnimationFrame(() => {
+    _triadRenderRafId = null;
+    _renderTriad2DNow();
+  });
+}
+if (typeof window !== 'undefined') {
+  window.scheduleTriad2DRender = scheduleTriad2DRender;
+}
+
+function renderTriad2D(immediate) {
+  if (immediate === true) {
+    if (_triadRenderRafId !== null) {
+      cancelAnimationFrame(_triadRenderRafId);
+      _triadRenderRafId = null;
+    }
+    _renderTriad2DNow();
+    return;
+  }
+  scheduleTriad2DRender();
+}
+
+function _renderTriad2DNow() {
   if (typeof window !== 'undefined' && window.RACapture && window.RACapture.enabled) return; // [CAPTURA] overlay CAD oculto
   try {
     ensureTriadCanvas();
@@ -856,15 +880,16 @@ function renderTriad2D() {
         const active3D = triadState.pos3D || WP.planePts[pCount - 1];
 
         if (pCount === 1 && isP1Front) {
-          // Línea elástica viva P1 -> Cursor del ratón
+          // Línea elástica viva P1 -> Cursor del ratón (doble trazo ligero sin shadowBlur)
           triadCtx.save();
           triadCtx.beginPath();
           triadCtx.moveTo(p1Screen.x, p1Screen.y);
           triadCtx.lineTo(curMouseX, curMouseY);
+          triadCtx.strokeStyle = "rgba(245, 158, 11, 0.28)";
+          triadCtx.lineWidth = 8.0;
+          triadCtx.stroke();
           triadCtx.strokeStyle = "#F59E0B";
           triadCtx.lineWidth = 3.5;
-          triadCtx.shadowColor = "#F59E0B";
-          triadCtx.shadowBlur = 10;
           triadCtx.stroke();
 
           // Píldora con distancia métrica en tiempo real en el punto medio
@@ -903,25 +928,27 @@ function renderTriad2D() {
             triadCtx.fillStyle = "rgba(56, 189, 248, 0.18)";
             triadCtx.fill();
 
-            // Arista fija P1 - P2
+            // Arista fija P1 - P2 (doble trazo ligero sin shadowBlur)
             triadCtx.beginPath();
             triadCtx.moveTo(p1Screen.x, p1Screen.y);
             triadCtx.lineTo(p2Screen.x, p2Screen.y);
+            triadCtx.strokeStyle = "rgba(56, 189, 248, 0.28)";
+            triadCtx.lineWidth = 7.5;
+            triadCtx.stroke();
             triadCtx.strokeStyle = "#38BDF8";
             triadCtx.lineWidth = 3.5;
-            triadCtx.shadowColor = "#38BDF8";
-            triadCtx.shadowBlur = 8;
             triadCtx.stroke();
 
-            // Aristas elásticas hacia cursor
+            // Aristas elásticas hacia cursor (doble trazo ligero sin shadowBlur)
             triadCtx.beginPath();
             triadCtx.moveTo(p2Screen.x, p2Screen.y);
             triadCtx.lineTo(curMouseX, curMouseY);
             triadCtx.lineTo(p1Screen.x, p1Screen.y);
+            triadCtx.strokeStyle = "rgba(245, 158, 11, 0.28)";
+            triadCtx.lineWidth = 7.0;
+            triadCtx.stroke();
             triadCtx.strokeStyle = "#F59E0B";
             triadCtx.lineWidth = 3.0;
-            triadCtx.shadowColor = "#F59E0B";
-            triadCtx.shadowBlur = 8;
             triadCtx.stroke();
 
             // Píldora métrica P2 -> Cursor
@@ -3623,31 +3650,19 @@ function wpStartStampPolyline(sourcePolyIdx, isMoveMode) {
   };
   WP.mode = 'stamp-poly';
 
-  // 6. Crear primitivas/entidades de vista previa si Cesium está activo
+  // 6. Crear primitivas/entidades de vista previa si Cesium está activo (ConstantProperty sin CallbackProperty idle)
   if (typeof viewer !== 'undefined' && viewer && viewer.entities) {
-    const previewHierarchy = new Cesium.CallbackProperty(() => {
-      if (!WP.stampState || !WP.stampState.curTargetPos) return new Cesium.PolygonHierarchy([]);
-      const cur = WP.stampState.curTargetPos;
-      const calcPts = WP.stampState.relPoints.map(rel => Cesium.Cartesian3.add(cur, rel, new Cesium.Cartesian3()));
-      return new Cesium.PolygonHierarchy(calcPts);
-    }, false);
-
-    const previewOutline = new Cesium.CallbackProperty(() => {
-      if (!WP.stampState || !WP.stampState.curTargetPos) return [];
-      const cur = WP.stampState.curTargetPos;
-      const calcPts = WP.stampState.relPoints.map(rel => Cesium.Cartesian3.add(cur, rel, new Cesium.Cartesian3()));
-      if (calcPts.length > 0) calcPts.push(Cesium.Cartesian3.clone(calcPts[0]));
-      return calcPts;
-    }, false);
-
-    const previewLabelPos = new Cesium.CallbackProperty(() => {
-      return (WP.stampState && WP.stampState.curTargetPos) ? WP.stampState.curTargetPos : centroid;
-    }, false);
+    const _calcStampPts = (curPos) => {
+      if (!WP.stampState || !curPos) return [];
+      return WP.stampState.relPoints.map(rel => Cesium.Cartesian3.add(curPos, rel, new Cesium.Cartesian3()));
+    };
+    const initPts = _calcStampPts(WP.stampState.curTargetPos);
+    const initLoop = initPts.length > 0 ? initPts.concat([Cesium.Cartesian3.clone(initPts[0])]) : [];
 
     const fillEnt = viewer.entities.add({
       name: 'stamp_preview_fill',
       polygon: {
-        hierarchy: previewHierarchy,
+        hierarchy: new Cesium.ConstantProperty(new Cesium.PolygonHierarchy(initPts)),
         material: Cesium.Color.fromCssColorString('#10B981').withAlpha(0.28),
         perPositionHeight: true
       }
@@ -3656,7 +3671,7 @@ function wpStartStampPolyline(sourcePolyIdx, isMoveMode) {
     const outlineEnt = viewer.entities.add({
       name: 'stamp_preview_outline',
       polyline: {
-        positions: previewOutline,
+        positions: new Cesium.ConstantProperty(initLoop),
         width: 3.0,
         material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#34D399')),
         arcType: Cesium.ArcType.NONE
@@ -3673,7 +3688,7 @@ function wpStartStampPolyline(sourcePolyIdx, isMoveMode) {
 
     const labelEnt = viewer.entities.add({
       name: 'stamp_preview_label',
-      position: previewLabelPos,
+      position: new Cesium.ConstantPositionProperty(WP.stampState.curTargetPos || centroid),
       label: {
         text: labelInfo,
         font: 'bold 12px "Segoe UI", sans-serif',
@@ -3722,7 +3737,23 @@ function wpProjectStampToSourcePlane(pos3D, srcPoly) {
 
 function wpUpdateStampPolylinePreview(cursor3D) {
   if (!WP.stampState || WP.mode !== 'stamp-poly' || !cursor3D) return;
-  WP.stampState.curTargetPos = wpProjectStampToSourcePlane(cursor3D, WP.stampState.sourcePoly);
+  const curPos = wpProjectStampToSourcePlane(cursor3D, WP.stampState.sourcePoly);
+  WP.stampState.curTargetPos = curPos;
+  if (curPos && Array.isArray(WP.stampState.previewEntities)) {
+    const calcPts = WP.stampState.relPoints.map(rel => Cesium.Cartesian3.add(curPos, rel, new Cesium.Cartesian3()));
+    const loopPts = calcPts.length > 0 ? calcPts.concat([Cesium.Cartesian3.clone(calcPts[0])]) : [];
+    for (let i = 0; i < WP.stampState.previewEntities.length; i++) {
+      const ent = WP.stampState.previewEntities[i];
+      if (!ent) continue;
+      if (ent.name === 'stamp_preview_fill' && ent.polygon) {
+        ent.polygon.hierarchy = new Cesium.ConstantProperty(new Cesium.PolygonHierarchy(calcPts));
+      } else if (ent.name === 'stamp_preview_outline' && ent.polyline) {
+        ent.polyline.positions = new Cesium.ConstantProperty(loopPts);
+      } else if (ent.name === 'stamp_preview_label') {
+        ent.position = new Cesium.ConstantPositionProperty(curPos);
+      }
+    }
+  }
   if (typeof viewer !== 'undefined' && viewer && viewer.scene) {
     viewer.scene.requestRender();
   }
@@ -7472,13 +7503,18 @@ function initUnifiedWorkPlaneSystem() {
   if (!currentViewer || !currentScene || !currentScene.canvas) {
     if (typeof window !== 'undefined' && !window._wpInitPending) {
       window._wpInitPending = true;
+      let _wpRetries = 0;
       const _chkWpViewer = setInterval(() => {
+        _wpRetries++;
         const checkViewer = typeof viewer !== 'undefined' && viewer ? viewer : (window.viewer || null);
         const checkScene = checkViewer ? checkViewer.scene : null;
         if (checkViewer && checkScene && checkScene.canvas) {
           clearInterval(_chkWpViewer);
           window._wpInitPending = false;
           initUnifiedWorkPlaneSystem();
+        } else if (_wpRetries >= 300) {
+          clearInterval(_chkWpViewer);
+          window._wpInitPending = false;
         }
       }, 100);
     }

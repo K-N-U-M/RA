@@ -2057,35 +2057,18 @@ function updateAllVisuals() {
 
   if (!wpManaged && polygonPoints.length >= 2) {
     const isClosed = polygonPoints.length >= 3;
-    const pts = [];
+    const isDrawingMode = appMode === 'draw' || (typeof WP !== 'undefined' && WP && WP.mode === 'draw-poly');
+    const pts = polygonPoints.slice();
+    if (isDrawingMode && floatingPoint && polygonPoints.length > 0) {
+      pts.push(floatingPoint);
+    } else if (polygonPoints.length >= 3) {
+      pts.push(polygonPoints[0]);
+    }
 
     activeShapeEntity = viewer.entities.add({
       id: 'ra_active_shape',
       polyline: {
-        positions: new Cesium.CallbackProperty(() => {
-          const isDrawingMode = appMode === 'draw' || (typeof WP !== 'undefined' && WP && WP.mode === 'draw-poly');
-          let targetLength = 0;
-          if (isDrawingMode && floatingPoint && polygonPoints.length > 0) {
-            targetLength = polygonPoints.length + 1;
-          } else if (polygonPoints.length >= 3) {
-            targetLength = polygonPoints.length + 1;
-          } else if (polygonPoints.length >= 2) {
-            targetLength = polygonPoints.length;
-          }
-          
-          if (pts.length !== targetLength) pts.length = targetLength;
-          
-          for (let i = 0; i < polygonPoints.length; i++) {
-            pts[i] = polygonPoints[i];
-          }
-          
-          if (isDrawingMode && floatingPoint && polygonPoints.length > 0) {
-            pts[targetLength - 1] = floatingPoint;
-          } else if (polygonPoints.length >= 3) {
-            pts[targetLength - 1] = polygonPoints[0];
-          }
-          return polygonPoints.length >= 2 ? pts : [];
-        }, false),
+        positions: new Cesium.ConstantProperty(polygonPoints.length >= 2 ? pts : []),
         width: 4,
         material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#F7A520')),
         // depthFailMaterial removed,
@@ -2108,7 +2091,7 @@ function updateAllVisuals() {
     const isFirst = idx === 0;
 
     const marker = addPointEntity(
-      new Cesium.CallbackProperty(() => polygonPoints[idx] || pt, false),
+      new Cesium.ConstantPositionProperty(polygonPoints[idx] || pt),
       isSelected ? UI_C.white : (isFirst ? '#FFD080' : UI_C.amber),
       isSelected ? 16 : (isFirst ? 13 : 10),
       UI_C.black,
@@ -3062,26 +3045,10 @@ function startSolarPanelsSimulation() {
     polyPanels.forEach((panelData, pIdx) => {
       const gIdx = globalCounter++;
       const t = setTimeout(() => {
-        const startTime = performance.now();
-        const duration = 180;
-
-        const dynamicHierarchy = new Cesium.CallbackProperty(() => {
-          const elapsed = performance.now() - startTime;
-          const progress = Math.min(elapsed / duration, 1.0);
-          const scale = 1 - Math.pow(1 - progress, 3);
-
-          const scaledCorners = panelData.corners.map(c => {
-            const delta = Cesium.Cartesian3.subtract(c, panelData.center, new Cesium.Cartesian3());
-            const scaledDelta = Cesium.Cartesian3.multiplyByScalar(delta, scale, new Cesium.Cartesian3());
-            return Cesium.Cartesian3.add(panelData.center, scaledDelta, new Cesium.Cartesian3());
-          });
-          return new Cesium.PolygonHierarchy(scaledCorners);
-        }, false);
-
         const panelEntity = viewer.entities.add({
           id: "pv_panel_" + polyIdx + "_" + pIdx + "_" + Math.random().toString(36).substring(2, 7),
           polygon: {
-            hierarchy: dynamicHierarchy,
+            hierarchy: new Cesium.PolygonHierarchy(panelData.corners),
             material: (typeof window.solarPanelTextureCanvas !== 'undefined' && window.solarPanelTextureCanvas)
               ? new Cesium.ImageMaterialProperty({ image: window.solarPanelTextureCanvas, transparent: false })
               : ((typeof solarPanelTextureUrl !== 'undefined' && solarPanelTextureUrl)
@@ -3091,16 +3058,7 @@ function startSolarPanelsSimulation() {
           }
         });
         simulatedPanelEntities.push(panelEntity);
-
-        const tFreeze = setTimeout(() => {
-          try {
-            if (panelEntity && panelEntity.polygon && !viewer.isDestroyed()) {
-              panelEntity.polygon.hierarchy = new Cesium.PolygonHierarchy(panelData.corners);
-              if (viewer.scene && viewer.scene.requestRender) viewer.scene.requestRender();
-            }
-          } catch (_) {}
-        }, duration + 40);
-        simulationTimeouts.push(tFreeze);
+        if (viewer.scene && viewer.scene.requestRender) viewer.scene.requestRender();
 
         const countBadge = document.getElementById("sol-panels-count");
         if (countBadge) countBadge.textContent = (gIdx + 1) + " de " + totalPanelsCount + " uds";

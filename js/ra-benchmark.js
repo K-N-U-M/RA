@@ -251,7 +251,10 @@
 
     hookCesiumRender: function() {
       const self = this;
+      let retries = 0;
+      const MAX_RETRIES = 120;
       const checkViewer = setInterval(() => {
+        retries++;
         if (global.viewer && global.viewer.scene) {
           clearInterval(checkViewer);
           const scene = global.viewer.scene;
@@ -260,14 +263,21 @@
             renderStartTime = performance.now();
             lastRenderCallTime = renderStartTime;
             isGpuSleeping = false;
-            if (!isExpanded && isEnabled) {
+            if (isEnabled) {
               if (_idleSleepTimer) clearTimeout(_idleSleepTimer);
               _idleSleepTimer = setTimeout(() => {
                 _idleSleepTimer = null;
                 isGpuSleeping = true;
+                displayFps = 0;
+                frameCount = 0;
                 actualRenderDurationMs = 0.0;
+                if (isExpanded) {
+                  fpsHistory.push(0);
+                  if (fpsHistory.length > 30) fpsHistory.shift();
+                  self._updateSparklinePool();
+                }
                 self.updateDOM();
-              }, 250);
+              }, 260);
             }
           });
 
@@ -276,7 +286,23 @@
             if (renderStartTime > 0) {
               actualRenderDurationMs = now - renderStartTime;
             }
-            if (!isExpanded && isEnabled && (now - _lastPillUpdateTs > 250)) {
+            if (!isEnabled) return;
+            frameCount++;
+            if (now - lastSecondTime >= 1000) {
+              const dtSec = Math.max(0.2, (now - lastSecondTime) / 1000);
+              displayFps = Math.round(frameCount / dtSec);
+              frameCount = 0;
+              lastSecondTime = now;
+              if (performance && performance.memory) {
+                memoryMb = Math.round(performance.memory.usedJSHeapSize / (1024 * 1024));
+              }
+              if (isExpanded) {
+                fpsHistory.push(displayFps);
+                if (fpsHistory.length > 30) fpsHistory.shift();
+                self._updateSparklinePool();
+              }
+              self.updateDOM();
+            } else if (!isExpanded && (now - _lastPillUpdateTs > 250)) {
               _lastPillUpdateTs = now;
               if (performance && performance.memory) {
                 memoryMb = Math.round(performance.memory.usedJSHeapSize / (1024 * 1024));
@@ -284,8 +310,46 @@
               self.updateDOM();
             }
           });
+        } else if (retries >= MAX_RETRIES) {
+          clearInterval(checkViewer);
         }
       }, 250);
+    },
+
+    _sparkBars: null,
+    _updateSparklinePool: function() {
+      const spark = document.getElementById('ra-bm-sparkline');
+      if (!spark || !isExpanded) return;
+      if (!this._sparkBars || this._sparkBars.length !== 30 || !spark.contains(this._sparkBars[0])) {
+        spark.textContent = '';
+        this._sparkBars = [];
+        const frag = document.createDocumentFragment();
+        for (let i = 0; i < 30; i++) {
+          const bar = document.createElement('div');
+          bar.style.width = '6px';
+          bar.style.height = '3px';
+          bar.style.background = '#38bdf8';
+          bar.style.borderRadius = '1px';
+          this._sparkBars.push(bar);
+          frag.appendChild(bar);
+        }
+        spark.appendChild(frag);
+      }
+      const len = fpsHistory.length;
+      for (let i = 0; i < 30; i++) {
+        const bar = this._sparkBars[i];
+        const histIdx = i - (30 - len);
+        if (histIdx < 0) {
+          bar.style.height = '2px';
+          bar.style.opacity = '0.2';
+          bar.style.background = '#334155';
+        } else {
+          const f = fpsHistory[histIdx];
+          bar.style.opacity = '1';
+          bar.style.height = Math.max(3, Math.min(24, Math.round((f / 60) * 24))) + 'px';
+          bar.style.background = f >= 50 ? '#4ade80' : (f >= 30 ? '#facc15' : '#38bdf8');
+        }
+      }
     },
 
     stopMetricsLoop: function() {
@@ -296,56 +360,12 @@
     },
 
     startMetricsLoop: function() {
-      if (_metricsRafId !== null) return;
-      const updateSparkline = () => {
-        const spark = document.getElementById('ra-bm-sparkline');
-        if (!spark || !isExpanded) return;
-        spark.innerHTML = '';
-        fpsHistory.forEach(f => {
-          const bar = document.createElement('div');
-          const h = Math.max(3, Math.min(24, Math.round((f / 60) * 24)));
-          bar.style.width = '6px';
-          bar.style.height = h + 'px';
-          bar.style.background = f >= 50 ? '#4ade80' : (f >= 30 ? '#facc15' : '#38bdf8');
-          bar.style.borderRadius = '1px';
-          spark.appendChild(bar);
-        });
-      };
-
-      const loop = (now) => {
-        if (!isExpanded || !isEnabled) {
-          _metricsRafId = null;
-          return;
-        }
-        frameCount++;
-
-        // Si han pasado más de 140ms sin preRender de Cesium, la GPU está en reposo
-        if (now - lastRenderCallTime > 140) {
-          isGpuSleeping = true;
-          actualRenderDurationMs = 0.0;
-        }
-
-        if (now - lastSecondTime >= 1000) {
-          displayFps = frameCount;
-          frameCount = 0;
-          lastSecondTime = now;
-
-          fpsHistory.push(displayFps);
-          if (fpsHistory.length > 30) fpsHistory.shift();
-
-          // Memoria JS Heap si está disponible
-          if (performance && performance.memory) {
-            memoryMb = Math.round(performance.memory.usedJSHeapSize / (1024 * 1024));
-          }
-
-          this.updateDOM();
-          updateSparkline();
-        }
-
-        _metricsRafId = requestAnimationFrame(loop);
-      };
-
-      _metricsRafId = requestAnimationFrame(loop);
+      // [F1-01] Sin bucle rAF perpetuo: las métricas se alimentan pasivamente de scene.postRender (0% CPU en reposo)
+      if (performance && performance.memory) {
+        memoryMb = Math.round(performance.memory.usedJSHeapSize / (1024 * 1024));
+      }
+      this.updateDOM();
+      this._updateSparklinePool();
     },
 
     updateDOM: function() {
@@ -358,7 +378,7 @@
 
       if (fpsEl) {
         if (isGpuSleeping) {
-          fpsEl.textContent = '60 FPS';
+          fpsEl.textContent = '0 FPS (SLEEP)';
           fpsEl.style.color = '#38bdf8';
         } else {
           fpsEl.textContent = `${displayFps} FPS`;

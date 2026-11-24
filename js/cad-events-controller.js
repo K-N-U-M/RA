@@ -128,7 +128,7 @@
             activePanelDragEntity = viewer.entities.add({
               id: 'pv_panel_active_drag_preview',
               polygon: {
-                hierarchy: new Cesium.CallbackProperty(() => new Cesium.PolygonHierarchy(p.corners), false),
+                hierarchy: new Cesium.ConstantProperty(new Cesium.PolygonHierarchy(p.corners)),
                 material: new Cesium.ColorMaterialProperty(dragColor),
                 perPositionHeight: true
               }
@@ -1019,6 +1019,7 @@
           }
         }
         window._bldCursorPos = cPos;
+        if (typeof window.syncBuildingPreviewLine === 'function') window.syncBuildingPreviewLine();
         if (scene && typeof scene.requestRender === 'function') scene.requestRender();
       }
     }

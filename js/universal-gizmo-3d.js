@@ -1278,6 +1278,9 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
           p.rawPanel.isManual = true;
         }
       }
+      if (typeof activePanelDragEntity !== 'undefined' && activePanelDragEntity && activePanelDragEntity.polygon && p.corners && p.corners.length === 4) {
+        activePanelDragEntity.polygon.hierarchy = new Cesium.ConstantProperty(new Cesium.PolygonHierarchy(p.corners));
+      }
       if (panelOutlineEntity && p.corners && p.corners.length === 4) {
         panelOutlineEntity.polyline.positions = [p.corners[0], p.corners[1], p.corners[2], p.corners[3], Cesium.Cartesian3.clone(p.corners[0])];
       }
@@ -1418,26 +1421,29 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
           const handleEnt = viewer.entities.getById('ra_route_handle_' + target.routeType + '_' + target.routeIndex);
           if (handleEnt) handleEnt.position = new Cesium.ConstantPositionProperty(visPos);
 
-          // Guía ligera de trazado en directo sin reconstruir primitivas GPU hasta soltar el ratón
-          if (!window._raLiveRoutePreviewEnt && rArr.length >= 2) {
-            const guideCol = (target.routeType === 'ac') ? '#38BDF8' : '#F59E0B';
-            window._raLiveRoutePreviewEnt = viewer.entities.add({
-              id: 'ra_live_route_preview',
-              polyline: {
-                positions: new Cesium.CallbackProperty(function () {
-                  const arr = (window.inverterEquipmentState && window.inverterEquipmentState.routes && window.inverterEquipmentState.routes[target.routeType]) || [];
-                  const lM = (window.RACableEngine && window.RACableEngine.auditElevationMode) ? (window.RACableEngine.CONFIG.AUDIT_ELEVATION_M || 0.24) : 0;
-                  if (lM <= 0) return arr;
-                  return arr.map(function (pt) {
-                    const uP = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(pt, new Cesium.Cartesian3());
-                    return Cesium.Cartesian3.add(pt, Cesium.Cartesian3.multiplyByScalar(uP, lM, new Cesium.Cartesian3()), new Cesium.Cartesian3());
-                  });
-                }, false),
-                width: 4.5,
-                arcType: (typeof Cesium !== 'undefined' && Cesium.ArcType) ? Cesium.ArcType.NONE : undefined,
-                material: new Cesium.PolylineDashMaterialProperty({ color: Cesium.Color.fromCssColorString(guideCol), dashLength: 14 })
-              }
-            });
+          // Guía ligera de trazado en directo sin reconstruir primitivas GPU ni usar CallbackProperty idle
+          if (rArr.length >= 2) {
+            const lM = (window.RACableEngine && window.RACableEngine.auditElevationMode) ? (window.RACableEngine.CONFIG.AUDIT_ELEVATION_M || 0.24) : 0;
+            const liveGuidePts = lM > 0
+              ? rArr.map(function (pt) {
+                  const uP = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(pt, new Cesium.Cartesian3());
+                  return Cesium.Cartesian3.add(pt, Cesium.Cartesian3.multiplyByScalar(uP, lM, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+                })
+              : rArr.slice();
+            if (!window._raLiveRoutePreviewEnt) {
+              const guideCol = (target.routeType === 'ac') ? '#38BDF8' : '#F59E0B';
+              window._raLiveRoutePreviewEnt = viewer.entities.add({
+                id: 'ra_live_route_preview',
+                polyline: {
+                  positions: new Cesium.ConstantProperty(liveGuidePts),
+                  width: 4.5,
+                  arcType: (typeof Cesium !== 'undefined' && Cesium.ArcType) ? Cesium.ArcType.NONE : undefined,
+                  material: new Cesium.PolylineDashMaterialProperty({ color: Cesium.Color.fromCssColorString(guideCol), dashLength: 14 })
+                }
+              });
+            } else if (window._raLiveRoutePreviewEnt.polyline) {
+              window._raLiveRoutePreviewEnt.polyline.positions = new Cesium.ConstantProperty(liveGuidePts);
+            }
           }
         }
         let routeLen = 0;
@@ -1616,6 +1622,9 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
       Cesium.Cartesian3.clone(newPos, p.center);
       if (p.corners) {
         p.corners = p.corners.map(c => Cesium.Cartesian3.add(c, delta, new Cesium.Cartesian3()));
+        if (typeof activePanelDragEntity !== 'undefined' && activePanelDragEntity && activePanelDragEntity.polygon && p.corners.length === 4) {
+          activePanelDragEntity.polygon.hierarchy = new Cesium.ConstantProperty(new Cesium.PolygonHierarchy(p.corners));
+        }
       }
       p.isManual = true;
       p.gridA = undefined;

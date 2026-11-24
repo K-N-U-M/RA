@@ -41,11 +41,16 @@
 
   const RALodManager = {
     init: function() {
+      let retries = 0;
+      const MAX_RETRIES = 120;
       const checkViewer = setInterval(() => {
+        retries++;
         if (global.viewer && global.viewer.camera && global.viewer.scene) {
           clearInterval(checkViewer);
           this.bindCameraEvents();
           this.bindFrameGovernor();
+        } else if (retries >= MAX_RETRIES) {
+          clearInterval(checkViewer);
         }
       }, 250);
     },
