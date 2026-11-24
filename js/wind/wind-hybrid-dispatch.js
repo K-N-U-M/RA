@@ -173,10 +173,12 @@
     var rawSum = 0;
     var raw = new Float32Array(8760);
 
+    var dayOfYear = 0;
     for (var m = 0; m < 12; m++) {
       var days = DAYS_PER_MONTH[m];
       for (var d = 0; d < days; d++) {
-        var dayOfWeek = (d + 2) % 7; // aproximación arbitraria
+        var dayOfWeek = dayOfYear % 7;
+        dayOfYear++;
         var isWeekend = (dayOfWeek === 5 || dayOfWeek === 6);
         var fDay = isWeekend ? weekendFactor : 1.0;
 
@@ -244,7 +246,9 @@
     var totalGenKwh = 0;
 
     var currentSocKwh = 0;
-    var battEff = 0.92;
+    var battEff = (typeof p.batteryRoundTripEff === 'number' && p.batteryRoundTripEff > 0.5 && p.batteryRoundTripEff <= 1.0) ? p.batteryRoundTripEff : 0.92;
+    var battEffHalf = Math.sqrt(battEff);
+    var invMaxAcKw = (typeof p.inverterMaxAcKw === 'number' && p.inverterMaxAcKw > 0) ? p.inverterMaxAcKw : Infinity;
     var peakDemandWithoutGenKw = 0;
     var peakDemandWithHybridKw = 0;
     var billBeforeEur = 0;
@@ -294,17 +298,19 @@
       var deficit = Math.max(0, pDemand - pGenTotal);
 
       if (battCap > 0 && surplus > 0 && currentSocKwh < battCap) {
-        var maxCharge = Math.min(surplus, battMaxKw, (battCap - currentSocKwh) / battEff);
-        currentSocKwh += maxCharge * battEff;
+        var maxCharge = Math.min(surplus, battMaxKw, (battCap - currentSocKwh) / battEffHalf);
+        currentSocKwh += maxCharge * battEffHalf;
         surplus -= maxCharge;
       } else if (battCap > 0 && deficit > 0 && currentSocKwh > (battCap * 0.10)) {
         var usableBatt = currentSocKwh - (battCap * 0.10);
-        var maxDischarge = Math.min(deficit, battMaxKw, usableBatt);
-        currentSocKwh -= maxDischarge;
-        deficit -= maxDischarge;
-        totalBatteryDischargeKwh += maxDischarge * dayWeight;
-        totalDirectSelfConsKwh += maxDischarge * dayWeight;
-        mRep.selfConsKwh += maxDischarge * dayWeight;
+        var maxAcHeadroom = Math.max(0, invMaxAcKw - directSelf);
+        var maxDeliverable = Math.min(deficit, battMaxKw, maxAcHeadroom, usableBatt * battEffHalf);
+        var drawFromSoc = maxDeliverable / battEffHalf;
+        currentSocKwh -= drawFromSoc;
+        deficit -= maxDeliverable;
+        totalBatteryDischargeKwh += maxDeliverable * dayWeight;
+        totalDirectSelfConsKwh += maxDeliverable * dayWeight;
+        mRep.selfConsKwh += maxDeliverable * dayWeight;
       }
 
       if (deficit > 0) {
@@ -327,8 +333,12 @@
 
     var simulatedHours = 0;
     if (dispatchMode === 'full_8760') {
-      var solarHourly = generateSolarHourly8760(annualSolar, p.monthlySolarKwh, p.latDeg);
-      var windHourly = generateWindHourly8760(annualWind);
+      var solarHourly = (Array.isArray(p.solarHourly8760) && p.solarHourly8760.length === 8760)
+        ? p.solarHourly8760
+        : generateSolarHourly8760(annualSolar, p.monthlySolarKwh, p.latDeg);
+      var windHourly = (Array.isArray(p.windHourly8760) && p.windHourly8760.length === 8760)
+        ? p.windHourly8760
+        : generateWindHourly8760(annualWind);
       var demandHourly = generateDemandHourly8760(annualCons, p.consumptionProfile);
       var hIndex = 0;
       for (var month = 0; month < 12; month++) {
@@ -350,7 +360,6 @@
       var wDay = isRes
         ? [0.02,0.015,0.015,0.015,0.018,0.025,0.045,0.065,0.060,0.045,0.040,0.040,0.055,0.060,0.050,0.045,0.045,0.050,0.070,0.085,0.090,0.080,0.055,0.030]
         : [0.020,0.020,0.020,0.020,0.022,0.025,0.038,0.060,0.075,0.080,0.082,0.080,0.075,0.065,0.068,0.072,0.075,0.070,0.055,0.040,0.030,0.025,0.023,0.020];
-      var wkBlend = isRes ? ((5 + 2 * 1.05) / 7) : ((5 + 2 * 0.40) / 7);
       var sumWDay = wDay.reduce(function (a, b) { return a + b; }, 0) || 1;
       var consDayTotal = annualCons / 365.0;
 

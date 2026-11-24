@@ -7508,8 +7508,8 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   // [P0.3 - RD 244/2019] Techo legal en compensación simplificada mensual: el saldo de energía no es negativo por ciclo
   const ingresoExcedenteEfectivo = annualIngresoExcedenteEfectivo / 365.0;
 
-  // El ahorro anual en factura eléctrica compara el coste anual de red sin FV vs con FV
-  const ahorroLuzAnio1 = Math.max(0, annualCosteSinFV - (annualCosteRed - annualIngresoExcedenteEfectivo + annualCosteCargaRed));
+  // [F2-04] annualCosteRed ya incluye monthGridChargeCost; no sumar annualCosteCargaRed dos veces en modo arbitraje
+  const ahorroLuzAnio1 = Math.max(0, annualCosteSinFV - (annualCosteRed - annualIngresoExcedenteEfectivo));
   const autarquia = Math.min((annualAutoconsumoDirecto + annualBateriaKWh) / Math.max(1, consumoAnual), 1.0);
 
   // Flujo de Caja a 25 años
