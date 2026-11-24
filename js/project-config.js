@@ -963,6 +963,18 @@ function step3UpdateHardwareSelection() {
   if (typeof wpUpdateStep4Checklist === 'function') {
     wpUpdateStep4Checklist();
   }
+  if (typeof window !== 'undefined' && window.RA) {
+    if (window.RA.Store && typeof window.RA.Store.setSlice === 'function') {
+      window.RA.Store.setSlice('hardware', {
+        moduleId: window.solarProjectConfig.selectedModuleId || null,
+        inverterId: window.solarProjectConfig.selectedInverterId || null,
+        batteryId: window.solarProjectConfig.selectedBatteryId || null,
+        topology: window.solarProjectConfig.topology || 'string'
+      }, { reason: 'hardware_selection_updated' });
+    } else if (window.RA.EventBus && window.RA.Events) {
+      window.RA.EventBus.emit(window.RA.Events.HARDWARE_CHANGED, { moduleChanged: moduleActuallyChanged });
+    }
+  }
   if (typeof BOMTreeEngine !== 'undefined' && typeof BOMTreeEngine.refresh === 'function') {
     BOMTreeEngine.refresh();
   }

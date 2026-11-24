@@ -6753,9 +6753,8 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
 // MOTOR FINANCIERO BANCABLE (CAPEX, OPEX, CASHFLOW, VAN, TIR, AMORTIZACIÓN)
 // Nota: La física solar y simulación anual se calculan exclusivamente en solar-engine.js (v3.0)
 // ═════════════════════════════════════════════════════════════════════════════
+  // [F4-03] DAG puro sin bandera reentrante _isComputingFinModel: project-calcs lee del Store, financials escribe en el Store.
   function calculateFinancialModel(overrides) {
-  if (typeof window !== 'undefined') window._isComputingFinModel = true;
-  try {
   const d = (overrides && overrides.d) || getProjectCalcs();
   const mb = (d && d.modulesBreakdown) || (typeof window !== 'undefined' && window.RAModulesBreakdown && typeof window.RAModulesBreakdown.getProjectModulesBreakdown === 'function' ? window.RAModulesBreakdown.getProjectModulesBreakdown() : null);
   const numPanels = (overrides && typeof overrides.numPanels === 'number')
@@ -7919,12 +7918,13 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     ahorroTotalConCEL: Math.round(ahorroLuzAnio1 + celExtraBenefitYear1)
   };
   if (typeof window !== 'undefined') {
-    window._lastFinModel = resultModel;
+    if (window.RA && window.RA.Store && typeof window.RA.Store.setFinancialModel === 'function') {
+      window.RA.Store.setFinancialModel(resultModel);
+    } else {
+      window._lastFinModel = resultModel;
+    }
   }
   return resultModel;
-  } finally {
-    if (typeof window !== 'undefined') window._isComputingFinModel = false;
-  }
 }
 
 // Exportar motor financiero al namespace global

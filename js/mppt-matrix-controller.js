@@ -1438,18 +1438,12 @@
     _lifecycleBound = true;
 
     const hookAll = () => {
-      if (root.WorkflowOrchestrator && typeof root.WorkflowOrchestrator.on === 'function') {
+      // [F4-05] Suscripción limpia al Bus de Eventos Canónico (sin monkey-patching de step3UpdateHardwareSelection)
+      if (root.RA && root.RA.EventBus && root.RA.Events) {
+        root.RA.EventBus.on(root.RA.Events.STEP_CHANGED, () => scheduleRender());
+        root.RA.EventBus.on(root.RA.Events.HARDWARE_CHANGED, () => scheduleRender());
+      } else if (root.WorkflowOrchestrator && typeof root.WorkflowOrchestrator.on === 'function') {
         root.WorkflowOrchestrator.on('step_changed', () => scheduleRender());
-      }
-      if (typeof root.step3UpdateHardwareSelection === 'function' && !root.step3UpdateHardwareSelection._raMpptWrapped) {
-        const origHw = root.step3UpdateHardwareSelection;
-        const wrappedHw = function () {
-          const res = origHw.apply(this, arguments);
-          scheduleRender();
-          return res;
-        };
-        wrappedHw._raMpptWrapped = true;
-        root.step3UpdateHardwareSelection = wrappedHw;
       }
       scheduleRender();
     };

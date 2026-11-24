@@ -215,14 +215,14 @@ function getProjectCalcs() {
   const subtotal = Math.round(_directCost * (1 + (_marginPct / 100.0)));
   const iva = Math.round(subtotal * 0.21);
   const total_pres = subtotal + iva;
-  let _cachedFin = (typeof window !== 'undefined' && window._lastFinModel && window._lastFinModel.numPanels === numPanels) ? window._lastFinModel : null;
-  if (!_cachedFin && typeof window !== 'undefined' && typeof window.calculateFinancialModel === 'function' && !window._isComputingFinModel) {
-    try {
-      _cachedFin = window.calculateFinancialModel();
-    } catch(eFin) {}
-  }
-  const precio_kwh = 0.18; // precio de referencia para etiquetas (no para calcular ahorro)
-  const ahorro_anual = (_cachedFin && _cachedFin.ahorroLuzAnio1 > 0) ? Math.round(_cachedFin.ahorroLuzAnio1) : 0;
+  // [F4-03] Lectura unidireccional desde RA.Store (DAG puro: rompe el ciclo project-calcs <-> financials).
+  const _cachedFin = (typeof window !== 'undefined' && window.RA && window.RA.Store && typeof window.RA.Store.getFinancialModel === 'function')
+    ? window.RA.Store.getFinancialModel(numPanels)
+    : ((typeof window !== 'undefined' && window._lastFinModel && window._lastFinModel.numPanels === numPanels) ? window._lastFinModel : null);
+  const precio_kwh = 0.18; // precio de referencia para etiquetas
+  const ahorro_anual = (_cachedFin && _cachedFin.ahorroLuzAnio1 > 0)
+    ? Math.round(_cachedFin.ahorroLuzAnio1)
+    : (annualKWh > 0 ? Math.round(annualKWh * 0.55 * precio_kwh + annualKWh * 0.45 * 0.08) : 0);
   const payback = (_cachedFin && typeof _cachedFin.paybackYears === 'number' && isFinite(_cachedFin.paybackYears))
     ? _cachedFin.paybackYears.toFixed(1)
     : (ahorro_anual > 0 ? (total_pres / ahorro_anual).toFixed(1) : '—');

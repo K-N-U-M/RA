@@ -21,11 +21,11 @@
 
 | ID | Título | Severidad | Esfuerzo | Dependencias | Origen | Estado |
 | :--- | :--- | :---: | :---: | :--- | :--- | :--- |
-| **F4-01** | Introducir Vite + ES Modules base y eliminar `?v=` manuales / version skew en Workers | P1 | L | Fase 3 | C-06 + C-07 | `[Pendiente]` |
-| **F4-02** | Configurar TypeScript incremental (`allowJs`, `checkJs`) y contratos compartidos `@ra/contracts` | P1 | L | F4-01 | C-09 | `[Parcial]` |
-| **F4-03** | Implantar Store Centralizado + Typed Event Bus único (Strangler Bridge + fin ciclo calcs↔fin) | P0 | XL | F4-01 | C-05 | `[Parcial]` |
+| **F4-01** | Introducir Vite + ES Modules base y eliminar `?v=` manuales / version skew en Workers | P1 | L | Fase 3 | C-06 + C-07 | `[Parcial]` |
+| **F4-02** | Configurar TypeScript incremental (`allowJs`, `checkJs`) y contratos compartidos `@ra/contracts` | P1 | L | F4-01 | C-09 | `[Hecho]` |
+| **F4-03** | Implantar Store Centralizado + Typed Event Bus único (Strangler Bridge + fin ciclo calcs↔fin) | P0 | XL | F4-01 | C-05 | `[Hecho]` |
 | **F4-04** | Unificar telemetría/errores, erradicar 451 `catch` vacíos y eliminar timers ciegos / doble mutex | P1 | M | F4-01, F4-03 | C-08 + C-10 | `[Parcial]` |
-| **F4-05** | Encapsular 749 globales `window.*`, IIFEs pendientes y orden implícito de scripts | P0 | L | F4-01, F4-03 | C-02 + C-03 | `[Pendiente]` |
+| **F4-05** | Encapsular 749 globales `window.*`, IIFEs pendientes y orden implícito de scripts | P0 | L | F4-01, F4-03 | C-02 + C-03 | `[Parcial]` |
 | **F4-06** | Extraer motores puros sin DOM ni Cesium (`@ra/solar`, `@ra/electrical`, `@ra/financial`, `@ra/cad`) | P0 | XL | F4-02, F4-03 | C-04 | `[Pendiente]` |
 | **F4-07** | Desmantelar los 3 monolitos (`app-main`, `working-plane`, `financials`) e inline handlers de `index.html` | P0 | XL | F4-03..F4-06 | C-01 | `[Pendiente]` |
 | **F4-08** | Aislar servicio IA/APIs externas en adaptador BFF (retirar Gemini `fetch` de `financials.js`) | P2 | M | F0-09, F4-06 | C-11 | `[Hecho]` |

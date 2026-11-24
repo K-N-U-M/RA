@@ -6037,9 +6037,6 @@ function wpSwitchGenTab(tab) {
 window.wpSwitchGenTab = wpSwitchGenTab;
 
 window.onSelectModuleFromDropdown = onSelectModuleFromDropdown;
-window.applyInverterFromCatalog = applyInverterFromCatalog;
-window.applyBatteryFromCatalog = applyBatteryFromCatalog;
-window.deleteCatalogItem = deleteCatalogItem;
 window.addNewEquipmentFromForm = addNewEquipmentFromForm;
 window.resetEquipmentCatalogToDefault = resetEquipmentCatalogToDefault;
 

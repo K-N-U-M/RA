@@ -133,7 +133,9 @@
 
   installGlobalHooks();
 
-  // Exponer al scope global
+  // Exponer al namespace canónico global.RA (manteniendo alias legacy durante transición F4-05)
+  global.RA = global.RA || {};
+  global.RA.ErrorHandler = RA_ErrorHandler;
   global.RA_App = global.RA_App || {};
   global.RA_App.ErrorHandler = RA_ErrorHandler;
   global.RA_ErrorHandler = RA_ErrorHandler; // Alias por conveniencia
