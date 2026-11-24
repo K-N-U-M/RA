@@ -2779,8 +2779,13 @@
       } else if (projCfg.calculatedLimits && projCfg.calculatedLimits.nMinString) {
         minModPerStr = projCfg.calculatedLimits.nMinString;
       }
-      var gammaPmp = -Math.abs(modCfg.tempCoeffPmax || modCfg.gammaPmp || modCfg.gammaVoc || -0.0035);
-      var vmpHot = (modCfg.vmp || 34.5) * (1 + gammaPmp * (70 - 25));
+      var rawGammaPmp = modCfg.tempCoeffPmax || modCfg.gammaPmp || modCfg.gammaVoc || -0.0035;
+      var gammaPmp = (typeof global.normalizeThermalCoeff === 'function')
+        ? global.normalizeThermalCoeff(rawGammaPmp, -0.0035)
+        : -Math.abs(Math.abs(Number(rawGammaPmp)) > 0.05 ? Number(rawGammaPmp) / 100.0 : Number(rawGammaPmp));
+      var tCellMaxHot = (projCfg && typeof projCfg.tempMaxCellC === 'number' && isFinite(projCfg.tempMaxCellC))
+        ? projCfg.tempMaxCellC : 70;
+      var vmpHot = (modCfg.vmp || 34.5) * (1 + gammaPmp * (tCellMaxHot - 25));
       var vmpStr = Math.max(12.0, vmpHot * Math.max(1, minModPerStr));
 
       // La sección S_str dimensiona cada string individual (1 × I_dc); la troncal en paralelo se dimensiona en S_mdc

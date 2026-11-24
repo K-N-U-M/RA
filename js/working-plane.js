@@ -6750,9 +6750,12 @@ function onSelectModuleFromDropdown(modId) {
   panelConfig.isc = m.isc;
   panelConfig.vmp = m.vmp;
   panelConfig.imp = m.imp;
-  panelConfig.gammaVoc = m.tempCoeffVoc || m.gammaVoc || m.betaVoc || -0.0028;
+  const _normCoeff = (typeof window !== 'undefined' && typeof window.normalizeThermalCoeff === 'function')
+    ? window.normalizeThermalCoeff
+    : (v, d) => { const n = Number(v); return (!Number.isFinite(n) || n === 0) ? d : -Math.abs(Math.abs(n) > 0.05 ? n / 100.0 : n); };
+  panelConfig.gammaVoc = _normCoeff(m.tempCoeffVoc || m.gammaVoc || m.betaVoc, -0.0028);
   panelConfig.tempCoeffVoc = panelConfig.gammaVoc;
-  panelConfig.tempCoeffPmax = m.tempCoeffPmax || m.gammaPmp || -0.0035;
+  panelConfig.tempCoeffPmax = _normCoeff(m.tempCoeffPmax || m.gammaPmp, -0.0035);
   panelConfig.gammaPmp = panelConfig.tempCoeffPmax;
   panelConfig.bifacial = !!(m.bifacial || m.isBifacial || (m.bifacialityFactor && m.bifacialityFactor > 0) || (m.tec && String(m.tec).toLowerCase().includes('bifacial')));
   panelConfig.bifacialityFactor = typeof m.bifacialityFactor === 'number' ? m.bifacialityFactor : (panelConfig.bifacial ? 0.75 : 0);

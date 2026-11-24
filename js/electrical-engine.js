@@ -31,6 +31,18 @@
   };
 
   /**
+   * Normaliza coeficientes térmicos de catálogo (%/°C, ej. -0.35) o base unitaria (1/°C, ej. -0.0035)
+   * garantizando siempre signo negativo en base 1/°C.
+   */
+  function normalizeThermalCoeff(raw, defaultVal = -0.0035) {
+    const fallback = (typeof defaultVal === 'number' && Number.isFinite(defaultVal)) ? defaultVal : -0.0035;
+    if (raw === null || raw === undefined || raw === '') return fallback;
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n === 0) return fallback;
+    return -Math.abs(Math.abs(n) > 0.05 ? n / 100.0 : n);
+  }
+
+  /**
    * Paleta de colores profesionales para identificar visualmente cada String en 3D
    */
   function getPolylineStringColor(index) {
@@ -55,11 +67,11 @@
     const Voc_STC = modParams.Voc || modParams.voc || pCfg.voc || (modW >= 500 ? 50.0 : 49.5);
     const Vmp_STC = modParams.Vmp || modParams.vmp || pCfg.vmp || (modW >= 500 ? 42.0 : 41.5);
     const rawBeta = modParams.betaVoc || modParams.gammaVoc || modParams.tempCoeffVoc || pCfg.betaVoc || pCfg.gammaVoc || pCfg.tempCoeffVoc || -0.0028;
-    const betaVoc = -Math.abs(Math.abs(rawBeta) > 0.05 ? rawBeta / 100.0 : rawBeta);
+    const betaVoc = normalizeThermalCoeff(rawBeta, -0.0028);
     const rawBetaVmp = modParams.betaVmp || modParams.gammaVmp || modParams.tempCoeffVmp || pCfg.betaVmp || (rawBeta * 1.05);
-    const betaVmp = -Math.abs(Math.abs(rawBetaVmp) > 0.05 ? rawBetaVmp / 100.0 : rawBetaVmp);
+    const betaVmp = normalizeThermalCoeff(rawBetaVmp, betaVoc * 1.05);
     const rawGamma = modParams.gammaPmp || modParams.tempCoeffPmax || pCfg.gammaPmp || pCfg.tempCoeffPmax || (pCfg.tecnologia && pCfg.tecnologia.includes('N-Type') ? -0.0029 : -0.0035);
-    const gammaPmp = -Math.abs(Math.abs(rawGamma) > 0.05 ? rawGamma / 100.0 : rawGamma);
+    const gammaPmp = normalizeThermalCoeff(rawGamma, -0.0035);
 
     // Inversor real del catálogo (calculatedLimits se puebla en el Paso 3/4);
     // si no hay selección, cae a los defaults normativos 1000/200/850 V.
@@ -2447,9 +2459,9 @@
   const Isc = cfg.isc || 13.8;
   const Imp = cfg.imp || 13.05;
   const rawBeta = cfg.betaVoc || cfg.gammaVoc || cfg.tempCoeffVoc || -0.0027;
-  const betaVoc = -Math.abs(Math.abs(rawBeta) > 0.05 ? rawBeta / 100.0 : rawBeta);
+  const betaVoc = normalizeThermalCoeff(rawBeta, -0.0027);
   const rawGamma = cfg.gammaPmp || cfg.tempCoeffPmax || -0.0035;
-  const gammaPmp = -Math.abs(Math.abs(rawGamma) > 0.05 ? rawGamma / 100.0 : rawGamma);
+  const gammaPmp = normalizeThermalCoeff(rawGamma, -0.0035);
 
   const T_min = (typeof SOLAR_ENGINE_CONSTANTS !== 'undefined' && SOLAR_ENGINE_CONSTANTS.T_MIN_SPAIN)
     ? SOLAR_ENGINE_CONSTANTS.T_MIN_SPAIN
@@ -2837,10 +2849,12 @@
   root.raResolveAcPhases = raResolveAcPhases;
   root.raGetMicroinverterRatio = raGetMicroinverterRatio;
   root.raResolveRcdSpec = raResolveRcdSpec;
+  root.normalizeThermalCoeff = normalizeThermalCoeff;
 
   if (!root.RA) root.RA = {};
   root.RA.Electrical = {
     constants: ELEC_CONSTANTS,
+    normalizeThermalCoeff: normalizeThermalCoeff,
     getPolylineStringColor: getPolylineStringColor,
     calculateDynamicMPPTStringLimits: calculateDynamicMPPTStringLimits,
     computeSizingEngineering: computeSizingEngineering,

@@ -522,9 +522,12 @@ function step2SelectModule(id) {
       panelConfig.isc = m.isc || panelConfig.isc || 13.8;
       panelConfig.vmp = m.vmp || panelConfig.vmp || 34.5;
       panelConfig.imp = m.imp || panelConfig.imp || 13.05;
-      panelConfig.gammaVoc = m.tempCoeffVoc || m.gammaVoc || m.betaVoc || -0.0028;
-      panelConfig.tempCoeffVoc = m.tempCoeffVoc || m.gammaVoc || m.betaVoc || -0.0028;
-      panelConfig.tempCoeffPmax = m.tempCoeffPmax || m.gammaPmp || -0.0035;
+      const _normCoeff = (typeof window !== 'undefined' && typeof window.normalizeThermalCoeff === 'function')
+        ? window.normalizeThermalCoeff
+        : (v, d) => { const n = Number(v); return (!Number.isFinite(n) || n === 0) ? d : -Math.abs(Math.abs(n) > 0.05 ? n / 100.0 : n); };
+      panelConfig.gammaVoc = _normCoeff(m.tempCoeffVoc || m.gammaVoc || m.betaVoc, -0.0028);
+      panelConfig.tempCoeffVoc = panelConfig.gammaVoc;
+      panelConfig.tempCoeffPmax = _normCoeff(m.tempCoeffPmax || m.gammaPmp, -0.0035);
       panelConfig.gammaPmp = panelConfig.tempCoeffPmax;
       panelConfig.bifacial = !!(m.bifacial || m.isBifacial || (m.bifacialityFactor && m.bifacialityFactor > 0) || (m.tec && String(m.tec).toLowerCase().includes('bifacial')));
       panelConfig.bifacialityFactor = typeof m.bifacialityFactor === 'number' ? m.bifacialityFactor : (panelConfig.bifacial ? 0.75 : 0);
@@ -738,9 +741,12 @@ function step3UpdateHardwareSelection() {
     panelConfig.isc = mod.isc || panelConfig.isc || 13.8;
     panelConfig.vmp = mod.vmp || panelConfig.vmp || 34.5;
     panelConfig.imp = mod.imp || panelConfig.imp || 13.05;
-    panelConfig.gammaVoc = mod.tempCoeffVoc || mod.gammaVoc || mod.betaVoc || -0.0028;
+    const _normCoeff = (typeof window !== 'undefined' && typeof window.normalizeThermalCoeff === 'function')
+      ? window.normalizeThermalCoeff
+      : (v, d) => { const n = Number(v); return (!Number.isFinite(n) || n === 0) ? d : -Math.abs(Math.abs(n) > 0.05 ? n / 100.0 : n); };
+    panelConfig.gammaVoc = _normCoeff(mod.tempCoeffVoc || mod.gammaVoc || mod.betaVoc, -0.0028);
     panelConfig.tempCoeffVoc = panelConfig.gammaVoc;
-    panelConfig.tempCoeffPmax = mod.tempCoeffPmax || mod.gammaPmp || -0.0035;
+    panelConfig.tempCoeffPmax = _normCoeff(mod.tempCoeffPmax || mod.gammaPmp, -0.0035);
     panelConfig.gammaPmp = panelConfig.tempCoeffPmax;
     panelConfig.bifacial = !!(mod.bifacial || mod.isBifacial || (mod.bifacialityFactor && mod.bifacialityFactor > 0) || (mod.tec && String(mod.tec).toLowerCase().includes('bifacial')));
     panelConfig.bifacialityFactor = typeof mod.bifacialityFactor === 'number' ? mod.bifacialityFactor : (panelConfig.bifacial ? 0.75 : 0);
