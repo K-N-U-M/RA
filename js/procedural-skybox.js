@@ -290,4 +290,9 @@ window.wpUpdateAtmosphericSky = function(alt) {
 if (typeof window !== 'undefined') {
   window.createProceduralSkybox = createProceduralSkybox;
   window.updateSkyboxMode = window.wpUpdateAtmosphericSky;
+  window.raResetSkyboxCache = function () {
+    Object.keys(_raSkyboxCache).forEach(function (k) { delete _raSkyboxCache[k]; });
+    _raCurrentSkyZenith = null;
+    _raCurrentSkyMode = null;
+  };
 }

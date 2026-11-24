@@ -106,6 +106,18 @@
       // OBLIGATORIO por estándar WebGL: preventDefault() indica al navegador
       // que la aplicación desea restaurar el contexto y no abortar permanentemente.
       event.preventDefault();
+      window.RA = window.RA || {};
+      window.RA._webglContextLost = true;
+
+      if (window.solarSimState && window.solarSimState.playInterval) {
+        clearInterval(window.solarSimState.playInterval);
+        window.solarSimState.playInterval = null;
+        window.solarSimState.playing = false;
+      }
+      if (window.RABenchmark && typeof window.RABenchmark.pause === 'function') {
+        try { window.RABenchmark.pause(); } catch (_) {}
+      }
+
       console.warn('[cesium-safety] Pérdida de contexto WebGL detectada (GPU suspendida o saturada). Esperando restauración...');
       if (typeof window.showToast === 'function') {
         window.showToast('RECURSO GRÁFICO REINICIANDO', 'El sistema ha suspendido momentáneamente la GPU. Restaurando escena 3D...', 'warning', 6000);
@@ -113,27 +125,45 @@
     }, false);
 
     canvas.addEventListener('webglcontextrestored', function () {
+      window.RA = window.RA || {};
+      window.RA._webglContextLost = false;
       console.info('[cesium-safety] Contexto WebGL restaurado exitosamente por el navegador.');
-      if (typeof window.showToast === 'function') {
-        window.showToast('ESCENA 3D RESTAURADA', 'La aceleración gráfica por hardware ha sido reanudada con éxito.', 'success', 4000);
-      }
-      if (window.viewer && window.viewer.scene) {
-        try {
+
+      try {
+        if (typeof window.raResetSkyboxCache === 'function') window.raResetSkyboxCache();
+        if (typeof window.render3DBuildingsInCesium === 'function') window.render3DBuildingsInCesium();
+        if (typeof window.render3DObstaclesInCesium === 'function') window.render3DObstaclesInCesium();
+        if (typeof window.wpFastRenderSimulatedPanels === 'function') window.wpFastRenderSimulatedPanels(true);
+        if (window.RACableEngine && typeof window.RACableEngine.renderAllCables === 'function') window.RACableEngine.renderAllCables();
+        if (typeof window.wpUpdateAtmosphericSky === 'function') window.wpUpdateAtmosphericSky(45);
+        if (window.ShadowSettings && typeof window.ShadowSettings.apply === 'function') window.ShadowSettings.apply();
+        if (window.viewer && window.viewer.scene) {
+          if (typeof window.wpConfigureShadowMap === 'function' && window.viewer.scene.shadowMap) {
+            window.wpConfigureShadowMap(window.viewer.scene.shadowMap);
+          }
           if (typeof window.viewer.scene.requestRender === 'function') {
             window.viewer.scene.requestRender();
           }
-        } catch (e) {
-          console.warn('[cesium-safety] Error al solicitar re-render tras restauración de contexto:', e);
         }
+      } catch (e) {
+        console.warn('[cesium-safety] Error reconstruyendo recursos GPU tras restauración:', e);
+      }
+
+      if (typeof window.showToast === 'function') {
+        window.showToast('ESCENA 3D RESTAURADA', 'La aceleración gráfica por hardware ha sido reanudada con éxito.', 'success', 4000);
       }
     }, false);
   }
 
+  let _raCesiumCanvasAttached = false;
   if (typeof HTMLCanvasElement !== 'undefined' && HTMLCanvasElement.prototype.getContext) {
     const origGetContext = HTMLCanvasElement.prototype.getContext;
     HTMLCanvasElement.prototype.getContext = function (type) {
-      if (type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl') {
-        attachCanvasContextSafety(this);
+      if (!_raCesiumCanvasAttached && (type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl')) {
+        if (this.closest && this.closest('#cesiumContainer')) {
+          attachCanvasContextSafety(this);
+          _raCesiumCanvasAttached = true;
+        }
       }
       return origGetContext.apply(this, arguments);
     };
@@ -144,7 +174,10 @@
       const container = document.getElementById('cesiumContainer');
       if (container) {
         const canvases = container.querySelectorAll('canvas');
-        canvases.forEach(attachCanvasContextSafety);
+        canvases.forEach(function (c) {
+          attachCanvasContextSafety(c);
+          _raCesiumCanvasAttached = true;
+        });
       }
     });
   }

@@ -5136,7 +5136,7 @@ function get3DElectricalClickPosition(screenPos) {
   // píxel apunta a OTRO punto del mundo y el cuadro aparece lejos del clic ("otro sitio").
   // Forzar un frame síncrono garantiza que el buffer corresponde a la cámara actual.
   if (viewer.scene && viewer.scene.requestRenderMode && typeof viewer.scene.render === 'function') {
-    try { viewer.scene.render(); } catch(eForce) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eForce, 'pick fresco'); }
+    try { if (!(window.RA && window.RA._webglContextLost)) viewer.scene.render(); } catch(eForce) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eForce, 'pick fresco'); }
   }
   if (viewer.scene && typeof viewer.scene.pickPosition === 'function') {
     try { pos = viewer.scene.pickPosition(screenPos); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }
