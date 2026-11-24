@@ -287,9 +287,20 @@ addEventListener('keydown', function(e) {
   }
 });
 
-// ── AUTOGUARDADO Y PERSISTENCIA DE PROYECTO EN LOCALSTORAGE ──────────────────
+// ── AUTOGUARDADO Y PERSISTENCIA DE PROYECTO EN LOCALSTORAGE / INDEXEDDB ────────
+let _raLastQuotaToastTs = 0;
+function _raNotifyAutosaveQuotaIssue(msg) {
+  const now = Date.now();
+  if (now - _raLastQuotaToastTs < 15000) return;
+  _raLastQuotaToastTs = now;
+  if (typeof showToast === 'function') {
+    showToast('CUOTA DE AUTOGUARDADO', msg || 'El proyecto supera el límite localStorage. Usa Exportar (.raproject) para asegurar tus cambios.', 'warning', 6000);
+  }
+}
+
 function wpAutoSaveProject() {
   try {
+    if (window._raSuspendAutosave || window._raImportInProgress) return;
     if (typeof WP === 'undefined') return;
     // [AUDIT-SAVE] FORMATO ÚNICO: el autosave usa exactamente el mismo esquema que el
     // .raproject (raExportProjectData). El formato antiguo (planos sin p1/p2/p3/pts3D,
@@ -311,7 +322,8 @@ function wpAutoSaveProject() {
       if (prev) {
         try {
           const p = JSON.parse(prev);
-          if ((p.workPlanes && p.workPlanes.planes && p.workPlanes.planes.length) ||
+          if (p.__idbAutosave ||
+              (p.workPlanes && p.workPlanes.planes && p.workPlanes.planes.length) ||
               (p.planes && p.planes.length) ||
               (p.polylines && p.polylines.length) ||
               (p.obstacles && p.obstacles.length)) {
@@ -321,17 +333,53 @@ function wpAutoSaveProject() {
         } catch (e) {}
       }
     }
-    localStorage.setItem('ra_solar_project_autosave', JSON.stringify(projectState));
-  } catch(err) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(err, 'autosave'); }
+
+    const useIdb = (typeof window !== 'undefined' && window.RAStorageCache && typeof window.RAStorageCache.saveProjectAsync === 'function');
+    if (useIdb) {
+      window.RAStorageCache.saveProjectAsync('autosave_current', projectState).catch(function() {});
+    }
+
+    const serialized = JSON.stringify(projectState);
+    try {
+      if (useIdb && serialized.length > 1200000) {
+        localStorage.setItem('ra_solar_project_autosave', JSON.stringify({
+          __idbAutosave: true,
+          uuid: projectState.uuid || null,
+          timestamp: projectState.timestamp
+        }));
+      } else {
+        localStorage.setItem('ra_solar_project_autosave', serialized);
+      }
+    } catch (lsErr) {
+      if (useIdb) {
+        try {
+          localStorage.setItem('ra_solar_project_autosave', JSON.stringify({
+            __idbAutosave: true,
+            uuid: projectState.uuid || null,
+            timestamp: projectState.timestamp
+          }));
+        } catch (_) {
+          _raNotifyAutosaveQuotaIssue('Espacio de navegador lleno; solo se respaldó en IndexedDB.');
+        }
+      } else {
+        _raNotifyAutosaveQuotaIssue('El navegador rechazó el autoguardado por cuota llena. Exporta el proyecto (.raproject).');
+      }
+    }
+  } catch(err) {
+    _raNotifyAutosaveQuotaIssue();
+    if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(err, 'autosave');
+  }
 }
 
 // Autoguardado con debounce: se invoca desde wpUpdateUI (que corre tras cada mutación
 // de UI/geomtría). Evita escrituras a localStorage en cada frame.
 let _wpAutoSaveTimer = null;
 function wpAutoSaveProjectDebounced(delayMs) {
+  if (window._raSuspendAutosave || window._raImportInProgress) return;
   if (_wpAutoSaveTimer) clearTimeout(_wpAutoSaveTimer);
   _wpAutoSaveTimer = setTimeout(() => {
     _wpAutoSaveTimer = null;
+    if (window._raSuspendAutosave || window._raImportInProgress) return;
     wpAutoSaveProject();
   }, delayMs || 1500);
 }
@@ -339,19 +387,27 @@ window.wpAutoSaveProjectDebounced = wpAutoSaveProjectDebounced;
 
 // Restauración real de la sesión autoguardada: reconstruye planos, faldones y
 // obstáculos y devuelve al usuario al Paso 1 para continuar desde ahí.
-function wpRestoreAutosave() {
+async function wpRestoreAutosave() {
   try {
     const raw = localStorage.getItem('ra_solar_project_autosave');
-    if (!raw) return;
-    const saved = JSON.parse(raw);
-    if (!saved) return;
+    let saved = null;
+    if (raw) {
+      try { saved = JSON.parse(raw); } catch (_) { saved = null; }
+    }
+    if ((!saved || saved.__idbAutosave) && typeof window !== 'undefined' && window.RAStorageCache && typeof window.RAStorageCache.loadProjectAsync === 'function') {
+      try {
+        const idbSaved = await window.RAStorageCache.loadProjectAsync('autosave_current');
+        if (idbSaved) saved = idbSaved;
+      } catch (_) {}
+    }
+    if (!saved || saved.__idbAutosave) return;
 
     if (typeof WP === 'undefined') return;
 
     // [AUDIT-SAVE] Formato nuevo (esquema .raproject unificado): delegar en el importador
     // canónico — misma ruta de restauración que abrir un archivo, sin divergencias.
     if (saved.format === 'RA_SOLAR_PROJECT' && typeof raImportProjectData === 'function') {
-      raImportProjectData(saved);
+      await raImportProjectData(saved);
       return;
     }
     // ── Formato legacy (autosaves anteriores a 29/09/2026): ruta antigua conservada ──

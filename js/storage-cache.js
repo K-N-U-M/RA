@@ -21,10 +21,17 @@
     if (!dbPromise) {
       dbPromise = new Promise((resolve, reject) => {
         if (!global.indexedDB) {
+          dbPromise = null;
           return reject(new Error('IndexedDB no soportado en este navegador'));
         }
 
-        const request = global.indexedDB.open(DB_NAME, DB_VERSION);
+        let request;
+        try {
+          request = global.indexedDB.open(DB_NAME, DB_VERSION);
+        } catch (openErr) {
+          dbPromise = null;
+          return reject(openErr);
+        }
 
         request.onupgradeneeded = (e) => {
           const db = e.target.result;
@@ -36,8 +43,28 @@
           }
         };
 
-        request.onsuccess = (e) => resolve(e.target.result);
-        request.onerror = (e) => reject(e.target.error);
+        request.onblocked = () => {
+          dbPromise = null;
+          reject(new Error('Apertura de IndexedDB bloqueada por otra pestaña'));
+        };
+
+        request.onsuccess = (e) => {
+          const db = e.target.result;
+          if (db) {
+            db.onversionchange = () => {
+              try { db.close(); } catch (_) {}
+              dbPromise = null;
+            };
+          }
+          resolve(db);
+        };
+        request.onerror = (e) => {
+          dbPromise = null;
+          reject((e && e.target && e.target.error) || new Error('Error abriendo IndexedDB'));
+        };
+      }).catch((err) => {
+        dbPromise = null;
+        throw err;
       });
     }
     return dbPromise;

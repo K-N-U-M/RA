@@ -4556,7 +4556,10 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         if (!mem.cover) mem.cover = _defaultCoverImg;
         return mem;
       }
-      const ss = (typeof sessionStorage !== 'undefined') ? JSON.parse(sessionStorage.getItem('ra_proposal_custom_photos') || '{}') : {};
+      const pUuid = (typeof window !== 'undefined' && typeof window.raGetProjectUuid === 'function') ? window.raGetProjectUuid() : ((window.RA && window.RA._currentProjectUuid) || '');
+      const photoKey = pUuid ? ('ra_proposal_custom_photos_' + pUuid) : 'ra_proposal_custom_photos';
+      const ssRaw = (typeof sessionStorage !== 'undefined') ? (sessionStorage.getItem(photoKey) || (!pUuid ? sessionStorage.getItem('ra_proposal_custom_photos') : null)) : null;
+      const ss = ssRaw ? JSON.parse(ssRaw) : {};
       const res = ss || {};
       if (!res.cover) res.cover = _defaultCoverImg;
       return res;
@@ -6257,13 +6260,15 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
               } else {
                 updatedPhotos[photoKey] = optimizedData;
               }
+              const pUuid = (mw && mw.RA && mw.RA._currentProjectUuid) ? mw.RA._currentProjectUuid : '';
+              const photoStoreKey = pUuid ? ('ra_proposal_custom_photos_' + pUuid) : 'ra_proposal_custom_photos';
               if (mw && mw.RAStorageCache && typeof mw.RAStorageCache.cacheAssetAsync === 'function') {
-                mw.RAStorageCache.cacheAssetAsync('ra_proposal_custom_photos', updatedPhotos).catch(function() {});
+                mw.RAStorageCache.cacheAssetAsync(photoStoreKey, updatedPhotos).catch(function() {});
               }
               try {
-                const currentPhotos = JSON.parse(sessionStorage.getItem('ra_proposal_custom_photos') || '{}');
+                const currentPhotos = JSON.parse(sessionStorage.getItem(photoStoreKey) || '{}');
                 currentPhotos[photoKey] = optimizedData;
-                sessionStorage.setItem('ra_proposal_custom_photos', JSON.stringify(currentPhotos));
+                sessionStorage.setItem(photoStoreKey, JSON.stringify(currentPhotos));
               } catch (eQuotaSS) {}
             } catch (errPersist) {
               console.warn('[handlePhotoUpload] No se pudo persistir foto:', errPersist);
@@ -6585,7 +6590,23 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
             }
           }
           if (canvas) {
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+            let dataUrl;
+            try {
+              const maxDim = 1600;
+              let cw = canvas.width || 1280, ch = canvas.height || 720;
+              if (cw > maxDim || ch > maxDim) {
+                if (cw > ch) { ch = Math.round((ch * maxDim) / cw); cw = maxDim; }
+                else { cw = Math.round((cw * maxDim) / ch); ch = maxDim; }
+                const tmpC = document.createElement('canvas');
+                tmpC.width = cw; tmpC.height = ch;
+                tmpC.getContext('2d').drawImage(canvas, 0, 0, cw, ch);
+                dataUrl = tmpC.toDataURL('image/jpeg', 0.85);
+              } else {
+                dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+              }
+            } catch (_) {
+              dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+            }
             const heroImg = document.getElementById('photo-cover-img') || document.getElementById('prop-hero-img') || document.querySelector('.cover-photo-card img') || document.querySelector('.photo-card-hero img');
             if (heroImg) {
               heroImg.src = dataUrl;
@@ -6602,12 +6623,14 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
               } else {
                 updatedCoverPhotos.cover = dataUrl;
               }
+              const pUuid = (mw && mw.RA && mw.RA._currentProjectUuid) ? mw.RA._currentProjectUuid : '';
+              const photoStoreKey = pUuid ? ('ra_proposal_custom_photos_' + pUuid) : 'ra_proposal_custom_photos';
               if (mw && mw.RAStorageCache && typeof mw.RAStorageCache.cacheAssetAsync === 'function') {
-                mw.RAStorageCache.cacheAssetAsync('ra_proposal_custom_photos', updatedCoverPhotos).catch(function() {});
+                mw.RAStorageCache.cacheAssetAsync(photoStoreKey, updatedCoverPhotos).catch(function() {});
               }
-              const currentPhotos = JSON.parse(sessionStorage.getItem('ra_proposal_custom_photos') || '{}');
+              const currentPhotos = JSON.parse(sessionStorage.getItem(photoStoreKey) || '{}');
               currentPhotos.cover = dataUrl;
-              sessionStorage.setItem('ra_proposal_custom_photos', JSON.stringify(currentPhotos));
+              sessionStorage.setItem(photoStoreKey, JSON.stringify(currentPhotos));
             } catch(ePersist) {}
 
             _propNotify('¡Captura 3D del proyecto actualizada con éxito en la propuesta!');
@@ -8085,7 +8108,9 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   if (typeof document !== 'undefined') {
     const _preloadCustomPhotosFromIdb = function() {
       if (typeof window !== 'undefined' && window.RAStorageCache && typeof window.RAStorageCache.getCachedAssetAsync === 'function') {
-        window.RAStorageCache.getCachedAssetAsync('ra_proposal_custom_photos').then(function(cachedPhotos) {
+        const pUuid = (typeof window.raGetProjectUuid === 'function') ? window.raGetProjectUuid() : ((window.RA && window.RA._currentProjectUuid) || '');
+        const photoKey = pUuid ? ('ra_proposal_custom_photos_' + pUuid) : 'ra_proposal_custom_photos';
+        window.RAStorageCache.getCachedAssetAsync(photoKey).then(function(cachedPhotos) {
           if (cachedPhotos && typeof cachedPhotos === 'object') {
             if (!window.RA) window.RA = {};
             window.RA._proposalCustomPhotos = Object.assign({}, cachedPhotos, window.RA._proposalCustomPhotos || {});

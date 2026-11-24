@@ -374,30 +374,59 @@
 
     const reader = new FileReader();
     reader.onload = function(e) {
-      const dataUrl = e.target.result;
-      _currentBranding.logo = dataUrl;
-      global.customCompanyLogoBase64 = dataUrl;
+      const rawDataUrl = e.target.result;
+      const persistLogo = function(dataUrl) {
+        _currentBranding.logo = dataUrl;
+        global.customCompanyLogoBase64 = dataUrl;
 
-      if (global.localStorage) {
-        try {
-          global.localStorage.setItem(STORAGE_KEY_LOGO, dataUrl);
-          const raw = global.localStorage.getItem(STORAGE_KEY_BRANDING);
-          const parsed = raw ? JSON.parse(raw) : {};
-          parsed.logo = dataUrl;
-          global.localStorage.setItem(STORAGE_KEY_BRANDING, JSON.stringify(parsed));
-        } catch (err) {
-          if (global.RA && global.RA.log) global.RA.log.warn('No se pudo guardar el logo en localStorage (cuota):', err);
+        if (global.localStorage) {
+          try {
+            global.localStorage.setItem(STORAGE_KEY_LOGO, dataUrl);
+            const raw = global.localStorage.getItem(STORAGE_KEY_BRANDING);
+            const parsed = raw ? JSON.parse(raw) : {};
+            parsed.logo = dataUrl;
+            global.localStorage.setItem(STORAGE_KEY_BRANDING, JSON.stringify(parsed));
+          } catch (err) {
+            if (typeof global.showToast === 'function') {
+              global.showToast('LOGO DEMASIADO GRANDE', 'No se pudo guardar el logo en localStorage por límite de cuota.', 'warning', 4500);
+            }
+            if (global.RA && global.RA.log) global.RA.log.warn('Quota/error guardando logo:', err);
+          }
         }
-      }
+        if (!global.RA) global.RA = {};
+        global.RA.branding = Object.assign({}, _currentBranding);
+        refreshAllLogoPreviews();
+        if (typeof global.showToast === 'function') {
+          global.showToast('LOGOTIPO ACTUALIZADO', 'Tu logotipo se ha vinculado a las portadas de memoria y presupuesto.', 'success', 2800);
+        }
+      };
 
-      if (!global.RA) global.RA = {};
-      global.RA.branding = Object.assign({}, _currentBranding);
-
-      refreshAllLogoPreviews();
-
-      if (typeof global.showToast === 'function') {
-        global.showToast('LOGOTIPO ACTUALIZADO', 'El logotipo de tu empresa se ha guardado correctamente y se estampará en la oferta.', 'success', 3000);
-      }
+      const img = new Image();
+      img.onload = function() {
+        try {
+          const maxDim = 512;
+          let w = img.naturalWidth || img.width || maxDim;
+          let h = img.naturalHeight || img.height || maxDim;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) { h = Math.max(1, Math.round((h * maxDim) / w)); w = maxDim; }
+            else { w = Math.max(1, Math.round((w * maxDim) / h)); h = maxDim; }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          let compressed = canvas.toDataURL('image/webp', 0.88);
+          if (!compressed || compressed.indexOf('data:image/webp') !== 0) {
+            compressed = canvas.toDataURL('image/png');
+          }
+          persistLogo(compressed.length < rawDataUrl.length ? compressed : rawDataUrl);
+        } catch (_) {
+          persistLogo(rawDataUrl);
+        }
+      };
+      img.onerror = function() { persistLogo(rawDataUrl); };
+      img.src = rawDataUrl;
     };
     reader.readAsDataURL(file);
   }

@@ -1896,7 +1896,7 @@
       '  isEditMode: false,',
       '  activeTarget: null,',
       '  themePrimary: "' + pal.primary + '",',
-      '  storageKey: "dossier_draft_" + encodeURIComponent("' + offerCode + '"),',
+      '  storageKey: "dossier_draft_" + encodeURIComponent("' + ((typeof window !== 'undefined' && window.RA && window.RA._currentProjectUuid) ? window.RA._currentProjectUuid : offerCode).replace(/[^a-zA-Z0-9._-]/g, '_') + '"),',
       '  autoSaveTimer: null,',
       '',
       '  init: function() {',

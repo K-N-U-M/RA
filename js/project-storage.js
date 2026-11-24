@@ -23,6 +23,52 @@
 let _raCurrentFileHandle = null;
 let _raCurrentProjectName = 'Proyecto_Solar';
 let _raImportInProgress = false;
+
+function _raGenerateUuid() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'ra-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10) + '-' + Math.random().toString(36).slice(2, 6);
+}
+
+function raGetOrCreateProjectUuid() {
+  if (typeof window !== 'undefined') {
+    if (!window.RA) window.RA = {};
+    if (!window.RA._currentProjectUuid) {
+      window.RA._currentProjectUuid = _raGenerateUuid();
+    }
+    return window.RA._currentProjectUuid;
+  }
+  return _raGenerateUuid();
+}
+if (typeof window !== 'undefined') {
+  window.raGetProjectUuid = raGetOrCreateProjectUuid;
+}
+
+function _raNumOrDefault(raw, def) {
+  if (raw === null || raw === undefined) return def;
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim().replace(',', '.');
+    if (trimmed === '') return def;
+    const n = Number(trimmed);
+    return Number.isFinite(n) ? n : def;
+  }
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : def;
+}
+
+function _raCompareSemver(a, b) {
+  const pa = String(a || '0.0').split('.').map(n => parseInt(n, 10) || 0);
+  const pb = String(b || '0.0').split('.').map(n => parseInt(n, 10) || 0);
+  const len = Math.max(pa.length, pb.length);
+  for (let i = 0; i < len; i++) {
+    const va = pa[i] || 0;
+    const vb = pb[i] || 0;
+    if (va < vb) return -1;
+    if (va > vb) return 1;
+  }
+  return 0;
+}
 // [A6 FIX] Validación de coordenadas numéricas finitas para prevenir DeveloperError en bucle de render Cesium
 function _raIsValidCoord(v) {
   return typeof v === 'number' && Number.isFinite(v);
@@ -259,6 +305,7 @@ function raExportProjectData() {
   return {
     format: 'RA_SOLAR_PROJECT',
     version: '2.4',
+    uuid: raGetOrCreateProjectUuid(),
     timestamp: new Date().toISOString(),
     metadata: {
       name: _raCurrentProjectName || 'Instalación Solar',
@@ -352,13 +399,13 @@ function raExportProjectData() {
           ivaRate: Number.isFinite(parsedIvaRate) ? parsedIvaRate : (prev.ivaRate != null ? prev.ivaRate : 0.21),
           ivaHomeAge2Years: ivaHomeAgeEl ? Boolean(ivaHomeAgeEl.checked) : (typeof prev.ivaHomeAge2Years === 'boolean' ? prev.ivaHomeAge2Years : true),
           ivaMarginLaborOnly: ivaMarginLaborEl ? Boolean(ivaMarginLaborEl.checked) : (typeof prev.ivaMarginLaborOnly === 'boolean' ? prev.ivaMarginLaborOnly : true),
-          ibiCuota: (ibiCEl && parseFloat(ibiCEl.value)) || (prev.ibiCuota != null ? prev.ibiCuota : 650),
+          ibiCuota: ibiCEl ? _raNumOrDefault(ibiCEl.value, prev.ibiCuota != null ? prev.ibiCuota : 650) : (prev.ibiCuota != null ? prev.ibiCuota : 650),
           ibiOpt: (ibiOEl && ibiOEl.value) || prev.ibiOpt || '0.50_3',
           irpfOpt: (irpfOEl && irpfOEl.value) || prev.irpfOpt || '0.40',
-          isRate: (isOEl && parseFloat(isOEl.value)) || (prev.isRate != null ? prev.isRate : 0.25),
-          icioOpt: (icioOEl && parseFloat(icioOEl.value)) || (prev.icioOpt != null ? prev.icioOpt : 0.95),
+          isRate: isOEl ? _raNumOrDefault(isOEl.value, prev.isRate != null ? prev.isRate : 0.25) : (prev.isRate != null ? prev.isRate : 0.25),
+          icioOpt: icioOEl ? _raNumOrDefault(icioOEl.value, prev.icioOpt != null ? prev.icioOpt : 0.95) : (prev.icioOpt != null ? prev.icioOpt : 0.95),
           regionOpt: (regEl && regEl.value) || prev.regionOpt || 'estatal_only',
-          caeEur: (caeEl && parseFloat(caeEl.value)) || (prev.caeEur != null ? prev.caeEur : 0)
+          caeEur: caeEl ? _raNumOrDefault(caeEl.value, prev.caeEur != null ? prev.caeEur : 0) : (prev.caeEur != null ? prev.caeEur : 0)
         };
       })()
     } : null,
@@ -474,7 +521,7 @@ function raExportProjectData() {
     financialSettings: (() => {
       const g = (id, def) => {
         const el = document.getElementById(id) || document.getElementById('modal-' + id);
-        return el ? (parseFloat(el.value) || def) : def;
+        return el ? _raNumOrDefault(el.value, def) : def;
       };
       const gStr = (id, def) => {
         const el = document.getElementById(id) || document.getElementById('modal-' + id);
@@ -561,7 +608,8 @@ function raExportProjectData() {
         const mem = (typeof window !== 'undefined' && window.RA && window.RA._proposalCustomPhotos) ? window.RA._proposalCustomPhotos : null;
         if (mem) return JSON.parse(JSON.stringify(mem));
         if (typeof sessionStorage !== 'undefined') {
-          const ss = sessionStorage.getItem('ra_proposal_custom_photos');
+          const uuid = raGetOrCreateProjectUuid();
+          const ss = sessionStorage.getItem('ra_proposal_custom_photos_' + uuid) || sessionStorage.getItem('ra_proposal_custom_photos');
           return ss ? JSON.parse(ss) : null;
         }
       } catch (ePhotos) { return null; }
@@ -593,21 +641,19 @@ const RA_PROJECT_CURRENT_VERSION = '2.4';
  */
 function raMigrateProjectData(projectData) {
   if (!projectData || typeof projectData !== 'object') return projectData;
-  const fromVer = parseFloat(projectData.version) || 1.0;
-  const toVer = parseFloat(RA_PROJECT_CURRENT_VERSION);
+  const fromVerStr = projectData.version ? String(projectData.version) : '1.0';
 
-  // [A7 FIX] Control de versiones futuras: evitar corrupción si el archivo proviene de una versión más reciente
-  if (fromVer > toVer) {
+  // [A7 FIX] Control de versiones futuras mediante comparador semántico por tupla [major, minor]
+  if (_raCompareSemver(fromVerStr, RA_PROJECT_CURRENT_VERSION) > 0) {
     console.warn('[RA Storage] Advertencia: El archivo .raproject tiene versión ' + projectData.version + ', superior a la soportada (' + RA_PROJECT_CURRENT_VERSION + ').');
     if (typeof showToast === 'function') {
       showToast('VERSIÓN NUEVA', 'El archivo fue creado con una versión superior (' + projectData.version + '). Algunas funciones avanzadas podrían no cargarse.', 'warning', 6000);
     }
-    // No degradar ciegamente la versión para no perder trazabilidad
     projectData.__futureVersionWarning = true;
   }
 
   // v1.x → contenedores normalizados
-  if (fromVer < 2.0) {
+  if (_raCompareSemver(fromVerStr, '2.0') < 0) {
     if (!projectData.workPlanes && Array.isArray(projectData.planes)) {
       projectData.workPlanes = { planes: projectData.planes, activePlaneIdx: projectData.activePlaneIdx || 0 };
     }
@@ -617,7 +663,7 @@ function raMigrateProjectData(projectData) {
   }
 
   // v2.0 → v2.1: faldones/paneles con estructura, orientación y MLPE
-  if (fromVer < 2.1) {
+  if (_raCompareSemver(fromVerStr, '2.1') < 0) {
     (Array.isArray(projectData.polylines) ? projectData.polylines : []).forEach(poly => {
       if (!poly || typeof poly !== 'object') return;
       if (!poly.structureType) poly.structureType = 'coplanar_teja';
@@ -635,13 +681,33 @@ function raMigrateProjectData(projectData) {
   }
 
   // v2.1 → v2.2: estado de simulación unificado
-  if (fromVer < 2.2) {
+  if (_raCompareSemver(fromVerStr, '2.2') < 0) {
     if (!projectData.solarSimState || typeof projectData.solarSimState !== 'object') {
       projectData.solarSimState = { monthIdx: 5, hour: 12, viewMode: 'heatmap' };
     }
   }
 
-  projectData.__migratedFrom = (isFinite(fromVer) && fromVer < toVer) ? fromVer : undefined;
+  // v2.2 → v2.3: mediciones 3D y configuración fiscal sin pérdida de valores cero
+  if (_raCompareSemver(fromVerStr, '2.3') < 0) {
+    if (!Array.isArray(projectData.measurements)) projectData.measurements = [];
+    if (projectData.projectConfig && typeof projectData.projectConfig === 'object' && !projectData.projectConfig.taxSettings) {
+      projectData.projectConfig.taxSettings = { soilType: 'urbano', profile: 'particular', ivaRate: 0.21 };
+    }
+  }
+
+  // v2.3 → v2.4: UUID estable, pérdidas solares y configuración de branding/fotos aislada
+  if (_raCompareSemver(fromVerStr, '2.4') < 0) {
+    if (!projectData.uuid) {
+      projectData.uuid = (projectData.metadata && projectData.metadata.uuid) ? projectData.metadata.uuid : _raGenerateUuid();
+    }
+    if (projectData.solarLossConfig === undefined) projectData.solarLossConfig = null;
+    if (projectData.lastVirtualInverter === undefined) projectData.lastVirtualInverter = null;
+  }
+  if (!projectData.uuid) {
+    projectData.uuid = (projectData.metadata && projectData.metadata.uuid) ? projectData.metadata.uuid : _raGenerateUuid();
+  }
+
+  projectData.__migratedFrom = (_raCompareSemver(fromVerStr, RA_PROJECT_CURRENT_VERSION) < 0) ? fromVerStr : undefined;
   if (!projectData.__futureVersionWarning) {
     projectData.version = RA_PROJECT_CURRENT_VERSION;
   }
@@ -809,7 +875,10 @@ async function raImportProjectData(projectData, options = {}) {
   }
   if (!options || !options.isRollback) {
     _raImportInProgress = true;
-    if (typeof window !== 'undefined') window._raImportInProgress = true;
+    if (typeof window !== 'undefined') {
+      window._raImportInProgress = true;
+      window._raSuspendAutosave = true;
+    }
   }
 
   // [P0.2] Carrera de arranque y espera determinista: si el visor Cesium o el subsistema WP
@@ -836,6 +905,10 @@ async function raImportProjectData(projectData, options = {}) {
             resolve(res);
           } catch(eDef) {
             _raImportInProgress = false;
+            if (typeof window !== 'undefined') {
+              window._raImportInProgress = false;
+              window._raSuspendAutosave = false;
+            }
             if (window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eDef, 'import diferido');
             resolve(false);
           }
@@ -844,6 +917,10 @@ async function raImportProjectData(projectData, options = {}) {
     } else {
       delete projectData.__raImportRetryCount;
       _raImportInProgress = false;
+      if (typeof window !== 'undefined') {
+        window._raImportInProgress = false;
+        window._raSuspendAutosave = false;
+      }
       raHideProjectLoadingHUD();
       console.error('[RA Storage] Timeout: El visor 3D o WP no se inicializaron a tiempo.');
       if (typeof showToast === 'function') {
@@ -881,6 +958,10 @@ async function raImportProjectData(projectData, options = {}) {
 
     // [C5/M9] Migrar esquema de versiones antiguas antes de restaurar
     projectData = raMigrateProjectData(projectData);
+    if (typeof window !== 'undefined') {
+      if (!window.RA) window.RA = {};
+      window.RA._currentProjectUuid = projectData.uuid || raGetOrCreateProjectUuid();
+    }
 
     if (typeof showStatus === 'function') showStatus('RESTAURANDO PROYECTO 3D...', 3000);
 
@@ -1744,18 +1825,24 @@ async function raImportProjectData(projectData, options = {}) {
       } catch (eCat) { console.warn('[RA Storage] Error restaurando customEquipment:', eCat); }
     }
 
-    // [AUDIT v2.4] Restaurar Fotografías Reales de la Propuesta
-    if (projectData.proposalPhotos) {
+    // [AUDIT v2.4] Restaurar Fotografías Reales de la Propuesta aisladas por UUID
+    {
+      const activeUuid = (projectData && projectData.uuid) || raGetOrCreateProjectUuid();
+      const photoKey = 'ra_proposal_custom_photos_' + activeUuid;
       try {
-        if (typeof window !== 'undefined') {
-          if (!window.RA) window.RA = {};
-          window.RA._proposalCustomPhotos = JSON.parse(JSON.stringify(projectData.proposalPhotos));
-        }
-        if (typeof window !== 'undefined' && window.RAStorageCache && typeof window.RAStorageCache.cacheAssetAsync === 'function') {
-          window.RAStorageCache.cacheAssetAsync('ra_proposal_custom_photos', projectData.proposalPhotos).catch(function() {});
-        }
-        if (typeof sessionStorage !== 'undefined') {
-          try { sessionStorage.setItem('ra_proposal_custom_photos', JSON.stringify(projectData.proposalPhotos)); } catch (eQuotaSS) {}
+        if (projectData.proposalPhotos) {
+          if (typeof window !== 'undefined') {
+            if (!window.RA) window.RA = {};
+            window.RA._proposalCustomPhotos = JSON.parse(JSON.stringify(projectData.proposalPhotos));
+          }
+          if (typeof window !== 'undefined' && window.RAStorageCache && typeof window.RAStorageCache.cacheAssetAsync === 'function') {
+            window.RAStorageCache.cacheAssetAsync(photoKey, projectData.proposalPhotos).catch(function() {});
+          }
+          if (typeof sessionStorage !== 'undefined') {
+            try { sessionStorage.setItem(photoKey, JSON.stringify(projectData.proposalPhotos)); } catch (eQuotaSS) {}
+          }
+        } else if (typeof window !== 'undefined' && window.RA) {
+          window.RA._proposalCustomPhotos = null;
         }
       } catch (ePhotos) { console.warn('[RA Storage] Error restaurando proposalPhotos:', ePhotos); }
     }
@@ -1895,6 +1982,10 @@ async function raImportProjectData(projectData, options = {}) {
   } finally {
     if (!options || !options.isRollback) {
       _raImportInProgress = false;
+      if (typeof window !== 'undefined') {
+        window._raImportInProgress = false;
+        window._raSuspendAutosave = false;
+      }
     }
   }
 }
@@ -2070,9 +2161,11 @@ async function raSaveToRecentProjects(projectData) {
       || ((projectData.metadata && projectData.metadata.name) ? projectData.metadata.name : 'Proyecto_Solar');
     const cleanFileName = /\.raproject$/i.test(rawFileName) ? rawFileName : (rawFileName + '.raproject');
 
-    const projId = 'proj_' + Date.now();
+    const projUuid = (projectData && projectData.uuid) || raGetOrCreateProjectUuid();
+    const projId = 'proj_' + projUuid;
     const fullItem = {
       id: projId,
+      uuid: projUuid,
       name: (projectData.metadata && projectData.metadata.name) || 'Proyecto Solar',
       fileName: cleanFileName,
       address: (projectData.metadata && projectData.metadata.address) || 'Ubicación',
@@ -2084,8 +2177,9 @@ async function raSaveToRecentProjects(projectData) {
       data: storageData
     };
 
-    const evicted = recents.filter(r => r && r.address === fullItem.address && r.name === fullItem.name);
-    const filtered = recents.filter(r => r.address !== fullItem.address || r.name !== fullItem.name);
+    const _isSameProject = (r) => r && ((r.uuid && r.uuid === projUuid) || (r.id === projId) || (r.address === fullItem.address && r.name === fullItem.name));
+    const evicted = recents.filter(_isSameProject);
+    const filtered = recents.filter(r => !_isSameProject(r));
     const useIdb = (typeof window !== 'undefined' && window.RAStorageCache && typeof window.RAStorageCache.saveProjectAsync === 'function');
 
     let idbSaved = false;
@@ -2515,12 +2609,25 @@ async function raNewProjectConfirm() {
     window.RAPricing.currentSessionPricing = null;
     try { localStorage.removeItem('ra_pricing_session_override'); } catch(_) {}
   }
+  const prevUuid = (window.RA && window.RA._currentProjectUuid) ? window.RA._currentProjectUuid : null;
   if (window.RA) {
     window.RA._proposalCustomPhotos = null;
+    window.RA._currentProjectUuid = _raGenerateUuid();
   }
-  try { if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem('ra_proposal_custom_photos'); } catch(_) {}
-  if (window.RAStorageCache && typeof window.RAStorageCache.deleteCachedAssetAsync === 'function') {
-    window.RAStorageCache.deleteCachedAssetAsync('ra_proposal_custom_photos').catch(function() {});
+  try {
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.removeItem('ra_proposal_custom_photos');
+      if (prevUuid) sessionStorage.removeItem('ra_proposal_custom_photos_' + prevUuid);
+    }
+  } catch(_) {}
+  if (window.RAStorageCache) {
+    if (typeof window.RAStorageCache.deleteCachedAssetAsync === 'function') {
+      window.RAStorageCache.deleteCachedAssetAsync('ra_proposal_custom_photos').catch(function() {});
+      if (prevUuid) window.RAStorageCache.deleteCachedAssetAsync('ra_proposal_custom_photos_' + prevUuid).catch(function() {});
+    }
+    if (typeof window.RAStorageCache.deleteProjectAsync === 'function') {
+      window.RAStorageCache.deleteProjectAsync('autosave_current').catch(function() {});
+    }
   }
   if (window.solarProjectConfig) {
     window.solarProjectConfig.clientInfo = null;
