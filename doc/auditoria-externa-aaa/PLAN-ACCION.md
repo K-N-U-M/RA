@@ -63,3 +63,37 @@
 ## Registro de Informes de Fase
 
 *(Cada fase completada añade su informe aquí antes de esperar el OK del usuario para pasar a la siguiente).*
+
+---
+
+### Fase 0 — Informe de Cierre
+
+- **Estado global Fase 0:** `8/11` tickets en `[Hecho]` (`F0-01`, `F0-02`, `F0-03`, `F0-05`, `F0-06`, `F0-07`, `F0-08`, `F0-09`) y `3/11` tickets en `[Parcial]` (`F0-04`, `F0-10`, `F0-11`), todos trazados con commits atómicos en la rama `feat/remediacion-aaa` y con `?v=20261124_f0` actualizado en `index.html` y `js/lazy-loader.js`.
+- **Verificación ejecutada:** Revisión manual de diffs y lectura de código; **no se han ejecutado baterías de tests ni comprobaciones automáticas** siguiendo explícitamente las directrices del usuario.
+
+#### Tickets Cerrados (`[Hecho]`)
+- `F0-01` (`59bd78e`): Reparación de Undo/Redo CAD en vértices de edificio, polilíneas (con obstáculos solidarios), rutas eléctricas e invalidación/recalculo de paneles.
+- `F0-02` (`dd12dff`): Purga de primitivas GPU huérfanas al borrar el último diseño en Paso 1 y preservación de geometría base en `lastRoofInfo`.
+- `F0-03` (`fd1668f`): Suspensión de simulación/benchmark en `webglcontextlost`, reconstrucción de escena y skybox en `webglcontextrestored` y acotación del interceptor `getContext`.
+- `F0-05` (`44a043b`): Normalizador térmico `normalizeThermalCoeff` para evitar colapso a `12 V` y falsa prescripción de secciones `70 mm²`.
+- `F0-06` (`87db0cd`): Prescripción por defecto de diferencial `Clase B` salvo confirmación positiva de RCMU (`=== true`) y eliminación del doble conteo `2×` en lazo DC medido.
+- `F0-07` (`7dbb92b`): Techo estricto `Ns <= Ns_max`, zonificación climática CTE `Tmin`, validación de `inputsPerMppt` y `Isc`, bloqueo rojo de seguridad eléctrica en Matriz MPPT y cierre del bypass automático en modo optimizadores sin cobertura completa.
+- `F0-08` (`dd8784f`): Ampliación de `RASanitize`, escape XSS en catálogo/selectores/outliner/eólica/estado IA/web/documentos (con delegación `data-*`), `safeJsonForScript` en scripts embebidos, `sandbox="allow-same-origin allow-modals"` + `srcdoc` en visor incrustado, validación de URI de logos y lista blanca estricta para restauración de borradores WYSIWYG.
+- `F0-09` (`31670ef`): Exclusión de `js/ra-env.js` en despliegue Hosting, endurecimiento CSP en hosting y servidor local, y migración de claves Gemini a `sessionStorage` con aviso.
+
+#### Tickets Parciales (`[Parcial]`) y Pendientes Diferidos
+- `F0-04` (`edb05df`): Resueltos gimbal flip ±90° y desfase de cota Z en obstáculos, migración de `WASD`/`autoRotate` a `rAF` con reset en `blur`/`visibilitychange`, desconflicto de atajos (`Shift+C`, `X`, `M`, tooltip) y normal de Newell en cubiertas L. **Pendiente:** cumbreras independientes cuando un edificio en `L` a dos aguas tiene alas de distinto ancho (`wA !== wB`).
+- `F0-10` (`73e7313`): Invalidación de promesa IndexedDB fallida/bloqueada, autoguardado con IndexedDB + aviso de cuota + suspensión `_raSuspendAutosave` en importaciones, UUID de proyecto aislando fotos/borradores WYSIWYG/recientes/Nuevo Proyecto, compresión de logos (`<= 512px`) y capturas 3D (`<= 1600px`), migrador semántico `2.2 → 2.3 → 2.4` y conservación de ceros explícitos (`0 €` / `0 %`). **Pendiente:** desacoplar blobs pesados a Firebase Storage (`doc < 250 KB`) verificando reglas del bucket.
+- `F0-11` (`8712205`): Ampliación de bisección TIR hasta `-99%`, separación de campo numérico vs texto (`N/D`, `> 500 %`, `No rentable`), guardas contra `null %` y retorno `> 25 años`, parseo decimal con coma en dossier, plazo de préstamo unificado (`120` meses) y transición automática de `IVA 10% → 21%` al incumplir condiciones LIVA. **Pendiente:** modelado diferencial de amortización en IS B2B, recálculo financiero completo + escalado eólico ante override manual en dossier, y reconciliación de ocultar-margen/serie mensual unificada en Presupuesto/Memoria.
+
+#### Checklist de Verificación Manual del Usuario en Navegador
+1. **Selección de módulo y cables:** Seleccionar varios módulos del catálogo en Paso 2/3, trazar cables en Paso 4 y confirmar tensiones/secciones razonables sin caídas absurdas ni secciones de `70 mm²`.
+2. **Protecciones e inversor (Paso 4 y Paso 5):** Comprobar prescripción de diferencial `Clase B` para inversores sin RCMU certificado y confirmar que strings con sobrecorriente `Isc` o exceso de tensión en frío bloquean el paso a Paso 5 incluso en topología de optimizadores.
+3. **Editor CAD y Undo/Redo:** Arrastrar vértices de edificio, polilíneas con obstáculos y rutas de cable; pulsar `Ctrl+Z` / `Ctrl+Y` y comprobar coherencia de obstáculos y paneles. Probar también borrar el último edificio en Paso 1 y verificar que no quedan módulos flotando.
+4. **Cámara y atajos:** Mover con `WASD` y soltar o cambiar de pestaña para confirmar que no se queda atascado ni consume CPU en reposo; probar `Shift+C` (auditoría de cables), `X` y `M` (cinta métrica) y mover un obstáculo en cubierta comprobando su altura y giro sin saltos de 180°.
+5. **Propuesta, Presupuesto y Dossier (Paso 5):** Generar documentos con proyectos rentables extremos y poco rentables comprobando que no salga literal `null %`, `100.0 %` ni `25.0 años`, validar que la gráfica del dossier no salte a `Año 4` y probar un perfil empresa con IVA `10%` seleccionado para ver el ajuste automático a `21%`.
+6. **Persistencia y proyectos con ceros:** Fijar `0 €` o `0 %` en parámetros fiscales/financiación, guardar/exportar `.raproject` e importar; subir un logo grande; alternar entre dos proyectos comprobando que las fotos de propuesta y borradores no se mezclan al pulsar Nuevo Proyecto.
+7. **Seguridad XSS y visor incrustado:** Probar un nombre de cubierta o extra comercial con comillas o etiquetas `<script>`/`<img onerror>` en outliner, selectores y visor integrado sin alertas ni rotura de botones.
+8. **Recuperación WebGL (opcional dev):** Simular `WEBGL_lose_context` (`loseContext` y luego `restoreContext`) verificando reconstrucción limpia de geometría y skybox.
+
+> ⏸️ **Esperando confirmación manual del usuario (OK) para iniciar Fase 1.**

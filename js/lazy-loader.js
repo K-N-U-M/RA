@@ -107,7 +107,7 @@
         return global.CommercialProposalDossier;
       }
       const pendingCfg = _lazyDossierConfig ? Object.assign({}, _lazyDossierConfig) : null;
-      await loadScriptAsync('js/commercial-proposal-dossier.js?v=20261118_t6');
+      await loadScriptAsync('js/commercial-proposal-dossier.js?v=20261124_f0');
       if (pendingCfg && global.CommercialProposalDossier && typeof global.CommercialProposalDossier.setConfig === 'function') {
         global.CommercialProposalDossier.setConfig(pendingCfg);
       }
@@ -119,13 +119,13 @@
      */
     loadEquipmentAIImporter: async function() {
       if (global.RAEquipmentAIImporter) return global.RAEquipmentAIImporter;
-      await loadScriptAsync('js/equipment-ai-importer.js?v=20261117_e3');
+      await loadScriptAsync('js/equipment-ai-importer.js?v=20261124_f0');
       return global.RAEquipmentAIImporter || null;
     },
 
     loadEquipmentWebSearch: async function() {
       if (global.RAEquipmentWebSearch) return global.RAEquipmentWebSearch;
-      await loadScriptAsync('js/equipment-web-search.js?v=20261117_e3');
+      await loadScriptAsync('js/equipment-web-search.js?v=20261124_f0');
       return global.RAEquipmentWebSearch || null;
     },
 

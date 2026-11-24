@@ -17,7 +17,7 @@
 | **F0-05** | Corregir bug de unidades `%/°C` en `cable-engine.js` que colapsa `vmpStr = 12 V` y dispara cables a `70 mm²` | P0 | S | Ninguna | B-01 | `[Hecho]` |
 | **F0-06** | Corregir omisión normativa de diferencial `Clase B` (`rcmuIntegrated !== false`) y doble conteo `2×` en lazo DC | P0 | M | F0-05 | B-02 + B-03 | `[Hecho]` |
 | **F0-07** | Blindar validaciones MPPT (`inputsPerMppt`, `Voc_cold`, `Isc`, MLPE selectivos) y corregir overflow `Ns > Ns_max` en `computeSizingEngineering` | P0 | M | Ninguna | B-04 + B-05 | `[Hecho]` |
-| **F0-08** | Erradicar XSS almacenado/DOM en visor (`32` módulos sin sanitizador) y documentos/visor/iframe generados | P0 | L | Ninguna | F-01 + F-03 | `[Pendiente]` |
+| **F0-08** | Erradicar XSS almacenado/DOM en visor (`32` módulos sin sanitizador) y documentos/visor/iframe generados | P0 | L | Ninguna | F-01 + F-03 | `[Hecho]` |
 | **F0-09** | Excluir archivo local de entorno del despliegue, endurecer CSP y retirar claves IA de `localStorage` | P0 | M | F0-08 | F-02 | `[Hecho]` |
 | **F0-10** | Blindar persistencia: migración de autoguardado a IndexedDB, límites Firestore `< 250 KB`, UUID por proyecto, migrador `2.2->2.4` y cero `0 € -> default` | P0 | L | Ninguna | F-07 + F-08 + F-09 + F-10 | `[Parcial]` |
 | **F0-11** | Corregir errores bancables en TIR/Payback/IVA 10%/IS y reconciliar cifras entre pantalla, memoria, presupuesto, propuesta y dossier | P0 | L | Ninguna | F-11 + F-12 + F-13 + F-14 | `[Parcial]` |
@@ -267,7 +267,7 @@ El catálogo guarda `tempCoeffPmax` en `%/°C` (`-0.35`). `onSelectModuleFromDro
 | **Dependencias** | Ninguna |
 | **Origen** | F-01 + F-03 *(nota: D-06 trata limpieza del `escapeHtml` duplicado; coordinar usando `RASanitize` único)* |
 | **Rama sugerida** | `sec/xss-dom-and-documents-sanitization` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 1. **Visor principal (`F-01`)**: `306` asignaciones `.innerHTML` en `41` archivos (`32` módulos operan sin `sanitizer.js`). Outliner, catálogo, selectores, aerogeneradores, barra superior y resultados de IA/Web interpolan nombres/modelos crudos dentro de HTML y atributos `onclick="... '${id}' ..."`.
