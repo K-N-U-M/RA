@@ -513,17 +513,39 @@
     injectUI: injectShadowControlsUI
   };
 
+  // [F4-07] Consolidado desde app-main.js: selector de resolución del heatmap
+  function setHeatmapResolution(res, silentInit) {
+    global.raHeatmapResolution = res;
+    ['ultra', 'medium', 'fast'].forEach(function (k) {
+      var btn = document.getElementById('btn-res-' + k);
+      if (btn) btn.classList.toggle('active', k === res);
+    });
+    var badge = document.getElementById('p2-shading-loss-badge');
+    if (badge) {
+      if (res === 'ultra') badge.innerText = '192 INSTANTES (ULTRA)';
+      else if (res === 'medium') badge.innerText = '72 INSTANTES (MEDIA)';
+      else badge.innerText = '16 INSTANTES (RÁPIDA)';
+    }
+    if (!silentInit) {
+      setSimResolution(res);
+    }
+  }
+  global.raHeatmapResolution = currentSettings.simResolution || 'medium';
+  global.setHeatmapResolution = setHeatmapResolution;
+
   // Alias de compatibilidad para ui-viewport-controls.js
   global.RAShadowSettings = global.ShadowSettings;
   global.raSyncShadowUI = updateUI;
 
   // Inicialización segura tras carga del DOM
+  function _bootstrapShadowUI() {
+    global.ShadowSettings.init();
+    setHeatmapResolution(currentSettings.simResolution || 'medium', true);
+  }
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function() {
-      setTimeout(global.ShadowSettings.init, 400);
-    });
+    document.addEventListener('DOMContentLoaded', _bootstrapShadowUI);
   } else {
-    setTimeout(global.ShadowSettings.init, 400);
+    _bootstrapShadowUI();
   }
 
 })(typeof window !== 'undefined' ? window : this);
