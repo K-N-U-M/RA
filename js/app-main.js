@@ -4508,9 +4508,58 @@ function undoLastPoint() {
 });
 
 
-// ── Navegación Teclado ─────────────────────────────────────────────────────
+// ── Navegación Teclado (auto-terminante compatible con requestRenderMode) ─
 const keys = new Set();
 let autoRotate = false;
+let _navRafId = null;
+let _navLastTs = 0;
+
+function _stepNavLoop(ts) {
+  _navRafId = null;
+  if (!autoRotate && keys.size === 0) {
+    _navLastTs = 0;
+    return;
+  }
+  const dt = _navLastTs ? Math.min(0.1, Math.max(0.001, (ts - _navLastTs) / 1000)) : (1 / 60);
+  _navLastTs = ts;
+  const scale60 = dt * 60;
+  let moved = false;
+
+  if (autoRotate) {
+    scene.camera.rotate(Cesium.Cartesian3.UNIT_Z, -0.0004 * scale60);
+    moved = true;
+  } else if (keys.size > 0) {
+    const h = camera.positionCartographic.height;
+    const move = Math.max(h * 0.006, 50) * scale60;
+    const rot = 0.008 * scale60;
+
+    if (keys.has('KeyS'))       { camera.moveBackward(move); moved = true; }
+    if (keys.has('KeyA'))       { camera.moveLeft(move); moved = true; }
+    if (keys.has('KeyD'))       { camera.moveRight(move); moved = true; }
+    if (keys.has('KeyQ'))       { camera.moveUp(move * 0.6); moved = true; }
+    if (keys.has('ArrowLeft'))  { camera.rotateLeft(rot); moved = true; }
+    if (keys.has('ArrowRight')) { camera.rotateRight(rot); moved = true; }
+    if (keys.has('ArrowUp'))    { camera.rotateUp(rot); moved = true; }
+    if (keys.has('ArrowDown'))  { camera.rotateDown(rot); moved = true; }
+  }
+
+  if (moved) {
+    updateWindRose();
+    if (scene && typeof scene.requestRender === 'function') scene.requestRender();
+  }
+  if (autoRotate || keys.size > 0) {
+    _navRafId = requestAnimationFrame(_stepNavLoop);
+  } else {
+    _navLastTs = 0;
+  }
+}
+
+function _ensureNavLoop() {
+  if (!_navRafId && (autoRotate || keys.size > 0)) {
+    _navLastTs = 0;
+    _navRafId = requestAnimationFrame(_stepNavLoop);
+  }
+}
 
 document.addEventListener('keydown', e => {
   if (isTextInputActive(e.target)) return;
@@ -4525,6 +4574,7 @@ document.addEventListener('keydown', e => {
       autoRotate = !autoRotate;
       const rotEl = document.getElementById('ra-autorot');
       if (rotEl) rotEl.style.display = autoRotate ? 'block' : 'none';
+      _ensureNavLoop();
       break;
     case 'KeyR':
       resetView();
@@ -4558,9 +4608,22 @@ document.addEventListener('keydown', e => {
       }
       break;
   }
+  _ensureNavLoop();
 });
 
 document.addEventListener('keyup', e => keys.delete(e.code));
+window.addEventListener('blur', () => {
+  keys.clear();
+  window._raShiftKeyDown = false;
+  window._raIsShiftDown = false;
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    keys.clear();
+    window._raShiftKeyDown = false;
+    window._raIsShiftDown = false;
+  }
+});
 
 function zoomCam(dir) {
   const h = camera.positionCartographic.height;
@@ -4583,26 +4646,6 @@ function resetView() {
 
 clock.onTick.addEventListener(() => {
   updateWindRose();
-
-  if (autoRotate) {
-    scene.camera.rotate(Cesium.Cartesian3.UNIT_Z, -0.0004);
-    return;
-  }
-
-  if (!keys.size) return;
-
-  const h = camera.positionCartographic.height;
-  const move = Math.max(h * 0.006, 50);
-  const rot = 0.008;
-
-  if (keys.has('KeyS'))       camera.moveBackward(move);
-  if (keys.has('KeyA'))       camera.moveLeft(move);
-  if (keys.has('KeyD'))       camera.moveRight(move);
-  if (keys.has('KeyQ'))       camera.moveUp(move * 0.6);
-  if (keys.has('ArrowLeft'))  camera.rotateLeft(rot);
-  if (keys.has('ArrowRight')) camera.rotateRight(rot);
-  if (keys.has('ArrowUp'))    camera.rotateUp(rot);
-  if (keys.has('ArrowDown'))  camera.rotateDown(rot);
 });
 
 // ── Botones D-Pad ─────────────────────────────────────────────────────────
@@ -4648,6 +4691,7 @@ function toggleAutoRotate() {
   autoRotate = !autoRotate;
   const rotEl = document.getElementById('ra-autorot');
   if (rotEl) rotEl.style.display = autoRotate ? 'block' : 'none';
+  if (autoRotate && typeof _ensureNavLoop === 'function') _ensureNavLoop();
   showStatus(autoRotate ? 'AUTO-ROTACIÓN ACTIVA' : 'AUTO-ROTACIÓN DETENIDA', 2000);
 }
 

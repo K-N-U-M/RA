@@ -157,6 +157,8 @@ window.addEventListener('keydown', function(e) {
   }
 });
 window.addEventListener('keyup', function(e) { if (e.key === 'Shift') window._raIsShiftDown = false; });
+window.addEventListener('blur', function() { window._raIsShiftDown = false; });
+document.addEventListener('visibilitychange', function() { if (document.hidden) window._raIsShiftDown = false; });
 
 function getOrthogonalSnap(cartesian, pts) {
   if (!cartesian || !pts || pts.length < 2) return cartesian;

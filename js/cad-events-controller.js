@@ -1865,7 +1865,7 @@
   (window.RA && window.RA.addListener ? window.RA.addListener : function(t, ev, fn) { t.addEventListener(ev, fn); })(document, 'keydown', function _raKeydown2(e) {
     if (typeof window !== 'undefined') window._raShiftKeyDown = Boolean(e.shiftKey);
     if (isTextInputActive(e.target)) return;
-    if (!e.ctrlKey && !e.metaKey && !e.altKey && (e.key === 'c' || e.key === 'C')) {
+    if (e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey && (e.key === 'c' || e.key === 'C')) {
       if (typeof window.wpToggleCableAuditElevation === 'function') {
         e.preventDefault();
         window.wpToggleCableAuditElevation();
@@ -1994,6 +1994,7 @@
         wpRestoreCameraNavigation();
       }
     } else if (!hasModKey && (e.key === 'x' || e.key === 'X')) {
+      if (window.RAMeasureTool && typeof window.RAMeasureTool.isActive === 'function' && window.RAMeasureTool.isActive()) return;
       magneticSnapActive = !magneticSnapActive;
       window.magneticSnapActive = magneticSnapActive;
       const snapChk = document.getElementById('chk-snap-vert');

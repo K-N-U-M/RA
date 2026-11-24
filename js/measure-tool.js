@@ -597,7 +597,7 @@
       '  <span>CINTA MÉTRICA 3D</span>',
       '</div>',
       '<div style="width:1px; height:18px; background:rgba(255,255,255,0.15);"></div>',
-      '<button id="ra-measure-snap-toggle-btn" type="button" style="background:rgba(16,185,129,0.22); border:1px solid #10B981; color:#34D399; font-weight:700; font-size:10px; padding:3px 10px; border-radius:12px; cursor:pointer; display:flex; align-items:center; gap:4px; transition:all 0.15s ease;" title="Conmutar atracción magnética (Atajo: S)">',
+      '<button id="ra-measure-snap-toggle-btn" type="button" style="background:rgba(16,185,129,0.22); border:1px solid #10B981; color:#34D399; font-weight:700; font-size:10px; padding:3px 10px; border-radius:12px; cursor:pointer; display:flex; align-items:center; gap:4px; transition:all 0.15s ease;" title="Conmutar atracción magnética (Atajo: X)">',
       '  <span>🧲 SNAP:</span> <span id="ra-measure-snap-badge-text">ON</span>',
       '</button>',
       '<div id="ra-measure-live-readout" style="font-family:var(--font-mono, monospace); font-size:11px; color:#F59E0B; font-weight:700; min-width:130px; text-align:center;">',
@@ -922,8 +922,9 @@
 
       var key = e.key ? e.key.toLowerCase() : '';
 
-      // Tecla M: Alternar cinta métrica
+      // Tecla M: Alternar cinta métrica solo si no fue interceptada para mover polilínea
       if (key === 'm' && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        if (e.defaultPrevented) return;
         e.preventDefault();
         toggle();
         return;

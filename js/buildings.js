@@ -2384,16 +2384,53 @@ function render3DBuildingsInCesium() {
     solarFaces.forEach(function(face, fIdx) {
       const pts3D = face.pts3D;
       if (!Array.isArray(pts3D) || pts3D.length < 3) return;
+      // Normal de mejor ajuste por método de Newell sobre todos los vértices (evita alabeo de 3 puntos)
+      let p0Ref = new Cesium.Cartesian3(0, 0, 0);
+      pts3D.forEach(pt => Cesium.Cartesian3.add(p0Ref, pt, p0Ref));
+      Cesium.Cartesian3.divideByScalar(p0Ref, pts3D.length, p0Ref);
+      const newellN = new Cesium.Cartesian3(0, 0, 0);
+      for (let vi = 0; vi < pts3D.length; vi++) {
+        const cur = Cesium.Cartesian3.subtract(pts3D[vi], p0Ref, new Cesium.Cartesian3());
+        const nxt = Cesium.Cartesian3.subtract(pts3D[(vi + 1) % pts3D.length], p0Ref, new Cesium.Cartesian3());
+        newellN.x += (cur.y - nxt.y) * (cur.z + nxt.z);
+        newellN.y += (cur.z - nxt.z) * (cur.x + nxt.x);
+        newellN.z += (cur.x - nxt.x) * (cur.y + nxt.y);
+      }
+      const nMag = Cesium.Cartesian3.magnitude(newellN);
+      let maxOutOfPlaneM = 0;
+      let planeInputPts = [pts3D[0], pts3D[1], pts3D[2]];
+      if (nMag > 1e-6) {
+        Cesium.Cartesian3.divideByScalar(newellN, nMag, newellN);
+        const geoUp = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(p0Ref, new Cesium.Cartesian3());
+        if (Cesium.Cartesian3.dot(newellN, geoUp) < 0) Cesium.Cartesian3.negate(newellN, newellN);
+        pts3D.forEach(pt => {
+          const d = Math.abs(Cesium.Cartesian3.dot(Cesium.Cartesian3.subtract(pt, p0Ref, new Cesium.Cartesian3()), newellN));
+          if (d > maxOutOfPlaneM) maxOutOfPlaneM = d;
+        });
+        if (maxOutOfPlaneM > 0.02 && window.RA && window.RA.log) {
+          window.RA.log.warn('[Buildings] Cara no coplanar (' + maxOutOfPlaneM.toFixed(3) + ' m) ajustada por normal de Newell:', face.name);
+        }
+        const e1Raw = Cesium.Cartesian3.subtract(pts3D[1], pts3D[0], new Cesium.Cartesian3());
+        const e1Proj = Cesium.Cartesian3.subtract(e1Raw, Cesium.Cartesian3.multiplyByScalar(newellN, Cesium.Cartesian3.dot(e1Raw, newellN), new Cesium.Cartesian3()), new Cesium.Cartesian3());
+        const e1Norm = Cesium.Cartesian3.magnitude(e1Proj) > 1e-4 ? Cesium.Cartesian3.normalize(e1Proj, new Cesium.Cartesian3()) : Cesium.Cartesian3.normalize(Cesium.Cartesian3.subtract(pts3D[1], pts3D[0], new Cesium.Cartesian3()), new Cesium.Cartesian3());
+        const e2Orth = Cesium.Cartesian3.normalize(Cesium.Cartesian3.cross(newellN, e1Norm, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+        planeInputPts = [
+          p0Ref,
+          Cesium.Cartesian3.add(p0Ref, e1Norm, new Cesium.Cartesian3()),
+          Cesium.Cartesian3.add(p0Ref, e2Orth, new Cesium.Cartesian3())
+        ];
+      }
+
       let pData = null;
       if (typeof window.wpComputePlaneFrom3Points === 'function') {
-        pData = window.wpComputePlaneFrom3Points(pts3D[0], pts3D[1], pts3D[2], 'p1p2');
+        pData = window.wpComputePlaneFrom3Points(planeInputPts[0], planeInputPts[1], planeInputPts[2], 'p1p2');
       }
       if (!pData) {
-        const up = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(pts3D[0], new Cesium.Cartesian3());
+        const up = nMag > 1e-6 ? newellN : Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(pts3D[0], new Cesium.Cartesian3());
         const v1 = Cesium.Cartesian3.subtract(pts3D[1], pts3D[0], new Cesium.Cartesian3());
         const uV = Cesium.Cartesian3.normalize(v1, new Cesium.Cartesian3());
         const vV = Cesium.Cartesian3.normalize(Cesium.Cartesian3.cross(up, uV, new Cesium.Cartesian3()), new Cesium.Cartesian3());
-        pData = { origin: pts3D[0], normal: up, uVec: uV, vVec: vV, tiltDeg: 0, azimuthDeg: azimuth };
+        pData = { origin: p0Ref, normal: up, uVec: uV, vVec: vV, tiltDeg: 0, azimuthDeg: azimuth };
       }
       if (typeof face.tiltDeg === 'number' && Number.isFinite(face.tiltDeg)) pData.tiltDeg = face.tiltDeg;
       if (typeof face.azimuthDeg === 'number' && Number.isFinite(face.azimuthDeg)) pData.azimuthDeg = face.azimuthDeg;

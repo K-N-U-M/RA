@@ -626,10 +626,6 @@ function computeObstacleRotationMatrix(obs, uVec, vVec, normal) {
   Cesium.Cartesian3.normalize(uRot, uRot);
   Cesium.Cartesian3.normalize(vRot, vRot);
   Cesium.Cartesian3.cross(uRot, vRot, normVec);
-  if (Cesium.Cartesian3.dot(normVec, normal) < 0) {
-    Cesium.Cartesian3.negate(vRot, vRot);
-    Cesium.Cartesian3.cross(uRot, vRot, normVec);
-  }
   Cesium.Cartesian3.normalize(normVec, normVec);
 
   return new Cesium.Matrix3(
@@ -639,26 +635,9 @@ function computeObstacleRotationMatrix(obs, uVec, vVec, normal) {
   );
 }
 
-function updateObstacleLiveModelMatrix(obs, target) {
-  if (!obs || !window._obsPrimitives || !window._obsPrimitives.length) return;
-  const wp = (target && target.wp && target.wp.roofWp) || (target && target.wp) || (typeof getObstacleActivePlane === 'function' ? getObstacleActivePlane(obs) : null);
+function resolveObstacleBaseCenter(obs, wp) {
   let baseCenter = null, normal = null, uVec = null, vVec = null;
-  if (obs.cartesian) {
-    baseCenter = (obs.cartesian instanceof Cesium.Cartesian3) ? obs.cartesian : new Cesium.Cartesian3(obs.cartesian.x, obs.cartesian.y, obs.cartesian.z);
-    if (wp && wp.normal && wp.uVec && wp.vVec) {
-      normal = Cesium.Cartesian3.normalize(wp.normal, new Cesium.Cartesian3());
-      uVec = Cesium.Cartesian3.normalize(wp.uVec, new Cesium.Cartesian3());
-      vVec = Cesium.Cartesian3.normalize(wp.vVec, new Cesium.Cartesian3());
-    } else {
-      normal = Cesium.Cartesian3.normalize(baseCenter, new Cesium.Cartesian3());
-      uVec = Cesium.Cartesian3.cross(normal, Cesium.Cartesian3.UNIT_Z, new Cesium.Cartesian3());
-      if (Cesium.Cartesian3.magnitude(uVec) < 0.01) {
-        uVec = Cesium.Cartesian3.cross(normal, Cesium.Cartesian3.UNIT_X, new Cesium.Cartesian3());
-      }
-      uVec = Cesium.Cartesian3.normalize(uVec, uVec);
-      vVec = Cesium.Cartesian3.normalize(Cesium.Cartesian3.cross(normal, uVec, new Cesium.Cartesian3()), new Cesium.Cartesian3());
-    }
-  } else if (wp && wp.origin && wp.normal && wp.uVec && wp.vVec) {
+  if (wp && wp.origin && wp.normal && wp.uVec && wp.vVec) {
     normal = Cesium.Cartesian3.normalize(wp.normal, new Cesium.Cartesian3());
     uVec = Cesium.Cartesian3.normalize(wp.uVec, new Cesium.Cartesian3());
     vVec = Cesium.Cartesian3.normalize(wp.vVec, new Cesium.Cartesian3());
@@ -678,7 +657,42 @@ function updateObstacleLiveModelMatrix(obs, target) {
         new Cesium.Cartesian3()
       );
     }
+  } else if (obs && obs.cartesian) {
+    baseCenter = (obs.cartesian instanceof Cesium.Cartesian3)
+      ? Cesium.Cartesian3.clone(obs.cartesian)
+      : new Cesium.Cartesian3(obs.cartesian.x, obs.cartesian.y, obs.cartesian.z);
+    if (wp && wp.normal && wp.uVec && wp.vVec) {
+      normal = Cesium.Cartesian3.normalize(wp.normal, new Cesium.Cartesian3());
+      uVec = Cesium.Cartesian3.normalize(wp.uVec, new Cesium.Cartesian3());
+      vVec = Cesium.Cartesian3.normalize(wp.vVec, new Cesium.Cartesian3());
+    } else {
+      normal = Cesium.Cartesian3.normalize(baseCenter, new Cesium.Cartesian3());
+      uVec = Cesium.Cartesian3.cross(normal, Cesium.Cartesian3.UNIT_Z, new Cesium.Cartesian3());
+      if (Cesium.Cartesian3.magnitude(uVec) < 0.01) {
+        uVec = Cesium.Cartesian3.cross(normal, Cesium.Cartesian3.UNIT_X, new Cesium.Cartesian3());
+      }
+      uVec = Cesium.Cartesian3.normalize(uVec, uVec);
+      vVec = Cesium.Cartesian3.normalize(Cesium.Cartesian3.cross(normal, uVec, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+    }
+    if (obs.elevation) {
+      baseCenter = Cesium.Cartesian3.add(
+        baseCenter,
+        Cesium.Cartesian3.multiplyByScalar(normal, obs.elevation, new Cesium.Cartesian3()),
+        new Cesium.Cartesian3()
+      );
+    }
   }
+  return { baseCenter, normal, uVec, vVec };
+}
+
+function updateObstacleLiveModelMatrix(obs, target) {
+  if (!obs || !window._obsPrimitives || !window._obsPrimitives.length) return;
+  const wp = (target && target.wp && target.wp.roofWp) || (target && target.wp) || (typeof getObstacleActivePlane === 'function' ? getObstacleActivePlane(obs) : null);
+  const resolved = resolveObstacleBaseCenter(obs, wp);
+  const baseCenter = resolved.baseCenter;
+  const normal = resolved.normal;
+  const uVec = resolved.uVec;
+  const vVec = resolved.vVec;
   if (!baseCenter || !normal || !uVec || !vVec) return;
 
   const isTree = (obs.type === 'tree' || obs.isTree);
@@ -827,42 +841,12 @@ function render3DObstaclesInCesium() {
 
     let wp = (typeof getObstacleActivePlane === 'function') ? getObstacleActivePlane(obs) : null;
     
-    // Obtener centro base (directo desde obs.cartesian o proyectado en el plano de trabajo)
-    let baseCenter = null;
-    let normal = null;
-    let uVec = null;
-    let vVec = null;
-
-    if (wp && wp.origin && wp.normal && wp.uVec && wp.vVec) {
-      normal = Cesium.Cartesian3.normalize(wp.normal, new Cesium.Cartesian3());
-      uVec = Cesium.Cartesian3.normalize(wp.uVec, new Cesium.Cartesian3());
-      vVec = Cesium.Cartesian3.normalize(wp.vVec, new Cesium.Cartesian3());
-      baseCenter = Cesium.Cartesian3.add(
-        wp.origin,
-        Cesium.Cartesian3.add(
-          Cesium.Cartesian3.multiplyByScalar(uVec, obs.u || 0, new Cesium.Cartesian3()),
-          Cesium.Cartesian3.multiplyByScalar(vVec, obs.v || 0, new Cesium.Cartesian3()),
-          new Cesium.Cartesian3()
-        ),
-        new Cesium.Cartesian3()
-      );
-      if (obs.elevation) {
-        baseCenter = Cesium.Cartesian3.add(
-          baseCenter,
-          Cesium.Cartesian3.multiplyByScalar(normal, obs.elevation, new Cesium.Cartesian3()),
-          new Cesium.Cartesian3()
-        );
-      }
-    } else if (obs.cartesian) {
-      baseCenter = (obs.cartesian instanceof Cesium.Cartesian3) ? obs.cartesian : new Cesium.Cartesian3(obs.cartesian.x, obs.cartesian.y, obs.cartesian.z);
-      normal = Cesium.Cartesian3.normalize(baseCenter, new Cesium.Cartesian3());
-      uVec = Cesium.Cartesian3.cross(normal, Cesium.Cartesian3.UNIT_Z, new Cesium.Cartesian3());
-      if (Cesium.Cartesian3.magnitude(uVec) < 0.01) {
-        uVec = Cesium.Cartesian3.cross(normal, Cesium.Cartesian3.UNIT_X, new Cesium.Cartesian3());
-      }
-      uVec = Cesium.Cartesian3.normalize(uVec, uVec);
-      vVec = Cesium.Cartesian3.normalize(Cesium.Cartesian3.cross(normal, uVec, new Cesium.Cartesian3()), new Cesium.Cartesian3());
-    }
+    // Obtener centro base unificado (idéntico en drag en vivo y rebuild completo)
+    const resolvedBase = resolveObstacleBaseCenter(obs, wp);
+    const baseCenter = resolvedBase.baseCenter;
+    const normal = resolvedBase.normal;
+    const uVec = resolvedBase.uVec;
+    const vVec = resolvedBase.vVec;
 
     if (!baseCenter || !normal || !uVec || !vVec) return;
 
