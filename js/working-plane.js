@@ -2992,7 +2992,25 @@ function wpRenderActivePolylineVisuals() {
   if (typeof viewer !== 'undefined' && viewer && viewer.scene && typeof viewer.scene.requestRender === 'function') viewer.scene.requestRender();
 }
 
-function wpRenderAllPolylines() {
+let _wpRenderPolylinesRaf = null;
+function wpRenderAllPolylines(immediate) {
+  const forceSync = (immediate === true);
+  if (!forceSync && typeof requestAnimationFrame === 'function') {
+    if (_wpRenderPolylinesRaf) return;
+    _wpRenderPolylinesRaf = requestAnimationFrame(() => {
+      _wpRenderPolylinesRaf = null;
+      _wpRenderAllPolylinesNow();
+    });
+    return;
+  }
+  if (_wpRenderPolylinesRaf) {
+    cancelAnimationFrame(_wpRenderPolylinesRaf);
+    _wpRenderPolylinesRaf = null;
+  }
+  _wpRenderAllPolylinesNow();
+}
+
+function _wpRenderAllPolylinesNow() {
   if (typeof window !== 'undefined' && window.RAMeasureTool && typeof window.RAMeasureTool.invalidateSnapCandidates === 'function') {
     window.RAMeasureTool.invalidateSnapCandidates();
   }
@@ -3227,14 +3245,18 @@ function wpSelectPolyline(polyIdx) {
   wpRenderAllPolylines();
   wpUpdateUI();
   if (typeof wpPopulateFaldonCard === 'function') wpPopulateFaldonCard();
-  // updateAllVisuals();
-
+  if (typeof renderTriad2D === 'function') renderTriad2D();
   if (typeof wpUpdateLayoutFastMetrics === 'function') wpUpdateLayoutFastMetrics();
-  if (typeof recalculateLayoutAndObstacles === 'function') recalculateLayoutAndObstacles();
-  if (typeof wpFastRenderSimulatedPanels === 'function' && wpCurrentStep >= 2 && isPolygonDesignConfirmed) {
-    wpFastRenderSimulatedPanels();
-  } else if (typeof startSolarPanelsSimulation === 'function' && wpCurrentStep >= 2 && isPolygonDesignConfirmed) {
-    startSolarPanelsSimulation();
+
+  // Recalcular paneles SOLO si el faldón está marcado como sucio o sin paneles generados aún
+  if (poly && wpCurrentStep >= 2 && isPolygonDesignConfirmed) {
+    const hasDeleted = Array.isArray(poly.deletedPanels) && poly.deletedPanels.length > 0;
+    const needsPanelBuild = Boolean(poly._geometryDirty) || ((!Array.isArray(poly.panels) || poly.panels.length === 0) && !hasDeleted);
+    if (needsPanelBuild) {
+      poly._geometryDirty = false;
+      if (typeof recalculateLayoutAndObstacles === 'function') recalculateLayoutAndObstacles(WP.selectedPolyIdx);
+      if (typeof wpFastRenderSimulatedPanels === 'function') wpFastRenderSimulatedPanels(false, WP.selectedPolyIdx);
+    }
   }
 
   if (poly) {
@@ -6116,7 +6138,45 @@ function wpCancelCurrentMode() {
 window.wpCancelCurrentMode = wpCancelCurrentMode;
 window.wpCancelDrawPoly = wpCancelCurrentMode;
 
-function wpUpdateUI() {
+let _wpUpdateUiRaf = null;
+function wpUpdateUI(immediate) {
+  const forceSync = (immediate === true);
+  // Durante arrastre activo de gizmo 3D, evitar reconstruir el DOM lateral a 60 FPS (se actualiza al soltar)
+  if (!forceSync && typeof universalGizmoState !== 'undefined' && universalGizmoState && universalGizmoState.active) {
+    return;
+  }
+  if (!forceSync && typeof requestAnimationFrame === 'function') {
+    if (_wpUpdateUiRaf) return;
+    _wpUpdateUiRaf = requestAnimationFrame(() => {
+      _wpUpdateUiRaf = null;
+      _wpUpdateUINow();
+    });
+    return;
+  }
+  if (_wpUpdateUiRaf) {
+    cancelAnimationFrame(_wpUpdateUiRaf);
+    _wpUpdateUiRaf = null;
+  }
+  _wpUpdateUINow();
+}
+
+// Coalescer global de lucide.createIcons(): evita múltiples escaneos completos del DOM y forced reflows en el mismo fotograma
+(function _installLucideCoalescer() {
+  if (typeof window === 'undefined' || !window.lucide || typeof window.lucide.createIcons !== 'function' || window.lucide._raCoalesced) return;
+  const _origCreateIcons = window.lucide.createIcons.bind(window.lucide);
+  let _lucideRaf = null;
+  window.lucide.createIcons = function(opts) {
+    if (opts && opts.root) return _origCreateIcons(opts);
+    if (_lucideRaf) return;
+    _lucideRaf = requestAnimationFrame(() => {
+      _lucideRaf = null;
+      try { _origCreateIcons(); } catch (_) {}
+    });
+  };
+  window.lucide._raCoalesced = true;
+})();
+
+function _wpUpdateUINow() {
   const plane = wpGetActivePlane();
   const badge = document.getElementById('wp-plane-status-badge');
   const activeInfo = document.getElementById('wp-plane-active-info');

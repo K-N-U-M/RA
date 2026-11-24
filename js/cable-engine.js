@@ -1465,9 +1465,12 @@
           });
           if (stringOrder.length > 0) {
             return stringOrder.map(function (sKey) {
+              var sortedPanels = stringMap[sKey].slice().sort(function (a, b) {
+                return (Number(a.pIdx) || 0) - (Number(b.pIdx) || 0);
+              });
               return {
                 stringName: sKey,
-                panels: stringMap[sKey]
+                panels: sortedPanels
               };
             });
           }
@@ -2102,7 +2105,7 @@
         // Pilar o arista de descenso más próximo a los equipos
         var descentPillar = self.findClosestStructurePillar(startPos, dcTargetPos, sPanels);
 
-        var stringColor = self.CONFIG.STRING_COLORS[sIdx % self.CONFIG.STRING_COLORS.length];
+        var stringColor = (firstPanel && firstPanel.stringColor) || self.CONFIG.STRING_COLORS[sIdx % self.CONFIG.STRING_COLORS.length];
 
         // Helper: solo permitir zanja subterránea entre estructuras independientes de suelo/pérgola, jamás atravesando un tejado
         var isSeparateGroundStructureJump = function (pA, pB) {

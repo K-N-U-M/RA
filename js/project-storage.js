@@ -323,6 +323,7 @@ function raExportProjectData() {
       userManuallySelectedInverter: !!window.solarProjectConfig.userManuallySelectedInverter,
       userManuallySelectedBattery: !!window.solarProjectConfig.userManuallySelectedBattery,
       stringWiringTopology: window.solarProjectConfig.stringWiringTopology || 'leapfrog',
+      mpptManualConfig: window.solarProjectConfig.mpptManualConfig ? JSON.parse(JSON.stringify(window.solarProjectConfig.mpptManualConfig)) : null,
       hasExternalLightningRod: !!window.solarProjectConfig.hasExternalLightningRod,
       includeBackupBox: (window.solarProjectConfig.includeBackupBox !== false),
       manualAnnualConsumptionKWh: window.solarProjectConfig.manualAnnualConsumptionKWh || null,
@@ -1459,6 +1460,9 @@ async function raImportProjectData(projectData, options = {}) {
     if (projectData.projectConfig && typeof window !== 'undefined') {
       if (!window.solarProjectConfig) window.solarProjectConfig = {};
       Object.assign(window.solarProjectConfig, projectData.projectConfig);
+      window.solarProjectConfig.mpptManualConfig = projectData.projectConfig.mpptManualConfig
+        ? JSON.parse(JSON.stringify(projectData.projectConfig.mpptManualConfig))
+        : null;
       // [LOCK-HARDWARE] Bloquear explícitamente sobreescrituras automáticas para proyectos importados
       window.solarProjectConfig.userManuallySelectedInverter = true;
       if (typeof window.wpSyncProtectionOptionsUI === 'function') {

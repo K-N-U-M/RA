@@ -1162,7 +1162,9 @@ function scaleSelectedObstacleAxis(axis, factor) {
   const sumEl = document.getElementById('obs-scale-summary');
   if (sumEl) sumEl.textContent = obs.w.toFixed(1) + 'm · ' + obs.l.toFixed(1) + 'm · ' + obs.h.toFixed(1) + 'm';
 
-  render3DObstaclesInCesium();
+  if (Array.isArray(obstacles) && obstacles.length > 0) {
+    render3DObstaclesInCesium();
+  }
   if (typeof wpUpdateSolarSimulation === 'function') wpUpdateSolarSimulation();
   if (typeof window !== 'undefined' && typeof window.wpInvalidateHeatmap === 'function') {
     window.wpInvalidateHeatmap('Escala de obstáculo modificada');
@@ -1199,7 +1201,9 @@ function nudgeSelectedObstacleDim(dim, delta) {
   const sumEl = document.getElementById('obs-scale-summary');
   if (sumEl) sumEl.textContent = obs.w.toFixed(1) + 'm · ' + obs.l.toFixed(1) + 'm · ' + obs.h.toFixed(1) + 'm';
 
-  render3DObstaclesInCesium();
+  if (Array.isArray(obstacles) && obstacles.length > 0) {
+    render3DObstaclesInCesium();
+  }
   if (typeof wpUpdateSolarSimulation === 'function') wpUpdateSolarSimulation();
   if (typeof window !== 'undefined' && typeof window.wpInvalidateHeatmap === 'function') {
     window.wpInvalidateHeatmap('Dimensión de obstáculo ajustada');
@@ -1264,7 +1268,9 @@ function selectObstacle(obsId) {
 
   if (!obs) {
     if (ed) ed.style.display = 'none';
+    if (Array.isArray(obstacles) && obstacles.length > 0) {
     render3DObstaclesInCesium();
+  }
     if (typeof renderTriad2D === 'function') renderTriad2D();
     return;
   }
@@ -1310,7 +1316,9 @@ function selectObstacle(obsId) {
     });
   }
 
-  render3DObstaclesInCesium();
+  if (Array.isArray(obstacles) && obstacles.length > 0) {
+    render3DObstaclesInCesium();
+  }
   if (typeof renderTriad2D === 'function') renderTriad2D();
   if (typeof wpCheckObstacleInsideRoof === 'function') wpCheckObstacleInsideRoof(obs);
   showStatus('OBSTÁCULO "' + (obs.name || '').toUpperCase() + '" SELECCIONADO', 1800);
@@ -1334,7 +1342,9 @@ function updateSelectedObstacleColor(colorHex) {
         : 'none';
     });
   }
-  render3DObstaclesInCesium();
+  if (Array.isArray(obstacles) && obstacles.length > 0) {
+    render3DObstaclesInCesium();
+  }
   if (typeof viewer !== 'undefined' && viewer.scene) {
     viewer.scene.requestRender();
   }
@@ -1377,7 +1387,9 @@ function updateSelectedObstacleProps() {
 
   // 1. Actualización visual inmediata y ligera del modelo 3D del obstáculo
   if (typeof render3DObstaclesInCesium === 'function') {
+    if (Array.isArray(obstacles) && obstacles.length > 0) {
     render3DObstaclesInCesium();
+  }
   }
 
   // 2. Debounce del recálculo pesado de layout de paneles e invalidación solar (180ms)
@@ -1672,7 +1684,9 @@ function recalculateLayoutAndObstacles(targetPolyIdx) {
     });
   }
 
-  render3DObstaclesInCesium();
+  if (Array.isArray(obstacles) && obstacles.length > 0) {
+    render3DObstaclesInCesium();
+  }
 
   // [P0] La geometría cambió (obstáculo añadido/movido/editado): invalidar el heatmap anual
   if (typeof window.wpInvalidateHeatmap === 'function') window.wpInvalidateHeatmap('Obstáculos o trazado modificados');

@@ -1404,6 +1404,91 @@
   let _lastRebalanceTimestamp = 0;
   let _lastRebalanceResult = null;
 
+  /**
+   * Clave determinista e invariante para identificar un módulo entre re-renderizados 3D.
+   */
+  function getPanelManualKey(p) {
+    if (!p) return '';
+    const pIdx = (p.polyIdx != null) ? p.polyIdx : 0;
+    const lIdx = (typeof p.localIdx === 'number')
+      ? p.localIdx
+      : ((typeof p.layoutIndex === 'number') ? p.layoutIndex : (typeof p.pIdx === 'number' ? p.pIdx : 0));
+    return String(pIdx) + ':' + String(lIdx);
+  }
+
+  /**
+   * Aplica strings personalizados (uniones entre faldones o divisiones manuales)
+   * definidos en window.solarProjectConfig.mpptManualConfig sobre un array de paneles.
+   */
+  function applyCustomStringsToPanels(panels) {
+    if (!Array.isArray(panels) || panels.length === 0) return { applied: false, customCount: 0 };
+    const cfg = (typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.mpptManualConfig)
+      ? window.solarProjectConfig.mpptManualConfig
+      : ((typeof root !== 'undefined' && root.solarProjectConfig && root.solarProjectConfig.mpptManualConfig)
+        ? root.solarProjectConfig.mpptManualConfig : null);
+
+    const hasCustom = !!(cfg && cfg.locked && Array.isArray(cfg.customStrings) && cfg.customStrings.length > 0);
+    if (!hasCustom) {
+      let restored = 0;
+      panels.forEach(p => {
+        if (!p || p._origStringName === undefined) return;
+        p.stringName = p._origStringName;
+        p.stringColor = p._origStringColor;
+        p.pIdx = p._origPIdx;
+        p.tag = p._origTag;
+        if (p._origHasMLPE !== undefined) {
+          p.hasMLPE = p._origHasMLPE;
+          delete p._origHasMLPE;
+        }
+        delete p._origStringName;
+        delete p._origStringColor;
+        delete p._origPIdx;
+        delete p._origTag;
+        restored++;
+      });
+      return { applied: false, restored, customCount: 0 };
+    }
+
+    const byKey = new Map();
+    panels.forEach(p => {
+      if (!p || p.isGhost || p.deleted || p.disabled) return;
+      byKey.set(getPanelManualKey(p), p);
+    });
+
+    let customCount = 0;
+    cfg.customStrings.forEach((cs, idx) => {
+      if (!cs || !cs.id || !Array.isArray(cs.panelKeys) || cs.panelKeys.length === 0) return;
+      const matched = [];
+      cs.panelKeys.forEach(k => {
+        const panel = byKey.get(String(k));
+        if (panel) matched.push(panel);
+      });
+      if (matched.length === 0) return;
+      if (cs.reversed === true) matched.reverse();
+      const color = cs.color || getPolylineStringColor(idx + 5);
+      matched.forEach((p, pOrd) => {
+        if (p._origStringName === undefined) {
+          p._origStringName = p.stringName;
+          p._origStringColor = p.stringColor;
+          p._origPIdx = p.pIdx;
+          p._origTag = p.tag;
+          p._origHasMLPE = p.hasMLPE;
+        }
+        p.stringName = cs.id;
+        p.stringColor = color;
+        p.pIdx = pOrd;
+        if (typeof cs.hasMLPE === 'boolean') {
+          p.hasMLPE = cs.hasMLPE;
+        }
+        const prefix = (pOrd === 0) ? '[+ IN] ' : ((pOrd === matched.length - 1) ? '[- OUT] ' : '');
+        p.tag = prefix + cs.id + ':' + String(pOrd + 1).padStart(2, '0');
+      });
+      customCount++;
+    });
+
+    return { applied: customCount > 0, customCount };
+  }
+
   function rebalanceMPPTAssignment(panels) {
     if (_isRebalancingMPPT) return { changed: 0, reason: 'reentrancy_prevented' };
 
@@ -1431,6 +1516,7 @@
     }
     if (!Array.isArray(targetPanels) || targetPanels.length === 0) return { changed: 0, reason: 'sin_paneles' };
     panels = targetPanels;
+    applyCustomStringsToPanels(panels);
     const invCfg = (typeof window !== 'undefined' && window.solarProjectConfig &&
                     window.solarProjectConfig.calculatedLimits &&
                     window.solarProjectConfig.calculatedLimits.inverter) || null;
@@ -1499,14 +1585,40 @@
     });
 
     // 3. Asignación balanceada por capacidad respetando homogeneidad MPPT (IEC 62548)
+    //    Si existe candado manual activo (mpptManualConfig.locked), respetar primero los pines manuales.
     const remaining = new Array(mpptCount).fill(capPer);
     const channelStrings = Array.from({ length: mpptCount }, () => []);
     const channelOrientation = new Array(mpptCount).fill(null);
     const channelStrLen = new Array(mpptCount).fill(null);
     const assign = new Map();
 
+    const manualCfg = (typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.mpptManualConfig)
+      ? window.solarProjectConfig.mpptManualConfig
+      : ((typeof root !== 'undefined' && root.solarProjectConfig && root.solarProjectConfig.mpptManualConfig)
+        ? root.solarProjectConfig.mpptManualConfig : null);
+    const isLocked = !!(manualCfg && manualCfg.locked);
+
+    if (isLocked && manualCfg.stringToMppt && typeof manualCfg.stringToMppt === 'object') {
+      stringOrder.forEach(n => {
+        const reqCh = Number(manualCfg.stringToMppt[n]);
+        if (Number.isInteger(reqCh) && reqCh >= 1 && reqCh <= mpptCount) {
+          const chIdx = reqCh - 1;
+          const sData = byName.get(n);
+          const sLen = (stringPanels.get(n) || []).length;
+          assign.set(n, reqCh);
+          remaining[chIdx] = Math.max(0, remaining[chIdx] - 1);
+          channelStrings[chIdx].push(n);
+          if (channelOrientation[chIdx] === null && sData) {
+            channelOrientation[chIdx] = { tilt: sData.tilt, az: sData.az };
+            channelStrLen[chIdx] = sLen;
+          }
+        }
+      });
+    }
+
     roofOrder.forEach(pi => {
-      const strs = roofStrings.get(pi);
+      const strs = roofStrings.get(pi).filter(n => !assign.has(n));
+      if (strs.length === 0) return;
       const strLens = strs.map(n => (stringPanels.get(n) || []).length);
       const isHomogeneous = strLens.every(len => len === strLens[0]);
       const faldonOrientation = byName.get(strs[0]);
@@ -1641,9 +1753,13 @@
       totalStrings,
       overflow: totalStrings > mpptCount * capPer,
       valid: homogeneity.valid,
-      violations: homogeneity.violations
+      violations: homogeneity.violations,
+      manualLocked: isLocked
     };
     _lastRebalanceResult = res;
+    if (typeof window !== 'undefined' && window.RAMPPTMatrix && typeof window.RAMPPTMatrix.scheduleRender === 'function') {
+      window.RAMPPTMatrix.scheduleRender();
+    }
     return res;
     } finally {
       _isRebalancingMPPT = false;
@@ -1675,6 +1791,7 @@
     }
 
     // Agrupar strings por canal MPPT
+    const hasOptTopo = !!(typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.selectedTopology === 'optimizer');
     const mpptGroups = new Map();
     targetPanels.forEach(p => {
       if (!p || !p.stringName || !p.mpptId || p.isGhost || p.deleted || p.disabled) return;
@@ -1694,10 +1811,13 @@
           tilt: tilt || 0,
           az: az || 0,
           polyIdx: p.polyIdx,
-          panelCount: 1
+          panelCount: 1,
+          hasMLPE: hasOptTopo || (p.hasMLPE === true)
         });
       } else {
-        strMap.get(p.stringName).panelCount++;
+        const curStr = strMap.get(p.stringName);
+        curStr.panelCount++;
+        curStr.hasMLPE = curStr.hasMLPE && (hasOptTopo || (p.hasMLPE === true));
       }
     });
 
@@ -1727,7 +1847,7 @@
               code: 'MPPT_ASYMMETRIC_STRING_LENGTH',
               msg
             });
-          } else if (deltaTilt > 5.0 || deltaAz > 10.0) {
+          } else if ((deltaTilt > 5.0 || deltaAz > 10.0) && !(dataA.hasMLPE && dataB.hasMLPE)) {
             const msg = `⛔ BLOQUEO NORMATIVO MPPT en Canal ${mpptId}: Strings '${nameA}' y '${nameB}' en paralelo difieren en orientación (Δβ = ${deltaTilt.toFixed(1)}°, Δγ = ${deltaAz.toFixed(1)}°). Produce recirculación y pérdida de tracking (IEC 62548).`;
             violations.push({
               mpptId,
@@ -2710,6 +2830,8 @@
   root.calculateElectricalProtections = calculateElectricalProtections;
   root.rebalanceMPPTAssignment = rebalanceMPPTAssignment;
   root.validateMPPTHomogeneity = validateMPPTHomogeneity;
+  root.applyCustomStringsToPanels = applyCustomStringsToPanels;
+  root.getPanelManualKey = getPanelManualKey;
   root.calculateInverterEfficiencyAndClipping = calculateInverterEfficiencyAndClipping;
   root.raInverterPhases = raInverterPhases;
   root.raResolveAcPhases = raResolveAcPhases;
@@ -2740,6 +2862,8 @@
     calculateProtections: calculateElectricalProtections,
     rebalanceMPPTAssignment: rebalanceMPPTAssignment,
     validateMPPTHomogeneity: validateMPPTHomogeneity,
+    applyCustomStringsToPanels: applyCustomStringsToPanels,
+    getPanelManualKey: getPanelManualKey,
     calculateInverterEfficiencyAndClipping: calculateInverterEfficiencyAndClipping,
     raInverterPhases: raInverterPhases,
     raResolveAcPhases: raResolveAcPhases,

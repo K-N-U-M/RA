@@ -12,6 +12,9 @@
   let isEnabled = true;
   let isExpanded = false;
   let hudContainer = null;
+  let _metricsRafId = null;
+  let _idleSleepTimer = null;
+  let _lastPillUpdateTs = 0;
 
   // Métricas de renderizado real de Cesium y de pantalla
   let lastFrameTime = performance.now();
@@ -204,6 +207,11 @@
         isExpanded = !isExpanded;
         const panel = document.getElementById('ra-benchmark-panel');
         if (panel) panel.style.display = isExpanded ? 'flex' : 'none';
+        if (isExpanded && isEnabled) {
+          this.startMetricsLoop();
+        } else {
+          this.stopMetricsLoop();
+        }
       });
 
       const resetPosBtn = document.getElementById('ra-bm-reset-pos-btn');
@@ -238,10 +246,11 @@
       });
 
       this.hookCesiumRender();
-      this.startMetricsLoop();
+      // No arrancar el bucle rAF a 60fps mientras el panel está colapsado (0% CPU en reposo)
     },
 
     hookCesiumRender: function() {
+      const self = this;
       const checkViewer = setInterval(() => {
         if (global.viewer && global.viewer.scene) {
           clearInterval(checkViewer);
@@ -251,18 +260,43 @@
             renderStartTime = performance.now();
             lastRenderCallTime = renderStartTime;
             isGpuSleeping = false;
+            if (!isExpanded && isEnabled) {
+              if (_idleSleepTimer) clearTimeout(_idleSleepTimer);
+              _idleSleepTimer = setTimeout(() => {
+                _idleSleepTimer = null;
+                isGpuSleeping = true;
+                actualRenderDurationMs = 0.0;
+                self.updateDOM();
+              }, 250);
+            }
           });
 
           scene.postRender.addEventListener(() => {
+            const now = performance.now();
             if (renderStartTime > 0) {
-              actualRenderDurationMs = performance.now() - renderStartTime;
+              actualRenderDurationMs = now - renderStartTime;
+            }
+            if (!isExpanded && isEnabled && (now - _lastPillUpdateTs > 250)) {
+              _lastPillUpdateTs = now;
+              if (performance && performance.memory) {
+                memoryMb = Math.round(performance.memory.usedJSHeapSize / (1024 * 1024));
+              }
+              self.updateDOM();
             }
           });
         }
       }, 250);
     },
 
+    stopMetricsLoop: function() {
+      if (_metricsRafId !== null) {
+        cancelAnimationFrame(_metricsRafId);
+        _metricsRafId = null;
+      }
+    },
+
     startMetricsLoop: function() {
+      if (_metricsRafId !== null) return;
       const updateSparkline = () => {
         const spark = document.getElementById('ra-bm-sparkline');
         if (!spark || !isExpanded) return;
@@ -279,6 +313,10 @@
       };
 
       const loop = (now) => {
+        if (!isExpanded || !isEnabled) {
+          _metricsRafId = null;
+          return;
+        }
         frameCount++;
 
         // Si han pasado más de 140ms sin preRender de Cesium, la GPU está en reposo
@@ -304,10 +342,10 @@
           updateSparkline();
         }
 
-        requestAnimationFrame(loop);
+        _metricsRafId = requestAnimationFrame(loop);
       };
 
-      requestAnimationFrame(loop);
+      _metricsRafId = requestAnimationFrame(loop);
     },
 
     updateDOM: function() {
@@ -359,6 +397,11 @@
       if (!hudContainer) return;
       isEnabled = !isEnabled;
       hudContainer.style.display = isEnabled ? 'flex' : 'none';
+      if (isEnabled && isExpanded) {
+        this.startMetricsLoop();
+      } else {
+        this.stopMetricsLoop();
+      }
     },
 
     runStressTest: function() {

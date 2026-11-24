@@ -3757,7 +3757,11 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   const _simMK = (window.solarSimState && !window.solarSimState.annualHeatmapDirty && Array.isArray(window.solarSimState.monthlyKwh) && window.solarSimState.monthlyKwh.length === 12 && window.solarSimState.monthlyKwh.some(v => v > 0))
     ? window.solarSimState.monthlyKwh : null;
   const monthlyYields = _simMK || (solarStats ? solarStats.monthlyYields : d.monthly.map(mo => mo.kWh));
-  const annualYieldKWh = solarStats ? solarStats.annualYieldKWh : d.annualKWh;
+  const useTheoreticalYield = (typeof window !== 'undefined' && window.raProposalYieldMode === 'theoretical');
+  const prTheoVal = (solarStats && typeof solarStats.pr === 'number' && solarStats.pr > 0 && solarStats.pr <= 1) ? solarStats.pr : 0.786;
+  const annualYieldKWh = useTheoreticalYield
+    ? Math.round(((solarStats && Number.isFinite(solarStats.annualGrossKWh) && solarStats.annualGrossKWh > 0) ? solarStats.annualGrossKWh : (d.annualKWh / prTheoVal)) * prTheoVal)
+    : (solarStats ? solarStats.annualYieldKWh : d.annualKWh);
   const MES_CORTOS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
   // ── SVG Histograma mensual (con soporte de barras apiladas: Autoconsumo + Excedente) ──
@@ -6834,14 +6838,18 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         ? mb.totalPanels
         : (typeof d.numPanels === 'number' ? d.numPanels : 0));
   const kwp = (mb && mb.totalKwp > 0) ? mb.totalKwp : ((numPanels * (d.cfg.potencia || 450)) / 1000.0);
-  // [SSOT] Producción física anual: priorizar simulación 3D precisa solo si el mapa de calor está vigente
+  // [SSOT] Producción física anual: priorizar simulación 3D precisa o modo Teórico si el usuario lo elige en Paso 5
   const isHeatmapDirty = !!(typeof window !== 'undefined' && window.solarSimState && window.solarSimState.annualHeatmapDirty);
+  const useTheoreticalMode = (typeof window !== 'undefined' && window.raProposalYieldMode === 'theoretical');
   const solarStats = (typeof window !== 'undefined' && window.RA && window.RA.solarStats) ? window.RA.solarStats : null;
+  const prEff = (solarStats && typeof solarStats.pr === 'number' && solarStats.pr > 0 && solarStats.pr <= 1) ? solarStats.pr : 0.786;
   const solarYieldKWh = (numPanels <= 0)
     ? 0
-    : ((!isHeatmapDirty && solarStats && Number.isFinite(solarStats.annualYieldKWh) && solarStats.annualYieldKWh > 0)
-        ? Math.round(solarStats.annualYieldKWh)
-        : (d.annualKWh || (kwp * 1450)));
+    : (useTheoreticalMode
+        ? Math.round(((solarStats && Number.isFinite(solarStats.annualGrossKWh) && solarStats.annualGrossKWh > 0) ? solarStats.annualGrossKWh : ((d.annualKWh || (kwp * 1450)) / prEff)) * prEff)
+        : ((!isHeatmapDirty && solarStats && Number.isFinite(solarStats.annualYieldKWh) && solarStats.annualYieldKWh > 0)
+            ? Math.round(solarStats.annualYieldKWh)
+            : (d.annualKWh || (kwp * 1450))));
   const activeWindTurbines = (typeof window !== 'undefined' && Array.isArray(window.windTurbines))
     ? window.windTurbines.filter(t => t && (!t.operationalState || t.operationalState.enabled !== false))
     : [];
@@ -8104,6 +8112,42 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       }
     }
   }
+
+window.wpSetProposalYieldMode = function(mode) {
+  const next = (mode === 'theoretical') ? 'theoretical' : 'simulated';
+  window.raProposalYieldMode = next;
+  const btnSim = document.getElementById('step5-yield-simulated');
+  const btnTheo = document.getElementById('step5-yield-theoretical');
+  if (btnSim) {
+    const active = (next === 'simulated');
+    btnSim.classList.toggle('active', active);
+    btnSim.style.background = active ? 'rgba(56,189,248,0.2)' : 'transparent';
+    btnSim.style.borderColor = active ? '#38BDF8' : 'transparent';
+    btnSim.style.color = active ? '#38BDF8' : '#94a3b8';
+    btnSim.style.fontWeight = active ? '800' : '700';
+  }
+  if (btnTheo) {
+    const active = (next === 'theoretical');
+    btnTheo.classList.toggle('active', active);
+    btnTheo.style.background = active ? 'rgba(245,158,11,0.22)' : 'transparent';
+    btnTheo.style.borderColor = active ? '#F59E0B' : 'transparent';
+    btnTheo.style.color = active ? '#FBBF24' : '#94a3b8';
+    btnTheo.style.fontWeight = active ? '800' : '700';
+  }
+  if (typeof renderStep5ExecutiveSummary === 'function') {
+    try { renderStep5ExecutiveSummary(); } catch (_) {}
+  }
+  if (typeof showToast === 'function') {
+    showToast(
+      next === 'theoretical' ? 'PRODUCCIÓN TEÓRICA ACTIVA' : 'PRODUCCIÓN SIMULADA 3D ACTIVA',
+      next === 'theoretical'
+        ? 'El presupuesto y la oferta usarán la producción anual teórica (sin pérdidas por sombras 3D).'
+        : 'El presupuesto y la oferta usarán la simulación neta con sombras 3D.',
+      'info',
+      2800
+    );
+  }
+};
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {

@@ -1804,9 +1804,13 @@
             ? poly.estructura.clearance
             : (poly.modStructure === 'pergola' ? 1.80 : 0);
 
+          const shadowCfg = (typeof window !== 'undefined' && window.raShadowSimConfig)
+            ? window.raShadowSimConfig
+            : { includeObstacles: true, includeBuildings: true, includeInterRow: true, shadowWeightPct: 100 };
+
           const polyShadowQuads2D = [];
           const activeObstacles = getCombinedObstaclesAndTurbinesList();
-          if (activeObstacles && activeObstacles.length > 0) {
+          if (shadowCfg.includeObstacles !== false && activeObstacles && activeObstacles.length > 0) {
             activeObstacles.forEach(obs => {
               const obsH = typeof obs.h === 'number' ? obs.h : (obs.height || 0.5);
               if (effClearance > 0 && obsH <= effClearance + 0.10) return;
@@ -1816,7 +1820,7 @@
               }
             });
           }
-          if (typeof buildings !== "undefined" && buildings && buildings.length > 0) {
+          if (shadowCfg.includeBuildings !== false && typeof buildings !== "undefined" && buildings && buildings.length > 0) {
             buildings.forEach(bld => {
               if (typeof getBuildingShadowPolygons2DForRoof === "function") {
                 const quads = getBuildingShadowPolygons2DForRoof(bld, pInfo, sU, sV, solarPos.shadowLenPerM, poly);
@@ -1825,7 +1829,9 @@
             });
           }
           // Sombra inter-filas entre paneles de la misma cubierta (Self-Shading)
-          const interRowQuads = generateInterRowShadowQuads2D(pInfo, sU, sV, solarPos.shadowLenPerM);
+          const interRowQuads = (shadowCfg.includeInterRow !== false)
+            ? generateInterRowShadowQuads2D(pInfo, sU, sV, solarPos.shadowLenPerM)
+            : [];
           if (interRowQuads.length > 0) {
             polyShadowQuads2D.push(...interRowQuads);
           }
@@ -2016,10 +2022,11 @@
 
             // Raycast sincrono eliminado en hilo principal para evitar congelacion de la app
 
-            // Fracción física de pérdida de haz según sub-strings bajo sombra
-            const beamShadedFraction = (shadedSubstringsCount > 0)
+            // Fracción física de pérdida de haz según sub-strings bajo sombra (ajustada por peso manual del usuario)
+            const shadowWeightFactor = Math.max(0, Math.min(1, ((typeof shadowCfg.shadowWeightPct === 'number') ? shadowCfg.shadowWeightPct : 100) / 100.0));
+            const beamShadedFraction = ((shadedSubstringsCount > 0)
               ? (shadedSubstringsCount / 3.0)
-              : (isShaded ? 1.0 : 0.0);
+              : (isShaded ? 1.0 : 0.0)) * shadowWeightFactor;
 
             // Topología eléctrica unificada con solar-worker.js (half-cut suavizado):
             const hasOpt = !!(pData.hasOptimizer || pData.optimizerModelId);
@@ -3060,6 +3067,28 @@
     updateShadedCleanupUI: wpUpdateShadedCleanupUI,
     cleanCriticalShadedPanels: wpCleanCriticalShadedPanels,
     filterPanelsForPolyline: wpFilterPanelsForPolyline
+  };
+
+  window.raShadowSimConfig = window.raShadowSimConfig || {
+    includeObstacles: true,
+    includeBuildings: true,
+    includeInterRow: true,
+    shadowWeightPct: 100
+  };
+  window.raUpdateShadowSimConfig = function() {
+    const cObs = document.getElementById('sim-cfg-obstacles');
+    const cBld = document.getElementById('sim-cfg-buildings');
+    const cRow = document.getElementById('sim-cfg-interrow');
+    const rWgt = document.getElementById('sim-cfg-shadow-weight');
+    window.raShadowSimConfig = {
+      includeObstacles: cObs ? !!cObs.checked : true,
+      includeBuildings: cBld ? !!cBld.checked : true,
+      includeInterRow: cRow ? !!cRow.checked : true,
+      shadowWeightPct: rWgt ? Math.max(0, Math.min(100, Number(rWgt.value) || 0)) : 100
+    };
+    if (typeof window.wpInvalidateHeatmap === 'function') {
+      window.wpInvalidateHeatmap('Parámetros manuales de sombras actualizados');
+    }
   };
 
 })();

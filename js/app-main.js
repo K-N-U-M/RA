@@ -3030,6 +3030,16 @@ function startSolarPanelsSimulation() {
         });
         simulatedPanelEntities.push(panelEntity);
 
+        const tFreeze = setTimeout(() => {
+          try {
+            if (panelEntity && panelEntity.polygon && !viewer.isDestroyed()) {
+              panelEntity.polygon.hierarchy = new Cesium.PolygonHierarchy(panelData.corners);
+              if (viewer.scene && viewer.scene.requestRender) viewer.scene.requestRender();
+            }
+          } catch (_) {}
+        }, duration + 40);
+        simulationTimeouts.push(tFreeze);
+
         const countBadge = document.getElementById("sol-panels-count");
         if (countBadge) countBadge.textContent = (gIdx + 1) + " de " + totalPanelsCount + " uds";
       }, gIdx * stepMs);
@@ -3051,11 +3061,11 @@ function startSolarPanelsSimulation() {
 
         const strColorHex = getPolylineStringColor(routedStrings.length > 1 ? (polyIdx * 4 + sIdx) : polyIdx);
 
-        // Línea 3D del string en serpentina
+        // Línea 3D del string en serpentina (estática para preservar requestRenderMode)
         const stringLineEntity = viewer.entities.add({
           id: "pv_string_wire_" + polyIdx + "_" + sIdx + "_" + Math.random().toString(36).substring(2, 7),
           polyline: {
-            positions: new Cesium.CallbackProperty(() => wirePositions, false),
+            positions: wirePositions,
             width: 4.0,
             material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString(strColorHex)),
             // depthFailMaterial removed,
@@ -3139,12 +3149,21 @@ function raUpdateEnergyHUD() {
   } else if (!numPanels && Array.isArray(window.allRenderedPanels)) {
     numPanels = window.allRenderedPanels.filter(p => p && !p.deleted && !p.disabled).length;
   }
-  const solarNetKWh = numPanels > 0 ? Math.round(sStats.annualYieldKWh || 0) : 0;
-  const solarGrossKWh = numPanels > 0 ? Math.round(sStats.annualGrossKWh || solarNetKWh) : 0;
-  const solarShadowLossKWh = numPanels > 0 ? Math.round(sStats.annualShadowLossKWh || 0) : 0;
-  const solarSysLossKWh = numPanels > 0 ? Math.round(sStats.annualSystemLossKWh || 0) : 0;
-  const avgShadowPct = numPanels > 0 ? (sStats.avgShadowLossPct || 0) : 0;
-  const prVal = (typeof sStats.pr === 'number') ? sStats.pr : 0.786;
+  const isSimulated = Boolean(window.solarSimState && window.solarSimState.annualHeatmapData && !window.solarSimState.annualHeatmapDirty);
+  const prVal = (typeof sStats.pr === 'number' && sStats.pr > 0 && sStats.pr <= 1) ? sStats.pr : 0.786;
+  const solarGrossKWh = numPanels > 0 ? Math.round(sStats.annualGrossKWh || sStats.annualYieldKWh || 0) : 0;
+  let solarNetKWh = numPanels > 0 ? Math.round(sStats.annualYieldKWh || 0) : 0;
+  let solarShadowLossKWh = numPanels > 0 ? Math.round(sStats.annualShadowLossKWh || 0) : 0;
+  let solarSysLossKWh = numPanels > 0 ? Math.round(sStats.annualSystemLossKWh || 0) : 0;
+  let avgShadowPct = numPanels > 0 ? (sStats.avgShadowLossPct || 0) : 0;
+
+  // Si no hay mapa de calor 3D vigente (estimación previa), evitar arrastrar pérdidas de sombras obsoletas
+  if (numPanels > 0 && !isSimulated && solarGrossKWh > 0) {
+    solarShadowLossKWh = 0;
+    avgShadowPct = 0;
+    solarNetKWh = Math.round(solarGrossKWh * prVal);
+    solarSysLossKWh = Math.max(0, solarGrossKWh - solarNetKWh);
+  }
 
   // Datos eólicos
   const activeTurbs = Array.isArray(window.windTurbines)
@@ -3172,7 +3191,6 @@ function raUpdateEnergyHUD() {
 
   hudEnergy.style.display = 'block';
   const totalHybridKWh = solarNetKWh + windNetKWh;
-  const isSimulated = Boolean(window.solarSimState && window.solarSimState.annualHeatmapData && !window.solarSimState.annualHeatmapDirty);
 
   const hudTitleLabel = document.getElementById('hud-title-label');
   if (hudTitleLabel) {
@@ -3197,6 +3215,15 @@ function raUpdateEnergyHUD() {
   const pillWindBadge = document.getElementById('hud-pill-wind-badge');
   const pillSolarVal = document.getElementById('hud-pill-solar-val');
   const pillWindVal = document.getElementById('hud-pill-wind-val');
+
+  const tooltipTitleEl = document.getElementById('hud-prod-tooltip-title');
+  const tooltipWindEl = document.getElementById('hud-prod-tooltip-wind');
+  if (tooltipTitleEl) {
+    tooltipTitleEl.textContent = (numTurbines > 0) ? 'Balance Energético Híbrido (FV + Eólica)' : 'Balance Energético Solar FV';
+  }
+  if (tooltipWindEl) {
+    tooltipWindEl.style.display = (numTurbines > 0) ? 'block' : 'none';
+  }
 
   if (hybridBadges) {
     if (numTurbines > 0) {
@@ -5084,18 +5111,69 @@ function getSafeSvgDataUri(svgStr) {
   return 'data:image/svg+xml;utf8,' + encodeURIComponent(svgStr);
 }
 
-// [FIX-VIS] Dimensiones de caja de equipo eléctrico ESCALADAS POR DISTANCIA: el equipo es
-// realista (0,3-0,65 m) pero subpíxel a distancia operativa (cámara a cientos de metros).
-// CallbackProperty escala la caja con la distancia de cámara — tamaño real hasta ~120 m,
-// creciendo después hasta ×40 máx — manteniendo las proporciones de la pieza.
+// [FIX-VIS] Dimensiones de caja de equipo eléctrico ESCALADAS POR DISTANCIA SIN ROMPER SLEEP GPU:
+// Usa Cesium.ConstantProperty actualizado solo en eventos camera.changed (throttle 120ms),
+// eliminando el CallbackProperty(isConstant=false) que obligaba a Cesium a renderizar a 60fps en reposo.
+const _raScaledBoxes = [];
+let _raScaledBoxesBound = false;
+let _raScaledBoxesTimer = null;
+
+function _raComputeScaledBoxDims(baseDims, anchorPos) {
+  try {
+    const d = (typeof viewer !== 'undefined' && viewer && viewer.camera && anchorPos)
+      ? Cesium.Cartesian3.distance(viewer.camera.positionWC, anchorPos)
+      : 0;
+    const scale = Math.max(1, Math.min(40, d / 120));
+    return {
+      scale,
+      dims: new Cesium.Cartesian3(baseDims.x * scale, baseDims.y * scale, baseDims.z * scale)
+    };
+  } catch (e) {
+    return { scale: 1, dims: baseDims };
+  }
+}
+
+function _raUpdateAllScaledBoxes() {
+  if (typeof viewer === 'undefined' || !viewer || !viewer.camera || _raScaledBoxes.length === 0) return;
+  let dirty = false;
+  for (let i = 0; i < _raScaledBoxes.length; i++) {
+    const entry = _raScaledBoxes[i];
+    const calc = _raComputeScaledBoxDims(entry.baseDims, entry.anchorPos);
+    if (Math.abs(calc.scale - entry.lastScale) / Math.max(0.01, entry.lastScale) > 0.03) {
+      entry.lastScale = calc.scale;
+      entry.prop.setValue(calc.dims);
+      dirty = true;
+    }
+  }
+  if (dirty && viewer.scene && typeof viewer.scene.requestRender === 'function') {
+    viewer.scene.requestRender();
+  }
+}
+
+function _raBindScaledBoxesCameraListener() {
+  if (_raScaledBoxesBound || typeof viewer === 'undefined' || !viewer || !viewer.camera || !viewer.camera.changed) return;
+  _raScaledBoxesBound = true;
+  viewer.camera.changed.addEventListener(function() {
+    if (_raScaledBoxesTimer) return;
+    _raScaledBoxesTimer = setTimeout(function() {
+      _raScaledBoxesTimer = null;
+      _raUpdateAllScaledBoxes();
+    }, 120);
+  });
+}
+
 function wpBoxDimsScaled(baseDims, anchorPos) {
-  return new Cesium.CallbackProperty(function() {
-    try {
-      const d = (viewer && viewer.camera) ? Cesium.Cartesian3.distance(viewer.camera.positionWC, anchorPos) : 0;
-      const scale = Math.max(1, Math.min(40, d / 120));
-      return new Cesium.Cartesian3(baseDims.x * scale, baseDims.y * scale, baseDims.z * scale);
-    } catch (e) { return baseDims; }
-  }, false);
+  const calc = _raComputeScaledBoxDims(baseDims, anchorPos);
+  if (typeof Cesium === 'undefined' || typeof Cesium.ConstantProperty !== 'function') {
+    return calc.dims;
+  }
+  const prop = new Cesium.ConstantProperty(calc.dims);
+  _raScaledBoxes.push({ prop, baseDims, anchorPos, lastScale: calc.scale });
+  if (_raScaledBoxes.length > 24) {
+    _raScaledBoxes.splice(0, _raScaledBoxes.length - 24);
+  }
+  _raBindScaledBoxesCameraListener();
+  return prop;
 }
 
 function wpPlaceInverterAtPosition(cartesian) {

@@ -2736,6 +2736,9 @@ function wpRenderStep4SingleLineDiagramUI() {
 
   if (polylines.length === 0) {
     container.style.display = 'none';
+    if (typeof window !== 'undefined' && window.RAMPPTMatrix && typeof window.RAMPPTMatrix.scheduleRender === 'function') {
+      window.RAMPPTMatrix.scheduleRender();
+    }
     return;
   }
 
@@ -2784,6 +2787,24 @@ function wpRenderStep4SingleLineDiagramUI() {
   let faldonNodes = '';
   let linePaths = '';
 
+  const isManualMppt = !!(cfg.mpptManualConfig && cfg.mpptManualConfig.locked && Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.length > 0);
+  const mpptPerInv = Math.max(1, (invSpec && invSpec.mppt) || (cfg.calculatedLimits && cfg.calculatedLimits.inverter && cfg.calculatedLimits.inverter.mppt) || 2);
+  const roofToInvs = new Map();
+  const invStats = inverters.map(() => ({ mods: 0, strings: new Set() }));
+
+  if (isManualMppt) {
+    window.allRenderedPanels.forEach(pan => {
+      if (!pan || pan.isGhost || pan.deleted || pan.disabled) return;
+      const mId = Math.max(1, Number(pan.mpptId) || 1);
+      const invIdx = Math.min(invCount - 1, Math.floor((mId - 1) / mpptPerInv));
+      const pIdx = (pan.polyIdx != null) ? pan.polyIdx : 0;
+      if (!roofToInvs.has(pIdx)) roofToInvs.set(pIdx, new Set());
+      roofToInvs.get(pIdx).add(invIdx);
+      invStats[invIdx].mods++;
+      if (pan.stringName) invStats[invIdx].strings.add(pan.stringName);
+    });
+  }
+
   const roofSpacing = (svgHeight - 20) / Math.max(1, numRoofs);
   const roofStartY = 16;
 
@@ -2805,24 +2826,35 @@ function wpRenderStep4SingleLineDiagramUI() {
       </g>
     `;
 
-    // Conexión DC del faldón: si hay múltiples inversores y pocos faldones, balancear la potencia
+    // Conexión DC del faldón: usar mapa manual real si el diseñador fijó MPPTs, o distribución automática
     if (hasPanels) {
-      const activeIdx = activeRoofs.indexOf(idx);
-      // Si la instalación tiene más inversores que faldones activos (ej. 1 faldón grande y 2+ inversores),
-      // repartir las conexiones y cadenas proporcionalmente entre todos los inversores.
-      if (activeRoofs.length < invCount) {
-        inverters.forEach((invObj, invI) => {
-          const targetY = invObj.midY;
+      const manualInvSet = isManualMppt ? roofToInvs.get(idx) : null;
+      if (manualInvSet && manualInvSet.size > 0) {
+        manualInvSet.forEach(invIdx => {
+          const targetInv = inverters[invIdx] || inverters[0];
+          const targetY = targetInv.midY;
           linePaths += `
             <path d="M 85 ${y} C 120 ${y}, 130 ${targetY}, ${invX} ${targetY}" fill="none" stroke="${isSel ? '#F59E0B' : '#38BDF8'}" stroke-width="1.5" stroke-dasharray="${isSel ? 'none' : '3,2'}"/>
           `;
         });
       } else {
-        const targetInv = inverters[activeIdx % invCount] || inverters[0];
-        const targetY = targetInv.midY;
-        linePaths += `
-          <path d="M 85 ${y} C 120 ${y}, 130 ${targetY}, ${invX} ${targetY}" fill="none" stroke="${isSel ? '#F59E0B' : '#38BDF8'}" stroke-width="1.5" stroke-dasharray="${isSel ? 'none' : '3,2'}"/>
-        `;
+        const activeIdx = activeRoofs.indexOf(idx);
+        // Si la instalación tiene más inversores que faldones activos (ej. 1 faldón grande y 2+ inversores),
+        // repartir las conexiones y cadenas proporcionalmente entre todos los inversores.
+        if (activeRoofs.length < invCount) {
+          inverters.forEach((invObj) => {
+            const targetY = invObj.midY;
+            linePaths += `
+              <path d="M 85 ${y} C 120 ${y}, 130 ${targetY}, ${invX} ${targetY}" fill="none" stroke="${isSel ? '#F59E0B' : '#38BDF8'}" stroke-width="1.5" stroke-dasharray="${isSel ? 'none' : '3,2'}"/>
+            `;
+          });
+        } else {
+          const targetInv = inverters[activeIdx % invCount] || inverters[0];
+          const targetY = targetInv.midY;
+          linePaths += `
+            <path d="M 85 ${y} C 120 ${y}, 130 ${targetY}, ${invX} ${targetY}" fill="none" stroke="${isSel ? '#F59E0B' : '#38BDF8'}" stroke-width="1.5" stroke-dasharray="${isSel ? 'none' : '3,2'}"/>
+          `;
+        }
       }
     }
   });
@@ -2840,8 +2872,9 @@ function wpRenderStep4SingleLineDiagramUI() {
   inverters.forEach((inv, i) => {
     const invLabel = invCount > 1 ? `INV ${i + 1} (${inv.kw}k)` : `INV ${inv.kw} kW`;
     let subText = 'MPPT AUTO';
-    // Si hay un faldón dominante repartido entre múltiples inversores, calcular su cuota exacta de módulos
-    if (activeRoofs.length === 1 && invCount > 1) {
+    if (isManualMppt && invStats[i]) {
+      subText = `${invStats[i].mods}m · ${invStats[i].strings.size}S MAN`;
+    } else if (activeRoofs.length === 1 && invCount > 1) {
       const fIdx = activeRoofs[0];
       const polyTotalP = (polylines[fIdx] && polylines[fIdx].roofInfo && Array.isArray(polylines[fIdx].roofInfo.panels))
         ? polylines[fIdx].roofInfo.panels.filter(x => !x.deleted).length
@@ -2907,6 +2940,9 @@ function wpRenderStep4SingleLineDiagramUI() {
   `;
 
   svgWrapper.innerHTML = svgContent;
+  if (typeof window !== 'undefined' && window.RAMPPTMatrix && typeof window.RAMPPTMatrix.scheduleRender === 'function') {
+    window.RAMPPTMatrix.scheduleRender();
+  }
 }
 
 window.wpRenderStep4SingleLineDiagramUI = wpRenderStep4SingleLineDiagramUI;

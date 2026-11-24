@@ -807,6 +807,10 @@
         ? pickPanelUnderCursor(click.position)
         : getPanelIndexFromPick(pickedObj);
       if (panelIdx >= 0) {
+        if (window.RAMPPTMatrix && typeof window.RAMPPTMatrix.isBrushActive === 'function' && window.RAMPPTMatrix.isBrushActive()) {
+          window.RAMPPTMatrix.handlePanelBrushClick(panelIdx);
+          return;
+        }
         if (typeof selectObstacle === 'function') selectObstacle(null);
         if (typeof selectElectricalObject === 'function') selectElectricalObject(null);
         const isShift = !!(window._raIsShiftDown || (typeof window.event !== 'undefined' && window.event && window.event.shiftKey));
@@ -1324,16 +1328,24 @@
           if (typeof polygonPoints !== 'undefined') polygonPoints = movedPoly.points.map(p => Cesium.Cartesian3.clone(p));
         }
         universalGizmoState.movePolyObs = null;
+        if (movedPoly) {
+          movedPoly._calcSig = null;
+          movedPoly._geometryDirty = false;
+        }
         if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
         if (typeof roofPanelsCache !== 'undefined' && roofPanelsCache) roofPanelsCache.sig = "";
-        if (typeof window.wpInvalidateHeatmap === 'function' && movedPoly) window.wpInvalidateHeatmap('Faldón desplazado: ' + (movedPoly.name || 'Faldón'));
-        if (typeof recalculateLayoutAndObstacles === 'function' && movedIdx >= 0) recalculateLayoutAndObstacles(movedIdx);
-        if (typeof wpFastRenderSimulatedPanels === 'function' && movedIdx >= 0) wpFastRenderSimulatedPanels(true, movedIdx);
-        if (typeof recalculateSolarYield === 'function') recalculateSolarYield(true);
+        // Renderizado incremental inmediato ESTRICTO solo para movedIdx (0 ms debounce, sin tocar otros faldones)
+        if (typeof wpFastRenderSimulatedPanels === 'function' && movedIdx >= 0) {
+          wpFastRenderSimulatedPanels(true, movedIdx);
+        }
+        if (typeof wpDebouncedSolarYield === 'function') {
+          wpDebouncedSolarYield();
+        } else if (typeof recalculateSolarYield === 'function') {
+          recalculateSolarYield(false);
+        }
         if (typeof wpUpdateLayoutFastMetrics === 'function') wpUpdateLayoutFastMetrics();
         if (typeof wpPopulateFaldonCard === 'function') wpPopulateFaldonCard();
-        if (typeof wpUpdateStep3UI === 'function') wpUpdateStep3UI();
-        if (typeof showStatus === 'function') showStatus('<i data-lucide="check" class="icon-sm"></i> FALDÓN DESPLAZADO CON GIZMO', 2500);
+        if (typeof showStatus === 'function') showStatus('<i data-lucide="check" class="icon-sm"></i> FALDÓN DESPLAZADO CON GIZMO', 2000);
       } else if (draggedTargetType === 'workplane') {
         if (typeof wpRenderActivePlaneGizmo === 'function') wpRenderActivePlaneGizmo();
         if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
