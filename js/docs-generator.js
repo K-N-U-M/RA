@@ -1224,8 +1224,10 @@ function generateMemoria(skipPricingModal, opt) {
       var vmpHotVal = d.Vmp_str_hot || (d.modsActual * d.Vmp * 0.88);
       var vmpOk = vmpHotVal >= vmpMinLimit;
 
-      var iscLimit = (d.inverter && d.inverter.maxInputCurrent) ? d.inverter.maxInputCurrent : 15.0;
-      var iscOk = d.Isc <= iscLimit;
+      var iscLimit = (d.inverter && (d.inverter.iMaxScA || d.inverter.iMaxMpptA))
+        ? (d.inverter.iMaxScA || d.inverter.iMaxMpptA)
+        : 18.0;
+      var iscOk = (d.Isc * 1.25) <= iscLimit;
 
       var wTot = 12.5;
       var wLimit = (window.RA && typeof window.RA.getCteRoofLoadLimitKgM2 === 'function')
@@ -1982,7 +1984,9 @@ function buildUnifilarSvg(D) {
     </g>
   `;
 
-  // Strings generation
+  // Strings generation ([F2-06] Tmin CTE real + soporte topología microinversores)
+  const isMicroSvg = Boolean(typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.selectedTopology === 'microinverter');
+  const tMinSvgLbl = (typeof D.tMinC === 'number' && isFinite(D.tMinC)) ? D.tMinC : -10;
   const genX = 140, genY = 160;
   const displayedStrings = Math.min(D.numStrings, 3);
   const strW = 105, strH = 120, strGap = 20;
@@ -1992,20 +1996,20 @@ function buildUnifilarSvg(D) {
     const sx = genX - 40 + s * (strW + strGap);
     stringsXml += `
       <g id="string_${s + 1}">
-        <rect x="${sx}" y="${genY}" width="${strW}" height="${strH}" fill="#f0f9ff" stroke="#0284c7" stroke-width="1.5" rx="3"/>
-        <line x1="${sx + 15}" y1="${genY + 20}" x2="${sx + strW - 15}" y2="${genY + 20}" stroke="#0284c7" stroke-width="1.5"/>
-        <line x1="${sx + 15}" y1="${genY + 45}" x2="${sx + strW - 15}" y2="${genY + 45}" stroke="#0284c7" stroke-width="1.5"/>
-        <line x1="${sx + 20}" y1="${genY + 8}" x2="${sx + 35}" y2="${genY + 20}" stroke="#0284c7" stroke-width="1.5"/>
-        <line x1="${sx + 35}" y1="${genY + 8}" x2="${sx + 50}" y2="${genY + 20}" stroke="#0284c7" stroke-width="1.5"/>
+        <rect x="${sx}" y="${genY}" width="${strW}" height="${strH}" fill="${isMicroSvg ? '#ecfdf5' : '#f0f9ff'}" stroke="${isMicroSvg ? '#059669' : '#0284c7'}" stroke-width="1.5" rx="3"/>
+        <line x1="${sx + 15}" y1="${genY + 20}" x2="${sx + strW - 15}" y2="${genY + 20}" stroke="${isMicroSvg ? '#059669' : '#0284c7'}" stroke-width="1.5"/>
+        <line x1="${sx + 15}" y1="${genY + 45}" x2="${sx + strW - 15}" y2="${genY + 45}" stroke="${isMicroSvg ? '#059669' : '#0284c7'}" stroke-width="1.5"/>
+        <line x1="${sx + 20}" y1="${genY + 8}" x2="${sx + 35}" y2="${genY + 20}" stroke="${isMicroSvg ? '#059669' : '#0284c7'}" stroke-width="1.5"/>
+        <line x1="${sx + 35}" y1="${genY + 8}" x2="${sx + 50}" y2="${genY + 20}" stroke="${isMicroSvg ? '#059669' : '#0284c7'}" stroke-width="1.5"/>
 
-        <text x="${sx + strW / 2}" y="${genY + 60}" font-family="Arial, sans-serif" font-size="9.5" font-weight="bold" fill="#0369a1" text-anchor="middle">-G${s + 1} · STRING ${s + 1}</text>
-        <text x="${sx + strW / 2}" y="${genY + 75}" font-family="Arial, sans-serif" font-size="8.5" font-weight="bold" fill="#0f172a" text-anchor="middle">${D.modsActual} Módulos en Serie</text>
-        <text x="${sx + strW / 2}" y="${genY + 89}" font-family="monospace" font-size="8" fill="#475569" text-anchor="middle">Voc(STC): ${D.Voc_string.toFixed(0)} V</text>
-        <text x="${sx + strW / 2}" y="${genY + 101}" font-family="monospace" font-size="8" fill="#475569" text-anchor="middle">Voc(-10°C): ${D.Voc_str_cold.toFixed(0)} V</text>
+        <text x="${sx + strW / 2}" y="${genY + 60}" font-family="Arial, sans-serif" font-size="9.5" font-weight="bold" fill="${isMicroSvg ? '#047857' : '#0369a1'}" text-anchor="middle">${isMicroSvg ? ('-M' + (s + 1) + ' · RAMAL AC ' + (s + 1)) : ('-G' + (s + 1) + ' · STRING ' + (s + 1))}</text>
+        <text x="${sx + strW / 2}" y="${genY + 75}" font-family="Arial, sans-serif" font-size="8.5" font-weight="bold" fill="#0f172a" text-anchor="middle">${isMicroSvg ? (D.modsActual + ' Mód. + Microinv.') : (D.modsActual + ' Módulos en Serie')}</text>
+        <text x="${sx + strW / 2}" y="${genY + 89}" font-family="monospace" font-size="8" fill="#475569" text-anchor="middle">${isMicroSvg ? 'Bus AC 230V / 50Hz' : ('Voc(STC): ' + D.Voc_string.toFixed(0) + ' V')}</text>
+        <text x="${sx + strW / 2}" y="${genY + 101}" font-family="monospace" font-size="8" fill="#475569" text-anchor="middle">${isMicroSvg ? 'Conversión AC en techo' : ('Voc(' + tMinSvgLbl + '°C): ' + D.Voc_str_cold.toFixed(0) + ' V')}</text>
         <text x="${sx + strW / 2}" y="${genY + 113}" font-family="monospace" font-size="8" fill="#475569" text-anchor="middle">Isc: ${D.Isc} A | Imp: ${D.Imp} A</text>
 
         <line x1="${sx + strW / 2}" y1="${genY + strH}" x2="${sx + strW / 2}" y2="${genY + strH + 45}" stroke="#000" stroke-width="2"/>
-        <rect x="${sx + strW / 2 - 6}" y="${genY + strH + 15}" width="4" height="12" fill="#ef4444"/>
+        <rect x="${sx + strW / 2 - 6}" y="${genY + strH + 15}" width="4" height="12" fill="${isMicroSvg ? '#059669' : '#ef4444'}"/>
         <rect x="${sx + strW / 2 + 2}" y="${genY + strH + 15}" width="4" height="12" fill="#000000"/>
       </g>
     `;
@@ -2023,9 +2027,9 @@ function buildUnifilarSvg(D) {
         <line x1="${sx + 15}" y1="${genY + 45}" x2="${sx + strW - 15}" y2="${genY + 45}" stroke="#0284c7" stroke-width="1.5" stroke-dasharray="3 2"/>
 
         <text x="${sx + strW / 2}" y="${genY + 60}" font-family="Arial, sans-serif" font-size="9.5" font-weight="bold" fill="#0369a1" text-anchor="middle">-G4..-G${D.numStrings} (+${remCount} STR)</text>
-        <text x="${sx + strW / 2}" y="${genY + 75}" font-family="Arial, sans-serif" font-size="8.5" font-weight="bold" fill="#0f172a" text-anchor="middle">${remCount} Strings idénticos</text>
+        <text x="${sx + strW / 2}" y="${genY + 75}" font-family="Arial, sans-serif" font-size="8.5" font-weight="bold" fill="#0f172a" text-anchor="middle">${remCount} Strings adicionales</text>
         <text x="${sx + strW / 2}" y="${genY + 89}" font-family="monospace" font-size="8" fill="#475569" text-anchor="middle">${D.modsActual} Mód/str (${remCount * D.modsActual} mód)</text>
-        <text x="${sx + strW / 2}" y="${genY + 101}" font-family="monospace" font-size="8" fill="#475569" text-anchor="middle">Voc(-10°C): ${D.Voc_str_cold.toFixed(0)} V</text>
+        <text x="${sx + strW / 2}" y="${genY + 101}" font-family="monospace" font-size="8" fill="#475569" text-anchor="middle">Voc(${tMinSvgLbl}°C): ${D.Voc_str_cold.toFixed(0)} V</text>
         <text x="${sx + strW / 2}" y="${genY + 113}" font-family="monospace" font-size="8" fill="#475569" text-anchor="middle">Isc total: ${(D.Isc * remCount).toFixed(1)} A</text>
 
         <line x1="${sx + strW / 2}" y1="${genY + strH}" x2="${sx + strW / 2}" y2="${genY + strH + 45}" stroke="#000" stroke-width="2" stroke-dasharray="4 2"/>
@@ -2330,60 +2334,94 @@ function generateUnifilarDxfString(D) {
   dxf += text('5_TEXTOS', tbX + 138, tbY + 88, 3.5, 'FECHA: ' + D.fechaStr);
   dxf += text('5_TEXTOS', tbX + 268, tbY + 88, 3.5, 'NORMA: REBT ITC-BT-40');
 
-  // 2. Generador FV
+  // 2. Generador FV ([F2-06] >3 strings explícitos, rama microinversor libre de -XDC, BESS -BAT1 y Tmin real)
+  const isMicroDxf = Boolean(typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.selectedTopology === 'microinverter');
+  const tMinDxfLbl = (typeof D.tMinC === 'number' && isFinite(D.tMinC)) ? D.tMinC : -10;
   const genX = 140, genY = 160;
   const displayedStrings = Math.min(D.numStrings, 3);
+  const hasExtraDxfStrings = D.numStrings > 3;
+  const totalDxfSlots = hasExtraDxfStrings ? 4 : displayedStrings;
   const strW = 105, strH = 120, strGap = 20;
 
-  dxf += text('5_TEXTOS', genX - 40, genY - 50, 5.0, 'CAMPO GENERADOR FOTOVOLTAICO');
+  dxf += text('5_TEXTOS', genX - 40, genY - 50, 5.0, isMicroDxf ? 'CAMPO GENERADOR FV (MICROINVERSORES AC)' : 'CAMPO GENERADOR FOTOVOLTAICO');
   dxf += text('5_TEXTOS', genX - 40, genY - 34, 4.0, 'Pdc: ' + D.P_dc_kW.toFixed(2) + ' kWp (' + D.numPanels + ' modulos ' + D.cfg_pot + 'W)');
 
   for (let s = 0; s < displayedStrings; s++) {
     const sx = genX - 40 + s * (strW + strGap);
     dxf += rect('1_EQUIPOS', sx, genY, strW, strH);
-    dxf += text('5_TEXTOS', sx + 10, genY + 30, 4.0, '-G' + (s + 1) + ' STRING ' + (s + 1));
-    dxf += text('5_TEXTOS', sx + 10, genY + 50, 3.5, D.modsActual + ' Mods en serie');
-    dxf += text('5_TEXTOS', sx + 10, genY + 70, 3.0, 'Voc(STC): ' + D.Voc_string.toFixed(0) + 'V');
-    dxf += text('5_TEXTOS', sx + 10, genY + 85, 3.0, 'Voc(-10C): ' + D.Voc_str_cold.toFixed(0) + 'V');
-    dxf += line('2_DC', sx + strW / 2, genY + strH, sx + strW / 2, genY + strH + 45);
+    dxf += text('5_TEXTOS', sx + 10, genY + 30, 4.0, isMicroDxf ? ('-M' + (s + 1) + ' RAMAL AC ' + (s + 1)) : ('-G' + (s + 1) + ' STRING ' + (s + 1)));
+    dxf += text('5_TEXTOS', sx + 10, genY + 50, 3.5, D.modsActual + (isMicroDxf ? ' Mods + Microinv' : ' Mods en serie'));
+    dxf += text('5_TEXTOS', sx + 10, genY + 70, 3.0, isMicroDxf ? 'Bus AC 230V/50Hz' : ('Voc(STC): ' + D.Voc_string.toFixed(0) + 'V'));
+    dxf += text('5_TEXTOS', sx + 10, genY + 85, 3.0, isMicroDxf ? 'MPPT distribuido' : ('Voc(' + tMinDxfLbl + 'C): ' + D.Voc_str_cold.toFixed(0) + 'V'));
+    dxf += line(isMicroDxf ? '3_AC' : '2_DC', sx + strW / 2, genY + strH, sx + strW / 2, genY + strH + 45);
+  }
+  if (hasExtraDxfStrings) {
+    const sxExtra = genX - 40 + 3 * (strW + strGap);
+    const remDxf = D.numStrings - 3;
+    dxf += rect('1_EQUIPOS', sxExtra, genY, strW, strH);
+    dxf += text('5_TEXTOS', sxExtra + 8, genY + 30, 3.8, '-G4..-G' + D.numStrings + ' (+' + remDxf + ')');
+    dxf += text('5_TEXTOS', sxExtra + 8, genY + 50, 3.2, remDxf + 'x ' + D.modsActual + ' Mods');
+    dxf += text('5_TEXTOS', sxExtra + 8, genY + 70, 3.0, 'Voc(' + tMinDxfLbl + 'C): ' + D.Voc_str_cold.toFixed(0) + 'V');
+    dxf += line(isMicroDxf ? '3_AC' : '2_DC', sxExtra + strW / 2, genY + strH, sxExtra + strW / 2, genY + strH + 45);
   }
 
   const colBusY = genY + strH + 45;
   const busStartX = genX - 40 + strW / 2;
-  const busEndX = genX - 40 + (displayedStrings - 1) * (strW + strGap) + strW / 2;
+  const busEndX = genX - 40 + (totalDxfSlots - 1) * (strW + strGap) + strW / 2;
   const dcTrunkX = (busStartX + busEndX) / 2;
   const boxDcY = colBusY + 60;
 
-  dxf += line('2_DC', busStartX, colBusY, busEndX, colBusY);
-  dxf += line('2_DC', dcTrunkX, colBusY, dcTrunkX, boxDcY);
-  dxf += text('5_TEXTOS', dcTrunkX + 8, (colBusY + boxDcY) / 2, 3.5, 'ZZ-F 1x' + D.S_str + 'mm2 (1.8/3kV)');
+  dxf += line(isMicroDxf ? '3_AC' : '2_DC', busStartX, colBusY, busEndX, colBusY);
+  dxf += line(isMicroDxf ? '3_AC' : '2_DC', dcTrunkX, colBusY, dcTrunkX, boxDcY);
+  dxf += text('5_TEXTOS', dcTrunkX + 8, (colBusY + boxDcY) / 2, 3.5, isMicroDxf ? ('RV-K 0.6/1kV ' + D.S_ac + 'mm2 (Bus AC)') : ('ZZ-F 1x' + D.S_str + 'mm2 (1.8/3kV)'));
 
-  // 3. Cuadro DC
+  // 3. Cuadro DC (solo si NO es topología microinversores) o Caja Derivación AC IP65
   const cdcW = 260, cdcH = 140;
   const cdcX = dcTrunkX - cdcW / 2;
   const cdcY = boxDcY;
   dxf += rect('1_EQUIPOS', cdcX, cdcY, cdcW, cdcH);
-  dxf += text('5_TEXTOS', cdcX + 8, cdcY + 16, 4.0, 'CUADRO PROTECCION DC (-XDC) IP65');
-  dxf += rect('1_EQUIPOS', cdcX + 35, cdcY + 30, 35, 24);
-  dxf += text('5_TEXTOS', cdcX + 40, cdcY + 45, 3.0, '-F1 gPV');
-  dxf += rect('1_EQUIPOS', cdcX + 110, cdcY + 30, 40, 45);
-  dxf += text('5_TEXTOS', cdcX + 115, cdcY + 45, 3.0, '-F01 SPD');
-  dxf += rect('1_EQUIPOS', cdcX + 190, cdcY + 30, 45, 45);
-  dxf += text('5_TEXTOS', cdcX + 195, cdcY + 45, 3.0, '-Q1 SEC');
+  if (isMicroDxf) {
+    dxf += text('5_TEXTOS', cdcX + 8, cdcY + 20, 4.0, 'CAJA DERIVACION BUS AC (-XAC_ROOF) IP65');
+    dxf += text('5_TEXTOS', cdcX + 8, cdcY + 50, 3.3, 'Sin cuadro DC (-XDC no aplica en microinversores)');
+    dxf += text('5_TEXTOS', cdcX + 8, cdcY + 75, 3.3, 'Pac total: ' + D.P_ac_kW.toFixed(2) + ' kW (' + (D.monofasico ? '230V 1F' : '400V 3F') + ')');
+  } else {
+    dxf += text('5_TEXTOS', cdcX + 8, cdcY + 16, 4.0, 'CUADRO PROTECCION DC (-XDC) IP65');
+    dxf += rect('1_EQUIPOS', cdcX + 35, cdcY + 30, 35, 24);
+    dxf += text('5_TEXTOS', cdcX + 40, cdcY + 45, 3.0, '-F1 gPV');
+    dxf += rect('1_EQUIPOS', cdcX + 110, cdcY + 30, 40, 45);
+    dxf += text('5_TEXTOS', cdcX + 115, cdcY + 45, 3.0, '-F01 SPD');
+    dxf += rect('1_EQUIPOS', cdcX + 190, cdcY + 30, 45, 45);
+    dxf += text('5_TEXTOS', cdcX + 195, cdcY + 45, 3.0, '-Q1 SEC');
+  }
 
   const dcOutY = cdcY + cdcH;
   const invY = dcOutY + 70;
-  dxf += line('2_DC', dcTrunkX, dcOutY, dcTrunkX, invY);
-  dxf += text('5_TEXTOS', dcTrunkX + 8, (dcOutY + invY) / 2, 3.5, 'ZZ-F ' + D.S_mdc + 'mm2');
+  dxf += line(isMicroDxf ? '3_AC' : '2_DC', dcTrunkX, dcOutY, dcTrunkX, invY);
+  dxf += text('5_TEXTOS', dcTrunkX + 8, (dcOutY + invY) / 2, 3.5, isMicroDxf ? ('RV-K ' + D.S_ac + 'mm2 AC') : ('ZZ-F ' + D.S_mdc + 'mm2'));
 
-  // 4. Inversor
+  // 4. Inversor / Pasarela Microinversores + Bloque BESS -BAT1 (si existe batería)
   const invW = 280, invH = 130;
   const invX = dcTrunkX - invW / 2;
   dxf += rect('1_EQUIPOS', invX, invY, invW, invH);
   dxf += line('1_EQUIPOS', invX, invY + invH, invX + invW, invY);
-  dxf += text('5_TEXTOS', invX + 20, invY + 25, 4.5, '-T1 INVERSOR CONEXION RED');
+  dxf += text('5_TEXTOS', invX + 20, invY + 25, 4.5, isMicroDxf ? '-T1 PASARELA MONITORIZACION AC' : '-T1 INVERSOR CONEXION RED');
   dxf += text('5_TEXTOS', invX + 20, invY + 45, 4.0, 'Pac: ' + D.P_ac_kW.toFixed(2) + ' kW (' + (D.monofasico ? '230V 1F' : '400V 3F') + ')');
   dxf += text('5_TEXTOS', invX + 20, invY + 65, 3.5, 'I_ac_max = ' + iAcStr + ' A');
+
+  const hasBatDxf = Boolean(
+    (typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.selectedBatteryId && window.solarProjectConfig.selectedBatteryId !== 'bat_none') ||
+    (D.batKwh && D.batKwh > 0)
+  );
+  if (hasBatDxf) {
+    const batW = 190, batH = 90;
+    const batX = invX - batW - 45;
+    const batY = invY + 20;
+    dxf += line('2_DC', batX + batW, batY + batH / 2, invX, invY + invH / 2);
+    dxf += rect('1_EQUIPOS', batX, batY, batW, batH);
+    dxf += text('5_TEXTOS', batX + 10, batY + 28, 4.0, '-BAT1 ACUMULACION BESS');
+    dxf += text('5_TEXTOS', batX + 10, batY + 50, 3.3, 'LiFePO4 + BMS + Secc. DC');
+    dxf += text('5_TEXTOS', batX + 10, batY + 70, 3.0, 'Proteccion gBat / Magneto DC');
+  }
 
   // 5. Cuadro AC
   const acBoxX = invX + invW + 120;
@@ -2400,7 +2438,7 @@ function generateUnifilarDxfString(D) {
   dxf += rect('1_EQUIPOS', acBoxX + 30, acBoxY + 40, 65, 55);
   dxf += text('5_TEXTOS', acBoxX + 35, acBoxY + 60, 3.5, '-F2 IGA ' + D.I_iga + 'A');
   dxf += rect('1_EQUIPOS', acBoxX + 115, acBoxY + 40, 75, 55);
-  dxf += text('5_TEXTOS', acBoxX + 120, acBoxY + 60, 3.5, '-Q2 DIF 30mA');
+  dxf += text('5_TEXTOS', acBoxX + 120, acBoxY + 60, 3.2, '-Q2 DIF ' + (D.rcdSensMa || 30) + 'mA ' + (D.rcdClass || 'Cl.B'));
   dxf += rect('1_EQUIPOS', acBoxX + 210, acBoxY + 40, 65, 55);
   dxf += text('5_TEXTOS', acBoxX + 215, acBoxY + 60, 3.5, '-F02 SPD AC');
   dxf += rect('1_EQUIPOS', acBoxX + 115, acBoxY + 125, 110, 50);

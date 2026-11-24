@@ -682,7 +682,7 @@
       poly.orientationPref = scenario.orientation;
 
       // 1. Sincronizar estructura para motor 3D Cesium y cálculo geométrico de cubierta
-      const tipoEst = (scenario.structureType === 'pergola') ? 'pergola' : ((scenario.structureType === 'coplanar') ? 'coplanar' : 'balasto');
+      const tipoEst = (scenario.structureType === 'pergola') ? 'pergola' : ((scenario.structureType === 'coplanar') ? 'coplanar' : 'balasto_bloques');
       poly.estructura = poly.estructura || {};
       poly.estructura.tipo = tipoEst;
       poly.estructura.clearance = (tipoEst === 'coplanar') ? 0 : 0.20;

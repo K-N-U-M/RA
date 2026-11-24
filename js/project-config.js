@@ -1764,7 +1764,8 @@ function wpAutoSelectOptimalEngineering(force = false) {
       ? catalog.microinverters
       : [{ id: 'micro_hoymiles_800', brand: 'Hoymiles', model: 'HMS-800-2T (2-en-1)', kw: 0.8, price: 175 }];
     const chosenMicro = (cfg.selectedMicroinverterId && catalogMicros.find(m => m.id === cfg.selectedMicroinverterId)) || catalogMicros[0];
-    const microUnits = Math.ceil(totalPanels / 2);
+    const microRatio = (typeof raGetMicroinverterRatio === 'function') ? raGetMicroinverterRatio(chosenMicro) : 2;
+    const microUnits = Math.ceil(totalPanels / Math.max(1, microRatio));
     bestScenario = {
       inverter: chosenMicro,
       count: microUnits,
@@ -2585,7 +2586,7 @@ function wpRenderStep4RoofScopeUI() {
         optimizerDetailBadge = `
           <div style="margin-top:4px;padding:3px 6px;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.3);border-radius:4px;display:flex;align-items:center;justify-content:space-between;font-size:8.5px;">
             <span style="color:#34D399;font-weight:700;display:flex;align-items:center;gap:3px;">
-              <i data-lucide="cpu" class="icon-sm"></i> ${Math.ceil(nPanels / 2)}x Microinversores duales
+              <i data-lucide="cpu" class="icon-sm"></i> ${Math.ceil(nPanels / Math.max(1, (typeof raGetMicroinverterRatio === 'function' ? raGetMicroinverterRatio(window.solarProjectConfig && window.equipmentCatalog && Array.isArray(window.equipmentCatalog.microinverters) ? window.equipmentCatalog.microinverters.find(m => m.id === window.solarProjectConfig.selectedMicroinverterId) : null) : 2)))}x Microinversores
             </span>
             <span style="color:#CBD5E1;background:rgba(0,0,0,0.4);padding:1px 4px;border-radius:3px;">
               100% faldón desacoplado
