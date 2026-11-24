@@ -1354,8 +1354,9 @@ function wpOpenPricingReviewModal(onConfirm) {
   }
   var pModal = document.getElementById('ra-pricing-review-modal');
   if (!pModal) {
-    var modalHtml = '<div id="ra-pricing-review-modal" role="dialog" aria-modal="true" aria-labelledby="pricing-review-modal-title" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,0.85);backdrop-filter:blur(8px);z-index:var(--z-modal-nested, 550);align-items:center;justify-content:center;padding:16px;">' +
-      '<div style="background:#0f172a;border:1px solid #334155;border-radius:12px;width:780px;max-width:96vw;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 25px 50px -12px rgba(0,0,0,0.85);overflow:hidden;color:#fff;font-family:Inter,system-ui,sans-serif;">' +
+    var modalHtml = '<div id="ra-pricing-review-modal" role="dialog" aria-modal="true" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,0.85);backdrop-filter:blur(8px);z-index:999999;align-items:center;justify-content:center;padding:16px;">' +
+      '<div style="background:#0f172a;border:1px solid #334155;border-radius:12px;width:860px;max-width:96vw;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 25px 50px -12px rgba(0,0,0,0.85);overflow:hidden;color:#fff;font-family:Inter,system-ui,sans-serif;">' +
+
         '<div style="padding:14px 20px;background:rgba(0,0,0,0.4);border-bottom:1px solid rgba(255,255,255,0.08);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">' +
           '<div style="display:flex;align-items:center;gap:10px;">' +
             '<span style="display:inline-flex;align-items:center;color:#38bdf8;" aria-hidden="true">' + _mSvg('tag', 20, '#38bdf8') + '</span>' +
@@ -1531,87 +1532,149 @@ function wpOpenPricingReviewModal(onConfirm) {
               '</div>' +
               '<div id="pricing-ai-survey-text">Consultando tarifas mayoristas y de instalador en España...</div>' +
             '</div>' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0 6px 0;border-bottom:1px solid rgba(148,163,184,0.2);font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;">' +
+              '<div style="flex:1;min-width:0;">Partida</div>' +
+              '<div style="display:flex;align-items:center;gap:12px;flex-shrink:0;">' +
+                '<div style="width:185px;text-align:right;">Coste Directo</div>' +
+                '<div id="pricing-col-margin-header" style="width:105px;text-align:right;color:#34D399;">P.V.P. (+20%)</div>' +
+              '</div>' +
+            '</div>' +
             '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05);">' +
-              '<div>' +
+              '<div style="flex:1;min-width:0;padding-right:10px;">' +
                 '<div style="font-size:11px;font-weight:800;color:#f8fafc;display:flex;align-items:center;gap:5px;"><span style="display:inline-flex;color:#38bdf8;">' + _mSvg('gridPanel', 13, '#38bdf8') + '</span> <span id="pricing-title-panels">Módulos Fotovoltaicos Tier-1</span></div>' +
                 '<div id="pricing-subtext-panels" style="font-size: 11px;color:#94a3b8;">0 módulos en cubierta</div>' +
               '</div>' +
-              '<div style="display:flex;align-items:center;gap:8px;">' +
-                '<div style="display:flex;align-items:center;gap:4px;">' +
-                  '<input type="number" id="pricing-input-panel-price" min="40" max="1000" step="1" style="width:75px;padding:4px 6px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:6px;color:#fff;font-size:11px;font-weight:700;text-align:right;">' +
-                  '<span style="font-size:11px;color:#94a3b8;">€/ud</span>' +
+              '<div style="display:flex;align-items:center;gap:12px;flex-shrink:0;">' +
+                '<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;width:185px;">' +
+                  '<div style="display:flex;align-items:center;gap:4px;">' +
+                    '<input type="number" id="pricing-input-panel-price" min="40" max="1000" step="1" style="width:70px;padding:4px 6px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:6px;color:#fff;font-size:11px;font-weight:700;text-align:right;">' +
+                    '<span style="font-size:11px;color:#94a3b8;">€/ud</span>' +
+                  '</div>' +
+                  '<span id="pricing-row-panel-subtotal" style="font-size:11px;font-weight:800;color:#38BDF8;min-width:60px;text-align:right;">0 €</span>' +
                 '</div>' +
-                '<span id="pricing-row-panel-subtotal" style="font-size:11px;font-weight:800;color:#38BDF8;min-width:65px;text-align:right;">0 €</span>' +
+                '<div style="width:105px;text-align:right;">' +
+                  '<span id="pricing-row-panel-pvp" style="font-size:11.5px;font-weight:900;color:#34D399;">0 €</span>' +
+
+                '</div>' +
               '</div>' +
             '</div>' +
             '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05);">' +
-              '<div>' +
+              '<div style="flex:1;min-width:0;padding-right:10px;">' +
                 '<div style="font-size:11px;font-weight:800;color:#f8fafc;display:flex;align-items:center;gap:5px;"><span style="display:inline-flex;color:#94a3b8;">' + _mSvg('wrench', 13, '#94a3b8') + '</span> Estructura Soporte &amp; Perfilería</div>' +
                 '<div id="pricing-subtext-est" style="font-size: 11px;color:#94a3b8;">Perfilería continua de aluminio y fijaciones A2</div>' +
               '</div>' +
-              '<div style="display:flex;align-items:center;gap:4px;">' +
-                '<input type="number" id="pricing-input-est-price" min="0" max="50000" step="25" style="width:90px;padding:4px 6px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:6px;color:#fff;font-size:11px;font-weight:700;text-align:right;">' +
-                '<span style="font-size:11px;color:#94a3b8;">€</span>' +
+              '<div style="display:flex;align-items:center;gap:12px;flex-shrink:0;">' +
+                '<div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;width:185px;">' +
+                  '<input type="number" id="pricing-input-est-price" min="0" max="50000" step="25" style="width:90px;padding:4px 6px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:6px;color:#fff;font-size:11px;font-weight:700;text-align:right;">' +
+                  '<span style="font-size:11px;color:#94a3b8;">€</span>' +
+                '</div>' +
+                '<div style="width:105px;text-align:right;">' +
+                  '<span id="pricing-row-est-pvp" style="font-size:11.5px;font-weight:900;color:#34D399;">0 €</span>' +
+                '</div>' +
+
               '</div>' +
             '</div>' +
             '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05);">' +
-              '<div>' +
+              '<div style="flex:1;min-width:0;padding-right:10px;">' +
                 '<div style="font-size:11px;font-weight:800;color:#f8fafc;display:flex;align-items:center;gap:5px;"><span style="display:inline-flex;color:#fbbf24;">' + _mSvg('bolt', 13, '#fbbf24') + '</span> Inversor / Microinversores</div>' +
                 '<div id="pricing-subtext-inv" style="font-size: 11px;color:#94a3b8;">Sistema de conversión eléctrica y monitorización</div>' +
               '</div>' +
-              '<div style="display:flex;align-items:center;gap:4px;">' +
-                '<input type="number" id="pricing-input-inv-price" min="0" max="50000" step="50" style="width:90px;padding:4px 6px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:6px;color:#fff;font-size:11px;font-weight:700;text-align:right;">' +
-                '<span style="font-size:11px;color:#94a3b8;">€</span>' +
+              '<div style="display:flex;align-items:center;gap:12px;flex-shrink:0;">' +
+                '<div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;width:185px;">' +
+                  '<input type="number" id="pricing-input-inv-price" min="0" max="50000" step="50" style="width:90px;padding:4px 6px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:6px;color:#fff;font-size:11px;font-weight:700;text-align:right;">' +
+                  '<span style="font-size:11px;color:#94a3b8;">€</span>' +
+                '</div>' +
+                '<div style="width:105px;text-align:right;">' +
+                  '<span id="pricing-row-inv-pvp" style="font-size:11.5px;font-weight:900;color:#34D399;">0 €</span>' +
+                '</div>' +
+
               '</div>' +
             '</div>' +
             '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05);">' +
-              '<div>' +
+              '<div style="flex:1;min-width:0;padding-right:10px;">' +
                 '<div style="font-size:11px;font-weight:800;color:#f8fafc;display:flex;align-items:center;gap:5px;"><span style="display:inline-flex;color:#34d399;">' + _mSvg('battery', 13, '#34d399') + '</span> Batería de Acumulación (LiFePO4)</div>' +
                 '<div id="pricing-subtext-bat" style="font-size: 11px;color:#94a3b8;">Almacenamiento modular (0 € si no aplica)</div>' +
               '</div>' +
-              '<div style="display:flex;align-items:center;gap:4px;">' +
-                '<input type="number" id="pricing-input-bat-price" min="0" max="50000" step="50" style="width:90px;padding:4px 6px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:6px;color:#fff;font-size:11px;font-weight:700;text-align:right;">' +
-                '<span style="font-size:11px;color:#94a3b8;">€</span>' +
+              '<div style="display:flex;align-items:center;gap:12px;flex-shrink:0;">' +
+                '<div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;width:185px;">' +
+                  '<input type="number" id="pricing-input-bat-price" min="0" max="50000" step="50" style="width:90px;padding:4px 6px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:6px;color:#fff;font-size:11px;font-weight:700;text-align:right;">' +
+                  '<span style="font-size:11px;color:#94a3b8;">€</span>' +
+                '</div>' +
+                '<div style="width:105px;text-align:right;">' +
+                  '<span id="pricing-row-bat-pvp" style="font-size:11.5px;font-weight:900;color:#34D399;">0 €</span>' +
+                '</div>' +
+
               '</div>' +
             '</div>' +
             '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05);">' +
-              '<div>' +
+              '<div style="flex:1;min-width:0;padding-right:10px;">' +
                 '<div style="font-size:11px;font-weight:800;color:#f8fafc;display:flex;align-items:center;gap:5px;"><span style="display:inline-flex;color:#38bdf8;">' + _mSvg('plug', 13, '#38bdf8') + '</span> Cableado, Conducciones &amp; Cuadros</div>' +
                 '<div id="pricing-subtext-cab" style="font-size: 11px;color:#94a3b8;">Líneas solares ZZ-F, cuadro DC/AC, protecciones SPD y tierras</div>' +
               '</div>' +
-              '<div style="display:flex;align-items:center;gap:4px;">' +
-                '<input type="number" id="pricing-input-cab-price" min="0" max="25000" step="25" style="width:90px;padding:4px 6px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:6px;color:#fff;font-size:11px;font-weight:700;text-align:right;">' +
-                '<span style="font-size:11px;color:#94a3b8;">€</span>' +
+              '<div style="display:flex;align-items:center;gap:12px;flex-shrink:0;">' +
+                '<div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;width:185px;">' +
+                  '<input type="number" id="pricing-input-cab-price" min="0" max="25000" step="25" style="width:90px;padding:4px 6px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:6px;color:#fff;font-size:11px;font-weight:700;text-align:right;">' +
+                  '<span style="font-size:11px;color:#94a3b8;">€</span>' +
+                '</div>' +
+                '<div style="width:105px;text-align:right;">' +
+                  '<span id="pricing-row-cab-pvp" style="font-size:11.5px;font-weight:900;color:#34D399;">0 €</span>' +
+                '</div>' +
+
               '</div>' +
             '</div>' +
             '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05);">' +
-              '<div>' +
+              '<div style="flex:1;min-width:0;padding-right:10px;">' +
                 '<div style="font-size:11px;font-weight:800;color:#f8fafc;display:flex;align-items:center;gap:5px;"><span style="display:inline-flex;color:#fbbf24;">' + _mSvg('hardHat', 13, '#fbbf24') + '</span> Mano de Obra &amp; Montaje</div>' +
                 '<div id="pricing-subtext-mo" style="font-size: 11px;color:#94a3b8;">Instalación completa, seguridad en altura y puesta en marcha</div>' +
               '</div>' +
-              '<div style="display:flex;align-items:center;gap:4px;">' +
-                '<input type="number" id="pricing-input-mo-price" min="0" max="30000" step="50" style="width:90px;padding:4px 6px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:6px;color:#fff;font-size:11px;font-weight:700;text-align:right;">' +
-                '<span style="font-size:11px;color:#94a3b8;">€</span>' +
+              '<div style="display:flex;align-items:center;gap:12px;flex-shrink:0;">' +
+                '<div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;width:185px;">' +
+                  '<input type="number" id="pricing-input-mo-price" min="0" max="30000" step="50" style="width:90px;padding:4px 6px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:6px;color:#fff;font-size:11px;font-weight:700;text-align:right;">' +
+                  '<span style="font-size:11px;color:#94a3b8;">€</span>' +
+                '</div>' +
+                '<div style="width:105px;text-align:right;">' +
+                  '<span id="pricing-row-mo-pvp" style="font-size:11.5px;font-weight:900;color:#34D399;">0 €</span>' +
+                '</div>' +
+
               '</div>' +
             '</div>' +
             '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;">' +
-              '<div>' +
+              '<div style="flex:1;min-width:0;padding-right:10px;">' +
                 '<div style="font-size:11px;font-weight:800;color:#f8fafc;display:flex;align-items:center;gap:5px;"><span style="display:inline-flex;color:#c084fc;">' + _mSvg('fileText', 13, '#c084fc') + '</span> Legalización, Proyecto &amp; CIE</div>' +
                 '<div id="pricing-subtext-leg" style="font-size: 11px;color:#94a3b8;">Memoria técnica / proyecto, tasas de Industria y boletín oficial</div>' +
               '</div>' +
-              '<div style="display:flex;align-items:center;gap:4px;">' +
-                '<input type="number" id="pricing-input-leg-price" min="0" max="15000" step="25" style="width:90px;padding:4px 6px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:6px;color:#fff;font-size:11px;font-weight:700;text-align:right;">' +
-                '<span style="font-size:11px;color:#94a3b8;">€</span>' +
+              '<div style="display:flex;align-items:center;gap:12px;flex-shrink:0;">' +
+                '<div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;width:185px;">' +
+                  '<input type="number" id="pricing-input-leg-price" min="0" max="15000" step="25" style="width:90px;padding:4px 6px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:6px;color:#fff;font-size:11px;font-weight:700;text-align:right;">' +
+                  '<span style="font-size:11px;color:#94a3b8;">€</span>' +
+                '</div>' +
+                '<div style="width:105px;text-align:right;">' +
+                  '<span id="pricing-row-leg-pvp" style="font-size:11.5px;font-weight:900;color:#34D399;">0 €</span>' +
+                '</div>' +
+
               '</div>' +
             '</div>' +
             '<div id="pricing-row-wind" style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-top:1px solid rgba(255,255,255,0.05);">' +
-              '<div>' +
+              '<div style="flex:1;min-width:0;padding-right:10px;">' +
                 '<div style="font-size:11px;font-weight:800;color:#f8fafc;display:flex;align-items:center;gap:5px;"><span style="display:inline-flex;color:#38bdf8;">' + _mSvg('wind', 13, '#38bdf8') + '</span> Aerogeneradores &amp; Soporte Eólico</div>' +
                 '<div id="pricing-subtext-wind" style="font-size: 11px;color:#94a3b8;">Turbinas eólicas, mástil, zapata y resistencia dump load</div>' +
               '</div>' +
-              '<div style="display:flex;align-items:center;gap:4px;">' +
-                '<input type="number" id="pricing-input-wind-price" min="0" max="200000" step="50" style="width:90px;padding:4px 6px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:6px;color:#fff;font-size:11px;font-weight:700;text-align:right;">' +
-                '<span style="font-size:11px;color:#94a3b8;">€</span>' +
+              '<div style="display:flex;align-items:center;gap:12px;flex-shrink:0;">' +
+                '<div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;width:185px;">' +
+                  '<input type="number" id="pricing-input-wind-price" min="0" max="200000" step="50" style="width:90px;padding:4px 6px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:6px;color:#fff;font-size:11px;font-weight:700;text-align:right;">' +
+                  '<span style="font-size:11px;color:#94a3b8;">€</span>' +
+                '</div>' +
+                '<div style="width:105px;text-align:right;">' +
+                  '<span id="pricing-row-wind-pvp" style="font-size:11.5px;font-weight:900;color:#34D399;">0 €</span>' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0 2px 0;border-top:1px solid rgba(148,163,184,0.2);font-size:11px;">' +
+              '<div style="flex:1;min-width:0;font-weight:800;color:#cbd5e1;text-transform:uppercase;letter-spacing:0.4px;">Subtotal Partidas Base</div>' +
+              '<div style="display:flex;align-items:center;gap:12px;flex-shrink:0;">' +
+                '<div id="pricing-col-cost-total" style="width:185px;text-align:right;font-weight:800;color:#cbd5e1;">0 €</div>' +
+                '<div id="pricing-col-pvp-total" style="width:105px;text-align:right;font-size:12px;font-weight:900;color:#34D399;">0 €</div>' +
+
               '</div>' +
             '</div>' +
           '</div>' +
@@ -2181,6 +2244,37 @@ function wpOpenPricingReviewModal(onConfirm) {
 
     var directCost = panelTotal + estPrice + invPrice + batPrice + cabPrice + moPrice + legPrice + windPrice;
     var marginEur = directCost * (mgPct / 100.0);
+
+    // Actualizar columna de P.V.P. por partida con margen repartido proporcionalmente
+    var mFactor = 1 + (mgPct / 100.0);
+    var baseEquipPvpTotal = Math.round(directCost + marginEur);
+    var pvpPan = Math.round(panelTotal * mFactor);
+    var pvpEst = Math.round(estPrice * mFactor);
+    var pvpInv = Math.round(invPrice * mFactor);
+    var pvpBat = Math.round(batPrice * mFactor);
+    var pvpCab = Math.round(cabPrice * mFactor);
+    var pvpMo = Math.round(moPrice * mFactor);
+    var pvpWind = Math.round(windPrice * mFactor);
+    var pvpLeg = (legPrice > 0)
+      ? Math.max(0, baseEquipPvpTotal - (pvpPan + pvpEst + pvpInv + pvpBat + pvpCab + pvpMo + pvpWind))
+      : 0;
+
+    var _setPvpTxt = function(id, val) {
+      var el = document.getElementById(id);
+      if (el) el.textContent = Math.round(val).toLocaleString('es-ES') + ' €';
+    };
+    var colHdr = document.getElementById('pricing-col-margin-header');
+    if (colHdr) colHdr.textContent = 'P.V.P. (+' + (Number.isInteger(mgPct) ? mgPct : mgPct.toFixed(1)) + '%)';
+    _setPvpTxt('pricing-row-panel-pvp', pvpPan);
+    _setPvpTxt('pricing-row-est-pvp', pvpEst);
+    _setPvpTxt('pricing-row-inv-pvp', pvpInv);
+    _setPvpTxt('pricing-row-bat-pvp', pvpBat);
+    _setPvpTxt('pricing-row-cab-pvp', pvpCab);
+    _setPvpTxt('pricing-row-mo-pvp', pvpMo);
+    _setPvpTxt('pricing-row-leg-pvp', pvpLeg);
+    _setPvpTxt('pricing-row-wind-pvp', pvpWind);
+    _setPvpTxt('pricing-col-cost-total', directCost);
+    _setPvpTxt('pricing-col-pvp-total', baseEquipPvpTotal);
 
     // Sumar Add-ons activos
     var addonsCost = 0;
@@ -2779,6 +2873,9 @@ function wpOpenPricingReviewModal(onConfirm) {
       }
 
       wpUpdateStep5PricingBadge();
+      if (typeof wpAutoSaveProjectDebounced === 'function') {
+        wpAutoSaveProjectDebounced(300);
+      }
 
       var sumContainer = document.getElementById('step5-executive-summary-container');
       if (sumContainer && typeof EngineeringExplainer !== 'undefined' && typeof EngineeringExplainer.generateExecutiveSummaryHTML === 'function') {
@@ -3702,7 +3799,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   // Factor de margen para desglose comercial de cliente (oculta costes directos y margen industrial)
   // Si el usuario activa "Cargar margen comercial mayoritariamente s/ Mano de Obra e Instalación",
   // los materiales se presentan a coste directo y el margen se integra en las partidas de montaje e ingeniería.
-  const _marginLaborOnly = Boolean(m.ivaCompliance && m.ivaCompliance.marginOnLaborOnly);
+  const _marginLaborOnly = Boolean(m.ivaCompliance && m.ivaCompliance.isRenovacion10 && m.ivaCompliance.marginOnLaborOnly);
   const _mFactor = _marginLaborOnly ? 1.0 : (1 + ((typeof m.marginPct === 'number' ? m.marginPct : 20) / 100.0));
   const _cPan = Math.round(m.panCost * _mFactor);
   const _cEst = Math.round(m.estCost * _mFactor);
@@ -6201,9 +6298,9 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     : ((_ssotCfg.taxSettings && typeof _ssotCfg.taxSettings.ivaHomeAge2Years === 'boolean') ? _ssotCfg.taxSettings.ivaHomeAge2Years : true);
 
   const marginLaborChk = document.getElementById('modal-tax-iva-margin-labor') || document.getElementById('tax-iva-margin-labor');
-  const marginOnLaborOnly = marginLaborChk
+  const marginOnLaborOnly = isRenovacion10 && (marginLaborChk
     ? Boolean(marginLaborChk.checked)
-    : ((_ssotCfg.taxSettings && typeof _ssotCfg.taxSettings.ivaMarginLaborOnly === 'boolean') ? _ssotCfg.taxSettings.ivaMarginLaborOnly : true);
+    : ((_ssotCfg.taxSettings && typeof _ssotCfg.taxSettings.ivaMarginLaborOnly === 'boolean') ? _ssotCfg.taxSettings.ivaMarginLaborOnly : false));
 
   const costeMaterialesDirecto = Math.round(panCost + est + inv + bat + cab + windCost + addonsCost);
   const costeServiciosDirecto = Math.round(mo + leg);
