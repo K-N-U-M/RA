@@ -122,3 +122,25 @@
 5. **Escenas grandes y trazado:** Probar trazado de edificios, estampado de faldones, edición de rutas y selección múltiple con `Ctrl+A` comprobando fluidez.
 
 > ⏸️ **Esperando confirmación manual del usuario (OK) para iniciar Fase 2.**
+
+---
+
+### Fase 2 — Informe de Cierre
+
+- **Estado global Fase 2:** `12/12` tickets en `[Hecho]` (`F2-01` a `F2-12`), todos trazados con commits atómicos en la rama `feat/remediacion-aaa` y con `?v=20261124_f2` actualizado en `index.html`.
+- **Verificación ejecutada:** Revisión manual de diffs y lectura de código; **no se han ejecutado baterías de tests ni comprobaciones automáticas** siguiendo explícitamente las directrices del usuario.
+
+#### Tickets Cerrados (`[Hecho]`)
+- `F2-01..03` (`2c4d98b`): Realimentación de pérdidas óhmicas reales (`wiringSource`) hacia `solarLossConfig.wiring`, eliminación del doble descuento de bypass en `prBOSNoBypass`, eficiencia real del inversor, excentricidad orbital `e0` en Perez, modelo térmico Faiman con ciclo diurno en motor solar y worker, filtrado estricto de paneles fantasma/eliminados y etiquetas honestas de resolución en sombras.
+- `F2-04` (`14a0c21`): Eliminación del doble conteo de coste de carga de red en modo arbitraje (`financials.js`), calendario secuencial `dayOfYear % 7`, eficiencia BESS simétrica `sqrt(eff)` con tope AC del inversor y soporte de series horarias ERA5 en despacho híbrido.
+- `F2-05, F2-08, F2-09` (`2c23f46`): Sección de tierra `REBT ITC-BT-18 Tabla 2`, umbral Proyecto Técnico Visado vs MTD por potencia nominal AC `> 10 kW` (`ITC-BT-04`), escalado automático de aparamenta/SPD DC a `1000V/1200V/1500V CC` en BOM, término reactivo inductivo `X` y comprobación `Voc_overspeed` en minieólica.
+- `F2-06, F2-07` (`e400d63`): Corrección `isc > imp` en catálogo base, ratio real de microinversores (`1:1`/`2:1`/`4:1`), alineación `'balasto_bloques'` en optimizador, validación `Isc × 1.25 <= iMaxScA`, y unifilar SVG/DXF con rama microinversor sin `-XDC`, `>3` strings explícitos, bloque `-BAT1` y `Tmin` real.
+- `F2-10, F2-11, F2-12` (`dd39ff1`): Proyección exacta sobre plano inclinado en paso entre filas, separación de incertidumbre climática irreducible en Monte Carlo P50/P90, retirada de bloqueo por ID de inversor en auto-ingeniería, shadow flicker multi-turbina y horizonte ampliado desde `1.5°`.
+
+#### Checklist de Verificación Manual del Usuario en Navegador
+1. **PR y cables:** Alargar rutas DC/AC en Paso 4 y comprobar que `PR` refleja las pérdidas reales sin doble descuento de bypass.
+2. **Arbitraje y despacho:** Activar estrategia de arbitraje con batería en Paso 5 y verificar que el ahorro anual no penaliza dos veces el coste de recarga nocturna.
+3. **REBT, BOM y Unifilar:** Probar una instalación `> 10 kW AC` vs `<= 10 kW AC`, un diseño con microinversores y un diseño con `>3` strings + batería; exportar unifilar SVG y DXF comprobando ausencia de `-XDC` en microinversores y presencia de `-BAT1` y strings adicionales.
+4. **Paso entre filas y horizonte:** Probar cubierta inclinada con mesas y comprobar separación realista; lanzar estudio térmico verificando que paneles fantasma/desactivados no inflan la producción mensual.
+
+> ⏸️ **Esperando confirmación manual del usuario (OK) para iniciar Fase 3.**

@@ -10,18 +10,18 @@
 
 | ID | Título | Severidad | Esfuerzo | Dependencias | Origen | Estado |
 | :--- | :--- | :---: | :---: | :--- | :--- | :--- |
-| **F2-01** | Unificar realimentación de pérdidas óhmicas y suprimir doble descuento de bypass en PR/BOS | P1 | M | F0-05, F0-06 | B-06 | `[Pendiente]` |
-| **F2-02** | Converger los 4 motores de producción solar en un único motor SSOT Perez + Faiman/TMY | P1 | L | F2-01 | B-07 | `[Pendiente]` |
-| **F2-03** | Corregir fuga de paneles fantasma/eliminados al Solar Worker, etiquetas de resolución y ciclo térmico | P1 | M | F2-02 | B-08 | `[Pendiente]` |
-| **F2-04** | Unificar despacho híbrido `8760h` (FV POA + Eólica ERA5 + BESS) y eliminar doble conteo en arbitraje | P1 | L | F2-02 | B-09 | `[Pendiente]` |
-| **F2-05** | Subsanar incumplimientos REBT/RD1699: tierra ITC-BT-18, umbral AC Proyecto/MTD, límite 1F y `cosφ` | P1 | S | Ninguna | B-10 | `[Pendiente]` |
-| **F2-06** | Unificar renderizadores unifilares (UI Paso 4, SVG EPLAN y DXF) soportando microinversores, >3 strings y BESS | P1 | L | F0-05, F0-07 | B-11 | `[Pendiente]` |
-| **F2-07** | Corregir desajustes de catálogo (`isc < imp`), ratio microinversores 1:1/4:1, resumen por faldón y `balasto` BOM | P1 | M | Ninguna | B-12 | `[Pendiente]` |
-| **F2-08** | Integrar protecciones DC (`1000V/1500V`) con ganancia bifacial en BOM y cálculos eléctricos | P2 | S | F0-06, F0-07 | B-13 | `[Pendiente]` |
-| **F2-09** | Alinear módulo eléctrico eólico con constantes REBT, término reactivo `X` y `Voc_overspeed` | P2 | S | Ninguna | B-14 | `[Pendiente]` |
-| **F2-10** | Corregir geometría exacta de paso entre filas (PVsyst vector) y proyección rayo-plano en obstáculos | P2 | M | Ninguna | B-15 | `[Pendiente]` |
-| **F2-11** | Corregir Monte Carlo P50/P90, flags de auto-ingeniería por ID fijo, multi-turbina flicker y latitud hardcodeada | P2 | M | F2-02 | B-16 + B-17 | `[Pendiente]` |
-| **F2-12** | Ampliar perfil de horizonte `< 6°` y acoplar diodos de bypass por string en sombreado parcial | P3 | L | F2-02, F2-03 | B-18 | `[Pendiente]` |
+| **F2-01** | Unificar realimentación de pérdidas óhmicas y suprimir doble descuento de bypass en PR/BOS | P1 | M | F0-05, F0-06 | B-06 | `[Hecho]` |
+| **F2-02** | Converger los 4 motores de producción solar en un único motor SSOT Perez + Faiman/TMY | P1 | L | F2-01 | B-07 | `[Hecho]` |
+| **F2-03** | Corregir fuga de paneles fantasma/eliminados al Solar Worker, etiquetas de resolución y ciclo térmico | P1 | M | F2-02 | B-08 | `[Hecho]` |
+| **F2-04** | Unificar despacho híbrido `8760h` (FV POA + Eólica ERA5 + BESS) y eliminar doble conteo en arbitraje | P1 | L | F2-02 | B-09 | `[Hecho]` |
+| **F2-05** | Subsanar incumplimientos REBT/RD1699: tierra ITC-BT-18, umbral AC Proyecto/MTD, límite 1F y `cosφ` | P1 | S | Ninguna | B-10 | `[Hecho]` |
+| **F2-06** | Unificar renderizadores unifilares (UI Paso 4, SVG EPLAN y DXF) soportando microinversores, >3 strings y BESS | P1 | L | F0-05, F0-07 | B-11 | `[Hecho]` |
+| **F2-07** | Corregir desajustes de catálogo (`isc < imp`), ratio microinversores 1:1/4:1, resumen por faldón y `balasto` BOM | P1 | M | Ninguna | B-12 | `[Hecho]` |
+| **F2-08** | Integrar protecciones DC (`1000V/1500V`) con ganancia bifacial en BOM y cálculos eléctricos | P2 | S | F0-06, F0-07 | B-13 | `[Hecho]` |
+| **F2-09** | Alinear módulo eléctrico eólico con constantes REBT, término reactivo `X` y `Voc_overspeed` | P2 | S | Ninguna | B-14 | `[Hecho]` |
+| **F2-10** | Corregir geometría exacta de paso entre filas (PVsyst vector) y proyección rayo-plano en obstáculos | P2 | M | Ninguna | B-15 | `[Hecho]` |
+| **F2-11** | Corregir Monte Carlo P50/P90, flags de auto-ingeniería por ID fijo, multi-turbina flicker y latitud hardcodeada | P2 | M | F2-02 | B-16 + B-17 | `[Hecho]` |
+| **F2-12** | Ampliar perfil de horizonte `< 6°` y acoplar diodos de bypass por string en sombreado parcial | P3 | L | F2-02, F2-03 | B-18 | `[Hecho]` |
 
 ---
 
