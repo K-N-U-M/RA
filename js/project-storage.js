@@ -1009,9 +1009,6 @@ async function raImportProjectData(projectData, options = {}) {
     if (typeof wpClearInverterAndCables === 'function') {
       try { wpClearInverterAndCables(); } catch(eClr) {}
     }
-    if (window.RAWindTurbine && typeof window.RAWindTurbine.cleanAll === 'function') {
-      try { window.RAWindTurbine.cleanAll(); } catch(eWt) {}
-    }
     // [C2 FIX] Limpiar todas las primitivas y anillos de aerogeneradores de la GPU antes de deserializar
     if (window.RAWindVisualizer && typeof window.RAWindVisualizer.clearAll === 'function') {
       try { window.RAWindVisualizer.clearAll(); } catch(eWvc) {}
@@ -1205,68 +1202,14 @@ async function raImportProjectData(projectData, options = {}) {
         });
       });
 
-      // [REHYDRATE-GEOMETRY] Reconstruir base ortonormal (transform, invTransform, uVec, vVec, normal, poly2D, coplanar)
-      // en cada poly.roofInfo importado para evitar que el motor solar/sombras opere con ejes planos por defecto (0,0,1).
+      // [REHYDRATE-GEOMETRY / F3-04] Reconstruir base ortonormal usando SSOT ensureRoofGeometry (solar-heatmap.js)
       try {
-        if (typeof polygonAnalysis === 'function' && typeof Cesium !== 'undefined' && Cesium.Matrix4 && Cesium.Cartesian3) {
-          WP.polylines.forEach((poly) => {
-            if (!poly || !Array.isArray(poly.points) || poly.points.length < 3) return;
-            const pa = polygonAnalysis(poly.points);
-            if (!pa) return;
-            if (!poly.roofInfo) poly.roofInfo = {};
-            const ri = poly.roofInfo;
-            let uVec = pa.uVec, vVec = pa.vVec, normal = pa.normal, poly2D = pa.poly2D;
-            const wpPlane = (typeof WP !== 'undefined' && WP && Array.isArray(WP.planes) && typeof poly.planeIdx === 'number' && poly.planeIdx >= 0)
-              ? WP.planes[poly.planeIdx] : null;
-            if (wpPlane && wpPlane.uVec && wpPlane.vVec && wpPlane.normal && pa.invTransform) {
-              const uLoc = Cesium.Matrix4.multiplyByPointAsVector(pa.invTransform, wpPlane.uVec, new Cesium.Cartesian3());
-              const vLoc = Cesium.Matrix4.multiplyByPointAsVector(pa.invTransform, wpPlane.vVec, new Cesium.Cartesian3());
-              const nLoc = Cesium.Matrix4.multiplyByPointAsVector(pa.invTransform, wpPlane.normal, new Cesium.Cartesian3());
-              if (Cesium.Cartesian3.magnitude(uLoc) > 0.01 && Cesium.Cartesian3.magnitude(vLoc) > 0.01) {
-                uVec = Cesium.Cartesian3.normalize(uLoc, new Cesium.Cartesian3());
-                vVec = Cesium.Cartesian3.normalize(vLoc, new Cesium.Cartesian3());
-                normal = Cesium.Cartesian3.normalize(nLoc, new Cesium.Cartesian3());
-                if (normal.z < 0) Cesium.Cartesian3.negate(normal, normal);
-                poly2D = pa.localPoints.map(pt => ({
-                  u: Cesium.Cartesian3.dot(pt, uVec),
-                  v: Cesium.Cartesian3.dot(pt, vVec)
-                }));
-              }
-            }
-            let minU = Infinity, maxU = -Infinity, minV = Infinity, maxV = -Infinity;
-            poly2D.forEach(pt => {
-              if (pt.u < minU) minU = pt.u;
-              if (pt.u > maxU) maxU = pt.u;
-              if (pt.v < minV) minV = pt.v;
-              if (pt.v > maxV) maxV = pt.v;
-            });
-            ri.center = pa.center;
-            ri.origin = pa.center;
-            ri.carto = pa.carto;
-            ri.latDeg = pa.latDeg;
-            ri.lonDeg = pa.lonDeg;
-            ri.transform = pa.transform;
-            ri.invTransform = pa.invTransform;
-            ri.localPoints = pa.localPoints;
-            ri.uVec = uVec;
-            ri.vVec = vVec;
-            ri.normal = normal;
-            ri.poly2D = poly2D;
-            ri.minU = minU; ri.maxU = maxU; ri.minV = minV; ri.maxV = maxV;
-            ri.rangeU = maxU - minU; ri.rangeV = maxV - minV;
-            ri.tiltRad = pa.tiltRad;
-            ri.tiltDeg = pa.tiltDeg;
-            ri.azimuthDeg = pa.azimuthDeg;
-            ri.azimuthN = pa.azimuthN;
-            ri.area3D = pa.area3D;
-            ri.structureType = poly.structureType || ri.structureType || 'coplanar_teja';
-            ri.estructura = poly.estructura || ri.estructura || null;
-            if (typeof ri.coplanar !== 'boolean') {
-              const st = String(ri.structureType || '').toLowerCase();
-              const estT = String((ri.estructura && ri.estructura.tipo) || '').toLowerCase();
-              ri.coplanar = st.includes('coplanar') || estT === 'coplanar' || (pa.tiltDeg >= 8 && (!poly.modTilt || poly.modTilt === 'auto' || poly.modTilt === 'coplanar'));
-            }
-          });
+        const _ensureGeo = (typeof window !== 'undefined' && typeof window.raEnsureRoofGeometry === 'function')
+          ? window.raEnsureRoofGeometry
+          : ((typeof window !== 'undefined' && window.RASolarHeatmap && typeof window.RASolarHeatmap.ensureRoofGeometry === 'function')
+              ? window.RASolarHeatmap.ensureRoofGeometry : null);
+        if (_ensureGeo) {
+          WP.polylines.forEach((poly) => _ensureGeo(poly, true));
         }
       } catch (eGeoReh) {
         console.warn('[RA Storage] Aviso rehidratando geometría de roofInfo:', eGeoReh);
@@ -1312,9 +1255,6 @@ async function raImportProjectData(projectData, options = {}) {
         if (o.cartesian) o.cartesian = _raToCartesian3(o.cartesian);
         if (o.center) o.center = _raToCartesian3(o.center);
         if (Array.isArray(o.points)) o.points = o.points.map(_raToCartesian3).filter(Boolean);
-        if (o.type === 'wind_turbine' && window.RAWindTurbine && typeof window.RAWindTurbine.ensureProps === 'function') {
-          window.RAWindTurbine.ensureProps(o);
-        }
         _arrObs.push(o);
       });
       obstacles = _arrObs;
@@ -1368,7 +1308,6 @@ async function raImportProjectData(projectData, options = {}) {
       wpClearAllPlaneGizmos();
     }
     if (typeof render3DObstaclesInCesium === 'function') render3DObstaclesInCesium();
-    if (window.RAWindTurbine && typeof window.RAWindTurbine.renderAll === 'function') window.RAWindTurbine.renderAll();
 
     // 5.c Restaurar y migrar Aerogeneradores RA-Wind
     if (typeof window !== 'undefined' && window.RAWind && window.RAWind.Entity) {
@@ -2469,9 +2408,6 @@ async function raNewProjectConfirm() {
   }
 
   // 6. Limpieza de aerogeneradores
-  if (window.RAWindTurbine && typeof window.RAWindTurbine.cleanAll === 'function') {
-    try { window.RAWindTurbine.cleanAll(); } catch(eWt) {}
-  }
   // [C1 FIX] Limpiar todas las primitivas y visualizaciones eólicas de la GPU y memoria
   if (window.RAWindVisualizer && typeof window.RAWindVisualizer.clearAll === 'function') {
     try { window.RAWindVisualizer.clearAll(); } catch(eWvc) {}

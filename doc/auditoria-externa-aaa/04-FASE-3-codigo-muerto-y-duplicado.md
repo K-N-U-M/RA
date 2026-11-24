@@ -18,10 +18,10 @@
 
 | ID | Título | Severidad | Esfuerzo | Dependencias | Origen | Estado |
 | :--- | :--- | :---: | :---: | :--- | :--- | :--- |
-| **F3-01** | Consolidar `parseWAsPLib`, `lanczosGamma` y `fetchTextLimited` entre `server.js`, `functions/index.js` y `wind-resource.js` | P1 | M | F0-09 (o junto a F6-01) | D-01 | `[Pendiente]` |
-| **F3-02** | Retirar archivo huérfano `js/wind-turbine.js` (789 L) y arreglar Undo/Redo roto (`renderAllInCesium` -> `renderAll`) | P1 | M | Ninguna | D-02 | `[Pendiente]` |
-| **F3-03** | Unificar geometría 2D, sub-strings y física solar duplicadas con deriva entre main thread y `solar-worker.js` | P1 | M | Ninguna | D-04 | `[Pendiente]` |
-| **F3-04** | Consolidar `ensureRoofGeometry` duplicada entre `project-storage.js` y `solar-heatmap.js` | P1 | S | Ninguna | D-05 | `[Pendiente]` |
+| **F3-01** | Consolidar `parseWAsPLib`, `lanczosGamma` y `fetchTextLimited` entre `server.js`, `functions/index.js` y `wind-resource.js` | P1 | M | F0-09 (o junto a F6-01) | D-01 | `[Hecho]` |
+| **F3-02** | Retirar archivo huérfano `js/wind-turbine.js` (789 L) y arreglar Undo/Redo roto (`renderAllInCesium` -> `renderAll`) | P1 | M | Ninguna | D-02 | `[Hecho]` |
+| **F3-03** | Unificar geometría 2D, sub-strings y física solar duplicadas con deriva entre main thread y `solar-worker.js` | P1 | M | Ninguna | D-04 | `[Hecho]` |
+| **F3-04** | Consolidar `ensureRoofGeometry` duplicada entre `project-storage.js` y `solar-heatmap.js` | P1 | S | Ninguna | D-05 | `[Hecho]` |
 | **F3-05** | Consolidar 4 `_aiFetch`, 2 `getApiKey`, normalización `wind_turbines` y 2 `escapeHtml` duplicados | P1 | M | F0-08 | D-06 | `[Pendiente]` |
 | **F3-06** | Purgar subsistema UI muerto "Análisis Energético Comparativo" (~950 L en `solar-engine.js` y `app-main.js`) | P1 | S | Ninguna | D-09 | `[Pendiente]` |
 | **F3-07** | Auditar y resolver 30+ IDs DOM huérfanos (restaurar `#btn-redo`, `#label-2d3d`, `#fin-tou-tarifa` o limpiar obsoletos) | P1 | L | F3-02, F3-09 | D-14 | `[Pendiente]` |

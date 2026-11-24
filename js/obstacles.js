@@ -1112,10 +1112,6 @@ function render3DObstaclesInCesium() {
     }
   });
 
-  if (typeof window !== "undefined" && window.RAWindTurbine && typeof window.RAWindTurbine.renderAll === "function") {
-    window.RAWindTurbine.renderAll();
-  }
-
   if (typeof viewer !== "undefined" && viewer.scene && typeof viewer.scene.requestRender === "function") {
     viewer.scene.requestRender();
   }
@@ -1126,11 +1122,6 @@ function scaleSelectedObstacleAxis(axis, factor) {
   if (!selId) return;
   const obs = obstacles.find(o => o.id === selId);
   if (!obs) return;
-
-  if (obs.type === 'wind_turbine' && typeof window !== 'undefined' && window.RAWindTurbine && typeof window.RAWindTurbine.applyScaleAxis === 'function') {
-    window.RAWindTurbine.applyScaleAxis(obs, axis, factor);
-    return;
-  }
 
   if (axis === 'x') {
     obs.w = Math.max(0.2, Math.round((obs.w || 1.0) * factor * 10) / 10);
@@ -1165,11 +1156,6 @@ function nudgeSelectedObstacleDim(dim, delta) {
   if (!selId) return;
   const obs = obstacles.find(o => o.id === selId);
   if (!obs) return;
-
-  if (obs.type === 'wind_turbine' && typeof window !== 'undefined' && window.RAWindTurbine && typeof window.RAWindTurbine.applyNudgeDim === 'function') {
-    window.RAWindTurbine.applyNudgeDim(obs, dim, delta);
-    return;
-  }
 
   if (dim === 'w') {
     obs.w = Math.max(0.2, Math.round(((obs.w || 1.0) + delta) * 10) / 10);
@@ -1360,11 +1346,6 @@ function updateSelectedObstacleProps() {
   if (!selId) return;
   const obs = obstacles.find(o => o.id === selId);
   if (!obs) return;
-
-  if (obs.type === 'wind_turbine' && typeof window !== 'undefined' && window.RAWindTurbine && typeof window.RAWindTurbine.onGeneralDimInput === 'function') {
-    window.RAWindTurbine.onGeneralDimInput(obs);
-    return;
-  }
 
   const wEl = document.getElementById('obs-width');
   const lEl = document.getElementById('obs-length');

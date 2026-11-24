@@ -784,8 +784,6 @@
           if (global.RAWind && global.RAWind.Entity && typeof global.RAWind.Entity.recalculateAllEngineering === 'function') {
             global.RAWind.Entity.recalculateAllEngineering();
           }
-        } else if (global.RAWindTurbine && typeof global.RAWindTurbine.toggleVisibility === 'function') {
-          global.RAWindTurbine.toggleVisibility(idOrIdx);
         } else if (Array.isArray(global.obstacles)) {
           const o = (typeof idOrIdx === 'string') ? global.obstacles.find(function(item) { return item.id === idOrIdx; }) : global.obstacles[idOrIdx];
           if (o) {

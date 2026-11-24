@@ -10,198 +10,12 @@
 
 'use strict';
 
-try {
-  importScripts('radiation-engine.js?v=20261118_t3');
-} catch (eRadImport) {}
+importScripts('radiation-engine.js?v=20261124_f3', 'polygon-shadow-math.js?v=20261124_f3');
 
-const SOLAR_CONST = 1367;
+const _RAD = self.RA && self.RA.Radiation;
+const SOLAR_CONST = (_RAD && _RAD.SOLAR_CONST_WM2) || 1367;
 
-const _T_AMB_TABLE = {
-  costal_med: [11.0, 12.0, 14.0, 16.0, 20.0, 25.0, 28.0, 28.5, 24.0, 19.0, 14.0, 11.0],
-  costa_med:  [11.0, 12.0, 14.0, 16.0, 20.0, 25.0, 28.0, 28.5, 24.0, 19.0, 14.0, 11.0],
-  interior:   [5.0,  7.0,  10.0, 12.0, 17.0, 23.0, 27.0, 27.0, 22.0, 15.0,  9.0,  5.0],
-  atlantico:  [9.0,  10.0, 12.0, 13.0, 16.0, 19.0, 21.0, 21.5, 19.0, 15.0, 11.0,  9.0],
-  canarias:   [18.0, 18.5, 19.0, 20.0, 21.5, 23.5, 25.0, 26.0, 25.5, 23.5, 21.0, 19.0]
-};
-
-// ── 1. GEOMETRÍA 2D OFF-THREAD ───────────────────────────────────────────────
-
-function isPointInPolygon2D(pt, poly) {
-  let inside = false;
-  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    const xi = poly[i].u, yi = poly[i].v;
-    const xj = poly[j].u, yj = poly[j].v;
-    const intersect = ((yi > pt.v) !== (yj > pt.v)) &&
-      (pt.u < (xj - xi) * (pt.v - yi) / (yj - yi + 1e-12) + xi);
-    if (intersect) inside = !inside;
-  }
-  return inside;
-}
-
-function segmentsIntersect2D(p1, p2, p3, p4) {
-  function ccw(A, B, C) {
-    return (C.v - A.v) * (B.u - A.u) > (B.v - A.v) * (C.u - A.u);
-  }
-  return (ccw(p1, p3, p4) !== ccw(p2, p3, p4)) && (ccw(p1, p2, p3) !== ccw(p1, p2, p4));
-}
-
-function polygonsIntersect2D(polyA, polyB) {
-  if (!polyA || !polyB || polyA.length < 3 || polyB.length < 3) return false;
-  for (let i = 0; i < polyA.length; i++) {
-    if (isPointInPolygon2D(polyA[i], polyB)) return true;
-  }
-  for (let i = 0; i < polyB.length; i++) {
-    if (isPointInPolygon2D(polyB[i], polyA)) return true;
-  }
-  for (let i = 0; i < polyA.length; i++) {
-    const a1 = polyA[i];
-    const a2 = polyA[(i + 1) % polyA.length];
-    for (let j = 0; j < polyB.length; j++) {
-      const b1 = polyB[j];
-      const b2 = polyB[(j + 1) % polyB.length];
-      if (segmentsIntersect2D(a1, a2, b1, b2)) return true;
-    }
-  }
-  return false;
-}
-
-function convexHull2D(points) {
-  if (!points || points.length <= 3) return points || [];
-  const pts = points.slice().sort((a, b) => a.u === b.u ? a.v - b.v : a.u - b.u);
-  function cross(o, a, b) {
-    return (a.u - o.u) * (b.v - o.v) - (a.v - o.v) * (b.u - o.u);
-  }
-  const lower = [];
-  for (let p of pts) {
-    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 1e-9) {
-      lower.pop();
-    }
-    lower.push(p);
-  }
-  const upper = [];
-  for (let i = pts.length - 1; i >= 0; i--) {
-    const p = pts[i];
-    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 1e-9) {
-      upper.pop();
-    }
-    upper.push(p);
-  }
-  lower.pop();
-  upper.pop();
-  return lower.concat(upper);
-}
-
-function dividePanelIntoSubstrings2D(quad) {
-  if (!quad || quad.length !== 4) return quad ? [quad] : [];
-  const p0 = quad[0], p1 = quad[1], p2 = quad[2], p3 = quad[3];
-  const d01 = Math.hypot(p1.u - p0.u, p1.v - p0.v);
-  const d12 = Math.hypot(p2.u - p1.u, p2.v - p1.v);
-
-  const lerp = (a, b, t) => ({ u: a.u + (b.u - a.u) * t, v: a.v + (b.v - a.v) * t });
-
-  if (d12 >= d01) {
-    const a0 = p0, b0 = p3;
-    const a1 = lerp(p0, p1, 1 / 3), b1 = lerp(p3, p2, 1 / 3);
-    const a2 = lerp(p0, p1, 2 / 3), b2 = lerp(p3, p2, 2 / 3);
-    const a3 = p1, b3 = p2;
-    return [
-      [a0, a1, b1, b0],
-      [a1, a2, b2, b1],
-      [a2, a3, b3, b2]
-    ];
-  } else {
-    const a0 = p0, b0 = p1;
-    const a1 = lerp(p0, p3, 1 / 3), b1 = lerp(p1, p2, 1 / 3);
-    const a2 = lerp(p0, p3, 2 / 3), b2 = lerp(p1, p2, 2 / 3);
-    const a3 = p3, b3 = p2;
-    return [
-      [a0, b0, b1, a1],
-      [a1, b1, b2, a2],
-      [a2, b2, b3, a3]
-    ];
-  }
-}
-
-// ── 2. FÍSICA SOLAR Y MODELO DE RADIACIÓN ───────────────────────────────────
-
-function computeSolarPositionWorker(latDeg, lonDeg, dayOfYear, utcHour) {
-  if (typeof self !== 'undefined' && self.RA && self.RA.Radiation && typeof self.RA.Radiation.computeSolarPosition === 'function') {
-    return self.RA.Radiation.computeSolarPosition(latDeg, lonDeg, dayOfYear, utcHour, true);
-  }
-  const gamma = (2 * Math.PI / 365) * (dayOfYear - 1 + (utcHour - 12) / 24);
-  const eqtime = 229.18 * (0.000075 + 0.001868 * Math.cos(gamma) - 0.032077 * Math.sin(gamma)
-    - 0.014615 * Math.cos(2 * gamma) - 0.040849 * Math.sin(2 * gamma));
-
-  const declRad = 0.006918 - 0.399912 * Math.cos(gamma) + 0.070257 * Math.sin(gamma)
-    - 0.006758 * Math.cos(2 * gamma) + 0.000907 * Math.sin(2 * gamma)
-    - 0.002697 * Math.cos(3 * gamma) + 0.00148 * Math.sin(3 * gamma);
-
-  const timeOffset = eqtime + 4 * lonDeg;
-  const tst = utcHour * 60 + timeOffset;
-  const haRad = ((tst / 4) - 180) * Math.PI / 180;
-
-  const latRad = latDeg * Math.PI / 180;
-  const sinLat = Math.sin(latRad), cosLat = Math.cos(latRad);
-  const sinDec = Math.sin(declRad), cosDec = Math.cos(declRad);
-  const cosHa = Math.cos(haRad);
-
-  const sinElev = sinLat * sinDec + cosLat * cosDec * cosHa;
-  const elevRad = Math.asin(Math.max(-1, Math.min(1, sinElev)));
-  const elevDeg = elevRad * 180 / Math.PI;
-
-  let azDegFromNorth = 180;
-  if (elevDeg > -89.9 && elevDeg < 89.9) {
-    const cosAz = (sinDec - sinLat * sinElev) / (cosLat * Math.cos(elevRad) + 1e-12);
-    const clampedCosAz = Math.max(-1, Math.min(1, cosAz));
-    let az = Math.acos(clampedCosAz) * 180 / Math.PI;
-    if (Math.sin(haRad) > 0) az = 360 - az;
-    azDegFromNorth = az;
-  }
-
-  const elevRad_ = Math.max(0, elevRad);
-  const azNRad = (azDegFromNorth * Math.PI) / 180;
-  const sunVecENU = {
-    x: Math.cos(elevRad_) * Math.sin(azNRad),
-    y: Math.cos(elevRad_) * Math.cos(azNRad),
-    z: Math.sin(elevRad_)
-  };
-
-  const sDirHorizontal = { x: -sunVecENU.x, y: -sunVecENU.y, z: 0 };
-  const magH = Math.hypot(sDirHorizontal.x, sDirHorizontal.y);
-  if (magH > 1e-6) {
-    sDirHorizontal.x /= magH;
-    sDirHorizontal.y /= magH;
-  }
-
-  return {
-    elevDeg,
-    elevRad,
-    azDegFromNorth,
-    isDay: elevDeg > 0,
-    sunVecENU,
-    sDirENU: sDirHorizontal,
-    shadowLenPerM: elevDeg >= 5.0 ? Math.min(1 / Math.tan(elevRad_), 5.67) : 0
-  };
-}
-
-function decomposeErbsWorker(ghi, elevation, dayOfYear) {
-  if (typeof self !== 'undefined' && self.RA && self.RA.Radiation && typeof self.RA.Radiation.decomposeErbs === 'function') {
-    return self.RA.Radiation.decomposeErbs(ghi, elevation, dayOfYear);
-  }
-  const elevRad = Math.max(0.01, elevation * Math.PI / 180);
-  const sinAlt = Math.sin(elevRad);
-  // [AUD-2026 · D-04] Excentricidad orbital: I0(n) = 1367·(1 + 0,033·cos(360·n/365)).
-  const e0 = (typeof dayOfYear === 'number' && isFinite(dayOfYear) && dayOfYear >= 1)
-    ? (1 + 0.033 * Math.cos(2 * Math.PI * (dayOfYear - 1) / 365)) : 1;
-  const kt = Math.min(1.0, Math.max(0.0, ghi / (SOLAR_CONST * e0 * sinAlt + 1e-3)));
-  let DHI_fraction;
-  if (kt < 0.22) DHI_fraction = 1.0 - 0.09 * kt;
-  else if (kt < 0.80) DHI_fraction = 0.9511 - 0.1604 * kt + 4.388 * kt * kt - 16.638 * Math.pow(kt, 3) + 12.336 * Math.pow(kt, 4);
-  else DHI_fraction = 0.165;
-  const dhi = ghi * DHI_fraction;
-  const dni = Math.max(0, (ghi - dhi) / sinAlt);
-  return { dhi, dni, kt };
-}
+// ── 1 & 2. GEOMETRÍA 2D Y FÍSICA SOLAR (SSOT importado de polygon-shadow-math.js y radiation-engine.js) ──
 
 // ── 3. EJECUCIÓN PRINCIPAL DEL SIMULADOR ────────────────────────────────────
 
@@ -455,12 +269,10 @@ self.onmessage = async function(e) {
 
   for (let mIdx = 0; mIdx < monthsDoy.length; mIdx++) {
     const m = monthsReal[mIdx];
-    const tAmbMonth = (_T_AMB_TABLE[climaticZone] || _T_AMB_TABLE.interior)[m];
+    const tAmbMonth = _RAD.getAmbientTempMonth(climaticZone, m);
     const GHI_daily_Wh = (customMonthlyGHI && customMonthlyGHI[m] > 0)
       ? customMonthlyGHI[m]
-      : ((typeof self !== 'undefined' && self.RA && self.RA.Radiation && typeof self.RA.Radiation.estimateMonthlyGHI === 'function')
-          ? self.RA.Radiation.estimateMonthlyGHI(lat, m)
-          : (4600 * (1 + 0.32 * Math.sin((m - 2) * Math.PI / 6))));
+      : _RAD.estimateMonthlyGHI(lat, m);
 
     const _gammaM = (2 * Math.PI / 365) * (monthsDoy[mIdx] - 1);
     const _EtM = 229.18 * (0.000075 + 0.001868 * Math.cos(_gammaM) - 0.032077 * Math.sin(_gammaM)
@@ -469,7 +281,7 @@ self.onmessage = async function(e) {
     let _sinAltSum = 0;
     for (let _hs = 0; _hs < hours.length; _hs++) {
       const _utcPre = hours[_hs] - (4 * lng + _EtM) / 60;
-      const _spPre = computeSolarPositionWorker(lat, lng, monthsDoy[mIdx], _utcPre);
+      const _spPre = _RAD.computeSolarPosition(lat, lng, monthsDoy[mIdx], _utcPre, true);
       if (_spPre && _spPre.isDay && _spPre.elevDeg >= 1.5) {
         _sinAltSum += Math.sin(_spPre.elevDeg * Math.PI / 180);
       }
@@ -481,7 +293,7 @@ self.onmessage = async function(e) {
       currentStep++;
 
       const utcHour = h - (4 * lng + _EtM) / 60;
-      const sp = computeSolarPositionWorker(lat, lng, monthsDoy[mIdx], utcHour);
+      const sp = _RAD.computeSolarPosition(lat, lng, monthsDoy[mIdx], utcHour, true);
 
       if (!sp || !sp.isDay || sp.elevDeg < 5.0) {
         continue;
@@ -490,7 +302,7 @@ self.onmessage = async function(e) {
       const elevRad = sp.elevRad;
       const sinAlt = Math.sin(elevRad);
       const GHI_instant = Math.max(0, (GHI_daily_Wh / (_sinAltSum * hourStepDt)) * sinAlt);
-      const { dhi: G_dhi, dni: G_dni } = decomposeErbsWorker(GHI_instant, sp.elevDeg, monthsDoy[mIdx]);
+      const { dhi: G_dhi, dni: G_dni } = _RAD.decomposeErbs(GHI_instant, sp.elevDeg, monthsDoy[mIdx]);
 
       // Pre-calcular siluetas de sombra de obstáculos por faldón para esta hora (O(F) en vez de O(N*F))
       const faldonShadowQuads = new Map();

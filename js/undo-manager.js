@@ -401,8 +401,8 @@
       if (data.selectedId && global.RAWind) {
         global.RAWind.selectedTurbineId = data.selectedId;
       }
-      if (global.RAWindVisualizer && typeof global.RAWindVisualizer.renderAllInCesium === 'function') {
-        global.RAWindVisualizer.renderAllInCesium();
+      if (global.RAWindVisualizer && typeof global.RAWindVisualizer.renderAll === 'function') {
+        global.RAWindVisualizer.renderAll();
       }
       if (typeof global.updateWindTurbineInspectorUI === 'function') {
         global.updateWindTurbineInspectorUI();

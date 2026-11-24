@@ -86,6 +86,45 @@ function convexHull2D(points) {
   return lower.concat(upper);
 }
 
+/**
+ * Discretiza un cuadrilátero 2D de panel en 3 sub-cadenas (sub-strings S1, S2, S3)
+ * representativas de las 3 ramas de diodos de bypass de un módulo comercial estándar / half-cut.
+ * En módulos fotovoltaicos comerciales estándar (IEC 61215), los 3 diodos dividen el ancho del
+ * panel en 3 columnas que recorren toda la longitud larga del módulo.
+ * @param {Array<{u:number,v:number}>} quad 4 vértices del módulo
+ * @returns {Array<Array<{u:number,v:number}>>} 3 sub-polígonos
+ */
+function dividePanelIntoSubstrings2D(quad) {
+  if (!quad || quad.length !== 4) return quad ? [quad] : [];
+  const p0 = quad[0], p1 = quad[1], p2 = quad[2], p3 = quad[3];
+  const d01 = Math.hypot(p1.u - p0.u, p1.v - p0.v);
+  const d12 = Math.hypot(p2.u - p1.u, p2.v - p1.v);
+
+  const lerp = (a, b, t) => ({ u: a.u + (b.u - a.u) * t, v: a.v + (b.v - a.v) * t });
+
+  if (d12 >= d01) {
+    const a0 = p0, b0 = p3;
+    const a1 = lerp(p0, p1, 1 / 3), b1 = lerp(p3, p2, 1 / 3);
+    const a2 = lerp(p0, p1, 2 / 3), b2 = lerp(p3, p2, 2 / 3);
+    const a3 = p1, b3 = p2;
+    return [
+      [a0, a1, b1, b0],
+      [a1, a2, b2, b1],
+      [a2, a3, b3, b2]
+    ];
+  } else {
+    const a0 = p0, b0 = p1;
+    const a1 = lerp(p0, p3, 1 / 3), b1 = lerp(p1, p2, 1 / 3);
+    const a2 = lerp(p0, p3, 2 / 3), b2 = lerp(p1, p2, 2 / 3);
+    const a3 = p3, b3 = p2;
+    return [
+      [a0, b0, b1, a1],
+      [a1, b1, b2, a2],
+      [a2, b2, b3, a3]
+    ];
+  }
+}
+
 function getBuildingPolygon2DForRoof(building, roof, poly) {
   if (!building || !building.points || building.points.length < 3) return null;
   if (!roof) return null;
@@ -405,8 +444,15 @@ if (typeof window !== 'undefined') {
   window.segmentsIntersect2D = segmentsIntersect2D;
   window.polygonsIntersect2D = polygonsIntersect2D;
   window.convexHull2D = convexHull2D;
+  window.dividePanelIntoSubstrings2D = dividePanelIntoSubstrings2D;
   window.getBuildingPolygon2DForRoof = getBuildingPolygon2DForRoof;
   window.getBuildingShadowPolygons2DForRoof = getBuildingShadowPolygons2DForRoof;
   window.defaultPanelFilter = defaultPanelFilter;
   if (typeof checkPanelObstacles !== 'undefined') window.checkPanelObstacles = checkPanelObstacles;
+} else if (typeof self !== 'undefined') {
+  self.isPointInPolygon2D = isPointInPolygon2D;
+  self.segmentsIntersect2D = segmentsIntersect2D;
+  self.polygonsIntersect2D = polygonsIntersect2D;
+  self.convexHull2D = convexHull2D;
+  self.dividePanelIntoSubstrings2D = dividePanelIntoSubstrings2D;
 }

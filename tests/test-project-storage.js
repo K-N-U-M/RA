@@ -320,9 +320,14 @@ global.inverterEquipmentState = {};
 lastCameraSetView = null;
 
 let windTurbinesRendered = false;
-global.RAWindTurbine = {
-  cleanAll: () => {},
-  ensureProps: () => {},
+global.RAWind = {
+  Entity: {
+    deserializeAll: () => {},
+    migrateLegacyObstacles: () => {}
+  }
+};
+global.RAWindVisualizer = {
+  clearAll: () => {},
   renderAll: () => { windTurbinesRendered = true; }
 };
 
@@ -358,7 +363,7 @@ global.wpGoToStep = (st) => { stepNavigated = st; };
   assert.strictEqual(global.obstacles.length, 2, 'Obstáculos restaurados');
   assert.ok(global.obstacles[0].cartesian instanceof MockCartesian3, 'Obstáculo cartesian debe ser Cartesian3');
   assert.ok(global.obstacles[1].cartesian instanceof MockCartesian3, 'Aerogenerador cartesian debe ser Cartesian3');
-  assert.strictEqual(windTurbinesRendered, true, 'RAWindTurbine.renderAll debe haberse ejecutado');
+  assert.strictEqual(windTurbinesRendered, true, 'RAWindVisualizer.renderAll debe haberse ejecutado');
 
   // Verificar Edificios
   assert.strictEqual(global.buildings.length, 1, 'Edificio restaurado');

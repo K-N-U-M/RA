@@ -22,7 +22,6 @@ global.showToast = function(title, msg, type) {
 // Cargar módulos necesarios
 require('../js/project-hierarchy.js');
 require('../js/obstacles.js');
-require('../js/wind-turbine.js');
 
 // 1. VERIFICACIÓN DE OBSTÁCULOS OCULTOS
 console.log('1. Test: Obstáculos ocultos');

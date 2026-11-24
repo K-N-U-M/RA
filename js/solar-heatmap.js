@@ -657,10 +657,10 @@
    * (transform, invTransform, uVec, vVec, normal, poly2D, rangeU/V, coplanar) sin sobrescribir sus paneles.
    * Corrige proyectos importados cuyo roofInfo solo contenía { area, tilt, azimuth, panels }.
    */
-  function ensureRoofGeometry(poly) {
+  function ensureRoofGeometry(poly, forceRebuild) {
     if (!poly || !Array.isArray(poly.points) || poly.points.length < 3) return poly ? poly.roofInfo : null;
     const ri = poly.roofInfo || {};
-    const hasGeo = !!(ri.invTransform && ri.transform && ri.uVec && ri.vVec && ri.normal && ri.center && Array.isArray(ri.poly2D) && ri.poly2D.length >= 3);
+    const hasGeo = !forceRebuild && !!(ri.invTransform && ri.transform && ri.uVec && ri.vVec && ri.normal && ri.center && Array.isArray(ri.poly2D) && ri.poly2D.length >= 3);
     if (hasGeo) {
       if (typeof ri.coplanar !== 'boolean') {
         const st = String(poly.structureType || ri.structureType || '').toLowerCase();
@@ -1597,56 +1597,7 @@
     let currentStep = 0;
     let frameStartTime = performance.now();
 
-    /**
-     * Discretiza un cuadrilátero 2D de panel en 3 sub-cadenas (sub-strings S1, S2, S3)
-     * representativas de las 3 ramas de diodos de bypass de un módulo comercial estándar / half-cut.
-     * En módulos fotovoltaicos comerciales estándar (IEC 61215), los 3 diodos dividen el ancho del
-     * panel en 3 columnas que recorren toda la longitud larga del módulo.
-     * @param {Array<{u:number,v:number}>} quad 4 vértices del módulo
-     * @returns {Array<Array<{u:number,v:number}>>} 3 sub-polígonos
-     */
-    function dividePanelIntoSubstrings2D(quad) {
-      if (!quad || quad.length !== 4) return quad ? [quad] : [];
-      const p0 = quad[0], p1 = quad[1], p2 = quad[2], p3 = quad[3];
-      const d01 = Math.hypot(p1.u - p0.u, p1.v - p0.v);
-      const d12 = Math.hypot(p2.u - p1.u, p2.v - p1.v);
-
-      const lerp = (a, b, t) => ({ u: a.u + (b.u - a.u) * t, v: a.v + (b.v - a.v) * t });
-
-      if (d12 >= d01) {
-        // La dimensión larga es p1->p2 y p0->p3. Los diodos dividen la dimensión corta (p0->p1 y p3->p2)
-        // generando 3 columnas longitudinales completas a lo largo de la altura del módulo.
-        const a0 = p0, b0 = p3;
-        const a1 = lerp(p0, p1, 1 / 3), b1 = lerp(p3, p2, 1 / 3);
-        const a2 = lerp(p0, p1, 2 / 3), b2 = lerp(p3, p2, 2 / 3);
-        const a3 = p1, b3 = p2;
-        return [
-          [a0, a1, b1, b0],
-          [a1, a2, b2, b1],
-          [a2, a3, b3, b2]
-        ];
-      } else {
-        // La dimensión larga es p0->p1 y p3->p2. Los diodos dividen la dimensión corta (p0->p3 y p1->p2).
-        const a0 = p0, b0 = p1;
-        const a1 = lerp(p0, p3, 1 / 3), b1 = lerp(p1, p2, 1 / 3);
-        const a2 = lerp(p0, p3, 2 / 3), b2 = lerp(p1, p2, 2 / 3);
-        const a3 = p3, b3 = p2;
-        return [
-          [a0, b0, b1, a1],
-          [a1, b1, b2, a2],
-          [a2, b2, b3, a3]
-        ];
-      }
-    }
-
-    // 5. Bucle Time-Sliced con presupuesto de 15ms
-    const _T_AMB_TABLE = {
-      costal_med: [11.0, 12.0, 14.0, 16.0, 20.0, 25.0, 28.0, 28.5, 24.0, 19.0, 14.0, 11.0],
-      costa_med:  [11.0, 12.0, 14.0, 16.0, 20.0, 25.0, 28.0, 28.5, 24.0, 19.0, 14.0, 11.0],
-      interior:   [5.0,  7.0,  10.0, 12.0, 17.0, 23.0, 27.0, 27.0, 22.0, 15.0,  9.0,  5.0],
-      atlantico:  [9.0,  10.0, 12.0, 13.0, 16.0, 19.0, 21.0, 21.5, 19.0, 15.0, 11.0,  9.0],
-      canarias:   [18.0, 18.5, 19.0, 20.0, 21.5, 23.5, 25.0, 26.0, 25.5, 23.5, 21.0, 19.0]
-    };
+    // 5. Bucle Time-Sliced con presupuesto de 15ms (dividePanelIntoSubstrings2D y T_AMB en SSOT)
     const climaticZone = (typeof getClimaticZone === 'function') ? getClimaticZone(lat, lng) : 'interior';
     const noctModule = (activeModule && (activeModule.noct || activeModule.NOCT)) || 45;
     const rawGamma = (activeModule && (activeModule.tempCoeffPmax || activeModule.gammaPmp || (activeModule.tecnologia && activeModule.tecnologia.includes('N-Type') ? -0.0028 : -0.0034))) || -0.0034;
@@ -1697,7 +1648,9 @@
       for (let mIdx = 0; mIdx < monthsDoy.length; mIdx++) {
       const m = monthsReal[mIdx];
       // Temperatura ambiente de diseño según zona climática y mes calendario REAL
-      const tAmbMonth = (_T_AMB_TABLE[climaticZone] || _T_AMB_TABLE.interior)[m];
+      const tAmbMonth = (window.RA && window.RA.Radiation && typeof window.RA.Radiation.getAmbientTempMonth === 'function')
+        ? window.RA.Radiation.getAmbientTempMonth(climaticZone, m)
+        : 17.0;
       const GHI_daily_Wh = (typeof getRobustMonthlyGHI === 'function')
         ? getRobustMonthlyGHI(lat, lng, m)
         : ((typeof estimateMonthlyGHI === 'function') ? estimateMonthlyGHI(lat, m) : (4600 * (1 + 0.32 * Math.sin((m - 2) * Math.PI / 6))));
@@ -3076,8 +3029,10 @@
     getCriticalShadedPanels: wpGetCriticalShadedPanels,
     updateShadedCleanupUI: wpUpdateShadedCleanupUI,
     cleanCriticalShadedPanels: wpCleanCriticalShadedPanels,
-    filterPanelsForPolyline: wpFilterPanelsForPolyline
+    filterPanelsForPolyline: wpFilterPanelsForPolyline,
+    ensureRoofGeometry: ensureRoofGeometry
   };
+  window.raEnsureRoofGeometry = ensureRoofGeometry;
 
   window.raShadowSimConfig = window.raShadowSimConfig || {
     includeObstacles: true,

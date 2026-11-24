@@ -114,34 +114,13 @@
   }
 
   /**
-   * Aproximación numérica de la función Gamma Γ(x) (fórmula de Lanczos/Stirling)
-   * para calcular el parámetro de escala de Weibull c = vMean / Γ(1 + 1/k).
+   * Delega al módulo canónico RAWind.WAsP.lanczosGamma (js/wind/wasp-parser.js).
    */
   function gammaFunction(z) {
-    if (z <= 0) return 1.0;
-    // Para k=2 -> z = 1.5 -> Γ(1.5) = 0.8862269
-    var g = 7;
-    var p = [
-      0.99999999999980993,
-      676.5203681218851,
-      -1259.1392167224028,
-      771.32342877765313,
-      -176.61502916214059,
-      12.507343278686905,
-      -0.13857109526572012,
-      9.9843695780195716e-6,
-      1.5056327351493116e-7
-    ];
-    if (z < 0.5) {
-      return Math.PI / (Math.sin(Math.PI * z) * gammaFunction(1 - z));
+    if (RAWind.WAsP && typeof RAWind.WAsP.lanczosGamma === 'function') {
+      return RAWind.WAsP.lanczosGamma(z);
     }
-    z -= 1;
-    var x = p[0];
-    for (var i = 1; i < g + 2; i++) {
-      x += p[i] / (z + i);
-    }
-    var t = z + g + 0.5;
-    return Math.sqrt(2 * Math.PI) * Math.pow(t, z + 0.5) * Math.exp(-t) * x;
+    throw new Error('Módulo RAWind.WAsP no cargado');
   }
 
   /**
@@ -901,81 +880,15 @@
   }
 
   /**
-   * Parser client-side de archivos de clima eólico generalizado WAsP (.lib / GWC)
-   * del Global Wind Atlas (DTU Wind Energy).
+   * Parser client-side de archivos WAsP (.lib / GWC) — delega al SSOT RAWind.WAsP.parseWAsPLib.
    * @param {string} libText Contenido en texto del archivo .lib
    * @returns {Object}
    */
   function parseWAsPLib(libText) {
-    if (typeof libText !== 'string' || libText.trim().length === 0) {
-      throw new Error('Archivo .lib vacío o inválido');
+    if (RAWind.WAsP && typeof RAWind.WAsP.parseWAsPLib === 'function') {
+      return RAWind.WAsP.parseWAsPLib(libText);
     }
-    var lines = libText.trim().split(/\r?\n/).map(function (l) { return l.trim(); }).filter(function (l) { return l.length > 0; });
-    if (lines.length < 5) throw new Error('Formato .lib de WAsP incompleto');
-
-    var header = lines[0];
-    var coordMatch = header.match(/<coordinates>([0-9.-]+),([0-9.-]+)/);
-    var lon = coordMatch ? parseFloat(coordMatch[1]) : 0;
-    var lat = coordMatch ? parseFloat(coordMatch[2]) : 0;
-
-    var parts2 = lines[1].split(/\s+/).map(Number);
-    var numRough = parts2[0], numHeights = parts2[1], numSectors = parts2[2];
-    var roughnesses = lines[2].split(/\s+/).map(Number);
-    var heights = lines[3].split(/\s+/).map(Number);
-
-    var curLine = 4;
-    var roughnessBlocks = [];
-    for (var r = 0; r < numRough; r++) {
-      var freqs = lines[curLine++].split(/\s+/).map(Number);
-      var heightData = [];
-      for (var h = 0; h < numHeights; h++) {
-        var A = lines[curLine++].split(/\s+/).map(Number);
-        var k = lines[curLine++].split(/\s+/).map(Number);
-        var vMean = 0;
-        for (var s = 0; s < numSectors; s++) {
-          var vSec = A[s] * gammaFunction(1 + 1 / k[s]);
-          vMean += (freqs[s] / 100) * vSec;
-        }
-        heightData.push({ heightM: heights[h], A: A, k: k, vMean: Number(vMean.toFixed(2)) });
-      }
-      roughnessBlocks.push({ z0: roughnesses[r], freqs: freqs, heightData: heightData });
-    }
-
-    // Rugosidad 0.03m (campo abierto / terreno estándar) o la más próxima
-    var fieldBlock = roughnessBlocks.find(function (b) { return Math.abs(b.z0 - 0.03) < 0.01; }) || roughnessBlocks[1] || roughnessBlocks[0];
-    var h10 = fieldBlock.heightData.find(function (d) { return d.heightM === 10; }) || fieldBlock.heightData[0];
-    var h50 = fieldBlock.heightData.find(function (d) { return d.heightM === 50; }) || fieldBlock.heightData[1];
-    var alpha = (h50.vMean > h10.vMean && h10.vMean > 0)
-      ? Math.log(h50.vMean / h10.vMean) / Math.log(50 / 10)
-      : 0.143;
-
-    var maxFreq = -1;
-    var prevailingSectorIdx = 0;
-    for (var sec = 0; sec < numSectors; sec++) {
-      if (fieldBlock.freqs[sec] > maxFreq) {
-        maxFreq = fieldBlock.freqs[sec];
-        prevailingSectorIdx = sec;
-      }
-    }
-    var prevailingDeg = Math.round((prevailingSectorIdx * (360 / numSectors)) % 360);
-
-    return {
-      source: 'Global Wind Atlas 3.0 (DTU / World Bank 250m WAsP)',
-      latitude: lat,
-      longitude: lon,
-      vMeanRefMs: h10.vMean,
-      refHeightM: 10,
-      vMean50mMs: h50.vMean,
-      shearExponentAlpha: Number(Math.max(0.08, Math.min(0.40, alpha)).toFixed(3)),
-      weibullK: Number(h10.k[prevailingSectorIdx].toFixed(2)),
-      prevailingWindDirDeg: prevailingDeg,
-      ambientTempC: 15.0,
-      sectorFrequencies: fieldBlock.freqs,
-      sectorA10: h10.A,
-      sectorK10: h10.k,
-      roughnesses: roughnesses,
-      heights: heights
-    };
+    throw new Error('Módulo RAWind.WAsP no cargado');
   }
 
   /**

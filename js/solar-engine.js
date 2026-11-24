@@ -22,16 +22,14 @@
   };
   const GE_EPSILON = 1e-6;
 
-  // Constantes de simulación (espejo de las definidas en financials.js; este
-  // módulo debe ser autónomo y no depender del orden de carga de otros módulos)
-  const SOLAR_CONST = 1367; // W/m² Constante Solar (WMO)
-  const MONTH_DAYS_SIM = [31,28,31,30,31,30,31,31,30,31,30,31];
-  const T_AMB_MONTHLY_ESP = {
-    costal_med: [11.0,12.0,14.0,16.0,20.0,25.0,28.0,28.5,24.0,19.0,14.0,11.0],
-    costa_med:  [11.0,12.0,14.0,16.0,20.0,25.0,28.0,28.5,24.0,19.0,14.0,11.0],
-    interior:   [5.0, 7.0,10.0,12.0,17.0,23.0,27.0,27.0,22.0,15.0, 9.0, 5.0],
-    atlantico:  [9.0,10.0,12.0,13.0,16.0,19.0,21.0,21.5,19.0,15.0,11.0, 9.0],
-    canarias:   [18.0,18.5,19.0,20.0,21.5,23.5,25.0,26.0,25.5,23.5,21.0,19.0]
+  // SSOT de física solar y constantes climáticas: delega en js/radiation-engine.js (cargado antes en index.html)
+  function _getRad() {
+    return (typeof global !== 'undefined' && global.RA && global.RA.Radiation) ? global.RA.Radiation : null;
+  }
+  const SOLAR_CONST = (_getRad() && _getRad().SOLAR_CONST_WM2) || 1367;
+  const MONTH_DAYS_SIM = (_getRad() && _getRad().MONTH_DAYS) || [31,28,31,30,31,30,31,31,30,31,30,31];
+  const T_AMB_MONTHLY_ESP = (_getRad() && _getRad().T_AMB_MONTHLY_ESP) || {
+    interior: [5.0, 7.0, 10.0, 12.0, 17.0, 23.0, 27.0, 27.0, 22.0, 15.0, 9.0, 5.0]
   };
   const PVGIS_PROXIES = {
     allorigins: 'https://api.allorigins.win/raw?url=',
@@ -111,17 +109,11 @@ function getDayOfYear(date) {
 }
 
 function solarAzimuthAtan2(latDeg, declDeg, haDeg) {
-  const phi = degToRad(latDeg);
-  const delta = degToRad(declDeg);
-  const omega = degToRad(haDeg);
-  // sin(δ)·cos(φ) − cos(δ)·sin(φ)·cos(ω) = cos(alt)·cos(Az) — el numerador
-  // debe llevar cos(alt)·sin(Az) = −sin(ω)·cos(δ). Sin el cos(δ) el acimut
-  // desviaba ~2-3° en solsticios y latitudes altas.
-  const A = Math.atan2(
-    -Math.sin(omega) * Math.cos(delta),
-    Math.sin(delta) * Math.cos(phi) - Math.cos(delta) * Math.sin(phi) * Math.cos(omega)
-  );
-  return normalizeAzimuth(radToDeg(A));
+  const rad = _getRad();
+  if (rad && typeof rad.solarAzimuthAtan2 === 'function') {
+    return rad.solarAzimuthAtan2(latDeg, declDeg, haDeg);
+  }
+  throw new Error('Módulo RA.Radiation no cargado');
 }
 
 function sunVector(elevationDeg, azimuthDeg) {
@@ -311,119 +303,19 @@ function rayCastingIsShaded(modulePoint, sunVec, obstacleBoxes) {
 }
 
 function computeHighPrecisionSolarPosition(latDeg, lonDeg, doy, solarDecimalHour, isUtc = true) {
-  if (typeof global !== 'undefined' && global.RA && global.RA.Radiation && typeof global.RA.Radiation.computeSolarPosition === 'function') {
-    return global.RA.Radiation.computeSolarPosition(latDeg, lonDeg, doy, solarDecimalHour, isUtc);
+  const rad = _getRad();
+  if (rad && typeof rad.computeSolarPosition === 'function') {
+    return rad.computeSolarPosition(latDeg, lonDeg, doy, solarDecimalHour, isUtc);
   }
-  const latRad = (typeof Cesium !== 'undefined' && Cesium.Math) ? Cesium.Math.toRadians(latDeg) : (latDeg * Math.PI) / 180;
-  const gamma = (2 * Math.PI / 365) * (doy - 1 + (solarDecimalHour - 12) / 24);
-
-  // Ecuación del Tiempo (Et en minutos)
-  const Et = 229.18 * (
-    0.000075 +
-    0.001868 * Math.cos(gamma) - 0.032077 * Math.sin(gamma) -
-    0.014615 * Math.cos(2 * gamma) - 0.040849 * Math.sin(2 * gamma)
-  );
-
-  // Declinación Solar precisa (Spencer)
-  const declRad = 0.006918 -
-    0.399912 * Math.cos(gamma) + 0.070257 * Math.sin(gamma) -
-    0.006758 * Math.cos(2 * gamma) + 0.000907 * Math.sin(2 * gamma) -
-    0.002697 * Math.cos(3 * gamma) + 0.00148 * Math.sin(3 * gamma);
-
-  // Tiempo Solar Verdadero y Ángulo Horario (omega)
-  // Si ya se entrega hora solar (isUtc === false), no sumar de nuevo el desfase de longitud
-  const solarTime = isUtc ? (solarDecimalHour + (4 * lonDeg + Et) / 60) : solarDecimalHour;
-  const omegaRad = ((solarTime - 12) * 15 * Math.PI) / 180;
-
-  // Altitud Solar (Elevación)
-  const sinElev = Math.sin(latRad) * Math.sin(declRad) + Math.cos(latRad) * Math.cos(declRad) * Math.cos(omegaRad);
-  const elevRad = Math.asin(Math.max(-1, Math.min(1, sinElev)));
-  const elevDeg = (elevRad * 180) / Math.PI;
-
-  // Acimut Solar (0° = Sur, Este = -90°, Oeste = +90°)
-  let azRad = 0;
-  const cosElev = Math.cos(elevRad);
-  if (elevDeg > 0.01 && cosElev > 1e-5) {
-    const cosAz = (Math.sin(declRad) * Math.cos(latRad) - Math.cos(declRad) * Math.sin(latRad) * Math.cos(omegaRad)) / cosElev;
-    const safeCos = Math.max(-1, Math.min(1, cosAz));
-    azRad = Math.acos(safeCos);
-    if (Math.sin(omegaRad) > 0) azRad = 2 * Math.PI - azRad;
-  } else if (cosElev <= 1e-5) {
-    azRad = Math.PI; // En el cenit exacto (elev = 90°), acimut neutral hacia el Sur
-  }
-  const azDegFromNorth = (azRad * 180) / Math.PI;
-  let azDegFromSouth = azDegFromNorth - 180;
-  if (azDegFromSouth > 180) azDegFromSouth -= 360;
-  if (azDegFromSouth <= -180) azDegFromSouth += 360;
-
-  return {
-    elevDeg: Math.max(0, elevDeg),
-    elevRad: elevRad,
-    azDegFromSouth: azDegFromSouth,
-    azDegFromNorth: azDegFromNorth,
-    declDeg: (declRad * 180) / Math.PI,
-    EtMinutes: Et,
-    isDay: elevDeg > 0
-  };
+  throw new Error('Módulo RA.Radiation no cargado');
 }
 
 function computePOAIrradiance(G_ghi, latDeg, tiltDeg, azSurDeg, sunElevDeg, sunAzSurDeg, albedo = 0.20, dayOfYear = null) {
-  // [B2] Motor único de radiación (Erbs + Hay-Davies) — SSOT en js/radiation-engine.js
-  if (typeof global !== 'undefined' && global.RA && global.RA.Radiation && typeof global.RA.Radiation.poa === 'function') {
-    return global.RA.Radiation.poa(G_ghi, latDeg, tiltDeg, azSurDeg, sunElevDeg, sunAzSurDeg, albedo, dayOfYear);
+  const rad = _getRad();
+  if (rad && typeof rad.poa === 'function') {
+    return rad.poa(G_ghi, latDeg, tiltDeg, azSurDeg, sunElevDeg, sunAzSurDeg, albedo, dayOfYear);
   }
-  // Fallback para entornos sin el módulo (p. ej. tests aislados)
-  if (sunElevDeg <= 0 || G_ghi <= 0) return { G_poa: 0, G_b: 0, G_d: 0, G_r: 0, iamFactor: 1 };
-
-  const tiltRad = (tiltDeg * Math.PI) / 180;
-  const sunElevRad = (sunElevDeg * Math.PI) / 180;
-  const deltaAzRad = ((sunAzSurDeg - azSurDeg) * Math.PI) / 180;
-
-  // Coseno del ángulo de incidencia solar (theta) sobre el módulo
-  const cosIncidence = Math.sin(sunElevRad) * Math.cos(tiltRad) +
-                       Math.cos(sunElevRad) * Math.sin(tiltRad) * Math.cos(deltaAzRad);
-  const cosTheta = Math.max(0, Math.min(1, cosIncidence));
-  const incAngleDeg = (Math.acos(cosTheta) * 180) / Math.PI;
-
-  // Separación empírica Erbs
-  const _e0 = (typeof dayOfYear === 'number' && isFinite(dayOfYear) && dayOfYear >= 1)
-    ? (1 + 0.033 * Math.cos(2 * Math.PI * (dayOfYear - 1) / 365)) : 1;
-  const kt = Math.min(1.0, Math.max(0.0, G_ghi / (1367 * _e0 * Math.sin(sunElevRad) + 1e-3)));
-  let df = 0.22;
-  if (kt < 0.22) df = 1.0 - 0.09 * kt;
-  else if (kt < 0.80) df = 0.9511 - 0.1604 * kt + 4.388 * Math.pow(kt, 2) - 16.638 * Math.pow(kt, 3) + 12.336 * Math.pow(kt, 4);
-  else df = 0.165;
-
-  const G_dhi = G_ghi * df;
-  const sinElevFloor = Math.max(Math.sin(sunElevRad), 0.087); // Límite inferior a ~5° para evitar asíntota
-  const G_dni = (G_ghi - G_dhi) / (sinElevFloor + 1e-4);
-
-  // Componente Directa (Beam)
-  const G_b_poa = Math.max(0, G_dni * cosTheta);
-
-  // Componente Difusa Anisotrópica (Hay-Davies)
-  const Ai = G_dni / 1367;
-  const G_d_poa = G_dhi * (Ai * (cosTheta / sinElevFloor) + (1 - Ai) * ((1 + Math.cos(tiltRad)) / 2));
-
-  // Componente Reflejada (Albedo)
-  const G_r_poa = G_ghi * albedo * ((1 - Math.cos(tiltRad)) / 2);
-
-  // Modificador de Ángulo de Incidencia (IAM - ASHRAE) por componente
-  const b0 = 0.05;
-  const iamFactor = (cosTheta > 0.01) ? Math.max(0, 1 - b0 * ((1 / cosTheta) - 1)) : 0;
-  const iamDiff = Math.max(0, 1 - b0 * (1 / Math.cos(60 * Math.PI / 180) - 1));
-  const iamAlb = Math.max(0, 1 - b0 * (1 / Math.cos(68 * Math.PI / 180) - 1));
-
-  const G_poa_effective = G_b_poa * iamFactor + G_d_poa * iamDiff + G_r_poa * iamAlb;
-
-  return {
-    G_poa: G_poa_effective,
-    G_b: G_b_poa,
-    G_d: G_d_poa,
-    G_r: G_r_poa,
-    incAngleDeg: incAngleDeg,
-    iamFactor: iamFactor
-  };
+  throw new Error('Módulo RA.Radiation no cargado');
 }
 
 function computeCellTemperature(T_amb, G_poa, isRoofMounted = true, windSpeed = 1.5) {
@@ -438,25 +330,28 @@ function computeCellTemperature(T_amb, G_poa, isRoofMounted = true, windSpeed = 
   return Math.max(-20, Math.min(95, tCell));
 }
 
-function solarDeclination(dayOfYear) {
-  const gamma = (2 * Math.PI / 365) * (dayOfYear - 1);
-  const declRad = 0.006918 -
-    0.399912 * Math.cos(gamma) + 0.070257 * Math.sin(gamma) -
-    0.006758 * Math.cos(2 * gamma) + 0.000907 * Math.sin(2 * gamma) -
-    0.002697 * Math.cos(3 * gamma) + 0.00148 * Math.sin(3 * gamma);
-  return (declRad * 180) / Math.PI;
+function solarDeclination(dayOfYear, solarDecimalHour) {
+  const rad = _getRad();
+  if (rad && typeof rad.solarDeclination === 'function') {
+    return rad.solarDeclination(dayOfYear, solarDecimalHour);
+  }
+  throw new Error('Módulo RA.Radiation no cargado');
 }
 
 function hourAngle(hourSolar) {
-  return 15 * (hourSolar - 12); // degrees
+  const rad = _getRad();
+  if (rad && typeof rad.hourAngle === 'function') {
+    return rad.hourAngle(hourSolar);
+  }
+  return 15 * (hourSolar - 12);
 }
 
 function solarAltitude(latDeg, declDeg, haDeg) {
-  const lat = latDeg * Math.PI / 180;
-  const decl = declDeg * Math.PI / 180;
-  const ha = haDeg * Math.PI / 180;
-  const sinAlt = Math.sin(lat)*Math.sin(decl) + Math.cos(lat)*Math.cos(decl)*Math.cos(ha);
-  return Math.asin(Math.max(Math.min(sinAlt, 1), -1)) * 180 / Math.PI;
+  const rad = _getRad();
+  if (rad && typeof rad.solarAltitude === 'function') {
+    return rad.solarAltitude(latDeg, declDeg, haDeg);
+  }
+  throw new Error('Módulo RA.Radiation no cargado');
 }
 
 function solarAzimuth(latDeg, declDeg, haDeg, altDeg) {
@@ -475,68 +370,19 @@ function solarAzimuth(latDeg, declDeg, haDeg, altDeg) {
 
 function calcPOA(GHI, DHI, latDeg, tiltDeg, azimutPanelDeg, dayOfYear, hourSolar, azimuthConvention) {
   if (GHI <= 0) return 0;
-  const _radMod = (typeof global !== 'undefined' && global.RA && global.RA.Radiation) ? global.RA.Radiation : null;
-  let panelAzSur = (_radMod && typeof _radMod.normalizePanelAzSur === 'function')
-    ? _radMod.normalizePanelAzSur(azimutPanelDeg, azimuthConvention || 'auto')
-    : ((azimutPanelDeg > 90 && azimutPanelDeg <= 360 && azimuthConvention !== 'solar') ? (((azimutPanelDeg - 180) % 360 + 540) % 360 - 180) : (azimutPanelDeg || 0));
-
-  // [B2] Motor único de radiación: calcular geometría solar y delegar en RA.Radiation.poa (honrando DHI explícito)
-  if (_radMod && typeof _radMod.poa === 'function') {
-    const decl = solarDeclination(dayOfYear);
-    const ha = hourAngle(hourSolar);
-    const altDeg = solarAltitude(latDeg, decl, ha);
-    if (altDeg <= 0) return 0;
-    const azFromNorth = solarAzimuthAtan2(latDeg, decl, ha);
-    const sunAzSur = azFromNorth - 180;
-    const explicitDhi = (typeof DHI === 'number' && Number.isFinite(DHI) && DHI >= 0) ? DHI : undefined;
-    return _radMod.poa(GHI, latDeg, tiltDeg, panelAzSur, altDeg, sunAzSur, 0.20, dayOfYear, explicitDhi).G_poa;
+  const _radMod = _getRad();
+  if (!_radMod || typeof _radMod.poa !== 'function') {
+    throw new Error('Módulo RA.Radiation no cargado');
   }
-  // Fallback legacy (Perez simplificado) para entornos sin el módulo
-  const DNI = Math.max((GHI - DHI) / Math.max(Math.sin(solarAltitude(latDeg, solarDeclination(dayOfYear), hourAngle(hourSolar)) * Math.PI / 180), 0.01), 0);
-
-  const tilt = tiltDeg * Math.PI / 180;
-  const decl = solarDeclination(dayOfYear) * Math.PI / 180;
-  const ha   = hourAngle(hourSolar) * Math.PI / 180;
-  const lat  = latDeg * Math.PI / 180;
-
-  // Incidence angle on tilted plane
-  // Convención Duffie & Beckman: gamma = 0° es Sur, +90° Oeste, -90° Este, 180° Norte.
-  // La aplicación utiliza la convención náutica / brújula: 0° Norte, 90° Este, 180° Sur, 270° Oeste.
-  // Transformación canónica: gamma_Duffie = azimutPanelDeg - 180°.
-  const azPanel = panelAzSur * Math.PI / 180;
-  const cosTheta = (
-    Math.sin(decl)*Math.sin(lat)*Math.cos(tilt)
-    - Math.sin(decl)*Math.cos(lat)*Math.sin(tilt)*Math.cos(azPanel)
-    + Math.cos(decl)*Math.cos(lat)*Math.cos(tilt)*Math.cos(ha)
-    + Math.cos(decl)*Math.sin(lat)*Math.sin(tilt)*Math.cos(azPanel)*Math.cos(ha)
-    + Math.cos(decl)*Math.sin(tilt)*Math.sin(azPanel)*Math.sin(ha)
-  );
-
-  // Rb = ratio de haz (cosθ inclinado / cosθ horizontal = cos cenital).
-  // El cos cenital REQUIERE el factor cos(ω); sin él solo es válido a mediodía.
-  // NOTA: Rb no se usa en el retorno (el directo va con DNI·cosTheta);
-  // se mantiene corregido como referencia del ratio de haz.
-  const Rb = Math.max(cosTheta, 0) / Math.max(Math.sin(lat)*Math.sin(decl) + Math.cos(lat)*Math.cos(decl)*Math.cos(ha), 0.01);
-
-  // Perez diffuse model (1990 standard formulation: clearness epsilon depends on zenith angle theta_z^3)
-  const sinAlpha = Math.sin(lat) * Math.sin(decl) + Math.cos(lat) * Math.cos(decl) * Math.cos(ha);
-  const alphaDeg = Math.asin(Math.max(-1, Math.min(1, sinAlpha))) * 180 / Math.PI;
-  const thetaZDeg = Math.max(0, 90 - alphaDeg);
-  const thetaZ3 = 5.535e-6 * Math.pow(thetaZDeg, 3);
-  const eps = (DHI > 1e-2 && DNI > 1) ? (((DHI + DNI) / DHI + thetaZ3) / (1 + thetaZ3)) : 1.0;
-  const Delta = DHI / SOLAR_CONST * (1 + 0.033 * Math.cos(2 * Math.PI * dayOfYear / 365));
-  const F1 = Math.max(0.041 * (eps - 1) - 0.002 * Delta, 0);
-  const F2 = 0.012 * (eps - 1) - 0.011 * Delta;
-
-  const a = Math.max(cosTheta, 0);
-  const sinAlphaDeg = Math.sin(Math.max(0, alphaDeg) * Math.PI / 180);
-  const b = Math.max(Math.cos(85 * Math.PI / 180), sinAlphaDeg);
-  const skyDiffuse = DHI * ((1 - F1) * (1 + Math.cos(tilt)) / 2 + F1 * (a / b) + F2 * Math.sin(tilt));
-
-  const albedo = 0.20;
-  const groundReflected = GHI * albedo * (1 - Math.cos(tilt)) / 2;
-
-  return Math.max(DNI * Math.max(cosTheta, 0) + skyDiffuse + groundReflected, 0);
+  const panelAzSur = _radMod.normalizePanelAzSur(azimutPanelDeg, azimuthConvention || 'auto');
+  const decl = _radMod.solarDeclination(dayOfYear, hourSolar);
+  const ha = _radMod.hourAngle(hourSolar);
+  const altDeg = _radMod.solarAltitude(latDeg, decl, ha);
+  if (altDeg <= 0) return 0;
+  const azFromNorth = _radMod.solarAzimuthAtan2(latDeg, decl, ha);
+  const sunAzSur = azFromNorth - 180;
+  const explicitDhi = (typeof DHI === 'number' && Number.isFinite(DHI) && DHI >= 0) ? DHI : undefined;
+  return _radMod.poa(GHI, latDeg, tiltDeg, panelAzSur, altDeg, sunAzSur, 0.20, dayOfYear, explicitDhi).G_poa;
 }
 
 function calcIAM(cosTheta) {
@@ -577,24 +423,11 @@ function getClimaticZone(latDeg, lonDeg) {
 }
 
 function estimateMonthlyGHI(latDeg, monthIdx) {
-  // Simplified monthly clearness index model (Kt) for Spain
-  const KT_BASE = [0.55,0.58,0.60,0.60,0.60,0.64,0.68,0.68,0.62,0.57,0.52,0.50];
-  // En el hemisferio norte, la radiación solar horizontal decrece con la latitud (+Norte)
-  const rawLatFactor = 1 - (latDeg - 40) * 0.008;
-  const latFactor = Math.max(0.80, Math.min(1.25, rawLatFactor));
-  const extraterrestrial = []; // Extraterrestrial on horizontal
-  const midDay = [17,47,75,105,135,162,198,228,258,288,318,344];
-  for (let m = 0; m < 12; m++) {
-    const doy = midDay[m];
-    const decl = solarDeclination(doy) * Math.PI / 180;
-    const lat = latDeg * Math.PI / 180;
-    const wsArg = Math.max(-1, Math.min(1, -Math.tan(lat) * Math.tan(decl)));
-    const ws = Math.acos(wsArg);
-    const Ho = (24 / Math.PI) * SOLAR_CONST * (1 + 0.033 * Math.cos(2 * Math.PI * doy / 365))
-              * (ws * Math.sin(lat) * Math.sin(decl) + Math.cos(lat) * Math.cos(decl) * Math.sin(ws));
-    extraterrestrial.push(Ho);
+  const rad = _getRad();
+  if (rad && typeof rad.estimateMonthlyGHI === 'function') {
+    return rad.estimateMonthlyGHI(latDeg, monthIdx);
   }
-  return extraterrestrial[monthIdx] * KT_BASE[monthIdx] * latFactor;
+  throw new Error('Módulo RA.Radiation no cargado');
 }
 
 /**
