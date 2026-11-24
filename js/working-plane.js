@@ -6204,11 +6204,12 @@ function _wpUpdateUINow() {
     if (WP.planes.length > 0) {
       planesSelectorContainer.style.display = 'block';
       if (planesCountBadge) planesCountBadge.textContent = WP.planes.length + (WP.planes.length === 1 ? ' Plano' : ' Planos');
-      planesDropdown.innerHTML = WP.planes.map((p, idx) => 
-        '<option value="' + idx + '"' + (idx === WP.activePlaneIdx ? ' selected' : '') + '>' +
-          (idx === WP.activePlaneIdx ? '<i data-lucide=\"star\" class=\"icon-sm\"></i> ' : '') + p.name + ' · ' + (typeof p.tiltDeg === 'number' ? p.tiltDeg.toFixed(1) : '—') + '° (' + getAzimuthCardinal(p.azimuthDeg) + ')' +
-        '</option>'
-      ).join('');
+      planesDropdown.innerHTML = WP.planes.map((p, idx) => {
+        const pNameEsc = (window.RASanitize && window.RASanitize.plain) ? window.RASanitize.plain(p.name) : String(p.name || '').replace(/[<>"'&]/g, '');
+        return '<option value="' + idx + '"' + (idx === WP.activePlaneIdx ? ' selected' : '') + '>' +
+          (idx === WP.activePlaneIdx ? '★ ' : '') + pNameEsc + ' · ' + (typeof p.tiltDeg === 'number' ? p.tiltDeg.toFixed(1) : '—') + '° (' + getAzimuthCardinal(p.azimuthDeg) + ')' +
+        '</option>';
+      }).join('');
     } else {
       planesSelectorContainer.style.display = 'none';
     }
@@ -6319,16 +6320,19 @@ function _wpUpdateUINow() {
     const unselectedOptP1 = (WP.selectedPolyIdx === -1)
       ? '<option value="-1" disabled selected>— Sin faldón en plano activo —</option>'
       : '';
+    const _escWp = (v) => (window.RASanitize && typeof window.RASanitize.plain === 'function')
+      ? window.RASanitize.plain(v)
+      : String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     const optionsHtml = unselectedOptP1 + WP.polylines.map((poly, idx) => {
-      const pName = poly.name || ('Faldon #' + (idx + 1));
+      const pName = _escWp(poly.name || ('Faldon #' + (idx + 1)));
       const planeTag = (typeof poly.planeIdx === 'number' && WP.planes && WP.planes[poly.planeIdx])
-        ? ' [' + (WP.planes[poly.planeIdx].name || ('Plano #' + (poly.planeIdx + 1))) + ']'
+        ? ' [' + _escWp(WP.planes[poly.planeIdx].name || ('Plano #' + (poly.planeIdx + 1))) + ']'
         : '';
       const pArea = (typeof poly.area === 'number')
         ? poly.area
         : (typeof wpPolylineArea3D === 'function' && poly.points && poly.points.length >= 3 ? (wpPolylineArea3D(poly.points) || 0) : 0);
       return '<option value="' + idx + '"' + (idx === WP.selectedPolyIdx ? ' selected' : '') + '>' +
-        (idx === WP.selectedPolyIdx ? '<i data-lucide=\"star\" class=\"icon-sm\"></i> ' : '') + pName + planeTag + ' (' + poly.points.length + ' vtx · ' + pArea.toFixed(1) + ' m²)' +
+        (idx === WP.selectedPolyIdx ? '★ ' : '') + pName + planeTag + ' (' + poly.points.length + ' vtx · ' + pArea.toFixed(1) + ' m²)' +
       '</option>';
     }).join('');
 
@@ -6972,23 +6976,55 @@ function updateCatalogHeaderIcons() {
 }
 
 function populateEquipmentModalUI() {
+  const _escCat = (v) => (window.RASanitize && typeof window.RASanitize.plain === 'function')
+    ? window.RASanitize.plain(v)
+    : String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  const _bindCatalogTableClicks = (tbody) => {
+    if (!tbody || tbody.dataset.raCatBound) return;
+    tbody.dataset.raCatBound = '1';
+    tbody.addEventListener('click', (e) => {
+      const btn = e.target && e.target.closest ? e.target.closest('button[data-cat-act]') : null;
+      if (!btn) return;
+      const act = btn.getAttribute('data-cat-act');
+      const kind = btn.getAttribute('data-cat-kind');
+      const id = btn.getAttribute('data-cat-id');
+      if (act === 'delete' && typeof deleteCatalogItem === 'function') deleteCatalogItem(kind, id);
+      else if (act === 'edit' && typeof openEditEquipmentModal === 'function') openEditEquipmentModal(kind, id);
+      else if (act === 'select-module') {
+        if (typeof onSelectModuleFromDropdown === 'function') onSelectModuleFromDropdown(id);
+        if (typeof closeEquipmentCatalogModal === 'function') closeEquipmentCatalogModal();
+      } else if (act === 'apply-inv') {
+        if (typeof applyInverterFromCatalog === 'function') applyInverterFromCatalog(id);
+        if (typeof closeEquipmentCatalogModal === 'function') closeEquipmentCatalogModal();
+      } else if (act === 'apply-bat') {
+        if (typeof applyBatteryFromCatalog === 'function') applyBatteryFromCatalog(id);
+        if (typeof closeEquipmentCatalogModal === 'function') closeEquipmentCatalogModal();
+      } else if (act === 'apply-mi') {
+        if (typeof applyMicroinverterFromCatalog === 'function') applyMicroinverterFromCatalog(id);
+        if (typeof closeEquipmentCatalogModal === 'function') closeEquipmentCatalogModal();
+      }
+    });
+  };
+
   // 1. Módulos
   const modTable = document.getElementById('cat-modules-table-body');
   if (modTable) {
+    _bindCatalogTableClicks(modTable);
     modTable.innerHTML = equipmentCatalog.modules.map((m, idx) => {
       const isCurrent = panelConfig && panelConfig.modelo && panelConfig.modelo.includes(m.model);
       const isCustom = idx >= 7;
-      let delBtn = isCustom ? ('<button class="cat-btn cat-btn-delete" onclick="deleteCatalogItem(\'modules\',\'' + m.id + '\')" title="Eliminar"><i data-lucide="x" class="icon-sm"></i></button>') : '';
+      const mIdAttr = _escCat(m.id);
+      let delBtn = isCustom ? ('<button class="cat-btn cat-btn-delete" data-cat-act="delete" data-cat-kind="modules" data-cat-id="' + mIdAttr + '" title="Eliminar"><i data-lucide="x" class="icon-sm"></i></button>') : '';
       return '<tr style="' + (isCurrent ? 'background:rgba(245,158,11,0.08);' : '') + '">' +
-        '<td><b>' + m.brand + '</b> ' + m.model + (isCurrent ? ' <span class="cat-badge cat-badge-amber">[ACTIVO]</span>' : '') + '</td>' +
-        '<td style="text-align:center;"><span class="cat-badge cat-badge-emerald">' + m.wp + ' Wp</span></td>' +
-        '<td style="text-align:center;">' + m.eff + ' %</td>' +
-        '<td style="text-align:center;font-family:monospace;">' + m.l.toFixed(2) + ' × ' + m.w.toFixed(2) + ' m</td>' +
-        '<td style="text-align:center;color:#FBBF24;font-weight:bold;">' + m.price + ' €</td>' +
+        '<td><b>' + _escCat(m.brand) + '</b> ' + _escCat(m.model) + (isCurrent ? ' <span class="cat-badge cat-badge-amber">[ACTIVO]</span>' : '') + '</td>' +
+        '<td style="text-align:center;"><span class="cat-badge cat-badge-emerald">' + _escCat(m.wp) + ' Wp</span></td>' +
+        '<td style="text-align:center;">' + _escCat(m.eff) + ' %</td>' +
+        '<td style="text-align:center;font-family:monospace;">' + Number(m.l).toFixed(2) + ' × ' + Number(m.w).toFixed(2) + ' m</td>' +
+        '<td style="text-align:center;color:#FBBF24;font-weight:bold;">' + _escCat(m.price) + ' €</td>' +
         '<td style="text-align:right;">' +
           '<div style="display:flex;justify-content:flex-end;align-items:center;gap:4px;">' +
-            '<button class="cat-btn cat-btn-edit" onclick="openEditEquipmentModal(\'modules\', \'' + m.id + '\')"><i data-lucide="edit-2" class="icon-sm"></i> EDITAR</button>' +
-            '<button class="cat-btn cat-btn-select" onclick="onSelectModuleFromDropdown(\'' + m.id + '\');closeEquipmentCatalogModal();">SELECCIONAR</button>' +
+            '<button class="cat-btn cat-btn-edit" data-cat-act="edit" data-cat-kind="modules" data-cat-id="' + mIdAttr + '"><i data-lucide="edit-2" class="icon-sm"></i> EDITAR</button>' +
+            '<button class="cat-btn cat-btn-select" data-cat-act="select-module" data-cat-kind="modules" data-cat-id="' + mIdAttr + '">SELECCIONAR</button>' +
             delBtn +
           '</div>' +
         '</td>' +
@@ -6999,26 +7035,28 @@ function populateEquipmentModalUI() {
   // 2. Inversores
   const invTable = document.getElementById('cat-inverters-table-body');
   if (invTable) {
+    _bindCatalogTableClicks(invTable);
     invTable.innerHTML = equipmentCatalog.inverters.map((inv, idx) => {
       const isCustom = idx >= 5;
-      let delBtn = isCustom ? ('<button class="cat-btn cat-btn-delete" onclick="deleteCatalogItem(\'inverters\',\'' + inv.id + '\')" title="Eliminar"><i data-lucide="x" class="icon-sm"></i></button>') : '';
-      const inputs = inv.inputsPerMppt || 1;
-      const vMin = inv.vMpptMin || inv.vMpptNomMin || 160;
-      const vMax = inv.vMpptMax || inv.vMpptNomMax || 850;
-      const iOper = (inv.iMaxOperA || (inv.iMaxScA ? Math.round(inv.iMaxScA * 0.75 * 10) / 10 : 15.0)).toFixed(1);
-      const iSc = (inv.iMaxScA || 25.0).toFixed(1);
+      const invIdAttr = _escCat(inv.id);
+      let delBtn = isCustom ? ('<button class="cat-btn cat-btn-delete" data-cat-act="delete" data-cat-kind="inverters" data-cat-id="' + invIdAttr + '" title="Eliminar"><i data-lucide="x" class="icon-sm"></i></button>') : '';
+      const inputs = Number(inv.inputsPerMppt || 1);
+      const vMin = Number(inv.vMpptMin || inv.vMpptNomMin || 160);
+      const vMax = Number(inv.vMpptMax || inv.vMpptNomMax || 850);
+      const iOper = Number(inv.iMaxOperA || (inv.iMaxScA ? Math.round(inv.iMaxScA * 0.75 * 10) / 10 : 15.0)).toFixed(1);
+      const iSc = Number(inv.iMaxScA || 25.0).toFixed(1);
 
       return '<tr>' +
-        '<td><b>' + inv.brand + '</b> ' + inv.model + '<br><span style="font-size:10px;color:var(--text-slate-400);">' + (inv.type || 'Híbrido') + '</span></td>' +
-        '<td style="text-align:center;"><span class="cat-badge cat-badge-blue">' + inv.kw + ' kW</span></td>' +
-        '<td style="text-align:center;">' + inv.mppt + ' MPPT <span style="font-size:10px;color:#34D399;">(' + inputs + ' str/mppt)</span></td>' +
-        '<td style="text-align:center;font-family:monospace;font-size:10px;">' + (inv.vDcMax || 1000) + 'V <span style="color:var(--text-slate-400);">(' + vMin + '-' + vMax + 'V)</span></td>' +
+        '<td><b>' + _escCat(inv.brand) + '</b> ' + _escCat(inv.model) + '<br><span style="font-size:10px;color:var(--text-slate-400);">' + _escCat(inv.type || 'Híbrido') + '</span></td>' +
+        '<td style="text-align:center;"><span class="cat-badge cat-badge-blue">' + _escCat(inv.kw) + ' kW</span></td>' +
+        '<td style="text-align:center;">' + _escCat(inv.mppt) + ' MPPT <span style="font-size:10px;color:#34D399;">(' + inputs + ' str/mppt)</span></td>' +
+        '<td style="text-align:center;font-family:monospace;font-size:10px;">' + _escCat(inv.vDcMax || 1000) + 'V <span style="color:var(--text-slate-400);">(' + vMin + '-' + vMax + 'V)</span></td>' +
         '<td style="text-align:center;font-family:monospace;font-size:10px;"><b style="color:#FBBF24;">' + iOper + 'A</b> / <span style="color:#34D399;">' + iSc + 'A</span></td>' +
-        '<td style="text-align:center;color:#FBBF24;font-weight:bold;">' + inv.price + ' €</td>' +
+        '<td style="text-align:center;color:#FBBF24;font-weight:bold;">' + _escCat(inv.price) + ' €</td>' +
         '<td style="text-align:right;">' +
           '<div style="display:flex;justify-content:flex-end;align-items:center;gap:4px;">' +
-            '<button class="cat-btn cat-btn-edit" onclick="openEditEquipmentModal(\'inverters\', \'' + inv.id + '\')"><i data-lucide="edit-2" class="icon-sm"></i> EDITAR</button>' +
-            '<button class="cat-btn cat-btn-apply" onclick="applyInverterFromCatalog(\'' + inv.id + '\');closeEquipmentCatalogModal();">APLICAR</button>' +
+            '<button class="cat-btn cat-btn-edit" data-cat-act="edit" data-cat-kind="inverters" data-cat-id="' + invIdAttr + '"><i data-lucide="edit-2" class="icon-sm"></i> EDITAR</button>' +
+            '<button class="cat-btn cat-btn-apply" data-cat-act="apply-inv" data-cat-kind="inverters" data-cat-id="' + invIdAttr + '">APLICAR</button>' +
             delBtn +
           '</div>' +
         '</td>' +
@@ -7029,18 +7067,20 @@ function populateEquipmentModalUI() {
   // 3. Baterías
   const batTable = document.getElementById('cat-batteries-table-body');
   if (batTable) {
+    _bindCatalogTableClicks(batTable);
     batTable.innerHTML = equipmentCatalog.batteries.map((bat, idx) => {
       const isCustom = idx >= 6;
-      let delBtn = isCustom ? ('<button class="cat-btn cat-btn-delete" onclick="deleteCatalogItem(\'batteries\',\'' + bat.id + '\')" title="Eliminar"><i data-lucide="x" class="icon-sm"></i></button>') : '';
+      const batIdAttr = _escCat(bat.id);
+      let delBtn = isCustom ? ('<button class="cat-btn cat-btn-delete" data-cat-act="delete" data-cat-kind="batteries" data-cat-id="' + batIdAttr + '" title="Eliminar"><i data-lucide="x" class="icon-sm"></i></button>') : '';
       return '<tr>' +
-        '<td><b>' + bat.brand + '</b> ' + bat.model + '</td>' +
-        '<td style="text-align:center;"><span class="cat-badge cat-badge-emerald">' + bat.kwh + ' kWh</span></td>' +
-        '<td style="text-align:center;">' + (bat.type || 'LFP') + '</td>' +
-        '<td style="text-align:center;color:#FBBF24;font-weight:bold;">' + bat.price + ' €</td>' +
+        '<td><b>' + _escCat(bat.brand) + '</b> ' + _escCat(bat.model) + '</td>' +
+        '<td style="text-align:center;"><span class="cat-badge cat-badge-emerald">' + _escCat(bat.kwh) + ' kWh</span></td>' +
+        '<td style="text-align:center;">' + _escCat(bat.type || 'LFP') + '</td>' +
+        '<td style="text-align:center;color:#FBBF24;font-weight:bold;">' + _escCat(bat.price) + ' €</td>' +
         '<td style="text-align:right;">' +
           '<div style="display:flex;justify-content:flex-end;align-items:center;gap:4px;">' +
-            '<button class="cat-btn cat-btn-edit" onclick="openEditEquipmentModal(\'batteries\', \'' + bat.id + '\')"><i data-lucide="edit-2" class="icon-sm"></i> EDITAR</button>' +
-            '<button class="cat-btn cat-btn-select" onclick="applyBatteryFromCatalog(\'' + bat.id + '\');closeEquipmentCatalogModal();">APLICAR</button>' +
+            '<button class="cat-btn cat-btn-edit" data-cat-act="edit" data-cat-kind="batteries" data-cat-id="' + batIdAttr + '"><i data-lucide="edit-2" class="icon-sm"></i> EDITAR</button>' +
+            '<button class="cat-btn cat-btn-select" data-cat-act="apply-bat" data-cat-kind="batteries" data-cat-id="' + batIdAttr + '">APLICAR</button>' +
             delBtn +
           '</div>' +
         '</td>' +
@@ -7051,18 +7091,20 @@ function populateEquipmentModalUI() {
   // 4. Microinversores
   const mlpeTable = document.getElementById('cat-microinverters-table-body');
   if (mlpeTable) {
+    _bindCatalogTableClicks(mlpeTable);
     mlpeTable.innerHTML = equipmentCatalog.microinverters.map((mi, idx) => {
       const isCustom = idx >= 4;
-      let delBtn = isCustom ? ('<button class="cat-btn cat-btn-delete" onclick="deleteCatalogItem(\'microinverters\',\'' + mi.id + '\')" title="Eliminar"><i data-lucide="x" class="icon-sm"></i></button>') : '<span class="cat-badge cat-badge-cyan" style="font-size:9.5px;">OFICIAL</span>';
+      const miIdAttr = _escCat(mi.id);
+      let delBtn = isCustom ? ('<button class="cat-btn cat-btn-delete" data-cat-act="delete" data-cat-kind="microinverters" data-cat-id="' + miIdAttr + '" title="Eliminar"><i data-lucide="x" class="icon-sm"></i></button>') : '<span class="cat-badge cat-badge-cyan" style="font-size:9.5px;">OFICIAL</span>';
       return '<tr>' +
-        '<td><b>' + mi.brand + '</b> ' + mi.model + '</td>' +
-        '<td style="text-align:center;"><span class="cat-badge cat-badge-cyan">' + (mi.kw * 1000) + ' W</span></td>' +
-        '<td style="text-align:center;">' + (mi.type || 'Microinversor') + '</td>' +
-        '<td style="text-align:center;color:#FBBF24;font-weight:bold;">' + mi.price + ' €</td>' +
+        '<td><b>' + _escCat(mi.brand) + '</b> ' + _escCat(mi.model) + '</td>' +
+        '<td style="text-align:center;"><span class="cat-badge cat-badge-cyan">' + (Number(mi.kw) * 1000) + ' W</span></td>' +
+        '<td style="text-align:center;">' + _escCat(mi.type || 'Microinversor') + '</td>' +
+        '<td style="text-align:center;color:#FBBF24;font-weight:bold;">' + _escCat(mi.price) + ' €</td>' +
         '<td style="text-align:right;">' +
           '<div style="display:flex;justify-content:flex-end;align-items:center;gap:4px;">' +
-            '<button class="cat-btn cat-btn-edit" onclick="openEditEquipmentModal(\'microinverters\', \'' + mi.id + '\')"><i data-lucide="edit-2" class="icon-sm"></i> EDITAR</button>' +
-            '<button class="cat-btn cat-btn-select" onclick="applyMicroinverterFromCatalog(\'' + mi.id + '\');closeEquipmentCatalogModal();">APLICAR</button>' +
+            '<button class="cat-btn cat-btn-edit" data-cat-act="edit" data-cat-kind="microinverters" data-cat-id="' + miIdAttr + '"><i data-lucide="edit-2" class="icon-sm"></i> EDITAR</button>' +
+            '<button class="cat-btn cat-btn-select" data-cat-act="apply-mi" data-cat-kind="microinverters" data-cat-id="' + miIdAttr + '">APLICAR</button>' +
             delBtn +
           '</div>' +
         '</td>' +

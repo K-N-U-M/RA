@@ -116,7 +116,32 @@
     return host.innerHTML;
   }
 
-  var api = { richText: richText, plain: plain, unescapePlain: unescapePlain, safeImageSrc: safeImageSrc, safeCssUrl: safeCssUrl };
+  function attr(value) {
+    return plain(value).replace(/`/g, '&#96;');
+  }
+
+  function safeJsonForScript(data) {
+    return JSON.stringify(data == null ? null : data)
+      .replace(/</g, '\\u003c')
+      .replace(/>/g, '\\u003e')
+      .replace(/&/g, '\\u0026')
+      .replace(/\u2028/g, '\\u2028')
+      .replace(/\u2029/g, '\\u2029');
+  }
+
+  var api = {
+    richText: richText,
+    sanitizeRichHtml: richText,
+    plain: plain,
+    escapeHtml: plain,
+    attr: attr,
+    escapeAttr: attr,
+    unescapePlain: unescapePlain,
+    safeImageSrc: safeImageSrc,
+    safeImageUri: safeImageSrc,
+    safeCssUrl: safeCssUrl,
+    safeJsonForScript: safeJsonForScript
+  };
   if (!root.RA) root.RA = {};
   root.RASanitize = api;
   root.RA.Sanitize = api;

@@ -158,7 +158,10 @@
 
     var companyName = escD(branding.name) || 'RA Ingeniería Fotovoltaica';
     // [AUD-2026 v2 · SEC2-03] Datos de marca y cliente: escapados en origen (nunca HTML crudo).
-    var companyLogo = branding.logo || (localStorage.getItem('ra_company_logo') || '');
+    var rawLogo = branding.logo || (localStorage.getItem('ra_company_logo') || '');
+    var companyLogo = (global.RASanitize && typeof global.RASanitize.safeImageSrc === 'function')
+      ? global.RASanitize.safeImageSrc(rawLogo)
+      : (/^data:image\/(?:png|jpeg|jpg|webp|gif);base64,[A-Za-z0-9+/=]+$/i.test(String(rawLogo).trim()) ? String(rawLogo).trim() : '');
     var companySlogan = escD(branding.slogan) || 'Soluciones avanzadas en energía solar y autoconsumo fotovoltaico';
     var companyWeb = escD(branding.web) || 'www.ra-fotovoltaica.es';
     var companyPhone = escD(branding.phone) || '+34 900 000 000';
@@ -1639,10 +1642,10 @@
         '    <span class="badge-bankable badge-bankable-sky">Transparencia EPC</span>' +
         '  </div>' +
         '  <table class="table-clean" style="font-size:12.5px;margin-bottom:8px;">' +
-        '    <tr class="ra-econ-item-row"><td style="padding:4px 6px;">1. Módulos FV Tier-1 (' + raw.metrics.numPanels + '× ' + raw.equipment.modModel + ')</td><td class="ra-econ-item-price" style="text-align:right;font-weight:700;padding:4px 6px;">' + raw.metrics.capexModules + ' €</td></tr>' +
-        '    <tr class="ra-econ-item-row"><td style="padding:4px 6px;">2. Inversores & Electrónica (' + (raw.metrics.invCount || 1) + '× ' + raw.equipment.invModel + (raw.metrics.batCount > 0 ? ' + ' + raw.metrics.batCount + '× ' + raw.metrics.batName : '') + ')</td><td class="ra-econ-item-price" style="text-align:right;font-weight:700;padding:4px 6px;">' + raw.metrics.capexInverters + ' €</td></tr>' +
+        '    <tr class="ra-econ-item-row"><td style="padding:4px 6px;">1. Módulos FV Tier-1 (' + raw.metrics.numPanels + '× ' + escD(raw.equipment.modModel) + ')</td><td class="ra-econ-item-price" style="text-align:right;font-weight:700;padding:4px 6px;">' + raw.metrics.capexModules + ' €</td></tr>' +
+        '    <tr class="ra-econ-item-row"><td style="padding:4px 6px;">2. Inversores & Electrónica (' + (raw.metrics.invCount || 1) + '× ' + escD(raw.equipment.invModel) + (raw.metrics.batCount > 0 ? ' + ' + raw.metrics.batCount + '× ' + escD(raw.metrics.batName) : '') + ')</td><td class="ra-econ-item-price" style="text-align:right;font-weight:700;padding:4px 6px;">' + raw.metrics.capexInverters + ' €</td></tr>' +
         '    <tr class="ra-econ-item-row"><td style="padding:4px 6px;">3. Estructuras de Soporte (' + raw.metrics.numPanels + '× soportes aluminio/inox A2)</td><td class="ra-econ-item-price" style="text-align:right;font-weight:700;padding:4px 6px;">' + raw.metrics.capexStructure + ' €</td></tr>' +
-        (raw.metrics.capexWind ? '    <tr class="ra-econ-item-row"><td style="padding:4px 6px;">4. Generación Minieólica (' + (raw.metrics.windCount || 1) + '× ' + raw.metrics.windName + ' · ' + Number(raw.metrics.windTotalKw || 0).toFixed(1) + ' kW)</td><td class="ra-econ-item-price" style="text-align:right;font-weight:700;padding:4px 6px;">' + raw.metrics.capexWind + ' €</td></tr>' : '') +
+        (raw.metrics.capexWind ? '    <tr class="ra-econ-item-row"><td style="padding:4px 6px;">4. Generación Minieólica (' + (raw.metrics.windCount || 1) + '× ' + escD(raw.metrics.windName) + ' · ' + Number(raw.metrics.windTotalKw || 0).toFixed(1) + ' kW)</td><td class="ra-econ-item-price" style="text-align:right;font-weight:700;padding:4px 6px;">' + raw.metrics.capexWind + ' €</td></tr>' : '') +
         '    <tr class="ra-econ-item-row"><td style="padding:4px 6px;">' + (raw.metrics.capexWind ? '5' : '4') + '. Cuadro DC/AC, Protecciones & Cable (1× lote REBT)</td><td class="ra-econ-item-price" style="text-align:right;font-weight:700;padding:4px 6px;">' + raw.metrics.capexElectrical + ' €</td></tr>' +
         '    <tr class="ra-econ-item-row"><td style="padding:4px 6px;">' + (raw.metrics.capexWind ? '6' : '5') + '. Montaje Mecánico & Conexionado REBT (1× equipo)</td><td class="ra-econ-item-price" style="text-align:right;font-weight:700;padding:4px 6px;">' + raw.metrics.capexLabor + ' €</td></tr>' +
         '    <tr class="ra-econ-item-row"><td style="padding:4px 6px;">' + (raw.metrics.capexWind ? '7' : '6') + '. Ingeniería, Tasas & Legalización CIE (1× expediente)</td><td class="ra-econ-item-price" style="text-align:right;font-weight:700;padding:4px 6px;">' + raw.metrics.capexPermits + ' €</td></tr>' +
@@ -2278,30 +2281,39 @@
       '',
       '  restoreDraftManual: async function() {',
       '    try {',
-      '      // Saneado DOM real del borrador almacenado en IndexedDB / localStorage',
+      '      // Saneado DOM por lista blanca estricta del borrador almacenado en IndexedDB / localStorage',
       '      var _sanitizeDraftWin = function(h) {',
       '        var src = String(h == null ? "" : h);',
       '        if (typeof DOMParser !== "function") return "";',
       '        var doc = new DOMParser().parseFromString(src, "text/html");',
       '        if (!doc || !doc.body) return "";',
-      '        var blocked = doc.body.querySelectorAll("script,iframe,object,embed,link,meta,base,form,template,style,foreignobject,animate,set");',
-      '        for (var b = 0; b < blocked.length; b++) {',
-      '          if (blocked[b].parentNode) blocked[b].parentNode.removeChild(blocked[b]);',
-      '        }',
-      '        var all = doc.body.querySelectorAll("*");',
-      '        for (var i = 0; i < all.length; i++) {',
-      '          var el = all[i];',
-      '          var attrs = Array.prototype.slice.call(el.attributes || []);',
-      '          for (var j = 0; j < attrs.length; j++) {',
-      '            var an = attrs[j].name.toLowerCase();',
-      '            var av = String(attrs[j].value || "").replace(/[\\u0000-\\u0020]+/g, "").toLowerCase();',
-      '            if (an.indexOf("on") === 0 || an === "srcdoc") {',
-      '              el.removeAttribute(attrs[j].name);',
-      '            } else if ((an === "href" || an === "src" || an === "xlink:href" || an === "action" || an === "formaction") && (/^(javascript|vbscript):/.test(av) || /^data:(text\\/html|image\\/svg\\+xml)/.test(av))) {',
-      '              el.removeAttribute(attrs[j].name);',
+      '        var ALLOWED_TAGS = { DIV:1, SPAN:1, P:1, B:1, STRONG:1, I:1, EM:1, U:1, S:1, BR:1, H1:1, H2:1, H3:1, H4:1, UL:1, OL:1, LI:1, SMALL:1, SUB:1, SUP:1, TABLE:1, THEAD:1, TBODY:1, TR:1, TH:1, TD:1, IMG:1, SVG:1, G:1, PATH:1, CIRCLE:1, RECT:1, LINE:1, POLYLINE:1, POLYGON:1, TEXT:1, TSPAN:1, DEFS:1, LINEARGRADIENT:1, STOP:1 };',
+      '        var ALLOWED_ATTRS = { "class":1, style:1, id:1, alt:1, title:1, colspan:1, rowspan:1, contenteditable:1, "data-section-id":1, width:1, height:1, viewbox:1, xmlns:1, d:1, fill:1, stroke:1, "stroke-width":1, "stroke-dasharray":1, "stroke-linecap":1, x:1, y:1, x1:1, y1:1, x2:1, y2:1, cx:1, cy:1, r:1, rx:1, ry:1, points:1, "text-anchor":1, "font-size":1, "font-weight":1, opacity:1, offset:1, "stop-color":1, "stop-opacity":1, transform:1, src:1 };',
+      '        var _walk = function(node) {',
+      '          var children = Array.prototype.slice.call(node.childNodes || []);',
+      '          for (var c = 0; c < children.length; c++) {',
+      '            var ch = children[c];',
+      '            if (ch.nodeType === 8) { node.removeChild(ch); continue; }',
+      '            if (ch.nodeType !== 1) continue;',
+      '            var tag = String(ch.tagName || "").toUpperCase();',
+      '            if (!ALLOWED_TAGS[tag]) { node.removeChild(ch); continue; }',
+      '            var attrs = Array.prototype.slice.call(ch.attributes || []);',
+      '            for (var j = 0; j < attrs.length; j++) {',
+      '              var an = attrs[j].name.toLowerCase();',
+      '              var av = String(attrs[j].value || "");',
+      '              if (!ALLOWED_ATTRS[an]) { ch.removeAttribute(attrs[j].name); continue; }',
+      '              if (an === "src") {',
+      '                var cleanSrc = av.trim();',
+      '                var okImg = /^data:image\\/(?:png|jpeg|jpg|webp|gif);base64,[A-Za-z0-9+/=]+$/i.test(cleanSrc) || (/^assets\\/[A-Za-z0-9_.\\-\\/]+\\.(?:png|jpe?g|webp|gif)$/i.test(cleanSrc) && cleanSrc.indexOf("..") === -1);',
+      '                if (!okImg) ch.removeAttribute(attrs[j].name);',
+      '              } else if (an === "style" && /expression\\s*\\(|javascript:|url\\s*\\(\\s*["\x27]?\\s*javascript:/i.test(av)) {',
+      '                ch.removeAttribute(attrs[j].name);',
+      '              }',
       '            }',
+      '            _walk(ch);',
       '          }',
-      '        }',
+      '        };',
+      '        _walk(doc.body);',
       '        return doc.body.innerHTML;',
       '      };',
       '      var sc = (window.opener && window.opener.RAStorageCache) || (typeof RAStorageCache !== "undefined" ? RAStorageCache : null);',

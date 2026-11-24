@@ -639,7 +639,8 @@ NORMAS ESTRICTAS DE EXTRACCIÓN:
       }
 
       if (typeof root.showStatus === 'function') {
-        root.showStatus('✨ NUEVO EQUIPO REGISTRADO: ' + toSave.brand + ' ' + toSave.model, 3500);
+        const _esc = (root.RASanitize && typeof root.RASanitize.plain === 'function') ? root.RASanitize.plain : (s => String(s || ''));
+        root.showStatus('✨ NUEVO EQUIPO REGISTRADO: ' + _esc(toSave.brand) + ' ' + _esc(toSave.model), 3500);
       }
 
       // Si hay un selector de módulo en Paso 2 y acabamos de agregar un módulo, seleccionarlo automáticamente

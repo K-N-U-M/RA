@@ -456,7 +456,8 @@ REGLAS DE RIGOR TÉCNICO:
         };
         window.RAWindCatalog.upsert(turbine);
         if (typeof root.showStatus === 'function') {
-          root.showStatus('<i data-lucide="check-circle" class="icon-sm"></i> AEROGENERADOR INCORPORADO: ' + item.brand + ' ' + item.model, 3500);
+          const _esc = (root.RASanitize && typeof root.RASanitize.plain === 'function') ? root.RASanitize.plain : (s => String(s || ''));
+          root.showStatus('<i data-lucide="check-circle" class="icon-sm"></i> AEROGENERADOR INCORPORADO: ' + _esc(item.brand) + ' ' + _esc(item.model), 3500);
         }
         if (typeof showToast === 'function') {
           showToast('EQUIPO AÑADIDO', item.brand + ' ' + item.model + ' guardado en el catálogo eólico.', 'success', 3000);
@@ -488,7 +489,8 @@ REGLAS DE RIGOR TÉCNICO:
       }
 
       if (typeof root.showStatus === 'function') {
-        root.showStatus(`EQUIPO AÑADIDO: ${toSave.brand} ${toSave.model}`, 2500);
+        const _esc = (root.RASanitize && typeof root.RASanitize.plain === 'function') ? root.RASanitize.plain : (s => String(s || ''));
+        root.showStatus(`EQUIPO AÑADIDO: ${_esc(toSave.brand)} ${_esc(toSave.model)}`, 2500);
       }
       if (typeof root.showToast === 'function') {
         root.showToast('CATÁLOGO ACTUALIZADO', `${toSave.brand} ${toSave.model} incorporado correctamente.`, 'success', 3000);

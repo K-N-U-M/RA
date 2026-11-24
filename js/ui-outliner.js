@@ -144,6 +144,42 @@
       const badgeTotals = document.getElementById('outliner-badge-totals');
       if (!treeContent || !global.ProjectHierarchy) return;
 
+      const _esc = function(v) {
+        if (global.RASanitize && typeof global.RASanitize.plain === 'function') return global.RASanitize.plain(v);
+        return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+      };
+
+      if (!treeContent.dataset.raOutlinerBound) {
+        treeContent.dataset.raOutlinerBound = '1';
+        treeContent.addEventListener('click', function(e) {
+          const btn = e.target && e.target.closest ? e.target.closest('[data-outliner-act]') : null;
+          if (!btn || !global.ProjectHierarchy) return;
+          const act = btn.getAttribute('data-outliner-act');
+          if (btn.getAttribute('data-stop') === '1') e.stopPropagation();
+          const id = btn.getAttribute('data-outliner-id');
+          const type = btn.getAttribute('data-outliner-type');
+          const idxRaw = btn.getAttribute('data-outliner-idx');
+          const idx = idxRaw != null ? parseInt(idxRaw, 10) : NaN;
+          if (act === 'selectBuilding') global.ProjectHierarchy.selectBuilding(id, true);
+          else if (act === 'selectPlane' && !isNaN(idx)) global.ProjectHierarchy.selectPlane(idx, true);
+          else if (act === 'selectPolyline' && !isNaN(idx)) global.ProjectHierarchy.selectPolyline(idx, true);
+          else if (act === 'selectAllPanels' && !isNaN(idx)) global.ProjectHierarchy.selectAllPanelsInPolyline(idx);
+          else if (act === 'togglePanelsActive' && !isNaN(idx)) global.ProjectHierarchy.togglePanelsActive(idx);
+          else if (act === 'selectObstacle') global.ProjectHierarchy.selectObstacle(id, true);
+          else if (act === 'selectElectrical') global.ProjectHierarchy.selectElectrical(id, true);
+          else if (act === 'selectWind') global.ProjectHierarchy.selectWindTurbine(id, true);
+          else if (act === 'toggleVis') {
+            global.ProjectHierarchy.toggleVisibility(type, !isNaN(idx) ? idx : id);
+          } else if (act === 'delete') {
+            global.ProjectHierarchy.deleteItem(type, !isNaN(idx) ? idx : id);
+          } else if (act === 'toggleSection') {
+            if (global.UIOutliner && typeof global.UIOutliner.toggleSection === 'function') {
+              global.UIOutliner.toggleSection(type, e);
+            }
+          }
+        });
+      }
+
       const tree = global.ProjectHierarchy.getTree();
 
       // Actualizar badge global de cabecera
@@ -177,7 +213,7 @@
         const bldCol = !!sectionCollapsedState.buildings;
         html += `
           <div class="outliner-accordion-group">
-            <div class="outliner-group-header" onclick="UIOutliner.toggleSection('buildings', event)">
+            <div class="outliner-group-header" data-outliner-act="toggleSection" data-outliner-type="buildings">
               <div style="display:flex;align-items:center;gap:6px;">
                 <span class="outliner-chevron" id="outliner-chev-buildings">${bldCol ? '▶' : '▼'}</span>
                 <span>🏢 EDIFICIOS 3D (${tree.buildings.length})</span>
@@ -188,17 +224,19 @@
         `;
         tree.buildings.forEach(function(bld) {
           const isSel = bld.isSelected ? 'active-node' : '';
+          const bIdEsc = _esc(bld.id);
+          const bNameEsc = _esc(bld.name);
           html += `
             <div class="outliner-bld-card ${isSel}">
-              <div class="outliner-bld-header" onclick="ProjectHierarchy.selectBuilding('${bld.id}', true)">
+              <div class="outliner-bld-header" data-outliner-act="selectBuilding" data-outliner-id="${bIdEsc}">
                 <div style="display:flex;align-items:center;gap:5px;flex:1;overflow:hidden;">
                   <span class="node-icon">🏢</span>
-                  <span class="node-label bld-name" title="${bld.name}">${bld.name} (${bld.height}m)</span>
+                  <span class="node-label bld-name" title="${bNameEsc}">${bNameEsc} (${bld.height}m)</span>
                 </div>
                 <div class="node-meta">
                   <span class="badge-stats">${bld.panelsCount} pl · ${bld.totalKwp.toFixed(1)} kWp</span>
-                  <button type="button" class="node-action-btn" title="Alternar visibilidad" onclick="event.stopPropagation();ProjectHierarchy.toggleVisibility('building', '${bld.id}');">${bld.visible ? '👁️' : '🙈'}</button>
-                  <button type="button" class="node-action-btn delete-btn" title="Eliminar edificio" onclick="event.stopPropagation();ProjectHierarchy.deleteItem('building', '${bld.id}');">🗑️</button>
+                  <button type="button" class="node-action-btn" title="Alternar visibilidad" data-stop="1" data-outliner-act="toggleVis" data-outliner-type="building" data-outliner-id="${bIdEsc}">${bld.visible ? '👁️' : '🙈'}</button>
+                  <button type="button" class="node-action-btn delete-btn" title="Eliminar edificio" data-stop="1" data-outliner-act="delete" data-outliner-type="building" data-outliner-id="${bIdEsc}">🗑️</button>
                 </div>
               </div>
               <div class="outliner-nested-container">
@@ -213,16 +251,17 @@
           } else {
             bld.planes.forEach(function(pl) {
               const plActive = pl.isActive ? 'active-plane-sub' : '';
+              const plNameEsc = _esc(pl.name);
               html += `
                 <div class="outliner-plane-sub-card ${plActive}">
-                  <div class="outliner-sub-header" onclick="ProjectHierarchy.selectPlane(${pl.index}, true)">
+                  <div class="outliner-sub-header" data-outliner-act="selectPlane" data-outliner-idx="${pl.index}">
                     <div style="display:flex;align-items:center;gap:4px;flex:1;overflow:hidden;">
                       <span class="node-icon">🏠</span>
-                      <span class="node-label sub-plane-name" title="${pl.name}">${pl.name}</span>
+                      <span class="node-label sub-plane-name" title="${plNameEsc}">${plNameEsc}</span>
                     </div>
                     <div class="node-meta">
                       <span class="badge-angle">${pl.tiltDeg}° · ${pl.azimuthDeg}°</span>
-                      <button type="button" class="node-action-btn" title="Alternar visibilidad" onclick="event.stopPropagation();ProjectHierarchy.toggleVisibility('plane', ${pl.index});">${pl.visible ? '👁️' : '🙈'}</button>
+                      <button type="button" class="node-action-btn" title="Alternar visibilidad" data-stop="1" data-outliner-act="toggleVis" data-outliner-type="plane" data-outliner-idx="${pl.index}">${pl.visible ? '👁️' : '🙈'}</button>
                     </div>
                   </div>
                   <div class="outliner-polylines-container">
@@ -237,31 +276,32 @@
                   const pVis = poly.panelsVisible !== false;
                   const pDisabled = poly.panelsDisabled === true;
                   const pClass = (pVis ? '' : 'is-hidden-node') + (pDisabled ? ' is-deactivated-node' : '');
+                  const polyNameEsc = _esc(poly.name);
                   const pBadge = pDisabled
                     ? `<span class="badge-stats is-deactivated" title="Mesa desactivada: excluida de mediciones y presupuestos">${poly.totalPanelsCount || poly.panelsCount} pl · OFF</span>`
-                    : `<span class="badge-stats" title="Módulos y potencia instalada en ${poly.name}">${poly.panelsCount} pl · ${poly.kwp.toFixed(2)} kWp</span>`;
+                    : `<span class="badge-stats" title="Módulos y potencia instalada en ${polyNameEsc}">${poly.panelsCount} pl · ${poly.kwp.toFixed(2)} kWp</span>`;
                   html += `
                     <div class="outliner-poly-group">
-                      <div class="outliner-poly-item ${polySel} ${poly.visible ? '' : 'is-hidden-node'}" onclick="ProjectHierarchy.selectPolyline(${poly.index}, true)">
+                      <div class="outliner-poly-item ${polySel} ${poly.visible ? '' : 'is-hidden-node'}" data-outliner-act="selectPolyline" data-outliner-idx="${poly.index}">
                         <div style="display:flex;align-items:center;gap:4px;flex:1;overflow:hidden;">
                           <span class="node-bullet">└ ✏️</span>
-                          <span class="node-label poly-name" title="${poly.name}">${poly.name}</span>
+                          <span class="node-label poly-name" title="${polyNameEsc}">${polyNameEsc}</span>
                         </div>
                         <div class="node-meta">
                           <span class="badge-dim" title="Superficie geométrica del faldón">${areaBadge}</span>
-                          <button type="button" class="node-action-btn" title="Mostrar/Ocultar contorno CAD del faldón" onclick="event.stopPropagation();ProjectHierarchy.toggleVisibility('polyline', ${poly.index});">${poly.visible ? '👁️' : '🙈'}</button>
-                          <button type="button" class="node-action-btn delete-btn" title="Eliminar faldón" onclick="event.stopPropagation();ProjectHierarchy.deleteItem('polyline', ${poly.index});">🗑️</button>
+                          <button type="button" class="node-action-btn" title="Mostrar/Ocultar contorno CAD del faldón" data-stop="1" data-outliner-act="toggleVis" data-outliner-type="polyline" data-outliner-idx="${poly.index}">${poly.visible ? '👁️' : '🙈'}</button>
+                          <button type="button" class="node-action-btn delete-btn" title="Eliminar faldón" data-stop="1" data-outliner-act="delete" data-outliner-type="polyline" data-outliner-idx="${poly.index}">🗑️</button>
                         </div>
                       </div>
-                      <div class="outliner-panels-item ${pClass}" onclick="ProjectHierarchy.selectAllPanelsInPolyline(${poly.index})">
+                      <div class="outliner-panels-item ${pClass}" data-outliner-act="selectAllPanels" data-outliner-idx="${poly.index}">
                         <div style="display:flex;align-items:center;gap:4px;flex:1;overflow:hidden;padding-left:14px;">
                           <span class="node-bullet">└ ☀️</span>
-                          <span class="node-label panels-node-name" title="Clic para seleccionar las placas FV de ${poly.name}">Placas FV</span>
+                          <span class="node-label panels-node-name" title="Clic para seleccionar las placas FV de ${polyNameEsc}">Placas FV</span>
                         </div>
                         <div class="node-meta">
                           ${pBadge}
-                          <button type="button" class="node-action-btn toggle-active-btn" title="${pDisabled ? 'Placas desactivadas. Clic para ACTIVAR e incluir en mediciones y presupuesto.' : 'Placas activas. Clic para DESACTIVAR y excluir de mediciones y presupuesto.'}" onclick="event.stopPropagation();ProjectHierarchy.togglePanelsActive(${poly.index});">${pDisabled ? '<span style="color:#f87171;font-weight:bold;font-size:9.5px;padding:1px 4px;border-radius:2px;background:rgba(239,68,68,0.18);border:1px solid rgba(239,68,68,0.4);">OFF</span>' : '<span style="color:#34d399;font-weight:bold;font-size:9.5px;padding:1px 4px;border-radius:2px;background:rgba(16,185,129,0.18);border:1px solid rgba(16,185,129,0.4);">ON</span>'}</button>
-                          <button type="button" class="node-action-btn" title="Mostrar/Ocultar placas FV en 3D" onclick="event.stopPropagation();ProjectHierarchy.toggleVisibility('poly_panels', ${poly.index});">${pVis ? '👁️' : '🙈'}</button>
+                          <button type="button" class="node-action-btn toggle-active-btn" title="${pDisabled ? 'Placas desactivadas. Clic para ACTIVAR e incluir en mediciones y presupuesto.' : 'Placas activas. Clic para DESACTIVAR y excluir de mediciones y presupuesto.'}" data-stop="1" data-outliner-act="togglePanelsActive" data-outliner-idx="${poly.index}">${pDisabled ? '<span style="color:#f87171;font-weight:bold;font-size:9.5px;padding:1px 4px;border-radius:2px;background:rgba(239,68,68,0.18);border:1px solid rgba(239,68,68,0.4);">OFF</span>' : '<span style="color:#34d399;font-weight:bold;font-size:9.5px;padding:1px 4px;border-radius:2px;background:rgba(16,185,129,0.18);border:1px solid rgba(16,185,129,0.4);">ON</span>'}</button>
+                          <button type="button" class="node-action-btn" title="Mostrar/Ocultar placas FV en 3D" data-stop="1" data-outliner-act="toggleVis" data-outliner-type="poly_panels" data-outliner-idx="${poly.index}">${pVis ? '👁️' : '🙈'}</button>
                         </div>
                       </div>
                     </div>
@@ -281,16 +321,18 @@
             html += `<div class="outliner-sub-label">Obstáculos en cubierta:</div>`;
             bld.obstacles.forEach(function(obs) {
               const obsSel = obs.isSelected ? 'selected-obs' : '';
+              const oIdEsc = _esc(obs.id);
+              const oNameEsc = _esc(obs.name);
               html += `
-                <div class="outliner-obs-item ${obsSel}" onclick="ProjectHierarchy.selectObstacle('${obs.id}', true)">
+                <div class="outliner-obs-item ${obsSel}" data-outliner-act="selectObstacle" data-outliner-id="${oIdEsc}">
                   <div style="display:flex;align-items:center;gap:4px;flex:1;overflow:hidden;">
                     <span class="node-icon">📦</span>
-                    <span class="node-label obs-name" title="${obs.name}">${obs.name}</span>
+                    <span class="node-label obs-name" title="${oNameEsc}">${oNameEsc}</span>
                   </div>
                   <div class="node-meta">
                     <span class="badge-dim">${obs.w}×${obs.l}×${obs.h}m</span>
-                    <button type="button" class="node-action-btn" title="Alternar visibilidad" onclick="event.stopPropagation();ProjectHierarchy.toggleVisibility('obstacle', '${obs.id}');">${obs.visible ? '👁️' : '🙈'}</button>
-                    <button type="button" class="node-action-btn delete-btn" title="Eliminar obstáculo" onclick="event.stopPropagation();ProjectHierarchy.deleteItem('obstacle', '${obs.id}');">🗑️</button>
+                    <button type="button" class="node-action-btn" title="Alternar visibilidad" data-stop="1" data-outliner-act="toggleVis" data-outliner-type="obstacle" data-outliner-id="${oIdEsc}">${obs.visible ? '👁️' : '🙈'}</button>
+                    <button type="button" class="node-action-btn delete-btn" title="Eliminar obstáculo" data-stop="1" data-outliner-act="delete" data-outliner-type="obstacle" data-outliner-id="${oIdEsc}">🗑️</button>
                   </div>
                 </div>
               `;
@@ -310,7 +352,7 @@
         const plCol = !!sectionCollapsedState.planes;
         html += `
           <div class="outliner-accordion-group">
-            <div class="outliner-group-header" onclick="UIOutliner.toggleSection('planes', event)">
+            <div class="outliner-group-header" data-outliner-act="toggleSection" data-outliner-type="planes">
               <div style="display:flex;align-items:center;gap:6px;">
                 <span class="outliner-chevron" id="outliner-chev-planes">${plCol ? '▶' : '▼'}</span>
                 <span>🏠 PLANOS INDEPENDIENTES (${tree.planes.length})</span>
@@ -321,17 +363,18 @@
         `;
         tree.planes.forEach(function(p) {
           const planeActive = p.isActive ? 'active-node' : '';
+          const pNameEsc = _esc(p.name);
           html += `
             <div class="outliner-plane-card ${planeActive}">
-              <div class="outliner-plane-header" onclick="ProjectHierarchy.selectPlane(${p.index}, true)">
+              <div class="outliner-plane-header" data-outliner-act="selectPlane" data-outliner-idx="${p.index}">
                 <div style="display:flex;align-items:center;gap:5px;flex:1;overflow:hidden;">
                   <span class="node-icon">🏠</span>
-                  <span class="node-label plane-name" title="${p.name}">${p.name}</span>
+                  <span class="node-label plane-name" title="${pNameEsc}">${pNameEsc}</span>
                 </div>
                 <div class="node-meta">
                   <span class="badge-angle">${p.tiltDeg}° · ${p.azimuthDeg}°</span>
-                  <button type="button" class="node-action-btn" title="Alternar visibilidad" onclick="event.stopPropagation();ProjectHierarchy.toggleVisibility('plane', ${p.index});">${p.visible ? '👁️' : '🙈'}</button>
-                  <button type="button" class="node-action-btn delete-btn" title="Eliminar plano" onclick="event.stopPropagation();ProjectHierarchy.deleteItem('plane', ${p.index});">🗑️</button>
+                  <button type="button" class="node-action-btn" title="Alternar visibilidad" data-stop="1" data-outliner-act="toggleVis" data-outliner-type="plane" data-outliner-idx="${p.index}">${p.visible ? '👁️' : '🙈'}</button>
+                  <button type="button" class="node-action-btn delete-btn" title="Eliminar plano" data-stop="1" data-outliner-act="delete" data-outliner-type="plane" data-outliner-idx="${p.index}">🗑️</button>
                 </div>
               </div>
               <div class="outliner-polylines-container">
@@ -346,31 +389,32 @@
               const pVis = poly.panelsVisible !== false;
               const pDisabled = poly.panelsDisabled === true;
               const pClass = (pVis ? '' : 'is-hidden-node') + (pDisabled ? ' is-deactivated-node' : '');
+              const polyNameEsc = _esc(poly.name);
               const pBadge = pDisabled
                 ? `<span class="badge-stats is-deactivated" title="Mesa desactivada: excluida de mediciones y presupuestos">${poly.totalPanelsCount || poly.panelsCount} pl · OFF</span>`
-                : `<span class="badge-stats" title="Módulos y potencia instalada en ${poly.name}">${poly.panelsCount} pl · ${poly.kwp.toFixed(2)} kWp</span>`;
+                : `<span class="badge-stats" title="Módulos y potencia instalada en ${polyNameEsc}">${poly.panelsCount} pl · ${poly.kwp.toFixed(2)} kWp</span>`;
               html += `
                 <div class="outliner-poly-group">
-                  <div class="outliner-poly-item ${polySel} ${poly.visible ? '' : 'is-hidden-node'}" onclick="ProjectHierarchy.selectPolyline(${poly.index}, true)">
+                  <div class="outliner-poly-item ${polySel} ${poly.visible ? '' : 'is-hidden-node'}" data-outliner-act="selectPolyline" data-outliner-idx="${poly.index}">
                     <div style="display:flex;align-items:center;gap:4px;flex:1;overflow:hidden;">
                       <span class="node-bullet">└ ✏️</span>
-                      <span class="node-label poly-name" title="${poly.name}">${poly.name}</span>
+                      <span class="node-label poly-name" title="${polyNameEsc}">${polyNameEsc}</span>
                     </div>
                     <div class="node-meta">
                       <span class="badge-dim" title="Superficie geométrica del faldón">${areaBadge}</span>
-                      <button type="button" class="node-action-btn" title="Mostrar/Ocultar contorno CAD del faldón" onclick="event.stopPropagation();ProjectHierarchy.toggleVisibility('polyline', ${poly.index});">${poly.visible ? '👁️' : '🙈'}</button>
-                      <button type="button" class="node-action-btn delete-btn" title="Eliminar faldón" onclick="event.stopPropagation();ProjectHierarchy.deleteItem('polyline', ${poly.index});">🗑️</button>
+                      <button type="button" class="node-action-btn" title="Mostrar/Ocultar contorno CAD del faldón" data-stop="1" data-outliner-act="toggleVis" data-outliner-type="polyline" data-outliner-idx="${poly.index}">${poly.visible ? '👁️' : '🙈'}</button>
+                      <button type="button" class="node-action-btn delete-btn" title="Eliminar faldón" data-stop="1" data-outliner-act="delete" data-outliner-type="polyline" data-outliner-idx="${poly.index}">🗑️</button>
                     </div>
                   </div>
-                  <div class="outliner-panels-item ${pClass}" onclick="ProjectHierarchy.selectAllPanelsInPolyline(${poly.index})">
+                  <div class="outliner-panels-item ${pClass}" data-outliner-act="selectAllPanels" data-outliner-idx="${poly.index}">
                     <div style="display:flex;align-items:center;gap:4px;flex:1;overflow:hidden;padding-left:14px;">
                       <span class="node-bullet">└ ☀️</span>
-                      <span class="node-label panels-node-name" title="Clic para seleccionar las placas FV de ${poly.name}">Placas FV</span>
+                      <span class="node-label panels-node-name" title="Clic para seleccionar las placas FV de ${polyNameEsc}">Placas FV</span>
                     </div>
                     <div class="node-meta">
                       ${pBadge}
-                      <button type="button" class="node-action-btn toggle-active-btn" title="${pDisabled ? 'Placas desactivadas. Clic para ACTIVAR e incluir en mediciones y presupuesto.' : 'Placas activas. Clic para DESACTIVAR y excluir de mediciones y presupuesto.'}" onclick="event.stopPropagation();ProjectHierarchy.togglePanelsActive(${poly.index});">${pDisabled ? '<span style="color:#f87171;font-weight:bold;font-size:9.5px;padding:1px 4px;border-radius:2px;background:rgba(239,68,68,0.18);border:1px solid rgba(239,68,68,0.4);">OFF</span>' : '<span style="color:#34d399;font-weight:bold;font-size:9.5px;padding:1px 4px;border-radius:2px;background:rgba(16,185,129,0.18);border:1px solid rgba(16,185,129,0.4);">ON</span>'}</button>
-                      <button type="button" class="node-action-btn" title="Mostrar/Ocultar placas FV en 3D" onclick="event.stopPropagation();ProjectHierarchy.toggleVisibility('poly_panels', ${poly.index});">${pVis ? '👁️' : '🙈'}</button>
+                      <button type="button" class="node-action-btn toggle-active-btn" title="${pDisabled ? 'Placas desactivadas. Clic para ACTIVAR e incluir en mediciones y presupuesto.' : 'Placas activas. Clic para DESACTIVAR y excluir de mediciones y presupuesto.'}" data-stop="1" data-outliner-act="togglePanelsActive" data-outliner-idx="${poly.index}">${pDisabled ? '<span style="color:#f87171;font-weight:bold;font-size:9.5px;padding:1px 4px;border-radius:2px;background:rgba(239,68,68,0.18);border:1px solid rgba(239,68,68,0.4);">OFF</span>' : '<span style="color:#34d399;font-weight:bold;font-size:9.5px;padding:1px 4px;border-radius:2px;background:rgba(16,185,129,0.18);border:1px solid rgba(16,185,129,0.4);">ON</span>'}</button>
+                      <button type="button" class="node-action-btn" title="Mostrar/Ocultar placas FV en 3D" data-stop="1" data-outliner-act="toggleVis" data-outliner-type="poly_panels" data-outliner-idx="${poly.index}">${pVis ? '👁️' : '🙈'}</button>
                     </div>
                   </div>
                 </div>
@@ -391,7 +435,7 @@
         const stdCol = !!sectionCollapsedState.standalone;
         html += `
           <div class="outliner-accordion-group">
-            <div class="outliner-group-header" onclick="UIOutliner.toggleSection('standalone', event)">
+            <div class="outliner-group-header" data-outliner-act="toggleSection" data-outliner-type="standalone">
               <div style="display:flex;align-items:center;gap:6px;">
                 <span class="outliner-chevron" id="outliner-chev-standalone">${stdCol ? '▶' : '▼'}</span>
                 <span>📐 FALDONES AUTÓNOMOS (${tree.standalonePolylines.length})</span>
@@ -406,31 +450,32 @@
           const pVis = poly.panelsVisible !== false;
           const pDisabled = poly.panelsDisabled === true;
           const pClass = (pVis ? '' : 'is-hidden-node') + (pDisabled ? ' is-deactivated-node' : '');
+          const polyNameEsc = _esc(poly.name);
           const pBadge = pDisabled
             ? `<span class="badge-stats is-deactivated" title="Mesa desactivada: excluida de mediciones y presupuestos">${poly.totalPanelsCount || poly.panelsCount} pl · OFF</span>`
-            : `<span class="badge-stats" title="Módulos y potencia instalada en ${poly.name}">${poly.panelsCount} pl · ${poly.kwp.toFixed(2)} kWp</span>`;
+            : `<span class="badge-stats" title="Módulos y potencia instalada en ${polyNameEsc}">${poly.panelsCount} pl · ${poly.kwp.toFixed(2)} kWp</span>`;
           html += `
             <div class="outliner-poly-group">
-              <div class="outliner-poly-item ${polySel} ${poly.visible ? '' : 'is-hidden-node'}" onclick="ProjectHierarchy.selectPolyline(${poly.index}, true)">
+              <div class="outliner-poly-item ${polySel} ${poly.visible ? '' : 'is-hidden-node'}" data-outliner-act="selectPolyline" data-outliner-idx="${poly.index}">
                 <div style="display:flex;align-items:center;gap:4px;flex:1;overflow:hidden;">
                   <span class="node-bullet">✏️</span>
-                  <span class="node-label poly-name" title="${poly.name}">${poly.name}</span>
+                  <span class="node-label poly-name" title="${polyNameEsc}">${polyNameEsc}</span>
                 </div>
                 <div class="node-meta">
                   <span class="badge-dim" title="Superficie geométrica del faldón">${areaBadge}</span>
-                  <button type="button" class="node-action-btn" title="Mostrar/Ocultar contorno CAD del faldón" onclick="event.stopPropagation();ProjectHierarchy.toggleVisibility('polyline', ${poly.index});">${poly.visible ? '👁️' : '🙈'}</button>
-                  <button type="button" class="node-action-btn delete-btn" title="Eliminar faldón" onclick="event.stopPropagation();ProjectHierarchy.deleteItem('polyline', ${poly.index});">🗑️</button>
+                  <button type="button" class="node-action-btn" title="Mostrar/Ocultar contorno CAD del faldón" data-stop="1" data-outliner-act="toggleVis" data-outliner-type="polyline" data-outliner-idx="${poly.index}">${poly.visible ? '👁️' : '🙈'}</button>
+                  <button type="button" class="node-action-btn delete-btn" title="Eliminar faldón" data-stop="1" data-outliner-act="delete" data-outliner-type="polyline" data-outliner-idx="${poly.index}">🗑️</button>
                 </div>
               </div>
-              <div class="outliner-panels-item ${pClass}" onclick="ProjectHierarchy.selectAllPanelsInPolyline(${poly.index})">
+              <div class="outliner-panels-item ${pClass}" data-outliner-act="selectAllPanels" data-outliner-idx="${poly.index}">
                 <div style="display:flex;align-items:center;gap:4px;flex:1;overflow:hidden;padding-left:12px;">
                   <span class="node-bullet">└ ☀️</span>
-                  <span class="node-label panels-node-name" title="Clic para seleccionar las placas FV de ${poly.name}">Placas FV</span>
+                  <span class="node-label panels-node-name" title="Clic para seleccionar las placas FV de ${polyNameEsc}">Placas FV</span>
                 </div>
                 <div class="node-meta">
                   ${pBadge}
-                  <button type="button" class="node-action-btn toggle-active-btn" title="${pDisabled ? 'Placas desactivadas. Clic para ACTIVAR e incluir en mediciones y presupuesto.' : 'Placas activas. Clic para DESACTIVAR y excluir de mediciones y presupuesto.'}" onclick="event.stopPropagation();ProjectHierarchy.togglePanelsActive(${poly.index});">${pDisabled ? '<span style="color:#f87171;font-weight:bold;font-size:9.5px;padding:1px 4px;border-radius:2px;background:rgba(239,68,68,0.18);border:1px solid rgba(239,68,68,0.4);">OFF</span>' : '<span style="color:#34d399;font-weight:bold;font-size:9.5px;padding:1px 4px;border-radius:2px;background:rgba(16,185,129,0.18);border:1px solid rgba(16,185,129,0.4);">ON</span>'}</button>
-                  <button type="button" class="node-action-btn" title="Mostrar/Ocultar placas FV en 3D" onclick="event.stopPropagation();ProjectHierarchy.toggleVisibility('poly_panels', ${poly.index});">${pVis ? '👁️' : '🙈'}</button>
+                  <button type="button" class="node-action-btn toggle-active-btn" title="${pDisabled ? 'Placas desactivadas. Clic para ACTIVAR e incluir en mediciones y presupuesto.' : 'Placas activas. Clic para DESACTIVAR y excluir de mediciones y presupuesto.'}" data-stop="1" data-outliner-act="togglePanelsActive" data-outliner-idx="${poly.index}">${pDisabled ? '<span style="color:#f87171;font-weight:bold;font-size:9.5px;padding:1px 4px;border-radius:2px;background:rgba(239,68,68,0.18);border:1px solid rgba(239,68,68,0.4);">OFF</span>' : '<span style="color:#34d399;font-weight:bold;font-size:9.5px;padding:1px 4px;border-radius:2px;background:rgba(16,185,129,0.18);border:1px solid rgba(16,185,129,0.4);">ON</span>'}</button>
+                  <button type="button" class="node-action-btn" title="Mostrar/Ocultar placas FV en 3D" data-stop="1" data-outliner-act="toggleVis" data-outliner-type="poly_panels" data-outliner-idx="${poly.index}">${pVis ? '👁️' : '🙈'}</button>
                 </div>
               </div>
             </div>
@@ -444,7 +489,7 @@
         const obsCol = !!sectionCollapsedState.obstacles;
         html += `
           <div class="outliner-accordion-group">
-            <div class="outliner-group-header" onclick="UIOutliner.toggleSection('obstacles', event)">
+            <div class="outliner-group-header" data-outliner-act="toggleSection" data-outliner-type="obstacles">
               <div style="display:flex;align-items:center;gap:6px;">
                 <span class="outliner-chevron" id="outliner-chev-obstacles">${obsCol ? '▶' : '▼'}</span>
                 <span>🧱 OBSTÁCULOS EN TERRENO (${tree.obstacles.length})</span>
@@ -455,16 +500,18 @@
         `;
         tree.obstacles.forEach(function(obs) {
           const obsSel = obs.isSelected ? 'selected-obs' : '';
+          const oIdEsc = _esc(obs.id);
+          const oNameEsc = _esc(obs.name);
           html += `
-            <div class="outliner-obs-item ${obsSel}" onclick="ProjectHierarchy.selectObstacle('${obs.id}', true)">
+            <div class="outliner-obs-item ${obsSel}" data-outliner-act="selectObstacle" data-outliner-id="${oIdEsc}">
               <div style="display:flex;align-items:center;gap:4px;flex:1;overflow:hidden;">
                 <span class="node-icon">📦</span>
-                <span class="node-label obs-name" title="${obs.name}">${obs.name}</span>
+                <span class="node-label obs-name" title="${oNameEsc}">${oNameEsc}</span>
               </div>
               <div class="node-meta">
                 <span class="badge-dim">${obs.w}×${obs.l}×${obs.h}m</span>
-                <button type="button" class="node-action-btn" title="Alternar visibilidad" onclick="event.stopPropagation();ProjectHierarchy.toggleVisibility('obstacle', '${obs.id}');">${obs.visible ? '👁️' : '🙈'}</button>
-                <button type="button" class="node-action-btn delete-btn" title="Eliminar obstáculo" onclick="event.stopPropagation();ProjectHierarchy.deleteItem('obstacle', '${obs.id}');">🗑️</button>
+                <button type="button" class="node-action-btn" title="Alternar visibilidad" data-stop="1" data-outliner-act="toggleVis" data-outliner-type="obstacle" data-outliner-id="${oIdEsc}">${obs.visible ? '👁️' : '🙈'}</button>
+                <button type="button" class="node-action-btn delete-btn" title="Eliminar obstáculo" data-stop="1" data-outliner-act="delete" data-outliner-type="obstacle" data-outliner-id="${oIdEsc}">🗑️</button>
               </div>
             </div>
           `;
@@ -477,7 +524,7 @@
         const elCol = !!sectionCollapsedState.electrical;
         html += `
           <div class="outliner-accordion-group">
-            <div class="outliner-group-header" onclick="UIOutliner.toggleSection('electrical', event)">
+            <div class="outliner-group-header" data-outliner-act="toggleSection" data-outliner-type="electrical">
               <div style="display:flex;align-items:center;gap:6px;">
                 <span class="outliner-chevron" id="outliner-chev-electrical">${elCol ? '▶' : '▼'}</span>
                 <span>⚡ CUADROS & EQUIPOS ELÉCTRICOS (${tree.electrical.length})</span>
@@ -488,25 +535,28 @@
         `;
         tree.electrical.forEach(function(eq) {
           const eqSel = eq.isSelected ? 'selected-obs active-node' : '';
+          const eqIdEsc = _esc(eq.id);
+          const eqNameEsc = _esc(eq.name);
+          const eqIconEsc = _esc(eq.icon);
           if (eq.isCableMetric) {
             html += `
               <div class="outliner-obs-item" style="background:rgba(56,189,248,0.08);border-left:2px solid #38BDF8;cursor:default;">
                 <div style="display:flex;align-items:center;gap:4px;flex:1;overflow:hidden;">
-                  <span class="node-icon">${eq.icon}</span>
-                  <span class="node-label obs-name" style="color:#BAE6FD;font-weight:700;" title="${eq.name}">${eq.name}</span>
+                  <span class="node-icon">${eqIconEsc}</span>
+                  <span class="node-label obs-name" style="color:#BAE6FD;font-weight:700;" title="${eqNameEsc}">${eqNameEsc}</span>
                 </div>
               </div>
             `;
           } else {
             html += `
-              <div class="outliner-obs-item ${eqSel}" onclick="ProjectHierarchy.selectElectrical('${eq.id}', true)">
+              <div class="outliner-obs-item ${eqSel}" data-outliner-act="selectElectrical" data-outliner-id="${eqIdEsc}">
                 <div style="display:flex;align-items:center;gap:4px;flex:1;overflow:hidden;">
-                  <span class="node-icon">${eq.icon}</span>
-                  <span class="node-label obs-name" title="${eq.name}">${eq.name}</span>
+                  <span class="node-icon">${eqIconEsc}</span>
+                  <span class="node-label obs-name" title="${eqNameEsc}">${eqNameEsc}</span>
                 </div>
                 <div class="node-meta">
-                  <button type="button" class="node-action-btn" title="Alternar visibilidad" onclick="event.stopPropagation();ProjectHierarchy.toggleVisibility('electrical', '${eq.id}');">${eq.visible ? '👁️' : '🙈'}</button>
-                  <button type="button" class="node-action-btn delete-btn" title="Eliminar equipo" onclick="event.stopPropagation();ProjectHierarchy.deleteItem('electrical', '${eq.id}');">🗑️</button>
+                  <button type="button" class="node-action-btn" title="Alternar visibilidad" data-stop="1" data-outliner-act="toggleVis" data-outliner-type="electrical" data-outliner-id="${eqIdEsc}">${eq.visible ? '👁️' : '🙈'}</button>
+                  <button type="button" class="node-action-btn delete-btn" title="Eliminar equipo" data-stop="1" data-outliner-act="delete" data-outliner-type="electrical" data-outliner-id="${eqIdEsc}">🗑️</button>
                 </div>
               </div>
             `;
@@ -520,7 +570,7 @@
         const windCol = !!sectionCollapsedState.wind;
         html += `
           <div class="outliner-accordion-group">
-            <div class="outliner-group-header" onclick="UIOutliner.toggleSection('wind', event)">
+            <div class="outliner-group-header" data-outliner-act="toggleSection" data-outliner-type="wind">
               <div style="display:flex;align-items:center;gap:6px;">
                 <span class="outliner-chevron" id="outliner-chev-wind">${windCol ? '▶' : '▼'}</span>
                 <span>💨 AEROGENERADORES (${tree.windTurbines.length})</span>
@@ -532,16 +582,18 @@
         tree.windTurbines.forEach(function(wt) {
           const wtSel = wt.isSelected ? 'selected-obs active-node' : '';
           const wtVis = wt.visible !== false;
+          const wtIdEsc = _esc(wt.id);
+          const wtNameEsc = _esc(wt.name);
           html += `
-            <div class="outliner-obs-item ${wtSel} ${wtVis ? '' : 'is-hidden-node'}" onclick="ProjectHierarchy.selectWindTurbine('${wt.id}', true)">
+            <div class="outliner-obs-item ${wtSel} ${wtVis ? '' : 'is-hidden-node'}" data-outliner-act="selectWind" data-outliner-id="${wtIdEsc}">
               <div style="display:flex;align-items:center;gap:4px;flex:1;overflow:hidden;">
                 <span class="node-icon">💨</span>
-                <span class="node-label obs-name" title="${wt.name}">${wt.name}</span>
+                <span class="node-label obs-name" title="${wtNameEsc}">${wtNameEsc}</span>
               </div>
               <div class="node-meta">
                 <span class="badge-dim">${wt.ratedPowerKw} kW · H:${wt.hubHeightM}m</span>
-                <button type="button" class="node-action-btn" title="Alternar activación/visibilidad" onclick="event.stopPropagation();ProjectHierarchy.toggleVisibility('wind_turbine', '${wt.id}');">${wtVis ? '👁️' : '🙈'}</button>
-                <button type="button" class="node-action-btn delete-btn" title="Eliminar aerogenerador" onclick="event.stopPropagation();ProjectHierarchy.deleteItem('wind_turbine', '${wt.id}');">🗑️</button>
+                <button type="button" class="node-action-btn" title="Alternar activación/visibilidad" data-stop="1" data-outliner-act="toggleVis" data-outliner-type="wind_turbine" data-outliner-id="${wtIdEsc}">${wtVis ? '👁️' : '🙈'}</button>
+                <button type="button" class="node-action-btn delete-btn" title="Eliminar aerogenerador" data-stop="1" data-outliner-act="delete" data-outliner-type="wind_turbine" data-outliner-id="${wtIdEsc}">🗑️</button>
               </div>
             </div>
           `;

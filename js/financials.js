@@ -4688,7 +4688,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   <html lang="es">
   <head>
     <meta charset="UTF-8">
-    <title>Propuesta Comercial Solar FV — ${d.refNum}</title>
+    <title>Propuesta Comercial Solar FV — ${_escProp(d.refNum)}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Comfortaa:wght@300;400;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,400..700;1,9..40,400..700&family=Inter:wght@400;600;700;800&family=Montserrat:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
@@ -5190,7 +5190,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     </div>
 
     <div class="doc-top-bar no-print">
-      <div class="doc-bar-title"><span>OFERTA COMERCIAL</span> PROPUESTA ECONÓMICA Y TÉCNICA · ${d.refNum}</div>
+      <div class="doc-bar-title"><span>OFERTA COMERCIAL</span> PROPUESTA ECONÓMICA Y TÉCNICA · ${_escProp(d.refNum)}</div>
       <div class="doc-bar-btns">
         <!-- Selector interactivo de paleta corporativa idéntica al dossier -->
         <div style="display:flex;align-items:center;gap:5px;background:rgba(255,255,255,0.08);padding:3px 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.15);margin-right:6px;">
@@ -5204,7 +5204,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         <button class="doc-btn" style="background:#8b5cf6;color:#fff;display:inline-flex;align-items:center;gap:5px;" onclick="capture3DToProposal()" title="Actualizar fotos con captura 3D en vivo del proyecto">${_mSvg('camera', 13, '#ffffff')} CAPTURAR VISTA 3D</button>
         <button class="doc-btn doc-btn-edit" id="btn-prop-edit" style="display:inline-flex;align-items:center;gap:5px;" onclick="togglePropEdit()">${_mSvg('edit', 13, 'currentColor')} EDITAR</button>
         <button class="doc-btn doc-btn-print" style="display:inline-flex;align-items:center;gap:5px;" onclick="window.print()">${_mSvg('printer', 13, 'currentColor')} IMPRIMIR / PDF</button>
-        <button class="doc-btn doc-btn-word" id="btn-export-docx" style="display:inline-flex;align-items:center;gap:5px;" onclick="exportPropDocx()" title="Descargar documento Word (.docx) con maquetación e imágenes completas">${_mSvg('fileText', 13, 'currentColor')} WORD (.DOCX)</button>
+        <button class="doc-btn doc-btn-word" id="btn-export-docx" data-refnum="${_escProp(d.refNum)}" style="display:inline-flex;align-items:center;gap:5px;" onclick="exportPropDocx()" title="Descargar documento Word (.docx) con maquetación e imágenes completas">${_mSvg('fileText', 13, 'currentColor')} WORD (.DOCX)</button>
         <button class="doc-btn doc-btn-html" style="display:inline-flex;align-items:center;gap:5px;" onclick="exportPropHtml()">${_mSvg('globe', 13, 'currentColor')} HTML</button>
         <button class="doc-btn doc-btn-close" style="display:inline-flex;align-items:center;justify-content:center;" onclick="closeProposalViewer()" title="Cerrar propuesta">${_mSvg('close', 14, 'currentColor')}</button>
       </div>
@@ -5224,8 +5224,8 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
             </div>
           </div>
           <div class="cover-brand-meta">
-            <div style="font-weight:900;font-size:13px;color:#0f172a;">REF: ${d.refNum}</div>
-            <div>Fecha: ${d.fechaStr}</div>
+            <div style="font-weight:900;font-size:13px;color:#0f172a;">REF: ${_escProp(d.refNum)}</div>
+            <div>Fecha: ${_escProp(d.fechaStr)}</div>
             <div>Hoja 1 de ${_totPages}</div>
             <div style="margin-top:4px;"><span class="card-tag" style="background:${pal.light};color:${pal.dark};font-weight:800;padding:2px 8px;border-radius:4px;font-size:9.5px;">${branding.status === 'orientativa' ? 'PROPUESTA ORIENTATIVA' : 'PROPUESTA VINCULANTE'}</span></div>
           </div>
@@ -5370,9 +5370,9 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
               <div class="tech-label">MÓDULOS FOTOVOLTAICOS</div>
               ${(m.modulesBreakdown && m.modulesBreakdown.isMultiModule)
                 ? `<div class="tech-name">Generador Multi-Campo (${m.modulesBreakdown.uniqueModelsCount} modelos)</div>
-                   <div class="tech-sub">${m.modulesBreakdown.byModel.map(bm => bm.count + '× ' + bm.fullName + ' (' + bm.wp + 'W)').join(' · ')}</div>`
-                : `<div class="tech-name" title="${d.cfg.modelo}">${d.cfg.modelo}</div>
-                   <div class="tech-sub">${d.cfg.potencia} Wp · ${d.cfg.tecnologia}</div>`
+                   <div class="tech-sub">${m.modulesBreakdown.byModel.map(bm => bm.count + '× ' + _escProp(bm.fullName) + ' (' + _escProp(bm.wp) + 'W)').join(' · ')}</div>`
+                : `<div class="tech-name" title="${_escProp(d.cfg.modelo)}">${_escProp(d.cfg.modelo)}</div>
+                   <div class="tech-sub">${_escProp(d.cfg.potencia)} Wp · ${_escProp(d.cfg.tecnologia)}</div>`
               }
             </div>
             <div class="tech-badge">
@@ -5387,7 +5387,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
             </div>
             <div class="tech-info">
               <div class="tech-label">${_eqp.topology === 'microinverter' ? 'SISTEMA DE MICROINVERSORES' : 'INVERSOR DE RED'}</div>
-              <div class="tech-name" title="${_eqp.topology === 'microinverter' ? (_eqp.microName || _eqp.invName) : _eqp.invName}">${_eqp.topology === 'microinverter' ? (_eqp.microName || _eqp.invName) : _eqp.invName}</div>
+              <div class="tech-name" title="${_escProp(_eqp.topology === 'microinverter' ? (_eqp.microName || _eqp.invName) : _eqp.invName)}">${_escProp(_eqp.topology === 'microinverter' ? (_eqp.microName || _eqp.invName) : _eqp.invName)}</div>
               <div class="tech-sub">${_eqp.topology === 'microinverter'
                 ? 'Conversión descentralizada AC a nivel de panel · MPPT individual'
                 : (_eqp.invCount > 1 
@@ -5408,7 +5408,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
             </div>
             <div class="tech-info">
               <div class="tech-label">SISTEMA DE ALMACENAMIENTO</div>
-              <div class="tech-name" title="${_eqp.hasBat ? _eqp.batName : 'Sin acumulación (Conexión Directa)'}">${_eqp.hasBat ? _eqp.batName : 'Sin acumulación'}</div>
+              <div class="tech-name" title="${_escProp(_eqp.hasBat ? _eqp.batName : 'Sin acumulación (Conexión Directa)')}">${_escProp(_eqp.hasBat ? _eqp.batName : 'Sin acumulación')}</div>
               <div class="tech-sub">${_eqp.hasBat 
                 ? (_eqp.batCount > 1 
                     ? (_eqp.batCount + ' módulos × ' + _eqp.batKwh + ' kWh (' + _eqp.totalBatKwh.toFixed(1) + ' kWh total) · Batería LFP con BMS') 
@@ -5952,7 +5952,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
             <span>${m.capexTachado.toLocaleString('es-ES')} €</span>
           </div>
           <div class="decision-row" style="color:#059669;font-weight:700;">
-            <span>${m.discountLabel}:</span>
+            <span>${_escProp(m.discountLabel)}:</span>
             <span>-${Math.round(m.discountEur * (1 + (m.ivaRate != null ? m.ivaRate : 0.21))).toLocaleString('es-ES')} €</span>
           </div>` : ''}
           <div class="decision-row">
@@ -6775,9 +6775,11 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
             docxBlob = new Blob(['\ufeff', wordHtml], { type: 'application/msword' });
           }
 
+          const _refEl = document.getElementById('btn-export-docx');
+          const _refSlug = ((_refEl && _refEl.getAttribute('data-refnum')) || 'OFERTA').replace(/[^a-zA-Z0-9._-]/g, '_');
           const a = document.createElement('a');
           a.href = URL.createObjectURL(docxBlob);
-          a.download = '${d.refNum}_Propuesta_Comercial.docx';
+          a.download = _refSlug + '_Propuesta_Comercial.docx';
           document.body.appendChild(a);
           a.click();
           document.body.removeChild(a);
@@ -6802,8 +6804,10 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
           el.removeAttribute('draggable');
           el.removeAttribute('data-editable-box');
         });
+        const _refEl = document.getElementById('btn-export-docx');
+        const _refSlug = ((_refEl && _refEl.getAttribute('data-refnum')) || 'OFERTA').replace(/[^a-zA-Z0-9._-]/g, '_');
         const blob = new Blob(['\ufeff' + clone.outerHTML], { type: 'text/html;charset=utf-8' });
-        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = '${d.refNum}_Propuesta_Comercial.html';
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = _refSlug + '_Propuesta_Comercial.html';
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
       }
 

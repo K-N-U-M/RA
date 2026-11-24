@@ -767,7 +767,11 @@
     html += '  <span style="font-size:9.5px;color:var(--text-slate-400);text-transform:uppercase;">Unidades instaladas (clic para inspeccionar)</span>';
     html += '</div>';
 
-    html += '<div style="display:flex;flex-direction:column;gap:5px;max-height:190px;overflow-y:auto;margin-bottom:8px;">';
+    var _escWind = function (v) {
+      if (window.RASanitize && typeof window.RASanitize.plain === 'function') return window.RASanitize.plain(v);
+      return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    };
+    html += '<div data-wind-list="1" style="display:flex;flex-direction:column;gap:5px;max-height:190px;overflow-y:auto;margin-bottom:8px;">';
     turbines.forEach(function (t, idx) {
       var cat = t._catalog || {};
       var kw = (cat.ratedPowerW ? (cat.ratedPowerW / 1000).toFixed(1) : '?');
@@ -775,16 +779,18 @@
       var isEnabled = t.operationalState ? t.operationalState.enabled !== false : true;
       var isSel = (activeTurbine && t.id === activeTurbine.id);
       var aepKwh = (t.simulationResults && t.simulationResults.aepNetKwh) ? t.simulationResults.aepNetKwh : 0;
+      var tIdEsc = _escWind(t.id);
+      var tNameEsc = _escWind(t.name || ('Turbina #' + (idx + 1)));
 
-      html += '<div onclick="if(window.RAWindUI)window.RAWindUI.selectTurbineForInspect(\'' + t.id + '\')" style="display:flex;align-items:center;justify-content:space-between;background:' + (isSel ? 'rgba(56,189,248,0.14)' : 'rgba(30,41,59,0.7)') + ';padding:6px 8px;border-radius:6px;cursor:pointer;border:1px solid ' + (isSel ? '#38BDF8' : (isEnabled ? 'rgba(255,255,255,0.08)' : 'rgba(239,68,68,0.3)')) + ';">';
+      html += '<div data-wind-act="select" data-wind-id="' + tIdEsc + '" style="display:flex;align-items:center;justify-content:space-between;background:' + (isSel ? 'rgba(56,189,248,0.14)' : 'rgba(30,41,59,0.7)') + ';padding:6px 8px;border-radius:6px;cursor:pointer;border:1px solid ' + (isSel ? '#38BDF8' : (isEnabled ? 'rgba(255,255,255,0.08)' : 'rgba(239,68,68,0.3)')) + ';">';
       html += '  <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:155px;">';
-      html += '    <div style="font-weight:600;font-size:10.5px;color:#fff;">' + (t.name || ('Turbina #' + (idx + 1))) + '</div>';
-      html += '    <div style="font-size:9.5px;color:var(--text-slate-400);">' + kw + ' kW · ' + cat.type + ' · H=' + hubH + 'm · <span style="color:#34D399;">' + aepKwh.toLocaleString('es-ES') + ' kWh/a</span></div>';
+      html += '    <div style="font-weight:600;font-size:10.5px;color:#fff;">' + tNameEsc + '</div>';
+      html += '    <div style="font-size:9.5px;color:var(--text-slate-400);">' + _escWind(kw) + ' kW · ' + _escWind(cat.type) + ' · H=' + _escWind(hubH) + 'm · <span style="color:#34D399;">' + Number(aepKwh).toLocaleString('es-ES') + ' kWh/a</span></div>';
       html += '  </div>';
-      html += '  <div style="display:flex;gap:3px;align-items:center;" onclick="event.stopPropagation();">';
-      html += '    <button title="' + (isEnabled ? 'Desactivar' : 'Activar') + '" onclick="if(window.RAWind && window.RAWind.Entity){window.RAWind.Entity.updateProp(\'' + t.id + '\',\'enabled\',' + !isEnabled + ');}" style="background:none;border:none;color:' + (isEnabled ? '#10B981' : '#64748B') + ';cursor:pointer;font-size:11px;">' + (isEnabled ? '⚡' : '⚪') + '</button>';
-      html += '    <button title="Centrar cámara" onclick="if(window.RAWindUI){window.RAWindUI.focusTurbine(\'' + t.id + '\');}" style="background:none;border:none;color:#38BDF8;cursor:pointer;font-size:11px;">🔍</button>';
-      html += '    <button title="Eliminar" onclick="if(confirm(\'¿Eliminar aerogenerador?\')){if(window.RAWind && window.RAWind.Entity)window.RAWind.Entity.removeFromScene(\'' + t.id + '\');}" style="background:none;border:none;color:#EF4444;cursor:pointer;font-size:11px;">🗑</button>';
+      html += '  <div style="display:flex;gap:3px;align-items:center;">';
+      html += '    <button data-wind-act="toggle" data-wind-id="' + tIdEsc + '" data-wind-val="' + (!isEnabled ? '1' : '0') + '" title="' + (isEnabled ? 'Desactivar' : 'Activar') + '" style="background:none;border:none;color:' + (isEnabled ? '#10B981' : '#64748B') + ';cursor:pointer;font-size:11px;">' + (isEnabled ? '⚡' : '⚪') + '</button>';
+      html += '    <button data-wind-act="focus" data-wind-id="' + tIdEsc + '" title="Centrar cámara" style="background:none;border:none;color:#38BDF8;cursor:pointer;font-size:11px;">🔍</button>';
+      html += '    <button data-wind-act="remove" data-wind-id="' + tIdEsc + '" title="Eliminar" style="background:none;border:none;color:#EF4444;cursor:pointer;font-size:11px;">🗑</button>';
       html += '  </div>';
       html += '</div>';
     });
@@ -1214,6 +1220,30 @@
 
     html += '</div>';
     panel.innerHTML = html;
+    if (!panel.dataset.raWindBound) {
+      panel.dataset.raWindBound = '1';
+      panel.addEventListener('click', function (e) {
+        var btn = e.target && e.target.closest ? e.target.closest('[data-wind-act]') : null;
+        if (!btn) return;
+        var act = btn.getAttribute('data-wind-act');
+        var wId = btn.getAttribute('data-wind-id');
+        if (act === 'select' && global.RAWindUI && global.RAWindUI.selectTurbineForInspect) {
+          global.RAWindUI.selectTurbineForInspect(wId);
+        } else if (act === 'toggle') {
+          e.stopPropagation();
+          var nextVal = btn.getAttribute('data-wind-val') === '1';
+          if (global.RAWind && global.RAWind.Entity) global.RAWind.Entity.updateProp(wId, 'enabled', nextVal);
+        } else if (act === 'focus') {
+          e.stopPropagation();
+          if (global.RAWindUI && global.RAWindUI.focusTurbine) global.RAWindUI.focusTurbine(wId);
+        } else if (act === 'remove') {
+          e.stopPropagation();
+          if (confirm('¿Eliminar aerogenerador?')) {
+            if (global.RAWind && global.RAWind.Entity) global.RAWind.Entity.removeFromScene(wId);
+          }
+        }
+      });
+    }
   }
 
   function focusTurbine(id) {
@@ -1265,13 +1295,17 @@
     html += '    <span style="font-size:9px;font-weight:800;color:' + badgeCol + ';background:rgba(16,185,129,0.12);padding:2px 6px;border-radius:4px;border:1px solid ' + badgeCol + ';">' + (ok ? ('CONFORME ΔU=' + summary.worstVoltageDropPct + '%') : 'REVISAR LÍNEA') + '</span>';
     html += '  </div>';
     if (summary && Array.isArray(summary.reports)) {
+      var _escWRep = function (v) {
+        if (window.RASanitize && typeof window.RASanitize.plain === 'function') return window.RASanitize.plain(v);
+        return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+      };
       summary.reports.forEach(function (rep, idx) {
-        var tName = (turbs[idx] && turbs[idx].name) || ('Aerogenerador #' + (idx + 1));
+        var tName = _escWRep((turbs[idx] && turbs[idx].name) || ('Aerogenerador #' + (idx + 1)));
         html += '<div style="font-size:9.5px;color:var(--text-slate-300);background:rgba(0,0,0,0.28);padding:6px 8px;border-radius:5px;margin-bottom:4px;line-height:1.45;">';
-        html += '  <b style="color:#7DD3FC;">' + tName + '</b> · ' + rep.systemTopology + ' (I<sub>n</sub>=' + rep.nominalCurrentA + 'A / I<sub>dis</sub>=' + rep.designCurrentA + 'A)<br>';
-        html += '  Línea (' + rep.cable.lengthM + ' m): <b>' + rep.cable.designation + '</b> · ΔU=' + rep.cable.voltageDropPct + '% · I<sub>z corr</sub>=' + rep.cable.ampacityA + 'A<br>';
-        html += '  Freno Reostático (Dump Load): <b>' + rep.dumpLoad.requiredPowerKw + ' kW @ ' + rep.dumpLoad.dcBusVoltageV + ' V<sub>DC</sub></b> (' + rep.dumpLoad.equivalentResistanceOhm + ' Ω)<br>';
-        html += '  Protección: <b>' + rep.protections.mcbSpec + '</b> · <b>' + rep.protections.rcdSpec + '</b>';
+        html += '  <b style="color:#7DD3FC;">' + tName + '</b> · ' + _escWRep(rep.systemTopology) + ' (I<sub>n</sub>=' + _escWRep(rep.nominalCurrentA) + 'A / I<sub>dis</sub>=' + _escWRep(rep.designCurrentA) + 'A)<br>';
+        html += '  Línea (' + _escWRep(rep.cable.lengthM) + ' m): <b>' + _escWRep(rep.cable.designation) + '</b> · ΔU=' + _escWRep(rep.cable.voltageDropPct) + '% · I<sub>z corr</sub>=' + _escWRep(rep.cable.ampacityA) + 'A<br>';
+        html += '  Freno Reostático (Dump Load): <b>' + _escWRep(rep.dumpLoad.requiredPowerKw) + ' kW @ ' + _escWRep(rep.dumpLoad.dcBusVoltageV) + ' V<sub>DC</sub></b> (' + _escWRep(rep.dumpLoad.equivalentResistanceOhm) + ' Ω)<br>';
+        html += '  Protección: <b>' + _escWRep(rep.protections.mcbSpec) + '</b> · <b>' + _escWRep(rep.protections.rcdSpec) + '</b>';
         html += '</div>';
       });
     }

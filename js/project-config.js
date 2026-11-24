@@ -72,13 +72,16 @@ function populateStep3EquipmentSelectors() {
     });
 
     const fallbackInv = compatibleInvs[0] || catalog.inverters[0];
+    const _esc = (v) => (typeof window !== 'undefined' && window.RASanitize && typeof window.RASanitize.plain === 'function')
+      ? window.RASanitize.plain(v)
+      : String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     const curVal = cfg.selectedInverterId || (fallbackInv ? fallbackInv.id : '');
     const formatInvOption = (i, disabled = false) => {
       const ph = resolvePhases(i);
       const phTag = ph === 1 ? '1F' : '3F';
       const isSel = (i.id === curVal);
-      return '<option value="' + i.id + '"' + (isSel ? ' selected' : '') + (disabled ? ' disabled' : '') + '>' +
-        '[' + phTag + '] ' + i.brand + ' · ' + i.model + ' (' + i.kw + ' kW · ' + i.mppt + ' MPPT · ' + (i.maxOverload ? Math.round(i.maxOverload * 100) : 130) + '% DC · ' + i.price + ' €)' +
+      return '<option value="' + _esc(i.id) + '"' + (isSel ? ' selected' : '') + (disabled ? ' disabled' : '') + '>' +
+        '[' + phTag + '] ' + _esc(i.brand) + ' · ' + _esc(i.model) + ' (' + _esc(i.kw) + ' kW · ' + _esc(i.mppt) + ' MPPT · ' + (i.maxOverload ? Math.round(i.maxOverload * 100) : 130) + '% DC · ' + _esc(i.price) + ' €)' +
       '</option>';
     };
 
@@ -99,11 +102,15 @@ function populateStep3EquipmentSelectors() {
     if (vInv && !catalog.inverters.some(i => i.id === vInv.id)) {
       const isSel = (vInv.id === curVal);
       const vPh = resolvePhases(vInv) === 1 ? '1F' : '3F';
-      invOptionsHtml = `<option value="${vInv.id}" ${isSel ? 'selected' : ''} style="color:#F59E0B;font-weight:bold;">⚠️ [FUERA DE CATÁLOGO · ${vPh}] ${vInv.brand} · ${vInv.model} (${vInv.kw} kW · ${vInv.price} €)</option>` + invOptionsHtml;
+      invOptionsHtml = `<option value="${_esc(vInv.id)}" ${isSel ? 'selected' : ''} style="color:#F59E0B;font-weight:bold;">⚠️ [FUERA DE CATÁLOGO · ${vPh}] ${_esc(vInv.brand)} · ${_esc(vInv.model)} (${_esc(vInv.kw)} kW · ${_esc(vInv.price)} €)</option>` + invOptionsHtml;
     }
     invSel.innerHTML = invOptionsHtml;
     if (curVal) invSel.value = curVal;
   }
+
+  const _escEq = (v) => (typeof window !== 'undefined' && window.RASanitize && typeof window.RASanitize.plain === 'function')
+    ? window.RASanitize.plain(v)
+    : String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
   // 3. Optimizadores DC/DC (MLPE)
   const optSel = document.getElementById('step3-sel-optimizer');
@@ -113,8 +120,8 @@ function populateStep3EquipmentSelectors() {
     const sourceList = optimizersList.length > 0 ? optimizersList : catalog.microinverters;
     optSel.innerHTML = sourceList.map(opt => {
       const isSel = (opt.id === curOptVal);
-      return '<option value="' + opt.id + '"' + (isSel ? ' selected' : '') + '>' +
-        opt.brand + ' · ' + opt.model + ' (' + (opt.type || 'Optimizador DC') + ' · ' + (opt.price || 65) + ' €)' +
+      return '<option value="' + _escEq(opt.id) + '"' + (isSel ? ' selected' : '') + '>' +
+        _escEq(opt.brand) + ' · ' + _escEq(opt.model) + ' (' + _escEq(opt.type || 'Optimizador DC') + ' · ' + _escEq(opt.price || 65) + ' €)' +
       '</option>';
     }).join('');
     if (curOptVal) optSel.value = curOptVal;
@@ -126,8 +133,8 @@ function populateStep3EquipmentSelectors() {
     const curVal = cfg.selectedMicroinverterId || (catalog.microinverters[0] ? catalog.microinverters[0].id : '');
     miSel.innerHTML = catalog.microinverters.map(mi => {
       const isSel = (mi.id === curVal);
-      return '<option value="' + mi.id + '"' + (isSel ? ' selected' : '') + '>' +
-        mi.brand + ' · ' + mi.model + ' (' + Math.round(mi.kw * 1000) + ' W · ' + (mi.type || 'MLPE') + ' · ' + mi.price + ' €)' +
+      return '<option value="' + _escEq(mi.id) + '"' + (isSel ? ' selected' : '') + '>' +
+        _escEq(mi.brand) + ' · ' + _escEq(mi.model) + ' (' + Math.round(mi.kw * 1000) + ' W · ' + _escEq(mi.type || 'MLPE') + ' · ' + _escEq(mi.price) + ' €)' +
       '</option>';
     }).join('');
     if (curVal) miSel.value = curVal;
@@ -139,9 +146,9 @@ function populateStep3EquipmentSelectors() {
     const curVal = cfg.selectedBatteryId || (catalog.batteries[0] ? catalog.batteries[0].id : '');
     batSel.innerHTML = catalog.batteries.map(b => {
       const isSel = (b.id === curVal);
-      const capTxt = b.kwh > 0 ? (b.kwh + ' kWh · ' + b.price + ' €') : 'Sin almacenamiento adicional';
-      return '<option value="' + b.id + '"' + (isSel ? ' selected' : '') + '>' +
-        b.brand + ' · ' + b.model + ' (' + capTxt + ')' +
+      const capTxt = b.kwh > 0 ? (_escEq(b.kwh) + ' kWh · ' + _escEq(b.price) + ' €') : 'Sin almacenamiento adicional';
+      return '<option value="' + _escEq(b.id) + '"' + (isSel ? ' selected' : '') + '>' +
+        _escEq(b.brand) + ' · ' + _escEq(b.model) + ' (' + capTxt + ')' +
       '</option>';
     }).join('');
     if (curVal) batSel.value = curVal;

@@ -744,21 +744,22 @@ function showEmbeddedDocViewer(title, fullHtml) {
     modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);z-index:999999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;';
     document.body.appendChild(modal);
   }
+  const safeTitle = (window.RASanitize && typeof window.RASanitize.plain === 'function')
+    ? window.RASanitize.plain(title || 'DOCUMENTO')
+    : String(title || 'DOCUMENTO').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   modal.innerHTML = `
     <div style="width:90%;max-width:960px;height:90vh;background:#fff;border-radius:10px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 25px 60px rgba(0,0,0,0.6);position:relative;">
       <div style="background:#0f172a;color:#fff;padding:8px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #f59e0b;">
-        <span style="font-size:11px;font-weight:800;letter-spacing:0.5px;">📄 ${title || 'DOCUMENTO'} (VISOR INTEGRADO)</span>
+        <span style="font-size:11px;font-weight:800;letter-spacing:0.5px;">📄 ${safeTitle} (VISOR INTEGRADO)</span>
         <button type="button" onclick="document.getElementById('ra-embedded-doc-modal').style.display='none'" style="background:transparent;border:none;color:#94a3b8;font-size:18px;cursor:pointer;padding:2px 8px;font-weight:900;" title="Cerrar visor">✕</button>
       </div>
-      <iframe id="ra-doc-iframe" style="width:100%;height:calc(100% - 40px);border:none;"></iframe>
+      <iframe id="ra-doc-iframe" sandbox="allow-same-origin allow-modals" style="width:100%;height:calc(100% - 40px);border:none;"></iframe>
     </div>
   `;
   modal.style.display = 'flex';
   const iframe = document.getElementById('ra-doc-iframe');
   if (iframe) {
-    iframe.contentWindow.document.open();
-    iframe.contentWindow.document.write(fullHtml);
-    iframe.contentWindow.document.close();
+    iframe.srcdoc = fullHtml;
   }
 }
 if (typeof window !== 'undefined') {
@@ -1066,8 +1067,8 @@ function generateMemoria(skipPricingModal, opt) {
       }
       return '<h3>4.1 Módulos Fotovoltaicos<\/h3>' +
         '<table><tr><th>Parámetro<\/th><th>Valor<\/th><th>Condición<\/th><\/tr>' +
-        '<tr><td>Marca \/ Modelo<\/td><td>' + d.cfg.modelo + '<\/td><td>—<\/td><\/tr>' +
-        '<tr><td>Tecnología<\/td><td>' + d.cfg.tecnologia + '<\/td><td>—<\/td><\/tr>' +
+        '<tr><td>Marca \/ Modelo<\/td><td>' + ((window.RASanitize && window.RASanitize.plain) ? window.RASanitize.plain(d.cfg.modelo) : d.cfg.modelo) + '<\/td><td>—<\/td><\/tr>' +
+        '<tr><td>Tecnología<\/td><td>' + ((window.RASanitize && window.RASanitize.plain) ? window.RASanitize.plain(d.cfg.tecnologia) : d.cfg.tecnologia) + '<\/td><td>—<\/td><\/tr>' +
         '<tr><td>Potencia pico (Pmax)<\/td><td>' + d.cfg.potencia + ' Wp<\/td><td>STC<\/td><\/tr>' +
         '<tr><td>Voc<\/td><td>' + d.Voc + ' V<\/td><td>STC<\/td><\/tr>' +
         '<tr><td>Isc<\/td><td>' + d.Isc + ' A<\/td><td>STC<\/td><\/tr>' +
@@ -1084,6 +1085,7 @@ function generateMemoria(skipPricingModal, opt) {
     '<h3>4.2 Inversor y Conversión de Potencia<\/h3>' +
     (function() {
       const inv = d.inverter || {};
+      const _escMem = (v) => (window.RASanitize && typeof window.RASanitize.plain === 'function') ? window.RASanitize.plain(v) : String(v == null ? '' : v);
       const invNomKw = (inv.kw || d.P_ac_kW || 5.0).toFixed(2);
       const invCount = inv.count || 1;
       const invTotalKw = (inv.totalKw || (invNomKw * invCount)).toFixed(2);
@@ -1094,7 +1096,7 @@ function generateMemoria(skipPricingModal, opt) {
       const invVmpptMax = d.V_mppt_max || 850;
       const invEff = inv.efficiency || 98.4;
       return '<table><tr><th>Parámetro<\/th><th>Valor<\/th><th>Condición / Norma<\/th><\/tr>' +
-        '<tr><td>Marca y Modelo<\/td><td><strong>' + (inv.fullName || 'Inversor Solar Central') + '</strong><\/td><td>Certificación RD 1699/2011 / UNE 217001<\/td><\/tr>' +
+        '<tr><td>Marca y Modelo<\/td><td><strong>' + _escMem(inv.fullName || 'Inversor Solar Central') + '</strong><\/td><td>Certificación RD 1699/2011 / UNE 217001<\/td><\/tr>' +
         '<tr><td>Potencia nominal AC<\/td><td><strong>' + invNomKw + ' kW' + (invCount > 1 ? ' (' + invCount + ' uds · ' + invTotalKw + ' kW total)' : '') + '</strong><\/td><td>Pn a cos φ = 1,0<\/td><\/tr>' +
         '<tr><td>Tensión y Tipo de Red<\/td><td>' + invPhases + '<\/td><td>50 Hz ± 1 Hz<\/td><\/tr>' +
         '<tr><td>Régimen de Conexión a Red<\/td><td><strong>' + (Number(invTotalKw) > 15.0 ? 'Conexión Trifásica 400 V Obligatoria (RD 1699/2011 Art. 12.2)' : (d.monofasico ? 'Monofásica 230 V (admisible Pn ≤ 15 kW)' : 'Trifásica 400 V (desequilibrio de fases &lt; 5 kW)')) + '<\/strong><\/td><td>RD 1699/2011 Art. 12.2 (mod. RD 244/2019)<\/td><\/tr>' +
@@ -1110,9 +1112,9 @@ function generateMemoria(skipPricingModal, opt) {
       '<h3>4.3 Sistema de Almacenamiento Electroquímico (Batería LFP)<\/h3>' +
       '<p style="font-size:9pt;margin-bottom:8px;">La instalación incorpora acumulación electroquímica para maximizar el autoconsumo y la gestión horaria de excedentes:<\/p>' +
       '<table><tr><th>Parámetro<\/th><th>Valor<\/th><th>Condición / Norma<\/th><\/tr>' +
-      '<tr><td>Marca y Modelo<\/td><td><strong>' + d.battery.fullName + '</strong><\/td><td>Certificación UNE-EN IEC 62619 / CEI 0-21<\/td><\/tr>' +
+      '<tr><td>Marca y Modelo<\/td><td><strong>' + ((window.RASanitize && window.RASanitize.plain) ? window.RASanitize.plain(d.battery.fullName) : d.battery.fullName) + '</strong><\/td><td>Certificación UNE-EN IEC 62619 / CEI 0-21<\/td><\/tr>' +
       '<tr><td>Capacidad Nominal Útil<\/td><td><strong>' + d.battery.totalKwh.toFixed(1) + ' kWh' + (d.battery.count > 1 ? ' (' + d.battery.count + ' módulos)' : '') + '</strong><\/td><td>DoD 90% útil<\/td><\/tr>' +
-      '<tr><td>Tecnología electroquímica<\/td><td>' + (d.battery.technology || 'Litio-Ferrofosfato (LiFePO4)') + '<\/td><td>Alta estabilidad térmica y seguridad<\/td><\/tr>' +
+      '<tr><td>Tecnología electroquímica<\/td><td>' + ((window.RASanitize && window.RASanitize.plain) ? window.RASanitize.plain(d.battery.technology || 'Litio-Ferrofosfato (LiFePO4)') : (d.battery.technology || 'Litio-Ferrofosfato (LiFePO4)')) + '<\/td><td>Alta estabilidad térmica y seguridad<\/td><\/tr>' +
       '<tr><td>Tensión nominal de trabajo<\/td><td>' + (d.battery.voltage || 400) + ' V CC<\/td><td>Acoplamiento directo CC al inversor híbrido<\/td><\/tr>' +
       '<tr><td>Rendimiento ciclo completo (Round-Trip)<\/td><td>≥ ' + (d.battery.efficiency || 95) + ' %<\/td><td>Eficiencia de carga y descarga<\/td><\/tr>' +
       '<tr><td>Sistema de Gestión (BMS)<\/td><td>BMS inteligente con comunicación CAN / RS485<\/td><td>Protección sobrecarga, sobretensión y temperatura<\/td><\/tr>' +
@@ -1185,9 +1187,10 @@ function generateMemoria(skipPricingModal, opt) {
         var c = t._catalog || {};
         var st = t.supportStructure || {};
         var h = st.hubHeightM || 18;
-        hHtml += '<tr><td>Aerogenerador #' + (idx+1) + ' (' + (t.name || c.model || 'Mini-E\u00f3lica') + ')<\/td>' +
-          '<td>' + (c.ratedPowerW ? (c.ratedPowerW/1000) : 0) + ' kW · ' + (c.type || 'HAWT') + ' · Rotor D=' + (c.rotorDiameterM || 0) + 'm · M\u00e1stil ' + h + 'm<\/td>' +
-          '<td>Freno Reost\u00e1tico 120% (Dump Load ' + ((c.ratedPowerW ? (c.ratedPowerW/1000)*1.2 : 0).toFixed(1)) + ' kW) + Dif. Clase B 300mA<\/td><\/tr>';
+        var _escW = (window.RASanitize && window.RASanitize.plain) ? window.RASanitize.plain : (v => String(v == null ? '' : v));
+        hHtml += '<tr><td>Aerogenerador #' + (idx+1) + ' (' + _escW(t.name || c.model || 'Mini-Eólica') + ')<\/td>' +
+          '<td>' + _escW(c.ratedPowerW ? (c.ratedPowerW/1000) : 0) + ' kW · ' + _escW(c.type || 'HAWT') + ' · Rotor D=' + _escW(c.rotorDiameterM || 0) + 'm · Mástil ' + _escW(h) + 'm<\/td>' +
+          '<td>Freno Reostático 120% (Dump Load ' + ((c.ratedPowerW ? (c.ratedPowerW/1000)*1.2 : 0).toFixed(1)) + ' kW) + Dif. Clase B 300mA<\/td><\/tr>';
       });
       hHtml += '<\/table>';
       return hHtml;
@@ -1432,19 +1435,22 @@ function generatePresupuesto(skipPricingModal, opt) {
     ? 'Estructura tipo Pérgola Elevada autoportante de aluminio/acero galvanizado con pilares anclados a forjado y vigas de dintel reforzadas'
     : (d.isCoplanar ? 'Estructura coplanar de aluminio anodizado EN AW-6063 T6 para fijación a cubierta inclinada' : 'Estructura soporte autoportante con perfilería continua de aluminio y fijaciones inox A2');
 
+  const _escBgt = (v) => (window.RASanitize && typeof window.RASanitize.plain === 'function')
+    ? window.RASanitize.plain(v)
+    : String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   const mb = (d && d.modulesBreakdown) || (typeof window !== 'undefined' && window.RAModulesBreakdown && typeof window.RAModulesBreakdown.getProjectModulesBreakdown === 'function' ? window.RAModulesBreakdown.getProjectModulesBreakdown() : null);
   let cap1Items = [];
   if (mb && mb.isMultiModule) {
     cap1Items = mb.byModel.map((mod, idx) => ({
       ref: '1.' + (idx + 1),
-      desc: 'Módulo FV ' + mod.fullName + ' (' + mod.wp + ' Wp, ' + mod.technology + '). Eficiencia ' + mod.efficiency + '%, Vmp ' + mod.vmp.toFixed(1) + ' V, Imp ' + mod.imp.toFixed(1) + ' A. Certificaciones IEC 61215/61730. Subcampos: ' + mod.roofNames.join(', ') + '. Garantía de potencia 25 años.',
+      desc: 'Módulo FV ' + _escBgt(mod.fullName) + ' (' + _escBgt(mod.wp) + ' Wp, ' + _escBgt(mod.technology) + '). Eficiencia ' + _escBgt(mod.efficiency) + '%, Vmp ' + Number(mod.vmp).toFixed(1) + ' V, Imp ' + Number(mod.imp).toFixed(1) + ' A. Certificaciones IEC 61215/61730. Subcampos: ' + (Array.isArray(mod.roofNames) ? mod.roofNames.map(_escBgt).join(', ') : '') + '. Garantía de potencia 25 años.',
       ud: 'ud',
       q: mod.count,
       pu: mod.unitPrice
     }));
   } else {
     cap1Items = [
-      { ref:'1.1', desc: 'Módulo FV ' + d.cfg.modelo + ' (' + d.cfg.potencia + ' Wp, ' + d.cfg.tecnologia + '). Certificaciones IEC 61215, IEC 61730 e ISO 9001. Garantía 12/25 años de producto y 25 años de producción lineal (≥84.8%).', ud:'ud', q: d.numPanels, pu: (m && m.panCost ? (m.panCost / d.numPanels) : (d.cfg.precio || 125.0)) }
+      { ref:'1.1', desc: 'Módulo FV ' + _escBgt(d.cfg.modelo) + ' (' + _escBgt(d.cfg.potencia) + ' Wp, ' + _escBgt(d.cfg.tecnologia) + '). Certificaciones IEC 61215, IEC 61730 e ISO 9001. Garantía 12/25 años de producto y 25 años de producción lineal (≥84.8%).', ud:'ud', q: d.numPanels, pu: (m && m.panCost ? (m.panCost / d.numPanels) : (d.cfg.precio || 125.0)) }
     ];
   }
 
@@ -1544,7 +1550,7 @@ function generatePresupuesto(skipPricingModal, opt) {
       titulo: 'CAP. EXT — EQUIPAMIENTO Y SERVICIOS ADICIONALES (EXTRAS)',
       items: activeAddons.map((ad, idx) => ({
         ref: 'EXT.' + (idx + 1),
-        desc: ad.name,
+        desc: _escBgt(ad.name),
         ud: 'ud',
         q: Number(ad.qty) || 1,
         pu: Number(ad.unitPrice) || 0
@@ -1557,7 +1563,7 @@ function generatePresupuesto(skipPricingModal, opt) {
     caps.push({
       titulo: 'CAP. PROM — BONIFICACIÓN Y PROMOCIÓN COMERCIAL APLICADA',
       items: [
-        { ref: 'PROM.1', desc: (m.discountLabel || 'Promoción Comercial Especial'), ud: 'partida', q: 1, pu: -Math.round(m.discountEur) }
+        { ref: 'PROM.1', desc: _escBgt(m.discountLabel || 'Promoción Comercial Especial'), ud: 'partida', q: 1, pu: -Math.round(m.discountEur) }
       ]
     });
   }
@@ -1570,12 +1576,12 @@ function generatePresupuesto(skipPricingModal, opt) {
   caps.forEach(cap => {
     const capTotal = cap.items.reduce((s, it) => s + it.q * it.pu, 0);
     subtotalCalc += capTotal;
-    itemRows += '<tr style="background:#dbeafe"><td colspan="6" style="font-weight:900;color:#0d2b45;padding:7px">' + cap.titulo + '</td></tr>';
+    itemRows += '<tr style="background:#dbeafe"><td colspan="6" style="font-weight:900;color:#0d2b45;padding:7px">' + _escBgt(cap.titulo) + '</td></tr>';
     cap.items.forEach(it => {
       const imp = it.q * it.pu;
-      itemRows += '<tr><td style="color:#6b7280;font-size:8pt">' + it.ref + '</td><td>' + it.desc +
-        '</td><td style="text-align:center">' + it.ud +
-        '</td><td style="text-align:right">' + (typeof it.q === 'number' ? it.q.toLocaleString('es-ES', {maximumFractionDigits:1}) : it.q) +
+      itemRows += '<tr><td style="color:#6b7280;font-size:8pt">' + _escBgt(it.ref) + '</td><td>' + it.desc +
+        '</td><td style="text-align:center">' + _escBgt(it.ud) +
+        '</td><td style="text-align:right">' + (typeof it.q === 'number' ? it.q.toLocaleString('es-ES', {maximumFractionDigits:1}) : _escBgt(it.q)) +
         '</td><td style="text-align:right">' + it.pu.toLocaleString('es-ES', {minimumFractionDigits:2}) + ' €' +
         '</td><td style="text-align:right;font-weight:700">' + imp.toLocaleString('es-ES', {minimumFractionDigits:2}) + ' €</td></tr>';
     });
@@ -1713,17 +1719,17 @@ function generatePresupuesto(skipPricingModal, opt) {
         <tr><th>Escenario</th><th style="text-align:right">kWh/año</th><th style="text-align:right">CAPEX (€)</th><th style="text-align:right">Ahorro/año (€)</th><th style="text-align:right">Payback (años)</th><th style="text-align:right">VAN 4% (€)</th><th style="text-align:right">TIR 25a</th></tr>
         ${window.ultimoComparativo.escenarios.map(s => `
         <tr>
-          <td><b>${s.nombre}</b><br><span style="font-size:7pt;color:#64748b">${s.desc || ''}</span></td>
-          <td style="text-align:right">${s.kwh.toLocaleString('es-ES')}</td>
-          <td style="text-align:right">${s.capex.toLocaleString('es-ES')}</td>
-          <td style="text-align:right">${s.ahorro.toLocaleString('es-ES')}</td>
-          <td style="text-align:right">${s.payback ? s.payback.toFixed(1) : '—'}</td>
-          <td style="text-align:right;color:${s.van > 0 ? '#10b981' : '#ef4444'}">${s.van.toLocaleString('es-ES')}</td>
-          <td style="text-align:right">${s.tir != null ? s.tir.toFixed(1) + '%' : 'N/D'}</td>
+          <td><b>${_escBgt(s.nombre)}</b><br><span style="font-size:7pt;color:#64748b">${_escBgt(s.desc || '')}</span></td>
+          <td style="text-align:right">${Number(s.kwh).toLocaleString('es-ES')}</td>
+          <td style="text-align:right">${Number(s.capex).toLocaleString('es-ES')}</td>
+          <td style="text-align:right">${Number(s.ahorro).toLocaleString('es-ES')}</td>
+          <td style="text-align:right">${s.payback ? Number(s.payback).toFixed(1) : '—'}</td>
+          <td style="text-align:right;color:${s.van > 0 ? '#10b981' : '#ef4444'}">${Number(s.van).toLocaleString('es-ES')}</td>
+          <td style="text-align:right">${s.tir != null ? Number(s.tir).toFixed(1) + '%' : 'N/D'}</td>
         </tr>`).join('')}
       </table>
       <p style="font-size:7.5pt;color:#64748b;margin-top:4px;">
-        Comparativa generada con los motores de producción del visor (modelo físico + corrección PVsyst por faldón con su inclinación y orientación reales). CAPEX = equipamiento de catálogo + instalación fija. VAN al 4% a 25 años con degradación de paneles 0,45%/año. Generada el ${window.ultimoComparativo.fecha}.
+        Comparativa generada con los motores de producción del visor (modelo físico + corrección PVsyst por faldón con su inclinación y orientación reales). CAPEX = equipamiento de catálogo + instalación fija. VAN al 4% a 25 años con degradación de paneles 0,45%/año. Generada el ${_escBgt(window.ultimoComparativo.fecha)}.
       </p>
     </div>` : ''}
     <div class="doc-footer" style="margin-top:20px;border-top:1px solid #cbd5e1;padding-top:12px;font-size:8pt;color:#64748b;display:flex;justify-content:space-between">
@@ -2533,7 +2539,7 @@ function generatePlanoPlanta() {
     <canvas id="plantCanvas" width="1600" height="1131"></canvas>
 
     <script>
-      const D = ${JSON.stringify(payload)};
+      const D = ${(window.RASanitize && typeof window.RASanitize.safeJsonForScript === 'function') ? window.RASanitize.safeJsonForScript(payload) : JSON.stringify(payload).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026')};
       const cv = document.getElementById('plantCanvas');
       const ctx = cv.getContext('2d');
       const W = cv.width, H = cv.height;
