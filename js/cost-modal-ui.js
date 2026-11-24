@@ -58,7 +58,8 @@ function openCostBreakdownModal() {
     const _bSpec = (_cat.batteries || []).find(b => b.id === _cfg.selectedBatteryId);
     if (_bSpec && (_bSpec.kwh > 0 || _bSpec.price > 0)) {
       const _bCnt = Math.max(1, (_cfg.autoSizing && _cfg.autoSizing.batteries && _cfg.autoSizing.batteries.count) || 1);
-      const _bCost = Math.round(_bSpec.price * _bCnt);
+      const _hasSavedBat = Boolean(pricing && typeof pricing.batPrice === 'number' && pricing.batPrice >= 0 && (pricing.isManualOverride || pricing.projectFingerprint));
+      const _bCost = _hasSavedBat ? Math.round(pricing.batPrice) : Math.round(_bSpec.price * _bCnt);
       setInp('modal-cfg-pres-bat', _bCost);
       if (batOptSelect) {
         const totalCap = Math.round((_bSpec.kwh * _bCnt) * 10) / 10;
@@ -210,8 +211,11 @@ function syncModalInputToBudget(targetId, val) {
       legPrice: _parseNonNegBudget('modal-cfg-pres-leg', prev.legPrice),
       windPrice: (windInpVal !== null && Number.isFinite(windInpVal) && windInpVal >= 0) ? windInpVal : prev.windPrice,
       marginPct: (Number.isFinite(prev.marginPct) && prev.marginPct >= 0) ? prev.marginPct : 20,
-      skipReview: false
+      skipReview: false,
+      isManualOverride: true
     });
+    if (typeof wpUpdateStep5PricingBadge === 'function') wpUpdateStep5PricingBadge();
+    if (typeof wpAutoSaveProjectDebounced === 'function') wpAutoSaveProjectDebounced(500);
   }
 
   if (targetId && targetId.startsWith('fin-')) {
@@ -430,7 +434,7 @@ function raSyncTaxControls() {
   cfg.taxShield.ivaOpt = ivaOptVal;
   cfg.taxShield.ivaRate = ivaRateNum;
   cfg.taxShield.ivaHomeAge2Years = homeAgeEl ? !!homeAgeEl.checked : true;
-  cfg.taxShield.ivaMarginLaborOnly = marginLaborEl ? !!marginLaborEl.checked : true;
+  cfg.taxShield.ivaMarginLaborOnly = marginLaborEl ? !!marginLaborEl.checked : false;
   cfg.taxShield.soilType = soilEl ? soilEl.value : (cfg.taxShield.soilType || 'urbano');
   if (ibiCuotaEl) cfg.taxShield.ibiAnualEur = parseFloat(ibiCuotaEl.value) || 0;
   if (ibiOptEl) cfg.taxShield.ibiOpt = ibiOptEl.value;

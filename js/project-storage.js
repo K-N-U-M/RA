@@ -351,7 +351,7 @@ function raExportProjectData() {
           ivaOpt: (ivaEl && ivaEl.value) || prev.ivaOpt || String(prev.ivaRate != null ? prev.ivaRate : 0.21),
           ivaRate: Number.isFinite(parsedIvaRate) ? parsedIvaRate : (prev.ivaRate != null ? prev.ivaRate : 0.21),
           ivaHomeAge2Years: ivaHomeAgeEl ? Boolean(ivaHomeAgeEl.checked) : (typeof prev.ivaHomeAge2Years === 'boolean' ? prev.ivaHomeAge2Years : true),
-          ivaMarginLaborOnly: ivaMarginLaborEl ? Boolean(ivaMarginLaborEl.checked) : (typeof prev.ivaMarginLaborOnly === 'boolean' ? prev.ivaMarginLaborOnly : true),
+          ivaMarginLaborOnly: ivaMarginLaborEl ? Boolean(ivaMarginLaborEl.checked) : (typeof prev.ivaMarginLaborOnly === 'boolean' ? prev.ivaMarginLaborOnly : false),
           ibiCuota: (ibiCEl && parseFloat(ibiCEl.value)) || (prev.ibiCuota != null ? prev.ibiCuota : 650),
           ibiOpt: (ibiOEl && ibiOEl.value) || prev.ibiOpt || '0.50_3',
           irpfOpt: (irpfOEl && irpfOEl.value) || prev.irpfOpt || '0.40',
@@ -493,12 +493,28 @@ function raExportProjectData() {
     })(),
     pricingOverrides: (() => {
       try {
+        const hasSession = (typeof RAPricing !== 'undefined' && !!RAPricing.currentSessionPricing);
         const pricing = (typeof RAPricing !== 'undefined') ? (RAPricing.currentSessionPricing || RAPricing.getDefaults()) : null;
+        const design = (typeof RAPricing !== 'undefined' && typeof RAPricing.computeDesignCosts === 'function')
+          ? RAPricing.computeDesignCosts()
+          : null;
         let pricingToSave = null;
         if (pricing) {
-          pricingToSave = Object.assign({}, pricing);
-          if (typeof RAPricing !== 'undefined' && RAPricing.currentSessionPricing) {
-            pricingToSave.isManualOverride = true;
+          const _num = (v, fb) => (typeof v === 'number' && Number.isFinite(v) && v >= 0) ? v : (typeof fb === 'number' && Number.isFinite(fb) && fb >= 0 ? fb : 0);
+          pricingToSave = Object.assign({}, pricing, {
+            panelPrice: _num(pricing.panelPrice, design ? design.panelPrice : 125),
+            estPrice: _num(pricing.estPrice, design ? design.estPrice : 0),
+            invPrice: _num(pricing.invPrice, design ? design.invPrice : 0),
+            batPrice: _num(pricing.batPrice, design ? design.batPrice : 0),
+            cabPrice: _num(pricing.cabPrice, design ? design.cabPrice : 0),
+            moPrice: _num(pricing.moPrice, design ? design.moPrice : 0),
+            legPrice: _num(pricing.legPrice, design ? design.legPrice : 0),
+            windPrice: _num(pricing.windPrice, design ? design.windPrice : 0),
+            marginPct: _num(pricing.marginPct, 20),
+            isManualOverride: hasSession ? true : Boolean(pricing.isManualOverride)
+          });
+          if (!pricingToSave.projectFingerprint && typeof RAPricing.getProjectFingerprint === 'function') {
+            pricingToSave.projectFingerprint = RAPricing.getProjectFingerprint();
           }
         }
         const commCfg = (typeof RAPricing !== 'undefined' && typeof RAPricing.getCommercialConfig === 'function')
