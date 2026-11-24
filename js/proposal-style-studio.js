@@ -855,12 +855,16 @@
   }
 
   // ── 5. GENERADOR DE TOKENS DE ESTILO Y HOJA CSS INYECTABLE ─────────────────
-  function hexToRgb(hex) {
+  function hexToRgb(hex, fallbackRgb) {
     var c = String(hex || '#059669').replace('#', '').trim();
     if (c.length === 3) c = c.split('').map(function(x) { return x + x; }).join('');
     var num = parseInt(c, 16);
-    if (isNaN(num)) return '5, 150, 105';
+    if (isNaN(num)) return fallbackRgb || '5, 150, 105';
     return [(num >> 16) & 255, (num >> 8) & 255, num & 255].join(', ');
+  }
+  if (typeof window !== 'undefined') {
+    window.RA = window.RA || {};
+    window.RA.hexToRgb = hexToRgb;
   }
 
   function lightenHex(hex, factor) {

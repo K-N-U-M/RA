@@ -127,7 +127,7 @@
     canvas.addEventListener('webglcontextrestored', function () {
       window.RA = window.RA || {};
       window.RA._webglContextLost = false;
-      console.info('[cesium-safety] Contexto WebGL restaurado exitosamente por el navegador.');
+      window.RA && window.RA.log && window.RA.log.info('[cesium-safety] Contexto WebGL restaurado exitosamente por el navegador.');
 
       try {
         if (typeof window.raResetSkyboxCache === 'function') window.raResetSkyboxCache();
@@ -182,5 +182,5 @@
     });
   }
 
-  console.info('[cesium-safety] Protección de texturas y resiliencia WebGL instalada.');
+  window.RA && window.RA.log && window.RA.log.debug('[cesium-safety] Protección de texturas y resiliencia WebGL instalada.');
 })();

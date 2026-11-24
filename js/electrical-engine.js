@@ -15,7 +15,7 @@
   'use strict';
 
   // Constantes de ingeniería eléctrica normalizadas (REBT ITC-BT-40 / UNE-HD 60364-5-52)
-  const ELEC_CONSTANTS = {
+  const ELEC_CONSTANTS = Object.freeze({
     RHO_CU_20: 0.017241,
     RHO_CU_90: 0.023,         // [P1] Resistividad del cobre a 90°C — valor único del proyecto (antes 0.02244; AGENTS.md §8)
     RHO_AL_90: 0.03620,
@@ -24,11 +24,11 @@
     DV_MAX_DC_PCT: 1.5,       // Caída de tensión máxima admisible DC (objetivo de diseño)
     DV_MAX_AC_PCT: 1.5,       // Caída de tensión máxima admisible AC (objetivo de diseño)
     DV_MAX_TOTAL_PCT: 2.5,    // [C-02] Restricción vinculante DC+AC (criterio de proyecto)
-    SEC_DC_AVAIL: [4, 6, 10, 16, 25, 35, 50, 70],
-    IMAX_DC_ZZF:  [44, 58, 80, 107, 138, 171, 209, 256],
-    SEC_AC_AVAIL: [2.5, 4, 6, 10, 16, 25, 35, 50, 70],
-    IMAX_AC_RVK:  [29, 38, 49, 68, 91, 119, 146, 178, 226]
-  };
+    SEC_DC_AVAIL: Object.freeze([4, 6, 10, 16, 25, 35, 50, 70]),
+    IMAX_DC_ZZF:  Object.freeze([44, 58, 80, 107, 138, 171, 209, 256]),
+    SEC_AC_AVAIL: Object.freeze([2.5, 4, 6, 10, 16, 25, 35, 50, 70]),
+    IMAX_AC_RVK:  Object.freeze([29, 38, 49, 68, 91, 119, 146, 178, 226])
+  });
 
   /**
    * Normaliza coeficientes térmicos de catálogo (%/°C, ej. -0.35) o base unitaria (1/°C, ej. -0.0035)

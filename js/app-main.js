@@ -4791,17 +4791,7 @@ if (document.readyState === 'loading') {
 // Normativa: CTE DB-HE5 (2022) · REBT ITC-BT-40/23 · UNE-EN 61724-1 · UNE-HD 60364-5-52
 // ============================================================================
 
-window.SOLAR_ENGINE_CONSTANTS = window.SOLAR_ENGINE_CONSTANTS || {
-  RHO_CU_20: 0.017241,      // Resistividad Cu a 20°C (Ω·mm²/m)
-  ALPHA_CU: 0.00393,        // Coeficiente térmico resistividad Cu (1/K)
-  RHO_CU_90: 0.023,         // [P1] Resistividad Cu a 90°C — valor único del proyecto (antes 0.02244; ρ20=0.017241 con α=0.00393 daría ≈0.0220; 0.023 = margen conservador REBT)
-  RHO_AL_90: 0.03620,       // Resistividad Al a 90°C (Ω·mm²/m)
-  G_STC: 1000,              // Irradiancia STC (W/m²)
-  T_STC: 25,                // Temperatura STC (°C)
-  T_MIN_SPAIN: -10,         // Temperatura mínima de diseño peninsular CTE/UNE (°C)
-  T_AMB_MAX_SPAIN: 40,      // Temperatura ambiente máxima de verano (°C)
-  CO2_FACTOR_SPAIN: 0.259   // Factor oficial de emisión de mix eléctrico español (kg CO2/kWh - MITECO)
-};
+// [F3-08] SOLAR_ENGINE_CONSTANTS canónico (congelado) reside en js/solar-engine.js.
 
 /**
  * 1. Geometría Solar de Alta Precisión (Algoritmo Spencer / Ecuación del Tiempo PSA)
@@ -6036,38 +6026,8 @@ function wpSwitchGenTab(tab) {
   var wndBtn = document.getElementById("step2-tab-wind");
   if (solPanel) solPanel.style.display = (tab === "solar") ? "flex" : "none";
   if (wndPanel) wndPanel.style.display = (tab === "wind") ? "block" : "none";
-  if (solBtn) {
-    solBtn.classList.toggle("active", tab === "solar");
-    if (tab === "solar") {
-      solBtn.style.background = "rgba(245, 158, 11, 0.15)";
-      solBtn.style.color = "#FBBF24";
-      solBtn.style.borderColor = "rgba(245, 158, 11, 0.45)";
-      solBtn.style.boxShadow = "0 0 12px rgba(245, 158, 11, 0.18)";
-      solBtn.style.fontWeight = "700";
-    } else {
-      solBtn.style.background = "transparent";
-      solBtn.style.color = "#94A3B8";
-      solBtn.style.borderColor = "transparent";
-      solBtn.style.boxShadow = "none";
-      solBtn.style.fontWeight = "600";
-    }
-  }
-  if (wndBtn) {
-    wndBtn.classList.toggle("active", tab === "wind");
-    if (tab === "wind") {
-      wndBtn.style.background = "rgba(56, 189, 248, 0.15)";
-      wndBtn.style.color = "#38BDF8";
-      wndBtn.style.borderColor = "rgba(56, 189, 248, 0.45)";
-      wndBtn.style.boxShadow = "0 0 12px rgba(56, 189, 248, 0.18)";
-      wndBtn.style.fontWeight = "700";
-    } else {
-      wndBtn.style.background = "transparent";
-      wndBtn.style.color = "#94A3B8";
-      wndBtn.style.borderColor = "transparent";
-      wndBtn.style.boxShadow = "none";
-      wndBtn.style.fontWeight = "600";
-    }
-  }
+  if (solBtn) solBtn.classList.toggle("active", tab === "solar");
+  if (wndBtn) wndBtn.classList.toggle("active", tab === "wind");
   if (tab === "wind" && window.RAWindUI && typeof window.RAWindUI.renderStep2Panel === "function") {
     window.RAWindUI.renderStep2Panel();
   }
@@ -8373,7 +8333,7 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
           if (polyIdx === 0 || !window.simulatedSupportsPolylineCollection) {
             window.simulatedSupportsPolylineCollection = sPrim;
           }
-          console.log(`[RA-SOPORTES] GPU Primitive faldón ${polyIdx}: ${totalLinesAdded} líneas de soporte renderizadas.`);
+          window.RA && window.RA.log && window.RA.log.debug(`[RA-SOPORTES] GPU Primitive faldón ${polyIdx}: ${totalLinesAdded} líneas de soporte renderizadas.`);
         }
 
         // [AAA PÉRGOLA CILINDROS 3D] Pilares volumétricos que proyectan sombras reales en Cesium

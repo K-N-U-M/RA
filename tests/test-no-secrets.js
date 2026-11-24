@@ -55,7 +55,7 @@ console.log('  ✓ PASS: sin literales de Google/Cesium/Firebase fuera de js/ra-
 // El archivo de credenciales debe estar ignorado y existir una plantilla.
 const gitignore = fs.readFileSync(path.join(ROOT, '.gitignore'), 'utf8');
 assert.ok(/^js\/ra-env\.js\s*$/m.test(gitignore), '.gitignore debe excluir js/ra-env.js');
-assert.ok(fs.existsSync(path.join(ROOT, 'js/ra-env.example.js')), 'Debe existir js/ra-env.example.js');
+assert.ok(fs.existsSync(path.join(ROOT, 'doc/ra-env.example.js')), 'Debe existir doc/ra-env.example.js');
 console.log('  ✓ PASS: js/ra-env.js ignorado por git y plantilla disponible');
 
 // Los consumidores deben leer del entorno, no de literales.
@@ -72,7 +72,7 @@ assert.ok(html.indexOf('js/ra-env.js') < html.indexOf('js/config.js'), 'ra-env.j
 console.log('  ✓ PASS: consumidores leen el entorno y el orden de carga es correcto');
 
 // Documentación mínima de rotación.
-const example = fs.readFileSync(path.join(ROOT, 'js/ra-env.example.js'), 'utf8');
+const example = fs.readFileSync(path.join(ROOT, 'doc/ra-env.example.js'), 'utf8');
 assert.ok(/restringir por HTTP referrer/i.test(example), 'la plantilla debe explicar la restricción de claves');
 assert.ok(/Rotación/i.test(example), 'la plantilla debe explicar la rotación');
 console.log('  ✓ PASS: plantilla con instrucciones de restricción y rotación');

@@ -25,7 +25,7 @@ if (!GOOGLE_MAPS_API_KEY || !CESIUM_ION_TOKEN) {
   _cfgFatal.style.cssText = 'position:fixed;inset:0;z-index:999999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:#0b1120;color:#e2e8f0;font-family:system-ui,sans-serif;text-align:center;padding:24px;';
   _cfgFatal.innerHTML = '<div style="font-size:40px;">🔑</div>' +
     '<div style="font-size:18px;font-weight:800;">Faltan las credenciales del visor</div>' +
-    '<div style="font-size:13px;color:#94a3b8;max-width:520px;line-height:1.6;">Copia <code>js/ra-env.example.js</code> a <code>js/ra-env.js</code> y rellena las claves restringidas. Ese archivo no se versiona.</div>';
+    '<div style="font-size:13px;color:#94a3b8;max-width:520px;line-height:1.6;">Copia <code>doc/ra-env.example.js</code> a <code>js/ra-env.js</code> y rellena las claves restringidas. Ese archivo no se versiona.</div>';
   (document.body || document.documentElement).appendChild(_cfgFatal);
   return;
 }

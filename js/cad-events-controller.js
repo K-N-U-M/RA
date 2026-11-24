@@ -1998,8 +1998,6 @@
       if (window.RAMeasureTool && typeof window.RAMeasureTool.isActive === 'function' && window.RAMeasureTool.isActive()) return;
       magneticSnapActive = !magneticSnapActive;
       window.magneticSnapActive = magneticSnapActive;
-      const snapChk = document.getElementById('chk-snap-vert');
-      if (snapChk) snapChk.checked = magneticSnapActive;
       showStatus(magneticSnapActive ? '<i data-lucide=\"magnet\" class=\"icon-sm\"></i> SNAP MAGNÉTICO ACTIVADO [X]' : '<i data-lucide=\"circle\" class=\"icon-sm\"></i> SNAP MAGNÉTICO DESACTIVADO [X]', 1500);
     } else if (!hasModKey && WP.selectedPolyIdx >= 0 && WP.selectedVtxIdx >= 0 && (e.key === '+' || e.key === '=' || e.code === 'NumpadAdd')) {
       changeTriadScale(+0.25);

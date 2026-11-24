@@ -1204,10 +1204,6 @@ function toggle2D3D() {
     easingFunction: Cesium.EasingFunction.QUADRATIC_IN_OUT
   });
 
-  const lbl = document.getElementById('label-2d3d');
-  if (lbl) lbl.textContent = isPitchCenital ? 'VISTA CENITAL (2D)' : 'VISTA PERSPECTIVA (3D)';
-  const dockLbl = document.getElementById('dock-label-2d3d');
-  if (dockLbl) dockLbl.textContent = isPitchCenital ? '2D Cenital' : '3D Persp';
   showStatus(isPitchCenital ? 'VISTA CENITAL 2D ACTIVA' : 'VISTA PERSPECTIVA 3D ACTIVA', 2000);
 }
 

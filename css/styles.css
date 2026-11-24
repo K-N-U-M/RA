@@ -781,12 +781,7 @@
       justify-content: center;
       opacity: 1;
       box-shadow: 0 0 8px rgba(245, 158, 11, 0.6);
-    }
-    .wp-step-btn .wp-step-icon {
-      font-size: 14px;
-      line-height: 1;
-    }
-    .wp-step-btn .wp-step-title {
+    }    .wp-step-btn .wp-step-title {
       font-size: 10px;
       font-weight: 800;
       letter-spacing: 0;
@@ -817,234 +812,7 @@
       color: #f8fafc;
     }
 
-    /* ── Barra Flotante de Herramientas de Viewport (Dock 3D) ── */
-    #ra-camera-dock {
-      position: fixed;
-      bottom: 24px;
-      right: 20px;
-      z-index: 900;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      background: rgba(15, 23, 42, 0.88);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(255, 255, 255, 0.14);
-      border-radius: 9999px;
-      padding: 6px 10px;
-      box-shadow: 0 10px 32px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.05);
-      user-select: none;
-    }
-    .dock-item-wrapper {
-      position: relative;
-    }
-    .dock-btn {
-      background: rgba(255, 255, 255, 0.06);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      color: #e2e8f0;
-      padding: 6px 12px;
-      border-radius: 9999px;
-      font-size: 13px;
-      font-weight: 700;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    .dock-btn:hover {
-      background: rgba(255, 255, 255, 0.12);
-      border-color: rgba(255, 255, 255, 0.25);
-      color: #fff;
-      transform: translateY(-1px);
-    }
-    .dock-btn.active {
-      background: rgba(245, 158, 11, 0.18);
-      border-color: var(--amber-500);
-      color: #fff;
-      box-shadow: 0 0 12px rgba(245, 158, 11, 0.2);
-    }
-    .dock-btn-icon {
-      padding: 6px 10px;
-      font-size: 13px;
-    }
-    .dock-icon svg { display: block; }
-    .dock-chevron svg { display: block; }
-    .dock-icon {
-      font-size: 13px;
-      line-height: 1;
-    }
-    .dock-label {
-      font-size: 13px;
-      font-weight: 700;
-      color: #f1f5f9;
-      letter-spacing: 0.01em;
-    }
-    .dock-badge {
-      font-size: 13px;
-      font-weight: 800;
-      padding: 2px 7px;
-      border-radius: 9999px;
-      letter-spacing: 0.03em;
-      line-height: 1.1;
-      text-transform: uppercase;
-    }
-    .dock-badge-engine {
-      background: rgba(245, 158, 11, 0.22);
-      color: #f59e0b;
-      border: 1px solid rgba(245, 158, 11, 0.45);
-    }
-    .dock-badge-quality {
-      background: rgba(16, 185, 129, 0.22);
-      color: #34d399;
-      border: 1px solid rgba(16, 185, 129, 0.45);
-    }
-    .dock-chevron {
-      font-size: 13px;
-      color: #94a3b8;
-      transition: transform 0.2s;
-    }
-    .dock-item-wrapper.open .dock-chevron {
-      transform: rotate(180deg);
-    }
-
-    /* ── Popover Flotante sobre el Dock ── */
-    .dock-popover {
-      position: absolute;
-      bottom: calc(100% + 14px);
-      right: 0;
-      width: 320px;
-      background: rgba(15, 23, 42, 0.96);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.16);
-      border-radius: 12px;
-      padding: 10px;
-      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05);
-      z-index: 950;
-      display: flex;
-      flex-direction: column;
-      gap: 7px;
-      animation: dockPopIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-    @keyframes dockPopIn {
-      from {
-        opacity: 0;
-        transform: translateY(8px) scale(0.97);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-      }
-    }
-    .dock-popover-header {
-      padding-bottom: 6px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.09);
-    }
-    .dock-popover-title {
-      font-size: 13px;
-      font-weight: 800;
-      color: #f8fafc;
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      text-transform: uppercase;
-      letter-spacing: 0.03em;
-    }
-    .dock-popover-subtitle {
-      font-size: 14px;
-      color: #94a3b8;
-      margin-top: 2px;
-      line-height: 1.25;
-    }
-    .dock-popover-list {
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-    }
-    .dock-menu-opt {
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid rgba(255, 255, 255, 0.07);
-      border-radius: 7px;
-      padding: 7px 9px;
-      cursor: pointer;
-      transition: all 0.15s ease;
-      text-align: left;
-    }
-    .dock-menu-opt:hover {
-      background: rgba(255, 255, 255, 0.08);
-      border-color: rgba(255, 255, 255, 0.22);
-      transform: translateY(-1px);
-    }
-    .dock-menu-opt.active {
-      background: rgba(245, 158, 11, 0.14);
-      border-color: #f59e0b;
-      box-shadow: 0 0 12px rgba(245, 158, 11, 0.2);
-    }
-    #dock-menu-quality .dock-menu-opt.active {
-      background: rgba(16, 185, 129, 0.14);
-      border-color: #10b981;
-      box-shadow: 0 0 12px rgba(16, 185, 129, 0.2);
-    }
-    .dock-opt-title-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 6px;
-    }
-    .dock-opt-name {
-      font-size: 13px;
-      font-weight: 700;
-      color: #f1f5f9;
-    }
-    .dock-menu-opt.active .dock-opt-name {
-      color: #fff;
-      font-weight: 800;
-    }
-    .dock-opt-desc {
-      font-size: 14px;
-      color: #94a3b8;
-      line-height: 1.35;
-      margin-top: 3px;
-    }
-    .dock-tag {
-      font-size: 14px;
-      font-weight: 800;
-      padding: 1.5px 5px;
-      border-radius: 3px;
-      line-height: 1.1;
-      letter-spacing: 0.02em;
-      white-space: nowrap;
-    }
-    .dock-tag-amber {
-      background: #f59e0b;
-      color: #0f172a;
-      font-weight: 900;
-    }
-    .dock-tag-blue {
-      background: rgba(59, 130, 246, 0.2);
-      color: #60a5fa;
-      border: 1px solid rgba(59, 130, 246, 0.4);
-    }
-    .dock-tag-cyan {
-      background: rgba(6, 182, 212, 0.2);
-      color: #22d3ee;
-      border: 1px solid rgba(6, 182, 212, 0.4);
-    }
-    .dock-tag-slate {
-      background: rgba(255, 255, 255, 0.1);
-      color: #cbd5e1;
-    }
-    .dock-tag-sky {
-      background: #0284c7;
-      color: #fff;
-      font-weight: 700;
-    }
-    .dock-tag-emerald {
-      background: #10b981;
-      color: #064e3b;
-      font-weight: 900;
-    }
+    /* [F3-10] Bloque muerto #ra-camera-dock purgado. */
 
     /* ── Barra de Pestañas de Navegación (Mantenida oculta para compatibilidad) ── */
     .sb-nav-tabs {
@@ -1275,17 +1043,7 @@
       filter: brightness(1.05);
     }
 
-    /* Selector de Modos 3D (Navegar / Dibujar / Editar) */
-    .mode-pills-group {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 6px;
-      background: rgba(0, 0, 0, 0.35);
-      padding: 4px;
-      border-radius: 8px;
-      border: 1px solid var(--border-subtle);
-    }
-    .mode-pill-btn {
+    /* Selector de Modos 3D (Navegar / Dibujar / Editar) */    .mode-pill-btn {
       background: transparent;
       border: 1px solid transparent;
       border-radius: 6px;
@@ -1957,35 +1715,7 @@
   box-shadow: 0 0 16px rgba(245, 158, 11, 0.6);
 }
 
-.solar-mode-btn {
-  flex: 1; display: flex; align-items: center; justify-content: center; gap: 4px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #94a3b8;
-  font-size: 13px;
-  font-weight: 800;
-  padding: 5px 8px;
-  border-radius: 6px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  transition: all 0.2s ease;
-}
-
-.solar-mode-btn:hover {
-  background: rgba(56, 189, 248, 0.2);
-  color: #fff;
-  border-color: #38bdf8;
-}
-
-.solar-mode-btn.active {
-  background: linear-gradient(135deg, rgba(2, 132, 199, 0.9), rgba(14, 165, 233, 0.9));
-  color: #fff;
-  border-color: #38bdf8;
-  box-shadow: 0 0 10px rgba(56, 189, 248, 0.45);
-}
+/* [F3-10] .solar-mode-btn fusionado en definicion canonica */
 
 #btn-shadow-mode-heatmap.active {
   background: linear-gradient(135deg, #ea580c, #dc2626);
@@ -2200,6 +1930,7 @@
 
 
 .solar-mode-btn {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 4px;
   padding: 3px 8px;
   font-size: 13px;
   background: rgba(255,255,255,0.06);
@@ -2403,44 +2134,6 @@
 
 
     /* ── Sub-pestañas de Costes & Estudio ──────────────────────────────── */
-    .costes-subtab-nav {
-      display: flex;
-      gap: 6px;
-      background: rgba(0, 0, 0, 0.45);
-      padding: 4px;
-      border-radius: 8px;
-      border: 1px solid var(--border-subtle);
-      margin-bottom: 6px;
-    }
-    .costes-subtab-btn {
-      flex: 1;
-      background: transparent;
-      border: 1px solid transparent;
-      color: var(--text-slate-400);
-      font-family: var(--font-sans);
-      font-size: 14px;
-      font-weight: 800;
-      padding: 7px 10px;
-      border-radius: 6px;
-      cursor: pointer;
-      text-align: center;
-      transition: all 0.2s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 5px;
-    }
-    .costes-subtab-btn:hover {
-      background: rgba(255, 255, 255, 0.05);
-      color: var(--text-slate-200);
-    }
-    .costes-subtab-btn.active {
-      background: linear-gradient(135deg, rgba(14, 165, 233, 0.25), rgba(2, 132, 199, 0.35));
-      color: #38BDF8;
-      border-color: rgba(56, 189, 248, 0.4);
-      box-shadow: 0 2px 8px rgba(14, 165, 233, 0.2);
-    }
-
 /* ══════════════════════════════════════════════════════════════════════════
    🌲 VENTANA FLOTANTE ÁRBOL BIM & MEDICIONES EN VIVO (BOM DINÁMICO)
    ══════════════════════════════════════════════════════════════════════════ */
@@ -2619,23 +2312,7 @@
   vertical-align: -0.15em;
   flex-shrink: 0;
   stroke: currentColor;
-}
-.wp-step-btn .wp-step-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 15px;
-  height: 15px;
-}
-.wp-step-btn .wp-step-icon .ra-ui-svg {
-  width: 14px;
-  height: 14px;
-  stroke: currentColor;
-}
-.wp-step-btn.active .wp-step-icon .ra-ui-svg {
-  stroke: var(--amber-400);
-}
-.tab-icon .ra-ui-svg {
+}.tab-icon .ra-ui-svg {
   width: 14px;
   height: 14px;
   stroke: currentColor;
@@ -3354,3 +3031,103 @@ body.ra-capture-mode-active .ra-status-hud {
 .cat-badge-purple { background: rgba(168, 85, 247, 0.15); color: #C084FC; border: 1px solid rgba(168, 85, 247, 0.3); }
 .cat-badge-blue { background: rgba(59, 130, 246, 0.15); color: #60A5FA; border: 1px solid rgba(59, 130, 246, 0.3); }
 
+
+/* ── [F3-10] Estilos consolidados desde index.html ── */
+.icon-sm { width: 1.15em; height: 1.15em; vertical-align: -0.2em; stroke-width: 2.3; margin-right: 0.1em; }
+.lucide { width: 1.15em; height: 1.15em; vertical-align: -0.2em; stroke-width: 2.3; }
+
+#ra-hud-energy .tooltip-container:hover .tooltip-content {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: translateY(-50%) translateX(0) !important;
+}
+#ra-hud-energy:hover #ra-hud-dropdown {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  transform: translateX(-50%) translateY(0) !important;
+}
+#ra-hud-energy:hover #ra-hud-pill {
+  background: rgba(30,41,59,0.95) !important;
+  border-color: rgba(16,185,129,0.8) !important;
+}
+
+#wp-step2-gen-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin-bottom: 8px;
+  background: rgba(15, 23, 42, 0.9);
+  padding: 3px;
+  border-radius: 8px;
+  border: 1px solid rgba(51, 65, 85, 0.8);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+#step2-tab-solar, #step2-tab-wind {
+  -webkit-appearance: none;
+  appearance: none;
+  border-radius: 6px;
+  padding: 7px 10px;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+#step2-tab-solar.active {
+  background: rgba(245, 158, 11, 0.18);
+  color: #FBBF24;
+  border: 1px solid rgba(245, 158, 11, 0.5);
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.2);
+  font-weight: 700;
+}
+#step2-tab-solar:not(.active),
+#step2-tab-wind:not(.active) {
+  background: transparent;
+  color: #94A3B8;
+  border: 1px solid transparent;
+  box-shadow: none;
+  font-weight: 600;
+}
+#step2-tab-wind.active {
+  background: rgba(56, 189, 248, 0.18);
+  color: #38BDF8;
+  border: 1px solid rgba(56, 189, 248, 0.5);
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.2);
+  font-weight: 700;
+}
+
+#ra-floating-settings-popover {
+  position: fixed;
+  bottom: 78px;
+  right: 20px;
+  z-index: 9500;
+  width: 320px;
+  background: rgba(15, 23, 42, 0.96);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  transform-origin: bottom right;
+  transform: scale(0);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1), opacity 300ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+#ra-floating-settings-popover.open {
+  transform: scale(1);
+  opacity: 1;
+  pointer-events: auto;
+}
+#ra-floating-settings-btn {
+  transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1), background 300ms ease, box-shadow 300ms ease !important;
+}
+#ra-floating-settings-btn:hover {
+  background: rgba(30, 41, 59, 0.95) !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5) !important;
+}

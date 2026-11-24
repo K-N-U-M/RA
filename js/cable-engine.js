@@ -2649,7 +2649,7 @@
         fillFactorPct: Math.min(40, Math.round(((effTrayStrings * 2 * 35) / (trayWidthMm * 60)) * 100))
       };
 
-      console.info('[RACableEngine] ⚡ Cables generados con éxito: ' + allStrings.length + ' string(s), maxLdc=' + maxLdc.toFixed(1) + 'm, Lac=' + (sState.L_ac_measured || 0).toFixed(1) + 'm');
+      window.RA && window.RA.log && window.RA.log.info('[RACableEngine] ⚡ Cables generados con éxito: ' + allStrings.length + ' string(s), maxLdc=' + maxLdc.toFixed(1) + 'm, Lac=' + (sState.L_ac_measured || 0).toFixed(1) + 'm');
 
         if (viewer.scene && typeof viewer.scene.requestRender === 'function') {
           viewer.scene.requestRender();
@@ -3061,7 +3061,7 @@
         assert('Constante de retorno anti-bucle definida', !!RACableEngine.CONFIG.COLOR_DC_RETURN);
       }
 
-      console.info('[RACableEngine] Resultados de verificación:', results);
+      window.RA && window.RA.log && window.RA.log.info('[RACableEngine] Resultados de verificación:', results);
       return results;
     }
   };

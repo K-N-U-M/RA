@@ -1071,7 +1071,10 @@
       var windCapexEur = (parkSummary.totalRatedKw || 0) * 1450;
       if (fmFin && Number(fmFin.windCost) > 0) windCapexEur = Number(fmFin.windCost);
       var batInSolarFin = !!(fmFin && (Number(fmFin.batCost || 0) > 0 || Number(fmFin.capexBattery || 0) > 0));
-      var touKey = (document.getElementById('fin-tou-tarifa') && document.getElementById('fin-tou-tarifa').value) || (fmFin && fmFin.touTarifa) || 'plana';
+      var _billTarW = (global.RA && global.RA.billAuditor && global.RA.billAuditor.currentBill && global.RA.billAuditor.currentBill.tarifa)
+        ? String(global.RA.billAuditor.currentBill.tarifa).toUpperCase() : '';
+      var _infTouW = (/2\.0TD|3\.0TD|6\.\dTD|PVPC|3P/.test(_billTarW)) ? '3periodos' : ((/2P|DHA/.test(_billTarW)) ? '2periodos' : ((/MERCADO|INDEX/.test(_billTarW)) ? 'mercado' : 'plana'));
+      var touKey = (global.solarProjectConfig && global.solarProjectConfig.touTarifa) || (fmFin && fmFin.touTarifa) || _infTouW;
       var dispParams = {
         dispatchMode: curDispMode,
         annualSolarKwh: solarAnnualKwh,

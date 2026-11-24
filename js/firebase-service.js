@@ -87,7 +87,7 @@
   async function initFirebase(customConfig) {
     const config = customConfig || getStoredConfig();
     if (!config || !config.apiKey || !config.projectId) {
-      console.info('[RA Firebase] No hay configuración activa. Modo Local/Offline.');
+      window.RA && window.RA.log && window.RA.log.info('[RA Firebase] No hay configuración activa. Modo Local/Offline.');
       return false;
     }
 

@@ -37,17 +37,7 @@
 
 
 
-function getPolylineStringColor(polyIdx) {
-  if (typeof window !== 'undefined' && window.RA && window.RA.Electrical && typeof window.RA.Electrical.getPolylineStringColor === 'function') {
-    try {
-      return window.RA.Electrical.getPolylineStringColor(polyIdx);
-    } catch (e) {}
-  }
-  const palette = (typeof window !== 'undefined' && Array.isArray(window.RA_STRING_PALETTE)) ? window.RA_STRING_PALETTE : [];
-  if (!palette.length) return "#00F0FF";
-  const item = palette[polyIdx % palette.length];
-  return item ? item.hex : "#00F0FF";
-}
+// [F3-08] getPolylineStringColor canónico reside en js/electrical-engine.js.
 
 // SISTEMA INTEGRAL DE PLANOS DE TRABAJO 3D, MULTIPLANO Y TRÍADA RGB CAD
 // ═════════════════════════════════════════════════════════════════════════════

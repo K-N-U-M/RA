@@ -9,7 +9,7 @@
 (function(global) {
   'use strict';
 
-  const SOLAR_ENGINE_CONSTANTS = {
+  const SOLAR_ENGINE_CONSTANTS = Object.freeze({
     RHO_CU_20: 0.017241,
     ALPHA_CU: 0.00393,
     RHO_CU_90: 0.023,    // [P1] valor unificado del proyecto (antes 0.02244; AGENTS.md §8)
@@ -19,7 +19,7 @@
     T_MIN_SPAIN: -10,
     T_AMB_MAX_SPAIN: 40,
     CO2_FACTOR_SPAIN: 0.259
-  };
+  });
   const GE_EPSILON = 1e-6;
 
   // SSOT de física solar y constantes climáticas: delega en js/radiation-engine.js (cargado antes en index.html)

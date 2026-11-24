@@ -805,11 +805,15 @@
     buildAndOpenDossierWindow();
   }
 
-  // Helper para convertir hex a "r, g, b"
+  // Helper para convertir hex a "r, g, b" (delega en SSOT RA.hexToRgb con guarda isNaN)
   function hexToRgb(hex) {
-    var c = (hex || '#e11d48').replace('#', '');
+    if (typeof window !== 'undefined' && window.RA && typeof window.RA.hexToRgb === 'function') {
+      return window.RA.hexToRgb(hex || '#e11d48', '225, 29, 72');
+    }
+    var c = String(hex || '#e11d48').replace('#', '').trim();
     if (c.length === 3) c = c.split('').map(function(x) { return x + x; }).join('');
     var num = parseInt(c, 16);
+    if (isNaN(num)) return '225, 29, 72';
     return [(num >> 16) & 255, (num >> 8) & 255, num & 255].join(', ');
   }
 

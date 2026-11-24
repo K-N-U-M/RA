@@ -7233,8 +7233,11 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   const _batCapSel = (_batSel && _batSel.kwh > 0) ? _batSel : null;
   const _batCapCount = (_batCapSel && _ssotCfg.autoSizing && _ssotCfg.autoSizing.batteries && _ssotCfg.autoSizing.batteries.count) ? _ssotCfg.autoSizing.batteries.count : 1;
   const batCap = _batCapSel ? (_batCapSel.kwh * _batCapCount) : _input('cfg-pres-bat-opt', 0);
-  const touTarifa = _sel('fin-tou-tarifa', 'plana');
-  const batStrategy = _sel('fin-bat-strategy', 'autoconsumo');
+  const _billTarifaRaw = (typeof window !== 'undefined' && window.RA && window.RA.billAuditor && window.RA.billAuditor.currentBill && window.RA.billAuditor.currentBill.tarifa)
+    ? String(window.RA.billAuditor.currentBill.tarifa).toUpperCase() : '';
+  const _inferredTou = (/2\.0TD|3\.0TD|6\.\dTD|PVPC|3P/.test(_billTarifaRaw)) ? '3periodos' : ((/2P|DHA/.test(_billTarifaRaw)) ? '2periodos' : ((/MERCADO|INDEX/.test(_billTarifaRaw)) ? 'mercado' : 'plana'));
+  const touTarifa = (_ssotCfg && _ssotCfg.touTarifa) || _sel('fin-tou-tarifa', _inferredTou);
+  const batStrategy = (_ssotCfg && _ssotCfg.batStrategy) || _sel('fin-bat-strategy', 'autoconsumo');
 
   // Perfiles TOU (€/kWh) por hora 0..23 — media peninsular 2024
   const TOU_PROFILES = {

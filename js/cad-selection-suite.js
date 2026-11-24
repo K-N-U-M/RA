@@ -936,7 +936,7 @@
   function initCADSelectionSuite() {
     initCADCyclingListeners();
     initCADMarqueeListeners();
-    console.log('[CAD Suite] Módulos de Hover, Tab-Cycling, Modo Foco y Ventana inicializados correctamente.');
+    window.RA && window.RA.log && window.RA.log.debug('[CAD Suite] Módulos de Hover, Tab-Cycling, Modo Foco y Ventana inicializados correctamente.');
   }
 
   if (document.readyState === 'loading') {

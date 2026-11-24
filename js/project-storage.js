@@ -111,8 +111,7 @@ function _raSanitizeForExport(obj, depth) {
 
 // 1. Serializar el estado vivo del proyecto
 function raExportProjectData() {
-  const currentAddress = (document.getElementById('nav-info-address') ? document.getElementById('nav-info-address').textContent : '') ||
-                         (document.getElementById('ra-search-input') ? document.getElementById('ra-search-input').value : '') ||
+  const currentAddress = (document.getElementById('ra-search-input') ? document.getElementById('ra-search-input').value : '') ||
                          'Ubicación Solar';
 
   let camData = null;
@@ -1288,8 +1287,6 @@ async function raImportProjectData(projectData, options = {}) {
     if (projectData.metadata && projectData.metadata.address) {
       const searchInp = document.getElementById('ra-search-input');
       if (searchInp) searchInp.value = projectData.metadata.address;
-      const navAddr = document.getElementById('nav-info-address');
-      if (navAddr) navAddr.textContent = projectData.metadata.address;
     }
 
     // Fase 4: Re-renderizado de escena y módulos fotovoltaicos
@@ -1314,26 +1311,11 @@ async function raImportProjectData(projectData, options = {}) {
       if (projectData.windResourceConfig && window.RAWind.Resource && typeof window.RAWind.Resource.updateConfig === 'function') {
         try { window.RAWind.Resource.updateConfig(projectData.windResourceConfig); } catch(eWrc) {}
       } else if (!projectData.windResourceConfig && window.RAWind.Resource && typeof window.RAWind.Resource.updateConfig === 'function') {
-        // [A4 FIX] Si el proyecto no tiene windResourceConfig, restablecer a valores por defecto
+        // [A4 FIX / F3-08] Si el proyecto no tiene windResourceConfig, restablecer desde SSOT getDefaultConfig()
         try {
-          var _defSectors = (window.RAWind.Resource.DEFAULT_SECTORS) ? JSON.parse(JSON.stringify(window.RAWind.Resource.DEFAULT_SECTORS)) : null;
-          window.RAWind.Resource.updateConfig({
-            sourceName: 'Manual / IDAE (Por defecto)',
-            vMeanRefMs: 5.5,
-            vMean50mMs: 7.2,
-            refHeightM: 10.0,
-            weibullK: 2.0,
-            roughnessLengthM: 0.10,
-            shearExponentAlpha: 0.143,
-            prevailingWindDirDeg: 270,
-            autoYawToWind: true,
-            ambientTempC: 15.0,
-            siteAltitudeM: 100.0,
-            receptorDistanceM: 35.0,
-            availabilityFactor: 0.97,
-            electricalEfficiency: 0.95,
-            sectors: _defSectors
-          });
+          if (typeof window.RAWind.Resource.getDefaultConfig === 'function') {
+            window.RAWind.Resource.updateConfig(window.RAWind.Resource.getDefaultConfig());
+          }
         } catch(eWrcDef) {}
       }
       if (Array.isArray(projectData.windTurbines)) {
@@ -2417,24 +2399,9 @@ async function raNewProjectConfirm() {
     window.windParkSummary = null;
     if (window.RAWind && window.RAWind.Resource && typeof window.RAWind.Resource.updateConfig === 'function') {
       try {
-        var _defSectors = (window.RAWind.Resource.DEFAULT_SECTORS) ? JSON.parse(JSON.stringify(window.RAWind.Resource.DEFAULT_SECTORS)) : null;
-        window.RAWind.Resource.updateConfig({
-          sourceName: 'Manual / IDAE (Por defecto)',
-          vMeanRefMs: 5.5,
-          vMean50mMs: 7.2,
-          refHeightM: 10.0,
-          weibullK: 2.0,
-          roughnessLengthM: 0.10,
-          shearExponentAlpha: 0.143,
-          prevailingWindDirDeg: 270,
-          autoYawToWind: true,
-          ambientTempC: 15.0,
-          siteAltitudeM: 100.0,
-          receptorDistanceM: 35.0,
-          availabilityFactor: 0.97,
-          electricalEfficiency: 0.95,
-          sectors: _defSectors
-        });
+        if (typeof window.RAWind.Resource.getDefaultConfig === 'function') {
+          window.RAWind.Resource.updateConfig(window.RAWind.Resource.getDefaultConfig());
+        }
       } catch(eWrcDef) {}
     }
     if (window.RAWindUI && typeof window.RAWindUI.renderStep2Panel === 'function') {

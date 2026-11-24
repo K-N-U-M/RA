@@ -75,7 +75,7 @@ const KNOWN = new Set([
   'setElemText', 'get3DPosition', 'getSelectedPanel', 'deleteSelectedPanel',
   'isPointInPolygon2D', 'calculateDynamicMPPTStringLimits', 'partitionPanelsIntoMPPTStrings',
   'segmentsIntersect2D', 'polygonsIntersect2D', 'convexHull2D', 'cross', 'getProjectCalcs',
-  'getPolylineStringColor', 'getSnakeOrderedPanels', 'initUnifiedWorkPlaneSystem'
+  'getSnakeOrderedPanels', 'initUnifiedWorkPlaneSystem'
 ]);
 const unexpected = shared.filter(n => !KNOWN.has(n));
 assert.deepStrictEqual(unexpected, [], 'Duplicados nuevos no inventariados: ' + unexpected.join(', '));

@@ -1054,6 +1054,7 @@
     fetchNASAWindResource: fetchNASAWindResource,
     fetchGWAWindResource: fetchGWAWindResource,
     parseWAsPLib: parseWAsPLib,
+    getDefaultConfig: function () { return JSON.parse(JSON.stringify(DEFAULT_CONFIG)); },
     DEFAULT_SECTORS: DEFAULT_SECTORS
   };
 
