@@ -653,7 +653,7 @@
     const inv = opts.inv || null;
     const rcmuCertified = (opts.rcmuCertified !== undefined)
       ? Boolean(opts.rcmuCertified)
-      : Boolean(inv && (inv.rcmu === true || inv.hasRcmu === true || inv.rcmuCertified === true || inv.rcmuIntegrated !== false));
+      : Boolean(inv && (inv.rcmu === true || inv.hasRcmu === true || inv.rcmuCertified === true || inv.rcmuIntegrated === true));
     const isTransformerIsolatedMicro = (topo === 'microinverter');
     // IEC 62109-2 / REBT ITC-BT-40: Si el inversor integra supervisión RCMU certificada (corte < 6 mA DC)
     // o es microinversor con aislamiento galvánico HF, se admite Clase A-SI; solo se exige Clase B si carece de RCMU o lo fuerza opts.forceClassB.
@@ -2558,6 +2558,10 @@
   const L_dc_string = (_sState && _sState.L_dc_string_measured > 0)
     ? _sState.L_dc_string_measured
     : ((_sState && _sState.L_dc_measured > 0) ? _sState.L_dc_measured : 30);
+  // Si L_dc_loop_measured existe, ya representa el lazo completo (DC+ + DC- + retorno + intermódulo): no multiplicar por 2.
+  const L_dc_eff_loop = (_sState && _sState.L_dc_loop_measured > 0)
+    ? _sState.L_dc_loop_measured
+    : (2 * L_dc_string);
   const L_dc = (_sState && _sState.L_dc_measured > 0)
     ? _sState.L_dc_measured
     : 30;
@@ -2594,7 +2598,7 @@
   for (let i = 0; i < SEC_DC_AVAIL.length; i++) {
     const s = SEC_DC_AVAIL[i];
     const imax = IMAX_DC_ZZF[i];
-    const dV = (2 * rho90 * L_dc_string * I_dc_working) / s;
+    const dV = (rho90 * L_dc_eff_loop * I_dc_working) / s;
     const vStrBase = Math.max(Vmp_str_hot, 1.0);
     const dV_pct = (dV / vStrBase) * 100;
     if ((imax * K_AMPACITY_DC) >= I_dc_design && dV_pct <= 1.5) {
@@ -2632,7 +2636,7 @@
     if (S_mdc_opt < S_str_opt) S_mdc_opt = S_str_opt;
   }
 
-  const dV_dc_str = (2 * rho90 * L_dc_string * I_dc_working) / S_str_opt;
+  const dV_dc_str = (rho90 * L_dc_eff_loop * I_dc_working) / S_str_opt;
   const dV_dc_trk = (_sState && _sState.L_dc_trunk_measured > 0)
     ? ((2 * rho90 * _sState.L_dc_trunk_measured * (Math.max(1, isParallelTopo ? numStrings : 1) * I_dc_working)) / S_mdc_opt)
     : 0;

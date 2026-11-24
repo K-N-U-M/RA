@@ -1762,6 +1762,7 @@
       var hasManualDc = (sState.routes && Array.isArray(sState.routes.dc) && sState.routes.dc.length > 0);
       var hasManualAc = (sState.routes && Array.isArray(sState.routes.ac) && sState.routes.ac.length > 0);
       var maxLdc = 0;
+      var maxLoopLdc = 0;
       var self = this;
 
       // 3. Renderizar Codos Interactivos + Puntos Medios "+" (DC y AC) si hay rutas manuales
@@ -2024,6 +2025,7 @@
         var totalMicroUnitsCount = Math.max(1, Math.ceil(allMicroPanels.length / Math.max(1, miRatio)));
         sState.L_dc_measured = 0;
         sState.L_dc_string_measured = 0;
+        sState.L_dc_loop_measured = 0;
         sState.L_dc_trunk_measured = 0;
         // Longitud equivalente de caída AC: bajante hasta cuadro + 0.5 × bus troncal con carga distribuida en cubierta
         sState.L_ac_measured = Math.round((maxBranchAcM + (maxBranchTrunkBusM * 0.5)) * 10) / 10;
@@ -2293,6 +2295,7 @@
         var totalStrLen = lPos + lNegTotal + interModuleM;
         var strMaxDc = Math.max(lPos, lNegTotal) + interModuleM;
         if (strMaxDc > maxLdc) maxLdc = strMaxDc;
+        if (totalStrLen > maxLoopLdc) maxLoopLdc = totalStrLen;
 
         var strRoofKey = (firstPanel && typeof firstPanel.polyIdx === 'number') ? ('roof_' + firstPanel.polyIdx) : null;
         totalDcStringSingleCoreM += (lPos + lNegTotal);
@@ -2541,6 +2544,7 @@
       }
 
       sState.L_dc_string_measured = Math.round(maxLdc * 10) / 10;
+      sState.L_dc_loop_measured = Math.round(maxLoopLdc * 10) / 10;
       sState.L_dc_trunk_measured = Math.round(maxTrunkLdc * 10) / 10;
       sState.L_dc_measured = Math.round((maxLdc + maxTrunkLdc) * 10) / 10;
 
@@ -2689,6 +2693,7 @@
 
       var rho90 = (global.ELEC_CONSTANTS && global.ELEC_CONSTANTS.RHO_CU_90) ? global.ELEC_CONSTANTS.RHO_CU_90 : 0.023;
       var lDcVal = (sState.L_dc_string_measured > 0) ? sState.L_dc_string_measured : (Ldc || 25);
+      var lDcEffLoop = (sState.L_dc_loop_measured > 0) ? sState.L_dc_loop_measured : (2 * lDcVal);
       var lAcVal = Lac || 15;
       var imp = modCfg.imp || 13.05;
 
@@ -2802,7 +2807,7 @@
 
       for (var i = 0; i < secDcAvail.length; i++) {
         var s = secDcAvail[i];
-        var dV = (2 * rho90 * lDcVal * iDcWorking) / s;
+        var dV = (rho90 * lDcEffLoop * iDcWorking) / s;
         var dVpct = (dV / Math.max(vmpStr, 12.0)) * 100;
         if ((imaxDcZZF[i] * kAmpacity) >= iDcDesign && dVpct <= 1.5) {
           sDcOpt = s;
@@ -2814,7 +2819,7 @@
 
       if (!dcCompliant) {
         sDcOpt = secDcAvail[secDcAvail.length - 1];
-        var dVMax = (2 * rho90 * lDcVal * iDcWorking) / sDcOpt;
+        var dVMax = (rho90 * lDcEffLoop * iDcWorking) / sDcOpt;
         dVdcPctOpt = (dVMax / Math.max(vmpStr, 12.0)) * 100;
         sState.dcNonCompliantWarning = true;
       } else {
