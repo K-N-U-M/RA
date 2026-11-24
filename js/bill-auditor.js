@@ -338,11 +338,16 @@
           if (window.RA && window.RA.geminiApiKey) {
             key = window.RA.geminiApiKey;
           } else {
-            const raw = localStorage.getItem('ra_gemini_api_key') || '';
+            const sessRaw = (typeof sessionStorage !== 'undefined') ? (sessionStorage.getItem('ra_gemini_api_key') || '') : '';
+            const legRaw = (!sessRaw && typeof localStorage !== 'undefined') ? (localStorage.getItem('ra_gemini_api_key') || '') : '';
+            const raw = sessRaw || legRaw;
             if (raw.startsWith('enc:')) {
               try { key = decodeURIComponent(escape(atob(raw.slice(4)))); } catch (e) { key = raw.slice(4); }
             } else {
               key = raw;
+            }
+            if (legRaw && typeof sessionStorage !== 'undefined') {
+              try { sessionStorage.setItem('ra_gemini_api_key', legRaw); localStorage.removeItem('ra_gemini_api_key'); } catch (_) {}
             }
           }
         }
@@ -357,11 +362,12 @@
           window.RA.setGeminiApiKey(cleanKey);
           return cleanKey;
         }
-        if (cleanKey) {
+        try { if (typeof localStorage !== 'undefined') localStorage.removeItem('ra_gemini_api_key'); } catch (_) {}
+        if (cleanKey && typeof sessionStorage !== 'undefined') {
           const enc = 'enc:' + btoa(unescape(encodeURIComponent(cleanKey)));
-          localStorage.setItem('ra_gemini_api_key', enc);
-        } else {
-          localStorage.removeItem('ra_gemini_api_key');
+          sessionStorage.setItem('ra_gemini_api_key', enc);
+        } else if (typeof sessionStorage !== 'undefined') {
+          sessionStorage.removeItem('ra_gemini_api_key');
         }
       } catch (e) {}
       window.RA = window.RA || {};

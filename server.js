@@ -221,9 +221,9 @@ function applySecurityHeaders(res) {
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Permissions-Policy', 'geolocation=(self), camera=(), microphone=()');
-  // CSP mínima y no rompiente: bloquea object/embed y el encuadre externo, sin tocar
-  // scripts (la app usa handlers inline y evalúa plantillas; endurecerlo requiere nonces).
-  res.setHeader('Content-Security-Policy', "object-src 'none'; frame-ancestors 'none'; base-uri 'self'");
+  // CSP endurecida por directivas sin romper scripts/handlers inline ni workers/tiles Cesium
+  // hasta completar la migración modular de Fase 4 (nonces/ESM).
+  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https://cesium.com https://unpkg.com https://cdnjs.cloudflare.com https://www.gstatic.com https://maps.googleapis.com blob:; style-src 'self' 'unsafe-inline' https://cesium.com https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; worker-src 'self' blob:; child-src 'self' blob:; connect-src 'self' http://localhost:* http://127.0.0.1:* ws://localhost:* https://*.cesium.com https://*.googleapis.com https://*.gstatic.com https://*.firebaseio.com https://*.cloudfunctions.net https://*.run.app https://*.firebasestorage.app https://re.jrc.ec.europa.eu https://power.larc.nasa.gov https://*.open-meteo.com https://apidatos.ree.es https://nominatim.openstreetmap.org https://*.openstreetmap.org https://ovc.catastro.meh.es https://services.arcgisonline.com https://api.allorigins.win https://api.codetabs.com https://corsproxy.io https://unpkg.com https://cdnjs.cloudflare.com data: blob:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'");
 }
 
 /** Resuelve una URL de fichero a una ruta segura dentro de BASE_DIR, o null si se deniega. */

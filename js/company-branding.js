@@ -40,17 +40,32 @@
   }
 
   /**
-   * [D1] Lectura canónica de la clave Gemini (memoria → almacén ofuscado).
+   * [D1 / F0-09] Lectura canónica de la clave Gemini (memoria -> sessionStorage, con migración única desde localStorage).
    */
+  let _geminiSessionNoticeShown = false;
   function getGeminiApiKey() {
     try {
       if (global.RA && global.RA.geminiApiKey) return global.RA.geminiApiKey;
-      const raw = global.localStorage ? global.localStorage.getItem(STORAGE_KEY_GEMINI) : '';
-      let key = raw ? _deobfuscateKey(raw) : '';
+      const sessRaw = global.sessionStorage ? global.sessionStorage.getItem(STORAGE_KEY_GEMINI) : '';
+      let key = sessRaw ? _deobfuscateKey(sessRaw) : '';
+      if (!key && global.localStorage) {
+        const legacyRaw = global.localStorage.getItem(STORAGE_KEY_GEMINI) || '';
+        if (legacyRaw) {
+          key = _deobfuscateKey(legacyRaw);
+          if (key && global.sessionStorage) {
+            try { global.sessionStorage.setItem(STORAGE_KEY_GEMINI, _obfuscateKey(key)); } catch (e) {}
+          }
+          try { global.localStorage.removeItem(STORAGE_KEY_GEMINI); } catch (e) {}
+          if (key && !_geminiSessionNoticeShown && typeof global.showToast === 'function') {
+            _geminiSessionNoticeShown = true;
+            global.showToast('SEGURIDAD CLAVE IA', 'Clave API migrada de almacenamiento persistente a sesión temporal del navegador.', 'info', 4500);
+          }
+        }
+      }
       if (!key && DEFAULT_GEMINI_API_KEY) {
         key = DEFAULT_GEMINI_API_KEY;
-        if (global.localStorage) {
-          try { global.localStorage.setItem(STORAGE_KEY_GEMINI, _obfuscateKey(key)); } catch (e) {}
+        if (global.sessionStorage) {
+          try { global.sessionStorage.setItem(STORAGE_KEY_GEMINI, _obfuscateKey(key)); } catch (e) {}
         }
       }
       if (!global.RA) global.RA = {};
@@ -60,16 +75,26 @@
   }
 
   /**
-   * [D1] Escritura canónica de la clave Gemini (memoria + almacén ofuscado).
+   * [D1 / F0-09] Escritura canónica de la clave Gemini (solo memoria + sessionStorage).
    */
   function setGeminiApiKey(key) {
     const clean = (key || '').trim();
     if (!global.RA) global.RA = {};
     global.RA.geminiApiKey = clean;
     try {
-      if (!global.localStorage) return clean;
-      if (clean) global.localStorage.setItem(STORAGE_KEY_GEMINI, _obfuscateKey(clean));
-      else global.localStorage.removeItem(STORAGE_KEY_GEMINI);
+      if (global.localStorage) {
+        try { global.localStorage.removeItem(STORAGE_KEY_GEMINI); } catch (e) {}
+      }
+      if (!global.sessionStorage) return clean;
+      if (clean) {
+        global.sessionStorage.setItem(STORAGE_KEY_GEMINI, _obfuscateKey(clean));
+        if (!_geminiSessionNoticeShown && typeof global.showToast === 'function') {
+          _geminiSessionNoticeShown = true;
+          global.showToast('CLAVE IA DE SESIÓN', 'La clave Gemini se guarda únicamente durante esta sesión para reducir exposición.', 'info', 4000);
+        }
+      } else {
+        global.sessionStorage.removeItem(STORAGE_KEY_GEMINI);
+      }
     } catch (e) {}
     return clean;
   }

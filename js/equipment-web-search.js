@@ -38,7 +38,12 @@
           if (unified && unified.trim()) return unified.trim();
         }
         if (root.RA && root.RA.geminiApiKey) return root.RA.geminiApiKey;
-        const local = localStorage.getItem('ra_gemini_api_key') || '';
+        const sess = (typeof sessionStorage !== 'undefined') ? (sessionStorage.getItem('ra_gemini_api_key') || '') : '';
+        const leg = (!sess && typeof localStorage !== 'undefined') ? (localStorage.getItem('ra_gemini_api_key') || '') : '';
+        const local = sess || leg;
+        if (leg && typeof sessionStorage !== 'undefined') {
+          try { sessionStorage.setItem('ra_gemini_api_key', leg); localStorage.removeItem('ra_gemini_api_key'); } catch (_) {}
+        }
         if (local.startsWith('enc:')) {
           try { return decodeURIComponent(escape(atob(local.slice(4)))).trim(); } catch (e) { return local.slice(4).trim(); }
         }
