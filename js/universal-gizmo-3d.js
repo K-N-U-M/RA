@@ -1284,47 +1284,6 @@ function updateUniversalTargetTransform(target, newPos, newRotDeg, deltaDeg, rot
       if (panelOutlineEntity && p.corners && p.corners.length === 4) {
         panelOutlineEntity.polyline.positions = [p.corners[0], p.corners[1], p.corners[2], p.corners[3], Cesium.Cartesian3.clone(p.corners[0])];
       }
-    } else if (target.type === 'polyline' && target.rawObj) {
-      const poly = target.rawObj;
-      let delta = Cesium.Cartesian3.subtract(newPos, target.pos, new Cesium.Cartesian3());
-      // Bloqueo coplanar estricto: eliminar cualquier componente perpendicular al plano de trabajo
-      if (target.wp && target.wp.normal) {
-        const perp = Cesium.Cartesian3.dot(delta, target.wp.normal);
-        delta = Cesium.Cartesian3.subtract(
-          delta,
-          Cesium.Cartesian3.multiplyByScalar(target.wp.normal, perp, new Cesium.Cartesian3()),
-          new Cesium.Cartesian3()
-        );
-      }
-      target.pos = Cesium.Cartesian3.add(target.pos, delta, new Cesium.Cartesian3());
-
-      if (Array.isArray(poly.points)) {
-        poly.points = poly.points.map(pt => Cesium.Cartesian3.add(pt, delta, new Cesium.Cartesian3()));
-        poly._geometryDirty = true;
-      }
-      if (Array.isArray(poly.deletedPanels) && poly.deletedPanels.length > 0) {
-        poly.deletedPanels = poly.deletedPanels.map(dp => ({
-          u: dp.u,
-          v: dp.v,
-          center: dp.center ? Cesium.Cartesian3.add(dp.center, delta, new Cesium.Cartesian3()) : null
-        }));
-      }
-      const moveObs = universalGizmoState.movePolyObs;
-      if (Array.isArray(moveObs) && moveObs.length > 0) {
-        const plMove = (typeof poly.planeIdx === 'number' && WP.planes) ? WP.planes[poly.planeIdx] : null;
-        moveObs.forEach(obs => {
-          if (!obs || !obs.cartesian) return;
-          obs.cartesian = Cesium.Cartesian3.add(obs.cartesian, delta, new Cesium.Cartesian3());
-          if (plMove && plMove.origin && plMove.uVec && plMove.vVec) {
-            const relObsPt = Cesium.Cartesian3.subtract(obs.cartesian, plMove.origin, new Cesium.Cartesian3());
-            obs.u = Cesium.Cartesian3.dot(relObsPt, plMove.uVec);
-            obs.v = Cesium.Cartesian3.dot(relObsPt, plMove.vVec);
-          }
-        });
-        if (typeof render3DObstaclesInCesium === 'function') render3DObstaclesInCesium();
-      }
-      if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
-      if (typeof wpUpdateUI === 'function') wpUpdateUI();
     } else if (target.type === 'workplane' && target.rawObj) {
       const pl = target.rawObj;
       const _rotMode = universalGizmoState.mode;

@@ -8388,13 +8388,14 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
             id: "pv_panel_instance_" + i
           }));
 
-          // Mantener referencia en simulatedPanelEntities para compatibilidad con UI, picking y suites de cálculo
+          // [F1-02] Referencia ligera sin alocar PolygonHierarchy descartado por cada panel
           simulatedPanelEntities.push({
             id: "pv_panel_pool_" + i,
+            instanceId: "pv_panel_instance_" + i,
+            faldonIdx: fIdx,
             show: true,
             pData: pData,
             polygon: {
-              hierarchy: new Cesium.PolygonHierarchy(pData.corners),
               material: color,
               outlineColor: isHeatmapMode ? Cesium.Color.BLACK : Cesium.Color.fromCssColorString(pData.stringColor)
             }
@@ -8429,7 +8430,7 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
           const primitive = new Cesium.Primitive({
             geometryInstances: instances,
             appearance: appearance,
-            asynchronous: false,
+            asynchronous: true,
             shadows: isCableXRay ? 0 : (typeof Cesium !== 'undefined' && Cesium.ShadowMode ? Cesium.ShadowMode.ENABLED : 1)
           });
           if (currentRenderId !== _raRenderGenerationId) return;
@@ -8446,6 +8447,43 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
             window.simulatedPanelsPrimitive = fPrim;
           }
         });
+
+        // [F1-02] Helper de recoloración in-place (< 5ms sin reconstruir geometrías GPU)
+        window.wpRecolorSimulatedPanelsInPlace = function(mode) {
+          if (!window._faldonPanelsPrimitives || !Array.isArray(window.allRenderedPanels)) return false;
+          const useHeatmap = (mode === 'heatmap') || (mode === undefined && typeof solarSimState !== 'undefined' && solarSimState && solarSimState.viewMode === 'heatmap');
+          let updated = 0;
+          const colorBuf = new Uint8Array(4);
+          for (let i = 0; i < window.allRenderedPanels.length; i++) {
+            const pData = window.allRenderedPanels[i];
+            if (!pData) continue;
+            const fIdx = (typeof pData.polyIdx === 'number') ? pData.polyIdx : 0;
+            const fPrim = window._faldonPanelsPrimitives.get(fIdx);
+            if (!fPrim || fPrim.isDestroyed() || !fPrim.ready || typeof fPrim.getGeometryInstanceAttributes !== 'function') continue;
+            const attrs = fPrim.getGeometryInstanceAttributes('pv_panel_instance_' + i);
+            if (!attrs || !attrs.color) continue;
+            let col;
+            if (pData.disabled) {
+              col = new Cesium.Color(0.38, 0.42, 0.48, 0.40);
+            } else if (useHeatmap) {
+              const hex = (pData.heatmapColor && (pData.heatmapColor.hex || pData.heatmapColor)) ||
+                (typeof getHeatmapColor === 'function' ? getHeatmapColor(pData.annualLossPct || 0).hex : '#10b981');
+              col = Cesium.Color.fromCssColorString(hex);
+            } else if (pData.isGhost) {
+              col = new Cesium.Color(0.06, 0.72, 0.51, 0.28);
+            } else {
+              const raw = Cesium.Color.fromCssColorString(pData.stringColor || '#00F0FF');
+              col = new Cesium.Color(raw.red * 0.42 + 0.04, raw.green * 0.42 + 0.04, raw.blue * 0.42 + 0.08, 1.0);
+            }
+            attrs.color = Cesium.ColorGeometryInstanceAttribute.toValue(col, colorBuf);
+            updated++;
+          }
+          if (updated > 0 && typeof viewer !== 'undefined' && viewer && viewer.scene && typeof viewer.scene.requestRender === 'function') {
+            viewer.scene.requestRender();
+            return true;
+          }
+          return false;
+        };
 
         instancedSuccess = true;
         if (typeof showStatus === 'function') {

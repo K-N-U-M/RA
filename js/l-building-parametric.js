@@ -710,7 +710,7 @@
           geometryInstances: wallInstances,
           appearance: ctx.createAppearance(true),
           shadows: Cesium.ShadowMode.ENABLED,
-          asynchronous: false
+          asynchronous: true
         })));
       }
     } catch (_) {}
@@ -751,7 +751,7 @@
           geometryInstances: parapetInstances,
           appearance: ctx.createAppearance(true),
           shadows: Cesium.ShadowMode.DISABLED,
-          asynchronous: false
+          asynchronous: true
         })));
       } catch (_) {}
     }
@@ -782,7 +782,7 @@
           geometryInstances: triInstances,
           appearance: ctx.createAppearance(true),
           shadows: Cesium.ShadowMode.ENABLED,
-          asynchronous: false
+          asynchronous: true
         })));
       } catch (_) {}
     }

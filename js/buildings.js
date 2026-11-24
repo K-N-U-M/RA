@@ -57,14 +57,20 @@
     }
   `;
 
+  const _raBldMatteAppearanceCache = {};
   function createBuildingMatteAppearance(closed) {
-    return new Cesium.PerInstanceColorAppearance({
-      translucent: false,
-      closed: (closed !== false),
-      flat: false,
-      renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 },
-      fragmentShaderSource: BUILDINGS_MATTE_FS
-    });
+    const isClosed = (closed !== false);
+    const key = isClosed ? 'closed' : 'open';
+    if (!_raBldMatteAppearanceCache[key]) {
+      _raBldMatteAppearanceCache[key] = new Cesium.PerInstanceColorAppearance({
+        translucent: false,
+        closed: isClosed,
+        flat: false,
+        renderState: { polygonOffset: true, polygonOffsetFactor: 2.0, polygonOffsetUnits: 2.0 },
+        fragmentShaderSource: BUILDINGS_MATTE_FS
+      });
+    }
+    return _raBldMatteAppearanceCache[key];
   }
 
 function render3DBuildingsInCesium() {
@@ -213,7 +219,7 @@ function render3DBuildingsInCesium() {
           geometryInstances: wallInstances,
           appearance: createBuildingMatteAppearance(true),
           shadows: Cesium.ShadowMode.ENABLED,
-          asynchronous: false
+          asynchronous: true
         }));
         window._buildingPrimitives.push(wallPrim);
       } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
@@ -276,7 +282,7 @@ function render3DBuildingsInCesium() {
             geometryInstances: copingInstances,
             appearance: createBuildingMatteAppearance(true),
             shadows: Cesium.ShadowMode.ENABLED,
-            asynchronous: false
+            asynchronous: true
           }));
           window._buildingPrimitives.push(copingPrim);
 
@@ -299,7 +305,7 @@ function render3DBuildingsInCesium() {
             geometryInstances: innerWallInstances,
             appearance: createBuildingMatteAppearance(true),
             shadows: Cesium.ShadowMode.DISABLED, // Desactivado para eliminar shadow acne y moiré interior
-            asynchronous: false
+            asynchronous: true
           }));
           window._buildingPrimitives.push(innerWallPrim);
 
@@ -324,7 +330,7 @@ function render3DBuildingsInCesium() {
           geometryInstances: roofInst,
           appearance: createBuildingMatteAppearance(true),
           shadows: Cesium.ShadowMode.ENABLED,
-          asynchronous: false
+          asynchronous: true
         }));
         window._buildingPrimitives.push(roofPrim);
       } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
@@ -644,7 +650,7 @@ function render3DBuildingsInCesium() {
         window._buildingPrimitives.push(viewer.scene.primitives.add(new Cesium.Primitive({
           geometryInstances: wallInstances,
           appearance: createBuildingMatteAppearance(true),
-          shadows: Cesium.ShadowMode.ENABLED, asynchronous: false
+          shadows: Cesium.ShadowMode.ENABLED, asynchronous: true
         })));
       } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[wall gable]', e); }
 
@@ -654,7 +660,7 @@ function render3DBuildingsInCesium() {
             geometryInstances: gableTriInstances,
             appearance: createBuildingMatteAppearance(true),
             shadows: Cesium.ShadowMode.ENABLED,
-            asynchronous: false
+            asynchronous: true
           })));
         } catch(eGableBatch) { window.RA && window.RA.log && window.RA.log.warn('[gable batch]', eGableBatch); }
       }
@@ -742,7 +748,7 @@ function render3DBuildingsInCesium() {
           geometryInstances: wallInstances,
           appearance: createBuildingMatteAppearance(true),
           shadows: Cesium.ShadowMode.ENABLED,
-          asynchronous: false
+          asynchronous: true
         }));
         window._buildingPrimitives.push(wallPrim);
       } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
@@ -760,7 +766,7 @@ function render3DBuildingsInCesium() {
           geometryInstances: roofInst,
           appearance: createBuildingMatteAppearance(true),
           shadows: Cesium.ShadowMode.ENABLED,
-          asynchronous: false
+          asynchronous: true
         }));
         window._buildingPrimitives.push(roofPrim);
       } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
@@ -797,7 +803,7 @@ function render3DBuildingsInCesium() {
             geometryInstances: fasciaInstances,
             appearance: createBuildingMatteAppearance(true),
             shadows: Cesium.ShadowMode.ENABLED,
-            asynchronous: false
+            asynchronous: true
           })));
         }
 
@@ -849,7 +855,7 @@ function render3DBuildingsInCesium() {
               geometryInstances: skyInstances,
               appearance: createBuildingMatteAppearance(true),
               shadows: Cesium.ShadowMode.ENABLED,
-              asynchronous: false
+              asynchronous: true
             })));
           }
         }
@@ -920,7 +926,7 @@ function render3DBuildingsInCesium() {
           geometryInstances: wallInstances,
           appearance: createBuildingMatteAppearance(true),
           shadows: Cesium.ShadowMode.ENABLED,
-          asynchronous: false
+          asynchronous: true
         }));
         window._buildingPrimitives.push(wallPrim);
       } catch(e) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e); }
@@ -999,7 +1005,7 @@ function render3DBuildingsInCesium() {
             geometryInstances: hipInstances,
             appearance: createBuildingMatteAppearance(true),
             shadows: Cesium.ShadowMode.ENABLED,
-            asynchronous: false
+            asynchronous: true
           })));
         } catch(eHipBatch) { window.RA && window.RA.log && window.RA.log.warn('[hip batch]', eHipBatch); }
       }
@@ -1111,7 +1117,7 @@ function render3DBuildingsInCesium() {
           geometryInstances: wallInstances,
           appearance: createBuildingMatteAppearance(true),
           shadows: Cesium.ShadowMode.ENABLED,
-          asynchronous: false
+          asynchronous: true
         })));
       } catch(eLWall) { window.RA && window.RA.log && window.RA.log.warn('[L wall]', eLWall); }
 
@@ -1207,7 +1213,7 @@ function render3DBuildingsInCesium() {
             geometryInstances: fallbackLInstances,
             appearance: createBuildingMatteAppearance(true),
             shadows: Cesium.ShadowMode.ENABLED,
-            asynchronous: false
+            asynchronous: true
           })));
         } catch(eLBatch) {}
       }

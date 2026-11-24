@@ -950,12 +950,13 @@ function render3DObstaclesInCesium() {
               color: Cesium.ColorGeometryInstanceAttribute.fromColor(trunkColor)
             }
           });
+          const _obsOpaqueApp = window._raObsOpaqueApp || (window._raObsOpaqueApp = new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true }));
           const trunkPrim = viewer.scene.primitives.add(new Cesium.Primitive({
             geometryInstances: trunkInst,
             modelMatrix: trunkMat4,
-            appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true }),
+            appearance: _obsOpaqueApp,
             shadows: Cesium.ShadowMode.ENABLED,
-            asynchronous: false
+            asynchronous: true
           }));
           trunkPrim._obsId = obs.id;
           trunkPrim._isTreeTrunk = true;
@@ -981,12 +982,13 @@ function render3DObstaclesInCesium() {
               color: Cesium.ColorGeometryInstanceAttribute.fromColor(canopyColor)
             }
           });
+          const _obsOpaqueApp2 = window._raObsOpaqueApp || (window._raObsOpaqueApp = new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true }));
           const canopyPrim = viewer.scene.primitives.add(new Cesium.Primitive({
             geometryInstances: canopyInst,
             modelMatrix: canopyMat4,
-            appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true }),
+            appearance: _obsOpaqueApp2,
             shadows: Cesium.ShadowMode.ENABLED,
-            asynchronous: false
+            asynchronous: true
           }));
           canopyPrim._obsId = obs.id;
           canopyPrim._isTreeCanopy = true;
@@ -1033,12 +1035,13 @@ function render3DObstaclesInCesium() {
               color: Cesium.ColorGeometryInstanceAttribute.fromColor(boxColor)
             }
           });
+          const _obsOpaqueApp3 = window._raObsOpaqueApp || (window._raObsOpaqueApp = new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true }));
           const boxPrim = viewer.scene.primitives.add(new Cesium.Primitive({
             geometryInstances: boxInst,
             modelMatrix: boxMat4,
-            appearance: new Cesium.PerInstanceColorAppearance({ translucent: false, closed: true }),
+            appearance: _obsOpaqueApp3,
             shadows: Cesium.ShadowMode.ENABLED,
-            asynchronous: false
+            asynchronous: true
           }));
           boxPrim._obsId = obs.id;
           boxPrim._geomSig = geomSig;
@@ -1091,12 +1094,13 @@ function render3DObstaclesInCesium() {
           }
         });
 
+        const _obsTransApp = window._raObsTransApp || (window._raObsTransApp = new Cesium.PerInstanceColorAppearance({ translucent: true, closed: true }));
         const bufferPrim = viewer.scene.primitives.add(new Cesium.Primitive({
           geometryInstances: bufferInst,
           modelMatrix: bufferMat4,
-          appearance: new Cesium.PerInstanceColorAppearance({ translucent: true, closed: true }),
+          appearance: _obsTransApp,
           shadows: Cesium.ShadowMode.DISABLED,
-          asynchronous: false
+          asynchronous: true
         }));
         bufferPrim._obsId = obs.id;
         bufferPrim._isSetbackBuffer = true;
