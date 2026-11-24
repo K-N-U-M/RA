@@ -43,7 +43,9 @@
     'pv_string_wire_',         // Conexiones de cableado entre paneles individuales
     'cable_prim_',             // Primitivas de cableado envueltas
     'inverter_cable_label_',   // Rótulos técnicos de cableado
-    'ra_cable_'                // Entidades auxiliares de cables
+    'ra_cable_',               // Entidades auxiliares de cables
+    'ra_live_route_preview',   // Guía temporal de ruta en arrastre
+    'temp_bld_'                // Trazado temporal de edificios
   ];
 
   var _hiddenEntities = [];
@@ -125,6 +127,15 @@
 
     // Entidades auxiliares globales específicas
     if (global.panelOutlineEntity) trackAndHide(global.panelOutlineEntity);
+    if (Array.isArray(global.panelOutlineEntities)) {
+      global.panelOutlineEntities.forEach(function (po) { trackAndHide(po); });
+    }
+    if (global._raPanelSelectionOutlineCollection && typeof global._raPanelSelectionOutlineCollection.show !== 'undefined') {
+      if (global._raPanelSelectionOutlineCollection.show !== false) {
+        _savedPrimitiveStates.panelSelectionCollection = global._raPanelSelectionOutlineCollection;
+        global._raPanelSelectionOutlineCollection.show = false;
+      }
+    }
     if (global.activePanelDragEntity) trackAndHide(global.activePanelDragEntity);
 
     if (Array.isArray(global.gizmoEntities)) {
@@ -234,6 +245,9 @@
         try { prim.show = true; } catch (errPrim) {}
       });
       _savedPrimitiveStates.hiddenCablePrimitives = [];
+    }
+    if (_savedPrimitiveStates.panelSelectionCollection && !_savedPrimitiveStates.panelSelectionCollection.isDestroyed()) {
+      _savedPrimitiveStates.panelSelectionCollection.show = true;
     }
     _savedPrimitiveStates = {};
 

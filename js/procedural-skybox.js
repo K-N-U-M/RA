@@ -62,16 +62,13 @@ function createProceduralSkybox(mode, refCartesian) {
   mode = mode || 'day';
   const zenith = _resolveSkyboxZenithTeme(refCartesian);
   const cached = _raSkyboxCache[mode];
-  if (cached && cached.sources && _zenithDot(cached.up, zenith) >= 0.9994) {
+  // [F1-05] Umbral angular relajado (~5.1 deg, dot >= 0.996) + caché de canvases en memoria (0 toDataURL)
+  if (cached && cached.sources && _zenithDot(cached.up, zenith) >= 0.996) {
     _raCurrentSkyZenith = cached.up;
     return new Cesium.SkyBox({ sources: cached.sources });
   }
 
-  const size = 128; // Resolución ultra-ligera (0 ms) con interpolación bilineal suave en GPU
-  const canvas = document.createElement('canvas');
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext('2d');
+  const size = 128; // Resolución ultra-ligera con interpolación bilineal suave en GPU
 
   // Paleta fotométrica fotovoltaica diurna, hora dorada, crepúsculo y noche
   const palettes = {
@@ -103,7 +100,11 @@ function createProceduralSkybox(mode, refCartesian) {
   const pal = palettes[mode] || palettes.day;
 
   function renderSide(face) {
-    const imgData = ctx.createImageData(size, size);
+    const faceCanvas = document.createElement('canvas');
+    faceCanvas.width = size;
+    faceCanvas.height = size;
+    const faceCtx = faceCanvas.getContext('2d');
+    const imgData = faceCtx.createImageData(size, size);
     const data = imgData.data;
 
     let pIdx = 0;
@@ -169,8 +170,8 @@ function createProceduralSkybox(mode, refCartesian) {
       }
     }
 
-    ctx.putImageData(imgData, 0, 0);
-    return canvas.toDataURL('image/jpeg', 0.92);
+    faceCtx.putImageData(imgData, 0, 0);
+    return faceCanvas;
   }
 
   const sources = {
@@ -195,7 +196,7 @@ function _bindSkyboxMoveListener() {
       const sc = viewer && viewer.scene;
       if (!sc) return;
       const curZenith = _resolveSkyboxZenithTeme();
-      if (!_raCurrentSkyZenith || _zenithDot(_raCurrentSkyZenith, curZenith) < 0.9994) {
+      if (!_raCurrentSkyZenith || _zenithDot(_raCurrentSkyZenith, curZenith) < 0.996) {
         try {
           if (sc.skyBox && typeof sc.skyBox.destroy === 'function' && !sc.skyBox.isDestroyed()) {
             sc.skyBox.destroy();
@@ -227,7 +228,7 @@ window.wpUpdateAtmosphericSky = function(alt) {
   }
 
   const curZenith = _resolveSkyboxZenithTeme();
-  const zenithChanged = !_raCurrentSkyZenith || _zenithDot(_raCurrentSkyZenith, curZenith) < 0.9994;
+  const zenithChanged = !_raCurrentSkyZenith || _zenithDot(_raCurrentSkyZenith, curZenith) < 0.996;
   if (_raCurrentSkyMode !== targetMode || !sc.skyBox || zenithChanged) {
     _raCurrentSkyMode = targetMode;
     try {

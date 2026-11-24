@@ -228,11 +228,12 @@
 
     applyLod: function(lod) {
       const showMicroDetails = (lod === 'HIGH');
+      const isCapture = !!(global.RACapture && global.RACapture.enabled);
       let needsRender = false;
 
       // 1. Etiquetas de número de módulo (_panelNumberLabelCollection)
       if (global._panelNumberLabelCollection) {
-        const shouldShowLabels = showMicroDetails && (global.areLabelsVisible !== false);
+        const shouldShowLabels = !isCapture && showMicroDetails && (global.areLabelsVisible !== false);
         if (global._panelNumberLabelCollection.show !== shouldShowLabels) {
           global._panelNumberLabelCollection.show = shouldShowLabels;
           needsRender = true;
