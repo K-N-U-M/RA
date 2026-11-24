@@ -1224,7 +1224,7 @@ globe.showWaterEffect = true;
 globe.depthTestAgainstTerrain = true;
 // Sombra: desactivada completamente para máximo rendimiento GPU
 globe.shadows = (window.ShadowSettings && !window.ShadowSettings.getSettings().terrainShadows) ? Cesium.ShadowMode.RECEIVE_ONLY : Cesium.ShadowMode.ENABLED;
-scene.pickTranslucentDepth = true;
+scene.pickTranslucentDepth = false;
 globe.baseColor = Cesium.Color.fromCssColorString('#14213d');
 scene.fog.enabled = true;
 scene.fog.density = 0.0003;  // Factor aumento para descarte de teselas lejanas
@@ -1820,7 +1820,6 @@ function addPolylineEntity(positions, colorHex, width, depthAlpha, mainAlpha, id
   // [ANTI-Z-FIGHTING AAA] Si la malla fotogramétrica 3D ocluye la línea por milímetros,
   // mostrar una línea continua visible con el mismo color y brillo (depthAlpha >= 0.85) en vez de trazo discontinuo tenue.
   const failAlpha = depthAlpha !== undefined ? Math.max(depthAlpha, 0.85) : 0.90;
-  const depthMat = new Cesium.ColorMaterialProperty(cesiumColor(colorHex, failAlpha));
   return viewer.entities.add({
     id: id,
     polyline: {
@@ -2652,23 +2651,33 @@ function updatePanelSelectionUI() {
     ? window.selectedPanelIndices
     : (selectedPanelIndex >= 0 ? [selectedPanelIndex] : []);
 
-  if (viewer && viewer.entities && panelsArray) {
-    indicesToHighlight.forEach(pIdx => {
-      const p = panelsArray[pIdx];
-      if (p && p.corners && p.corners.length === 4) {
-        const isAnchor = (pIdx === selectedPanelIndex);
-        const outlineEnt = viewer.entities.add({
-          polyline: {
+  // [F1-07] Batched PolylineCollection única para contornos de selección multi-panel (0 entidades individuales)
+  if (viewer && viewer.scene && viewer.scene.primitives && panelsArray) {
+    if (!window._raPanelSelectionOutlineCollection || window._raPanelSelectionOutlineCollection.isDestroyed()) {
+      window._raPanelSelectionOutlineCollection = viewer.scene.primitives.add(new Cesium.PolylineCollection());
+    }
+    const selCol = window._raPanelSelectionOutlineCollection;
+    selCol.removeAll();
+    if (indicesToHighlight.length > 0) {
+      const matAnchor = Cesium.Material.fromType('Color', { color: Cesium.Color.fromCssColorString('#F7A520') });
+      const matMulti = Cesium.Material.fromType('Color', { color: Cesium.Color.fromCssColorString('#38BDF8') });
+      for (let hi = 0; hi < indicesToHighlight.length; hi++) {
+        const pIdx = indicesToHighlight[hi];
+        const p = panelsArray[pIdx];
+        if (p && p.corners && p.corners.length === 4) {
+          const isAnchor = (pIdx === selectedPanelIndex);
+          selCol.add({
             positions: [p.corners[0], p.corners[1], p.corners[2], p.corners[3], Cesium.Cartesian3.clone(p.corners[0])],
             width: isAnchor ? 4 : 3,
-            material: Cesium.Color.fromCssColorString(isAnchor ? '#F7A520' : '#38BDF8'),
-            clampToGround: false
-          }
-        });
-        window.panelOutlineEntities.push(outlineEnt);
-        if (isAnchor) panelOutlineEntity = outlineEnt;
+            material: isAnchor ? matAnchor : matMulti
+          });
+        }
       }
-    });
+      selCol.show = !(window.RACapture && window.RACapture.enabled);
+    } else {
+      selCol.show = false;
+    }
+    if (typeof viewer.scene.requestRender === 'function') viewer.scene.requestRender();
   }
 }
 
@@ -5436,6 +5445,9 @@ function wpPlaceInverterAtPosition(cartesian) {
 }
 
 function wpClearInverterAndCables() {
+  if (typeof _raScaledBoxes !== 'undefined' && Array.isArray(_raScaledBoxes)) {
+    _raScaledBoxes.length = 0;
+  }
   if (!window.inverterEquipmentState) return;
   const s = window.inverterEquipmentState;
   if (typeof viewer !== 'undefined' && viewer && viewer.entities) {
