@@ -68,16 +68,16 @@ Pueden lanzarse en paralelo de forma inmediata en ramas aisladas:
 
 | Prioridad | ID | Ubicación Fase | Resumen del Bloqueante P0 | Estado |
 | :---: | :--- | :--- | :--- | :--- |
-| 1 | `F0-05` | Fase 0 | Colapso `vmpStr = 12 V` y secciones `70 mm²` falsas por unidades `%/°C` | `[Pendiente]` |
-| 2 | `F0-06` | Fase 0 | Omisión de diferencial `Clase B` + doble conteo `2×` en caída de tensión DC | `[Pendiente]` |
-| 3 | `F0-07` | Fase 0 | Bug aritmético `Ns > Ns_max` (sobretensión) + bypass validaciones MPPT/`Isc` | `[Pendiente]` |
+| 1 | `F0-05` | Fase 0 | Colapso `vmpStr = 12 V` y secciones `70 mm²` falsas por unidades `%/°C` | `[Hecho]` |
+| 2 | `F0-06` | Fase 0 | Omisión de diferencial `Clase B` + doble conteo `2×` en caída de tensión DC | `[Hecho]` |
+| 3 | `F0-07` | Fase 0 | Bug aritmético `Ns > Ns_max` (sobretensión) + bypass validaciones MPPT/`Isc` | `[Hecho]` |
 | 4 | `F0-08` | Fase 0 | Superficie XSS generalizada (`32` módulos sin sanitizador) + documentos/`iframe` | `[Pendiente]` |
-| 5 | `F0-09` | Fase 0 | `ra-env.js` no ignorado en `firebase.json` + CSP decorativa + clave IA en `localStorage` | `[Pendiente]` |
+| 5 | `F0-09` | Fase 0 | `ra-env.js` no ignorado en `firebase.json` + CSP decorativa + clave IA en `localStorage` | `[Hecho]` |
 | 6 | `F0-10` | Fase 0 | Pérdida silenciosa de autoguardado + bloqueo Firestore `>1 MiB` + colisión entre proyectos | `[Pendiente]` |
-| 7 | `F0-11` | Fase 0 | TIR `"100%"`/`"null %"` + IVA 10% / IS inflado + cifras divergentes entre documentos | `[Pendiente]` |
-| 8 | `F0-01` | Fase 0 | Corrupción de Undo/Redo CAD en vértices de edificio, polilíneas y rutas | `[Pendiente]` |
-| 9 | `F0-02` | Fase 0 | Primitivas GPU huérfanas tras borrar diseño y destrucción de `lastRoofInfo` | `[Pendiente]` |
-| 10 | `F0-03` | Fase 0 | Pantalla negra/corrupta tras pérdida de contexto WebGL | `[Pendiente]` |
+| 7 | `F0-11` | Fase 0 | TIR `"100%"`/`"null %"` + IVA 10% / IS inflado + cifras divergentes entre documentos | `[Parcial]` |
+| 8 | `F0-01` | Fase 0 | Corrupción de Undo/Redo CAD en vértices de edificio, polilíneas y rutas | `[Hecho]` |
+| 9 | `F0-02` | Fase 0 | Primitivas GPU huérfanas tras borrar diseño y destrucción de `lastRoofInfo` | `[Hecho]` |
+| 10 | `F0-03` | Fase 0 | Pantalla negra/corrupta tras pérdida de contexto WebGL | `[Hecho]` |
 | 11 | `F1-03` | Fase 1 | Caché de exclusión de raycasting y ceguera de sombras frente a edificios/obstáculos CAD | `[Pendiente]` |
 | 12 | `F5-01` | Fase 5 | Tecla `Tab` bloqueada en UI tras mover ratón + stack `Escape` modal roto | `[Pendiente]` |
 | 13 | `F5-02` | Fase 5 | `:focus-visible` suprimido globalmente y zoom móvil bloqueado | `[Pendiente]` |
@@ -91,17 +91,17 @@ Pueden lanzarse en paralelo de forma inmediata en ramas aisladas:
 ### Fase 0 — Estabilización y Bugs Críticos
 | ID | Título | Sev. | Esf. | Dependencias | Origen | Estado |
 | :--- | :--- | :---: | :---: | :--- | :--- | :--- |
-| `F0-01` | Reparar Undo/Redo CAD en vértices de edificio, polilíneas, rutas y rebuild | P0 | M | — | A-01 | `[Pendiente]` |
-| `F0-02` | Limpiar primitivas huérfanas al borrar último diseño y proteger `lastRoofInfo` | P0 | S | — | A-02 | `[Pendiente]` |
-| `F0-03` | Implementar recuperación real tras `webglcontextlost`/`restored` | P0 | L | — | A-04 | `[Pendiente]` |
-| `F0-04` | Corregir gimbal flip obstáculos, teclado en `requestRenderMode`, atajos `C`/`X`/`M` y L-buildings | P1 | L | — | A-05..A-07, A-10 | `[Pendiente]` |
-| `F0-05` | Corregir unidades `%/°C` en `cable-engine.js` (`vmpStr = 12 V` / `70 mm²`) | P0 | S | — | B-01 | `[Pendiente]` |
-| `F0-06` | Corregir diferencial `Clase B` (`rcmuIntegrated !== false`) y doble conteo `2×` DC | P0 | M | F0-05 | B-02, B-03 | `[Pendiente]` |
-| `F0-07` | Blindar validaciones MPPT/Isc/MLPE y overflow `Ns > Ns_max` en `computeSizingEngineering` | P0 | M | — | B-04, B-05 | `[Pendiente]` |
+| `F0-01` | Reparar Undo/Redo CAD en vértices de edificio, polilíneas, rutas y rebuild | P0 | M | — | A-01 | `[Hecho]` |
+| `F0-02` | Limpiar primitivas huérfanas al borrar último diseño y proteger `lastRoofInfo` | P0 | S | — | A-02 | `[Hecho]` |
+| `F0-03` | Implementar recuperación real tras `webglcontextlost`/`restored` | P0 | L | — | A-04 | `[Hecho]` |
+| `F0-04` | Corregir gimbal flip obstáculos, teclado en `requestRenderMode`, atajos `C`/`X`/`M` y L-buildings | P1 | L | — | A-05..A-07, A-10 | `[Parcial]` |
+| `F0-05` | Corregir unidades `%/°C` en `cable-engine.js` (`vmpStr = 12 V` / `70 mm²`) | P0 | S | — | B-01 | `[Hecho]` |
+| `F0-06` | Corregir diferencial `Clase B` (`rcmuIntegrated !== false`) y doble conteo `2×` DC | P0 | M | F0-05 | B-02, B-03 | `[Hecho]` |
+| `F0-07` | Blindar validaciones MPPT/Isc/MLPE y overflow `Ns > Ns_max` en `computeSizingEngineering` | P0 | M | — | B-04, B-05 | `[Hecho]` |
 | `F0-08` | Erradicar XSS DOM en visor (`32` módulos) y en documentos/`iframe` | P0 | L | — | F-01, F-03 | `[Pendiente]` |
-| `F0-09` | Excluir entorno local de hosting, endurecer CSP y retirar claves IA de `localStorage` | P0 | M | F0-08 | F-02 | `[Pendiente]` |
+| `F0-09` | Excluir entorno local de hosting, endurecer CSP y retirar claves IA de `localStorage` | P0 | M | F0-08 | F-02 | `[Hecho]` |
 | `F0-10` | Blindar persistencia: IDB, Firestore `<250 KB`, UUID proyecto, migrador y ceros `0 €` | P0 | L | — | F-07..F-10 | `[Pendiente]` |
-| `F0-11` | Corregir TIR/Payback/IVA 10%/IS y reconciliar cifras entre todos los documentos | P0 | L | — | F-11..F-14 | `[Pendiente]` |
+| `F0-11` | Corregir TIR/Payback/IVA 10%/IS y reconciliar cifras entre todos los documentos | P0 | L | — | F-11..F-14 | `[Parcial]` |
 
 ### Fase 1 — Rendimiento Motor 3D / WebGL
 | ID | Título | Sev. | Esf. | Dependencias | Origen | Estado |

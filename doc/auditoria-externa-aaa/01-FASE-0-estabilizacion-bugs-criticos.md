@@ -10,17 +10,17 @@
 
 | ID | Título | Severidad | Esfuerzo | Dependencias | Origen | Estado |
 | :--- | :--- | :---: | :---: | :--- | :--- | :--- |
-| **F0-01** | Reparar desincronización de Undo/Redo CAD en vértices de edificio, polilíneas, rutas y rebuild de paneles | P0 | M | Ninguna | A-01 | `[Pendiente]` |
-| **F0-02** | Limpiar primitivas GPU huérfanas al borrar último diseño en Paso 1 y proteger `lastRoofInfo` | P0 | S | Ninguna | A-02 | `[Pendiente]` |
-| **F0-03** | Implementar recuperación real tras `webglcontextlost` / `webglcontextrestored` | P0 | L | Ninguna | A-04 | `[Pendiente]` |
-| **F0-04** | Corregir bugs CAD/interacción: gimbal flip en obstáculos, teclado congelado bajo `requestRenderMode`, colisión de atajos `C`/`X`/`M` y alabeo en edificios en L | P1 | L | Ninguna | A-05 + A-06 + A-07 + A-10 | `[Pendiente]` |
-| **F0-05** | Corregir bug de unidades `%/°C` en `cable-engine.js` que colapsa `vmpStr = 12 V` y dispara cables a `70 mm²` | P0 | S | Ninguna | B-01 | `[Pendiente]` |
-| **F0-06** | Corregir omisión normativa de diferencial `Clase B` (`rcmuIntegrated !== false`) y doble conteo `2×` en lazo DC | P0 | M | F0-05 | B-02 + B-03 | `[Pendiente]` |
-| **F0-07** | Blindar validaciones MPPT (`inputsPerMppt`, `Voc_cold`, `Isc`, MLPE selectivos) y corregir overflow `Ns > Ns_max` en `computeSizingEngineering` | P0 | M | Ninguna | B-04 + B-05 | `[Pendiente]` |
+| **F0-01** | Reparar desincronización de Undo/Redo CAD en vértices de edificio, polilíneas, rutas y rebuild de paneles | P0 | M | Ninguna | A-01 | `[Hecho]` |
+| **F0-02** | Limpiar primitivas GPU huérfanas al borrar último diseño en Paso 1 y proteger `lastRoofInfo` | P0 | S | Ninguna | A-02 | `[Hecho]` |
+| **F0-03** | Implementar recuperación real tras `webglcontextlost` / `webglcontextrestored` | P0 | L | Ninguna | A-04 | `[Hecho]` |
+| **F0-04** | Corregir bugs CAD/interacción: gimbal flip en obstáculos, teclado congelado bajo `requestRenderMode`, colisión de atajos `C`/`X`/`M` y alabeo en edificios en L | P1 | L | Ninguna | A-05 + A-06 + A-07 + A-10 | `[Parcial]` |
+| **F0-05** | Corregir bug de unidades `%/°C` en `cable-engine.js` que colapsa `vmpStr = 12 V` y dispara cables a `70 mm²` | P0 | S | Ninguna | B-01 | `[Hecho]` |
+| **F0-06** | Corregir omisión normativa de diferencial `Clase B` (`rcmuIntegrated !== false`) y doble conteo `2×` en lazo DC | P0 | M | F0-05 | B-02 + B-03 | `[Hecho]` |
+| **F0-07** | Blindar validaciones MPPT (`inputsPerMppt`, `Voc_cold`, `Isc`, MLPE selectivos) y corregir overflow `Ns > Ns_max` en `computeSizingEngineering` | P0 | M | Ninguna | B-04 + B-05 | `[Hecho]` |
 | **F0-08** | Erradicar XSS almacenado/DOM en visor (`32` módulos sin sanitizador) y documentos/visor/iframe generados | P0 | L | Ninguna | F-01 + F-03 | `[Pendiente]` |
-| **F0-09** | Excluir archivo local de entorno del despliegue, endurecer CSP y retirar claves IA de `localStorage` | P0 | M | F0-08 | F-02 | `[Pendiente]` |
+| **F0-09** | Excluir archivo local de entorno del despliegue, endurecer CSP y retirar claves IA de `localStorage` | P0 | M | F0-08 | F-02 | `[Hecho]` |
 | **F0-10** | Blindar persistencia: migración de autoguardado a IndexedDB, límites Firestore `< 250 KB`, UUID por proyecto, migrador `2.2->2.4` y cero `0 € -> default` | P0 | L | Ninguna | F-07 + F-08 + F-09 + F-10 | `[Pendiente]` |
-| **F0-11** | Corregir errores bancables en TIR/Payback/IVA 10%/IS y reconciliar cifras entre pantalla, memoria, presupuesto, propuesta y dossier | P0 | L | Ninguna | F-11 + F-12 + F-13 + F-14 | `[Pendiente]` |
+| **F0-11** | Corregir errores bancables en TIR/Payback/IVA 10%/IS y reconciliar cifras entre pantalla, memoria, presupuesto, propuesta y dossier | P0 | L | Ninguna | F-11 + F-12 + F-13 + F-14 | `[Parcial]` |
 
 *(Nota: los fallos P0 adicionales de interfaz/accesibilidad [`E-01`..`E-04`] y raycasting 3D [`A-03`] están detallados con trazabilidad completa en `F5-01`..`F5-03` y `F1-03`, respectivamente, y listados en la matriz P0 de `00-INDICE.md` para permitir ataque paralelo sin solapamientos).*
 
@@ -38,7 +38,7 @@
 | **Dependencias** | Ninguna |
 | **Origen** | A-01 |
 | **Rama sugerida** | `fix/cad-undo-redo-sync` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 Cuatro flujos de arrastre CAD rompen `RAundo`:
@@ -73,7 +73,7 @@ Cuatro flujos de arrastre CAD rompen `RAundo`:
 | **Dependencias** | Ninguna |
 | **Origen** | A-02 |
 | **Rama sugerida** | `fix/orphan-gpu-primitives-and-roofinfo` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 1. En `wpFastRenderSimulatedPanelsAsync` (`app-main.js:7625-7637`), el retorno por gating en Paso 1 (`!_hasExistingDesign`) ocurre **antes** de `wpCleanupAllSolarPrimitives(...)`. Al borrar el último edificio o faldón, el visor deja primitivas GPU fantasma flotando en escena vacía.
@@ -102,7 +102,7 @@ Cuatro flujos de arrastre CAD rompen `RAundo`:
 | **Dependencias** | Ninguna |
 | **Origen** | A-04 |
 | **Rama sugerida** | `fix/webgl-context-recovery` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 Cuando el driver gráfico resetea el contexto WebGL (`webglcontextlost`), la app no detiene `solarSimState.playInterval` ni bloquea renders síncronos; al volver (`webglcontextrestored`), `cesium-safety.js` solo muestra un toast y pide `requestRender()`, dejando en negro o corruptas todas las texturas procedurales (`solarPanelTextureCanvas`, skybox cubemap, `ShadowMap` y primitivas GPU personalizadas). Además intercepta globalmente `HTMLCanvasElement.prototype.getContext`.
@@ -133,7 +133,7 @@ Cuando el driver gráfico resetea el contexto WebGL (`webglcontextlost`), la app
 | **Dependencias** | Ninguna |
 | **Origen** | A-05 + A-06 + A-07 + A-10 |
 | **Rama sugerida** | `fix/cad-obstacles-keys-lbuilding` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Parcial]` *(pendiente intersección independiente de cumbreras en `l_gable` cuando `wA !== wB`)* |
 
 #### Contexto y Problema
 Cuatro defectos directos en CAD diario:
@@ -169,7 +169,7 @@ Cuatro defectos directos en CAD diario:
 | **Dependencias** | Ninguna |
 | **Origen** | B-01 |
 | **Rama sugerida** | `fix/cable-engine-gamma-pmp-units` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 El catálogo guarda `tempCoeffPmax` en `%/°C` (`-0.35`). `onSelectModuleFromDropdown` y `step2SelectModule` lo copian en bruto en `panelConfig.gammaPmp`. `updateElectricalSizingAndHUD` (`cable-engine.js:2782`) multiplica directamente `-0.35 * 45` dando tensión negativa clampada a `vmpStr = 12.0 V`. Al dividir la caída de tensión DC entre `12 V` en vez de `~350–400 V`, `dV_dc_pct` se multiplica por `33×`, marca falso incumplimiento REBT y escala las secciones recomendadas hasta `70 mm²` en HUD, `project-calcs` y Pliego.
@@ -199,7 +199,7 @@ El catálogo guarda `tempCoeffPmax` en `%/°C` (`-0.35`). `onSelectModuleFromDro
 | **Dependencias** | F0-05 |
 | **Origen** | B-02 + B-03 |
 | **Rama sugerida** | `fix/rcd-class-b-and-dc-loop-length` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 1. **RCD Clase B (`B-02`)**: `raResolveRcdSpec` evalúa `inv.rcmuIntegrated !== false`. Ningún inversor del catálogo define esa propiedad (`undefined !== false === true`), por lo que la app asume RCMU integrado y prescribe diferencial `Clase A-SI` en vez de `Clase B` en inversores sin transformador (riesgo de cegado magnético DC, violación IEC 62109-2 / REBT ITC-BT-40).
@@ -232,7 +232,7 @@ El catálogo guarda `tempCoeffPmax` en `%/°C` (`-0.35`). `onSelectModuleFromDro
 | **Dependencias** | Ninguna |
 | **Origen** | B-04 + B-05 |
 | **Rama sugerida** | `fix/mppt-electrical-safety-limits` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 1. `matchInvertersFromCatalog` nunca valida `_stringsPerMppt <= _inputsPerMppt`.
@@ -299,7 +299,7 @@ El catálogo guarda `tempCoeffPmax` en `%/°C` (`-0.35`). `onSelectModuleFromDro
 | **Dependencias** | F0-08 (ideal tras limpiar scripts/eventos inline en fases siguientes para CSP estricto) |
 | **Origen** | F-02 |
 | **Rama sugerida** | `sec/hosting-ignore-csp-and-ai-keys` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 1. `firebase.json` **no incluye `js/ra-env.js` en `hosting.ignore`**: cualquier `firebase deploy` ejecutado desde una máquina local donde exista `js/ra-env.js` lo publica abiertamente en `ra-solar-3d.web.app`.
@@ -368,7 +368,7 @@ El catálogo guarda `tempCoeffPmax` en `%/°C` (`-0.35`). `onSelectModuleFromDro
 | **Dependencias** | Ninguna |
 | **Origen** | F-11 + F-12 + F-13 + F-14 |
 | **Rama sugerida** | `fix/financial-irr-iva10-is-doc-parity` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Parcial]` (`8712205`: corregido rango bisección TIR `-99%`, separación `tir > 500%` / `paybackYears = null` sin `null %` ni `100.0 %` ni `25.0 años`, coma decimal y retorno `> 25 años` en dossier/memoria/presupuesto, plazo préstamo `120` meses unificado y paso automático a `IVA 21%` si incumple LIVA. Pendiente para siguiente iteración: tipificación de extras material/servicio y amortización lineal diferencial IS en B2B, recálculo financiero completo + escala eólica ante override manual de precio en dossier y desglose ocultar-margen/tabla mensual única en Presupuesto/Memoria). |
 
 #### Contexto y Problema
 1. **Bugs TIR/Payback (`F-11`)**: si TIR `> 500%`, el modelo pone etiqueta `>500%` pero número `100.0`, imprimiendo `"100.0 %"` en presupuesto/memoria y `">500%"` en oferta comercial; bisección limitada a `-10%` devuelve `null` imprimiendo literal `"null %"` en presupuesto oficial; retorno se inicializa a `25` e imprime `"25.0 años"` aunque el flujo a 25 años siga negativo; dossier parsea comas europeas fallando a `"Año 4"`.
