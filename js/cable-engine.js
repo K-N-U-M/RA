@@ -2957,10 +2957,11 @@
         }
       }
 
-      if (!global.solarLossConfig) global.solarLossConfig = {};
+      if (!global.solarLossConfig) global.solarLossConfig = { wiringSource: 'default' };
       global.solarLossConfig.wiringCalculated = (dVdcPctOpt + dVacPctOpt) / 100.0;
-      if (!global.solarLossConfig.userCustomizedWiring && typeof global.solarLossConfig.wiring === 'undefined') {
+      if (global.solarLossConfig.wiringSource !== 'user' && !global.solarLossConfig.userCustomizedWiring) {
         global.solarLossConfig.wiring = global.solarLossConfig.wiringCalculated;
+        global.solarLossConfig.wiringSource = 'engine';
       }
 
       if (typeof global.wpUpdateStep4Checklist === 'function') global.wpUpdateStep4Checklist();

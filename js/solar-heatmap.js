@@ -1237,6 +1237,8 @@
         });
 
         pList.forEach((p, idx) => {
+          // [F2-03] Excluir módulos eliminados, desactivados o fantasma (isGhost) antes de enviar al Worker
+          if (!p || p.deleted || p.disabled || p.isGhost) return;
           const pId = p.panelId || p.id || ('pan_' + polyIdx + '_' + idx);
           const u = typeof p.u === 'number' ? p.u : 0;
           const v = typeof p.v === 'number' ? p.v : 0;
@@ -2111,11 +2113,12 @@
     const pNomW = (activeModule && activeModule.wp) || 450;
     const pKwp = pNomW / 1000.0;
     const prCalc = (typeof window !== 'undefined' && typeof window.raCalculateSystemPR === 'function')
-      ? window.raCalculateSystemPR(0.925)
+      ? window.raCalculateSystemPR(0.925, { excludeBypass: true })
       : { prTotal: 0.84, prBOS: 0.885 };
-    // Dado que el modelo por instantes ya integra las pérdidas angulares (IAM) y térmicas (tempFactor)
-    // paso a paso en cada hora, el factor de rendimiento de balance de planta (BOS) evita descontar dos veces calor e IAM.
-    const prSys = (typeof prCalc.prBOS === 'number') ? prCalc.prBOS : (prCalc.prTotal / (0.925 * (1 - 0.028)));
+    // [F2-01] El motor por instantes ya integra IAM, temperatura y bypass de sub-strings; usar prBOSNoBypass evita doble descuento.
+    const prSys = (typeof prCalc.prBOSNoBypass === 'number')
+      ? prCalc.prBOSNoBypass
+      : ((typeof prCalc.prBOS === 'number') ? prCalc.prBOS : (prCalc.prTotal / (0.925 * (1 - 0.028))));
 
     let maxNetWh = 0;
     polylines.forEach(poly => {

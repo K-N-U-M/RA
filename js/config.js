@@ -102,11 +102,11 @@ if (typeof window !== 'undefined' && typeof window.RA_STRING_PALETTE === 'undefi
   };
   var savedLosses = null;
   try { savedLosses = JSON.parse(localStorage.getItem('ra_solar_loss_config')); } catch (e) {}
-  window.solarLossConfig = Object.assign({}, LOSS_DEFAULTS, (savedLosses && typeof savedLosses === 'object') ? savedLosses : {});
-  window.raGetLossDefaults = function() { return Object.assign({}, LOSS_DEFAULTS); };
+  window.solarLossConfig = Object.assign({ wiringSource: 'default' }, LOSS_DEFAULTS, (savedLosses && typeof savedLosses === 'object') ? savedLosses : {});
+  window.raGetLossDefaults = function() { return Object.assign({ wiringSource: 'default' }, LOSS_DEFAULTS); };
   window.raApplyLossPreset = function(key) {
     if (PRESETS_PERDIDAS[key]) {
-      Object.assign(window.solarLossConfig, PRESETS_PERDIDAS[key], { userCustomizedWiring: true });
+      Object.assign(window.solarLossConfig, PRESETS_PERDIDAS[key], { userCustomizedWiring: true, wiringSource: 'user' });
       try { localStorage.setItem('ra_solar_loss_config', JSON.stringify(window.solarLossConfig)); } catch (e) {}
     }
     return window.solarLossConfig;
@@ -118,8 +118,11 @@ if (typeof window !== 'undefined' && typeof window.RA_STRING_PALETTE === 'undefi
   /**
    * Cálculo canónico del Performance Ratio (PR) del sistema según pérdidas configuradas.
    * SSOT para HUD, simulación anual, cálculos eléctricos y memorias técnicas.
+   * @param {number} [thermalDeratingFactor]
+   * @param {object} [opts] - { excludeBypass?: boolean, annualShadedLoss?: number, inverterEff?: number }
    */
-  window.raCalculateSystemPR = function(thermalDeratingFactor) {
+  window.raCalculateSystemPR = function(thermalDeratingFactor, opts) {
+    var options = (opts && typeof opts === 'object') ? opts : {};
     var lc = (typeof window !== 'undefined' && window.solarLossConfig) ? window.solarLossConfig : {};
     var soiling = Number(lc.soiling) >= 0 ? Number(lc.soiling) : 0.025;
     var wiring = Number(lc.wiring) >= 0 ? Number(lc.wiring) : 0.015;
@@ -130,11 +133,26 @@ if (typeof window !== 'undefined' && typeof window.RA_STRING_PALETTE === 'undefi
 
     var hasMLPE = (typeof window.solarProjectConfig !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.selectedTopology === 'microinverter') ||
                   (typeof window.allRenderedPanels !== 'undefined' && Array.isArray(window.allRenderedPanels) && window.allRenderedPanels.some(function(p) { return p.hasMLPE; }));
-    var bypass = hasMLPE ? (Number(lc.bypassMlpe) >= 0 ? Number(lc.bypassMlpe) : 0.005) : (Number(lc.bypass) >= 0 ? Number(lc.bypass) : 0.025);
-    var inverter = 0.025; // 97.5% rendimiento inversor típico
+    // [F2-01] Eliminar doble descuento de bypass cuando el motor térmico horario ya modela sub-strings o hay 0% sombra
+    var bypass = (options.excludeBypass === true || options.annualShadedLoss === 0)
+      ? 0
+      : (hasMLPE ? (Number(lc.bypassMlpe) >= 0 ? Number(lc.bypassMlpe) : 0.005) : (Number(lc.bypass) >= 0 ? Number(lc.bypass) : 0.025));
+
+    // Eficiencia real del inversor seleccionado si está disponible (fallback 97.5%)
+    var invEff = (typeof options.inverterEff === 'number' && options.inverterEff > 0.5 && options.inverterEff <= 1.0)
+      ? options.inverterEff
+      : 0.975;
+    if (invEff === 0.975 && typeof window.solarProjectConfig !== 'undefined' && window.solarProjectConfig && typeof window.equipmentCatalog !== 'undefined' && window.equipmentCatalog && Array.isArray(window.equipmentCatalog.inverters)) {
+      var selInv = window.equipmentCatalog.inverters.find(function(i) { return i && i.id === window.solarProjectConfig.selectedInverterId; });
+      if (selInv && typeof selInv.eff === 'number' && selInv.eff > 50) {
+        invEff = Math.min(0.992, Math.max(0.88, (selInv.eff / 100.0) - 0.006));
+      }
+    }
+    var inverter = 1 - invEff;
 
     // PR eléctrico y óptico base en cascada
     var prBOS = (1 - soiling) * (1 - wiring) * (1 - mismatch) * (1 - availability) * (1 - spectral) * (1 - bypass) * (1 - inverter);
+    var prBOSNoBypass = (1 - soiling) * (1 - wiring) * (1 - mismatch) * (1 - availability) * (1 - spectral) * (1 - inverter);
     var prElec = prBOS * (1 - iamAngular);
     var tFactor = (typeof thermalDeratingFactor === 'number' && thermalDeratingFactor > 0) ? thermalDeratingFactor : 0.925;
     var prTotal = prElec * tFactor;
@@ -143,6 +161,7 @@ if (typeof window !== 'undefined' && typeof window.RA_STRING_PALETTE === 'undefi
       prTotal: Math.max(0.40, Math.min(0.98, prTotal)),
       prElec: Math.max(0.50, Math.min(0.98, prElec)),
       prBOS: Math.max(0.50, Math.min(0.98, prBOS)),
+      prBOSNoBypass: Math.max(0.50, Math.min(0.98, prBOSNoBypass)),
       totalLossFraction: 1 - prTotal,
       thermalDeratingFactor: tFactor,
       factors: {

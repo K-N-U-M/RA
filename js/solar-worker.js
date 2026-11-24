@@ -614,11 +614,16 @@ self.onmessage = async function(e) {
         const rearViewFactor = isRaised
           ? Math.max(0.06, Math.min(0.85, clearanceFactor * Math.pow(Math.cos(p.tiltRad / 2), 2)))
           : 0.04;
-        const albedoGain = (isBifacial && bifacialityFactor > 0) ? (GHI_instant * 0.20 * rearViewFactor * bifacialityFactor) : 0;
+        // [F2-03] Factor de auto-sombreado del suelo bajo filas bifaciales + ciclo térmico diurno Faiman
+        const groundSelfShadeFactor = isRaised ? 0.82 : 0.45;
+        const albedoEff = (typeof albedo === 'number' && albedo > 0 && albedo <= 0.85) ? albedo : 0.20;
+        const albedoGain = (isBifacial && bifacialityFactor > 0) ? (GHI_instant * albedoEff * groundSelfShadeFactor * rearViewFactor * bifacialityFactor) : 0;
         const G_poa = G_beam + G_diff + G_refl + albedoGain;
 
-        // Derating térmico
-        const tCell = tAmbMonth + (noctModule - 20) * (G_poa / 800);
+        // Derating térmico con ciclo diurno T_amb(h) y coeficiente Faiman según montaje
+        const tAmbHour = tAmbMonth + 5.0 * Math.sin(((h - 9.0) / 24.0) * 2 * Math.PI);
+        const uFaiman = isRaised ? (29.0 + 6.8 * 2.2) : (24.0 + 5.0 * 1.8);
+        const tCell = tAmbHour + (G_poa / uFaiman);
         const thermalFactor = Math.max(0.70, 1.0 + gammaCoeff * (tCell - 25));
 
         // Potencia instantánea específica (W/m² efectiva) modulada por factor térmico
@@ -765,7 +770,8 @@ self.onmessage = async function(e) {
         }
 
         const effectiveLossW = (effectiveShaded && instantLossW > 0) ? instantLossW : 0;
-        _monthlyNetWh[m] += (instantPotentialW - effectiveLossW) * mw * hourStepDt;
+        const pWeightKwp = (typeof p.wp === 'number' && p.wp > 0) ? (p.wp / (typeof pNomW === 'number' && pNomW > 0 ? pNomW : 450)) : 1.0;
+        _monthlyNetWh[m] += (instantPotentialW - effectiveLossW) * mw * hourStepDt * pWeightKwp;
       });
     }
 

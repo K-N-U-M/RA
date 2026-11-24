@@ -701,7 +701,13 @@ function runPhysicalModel(kwp, latDeg, lonDeg, tiltDeg, azimutDeg, cfg, customMo
       const GPOA = poa.G_poa;
       const GPOA_raw = (typeof poa.G_poa_raw === 'number') ? poa.G_poa_raw : GPOA;
       const iamFactor = poa.iamFactor;
-      const Tcell = calcTcell(tAmb[m], GPOA, NOCT);
+      // [F2-02] Perfil térmico diurno + modelo Faiman (computeCellTemperature) diferenciando coplanar vs open-rack
+      const tAmbHour = tAmb[m] + 5.0 * Math.sin(((h - 9.0) / 24.0) * 2 * Math.PI);
+      const isCoplanarMount = !(cfg && (cfg.mountingType === 'open_rack' || cfg.mountingType === 'elevada' || cfg.mountingType === 'pergola'));
+      const windSpeedEst = (cfg && typeof cfg.avgWindSpeedMs === 'number' && cfg.avgWindSpeedMs > 0) ? cfg.avgWindSpeedMs : 2.2;
+      const Tcell = (typeof computeCellTemperature === 'function')
+        ? computeCellTemperature(tAmbHour, GPOA, windSpeedEst, isCoplanarMount ? 24.0 : 29.0, isCoplanarMount ? 5.0 : 6.8)
+        : calcTcell(tAmbHour, GPOA, NOCT);
 
       const P_raw = calcPpanel(Pstc * kwp * 1000 / Pstc, GPOA, Tcell, gamma);
       const tempLossW = calcPpanel(Pstc * kwp * 1000 / Pstc, GPOA, 25, gamma) - P_raw;

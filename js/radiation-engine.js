@@ -220,16 +220,19 @@
   /**
    * Modelo de difusa anisotrópica de Perez (1990) con abrillantamiento circunsolar y de horizonte.
    */
-  function getPerezDiffuse(dhi, dni, ghi, sunElevDeg, tiltRad, cosTheta) {
+  function getPerezDiffuse(dhi, dni, ghi, sunElevDeg, tiltRad, cosTheta, dayOfYear) {
     if (dhi <= 0) return 0;
     const elevRad = Math.max(0.01, (sunElevDeg || 0) * Math.PI / 180);
     const thetaZRad = Math.PI / 2 - elevRad;
 
-    // Masa de aire óptica relativa (Kasten-Young 1989)
-    const airMass = 1 / (Math.sin(elevRad) + 0.50572 * Math.pow(Math.max(0, (sunElevDeg || 0) + 6.07995), -1.6364));
+    // Masa de aire óptica relativa (Kasten-Young 1989) con clamp seguro
+    const rawAm = 1 / (Math.sin(elevRad) + 0.50572 * Math.pow(Math.max(0.01, (sunElevDeg || 0) + 6.07995), -1.6364));
+    const airMass = Math.min(38.0, Math.max(1.0, rawAm));
 
-    // Parámetro de brillo cenital Delta
-    const delta = (dhi * airMass) / SOLAR_CONST_WM2;
+    // [F2-02] Corrección por excentricidad orbital e0 en I0 extraterrestre
+    const doy = (typeof dayOfYear === 'number' && dayOfYear >= 1 && dayOfYear <= 366) ? dayOfYear : 172;
+    const e0 = 1.0 + 0.033 * Math.cos((2 * Math.PI * doy) / 365);
+    const delta = (dhi * airMass) / (SOLAR_CONST_WM2 * e0);
 
     // Parámetro de claridad atmosférica Epsilon
     const kappa = 1.041;
