@@ -19,7 +19,7 @@
 | **F0-07** | Blindar validaciones MPPT (`inputsPerMppt`, `Voc_cold`, `Isc`, MLPE selectivos) y corregir overflow `Ns > Ns_max` en `computeSizingEngineering` | P0 | M | Ninguna | B-04 + B-05 | `[Hecho]` |
 | **F0-08** | Erradicar XSS almacenado/DOM en visor (`32` módulos sin sanitizador) y documentos/visor/iframe generados | P0 | L | Ninguna | F-01 + F-03 | `[Pendiente]` |
 | **F0-09** | Excluir archivo local de entorno del despliegue, endurecer CSP y retirar claves IA de `localStorage` | P0 | M | F0-08 | F-02 | `[Hecho]` |
-| **F0-10** | Blindar persistencia: migración de autoguardado a IndexedDB, límites Firestore `< 250 KB`, UUID por proyecto, migrador `2.2->2.4` y cero `0 € -> default` | P0 | L | Ninguna | F-07 + F-08 + F-09 + F-10 | `[Pendiente]` |
+| **F0-10** | Blindar persistencia: migración de autoguardado a IndexedDB, límites Firestore `< 250 KB`, UUID por proyecto, migrador `2.2->2.4` y cero `0 € -> default` | P0 | L | Ninguna | F-07 + F-08 + F-09 + F-10 | `[Parcial]` |
 | **F0-11** | Corregir errores bancables en TIR/Payback/IVA 10%/IS y reconciliar cifras entre pantalla, memoria, presupuesto, propuesta y dossier | P0 | L | Ninguna | F-11 + F-12 + F-13 + F-14 | `[Parcial]` |
 
 *(Nota: los fallos P0 adicionales de interfaz/accesibilidad [`E-01`..`E-04`] y raycasting 3D [`A-03`] están detallados con trazabilidad completa en `F5-01`..`F5-03` y `F1-03`, respectivamente, y listados en la matriz P0 de `00-INDICE.md` para permitir ataque paralelo sin solapamientos).*
@@ -332,7 +332,7 @@ El catálogo guarda `tempCoeffPmax` en `%/°C` (`-0.35`). `onSelectModuleFromDro
 | **Dependencias** | Ninguna |
 | **Origen** | F-07 + F-08 + F-09 + F-10 |
 | **Rama sugerida** | `fix/persistence-idb-uuid-schema-races` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Parcial]` (`73e7313`: invalidación `dbPromise` en `storage-cache.js`; autoguardado con IndexedDB + guardia `_raSuspendAutosave` y alerta cuota en `app-main.js`; UUID estable por proyecto aislando fotos/borradores WYSIWYG/recientes/Nuevo Proyecto; redimensionado de logos `<=512px` y captura 3D `<=1600px`; migrador semántico por tuplas `[major, minor]` `2.2->2.3->2.4` y preservación de ceros `0 €`/`0 %`. Pendiente: desacoplar blobs pesados a Firebase Storage `<250 KB` sujeto a reglas desplegadas en bucket). |
 
 #### Contexto y Problema
 1. **Pérdida silenciosa de trabajo (`F-07`)**: logos y fotografías base64 se guardan sin redimensionado dentro del JSON. El autoguardado escribe solo en `localStorage` (~5 MB) tragando `QuotaExceededError`, y Firestore intenta guardar el proyecto entero superando el tope estricto de `1 MiB` (falla guardado en la nube).

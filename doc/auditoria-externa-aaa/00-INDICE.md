@@ -73,7 +73,7 @@ Pueden lanzarse en paralelo de forma inmediata en ramas aisladas:
 | 3 | `F0-07` | Fase 0 | Bug aritmético `Ns > Ns_max` (sobretensión) + bypass validaciones MPPT/`Isc` | `[Hecho]` |
 | 4 | `F0-08` | Fase 0 | Superficie XSS generalizada (`32` módulos sin sanitizador) + documentos/`iframe` | `[Pendiente]` |
 | 5 | `F0-09` | Fase 0 | `ra-env.js` no ignorado en `firebase.json` + CSP decorativa + clave IA en `localStorage` | `[Hecho]` |
-| 6 | `F0-10` | Fase 0 | Pérdida silenciosa de autoguardado + bloqueo Firestore `>1 MiB` + colisión entre proyectos | `[Pendiente]` |
+| 6 | `F0-10` | Fase 0 | Pérdida silenciosa de autoguardado + bloqueo Firestore `>1 MiB` + colisión entre proyectos | `[Parcial]` |
 | 7 | `F0-11` | Fase 0 | TIR `"100%"`/`"null %"` + IVA 10% / IS inflado + cifras divergentes entre documentos | `[Parcial]` |
 | 8 | `F0-01` | Fase 0 | Corrupción de Undo/Redo CAD en vértices de edificio, polilíneas y rutas | `[Hecho]` |
 | 9 | `F0-02` | Fase 0 | Primitivas GPU huérfanas tras borrar diseño y destrucción de `lastRoofInfo` | `[Hecho]` |
@@ -100,7 +100,7 @@ Pueden lanzarse en paralelo de forma inmediata en ramas aisladas:
 | `F0-07` | Blindar validaciones MPPT/Isc/MLPE y overflow `Ns > Ns_max` en `computeSizingEngineering` | P0 | M | — | B-04, B-05 | `[Hecho]` |
 | `F0-08` | Erradicar XSS DOM en visor (`32` módulos) y en documentos/`iframe` | P0 | L | — | F-01, F-03 | `[Pendiente]` |
 | `F0-09` | Excluir entorno local de hosting, endurecer CSP y retirar claves IA de `localStorage` | P0 | M | F0-08 | F-02 | `[Hecho]` |
-| `F0-10` | Blindar persistencia: IDB, Firestore `<250 KB`, UUID proyecto, migrador y ceros `0 €` | P0 | L | — | F-07..F-10 | `[Pendiente]` |
+| `F0-10` | Blindar persistencia: IDB, Firestore `<250 KB`, UUID proyecto, migrador y ceros `0 €` | P0 | L | — | F-07..F-10 | `[Parcial]` |
 | `F0-11` | Corregir TIR/Payback/IVA 10%/IS y reconciliar cifras entre todos los documentos | P0 | L | — | F-11..F-14 | `[Parcial]` |
 
 ### Fase 1 — Rendimiento Motor 3D / WebGL
