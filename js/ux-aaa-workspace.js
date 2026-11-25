@@ -76,6 +76,10 @@
       { id: 'drawer-autostring', group: 'Ingeniería 7B', title: 'Auto-Stringing Inteligente Consciente de Sombras 3D', kbd: '', run: function () { openEngineeringDrawer('autostring'); } },
       { id: 'drawer-bishop', group: 'Ingeniería 7B', title: 'Simulador Horario 8760h + Curva I-V Bishop Multi-Pico', kbd: '', run: function () { openEngineeringDrawer('bishop'); } },
       { id: 'drawer-datadis', group: 'Ingeniería 7B', title: 'Gemelo 8760h Datadis CSV + Optimizador Potencias P1..P6', kbd: '', run: function () { openEngineeringDrawer('datadis'); } },
+      { id: 'drawer-cad3d', group: 'CAD 3D 7C', title: 'Panel CAD 3D: OSNAP · Clash Detection · Planos de Sección · DSM', kbd: '', run: function () { openEngineeringDrawer('cad3d'); } },
+      { id: 'cad-numeric', group: 'CAD 3D 7C', title: 'Entrada Numérica CAD Directa (Longitud / Ángulo sobre plano)', kbd: '', run: function () { if (global.RACadOsnap) global.RACadOsnap.openNumericPrompt(); } },
+      { id: 'cad-clash', group: 'CAD 3D 7C', title: 'Ejecutar Detección de Colisiones 3D (Paneles vs Obstáculos)', kbd: '', run: function () { openEngineeringDrawer('cad3d'); if (global.RACadClashSection) { global.RACadClashSection.runClashDetection(); renderEngineeringDrawerContent(); } } },
+      { id: 'cad-dsm', group: 'CAD 3D 7C', title: 'Muestrear Altimetría DSM / PNOA-IGN y Detectar Plano RANSAC', kbd: '', run: function () { openEngineeringDrawer('cad3d'); if (global.RASpatialDsm) { global.RASpatialDsm.sampleDsmAndDetectRoof(); renderEngineeringDrawerContent(); } } },
       { id: 'drawer-unifilar', group: 'Workspace AAA', title: 'Abrir Cajón Inferior: Esquema Unifilar Vivo', kbd: '', run: function () { openEngineeringDrawer('unifilar'); } },
       { id: 'drawer-p50', group: 'Workspace AAA', title: 'Abrir Cajón Inferior: Riesgo Bancable P50/P75/P90/P99', kbd: '', run: function () { openEngineeringDrawer('bankable'); } },
       { id: 'toggle-mode', group: 'Workspace AAA', title: 'Alternar Modo Comercial / Experto', kbd: '', run: toggleUiMode },
@@ -298,6 +302,7 @@
           '<button type="button" role="tab" class="ra-drawer-tab" data-drawer-tab="autostring" aria-selected="false">Auto-Stringing 3D</button>' +
           '<button type="button" role="tab" class="ra-drawer-tab" data-drawer-tab="bishop" aria-selected="false">Curva I-V Bishop</button>' +
           '<button type="button" role="tab" class="ra-drawer-tab" data-drawer-tab="datadis" aria-selected="false">Datadis P1–P6</button>' +
+          '<button type="button" role="tab" class="ra-drawer-tab" data-drawer-tab="cad3d" aria-selected="false">CAD 3D &amp; DSM</button>' +
           '<button type="button" role="tab" class="ra-drawer-tab" data-drawer-tab="unifilar" aria-selected="false">Unifilar</button>' +
           '<button type="button" role="tab" class="ra-drawer-tab" data-drawer-tab="bankable" aria-selected="false">P50/P90</button>' +
         '</div>' +
@@ -457,6 +462,110 @@
           runOnText(global.RADatadisOptimizer.generateSampleIndustrialCsv());
         };
       }
+      return;
+    }
+
+    if (_drawerTab === 'cad3d') {
+      var osCfg = global.RACadOsnap ? global.RACadOsnap.getConfig() : null;
+      var clashRep = global.RACadClashSection ? global.RACadClashSection.getLastReport() : null;
+      var secSt = global.RACadClashSection ? global.RACadClashSection.getSectionState() : { active: false, axis: 'EW', offsetM: 0 };
+      var spStats = global.RASpatialDsm ? global.RASpatialDsm.rebuildSpatialIndex() : null;
+      var dsm = global.RASpatialDsm ? global.RASpatialDsm.getLastDsmAnalysis() : null;
+
+      var clashTxt = clashRep
+        ? ('Revisados ' + clashRep.checkedPanels + ' mods / ' + clashRep.checkedObstacles + ' obst. · Críticos: <strong style="color:' + (clashRep.criticalCount > 0 ? '#FB7185' : '#34D399') + ';">' + clashRep.criticalCount + '</strong> · Alertas: <strong style="color:#FBBF24;">' + clashRep.warningCount + '</strong>')
+        : 'Sin escaneo todavía. Pulsa «Escanear Colisiones 3D».';
+
+      var dsmTxt = (dsm && dsm.detectedPlane)
+        ? ('<strong>' + _esc(dsm.pnoaCoverage) + '</strong> · Inclinación: <strong>' + dsm.detectedPlane.tiltDeg + '°</strong> · Azimut: <strong>' + dsm.detectedPlane.azimuthDeg + '°</strong> · Cota: ' + dsm.detectedPlane.meanElevationM + ' m (' + dsm.detectedPlane.inlierRatioPct + '% ajuste RANSAC)')
+        : 'Pulsa «Detectar Plano DSM» para estimar inclinación y azimut sobre el punto de cámara actual.';
+
+      body.innerHTML =
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:10px;">' +
+          // Tarjeta 1: OSNAP + Polar + Entrada Numérica
+          '<div style="background:rgba(15,23,42,0.75);border:1px solid rgba(56,189,248,0.22);border-radius:9px;padding:10px;display:flex;flex-direction:column;gap:8px;">' +
+            '<div style="font-size:12px;font-weight:800;color:#38BDF8;">1. OSNAP · Guías Polares · Entrada Numérica</div>' +
+            '<div style="display:flex;flex-wrap:wrap;gap:6px;font-size:11px;color:#E2E8F0;">' +
+              '<label><input type="checkbox" class="ra-osnap-chk" data-k="endpoint"' + (osCfg && osCfg.endpoint ? ' checked' : '') + '> Fin</label>' +
+              '<label><input type="checkbox" class="ra-osnap-chk" data-k="midpoint"' + (osCfg && osCfg.midpoint ? ' checked' : '') + '> Medio</label>' +
+              '<label><input type="checkbox" class="ra-osnap-chk" data-k="intersection"' + (osCfg && osCfg.intersection ? ' checked' : '') + '> Intersec.</label>' +
+              '<label><input type="checkbox" class="ra-osnap-chk" data-k="perpendicular"' + (osCfg && osCfg.perpendicular ? ' checked' : '') + '> Perp.</label>' +
+              '<label><input type="checkbox" class="ra-osnap-chk" data-k="parallel"' + (osCfg && osCfg.parallel ? ' checked' : '') + '> Paralelo</label>' +
+              '<label><input type="checkbox" class="ra-osnap-chk" data-k="polar"' + (osCfg && osCfg.polar ? ' checked' : '') + '> Polar ' + (osCfg ? osCfg.polarStepDeg : 15) + '°</label>' +
+            '</div>' +
+            '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
+              '<button type="button" id="ra-cad-open-num" class="doc-mini-btn" style="background:#0369A1;border-color:#38BDF8;color:#fff;font-weight:700;padding:5px 10px;">Entrada Numérica (m / °)</button>' +
+              '<button type="button" id="ra-cad-clear-guides" class="doc-mini-btn" style="padding:5px 9px;">Limpiar Guías</button>' +
+            '</div>' +
+          '</div>' +
+          // Tarjeta 2: Clash Detection 3D + Planos de Sección
+          '<div style="background:rgba(15,23,42,0.75);border:1px solid rgba(251,113,133,0.28);border-radius:9px;padding:10px;display:flex;flex-direction:column;gap:8px;">' +
+            '<div style="font-size:12px;font-weight:800;color:#FB7185;">2. Clash Detection 3D &amp; Planos de Sección</div>' +
+            '<div style="font-size:11px;color:#CBD5E1;">' + clashTxt + '</div>' +
+            '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
+              '<button type="button" id="ra-clash-run" class="doc-mini-btn" style="background:#BE123C;border-color:#FB7185;color:#fff;font-weight:700;padding:5px 10px;">Escanear Colisiones 3D</button>' +
+              '<button type="button" id="ra-clash-fix" class="doc-mini-btn" style="padding:5px 9px;"' + (!(clashRep && clashRep.criticalCount > 0) ? ' disabled' : '') + '>Auto-Resolver</button>' +
+              '<button type="button" id="ra-sec-toggle" class="doc-mini-btn" style="padding:5px 9px;color:#7DD3FC;">' + (secSt.active ? 'Quitar Corte' : 'Plano Corte E-O') + '</button>' +
+            '</div>' +
+          '</div>' +
+          // Tarjeta 3: Índice BVH/Quadtree GPU + DSM/RANSAC
+          '<div style="background:rgba(15,23,42,0.75);border:1px solid rgba(52,211,153,0.28);border-radius:9px;padding:10px;display:flex;flex-direction:column;gap:8px;">' +
+            '<div style="font-size:12px;font-weight:800;color:#34D399;">3. Índice Quadtree/GPU &amp; Altimetría DSM/PNOA</div>' +
+            '<div style="font-size:11px;color:#CBD5E1;">Quadtree ENU: <strong>' + (spStats ? spStats.panelCount : 0) + '</strong> paneles · <strong>' + (spStats ? spStats.nodeCount : 0) + '</strong> nodos · build <strong>' + (spStats ? spStats.buildMs : 0) + ' ms</strong></div>' +
+            '<div style="font-size:11px;color:#94A3B8;">' + dsmTxt + '</div>' +
+            '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
+              '<button type="button" id="ra-dsm-scan" class="doc-mini-btn" style="background:#059669;border-color:#10B981;color:#fff;font-weight:700;padding:5px 10px;">Detectar Plano DSM</button>' +
+              '<button type="button" id="ra-gpu-recolor" class="doc-mini-btn" style="padding:5px 9px;">Recolorar GPU (&lt;2ms)</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+
+      body.querySelectorAll('.ra-osnap-chk').forEach(function (chk) {
+        chk.onchange = function () {
+          if (!global.RACadOsnap) return;
+          var patch = {};
+          patch[chk.getAttribute('data-k')] = chk.checked;
+          global.RACadOsnap.setConfig(patch);
+        };
+      });
+      var bNum = document.getElementById('ra-cad-open-num');
+      if (bNum) bNum.onclick = function () { if (global.RACadOsnap) global.RACadOsnap.openNumericPrompt(); };
+      var bClr = document.getElementById('ra-cad-clear-guides');
+      if (bClr) bClr.onclick = function () { if (global.RACadOsnap) global.RACadOsnap.clearGuides3D(); };
+      var bClash = document.getElementById('ra-clash-run');
+      if (bClash) bClash.onclick = function () {
+        if (global.RACadClashSection) {
+          global.RACadClashSection.runClashDetection();
+          renderEngineeringDrawerContent();
+        }
+      };
+      var bFix = document.getElementById('ra-clash-fix');
+      if (bFix) bFix.onclick = function () {
+        if (global.RACadClashSection) {
+          global.RACadClashSection.autoResolveCriticalClashes();
+          renderEngineeringDrawerContent();
+        }
+      };
+      var bSec = document.getElementById('ra-sec-toggle');
+      if (bSec) bSec.onclick = function () {
+        if (!global.RACadClashSection) return;
+        if (global.RACadClashSection.getSectionState().active) global.RACadClashSection.clearSectionPlane();
+        else global.RACadClashSection.applySectionPlane('EW', 0);
+        renderEngineeringDrawerContent();
+      };
+      var bDsm = document.getElementById('ra-dsm-scan');
+      if (bDsm) bDsm.onclick = function () {
+        if (global.RASpatialDsm) {
+          global.RASpatialDsm.sampleDsmAndDetectRoof();
+          renderEngineeringDrawerContent();
+        }
+      };
+      var bGpu = document.getElementById('ra-gpu-recolor');
+      if (bGpu) bGpu.onclick = function () {
+        if (!global.RASpatialDsm) return;
+        var r = global.RASpatialDsm.fastSwitchVisualModeGPU('normal');
+        if (global.showToast) global.showToast('CONMUTACIÓN GPU', 'Recoloración in-place completada en ' + r.elapsedMs + ' ms.', 'info', 2200);
+      };
       return;
     }
 
