@@ -126,9 +126,24 @@ function updateTriadAtMouse(clientX, clientY, target) {
     return;
   }
 
+// Helper canónico único para convertir clientX/clientY (viewport) a coordenadas locales del canvas WebGL
+if (typeof window !== 'undefined' && typeof window.raToCanvasCoords !== 'function') {
+  window.raToCanvasCoords = function (clientX, clientY) {
+    var cv = (typeof viewer !== 'undefined' && viewer && viewer.scene) ? viewer.scene.canvas : (window.viewer && window.viewer.scene ? window.viewer.scene.canvas : null);
+    if (!cv || typeof cv.getBoundingClientRect !== 'function') return { x: clientX, y: clientY, inBounds: true };
+    var rect = cv.getBoundingClientRect();
+    return {
+      x: clientX - rect.left,
+      y: clientY - rect.top,
+      inBounds: clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom
+    };
+  };
+}
+
+function updateTriadAtMouse(clientX, clientY, target, isCanvasLocal) {
   // 1. Deteccion de elementos UI (sidebar, modales, paneles, controles)
   // Si el cursor esta sobre la interfaz, ocultar la triada y dejar el cursor estandar de Windows
-  const el = target || document.elementFromPoint(clientX, clientY);
+  const el = target || (!isCanvasLocal && document.elementFromPoint(clientX, clientY));
   if (el) {
     const isUI = el.closest && el.closest("#ra-sidebar, .sidebar, #ra-doc-modal, .doc-modal-box, .modal, .pane-dock, .engine-bar, #ra-rosa, #ra-status, #ra-autorot, button, input, select, textarea, .btn, [role=\"dialog\"], .engine-card-opt");
     const isCesium = el.id === "cesiumContainer" || (el.tagName === "CANVAS" && el.id !== "ra-triad-overlay") || (el.closest && el.closest("#cesiumContainer"));
@@ -144,12 +159,21 @@ function updateTriadAtMouse(clientX, clientY, target) {
   const currentCamera = currentViewer ? currentViewer.camera : null;
   if (currentScene && currentScene.canvas) {
     try {
-      const rect = currentScene.canvas.getBoundingClientRect();
-      if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) {
-        cursorGizmoClear();
-        return;
+      let winPos;
+      if (isCanvasLocal) {
+        if (clientX < 0 || clientX > currentScene.canvas.clientWidth || clientY < 0 || clientY > currentScene.canvas.clientHeight) {
+          cursorGizmoClear();
+          return;
+        }
+        winPos = new Cesium.Cartesian2(clientX, clientY);
+      } else {
+        const rect = currentScene.canvas.getBoundingClientRect();
+        if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) {
+          cursorGizmoClear();
+          return;
+        }
+        winPos = new Cesium.Cartesian2(clientX - rect.left, clientY - rect.top);
       }
-      const winPos = new Cesium.Cartesian2(clientX - rect.left, clientY - rect.top);
       let pos3D = (typeof get3DPosition === "function") ? get3DPosition(winPos) : null;
       if (!Cesium.defined(pos3D) && typeof WP !== "undefined" && WP && WP.mode !== "define-plane") {
         try {
@@ -318,6 +342,22 @@ function wpFindSnapTarget(cursorPos) {
     }
     if (isSnapped) {
       best = { pos: firstPt, type: 'CLOSE_VTX', label: '<i data-lucide=\"magnet\" class=\"icon-sm\"></i> SNAP: Cerrar Cubierta (Punto Inicial)' };
+    }
+  }
+
+  // OSNAP CAD (Endpoint, Midpoint, Intersection, Perpendicular, Parallel, Polar)
+  if (!best && typeof window !== 'undefined' && window.RACadOsnap && typeof window.RACadOsnap.resolveSnapWorld === 'function') {
+    const actPl = (typeof wpGetActivePlane === 'function') ? wpGetActivePlane() : null;
+    const anchorPt = (WP.mode === 'draw-poly' && WP.activePolyPts && WP.activePolyPts.length > 0)
+      ? WP.activePolyPts[WP.activePolyPts.length - 1]
+      : null;
+    const osnapRes = window.RACadOsnap.resolveSnapWorld(cursorPos, anchorPt, actPl);
+    if (osnapRes && osnapRes.snapped && osnapRes.worldPos) {
+      best = {
+        pos: osnapRes.worldPos,
+        type: 'OSNAP_' + osnapRes.mode,
+        label: 'OSNAP: ' + osnapRes.mode
+      };
     }
   }
 

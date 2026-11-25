@@ -221,7 +221,15 @@ function startDrawingBuilding() {
 
 function handleBuildingClick(cartesian) {
   if (!cartesian || !viewer) return;
-  cartesian = getOrthogonalSnap(cartesian, activeBuildingPts);
+  var osnapApplied = false;
+  if (typeof window !== 'undefined' && window.RACadOsnap && typeof window.RACadOsnap.resolveSnapWorld === 'function' && activeBuildingPts.length > 0) {
+    var snapRes = window.RACadOsnap.resolveSnapWorld(cartesian, activeBuildingPts[activeBuildingPts.length - 1]);
+    if (snapRes && snapRes.snapped && snapRes.worldPos) {
+      cartesian = snapRes.worldPos;
+      osnapApplied = true;
+    }
+  }
+  if (!osnapApplied) cartesian = getOrthogonalSnap(cartesian, activeBuildingPts);
   if (activeBuildingPts.length > 0) {
     const lastBldPt = activeBuildingPts[activeBuildingPts.length - 1];
     if (Cesium.Cartesian3.distance(cartesian, lastBldPt) < 0.35) return;

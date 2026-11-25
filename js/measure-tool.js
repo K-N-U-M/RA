@@ -177,6 +177,10 @@
         });
       }
 
+      var panelSource = (Array.isArray(global.allRenderedPanels) && global.allRenderedPanels.length > 0)
+        ? global.allRenderedPanels
+        : null;
+
       if (Array.isArray(global.WP.polylines)) {
         global.WP.polylines.forEach(function(poly, polyIdx) {
           if (!poly) return;
@@ -185,31 +189,38 @@
               if (pt) candidates.push({ pos: pt, type: 'Vértice Cubierta #' + (polyIdx + 1) });
             });
           }
-          // Esquinas de paneles calculados en el faldón o panels directos
-          var panelsArr = (poly.roofInfo && Array.isArray(poly.roofInfo.panels) && poly.roofInfo.panels.length > 0)
-            ? poly.roofInfo.panels
-            : ((Array.isArray(poly.panels) && poly.panels.length > 0) ? poly.panels : null);
-          if (panelsArr) {
-            panelsArr.forEach(function(pData) {
-              if (Array.isArray(pData.corners)) {
-                pData.corners.forEach(function(c) {
-                  if (c) candidates.push({ pos: c, type: 'Esquina de Módulo' });
-                });
-              }
-            });
+          // Solo usar faldon.panels si allRenderedPanels global está vacío (evita duplicación O(2*4N))
+          if (!panelSource) {
+            var panelsArr = (poly.roofInfo && Array.isArray(poly.roofInfo.panels) && poly.roofInfo.panels.length > 0)
+              ? poly.roofInfo.panels
+              : ((Array.isArray(poly.panels) && poly.panels.length > 0) ? poly.panels : null);
+            if (panelsArr && panelsArr.length <= 400) {
+              panelsArr.forEach(function(pData) {
+                if (Array.isArray(pData.corners)) {
+                  pData.corners.forEach(function(c) {
+                    if (c) candidates.push({ pos: c, type: 'Esquina de Módulo' });
+                  });
+                }
+              });
+            }
           }
         });
       }
 
-      // Esquinas de paneles en allRenderedPanels global si existen
-      if (Array.isArray(global.allRenderedPanels) && global.allRenderedPanels.length > 0) {
-        global.allRenderedPanels.forEach(function(pData) {
-          if (Array.isArray(pData.corners)) {
-            pData.corners.forEach(function(c) {
-              if (c) candidates.push({ pos: c, type: 'Esquina de Módulo' });
-            });
-          }
-        });
+      // En plantas <= 400 paneles cachear esquinas una sola vez; > 400 paneles usar RASpatialDsm dinámico O(log N)
+      _state._useSpatialPanelSnap = false;
+      if (panelSource) {
+        if (panelSource.length <= 400) {
+          panelSource.forEach(function(pData) {
+            if (Array.isArray(pData.corners)) {
+              pData.corners.forEach(function(c) {
+                if (c) candidates.push({ pos: c, type: 'Esquina de Módulo' });
+              });
+            }
+          });
+        } else {
+          _state._useSpatialPanelSnap = true;
+        }
       }
     }
 
@@ -270,7 +281,33 @@
     if (!v || !v.scene || !v.scene.camera || !screenPos) return null;
 
     var candidates = collectCandidateSnapPoints();
-    if (!candidates.length) return null;
+    var dynamicCandidates = candidates;
+    if (_state._useSpatialPanelSnap && global.RASpatialDsm && typeof global.RASpatialDsm.queryNearestPanels === 'function' && global.WP && Array.isArray(global.WP.polylines)) {
+      var pickRayInit = (typeof v.scene.camera.getPickRay === 'function') ? v.scene.camera.getPickRay(screenPos) : null;
+      if (pickRayInit && typeof global.wpRayPlane === 'function') {
+        var extraPanelCorners = [];
+        for (var pi = 0; pi < global.WP.polylines.length; pi++) {
+          var pl = global.WP.polylines[pi];
+          var ri = pl && pl.roofInfo;
+          if (!ri || !ri.origin || !ri.normal || !ri.uVec || !ri.vVec) continue;
+          var hitPl = global.wpRayPlane(pickRayInit, ri);
+          if (!hitPl) continue;
+          var relPl = Cesium.Cartesian3.subtract(hitPl, ri.origin, new Cesium.Cartesian3());
+          var hu = Cesium.Cartesian3.dot(relPl, ri.uVec);
+          var hv = Cesium.Cartesian3.dot(relPl, ri.vVec);
+          var nearPanels = global.RASpatialDsm.queryNearestPanels(hu, hv, 3.5, pi);
+          for (var npi = 0; npi < nearPanels.length; npi++) {
+            var np = nearPanels[npi] && nearPanels[npi].panel;
+            if (np && Array.isArray(np.corners)) {
+              for (var ci = 0; ci < np.corners.length; ci++) {
+                if (np.corners[ci]) extraPanelCorners.push({ pos: np.corners[ci], type: 'Esquina de Módulo' });
+              }
+            }
+          }
+        }
+        if (extraPanelCorners.length > 0) dynamicCandidates = candidates.concat(extraPanelCorners);
+      }
+    }
 
     var bestDist = SNAP_THRESHOLD_PX;
     var bestTarget = null;
@@ -285,8 +322,8 @@
     var maxConeTan = 0.08;
     var scratchVec = new Cesium.Cartesian3();
 
-    for (var i = 0; i < candidates.length; i++) {
-      var item = candidates[i];
+    for (var i = 0; i < dynamicCandidates.length; i++) {
+      var item = dynamicCandidates[i];
       if (!item.pos) continue;
 
       // Descarte rápido en 3D: delante de cámara + dentro del cono angular del rayo del cursor (F1-06)
@@ -307,6 +344,18 @@
       if (d < bestDist) {
         bestDist = d;
         bestTarget = item;
+      }
+    }
+
+    // Fallback OSNAP CAD (Midpoint / Intersection / Perpendicular / Parallel / Polar)
+    if (!bestTarget && global.RACadOsnap && typeof global.RACadOsnap.resolveSnapWorld === 'function') {
+      var rawW = (typeof global.get3DPosition === 'function') ? global.get3DPosition(screenPos) : null;
+      if (rawW) {
+        var anchorW = _state.points.length > 0 ? _state.points[_state.points.length - 1] : null;
+        var osnap = global.RACadOsnap.resolveSnapWorld(rawW, anchorW);
+        if (osnap && osnap.snapped && osnap.worldPos) {
+          bestTarget = { pos: osnap.worldPos, type: 'OSNAP ' + osnap.mode };
+        }
       }
     }
 
@@ -917,6 +966,10 @@
     if (_state.snapIndicatorEntity) {
       try { _state.snapIndicatorEntity.show = isVisible; } catch(e) {}
     }
+    if (_state.previewPinA) { try { _state.previewPinA.show = isVisible; } catch(e) {} }
+    if (_state.previewPinB) { try { _state.previewPinB.show = isVisible; } catch(e) {} }
+    if (_state.previewRing) { try { _state.previewRing.show = isVisible; } catch(e) {} }
+    if (_state.previewLabel) { try { _state.previewLabel.show = isVisible; } catch(e) {} }
     var hudEl = _state.hudElement || (typeof document !== 'undefined' ? document.getElementById('ra-measure-hud') : null);
     if (hudEl) {
       hudEl.style.visibility = (isVisible && _state.active) ? '' : 'hidden';

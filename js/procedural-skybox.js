@@ -55,6 +55,16 @@ function _zenithDot(a, b) {
   return a.x * b.x + a.y * b.y + a.z * b.z;
 }
 
+function _isCachedSkybox(sb) {
+  if (!sb) return false;
+  const keys = Object.keys(_raSkyboxCache);
+  for (let i = 0; i < keys.length; i++) {
+    const entry = _raSkyboxCache[keys[i]];
+    if (entry && entry.skyBox === sb) return true;
+  }
+  return false;
+}
+
 // ☀️ SKYBOX ESFÉRICO TOPOCÉNTRICO ANALÍTICO AAA (SEAMLESS CONTINUO & LUMINOSO)
 // Proyecta el color respecto al vector cenit topocéntrico ENU local real en cualquier coordenada:
 // Garantiza continuidad matemática exacta C^inf en las 6 aristas del cubo y horizonte horizontal real.
@@ -62,10 +72,16 @@ function createProceduralSkybox(mode, refCartesian) {
   mode = mode || 'day';
   const zenith = _resolveSkyboxZenithTeme(refCartesian);
   const cached = _raSkyboxCache[mode];
-  // [F1-05] Umbral angular relajado (~5.1 deg, dot >= 0.996) + caché de canvases en memoria (0 toDataURL)
-  if (cached && cached.sources && _zenithDot(cached.up, zenith) >= 0.996) {
+  // [F1-05] Caché de instancia Cesium.SkyBox completa: cero recreación ni resubida cubemap en cache hit
+  if (cached && cached.skyBox && (!cached.skyBox.isDestroyed || !cached.skyBox.isDestroyed()) && _zenithDot(cached.up, zenith) >= 0.996) {
     _raCurrentSkyZenith = cached.up;
-    return new Cesium.SkyBox({ sources: cached.sources });
+    return cached.skyBox;
+  }
+  if (cached && cached.skyBox && typeof cached.skyBox.destroy === 'function' && (!cached.skyBox.isDestroyed || !cached.skyBox.isDestroyed())) {
+    const curSceneSky = (typeof viewer !== 'undefined' && viewer && viewer.scene) ? viewer.scene.skyBox : null;
+    if (cached.skyBox !== curSceneSky) {
+      try { cached.skyBox.destroy(); } catch (_) {}
+    }
   }
 
   const size = 128; // Resolución ultra-ligera con interpolación bilineal suave en GPU
@@ -182,10 +198,11 @@ function createProceduralSkybox(mode, refCartesian) {
     positiveZ: renderSide('posZ'),
     negativeZ: renderSide('negZ')
   };
-  _raSkyboxCache[mode] = { up: zenith, sources: sources };
+  const skyBox = new Cesium.SkyBox({ sources: sources });
+  _raSkyboxCache[mode] = { up: zenith, sources: sources, skyBox: skyBox };
   _raCurrentSkyZenith = zenith;
 
-  return new Cesium.SkyBox({ sources: sources });
+  return skyBox;
 }
 
 function _bindSkyboxMoveListener() {
@@ -198,10 +215,12 @@ function _bindSkyboxMoveListener() {
       const curZenith = _resolveSkyboxZenithTeme();
       if (!_raCurrentSkyZenith || _zenithDot(_raCurrentSkyZenith, curZenith) < 0.996) {
         try {
-          if (sc.skyBox && typeof sc.skyBox.destroy === 'function' && !sc.skyBox.isDestroyed()) {
-            sc.skyBox.destroy();
+          const prevSky = sc.skyBox;
+          const nextSky = createProceduralSkybox(_raCurrentSkyMode || 'day');
+          if (prevSky && prevSky !== nextSky && !_isCachedSkybox(prevSky) && typeof prevSky.destroy === 'function' && (!prevSky.isDestroyed || !prevSky.isDestroyed())) {
+            prevSky.destroy();
           }
-          sc.skyBox = createProceduralSkybox(_raCurrentSkyMode || 'day');
+          sc.skyBox = nextSky;
           if (sc.skyBox) sc.skyBox.show = true;
           if (typeof sc.requestRender === 'function') sc.requestRender();
         } catch (_) {}
@@ -232,10 +251,12 @@ window.wpUpdateAtmosphericSky = function(alt) {
   if (_raCurrentSkyMode !== targetMode || !sc.skyBox || zenithChanged) {
     _raCurrentSkyMode = targetMode;
     try {
-      if (sc.skyBox && typeof sc.skyBox.destroy === 'function' && !sc.skyBox.isDestroyed()) {
-        sc.skyBox.destroy();
+      const prevSky = sc.skyBox;
+      const nextSky = createProceduralSkybox(targetMode);
+      if (prevSky && prevSky !== nextSky && !_isCachedSkybox(prevSky) && typeof prevSky.destroy === 'function' && (!prevSky.isDestroyed || !prevSky.isDestroyed())) {
+        prevSky.destroy();
       }
-      sc.skyBox = createProceduralSkybox(targetMode);
+      sc.skyBox = nextSky;
       sc.skyBox.show = true;
     } catch (e) {
       if (window.RA && window.RA.log) window.RA.log.debug('Error actualizando skyBox:', e);
@@ -292,7 +313,14 @@ if (typeof window !== 'undefined') {
   window.createProceduralSkybox = createProceduralSkybox;
   window.updateSkyboxMode = window.wpUpdateAtmosphericSky;
   window.raResetSkyboxCache = function () {
-    Object.keys(_raSkyboxCache).forEach(function (k) { delete _raSkyboxCache[k]; });
+    const curSceneSky = (typeof viewer !== 'undefined' && viewer && viewer.scene) ? viewer.scene.skyBox : null;
+    Object.keys(_raSkyboxCache).forEach(function (k) {
+      const entry = _raSkyboxCache[k];
+      if (entry && entry.skyBox && entry.skyBox !== curSceneSky && typeof entry.skyBox.destroy === 'function' && (!entry.skyBox.isDestroyed || !entry.skyBox.isDestroyed())) {
+        try { entry.skyBox.destroy(); } catch (_) {}
+      }
+      delete _raSkyboxCache[k];
+    });
     _raCurrentSkyZenith = null;
     _raCurrentSkyMode = null;
   };

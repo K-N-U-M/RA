@@ -9,8 +9,9 @@
 (function (global) {
   'use strict';
 
-  var _spatialStats = { panelCount: 0, nodeCount: 0, buildMs: 0, lastQueryMs: 0, lastRecolorMs: 0 };
+  var _spatialStats = { panelCount: 0, nodeCount: 0, roofCount: 0, buildMs: 0, lastQueryMs: 0, lastRecolorMs: 0 };
   var _quadRoot = null;
+  var _quadRootsByPoly = new Map();
   var _lastDsmAnalysis = null;
 
   // ── 1. QUADTREE ENU 2D (O(log N) para 10.000+ paneles) ──────────────────────
@@ -72,42 +73,63 @@
         : []
     );
 
+    _quadRootsByPoly.clear();
     if (panels.length === 0) {
       _quadRoot = null;
-      _spatialStats = { panelCount: 0, nodeCount: 0, buildMs: 0, lastQueryMs: 0, lastRecolorMs: _spatialStats.lastRecolorMs };
+      _spatialStats = { panelCount: 0, nodeCount: 0, roofCount: 0, buildMs: 0, lastQueryMs: 0, lastRecolorMs: _spatialStats.lastRecolorMs };
       return _spatialStats;
     }
 
-    var minU = Infinity, minV = Infinity, maxU = -Infinity, maxV = -Infinity;
-    var pts = [];
+    // Particionar por faldón (polyIdx) para que cada plano (u,v) tenga su propio Quadtree sin colisiones de origen
+    var groups = new Map();
     for (var i = 0; i < panels.length; i++) {
       var p = panels[i];
+      var pIdx = (typeof p.polyIdx === 'number') ? p.polyIdx : 0;
       var u = Number.isFinite(Number(p.u)) ? Number(p.u) : (i % 100) * 1.2;
       var v = Number.isFinite(Number(p.v)) ? Number(p.v) : Math.floor(i / 100) * 1.8;
-      if (u < minU) minU = u;
-      if (v < minV) minV = v;
-      if (u > maxU) maxU = u;
-      if (v > maxV) maxV = v;
-      pts.push({ idx: i, u: u, v: v, polyIdx: p.polyIdx || 0, panel: p });
+      var g = groups.get(pIdx);
+      if (!g) {
+        g = { minU: Infinity, minV: Infinity, maxU: -Infinity, maxV: -Infinity, pts: [] };
+        groups.set(pIdx, g);
+      }
+      if (u < g.minU) g.minU = u;
+      if (v < g.minV) g.minV = v;
+      if (u > g.maxU) g.maxU = u;
+      if (v > g.maxV) g.maxV = v;
+      g.pts.push({ idx: i, u: u, v: v, polyIdx: pIdx, panel: p });
     }
 
-    var stats = { nodeCount: 1 };
-    _quadRoot = new QuadNode(minU - 1, minV - 1, maxU + 1, maxV + 1, 0);
-    for (var j = 0; j < pts.length; j++) _quadRoot.insert(pts[j], stats);
+    var stats = { nodeCount: 0 };
+    _quadRoot = null;
+    groups.forEach(function (g, pIdx) {
+      stats.nodeCount += 1;
+      var root = new QuadNode(g.minU - 1, g.minV - 1, g.maxU + 1, g.maxV + 1, 0);
+      for (var j = 0; j < g.pts.length; j++) root.insert(g.pts[j], stats);
+      _quadRootsByPoly.set(pIdx, root);
+      if (!_quadRoot) _quadRoot = root;
+    });
 
     var t1 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
-    _spatialStats.panelCount = pts.length;
+    _spatialStats.panelCount = panels.length;
     _spatialStats.nodeCount = stats.nodeCount;
+    _spatialStats.roofCount = _quadRootsByPoly.size;
     _spatialStats.buildMs = Number((t1 - t0).toFixed(2));
     return Object.assign({}, _spatialStats);
   }
 
-  function queryNearestPanels(u, v, radiusM) {
-    if (!_quadRoot) rebuildSpatialIndex();
+  function queryNearestPanels(u, v, radiusM, polyIdx) {
+    if (_quadRootsByPoly.size === 0) rebuildSpatialIndex();
     var t0 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
     var out = [];
-    if (_quadRoot) {
-      var r = Number(radiusM) || 2.0;
+    var r = Number(radiusM) || 2.0;
+    if (typeof polyIdx === 'number') {
+      var roofRoot = _quadRootsByPoly.get(polyIdx);
+      if (roofRoot) roofRoot.queryRange(u - r, v - r, u + r, v + r, out);
+    } else if (_quadRootsByPoly.size > 0) {
+      _quadRootsByPoly.forEach(function (root) {
+        root.queryRange(u - r, v - r, u + r, v + r, out);
+      });
+    } else if (_quadRoot) {
       _quadRoot.queryRange(u - r, v - r, u + r, v + r, out);
     }
     var t1 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
@@ -235,20 +257,62 @@
         var invEnu = C.Matrix4.inverse(enuMat, new C.Matrix4());
         var half = Math.floor(gridSize / 2);
         var stepM = spanM / Math.max(1, gridSize - 1);
+        var excludeList = [];
+        if (global._faldonPanelsPrimitives && typeof global._faldonPanelsPrimitives.forEach === 'function') {
+          global._faldonPanelsPrimitives.forEach(function (pr) { if (pr) excludeList.push(pr); });
+        }
+        var tilesSamples = 0;
+        var maxCW = canvas ? canvas.clientWidth : 800;
+        var maxCH = canvas ? canvas.clientHeight : 600;
 
         for (var gx = -half; gx <= half; gx++) {
           for (var gy = -half; gy <= half; gy++) {
             var localPt = new C.Cartesian3(gx * stepM, gy * stepM, 0);
             var worldPt = C.Matrix4.multiplyByPoint(enuMat, localPt, new C.Cartesian3());
             var wCarto = C.Cartographic.fromCartesian(worldPt);
-            var hSample = global.viewer.scene.globe.getHeight(wCarto);
-            if (!Number.isFinite(hSample)) hSample = cCarto.height;
-            var sampledWorld = C.Cartesian3.fromRadians(wCarto.longitude, wCarto.latitude, hSample);
+            var hSample = NaN;
+            var pickedWorld = null;
+
+            // 1. Muestreo directo sobre Google 3D Tiles / malla cargada
+            if (typeof global.viewer.scene.sampleHeight === 'function') {
+              try {
+                var sh = global.viewer.scene.sampleHeight(wCarto, excludeList);
+                if (Number.isFinite(sh)) {
+                  hSample = sh;
+                  tilesSamples++;
+                }
+              } catch (_) {}
+            }
+
+            // 2. Muestreo multi-rayo sobre depth buffer / pickPosition (3D Tiles activos cuando globe está oculto)
+            if (!Number.isFinite(hSample) && global.viewer.scene.pickPositionSupported && C.SceneTransforms) {
+              try {
+                var scrPt = C.SceneTransforms.wgs84ToWindowCoordinates(global.viewer.scene, worldPt);
+                if (scrPt && scrPt.x >= 0 && scrPt.x <= maxCW && scrPt.y >= 0 && scrPt.y <= maxCH) {
+                  var pk = global.viewer.scene.pickPosition(scrPt);
+                  if (C.defined(pk)) {
+                    var pkEnu = C.Matrix4.multiplyByPoint(invEnu, pk, new C.Cartesian3());
+                    if (Math.abs(pkEnu.x - localPt.x) < stepM * 1.5 && Math.abs(pkEnu.y - localPt.y) < stepM * 1.5 && Math.abs(pkEnu.z) <= spanM * 2.5) {
+                      pickedWorld = pk;
+                      tilesSamples++;
+                    }
+                  }
+                }
+              } catch (_) {}
+            }
+
+            // 3. Fallback a terreno base solo si 3D Tiles no devolvió cota válida
+            if (!pickedWorld && !Number.isFinite(hSample) && global.viewer.scene.globe) {
+              var gh = global.viewer.scene.globe.getHeight(wCarto);
+              hSample = Number.isFinite(gh) ? gh : cCarto.height;
+            }
+
+            var sampledWorld = pickedWorld || C.Cartesian3.fromRadians(wCarto.longitude, wCarto.latitude, hSample);
             var sampledEnu = C.Matrix4.multiplyByPoint(invEnu, sampledWorld, new C.Cartesian3());
             pointsEnu.push({ x: sampledEnu.x, y: sampledEnu.y, z: sampledEnu.z + cCarto.height });
           }
         }
-        source = 'Cesium 3D Tiles / Terreno + PNOA-IGN España (' + latDeg.toFixed(4) + ', ' + lngDeg.toFixed(4) + ')';
+        source = (tilesSamples >= 6 ? 'Google 3D Tiles Depth/Sample' : 'Terreno Cesium') + ' (' + latDeg.toFixed(4) + ', ' + lngDeg.toFixed(4) + ')';
       }
     }
 

@@ -373,6 +373,52 @@
     return Cesium.Cartesian3.lerp(pA, pB, t, new Cesium.Cartesian3());
   }
 
+  function cartoToLocal2D(c, refC) {
+    var cosLat = Math.cos(refC.latitude) || 1;
+    return {
+      x: (c.longitude - refC.longitude) * R_EARTH * cosLat,
+      y: (c.latitude - refC.latitude) * R_EARTH
+    };
+  }
+
+  function local2DToCartesian(pt, refC, heightM) {
+    var cosLat = Math.cos(refC.latitude) || 1;
+    var lon = refC.longitude + pt.x / (R_EARTH * cosLat);
+    var lat = refC.latitude + pt.y / R_EARTH;
+    return Cesium.Cartesian3.fromRadians(lon, lat, heightM);
+  }
+
+  function makeInwardOffsetLine2D(pA, pB, refIn, dist) {
+    var dx = pB.x - pA.x;
+    var dy = pB.y - pA.y;
+    var len = Math.hypot(dx, dy);
+    if (len < 1e-6) return null;
+    var ux = dx / len;
+    var uy = dy / len;
+    var nx = -uy;
+    var ny = ux;
+    if (((refIn.x - pA.x) * nx + (refIn.y - pA.y) * ny) < 0) {
+      nx = -nx;
+      ny = -ny;
+    }
+    return {
+      px: pA.x + nx * dist,
+      py: pA.y + ny * dist,
+      dx: ux,
+      dy: uy
+    };
+  }
+
+  function intersectLines2D(L1, L2) {
+    if (!L1 || !L2) return null;
+    var det = L1.dx * (-L2.dy) - L1.dy * (-L2.dx);
+    if (Math.abs(det) < 1e-6) return null;
+    var rhsX = L2.px - L1.px;
+    var rhsY = L2.py - L1.py;
+    var t = (rhsX * (-L2.dy) - rhsY * (-L2.dx)) / det;
+    return { x: L1.px + t * L1.dx, y: L1.py + t * L1.dy };
+  }
+
   // Calcula planos 3D y líneas estructurales para cualquier diseño arquitectónico L
   function buildLRoofGeometry(bld, cartoList, roofCartoList, avgBaseHeight, bldHeight) {
     var design = (bld && bld.lParams && bld.lParams.roofDesign) || (bld && bld.lRoofDesign) || 'l_gable';
@@ -394,15 +440,49 @@
     var wallBase = B.map(function (c) { return Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, avgBaseHeight); });
     var wallTop = B.map(function (c) { return Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, roofHeight); });
 
-    // Anchos reales de cada ala para adaptar altura/limahoya en alas desiguales
+    // Anchos reales de cada ala y alturas exactas independientes para garantizar coplanaridad a pendiente `pitch`
     var wA = Math.max(2.0, cartoDistM(E[1], E[2]));
     var wB = Math.max(2.0, cartoDistM(E[4], E[5]));
     var maxHalfW = Math.max(wA, wB) * 0.5;
-    var ridgeHeight = roofHeight + maxHalfW * Math.tan(pitchRad);
+    var tanP = Math.tan(pitchRad);
+    var hA = roofHeight + (wA * 0.5) * tanP;
+    var hB = roofHeight + (wB * 0.5) * tanP;
+    var ridgeHeight = Math.max(hA, hB);
 
-    var rHub = midpointCarto(E[0], E[3], ridgeHeight);
-    var rA = midpointCarto(E[1], E[2], ridgeHeight);
-    var rB = midpointCarto(E[4], E[5], ridgeHeight);
+    var e2D = E.map(function (c) { return cartoToLocal2D(c, E[0]); });
+    var rA = midpointCarto(E[1], E[2], hA);
+    var rB = midpointCarto(E[4], E[5], hB);
+
+    // Intersecciones analíticas 2D (straight skeleton de dos alas con pendiente constante)
+    var hHighCart = null;
+    var vLowCart = null;
+    var isAsymAB = Math.abs(wA - wB) >= 0.05;
+    if (!isAsymAB) {
+      var lSymA = makeInwardOffsetLine2D(e2D[0], e2D[1], e2D[2], wA * 0.5);
+      var lSymB = makeInwardOffsetLine2D(e2D[0], e2D[5], e2D[4], wB * 0.5);
+      var symHub2D = intersectLines2D(lSymA, lSymB);
+      hHighCart = symHub2D ? local2DToCartesian(symHub2D, E[0], hA) : midpointCarto(E[0], E[3], hA);
+      vLowCart = hHighCart;
+    } else if (wA > wB) {
+      var lAextH = makeInwardOffsetLine2D(e2D[0], e2D[1], e2D[2], wA * 0.5);
+      var lBextH = makeInwardOffsetLine2D(e2D[0], e2D[5], e2D[4], wA * 0.5);
+      var lAintL = makeInwardOffsetLine2D(e2D[3], e2D[2], e2D[1], wB * 0.5);
+      var lBintL = makeInwardOffsetLine2D(e2D[3], e2D[4], e2D[5], wB * 0.5);
+      var hh2D = intersectLines2D(lAextH, lBextH);
+      var vl2D = intersectLines2D(lAintL, lBintL);
+      hHighCart = hh2D ? local2DToCartesian(hh2D, E[0], hA) : midpointCarto(E[0], E[3], hA);
+      vLowCart = vl2D ? local2DToCartesian(vl2D, E[0], hB) : midpointCarto(E[0], E[3], hB);
+    } else {
+      var lBextH2 = makeInwardOffsetLine2D(e2D[0], e2D[5], e2D[4], wB * 0.5);
+      var lAextH2 = makeInwardOffsetLine2D(e2D[0], e2D[1], e2D[2], wB * 0.5);
+      var lBintL2 = makeInwardOffsetLine2D(e2D[3], e2D[4], e2D[5], wA * 0.5);
+      var lAintL2 = makeInwardOffsetLine2D(e2D[3], e2D[2], e2D[1], wA * 0.5);
+      var hh2D2 = intersectLines2D(lBextH2, lAextH2);
+      var vl2D2 = intersectLines2D(lBintL2, lAintL2);
+      hHighCart = hh2D2 ? local2DToCartesian(hh2D2, E[0], hB) : midpointCarto(E[0], E[3], hB);
+      vLowCart = vl2D2 ? local2DToCartesian(vl2D2, E[0], hA) : midpointCarto(E[0], E[3], hA);
+    }
+    var rHub = hHighCart;
 
     var faces = [];        // { name, pts3D, isSolar }
     var gables = [];       // triángulos/polígonos de hastial o desnivel en hastialColor
@@ -416,38 +496,88 @@
     var extraEaveRings = null;
 
     if (design === 'l_gable') {
-      faces.push(
-        { name: 'Ala A Exterior', pts3D: [pEaves[0], pEaves[1], rA, rHub], isSolar: true },
-        { name: 'Ala A Interior', pts3D: [pEaves[2], pEaves[3], rHub, rA], isSolar: true },
-        { name: 'Ala B Interior', pts3D: [pEaves[3], pEaves[4], rB, rHub], isSolar: true },
-        { name: 'Ala B Exterior', pts3D: [pEaves[5], pEaves[0], rHub, rB], isSolar: true }
-      );
+      if (!isAsymAB) {
+        faces.push(
+          { name: 'Ala A Exterior', pts3D: [pEaves[0], pEaves[1], rA, rHub], isSolar: true },
+          { name: 'Ala A Interior', pts3D: [pEaves[2], pEaves[3], rHub, rA], isSolar: true },
+          { name: 'Ala B Interior', pts3D: [pEaves[3], pEaves[4], rB, rHub], isSolar: true },
+          { name: 'Ala B Exterior', pts3D: [pEaves[5], pEaves[0], rHub, rB], isSolar: true }
+        );
+        ridgeLines.push([rHub, rA], [rHub, rB]);
+        hipLines.push([pEaves[0], rHub]);
+        valleyLines.push([pEaves[3], rHub]);
+      } else if (wA > wB) {
+        faces.push(
+          { name: 'Ala A Exterior', pts3D: [pEaves[0], pEaves[1], rA, hHighCart], isSolar: true },
+          { name: 'Ala A Interior', pts3D: [pEaves[2], pEaves[3], vLowCart, hHighCart, rA], isSolar: true },
+          { name: 'Ala B Interior', pts3D: [pEaves[3], pEaves[4], rB, vLowCart], isSolar: true },
+          { name: 'Ala B Exterior', pts3D: [pEaves[5], pEaves[0], hHighCart, vLowCart, rB], isSolar: true }
+        );
+        ridgeLines.push([hHighCart, rA], [vLowCart, rB]);
+        hipLines.push([pEaves[0], hHighCart], [hHighCart, vLowCart]);
+        valleyLines.push([pEaves[3], vLowCart]);
+      } else {
+        faces.push(
+          { name: 'Ala A Exterior', pts3D: [pEaves[0], pEaves[1], rA, vLowCart, hHighCart], isSolar: true },
+          { name: 'Ala A Interior', pts3D: [pEaves[2], pEaves[3], vLowCart, rA], isSolar: true },
+          { name: 'Ala B Interior', pts3D: [pEaves[3], pEaves[4], rB, hHighCart, vLowCart], isSolar: true },
+          { name: 'Ala B Exterior', pts3D: [pEaves[5], pEaves[0], hHighCart, rB], isSolar: true }
+        );
+        ridgeLines.push([vLowCart, rA], [hHighCart, rB]);
+        hipLines.push([pEaves[0], hHighCart], [hHighCart, vLowCart]);
+        valleyLines.push([pEaves[3], vLowCart]);
+      }
       gables.push(
-        [wallTop[1], wallTop[2], midpointCarto(B[1], B[2], ridgeHeight)],
-        [wallTop[4], wallTop[5], midpointCarto(B[4], B[5], ridgeHeight)]
+        [wallTop[1], wallTop[2], midpointCarto(B[1], B[2], hA)],
+        [wallTop[4], wallTop[5], midpointCarto(B[4], B[5], hB)]
       );
-      ridgeLines.push([rHub, rA], [rHub, rB]);
-      hipLines.push([pEaves[0], rHub]);
-      valleyLines.push([pEaves[3], rHub]);
     } else if (design === 'l_hip') {
-      var lenWingA = Cesium.Cartesian3.distance(rHub, rA);
-      var lenWingB = Cesium.Cartesian3.distance(rHub, rB);
+      var aRidgeJoin = (!isAsymAB || wA > wB) ? hHighCart : vLowCart;
+      var bRidgeJoin = (!isAsymAB || wB > wA) ? hHighCart : vLowCart;
+      var lenWingA = Cesium.Cartesian3.distance(aRidgeJoin, rA);
+      var lenWingB = Cesium.Cartesian3.distance(bRidgeJoin, rB);
       var insetFracA = lenWingA > 0.5 ? Math.min(0.65, (wA * 0.5) / lenWingA) : 0.35;
       var insetFracB = lenWingB > 0.5 ? Math.min(0.65, (wB * 0.5) / lenWingB) : 0.35;
-      var rAHip = lerpCartesian(rA, rHub, insetFracA);
-      var rBHip = lerpCartesian(rB, rHub, insetFracB);
+      var rAHip = lerpCartesian(rA, aRidgeJoin, insetFracA);
+      var rBHip = lerpCartesian(rB, bRidgeJoin, insetFracB);
 
-      faces.push(
-        { name: 'Ala A Exterior', pts3D: [pEaves[0], pEaves[1], rAHip, rHub], isSolar: true },
-        { name: 'Ala A Interior', pts3D: [pEaves[2], pEaves[3], rHub, rAHip], isSolar: true },
-        { name: 'Faldón Testero A', pts3D: [pEaves[1], pEaves[2], rAHip], isSolar: true },
-        { name: 'Ala B Interior', pts3D: [pEaves[3], pEaves[4], rBHip, rHub], isSolar: true },
-        { name: 'Ala B Exterior', pts3D: [pEaves[5], pEaves[0], rHub, rBHip], isSolar: true },
-        { name: 'Faldón Testero B', pts3D: [pEaves[4], pEaves[5], rBHip], isSolar: true }
-      );
-      ridgeLines.push([rHub, rAHip], [rHub, rBHip]);
-      hipLines.push([pEaves[0], rHub], [pEaves[1], rAHip], [pEaves[2], rAHip], [pEaves[4], rBHip], [pEaves[5], rBHip]);
-      valleyLines.push([pEaves[3], rHub]);
+      if (!isAsymAB) {
+        faces.push(
+          { name: 'Ala A Exterior', pts3D: [pEaves[0], pEaves[1], rAHip, rHub], isSolar: true },
+          { name: 'Ala A Interior', pts3D: [pEaves[2], pEaves[3], rHub, rAHip], isSolar: true },
+          { name: 'Faldón Testero A', pts3D: [pEaves[1], pEaves[2], rAHip], isSolar: true },
+          { name: 'Ala B Interior', pts3D: [pEaves[3], pEaves[4], rBHip, rHub], isSolar: true },
+          { name: 'Ala B Exterior', pts3D: [pEaves[5], pEaves[0], rHub, rBHip], isSolar: true },
+          { name: 'Faldón Testero B', pts3D: [pEaves[4], pEaves[5], rBHip], isSolar: true }
+        );
+        ridgeLines.push([rHub, rAHip], [rHub, rBHip]);
+        hipLines.push([pEaves[0], rHub], [pEaves[1], rAHip], [pEaves[2], rAHip], [pEaves[4], rBHip], [pEaves[5], rBHip]);
+        valleyLines.push([pEaves[3], rHub]);
+      } else if (wA > wB) {
+        faces.push(
+          { name: 'Ala A Exterior', pts3D: [pEaves[0], pEaves[1], rAHip, hHighCart], isSolar: true },
+          { name: 'Ala A Interior', pts3D: [pEaves[2], pEaves[3], vLowCart, hHighCart, rAHip], isSolar: true },
+          { name: 'Faldón Testero A', pts3D: [pEaves[1], pEaves[2], rAHip], isSolar: true },
+          { name: 'Ala B Interior', pts3D: [pEaves[3], pEaves[4], rBHip, vLowCart], isSolar: true },
+          { name: 'Ala B Exterior', pts3D: [pEaves[5], pEaves[0], hHighCart, vLowCart, rBHip], isSolar: true },
+          { name: 'Faldón Testero B', pts3D: [pEaves[4], pEaves[5], rBHip], isSolar: true }
+        );
+        ridgeLines.push([hHighCart, rAHip], [vLowCart, rBHip]);
+        hipLines.push([pEaves[0], hHighCart], [hHighCart, vLowCart], [pEaves[1], rAHip], [pEaves[2], rAHip], [pEaves[4], rBHip], [pEaves[5], rBHip]);
+        valleyLines.push([pEaves[3], vLowCart]);
+      } else {
+        faces.push(
+          { name: 'Ala A Exterior', pts3D: [pEaves[0], pEaves[1], rAHip, vLowCart, hHighCart], isSolar: true },
+          { name: 'Ala A Interior', pts3D: [pEaves[2], pEaves[3], vLowCart, rAHip], isSolar: true },
+          { name: 'Faldón Testero A', pts3D: [pEaves[1], pEaves[2], rAHip], isSolar: true },
+          { name: 'Ala B Interior', pts3D: [pEaves[3], pEaves[4], rBHip, hHighCart, vLowCart], isSolar: true },
+          { name: 'Ala B Exterior', pts3D: [pEaves[5], pEaves[0], hHighCart, rBHip], isSolar: true },
+          { name: 'Faldón Testero B', pts3D: [pEaves[4], pEaves[5], rBHip], isSolar: true }
+        );
+        ridgeLines.push([vLowCart, rAHip], [hHighCart, rBHip]);
+        hipLines.push([pEaves[0], hHighCart], [hHighCart, vLowCart], [pEaves[1], rAHip], [pEaves[2], rAHip], [pEaves[4], rBHip], [pEaves[5], rBHip]);
+        valleyLines.push([pEaves[3], vLowCart]);
+      }
     } else if (design === 'l_mixed') {
       // Ala A [0,1,2,3] a dos aguas completa; Ala B [3,4,5,0] cubierta plana con peto perimetral
       var ridgeA0 = midpointCarto(E[0], E[3], roofHeight + (wA * 0.5) * Math.tan(pitchRad));
@@ -830,7 +960,7 @@
     return true;
   }
 
-  // Extrae todos los paños solares válidos (coplanares exactos) para conversión en 1 clic
+  // Extrae todos los paños solares válidos (coplanares exactos, con voladizo y orientación CCW hacia arriba)
   function extractSolarFaces(bld) {
     if (!bld || !Array.isArray(bld.points) || bld.points.length < 3) return [];
     var cartoList = bld.points.map(function (p) { return Cesium.Cartographic.fromCartesian(p); }).filter(Boolean);
@@ -839,10 +969,31 @@
     cartoList.forEach(function (c) { avgBase += (c.height || 0); });
     avgBase /= cartoList.length;
     var bldH = Math.max(bld.height || 6.5, 1.0);
-    var geom = buildLRoofGeometry(bld, cartoList, cartoList, avgBase, bldH);
+    var roofCartoList = (typeof global.computeBuildingRoofCartoList === 'function')
+      ? global.computeBuildingRoofCartoList(cartoList, (typeof bld.overhang === 'number' ? bld.overhang : 0), bld.roofType)
+      : cartoList;
+    var geom = buildLRoofGeometry(bld, cartoList, roofCartoList, avgBase, bldH);
     if (!geom) return [];
 
-    return geom.faces.filter(function (f) { return f.isSolar && Array.isArray(f.pts3D) && f.pts3D.length >= 3; });
+    return geom.faces
+      .filter(function (f) { return f.isSolar && Array.isArray(f.pts3D) && f.pts3D.length >= 3; })
+      .map(function (f) {
+        var pts = f.pts3D;
+        // Verificar normal de Newell respecto a la vertical WGS84 para garantizar orientación CCW ascendente
+        var nx = 0, ny = 0, nz = 0;
+        for (var i = 0; i < pts.length; i++) {
+          var a = pts[i];
+          var b = pts[(i + 1) % pts.length];
+          nx += (a.y - b.y) * (a.z + b.z);
+          ny += (a.z - b.z) * (a.x + b.x);
+          nz += (a.x - b.x) * (a.y + b.y);
+        }
+        var up = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(pts[0], new Cesium.Cartesian3());
+        if ((nx * up.x + ny * up.y + nz * up.z) < 0) {
+          return Object.assign({}, f, { pts3D: pts.slice().reverse() });
+        }
+        return f;
+      });
   }
 
   // ─────────────────────────────────────────────────────────────────────────

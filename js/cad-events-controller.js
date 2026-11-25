@@ -1011,7 +1011,15 @@
           updateBuildingRectPreview(cPos);
         }
       } else {
-        if (cPos && typeof getOrthogonalSnap === 'function') cPos = getOrthogonalSnap(cPos, activeBuildingPts);
+        let osnapBldApplied = false;
+        if (cPos && window.RACadOsnap && typeof window.RACadOsnap.resolveSnapWorld === 'function' && Array.isArray(activeBuildingPts) && activeBuildingPts.length > 0) {
+          const bSnap = window.RACadOsnap.resolveSnapWorld(cPos, activeBuildingPts[activeBuildingPts.length - 1]);
+          if (bSnap && bSnap.snapped && bSnap.worldPos) {
+            cPos = bSnap.worldPos;
+            osnapBldApplied = true;
+          }
+        }
+        if (cPos && !osnapBldApplied && typeof getOrthogonalSnap === 'function') cPos = getOrthogonalSnap(cPos, activeBuildingPts);
         if (cPos && typeof activeBuildingPts !== 'undefined' && activeBuildingPts.length >= 2) {
           const p0Screen = Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, activeBuildingPts[0]);
           if (p0Screen && Math.hypot(d.endPos.x - p0Screen.x, d.endPos.y - p0Screen.y) <= 45) {
@@ -1025,7 +1033,7 @@
     }
 
     if (typeof updateTriadAtMouse === 'function') {
-      updateTriadAtMouse(d.endPos.x, d.endPos.y, scene.canvas);
+      updateTriadAtMouse(d.endPos.x, d.endPos.y, scene.canvas, true);
     }
 
     const isDrawingPoly = (typeof WP !== 'undefined' && WP && WP.mode === 'draw-poly');
@@ -1120,6 +1128,31 @@
                 else deg = Math.round(deg);
                 window.RALBuilding.updateFromParams(uTarget.rawObj, { angleDeg: deg }, { skipRender: true });
                 window.RALBuilding.syncInspectorUI(uTarget.rawObj);
+                // Feedback wireframe 60 FPS en tiempo real sin reconstruir toda la malla 3D
+                if (viewer && viewer.entities && Array.isArray(uTarget.rawObj.points) && uTarget.rawObj.points.length >= 3) {
+                  const wfH = Number(uTarget.rawObj.height) || 6.5;
+                  const wfRing = uTarget.rawObj.points.map(function(pt) {
+                    const cg = Cesium.Cartographic.fromCartesian(pt);
+                    return Cesium.Cartesian3.fromRadians(cg.longitude, cg.latitude, (cg.height || 0) + wfH);
+                  });
+                  wfRing.push(wfRing[0]);
+                  if (!window._raLAngleWireframeEnt) {
+                    window._raLAngleWireframeEnt = viewer.entities.add({
+                      id: 'ra_l_angle_wireframe_preview',
+                      polyline: {
+                        positions: new Cesium.CallbackProperty(function() {
+                          return window._raLAngleWireframePts || [];
+                        }, false),
+                        width: 3,
+                        material: Cesium.Color.CYAN,
+                        arcType: Cesium.ArcType.NONE,
+                        disableDepthTestDistance: Number.POSITIVE_INFINITY
+                      }
+                    });
+                  }
+                  window._raLAngleWireframePts = wfRing;
+                  if (scene && typeof scene.requestRender === 'function') scene.requestRender();
+                }
               }
             }
           }
@@ -1292,6 +1325,11 @@
     if (universalGizmoState.active) {
       if (typeof flushGizmoUpdate === 'function') {
         flushGizmoUpdate();
+      }
+      if (window._raLAngleWireframeEnt && viewer && viewer.entities) {
+        try { viewer.entities.remove(window._raLAngleWireframeEnt); } catch (_) {}
+        window._raLAngleWireframeEnt = null;
+        window._raLAngleWireframePts = null;
       }
       const draggedTargetType = universalGizmoState.targetType;
       const _prevGizmoMode = universalGizmoState.mode;
@@ -1844,18 +1882,7 @@
     return { x: qx, y: qy, dist: Math.hypot(px - qx, py - qy), t };
   }
 
-  // Desacoplar camera.changed de wpUpdateUI(): mover la cámara solo repinta el overlay 2D por rAF
-  // sin reconstruir el DOM lateral ni regenerar obstáculos 3D en cada frame.
-  let _camChangedRaf = null;
-  camera.changed.addEventListener(() => {
-    if (_camChangedRaf !== null) return;
-    _camChangedRaf = requestAnimationFrame(() => {
-      _camChangedRaf = null;
-      if (typeof renderTriad2D === 'function') {
-        try { renderTriad2D(); } catch (eHud) {}
-      }
-    });
-  });
+  // El repintado de la tríada/overlay 2D queda consolidado únicamente en scene.postRender (línea 1273).
 
   // Seguimiento de tecla Shift para bloqueo ortogonal 90° en edición de rutas/gizmos
   (window.RA && window.RA.addListener ? window.RA.addListener : function(t, ev, fn) { t.addEventListener(ev, fn); })(document, 'keyup', function(e) {
@@ -1939,7 +1966,10 @@
       }
     }
     if (!hasModKey && (e.key === 'e' || e.key === 'E')) {
-      const hasGizmoTarget = (window.selectedPanelIndex >= 0) || Boolean(window.selectedObstacleId) || Boolean(window.selectedBuildingId) || Boolean(window.selectedElectricalId);
+      const hasPolyTarget = (typeof WP !== 'undefined' && WP && WP.selectedPolyIdx >= 0);
+      const hasPlaneTarget = (typeof WP !== 'undefined' && WP && WP.activePlaneIdx >= 0 && Array.isArray(WP.planes) && Boolean(WP.planes[WP.activePlaneIdx]));
+      const hasTurbineTarget = Boolean((window.RAWind && window.RAWind.selectedTurbineId) || window.selectedWindTurbineId);
+      const hasGizmoTarget = (window.selectedPanelIndex >= 0) || Boolean(window.selectedObstacleId) || Boolean(window.selectedBuildingId) || Boolean(window.selectedElectricalId) || hasPolyTarget || hasPlaneTarget || hasTurbineTarget;
       if (hasGizmoTarget && typeof switchUniversalGizmoMode === 'function') {
         switchUniversalGizmoMode('rotate');
         return;

@@ -689,6 +689,16 @@
       else window.addEventListener(ev, fn, opts);
     };
 
+    const _toCanvasXY = function(clientX, clientY) {
+      if (typeof global.raToCanvasCoords === 'function') {
+        return global.raToCanvasCoords(clientX, clientY);
+      }
+      const cv = global.viewer && global.viewer.scene ? global.viewer.scene.canvas : null;
+      if (!cv || typeof cv.getBoundingClientRect !== 'function') return { x: clientX, y: clientY, inBounds: true };
+      const r = cv.getBoundingClientRect();
+      return { x: clientX - r.left, y: clientY - r.top, inBounds: true };
+    };
+
     _regWinM2('pointerdown', function(e) {
       // Activar con Shift + Drag O arrastrar en vacío con botón izquierdo
       if (e.button !== 0) return;
@@ -699,7 +709,8 @@
       if (global.WP && (global.WP.mode === 'draw-poly' || global.WP.mode === 'draw-building' || global.WP.mode === 'place-obs')) return;
       if (global.universalGizmoState && global.universalGizmoState.active) return;
 
-      const hitGizmo = (typeof global.checkUniversalGizmoHit === 'function') ? global.checkUniversalGizmoHit(e.clientX, e.clientY) : null;
+      const cDown = _toCanvasXY(e.clientX, e.clientY);
+      const hitGizmo = (typeof global.checkUniversalGizmoHit === 'function') ? global.checkUniversalGizmoHit(cDown.x, cDown.y) : null;
       if (hitGizmo) return;
 
       // Si pulsamos Shift sobre el canvas sin arrastrar gizmo -> iniciar Marquee sin choque con órbita Cesium
@@ -725,7 +736,8 @@
     }, true);
 
     _regWinM2('pointermove', function(e) {
-      updateCADHover({ x: e.clientX, y: e.clientY });
+      const cMove = _toCanvasXY(e.clientX, e.clientY);
+      updateCADHover({ x: cMove.x, y: cMove.y });
 
       if (global.cadMarqueeState.active) {
         global.cadMarqueeState.currentX = e.clientX;
@@ -755,7 +767,9 @@
         const dy = m.currentY - m.startY;
         if (Math.hypot(dx, dy) > 8) {
           m._justFinishedAt = Date.now();
-          executeMarqueeBoxSelection(m.startX, m.startY, m.currentX, m.currentY, e && (e.ctrlKey || e.metaKey));
+          const cStart = _toCanvasXY(m.startX, m.startY);
+          const cEnd = _toCanvasXY(m.currentX, m.currentY);
+          executeMarqueeBoxSelection(cStart.x, cStart.y, cEnd.x, cEnd.y, e && (e.ctrlKey || e.metaKey));
         }
       }
 

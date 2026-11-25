@@ -55,28 +55,72 @@
   }
 
   /**
-   * Extrae todos los segmentos 2D (u, v) de los faldones activos en WP.polylines.
+   * Proyecta un Cartesian3 sobre el marco (origin, uVec, vVec, normal) a coordenadas locales { u, v, n }.
    */
-  function collectActiveSegments2D() {
+  function _projectWorldToFrame(pt, frame) {
+    if (!pt || !frame || !frame.origin || !frame.uVec || !frame.vVec || !global.Cesium) return null;
+    var C3 = global.Cesium.Cartesian3;
+    var rel = C3.subtract(pt, frame.origin, new C3());
+    return {
+      u: C3.dot(rel, frame.uVec),
+      v: C3.dot(rel, frame.vVec),
+      n: frame.normal ? C3.dot(rel, frame.normal) : 0
+    };
+  }
+
+  /**
+   * Extrae todos los segmentos 2D (u, v) de los faldones activos y trazos en curso.
+   */
+  function collectActiveSegments2D(targetFrame) {
     var segs = [];
-    if (!global.WP || !Array.isArray(global.WP.polylines)) return segs;
-    global.WP.polylines.forEach(function (poly, pIdx) {
-      var pts = (poly && poly.roofInfo && Array.isArray(poly.roofInfo.poly2D))
-        ? poly.roofInfo.poly2D
-        : (poly && Array.isArray(poly.points2D) ? poly.points2D : null);
-      if (!pts || pts.length < 2) return;
-      for (var i = 0; i < pts.length; i++) {
-        var a = pts[i];
-        var b = pts[(i + 1) % pts.length];
-        if (!a || !b) continue;
-        var au = Number(a.u != null ? a.u : a.x);
-        var av = Number(a.v != null ? a.v : a.y);
-        var bu = Number(b.u != null ? b.u : b.x);
-        var bv = Number(b.v != null ? b.v : b.y);
-        if (!Number.isFinite(au) || !Number.isFinite(bu)) continue;
-        segs.push({ a: { u: au, v: av }, b: { u: bu, v: bv }, polyIdx: pIdx, edgeIdx: i });
+    var frame = targetFrame || _getActivePlaneFrame();
+    if (global.WP && Array.isArray(global.WP.polylines)) {
+      global.WP.polylines.forEach(function (poly, pIdx) {
+        if (frame && Array.isArray(poly.points) && poly.points.length >= 2) {
+          for (var wi = 0; wi < poly.points.length; wi++) {
+            var pa = _projectWorldToFrame(poly.points[wi], frame);
+            var pb = _projectWorldToFrame(poly.points[(wi + 1) % poly.points.length], frame);
+            if (pa && pb && Math.abs(pa.n) < 2.5 && Math.abs(pb.n) < 2.5) {
+              segs.push({ a: { u: pa.u, v: pa.v }, b: { u: pb.u, v: pb.v }, polyIdx: pIdx, edgeIdx: wi });
+            }
+          }
+          return;
+        }
+        var pts = (poly && poly.roofInfo && Array.isArray(poly.roofInfo.poly2D))
+          ? poly.roofInfo.poly2D
+          : (poly && Array.isArray(poly.points2D) ? poly.points2D : null);
+        if (!pts || pts.length < 2) return;
+        for (var i = 0; i < pts.length; i++) {
+          var a = pts[i];
+          var b = pts[(i + 1) % pts.length];
+          if (!a || !b) continue;
+          var au = Number(a.u != null ? a.u : a.x);
+          var av = Number(a.v != null ? a.v : a.y);
+          var bu = Number(b.u != null ? b.u : b.x);
+          var bv = Number(b.v != null ? b.v : b.y);
+          if (!Number.isFinite(au) || !Number.isFinite(bu)) continue;
+          segs.push({ a: { u: au, v: av }, b: { u: bu, v: bv }, polyIdx: pIdx, edgeIdx: i });
+        }
+      });
+    }
+
+    // Añadir segmentos en curso del trazado activo (faldón o edificio)
+    if (frame) {
+      if (global.WP && global.WP.mode === 'draw-poly' && Array.isArray(global.WP.activePolyPts) && global.WP.activePolyPts.length >= 2) {
+        for (var pi = 0; pi < global.WP.activePolyPts.length - 1; pi++) {
+          var pA = _projectWorldToFrame(global.WP.activePolyPts[pi], frame);
+          var pB = _projectWorldToFrame(global.WP.activePolyPts[pi + 1], frame);
+          if (pA && pB) segs.push({ a: { u: pA.u, v: pA.v }, b: { u: pB.u, v: pB.v }, polyIdx: -1, edgeIdx: pi });
+        }
       }
-    });
+      if (global.isDrawingBuilding && Array.isArray(global.activeBuildingPts) && global.activeBuildingPts.length >= 2) {
+        for (var bi = 0; bi < global.activeBuildingPts.length - 1; bi++) {
+          var bA = _projectWorldToFrame(global.activeBuildingPts[bi], frame);
+          var bB = _projectWorldToFrame(global.activeBuildingPts[bi + 1], frame);
+          if (bA && bB) segs.push({ a: { u: bA.u, v: bA.v }, b: { u: bB.u, v: bB.v }, polyIdx: -2, edgeIdx: bi });
+        }
+      }
+    }
     return segs;
   }
 
@@ -176,6 +220,30 @@
    */
   function _getActivePlaneFrame() {
     var wp = global.WP || {};
+    if ((wp.mode === 'draw-poly' || wp.mode === 'define-plane') && typeof global.wpGetActivePlane === 'function') {
+      var actPl = global.wpGetActivePlane();
+      if (actPl && actPl.origin && actPl.uVec && actPl.vVec) {
+        return {
+          origin: actPl.origin,
+          uVec: actPl.uVec,
+          vVec: actPl.vVec,
+          normal: actPl.normal,
+          name: actPl.name || 'Plano de Trabajo Activo'
+        };
+      }
+    }
+    if (global.isDrawingBuilding && Array.isArray(global.activeBuildingPts) && global.activeBuildingPts.length > 0 && global.Cesium) {
+      var org = global.activeBuildingPts[0];
+      var enu = global.Cesium.Transforms.eastNorthUpToFixedFrame(org);
+      var C3 = global.Cesium.Cartesian3;
+      return {
+        origin: org,
+        uVec: global.Cesium.Matrix4.getColumn(enu, 0, new C3()),
+        vVec: global.Cesium.Matrix4.getColumn(enu, 1, new C3()),
+        normal: global.Cesium.Matrix4.getColumn(enu, 2, new C3()),
+        name: 'Plano Edificio 3D'
+      };
+    }
     var poly = null;
     if (Array.isArray(wp.polylines) && wp.polylines.length > 0) {
       var selIdx = (typeof wp.selectedPolyIdx === 'number') ? wp.selectedPolyIdx : wp.selectedPolylineIndex;
@@ -204,8 +272,58 @@
   }
 
   /**
-   * Proyecta un vector numérico exacto (longitud en metros, ángulo en grados) sobre el plano inclinado activo
-   * y dibuja la arista exacta de referencia en el visor Cesium 3D.
+   * Resuelve OSNAP + Polar en coordenadas 3D Cesium sobre el plano de trabajo indicado o activo.
+   */
+  function resolveSnapWorld(cursorCartesian, anchorCartesian, customFrame) {
+    if (!_config.enabled || !cursorCartesian || !global.Cesium) {
+      return { snapped: false, mode: 'NONE', worldPos: cursorCartesian };
+    }
+    var frame = (customFrame && customFrame.origin && customFrame.uVec && customFrame.vVec)
+      ? customFrame
+      : _getActivePlaneFrame();
+    if (!frame) {
+      var refOrg = anchorCartesian || cursorCartesian;
+      var enu = global.Cesium.Transforms.eastNorthUpToFixedFrame(refOrg);
+      var C3F = global.Cesium.Cartesian3;
+      frame = {
+        origin: refOrg,
+        uVec: global.Cesium.Matrix4.getColumn(enu, 0, new C3F()),
+        vVec: global.Cesium.Matrix4.getColumn(enu, 1, new C3F()),
+        normal: global.Cesium.Matrix4.getColumn(enu, 2, new C3F()),
+        name: 'Plano Horizontal ENU'
+      };
+    }
+    var cLocal = _projectWorldToFrame(cursorCartesian, frame);
+    if (!cLocal) return { snapped: false, mode: 'NONE', worldPos: cursorCartesian };
+    var aLocal = anchorCartesian ? _projectWorldToFrame(anchorCartesian, frame) : null;
+    var segs = collectActiveSegments2D(frame);
+    var res = resolveSnap2D({ u: cLocal.u, v: cLocal.v }, aLocal ? { u: aLocal.u, v: aLocal.v } : null, segs);
+    if (!res || !res.snapped) {
+      return { snapped: false, mode: 'NONE', worldPos: cursorCartesian };
+    }
+    var C3 = global.Cesium.Cartesian3;
+    var worldPos = C3.add(
+      C3.add(frame.origin, C3.multiplyByScalar(frame.uVec, res.point.u, new C3()), new C3()),
+      C3.multiplyByScalar(frame.vVec, res.point.v, new C3()),
+      new C3()
+    );
+    if (frame.normal && Math.abs(cLocal.n) > 1e-4) {
+      worldPos = C3.add(worldPos, C3.multiplyByScalar(frame.normal, cLocal.n, new C3()), new C3());
+    }
+    return {
+      snapped: true,
+      mode: res.mode,
+      point: res.point,
+      worldPos: worldPos,
+      dist: res.dist,
+      angleDeg: res.angleDeg,
+      lengthM: res.lengthM
+    };
+  }
+
+  /**
+   * Proyecta un vector numérico exacto (longitud en metros, ángulo en grados) sobre el plano inclinado activo,
+   * dibuja la arista guía en Cesium y confirma el vértice en el comando de dibujo activo si existe.
    */
   function applyNumericEdge(lengthMeters, angleDeg, originUV) {
     var len = Number(lengthMeters);
@@ -215,21 +333,41 @@
     }
     if (!Number.isFinite(ang)) ang = 0;
 
-    var base = originUV || { u: 0, v: 0 };
+    var frame = _getActivePlaneFrame();
+    var base = originUV || null;
+    var baseN = 0;
+    if (!base && frame) {
+      if (global.WP && global.WP.mode === 'draw-poly' && Array.isArray(global.WP.activePolyPts) && global.WP.activePolyPts.length > 0) {
+        var lastPolyPt = _projectWorldToFrame(global.WP.activePolyPts[global.WP.activePolyPts.length - 1], frame);
+        if (lastPolyPt) { base = { u: lastPolyPt.u, v: lastPolyPt.v }; baseN = lastPolyPt.n || 0; }
+      } else if (global.isDrawingBuilding && Array.isArray(global.activeBuildingPts) && global.activeBuildingPts.length > 0) {
+        var lastBldPt = _projectWorldToFrame(global.activeBuildingPts[global.activeBuildingPts.length - 1], frame);
+        if (lastBldPt) { base = { u: lastBldPt.u, v: lastBldPt.v }; baseN = lastBldPt.n || 0; }
+      }
+    }
+    if (!base) base = { u: 0, v: 0 };
+
     var rad = ang * Math.PI / 180.0;
     var du = Number((Math.cos(rad) * len).toFixed(4));
     var dv = Number((Math.sin(rad) * len).toFixed(4));
     var endUV = { u: Number((base.u + du).toFixed(4)), v: Number((base.v + dv).toFixed(4)) };
 
-    var frame = _getActivePlaneFrame();
     var worldStart = null;
     var worldEnd = null;
+    var worldEndExact = null;
+    var committedTo = null;
     if (frame && global.Cesium && global.viewer && global.viewer.entities) {
       var C3 = global.Cesium.Cartesian3;
-      var lift = frame.normal ? C3.multiplyByScalar(frame.normal, 0.12, new C3()) : new C3(0, 0, 0);
+      var lift = frame.normal ? C3.multiplyByScalar(frame.normal, 0.12 + baseN, new C3()) : new C3(0, 0, 0);
+      var baseNormShift = frame.normal ? C3.multiplyByScalar(frame.normal, baseN, new C3()) : new C3(0, 0, 0);
       worldStart = C3.add(
         C3.add(frame.origin, C3.multiplyByScalar(frame.uVec, base.u, new C3()), new C3()),
         C3.add(C3.multiplyByScalar(frame.vVec, base.v, new C3()), lift, new C3()),
+        new C3()
+      );
+      worldEndExact = C3.add(
+        C3.add(frame.origin, C3.multiplyByScalar(frame.uVec, endUV.u, new C3()), new C3()),
+        C3.add(C3.multiplyByScalar(frame.vVec, endUV.v, new C3()), baseNormShift, new C3()),
         new C3()
       );
       worldEnd = C3.add(
@@ -261,6 +399,15 @@
         }
       });
       _markerEntities.push(lineEnt, ptEnt);
+
+      if (global.WP && global.WP.mode === 'draw-poly' && typeof global.wpAddPolylinePoint === 'function') {
+        global.wpAddPolylinePoint(worldEndExact);
+        committedTo = 'draw-poly';
+      } else if (global.isDrawingBuilding && typeof global.handleBuildingClick === 'function') {
+        global.handleBuildingClick(worldEndExact);
+        committedTo = 'draw-building';
+      }
+
       if (global.viewer.scene && global.viewer.scene.requestRender) global.viewer.scene.requestRender();
     }
 
@@ -272,7 +419,8 @@
       startUV: base,
       endUV: endUV,
       planeName: frame ? frame.name : 'Plano Local 2D (sin faldón activo)',
-      projectedIn3D: Boolean(worldEnd)
+      projectedIn3D: Boolean(worldEnd),
+      committedTo: committedTo
     };
     return _lastResult;
   }
@@ -351,6 +499,7 @@
     setConfig: function (patch) { Object.assign(_config, patch || {}); return this.getConfig(); },
     collectActiveSegments2D: collectActiveSegments2D,
     resolveSnap2D: resolveSnap2D,
+    resolveSnapWorld: resolveSnapWorld,
     applyNumericEdge: applyNumericEdge,
     clearGuides3D: clearGuides3D,
     openNumericPrompt: openNumericPrompt,

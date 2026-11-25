@@ -309,6 +309,16 @@ function setAntialiasingMode(mode) {
     } catch(eTiles) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eTiles, 'Tileset Fidelity Sync Error'); }
   }
 
+  if (targetTileset && window.RALodManager && typeof window.RALodManager.notifyQualityChanged === 'function') {
+    window.RALodManager.notifyQualityChanged({
+      sse: targetTileset.maximumScreenSpaceError,
+      skipLod: !!targetTileset.skipLevelOfDetail,
+      loadSiblings: targetTileset.loadSiblings !== false,
+      cullMoving: !!targetTileset.cullRequestsWhileMoving,
+      resScale: viewer.resolutionScale
+    });
+  }
+
   ['off', 'fxaa', 'msaa4', 'ultra'].forEach(m => {
     const btn = document.getElementById('opt-aa-' + m);
     if (btn) btn.classList.toggle('active', m === mode);
@@ -326,6 +336,9 @@ function setResolutionScale(val, savePreference = true) {
   
   if (typeof viewer !== 'undefined' && viewer) {
     viewer.resolutionScale = val;
+    if (window.RALodManager && typeof window.RALodManager.notifyQualityChanged === 'function') {
+      window.RALodManager.notifyQualityChanged({ resScale: val });
+    }
     if (viewer.scene && typeof viewer.scene.requestRender === 'function') {
       viewer.scene.requestRender();
     }
@@ -1665,13 +1678,15 @@ function pickPanelUnderCursor(screenPos, skipGpuPick) {
     let bestIdx = -1;
     let minCenterDist = Infinity;
 
-    // Índice espacial ligero por faldón cacheado por generación de primitivas
+    // Índice espacial ligero por faldón + Quadtree RASpatialDsm cacheado por generación de primitivas
     const curGen = (typeof window._raPrimitivesGeneration === 'number') ? window._raPrimitivesGeneration : 0;
     if (!window._raPanelSpatialIndex || window._raPanelSpatialIndex.gen !== curGen || window._raPanelSpatialIndex.len !== panelsList.length) {
       const groups = new Map();
+      const panelToGlobalIdx = new Map();
       for (let gi = 0; gi < panelsList.length; gi++) {
         const gp = panelsList[gi];
         if (!gp || gp.visible === false || gp.deleted || !gp.center) continue;
+        panelToGlobalIdx.set(gp, gi);
         const fKey = (typeof gp.polyIdx === 'number') ? gp.polyIdx : -1;
         let grp = groups.get(fKey);
         if (!grp) { grp = { indices: [], centers: [] }; groups.set(fKey, grp); }
@@ -1684,12 +1699,16 @@ function pickPanelUnderCursor(screenPos, skipGpuPick) {
         bs.radius += 2.5;
         buckets.push({ polyIdx: fKey, sphere: bs, indices: grp.indices });
       });
-      window._raPanelSpatialIndex = { gen: curGen, len: panelsList.length, buckets };
+      if (window.RASpatialDsm && typeof window.RASpatialDsm.rebuildSpatialIndex === 'function') {
+        try { window.RASpatialDsm.rebuildSpatialIndex(panelsList); } catch (_) {}
+      }
+      window._raPanelSpatialIndex = { gen: curGen, len: panelsList.length, buckets, panelToGlobalIdx };
     }
 
     const pickRay = (scene.camera && typeof scene.camera.getPickRay === 'function') ? scene.camera.getPickRay(screenPos) : null;
     const candidateIndices = [];
     const buckets = window._raPanelSpatialIndex.buckets;
+    const pToGIdx = window._raPanelSpatialIndex.panelToGlobalIdx;
     for (let bi = 0; bi < buckets.length; bi++) {
       const b = buckets[bi];
       if (b.polyIdx >= 0 && typeof WP !== 'undefined' && WP && WP.polylines && WP.polylines[b.polyIdx] && WP.polylines[b.polyIdx].panelsVisible === false) {
@@ -1698,7 +1717,29 @@ function pickPanelUnderCursor(screenPos, skipGpuPick) {
       if (pickRay && typeof Cesium.IntersectionTests !== 'undefined' && typeof Cesium.IntersectionTests.raySphere === 'function') {
         if (!Cesium.IntersectionTests.raySphere(pickRay, b.sphere)) continue;
       }
-      for (let ki = 0; ki < b.indices.length; ki++) candidateIndices.push(b.indices[ki]);
+      let addedFromQuad = false;
+      if (b.indices.length > 120 && b.polyIdx >= 0 && pickRay && window.RASpatialDsm && typeof window.RASpatialDsm.queryNearestPanels === 'function' && typeof window.wpRayPlane === 'function' && typeof WP !== 'undefined' && WP && WP.polylines && WP.polylines[b.polyIdx]) {
+        const ri = WP.polylines[b.polyIdx].roofInfo;
+        if (ri && ri.origin && ri.normal && ri.uVec && ri.vVec) {
+          const hitPt = window.wpRayPlane(pickRay, ri);
+          if (hitPt) {
+            const rel = Cesium.Cartesian3.subtract(hitPt, ri.origin, new Cesium.Cartesian3());
+            const hu = Cesium.Cartesian3.dot(rel, ri.uVec);
+            const hv = Cesium.Cartesian3.dot(rel, ri.vVec);
+            const qHits = window.RASpatialDsm.queryNearestPanels(hu, hv, 3.5, b.polyIdx);
+            if (Array.isArray(qHits) && qHits.length > 0) {
+              for (let qi = 0; qi < qHits.length; qi++) {
+                const gIdx = pToGIdx ? pToGIdx.get(qHits[qi].panel) : undefined;
+                if (typeof gIdx === 'number') candidateIndices.push(gIdx);
+              }
+              addedFromQuad = true;
+            }
+          }
+        }
+      }
+      if (!addedFromQuad) {
+        for (let ki = 0; ki < b.indices.length; ki++) candidateIndices.push(b.indices[ki]);
+      }
     }
 
     // [OPTIMIZACIÓN AAA · O(1) EARLY REJECTION]: Comprobar centro primero antes de calcular 4 proyecciones de esquinas
@@ -6301,7 +6342,28 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
     // recomputar duplicaba el coste completo del layout por faldón (OOM en grandes plantas).
     let pInfo = poly.roofInfo || ((typeof computeSinglePolylineRoofInfo === "function") ? computeSinglePolylineRoofInfo(poly.points, poly) : null);
     if (pInfo && pInfo.panels) {
-      const matchedAsyncPrevPanels = new Set();
+      // Indexación O(N) previa por ID / layoutIndex / localIdx / cuadrícula espacial 0.05m (reemplaza 5 .find() O(N²))
+      const prevById = new Map();
+      const prevByLayoutIdx = new Map();
+      const prevByLocalIdx = new Map();
+      const prevByGrid = new Map();
+      if (prevPanelsMap && prevPanelsMap.length > 0) {
+        for (let pi = 0; pi < prevPanelsMap.length; pi++) {
+          const op = prevPanelsMap[pi];
+          if (!op) continue;
+          if (op.panelId && !prevById.has(op.panelId)) prevById.set(op.panelId, op);
+          if (op.rawPanel && op.rawPanel.panelId && !prevById.has(op.rawPanel.panelId)) prevById.set(op.rawPanel.panelId, op);
+          if (typeof op.layoutIndex === 'number' && !prevByLayoutIdx.has(op.layoutIndex)) prevByLayoutIdx.set(op.layoutIndex, op);
+          if (typeof op.localIdx === 'number' && !prevByLocalIdx.has(op.localIdx)) prevByLocalIdx.set(op.localIdx, op);
+          if (typeof op.u === 'number' && typeof op.v === 'number') {
+            const gk = Math.round(op.u * 20) + ',' + Math.round(op.v * 20);
+            let cell = prevByGrid.get(gk);
+            if (!cell) { cell = []; prevByGrid.set(gk, cell); }
+            cell.push(op);
+          }
+        }
+      }
+
       pInfo.panels.forEach((p, idx) => {
         p.layoutIndex = idx;
         p.localIdx = idx;
@@ -6311,21 +6373,35 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
 
         if (prevPanelsMap && prevPanelsMap.length > 0) {
           let prev = null;
-          // 🚀 MATCHING ROBUSTO POR ID, ÍNDICE O ESPACIO
+          // 🚀 MATCHING ROBUSTO O(1) POR ID, ÍNDICE O CUADRÍCULA ESPACIAL
           if (p.panelId) {
-            prev = prevPanelsMap.find(op => op.panelId === p.panelId || (op.rawPanel && op.rawPanel.panelId === p.panelId));
+            prev = prevById.get(p.panelId) || null;
           }
           if (!prev && typeof p.layoutIndex === 'number') {
-            prev = prevPanelsMap.find(op => (typeof op.layoutIndex === 'number' && op.layoutIndex === p.layoutIndex) || (typeof op.localIdx === 'number' && op.localIdx === p.layoutIndex));
+            prev = prevByLayoutIdx.get(p.layoutIndex) || prevByLocalIdx.get(p.layoutIndex) || null;
           }
           if (!prev && typeof p.localIdx === 'number') {
-            prev = prevPanelsMap.find(op => (typeof op.localIdx === 'number' && op.localIdx === p.localIdx) || (typeof op.layoutIndex === 'number' && op.layoutIndex === p.localIdx));
+            prev = prevByLocalIdx.get(p.localIdx) || prevByLayoutIdx.get(p.localIdx) || null;
           }
           if (!prev && typeof p.u === 'number' && typeof p.v === 'number') {
-            prev = prevPanelsMap.find(op => typeof op.u === 'number' && typeof op.v === 'number' && Math.abs(op.u - p.u) < 0.05 && Math.abs(op.v - p.v) < 0.05);
+            const gu = Math.round(p.u * 20);
+            const gv = Math.round(p.v * 20);
+            for (let du = -1; du <= 1 && !prev; du++) {
+              for (let dv = -1; dv <= 1 && !prev; dv++) {
+                const cell = prevByGrid.get((gu + du) + ',' + (gv + dv));
+                if (!cell) continue;
+                for (let ci = 0; ci < cell.length; ci++) {
+                  const cand = cell[ci];
+                  if (Math.abs(cand.u - p.u) < 0.05 && Math.abs(cand.v - p.v) < 0.05) {
+                    prev = cand;
+                    break;
+                  }
+                }
+              }
+            }
           }
-          if (!prev && p.center) {
-            prev = prevPanelsMap.find(op => op.center && Cesium.Cartesian3.distance(op.center, p.center) < 0.10);
+          if (!prev && p.center && prevPanelsMap.length <= 200) {
+            prev = prevPanelsMap.find(op => op.center && Cesium.Cartesian3.distance(op.center, p.center) < 0.10) || null;
           }
           if (!prev && prevPanelsMap.length === pInfo.panels.length) {
             prev = prevPanelsMap[idx];
@@ -6837,7 +6913,7 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
             translucent: isFaldonDisabled,
             renderState: isFaldonDisabled ? undefined : panelRenderState
           }),
-          asynchronous: false,
+          asynchronous: true,
           shadows: isFaldonDisabled ? 0 : (typeof Cesium !== 'undefined' && Cesium.ShadowMode ? Cesium.ShadowMode.ENABLED : 1)
         });
         if (currentRenderId !== _raRenderGenerationId) return;
@@ -6846,6 +6922,13 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
         const fPrim = viewer.scene.primitives.add(primitive);
         fPrim._isRAPanelPrimitive = true;
         fPrim._raFaldonIdx = fIdx;
+        if (fPrim.readyPromise && typeof fPrim.readyPromise.then === 'function') {
+          fPrim.readyPromise.then(() => {
+            if (viewer && viewer.scene && typeof viewer.scene.requestRender === 'function') {
+              viewer.scene.requestRender();
+            }
+          }).catch(() => {});
+        }
         window._faldonPanelsPrimitives.set(fIdx, fPrim);
         if (hasPolys && WP.polylines[fIdx]) {
           WP.polylines[fIdx].panelsPrimitive = fPrim;
@@ -6987,43 +7070,6 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
           }
         });
 
-        // [F1-02] Helper de recoloración in-place (< 5ms sin reconstruir geometrías GPU)
-        window.wpRecolorSimulatedPanelsInPlace = function(mode) {
-          if (!window._faldonPanelsPrimitives || !Array.isArray(window.allRenderedPanels)) return false;
-          const useHeatmap = (mode === 'heatmap') || (mode === undefined && typeof solarSimState !== 'undefined' && solarSimState && solarSimState.viewMode === 'heatmap');
-          let updated = 0;
-          const colorBuf = new Uint8Array(4);
-          for (let i = 0; i < window.allRenderedPanels.length; i++) {
-            const pData = window.allRenderedPanels[i];
-            if (!pData) continue;
-            const fIdx = (typeof pData.polyIdx === 'number') ? pData.polyIdx : 0;
-            const fPrim = window._faldonPanelsPrimitives.get(fIdx);
-            if (!fPrim || fPrim.isDestroyed() || !fPrim.ready || typeof fPrim.getGeometryInstanceAttributes !== 'function') continue;
-            const attrs = fPrim.getGeometryInstanceAttributes('pv_panel_instance_' + i);
-            if (!attrs || !attrs.color) continue;
-            let col;
-            if (pData.disabled) {
-              col = new Cesium.Color(0.38, 0.42, 0.48, 0.40);
-            } else if (useHeatmap) {
-              const hex = (pData.heatmapColor && (pData.heatmapColor.hex || pData.heatmapColor)) ||
-                (typeof getHeatmapColor === 'function' ? getHeatmapColor(pData.annualLossPct || 0).hex : '#10b981');
-              col = Cesium.Color.fromCssColorString(hex);
-            } else if (pData.isGhost) {
-              col = new Cesium.Color(0.06, 0.72, 0.51, 0.28);
-            } else {
-              const raw = Cesium.Color.fromCssColorString(pData.stringColor || '#00F0FF');
-              col = new Cesium.Color(raw.red * 0.42 + 0.04, raw.green * 0.42 + 0.04, raw.blue * 0.42 + 0.08, 1.0);
-            }
-            attrs.color = Cesium.ColorGeometryInstanceAttribute.toValue(col, colorBuf);
-            updated++;
-          }
-          if (updated > 0 && typeof viewer !== 'undefined' && viewer && viewer.scene && typeof viewer.scene.requestRender === 'function') {
-            viewer.scene.requestRender();
-            return true;
-          }
-          return false;
-        };
-
         instancedSuccess = true;
         if (typeof showStatus === 'function') {
           showStatus(`<i data-lucide="check" class="icon-sm"></i> ${allTargetPanels.length} PANELES FV RENDERIZADOS EN 3D (GPU 1-CALL/FALDÓN)`, 3500);
@@ -7036,6 +7082,54 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
         window.RA && window.RA.log && window.RA.log.debug("Fallback a entidades para paneles:", eInst);
       }
     }
+
+    // [F1-02 + V2-F1-06] Helper universal de recoloración in-place (PerInstanceColor <5ms + transición PBR ↔ Heatmap)
+    window.wpRecolorSimulatedPanelsInPlace = function(mode) {
+      const targetMode = mode || (typeof solarSimState !== 'undefined' && solarSimState ? solarSimState.viewMode : 'normal');
+      const useHeatmap = (targetMode === 'heatmap');
+      if (window.isPhotorealisticTextureMode) {
+        if (typeof solarSimState !== 'undefined' && solarSimState) {
+          solarSimState.viewMode = useHeatmap ? 'heatmap' : 'normal';
+        }
+        if (typeof wpFastRenderSimulatedPanels === 'function') {
+          wpFastRenderSimulatedPanels(true);
+          return true;
+        }
+        return false;
+      }
+      if (!window._faldonPanelsPrimitives || !Array.isArray(window.allRenderedPanels)) return false;
+      let updated = 0;
+      const colorBuf = new Uint8Array(4);
+      for (let i = 0; i < window.allRenderedPanels.length; i++) {
+        const pData = window.allRenderedPanels[i];
+        if (!pData) continue;
+        const fIdx = (typeof pData.polyIdx === 'number') ? pData.polyIdx : 0;
+        const fPrim = window._faldonPanelsPrimitives.get(fIdx);
+        if (!fPrim || fPrim.isDestroyed() || !fPrim.ready || typeof fPrim.getGeometryInstanceAttributes !== 'function') continue;
+        const attrs = fPrim.getGeometryInstanceAttributes('pv_panel_instance_' + i);
+        if (!attrs || !attrs.color) continue;
+        let col;
+        if (pData.disabled) {
+          col = new Cesium.Color(0.38, 0.42, 0.48, 0.40);
+        } else if (useHeatmap) {
+          const hex = (pData.heatmapColor && (pData.heatmapColor.hex || pData.heatmapColor)) ||
+            (typeof getHeatmapColor === 'function' ? getHeatmapColor(pData.annualLossPct || 0).hex : '#10b981');
+          col = Cesium.Color.fromCssColorString(hex);
+        } else if (pData.isGhost) {
+          col = new Cesium.Color(0.06, 0.72, 0.51, 0.28);
+        } else {
+          const raw = Cesium.Color.fromCssColorString(pData.stringColor || '#00F0FF');
+          col = new Cesium.Color(raw.red * 0.42 + 0.04, raw.green * 0.42 + 0.04, raw.blue * 0.42 + 0.08, 1.0);
+        }
+        attrs.color = Cesium.ColorGeometryInstanceAttribute.toValue(col, colorBuf);
+        updated++;
+      }
+      if (updated > 0 && typeof viewer !== 'undefined' && viewer && viewer.scene && typeof viewer.scene.requestRender === 'function') {
+        viewer.scene.requestRender();
+        return true;
+      }
+      return false;
+    };
 
     // Renderizado de paneles FV:
     //   - Modo normal: GPU Primitive con MaterialAppearance+Image (textura AAA procedural, 1 draw call)

@@ -36,7 +36,8 @@
     simulatedStringEntities: true, _obsEntities: true, _bldEntities: true,
     _panelNumberEntities: true, _panelNumberLabelCollection: true,
     simulatedPanelsPrimitive: true, simulatedSupportsPolylineCollection: true,
-    simulatedStringsPolylineCollection: true
+    simulatedStringsPolylineCollection: true,
+    roofInfo: true, panelsPrimitive: true, _calcSig: true, _geometryDirty: true
   };
 
   function isCesiumGPUObject(v) {
@@ -141,8 +142,18 @@
       }
       if (kind === 'polylines') {
         var WPpl = global.WP;
+        var polysRaw = (WPpl && Array.isArray(WPpl.polylines)) ? WPpl.polylines : [];
+        var manualPanelsByPoly = {};
+        for (var mpi = 0; mpi < polysRaw.length; mpi++) {
+          var mpl = polysRaw[mpi];
+          if (mpl && mpl.roofInfo && Array.isArray(mpl.roofInfo.panels)) {
+            var mpList = mpl.roofInfo.panels.filter(function (p) { return p && p.isManual; });
+            if (mpList.length > 0) manualPanelsByPoly[mpi] = deepClone(mpList, 0);
+          }
+        }
         var snapObj = {
-          polylines: (WPpl && Array.isArray(WPpl.polylines)) ? deepClone(WPpl.polylines, 0) : [],
+          polylines: deepClone(polysRaw, 0),
+          manualPanelsByPoly: manualPanelsByPoly,
           selectedPolyIdx: (WPpl && typeof WPpl.selectedPolyIdx === 'number') ? WPpl.selectedPolyIdx : -1,
           polygonPoints: (Array.isArray(global.polygonPoints)) ? deepClone(global.polygonPoints, 0) : []
         };
@@ -154,10 +165,20 @@
       }
       if (kind === 'planes') {
         var WPpln = global.WP;
+        var plRaw = (WPpln && Array.isArray(WPpln.polylines)) ? WPpln.polylines : [];
+        var manualPlPanelsByPoly = {};
+        for (var mppi = 0; mppi < plRaw.length; mppi++) {
+          var mppl = plRaw[mppi];
+          if (mppl && mppl.roofInfo && Array.isArray(mppl.roofInfo.panels)) {
+            var mppList = mppl.roofInfo.panels.filter(function (p) { return p && p.isManual; });
+            if (mppList.length > 0) manualPlPanelsByPoly[mppi] = deepClone(mppList, 0);
+          }
+        }
         return {
           planes: (WPpln && Array.isArray(WPpln.planes)) ? deepClone(WPpln.planes, 0) : [],
           activePlaneIdx: (WPpln && typeof WPpln.activePlaneIdx === 'number') ? WPpln.activePlaneIdx : 0,
-          polylines: (WPpln && Array.isArray(WPpln.polylines)) ? deepClone(WPpln.polylines, 0) : [],
+          polylines: deepClone(plRaw, 0),
+          manualPanelsByPoly: manualPlPanelsByPoly,
           selectedPolyIdx: (WPpln && typeof WPpln.selectedPolyIdx === 'number') ? WPpln.selectedPolyIdx : -1,
           polygonPoints: (Array.isArray(global.polygonPoints)) ? deepClone(global.polygonPoints, 0) : []
         };
@@ -261,7 +282,18 @@
       var WPpl = global.WP;
       if (WPpl && Array.isArray(WPpl.polylines)) {
         replaceInPlace(WPpl.polylines, revive(data.polylines));
-        WPpl.polylines.forEach(function (pl) { if (pl) { pl._calcSig = null; pl._geometryDirty = true; } });
+        WPpl.polylines.forEach(function (pl, pIdx) {
+          if (!pl) return;
+          pl._calcSig = null;
+          pl._geometryDirty = true;
+          if (data.manualPanelsByPoly && Array.isArray(data.manualPanelsByPoly[pIdx])) {
+            var revManual = revive(data.manualPanelsByPoly[pIdx]);
+            pl._hasManualPanels = true;
+            pl._preserveImportedPanels = true;
+            pl.roofInfo = pl.roofInfo || {};
+            pl.roofInfo.panels = revManual;
+          }
+        });
         if (global.roofPanelsCache) global.roofPanelsCache.sig = '';
         WPpl.selectedPolyIdx = (typeof data.selectedPolyIdx === 'number') ? data.selectedPolyIdx : (WPpl.polylines.length > 0 ? 0 : -1);
         if (Array.isArray(data.polygonPoints) && global.polygonPoints) {
@@ -290,6 +322,19 @@
         WPpln.activePlaneIdx = (typeof data.activePlaneIdx === 'number') ? data.activePlaneIdx : (WPpln.planes.length > 0 ? 0 : -1);
         if (Array.isArray(data.polylines) && Array.isArray(WPpln.polylines)) {
           replaceInPlace(WPpln.polylines, revive(data.polylines));
+          WPpln.polylines.forEach(function (pl, pIdx) {
+            if (!pl) return;
+            pl._calcSig = null;
+            pl._geometryDirty = true;
+            if (data.manualPanelsByPoly && Array.isArray(data.manualPanelsByPoly[pIdx])) {
+              var revManualPl = revive(data.manualPanelsByPoly[pIdx]);
+              pl._hasManualPanels = true;
+              pl._preserveImportedPanels = true;
+              pl.roofInfo = pl.roofInfo || {};
+              pl.roofInfo.panels = revManualPl;
+            }
+          });
+          if (global.roofPanelsCache) global.roofPanelsCache.sig = '';
           WPpln.selectedPolyIdx = (typeof data.selectedPolyIdx === 'number') ? data.selectedPolyIdx : (WPpln.polylines.length > 0 ? 0 : -1);
           if (Array.isArray(data.polygonPoints) && Array.isArray(global.polygonPoints)) {
             replaceInPlace(global.polygonPoints, revive(data.polygonPoints));
@@ -297,6 +342,7 @@
         }
         if (typeof global.wpRenderActivePlaneGizmo === 'function') global.wpRenderActivePlaneGizmo();
         if (typeof global.wpRenderAllPolylines === 'function') global.wpRenderAllPolylines();
+        if (typeof global.recalculateLayoutAndObstacles === 'function') global.recalculateLayoutAndObstacles();
         if (typeof global.wpFastRenderSimulatedPanels === 'function') global.wpFastRenderSimulatedPanels();
         if (typeof global.wpUpdateUI === 'function') global.wpUpdateUI();
         if (typeof global.wpSyncVertexInputs === 'function') global.wpSyncVertexInputs();

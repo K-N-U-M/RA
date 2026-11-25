@@ -242,16 +242,35 @@
 
       // 2. Estructuras portantes si hay más de 200 módulos
       const panelCount = (global.allRenderedPanels && global.allRenderedPanels.length) || 0;
-      if (panelCount > 200 && global.simulatedSupportsPolylineCollection) {
-        if (global.simulatedSupportsPolylineCollection.show !== showMicroDetails) {
+      if (panelCount > 200) {
+        if (global.simulatedSupportsPolylineCollection && global.simulatedSupportsPolylineCollection.show !== showMicroDetails) {
           global.simulatedSupportsPolylineCollection.show = showMicroDetails;
           needsRender = true;
+        }
+        if (global._faldonSupportCollections && typeof global._faldonSupportCollections.forEach === 'function') {
+          global._faldonSupportCollections.forEach((sc) => {
+            if (sc && (!sc.isDestroyed || !sc.isDestroyed()) && sc.show !== showMicroDetails) {
+              sc.show = showMicroDetails;
+              needsRender = true;
+            }
+          });
         }
       }
 
       if (needsRender && global.viewer && global.viewer.scene && typeof global.viewer.scene.requestRender === 'function') {
         global.viewer.scene.requestRender();
       }
+    },
+
+    notifyQualityChanged: function(patch) {
+      if (!patch || typeof patch !== 'object') return;
+      if (typeof patch.sse === 'number') _savedState.sse = patch.sse;
+      if (typeof patch.skipLod === 'boolean') _savedState.skipLod = patch.skipLod;
+      if (typeof patch.loadSiblings === 'boolean') _savedState.loadSiblings = patch.loadSiblings;
+      if (typeof patch.cullMoving === 'boolean') _savedState.cullMoving = patch.cullMoving;
+      if (typeof patch.dynamicSse === 'boolean') _savedState.dynamicSse = patch.dynamicSse;
+      if (typeof patch.softShadows === 'boolean') _savedState.softShadows = patch.softShadows;
+      if (typeof patch.resScale === 'number') _savedState.resScale = patch.resScale;
     },
 
     getLod: function() {
