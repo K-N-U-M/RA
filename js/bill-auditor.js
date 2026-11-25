@@ -884,10 +884,14 @@ Normas estrictas:
     let batCap = 0;
 
     if (typeof getProjectCalcs === 'function') {
-      const d = getProjectCalcs();
-      if (d && d.numPanels > 0) {
-        kwp = (d.numPanels * (d.cfg.potencia || 450)) / 1000.0;
-        annualYieldKWh = d.annualKWh || (kwp * 1450);
+      try {
+        const d = getProjectCalcs();
+        if (d && d.numPanels > 0) {
+          kwp = (d.numPanels * (d.cfg.potencia || 450)) / 1000.0;
+          annualYieldKWh = d.annualKWh || (kwp * 1450);
+        }
+      } catch (errCalcs) {
+        if (window.RA && window.RA.log) window.RA.log.warn('getProjectCalcs no disponible para comparativa', errCalcs);
       }
     }
     const batEl = document.getElementById('cfg-pres-bat-opt');

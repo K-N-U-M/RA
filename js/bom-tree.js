@@ -785,7 +785,7 @@
           const lightningDcSurcharge = hasLightningRod ? 135.0 : 0;
           // [F2-08] Escalar aparamenta y SPD DC (1000V / 1200V / 1500V CC) según max(1.20 * Voc_cold, V_dc_max)
           const vocColdBom = (engCanonical && engCanonical.vocMaxCold > 0) ? engCanonical.vocMaxCold : 600;
-          const vMaxInvDc = (invSpec && invSpec.maxDcV > 0) ? invSpec.maxDcV : 1000;
+          const vMaxInvDc = (activeInvSpec && activeInvSpec.maxDcV > 0) ? activeInvSpec.maxDcV : 1000;
           const reqDcUe = Math.max(1.20 * vocColdBom, vMaxInvDc);
           const dcVoltageRatingV = reqDcUe > 1200 ? 1500 : (reqDcUe > 1000 ? 1200 : 1000);
           const hvDcSurcharge = dcVoltageRatingV >= 1500 ? 185.0 : (dcVoltageRatingV >= 1200 ? 95.0 : 0);

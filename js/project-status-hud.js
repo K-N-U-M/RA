@@ -794,12 +794,20 @@
     if (typeof requestAnimationFrame === 'function') {
       requestAnimationFrame(() => {
         _updatePending = false;
-        updateHUD();
+        try {
+          updateHUD();
+        } catch (errHud) {
+          if (window.RA && window.RA.log) window.RA.log.warn('Error al actualizar HUD de estado', errHud);
+        }
       });
     } else {
       setTimeout(() => {
         _updatePending = false;
-        updateHUD();
+        try {
+          updateHUD();
+        } catch (errHud) {
+          if (window.RA && window.RA.log) window.RA.log.warn('Error al actualizar HUD de estado', errHud);
+        }
       }, 30);
     }
   }
