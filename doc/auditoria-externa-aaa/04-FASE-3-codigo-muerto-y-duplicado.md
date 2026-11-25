@@ -44,7 +44,7 @@
 | **Dependencias** | Coordinar con `F6-01` para no pisar trabajo de backend |
 | **Origen** | D-01 |
 | **Rama sugerida** | `clean/dedup-wasp-parser` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 El parser WAsP `.lib` y `lanczosGamma` están triplicados en `server.js`, `functions/index.js` y `js/wind/wind-resource.js`, con deriva grave de guardas: solo `server.js` valida `isInt`, longitud mínima y `if (!h10 || !h50)`; `functions/index.js` omite `if (!h10 || !h50)` y `wind-resource.js` omite ambas, exponiendo `NaN`/`Infinity`/`TypeError` ante un `.lib` malformado.
@@ -74,7 +74,7 @@ El parser WAsP `.lib` y `lanczosGamma` están triplicados en `server.js`, `funct
 | **Dependencias** | Ninguna |
 | **Origen** | D-02 |
 | **Rama sugerida** | `clean/remove-legacy-wind-turbine` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 `js/wind-turbine.js` (789 L) se carga en `index.html:57`, pero `renderAll()` (`L518-521`) aborta siempre porque `RAWindVisualizer` y `RAWind.Entity` cargan después (`L68, 70`), dejando sus `331-462` y UI `#wt-turbine-controls` muertas mientras duplica geometría 3D HAWT/VAWT y mantiene IDs huérfanos (`#obs-scale-summary`). Como bug colateral encontrado durante la verificación, `undo-manager.js:386-387` llama a `RAWindVisualizer.renderAllInCesium()`, método inexistente (`RAWindVisualizer` solo define `renderAll()`).
@@ -106,7 +106,7 @@ El parser WAsP `.lib` y `lanczosGamma` están triplicados en `server.js`, `funct
 | **Dependencias** | Ninguna |
 | **Origen** | D-04 |
 | **Rama sugerida** | `clean/dedup-solar-geometry-and-worker` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 Coexisten copias divergentes en tres puntos:
@@ -140,7 +140,7 @@ Coexisten copias divergentes en tres puntos:
 | **Dependencias** | Ninguna |
 | **Origen** | D-05 |
 | **Rama sugerida** | `clean/dedup-ensure-roof-geometry` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 Bloque casi idéntico de ~60 líneas que reconstruye `polygonAnalysis`, proyección a base `uVec`/`vVec`/`normal` y `poly.roofInfo`.
@@ -168,7 +168,7 @@ Bloque casi idéntico de ~60 líneas que reconstruye `polygonAnalysis`, proyecci
 | **Dependencias** | F0-08 (coordinar sobre `RASanitize` y handlers XSS) |
 | **Origen** | D-06 |
 | **Rama sugerida** | `clean/dedup-ai-fetch-and-escape` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 Cuatro `_aiFetch` distintos (`financials.js` sin `AbortController`/timeout), dos `getApiKey` con decodificación `enc:`, mapeo duplicado de turbinas importadas e implementaciones locales de `escapeHtml` duplicando `sanitizer.js`.
@@ -198,7 +198,7 @@ Cuatro `_aiFetch` distintos (`financials.js` sin `AbortController`/timeout), dos
 | **Dependencias** | Ninguna |
 | **Origen** | D-09 |
 | **Rama sugerida** | `clean/remove-dead-solar-analysis-ui` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 11 funciones (~905 líneas en `solar-engine.js`, ~35% del archivo, más 47 L en `app-main.js`) que dibujaban la antigua pestaña "Análisis Energético Comparativo" (`#btn-run-analysis`, `#analysis-*`, `#mc-dist-*`, `#daily-curve-*`, `#cfg-pvgis-*`). Todos los nodos DOM destino desaparecieron del HTML y no hay ningún llamador externo en producción ni en tests.
@@ -226,7 +226,7 @@ Cuatro `_aiFetch` distintos (`financials.js` sin `AbortController`/timeout), dos
 | **Dependencias** | F3-02, F3-09 (hacer tras borrar JS muerto para no perder tiempo en sus IDs) |
 | **Origen** | D-14 |
 | **Rama sugerida** | `clean/reconcile-orphan-dom-ids` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 Módulos activos ejecutan actualizaciones DOM constantes sobre >30 IDs inexistentes en `index.html`: algunos corresponden a controles eliminados (`#sol-tilt`, `#sol-annual-yield`, `#p2-summary-kwp`), otros provocan pérdidas funcionales silenciosas (`#btn-redo`, `#label-2d3d`, `#fin-tou-tarifa` que fuerza fallback `'plana'` en `wind-ui.js`, `#chk-snap-vert`, `#nav-info-address`, `#hud-mlpe-count`, `#hud-loss-val`), y varios mantienen fallbacks `||` a IDs retirados.
@@ -259,7 +259,7 @@ Módulos activos ejecutan actualizaciones DOM constantes sobre >30 IDs inexisten
 | **Dependencias** | F0-05, F0-06 |
 | **Origen** | D-07 + D-08 |
 | **Rama sugerida** | `clean/dedup-constants-and-helpers` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 Tres diccionarios paralelos de constantes (`ELEC_CONSTANTS`, `SOLAR_ENGINE_CONSTANTS`, `app-main.js:4827`), fórmulas repetidas con coeficientes distintos (`-0.0028` vs `-0.0026` vs `-0.0027`) en `engineering-explainer.js`, `project-config.js` y `cable-engine.js`, más copias de `defaultWindResourceConfig` (3×), `customEquipment` restore (2× en el mismo archivo), `hexToRgb` (con asimetría de validación), suma `area3D` y conversión SVG→Base64 para Word.
@@ -292,7 +292,7 @@ Tres diccionarios paralelos de constantes (`ELEC_CONSTANTS`, `SOLAR_ENGINE_CONST
 | **Dependencias** | F3-06 |
 | **Origen** | D-10 + D-11 + D-12 |
 | **Rama sugerida** | `clean/purge-dead-js-appmain-workingplane` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 Cientos de líneas heredadas sin ningún llamador ni elemento UI correspondiente: handlers antiguos de Paso 6 sliders, controles de estructura, consumo/subtabs, gizmo de vértices legacy, 190 L inalcanzables en `generatePdfReport`, pares casi duplicados Edit/New de aerogeneradores (`app-main.js`), 12 funciones/stubs muertos (`working-plane.js`), `wpConfigureShadowMap` sobreescrito (`shadow-settings.js` vs `app-main.js`), `_initTriadOnce` duplicado en `viewer.js`, re-exportaciones `window.*` dobles y exports sin llamadores (`exportToWord`, `undoGeometry`/`redoGeometry`, `_startPulseLoop`, etc.).
@@ -324,7 +324,7 @@ Cientos de líneas heredadas sin ningún llamador ni elemento UI correspondiente
 | **Dependencias** | F3-07 |
 | **Origen** | D-15 + D-16 |
 | **Rama sugerida** | `clean/dedup-and-purge-dead-css` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 1. `.solar-mode-btn`, `:hover` y `.active` están declaradas dos veces en `css/styles.css` (la segunda pisa a la primera con `!important` y colores opuestos); `.wp-step-icon` es huérfana y se repite dos veces; `index.html` incrusta 3 bloques `<style>` compitiendo con `styles.css` y mutaciones inline de `wpSwitchGenTab`.
@@ -354,7 +354,7 @@ Cientos de líneas heredadas sin ningún llamador ni elemento UI correspondiente
 | **Dependencias** | Ninguna |
 | **Origen** | D-03 + D-13 |
 | **Rama sugerida** | `clean/env-example-location-and-logs` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 1. `js/ra-env.example.js` es la única plantilla documental dentro del árbol de código runtime `js/`.

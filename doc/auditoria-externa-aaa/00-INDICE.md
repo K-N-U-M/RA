@@ -1,8 +1,8 @@
 # Auditoría Externa Integral y Hoja de Ruta Calidad AAA — Índice Maestro
 
-> **Proyecto auditado:** RA Solar 3D (`ra-solar-3d`) — Rama base `main` · Versión `3.2.0` (`package.json`)  
-> **Fecha de auditoría:** 2026-11-24  
-> **Semáforo Global Actual:** 🔴 **ROJO — Aplicación funcional y muy rica en dominio, pero con deuda arquitectónica crítica, fallos normativos/eléctricos P0, inconsistencias contables multi-documento y superficie XSS abierta que impiden considerarla apta para producción empresarial AAA sin estabilización previa.**
+> **Proyecto auditado:** RA Solar 3D (`ra-solar-3d`) — Rama activa `feat/remediacion-aaa` · Versión `3.2.0` (`package.json`)  
+> **Fecha de auditoría inicial:** 2026-11-24 · **Verificación Post-Remediación:** 2026-11-25  
+> **Semáforo Global Actual:** 🟡 **AMARILLO (ÁMBAR) — Estabilización avanzada (63/78 `[Hecho]` · 14 `[Parcial]` · 1 `[Pendiente]`). Todos los bloqueantes críticos inmediatos de seguridad XSS/CSP, normativa eléctrica REBT, motor 3D/raycast y accesibilidad WCAG 2.2 AA P0 han sido resueltos y verificados en segunda auditoría independiente (ver [10-VERIFICACION-POST-REMEDIACION.md](./10-VERIFICACION-POST-REMEDIACION.md)). Apta para preproducción/piloto controlado; pendiente de cerrar deuda estructural Fase 4, ejecución autorizada de suites E2E/Emulator y activación de secretos/App Check en nube para alcanzar 🟢 VERDE pleno.**
 
 ---
 
@@ -82,7 +82,7 @@ Pueden lanzarse en paralelo de forma inmediata en ramas aisladas:
 | 12 | `F5-01` | Fase 5 | Tecla `Tab` bloqueada en UI tras mover ratón + stack `Escape` modal roto | `[Hecho]` |
 | 13 | `F5-02` | Fase 5 | `:focus-visible` suprimido globalmente y zoom móvil bloqueado | `[Hecho]` |
 | 14 | `F5-03` | Fase 5 | 6 `aria-label` corruptos (hasta 5.380 chars) y 4 `<label for>` apuntando a otro campo | `[Hecho]` |
-| 15 | `F4-03`..`F4-07` | Fase 4 | Deuda estructural P0: Store SSOT, ciclo `calcs<->fin`, 749 globals, SoC y 3 monolitos (ejecución ordenada post-Fase 3) | `[Pendiente]` |
+| 15 | `F4-03`..`F4-07` | Fase 4 | Deuda estructural P0: Store SSOT, ciclo `calcs<->fin`, 749 globals, SoC y 3 monolitos (ejecución ordenada post-Fase 3) | `[Parcial]` |
 
 ---
 
@@ -106,56 +106,56 @@ Pueden lanzarse en paralelo de forma inmediata en ramas aisladas:
 ### Fase 1 — Rendimiento Motor 3D / WebGL
 | ID | Título | Sev. | Esf. | Dependencias | Origen | Estado |
 | :--- | :--- | :---: | :---: | :--- | :--- | :--- |
-| `F1-01` | Erradicar 12 `CallbackProperty`, `rAF` idle en `RABenchmark` y renders múltiples `Triad2D` | P1 | L | — | A-09 | `[Pendiente]` |
-| `F1-02` | Migrar paneles, edificios y obstáculos de rebuild `O(N)` síncrono a instancing/batching | P1 | XL | — | A-08 | `[Pendiente]` |
-| `F1-03` | Corregir caché de exclusión 3D y ceguera de `pickFromRay` ante edificios/obstáculos CAD | P0 | L | F1-02 | A-03 | `[Pendiente]` |
-| `F1-04` | Corregir Modo Captura Limpia frente a zoom LOD, multi-selección y previews | P2 | S | F0-04 | A-11 | `[Pendiente]` |
-| `F1-05` | Optimizar Skybox procedural sin regeneración JPEG continua al mover reloj solar | P2 | M | — | A-12 | `[Pendiente]` |
-| `F1-06` | Indexar picking/snapping `O(log N)` y unificar listeners bajo `RA.addListener` | P2 | L | F0-04 | A-13 | `[Pendiente]` |
-| `F1-07` | Purgar `_raScaledBoxes`, multi-selección batched, `ShadowMap` inicial y código muerto render | P2 | M | F1-02 | A-14 | `[Pendiente]` |
+| `F1-01` | Erradicar 12 `CallbackProperty`, `rAF` idle en `RABenchmark` y renders múltiples `Triad2D` | P1 | L | — | A-09 | `[Hecho]` |
+| `F1-02` | Migrar paneles, edificios y obstáculos de rebuild `O(N)` síncrono a instancing/batching | P1 | XL | — | A-08 | `[Hecho]` |
+| `F1-03` | Corregir caché de exclusión 3D y ceguera de `pickFromRay` ante edificios/obstáculos CAD | P0 | L | F1-02 | A-03 | `[Hecho]` |
+| `F1-04` | Corregir Modo Captura Limpia frente a zoom LOD, multi-selección y previews | P2 | S | F0-04 | A-11 | `[Hecho]` |
+| `F1-05` | Optimizar Skybox procedural sin regeneración JPEG continua al mover reloj solar | P2 | M | — | A-12 | `[Hecho]` |
+| `F1-06` | Indexar picking/snapping `O(log N)` y unificar listeners bajo `RA.addListener` | P2 | L | F0-04 | A-13 | `[Hecho]` |
+| `F1-07` | Purgar `_raScaledBoxes`, multi-selección batched, `ShadowMap` inicial y código muerto render | P2 | M | F1-02 | A-14 | `[Hecho]` |
 
 ### Fase 2 — Ingeniería FV, Normativa Eléctrica y Eólica
 | ID | Título | Sev. | Esf. | Dependencias | Origen | Estado |
 | :--- | :--- | :---: | :---: | :--- | :--- | :--- |
-| `F2-01` | Unificar feedback pérdidas óhmicas en cable y suprimir doble descuento bypass PR | P1 | M | F0-05, F0-06 | B-06 | `[Pendiente]` |
-| `F2-02` | Converger los 4 motores de producción solar en único motor SSOT Perez + Faiman/TMY | P1 | L | F2-01 | B-07 | `[Pendiente]` |
-| `F2-03` | Corregir fuga de paneles fantasma al Solar Worker, etiquetas de resolución y ciclo térmico | P1 | M | F2-02 | B-08 | `[Pendiente]` |
-| `F2-04` | Unificar despacho híbrido `8760h` (FV+ERA5+BESS) y arreglar doble cobro en arbitraje | P1 | L | F2-02 | B-09 | `[Pendiente]` |
-| `F2-05` | Subsanar tierra ITC-BT-18, umbral AC Proyecto/MTD, límite 1F RD1699 y `cosφ` | P1 | S | — | B-10 | `[Pendiente]` |
-| `F2-06` | Unificar unifilares UI Paso 4, SVG EPLAN y DXF (microinversores, >3 strings, BESS) | P1 | L | F0-05, F0-07 | B-11 | `[Pendiente]` |
-| `F2-07` | Corregir `isc < imp` en catálogo, ratio microinversores 1:1/4:1, scope y `balasto` BOM | P1 | M | — | B-12 | `[Pendiente]` |
-| `F2-08` | Integrar protecciones DC `1000V/1500V` con ganancia bifacial en BOM y cálculos | P2 | S | F0-06, F0-07 | B-13 | `[Pendiente]` |
-| `F2-09` | Alinear eléctrico eólico con constantes REBT, término reactivo `X` y `Voc_overspeed` | P2 | S | — | B-14 | `[Pendiente]` |
-| `F2-10` | Corregir paso entre filas vectorial y proyección rayo-plano en obstáculos | P2 | M | — | B-15 | `[Pendiente]` |
-| `F2-11` | Corregir Monte Carlo P50/P90, flags auto-ingeniería, multi-turbina flicker y latitud | P2 | M | F2-02 | B-16, B-17 | `[Pendiente]` |
-| `F2-12` | Ampliar perfil de horizonte `< 6°` y acoplar diodos de bypass por string en sombras | P3 | L | F2-02, F2-03 | B-18 | `[Pendiente]` |
+| `F2-01` | Unificar feedback pérdidas óhmicas en cable y suprimir doble descuento bypass PR | P1 | M | F0-05, F0-06 | B-06 | `[Hecho]` |
+| `F2-02` | Converger los 4 motores de producción solar en único motor SSOT Perez + Faiman/TMY | P1 | L | F2-01 | B-07 | `[Hecho]` |
+| `F2-03` | Corregir fuga de paneles fantasma al Solar Worker, etiquetas de resolución y ciclo térmico | P1 | M | F2-02 | B-08 | `[Hecho]` |
+| `F2-04` | Unificar despacho híbrido `8760h` (FV+ERA5+BESS) y arreglar doble cobro en arbitraje | P1 | L | F2-02 | B-09 | `[Hecho]` |
+| `F2-05` | Subsanar tierra ITC-BT-18, umbral AC Proyecto/MTD, límite 1F RD1699 y `cosφ` | P1 | S | — | B-10 | `[Hecho]` |
+| `F2-06` | Unificar unifilares UI Paso 4, SVG EPLAN y DXF (microinversores, >3 strings, BESS) | P1 | L | F0-05, F0-07 | B-11 | `[Hecho]` |
+| `F2-07` | Corregir `isc < imp` en catálogo, ratio microinversores 1:1/4:1, scope y `balasto` BOM | P1 | M | — | B-12 | `[Hecho]` |
+| `F2-08` | Integrar protecciones DC `1000V/1500V` con ganancia bifacial en BOM y cálculos | P2 | S | F0-06, F0-07 | B-13 | `[Hecho]` |
+| `F2-09` | Alinear eléctrico eólico con constantes REBT, término reactivo `X` y `Voc_overspeed` | P2 | S | — | B-14 | `[Hecho]` |
+| `F2-10` | Corregir paso entre filas vectorial y proyección rayo-plano en obstáculos | P2 | M | — | B-15 | `[Hecho]` |
+| `F2-11` | Corregir Monte Carlo P50/P90, flags auto-ingeniería, multi-turbina flicker y latitud | P2 | M | F2-02 | B-16, B-17 | `[Hecho]` |
+| `F2-12` | Ampliar perfil de horizonte `< 6°` y acoplar diodos de bypass por string en sombras | P3 | L | F2-02, F2-03 | B-18 | `[Hecho]` |
 
 ### Fase 3 — Código Muerto y Duplicado
 | ID | Título | Sev. | Esf. | Dependencias | Origen | Estado |
 | :--- | :--- | :---: | :---: | :--- | :--- | :--- |
-| `F3-01` | Consolidar `parseWAsPLib` / `lanczosGamma` entre `server.js`, `functions` y cliente | P1 | M | F0-09 | D-01 | `[Pendiente]` |
-| `F3-02` | Retirar archivo huérfano `js/wind-turbine.js` (789 L) y arreglar Undo `renderAll()` | P1 | M | — | D-02 | `[Pendiente]` |
-| `F3-03` | Unificar geometría 2D, sub-strings y física solar duplicada entre main y `solar-worker.js` | P1 | M | — | D-04 | `[Pendiente]` |
-| `F3-04` | Consolidar `ensureRoofGeometry` entre `project-storage.js` y `solar-heatmap.js` | P1 | S | — | D-05 | `[Pendiente]` |
-| `F3-05` | Consolidar 4 `_aiFetch`, 2 `getApiKey`, mapeo turbinas y 2 `escapeHtml` | P1 | M | F0-08 | D-06 | `[Pendiente]` |
-| `F3-06` | Purgar subsistema UI muerto "Análisis Energético Comparativo" (~950 L) | P1 | S | — | D-09 | `[Pendiente]` |
-| `F3-07` | Auditar y resolver 30+ IDs DOM huérfanos (`#btn-redo`, `#label-2d3d`, `#fin-tou-tarifa`, etc.) | P1 | L | F3-02, F3-09 | D-14 | `[Pendiente]` |
-| `F3-08` | Consolidar constantes eléctrico-solares, fórmulas `Voc`/`ΔV` y helpers duplicados | P2 | M | F0-05, F0-06 | D-07, D-08 | `[Pendiente]` |
-| `F3-09` | Purgar código muerto JS en `app-main.js`, `working-plane.js`, `_initTriadOnce` y aliases | P2 | M | F3-06 | D-10..D-12 | `[Pendiente]` |
-| `F3-10` | Fusionar `.solar-mode-btn`, retirar `<style>` de `index.html` y purgar >300 L CSS muerto | P2 | M | F3-07 | D-15, D-16 | `[Pendiente]` |
-| `F3-11` | Mover `ra-env.example.js` fuera de `js/` y migrar 7 `console.log`/`info` a `RA.log` | P3 | S | — | D-03, D-13 | `[Pendiente]` |
+| `F3-01` | Consolidar `parseWAsPLib` / `lanczosGamma` entre `server.js`, `functions` y cliente | P1 | M | F0-09 | D-01 | `[Hecho]` |
+| `F3-02` | Retirar archivo huérfano `js/wind-turbine.js` (789 L) y arreglar Undo `renderAll()` | P1 | M | — | D-02 | `[Hecho]` |
+| `F3-03` | Unificar geometría 2D, sub-strings y física solar duplicada entre main y `solar-worker.js` | P1 | M | — | D-04 | `[Hecho]` |
+| `F3-04` | Consolidar `ensureRoofGeometry` entre `project-storage.js` y `solar-heatmap.js` | P1 | S | — | D-05 | `[Hecho]` |
+| `F3-05` | Consolidar 4 `_aiFetch`, 2 `getApiKey`, mapeo turbinas y 2 `escapeHtml` | P1 | M | F0-08 | D-06 | `[Hecho]` |
+| `F3-06` | Purgar subsistema UI muerto "Análisis Energético Comparativo" (~950 L) | P1 | S | — | D-09 | `[Hecho]` |
+| `F3-07` | Auditar y resolver 30+ IDs DOM huérfanos (`#btn-redo`, `#label-2d3d`, `#fin-tou-tarifa`, etc.) | P1 | L | F3-02, F3-09 | D-14 | `[Hecho]` |
+| `F3-08` | Consolidar constantes eléctrico-solares, fórmulas `Voc`/`ΔV` y helpers duplicados | P2 | M | F0-05, F0-06 | D-07, D-08 | `[Hecho]` |
+| `F3-09` | Purgar código muerto JS en `app-main.js`, `working-plane.js`, `_initTriadOnce` y aliases | P2 | M | F3-06 | D-10..D-12 | `[Hecho]` |
+| `F3-10` | Fusionar `.solar-mode-btn`, retirar `<style>` de `index.html` y purgar >300 L CSS muerto | P2 | M | F3-07 | D-15, D-16 | `[Hecho]` |
+| `F3-11` | Mover `ra-env.example.js` fuera de `js/` y migrar 7 `console.log`/`info` a `RA.log` | P3 | S | — | D-03, D-13 | `[Hecho]` |
 
 ### Fase 4 — Arquitectura Modular
 | ID | Título | Sev. | Esf. | Dependencias | Origen | Estado |
 | :--- | :--- | :---: | :---: | :--- | :--- | :--- |
-| `F4-01` | Introducir Vite + ESM base y eliminar 74 `?v=` manuales / version skew en Workers | P1 | L | Fase 3 | C-06, C-07 | `[Pendiente]` |
-| `F4-02` | Configurar TypeScript incremental (`allowJs`, `checkJs`) y contratos `@ra/contracts` | P1 | L | F4-01 | C-09 | `[Pendiente]` |
-| `F4-03` | Implantar Store Centralizado + Typed Event Bus y romper ciclo `calcs <-> fin` | P0 | XL | F4-01 | C-05 | `[Pendiente]` |
-| `F4-04` | Unificar telemetría, erradicar 451 `catch` vacíos y retirar timers/doble mutex | P1 | M | F4-01, F4-03 | C-08, C-10 | `[Pendiente]` |
-| `F4-05` | Encapsular 749 globales `window.*`, 17 sin IIFE y monkey-patching en runtime | P0 | L | F4-01, F4-03 | C-02, C-03 | `[Pendiente]` |
+| `F4-01` | Introducir Vite + ESM base y eliminar 74 `?v=` manuales / version skew en Workers | P1 | L | Fase 3 | C-06, C-07 | `[Parcial]` |
+| `F4-02` | Configurar TypeScript incremental (`allowJs`, `checkJs`) y contratos `@ra/contracts` | P1 | L | F4-01 | C-09 | `[Hecho]` |
+| `F4-03` | Implantar Store Centralizado + Typed Event Bus y romper ciclo `calcs <-> fin` | P0 | XL | F4-01 | C-05 | `[Hecho]` |
+| `F4-04` | Unificar telemetría, erradicar 451 `catch` vacíos y retirar timers/doble mutex | P1 | M | F4-01, F4-03 | C-08, C-10 | `[Parcial]` |
+| `F4-05` | Encapsular 749 globales `window.*`, 17 sin IIFE y monkey-patching en runtime | P0 | L | F4-01, F4-03 | C-02, C-03 | `[Parcial]` |
 | `F4-06` | Extraer motores puros sin DOM ni Cesium (`solar`, `electrical`, `financial`, `cad`) | P0 | XL | F4-02, F4-03 | C-04 | `[Pendiente]` |
-| `F4-07` | Desmantelar los 3 monolitos (`app-main`, `working-plane`, `financials`) y 495 `on*` inline | P0 | XL | F4-03..F4-06 | C-01 | `[Pendiente]` |
-| `F4-08` | Aislar servicio IA/APIs externas en adaptador BFF (retirar Gemini de `financials.js`) | P2 | M | F0-09, F4-06 | C-11 | `[Pendiente]` |
+| `F4-07` | Desmantelar los 3 monolitos (`app-main`, `working-plane`, `financials`) y 495 `on*` inline | P0 | XL | F4-03..F4-06 | C-01 | `[Parcial]` |
+| `F4-08` | Aislar servicio IA/APIs externas en adaptador BFF (retirar Gemini de `financials.js`) | P2 | M | F0-09, F4-06 | C-11 | `[Hecho]` |
 
 ### Fase 5 — UI/UX, Design System y Accesibilidad
 | ID | Título | Sev. | Esf. | Dependencias | Origen | Estado |

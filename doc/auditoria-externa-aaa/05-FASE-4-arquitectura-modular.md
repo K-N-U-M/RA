@@ -80,7 +80,7 @@
 | **Dependencias** | Fase 3 completada |
 | **Origen** | C-06 + C-07 |
 | **Rama sugerida** | `arch/vite-bundler-esm` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Parcial]` |
 
 #### Contexto y Problema
 La app sirve 78 scripts sin bundling (>5 MB en bruto), `firebase.json` fuerza `no-cache` en todos los assets por ausencia de content-hash y **37 versiones distintas `?v=`** provocan *version skew* activo: `index.html:58,69` carga `wind-constants.js?v=20261024b` mientras `wind-worker.js:141,144` importa `?v=20261118_t3`. Además `js/error-handler.js` y `js/ra-env.js` carecen de versión.
@@ -117,7 +117,7 @@ La app sirve 78 scripts sin bundling (>5 MB en bruto), `firebase.json` fuerza `n
 | **Dependencias** | F4-01 |
 | **Origen** | C-09 |
 | **Rama sugerida** | `arch/typescript-contracts` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 No existe `tsconfig.json` ni validación estática (`0/82` archivos verificados). Esto provoca errores silenciosos como **9 claves duplicadas** en un mismo literal de retorno en `project-calcs.js:298-426`, comprobaciones defensivas continuas (`wp || potencia || power`, `tiltDeg` vs `pitch`, `lng` vs `lon`, `lat` vs `latitude`) y roturas ocultas al cambiar estructuras.
@@ -149,7 +149,7 @@ No existe `tsconfig.json` ni validación estática (`0/82` archivos verificados)
 | **Dependencias** | F4-01 |
 | **Origen** | C-05 |
 | **Rama sugerida** | `arch/central-store-event-bus` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 1. El estado del proyecto vive disperso y duplicado (`solarProjectConfig`, `panelConfig`, `equipmentCatalog`, `WP.polylines`, `polygonPoints`, `lastRoofInfo`, `allRenderedPanels`, 22 claves en `localStorage`) con parches de mutación forzada tras navegar (`[AUDIT-LOCK]` en `project-storage.js:1793-1816`).
@@ -189,7 +189,7 @@ No existe `tsconfig.json` ni validación estática (`0/82` archivos verificados)
 | **Dependencias** | F4-01, F4-03 |
 | **Origen** | C-08 + C-10 |
 | **Rama sugerida** | `arch/telemetry-and-lifecycle-promises` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Parcial]` |
 
 #### Contexto y Problema
 1. Existen **451 `catch` vacíos/silenciosos** (`project-storage.js` 91, `app-main.js` 59, `working-plane.js` 43, `financials.js` 35, `solar-worker.js:15`, `wind-worker.js:152`) y dos handlers globales de `unhandledrejection` compitiendo (`error-handler.js` vs `config.js`, que hace `preventDefault()`).
@@ -225,7 +225,7 @@ No existe `tsconfig.json` ni validación estática (`0/82` archivos verificados)
 | **Dependencias** | F4-01, F4-03 |
 | **Origen** | C-02 + C-03 |
 | **Rama sugerida** | `arch/remove-global-pollution` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Parcial]` |
 
 #### Contexto y Problema
 17 de 82 archivos no tienen siquiera un IIFE, contaminando el scope léxico global con `const viewer`, `const scene`, `const universalGizmoState`; `cad-events-controller.js:7` usa `scene` implícito; `project-config.js:26` asume que un script anterior ya creó `window.RA`; `panel-renderer-3d.js:30` llama funciones definidas 24 scripts después; existen duplicaciones de bindings (`applyInverterFromCatalog` asignado 4 veces entre `working-plane.js` y `app-main.js`), fragmentación `window.RA_App` vs `window.RA`, y **monkey-patching** de `window.wpUpdateUI` / `step3UpdateHardwareSelection` que falla cuando la función es llamada localmente dentro de una IIFE (`26` llamadas locales en `working-plane.js` saltándose el wrapper del HUD).
@@ -290,7 +290,7 @@ Los motores de ingeniería mezclan cálculo físico/normativo/financiero con man
 | **Dependencias** | F4-03, F4-04, F4-05, F4-06 |
 | **Origen** | C-01 |
 | **Rama sugerida** | `arch/decompose-monoliths-and-inline-handlers` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Parcial]` |
 
 #### Contexto y Problema
 Tres ficheros concentran **26.338 líneas** (`app-main.js` 10.003, `working-plane.js` 8.172, `financials.js` 8.163), mezclando `'use strict'` inválido a mitad de `app-main.js:443` y fragmentos residuales (`L9971-10003`). Paralelamente, `index.html` suma 4.222 líneas con **495 handlers `on*` inline** que bloquean cualquier endurecimiento de CSP y atan la UI a funciones globales.
@@ -322,7 +322,7 @@ Tres ficheros concentran **26.338 líneas** (`app-main.js` 10.003, `working-plan
 | **Dependencias** | F0-09 (proxy/reglas backend), F4-06 |
 | **Origen** | C-11 |
 | **Rama sugerida** | `arch/ai-adapter-bff` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 `financials.js:545-557` ejecuta peticiones directas contra Gemini mezcladas con lógica financiera, y tres módulos distintos (`bill-auditor.js`, `equipment-ai-importer.js`, `equipment-web-search.js`) leen directamente la clave desde `localStorage` con prompts y parsing ad-hoc dispersos.

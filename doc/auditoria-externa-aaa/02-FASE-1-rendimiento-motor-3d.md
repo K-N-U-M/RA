@@ -32,7 +32,7 @@
 | **Dependencias** | Ninguna (se recomienda haber resuelto F0-04 para interacción teclado) |
 | **Origen** | A-09 |
 | **Rama sugerida** | `perf/webgl-idle-zero-fps` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 Aunque `viewer` intenta usar `requestRenderMode: true`, múltiples mecanismos fuerzan repintado continuo a 60 FPS o sobrecargan cada frame de cámara:
@@ -78,7 +78,7 @@ Aunque `viewer` intenta usar `requestRenderMode: true`, múltiples mecanismos fu
 | **Dependencias** | Ninguna |
 | **Origen** | A-08 |
 | **Rama sugerida** | `perf/gpu-instancing-batching` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 El motor 3D destruye y reconstruye completamente la geometría entera de la escena ante ediciones unitarias, realizando compilaciones de shaders e uploads síncronos en el hilo principal (**24** `Cesium.Primitive` creadas con `asynchronous: false`):
@@ -121,7 +121,7 @@ El motor 3D destruye y reconstruye completamente la geometría entera de la esce
 | **Dependencias** | F1-02 (por gestión estable de referencias a primitivas `_buildingPrimitives`/`_obsPrimitives`) |
 | **Origen** | A-03 |
 | **Rama sugerida** | `fix/3d-raycast-occlusion-cad-buildings` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 La evaluación de oclusión solar (`isPanelOccludedBy3DEnvironment` y `computeFieldHorizonProfileAsync`) sufre tres fallos graves:
@@ -157,7 +157,7 @@ La evaluación de oclusión solar (`isPanelOccludedBy3DEnvironment` y `computeFi
 | **Dependencias** | F0-04 (desconflictar atajo `C`) |
 | **Origen** | A-11 |
 | **Rama sugerida** | `fix/capture-mode-lod-cleanup` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 Al activar Modo Captura Limpia (`RACapture`), hacer zoom cruzando los 85 m dispara `RALodManager.applyLod()`, que vuelve a encender `_panelNumberLabelCollection.show = true` ignorando `RACapture.enabled`. Adicionalmente, `capture-mode.js` intenta ocultar el antiguo `panelOutlineEntity` singular pero omite el array actual `window.panelOutlineEntities`, además de faltar prefijos recientes (`ra_live_route_preview`, `temp_bld_`) en `HIDE_ID_PREFIXES`.
@@ -188,7 +188,7 @@ Al activar Modo Captura Limpia (`RACapture`), hacer zoom cruzando los 85 m dispa
 | **Dependencias** | Ninguna |
 | **Origen** | A-12 |
 | **Rama sugerida** | `perf/procedural-skybox-rotation` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 `_resolveSkyboxZenithTeme()` transforma el cenit local ENU al marco TEME dependiente de `clock.currentTime`. En cuanto el usuario arrastra el deslizador horario solar o reproduce la animación (>8 minutos / ~2° de rotación terrestre), se invalida `_raSkyboxCache[mode]`, se destruye el `SkyBox` y se regeneran en CPU las 6 caras `128×128` con trigonometría por píxel y 6 llamadas síncronas a `canvas.toDataURL('image/jpeg', 0.92)`, provocando tirones y fuga de texturas GPU.
@@ -215,7 +215,7 @@ Al activar Modo Captura Limpia (`RACapture`), hacer zoom cruzando los 85 m dispa
 | **Dependencias** | F0-04 (input arbiter) |
 | **Origen** | A-13 |
 | **Rama sugerida** | `perf/spatial-index-picking-snap` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 Tanto el hover/picking de fallback (`pickPanelUnderCursor`) como el snapping en `MOUSE_MOVE` (`findSnapPoint` / `collectCandidateSnapPoints`) iteran linealmente sobre el 100% de paneles, vértices, obstáculos y edificios ejecutando `SceneTransforms.wgs84ToWindowCoordinates` por candidato en cada frame de movimiento del ratón. Además, `cad-selection-suite.js` añade 5 listeners `pointerdown`/`pointerup` independientes fuera del registro `window.RA.addListener`.
@@ -246,7 +246,7 @@ Tanto el hover/picking de fallback (`pickPanelUnderCursor`) como el snapping en 
 | **Dependencias** | F1-02 |
 | **Origen** | A-14 |
 | **Rama sugerida** | `fix/memory-leaks-selection-shadows` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 1. `_raScaledBoxes` retiene `ConstantProperty` con referencias a equipos eléctricos destruidos al no purgarse dentro de `wpClearInverterAndCables()`.

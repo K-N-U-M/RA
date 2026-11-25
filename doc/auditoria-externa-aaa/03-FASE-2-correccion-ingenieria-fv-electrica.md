@@ -37,7 +37,7 @@
 | **Dependencias** | F0-05, F0-06 (unidades `%/°C` y longitud DC loop) |
 | **Origen** | B-06 |
 | **Rama sugerida** | `fix/solar-pr-wiring-bypass-double-count` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 1. `config.js:105` inicializa `window.solarLossConfig.wiring = 0.015`. En `cable-engine.js:2952`, la condición `if (!global.solarLossConfig.userCustomizedWiring && typeof global.solarLossConfig.wiring === 'undefined')` resulta siempre `false`, impidiendo que el cálculo real de pérdidas en cable alimente `solarLossConfig.wiring` y el PR.
@@ -70,7 +70,7 @@
 | **Dependencias** | F2-01 |
 | **Origen** | B-07 |
 | **Rama sugerida** | `refactor/solar-single-physics-engine` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 Coexisten **4 modelos incompatibles** que producen cifras de producción distintas según qué pantalla se mire:
@@ -109,7 +109,7 @@ Coexisten **4 modelos incompatibles** que producen cifras de producción distint
 | **Dependencias** | F2-02 |
 | **Origen** | B-08 |
 | **Rama sugerida** | `fix/solar-worker-ghost-panels-thermal` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 1. `runHeatmapInDedicatedWorker` envía todos los paneles de `pList` incluidos `deleted`, `disabled` e `isGhost` (ej. modo "Ahorro Justo"), acumulando energía de módulos fantasma en `solarSimState.monthlyKwh`, mientras el fallback sí los filtra.
@@ -142,7 +142,7 @@ Coexisten **4 modelos incompatibles** que producen cifras de producción distint
 | **Dependencias** | F2-02 |
 | **Origen** | B-09 |
 | **Rama sugerida** | `fix/hybrid-dispatch-unified-8760h` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 - `wind-hybrid-dispatch.js` genera vectores horarios sintéticos (campana centrada a las `13:00h` en solar y senoides deterministas en eólica) ignorando las orientaciones POA reales de los faldones y las series horarias ERA5 ya descargadas por `wind-resource.js:648`; aplica por defecto `fast_288`, deja `wkBlend` como variable muerta, reinicia días de la semana cada mes en `8760h`, modela eficiencia de batería asimétrica (`0.92` / `1.0`) sin límite AC del inversor híbrido y estima peak-shaving con `38.5 €/kW` fijo sin maxímetro.
@@ -174,7 +174,7 @@ Coexisten **4 modelos incompatibles** que producen cifras de producción distint
 | **Dependencias** | Ninguna |
 | **Origen** | B-10 |
 | **Rama sugerida** | `fix/rebt-itcbt18-itcbt04-rd1699` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 Cuatro desviaciones normativas directas en normativa española:
@@ -212,7 +212,7 @@ Cuatro desviaciones normativas directas en normativa española:
 | **Dependencias** | F0-05, F0-07 (datos eléctricos reales y topología MPPT validada) |
 | **Origen** | B-11 |
 | **Rama sugerida** | `feat/unifilar-unified-topology-dxf` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 Los tres esquemas unifilares (Paso 4 UI, SVG EPLAN y AutoCAD DXF) dibujan diagramas rígidos e incoherentes respecto a la ingeniería real:
@@ -246,7 +246,7 @@ Los tres esquemas unifilares (Paso 4 UI, SVG EPLAN y AutoCAD DXF) dibujan diagra
 | **Dependencias** | Ninguna |
 | **Origen** | B-12 |
 | **Rama sugerida** | `fix/catalog-mlpe-ratio-roof-sync` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 1. El módulo `tier1_std_450` en `DEFAULT_EQUIPMENT_CATALOG` declara `isc: 11.8` menor que `imp: 13.05` (físicamente imposible), y un optimizador DC (`mlpe_solaredge_s500`) está guardado dentro de `catalog.microinverters`.
@@ -282,7 +282,7 @@ Los tres esquemas unifilares (Paso 4 UI, SVG EPLAN y AutoCAD DXF) dibujan diagra
 | **Dependencias** | F0-06, F0-07 |
 | **Origen** | B-13 |
 | **Rama sugerida** | `fix/dc-protections-1500v-bifacial` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 `calculateElectricalProtections` no incluye la ganancia bifacial (`1.15`) en corrientes y además está desconectada de `computeSizingEngineering` y `bom-tree.js`. Como resultado, el BOM presupuesta cuadros y SPD DC fijos de `1000 V` aunque el diseño trabaje a `1100 V` o `1500 V` DC (`1.20 × Voc_cold > 1000 V`).
@@ -310,7 +310,7 @@ Los tres esquemas unifilares (Paso 4 UI, SVG EPLAN y AutoCAD DXF) dibujan diagra
 | **Dependencias** | Ninguna |
 | **Origen** | B-14 |
 | **Rama sugerida** | `fix/wind-electrical-rebt-parity` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 `wind-electrical.js` duplica tablas de secciones, usa `0.023` hardcodeado ignorando `CABLE_RESISTIVITY_CU` de `wind-constants.js:37`, omite la reactancia inductiva `X` en AC de larga tirada, no comprueba `Voc_overspeed` del generador PMSG sobre el bus DC/dump-load y carece de coordinación diferencial para inversores eólicos en red.
@@ -339,7 +339,7 @@ Los tres esquemas unifilares (Paso 4 UI, SVG EPLAN y AutoCAD DXF) dibujan diagra
 | **Dependencias** | Ninguna |
 | **Origen** | B-15 |
 | **Rama sugerida** | `fix/row-pitch-ray-plane-projection` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 1. `calculatePVsystRowPitch` impone un suelo arbitrario `cosAzProj >= 0.35` (penalizando configuraciones Este-Oeste) y divide `(footprintA + shadowDist) / cosRoof` proyectando sombra horizontal en vez de intersectar el rayo solar con el plano inclinado de cubierta (sobrestimando separación en faldones al Sur).
@@ -370,7 +370,7 @@ Los tres esquemas unifilares (Paso 4 UI, SVG EPLAN y AutoCAD DXF) dibujan diagra
 | **Dependencias** | F2-02 |
 | **Origen** | B-16 + B-17 |
 | **Rama sugerida** | `fix/p50-p90-flicker-autosizing-flags` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 1. `runMonteCarloP50P90` (`B-16`) reduce artificialmente la desviación estándar interanual climática (`sourceFactor`) por el simple hecho de consultar más APIs satelitales y perturba escalarmente sin propagar degradación ni variabilidad horaria.
@@ -408,7 +408,7 @@ Los tres esquemas unifilares (Paso 4 UI, SVG EPLAN y AutoCAD DXF) dibujan diagra
 | **Dependencias** | F2-02, F2-03 |
 | **Origen** | B-18 |
 | **Rama sugerida** | `feat/horizon-low-angle-string-iv-bypass` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 `computeFieldHorizonProfileAsync` comienza su barrido angular en `6°` de elevación solar (`probeLevels = [6, 14, 24, 38, 54]`), dejando invisible cualquier edificio u orografía entre `0°` y `6°` (crítico en solsticio de invierno o zonas montañosas). Además, el modelo de sombreado aplica un factor lineal independiente por módulo sin acoplar la caída conjunta de tensión por activación de diodos de bypass a nivel de string frente a `V_mppt_min`.
