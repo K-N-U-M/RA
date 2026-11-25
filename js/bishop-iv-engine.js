@@ -282,6 +282,15 @@
         // Patrón solar matutino/vespertino de sombras parciales sobre sub-strings
         var lowSunFactor = Math.max(0.25, Math.min(1.65, 0.55 / Math.max(0.18, sinAlt)));
 
+        // Agregación de bus DC común por inversor antes de aplicar eficiencia y clipping AC total (evita falso clipping Este-Oeste)
+        var stepDcGlobalW = 0;
+        var stepDcLocalW = 0;
+        var stepDcMlpeW = 0;
+        var stepIdealW = 0;
+        var stepMicroAcW = 0;
+        var stepVGlobalSum = 0;
+        var stepVLocalSum = 0;
+
         for (var si = 0; si < stringsList.length; si++) {
           var st = stringsList[si];
           var modSubIrr = [];
@@ -300,38 +309,27 @@
             var gSub1 = gPoa;
             var gSub2 = gPoa;
             if (shadeProb >= 0.06) {
-              // Sombra progresiva: afecta 1, 2 o los 3 sub-strings reduciendo directa y dejando difusa
               gSub0 = gDiff + gBeam * Math.max(0, 1 - shadeProb * 2.4);
               if (shadeProb >= 0.28) gSub1 = gDiff + gBeam * Math.max(0, 1 - (shadeProb - 0.22) * 2.1);
               if (shadeProb >= 0.58) gSub2 = gDiff + gBeam * Math.max(0, 1 - (shadeProb - 0.50) * 2.0);
             }
             modSubIrr.push([gSub0, gSub1, gSub2]);
 
-            // Potencia individual del módulo con MPPT propio (microinversor / MLPE independiente)
             var modMeanFactor = ((gSub0 + gSub1 + gSub2) / 3.0) / Math.max(1, gPoa);
-            // Eficiencia microinversor ~96.2%, optimizador ~98.6% * inversor
             pMicroStr += pSingleIdeal * modMeanFactor * 0.962;
             pMlpeStr += pSingleIdeal * modMeanFactor * (pInfo.hasOpt ? 0.986 : 1.0);
           }
 
           var iv = solveStringIVCurve(subP, modSubIrr, tCell, inv, false);
-          var etaG = inverterEfficiency(iv.pGlobalW * stringsList.length, iv.vGlobalV, inv, invCount);
-          var etaL = inverterEfficiency(iv.pLocalW * stringsList.length, iv.vLocalV, inv, invCount);
+          stepDcGlobalW += iv.pGlobalW;
+          stepDcLocalW += iv.pLocalW;
+          stepDcMlpeW += Math.max(iv.pGlobalW, pMlpeStr);
+          stepIdealW += pIdealStr;
+          stepMicroAcW += pMicroStr;
+          stepVGlobalSum += iv.vGlobalV;
+          stepVLocalSum += iv.vLocalV;
 
-          var acCapPerStringW = totalInvAcMaxW / Math.max(1, stringsList.length);
-          var pGlobalAc = Math.min(acCapPerStringW, iv.pGlobalW * etaG);
-          var pLocalAc = Math.min(acCapPerStringW, iv.pLocalW * etaL);
-          // MLPE selectivo evita que el módulo sombreado arrastre el string
-          var pMlpeAc = Math.min(acCapPerStringW, Math.max(pGlobalAc, pMlpeStr * etaG));
-
-          kwhIdealUnshaded += (pIdealStr * 0.975 * daysInM) / 1000.0;
-          kwhGlobal += (pGlobalAc * daysInM) / 1000.0;
-          kwhLocal += (pLocalAc * daysInM) / 1000.0;
-          kwhSelectiveMlpe += (pMlpeAc * daysInM) / 1000.0;
-          kwhMicro += (pMicroStr * daysInM) / 1000.0;
-
-          // Capturar el instante con mayor diferencia multi-pico para graficar la curva P-V real
-          var deltaW = (pGlobalAc - pLocalAc) + (pMlpeAc - pGlobalAc) * 0.5;
+          var deltaW = (iv.pGlobalW - iv.pLocalW) + (Math.max(iv.pGlobalW, pMlpeStr) - iv.pGlobalW) * 0.5;
           if (hr >= 9 && hr <= 15 && deltaW > maxMismatchDeltaW) {
             maxMismatchDeltaW = deltaW;
             criticalStringName = st.name;
@@ -339,6 +337,19 @@
             criticalCurve.hourLabel = 'Mes ' + (mIdx + 1) + ' · ' + hr + ':00 h (G=' + Math.round(gPoa) + ' W/m²)';
           }
         }
+
+        var nStrEff = Math.max(1, stringsList.length);
+        var etaG = inverterEfficiency(stepDcGlobalW, stepVGlobalSum / nStrEff, inv, invCount);
+        var etaL = inverterEfficiency(stepDcLocalW, stepVLocalSum / nStrEff, inv, invCount);
+        var pGlobalAcBus = Math.min(totalInvAcMaxW, stepDcGlobalW * etaG);
+        var pLocalAcBus = Math.min(totalInvAcMaxW, stepDcLocalW * etaL);
+        var pMlpeAcBus = Math.min(totalInvAcMaxW, Math.max(pGlobalAcBus, stepDcMlpeW * etaG));
+
+        kwhIdealUnshaded += (stepIdealW * 0.975 * daysInM) / 1000.0;
+        kwhGlobal += (pGlobalAcBus * daysInM) / 1000.0;
+        kwhLocal += (pLocalAcBus * daysInM) / 1000.0;
+        kwhSelectiveMlpe += (pMlpeAcBus * daysInM) / 1000.0;
+        kwhMicro += (stepMicroAcW * daysInM) / 1000.0;
       }
     }
 

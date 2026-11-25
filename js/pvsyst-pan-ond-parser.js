@@ -16,7 +16,7 @@
       if (!line || line.startsWith('#') || line.startsWith('//') || line.startsWith('PVObject_') || line.startsWith('End of')) continue;
       var eqIdx = line.indexOf('=');
       if (eqIdx <= 0) continue;
-      var key = line.slice(0, eqIdx).trim();
+      var key = line.slice(0, eqIdx).trim().toLowerCase();
       var val = line.slice(eqIdx + 1).trim();
       if (!(key in map)) map[key] = val;
     }
@@ -25,7 +25,7 @@
 
   function _num(map, keys, fallback) {
     for (var i = 0; i < keys.length; i++) {
-      var raw = map[keys[i]];
+      var raw = map[String(keys[i]).toLowerCase()];
       if (raw !== undefined && raw !== '') {
         var parsed = parseFloat(String(raw).replace(',', '.'));
         if (Number.isFinite(parsed)) return parsed;
@@ -36,7 +36,7 @@
 
   function _str(map, keys, fallback) {
     for (var i = 0; i < keys.length; i++) {
-      var raw = map[keys[i]];
+      var raw = map[String(keys[i]).toLowerCase()];
       if (raw && String(raw).trim()) return String(raw).trim();
     }
     return fallback;
@@ -123,20 +123,24 @@
     var brand = _str(kv, ['Manufacturer', 'Brand'], 'Fabricante PVsyst').slice(0, 60);
     var model = _str(kv, ['Model', 'Comment'], (filename || 'Inversor').replace(/\.ond$/i, '')).slice(0, 80);
     var kwNom = _num(kv, ['PNomConv', 'PMaxOUT'], 0);
-    // PVsyst expresa PNomConv en kW; solo convertir W->kW si supera 10000 (10 MW) claramente en vatios
-    if (kwNom > 10000) kwNom = kwNom / 1000;
+    var vMpptMin = _num(kv, ['VMppMin'], 120);
+    var vMpptMax = _num(kv, ['VMPPMax', 'VMppMax'], 850);
+    var vMpptNomMin = _num(kv, ['VMppNom', 'VMppMin'], Math.round(vMpptMin + (vMpptMax - vMpptMin) * 0.18));
+    var vAbsMax = _num(kv, ['VAbsMax', 'VMaxAbs'], Math.max(1000, vMpptMax + 100));
+    // Detección robusta de vatios vs kW: inversores BT (VAbsMax <= 1100V) con PNomConv > 500 o cualquier valor > 10000 vienen en W
+    if (kwNom > 10000 || (vAbsMax <= 1100 && kwNom > 500)) kwNom = kwNom / 1000;
     if (!(kwNom > 0)) {
       throw new Error('El archivo .OND no contiene potencia nominal válida (PNomConv).');
     }
 
-    var vMpptMin = _num(kv, ['VMppMin'], 120);
-    var vMpptMax = _num(kv, ['VMPPMax'], 850);
-    var vMpptNomMin = _num(kv, ['VMppNom', 'VMppMin'], Math.round(vMpptMin + (vMpptMax - vMpptMin) * 0.18));
-    var vAbsMax = _num(kv, ['VAbsMax', 'VMaxAbs'], Math.max(1000, vMpptMax + 100));
     var vStart = _num(kv, ['VStart', 'VThresh'], Math.max(80, Math.round(vMpptMin * 0.9)));
-    var iMaxDc = _num(kv, ['IMaxDC', 'IMaxDC_MPPT'], 16);
     var nbMppt = Math.max(1, Math.round(_num(kv, ['NbMPPT'], 2)));
     var nbInputs = Math.max(nbMppt, Math.round(_num(kv, ['NbInputs'], nbMppt)));
+    var iMaxDcMppt = _num(kv, ['IMaxDC_MPPT'], NaN);
+    var iMaxDcTotal = _num(kv, ['IMaxDC'], NaN);
+    var iMaxDc = Number.isFinite(iMaxDcMppt)
+      ? iMaxDcMppt
+      : (Number.isFinite(iMaxDcTotal) ? (iMaxDcTotal / nbMppt) : 16);
     var effMax = _num(kv, ['EfficMax', 'EuroEta'], 98.0);
     var phaseRaw = _str(kv, ['ModeOper', 'Phase', 'Tri'], '');
     var isThreePhase = /tri|3/i.test(phaseRaw) || kwNom > 6.5;

@@ -250,6 +250,7 @@ self.onmessage = async function(e) {
       tiltRad: tiltRad,
       coplanar: !!pData.coplanar,
       clearance: (typeof pData.clearance === 'number') ? pData.clearance : 0,
+      wp: (typeof pData.wp === 'number' && pData.wp > 0) ? pData.wp : 0,
       fViewSky: fViewSky,
       fViewGround: fViewGround,
       hasOptimizer: !!pData.hasOptimizer,
@@ -266,6 +267,8 @@ self.onmessage = async function(e) {
   const isBifacial = moduleProps.isBifacial || false;
   const bifacialityFactor = moduleProps.bifacialityFactor || 0.75;
   const iamB0 = (moduleProps && moduleProps.iamB0) || 0.05;
+  const pNomW = (typeof e.data.pNomW === 'number' && e.data.pNomW > 0) ? e.data.pNomW : ((moduleProps && moduleProps.wp) || 450);
+  const albedo = (typeof e.data.albedo === 'number' && e.data.albedo > 0 && e.data.albedo <= 0.85) ? e.data.albedo : ((moduleProps && typeof moduleProps.albedo === 'number') ? moduleProps.albedo : 0.20);
 
   for (let mIdx = 0; mIdx < monthsDoy.length; mIdx++) {
     const m = monthsReal[mIdx];

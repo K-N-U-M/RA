@@ -221,6 +221,7 @@
     }
 
     var isQuarterHourly = hasSubHourMinutes;
+    var quarterPeakKw = new Float32Array(35040);
     if (isQuarterHourly) {
       var seenPass2 = new Set();
       for (var i2 = 1; i2 < lines.length; i2++) {
@@ -234,15 +235,21 @@
         if (headers[idxCons] && headers[idxCons].indexOf('wh') !== -1 && headers[idxCons].indexOf('kwh') === -1) kwh2 /= 1000;
         var hIdx2 = _dayOfYear(dt2.y, dt2.m, dt2.d) * 24 + tq2.hour;
         var sk2 = hIdx2 * 4 + tq2.quarter;
-        if (hIdx2 >= 0 && hIdx2 < 8760 && !seenPass2.has(sk2)) {
+        if (hIdx2 >= 0 && hIdx2 < 8760 && sk2 >= 0 && sk2 < 35040 && !seenPass2.has(sk2)) {
           seenPass2.add(sk2);
           var kw15 = kwh2 * 4.0;
+          quarterPeakKw[sk2] = kw15;
           if (kw15 > hourlyPeakKw[hIdx2]) hourlyPeakKw[hIdx2] = kw15;
         }
       }
     } else {
       for (var h = 0; h < 8760; h++) {
         hourlyPeakKw[h] = hourlyKwh[h];
+        var qBase = h * 4;
+        quarterPeakKw[qBase] = hourlyKwh[h];
+        quarterPeakKw[qBase + 1] = hourlyKwh[h];
+        quarterPeakKw[qBase + 2] = hourlyKwh[h];
+        quarterPeakKw[qBase + 3] = hourlyKwh[h];
       }
     }
 
@@ -293,43 +300,74 @@
       maxPeakKw: Number(maxPeakKw.toFixed(2)),
       hourlyKwh: hourlyKwh,
       hourlyPeakKw: hourlyPeakKw,
+      quarterPeakKw: quarterPeakKw,
       suggestedTariff: maxPeakKw > 15 ? (maxPeakKw > 450 ? '6.1TD' : '3.0TD') : '2.0TD'
     };
   }
 
   /**
-   * Genera una curva solar 8760h realista sincronizada con el proyecto activo (o kWh anuales dados).
+   * Genera una curva solar + eólica 8760h realista sincronizada con el proyecto activo.
    */
-  function buildProjectSolarHourly8760(annualSolarKwh, latDeg) {
+  function buildProjectSolarHourly8760(annualSolarKwh, latDeg, calcs) {
     var out = new Float64Array(8760);
+    var windAnnualKwh = (calcs && calcs.wind && Number(calcs.wind.annualKwh) > 0) ? Number(calcs.wind.annualKwh) : 0;
     var totalTarget = _num(annualSolarKwh, 0);
-    if (!(totalTarget > 0)) return out;
+    if (!(totalTarget > 0) && !(windAnnualKwh > 0)) return out;
     var lat = _num(latDeg, 40.4) * Math.PI / 180;
+    var tiltRad = _num(calcs && calcs.tiltDeg, 20) * Math.PI / 180;
+    var azRad = (_num(calcs && calcs.azimuthDeg, 180) - 180) * Math.PI / 180;
+    var monthDays = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    var rawMonthSums = new Float64Array(12);
     var rawSum = 0;
-    for (var day = 0; day < 365; day++) {
-      var decl = 23.45 * Math.PI / 180 * Math.sin(2 * Math.PI * (284 + day) / 365);
-      // Variabilidad nubosa determinista pseudo-TMY por día
-      var cloud = 0.82 + 0.18 * Math.sin(day * 0.71 + 1.3) * Math.cos(day * 0.29);
-      for (var hr = 0; hr < 24; hr++) {
-        var omega = (hr + 0.5 - 12) * 15 * Math.PI / 180;
-        var sinAlt = Math.sin(lat) * Math.sin(decl) + Math.cos(lat) * Math.cos(decl) * Math.cos(omega);
-        if (sinAlt > 0.02) {
-          var val = Math.pow(sinAlt, 1.15) * Math.max(0.35, cloud);
-          out[day * 24 + hr] = val;
-          rawSum += val;
+    var dayCursor = 0;
+    for (var m = 0; m < 12; m++) {
+      for (var d = 0; d < monthDays[m]; d++, dayCursor++) {
+        var decl = 23.45 * Math.PI / 180 * Math.sin(2 * Math.PI * (284 + dayCursor) / 365);
+        var cloud = 0.82 + 0.18 * Math.sin(dayCursor * 0.71 + 1.3) * Math.cos(dayCursor * 0.29);
+        for (var hr = 0; hr < 24; hr++) {
+          var omega = (hr + 0.5 - 12) * 15 * Math.PI / 180;
+          var sinAlt = Math.sin(lat) * Math.sin(decl) + Math.cos(lat) * Math.cos(decl) * Math.cos(omega);
+          if (sinAlt > 0.02) {
+            var cosAlt = Math.sqrt(Math.max(0, 1 - sinAlt * sinAlt));
+            var cosInc = Math.max(0.05, sinAlt * Math.cos(tiltRad) + cosAlt * Math.sin(tiltRad) * Math.cos(omega - azRad));
+            var val = Math.pow(cosInc, 1.05) * Math.max(0.35, cloud);
+            out[dayCursor * 24 + hr] = val;
+            rawMonthSums[m] += val;
+            rawSum += val;
+          }
         }
       }
     }
-    if (rawSum > 0) {
+    var monthlySolar = (calcs && Array.isArray(calcs.monthlySolarKWh) && calcs.monthlySolarKWh.length === 12) ? calcs.monthlySolarKWh : null;
+    if (monthlySolar) {
+      var dCur2 = 0;
+      for (var m2 = 0; m2 < 12; m2++) {
+        var mScale = rawMonthSums[m2] > 0 ? (_num(monthlySolar[m2], 0) / rawMonthSums[m2]) : 0;
+        for (var d2 = 0; d2 < monthDays[m2]; d2++, dCur2++) {
+          for (var hr2 = 0; hr2 < 24; hr2++) out[dCur2 * 24 + hr2] *= mScale;
+        }
+      }
+    } else if (rawSum > 0 && totalTarget > 0) {
       var scale = totalTarget / rawSum;
       for (var i = 0; i < 8760; i++) out[i] *= scale;
+    }
+    if (windAnnualKwh > 0) {
+      var monthlyWind = (calcs && calcs.wind && Array.isArray(calcs.wind.monthlyKwh) && calcs.wind.monthlyKwh.length === 12) ? calcs.wind.monthlyKwh : null;
+      var dCurW = 0;
+      for (var mw = 0; mw < 12; mw++) {
+        var mWindKwh = monthlyWind ? _num(monthlyWind[mw], 0) : (windAnnualKwh * (monthDays[mw] / 365));
+        var hWindAvg = mWindKwh / (monthDays[mw] * 24);
+        for (var dw = 0; dw < monthDays[mw]; dw++, dCurW++) {
+          for (var hrw = 0; hrw < 24; hrw++) out[dCurW * 24 + hrw] += hWindAvg;
+        }
+      }
     }
     return out;
   }
 
   /**
-   * Evalúa el coste anual del término de potencia (incluyendo penalización por excesos CNMC 3/2020)
-   * para un vector de potencias contratadas P1..Pn dado.
+   * Evalúa el coste anual del término de potencia según Circular CNMC 3/2020 (12 meses × cuartos de hora).
+   * periodPeaksList[p] puede ser un array de 12 arrays mensuales de cuartos de hora o un array plano.
    */
   function evaluatePowerBillForVector(tariff, contractedKw, periodPeaksList, powerPrices, periodIndices) {
     var nP = contractedKw.length;
@@ -337,28 +375,49 @@
     var excessPenalty = 0;
     var is30 = tariff !== '2.0TD';
     var kpTable = [1.0, 0.5, 0.37, 0.37, 0.37, 0.17];
+    var TEP_CNMC = 1.4064;
     for (var p = 0; p < nP; p++) {
       var realPeriodIdx = (Array.isArray(periodIndices) && typeof periodIndices[p] === 'number') ? periodIndices[p] : p;
       var pc = Math.max(0.1, contractedKw[p]);
       var priceYear = powerPrices[p] || 10;
       fixedCost += pc * priceYear;
-      var peaks = periodPeaksList[p] || [];
+      var peaksEntry = periodPeaksList[p] || [];
       if (is30) {
-        // Excesos cuartohorarios tipo 2/3 (Circular CNMC 3/2020: coeficiente Kp propio de cada periodo P1..P6)
+        // Circular CNMC 3/2020 exacta: Σ_mes (K_p · tep · √(Σ_{cuarto en mes} (Pd_i - Pc_p)²))
         var kp = kpTable[realPeriodIdx] || 0.37;
-        var sumSq = 0;
-        for (var j = 0; j < peaks.length; j++) {
-          if (peaks[j] > pc) {
-            var diff = peaks[j] - pc;
-            sumSq += diff * diff;
+        if (peaksEntry.length === 12 && Array.isArray(peaksEntry[0])) {
+          for (var m = 0; m < 12; m++) {
+            var mPeaks = peaksEntry[m];
+            var sumSqM = 0;
+            for (var q = 0; q < mPeaks.length; q++) {
+              if (mPeaks[q] > pc) {
+                var diffM = mPeaks[q] - pc;
+                sumSqM += diffM * diffM;
+              }
+            }
+            if (sumSqM > 0) excessPenalty += TEP_CNMC * kp * Math.sqrt(sumSqM);
           }
-        }
-        if (sumSq > 0) {
-          excessPenalty += 1.4064 * kp * Math.sqrt(sumSq) * 2.2;
+        } else {
+          var sumSqFlat = 0;
+          for (var j = 0; j < peaksEntry.length; j++) {
+            if (peaksEntry[j] > pc) {
+              var diff = peaksEntry[j] - pc;
+              sumSqFlat += diff * diff;
+            }
+          }
+          if (sumSqFlat > 0) excessPenalty += TEP_CNMC * kp * Math.sqrt(sumSqFlat);
         }
       } else {
         var maxP = 0;
-        for (var j2 = 0; j2 < peaks.length; j2++) if (peaks[j2] > maxP) maxP = peaks[j2];
+        if (peaksEntry.length === 12 && Array.isArray(peaksEntry[0])) {
+          for (var m2 = 0; m2 < 12; m2++) {
+            for (var q2 = 0; q2 < peaksEntry[m2].length; q2++) {
+              if (peaksEntry[m2][q2] > maxP) maxP = peaksEntry[m2][q2];
+            }
+          }
+        } else {
+          for (var j2 = 0; j2 < peaksEntry.length; j2++) if (peaksEntry[j2] > maxP) maxP = peaksEntry[j2];
+        }
         if (maxP > pc * 1.05) {
           excessPenalty += (maxP - pc) * priceYear * 3.5;
         }
@@ -386,7 +445,7 @@
     var bessKw = _num(cfg.bessKw, bessKwh > 0 ? Math.max(3, bessKwh * 0.5) : 0);
     var zeroExport = Boolean(cfg.zeroExport);
 
-    var solar8760 = buildProjectSolarHourly8760(annualSolarKwh, cfg.latDeg || (calcs && calcs.latNum) || 40.4);
+    var solar8760 = buildProjectSolarHourly8760(annualSolarKwh, cfg.latDeg || (calcs && calcs.latNum) || 40.4, calcs);
     var load8760 = parsedCurve.hourlyKwh;
     var peak8760 = parsedCurve.hourlyPeakKw;
     var jan1Dow = new Date(Date.UTC(parsedCurve.year || 2025, 0, 1)).getUTCDay();
@@ -411,9 +470,15 @@
     var nPow = tDef.powerPeriods;
     var peaksBeforeByPeriod = [];
     var peaksAfterByPeriod = [];
+    var peaksAfterByPeriodMonth = [];
+    var qPeaks35k = (parsedCurve && parsedCurve.quarterPeakKw && parsedCurve.quarterPeakKw.length === 35040)
+      ? parsedCurve.quarterPeakKw : null;
     for (var pp = 0; pp < nPow; pp++) {
       peaksBeforeByPeriod.push([]);
       peaksAfterByPeriod.push([]);
+      var mArr = [];
+      for (var mm = 0; mm < 12; mm++) mArr.push([]);
+      peaksAfterByPeriodMonth.push(mArr);
     }
 
     var monthDays = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
@@ -476,10 +541,20 @@
       monthlyEnergyCostAfter[month - 1] += hCostAfter;
       monthlySurplusCredit[month - 1] += hCredit;
 
-      // Maxímetro post-FV+BESS (conservador: el pico 15-min solo se recorta por el suministro efectivo estable)
+      // Maxímetro post-FV+BESS (4 cuartos de hora por hora, agrupados por mes y periodo según CNMC 3/2020)
       var peakReduction = Math.min(peakBefore, directSelf * 0.75 + bessDisch);
       var peakAfter = Math.max(0, peakBefore - peakReduction);
       peaksAfterByPeriod[pIdx].push(peakAfter);
+      var mBucket = peaksAfterByPeriodMonth[pIdx][month - 1];
+      if (qPeaks35k) {
+        var qOff = h * 4;
+        for (var qi = 0; qi < 4; qi++) {
+          var qRaw = qPeaks35k[qOff + qi] || peakBefore;
+          mBucket.push(Math.max(0, qRaw - peakReduction));
+        }
+      } else {
+        mBucket.push(peakAfter, peakAfter, peakAfter, peakAfter);
+      }
     }
 
     // Estimar potencias contratadas actuales (si el usuario no las pasa: P98 del maxímetro pre-FV)
@@ -508,7 +583,7 @@
       var maxCand = Math.max(minCand + 1, maxA * 1.12);
       var step = Math.max(0.5, (maxCand - minCand) / 28);
       for (var cand = minCand; cand <= maxCand + 0.01; cand += step) {
-        var rEval = evaluatePowerBillForVector(tariff, [cand], [arrA], [tDef.powerEurKwYear[p]], [p]);
+        var rEval = evaluatePowerBillForVector(tariff, [cand], [peaksAfterByPeriodMonth[p]], [tDef.powerEurKwYear[p]], [p]);
         if (rEval.totalPowerEur < bestCost) {
           bestCost = rEval.totalPowerEur;
           bestKw = cand;

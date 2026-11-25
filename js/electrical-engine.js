@@ -2702,8 +2702,11 @@
     const stringsPerTrunk = isParallelTopo
       ? Math.max(2, numStrings)
       : Math.max(2, Math.ceil(numStrings / mpptTotalMdc));
-    const I_mdc_design = stringsPerTrunk * I_dc_design;
-    const I_mdc_working = stringsPerTrunk * I_dc_working;
+  let stringsPerTrunkEff = 1;
+  if (_sState && _sState.L_dc_trunk_measured > 0) {
+    stringsPerTrunkEff = Math.max(1, isParallelTopo ? numStrings : Math.ceil(numStrings / Math.max(1, invCount)));
+    const I_mdc_design = stringsPerTrunkEff * I_dc_design;
+    const I_mdc_working = stringsPerTrunkEff * I_dc_working;
     const L_mdc = L_mdc_meas;
     const K_AMPACITY_DC_TRUNK = 0.75 * 0.88;
     let foundMdc = null;
@@ -2723,7 +2726,7 @@
 
   const dV_dc_str = (rho90 * L_dc_eff_loop * I_dc_working) / S_str_opt;
   const dV_dc_trk = (_sState && _sState.L_dc_trunk_measured > 0)
-    ? ((2 * rho90 * _sState.L_dc_trunk_measured * (Math.max(1, isParallelTopo ? numStrings : 1) * I_dc_working)) / S_mdc_opt)
+    ? ((2 * rho90 * _sState.L_dc_trunk_measured * (stringsPerTrunkEff * I_dc_working)) / S_mdc_opt)
     : 0;
   const dV_dc = dV_dc_str + dV_dc_trk;
   const dVdc_pct = (dV_dc / Math.max(Vmp_str_hot, 1.0)) * 100;
@@ -2732,16 +2735,16 @@
   // [AUD-2026 · C-05] Misma fuente única que el tramo DC.
   const SEC_AC_AVAIL = (_RA_SEC && Array.isArray(_RA_SEC.ac)) ? _RA_SEC.ac : [2.5, 4, 6, 10, 16, 25, 35, 50, 70];
   const IMAX_AC_RVK  = (_RA_SEC && Array.isArray(_RA_SEC.acIz)) ? _RA_SEC.acIz : [29, 38, 49, 68, 91, 119, 146, 178, 226];
+  const cosPAcEff = (typeof cosPhiAc === 'number' && Number.isFinite(cosPhiAc) && cosPhiAc > 0.5 && cosPhiAc <= 1.0) ? cosPhiAc : 0.95;
+  const sinPAcEff = Math.sqrt(Math.max(0, 1.0 - cosPAcEff * cosPAcEff));
 
   let S_ac_opt = null;
   for (let i = 0; i < SEC_AC_AVAIL.length; i++) {
     const s = SEC_AC_AVAIL[i];
     const imax = IMAX_AC_RVK[i];
     const xMeterAc = 0.08 / 1000.0;
-    const cosPAc = 0.95;
-    const sinPAc = Math.sqrt(Math.max(0, 1.0 - cosPAc * cosPAc));
     const factorPhase = monofasico ? 2.0 : Math.sqrt(3);
-    const dV = factorPhase * I_ac * L_ac * ((rho90 / s) * cosPAc + xMeterAc * sinPAc);
+    const dV = factorPhase * I_ac * L_ac * ((rho90 / s) * cosPAcEff + xMeterAc * sinPAcEff);
     const dV_pct = (dV / V_ac) * 100;
     if ((imax * K_AMPACITY_AC_MAIN) >= I_ac_design && dV_pct <= 1.5) {
       S_ac_opt = s;
@@ -2762,10 +2765,8 @@
       const s = SEC_AC_AVAIL[i];
       const imax = IMAX_AC_RVK[i];
       const xMeterAc = 0.08 / 1000.0;
-      const cosPAc = 0.95;
-      const sinPAc = Math.sqrt(Math.max(0, 1.0 - cosPAc * cosPAc));
       const factorPhase = monofasico ? 2.0 : Math.sqrt(3);
-      const dV = factorPhase * I_ac_unit * L_ac_branch * ((rho90 / s) * cosPAc + xMeterAc * sinPAc);
+      const dV = factorPhase * I_ac_unit * L_ac_branch * ((rho90 / s) * cosPAcEff + xMeterAc * sinPAcEff);
       const dV_pct = (dV / V_ac) * 100;
       if ((imax * K_AMPACITY_AC_BRANCH) >= I_ac_unit_design && dV_pct <= 1.5) {
         foundAcBranch = s;
@@ -2776,13 +2777,13 @@
   }
 
   const xMeterAcOpt = 0.08 / 1000.0;
-  const cosPAcOpt = 0.95;
-  const sinPAcOpt = Math.sqrt(Math.max(0, 1.0 - cosPAcOpt * cosPAcOpt));
   const factorPhaseOpt = monofasico ? 2.0 : Math.sqrt(3);
-  const dV_ac = factorPhaseOpt * I_ac * L_ac * ((rho90 / S_ac_opt) * cosPAcOpt + xMeterAcOpt * sinPAcOpt);
+  const dV_ac = factorPhaseOpt * I_ac * L_ac * ((rho90 / S_ac_opt) * cosPAcEff + xMeterAcOpt * sinPAcEff);
   const dVac_pct = (dV_ac / V_ac) * 100;
 
-  const isCompliantREBT = isDcCompliant && (dVdc_pct <= 1.5) && isAcCompliant && (dVac_pct <= 1.5);
+  // Criterio REBT + UNE-HD 60364-7-712: <= 1.5% DC, <= 1.5% AC y caída acumulada DC+AC <= 2.5%
+  const DV_MAX_TOTAL_PCT = 2.5;
+  const isCompliantREBT = isDcCompliant && (dVdc_pct <= 1.5) && isAcCompliant && (dVac_pct <= 1.5) && ((dVdc_pct + dVac_pct) <= DV_MAX_TOTAL_PCT);
 
   const STD_IGA = [16, 20, 25, 32, 40, 50, 63, 80, 100, 125, 160, 200, 250];
   const I_iga = STD_IGA.find(i => i >= I_ac_design) || (I_ac_design > 125 ? Math.ceil(I_ac_design / 10) * 10 : 63);

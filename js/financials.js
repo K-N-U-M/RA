@@ -6559,7 +6559,23 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   const _cfgBillMonthly = (typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.billMonthlyConsumptionKWh && Array.isArray(window.solarProjectConfig.billMonthlyConsumptionKWh.monthlyKWh) && window.solarProjectConfig.billMonthlyConsumptionKWh.monthlyKWh.length === 12)
     ? window.solarProjectConfig.billMonthlyConsumptionKWh
     : null;
-  if (_billMonthlyTrace && _billMonthlyTrace.hasMonthlyData && Array.isArray(_billMonthlyTrace.monthlyKWh) && _billMonthlyTrace.monthlyKWh.length === 12) {
+  if (billAud && billAud.datadis8760 && billAud.datadis8760.hourlyKwh && billAud.datadis8760.hourlyKwh.length === 8760) {
+    const dHours = billAud.datadis8760.hourlyKwh;
+    const dMonthly = new Array(12).fill(0);
+    let hCur = 0;
+    for (let dm = 0; dm < 12; dm++) {
+      const mHrs = MONTH_DAYS[dm] * 24;
+      for (let dh = 0; dh < mHrs && hCur < 8760; dh++, hCur++) {
+        dMonthly[dm] += Math.max(0, Number(dHours[hCur]) || 0);
+      }
+    }
+    const sumDatadis = dMonthly.reduce((a, b) => a + b, 0);
+    if (sumDatadis > 0) {
+      monthlyConsKwh = dMonthly;
+      monthlyConsSource = 'datadis_8760';
+      consumoAnual = sumDatadis;
+    }
+  } else if (_billMonthlyTrace && _billMonthlyTrace.hasMonthlyData && Array.isArray(_billMonthlyTrace.monthlyKWh) && _billMonthlyTrace.monthlyKWh.length === 12) {
     monthlyConsKwh = _billMonthlyTrace.monthlyKWh.map(v => Math.max(0, Number(v) || 0));
     monthlyConsSource = _billMonthlyTrace.source || 'bill_monthly';
     const sumAuditedMonths = monthlyConsKwh.reduce((a, b) => a + b, 0);

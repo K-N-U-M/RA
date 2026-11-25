@@ -36,7 +36,7 @@
   registerCountryPlugin('ES', {
     name: 'España · REBT + RD 244/2019',
     standard: 'UNE-HD 60364-7-712 / ITC-BT-40',
-    singlePhaseMaxKw: 5.0,
+    singlePhaseMaxKw: 15.0,
     projectThresholdAcKw: 10.0,
     maxDropDcPct: 1.5,
     maxDropAcPct: 1.5,
@@ -48,7 +48,8 @@
       var notes = [];
       if (ctx.acKw > this.projectThresholdAcKw) notes.push('Requiere Proyecto Técnico visado (>10 kW AC REBT).');
       else notes.push('Tramitable mediante Memoria Técnica de Diseño (MTD <= 10 kW AC).');
-      if (ctx.phases === 1 && ctx.acKw > this.singlePhaseMaxKw) notes.push('Aviso RD 1699: supera 5 kW en conexión monofásica.');
+      if (ctx.phases === 1 && ctx.acKw > this.singlePhaseMaxKw) notes.push('Aviso RD 1699 / ITC-BT-40: supera 15 kW, obligatoria conexión trifásica.');
+      else if (ctx.phases === 1 && ctx.acKw > 5.0) notes.push('Nota distribuidora: entre 5 y 15 kW monofásico sujeto a desequilibrio máximo de fases.');
       notes.push(ctx.rcmuIntegrated ? 'RCD Tipo A válido (inversor con RCMU 6 mA integrado).' : 'Obligatorio RCD Clase B en salida AC.');
       return notes;
     }

@@ -291,7 +291,7 @@
     // Componente difusa anisotrópica: Perez 1990 o Hay-Davies
     let G_d = 0;
     if (o.diffuseModel === 'perez') {
-      G_d = getPerezDiffuse(dhi, dni, ghi, o.sunElevDeg || 0, tiltRad, cosTheta);
+      G_d = getPerezDiffuse(dhi, dni, ghi, o.sunElevDeg || 0, tiltRad, cosTheta, o.dayOfYear);
     } else {
       const Ai = Math.max(0, Math.min(1.0, dni / SOLAR_CONST_WM2));
       const termCirc = Ai * (cosTheta / Math.max(sinElev, 0.05));
@@ -356,6 +356,7 @@
     const tp = transposeComponents({
       ghi: ghi, dhi: dhi, dni: dni,
       cosTheta: cosTheta, tiltRad: tiltRad, albedo: alb, sunElevDeg: sunElevDeg,
+      dayOfYear: dayOfYear,
       diffuseModel: diffuseModel || 'hay-davies'
     });
     const incAngleDeg = Math.acos(cosTheta) * 180 / Math.PI;

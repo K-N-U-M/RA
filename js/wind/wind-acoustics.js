@@ -240,7 +240,7 @@
       limitDayDba: limitDayDba,
       limitNightDba: limitNightDba,
       marginDayDb: Number((limitDayDba - combinedLpDba).toFixed(1)),
-      marginNightDb: Number((limitNightDba - combinedLpDba).toFixed(1)),
+      marginNightDb: Number((limitNightDba - combinedLpNightDba).toFixed(1)),
       compliesDay: compliesDay,
       compliesNight: compliesNight,
       requiresNightCurtailment: compliesDay && !compliesNight,

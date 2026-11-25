@@ -235,7 +235,7 @@
 
     for (var i = 0; i < 12; i++) {
       var _fmRow = _fmBreakdown ? _fmBreakdown[i] : null;
-      var gKwh = Math.round(monthlySolarKwh[i] || (_fmRow ? _fmRow.generationKWh : 0) || 0);
+      var gKwh = Math.round((_fmRow && typeof _fmRow.generationKWh === 'number' && _fmRow.generationKWh > 0) ? _fmRow.generationKWh : (monthlySolarKwh[i] || 0));
       var cKwh = Math.round((_fmRow && typeof _fmRow.consumoKWh === 'number' && _fmRow.consumoKWh > 0) ? _fmRow.consumoKWh : (monthlyConsKwh[i] || 0));
       var aKwh, eKwh;
       if (_fmRow && typeof _fmRow.autoconsumoKWh === 'number') {

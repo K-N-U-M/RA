@@ -9,12 +9,12 @@
 
 | ID | Título | Sev. | Esf. | Dependencias | Estado |
 | :--- | :--- | :---: | :---: | :--- | :---: |
-| **V2-F2-01** | Aplicar factor `1.25× Isc` en Auto-Stringer y comprobar `DC+AC <= 2.5%` / `stringsPerTrunk` / `cosPhiAc` en REBT | P1 | M | — | `[Pendiente]` |
-| **V2-F2-02** | Corregir fórmula CNMC 3/2020 mensual (35.040 cuartos de hora) en `datadis-tariff-optimizer.js` | P1 | M | — | `[Pendiente]` |
-| **V2-F2-03** | Corregir `marginNightDb` (`wind-acoustics.js:243`) y generación híbrida mensual en Dossier | P1 | S | — | `[Pendiente]` |
-| **V2-F2-04** | Propagar `wp`/`pNomW`/`albedo` a `solar-worker.js`, `dayOfYear` a Perez y bifacial a fallback | P1 | M | — | `[Pendiente]` |
-| **V2-F2-05** | Hacer case-insensitive `.OND`, dividir `IMaxDC/nbMppt` y agregar bus AC en `bishop-iv-engine.js` | P1 | M | — | `[Pendiente]` |
-| **V2-F2-06** | Integrar `Bishop`, `Datadis`, `AutoStringer`, `Bankable` y `RAEngine` (ES/PT/FR) con SSOT y PDFs | P2 | L | V2-F0-07, V2-F2-02, V2-F2-05 | `[Pendiente]` |
+| **V2-F2-01** | Aplicar factor `1.25× Isc` en Auto-Stringer y comprobar `DC+AC <= 2.5%` / `stringsPerTrunk` / `cosPhiAc` en REBT | P1 | M | — | `[Hecho]` |
+| **V2-F2-02** | Corregir fórmula CNMC 3/2020 mensual (35.040 cuartos de hora) en `datadis-tariff-optimizer.js` | P1 | M | — | `[Hecho]` |
+| **V2-F2-03** | Corregir `marginNightDb` (`wind-acoustics.js:243`) y generación híbrida mensual en Dossier | P1 | S | — | `[Hecho]` |
+| **V2-F2-04** | Propagar `wp`/`pNomW`/`albedo` a `solar-worker.js`, `dayOfYear` a Perez y bifacial a fallback | P1 | M | — | `[Hecho]` |
+| **V2-F2-05** | Hacer case-insensitive `.OND`, dividir `IMaxDC/nbMppt` y agregar bus AC en `bishop-iv-engine.js` | P1 | M | — | `[Hecho]` |
+| **V2-F2-06** | Integrar `Bishop`, `Datadis`, `AutoStringer`, `Bankable` y `RAEngine` (ES/PT/FR) con SSOT y PDFs | P2 | L | V2-F0-07, V2-F2-02, V2-F2-05 | `[Hecho]` |
 
 ---
 

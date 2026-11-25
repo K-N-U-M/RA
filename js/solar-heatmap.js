@@ -1307,6 +1307,7 @@
             id: pId,
             polyIdx,
             layoutIndex: p.layoutIndex !== undefined ? p.layoutIndex : idx,
+            wp: (typeof p.wp === 'number' && p.wp > 0) ? p.wp : ((cfg.moduleProps && cfg.moduleProps.wp) || 450),
             u: u,
             v: v,
             h: h,
@@ -1387,6 +1388,8 @@
         faldones,
         climaticZone: cfg.climaticZone,
         moduleProps: cfg.moduleProps,
+        pNomW: (cfg.moduleProps && cfg.moduleProps.wp) || 450,
+        albedo: (cfg.moduleProps && typeof cfg.moduleProps.albedo === 'number') ? cfg.moduleProps.albedo : 0.20,
         monthlyGHI: cfg.monthlyGHI
       }, transferList);
     });
@@ -1883,7 +1886,10 @@
             const rearViewFactor = isRaised
               ? Math.max(0.06, Math.min(0.85, clearanceFactor * Math.pow(Math.cos(tiltRad / 2), 2)))
               : 0.04;
-            const albedoGain = isBifacial ? (GHI_instant * 0.20 * rearViewFactor * bifacialityFactor) : 0;
+            // Coherencia exacta con solar-worker.js: factor de auto-sombreado del suelo bajo filas bifaciales
+            const groundSelfShadeFactor = isRaised ? 0.82 : 0.45;
+            const albedoEff = (activeModule && typeof activeModule.albedo === 'number' && activeModule.albedo > 0 && activeModule.albedo <= 0.85) ? activeModule.albedo : 0.20;
+            const albedoGain = isBifacial ? (GHI_instant * albedoEff * groundSelfShadeFactor * rearViewFactor * bifacialityFactor) : 0;
 
             // Derating térmico físico continuo según radiación incidente sobre el módulo y temperatura ambiente (NOCT/IEC 61215)
             const G_poa_total = G_beam + G_diffuse + G_albedo;

@@ -44,7 +44,7 @@ Esta segunda auditoría externa ("clean-room", sin asumir conocimiento previo de
 | :---: | :--- | :--- | :---: | :---: | :---: |
 | **0** | [01-FASE-0-emergencias-p0-y-despliegue.md](./01-FASE-0-emergencias-p0-y-despliegue.md) | Emergencias P0: DOM roto, deploy/CI, física/REBT/finanzas críticos, render 3D y A11y P0 | `V2-F0-01..09` (9) | `9 P0` | `0/9` |
 | **1** | [02-FASE-1-cad-3d-y-rendimiento-webgl.md](./02-FASE-1-cad-3d-y-rendimiento-webgl.md) | Motor 3D/CAD: OSNAP real, Section/OBB, fin `O(N²)`, 3D Tiles DSM, L-buildings y pulidos | `V2-F1-01..06` (6) | `2 P0, 3 P1, 1 P2` | `6/6 [Hecho]` |
-| **2** | [03-FASE-2-ingenieria-fv-electrica-tarifas.md](./03-FASE-2-ingenieria-fv-electrica-tarifas.md) | Ingeniería: Isc 1.25×, ΔV 2.5%, CNMC 3/2020 mensual, eólica, `solar-worker`, `.OND`/Bishop e integración SSOT | `V2-F2-01..06` (6) | `5 P1, 1 P2` | `0/6` |
+| **2** | [03-FASE-2-ingenieria-fv-electrica-tarifas.md](./03-FASE-2-ingenieria-fv-electrica-tarifas.md) | Ingeniería: Isc 1.25×, ΔV 2.5%, CNMC 3/2020 mensual, eólica, `solar-worker`, `.OND`/Bishop e integración SSOT | `V2-F2-01..06` (6) | `5 P1, 1 P2` | `6/6 [Hecho]` |
 | **3** | [04-FASE-3-higiene-codigo-duplicado-muerto.md](./04-FASE-3-higiene-codigo-duplicado-muerto.md) | Higiene (~1.500 LOC): Gemini SSOT, NPV/IRR único, kernel solar único, escapes/helpers y purga código/DOM/CSS muerto | `V2-F3-01..05` (5) | `3 P1, 2 P2/P3` | `0/5` |
 | **4** | [05-FASE-4-arquitectura-modular.md](./05-FASE-4-arquitectura-modular.md) | Arquitectura: Vite/ESM/Workers reales, Store v2 serializable, `core-domain`, EventBus/AIService, fin `catch` vacíos y `@ra/sdk` | `V2-F4-01..06` (6) | `3 P0, 2 P1, 1 P2` | `0/6` |
 | **5** | [06-FASE-5-ui-ux-design-system-wcag.md](./06-FASE-5-ui-ux-design-system-wcag.md) | UI/UX & WCAG 2.2 AA: ARIA Combobox/Tabs, contrastes AA, Escape/z-index, responsive móvil, Design System y UX Studio/Onboarding | `V2-F5-01..05` (5) | `1 P0, 3 P1, 1 P2/AAA` | `0/5` |
@@ -69,12 +69,12 @@ Esta segunda auditoría externa ("clean-room", sin asumir conocimiento previo de
 | `V2-F1-04` | Particionar Quadtree `RASpatialDsm` por faldón y muestrear altura real en Google 3D Tiles | P1 | V2-F1-03 | `[Hecho]` |
 | `V2-F1-05` | Unificar `toCanvasCoords`, geometría L-building asimétrica (`l-building-parametric.js`) y Undo ligero (`SKIP_KEYS`) | P1 | — | `[Hecho]` |
 | `V2-F1-06` | Pulidos CAD/Render: `postRender`, `RALodManager`, atajo `E`, capture `RAMeasureTool`, recolor PBR y `SkyBox` cache | P2 | V2-F1-03 | `[Hecho]` |
-| `V2-F2-01` | Factor `1.25× Isc` en `shadow-auto-stringer.js` + `ΔV <= 2.5%`, `stringsPerTrunk` y `cosPhiAc` en `electrical-engine.js` | P1 | — | `[Pendiente]` |
-| `V2-F2-02` | Reescribir exceso potencia CNMC 3/2020 mensual (35.040 pasos) en `datadis-tariff-optimizer.js` | P1 | — | `[Pendiente]` |
-| `V2-F2-03` | Corregir `marginNightDb` (`wind-acoustics.js:243`) y tabla mensual eólica (`commercial-proposal-dossier.js:238`) | P1 | — | `[Pendiente]` |
-| `V2-F2-04` | Pasar `wp`/`pNomW`/`albedo` a `solar-worker.js`, `dayOfYear` en `radiation-engine.js` y bifacial en `solar-heatmap.js` | P1 | — | `[Pendiente]` |
-| `V2-F2-05` | Normalizar claves `.OND` (`VMppMax`, `IMaxDC/nbMppt`) y bus AC agregado en `bishop-iv-engine.js` | P1 | — | `[Pendiente]` |
-| `V2-F2-06` | Conectar motores `Bishop`, `Datadis`, `AutoStringer`, `Bankable` y `RAEngine` al SSOT y PDFs | P2 | V2-F0-07, V2-F2-02, V2-F2-05 | `[Pendiente]` |
+| `V2-F2-01` | Factor `1.25× Isc` en `shadow-auto-stringer.js` + `ΔV <= 2.5%`, `stringsPerTrunk` y `cosPhiAc` en `electrical-engine.js` | P1 | — | `[Hecho]` |
+| `V2-F2-02` | Reescribir exceso potencia CNMC 3/2020 mensual (35.040 pasos) en `datadis-tariff-optimizer.js` | P1 | — | `[Hecho]` |
+| `V2-F2-03` | Corregir `marginNightDb` (`wind-acoustics.js:243`) y tabla mensual eólica (`commercial-proposal-dossier.js:238`) | P1 | — | `[Hecho]` |
+| `V2-F2-04` | Pasar `wp`/`pNomW`/`albedo` a `solar-worker.js`, `dayOfYear` en `radiation-engine.js` y bifacial en `solar-heatmap.js` | P1 | — | `[Hecho]` |
+| `V2-F2-05` | Normalizar claves `.OND` (`VMppMax`, `IMaxDC/nbMppt`) y bus AC agregado en `bishop-iv-engine.js` | P1 | — | `[Hecho]` |
+| `V2-F2-06` | Conectar motores `Bishop`, `Datadis`, `AutoStringer`, `Bankable` y `RAEngine` al SSOT y PDFs | P2 | V2-F0-07, V2-F2-02, V2-F2-05 | `[Hecho]` |
 | `V2-F3-01` | Centralizar los 4 clientes Gemini en `RA.AIService` y añadir `discoverAvailableModels` | P1 | — | `[Pendiente]` |
 | `V2-F3-02` | Extraer helper único `computeNpvIrrCashflow` y eliminar `iva = 0.21` fijo en `project-calcs.js` | P1 | V2-F0-06 | `[Pendiente]` |
 | `V2-F3-03` | Compartir kernel térmico-astronómico entre `solar-worker.js` y `solar-heatmap.js` + alinear `wind-worker.js` | P1 | V2-F2-04 | `[Pendiente]` |

@@ -67,7 +67,8 @@
     var iMaxScA = Number(inv.iMaxScA || 30);
     var iscFactor = (mod.bifacial || mod.isBifacial || (mod.bifacialityFactor > 0)) ? 1.15 : 1.0;
     var impMod = Number(mod.imp || (global.panelConfig && global.panelConfig.imp) || 13.0);
-    var iscMod = Number(mod.isc || (global.panelConfig && global.panelConfig.isc) || 13.85) * iscFactor;
+    // Factor obligatorio IEC 62548 / REBT (1.25 × Isc) para garantizar que ninguna propuesta dispare MPPT_OVERCURRENT_ISC
+    var iscMod = Number(mod.isc || (global.panelConfig && global.panelConfig.isc) || 13.85) * iscFactor * 1.25;
     var maxParallelByCurrent = Math.max(1, Math.min(
       inputsPerMppt,
       Math.floor(iMaxOperA / Math.max(1, impMod)) || 1,
@@ -154,8 +155,8 @@
     // Normalizar paneles con clave, faldón y pérdida de sombra (preservando coordenada 0 válida)
     var items = rawPanels.map(function (p, idx) {
       var loss = (typeof p.annualLossPct === 'number') ? p.annualLossPct : (p.isShaded ? 14.0 : 0.0);
-      var uCoord = Number.isFinite(Number(p.u)) ? Number(p.u) : (Number.isFinite(Number(p.gridA)) ? Number(p.gridA) : idx);
-      var vCoord = Number.isFinite(Number(p.v)) ? Number(p.v) : (Number.isFinite(Number(p.gridB)) ? Number(p.gridB) : 0);
+      var uCoord = Number.isFinite(Number(p.u)) ? Number(p.u) : (Number.isFinite(Number(p.gridB)) ? Number(p.gridB) : idx);
+      var vCoord = Number.isFinite(Number(p.v)) ? Number(p.v) : (Number.isFinite(Number(p.gridA)) ? Number(p.gridA) : 0);
       return {
         raw: p,
         key: _getPanelKey(p, idx),
@@ -399,6 +400,8 @@
       if (typeof global.wpFastRenderSimulatedPanels === 'function') global.wpFastRenderSimulatedPanels(true);
       if (global.RACableEngine && typeof global.RACableEngine.renderAllCables === 'function') global.RACableEngine.renderAllCables();
       if (global.RAMPPTMatrix && typeof global.RAMPPTMatrix.render === 'function') global.RAMPPTMatrix.render();
+      if (typeof global.recalculateSolarYield === 'function') global.recalculateSolarYield();
+      if (global.BOMTreeEngine && typeof global.BOMTreeEngine.refresh === 'function') global.BOMTreeEngine.refresh();
     } catch (_) {}
     if (global.RA && global.RA.EventBus && global.RA.Events) {
       global.RA.EventBus.emit(global.RA.Events.PROJECT_UPDATED, { source: 'shadow-auto-stringer' });
