@@ -6342,6 +6342,7 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
     // recomputar duplicaba el coste completo del layout por faldón (OOM en grandes plantas).
     let pInfo = poly.roofInfo || ((typeof computeSinglePolylineRoofInfo === "function") ? computeSinglePolylineRoofInfo(poly.points, poly) : null);
     if (pInfo && pInfo.panels) {
+      const matchedAsyncPrevPanels = new Set();
       // Indexación O(N) previa por ID / layoutIndex / localIdx / cuadrícula espacial 0.05m (reemplaza 5 .find() O(N²))
       const prevById = new Map();
       const prevByLayoutIdx = new Map();
@@ -6922,12 +6923,14 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
         const fPrim = viewer.scene.primitives.add(primitive);
         fPrim._isRAPanelPrimitive = true;
         fPrim._raFaldonIdx = fIdx;
-        if (fPrim.readyPromise && typeof fPrim.readyPromise.then === 'function') {
-          fPrim.readyPromise.then(() => {
-            if (viewer && viewer.scene && typeof viewer.scene.requestRender === 'function') {
-              viewer.scene.requestRender();
-            }
-          }).catch(() => {});
+        if (typeof requestAnimationFrame === 'function' && !fPrim.ready) {
+          let pbrPollCount = 0;
+          const wakePbr = () => {
+            if (!viewer || !viewer.scene || currentRenderId !== _raRenderGenerationId || (fPrim.isDestroyed && fPrim.isDestroyed())) return;
+            if (typeof viewer.scene.requestRender === 'function') viewer.scene.requestRender();
+            if (!fPrim.ready && ++pbrPollCount < 20) requestAnimationFrame(wakePbr);
+          };
+          requestAnimationFrame(wakePbr);
         }
         window._faldonPanelsPrimitives.set(fIdx, fPrim);
         if (hasPolys && WP.polylines[fIdx]) {
