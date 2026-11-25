@@ -768,7 +768,7 @@ function buildMonthlyProductionSvg(monthlyData) {
   const chartW = width - padLeft - padRight;
   const chartH = height - padTop - padBottom;
 
-  const values = monthlyData.map(m => (typeof m.kwh === 'number' ? m.kwh : 0));
+  const values = monthlyData.map(m => (typeof m.kWh === 'number' ? m.kWh : (typeof m.kwh === 'number' ? m.kwh : 0)));
   const maxVal = Math.max(...values, 100);
   const ceilMax = Math.ceil(maxVal / 100) * 100;
 
@@ -1272,6 +1272,7 @@ function generateMemoria(skipPricingModal, opt) {
         annualKWh: d.annualKWh,
         kwp: d.P_dc_kW,
         capexNet: capexTot,
+        capexLabel: 'CAPEX Bruto',
         year1SavingsEur: ah1
       }), { lightTheme: true })
     ) : '') +

@@ -100,7 +100,9 @@
     var lo = -0.9, hi = 4.0;
     var npv = function (r) {
       var v = -capex;
-      for (var y = 1; y <= years; y++) v += (annualCf * Math.pow(0.9955, y - 1)) / Math.pow(1 + r, y);
+      for (var y = 1; y <= years; y++) {
+        v += (annualCf * Math.pow(0.9955, y - 1) * Math.pow(1.02, y - 1)) / Math.pow(1 + r, y);
+      }
       return v;
     };
     if (npv(lo) < 0) return null;
@@ -126,7 +128,7 @@
     var kwp = _num(p.kwp, (numPanels * modWp) / 1000.0);
     if (numPanels === 0 && kwp > 0) numPanels = Math.max(1, Math.round((kwp * 1000) / modWp));
 
-    var acKw = _num(p.acKw, Math.max(1.5, Number((kwp * 0.88).toFixed(2))));
+    var acKw = _num(p.acKw, kwp > 0 ? Math.max(1.5, Number((kwp * 0.88).toFixed(2))) : 0);
     var phases = _num(p.phases, acKw > plugin.singlePhaseMaxKw ? 3 : 1);
     var bessKwh = Math.max(0, _num(p.bessKwh, 0));
     var hasMlpe = Boolean(p.hasMlpe);
@@ -148,12 +150,12 @@
     var year1SavingsEur = Math.round(selfConsumedKwh * ePrice + surplusKwh * sPrice);
 
     var unitCapexEurWp = kwp > 50 ? 0.78 : (kwp > 15 ? 0.95 : 1.18);
-    var capexNet = _num(p.capexEur, Math.round(kwp * 1000 * unitCapexEurWp + bessKwh * 480 + (hasMlpe ? numPanels * 48 : 0)));
+    var capexNet = _num(p.capexEur, kwp > 0 ? Math.round(kwp * 1000 * unitCapexEurWp + bessKwh * 480 + (hasMlpe ? numPanels * 48 : 0)) : 0);
     var vatPct = _num(p.vatPct, plugin.defaultVatPct);
     var capexGross = Math.round(capexNet * (1 + vatPct / 100.0));
 
-    var opexYear = Math.max(40, Math.round(kwp * 11));
-    var netAnnualCf = Math.max(1, year1SavingsEur - opexYear);
+    var opexYear = kwp > 0 ? Math.max(40, Math.round(kwp * 11)) : 0;
+    var netAnnualCf = year1SavingsEur - opexYear;
     var horizon = 25;
     var discountRate = 0.04;
     var npv = -capexGross;
@@ -163,8 +165,8 @@
       totalKwh25 += annualKwh * deg;
       npv += (netAnnualCf * deg * Math.pow(1.02, y - 1)) / Math.pow(1 + discountRate, y);
     }
-    var irrPct = _computeIrr(capexGross, netAnnualCf, horizon);
-    var paybackYears = netAnnualCf > 0 ? Number((capexGross / netAnnualCf).toFixed(1)) : null;
+    var irrPct = (capexGross > 0 && netAnnualCf > 0) ? _computeIrr(capexGross, netAnnualCf, horizon) : null;
+    var paybackYears = (capexGross > 0 && netAnnualCf > 0) ? Number((capexGross / netAnnualCf).toFixed(1)) : null;
     var lcoeEurKwh = totalKwh25 > 0 ? Number(((capexGross + opexYear * horizon) / totalKwh25).toFixed(4)) : null;
 
     var compliance = typeof plugin.checkCompliance === 'function'
@@ -232,11 +234,14 @@
   function compareVariants(baseProject, countryCode) {
     var base = baseProject || snapshotFromBrowser();
     var cc = countryCode || base.country || 'ES';
+    // Derivar rendimiento específico real de la cubierta base para evitar distorsión de Diff entre variantes
+    var baseSpecificYield = (base.annualKWh > 0 && base.kwp > 0) ? (base.annualKWh / base.kwp) : undefined;
+    var mlpeBoostFactor = 1 + Math.min(0.08, (Number(base.shadeLossPct) || 4) * 0.0045);
     var variants = [
-      { label: '1. Base String Puro', patch: { hasMlpe: false, bessKwh: 0 } },
-      { label: '2. Con Optimizadores MLPE', patch: { hasMlpe: true, bessKwh: 0, annualKWh: undefined } },
-      { label: '3. Híbrido + BESS 10 kWh', patch: { hasMlpe: false, bessKwh: Math.max(10, base.bessKwh || 10), annualKWh: undefined } },
-      { label: '4. Ampliación +25% Campo', patch: { kwp: Number((base.kwp * 1.25).toFixed(2)), numPanels: Math.round((base.numPanels || 20) * 1.25), acKw: Number((base.acKw * 1.25).toFixed(2)), annualKWh: undefined } }
+      { label: '1. Base String Puro', patch: { hasMlpe: false, bessKwh: 0, specificYieldKwhKwp: baseSpecificYield } },
+      { label: '2. Con Optimizadores MLPE', patch: { hasMlpe: true, bessKwh: 0, annualKWh: undefined, specificYieldKwhKwp: baseSpecificYield ? baseSpecificYield * mlpeBoostFactor : undefined } },
+      { label: '3. Híbrido + BESS 10 kWh', patch: { hasMlpe: false, bessKwh: Math.max(10, base.bessKwh || 10), annualKWh: undefined, specificYieldKwhKwp: baseSpecificYield } },
+      { label: '4. Ampliación +25% Campo', patch: { kwp: Number((base.kwp * 1.25).toFixed(2)), numPanels: Math.round((base.numPanels || 20) * 1.25), acKw: Number((base.acKw * 1.25).toFixed(2)), annualKWh: undefined, specificYieldKwhKwp: baseSpecificYield } }
     ];
 
     var results = variants.map(function (v) {

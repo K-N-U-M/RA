@@ -28,8 +28,10 @@
     var vmp = _num(m.vmp, 41.5);
     var imp = _num(m.imp, 13.05);
     var wp = _num(m.wp || m.potencia, vmp * imp);
-    var betaVoc = _num(m.betaVoc, -0.0028);
+    var betaVoc = _num(m.tempCoeffVoc != null ? m.tempCoeffVoc : (m.gammaVoc != null ? m.gammaVoc : m.betaVoc), -0.0028);
     if (Math.abs(betaVoc) > 0.05) betaVoc = betaVoc / 100.0;
+    var gammaPmax = _num(m.tempCoeffPmax != null ? m.tempCoeffPmax : m.gammaPmp, -0.0034);
+    if (Math.abs(gammaPmax) > 0.05) gammaPmax = gammaPmax / 100.0;
     var alphaIsc = _num(m.alphaIsc, 0.00045);
     if (Math.abs(alphaIsc) > 0.02) alphaIsc = alphaIsc / 100.0;
 
@@ -50,6 +52,7 @@
       impMod: imp,
       wpMod: wp,
       betaVoc: betaVoc,
+      gammaPmax: gammaPmax,
       alphaIsc: alphaIsc,
       vocSub: vocSub,
       vmpSub: vmpSub,
@@ -96,9 +99,10 @@
   /**
    * Eficiencia real del inversor η(P_dc, V_dc) con penalización por baja carga y deriva respecto a V_nom.
    */
-  function inverterEfficiency(pDcW, vDcV, inv) {
-    var pNomW = Math.max(1000, _num(inv && inv.kw, 5) * 1000);
-    var etaMax = _num(inv && inv.efficiency, 98.0);
+  function inverterEfficiency(pDcW, vDcV, inv, invCount) {
+    var count = Math.max(1, _num(invCount, 1));
+    var pNomW = Math.max(1000, _num(inv && inv.kw, 5) * 1000 * count);
+    var etaMax = _num(inv && (inv.eff != null ? inv.eff : (inv.effMax != null ? inv.effMax : inv.efficiency)), 98.0);
     if (etaMax > 1.5) etaMax /= 100.0;
     var loadRatio = pDcW / pNomW;
     if (loadRatio <= 0.015) return 0;
@@ -130,7 +134,7 @@
 
     var dT = tCellC - 25.0;
     var iMax = subP.iscMod * (maxG / 1000.0) * (1 + subP.alphaIsc * dT) * 1.01;
-    var vMinWin = _num(inv && inv.vMpptMin, 150);
+    var vMinWin = _num(inv && inv.vMpptMin, 180);
     var vMaxWin = _num(inv && inv.vMpptMax, 850);
     var samples = recordPoints ? 72 : 36;
 
@@ -210,8 +214,19 @@
 
     var sCfg = global.solarProjectConfig || {};
     var limits = sCfg.calculatedLimits || {};
-    var mod = cfg.module || limits.module || global.panelConfig || {};
-    var inv = cfg.inverter || limits.inverter || { kw: Math.max(5, panels.length * 0.45 * 0.85), vMpptMin: 180, vMpptMax: 850, efficiency: 98.0 };
+    var catalog = global.equipmentCatalog || {};
+    var calcs = null;
+    try { if (typeof global.getProjectCalcs === 'function') calcs = global.getProjectCalcs(); } catch (_) {}
+    var mod = cfg.module || limits.module ||
+      (Array.isArray(catalog.modules) && catalog.modules.find(function (m) { return m.id === sCfg.selectedModuleId; })) ||
+      global.panelConfig || {};
+    var inv = cfg.inverter || limits.inverter ||
+      (Array.isArray(catalog.inverters) && catalog.inverters.find(function (i) { return i.id === sCfg.selectedInverterId; })) ||
+      { kw: Math.max(5, panels.length * 0.45 * 0.85), vMpptMin: 180, vMpptMax: 850, eff: 98.0 };
+    var invCount = (sCfg.autoSizing && sCfg.autoSizing.inverters && Number.isFinite(sCfg.autoSizing.inverters.count))
+      ? Math.max(1, sCfg.autoSizing.inverters.count)
+      : Math.max(1, sCfg.inverterCount || 1);
+    var totalInvAcMaxW = Math.max(1000, _num(inv.kw, 5) * 1000 * invCount);
     var subP = calibrateSubmoduleParams(mod);
 
     // Agrupar paneles por stringName
@@ -231,7 +246,7 @@
     var stringsList = [];
     stringsMap.forEach(function (arr, name) { stringsList.push({ name: name, panels: arr }); });
 
-    var lat = _num(cfg.latDeg, 40.4) * Math.PI / 180;
+    var lat = _num(cfg.latDeg, (calcs && calcs.latNum) || 40.4) * Math.PI / 180;
     var kwhLocal = 0;
     var kwhGlobal = 0;
     var kwhSelectiveMlpe = 0;
@@ -276,7 +291,7 @@
 
           for (var pi = 0; pi < st.panels.length; pi++) {
             var pInfo = st.panels[pi];
-            var pSingleIdeal = subP.wpMod * (gPoa / 1000.0) * (1 - 0.0035 * Math.max(0, tCell - 25));
+            var pSingleIdeal = subP.wpMod * (gPoa / 1000.0) * Math.max(0.5, 1 + subP.gammaPmax * (tCell - 25));
             pIdealStr += pSingleIdeal;
 
             // Fracción instantánea sombreada en los 3 sub-strings de la placa (sombra progresiva de fila/chimenea)
@@ -300,13 +315,14 @@
           }
 
           var iv = solveStringIVCurve(subP, modSubIrr, tCell, inv, false);
-          var etaG = inverterEfficiency(iv.pGlobalW * stringsList.length, iv.vGlobalV, inv);
-          var etaL = inverterEfficiency(iv.pLocalW * stringsList.length, iv.vLocalV, inv);
+          var etaG = inverterEfficiency(iv.pGlobalW * stringsList.length, iv.vGlobalV, inv, invCount);
+          var etaL = inverterEfficiency(iv.pLocalW * stringsList.length, iv.vLocalV, inv, invCount);
 
-          var pGlobalAc = iv.pGlobalW * etaG;
-          var pLocalAc = iv.pLocalW * etaL;
+          var acCapPerStringW = totalInvAcMaxW / Math.max(1, stringsList.length);
+          var pGlobalAc = Math.min(acCapPerStringW, iv.pGlobalW * etaG);
+          var pLocalAc = Math.min(acCapPerStringW, iv.pLocalW * etaL);
           // MLPE selectivo evita que el módulo sombreado arrastre el string
-          var pMlpeAc = Math.max(pGlobalAc, pMlpeStr * etaG);
+          var pMlpeAc = Math.min(acCapPerStringW, Math.max(pGlobalAc, pMlpeStr * etaG));
 
           kwhIdealUnshaded += (pIdealStr * 0.975 * daysInM) / 1000.0;
           kwhGlobal += (pGlobalAc * daysInM) / 1000.0;
@@ -350,6 +366,13 @@
     };
   }
 
+  function _escSvg(v) {
+    if (global.RASanitize && typeof global.RASanitize.escapeHtml === 'function') return global.RASanitize.escapeHtml(v);
+    return String(v == null ? '' : v)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
   function buildPvCurveSvg(sim) {
     if (!sim || !sim.criticalCurve || !sim.criticalCurve.points || sim.criticalCurve.points.length < 3) {
       return '';
@@ -390,15 +413,15 @@
       '<path d="' + dPath + '" fill="none" stroke="#38BDF8" stroke-width="2.2"/>' +
       '<circle cx="' + gX.toFixed(1) + '" cy="' + gY.toFixed(1) + '" r="4.5" fill="#10B981" stroke="#fff" stroke-width="1.2"/>' +
       '<circle cx="' + lX.toFixed(1) + '" cy="' + lY.toFixed(1) + '" r="4" fill="#F59E0B" stroke="#fff" stroke-width="1"/>' +
-      '<text x="' + (padL + 6) + '" y="' + (padT + 10) + '" fill="#94A3B8" font-size="9.5">P-V String ' + sim.criticalStringName + ' · ' + (sim.criticalCurve.hourLabel || '') + '</text>' +
-      '<text x="' + (W - padR - 2) + '" y="' + (H - 6) + '" fill="#94A3B8" font-size="9" text-anchor="end">Tensión DC (V) · Ventana MPPT [' + sim.invWindow.minV + '–' + sim.invWindow.maxV + 'V]</text>' +
-      '<text x="' + (padL - 4) + '" y="' + (padT + 8) + '" fill="#94A3B8" font-size="9" text-anchor="end">' + (maxP / 1000).toFixed(1) + 'kW</text>' +
+      '<text x="' + (padL + 6) + '" y="' + (padT + 11) + '" fill="#94A3B8" font-size="11">P-V String ' + _escSvg(sim.criticalStringName) + ' · ' + _escSvg(sim.criticalCurve.hourLabel || '') + '</text>' +
+      '<text x="' + (W - padR - 2) + '" y="' + (H - 5) + '" fill="#94A3B8" font-size="11" text-anchor="end">Tensión DC (V) · MPPT [' + sim.invWindow.minV + '–' + sim.invWindow.maxV + 'V]</text>' +
+      '<text x="' + (padL - 4) + '" y="' + (padT + 10) + '" fill="#94A3B8" font-size="11" text-anchor="end">' + (maxP / 1000).toFixed(1) + 'kW</text>' +
     '</svg>';
   }
 
   function buildSummaryHTML(sim) {
     if (!sim || sim.empty) {
-      return '<div style="padding:12px;border:1px dashed rgba(148,163,184,0.3);border-radius:8px;color:#94A3B8;font-size:12px;">' + (sim && sim.message ? sim.message : 'Ejecuta el simulador Bishop 8760h para ver la curva P-V multi-pico y la comparativa de topologías.') + '</div>';
+      return '<div style="padding:12px;border:1px dashed rgba(148,163,184,0.3);border-radius:8px;color:#94A3B8;font-size:12px;">' + _escSvg(sim && sim.message ? sim.message : 'Ejecuta el simulador Bishop 8760h para ver la curva P-V multi-pico y la comparativa de topologías.') + '</div>';
     }
     var svg = buildPvCurveSvg(sim);
     return '<div style="display:grid;grid-template-columns:minmax(260px,1.25fr) minmax(260px,1fr);gap:12px;align-items:start;">' +

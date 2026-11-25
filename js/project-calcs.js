@@ -258,7 +258,9 @@ function getProjectCalcs() {
     vDcMax: _invObjItem.vDcMax || _invObjItem.vMax || _invObjItem.vMaxDc || eng.V_max_inv || 1000,
     vMpptMin: _invObjItem.vMpptMin || eng.V_mppt_min || 160,
     vMpptMax: _invObjItem.vMpptMax || eng.V_mppt_max || 850,
-    efficiency: _invObjItem.efficiency || 98.4,
+    iMaxOperA: Number(_invObjItem.iMaxOperA) || 0,
+    iMaxScA: Number(_invObjItem.iMaxScA) || 0,
+    efficiency: _invObjItem.eff || _invObjItem.efficiency || 98.4,
     phases: (typeof _invObjItem.phases === 'number') ? _invObjItem.phases : (eng.monofasico ? 1 : 3),
     topology: _scCfg ? (_scCfg.selectedTopology || 'inverter') : 'inverter'
   } : {

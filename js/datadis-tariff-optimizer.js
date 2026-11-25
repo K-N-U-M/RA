@@ -177,9 +177,11 @@
     var hourlyKwh = new Float64Array(8760);
     var hourlyPeakKw = new Float64Array(8760);
     var hourlyCounts = new Uint8Array(8760);
+    var seenQuarterKeys = new Set();
+    var hasSubHourMinutes = false;
+    var detectedYear = null;
     var cups = '';
     var validRows = 0;
-    var quarterRows = 0;
 
     for (var i = 1; i < lines.length; i++) {
       var cols = lines[i].split(sep);
@@ -188,11 +190,14 @@
 
       var dt = _parseDateFlexible(cols[idxDate]);
       if (!dt) continue;
+      if (detectedYear === null) detectedYear = dt.y;
+      // Si el CSV contiene más de un año civil, restringir al año más reciente/inicial para evitar sumar 2× anual
+      if (dt.y !== detectedYear) continue;
       var tq = _parseHourAndQuarter(idxHour >= 0 ? cols[idxHour] : '', cols[idxDate]);
+      if (tq.quarter > 0) hasSubHourMinutes = true;
       var kwh = _num(cols[idxCons], NaN);
       if (!Number.isFinite(kwh) || kwh < 0) continue;
 
-      // Detectar si viene en Wh en vez de kWh por cabecera
       if (headers[idxCons] && headers[idxCons].indexOf('wh') !== -1 && headers[idxCons].indexOf('kwh') === -1) {
         kwh = kwh / 1000;
       }
@@ -201,9 +206,13 @@
       var hIdx = doy * 24 + tq.hour;
       if (hIdx < 0 || hIdx >= 8760) continue;
 
+      // Deduplicar posibles filas repetidas (ej. cambio de hora o bisiesto 31-dic)
+      var slotKey = hIdx * 4 + tq.quarter;
+      if (seenQuarterKeys.has(slotKey)) continue;
+      seenQuarterKeys.add(slotKey);
+
       hourlyKwh[hIdx] += kwh;
       hourlyCounts[hIdx]++;
-      if (hourlyCounts[hIdx] > 1) quarterRows++;
       validRows++;
     }
 
@@ -211,21 +220,22 @@
       throw new Error('No se encontraron registros válidos de fecha/consumo en el CSV.');
     }
 
-    var isQuarterHourly = quarterRows > 24 || validRows > 10000;
-    // Calcular maxímetro (kW) por hora; si hay 4 cuartos de hora, el pico real es ~4x el mayor cuarto,
-    // aquí guardamos pico estimado conservador o reconstruido en segunda pasada si es 15-min
+    var isQuarterHourly = hasSubHourMinutes;
     if (isQuarterHourly) {
+      var seenPass2 = new Set();
       for (var i2 = 1; i2 < lines.length; i2++) {
         var cols2 = lines[i2].split(sep);
         if (cols2.length <= idxCons) continue;
         var dt2 = _parseDateFlexible(cols2[idxDate]);
-        if (!dt2) continue;
+        if (!dt2 || dt2.y !== detectedYear) continue;
         var tq2 = _parseHourAndQuarter(idxHour >= 0 ? cols2[idxHour] : '', cols2[idxDate]);
         var kwh2 = _num(cols2[idxCons], NaN);
         if (!Number.isFinite(kwh2) || kwh2 < 0) continue;
         if (headers[idxCons] && headers[idxCons].indexOf('wh') !== -1 && headers[idxCons].indexOf('kwh') === -1) kwh2 /= 1000;
         var hIdx2 = _dayOfYear(dt2.y, dt2.m, dt2.d) * 24 + tq2.hour;
-        if (hIdx2 >= 0 && hIdx2 < 8760) {
+        var sk2 = hIdx2 * 4 + tq2.quarter;
+        if (hIdx2 >= 0 && hIdx2 < 8760 && !seenPass2.has(sk2)) {
+          seenPass2.add(sk2);
           var kw15 = kwh2 * 4.0;
           if (kw15 > hourlyPeakKw[hIdx2]) hourlyPeakKw[hIdx2] = kw15;
         }
@@ -275,6 +285,7 @@
 
     return {
       cups: cups || 'ES0000000000000000XX',
+      year: detectedYear || 2025,
       validRows: validRows,
       isQuarterHourly: isQuarterHourly,
       coveragePct: Number(coveragePct.toFixed(1)),
@@ -320,19 +331,21 @@
    * Evalúa el coste anual del término de potencia (incluyendo penalización por excesos CNMC 3/2020)
    * para un vector de potencias contratadas P1..Pn dado.
    */
-  function evaluatePowerBillForVector(tariff, contractedKw, periodPeaksList, powerPrices) {
+  function evaluatePowerBillForVector(tariff, contractedKw, periodPeaksList, powerPrices, periodIndices) {
     var nP = contractedKw.length;
     var fixedCost = 0;
     var excessPenalty = 0;
     var is30 = tariff !== '2.0TD';
+    var kpTable = [1.0, 0.5, 0.37, 0.37, 0.37, 0.17];
     for (var p = 0; p < nP; p++) {
+      var realPeriodIdx = (Array.isArray(periodIndices) && typeof periodIndices[p] === 'number') ? periodIndices[p] : p;
       var pc = Math.max(0.1, contractedKw[p]);
       var priceYear = powerPrices[p] || 10;
       fixedCost += pc * priceYear;
       var peaks = periodPeaksList[p] || [];
       if (is30) {
-        // Excesos cuartohorarios tipo 2/3 (aprox. fórmula CNMC por excesos cuadráticos sobre contratada)
-        var kp = [1.0, 0.5, 0.37, 0.37, 0.37, 0.17][p] || 0.37;
+        // Excesos cuartohorarios tipo 2/3 (Circular CNMC 3/2020: coeficiente Kp propio de cada periodo P1..P6)
+        var kp = kpTable[realPeriodIdx] || 0.37;
         var sumSq = 0;
         for (var j = 0; j < peaks.length; j++) {
           if (peaks[j] > pc) {
@@ -341,11 +354,9 @@
           }
         }
         if (sumSq > 0) {
-          // 1.4064 €/kW base penalización * Kp * sqrt(sum(diff^2)) escalado mensual->anual
           excessPenalty += 1.4064 * kp * Math.sqrt(sumSq) * 2.2;
         }
       } else {
-        // 2.0TD: ICP corta si se excede, penalización fuerte para forzar contratación por encima del P98
         var maxP = 0;
         for (var j2 = 0; j2 < peaks.length; j2++) if (peaks[j2] > maxP) maxP = peaks[j2];
         if (maxP > pc * 1.05) {
@@ -375,9 +386,12 @@
     var bessKw = _num(cfg.bessKw, bessKwh > 0 ? Math.max(3, bessKwh * 0.5) : 0);
     var zeroExport = Boolean(cfg.zeroExport);
 
-    var solar8760 = buildProjectSolarHourly8760(annualSolarKwh, cfg.latDeg || 40.4);
+    var solar8760 = buildProjectSolarHourly8760(annualSolarKwh, cfg.latDeg || (calcs && calcs.latNum) || 40.4);
     var load8760 = parsedCurve.hourlyKwh;
     var peak8760 = parsedCurve.hourlyPeakKw;
+    var jan1Dow = new Date(Date.UTC(parsedCurve.year || 2025, 0, 1)).getUTCDay();
+    var monthlyEnergyCostAfter = new Float64Array(12);
+    var monthlySurplusCredit = new Float64Array(12);
 
     var soc = bessKwh * 0.2;
     var socMin = bessKwh * 0.1;
@@ -415,7 +429,7 @@
       var day = Math.floor(h / 24);
       var hr = h % 24;
       var month = dayToMonth[day] || 1;
-      var dow = (day + 3) % 7; // Año tipo arrancando en miércoles
+      var dow = (day + jan1Dow) % 7;
       var ePeriod = getCnmcPeriod(tariff, month, dow, hr);
       var pIdx = getPowerPeriodIndex(tariff, ePeriod);
       var ePrice = tDef.energyEurKwh[ePeriod - 1] || 0.14;
@@ -455,8 +469,12 @@
       totalSelfConsumedKwh += selfH;
       totalSurplusKwh += exportedH;
       totalGridImportAfter += remLoad;
-      energyCostAfter += remLoad * ePrice;
-      surplusCredit += exportedH * tDef.surplusEurKwh;
+      var hCostAfter = remLoad * ePrice;
+      var hCredit = exportedH * tDef.surplusEurKwh;
+      energyCostAfter += hCostAfter;
+      surplusCredit += hCredit;
+      monthlyEnergyCostAfter[month - 1] += hCostAfter;
+      monthlySurplusCredit[month - 1] += hCredit;
 
       // Maxímetro post-FV+BESS (conservador: el pico 15-min solo se recorta por el suministro efectivo estable)
       var peakReduction = Math.min(peakBefore, directSelf * 0.75 + bessDisch);
@@ -480,17 +498,17 @@
 
       var curP = (cfg.currentContractedKw && cfg.currentContractedKw[p] > 0)
         ? cfg.currentContractedKw[p]
-        : Math.max(tariff === '2.0TD' ? 3.45 : 15.1, Math.ceil(maxB * 1.05 * 2) / 2);
+        : Math.max(tariff === '2.0TD' ? 3.45 : (p === nPow - 1 ? 15.1 : 5.0), Math.ceil(maxB * 1.05 * 2) / 2);
       currentContracted.push(Number(curP.toFixed(2)));
 
-      // Búsqueda en rejilla fina del óptimo de potencia en cada periodo sobre peaksAfter
+      // Búsqueda en rejilla fina usando el índice real `p` para aplicar el Kp normativo de P1..P6
       var bestKw = curP;
       var bestCost = Infinity;
-      var minCand = tariff === '2.0TD' ? 2.3 : Math.max(15.1, maxA * 0.55);
+      var minCand = tariff === '2.0TD' ? 2.3 : Math.max(p === nPow - 1 ? 15.1 : 5.0, maxA * 0.55);
       var maxCand = Math.max(minCand + 1, maxA * 1.12);
       var step = Math.max(0.5, (maxCand - minCand) / 28);
       for (var cand = minCand; cand <= maxCand + 0.01; cand += step) {
-        var rEval = evaluatePowerBillForVector(tariff, [cand], [arrA], [tDef.powerEurKwYear[p]]);
+        var rEval = evaluatePowerBillForVector(tariff, [cand], [arrA], [tDef.powerEurKwYear[p]], [p]);
         if (rEval.totalPowerEur < bestCost) {
           bestCost = rEval.totalPowerEur;
           bestKw = cand;
@@ -499,7 +517,7 @@
       optimalContracted.push(Number((Math.round(bestKw * 10) / 10).toFixed(1)));
     }
 
-    // En 3.0TD y 6.1TD se debe cumplir la regla normativa Pn <= Pn+1 (potencias crecientes)
+    // En 3.0TD y 6.1TD se debe cumplir Pn <= Pn+1 y al menos P6 > 15 kW
     if (tariff !== '2.0TD') {
       for (var m = 1; m < nPow; m++) {
         if (optimalContracted[m] < optimalContracted[m - 1]) {
@@ -509,13 +527,18 @@
           currentContracted[m] = currentContracted[m - 1];
         }
       }
+      if (optimalContracted[nPow - 1] <= 15.0) optimalContracted[nPow - 1] = 15.1;
+      if (currentContracted[nPow - 1] <= 15.0) currentContracted[nPow - 1] = 15.1;
     }
 
     var powerBefore = evaluatePowerBillForVector(tariff, currentContracted, peaksBeforeByPeriod, tDef.powerEurKwYear);
     var powerAfterOpt = evaluatePowerBillForVector(tariff, optimalContracted, peaksAfterByPeriod, tDef.powerEurKwYear);
 
-    // Tope de compensación simplificada RD 244 (no puede superar término de energía consumida)
-    var effectiveSurplusCredit = Math.min(surplusCredit, energyCostAfter);
+    // Tope de compensación simplificada RD 244 aplicado MENSUALMENTE (no puede superar el término de energía de cada mes)
+    var effectiveSurplusCredit = 0;
+    for (var mc = 0; mc < 12; mc++) {
+      effectiveSurplusCredit += Math.min(monthlySurplusCredit[mc], monthlyEnergyCostAfter[mc]);
+    }
     var energySavingsEur = (energyCostBefore - energyCostAfter) + effectiveSurplusCredit;
     var powerSavingsEur = Math.max(0, powerBefore.totalPowerEur - powerAfterOpt.totalPowerEur);
     var totalAnnualSavingsEur = energySavingsEur + powerSavingsEur;
@@ -591,7 +614,11 @@
   function buildReportHTML(res) {
     var esc = (global.RASanitize && global.RASanitize.escapeHtml)
       ? global.RASanitize.escapeHtml
-      : function (s) { return String(s == null ? '' : s); };
+      : function (s) {
+          return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        };
 
     if (!res) {
       return '<div style="padding:12px;border:1px dashed rgba(148,163,184,0.3);border-radius:8px;color:#94A3B8;font-size:12px;">Importa un CSV horario o cuartohorario de Datadis / distribuidora (o pulsa «Cargar muestra industrial 3.0TD») para simular las 8.760 h reales y optimizar las potencias contratadas P1..P6.</div>';

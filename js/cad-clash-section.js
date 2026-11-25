@@ -56,9 +56,9 @@
       }
     }
     if (!center) return null;
-    var w = Number(obs.width || obs.diameter || obs.radius * 2 || 1.0);
-    var d = Number(obs.depth || obs.length || obs.diameter || w);
-    var ht = Number(obs.height || 1.2);
+    var w = Number(obs.w || obs.width || obs.diameter || (obs.radius ? obs.radius * 2 : 0) || 1.0);
+    var d = Number(obs.l || obs.depth || obs.length || obs.diameter || w);
+    var ht = Number(obs.h || obs.height || 1.2);
     return {
       id: obs.id || ('obs_' + Math.random().toString(36).slice(2, 6)),
       name: obs.name || obs.type || 'Obstáculo 3D',
@@ -206,30 +206,65 @@
   }
 
   /**
-   * Auto-resuelve colisiones críticas marcando como desactivados los paneles en choque físico (< 0 m).
+   * Auto-resuelve colisiones críticas eliminando los paneles en choque físico (< 0 m) tanto del render
+   * como del faldón subyacente (`poly.roofInfo.panels`) para que el cambio persista tras re-renderizado.
    */
   function autoResolveCriticalClashes() {
     var rep = _lastReport || runClashDetection({ highlight: false });
     if (!rep || rep.criticalCount === 0) return 0;
     var removed = 0;
+    var toRemoveByPoly = new Map();
     rep.clashes.forEach(function (c) {
-      if (c.severity === 'CRITICAL' && c.panelRef && !c.panelRef.disabled) {
+      if (c.severity === 'CRITICAL' && c.panelRef && !c.panelRef.deleted) {
+        c.panelRef.deleted = true;
         c.panelRef.disabled = true;
+        var pIdx = c.polyIdx != null ? c.polyIdx : 0;
+        if (!toRemoveByPoly.has(pIdx)) toRemoveByPoly.set(pIdx, new Set());
+        if (c.panelRef.panelId) toRemoveByPoly.get(pIdx).add(c.panelRef.panelId);
+        if (typeof c.panelRef.localIdx === 'number') toRemoveByPoly.get(pIdx).add(c.panelRef.localIdx);
         removed++;
       }
     });
+    if (global.WP && Array.isArray(global.WP.polylines)) {
+      toRemoveByPoly.forEach(function (idSet, pIdx) {
+        var poly = global.WP.polylines[pIdx];
+        if (poly && poly.roofInfo && Array.isArray(poly.roofInfo.panels)) {
+          poly.roofInfo.panels = poly.roofInfo.panels.filter(function (rp, idx) {
+            if (!rp) return false;
+            if (rp.panelId && idSet.has(rp.panelId)) return false;
+            if (idSet.has(idx)) return false;
+            return true;
+          });
+        }
+      });
+    }
     clearClashes3D();
     if (removed > 0) {
       if (typeof global.wpFastRenderSimulatedPanels === 'function') global.wpFastRenderSimulatedPanels(true);
       if (global.RA && global.RA.EventBus && global.RA.Events) {
         global.RA.EventBus.emit(global.RA.Events.PROJECT_UPDATED, { source: 'clash-auto-resolve' });
       }
-      if (global.showToast) global.showToast('COLISIONES RESUELTAS', removed + ' módulos en choque físico han sido desactivados.', 'success', 2800);
+      if (global.showToast) global.showToast('COLISIONES RESUELTAS', removed + ' módulos en choque físico han sido retirados del faldón.', 'success', 2800);
     }
     return removed;
   }
 
-  // ── PLANOS DE SECCIÓN 3D (ClippingPlaneCollection) ──────────────────────────
+  // ── PLANOS DE SECCIÓN 3D (ClippingPlaneCollection anclado en ENU del emplazamiento) ──
+  function _resolveSiteAnchorCartesian() {
+    var C = global.Cesium;
+    if (!C) return null;
+    if (global.WP && Array.isArray(global.WP.polylines) && global.WP.polylines.length > 0) {
+      var poly = global.WP.polylines[global.WP.selectedPolyIdx || 0] || global.WP.polylines[0];
+      if (poly && poly.roofInfo && poly.roofInfo.origin) return poly.roofInfo.origin;
+    }
+    if (global.lastRoofInfo && global.lastRoofInfo.origin) return global.lastRoofInfo.origin;
+    if (global.viewer && global.viewer.camera && global.viewer.camera.positionCartographic) {
+      var cc = global.viewer.camera.positionCartographic;
+      return C.Cartesian3.fromRadians(cc.longitude, cc.latitude, 0);
+    }
+    return null;
+  }
+
   function applySectionPlane(axis, offsetMeters) {
     if (!global.viewer || !global.viewer.scene || !global.Cesium) return false;
     var C = global.Cesium;
@@ -238,7 +273,10 @@
     else if (axis === 'Z') normal = new C.Cartesian3(0, 0, -1);
 
     var dist = Number(offsetMeters) || 0;
+    var anchor = _resolveSiteAnchorCartesian();
+    var modelMatrix = anchor ? C.Transforms.eastNorthUpToFixedFrame(anchor) : C.Matrix4.IDENTITY;
     var planes = new C.ClippingPlaneCollection({
+      modelMatrix: modelMatrix,
       planes: [new C.ClippingPlane(normal, dist)],
       edgeWidth: 1.5,
       edgeColor: C.Color.CYAN

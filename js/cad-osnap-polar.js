@@ -178,9 +178,8 @@
     var wp = global.WP || {};
     var poly = null;
     if (Array.isArray(wp.polylines) && wp.polylines.length > 0) {
-      var idx = (typeof wp.selectedPolylineIndex === 'number' && wp.polylines[wp.selectedPolylineIndex])
-        ? wp.selectedPolylineIndex
-        : 0;
+      var selIdx = (typeof wp.selectedPolyIdx === 'number') ? wp.selectedPolyIdx : wp.selectedPolylineIndex;
+      var idx = (typeof selIdx === 'number' && wp.polylines[selIdx]) ? selIdx : 0;
       poly = wp.polylines[idx];
     }
     if (poly && poly.roofInfo && poly.roofInfo.origin && poly.roofInfo.uVec && poly.roofInfo.vVec) {
@@ -304,6 +303,7 @@
     var box = document.createElement('div');
     box.id = 'ra-osnap-numeric-box';
     box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-modal', 'true');
     box.setAttribute('aria-label', 'Entrada numérica exacta CAD');
     box.style.cssText = 'position:fixed;top:68px;right:18px;z-index:var(--z-popover,300);background:rgba(15,23,42,0.96);border:1px solid #38BDF8;border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:8px;box-shadow:0 12px 30px rgba(0,0,0,0.65);color:#F8FAFC;font-size:12px;';
     box.innerHTML =
@@ -334,11 +334,13 @@
 
     if (goBtn) goBtn.onclick = submit;
     if (clsBtn) clsBtn.onclick = function () { box.style.display = 'none'; };
+    box.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Escape') { ev.preventDefault(); box.style.display = 'none'; }
+    });
     [lenEl, angEl].forEach(function (inp) {
       if (!inp) return;
       inp.addEventListener('keydown', function (ev) {
         if (ev.key === 'Enter') { ev.preventDefault(); submit(); }
-        if (ev.key === 'Escape') { ev.preventDefault(); box.style.display = 'none'; }
       });
     });
     if (lenEl) { lenEl.focus(); lenEl.select(); }

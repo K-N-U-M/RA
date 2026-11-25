@@ -15,6 +15,13 @@
 
   var STRING_PALETTE = ['#00F0FF', '#10B981', '#F59E0B', '#EC4899', '#8B5CF6', '#3B82F6', '#EF4444', '#14B8A6'];
 
+  function _escHtml(v) {
+    if (global.RASanitize && typeof global.RASanitize.escapeHtml === 'function') return global.RASanitize.escapeHtml(v);
+    return String(v == null ? '' : v)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
   function _getActivePanels() {
     if (Array.isArray(global.allRenderedPanels) && global.allRenderedPanels.length > 0) {
       return global.allRenderedPanels.filter(function (p) { return p && !p.isGhost && !p.deleted && !p.disabled; });
@@ -56,6 +63,16 @@
     var nsMax = Math.max(nsMin, (dynLim && dynLim.Ns_max) || 18);
     var mpptPerInv = Math.max(1, Number(inv.mppt) || 2);
     var inputsPerMppt = Math.max(1, Number(inv.inputsPerMppt) || 1);
+    var iMaxOperA = Number(inv.iMaxOperA || (inv.iMaxScA ? inv.iMaxScA * 0.75 : 26));
+    var iMaxScA = Number(inv.iMaxScA || 30);
+    var iscFactor = (mod.bifacial || mod.isBifacial || (mod.bifacialityFactor > 0)) ? 1.15 : 1.0;
+    var impMod = Number(mod.imp || (global.panelConfig && global.panelConfig.imp) || 13.0);
+    var iscMod = Number(mod.isc || (global.panelConfig && global.panelConfig.isc) || 13.85) * iscFactor;
+    var maxParallelByCurrent = Math.max(1, Math.min(
+      inputsPerMppt,
+      Math.floor(iMaxOperA / Math.max(1, impMod)) || 1,
+      Math.floor(iMaxScA / Math.max(1, iscMod)) || 1
+    ));
 
     return {
       inv: inv,
@@ -64,6 +81,7 @@
       mpptPerInv: mpptPerInv,
       totalMppt: invCount * mpptPerInv,
       inputsPerMppt: inputsPerMppt,
+      maxParallelPerMppt: maxParallelByCurrent,
       nsMin: nsMin,
       nsMax: nsMax
     };
@@ -99,17 +117,15 @@
   }
 
   /**
-   * Divide un lote homogéneo de paneles en subcadenas equilibradas dentro de [nsMin, nsMax].
+   * Divide un lote homogéneo de paneles en subcadenas equilibradas SIN exceder jamás nsMax (Voc_cold).
    */
   function _splitBalanced(batch, nsMin, nsMax) {
     var n = batch.length;
     if (n === 0) return [];
     if (n <= nsMax) return [batch.slice()];
-    var numStrings = Math.ceil(n / nsMax);
-    // Asegurar que no caiga por debajo de nsMin si es posible
-    while (numStrings > 1 && Math.floor(n / numStrings) < nsMin) {
-      numStrings--;
-    }
+    // Mínimo estricto de strings para no violar jamás nsMax (sobretensión en frío)
+    var minStringsForVoc = Math.ceil(n / nsMax);
+    var numStrings = minStringsForVoc;
     var baseSize = Math.floor(n / numStrings);
     var rem = n % numStrings;
     var chunks = [];
@@ -135,16 +151,18 @@
     var hw = _getHardwareLimits();
     var shadeThresholdPct = Number(cfg.shadeThresholdPct) || 8.0;
 
-    // Normalizar paneles con clave, faldón y pérdida de sombra
+    // Normalizar paneles con clave, faldón y pérdida de sombra (preservando coordenada 0 válida)
     var items = rawPanels.map(function (p, idx) {
       var loss = (typeof p.annualLossPct === 'number') ? p.annualLossPct : (p.isShaded ? 14.0 : 0.0);
+      var uCoord = Number.isFinite(Number(p.u)) ? Number(p.u) : (Number.isFinite(Number(p.gridA)) ? Number(p.gridA) : idx);
+      var vCoord = Number.isFinite(Number(p.v)) ? Number(p.v) : (Number.isFinite(Number(p.gridB)) ? Number(p.gridB) : 0);
       return {
         raw: p,
         key: _getPanelKey(p, idx),
         polyIdx: (p.polyIdx != null) ? p.polyIdx : 0,
         lossPct: Math.max(0, Math.min(90, loss)),
-        u: Number(p.u) || idx,
-        v: Number(p.v) || 0,
+        u: uCoord,
+        v: vCoord,
         currentString: p.stringName || ('S' + ((p.polyIdx || 0) + 1))
       };
     });
@@ -266,9 +284,9 @@
           candidate = empties[0];
         }
       } else {
-        // 2) Compartir MPPT solo si hay entradas libres, misma longitud y mismo tier
+        // 2) Compartir MPPT solo si hay entradas y margen de corriente (Imax/Isc), misma longitud y mismo faldón
         var compatibles = mpptLoads.filter(function (slot) {
-          return slot.strings.length < hw.inputsPerMppt &&
+          return slot.strings.length < hw.maxParallelPerMppt &&
             slot.polyIdx === st.polyIdx &&
             slot.tier === st.tier &&
             slot.strings[0].panels.length === st.panels.length;
@@ -276,10 +294,19 @@
         if (compatibles.length > 0) {
           candidate = compatibles[0];
         } else {
-          // Fallback: canal con hueco libre y menor carga
-          var withRoom = mpptLoads.filter(function (slot) { return slot.strings.length < hw.inputsPerMppt; });
-          withRoom.sort(function (a, b) { return a.modCount - b.modCount; });
-          candidate = withRoom[0] || mpptLoads[0];
+          // Si no hay canal 100% compatible, avisar explícitamente (requiere más MPPT o inversor adicional)
+          var withSameLen = mpptLoads.filter(function (slot) {
+            return slot.strings.length < hw.maxParallelPerMppt && slot.strings[0].panels.length === st.panels.length;
+          });
+          if (withSameLen.length > 0) {
+            candidate = withSameLen[0];
+            st.mpptWarning = 'Comparte MPPT con distinta sombra/faldón (considerar MLPE)';
+          } else {
+            var withRoom = mpptLoads.filter(function (slot) { return slot.strings.length < hw.inputsPerMppt; });
+            withRoom.sort(function (a, b) { return a.modCount - b.modCount; });
+            candidate = withRoom[0] || mpptLoads[0];
+            st.mpptWarning = 'MPPT saturado o longitud dispar (añadir inversor/MPPT)';
+          }
         }
       }
 
@@ -329,14 +356,18 @@
 
     if (!global.solarProjectConfig) global.solarProjectConfig = {};
     var stringToMppt = {};
+    var keyToStringMeta = new Map();
     var customStrings = prop.strings.map(function (st) {
       stringToMppt[st.id] = st.mpptId;
+      st.panelKeys.forEach(function (k) {
+        keyToStringMeta.set(k, { id: st.id, color: st.color, mpptId: st.mpptId, hasMLPE: Boolean(st.hasOptimizer) });
+      });
       return {
         id: st.id,
         name: st.name,
         color: st.color,
         panelKeys: st.panelKeys.slice(),
-        hasOptimizer: Boolean(st.hasOptimizer)
+        hasMLPE: Boolean(st.hasOptimizer)
       };
     });
 
@@ -346,22 +377,29 @@
       customStrings: customStrings
     };
 
-    // Marcar flag MLPE en paneles concretos si aplica
+    // Propagar asignación de string/MPPT/MLPE directamente sobre paneles activos para sincronizar Matriz MPPT y 3D
     var mlpeSet = new Set(prop.selectiveMlpeKeys || []);
     if (Array.isArray(global.allRenderedPanels)) {
       global.allRenderedPanels.forEach(function (p, idx) {
-        if (!p) return;
-        p.hasMLPE = mlpeSet.has(_getPanelKey(p, idx));
+        if (!p || p.isGhost || p.deleted || p.disabled) return;
+        var pKey = _getPanelKey(p, idx);
+        var meta = keyToStringMeta.get(pKey);
+        if (meta) {
+          p.stringName = meta.id;
+          p.stringColor = meta.color;
+          p.mpptId = meta.mpptId;
+          p.hasMLPE = mlpeSet.has(pKey) || meta.hasMLPE;
+        } else {
+          p.hasMLPE = mlpeSet.has(pKey);
+        }
       });
     }
 
-    if (global.RAMPPTMatrix && typeof global.RAMPPTMatrix.render === 'function') {
-      try {
-        if (typeof global.wpSyncAndRecalculate === 'function') global.wpSyncAndRecalculate();
-        else if (typeof global.wpReapplyManualMpptConfig === 'function') global.wpReapplyManualMpptConfig();
-        global.RAMPPTMatrix.render();
-      } catch (_) {}
-    }
+    try {
+      if (typeof global.wpFastRenderSimulatedPanels === 'function') global.wpFastRenderSimulatedPanels(true);
+      if (global.RACableEngine && typeof global.RACableEngine.renderAllCables === 'function') global.RACableEngine.renderAllCables();
+      if (global.RAMPPTMatrix && typeof global.RAMPPTMatrix.render === 'function') global.RAMPPTMatrix.render();
+    } catch (_) {}
     if (global.RA && global.RA.EventBus && global.RA.Events) {
       global.RA.EventBus.emit(global.RA.Events.PROJECT_UPDATED, { source: 'shadow-auto-stringer' });
     }
@@ -377,12 +415,10 @@
   }
 
   function buildReportHTML(prop) {
+    var esc = _escHtml;
     if (!prop || prop.empty) {
-      return '<div style="padding:12px;border:1px dashed rgba(148,163,184,0.3);border-radius:8px;color:#94A3B8;font-size:12px;">' + (prop && prop.message ? prop.message : 'Coloca paneles y calcula el mapa de sombras para proponer la agrupación óptima de strings.') + '</div>';
+      return '<div style="padding:12px;border:1px dashed rgba(148,163,184,0.3);border-radius:8px;color:#94A3B8;font-size:12px;">' + esc(prop && prop.message ? prop.message : 'Coloca paneles y calcula el mapa de sombras para proponer la agrupación óptima de strings.') + '</div>';
     }
-    var esc = (global.RASanitize && global.RASanitize.escapeHtml)
-      ? global.RASanitize.escapeHtml
-      : function (s) { return String(s == null ? '' : s); };
 
     var rows = prop.strings.map(function (st) {
       var badge = st.tier === 'shaded'

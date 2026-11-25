@@ -25,6 +25,10 @@
         "function": "gwaProxy"
       },
       {
+        "source": "/api/ai",
+        "function": "aiProxy"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }

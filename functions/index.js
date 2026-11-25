@@ -155,6 +155,11 @@ function isTenantQuotaExceeded(tenantKey) {
       if (now - v.start > TENANT_QUOTA.windowMs) TENANT_QUOTA.hits.delete(k);
     }
   }
+  while (TENANT_QUOTA.hits.size >= TENANT_QUOTA.maxTenants) {
+    const oldest = TENANT_QUOTA.hits.keys().next().value;
+    if (oldest === undefined) break;
+    TENANT_QUOTA.hits.delete(oldest);
+  }
   const entry = TENANT_QUOTA.hits.get(tenantKey);
   if (!entry || now - entry.start > TENANT_QUOTA.windowMs) {
     TENANT_QUOTA.hits.set(tenantKey, { start: now, count: 1 });
@@ -228,16 +233,34 @@ exports.aiProxy = onRequest({
 
   const serverKey = process.env.GEMINI_API_KEY;
   if (!serverKey) {
-    res.status(503).json({ error: 'BFF IA no configurado (falta GEMINI_API_KEY en entorno Cloud Functions)' });
+    res.status(503).json({ error: 'Servicio de IA temporalmente no configurado en servidor' });
     return;
   }
 
   const body = req.body && typeof req.body === 'object' ? req.body : {};
+  if (Buffer.byteLength(JSON.stringify(body), 'utf8') > 65536) {
+    res.status(413).json({ error: 'Solicitud demasiado grande (máximo 64 KB)' });
+    return;
+  }
+
   const model = ALLOWED_GEMINI_MODELS.has(body.model) ? body.model : 'gemini-2.5-flash';
-  const payload = body.payload && typeof body.payload === 'object' ? body.payload : null;
-  if (!payload || !Array.isArray(payload.contents)) {
+  const rawPayload = body.payload && typeof body.payload === 'object' ? body.payload : null;
+  if (!rawPayload || !Array.isArray(rawPayload.contents) || rawPayload.contents.length === 0 || rawPayload.contents.length > 12) {
     res.status(400).json({ error: 'Se requiere payload.contents válido' });
     return;
+  }
+
+  // Lista blanca estricta de campos permitidos hacia Gemini (evita abuso de tools/grounding/tokens ilimitados)
+  const rawGen = rawPayload.generationConfig && typeof rawPayload.generationConfig === 'object' ? rawPayload.generationConfig : {};
+  const safePayload = {
+    contents: rawPayload.contents,
+    generationConfig: {
+      temperature: Number.isFinite(Number(rawGen.temperature)) ? Math.max(0, Math.min(1.5, Number(rawGen.temperature))) : 0.4,
+      maxOutputTokens: Math.max(64, Math.min(4096, Math.round(Number(rawGen.maxOutputTokens) || 1500)))
+    }
+  };
+  if (typeof rawGen.responseMimeType === 'string' && /^(text\/plain|application\/json)$/.test(rawGen.responseMimeType)) {
+    safePayload.generationConfig.responseMimeType = rawGen.responseMimeType;
   }
 
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
@@ -248,12 +271,21 @@ exports.aiProxy = onRequest({
         'Content-Type': 'application/json',
         'x-goog-api-key': serverKey
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(safePayload),
       redirect: 'manual',
       signal: AbortSignal.timeout(35000)
     });
+    if (upstream.status >= 300 && upstream.status < 400) {
+      res.status(502).json({ error: 'Redirección externa bloqueada' });
+      return;
+    }
+    if (!upstream.ok) {
+      logger.warn(`aiProxy upstream HTTP ${upstream.status}`);
+      res.status(upstream.status === 429 ? 429 : 502).json({ error: 'El proveedor de IA devolvió un error controlado' });
+      return;
+    }
     const text = await upstream.text();
-    res.status(upstream.status).type('application/json').send(text);
+    res.status(200).type('application/json').send(text);
   } catch (err) {
     logger.error('Error en aiProxy BFF:', err);
     res.status(502).json({ error: 'Error de comunicación con proveedor IA' });

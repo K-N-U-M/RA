@@ -85,13 +85,14 @@
   async function generateText(prompt, opts) {
     var options = opts || {};
     var apiKey = getApiKey(options.apiKey);
-    var bffUrl = (typeof root.RA_AI_BFF_URL === 'string' && root.RA_AI_BFF_URL.trim()) ? root.RA_AI_BFF_URL.trim() : '';
+    var bffUrl = ((typeof root.RA_AI_BFF_URL === 'string' && root.RA_AI_BFF_URL.trim())
+      || (root.RA_ENV && typeof root.RA_ENV.AI_BFF_URL === 'string' && root.RA_ENV.AI_BFF_URL.trim())) || '';
     if (!bffUrl && !apiKey) throw new Error('API_KEY_MISSING');
 
     var timeoutMs = Number(options.timeoutMs) || 30000;
     var genCfg = {
       temperature: typeof options.temperature === 'number' ? options.temperature : 0.4,
-      maxOutputTokens: Number(options.maxOutputTokens) || 1500
+      maxOutputTokens: Math.min(4096, Number(options.maxOutputTokens) || 1500)
     };
     if (options.responseMimeType) genCfg.responseMimeType = options.responseMimeType;
 
@@ -103,6 +104,18 @@
       ? options.models
       : await _resolveModels(apiKey);
 
+    // Adjuntar token Firebase Auth automáticamente al invocar la pasarela BFF
+    var bffHeaders = { 'Content-Type': 'application/json' };
+    if (bffUrl) {
+      try {
+        var authUser = root.firebase && root.firebase.auth && root.firebase.auth().currentUser;
+        if (authUser && typeof authUser.getIdToken === 'function') {
+          var idTok = await authUser.getIdToken();
+          if (idTok) bffHeaders['Authorization'] = 'Bearer ' + idTok;
+        }
+      } catch (_) {}
+    }
+
     var lastError = null;
     for (var i = 0; i < models.length; i++) {
       var modelName = models[i];
@@ -110,15 +123,16 @@
         ? bffUrl
         : ('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(modelName) + ':generateContent');
       try {
+        var corePayload = { contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: genCfg };
         var payload = bffUrl
-          ? { model: modelName, prompt: prompt, generationConfig: genCfg }
-          : { contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: genCfg };
+          ? { model: modelName, payload: corePayload }
+          : corePayload;
 
         var resp = await fetcher(endpoint, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: bffUrl ? bffHeaders : { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
-        }, timeoutMs, apiKey);
+        }, timeoutMs, bffUrl ? '' : apiKey);
 
         if (!resp.ok) {
           var errData = await resp.json().catch(function () { return {}; });

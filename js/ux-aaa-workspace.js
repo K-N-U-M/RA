@@ -91,7 +91,7 @@
 
       { id: 'catalog', group: 'Equipos y Fichas', title: 'Abrir Catálogo Oficial de Equipos FV / Eólicos', kbd: '', run: function () { if (typeof global.openEquipmentCatalogModal === 'function') global.openEquipmentCatalogModal(); } },
       { id: 'import-pan', group: 'Equipos y Fichas', title: 'Importar Ficha PVsyst (.PAN módulo / .OND inversor)', kbd: '', run: function () { if (global.RAPVsystImport) global.RAPVsystImport.triggerFileImport(); } },
-      { id: 'bill', group: 'Finanzas y Docs', title: 'Abrir Auditoría de Factura Eléctrica (IA + CSV)', kbd: '', run: function () { if (global.RA && global.RA.billAuditor) global.RA.billAuditor.open(); } },
+      { id: 'bill', group: 'Finanzas y Docs', title: 'Abrir Auditoría de Factura Eléctrica (IA + CSV)', kbd: '', run: function () { if (global.RA && global.RA.billAuditor && typeof global.RA.billAuditor.openModal === 'function') global.RA.billAuditor.openModal(); else if (typeof global.openBillAuditorModal === 'function') global.openBillAuditorModal(); } },
       { id: 'style-studio', group: 'Finanzas y Docs', title: 'Abrir Estudio Maestro de Maquetación (Live Preview)', kbd: '', run: function () { if (global.RAProposalStyleStudio) global.RAProposalStyleStudio.openModal(); } },
       { id: 'cost-modal', group: 'Finanzas y Docs', title: 'Abrir Estudio Económico y Desglose CAPEX/Fiscalidad', kbd: '', run: function () { if (typeof global.openCostBreakdownModal === 'function') global.openCostBreakdownModal(); } },
       { id: 'branding', group: 'Finanzas y Docs', title: 'Configurar Identidad Corporativa y Logotipo', kbd: '', run: function () { if (typeof global.openCompanyBrandingModal === 'function') global.openCompanyBrandingModal(); } },
@@ -349,6 +349,8 @@
         drawer.style.height = nextH + 'px';
       });
       global.addEventListener('pointerup', function () { dragging = false; });
+      global.addEventListener('pointercancel', function () { dragging = false; });
+      global.addEventListener('blur', function () { dragging = false; });
     }
     return drawer;
   }
@@ -418,8 +420,8 @@
       body.innerHTML =
         '<div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;">' +
           '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
-            '<label for="ra-datadis-file" class="doc-mini-btn" style="background:#0369A1;border-color:#38BDF8;color:#fff;font-weight:800;padding:5px 12px;cursor:pointer;">Cargar CSV Datadis / Distribuidora</label>' +
-            '<input id="ra-datadis-file" type="file" accept=".csv,.txt" style="display:none;">' +
+            '<button type="button" id="ra-datadis-upload-btn" class="doc-mini-btn" style="background:#0369A1;border-color:#38BDF8;color:#fff;font-weight:800;padding:5px 12px;cursor:pointer;">Cargar CSV Datadis / Distribuidora</button>' +
+            '<input id="ra-datadis-file" type="file" accept=".csv,.txt" class="sr-only" tabindex="-1">' +
             '<button type="button" id="ra-datadis-sample" class="doc-mini-btn" style="padding:5px 10px;color:#7DD3FC;border-color:rgba(56,189,248,0.4);">Cargar muestra industrial 3.0TD</button>' +
           '</div>' +
           '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:11px;color:#CBD5E1;">' +
@@ -452,6 +454,10 @@
       };
 
       var fileInp = document.getElementById('ra-datadis-file');
+      var uploadBtn = document.getElementById('ra-datadis-upload-btn');
+      if (uploadBtn && fileInp) {
+        uploadBtn.onclick = function () { fileInp.click(); };
+      }
       if (fileInp) {
         fileInp.onchange = function () {
           var f = fileInp.files && fileInp.files[0];
@@ -569,7 +575,14 @@
       if (bGpu) bGpu.onclick = function () {
         if (!global.RASpatialDsm) return;
         var r = global.RASpatialDsm.fastSwitchVisualModeGPU('normal');
-        if (global.showToast) global.showToast('CONMUTACIÓN GPU', 'Recoloración in-place completada en ' + r.elapsedMs + ' ms.', 'info', 2200);
+        if (global.showToast) {
+          global.showToast(
+            r.applied ? 'CONMUTACIÓN GPU' : 'SIN PANELES RENDERIZADOS',
+            r.applied ? ('Recoloración in-place completada en ' + r.elapsedMs + ' ms.') : 'Genera primero paneles 3D en el Paso 2 para aplicar recoloración GPU.',
+            r.applied ? 'info' : 'warning',
+            2400
+          );
+        }
       };
       return;
     }
@@ -600,8 +613,9 @@
         : '';
 
       var snapRows = snaps.slice(0, 4).map(function (s) {
+        var safeKwp = Number(s && s.state && s.state.kwp) || 0;
         return '<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;padding:4px 0;border-top:1px solid rgba(255,255,255,0.07);font-size:11px;">' +
-          '<span><strong>' + _esc(s.label) + '</strong> · ' + (s.state ? s.state.kwp : 0) + ' kWp</span>' +
+          '<span><strong>' + _esc(s.label) + '</strong> · ' + safeKwp.toFixed(2) + ' kWp</span>' +
           '<button type="button" class="doc-mini-btn ra-snap-restore" data-snap-id="' + _esc(s.id) + '" style="padding:2px 7px;font-size:11px;">Restaurar</button>' +
         '</div>';
       }).join('') || '<div style="font-size:11px;color:#94A3B8;">Sin instantáneas guardadas aún.</div>';
@@ -618,7 +632,7 @@
               '</select>' +
             '</div>' +
             '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:11.5px;color:#F1F5F9;">' +
-              '<thead><tr style="background:rgba(56,189,248,0.12);font-size:10.5px;text-transform:uppercase;">' +
+              '<thead><tr style="background:rgba(56,189,248,0.12);font-size:11px;text-transform:uppercase;">' +
                 '<th scope="col" style="padding:5px 7px;text-align:left;">Variante</th>' +
                 '<th scope="col" style="padding:5px 7px;text-align:right;">kWp</th>' +
                 '<th scope="col" style="padding:5px 7px;text-align:right;">Anual</th>' +
@@ -682,7 +696,7 @@
     }
 
     if (_drawerTab === 'unifilar') {
-      var livePanel = document.getElementById('step4-live-topology-svg') || document.getElementById('step4-unifilar-preview');
+      var livePanel = document.getElementById('step4-single-line-diagram-svg') || document.getElementById('step4-live-topology-svg');
       if (livePanel && livePanel.innerHTML && livePanel.innerHTML.trim().length > 40) {
         body.innerHTML = '<div style="background:#0B1120;border:1px solid rgba(56,189,248,0.25);border-radius:10px;padding:12px;overflow:auto;">' + livePanel.innerHTML + '</div>';
       } else if (typeof global.generateUnifilar === 'function') {
@@ -696,15 +710,16 @@
       return;
     }
 
-    // Tab MPPT: resumen tabular amplio + estado eléctrico por faldón
+    // Tab MPPT: resumen tabular amplio + vista panorámica de la matriz eléctrica
     var calcs = null;
     try { if (typeof global.getProjectCalcs === 'function') calcs = global.getProjectCalcs(); } catch (_) {}
-    var mpptDom = document.getElementById('step4-mppt-matrix-container') || document.getElementById('step3-mppt-matrix-container');
+    var mpptDom = document.getElementById('step4-mppt-matrix-card');
+    var vmpStrVal = (calcs && (calcs.Vmp_str_hot || calcs.Vmp_str || calcs.Vmp)) || 0;
     var summaryBar = calcs && calcs.numPanels > 0
       ? '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:10px;">' +
           '<div class="ra-drawer-kpi"><span>Módulos / Potencia DC</span><strong>' + calcs.numPanels + ' uds · ' + Number(calcs.P_dc_kW || 0).toFixed(2) + ' kWp</strong></div>' +
           '<div class="ra-drawer-kpi"><span>Strings / Inversor AC</span><strong>' + (calcs.numStrings || 0) + ' strings · ' + Number(calcs.P_ac_kW || 0).toFixed(2) + ' kW AC</strong></div>' +
-          '<div class="ra-drawer-kpi"><span>Voc Frío / Vmp String</span><strong>' + Math.round(calcs.Voc_str_cold || 0) + ' V / ' + Math.round(calcs.Vmp || 0) + ' V</strong></div>' +
+          '<div class="ra-drawer-kpi"><span>Voc Frío / Vmp String</span><strong>' + Math.round(calcs.Voc_str_cold || 0) + ' V / ' + Math.round(vmpStrVal) + ' V</strong></div>' +
           '<div class="ra-drawer-kpi"><span>Caída ΔV DC / AC</span><strong>' + Number(calcs.dVdc_p || 0).toFixed(2) + '% / ' + Number(calcs.dVac_p || 0).toFixed(2) + '%</strong></div>' +
         '</div>'
       : '';

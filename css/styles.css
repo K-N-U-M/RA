@@ -1272,7 +1272,7 @@
 
     /* Toasts siempre por encima de modales (999999) y cajones móviles */
     #ra-toast-container {
-      z-index: var(--z-popover, 300) !important;
+      z-index: var(--z-toast, 700) !important;
     }
 
     #ra-autorot {

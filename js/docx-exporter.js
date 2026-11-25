@@ -220,7 +220,7 @@
       root.innerHTML = preScrubbed;
     }
 
-    const forbiddenTags = 'script,iframe,object,embed,applet,base,meta,link,form,noscript';
+    const forbiddenTags = 'script,style,iframe,object,embed,applet,base,meta,link,form,noscript';
     root.querySelectorAll(forbiddenTags).forEach(function(el) { el.remove(); });
 
     const junkSelectors = [
@@ -241,9 +241,9 @@
         const val = attrs[a].value || '';
         if (name.indexOf('on') === 0 || name === 'contenteditable' || name === 'data-editable-box' || name === 'draggable') {
           el.removeAttribute(attrs[a].name);
-        } else if (name === 'href' && /^\s*(?:javascript|vbscript|data):/i.test(val)) {
+        } else if ((name === 'href' || name === 'xlink:href') && /^\s*(?:javascript|vbscript|data):/i.test(val)) {
           el.removeAttribute(attrs[a].name);
-        } else if (name === 'src' && /^\s*(?:javascript|vbscript|data\s*:\s*text\/html)/i.test(val)) {
+        } else if ((name === 'src' || name === 'poster' || name === 'background' || name === 'srcset') && /^\s*(?:javascript|vbscript|data\s*:\s*text\/html|https?:\/\/)/i.test(val)) {
           el.removeAttribute(attrs[a].name);
         } else if (name === 'style' && /url\(\s*['"]?\s*https?:\/\//i.test(val)) {
           el.setAttribute('style', val.replace(/url\(\s*(['"]?)\s*https?:\/\/[^)'"]+\1\s*\)/gi, 'none'));

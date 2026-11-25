@@ -66,7 +66,7 @@
     var weightKg = _num(kv, ['Weight'], 21.5);
     var bifaciality = _num(kv, ['BifacialityFactor'], 0);
 
-    // Coeficientes térmicos: PVsyst expresa muVocSpec en mV/°C y muPmpReq en %/°C
+    // Coeficientes térmicos en convención de catálogo RA (%/°C, p. ej. -0.30)
     var muVocMv = _num(kv, ['muVocSpec'], NaN);
     var tempCoeffVoc = Number.isFinite(muVocMv) && voc > 0
       ? Number(((muVocMv / 1000 / voc) * 100).toFixed(3))
@@ -74,9 +74,13 @@
     if (tempCoeffVoc > 0) tempCoeffVoc = -tempCoeffVoc;
 
     var muPmpPct = _num(kv, ['muPmpReq', 'mPmpp'], -0.30);
-    if (typeof global.normalizeThermalCoeff === 'function') {
-      muPmpPct = global.normalizeThermalCoeff(muPmpPct, -0.30);
+    if (Math.abs(muPmpPct) > 0 && Math.abs(muPmpPct) < 0.05) {
+      muPmpPct = muPmpPct * 100; // 1/°C -> %/°C si viniera en fracción
     }
+    if (muPmpPct > 0) muPmpPct = -muPmpPct;
+
+    brand = String(brand || '').slice(0, 60);
+    model = String(model || '').slice(0, 80);
 
     var area = widthM * heightM;
     var eff = area > 0 ? Number(((wp / (area * 1000)) * 100).toFixed(1)) : 21.5;
@@ -96,11 +100,11 @@
         w: Number(Math.min(widthM, heightM).toFixed(3)),
         l: Number(Math.max(widthM, heightM).toFixed(3)),
         eff: eff,
-        weight: Number(weightKg.toFixed(1)),
+        weightKg: Number(weightKg.toFixed(1)),
         tempCoeffVoc: tempCoeffVoc,
         tempCoeffPmax: Number(muPmpPct.toFixed(3)),
         bifacial: bifaciality > 0.1,
-        bifaciality: Number(bifaciality.toFixed(2)),
+        bifacialityFactor: Number(bifaciality.toFixed(2)),
         ncels: _num(kv, ['NCelS'], 108),
         nbDiode: _num(kv, ['NbDiode'], 3),
         rShunt: _num(kv, ['RShunt'], 400),
@@ -116,17 +120,20 @@
    */
   function parseOndFile(text, filename) {
     var kv = _parseKeyValueLines(text);
-    var brand = _str(kv, ['Manufacturer', 'Brand'], 'Fabricante PVsyst');
-    var model = _str(kv, ['Model', 'Comment'], (filename || 'Inversor').replace(/\.ond$/i, ''));
+    var brand = _str(kv, ['Manufacturer', 'Brand'], 'Fabricante PVsyst').slice(0, 60);
+    var model = _str(kv, ['Model', 'Comment'], (filename || 'Inversor').replace(/\.ond$/i, '')).slice(0, 80);
     var kwNom = _num(kv, ['PNomConv', 'PMaxOUT'], 0);
-    if (kwNom > 1000) kwNom = kwNom / 1000; // W -> kW si viene en W
+    // PVsyst expresa PNomConv en kW; solo convertir W->kW si supera 10000 (10 MW) claramente en vatios
+    if (kwNom > 10000) kwNom = kwNom / 1000;
     if (!(kwNom > 0)) {
       throw new Error('El archivo .OND no contiene potencia nominal válida (PNomConv).');
     }
 
     var vMpptMin = _num(kv, ['VMppMin'], 120);
     var vMpptMax = _num(kv, ['VMPPMax'], 850);
+    var vMpptNomMin = _num(kv, ['VMppNom', 'VMppMin'], Math.round(vMpptMin + (vMpptMax - vMpptMin) * 0.18));
     var vAbsMax = _num(kv, ['VAbsMax', 'VMaxAbs'], Math.max(1000, vMpptMax + 100));
+    var vStart = _num(kv, ['VStart', 'VThresh'], Math.max(80, Math.round(vMpptMin * 0.9)));
     var iMaxDc = _num(kv, ['IMaxDC', 'IMaxDC_MPPT'], 16);
     var nbMppt = Math.max(1, Math.round(_num(kv, ['NbMPPT'], 2)));
     var nbInputs = Math.max(nbMppt, Math.round(_num(kv, ['NbInputs'], nbMppt)));
@@ -146,11 +153,13 @@
         type: isThreePhase ? 'Trifásico 400V' : 'Monofásico 230V',
         mppt: nbMppt,
         inputsPerMppt: Math.max(1, Math.round(nbInputs / nbMppt)),
-        mpptMin: Math.round(vMpptMin),
-        mpptMax: Math.round(vMpptMax),
+        vStart: Math.round(vStart),
+        vMpptMin: Math.round(vMpptMin),
+        vMpptMax: Math.round(vMpptMax),
+        vMpptNomMin: Math.round(vMpptNomMin),
+        vMpptNomMax: Math.round(vMpptMax),
         vDcMax: Math.round(vAbsMax),
-        maxDcV: Math.round(vAbsMax),
-        iMaxMppt: Number(iMaxDc.toFixed(1)),
+        iMaxOperA: Number(iMaxDc.toFixed(1)),
         iMaxScA: Number((iMaxDc * 1.25).toFixed(1)),
         eff: Number(effMax.toFixed(1)),
         maxOverload: 1.35,
@@ -168,10 +177,11 @@
 
     var cat = global.equipmentCatalog;
     if (cat && Array.isArray(cat[res.category])) {
-      cat[res.category].unshift(res.item);
+      // push() mantiene intactos los índices de fábrica protegidos contra borrado en la UI del catálogo
+      cat[res.category].push(res.item);
       if (typeof global.saveEquipmentCatalog === 'function') global.saveEquipmentCatalog();
       if (typeof global.populateEquipmentModalUI === 'function') global.populateEquipmentModalUI();
-      if (typeof global.populateHardwareSelectors === 'function') global.populateHardwareSelectors();
+      if (typeof global.populateStep3EquipmentSelectors === 'function') global.populateStep3EquipmentSelectors();
       if (typeof global.switchCatalogTab === 'function') global.switchCatalogTab(res.category);
     }
     return res;

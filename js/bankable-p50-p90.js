@@ -59,15 +59,26 @@
       try { fin = global.calculateFinancialModel(); } catch (_) { fin = null; }
     }
 
-    var p50Year1Kwh = _num(opts.annualKWh, (calcs && calcs.annualKWh) || (fin && fin.annualKWh) || 0);
+    var p50Year1Kwh = _num(opts.annualKWh, (calcs && calcs.annualKWh) || (fin && (fin.annualYieldKWh || fin.annualKWh)) || 0);
     var kwp = _num(opts.kwp, (calcs && calcs.P_dc_kW) || 0);
-    var capexNet = _num(opts.capexNet, (fin && (fin.netInvestment || fin.totalInvestment || fin.capexTotal)) || (kwp * 1250));
-    var year1SavingsBase = _num(opts.year1SavingsEur, (fin && (fin.ahorroAnual || fin.annualSavingsEur || fin.year1Savings)) || (p50Year1Kwh * 0.16));
-    var opexAnnual = _num(opts.opexAnnualEur, Math.max(45, kwp * 12));
+    var capexNet = _num(
+      opts.capexNet,
+      (fin && (fin.capexNeto || fin.capexDesembolsoInicial || fin.capexBruto || fin.netInvestment || fin.totalInvestment)) || (kwp > 0 ? kwp * 1250 : 0)
+    );
+    var year1SavingsBase = _num(
+      opts.year1SavingsEur,
+      (fin && (fin.ahorroLuzAnio1 || fin.ahorroTotalConCEL || fin.ahorroAnual)) || (p50Year1Kwh * 0.16)
+    );
+    var opexAnnual = _num(
+      opts.opexAnnualEur,
+      (fin && Number.isFinite(fin.opexYear1) && fin.opexYear1 >= 0) ? fin.opexYear1 : (kwp > 0 ? Math.max(45, kwp * 12) : 0)
+    );
     var discountRate = _num(opts.discountRate, 0.04);
     var energyEscalation = _num(opts.energyEscalation, 0.025);
     var horizonYears = Math.max(10, Math.min(35, _num(opts.horizonYears, 25)));
-    var annualDebtService = _num(opts.annualDebtServiceEur, (fin && fin.monthlyLoanPayment > 0) ? fin.monthlyLoanPayment * 12 : 0);
+    var isFinanced = Boolean(fin && fin.finMode && fin.finMode !== 'cash' && fin.finMode !== 'contado' && fin.cuotaMensual > 0);
+    var annualDebtService = _num(opts.annualDebtServiceEur, isFinanced ? fin.cuotaMensual * 12 : 0);
+    var loanYears = Math.max(1, Math.min(horizonYears, Math.ceil(_num(fin && fin.mesesFin, 120) / 12)));
 
     // Componentes de incertidumbre cuadrática (RSS) conforme a IEC 61724 / metodología bancable PVsyst
     var sigmaMeteo = _num(opts.sigmaMeteo, 0.052);     // Variabilidad climática interanual (5.2% irreducible)
@@ -92,7 +103,7 @@
     var scenarios = Z_SCORES.map(function (tier) {
       var factorYr1 = Math.max(0.55, 1 + tier.z * sigmaYr1);
       var factor25y = Math.max(0.60, 1 + tier.z * sigma25y);
-      var yr1Kwh = Math.round(p50Year1Kwh * factorYr1);
+      var yr1Kwh = Math.round(p50Year1Kwh * factorYr1 * (1 - lidLoss));
       var savingsRatio = p50Year1Kwh > 0 ? (year1SavingsBase / p50Year1Kwh) : 0.16;
 
       var cumMwh = 0;
@@ -116,14 +127,14 @@
         if (payback === null && cumCash >= 0 && netCfY > 0) {
           payback = (y - 1) + Math.max(0, -prevCum) / netCfY;
         }
-        if (annualDebtService > 0 && y <= 10) {
+        if (annualDebtService > 0 && y <= loanYears) {
           var dscrY = netCfY / annualDebtService;
           if (minDscr === null || dscrY < minDscr) minDscr = dscrY;
         }
       }
 
       var irr = _computeIrrBisection(capexNet, cashflows);
-      var yr1NetSavings = Math.round(yr1Kwh * savingsRatio);
+      var yr1NetSavings = Math.round(yr1Kwh * savingsRatio - opexAnnual);
 
       return {
         label: tier.label,
@@ -145,6 +156,8 @@
       kwp: Number(kwp.toFixed(2)),
       p50Year1Kwh: Math.round(p50Year1Kwh),
       capexNet: Math.round(capexNet),
+      capexLabel: opts.capexLabel || 'CAPEX',
+      discountRatePct: Number((discountRate * 100).toFixed(1)),
       horizonYears: horizonYears,
       uncertainties: {
         sigmaMeteoPct: Number((sigmaMeteo * 100).toFixed(1)),
@@ -190,7 +203,7 @@
     return '<div style="background:' + bg + ';border:1px solid ' + bd + ';border-radius:10px;padding:12px;color:' + txt + ';font-size:12px;">' +
       '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px;">' +
         '<strong style="font-size:12px;letter-spacing:0.3px;">MATRIZ PROBABILÍSTICA BANCABLE (' + r.horizonYears + ' AÑOS · LID ' + r.uncertainties.lidPct + '% · DEG ' + r.uncertainties.degAnnualPct + '%/año)</strong>' +
-        '<span style="font-size:11px;color:' + muted + ';">σ Año 1: ±' + r.uncertainties.sigmaYr1Pct + '% · σ 25a: ±' + r.uncertainties.sigma25yPct + '% · CAPEX Neto: ' + r.capexNet.toLocaleString('es-ES') + ' €</span>' +
+        '<span style="font-size:11px;color:' + muted + ';">σ Año 1: ±' + r.uncertainties.sigmaYr1Pct + '% · σ 25a: ±' + r.uncertainties.sigma25yPct + '% · ' + (r.capexLabel || 'CAPEX') + ': ' + r.capexNet.toLocaleString('es-ES') + ' €</span>' +
       '</div>' +
       '<div style="overflow-x:auto;">' +
         '<table style="width:100%;border-collapse:collapse;font-size:12px;">' +
@@ -198,8 +211,8 @@
             '<th scope="col" style="padding:6px 10px;text-align:left;">Percentil</th>' +
             '<th scope="col" style="padding:6px 10px;">Año 1</th>' +
             '<th scope="col" style="padding:6px 10px;">Acum. 25a</th>' +
-            '<th scope="col" style="padding:6px 10px;">Ahorro Año 1</th>' +
-            '<th scope="col" style="padding:6px 10px;">VAN (4%)</th>' +
+            '<th scope="col" style="padding:6px 10px;">Flujo Año 1</th>' +
+            '<th scope="col" style="padding:6px 10px;">VAN (' + (r.discountRatePct || 4) + '%)</th>' +
             '<th scope="col" style="padding:6px 10px;">TIR</th>' +
             '<th scope="col" style="padding:6px 10px;">Payback</th>' +
             '<th scope="col" style="padding:6px 10px;">DSCR mín.</th>' +

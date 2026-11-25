@@ -1776,15 +1776,39 @@
       '<span>' + icon + '</span><span>' + label + '</span></button>';
   }
 
+  function _safeCssColor(val, fb) {
+    var s = String(val || '').trim();
+    return /^#[0-9a-fA-F]{3,8}$/.test(s) ? s : (fb || '#0f172a');
+  }
+
+  function _resolvePreviewFontStack(familyId) {
+    var map = {
+      modern: 'Inter, system-ui, sans-serif',
+      technical: 'Roboto, system-ui, sans-serif',
+      corporate: 'Georgia, Cambria, serif',
+      rounded: '"Plus Jakarta Sans", Inter, sans-serif'
+    };
+    return map[familyId] || 'Inter, system-ui, sans-serif';
+  }
+
   function buildLiveSplitPreviewHTML(cfg, pal) {
-    var colHead = (cfg.useCustomTextColors && cfg.headingTextColor) ? cfg.headingTextColor : pal.primary;
-    var colBody = (cfg.useCustomTextColors && cfg.bodyTextColor) ? cfg.bodyTextColor : '#1e293b';
-    var colMuted = (cfg.useCustomTextColors && cfg.mutedTextColor) ? cfg.mutedTextColor : '#64748b';
-    var titleTxt = _escStudio(cfg.coverMainTitle || 'PROPUESTA TÉCNICO-ECONÓMICA FOTOVOLTAICA');
-    var subTxt = _escStudio(cfg.coverSubtitle || 'Estudio de Ingeniería Solar 3D y Rentabilidad Bancable');
-    var densityMap = { compact: 'Compacta', balanced: 'Equilibrada', spacious: 'Amplia' };
+    var safePrimary = _safeCssColor(pal && pal.primary, '#0ea5e9');
+    var safeSecondary = _safeCssColor(pal && pal.secondary, '#1e3a8a');
+    var colHead = (cfg.useCustomTextColors && cfg.headingTextColor) ? _safeCssColor(cfg.headingTextColor, safePrimary) : safePrimary;
+    var colBody = (cfg.useCustomTextColors && cfg.bodyTextColor) ? _safeCssColor(cfg.bodyTextColor, '#1e293b') : '#1e293b';
+    var colMuted = (cfg.useCustomTextColors && cfg.mutedTextColor) ? _safeCssColor(cfg.mutedTextColor, '#64748b') : '#64748b';
+    var locked = cfg.lockedTexts || {};
+    var titleTxt = _escStudio(locked.coverMainTitle || cfg.coverMainTitle || 'PROPUESTA TÉCNICO-ECONÓMICA FOTOVOLTAICA');
+    var subTxt = _escStudio(locked.coverSubtitle || cfg.coverSubtitle || 'Estudio de Ingeniería Solar 3D y Rentabilidad Bancable');
+    var densityMap = { compact: 'Compacta', balanced: 'Equilibrada', editorial: 'Editorial', spacious: 'Editorial' };
     var densityLbl = densityMap[cfg.density] || 'Equilibrada';
-    var scalePct = Math.round((cfg.fontScale || 1) * 100);
+    // cfg.fontScale se almacena en porcentaje (85..115, por defecto 100)
+    var rawScale = Number(cfg.fontScale);
+    var scalePct = Number.isFinite(rawScale) ? Math.round(rawScale > 5 ? rawScale : rawScale * 100) : 100;
+    scalePct = Math.max(70, Math.min(130, scalePct));
+    var scaleRatio = scalePct / 100;
+    var safeBodyLH = Math.max(1.1, Math.min(2.0, Number(cfg.bodyLineHeight) || 1.45));
+    var safeAlign = /^(left|justify|center|right)$/.test(String(cfg.paragraphAlign || '')) ? cfg.paragraphAlign : 'left';
     var enabledCount = CANONICAL_SECTIONS.filter(function(s) {
       return !cfg.sectionsEnabled || cfg.sectionsEnabled[s.id] !== false;
     }).length;
@@ -1803,27 +1827,28 @@
     var wmHtml = cfg.watermarkEnabled
       ? '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;transform:rotate(-28deg);font-size:18px;font-weight:900;letter-spacing:2px;color:#0f172a;opacity:' + Math.max(0.04, Math.min(0.35, Number(cfg.watermarkOpacity) || 0.08)) + ';">' + _escStudio(cfg.watermarkText || 'BORRADOR') + '</div>'
       : '';
-    var padPx = cfg.density === 'compact' ? '8px' : (cfg.density === 'spacious' ? '14px' : '11px');
+    var padPx = cfg.density === 'compact' ? '8px' : ((cfg.density === 'editorial' || cfg.density === 'spacious') ? '14px' : '11px');
+    var fontStack = _resolvePreviewFontStack(cfg.fontFamily);
 
     return [
       '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">',
       '  <span style="font-size:11px;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;color:#38bdf8;">Vista Previa A4 en Vivo</span>',
       '  <span style="font-size:11px;font-weight:700;color:' + (cfg.autoFitA4 ? '#34d399' : '#fbbf24') + ';">' + (cfg.autoFitA4 ? 'Auto-Fit ON' : 'Manual') + '</span>',
       '</div>',
-      '<div style="position:relative;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 10px 26px rgba(0,0,0,0.45);border:1px solid rgba(148,163,184,0.35);font-family:' + _escStudio(cfg.fontFamily || 'Inter, sans-serif') + ';aspect-ratio:210/297;display:flex;flex-direction:column;">',
+      '<div style="position:relative;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 10px 26px rgba(0,0,0,0.45);border:1px solid rgba(148,163,184,0.35);font-family:' + fontStack + ';aspect-ratio:210/297;display:flex;flex-direction:column;">',
       wmHtml,
-      '  <div style="background:linear-gradient(135deg,' + pal.primary + ',' + pal.secondary + ');padding:' + padPx + ';color:#ffffff;">',
+      '  <div style="background:linear-gradient(135deg,' + safePrimary + ',' + safeSecondary + ');padding:' + padPx + ';color:#ffffff;">',
       '    <div style="font-size:9px;font-weight:700;opacity:0.85;text-transform:uppercase;letter-spacing:0.6px;">Dossier Técnico · A4</div>',
-      '    <div style="font-size:' + Math.max(10, Math.round(12 * (cfg.fontScale || 1))) + 'px;font-weight:900;line-height:1.2;margin-top:4px;word-break:break-word;">' + titleTxt + '</div>',
+      '    <div style="font-size:' + Math.max(10, Math.min(16, Math.round(12 * scaleRatio))) + 'px;font-weight:900;line-height:1.2;margin-top:4px;word-break:break-word;">' + titleTxt + '</div>',
       '    <div style="font-size:9px;opacity:0.9;margin-top:3px;line-height:1.25;">' + subTxt + '</div>',
       '  </div>',
       '  <div style="padding:' + padPx + ';display:flex;flex-direction:column;gap:8px;flex:1;color:' + colBody + ';">',
       '    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;">',
-      '      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-top:2px solid ' + pal.primary + ';border-radius:5px;padding:5px 4px;text-align:center;">',
+      '      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-top:2px solid ' + safePrimary + ';border-radius:5px;padding:5px 4px;text-align:center;">',
       '        <div style="font-size:8px;color:' + colMuted + ';font-weight:700;">POTENCIA</div>',
       '        <div style="font-size:10px;font-weight:900;color:' + colHead + ';">' + kwpTxt + '</div>',
       '      </div>',
-      '      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-top:2px solid ' + pal.secondary + ';border-radius:5px;padding:5px 4px;text-align:center;">',
+      '      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-top:2px solid ' + safeSecondary + ';border-radius:5px;padding:5px 4px;text-align:center;">',
       '        <div style="font-size:8px;color:' + colMuted + ';font-weight:700;">P50 ANUAL</div>',
       '        <div style="font-size:10px;font-weight:900;color:' + colHead + ';">' + prodTxt + '</div>',
       '      </div>',
@@ -1832,9 +1857,9 @@
       '        <div style="font-size:10px;font-weight:900;color:#b45309;">' + p90Txt + '</div>',
       '      </div>',
       '    </div>',
-      '    <div style="border-left:3px solid ' + pal.primary + ';padding-left:7px;">',
+      '    <div style="border-left:3px solid ' + safePrimary + ';padding-left:7px;">',
       '      <div style="font-size:10px;font-weight:800;color:' + colHead + ';">1. Resumen Ejecutivo</div>',
-      '      <div style="font-size:9px;color:' + colBody + ';line-height:' + (cfg.bodyLineHeight || 1.45) + ';margin-top:2px;text-align:' + (cfg.paragraphAlign || 'left') + ';">Propuesta llave en mano dimensionada con ingeniería 3D, análisis de sombras y flujo de caja a 25 años.</div>',
+      '      <div style="font-size:9px;color:' + colBody + ';line-height:' + safeBodyLH + ';margin-top:2px;text-align:' + safeAlign + ';">Propuesta llave en mano dimensionada con ingeniería 3D, análisis de sombras y flujo de caja a 25 años.</div>',
       '    </div>',
       '    <div style="margin-top:auto;background:#f1f5f9;border-radius:5px;padding:6px;display:flex;flex-direction:column;gap:3px;">',
       '      <div style="display:flex;justify-content:space-between;font-size:8.5px;color:' + colMuted + ';"><span>Densidad / Escala</span><strong style="color:' + colBody + ';">' + densityLbl + ' · ' + scalePct + '%</strong></div>',
@@ -3308,13 +3333,18 @@
       };
     }
 
-    // [F7-13] Sincronización instantánea del Live Split-Screen A4 Preview al editar cualquier control
+    // [F7-13] Sincronización debounced del Live Split-Screen A4 Preview al editar cualquier control
     var modalBody = modal.querySelector('#pss-modal-body');
     if (modalBody) {
+      var splitTimer = null;
       var syncSplitLive = function() {
-        collectCurrentTabInputsToState();
-        saveState();
-        updateLiveSplitPreview(modal);
+        if (splitTimer) clearTimeout(splitTimer);
+        splitTimer = setTimeout(function() {
+          splitTimer = null;
+          collectCurrentTabInputsToState();
+          saveState();
+          updateLiveSplitPreview(modal);
+        }, 80);
       };
       modalBody.addEventListener('input', syncSplitLive);
       modalBody.addEventListener('change', syncSplitLive);

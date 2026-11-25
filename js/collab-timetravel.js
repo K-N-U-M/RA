@@ -34,9 +34,11 @@
     var calcs = null;
     try { if (typeof global.getProjectCalcs === 'function') calcs = global.getProjectCalcs(); } catch (_) {}
     var cfg = global.solarProjectConfig || {};
-    var tit = global.titularData || {};
+    var tit = null;
+    try { if (typeof global.readTitular === 'function') tit = global.readTitular(); } catch (_) {}
+    var domTitle = (typeof document !== 'undefined' && document.getElementById('tit-nombre')) ? document.getElementById('tit-nombre').value : '';
     return {
-      projectName: tit.nombre || tit.proyecto || 'Proyecto RA',
+      projectName: (tit && tit.nombre) || domTitle || 'Proyecto RA',
       numPanels: (calcs && calcs.numPanels) || 0,
       kwp: Number(((calcs && calcs.P_dc_kW) || 0).toFixed(2)),
       acKw: Number(((calcs && calcs.P_ac_kW) || 0).toFixed(2)),
@@ -106,6 +108,11 @@
     if (st.mpptManualConfig) global.solarProjectConfig.mpptManualConfig = JSON.parse(JSON.stringify(st.mpptManualConfig));
 
     _recordTrace('SNAPSHOT_RESTORED', { id: found.id, label: found.label });
+    try {
+      if (typeof global.populateStep3EquipmentSelectors === 'function') global.populateStep3EquipmentSelectors();
+      if (typeof global.wpFastRenderSimulatedPanels === 'function') global.wpFastRenderSimulatedPanels(true);
+      if (global.RAMPPTMatrix && typeof global.RAMPPTMatrix.render === 'function') global.RAMPPTMatrix.render();
+    } catch (_) {}
     if (global.RA && global.RA.EventBus && global.RA.Events) {
       global.RA.EventBus.emit(global.RA.Events.PROJECT_UPDATED, { source: 'collab-restore', snapId: found.id });
     }
@@ -155,6 +162,13 @@
           _broadcast('PONG', {});
           return;
         }
+        if (msg.type === 'SNAPSHOT_CREATED' && msg.payload && msg.payload.snap) {
+          _recordTrace('REMOTE_SNAPSHOT', { from: msg.sender, label: msg.payload.snap.label });
+          if (global.RA && global.RA.EventBus && global.RA.Events) {
+            global.RA.EventBus.emit(global.RA.Events.PROJECT_UPDATED, { source: 'remote-tab' });
+          }
+          return;
+        }
         if (msg.type === 'STATE_DELTA' && msg.payload && msg.payload.state) {
           _applyingRemote = true;
           try {
@@ -173,6 +187,9 @@
         }
       };
       _broadcast('PING', {});
+      global.addEventListener('pagehide', function () {
+        try { if (_channel) _channel.close(); } catch (_) {}
+      });
     } catch (_) {}
 
     if (global.RA && global.RA.EventBus && global.RA.Events) {

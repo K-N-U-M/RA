@@ -48,7 +48,7 @@ service cloud.firestore {
 
       allow update: if (isOwner() || isTenantManager() || isAdmin())
         && request.resource.data.ownerId == resource.data.ownerId
-        && request.resource.data.tenantId == resource.data.tenantId
+        && request.resource.data.get('tenantId', null) == resource.data.get('tenantId', null)
         && hasValidProjectSchema();
 
       allow delete: if isOwner() || isAdmin();
@@ -63,7 +63,8 @@ service cloud.firestore {
 
     // Perfiles y preferencias de usuario
     match /users/{userId} {
-      allow read, write: if isSignedIn() && request.auth.uid == userId;
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow write: if isSignedIn() && request.auth.uid == userId && request.resource.data.keys().size() <= 40;
     }
   }
 }
