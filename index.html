@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>RA — Visor Planetario Fotogramétrico, Editor 3D & Simulación Solar</title>
   <meta name="description" content="RA — Sistema de visualización planetaria 3D con fotogrametría real de Google Earth, editor de polígonos 3D, validación de diseño y simulación de instalación fotovoltaica.">
 
@@ -30,7 +30,7 @@ window.RA_App = window.RA_App || {};
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
 
   <script defer src="js/procedural-skybox.js?v=20261124_f0"></script>
-  <script defer src="js/ui-viewport-controls.js?v=20261118_t1b"></script>
+  <script defer src="js/ui-viewport-controls.js?v=20261125_f5a"></script>
   <script defer src="js/error-handler.js"></script>
 <script defer src="js/sanitizer.js?v=20261124_f0"></script>
   <script defer src="js/ra-event-bus.js?v=20261124_f4"></script>
@@ -51,7 +51,7 @@ window.RA_App = window.RA_App || {};
     <!-- Catálogo Canónico de Iconografía e Ilustraciones SVG Monocromáticas (SSOT) -->
   <script defer src="js/svg-catalog.js?v=20261023b"></script>
   <script defer src="js/proposal-infographics.js?v=20261124_f4c2"></script>
-  <script defer src="js/financials.js?v=20261124_f4c2"></script>
+  <script defer src="js/financials.js?v=20261125_f5a"></script>
   <script defer src="js/viewer.js?v=20261124_f3"></script>
   <script defer src="js/solar-engine.js?v=20261124_f3"></script>
   <script defer src="js/production-source.js?v=20261117_d1"></script>
@@ -71,7 +71,7 @@ window.RA_App = window.RA_App || {};
   <script defer src="js/wind/wind-entity.js?v=20261124_f4"></script>
   <script defer src="js/wind/wind-obstacle-interference.js?v=20261124_f4"></script>
   <script defer src="js/wind/wind-visualizer.js?v=20261124_f4"></script>
-  <script defer src="js/wind/wind-ui.js?v=20261124_f4"></script>
+  <script defer src="js/wind/wind-ui.js?v=20261125_f5a"></script>
 
 
 
@@ -89,7 +89,7 @@ window.RA_App = window.RA_App || {};
   <script defer src="js/electrical-ui-bridge.js?v=20261118_t6"></script>
   <script defer src="js/panel-renderer-3d.js?v=20261118_t2"></script>
   <script defer src="js/cad-events-controller.js?v=20261124_f3"></script>
-  <script defer src="js/cad-selection-suite.js?v=20261124_f3"></script>
+  <script defer src="js/cad-selection-suite.js?v=20261125_f5a"></script>
   <script defer src="js/cable-engine.js?v=20261124_f4"></script>
   <script defer src="js/capture-mode.js?v=20261124_f1"></script>
   <script defer src="js/measure-tool.js?v=20261124_f1"></script>
@@ -109,7 +109,7 @@ window.RA_App = window.RA_App || {};
   <script defer src="js/storage-cache.js?v=20261124_f0"></script>
   <script defer src="js/lazy-loader.js?v=20261124_f0"></script>
   <script defer src="js/shadow-settings.js?v=20261124_f4c"></script>
-  <script defer src="js/proposal-style-studio.js?v=20261124_f3"></script>
+  <script defer src="js/proposal-style-studio.js?v=20261125_f5a"></script>
   <script defer src="js/autosave-manager.js?v=20261124_f4c"></script>
   <script defer src="js/scenario-comparator.js?v=20261124_f4c"></script>
   <script defer src="js/wind-curve-ui.js?v=20261124_f4c"></script>
@@ -118,10 +118,10 @@ window.RA_App = window.RA_App || {};
 
   <!-- Lucide SVG Icons -->
   <script defer src="https://unpkg.com/lucide@1.48.0" integrity="sha384-Hh7C333mXel+qppGoFs4qAOXp7h67eur4XsQVF2bvHAM3MQ4DX4cQI7oRCzb98J4" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <script defer src="js/a11y-dialogs.js?v=20261118_t6"></script>
+  <script defer src="js/a11y-dialogs.js?v=20261125_f5a"></script>
   <script defer src="js/cost-modal-ui.js?v=20261118_t6"></script>
   <script defer src="js/app-main.js?v=20261124_f4c2"></script>
-  <link rel="stylesheet" href="css/styles.css?v=20261124_f3">
+  <link rel="stylesheet" href="css/styles.css?v=20261125_f5a">
 
 </head>
 <body>
@@ -421,7 +421,7 @@ window.RA_App = window.RA_App || {};
           <i data-lucide="settings" class="icon-sm"></i>
         </button>
       </div>
-      <button class="sb-collapse-btn" id="btn-sidebar-toggle" onclick="toggleSidebarCollapse()" title="Colapsar barra lateral (Tab)" aria-label="Colapsar barra lateral">◀</button>
+      <button class="sb-collapse-btn" id="btn-sidebar-toggle" onclick="toggleSidebarCollapse()" title="Colapsar barra lateral [Ctrl+B]" aria-label="Colapsar barra lateral">◀</button>
     </div>
 
     <!-- Buscador Universal -->
@@ -786,7 +786,7 @@ window.RA_App = window.RA_App || {};
                       <span style="font-size:9.5px;color:var(--text-slate-300);">Giro (°):</span>
                       <input type="number" id="bld-l-rot" min="0" max="359" step="5" value="90" class="field-input" style="width:52px;font-size:10px;padding:2px 4px;text-align:right;" onwheel="this.blur()" onchange="window.RALBuilding && window.RALBuilding.applyControlChange({ rotationDeg: parseFloat(this.value) }, 'Orientación edificio en L');">
                     </div>
-                    <label for="faldon-row-pitch-window-sel" style="display:flex;align-items:center;gap:4px;font-size:10px;color:#cbd5e1;cursor:pointer;">
+                    <label for="bld-l-mirror" style="display:flex;align-items:center;gap:4px;font-size:10px;color:#cbd5e1;cursor:pointer;">
                       <input type="checkbox" id="bld-l-mirror" style="accent-color:#10b981;cursor:pointer;" onchange="window.RALBuilding && window.RALBuilding.applyControlChange({ mirrored: this.checked }, 'Simetría espejo edificio en L');">
                       <span>Espejo Izq/Der</span>
                     </label>
@@ -1468,11 +1468,11 @@ window.RA_App = window.RA_App || {};
                         </div>
                       </div>
                       <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;padding-top:2px;border-top:1px solid rgba(255,255,255,0.06);">
-                        <label style="display:flex;align-items:center;gap:5px;font-size:10px;color:#CBD5E1;cursor:pointer;user-select:none;" title="Mantiene fijo el pasillo entre filas al cambiar la inclinación para que no bailen ni desaparezcan placas">
+                        <label for="faldon-lock-row-pitch-chk" style="display:flex;align-items:center;gap:5px;font-size:10px;color:#CBD5E1;cursor:pointer;user-select:none;" title="Mantiene fijo el pasillo entre filas al cambiar la inclinación para que no bailen ni desaparezcan placas">
                           <input id="faldon-lock-row-pitch-chk" type="checkbox" style="accent-color:#10B981;cursor:pointer;margin:0;" onchange="if (typeof wpTogglePolyLockRowPitch === 'function') wpTogglePolyLockRowPitch(WP.selectedPolyIdx, this.checked);" />
                           <span>🔒 Fijar nº placas al inclinar</span>
                         </label>
-                        <select aria-label="Espejo Izq/Der 🧭 EJES DE COORDENADAS: Eje X: --° 🏢 Lados del Edificio 🧭 Brújula (N-S) Muro #1 ◀ 🔄 Cambiar Lado Tipología de Cubierta: Plana (con Peto) A 1 Agua (Monopitch) A 2 Aguas (Cumbrera) A 4 Aguas (Pabellón) En L (Paramétrica & Catálogo) Inclinación Faldones ($ heta$): 25° Orientación Faldón Principal: 180° (S) Sur 180° Este 90° Oeste 270° Norte 0° Peto Altura (m): Peto Ancho / Grosor (m): Alero / Voladizo (m): Grosor de Faldón / Losa (m): Lucernarios / Buhardillas: Ninguno 1 Ventana 2 Ventanas 4 Ventanas (2x2) Fachada / Tejado / Aristas: HUELLA PERIMETRAL 4 VÉRTICES Editar Vértices Redibujar Vértice #1 Eliminar Vértice Arrastra las flechas 3D en el visor para mover la esquina. Doble clic en una arista para añadir un punto. CONVERTIR FALDONES EN PLANOS SOLARES FV BORRAR EDIFICIO 3D 2. Contorno Útil de Cubierta 0 PUNTOS DIBUJAR POLILÍNEA EN PLANO Polilínea #1 Perímetro 0.00 m Área Est. 0 m² CERRAR POLILÍNEA ↶ DESHACER PTO Polilíneas de Cubierta 0 POLILÍNEAS Sin polilíneas + INSERTAR PTO DUPLICAR BORRAR POLILÍNEA VÉRTICE SELECCIONADO NINGUNO Usa el Gizmo 3D interactivo sobre el vértice en el visor (Ejes U/V y Arrastre libre) para ajustar su posición sobre la cubierta. + INSERTAR VTX BORRAR VTX CONTINUAR A OBSTÁCULOS 3D (1.3) Saltar directamente a Campo Solar (Paso 2) → 1.3 OBSTÁCULOS 3D &amp; SOMBRAS LOCALES ▶ Obstáculos 3D &amp; Casetones 0 OBSTÁCULOS + CHIMENEA0.6×0.6×1.2m + CASETON2.5×3.0×2.0m + HVAC1.5×1.0×1.2m + A MEDIDAPersonalizado + ÁRBOL TIPO3.0×3.0×5.0m + EÓLICAAerogenerador COLOCACIÓN ACTIVA: Mueve el ratón sobre el plano y haz clic para fijar. ESC cancela. Obstáculos en Cubierta 0 OBSTÁCULOS Sin obstáculos CHIMENEA #1 ✓ En cubierta Giro: 0° Atraer y Centrar en Cubierta ORIENTACIÓN: A PLOMO COPLANAR Ancho (W) Largo (L) Altura (H) COLOR DEL MATERIAL: #DC2626 Personalizado o acabado: BORRAR ESTE OBSTÁCULO CONTINUAR A CAMPO SOLAR (PASO 2) ☀️ SOLAR (FV) 💨 EÓLICA Paso 2: Campo Solar &amp; Malla Fotovoltaica 3D CAD Selecciona el módulo fotovoltaico y ajusta inclinación, orientación y disposición sobre la cubierta: MÓDULOS 0 POTENCIA DC 0.0 kWp STRINGS MPPT 0 No hay faldones cerrados todavía. Traza una polilínea y ciérrala para crear un faldón. FALDÓN ACTIVO 0 FALDONES Sin faldones Faldón RESET MALLA DUPLICAR 0 mods · 0.00 kWp PANEL FV INDIVIDUAL: PDF IA A TODOS ESTRUCTURA DE MONTAJE: A TODOS Coplanar (Teja / Salvatejas) Coplanar (Chapa / Sándwich) Bloques de Lastre de Hormigón (Cubierta Plana) Triángulos 30º (Cubierta Plana) Estructura 15º Este-Oeste Triángulos Ángulo Adaptable (Personalizado) Pérgola elevada Bloques de lastre por placa: 1 ud 2 uds 3 uds 4 uds Altura libre pérgola: m Tipo de cubierta: Tejadillo continuo (porche) Filas independientes (pasillo) Fabricante: Sunfer Energy K2 Systems Fischer Solar-Fix Personalizado ALINEACIÓN DE REJILLA: 🔒 PLANO CAD (P1→P2) DISPOSICIÓN SOLAR: A TODOS COPLANAR CARA AL SOL MANUAL ⚡ AUTO-OPTIMIZAR CAMPO SOLAR (kWh/año) COMPARADOR DE ORIENTACIÓN: Analizando... VERTICAL -- mods HORIZONTAL -- mods HÍBRIDO (V+H) -- mods PASILLO MANTENIMIENTO: NO (Cobertura total) A TODOS Divide las placas con un pasillo libre de 80 cm para paso y limpieza. SEPARACIÓN ENTRE FILAS: Sin sombras (Invierno) Pasillo libre: -- m Paso total (fila a fila): -- m Ajuste Pasillo Manual: AUTO -- m 0.20 m (Mín) CTE: -- m 6.00 m (Máx) Garantiza 4h libres de sombra en solsticio (10:00 - 14:00 solar) según CTE/IDAE INCLINACIÓN MÓDULO (βm): ° Auto 🎯 PICO AUTO ⟳ AZIMUT / GIRO EN PLANO: Auto AUTO 0° N 90° E 180° S 270° O ⚡ SINTONIZADOR SOLAR EN VIVO EN VIVO Rendimiento específico -- kWh/kWp Cosecha Faldón -- uds -- kWh/año 🔒 Fijar nº placas al inclinar" id="faldon-row-pitch-window-sel" style="font-size:9px;padding:1px 3px;background:#0f172a;color:#CBD5E1;border:1px solid rgba(255,255,255,0.15);border-radius:4px;" title="Ventana horaria libre de sombra entre filas el 21 de diciembre (más horas = más pasillo, menos placas y menos pérdidas)" onchange="if (typeof wpSetPolyRowPitchWindow === 'function') wpSetPolyRowPitchWindow(WP.selectedPolyIdx, parseFloat(this.value));">
+                        <select aria-label="Ventana horaria sin sombra entre filas" id="faldon-row-pitch-window-sel" style="font-size:9px;padding:1px 3px;background:#0f172a;color:#CBD5E1;border:1px solid rgba(255,255,255,0.15);border-radius:4px;" title="Ventana horaria libre de sombra entre filas el 21 de diciembre (más horas = más pasillo, menos placas y menos pérdidas)" onchange="if (typeof wpSetPolyRowPitchWindow === 'function') wpSetPolyRowPitchWindow(WP.selectedPolyIdx, parseFloat(this.value));">
                           <option value="2">☀️ 10-14 h (CTE)</option>
                           <option value="2.5">☀️ 9:30-14:30 h</option>
                           <option value="3">☀️ 9-15 h</option>
@@ -1480,7 +1480,7 @@ window.RA_App = window.RA_App || {};
                         <button class="doc-mini-btn" style="padding:2px 6px;font-size:9px;background:rgba(245,158,11,0.18);color:#FBBF24;border-color:rgba(245,158,11,0.4);font-weight:800;" onclick="if (typeof wpSnapPolyToSweetSpot === 'function') wpSnapPolyToSweetSpot(WP.selectedPolyIdx, false);" title="Ajusta automáticamente Inclinación y Orientación al máximo absoluto anual">🎯 Clavar en el Pico</button>
                       </div>
                       <div style="display:flex;align-items:center;gap:6px;padding-top:3px;border-top:1px solid rgba(255,255,255,0.06);">
-                        <label for="step3-bill-cups" style="display:flex;align-items:center;gap:5px;font-size:10px;color:#CBD5E1;cursor:pointer;user-select:none;" title="Ignora las sombras arrojadas por la malla o tiles 3D de fotogrametría (ej. árboles o chimeneas que ya no existen). Mantiene las sombras de obstáculos y edificios dibujados en el proyecto.">
+                        <label for="faldon-ignore-tiles-shadows-chk" style="display:flex;align-items:center;gap:5px;font-size:10px;color:#CBD5E1;cursor:pointer;user-select:none;" title="Ignora las sombras arrojadas por la malla o tiles 3D de fotogrametría (ej. árboles o chimeneas que ya no existen). Mantiene las sombras de obstáculos y edificios dibujados en el proyecto.">
                           <input id="faldon-ignore-tiles-shadows-chk" type="checkbox" style="accent-color:#10B981;cursor:pointer;margin:0;" onchange="if (typeof wpTogglePolyIgnoreTilesShadows === 'function') wpTogglePolyIgnoreTilesShadows(WP.selectedPolyIdx, this.checked);" />
                           <span>🛡️ Ignorar sombras de malla 3D (Tiles)</span>
                         </label>
@@ -1605,7 +1605,7 @@ window.RA_App = window.RA_App || {};
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:10px;">
                   <!-- Gasto Mensual -->
                   <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.06);border-radius:5px;padding:5px 6px;">
-                    <label style="font-size:8.5px;color:#94A3B8;display:block;text-transform:uppercase;font-weight:700;margin-bottom:2px;">Gasto Mensual Actual:</label>
+                    <label for="step3-bill-cost-month" style="font-size:8.5px;color:#94A3B8;display:block;text-transform:uppercase;font-weight:700;margin-bottom:2px;">Gasto Mensual Actual:</label>
                     <div style="display:flex;align-items:center;gap:3px;">
                       <input type="number" id="step3-bill-cost-month" min="10" max="50000" step="5" value="125" oninput="wpSyncStep3BillFromMonth(this.value)" style="width:100%;box-sizing:border-box;background:rgba(0,0,0,0.5);border:1px solid rgba(168,85,247,0.4);border-radius:4px;color:#c084fc;font-size:11px;font-weight:900;padding:2px 5px;text-align:right;outline:none;">
                       <span style="font-size:9.5px;color:#c084fc;font-weight:bold;">€/mes</span>
@@ -1614,7 +1614,7 @@ window.RA_App = window.RA_App || {};
 
                   <!-- Consumo Anual Total -->
                   <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.06);border-radius:5px;padding:5px 6px;">
-                    <label style="font-size:8.5px;color:#94A3B8;display:block;text-transform:uppercase;font-weight:700;margin-bottom:2px;">Consumo Anual Total:</label>
+                    <label for="step3-bill-kwh-year" style="font-size:8.5px;color:#94A3B8;display:block;text-transform:uppercase;font-weight:700;margin-bottom:2px;">Consumo Anual Total:</label>
                     <div style="display:flex;align-items:center;gap:3px;">
                       <input type="number" id="step3-bill-kwh-year" min="100" max="500000" step="50" value="5450" oninput="wpSyncStep3BillFromKwh(this.value)" style="width:100%;box-sizing:border-box;background:rgba(0,0,0,0.5);border:1px solid rgba(56,189,248,0.4);border-radius:4px;color:#38BDF8;font-size:11px;font-weight:900;padding:2px 5px;text-align:right;outline:none;">
                       <span style="font-size:9.5px;color:#38BDF8;font-weight:bold;">kWh</span>
@@ -1623,7 +1623,7 @@ window.RA_App = window.RA_App || {};
 
                   <!-- Potencia Contratada -->
                   <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.06);border-radius:5px;padding:5px 6px;">
-                    <label style="font-size:8.5px;color:#94A3B8;display:block;text-transform:uppercase;font-weight:700;margin-bottom:2px;">Potencia Contratada:</label>
+                    <label for="step3-bill-pot-contr" style="font-size:8.5px;color:#94A3B8;display:block;text-transform:uppercase;font-weight:700;margin-bottom:2px;">Potencia Contratada:</label>
                     <div style="display:flex;align-items:center;gap:3px;">
                       <input type="number" id="step3-bill-pot-contr" min="0.5" max="150" step="0.25" value="5.75" oninput="wpSyncStep3BillParams()" style="width:100%;box-sizing:border-box;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);border-radius:4px;color:#fff;font-size:10.5px;font-weight:700;padding:2px 5px;text-align:right;outline:none;">
                       <span style="font-size:9.5px;color:#94A3B8;">kW</span>
@@ -1633,7 +1633,7 @@ window.RA_App = window.RA_App || {};
                   <!-- Precio Medio Energía -->
                   <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.06);border-radius:5px;padding:5px 6px;">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
-                      <label style="font-size:8.5px;color:#94A3B8;display:block;text-transform:uppercase;font-weight:700;">Precio Red:</label>
+                      <label for="step3-bill-price-kwh" style="font-size:8.5px;color:#94A3B8;display:block;text-transform:uppercase;font-weight:700;">Precio Red:</label>
                       <button type="button" onclick="wpFetchOfficialReePrice()" title="Obtener precio medio oficial PVPC de Red Eléctrica de España (REE)" style="background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.35);border-radius:3px;color:#38BDF8;font-size:8px;font-weight:bold;padding:1px 4px;cursor:pointer;display:flex;align-items:center;gap:3px;">
                         <i data-lucide="refresh-cw" class="icon-sm" id="step3-ree-refresh-icon" style="width:10px;height:10px;"></i> REE
                       </button>
@@ -1648,8 +1648,8 @@ window.RA_App = window.RA_App || {};
                 <!-- Campos secundarios colapsables: CUPS, Distribuidora, Titular -->
                 <div id="step3-bill-extra-fields" style="display:none;margin-top:6px;padding-top:6px;border-top:1px dashed rgba(255,255,255,0.08);flex-direction:column;gap:5px;font-size:9.5px;">
                   <div>
-                    <label style="font-size:8.5px;color:#94A3B8;display:block;text-transform:uppercase;margin-bottom:2px;">Código CUPS:</label>
-                    <input aria-label="🛡️ Ignorar sombras de malla 3D (Tiles) DESPLAZAMIENTO DE PRECISIÓN: SELECCIONAR TODAS (Ctrl+A) Longitudinal (A): 0 cm -10cm -1cm +1cm +10cm Transversal (B): 0 cm -10cm -1cm +1cm +10cm ⌨ Flechas: ±1cm (Shift: ±10cm) RESTAURAR MALLA CENTRAR VOLVER A EMPLAZ. (1) RECALCULAR CONTINUAR A ANÁLISIS (3) Paso 3: Análisis Solar &amp; Demanda ASTRONÓMICO Audita la demanda del cliente, evalúa el recurso solar de cubierta y simula las pérdidas reales por sombras: Estudio de Sombras Desactualizado Se han modificado tejados, obstáculos o paneles. Las sombras y la producción anual ya no coinciden con la escena 3D. Actualizar Estudio de Sombras y Sol Ahora Factura & Consumo Eléctrico Subir PDF ▾ Más Gasto Mensual Actual: €/mes Consumo Anual Total: kWh Potencia Contratada: kW Precio Red: REE €/kWh Código CUPS" type="text" id="step3-bill-cups" placeholder="ES00210000XXXXXXXXXX" oninput="wpSyncStep3BillParams()" style="width:100%;box-sizing:border-box;background:rgba(0,0,0,0.4);border:1px solid rgba(56,189,248,0.3);border-radius:4px;color:#38BDF8;font-size:9.5px;font-family:monospace;padding:3px 6px;">
+                    <label for="step3-bill-cups" style="font-size:8.5px;color:#94A3B8;display:block;text-transform:uppercase;margin-bottom:2px;">Código CUPS:</label>
+                    <input aria-label="Código CUPS" type="text" id="step3-bill-cups" placeholder="ES00210000XXXXXXXXXX" oninput="wpSyncStep3BillParams()" style="width:100%;box-sizing:border-box;background:rgba(0,0,0,0.4);border:1px solid rgba(56,189,248,0.3);border-radius:4px;color:#38BDF8;font-size:9.5px;font-family:monospace;padding:3px 6px;">
                   </div>
                   <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;">
                     <div>
@@ -1733,32 +1733,32 @@ window.RA_App = window.RA_App || {};
 
                 <!-- CRITERIOS TÉCNICOS DETALLADOS -->
                 <div style="display:flex;flex-direction:column;gap:5px;">
-                  <label for="new-eq-type" style="display:flex;align-items:flex-start;gap:8px;background:rgba(255,255,255,0.03);padding:7px;border-radius:6px;border:1px solid rgba(245,158,11,0.25);cursor:pointer;">
-                    <input type="radio" name="project_objective" value="optimal_inv" checked onchange="step4UpdateObjective()" style="margin-top:2px;">
+                  <label for="obj-radio-optimal-inv" style="display:flex;align-items:flex-start;gap:8px;background:rgba(255,255,255,0.03);padding:7px;border-radius:6px;border:1px solid rgba(245,158,11,0.25);cursor:pointer;">
+                    <input id="obj-radio-optimal-inv" type="radio" name="project_objective" value="optimal_inv" checked onchange="step4UpdateObjective()" style="margin-top:2px;">
                     <div style="font-size: 10px;">
                       <b style="color:#F59E0B;"><i data-lucide="zap" class="icon-sm"></i> Ajuste Óptimo al Inversor (Recomendado)</b>
                       <div style="color:var(--text-slate-400);font-size: 10px;line-height:1.3;">Llena hasta la capacidad óptima del equipo (115%-130% DC/AC) en strings simétricos por MPPT.</div>
                     </div>
                   </label>
 
-                  <label style="display:flex;align-items:flex-start;gap:8px;background:rgba(255,255,255,0.03);padding:7px;border-radius:6px;border:1px solid var(--border-subtle);cursor:pointer;">
-                    <input type="radio" name="project_objective" value="max_roof" onchange="step4UpdateObjective()" style="margin-top:2px;">
+                  <label for="obj-radio-max-roof" style="display:flex;align-items:flex-start;gap:8px;background:rgba(255,255,255,0.03);padding:7px;border-radius:6px;border:1px solid var(--border-subtle);cursor:pointer;">
+                    <input id="obj-radio-max-roof" type="radio" name="project_objective" value="max_roof" onchange="step4UpdateObjective()" style="margin-top:2px;">
                     <div style="font-size: 10px;">
                       <b style="color:var(--sky-400);"><i data-lucide="building" class="icon-sm"></i> Llenado Máximo de Cubierta (Multi-Inversor Auto)</b>
                       <div style="color:var(--text-slate-400);font-size: 10px;line-height:1.3;">Aprovecha toda la superficie disponible y auto-dimensiona inversores adicionales si se supera la potencia.</div>
                     </div>
                   </label>
 
-                  <label style="display:flex;align-items:flex-start;gap:8px;background:rgba(255,255,255,0.03);padding:7px;border-radius:6px;border:1px solid var(--border-subtle);cursor:pointer;">
-                    <input type="radio" name="project_objective" value="zero_shades" onchange="step4UpdateObjective()" style="margin-top:2px;">
+                  <label for="obj-radio-zero-shades" style="display:flex;align-items:flex-start;gap:8px;background:rgba(255,255,255,0.03);padding:7px;border-radius:6px;border:1px solid var(--border-subtle);cursor:pointer;">
+                    <input id="obj-radio-zero-shades" type="radio" name="project_objective" value="zero_shades" onchange="step4UpdateObjective()" style="margin-top:2px;">
                     <div style="font-size: 10px;">
                       <b style="color:var(--emerald-400);"><i data-lucide="sun" class="icon-sm"></i> Máximo Rendimiento Solar (Anti-Sombras)</b>
                       <div style="color:var(--text-slate-400);font-size: 10px;line-height:1.3;">Descarta posiciones con sombra anual &gt; 5% y optimiza la colocación en áreas de máxima radiación.</div>
                     </div>
                   </label>
 
-                  <label style="display:flex;align-items:flex-start;gap:8px;background:rgba(255,255,255,0.03);padding:7px;border-radius:6px;border:1px solid var(--border-subtle);cursor:pointer;">
-                    <input type="radio" name="project_objective" value="target_kwh" onchange="step4UpdateObjective()" style="margin-top:2px;">
+                  <label for="obj-radio-target-kwh" style="display:flex;align-items:flex-start;gap:8px;background:rgba(255,255,255,0.03);padding:7px;border-radius:6px;border:1px solid var(--border-subtle);cursor:pointer;">
+                    <input id="obj-radio-target-kwh" type="radio" name="project_objective" value="target_kwh" onchange="step4UpdateObjective()" style="margin-top:2px;">
                     <div style="font-size: 10px;flex:1;">
                       <div style="display:flex;justify-content:space-between;align-items:center;">
                         <b style="color:#a855f7;"><i data-lucide="target" class="icon-sm"></i> Ajuste por Consumo del Cliente (Autoconsumo Neto)</b>
@@ -1879,9 +1879,9 @@ window.RA_App = window.RA_App || {};
               <!-- Control manual de fuentes y peso de sombras 3D -->
               <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(56,189,248,0.22);border-radius:6px;padding:7px 8px;margin-bottom:8px;display:flex;flex-direction:column;gap:5px;font-size:10px;color:#cbd5e1;">
                 <div style="font-size:9px;font-weight:800;color:#38BDF8;text-transform:uppercase;letter-spacing:0.4px;">Fuentes y Penalización de Sombras 3D</div>
-                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="sim-cfg-obstacles" checked onchange="if(typeof raUpdateShadowSimConfig==='function') raUpdateShadowSimConfig()"> Obstáculos 3D (árboles, chimeneas, petos)</label>
-                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="sim-cfg-buildings" checked onchange="if(typeof raUpdateShadowSimConfig==='function') raUpdateShadowSimConfig()"> Sombras de edificios 3D</label>
-                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="sim-cfg-interrow" checked onchange="if(typeof raUpdateShadowSimConfig==='function') raUpdateShadowSimConfig()"> Auto-sombreado entre filas</label>
+                <label for="sim-cfg-obstacles" style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="sim-cfg-obstacles" checked onchange="if(typeof raUpdateShadowSimConfig==='function') raUpdateShadowSimConfig()"> Obstáculos 3D (árboles, chimeneas, petos)</label>
+                <label for="sim-cfg-buildings" style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="sim-cfg-buildings" checked onchange="if(typeof raUpdateShadowSimConfig==='function') raUpdateShadowSimConfig()"> Sombras de edificios 3D</label>
+                <label for="sim-cfg-interrow" style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="sim-cfg-interrow" checked onchange="if(typeof raUpdateShadowSimConfig==='function') raUpdateShadowSimConfig()"> Auto-sombreado entre filas</label>
                 <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:2px;">
                   <span>Peso penalización sombra:</span>
                   <div style="display:flex;align-items:center;gap:5px;">
@@ -1998,11 +1998,11 @@ window.RA_App = window.RA_App || {};
                 <div id="step3-grid-supply-notice" style="display:none;margin-top:6px;font-size:9.5px;padding:5px 8px;border-radius:4px;line-height:1.35;"></div>
                 <!-- Opciones de protección real REBT/SUA8 y respaldo -->
                 <div style="display:flex;flex-direction:column;gap:4px;margin-top:7px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.06);font-size:9.5px;color:#cbd5e1;">
-                  <label style="display:flex;align-items:center;gap:6px;cursor:pointer;" title="Exige descargadores Tipo 1+2 (Iimp 12,5 kA) en CC y CA según CTE SUA 8 y REBT ITC-BT-23">
+                  <label for="step4-chk-lightning-rod" style="display:flex;align-items:center;gap:6px;cursor:pointer;" title="Exige descargadores Tipo 1+2 (Iimp 12,5 kA) en CC y CA según CTE SUA 8 y REBT ITC-BT-23">
                     <input type="checkbox" id="step4-chk-lightning-rod" onchange="if(typeof wpSetProtectionOption==='function') wpSetProtectionOption('hasExternalLightningRod', this.checked)" style="accent-color:#f59e0b;cursor:pointer;">
                     <span>⚡ Edificio con pararrayos exterior (SPD Tipo 1+2)</span>
                   </label>
-                  <label style="display:flex;align-items:center;gap:6px;cursor:pointer;" title="Incluye cuadro conmutador ATS de respaldo para cargas críticas cuando hay batería instalada">
+                  <label for="step4-chk-backup-box" style="display:flex;align-items:center;gap:6px;cursor:pointer;" title="Incluye cuadro conmutador ATS de respaldo para cargas críticas cuando hay batería instalada">
                     <input type="checkbox" id="step4-chk-backup-box" checked onchange="if(typeof wpSetProtectionOption==='function') wpSetProtectionOption('includeBackupBox', this.checked)" style="accent-color:#10b981;cursor:pointer;">
                     <span>🔋 Incluir cuadro Backup / Respaldo (si lleva batería)</span>
                   </label>
@@ -2793,8 +2793,8 @@ window.RA_App = window.RA_App || {};
           
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
             <div class="doc-field">
-              <label>Tipo de Equipo:</label>
-              <select aria-label="Ajuste Óptimo al Inversor (Recomendado) Llena hasta la capacidad óptima del equipo (115%-130% DC/AC) en strings simétricos por MPPT. Llenado Máximo de Cubierta (Multi-Inversor Auto) Aprovecha toda la superficie disponible y auto-dimensiona inversores adicionales si se supera la potencia. Máximo Rendimiento Solar (Anti-Sombras) Descarta posiciones con sombra anual &gt; 5% y optimiza la colocación en áreas de máxima radiación. Ajuste por Consumo del Cliente (Autoconsumo Neto) Ajusta el número de módulos para cubrir exactamente la meta de generación anual (kWh/año). Estrategia Financiera: Máxima Producción (Alta eficiencia) Rápida Amortización (&lt; 4.5 años) Mínima Inversión Inicial (Low CAPEX) Máxima Rentabilidad (TIR &gt; 22%) Gestión de Sombras: Mitigar con Optimizadores / Microinversores Exclusión Estricta (Omitir panel) Margen Retranqueo Obstáculos: 3.2 Estudio de Sombras &amp; Heatmap 3D 16 INSTANTES (RÁPIDA) Calcula la oclusión astronómica anual panel a panel y activa el mapa de calor 3D con pérdidas reales. SIMULAR SOMBRAS &amp; ACTIVAR MAPA DE CALOR 3D Etiquetas: Solo al pasar ratón Paneles en Sombra Crítica 0 PANELES Detectados paneles con pérdidas por sombra ≥15% que penalizan el rendimiento global. Retirar Paneles Sombreados en 1 Clic Prod. Bruta Teórica: -- kWh Pérdidas Sombras: -- kWh Pérdidas Sistema (PR): -- kWh PRODUCCI&Oacute;N NETA ANUAL: -- kWh/a&ntilde;o 3.3 Diagnóstico de Optimizadores Anti-Sombra Resultados pendientes de simulación... 3.4 PÉRDIDAS DEL SISTEMA (ÁRBOL PR) PVsyst — Preset — Estándar (limpio, suburbano) Urbano (polvo moderado) Rural / agrícola (suciedad alta) Óptimo (mantenimiento intensivo) ↺ Suma de pérdidas aplicada: — Se aplican al re-ejecutar el análisis energético y modifican la producción del Paso 3. Se guardan automáticamente en este navegador. VOLVER A CAMPO (2) CONTINUAR A INGENIERÍA (4) CHECKLIST INGENIERÍA: ⚡ Inversor 📏 Strings MPPT 🛡️ REBT ≤ 1.5% ÁMBITO DE DISEÑO (FALDONES & CUBIERTAS): — 4.1 EQUIPOS &amp; CONVERSIÓN REBT / IEC PREVER 3D CATÁLOGO &amp; IA TIPO DE RED &amp; ACOMETIDA: RD 1699/2011 · REBT ⚡ Monofásica (230 V) ⚡⚡⚡ Trifásica (400 V) TOPOLOGÍA & ARQUITECTURA DE CONVERSIÓN: 1x INVERSOR ⚡ Inversor String Convencional Puro ⚙️ Inversor + MLPE Inversor + Optimizadores 🖲️ Microinversores Conversión AC en panel Inversor String Central: Los paneles se conectan en serie (DC) a las entradas MPPT de 1 o varios inversores centrales. Inversor de Red: Alternativas 1x / Nx Ficha - + uds Auto AUTO: Calculando... Optimizadores DC/DC (MLPE): 🎯 Selectivo (Sombra >8%) 🌐 Integral (100% de placas) Ficha Microinversor / Optimizador: Alternativas 1x / Nx Ficha - + uds Auto AUTO: Calculando... Batería / Acumulación LFP: Ficha - + uds Auto AUTO: Calculando... COSTE TOTAL EQUIPOS: 0 Placas · 0.0 kWp 0 € RACK DE ELECTRÓNICA & MLPE ACTIVO — MATRIZ DE COMBINACIONES &amp; ELECTRÓNICA POR FALDÓN — 4.2 DIMENSIONAMIENTO &amp; STRINGS MPPT IEC 62548 CASACIÓN INTELIGENTE MPPT &amp; INVERSORES ESQUEMA UNIFILAR DE EVACUACIÓN LIVE TOPOLOGY SEMÁFORO DE COMPATIBILIDAD IEC 62548 CONFORMIDAD TÉCNICA Tensión en Frío (-10°C) Calculando… Mín. Arranque MPPT (70°C) Calculando… Capacidad Total por Inversor — RATIO STC Corriente Imp vs MPPT: — Seguridad Isc Cortocircuito: — Sobrecarga Estructural (CTE): — 4.3 TÉCNICA DE CABLEADO DE STRINGS UNE-EN 62305 🐸 Salto de Rana (Leapfrog / Anti-bucle UNE-EN 62305) ⛓️ Guirnalda Continua + Retorno Compensado Conecta paneles alternos (pares a la ida, impares a la vuelta). Cancela bucles inductivos frente a rayos (UNE-EN 62305). Requiere latiguillos alargadores MC4 presupuestados en el BOM. 4.4 EMPLAZAMIENTO &amp; RUTAS REBT ITC-BT-40 Ubicación en Gemelo Digital 3D: SITUAR INVERSOR SITUAR CONTADOR SITUAR BATERÍA SITUAR CUADRO DC Trazado de Conducciones Eléctricas: TRAZAR BANDEJA DC TRAZAR TUBO AC DIBUJANDO RUTA 0 pts FIJAR RUTA DESHACER ✕ Tirada DC Homerun: 0.0 m Sección Cable DC (ZZ-F 1500V): — Evacuación AC (Inversor ➔ Red): 0.0 m Sección Cable AC (RV-K 1kV): — Verificación REBT ITC-BT-40: ΔV ≤ 1.5% CONFORME VOLVER A ANÁLISIS (3) CONTINUAR A ENTREGA (5) Paso 5: Entrega, Presupuesto &amp; Memoria Técnica Oficial EPC &amp; DOCS Genera la memoria técnica de ingeniería fotovoltaica y la propuesta comercial completa: COMPARADOR DE ESCENARIOS DECISIÓN Compara el diseño actual frente a microinversores (MLPE) y una optimización angular, con los motores de producción reales y los precios del catálogo. GENERAR COMPARATIVA Propuesta Comercial &amp; Venta CLIENTE FINAL Landscape (10 Lám.) Portrait (Bancable) EMITIR DOSSIER EJECUTIVO (LANDSCAPE) Auditar Factura Margen &amp; Precios Expediente de Legalización CUPS / Proyectista 📦 GENERAR PACK DE ENTREGA COMPLETO Memoria Técnica Esquema Unifilar Pliego Condiciones Plano de Planta Presupuesto BOE Tramitación RD 244 Detalle Económico &amp; Fiscal CAPEX · TOU · IRPF Desglose Costes Datos &amp; Logo VOLVER A INGENIERÍA (4) TRAZADO POLILÍNEA 0 PTS CERRAR ↶ DESHACER ESC DISEÑO DE POLÍGONO COMPLETADO · LISTO PARA CONFIRMAR CONFIRMAR DISEÑO SIMULACIÓN SOLAR & RAYTRACING DE SOMBRAS SOLSTICIO INVIERNO (21 DIC) Elevación: 28.5° Azimut: 180° (Sur) Sombras: 0 mods Optimizadores: 0 uds SOL INSTANTÁNEO MAPA DE CALOR ANUAL VER OPTIMIZADORES SOMBRAS 3D: OFF CÁMARA DRON { if (c && typeof showToast === 'function') showToast('CAPTURAS LISTAS', 'Se incluirán en el próximo PDF de memoria.', 'success', 3500); });" title="Captura dron realista + irradiación para el presupuesto"> CAPTURA INFORME UBICAR INVERSOR 3D PÉRDIDAS: ≤2% ≤4% ≤6% ≤8% ≤11% ≤15% ≤20% ≤25% ≤35% 35%">>35% DÍAS CRÍTICOS: 21 Dic (Solsticio Invierno) 21 Mar (Equinoccio) 21 Jun (Solsticio Verano) ENE FEB MAR ABR MAY JUN JUL AGO SEP OCT NOV DIC ▶ PLAY 07:04 (Amanecer) 12:00 h (Mediodía Solar) 20:36 (Ocaso) 1x 3x 5x CATÁLOGO OFICIAL DE EQUIPOS FOTOVOLTAICOS Módulos Tier 1, Inversores, Baterías y Optimizadores / Microinversores ↩ RESTAURAR FÁBRICA MÓDULOS FV INVERSORES BATERÍAS LFP MICROINVERSORES AEROGENERADORES ESTRUCTURAS INSTALACIÓN &amp; SOFT COSTS AÑADIR MANUAL IMPORTAR CON IA BUSCADOR WEB IA EDITAR EQUIPO Fabricante & Modelo ⇅ Potencia ⇅ Rendimiento ⇅ Dimensiones ⇅ Precio Unit. ⇅ Acciones Marca &amp; Modelo ⇅ Potencia ⇅ MPPT (Entr.) ⇅ Tensión Vdc (MPPT) ⇅ Tipo / Corrientes ⇅ Precio ⇅ Acciones Marca & Modelo ⇅ Capacidad Útil ⇅ Química / Tipo ⇅ Coste Pack ⇅ Acciones Marca & Modelo ⇅ Potencia AC ⇅ Topología ⇅ Precio Unitario ⇅ Acciones ALTA DE NUEVO EQUIPO PERSONALIZADO Tipo de Equipo" id="new-eq-type" onchange="
+              <label for="new-eq-type">Tipo de Equipo:</label>
+              <select aria-label="Tipo de equipo" id="new-eq-type" onchange="
                 document.getElementById('mod-fields-wrap').style.display = this.value==='module'?'grid':'none';
                 document.getElementById('inv-fields-wrap').style.display = this.value==='inverter'?'grid':'none';
                 document.getElementById('bat-fields-wrap').style.display = this.value==='battery'?'grid':'none';
@@ -2935,8 +2935,8 @@ window.RA_App = window.RA_App || {};
           
           <div id="edit-general-fields" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px;">
             <div class="doc-field">
-              <label>Marca / Fabricante:</label>
-              <input aria-label="Curva de Potencia Certificada (v: m/s, P: W, Ct: empuje 0-1): Autocalibrar según Betz Auditoría de curva: Físicamente viable GUARDAR EQUIPO EN CATÁLOGO LOCAL MODIFICAR ESPECIFICACIONES TÉCNICAS MÓDULO Marca / Fabricante" type="text" id="edit-eq-brand">
+              <label for="edit-eq-brand">Marca / Fabricante:</label>
+              <input aria-label="Marca o fabricante" type="text" id="edit-eq-brand">
             </div>
             <div class="doc-field">
               <label for="edit-eq-model">Modelo / Denominación:</label>
@@ -3052,8 +3052,8 @@ window.RA_App = window.RA_App || {};
           <!-- Campos específicos Parámetro Estructura / Coste Instalación -->
           <div id="edit-param-wrap" style="display:none;grid-template-columns:1fr;gap:10px;margin-bottom:12px;border-top:1px solid rgba(255,255,255,0.08);padding-top:10px;">
             <div class="doc-field full">
-              <label id="edit-param-label">Valor del Parámetro:</label>
-              <input aria-label="Curva de Potencia Certificada (v: m/s, P: W, Ct: empuje 0-1): Autocalibrar según Betz Auditoría de curva: Físicamente viable Valor del Parámetro" type="number" id="edit-param-val" step="0.01" style="font-size:13px;font-weight:bold;color:#38BDF8;">
+              <label id="edit-param-label" for="edit-param-val">Valor del Parámetro:</label>
+              <input aria-label="Valor del parámetro" type="number" id="edit-param-val" step="0.01" style="font-size:13px;font-weight:bold;color:#38BDF8;">
               <div id="edit-param-desc" style="font-size:10px;color:var(--text-slate-400);margin-top:4px;"></div>
             </div>
           </div>
@@ -3239,11 +3239,11 @@ window.RA_App = window.RA_App || {};
           <!-- Panel de Verificación y Ajuste No Bloqueante para IVA 10% (Art. 91.Uno.2.10º / Art. 91.Uno.3.1º LIVA) -->
           <div id="modal-iva10-compliance-box" style="display:none;margin-bottom:10px;padding:9px 10px;border-radius:7px;background:rgba(15,23,42,0.75);border:1px solid rgba(56,189,248,0.3);font-size:9.5px;line-height:1.4;color:#e2e8f0;">
             <div id="modal-iva10-renovacion-controls">
-              <label for="modal-cfg-company-name" style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-bottom:5px;color:#cbd5e1;" title="Art. 91.Uno.2.10º LIVA: El destinatario debe ser persona física (uso particular) y la vivienda tener al menos 2 años desde su construcción o última rehabilitación.">
+              <label for="modal-tax-iva-home-age" style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-bottom:5px;color:#cbd5e1;" title="Art. 91.Uno.2.10º LIVA: El destinatario debe ser persona física (uso particular) y la vivienda tener al menos 2 años desde su construcción o última rehabilitación.">
                 <input type="checkbox" id="modal-tax-iva-home-age" checked onchange="raSyncTaxControls()" style="accent-color:#10b981;margin:0;">
                 <span>Vivienda uso particular con <b>≥ 2 años</b> de antigüedad</span>
               </label>
-              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-bottom:7px;color:#cbd5e1;" title="Imputa el margen comercial mayoritariamente sobre las partidas de Mano de Obra, Instalación e Ingeniería, reduciendo el peso porcentual de los materiales aportados sobre la Base Imponible.">
+              <label for="modal-tax-iva-margin-labor" style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-bottom:7px;color:#cbd5e1;" title="Imputa el margen comercial mayoritariamente sobre las partidas de Mano de Obra, Instalación e Ingeniería, reduciendo el peso porcentual de los materiales aportados sobre la Base Imponible.">
                 <input type="checkbox" id="modal-tax-iva-margin-labor" checked onchange="raSyncTaxControls()" style="accent-color:#38bdf8;margin:0;">
                 <span>Cargar margen comercial mayoritariamente s/ <b>Mano de Obra e Instalación</b></span>
               </label>
@@ -3417,7 +3417,7 @@ window.RA_App = window.RA_App || {};
           </div>
 
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
-            <label style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:#fff;cursor:pointer;">
+            <label for="modal-comm-discount-enabled" style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:#fff;cursor:pointer;">
               <input type="checkbox" id="modal-comm-discount-enabled" onchange="raSyncCommercialControls()" style="accent-color:#f59e0b;">
               <b>Activar Descuento Promocional</b>
             </label>
@@ -3525,8 +3525,8 @@ window.RA_App = window.RA_App || {};
               <span style="font-size:10.5px;font-weight:700;color:#38bdf8;">Batería Virtual / Monedero Solar:</span>
               <span style="font-size:9px;color:var(--text-slate-400);">Compensar excedentes al 100% sin tope de término de energía</span>
             </div>
-            <label style="display:flex;align-items:center;cursor:pointer;">
-              <input type="checkbox" id="modal-cfg-virtual-bat" onchange="toggleVirtualBatterySync(this.checked)" style="width:16px;height:16px;accent-color:#38bdf8;cursor:pointer;">
+            <label for="modal-cfg-virtual-bat" style="display:flex;align-items:center;cursor:pointer;">
+              <input type="checkbox" id="modal-cfg-virtual-bat" aria-label="Activar batería virtual o monedero solar" onchange="toggleVirtualBatterySync(this.checked)" style="width:16px;height:16px;accent-color:#38bdf8;cursor:pointer;">
             </label>
           </div>
 
@@ -3626,8 +3626,8 @@ window.RA_App = window.RA_App || {};
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
           <div class="doc-field">
-            <label style="font-size:10px;color:var(--text-slate-300);font-weight:700;margin-bottom:4px;display:block;">Razón Social / Marca Comercial:</label>
-            <input aria-label="Vivienda uso particular con ≥ 2 años de antigüedad Cargar margen comercial mayoritariamente s/ Mano de Obra e Instalación Peso Materiales s/ Base Imponible: 0.0% (≤ 40%) Mat: 0 € · Serv/MO: 0 € · Tope 40%: 0 € ⚖️ Ajustar Partidas al ≤ 40% (Mantener Total) ✂️ Reducir Materiales al 40% Calificación Suelo / Finca: Urbano / Residencial (IBI Bonificable) Rústico / Finca Aislada (Sin IBI urbano) Cuota Anual IBI Inmueble (€/año): Bonificación IBI (% / Años): Sin bonificación municipal 50% durante 3 años (Estándar) 50% durante 5 años (Madrid/Bcn) 50% durante 10 años (Máx. TRLRHL) 30% durante 3 años 25% durante 5 años CEE / Deducción Estatal IRPF: Sin deducción IRPF (0%) 20% (CEE: Reducción 7% dem. térmica · máx 5.000€) 40% (CEE: Reducción 30% energ. no renov. / Cl. A-B · máx 7.500€) 60% (CEE: Edificio Residencial Completo · máx 15.000€) Libertad Amortización (IS): 25% Escudo Fiscal (Tipo General) 23% Escudo Fiscal (Pymes &lt; 1M€) 15% Escudo Fiscal (Nueva creación) 0% (Sin libertad amortización) Bonificación ICIO: 95% Bonificación ICIO (Máx. Ley) 50% Bonificación ICIO Sin bonificación Ayudas Directas / CAEs (€): ⚠️ PECULIARIDADES AISLADA DE RED (OFF-GRID): • IRPF: Exige CEE previo registrado o justificar sustitución de grupo electrógeno fósil. • IBI: Inmuebles en suelo rústico generalmente no califican para bonificación municipal. DESGLOSE Y FÓRMULAS DE CÁLCULO RD-ley 19/2021 + TRLRHL Calculando desglose... Bonif. EPC (IBI + IRPF) 0 € Ahorro Licencia ICIO 0 € INVERSIÓN NETA TRAS AYUDAS: 0 € 3. Métricas de Rentabilidad y Retorno 25 AÑOS Ahorro Anual (Año 1) 0 €/año Amortización Neta 0 años Valor Actual Neto (VAN) 0 € Tasa Interna Retorno (TIR) 0.0 % Coste LCOE Fotovoltaico 0.035 €/kWh Autoconsumo / Autarquía 50% Estrategia Comercial &amp; Descuento CIERRA-VENTAS Activar Descuento Promocional % Descuento € Directos Partidas Opcionales (Quita y Pon): 4. Condiciones de Financiación Bancaria CRÉDITO A MEDIDA Modalidad de Pago Oferta: Comparativa (Contado vs Financiado) Solo Pago al Contado (Llave en mano) Solo Financiación (Crédito) Entrada Inicial Aportada (€): Resta del capital principal a financiar Plazo del Préstamo: 3 Años (36 cuotas) 5 Años (60 cuotas) 7 Años (84 cuotas) 8 Años (96 cuotas) 10 Años (120 cuotas) 12 Años (144 cuotas) 15 Años (180 cuotas) Tasas Financiación (TIN / TAE): TIN TAE Comisión Apertura (%): Carencia Inicial (Meses): Sin carencia (0 m) 1 mes de carencia 2 meses de carencia 3 meses de carencia Seguro/Mant. en Cuota (€/mes): Gastos Formalización (€): Batería Virtual / Monedero Solar: Compensar excedentes al 100% sin tope de término de energía Capital Financiado Neto: 0 € Cuota Mensual Crédito: 0 €/mes Factura Estimada tras Amortización: ~0 €/mes Ahorro Estimado en Factura: 0 €/mes BALANCE NETO MENSUAL: +0 €/mes Los cambios se sincronizan en tiempo real con el proyecto y los informes técnicos. ACEPTAR Y APLICAR MODAL DE DATOS & LOGOTIPO DE EMPRESA (OPCIÓN B AAA) --> IDENTIDAD CORPORATIVA, LOGO &amp; WHITE-LABEL Personalización de la Memoria Técnica Oficial y Propuesta Comercial PDF Logotipo Oficial de la Empresa / Instaladora CARGAR LOGOTIPO (PNG / JPG / SVG) ELIMINAR Recomendado: imagen horizontal con fondo transparente (PNG), mín. 400x150 px. Datos Fiscales, Emisión y Contacto Razón Social / Marca Comercial" type="text" id="modal-cfg-company-name" class="field-input" style="width:100%;font-size:11px;" oninput="syncModalInputToBranding('cfg-company-name', this.value)">
+            <label for="modal-cfg-company-name" style="font-size:10px;color:var(--text-slate-300);font-weight:700;margin-bottom:4px;display:block;">Razón Social / Marca Comercial:</label>
+            <input aria-label="Razón social o marca comercial" type="text" id="modal-cfg-company-name" class="field-input" style="width:100%;font-size:11px;" oninput="syncModalInputToBranding('cfg-company-name', this.value)">
           </div>
           <div class="doc-field">
             <label for="modal-cfg-company-cif" style="font-size:10px;color:var(--text-slate-300);font-weight:700;margin-bottom:4px;display:block;">CIF / NIF Empresa:</label>
@@ -4048,7 +4048,7 @@ window.RA_App = window.RA_App || {};
               </div>
             </div>
             <div style="height:1px; background:rgba(255,255,255,0.05); margin:4px 0;"></div>
-            <label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:4px 0;" title="Alterna entre escala relativa (verde = mejor módulo) y escala fija según % de pérdida">
+            <label for="heatmap-relscale-toggle" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:4px 0;" title="Alterna entre escala relativa (verde = mejor módulo) y escala fija según % de pérdida">
               <div style="display:flex;flex-direction:column;">
                 <span style="font-size:11px;font-weight:600;color:#e2e8f0;">Escala Relativa vs. Líder</span>
                 <span style="font-size:9.5px;color:#64748b;line-height:1.2;">Verde = mejor módulo (100%), Rojo = peor módulo</span>
@@ -4101,7 +4101,7 @@ window.RA_App = window.RA_App || {};
   </button>
 
 
-<!-- [MODULARIZACION FASE 2 - BLOQUE 2.3] toggleSettingsPopover delegado canónicamente a js/ui-viewport-controls.js -->
+<!-- [MODULARIZACION FASE 2 - BLOQUE 2.3] toggleSettingsPopover delegado canónicamente a js/ui-viewport-controls.js?v=20261125_f5a -->
 
 </body>
 </html>

@@ -21,6 +21,7 @@
     '#ra-doc-modal',
     '#ra-projects-modal',
     '#ra-proposal-style-studio-modal',
+    '#ra-pricing-review-modal',
     '#ra-bill-auditor-modal',
     '#ra-bifacial-modal',
     '#ra-async-confirm-modal',
@@ -113,11 +114,14 @@
       }
     }
 
-    // 2. Garantizar aria-label en controles de formulario sin etiqueta accesible
+    // 2. Garantizar aria-label limpio en controles de formulario (y sanear volcados corruptos >120 chars) [F5-03]
     var inputs = scope.querySelectorAll('input:not([type="hidden"]), select, textarea');
     for (var j = 0; j < inputs.length; j++) {
       var inp = inputs[j];
-      if (inp.hasAttribute('aria-label') || inp.hasAttribute('aria-labelledby')) continue;
+      var existingAria = inp.getAttribute('aria-label');
+      var isCorruptAria = !!(existingAria && existingAria.length > 120);
+      if ((existingAria && !isCorruptAria) || inp.hasAttribute('aria-labelledby')) continue;
+      if (isCorruptAria) inp.removeAttribute('aria-label');
       var derived = '';
       if (inp.id) {
         var matchingLbl = scope.querySelector('label[for="' + CSS.escape(inp.id) + '"]');
@@ -130,16 +134,24 @@
       if (!derived) derived = _cleanText(inp.getAttribute('placeholder'));
       if (!derived) derived = _cleanText(inp.getAttribute('title'));
       if (!derived) derived = _humanizeId(inp.id) || (inp.tagName.toLowerCase() === 'select' ? 'Selector' : 'Campo de entrada');
+      if (derived && derived.length > 80) derived = derived.slice(0, 80).trim();
       if (derived) inp.setAttribute('aria-label', derived);
     }
 
-    // 3. Garantizar aria-label en botones de icono / sin texto visible
-    var buttons = scope.querySelectorAll('button:not([aria-label])');
+    // 3. Garantizar aria-label en botones de icono / sin texto visible (y sanear volcados >120 chars)
+    var buttons = scope.querySelectorAll('button');
     for (var k = 0; k < buttons.length; k++) {
       var btn = buttons[k];
-      var txt = _cleanText(btn.textContent);
-      if (!txt) {
-        btn.setAttribute('aria-label', _deriveButtonLabel(btn));
+      var btnAria = btn.getAttribute('aria-label');
+      if (btnAria && btnAria.length > 120) {
+        btn.removeAttribute('aria-label');
+        btnAria = null;
+      }
+      if (!btnAria) {
+        var txt = _cleanText(btn.textContent);
+        if (!txt) {
+          btn.setAttribute('aria-label', _deriveButtonLabel(btn));
+        }
       }
     }
 
@@ -163,7 +175,7 @@
     }
 
     // 5. Marcar overlays de modales con role="dialog" + aria-modal="true"
-    var modals = scope.querySelectorAll('#ra-equipment-catalog-modal, #ra-cost-breakdown-modal, #ra-company-branding-modal, #ra-doc-modal, #ra-projects-modal, #ra-proposal-style-studio-modal, #ra-bill-auditor-modal, #ra-bifacial-modal');
+    var modals = scope.querySelectorAll('#ra-equipment-catalog-modal, #ra-cost-breakdown-modal, #ra-company-branding-modal, #ra-doc-modal, #ra-projects-modal, #ra-proposal-style-studio-modal, #ra-pricing-review-modal, #ra-bill-auditor-modal, #ra-bifacial-modal');
     for (var q = 0; q < modals.length; q++) {
       var mdl = modals[q];
       if (!mdl.hasAttribute('role')) mdl.setAttribute('role', 'dialog');
@@ -185,15 +197,37 @@
     candidates.sort(function(a, b) {
       var za = parseInt((global.getComputedStyle ? global.getComputedStyle(a).zIndex : a.style.zIndex) || '0', 10) || 0;
       var zb = parseInt((global.getComputedStyle ? global.getComputedStyle(b).zIndex : b.style.zIndex) || '0', 10) || 0;
-      return za - zb;
+      if (za !== zb) return za - zb;
+      // Desempate determinista por orden en el DOM (último pintado = superior)
+      if (typeof a.compareDocumentPosition === 'function') {
+        var pos = a.compareDocumentPosition(b);
+        if (pos & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
+        if (pos & Node.DOCUMENT_POSITION_PRECEDING) return 1;
+      }
+      return 0;
     });
     return candidates[candidates.length - 1];
   }
 
   function _closeModalElement(modal) {
     if (!modal) return;
+    _activeModalStack = _activeModalStack.filter(function(m) { return m !== modal; });
     if (modal.id === 'ra-async-confirm-modal' && typeof modal._raCancel === 'function') {
       modal._raCancel();
+      return;
+    }
+    if (modal.id === 'ra-pricing-review-modal') {
+      var pBtn = modal.querySelector('#btn-close-pricing-review, #btn-cancel-pricing-review');
+      if (pBtn) pBtn.click();
+      else modal.style.display = 'none';
+      _restoreOpenerFocus(modal);
+      return;
+    }
+    if (modal.id === 'ra-bill-auditor-modal') {
+      var bBtn = modal.querySelector('#btn-close-bill-modal, #btn-cancel-bill-modal, .bill-close-btn');
+      if (bBtn) bBtn.click();
+      else modal.style.display = 'none';
+      _restoreOpenerFocus(modal);
       return;
     }
     var closeSelectors = [
@@ -227,6 +261,7 @@
       modal.remove();
     } else {
       modal.style.display = 'none';
+      modal.classList.remove('open');
     }
     _restoreOpenerFocus(modal);
   }
@@ -405,6 +440,15 @@
       }
     }, true);
 
+    // [F5-01] Cierre por clic en backdrop centralizado: cierra solo el modal superior del stack
+    document.addEventListener('click', function(ev) {
+      if (!ev.target || ev.target.nodeType !== 1) return;
+      var topModal = _getTopVisibleModal();
+      if (!topModal || ev.target !== topModal) return;
+      if (topModal.id === 'ra-async-confirm-modal') return; // gestionado por su propio overlay.onclick
+      _closeModalElement(topModal);
+    });
+
     if (typeof MutationObserver !== 'undefined') {
       var observer = new MutationObserver(function() {
         if (_enhanceTimer) return;
@@ -433,6 +477,12 @@
 
   global.RAA11y = {
     enhanceContainer: enhanceContainer,
+    getTopVisibleModal: _getTopVisibleModal,
+    closeTopModal: function() {
+      var top = _getTopVisibleModal();
+      if (top) { _closeModalElement(top); return true; }
+      return false;
+    },
     alert: raAlert,
     confirmAsync: raConfirmAsync
   };

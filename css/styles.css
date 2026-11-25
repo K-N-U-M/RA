@@ -3,6 +3,7 @@
        Inspirado en Tailwind CSS, Glassmorphism y UI Aeroespacial / CAD
        ========================================================================== */
     :root {
+  --focus-ring: #38BDF8;
   --text-slate-400: #94a3b8;
   --text-secondary-wcag: #CBD5E1; /* Contraste mejorado 5.8:1 para fondos oscuros */
   --text-primary-wcag: #F8FAFC;
@@ -2095,8 +2096,15 @@
     /* ═══════════════════════════════════════════════════════════════════════
        ♿ ESTÁNDAR DE ACCESIBILIDAD UNIVERSAL WCAG 2.2 AAA & ERGONOMÍA UI/UX
        ═══════════════════════════════════════════════════════════════════════ */
-    button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible, [tabindex]:focus-visible {
-      outline: none !important;
+    button:focus-visible,
+    input:focus-visible,
+    select:focus-visible,
+    textarea:focus-visible,
+    a:focus-visible,
+    [tabindex]:focus-visible {
+      outline: 2px solid var(--focus-ring, #38BDF8) !important;
+      outline-offset: 2px;
+      border-radius: 4px;
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -2853,7 +2861,6 @@ body.ra-capture-mode-active .ra-status-hud {
   white-space: nowrap !important;
   user-select: none !important;
   transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
-  outline: none !important;
 }
 
 .cat-nav-pill:hover {

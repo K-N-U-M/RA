@@ -561,20 +561,20 @@
     // Barra rápida de recurso eólico local (Fase 2)
     html += '  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;background:rgba(2,6,23,0.45);padding:6px 8px;border-radius:6px;margin-bottom:6px;border:1px solid rgba(255,255,255,0.06);">';
     html += '    <div>';
-    html += '      <label style="display:block;font-size:9px;color:var(--text-slate-400);">Viento medio (10m)</label>';
-    html += '      <input type="number" step="0.1" min="1.0" max="18.0" value="' + resCfg.vMeanRefMs + '" onchange="if(window.RAWindUI)window.RAWindUI.updateResourceParam(\'vMeanRefMs\',this.value)" style="width:100%;background:#0F172A;color:#38BDF8;border:1px solid #334155;border-radius:4px;padding:2px 4px;font-size:10.5px;font-family:monospace;">';
+    html += '      <label for="wind-res-vmean" style="display:block;font-size:9px;color:var(--text-slate-400);">Viento medio (10m)</label>';
+    html += '      <input id="wind-res-vmean" type="number" step="0.1" min="1.0" max="18.0" value="' + resCfg.vMeanRefMs + '" onchange="if(window.RAWindUI)window.RAWindUI.updateResourceParam(\'vMeanRefMs\',this.value)" style="width:100%;background:#0F172A;color:#38BDF8;border:1px solid #334155;border-radius:4px;padding:2px 4px;font-size:10.5px;font-family:monospace;">';
     html += '    </div>';
     html += '    <div>';
-    html += '      <label style="display:block;font-size:9px;color:var(--text-slate-400);">Rugosidad z₀</label>';
-    html += '      <select onchange="if(window.RAWindUI)window.RAWindUI.updateResourceParam(\'roughnessLengthM\',this.value)" style="width:100%;background:#0F172A;color:#E2E8F0;border:1px solid #334155;border-radius:4px;padding:2px 2px;font-size:10px;">';
+    html += '      <label for="wind-res-roughness" style="display:block;font-size:9px;color:var(--text-slate-400);">Rugosidad z₀</label>';
+    html += '      <select id="wind-res-roughness" onchange="if(window.RAWindUI)window.RAWindUI.updateResourceParam(\'roughnessLengthM\',this.value)" style="width:100%;background:#0F172A;color:#E2E8F0;border:1px solid #334155;border-radius:4px;padding:2px 2px;font-size:10px;">';
     html += '        <option value="0.03"' + (resCfg.roughnessLengthM <= 0.04 ? ' selected' : '') + '>Campo (0.03m)</option>';
     html += '        <option value="0.10"' + (resCfg.roughnessLengthM > 0.04 && resCfg.roughnessLengthM <= 0.20 ? ' selected' : '') + '>Periurbano (0.10m)</option>';
     html += '        <option value="0.40"' + (resCfg.roughnessLengthM > 0.20 ? ' selected' : '') + '>Urbano/Ind (0.40m)</option>';
     html += '      </select>';
     html += '    </div>';
     html += '    <div>';
-    html += '      <label style="display:block;font-size:9px;color:var(--text-slate-400);">Dist. Lindero (m)</label>';
-    html += '      <input type="number" step="5" min="5" max="500" value="' + resCfg.receptorDistanceM + '" onchange="if(window.RAWindUI)window.RAWindUI.updateResourceParam(\'receptorDistanceM\',this.value)" style="width:100%;background:#0F172A;color:#FBBF24;border:1px solid #334155;border-radius:4px;padding:2px 4px;font-size:10.5px;font-family:monospace;">';
+    html += '      <label for="wind-res-receptor" style="display:block;font-size:9px;color:var(--text-slate-400);">Dist. Lindero (m)</label>';
+    html += '      <input id="wind-res-receptor" type="number" step="5" min="5" max="500" value="' + resCfg.receptorDistanceM + '" onchange="if(window.RAWindUI)window.RAWindUI.updateResourceParam(\'receptorDistanceM\',this.value)" style="width:100%;background:#0F172A;color:#FBBF24;border:1px solid #334155;border-radius:4px;padding:2px 4px;font-size:10.5px;font-family:monospace;">';
     html += '    </div>';
     html += '  </div>';
 
@@ -629,8 +629,8 @@
           html += '        <div style="display:flex;justify-content:space-between;"><span>Horas Viento Útil:</span><b style="color:#38BDF8;font-family:monospace;">' + Number(parkSummary.annualOperatingHours).toLocaleString('es-ES') + ' h/año (v ≥ v_arranque)</b></div>';
         }
     html += '        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px;padding-top:3px;border-top:1px dashed rgba(255,255,255,0.08);">';
-    html += '          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:9px;color:#94A3B8;" title="Orientar automáticamente las turbinas nuevas y existentes al viento predominante">';
-    html += '            <input type="checkbox" ' + (autoYawOn ? 'checked' : '') + ' onchange="if(window.RAWindUI)window.RAWindUI.toggleAutoYaw(this.checked)" style="accent-color:#FBBF24;"> Auto-Yaw';
+    html += '          <label for="wind-res-autoyaw" style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:9px;color:#94A3B8;" title="Orientar automáticamente las turbinas nuevas y existentes al viento predominante">';
+    html += '            <input id="wind-res-autoyaw" type="checkbox" ' + (autoYawOn ? 'checked' : '') + ' onchange="if(window.RAWindUI)window.RAWindUI.toggleAutoYaw(this.checked)" style="accent-color:#FBBF24;"> Auto-Yaw';
     html += '          </label>';
     html += '          <button type="button" onclick="if(window.RAWindUI)window.RAWindUI.orientAllToWindNow()" style="background:rgba(245,158,11,0.16);border:1px solid rgba(245,158,11,0.45);color:#FBBF24;border-radius:4px;padding:1px 6px;font-size:8.5px;font-weight:700;cursor:pointer;" title="Girar ahora todas las góndolas hacia ' + prevDir + '°">🧭 Alinear (' + prevDir + '°)</button>';
     html += '        </div>';
@@ -728,8 +728,8 @@
     if (ringsActive) {
     html += '  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;">';
       html += '    <div>';
-      html += '      <label style="display:block;font-size:8.5px;color:var(--text-slate-400);">Estilo Visual</label>';
-      html += '      <select onchange="if(window.RAWindUI)window.RAWindUI.updateVisualParam(\'style\', this.value)" style="width:100%;background:#0F172A;color:#38BDF8;border:1px solid #334155;border-radius:4px;padding:2px 4px;font-size:9.5px;">';
+      html += '      <label for="wind-vis-style" style="display:block;font-size:8.5px;color:var(--text-slate-400);">Estilo Visual</label>';
+      html += '      <select id="wind-vis-style" onchange="if(window.RAWindUI)window.RAWindUI.updateVisualParam(\'style\', this.value)" style="width:100%;background:#0F172A;color:#38BDF8;border:1px solid #334155;border-radius:4px;padding:2px 4px;font-size:9.5px;">';
       html += '        <option value="neon"' + (visualCfg.style === 'neon' ? ' selected' : '') + '>⚡ Neón Brillante</option>';
       html += '        <option value="pulse"' + (visualCfg.style === 'pulse' ? ' selected' : '') + '>📡 Pulso Radar</option>';
       html += '        <option value="dome"' + (visualCfg.style === 'dome' ? ' selected' : '') + '>🌐 Cúpula Holográfica</option>';
@@ -737,26 +737,26 @@
       html += '      </select>';
       html += '    </div>';
       html += '    <div>';
-      html += '      <label style="display:block;font-size:8.5px;color:var(--text-slate-400);">Brillo / Opacidad: ' + Math.round((visualCfg.opacity || 0.65) * 100) + '%</label>';
-      html += '      <input type="range" min="0.1" max="1.0" step="0.05" value="' + (visualCfg.opacity || 0.65) + '" oninput="if(window.RAWindUI)window.RAWindUI.updateVisualParam(\'opacity\', parseFloat(this.value))" style="width:100%;height:14px;accent-color:#38BDF8;cursor:pointer;">';
+      html += '      <label for="wind-vis-opacity" style="display:block;font-size:8.5px;color:var(--text-slate-400);">Brillo / Opacidad: ' + Math.round((visualCfg.opacity || 0.65) * 100) + '%</label>';
+      html += '      <input id="wind-vis-opacity" type="range" min="0.1" max="1.0" step="0.05" value="' + (visualCfg.opacity || 0.65) + '" oninput="if(window.RAWindUI)window.RAWindUI.updateVisualParam(\'opacity\', parseFloat(this.value))" style="width:100%;height:14px;accent-color:#38BDF8;cursor:pointer;">';
       html += '    </div>';
       html += '  </div>';
 
       html += '  <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:9px;color:var(--text-slate-300);padding-top:4px;border-top:1px dashed rgba(255,255,255,0.08);">';
-      html += '    <label style="display:flex;align-items:center;gap:3px;cursor:pointer;">';
-      html += '      <input type="checkbox" ' + (visualCfg.showFallRadius ? 'checked' : '') + ' onchange="if(window.RAWindUI)window.RAWindUI.updateVisualParam(\'showFallRadius\', this.checked)" style="accent-color:#00E5FF;">';
+      html += '    <label for="wind-vis-fall" style="display:flex;align-items:center;gap:3px;cursor:pointer;">';
+      html += '      <input id="wind-vis-fall" type="checkbox" ' + (visualCfg.showFallRadius ? 'checked' : '') + ' onchange="if(window.RAWindUI)window.RAWindUI.updateVisualParam(\'showFallRadius\', this.checked)" style="accent-color:#00E5FF;">';
       html += '      <span style="color:#00E5FF;">●</span> Caída (1.1×H)';
       html += '    </label>';
-      html += '    <label style="display:flex;align-items:center;gap:3px;cursor:pointer;">';
-      html += '      <input type="checkbox" ' + (visualCfg.showIso45Day ? 'checked' : '') + ' onchange="if(window.RAWindUI)window.RAWindUI.updateVisualParam(\'showIso45Day\', this.checked)" style="accent-color:#FF9100;">';
+      html += '    <label for="wind-vis-iso45" style="display:flex;align-items:center;gap:3px;cursor:pointer;">';
+      html += '      <input id="wind-vis-iso45" type="checkbox" ' + (visualCfg.showIso45Day ? 'checked' : '') + ' onchange="if(window.RAWindUI)window.RAWindUI.updateVisualParam(\'showIso45Day\', this.checked)" style="accent-color:#FF9100;">';
       html += '      <span style="color:#FF9100;">●</span> 45 dBA (Día)';
       html += '    </label>';
-      html += '    <label style="display:flex;align-items:center;gap:3px;cursor:pointer;">';
-      html += '      <input type="checkbox" ' + (visualCfg.showIso35Night ? 'checked' : '') + ' onchange="if(window.RAWindUI)window.RAWindUI.updateVisualParam(\'showIso35Night\', this.checked)" style="accent-color:#F43F5E;">';
+      html += '    <label for="wind-vis-iso35" style="display:flex;align-items:center;gap:3px;cursor:pointer;">';
+      html += '      <input id="wind-vis-iso35" type="checkbox" ' + (visualCfg.showIso35Night ? 'checked' : '') + ' onchange="if(window.RAWindUI)window.RAWindUI.updateVisualParam(\'showIso35Night\', this.checked)" style="accent-color:#F43F5E;">';
       html += '      <span style="color:#F43F5E;">●</span> 35 dBA (Noche)';
       html += '    </label>';
-      html += '    <label style="display:flex;align-items:center;gap:3px;cursor:pointer;" title="Mostrar vector de viento dominante y cono 3D de estela turbulenta de Jensen (5D)">';
-      html += '      <input type="checkbox" ' + (visualCfg.showWakeCone !== false ? 'checked' : '') + ' onchange="if(window.RAWindUI)window.RAWindUI.updateVisualParam(\'showWakeCone\', this.checked)" style="accent-color:#10B981;">';
+      html += '    <label for="wind-vis-wake" style="display:flex;align-items:center;gap:3px;cursor:pointer;" title="Mostrar vector de viento dominante y cono 3D de estela turbulenta de Jensen (5D)">';
+      html += '      <input id="wind-vis-wake" type="checkbox" ' + (visualCfg.showWakeCone !== false ? 'checked' : '') + ' onchange="if(window.RAWindUI)window.RAWindUI.updateVisualParam(\'showWakeCone\', this.checked)" style="accent-color:#10B981;">';
       html += '      <span style="color:#10B981;">▲</span> Estela Jensen + Viento 3D';
       html += '    </label>';
       html += '  </div>';
@@ -820,16 +820,16 @@
     html += '  <div style="font-size:10px;font-weight:700;color:#38BDF8;margin-bottom:6px;">⚙️ CONFIGURACIÓN: ' + activeTurbine.name + '</div>';
     html += '  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;">';
     html += '    <div>';
-    html += '      <label style="display:block;font-size:9px;color:var(--text-slate-400);">Altura de Buje (Mástil)</label>';
-    html += '      <select onchange="if(window.RAWind && window.RAWind.Entity)window.RAWind.Entity.updateProp(\'' + activeTurbine.id + '\',\'hubHeightM\',Number(this.value))" style="width:100%;background:#0F172A;color:#fff;border:1px solid #334155;border-radius:4px;padding:3px 4px;font-size:10px;">';
+    html += '      <label for="wind-act-hub-h" style="display:block;font-size:9px;color:var(--text-slate-400);">Altura de Buje (Mástil)</label>';
+    html += '      <select id="wind-act-hub-h" onchange="if(window.RAWind && window.RAWind.Entity)window.RAWind.Entity.updateProp(\'' + activeTurbine.id + '\',\'hubHeightM\',Number(this.value))" style="width:100%;background:#0F172A;color:#fff;border:1px solid #334155;border-radius:4px;padding:3px 4px;font-size:10px;">';
     availHeights.forEach(function (h) {
       html += '        <option value="' + h + '"' + (Number(h) === Number(actHubH) ? ' selected' : '') + '>' + h + ' m</option>';
     });
     html += '      </select>';
     html += '    </div>';
     html += '    <div>';
-    html += '      <label style="display:block;font-size:9px;color:var(--text-slate-400);">Cimentación / Apoyo</label>';
-    html += '      <select onchange="if(window.RAWind && window.RAWind.Entity)window.RAWind.Entity.updateProp(\'' + activeTurbine.id + '\',\'mountingType\',this.value)" style="width:100%;background:#0F172A;color:#fff;border:1px solid #334155;border-radius:4px;padding:3px 4px;font-size:10px;">';
+    html += '      <label for="wind-act-mount" style="display:block;font-size:9px;color:var(--text-slate-400);">Cimentación / Apoyo</label>';
+    html += '      <select id="wind-act-mount" onchange="if(window.RAWind && window.RAWind.Entity)window.RAWind.Entity.updateProp(\'' + activeTurbine.id + '\',\'mountingType\',this.value)" style="width:100%;background:#0F172A;color:#fff;border:1px solid #334155;border-radius:4px;padding:3px 4px;font-size:10px;">';
     html += '        <option value="ground"' + (actMount === 'ground' ? ' selected' : '') + '>⛰️ Suelo (Zapata HA-25)</option>';
     html += '        <option value="rooftop"' + (actMount === 'rooftop' ? ' selected' : '') + '>🏢 Cubierta (Bancada)</option>';
     html += '      </select>';
@@ -851,16 +851,16 @@
 
     html += '  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;background:rgba(56,189,248,0.08);padding:6px;border-radius:4px;border:1px dashed rgba(56,189,248,0.25);">';
     html += '    <div>';
-    html += '      <label style="display:block;font-size:9px;color:#38BDF8;font-weight:600;">' + (isVawt ? 'Diámetro Rotor VAWT' : 'Diámetro Rotor') + '</label>';
+    html += '      <label for="wind-act-rotor-d" style="display:block;font-size:9px;color:#38BDF8;font-weight:600;">' + (isVawt ? 'Diámetro Rotor VAWT' : 'Diámetro Rotor') + '</label>';
     html += '      <div style="display:flex;align-items:center;gap:4px;">';
-    html += '        <input type="number" min="0.5" max="30" step="0.1" value="' + actRotorD + '" onchange="if(window.RAWind && window.RAWind.Entity){ window.RAWind.Entity.updateProp(\'' + activeTurbine.id + '\',\'rotorDiameterM\',Number(this.value)); if(window.RAWindVisualizer){ window.RAWindVisualizer.renderAll(); } }" style="width:100%;background:#0F172A;color:#38BDF8;border:1px solid #0284C7;border-radius:4px;padding:3px 4px;font-size:10px;font-weight:700;">';
+    html += '        <input id="wind-act-rotor-d" type="number" min="0.5" max="30" step="0.1" value="' + actRotorD + '" onchange="if(window.RAWind && window.RAWind.Entity){ window.RAWind.Entity.updateProp(\'' + activeTurbine.id + '\',\'rotorDiameterM\',Number(this.value)); if(window.RAWindVisualizer){ window.RAWindVisualizer.renderAll(); } }" style="width:100%;background:#0F172A;color:#38BDF8;border:1px solid #0284C7;border-radius:4px;padding:3px 4px;font-size:10px;font-weight:700;">';
     html += '        <span style="font-size:9px;color:var(--text-slate-400);">m</span>';
     html += '      </div>';
     html += '    </div>';
     html += '    <div>';
-    html += '      <label style="display:block;font-size:9px;color:#38BDF8;font-weight:600;">' + (isVawt ? 'Longitud Palas VAWT' : 'Longitud Pala') + '</label>';
+    html += '      <label for="wind-act-blade-l" style="display:block;font-size:9px;color:#38BDF8;font-weight:600;">' + (isVawt ? 'Longitud Palas VAWT' : 'Longitud Pala') + '</label>';
     html += '      <div style="display:flex;align-items:center;gap:4px;">';
-    html += '        <input type="number" min="0.5" max="30" step="0.1" value="' + actBladeL + '" onchange="if(window.RAWind && window.RAWind.Entity){ window.RAWind.Entity.updateProp(\'' + activeTurbine.id + '\',\'bladeLength\',Number(this.value)); if(window.RAWindVisualizer){ window.RAWindVisualizer.renderAll(); } }" style="width:100%;background:#0F172A;color:#38BDF8;border:1px solid #0284C7;border-radius:4px;padding:3px 4px;font-size:10px;font-weight:700;">';
+    html += '        <input id="wind-act-blade-l" type="number" min="0.5" max="30" step="0.1" value="' + actBladeL + '" onchange="if(window.RAWind && window.RAWind.Entity){ window.RAWind.Entity.updateProp(\'' + activeTurbine.id + '\',\'bladeLength\',Number(this.value)); if(window.RAWindVisualizer){ window.RAWindVisualizer.renderAll(); } }" style="width:100%;background:#0F172A;color:#38BDF8;border:1px solid #0284C7;border-radius:4px;padding:3px 4px;font-size:10px;font-weight:700;">';
     html += '        <span style="font-size:9px;color:var(--text-slate-400);">m</span>';
     html += '      </div>';
     html += '    </div>';
@@ -868,10 +868,10 @@
 
     html += '  <div style="border-top:1px dashed rgba(255,255,255,0.08);padding-top:6px;">';
     html += '    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">';
-    html += '      <label style="font-size:9px;color:var(--text-slate-400);">Orientación Góndola (Guiñada / Yaw):</label>';
+    html += '      <label for="wind-act-yaw" style="font-size:9px;color:var(--text-slate-400);">Orientación Góndola (Guiñada / Yaw):</label>';
     html += '      <span id="wt-yaw-label" style="font-size:9.5px;font-weight:700;color:#FBBF24;font-family:monospace;">' + yawDeg + '° (' + _getYawCardinal(yawDeg) + ')</span>';
     html += '    </div>';
-    html += '    <input type="range" min="0" max="359" step="5" value="' + yawDeg + '" oninput="document.getElementById(\'wt-yaw-label\').textContent = this.value + \'° (\' + (window.RAWindUI ? window.RAWindUI.getYawCardinal(this.value) : \'\') + \')\'; if(window.RAWind && window.RAWind.Entity){ window.RAWind.Entity.updateProp(\'' + activeTurbine.id + '\', \'orientationRad\', (Number(this.value) * Math.PI / 180.0), { livePreviewOnly: true }); if(window.RAWindVisualizer){ window.RAWindVisualizer.updateLiveModelMatrix(window.RAWind.Entity.getById(\'' + activeTurbine.id + '\')); } }" onchange="if(window.RAWind && window.RAWind.Entity){ window.RAWind.Entity.updateProp(\'' + activeTurbine.id + '\', \'orientationRad\', (Number(this.value) * Math.PI / 180.0)); }" style="width:100%;height:14px;accent-color:#FBBF24;cursor:pointer;">';
+    html += '    <input id="wind-act-yaw" type="range" min="0" max="359" step="5" value="' + yawDeg + '" oninput="document.getElementById(\'wt-yaw-label\').textContent = this.value + \'° (\' + (window.RAWindUI ? window.RAWindUI.getYawCardinal(this.value) : \'\') + \')\'; if(window.RAWind && window.RAWind.Entity){ window.RAWind.Entity.updateProp(\'' + activeTurbine.id + '\', \'orientationRad\', (Number(this.value) * Math.PI / 180.0), { livePreviewOnly: true }); if(window.RAWindVisualizer){ window.RAWindVisualizer.updateLiveModelMatrix(window.RAWind.Entity.getById(\'' + activeTurbine.id + '\')); } }" onchange="if(window.RAWind && window.RAWind.Entity){ window.RAWind.Entity.updateProp(\'' + activeTurbine.id + '\', \'orientationRad\', (Number(this.value) * Math.PI / 180.0)); }" style="width:100%;height:14px;accent-color:#FBBF24;cursor:pointer;">';
     html += '  </div>';
     html += '</div>';
 
@@ -976,7 +976,7 @@
       html += '  </div>';
       html += '  <div style="color:var(--text-slate-300);line-height:1.4;">';
       html += '    Nivel en lindero (' + actAcoustics.receptorDistanceM + 'm): <b>' + actAcoustics.combinedLpDba + ' dB(A)</b> · Radio 45/35 dBA: <b>' + (activeTurbine._acousticAudit ? activeTurbine._acousticAudit.radiusDay45M : '?') + 'm / ' + (activeTurbine._acousticAudit ? activeTurbine._acousticAudit.radiusNight35M : '?') + 'm</b>';
-      html += '    <div style="margin-top:3px;"><label style="cursor:pointer;color:#94A3B8;"><input type="checkbox" ' + (curtailed ? 'checked' : '') + ' onchange="if(window.RAWind && window.RAWind.Entity)window.RAWind.Entity.updateProp(\'' + activeTurbine.id + '\',\'curtailmentRulesActive\',this.checked)" style="vertical-align:middle;margin-right:4px;">Activar modo nocturno silencioso (-3.5 dBA en 23:00-07:00)</label></div>';
+      html += '    <div style="margin-top:3px;"><label for="wind-act-curtail" style="cursor:pointer;color:#94A3B8;"><input id="wind-act-curtail" type="checkbox" ' + (curtailed ? 'checked' : '') + ' onchange="if(window.RAWind && window.RAWind.Entity)window.RAWind.Entity.updateProp(\'' + activeTurbine.id + '\',\'curtailmentRulesActive\',this.checked)" style="vertical-align:middle;margin-right:4px;">Activar modo nocturno silencioso (-3.5 dBA en 23:00-07:00)</label></div>';
       html += '  </div>';
       html += '</div>';
     }

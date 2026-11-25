@@ -569,7 +569,7 @@
 
     if (typeof global.showStatus === 'function') {
       global.showStatus(
-        `<i data-lucide="layers" class="icon-sm"></i> [TAB] CICLO CAD (${s.candidateIdx + 1}/${s.candidates.length}): ${nextTarget.label}`,
+        `<i data-lucide="layers" class="icon-sm"></i> [Q] CICLO CAD (${s.candidateIdx + 1}/${s.candidates.length}): ${nextTarget.label}`,
         2000
       );
     }
@@ -582,8 +582,11 @@
       if (global.RA && typeof global.RA.addListener === 'function') global.RA.addListener(window, ev, fn, opts);
       else window.addEventListener(ev, fn, opts);
     };
-    // Tecla Tab para ciclar en profundidad
+    // [F5-01] Tecla Q / Shift+Q para ciclar en profundidad CAD sin secuestrar Tab (WCAG 2.1.1 / 2.4.3)
     _regWinK('keydown', function(e) {
+      if (global.RAA11y && typeof global.RAA11y.getTopVisibleModal === 'function' && global.RAA11y.getTopVisibleModal()) {
+        return;
+      }
       const isEditingText = (function () {
         if (typeof global.isTextInputActive === 'function' && global.isTextInputActive(e.target)) return true;
         const active = document.activeElement;
@@ -593,13 +596,13 @@
       })();
       if (isEditingText) return;
 
-      if (e.key === 'Tab') {
-        // Si el ratón está en la escena, interceptar Tab para ciclar capas CAD
+      if (!e.ctrlKey && !e.altKey && !e.metaKey && (e.key === 'q' || e.key === 'Q')) {
+        // Ciclado de entidades CAD bajo el puntero sobre la escena 3D
         const mousePos = { x: _lastHoverX, y: _lastHoverY };
         if (mousePos.x > 0 && mousePos.y > 0) {
-          e.preventDefault();
           const candidates = getCandidateEntitiesUnderScreenPos(mousePos);
           if (candidates.length > 1) {
+            e.preventDefault();
             global.cadCyclingState.candidates = candidates;
             cycleNextCADSelection(e.shiftKey);
           }

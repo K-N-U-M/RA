@@ -1680,6 +1680,8 @@
 
     var modal = document.createElement('div');
     modal.id = 'ra-proposal-style-studio-modal';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
     modal.style.cssText = 'position:fixed;inset:0;background:rgba(2,6,23,0.86);backdrop-filter:blur(8px);z-index:999999;display:flex;align-items:center;justify-content:center;padding:16px;font-family:Inter,system-ui,sans-serif;color:#f8fafc;';
 
     modal.innerHTML = buildModalHTML();

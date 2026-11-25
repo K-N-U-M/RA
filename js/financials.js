@@ -1382,39 +1382,39 @@ function wpOpenPricingReviewModal(onConfirm) {
             '</div>' +
             '<div style="display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:8px;">' +
               '<div>' +
-                '<label style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">Titular / Razón Social</label>' +
+                '<label for="pricing-cust-nombre" style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">Titular / Razón Social</label>' +
                 '<input type="text" id="pricing-cust-nombre" placeholder="Nombre o Empresa" style="width:100%;box-sizing:border-box;padding:4px 7px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:5px;color:#fff;font-size:10.5px;font-weight:700;">' +
               '</div>' +
               '<div>' +
-                '<label style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">NIF / CIF</label>' +
+                '<label for="pricing-cust-nif" style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">NIF / CIF</label>' +
                 '<input type="text" id="pricing-cust-nif" placeholder="00000000X" style="width:100%;box-sizing:border-box;padding:4px 7px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:5px;color:#fff;font-size:10.5px;font-weight:700;">' +
               '</div>' +
               '<div>' +
-                '<label style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">Teléfono</label>' +
+                '<label for="pricing-cust-tel" style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">Teléfono</label>' +
                 '<input type="text" id="pricing-cust-tel" placeholder="+34 600..." style="width:100%;box-sizing:border-box;padding:4px 7px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:5px;color:#fff;font-size:10.5px;">' +
               '</div>' +
             '</div>' +
             '<div style="display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:8px;">' +
               '<div>' +
-                '<label style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">Email de Contacto</label>' +
+                '<label for="pricing-cust-email" style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">Email de Contacto</label>' +
                 '<input type="email" id="pricing-cust-email" placeholder="cliente@correo.com" style="width:100%;box-sizing:border-box;padding:4px 7px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:5px;color:#fff;font-size:10.5px;">' +
               '</div>' +
               '<div style="grid-column: span 2;">' +
-                '<label style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">Dirección de Instalación / Fiscal</label>' +
+                '<label for="pricing-cust-dir" style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">Dirección de Instalación / Fiscal</label>' +
                 '<input type="text" id="pricing-cust-dir" placeholder="Calle, número, polígono..." style="width:100%;box-sizing:border-box;padding:4px 7px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:5px;color:#fff;font-size:10.5px;">' +
               '</div>' +
             '</div>' +
             '<div style="display:grid;grid-template-columns:1.2fr 1fr 0.8fr;gap:8px;">' +
               '<div>' +
-                '<label style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">Municipio</label>' +
+                '<label for="pricing-cust-mun" style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">Municipio</label>' +
                 '<input type="text" id="pricing-cust-mun" placeholder="Municipio" style="width:100%;box-sizing:border-box;padding:4px 7px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:5px;color:#fff;font-size:10.5px;">' +
               '</div>' +
               '<div>' +
-                '<label style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">Provincia</label>' +
+                '<label for="pricing-cust-prov" style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">Provincia</label>' +
                 '<input type="text" id="pricing-cust-prov" placeholder="Provincia" style="width:100%;box-sizing:border-box;padding:4px 7px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:5px;color:#fff;font-size:10.5px;">' +
               '</div>' +
               '<div>' +
-                '<label style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">Código Postal</label>' +
+                '<label for="pricing-cust-cp" style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">Código Postal</label>' +
                 '<input type="text" id="pricing-cust-cp" placeholder="28001" style="width:100%;box-sizing:border-box;padding:4px 7px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:5px;color:#fff;font-size:10.5px;">' +
               '</div>' +
             '</div>' +
@@ -1431,21 +1431,21 @@ function wpOpenPricingReviewModal(onConfirm) {
             '</div>' +
             '<div style="display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:8px;">' +
               '<div>' +
-                '<label style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">Consumo Anual Total</label>' +
+                '<label for="pricing-cust-consumo" style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">Consumo Anual Total</label>' +
                 '<div style="display:flex;align-items:center;gap:4px;">' +
                   '<input type="number" id="pricing-cust-consumo" min="100" max="1000000" step="50" style="width:100%;box-sizing:border-box;padding:4px 7px;background:rgba(0,0,0,0.4);border:1px solid #F59E0B;border-radius:5px;color:#FDE68A;font-size:11px;font-weight:800;text-align:right;">' +
                   '<span style="font-size:10px;color:#94a3b8;white-space:nowrap;">kWh/año</span>' +
                 '</div>' +
               '</div>' +
               '<div>' +
-                '<label style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">Potencia Contratada</label>' +
+                '<label for="pricing-cust-potcontr" style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">Potencia Contratada</label>' +
                 '<div style="display:flex;align-items:center;gap:4px;">' +
                   '<input type="number" id="pricing-cust-potcontr" min="0.5" max="500" step="0.25" style="width:100%;box-sizing:border-box;padding:4px 7px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:5px;color:#fff;font-size:11px;font-weight:700;text-align:right;">' +
                   '<span style="font-size:10px;color:#94a3b8;white-space:nowrap;">kW</span>' +
                 '</div>' +
               '</div>' +
               '<div>' +
-                '<label style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">Precio Medio Red</label>' +
+                '<label for="pricing-cust-precio-kwh" style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">Precio Medio Red</label>' +
                 '<div style="display:flex;align-items:center;gap:4px;">' +
                   '<input type="number" id="pricing-cust-precio-kwh" min="0.05" max="1.0" step="0.01" style="width:100%;box-sizing:border-box;padding:4px 7px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:5px;color:#fff;font-size:11px;font-weight:700;text-align:right;">' +
                   '<span style="font-size:10px;color:#94a3b8;white-space:nowrap;">€/kWh</span>' +
@@ -1454,11 +1454,11 @@ function wpOpenPricingReviewModal(onConfirm) {
             '</div>' +
             '<div style="display:grid;grid-template-columns:1.8fr 1.2fr;gap:8px;">' +
               '<div>' +
-                '<label style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">Código CUPS de Suministro</label>' +
+                '<label for="pricing-cust-cups" style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">Código CUPS de Suministro</label>' +
                 '<input type="text" id="pricing-cust-cups" placeholder="ES0021..." style="width:100%;box-sizing:border-box;padding:4px 7px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:5px;color:#38BDF8;font-size:10.5px;font-family:monospace;font-weight:700;">' +
               '</div>' +
               '<div>' +
-                '<label style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">Distribuidora Eléctrica</label>' +
+                '<label for="pricing-cust-dist" style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">Distribuidora Eléctrica</label>' +
                 '<select id="pricing-cust-dist" style="width:100%;box-sizing:border-box;padding:4px 6px;background:rgba(0,0,0,0.4);border:1px solid #475569;border-radius:5px;color:#fff;font-size:10px;">' +
                   '<option value="e-distribución (Endesa)">e-distribución (Endesa)</option>' +
                   '<option value="Iberdrola Distribución">Iberdrola Distribución</option>' +
@@ -1478,25 +1478,25 @@ function wpOpenPricingReviewModal(onConfirm) {
                 '<span style="display:inline-flex;">' + _mSvg('globe', 13, '#34D399') + '</span>' +
                 '<span style="font-size:10.5px;font-weight:900;color:#34D399;text-transform:uppercase;letter-spacing:0.5px;">Comunidad Energética Local (RDL 7/2026 · 5 km)</span>' +
               '</div>' +
-              '<label style="display:flex;align-items:center;gap:6px;font-size:10px;color:#A7F3D0;cursor:pointer;">' +
+              '<label for="pricing-check-cel-enabled" style="display:flex;align-items:center;gap:6px;font-size:10px;color:#A7F3D0;cursor:pointer;">' +
                 '<input type="checkbox" id="pricing-check-cel-enabled" checked style="accent-color:#10b981;">' +
                 '<b>Incluir página CEL en propuesta</b>' +
               '</label>' +
             '</div>' +
             '<div style="display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:8px;align-items:center;">' +
               '<div>' +
-                '<label style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">Precio Venta Excedente CEL</label>' +
+                '<label for="pricing-input-cel-price" style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">Precio Venta Excedente CEL</label>' +
                 '<div style="display:flex;align-items:center;gap:4px;">' +
                   '<input type="number" id="pricing-input-cel-price" min="0.05" max="0.30" step="0.005" value="0.11" style="width:100%;box-sizing:border-box;padding:4px 7px;background:rgba(0,0,0,0.4);border:1px solid #10B981;border-radius:5px;color:#34D399;font-size:11px;font-weight:800;text-align:right;">' +
                   '<span style="font-size:10px;color:#94a3b8;white-space:nowrap;">€/kWh</span>' +
                 '</div>' +
               '</div>' +
               '<div>' +
-                '<label style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">Radio Legal de Cobertura</label>' +
+                '<div style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">Radio Legal de Cobertura</div>' +
                 '<div style="font-size:11px;font-weight:800;color:#F8FAFC;padding:4px 0;">5.000 m (78,5 km²)</div>' +
               '</div>' +
               '<div>' +
-                '<label style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">Ingreso Extra Estimado</label>' +
+                '<div style="display:block;font-size:9px;color:#94a3b8;font-weight:700;margin-bottom:2px;">Ingreso Extra Estimado</div>' +
                 '<div id="pricing-cel-preview-extra" style="font-size:11px;font-weight:900;color:#10B981;padding:4px 0;">+0 €/año</div>' +
               '</div>' +
             '</div>' +
@@ -1636,7 +1636,7 @@ function wpOpenPricingReviewModal(onConfirm) {
             '</div>' +
             '<div id="pricing-addons-chips-container" style="display:flex;flex-wrap:wrap;gap:6px;"></div>' +
             '<div style="display:grid;grid-template-columns:auto 85px 65px 1fr;gap:6px;align-items:center;background:rgba(15,23,42,0.4);border:1px solid rgba(255,255,255,0.06);border-radius:6px;padding:6px 8px;">' +
-              '<label style="display:flex;align-items:center;gap:5px;font-size:10px;font-weight:700;color:#cbd5e1;cursor:pointer;white-space:nowrap;">' +
+              '<label for="pricing-check-discount-enabled" style="display:flex;align-items:center;gap:5px;font-size:10px;font-weight:700;color:#cbd5e1;cursor:pointer;white-space:nowrap;">' +
                 '<input type="checkbox" id="pricing-check-discount-enabled" style="accent-color:#F59E0B;">' +
                 '<span>Aplicar Descuento:</span>' +
               '</label>' +
@@ -1725,7 +1725,7 @@ function wpOpenPricingReviewModal(onConfirm) {
             '</div>' +
           '</div>' +
           '<div style="display:flex;flex-direction:column;gap:4px;">' +
-            '<label style="display:flex;align-items:center;gap:8px;font-size:10px;color:#cbd5e1;cursor:pointer;">' +
+            '<label for="pricing-check-save-defaults" style="display:flex;align-items:center;gap:8px;font-size:10px;color:#cbd5e1;cursor:pointer;">' +
               '<input type="checkbox" id="pricing-check-save-defaults" checked style="accent-color:#10b981;">' +
               'Guardar estos costes y margen como mis valores habituales para futuros proyectos' +
             '</label>' +
