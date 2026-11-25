@@ -20,20 +20,36 @@ service cloud.firestore {
     function isAdmin() {
       return isSignedIn() && (request.auth.token.role == 'admin' || request.auth.token.admin == true);
     }
+    // [F6-02] Validación de pertenencia de tenant y esquema básico en alta/edición
+    function hasValidTenantOnWrite() {
+      return !('tenantId' in request.resource.data)
+        || request.resource.data.tenantId == null
+        || (request.auth.token.tenantId != null && request.resource.data.tenantId == request.auth.token.tenantId);
+    }
+    function hasValidProjectSchema() {
+      return request.resource.data.keys().hasAll(['ownerId', 'meta'])
+        && request.resource.data.ownerId is string
+        && request.resource.data.ownerId.size() > 0
+        && request.resource.data.meta is map
+        && request.resource.data.meta.updatedAt is string
+        && request.resource.data.keys().size() <= 80;
+    }
 
     // Proyectos solares 3D: propietario, miembro del tenant o administrador.
-    // [AUD-2026 · B-05] Se eliminó la rama `|| resource.data.isPublic == true`, que quedaba
-    // FUERA del bloque de autenticación y permitía lectura anónima de cualquier proyecto
-    // marcado público. Ningún cliente escribe ese campo: era una puerta abierta sin uso.
     match /projects/{projectId} {
       allow read: if isOwner() || isTenantMember() || isAdmin();
 
+      // [F6-02] Exige propietario autenticado, tenant válido y esquema íntegro (Firestore impide create sobre doc existente)
       allow create: if isSignedIn()
-        && request.resource.data.ownerId == request.auth.uid;
+        && projectId.size() >= 8 && projectId.size() <= 128
+        && request.resource.data.ownerId == request.auth.uid
+        && hasValidTenantOnWrite()
+        && hasValidProjectSchema();
 
       allow update: if (isOwner() || isTenantManager() || isAdmin())
         && request.resource.data.ownerId == resource.data.ownerId
-        && request.resource.data.tenantId == resource.data.tenantId;
+        && request.resource.data.tenantId == resource.data.tenantId
+        && hasValidProjectSchema();
 
       allow delete: if isOwner() || isAdmin();
     }

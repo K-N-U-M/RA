@@ -8,33 +8,47 @@ service firebase.storage {
     function isAdmin() {
       return isSignedIn() && (request.auth.token.role == 'admin' || request.auth.token.admin == true);
     }
-    // [AUD-2026 · B-07] Validación de tipo y tamaño en toda escritura.
-    function isValidUpload() {
-      return request.resource.size < 10 * 1024 * 1024
-        && (request.resource.contentType == 'application/pdf'
-            || request.resource.contentType == 'image/png'
+    function isSameTenantResource() {
+      return isSignedIn()
+        && request.auth.token.tenantId != null
+        && resource.metadata != null
+        && resource.metadata.tenantId == request.auth.token.tenantId;
+    }
+    // [AUD-2026 · B-07 / F6-02] Validadores estrictos por tipo y tamaño máximo
+    function isValidImageUpload(maxMb) {
+      return request.resource != null
+        && request.resource.size <= maxMb * 1024 * 1024
+        && (request.resource.contentType == 'image/png'
             || request.resource.contentType == 'image/jpeg'
-            || request.resource.contentType == 'image/webp'
-            || request.resource.contentType == 'application/json');
+            || request.resource.contentType == 'image/webp');
+    }
+    function isValidProjectUpload() {
+      return request.resource != null
+        && request.resource.size <= 10 * 1024 * 1024
+        && (request.resource.contentType == 'application/pdf'
+            || request.resource.contentType == 'application/json'
+            || (request.resource.size <= 5 * 1024 * 1024
+                && (request.resource.contentType == 'image/png'
+                    || request.resource.contentType == 'image/jpeg'
+                    || request.resource.contentType == 'image/webp')));
     }
 
-    // Proyectos (.raproject) y documentos PDF exportados (propietario o admin)
+    // Proyectos (.raproject), fotos (<= 5 MB) y documentos PDF (<= 10 MB)
     match /projects/{userId}/{projectId}/{allPaths=**} {
-      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
-      allow write: if isSignedIn() && request.auth.uid == userId && isValidUpload();
+      allow read: if isSignedIn() && (request.auth.uid == userId || isSameTenantResource() || isAdmin());
+      allow write: if isSignedIn() && request.auth.uid == userId && isValidProjectUpload();
     }
 
     // Facturas y documentos de auditoría confidenciales
     match /audits/{userId}/{allPaths=**} {
       allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
-      allow write: if isSignedIn() && request.auth.uid == userId && isValidUpload();
+      allow write: if isSignedIn() && request.auth.uid == userId && isValidProjectUpload();
     }
 
-    // Logotipos corporativos y assets de marca.
-    // [AUD-2026] La lectura deja de ser anónima (antes `if true` permitía enumerar logos).
+    // [F6-02] Logotipos corporativos: aislados estrictamente por propietario / mismo tenant / admin y <= 2 MB solo imagen
     match /branding/{userId}/{allPaths=**} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn() && (request.auth.uid == userId || isAdmin()) && isValidUpload();
+      allow read: if isSignedIn() && (request.auth.uid == userId || isSameTenantResource() || isAdmin());
+      allow write: if isSignedIn() && (request.auth.uid == userId || isAdmin()) && isValidImageUpload(2);
     }
   }
 }

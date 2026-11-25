@@ -7,39 +7,72 @@
 const { onRequest } = require('firebase-functions/v2/https');
 const logger = require('firebase-functions/logger');
 
-const { parseWAsPLib, validateHttpsUrl } = require('./wasp-parser');
+const {
+  parseWAsPLib,
+  validateExternalProxyUrl,
+  ALLOWED_CORS_ORIGINS
+} = require('./wasp-parser');
 
-// [AUD-2026 · B-09] Endurecimiento del proxy:
-//  - CORS restringido a los orígenes de la app (antes `cors: true` = cualquiera).
-//  - Rate limit best-effort por IP (30 req/min) para frenar bucles y abuso de cuota.
-//  - Allowlist de host al descargar el .lib (antes SSRF si se manipulaba el XML).
-//  - Timeout y tope de tamaño en ambas descargas.
-//  - Errores genéricos al cliente; detalle solo en el log.
-const ALLOWED_ORIGINS = [
-  /^https:\/\/ra-solar-3d\.(web\.app|firebaseapp\.com)$/,
-  /^https:\/\/[a-z0-9-]+\.web\.app$/,
-  /^http:\/\/localhost(:\d+)?$/,
-  /^http:\/\/127\.0\.0\.1(:\d+)?$/
-];
-const RATE_LIMIT = { windowMs: 60000, max: 30, hits: new Map() };
+// [AUD-2026 · B-09 / F6-01] Endurecimiento unificado del proxy (SSOT con server.js):
+//  - CORS cerrado estrictamente a los dominios propios de la app (sin comodín *.web.app).
+//  - Rate limit acotado con poda LRU/TTL por IP real (30 req/min, máx 1.000 claves).
+//  - Anti-SSRF estricto (HTTPS:443, subdominio con punto, bloqueo redirecciones manual).
+//  - Validación numérica 422 controlada frente a errores de red 502.
+const RATE_LIMIT = { windowMs: 60000, max: 30, maxEntries: 1000, hits: new Map() };
+
+function pruneRateLimit(now) {
+  for (const [key, val] of RATE_LIMIT.hits.entries()) {
+    if (now - val.start > RATE_LIMIT.windowMs) {
+      RATE_LIMIT.hits.delete(key);
+    }
+  }
+  while (RATE_LIMIT.hits.size >= RATE_LIMIT.maxEntries) {
+    const oldestKey = RATE_LIMIT.hits.keys().next().value;
+    if (oldestKey === undefined) break;
+    RATE_LIMIT.hits.delete(oldestKey);
+  }
+}
+
+function resolveClientIp(req) {
+  // En Cloud Functions v2 (Cloud Run / Google Frontend), req.ip o el último salto fiable evita spoofing trivial del primer XFF
+  if (req.ip && typeof req.ip === 'string') return req.ip.trim();
+  const xff = req.headers && req.headers['x-forwarded-for'];
+  if (xff) {
+    const parts = String(xff).split(',').map((s) => s.trim()).filter(Boolean);
+    if (parts.length > 0) return parts[parts.length - 1];
+  }
+  return 'unknown';
+}
 
 function isRateLimited(ip) {
   const now = Date.now();
+  if (RATE_LIMIT.hits.size > 500) {
+    pruneRateLimit(now);
+  }
   const entry = RATE_LIMIT.hits.get(ip);
   if (!entry || now - entry.start > RATE_LIMIT.windowMs) {
+    if (RATE_LIMIT.hits.size >= RATE_LIMIT.maxEntries) pruneRateLimit(now);
+    RATE_LIMIT.hits.delete(ip);
     RATE_LIMIT.hits.set(ip, { start: now, count: 1 });
     return false;
   }
+  // Renovar orden LRU
+  RATE_LIMIT.hits.delete(ip);
   entry.count++;
+  RATE_LIMIT.hits.set(ip, entry);
   return entry.count > RATE_LIMIT.max;
 }
 
 async function fetchTextLimited(url, { maxBytes = 4 * 1024 * 1024, timeoutMs = 8000, allowedHostSuffix = null } = {}) {
-  const parsed = validateHttpsUrl(url, allowedHostSuffix);
+  const parsed = validateExternalProxyUrl(url, allowedHostSuffix);
   const resp = await fetch(parsed, {
     headers: { 'User-Agent': 'RenewableArchitecture/1.0' },
+    redirect: 'manual',
     signal: AbortSignal.timeout(timeoutMs)
   });
+  if (resp.status >= 300 && resp.status < 400) {
+    throw new Error('Redirección externa bloqueada (HTTP ' + resp.status + ')');
+  }
   if (!resp.ok) throw new Error('HTTP ' + resp.status);
   const text = await resp.text();
   if (Buffer.byteLength(text, 'utf8') > maxBytes) throw new Error('Respuesta demasiado grande');
@@ -47,11 +80,11 @@ async function fetchTextLimited(url, { maxBytes = 4 * 1024 * 1024, timeoutMs = 8
 }
 
 exports.gwaProxy = onRequest({
-  cors: ALLOWED_ORIGINS,
+  cors: ALLOWED_CORS_ORIGINS,
   maxInstances: 5,
   timeoutSeconds: 30
 }, async (req, res) => {
-  const ip = (req.headers['x-forwarded-for'] || req.ip || 'unknown').toString().split(',')[0].trim();
+  const ip = resolveClientIp(req);
   if (isRateLimited(ip)) {
     res.status(429).json({ error: 'Demasiadas peticiones. Inténtalo en un minuto.' });
     return;
@@ -76,10 +109,12 @@ exports.gwaProxy = onRequest({
 
     const match = xml.match(/"path":\s*"([^"]+)"/);
     if (!match) {
-      throw new Error('No se encontró URL de .lib en respuesta de DTU GWA');
+      const noLibErr = new Error('No se encontró URL de .lib en respuesta de DTU GWA');
+      noLibErr.statusCode = 422;
+      throw noLibErr;
     }
 
-    const libUrl = match[1].replace('http://', 'https://');
+    const libUrl = match[1].replace(/^http:\/\//i, 'https://');
     logger.info(`Descargando .lib desde DTU: ${libUrl}`);
 
     const libText = await fetchTextLimited(libUrl, {
@@ -93,7 +128,10 @@ exports.gwaProxy = onRequest({
 
   } catch (err) {
     logger.error('Error al consultar Global Wind Atlas:', err);
-    // Sin requisitos internos en la respuesta: mensaje genérico.
+    if (err && err.statusCode === 422) {
+      res.status(422).json({ error: 'Los datos eólicos recibidos de GWA no son válidos para estas coordenadas' });
+      return;
+    }
     res.status(502).json({ error: 'No se pudo obtener el recurso eólico (GWA)' });
   }
 });

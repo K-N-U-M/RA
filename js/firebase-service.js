@@ -30,25 +30,41 @@
     ? window.RA_ENV.firebase
     : { apiKey: '', authDomain: '', projectId: '', storageBucket: '', messagingSenderId: '', appId: '' };
 
+  function isLocalDevHost() {
+    if (typeof location === 'undefined' || !location.hostname) return false;
+    const h = String(location.hostname).toLowerCase();
+    return h === 'localhost' || h === '127.0.0.1' || h === '::1';
+  }
+
   function getStoredConfig() {
     if (global.RA_FIREBASE_CONFIG && typeof global.RA_FIREBASE_CONFIG === 'object') {
       return global.RA_FIREBASE_CONFIG;
     }
-    try {
-      const stored = localStorage.getItem(CONFIG_STORAGE_KEY);
-      if (stored) return JSON.parse(stored);
-    } catch(e) {}
+    // [F6-02] En producción nunca permitir override de configuración Firebase desde localStorage
+    if (isLocalDevHost()) {
+      try {
+        const stored = localStorage.getItem(CONFIG_STORAGE_KEY);
+        if (stored) return JSON.parse(stored);
+      } catch(e) {}
+    }
     return DEFAULT_FIREBASE_CONFIG;
   }
 
   function setStoredConfig(cfg) {
+    if (!isLocalDevHost()) {
+      if (typeof window !== 'undefined' && typeof window.showToast === 'function') {
+        window.showToast('CONFIGURACIÓN BLOQUEADA', 'En producción la configuración de Firebase se gestiona desde entorno seguro.', 'warning', 3500);
+      }
+      return false;
+    }
     if (!cfg || typeof cfg !== 'object') {
       localStorage.removeItem(CONFIG_STORAGE_KEY);
       global.RA_FIREBASE_CONFIG = null;
-      return;
+      return true;
     }
     localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(cfg));
     global.RA_FIREBASE_CONFIG = cfg;
+    return true;
   }
 
   /**
@@ -239,17 +255,46 @@
     return list;
   }
 
-  // ── Storage: Subida de Memorias PDF y Archivos Pesados ───────────────────────
+  function _sanitizeStorageSegment(raw, fallback) {
+    const clean = String(raw || '')
+      .replace(/\.\./g, '')
+      .replace(/[^a-zA-Z0-9_-]/g, '_')
+      .replace(/_+/g, '_')
+      .replace(/^_|_$/g, '')
+      .slice(0, 64);
+    return clean || fallback;
+  }
+
+  function _buildSafeStorageFilename(rawFilename, defaultExt) {
+    const allowedExts = new Set(['pdf', 'png', 'jpg', 'jpeg', 'webp', 'json']);
+    const base = String(rawFilename || '').split(/[\\/]/).pop() || '';
+    const dotIdx = base.lastIndexOf('.');
+    const rawExt = dotIdx > 0 ? base.slice(dotIdx + 1).toLowerCase().replace(/[^a-z0-9]/g, '') : '';
+    const ext = allowedExts.has(rawExt) ? rawExt : (defaultExt || 'pdf');
+    const uuid = (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
+      ? crypto.randomUUID()
+      : (Date.now() + '_' + Math.random().toString(36).slice(2, 10));
+    return `doc_${uuid}.${ext}`;
+  }
+
+  // ── Storage: Subida de Memorias PDF y Archivos Pesados [F6-02] ──────────────
   async function uploadPDFToStorage(pdfBlob, filename, projectId) {
     if (!_storage) throw new Error('Firebase Storage no está inicializado.');
     const user = _currentUser;
-    const userId = user ? user.uid : 'anon';
-    const projId = projectId || 'shared';
-    const path = `projects/${userId}/${projId}/${filename || ('memoria_' + Date.now() + '.pdf')}`;
-    const ref = _storage.ref().child(path);
-    const snap = await ref.put(pdfBlob, { contentType: 'application/pdf' });
+    if (!user || !user.uid) {
+      throw new Error('Inicia sesión para subir archivos a Firebase Storage.');
+    }
+    const userId = _sanitizeStorageSegment(user.uid, '');
+    if (!userId) throw new Error('Identificador de usuario inválido.');
+    const projId = _sanitizeStorageSegment(projectId, 'project');
+    const safeName = _buildSafeStorageFilename(filename, 'pdf');
+    const storagePath = `projects/${userId}/${projId}/${safeName}`;
+    const ref = _storage.ref().child(storagePath);
+    const meta = { contentType: 'application/pdf' };
+    if (user.tenantId) meta.customMetadata = { tenantId: String(user.tenantId) };
+    const snap = await ref.put(pdfBlob, meta);
     const downloadUrl = await snap.ref.getDownloadURL();
-    return { path, downloadUrl };
+    return { path: storagePath, downloadUrl };
   }
 
   // ── Interfaz de Usuario y Configuración ────────────────────────────────────
@@ -315,8 +360,9 @@
           </div>
         `}
 
+        ${isLocalDevHost() ? `
         <div style="border-top:1px solid rgba(255,255,255,0.08);padding-top:12px;margin-top:12px;">
-          <div style="font-size:11px;font-weight:700;color:#38BDF8;margin-bottom:8px;">Configuración de Proyecto Firebase (JSON / Web SDK)</div>
+          <div style="font-size:11px;font-weight:700;color:#38BDF8;margin-bottom:8px;">Configuración de Proyecto Firebase (Desarrollo Local)</div>
           <div style="display:flex;flex-direction:column;gap:6px;">
             <input id="ra-fb-apikey" type="text" placeholder="apiKey" value="${_escFb(cur.apiKey || '')}" style="background:#1E293B;border:1px solid #334155;border-radius:4px;padding:6px;color:#fff;font-size:11px;">
             <input id="ra-fb-projectid" type="text" placeholder="projectId" value="${_escFb(cur.projectId || '')}" style="background:#1E293B;border:1px solid #334155;border-radius:4px;padding:6px;color:#fff;font-size:11px;">
@@ -324,9 +370,14 @@
             <input id="ra-fb-storagebucket" type="text" placeholder="storageBucket" value="${_escFb(cur.storageBucket || '')}" style="background:#1E293B;border:1px solid #334155;border-radius:4px;padding:6px;color:#fff;font-size:11px;">
           </div>
           <div style="display:flex;gap:8px;margin-top:12px;">
-            <button type="button" onclick="RAFirebaseService.saveConfigFromModal()" style="flex:1;background:#0284C7;color:#fff;border:none;border-radius:6px;padding:8px;font-size:11px;font-weight:700;cursor:pointer;">Guardar y Conectar</button>
+            <button type="button" onclick="RAFirebaseService.saveConfigFromModal()" style="flex:1;background:#0369A1;color:#fff;border:none;border-radius:6px;padding:8px;font-size:11px;font-weight:700;cursor:pointer;">Guardar y Conectar</button>
           </div>
         </div>
+        ` : `
+        <div style="border-top:1px solid rgba(255,255,255,0.08);padding-top:10px;margin-top:10px;font-size:11px;color:#94A3B8;">
+          Entorno de producción verificado: la configuración Firebase se gestiona únicamente desde el entorno seguro del despliegue.
+        </div>
+        `}
       </div>
     `;
 
@@ -344,7 +395,7 @@
       if (typeof window.showToast === 'function') window.showToast('CAMPOS INCOMPLETOS', 'Se requiere al menos apiKey y projectId.', 'warning', 3000);
       return;
     }
-    setStoredConfig(cfg);
+    if (!setStoredConfig(cfg)) return;
     initFirebase(cfg).then(ok => {
       if (ok) {
         const modal = document.getElementById('ra-firebase-modal');

@@ -162,25 +162,96 @@
     return outLines.join('\r\n');
   }
 
-  // Helper de limpieza editorial antes de exportar a Word / HTML
+  function _escapeXmlText(str) {
+    return String(str == null ? '' : str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function _stripDangerousMarkup(html) {
+    // Eliminación previa de etiquetas activas y esquemas peligrosos antes de tocar el DOM
+    return String(html || '')
+      .replace(/<\s*(script|iframe|object|embed|applet|base|meta|form)\b[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi, '')
+      .replace(/<\s*(script|iframe|object|embed|applet|base|meta|link)\b[^>]*\/?>/gi, '')
+      .replace(/\s+on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+      .replace(/(?:href|src|action|xlink:href)\s*=\s*(["'])\s*(?:javascript|vbscript|data\s*:\s*text\/html)[\s\S]*?\1/gi, '');
+  }
+
+  function _isAllowedLocalAssetUrl(rawUrl, baseHref) {
+    const u = String(rawUrl || '').trim();
+    if (!u) return null;
+    if (/^data:image\/(?:png|jpeg|jpg|webp|gif|svg\+xml);base64,/i.test(u)) return { kind: 'data', url: u };
+    if (/^blob:/i.test(u)) return { kind: 'blob', url: u };
+    if (/^(?:javascript|vbscript|file):/i.test(u)) return null;
+    try {
+      const base = baseHref || (typeof location !== 'undefined' && location.href ? location.href : '');
+      if (!base) return null;
+      const parsed = new URL(u, base);
+      const locOrigin = (typeof location !== 'undefined' && location.origin && location.origin !== 'null')
+        ? location.origin
+        : new URL(base).origin;
+      if (parsed.origin === locOrigin && /(?:^|\/)assets\//i.test(parsed.pathname)) {
+        return { kind: 'local-asset', url: parsed.href };
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  // Helper de limpieza editorial y anti-XSS antes de exportar a Word / HTML [F6-03]
   function sanitizeEditorialHtml(rawHtml) {
-    if (typeof document === 'undefined') return String(rawHtml || '');
-    const wrap = document.createElement('div');
-    wrap.innerHTML = String(rawHtml || '');
+    const preScrubbed = _stripDangerousMarkup(rawHtml);
+    if (typeof document === 'undefined') return preScrubbed;
+
+    // Parseo en documento inerte (DOMParser) para no ejecutar handlers ni cargar recursos remotos al parsear
+    let root = null;
+    if (typeof DOMParser !== 'undefined') {
+      try {
+        const doc = new DOMParser().parseFromString(preScrubbed, 'text/html');
+        root = doc && doc.body ? doc.body : null;
+      } catch (_) {
+        root = null;
+      }
+    }
+    if (!root) {
+      root = document.createElement('div');
+      root.innerHTML = preScrubbed;
+    }
+
+    const forbiddenTags = 'script,iframe,object,embed,applet,base,meta,link,form,noscript';
+    root.querySelectorAll(forbiddenTags).forEach(function(el) { el.remove(); });
+
     const junkSelectors = [
       '.doc-top-bar', '.dossier-toolbar', '#dossier-format-bar', '#doc-format-toolbar',
       '#prop-format-toolbar', '.no-print', '.dossier-overflow-warn', '.dossier-drag-handle',
       '.dossier-resize-handle', '.dossier-img-picker-btn', '.dossier-file-input',
       '.ra-edit-del-btn', '.ra-gap-handle', '#ra-gap-tooltip', '.photo-upload-overlay'
     ];
-    wrap.querySelectorAll(junkSelectors.join(',')).forEach(function(el) { el.remove(); });
-    wrap.querySelectorAll('[contenteditable]').forEach(function(el) { el.removeAttribute('contenteditable'); });
-    wrap.querySelectorAll('[data-editable-box]').forEach(function(el) {
-      el.removeAttribute('draggable');
-      el.removeAttribute('data-editable-box');
-    });
-    wrap.querySelectorAll('.editable-field').forEach(function(el) { el.classList.remove('editable-field'); });
-    return wrap.innerHTML;
+    root.querySelectorAll(junkSelectors.join(',')).forEach(function(el) { el.remove(); });
+
+    // Limpieza estricta de atributos on*, URLs remotas o javascript: en todos los nodos
+    const allEls = root.querySelectorAll('*');
+    for (let i = 0; i < allEls.length; i++) {
+      const el = allEls[i];
+      const attrs = Array.from(el.attributes || []);
+      for (let a = 0; a < attrs.length; a++) {
+        const name = attrs[a].name.toLowerCase();
+        const val = attrs[a].value || '';
+        if (name.indexOf('on') === 0 || name === 'contenteditable' || name === 'data-editable-box' || name === 'draggable') {
+          el.removeAttribute(attrs[a].name);
+        } else if (name === 'href' && /^\s*(?:javascript|vbscript|data):/i.test(val)) {
+          el.removeAttribute(attrs[a].name);
+        } else if (name === 'src' && /^\s*(?:javascript|vbscript|data\s*:\s*text\/html)/i.test(val)) {
+          el.removeAttribute(attrs[a].name);
+        } else if (name === 'style' && /url\(\s*['"]?\s*https?:\/\//i.test(val)) {
+          el.setAttribute('style', val.replace(/url\(\s*(['"]?)\s*https?:\/\/[^)'"]+\1\s*\)/gi, 'none'));
+        }
+      }
+    }
+    root.querySelectorAll('.editable-field').forEach(function(el) { el.classList.remove('editable-field'); });
+    return root.innerHTML;
   }
 
   // Helper async para rasterizar todos los <svg> (y <img> SVG) a PNG para compatibilidad total con Word
@@ -271,21 +342,13 @@
 
   async function inlineExternalAssetsToDataUrls(rootEl, baseHref) {
     if (!rootEl || typeof document === 'undefined' || typeof fetch !== 'function') return rootEl;
-    const resolveUrl = function(rawUrl) {
-      const u = String(rawUrl || '').trim();
-      if (!u || /^data:/i.test(u) || /^blob:/i.test(u) || /^#/i.test(u) || /^javascript:/i.test(u)) return null;
+    // [F6-03] Bloquear fetch hacia URLs remotas arbitrarias: solo data:image/, blob: y assets locales del mismo origen
+    const fetchAsDataUrl = async function(allowedUrl) {
       try {
-        const base = baseHref || (typeof location !== 'undefined' && location.href ? location.href : '');
-        return base ? new URL(u, base).href : u;
-      } catch (eUrl) {
-        return u;
-      }
-    };
-    const fetchAsDataUrl = async function(absUrl) {
-      try {
-        const resp = await fetch(absUrl);
+        const resp = await fetch(allowedUrl, { credentials: 'same-origin' });
         if (!resp.ok) return null;
         const blob = await resp.blob();
+        if (!blob || (blob.type && !/^image\//i.test(blob.type))) return null;
         return await new Promise(function(resolve) {
           const reader = new FileReader();
           reader.onloadend = function() { resolve(typeof reader.result === 'string' ? reader.result : null); };
@@ -300,17 +363,23 @@
     const imgs = Array.from(rootEl.querySelectorAll('img[src]'));
     for (let i = 0; i < imgs.length; i++) {
       const im = imgs[i];
-      const absUrl = resolveUrl(im.getAttribute('src'));
-      if (!absUrl) continue;
-      const dataUrl = await fetchAsDataUrl(absUrl);
+      const rawSrc = im.getAttribute('src') || '';
+      const check = _isAllowedLocalAssetUrl(rawSrc, baseHref);
+      if (!check) {
+        // Eliminar referencia remota externa para evitar fugas IP/NTLM al abrir en Word
+        im.removeAttribute('src');
+        continue;
+      }
+      if (check.kind === 'data') continue;
+      const dataUrl = await fetchAsDataUrl(check.url);
       if (dataUrl) {
         im.setAttribute('src', dataUrl);
       } else {
-        im.setAttribute('src', absUrl);
+        im.removeAttribute('src');
       }
     }
 
-    // Resolver URLs relativas o remotas en style="background-image: url(...)" (ej. marcas de agua)
+    // Resolver solo assets locales autorizados en style="background-image: url(...)" y purgar cualquier URL externa
     const styledEls = Array.from(rootEl.querySelectorAll('[style*="url("]'));
     for (let k = 0; k < styledEls.length; k++) {
       const el = styledEls[k];
@@ -320,10 +389,14 @@
       let updated = stAttr;
       for (let mIdx = 0; mIdx < matches.length; mIdx++) {
         const inner = matches[mIdx].replace(/^url\(\s*(['"]?)/i, '').replace(/(['"]?)\s*\)$/, '');
-        const absBg = resolveUrl(inner);
-        if (!absBg) continue;
-        const dataBg = await fetchAsDataUrl(absBg);
-        updated = updated.replace(matches[mIdx], 'url("' + (dataBg || absBg) + '")');
+        const check = _isAllowedLocalAssetUrl(inner, baseHref);
+        if (!check) {
+          updated = updated.replace(matches[mIdx], 'none');
+          continue;
+        }
+        if (check.kind === 'data') continue;
+        const dataBg = await fetchAsDataUrl(check.url);
+        updated = updated.replace(matches[mIdx], dataBg ? ('url("' + dataBg + '")') : 'none');
       }
       if (updated !== stAttr) el.setAttribute('style', updated);
     }
@@ -357,35 +430,30 @@
       return fName;
     }
 
-    function absolutizeRelativeUrl(rawUrl) {
-      const u = String(rawUrl || '').trim();
-      if (!u || !baseHref || /^data:/i.test(u) || /^blob:/i.test(u) || /^https?:\/\//i.test(u) || /^#/i.test(u) || /^img_\d+\./i.test(u)) return u;
-      try { return new URL(u, baseHref).href; } catch (eUrl) { return u; }
-    }
-
-    // Extraer imágenes base64 en src y resolver src relativos
+    // [F6-03] Extraer imágenes base64 en src y purgar cualquier URL externa http(s):// residual (anti-NTLM/SSRF en Word)
     let processedHtml = cleanHtml.replace(/src=["'](data:image\/([a-zA-Z0-9\+\-]+);base64,([A-Za-z0-9+/=\r\n]+))["']/gi, function(match, fullDataUrl, ext, b64) {
       return 'src="' + registerDataUrl(fullDataUrl, ext, b64) + '"';
     });
-    processedHtml = processedHtml.replace(/src=["']([^"']+)["']/gi, function(match, rawUrl) {
-      return 'src="' + absolutizeRelativeUrl(rawUrl) + '"';
-    });
+    processedHtml = processedHtml.replace(/\s+src=["'](?!img_\d+\.[a-z0-9]+["'])([^"']+)["']/gi, '');
 
-    // Extraer data:image/... de CSS url(...) (marcas de agua y fondos) en HTML y estilos CSS
+    // Extraer data:image/... de CSS url(...) y eliminar cualquier url(http...) o @import externo residual
     const cssUrlRe = /url\(\s*(['"]?)(data:image\/([a-zA-Z0-9\+\-]+);base64,([A-Za-z0-9+/=\r\n]+))\1\s*\)/gi;
-    processedHtml = processedHtml.replace(cssUrlRe, function(match, q, fullDataUrl, ext, b64) {
-      return 'url("' + registerDataUrl(fullDataUrl, ext, b64) + '")';
-    });
-    const resolvedStyles = String(options.styles || '')
+    processedHtml = processedHtml
       .replace(cssUrlRe, function(match, q, fullDataUrl, ext, b64) {
         return 'url("' + registerDataUrl(fullDataUrl, ext, b64) + '")';
       })
-      .replace(/url\(\s*(['"]?)([^)'"]+)\1\s*\)/gi, function(match, q, rawUrl) {
-        return 'url("' + absolutizeRelativeUrl(rawUrl) + '")';
-      });
+      .replace(/url\(\s*(['"]?)(?!img_\d+\.[a-z0-9]+\1\s*\))([^)'"]+)\1\s*\)/gi, 'none');
 
+    const resolvedStyles = String(options.styles || '')
+      .replace(/@import\s+[^;]+;/gi, '')
+      .replace(cssUrlRe, function(match, q, fullDataUrl, ext, b64) {
+        return 'url("' + registerDataUrl(fullDataUrl, ext, b64) + '")';
+      })
+      .replace(/url\(\s*(['"]?)(?!img_\d+\.[a-z0-9]+\1\s*\))([^)'"]+)\1\s*\)/gi, 'none');
+
+    const safeTitle = _escapeXmlText(options.title || 'Documento');
     const boundary = '----=_Part_RA_DOCX_' + Date.now();
-    const rawHtmlDoc = '<!DOCTYPE html>\r\n<html><head><meta charset="utf-8"><title>' + (options.title || 'Documento') + '</title>\r\n' +
+    const rawHtmlDoc = '<!DOCTYPE html>\r\n<html><head><meta charset="utf-8"><title>' + safeTitle + '</title>\r\n' +
       '<style>\r\n' +
       '@page Section1 { size: ' + (isLandscape ? '297mm 210mm' : '210mm 297mm') + '; margin: 12mm 14mm 14mm 12mm; mso-page-orientation: ' + (isLandscape ? 'landscape' : 'portrait') + '; }\r\n' +
       'div.Section1 { page: Section1; font-family: Segoe UI, Aptos, Arial, sans-serif; }\r\n' +

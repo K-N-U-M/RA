@@ -52,6 +52,12 @@
     return Math.sqrt(2 * Math.PI) * Math.pow(t, z + 0.5) * Math.exp(-t) * x;
   }
 
+  function _makeValidationError(msg) {
+    var err = new Error(msg);
+    err.statusCode = 422;
+    return err;
+  }
+
   /**
    * Parser estricto de archivos de clima eólico generalizado WAsP (.lib / GWC)
    * del Global Wind Atlas 3.0 (DTU Wind Energy / World Bank).
@@ -62,17 +68,19 @@
    */
   function parseWAsPLib(libText) {
     if (typeof libText !== 'string' || libText.trim().length === 0) {
-      throw new Error('Archivo .lib vacío o inválido');
+      throw _makeValidationError('Archivo .lib vacío o inválido');
     }
     var lines = libText.trim().split(/\r?\n/).map(function (l) { return l.trim(); }).filter(function (l) { return l.length > 0; });
     if (lines.length < 5) {
-      throw new Error('Formato .lib de WAsP inválido o truncado');
+      throw _makeValidationError('Formato .lib de WAsP inválido o truncado');
     }
 
     var header = lines[0];
     var coordMatch = header.match(/<coordinates>([0-9.-]+),([0-9.-]+)/);
     var lon = coordMatch ? parseFloat(coordMatch[1]) : 0;
     var lat = coordMatch ? parseFloat(coordMatch[2]) : 0;
+    if (!Number.isFinite(lon)) lon = 0;
+    if (!Number.isFinite(lat)) lat = 0;
 
     var parts2 = lines[1].split(/\s+/).map(Number);
     var numRough = parts2[0];
@@ -83,17 +91,27 @@
       return Number.isInteger(v) && v >= lo && v <= hi;
     };
     if (!isInt(numRough, 1, 8) || !isInt(numHeights, 1, 12) || !isInt(numSectors, 1, 36)) {
-      throw new Error('Cabecera .lib fuera de rango (rough/heights/sectors)');
+      throw _makeValidationError('Cabecera .lib fuera de rango (rough/heights/sectors)');
     }
     var needed = 4 + numRough * (1 + numHeights * 2);
     if (lines.length < needed) {
-      throw new Error('Fichero .lib truncado');
+      throw _makeValidationError('Fichero .lib truncado');
     }
 
     var roughnesses = lines[2].split(/\s+/).map(Number);
     var heights = lines[3].split(/\s+/).map(Number);
     if (roughnesses.length < numRough || heights.length < numHeights) {
-      throw new Error('Cabecera .lib con rugosidades o alturas incompletas');
+      throw _makeValidationError('Cabecera .lib con rugosidades o alturas incompletas');
+    }
+    for (var ri = 0; ri < numRough; ri++) {
+      if (!Number.isFinite(roughnesses[ri]) || roughnesses[ri] < 0) {
+        throw _makeValidationError('Rugosidad .lib inválida');
+      }
+    }
+    for (var hi = 0; hi < numHeights; hi++) {
+      if (!Number.isFinite(heights[hi]) || heights[hi] <= 0) {
+        throw _makeValidationError('Altura de referencia .lib inválida');
+      }
     }
 
     var curLine = 4;
@@ -101,19 +119,19 @@
     for (var r = 0; r < numRough; r++) {
       var freqs = lines[curLine++].split(/\s+/).map(Number);
       if (freqs.length < numSectors) {
-        throw new Error('Frecuencias .lib incompletas');
+        throw _makeValidationError('Frecuencias .lib incompletas');
       }
       var heightData = [];
       for (var h = 0; h < numHeights; h++) {
         var A = lines[curLine++].split(/\s+/).map(Number);
         var k = lines[curLine++].split(/\s+/).map(Number);
         if (A.length < numSectors || k.length < numSectors) {
-          throw new Error('Sectores Weibull .lib incompletos');
+          throw _makeValidationError('Sectores Weibull .lib incompletos');
         }
         var vMean = 0;
         for (var s = 0; s < numSectors; s++) {
-          if (!Number.isFinite(A[s]) || !Number.isFinite(k[s]) || k[s] <= 0 || !Number.isFinite(freqs[s])) {
-            throw new Error('Valores Weibull .lib inválidos');
+          if (!Number.isFinite(A[s]) || A[s] < 0 || !Number.isFinite(k[s]) || k[s] <= 0 || !Number.isFinite(freqs[s]) || freqs[s] < 0) {
+            throw _makeValidationError('Valores Weibull .lib inválidos');
           }
           var vSec = A[s] * lanczosGamma(1 + 1 / k[s]);
           vMean += (freqs[s] / 100) * vSec;
@@ -126,8 +144,8 @@
     var fieldBlock = roughnessBlocks.find(function (b) { return Math.abs(b.z0 - 0.03) < 0.01; }) || roughnessBlocks[1] || roughnessBlocks[0];
     var h10 = fieldBlock && (fieldBlock.heightData.find(function (d) { return d.heightM === 10; }) || fieldBlock.heightData[0]);
     var h50 = fieldBlock && (fieldBlock.heightData.find(function (d) { return d.heightM === 50; }) || fieldBlock.heightData[1] || h10);
-    if (!h10 || !h50) {
-      throw new Error('Alturas de referencia .lib ausentes');
+    if (!h10 || !h50 || !Number.isFinite(h10.vMean) || !Number.isFinite(h50.vMean)) {
+      throw _makeValidationError('Alturas de referencia .lib ausentes o no finitas');
     }
 
     var alpha = (h50.vMean > h10.vMean && h10.vMean > 0)
@@ -163,13 +181,38 @@
     };
   }
 
+  // [F6-01] Lista cerrada de orígenes CORS permitidos (sin comodín *.web.app de terceros)
+  var ALLOWED_CORS_ORIGINS = [
+    /^https:\/\/ra-solar-3d\.(web\.app|firebaseapp\.com)$/,
+    /^http:\/\/localhost(:\d+)?$/,
+    /^http:\/\/127\.0\.0\.1(:\d+)?$/
+  ];
+
+  function isAllowedCorsOrigin(origin) {
+    if (typeof origin !== 'string' || !origin) return false;
+    for (var i = 0; i < ALLOWED_CORS_ORIGINS.length; i++) {
+      if (ALLOWED_CORS_ORIGINS[i].test(origin)) return true;
+    }
+    return false;
+  }
+
+  function _isPrivateOrLocalHost(host) {
+    var h = String(host || '').toLowerCase().replace(/^\[|\]$/g, '');
+    if (!h || h === 'localhost' || h === '::1' || h === '0.0.0.0') return true;
+    if (/^127\./.test(h) || /^10\./.test(h) || /^169\.254\./.test(h) || /^192\.168\./.test(h)) return true;
+    if (/^172\.(1[6-9]|2\d|3[0-1])\./.test(h)) return true;
+    if (/^(fc|fd|fe80)/i.test(h)) return true;
+    return false;
+  }
+
   /**
-   * Valida URL HTTPS y sufijo exacto de host permitido (anti-SSRF).
+   * Valida URL HTTPS estricta y sufijo exacto de host permitido (anti-SSRF [F6-01]).
+   * Rechaza credenciales embebidas, puertos no estándar, IPs privadas/metadata y dominios homónimos.
    * @param {string} rawUrl
    * @param {string|null} allowedHostSuffix
    * @returns {URL}
    */
-  function validateHttpsUrl(rawUrl, allowedHostSuffix) {
+  function validateExternalProxyUrl(rawUrl, allowedHostSuffix) {
     var parsed;
     try {
       parsed = new URL(rawUrl);
@@ -179,8 +222,17 @@
     if (parsed.protocol !== 'https:') {
       throw new Error('Protocolo no permitido: ' + parsed.protocol);
     }
+    if (parsed.username || parsed.password) {
+      throw new Error('Credenciales embebidas en URL no permitidas');
+    }
+    if (parsed.port && parsed.port !== '443') {
+      throw new Error('Puerto no permitido: ' + parsed.port);
+    }
+    var host = parsed.hostname.toLowerCase();
+    if (_isPrivateOrLocalHost(host)) {
+      throw new Error('Host privado/local no permitido: ' + parsed.hostname);
+    }
     if (allowedHostSuffix) {
-      var host = parsed.hostname.toLowerCase();
       var suffix = String(allowedHostSuffix).toLowerCase().replace(/^\./, '');
       if (host !== suffix && !host.endsWith('.' + suffix)) {
         throw new Error('Host no permitido: ' + parsed.hostname);
@@ -192,6 +244,9 @@
   return {
     lanczosGamma: lanczosGamma,
     parseWAsPLib: parseWAsPLib,
-    validateHttpsUrl: validateHttpsUrl
+    validateHttpsUrl: validateExternalProxyUrl,
+    validateExternalProxyUrl: validateExternalProxyUrl,
+    ALLOWED_CORS_ORIGINS: ALLOWED_CORS_ORIGINS,
+    isAllowedCorsOrigin: isAllowedCorsOrigin
   };
 });

@@ -21,9 +21,14 @@ const MIME_TYPES = {
   '.txt': 'text/plain; charset=UTF-8'
 };
 
-const { lanczosGamma, parseWAsPLib, validateHttpsUrl } = require('./js/wind/wasp-parser');
+const {
+  lanczosGamma,
+  parseWAsPLib,
+  validateExternalProxyUrl,
+  isAllowedCorsOrigin
+} = require('./js/wind/wasp-parser');
 
-// [AUD-2026 · B-10 / F3-01] Descarga de texto con timeout, tope de tamaño y allowlist de host (SSOT).
+// [AUD-2026 · B-10 / F3-01 / F6-01] Descarga de texto con timeout, tope de tamaño y anti-SSRF estricto (SSOT).
 function fetchTextLimited(rawUrl, opts) {
   const options = opts || {};
   const maxBytes = options.maxBytes || 4 * 1024 * 1024;
@@ -32,7 +37,7 @@ function fetchTextLimited(rawUrl, opts) {
 
   return new Promise((resolve, reject) => {
     let parsed;
-    try { parsed = validateHttpsUrl(rawUrl, allowedHostSuffix); } catch (e) { return reject(e); }
+    try { parsed = validateExternalProxyUrl(rawUrl, allowedHostSuffix); } catch (e) { return reject(e); }
     const req = https.get(parsed, { headers: { 'User-Agent': 'RenewableArchitecture/1.0' } }, (resp) => {
       if (resp.statusCode && resp.statusCode >= 300) {
         resp.resume();
@@ -60,9 +65,11 @@ async function handleGWAPetition(lat, lon, res) {
 
     const match = xml.match(/"path":\s*"([^"]+)"/);
     if (!match) {
-      throw new Error('Respuesta WPS sin URL .lib');
+      const noLibErr = new Error('Respuesta WPS sin URL .lib');
+      noLibErr.statusCode = 422;
+      throw noLibErr;
     }
-    const libUrl = match[1].replace('http://', 'https://');
+    const libUrl = match[1].replace(/^http:\/\//i, 'https://');
 
     const libText = await fetchTextLimited(libUrl, {
       allowedHostSuffix: 'globalwindatlas.info',
@@ -76,8 +83,12 @@ async function handleGWAPetition(lat, lon, res) {
     });
     res.end(JSON.stringify(parsed));
   } catch (err) {
-    // [AUD-2026] No devolver `err.message` al cliente (fuga de internos/URLs).
+    // [AUD-2026 / F6-01] No devolver `err.message` al cliente; retornar 422 si el .lib es inválido.
     console.error('[server.js] Error GWA:', err.message);
+    if (err && err.statusCode === 422) {
+      sendJson(res, 422, { error: 'Los datos eólicos recibidos de GWA no son válidos para estas coordenadas' });
+      return;
+    }
     sendJson(res, 502, { error: 'No se pudo obtener el recurso eólico (GWA)' });
   }
 }
@@ -152,9 +163,9 @@ function resolveSafePath(rawUrl) {
 const server = http.createServer((req, res) => {
   applySecurityHeaders(res);
 
-  // CORS restringido a desarrollo local (antes: `*`).
+  // [F6-01] CORS unificado con Cloud Functions (lista cerrada en wasp-parser.js)
   const origin = req.headers.origin;
-  if (origin && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+  if (origin && isAllowedCorsOrigin(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Vary', 'Origin');
     res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
