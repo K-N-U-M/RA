@@ -14,12 +14,12 @@
 | **F7-02** | CAD 3D / WebGL | Índice espacial híbrido (`BVH + Quadtree ENU`) y raytracer solar offline/Worker sobre malla CAD + DSM | XL | F1-03, F1-06 | AAA A-2 + A-3 | `[Pendiente]` |
 | **F7-03** | CAD 3D / WebGL | Suite CAD OSNAP completa (Fin, Medio, Intersección, Perpendicular, Paralelo, Polar) + entrada numérica `Tab` | L | F1-06, F0-04 | AAA A-4 | `[Pendiente]` |
 | **F7-04** | CAD 3D / WebGL | Gizmo 3D GPU viewport-space con planos coplanares UV/UN/VN + Planos de Sección y Clash Detection 3D | L | F1-02 | AAA A-5 + A-6 | `[Pendiente]` |
-| **F7-05** | Ingeniería FV | Motor horario `8760h` TMY/PVGIS acoplado a curva I-V Bishop de 3 sub-strings y MPPT multi-pico global | XL | F2-02, F4-06 | AAA B-1 | `[Pendiente]` |
-| **F7-06** | Ingeniería FV | Auto-stringing inteligente (MILP/clúster) consciente de sombras 3D, `inputsPerMppt` y desequilibrio de fases | L | F2-03, F0-07 | AAA B-2 | `[Pendiente]` |
+| **F7-05** | Ingeniería FV | Motor horario `8760h` TMY/PVGIS acoplado a curva I-V Bishop de 3 sub-strings y MPPT multi-pico global | XL | F2-02, F4-06 | AAA B-1 | `[Hecho]` |
+| **F7-06** | Ingeniería FV | Auto-stringing inteligente (MILP/clúster) consciente de sombras 3D, `inputsPerMppt` y desequilibrio de fases | L | F2-03, F0-07 | AAA B-2 | `[Hecho]` |
 | **F7-07** | Ingeniería FV | Import/Export nativo `.PAN`/`.OND` (PVsyst) + DXF IEC 60617 vectorial completo e implantación 2D acotada | L | F2-06 | AAA B-3 | `[Parcial]` |
 | **F7-08** | Ingeniería FV/Fin | Análisis estocástico bancable P50/P75/P90/P99 (25 años con LID/degradación -> VAN/TIR/DSCR P90) | M | F2-11, F0-11 | AAA B-4 | `[Hecho]` |
 | **F7-09** | Ingeniería FV/3D | Ingesta automática LiDAR/DSM PNOA-IGN `0.5 m` + Google Solar DSM y detección semiautomática de cubiertas/obstáculos | XL | F7-02 | AAA B-5 | `[Pendiente]` |
-| **F7-10** | Híbrido / Tarifas | Gemelo único `8760h` FV + ERA5 Eólica + BESS con CSV cuartohorario Datadis y optimización de potencias P1..P6 | L | F2-04 | AAA B-6 | `[Pendiente]` |
+| **F7-10** | Híbrido / Tarifas | Gemelo único `8760h` FV + ERA5 Eólica + BESS con CSV cuartohorario Datadis y optimización de potencias P1..P6 | L | F2-04 | AAA B-6 | `[Hecho]` |
 | **F7-11** | Arquitectura / B2B | Headless Calculation SDK (`@ra/sdk` Node/Edge), API de Plugins normativos multi-país y Comparador paralelo multi-variante | XL | F4-06, F4-07 | AAA C-1 + C-2 + C-3 | `[Pendiente]` |
 | **F7-12** | Colaboración / Obs | Sincronización multi-pestaña/colaborativa (CRDT/Firestore deltas), historial de instantáneas y Time-Travel Debugging | XL | F4-03, F4-04 | AAA C-4 + C-5 + F-4 | `[Pendiente]` |
 | **F7-13** | UI/UX AAA | Command Palette (`Ctrl+K`), Split-View 3D + Drawer Inferior (Matriz MPPT/Unifilar), Modo Dual (Comercial/Experto) y Preview live en Studio | XL | F5-07..F5-10 | AAA E-1..E-7 | `[Hecho]` |
