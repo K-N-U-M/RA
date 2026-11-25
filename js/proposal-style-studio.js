@@ -30,7 +30,7 @@
     { id: 'installation',        label: 'Instalación Proyectada & Equipos Tier-1',      icon: _sSvg('bolt', 16, '#eab308'),       desc: 'Distribución en cubierta, módulos FV, inversores, baterías y eólica' },
     { id: 'energy_balance',      label: 'Balance Energético Mensual & Curvas 24h',      icon: _sSvg('chart', 16, '#38bdf8'),      desc: 'Tabla mensual de 12 meses, curvas horarias y cobertura solar' },
     { id: 'packages_comparison', label: 'Comparativa de 3 Planes de Inversión',         icon: _sSvg('trophy', 16, '#fbbf24'),     desc: 'Alternativas Esencial, Óptimo Recomendado e Independencia Total' },
-    { id: 'economics',           label: 'Propuesta Económica & Desglose CAPEX',         icon: _sSvg('euro', 16, '#10b981'),       desc: 'Presupuesto llave en mano, partidas, impuestos y modalidades de pago' },
+    { id: 'economics',           label: 'Propuesta Económica & Desglose CAPEX',         icon: _sSvg('euro', 16, '#10b981'),       desc: 'Estimación económica preliminar, partidas, impuestos y modalidades de pago' },
     { id: 'cashflow_25y',        label: 'Amortización a 25 Años & Garantías',           icon: _sSvg('trendUp', 16, '#34d399'),    desc: 'Flujo de caja acumulado, VAN, TIR, cronograma y cuadro de garantías' },
     { id: 'cel',                 label: 'Comunidad Energética Local (RDL 7/2026)',      icon: _sSvg('globe', 16, '#60a5fa'),      desc: 'Reparto de excedentes en radio de 5 km e ingresos por inyección CEL' },
     { id: 'closing',             label: 'Hoja de Decisión, Condiciones & Firma',        icon: _sSvg('edit', 16, '#c084fc'),       desc: 'Resumen de decisión ejecutiva, hitos de pago, validez y firmas' }
@@ -159,7 +159,7 @@
           milestone3Pct: 20,
           milestone3Text: 'A la puesta en marcha, legalización CIE ante Industria y entrega final',
           validityDays: 30,
-          legalNotes: 'Oferta llave en mano vinculante durante {{validityDays}} días naturales. Incluye ingeniería, suministro Tier-1, montaje certificado con medidas de seguridad, legalización CIE ante Industria y tramitación de ayudas fiscales municipales.'
+          legalNotes: 'Estudio preliminar orientativo sin carácter vinculante (referencia {{validityDays}} días naturales). Los importes, diseño y producción constituyen una primera aproximación sujeta a visita técnica, mediciones reales en cubierta y verificación eléctrica.'
         }
       }
     },
@@ -482,7 +482,7 @@
           milestone3Pct: 20,
           milestone3Text: 'A la puesta en marcha en isla, pruebas de autonomía 24h y entrega final CIE',
           validityDays: 30,
-          legalNotes: 'Oferta llave en mano para instalación aislada de red (Off-Grid) válida durante {{validityDays}} días. Incluye ingeniería de autonomía, suministro Tier-1, almacenamiento LFP con gestión BMS y legalización CIE.'
+          legalNotes: 'Estudio preliminar orientativo para instalación aislada de red (Off-Grid), sin carácter vinculante (referencia {{validityDays}} días). Primera aproximación sujeta a visita técnica, verificación de consumos y mediciones reales.'
         }
       }
     }
@@ -1859,7 +1859,7 @@
       '    </div>',
       '    <div style="border-left:3px solid ' + safePrimary + ';padding-left:7px;">',
       '      <div style="font-size:10px;font-weight:800;color:' + colHead + ';">1. Resumen Ejecutivo</div>',
-      '      <div style="font-size:9px;color:' + colBody + ';line-height:' + safeBodyLH + ';margin-top:2px;text-align:' + safeAlign + ';">Propuesta llave en mano dimensionada con ingeniería 3D, análisis de sombras y flujo de caja a 25 años.</div>',
+      '      <div style="font-size:9px;color:' + colBody + ';line-height:' + safeBodyLH + ';margin-top:2px;text-align:' + safeAlign + ';">Estudio preliminar orientativo dimensionado con ingeniería 3D, análisis de sombras y estimación a 25 años.</div>',
       '    </div>',
       '    <div style="margin-top:auto;background:#f1f5f9;border-radius:5px;padding:6px;display:flex;flex-direction:column;gap:3px;">',
       '      <div style="display:flex;justify-content:space-between;font-size:8.5px;color:' + colMuted + ';"><span>Densidad / Escala</span><strong style="color:' + colBody + ';">' + densityLbl + ' · ' + scalePct + '%</strong></div>',
@@ -1966,7 +1966,7 @@
       '  <div id="pss-live-preview-box" style="font-family:' + getFontStack(cfg.fontFamily).replace(/"/g, "'") + ';">',
       '    <div id="pss-prev-h1" style="font-size:' + prevHeroPx + 'px;font-weight:900;text-align:center;text-transform:uppercase;color:' + previewHeadCol + ';line-height:' + hLH + ';letter-spacing:' + hLS + 'px;' + (useBalance ? 'text-wrap:balance;' : '') + '">' + previewHtmlTitle + '</div>',
       '    <div id="pss-prev-sub" style="font-size:' + prevSubPx + 'px;font-weight:600;text-align:center;color:' + previewMutedCol + ';line-height:' + subLH + ';margin-top:' + subGap + 'px;margin-bottom:10px;' + (useBalance ? 'text-wrap:balance;' : '') + '">' + formatManualLineBreaks(coverSubVal) + '</div>',
-      '    <p id="pss-prev-p1" style="font-size:' + prevBodyPx + 'px;color:' + previewBodyCol + ';line-height:' + bodyLH + ';margin:0 0 ' + pGap + 'px 0;text-align:' + pAlign + ';">Propuesta técnica llave en mano diseñada mediante gemelo digital 3D. Optimiza la captación solar e integra almacenamiento inteligente para maximizar el ahorro desde el primer día.</p>',
+      '    <p id="pss-prev-p1" style="font-size:' + prevBodyPx + 'px;color:' + previewBodyCol + ';line-height:' + bodyLH + ';margin:0 0 ' + pGap + 'px 0;text-align:' + pAlign + ';">Estudio técnico preliminar diseñado mediante gemelo digital 3D como primera aproximación orientativa de captación solar, almacenamiento y ahorro estimado.</p>',
       '    <p id="pss-prev-p2" style="font-size:' + prevBodyPx + 'px;color:' + previewBodyCol + ';line-height:' + bodyLH + ';margin:0 0 10px 0;text-align:' + pAlign + ';">Todos los componentes cumplen normativa REBT ITC-BT-40 y cuentan con garantía oficial de rendimiento de 25 años.</p>',
       '    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;border-top:1px solid #e2e8f0;padding-top:8px;">',
       '      <div style="background:#f8fafc;border:1px solid #cbd5e1;border-radius:6px;padding:6px;text-align:center;">',
@@ -1978,7 +1978,7 @@
       '        <div class="pss-prev-kpi-val-accent" style="font-size:' + prevKpiValPx + 'px;font-weight:900;color:' + pal.primary + ';line-height:' + tblLH + ';">211.597 kWh</div>',
       '      </div>',
       '      <div style="background:' + pal.light + ';border:1.5px solid ' + pal.primary + ';border-radius:6px;padding:6px;text-align:center;">',
-      '        <div class="pss-prev-kpi-lbl" style="font-size:' + prevKpiLblPx + 'px;font-weight:800;color:' + pal.dark + ';line-height:' + subLH + ';">INVERSIÓN LLAVE EN MANO</div>',
+      '        <div class="pss-prev-kpi-lbl" style="font-size:' + prevKpiLblPx + 'px;font-weight:800;color:' + pal.dark + ';line-height:' + subLH + ';">INVERSIÓN ESTIMADA</div>',
       '        <div class="pss-prev-kpi-val-accent" style="font-size:' + prevKpiValPx + 'px;font-weight:900;color:' + pal.dark + ';line-height:' + tblLH + ';">110.451 €</div>',
       '      </div>',
       '    </div>',
@@ -2630,7 +2630,7 @@
     var modes = [
       {
         id: 'turnkey_only',
-        title: _sSvg('lock', 14, '#34d399') + ' Precio Único Llave en Mano (Cerrado)',
+        title: _sSvg('lock', 14, '#34d399') + ' Importe Global Estimado (Sin Desglose)',
         desc: 'Muestra la lista técnica de capítulos con "Incluido" y únicamente el importe total final (Base Imponible + IVA). Ideal para evitar regateos por componente.'
       },
       {

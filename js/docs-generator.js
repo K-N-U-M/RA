@@ -1736,7 +1736,7 @@ function generatePresupuesto(skipPricingModal, opt) {
       </p>
     </div>` : ''}
     <div class="doc-footer" style="margin-top:20px;border-top:1px solid #cbd5e1;padding-top:12px;font-size:8pt;color:#64748b;display:flex;justify-content:space-between">
-      <div>Presupuesto técnico vinculante por 30 días. Conforme a normativa REBT ITC-BT-40, RD 244/2019 y CTE.</div>
+      <div>Estudio preliminar orientativo sin carácter vinculante (referencia 30 días), sujeto a visita técnica y mediciones reales. Base normativa: REBT ITC-BT-40, RD 244/2019 y CTE.</div>
       <div>Firma del Técnico Proyectista / Responsable</div>
     </div>
   </div>`;

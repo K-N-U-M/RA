@@ -369,8 +369,7 @@ async function loadGoogle3D(opts) {
     } catch(e1) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', e1); }
 
     try {
-      google3DTileset = await Cesium.createGooglePhotorealistic3DTileset({
-        key: GOOGLE_MAPS_API_KEY,
+      google3DTileset = await Cesium.createGooglePhotorealistic3DTileset(GOOGLE_MAPS_API_KEY, {
         maximumScreenSpaceError: 16, // Alta fidelidad geométrica
         maximumMemoryUsage: 512,     // 512MB de caché optimizado para GPUs integradas y portátiles
         preloadWhenStationary: !recoveryMode,

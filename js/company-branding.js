@@ -146,7 +146,7 @@
     web: '',
     theme: 'emerald',
     layoutStyle: 'editorial', // editorial | infographic | technical
-    status: 'vinculante',
+    status: 'orientativa',
     font: 'inter',
     finTin: '5.95',
     finEntry: '0',
@@ -304,7 +304,7 @@
         slogan: (getVal('cfg-company-slogan') ?? _currentBranding.slogan ?? '').trim(),
         theme: getVal('cfg-proposal-theme') || _currentBranding.theme || 'emerald',
         layoutStyle: getVal('cfg-layout-style') || _currentBranding.layoutStyle || 'editorial',
-        status: getVal('cfg-offer-status') || _currentBranding.status || 'vinculante',
+        status: getVal('cfg-offer-status') || _currentBranding.status || 'orientativa',
         font: getVal('cfg-doc-font') || _currentBranding.font || 'inter',
         finTin: getVal('cfg-fin-tin') || _currentBranding.finTin || '5.95',
         finEntry: getVal('cfg-fin-entry') || _currentBranding.finEntry || '0',

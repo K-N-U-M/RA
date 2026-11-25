@@ -1378,7 +1378,7 @@
       ),
       makeCard(
         '<div>' +
-        '  <h4 class="editable-field" contenteditable="true" style="color:' + pal.primary + ';margin:0 0 6px 0;font-size:16px;font-weight:800;">02. Compromiso Llave en Mano</h4>' +
+        '  <h4 class="editable-field" contenteditable="true" style="color:' + pal.primary + ';margin:0 0 6px 0;font-size:16px;font-weight:800;">02. Alcance Estimado del Estudio</h4>' +
         '  <p class="editable-field" contenteditable="true" style="font-size:13.5px;color:#475569;line-height:1.5;margin:0 0 10px 0;">Gestión técnica y administrativa integral: visita de replanteo, memoria técnica, tramitación de licencias/ICIO, bonificaciones de IBI, instalación física, legalización (CIE) y puesta en marcha.</p>' +
         '  <h4 class="editable-field" contenteditable="true" style="color:' + pal.primary + ';margin:0 0 6px 0;font-size:16px;font-weight:800;">04. Impacto Medioambiental Certificado</h4>' +
         '  <div style="display:flex;justify-content:space-between;background:' + pal.light + ';padding:8px 14px;border-radius:8px;border:1px solid ' + pal.border + ';margin-top:6px;">' +
@@ -1632,7 +1632,7 @@
       buildDossierSheetHead('07. Propuesta Económica Bancable'),
       '  <div style="display:flex;justify-content:space-between;align-items:center;">',
       '    <div><span class="sheet-title-num editable-field" contenteditable="true">07.</span><span class="sheet-title-txt editable-field" contenteditable="true">Inversión & Triple Modalidad Financiera</span></div>',
-      '    <span class="badge-bankable badge-bankable-emerald">Oferta Bancable Llave en Mano</span>',
+      '    <span class="badge-bankable badge-bankable-emerald">Estudio Preliminar Orientativo</span>',
       '  </div>',
       divGrad,
       '  <div class="sheet-body-content">',
@@ -1795,7 +1795,7 @@
         '    <div class="gantt-track"><div class="gantt-bar" style="width:25%;margin-left:75%;background:#10b981;">Sem 7-8</div></div>' +
         '  </div>' +
         '  <div style="margin-top:8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px;font-size:13.5px;color:#475569;line-height:1.5;">' +
-        '    <strong>Compromiso Llave en Mano:</strong> La empresa instaladora asume la gestión integral de permisos urbanísticos (licencia de obra / declaración responsable), bonificaciones fiscales municipales (ICIO e IBI) y registro del Certificado de Instalación Eléctrica (CIE) ante Industria.' +
+        '    <strong>Alcance Preliminar Orientativo:</strong> Esta valoración constituye una primera aproximación sin visita técnica ni mediciones en obra. En caso de avanzar hacia proyecto definitivo, el alcance podrá incluir la gestión de permisos urbanísticos, bonificaciones fiscales municipales (ICIO e IBI) y registro del Certificado de Instalación Eléctrica (CIE) ante Industria.' +
         '  </div>' +
         '</div>'
       ),
@@ -1812,7 +1812,7 @@
       buildDossierSheetHead('10. Formalización contractual'),
       '  <div style="display:flex;justify-content:space-between;align-items:center;">',
       '    <div><span class="sheet-title-num editable-field" contenteditable="true">10.</span><span class="sheet-title-txt editable-field" contenteditable="true">Aceptación de Oferta & Condiciones de Ejecución</span></div>',
-      '    <span class="badge-bankable badge-bankable-emerald">Oferta Vinculante (30 Días)</span>',
+      '    <span class="badge-bankable badge-bankable-emerald">Estudio Preliminar No Vinculante</span>',
       '  </div>',
       divGrad,
       '  <div class="sheet-body-content">',
@@ -1868,7 +1868,7 @@
               validityDays: valDays
             });
           }
-          return '    • <strong>Validez:</strong> La presente oferta económica y técnica es vinculante durante ' + valDays + ' días naturales desde su emisión.<br>' +
+          return '    • <strong>Carácter Orientativo:</strong> El presente documento es un estudio previo no vinculante (referencia orientativa de ' + valDays + ' días naturales) elaborado como primera aproximación sin visita técnica ni mediciones reales en cubierta.<br>' +
             '    • <strong>Alcance Integral:</strong> Incluye ingeniería técnica, suministro de equipos Tier-1, montaje con línea de vida, legalización eléctrica CIE ante Industria y configuración de plataforma de telemetría.<br>' +
             '    • <strong>Fiscalidad:</strong> La empresa instaladora asistirá al cliente en la tramitación de bonificaciones de IBI e ICIO municipales.';
         })() +

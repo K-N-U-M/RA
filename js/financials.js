@@ -1518,7 +1518,7 @@ function wpOpenPricingReviewModal(onConfirm) {
           '<div style="background:rgba(30,41,59,0.5);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:9px;">' +
             '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">' +
               '<div style="font-size:11px;font-weight:900;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;">' +
-                'Partidas de Coste Directo (Instalación Llave en Mano)' +
+                'Partidas de Coste Directo (Estimación Preliminar)' +
               '</div>' +
               '<div style="display:flex;align-items:center;gap:6px;">' +
                 '<button type="button" id="btn-ai-survey-pricing" style="padding:3px 8px;background:rgba(167,139,250,0.15);border:1px solid rgba(167,139,250,0.4);border-radius:5px;color:#C084FC;font-size:11px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:4px;" title="Consultar a Google Gemini los precios actuales de mercado en España para estos equipos">' + _mSvg('sparkles', 12, '#C084FC') + ' Sondeo Precios (IA Gemini)</button>' +
@@ -1750,7 +1750,7 @@ function wpOpenPricingReviewModal(onConfirm) {
             '</div>' +
             '<hr style="border:0;border-top:1px solid rgba(16,185,129,0.25);margin:4px 0;">' +
             '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-              '<span style="font-size:11px;font-weight:900;color:#34D399;text-transform:uppercase;">TOTAL LLAVE EN MANO:</span>' +
+              '<span style="font-size:11px;font-weight:900;color:#34D399;text-transform:uppercase;">TOTAL ESTIMADO:</span>' +
               '<div style="display:flex;align-items:baseline;gap:6px;">' +
                 '<s id="pricing-preview-total-tachado" style="display:none;font-size:12px;color:#94a3b8;font-weight:700;">0 €</s>' +
                 '<b id="pricing-preview-total" style="font-size:17px;color:#fff;font-weight:900;">0 €</b>' +
@@ -4498,7 +4498,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
             <div style="font-weight:900;font-size:13px;color:#0f172a;">REF: ${_escProp(d.refNum)}</div>
             <div>Fecha: ${_escProp(d.fechaStr)}</div>
             <div>Hoja 1 de ${_totPages}</div>
-            <div style="margin-top:4px;"><span class="card-tag" style="background:${pal.light};color:${pal.dark};font-weight:800;padding:2px 8px;border-radius:4px;font-size:9.5px;">${branding.status === 'orientativa' ? 'PROPUESTA ORIENTATIVA' : 'PROPUESTA VINCULANTE'}</span></div>
+            <div style="margin-top:4px;"><span class="card-tag" style="background:${pal.light};color:${pal.dark};font-weight:800;padding:2px 8px;border-radius:4px;font-size:9.5px;">${branding.status === 'vinculante' ? 'ESTUDIO PRELIMINAR (REF. 30 DÍAS)' : 'ESTUDIO PRELIMINAR ORIENTATIVO'}</span></div>
           </div>
         </div>
 
@@ -4595,13 +4595,13 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
               </div>
             </div>
 
-            <!-- Caja 4: Precio / Inversión Llave en Mano -->
+            <!-- Caja 4: Precio / Inversión Estimada -->
             <div class="cover-spec-box highlight">
               <div class="cover-spec-icon" style="border-color:${pal.primary};background:${pal.light};">
                 ${(window.RA_SvgCatalog ? window.RA_SvgCatalog.render('piggyBank', pal.primary, 34) : '')}
               </div>
               <div>
-                <div class="cover-spec-label" style="color:${pal.dark};">Inversión Llave en Mano</div>
+                <div class="cover-spec-label" style="color:${pal.dark};">Inversión Estimada</div>
                 <div class="cover-spec-val" style="color:${pal.dark};font-size:19px;">${Math.round(m.capexBruto).toLocaleString('es-ES')} €</div>
                 <div class="cover-spec-sub" style="color:${pal.dark};font-weight:700;">IVA ${Math.round((m.ivaRate != null ? m.ivaRate : 0.21) * 100)}% inc. · ${Math.round(m.capexNeto).toLocaleString('es-ES')} € neto subv.</div>
               </div>
@@ -5035,9 +5035,9 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     <!-- PÁGINA PRESUPUESTO: PRESUPUESTO ECONÓMICO EPC -->
     <div class="page-sheet" data-section-id="economics">
       <div>
-        ${buildInnerHeaderHTML('PRESUPUESTO <span style="color:' + pal.primary + '">LLAVE EN MANO</span>', 'Desglose Detallado de Partidas EPC · Base Imponible · Impuestos', _pageIndexPresupuesto)}
+        ${buildInnerHeaderHTML('ESTUDIO ECONÓMICO <span style="color:' + pal.primary + '">PRELIMINAR</span>', 'Estimación Orientativa de Partidas · Base Imponible · Impuestos (Sujeto a Visita Técnica)', _pageIndexPresupuesto)}
 
-        <h2>Presupuesto detallado llave en mano</h2>
+        <h2>Estimación económica preliminar</h2>
         <table>
           <tr><th>Capítulo</th><th>Descripción de la Partida</th><th class="text-right">Importe (€)</th></tr>
           ${(function() {
@@ -5099,15 +5099,15 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
             }).join('');
           })()}
           ${(m.discountEur && m.discountEur > 0) ? '<tr style="background:#fef2f2;color:#dc2626;"><td style="font-weight:700;">Promoción</td><td><strong>' + _escProp(m.discountLabel || 'Descuento Comercial Especial') + '</strong></td><td class="text-right" style="font-weight:800;">- ' + Math.round(m.discountEur).toLocaleString('es-ES') + ' €</td></tr>' : ''}
-          <tr style="background:#f8fafc;font-weight:700;border-top:2px solid #cbd5e1;"><td>BASE IMPONIBLE</td><td>Total Ejecución Material y Servicios Llave en Mano${(m.ivaCompliance && m.ivaCompliance.isRenovacion10) ? ' <span style="font-size:9px;color:#475569;font-weight:600;">(Materiales: ' + Math.round(m.ivaCompliance.baseMateriales).toLocaleString('es-ES') + ' € [' + m.ivaCompliance.pctMateriales.toFixed(1) + '%] · Instalación y Servicios: ' + Math.round(m.ivaCompliance.baseServicios).toLocaleString('es-ES') + ' €)</span>' : ''}</td><td class="text-right" style="color:${pal.primary};">${Math.round(m.subtotal).toLocaleString('es-ES')} €</td></tr>
+          <tr style="background:#f8fafc;font-weight:700;border-top:2px solid #cbd5e1;"><td>BASE IMPONIBLE</td><td>Total Ejecución Material y Servicios Estimados${(m.ivaCompliance && m.ivaCompliance.isRenovacion10) ? ' <span style="font-size:9px;color:#475569;font-weight:600;">(Materiales: ' + Math.round(m.ivaCompliance.baseMateriales).toLocaleString('es-ES') + ' € [' + m.ivaCompliance.pctMateriales.toFixed(1) + '%] · Instalación y Servicios: ' + Math.round(m.ivaCompliance.baseServicios).toLocaleString('es-ES') + ' €)</span>' : ''}</td><td class="text-right" style="color:${pal.primary};">${Math.round(m.subtotal).toLocaleString('es-ES')} €</td></tr>
           <tr style="background:#f8fafc;"><td>IVA APLICABLE</td><td>Impuesto sobre el Valor Añadido (${Math.round((m.ivaRate != null ? m.ivaRate : 0.21) * 100)}%${(m.ivaCompliance && m.ivaCompliance.isRenovacion10) ? ' · Tipo Reducido Renovación/Reparación Vivienda Art. 91.Uno.2.10º LIVA' : ((m.ivaCompliance && m.ivaCompliance.isRehab10) ? ' · Rehabilitación Estructural / Obra Nueva Promotor Art. 91.Uno.3.1º LIVA' : '')})</td><td class="text-right">${Math.round(m.iva).toLocaleString('es-ES')} €</td></tr>
-          <tr class="total-row"><td>TOTAL PRESUPUESTO</td><td>INVERSIÓN TOTAL LLAVE EN MANO (IVA INCLUIDO)</td><td class="text-right">${Math.round(m.capexBruto).toLocaleString('es-ES')} €</td></tr>
+          <tr class="total-row"><td>TOTAL ESTIMADO</td><td>INVERSIÓN TOTAL ESTIMADA (IVA INCLUIDO)</td><td class="text-right">${Math.round(m.capexBruto).toLocaleString('es-ES')} €</td></tr>
         </table>
       </div>
 
       <!-- PIE DE HOJA PRESUPUESTO -->
       <div class="cover-footer" style="margin-top:auto;padding-top:12px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;font-size:9px;color:#64748b;">
-        <span>Presupuesto EPC Llave en Mano · Validez 30 días · Precios con IVA incluido</span>
+        <span>Estudio preliminar orientativo sin carácter vinculante · Sujeto a visita técnica y mediciones reales · IVA incluido</span>
         <span>${companyName} · Ref: ${d.refNum}</span>
       </div>
     </div>
@@ -5123,7 +5123,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         <h2>Subvenciones y beneficios fiscales estimados</h2>
         <table>
           <tr><th>Concepto Fiscal</th><th>Detalle / Normativa Aplicable</th><th class="text-right">Importe / Ahorro</th></tr>
-          <tr style="background:#f8fafc;font-weight:700;"><td>INVERSIÓN INICIAL (CAPEX BRUTO)</td><td>Coste llave en mano de la instalación fotovoltaica (IVA incluido)</td><td class="text-right" style="color:#0f172a;">${Math.round(m.capexBruto).toLocaleString('es-ES')} €</td></tr>
+          <tr style="background:#f8fafc;font-weight:700;"><td>INVERSIÓN INICIAL ESTIMADA (CAPEX BRUTO)</td><td>Coste orientativo estimado de la instalación fotovoltaica (IVA incluido)</td><td class="text-right" style="color:#0f172a;">${Math.round(m.capexBruto).toLocaleString('es-ES')} €</td></tr>
           <tr><td>Bonificación IBI</td><td>Bonificación en el Impuesto sobre Bienes Inmuebles (TRLRHL art. 74.5)</td><td class="text-right" style="color:${pal.primary};">- ${Math.round(m.ahorroIBITotal).toLocaleString('es-ES')} €</td></tr>
           ${(m.customerProfile === 'empresa') ? `
           <tr><td>Libertad de Amortización (IS)</td><td>Amortización acelerada 100% Año 1 (DA 17ª LIS / RDL 18/2022, Tipo ${Math.round((m.isRate || 0.25) * 100)}%)</td><td class="text-right" style="color:${pal.primary};">- ${Math.round(m.ahorroSociedades || 0).toLocaleString('es-ES')} €</td></tr>
@@ -5170,7 +5170,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
           Hoja ${_pageIndexDecision} de ${_totPages}<br>
           Fecha: ${d.fechaStr}<br>
           Validez: 30 días naturales<br>
-          <span style="display:inline-block;margin-top:4px;padding:2px 8px;background:${pal.light};color:${pal.dark};border-radius:4px;font-size: 10px;font-weight:800;">${branding.status === 'orientativa' ? 'OFERTA ORIENTATIVA' : 'OFERTA VINCULANTE'}</span>
+          <span style="display:inline-block;margin-top:4px;padding:2px 8px;background:${pal.light};color:${pal.dark};border-radius:4px;font-size: 10px;font-weight:800;">${branding.status === 'vinculante' ? 'ESTUDIO PRELIMINAR (REF. 30 DÍAS)' : 'ESTUDIO PRELIMINAR ORIENTATIVO'}</span>
         </div>
       </div>
 
@@ -5214,7 +5214,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         ${m.finMode !== 'financed' ? `
         <div class="decision-card featured">
           <div class="decision-title" style="color:${pal.dark};">
-            <span>OPCIÓN A: PAGO LLAVE EN MANO</span>
+            <span>OPCIÓN A: PAGO AL CONTADO (ESTIMADO)</span>
             <span style="font-size: 10px;background:${pal.light};color:${pal.dark};padding:2px 6px;border-radius:4px;">${m.finMode === 'cash' ? 'MODALIDAD SELECCIONADA' : 'RECOMENDADA'}</span>
           </div>
           ${m.capexTachado ? `

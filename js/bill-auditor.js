@@ -477,7 +477,7 @@ Normas estrictas:
         }
       };
 
-      const models = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-3.8-flash', 'gemini-3.5-flash'];
+      const models = ['gemini-3.8-flash', 'gemini-3.5-flash', 'gemini-2.5-flash'];
       let lastError = null;
 
       for (const model of models) {
@@ -515,6 +515,10 @@ Normas estrictas:
       }
 
       throw lastError || new Error('No se pudo completar el análisis con IA.');
+    },
+
+    parseLocaleNumber(rawVal) {
+      return BillParser.parseLocaleNumber(rawVal);
     },
 
     normalizeAIData(d) {
@@ -2372,7 +2376,9 @@ Normas estrictas:
     applyToBudget: applyBillToBudget,
     setEngine: (eng) => { BILL_AUDITOR_STATE.activeEngine = eng; },
     get currentBill() { return BILL_AUDITOR_STATE.currentBill; },
-    get comparison() { return BILL_AUDITOR_STATE.comparison; }
+    set currentBill(val) { BILL_AUDITOR_STATE.currentBill = val; },
+    get comparison() { return BILL_AUDITOR_STATE.comparison; },
+    set comparison(val) { BILL_AUDITOR_STATE.comparison = val; }
   };
 
   window.openBillAuditorModal = openBillAuditorModal;

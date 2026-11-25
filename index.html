@@ -51,8 +51,8 @@ window.RA_App = window.RA_App || {};
     <!-- Catálogo Canónico de Iconografía e Ilustraciones SVG Monocromáticas (SSOT) -->
   <script defer src="js/svg-catalog.js?v=20261023b"></script>
   <script defer src="js/proposal-infographics.js?v=20261124_f4c2"></script>
-  <script defer src="js/financials.js?v=20261125_f5c"></script>
-  <script defer src="js/viewer.js?v=20261125_f5c"></script>
+  <script defer src="js/financials.js?v=20261125_syncmain"></script>
+  <script defer src="js/viewer.js?v=20261125_syncmain"></script>
   <script defer src="js/solar-engine.js?v=20261124_f3"></script>
   <script defer src="js/production-source.js?v=20261117_d1"></script>
   <script defer src="js/solar-optimizer.js?v=20261125_f5c"></script>
@@ -82,7 +82,7 @@ window.RA_App = window.RA_App || {};
   <script defer src="js/project-calcs.js?v=20261125_f7v"></script>
   <script defer src="js/undo-manager.js?v=20261124_f3"></script>
   <script defer src="js/geometry-validate.js?v=20260929b"></script>
-  <script defer src="js/docs-generator.js?v=20261125_f7v"></script>
+  <script defer src="js/docs-generator.js?v=20261125_syncmain"></script>
   <script defer src="js/workflow-orchestrator.js?v=20261125_f5b"></script>
   <script defer src="js/working-plane.js?v=20261125_f5c"></script>
   <script defer src="js/solar-yield-controller.js?v=20261125_f5c"></script>
@@ -94,11 +94,11 @@ window.RA_App = window.RA_App || {};
   <script defer src="js/capture-mode.js?v=20261124_f1"></script>
   <script defer src="js/measure-tool.js?v=20261125_f5c"></script>
   <script defer src="js/project-hierarchy.js?v=20261124_f4"></script>
-  <script defer src="js/project-storage.js?v=20261125_f7fix2"></script>
-  <script defer src="js/company-branding.js?v=20261124_f0"></script>
+  <script defer src="js/project-storage.js?v=20261125_syncmain"></script>
+  <script defer src="js/company-branding.js?v=20261125_syncmain"></script>
   <script defer src="js/ai-service.js?v=20261125_f7v"></script>
   <script defer src="js/ui-outliner.js?v=20261125_f5c"></script>
-  <script defer src="js/bill-auditor.js?v=20261125_f5c"></script>
+  <script defer src="js/bill-auditor.js?v=20261125_syncmain"></script>
   <script defer src="js/structure-catalog.js?v=20261125_f5c"></script>
   <script defer src="js/bom-tree.js?v=20261125_f5c"></script>
   <script defer src="js/engineering-explainer.js?v=20261125_f5c"></script>
@@ -109,7 +109,7 @@ window.RA_App = window.RA_App || {};
   <script defer src="js/storage-cache.js?v=20261125_f7fix1"></script>
   <script defer src="js/lazy-loader.js?v=20261124_f0"></script>
   <script defer src="js/shadow-settings.js?v=20261125_f5c"></script>
-  <script defer src="js/proposal-style-studio.js?v=20261125_f7v"></script>
+  <script defer src="js/proposal-style-studio.js?v=20261125_syncmain"></script>
   <script defer src="js/autosave-manager.js?v=20261125_f5b"></script>
   <script defer src="js/scenario-comparator.js?v=20261125_f5c"></script>
   <script defer src="js/wind-curve-ui.js?v=20261124_f4c"></script>
@@ -3480,7 +3480,7 @@ window.RA_App = window.RA_App || {};
             <span style="font-size:11px;color:var(--text-slate-300);">Modalidad de Pago Oferta:</span>
             <select id="modal-fin-mode" onchange="raSyncFinancingControls()" style="width:165px;background:rgba(0,0,0,0.5);border:1px solid var(--amber-400);color:#fbbf24;font-size:11px;padding:4px 6px;border-radius:6px;outline:none;font-weight:700;">
               <option value="both">Comparativa (Contado vs Financiado)</option>
-              <option value="cash">Solo Pago al Contado (Llave en mano)</option>
+              <option value="cash">Solo Pago al Contado (Estimado)</option>
               <option value="financed">Solo Financiación (Crédito)</option>
             </select>
           </div>
@@ -3700,7 +3700,8 @@ window.RA_App = window.RA_App || {};
           <div class="doc-field">
             <label for="modal-cfg-offer-status" style="font-size:11px;color:var(--text-slate-300);font-weight:700;margin-bottom:4px;display:block;">Estado Legal Oferta:</label>
             <select aria-label="Estado Legal Oferta" id="modal-cfg-offer-status" onchange="syncModalInputToBranding('cfg-offer-status', this.value)" style="width:100%;background:rgba(0,0,0,0.5);border:1px solid var(--border-subtle);color:#fff;font-size:11px;padding:6px;border-radius:6px;outline:none;">
-              <option value="vinculante">Oferta Vinculante (30 días)</option>
+              <option value="orientativa" selected>Estudio Preliminar Orientativo (No vinculante)</option>
+              <option value="vinculante">Estudio Preliminar (Referencia 30 días)</option>
               <option value="borrador">Estudio Preliminar (Borrador)</option>
               <option value="aprobada">Contrato Formalizado</option>
             </select>
