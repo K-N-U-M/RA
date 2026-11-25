@@ -48,7 +48,7 @@
       hudContainer.style.cssText = `
         position: fixed;
         ${hasCustomPos ? `top: ${savedPos.top}px; left: ${savedPos.left}px;` : 'bottom: 78px; right: 20px;'}
-        z-index: 9600;
+        z-index: var(--z-hud, 100);
         font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
         font-size: 11px;
         user-select: none;

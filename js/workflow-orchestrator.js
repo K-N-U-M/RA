@@ -330,7 +330,7 @@
     }
 
     /**
-     * Actualiza el estado visual enabled/disabled de los botones del Stepper
+     * Actualiza el estado visual enabled/disabled de los botones del Stepper [F5-06]
      */
     refreshGating() {
       for (let s = 1; s <= 5; s++) {
@@ -340,14 +340,26 @@
         const check = this.canEnterStep(s);
         if (check.allowed) {
           btn.classList.remove('disabled');
-          btn.removeAttribute('title');
+          btn.removeAttribute('aria-disabled');
+          btn.dataset.lockReason = '';
+          if (btn.dataset.defaultTitle) btn.title = btn.dataset.defaultTitle;
         } else {
+          if (!btn.dataset.defaultTitle && btn.title) btn.dataset.defaultTitle = btn.title;
           btn.classList.add('disabled');
-          btn.title = check.reason || 'Paso bloqueado';
+          btn.setAttribute('aria-disabled', 'true');
+          const reason = check.reason || 'Paso bloqueado';
+          btn.dataset.lockReason = reason;
+          btn.title = 'Bloqueado: ' + reason;
         }
 
-        // Sincronizar clase activa
-        btn.classList.toggle('active', s === this._currentStep);
+        // Sincronizar clase activa y aria-current
+        const isCurr = (s === this._currentStep);
+        btn.classList.toggle('active', isCurr);
+        if (isCurr) btn.setAttribute('aria-current', 'step');
+        else btn.removeAttribute('aria-current');
+      }
+      if (typeof global.wpSyncSidebarFooterNav === 'function') {
+        global.wpSyncSidebarFooterNav();
       }
     }
 

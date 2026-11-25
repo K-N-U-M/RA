@@ -4013,18 +4013,84 @@ function wpCancelStampPolyline(isCommit) {
 // Aquí solo se lee/escribe; NO redeclarar (un let aquí rompe el bloque inline con SyntaxError).
 if (typeof window !== 'undefined' && typeof window.wpCurrentStep === 'undefined') window.wpCurrentStep = 1;
 
+let _wpLockBannerTimer = null;
+function wpShowStepLockBanner(targetStep, reason) {
+  const banner = document.getElementById('wp-step-lock-banner');
+  const msgEl = document.getElementById('wp-step-lock-msg');
+  const ctaBtn = document.getElementById('wp-step-lock-cta');
+  if (!banner || !msgEl) return;
+
+  const cleanReason = String(reason || 'Completa el paso previo requerido.').replace(/^Bloqueado:\s*/i, '');
+  msgEl.textContent = cleanReason;
+  if (ctaBtn) {
+    const unlockStep = targetStep <= 2 ? 1 : 2;
+    ctaBtn.textContent = unlockStep === 1 ? 'Ir al Paso 1' : 'Ir al Paso 2';
+    ctaBtn.onclick = function() {
+      banner.style.display = 'none';
+      if (typeof wpGoToStep === 'function') wpGoToStep(unlockStep);
+    };
+  }
+  banner.style.display = 'flex';
+  clearTimeout(_wpLockBannerTimer);
+  _wpLockBannerTimer = setTimeout(function() {
+    if (banner) banner.style.display = 'none';
+  }, 6000);
+}
+window.wpShowStepLockBanner = wpShowStepLockBanner;
+
+function wpSyncSidebarFooterNav() {
+  const prevBtn = document.getElementById('wp-footer-prev-btn');
+  const nextBtn = document.getElementById('wp-footer-next-btn');
+  const indEl = document.getElementById('wp-footer-step-ind');
+  const cur = (typeof window !== 'undefined' && Number(window.wpCurrentStep)) || 1;
+  const labels = { 1: 'Emplaz.', 2: 'Campo (2)', 3: 'Análisis (3)', 4: 'Ingeniería (4)', 5: 'Entrega (5)' };
+
+  if (indEl) indEl.textContent = 'Paso ' + cur + ' / 5';
+  if (prevBtn) {
+    const hasPrev = cur > 1;
+    prevBtn.disabled = !hasPrev;
+    prevBtn.style.opacity = hasPrev ? '1' : '0.35';
+    prevBtn.onclick = hasPrev ? function() { wpGoToStep(cur - 1); } : null;
+  }
+  if (nextBtn) {
+    if (cur >= 5) {
+      nextBtn.style.display = 'none';
+    } else {
+      nextBtn.style.display = 'inline-flex';
+      const nextStep = cur + 1;
+      const stepBtn = document.getElementById('wp-step-' + nextStep + '-btn');
+      const isLocked = !!(stepBtn && (stepBtn.classList.contains('disabled') || stepBtn.getAttribute('aria-disabled') === 'true'));
+      nextBtn.textContent = labels[nextStep] + ' →';
+      nextBtn.classList.toggle('is-locked', isLocked);
+      if (isLocked) {
+        nextBtn.setAttribute('aria-disabled', 'true');
+        nextBtn.title = (stepBtn && (stepBtn.dataset.lockReason || stepBtn.title)) || 'Completa el paso actual para continuar';
+      } else {
+        nextBtn.removeAttribute('aria-disabled');
+        nextBtn.title = 'Continuar al ' + labels[nextStep];
+      }
+      nextBtn.onclick = function() { wpGoToStep(nextStep); };
+    }
+  }
+}
+window.wpSyncSidebarFooterNav = wpSyncSidebarFooterNav;
+
 let _wpGoToStepSeq = 0;
 async function wpGoToStep(step, force = false) {
   const mySeq = ++_wpGoToStepSeq;
 
-  // 1.1 Bloqueo de pasos no desbloqueados por falta de prerrequisitos
+  // 1.1 Bloqueo de pasos no desbloqueados por falta de prerrequisitos [F5-06: explicable + CTA]
   const targetBtn = document.getElementById('wp-step-' + step + '-btn');
-  if (!force && targetBtn && targetBtn.classList.contains('disabled')) {
+  if (!force && targetBtn && (targetBtn.classList.contains('disabled') || targetBtn.getAttribute('aria-disabled') === 'true')) {
+    const lockReason = targetBtn.dataset.lockReason || targetBtn.title || 'Completa los pasos previos requeridos';
+    wpShowStepLockBanner(step, lockReason);
     if (typeof showToast === 'function') {
-      showToast('PASO BLOQUEADO', targetBtn.title || 'Completa los pasos previos requeridos', 'warning', 2500);
+      showToast('PASO BLOQUEADO', lockReason, 'warning', 3200);
     }
     return;
   }
+  const lockBanner = document.getElementById('wp-step-lock-banner');
+  if (lockBanner) lockBanner.style.display = 'none';
 
   // 1. Validar y abrir transición en el Orquestador (emitirá step_changed al finalizar UI/async)
   let _orchTx = null;
@@ -4103,11 +4169,16 @@ async function wpGoToStep(step, force = false) {
     selectElectricalObject(null);
   }
 
-  // 2. Conmutar botones activos del Stepper (1..5)
+  // 2. Conmutar botones activos del Stepper (1..5) y footer sticky [F5-06]
   for (let i = 1; i <= 5; i++) {
     const b = document.getElementById('wp-step-' + i + '-btn');
-    if (b) b.classList.toggle('active', i === step);
+    if (b) {
+      b.classList.toggle('active', i === step);
+      if (i === step) b.setAttribute('aria-current', 'step');
+      else b.removeAttribute('aria-current');
+    }
   }
+  wpSyncSidebarFooterNav();
 
   // 3. Ocultar todos los contenedores de paso
   const allStepContainers = [
@@ -6541,35 +6612,21 @@ function wpUpdateControlsAvailability() {
 
       if (canAccess) {
         sBtn.classList.remove('disabled');
-        sBtn.removeAttribute('title');
+        sBtn.removeAttribute('aria-disabled');
+        sBtn.dataset.lockReason = '';
+        if (sBtn.dataset.defaultTitle) sBtn.title = sBtn.dataset.defaultTitle;
       } else {
+        if (!sBtn.dataset.defaultTitle && sBtn.title) sBtn.dataset.defaultTitle = sBtn.title;
         sBtn.classList.add('disabled');
-        sBtn.title = reason;
+        sBtn.setAttribute('aria-disabled', 'true');
+        sBtn.dataset.lockReason = reason;
+        sBtn.title = 'Bloqueado: ' + reason;
       }
     }
   }
 
-  // 5. Pestañas de la barra lateral (#tab-btn-*)
-  const tabSolar = document.getElementById('tab-btn-solar');
-  if (tabSolar) {
-    tabSolar.classList.toggle('disabled', !hasPanels);
-    tabSolar.title = hasPanels ? 'Solar FV' : 'Requiere generar campo solar primero';
-  }
-  const tabPresupuesto = document.getElementById('tab-btn-presupuesto');
-  if (tabPresupuesto) {
-    tabPresupuesto.classList.toggle('disabled', !hasGenSource);
-    tabPresupuesto.title = hasGenSource ? 'Costes y Presupuesto' : 'Requiere definir generación solar o eólica primero';
-  }
-  const tabDocs = document.getElementById('tab-btn-documentacion');
-  if (tabDocs) {
-    tabDocs.classList.toggle('disabled', !hasGenSource);
-    tabDocs.title = hasGenSource ? 'Documentación Técnica y PDF' : 'Requiere definir generación solar o eólica primero';
-  }
-  const tabAnalisis = document.getElementById('tab-btn-analisis');
-  if (tabAnalisis) {
-    tabAnalisis.classList.toggle('disabled', !hasGenSource);
-    tabAnalisis.title = hasGenSource ? 'Análisis Energético' : 'Requiere definir generación solar o eólica primero';
-  }
+  // Sincronizar pie fijo de navegación del sidebar [F5-06]
+  wpSyncSidebarFooterNav();
 }
 window.wpUpdateControlsAvailability = wpUpdateControlsAvailability;
 

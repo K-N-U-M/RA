@@ -2994,7 +2994,7 @@ function wpOpenRoofOverrideModal(polyIdx) {
   if (!modalEl) {
     modalEl = document.createElement('div');
     modalEl.id = 'step4-roof-override-modal';
-    modalEl.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.75);z-index:99999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px);';
+    modalEl.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.75);z-index:var(--z-modal, 500);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px);';
     document.body.appendChild(modalEl);
   }
 

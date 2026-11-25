@@ -1006,7 +1006,7 @@ Normas estrictas:
     if (modal) return modal;
 
     const modalHTML = `
-      <div id="ra-bill-auditor-modal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(5,10,20,0.85);backdrop-filter:blur(10px);z-index:999999;align-items:center;justify-content:center;font-family:var(--font-sans, system-ui, -apple-system, sans-serif);">
+      <div id="ra-bill-auditor-modal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(5,10,20,0.85);backdrop-filter:blur(10px);z-index:var(--z-modal, 500);align-items:center;justify-content:center;font-family:var(--font-sans, system-ui, -apple-system, sans-serif);">
         <div style="width:960px;max-width:96vw;max-height:94vh;background:linear-gradient(135deg, rgba(15,23,42,0.98) 0%, rgba(30,41,59,0.96) 100%);border:1px solid rgba(245,158,11,0.35);box-shadow:0 25px 60px rgba(0,0,0,0.7), 0 0 35px rgba(245,158,11,0.18);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;color:#fff;">
           
           <!-- Header -->
@@ -1875,18 +1875,24 @@ Normas estrictas:
       };
     }
 
-    // Botones de análisis de texto pegado
+    // Botones de análisis de texto pegado [F5-04: bloqueo aria-busy + spinner]
     if (parseLocalBtn) {
       parseLocalBtn.onclick = () => {
         const area = document.getElementById('bill-raw-textarea');
-        if (area && area.value.trim().length > 0) {
-          processRawContent(area.value, 'pasted-bill.txt', false, false);
+        if (!area || area.value.trim().length === 0) return;
+        const runLocal = async () => {
+          await new Promise(r => setTimeout(r, 16));
+          await processRawContent(area.value, 'pasted-bill.txt', false, false);
+        };
+        if (window.RA && typeof window.RA.withButtonLoading === 'function') {
+          return window.RA.withButtonLoading(parseLocalBtn, 'Analizando...', runLocal);
         }
+        return runLocal();
       };
     }
 
     if (parseAIBtn) {
-      parseAIBtn.onclick = async () => {
+      parseAIBtn.onclick = () => {
         const area = document.getElementById('bill-raw-textarea');
         const text = area ? area.value.trim() : '';
         if (!text) {
@@ -1903,20 +1909,26 @@ Normas estrictas:
           return;
         }
 
-        setDropzoneLoading(true, 'Analizando texto con IA de Google Gemini...');
-        try {
-          const bill = await AIBillParser.analyzeDocument({ textData: text, fileName: 'texto-factura.txt' });
-          BILL_AUDITOR_STATE.currentBill = bill;
-          BILL_AUDITOR_STATE.comparison = computeComparison(bill);
-          updateModalUI(bill, BILL_AUDITOR_STATE.comparison);
-          if (typeof showToast === 'function') {
-            showToast('Texto analizado con IA: ' + bill.comercializadora + ' · ' + bill.totalFacturaEUR + ' €', 'success', 3500);
+        const runAI = async () => {
+          setDropzoneLoading(true, 'Analizando texto con IA de Google Gemini...');
+          try {
+            const bill = await AIBillParser.analyzeDocument({ textData: text, fileName: 'texto-factura.txt' });
+            BILL_AUDITOR_STATE.currentBill = bill;
+            BILL_AUDITOR_STATE.comparison = computeComparison(bill);
+            updateModalUI(bill, BILL_AUDITOR_STATE.comparison);
+            if (typeof showToast === 'function') {
+              showToast('Texto analizado con IA: ' + bill.comercializadora + ' · ' + bill.totalFacturaEUR + ' €', 'success', 3500);
+            }
+          } catch (err) {
+            (typeof raAlert === 'function' ? raAlert : console.warn)('Error en análisis IA: ' + (err.message || err), 'error');
+          } finally {
+            setDropzoneLoading(false);
           }
-        } catch (err) {
-          (typeof raAlert === 'function' ? raAlert : console.warn)('Error en análisis IA: ' + (err.message || err), 'error');
-        } finally {
-          setDropzoneLoading(false);
+        };
+        if (window.RA && typeof window.RA.withButtonLoading === 'function') {
+          return window.RA.withButtonLoading(parseAIBtn, 'Analizando IA...', runAI);
         }
+        return runAI();
       };
     }
 
@@ -1967,16 +1979,23 @@ Normas estrictas:
       };
     }
 
-    // Aplicar al presupuesto
+    // Aplicar al presupuesto [F5-04: bloqueo aria-busy + spinner]
     if (applyBtn) {
       applyBtn.onclick = () => {
-        if (BILL_AUDITOR_STATE.currentBill) {
-          BILL_AUDITOR_STATE.currentBill.titular = collectTitularFromModal();
-          const cupsIn = document.getElementById('bill-edit-cups');
-          if (cupsIn && cupsIn.value.trim()) BILL_AUDITOR_STATE.currentBill.cups = cupsIn.value.trim();
+        const runApply = async () => {
+          await new Promise(r => setTimeout(r, 16));
+          if (BILL_AUDITOR_STATE.currentBill) {
+            BILL_AUDITOR_STATE.currentBill.titular = collectTitularFromModal();
+            const cupsIn = document.getElementById('bill-edit-cups');
+            if (cupsIn && cupsIn.value.trim()) BILL_AUDITOR_STATE.currentBill.cups = cupsIn.value.trim();
+          }
+          applyBillToBudget();
+          closeModal();
+        };
+        if (window.RA && typeof window.RA.withButtonLoading === 'function') {
+          return window.RA.withButtonLoading(applyBtn, 'Aplicando datos...', runApply);
         }
-        applyBillToBudget();
-        closeModal();
+        return runApply();
       };
     }
 

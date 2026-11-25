@@ -8,7 +8,19 @@
 // E1: diseño actual · E2: microinversores (MLPE) · E3: optimización angular.
 // Producción: runPhysicalModel + runPVsystCompatible POR FALDÓN (tilt/azimut propios).
 // CAPEX: precios del catálogo. Rentabilidad: VAN 4% a 25 años + TIR por bisección.
-function wpCompararEscenarios() {
+function wpCompararEscenarios(triggerBtn) {
+  const btn = triggerBtn || document.getElementById('btn-compare-scenarios');
+  const runCompare = async () => {
+    await new Promise(r => setTimeout(r, 20));
+    _wpCompararEscenariosCore();
+  };
+  if (window.RA && typeof window.RA.withButtonLoading === 'function') {
+    return window.RA.withButtonLoading(btn, 'Calculando escenarios...', runCompare);
+  }
+  return runCompare();
+}
+
+function _wpCompararEscenariosCore() {
   const container = document.getElementById('comparador-escenarios-container');
   if (!container) return;
   if (typeof WP === 'undefined' || !WP.polylines || WP.polylines.length === 0) {

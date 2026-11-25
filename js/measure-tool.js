@@ -595,7 +595,7 @@
       'display: none',
       'align-items: center',
       'gap: 12px',
-      'z-index: 9999',
+      'z-index: var(--z-hud, 100)',
       'box-shadow: 0 10px 30px rgba(0,0,0,0.65), 0 0 18px rgba(56, 189, 248, 0.25)',
       'color: #fff',
       'font-family: Inter, system-ui, sans-serif',

@@ -201,7 +201,7 @@ function wpCheckSavedProject() {
       // acción de restauración — ahora el botón invoca wpRestoreAutosave() directamente.
       const banner = document.createElement('div');
       banner.id = 'ra-restore-autosave-banner';
-      banner.style.cssText = 'position:fixed;top:64px;right:16px;z-index:9999;display:flex;align-items:center;gap:10px;' +
+      banner.style.cssText = 'position:fixed;top:64px;right:16px;z-index:var(--z-popover, 300);display:flex;align-items:center;gap:10px;' +
         'padding:10px 14px;border-radius:8px;background:rgba(15,23,42,0.95);border:1px solid rgba(56,189,248,0.5);' +
         'color:#fff;font-family:Inter,sans-serif;font-size:12px;box-shadow:0 10px 25px -5px rgba(0,0,0,0.6);';
       banner.innerHTML = '<span>Sesión previa encontrada (' + dateStr + ')</span>' +

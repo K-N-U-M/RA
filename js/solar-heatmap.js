@@ -81,7 +81,7 @@
         modal.style.cssText = `
           position:fixed;top:0;left:0;width:100vw;height:100vh;
           background:rgba(10,16,29,0.78);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
-          display:flex;align-items:center;justify-content:center;z-index:99999;
+          display:flex;align-items:center;justify-content:center;z-index:var(--z-overlay, 400);
           font-family:'Inter',system-ui,sans-serif;
         `;
         document.body.appendChild(modal);

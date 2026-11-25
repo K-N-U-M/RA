@@ -1322,16 +1322,24 @@ function wpSetProposalFormat(fmt) {
     }
   }
 }
-function wpDownloadSelectedProposal() {
-  if (window._selectedProposalFormat === 'portrait') {
-    if (typeof generatePropuestaComercialPDF === 'function') generatePropuestaComercialPDF(true);
-  } else {
-    if (window.CommercialProposalDossier && typeof window.CommercialProposalDossier.generate === 'function') {
-      window.CommercialProposalDossier.generate();
-    } else if (typeof generatePropuestaComercialPDF === 'function') {
-      generatePropuestaComercialPDF(true);
+function wpDownloadSelectedProposal(triggerBtn) {
+  var btn = triggerBtn || (typeof document !== 'undefined' ? document.getElementById('step5-btn-download-commercial') : null);
+  var runProposal = async function() {
+    await new Promise(function(r) { setTimeout(r, 24); });
+    if (window._selectedProposalFormat === 'portrait') {
+      if (typeof generatePropuestaComercialPDF === 'function') await generatePropuestaComercialPDF(true);
+    } else {
+      if (window.CommercialProposalDossier && typeof window.CommercialProposalDossier.generate === 'function') {
+        await window.CommercialProposalDossier.generate();
+      } else if (typeof generatePropuestaComercialPDF === 'function') {
+        await generatePropuestaComercialPDF(true);
+      }
     }
+  };
+  if (window.RA && typeof window.RA.withButtonLoading === 'function') {
+    return window.RA.withButtonLoading(btn, 'Generando propuesta...', runProposal);
   }
+  return runProposal();
 }
 if (typeof window !== 'undefined') {
   window.wpUpdateStep5PricingBadge = wpUpdateStep5PricingBadge;
@@ -1346,7 +1354,7 @@ function wpOpenPricingReviewModal(onConfirm) {
   }
   var pModal = document.getElementById('ra-pricing-review-modal');
   if (!pModal) {
-    var modalHtml = '<div id="ra-pricing-review-modal" role="dialog" aria-modal="true" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,0.85);backdrop-filter:blur(8px);z-index:999999;align-items:center;justify-content:center;padding:16px;">' +
+    var modalHtml = '<div id="ra-pricing-review-modal" role="dialog" aria-modal="true" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,0.85);backdrop-filter:blur(8px);z-index:var(--z-modal-nested, 550);align-items:center;justify-content:center;padding:16px;">' +
       '<div style="background:#0f172a;border:1px solid #334155;border-radius:12px;width:780px;max-width:96vw;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 25px 50px -12px rgba(0,0,0,0.85);overflow:hidden;color:#fff;font-family:Inter,system-ui,sans-serif;">' +
         '<div style="padding:14px 20px;background:rgba(0,0,0,0.4);border-bottom:1px solid rgba(255,255,255,0.08);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">' +
           '<div style="display:flex;align-items:center;gap:10px;">' +
@@ -3861,7 +3869,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
     <style>
       *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
       body { background: #f1f5f9; font-family: 'Comfortaa', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #0f172a; padding: 20px; display: flex; flex-direction: column; align-items: center; padding-top: 70px; }
-      .doc-top-bar { position: fixed; top: 0; left: 0; right: 0; height: 50px; background: #0f172a; color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; z-index: 99999; box-shadow: 0 4px 20px rgba(0,0,0,0.3); border-bottom: 2px solid ${pal.primary}; }
+      .doc-top-bar { position: fixed; top: 0; left: 0; right: 0; height: 50px; background: #0f172a; color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; z-index: 400; box-shadow: 0 4px 20px rgba(0,0,0,0.3); border-bottom: 2px solid ${pal.primary}; }
       .doc-bar-title { font-weight: 800; font-size: 12px; color: #f8fafc; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px; }
       .doc-bar-title span { color: ${pal.accent}; font-family: monospace; font-size: 11px; }
       .doc-bar-btns { display: flex; gap: 8px; align-items: center; }
@@ -4153,7 +4161,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         font-size: 11px;
         font-weight: 900;
         cursor: pointer;
-        z-index: 10000;
+        z-index: 300;
         box-shadow: 0 2px 8px rgba(0,0,0,0.4);
         user-select: none;
         line-height: 1;
@@ -4170,7 +4178,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       /* ── TIRADORES DE ESPACIADO INTERACTIVOS (OPCIÓN B: GAP HANDLERS) ── */
       .ra-gap-handle {
         position: absolute;
-        z-index: 10005;
+        z-index: 310;
         background: rgba(15, 23, 42, 0.88);
         color: #38BDF8;
         border: 1px solid rgba(56, 189, 248, 0.4);
@@ -4214,7 +4222,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       /* ── TIRADORES DE TAMAÑO Y REDIMENSIÓN (CORNER ◢ Y ALTURA ⇕) ── */
       .ra-resize-handle {
         position: absolute;
-        z-index: 10006;
+        z-index: 320;
         background: #0284c7;
         color: #ffffff;
         border: 1px solid #38bdf8;
@@ -4258,7 +4266,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
       #ra-gap-tooltip {
         position: fixed;
         display: none;
-        z-index: 100010;
+        z-index: 650;
         background: #0f172a;
         color: #38bdf8;
         border: 1px solid #0284c7;
@@ -4279,7 +4287,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         box-shadow: 0 10px 25px rgba(0,0,0,0.5);
         border-radius: 8px;
         padding: 5px 8px;
-        z-index: 100000;
+        z-index: 500;
         align-items: center;
         gap: 6px;
         font-family: system-ui, sans-serif;
@@ -5315,7 +5323,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         } catch (_) {}
         const n = document.createElement('div');
         n.setAttribute('role', 'status');
-        n.style.cssText = 'position:fixed;top:14px;right:14px;z-index:999999;background:#0f172a;color:#fff;padding:10px 14px;border-radius:8px;font-size:12px;box-shadow:0 8px 24px rgba(0,0,0,0.4);max-width:360px;';
+        n.style.cssText = 'position:fixed;top:14px;right:14px;z-index:600;background:#0f172a;color:#fff;padding:10px 14px;border-radius:8px;font-size:12px;box-shadow:0 8px 24px rgba(0,0,0,0.4);max-width:360px;';
         n.textContent = msg;
         document.body.appendChild(n);
         setTimeout(function() { if (n.parentNode) n.parentNode.removeChild(n); }, 4500);
@@ -5328,7 +5336,7 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         } catch (_) {}
         return new Promise(function(res) {
           const ov = document.createElement('div');
-          ov.style.cssText = 'position:fixed;inset:0;background:rgba(2,6,23,0.75);z-index:999999;display:flex;align-items:center;justify-content:center;';
+          ov.style.cssText = 'position:fixed;inset:0;background:rgba(2,6,23,0.75);z-index:600;display:flex;align-items:center;justify-content:center;';
           ov.innerHTML = '<div style="background:#0f172a;color:#fff;padding:18px;border-radius:10px;max-width:360px;font-family:sans-serif;"><div style="font-size:13px;margin-bottom:14px;"></div><div style="display:flex;justify-content:flex-end;gap:8px;"><button type="button" data-c="0" style="padding:6px 12px;border-radius:6px;border:1px solid #475569;background:#1e293b;color:#fff;cursor:pointer;">Cancelar</button><button type="button" data-c="1" style="padding:6px 12px;border-radius:6px;border:none;background:#059669;color:#fff;font-weight:700;cursor:pointer;">Eliminar</button></div></div>';
           ov.firstChild.firstChild.textContent = msg;
           ov.querySelector('[data-c="0"]').onclick = function() { ov.remove(); res(false); };

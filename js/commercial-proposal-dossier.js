@@ -596,7 +596,7 @@
 
     var modal = document.createElement('div');
     modal.id = 'ra-dossier-config-modal';
-    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,0.85);backdrop-filter:blur(8px);z-index:999999;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;';
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,0.85);backdrop-filter:blur(8px);z-index:500;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;';
 
     modal.innerHTML = [
       '<div style="background:#0f172a;border:1px solid #334155;border-radius:14px;width:760px;max-width:96vw;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 25px 50px -12px rgba(0,0,0,0.85);color:#fff;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,sans-serif;">',
@@ -1008,7 +1008,7 @@
       '    .no-print { display: none !important; }',
       '    .dossier-drag-handle, .dossier-resize-handle, .dossier-img-picker-btn, #dossier-format-bar, .dossier-overflow-warn { display: none !important; }',
       '  }',
-      '  .dossier-overflow-warn { position: absolute; top: 8px; right: 14px; background: #ef4444; color: #fff; font-size: 10px; font-weight: 800; padding: 4px 10px; border-radius: 6px; box-shadow: 0 4px 12px rgba(239,68,68,0.4); z-index: 9999; display: flex; align-items: center; gap: 6px; pointer-events: none; }',
+      '  .dossier-overflow-warn { position: absolute; top: 8px; right: 14px; background: #ef4444; color: #fff; font-size: 10px; font-weight: 800; padding: 4px 10px; border-radius: 6px; box-shadow: 0 4px 12px rgba(239,68,68,0.4); z-index: 300; display: flex; align-items: center; gap: 6px; pointer-events: none; }',
       '  .sheet-head { display: flex; justify-content: space-between; align-items: center; height: 14mm; margin-bottom: 2mm; flex-shrink: 0; }',
       '  .sheet-title-num { font-size: 32px; font-weight: 900; color: #0f172a; border-bottom: 3px solid #0f172a; padding-bottom: 1px; }',
       '  .sheet-title-txt { font-size: 22px; font-weight: 800; color: #334155; margin-left: 10px; }',
@@ -1048,7 +1048,7 @@
       '  .table-clean td { padding: 5px 8px; border-bottom: 1px solid #f1f5f9; color: #1e293b; font-size: 13px; }',
       '  ',
       '  /* BARRA DE HERRAMIENTAS FLOTANTE */',
-      '  .dossier-toolbar { position: fixed; top: 0; left: 0; right: 0; height: 50px; background: #0f172a; color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; z-index: 99999; box-shadow: 0 4px 20px rgba(0,0,0,0.4); border-bottom: 2px solid ' + pal.primary + '; }',
+      '  .dossier-toolbar { position: fixed; top: 0; left: 0; right: 0; height: 50px; background: #0f172a; color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; z-index: 400; box-shadow: 0 4px 20px rgba(0,0,0,0.4); border-bottom: 2px solid ' + pal.primary + '; }',
       '  .toolbar-btn { border: none; border-radius: 6px; padding: 7px 12px; font-size: 11px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all 0.15s ease; color: #fff; }',
       '  .toolbar-btn:hover { filter: brightness(1.15); transform: translateY(-1px); }',
       '  ',
@@ -1151,7 +1151,7 @@
       '    display: none;',
       '    align-items: center;',
       '    gap: 8px;',
-      '    z-index: 999999;',
+      '    z-index: 500;',
       '    font-family: inherit;',
       '    font-size: 12px;',
       '    backdrop-filter: blur(10px);',
@@ -1966,7 +1966,7 @@
       '            curY = parseFloat(match[2]);',
       '          }',
       '',
-      '          card.style.zIndex = "1000";',
+      '          card.style.zIndex = "200";',
       '',
       '          function onMouseMove(moveEvent) {',
       '            var dx = moveEvent.clientX - startX;',
@@ -2335,7 +2335,7 @@
       '        if (window.opener && typeof window.opener.raConfirmAsync === "function") {',
       '          _okDraft = await window.opener.raConfirmAsync("¿Deseas restaurar el borrador guardado de esta propuesta? Se cargarán todos los textos e imágenes modificadas.", "Restaurar borrador");',
       '        } else {',
-      '          _okDraft = await new Promise(function(res){ var ov = document.createElement("div"); ov.style.cssText = "position:fixed;inset:0;background:rgba(2,6,23,0.75);z-index:999999;display:flex;align-items:center;justify-content:center;"; ov.innerHTML = "<div style=\\"background:#0f172a;color:#fff;padding:18px;border-radius:10px;max-width:380px;font-family:sans-serif;\\"><div style=\\"font-size:13px;margin-bottom:14px;\\">¿Deseas restaurar el borrador guardado de esta propuesta? Se cargarán todos los textos e imágenes modificadas.</div><div style=\\"display:flex;justify-content:flex-end;gap:8px;\\"><button type=\\"button\\" data-c=\\"0\\" style=\\"padding:6px 12px;border-radius:6px;border:1px solid #475569;background:#1e293b;color:#fff;cursor:pointer;\\">Cancelar</button><button type=\\"button\\" data-c=\\"1\\" style=\\"padding:6px 12px;border-radius:6px;border:none;background:#059669;color:#fff;font-weight:700;cursor:pointer;\\">Restaurar</button></div></div>"; ov.querySelector("[data-c=\\"0\\"]").onclick=function(){ov.remove();res(false);}; ov.querySelector("[data-c=\\"1\\"]").onclick=function(){ov.remove();res(true);}; document.body.appendChild(ov); });',
+      '          _okDraft = await new Promise(function(res){ var ov = document.createElement("div"); ov.style.cssText = "position:fixed;inset:0;background:rgba(2,6,23,0.75);z-index:500;display:flex;align-items:center;justify-content:center;"; ov.innerHTML = "<div style=\\"background:#0f172a;color:#fff;padding:18px;border-radius:10px;max-width:380px;font-family:sans-serif;\\"><div style=\\"font-size:13px;margin-bottom:14px;\\">¿Deseas restaurar el borrador guardado de esta propuesta? Se cargarán todos los textos e imágenes modificadas.</div><div style=\\"display:flex;justify-content:flex-end;gap:8px;\\"><button type=\\"button\\" data-c=\\"0\\" style=\\"padding:6px 12px;border-radius:6px;border:1px solid #475569;background:#1e293b;color:#fff;cursor:pointer;\\">Cancelar</button><button type=\\"button\\" data-c=\\"1\\" style=\\"padding:6px 12px;border-radius:6px;border:none;background:#059669;color:#fff;font-weight:700;cursor:pointer;\\">Restaurar</button></div></div>"; ov.querySelector("[data-c=\\"0\\"]").onclick=function(){ov.remove();res(false);}; ov.querySelector("[data-c=\\"1\\"]").onclick=function(){ov.remove();res(true);}; document.body.appendChild(ov); });',
       '        }',
       '        if (_okDraft) {',
       '          var container = document.getElementById("dossier-container");',
@@ -2564,7 +2564,7 @@
       '    var modal = document.createElement("div");',
       '    modal.id = "dossier-test-modal";',
       '    modal.className = "no-print";',
-      '    modal.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,0.85);backdrop-filter:blur(6px);z-index:9999999;display:flex;align-items:center;justify-content:center;padding:20px;";',
+      '    modal.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,0.85);backdrop-filter:blur(6px);z-index:550;display:flex;align-items:center;justify-content:center;padding:20px;";',
       '    modal.innerHTML = [',
       '      \'<div style="background:#0f172a;border:2px solid \' + (allPassed ? "#10b981" : "#f59e0b") + \';border-radius:14px;max-width:580px;width:100%;padding:22px;box-shadow:0 20px 40px rgba(0,0,0,0.6);display:flex;flex-direction:column;gap:14px;color:#fff;max-height:90vh;overflow-y:auto;">\',',
       '      \'  <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #334155;padding-bottom:12px;">\',',

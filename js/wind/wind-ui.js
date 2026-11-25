@@ -245,7 +245,7 @@
       hint.style.cssText = 'position:fixed;top:70px;left:50%;transform:translateX(-50%);' +
         'background:rgba(15,23,42,0.92);color:#38BDF8;border:1px solid #0284C7;' +
         'padding:10px 20px;border-radius:8px;font-size:12px;font-weight:600;' +
-        'z-index:99999;box-shadow:0 8px 24px rgba(0,0,0,0.5);display:flex;align-items:center;gap:12px;';
+        'z-index:var(--z-floating, 200);box-shadow:0 8px 24px rgba(0,0,0,0.5);display:flex;align-items:center;gap:12px;';
       document.body.appendChild(hint);
     }
     hint.innerHTML = '<span>💨 Haz clic en el terreno o cubierta para colocar <b>' +
@@ -1241,9 +1241,14 @@
           if (global.RAWindUI && global.RAWindUI.focusTurbine) global.RAWindUI.focusTurbine(wId);
         } else if (act === 'remove') {
           e.stopPropagation();
-          if (confirm('¿Eliminar aerogenerador?')) {
-            if (global.RAWind && global.RAWind.Entity) global.RAWind.Entity.removeFromScene(wId);
-          }
+          var confirmRemove = (typeof global.raConfirmAsync === 'function')
+            ? global.raConfirmAsync('¿Eliminar este aerogenerador de la escena?', { title: 'Eliminar aerogenerador', confirmText: 'Eliminar', cancelText: 'Cancelar' })
+            : Promise.resolve(true);
+          confirmRemove.then(function (ok) {
+            if (ok && global.RAWind && global.RAWind.Entity) {
+              global.RAWind.Entity.removeFromScene(wId);
+            }
+          });
         }
       });
     }

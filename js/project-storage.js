@@ -731,7 +731,7 @@ function raEnsureLoadingHUDElements() {
 
   hud = document.createElement('div');
   hud.id = 'ra-project-loading-hud';
-  hud.style.cssText = 'display:none;position:fixed;inset:0;width:100vw;height:100vh;background:rgba(8,14,26,0.82);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);z-index:10000000;align-items:center;justify-content:center;font-family:var(--font-sans,system-ui,-apple-system,sans-serif);opacity:0;transition:opacity 0.25s ease-out;pointer-events:auto;user-select:none;';
+  hud.style.cssText = 'display:none;position:fixed;inset:0;width:100vw;height:100vh;background:rgba(8,14,26,0.82);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);z-index:var(--z-overlay, 400);align-items:center;justify-content:center;font-family:var(--font-sans,system-ui,-apple-system,sans-serif);opacity:0;transition:opacity 0.25s ease-out;pointer-events:auto;user-select:none;';
 
   hud.innerHTML = `
     <div style="background:linear-gradient(145deg,rgba(15,23,42,0.96),rgba(30,41,59,0.92));border:1px solid rgba(56,189,248,0.35);border-radius:16px;box-shadow:0 25px 60px -15px rgba(0,0,0,0.7),0 0 35px rgba(56,189,248,0.18);padding:32px 36px;width:440px;max-width:90vw;display:flex;flex-direction:column;align-items:center;gap:20px;box-sizing:border-box;position:relative;overflow:hidden;">

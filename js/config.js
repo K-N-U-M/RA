@@ -22,7 +22,7 @@ if (!GOOGLE_MAPS_API_KEY || !CESIUM_ION_TOKEN) {
   }
   const _cfgFatal = document.createElement('div');
   _cfgFatal.id = 'ra-missing-env';
-  _cfgFatal.style.cssText = 'position:fixed;inset:0;z-index:999999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:#0b1120;color:#e2e8f0;font-family:system-ui,sans-serif;text-align:center;padding:24px;';
+  _cfgFatal.style.cssText = 'position:fixed;inset:0;z-index:var(--z-toast, 700);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:#0b1120;color:#e2e8f0;font-family:system-ui,sans-serif;text-align:center;padding:24px;';
   _cfgFatal.innerHTML = '<div style="font-size:40px;">🔑</div>' +
     '<div style="font-size:18px;font-weight:800;">Faltan las credenciales del visor</div>' +
     '<div style="font-size:13px;color:#94a3b8;max-width:520px;line-height:1.6;">Copia <code>doc/ra-env.example.js</code> a <code>js/ra-env.js</code> y rellena las claves restringidas. Ese archivo no se versiona.</div>';
@@ -37,7 +37,7 @@ if (typeof Cesium === 'undefined') {
   if (_ldScr && _ldScr.parentNode) _ldScr.parentNode.removeChild(_ldScr);
   const _fatal = document.createElement('div');
   _fatal.id = 'ra-fatal-cdn';
-  _fatal.style.cssText = 'position:fixed;inset:0;z-index:999999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#0b1120;color:#e2e8f0;font-family:system-ui,sans-serif;text-align:center;padding:24px;';
+  _fatal.style.cssText = 'position:fixed;inset:0;z-index:var(--z-toast, 700);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#0b1120;color:#e2e8f0;font-family:system-ui,sans-serif;text-align:center;padding:24px;';
   _fatal.innerHTML = '<div style="font-size:44px;">📡</div>' +
     '<div style="font-size:19px;font-weight:800;letter-spacing:-0.3px;">No se pudo cargar CesiumJS</div>' +
     '<div style="font-size:13px;color:#94a3b8;max-width:460px;line-height:1.6;">El visor 3D requiere el CDN de Cesium (cesium.com) y el motor de fotogrametría de Google. Comprueba tu conexión a internet y recarga la página.</div>' +

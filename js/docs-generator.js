@@ -164,7 +164,7 @@ function docWindow(title, body, opt) {
       tr, .sig-row, .dcard, .info, .warn, .doc-chart-box { page-break-inside: avoid; break-inside: avoid; }
       h1, h2, h3 { page-break-after: avoid; break-after: avoid; }
     }
-    .doc-top-bar { position: fixed; top: 0; left: 0; right: 0; height: 50px; background: #0f172a; color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; z-index: 99999; box-shadow: 0 4px 20px rgba(0,0,0,0.3); border-bottom: 2px solid #f59e0b; }
+    .doc-top-bar { position: fixed; top: 0; left: 0; right: 0; height: 50px; background: #0f172a; color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; z-index: 400; box-shadow: 0 4px 20px rgba(0,0,0,0.3); border-bottom: 2px solid #f59e0b; }
     .doc-bar-title { font-weight: 800; font-size: 12px; color: #f8fafc; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px; }
     .doc-bar-title span { color: #f59e0b; font-family: monospace; font-size: 11px; }
     .doc-bar-btns { display: flex; gap: 8px; align-items: center; }
@@ -214,7 +214,7 @@ function docWindow(title, body, opt) {
       box-shadow: 0 10px 25px rgba(0,0,0,0.4);
       border-radius: 8px;
       padding: 5px 8px;
-      z-index: 100000;
+      z-index: 450;
       align-items: center;
       gap: 6px;
       font-family: system-ui, sans-serif;
@@ -398,7 +398,7 @@ function docWindow(title, body, opt) {
       } catch (_) {}
       const n = document.createElement('div');
       n.setAttribute('role', 'status');
-      n.style.cssText = 'position:fixed;top:14px;right:14px;z-index:999999;background:#0f172a;color:#fff;padding:10px 14px;border-radius:8px;font-size:12px;box-shadow:0 8px 24px rgba(0,0,0,0.4);max-width:360px;';
+      n.style.cssText = 'position:fixed;top:14px;right:14px;z-index:600;background:#0f172a;color:#fff;padding:10px 14px;border-radius:8px;font-size:12px;box-shadow:0 8px 24px rgba(0,0,0,0.4);max-width:360px;';
       n.textContent = msg;
       document.body.appendChild(n);
       setTimeout(function() { if (n.parentNode) n.parentNode.removeChild(n); }, 4500);
@@ -411,7 +411,7 @@ function docWindow(title, body, opt) {
       } catch (_) {}
       return new Promise(function(res) {
         const ov = document.createElement('div');
-        ov.style.cssText = 'position:fixed;inset:0;background:rgba(2,6,23,0.75);z-index:999999;display:flex;align-items:center;justify-content:center;';
+        ov.style.cssText = 'position:fixed;inset:0;background:rgba(2,6,23,0.75);z-index:600;display:flex;align-items:center;justify-content:center;';
         ov.innerHTML = '<div style="background:#0f172a;color:#fff;padding:18px;border-radius:10px;max-width:360px;font-family:sans-serif;"><div style="font-size:13px;margin-bottom:14px;"></div><div style="display:flex;justify-content:flex-end;gap:8px;"><button type="button" data-c="0" style="padding:6px 12px;border-radius:6px;border:1px solid #475569;background:#1e293b;color:#fff;cursor:pointer;">Cancelar</button><button type="button" data-c="1" style="padding:6px 12px;border-radius:6px;border:none;background:#059669;color:#fff;font-weight:700;cursor:pointer;">Eliminar</button></div></div>';
         ov.firstChild.firstChild.textContent = msg;
         ov.querySelector('[data-c="0"]').onclick = function() { ov.remove(); res(false); };
@@ -732,7 +732,7 @@ function showEmbeddedDocViewer(title, fullHtml) {
   if (!modal) {
     modal = document.createElement('div');
     modal.id = 'ra-embedded-doc-modal';
-    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);z-index:999999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;';
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);z-index:600;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;';
     document.body.appendChild(modal);
   }
   const safeTitle = (window.RASanitize && typeof window.RASanitize.plain === 'function')
@@ -3072,17 +3072,19 @@ function generateFormulario(opt) {
  * 3. Formulario Administrativo RD 244/2019
  * 4. Análisis Comparativo Energético
  */
-async function generateDeliveryPack(skipPricingModal) {
+async function generateDeliveryPack(skipPricingModal, triggerBtn) {
   if (typeof raEnsureAnalysisReadyForDoc === 'function' && !raEnsureAnalysisReadyForDoc()) {
     return;
   }
   if (!skipPricingModal && typeof wpOpenPricingReviewModal === 'function') {
     wpOpenPricingReviewModal(function() {
-      generateDeliveryPack(true);
+      generateDeliveryPack(true, triggerBtn);
     });
     return;
   }
 
+  const targetBtn = triggerBtn || document.getElementById('btn-generate-delivery-pack');
+  const runPack = async () => {
   const d = _docGetProjectCalcs();
   if (d.numPanels === 0) {
     (typeof raAlert === 'function' ? raAlert : console.warn)('Diseña primero el polígono de la instalación en el visor 3D.', 'warning');
@@ -3174,6 +3176,11 @@ async function generateDeliveryPack(skipPricingModal) {
     if (typeof generateMemoria === 'function') generateMemoria(true);
     if (typeof generatePresupuesto === 'function') setTimeout(() => generatePresupuesto(true), 600);
   }
+  };
+  if (window.RA && typeof window.RA.withButtonLoading === 'function') {
+    return window.RA.withButtonLoading(targetBtn, 'Empaquetando ZIP...', runPack);
+  }
+  return runPack();
 }
 
 if (typeof window !== 'undefined') {

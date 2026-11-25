@@ -500,7 +500,7 @@
         modal.id = 'ra-solar-optimizer-modal';
         modal.setAttribute('role', 'dialog');
         modal.setAttribute('aria-modal', 'true');
-        modal.style.cssText = 'display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(10,16,29,0.85);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);z-index:999999;align-items:center;justify-content:center;padding:16px;';
+        modal.style.cssText = 'display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(10,16,29,0.85);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);z-index:var(--z-modal, 500);align-items:center;justify-content:center;padding:16px;';
         document.body.appendChild(modal);
       }
 

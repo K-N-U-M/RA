@@ -722,11 +722,17 @@
       }
     },
 
-    // ── Callback: eliminar turbina ────────────────────────────────────
+    // ── Callback: eliminar turbina [F5-04: confirmación asíncrona sin confirm() nativo] ──
     _onDeleteTurbine: function (id) {
-      if (!confirm('¿Eliminar este aerogenerador del catálogo?')) return;
-      this.remove(id);
-      this.refreshPanel();
+      var self = this;
+      var confirmFn = (typeof global.raConfirmAsync === 'function')
+        ? global.raConfirmAsync('¿Eliminar este aerogenerador del catálogo?', { title: 'Eliminar aerogenerador', confirmText: 'Eliminar', cancelText: 'Cancelar' })
+        : Promise.resolve(true);
+      confirmFn.then(function (ok) {
+        if (!ok) return;
+        self.remove(id);
+        self.refreshPanel();
+      });
     },
 
     // ── Inyectar pestaña en el modal de catálogo existente ───────────

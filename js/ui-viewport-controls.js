@@ -375,11 +375,13 @@
   // ── 7. GESTIÓN DE MODALES CENTRALIZADA EN js/a11y-dialogs.js [F5-01] ───────
 
   // ── SISTEMA UNIVERSAL DE VENTANAS FLOTANTES DESPLAZABLES (DRAGGABLE) ───────
-  let _topWindowZIndex = 9600;
+  // [F5-05] Confinado dentro de la banda --z-floating (200..289) para nunca pisar popovers (300) ni modales (500)
+  let _topWindowZIndex = 205;
 
   function bringToFront(el) {
     if (!el) return;
-    _topWindowZIndex = Math.max(_topWindowZIndex + 1, 9600);
+    _topWindowZIndex += 1;
+    if (_topWindowZIndex > 289) _topWindowZIndex = 210;
     el.style.zIndex = _topWindowZIndex;
   }
 

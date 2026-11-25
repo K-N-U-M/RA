@@ -25,6 +25,7 @@
     '#ra-bill-auditor-modal',
     '#ra-bifacial-modal',
     '#ra-async-confirm-modal',
+    '#ra-async-prompt-modal',
     '[role="dialog"][aria-modal="true"]',
     '[role="alertdialog"][aria-modal="true"]'
   ].join(',');
@@ -212,7 +213,7 @@
   function _closeModalElement(modal) {
     if (!modal) return;
     _activeModalStack = _activeModalStack.filter(function(m) { return m !== modal; });
-    if (modal.id === 'ra-async-confirm-modal' && typeof modal._raCancel === 'function') {
+    if ((modal.id === 'ra-async-confirm-modal' || modal.id === 'ra-async-prompt-modal') && typeof modal._raCancel === 'function') {
       modal._raCancel();
       return;
     }
@@ -313,7 +314,7 @@
       host.id = 'ra-nonblocking-toast-host';
       host.setAttribute('role', 'status');
       host.setAttribute('aria-live', 'polite');
-      host.style.cssText = 'position:fixed;top:16px;right:16px;z-index:1000010;display:flex;flex-direction:column;gap:8px;max-width:400px;pointer-events:none;';
+      host.style.cssText = 'position:fixed;top:16px;right:16px;z-index:var(--z-toast, 700);display:flex;flex-direction:column;gap:8px;max-width:400px;pointer-events:none;';
       document.body.appendChild(host);
     }
     var card = document.createElement('div');
@@ -362,7 +363,7 @@
       overlay.setAttribute('aria-modal', 'true');
       overlay.setAttribute('aria-labelledby', 'ra-confirm-title');
       overlay.setAttribute('aria-describedby', 'ra-confirm-msg');
-      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(2,6,23,0.78);backdrop-filter:blur(6px);z-index:1000020;display:flex;align-items:center;justify-content:center;padding:16px;';
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(2,6,23,0.78);backdrop-filter:blur(6px);z-index:var(--z-confirm, 600);display:flex;align-items:center;justify-content:center;padding:16px;';
 
       var box = document.createElement('div');
       box.style.cssText = 'background:#0f172a;border:1px solid rgba(56,189,248,0.35);border-radius:12px;max-width:440px;width:100%;padding:20px;box-shadow:0 24px 60px rgba(0,0,0,0.7);color:#f8fafc;font-family:Inter,system-ui,sans-serif;';
@@ -406,6 +407,139 @@
     });
   }
 
+  function raPromptAsync(message, titleOrOpts) {
+    if (typeof document === 'undefined') return Promise.resolve(null);
+    var opts = (typeof titleOrOpts === 'object' && titleOrOpts) ? titleOrOpts : { title: titleOrOpts };
+    var title = opts.title || 'Introducir valor';
+    var confirmLabel = opts.confirmText || 'Aceptar';
+    var cancelLabel = opts.cancelText || 'Cancelar';
+    var defaultValue = opts.defaultValue != null ? String(opts.defaultValue) : '';
+    var placeholder = opts.placeholder || '';
+    var prevFocus = document.activeElement;
+
+    var existing = document.getElementById('ra-async-prompt-modal');
+    if (existing) existing.remove();
+
+    return new Promise(function(resolve) {
+      var resolved = false;
+      function finish(val) {
+        if (resolved) return;
+        resolved = true;
+        if (overlay.isConnected) overlay.remove();
+        if (prevFocus && prevFocus.isConnected && typeof prevFocus.focus === 'function') {
+          try { prevFocus.focus(); } catch (_) {}
+        }
+        resolve(val);
+      }
+
+      var overlay = document.createElement('div');
+      overlay.id = 'ra-async-prompt-modal';
+      overlay.setAttribute('role', 'dialog');
+      overlay.setAttribute('aria-modal', 'true');
+      overlay.setAttribute('aria-labelledby', 'ra-prompt-title');
+      overlay.setAttribute('aria-describedby', 'ra-prompt-msg');
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(2,6,23,0.78);backdrop-filter:blur(6px);z-index:var(--z-confirm, 600);display:flex;align-items:center;justify-content:center;padding:16px;';
+
+      var box = document.createElement('div');
+      box.style.cssText = 'background:#0f172a;border:1px solid rgba(56,189,248,0.4);border-radius:12px;max-width:440px;width:100%;padding:20px;box-shadow:0 24px 60px rgba(0,0,0,0.7);color:#f8fafc;font-family:Inter,system-ui,sans-serif;';
+
+      var h3 = document.createElement('h3');
+      h3.id = 'ra-prompt-title';
+      h3.textContent = title;
+      h3.style.cssText = 'margin:0 0 10px 0;font-size:15px;font-weight:800;color:#fff;';
+
+      var p = document.createElement('label');
+      p.id = 'ra-prompt-msg';
+      p.setAttribute('for', 'ra-prompt-input');
+      p.textContent = String(message || '');
+      p.style.cssText = 'display:block;margin:0 0 10px 0;font-size:13px;line-height:1.45;color:#cbd5e1;';
+
+      var input = document.createElement('input');
+      input.id = 'ra-prompt-input';
+      input.type = 'text';
+      input.value = defaultValue;
+      input.placeholder = placeholder;
+      input.style.cssText = 'width:100%;box-sizing:border-box;padding:9px 11px;margin:0 0 16px 0;border-radius:7px;background:#020617;border:1px solid #475569;color:#f8fafc;font-size:13px;font-family:inherit;';
+      input.addEventListener('keydown', function(ev) {
+        if (ev.key === 'Enter') {
+          ev.preventDefault();
+          finish(input.value);
+        }
+      });
+
+      var actions = document.createElement('div');
+      actions.style.cssText = 'display:flex;justify-content:flex-end;gap:10px;';
+
+      var btnCancel = document.createElement('button');
+      btnCancel.type = 'button';
+      btnCancel.textContent = cancelLabel;
+      btnCancel.style.cssText = 'padding:8px 14px;border-radius:7px;background:#1e293b;border:1px solid #475569;color:#e2e8f0;font-size:12px;font-weight:700;cursor:pointer;';
+      btnCancel.onclick = function() { finish(null); };
+
+      var btnOk = document.createElement('button');
+      btnOk.type = 'button';
+      btnOk.textContent = confirmLabel;
+      btnOk.style.cssText = 'padding:8px 16px;border-radius:7px;background:#047857;border:1px solid #10b981;color:#fff;font-size:12px;font-weight:800;cursor:pointer;';
+      btnOk.onclick = function() { finish(input.value); };
+
+      overlay._raCancel = function() { finish(null); };
+      overlay.onclick = function(ev) { if (ev.target === overlay) finish(null); };
+
+      actions.appendChild(btnCancel);
+      actions.appendChild(btnOk);
+      box.appendChild(h3);
+      box.appendChild(p);
+      box.appendChild(input);
+      box.appendChild(actions);
+      overlay.appendChild(box);
+      document.body.appendChild(overlay);
+      setTimeout(function() { try { input.focus(); input.select(); } catch (_) {} }, 10);
+    });
+  }
+
+  function withButtonLoading(btn, loadingText, asyncFn) {
+    if (typeof loadingText === 'function') {
+      asyncFn = loadingText;
+      loadingText = 'Procesando...';
+    }
+    if (typeof asyncFn !== 'function') return Promise.resolve();
+    if (!btn || btn.nodeType !== 1) {
+      return Promise.resolve().then(asyncFn);
+    }
+    if (btn.dataset.raBusy === '1') {
+      return Promise.resolve();
+    }
+    btn.dataset.raBusy = '1';
+    var prevDisabled = btn.disabled;
+    var prevHtml = btn.innerHTML;
+    var prevMinW = btn.style.minWidth;
+    try {
+      var rectW = btn.getBoundingClientRect ? btn.getBoundingClientRect().width : 0;
+      if (rectW > 0 && !prevMinW) btn.style.minWidth = Math.round(rectW) + 'px';
+    } catch (_) {}
+    btn.disabled = true;
+    btn.setAttribute('aria-busy', 'true');
+    btn.classList.add('is-loading');
+    var safeLbl = String(loadingText || 'Procesando...').replace(/[&<>"']/g, function(c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+    btn.innerHTML = '<span class="ra-btn-spinner" aria-hidden="true"></span><span>' + safeLbl + '</span>';
+
+    return Promise.resolve()
+      .then(asyncFn)
+      .finally(function() {
+        delete btn.dataset.raBusy;
+        btn.disabled = prevDisabled;
+        btn.removeAttribute('aria-busy');
+        btn.classList.remove('is-loading');
+        btn.innerHTML = prevHtml;
+        btn.style.minWidth = prevMinW;
+        if (global.lucide && typeof global.lucide.createIcons === 'function') {
+          try { global.lucide.createIcons({ root: btn }); } catch (_) {}
+        }
+      });
+  }
+
   function initA11yDialogs() {
     if (typeof document === 'undefined') return;
     enhanceContainer(document.body);
@@ -445,7 +579,7 @@
       if (!ev.target || ev.target.nodeType !== 1) return;
       var topModal = _getTopVisibleModal();
       if (!topModal || ev.target !== topModal) return;
-      if (topModal.id === 'ra-async-confirm-modal') return; // gestionado por su propio overlay.onclick
+      if (topModal.id === 'ra-async-confirm-modal' || topModal.id === 'ra-async-prompt-modal') return; // gestionados por su propio overlay.onclick
       _closeModalElement(topModal);
     });
 
@@ -484,12 +618,17 @@
       return false;
     },
     alert: raAlert,
-    confirmAsync: raConfirmAsync
+    confirmAsync: raConfirmAsync,
+    promptAsync: raPromptAsync,
+    withButtonLoading: withButtonLoading
   };
   global.raAlert = raAlert;
   global.raConfirmAsync = raConfirmAsync;
+  global.raPromptAsync = raPromptAsync;
   global.RA = global.RA || {};
   global.RA.ui = global.RA.ui || {};
   global.RA.ui.alert = raAlert;
   global.RA.ui.confirmAsync = raConfirmAsync;
+  global.RA.ui.promptAsync = raPromptAsync;
+  global.RA.withButtonLoading = withButtonLoading;
 })(typeof window !== 'undefined' ? window : this);

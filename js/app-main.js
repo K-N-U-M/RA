@@ -8358,32 +8358,39 @@ async function wpSetShadowViewMode(mode) {
 }
 window.wpSetShadowViewMode = wpSetShadowViewMode;
 
-async function wpRunHeatmapAndActivateView(forceRecalculate = true) {
+async function wpRunHeatmapAndActivateView(forceRecalculate = true, triggerBtn = null) {
   if (!window.solarSimState) window.solarSimState = {};
   // [D3/M13] Guardia anti doble disparo: ignorar si ya hay un cálculo anual en curso
   if (window.solarSimState.isCalculatingHeatmap) return;
-  if (forceRecalculate) {
-    window.solarSimState.annualHeatmapData = null;
-    window.solarSimState.annualHeatmapDirty = false;
-    window.solarSimState.isCalculatingHeatmap = false;
+  const btn = triggerBtn || document.getElementById('btn-run-annual-heatmap');
+  const runHeatmap = async () => {
+    if (forceRecalculate) {
+      window.solarSimState.annualHeatmapData = null;
+      window.solarSimState.annualHeatmapDirty = false;
+      window.solarSimState.isCalculatingHeatmap = false;
+    }
+    // Ejecutar el motor de cálculo directamente (ya renderiza mallas y visuales)
+    if (typeof wpTriggerAnnualSolarHeatmapWrapper === 'function') {
+      await wpTriggerAnnualSolarHeatmapWrapper();
+    } else if (typeof window.computeAnnualSolarHeatmap === 'function') {
+      await window.computeAnnualSolarHeatmap();
+    }
+    // Sincronizar botones de modo y leyenda sin forzar un segundo renderizado GPU redundante
+    const btnInstant = document.getElementById("btn-shadow-mode-instant");
+    const btnHeatmap = document.getElementById("btn-shadow-mode-heatmap");
+    const btnMlpe = document.getElementById("btn-shadow-mode-mlpe");
+    const heatLegend = document.getElementById("solar-heatmap-legend");
+    if (btnInstant) btnInstant.classList.remove("active");
+    if (btnHeatmap) btnHeatmap.classList.add("active");
+    if (btnMlpe) btnMlpe.classList.remove("active");
+    if (heatLegend) heatLegend.style.display = "flex";
+    if (window.solarSimState) window.solarSimState.viewMode = "heatmap";
+    if (typeof solarSimState !== 'undefined' && solarSimState) solarSimState.viewMode = "heatmap";
+  };
+  if (window.RA && typeof window.RA.withButtonLoading === 'function') {
+    return window.RA.withButtonLoading(btn, 'Simulando sombras 3D...', runHeatmap);
   }
-  // Ejecutar el motor de cálculo directamente (ya renderiza mallas y visuales)
-  if (typeof wpTriggerAnnualSolarHeatmapWrapper === 'function') {
-    await wpTriggerAnnualSolarHeatmapWrapper();
-  } else if (typeof window.computeAnnualSolarHeatmap === 'function') {
-    await window.computeAnnualSolarHeatmap();
-  }
-  // Sincronizar botones de modo y leyenda sin forzar un segundo renderizado GPU redundante
-  const btnInstant = document.getElementById("btn-shadow-mode-instant");
-  const btnHeatmap = document.getElementById("btn-shadow-mode-heatmap");
-  const btnMlpe = document.getElementById("btn-shadow-mode-mlpe");
-  const heatLegend = document.getElementById("solar-heatmap-legend");
-  if (btnInstant) btnInstant.classList.remove("active");
-  if (btnHeatmap) btnHeatmap.classList.add("active");
-  if (btnMlpe) btnMlpe.classList.remove("active");
-  if (heatLegend) heatLegend.style.display = "flex";
-  if (window.solarSimState) window.solarSimState.viewMode = "heatmap";
-  if (typeof solarSimState !== 'undefined' && solarSimState) solarSimState.viewMode = "heatmap";
+  return runHeatmap();
 }
 window.wpRunHeatmapAndActivateView = wpRunHeatmapAndActivateView;
 

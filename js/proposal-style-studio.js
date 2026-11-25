@@ -1682,7 +1682,7 @@
     modal.id = 'ra-proposal-style-studio-modal';
     modal.setAttribute('role', 'dialog');
     modal.setAttribute('aria-modal', 'true');
-    modal.style.cssText = 'position:fixed;inset:0;background:rgba(2,6,23,0.86);backdrop-filter:blur(8px);z-index:999999;display:flex;align-items:center;justify-content:center;padding:16px;font-family:Inter,system-ui,sans-serif;color:#f8fafc;';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(2,6,23,0.86);backdrop-filter:blur(8px);z-index:var(--z-modal, 500);display:flex;align-items:center;justify-content:center;padding:16px;font-family:Inter,system-ui,sans-serif;color:#f8fafc;';
 
     modal.innerHTML = buildModalHTML();
     document.body.appendChild(modal);
@@ -2919,12 +2919,19 @@
       };
     }
 
-    // Guardar perfil personalizado
+    // Guardar perfil personalizado [F5-04: diálogo asíncrono accesible sin prompt() nativo]
     var btnSavePreset = modal.querySelector('#pss-btn-save-preset');
     if (btnSavePreset) {
-      btnSavePreset.onclick = function() {
+      btnSavePreset.onclick = async function() {
         collectCurrentTabInputsToState();
-        var name = prompt('Nombre para tu nuevo perfil de maquetación (ej. "Industrial Sin Precios Unitarios"):', '');
+        var promptFn = typeof global.raPromptAsync === 'function' ? global.raPromptAsync : null;
+        var name = promptFn
+          ? await promptFn('Nombre para tu nuevo perfil de maquetación:', {
+              title: 'Guardar perfil personalizado',
+              placeholder: 'Ej. Industrial Sin Precios Unitarios',
+              confirmText: 'Guardar perfil'
+            })
+          : null;
         if (name && name.trim()) {
           saveCustomPreset(name.trim());
           refreshModal(modal, onApplyCallback);

@@ -13,6 +13,7 @@
   'use strict';
 
   let container = null;
+  let isOpen = false;
   let isCollapsed = false;
   let _renderPending = false;
   const sectionCollapsedState = {
@@ -31,6 +32,7 @@
       container = document.createElement('div');
       container.id = 'ra-cad-outliner-panel';
       container.className = 'ra-cad-outliner';
+      container.hidden = true;
       container.style.display = 'none';
       container.innerHTML = `
         <div class="outliner-header" onclick="UIOutliner.toggleCollapse(event)">
@@ -75,9 +77,11 @@
     open: function() {
       if (!container) this.init();
       if (!container) return;
+      isOpen = true;
+      container.hidden = false;
       container.style.display = 'flex';
+      container.classList.add('is-open');
       if (typeof global.bringToFront === 'function') global.bringToFront(container);
-      container.classList.add('mobile-active');
       if (typeof window !== 'undefined' && window.innerWidth <= 768) {
         const sb = document.getElementById('ra-sidebar');
         if (sb && !sb.classList.contains('collapsed') && typeof global.toggleSidebarCollapse === 'function') {
@@ -94,16 +98,22 @@
     },
 
     close: function() {
+      isOpen = false;
       if (container) {
+        container.hidden = true;
         container.style.display = 'none';
-        container.classList.remove('mobile-active');
+        container.classList.remove('is-open');
       }
+    },
+
+    isOpen: function() {
+      return isOpen;
     },
 
     toggle: function() {
       if (!container) this.init();
       if (!container) return;
-      if (container.style.display === 'none' || !container.style.display || !container.classList.contains('mobile-active')) {
+      if (!isOpen || container.hidden) {
         this.open();
       } else {
         this.close();
@@ -626,7 +636,7 @@
           box-shadow: 0 10px 32px rgba(0, 0, 0, 0.75), 0 0 16px rgba(56, 189, 248, 0.20);
           display: flex;
           flex-direction: column;
-          z-index: 9600;
+          z-index: var(--z-floating, 200);
           font-family: 'Inter', -apple-system, sans-serif;
           color: #f8fafc;
           overflow: hidden;

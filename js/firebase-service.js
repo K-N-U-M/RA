@@ -276,7 +276,7 @@
     if (!modal) {
       modal = document.createElement('div');
       modal.id = 'ra-firebase-modal';
-      modal.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.85);backdrop-filter:blur(8px);z-index:99999;display:flex;align-items:center;justify-content:center;font-family:Inter,sans-serif;';
+      modal.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.85);backdrop-filter:blur(8px);z-index:var(--z-modal, 500);display:flex;align-items:center;justify-content:center;font-family:Inter,sans-serif;';
       document.body.appendChild(modal);
     }
 

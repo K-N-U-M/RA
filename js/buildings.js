@@ -1503,7 +1503,7 @@ function render3DBuildingsInCesium() {
     if (!el) {
       el = document.createElement('div');
       el.id = 'ra-bld-rect-hud';
-      el.style.cssText = 'display:none;position:fixed;top:65px;left:50%;transform:translateX(-50%);background:rgba(15,23,42,0.95);border:1px solid #818cf8;box-shadow:0 12px 30px -4px rgba(0,0,0,0.7),0 0 20px rgba(99,102,241,0.35);border-radius:10px;padding:12px 18px;z-index:99999;backdrop-filter:blur(10px);color:#f8fafc;font-family:inherit;min-width:340px;pointer-events:auto;';
+      el.style.cssText = 'display:none;position:fixed;top:65px;left:50%;transform:translateX(-50%);background:rgba(15,23,42,0.95);border:1px solid #818cf8;box-shadow:0 12px 30px -4px rgba(0,0,0,0.7),0 0 20px rgba(99,102,241,0.35);border-radius:10px;padding:12px 18px;z-index:var(--z-overlay, 400);backdrop-filter:blur(10px);color:#f8fafc;font-family:inherit;min-width:340px;pointer-events:auto;';
       el.innerHTML = `
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
           <span style="font-size:11px;font-weight:800;color:#818cf8;display:flex;align-items:center;gap:6px;">
