@@ -2221,21 +2221,24 @@ function raRenderRecentProjectsList() {
     const safeKwp = Number(proj.totalKwp || 0).toFixed(2);
     const safePanels = parseInt(proj.totalPanels || 0, 10);
     html += `
-      <div style="background:rgba(255,255,255,0.04);border:1px solid var(--border-subtle);border-radius:6px;padding:8px 10px;display:flex;justify-content:space-between;align-items:center;transition:all 0.15s ease;">
-        <div style="display:flex;flex-direction:column;gap:2px;overflow:hidden;margin-right:8px;">
-          <span style="font-size:11px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${cleanFile}</span>
-          <span style="font-size: 11px;color:var(--text-slate-400);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><i data-lucide="map-pin" class="icon-sm"></i> ${locDisplay}</span>
-          <span style="font-size: 11px;color:var(--amber-400);font-family:var(--font-mono);"><i data-lucide="zap" class="icon-sm"></i> ${safeKwp} kWp (${safePanels} paneles) · ${dStr}</span>
+      <div class="ra-proj-recent-item">
+        <div style="display:flex;flex-direction:column;gap:2px;overflow:hidden;margin-right:10px;">
+          <span style="font-size:12px;font-weight:700;color:#F8FAFC;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${cleanFile}</span>
+          <span style="font-size:11px;color:var(--text-slate-400);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:inline-flex;align-items:center;gap:4px;"><i data-lucide="map-pin" class="icon-sm"></i> ${locDisplay}</span>
+          <span style="font-size:11px;color:var(--amber-400);font-family:var(--font-mono);display:inline-flex;align-items:center;gap:4px;"><i data-lucide="zap" class="icon-sm"></i> ${safeKwp} kWp (${safePanels} paneles) · ${dStr}</span>
         </div>
-        <div style="display:flex;gap:4px;flex-shrink:0;">
-          <button onclick="raLoadRecentProjectByIndex(${idx})" class="doc-mini-btn" style="padding:4px 8px;font-size: 11px;border-color:var(--emerald-500);color:var(--emerald-400);">Cargar</button>
-          <button onclick="raDeleteRecentProjectByIndex(${idx})" style="background:none;border:none;color:var(--text-slate-500);font-size:12px;cursor:pointer;padding:2px 4px;" title="Eliminar de recientes"><i data-lucide="x" class="icon-sm"></i></button>
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+          <button type="button" onclick="raLoadRecentProjectByIndex(${idx})" class="ra-proj-load-btn">Cargar</button>
+          <button type="button" onclick="raDeleteRecentProjectByIndex(${idx})" class="ra-proj-del-btn" title="Eliminar de recientes" aria-label="Eliminar ${cleanFile} de recientes"><i data-lucide="x" class="icon-sm"></i></button>
         </div>
       </div>
     `;
   });
 
   listEl.innerHTML = html;
+  if (typeof window !== 'undefined' && window.lucide && typeof window.lucide.createIcons === 'function') {
+    try { window.lucide.createIcons(); } catch (_) {}
+  }
 }
 
 async function raLoadRecentProjectByIndex(idx) {

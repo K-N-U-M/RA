@@ -94,7 +94,7 @@ window.RA_App = window.RA_App || {};
   <script defer src="js/capture-mode.js?v=20261124_f1"></script>
   <script defer src="js/measure-tool.js?v=20261125_f5c"></script>
   <script defer src="js/project-hierarchy.js?v=20261124_f4"></script>
-  <script defer src="js/project-storage.js?v=20261125_f7fix1"></script>
+  <script defer src="js/project-storage.js?v=20261125_f7fix2"></script>
   <script defer src="js/company-branding.js?v=20261124_f0"></script>
   <script defer src="js/ai-service.js?v=20261125_f7v"></script>
   <script defer src="js/ui-outliner.js?v=20261125_f5c"></script>
@@ -133,7 +133,7 @@ window.RA_App = window.RA_App || {};
   <script defer src="js/a11y-dialogs.js?v=20261125_f6c"></script>
   <script defer src="js/cost-modal-ui.js?v=20261118_t6"></script>
   <script defer src="js/app-main.js?v=20261125_f5c"></script>
-  <link rel="stylesheet" href="css/styles.css?v=20261125_f7v">
+  <link rel="stylesheet" href="css/styles.css?v=20261125_f7fix2">
 
 </head>
 <body>
@@ -3889,18 +3889,18 @@ window.RA_App = window.RA_App || {};
       <!-- Contenido del Modal -->
       <div style="padding:18px;overflow-y:auto;display:flex;flex-direction:column;gap:14px;">
         <!-- Acciones Principales -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-          <button class="btn-action-emerald" onclick="raSaveProjectToFile(false)" style="padding:10px;font-size:11px;">
-            <span><i data-lucide="save" class="icon-sm"></i> GUARDAR (.raproject)</span>
+        <div class="ra-proj-actions-grid">
+          <button type="button" class="ra-proj-btn ra-proj-btn--primary" onclick="raSaveProjectToFile(false)">
+            <i data-lucide="save" class="icon-sm"></i><span>Guardar (.raproject)</span>
           </button>
-          <button class="btn-action-primary" onclick="raSaveProjectToFile(true)" style="padding:10px;font-size:11px;background:rgba(255,255,255,0.08);border:1px solid var(--border-subtle);">
-            <span><i data-lucide="save" class="icon-sm"></i> GUARDAR COMO...</span>
+          <button type="button" class="ra-proj-btn ra-proj-btn--secondary" onclick="raSaveProjectToFile(true)">
+            <i data-lucide="file-plus-2" class="icon-sm"></i><span>Guardar como...</span>
           </button>
-          <button class="btn-action-blue" onclick="document.getElementById('ra-file-input').click()" style="padding:10px;font-size:11px;">
-            <span><i data-lucide="folder-open" class="icon-sm"></i> ABRIR ARCHIVO LOCAL</span>
+          <button type="button" class="ra-proj-btn ra-proj-btn--secondary" onclick="document.getElementById('ra-file-input').click()">
+            <i data-lucide="folder-open" class="icon-sm"></i><span>Abrir archivo local</span>
           </button>
-          <button class="doc-mini-btn" onclick="raNewProjectConfirm()" style="padding:10px;font-size:11px;text-align:center;border-color:var(--rose-500);color:var(--rose-400);">
-            <span><i data-lucide="sparkles" class="icon-sm"></i> NUEVO PROYECTO</span>
+          <button type="button" class="ra-proj-btn ra-proj-btn--danger" onclick="raNewProjectConfirm()">
+            <i data-lucide="sparkles" class="icon-sm"></i><span>Nuevo proyecto</span>
           </button>
         </div>
 

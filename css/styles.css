@@ -3629,3 +3629,110 @@ body[data-ra-ui-mode="commercial"] #step4-leapfrog-card {
   .pss-split-workspace { grid-template-columns: 1fr; }
   .pss-live-aside { display: none; }
 }
+
+/* [UX-HARMONY] Botones armónicos para el Modal de Gestión de Proyectos */
+.ra-proj-actions-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.ra-proj-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: none;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.12s ease;
+}
+.ra-proj-btn:active { transform: translateY(1px); }
+.ra-proj-btn--primary {
+  background: #059669;
+  border: 1px solid #10B981;
+  color: #FFFFFF;
+}
+.ra-proj-btn--primary:hover {
+  background: #047857;
+  border-color: #34D399;
+}
+.ra-proj-btn--secondary {
+  background: rgba(30, 41, 59, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  color: #F1F5F9;
+}
+.ra-proj-btn--secondary svg { color: #38BDF8; }
+.ra-proj-btn--secondary:hover {
+  background: rgba(51, 65, 85, 0.95);
+  border-color: rgba(56, 189, 248, 0.55);
+  color: #FFFFFF;
+}
+.ra-proj-btn--danger {
+  background: rgba(244, 63, 94, 0.08);
+  border: 1px solid rgba(244, 63, 94, 0.35);
+  color: #FDA4AF;
+}
+.ra-proj-btn--danger:hover {
+  background: rgba(244, 63, 94, 0.18);
+  border-color: #FB7185;
+  color: #FFE4E6;
+}
+.ra-proj-recent-item {
+  background: rgba(30, 41, 59, 0.45);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.ra-proj-recent-item:hover {
+  background: rgba(30, 41, 59, 0.72);
+  border-color: rgba(56, 189, 248, 0.35);
+}
+.ra-proj-load-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 7px;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  color: #6EE7B7;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.ra-proj-load-btn:hover {
+  background: #059669;
+  border-color: #10B981;
+  color: #FFFFFF;
+}
+.ra-proj-del-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  color: #94A3B8;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.ra-proj-del-btn:hover {
+  background: rgba(244, 63, 94, 0.15);
+  border-color: rgba(244, 63, 94, 0.45);
+  color: #FDA4AF;
+}
