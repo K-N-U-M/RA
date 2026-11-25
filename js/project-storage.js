@@ -1855,7 +1855,12 @@ async function raImportProjectData(projectData, options = {}) {
       try { wpPopulateStep3BillFromSSOT(); } catch (ePop) {}
     }
 
-    raSaveToRecentProjects(projectData);
+    if (!options || !options.isRollback) {
+      await raSaveToRecentProjects(projectData, {
+        preserveRecentId: options && options.fromRecentId ? options.fromRecentId : null,
+        preserveFileName: options && options.fromRecentFileName ? options.fromRecentFileName : null
+      });
+    }
     raCloseProjectsModal();
 
     if (viewer && viewer.scene && typeof viewer.scene.requestRender === 'function') {
@@ -2040,8 +2045,9 @@ function raGetRecentProjects() {
   }
 }
 
-async function raSaveToRecentProjects(projectData) {
+async function raSaveToRecentProjects(projectData, saveOpts) {
   try {
+    const opts = saveOpts || {};
     const recents = raGetRecentProjects();
     let storageData = projectData;
     try {
@@ -2076,14 +2082,15 @@ async function raSaveToRecentProjects(projectData) {
     };
 
     const coords = _extractProjectCoords(projectData);
-    const rawFileName = (_raCurrentFileHandle && _raCurrentFileHandle.name)
+    const rawFileName = opts.preserveFileName
+      || (_raCurrentFileHandle && _raCurrentFileHandle.name)
       || (projectData.metadata && projectData.metadata.fileName)
       || (_raCurrentProjectName && _raCurrentProjectName !== 'Proyecto_Solar' ? _raCurrentProjectName : null)
       || ((projectData.metadata && projectData.metadata.name) ? projectData.metadata.name : 'Proyecto_Solar');
     const cleanFileName = /\.raproject$/i.test(rawFileName) ? rawFileName : (rawFileName + '.raproject');
 
     const projUuid = (projectData && projectData.uuid) || raGetOrCreateProjectUuid();
-    const projId = 'proj_' + projUuid;
+    const projId = opts.preserveRecentId || ('proj_' + projUuid);
     const fullItem = {
       id: projId,
       uuid: projUuid,
@@ -2098,7 +2105,21 @@ async function raSaveToRecentProjects(projectData) {
       data: storageData
     };
 
-    const _isSameProject = (r) => r && ((r.uuid && r.uuid === projUuid) || (r.id === projId) || (r.address === fullItem.address && r.name === fullItem.name));
+    // Emparejar solo por identidad real (id/uuid) para no fusionar proyectos distintos con nombre/dirección genéricos
+    const _isGenericText = (t) => !t || /^(proyecto(\s+solar)?|instalaci[oó]n(\s+solar)?|ubicaci[oó]n(\s+solar)?)$/i.test(String(t).trim());
+    const _isSameProject = (r) => {
+      if (!r) return false;
+      if (r.id && r.id === projId) return true;
+      if (r.uuid && r.uuid === projUuid) return true;
+      // Solo fallback legado si la entrada antigua carece de uuid e id prefijado, y sus datos NO son genéricos
+      if (!r.uuid && (!r.id || String(r.id).indexOf('proj_') !== 0)) {
+        const sameNonGenericFile = r.fileName && r.fileName === fullItem.fileName && !/^proyecto_solar\.raproject$/i.test(r.fileName);
+        const sameNonGenericNameAddr = !_isGenericText(r.name) && !_isGenericText(r.address) && r.name === fullItem.name && r.address === fullItem.address;
+        return sameNonGenericFile || sameNonGenericNameAddr;
+      }
+      return false;
+    };
+
     const evicted = recents.filter(_isSameProject);
     const filtered = recents.filter(r => !_isSameProject(r));
     const useIdb = (typeof window !== 'undefined' && window.RAStorageCache && typeof window.RAStorageCache.saveProjectAsync === 'function');
@@ -2110,11 +2131,27 @@ async function raSaveToRecentProjects(projectData) {
       } catch (_) {
         idbSaved = false;
       }
+      // CRÍTICO: Nunca borrar projId recién guardado (solo limpiar ids antiguos distintos que hayan sido sustituidos)
       if (typeof window.RAStorageCache.deleteProjectAsync === 'function') {
         for (let ei = 0; ei < evicted.length; ei++) {
-          if (evicted[ei] && evicted[ei].id) {
-            try { await window.RAStorageCache.deleteProjectAsync(evicted[ei].id); } catch (_) {}
+          const oldId = evicted[ei] && evicted[ei].id;
+          if (oldId && oldId !== projId) {
+            try { await window.RAStorageCache.deleteProjectAsync(oldId); } catch (_) {}
           }
+        }
+      }
+      // Migrar automáticamente a IndexedDB entradas antiguas que aún arrastraban el payload `data` en localStorage
+      // para evitar QuotaExceededError que truncaba y hacía desaparecer proyectos del historial
+      for (let fi = 0; fi < filtered.length; fi++) {
+        const prev = filtered[fi];
+        if (prev && prev.data && !prev.inIndexedDB) {
+          const prevId = prev.id || ('proj_' + (prev.uuid || _raGenerateUuid()));
+          try {
+            const migrated = Boolean(await window.RAStorageCache.saveProjectAsync(prevId, prev.data));
+            if (migrated) {
+              filtered[fi] = Object.assign({}, prev, { id: prevId, data: null, inIndexedDB: true });
+            }
+          } catch (_) {}
         }
       }
     }
@@ -2122,7 +2159,7 @@ async function raSaveToRecentProjects(projectData) {
     // Guardar en localStorage solo el índice ligero si IndexedDB almacena el payload completo (evita QuotaExceededError)
     const indexEntry = idbSaved ? Object.assign({}, fullItem, { data: null, inIndexedDB: true }) : fullItem;
     filtered.unshift(indexEntry);
-    let trimmed = filtered.slice(0, 6);
+    let trimmed = filtered.slice(0, 12);
 
     let saved = false;
     while (trimmed.length > 0 && !saved) {
@@ -2211,12 +2248,16 @@ async function raLoadRecentProjectByIndex(idx) {
     dataToImport = await window.RAStorageCache.loadProjectAsync(entry.id);
   }
   if (dataToImport) {
+    if (entry.uuid && !dataToImport.uuid) dataToImport.uuid = entry.uuid;
     raCloseProjectsModal();
     raShowProjectLoadingHUD(projName);
     raUpdateProjectLoadingProgress(5, 'Cargando proyecto desde almacenamiento local...', projName);
-    raImportProjectData(dataToImport);
+    raImportProjectData(dataToImport, {
+      fromRecentId: entry.id || null,
+      fromRecentFileName: entry.fileName || null
+    });
   } else {
-    // Purgar entrada huérfana cuyo payload ya no existe en IndexedDB
+    // No purgar silenciosamente otras entradas; solo avisar y retirar si realmente no hay respaldo en IndexedDB
     recents.splice(idx, 1);
     try { localStorage.setItem(RA_RECENT_PROJECTS_KEY, JSON.stringify(recents)); } catch (_) {}
     raRenderRecentProjectsList();

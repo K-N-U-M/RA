@@ -233,7 +233,8 @@
       try {
         const keep = new Set(Array.isArray(validIds) ? validIds : []);
         const allIds = await RAStorageCache.listProjectIdsAsync();
-        const orphans = allIds.filter((id) => !keep.has(id));
+        // Solo purgar copias huérfanas del historial ('proj_*'); nunca tocar 'autosave_current' ni otras claves reservadas
+        const orphans = allIds.filter((id) => typeof id === 'string' && id.indexOf('proj_') === 0 && !keep.has(id));
         for (let i = 0; i < orphans.length; i++) {
           await RAStorageCache.deleteProjectAsync(orphans[i]);
         }
