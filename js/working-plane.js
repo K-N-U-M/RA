@@ -100,7 +100,21 @@ function cursorGizmoClear() {
   renderTriad2D();
 }
 
-function updateTriadAtMouse(clientX, clientY, target) {
+// Helper canónico único para convertir clientX/clientY (viewport) a coordenadas locales del canvas WebGL
+if (typeof window !== 'undefined' && typeof window.raToCanvasCoords !== 'function') {
+  window.raToCanvasCoords = function (clientX, clientY) {
+    var cv = (typeof viewer !== 'undefined' && viewer && viewer.scene) ? viewer.scene.canvas : (window.viewer && window.viewer.scene ? window.viewer.scene.canvas : null);
+    if (!cv || typeof cv.getBoundingClientRect !== 'function') return { x: clientX, y: clientY, inBounds: true };
+    var rect = cv.getBoundingClientRect();
+    return {
+      x: clientX - rect.left,
+      y: clientY - rect.top,
+      inBounds: clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom
+    };
+  };
+}
+
+function updateTriadAtMouse(clientX, clientY, target, isCanvasLocal) {
   _triadMouseX = clientX;
   _triadMouseY = clientY;
 
@@ -126,21 +140,6 @@ function updateTriadAtMouse(clientX, clientY, target) {
     return;
   }
 
-// Helper canónico único para convertir clientX/clientY (viewport) a coordenadas locales del canvas WebGL
-if (typeof window !== 'undefined' && typeof window.raToCanvasCoords !== 'function') {
-  window.raToCanvasCoords = function (clientX, clientY) {
-    var cv = (typeof viewer !== 'undefined' && viewer && viewer.scene) ? viewer.scene.canvas : (window.viewer && window.viewer.scene ? window.viewer.scene.canvas : null);
-    if (!cv || typeof cv.getBoundingClientRect !== 'function') return { x: clientX, y: clientY, inBounds: true };
-    var rect = cv.getBoundingClientRect();
-    return {
-      x: clientX - rect.left,
-      y: clientY - rect.top,
-      inBounds: clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom
-    };
-  };
-}
-
-function updateTriadAtMouse(clientX, clientY, target, isCanvasLocal) {
   // 1. Deteccion de elementos UI (sidebar, modales, paneles, controles)
   // Si el cursor esta sobre la interfaz, ocultar la triada y dejar el cursor estandar de Windows
   const el = target || (!isCanvasLocal && document.elementFromPoint(clientX, clientY));
