@@ -1266,6 +1266,15 @@ function generateMemoria(skipPricingModal, opt) {
       '<\/table>' +
       buildAmortizationSvg(capexTot, finM && finM.financialSchedule25)
     ) : '') +
+    ((typeof window !== 'undefined' && window.RABankableRisk && d.annualKWh > 0) ? (
+      '<h4 style="margin-top:14px;">6.2 Análisis Probabilístico Bancable (P50 / P75 / P90 / P99 — 25 Años)<\/h4>' +
+      window.RABankableRisk.buildTableHTML(window.RABankableRisk.evaluate({
+        annualKWh: d.annualKWh,
+        kwp: d.P_dc_kW,
+        capexNet: capexTot,
+        year1SavingsEur: ah1
+      }), { lightTheme: true })
+    ) : '') +
     '<h2>7. CONCLUSIÓN<\/h2>' +
     '<p>La instalación fotovoltaica de autoconsumo de <strong>' + d.P_dc_kW.toFixed(2) + ' kWp<\/strong> (' + d.numPanels + ' módulos de ' + d.cfg.potencia + ' Wp con ' + (d.inverter ? d.inverter.fullName : ('inversor de ' + d.P_ac_kW.toFixed(2) + ' kW')) + (d.hasBattery && d.battery ? (' y sistema de almacenamiento en batería ' + d.battery.fullName + ' de ' + d.battery.totalKwh.toFixed(1) + ' kWh') : '') + ') es técnicamente viable y cumple la normativa española vigente. La producción estimada de <strong>' + d.annualKWh.toLocaleString('es-ES') + ' kWh\/año<\/strong> supone un ahorro anual de <strong>' + ah1.toLocaleString('es-ES') + ' €<\/strong> con un período de retorno de <strong>' + pbYears + '<\/strong> y una reducción de emisiones de <strong>' + d.co2_evitado + ' t CO₂\/año<\/strong>.<\/p>' +
 

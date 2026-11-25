@@ -1703,7 +1703,7 @@
     var isCustomPreset = st.activePresetId && String(st.activePresetId).indexOf('custom_') === 0;
 
     return [
-      '<div style="background:#0f172a;border:1px solid rgba(56,189,248,0.3);border-radius:14px;width:100%;max-width:860px;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 25px 60px rgba(0,0,0,0.75);overflow:hidden;">',
+      '<div style="background:#0f172a;border:1px solid rgba(56,189,248,0.3);border-radius:14px;width:100%;max-width:1160px;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 25px 60px rgba(0,0,0,0.75);overflow:hidden;">',
 
       // Header
       '  <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:linear-gradient(90deg,#0f172a,#1e293b);border-bottom:1px solid rgba(255,255,255,0.1);">',
@@ -1740,9 +1740,14 @@
       buildTabButton('texts',      '5. Plantillas & Cierre',     _sSvg('edit', 13, 'currentColor')),
       '  </div>',
 
-      // Cuerpo del Modal
-      '  <div id="pss-modal-body" style="padding:18px 20px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:14px;">',
+      // Cuerpo del Modal + Live Preview Split-Screen [F7-13]
+      '  <div class="pss-split-workspace">',
+      '    <div id="pss-modal-body" style="padding:18px 20px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:14px;">',
       buildActiveTabContent(cfg, pal),
+      '    </div>',
+      '    <aside class="pss-live-aside" id="pss-live-split-preview" aria-label="Vista previa A4 en vivo">',
+      buildLiveSplitPreviewHTML(cfg, pal),
+      '    </aside>',
       '  </div>',
 
       // Footer con acciones directas 1-Clic
@@ -1769,6 +1774,88 @@
     var col = active ? '#38bdf8' : '#94a3b8';
     return '<button type="button" class="pss-tab-btn" data-tab="' + tabId + '" style="padding:8px 10px;background:' + bg + ';border:1px solid ' + border + ';color:' + col + ';border-radius:7px;font-size:11.5px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all 0.15s;">' +
       '<span>' + icon + '</span><span>' + label + '</span></button>';
+  }
+
+  function buildLiveSplitPreviewHTML(cfg, pal) {
+    var colHead = (cfg.useCustomTextColors && cfg.headingTextColor) ? cfg.headingTextColor : pal.primary;
+    var colBody = (cfg.useCustomTextColors && cfg.bodyTextColor) ? cfg.bodyTextColor : '#1e293b';
+    var colMuted = (cfg.useCustomTextColors && cfg.mutedTextColor) ? cfg.mutedTextColor : '#64748b';
+    var titleTxt = _escStudio(cfg.coverMainTitle || 'PROPUESTA TÉCNICO-ECONÓMICA FOTOVOLTAICA');
+    var subTxt = _escStudio(cfg.coverSubtitle || 'Estudio de Ingeniería Solar 3D y Rentabilidad Bancable');
+    var densityMap = { compact: 'Compacta', balanced: 'Equilibrada', spacious: 'Amplia' };
+    var densityLbl = densityMap[cfg.density] || 'Equilibrada';
+    var scalePct = Math.round((cfg.fontScale || 1) * 100);
+    var enabledCount = CANONICAL_SECTIONS.filter(function(s) {
+      return !cfg.sectionsEnabled || cfg.sectionsEnabled[s.id] !== false;
+    }).length;
+    var calcs = null;
+    try { if (typeof global.getProjectCalcs === 'function') calcs = global.getProjectCalcs(); } catch (_) {}
+    var kwpTxt = (calcs && calcs.P_dc_kW > 0) ? (calcs.P_dc_kW.toFixed(2) + ' kWp') : '10,80 kWp';
+    var prodTxt = (calcs && calcs.annualKWh > 0) ? (Math.round(calcs.annualKWh).toLocaleString('es-ES') + ' kWh') : '16.450 kWh';
+    var p90Txt = 'P90 listo';
+    try {
+      if (global.RABankableRisk && calcs && calcs.annualKWh > 0) {
+        var rBank = global.RABankableRisk.evaluate({ annualKWh: calcs.annualKWh, kwp: calcs.P_dc_kW });
+        var s90 = rBank && rBank.scenarios && rBank.scenarios[2];
+        if (s90) p90Txt = Math.round(s90.year1Kwh).toLocaleString('es-ES') + ' kWh';
+      }
+    } catch (_) {}
+    var wmHtml = cfg.watermarkEnabled
+      ? '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;transform:rotate(-28deg);font-size:18px;font-weight:900;letter-spacing:2px;color:#0f172a;opacity:' + Math.max(0.04, Math.min(0.35, Number(cfg.watermarkOpacity) || 0.08)) + ';">' + _escStudio(cfg.watermarkText || 'BORRADOR') + '</div>'
+      : '';
+    var padPx = cfg.density === 'compact' ? '8px' : (cfg.density === 'spacious' ? '14px' : '11px');
+
+    return [
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">',
+      '  <span style="font-size:11px;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;color:#38bdf8;">Vista Previa A4 en Vivo</span>',
+      '  <span style="font-size:11px;font-weight:700;color:' + (cfg.autoFitA4 ? '#34d399' : '#fbbf24') + ';">' + (cfg.autoFitA4 ? 'Auto-Fit ON' : 'Manual') + '</span>',
+      '</div>',
+      '<div style="position:relative;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 10px 26px rgba(0,0,0,0.45);border:1px solid rgba(148,163,184,0.35);font-family:' + _escStudio(cfg.fontFamily || 'Inter, sans-serif') + ';aspect-ratio:210/297;display:flex;flex-direction:column;">',
+      wmHtml,
+      '  <div style="background:linear-gradient(135deg,' + pal.primary + ',' + pal.secondary + ');padding:' + padPx + ';color:#ffffff;">',
+      '    <div style="font-size:9px;font-weight:700;opacity:0.85;text-transform:uppercase;letter-spacing:0.6px;">Dossier Técnico · A4</div>',
+      '    <div style="font-size:' + Math.max(10, Math.round(12 * (cfg.fontScale || 1))) + 'px;font-weight:900;line-height:1.2;margin-top:4px;word-break:break-word;">' + titleTxt + '</div>',
+      '    <div style="font-size:9px;opacity:0.9;margin-top:3px;line-height:1.25;">' + subTxt + '</div>',
+      '  </div>',
+      '  <div style="padding:' + padPx + ';display:flex;flex-direction:column;gap:8px;flex:1;color:' + colBody + ';">',
+      '    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;">',
+      '      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-top:2px solid ' + pal.primary + ';border-radius:5px;padding:5px 4px;text-align:center;">',
+      '        <div style="font-size:8px;color:' + colMuted + ';font-weight:700;">POTENCIA</div>',
+      '        <div style="font-size:10px;font-weight:900;color:' + colHead + ';">' + kwpTxt + '</div>',
+      '      </div>',
+      '      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-top:2px solid ' + pal.secondary + ';border-radius:5px;padding:5px 4px;text-align:center;">',
+      '        <div style="font-size:8px;color:' + colMuted + ';font-weight:700;">P50 ANUAL</div>',
+      '        <div style="font-size:10px;font-weight:900;color:' + colHead + ';">' + prodTxt + '</div>',
+      '      </div>',
+      '      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-top:2px solid #f59e0b;border-radius:5px;padding:5px 4px;text-align:center;">',
+      '        <div style="font-size:8px;color:' + colMuted + ';font-weight:700;">BANCABLE P90</div>',
+      '        <div style="font-size:10px;font-weight:900;color:#b45309;">' + p90Txt + '</div>',
+      '      </div>',
+      '    </div>',
+      '    <div style="border-left:3px solid ' + pal.primary + ';padding-left:7px;">',
+      '      <div style="font-size:10px;font-weight:800;color:' + colHead + ';">1. Resumen Ejecutivo</div>',
+      '      <div style="font-size:9px;color:' + colBody + ';line-height:' + (cfg.bodyLineHeight || 1.45) + ';margin-top:2px;text-align:' + (cfg.paragraphAlign || 'left') + ';">Propuesta llave en mano dimensionada con ingeniería 3D, análisis de sombras y flujo de caja a 25 años.</div>',
+      '    </div>',
+      '    <div style="margin-top:auto;background:#f1f5f9;border-radius:5px;padding:6px;display:flex;flex-direction:column;gap:3px;">',
+      '      <div style="display:flex;justify-content:space-between;font-size:8.5px;color:' + colMuted + ';"><span>Densidad / Escala</span><strong style="color:' + colBody + ';">' + densityLbl + ' · ' + scalePct + '%</strong></div>',
+      '      <div style="display:flex;justify-content:space-between;font-size:8.5px;color:' + colMuted + ';"><span>Secciones activas</span><strong style="color:' + colBody + ';">' + enabledCount + ' / ' + CANONICAL_SECTIONS.length + ' hojas</strong></div>',
+      '    </div>',
+      '  </div>',
+      '  <div style="padding:5px 10px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;font-size:8px;color:' + colMuted + ';background:#f8fafc;">',
+      '    <span>RA Solar 3D · A4</span><span>Pág. 1 / ' + enabledCount + '</span>',
+      '  </div>',
+      '</div>',
+      '<div style="font-size:11px;color:#94a3b8;line-height:1.4;">Cualquier ajuste en paleta, textos, densidad o secciones se refleja al instante sin regenerar el PDF completo.</div>'
+    ].join('\n');
+  }
+
+  function updateLiveSplitPreview(modal) {
+    if (!modal) return;
+    var aside = modal.querySelector('#pss-live-split-preview');
+    if (!aside) return;
+    var st = loadState();
+    var pal = getResolvedPalette();
+    aside.innerHTML = buildLiveSplitPreviewHTML(st.activeConfig, pal);
   }
 
   function buildActiveTabContent(cfg, pal) {
@@ -3220,6 +3307,19 @@
         }
       };
     }
+
+    // [F7-13] Sincronización instantánea del Live Split-Screen A4 Preview al editar cualquier control
+    var modalBody = modal.querySelector('#pss-modal-body');
+    if (modalBody) {
+      var syncSplitLive = function() {
+        collectCurrentTabInputsToState();
+        saveState();
+        updateLiveSplitPreview(modal);
+      };
+      modalBody.addEventListener('input', syncSplitLive);
+      modalBody.addEventListener('change', syncSplitLive);
+    }
+    updateLiveSplitPreview(modal);
   }
 
   // Inicializar al cargar el DOM

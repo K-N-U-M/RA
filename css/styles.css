@@ -3410,3 +3410,222 @@ button.is-loading {
     top: 10px !important;
   }
 }
+
+
+/* ==========================================================================
+   [F7-13] WORKSPACE AAA: COMMAND PALETTE, MODO DUAL, CAJÓN INFERIOR & PREVIEW
+   ========================================================================== */
+#ra-aaa-mode-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: 7px;
+  padding-top: 7px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.ra-mode-chip {
+  background: rgba(30, 41, 59, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  color: #E2E8F0;
+  border-radius: 5px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.ra-mode-chip:hover { background: rgba(51, 65, 85, 0.95); border-color: #38BDF8; color: #FFFFFF; }
+.ra-mode-chip.is-commercial { background: rgba(4, 120, 87, 0.85); border-color: #34D399; color: #FFFFFF; }
+/* Modo Comercial: oculta bloques de ingeniería dura REBT/pérdidas en presentaciones con cliente */
+body[data-ra-ui-mode="commercial"] #step3-loss-tree-card,
+body[data-ra-ui-mode="commercial"] #step4-mppt-matrix-card,
+body[data-ra-ui-mode="commercial"] #step4-leapfrog-card {
+  display: none !important;
+}
+.ra-aaa-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 6, 23, 0.78);
+  backdrop-filter: blur(8px);
+  z-index: var(--z-modal, 500);
+  align-items: flex-start;
+  justify-content: center;
+  padding: 9vh 16px 16px;
+}
+.ra-cmd-box {
+  width: 100%;
+  max-width: 620px;
+  background: #0F172A;
+  border: 1px solid rgba(56, 189, 248, 0.42);
+  border-radius: 12px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.8);
+  overflow: hidden;
+  color: #F8FAFC;
+}
+.ra-cmd-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 23, 42, 0.96);
+}
+#ra-cmd-palette-input {
+  flex: 1;
+  background: #020617;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 7px;
+  color: #F8FAFC;
+  font-size: 13px;
+  padding: 8px 11px;
+}
+.ra-aaa-close-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #E2E8F0;
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+.ra-cmd-list {
+  max-height: 52vh;
+  overflow-y: auto;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.ra-cmd-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  padding: 8px 10px;
+  color: #E2E8F0;
+  font-size: 12px;
+  cursor: pointer;
+}
+.ra-cmd-item:hover, .ra-cmd-item.is-selected {
+  background: rgba(56, 189, 248, 0.16);
+  border-color: rgba(56, 189, 248, 0.45);
+  color: #FFFFFF;
+}
+.ra-cmd-group {
+  font-size: 11px;
+  font-weight: 800;
+  color: #38BDF8;
+  min-width: 105px;
+  flex-shrink: 0;
+}
+.ra-cmd-title { flex: 1; font-weight: 600; }
+.ra-cmd-kbd {
+  font-size: 11px;
+  padding: 2px 6px;
+  background: rgba(30, 41, 59, 0.95);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 4px;
+  color: #7DD3FC;
+}
+.ra-cmd-foot {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 14px;
+  font-size: 11px;
+  color: #94A3B8;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(2, 6, 23, 0.65);
+}
+/* Cajón Inferior Redimensionable de Ingeniería */
+#ra-engineering-drawer {
+  display: none;
+  flex-direction: column;
+  position: fixed;
+  left: var(--sidebar-current-w, 0px);
+  right: 0;
+  bottom: 0;
+  height: 310px;
+  z-index: var(--z-popover, 300);
+  background: rgba(11, 17, 32, 0.97);
+  backdrop-filter: blur(16px);
+  border-top: 2px solid rgba(56, 189, 248, 0.45);
+  box-shadow: 0 -14px 40px rgba(0, 0, 0, 0.75);
+  color: #F8FAFC;
+}
+#ra-drawer-resizer {
+  height: 6px;
+  cursor: ns-resize;
+  background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.45), transparent);
+}
+.ra-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+}
+.ra-drawer-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.ra-drawer-tab {
+  background: rgba(30, 41, 59, 0.75);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  color: #CBD5E1;
+  border-radius: 6px;
+  padding: 5px 11px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.ra-drawer-tab.active {
+  background: rgba(3, 105, 161, 0.75);
+  border-color: #38BDF8;
+  color: #FFFFFF;
+}
+.ra-drawer-body {
+  flex: 1;
+  overflow: auto;
+  padding: 12px 16px;
+}
+.ra-drawer-kpi {
+  background: rgba(30, 41, 59, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 8px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11px;
+  color: #94A3B8;
+}
+.ra-drawer-kpi strong { font-size: 13px; color: #F8FAFC; font-family: var(--font-mono); }
+/* Split-Screen Live Preview en Estudio de Estilos */
+.pss-split-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) 310px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.pss-live-aside {
+  background: #020617;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+}
+@media (max-width: 960px) {
+  .pss-split-workspace { grid-template-columns: 1fr; }
+  .pss-live-aside { display: none; }
+}
