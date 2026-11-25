@@ -19,9 +19,9 @@
 
 | ID | Título | Severidad | Esfuerzo | Dependencias | Origen | Estado |
 | :--- | :--- | :---: | :---: | :--- | :--- | :--- |
-| **F6-01** | Eliminar deriva de seguridad y compartición SSRF/CORS entre `functions/index.js` y `server.js` | P1 | M | F0-09 | F-04 | `[Pendiente]` |
-| **F6-02** | Endurecer `firestore.rules`, `storage.rules`, crear índice compuesto y proteger origen en `firebase-service.js` | P1 | M | F0-09 | F-05 | `[Pendiente]` |
-| **F6-03** | Saneamiento de exportación DOCX/MHTML contra XSS DOM y fugas URL en Word | P2 | S | F0-08 | F-06 | `[Pendiente]` |
+| **F6-01** | Eliminar deriva de seguridad y compartición SSRF/CORS entre `functions/index.js` y `server.js` | P1 | M | F0-09 | F-04 | `[Hecho]` |
+| **F6-02** | Endurecer `firestore.rules`, `storage.rules`, crear índice compuesto y proteger origen en `firebase-service.js` | P1 | M | F0-09 | F-05 | `[Hecho]` |
+| **F6-03** | Saneamiento de exportación DOCX/MHTML contra XSS DOM y fugas URL en Word | P2 | S | F0-08 | F-06 | `[Hecho]` |
 | **F6-04** | Actualizar tests con mocks obsoletos, declarar Playwright + Firebase Emulator y cubrir módulos ciegos (41,5%) | P1 | L | F6-05 | F-15 | `[Pendiente]` |
 | **F6-05** | Automatizar pipeline CI/CD: build `dist/`, auto-inyección de fecha/commit/versión, SAST y Firebase Preview por PR | P1 | M | F0-09 (o F4-01 si ya existe Vite) | F-16 | `[Pendiente]` |
 
@@ -39,7 +39,7 @@
 | **Dependencias** | F0-09 |
 | **Origen** | F-04 |
 | **Rama sugerida** | `sec/unify-proxy-ssrf-cors` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 El proxy de producción en Cloud Functions (`functions/index.js`) quedó desfasado respecto a los endurecimientos aplicados en desarrollo local (`server.js`):
@@ -74,7 +74,7 @@ El proxy de producción en Cloud Functions (`functions/index.js`) quedó desfasa
 | **Dependencias** | F0-09 |
 | **Origen** | F-05 |
 | **Rama sugerida** | `sec/firebase-rules-indexes-isolation` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 1. `firestore.rules` permite crear proyectos sin validar pertenencia del `tenantId` ni tamaño/esquema del documento, habilitando inyección entre organizaciones o colisión de IDs predecibles.
@@ -108,7 +108,7 @@ El proxy de producción en Cloud Functions (`functions/index.js`) quedó desfasa
 | **Dependencias** | F0-08 |
 | **Origen** | F-06 |
 | **Rama sugerida** | `sec/docx-mhtml-url-sanitization` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 `docx-exporter.js` construye un nodo DOM directamente con el HTML entrante antes de depurar nodos, resuelve imágenes/CSS remotos realizando peticiones desde sesión de usuario e incrusta en el paquete MHTML el título sin escapar y posibles URLs externas residuales que Microsoft Word resuelve automáticamente al abrir el `.doc`/`.docx`, filtrando IP/tokens NTLM en redes corporativas.
