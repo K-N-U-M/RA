@@ -23,10 +23,10 @@
 | **F5-01** | Liberar tecla `Tab` del ciclado 3D para navegación UI, unificar tooltip `Ctrl+B` y arreglar stack `Escape` modal | P0 | M | Ninguna | E-01 + E-02 | `[Hecho]` |
 | **F5-02** | Restaurar `:focus-visible` de alto contraste y desbloquear zoom en `meta viewport` (WCAG AA) | P0 | S | Ninguna | E-03 | `[Hecho]` |
 | **F5-03** | Reparar 6 `aria-label` corruptos, 4 `<label for>` cruzados y asociar 22 labels huérfanos | P0 | S | Ninguna | E-04 | `[Hecho]` |
-| **F5-04** | Sustituir `prompt()`/`confirm()` nativos y dotar de spinner/bloqueo `aria-busy` a acciones largas | P1 | M | F5-01 | E-05 + E-06 | `[Pendiente]` |
-| **F5-05** | Desacoplar toggle desktop/móvil de Outliner e implantar escala única de tokens `z-index` (7 niveles) | P1 | M | F5-01 | E-07 | `[Pendiente]` |
-| **F5-06** | Hacer explicables los pasos bloqueados (`aria-disabled`), añadir footer sticky en Paso 1 y limpiar `#tab-btn-*` | P1 | M | F5-02 | E-08 | `[Pendiente]` |
-| **F5-07** | Declarar 9 variables CSS faltantes, corregir contrastes AA (`#64748B`, botones, sidebar) y empezar extracción de estilos inline | P1 | XL | Ninguna | E-09 + E-13 | `[Pendiente]` |
+| **F5-04** | Sustituir `prompt()`/`confirm()` nativos y dotar de spinner/bloqueo `aria-busy` a acciones largas | P1 | M | F5-01 | E-05 + E-06 | `[Hecho]` |
+| **F5-05** | Desacoplar toggle desktop/móvil de Outliner e implantar escala única de tokens `z-index` (7 niveles) | P1 | M | F5-01 | E-07 | `[Hecho]` |
+| **F5-06** | Hacer explicables los pasos bloqueados (`aria-disabled`), añadir footer sticky en Paso 1 y limpiar `#tab-btn-*` | P1 | M | F5-02 | E-08 | `[Hecho]` |
+| **F5-07** | Declarar 9 variables CSS faltantes, corregir contrastes AA (`#64748B`, botones, sidebar) y empezar extracción de estilos inline | P1 | XL | Ninguna | E-09 + E-13 | `[Parcial]` |
 | **F5-08** | Erradicar microtipografía `< 11px` (993 ocurrencias) fijando escala legible en paneles y modales | P1 | L | F5-07 | E-10 | `[Pendiente]` |
 | **F5-09** | Corregir desbordamientos responsive en móvil (`<=768px`) y portátiles (`1280×720` / `1366×768`) | P1 | L | F5-05, F5-07 | E-11 | `[Pendiente]` |
 | **F5-10** | Hacer operable `#ra-hud-energy` y tooltips por teclado, eliminar controles anidados, añadir landmarks y arreglar tablas/iconos | P1–P2 | L | F5-02, F5-07 | E-12 + E-14 + E-15 + E-16 | `[Pendiente]` |
@@ -137,7 +137,7 @@ Un script anterior dejó **6** `aria-label` gigantes de 144 hasta **5.380 caract
 | **Dependencias** | F5-01 |
 | **Origen** | E-05 + E-06 |
 | **Rama sugerida** | `fix/ui-async-dialogs-and-loading-states` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 Permanecen llamadas bloqueantes `prompt()`/`confirm()` en `proposal-style-studio.js:2921`, `wind-ui.js:787` y `wind-catalog.js:694` que congelan WebGL y rompen el tema oscuro. Además, las operaciones pesadas (exportar ZIP `generateDeliveryPack`, PDF `wpDownloadSelectedProposal`, `wpCompararEscenarios`, análisis de factura IA y raytracing de heatmap) dejan habilitado el botón permitiendo envíos concurrentes duplicados.
@@ -168,7 +168,7 @@ Permanecen llamadas bloqueantes `prompt()`/`confirm()` en `proposal-style-studio
 | **Dependencias** | F5-01 |
 | **Origen** | E-07 |
 | **Rama sugerida** | `fix/ui-zindex-scale-and-outliner-toggle` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 `UIOutliner.toggle()` depende de la clase `mobile-active` incluso en escritorio, y coexisten **38** valores arbitrarios de `z-index >= 1000` (7 elementos empatan en `999999`, compitiendo por orden de inserción en el DOM).
@@ -198,7 +198,7 @@ Permanecen llamadas bloqueantes `prompt()`/`confirm()` en `proposal-style-studio
 | **Dependencias** | F5-02 |
 | **Origen** | E-08 |
 | **Rama sugerida** | `fix/stepper-ux-and-footer-nav` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 1. `.wp-step-btn.disabled` aplica `pointer-events: none !important`, ocultando tooltips explicativos y bloqueando el aviso clicable de `PASO BLOQUEADO`, mientras sigue siendo enfocable con teclado sin `aria-disabled="true"`.
@@ -231,7 +231,7 @@ Permanecen llamadas bloqueantes `prompt()`/`confirm()` en `proposal-style-studio
 | **Dependencias** | Ninguna |
 | **Origen** | E-09 + E-13 |
 | **Rama sugerida** | `style/design-tokens-contrast-aa` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Parcial]` |
 
 #### Contexto y Problema
 1. **9 variables CSS indefinidas** se referencian **72 veces** (`--emerald-400`, `--sky-400`, `--sky-500`, `--cyan-400`, `--rose-400`, `--text-slate-200`, `--blue-400`, `--sky-300`, `--amber-300`), haciendo que etiquetas como `RENDIMIENTO` o `72 RAYOS` queden transparentes/sin fondo; `--text-slate-400` está duplicada y `index.html:1758` contiene `hover:background:#047857` dentro de `style="..."`.

@@ -163,10 +163,10 @@ Pueden lanzarse en paralelo de forma inmediata en ramas aisladas:
 | `F5-01` | Liberar `Tab` para UI, unificar tooltip `Ctrl+B` y arreglar stack `Escape` en modales | P0 | M | — | E-01, E-02 | `[Hecho]` |
 | `F5-02` | Restaurar `:focus-visible` de alto contraste y desbloquear zoom `meta viewport` | P0 | S | — | E-03 | `[Hecho]` |
 | `F5-03` | Reparar 6 `aria-label` corruptos, 4 `<label for>` cruzados y 22 labels huérfanos | P0 | S | — | E-04 | `[Hecho]` |
-| `F5-04` | Sustituir `prompt`/`confirm` nativos y añadir bloqueo/spinner `aria-busy` en acciones largas | P1 | M | F5-01 | E-05, E-06 | `[Pendiente]` |
-| `F5-05` | Desacoplar toggle Outliner e implantar escala única `z-index` (8 tokens) | P1 | M | F5-01 | E-07 | `[Pendiente]` |
-| `F5-06` | Explicar pasos bloqueados (`aria-disabled`), footer sticky en Paso 1 y limpiar `#tab-btn-*` | P1 | M | F5-02 | E-08 | `[Pendiente]` |
-| `F5-07` | Declarar 9 variables CSS faltantes, corregir contrastes AA y extraer estilos inline | P1 | XL | — | E-09, E-13 | `[Pendiente]` |
+| `F5-04` | Sustituir `prompt`/`confirm` nativos y añadir bloqueo/spinner `aria-busy` en acciones largas | P1 | M | F5-01 | E-05, E-06 | `[Hecho]` |
+| `F5-05` | Desacoplar toggle Outliner e implantar escala única `z-index` (8 tokens) | P1 | M | F5-01 | E-07 | `[Hecho]` |
+| `F5-06` | Explicar pasos bloqueados (`aria-disabled`), footer sticky en Paso 1 y limpiar `#tab-btn-*` | P1 | M | F5-02 | E-08 | `[Hecho]` |
+| `F5-07` | Declarar 9 variables CSS faltantes, corregir contrastes AA y extraer estilos inline | P1 | XL | — | E-09, E-13 | `[Parcial]` |
 | `F5-08` | Erradicar microtipografía `< 11px` (993 ocurrencias) fijando escala legible | P1 | L | F5-07 | E-10 | `[Pendiente]` |
 | `F5-09` | Corregir desbordamientos responsive móvil (`<=768px`) y portátiles (`1280×720`/`1366×768`) | P1 | L | F5-05, F5-07 | E-11 | `[Pendiente]` |
 | `F5-10` | Teclado en `#ra-hud-energy`/tooltips, desanidar controles, landmarks, `<th>` y labels | P1 | L | F5-02, F5-07 | E-12, E-14..E-16 | `[Pendiente]` |
