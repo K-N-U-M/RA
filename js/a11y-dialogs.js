@@ -605,13 +605,38 @@
     });
 
     if (typeof MutationObserver !== 'undefined') {
-      var observer = new MutationObserver(function() {
+      var _pendingRoots = new Set();
+      var observer = new MutationObserver(function(mutations) {
+        var needsFocusSync = false;
+        for (var i = 0; i < mutations.length; i++) {
+          var m = mutations[i];
+          if (m.type === 'childList' && m.addedNodes && m.addedNodes.length > 0) {
+            for (var n = 0; n < m.addedNodes.length; n++) {
+              var nd = m.addedNodes[n];
+              if (nd && nd.nodeType === 1) {
+                _pendingRoots.add(nd);
+                needsFocusSync = true;
+              }
+            }
+          } else if (m.type === 'attributes' && m.target && m.target.nodeType === 1) {
+            if (m.target.matches && m.target.matches(TOP_MODAL_SELECTOR)) {
+              needsFocusSync = true;
+            }
+          }
+        }
+        if (_pendingRoots.size === 0 && !needsFocusSync) return;
         if (_enhanceTimer) return;
         _enhanceTimer = setTimeout(function() {
           _enhanceTimer = null;
-          enhanceContainer(document.body);
+          if (_pendingRoots.size > 0) {
+            var roots = Array.from(_pendingRoots);
+            _pendingRoots.clear();
+            for (var r = 0; r < roots.length; r++) {
+              if (roots[r] && roots[r].isConnected) enhanceContainer(roots[r]);
+            }
+          }
           _syncActiveModalFocus();
-        }, 60);
+        }, 120);
       });
       observer.observe(document.body, {
         childList: true,
