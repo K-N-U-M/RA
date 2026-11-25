@@ -167,9 +167,9 @@ Pueden lanzarse en paralelo de forma inmediata en ramas aisladas:
 | `F5-05` | Desacoplar toggle Outliner e implantar escala única `z-index` (8 tokens) | P1 | M | F5-01 | E-07 | `[Hecho]` |
 | `F5-06` | Explicar pasos bloqueados (`aria-disabled`), footer sticky en Paso 1 y limpiar `#tab-btn-*` | P1 | M | F5-02 | E-08 | `[Hecho]` |
 | `F5-07` | Declarar 9 variables CSS faltantes, corregir contrastes AA y extraer estilos inline | P1 | XL | — | E-09, E-13 | `[Parcial]` |
-| `F5-08` | Erradicar microtipografía `< 11px` (993 ocurrencias) fijando escala legible | P1 | L | F5-07 | E-10 | `[Pendiente]` |
-| `F5-09` | Corregir desbordamientos responsive móvil (`<=768px`) y portátiles (`1280×720`/`1366×768`) | P1 | L | F5-05, F5-07 | E-11 | `[Pendiente]` |
-| `F5-10` | Teclado en `#ra-hud-energy`/tooltips, desanidar controles, landmarks, `<th>` y labels | P1 | L | F5-02, F5-07 | E-12, E-14..E-16 | `[Pendiente]` |
+| `F5-08` | Erradicar microtipografía `< 11px` (993 ocurrencias) fijando escala legible | P1 | L | F5-07 | E-10 | `[Hecho]` |
+| `F5-09` | Corregir desbordamientos responsive móvil (`<=768px`) y portátiles (`1280×720`/`1366×768`) | P1 | L | F5-05, F5-07 | E-11 | `[Hecho]` |
+| `F5-10` | Teclado en `#ra-hud-energy`/tooltips, desanidar controles, landmarks, `<th>` y labels | P1 | L | F5-02, F5-07 | E-12, E-14..E-16 | `[Hecho]` |
 
 ### Fase 6 — Calidad, Testing y DevOps
 | ID | Título | Sev. | Esf. | Dependencias | Origen | Estado |

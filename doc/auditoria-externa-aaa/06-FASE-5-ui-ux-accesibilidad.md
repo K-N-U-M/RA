@@ -27,9 +27,9 @@
 | **F5-05** | Desacoplar toggle desktop/móvil de Outliner e implantar escala única de tokens `z-index` (7 niveles) | P1 | M | F5-01 | E-07 | `[Hecho]` |
 | **F5-06** | Hacer explicables los pasos bloqueados (`aria-disabled`), añadir footer sticky en Paso 1 y limpiar `#tab-btn-*` | P1 | M | F5-02 | E-08 | `[Hecho]` |
 | **F5-07** | Declarar 9 variables CSS faltantes, corregir contrastes AA (`#64748B`, botones, sidebar) y empezar extracción de estilos inline | P1 | XL | Ninguna | E-09 + E-13 | `[Parcial]` |
-| **F5-08** | Erradicar microtipografía `< 11px` (993 ocurrencias) fijando escala legible en paneles y modales | P1 | L | F5-07 | E-10 | `[Pendiente]` |
-| **F5-09** | Corregir desbordamientos responsive en móvil (`<=768px`) y portátiles (`1280×720` / `1366×768`) | P1 | L | F5-05, F5-07 | E-11 | `[Pendiente]` |
-| **F5-10** | Hacer operable `#ra-hud-energy` y tooltips por teclado, eliminar controles anidados, añadir landmarks y arreglar tablas/iconos | P1–P2 | L | F5-02, F5-07 | E-12 + E-14 + E-15 + E-16 | `[Pendiente]` |
+| **F5-08** | Erradicar microtipografía `< 11px` (993 ocurrencias) fijando escala legible en paneles y modales | P1 | L | F5-07 | E-10 | `[Hecho]` |
+| **F5-09** | Corregir desbordamientos responsive en móvil (`<=768px`) y portátiles (`1280×720` / `1366×768`) | P1 | L | F5-05, F5-07 | E-11 | `[Hecho]` |
+| **F5-10** | Hacer operable `#ra-hud-energy` y tooltips por teclado, eliminar controles anidados, añadir landmarks y arreglar tablas/iconos | P1–P2 | L | F5-02, F5-07 | E-12 + E-14 + E-15 + E-16 | `[Hecho]` |
 
 ---
 
@@ -264,7 +264,7 @@ Permanecen llamadas bloqueantes `prompt()`/`confirm()` en `proposal-style-studio
 | **Dependencias** | F5-07 |
 | **Origen** | E-10 |
 | **Rama sugerida** | `style/typography-minimum-11px` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 **993 declaraciones** de tamaño de fuente por debajo de `11px` (`8px`–`10.5px`) en datos eléctricos críticos (MPPT, cables, tarifas, tablas de factura y estudio de estilos), pisando los estilos base de `14px` de `styles.css`.
@@ -291,7 +291,7 @@ Permanecen llamadas bloqueantes `prompt()`/`confirm()` en `proposal-style-studio
 | **Dependencias** | F5-05, F5-07 |
 | **Origen** | E-11 |
 | **Rama sugerida** | `fix/responsive-laptop-and-mobile-huds` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 1. Bajo `<=768px`, `styles.css:3014-3032` compacta a 40px solo 3 botones de `#ra-floating-tools-container` ignorando los 4 agregados después, desbordando horizontalmente fuera de pantalla.
@@ -323,7 +323,7 @@ Permanecen llamadas bloqueantes `prompt()`/`confirm()` en `proposal-style-studio
 | **Dependencias** | F5-02, F5-07 |
 | **Origen** | E-12 + E-14 + E-15 + E-16 |
 | **Rama sugerida** | `fix/wcag-landmarks-tables-controls` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 1. **Hover-only**: `#ra-hud-energy` y `.tooltip-container` solo muestran info por `:hover`, inaccesibles por teclado y touch (`E-12`).
