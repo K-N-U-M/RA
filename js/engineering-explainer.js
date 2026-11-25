@@ -230,16 +230,16 @@
       const activeTab = window._engExplainerActiveTab || 'client';
 
       container.innerHTML = `
-        <div style="background:rgba(15,23,42,0.85);border:1px solid rgba(56,189,248,0.3);border-radius:8px;padding:8px;margin-top:6px;font-size: 10px;">
+        <div style="background:rgba(15,23,42,0.85);border:1px solid rgba(56,189,248,0.3);border-radius:8px;padding:8px;margin-top:6px;font-size: 11px;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:4px;">
             <span style="font-weight:900;color:#38BDF8;display:flex;align-items:center;gap:4px;">
               <span>💡</span> RAZONAMIENTO Y JUSTIFICACIÓN
             </span>
             <div style="display:flex;gap:3px;">
-              <button type="button" class="doc-mini-btn ${activeTab === 'client' ? 'active' : ''}" onclick="window._engExplainerActiveTab='client';EngineeringExplainer.renderEquipmentJustificationUI('${containerId}');" style="padding:2px 6px;font-size: 10px;border-color:#38BDF8;color:${activeTab === 'client' ? '#fff' : '#94A3B8'};background:${activeTab === 'client' ? '#0284C7' : 'transparent'};">
+              <button type="button" class="doc-mini-btn ${activeTab === 'client' ? 'active' : ''}" onclick="window._engExplainerActiveTab='client';EngineeringExplainer.renderEquipmentJustificationUI('${containerId}');" style="padding:2px 6px;font-size: 11px;border-color:#38BDF8;color:${activeTab === 'client' ? '#fff' : '#94A3B8'};background:${activeTab === 'client' ? '#0284C7' : 'transparent'};">
                 👤 CLIENTE
               </button>
-              <button type="button" class="doc-mini-btn ${activeTab === 'engineer' ? 'active' : ''}" onclick="window._engExplainerActiveTab='engineer';EngineeringExplainer.renderEquipmentJustificationUI('${containerId}');" style="padding:2px 6px;font-size: 10px;border-color:#F59E0B;color:${activeTab === 'engineer' ? '#000' : '#94A3B8'};background:${activeTab === 'engineer' ? '#F59E0B' : 'transparent'};font-weight:bold;">
+              <button type="button" class="doc-mini-btn ${activeTab === 'engineer' ? 'active' : ''}" onclick="window._engExplainerActiveTab='engineer';EngineeringExplainer.renderEquipmentJustificationUI('${containerId}');" style="padding:2px 6px;font-size: 11px;border-color:#F59E0B;color:${activeTab === 'engineer' ? '#000' : '#94A3B8'};background:${activeTab === 'engineer' ? '#F59E0B' : 'transparent'};font-weight:bold;">
                 📐 INGENIERÍA
               </button>
             </div>
@@ -261,19 +261,19 @@
                 <span style="color:#94A3B8;">Factor Sobrecarga DC/AC:</span>
                 <b style="color:${analysis.engineer.ratioStatus === 'optimal' ? '#10B981' : '#FBBF24'};">${analysis.engineer.dcAcPct}% (${analysis.engineer.dcAcRatio})</b>
               </div>
-              <div style="color:#94A3B8;font-size: 10px;line-height:1.25;margin-bottom:2px;">${analysis.engineer.ratioEvaluation}</div>
+              <div style="color:#94A3B8;font-size: 11px;line-height:1.25;margin-bottom:2px;">${analysis.engineer.ratioEvaluation}</div>
 
               <div style="display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,0.03);padding:4px 6px;border-radius:4px;">
                 <span style="color:#94A3B8;">Seguridad Tensión Frío (-10°C):</span>
                 <b style="color:#10B981;">${analysis.engineer.voltageCheck.status}</b>
               </div>
-              <div style="color:#94A3B8;font-size: 10px;line-height:1.25;">${analysis.engineer.voltageCheck.note}</div>
+              <div style="color:#94A3B8;font-size: 11px;line-height:1.25;">${analysis.engineer.voltageCheck.note}</div>
 
               <div style="display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,0.03);padding:4px 6px;border-radius:4px;margin-top:2px;">
                 <span style="color:#94A3B8;">Corriente Operativa Imp vs MPPT:</span>
                 <b style="color:${analysis.engineer.currentCheck.hasClipping ? '#F59E0B' : '#10B981'};">${analysis.engineer.currentCheck.modImp}A ≤ ${analysis.engineer.currentCheck.invMaxOper}A (${analysis.engineer.currentCheck.hasClipping ? 'Clipping' : 'OK'})</b>
               </div>
-              <div style="color:#94A3B8;font-size: 10px;line-height:1.25;">${analysis.engineer.currentCheck.hasClipping ? '⚠️ La corriente del panel supera la entrada nominal del inversor: habrá recorte térmico en picos de radiación.' : 'Sin saturación por corriente en MPPT. Entradas por MPPT: ' + analysis.engineer.currentCheck.inputsPerMppt + '.'}</div>
+              <div style="color:#94A3B8;font-size: 11px;line-height:1.25;">${analysis.engineer.currentCheck.hasClipping ? '⚠️ La corriente del panel supera la entrada nominal del inversor: habrá recorte térmico en picos de radiación.' : 'Sin saturación por corriente en MPPT. Entradas por MPPT: ' + analysis.engineer.currentCheck.inputsPerMppt + '.'}</div>
 
               <div style="display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,0.03);padding:4px 6px;border-radius:4px;margin-top:2px;">
                 <span style="color:#94A3B8;">Seguridad Cortocircuito Isc:</span>
@@ -284,7 +284,7 @@
                 <span style="color:#94A3B8;">Sobrecarga Mecánica Techo:</span>
                 <b style="color:${analysis.engineer.structuralCheck.isAdmissible ? (analysis.engineer.structuralCheck.isWarning ? '#F59E0B' : '#10B981') : '#EF4444'};">${analysis.engineer.structuralCheck.kgPerM2} kg/m² (${analysis.engineer.structuralCheck.isAdmissible ? (analysis.engineer.structuralCheck.isWarning ? 'Comprobar forjado' : 'Admisible CTE') : 'Excede CTE'})</b>
               </div>
-              <div style="color:#64748B;font-size: 10px;">Norma: ${analysis.engineer.structuralCheck.standard}</div>
+              <div style="color:#64748B;font-size: 11px;">Norma: ${analysis.engineer.structuralCheck.standard}</div>
             </div>
           `}
         </div>
@@ -320,10 +320,10 @@
               <span style="font-size:16px;">📋</span>
               <b style="font-size:11px;color:#38BDF8;letter-spacing:0.5px;text-transform:uppercase;">Resumen Ejecutivo de la Instalación</b>
             </div>
-            <span style="font-size: 10px;background:rgba(16,185,129,0.2);color:#34D399;padding:2px 6px;border-radius:4px;font-weight:800;">DISEÑO VALIDADO</span>
+            <span style="font-size: 11px;background:rgba(16,185,129,0.2);color:#34D399;padding:2px 6px;border-radius:4px;font-weight:800;">DISEÑO VALIDADO</span>
           </div>
 
-          <div style="font-size:10px;line-height:1.5;color:#CBD5E1;margin-bottom:8px;text-align:justify;">
+          <div style="font-size:11px;line-height:1.5;color:#CBD5E1;margin-bottom:8px;text-align:justify;">
             La instalación solar fotovoltaica proyectada consta de un campo generador de <b>${numPanels} módulos fotovoltaicos</b> de alta eficiencia 
             (<b>${mod.modelo || 'Tier-1'}</b> de <b>${mod.potencia || 450} Wp</b>), totalizando una potencia pico en corriente continua de <b>${totalKwp} kWp</b>. 
             La energía solar captada se gestionará mediante <b>${invCount}x ${inv.brand} ${inv.model}</b> (${(inv.kw * invCount).toFixed(1)} kW nominales AC), 
@@ -332,24 +332,24 @@
 
           <div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:6px;margin-bottom:6px;">
             <div style="background:rgba(0,0,0,0.35);padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);text-align:center;">
-              <div style="font-size: 10px;color:#94A3B8;text-transform:uppercase;font-weight:700;">Potencia Generador</div>
+              <div style="font-size: 11px;color:#94A3B8;text-transform:uppercase;font-weight:700;">Potencia Generador</div>
               <div style="font-size:12px;font-weight:900;color:#FBBF24;margin-top:2px;">${totalKwp} kWp</div>
             </div>
             <div style="background:rgba(0,0,0,0.35);padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);text-align:center;">
-              <div style="font-size: 10px;color:#94A3B8;text-transform:uppercase;font-weight:700;">Ahorro Estimado</div>
+              <div style="font-size: 11px;color:#94A3B8;text-transform:uppercase;font-weight:700;">Ahorro Estimado</div>
               <div style="font-size:12px;font-weight:900;color:#34D399;margin-top:2px;">~${Math.round(savingsAnnual).toLocaleString('es-ES')} €/año</div>
             </div>
             <div style="background:rgba(0,0,0,0.35);padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);text-align:center;">
-              <div style="font-size: 10px;color:#94A3B8;text-transform:uppercase;font-weight:700;">Retorno Inversión</div>
+              <div style="font-size: 11px;color:#94A3B8;text-transform:uppercase;font-weight:700;">Retorno Inversión</div>
               <div style="font-size:12px;font-weight:900;color:#38BDF8;margin-top:2px;">${payback} años</div>
             </div>
             <div style="background:rgba(0,0,0,0.35);padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);text-align:center;">
-              <div style="font-size: 10px;color:#94A3B8;text-transform:uppercase;font-weight:700;">CO₂ Evitado Anual</div>
+              <div style="font-size: 11px;color:#94A3B8;text-transform:uppercase;font-weight:700;">CO₂ Evitado Anual</div>
               <div style="font-size:12px;font-weight:900;color:#A78BFA;margin-top:2px;">${co2Tons} t CO₂</div>
             </div>
           </div>
 
-          <div style="font-size: 10px;color:#94A3B8;display:flex;justify-content:space-between;align-items:center;padding-top:4px;border-top:1px dashed rgba(255,255,255,0.08);">
+          <div style="font-size: 11px;color:#94A3B8;display:flex;justify-content:space-between;align-items:center;padding-top:4px;border-top:1px dashed rgba(255,255,255,0.08);">
             <span>🌱 Impacto ecológico equivalente: <b>${treesEquivalent} árboles plantados/año</b>.</span>
             <span>⚡ Cumplimiento estricto: <b>CTE DB-HE5 / RD 244/2019</b>.</span>
           </div>

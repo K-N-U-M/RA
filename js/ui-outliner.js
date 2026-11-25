@@ -35,15 +35,15 @@
       container.hidden = true;
       container.style.display = 'none';
       container.innerHTML = `
-        <div class="outliner-header" onclick="UIOutliner.toggleCollapse(event)">
+        <div class="outliner-header">
           <div style="display:flex;align-items:center;gap:6px;">
-            <span class="outliner-icon">🗂️</span>
+            <span class="outliner-icon" aria-hidden="true">🗂️</span>
             <span class="outliner-title">ÁRBOL DE PROYECTO</span>
           </div>
           <div style="display:flex;align-items:center;gap:4px;">
             <span id="outliner-badge-totals" class="outliner-badge">0 kWp</span>
-            <button type="button" class="outliner-toggle-btn" id="outliner-collapse-btn">▼</button>
-            <button type="button" class="outliner-toggle-btn" onclick="UIOutliner.close(); event.stopPropagation();" style="font-weight:bold;font-size:11px;padding:2px 6px;margin-left:2px;color:#f87171;" title="Cerrar Árbol de Proyecto">✕</button>
+            <button type="button" class="outliner-toggle-btn" id="outliner-collapse-btn" onclick="UIOutliner.toggleCollapse(event)" aria-expanded="true" aria-controls="outliner-tree-content" aria-label="Contraer o expandir árbol de proyecto" title="Contraer o expandir árbol">▼</button>
+            <button type="button" class="outliner-toggle-btn" id="outliner-close-btn" onclick="UIOutliner.close(); event.stopPropagation();" style="font-weight:bold;font-size:11px;padding:2px 6px;margin-left:2px;color:#f87171;" aria-label="Cerrar árbol de proyecto" title="Cerrar Árbol de Proyecto">✕</button>
           </div>
         </div>
         <div class="outliner-body" id="outliner-tree-content">
@@ -126,7 +126,10 @@
       const body = document.getElementById('outliner-tree-content');
       const btn = document.getElementById('outliner-collapse-btn');
       if (body) body.style.display = isCollapsed ? 'none' : 'flex';
-      if (btn) btn.textContent = isCollapsed ? '▲' : '▼';
+      if (btn) {
+        btn.textContent = isCollapsed ? '▲' : '▼';
+        btn.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
+      }
     },
 
     toggleSection: function(sectionKey, e) {
@@ -210,7 +213,7 @@
           <div class="outliner-empty-state">
             <span style="font-size:18px;">🏛️</span>
             <span style="font-weight:700;">Escena sin elementos.</span>
-            <span style="font-size: 10px;color:#94a3b8;">Dibuja un edificio 3D o define un plano en el Paso 1.</span>
+            <span style="font-size: 11px;color:#94a3b8;">Dibuja un edificio 3D o define un plano en el Paso 1.</span>
           </div>
         `;
         return;
@@ -310,7 +313,7 @@
                         </div>
                         <div class="node-meta">
                           ${pBadge}
-                          <button type="button" class="node-action-btn toggle-active-btn" title="${pDisabled ? 'Placas desactivadas. Clic para ACTIVAR e incluir en mediciones y presupuesto.' : 'Placas activas. Clic para DESACTIVAR y excluir de mediciones y presupuesto.'}" data-stop="1" data-outliner-act="togglePanelsActive" data-outliner-idx="${poly.index}">${pDisabled ? '<span style="color:#f87171;font-weight:bold;font-size:9.5px;padding:1px 4px;border-radius:2px;background:rgba(239,68,68,0.18);border:1px solid rgba(239,68,68,0.4);">OFF</span>' : '<span style="color:#34d399;font-weight:bold;font-size:9.5px;padding:1px 4px;border-radius:2px;background:rgba(16,185,129,0.18);border:1px solid rgba(16,185,129,0.4);">ON</span>'}</button>
+                          <button type="button" class="node-action-btn toggle-active-btn" title="${pDisabled ? 'Placas desactivadas. Clic para ACTIVAR e incluir en mediciones y presupuesto.' : 'Placas activas. Clic para DESACTIVAR y excluir de mediciones y presupuesto.'}" data-stop="1" data-outliner-act="togglePanelsActive" data-outliner-idx="${poly.index}">${pDisabled ? '<span style="color:#f87171;font-weight:bold;font-size:11px;padding:1px 4px;border-radius:2px;background:rgba(239,68,68,0.18);border:1px solid rgba(239,68,68,0.4);">OFF</span>' : '<span style="color:#34d399;font-weight:bold;font-size:11px;padding:1px 4px;border-radius:2px;background:rgba(16,185,129,0.18);border:1px solid rgba(16,185,129,0.4);">ON</span>'}</button>
                           <button type="button" class="node-action-btn" title="Mostrar/Ocultar placas FV en 3D" data-stop="1" data-outliner-act="toggleVis" data-outliner-type="poly_panels" data-outliner-idx="${poly.index}">${pVis ? '👁️' : '🙈'}</button>
                         </div>
                       </div>
@@ -423,7 +426,7 @@
                     </div>
                     <div class="node-meta">
                       ${pBadge}
-                      <button type="button" class="node-action-btn toggle-active-btn" title="${pDisabled ? 'Placas desactivadas. Clic para ACTIVAR e incluir en mediciones y presupuesto.' : 'Placas activas. Clic para DESACTIVAR y excluir de mediciones y presupuesto.'}" data-stop="1" data-outliner-act="togglePanelsActive" data-outliner-idx="${poly.index}">${pDisabled ? '<span style="color:#f87171;font-weight:bold;font-size:9.5px;padding:1px 4px;border-radius:2px;background:rgba(239,68,68,0.18);border:1px solid rgba(239,68,68,0.4);">OFF</span>' : '<span style="color:#34d399;font-weight:bold;font-size:9.5px;padding:1px 4px;border-radius:2px;background:rgba(16,185,129,0.18);border:1px solid rgba(16,185,129,0.4);">ON</span>'}</button>
+                      <button type="button" class="node-action-btn toggle-active-btn" title="${pDisabled ? 'Placas desactivadas. Clic para ACTIVAR e incluir en mediciones y presupuesto.' : 'Placas activas. Clic para DESACTIVAR y excluir de mediciones y presupuesto.'}" data-stop="1" data-outliner-act="togglePanelsActive" data-outliner-idx="${poly.index}">${pDisabled ? '<span style="color:#f87171;font-weight:bold;font-size:11px;padding:1px 4px;border-radius:2px;background:rgba(239,68,68,0.18);border:1px solid rgba(239,68,68,0.4);">OFF</span>' : '<span style="color:#34d399;font-weight:bold;font-size:11px;padding:1px 4px;border-radius:2px;background:rgba(16,185,129,0.18);border:1px solid rgba(16,185,129,0.4);">ON</span>'}</button>
                       <button type="button" class="node-action-btn" title="Mostrar/Ocultar placas FV en 3D" data-stop="1" data-outliner-act="toggleVis" data-outliner-type="poly_panels" data-outliner-idx="${poly.index}">${pVis ? '👁️' : '🙈'}</button>
                     </div>
                   </div>
@@ -484,7 +487,7 @@
                 </div>
                 <div class="node-meta">
                   ${pBadge}
-                  <button type="button" class="node-action-btn toggle-active-btn" title="${pDisabled ? 'Placas desactivadas. Clic para ACTIVAR e incluir en mediciones y presupuesto.' : 'Placas activas. Clic para DESACTIVAR y excluir de mediciones y presupuesto.'}" data-stop="1" data-outliner-act="togglePanelsActive" data-outliner-idx="${poly.index}">${pDisabled ? '<span style="color:#f87171;font-weight:bold;font-size:9.5px;padding:1px 4px;border-radius:2px;background:rgba(239,68,68,0.18);border:1px solid rgba(239,68,68,0.4);">OFF</span>' : '<span style="color:#34d399;font-weight:bold;font-size:9.5px;padding:1px 4px;border-radius:2px;background:rgba(16,185,129,0.18);border:1px solid rgba(16,185,129,0.4);">ON</span>'}</button>
+                  <button type="button" class="node-action-btn toggle-active-btn" title="${pDisabled ? 'Placas desactivadas. Clic para ACTIVAR e incluir en mediciones y presupuesto.' : 'Placas activas. Clic para DESACTIVAR y excluir de mediciones y presupuesto.'}" data-stop="1" data-outliner-act="togglePanelsActive" data-outliner-idx="${poly.index}">${pDisabled ? '<span style="color:#f87171;font-weight:bold;font-size:11px;padding:1px 4px;border-radius:2px;background:rgba(239,68,68,0.18);border:1px solid rgba(239,68,68,0.4);">OFF</span>' : '<span style="color:#34d399;font-weight:bold;font-size:11px;padding:1px 4px;border-radius:2px;background:rgba(16,185,129,0.18);border:1px solid rgba(16,185,129,0.4);">ON</span>'}</button>
                   <button type="button" class="node-action-btn" title="Mostrar/Ocultar placas FV en 3D" data-stop="1" data-outliner-act="toggleVis" data-outliner-type="poly_panels" data-outliner-idx="${poly.index}">${pVis ? '👁️' : '🙈'}</button>
                 </div>
               </div>
@@ -655,14 +658,14 @@
         }
 
         .outliner-title {
-          font-size: 10px;
+          font-size: 11px;
           font-weight: 900;
           letter-spacing: 0.6px;
           color: #38bdf8;
         }
 
         .outliner-badge {
-          font-size: 10px;
+          font-size: 11px;
           font-weight: 800;
           padding: 2px 6px;
           border-radius: 4px;
@@ -675,7 +678,7 @@
           background: transparent;
           border: none;
           color: #94a3b8;
-          font-size: 10px;
+          font-size: 11px;
           cursor: pointer;
           padding: 2px 4px;
         }
@@ -707,7 +710,7 @@
           background: rgba(30, 41, 59, 0.65);
           cursor: pointer;
           user-select: none;
-          font-size: 10px;
+          font-size: 11px;
           font-weight: 800;
           color: #94a3b8;
           border-bottom: 1px solid rgba(255, 255, 255, 0.04);
@@ -720,7 +723,7 @@
         }
 
         .outliner-chevron {
-          font-size: 8px;
+          font-size: 11px;
           color: #38bdf8;
           width: 12px;
           display: inline-block;
@@ -728,7 +731,7 @@
         }
 
         .outliner-group-count {
-          font-size: 9px;
+          font-size: 11px;
           background: rgba(255, 255, 255, 0.1);
           color: #cbd5e1;
           padding: 1px 5px;
@@ -757,12 +760,12 @@
           gap: 4px;
           padding: 16px 8px;
           text-align: center;
-          font-size: 10px;
+          font-size: 11px;
           color: #94a3b8;
         }
 
         .outliner-group-title {
-          font-size: 10px;
+          font-size: 11px;
           font-weight: 900;
           letter-spacing: 0.5px;
           color: #94a3b8;
@@ -825,14 +828,14 @@
         }
 
         .outliner-hint-row {
-          font-size: 10px;
+          font-size: 11px;
           color: #94a3b8;
           font-style: italic;
           padding: 3px 6px;
         }
 
         .outliner-sub-label {
-          font-size: 10px;
+          font-size: 11px;
           font-weight: 700;
           color: #cbd5e1;
           margin-top: 4px;
@@ -840,7 +843,7 @@
         }
 
         .node-label {
-          font-size: 10px;
+          font-size: 11px;
           font-weight: 700;
           white-space: nowrap;
           overflow: hidden;
@@ -853,17 +856,17 @@
 
         .sub-plane-name {
           color: #38bdf8;
-          font-size: 10px;
+          font-size: 11px;
         }
 
         .poly-name {
           color: #e2e8f0;
-          font-size: 10px;
+          font-size: 11px;
         }
 
         .obs-name {
           color: #fbbf24;
-          font-size: 10px;
+          font-size: 11px;
         }
 
         .node-meta {
@@ -873,7 +876,7 @@
         }
 
         .badge-angle {
-          font-size: 10px;
+          font-size: 11px;
           color: #f59e0b;
           background: rgba(245, 158, 11, 0.12);
           padding: 1px 4px;
@@ -881,7 +884,7 @@
         }
 
         .badge-stats {
-          font-size: 10px;
+          font-size: 11px;
           color: #10b981;
           background: rgba(16, 185, 129, 0.12);
           padding: 1px 4px;
@@ -890,7 +893,7 @@
         }
 
         .badge-dim {
-          font-size: 10px;
+          font-size: 11px;
           color: #94a3b8;
           background: rgba(255, 255, 255, 0.05);
           padding: 1px 4px;
@@ -900,7 +903,7 @@
         .node-action-btn {
           background: transparent;
           border: none;
-          font-size: 10px;
+          font-size: 11px;
           cursor: pointer;
           padding: 1px 3px;
           opacity: 0.75;
@@ -919,7 +922,7 @@
         }
 
         .outliner-no-poly {
-          font-size: 10px;
+          font-size: 11px;
           color: #64748b;
           font-style: italic;
           padding: 2px 4px;
@@ -960,7 +963,7 @@
 
         .panels-node-name {
           color: #6ee7b7;
-          font-size: 10px;
+          font-size: 11px;
         }
 
         .is-hidden-node {

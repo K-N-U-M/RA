@@ -666,17 +666,17 @@
         var price = t.priceEur ? (t.priceEur.toLocaleString('es-ES') + ' €') : '—';
         var isVawt = (t.type === 'VAWT');
         var bH = t.bladeHeightM || t.bladeLength || (isVawt ? Math.round(t.rotorDiameterM * 1.4 * 10) / 10 : null);
-        var rotorDisplay = isVawt ? (t.rotorDiameterM + ' m <span style="color:#A78BFA;font-size:9.5px;font-weight:600;">(H=' + (bH ? bH + 'm' : '—') + ')</span>') : (t.rotorDiameterM + ' m');
+        var rotorDisplay = isVawt ? (t.rotorDiameterM + ' m <span style="color:#A78BFA;font-size:11px;font-weight:600;">(H=' + (bH ? bH + 'm' : '—') + ')</span>') : (t.rotorDiameterM + ' m');
         var sweptArea = computeRotorSweptArea(t);
         return '<tr>' +
           '<td><b>' + t.manufacturer + '</b><br>' +
-          '<span style="color:#38BDF8;font-size:10.5px;">' + t.model + '</span></td>' +
+          '<span style="color:#38BDF8;font-size:11px;">' + t.model + '</span></td>' +
           '<td style="text-align:center;"><span class="cat-badge cat-badge-cyan">' + t.type + '</span></td>' +
           '<td style="text-align:center;"><span class="cat-badge cat-badge-amber">' + kw + ' kW</span></td>' +
           '<td style="text-align:center;font-family:monospace;" title="Área de captación: ' + sweptArea + ' m² (' + (isVawt ? 'cilindro Ø×H' : 'círculo π·Ø²/4') + ')">' + rotorDisplay + '</td>' +
-          '<td style="text-align:center;font-size:10.5px;">' + hMin + '–' + hMax + ' m</td>' +
+          '<td style="text-align:center;font-size:11px;">' + hMin + '–' + hMax + ' m</td>' +
           '<td style="text-align:center;"><span class="cat-badge cat-badge-purple">' + t.iecClass + '</span></td>' +
-          '<td style="text-align:center;font-size:10.5px;color:var(--text-slate-300);">' + t.acousticPowerLwaDba + ' dB(A)</td>' +
+          '<td style="text-align:center;font-size:11px;color:var(--text-slate-300);">' + t.acousticPowerLwaDba + ' dB(A)</td>' +
           '<td style="text-align:center;color:#34D399;font-weight:bold;">' + price + '</td>' +
           '<td style="text-align:right;">' +
             '<div style="display:flex;justify-content:flex-end;align-items:center;gap:4px;">' +
@@ -745,7 +745,7 @@
         windBtn.className = 'sb-tab-btn';
         windBtn.id = 'cat-tab-btn-wind_turbines';
         windBtn.setAttribute('onclick', 'switchCatalogTab("wind_turbines")');
-        windBtn.style.cssText = 'padding:6px 12px;font-size:10.5px;border-radius:6px;color:#38BDF8;border:1px solid rgba(56,189,248,0.5);background:rgba(56,189,248,0.08);';
+        windBtn.style.cssText = 'padding:6px 12px;font-size:11px;border-radius:6px;color:#38BDF8;border:1px solid rgba(56,189,248,0.5);background:rgba(56,189,248,0.08);';
         windBtn.innerHTML = '💨 AEROGENERADORES';
         if (microinvBtn && microinvBtn.parentNode) {
           microinvBtn.parentNode.insertBefore(windBtn, microinvBtn.nextSibling);

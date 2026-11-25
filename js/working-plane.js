@@ -4423,11 +4423,11 @@ function wpUpdateLayoutFastMetrics() {
     const cardModLbl = document.getElementById('faldon-card-stats');
     if (cardModLbl && poly && poly.roofInfo && Array.isArray(poly.roofInfo.panels)) {
       if (poly.panelsDisabled === true) {
-        cardModLbl.innerHTML = '<span style="color:#ef4444;font-weight:700;">DESACTIVADO</span> <span style="font-size: 10px;color:var(--text-muted);margin-left:4px;">· 0 kWp</span>';
+        cardModLbl.innerHTML = '<span style="color:#ef4444;font-weight:700;">DESACTIVADO</span> <span style="font-size: 11px;color:var(--text-muted);margin-left:4px;">· 0 kWp</span>';
       } else {
         const c = poly.roofInfo.panels.filter(x => !x.deleted && !x.disabled).length;
         const kw = (c * wpGetPolyWp(poly) / 1000).toFixed(2);
-        cardModLbl.innerHTML = c + ' mods <span style="font-size: 10px;color:var(--amber-400);margin-left:4px;">· ' + kw + ' kWp</span>';
+        cardModLbl.innerHTML = c + ' mods <span style="font-size: 11px;color:var(--amber-400);margin-left:4px;">· ' + kw + ' kWp</span>';
       }
     }
   }
@@ -4613,9 +4613,9 @@ function wpPopulateFaldonCard() {
   var statsEl = document.getElementById('faldon-card-stats');
   if (statsEl) {
     if (poly.panelsDisabled === true) {
-      statsEl.innerHTML = '<span style="color:#ef4444;font-weight:700;">DESACTIVADO</span> <span style="font-size: 10px;color:var(--text-muted);margin-left:4px;">· 0 kWp</span>';
+      statsEl.innerHTML = '<span style="color:#ef4444;font-weight:700;">DESACTIVADO</span> <span style="font-size: 11px;color:var(--text-muted);margin-left:4px;">· 0 kWp</span>';
     } else {
-      statsEl.innerHTML = modCount + ' mods <span style="font-size: 10px;color:var(--amber-400);margin-left:4px;">· ' + kwp + ' kWp</span>';
+      statsEl.innerHTML = modCount + ' mods <span style="font-size: 11px;color:var(--amber-400);margin-left:4px;">· ' + kwp + ' kWp</span>';
     }
   }
 
@@ -5174,7 +5174,7 @@ function wpSetPolyAzimuthRealtime(polyIdx, val) {
       if (cardModLbl && poly && poly.roofInfo && poly.roofInfo.panels) {
         const c = poly.roofInfo.panels.length;
         const kw = (c * wpGetPolyWp(poly) / 1000).toFixed(2);
-        cardModLbl.innerHTML = c + ' mods <span style="font-size: 10px;color:var(--amber-400);margin-left:4px;">· ' + kw + ' kWp</span>';
+        cardModLbl.innerHTML = c + ' mods <span style="font-size: 11px;color:var(--amber-400);margin-left:4px;">· ' + kw + ' kWp</span>';
       }
       if (typeof wpUpdateFaldonRowPitchUI === "function") wpUpdateFaldonRowPitchUI(polyIdx);
       if (typeof wpUpdateLayoutFastMetrics === "function") wpUpdateLayoutFastMetrics();
@@ -5191,7 +5191,7 @@ function wpSetPolyAzimuthRealtime(polyIdx, val) {
     if (cardModLbl && poly && poly.roofInfo && poly.roofInfo.panels) {
       const c = poly.roofInfo.panels.length;
       const kw = (c * wpGetPolyWp(poly) / 1000).toFixed(2);
-      cardModLbl.innerHTML = c + ' mods <span style="font-size: 10px;color:var(--amber-400);margin-left:4px;">· ' + kw + ' kWp</span>';
+      cardModLbl.innerHTML = c + ' mods <span style="font-size: 11px;color:var(--amber-400);margin-left:4px;">· ' + kw + ' kWp</span>';
     }
     if (typeof wpUpdateFaldonRowPitchUI === "function") wpUpdateFaldonRowPitchUI(polyIdx);
     if (typeof wpUpdateLayoutFastMetrics === "function") wpUpdateLayoutFastMetrics();
@@ -5435,7 +5435,7 @@ if (lbl) lbl.textContent = (val === "auto" || val === "") ? "Auto (faldón)" : (
       if (cardModLbl && poly && poly.roofInfo && poly.roofInfo.panels) {
         const c = poly.roofInfo.panels.length;
         const kw = (c * wpGetPolyWp(poly) / 1000).toFixed(2);
-        cardModLbl.innerHTML = c + ' mods <span style="font-size: 10px;color:var(--amber-400);margin-left:4px;">· ' + kw + ' kWp</span>';
+        cardModLbl.innerHTML = c + ' mods <span style="font-size: 11px;color:var(--amber-400);margin-left:4px;">· ' + kw + ' kWp</span>';
       }
       if (typeof wpUpdateFaldonRowPitchUI === "function") wpUpdateFaldonRowPitchUI(polyIdx);
       if (typeof wpUpdateLayoutFastMetrics === "function") wpUpdateLayoutFastMetrics();
@@ -6444,12 +6444,12 @@ function _wpUpdateUINow() {
       vtxManagerContainer.style.display = 'block';
       const rows = selectedPoly.points.map((pt, vi) => {
         const isSel = vi === WP.selectedVtxIdx;
-        return '<div onclick="wpSelectVertex(' + vi + ')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:4px 8px;background:' + (isSel ? 'rgba(56,189,248,0.25)' : 'rgba(0,0,0,0.3)') + ';border-radius:4px;border:1px solid ' + (isSel ? '#38bdf8' : 'rgba(255,255,255,0.06)') + ';font-size: 10px;transition:all 0.15s;">' +
+        return '<div onclick="wpSelectVertex(' + vi + ')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:4px 8px;background:' + (isSel ? 'rgba(56,189,248,0.25)' : 'rgba(0,0,0,0.3)') + ';border-radius:4px;border:1px solid ' + (isSel ? '#38bdf8' : 'rgba(255,255,255,0.06)') + ';font-size: 11px;transition:all 0.15s;">' +
           '<div style="display:flex;align-items:center;gap:6px;">' +
-            '<span style="display:inline-block;width:14px;height:14px;line-height:14px;text-align:center;border-radius:3px;background:' + (isSel ? '#38bdf8' : 'rgba(255,255,255,0.15)') + ';color:' + (isSel ? '#0f172a' : '#fff') + ';font-weight:bold;font-size: 10px;">' + (vi + 1) + '</span>' +
+            '<span style="display:inline-block;width:14px;height:14px;line-height:14px;text-align:center;border-radius:3px;background:' + (isSel ? '#38bdf8' : 'rgba(255,255,255,0.15)') + ';color:' + (isSel ? '#0f172a' : '#fff') + ';font-weight:bold;font-size: 11px;">' + (vi + 1) + '</span>' +
             '<span style="color:' + (isSel ? '#38bdf8' : '#e2e8f0') + ';font-weight:bold;">Vértice ' + (vi + 1) + '</span>' +
           '</div>' +
-          '<div style="font-family:monospace;font-size: 10px;color:var(--text-slate-300);">' +
+          '<div style="font-family:monospace;font-size: 11px;color:var(--text-slate-300);">' +
             'X: ' + pt.x.toFixed(1) + ' | Y: ' + pt.y.toFixed(1) + ' | Z: ' + pt.z.toFixed(1) +
           '</div>' +
         '</div>';
@@ -6477,13 +6477,13 @@ function _wpUpdateUINow() {
   const report = document.getElementById('wp-polyline-list-report');
   if (report) {
     if (WP.polylines.length === 0) {
-      report.innerHTML = '<div style="font-size: 10px;color:var(--text-slate-400);padding:4px 0;">Sin polilíneas cerradas en esta sesión.</div>';
+      report.innerHTML = '<div style="font-size: 11px;color:var(--text-slate-400);padding:4px 0;">Sin polilíneas cerradas en esta sesión.</div>';
     } else {
       const totalArea = WP.polylines.reduce((s, p) => s + p.area, 0);
       const rows = WP.polylines.map((poly, i) => {
         const isSel = i === WP.selectedPolyIdx;
         const strColor = getPolylineStringColor(i);
-        return '<div onclick="wpSelectPolyline(' + i + ')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:5px 8px;background:' + (isSel ? 'rgba(56,189,248,0.22)' : 'rgba(0,0,0,0.25)') + ';border-radius:5px;margin-bottom:3px;font-size: 10px;border:1px solid ' + (isSel ? '#38BDF8' : 'rgba(255,255,255,0.06)') + ';transition:all 0.15s ease;">' +
+        return '<div onclick="wpSelectPolyline(' + i + ')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:5px 8px;background:' + (isSel ? 'rgba(56,189,248,0.22)' : 'rgba(0,0,0,0.25)') + ';border-radius:5px;margin-bottom:3px;font-size: 11px;border:1px solid ' + (isSel ? '#38BDF8' : 'rgba(255,255,255,0.06)') + ';transition:all 0.15s ease;">' +
           '<div style="display:flex;align-items:center;gap:6px;">' +
             '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + strColor + ';box-shadow:0 0 5px ' + strColor + ';"></span>' +
             '<span style="color:' + (isSel ? '#38BDF8' : '#fff') + ';font-weight:bold;">' + (isSel ? '<i data-lucide=\"star\" class=\"icon-sm\"></i> ' : '') + poly.name + '</span>' +
@@ -6492,7 +6492,7 @@ function _wpUpdateUINow() {
         '</div>';
       }).join('');
       report.innerHTML =
-        '<div style="margin-top:4px;padding:5px 8px;background:rgba(56,189,248,0.12);border-radius:6px;border:1px solid rgba(56,189,248,0.3);font-size: 10px;color:#38BDF8;font-weight:bold;display:flex;justify-content:space-between;align-items:center;">' +
+        '<div style="margin-top:4px;padding:5px 8px;background:rgba(56,189,248,0.12);border-radius:6px;border:1px solid rgba(56,189,248,0.3);font-size: 11px;color:#38BDF8;font-weight:bold;display:flex;justify-content:space-between;align-items:center;">' +
           '<span>' + WP.polylines.length + ' FALDÓN' + (WP.polylines.length === 1 ? '' : 'ES') + ' · CLIC PARA ENFOCAR</span>' +
           '<span>' + totalArea.toFixed(1) + ' m² TOTAL</span>' +
         '</div>' +
@@ -7006,15 +7006,30 @@ function sortCatalogCategory(category, columnKey) {
   });
 
   populateEquipmentModalUI();
+
+  // [F5-10] Sincronizar aria-sort en cabeceras <th> ordenables del catálogo
+  if (typeof document !== 'undefined') {
+    const pane = document.getElementById('cat-pane-' + category);
+    if (pane) {
+      pane.querySelectorAll('th[data-sort-col]').forEach(th => {
+        const col = th.getAttribute('data-sort-col');
+        if (col === columnKey) {
+          th.setAttribute('aria-sort', state.asc ? 'ascending' : 'descending');
+        } else {
+          th.setAttribute('aria-sort', 'none');
+        }
+      });
+    }
+  }
 }
 window.sortCatalogCategory = sortCatalogCategory;
 
 function _getSortIconHtml(category, columnKey) {
   const state = window._catSortState && window._catSortState[category];
   if (!state || state.col !== columnKey) {
-    return ' <span class="cat-sort-icon" style="pointer-events:none;opacity:0.35;font-size:9px;">⇅</span>';
+    return ' <span class="cat-sort-icon" style="pointer-events:none;opacity:0.35;font-size:11px;">⇅</span>';
   }
-  return state.asc ? ' <span class="cat-sort-icon" style="pointer-events:none;color:#38BDF8;font-size:9px;font-weight:bold;">▲</span>' : ' <span class="cat-sort-icon" style="pointer-events:none;color:#38BDF8;font-size:9px;font-weight:bold;">▼</span>';
+  return state.asc ? ' <span class="cat-sort-icon" style="pointer-events:none;color:#38BDF8;font-size:11px;font-weight:bold;">▲</span>' : ' <span class="cat-sort-icon" style="pointer-events:none;color:#38BDF8;font-size:11px;font-weight:bold;">▼</span>';
 }
 window._getSortIconHtml = _getSortIconHtml;
 
@@ -7123,11 +7138,11 @@ function populateEquipmentModalUI() {
       const iSc = Number(inv.iMaxScA || 25.0).toFixed(1);
 
       return '<tr>' +
-        '<td><b>' + _escCat(inv.brand) + '</b> ' + _escCat(inv.model) + '<br><span style="font-size:10px;color:var(--text-slate-400);">' + _escCat(inv.type || 'Híbrido') + '</span></td>' +
+        '<td><b>' + _escCat(inv.brand) + '</b> ' + _escCat(inv.model) + '<br><span style="font-size:11px;color:var(--text-slate-400);">' + _escCat(inv.type || 'Híbrido') + '</span></td>' +
         '<td style="text-align:center;"><span class="cat-badge cat-badge-blue">' + _escCat(inv.kw) + ' kW</span></td>' +
-        '<td style="text-align:center;">' + _escCat(inv.mppt) + ' MPPT <span style="font-size:10px;color:#34D399;">(' + inputs + ' str/mppt)</span></td>' +
-        '<td style="text-align:center;font-family:monospace;font-size:10px;">' + _escCat(inv.vDcMax || 1000) + 'V <span style="color:var(--text-slate-400);">(' + vMin + '-' + vMax + 'V)</span></td>' +
-        '<td style="text-align:center;font-family:monospace;font-size:10px;"><b style="color:#FBBF24;">' + iOper + 'A</b> / <span style="color:#34D399;">' + iSc + 'A</span></td>' +
+        '<td style="text-align:center;">' + _escCat(inv.mppt) + ' MPPT <span style="font-size:11px;color:#34D399;">(' + inputs + ' str/mppt)</span></td>' +
+        '<td style="text-align:center;font-family:monospace;font-size:11px;">' + _escCat(inv.vDcMax || 1000) + 'V <span style="color:var(--text-slate-400);">(' + vMin + '-' + vMax + 'V)</span></td>' +
+        '<td style="text-align:center;font-family:monospace;font-size:11px;"><b style="color:#FBBF24;">' + iOper + 'A</b> / <span style="color:#34D399;">' + iSc + 'A</span></td>' +
         '<td style="text-align:center;color:#FBBF24;font-weight:bold;">' + _escCat(inv.price) + ' €</td>' +
         '<td style="text-align:right;">' +
           '<div style="display:flex;justify-content:flex-end;align-items:center;gap:4px;">' +
@@ -7171,7 +7186,7 @@ function populateEquipmentModalUI() {
     mlpeTable.innerHTML = equipmentCatalog.microinverters.map((mi, idx) => {
       const isCustom = idx >= 4;
       const miIdAttr = _escCat(mi.id);
-      let delBtn = isCustom ? ('<button class="cat-btn cat-btn-delete" data-cat-act="delete" data-cat-kind="microinverters" data-cat-id="' + miIdAttr + '" title="Eliminar"><i data-lucide="x" class="icon-sm"></i></button>') : '<span class="cat-badge cat-badge-cyan" style="font-size:9.5px;">OFICIAL</span>';
+      let delBtn = isCustom ? ('<button class="cat-btn cat-btn-delete" data-cat-act="delete" data-cat-kind="microinverters" data-cat-id="' + miIdAttr + '" title="Eliminar"><i data-lucide="x" class="icon-sm"></i></button>') : '<span class="cat-badge cat-badge-cyan" style="font-size:11px;">OFICIAL</span>';
       return '<tr>' +
         '<td><b>' + _escCat(mi.brand) + '</b> ' + _escCat(mi.model) + '</td>' +
         '<td style="text-align:center;"><span class="cat-badge cat-badge-cyan">' + (Number(mi.kw) * 1000) + ' W</span></td>' +
@@ -7790,10 +7805,10 @@ function wpOpenSmartInverterMatchingModal() {
     catalogListHtml = `
       <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(56,189,248,0.25);border-radius:6px;padding:8px;margin-bottom:8px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-          <span style="font-size:10px;font-weight:900;color:#38BDF8;display:flex;align-items:center;gap:4px;">
+          <span style="font-size:11px;font-weight:900;color:#38BDF8;display:flex;align-items:center;gap:4px;">
             <i data-lucide="check-circle" class="icon-sm"></i> MODELOS REALES COMPATIBLES EN CATÁLOGO (${compatibleList.length})
           </span>
-          <span style="font-size:9px;color:#94a3b8;">Verificados por REBT / IEC</span>
+          <span style="font-size:11px;color:#94a3b8;">Verificados por REBT / IEC</span>
         </div>
         <div style="display:flex;flex-direction:column;gap:5px;max-height:190px;overflow-y:auto;padding-right:2px;" class="custom-scrollbar">
           ${compatibleList.map((c, idx) => {
@@ -7803,14 +7818,14 @@ function wpOpenSmartInverterMatchingModal() {
               <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(255,255,255,0.08);border-radius:5px;padding:6px 8px;display:flex;justify-content:space-between;align-items:center;gap:6px;">
                 <div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0;">
                   <div style="display:flex;align-items:center;gap:5px;">
-                    <span style="font-size:10px;font-weight:bold;color:#F1F5F9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                    <span style="font-size:11px;font-weight:bold;color:#F1F5F9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
                       ${c.count}x ${c.inverter.brand} ${c.inverter.model}
                     </span>
-                    <span class="card-tag" style="background:${isSingle ? 'rgba(56,189,248,0.2)' : 'rgba(168,85,247,0.2)'};color:${isSingle ? '#38BDF8' : '#C084FC'};font-size:8.5px;padding:1px 4px;">
+                    <span class="card-tag" style="background:${isSingle ? 'rgba(56,189,248,0.2)' : 'rgba(168,85,247,0.2)'};color:${isSingle ? '#38BDF8' : '#C084FC'};font-size:11px;padding:1px 4px;">
                       ${isSingle ? '1x Central' : c.count + 'x Modular'}
                     </span>
                   </div>
-                  <div style="display:flex;gap:6px;font-size:9px;color:#94A3B8;">
+                  <div style="display:flex;gap:6px;font-size:11px;color:#94A3B8;">
                     <span>${c.totalAcKw} kW AC</span>
                     <span>·</span>
                     <span style="color:${overloadColor};font-weight:bold;">${c.overloadPct}% DC/AC</span>
@@ -7820,8 +7835,8 @@ function wpOpenSmartInverterMatchingModal() {
                   </div>
                 </div>
                 <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
-                  <span style="font-size:10.5px;font-weight:900;color:#34D399;">${c.totalCostEur} €</span>
-                  <button type="button" class="doc-mini-btn" onclick="wpApplyInverterScenario('${c.inverter.id}', ${c.count}, 'inverter', 'compat_${idx}')" style="background:#0284C7;border-color:#0284C7;color:#fff;font-size:9.5px;font-weight:bold;padding:3px 7px;cursor:pointer;">
+                  <span style="font-size:11px;font-weight:900;color:#34D399;">${c.totalCostEur} €</span>
+                  <button type="button" class="doc-mini-btn" onclick="wpApplyInverterScenario('${c.inverter.id}', ${c.count}, 'inverter', 'compat_${idx}')" style="background:#0284C7;border-color:#0284C7;color:#fff;font-size:11px;font-weight:bold;padding:3px 7px;cursor:pointer;">
                     Elegir
                   </button>
                 </div>
@@ -7842,42 +7857,42 @@ function wpOpenSmartInverterMatchingModal() {
     <div style="background:rgba(15,23,42,0.96);border:1px solid rgba(14,165,233,0.45);border-radius:8px;padding:10px;margin-bottom:8px;box-shadow:0 8px 24px rgba(0,0,0,0.5);">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:4px;">
         <div style="display:flex;align-items:center;gap:6px;">
-          <span style="font-weight:900;color:#38BDF8;font-size:10.5px;"><i data-lucide="sparkles" class="icon-sm"></i> COMPARATIVA INTELIGENTE DE INVERSORES</span>
-          <span class="card-tag" style="background:rgba(56,189,248,0.15);color:#38BDF8;font-size: 10px;">${totalKwp.toFixed(1)} kWp · ${gridSupply === 'single_phase' ? 'Monofásico 230V' : 'Trifásico 400V'}</span>
+          <span style="font-weight:900;color:#38BDF8;font-size:11px;"><i data-lucide="sparkles" class="icon-sm"></i> COMPARATIVA INTELIGENTE DE INVERSORES</span>
+          <span class="card-tag" style="background:rgba(56,189,248,0.15);color:#38BDF8;font-size: 11px;">${totalKwp.toFixed(1)} kWp · ${gridSupply === 'single_phase' ? 'Monofásico 230V' : 'Trifásico 400V'}</span>
         </div>
         <button type="button" class="doc-mini-btn" onclick="document.getElementById('step3-smart-inverter-recommendations').style.display='none'"><i data-lucide="x" class="icon-sm"></i></button>
       </div>
 
-      <div style="font-size: 10px;color:#94A3B8;margin-bottom:8px;line-height:1.35;">
+      <div style="font-size: 11px;color:#94A3B8;margin-bottom:8px;line-height:1.35;">
         El sistema ha analizado la potencia de campo (${totalKwp.toFixed(1)} kWp) y las ${distinctOrientations} orientaciones para calcular 3 alternativas técnicas:
       </div>
 
       ${catalogListHtml}
 
-      <div style="font-size: 10px;font-weight:900;color:#CBD5E1;margin:8px 0 4px 0;text-transform:uppercase;letter-spacing:0.4px;"><i data-lucide="sliders" class="icon-sm"></i> Escenarios de Arquitectura Comparados:</div>
+      <div style="font-size: 11px;font-weight:900;color:#CBD5E1;margin:8px 0 4px 0;text-transform:uppercase;letter-spacing:0.4px;"><i data-lucide="sliders" class="icon-sm"></i> Escenarios de Arquitectura Comparados:</div>
       <!-- Opción A: Centralizada 1x -->
       ${scA ? `
       <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(245,158,11,0.3);border-radius:6px;padding:8px;margin-bottom:6px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
           <div style="display:flex;align-items:center;gap:5px;">
-            <span style="font-size:10px;font-weight:900;color:#FBBF24;"><i data-lucide="zap" class="icon-sm"></i> OPCIÓN A: Centralizada (1x Inversor)</span>
-            <span class="card-tag" style="background:rgba(245,158,11,0.2);color:#FBBF24;font-size: 10px;">1 Equipo</span>
+            <span style="font-size:11px;font-weight:900;color:#FBBF24;"><i data-lucide="zap" class="icon-sm"></i> OPCIÓN A: Centralizada (1x Inversor)</span>
+            <span class="card-tag" style="background:rgba(245,158,11,0.2);color:#FBBF24;font-size: 11px;">1 Equipo</span>
           </div>
-          <span style="font-size:10px;color:#34D399;font-weight:900;">${scA.totalCostEur} €</span>
+          <span style="font-size:11px;color:#34D399;font-weight:900;">${scA.totalCostEur} €</span>
         </div>
-        <div style="font-size: 10px;font-weight:bold;color:#F1F5F9;margin:2px 0;">
+        <div style="font-size: 11px;font-weight:bold;color:#F1F5F9;margin:2px 0;">
           1x ${scA.inverter.brand} ${scA.inverter.model} (${scA.totalAcKw} kW AC)
-          ${scA.isVirtual || scA.inverter.isVirtual ? '<span style="background:rgba(245,158,11,0.25);color:#FBBF24;padding:1px 5px;border-radius:3px;font-size:9px;margin-left:4px;border:1px solid rgba(245,158,11,0.5);">⚠️ EQUIPO RECOMENDADO FUERA DE CATÁLOGO</span>' : ''}
+          ${scA.isVirtual || scA.inverter.isVirtual ? '<span style="background:rgba(245,158,11,0.25);color:#FBBF24;padding:1px 5px;border-radius:3px;font-size:11px;margin-left:4px;border:1px solid rgba(245,158,11,0.5);">⚠️ EQUIPO RECOMENDADO FUERA DE CATÁLOGO</span>' : ''}
         </div>
-        <div style="display:flex;flex-wrap:wrap;gap:4px;margin:4px 0;font-size: 10px;">
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin:4px 0;font-size: 11px;">
           <span style="background:rgba(255,255,255,0.06);padding:2px 5px;border-radius:4px;color:#CBD5E1;">Sobrecarga: <b>${scA.overloadPct}%</b></span>
           <span style="background:rgba(255,255,255,0.06);padding:2px 5px;border-radius:4px;color:#CBD5E1;">MPPTs: <b>${scA.mpptCount} canales</b></span>
           <span style="background:rgba(239,68,68,0.15);padding:2px 5px;border-radius:4px;color:#F87171;">Redundancia: <b>0%</b></span>
         </div>
-        <div style="font-size: 10px;color:#94A3B8;line-height:1.3;margin-bottom:5px;">
+        <div style="font-size: 11px;color:#94A3B8;line-height:1.3;margin-bottom:5px;">
           Mínimo coste de instalación, cableado AC centralizado y un único equipo a monitorizar.
         </div>
-        <button type="button" class="doc-mini-btn" style="background:#0284C7;border-color:#0284C7;color:#fff;width:100%;font-weight:bold;padding:5px;font-size: 10px;" onclick="wpApplyInverterScenario('${scA.inverter.id}', 1, 'inverter', 'scA')">
+        <button type="button" class="doc-mini-btn" style="background:#0284C7;border-color:#0284C7;color:#fff;width:100%;font-weight:bold;padding:5px;font-size: 11px;" onclick="wpApplyInverterScenario('${scA.inverter.id}', 1, 'inverter', 'scA')">
           <i data-lucide="check" class="icon-sm"></i> APLICAR OPCIÓN 1x (${scA.totalAcKw} kW AC)
         </button>
       </div>` : ''}
@@ -7887,24 +7902,24 @@ function wpOpenSmartInverterMatchingModal() {
       <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(56,189,248,0.3);border-radius:6px;padding:8px;margin-bottom:6px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
           <div style="display:flex;align-items:center;gap:5px;">
-            <span style="font-size:10px;font-weight:900;color:#38BDF8;"><i data-lucide="layers" class="icon-sm"></i> OPCIÓN B: Modular Distribuida (${scB.count}x Equipos)</span>
-            <span class="card-tag" style="background:rgba(56,189,248,0.2);color:#38BDF8;font-size: 10px;">${scB.count} Inversores</span>
+            <span style="font-size:11px;font-weight:900;color:#38BDF8;"><i data-lucide="layers" class="icon-sm"></i> OPCIÓN B: Modular Distribuida (${scB.count}x Equipos)</span>
+            <span class="card-tag" style="background:rgba(56,189,248,0.2);color:#38BDF8;font-size: 11px;">${scB.count} Inversores</span>
           </div>
-          <span style="font-size:10px;color:#34D399;font-weight:900;">${scB.totalCostEur} €</span>
+          <span style="font-size:11px;color:#34D399;font-weight:900;">${scB.totalCostEur} €</span>
         </div>
-        <div style="font-size: 10px;font-weight:bold;color:#F1F5F9;margin:2px 0;">
+        <div style="font-size: 11px;font-weight:bold;color:#F1F5F9;margin:2px 0;">
           ${scB.count}x ${scB.inverter.brand} ${scB.inverter.model} (${scB.totalAcKw} kW AC total · ${scB.count} × ${scB.inverter.kw} kW)
-          ${scB.isVirtual || scB.inverter.isVirtual ? '<span style="background:rgba(245,158,11,0.25);color:#FBBF24;padding:1px 5px;border-radius:3px;font-size:9px;margin-left:4px;border:1px solid rgba(245,158,11,0.5);">⚠️ EQUIPO RECOMENDADO FUERA DE CATÁLOGO</span>' : ''}
+          ${scB.isVirtual || scB.inverter.isVirtual ? '<span style="background:rgba(245,158,11,0.25);color:#FBBF24;padding:1px 5px;border-radius:3px;font-size:11px;margin-left:4px;border:1px solid rgba(245,158,11,0.5);">⚠️ EQUIPO RECOMENDADO FUERA DE CATÁLOGO</span>' : ''}
         </div>
-        <div style="display:flex;flex-wrap:wrap;gap:4px;margin:4px 0;font-size: 10px;">
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin:4px 0;font-size: 11px;">
           <span style="background:rgba(255,255,255,0.06);padding:2px 5px;border-radius:4px;color:#CBD5E1;">Sobrecarga: <b>${scB.overloadPct}%</b></span>
           <span style="background:rgba(255,255,255,0.06);padding:2px 5px;border-radius:4px;color:#CBD5E1;">MPPTs: <b>${scB.mpptCount} canales</b></span>
           <span style="background:rgba(16,185,129,0.15);padding:2px 5px;border-radius:4px;color:#34D399;">Redundancia: <b>${scB.redundancyPct || Math.round((scB.count-1)/scB.count*100)}%</b></span>
         </div>
-        <div style="font-size: 10px;color:#94A3B8;line-height:1.3;margin-bottom:5px;">
+        <div style="font-size: 11px;color:#94A3B8;line-height:1.3;margin-bottom:5px;">
           Alta disponibilidad: si 1 equipo sufre una avería, la instalación mantiene el ${scB.redundancyPct || Math.round((scB.count-1)/scB.count*100)}% de producción continua.
         </div>
-        <button type="button" class="doc-mini-btn" style="background:#059669;border-color:#059669;color:#fff;width:100%;font-weight:bold;padding:5px;font-size: 10px;" onclick="wpApplyInverterScenario('${scB.inverter.id}', ${scB.count}, 'inverter', 'scB')">
+        <button type="button" class="doc-mini-btn" style="background:#059669;border-color:#059669;color:#fff;width:100%;font-weight:bold;padding:5px;font-size: 11px;" onclick="wpApplyInverterScenario('${scB.inverter.id}', ${scB.count}, 'inverter', 'scB')">
           <i data-lucide="check" class="icon-sm"></i> APLICAR OPCIÓN ${scB.count}x (${scB.totalAcKw} kW AC)
         </button>
       </div>` : ''}
@@ -7914,23 +7929,23 @@ function wpOpenSmartInverterMatchingModal() {
       <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(16,185,129,0.3);border-radius:6px;padding:8px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
           <div style="display:flex;align-items:center;gap:5px;">
-            <span style="font-size:10px;font-weight:900;color:#34D399;"><i data-lucide="cpu" class="icon-sm"></i> OPCIÓN C: Microinversores / MLPE</span>
-            <span class="card-tag" style="background:rgba(16,185,129,0.2);color:#34D399;font-size: 10px;">MLPE Descentralizado</span>
+            <span style="font-size:11px;font-weight:900;color:#34D399;"><i data-lucide="cpu" class="icon-sm"></i> OPCIÓN C: Microinversores / MLPE</span>
+            <span class="card-tag" style="background:rgba(16,185,129,0.2);color:#34D399;font-size: 11px;">MLPE Descentralizado</span>
           </div>
-          <span style="font-size:10px;color:#34D399;font-weight:900;">${scC.estimatedCostEur} €</span>
+          <span style="font-size:11px;color:#34D399;font-weight:900;">${scC.estimatedCostEur} €</span>
         </div>
-        <div style="font-size: 10px;font-weight:bold;color:#F1F5F9;margin:2px 0;">
+        <div style="font-size: 11px;font-weight:bold;color:#F1F5F9;margin:2px 0;">
           ${scC.estimatedUnits}x Microinversores 2-en-1 (${scC.totalAcKw.toFixed(1)} kW AC total)
         </div>
-        <div style="display:flex;flex-wrap:wrap;gap:4px;margin:4px 0;font-size: 10px;">
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin:4px 0;font-size: 11px;">
           <span style="background:rgba(255,255,255,0.06);padding:2px 5px;border-radius:4px;color:#CBD5E1;">Control: <b>Panel a panel</b></span>
           <span style="background:rgba(16,185,129,0.15);padding:2px 5px;border-radius:4px;color:#34D399;">Redundancia: <b>~95%</b></span>
           <span style="background:rgba(255,255,255,0.06);padding:2px 5px;border-radius:4px;color:#CBD5E1;">Sombras: <b>Inmune</b></span>
         </div>
-        <div style="font-size: 10px;color:#94A3B8;line-height:1.3;margin-bottom:5px;">
+        <div style="font-size: 11px;color:#94A3B8;line-height:1.3;margin-bottom:5px;">
           Máxima eficiencia en tejados complejos con múltiples aguas, chimeneas y sombreados severos.
         </div>
-        <button type="button" class="doc-mini-btn" style="background:#10B981;border-color:#10B981;color:#fff;width:100%;font-weight:bold;padding:5px;font-size: 10px;" onclick="wpApplyInverterScenario('${microId}', ${scC.estimatedUnits}, 'microinverter', 'scC')">
+        <button type="button" class="doc-mini-btn" style="background:#10B981;border-color:#10B981;color:#fff;width:100%;font-weight:bold;padding:5px;font-size: 11px;" onclick="wpApplyInverterScenario('${microId}', ${scC.estimatedUnits}, 'microinverter', 'scC')">
           <i data-lucide="check" class="icon-sm"></i> APLICAR OPCIÓN MLPE (${scC.estimatedUnits}x Micros)
         </button>
       </div>` : ''}

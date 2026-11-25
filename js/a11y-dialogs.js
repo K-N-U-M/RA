@@ -62,6 +62,24 @@
   function _deriveButtonLabel(btn) {
     var t = btn.getAttribute('title');
     if (t) return _cleanText(t);
+    var rawTxt = _cleanText(btn.textContent);
+    var symMap = {
+      '✕': 'Cerrar ventana',
+      '×': 'Cerrar ventana',
+      '▼': 'Contraer panel',
+      '▲': 'Expandir panel',
+      '◀': 'Colapsar panel',
+      '▶': 'Expandir panel',
+      '⚡': 'Alternar activación',
+      '⚪': 'Activar equipo',
+      '🔍': 'Centrar cámara',
+      '🗑': 'Eliminar',
+      '🗑️': 'Eliminar',
+      '👁️': 'Ocultar elemento',
+      '🙈': 'Mostrar elemento',
+      '↺': 'Restablecer'
+    };
+    if (symMap[rawTxt]) return symMap[rawTxt];
     var icon = btn.querySelector('[data-lucide]');
     if (icon) {
       var icName = icon.getAttribute('data-lucide');
@@ -91,6 +109,7 @@
       if (icName) return 'Acción: ' + icName.replace(/[-_]+/g, ' ');
     }
     var h = _humanizeId(btn.id);
+    if (h && /^close$/i.test(h)) return 'Cerrar ventana';
     return h || 'Botón de acción';
   }
 
@@ -139,7 +158,7 @@
       if (derived) inp.setAttribute('aria-label', derived);
     }
 
-    // 3. Garantizar aria-label en botones de icono / sin texto visible (y sanear volcados >120 chars)
+    // 3. Garantizar aria-label en botones de icono / símbolos sin texto legible (y sanear volcados >120 chars)
     var buttons = scope.querySelectorAll('button');
     for (var k = 0; k < buttons.length; k++) {
       var btn = buttons[k];
@@ -150,17 +169,19 @@
       }
       if (!btnAria) {
         var txt = _cleanText(btn.textContent);
-        if (!txt) {
+        var isSymbolOnly = !txt || !/[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ]/.test(txt);
+        if (isSymbolOnly) {
           btn.setAttribute('aria-label', _deriveButtonLabel(btn));
         }
       }
     }
 
-    // 4. Hacer accesibles por teclado los <div> / <span> interactivos con onclick
+    // 4. Hacer accesibles por teclado los <div> / <span> interactivos con onclick (NUNCA si contienen controles interactivos anidados [F5-10])
     var interactiveEls = scope.querySelectorAll('div[onclick], span[onclick]');
     for (var m = 0; m < interactiveEls.length; m++) {
       var el = interactiveEls[m];
       if (el.id && /modal$/i.test(el.id)) continue; // overlays backdrop (Escape cierra)
+      if (el.querySelector('button, a[href], input, select, textarea')) continue; // evitar controles anidados WCAG 4.1.2
       if (!el.hasAttribute('role')) el.setAttribute('role', 'button');
       if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '0');
       if (!el.dataset.raKbdBound) {

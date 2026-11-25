@@ -4,6 +4,10 @@
        ========================================================================== */
     :root {
   --focus-ring: #38BDF8;
+  --sidebar-current-w: 0px;
+  --fs-body: 13px;
+  --fs-control: 12px;
+  --fs-micro: 11px;
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', 'Courier New', monospace;
 
@@ -718,14 +722,14 @@
       flex: 1;
     }
     .search-res-sub {
-      font-size: 10.5px;
+      font-size: 11px;
       color: var(--text-slate-400);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
     .search-badge {
-      font-size: 10px;
+      font-size: 11px;
       font-weight: 800;
       padding: 1px 5px;
       border-radius: 4px;
@@ -803,7 +807,7 @@
       opacity: 1;
       box-shadow: 0 0 8px rgba(245, 158, 11, 0.6);
     }    .wp-step-btn .wp-step-title {
-      font-size: 10px;
+      font-size: 11px;
       font-weight: 800;
       letter-spacing: 0;
       text-transform: uppercase;
@@ -1197,7 +1201,7 @@
     .solar-bar-chart { width: 100%; height: 90px; }
     .bar-rect { fill: var(--amber-500); transition: fill 0.15s; cursor: pointer; }
     .bar-rect:hover { fill: #fff; filter: drop-shadow(0 0 6px var(--amber-400)); }
-    .bar-label { font-size: 10px; fill: var(--text-slate-400); font-family: var(--font-mono); text-anchor: middle; }
+    .bar-label { font-size: 11px; fill: var(--text-slate-400); font-family: var(--font-mono); text-anchor: middle; }
 
     /* ── Documentos Grid ─────────────────────────────────────────────────── */
     .doc-action-grid {
@@ -1212,7 +1216,7 @@
       padding: 6px 8px;
       color: #fff;
       font-family: var(--font-sans);
-      font-size: 10.5px;
+      font-size: 11px;
       font-weight: 700;
       cursor: pointer;
       display: flex;
@@ -1402,7 +1406,7 @@
       gap: 6px;
     }
     .ra-fab-tooltip-desc {
-      font-size: 10px;
+      font-size: 11px;
       color: #94A3B8;
       font-weight: 500;
       line-height: 1.4;
@@ -1624,7 +1628,7 @@
     .doc-fields-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     .doc-field { display: flex; flex-direction: column; gap: 3px; }
     .doc-field.full { grid-column: 1 / -1; }
-    .doc-field label { font-size: 10px; font-weight: 700; color: var(--text-slate-400); text-transform: uppercase; }
+    .doc-field label { font-size: 11px; font-weight: 700; color: var(--text-slate-400); text-transform: uppercase; }
     .doc-field input, .doc-field select {
       background: rgba(0,0,0,0.4);
       border: 1px solid var(--border-subtle);
@@ -1662,11 +1666,11 @@
       box-shadow: 0 6px 20px rgba(14, 165, 233, 0.4);
     }
     .doc-gen-btn .doc-icon { font-size: 16px; display: block; margin-bottom: 2px; }
-    .doc-gen-btn .doc-norm { font-size: 10px; opacity: 0.7; display: block; margin-top: 2px; }
+    .doc-gen-btn .doc-norm { font-size: 11px; opacity: 0.7; display: block; margin-top: 2px; }
     .doc-modal-footer {
       background: rgba(0,0,0,0.4);
       padding: 10px 16px;
-      font-size: 10px;
+      font-size: 11px;
       color: var(--text-slate-500);
       border-top: 1px solid var(--border-subtle);
       line-height: 1.4;
@@ -2625,7 +2629,7 @@ body.ra-capture-mode-active .ra-status-hud {
     font-size: 11px !important;
   }
   .wp-step-title {
-    font-size: 10px !important;
+    font-size: 11px !important;
     letter-spacing: -0.2px !important;
   }
 
@@ -2639,7 +2643,7 @@ body.ra-capture-mode-active .ra-status-hud {
   }
   #ra-hud-pill {
     padding: 4px 10px !important;
-    font-size: 10px !important;
+    font-size: 11px !important;
     gap: 5px !important;
     border-radius: 20px !important;
   }
@@ -2648,7 +2652,7 @@ body.ra-capture-mode-active .ra-status-hud {
   }
   #ra-hud-dropdown {
     width: min(92vw, 290px) !important;
-    font-size: 10px !important;
+    font-size: 11px !important;
     padding: 10px !important;
   }
 
@@ -2663,7 +2667,7 @@ body.ra-capture-mode-active .ra-status-hud {
     z-index: var(--z-hud, 100) !important;
   }
   #ra-rosa-rumbo {
-    font-size: 10px !important;
+    font-size: 11px !important;
   }
 
   #ra-solar-fab-btn {
@@ -2958,7 +2962,7 @@ body.ra-capture-mode-active .ra-status-hud {
   background: rgba(15, 23, 42, 0.95);
   border-bottom: 2px solid rgba(51, 65, 85, 0.8);
   color: #94A3B8;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -2986,7 +2990,7 @@ body.ra-capture-mode-active .ra-status-hud {
   justify-content: center;
   gap: 5px;
   padding: 4px 9px;
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 600;
   border-radius: 5px;
   cursor: pointer;
@@ -3048,7 +3052,7 @@ body.ra-capture-mode-active .ra-status-hud {
   display: inline-block;
   padding: 2px 7px;
   border-radius: 4px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
 }
@@ -3246,4 +3250,163 @@ button.is-loading {
   font-weight: 700;
   color: var(--text-slate-300);
   font-family: var(--font-mono);
+}
+
+
+/* ==========================================================================
+   [F5-09 / F5-10] RESPONSIVE MÓVIL/PORTÁTIL, LANDMARKS, TECLADO Y TABLAS
+   ========================================================================== */
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+.skip-link {
+  position: fixed;
+  top: -100px;
+  left: 12px;
+  z-index: var(--z-toast, 700);
+  padding: 8px 14px;
+  background: #0F172A;
+  color: #F8FAFC;
+  border: 2px solid var(--focus-ring, #38BDF8);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: top 0.15s ease;
+}
+.skip-link:focus {
+  top: 12px;
+}
+#ra-main-viewport {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+/* [F5-10] Operabilidad por teclado en #ra-hud-energy y tooltips */
+#ra-hud-energy.is-open #ra-hud-dropdown,
+#ra-hud-energy:focus-within #ra-hud-dropdown {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  transform: translateX(-50%) translateY(0) !important;
+}
+.tooltip-container:focus-within .tooltip-content,
+.tooltip-container:hover .tooltip-content {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: translateY(-50%) translateX(0) !important;
+}
+.tooltip-trigger {
+  background: transparent;
+  border: none;
+  padding: 2px;
+  color: #cbd5e1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: help;
+  border-radius: 50%;
+}
+/* [F5-10] Botones ordenables dentro de <th scope="col"> */
+.th-sort-btn {
+  all: unset;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  width: 100%;
+  justify-content: inherit;
+}
+.th-sort-btn:hover { color: #38BDF8; }
+/* [F5-09] Prevención de desborde en tarjetas .stat-grid-3 */
+.stat-grid-3 .stat-pill-label {
+  font-size: 12px !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+/* [F5-09] Centrado seguro de HUDs respetando ancho real de sidebar abierto */
+@media (min-width: 769px) {
+  #ra-hud-energy {
+    left: calc(50% + (var(--sidebar-current-w, 0px) / 2)) !important;
+    max-width: calc(100vw - var(--sidebar-current-w, 0px) - 360px);
+  }
+  #ra-solar-time-hud {
+    left: calc(50% + (var(--sidebar-current-w, 0px) / 2)) !important;
+    max-width: calc(100vw - var(--sidebar-current-w, 0px) - 32px);
+  }
+}
+/* [F5-09] Compactación uniforme de las 7 herramientas flotantes en <= 1280px y <= 768px */
+@media (max-width: 1280px) {
+  #ra-floating-tools-container {
+    max-width: calc(100vw - var(--sidebar-current-w, 0px) - 96px) !important;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+  #ra-floating-tools-container::-webkit-scrollbar { display: none; }
+  #ra-floating-tools-container .floating-tool-btn {
+    flex-shrink: 0;
+    height: 40px !important;
+    padding: 0 9px !important;
+  }
+}
+@media (max-width: 768px) {
+  #ra-floating-tools-container {
+    right: 56px !important;
+    bottom: 14px !important;
+    max-width: calc(100vw - 68px) !important;
+    overflow-x: auto !important;
+    gap: 6px !important;
+  }
+  #ra-floating-tools-container .floating-tool-btn {
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+  }
+  #ra-floating-tools-container .floating-tool-btn span {
+    display: none !important;
+  }
+}
+/* [F5-09] Portátiles de poca altura (1280x720 / 1366x768) */
+@media (max-height: 780px) {
+  #ra-cad-outliner-panel,
+  .ra-cad-outliner {
+    top: 124px !important;
+    max-height: calc(100vh - 196px) !important;
+  }
+  #ra-solar-time-hud {
+    min-width: 440px !important;
+    bottom: 68px !important;
+    padding: 8px 12px !important;
+  }
+  #ra-floating-tools-container {
+    bottom: 12px !important;
+  }
+  #ra-floating-settings-btn {
+    bottom: 12px !important;
+    width: 40px !important;
+    height: 40px !important;
+  }
+  #ra-project-status-hud {
+    top: 10px !important;
+  }
+  #ra-hud-energy {
+    top: 10px !important;
+  }
 }

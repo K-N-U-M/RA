@@ -534,7 +534,7 @@ async function loadArcGIS3D() {
       return;
     }
 
-    resultsEl.innerHTML = '<div style="padding: 6px 12px; font-size: 10px; color: #94a3b8; font-weight: 700; letter-spacing: 0.5px; border-bottom: 1px solid rgba(255,255,255,0.06); display: flex; align-items: center; gap: 6px;"><span>🕒</span> BÚSQUEDAS RECIENTES</div>';
+    resultsEl.innerHTML = '<div style="padding: 6px 12px; font-size: 11px; color: #94a3b8; font-weight: 700; letter-spacing: 0.5px; border-bottom: 1px solid rgba(255,255,255,0.06); display: flex; align-items: center; gap: 6px;"><span>🕒</span> BÚSQUEDAS RECIENTES</div>';
 
     _currentSearchResults = history;
     _selectedSearchIndex = -1;

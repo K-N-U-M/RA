@@ -1215,8 +1215,8 @@
           </div>
           <div id="bom-roof-${i}" class="bom-node-children" style="display:none; padding-left:14px;">
             <div class="bom-subitem">📐 <b>Estructura:</b> ${r.structure.manufacturer ? r.structure.manufacturer + ' · ' : ''}${r.structure.type ? r.structure.type.toUpperCase() : 'ESTÁNDAR'} (${r.structure.tiltDeg}°) · <b>${r.structure.costEur} €</b></div>
-            ${r.structure.profileMeters ? `<div class="bom-subitem" style="font-size: 10px;color:#94a3b8;padding-left:12px;">• Perfil aluminio: <b>${r.structure.profileMeters} m</b> (${r.structure.standardBarsCount} barras 3.15m + ${r.structure.railSplicesCount} empalmes)</div>` : ''}
-            ${r.structure.fixingsCount ? `<div class="bom-subitem" style="font-size: 10px;color:#94a3b8;padding-left:12px;">• Fijaciones: <b>${r.structure.fixingsCount}x</b> ${r.structure.fixingsType}</div>` : ''}
+            ${r.structure.profileMeters ? `<div class="bom-subitem" style="font-size: 11px;color:#94a3b8;padding-left:12px;">• Perfil aluminio: <b>${r.structure.profileMeters} m</b> (${r.structure.standardBarsCount} barras 3.15m + ${r.structure.railSplicesCount} empalmes)</div>` : ''}
+            ${r.structure.fixingsCount ? `<div class="bom-subitem" style="font-size: 11px;color:#94a3b8;padding-left:12px;">• Fijaciones: <b>${r.structure.fixingsCount}x</b> ${r.structure.fixingsType}</div>` : ''}
             <div class="bom-subitem">🔩 <b>Grapas (Clamps):</b> ${r.clamps.midCount} intermedias + ${r.clamps.endCount} finales · <b>${r.clamps.costEur} €</b></div>
             ${r.ballast.blocksCount > 0 ? `<div class="bom-subitem">🧱 <b>Lastres hormigón:</b> ${r.ballast.blocksCount} bloques (${r.ballast.totalWeightKg} kg)</div>` : ''}
           </div>
@@ -1249,7 +1249,7 @@
         ? tree.obstacles.map(obs => `
             <div class="bom-subitem bom-interactive-item" onclick="BOMTreeEngine.flyToObstacle('${obs.id}')" style="cursor:pointer; display:flex; justify-content:space-between; align-items:center;" title="Clic para enfocar cámara">
               <span>🛑 ${obs.name} (${obs.type})</span>
-              <span style="font-size: 10px; color:#94a3b8;">${obs.dimensions}</span>
+              <span style="font-size: 11px; color:#94a3b8;">${obs.dimensions}</span>
             </div>
           `).join('')
         : '<div class="bom-subitem" style="color:var(--text-muted, #94a3b8); font-style:italic;">No hay obstáculos en la escena</div>';
@@ -1359,8 +1359,8 @@
             <div class="bom-section-title">INSTALACIÓN, INGENIERÍA & MEDIOS</div>
             ${tree.laborAndSoftCosts && tree.laborAndSoftCosts.length > 0 ? tree.laborAndSoftCosts.map(item => `
               <div class="bom-subitem" style="display:flex;justify-content:space-between;align-items:center;padding:2px 0;">
-                <span style="font-size: 10px;color:#CBD5E1;">${item.description}</span>
-                <b style="font-size: 10px;color:#F8FAFC;margin-left:6px;">${item.totalEur.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</b>
+                <span style="font-size: 11px;color:#CBD5E1;">${item.description}</span>
+                <b style="font-size: 11px;color:#F8FAFC;margin-left:6px;">${item.totalEur.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</b>
               </div>
             `).join('') : ''}
           `}
@@ -1369,7 +1369,7 @@
               <span>COSTE DIRECTO PEC (BOM + M.O.):</span>
               <span class="bom-total-price">${tree.summary.subtotalEur.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</span>
             </div>
-            ${tree.summary.municipalTaxesEur > 0 ? `<div style="display:flex;justify-content:space-between;align-items:center;font-size:9.5px;color:#94a3b8;font-weight:500;"><span>Tasas Municipales / ICIO est. (informativo):</span><span>${tree.summary.municipalTaxesEur.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</span></div>` : ''}
+            ${tree.summary.municipalTaxesEur > 0 ? `<div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#94a3b8;font-weight:500;"><span>Tasas Municipales / ICIO est. (informativo):</span><span>${tree.summary.municipalTaxesEur.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</span></div>` : ''}
           </div>
         </div>
       `;

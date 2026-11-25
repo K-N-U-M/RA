@@ -363,21 +363,21 @@
                 const s = structuresState[k];
                 const isActive = (k === currentMfg);
                 return `
-                  <button type="button" class="cat-btn ${isActive ? 'cat-btn-edit' : ''}" style="padding:4px 10px;font-size:10px;${isActive ? 'background:rgba(56,189,248,0.2);color:#38BDF8;' : 'color:#94A3B8;'}" onclick="RAStructureCatalog.setActiveManufacturer('${k}'); RAStructureCatalog.renderStructuresCatalogUI();">
+                  <button type="button" class="cat-btn ${isActive ? 'cat-btn-edit' : ''}" style="padding:4px 10px;font-size:11px;${isActive ? 'background:rgba(56,189,248,0.2);color:#38BDF8;' : 'color:#94A3B8;'}" onclick="RAStructureCatalog.setActiveManufacturer('${k}'); RAStructureCatalog.renderStructuresCatalogUI();">
                     ${s.brand}
                   </button>
                 `;
               }).join('')}
             </div>
           </div>
-          <button type="button" class="cat-btn" style="color:var(--text-slate-400);font-size:10px;" onclick="RAStructureCatalog.resetStructures()">
+          <button type="button" class="cat-btn" style="color:var(--text-slate-400);font-size:11px;" onclick="RAStructureCatalog.resetStructures()">
             ↩ Restaurar Precios Fábrica
           </button>
         </div>
 
         <div style="background:rgba(30,41,59,0.3);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:12px;margin-bottom:14px;">
           <div style="font-weight:800;font-size:12px;color:#fff;margin-bottom:2px;">${mfg.brand} (${mfg.country})</div>
-          <div style="font-size:10px;color:var(--text-slate-400);">${mfg.description}</div>
+          <div style="font-size:11px;color:var(--text-slate-400);">${mfg.description}</div>
         </div>
 
         <div class="cat-table-wrap">
@@ -498,7 +498,7 @@
           <div style="font-size:11px;font-weight:700;color:var(--text-slate-300);">
             DESGLOSE ECONÓMICO DE MANO DE OBRA, INGENIERÍA Y GASTOS DIRECTOS
           </div>
-          <button type="button" class="cat-btn" style="color:var(--text-slate-400);font-size:10px;" onclick="RAStructureCatalog.resetInstallationCosts()">
+          <button type="button" class="cat-btn" style="color:var(--text-slate-400);font-size:11px;" onclick="RAStructureCatalog.resetInstallationCosts()">
             ↩ Restaurar Valores Fábrica
           </button>
         </div>
@@ -511,25 +511,25 @@
               <span style="font-weight:800;font-size:11.5px;color:#38BDF8;">👷 Mano de Obra Especialista</span>
               <span class="cat-badge cat-badge-cyan">${laborTotal.toFixed(2)} €</span>
             </div>
-            <div style="display:flex;flex-direction:column;gap:8px;font-size:10.5px;">
+            <div style="display:flex;flex-direction:column;gap:8px;font-size:11px;">
               <div style="display:flex;justify-content:space-between;align-items:center;">
                 <span style="color:var(--text-slate-300);">Montaje mecánico estructura:</span>
                 <div style="display:flex;align-items:center;gap:6px;">
-                  <span style="font-size:10.5px;color:#fff;font-weight:600;">${costs.labor.mechanicalHoursPerPanel} h/mód</span>
+                  <span style="font-size:11px;color:#fff;font-weight:600;">${costs.labor.mechanicalHoursPerPanel} h/mód</span>
                   <button class="cat-btn cat-btn-edit" onclick="if(window.openEditEquipmentModal) window.openEditEquipmentModal('installation_costs', 'labor.mechanicalHoursPerPanel');"><i data-lucide="edit-2" class="icon-sm"></i></button>
                 </div>
               </div>
               <div style="display:flex;justify-content:space-between;align-items:center;">
                 <span style="color:var(--text-slate-300);">Conexionado eléctrico DC/AC:</span>
                 <div style="display:flex;align-items:center;gap:6px;">
-                  <span style="font-size:10.5px;color:#fff;font-weight:600;">${costs.labor.electricalHoursPerPanel} h/mód</span>
+                  <span style="font-size:11px;color:#fff;font-weight:600;">${costs.labor.electricalHoursPerPanel} h/mód</span>
                   <button class="cat-btn cat-btn-edit" onclick="if(window.openEditEquipmentModal) window.openEditEquipmentModal('installation_costs', 'labor.electricalHoursPerPanel');"><i data-lucide="edit-2" class="icon-sm"></i></button>
                 </div>
               </div>
               <div style="display:flex;justify-content:space-between;align-items:center;">
                 <span style="color:var(--text-slate-300);">Puesta en marcha y verificación:</span>
                 <div style="display:flex;align-items:center;gap:6px;">
-                  <span style="font-size:10.5px;color:#fff;font-weight:600;">${costs.labor.commissioningHoursFixed} h fijas</span>
+                  <span style="font-size:11px;color:#fff;font-weight:600;">${costs.labor.commissioningHoursFixed} h fijas</span>
                   <button class="cat-btn cat-btn-edit" onclick="if(window.openEditEquipmentModal) window.openEditEquipmentModal('installation_costs', 'labor.commissioningHoursFixed');"><i data-lucide="edit-2" class="icon-sm"></i></button>
                 </div>
               </div>
@@ -549,25 +549,25 @@
               <span style="font-weight:800;font-size:11.5px;color:#A78BFA;">📐 Ingeniería y Legalización</span>
               <span class="cat-badge cat-badge-purple">${engTotal.toFixed(2)} €</span>
             </div>
-            <div style="display:flex;flex-direction:column;gap:8px;font-size:10.5px;">
+            <div style="display:flex;flex-direction:column;gap:8px;font-size:11px;">
               <div style="display:flex;justify-content:space-between;align-items:center;">
                 <span style="color:var(--text-slate-300);">Memoria Técnica / Proyecto visado:</span>
                 <div style="display:flex;align-items:center;gap:6px;">
-                  <span style="font-size:10.5px;color:#fff;font-weight:600;">${costs.engineering.technicalProject.toFixed(2)} €</span>
+                  <span style="font-size:11px;color:#fff;font-weight:600;">${costs.engineering.technicalProject.toFixed(2)} €</span>
                   <button class="cat-btn cat-btn-edit" onclick="if(window.openEditEquipmentModal) window.openEditEquipmentModal('installation_costs', 'engineering.technicalProject');"><i data-lucide="edit-2" class="icon-sm"></i></button>
                 </div>
               </div>
               <div style="display:flex;justify-content:space-between;align-items:center;">
                 <span style="color:var(--text-slate-300);">Dirección facultativa de obra:</span>
                 <div style="display:flex;align-items:center;gap:6px;">
-                  <span style="font-size:10.5px;color:#fff;font-weight:600;">${costs.engineering.siteSupervision.toFixed(2)} €</span>
+                  <span style="font-size:11px;color:#fff;font-weight:600;">${costs.engineering.siteSupervision.toFixed(2)} €</span>
                   <button class="cat-btn cat-btn-edit" onclick="if(window.openEditEquipmentModal) window.openEditEquipmentModal('installation_costs', 'engineering.siteSupervision');"><i data-lucide="edit-2" class="icon-sm"></i></button>
                 </div>
               </div>
               <div style="display:flex;justify-content:space-between;align-items:center;">
                 <span style="color:var(--text-slate-300);">Tramitación y Boletín CIE:</span>
                 <div style="display:flex;align-items:center;gap:6px;">
-                  <span style="font-size:10.5px;color:#fff;font-weight:600;">${costs.engineering.adminCIE.toFixed(2)} €</span>
+                  <span style="font-size:11px;color:#fff;font-weight:600;">${costs.engineering.adminCIE.toFixed(2)} €</span>
                   <button class="cat-btn cat-btn-edit" onclick="if(window.openEditEquipmentModal) window.openEditEquipmentModal('installation_costs', 'engineering.adminCIE');"><i data-lucide="edit-2" class="icon-sm"></i></button>
                 </div>
               </div>
@@ -580,25 +580,25 @@
               <span style="font-weight:800;font-size:11.5px;color:#F59E0B;">🏛️ Permisos y Tasas Municipales</span>
               <span class="cat-badge cat-badge-amber">${permitsTotal.toFixed(2)} €</span>
             </div>
-            <div style="display:flex;flex-direction:column;gap:8px;font-size:10.5px;">
+            <div style="display:flex;flex-direction:column;gap:8px;font-size:11px;">
               <div style="display:flex;justify-content:space-between;align-items:center;">
                 <span style="color:var(--text-slate-300);">Comunicación previa / Tasa urbanística:</span>
                 <div style="display:flex;align-items:center;gap:6px;">
-                  <span style="font-size:10.5px;color:#fff;font-weight:600;">${costs.permits.urbanPermitFixed.toFixed(2)} €</span>
+                  <span style="font-size:11px;color:#fff;font-weight:600;">${costs.permits.urbanPermitFixed.toFixed(2)} €</span>
                   <button class="cat-btn cat-btn-edit" onclick="if(window.openEditEquipmentModal) window.openEditEquipmentModal('installation_costs', 'permits.urbanPermitFixed');"><i data-lucide="edit-2" class="icon-sm"></i></button>
                 </div>
               </div>
               <div style="display:flex;justify-content:space-between;align-items:center;">
                 <span style="color:var(--text-slate-300);">Fianza de gestión de residuos:</span>
                 <div style="display:flex;align-items:center;gap:6px;">
-                  <span style="font-size:10.5px;color:#fff;font-weight:600;">${costs.permits.wasteDeposit.toFixed(2)} €</span>
+                  <span style="font-size:11px;color:#fff;font-weight:600;">${costs.permits.wasteDeposit.toFixed(2)} €</span>
                   <button class="cat-btn cat-btn-edit" onclick="if(window.openEditEquipmentModal) window.openEditEquipmentModal('installation_costs', 'permits.wasteDeposit');"><i data-lucide="edit-2" class="icon-sm"></i></button>
                 </div>
               </div>
               <div style="display:flex;justify-content:space-between;align-items:center;">
                 <span style="color:var(--text-slate-300);">Impuesto ICIO (% sobre PEM):</span>
                 <div style="display:flex;align-items:center;gap:6px;">
-                  <span style="font-size:10.5px;color:#fff;font-weight:600;">${costs.permits.urbanPermitRatePct.toFixed(2)} %</span>
+                  <span style="font-size:11px;color:#fff;font-weight:600;">${costs.permits.urbanPermitRatePct.toFixed(2)} %</span>
                   <button class="cat-btn cat-btn-edit" onclick="if(window.openEditEquipmentModal) window.openEditEquipmentModal('installation_costs', 'permits.urbanPermitRatePct');"><i data-lucide="edit-2" class="icon-sm"></i></button>
                 </div>
               </div>
@@ -611,25 +611,25 @@
               <span style="font-weight:800;font-size:11.5px;color:#10B981;">🦺 Seguridad y Pequeño Material</span>
               <span class="cat-badge cat-badge-emerald">${(auxTotal + smallMatTotal).toFixed(2)} €</span>
             </div>
-            <div style="display:flex;flex-direction:column;gap:8px;font-size:10.5px;">
+            <div style="display:flex;flex-direction:column;gap:8px;font-size:11px;">
               <div style="display:flex;justify-content:space-between;align-items:center;">
                 <span style="color:var(--text-slate-300);">Línea de vida provisional y EPIs:</span>
                 <div style="display:flex;align-items:center;gap:6px;">
-                  <span style="font-size:10.5px;color:#fff;font-weight:600;">${costs.auxiliary.lifelineSafety.toFixed(2)} €</span>
+                  <span style="font-size:11px;color:#fff;font-weight:600;">${costs.auxiliary.lifelineSafety.toFixed(2)} €</span>
                   <button class="cat-btn cat-btn-edit" onclick="if(window.openEditEquipmentModal) window.openEditEquipmentModal('installation_costs', 'auxiliary.lifelineSafety');"><i data-lucide="edit-2" class="icon-sm"></i></button>
                 </div>
               </div>
               <div style="display:flex;justify-content:space-between;align-items:center;">
                 <span style="color:var(--text-slate-300);">Medios auxiliares (andamio / elevador):</span>
                 <div style="display:flex;align-items:center;gap:6px;">
-                  <span style="font-size:10.5px;color:#fff;font-weight:600;">${costs.auxiliary.scaffoldingLift.toFixed(2)} €</span>
+                  <span style="font-size:11px;color:#fff;font-weight:600;">${costs.auxiliary.scaffoldingLift.toFixed(2)} €</span>
                   <button class="cat-btn cat-btn-edit" onclick="if(window.openEditEquipmentModal) window.openEditEquipmentModal('installation_costs', 'auxiliary.scaffoldingLift');"><i data-lucide="edit-2" class="icon-sm"></i></button>
                 </div>
               </div>
               <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px dashed rgba(255,255,255,0.1);padding-top:6px;">
                 <span style="color:var(--text-slate-300);">Pequeño material eléctrico (${totalPanels} mód.):</span>
                 <div style="display:flex;align-items:center;gap:6px;">
-                  <span style="font-size:10.5px;color:#fff;font-weight:600;">${costs.smallMaterials.perPanelSmallMaterials.toFixed(2)} €/mód</span>
+                  <span style="font-size:11px;color:#fff;font-weight:600;">${costs.smallMaterials.perPanelSmallMaterials.toFixed(2)} €/mód</span>
                   <button class="cat-btn cat-btn-edit" onclick="if(window.openEditEquipmentModal) window.openEditEquipmentModal('installation_costs', 'smallMaterials.perPanelSmallMaterials');"><i data-lucide="edit-2" class="icon-sm"></i></button>
                 </div>
               </div>

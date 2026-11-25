@@ -144,7 +144,7 @@ function _wpCompararEscenariosCore() {
       <td style="padding:5px 6px;text-align:right;color:var(--text-slate-300);">${s.tirString || (s.tir != null ? s.tir.toFixed(1) + '%' : 'N/D')}</td>
     </tr>`;
   container.innerHTML = `
-    <table style="width:100%;border-collapse:collapse;font-size: 10px;">
+    <table style="width:100%;border-collapse:collapse;font-size: 11px;">
       <thead><tr style="color:var(--text-slate-400);border-bottom:1px solid rgba(255,255,255,0.12);">
         <th style="text-align:left;padding:4px 6px;">Escenario</th>
         <th style="text-align:right;padding:4px 6px;">kWh/año</th>
@@ -156,7 +156,7 @@ function _wpCompararEscenariosCore() {
       </tr></thead>
       <tbody>${scenarios.map(s => fila(s, s === mejor)).join('')}</tbody>
     </table>
-    <div style="font-size: 10px;color:#64748b;margin-top:5px;">
+    <div style="font-size: 11px;color:#64748b;margin-top:5px;">
       ★ mejor VAN. CAPEX = equipamiento de catálogo + instalación fija. Ahorro escalado del modelo financiero por kWh producido. TIR a 25 años con degradación 0,45%/año.
     </div>`;
   container.style.display = 'block';
@@ -207,7 +207,7 @@ function raRenderLossFields() {
       '<input type="number" min="0" max="30" step="0.1" value="' + pct.toFixed(1) + '" ' +
         'oninput="raSetLossUI(\'' + f.key + '\', this.value, true)" ' +
         'onchange="raSetLossUI(\'' + f.key + '\', this.value, false)" ' +
-        'style="width:52px;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.15);border-radius:4px;color:#FBBF24;font-size: 10px;padding:2px 4px;text-align:right;"> %</div>';
+        'style="width:52px;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.15);border-radius:4px;color:#FBBF24;font-size: 11px;padding:2px 4px;text-align:right;"> %</div>';
   }).join('');
   const total = RA_LOSS_FIELDS.reduce((s, f) => s + (window.solarLossConfig[f.key] || 0), 0);
   const totalEl = document.getElementById('loss-total-pct');

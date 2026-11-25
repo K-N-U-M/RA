@@ -190,13 +190,13 @@
           transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
         ">
           <!-- Fila de Ubicación, Estado de Sombra y Botón de Minimizar [H] -->
-          <div id="ra-hud-location-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 4px;">
+          <div id="ra-hud-location-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 11px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 4px;">
             <div style="display: flex; align-items: center; gap: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
               <span style="color: #38BDF8;">📍</span>
               <span id="ra-hud-location-text" style="font-weight: 600; color: #cbd5e1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px;">Ubicación: —</span>
             </div>
             <div style="display: flex; align-items: center; gap: 6px;">
-              <div id="ra-hud-shadow-badge" style="font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 4px; background: rgba(56, 189, 248, 0.15); color: #38BDF8; white-space: nowrap;">
+              <div id="ra-hud-shadow-badge" style="font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 4px; background: rgba(56, 189, 248, 0.15); color: #38BDF8; white-space: nowrap;">
                 🌤️ Preliminar
               </div>
               <button id="ra-hud-toggle-btn" type="button" title="Minimizar HUD [H]" style="
@@ -205,7 +205,7 @@
                 color: #cbd5e1;
                 cursor: pointer;
                 border-radius: 4px;
-                font-size: 10px;
+                font-size: 11px;
                 font-weight: 800;
                 padding: 1px 5px;
                 line-height: 1.2;
@@ -215,7 +215,7 @@
                 transition: background 0.15s ease, color 0.15s ease;
               ">
                 <span id="ra-hud-toggle-icon">−</span>
-                <span style="font-size: 10px; color: #94a3b8; font-family: monospace;">[H]</span>
+                <span style="font-size: 11px; color: #94a3b8; font-family: monospace;">[H]</span>
               </button>
             </div>
           </div>
@@ -226,18 +226,18 @@
               <div style="width: 8px; height: 8px; border-radius: 50%; background: #10B981; box-shadow: 0 0 8px #10B981;" id="ra-hud-status-dot"></div>
               <div>
                 <div style="font-size: 11.5px; font-weight: 900; letter-spacing: 0.3px; color: #f8fafc;" id="ra-hud-kwp-text">0.00 kWp</div>
-                <div style="font-size: 10px; color: #94a3b8;" id="ra-hud-sub-text">0 paneles · Sin inversor</div>
-                <div style="font-size: 10px; font-weight: 700;" id="ra-hud-ratio-badge">Ratio DC/AC —</div>
+                <div style="font-size: 11px; color: #94a3b8;" id="ra-hud-sub-text">0 paneles · Sin inversor</div>
+                <div style="font-size: 11px; font-weight: 700;" id="ra-hud-ratio-badge">Ratio DC/AC —</div>
               </div>
             </div>
                         <div id="ra-hud-energy-breakdown" style="text-align: right; display: flex; flex-direction: column; gap: 1px;">
-              <div id="ra-hud-row-1" style="font-size: 10px; color: #94a3b8; font-family: monospace;">
+              <div id="ra-hud-row-1" style="font-size: 11px; color: #94a3b8; font-family: monospace;">
                 Teórico: <span id="ra-hud-theo-energy" style="color: #cbd5e1; font-weight: 700;">— kWh/a</span>
               </div>
               <div id="ra-hud-row-2" style="font-size: 11px; font-weight: 800; font-family: monospace; color: #38BDF8;">
                 Neto 3D: <span id="ra-hud-energy-text">— kWh/año</span>
               </div>
-              <div id="ra-hud-shadow-detail" style="font-size: 10px; font-weight: 600; color: #94a3b8;">
+              <div id="ra-hud-shadow-detail" style="font-size: 11px; font-weight: 600; color: #94a3b8;">
                 Sin simulación
               </div>
             </div>
@@ -247,7 +247,7 @@
             <div style="display: flex; align-items: center; gap: 6px;">
               <div style="width: 7px; height: 7px; border-radius: 50%; background: #10B981; box-shadow: 0 0 6px #10B981;" id="ra-hud-compact-dot"></div>
               <span id="ra-hud-compact-kwp" style="color: #f8fafc; font-family: monospace; font-size: 11.5px;">0.00 kWp</span>
-              <span id="ra-hud-compact-panels" style="color: #94a3b8; font-size: 10px; font-weight: 600;">(0 pnl)</span>
+              <span id="ra-hud-compact-panels" style="color: #94a3b8; font-size: 11px; font-weight: 600;">(0 pnl)</span>
               <span id="ra-hud-compact-alert" style="display: none; font-size: 11px; cursor: help;" title="">⚠️</span>
             </div>
             <button id="ra-hud-expand-btn" type="button" title="Expandir HUD [H]" style="
@@ -256,7 +256,7 @@
               color: #cbd5e1;
               cursor: pointer;
               border-radius: 4px;
-              font-size: 10px;
+              font-size: 11px;
               font-weight: 800;
               padding: 1px 5px;
               line-height: 1.2;
@@ -266,7 +266,7 @@
               transition: background 0.15s ease, color 0.15s ease;
             ">
               <span>+</span>
-              <span style="font-size: 10px; color: #94a3b8; font-family: monospace;">[H]</span>
+              <span style="font-size: 11px; color: #94a3b8; font-family: monospace;">[H]</span>
             </button>
           </div>
         </div>
@@ -278,7 +278,7 @@
           border-radius: 8px;
           padding: 6px 10px;
           color: #fff;
-          font-size: 10px;
+          font-size: 11px;
           font-weight: 700;
           box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
           align-items: center;

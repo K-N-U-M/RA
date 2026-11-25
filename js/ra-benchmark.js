@@ -75,13 +75,13 @@
           cursor: grab;
           transition: border-color 0.2s, box-shadow 0.2s;
         " title="⠿ Arrastra para mover a cualquier parte / Clic para detalles [B]">
-          <span style="color:#64748b;font-size:10px;cursor:grab;" title="Tirador de arrastre">⠿</span>
+          <span style="color:#64748b;font-size:11px;cursor:grab;" title="Tirador de arrastre">⠿</span>
           <span style="color:#38bdf8;font-weight:bold;">⚡</span>
           <span id="ra-bm-fps" style="font-weight:bold;color:#4ade80;">60 FPS</span>
           <span style="color:#64748b;">·</span>
           <span id="ra-bm-frametime" style="color:#94a3b8;">0.0 ms</span>
           <span style="color:#64748b;">·</span>
-          <span id="ra-bm-state" style="padding:1px 6px;border-radius:4px;font-size: 10px;background:rgba(56,189,248,0.15);color:#38bdf8;font-weight:bold;">💤 SLEEP (0% GPU)</span>
+          <span id="ra-bm-state" style="padding:1px 6px;border-radius:4px;font-size: 11px;background:rgba(56,189,248,0.15);color:#38bdf8;font-weight:bold;">💤 SLEEP (0% GPU)</span>
           <span style="color:#64748b;">·</span>
           <span id="ra-bm-mem" style="color:#cbd5e1;">-- MB</span>
         </div>
@@ -102,17 +102,17 @@
         ">
           <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:6px;">
             <span style="font-weight:bold;color:#38bdf8;font-size:11px;">TELEMETRÍA HIPERESPACIAL</span>
-            <span style="font-size:10px;color:#94a3b8;" id="ra-bm-panels-count">0 placas</span>
+            <span style="font-size:11px;color:#94a3b8;" id="ra-bm-panels-count">0 placas</span>
           </div>
 
-          <div style="display:flex;justify-content:space-between;font-size:10px;">
+          <div style="display:flex;justify-content:space-between;font-size:11px;">
             <span style="color:#94a3b8;">Motor gráfico:</span>
             <span id="ra-bm-draw-mode" style="color:#34d399;font-weight:bold;">ON-DEMAND (PINTOR PEREZOSO)</span>
           </div>
 
           <!-- Historial gráfico de FPS -->
           <div style="margin-top:4px;">
-            <div style="display:flex;justify-content:space-between;font-size: 10px;color:#64748b;margin-bottom:2px;">
+            <div style="display:flex;justify-content:space-between;font-size: 11px;color:#64748b;margin-bottom:2px;">
               <span>ESTABILIDAD DE FRAMES (30 MUESTRAS)</span>
               <span id="ra-bm-fps-avg">60 FPS</span>
             </div>
@@ -127,7 +127,7 @@
               border: none;
               color: white;
               font-weight: bold;
-              font-size: 10px;
+              font-size: 11px;
               padding: 7px;
               border-radius: 6px;
               cursor: pointer;
@@ -137,7 +137,7 @@
               background: rgba(255,255,255,0.08);
               border: 1px solid rgba(255,255,255,0.15);
               color: #94a3b8;
-              font-size: 10px;
+              font-size: 11px;
               padding: 7px 10px;
               border-radius: 6px;
               cursor: pointer;

@@ -1005,10 +1005,10 @@
 
     const brushBannerHtml = _brushString ? `
       <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:7px;padding:6px 8px;background:rgba(56,189,248,0.16);border:1px solid #38BDF8;border-radius:5px;">
-        <span style="font-size:9px;font-weight:800;color:#E0F2FE;">
+        <span style="font-size:11px;font-weight:800;color:#E0F2FE;">
           🖌️ Pincel 3D en <b>${escapeHtml(_brushString)}</b>: haz clic en las placas 3D
         </span>
-        <button type="button" data-action="stop-brush" style="padding:2px 7px;border-radius:4px;font-size:8.5px;font-weight:900;cursor:pointer;background:#0F172A;border:1px solid #38BDF8;color:#38BDF8;">
+        <button type="button" data-action="stop-brush" style="padding:2px 7px;border-radius:4px;font-size:11px;font-weight:900;cursor:pointer;background:#0F172A;border:1px solid #38BDF8;color:#38BDF8;">
           Finalizar (Esc)
         </button>
       </div>
@@ -1018,12 +1018,12 @@
     const actionBarHtml = showActionBar ? `
       <div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin-bottom:7px;padding:5px 7px;background:rgba(15,23,42,0.85);border:1px solid rgba(255,255,255,0.08);border-radius:5px;">
         ${_selectedStrings.size >= 2 ? `
-          <button type="button" data-action="merge-selected" style="padding:3px 8px;border-radius:4px;font-size:9px;font-weight:800;cursor:pointer;background:rgba(16,185,129,0.2);border:1px solid #10B981;color:#34D399;">
+          <button type="button" data-action="merge-selected" style="padding:3px 8px;border-radius:4px;font-size:11px;font-weight:800;cursor:pointer;background:rgba(16,185,129,0.2);border:1px solid #10B981;color:#34D399;">
             🔗 Unir ${_selectedStrings.size} seleccionadas (${selectedModCount} mod)
           </button>
-        ` : `<span style="font-size:8.5px;color:#94A3B8;">Marca 2+ casillas para fusionar entre faldones</span>`}
+        ` : `<span style="font-size:11px;color:#94A3B8;">Marca 2+ casillas para fusionar entre faldones</span>`}
         ${mc.customStrings.length > 0 ? `
-          <button type="button" data-action="clear-custom" style="margin-left:auto;padding:3px 7px;border-radius:4px;font-size:8.5px;font-weight:800;cursor:pointer;background:rgba(244,63,94,0.12);border:1px solid rgba(244,63,94,0.4);color:#FDA4AF;">
+          <button type="button" data-action="clear-custom" style="margin-left:auto;padding:3px 7px;border-radius:4px;font-size:11px;font-weight:800;cursor:pointer;background:rgba(244,63,94,0.12);border:1px solid rgba(244,63,94,0.4);color:#FDA4AF;">
             ↩️ Restaurar partición
           </button>
         ` : ''}
@@ -1044,7 +1044,7 @@
         const capColor = bucket.filter(s => s.count > 0).length > hw.inputsPerMppt ? '#EF4444' : '#94A3B8';
 
         const stringsHtml = bucket.length === 0
-          ? `<div style="font-size:8.5px;color:#64748B;font-style:italic;padding:3px 0;">Arrastra aquí un string o pulsa + String</div>`
+          ? `<div style="font-size:11px;color:#64748B;font-style:italic;padding:3px 0;">Arrastra aquí un string o pulsa + String</div>`
           : bucket.map(s => {
             const isChecked = _selectedStrings.has(s.name);
             const isBrushingThis = (_brushString === s.name);
@@ -1069,14 +1069,14 @@
 
             const splitEditorHtml = isSplitting ? `
               <div class="ra-mppt-inline-editor" data-split-box="${escapeHtml(s.name)}" style="margin-top:4px;padding:5px 6px;background:rgba(2,6,23,0.9);border:1px solid rgba(56,189,248,0.35);border-radius:4px;">
-                <div style="display:flex;justify-content:space-between;font-size:8.5px;color:#E2E8F0;margin-bottom:3px;">
+                <div style="display:flex;justify-content:space-between;font-size:11px;color:#E2E8F0;margin-bottom:3px;">
                   <span>Punto de corte:</span>
                   <b data-role="split-preview">A: ${_splitEditorCount}m · B: ${s.count - _splitEditorCount}m</b>
                 </div>
                 <input type="range" min="1" max="${s.count - 1}" value="${_splitEditorCount}" data-action="split-range" data-string="${escapeHtml(s.name)}" data-total="${s.count}" style="width:100%;accent-color:#38BDF8;cursor:pointer;" />
                 <div style="display:flex;gap:4px;margin-top:4px;">
-                  <button type="button" data-action="confirm-split" data-string="${escapeHtml(s.name)}" style="flex:1;padding:2px 6px;border-radius:3px;font-size:8.5px;font-weight:800;cursor:pointer;background:rgba(16,185,129,0.2);border:1px solid #10B981;color:#34D399;">Dividir</button>
-                  <button type="button" data-action="cancel-split" style="padding:2px 6px;border-radius:3px;font-size:8.5px;font-weight:800;cursor:pointer;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);color:#CBD5E1;">✕</button>
+                  <button type="button" data-action="confirm-split" data-string="${escapeHtml(s.name)}" style="flex:1;padding:2px 6px;border-radius:3px;font-size:11px;font-weight:800;cursor:pointer;background:rgba(16,185,129,0.2);border:1px solid #10B981;color:#34D399;">Dividir</button>
+                  <button type="button" data-action="cancel-split" style="padding:2px 6px;border-radius:3px;font-size:11px;font-weight:800;cursor:pointer;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);color:#CBD5E1;">✕</button>
                 </div>
               </div>
             ` : '';
@@ -1085,15 +1085,15 @@
             const renameEditorHtml = isRenaming ? `
               <div class="ra-mppt-inline-editor" data-rename-box="${escapeHtml(s.name)}" style="display:flex;align-items:center;gap:4px;margin-top:4px;padding:4px 6px;background:rgba(2,6,23,0.9);border:1px solid rgba(245,158,11,0.35);border-radius:4px;">
                 <input type="color" data-role="color-input" data-string="${escapeHtml(s.name)}" value="${safeHex}" title="Color del string" style="width:22px;height:20px;border:none;background:transparent;padding:0;cursor:pointer;" />
-                <input type="text" data-role="rename-input" data-string="${escapeHtml(s.name)}" value="${escapeHtml(renameVal)}" maxlength="16" style="flex:1;min-width:0;background:#0F172A;color:#F8FAFC;border:1px solid rgba(255,255,255,0.2);border-radius:3px;font-size:9px;padding:2px 5px;" />
-                <button type="button" data-action="confirm-rename" data-string="${escapeHtml(s.name)}" style="padding:2px 6px;border-radius:3px;font-size:8.5px;font-weight:800;cursor:pointer;background:rgba(16,185,129,0.2);border:1px solid #10B981;color:#34D399;">OK</button>
-                <button type="button" data-action="cancel-rename" style="padding:2px 5px;border-radius:3px;font-size:8.5px;font-weight:800;cursor:pointer;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);color:#CBD5E1;">✕</button>
+                <input type="text" data-role="rename-input" data-string="${escapeHtml(s.name)}" value="${escapeHtml(renameVal)}" maxlength="16" style="flex:1;min-width:0;background:#0F172A;color:#F8FAFC;border:1px solid rgba(255,255,255,0.2);border-radius:3px;font-size:11px;padding:2px 5px;" />
+                <button type="button" data-action="confirm-rename" data-string="${escapeHtml(s.name)}" style="padding:2px 6px;border-radius:3px;font-size:11px;font-weight:800;cursor:pointer;background:rgba(16,185,129,0.2);border:1px solid #10B981;color:#34D399;">OK</button>
+                <button type="button" data-action="cancel-rename" style="padding:2px 5px;border-radius:3px;font-size:11px;font-weight:800;cursor:pointer;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);color:#CBD5E1;">✕</button>
               </div>
             ` : '';
 
             return `
               <div class="ra-mppt-string-pill" draggable="true" data-string="${escapeHtml(s.name)}" data-color="${escapeHtml(safeHex)}"
-                   style="padding:4px 5px;background:rgba(15,23,42,0.92);border:1px solid ${isBrushingThis ? '#38BDF8' : 'rgba(255,255,255,0.1)'};border-left:3px solid ${escapeHtml(safeHex)};border-radius:4px;cursor:grab;font-size:9px;margin-top:3px;">
+                   style="padding:4px 5px;background:rgba(15,23,42,0.92);border:1px solid ${isBrushingThis ? '#38BDF8' : 'rgba(255,255,255,0.1)'};border-left:3px solid ${escapeHtml(safeHex)};border-radius:4px;cursor:grab;font-size:11px;margin-top:3px;">
                 <div style="display:flex;align-items:center;gap:4px;">
                   ${s.count > 0 ? `
                     <input type="checkbox" data-action="toggle-select" data-string="${escapeHtml(s.name)}" ${isChecked ? 'checked' : ''}
@@ -1103,35 +1103,35 @@
                   <div style="flex:1;min-width:0;">
                     <div style="display:flex;align-items:center;gap:4px;font-weight:800;color:#F1F5F9;flex-wrap:wrap;">
                       <span>${escapeHtml(s.name)}</span>
-                      <span style="background:rgba(255,255,255,0.08);padding:0 4px;border-radius:3px;font-size:8px;color:#CBD5E1;">${s.count}m · ${s.kwp.toFixed(1)}kW</span>
-                      <span style="color:#FBBF24;font-size:8px;">${escapeHtml(s.roofLabel)}</span>
+                      <span style="background:rgba(255,255,255,0.08);padding:0 4px;border-radius:3px;font-size:11px;color:#CBD5E1;">${s.count}m · ${s.kwp.toFixed(1)}kW</span>
+                      <span style="color:#FBBF24;font-size:11px;">${escapeHtml(s.roofLabel)}</span>
                     </div>
-                    <div style="font-size:8px;color:#94A3B8;">
+                    <div style="font-size:11px;color:#94A3B8;">
                       ${s.count > 0 ? `${tiltStr}° incl · ${azStr}° az${s.mixedOrientation ? ' · mixta' : ''}${s.reversed ? ' · INV' : ''}` : 'Haz clic en módulos 3D para poblar'}
                     </div>
                   </div>
                   <select data-action="move-select" data-string="${escapeHtml(s.name)}" title="Mover a otro MPPT / Inversor"
-                          style="background:#020617;color:#CBD5E1;border:1px solid rgba(255,255,255,0.14);border-radius:3px;font-size:8px;padding:2px 2px;max-width:74px;cursor:pointer;">
+                          style="background:#020617;color:#CBD5E1;border:1px solid rgba(255,255,255,0.14);border-radius:3px;font-size:11px;padding:2px 2px;max-width:74px;cursor:pointer;">
                     ${selOpts}
                   </select>
                 </div>
                 <div style="display:flex;align-items:center;gap:3px;margin-top:4px;padding-top:3px;border-top:1px dashed rgba(255,255,255,0.07);">
                   <button type="button" data-action="toggle-brush" data-string="${escapeHtml(s.name)}" title="Pintar módulos en el mapa 3D hacia este string"
-                          style="padding:1px 5px;border-radius:3px;font-size:8.5px;cursor:pointer;${brushBtnStyle}">🖌️</button>
+                          style="padding:1px 5px;border-radius:3px;font-size:11px;cursor:pointer;${brushBtnStyle}">🖌️</button>
                   <button type="button" data-action="open-rename" data-string="${escapeHtml(s.name)}" title="Renombrar y cambiar color"
-                          style="padding:1px 5px;border-radius:3px;font-size:8.5px;cursor:pointer;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);color:#CBD5E1;">✏️</button>
+                          style="padding:1px 5px;border-radius:3px;font-size:11px;cursor:pointer;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);color:#CBD5E1;">✏️</button>
                   ${s.count > 0 ? `
                     <button type="button" data-action="reverse-string" data-string="${escapeHtml(s.name)}" title="Invertir polaridad [+ IN] ↔ [- OUT]"
-                            style="padding:1px 5px;border-radius:3px;font-size:8.5px;cursor:pointer;${revBtnStyle}">⇄</button>
+                            style="padding:1px 5px;border-radius:3px;font-size:11px;cursor:pointer;${revBtnStyle}">⇄</button>
                     <button type="button" data-action="toggle-mlpe" data-string="${escapeHtml(s.name)}" title="Activar/desactivar optimizador por string"
-                            style="padding:1px 5px;border-radius:3px;font-size:8.5px;cursor:pointer;${mlpeBtnStyle}">⚡${s.hasMLPE ? ' MLPE' : ''}</button>
+                            style="padding:1px 5px;border-radius:3px;font-size:11px;cursor:pointer;${mlpeBtnStyle}">⚡${s.hasMLPE ? ' MLPE' : ''}</button>
                   ` : `
                     <button type="button" data-action="delete-empty" data-string="${escapeHtml(s.name)}" title="Eliminar string vacío"
-                            style="margin-left:auto;padding:1px 5px;border-radius:3px;font-size:8.5px;cursor:pointer;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.35);color:#FCA5A5;">🗑️</button>
+                            style="margin-left:auto;padding:1px 5px;border-radius:3px;font-size:11px;cursor:pointer;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.35);color:#FCA5A5;">🗑️</button>
                   `}
                   ${s.count >= 2 ? `
                     <button type="button" data-action="open-split" data-string="${escapeHtml(s.name)}" title="Dividir string eligiendo módulo exacto"
-                            style="margin-left:auto;padding:1px 5px;border-radius:3px;font-size:8.5px;cursor:pointer;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.3);color:#38BDF8;">✂️</button>
+                            style="margin-left:auto;padding:1px 5px;border-radius:3px;font-size:11px;cursor:pointer;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.3);color:#38BDF8;">✂️</button>
                   ` : ''}
                 </div>
                 ${splitEditorHtml}
@@ -1141,20 +1141,20 @@
           }).join('');
 
         const telemetryHtml = health.vocColdMax > 0 ? `
-          <span style="font-size:8px;color:#94A3B8;font-family:monospace;">
+          <span style="font-size:11px;color:#94A3B8;font-family:monospace;">
             ${health.vocColdMax.toFixed(0)}V/${health.vmpHotMin.toFixed(0)}V · ${health.impTotal.toFixed(1)}A
           </span>
         ` : '';
 
         const issuesHtml = health.issues.length > 0 ? `
-          <div style="margin-top:3px;font-size:8px;color:${health.color};line-height:1.3;font-weight:700;">
+          <div style="margin-top:3px;font-size:11px;color:${health.color};line-height:1.3;font-weight:700;">
             ${health.issues.map(msg => `• ${escapeHtml(msg)}`).join('<br>')}
           </div>
         ` : '';
 
         const eqBtnHtml = health.canEqualize ? `
           <button type="button" data-action="equalize-mppt" data-mppt="${gMppt}" title="Igualar número de módulos entre los strings paralelos de este MPPT"
-                  style="padding:1px 5px;border-radius:3px;font-size:8px;font-weight:800;cursor:pointer;background:rgba(245,158,11,0.18);border:1px solid #F59E0B;color:#FBBF24;">
+                  style="padding:1px 5px;border-radius:3px;font-size:11px;font-weight:800;cursor:pointer;background:rgba(245,158,11,0.18);border:1px solid #F59E0B;color:#FBBF24;">
             ⚖️ Igualar
           </button>
         ` : '';
@@ -1164,17 +1164,17 @@
                style="background:rgba(2,6,23,0.65);border:1px dashed ${health.level === 'red' ? '#EF4444' : (health.level === 'amber' ? '#F59E0B' : 'rgba(148,163,184,0.28)')};border-radius:5px;padding:5px 6px;margin-top:5px;transition:border-color 0.15s, background 0.15s;">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;flex-wrap:wrap;">
               <div style="display:flex;align-items:center;gap:4px;">
-                <span style="font-size:9px;font-weight:900;color:#E2E8F0;">MPPT ${localM}</span>
-                <span style="font-size:8px;font-weight:800;color:${capColor};background:rgba(255,255,255,0.06);padding:1px 4px;border-radius:3px;">${bucket.filter(s => s.count > 0).length}/${hw.inputsPerMppt}</span>
+                <span style="font-size:11px;font-weight:900;color:#E2E8F0;">MPPT ${localM}</span>
+                <span style="font-size:11px;font-weight:800;color:${capColor};background:rgba(255,255,255,0.06);padding:1px 4px;border-radius:3px;">${bucket.filter(s => s.count > 0).length}/${hw.inputsPerMppt}</span>
                 ${telemetryHtml}
               </div>
               <div style="display:flex;align-items:center;gap:3px;">
                 ${eqBtnHtml}
                 <button type="button" data-action="new-string" data-mppt="${gMppt}" title="Crear string nuevo y poblarlo haciendo clic en placas 3D"
-                        style="padding:1px 5px;border-radius:3px;font-size:8px;font-weight:800;cursor:pointer;background:rgba(56,189,248,0.14);border:1px solid rgba(56,189,248,0.35);color:#38BDF8;">
+                        style="padding:1px 5px;border-radius:3px;font-size:11px;font-weight:800;cursor:pointer;background:rgba(56,189,248,0.14);border:1px solid rgba(56,189,248,0.35);color:#38BDF8;">
                   + String
                 </button>
-                <span style="font-size:8px;font-weight:900;color:${health.color};background:rgba(0,0,0,0.45);border:1px solid ${health.color};padding:1px 5px;border-radius:3px;">
+                <span style="font-size:11px;font-weight:900;color:${health.color};background:rgba(0,0,0,0.45);border:1px solid ${health.color};padding:1px 5px;border-radius:3px;">
                   ${escapeHtml(health.badge)}
                 </span>
               </div>
@@ -1196,12 +1196,12 @@
         <div style="background:rgba(15,23,42,0.72);border:1px solid rgba(255,255,255,0.09);border-radius:6px;padding:6px 7px;margin-top:6px;">
           <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,0.07);padding-bottom:4px;">
             <div style="min-width:0;">
-              <div style="font-size:9.5px;font-weight:900;color:#34D399;">INVERSOR ${invIdx + 1} · ${hw.invKw} kW AC</div>
-              <div style="font-size:8px;color:#94A3B8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:175px;">${escapeHtml(invTitle)}</div>
+              <div style="font-size:11px;font-weight:900;color:#34D399;">INVERSOR ${invIdx + 1} · ${hw.invKw} kW AC</div>
+              <div style="font-size:11px;color:#94A3B8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:175px;">${escapeHtml(invTitle)}</div>
             </div>
             <div style="text-align:right;flex-shrink:0;">
-              <div style="font-size:9px;font-weight:800;color:#E2E8F0;">${invKwp.toFixed(2)} kWp DC</div>
-              <span style="font-size:8px;font-weight:900;color:${ratioColor};">DC/AC ${(ratio * 100).toFixed(0)}%</span>
+              <div style="font-size:11px;font-weight:800;color:#E2E8F0;">${invKwp.toFixed(2)} kWp DC</div>
+              <span style="font-size:11px;font-weight:900;color:${ratioColor};">DC/AC ${(ratio * 100).toFixed(0)}%</span>
             </div>
           </div>
           ${traysHtml}
@@ -1212,21 +1212,21 @@
     container.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:5px;">
         <div style="display:flex;align-items:center;gap:5px;">
-          <span style="font-size:10px;font-weight:900;color:#38BDF8;">⚡ MATRIZ INVERSOR / MPPT</span>
+          <span style="font-size:11px;font-weight:900;color:#38BDF8;">⚡ MATRIZ INVERSOR / MPPT</span>
         </div>
         <div style="display:flex;align-items:center;gap:4px;">
-          <button type="button" data-action="toggle-lock" style="padding:2px 6px;border-radius:4px;font-size:8.5px;font-weight:900;cursor:pointer;${lockBtnStyle}">
+          <button type="button" data-action="toggle-lock" style="padding:2px 6px;border-radius:4px;font-size:11px;font-weight:900;cursor:pointer;${lockBtnStyle}">
             ${lockLabel}
           </button>
           <button type="button" data-action="reset-auto" title="Restaurar reparto automático equilibrado"
-                  style="padding:2px 6px;border-radius:4px;font-size:8.5px;font-weight:800;cursor:pointer;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.16);color:#CBD5E1;">
+                  style="padding:2px 6px;border-radius:4px;font-size:11px;font-weight:800;cursor:pointer;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.16);color:#CBD5E1;">
             ↺ Auto
           </button>
         </div>
       </div>
       ${brushBannerHtml}
       ${actionBarHtml}
-      <div style="font-size:8px;color:#94A3B8;margin-bottom:2px;">
+      <div style="font-size:11px;color:#94A3B8;margin-bottom:2px;">
         Arrastra strings o usa las herramientas (🖌️ pincel 3D · ⇄ invertir · ✏️ nombre/color · ⚡ optimizador · ✂️ corte exacto).
       </div>
       ${invertersHtml}

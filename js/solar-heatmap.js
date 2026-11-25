@@ -97,26 +97,26 @@
             </div>
             <div>
               <div style="font-size:12.5px;font-weight:800;letter-spacing:0.04em;color:#38bdf8;text-transform:uppercase;">Tecnología de Captación</div>
-              <div style="font-size:10.5px;color:#94a3b8;">${modName}</div>
+              <div style="font-size:11px;color:#94a3b8;">${modName}</div>
             </div>
           </div>
-          <p style="font-size:10.5px;color:#cbd5e1;line-height:1.45;margin:0 0 16px 0;">
+          <p style="font-size:11px;color:#cbd5e1;line-height:1.45;margin:0 0 16px 0;">
             El módulo del catálogo no especifica si capta radiación por la cara trasera (albedo). Selecciona el modo de simulación física:
           </p>
           <div style="display:flex;flex-direction:column;gap:8px;">
             <button id="ra-bif-mono-btn" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:10px 12px;color:#fff;cursor:pointer;text-align:left;display:flex;justify-content:space-between;align-items:center;transition:background 0.15s;">
               <div>
                 <div style="font-size:11px;font-weight:700;color:#f8fafc;">⚪ Monofacial Estándar</div>
-                <div style="font-size: 10px;color:#94a3b8;">Captación solo por cara frontal (0% albedo trasero)</div>
+                <div style="font-size: 11px;color:#94a3b8;">Captación solo por cara frontal (0% albedo trasero)</div>
               </div>
-              <span style="font-size: 10px;background:rgba(255,255,255,0.1);padding:2px 6px;border-radius:4px;color:#cbd5e1;">Por defecto</span>
+              <span style="font-size: 11px;background:rgba(255,255,255,0.1);padding:2px 6px;border-radius:4px;color:#cbd5e1;">Por defecto</span>
             </button>
             <button id="ra-bif-std-btn" style="background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.35);border-radius:8px;padding:10px 12px;color:#fff;cursor:pointer;text-align:left;display:flex;justify-content:space-between;align-items:center;transition:background 0.15s;">
               <div>
                 <div style="font-size:11px;font-weight:700;color:#38bdf8;">🔵 Bifacial TOPCon / HJT</div>
-                <div style="font-size: 10px;color:#94a3b8;">Factor de bifacialidad 0.75 (ganancia real típica: +5-15% según albedo y altura de estructura)</div>
+                <div style="font-size: 11px;color:#94a3b8;">Factor de bifacialidad 0.75 (ganancia real típica: +5-15% según albedo y altura de estructura)</div>
               </div>
-              <span style="font-size: 10px;background:rgba(56,189,248,0.2);color:#38bdf8;padding:2px 6px;border-radius:4px;">Recomendado</span>
+              <span style="font-size: 11px;background:rgba(56,189,248,0.2);color:#38bdf8;padding:2px 6px;border-radius:4px;">Recomendado</span>
             </button>
           </div>
         </div>
@@ -559,7 +559,7 @@
     }
 
     if (altEl) {
-      altEl.innerHTML = altVal.toFixed(1) + "° <span style='font-size: 10px;font-weight:600;opacity:0.9;'>(" + phaseLabel + ")</span>";
+      altEl.innerHTML = altVal.toFixed(1) + "° <span style='font-size: 11px;font-weight:600;opacity:0.9;'>(" + phaseLabel + ")</span>";
       altEl.style.color = altColor;
     }
     if (azEl) azEl.textContent = azVal.toFixed(1) + "° (" + getCompassDirection(azVal) + ")";
@@ -2283,7 +2283,7 @@
         <div style="font-weight:700;color:${iconColor};margin-bottom:4px;">
           ✓ Simulación anual completada (192 instantes nominales, 6:00-21:00; sol ≥ 5°${heatmapStride > 1 ? ', muestreo 1 de ' + heatmapStride + ' paneles' : ''})
         </div>
-        <div style="font-size: 10px;line-height:1.35;color:var(--text-slate-300);">
+        <div style="font-size: 11px;line-height:1.35;color:var(--text-slate-300);">
           ${diag.recommendationMsg}
         </div>
       `;
@@ -2499,7 +2499,7 @@
         <div style="font-weight:700;color:#F59E0B;margin-bottom:4px;">
           ⚠ Análisis solar desactualizado
         </div>
-        <div style="font-size: 10px;line-height:1.35;color:var(--text-slate-300);">
+        <div style="font-size: 11px;line-height:1.35;color:var(--text-slate-300);">
           ${reason ? reason + '. ' : ''}La geometría o parámetros han cambiado. Pulsa en <b>Recalcular Mapa de Calor</b> para computar sombras y kWh reales.
         </div>
       `;
@@ -2676,7 +2676,7 @@
         const demandKwh = hasBill ? Math.round(comp.consumoAnualKWh) : Math.round(targetKwp * 1450);
         const reqModules = Math.max(1, Math.round((targetKwp * 1000) / modWp));
         const realTargetKwp = (reqModules * modWp) / 1000;
-        valJustSaving.innerHTML = `${demandKwh.toLocaleString()} kWh/año <span style="font-size: 10px;color:#c084fc;font-weight:normal;">(${reqModules} mods · ${realTargetKwp.toFixed(2)} kWp)</span>`;
+        valJustSaving.innerHTML = `${demandKwh.toLocaleString()} kWh/año <span style="font-size: 11px;color:#c084fc;font-weight:normal;">(${reqModules} mods · ${realTargetKwp.toFixed(2)} kWp)</span>`;
       } else {
         valJustSaving.innerHTML = '<span style="color:#d8b4fe;">Sin factura (importar)</span>';
       }
@@ -2701,7 +2701,7 @@
       if (totalMaxModules > 0) {
         const fullKwp = (totalMaxModules * modWp) / 1000;
         const estKwh = Math.round(fullKwp * 1450);
-        valMaxProd.innerHTML = `${fullKwp.toFixed(2)} kWp <span style="font-size: 10px;color:#7dd3fc;font-weight:normal;">(${totalMaxModules} mods · ${estKwh.toLocaleString()} kWh)</span>`;
+        valMaxProd.innerHTML = `${fullKwp.toFixed(2)} kWp <span style="font-size: 11px;color:#7dd3fc;font-weight:normal;">(${totalMaxModules} mods · ${estKwh.toLocaleString()} kWh)</span>`;
       } else {
         valMaxProd.textContent = '-- kWp';
       }

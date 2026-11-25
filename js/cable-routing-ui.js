@@ -360,8 +360,8 @@ function wpUpdateCableRoutesUI() {
   if (!hasDC && !hasAC) {
     html = `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:2px;">
-        <button type="button" onclick="wpEditCableRouteVertices('dc')" class="doc-mini-btn" style="padding:3px 5px;font-size:10px;color:#FDE68A;border-color:rgba(245,158,11,0.35);" title="Convierte el trazado automático DC en nodos editables sobre cubierta">✂ Editar codos DC</button>
-        <button type="button" onclick="wpEditCableRouteVertices('ac')" class="doc-mini-btn" style="padding:3px 5px;font-size:10px;color:#BAE6FD;border-color:rgba(56,189,248,0.35);" title="Convierte el trazado automático AC en nodos editables sobre fachada/suelo">✂ Editar codos AC</button>
+        <button type="button" onclick="wpEditCableRouteVertices('dc')" class="doc-mini-btn" style="padding:3px 5px;font-size:11px;color:#FDE68A;border-color:rgba(245,158,11,0.35);" title="Convierte el trazado automático DC en nodos editables sobre cubierta">✂ Editar codos DC</button>
+        <button type="button" onclick="wpEditCableRouteVertices('ac')" class="doc-mini-btn" style="padding:3px 5px;font-size:11px;color:#BAE6FD;border-color:rgba(56,189,248,0.35);" title="Convierte el trazado automático AC en nodos editables sobre fachada/suelo">✂ Editar codos AC</button>
       </div>
     `;
     container.innerHTML = html;
@@ -372,43 +372,43 @@ function wpUpdateCableRoutesUI() {
     let dcL = 0;
     for (let i = 0; i < routes.dc.length - 1; i++) dcL += Cesium.Cartesian3.distance(routes.dc[i], routes.dc[i + 1]);
     html += `
-      <div style="font-size: 10px;color:#FDE68A;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);padding:3px 6px;border-radius:4px;display:flex;justify-content:space-between;align-items:center;">
+      <div style="font-size: 11px;color:#FDE68A;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);padding:3px 6px;border-radius:4px;display:flex;justify-content:space-between;align-items:center;">
         <span><i data-lucide="check" class="icon-sm"></i> <b>Bandeja DC:</b> ${routes.dc.length} codos (${dcL.toFixed(1)} m)</span>
         <div style="display:flex;gap:3px;">
-          <button type="button" onclick="wpStartCableRouting('dc')" class="doc-mini-btn" style="padding:1px 4px;font-size: 10px;" title="Retrazar">✎ Retrazar</button>
-          <button type="button" onclick="wpClearCableRoute('dc')" class="doc-mini-btn" style="padding:1px 4px;font-size: 10px;color:#EF4444;" title="Volver a automático" aria-label="Borrar ruta DC">✕</button>
+          <button type="button" onclick="wpStartCableRouting('dc')" class="doc-mini-btn" style="padding:1px 4px;font-size: 11px;" title="Retrazar">✎ Retrazar</button>
+          <button type="button" onclick="wpClearCableRoute('dc')" class="doc-mini-btn" style="padding:1px 4px;font-size: 11px;color:#EF4444;" title="Volver a automático" aria-label="Borrar ruta DC">✕</button>
         </div>
       </div>
     `;
   } else {
-    html += `<button type="button" onclick="wpEditCableRouteVertices('dc')" class="doc-mini-btn" style="padding:3px 5px;font-size:10px;color:#FDE68A;border-color:rgba(245,158,11,0.35);width:100%;margin-top:2px;">✂ Convertir bandeja DC a codos editables</button>`;
+    html += `<button type="button" onclick="wpEditCableRouteVertices('dc')" class="doc-mini-btn" style="padding:3px 5px;font-size:11px;color:#FDE68A;border-color:rgba(245,158,11,0.35);width:100%;margin-top:2px;">✂ Convertir bandeja DC a codos editables</button>`;
   }
 
   if (hasAC) {
     let acL = 0;
     for (let i = 0; i < routes.ac.length - 1; i++) acL += Cesium.Cartesian3.distance(routes.ac[i], routes.ac[i + 1]);
     html += `
-      <div style="font-size: 10px;color:#BAE6FD;background:rgba(56,189,248,0.1);border:1px solid rgba(56,189,248,0.3);padding:3px 6px;border-radius:4px;display:flex;justify-content:space-between;align-items:center;margin-top:2px;">
+      <div style="font-size: 11px;color:#BAE6FD;background:rgba(56,189,248,0.1);border:1px solid rgba(56,189,248,0.3);padding:3px 6px;border-radius:4px;display:flex;justify-content:space-between;align-items:center;margin-top:2px;">
         <span><i data-lucide="check" class="icon-sm"></i> <b>Tubo AC:</b> ${routes.ac.length} codos (${acL.toFixed(1)} m)</span>
         <div style="display:flex;gap:3px;">
-          <button type="button" onclick="wpStartCableRouting('ac')" class="doc-mini-btn" style="padding:1px 4px;font-size: 10px;" title="Retrazar">✎ Retrazar</button>
-          <button type="button" onclick="wpClearCableRoute('ac')" class="doc-mini-btn" style="padding:1px 4px;font-size: 10px;color:#EF4444;" title="Volver a automático" aria-label="Borrar ruta AC">✕</button>
+          <button type="button" onclick="wpStartCableRouting('ac')" class="doc-mini-btn" style="padding:1px 4px;font-size: 11px;" title="Retrazar">✎ Retrazar</button>
+          <button type="button" onclick="wpClearCableRoute('ac')" class="doc-mini-btn" style="padding:1px 4px;font-size: 11px;color:#EF4444;" title="Volver a automático" aria-label="Borrar ruta AC">✕</button>
         </div>
       </div>
     `;
   } else {
-    html += `<button type="button" onclick="wpEditCableRouteVertices('ac')" class="doc-mini-btn" style="padding:3px 5px;font-size:10px;color:#BAE6FD;border-color:rgba(56,189,248,0.35);width:100%;margin-top:2px;">✂ Convertir tubo AC a codos editables</button>`;
+    html += `<button type="button" onclick="wpEditCableRouteVertices('ac')" class="doc-mini-btn" style="padding:3px 5px;font-size:11px;color:#BAE6FD;border-color:rgba(56,189,248,0.35);width:100%;margin-top:2px;">✂ Convertir tubo AC a codos editables</button>`;
   }
 
   if (window.selectedRouteVertex) {
     const rv = window.selectedRouteVertex;
     html += `
-      <div style="font-size:10px;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.4);padding:4px 6px;border-radius:4px;display:flex;justify-content:space-between;align-items:center;margin-top:3px;gap:4px;">
+      <div style="font-size:11px;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.4);padding:4px 6px;border-radius:4px;display:flex;justify-content:space-between;align-items:center;margin-top:3px;gap:4px;">
         <span style="color:#34D399;font-weight:700;">Codo ${rv.type.toUpperCase()} #${rv.index + 1}</span>
         <div style="display:flex;gap:3px;">
-          <button type="button" onclick="wpNudgeRouteVertexHeight(0.35)" class="doc-mini-btn" style="padding:1px 5px;font-size:10px;" title="Elevar codo +35 cm para saltar peto perimetral">+35cm Peto</button>
-          <button type="button" onclick="wpNudgeRouteVertexHeight(-0.35)" class="doc-mini-btn" style="padding:1px 5px;font-size:10px;" title="Bajar codo -35 cm">-35cm</button>
-          <button type="button" onclick="wpDeleteSelectedRouteVertex()" class="doc-mini-btn" style="padding:1px 5px;font-size:10px;color:#EF4444;" title="Eliminar este codo">Quitar</button>
+          <button type="button" onclick="wpNudgeRouteVertexHeight(0.35)" class="doc-mini-btn" style="padding:1px 5px;font-size:11px;" title="Elevar codo +35 cm para saltar peto perimetral">+35cm Peto</button>
+          <button type="button" onclick="wpNudgeRouteVertexHeight(-0.35)" class="doc-mini-btn" style="padding:1px 5px;font-size:11px;" title="Bajar codo -35 cm">-35cm</button>
+          <button type="button" onclick="wpDeleteSelectedRouteVertex()" class="doc-mini-btn" style="padding:1px 5px;font-size:11px;color:#EF4444;" title="Eliminar este codo">Quitar</button>
         </div>
       </div>
     `;

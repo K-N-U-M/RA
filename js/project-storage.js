@@ -763,7 +763,7 @@ function raEnsureLoadingHUDElements() {
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;width:100%;">
           <span id="ra-load-hud-status" style="font-size:12px;font-weight:600;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px;">Iniciando carga...</span>
-          <span id="ra-load-hud-detail" style="font-size:10.5px;color:#94a3b8;font-family:var(--font-mono,monospace);flex-shrink:0;">Fase 1/6</span>
+          <span id="ra-load-hud-detail" style="font-size:11px;color:#94a3b8;font-family:var(--font-mono,monospace);flex-shrink:0;">Fase 1/6</span>
         </div>
       </div>
     </div>
@@ -2163,7 +2163,7 @@ function raRenderRecentProjectsList() {
 
   const recents = raGetRecentProjects();
   if (recents.length === 0) {
-    listEl.innerHTML = '<div style="font-size:10px;color:var(--text-slate-500);text-align:center;padding:12px 0;">No hay proyectos recientes guardados aún.</div>';
+    listEl.innerHTML = '<div style="font-size:11px;color:var(--text-slate-500);text-align:center;padding:12px 0;">No hay proyectos recientes guardados aún.</div>';
     return;
   }
 
@@ -2187,11 +2187,11 @@ function raRenderRecentProjectsList() {
       <div style="background:rgba(255,255,255,0.04);border:1px solid var(--border-subtle);border-radius:6px;padding:8px 10px;display:flex;justify-content:space-between;align-items:center;transition:all 0.15s ease;">
         <div style="display:flex;flex-direction:column;gap:2px;overflow:hidden;margin-right:8px;">
           <span style="font-size:11px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${cleanFile}</span>
-          <span style="font-size: 10px;color:var(--text-slate-400);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><i data-lucide="map-pin" class="icon-sm"></i> ${locDisplay}</span>
-          <span style="font-size: 10px;color:var(--amber-400);font-family:var(--font-mono);"><i data-lucide="zap" class="icon-sm"></i> ${safeKwp} kWp (${safePanels} paneles) · ${dStr}</span>
+          <span style="font-size: 11px;color:var(--text-slate-400);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><i data-lucide="map-pin" class="icon-sm"></i> ${locDisplay}</span>
+          <span style="font-size: 11px;color:var(--amber-400);font-family:var(--font-mono);"><i data-lucide="zap" class="icon-sm"></i> ${safeKwp} kWp (${safePanels} paneles) · ${dStr}</span>
         </div>
         <div style="display:flex;gap:4px;flex-shrink:0;">
-          <button onclick="raLoadRecentProjectByIndex(${idx})" class="doc-mini-btn" style="padding:4px 8px;font-size: 10px;border-color:var(--emerald-500);color:var(--emerald-400);">Cargar</button>
+          <button onclick="raLoadRecentProjectByIndex(${idx})" class="doc-mini-btn" style="padding:4px 8px;font-size: 11px;border-color:var(--emerald-500);color:var(--emerald-400);">Cargar</button>
           <button onclick="raDeleteRecentProjectByIndex(${idx})" style="background:none;border:none;color:var(--text-slate-500);font-size:12px;cursor:pointer;padding:2px 4px;" title="Eliminar de recientes"><i data-lucide="x" class="icon-sm"></i></button>
         </div>
       </div>

@@ -1341,10 +1341,10 @@ function step3RenderAutoSizingUI(count, totalKwp, mod, inv, mi, bat, maxKwInput,
     const maxTotalInput = (maxKwInput || 6.5) * invCount;
     const currentRatioPct = (totalKwp / (invCount * (inv.kw || 5.0))) * 100;
     if (totalKwp > maxTotalInput) {
-      warningHtml = '<br><span style="color:var(--rose-400);font-size: 10px;font-weight:bold;margin-top:2px;display:inline-block;"><i data-lucide="alert-triangle" class="icon-sm"></i> PELIGRO REBT/IEC: Sobrecarga DC/AC (' + totalKwp.toFixed(2) + ' kWp &gt; ' + maxTotalInput.toFixed(2) + ' kW máx). ¡Añada inversores!</span>';
+      warningHtml = '<br><span style="color:var(--rose-400);font-size: 11px;font-weight:bold;margin-top:2px;display:inline-block;"><i data-lucide="alert-triangle" class="icon-sm"></i> PELIGRO REBT/IEC: Sobrecarga DC/AC (' + totalKwp.toFixed(2) + ' kWp &gt; ' + maxTotalInput.toFixed(2) + ' kW máx). ¡Añada inversores!</span>';
       if (inputInv) { inputInv.style.borderColor = 'var(--rose-500)'; inputInv.style.color = 'var(--rose-400)'; }
     } else if (currentRatioPct < 75.0 && invCount > 1) {
-      warningHtml = '<br><span style="color:#F59E0B;font-size: 10px;font-weight:bold;margin-top:2px;display:inline-block;"><i data-lucide="alert-triangle" class="icon-sm"></i> INVERSOR SOBREDIMENSIONADO: Ratio DC/AC (' + currentRatioPct.toFixed(1) + '% &lt; 75%). Reduzca unidades o elija inversores de menor potencia unitaria (ej. 5 kW).</span>';
+      warningHtml = '<br><span style="color:#F59E0B;font-size: 11px;font-weight:bold;margin-top:2px;display:inline-block;"><i data-lucide="alert-triangle" class="icon-sm"></i> INVERSOR SOBREDIMENSIONADO: Ratio DC/AC (' + currentRatioPct.toFixed(1) + '% &lt; 75%). Reduzca unidades o elija inversores de menor potencia unitaria (ej. 5 kW).</span>';
       if (inputInv) { inputInv.style.borderColor = '#F59E0B'; inputInv.style.color = '#FBBF24'; }
     } else {
       if (inputInv) { inputInv.style.borderColor = ''; inputInv.style.color = '#fff'; }
@@ -1371,7 +1371,7 @@ function step3RenderAutoSizingUI(count, totalKwp, mod, inv, mi, bat, maxKwInput,
     let miWarningHtml = '';
     const maxPanels = miCount * ratio;
     if (count > maxPanels) {
-      miWarningHtml = '<br><span style="color:var(--rose-400);font-size: 10px;font-weight:bold;margin-top:2px;display:inline-block;"><i data-lucide="alert-triangle" class="icon-sm"></i> PELIGRO IEC: Faltan entradas (' + count + ' placas &gt; ' + maxPanels + ' permitidas). ¡Añada equipos!</span>';
+      miWarningHtml = '<br><span style="color:var(--rose-400);font-size: 11px;font-weight:bold;margin-top:2px;display:inline-block;"><i data-lucide="alert-triangle" class="icon-sm"></i> PELIGRO IEC: Faltan entradas (' + count + ' placas &gt; ' + maxPanels + ' permitidas). ¡Añada equipos!</span>';
       if (inputMi) { inputMi.style.borderColor = 'var(--rose-500)'; inputMi.style.color = 'var(--rose-400)'; }
     } else {
       if (inputMi) { inputMi.style.borderColor = ''; inputMi.style.color = '#fff'; }
@@ -1879,18 +1879,18 @@ function wpRenderAutoEngineeringBanner(info, isManualOverride = false) {
     banner.innerHTML = `
       <div style="background:rgba(15,23,42,0.92);border:1px solid rgba(245,158,11,0.4);border-radius:8px;padding:8px 10px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 4px 15px rgba(0,0,0,0.3);margin-bottom:6px;">
         <div style="display:flex;align-items:center;gap:6px;">
-          <span style="background:rgba(245,158,11,0.15);color:#FBBF24;border:1px solid rgba(245,158,11,0.3);padding:2px 6px;border-radius:4px;font-size:9.5px;font-weight:900;">
+          <span style="background:rgba(245,158,11,0.15);color:#FBBF24;border:1px solid rgba(245,158,11,0.3);padding:2px 6px;border-radius:4px;font-size:11px;font-weight:900;">
             🛠️ MODO MANUAL
           </span>
-          <span style="font-size:10px;color:#CBD5E1;">
+          <span style="font-size:11px;color:#CBD5E1;">
             Ajustes personalizados por el proyectista.
           </span>
         </div>
         <div style="display:flex;gap:4px;align-items:center;">
-          <button type="button" class="doc-mini-btn" onclick="wpOpenSmartInverterMatchingModal()" style="background:rgba(56,189,248,0.15);border:1px solid #38BDF8;color:#38BDF8;font-size:9.5px;font-weight:bold;padding:3px 7px;cursor:pointer;" title="Comparar alternativas técnicas 1x Central vs Nx Modulares vs MLPE">
+          <button type="button" class="doc-mini-btn" onclick="wpOpenSmartInverterMatchingModal()" style="background:rgba(56,189,248,0.15);border:1px solid #38BDF8;color:#38BDF8;font-size:11px;font-weight:bold;padding:3px 7px;cursor:pointer;" title="Comparar alternativas técnicas 1x Central vs Nx Modulares vs MLPE">
             <i data-lucide="sparkles" class="icon-sm"></i> ALTERNATIVAS
           </button>
-          <button type="button" class="doc-mini-btn" onclick="if(window.solarProjectConfig) window.solarProjectConfig.userManuallySelectedInverter=false; window.solarProjectConfig.userManuallySelectedBattery=false; wpAutoSelectOptimalEngineering(true);" style="background:linear-gradient(135deg,#10B981,#059669);border:none;color:#fff;font-size:9.5px;font-weight:900;padding:3px 8px;border-radius:4px;cursor:pointer;" title="Volver a calcular la topología e inversor óptimo por IA">
+          <button type="button" class="doc-mini-btn" onclick="if(window.solarProjectConfig) window.solarProjectConfig.userManuallySelectedInverter=false; window.solarProjectConfig.userManuallySelectedBattery=false; wpAutoSelectOptimalEngineering(true);" style="background:linear-gradient(135deg,#10B981,#059669);border:none;color:#fff;font-size:11px;font-weight:900;padding:3px 8px;border-radius:4px;cursor:pointer;" title="Volver a calcular la topología e inversor óptimo por IA">
             <i data-lucide="rotate-ccw" class="icon-sm"></i> RESTAURAR AUTO
           </button>
         </div>
@@ -1915,10 +1915,10 @@ function wpRenderAutoEngineeringBanner(info, isManualOverride = false) {
       window.solarProjectConfig.lastSuggestedCommercialModels = comModels;
     }
     const modelsHtml = comModels.length > 0 ? `
-      <div style="font-size: 10px;color:#94A3B8;margin-bottom:6px;">
+      <div style="font-size: 11px;color:#94A3B8;margin-bottom:6px;">
         <b style="color:#CBD5E1;">Equipos de mercado sugeridos (clic para añadir en 1 clic a la BD comercial):</b>
         <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px;">
-          ${comModels.map((m, idx) => `<button type="button" onclick="wpAddSuggestedCommercialModelToCatalog(${idx})" style="background:rgba(245,158,11,0.14);border:1px solid rgba(245,158,11,0.45);border-radius:4px;padding:2px 6px;color:#FDE68A;font-size:10px;font-weight:bold;cursor:pointer;" title="Añadir ${m.brand} ${m.model} al catálogo comercial y seleccionarlo">➕ ${m.brand} ${m.model} (${m.kw} kW)</button>`).join('')}
+          ${comModels.map((m, idx) => `<button type="button" onclick="wpAddSuggestedCommercialModelToCatalog(${idx})" style="background:rgba(245,158,11,0.14);border:1px solid rgba(245,158,11,0.45);border-radius:4px;padding:2px 6px;color:#FDE68A;font-size:11px;font-weight:bold;cursor:pointer;" title="Añadir ${m.brand} ${m.model} al catálogo comercial y seleccionarlo">➕ ${m.brand} ${m.model} (${m.kw} kW)</button>`).join('')}
         </div>
       </div>
     ` : '';
@@ -1926,33 +1926,33 @@ function wpRenderAutoEngineeringBanner(info, isManualOverride = false) {
     banner.innerHTML = `
       <div style="background:linear-gradient(135deg, rgba(69,10,10,0.92), rgba(30,27,75,0.92));border:2px solid #F59E0B;border-radius:8px;padding:8px;box-shadow:0 0 14px rgba(245,158,11,0.28);margin-bottom:6px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:3px;">
-          <span style="font-size:10px;font-weight:900;color:#FBBF24;">
+          <span style="font-size:11px;font-weight:900;color:#FBBF24;">
             <i data-lucide="alert-triangle" class="icon-sm"></i> ⚠️ EQUIPO RECOMENDADO FUERA DE CATÁLOGO
           </span>
           <div style="display:flex;gap:4px;align-items:center;">
-            <span class="card-tag" style="background:rgba(239,68,68,0.25);border:1px solid #EF4444;color:#FCA5A5;font-size: 9.5px;font-weight:900;">
+            <span class="card-tag" style="background:rgba(239,68,68,0.25);border:1px solid #EF4444;color:#FCA5A5;font-size: 11px;font-weight:900;">
               NO REGISTRADO EN BD
             </span>
-            <button type="button" class="doc-mini-btn" onclick="wpOpenSmartInverterMatchingModal()" style="background:rgba(56,189,248,0.2);border:1px solid #38BDF8;color:#38BDF8;font-size: 10px;font-weight:bold;padding:2px 6px;cursor:pointer;" title="Comparar alternativas técnicas 1x Central vs Nx Modulares vs MLPE">
+            <button type="button" class="doc-mini-btn" onclick="wpOpenSmartInverterMatchingModal()" style="background:rgba(56,189,248,0.2);border:1px solid #38BDF8;color:#38BDF8;font-size: 11px;font-weight:bold;padding:2px 6px;cursor:pointer;" title="Comparar alternativas técnicas 1x Central vs Nx Modulares vs MLPE">
               <i data-lucide="sparkles" class="icon-sm"></i> COMPARAR 1X VS NX
             </button>
           </div>
         </div>
-        <div style="font-size: 10px;color:#FCD34D;background:rgba(245,158,11,0.12);padding:4px 6px;border-radius:4px;margin-bottom:5px;border-left:3px solid #F59E0B;line-height:1.3;">
+        <div style="font-size: 11px;color:#FCD34D;background:rgba(245,158,11,0.12);padding:4px 6px;border-radius:4px;margin-bottom:5px;border-left:3px solid #F59E0B;line-height:1.3;">
           <b>Cuello de Botella Físico:</b> ${info.bottleneckReason || 'Requisitos del proyecto no cubiertos por los equipos disponibles en catálogo.'}
         </div>
-        <div style="font-size: 10px;color:#E2E8F0;line-height:1.35;margin-bottom:4px;">
+        <div style="font-size: 11px;color:#E2E8F0;line-height:1.35;margin-bottom:4px;">
           <b>Inversor Ideal Auto-Generado:</b> ${sc.count}× ${sc.inverter.brand} ${sc.inverter.model} (${sc.totalAcKw} kW AC · ${sc.mpptCount} MPPTs · Sobrecarga: ${sc.overloadPct}%)
         </div>
         ${modelsHtml}
         <div style="display:flex;gap:6px;align-items:center;margin-top:6px;border-top:1px solid rgba(255,255,255,0.08);padding-top:5px;">
-          <button type="button" class="doc-mini-btn" onclick="wpSaveVirtualInverterToCatalog()" style="background:linear-gradient(135deg,#F59E0B,#D97706);border:none;color:#0F172A;font-size: 10px;font-weight:900;padding:4px 8px;cursor:pointer;" title="Añadir este equipo directamente a la base de datos comercial con un solo clic">
+          <button type="button" class="doc-mini-btn" onclick="wpSaveVirtualInverterToCatalog()" style="background:linear-gradient(135deg,#F59E0B,#D97706);border:none;color:#0F172A;font-size: 11px;font-weight:900;padding:4px 8px;cursor:pointer;" title="Añadir este equipo directamente a la base de datos comercial con un solo clic">
             <i data-lucide="plus-circle" class="icon-sm"></i> AÑADIR A BASE DE DATOS COMERCIAL (1 CLIC)
           </button>
-          <button type="button" class="doc-mini-btn" onclick="openEquipmentCatalogModal('ai_import')" style="background:rgba(56,189,248,0.15);border:1px solid #38BDF8;color:#38BDF8;font-size: 10px;font-weight:bold;padding:3px 7px;cursor:pointer;" title="Importar PDF técnico de inversor real con IA">
+          <button type="button" class="doc-mini-btn" onclick="openEquipmentCatalogModal('ai_import')" style="background:rgba(56,189,248,0.15);border:1px solid #38BDF8;color:#38BDF8;font-size: 11px;font-weight:bold;padding:3px 7px;cursor:pointer;" title="Importar PDF técnico de inversor real con IA">
             <i data-lucide="sparkles" class="icon-sm"></i> SUBIR PDF CON IA
           </button>
-          <button type="button" class="doc-mini-btn" onclick="openEquipmentCatalogModal('inverters')" style="background:rgba(148,163,184,0.15);border:1px solid #94A3B8;color:#CBD5E1;font-size: 10px;font-weight:bold;padding:3px 7px;cursor:pointer;" title="Abrir catálogo">
+          <button type="button" class="doc-mini-btn" onclick="openEquipmentCatalogModal('inverters')" style="background:rgba(148,163,184,0.15);border:1px solid #94A3B8;color:#CBD5E1;font-size: 11px;font-weight:bold;padding:3px 7px;cursor:pointer;" title="Abrir catálogo">
             <i data-lucide="database" class="icon-sm"></i> CATÁLOGO
           </button>
         </div>
@@ -1978,24 +1978,24 @@ function wpRenderAutoEngineeringBanner(info, isManualOverride = false) {
   banner.innerHTML = `
     <div style="background:linear-gradient(135deg, rgba(15,23,42,0.95), rgba(30,41,59,0.90));border:1.5px solid ${topoColors[info.topology] || '#38BDF8'};border-radius:8px;padding:9px 10px;box-shadow:0 4px 15px rgba(0,0,0,0.35);margin-bottom:6px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:5px;">
-        <span style="font-size:10.5px;font-weight:900;color:${topoColors[info.topology] || '#38BDF8'};display:flex;align-items:center;gap:5px;">
+        <span style="font-size:11px;font-weight:900;color:${topoColors[info.topology] || '#38BDF8'};display:flex;align-items:center;gap:5px;">
           <i data-lucide="cpu" class="icon-sm"></i> PILOTO AUTOMÁTICO ACTIVO: ${topoLabels[info.topology] || info.topology}
         </span>
         <div style="display:flex;gap:4px;align-items:center;">
-          <span class="card-tag" style="background:rgba(16,185,129,0.2);color:#34D399;font-size:9.5px;font-weight:800;border:1px solid rgba(16,185,129,0.3);">
+          <span class="card-tag" style="background:rgba(16,185,129,0.2);color:#34D399;font-size:11px;font-weight:800;border:1px solid rgba(16,185,129,0.3);">
             ✓ AUTO-INGENIERÍA OK
           </span>
-          <button type="button" class="doc-mini-btn" onclick="wpOpenSmartInverterMatchingModal()" style="background:rgba(56,189,248,0.2);border:1px solid #38BDF8;color:#38BDF8;font-size:9.5px;font-weight:bold;padding:2px 6px;cursor:pointer;" title="Comparar alternativas técnicas: 1x Central vs Nx Modulares vs MLPE">
+          <button type="button" class="doc-mini-btn" onclick="wpOpenSmartInverterMatchingModal()" style="background:rgba(56,189,248,0.2);border:1px solid #38BDF8;color:#38BDF8;font-size:11px;font-weight:bold;padding:2px 6px;cursor:pointer;" title="Comparar alternativas técnicas: 1x Central vs Nx Modulares vs MLPE">
             <i data-lucide="sparkles" class="icon-sm"></i> ALTERNATIVAS
           </button>
         </div>
       </div>
-      <div style="font-size:10px;color:#E2E8F0;line-height:1.4;margin-bottom:4px;">
+      <div style="font-size:11px;color:#E2E8F0;line-height:1.4;margin-bottom:4px;">
         ${(info.topology === 'microinverter' || (sc && sc.isMicro))
           ? `<b>Arquitectura Seleccionada:</b> ${sc.count}× Microinversores ${sc.inverter.brand} ${sc.inverter.model} (${sc.totalAcKw} kW AC · Seguimiento granular por módulo · Inmune a sombras)`
           : `<b>Arquitectura Seleccionada:</b> ${sc.count}× ${sc.inverter.brand} ${sc.inverter.model} (${sc.totalAcKw} kW AC · ${sc.mpptCount} MPPTs · Sobrecarga DC/AC: <b>${sc.overloadPct}%</b>)`}
       </div>
-      <div style="font-size:9.5px;color:#94A3B8;line-height:1.35;background:rgba(0,0,0,0.3);padding:4px 6px;border-radius:4px;border:1px solid rgba(255,255,255,0.05);">
+      <div style="font-size:11px;color:#94A3B8;line-height:1.35;background:rgba(0,0,0,0.3);padding:4px 6px;border-radius:4px;border:1px solid rgba(255,255,255,0.05);">
         <b>Criterio Técnico del Algoritmo:</b> ${info.rationale} (${info.distinctOrientations} ${info.distinctOrientations === 1 ? 'orientación de cubierta' : 'orientaciones distintas'}, ${info.totalPanels} placas · ${info.totalKwp.toFixed(1)} kWp).
       </div>
     </div>
@@ -2389,20 +2389,20 @@ function wpRenderElectronicsRackUI() {
   rackContainer.innerHTML = items.map(item => `
     <div style="background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.08);border-left:3px solid ${item.tagColor};border-radius:4px;padding:6px 8px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
-        <span style="font-size:9px;font-weight:900;color:${item.tagColor};letter-spacing:0.4px;">
+        <span style="font-size:11px;font-weight:900;color:${item.tagColor};letter-spacing:0.4px;">
           ${item.badge}
         </span>
-        <span style="font-size:9.5px;font-weight:700;color:#F8FAFC;">
+        <span style="font-size:11px;font-weight:700;color:#F8FAFC;">
           ${item.price.toLocaleString('es-ES')} €
         </span>
       </div>
-      <div style="font-size:10.5px;font-weight:800;color:#F1F5F9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+      <div style="font-size:11px;font-weight:800;color:#F1F5F9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
         ${item.title}
       </div>
-      <div style="font-size:9.5px;color:#94A3B8;margin-top:2px;line-height:1.25;">
+      <div style="font-size:11px;color:#94A3B8;margin-top:2px;line-height:1.25;">
         ${item.specs}
       </div>
-      <div style="margin-top:3px;display:flex;justify-content:space-between;align-items:center;font-size:9px;">
+      <div style="margin-top:3px;display:flex;justify-content:space-between;align-items:center;font-size:11px;">
         <span style="color:#CBD5E1;background:rgba(255,255,255,0.06);padding:1px 4px;border-radius:3px;">
           📍 ${item.tag}
         </span>
@@ -2489,7 +2489,7 @@ function wpRenderStep4RoofScopeUI() {
   // Renderizar píldoras del Scope Bar
   const isAllActive = currentScope === 'all';
   let pillsHtml = `
-    <button type="button" onclick="wpSetStep4RoofScope('all')" style="flex-shrink:0;padding:4px 8px;border-radius:5px;font-size:9.5px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all 0.15s;${isAllActive ? 'background:#38BDF8;color:#0F172A;border:1px solid #38BDF8;' : 'background:rgba(0,0,0,0.4);color:#94A3B8;border:1px solid rgba(255,255,255,0.1);'}">
+    <button type="button" onclick="wpSetStep4RoofScope('all')" style="flex-shrink:0;padding:4px 8px;border-radius:5px;font-size:11px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all 0.15s;${isAllActive ? 'background:#38BDF8;color:#0F172A;border:1px solid #38BDF8;' : 'background:rgba(0,0,0,0.4);color:#94A3B8;border:1px solid rgba(255,255,255,0.1);'}">
       <i data-lucide="globe" class="icon-sm"></i> TODA LA INSTALACIÓN
     </button>
   `;
@@ -2501,7 +2501,7 @@ function wpRenderStep4RoofScopeUI() {
     const label = `F${idx + 1}`;
 
     pillsHtml += `
-      <button type="button" onclick="wpSetStep4RoofScope(${idx})" style="flex-shrink:0;padding:4px 8px;border-radius:5px;font-size:9.5px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all 0.15s;${isAct ? 'background:#F59E0B;color:#0F172A;border:1px solid #F59E0B;' : 'background:rgba(0,0,0,0.4);color:#CBD5E1;border:1px solid rgba(255,255,255,0.1);'}">
+      <button type="button" onclick="wpSetStep4RoofScope(${idx})" style="flex-shrink:0;padding:4px 8px;border-radius:5px;font-size:11px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all 0.15s;${isAct ? 'background:#F59E0B;color:#0F172A;border:1px solid #F59E0B;' : 'background:rgba(0,0,0,0.4);color:#CBD5E1;border:1px solid rgba(255,255,255,0.1);'}">
         <span>🏠 ${label}:</span>
         <span style="font-weight:bold;opacity:0.9;">${nPanels} mod (${kwp} kWp)</span>
       </button>
@@ -2565,7 +2565,7 @@ function wpRenderStep4RoofScopeUI() {
             : `MPPT ${idx + 1} · Cobertura Total MLPE (${faldonOptCount} optimizadores)`;
           
           optimizerDetailBadge = `
-            <div style="margin-top:4px;padding:3px 6px;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.3);border-radius:4px;display:flex;align-items:center;justify-content:space-between;font-size:8.5px;">
+            <div style="margin-top:4px;padding:3px 6px;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.3);border-radius:4px;display:flex;align-items:center;justify-content:space-between;font-size:11px;">
               <span style="color:#FBBF24;font-weight:700;display:flex;align-items:center;gap:3px;">
                 <i data-lucide="settings" class="icon-sm"></i> ${faldonOptCount} Optimizadores selectivos
               </span>
@@ -2580,7 +2580,7 @@ function wpRenderStep4RoofScopeUI() {
           topoColor = '#38BDF8';
           mpptDesc = `MPPT ${idx + 1} (Directo sin MLPE · 0 sombras)`;
           optimizerDetailBadge = `
-            <div style="margin-top:4px;padding:3px 6px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.25);border-radius:4px;display:flex;align-items:center;justify-content:space-between;font-size:8.5px;">
+            <div style="margin-top:4px;padding:3px 6px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.25);border-radius:4px;display:flex;align-items:center;justify-content:space-between;font-size:11px;">
               <span style="color:#34D399;font-weight:700;display:flex;align-items:center;gap:3px;">
                 <i data-lucide="check" class="icon-sm"></i> 0 Optimizadores (Faldón sin sombras)
               </span>
@@ -2595,7 +2595,7 @@ function wpRenderStep4RoofScopeUI() {
         topoColor = '#10B981';
         mpptDesc = 'MPPT distribuido por panel (conversión AC)';
         optimizerDetailBadge = `
-          <div style="margin-top:4px;padding:3px 6px;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.3);border-radius:4px;display:flex;align-items:center;justify-content:space-between;font-size:8.5px;">
+          <div style="margin-top:4px;padding:3px 6px;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.3);border-radius:4px;display:flex;align-items:center;justify-content:space-between;font-size:11px;">
             <span style="color:#34D399;font-weight:700;display:flex;align-items:center;gap:3px;">
               <i data-lucide="cpu" class="icon-sm"></i> ${Math.ceil(nPanels / Math.max(1, (typeof raGetMicroinverterRatio === 'function' ? raGetMicroinverterRatio(window.solarProjectConfig && window.equipmentCatalog && Array.isArray(window.equipmentCatalog.microinverters) ? window.equipmentCatalog.microinverters.find(m => m.id === window.solarProjectConfig.selectedMicroinverterId) : null) : 2)))}x Microinversores
             </span>
@@ -2607,7 +2607,7 @@ function wpRenderStep4RoofScopeUI() {
       } else {
         // Inversor String puro
         optimizerDetailBadge = `
-          <div style="margin-top:4px;padding:3px 6px;background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.2);border-radius:4px;display:flex;align-items:center;justify-content:space-between;font-size:8.5px;">
+          <div style="margin-top:4px;padding:3px 6px;background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.2);border-radius:4px;display:flex;align-items:center;justify-content:space-between;font-size:11px;">
             <span style="color:#38BDF8;font-weight:700;display:flex;align-items:center;gap:3px;">
               <i data-lucide="zap" class="icon-sm"></i> Sin MLPE en faldón
             </span>
@@ -2629,36 +2629,36 @@ function wpRenderStep4RoofScopeUI() {
         <div style="background:rgba(0,0,0,0.3);border:1px solid ${borderClr};border-left:3px solid ${topoColor};border-radius:5px;padding:6px 8px;opacity:${opacity};transition:all 0.2s;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
             <div style="display:flex;align-items:center;gap:5px;">
-              <span style="font-size:10px;font-weight:900;color:#F8FAFC;">
+              <span style="font-size:11px;font-weight:900;color:#F8FAFC;">
                 🏠 F${idx + 1}: ${r.name || ('Faldón ' + (idx + 1))}
               </span>
-              <span style="font-size:8.5px;color:#94A3B8;background:rgba(255,255,255,0.06);padding:1px 4px;border-radius:3px;">
+              <span style="font-size:11px;color:#94A3B8;background:rgba(255,255,255,0.06);padding:1px 4px;border-radius:3px;">
                 ${r.tiltDeg || 30}° / az ${r.azimuthDeg || 0}°
               </span>
             </div>
             <div style="display:flex;gap:3px;align-items:center;">
-              <button type="button" onclick="wpOpenRoofOverrideModal(${idx})" class="doc-mini-btn" style="padding:1px 5px;font-size:9px;color:#FBBF24;border-color:rgba(245,158,11,0.3);background:rgba(245,158,11,0.1);" title="Ajustar módulo y electrónica de este faldón">
+              <button type="button" onclick="wpOpenRoofOverrideModal(${idx})" class="doc-mini-btn" style="padding:1px 5px;font-size:11px;color:#FBBF24;border-color:rgba(245,158,11,0.3);background:rgba(245,158,11,0.1);" title="Ajustar módulo y electrónica de este faldón">
                 <i data-lucide="sliders" class="icon-sm"></i> Ajustar
               </button>
-              <button type="button" onclick="wpFocusRoofIn3D(${idx})" class="doc-mini-btn" style="padding:1px 5px;font-size:9px;color:#38BDF8;border-color:rgba(56,189,248,0.3);background:rgba(56,189,248,0.1);" title="Centrar cámara 3D en este faldón">
+              <button type="button" onclick="wpFocusRoofIn3D(${idx})" class="doc-mini-btn" style="padding:1px 5px;font-size:11px;color:#38BDF8;border-color:rgba(56,189,248,0.3);background:rgba(56,189,248,0.1);" title="Centrar cámara 3D en este faldón">
                 <i data-lucide="crosshair" class="icon-sm"></i> Ver 3D
               </button>
             </div>
           </div>
 
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:9.5px;margin-top:4px;line-height:1.25;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px;margin-top:4px;line-height:1.25;">
             <div style="background:rgba(255,255,255,0.03);padding:4px 6px;border-radius:4px;">
-              <span style="color:#94A3B8;display:block;font-size:8.5px;text-transform:uppercase;">Placa Fotovoltaica:</span>
+              <span style="color:#94A3B8;display:block;font-size:11px;text-transform:uppercase;">Placa Fotovoltaica:</span>
               <b style="color:#E2E8F0;">${modName}</b>
-              <div style="color:#FBBF24;font-size:9px;font-weight:700;margin-top:1px;">
+              <div style="color:#FBBF24;font-size:11px;font-weight:700;margin-top:1px;">
                 ${nPanels} uds · ${kwp} kWp (${r.wp || 450} Wp/ud)
               </div>
             </div>
 
             <div style="background:rgba(255,255,255,0.03);padding:4px 6px;border-radius:4px;">
-              <span style="color:#94A3B8;display:block;font-size:8.5px;text-transform:uppercase;">Electrónica & MPPT:</span>
+              <span style="color:#94A3B8;display:block;font-size:11px;text-transform:uppercase;">Electrónica & MPPT:</span>
               <b style="color:${topoColor};">${topoBadge}</b>
-              <div style="color:#CBD5E1;font-size:9px;margin-top:1px;">
+              <div style="color:#CBD5E1;font-size:11px;margin-top:1px;">
                 ${mpptDesc}
               </div>
             </div>
@@ -2668,7 +2668,7 @@ function wpRenderStep4RoofScopeUI() {
           ${optimizerDetailBadge}
 
           <!-- FILA ENRIQUECIDA FASE 2: CONEXIONADO ELÉCTRICO, CABLES & CONECTORES DEL FALDÓN -->
-          <div style="margin-top:5px;padding-top:4px;border-top:1px dashed rgba(255,255,255,0.07);display:flex;justify-content:space-between;align-items:center;font-size:8.5px;color:#94A3B8;">
+          <div style="margin-top:5px;padding-top:4px;border-top:1px dashed rgba(255,255,255,0.07);display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#94A3B8;">
             <span style="display:flex;align-items:center;gap:3px;">
               <i data-lucide="git-commit" class="icon-sm" style="color:#38BDF8;"></i> Tirada Homerun DC: <b style="color:#E2E8F0;">~${estDcL} m (ZZ-F 6mm²)</b>
             </span>
@@ -3016,14 +3016,14 @@ function wpOpenRoofOverrideModal(polyIdx) {
       <div style="display:flex;flex-direction:column;gap:10px;font-size:11px;">
         <div>
           <label style="color:#94A3B8;display:block;margin-bottom:4px;font-weight:700;">Módulo Fotovoltaico Asignado:</label>
-          <select id="modal-roof-override-module" style="width:100%;padding:6px;background:rgba(0,0,0,0.5);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:5px;font-size:10.5px;">
+          <select id="modal-roof-override-module" style="width:100%;padding:6px;background:rgba(0,0,0,0.5);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:5px;font-size:11px;">
             ${moduleOptions}
           </select>
         </div>
 
         <div>
           <label style="color:#94A3B8;display:block;margin-bottom:4px;font-weight:700;">Electrónica y Topología de este Faldón:</label>
-          <select id="modal-roof-override-topo" style="width:100%;padding:6px;background:rgba(0,0,0,0.5);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:5px;font-size:10.5px;">
+          <select id="modal-roof-override-topo" style="width:100%;padding:6px;background:rgba(0,0,0,0.5);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:5px;font-size:11px;">
             <option value="inherit" ${currentTopo === 'inherit' ? 'selected' : ''}>— Heredar Configuración Global del Proyecto —</option>
             <option value="inverter" ${currentTopo === 'inverter' ? 'selected' : ''}>⚡ Inversor Central (String puro a MPPT dedicado)</option>
             <option value="optimizer" ${currentTopo === 'optimizer' ? 'selected' : ''}>⚙️ Inversor + Optimizadores DC/DC (MLPE)</option>
@@ -3033,7 +3033,7 @@ function wpOpenRoofOverrideModal(polyIdx) {
 
         <div>
           <label style="color:#94A3B8;display:block;margin-bottom:4px;font-weight:700;">Cobertura de Optimizadores (si aplica):</label>
-          <select id="modal-roof-override-coverage" style="width:100%;padding:6px;background:rgba(0,0,0,0.5);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:5px;font-size:10.5px;">
+          <select id="modal-roof-override-coverage" style="width:100%;padding:6px;background:rgba(0,0,0,0.5);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:5px;font-size:11px;">
             <option value="inherit" ${currentCoverage === 'inherit' ? 'selected' : ''}>— Heredar Configuración Global —</option>
             <option value="selective" ${currentCoverage === 'selective' ? 'selected' : ''}>🎯 Solo placas con sombra (&gt;8%)</option>
             <option value="full" ${currentCoverage === 'full' ? 'selected' : ''}>🌐 100% de los módulos de este faldón</option>
@@ -3042,8 +3042,8 @@ function wpOpenRoofOverrideModal(polyIdx) {
       </div>
 
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;border-top:1px solid rgba(255,255,255,0.1);padding-top:12px;">
-        <button type="button" onclick="document.getElementById('step4-roof-override-modal').style.display='none'" class="doc-mini-btn" style="padding:6px 12px;font-size:10.5px;">Cancelar</button>
-        <button type="button" onclick="wpSaveRoofOverride(${polyIdx})" style="background:linear-gradient(135deg,#F59E0B,#D97706);border:none;color:#0F172A;font-weight:900;padding:6px 14px;border-radius:5px;cursor:pointer;font-size:10.5px;">Guardar Faldón</button>
+        <button type="button" onclick="document.getElementById('step4-roof-override-modal').style.display='none'" class="doc-mini-btn" style="padding:6px 12px;font-size:11px;">Cancelar</button>
+        <button type="button" onclick="wpSaveRoofOverride(${polyIdx})" style="background:linear-gradient(135deg,#F59E0B,#D97706);border:none;color:#0F172A;font-weight:900;padding:6px 14px;border-radius:5px;cursor:pointer;font-size:11px;">Guardar Faldón</button>
       </div>
     </div>
   `;

@@ -3899,6 +3899,16 @@ function switchSidebarTab(tabName) {
   }
 }
 
+function syncSidebarViewportVar() {
+  if (typeof document === 'undefined' || typeof window === 'undefined') return;
+  const sb = document.getElementById('ra-sidebar');
+  const isMobile = window.innerWidth <= 768;
+  const isCollapsed = !sb || sb.classList.contains('collapsed');
+  const w = (isMobile || isCollapsed) ? 0 : Math.round(sb.getBoundingClientRect().width || 400);
+  document.documentElement.style.setProperty('--sidebar-current-w', w + 'px');
+}
+window.syncSidebarViewportVar = syncSidebarViewportVar;
+
 function toggleSidebarCollapse() {
   const sb = document.getElementById('ra-sidebar');
   if (!sb) return;
@@ -3921,6 +3931,7 @@ function toggleSidebarCollapse() {
   if (backdrop) {
     backdrop.classList.toggle('active', !isCollapsed);
   }
+  syncSidebarViewportVar();
 }
 
 // ── Redimensionamiento interactivo de la Barra Lateral (Opción 2) ──
@@ -3966,6 +3977,7 @@ function initSidebarResize() {
     const maxW = Math.max(MIN_WIDTH, Math.floor(window.innerWidth * 0.80));
     const newW = Math.max(MIN_WIDTH, Math.min(startWidth + delta, maxW));
     sb.style.width = newW + 'px';
+    syncSidebarViewportVar();
   }
 
   function onPointerUp() {
@@ -7921,27 +7933,27 @@ function _flushHeatmapPanelHover() {
     const strColor = panelData.stringColor || '#00F0FF';
     const strLabel = panelData.stringName || ('String #' + ((panelData.polyIdx || 0) + 1));
     const modeBadge = isHeatmapActive && isSimValid
-      ? `<span style="display:inline-flex;align-items:center;gap:3px;padding:1px 5px;border-radius:4px;font-size: 10px;background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.3);font-weight:700;">☀️ Heatmap Solar</span>`
-      : `<span style="display:inline-flex;align-items:center;gap:3px;padding:1px 5px;border-radius:4px;font-size: 10px;background:rgba(56,189,248,0.12);color:${strColor};border:1px solid rgba(56,189,248,0.25);font-weight:700;">⚡ ${strLabel}</span>`;
+      ? `<span style="display:inline-flex;align-items:center;gap:3px;padding:1px 5px;border-radius:4px;font-size: 11px;background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.3);font-weight:700;">☀️ Heatmap Solar</span>`
+      : `<span style="display:inline-flex;align-items:center;gap:3px;padding:1px 5px;border-radius:4px;font-size: 11px;background:rgba(56,189,248,0.12);color:${strColor};border:1px solid rgba(56,189,248,0.25);font-weight:700;">⚡ ${strLabel}</span>`;
 
     const lossHtml = isSimValid
       ? `<span style="font-weight:700;color:${loss > 0.05 ? '#f97316' : '#10b981'};">${loss > 0.05 ? '-' + loss.toFixed(1) + '%' : '100% Libre'}</span>`
-      : `<span style="font-weight:600;color:#94a3b8;font-size: 10px;font-style:italic;">⚠️ Simulación pendiente (Paso 3)</span>`;
+      : `<span style="font-weight:600;color:#94a3b8;font-size: 11px;font-style:italic;">⚠️ Simulación pendiente (Paso 3)</span>`;
 
     const diagHtml = isSimValid
       ? `<span style="font-weight:700;color:${isUnv ? '#ef4444' : (isMlpe ? '#f59e0b' : '#10b981')};">${isUnv ? '❌ Inviable' : (isMlpe ? '⚠️ Requiere Optimizador' : '✅ Óptimo')}</span>`
-      : `<span style="font-weight:600;color:#94a3b8;font-size: 10px;">Pendiente de cálculo</span>`;
+      : `<span style="font-weight:600;color:#94a3b8;font-size: 11px;">Pendiente de cálculo</span>`;
 
     const kwhHtml = isSimValid
       ? `<span style="font-weight:800;color:#10b981;">${kwh.toLocaleString('es-ES')} kWh/año</span>`
-      : `<span style="font-weight:600;color:#94a3b8;font-size: 10px;">${kwh.toLocaleString('es-ES')} kWh/año <span style="font-size: 10px;color:#64748B;">(est.)</span></span>`;
+      : `<span style="font-weight:600;color:#94a3b8;font-size: 11px;">${kwh.toLocaleString('es-ES')} kWh/año <span style="font-size: 11px;color:#64748B;">(est.)</span></span>`;
 
     // [Opción 2] Métricas ampliadas de radiación e insolación anual
     const insolationVal = (typeof panelData.annualTotalInsolation === 'number' && panelData.annualTotalInsolation > 0)
       ? panelData.annualTotalInsolation
       : (typeof panelData.annualGrossKwh === 'number' ? Math.round(panelData.annualGrossKwh / 0.885) : null);
     const insolationRow = (isSimValid && insolationVal)
-      ? `<div style="display:flex;justify-content:space-between;margin-bottom:2px;gap:12px;font-size:10px;">
+      ? `<div style="display:flex;justify-content:space-between;margin-bottom:2px;gap:12px;font-size:11px;">
            <span style="color:#94a3b8;">Radiación Incidente:</span>
            <span style="color:#f8fafc;font-weight:700;">${insolationVal.toLocaleString('es-ES')} kWh/año</span>
          </div>`
@@ -7952,7 +7964,7 @@ function _flushHeatmapPanelHover() {
       ? panelData.relativeYieldPct
       : (typeof panelData.annualYieldPct === 'number' ? panelData.annualYieldPct : null);
     const relYieldRow = (isSimValid && relYieldVal !== null)
-      ? `<div style="display:flex;justify-content:space-between;margin-bottom:2px;gap:12px;font-size:10px;">
+      ? `<div style="display:flex;justify-content:space-between;margin-bottom:2px;gap:12px;font-size:11px;">
            <span style="color:#94a3b8;">Rendimiento vs. Líder:</span>
            <span style="color:${relYieldVal >= 95 ? '#10b981' : (relYieldVal >= 85 ? '#f59e0b' : '#ef4444')};font-weight:700;">${relYieldVal.toFixed(1)}%</span>
          </div>`
@@ -7963,7 +7975,7 @@ function _flushHeatmapPanelHover() {
         <span>MÓDULO #${hoveredIdx + 1}</span>
         ${modeBadge}
       </div>
-      <div style="display:flex;justify-content:space-between;margin-bottom:2px;gap:12px;font-size:10px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:2px;gap:12px;font-size:11px;">
         <span style="color:#94a3b8;">Orientación:</span>
         <span style="color:#cbd5e1;font-weight:600;">${tilt}° · ${azStr}</span>
       </div>
@@ -7977,7 +7989,7 @@ function _flushHeatmapPanelHover() {
       </div>
       ${insolationRow}
       ${relYieldRow}
-      <div style="display:flex;justify-content:space-between;margin-top:4px;padding-top:4px;border-top:1px solid rgba(255,255,255,0.1);font-size:10px;">
+      <div style="display:flex;justify-content:space-between;margin-top:4px;padding-top:4px;border-top:1px solid rgba(255,255,255,0.1);font-size:11px;">
         <span style="color:#94a3b8;">Diagnóstico:</span>
         ${diagHtml}
       </div>

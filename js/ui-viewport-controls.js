@@ -236,7 +236,7 @@
     const statusEl = document.getElementById('ra-status');
     if (!statusEl) return;
     const duration = (typeof ms === 'number' && ms > 0) ? ms : 5000;
-    const closeBtn = '<span onclick="hideStatus()" style="cursor:pointer; margin-left: 14px; padding-left: 14px; border-left: 1px solid rgba(245,158,11,0.3); font-size: 18px; line-height: 1; opacity: 0.8; display: flex; align-items: center;" title="Cerrar">&times;</span>';
+    const closeBtn = '<button type="button" onclick="hideStatus()" aria-label="Cerrar notificación de estado" style="background:transparent;border:none;color:inherit;cursor:pointer;margin-left:14px;padding:0 0 0 14px;border-left:1px solid rgba(245,158,11,0.3);font-size:18px;line-height:1;opacity:0.85;display:inline-flex;align-items:center;" title="Cerrar">&times;</button>';
     statusEl.innerHTML = '<div style="display:flex; align-items:center;">' + msg + closeBtn + '</div>';
     statusEl.classList.add('visible');
     
@@ -660,8 +660,50 @@
         if (backdrop && !currentlyMobile) {
           backdrop.classList.remove('active');
         }
+        if (typeof global.syncSidebarViewportVar === 'function') {
+          global.syncSidebarViewportVar();
+        }
       }, 150);
     }, { passive: true });
+    if (typeof global.syncSidebarViewportVar === 'function') {
+      global.syncSidebarViewportVar();
+    }
+  }
+
+  // [F5-10] Operabilidad por teclado y clic en #ra-hud-energy y cierre Escape en tooltips
+  function initAccessibleHudAndTooltips() {
+    if (typeof document === 'undefined') return;
+    const hudEnergy = document.getElementById('ra-hud-energy');
+    const hudPill = document.getElementById('ra-hud-pill');
+    const setHudOpen = (open) => {
+      if (!hudEnergy || !hudPill) return;
+      hudEnergy.classList.toggle('is-open', !!open);
+      hudPill.setAttribute('aria-expanded', open ? 'true' : 'false');
+    };
+    if (hudEnergy && hudPill && !hudPill.dataset.raHudA11yBound) {
+      hudPill.dataset.raHudA11yBound = '1';
+      hudPill.addEventListener('click', function(ev) {
+        if (ev.target && ev.target.closest('.tooltip-container')) return;
+        setHudOpen(!hudEnergy.classList.contains('is-open'));
+      });
+      document.addEventListener('click', function(ev) {
+        if (hudEnergy.classList.contains('is-open') && !hudEnergy.contains(ev.target)) {
+          setHudOpen(false);
+        }
+      });
+      document.addEventListener('keydown', function(ev) {
+        if (ev.key === 'Escape') {
+          if (hudEnergy.classList.contains('is-open')) {
+            setHudOpen(false);
+            if (typeof hudPill.focus === 'function') hudPill.focus();
+          }
+          const active = document.activeElement;
+          if (active && typeof active.closest === 'function' && active.closest('.tooltip-container')) {
+            if (typeof active.blur === 'function') active.blur();
+          }
+        }
+      });
+    }
   }
 
   if (typeof document !== 'undefined') {
@@ -669,10 +711,12 @@
       document.addEventListener('DOMContentLoaded', function() {
         initMobileResponsiveBehavior();
         initUniversalFloatingDraggables();
+        initAccessibleHudAndTooltips();
       });
     } else {
       initMobileResponsiveBehavior();
       initUniversalFloatingDraggables();
+      initAccessibleHudAndTooltips();
     }
   }
 

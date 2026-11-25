@@ -506,7 +506,7 @@ function recalculateSolarYield(force = false) {
         badgeEl = document.createElement('div');
         badgeEl.id = 'yb-bruta-badge';
         badgeEl.innerHTML = '✓ Recalibrado por Simulación 3D';
-        badgeEl.style.cssText = 'display:none; font-size: 10px; background:#10B981; color:#ffffff; padding:3px 6px; border-radius:3px; font-weight:bold; margin-top:2px; margin-bottom: 4px; cursor:help; align-self:flex-end; box-shadow: 0 0 5px rgba(16,185,129,0.5);';
+        badgeEl.style.cssText = 'display:none; font-size: 11px; background:#10B981; color:#ffffff; padding:3px 6px; border-radius:3px; font-weight:bold; margin-top:2px; margin-bottom: 4px; cursor:help; align-self:flex-end; box-shadow: 0 0 5px rgba(16,185,129,0.5);';
         badgeEl.title = 'La estimación teórica ha sido recalibrada usando la inclinación, orientación y sombras exactas.';
         const ybBrutaContainer = document.getElementById('yb-bruta').parentNode;
         ybBrutaContainer.parentNode.insertBefore(badgeEl, ybBrutaContainer.nextSibling);

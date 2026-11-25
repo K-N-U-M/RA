@@ -469,9 +469,9 @@ REGLAS DE RIGOR TÉCNICO:
               <div>
                 <div style="font-weight:900;font-size:14px;color:#fff;letter-spacing:0.5px;display:flex;align-items:center;gap:8px;">
                   BUSCADOR WEB DE EQUIPOS CON INTELIGENCIA ARTIFICIAL
-                  <span style="background:rgba(167,139,250,0.25);color:#d8b4fe;font-size: 10px;padding:2px 7px;border-radius:4px;border:1px solid rgba(167,139,250,0.4);font-weight:bold;">GEMINI AI</span>
+                  <span style="background:rgba(167,139,250,0.25);color:#d8b4fe;font-size: 11px;padding:2px 7px;border-radius:4px;border:1px solid rgba(167,139,250,0.4);font-weight:bold;">GEMINI AI</span>
                 </div>
-                <div style="font-size:10.5px;color:var(--text-slate-400);margin-top:2px;line-height:1.4;">
+                <div style="font-size:11px;color:var(--text-slate-400);margin-top:2px;line-height:1.4;">
                   Encuentra modelos comerciales reales en la red e incorpóralos al catálogo con especificaciones electrotécnicas completas (IEC 62548 / REBT).
                 </div>
               </div>
@@ -484,10 +484,10 @@ REGLAS DE RIGOR TÉCNICO:
                 <i data-lucide="alert-triangle" style="width:20px;height:20px;color:var(--amber-400);flex-shrink:0;"></i>
                 <div>
                   <div style="font-size:11px;font-weight:bold;color:var(--amber-400);">Clave de API de Gemini no configurada</div>
-                  <div style="font-size:10px;color:var(--text-slate-400);">Configura tu clave gratuita de Google AI Studio para habilitar las búsquedas web con IA.</div>
+                  <div style="font-size:11px;color:var(--text-slate-400);">Configura tu clave gratuita de Google AI Studio para habilitar las búsquedas web con IA.</div>
                 </div>
               </div>
-              <button class="doc-mini-btn" onclick="if(window.openCompanyBrandingModal) window.openCompanyBrandingModal();" style="border-color:var(--amber-400);color:var(--amber-400);padding:5px 12px;font-size:10.5px;white-space:nowrap;">Configurar Clave</button>
+              <button class="doc-mini-btn" onclick="if(window.openCompanyBrandingModal) window.openCompanyBrandingModal();" style="border-color:var(--amber-400);color:var(--amber-400);padding:5px 12px;font-size:11px;white-space:nowrap;">Configurar Clave</button>
             </div>
           ` : ''}
 
@@ -522,7 +522,7 @@ REGLAS DE RIGOR TÉCNICO:
             </div>
 
             <!-- Sugerencias Rápidas -->
-            <div style="margin-top:12px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:10px;color:var(--text-slate-400);">
+            <div style="margin-top:12px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11px;color:var(--text-slate-400);">
               <span style="font-weight:bold;color:var(--text-slate-300);">Sugerencias:</span>
               <button type="button" class="ai-quick-tag" data-q="Aiko Neostar 2S+ 455W">Aiko Neostar 455W</button>
               <button type="button" class="ai-quick-tag" data-q="Longi Hi-MO 6 430W Explorer">Longi Hi-MO 6</button>
@@ -582,7 +582,7 @@ REGLAS DE RIGOR TÉCNICO:
           <div class="modal-spinner" style="width:44px;height:44px;border:3px solid rgba(167,139,250,0.2);border-top-color:#a78bfa;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 16px auto;"></div>
           <div style="font-size:14px;font-weight:bold;color:#fff;margin-bottom:6px;">Buscando equipos comerciales en la red...</div>
           <div style="font-size:11.5px;color:#c084fc;font-weight:600;margin-bottom:8px;">"${this._esc(query)}"</div>
-          <div style="font-size:10.5px;color:var(--text-slate-400);line-height:1.4;max-width:480px;margin:0 auto;">
+          <div style="font-size:11px;color:var(--text-slate-400);line-height:1.4;max-width:480px;margin:0 auto;">
             Extrayendo curvas IV, coeficientes térmicos, rangos MPPT y dimensiones físicas bajo estándares IEC 62548.
           </div>
         </div>
@@ -665,7 +665,7 @@ REGLAS DE RIGOR TÉCNICO:
             <div>
               <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
                 <div>
-                  <span style="display:inline-flex;align-items:center;gap:4px;font-size: 10px;font-weight:bold;color:${cat.color};background:${cat.bg};border:1px solid ${cat.border};padding:2px 8px;border-radius:4px;margin-bottom:6px;text-transform:uppercase;">
+                  <span style="display:inline-flex;align-items:center;gap:4px;font-size: 11px;font-weight:bold;color:${cat.color};background:${cat.bg};border:1px solid ${cat.border};padding:2px 8px;border-radius:4px;margin-bottom:6px;text-transform:uppercase;">
                     <i data-lucide="${cat.icon}" class="icon-sm"></i> ${cat.label}
                   </span>
                   <div style="font-size:13px;font-weight:900;color:#fff;">${_e(item.brand)}</div>
@@ -673,7 +673,7 @@ REGLAS DE RIGOR TÉCNICO:
                 </div>
                 <div style="text-align:right;flex-shrink:0;">
                   <div style="font-size:13px;font-weight:bold;color:var(--amber-400);font-family:monospace;">~${_e(item.price)} €</div>
-                  <div style="font-size: 10px;color:var(--text-slate-400);">PVP est.</div>
+                  <div style="font-size: 11px;color:var(--text-slate-400);">PVP est.</div>
                 </div>
               </div>
 
@@ -681,7 +681,7 @@ REGLAS DE RIGOR TÉCNICO:
             </div>
 
             <div style="display:flex;justify-content:flex-end;margin-top:10px;border-top:1px solid rgba(255,255,255,0.06);padding-top:10px;">
-              <button type="button" class="btn-add-to-cat" data-idx="${idx}" style="background:var(--emerald-600);border:1px solid var(--emerald-400);color:#fff;font-size:10.5px;font-weight:bold;padding:6px 14px;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all 0.2s ease;">
+              <button type="button" class="btn-add-to-cat" data-idx="${idx}" style="background:var(--emerald-600);border:1px solid var(--emerald-400);color:#fff;font-size:11px;font-weight:bold;padding:6px 14px;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all 0.2s ease;">
                 <i data-lucide="plus" class="icon-sm"></i> AÑADIR AL CATÁLOGO
               </button>
             </div>
@@ -695,7 +695,7 @@ REGLAS DE RIGOR TÉCNICO:
             <div style="font-size:12px;font-weight:bold;color:#fff;">
               Resultados de la búsqueda: <span style="color:#c084fc;">${results.length} modelos comerciales encontrados</span>
             </div>
-            <button type="button" id="ai-web-search-clear" class="doc-mini-btn" style="font-size: 10px;color:var(--text-slate-400);">
+            <button type="button" id="ai-web-search-clear" class="doc-mini-btn" style="font-size: 11px;color:var(--text-slate-400);">
               Limpiar resultados
             </button>
           </div>
@@ -823,7 +823,7 @@ REGLAS DE RIGOR TÉCNICO:
         color: var(--text-slate-300);
         padding: 2px 7px;
         cursor: pointer;
-        font-size: 10px;
+        font-size: 11px;
         transition: all 0.15s ease;
       }
       .ai-quick-tag:hover {
@@ -839,7 +839,7 @@ REGLAS DE RIGOR TÉCNICO:
         border: 1px solid #1e293b;
         border-radius: 4px;
         padding: 3px 6px;
-        font-size: 10px;
+        font-size: 11px;
         color: var(--text-slate-300);
         font-family: monospace;
       }

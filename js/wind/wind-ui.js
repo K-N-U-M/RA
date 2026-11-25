@@ -539,11 +539,11 @@
     // [AUD-2026 · E-01] Aviso visible si hay curvas rechazadas por el límite de Betz.
     if (parkSummary && parkSummary.hasInvalidCurves) {
       var _badNames = (parkSummary.invalidCurves || []).map(function(c) { return c.name || c.id; }).join(', ');
-      html += '<div style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.5);border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:10px;color:#FCA5A5;line-height:1.4;">' +
+      html += '<div style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.5);border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:11px;color:#FCA5A5;line-height:1.4;">' +
         '<b>⚠️ Curva de potencia no válida:</b> ' + _badNames + '. El AEP de esos equipos se muestra como 0 kWh porque la curva declara más energía que la contenida en el viento (Cp &gt; 0,593).' +
         '<div style="margin-top:6px;display:flex;align-items:center;justify-content:space-between;gap:8px;">' +
-        '<span style="font-size:9.5px;color:#FCA5A5;opacity:0.9;">Puedes auto-calibrar las curvas al límite físico realista (Cp ≤ 0,42) para desbloquear la producción.</span>' +
-        '<button class="doc-mini-btn" onclick="if(window.RAWindUI&&typeof window.RAWindUI.autoCalibrateBetzViolations===\'function\'){window.RAWindUI.autoCalibrateBetzViolations();}" style="background:rgba(245,158,11,0.25);color:#FBBF24;border:1px solid rgba(245,158,11,0.6);font-weight:700;padding:4px 8px;font-size:10px;cursor:pointer;white-space:nowrap;">🔧 Calibrar y Desbloquear</button>' +
+        '<span style="font-size:11px;color:#FCA5A5;opacity:0.9;">Puedes auto-calibrar las curvas al límite físico realista (Cp ≤ 0,42) para desbloquear la producción.</span>' +
+        '<button class="doc-mini-btn" onclick="if(window.RAWindUI&&typeof window.RAWindUI.autoCalibrateBetzViolations===\'function\'){window.RAWindUI.autoCalibrateBetzViolations();}" style="background:rgba(245,158,11,0.25);color:#FBBF24;border:1px solid rgba(245,158,11,0.6);font-weight:700;padding:4px 8px;font-size:11px;cursor:pointer;white-space:nowrap;">🔧 Calibrar y Desbloquear</button>' +
         '</div></div>';
     }
 
@@ -553,48 +553,48 @@
     html += '    <div>';
     html += '      <span style="font-size:11px;font-weight:700;color:#38BDF8;text-transform:uppercase;letter-spacing:0.5px;">💨 Parque Mini-Eólico</span>';
     var parkHoursText = parkSummary.annualOperatingHours ? (' | <b style="color:#38BDF8;">' + Number(parkSummary.annualOperatingHours).toLocaleString('es-ES') + ' h recurso/año</b>') : '';
-    html += '      <div style="font-size:10px;color:var(--text-slate-400);">' + turbines.length + ' aerogenerador(es) | <b style="color:#FBBF24;">' + totalKw.toFixed(1) + ' kW</b> | <b style="color:#34D399;">' + (parkSummary.totalAepNetKwh || 0).toLocaleString('es-ES') + ' kWh/año</b>' + parkHoursText + '</div>';
+    html += '      <div style="font-size:11px;color:var(--text-slate-400);">' + turbines.length + ' aerogenerador(es) | <b style="color:#FBBF24;">' + totalKw.toFixed(1) + ' kW</b> | <b style="color:#34D399;">' + (parkSummary.totalAepNetKwh || 0).toLocaleString('es-ES') + ' kWh/año</b>' + parkHoursText + '</div>';
     html += '    </div>';
-    html += '    <button class="doc-mini-btn" onclick="if(typeof openEquipmentCatalogModal===\'function\'){openEquipmentCatalogModal(\'wind_turbines\');}" style="background:rgba(56,189,248,0.15);color:#38BDF8;border:1px solid rgba(56,189,248,0.45);font-weight:700;padding:4px 9px;font-size:10.5px;cursor:pointer;">+ Añadir Turbina</button>';
+    html += '    <button class="doc-mini-btn" onclick="if(typeof openEquipmentCatalogModal===\'function\'){openEquipmentCatalogModal(\'wind_turbines\');}" style="background:rgba(56,189,248,0.15);color:#38BDF8;border:1px solid rgba(56,189,248,0.45);font-weight:700;padding:4px 9px;font-size:11px;cursor:pointer;">+ Añadir Turbina</button>';
     html += '  </div>';
 
     // Barra rápida de recurso eólico local (Fase 2)
     html += '  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;background:rgba(2,6,23,0.45);padding:6px 8px;border-radius:6px;margin-bottom:6px;border:1px solid rgba(255,255,255,0.06);">';
     html += '    <div>';
-    html += '      <label for="wind-res-vmean" style="display:block;font-size:9px;color:var(--text-slate-400);">Viento medio (10m)</label>';
-    html += '      <input id="wind-res-vmean" type="number" step="0.1" min="1.0" max="18.0" value="' + resCfg.vMeanRefMs + '" onchange="if(window.RAWindUI)window.RAWindUI.updateResourceParam(\'vMeanRefMs\',this.value)" style="width:100%;background:#0F172A;color:#38BDF8;border:1px solid #334155;border-radius:4px;padding:2px 4px;font-size:10.5px;font-family:monospace;">';
+    html += '      <label for="wind-res-vmean" style="display:block;font-size:11px;color:var(--text-slate-400);">Viento medio (10m)</label>';
+    html += '      <input id="wind-res-vmean" type="number" step="0.1" min="1.0" max="18.0" value="' + resCfg.vMeanRefMs + '" onchange="if(window.RAWindUI)window.RAWindUI.updateResourceParam(\'vMeanRefMs\',this.value)" style="width:100%;background:#0F172A;color:#38BDF8;border:1px solid #334155;border-radius:4px;padding:2px 4px;font-size:11px;font-family:monospace;">';
     html += '    </div>';
     html += '    <div>';
-    html += '      <label for="wind-res-roughness" style="display:block;font-size:9px;color:var(--text-slate-400);">Rugosidad z₀</label>';
-    html += '      <select id="wind-res-roughness" onchange="if(window.RAWindUI)window.RAWindUI.updateResourceParam(\'roughnessLengthM\',this.value)" style="width:100%;background:#0F172A;color:#E2E8F0;border:1px solid #334155;border-radius:4px;padding:2px 2px;font-size:10px;">';
+    html += '      <label for="wind-res-roughness" style="display:block;font-size:11px;color:var(--text-slate-400);">Rugosidad z₀</label>';
+    html += '      <select id="wind-res-roughness" onchange="if(window.RAWindUI)window.RAWindUI.updateResourceParam(\'roughnessLengthM\',this.value)" style="width:100%;background:#0F172A;color:#E2E8F0;border:1px solid #334155;border-radius:4px;padding:2px 2px;font-size:11px;">';
     html += '        <option value="0.03"' + (resCfg.roughnessLengthM <= 0.04 ? ' selected' : '') + '>Campo (0.03m)</option>';
     html += '        <option value="0.10"' + (resCfg.roughnessLengthM > 0.04 && resCfg.roughnessLengthM <= 0.20 ? ' selected' : '') + '>Periurbano (0.10m)</option>';
     html += '        <option value="0.40"' + (resCfg.roughnessLengthM > 0.20 ? ' selected' : '') + '>Urbano/Ind (0.40m)</option>';
     html += '      </select>';
     html += '    </div>';
     html += '    <div>';
-    html += '      <label for="wind-res-receptor" style="display:block;font-size:9px;color:var(--text-slate-400);">Dist. Lindero (m)</label>';
-    html += '      <input id="wind-res-receptor" type="number" step="5" min="5" max="500" value="' + resCfg.receptorDistanceM + '" onchange="if(window.RAWindUI)window.RAWindUI.updateResourceParam(\'receptorDistanceM\',this.value)" style="width:100%;background:#0F172A;color:#FBBF24;border:1px solid #334155;border-radius:4px;padding:2px 4px;font-size:10.5px;font-family:monospace;">';
+    html += '      <label for="wind-res-receptor" style="display:block;font-size:11px;color:var(--text-slate-400);">Dist. Lindero (m)</label>';
+    html += '      <input id="wind-res-receptor" type="number" step="5" min="5" max="500" value="' + resCfg.receptorDistanceM + '" onchange="if(window.RAWindUI)window.RAWindUI.updateResourceParam(\'receptorDistanceM\',this.value)" style="width:100%;background:#0F172A;color:#FBBF24;border:1px solid #334155;border-radius:4px;padding:2px 4px;font-size:11px;font-family:monospace;">';
     html += '    </div>';
     html += '  </div>';
 
     // Selector de fuente meteorológica externa y botón de adquisición
     html += '  <div style="margin-bottom:8px;background:rgba(15,23,42,0.65);border:1px solid rgba(56,189,248,0.25);border-radius:6px;padding:6px 8px;">';
     html += '    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">';
-    html += '      <span style="font-size:9.5px;font-weight:700;color:#38BDF8;">🌐 FUENTE DE DATOS EÓLICOS</span>';
+    html += '      <span style="font-size:11px;font-weight:700;color:#38BDF8;">🌐 FUENTE DE DATOS EÓLICOS</span>';
     html += '      <div style="display:flex;align-items:center;gap:6px;">';
-    html += '        <span style="font-size:8.5px;color:#94A3B8;font-family:monospace;">' + (resCfg.sourceName || 'Manual / IDAE') + '</span>';
-    html += '        <button type="button" onclick="if(window.RAWindUI)window.RAWindUI.toggleAdvancedResource()" style="background:' + (_showAdvancedResource ? 'rgba(56,189,248,0.25)' : 'rgba(255,255,255,0.06)') + ';border:1px solid ' + (_showAdvancedResource ? 'rgba(56,189,248,0.5)' : 'rgba(255,255,255,0.15)') + ';color:' + (_showAdvancedResource ? '#38BDF8' : '#CBD5E1') + ';border-radius:4px;padding:1px 6px;font-size:8.5px;font-weight:700;cursor:pointer;" title="Alternar panel de telemetría eólica avanzada">' + (_showAdvancedResource ? '▴ Resumen' : '▾ Avanzado') + '</button>';
+    html += '        <span style="font-size:11px;color:#94A3B8;font-family:monospace;">' + (resCfg.sourceName || 'Manual / IDAE') + '</span>';
+    html += '        <button type="button" onclick="if(window.RAWindUI)window.RAWindUI.toggleAdvancedResource()" style="background:' + (_showAdvancedResource ? 'rgba(56,189,248,0.25)' : 'rgba(255,255,255,0.06)') + ';border:1px solid ' + (_showAdvancedResource ? 'rgba(56,189,248,0.5)' : 'rgba(255,255,255,0.15)') + ';color:' + (_showAdvancedResource ? '#38BDF8' : '#CBD5E1') + ';border-radius:4px;padding:1px 6px;font-size:11px;font-weight:700;cursor:pointer;" title="Alternar panel de telemetría eólica avanzada">' + (_showAdvancedResource ? '▴ Resumen' : '▾ Avanzado') + '</button>';
     html += '      </div>';
     html += '    </div>';
     html += '    <div style="display:flex;gap:6px;margin-bottom:8px;">';
-    html += '      <select id="wind-source-select" onchange="if(window.RAWindUI)window.RAWindUI.setWindSource(this.value)" style="flex:1;background:#0F172A;color:#E2E8F0;border:1px solid #334155;border-radius:4px;padding:3px 6px;font-size:10px;">';
+    html += '      <select id="wind-source-select" onchange="if(window.RAWindUI)window.RAWindUI.setWindSource(this.value)" style="flex:1;background:#0F172A;color:#E2E8F0;border:1px solid #334155;border-radius:4px;padding:3px 6px;font-size:11px;">';
     html += '        <option value="gwa"' + (_selectedWindSource === 'gwa' ? ' selected' : '') + '>🌍 Global Wind Atlas (DTU 250m WAsP)</option>';
     html += '        <option value="era5"' + (_selectedWindSource === 'era5' ? ' selected' : '') + '>🛰️ Copernicus ERA5 (8.760h Reanálisis)</option>';
     html += '        <option value="nasa"' + (_selectedWindSource === 'nasa' ? ' selected' : '') + '>🚀 NASA POWER (Satelital 10m/50m)</option>';
     html += '        <option value="manual"' + (_selectedWindSource === 'manual' ? ' selected' : '') + '>⚙️ Manual / IDAE (Local)</option>';
     html += '      </select>';
-    html += '      <button type="button" id="btn-fetch-selected-wind" onclick="if(window.RAWindUI)window.RAWindUI.fetchSelectedWindSource()" style="background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.45);color:#38BDF8;border-radius:4px;padding:3px 8px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:4px;">';
+    html += '      <button type="button" id="btn-fetch-selected-wind" onclick="if(window.RAWindUI)window.RAWindUI.fetchSelectedWindSource()" style="background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.45);color:#38BDF8;border-radius:4px;padding:3px 8px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:4px;">';
     html += '        <span>📥</span> <span>Obtener</span>';
     html += '      </button>';
     html += '    </div>';
@@ -617,7 +617,7 @@
 
     html += '    <div style="display:flex;align-items:center;gap:10px;background:rgba(2,6,23,0.55);border:1px solid rgba(255,255,255,0.07);border-radius:6px;padding:7px 8px;">';
     html += '      ' + _buildWindRoseSVG(resCfg.sectors, prevDir);
-    html += '      <div style="flex:1;display:flex;flex-direction:column;gap:3px;font-size:9.5px;color:#CBD5E1;">';
+    html += '      <div style="flex:1;display:flex;flex-direction:column;gap:3px;font-size:11px;color:#CBD5E1;">';
     html += '        <div style="display:flex;justify-content:space-between;"><span>Rumbo Dominante:</span><b style="color:#FBBF24;font-family:monospace;">' + prevDir + '° (' + _getYawCardinal(prevDir) + ')</b></div>';
     html += '        <div style="display:flex;justify-content:space-between;"><span>V<sub>10m</sub> / V<sub>50m</sub>:</span><b style="color:#38BDF8;font-family:monospace;">' + Number(v10).toFixed(2) + ' / ' + Number(v50Display).toFixed(2) + ' m/s</b></div>';
     html += '        <div style="display:flex;justify-content:space-between;"><span>Weibull k / Cizalla α:</span><b style="color:#E2E8F0;font-family:monospace;">k=' + Number(wK).toFixed(2) + ' · α=' + Number(alphaShear).toFixed(3) + '</b></div>';
@@ -629,10 +629,10 @@
           html += '        <div style="display:flex;justify-content:space-between;"><span>Horas Viento Útil:</span><b style="color:#38BDF8;font-family:monospace;">' + Number(parkSummary.annualOperatingHours).toLocaleString('es-ES') + ' h/año (v ≥ v_arranque)</b></div>';
         }
     html += '        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px;padding-top:3px;border-top:1px dashed rgba(255,255,255,0.08);">';
-    html += '          <label for="wind-res-autoyaw" style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:9px;color:#94A3B8;" title="Orientar automáticamente las turbinas nuevas y existentes al viento predominante">';
+    html += '          <label for="wind-res-autoyaw" style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;color:#94A3B8;" title="Orientar automáticamente las turbinas nuevas y existentes al viento predominante">';
     html += '            <input id="wind-res-autoyaw" type="checkbox" ' + (autoYawOn ? 'checked' : '') + ' onchange="if(window.RAWindUI)window.RAWindUI.toggleAutoYaw(this.checked)" style="accent-color:#FBBF24;"> Auto-Yaw';
     html += '          </label>';
-    html += '          <button type="button" onclick="if(window.RAWindUI)window.RAWindUI.orientAllToWindNow()" style="background:rgba(245,158,11,0.16);border:1px solid rgba(245,158,11,0.45);color:#FBBF24;border-radius:4px;padding:1px 6px;font-size:8.5px;font-weight:700;cursor:pointer;" title="Girar ahora todas las góndolas hacia ' + prevDir + '°">🧭 Alinear (' + prevDir + '°)</button>';
+    html += '          <button type="button" onclick="if(window.RAWindUI)window.RAWindUI.orientAllToWindNow()" style="background:rgba(245,158,11,0.16);border:1px solid rgba(245,158,11,0.45);color:#FBBF24;border-radius:4px;padding:1px 6px;font-size:11px;font-weight:700;cursor:pointer;" title="Girar ahora todas las góndolas hacia ' + prevDir + '°">🧭 Alinear (' + prevDir + '°)</button>';
     html += '        </div>';
     html += '      </div>';
     html += '    </div>';
@@ -646,16 +646,16 @@
 
       html += '    <div style="margin-top:6px;padding-top:6px;border-top:1px dashed rgba(56,189,248,0.25);display:flex;flex-direction:column;gap:5px;">';
       html += '      <div style="display:flex;justify-content:space-between;align-items:center;">';
-      html += '        <span style="font-size:8.5px;font-weight:700;color:#94A3B8;text-transform:uppercase;">Seleccionar Métricas:</span>';
+      html += '        <span style="font-size:11px;font-weight:700;color:#94A3B8;text-transform:uppercase;">Seleccionar Métricas:</span>';
       html += '        <div style="display:flex;gap:3px;">';
-      html += '          <button type="button" onclick="if(window.RAWindUI)window.RAWindUI.toggleResourceMetric(\'wpd\')" style="background:' + (_resourceActiveMetrics.wpd ? 'rgba(245,158,11,0.22)' : 'rgba(255,255,255,0.04)') + ';border:1px solid ' + (_resourceActiveMetrics.wpd ? 'rgba(245,158,11,0.5)' : 'rgba(255,255,255,0.1)') + ';color:' + (_resourceActiveMetrics.wpd ? '#FBBF24' : '#64748B') + ';border-radius:3px;padding:1px 5px;font-size:8px;font-weight:700;cursor:pointer;" title="Conmutar densidad de potencia">⚡ Potencia</button>';
-      html += '          <button type="button" onclick="if(window.RAWindUI)window.RAWindUI.toggleResourceMetric(\'profile\')" style="background:' + (_resourceActiveMetrics.profile ? 'rgba(56,189,248,0.22)' : 'rgba(255,255,255,0.04)') + ';border:1px solid ' + (_resourceActiveMetrics.profile ? 'rgba(56,189,248,0.5)' : 'rgba(255,255,255,0.1)') + ';color:' + (_resourceActiveMetrics.profile ? '#38BDF8' : '#64748B') + ';border-radius:3px;padding:1px 5px;font-size:8px;font-weight:700;cursor:pointer;" title="Conmutar perfil vertical">📈 Alturas</button>';
-      html += '          <button type="button" onclick="if(window.RAWindUI)window.RAWindUI.toggleResourceMetric(\'sectors\')" style="background:' + (_resourceActiveMetrics.sectors ? 'rgba(52,211,153,0.22)' : 'rgba(255,255,255,0.04)') + ';border:1px solid ' + (_resourceActiveMetrics.sectors ? 'rgba(52,211,153,0.5)' : 'rgba(255,255,255,0.1)') + ';color:' + (_resourceActiveMetrics.sectors ? '#34D399' : '#64748B') + ';border-radius:3px;padding:1px 5px;font-size:8px;font-weight:700;cursor:pointer;" title="Conmutar top sectores">🧭 Sectores</button>';
+      html += '          <button type="button" onclick="if(window.RAWindUI)window.RAWindUI.toggleResourceMetric(\'wpd\')" style="background:' + (_resourceActiveMetrics.wpd ? 'rgba(245,158,11,0.22)' : 'rgba(255,255,255,0.04)') + ';border:1px solid ' + (_resourceActiveMetrics.wpd ? 'rgba(245,158,11,0.5)' : 'rgba(255,255,255,0.1)') + ';color:' + (_resourceActiveMetrics.wpd ? '#FBBF24' : '#64748B') + ';border-radius:3px;padding:1px 5px;font-size:11px;font-weight:700;cursor:pointer;" title="Conmutar densidad de potencia">⚡ Potencia</button>';
+      html += '          <button type="button" onclick="if(window.RAWindUI)window.RAWindUI.toggleResourceMetric(\'profile\')" style="background:' + (_resourceActiveMetrics.profile ? 'rgba(56,189,248,0.22)' : 'rgba(255,255,255,0.04)') + ';border:1px solid ' + (_resourceActiveMetrics.profile ? 'rgba(56,189,248,0.5)' : 'rgba(255,255,255,0.1)') + ';color:' + (_resourceActiveMetrics.profile ? '#38BDF8' : '#64748B') + ';border-radius:3px;padding:1px 5px;font-size:11px;font-weight:700;cursor:pointer;" title="Conmutar perfil vertical">📈 Alturas</button>';
+      html += '          <button type="button" onclick="if(window.RAWindUI)window.RAWindUI.toggleResourceMetric(\'sectors\')" style="background:' + (_resourceActiveMetrics.sectors ? 'rgba(52,211,153,0.22)' : 'rgba(255,255,255,0.04)') + ';border:1px solid ' + (_resourceActiveMetrics.sectors ? 'rgba(52,211,153,0.5)' : 'rgba(255,255,255,0.1)') + ';color:' + (_resourceActiveMetrics.sectors ? '#34D399' : '#64748B') + ';border-radius:3px;padding:1px 5px;font-size:11px;font-weight:700;cursor:pointer;" title="Conmutar top sectores">🧭 Sectores</button>';
       html += '        </div>';
       html += '      </div>';
 
       if (_resourceActiveMetrics.wpd) {
-        html += '      <div style="background:rgba(15,23,42,0.8);border:1px solid rgba(245,158,11,0.25);border-radius:4px;padding:5px 6px;font-size:9px;">';
+        html += '      <div style="background:rgba(15,23,42,0.8);border:1px solid rgba(245,158,11,0.25);border-radius:4px;padding:5px 6px;font-size:11px;">';
         html += '        <div style="display:flex;justify-content:space-between;margin-bottom:2px;">';
         html += '          <span style="color:#CBD5E1;">⚡ Densidad Potencia (WPD):</span>';
         html += '          <b style="color:#FBBF24;font-family:monospace;">' + wpd10 + ' W/m² (10m) · ' + wpd50 + ' W/m² (50m)</b>';
@@ -668,9 +668,9 @@
       }
 
       if (_resourceActiveMetrics.profile) {
-        html += '      <div style="background:rgba(15,23,42,0.8);border:1px solid rgba(56,189,248,0.25);border-radius:4px;padding:5px 6px;font-size:9px;">';
-        html += '        <div style="color:#38BDF8;font-weight:700;margin-bottom:3px;font-size:8.5px;">📈 PERFIL VERTICAL DE VIENTO (CAPA LÍMITE)</div>';
-        html += '        <div style="display:grid;grid-template-columns:repeat(5, 1fr);gap:4px;text-align:center;font-family:monospace;font-size:8.5px;">';
+        html += '      <div style="background:rgba(15,23,42,0.8);border:1px solid rgba(56,189,248,0.25);border-radius:4px;padding:5px 6px;font-size:11px;">';
+        html += '        <div style="color:#38BDF8;font-weight:700;margin-bottom:3px;font-size:11px;">📈 PERFIL VERTICAL DE VIENTO (CAPA LÍMITE)</div>';
+        html += '        <div style="display:grid;grid-template-columns:repeat(5, 1fr);gap:4px;text-align:center;font-family:monospace;font-size:11px;">';
         html += '          <div style="background:rgba(2,6,23,0.5);padding:2px;border-radius:3px;"><div style="color:#94A3B8;">10m</div><b style="color:#E2E8F0;">' + v10 + '</b></div>';
         html += '          <div style="background:rgba(2,6,23,0.5);padding:2px;border-radius:3px;"><div style="color:#94A3B8;">20m</div><b style="color:#E2E8F0;">' + v20 + '</b></div>';
         html += '          <div style="background:rgba(2,6,23,0.5);padding:2px;border-radius:3px;"><div style="color:#94A3B8;">30m</div><b style="color:#E2E8F0;">' + v30 + '</b></div>';
@@ -681,9 +681,9 @@
       }
 
       if (_resourceActiveMetrics.sectors && sortedSectors.length > 0) {
-        html += '      <div style="background:rgba(15,23,42,0.8);border:1px solid rgba(52,211,153,0.25);border-radius:4px;padding:5px 6px;font-size:9px;">';
-        html += '        <div style="color:#34D399;font-weight:700;margin-bottom:2px;font-size:8.5px;">🧭 TOP SECTORES DOMINANTES</div>';
-        html += '        <div style="display:flex;justify-content:space-between;font-size:8.5px;font-family:monospace;">';
+        html += '      <div style="background:rgba(15,23,42,0.8);border:1px solid rgba(52,211,153,0.25);border-radius:4px;padding:5px 6px;font-size:11px;">';
+        html += '        <div style="color:#34D399;font-weight:700;margin-bottom:2px;font-size:11px;">🧭 TOP SECTORES DOMINANTES</div>';
+        html += '        <div style="display:flex;justify-content:space-between;font-size:11px;font-family:monospace;">';
         sortedSectors.forEach(function(sec, sIdx) {
           var pct = ((sec.freq || 0) * 100).toFixed(1);
           html += '          <span>#' + (sIdx + 1) + ' <b style="color:#FBBF24;">' + (sec.label || sec.dirDeg + '°') + '</b>: ' + pct + '%</span>';
@@ -698,7 +698,7 @@
     if (turbines.length === 0) {
       html += '<div style="padding:14px;text-align:center;color:var(--text-slate-400);font-size:11px;border:1px dashed rgba(255,255,255,0.1);border-radius:6px;">';
       html += '  No hay aerogeneradores en la escena.<br>';
-      html += '  <span style="font-size:10px;color:var(--text-slate-500);">Abre el catálogo para elegir un modelo (Bornay, Enair, Kliux) e instalarlo con un clic.</span>';
+      html += '  <span style="font-size:11px;color:var(--text-slate-500);">Abre el catálogo para elegir un modelo (Bornay, Enair, Kliux) e instalarlo con un clic.</span>';
       html += '</div>';
       html += '</div>';
       panel.innerHTML = html;
@@ -721,15 +721,15 @@
 
     html += '<div style="background:rgba(15,23,42,0.75);border:1px solid rgba(56,189,248,0.25);border-radius:6px;padding:8px;margin-bottom:8px;">';
     html += '  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
-    html += '    <span style="font-size:10px;font-weight:700;color:#38BDF8;">✨ VISOR 3D: AFECCIONES & ISÓFONAS</span>';
-    html += '    <button onclick="if(window.RAWindUI)window.RAWindUI.toggleRings3D()" style="background:none;border:1px solid ' + (ringsActive ? 'rgba(56,189,248,0.5)' : 'rgba(148,163,184,0.25)') + ';color:' + (ringsActive ? '#38BDF8' : '#94A3B8') + ';border-radius:4px;padding:1px 6px;font-size:9.5px;cursor:pointer;">' + (ringsActive ? '◉ Anillos: ON' : '○ Anillos: OFF') + '</button>';
+    html += '    <span style="font-size:11px;font-weight:700;color:#38BDF8;">✨ VISOR 3D: AFECCIONES & ISÓFONAS</span>';
+    html += '    <button onclick="if(window.RAWindUI)window.RAWindUI.toggleRings3D()" style="background:none;border:1px solid ' + (ringsActive ? 'rgba(56,189,248,0.5)' : 'rgba(148,163,184,0.25)') + ';color:' + (ringsActive ? '#38BDF8' : '#94A3B8') + ';border-radius:4px;padding:1px 6px;font-size:11px;cursor:pointer;">' + (ringsActive ? '◉ Anillos: ON' : '○ Anillos: OFF') + '</button>';
     html += '  </div>';
 
     if (ringsActive) {
     html += '  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;">';
       html += '    <div>';
-      html += '      <label for="wind-vis-style" style="display:block;font-size:8.5px;color:var(--text-slate-400);">Estilo Visual</label>';
-      html += '      <select id="wind-vis-style" onchange="if(window.RAWindUI)window.RAWindUI.updateVisualParam(\'style\', this.value)" style="width:100%;background:#0F172A;color:#38BDF8;border:1px solid #334155;border-radius:4px;padding:2px 4px;font-size:9.5px;">';
+      html += '      <label for="wind-vis-style" style="display:block;font-size:11px;color:var(--text-slate-400);">Estilo Visual</label>';
+      html += '      <select id="wind-vis-style" onchange="if(window.RAWindUI)window.RAWindUI.updateVisualParam(\'style\', this.value)" style="width:100%;background:#0F172A;color:#38BDF8;border:1px solid #334155;border-radius:4px;padding:2px 4px;font-size:11px;">';
       html += '        <option value="neon"' + (visualCfg.style === 'neon' ? ' selected' : '') + '>⚡ Neón Brillante</option>';
       html += '        <option value="pulse"' + (visualCfg.style === 'pulse' ? ' selected' : '') + '>📡 Pulso Radar</option>';
       html += '        <option value="dome"' + (visualCfg.style === 'dome' ? ' selected' : '') + '>🌐 Cúpula Holográfica</option>';
@@ -737,12 +737,12 @@
       html += '      </select>';
       html += '    </div>';
       html += '    <div>';
-      html += '      <label for="wind-vis-opacity" style="display:block;font-size:8.5px;color:var(--text-slate-400);">Brillo / Opacidad: ' + Math.round((visualCfg.opacity || 0.65) * 100) + '%</label>';
+      html += '      <label for="wind-vis-opacity" style="display:block;font-size:11px;color:var(--text-slate-400);">Brillo / Opacidad: ' + Math.round((visualCfg.opacity || 0.65) * 100) + '%</label>';
       html += '      <input id="wind-vis-opacity" type="range" min="0.1" max="1.0" step="0.05" value="' + (visualCfg.opacity || 0.65) + '" oninput="if(window.RAWindUI)window.RAWindUI.updateVisualParam(\'opacity\', parseFloat(this.value))" style="width:100%;height:14px;accent-color:#38BDF8;cursor:pointer;">';
       html += '    </div>';
       html += '  </div>';
 
-      html += '  <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:9px;color:var(--text-slate-300);padding-top:4px;border-top:1px dashed rgba(255,255,255,0.08);">';
+      html += '  <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:11px;color:var(--text-slate-300);padding-top:4px;border-top:1px dashed rgba(255,255,255,0.08);">';
       html += '    <label for="wind-vis-fall" style="display:flex;align-items:center;gap:3px;cursor:pointer;">';
       html += '      <input id="wind-vis-fall" type="checkbox" ' + (visualCfg.showFallRadius ? 'checked' : '') + ' onchange="if(window.RAWindUI)window.RAWindUI.updateVisualParam(\'showFallRadius\', this.checked)" style="accent-color:#00E5FF;">';
       html += '      <span style="color:#00E5FF;">●</span> Caída (1.1×H)';
@@ -764,7 +764,7 @@
     html += '</div>';
 
     html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">';
-    html += '  <span style="font-size:9.5px;color:var(--text-slate-400);text-transform:uppercase;">Unidades instaladas (clic para inspeccionar)</span>';
+    html += '  <span style="font-size:11px;color:var(--text-slate-400);text-transform:uppercase;">Unidades instaladas (clic para inspeccionar)</span>';
     html += '</div>';
 
     var _escWind = function (v) {
@@ -782,15 +782,15 @@
       var tIdEsc = _escWind(t.id);
       var tNameEsc = _escWind(t.name || ('Turbina #' + (idx + 1)));
 
-      html += '<div data-wind-act="select" data-wind-id="' + tIdEsc + '" style="display:flex;align-items:center;justify-content:space-between;background:' + (isSel ? 'rgba(56,189,248,0.14)' : 'rgba(30,41,59,0.7)') + ';padding:6px 8px;border-radius:6px;cursor:pointer;border:1px solid ' + (isSel ? '#38BDF8' : (isEnabled ? 'rgba(255,255,255,0.08)' : 'rgba(239,68,68,0.3)')) + ';">';
-      html += '  <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:155px;">';
-      html += '    <div style="font-weight:600;font-size:10.5px;color:#fff;">' + tNameEsc + '</div>';
-      html += '    <div style="font-size:9.5px;color:var(--text-slate-400);">' + _escWind(kw) + ' kW · ' + _escWind(cat.type) + ' · H=' + _escWind(hubH) + 'm · <span style="color:#34D399;">' + Number(aepKwh).toLocaleString('es-ES') + ' kWh/a</span></div>';
-      html += '  </div>';
-      html += '  <div style="display:flex;gap:3px;align-items:center;">';
-      html += '    <button data-wind-act="toggle" data-wind-id="' + tIdEsc + '" data-wind-val="' + (!isEnabled ? '1' : '0') + '" title="' + (isEnabled ? 'Desactivar' : 'Activar') + '" style="background:none;border:none;color:' + (isEnabled ? '#10B981' : '#64748B') + ';cursor:pointer;font-size:11px;">' + (isEnabled ? '⚡' : '⚪') + '</button>';
-      html += '    <button data-wind-act="focus" data-wind-id="' + tIdEsc + '" title="Centrar cámara" style="background:none;border:none;color:#38BDF8;cursor:pointer;font-size:11px;">🔍</button>';
-      html += '    <button data-wind-act="remove" data-wind-id="' + tIdEsc + '" title="Eliminar" style="background:none;border:none;color:#EF4444;cursor:pointer;font-size:11px;">🗑</button>';
+      html += '<div style="display:flex;align-items:center;justify-content:space-between;background:' + (isSel ? 'rgba(56,189,248,0.14)' : 'rgba(30,41,59,0.7)') + ';padding:6px 8px;border-radius:6px;border:1px solid ' + (isSel ? '#38BDF8' : (isEnabled ? 'rgba(255,255,255,0.08)' : 'rgba(239,68,68,0.3)')) + ';">';
+      html += '  <button type="button" data-wind-act="select" data-wind-id="' + tIdEsc + '" aria-pressed="' + (isSel ? 'true' : 'false') + '" style="flex:1;min-width:0;max-width:165px;background:transparent;border:none;padding:0;text-align:left;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">';
+      html += '    <div style="font-weight:600;font-size:11px;color:#fff;overflow:hidden;text-overflow:ellipsis;">' + tNameEsc + '</div>';
+      html += '    <div style="font-size:11px;color:var(--text-slate-400);overflow:hidden;text-overflow:ellipsis;">' + _escWind(kw) + ' kW · ' + _escWind(cat.type) + ' · H=' + _escWind(hubH) + 'm · <span style="color:#34D399;">' + Number(aepKwh).toLocaleString('es-ES') + ' kWh/a</span></div>';
+      html += '  </button>';
+      html += '  <div style="display:flex;gap:3px;align-items:center;flex-shrink:0;">';
+      html += '    <button type="button" data-wind-act="toggle" data-wind-id="' + tIdEsc + '" data-wind-val="' + (!isEnabled ? '1' : '0') + '" aria-pressed="' + (isEnabled ? 'true' : 'false') + '" aria-label="' + (isEnabled ? 'Desactivar ' : 'Activar ') + tNameEsc + '" title="' + (isEnabled ? 'Desactivar' : 'Activar') + '" style="background:none;border:none;color:' + (isEnabled ? '#10B981' : '#94A3B8') + ';cursor:pointer;font-size:12px;">' + (isEnabled ? '⚡' : '⚪') + '</button>';
+      html += '    <button type="button" data-wind-act="focus" data-wind-id="' + tIdEsc + '" aria-label="Centrar cámara en ' + tNameEsc + '" title="Centrar cámara" style="background:none;border:none;color:#38BDF8;cursor:pointer;font-size:12px;">🔍</button>';
+      html += '    <button type="button" data-wind-act="remove" data-wind-id="' + tIdEsc + '" aria-label="Eliminar ' + tNameEsc + '" title="Eliminar" style="background:none;border:none;color:#EF4444;cursor:pointer;font-size:12px;">🗑</button>';
       html += '  </div>';
       html += '</div>';
     });
@@ -817,19 +817,19 @@
     if (yawDeg < 0) yawDeg += 360;
 
     html += '<div style="background:rgba(2,6,23,0.55);border:1px solid rgba(56,189,248,0.22);border-radius:6px;padding:8px;margin-bottom:8px;">';
-    html += '  <div style="font-size:10px;font-weight:700;color:#38BDF8;margin-bottom:6px;">⚙️ CONFIGURACIÓN: ' + activeTurbine.name + '</div>';
+    html += '  <div style="font-size:11px;font-weight:700;color:#38BDF8;margin-bottom:6px;">⚙️ CONFIGURACIÓN: ' + activeTurbine.name + '</div>';
     html += '  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;">';
     html += '    <div>';
-    html += '      <label for="wind-act-hub-h" style="display:block;font-size:9px;color:var(--text-slate-400);">Altura de Buje (Mástil)</label>';
-    html += '      <select id="wind-act-hub-h" onchange="if(window.RAWind && window.RAWind.Entity)window.RAWind.Entity.updateProp(\'' + activeTurbine.id + '\',\'hubHeightM\',Number(this.value))" style="width:100%;background:#0F172A;color:#fff;border:1px solid #334155;border-radius:4px;padding:3px 4px;font-size:10px;">';
+    html += '      <label for="wind-act-hub-h" style="display:block;font-size:11px;color:var(--text-slate-400);">Altura de Buje (Mástil)</label>';
+    html += '      <select id="wind-act-hub-h" onchange="if(window.RAWind && window.RAWind.Entity)window.RAWind.Entity.updateProp(\'' + activeTurbine.id + '\',\'hubHeightM\',Number(this.value))" style="width:100%;background:#0F172A;color:#fff;border:1px solid #334155;border-radius:4px;padding:3px 4px;font-size:11px;">';
     availHeights.forEach(function (h) {
       html += '        <option value="' + h + '"' + (Number(h) === Number(actHubH) ? ' selected' : '') + '>' + h + ' m</option>';
     });
     html += '      </select>';
     html += '    </div>';
     html += '    <div>';
-    html += '      <label for="wind-act-mount" style="display:block;font-size:9px;color:var(--text-slate-400);">Cimentación / Apoyo</label>';
-    html += '      <select id="wind-act-mount" onchange="if(window.RAWind && window.RAWind.Entity)window.RAWind.Entity.updateProp(\'' + activeTurbine.id + '\',\'mountingType\',this.value)" style="width:100%;background:#0F172A;color:#fff;border:1px solid #334155;border-radius:4px;padding:3px 4px;font-size:10px;">';
+    html += '      <label for="wind-act-mount" style="display:block;font-size:11px;color:var(--text-slate-400);">Cimentación / Apoyo</label>';
+    html += '      <select id="wind-act-mount" onchange="if(window.RAWind && window.RAWind.Entity)window.RAWind.Entity.updateProp(\'' + activeTurbine.id + '\',\'mountingType\',this.value)" style="width:100%;background:#0F172A;color:#fff;border:1px solid #334155;border-radius:4px;padding:3px 4px;font-size:11px;">';
     html += '        <option value="ground"' + (actMount === 'ground' ? ' selected' : '') + '>⛰️ Suelo (Zapata HA-25)</option>';
     html += '        <option value="rooftop"' + (actMount === 'rooftop' ? ' selected' : '') + '>🏢 Cubierta (Bancada)</option>';
     html += '      </select>';
@@ -851,25 +851,25 @@
 
     html += '  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;background:rgba(56,189,248,0.08);padding:6px;border-radius:4px;border:1px dashed rgba(56,189,248,0.25);">';
     html += '    <div>';
-    html += '      <label for="wind-act-rotor-d" style="display:block;font-size:9px;color:#38BDF8;font-weight:600;">' + (isVawt ? 'Diámetro Rotor VAWT' : 'Diámetro Rotor') + '</label>';
+    html += '      <label for="wind-act-rotor-d" style="display:block;font-size:11px;color:#38BDF8;font-weight:600;">' + (isVawt ? 'Diámetro Rotor VAWT' : 'Diámetro Rotor') + '</label>';
     html += '      <div style="display:flex;align-items:center;gap:4px;">';
-    html += '        <input id="wind-act-rotor-d" type="number" min="0.5" max="30" step="0.1" value="' + actRotorD + '" onchange="if(window.RAWind && window.RAWind.Entity){ window.RAWind.Entity.updateProp(\'' + activeTurbine.id + '\',\'rotorDiameterM\',Number(this.value)); if(window.RAWindVisualizer){ window.RAWindVisualizer.renderAll(); } }" style="width:100%;background:#0F172A;color:#38BDF8;border:1px solid #0284C7;border-radius:4px;padding:3px 4px;font-size:10px;font-weight:700;">';
-    html += '        <span style="font-size:9px;color:var(--text-slate-400);">m</span>';
+    html += '        <input id="wind-act-rotor-d" type="number" min="0.5" max="30" step="0.1" value="' + actRotorD + '" onchange="if(window.RAWind && window.RAWind.Entity){ window.RAWind.Entity.updateProp(\'' + activeTurbine.id + '\',\'rotorDiameterM\',Number(this.value)); if(window.RAWindVisualizer){ window.RAWindVisualizer.renderAll(); } }" style="width:100%;background:#0F172A;color:#38BDF8;border:1px solid #0284C7;border-radius:4px;padding:3px 4px;font-size:11px;font-weight:700;">';
+    html += '        <span style="font-size:11px;color:var(--text-slate-400);">m</span>';
     html += '      </div>';
     html += '    </div>';
     html += '    <div>';
-    html += '      <label for="wind-act-blade-l" style="display:block;font-size:9px;color:#38BDF8;font-weight:600;">' + (isVawt ? 'Longitud Palas VAWT' : 'Longitud Pala') + '</label>';
+    html += '      <label for="wind-act-blade-l" style="display:block;font-size:11px;color:#38BDF8;font-weight:600;">' + (isVawt ? 'Longitud Palas VAWT' : 'Longitud Pala') + '</label>';
     html += '      <div style="display:flex;align-items:center;gap:4px;">';
-    html += '        <input id="wind-act-blade-l" type="number" min="0.5" max="30" step="0.1" value="' + actBladeL + '" onchange="if(window.RAWind && window.RAWind.Entity){ window.RAWind.Entity.updateProp(\'' + activeTurbine.id + '\',\'bladeLength\',Number(this.value)); if(window.RAWindVisualizer){ window.RAWindVisualizer.renderAll(); } }" style="width:100%;background:#0F172A;color:#38BDF8;border:1px solid #0284C7;border-radius:4px;padding:3px 4px;font-size:10px;font-weight:700;">';
-    html += '        <span style="font-size:9px;color:var(--text-slate-400);">m</span>';
+    html += '        <input id="wind-act-blade-l" type="number" min="0.5" max="30" step="0.1" value="' + actBladeL + '" onchange="if(window.RAWind && window.RAWind.Entity){ window.RAWind.Entity.updateProp(\'' + activeTurbine.id + '\',\'bladeLength\',Number(this.value)); if(window.RAWindVisualizer){ window.RAWindVisualizer.renderAll(); } }" style="width:100%;background:#0F172A;color:#38BDF8;border:1px solid #0284C7;border-radius:4px;padding:3px 4px;font-size:11px;font-weight:700;">';
+    html += '        <span style="font-size:11px;color:var(--text-slate-400);">m</span>';
     html += '      </div>';
     html += '    </div>';
     html += '  </div>';
 
     html += '  <div style="border-top:1px dashed rgba(255,255,255,0.08);padding-top:6px;">';
     html += '    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">';
-    html += '      <label for="wind-act-yaw" style="font-size:9px;color:var(--text-slate-400);">Orientación Góndola (Guiñada / Yaw):</label>';
-    html += '      <span id="wt-yaw-label" style="font-size:9.5px;font-weight:700;color:#FBBF24;font-family:monospace;">' + yawDeg + '° (' + _getYawCardinal(yawDeg) + ')</span>';
+    html += '      <label for="wind-act-yaw" style="font-size:11px;color:var(--text-slate-400);">Orientación Góndola (Guiñada / Yaw):</label>';
+    html += '      <span id="wt-yaw-label" style="font-size:11px;font-weight:700;color:#FBBF24;font-family:monospace;">' + yawDeg + '° (' + _getYawCardinal(yawDeg) + ')</span>';
     html += '    </div>';
     html += '    <input id="wind-act-yaw" type="range" min="0" max="359" step="5" value="' + yawDeg + '" oninput="document.getElementById(\'wt-yaw-label\').textContent = this.value + \'° (\' + (window.RAWindUI ? window.RAWindUI.getYawCardinal(this.value) : \'\') + \')\'; if(window.RAWind && window.RAWind.Entity){ window.RAWind.Entity.updateProp(\'' + activeTurbine.id + '\', \'orientationRad\', (Number(this.value) * Math.PI / 180.0), { livePreviewOnly: true }); if(window.RAWindVisualizer){ window.RAWindVisualizer.updateLiveModelMatrix(window.RAWind.Entity.getById(\'' + activeTurbine.id + '\')); } }" onchange="if(window.RAWind && window.RAWind.Entity){ window.RAWind.Entity.updateProp(\'' + activeTurbine.id + '\', \'orientationRad\', (Number(this.value) * Math.PI / 180.0)); }" style="width:100%;height:14px;accent-color:#FBBF24;cursor:pointer;">';
     html += '  </div>';
@@ -885,7 +885,7 @@
       var obBadge = obsEvalNow.hasSevereInterference ? 'SOMBRA SEVERA' : (obsEvalNow.hasModerateInterference ? 'ESTELA TURBULENTA' : 'FLUJO DESPEJADO');
       var critName = obsEvalNow.criticalObstacle ? (obsEvalNow.criticalObstacle.name || 'Obstáculo próximo') : 'Ninguno';
 
-      html += '<div style="background:rgba(15,23,42,0.8);border-left:3px solid ' + obColor + ';border-radius:4px;padding:7px 9px;margin-bottom:6px;font-size:10px;">';
+      html += '<div style="background:rgba(15,23,42,0.8);border-left:3px solid ' + obColor + ';border-radius:4px;padding:7px 9px;margin-bottom:6px;font-size:11px;">';
       html += '  <div style="display:flex;justify-content:space-between;font-weight:700;color:' + obColor + ';margin-bottom:3px;">';
       html += '    <span>🌪️ INTERFERENCIA 3D ENTORNO</span>';
       html += '    <span>' + obBadge + '</span>';
@@ -903,13 +903,13 @@
 
 
     // Tarjeta 1: Producción AEP, Weibull, Estelas de Jensen y CFD Cubierta
-    html += '<div style="background:rgba(15,23,42,0.8);border-left:3px solid #38BDF8;border-radius:4px;padding:7px 9px;margin-bottom:6px;font-size:10px;">';
+    html += '<div style="background:rgba(15,23,42,0.8);border-left:3px solid #38BDF8;border-radius:4px;padding:7px 9px;margin-bottom:6px;font-size:11px;">';
     var operHours = actSim.operatingHoursPerYear || Math.round(8760 * ((actSim.operatingAvailabilityPct || 85.0) / 100));
     html += '  <div style="display:flex;justify-content:space-between;font-weight:700;color:#7DD3FC;margin-bottom:3px;">';
     html += '    <span>🌬️ RECURSO WEIBULL & ESTELAS JENSEN</span>';
     html += '    <span>FC: ' + (((actSim.capacityFactor || 0) * 100).toFixed(1)) + '% (' + (actSim.equivalentFullLoadHours || 0) + ' h equiv.)</span>';
     html += '  </div>';
-    html += '  <div style="display:flex;justify-content:space-between;background:rgba(2,6,23,0.45);border-radius:3px;padding:2px 4px;margin-bottom:3px;font-size:9.5px;"><span>Horas Recurso Útil (anual):</span><b style="color:#38BDF8;font-family:monospace;">' + Number(operHours).toLocaleString('es-ES') + ' h/año (' + (actSim.operatingAvailabilityPct || ((operHours / 8760) * 100).toFixed(1)) + '%)</b></div>';
+    html += '  <div style="display:flex;justify-content:space-between;background:rgba(2,6,23,0.45);border-radius:3px;padding:2px 4px;margin-bottom:3px;font-size:11px;"><span>Horas Recurso Útil (anual):</span><b style="color:#38BDF8;font-family:monospace;">' + Number(operHours).toLocaleString('es-ES') + ' h/año (' + (actSim.operatingAvailabilityPct || ((operHours / 8760) * 100).toFixed(1)) + '%)</b></div>';
     html += '  <div style="color:var(--text-slate-300);line-height:1.4;">';
     html += '    V<sub>buje</sub>: <b>' + (actSim.hubWindSpeedMeanMs || 0) + ' m/s</b> (ρ=' + (actSim.airDensityKgM3 || 1.22) + ' kg/m³) · Pérdida estela: <b>' + (actSim.wakeLossPercentage || 0) + '%</b>';
     if (actMount === 'rooftop' && actRoof) {
@@ -934,11 +934,11 @@
       if (optRec) {
         var needsUpgrade = optRec.recommendedHeightM !== optRec.currentHeightM && optRec.potentialGainPct > 1.0;
         var optBorder = needsUpgrade ? '#F59E0B' : '#10B981';
-        html += '<div style="background:rgba(15,23,42,0.82);border-left:3px solid ' + optBorder + ';border-radius:4px;padding:7px 9px;margin-bottom:6px;font-size:10px;">';
+        html += '<div style="background:rgba(15,23,42,0.82);border-left:3px solid ' + optBorder + ';border-radius:4px;padding:7px 9px;margin-bottom:6px;font-size:11px;">';
         html += '  <div style="display:flex;justify-content:space-between;align-items:center;font-weight:700;color:' + (needsUpgrade ? '#FBBF24' : '#34D399') + ';margin-bottom:4px;">';
         html += '    <span>🎯 OPTIMIZADOR DE MÁSTIL & LAYOUT (5D×3D)</span>';
         if (needsUpgrade) {
-          html += '    <button type="button" onclick="if(window.RAWind && window.RAWind.Entity){window.RAWind.Entity.updateProp(\'' + activeTurbine.id + '\',\'hubHeightM\',' + optRec.recommendedHeightM + ');}" style="background:rgba(245,158,11,0.2);border:1px solid #F59E0B;color:#FBBF24;border-radius:4px;padding:1px 6px;font-size:8.5px;font-weight:800;cursor:pointer;">⚡ Subir a ' + optRec.recommendedHeightM + 'm (+' + optRec.potentialGainPct + '%)</button>';
+          html += '    <button type="button" onclick="if(window.RAWind && window.RAWind.Entity){window.RAWind.Entity.updateProp(\'' + activeTurbine.id + '\',\'hubHeightM\',' + optRec.recommendedHeightM + ');}" style="background:rgba(245,158,11,0.2);border:1px solid #F59E0B;color:#FBBF24;border-radius:4px;padding:1px 6px;font-size:11px;font-weight:800;cursor:pointer;">⚡ Subir a ' + optRec.recommendedHeightM + 'm (+' + optRec.potentialGainPct + '%)</button>';
         } else {
           html += '    <span>ÓPTIMO (' + optRec.currentHeightM + 'm)</span>';
         }
@@ -952,13 +952,13 @@
           var bgCell = isRec ? 'rgba(16,185,129,0.16)' : (isCur ? 'rgba(56,189,248,0.15)' : 'rgba(2,6,23,0.45)');
           var bdCell = isRec ? '#10B981' : (isCur ? '#38BDF8' : 'rgba(255,255,255,0.08)');
           html += '      <div onclick="if(window.RAWind && window.RAWind.Entity){window.RAWind.Entity.updateProp(\'' + activeTurbine.id + '\',\'hubHeightM\',' + ev.heightM + ');}" style="flex:1;min-width:52px;background:' + bgCell + ';border:1px solid ' + bdCell + ';border-radius:4px;padding:3px 4px;text-align:center;cursor:pointer;" title="Clic para aplicar mástil de ' + ev.heightM + ' m">';
-          html += '        <div style="font-weight:800;font-size:9px;color:' + (isRec ? '#34D399' : '#E2E8F0') + ';">' + ev.heightM + 'm' + (isRec ? ' ★' : '') + '</div>';
-          html += '        <div style="font-size:8.5px;color:#38BDF8;font-family:monospace;">' + ev.vHubMs + ' m/s</div>';
-          html += '        <div style="font-size:8px;color:#94A3B8;">' + ev.aepNetKwh.toLocaleString('es-ES') + ' kWh</div>';
+          html += '        <div style="font-weight:800;font-size:11px;color:' + (isRec ? '#34D399' : '#E2E8F0') + ';">' + ev.heightM + 'm' + (isRec ? ' ★' : '') + '</div>';
+          html += '        <div style="font-size:11px;color:#38BDF8;font-family:monospace;">' + ev.vHubMs + ' m/s</div>';
+          html += '        <div style="font-size:11px;color:#94A3B8;">' + ev.aepNetKwh.toLocaleString('es-ES') + ' kWh</div>';
           html += '      </div>';
         });
         html += '    </div>';
-        html += '    <div style="font-size:9px;color:#94A3B8;">📏 Regla anti-estela IEC (' + optRec.spacingRule.prevailingDirDeg + '°): separar <b>≥' + optRec.spacingRule.downwindSpacingM + ' m (5D)</b> a sotavento y <b>≥' + optRec.spacingRule.crosswindSpacingM + ' m (3D)</b> transversal.</div>';
+        html += '    <div style="font-size:11px;color:#94A3B8;">📏 Regla anti-estela IEC (' + optRec.spacingRule.prevailingDirDeg + '°): separar <b>≥' + optRec.spacingRule.downwindSpacingM + ' m (5D)</b> a sotavento y <b>≥' + optRec.spacingRule.crosswindSpacingM + ' m (3D)</b> transversal.</div>';
         html += '  </div>';
         html += '</div>';
       }
@@ -969,7 +969,7 @@
       var acColor = actAcoustics.compliesNight ? '#10B981' : (actAcoustics.compliesDay ? '#F59E0B' : '#EF4444');
       var acBadge = actAcoustics.compliesNight ? 'CUMPLE DÍA/NOCHE' : (actAcoustics.compliesDay ? 'EXCEDE NOCHE (>35 dBA)' : 'EXCEDE LÍMITE (>45 dBA)');
       var curtailed = !!(activeTurbine.operationalState && activeTurbine.operationalState.curtailmentRulesActive);
-      html += '<div style="background:rgba(15,23,42,0.8);border-left:3px solid ' + acColor + ';border-radius:4px;padding:7px 9px;margin-bottom:6px;font-size:10px;">';
+      html += '<div style="background:rgba(15,23,42,0.8);border-left:3px solid ' + acColor + ';border-radius:4px;padding:7px 9px;margin-bottom:6px;font-size:11px;">';
       html += '  <div style="display:flex;justify-content:space-between;font-weight:700;color:' + acColor + ';margin-bottom:3px;">';
       html += '    <span>🔊 ACÚSTICA ISO 9613-2 (RD 1367/2007)</span>';
       html += '    <span>' + acBadge + '</span>';
@@ -985,7 +985,7 @@
     if (actStruct) {
       var stColor = actStruct.isSafe ? '#10B981' : '#EF4444';
       var fallR = RAWind.Entity ? RAWind.Entity.getFallRadius(activeTurbine) : 20;
-      html += '<div style="background:rgba(15,23,42,0.8);border-left:3px solid ' + stColor + ';border-radius:4px;padding:7px 9px;margin-bottom:6px;font-size:10px;">';
+      html += '<div style="background:rgba(15,23,42,0.8);border-left:3px solid ' + stColor + ';border-radius:4px;padding:7px 9px;margin-bottom:6px;font-size:11px;">';
       html += '  <div style="display:flex;justify-content:space-between;font-weight:700;color:' + stColor + ';margin-bottom:3px;">';
       html += '    <span>🏗️ ESTRUCTURA CTE DB-SE-AE & CAMPBELL</span>';
       html += '    <span>' + (actStruct.isSafe ? 'ESTABLE' : 'REVISAR APOYO') + '</span>';
@@ -1006,7 +1006,7 @@
     // Tarjeta 4: Ingeniería Eléctrica REBT ITC-BT-40 & Frenado Reostático
     if (actElec) {
       var elColor = actElec.cable.compliesREBT ? '#38BDF8' : '#EF4444';
-      html += '<div style="background:rgba(15,23,42,0.8);border-left:3px solid ' + elColor + ';border-radius:4px;padding:7px 9px;margin-bottom:6px;font-size:10px;">';
+      html += '<div style="background:rgba(15,23,42,0.8);border-left:3px solid ' + elColor + ';border-radius:4px;padding:7px 9px;margin-bottom:6px;font-size:11px;">';
       html += '  <div style="display:flex;justify-content:space-between;font-weight:700;color:' + elColor + ';margin-bottom:3px;">';
       html += '    <span>⚡ ELÉCTRICA REBT ITC-BT-40 & DUMP LOAD</span>';
       html += '    <span>ΔU = ' + actElec.cable.voltageDropPct + '% (≤1.5%)</span>';
@@ -1126,11 +1126,11 @@
       } catch (eDisp) { console.warn('[RAWindUI] Error en dispatch:', eDisp); }
       if (dispatch) {
       var is8760Active = dispatch.isAuditable8760;
-      html += '<div style="background:rgba(15,23,42,0.85);border-left:3px solid #8B5CF6;border-radius:4px;padding:7px 9px;margin-bottom:6px;font-size:10px;">';
+      html += '<div style="background:rgba(15,23,42,0.85);border-left:3px solid #8B5CF6;border-radius:4px;padding:7px 9px;margin-bottom:6px;font-size:11px;">';
       html += '  <div style="display:flex;justify-content:space-between;align-items:center;font-weight:700;color:#C4B5FD;margin-bottom:3px;gap:4px;">';
       html += '    <span>⚖️ DESPACHO HÍBRIDO (' + (is8760Active ? '8760h AUDITABLE' : '288h RÁPIDO') + ')</span>';
       html += '    <div style="display:flex;align-items:center;gap:4px;">';
-      html += '      <button type="button" onclick="if(window.RAWindUI && window.RAWindUI.toggleDispatchMode) window.RAWindUI.toggleDispatchMode()" style="cursor:pointer;padding:1px 6px;border-radius:4px;font-size:8.5px;font-weight:800;border:1px solid ' + (is8760Active ? '#10B981' : '#A78BFA') + ';background:' + (is8760Active ? 'rgba(16,185,129,0.2)' : 'rgba(139,92,246,0.2)') + ';color:' + (is8760Active ? '#34D399' : '#DDD6FE') + ';">' + (_uiCalcCache.dispatchLoading ? '⏳ Calculando...' : (is8760Active ? '✓ 8760h Activo' : 'Auditar 8760h')) + '</button>';
+      html += '      <button type="button" onclick="if(window.RAWindUI && window.RAWindUI.toggleDispatchMode) window.RAWindUI.toggleDispatchMode()" style="cursor:pointer;padding:1px 6px;border-radius:4px;font-size:11px;font-weight:800;border:1px solid ' + (is8760Active ? '#10B981' : '#A78BFA') + ';background:' + (is8760Active ? 'rgba(16,185,129,0.2)' : 'rgba(139,92,246,0.2)') + ';color:' + (is8760Active ? '#34D399' : '#DDD6FE') + ';">' + (_uiCalcCache.dispatchLoading ? '⏳ Calculando...' : (is8760Active ? '✓ 8760h Activo' : 'Auditar 8760h')) + '</button>';
       html += '      <span style="color:#A78BFA;">Autosuf: ' + Math.round(dispatch.selfSufficiencyRatio * 100) + '%</span>';
       html += '    </div>';
       html += '  </div>';
@@ -1189,15 +1189,15 @@
       }
       var flicker = (_uiCalcCache.flickerKey === flKey && _uiCalcCache.flicker) ? _uiCalcCache.flicker : null;
       if (!flicker) {
-        html += '<div style="background:rgba(15,23,42,0.85);border-left:3px solid #38BDF8;border-radius:4px;padding:7px 9px;font-size:10px;">';
+        html += '<div style="background:rgba(15,23,42,0.85);border-left:3px solid #38BDF8;border-radius:4px;padding:7px 9px;font-size:11px;">';
         html += '  <div style="font-weight:700;color:#7DD3FC;">🌓 SOMBRAS &amp; SHADOW FLICKER</div>';
-        html += '  <div style="color:var(--text-slate-400);font-size:9.5px;margin-top:2px;">⏳ Calculando estudio astronómico anual (365 días × 10 min) en segundo plano...</div>';
+        html += '  <div style="color:var(--text-slate-400);font-size:11px;margin-top:2px;">⏳ Calculando estudio astronómico anual (365 días × 10 min) en segundo plano...</div>';
         html += '</div>';
       } else {
       var flColor = flicker.isAcceptable ? '#10B981' : (flicker.compliesNorm30hYear ? '#F59E0B' : '#EF4444');
       var flBadge = flicker.isAcceptable ? 'CUMPLE NORMA (≤30h)' : (flicker.compliesNorm30hYear ? 'PICO DIARIO (>30m)' : 'EXCEDE 30 h/AÑO');
 
-      html += '<div style="background:rgba(15,23,42,0.85);border-left:3px solid ' + flColor + ';border-radius:4px;padding:7px 9px;font-size:10px;">';
+      html += '<div style="background:rgba(15,23,42,0.85);border-left:3px solid ' + flColor + ';border-radius:4px;padding:7px 9px;font-size:11px;">';
       html += '  <div style="display:flex;justify-content:space-between;font-weight:700;color:' + flColor + ';margin-bottom:3px;">';
       html += '    <span>🌓 SOMBRAS & SHADOW FLICKER (ASTRONÓMICO)</span>';
       html += '    <span>' + flBadge + '</span>';
@@ -1216,8 +1216,8 @@
     }
   } else {
     html += '<div style="background:rgba(15,23,42,0.5);border:1px dashed rgba(148,163,184,0.2);border-radius:6px;padding:12px;text-align:center;margin-bottom:8px;">';
-    html += '  <div style="color:#94A3B8;font-size:10px;font-weight:600;">Ningún aerogenerador seleccionado</div>';
-    html += '  <div style="color:#64748B;font-size:9px;margin-top:2px;">Haz clic en una unidad de la lista o en el visor 3D para inspeccionar y configurar.</div>';
+    html += '  <div style="color:#94A3B8;font-size:11px;font-weight:600;">Ningún aerogenerador seleccionado</div>';
+    html += '  <div style="color:#64748B;font-size:11px;margin-top:2px;">Haz clic en una unidad de la lista o en el visor 3D para inspeccionar y configurar.</div>';
     html += '</div>';
   }
 
@@ -1299,8 +1299,8 @@
     var badgeCol = ok ? '#10B981' : '#EF4444';
     var html = '<div class="ui-card" style="border:1px solid rgba(56,189,248,0.28);background:rgba(15,23,42,0.88);border-radius:8px;padding:10px;">';
     html += '  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">';
-    html += '    <span style="color:#38BDF8;font-weight:900;font-size:10.5px;">💨 4.3 INGENIERÍA ELÉCTRICA EÓLICA (REBT ITC-BT-40)</span>';
-    html += '    <span style="font-size:9px;font-weight:800;color:' + badgeCol + ';background:rgba(16,185,129,0.12);padding:2px 6px;border-radius:4px;border:1px solid ' + badgeCol + ';">' + (ok ? ('CONFORME ΔU=' + summary.worstVoltageDropPct + '%') : 'REVISAR LÍNEA') + '</span>';
+    html += '    <span style="color:#38BDF8;font-weight:900;font-size:11px;">💨 4.3 INGENIERÍA ELÉCTRICA EÓLICA (REBT ITC-BT-40)</span>';
+    html += '    <span style="font-size:11px;font-weight:800;color:' + badgeCol + ';background:rgba(16,185,129,0.12);padding:2px 6px;border-radius:4px;border:1px solid ' + badgeCol + ';">' + (ok ? ('CONFORME ΔU=' + summary.worstVoltageDropPct + '%') : 'REVISAR LÍNEA') + '</span>';
     html += '  </div>';
     if (summary && Array.isArray(summary.reports)) {
       var _escWRep = function (v) {
@@ -1309,7 +1309,7 @@
       };
       summary.reports.forEach(function (rep, idx) {
         var tName = _escWRep((turbs[idx] && turbs[idx].name) || ('Aerogenerador #' + (idx + 1)));
-        html += '<div style="font-size:9.5px;color:var(--text-slate-300);background:rgba(0,0,0,0.28);padding:6px 8px;border-radius:5px;margin-bottom:4px;line-height:1.45;">';
+        html += '<div style="font-size:11px;color:var(--text-slate-300);background:rgba(0,0,0,0.28);padding:6px 8px;border-radius:5px;margin-bottom:4px;line-height:1.45;">';
         html += '  <b style="color:#7DD3FC;">' + tName + '</b> · ' + _escWRep(rep.systemTopology) + ' (I<sub>n</sub>=' + _escWRep(rep.nominalCurrentA) + 'A / I<sub>dis</sub>=' + _escWRep(rep.designCurrentA) + 'A)<br>';
         html += '  Línea (' + _escWRep(rep.cable.lengthM) + ' m): <b>' + _escWRep(rep.cable.designation) + '</b> · ΔU=' + _escWRep(rep.cable.voltageDropPct) + '% · I<sub>z corr</sub>=' + _escWRep(rep.cable.ampacityA) + 'A<br>';
         html += '  Freno Reostático (Dump Load): <b>' + _escWRep(rep.dumpLoad.requiredPowerKw) + ' kW @ ' + _escWRep(rep.dumpLoad.dcBusVoltageV) + ' V<sub>DC</sub></b> (' + _escWRep(rep.dumpLoad.equivalentResistanceOhm) + ' Ω)<br>';
