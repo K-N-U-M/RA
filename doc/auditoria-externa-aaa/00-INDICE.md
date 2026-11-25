@@ -79,9 +79,9 @@ Pueden lanzarse en paralelo de forma inmediata en ramas aisladas:
 | 9 | `F0-02` | Fase 0 | Primitivas GPU huérfanas tras borrar diseño y destrucción de `lastRoofInfo` | `[Hecho]` |
 | 10 | `F0-03` | Fase 0 | Pantalla negra/corrupta tras pérdida de contexto WebGL | `[Hecho]` |
 | 11 | `F1-03` | Fase 1 | Caché de exclusión de raycasting y ceguera de sombras frente a edificios/obstáculos CAD | `[Hecho]` |
-| 12 | `F5-01` | Fase 5 | Tecla `Tab` bloqueada en UI tras mover ratón + stack `Escape` modal roto | `[Pendiente]` |
-| 13 | `F5-02` | Fase 5 | `:focus-visible` suprimido globalmente y zoom móvil bloqueado | `[Pendiente]` |
-| 14 | `F5-03` | Fase 5 | 6 `aria-label` corruptos (hasta 5.380 chars) y 4 `<label for>` apuntando a otro campo | `[Pendiente]` |
+| 12 | `F5-01` | Fase 5 | Tecla `Tab` bloqueada en UI tras mover ratón + stack `Escape` modal roto | `[Hecho]` |
+| 13 | `F5-02` | Fase 5 | `:focus-visible` suprimido globalmente y zoom móvil bloqueado | `[Hecho]` |
+| 14 | `F5-03` | Fase 5 | 6 `aria-label` corruptos (hasta 5.380 chars) y 4 `<label for>` apuntando a otro campo | `[Hecho]` |
 | 15 | `F4-03`..`F4-07` | Fase 4 | Deuda estructural P0: Store SSOT, ciclo `calcs<->fin`, 749 globals, SoC y 3 monolitos (ejecución ordenada post-Fase 3) | `[Pendiente]` |
 
 ---
@@ -160,9 +160,9 @@ Pueden lanzarse en paralelo de forma inmediata en ramas aisladas:
 ### Fase 5 — UI/UX, Design System y Accesibilidad
 | ID | Título | Sev. | Esf. | Dependencias | Origen | Estado |
 | :--- | :--- | :---: | :---: | :--- | :--- | :--- |
-| `F5-01` | Liberar `Tab` para UI, unificar tooltip `Ctrl+B` y arreglar stack `Escape` en modales | P0 | M | — | E-01, E-02 | `[Pendiente]` |
-| `F5-02` | Restaurar `:focus-visible` de alto contraste y desbloquear zoom `meta viewport` | P0 | S | — | E-03 | `[Pendiente]` |
-| `F5-03` | Reparar 6 `aria-label` corruptos, 4 `<label for>` cruzados y 22 labels huérfanos | P0 | S | — | E-04 | `[Pendiente]` |
+| `F5-01` | Liberar `Tab` para UI, unificar tooltip `Ctrl+B` y arreglar stack `Escape` en modales | P0 | M | — | E-01, E-02 | `[Hecho]` |
+| `F5-02` | Restaurar `:focus-visible` de alto contraste y desbloquear zoom `meta viewport` | P0 | S | — | E-03 | `[Hecho]` |
+| `F5-03` | Reparar 6 `aria-label` corruptos, 4 `<label for>` cruzados y 22 labels huérfanos | P0 | S | — | E-04 | `[Hecho]` |
 | `F5-04` | Sustituir `prompt`/`confirm` nativos y añadir bloqueo/spinner `aria-busy` en acciones largas | P1 | M | F5-01 | E-05, E-06 | `[Pendiente]` |
 | `F5-05` | Desacoplar toggle Outliner e implantar escala única `z-index` (8 tokens) | P1 | M | F5-01 | E-07 | `[Pendiente]` |
 | `F5-06` | Explicar pasos bloqueados (`aria-disabled`), footer sticky en Paso 1 y limpiar `#tab-btn-*` | P1 | M | F5-02 | E-08 | `[Pendiente]` |

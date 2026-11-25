@@ -20,9 +20,9 @@
 
 | ID | Título | Severidad | Esfuerzo | Dependencias | Origen | Estado |
 | :--- | :--- | :---: | :---: | :--- | :--- | :--- |
-| **F5-01** | Liberar tecla `Tab` del ciclado 3D para navegación UI, unificar tooltip `Ctrl+B` y arreglar stack `Escape` modal | P0 | M | Ninguna | E-01 + E-02 | `[Pendiente]` |
-| **F5-02** | Restaurar `:focus-visible` de alto contraste y desbloquear zoom en `meta viewport` (WCAG AA) | P0 | S | Ninguna | E-03 | `[Pendiente]` |
-| **F5-03** | Reparar 6 `aria-label` corruptos, 4 `<label for>` cruzados y asociar 22 labels huérfanos | P0 | S | Ninguna | E-04 | `[Pendiente]` |
+| **F5-01** | Liberar tecla `Tab` del ciclado 3D para navegación UI, unificar tooltip `Ctrl+B` y arreglar stack `Escape` modal | P0 | M | Ninguna | E-01 + E-02 | `[Hecho]` |
+| **F5-02** | Restaurar `:focus-visible` de alto contraste y desbloquear zoom en `meta viewport` (WCAG AA) | P0 | S | Ninguna | E-03 | `[Hecho]` |
+| **F5-03** | Reparar 6 `aria-label` corruptos, 4 `<label for>` cruzados y asociar 22 labels huérfanos | P0 | S | Ninguna | E-04 | `[Hecho]` |
 | **F5-04** | Sustituir `prompt()`/`confirm()` nativos y dotar de spinner/bloqueo `aria-busy` a acciones largas | P1 | M | F5-01 | E-05 + E-06 | `[Pendiente]` |
 | **F5-05** | Desacoplar toggle desktop/móvil de Outliner e implantar escala única de tokens `z-index` (7 niveles) | P1 | M | F5-01 | E-07 | `[Pendiente]` |
 | **F5-06** | Hacer explicables los pasos bloqueados (`aria-disabled`), añadir footer sticky en Paso 1 y limpiar `#tab-btn-*` | P1 | M | F5-02 | E-08 | `[Pendiente]` |
@@ -45,7 +45,7 @@
 | **Dependencias** | Ninguna |
 | **Origen** | E-01 + E-02 |
 | **Rama sugerida** | `fix/ui-tab-navigation-and-modal-escape-stack` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 1. `cad-selection-suite.js:578-598` captura `Tab` en toda la página en cuanto `_lastHoverX > 0 && _lastHoverY > 0` (basta mover una vez el ratón) para ciclar selección 3D, rompiendo `Tab`/`Shift+Tab` por botones, sidebar y modales. Además `index.html:492` dice `(Tab)` para colapsar sidebar mientras `L468` dice `[Ctrl+B]`.
@@ -78,7 +78,7 @@
 | **Dependencias** | Ninguna |
 | **Origen** | E-03 |
 | **Rama sugerida** | `fix/wcag-focus-visible-viewport-zoom` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 `css/styles.css:2367-2369` y `3179` anulan `:focus-visible` globalmente con `outline: none !important`, haciendo invisible la navegación por teclado (viola WCAG 2.4.7 / 2.4.11). Paralelamente, `index.html:5` impone `maximum-scale=1.0, user-scalable=no` impidiendo el zoom táctil/visual (viola WCAG 1.4.4).
@@ -107,7 +107,7 @@
 | **Dependencias** | Ninguna |
 | **Origen** | E-04 |
 | **Rama sugerida** | `fix/wcag-form-labels-and-aria` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 Un script anterior dejó **6** `aria-label` gigantes de 144 hasta **5.380 caracteres** con volcados de HTML y código JS (`showToast`, pasos 3–5), **4** `<label for>` apuntan a inputs equivocados de otros formularios, y **22/125** `<label>` en `index.html` (plus plantillas JS) carecen de `for`. Además `a11y-dialogs.js:120` ignora controles que ya tengan algún `aria-label`.
