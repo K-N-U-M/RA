@@ -126,8 +126,46 @@ function updateTriadAtMouse(clientX, clientY, target, isCanvasLocal) {
 
   // La tríada del cursor con su telemetría SÓLO aparece al pulsar el botón para definir plano (WP.mode === 'define-plane')
   const isDefiningPlane = !isEditingObj && (typeof WP !== 'undefined' && WP && WP.mode === 'define-plane');
+  const isDrawingPoly = (typeof WP !== 'undefined' && WP && WP.mode === 'draw-poly');
 
   if (!isDefiningPlane) {
+    if (isDrawingPoly) {
+      const cvDraw = (typeof viewer !== 'undefined' && viewer && viewer.scene) ? viewer.scene.canvas : (window.viewer && window.viewer.scene ? window.viewer.scene.canvas : null);
+      const scDraw = (typeof viewer !== 'undefined' && viewer) ? viewer.scene : (window.viewer ? window.viewer.scene : null);
+      const camDraw = (typeof viewer !== 'undefined' && viewer) ? viewer.camera : (window.viewer ? window.viewer.camera : null);
+      if (cvDraw && scDraw) {
+        try {
+          let winPosDraw;
+          if (isCanvasLocal) {
+            winPosDraw = new Cesium.Cartesian2(clientX, clientY);
+          } else {
+            const rDraw = cvDraw.getBoundingClientRect();
+            winPosDraw = new Cesium.Cartesian2(clientX - rDraw.left, clientY - rDraw.top);
+          }
+          let pos3DDraw = null;
+          const actPlDraw = (typeof wpGetActivePlane === 'function') ? wpGetActivePlane() : null;
+          if (actPlDraw && camDraw && typeof wpRayPlane === 'function') {
+            const rayDraw = camDraw.getPickRay(winPosDraw);
+            if (rayDraw) pos3DDraw = wpRayPlane(rayDraw, actPlDraw);
+          }
+          if (!Cesium.defined(pos3DDraw) && typeof get3DPosition === 'function') {
+            pos3DDraw = get3DPosition(winPosDraw);
+          }
+          if (Cesium.defined(pos3DDraw) && isFinite(pos3DDraw.x)) {
+            const snapDraw = (typeof wpFindSnapTarget === 'function') ? wpFindSnapTarget(pos3DDraw) : null;
+            WP.cursorPos = (snapDraw && snapDraw.pos) ? snapDraw.pos : pos3DDraw;
+            if (typeof triadState !== 'undefined' && triadState) {
+              triadState.active = false;
+              triadState.pos3D = WP.cursorPos;
+              triadState.snapTarget = snapDraw || null;
+            }
+          }
+        } catch (_) {}
+      }
+      renderTriad2D();
+      return;
+    }
+
     if (typeof triadState !== 'undefined' && triadState) {
       triadState.active = false;
       triadState.snapTarget = null;
@@ -1045,6 +1083,12 @@ function _renderTriad2DNow() {
             triadState.snapTarget = { pos: WP.activePolyPts[0], type: 'CLOSE_VTX' };
           } else if (triadState.snapTarget && triadState.snapTarget.type === 'CLOSE_VTX') {
             triadState.snapTarget = null;
+          } else if (triadState.snapTarget && triadState.snapTarget.pos) {
+            const snapScr = toScreen(triadState.snapTarget.pos);
+            if (snapScr && isFinite(snapScr.x) && isFinite(snapScr.y)) {
+              snapTargetX = snapScr.x;
+              snapTargetY = snapScr.y;
+            }
           }
         }
 
