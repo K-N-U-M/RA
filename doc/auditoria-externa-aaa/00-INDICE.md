@@ -177,8 +177,8 @@ Pueden lanzarse en paralelo de forma inmediata en ramas aisladas:
 | `F6-01` | Unificar validación SSRF/CORS y parser eólico entre `functions/index.js` y `server.js` | P1 | M | F0-09 | F-04 | `[Hecho]` |
 | `F6-02` | Endurecer `firestore.rules`, `storage.rules`, índice compuesto y `firebase-service.js` | P1 | M | F0-09 | F-05 | `[Hecho]` |
 | `F6-03` | Saneo DOCX/MHTML contra XSS DOM y fugas URL externas al abrir en Word | P2 | S | F0-08 | F-06 | `[Hecho]` |
-| `F6-04` | Reparar tests con mocks obsoletos, declarar Playwright + Emulator y cubrir 41,5% ciego | P1 | L | F6-05 | F-15 | `[Pendiente]` |
-| `F6-05` | Pipeline CI/CD: build `dist/`, auto-inyección fecha/SHA/versión, SAST y Firebase Preview PR | P1 | M | F0-09 | F-16 | `[Pendiente]` |
+| `F6-04` | Reparar tests con mocks obsoletos, declarar Playwright + Emulator y cubrir 41,5% ciego | P1 | L | F6-05 | F-15 | `[Parcial]` |
+| `F6-05` | Pipeline CI/CD: build `dist/`, auto-inyección fecha/SHA/versión, SAST y Firebase Preview PR | P1 | M | F0-09 | F-16 | `[Hecho]` |
 
 ### Fase 7 — Nuevas Funciones y Plataforma Nivel AAA
 | ID | Título | Esf. | Dependencias | Estado |

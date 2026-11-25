@@ -22,8 +22,8 @@
 | **F6-01** | Eliminar deriva de seguridad y compartición SSRF/CORS entre `functions/index.js` y `server.js` | P1 | M | F0-09 | F-04 | `[Hecho]` |
 | **F6-02** | Endurecer `firestore.rules`, `storage.rules`, crear índice compuesto y proteger origen en `firebase-service.js` | P1 | M | F0-09 | F-05 | `[Hecho]` |
 | **F6-03** | Saneamiento de exportación DOCX/MHTML contra XSS DOM y fugas URL en Word | P2 | S | F0-08 | F-06 | `[Hecho]` |
-| **F6-04** | Actualizar tests con mocks obsoletos, declarar Playwright + Firebase Emulator y cubrir módulos ciegos (41,5%) | P1 | L | F6-05 | F-15 | `[Pendiente]` |
-| **F6-05** | Automatizar pipeline CI/CD: build `dist/`, auto-inyección de fecha/commit/versión, SAST y Firebase Preview por PR | P1 | M | F0-09 (o F4-01 si ya existe Vite) | F-16 | `[Pendiente]` |
+| **F6-04** | Actualizar tests con mocks obsoletos, declarar Playwright + Firebase Emulator y cubrir módulos ciegos (41,5%) | P1 | L | F6-05 | F-15 | `[Parcial]` |
+| **F6-05** | Automatizar pipeline CI/CD: build `dist/`, auto-inyección de fecha/commit/versión, SAST y Firebase Preview por PR | P1 | M | F0-09 (o F4-01 si ya existe Vite) | F-16 | `[Hecho]` |
 
 ---
 
@@ -137,7 +137,7 @@ El proxy de producción en Cloud Functions (`functions/index.js`) quedó desfasa
 | **Dependencias** | F6-05 (pipeline donde correrán E2E y emulador) |
 | **Origen** | F-15 |
 | **Rama sugerida** | `qa/real-contracts-playwright-emulator` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Parcial]` |
 
 #### Contexto y Problema
 El **61,9%** (`39/63`) de los tests actuales evalúan fragmentos en sandbox con mocks manuales que ya ni coinciden con las firmas reales del motor financiero/eléctrico, generando falsos positivos. El **41,5%** (`34/82` módulos, incluidos autoguardado principal, `storage-cache.js`, `bill-auditor.js`, `ui-outliner.js`, `proposal-style-studio.js`, `wind-ui.js`) no tienen test alguno, y no existe ningún test E2E en navegador real ni contra emuladores de Firebase pese a existir binarios locales de Puppeteer sin declarar en `package.json`.
@@ -172,7 +172,7 @@ El **61,9%** (`39/63`) de los tests actuales evalúan fragmentos en sandbox con 
 | **Dependencias** | F0-09 (manejo seguro de entorno/secretos sin subir `ra-env.js`), ideal coordinado con F4-01 |
 | **Origen** | F-16 |
 | **Rama sugerida** | `ci/auto-deploy-stamp-preview-sast` |
-| **Estado** | `[Pendiente]` |
+| **Estado** | `[Hecho]` |
 
 #### Contexto y Problema
 `.github/workflows/tests.yml` solo ejecuta tests de consola en Node: no construye artefacto `dist/`, no valida seguridad/dependencias, no corre emulador/E2E ni despliega. Peor aún, las etiquetas de última fecha de deploy (`DEPLOY: 2026-11-24 08:41 (v3.2.0 · #39ac279)` en `index.html:2757, 4016`) y los **74** cache-busters `?v=` son editados a mano, garantizando desfases entre lo mostrado en la UI y lo realmente desplegado en producción.

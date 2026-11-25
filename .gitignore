@@ -24,5 +24,6 @@ yarn-error.log*
 .firebase/
 
 
-# Credenciales locales (no versionar)
+# Credenciales locales y artefactos de build (no versionar)
 js/ra-env.js
+dist/
