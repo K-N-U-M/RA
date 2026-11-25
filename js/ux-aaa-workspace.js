@@ -73,6 +73,9 @@
       { id: 'step5', group: 'Flujo', title: 'Ir a Paso 5 — Entrega, Presupuesto y PDF', kbd: '5', run: function () { if (typeof global.wpGoToStep === 'function') global.wpGoToStep(5); } },
 
       { id: 'drawer-mppt', group: 'Workspace AAA', title: 'Abrir Cajón Inferior: Matriz MPPT y Strings', kbd: 'Ctrl+J', run: function () { openEngineeringDrawer('mppt'); } },
+      { id: 'drawer-autostring', group: 'Ingeniería 7B', title: 'Auto-Stringing Inteligente Consciente de Sombras 3D', kbd: '', run: function () { openEngineeringDrawer('autostring'); } },
+      { id: 'drawer-bishop', group: 'Ingeniería 7B', title: 'Simulador Horario 8760h + Curva I-V Bishop Multi-Pico', kbd: '', run: function () { openEngineeringDrawer('bishop'); } },
+      { id: 'drawer-datadis', group: 'Ingeniería 7B', title: 'Gemelo 8760h Datadis CSV + Optimizador Potencias P1..P6', kbd: '', run: function () { openEngineeringDrawer('datadis'); } },
       { id: 'drawer-unifilar', group: 'Workspace AAA', title: 'Abrir Cajón Inferior: Esquema Unifilar Vivo', kbd: '', run: function () { openEngineeringDrawer('unifilar'); } },
       { id: 'drawer-p50', group: 'Workspace AAA', title: 'Abrir Cajón Inferior: Riesgo Bancable P50/P75/P90/P99', kbd: '', run: function () { openEngineeringDrawer('bankable'); } },
       { id: 'toggle-mode', group: 'Workspace AAA', title: 'Alternar Modo Comercial / Experto', kbd: '', run: toggleUiMode },
@@ -291,9 +294,12 @@
       '<div id="ra-drawer-resizer" title="Arrastra verticalmente para ajustar altura"></div>' +
       '<div class="ra-drawer-head">' +
         '<div class="ra-drawer-tabs" role="tablist">' +
-          '<button type="button" role="tab" class="ra-drawer-tab active" data-drawer-tab="mppt" aria-selected="true">Matriz MPPT &amp; Strings</button>' +
-          '<button type="button" role="tab" class="ra-drawer-tab" data-drawer-tab="unifilar" aria-selected="false">Esquema Unifilar Vivo</button>' +
-          '<button type="button" role="tab" class="ra-drawer-tab" data-drawer-tab="bankable" aria-selected="false">Riesgo Bancable P50/P90</button>' +
+          '<button type="button" role="tab" class="ra-drawer-tab active" data-drawer-tab="mppt" aria-selected="true">Matriz MPPT</button>' +
+          '<button type="button" role="tab" class="ra-drawer-tab" data-drawer-tab="autostring" aria-selected="false">Auto-Stringing 3D</button>' +
+          '<button type="button" role="tab" class="ra-drawer-tab" data-drawer-tab="bishop" aria-selected="false">Curva I-V Bishop</button>' +
+          '<button type="button" role="tab" class="ra-drawer-tab" data-drawer-tab="datadis" aria-selected="false">Datadis P1–P6</button>' +
+          '<button type="button" role="tab" class="ra-drawer-tab" data-drawer-tab="unifilar" aria-selected="false">Unifilar</button>' +
+          '<button type="button" role="tab" class="ra-drawer-tab" data-drawer-tab="bankable" aria-selected="false">P50/P90</button>' +
         '</div>' +
         '<div style="display:flex;align-items:center;gap:6px;">' +
           '<button type="button" id="ra-drawer-refresh" class="doc-mini-btn" style="font-size:11px;padding:4px 9px;">Actualizar</button>' +
@@ -347,6 +353,112 @@
       btn.classList.toggle('active', isAct);
       btn.setAttribute('aria-selected', isAct ? 'true' : 'false');
     });
+
+    if (_drawerTab === 'autostring') {
+      if (!global.RAShadowAutoStringer) {
+        body.innerHTML = '<div style="color:#94A3B8;font-size:12px;">Motor de Auto-Stringing 3D no disponible.</div>';
+        return;
+      }
+      var prop = global.RAShadowAutoStringer.analyze();
+      body.innerHTML =
+        '<div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;">' +
+          '<span style="font-size:12px;color:#CBD5E1;font-weight:700;">Agrupación inteligente por clúster de sombras 3D, ventana eléctrica e entradas por MPPT</span>' +
+          '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
+            '<button type="button" id="ra-as-apply" class="doc-mini-btn" style="background:#059669;border-color:#10B981;color:#fff;font-weight:800;padding:5px 12px;"' + (prop.empty ? ' disabled' : '') + '>Aplicar a Matriz MPPT</button>' +
+            '<button type="button" id="ra-as-reset" class="doc-mini-btn" style="padding:5px 10px;">Restaurar Automático</button>' +
+          '</div>' +
+        '</div>' +
+        global.RAShadowAutoStringer.buildReportHTML(prop);
+      var btnApply = document.getElementById('ra-as-apply');
+      if (btnApply) btnApply.onclick = function () {
+        global.RAShadowAutoStringer.applyProposal(prop);
+        renderEngineeringDrawerContent();
+      };
+      var btnReset = document.getElementById('ra-as-reset');
+      if (btnReset) btnReset.onclick = function () {
+        if (global.RAMPPTMatrix && typeof global.RAMPPTMatrix.resetToAuto === 'function') global.RAMPPTMatrix.resetToAuto();
+        renderEngineeringDrawerContent();
+      };
+      return;
+    }
+
+    if (_drawerTab === 'bishop') {
+      if (!global.RABishopIVEngine) {
+        body.innerHTML = '<div style="color:#94A3B8;font-size:12px;">Motor Bishop I-V 8760h no disponible.</div>';
+        return;
+      }
+      var sim = global.RABishopIVEngine.runAnnualSimulation();
+      body.innerHTML =
+        '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;">' +
+          '<span style="font-size:12px;color:#CBD5E1;font-weight:700;">Simulación horaria anual 8760h · Curva I-V Bishop 3 sub-strings + barrido MPPT multi-pico</span>' +
+          '<button type="button" id="ra-bishop-recalc" class="doc-mini-btn" style="background:#0369A1;border-color:#38BDF8;color:#fff;font-weight:700;padding:5px 12px;">Recalcular I-V</button>' +
+        '</div>' +
+        global.RABishopIVEngine.buildSummaryHTML(sim);
+      var btnRec = document.getElementById('ra-bishop-recalc');
+      if (btnRec) btnRec.onclick = renderEngineeringDrawerContent;
+      return;
+    }
+
+    if (_drawerTab === 'datadis') {
+      if (!global.RADatadisOptimizer) {
+        body.innerHTML = '<div style="color:#94A3B8;font-size:12px;">Optimizador Datadis 8760h no disponible.</div>';
+        return;
+      }
+      var lastRes = global.RADatadisOptimizer.getLastResult();
+      body.innerHTML =
+        '<div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;">' +
+          '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+            '<label for="ra-datadis-file" class="doc-mini-btn" style="background:#0369A1;border-color:#38BDF8;color:#fff;font-weight:800;padding:5px 12px;cursor:pointer;">Cargar CSV Datadis / Distribuidora</label>' +
+            '<input id="ra-datadis-file" type="file" accept=".csv,.txt" style="display:none;">' +
+            '<button type="button" id="ra-datadis-sample" class="doc-mini-btn" style="padding:5px 10px;color:#7DD3FC;border-color:rgba(56,189,248,0.4);">Cargar muestra industrial 3.0TD</button>' +
+          '</div>' +
+          '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:11px;color:#CBD5E1;">' +
+            '<label for="ra-datadis-tariff">Tarifa:</label>' +
+            '<select id="ra-datadis-tariff" style="background:#0F172A;border:1px solid #475569;color:#F8FAFC;border-radius:6px;padding:4px 8px;font-size:11px;">' +
+              '<option value="">Auto</option><option value="2.0TD">2.0TD</option><option value="3.0TD">3.0TD</option><option value="6.1TD">6.1TD</option>' +
+            '</select>' +
+            '<label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" id="ra-datadis-zero"> Inyección cero</label>' +
+          '</div>' +
+        '</div>' +
+        '<div id="ra-datadis-output">' + global.RADatadisOptimizer.buildReportHTML(lastRes) + '</div>';
+
+      var runOnText = function (csvText) {
+        try {
+          var parsed = global.RADatadisOptimizer.parseCsv(csvText);
+          var tSel = document.getElementById('ra-datadis-tariff');
+          var zChk = document.getElementById('ra-datadis-zero');
+          var res = global.RADatadisOptimizer.simulateAndOptimize(parsed, {
+            tariff: (tSel && tSel.value) || undefined,
+            zeroExport: Boolean(zChk && zChk.checked)
+          });
+          var out = document.getElementById('ra-datadis-output');
+          if (out) out.innerHTML = global.RADatadisOptimizer.buildReportHTML(res);
+          if (global.showToast) {
+            global.showToast('CURVA 8760h PROCESADA', res.tariff + ' · Ahorro estimado ' + res.totalAnnualSavingsEur.toLocaleString('es-ES') + ' €/año (energía + potencia).', 'success', 3200);
+          }
+        } catch (err) {
+          if (global.showToast) global.showToast('ERROR CSV DATADIS', String(err && err.message ? err.message : err), 'warning', 3500);
+        }
+      };
+
+      var fileInp = document.getElementById('ra-datadis-file');
+      if (fileInp) {
+        fileInp.onchange = function () {
+          var f = fileInp.files && fileInp.files[0];
+          if (!f) return;
+          var reader = new FileReader();
+          reader.onload = function () { runOnText(String(reader.result || '')); };
+          reader.readAsText(f, 'UTF-8');
+        };
+      }
+      var btnSample = document.getElementById('ra-datadis-sample');
+      if (btnSample) {
+        btnSample.onclick = function () {
+          runOnText(global.RADatadisOptimizer.generateSampleIndustrialCsv());
+        };
+      }
+      return;
+    }
 
     if (_drawerTab === 'bankable') {
       if (global.RABankableRisk && typeof global.RABankableRisk.buildTableHTML === 'function') {
