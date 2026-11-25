@@ -6,6 +6,11 @@
 
 const { onRequest } = require('firebase-functions/v2/https');
 const logger = require('firebase-functions/logger');
+const admin = require('firebase-admin');
+
+if (!admin.apps.length) {
+  admin.initializeApp();
+}
 
 const {
   parseWAsPLib,
@@ -133,5 +138,124 @@ exports.gwaProxy = onRequest({
       return;
     }
     res.status(502).json({ error: 'No se pudo obtener el recurso eólico (GWA)' });
+  }
+});
+
+// ============================================================================
+// [F7-14] BFF Cloud Functions v2 — Firebase Auth + App Check + Cuota por Tenant
+// Enruta llamadas de IA/OCR usando clave secreta de servidor (0 API keys en cliente)
+// ============================================================================
+const TENANT_QUOTA = { windowMs: 3600000, maxPerHour: 60, maxTenants: 1000, hits: new Map() };
+const ALLOWED_GEMINI_MODELS = new Set(['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.0-flash']);
+
+function isTenantQuotaExceeded(tenantKey) {
+  const now = Date.now();
+  if (TENANT_QUOTA.hits.size > 500) {
+    for (const [k, v] of TENANT_QUOTA.hits.entries()) {
+      if (now - v.start > TENANT_QUOTA.windowMs) TENANT_QUOTA.hits.delete(k);
+    }
+  }
+  const entry = TENANT_QUOTA.hits.get(tenantKey);
+  if (!entry || now - entry.start > TENANT_QUOTA.windowMs) {
+    TENANT_QUOTA.hits.set(tenantKey, { start: now, count: 1 });
+    return false;
+  }
+  entry.count++;
+  return entry.count > TENANT_QUOTA.maxPerHour;
+}
+
+async function verifyAuthAndAppCheck(req) {
+  const enforceAppCheck = process.env.ENFORCE_APP_CHECK === 'true';
+  const appCheckToken = req.header('X-Firebase-AppCheck');
+  let appCheckVerified = false;
+  if (appCheckToken) {
+    try {
+      await admin.appCheck().verifyToken(appCheckToken);
+      appCheckVerified = true;
+    } catch (err) {
+      if (enforceAppCheck) throw Object.assign(new Error('App Check inválido'), { statusCode: 401 });
+      logger.warn('App Check token inválido en modo observador:', err.message);
+    }
+  } else if (enforceAppCheck) {
+    throw Object.assign(new Error('Falta cabecera X-Firebase-AppCheck'), { statusCode: 401 });
+  }
+
+  const authHeader = req.header('Authorization') || '';
+  const m = authHeader.match(/^Bearer\s+(.+)$/i);
+  if (!m) {
+    throw Object.assign(new Error('Se requiere autenticación Firebase Bearer'), { statusCode: 401 });
+  }
+  let decoded;
+  try {
+    decoded = await admin.auth().verifyIdToken(m[1].trim());
+  } catch (_) {
+    throw Object.assign(new Error('Token Firebase Auth expirado o inválido'), { statusCode: 401 });
+  }
+  return {
+    uid: decoded.uid,
+    tenantId: decoded.tenantId || decoded.uid,
+    appCheckVerified
+  };
+}
+
+exports.aiProxy = onRequest({
+  cors: ALLOWED_CORS_ORIGINS,
+  maxInstances: 10,
+  timeoutSeconds: 45
+}, async (req, res) => {
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Solo se admite POST' });
+    return;
+  }
+  const ip = resolveClientIp(req);
+  if (isRateLimited(ip)) {
+    res.status(429).json({ error: 'Límite de tasa por IP alcanzado' });
+    return;
+  }
+
+  let identity;
+  try {
+    identity = await verifyAuthAndAppCheck(req);
+  } catch (authErr) {
+    res.status(authErr.statusCode || 401).json({ error: authErr.message || 'No autorizado' });
+    return;
+  }
+
+  if (isTenantQuotaExceeded(identity.tenantId)) {
+    res.status(429).json({ error: 'Cuota horaria IA por tenant agotada' });
+    return;
+  }
+
+  const serverKey = process.env.GEMINI_API_KEY;
+  if (!serverKey) {
+    res.status(503).json({ error: 'BFF IA no configurado (falta GEMINI_API_KEY en entorno Cloud Functions)' });
+    return;
+  }
+
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const model = ALLOWED_GEMINI_MODELS.has(body.model) ? body.model : 'gemini-2.5-flash';
+  const payload = body.payload && typeof body.payload === 'object' ? body.payload : null;
+  if (!payload || !Array.isArray(payload.contents)) {
+    res.status(400).json({ error: 'Se requiere payload.contents válido' });
+    return;
+  }
+
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+  try {
+    const upstream = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': serverKey
+      },
+      body: JSON.stringify(payload),
+      redirect: 'manual',
+      signal: AbortSignal.timeout(35000)
+    });
+    const text = await upstream.text();
+    res.status(upstream.status).type('application/json').send(text);
+  } catch (err) {
+    logger.error('Error en aiProxy BFF:', err);
+    res.status(502).json({ error: 'Error de comunicación con proveedor IA' });
   }
 });

@@ -18,6 +18,7 @@
   var _drawerOpen = false;
   var _drawerTab = 'mppt';
   var _drawerHeightPx = 310;
+  var _platformCountry = 'ES';
   var _paletteSelectedIdx = 0;
   var _paletteFiltered = [];
 
@@ -80,6 +81,9 @@
       { id: 'cad-numeric', group: 'CAD 3D 7C', title: 'Entrada Numérica CAD Directa (Longitud / Ángulo sobre plano)', kbd: '', run: function () { if (global.RACadOsnap) global.RACadOsnap.openNumericPrompt(); } },
       { id: 'cad-clash', group: 'CAD 3D 7C', title: 'Ejecutar Detección de Colisiones 3D (Paneles vs Obstáculos)', kbd: '', run: function () { openEngineeringDrawer('cad3d'); if (global.RACadClashSection) { global.RACadClashSection.runClashDetection(); renderEngineeringDrawerContent(); } } },
       { id: 'cad-dsm', group: 'CAD 3D 7C', title: 'Muestrear Altimetría DSM / PNOA-IGN y Detectar Plano RANSAC', kbd: '', run: function () { openEngineeringDrawer('cad3d'); if (global.RASpatialDsm) { global.RASpatialDsm.sampleDsmAndDetectRoof(); renderEngineeringDrawerContent(); } } },
+      { id: 'drawer-platform', group: 'Plataforma 7D', title: 'SDK Multi-País (ES/PT/FR) · Comparador · Versiones · Seguridad', kbd: '', run: function () { openEngineeringDrawer('platform'); } },
+      { id: 'collab-snap', group: 'Plataforma 7D', title: 'Guardar Instantánea Nombrada del Proyecto (Historial)', kbd: '', run: function () { if (global.RACollabTimeTravel) { global.RACollabTimeTravel.saveNamedSnapshot('Versión ' + new Date().toLocaleTimeString('es-ES')); if (_drawerOpen) renderEngineeringDrawerContent(); } } },
+      { id: 'timetravel-export', group: 'Plataforma 7D', title: 'Exportar Traza JSON de Time-Travel Debugging', kbd: '', run: function () { if (global.RACollabTimeTravel) global.RACollabTimeTravel.exportTimeTravelJson(); } },
       { id: 'drawer-unifilar', group: 'Workspace AAA', title: 'Abrir Cajón Inferior: Esquema Unifilar Vivo', kbd: '', run: function () { openEngineeringDrawer('unifilar'); } },
       { id: 'drawer-p50', group: 'Workspace AAA', title: 'Abrir Cajón Inferior: Riesgo Bancable P50/P75/P90/P99', kbd: '', run: function () { openEngineeringDrawer('bankable'); } },
       { id: 'toggle-mode', group: 'Workspace AAA', title: 'Alternar Modo Comercial / Experto', kbd: '', run: toggleUiMode },
@@ -303,6 +307,7 @@
           '<button type="button" role="tab" class="ra-drawer-tab" data-drawer-tab="bishop" aria-selected="false">Curva I-V Bishop</button>' +
           '<button type="button" role="tab" class="ra-drawer-tab" data-drawer-tab="datadis" aria-selected="false">Datadis P1–P6</button>' +
           '<button type="button" role="tab" class="ra-drawer-tab" data-drawer-tab="cad3d" aria-selected="false">CAD 3D &amp; DSM</button>' +
+          '<button type="button" role="tab" class="ra-drawer-tab" data-drawer-tab="platform" aria-selected="false">SDK &amp; Collab</button>' +
           '<button type="button" role="tab" class="ra-drawer-tab" data-drawer-tab="unifilar" aria-selected="false">Unifilar</button>' +
           '<button type="button" role="tab" class="ra-drawer-tab" data-drawer-tab="bankable" aria-selected="false">P50/P90</button>' +
         '</div>' +
@@ -566,6 +571,104 @@
         var r = global.RASpatialDsm.fastSwitchVisualModeGPU('normal');
         if (global.showToast) global.showToast('CONMUTACIÓN GPU', 'Recoloración in-place completada en ' + r.elapsedMs + ' ms.', 'info', 2200);
       };
+      return;
+    }
+
+    if (_drawerTab === 'platform') {
+      var countrySelVal = _platformCountry || 'ES';
+      var variants = global.RAEngine ? global.RAEngine.compareVariants(null, countrySelVal) : [];
+      var snaps = global.RACollabTimeTravel ? global.RACollabTimeTravel.listSnapshots() : [];
+      var peers = global.RACollabTimeTravel ? global.RACollabTimeTravel.getActivePeerCount() : 0;
+      var traceLen = global.RACollabTimeTravel ? global.RACollabTimeTravel.getTrace().length : 0;
+      var sec = global.RASecurityGuard ? global.RASecurityGuard.getPosture() : null;
+
+      var varRows = variants.map(function (v) {
+        var dColor = v.deltaNpvEur > 0 ? '#34D399' : (v.deltaNpvEur < 0 ? '#FB7185' : '#94A3B8');
+        var dTxt = (v.deltaNpvEur >= 0 ? '+' : '') + v.deltaNpvEur.toLocaleString('es-ES') + ' €';
+        return '<tr style="border-top:1px solid rgba(255,255,255,0.08);">' +
+          '<td style="padding:5px 7px;font-weight:700;">' + _esc(v.variantLabel) + '</td>' +
+          '<td style="padding:5px 7px;text-align:right;font-family:var(--font-mono);">' + v.kwp + ' kWp</td>' +
+          '<td style="padding:5px 7px;text-align:right;font-family:var(--font-mono);">' + v.annualKwh.toLocaleString('es-ES') + ' kWh</td>' +
+          '<td style="padding:5px 7px;text-align:right;font-family:var(--font-mono);">' + v.capexGrossEur.toLocaleString('es-ES') + ' €</td>' +
+          '<td style="padding:5px 7px;text-align:right;font-family:var(--font-mono);color:#34D399;">' + (v.irrPct != null ? v.irrPct + '%' : 'N/D') + '</td>' +
+          '<td style="padding:5px 7px;text-align:right;font-family:var(--font-mono);font-weight:700;color:' + dColor + ';">' + dTxt + '</td>' +
+        '</tr>';
+      }).join('');
+
+      var complianceNotes = (variants[0] && Array.isArray(variants[0].complianceNotes))
+        ? variants[0].complianceNotes.map(function (n) { return '<li>' + _esc(n) + '</li>'; }).join('')
+        : '';
+
+      var snapRows = snaps.slice(0, 4).map(function (s) {
+        return '<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;padding:4px 0;border-top:1px solid rgba(255,255,255,0.07);font-size:11px;">' +
+          '<span><strong>' + _esc(s.label) + '</strong> · ' + (s.state ? s.state.kwp : 0) + ' kWp</span>' +
+          '<button type="button" class="doc-mini-btn ra-snap-restore" data-snap-id="' + _esc(s.id) + '" style="padding:2px 7px;font-size:11px;">Restaurar</button>' +
+        '</div>';
+      }).join('') || '<div style="font-size:11px;color:#94A3B8;">Sin instantáneas guardadas aún.</div>';
+
+      body.innerHTML =
+        '<div style="display:grid;grid-template-columns:minmax(320px,1.45fr) minmax(260px,1fr);gap:10px;align-items:start;">' +
+          '<div style="background:rgba(15,23,42,0.75);border:1px solid rgba(56,189,248,0.22);border-radius:9px;padding:10px;">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">' +
+              '<span style="font-size:12px;font-weight:800;color:#38BDF8;">Headless SDK · Normativa Multi-País &amp; Comparador Diff</span>' +
+              '<select id="ra-sdk-country" aria-label="Seleccionar normativa país" style="background:#020617;border:1px solid #475569;color:#F8FAFC;border-radius:6px;padding:4px 8px;font-size:11px;">' +
+                '<option value="ES"' + (countrySelVal === 'ES' ? ' selected' : '') + '>ES · REBT España</option>' +
+                '<option value="PT"' + (countrySelVal === 'PT' ? ' selected' : '') + '>PT · RTIEBT Portugal</option>' +
+                '<option value="FR"' + (countrySelVal === 'FR' ? ' selected' : '') + '>FR · NF C 15-100 Francia</option>' +
+              '</select>' +
+            '</div>' +
+            '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:11.5px;color:#F1F5F9;">' +
+              '<thead><tr style="background:rgba(56,189,248,0.12);font-size:10.5px;text-transform:uppercase;">' +
+                '<th scope="col" style="padding:5px 7px;text-align:left;">Variante</th>' +
+                '<th scope="col" style="padding:5px 7px;text-align:right;">kWp</th>' +
+                '<th scope="col" style="padding:5px 7px;text-align:right;">Anual</th>' +
+                '<th scope="col" style="padding:5px 7px;text-align:right;">CAPEX</th>' +
+                '<th scope="col" style="padding:5px 7px;text-align:right;">TIR</th>' +
+                '<th scope="col" style="padding:5px 7px;text-align:right;">Δ VAN</th>' +
+              '</tr></thead><tbody>' + varRows + '</tbody></table></div>' +
+            (complianceNotes ? '<ul style="margin:7px 0 0 16px;padding:0;font-size:11px;color:#CBD5E1;">' + complianceNotes + '</ul>' : '') +
+          '</div>' +
+          '<div style="display:flex;flex-direction:column;gap:8px;">' +
+            '<div style="background:rgba(15,23,42,0.75);border:1px solid rgba(52,211,153,0.25);border-radius:9px;padding:10px;">' +
+              '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
+                '<span style="font-size:12px;font-weight:800;color:#34D399;">Multi-Pestaña · Versiones · Time-Travel</span>' +
+                '<span style="font-size:11px;color:#94A3B8;">Peers: <strong>' + peers + '</strong> · Traza: <strong>' + traceLen + '</strong></span>' +
+              '</div>' +
+              '<div style="display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap;">' +
+                '<button type="button" id="ra-collab-save-snap" class="doc-mini-btn" style="background:#059669;border-color:#10B981;color:#fff;font-weight:700;padding:4px 9px;">+ Guardar Versión</button>' +
+                '<button type="button" id="ra-collab-export-tt" class="doc-mini-btn" style="padding:4px 9px;">Exportar Time-Travel JSON</button>' +
+              '</div>' +
+              snapRows +
+            '</div>' +
+            '<div style="background:rgba(15,23,42,0.75);border:1px solid rgba(192,132,252,0.28);border-radius:9px;padding:9px;font-size:11px;color:#CBD5E1;">' +
+              '<div style="font-size:12px;font-weight:800;color:#C084FC;margin-bottom:4px;">Defensa-en-Profundidad (Cliente + BFF)</div>' +
+              '<div>LocalStorage 0 claves IA: <strong style="color:' + (sec && sec.zeroKeysInLocalStorage ? '#34D399' : '#FB7185') + ';">' + (sec && sec.zeroKeysInLocalStorage ? 'OK (Limpio)' : 'Revisar') + '</strong> · Trusted Types: <strong>' + (sec && sec.trustedTypesPolicyActive ? 'Activo' : 'Fallback Saneado') + '</strong></div>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+
+      var cSel = document.getElementById('ra-sdk-country');
+      if (cSel) cSel.onchange = function () { _platformCountry = cSel.value || 'ES'; renderEngineeringDrawerContent(); };
+      var bSnap = document.getElementById('ra-collab-save-snap');
+      if (bSnap) bSnap.onclick = async function () {
+        var name = (typeof global.raPromptAsync === 'function')
+          ? await global.raPromptAsync('Etiqueta para esta versión del proyecto:', { title: 'Guardar instantánea', placeholder: 'Ej. v2 Visita técnica', confirmText: 'Guardar' })
+          : ('v' + (snaps.length + 1));
+        if (name && global.RACollabTimeTravel) {
+          global.RACollabTimeTravel.saveNamedSnapshot(name);
+          renderEngineeringDrawerContent();
+        }
+      };
+      var bExp = document.getElementById('ra-collab-export-tt');
+      if (bExp) bExp.onclick = function () { if (global.RACollabTimeTravel) global.RACollabTimeTravel.exportTimeTravelJson(); };
+      body.querySelectorAll('.ra-snap-restore').forEach(function (btn) {
+        btn.onclick = function () {
+          if (global.RACollabTimeTravel) {
+            global.RACollabTimeTravel.restoreSnapshot(btn.getAttribute('data-snap-id'));
+            renderEngineeringDrawerContent();
+          }
+        };
+      });
       return;
     }
 

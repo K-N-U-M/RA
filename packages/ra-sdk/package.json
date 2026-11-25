@@ -1,0 +1,8 @@
+{
+  "name": "@ra/sdk",
+  "version": "1.0.0",
+  "description": "RA Solar 3D Headless Calculation SDK & Multi-Country Regulatory Plugin API",
+  "main": "index.cjs",
+  "license": "UNLICENSED",
+  "private": true
+}
