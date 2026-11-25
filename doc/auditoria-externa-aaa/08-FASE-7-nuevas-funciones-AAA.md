@@ -20,10 +20,10 @@
 | **F7-08** | Ingeniería FV/Fin | Análisis estocástico bancable P50/P75/P90/P99 (25 años con LID/degradación -> VAN/TIR/DSCR P90) | M | F2-11, F0-11 | AAA B-4 | `[Hecho]` |
 | **F7-09** | Ingeniería FV/3D | Ingesta automática LiDAR/DSM PNOA-IGN `0.5 m` + Google Solar DSM y detección semiautomática de cubiertas/obstáculos | XL | F7-02 | AAA B-5 | `[Parcial]` |
 | **F7-10** | Híbrido / Tarifas | Gemelo único `8760h` FV + ERA5 Eólica + BESS con CSV cuartohorario Datadis y optimización de potencias P1..P6 | L | F2-04 | AAA B-6 | `[Hecho]` |
-| **F7-11** | Arquitectura / B2B | Headless Calculation SDK (`@ra/sdk` Node/Edge), API de Plugins normativos multi-país y Comparador paralelo multi-variante | XL | F4-06, F4-07 | AAA C-1 + C-2 + C-3 | `[Pendiente]` |
-| **F7-12** | Colaboración / Obs | Sincronización multi-pestaña/colaborativa (CRDT/Firestore deltas), historial de instantáneas y Time-Travel Debugging | XL | F4-03, F4-04 | AAA C-4 + C-5 + F-4 | `[Pendiente]` |
+| **F7-11** | Arquitectura / B2B | Headless Calculation SDK (`@ra/sdk` Node/Edge), API de Plugins normativos multi-país y Comparador paralelo multi-variante | XL | F4-06, F4-07 | AAA C-1 + C-2 + C-3 | `[Hecho]` |
+| **F7-12** | Colaboración / Obs | Sincronización multi-pestaña/colaborativa (CRDT/Firestore deltas), historial de instantáneas y Time-Travel Debugging | XL | F4-03, F4-04 | AAA C-4 + C-5 + F-4 | `[Hecho]` |
 | **F7-13** | UI/UX AAA | Command Palette (`Ctrl+K`), Split-View 3D + Drawer Inferior (Matriz MPPT/Unifilar), Modo Dual (Comercial/Experto) y Preview live en Studio | XL | F5-07..F5-10 | AAA E-1..E-7 | `[Hecho]` |
-| **F7-14** | Seguridad / QA / Tooling | BFF Cloud Functions v2 (App Check + cero API keys en cliente), Playwright E2E WebGL + SAST (`ESLint`/`Stylelint`/`jscpd`/`knip`) | L | F6-01..F6-05 | AAA D-1..D-4 + F-2..F-6 | `[Pendiente]` |
+| **F7-14** | Seguridad / QA / Tooling | BFF Cloud Functions v2 (App Check + cero API keys en cliente), Playwright E2E WebGL + SAST (`ESLint`/`Stylelint`/`jscpd`/`knip`) | L | F6-01..F6-05 | AAA D-1..D-4 + F-2..F-6 | `[Parcial]` |
 
 ---
 

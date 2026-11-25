@@ -193,7 +193,7 @@ Pueden lanzarse en paralelo de forma inmediata en ramas aisladas:
 | `F7-08` | Análisis probabilístico bancable P50/P75/P90/P99 a 25 años | M | F2-11, F0-11 | `[Hecho]` |
 | `F7-09` | Ingesta LiDAR/DSM PNOA-IGN `0.5 m` y detección semiautomática de cubiertas | XL | F7-02 | `[Parcial]` |
 | `F7-10` | Gemelo único `8760h` + CSV cuartohorario Datadis + optimización P1..P6 | L | F2-04 | `[Hecho]` |
-| `F7-11` | Headless SDK `@ra/sdk`, Plugin API multi-país y Comparador multi-variante paralelo | XL | F4-06, F4-07 | `[Pendiente]` |
-| `F7-12` | Colaboración multi-pestaña/CRDT, historial en nube y Time-Travel Debugging | XL | F4-03, F4-04 | `[Pendiente]` |
+| `F7-11` | Headless SDK `@ra/sdk`, Plugin API multi-país y Comparador multi-variante paralelo | XL | F4-06, F4-07 | `[Hecho]` |
+| `F7-12` | Colaboración multi-pestaña/CRDT, historial en nube y Time-Travel Debugging | XL | F4-03, F4-04 | `[Hecho]` |
 | `F7-13` | UX AAA: Command Palette `Ctrl+K`, Split-View Drawer, Chuleta `?`, Modo Dual y Studio Live | XL | F5-07..F5-10 | `[Hecho]` |
-| `F7-14` | Seguridad AAA: BFF App Check sin API keys en cliente, Playwright visual + Tooling CI | L | F6-01..F6-05 | `[Pendiente]` |
+| `F7-14` | Seguridad AAA: BFF App Check sin API keys en cliente, Playwright visual + Tooling CI | L | F6-01..F6-05 | `[Parcial]` |
