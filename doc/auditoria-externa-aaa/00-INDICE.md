@@ -183,15 +183,15 @@ Pueden lanzarse en paralelo de forma inmediata en ramas aisladas:
 ### Fase 7 — Nuevas Funciones y Plataforma Nivel AAA
 | ID | Título | Esf. | Dependencias | Estado |
 | :--- | :--- | :---: | :--- | :--- |
-| `F7-01` | Instanciación real GPU (`InstanceMatrix`) para >10.000 paneles a 60–120 FPS | L | F1-02 | `[Pendiente]` |
-| `F7-02` | Índice Espacial (`BVH + Quadtree ENU`) + Raytracer solar Worker offline | XL | F1-03, F1-06 | `[Pendiente]` |
-| `F7-03` | Suite CAD OSNAP completa + Polar Tracking + entrada numérica `Tab` | L | F1-06, F0-04 | `[Pendiente]` |
-| `F7-04` | Gizmo 3D GPU viewport-space + Planos de Sección y Clash Detection 3D | L | F1-02 | `[Pendiente]` |
+| `F7-01` | Instanciación real GPU (`InstanceMatrix`) para >10.000 paneles a 60–120 FPS | L | F1-02 | `[Parcial]` |
+| `F7-02` | Índice Espacial (`BVH + Quadtree ENU`) + Raytracer solar Worker offline | XL | F1-03, F1-06 | `[Parcial]` |
+| `F7-03` | Suite CAD OSNAP completa + Polar Tracking + entrada numérica `Tab` | L | F1-06, F0-04 | `[Hecho]` |
+| `F7-04` | Gizmo 3D GPU viewport-space + Planos de Sección y Clash Detection 3D | L | F1-02 | `[Hecho]` |
 | `F7-05` | Motor horario `8760h` + Curva I-V Bishop (3 sub-strings) + MPPT multi-pico | XL | F2-02, F4-06 | `[Hecho]` |
 | `F7-06` | Auto-stringing inteligente consciente de sombras 3D e `inputsPerMppt` | L | F2-03, F0-07 | `[Hecho]` |
 | `F7-07` | Import/Export `.PAN`/`.OND` (PVsyst) y DXF IEC 60617 multi-topología + acotado | L | F2-06 | `[Parcial]` |
 | `F7-08` | Análisis probabilístico bancable P50/P75/P90/P99 a 25 años | M | F2-11, F0-11 | `[Hecho]` |
-| `F7-09` | Ingesta LiDAR/DSM PNOA-IGN `0.5 m` y detección semiautomática de cubiertas | XL | F7-02 | `[Pendiente]` |
+| `F7-09` | Ingesta LiDAR/DSM PNOA-IGN `0.5 m` y detección semiautomática de cubiertas | XL | F7-02 | `[Parcial]` |
 | `F7-10` | Gemelo único `8760h` + CSV cuartohorario Datadis + optimización P1..P6 | L | F2-04 | `[Hecho]` |
 | `F7-11` | Headless SDK `@ra/sdk`, Plugin API multi-país y Comparador multi-variante paralelo | XL | F4-06, F4-07 | `[Pendiente]` |
 | `F7-12` | Colaboración multi-pestaña/CRDT, historial en nube y Time-Travel Debugging | XL | F4-03, F4-04 | `[Pendiente]` |
