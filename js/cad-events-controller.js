@@ -591,9 +591,11 @@
           }
           if (hitPlaneVtxIdx >= 0 && hitPlaneVtxIdx < 3) {
             WP.selectedPlaneVtxIdx = hitPlaneVtxIdx;
+            WP.planeSelected = true;
             WP.selectedVtxIdx = -1;
             WP.selectedPolyIdx = -1;
             WP.movePolyGizmoIdx = -1;
+            if (typeof wpRenderActivePlaneGizmo === 'function') wpRenderActivePlaneGizmo();
             if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
             if (typeof wpPopulateFaldonCard === 'function') wpPopulateFaldonCard();
             renderTriad2D();
@@ -911,18 +913,45 @@
       }
     }
 
-    // 4C. Superficie o borde del Plano de Trabajo Activo
+    // 4C. Superficie o borde de Planos de Trabajo visibles (re-selección tras deselección en vacío)
     const curStepForPlane = (typeof wpCurrentStep !== 'undefined') ? wpCurrentStep : ((typeof window !== 'undefined' && window.wpCurrentStep) || 1);
-    if (filter === 'all' && curStepForPlane === 1 && typeof WP !== 'undefined' && WP && typeof wpGetActivePlane === 'function') {
-      const actPl = wpGetActivePlane();
-      if (actPl && actPl.visible !== false && pickedObj && pickedObj.id) {
+    if (filter === 'all' && curStepForPlane === 1 && typeof WP !== 'undefined' && WP && Array.isArray(WP.planes) && WP.planes.length > 0) {
+      let hitPlaneIdx = -1;
+      if (pickedObj && pickedObj.id) {
         const pId = (typeof pickedObj.id === 'string') ? pickedObj.id : (typeof pickedObj.id.id === 'string' ? pickedObj.id.id : '');
-        if (pId === 'wp_active_plane_border') {
-          if (typeof clearAllCADSelection === 'function') clearAllCADSelection(false);
-          renderTriad2D();
-          showStatus('<i data-lucide="compass" class="icon-sm"></i> ' + (actPl.name || 'PLANO DE TRABAJO').toUpperCase() + ' SELECCIONADO', 2000);
-          return;
+        if (pId === 'wp_active_plane_border' || pId === 'wp_active_plane_mesh') {
+          hitPlaneIdx = (WP.activePlaneIdx >= 0 && WP.planes[WP.activePlaneIdx]) ? WP.activePlaneIdx : 0;
+        } else if (pId.startsWith('wp_inactive_plane_border_') || pId.startsWith('wp_inactive_plane_mesh_')) {
+          const parsedIdx = parseInt(pId.replace(/^wp_inactive_plane_(?:border|mesh)_/, ''), 10);
+          if (!isNaN(parsedIdx) && WP.planes[parsedIdx] && WP.planes[parsedIdx].visible !== false) {
+            hitPlaneIdx = parsedIdx;
+          }
         }
+      }
+      if (hitPlaneIdx < 0) {
+        const isPtPolyPlane = (typeof isPointIn2DPolygon === 'function') ? isPointIn2DPolygon : (window.isPointIn2DPolygon || null);
+        if (isPtPolyPlane) {
+          for (let pli = WP.planes.length - 1; pli >= 0; pli--) {
+            const pl = WP.planes[pli];
+            if (!pl || pl.visible === false || !Array.isArray(pl.pts3D) || pl.pts3D.length < 3) continue;
+            const scrPlPts = pl.pts3D.map(pt => Cesium.SceneTransforms.wgs84ToWindowCoordinates(scene, pt)).filter(Boolean);
+            if (scrPlPts.length >= 3 && isPtPolyPlane(click.position, scrPlPts)) {
+              hitPlaneIdx = pli;
+              break;
+            }
+          }
+        }
+      }
+      if (hitPlaneIdx >= 0 && WP.planes[hitPlaneIdx]) {
+        const selPl = WP.planes[hitPlaneIdx];
+        if (typeof clearAllCADSelection === 'function') clearAllCADSelection(false);
+        WP.activePlaneIdx = hitPlaneIdx;
+        WP.planeSelected = true;
+        if (typeof wpRenderActivePlaneGizmo === 'function') wpRenderActivePlaneGizmo();
+        if (typeof wpUpdateUI === 'function') wpUpdateUI();
+        renderTriad2D();
+        showStatus('<i data-lucide="compass" class="icon-sm"></i> ' + (selPl.name || 'PLANO DE TRABAJO').toUpperCase() + ' SELECCIONADO', 2000);
+        return;
       }
     }
 
@@ -1967,7 +1996,7 @@
     }
     if (!hasModKey && (e.key === 'e' || e.key === 'E')) {
       const hasPolyTarget = (typeof WP !== 'undefined' && WP && WP.selectedPolyIdx >= 0);
-      const hasPlaneTarget = (typeof WP !== 'undefined' && WP && WP.activePlaneIdx >= 0 && Array.isArray(WP.planes) && Boolean(WP.planes[WP.activePlaneIdx]));
+      const hasPlaneTarget = (typeof WP !== 'undefined' && WP && WP.planeSelected === true && WP.activePlaneIdx >= 0 && Array.isArray(WP.planes) && Boolean(WP.planes[WP.activePlaneIdx]));
       const hasTurbineTarget = Boolean((window.RAWind && window.RAWind.selectedTurbineId) || window.selectedWindTurbineId);
       const hasGizmoTarget = (window.selectedPanelIndex >= 0) || Boolean(window.selectedObstacleId) || Boolean(window.selectedBuildingId) || Boolean(window.selectedElectricalId) || hasPolyTarget || hasPlaneTarget || hasTurbineTarget;
       if (hasGizmoTarget && typeof switchUniversalGizmoMode === 'function') {

@@ -1949,7 +1949,7 @@ function clearAllCADSelection(notify = false) {
 
   // E. Vértices, faldones, gizmo de faldón o planos de trabajo
   if (typeof WP !== 'undefined' && WP) {
-    const hadWpSel = (WP.selectedVtxIdx >= 0 || WP.selectedVertexIdx >= 0 || WP.selectedPolyIdx >= 0 || WP.movePolyGizmoIdx >= 0 || WP.selectedPlaneVtxIdx >= 0);
+    const hadWpSel = (WP.selectedVtxIdx >= 0 || WP.selectedVertexIdx >= 0 || WP.selectedPolyIdx >= 0 || WP.movePolyGizmoIdx >= 0 || WP.selectedPlaneVtxIdx >= 0 || WP.planeSelected === true || window.wpIsPlaneGizmoEnabled === true);
     if (hadWpSel) {
       hadAnySelection = true;
       WP.selectedVtxIdx = -1;
@@ -1957,8 +1957,11 @@ function clearAllCADSelection(notify = false) {
       WP.selectedPolyIdx = -1;
       WP.movePolyGizmoIdx = -1;
       WP.selectedPlaneVtxIdx = -1;
+      WP.planeSelected = false;
+      window.wpIsPlaneGizmoEnabled = false;
       if (typeof selectedVertexIndex !== 'undefined') selectedVertexIndex = -1;
       if (typeof wpSyncVertexInputs === 'function') wpSyncVertexInputs();
+      if (typeof wpRenderActivePlaneGizmo === 'function') wpRenderActivePlaneGizmo();
       if (typeof wpRenderAllPolylines === 'function') wpRenderAllPolylines();
       if (typeof wpUpdateUI === 'function') wpUpdateUI();
       if (typeof wpPopulateFaldonCard === 'function') wpPopulateFaldonCard();

@@ -562,8 +562,8 @@ function getUniversalSelectedTarget() {
     if (selPolyTarget) return selPolyTarget;
   }
 
-  // F. Plano de Trabajo Activo (LCS Transformable: Traslación U/V/Z, Rotación Pitch/Yaw)
-  if (curStep === 1 || window.wpIsPlaneGizmoEnabled) {
+  // F. Plano de Trabajo Activo seleccionado (LCS Transformable: Traslación U/V/Z, Rotación Pitch/Yaw)
+  if ((curStep === 1 && typeof WP !== 'undefined' && WP && WP.planeSelected === true) || window.wpIsPlaneGizmoEnabled) {
     if (typeof wpGetActivePlane === 'function') {
       const actPl = wpGetActivePlane();
       if (actPl && actPl.pts3D && actPl.pts3D.length >= 3 && actPl.normal) {

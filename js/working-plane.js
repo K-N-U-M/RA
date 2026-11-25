@@ -54,6 +54,7 @@ window.WP = window.WP || {
   selectedPolyIdx: 0,         // Polilínea seleccionada para edición
   selectedVtxIdx: -1,         // Vértice seleccionado para edición
   selectedPlaneVtxIdx: -1,    // Vértice maestro del plano activo seleccionado (0, 1, 2)
+  planeSelected: false,       // Si el plano de trabajo activo está seleccionado para edición/gizmo
   showPlaneVertices: true,    // Visibilidad de vértices maestros y contorno de planos
   
   cursorPos: undefined,
@@ -1772,6 +1773,7 @@ function wpGetActivePlane() {
 function wpSelectActivePlane(idx, shouldFly) {
   if (idx >= 0 && idx < WP.planes.length) {
     WP.activePlaneIdx = idx;
+    WP.planeSelected = true;
 
     // 1. Sincronizar automáticamente la polilínea/faldón activo al primer faldón perteneciente a este plano
     if (Array.isArray(WP.polylines) && WP.polylines.length > 0) {
@@ -2095,6 +2097,7 @@ function wpAddPlanePoint(pos3D) {
     if (window.RAundo && typeof window.RAundo.snapPlanes === 'function') window.RAundo.snapPlanes('Crear ' + planeObj.name);
     WP.planes.push(planeObj);
     WP.activePlaneIdx = WP.planes.length - 1;
+    WP.planeSelected = true;
     WP.planePts = [];
     WP.activePolyPts = [];
     if (typeof polygonPoints !== 'undefined') polygonPoints = [];
@@ -2199,12 +2202,13 @@ function wpRenderActivePlaneGizmo() {
 
   const activePlane = wpGetActivePlane();
   if (!activePlane && (!WP.planes || WP.planes.length === 0)) return;
+  const isPlaneSelected = (WP.planeSelected === true);
 
-  // 1. Renderizar planos inactivos (persistentes, sobrios, no se apagan)
+  // 1. Renderizar planos inactivos o deseleccionados (persistentes, sobrios, no se apagan)
   if (Array.isArray(WP.planes)) {
     const showVtx = (WP.showPlaneVertices !== false);
     WP.planes.forEach((p, idx) => {
-      if (idx === WP.activePlaneIdx || p.visible === false) return; // El plano activo se renderiza con tríada completa abajo
+      if ((isPlaneSelected && idx === WP.activePlaneIdx) || p.visible === false) return; // El plano activo seleccionado se renderiza con tríada completa abajo
       if (!p || !p.pts3D || p.pts3D.length < 3) return;
 
       // Superficie sutil translúcida
@@ -2226,8 +2230,8 @@ function wpRenderActivePlaneGizmo() {
     });
   }
 
-  // 2. Renderizar el plano activo con máxima fidelidad
-  if (!activePlane || !activePlane.pts3D || activePlane.pts3D.length < 3 || activePlane.visible === false) return;
+  // 2. Renderizar el plano activo seleccionado con máxima fidelidad
+  if (!isPlaneSelected || !activePlane || !activePlane.pts3D || activePlane.pts3D.length < 3 || activePlane.visible === false) return;
 
   const showVtx = (WP.showPlaneVertices !== false);
 
