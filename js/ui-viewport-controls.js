@@ -706,17 +706,42 @@
     }
   }
 
+  // [F6-05] Hidratación automática de insignias de versión/deploy desde build-meta.json (sin editar index.html a mano)
+  function hydrateBuildMetaBadges() {
+    if (typeof fetch !== 'function' || typeof document === 'undefined') return;
+    fetch('build-meta.json', { cache: 'no-store' })
+      .then(function(resp) { return resp.ok ? resp.json() : null; })
+      .then(function(meta) {
+        if (!meta || !meta.version || !meta.commit) return;
+        var catBadge = document.getElementById('ra-deploy-badge-catalog');
+        if (catBadge) {
+          var labelSpan = catBadge.querySelector('[data-build-meta-text]');
+          var txt = 'DEPLOY: ' + (meta.displayDate || '') + ' (v' + meta.version + ' · #' + meta.commit + ')';
+          if (labelSpan) labelSpan.textContent = txt;
+          else catBadge.textContent = txt;
+        }
+        var setBadge = document.getElementById('ra-deploy-badge-settings');
+        if (setBadge) {
+          setBadge.textContent = 'DEP: ' + (meta.displayDate || ('v' + meta.version));
+          setBadge.title = 'Build v' + meta.version + ' · #' + meta.commit + (meta.branch ? (' (' + meta.branch + ')') : '');
+        }
+      })
+      .catch(function() {});
+  }
+
   if (typeof document !== 'undefined') {
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', function() {
         initMobileResponsiveBehavior();
         initUniversalFloatingDraggables();
         initAccessibleHudAndTooltips();
+        hydrateBuildMetaBadges();
       });
     } else {
       initMobileResponsiveBehavior();
       initUniversalFloatingDraggables();
       initAccessibleHudAndTooltips();
+      hydrateBuildMetaBadges();
     }
   }
 

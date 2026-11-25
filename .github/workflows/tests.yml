@@ -1,4 +1,4 @@
-name: tests
+name: ci-cd
 
 on:
   push:
@@ -6,9 +6,38 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
-  gate:
+  lint-type-security:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Sintaxis JS
+        run: node tests/test-js-syntax.js
+
+      - name: Guardas de secretos (sin credenciales versionadas)
+        run: node tests/test-no-secrets.js
+
+      - name: Análisis estático SAST y paridad SSOT
+        run: node scripts/sast-check.mjs
+
+      - name: Contratos de seguridad servidor/proxy y Fase 6
+        run: |
+          node tests/test-server-hardening.js
+          node tests/test-phase6-contracts.js
+
+  unit-and-contracts:
+    runs-on: ubuntu-latest
+    needs: lint-type-security
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -17,15 +46,115 @@ jobs:
         with:
           node-version: '22'
 
-      # El proyecto no tiene dependencias de runtime: no hay `npm ci`.
-      - name: Sintaxis de módulos
-        run: node tests/test-js-syntax.js
-
-      - name: Batería completa (agregada, sin abortar en el primer fallo)
+      - name: Batería unitaria y de contratos
         run: node tests/run-all.js --timeout=180000
 
-      - name: Guardas de seguridad (sin credenciales versionadas)
-        run: node tests/test-no-secrets.js
+  rules-emulator:
+    runs-on: ubuntu-latest
+    needs: lint-type-security
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
 
-      - name: Contrato de servidor
-        run: node tests/test-server-hardening.js
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Instalar herramientas de emulador y reglas
+        run: npm install --no-save firebase-tools @firebase/rules-unit-testing
+
+      - name: Validar firestore.rules y storage.rules en Firebase Emulator
+        run: npm run test:rules
+
+  e2e-playwright:
+    runs-on: ubuntu-latest
+    needs: lint-type-security
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Instalar Playwright Chromium
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+
+      - name: Generar build-meta.json y artefacto dist/
+        run: npm run build:dist
+
+      - name: Ejecutar smoke E2E en Chromium WebGL (SwiftShader)
+        run: npm run test:e2e
+
+  deploy-preview:
+    if: github.event_name == 'pull_request' && secrets.FIREBASE_SERVICE_ACCOUNT_RA_SOLAR_3D != ''
+    runs-on: ubuntu-latest
+    needs: [unit-and-contracts, rules-emulator, e2e-playwright]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Construir artefacto dist/ con sellado automático y entorno seguro
+        env:
+          RA_CESIUM_ION_TOKEN: ${{ secrets.RA_CESIUM_ION_TOKEN }}
+          RA_GOOGLE_MAPS_KEY: ${{ secrets.RA_GOOGLE_MAPS_KEY }}
+          RA_FIREBASE_API_KEY: ${{ secrets.RA_FIREBASE_API_KEY }}
+          RA_FIREBASE_AUTH_DOMAIN: ${{ secrets.RA_FIREBASE_AUTH_DOMAIN }}
+          RA_FIREBASE_PROJECT_ID: ${{ secrets.RA_FIREBASE_PROJECT_ID }}
+          RA_FIREBASE_STORAGE_BUCKET: ${{ secrets.RA_FIREBASE_STORAGE_BUCKET }}
+          RA_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.RA_FIREBASE_MESSAGING_SENDER_ID }}
+          RA_FIREBASE_APP_ID: ${{ secrets.RA_FIREBASE_APP_ID }}
+        run: node scripts/inject-build-meta.mjs --sync-functions --out-dir dist --stamp-html --generate-env
+
+      - name: Publicar canal Preview de Firebase Hosting por PR
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_RA_SOLAR_3D }}
+          projectId: ra-solar-3d
+
+  deploy-prod:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && secrets.FIREBASE_SERVICE_ACCOUNT_RA_SOLAR_3D != ''
+    runs-on: ubuntu-latest
+    needs: [unit-and-contracts, rules-emulator, e2e-playwright]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Instalar Firebase CLI
+        run: npm install --no-save firebase-tools
+
+      - name: Generar build-meta.json, sincronizar functions/ e inyectar entorno
+        env:
+          RA_CESIUM_ION_TOKEN: ${{ secrets.RA_CESIUM_ION_TOKEN }}
+          RA_GOOGLE_MAPS_KEY: ${{ secrets.RA_GOOGLE_MAPS_KEY }}
+          RA_FIREBASE_API_KEY: ${{ secrets.RA_FIREBASE_API_KEY }}
+          RA_FIREBASE_AUTH_DOMAIN: ${{ secrets.RA_FIREBASE_AUTH_DOMAIN }}
+          RA_FIREBASE_PROJECT_ID: ${{ secrets.RA_FIREBASE_PROJECT_ID }}
+          RA_FIREBASE_STORAGE_BUCKET: ${{ secrets.RA_FIREBASE_STORAGE_BUCKET }}
+          RA_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.RA_FIREBASE_MESSAGING_SENDER_ID }}
+          RA_FIREBASE_APP_ID: ${{ secrets.RA_FIREBASE_APP_ID }}
+        run: node scripts/inject-build-meta.mjs --sync-functions --out-dir dist --stamp-html --generate-env
+
+      - name: Desplegar producción completa (Hosting, Functions, Firestore y Storage)
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: /tmp/firebase-sa.json
+        run: |
+          printf '%s' '${{ secrets.FIREBASE_SERVICE_ACCOUNT_RA_SOLAR_3D }}' > /tmp/firebase-sa.json
+          npx firebase deploy --project ra-solar-3d --only hosting,functions,firestore:rules,firestore:indexes,storage:rules --non-interactive
+          rm -f /tmp/firebase-sa.json

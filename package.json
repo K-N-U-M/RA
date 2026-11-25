@@ -4,11 +4,24 @@
   "private": true,
   "description": "Visor Solar 3D RA — plataforma de ingeniería fotovoltaica (CesiumJS, WebGL, física solar y cálculo eléctrico REBT).",
   "scripts": {
+    "build:meta": "node scripts/inject-build-meta.mjs",
+    "build:dist": "node scripts/inject-build-meta.mjs --sync-functions --out-dir dist --stamp-html",
+    "sync:functions": "node scripts/inject-build-meta.mjs --sync-functions",
     "lint": "node tests/test-js-syntax.js",
+    "sast": "node scripts/sast-check.mjs",
     "typecheck": "npx --no-install tsc --noEmit",
     "test": "node tests/run-all.js",
     "test:gate": "node tests/run-all.js --only=test-js-syntax --bail",
     "test:docs": "node tests/run-all.js --only=docs",
-    "test:electrical": "node tests/run-all.js --only=electrical"
+    "test:electrical": "node tests/run-all.js --only=electrical",
+    "test:contracts": "node tests/test-phase6-contracts.js",
+    "test:rules": "npx firebase emulators:exec --only firestore,storage \"node tests/test-firebase-rules.js\"",
+    "test:e2e": "node tests/e2e/smoke.e2e.mjs"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^3.0.4",
+    "firebase-tools": "^13.29.0",
+    "playwright": "^1.50.0",
+    "typescript": "^5.7.3"
   }
 }
