@@ -50,7 +50,7 @@
   };
 
   var defaultSettings = {
-    quality: 'high',
+    quality: 'medium',
     radius: 400,
     biasMeters: 0.08,
     selfShadows: true,
@@ -106,7 +106,7 @@
     shadowMap._fitNearFar = false;
     shadowMap.fadingEnabled = true;
     shadowMap.cascadesEnabled = true;
-    shadowMap.numberOfCascades = 4;
+    shadowMap.numberOfCascades = 2;
     shadowMap.enabled = true;
 
     // Cálculo de depthBias combinado con polygonOffset hardware para evitar auto-oclusión
