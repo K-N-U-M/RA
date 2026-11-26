@@ -1360,7 +1360,7 @@
                   <path d="M2 22 22 2M16 2l6 6M10 8l6 6M4 14l6 6"/>
                 </svg>
               </div>
-              <div style="font-size: 12px; font-weight: 600; color: var(--text-primary, #1e242b);">PROYECTO VACÍO</div>
+              <div style="font-size: 12px; font-weight: 600; color: var(--text-primary, #382a21);">PROYECTO VACÍO</div>
               <div style="font-size: 11px; margin-top: 4px; line-height: 1.4;">
                 Traza un faldón en el <b>Paso 1</b> y genera la malla de paneles en el <b>Paso 2</b> para computar automáticamente el metrado BIM y presupuesto en tiempo real.
               </div>
@@ -1402,7 +1402,7 @@
             ${tree.laborAndSoftCosts && tree.laborAndSoftCosts.length > 0 ? tree.laborAndSoftCosts.map(item => `
               <div class="bom-subitem" style="display:flex;justify-content:space-between;align-items:center;padding:2px 0;">
                 <span style="font-size: 10px;color:#57606a;">${item.description}</span>
-                <b style="font-size: 10px;color:#1e242b;margin-left:6px;">${item.totalEur.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</b>
+                <b style="font-size: 10px;color:#382a21;margin-left:6px;">${item.totalEur.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</b>
               </div>
             `).join('') : ''}
           `}

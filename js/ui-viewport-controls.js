@@ -51,7 +51,7 @@
     toast.style.boxShadow = '6px 6px 14px rgba(163, 173, 188, 0.45), -6px -6px 14px rgba(255, 255, 255, 0.85)';
     toast.style.border = '1px solid rgba(255, 255, 255, 0.7)';
     toast.style.fontFamily = 'Inter, -apple-system, sans-serif';
-    toast.style.color = '#1e242b';
+    toast.style.color = '#382a21';
     toast.style.transform = 'translateX(100%)';
     toast.style.opacity = '0';
     toast.style.transition = 'all 0.28s cubic-bezier(0.16, 1, 0.3, 1)';

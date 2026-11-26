@@ -576,7 +576,7 @@
           flex-direction: column;
           z-index: 9600;
           font-family: 'Inter', -apple-system, sans-serif;
-          color: #1e242b;
+          color: #382a21;
           overflow: hidden;
           transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
@@ -669,7 +669,7 @@
         .outliner-group-count {
           font-size: 9px;
           background: #dfe3e8;
-          color: #1e242b;
+          color: #382a21;
           padding: 1px 5px;
           border-radius: 10px;
         }
@@ -788,7 +788,7 @@
         }
 
         .bld-name, .plane-name {
-          color: #1e242b;
+          color: #382a21;
         }
 
         .sub-plane-name {
@@ -797,7 +797,7 @@
         }
 
         .poly-name {
-          color: #1e242b;
+          color: #382a21;
           font-size: 10px;
         }
 

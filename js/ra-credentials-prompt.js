@@ -76,7 +76,7 @@
 
     var card = document.createElement('div');
     card.style.cssText = [
-      'width:100%', 'max-width:460px', 'background:#f3f5f8', 'color:#1e242b',
+      'width:100%', 'max-width:460px', 'background:#f3f5f8', 'color:#382a21',
       'border:1px solid rgba(255,255,255,0.75)', 'border-radius:16px',
       'padding:22px', 'box-shadow:10px 10px 24px rgba(163,173,188,0.48),-10px -10px 24px rgba(255,255,255,0.9)'
     ].join(';');
@@ -87,12 +87,12 @@
         '<button type="button" id="ra-cred-close" aria-label="Cerrar" style="background:transparent;border:none;color:#57606a;font-size:20px;cursor:pointer;line-height:1;">&times;</button>' +
       '</div>' +
       '<p style="margin:0 0 14px;font-size:12.5px;line-height:1.5;color:#57606a;">' +
-        'Faltan las claves de acceso para cargar el mapa 3D. Se guardarán únicamente en tu navegador (<strong style="color:#1e242b;">localStorage</strong>) y nunca se subirán al repositorio.' +
+        'Faltan las claves de acceso para cargar el mapa 3D. Se guardarán únicamente en tu navegador (<strong style="color:#382a21;">localStorage</strong>) y nunca se subirán al repositorio.' +
       '</p>' +
-      '<label style="display:block;font-size:12px;font-weight:600;color:#1e242b;margin-bottom:4px;">Cesium Ion Token</label>' +
-      '<input id="ra-cred-cesium" type="password" autocomplete="off" placeholder="eyJhbGciOi..." style="width:100%;box-sizing:border-box;padding:9px 11px;margin-bottom:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.6);background:#dfe3e8;color:#1e242b;box-shadow:inset 2px 2px 5px rgba(163,173,188,0.45),inset -2px -2px 5px rgba(255,255,255,0.8);font-size:12.5px;">' +
-      '<label style="display:block;font-size:12px;font-weight:600;color:#1e242b;margin-bottom:4px;">Google Maps 3D API Key</label>' +
-      '<input id="ra-cred-google" type="password" autocomplete="off" placeholder="AIzaSy..." style="width:100%;box-sizing:border-box;padding:9px 11px;margin-bottom:16px;border-radius:8px;border:1px solid rgba(255,255,255,0.6);background:#dfe3e8;color:#1e242b;box-shadow:inset 2px 2px 5px rgba(163,173,188,0.45),inset -2px -2px 5px rgba(255,255,255,0.8);font-size:12.5px;">' +
+      '<label style="display:block;font-size:12px;font-weight:600;color:#382a21;margin-bottom:4px;">Cesium Ion Token</label>' +
+      '<input id="ra-cred-cesium" type="password" autocomplete="off" placeholder="eyJhbGciOi..." style="width:100%;box-sizing:border-box;padding:9px 11px;margin-bottom:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.6);background:#dfe3e8;color:#382a21;box-shadow:inset 2px 2px 5px rgba(163,173,188,0.45),inset -2px -2px 5px rgba(255,255,255,0.8);font-size:12.5px;">' +
+      '<label style="display:block;font-size:12px;font-weight:600;color:#382a21;margin-bottom:4px;">Google Maps 3D API Key</label>' +
+      '<input id="ra-cred-google" type="password" autocomplete="off" placeholder="AIzaSy..." style="width:100%;box-sizing:border-box;padding:9px 11px;margin-bottom:16px;border-radius:8px;border:1px solid rgba(255,255,255,0.6);background:#dfe3e8;color:#382a21;box-shadow:inset 2px 2px 5px rgba(163,173,188,0.45),inset -2px -2px 5px rgba(255,255,255,0.8);font-size:12.5px;">' +
       '<div style="display:flex;gap:8px;justify-content:flex-end;">' +
         '<button type="button" id="ra-cred-skip" style="padding:8px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.7);background:#ebedf0;color:#57606a;box-shadow:3px 3px 6px rgba(163,173,188,0.35),-3px -3px 6px rgba(255,255,255,0.8);font-size:12px;cursor:pointer;">Continuar sin mapa</button>' +
         '<button type="button" id="ra-cred-save" style="padding:8px 14px;border-radius:8px;border:none;background:#e8a204;color:#fff;box-shadow:3px 3px 8px rgba(232, 162, 4,0.3);font-weight:600;font-size:12.5px;cursor:pointer;">Guardar y cargar visor</button>' +

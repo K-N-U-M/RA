@@ -1891,7 +1891,7 @@ function wpRenderAutoEngineeringBanner(info, isManualOverride = false) {
     }
     const modelsHtml = comModels.length > 0 ? `
       <div style="font-size: 10px;color:#57606a;margin-bottom:6px;">
-        <b style="color:#1e242b;">Equipos de mercado sugeridos (clic para añadir en 1 clic a la BD comercial):</b>
+        <b style="color:#382a21;">Equipos de mercado sugeridos (clic para añadir en 1 clic a la BD comercial):</b>
         <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px;">
           ${comModels.map((m, idx) => `<button type="button" onclick="wpAddSuggestedCommercialModelToCatalog(${idx})" style="background:rgba(217,119,6,0.12);border:1px solid rgba(217,119,6,0.4);border-radius:4px;padding:2px 6px;color:#b45309;font-size:10px;font-weight:bold;cursor:pointer;" title="Añadir ${m.brand} ${m.model} al catálogo comercial y seleccionarlo">➕ ${m.brand} ${m.model} (${m.kw} kW)</button>`).join('')}
         </div>
@@ -1916,7 +1916,7 @@ function wpRenderAutoEngineeringBanner(info, isManualOverride = false) {
         <div style="font-size: 10px;color:#92400e;background:rgba(217,119,6,0.12);padding:4px 6px;border-radius:4px;margin-bottom:5px;border-left:3px solid #d97706;line-height:1.3;">
           <b>Cuello de Botella Físico:</b> ${info.bottleneckReason || 'Requisitos del proyecto no cubiertos por los equipos disponibles en catálogo.'}
         </div>
-        <div style="font-size: 10px;color:#1e242b;line-height:1.35;margin-bottom:4px;">
+        <div style="font-size: 10px;color:#382a21;line-height:1.35;margin-bottom:4px;">
           <b>Inversor Ideal Auto-Generado:</b> ${sc.count}× ${sc.inverter.brand} ${sc.inverter.model} (${sc.totalAcKw} kW AC · ${sc.mpptCount} MPPTs · Sobrecarga: ${sc.overloadPct}%)
         </div>
         ${modelsHtml}
@@ -1927,7 +1927,7 @@ function wpRenderAutoEngineeringBanner(info, isManualOverride = false) {
           <button type="button" class="doc-mini-btn" onclick="openEquipmentCatalogModal('ai_import')" style="background:rgba(232, 162, 4,0.10);border:1px solid #e8a204;color:#e8a204;font-size: 10px;font-weight:bold;padding:3px 7px;cursor:pointer;" title="Importar PDF técnico de inversor real con IA">
             <i data-lucide="sparkles" class="icon-sm"></i> SUBIR PDF CON IA
           </button>
-          <button type="button" class="doc-mini-btn" onclick="openEquipmentCatalogModal('inverters')" style="background:#ebedf0;border:1px solid #dfe3e8;color:#1e242b;font-size: 10px;font-weight:bold;padding:3px 7px;cursor:pointer;" title="Abrir catálogo">
+          <button type="button" class="doc-mini-btn" onclick="openEquipmentCatalogModal('inverters')" style="background:#ebedf0;border:1px solid #dfe3e8;color:#382a21;font-size: 10px;font-weight:bold;padding:3px 7px;cursor:pointer;" title="Abrir catálogo">
             <i data-lucide="database" class="icon-sm"></i> CATÁLOGO
           </button>
         </div>
@@ -1965,7 +1965,7 @@ function wpRenderAutoEngineeringBanner(info, isManualOverride = false) {
           </button>
         </div>
       </div>
-      <div style="font-size:10px;color:#1e242b;line-height:1.4;margin-bottom:4px;">
+      <div style="font-size:10px;color:#382a21;line-height:1.4;margin-bottom:4px;">
         ${(info.topology === 'microinverter' || (sc && sc.isMicro))
           ? `<b>Arquitectura Seleccionada:</b> ${sc.count}× Microinversores ${sc.inverter.brand} ${sc.inverter.model} (${sc.totalAcKw} kW AC · Seguimiento granular por módulo · Inmune a sombras)`
           : `<b>Arquitectura Seleccionada:</b> ${sc.count}× ${sc.inverter.brand} ${sc.inverter.model} (${sc.totalAcKw} kW AC · ${sc.mpptCount} MPPTs · Sobrecarga DC/AC: <b>${sc.overloadPct}%</b>)`}

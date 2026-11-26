@@ -283,7 +283,7 @@
     }
     var card = document.createElement('div');
     var borderCol = level === 'error' ? '#dc2626' : (level === 'warning' ? '#d97706' : '#059669');
-    card.style.cssText = 'pointer-events:auto;background:#f3f5f8;color:#1e242b;border:1px solid rgba(255,255,255,0.75);border-left:4px solid ' + borderCol + ';padding:10px 14px;border-radius:10px;font-size:12px;line-height:1.4;box-shadow:6px 6px 14px rgba(163,173,188,0.45),-6px -6px 14px rgba(255,255,255,0.85);display:flex;align-items:flex-start;justify-content:space-between;gap:10px;';
+    card.style.cssText = 'pointer-events:auto;background:#f3f5f8;color:#382a21;border:1px solid rgba(255,255,255,0.75);border-left:4px solid ' + borderCol + ';padding:10px 14px;border-radius:10px;font-size:12px;line-height:1.4;box-shadow:6px 6px 14px rgba(163,173,188,0.45),-6px -6px 14px rgba(255,255,255,0.85);display:flex;align-items:flex-start;justify-content:space-between;gap:10px;';
     var msgSpan = document.createElement('span');
     msgSpan.textContent = text;
     var closeBtn = document.createElement('button');
@@ -330,12 +330,12 @@
       overlay.style.cssText = 'position:fixed;inset:0;background:rgba(231,234,238,0.78);backdrop-filter:blur(6px);z-index:1000020;display:flex;align-items:center;justify-content:center;padding:16px;';
 
       var box = document.createElement('div');
-      box.style.cssText = 'background:#f3f5f8;border:1px solid rgba(255,255,255,0.75);border-radius:16px;max-width:440px;width:100%;padding:20px;box-shadow:10px 10px 24px rgba(163,173,188,0.48),-10px -10px 24px rgba(255,255,255,0.9);color:#1e242b;font-family:Inter,system-ui,sans-serif;';
+      box.style.cssText = 'background:#f3f5f8;border:1px solid rgba(255,255,255,0.75);border-radius:16px;max-width:440px;width:100%;padding:20px;box-shadow:10px 10px 24px rgba(163,173,188,0.48),-10px -10px 24px rgba(255,255,255,0.9);color:#382a21;font-family:Inter,system-ui,sans-serif;';
 
       var h3 = document.createElement('h3');
       h3.id = 'ra-confirm-title';
       h3.textContent = title;
-      h3.style.cssText = 'margin:0 0 10px 0;font-size:15px;font-weight:800;color:#1e242b;';
+      h3.style.cssText = 'margin:0 0 10px 0;font-size:15px;font-weight:800;color:#382a21;';
 
       var p = document.createElement('p');
       p.id = 'ra-confirm-msg';

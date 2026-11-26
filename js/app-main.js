@@ -424,7 +424,7 @@ function wpCheckSavedProject() {
       banner.id = 'ra-restore-autosave-banner';
       banner.style.cssText = 'position:fixed;top:64px;right:16px;z-index:9999;display:flex;align-items:center;gap:10px;' +
         'padding:10px 14px;border-radius:10px;background:#f3f5f8;border:1px solid #dfe3e8;' +
-        'color:#1e242b;font-family:Inter,sans-serif;font-size:12px;box-shadow:0 10px 25px -5px rgba(30,36,43,0.18),0 2px 6px rgba(30,36,43,0.08);';
+        'color:#382a21;font-family:Inter,sans-serif;font-size:12px;box-shadow:0 10px 25px -5px rgba(30,36,43,0.18),0 2px 6px rgba(30,36,43,0.08);';
       banner.innerHTML = '<span>Sesión previa encontrada (' + dateStr + ')</span>' +
         '<button onclick="wpRestoreAutosave(); this.parentNode.remove();" style="padding:4px 10px;border-radius:6px;' +
         'border:none;background:#e8a204;color:#ffffff;font-weight:700;cursor:pointer;font-size:11px;">RESTAURAR</button>' +
@@ -686,13 +686,13 @@ function wpCompararEscenarios() {
   const mejor = [...scenarios].sort((a, b) => (b.van - a.van))[0];
   const fila = (s, mejorFlag) => `
     <tr style="background:${mejorFlag ? 'rgba(5,150,105,0.12)' : 'transparent'};border-bottom:1px solid #dfe3e8;">
-      <td style="padding:5px 6px;font-weight:${mejorFlag ? '900' : '600'};color:${mejorFlag ? '#059669' : '#1e242b'};">${s.nombre}${mejorFlag ? ' ★' : ''}</td>
-      <td style="padding:5px 6px;text-align:right;color:#1e242b;">${s.kwh.toLocaleString('es-ES')}</td>
+      <td style="padding:5px 6px;font-weight:${mejorFlag ? '900' : '600'};color:${mejorFlag ? '#059669' : '#382a21'};">${s.nombre}${mejorFlag ? ' ★' : ''}</td>
+      <td style="padding:5px 6px;text-align:right;color:#382a21;">${s.kwh.toLocaleString('es-ES')}</td>
       <td style="padding:5px 6px;text-align:right;color:#e8a204;font-weight:700;">${s.capex.toLocaleString('es-ES')} €</td>
-      <td style="padding:5px 6px;text-align:right;color:#1e242b;">${s.ahorro.toLocaleString('es-ES')} €</td>
+      <td style="padding:5px 6px;text-align:right;color:#382a21;">${s.ahorro.toLocaleString('es-ES')} €</td>
       <td style="padding:5px 6px;text-align:right;color:${s.payback < 8 ? '#059669' : '#d97706'};">${isFinite(s.payback) ? s.payback.toFixed(1) + ' a' : '—'}</td>
       <td style="padding:5px 6px;text-align:right;color:${s.van > 0 ? '#059669' : '#dc2626'};">${s.van.toLocaleString('es-ES')} €</td>
-      <td style="padding:5px 6px;text-align:right;color:#1e242b;">${s.tirString || (s.tir != null ? s.tir.toFixed(1) + '%' : 'N/D')}</td>
+      <td style="padding:5px 6px;text-align:right;color:#382a21;">${s.tirString || (s.tir != null ? s.tir.toFixed(1) + '%' : 'N/D')}</td>
     </tr>`;
   container.innerHTML = `
     <table style="width:100%;border-collapse:collapse;font-size: 10px;">
@@ -8751,7 +8751,7 @@ function _flushHeatmapPanelHover() {
     const insolationRow = (isSimValid && insolationVal)
       ? `<div style="display:flex;justify-content:space-between;margin-bottom:2px;gap:12px;font-size:10px;">
            <span style="color:#57606a;">Radiación Incidente:</span>
-           <span style="color:#1e242b;font-weight:700;">${insolationVal.toLocaleString('es-ES')} kWh/año</span>
+           <span style="color:#382a21;font-weight:700;">${insolationVal.toLocaleString('es-ES')} kWh/año</span>
          </div>`
       : '';
 
@@ -8773,7 +8773,7 @@ function _flushHeatmapPanelHover() {
       </div>
       <div style="display:flex;justify-content:space-between;margin-bottom:2px;gap:12px;font-size:10px;">
         <span style="color:#57606a;">Orientación:</span>
-        <span style="color:#1e242b;font-weight:600;">${tilt}° · ${azStr}</span>
+        <span style="color:#382a21;font-weight:600;">${tilt}° · ${azStr}</span>
       </div>
       <div style="display:flex;justify-content:space-between;margin-bottom:2px;gap:12px;">
         <span style="color:#57606a;">Producci&oacute;n Neta Anual:</span>

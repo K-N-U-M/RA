@@ -52,15 +52,15 @@
         bar.innerHTML = [
             '<span id="ra-cad-sb-step" style="color:#e8a204;font-weight:700;">Paso: 1. Emplazamiento</span>',
             '<span style="color:rgba(87,96,106,0.3);">|</span>',
-            '<span id="ra-cad-sb-tool" style="color:#1e242b;font-weight:500;">Herramienta: Selección</span>',
+            '<span id="ra-cad-sb-tool" style="color:#382a21;font-weight:500;">Herramienta: Selección</span>',
             '<span style="color:rgba(87,96,106,0.3);">|</span>',
             '<span id="ra-cad-sb-snap" style="color:#57606a;">Snap: ON</span>',
             '<span style="color:rgba(87,96,106,0.3);">|</span>',
             '<span style="color:#57606a;">' +
-                '<kbd style="background:#dfe3e8;padding:1px 5px;border-radius:4px;color:#1e242b;border:1px solid rgba(255,255,255,0.6);">M</kbd> Medir · ' +
-                '<kbd style="background:#dfe3e8;padding:1px 5px;border-radius:4px;color:#1e242b;border:1px solid rgba(255,255,255,0.6);">C</kbd> Captura · ' +
-                '<kbd style="background:#dfe3e8;padding:1px 5px;border-radius:4px;color:#1e242b;border:1px solid rgba(255,255,255,0.6);">Ctrl+Z</kbd> Deshacer · ' +
-                '<kbd style="background:#dfe3e8;padding:1px 5px;border-radius:4px;color:#1e242b;border:1px solid rgba(255,255,255,0.6);">Esc</kbd> Cancelar' +
+                '<kbd style="background:#dfe3e8;padding:1px 5px;border-radius:4px;color:#382a21;border:1px solid rgba(255,255,255,0.6);">M</kbd> Medir · ' +
+                '<kbd style="background:#dfe3e8;padding:1px 5px;border-radius:4px;color:#382a21;border:1px solid rgba(255,255,255,0.6);">C</kbd> Captura · ' +
+                '<kbd style="background:#dfe3e8;padding:1px 5px;border-radius:4px;color:#382a21;border:1px solid rgba(255,255,255,0.6);">Ctrl+Z</kbd> Deshacer · ' +
+                '<kbd style="background:#dfe3e8;padding:1px 5px;border-radius:4px;color:#382a21;border:1px solid rgba(255,255,255,0.6);">Esc</kbd> Cancelar' +
             '</span>'
         ].join('');
 

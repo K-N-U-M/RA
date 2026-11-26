@@ -287,11 +287,11 @@
       : String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
     modal.innerHTML = `
-      <div style="background:#f3f5f8;border:1px solid #dfe3e8;border-radius:14px;padding:24px;width:440px;max-width:92vw;box-shadow:0 20px 40px rgba(30,36,43,0.18),0 4px 12px rgba(30,36,43,0.08);color:#1e242b;">
+      <div style="background:#f3f5f8;border:1px solid #dfe3e8;border-radius:14px;padding:24px;width:440px;max-width:92vw;box-shadow:0 20px 40px rgba(30,36,43,0.18),0 4px 12px rgba(30,36,43,0.08);color:#382a21;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
           <div style="display:flex;align-items:center;gap:8px;">
             <span style="color:#e8a204;font-size:20px;">🔥</span>
-            <h3 style="margin:0;font-size:15px;font-weight:800;letter-spacing:0.02em;color:#1e242b;">FIREBASE CLOUD SYNC</h3>
+            <h3 style="margin:0;font-size:15px;font-weight:800;letter-spacing:0.02em;color:#382a21;">FIREBASE CLOUD SYNC</h3>
           </div>
           <button type="button" onclick="document.getElementById('ra-firebase-modal').style.display='none'" style="background:#ebedf0;border:1px solid #dfe3e8;border-radius:6px;color:#57606a;cursor:pointer;font-size:16px;padding:2px 8px;">&times;</button>
         </div>
@@ -309,7 +309,7 @@
           </div>
         ` : `
           <div style="margin-bottom:16px;display:flex;flex-direction:column;gap:8px;">
-            <button type="button" onclick="RAFirebaseService.loginWithGoogle()" style="width:100%;padding:10px;background:#ffffff;color:#1e242b;border:1px solid #dfe3e8;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 2px 6px rgba(30,36,43,0.06);">
+            <button type="button" onclick="RAFirebaseService.loginWithGoogle()" style="width:100%;padding:10px;background:#ffffff;color:#382a21;border:1px solid #dfe3e8;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 2px 6px rgba(30,36,43,0.06);">
               <span>Iniciar con Google</span>
             </button>
           </div>
@@ -318,10 +318,10 @@
         <div style="border-top:1px solid #dfe3e8;padding-top:12px;margin-top:12px;">
           <div style="font-size:11px;font-weight:700;color:#e8a204;margin-bottom:8px;">Configuración de Proyecto Firebase (JSON / Web SDK)</div>
           <div style="display:flex;flex-direction:column;gap:6px;">
-            <input id="ra-fb-apikey" type="text" placeholder="apiKey" value="${_escFb(cur.apiKey || '')}" style="background:#ffffff;border:1px solid #dfe3e8;border-radius:6px;padding:6px 8px;color:#1e242b;font-size:11px;">
-            <input id="ra-fb-projectid" type="text" placeholder="projectId" value="${_escFb(cur.projectId || '')}" style="background:#ffffff;border:1px solid #dfe3e8;border-radius:6px;padding:6px 8px;color:#1e242b;font-size:11px;">
-            <input id="ra-fb-authdomain" type="text" placeholder="authDomain" value="${_escFb(cur.authDomain || '')}" style="background:#ffffff;border:1px solid #dfe3e8;border-radius:6px;padding:6px 8px;color:#1e242b;font-size:11px;">
-            <input id="ra-fb-storagebucket" type="text" placeholder="storageBucket" value="${_escFb(cur.storageBucket || '')}" style="background:#ffffff;border:1px solid #dfe3e8;border-radius:6px;padding:6px 8px;color:#1e242b;font-size:11px;">
+            <input id="ra-fb-apikey" type="text" placeholder="apiKey" value="${_escFb(cur.apiKey || '')}" style="background:#ffffff;border:1px solid #dfe3e8;border-radius:6px;padding:6px 8px;color:#382a21;font-size:11px;">
+            <input id="ra-fb-projectid" type="text" placeholder="projectId" value="${_escFb(cur.projectId || '')}" style="background:#ffffff;border:1px solid #dfe3e8;border-radius:6px;padding:6px 8px;color:#382a21;font-size:11px;">
+            <input id="ra-fb-authdomain" type="text" placeholder="authDomain" value="${_escFb(cur.authDomain || '')}" style="background:#ffffff;border:1px solid #dfe3e8;border-radius:6px;padding:6px 8px;color:#382a21;font-size:11px;">
+            <input id="ra-fb-storagebucket" type="text" placeholder="storageBucket" value="${_escFb(cur.storageBucket || '')}" style="background:#ffffff;border:1px solid #dfe3e8;border-radius:6px;padding:6px 8px;color:#382a21;font-size:11px;">
           </div>
           <div style="display:flex;gap:8px;margin-top:12px;">
             <button type="button" onclick="RAFirebaseService.saveConfigFromModal()" style="flex:1;background:#e8a204;color:#ffffff;border:none;border-radius:6px;padding:8px;font-size:11px;font-weight:700;cursor:pointer;">Guardar y Conectar</button>

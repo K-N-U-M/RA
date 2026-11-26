@@ -6334,8 +6334,8 @@ function _wpUpdateUINow() {
         const isSel = vi === WP.selectedVtxIdx;
         return '<div onclick="wpSelectVertex(' + vi + ')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:4px 8px;background:' + (isSel ? 'rgba(232, 162, 4,0.12)' : '#f3f5f8') + ';border-radius:6px;border:1px solid ' + (isSel ? '#e8a204' : '#dfe3e8') + ';font-size: 10px;transition:all 0.15s;">' +
           '<div style="display:flex;align-items:center;gap:6px;">' +
-            '<span style="display:inline-block;width:14px;height:14px;line-height:14px;text-align:center;border-radius:3px;background:' + (isSel ? '#e8a204' : '#ebedf0') + ';color:' + (isSel ? '#ffffff' : '#1e242b') + ';font-weight:bold;font-size: 10px;border:1px solid ' + (isSel ? '#e8a204' : '#dfe3e8') + ';">' + (vi + 1) + '</span>' +
-            '<span style="color:' + (isSel ? '#e8a204' : '#1e242b') + ';font-weight:bold;">Vértice ' + (vi + 1) + '</span>' +
+            '<span style="display:inline-block;width:14px;height:14px;line-height:14px;text-align:center;border-radius:3px;background:' + (isSel ? '#e8a204' : '#ebedf0') + ';color:' + (isSel ? '#ffffff' : '#382a21') + ';font-weight:bold;font-size: 10px;border:1px solid ' + (isSel ? '#e8a204' : '#dfe3e8') + ';">' + (vi + 1) + '</span>' +
+            '<span style="color:' + (isSel ? '#e8a204' : '#382a21') + ';font-weight:bold;">Vértice ' + (vi + 1) + '</span>' +
           '</div>' +
           '<div style="font-family:monospace;font-size: 10px;color:#57606a;">' +
             'X: ' + pt.x.toFixed(1) + ' | Y: ' + pt.y.toFixed(1) + ' | Z: ' + pt.z.toFixed(1) +
@@ -6375,13 +6375,13 @@ function _wpUpdateUINow() {
         return '<div onclick="wpSelectPolyline(' + i + ')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:5px 8px;background:' + (isSel ? 'rgba(232, 162, 4,0.10)' : '#f3f5f8') + ';border-radius:6px;margin-bottom:3px;font-size: 10px;border:1px solid ' + (isSel ? '#e8a204' : '#dfe3e8') + ';transition:all 0.15s ease;">' +
           '<div style="display:flex;align-items:center;gap:6px;">' +
             '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + strColor + ';box-shadow:0 0 4px ' + strColor + ';"></span>' +
-            '<span style="color:' + (isSel ? '#e8a204' : '#1e242b') + ';font-weight:bold;">' + (isSel ? '<i data-lucide=\"star\" class=\"icon-sm\"></i> ' : '') + poly.name + '</span>' +
+            '<span style="color:' + (isSel ? '#e8a204' : '#382a21') + ';font-weight:bold;">' + (isSel ? '<i data-lucide=\"star\" class=\"icon-sm\"></i> ' : '') + poly.name + '</span>' +
           '</div>' +
-          '<span style="color:' + (isSel ? '#1e242b' : '#57606a') + ';font-weight:' + (isSel ? '700' : 'normal') + ';">' + poly.points.length + ' vtx · ' + poly.area.toFixed(1) + ' m²</span>' +
+          '<span style="color:' + (isSel ? '#382a21' : '#57606a') + ';font-weight:' + (isSel ? '700' : 'normal') + ';">' + poly.points.length + ' vtx · ' + poly.area.toFixed(1) + ' m²</span>' +
         '</div>';
       }).join('');
       report.innerHTML =
-        '<div style="margin-top:4px;padding:5px 8px;background:#ebedf0;border-radius:6px;border:1px solid #dfe3e8;font-size: 10px;color:#1e242b;font-weight:bold;display:flex;justify-content:space-between;align-items:center;">' +
+        '<div style="margin-top:4px;padding:5px 8px;background:#ebedf0;border-radius:6px;border:1px solid #dfe3e8;font-size: 10px;color:#382a21;font-weight:bold;display:flex;justify-content:space-between;align-items:center;">' +
           '<span>' + WP.polylines.length + ' FALDÓN' + (WP.polylines.length === 1 ? '' : 'ES') + ' · CLIC PARA ENFOCAR</span>' +
           '<span style="color:#059669;">' + totalArea.toFixed(1) + ' m² TOTAL</span>' +
         '</div>' +
@@ -7673,7 +7673,7 @@ function wpOpenSmartInverterMatchingModal() {
               <div style="background:#f3f5f8;border:1px solid #dfe3e8;border-radius:6px;padding:6px 8px;display:flex;justify-content:space-between;align-items:center;gap:6px;">
                 <div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0;">
                   <div style="display:flex;align-items:center;gap:5px;">
-                    <span style="font-size:10px;font-weight:bold;color:#1e242b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                    <span style="font-size:10px;font-weight:bold;color:#382a21;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
                       ${c.count}x ${c.inverter.brand} ${c.inverter.model}
                     </span>
                     <span class="card-tag" style="background:${isSingle ? 'rgba(232, 162, 4,0.12)' : 'rgba(124,58,237,0.12)'};color:${isSingle ? '#e8a204' : '#7c3aed'};font-size:8.5px;padding:1px 4px;">
@@ -7724,7 +7724,7 @@ function wpOpenSmartInverterMatchingModal() {
 
       ${catalogListHtml}
 
-      <div style="font-size: 10px;font-weight:900;color:#1e242b;margin:8px 0 4px 0;text-transform:uppercase;letter-spacing:0.4px;"><i data-lucide="sliders" class="icon-sm"></i> Escenarios de Arquitectura Comparados:</div>
+      <div style="font-size: 10px;font-weight:900;color:#382a21;margin:8px 0 4px 0;text-transform:uppercase;letter-spacing:0.4px;"><i data-lucide="sliders" class="icon-sm"></i> Escenarios de Arquitectura Comparados:</div>
       <!-- Opción A: Centralizada 1x -->
       ${scA ? `
       <div style="background:#ebedf0;border:1px solid rgba(217,119,6,0.35);border-radius:8px;padding:8px;margin-bottom:6px;">
@@ -7735,13 +7735,13 @@ function wpOpenSmartInverterMatchingModal() {
           </div>
           <span style="font-size:10px;color:#059669;font-weight:900;">${scA.totalCostEur} €</span>
         </div>
-        <div style="font-size: 10px;font-weight:bold;color:#1e242b;margin:2px 0;">
+        <div style="font-size: 10px;font-weight:bold;color:#382a21;margin:2px 0;">
           1x ${scA.inverter.brand} ${scA.inverter.model} (${scA.totalAcKw} kW AC)
           ${scA.isVirtual || scA.inverter.isVirtual ? '<span style="background:rgba(217,119,6,0.15);color:#b45309;padding:1px 5px;border-radius:3px;font-size:9px;margin-left:4px;border:1px solid rgba(217,119,6,0.4);">⚠️ EQUIPO RECOMENDADO FUERA DE CATÁLOGO</span>' : ''}
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:4px;margin:4px 0;font-size: 10px;">
-          <span style="background:#f3f5f8;border:1px solid #dfe3e8;padding:2px 5px;border-radius:4px;color:#1e242b;">Sobrecarga: <b>${scA.overloadPct}%</b></span>
-          <span style="background:#f3f5f8;border:1px solid #dfe3e8;padding:2px 5px;border-radius:4px;color:#1e242b;">MPPTs: <b>${scA.mpptCount} canales</b></span>
+          <span style="background:#f3f5f8;border:1px solid #dfe3e8;padding:2px 5px;border-radius:4px;color:#382a21;">Sobrecarga: <b>${scA.overloadPct}%</b></span>
+          <span style="background:#f3f5f8;border:1px solid #dfe3e8;padding:2px 5px;border-radius:4px;color:#382a21;">MPPTs: <b>${scA.mpptCount} canales</b></span>
           <span style="background:rgba(220,38,38,0.12);padding:2px 5px;border-radius:4px;color:#dc2626;">Redundancia: <b>0%</b></span>
         </div>
         <div style="font-size: 10px;color:#57606a;line-height:1.3;margin-bottom:5px;">
@@ -7762,13 +7762,13 @@ function wpOpenSmartInverterMatchingModal() {
           </div>
           <span style="font-size:10px;color:#059669;font-weight:900;">${scB.totalCostEur} €</span>
         </div>
-        <div style="font-size: 10px;font-weight:bold;color:#1e242b;margin:2px 0;">
+        <div style="font-size: 10px;font-weight:bold;color:#382a21;margin:2px 0;">
           ${scB.count}x ${scB.inverter.brand} ${scB.inverter.model} (${scB.totalAcKw} kW AC total · ${scB.count} × ${scB.inverter.kw} kW)
           ${scB.isVirtual || scB.inverter.isVirtual ? '<span style="background:rgba(217,119,6,0.15);color:#b45309;padding:1px 5px;border-radius:3px;font-size:9px;margin-left:4px;border:1px solid rgba(217,119,6,0.4);">⚠️ EQUIPO RECOMENDADO FUERA DE CATÁLOGO</span>' : ''}
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:4px;margin:4px 0;font-size: 10px;">
-          <span style="background:#f3f5f8;border:1px solid #dfe3e8;padding:2px 5px;border-radius:4px;color:#1e242b;">Sobrecarga: <b>${scB.overloadPct}%</b></span>
-          <span style="background:#f3f5f8;border:1px solid #dfe3e8;padding:2px 5px;border-radius:4px;color:#1e242b;">MPPTs: <b>${scB.mpptCount} canales</b></span>
+          <span style="background:#f3f5f8;border:1px solid #dfe3e8;padding:2px 5px;border-radius:4px;color:#382a21;">Sobrecarga: <b>${scB.overloadPct}%</b></span>
+          <span style="background:#f3f5f8;border:1px solid #dfe3e8;padding:2px 5px;border-radius:4px;color:#382a21;">MPPTs: <b>${scB.mpptCount} canales</b></span>
           <span style="background:rgba(5,150,105,0.12);padding:2px 5px;border-radius:4px;color:#059669;">Redundancia: <b>${scB.redundancyPct || Math.round((scB.count-1)/scB.count*100)}%</b></span>
         </div>
         <div style="font-size: 10px;color:#57606a;line-height:1.3;margin-bottom:5px;">
@@ -7789,13 +7789,13 @@ function wpOpenSmartInverterMatchingModal() {
           </div>
           <span style="font-size:10px;color:#059669;font-weight:900;">${scC.estimatedCostEur} €</span>
         </div>
-        <div style="font-size: 10px;font-weight:bold;color:#1e242b;margin:2px 0;">
+        <div style="font-size: 10px;font-weight:bold;color:#382a21;margin:2px 0;">
           ${scC.estimatedUnits}x Microinversores 2-en-1 (${scC.totalAcKw.toFixed(1)} kW AC total)
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:4px;margin:4px 0;font-size: 10px;">
-          <span style="background:#f3f5f8;border:1px solid #dfe3e8;padding:2px 5px;border-radius:4px;color:#1e242b;">Control: <b>Panel a panel</b></span>
+          <span style="background:#f3f5f8;border:1px solid #dfe3e8;padding:2px 5px;border-radius:4px;color:#382a21;">Control: <b>Panel a panel</b></span>
           <span style="background:rgba(5,150,105,0.12);padding:2px 5px;border-radius:4px;color:#059669;">Redundancia: <b>~95%</b></span>
-          <span style="background:#f3f5f8;border:1px solid #dfe3e8;padding:2px 5px;border-radius:4px;color:#1e242b;">Sombras: <b>Inmune</b></span>
+          <span style="background:#f3f5f8;border:1px solid #dfe3e8;padding:2px 5px;border-radius:4px;color:#382a21;">Sombras: <b>Inmune</b></span>
         </div>
         <div style="font-size: 10px;color:#57606a;line-height:1.3;margin-bottom:5px;">
           Máxima eficiencia en tejados complejos con múltiples aguas, chimeneas y sombreados severos.

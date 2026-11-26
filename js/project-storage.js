@@ -701,7 +701,7 @@ function raEnsureLoadingHUDElements() {
         </div>
         <div>
           <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#e8a204;">CARGANDO PROYECTO SOLAR</div>
-          <div id="ra-load-hud-title" style="font-size:15px;font-weight:700;color:#1e242b;margin-top:2px;max-width:360px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Cargando...</div>
+          <div id="ra-load-hud-title" style="font-size:15px;font-weight:700;color:#382a21;margin-top:2px;max-width:360px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Cargando...</div>
         </div>
       </div>
       <div style="display:flex;align-items:baseline;gap:4px;">
@@ -713,7 +713,7 @@ function raEnsureLoadingHUDElements() {
           <div id="ra-load-hud-bar" style="width:0%;height:100%;background:linear-gradient(90deg,#e8a204,#f97316);border-radius:999px;transition:width 0.12s ease-out;box-shadow:0 0 8px rgba(232, 162, 4,0.35);"></div>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;width:100%;">
-          <span id="ra-load-hud-status" style="font-size:12px;font-weight:600;color:#1e242b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px;">Iniciando carga...</span>
+          <span id="ra-load-hud-status" style="font-size:12px;font-weight:600;color:#382a21;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px;">Iniciando carga...</span>
           <span id="ra-load-hud-detail" style="font-size:10.5px;color:#57606a;font-family:var(--font-mono,monospace);flex-shrink:0;">Fase 1/6</span>
         </div>
       </div>
