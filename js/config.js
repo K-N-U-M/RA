@@ -20,6 +20,14 @@ if (!GOOGLE_MAPS_API_KEY || !CESIUM_ION_TOKEN) {
     if (typeof console !== 'undefined') console.warn('[RA] Faltan credenciales RA_ENV; visor deshabilitado.');
     return;
   }
+  if (typeof window !== 'undefined' && window.RACredentials && typeof window.RACredentials.openModal === 'function') {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function () { window.RACredentials.openModal(); });
+    } else {
+      window.RACredentials.openModal();
+    }
+    return;
+  }
   const _cfgFatal = document.createElement('div');
   _cfgFatal.id = 'ra-missing-env';
   _cfgFatal.style.cssText = 'position:fixed;inset:0;z-index:999999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:#0b1120;color:#e2e8f0;font-family:system-ui,sans-serif;text-align:center;padding:24px;';
