@@ -483,10 +483,17 @@
 
       // 🛡️ NUNCA usar pickEllipsoid en definición de plano: proyecta a nivel del mar (0m) y crea puntos en el aire/infinito
       if (Cesium.defined(pos3D) && isFinite(pos3D.x)) {
-        if (typeof triadState !== "undefined" && triadState && triadState.snapTarget && triadState.snapTarget.pos) {
-          pos3D = Cesium.Cartesian3.clone(triadState.snapTarget.pos);
+        if (typeof triadState !== "undefined" && triadState && triadState.snapTarget && triadState.snapTarget.pos && typeof wpFindSnapTarget === "function") {
+          const _freshSnap = wpFindSnapTarget(click.position.x, click.position.y);
+          if (_freshSnap && _freshSnap.pos) {
+            pos3D = Cesium.Cartesian3.clone(_freshSnap.pos);
+          } else {
+            triadState.snapTarget = null;
+          }
         }
         wpAddPlanePoint(pos3D);
+        if (typeof triadState !== "undefined" && triadState) triadState.snapTarget = null;
+        if (scene && typeof scene.requestRender === 'function') scene.requestRender();
       } else {
         if (typeof showToast === 'function') {
           showToast('SUPERFICIE NO DETECTADA', 'Haz clic directamente sobre la cubierta del tejado.', 'warning', 3500);
