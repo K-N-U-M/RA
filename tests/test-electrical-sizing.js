@@ -72,8 +72,8 @@ for (const r of current) {
 }
 console.log('  ✓ PASS: 3 casos idénticos al baseline y sin NaN');
 
-// 2. El inline ya no contiene la implementación (solo delega).
-const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+// 2. El delegado en app-main.js ya no contiene la implementación (solo delega).
+const html = fs.readFileSync(path.join(ROOT, 'js/app-main.js'), 'utf8');
 const start = html.indexOf('function computeElectricalSizingEngineering');
 assert.ok(start > 0, 'Debe existir el delegado inline');
 let d = 0, j = start, started = false;

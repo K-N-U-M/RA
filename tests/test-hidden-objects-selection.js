@@ -95,10 +95,11 @@ assert.strictEqual(global.WP.selectedPolyIdx, -1, 'No debe seleccionar un faldó
 global.ProjectHierarchy.selectPolyline(0, false);
 assert.strictEqual(global.WP.selectedPolyIdx, 0, 'Debe seleccionar un faldón visible');
 
-// Ocultar faldón 0 -> debe deseleccionar el faldón y los paneles asociados
+// Ocultar faldón 0 -> debe deseleccionar el faldón; las placas se ocultan con 'poly_panels'
 global.ProjectHierarchy.toggleVisibility('polyline', 0);
 assert.strictEqual(global.WP.polylines[0].visible, false, 'El faldón 0 debe estar ahora oculto');
 assert.strictEqual(global.WP.selectedPolyIdx, -1, 'El faldón debe deseleccionarse automáticamente al ocultarse');
+global.ProjectHierarchy.toggleVisibility('poly_panels', 0);
 assert.strictEqual(global.simulatedPanelEntities[0].show, false, 'Los paneles del faldón oculto deben tener show === false');
 console.log('  ✓ PASS: Faldones ocultos no seleccionables y paneles sincronizados con show: false');
 

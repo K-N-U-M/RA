@@ -103,7 +103,7 @@
     }
     shadowMap.softShadows = preset.softShadows;
     shadowMap.maximumDistance = radiusMeters;
-    shadowMap._fitNearFar = true;
+    shadowMap._fitNearFar = false;
     shadowMap.fadingEnabled = true;
     shadowMap.cascadesEnabled = true;
     shadowMap.numberOfCascades = 4;

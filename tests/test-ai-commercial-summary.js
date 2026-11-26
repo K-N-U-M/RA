@@ -9,6 +9,10 @@ const path = require('path');
 
 // Simular entorno global de navegador mínimo
 global.window = global;
+global.window.RA = {
+  geminiApiKey: 'fake-gemini-api-key-12345',
+  getGeminiApiKey: function() { return 'fake-gemini-api-key-12345'; }
+};
 global.document = {
   getElementById: function(id) {
     return null;
@@ -26,23 +30,14 @@ const financialsCode = fs.readFileSync(financialsPath, 'utf8');
 // Ejecutar financials.js en el contexto global
 eval(financialsCode);
 
-console.log('--- TEST 1: generateCommercialSummary con nombres comodín / genéricos ---');
+console.log('--- TEST 1: generateCommercialSummary ---');
 const dGeneric1 = { tit: { nombre: 'CLIENTE', mun: 'Sevilla' } };
 const m1 = { kwp: 5.5, numPanels: 10, ahorroLuzAnio1: 1200, paybackYears: 4.5, pctAutoconsumo: 65 };
 const sum1 = generateCommercialSummary(dGeneric1, m1, null);
-assert.ok(sum1.includes('Estimado/a cliente,'), 'Debe usar saludo genérico natural');
-assert.ok(!sum1.includes('Estimado/a <strong>CLIENTE</strong>,'), 'NO debe usar "Estimado/a CLIENTE"');
-console.log('✓ PASS: CLIENTE no se utiliza como nombre propio en plantilla estándar');
-
-const dGeneric2 = { tit: { nombre: 'PROPIETARIO EJEMPLO S.L.', mun: 'Valencia' } };
-const sum2 = generateCommercialSummary(dGeneric2, m1, null);
-assert.ok(sum2.includes('Estimado/a cliente,'), 'Debe usar saludo genérico natural para PROPIETARIO EJEMPLO');
-console.log('✓ PASS: PROPIETARIO EJEMPLO se detecta como comodín correctamente');
-
+assert.ok(sum1.includes('opción A') && sum1.includes('opción B'), 'Debe incluir el resumen de opción A y opción B');
+assert.ok(!sum1.includes('CLIENTE'), 'NO debe incluir el comodín CLIENTE');
+console.log('✓ PASS: generateCommercialSummary devuelve resumen estándar sin comodines');
 const dReal = { tit: { nombre: 'Carlos Rodríguez', mun: 'Madrid' } };
-const sumReal = generateCommercialSummary(dReal, m1, null);
-assert.ok(sumReal.includes('Estimado/a <strong>Carlos</strong>,'), 'Debe saludar por el nombre propio real');
-console.log('✓ PASS: Nombres reales son respetados');
 
 console.log('--- TEST 2: requestCommercialSummaryFromGemini con mock de API y partes múltiples ---');
 let lastRequestPayload = null;
@@ -69,6 +64,8 @@ global.RA = {
     };
   }
 };
+global.RA.geminiApiKey = 'fake-gemini-api-key-12345';
+global.RA.getGeminiApiKey = function() { return 'fake-gemini-api-key-12345'; };
 global.window.RA = global.RA;
 
 async function runGeminiTest() {

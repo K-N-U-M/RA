@@ -1779,9 +1779,23 @@ async function raImportProjectData(projectData, options = {}) {
     // [AUDIT v2.4] Restaurar Identidad Corporativa y Logotipo de Empresa
     if (projectData.companyBranding && projectData.companyBranding.branding && typeof localStorage !== 'undefined') {
       try {
-        try { localStorage.setItem('ra_company_branding', JSON.stringify(projectData.companyBranding.branding)); } catch (_) {}
+        try {
+          localStorage.setItem('ra_company_branding', JSON.stringify(projectData.companyBranding.branding));
+        } catch (eQuota) {
+          console.warn('[RA Storage] No se pudo guardar branding en localStorage:', eQuota);
+          if (typeof window !== 'undefined' && typeof window.showToast === 'function') {
+            window.showToast('Espacio local lleno: no se pudo guardar la identidad corporativa.', 'warning');
+          }
+        }
         if (projectData.companyBranding.logo) {
-          try { localStorage.setItem('ra_company_logo', projectData.companyBranding.logo); } catch (_) {}
+          try {
+            localStorage.setItem('ra_company_logo', projectData.companyBranding.logo);
+          } catch (eLogoQuota) {
+            console.warn('[RA Storage] No se pudo guardar el logotipo en localStorage:', eLogoQuota);
+            if (typeof window !== 'undefined' && typeof window.showToast === 'function') {
+              window.showToast('Logotipo demasiado pesado para almacenamiento local.', 'warning');
+            }
+          }
         }
         if (typeof window !== 'undefined' && window.RACompanyBranding) {
           if (typeof window.RACompanyBranding.loadCompanyBranding === 'function') {

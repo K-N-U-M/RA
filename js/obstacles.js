@@ -1553,9 +1553,13 @@ function obsRenderGhost() {
 }
 
 function obsRenderGhostNow() {
-  obsClearGhost();
   const res = obsComputeUV({ x: obsPlacement.lastX, y: obsPlacement.lastY });
-  if (!res) return;
+  if (!res) {
+    for (let i = 0; i < obsPlacement.ghost.length; i++) {
+      if (obsPlacement.ghost[i]) obsPlacement.ghost[i].show = false;
+    }
+    return;
+  }
   const def = OBSTACLE_DEFS[obsPlacement.type] || OBSTACLE_DEFS.custom;
   const isVertical = (def.alignment !== 'coplanar');
   const hw = def.w / 2, hl = def.l / 2, h = def.h;
@@ -1593,17 +1597,31 @@ function obsRenderGhostNow() {
   });
   const topPts = basePts.map(bp => Cesium.Cartesian3.add(bp, Cesium.Cartesian3.multiplyByScalar(upVec, h, new Cesium.Cartesian3()), new Cesium.Cartesian3()));
 
-  const ghostMat = Cesium.Color.fromCssColorString('#38BDF8').withAlpha(0.45);
-  obsPlacement.ghost.push(viewer.entities.add({
-    polygon: { hierarchy: new Cesium.PolygonHierarchy(basePts), material: ghostMat, perPositionHeight: true }
-  }));
-  obsPlacement.ghost.push(viewer.entities.add({
-    polygon: { hierarchy: new Cesium.PolygonHierarchy(topPts), material: ghostMat, perPositionHeight: true }
-  }));
+  const hierarchies = [
+    new Cesium.PolygonHierarchy(basePts),
+    new Cesium.PolygonHierarchy(topPts)
+  ];
   for (let i = 0; i < 4; i++) {
     const next = (i + 1) % 4;
+    hierarchies.push(new Cesium.PolygonHierarchy([basePts[i], basePts[next], topPts[next], topPts[i]]));
+  }
+
+  if (obsPlacement.ghost.length === 6) {
+    for (let i = 0; i < 6; i++) {
+      const ent = obsPlacement.ghost[i];
+      if (ent && ent.polygon) {
+        ent.polygon.hierarchy = hierarchies[i];
+        ent.show = true;
+      }
+    }
+    return;
+  }
+
+  obsClearGhost();
+  const ghostMat = Cesium.Color.fromCssColorString('#38BDF8').withAlpha(0.45);
+  for (let i = 0; i < 6; i++) {
     obsPlacement.ghost.push(viewer.entities.add({
-      polygon: { hierarchy: new Cesium.PolygonHierarchy([basePts[i], basePts[next], topPts[next], topPts[i]]), material: ghostMat, perPositionHeight: true }
+      polygon: { hierarchy: hierarchies[i], material: ghostMat, perPositionHeight: true }
     }));
   }
 }

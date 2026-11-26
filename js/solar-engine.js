@@ -1898,20 +1898,24 @@ function wpSyncCesiumSun(solarPos) {
             const shadowRadius = (typeof window !== "undefined" && window.ShadowSettings && typeof window.ShadowSettings.getSettings === "function")
               ? Number(window.ShadowSettings.getSettings().radius) || 400.0
               : 400.0;
-            sc.shadowMap.enabled = true;
-            sc.shadowMap.size = 4096;
-            sc.shadowMap.maximumDistance = shadowRadius;
-            sc.shadowMap._fitNearFar = true;
-            sc.shadowMap.fadingEnabled = true;
-            sc.shadowMap.softShadows = true;
-            if (sc.shadowMap._primitiveBias) {
-              sc.shadowMap._primitiveBias.polygonOffset = true;
-              sc.shadowMap._primitiveBias.polygonOffsetFactor = 1.1;
-              sc.shadowMap._primitiveBias.polygonOffsetUnits = 3.2;
-              sc.shadowMap._primitiveBias.normalOffset = true;
-              sc.shadowMap._primitiveBias.normalOffsetScale = 0.25;
-              sc.shadowMap._primitiveBias.normalShading = false;
-              sc.shadowMap._primitiveBias.depthBias = Math.max(0.00025, 0.08 / shadowRadius);
+            if (typeof window !== "undefined" && window.ShadowSettings && typeof window.ShadowSettings.configureCesiumShadowMap === "function") {
+              window.ShadowSettings.configureCesiumShadowMap(sc.shadowMap);
+            } else {
+              sc.shadowMap.enabled = true;
+              sc.shadowMap.size = 4096;
+              sc.shadowMap.maximumDistance = shadowRadius;
+              sc.shadowMap._fitNearFar = false;
+              sc.shadowMap.fadingEnabled = true;
+              sc.shadowMap.softShadows = true;
+              if (sc.shadowMap._primitiveBias) {
+                sc.shadowMap._primitiveBias.polygonOffset = true;
+                sc.shadowMap._primitiveBias.polygonOffsetFactor = 1.1;
+                sc.shadowMap._primitiveBias.polygonOffsetUnits = 3.2;
+                sc.shadowMap._primitiveBias.normalOffset = true;
+                sc.shadowMap._primitiveBias.normalOffsetScale = 0.25;
+                sc.shadowMap._primitiveBias.normalShading = false;
+                sc.shadowMap._primitiveBias.depthBias = Math.max(0.00025, 0.08 / shadowRadius);
+              }
             }
           }
           // Transición continua de sombra: desvanecimiento suave a ras de horizonte (0° a 5°)

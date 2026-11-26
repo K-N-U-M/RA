@@ -15,23 +15,14 @@ const path = require('path');
 const vm = require('vm');
 
 const ROOT = path.resolve(__dirname, '..');
-const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+const appMain = fs.readFileSync(path.join(ROOT, 'js/app-main.js'), 'utf8');
 
-const start = html.indexOf('function calculateDynamicMPPTStringLimits');
-const end = html.indexOf('function partitionPanelsIntoMPPTStrings');
-assert.ok(start > 0 && end > start, 'No se pudo extraer la función inline de límites MPPT');
-const inlineSrc = html.slice(start, end);
-
-// Contexto sin RA.Electrical para ejercitar el fallback inline.
-const ctx = {
-  window: {},
-  panelConfig: {},
-  console: console
-};
-ctx.window.panelConfig = ctx.panelConfig;
-ctx.window.solarProjectConfig = {};
-vm.createContext(ctx);
-vm.runInContext(inlineSrc, ctx);
+// Verificar que la copia inline ya fue eliminada de js/app-main.js.
+assert.strictEqual(
+  appMain.indexOf('function calculateDynamicMPPTStringLimits'),
+  -1,
+  'La copia inline de calculateDynamicMPPTStringLimits debe haber sido eliminada de js/app-main.js'
+);
 
 // Motor modular real.
 const modCtx = { window: {}, panelConfig: {}, console };
@@ -43,7 +34,7 @@ const Electrical = modCtx.window.RA.Electrical;
 assert.ok(Electrical && typeof Electrical.calculateDynamicMPPTStringLimits === 'function');
 
 console.log('═════════════════════════════════════════════════════════════════════');
-console.log('⚡ TEST SUITE: PARIDAD DE LÍMITES MPPT (inline vs módulo)');
+console.log('⚡ TEST SUITE: LÍMITES MPPT (motor centralizado en electrical-engine.js)');
 console.log('═════════════════════════════════════════════════════════════════════');
 
 const moduleSpec = {
@@ -56,19 +47,16 @@ const inverter = { vDcMax: 1000, vMpptMin: 250, vMpptMax: 850, kw: 10, mppt: 2 }
 const clim = { tMinCold: -10, tMaxHot: 70 };
 
 const fromModule = Electrical.calculateDynamicMPPTStringLimits(moduleSpec, inverter, clim);
-const fromInline = ctx.calculateDynamicMPPTStringLimits(moduleSpec, inverter, clim);
 
-assert.strictEqual(fromInline.Ns_max, fromModule.Ns_max, 'Ns_max debe coincidir');
-assert.strictEqual(fromInline.Ns_min, fromModule.Ns_min, 'Ns_min debe coincidir');
-assert.ok(Math.abs(fromInline.Vmp_Tmax - fromModule.Vmp_Tmax) < 0.02, 'Vmp_Tmax debe coincidir');
-assert.ok(Math.abs(fromInline.Vmp_Tmin - fromModule.Vmp_Tmin) < 0.02, 'Vmp_Tmin debe coincidir');
-console.log(`  ✓ PASS: Ns_max=${fromModule.Ns_max} · Ns_min=${fromModule.Ns_min} en ambas implementaciones`);
+assert.ok(fromModule.Ns_max > 0 && fromModule.Ns_min > 0, 'Ns_max y Ns_min deben ser positivos');
+assert.ok(fromModule.Ns_max >= fromModule.Ns_min, 'Ns_max debe ser >= Ns_min');
+console.log(`  ✓ PASS: Ns_max=${fromModule.Ns_max} · Ns_min=${fromModule.Ns_min} en electrical-engine.js`);
 
-// El fallback NO debe volver a γPmp: con γPmp=−0,35 el Ns_min habría sido distinto.
+// El cálculo NO debe usar γPmp: con γPmp=−0,35 el Vmp_Tmax sería distinto.
 const VmpHotCorrect = moduleSpec.Vmp * (1 + (-0.0030) * (70 - 25));
-assert.ok(Math.abs(fromInline.Vmp_Tmax - VmpHotCorrect) < 0.05,
-  `Vmp_Tmax debe usar βVmp (${VmpHotCorrect.toFixed(2)} V), recibido ${fromInline.Vmp_Tmax.toFixed(2)} V`);
-console.log('  ✓ PASS: el fallback usa βVmp (no γPmp) para la tensión MPP');
+assert.ok(Math.abs(fromModule.Vmp_Tmax - VmpHotCorrect) < 0.05,
+  `Vmp_Tmax debe usar βVmp (${VmpHotCorrect.toFixed(2)} V), recibido ${fromModule.Vmp_Tmax.toFixed(2)} V`);
+console.log('  ✓ PASS: el motor usa βVmp (no γPmp) para la tensión MPP');
 
 // Guardas de entrada.
 const lowT = Electrical.calculateDynamicMPPTStringLimits(moduleSpec, inverter, { tMinCold: -20, tMaxHot: 80 });

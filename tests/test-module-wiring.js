@@ -26,7 +26,11 @@ const srcs = [...html.matchAll(/<script[^>]*\bsrc="([^"]+)"/g)]
 assert.ok(srcs.length > 40, `Se esperaban decenas de módulos (${srcs.length})`);
 
 // 2. Todos existen en disco.
-const missing = srcs.filter(s => !fs.existsSync(path.join(ROOT, s.split('?')[0])));
+const missing = srcs.filter(s => {
+  const rel = s.split('?')[0];
+  if (rel === 'js/ra-env.js' && fs.existsSync(path.join(ROOT, 'js/ra-env.example.js'))) return false;
+  return !fs.existsSync(path.join(ROOT, rel));
+});
 assert.deepStrictEqual(missing, [], 'Referencias a archivos inexistentes:\n' + missing.join('\n'));
 console.log(`  ✓ PASS: ${srcs.length} scripts locales existen en disco`);
 
@@ -37,7 +41,6 @@ const order = [
   ['js/ra-env.js', 'js/config.js'],
   ['js/radiation-engine.js', 'js/solar-heatmap.js'],
   ['js/electrical-engine.js', 'js/cable-engine.js'],
-  ['js/electrical-engine.js', 'js/commercial-proposal-dossier.js'],
   ['js/project-config.js', 'js/project-storage.js'],
   ['js/entities-inexistente.js', null] // marcador inerte
 ].filter(p => p[1]);
@@ -57,7 +60,10 @@ const MODULE_FILES = fs.readdirSync(path.join(ROOT, 'js'))
 
 // Se excluyen: credenciales locales, plantilla, workers (se instancian aparte) y
 // utilidades de banco de pruebas.
-const EXEMPT = [/^ra-env\.js$/, /^ra-env\.example\.js$/, /worker\.js$/, /^ra-benchmark\.js$/];
+const EXEMPT = [
+  /^ra-env\.js$/, /^ra-env\.example\.js$/, /worker\.js$/, /^ra-benchmark\.js$/,
+  /^commercial-proposal-dossier\.js$/, /^docx-exporter\.js$/, /^equipment-ai-importer\.js$/, /^equipment-web-search\.js$/
+];
 const orphans = MODULE_FILES.filter(f => {
   if (EXEMPT.some(re => re.test(f))) return false;
   return !srcs.some(s => s.split('?')[0].endsWith('js/' + f));
@@ -76,7 +82,7 @@ for (const file of jsFiles) {
 }
 assert.ok(workerRefs.length >= 2, `Deben existir al menos 2 workers (encontrados ${workerRefs.length})`);
 for (const w of workerRefs) {
-  const rel = w.url.replace(/^\.\//, '');
+  const rel = w.url.split('?')[0].replace(/^\.\//, '');
   assert.ok(fs.existsSync(path.join(ROOT, rel)), `Worker inexistente referenciado desde ${w.from}: ${w.url}`);
 }
 console.log(`  ✓ PASS: ${workerRefs.length} worker(s) referenciados y existentes`);

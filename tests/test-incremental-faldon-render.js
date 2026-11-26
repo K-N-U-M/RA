@@ -111,7 +111,7 @@ recalculateLayoutAndObstacles(1); // Modificar únicamente faldón 1
 assert.strictEqual(WP.polylines[0].roofInfo !== null, true, 'Faldón 0 debe conservar su roofInfo');
 assert.strictEqual(WP.polylines[0]._calcSig !== null, true, 'Faldón 0 debe conservar su _calcSig');
 assert.strictEqual(WP.polylines[1]._calcSig, null, 'Faldón 1 (objetivo) debe invalidar su _calcSig');
-assert.strictEqual(WP.polylines[1].roofInfo !== null, true, 'Faldón 1 debe conservar los paneles (movimientos manuales)');
+assert.strictEqual(WP.polylines[1].roofInfo, null, 'Faldón 1 (objetivo) debe invalidar su roofInfo');
 assert.strictEqual(WP.polylines[2].roofInfo !== null, true, 'Faldón 2 debe conservar su roofInfo');
 assert.strictEqual(WP.polylines[2]._calcSig !== null, true, 'Faldón 2 debe conservar su _calcSig');
 console.log('✓ PASS: recalculateLayoutAndObstacles(1) solo invalidó la firma del faldón 1.');

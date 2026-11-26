@@ -3,8 +3,13 @@
 // ============================================================================
 (function (global) {
   global.RACadEvents = {
+    _handler: null,
     init: function () {
+  if (this._handler) {
+    this.destroy();
+  }
   const handler = new Cesium.ScreenSpaceEventHandler(scene.canvas);
+  this._handler = handler;
   // Throttle de pickPosition GPU: máx ~30 picks/s (cada 32ms) para MOUSE_MOVE
   let _lastPickTime = 0;
   const _PICK_THROTTLE_MS = 32;
@@ -2011,6 +2016,16 @@
       changeTriadScale(-0.25);
     }
   });
+    },
+    destroy: function () {
+      if (this._handler) {
+        try {
+          if (typeof this._handler.isDestroyed !== 'function' || !this._handler.isDestroyed()) {
+            this._handler.destroy();
+          }
+        } catch (e) { /* ignore */ }
+        this._handler = null;
+      }
     }
   };
 })(typeof window !== "undefined" ? window : globalThis);

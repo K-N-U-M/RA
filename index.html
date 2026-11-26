@@ -111,6 +111,11 @@ window.RA_App = window.RA_App || {};
   <script defer src="https://unpkg.com/lucide@1.48.0" integrity="sha384-Hh7C333mXel+qppGoFs4qAOXp7h67eur4XsQVF2bvHAM3MQ4DX4cQI7oRCzb98J4" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <script defer src="js/a11y-dialogs.js?v=20261118_t6"></script>
   <script defer src="js/cost-modal-ui.js?v=20261124_pricing_persist"></script>
+  <script defer src="js/cad-status-bar.js?v=20261126_t53"></script>
+  <script defer src="js/autosave-idb.js?v=20261126_t56"></script>
+  <script defer src="js/mppt-window-chart.js"></script>
+  <script defer src="js/onboarding-empty.js"></script>
+  <script defer src="js/scenario-comparator.js"></script>
   <script defer src="js/app-main.js?v=20261123_mppt_perf3"></script>
   <link rel="stylesheet" href="css/styles.css?v=20261118_t1b">
   <style>
@@ -515,7 +520,7 @@ window.RA_App = window.RA_App || {};
           <span class="wp-step-num">2</span>
           <span class="wp-step-title"><i data-lucide="sun" class="icon-sm"></i> CAMPO</span>
         </button>
-        <button class="wp-step-btn" id="wp-step-3-btn" onclick="wpGoToStep(3)" style="padding:6px 2px;font-size: 10px;" title="Paso 3: Análisis Solar (Factura, Demanda y Sombras)">
+        <button class="wp-step-btn" id="wp-step-3-btn" onclick="wpGoToStep(3)" style="padding:6px 2px;font-size: 10px;" title="Paso 3: Análisis Solar & Demanda">
           <span class="wp-step-num">3</span>
           <span class="wp-step-title"><i data-lucide="cloud-sun" class="icon-sm"></i> ANÁLISIS</span>
         </button>
@@ -4207,6 +4212,22 @@ window.RA_App = window.RA_App || {};
 
 
 <!-- [MODULARIZACION FASE 2 - BLOQUE 2.3] toggleSettingsPopover delegado canónicamente a js/ui-viewport-controls.js -->
+<script>
+  (function () {
+    const sidebar = document.getElementById('ra-sidebar');
+    if (sidebar && window.innerWidth > 1024) {
+      sidebar.classList.remove('collapsed');
+    }
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const target = e.target && e.target.closest ? e.target.closest('[role="button"]') : null;
+      if (!target || target.tagName === 'BUTTON') return;
+      if (e.key === ' ') e.preventDefault();
+      target.click();
+    });
+  })();
+</script>
 
 </body>
 </html>

@@ -953,12 +953,10 @@ window.wpCapturaInforme = async function() {
   // 1. vista realista con encuadre dron
   if (typeof wpEnfoqueDron === 'function') wpEnfoqueDron();
   if (typeof wpSetShadowViewMode === 'function') { try { await _conTimeout(wpSetShadowViewMode('sol'), 4000); } catch (e) {} }
-  scene.render();
   const realistaBase = capturarCanvas();
 
   // 2. vista de irradiación (heatmap)
   if (typeof wpSetShadowViewMode === 'function') { try { await _conTimeout(wpSetShadowViewMode('heatmap'), 4000); } catch (e) {} }
-  scene.render();
   const heatBase = capturarCanvas();
 
   // restaurar
@@ -5085,8 +5083,8 @@ function get3DElectricalClickPosition(screenPos) {
   // del ÚLTIMO frame renderizado. Si la cámara se movió desde entonces (órbita/zoom), el
   // píxel apunta a OTRO punto del mundo y el cuadro aparece lejos del clic ("otro sitio").
   // Forzar un frame síncrono garantiza que el buffer corresponde a la cámara actual.
-  if (viewer.scene && viewer.scene.requestRenderMode && typeof viewer.scene.render === 'function') {
-    try { viewer.scene.render(); } catch(eForce) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eForce, 'pick fresco'); }
+  if (viewer.scene && viewer.scene.requestRenderMode && typeof viewer.scene.requestRender === 'function') {
+    try { viewer.scene.requestRender(); } catch(eForce) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(eForce, 'pick fresco'); }
   }
   if (viewer.scene && typeof viewer.scene.pickPosition === 'function') {
     try { pos = viewer.scene.pickPosition(screenPos); } catch(e) { if(window.RA_ErrorHandler) window.RA_ErrorHandler.handle(e, 'Entidad/Primitiva Cesium'); }

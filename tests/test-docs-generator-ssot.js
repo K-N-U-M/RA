@@ -216,7 +216,7 @@ window._canonicalGetProjectCalcs = () => {
 };
 
 console.log('\n▶ TEST 1: Verificación de Inversor Comercial y Batería en getProjectCalcs()...');
-const d = getProjectCalcs();
+const d = window._canonicalGetProjectCalcs();
 assert(d.inverter && d.inverter.fullName === 'Huawei SUN2000-10KTL-M1', 'El inversor debe coincidir con el catálogo');
 assert(d.battery && d.battery.fullName === 'Huawei LUNA2000-10-S0', 'La batería debe coincidir con el catálogo');
 assert(d.hasBattery === true, 'hasBattery debe ser verdadero');

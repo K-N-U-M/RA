@@ -36,7 +36,8 @@ function runAuditTests() {
             add: () => {},
             remove: () => {}
           },
-          removeAttribute: () => {}
+          removeAttribute: () => {},
+          setAttribute: () => {}
         };
       }
       return elements[id];

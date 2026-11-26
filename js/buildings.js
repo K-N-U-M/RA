@@ -67,13 +67,63 @@
     });
   }
 
+function _computeBuildingRenderSig(bld, isSel) {
+  const pts = bld.points || [];
+  let ptStr = '';
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i];
+    if (p) ptStr += p.x.toFixed(3) + ',' + p.y.toFixed(3) + ',' + p.z.toFixed(3) + ';';
+  }
+  return [
+    bld.id || '',
+    isSel ? '1' : '0',
+    bld.height || 0,
+    bld.baseHeight || 0,
+    bld.roofType || '',
+    bld.roofPitch || 0,
+    bld.roofAzimuth || 0,
+    bld.facadeColor || '',
+    bld.roofColor || '',
+    bld.edgeColor || '',
+    bld.parapetHeight || 0,
+    bld.parapetWidth || 0,
+    ptStr
+  ].join('|');
+}
+
 function render3DBuildingsInCesium() {
   if (typeof window !== 'undefined' && window.RAMeasureTool && typeof window.RAMeasureTool.invalidateSnapCandidates === 'function') {
     window.RAMeasureTool.invalidateSnapCandidates();
   }
-  // 1. Limpiar Primitivas WebGL directas previas
+
+  const bldList = (typeof buildings !== 'undefined' && Array.isArray(buildings)) ? buildings : (typeof window !== 'undefined' && Array.isArray(window.buildings) ? window.buildings : []);
+  const curSelBldId = (typeof selectedBuildingId !== 'undefined') ? selectedBuildingId : (typeof window !== 'undefined' ? window.selectedBuildingId : null);
+
+  const keptPrims = new Set();
+  const keptEnts = new Set();
+  const reuseBlds = new Set();
+
+  bldList.forEach(bld => {
+    if (!bld || !bld.points || bld.points.length < 3 || bld.visible === false) {
+      if (bld) { bld._primitives = []; bld._entities = []; bld._renderSig = null; }
+      return;
+    }
+    const isSel = (bld.id === curSelBldId);
+    const sig = _computeBuildingRenderSig(bld, isSel);
+    const hasPrims = Array.isArray(bld._primitives) && bld._primitives.length > 0 && bld._primitives.every(p => p && !p.isDestroyed());
+    if (!bld._dirty && bld._renderSig === sig && hasPrims) {
+      reuseBlds.add(bld);
+      bld._primitives.forEach(p => keptPrims.add(p));
+      if (Array.isArray(bld._entities)) bld._entities.forEach(e => keptEnts.add(e));
+    } else {
+      bld._renderSig = sig;
+    }
+  });
+
+  // 1. Limpiar Primitivas WebGL directas previas (solo las que no se reutilizan)
   if (window._buildingPrimitives && Array.isArray(window._buildingPrimitives)) {
     window._buildingPrimitives.forEach(p => {
+      if (keptPrims.has(p)) return;
       try {
         if (p && !p.isDestroyed()) {
           if (p.shadows !== undefined && typeof Cesium !== 'undefined' && Cesium.ShadowMode) {
@@ -86,16 +136,16 @@ function render3DBuildingsInCesium() {
   }
   window._buildingPrimitives = [];
 
-  // 2. Limpiar Entidades previas
+  // 2. Limpiar Entidades previas (solo las que no se reutilizan)
   if (window._buildingEntities && Array.isArray(window._buildingEntities)) {
     window._buildingEntities.forEach(e => {
+      if (keptEnts.has(e)) return;
       try { viewer.entities.remove(e); } catch(err) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', err); }
     });
   }
   window._buildingEntities = [];
   window._selectedVtxHandle = null; // [P2] ref al handle del vértice seleccionado (se recrea más abajo)
 
-  const bldList = (typeof buildings !== 'undefined' && Array.isArray(buildings)) ? buildings : (typeof window !== 'undefined' && Array.isArray(window.buildings) ? window.buildings : []);
   if (bldList.length === 0) {
     if (viewer && viewer.scene && typeof viewer.scene.requestRender === 'function') {
       viewer.scene.requestRender();
@@ -103,10 +153,15 @@ function render3DBuildingsInCesium() {
     return;
   }
 
-  const curSelBldId = (typeof selectedBuildingId !== 'undefined') ? selectedBuildingId : (typeof window !== 'undefined' ? window.selectedBuildingId : null);
-
   bldList.forEach(bld => {
     if (!bld.points || bld.points.length < 3 || bld.visible === false) return;
+    if (reuseBlds.has(bld)) {
+      if (Array.isArray(bld._primitives)) bld._primitives.forEach(p => window._buildingPrimitives.push(p));
+      if (Array.isArray(bld._entities)) bld._entities.forEach(e => window._buildingEntities.push(e));
+      return;
+    }
+    const _bldStartPrimIdx = window._buildingPrimitives.length;
+    const _bldStartEntIdx = window._buildingEntities.length;
     const isSel = (bld && bld.id === curSelBldId);
     const baseHex = bld.facadeColor || '#F1F5F9'; // Blanco roto / panel arquitectónico por defecto
     const roofHex = bld.roofColor || '#E2E8F0';   // Cubierta técnica clara por defecto (evita quemado)
@@ -1364,6 +1419,9 @@ function render3DBuildingsInCesium() {
         }
       } catch(eAxesVis) { window.RA && window.RA.log && window.RA.log.warn('[catch silenciado]', eAxesVis); }
     }
+    bld._primitives = window._buildingPrimitives.slice(_bldStartPrimIdx);
+    bld._entities = window._buildingEntities.slice(_bldStartEntIdx);
+    bld._dirty = false;
   });
 
   if (viewer && viewer.scene && typeof viewer.scene.requestRender === 'function') {

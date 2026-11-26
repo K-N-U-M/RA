@@ -47,6 +47,13 @@
       --text-slate-300: #CBD5E1;
       --text-slate-400: #94A3B8;
       --text-slate-500: #64748B;
+
+      /* Capas Z-Index */
+      --z-hud: 1000;
+      --z-sidebar: 1100;
+      --z-floating-panel: 1200;
+      --z-modal: 1300;
+      --z-toast: 1400;
     }
 
     *, *::before, *::after {

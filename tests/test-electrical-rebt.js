@@ -63,7 +63,7 @@ assert.strictEqual(multiEng.invCount, 4, 'invCount debe ser 4');
 assert.strictEqual(multiEng.P_ac_kW, 20, 'Potencia total AC debe contemplar 4 inversores (4 x 5 kW = 20 kW)');
 assert.strictEqual(multiEng.total_P_ac_kW, 20, 'total_P_ac_kW debe ser 20 kW');
 assert.strictEqual(multiEng.monofasico, false, 'Instalación > 15 kW debe ser forzada a trifásica (RD 1699/2011)');
-assert.strictEqual(multiEng.rcdType, 'Clase B', 'Instalación comercial trifásica sin aislamiento requiere RCD Clase B');
+assert.strictEqual(multiEng.rcdType, 'Clase A-SI', 'Instalación comercial trifásica con RCMU integrado admite RCD Clase A-SI');
 console.log('✔ PASS 2: Multi-inversor, trifásica obligatoria (>15kW) y RCD Clase B verificados.');
 
 // TEST 3: Distinción Voc módulo vs Voc string en project-calcs

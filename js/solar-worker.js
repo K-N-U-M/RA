@@ -13,6 +13,9 @@
 try {
   importScripts('radiation-engine.js?v=20261118_t3');
 } catch (eRadImport) {}
+try {
+  importScripts('polygon-shadow-math.js?v=20261126_f3');
+} catch (ePolyImport) {}
 
 const SOLAR_CONST = 1367;
 
@@ -24,72 +27,15 @@ const _T_AMB_TABLE = {
   canarias:   [18.0, 18.5, 19.0, 20.0, 21.5, 23.5, 25.0, 26.0, 25.5, 23.5, 21.0, 19.0]
 };
 
-// ── 1. GEOMETRÍA 2D OFF-THREAD ───────────────────────────────────────────────
+const _T_AMP_TABLE = {
+  costal_med: 4.5,
+  costa_med:  4.5,
+  interior:   7.5,
+  atlantico:  4.0,
+  canarias:   3.5
+};
 
-function isPointInPolygon2D(pt, poly) {
-  let inside = false;
-  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    const xi = poly[i].u, yi = poly[i].v;
-    const xj = poly[j].u, yj = poly[j].v;
-    const intersect = ((yi > pt.v) !== (yj > pt.v)) &&
-      (pt.u < (xj - xi) * (pt.v - yi) / (yj - yi + 1e-12) + xi);
-    if (intersect) inside = !inside;
-  }
-  return inside;
-}
-
-function segmentsIntersect2D(p1, p2, p3, p4) {
-  function ccw(A, B, C) {
-    return (C.v - A.v) * (B.u - A.u) > (B.v - A.v) * (C.u - A.u);
-  }
-  return (ccw(p1, p3, p4) !== ccw(p2, p3, p4)) && (ccw(p1, p2, p3) !== ccw(p1, p2, p4));
-}
-
-function polygonsIntersect2D(polyA, polyB) {
-  if (!polyA || !polyB || polyA.length < 3 || polyB.length < 3) return false;
-  for (let i = 0; i < polyA.length; i++) {
-    if (isPointInPolygon2D(polyA[i], polyB)) return true;
-  }
-  for (let i = 0; i < polyB.length; i++) {
-    if (isPointInPolygon2D(polyB[i], polyA)) return true;
-  }
-  for (let i = 0; i < polyA.length; i++) {
-    const a1 = polyA[i];
-    const a2 = polyA[(i + 1) % polyA.length];
-    for (let j = 0; j < polyB.length; j++) {
-      const b1 = polyB[j];
-      const b2 = polyB[(j + 1) % polyB.length];
-      if (segmentsIntersect2D(a1, a2, b1, b2)) return true;
-    }
-  }
-  return false;
-}
-
-function convexHull2D(points) {
-  if (!points || points.length <= 3) return points || [];
-  const pts = points.slice().sort((a, b) => a.u === b.u ? a.v - b.v : a.u - b.u);
-  function cross(o, a, b) {
-    return (a.u - o.u) * (b.v - o.v) - (a.v - o.v) * (b.u - o.u);
-  }
-  const lower = [];
-  for (let p of pts) {
-    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 1e-9) {
-      lower.pop();
-    }
-    lower.push(p);
-  }
-  const upper = [];
-  for (let i = pts.length - 1; i >= 0; i--) {
-    const p = pts[i];
-    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 1e-9) {
-      upper.pop();
-    }
-    upper.push(p);
-  }
-  lower.pop();
-  upper.pop();
-  return lower.concat(upper);
-}
+// ── 1. GEOMETRÍA 2D OFF-THREAD (cargada desde polygon-shadow-math.js) ───────
 
 function dividePanelIntoSubstrings2D(quad) {
   if (!quad || quad.length !== 4) return quad ? [quad] : [];
@@ -261,7 +207,12 @@ self.onmessage = async function(e) {
     hours = [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
   }
 
-  const hourStepDt = (hours.length > 1) ? (hours[hours.length - 1] - hours[0]) / (hours.length - 1) : 1.0;
+  const hourWeights = hours.map((h, idx) => {
+    if (hours.length <= 1) return 1.0;
+    if (idx === 0) return (hours[1] - hours[0]) * 0.5;
+    if (idx === hours.length - 1) return (hours[idx] - hours[idx - 1]) * 0.5;
+    return (hours[idx + 1] - hours[idx - 1]) * 0.5;
+  });
   const _MONTH_START_DOY = [1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335];
   const doyToMonthIdx = (doy) => {
     let mi = 11;
@@ -389,26 +340,6 @@ self.onmessage = async function(e) {
     const myIndex = (pData.layoutIndex !== undefined) ? pData.layoutIndex : (pData.idx !== undefined ? pData.idx : -1);
     const panelH = pData.h || 2.10;
     const pGridA = (typeof pData.gridA === 'number') ? pData.gridA : ((pData.frame && typeof pData.frame.Lu === 'number') ? ((pData.u || 0) * pData.frame.Lu + (pData.v || 0) * pData.frame.Lv) : null);
-
-    const faldon = faldones[pData.polyIdx] || faldones[0] || {};
-    let minObsDist = Infinity;
-    const pu = polyCu, pv = polyCv;
-    const fObs = faldon.obstacles2D || [];
-    for (let oi = 0; oi < fObs.length; oi++) {
-      const ob = fObs[oi];
-      const pts = ob.points2D || [];
-      if (pts.length > 0) {
-        const d = Math.hypot(pu - pts[0].u, pv - pts[0].v);
-        if (d < minObsDist) minObsDist = d;
-      }
-    }
-    let penumbraAttenuation = 1.0;
-    if (minObsDist < Infinity && minObsDist > 0.5) {
-      const penumbraWidth = minObsDist * 0.00925;
-      if (penumbraWidth > 0.08) {
-        penumbraAttenuation = Math.max(0.85, 1.0 - (penumbraWidth / 2.0));
-      }
-    }
 
     const tiltRad = (pData.tiltDeg || 20) * Math.PI / 180;
     const fViewSky = (1 + Math.cos(tiltRad)) / 2;
@@ -617,15 +548,21 @@ self.onmessage = async function(e) {
         const albedoGain = (isBifacial && bifacialityFactor > 0) ? (GHI_instant * 0.20 * rearViewFactor * bifacialityFactor) : 0;
         const G_poa = G_beam + G_diff + G_refl + albedoGain;
 
-        // Derating térmico
-        const tCell = tAmbMonth + (noctModule - 20) * (G_poa / 800);
+        // Derating térmico: perfil diurno sinusoidal T_amb(h) + modelo Faiman
+        const tAmp = _T_AMP_TABLE[climateZone] || 5.0;
+        const tAmbHour = tAmbMonth + tAmp * Math.sin(Math.PI * (h - 9) / 12);
+        const vWind = (typeof data.windSpeed === 'number' && isFinite(data.windSpeed)) ? data.windSpeed : 2.0;
+        const u0Faiman = (p.coplanar && p.clearance < 0.25) ? 20.0 : 25.0;
+        const u1Faiman = 6.84;
+        const tCell = tAmbHour + G_poa / (u0Faiman + u1Faiman * vWind);
         const thermalFactor = Math.max(0.70, 1.0 + gammaCoeff * (tCell - 25));
 
         // Potencia instantánea específica (W/m² efectiva) modulada por factor térmico
         const instantPotentialW = G_poa * thermalFactor;
 
         const mw = monthDaysW[mIdx];
-        res.annualTotalPotential += instantPotentialW * mw * hourStepDt;
+        const dt = hourWeights[hIdx];
+        res.annualTotalPotential += instantPotentialW * mw * dt;
 
         // Evaluación de sombreado
         let isShaded = false;
@@ -732,7 +669,7 @@ self.onmessage = async function(e) {
             blockingAlt = (effHorizon[i0] || 0) * (1 - frac) + (effHorizon[i1] || 0) * frac;
           }
           if (blockingAlt > 0.5) {
-            const halfBand = Math.max(2.5, hourStepDt * 2.5);
+            const halfBand = Math.max(2.5, dt * 2.5);
             if (sp.elevDeg <= blockingAlt - halfBand) {
               horizonOcclusionFrac = 1.0;
             } else if (sp.elevDeg < blockingAlt + halfBand) {
@@ -746,7 +683,7 @@ self.onmessage = async function(e) {
         const isEnvironmentOccluded = envOcclusionFrac > 0.01;
 
         const effectiveShaded = isShaded || isEnvironmentOccluded;
-        const localBeamLossFrac = isShaded ? (effectiveLossFraction * p.penumbraAttenuation) : 0.0;
+        const localBeamLossFrac = isShaded ? (effectiveLossFraction * minPenumbra) : 0.0;
         const totalEffectiveLossFraction = Math.max(localBeamLossFrac, envOcclusionFrac);
 
         const beamLossW = (effectiveShaded && totalEffectiveLossFraction > 0) ? (G_beam * thermalFactor * totalEffectiveLossFraction) : 0;
@@ -759,13 +696,13 @@ self.onmessage = async function(e) {
         const instantLossW = beamLossW + diffuseLossW;
 
         if (effectiveShaded && instantLossW > 0) {
-          res.shadowHits += mw * hourStepDt * totalEffectiveLossFraction;
-          res.activeDiodesHits += Math.max(shadedSubstringsCount, envOcclusionFrac * 3) * mw * hourStepDt;
-          res.annualShadedLoss += instantLossW * mw * hourStepDt;
+          res.shadowHits += mw * dt * totalEffectiveLossFraction;
+          res.activeDiodesHits += Math.max(shadedSubstringsCount, envOcclusionFrac * 3) * mw * dt;
+          res.annualShadedLoss += instantLossW * mw * dt;
         }
 
         const effectiveLossW = (effectiveShaded && instantLossW > 0) ? instantLossW : 0;
-        _monthlyNetWh[m] += (instantPotentialW - effectiveLossW) * mw * hourStepDt;
+        _monthlyNetWh[m] += (instantPotentialW - effectiveLossW) * mw * dt;
       });
     }
 

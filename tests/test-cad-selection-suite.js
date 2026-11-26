@@ -9,6 +9,8 @@ console.log('--- TEST SUITE: SUITE CAD DE SELECCIÓN Y FILTROS DE PUNTERÍA ---'
 
 // Mock DOM y Cesium mínimos
 global.window = global;
+global.addEventListener = function() {};
+global.removeEventListener = function() {};
 global.document = {
   activeElement: { tagName: 'BODY' },
   readyState: 'complete',

@@ -86,7 +86,7 @@ c:/TRABAJOS/RA/
 
 ```
 
-> **Inventario real (2026-10-28):** 63 archivos JS (50 en `js/` + 13 en `js/wind/`). Este árbol es una selección de los núcleos; `node tests/test-js-syntax.js` recorre el inventario completo.
+> **Inventario real (2026-11-26):** 81 archivos JS (67 en `js/` + 14 en `js/wind/`) y 64 pruebas en `tests/`. Este árbol es una selección de los núcleos; `node tests/test-js-syntax.js` recorre el inventario completo.
 
 > [!IMPORTANT]
 > **Gestión de Hooks Globales:** Las funciones invocadas desde atributos HTML (`onclick`, `onchange`) deben estar siempre accesibles en `window`. No eliminar ni renombrar sin actualizar el HTML.

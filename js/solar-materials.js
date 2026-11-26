@@ -17,13 +17,13 @@ function createSolarPanelTexture() {
   if (typeof document === 'undefined') return '';
   const canvas = document.createElement('canvas');
   // Textura optimizada anti-moiré en 1024x2048
-  canvas.width = 256;
-  canvas.height = 512;
+  canvas.width = 1024;
+  canvas.height = 2048;
   const ctx = canvas.getContext('2d');
   if (!ctx) return '';
 
-  const w = 256;
-  const h = 512;
+  const w = 1024;
+  const h = 2048;
 
   // ==========================================================================
   // 1. MARCO PERIMETRAL DE ALUMINIO ANODIZADO EXTRUIDO (AAA DETAIL)

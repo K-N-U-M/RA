@@ -33,7 +33,7 @@ function runLossMonotonicityTests() {
   console.log('=== TEST DE MONOTONICIDAD FÍSICA EN PÉRDIDAS DEL SISTEMA ===');
 
   const projectRoot = path.join(__dirname, '..');
-  const indexHtml = fs.readFileSync(path.join(projectRoot, 'index.html'), 'utf8');
+  const indexHtml = fs.readFileSync(path.join(projectRoot, 'js/app-main.js'), 'utf8');
 
   // DOM Mock completo
   const dom = {};
@@ -175,28 +175,24 @@ function runLossMonotonicityTests() {
   });
 
   // Cargar módulos JS
-  ['config.js', 'radiation-engine.js', 'solar-engine.js', 'electrical-engine.js', 'project-status-hud.js', 'project-calcs.js'].forEach(f => {
+  ['config.js', 'radiation-engine.js', 'solar-engine.js', 'electrical-engine.js', 'project-status-hud.js', 'project-calcs.js', 'solar-yield-controller.js'].forEach(f => {
     vm.runInContext(fs.readFileSync(path.join(projectRoot, 'js', f), 'utf8'), ctx);
   });
 
-  // Extraer las funciones exactas de index.html
+  // Extraer las funciones exactas de js/app-main.js
   const fnPolygonAnalysis = extractFunctionFromHtml(indexHtml, 'polygonAnalysis');
   const fnComputeElectrical = extractFunctionFromHtml(indexHtml, 'computeElectricalSizingEngineering');
-  const fnRecalculateYield = extractFunctionFromHtml(indexHtml, 'recalculateSolarYield');
-  const fnGetProjectCalcs = extractFunctionFromHtml(indexHtml, 'getProjectCalcs');
   const fnRaSetLossUI = extractFunctionFromHtml(indexHtml, 'raSetLossUI');
   const fnRaApplyLossPresetUI = extractFunctionFromHtml(indexHtml, 'raApplyLossPresetUI');
 
   vm.runInContext(fnPolygonAnalysis, ctx);
   vm.runInContext(fnComputeElectrical, ctx);
-  vm.runInContext(fnRecalculateYield, ctx);
-  vm.runInContext(fnGetProjectCalcs, ctx);
   vm.runInContext(fnRaSetLossUI, ctx);
   vm.runInContext(fnRaApplyLossPresetUI, ctx);
 
   // Vincular a window
-  ctx.recalculateSolarYield = ctx.window.recalculateSolarYield = ctx.recalculateSolarYield;
-  ctx.getProjectCalcs = ctx.window.getProjectCalcs = ctx.getProjectCalcs;
+  ctx.recalculateSolarYield = ctx.window.recalculateSolarYield;
+  ctx.getProjectCalcs = ctx.window.getProjectCalcs;
   ctx.raSetLossUI = ctx.window.raSetLossUI = ctx.raSetLossUI;
   ctx.raApplyLossPresetUI = ctx.window.raApplyLossPresetUI = ctx.raApplyLossPresetUI;
   ctx.raRenderLossFields = ctx.window.raRenderLossFields = () => {};

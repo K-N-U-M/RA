@@ -8,8 +8,24 @@ const assert = require('assert');
 
 console.log('--- TEST SUITE: DESACTIVACIÓN DE MESAS FV DE MEDICIONES Y PRESUPUESTO ---');
 
+// Mock minimal document for bom-tree.js
+if (typeof global.document === 'undefined') {
+  global.document = {
+    getElementById: () => null,
+    querySelector: () => null,
+    createElement: () => ({ style: {}, appendChild: () => {} }),
+    body: { appendChild: () => {}, contains: () => true },
+    addEventListener: () => {},
+    removeEventListener: () => {}
+  };
+}
+if (typeof global.addEventListener !== 'function') global.addEventListener = () => {};
+if (typeof global.removeEventListener !== 'function') global.removeEventListener = () => {};
+
 // Mock global
 const globalObj = {
+  addEventListener: () => {},
+  removeEventListener: () => {},
   WP: {
     planes: [{ id: 'plane_0', name: 'Cubierta Nave', visible: true }],
     polylines: [

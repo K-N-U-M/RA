@@ -52,7 +52,9 @@ const mockModule = {
   voc: 50.8,
   vmp: 42.4,
   isc: 14.2,
-  imp: 13.68
+  imp: 13.68,
+  l: 2.27,
+  w: 1.13
 };
 
 // TEST 1: Instalación de 18 kWp con gridSupply = 'single_phase'
@@ -61,8 +63,8 @@ console.log('▶ TEST 1: Rechazo de conexión monofásica si P > 20.25 kWp (RD 1
   const result = matchInvertersFromCatalog({
     invertersCatalog: mockInverters,
     module: mockModule,
-    totalPanels: 38, // 38 * 580 Wp = 22.04 kWp (> 20.25 kWp)
-    totalKwp: 22.04,
+    totalPanels: 40, // 40 * 580 Wp = 23.20 kWp (> 22.5 kWp con sobrecarga 1.50)
+    totalKwp: 23.20,
     gridSupply: 'single_phase',
     distinctOrientations: 1
   });
@@ -148,8 +150,8 @@ console.log('▶ TEST 5: wpSetGridSupply bloquea monofásica para P > 15 kW en p
 {
   const pcfgCode = fs.readFileSync(path.join(ROOT, 'js/project-config.js'), 'utf8');
   const domMock = {
-    step3GridSingle: { disabled: false, classList: { add(){}, remove(){}, toggle(){} }, style: {} },
-    step3GridTri: { disabled: false, classList: { add(){}, remove(){}, toggle(){} }, style: {} },
+    step3GridSingle: { disabled: false, classList: { add(){}, remove(){}, toggle(){} }, style: {}, setAttribute(k, v){ if (k === 'aria-disabled') this.disabled = (v === 'true'); }, removeAttribute(k){ if (k === 'aria-disabled') this.disabled = false; } },
+    step3GridTri: { disabled: false, classList: { add(){}, remove(){}, toggle(){} }, style: {}, setAttribute(){}, removeAttribute(){} },
     step3Notice: { style: {}, innerHTML: '' }
   };
 
@@ -174,9 +176,10 @@ console.log('▶ TEST 5: wpSetGridSupply bloquea monofásica para P > 15 kW en p
   vm.createContext(pcfgCtx);
   vm.runInContext(pcfgCode, pcfgCtx);
 
-  // Configurar 35 paneles (20.3 kWp > 15 kW)
+  // Configurar 40 paneles (23.2 kWp > 22.5 kWp)
   pcfgCtx.window.solarProjectConfig.selectedModuleId = 'mod_580';
-  pcfgCtx.window.solarProjectConfig.totalPanels = 35;
+  pcfgCtx.window.solarProjectConfig.totalPanels = 40;
+  pcfgCtx.window.solarProjectConfig.lastEstimatedPanels = 40;
   pcfgCtx.window.solarProjectConfig.gridSupply = 'three_phase';
 
   const wpSetGridSupply = pcfgCtx.window.wpSetGridSupply;

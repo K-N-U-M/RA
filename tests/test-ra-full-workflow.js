@@ -243,19 +243,20 @@ const protections = context.window.RA.Electrical.calculateProtections({
   stringModules: 12,
   parallelStrings: 1,
   pAcNomKw: 10,
-  gridSupply: 'three_phase'
+  gridSupply: 'three_phase',
+  rcmuCertified: false
 });
 assert(protections.dc && protections.dc.seccionador && protections.dc.seccionador.ueV >= 600, 'Dimensionamiento seccionador DC-PV2', `${protections.dc.seccionador.descripcion}`);
 assert(protections.dc.spd && protections.dc.spd.ucpvV >= 600, 'Dimensionamiento SPD DC Clase II', `${protections.dc.spd.descripcion}`);
 assert(protections.ac.iga && protections.ac.iga.inA >= 16, 'Dimensionamiento IGA AC curva C', `${protections.ac.iga.descripcion}`);
 // [AUD-2026 · C-04] Sin dato de RCMU en el datasheet, la protección correcta es Tipo B.
-assert(protections.ac.rcd && protections.ac.rcd.clase.includes('Tipo B'), 'Diferencial AC conservador (Tipo B sin RCMU acreditado)', `${protections.ac.rcd.descripcion}`);
-// Con RCMU certificado explícito sí se admite Tipo A superinmunizado.
+assert(protections.ac.rcd && protections.ac.rcd.clase.includes('Clase B'), 'Diferencial AC conservador (Clase B sin RCMU acreditado)', `${protections.ac.rcd.descripcion}`);
+// Con RCMU certificado explícito sí se admite Clase A superinmunizado.
 const protectionsRcmu = context.window.RA.Electrical.calculateProtections({
   module: mod, stringModules: 12, parallelStrings: 1, pAcNomKw: 10,
   gridSupply: 'three_phase', rcmuCertified: true
 });
-assert(protectionsRcmu.ac.rcd.clase.includes('Tipo A'), 'Con RCMU certificado se especifica Tipo A-SI', `${protectionsRcmu.ac.rcd.descripcion}`);
+assert(protectionsRcmu.ac.rcd.clase.includes('Clase A'), 'Con RCMU certificado se especifica Clase A-SI', `${protectionsRcmu.ac.rcd.descripcion}`);
 
 console.log('\n--- 3. PRUEBAS DE MODELO FINANCIERO Y RENTABILIDAD BANCABLE (Despacho 288h) ---');
 // Mock de cálculo de proyecto

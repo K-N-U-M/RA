@@ -209,7 +209,7 @@
 
       if (step === 2) {
         const hasWind = Array.isArray(global.windTurbines) && global.windTurbines.some(t => t && (!t.operationalState || t.operationalState.enabled !== false));
-        const hasSite = !!(hasPlane || hasPolys || hasWind || (global.RAWind && typeof global.RAWindUI !== 'undefined'));
+        const hasSite = !!(hasPlane || hasPolys || hasWind);
         if (!hasSite) {
           return {
             allowed: false,

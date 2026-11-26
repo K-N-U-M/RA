@@ -237,7 +237,7 @@
     if (!statusEl) return;
     const duration = (typeof ms === 'number' && ms > 0) ? ms : 5000;
     const closeBtn = '<span onclick="hideStatus()" style="cursor:pointer; margin-left: 14px; padding-left: 14px; border-left: 1px solid rgba(245,158,11,0.3); font-size: 18px; line-height: 1; opacity: 0.8; display: flex; align-items: center;" title="Cerrar">&times;</span>';
-    statusEl.innerHTML = '<div style="display:flex; align-items:center;">' + msg + closeBtn + '</div>';
+    statusEl.innerHTML = '<div style="display:flex; align-items:center;">' + _toastEsc(msg) + closeBtn + '</div>';
     statusEl.classList.add('visible');
     
     const hud = document.getElementById('ra-hud-energy');
