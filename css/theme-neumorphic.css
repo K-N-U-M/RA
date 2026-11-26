@@ -1,84 +1,139 @@
 /* ============================================================================
    RA — TEMA NEUMÓRFICO CLARO (Soft UI / Dieter Rams / Braun Reference)
-   Rama experimental: feat/ui-redesign-reference
+   Cobertura completa: pisa fondos oscuros inline y CSS base para coherencia 100%
    ============================================================================ */
 
 :root {
   --nm-bg: #e7eaee;
   --nm-surface: #ebedf0;
-  --nm-surface-elevated: #f1f3f6;
-  --nm-surface-inset: #e1e5ea;
+  --nm-surface-elevated: #f3f5f8;
+  --nm-surface-inset: #dfe3e8;
   --nm-text: #1e242b;
-  --nm-text-muted: #6e7781;
+  --nm-text-muted: #57606a;
   --nm-accent: #e84a27;
-  --nm-accent-soft: rgba(232, 74, 39, 0.14);
-  --nm-shadow-out: 6px 6px 14px rgba(163, 177, 198, 0.48), -6px -6px 14px rgba(255, 255, 255, 0.88);
-  --nm-shadow-out-sm: 3px 3px 8px rgba(163, 177, 198, 0.45), -3px -3px 8px rgba(255, 255, 255, 0.88);
-  --nm-shadow-in: inset 3px 3px 7px rgba(163, 177, 198, 0.48), inset -3px -3px 7px rgba(255, 255, 255, 0.88);
+  --nm-accent-soft: rgba(232, 74, 39, 0.12);
+  --nm-shadow-out: 5px 5px 12px rgba(163, 177, 198, 0.45), -5px -5px 12px rgba(255, 255, 255, 0.92);
+  --nm-shadow-out-sm: 3px 3px 7px rgba(163, 177, 198, 0.42), -3px -3px 7px rgba(255, 255, 255, 0.90);
+  --nm-shadow-in: inset 3px 3px 6px rgba(163, 177, 198, 0.45), inset -3px -3px 6px rgba(255, 255, 255, 0.90);
 
-  /* Sobreescritura de tokens base */
+  /* Sobreescritura global de tokens base */
   --bg-card: var(--nm-surface);
+  --bg-panel: var(--nm-bg);
+  --bg-input: var(--nm-surface-inset);
   --text-slate-100: var(--nm-text);
   --text-slate-200: #2d353f;
-  --text-slate-300: #4b5563;
+  --text-slate-300: #3d4652;
   --text-slate-400: var(--nm-text-muted);
-  --text-slate-500: #8b949e;
+  --text-slate-500: #6e7781;
+  --amber-300: var(--nm-accent);
   --amber-400: var(--nm-accent);
   --amber-500: var(--nm-accent);
+  --amber-600: #c83a1b;
+  --sky-300: #0284c7;
   --sky-400: var(--nm-accent);
   --sky-500: var(--nm-accent);
+  --blue-400: #2563eb;
+  --blue-500: #1d4ed8;
+  --emerald-400: #059669;
+  --emerald-500: #059669;
+  --rose-400: #dc2626;
+  --rose-500: #dc2626;
 }
 
 /* ── Sidebar principal ────────────────────────────────────────────────────── */
 #ra-sidebar {
   background: var(--nm-bg) !important;
   color: var(--nm-text) !important;
-  border-right: 1px solid rgba(255, 255, 255, 0.7) !important;
-  box-shadow: 8px 0 24px rgba(163, 177, 198, 0.4) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.75) !important;
+  box-shadow: 8px 0 24px rgba(163, 177, 198, 0.42) !important;
 }
 
-#ra-sidebar h1,
-#ra-sidebar h2,
-#ra-sidebar h3,
-#ra-sidebar h4,
-#ra-sidebar label,
-#ra-sidebar .sb-title {
-  color: var(--nm-text) !important;
-}
-
-#ra-sidebar .sb-subtitle,
-#ra-sidebar small {
-  color: var(--nm-text-muted) !important;
-}
-
-/* ── Tarjetas y acordeones ────────────────────────────────────────────────── */
+/* Pisar TODOS los fondos oscuros inline dentro de la sidebar y acordeones */
+#ra-sidebar [style*="background"],
+#ra-sidebar .sb-section,
+#ra-sidebar .sb-card,
 #ra-sidebar .wp-card,
 #ra-sidebar .ra-card,
 #ra-sidebar .card,
 #ra-sidebar details,
-#ra-sidebar .wp-subdock {
+#ra-sidebar .wp-subdock,
+#ra-sidebar .wp-subdock-hdr,
+#ra-sidebar .wp-subdock-body,
+#ra-sidebar [id^="wp-subdock-"],
+#ra-sidebar [id^="step"] > div,
+#ra-sidebar .sb-search-box {
   background: var(--nm-surface) !important;
+  background-image: none !important;
   color: var(--nm-text) !important;
-  border: 1px solid rgba(255, 255, 255, 0.65) !important;
-  border-radius: 18px !important;
+  border-color: rgba(163, 177, 198, 0.35) !important;
+}
+
+/* Tarjetas principales con relieve neumórfico limpio */
+#ra-sidebar .wp-card,
+#ra-sidebar .ra-card,
+#ra-sidebar .card,
+#ra-sidebar .wp-subdock,
+#ra-sidebar [id^="wp-subdock-body-"] > div {
+  background: var(--nm-surface-elevated) !important;
+  border: 1px solid rgba(255, 255, 255, 0.8) !important;
+  border-radius: 16px !important;
   box-shadow: var(--nm-shadow-out-sm) !important;
 }
 
-/* ── Stepper 5 pasos ──────────────────────────────────────────────────────── */
+/* Cabeceras de acordeones 1.1, 1.2, 1.3 */
+#ra-sidebar [id^="wp-subdock-hdr-"],
+#ra-sidebar .wp-subdock-hdr {
+  background: var(--nm-surface) !important;
+  color: var(--nm-text) !important;
+  border: 1px solid rgba(255, 255, 255, 0.8) !important;
+  border-radius: 14px !important;
+  box-shadow: var(--nm-shadow-out-sm) !important;
+}
+
+/* Textos legibles sobre claro */
+#ra-sidebar h1, #ra-sidebar h2, #ra-sidebar h3, #ra-sidebar h4,
+#ra-sidebar label, #ra-sidebar span, #ra-sidebar p, #ra-sidebar div,
+#ra-sidebar .sb-title {
+  color: var(--nm-text);
+}
+
+#ra-sidebar .sb-subtitle,
+#ra-sidebar small,
+#ra-sidebar [style*="color:#94a3b8"],
+#ra-sidebar [style*="color: #94a3b8"],
+#ra-sidebar [style*="color:#64748b"],
+#ra-sidebar [style*="color: #64748b"] {
+  color: var(--nm-text-muted) !important;
+}
+
+/* ── Stepper 5 pasos (sin barra oscura detrás) ────────────────────────────── */
+.wp-stepper,
+#wp-stepper-container,
+[class*="stepper"] {
+  background: transparent !important;
+  background-image: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
 .wp-step-btn {
   background: var(--nm-surface) !important;
   color: var(--nm-text-muted) !important;
-  border: 1px solid rgba(255, 255, 255, 0.7) !important;
+  border: 1px solid rgba(255, 255, 255, 0.8) !important;
   border-radius: 14px !important;
   box-shadow: var(--nm-shadow-out-sm) !important;
   transition: all 0.2s ease !important;
+}
+
+.wp-step-btn span {
+  color: inherit !important;
 }
 
 .wp-step-btn.active {
   background: var(--nm-surface-elevated) !important;
   color: var(--nm-accent) !important;
   box-shadow: var(--nm-shadow-in) !important;
-  border-color: rgba(232, 74, 39, 0.28) !important;
+  border-color: rgba(232, 74, 39, 0.3) !important;
 }
 
 .wp-step-btn.active .wp-step-num {
@@ -86,7 +141,8 @@
   color: #ffffff !important;
 }
 
-/* ── Inputs y selects hundidos (inset) ────────────────────────────────────── */
+/* ── Buscador superior e inputs hundidos (inset) ──────────────────────────── */
+#ra-sidebar .sb-search-box,
 #ra-sidebar input[type="text"],
 #ra-sidebar input[type="number"],
 #ra-sidebar input[type="search"],
@@ -94,12 +150,16 @@
 #ra-sidebar textarea {
   background: var(--nm-surface-inset) !important;
   color: var(--nm-text) !important;
-  border: 1px solid rgba(255, 255, 255, 0.55) !important;
+  border: 1px solid rgba(255, 255, 255, 0.65) !important;
   border-radius: 12px !important;
   box-shadow: var(--nm-shadow-in) !important;
 }
 
-/* ── Botones neumórficos ──────────────────────────────────────────────────── */
+#ra-sidebar input::placeholder {
+  color: #7c8590 !important;
+}
+
+/* ── Botones neumórficos (sin glow blanco excesivo) ───────────────────────── */
 #ra-sidebar button:not(.wp-step-btn),
 #ra-floating-tools-container button,
 #ra-floating-settings-btn,
@@ -109,7 +169,7 @@
 #ra-btn-compare-scenarios {
   background: var(--nm-surface-elevated) !important;
   color: var(--nm-text) !important;
-  border: 1px solid rgba(255, 255, 255, 0.75) !important;
+  border: 1px solid rgba(255, 255, 255, 0.85) !important;
   border-radius: 14px !important;
   box-shadow: var(--nm-shadow-out-sm) !important;
 }
@@ -120,13 +180,32 @@
   box-shadow: var(--nm-shadow-out) !important;
 }
 
+/* Botón primario de acento coral */
 #ra-sidebar button.primary,
 #ra-sidebar button[style*="background:#0284c7"],
 #ra-sidebar button[style*="background:#2563eb"],
-#ra-sidebar button[style*="background: #2563eb"] {
+#ra-sidebar button[style*="background: #2563eb"],
+#ra-sidebar button[style*="background: linear-gradient"] {
   background: var(--nm-accent) !important;
   color: #ffffff !important;
   border-color: transparent !important;
+  box-shadow: 3px 3px 9px rgba(232, 74, 39, 0.35), -2px -2px 6px rgba(255, 255, 255, 0.7) !important;
+}
+
+#ra-sidebar button.primary span,
+#ra-sidebar button[style*="background:#0284c7"] span,
+#ra-sidebar button[style*="background:#2563eb"] span,
+#ra-sidebar button[style*="background: linear-gradient"] span {
+  color: #ffffff !important;
+}
+
+/* Badges de estado (ej. SIN PLANO) */
+#ra-sidebar [id$="-badge"],
+#ra-sidebar .badge {
+  background: rgba(232, 74, 39, 0.12) !important;
+  color: var(--nm-accent) !important;
+  border: 1px solid rgba(232, 74, 39, 0.25) !important;
+  border-radius: 10px !important;
 }
 
 /* ── HUDs, Barra de Estado y Onboarding ───────────────────────────────────── */
@@ -139,7 +218,7 @@
 #ra-solar-time-hud {
   background: rgba(235, 237, 240, 0.94) !important;
   color: var(--nm-text) !important;
-  border: 1px solid rgba(255, 255, 255, 0.8) !important;
+  border: 1px solid rgba(255, 255, 255, 0.85) !important;
   border-radius: 18px !important;
   box-shadow: var(--nm-shadow-out) !important;
   backdrop-filter: blur(10px) !important;
@@ -147,7 +226,9 @@
 
 #ra-cad-status-bar span,
 #ra-hud-energy span,
-#ra-project-status-hud span {
+#ra-project-status-hud span,
+#ra-onboarding-empty-card h3,
+#ra-onboarding-empty-card p {
   color: var(--nm-text) !important;
 }
 
@@ -156,7 +237,7 @@
 [id$="-modal"] > div {
   background: var(--nm-bg) !important;
   color: var(--nm-text) !important;
-  border: 1px solid rgba(255, 255, 255, 0.8) !important;
+  border: 1px solid rgba(255, 255, 255, 0.85) !important;
   border-radius: 22px !important;
-  box-shadow: 0 24px 60px rgba(30, 36, 43, 0.25) !important;
+  box-shadow: 0 24px 60px rgba(30, 36, 43, 0.22) !important;
 }
