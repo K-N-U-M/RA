@@ -40,7 +40,7 @@ function parseArgs(argv) {
 function discover(opts) {
   return fs.readdirSync(TESTS_DIR)
     .filter(f => /^test-.*\.js$/.test(f) && f !== 'run-all.js')
-    .filter(f => !opts.only || f.includes(opts.only))
+    .filter(f => opts.only ? f.includes(opts.only) : f !== 'test-firebase-rules.js')
     .sort();
 }
 

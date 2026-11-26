@@ -257,7 +257,9 @@
       if (WPn && WPn.selectedPolyIdx === pIdx && Array.isArray(global.polygonPoints)) {
         replaceInPlace(global.polygonPoints, poly.points.map(p => Cesium.Cartesian3.clone(p)));
       }
-      if (typeof global.computeSinglePolylineRoofInfo === 'function') global.computeSinglePolylineRoofInfo(pIdx);
+      if (typeof global.computeSinglePolylineRoofInfo === 'function') {
+        poly.roofInfo = global.computeSinglePolylineRoofInfo(poly.points, poly);
+      }
       if (typeof global.wpRenderAllPolylines === 'function') global.wpRenderAllPolylines();
       if (typeof global.wpSyncVertexInputs === 'function') global.wpSyncVertexInputs();
       if (typeof global.recalculateLayoutAndObstacles === 'function') global.recalculateLayoutAndObstacles(pIdx);

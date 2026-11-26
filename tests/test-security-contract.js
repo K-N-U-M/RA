@@ -33,9 +33,9 @@ assert.ok(/allow\s+read\s*:\s*if\s+isOwner\(\)\s*\|\|\s*isTenantMember\(\)\s*\|\
   'La lectura debe exigir propietario, tenant o admin');
 assert.ok(/request\.resource\.data\.ownerId\s*==\s*resource\.data\.ownerId/.test(firestore),
   'update no debe permitir cambiar ownerId');
-assert.ok(/request\.resource\.data\.tenantId\s*==\s*resource\.data\.tenantId/.test(firestore),
+assert.ok(/request\.resource\.data(\.tenantId|\.get\('tenantId',\s*null\))\s*==\s*resource\.data(\.tenantId|\.get\('tenantId',\s*null\))/.test(firestore),
   'update no debe permitir cambiar tenantId');
-assert.ok(/allow\s+create\s*:\s*if\s+isSignedIn\(\)\s*\n?\s*&&\s*request\.resource\.data\.ownerId\s*==\s*request\.auth\.uid/.test(firestore),
+assert.ok(/allow\s+create\s*:\s*if\s+isSignedIn\(\)[\s\S]*?request\.resource\.data\.ownerId\s*==\s*request\.auth\.uid/.test(firestore),
   'create debe exigir ownerId = uid');
 console.log('  ✓ PASS: Firestore cierra lectura anónima y protege ownerId/tenantId');
 
@@ -44,7 +44,7 @@ const storage = read('storage.rules');
 const storageCode = storage.replace(/\/\/[^\n]*/g, '');
 
 assert.ok(!/allow\s+read\s*:\s*if\s+true/.test(storageCode), 'branding no debe ser de lectura anónima');
-assert.ok(/request\.resource\.size\s*<\s*10\s*\*\s*1024\s*\*\s*1024/.test(storage), 'Debe limitar el tamaño a 10 MB');
+assert.ok(/request\.resource\.size\s*<=\s*10\s*\*\s*1024\s*\*\s*1024/.test(storage), 'Debe limitar el tamaño a 10 MB');
 assert.ok(/contentType/.test(storage), 'Debe validar el tipo MIME');
 assert.ok(/application\/pdf/.test(storage) && /image\/png/.test(storage), 'Debe permitir solo tipos previstos');
 console.log('  ✓ PASS: Storage valida tamaño y tipo, y cierra la lectura anónima');

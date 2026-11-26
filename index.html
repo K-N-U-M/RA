@@ -77,10 +77,10 @@ window.RA_App = window.RA_App || {};
 
 
   <script defer src="js/solar-materials.js?v=20260930a"></script>
-  <script defer src="js/electrical-engine.js?v=20261125_v2f2"></script>
-  <script defer src="js/mppt-matrix-controller.js?v=20261125_f5c"></script>
-  <script defer src="js/project-calcs.js?v=20261125_f7v"></script>
-  <script defer src="js/undo-manager.js?v=20261125_v2f1"></script>
+  <script defer src="js/electrical-engine.js?v=20261126_v2f0"></script>
+  <script defer src="js/mppt-matrix-controller.js?v=20261126_v2f0"></script>
+  <script defer src="js/project-calcs.js?v=20261126_v2f0"></script>
+  <script defer src="js/undo-manager.js?v=20261126_v2f0"></script>
   <script defer src="js/geometry-validate.js?v=20260929b"></script>
   <script defer src="js/docs-generator.js?v=20261125_syncmain"></script>
   <script defer src="js/workflow-orchestrator.js?v=20261125_f5b"></script>
@@ -97,8 +97,8 @@ window.RA_App = window.RA_App || {};
   <script defer src="js/project-storage.js?v=20261125_syncmain"></script>
   <script defer src="js/company-branding.js?v=20261125_syncmain"></script>
   <script defer src="js/ai-service.js?v=20261125_f7v"></script>
-  <script defer src="js/ui-outliner.js?v=20261125_f5c"></script>
-  <script defer src="js/bill-auditor.js?v=20261125_syncmain"></script>
+  <script defer src="js/ui-outliner.js?v=20261126_v2f0"></script>
+  <script defer src="js/bill-auditor.js?v=20261126_v2f0"></script>
   <script defer src="js/structure-catalog.js?v=20261125_f5c"></script>
   <script defer src="js/bom-tree.js?v=20261125_f5c"></script>
   <script defer src="js/engineering-explainer.js?v=20261125_f5c"></script>
@@ -115,7 +115,7 @@ window.RA_App = window.RA_App || {};
   <script defer src="js/wind-curve-ui.js?v=20261124_f4c"></script>
   <script defer src="js/keyboard-shortcuts.js?v=20261124_f4c2"></script>
   <script defer src="js/drone-capture-controller.js?v=20261124_f4c2"></script>
-  <script defer src="js/bankable-p50-p90.js?v=20261125_f7v"></script>
+  <script defer src="js/bankable-p50-p90.js?v=20261126_v2f0"></script>
   <script defer src="js/pvsyst-pan-ond-parser.js?v=20261125_v2f2"></script>
   <script defer src="js/shadow-auto-stringer.js?v=20261125_v2f2"></script>
   <script defer src="js/datadis-tariff-optimizer.js?v=20261125_v2f2"></script>
@@ -126,13 +126,13 @@ window.RA_App = window.RA_App || {};
   <script defer src="js/ra-sdk-plugins.js?v=20261125_v2f2"></script>
   <script defer src="js/collab-timetravel.js?v=20261125_f7v"></script>
   <script defer src="js/trusted-security-guard.js?v=20261125_f7v"></script>
-  <script defer src="js/ux-aaa-workspace.js?v=20261125_f7v"></script>
+  <script defer src="js/ux-aaa-workspace.js?v=20261126_v2f0"></script>
 
   <!-- Lucide SVG Icons -->
   <script defer src="https://unpkg.com/lucide@1.48.0" integrity="sha384-Hh7C333mXel+qppGoFs4qAOXp7h67eur4XsQVF2bvHAM3MQ4DX4cQI7oRCzb98J4" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <script defer src="js/a11y-dialogs.js?v=20261125_f6c"></script>
   <script defer src="js/cost-modal-ui.js?v=20261118_t6"></script>
-  <script defer src="js/app-main.js?v=20261125_v2f1d"></script>
+  <script defer src="js/app-main.js?v=20261126_v2f0"></script>
   <link rel="stylesheet" href="css/styles.css?v=20261125_f7fix2">
 
 </head>
@@ -371,7 +371,7 @@ window.RA_App = window.RA_App || {};
   </button>
 
   <!-- ROSA DE LOS VIENTOS (gira con la cámara, N siempre al norte real) -->
-  <div id="ra-rosa" title="Rosa de los vientos — clic para orientar al norte">
+  <div id="ra-rosa" role="button" tabindex="0" title="Rosa de los vientos — clic para orientar al norte" aria-label="Rosa de los vientos — orientar cámara al norte" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
     <svg id="ra-rosa-svg" viewBox="-110 -110 220 220" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <circle r="100" fill="rgba(15,23,42,0.55)" stroke="rgba(245,158,11,0.5)" stroke-width="1.5"/>
       <circle r="74" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
@@ -3778,7 +3778,8 @@ window.RA_App = window.RA_App || {};
   </div>
 </div>
 
-<!-- Módulos principales extraídos a js/cost-modal-ui.js y js/app-main.js?v=20261125_f5c"ra-doc-modal" role="dialog" aria-modal="true" aria-labelledby="ra-doc-modal-title" onclick="if(event.target === this) closeDocModal();">
+<!-- Módulos principales extraídos a js/cost-modal-ui.js y js/app-main.js -->
+<div id="ra-doc-modal" role="dialog" aria-modal="true" aria-labelledby="ra-doc-modal-title" onclick="if(event.target === this) closeDocModal();">
   <div class="doc-modal-box">
     <div class="doc-modal-head">
       <h2 id="ra-doc-modal-title" style="margin:0;font-size:inherit;font-weight:inherit;display:inline-flex;align-items:center;gap:6px;"><i data-lucide="file-text" class="icon-sm" aria-hidden="true"></i> GENERADOR DE DOCUMENTACIÓN TÉCNICA PV · REBT + RD 244/2019</h2>
@@ -4127,4 +4128,6 @@ window.RA_App = window.RA_App || {};
   </button>
 
 
-<!-- [MODULARIZACION FASE 2 - BLOQUE 2.3] toggleSettingsPopover delegado canónicamente a js/ui-viewport-controls.js?v=20261125_f6b
+<!-- [MODULARIZACION FASE 2 - BLOQUE 2.3] toggleSettingsPopover delegado canónicamente a js/ui-viewport-controls.js?v=20261125_f6b -->
+</body>
+</html>

@@ -6662,6 +6662,27 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
   let batSoC = 0.0;                         // SoC inicial (kWh útiles)
   const hasVirtualBattery = !!(typeof window !== 'undefined' && window.solarProjectConfig && window.solarProjectConfig.hasVirtualBattery);
 
+  // [V2-F0-06] Precalentamiento cíclico de 24h para régimen permanente de batería
+  if (maxBatCap > 0) {
+    const sD0 = monthlySolarKwh[0] / MONTH_DAYS[0];
+    const wD0 = (monthlyWindKwh[0] || 0) / MONTH_DAYS[0];
+    const lD0 = Math.max(0, Number(monthlyConsKwh[0]) || 0) / MONTH_DAYS[0];
+    const sProf0 = getMonthlySolarProfile(0);
+    for (let h = 0; h < 24; h++) {
+      const pv = (sD0 * sProf0[h]) + (wD0 / 24.0);
+      const load = lD0 * LOAD_PROFILE[h];
+      const direct = Math.min(pv, load);
+      let surplus = pv - direct;
+      if (surplus > 0 && batSoC < maxBatCap) {
+        const charge = Math.min(surplus, maxBatCap - batSoC, pBatMaxKw);
+        batSoC += charge * batEffHalf;
+      } else if (direct < load && batSoC > 0.01) {
+        const discharge = Math.min((load - direct) / batEffHalf, batSoC, pBatMaxKw / batEffHalf);
+        batSoC -= discharge;
+      }
+    }
+  }
+
   let annualAutoconsumoDirecto = 0;
   let annualBateriaKWh = 0;
   let annualExcedenteKWh = 0;
@@ -6714,17 +6735,22 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
         surplus -= charge;
       }
 
+      let gridChargedInHour = false;
       // Arbitraje en valle (si está activo)
       if (batStrategy === 'arbitraje' && maxBatCap > 0 && batSoC < maxBatCap && isValley && h >= 2 && h <= 6) {
         const space = maxBatCap - batSoC;
         const gridCharge = Math.min(space, pBatMaxKw * 1.0, load * 0.5);
-        batSoC += gridCharge * batEffHalf;
-        monthCostGrid += gridCharge * price;
-        monthGridChargeCost += gridCharge * price;
+        if (gridCharge > 0.01) {
+          batSoC += gridCharge * batEffHalf;
+          monthCostGrid += gridCharge * price;
+          monthGridChargeCost += gridCharge * price;
+          gridChargedInHour = true;
+        }
       }
 
       // Descarga de batería si hay déficit (con eficiencia electroquímica de descarga)
-      if (direct < load) {
+      // [V2-F0-06] Exclusión mutua: no descargar en la misma hora de carga de red en arbitraje
+      if (direct < load && !gridChargedInHour) {
         const need = load - direct;
         if (batSoC > 0.01) {
           const maxDischarge = pBatMaxKw * 1.0;
@@ -6887,9 +6913,10 @@ function generatePropuestaComercialPDF(skipPricingModal, targetWindowName, theme
 
   // ── FASE 2.3: Amortización Fiscal sin Duplicidad y Desglose de Flujos Netos Descontados (WACC 4%) ──
   const r = 0.04; // Tasa de descuento WACC 4.0% anual (coste de capital bancable)
-  // [SSOT Contable] El desembolso inicial del proyecto llave en mano en Año 0 es el CAPEX Bruto
-  // (las deducciones de IRPF e IBI entran como flujos positivos en los años 1 a N_ibi)
-  const capexDesembolsoInicial = Math.max(capexBruto, 100);
+  // [SSOT Contable] El desembolso inicial del proyecto llave en mano en Año 0:
+  // Para empresas, el IVA es neutral/recuperable por lo que el desembolso neto de caja es el subtotal;
+  // para residencial es el CAPEX bruto (las deducciones de IRPF e IBI entran como flujos en años 1 a N).
+  const capexDesembolsoInicial = Math.max(customerProfile === 'empresa' ? subtotal : capexBruto, 100);
 
   const financialSchedule25 = [];
   const discountedCashFlow25 = [];

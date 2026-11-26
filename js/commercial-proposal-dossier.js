@@ -277,7 +277,7 @@
     var totalDestExc = 100 - totalDestAuto;
 
     // Detección automática de perfil bancable (Residencial vs PYME/Industrial)
-    var isCommercial = (kwp >= 15 || (tariff && (tariff.indexOf('3.') !== -1 || tariff.indexOf('6.'))) || annualCons > 18000);
+    var isCommercial = (kwp >= 15 || (tariff && (tariff.indexOf('3.') !== -1 || tariff.indexOf('6.') !== -1)) || annualCons > 18000);
     var profileType = isCommercial ? 'Comercial & PYME' : 'Residencial Premium';
 
     // Desglose de CAPEX estructurado a partir del diseño real del proyecto (escalado al totalCost sin IVA)

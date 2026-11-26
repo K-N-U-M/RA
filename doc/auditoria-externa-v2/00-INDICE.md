@@ -42,7 +42,7 @@ Esta segunda auditoría externa ("clean-room", sin asumir conocimiento previo de
 
 | Fase | Documento | Foco | Tickets | Severidad | Estado |
 | :---: | :--- | :--- | :---: | :---: | :---: |
-| **0** | [01-FASE-0-emergencias-p0-y-despliegue.md](./01-FASE-0-emergencias-p0-y-despliegue.md) | Emergencias P0: DOM roto, deploy/CI, física/REBT/finanzas críticos, render 3D y A11y P0 | `V2-F0-01..09` (9) | `9 P0` | `0/9` |
+| **0** | [01-FASE-0-emergencias-p0-y-despliegue.md](./01-FASE-0-emergencias-p0-y-despliegue.md) | Emergencias P0: DOM roto, deploy/CI, física/REBT/finanzas críticos, render 3D y A11y P0 | `V2-F0-01..09` (9) | `9 P0` | `9/9 COMPLETADO` |
 | **1** | [02-FASE-1-cad-3d-y-rendimiento-webgl.md](./02-FASE-1-cad-3d-y-rendimiento-webgl.md) | Motor 3D/CAD: OSNAP real, Section/OBB, fin `O(N²)`, 3D Tiles DSM, L-buildings y pulidos | `V2-F1-01..06` (6) | `2 P0, 3 P1, 1 P2` | `6/6 [Hecho]` |
 | **2** | [03-FASE-2-ingenieria-fv-electrica-tarifas.md](./03-FASE-2-ingenieria-fv-electrica-tarifas.md) | Ingeniería: Isc 1.25×, ΔV 2.5%, CNMC 3/2020 mensual, eólica, `solar-worker`, `.OND`/Bishop e integración SSOT | `V2-F2-01..06` (6) | `5 P1, 1 P2` | `6/6 [Hecho]` |
 | **3** | [04-FASE-3-higiene-codigo-duplicado-muerto.md](./04-FASE-3-higiene-codigo-duplicado-muerto.md) | Higiene (~1.500 LOC): Gemini SSOT, NPV/IRR único, kernel solar único, escapes/helpers y purga código/DOM/CSS muerto | `V2-F3-01..05` (5) | `3 P1, 2 P2/P3` | `0/5` |

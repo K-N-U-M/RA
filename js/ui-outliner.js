@@ -164,6 +164,15 @@
 
       if (!treeContent.dataset.raOutlinerBound) {
         treeContent.dataset.raOutlinerBound = '1';
+        treeContent.addEventListener('keydown', function(e) {
+          if (e.key === 'Enter' || e.key === ' ') {
+            const btn = e.target && e.target.closest ? e.target.closest('[data-outliner-act]') : null;
+            if (btn && btn !== document.activeElement.closest('.node-action-btn')) {
+              e.preventDefault();
+              btn.click();
+            }
+          }
+        });
         treeContent.addEventListener('click', function(e) {
           const btn = e.target && e.target.closest ? e.target.closest('[data-outliner-act]') : null;
           if (!btn || !global.ProjectHierarchy) return;
@@ -226,7 +235,7 @@
         const bldCol = !!sectionCollapsedState.buildings;
         html += `
           <div class="outliner-accordion-group">
-            <div class="outliner-group-header" data-outliner-act="toggleSection" data-outliner-type="buildings">
+            <div class="outliner-group-header" role="button" tabindex="0" data-outliner-act="toggleSection" data-outliner-type="buildings">
               <div style="display:flex;align-items:center;gap:6px;">
                 <span class="outliner-chevron" id="outliner-chev-buildings">${bldCol ? '▶' : '▼'}</span>
                 <span>🏢 EDIFICIOS 3D (${tree.buildings.length})</span>
@@ -241,7 +250,7 @@
           const bNameEsc = _esc(bld.name);
           html += `
             <div class="outliner-bld-card ${isSel}">
-              <div class="outliner-bld-header" data-outliner-act="selectBuilding" data-outliner-id="${bIdEsc}">
+              <div class="outliner-bld-header" role="button" tabindex="0" data-outliner-act="selectBuilding" data-outliner-id="${bIdEsc}">
                 <div style="display:flex;align-items:center;gap:5px;flex:1;overflow:hidden;">
                   <span class="node-icon">🏢</span>
                   <span class="node-label bld-name" title="${bNameEsc}">${bNameEsc} (${bld.height}m)</span>
@@ -267,7 +276,7 @@
               const plNameEsc = _esc(pl.name);
               html += `
                 <div class="outliner-plane-sub-card ${plActive}">
-                  <div class="outliner-sub-header" data-outliner-act="selectPlane" data-outliner-idx="${pl.index}">
+                  <div class="outliner-sub-header" role="button" tabindex="0" data-outliner-act="selectPlane" data-outliner-idx="${pl.index}">
                     <div style="display:flex;align-items:center;gap:4px;flex:1;overflow:hidden;">
                       <span class="node-icon">🏠</span>
                       <span class="node-label sub-plane-name" title="${plNameEsc}">${plNameEsc}</span>
@@ -365,7 +374,7 @@
         const plCol = !!sectionCollapsedState.planes;
         html += `
           <div class="outliner-accordion-group">
-            <div class="outliner-group-header" data-outliner-act="toggleSection" data-outliner-type="planes">
+            <div class="outliner-group-header" role="button" tabindex="0" data-outliner-act="toggleSection" data-outliner-type="planes">
               <div style="display:flex;align-items:center;gap:6px;">
                 <span class="outliner-chevron" id="outliner-chev-planes">${plCol ? '▶' : '▼'}</span>
                 <span>🏠 PLANOS INDEPENDIENTES (${tree.planes.length})</span>
@@ -379,7 +388,7 @@
           const pNameEsc = _esc(p.name);
           html += `
             <div class="outliner-plane-card ${planeActive}">
-              <div class="outliner-plane-header" data-outliner-act="selectPlane" data-outliner-idx="${p.index}">
+              <div class="outliner-plane-header" role="button" tabindex="0" data-outliner-act="selectPlane" data-outliner-idx="${p.index}">
                 <div style="display:flex;align-items:center;gap:5px;flex:1;overflow:hidden;">
                   <span class="node-icon">🏠</span>
                   <span class="node-label plane-name" title="${pNameEsc}">${pNameEsc}</span>
@@ -448,7 +457,7 @@
         const stdCol = !!sectionCollapsedState.standalone;
         html += `
           <div class="outliner-accordion-group">
-            <div class="outliner-group-header" data-outliner-act="toggleSection" data-outliner-type="standalone">
+            <div class="outliner-group-header" role="button" tabindex="0" data-outliner-act="toggleSection" data-outliner-type="standalone">
               <div style="display:flex;align-items:center;gap:6px;">
                 <span class="outliner-chevron" id="outliner-chev-standalone">${stdCol ? '▶' : '▼'}</span>
                 <span>📐 FALDONES AUTÓNOMOS (${tree.standalonePolylines.length})</span>
@@ -502,7 +511,7 @@
         const obsCol = !!sectionCollapsedState.obstacles;
         html += `
           <div class="outliner-accordion-group">
-            <div class="outliner-group-header" data-outliner-act="toggleSection" data-outliner-type="obstacles">
+            <div class="outliner-group-header" role="button" tabindex="0" data-outliner-act="toggleSection" data-outliner-type="obstacles">
               <div style="display:flex;align-items:center;gap:6px;">
                 <span class="outliner-chevron" id="outliner-chev-obstacles">${obsCol ? '▶' : '▼'}</span>
                 <span>🧱 OBSTÁCULOS EN TERRENO (${tree.obstacles.length})</span>
@@ -537,7 +546,7 @@
         const elCol = !!sectionCollapsedState.electrical;
         html += `
           <div class="outliner-accordion-group">
-            <div class="outliner-group-header" data-outliner-act="toggleSection" data-outliner-type="electrical">
+            <div class="outliner-group-header" role="button" tabindex="0" data-outliner-act="toggleSection" data-outliner-type="electrical">
               <div style="display:flex;align-items:center;gap:6px;">
                 <span class="outliner-chevron" id="outliner-chev-electrical">${elCol ? '▶' : '▼'}</span>
                 <span>⚡ CUADROS & EQUIPOS ELÉCTRICOS (${tree.electrical.length})</span>
@@ -583,7 +592,7 @@
         const windCol = !!sectionCollapsedState.wind;
         html += `
           <div class="outliner-accordion-group">
-            <div class="outliner-group-header" data-outliner-act="toggleSection" data-outliner-type="wind">
+            <div class="outliner-group-header" role="button" tabindex="0" data-outliner-act="toggleSection" data-outliner-type="wind">
               <div style="display:flex;align-items:center;gap:6px;">
                 <span class="outliner-chevron" id="outliner-chev-wind">${windCol ? '▶' : '▼'}</span>
                 <span>💨 AEROGENERADORES (${tree.windTurbines.length})</span>

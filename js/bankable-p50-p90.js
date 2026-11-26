@@ -113,12 +113,26 @@
       var npv = -capexNet;
       var minDscr = null;
 
+      var hasFinSchedule = (fin && Array.isArray(fin.financialSchedule25) && fin.financialSchedule25.length === horizonYears);
+
       for (var y = 1; y <= horizonYears; y++) {
-        var degFactor = (1 - lidLoss) * Math.pow(1 - degAnnual, y - 1);
-        var prodY = p50Year1Kwh * factor25y * degFactor;
+        var netCfY;
+        var prodY;
+        if (hasFinSchedule) {
+          var item = fin.financialSchedule25[y - 1];
+          var baseProd = (typeof item.produccionKWh === 'number' && item.produccionKWh > 0)
+            ? item.produccionKWh
+            : (p50Year1Kwh * (1 - lidLoss) * Math.pow(1 - degAnnual, y - 1));
+          prodY = baseProd * factor25y;
+          var baseNet = (typeof item.flujoNeto === 'number') ? item.flujoNeto : ((item.ahorroFactura || 0) - (item.opex || 0));
+          netCfY = tier.z === 0 ? baseNet : (baseNet * factor25y);
+        } else {
+          var degFactor = (1 - lidLoss) * Math.pow(1 - degAnnual, y - 1);
+          prodY = p50Year1Kwh * factor25y * degFactor;
+          var grossSavY = prodY * savingsRatio * Math.pow(1 + energyEscalation, y - 1);
+          netCfY = grossSavY - opexAnnual * Math.pow(1.02, y - 1);
+        }
         cumMwh += prodY / 1000.0;
-        var grossSavY = prodY * savingsRatio * Math.pow(1 + energyEscalation, y - 1);
-        var netCfY = grossSavY - opexAnnual * Math.pow(1.02, y - 1);
         cashflows.push(netCfY);
         npv += netCfY / Math.pow(1 + discountRate, y);
 
@@ -133,7 +147,15 @@
         }
       }
 
-      var irr = _computeIrrBisection(capexNet, cashflows);
+      var irr = (tier.z === 0 && fin && typeof fin.tir === 'string')
+        ? fin.tir
+        : _computeIrrBisection(capexNet, cashflows);
+      if (tier.z === 0 && fin && typeof fin.van === 'number') {
+        npv = fin.van;
+      }
+      if (tier.z === 0 && fin && typeof fin.payback === 'number') {
+        payback = fin.payback;
+      }
       var yr1NetSavings = Math.round(yr1Kwh * savingsRatio - opexAnnual);
 
       return {

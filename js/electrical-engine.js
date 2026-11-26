@@ -2830,7 +2830,7 @@
   const fuse_std = useFuses ? (fuseRatings.find(f => f >= fuseMinA) || fuseMinA) : null;
   const maxModFuseA = Number(cfg && (cfg.maxSeriesFuseA || cfg.maxFuseA || 30)) || 30;
   const fuseExceedsModRating = Boolean(useFuses && fuse_std && fuse_std > maxModFuseA);
-  const S_earth = hasExternalLightningRod ? 16 : 6;
+  const S_earth = computeProtectiveEarthSection(S_ac_opt, hasExternalLightningRod);
   const microBranches = isMicroinverter ? Math.max(1, Math.ceil(total_ac_kW / (monofasico ? 3.68 : 11.0))) : 0;
   const hasIntegratedDcSwitch = !activeInv || (activeInv.integratedDcSwitch !== false);
   const needsExternalDcPanel = !isMicroinverter && (useFuses || hasExternalLightningRod || L_dc_string > 10 || !hasIntegratedDcSwitch);
@@ -2905,6 +2905,8 @@
     needsExternalDcPanel,
     microBranches,
     fuseExceedsModRating,
+    T_min: (typeof T_min === 'number' && Number.isFinite(T_min)) ? T_min : -10,
+    Tmin: (typeof T_min === 'number' && Number.isFinite(T_min)) ? T_min : -10,
     PR: PR_calc,
     lossTree: {
       soiling: Math.round(loss_soiling * 1000) / 10,

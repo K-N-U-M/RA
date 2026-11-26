@@ -942,15 +942,22 @@
     });
   }
 
-  function render() {
-    const container = document.getElementById('step4-mppt-matrix-card');
-    if (!container) return;
+  function render(customContainer) {
+    const defaultContainer = document.getElementById('step4-mppt-matrix-card');
+    const drawerHost = document.getElementById('ra-drawer-mppt-host');
+    const targets = [];
+    if (customContainer) targets.push(customContainer);
+    else {
+      if (defaultContainer) targets.push(defaultContainer);
+      if (drawerHost) targets.push(drawerHost);
+    }
+    if (targets.length === 0) return;
     bindGlobalEscape();
 
     const hw = getHardwareContext();
     const panels = getActivePanels();
     if (panels.length === 0 || hw.cfg.selectedTopology === 'microinverter') {
-      container.style.display = 'none';
+      targets.forEach(c => { c.style.display = 'none'; });
       _brushString = null;
       clearHighlight3D();
       return;
@@ -959,7 +966,7 @@
     const mc = ensureManualConfig();
     const strings = buildStringsMap(panels, hw);
     if (strings.length === 0) {
-      container.style.display = 'none';
+      targets.forEach(c => { c.style.display = 'none'; });
       _brushString = null;
       clearHighlight3D();
       return;
@@ -1209,7 +1216,7 @@
       `;
     }
 
-    container.innerHTML = `
+    const matrixHtmlContent = `
       <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:5px;">
         <div style="display:flex;align-items:center;gap:5px;">
           <span style="font-size:11px;font-weight:900;color:#38BDF8;">⚡ MATRIZ INVERSOR / MPPT</span>
@@ -1232,12 +1239,24 @@
       ${invertersHtml}
     `;
 
-    bindDelegatedEvents(container);
+    targets.forEach(c => {
+      c.style.display = 'block';
+      if (c.id === 'step4-mppt-matrix-card') {
+        c.style.background = 'rgba(0,0,0,0.4)';
+        c.style.border = mc.locked
+          ? '1px solid rgba(245,158,11,0.45)'
+          : '1px solid rgba(56,189,248,0.25)';
+        c.style.borderRadius = '7px';
+        c.style.padding = '8px';
+      }
+      c.innerHTML = matrixHtmlContent;
+      bindDelegatedEvents(c);
+    });
   }
 
   function bindDelegatedEvents(container) {
-    if (_delegatedBound || !container) return;
-    _delegatedBound = true;
+    if (!container || container.dataset.raMpptBound) return;
+    container.dataset.raMpptBound = '1';
 
     container.addEventListener('click', (e) => {
       const btn = e.target.closest('[data-action]');
@@ -1429,7 +1448,8 @@
     clearCustomStrings,
     toggleLock,
     resetToAuto,
-    clearHighlight3D
+    clearHighlight3D,
+    render: function(customContainer) { return render(customContainer); }
   };
 
   let _lifecycleBound = false;

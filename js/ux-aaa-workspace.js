@@ -723,10 +723,14 @@
           '<div class="ra-drawer-kpi"><span>Caída ΔV DC / AC</span><strong>' + Number(calcs.dVdc_p || 0).toFixed(2) + '% / ' + Number(calcs.dVac_p || 0).toFixed(2) + '%</strong></div>' +
         '</div>'
       : '';
-    var matrixHtml = (mpptDom && mpptDom.innerHTML && mpptDom.innerHTML.trim().length > 20)
-      ? '<div style="background:rgba(15,23,42,0.7);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:12px;">' + mpptDom.innerHTML + '</div>'
-      : '<div style="padding:14px;border:1px dashed rgba(255,255,255,0.16);border-radius:8px;color:#94A3B8;font-size:12px;">Define al menos un faldón con placas en el Paso 2 para inspeccionar aquí la matriz MPPT en vista panorámica.</div>';
-    body.innerHTML = summaryBar + matrixHtml;
+    body.innerHTML = summaryBar + '<div id="ra-drawer-mppt-host" style="background:rgba(15,23,42,0.7);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:12px;min-height:80px;"></div>';
+    var drawerHost = document.getElementById('ra-drawer-mppt-host');
+    if (drawerHost && global.RAMPPTMatrix && typeof global.RAMPPTMatrix.render === 'function') {
+      global.RAMPPTMatrix.render(drawerHost);
+    }
+    if (drawerHost && (!drawerHost.innerHTML || drawerHost.innerHTML.trim().length < 20)) {
+      drawerHost.innerHTML = '<div style="padding:14px;border:1px dashed rgba(255,255,255,0.16);border-radius:8px;color:#94A3B8;font-size:12px;">Define al menos un faldón con placas en el Paso 2 para inspeccionar aquí la matriz MPPT en vista panorámica.</div>';
+    }
   }
 
   function openEngineeringDrawer(tab) {

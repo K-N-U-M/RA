@@ -58,6 +58,11 @@
   `;
 
   const _raBldMatteAppearanceCache = {};
+  if (typeof window !== 'undefined') {
+    window.raResetBuildingAppearanceCache = function() {
+      for (const k in _raBldMatteAppearanceCache) delete _raBldMatteAppearanceCache[k];
+    };
+  }
   function createBuildingMatteAppearance(closed) {
     const isClosed = (closed !== false);
     const key = isClosed ? 'closed' : 'open';

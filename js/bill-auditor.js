@@ -1074,7 +1074,7 @@ Normas estrictas:
               </div>
 
               <!-- Dropzone Dual -->
-              <div id="bill-dropzone" style="border:2px dashed rgba(245,158,11,0.45);background:rgba(245,158,11,0.04);border-radius:10px;padding:18px;text-align:center;cursor:pointer;transition:all 0.2s;display:flex;flex-direction:column;align-items:center;gap:6px;position:relative;">
+              <div id="bill-dropzone" role="button" tabindex="0" aria-label="Zona de subida de factura eléctrica" style="border:2px dashed rgba(245,158,11,0.45);background:rgba(245,158,11,0.04);border-radius:10px;padding:18px;text-align:center;cursor:pointer;transition:all 0.2s;display:flex;flex-direction:column;align-items:center;gap:6px;position:relative;">
                 <input type="file" id="bill-file-input" accept=".pdf,.png,.jpg,.jpeg,.webp,.txt,.csv,.json" style="display:none;">
                 
                 <div id="dropzone-idle-content" style="display:flex;flex-direction:column;align-items:center;gap:6px;">
@@ -1847,6 +1847,12 @@ Normas estrictas:
     if (dropzone && fileInput) {
       dropzone.onclick = () => {
         if (!BILL_AUDITOR_STATE.isAnalyzing) fileInput.click();
+      };
+      dropzone.onkeydown = (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          if (!BILL_AUDITOR_STATE.isAnalyzing) fileInput.click();
+        }
       };
 
       dropzone.ondragover = (e) => {

@@ -360,7 +360,7 @@ function getProjectCalcs() {
     betaVoc: (cfg.gammaVoc || -0.0028),
     Voc_mod_cold: eng.Voc_mod_cold || ((eng.Voc_str_max && eng.modsPerString) ? Number((eng.Voc_str_max / eng.modsPerString).toFixed(2)) : Number(((cfg.voc || 41.5) * (1 + (cfg.gammaVoc || cfg.betaVoc || -0.0028) * (-10 - 25))).toFixed(2))),
     Voc_cold: eng.Voc_mod_cold || ((eng.Voc_str_max && eng.modsPerString) ? Number((eng.Voc_str_max / eng.modsPerString).toFixed(2)) : Number(((cfg.voc || 41.5) * (1 + (cfg.gammaVoc || cfg.betaVoc || -0.0028) * (-10 - 25))).toFixed(2))),
-    T_min: -10,
+    T_min: (typeof eng.T_min === 'number' && Number.isFinite(eng.T_min)) ? eng.T_min : -10,
     P_ac_kW: eng.P_ac_kW || eng.inv_kW,
     invCount: eng.invCount || 1,
     total_P_ac_kW: eng.total_P_ac_kW || (eng.inv_kW * (eng.invCount || 1)),

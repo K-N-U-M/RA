@@ -538,7 +538,7 @@ function runPhysicalModel(kwp, latDeg, lonDeg, tiltDeg, azimutDeg, cfg, customMo
       const isCoplanarMount = !(cfg && (cfg.mountingType === 'open_rack' || cfg.mountingType === 'elevada' || cfg.mountingType === 'pergola'));
       const windSpeedEst = (cfg && typeof cfg.avgWindSpeedMs === 'number' && cfg.avgWindSpeedMs > 0) ? cfg.avgWindSpeedMs : 2.2;
       const Tcell = (typeof computeCellTemperature === 'function')
-        ? computeCellTemperature(tAmbHour, GPOA, windSpeedEst, isCoplanarMount ? 24.0 : 29.0, isCoplanarMount ? 5.0 : 6.8)
+        ? computeCellTemperature(tAmbHour, GPOA, isCoplanarMount, windSpeedEst)
         : calcTcell(tAmbHour, GPOA, NOCT);
 
       const P_raw = calcPpanel(Pstc * kwp * 1000 / Pstc, GPOA, Tcell, gamma);

@@ -5309,9 +5309,9 @@ if (window.RA) window.RA.equipmentCatalog = window.equipmentCatalog || null;
 
 // ── MODAL DEL CATÁLOGO DE EQUIPOS ──────────────────────────────────────────
 
-window.openEquipmentCatalogModal = openEquipmentCatalogModal;
-window.closeEquipmentCatalogModal = closeEquipmentCatalogModal;
-window.switchCatalogTab = switchCatalogTab;
+if (typeof openEquipmentCatalogModal !== 'undefined') window.openEquipmentCatalogModal = openEquipmentCatalogModal;
+if (typeof closeEquipmentCatalogModal !== 'undefined') window.closeEquipmentCatalogModal = closeEquipmentCatalogModal;
+if (typeof switchCatalogTab !== 'undefined') window.switchCatalogTab = switchCatalogTab;
 
 function wpSwitchGenTab(tab) {
   var solPanel = document.getElementById("wp-step2-solar-panel");
@@ -6320,8 +6320,11 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
   const hasPolys = typeof WP !== "undefined" && WP && WP.polylines && WP.polylines.length > 0;
   const polylinesList = hasPolys ? WP.polylines : [{ points: polygonPoints, roofInfo: roofInfo, name: "Polilínea #1" }];
 
-  window.allRenderedPanels = []; // Expuesto globalmente para picking/selección multi-faldón
-  const allTargetPanels = window.allRenderedPanels;
+  const preservedPanels = isIncrementalTarget && Array.isArray(window.allRenderedPanels)
+    ? window.allRenderedPanels.filter(p => p && p.polyIdx !== targetPolyIdx)
+    : [];
+  const allTargetPanels = [];
+  window.allRenderedPanels = isIncrementalTarget ? preservedPanels.concat(allTargetPanels) : allTargetPanels;
   const currentStep = (typeof wpCurrentStep !== 'undefined') ? wpCurrentStep : ((typeof window !== 'undefined' && window.wpCurrentStep) || 1);
   const shouldRenderElectricalStrings = (currentStep >= 4);
 
@@ -6817,6 +6820,9 @@ async function wpFastRenderSimulatedPanelsAsync(immediate = false, targetPolyIdx
   // sustituye la política faldón→canal fijo (polyIdx % mppt) cuando hay inversor con límites reales.
   if (window.RA && window.RA.Electrical && typeof window.RA.Electrical.rebalanceMPPTAssignment === 'function') {
     window.RA.Electrical.rebalanceMPPTAssignment(allTargetPanels);
+  }
+  if (isIncrementalTarget) {
+    window.allRenderedPanels = preservedPanels.concat(allTargetPanels);
   }
 
   if (typeof viewer !== "undefined" && viewer) {

@@ -109,10 +109,17 @@
       window.RA = window.RA || {};
       window.RA._webglContextLost = true;
 
-      if (window.solarSimState && window.solarSimState.playInterval) {
-        clearInterval(window.solarSimState.playInterval);
-        window.solarSimState.playInterval = null;
+      if (window.solarSimState) {
+        if (window.solarSimState.playInterval) {
+          clearInterval(window.solarSimState.playInterval);
+          window.solarSimState.playInterval = null;
+        }
+        if (window.solarSimState.animTimer) {
+          clearInterval(window.solarSimState.animTimer);
+          window.solarSimState.animTimer = null;
+        }
         window.solarSimState.playing = false;
+        window.solarSimState.isPlaying = false;
       }
       if (window.RABenchmark && typeof window.RABenchmark.pause === 'function') {
         try { window.RABenchmark.pause(); } catch (_) {}
@@ -131,8 +138,9 @@
 
       try {
         if (typeof window.raResetSkyboxCache === 'function') window.raResetSkyboxCache();
+        if (typeof window.raResetBuildingAppearanceCache === 'function') window.raResetBuildingAppearanceCache();
         if (typeof window.render3DBuildingsInCesium === 'function') window.render3DBuildingsInCesium();
-        if (typeof window.render3DObstaclesInCesium === 'function') window.render3DObstaclesInCesium();
+        if (typeof window.render3DObstaclesInCesium === 'function') window.render3DObstaclesInCesium(true);
         if (typeof window.wpFastRenderSimulatedPanels === 'function') window.wpFastRenderSimulatedPanels(true);
         if (window.RACableEngine && typeof window.RACableEngine.renderAllCables === 'function') window.RACableEngine.renderAllCables();
         if (typeof window.wpUpdateAtmosphericSky === 'function') window.wpUpdateAtmosphericSky(45);
