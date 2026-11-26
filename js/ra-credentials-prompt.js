@@ -10,10 +10,12 @@
     try {
       var savedCesium = global.localStorage ? global.localStorage.getItem(LS_CESIUM) : '';
       var savedGoogle = global.localStorage ? global.localStorage.getItem(LS_GOOGLE) : '';
-      if (!global.RA_ENV.CESIUM_ION_TOKEN && savedCesium) {
+      if (!global.RA_ENV.cesiumIon && !global.RA_ENV.CESIUM_ION_TOKEN && savedCesium) {
+        global.RA_ENV.cesiumIon = savedCesium.trim();
         global.RA_ENV.CESIUM_ION_TOKEN = savedCesium.trim();
       }
-      if (!global.RA_ENV.GOOGLE_MAPS_API_KEY && savedGoogle) {
+      if (!global.RA_ENV.googleMaps && !global.RA_ENV.GOOGLE_MAPS_API_KEY && savedGoogle) {
+        global.RA_ENV.googleMaps = savedGoogle.trim();
         global.RA_ENV.GOOGLE_MAPS_API_KEY = savedGoogle.trim();
       }
     } catch (e) {
@@ -24,8 +26,8 @@
   function hasRequiredCredentials() {
     var env = global.RA_ENV || {};
     return Boolean(
-      (env.CESIUM_ION_TOKEN && String(env.CESIUM_ION_TOKEN).trim().length > 5) ||
-      (env.GOOGLE_MAPS_API_KEY && String(env.GOOGLE_MAPS_API_KEY).trim().length > 5)
+      ((env.cesiumIon || env.CESIUM_ION_TOKEN) && String(env.cesiumIon || env.CESIUM_ION_TOKEN).trim().length > 5) ||
+      ((env.googleMaps || env.GOOGLE_MAPS_API_KEY) && String(env.googleMaps || env.GOOGLE_MAPS_API_KEY).trim().length > 5)
     );
   }
 
@@ -33,8 +35,14 @@
     global.RA_ENV = global.RA_ENV || {};
     var c = String(cesiumToken || '').trim();
     var g = String(googleKey || '').trim();
-    if (c) global.RA_ENV.CESIUM_ION_TOKEN = c;
-    if (g) global.RA_ENV.GOOGLE_MAPS_API_KEY = g;
+    if (c) {
+      global.RA_ENV.cesiumIon = c;
+      global.RA_ENV.CESIUM_ION_TOKEN = c;
+    }
+    if (g) {
+      global.RA_ENV.googleMaps = g;
+      global.RA_ENV.GOOGLE_MAPS_API_KEY = g;
+    }
     try {
       if (global.localStorage) {
         if (c) global.localStorage.setItem(LS_CESIUM, c);
