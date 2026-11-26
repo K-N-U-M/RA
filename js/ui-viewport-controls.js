@@ -48,27 +48,28 @@
     toast.style.borderRadius = '8px';
     toast.style.backdropFilter = 'blur(12px)';
     toast.style.webkitBackdropFilter = 'blur(12px)';
-    toast.style.boxShadow = '0 10px 25px -5px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.1)';
+    toast.style.boxShadow = '6px 6px 14px rgba(163, 173, 188, 0.45), -6px -6px 14px rgba(255, 255, 255, 0.85)';
+    toast.style.border = '1px solid rgba(255, 255, 255, 0.7)';
     toast.style.fontFamily = 'Inter, -apple-system, sans-serif';
-    toast.style.color = '#FFFFFF';
+    toast.style.color = '#1e242b';
     toast.style.transform = 'translateX(100%)';
     toast.style.opacity = '0';
     toast.style.transition = 'all 0.28s cubic-bezier(0.16, 1, 0.3, 1)';
     toast.style.cursor = 'pointer';
 
     let icon = '<i data-lucide="info" class="icon-sm"></i>';
-    let borderCol = 'rgba(56, 189, 248, 0.5)';
-    let bgGradient = 'linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.92))';
+    let borderCol = '#e84a27';
+    let bgGradient = 'linear-gradient(135deg, #f3f5f8, #ebedf0)';
 
     if (type === 'success') {
       icon = '<i data-lucide="check-circle" class="icon-sm"></i>';
-      borderCol = 'rgba(34, 197, 94, 0.6)';
+      borderCol = '#059669';
     } else if (type === 'warning') {
       icon = '<i data-lucide="alert-triangle" class="icon-sm"></i>';
-      borderCol = 'rgba(245, 158, 11, 0.7)';
+      borderCol = '#d97706';
     } else if (type === 'error') {
       icon = '<i data-lucide="x-circle" class="icon-sm"></i>';
-      borderCol = 'rgba(239, 68, 68, 0.7)';
+      borderCol = '#dc2626';
     }
 
     toast.style.background = bgGradient;
@@ -81,11 +82,12 @@
       { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
     ));
 
+    const titleCol = type === 'warning' ? '#b45309' : (type === 'success' ? '#059669' : (type === 'error' ? '#dc2626' : '#e84a27'));
     toast.innerHTML = `
-      <span style="font-size:16px;line-height:1.2;margin-top:2px;">${icon}</span>
+      <span style="font-size:16px;line-height:1.2;margin-top:2px;color:${titleCol};">${icon}</span>
       <div style="flex:1;min-width:0;">
-        <div style="font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:${type === 'warning' ? '#FCD34D' : (type === 'success' ? '#86EFAC' : (type === 'error' ? '#FCA5A5' : '#7DD3FC'))};margin-bottom:2px;">${_toastEsc(title)}</div>
-        <div style="font-size:11px;color:#E2E8F0;line-height:1.35;word-break:break-word;">${_toastEsc(message)}</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:${titleCol};margin-bottom:2px;">${_toastEsc(title)}</div>
+        <div style="font-size:11px;color:#57606a;line-height:1.35;word-break:break-word;">${_toastEsc(message)}</div>
       </div>
     `;
 
@@ -236,7 +238,7 @@
     const statusEl = document.getElementById('ra-status');
     if (!statusEl) return;
     const duration = (typeof ms === 'number' && ms > 0) ? ms : 5000;
-    const closeBtn = '<span onclick="hideStatus()" style="cursor:pointer; margin-left: 14px; padding-left: 14px; border-left: 1px solid rgba(245,158,11,0.3); font-size: 18px; line-height: 1; opacity: 0.8; display: flex; align-items: center;" title="Cerrar">&times;</span>';
+    const closeBtn = '<span onclick="hideStatus()" style="cursor:pointer; margin-left: 14px; padding-left: 14px; border-left: 1px solid rgba(232,74,39,0.3); font-size: 18px; line-height: 1; opacity: 0.8; display: flex; align-items: center;" title="Cerrar">&times;</span>';
     const safeMsg = String(msg == null ? '' : msg).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     statusEl.innerHTML = '<div style="display:flex; align-items:center;">' + safeMsg + closeBtn + '</div>';
     statusEl.classList.add('visible');
@@ -270,13 +272,13 @@
     const btnEl = document.getElementById('btn-toggle-pbr-texture');
     if (btnTag) {
       btnTag.textContent = isPbr ? '[T] ON' : '[T] OFF';
-      btnTag.style.background = isPbr ? '#10B981' : 'rgba(255,255,255,0.08)';
-      btnTag.style.color = isPbr ? '#0F172A' : 'var(--text-slate-300)';
+      btnTag.style.background = isPbr ? '#059669' : '#dfe3e8';
+      btnTag.style.color = isPbr ? '#ffffff' : '#57606a';
       btnTag.style.fontWeight = isPbr ? '900' : 'normal';
     }
     if (btnEl) {
-      btnEl.style.borderColor = isPbr ? '#10B981' : 'rgba(56,189,248,0.4)';
-      btnEl.style.background = isPbr ? 'rgba(16,185,129,0.18)' : 'rgba(15,23,42,0.6)';
+      btnEl.style.borderColor = isPbr ? '#059669' : 'rgba(232,74,39,0.45)';
+      btnEl.style.background = isPbr ? 'rgba(5,150,105,0.14)' : '#ebedf0';
     }
     if (typeof global.wpFastRenderSimulatedPanels === 'function') {
       global.wpFastRenderSimulatedPanels();
@@ -325,12 +327,12 @@
     const btnEl = document.getElementById('btn-toggle-labels-visibility');
     if (btnTag) {
       btnTag.textContent = isVis ? '[L] ON' : '[L] OFF';
-      btnTag.style.background = isVis ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)';
-      btnTag.style.color = isVis ? '#34D399' : '#F87171';
+      btnTag.style.background = isVis ? 'rgba(5,150,105,0.14)' : 'rgba(232,74,39,0.14)';
+      btnTag.style.color = isVis ? '#059669' : '#e84a27';
     }
     if (btnEl) {
-      btnEl.style.borderColor = isVis ? 'rgba(245,158,11,0.4)' : 'rgba(239,68,68,0.4)';
-      btnEl.style.background = isVis ? 'rgba(15,23,42,0.6)' : 'rgba(239,68,68,0.12)';
+      btnEl.style.borderColor = isVis ? 'rgba(5,150,105,0.4)' : 'rgba(232,74,39,0.45)';
+      btnEl.style.background = isVis ? '#ebedf0' : 'rgba(232,74,39,0.08)';
     }
 
     // 5. Notificación al usuario

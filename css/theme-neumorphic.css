@@ -232,14 +232,438 @@
   color: var(--nm-text) !important;
 }
 
-/* ── Modales ──────────────────────────────────────────────────────────────── */
+/* ── Modales y Overlays Generales ─────────────────────────────────────────── */
 .ra-modal,
-[id$="-modal"] > div {
+[id$="-modal"] > div,
+[role="dialog"]:not(#cesiumContainer):not(.cesium-viewer),
+[role="alertdialog"] {
+  color: var(--nm-text) !important;
+}
+
+[role="dialog"]:not(#cesiumContainer):not(.cesium-viewer),
+[role="alertdialog"],
+#ra-firebase-modal,
+#ra-cost-breakdown-modal,
+#ra-pricing-review-modal,
+#ra-equipment-catalog-modal,
+#ra-company-branding-modal,
+#ra-projects-modal,
+#ra-doc-modal,
+#ra-embedded-doc-modal,
+#ra-scenario-comparator-modal,
+#ra-a11y-modal,
+#ra-async-confirm-modal {
+  background: rgba(231, 234, 238, 0.78) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+}
+
+.ra-modal,
+[id$="-modal"] > div,
+#ra-firebase-modal > div,
+#ra-cost-breakdown-modal > div,
+#ra-pricing-review-modal > div,
+#ra-equipment-catalog-modal > div,
+#ra-company-branding-modal > div,
+#ra-projects-modal > div,
+#ra-doc-modal .doc-modal-box,
+#ra-embedded-doc-modal > div,
+#ra-scenario-comparator-modal > div,
+#ra-a11y-modal > div,
+#ra-async-confirm-modal > div {
   background: var(--nm-bg) !important;
+  background-image: none !important;
+  color: var(--nm-text) !important;
+  border: 1px solid rgba(255, 255, 255, 0.88) !important;
+  border-radius: 22px !important;
+  box-shadow: 12px 12px 28px rgba(163, 177, 198, 0.52), -10px -10px 24px rgba(255, 255, 255, 0.92) !important;
+}
+
+#ra-doc-modal .doc-modal-head,
+#ra-doc-modal .doc-modal-body,
+#ra-doc-modal .doc-modal-footer,
+[id$="-modal"] .doc-modal-section {
+  background: transparent !important;
+  color: var(--nm-text) !important;
+  border-color: rgba(163, 177, 198, 0.35) !important;
+}
+
+[id$="-modal"] .doc-modal-section {
+  background: var(--nm-surface-elevated) !important;
+  border: 1px solid rgba(255, 255, 255, 0.85) !important;
+  border-radius: 16px !important;
+  box-shadow: var(--nm-shadow-out-sm) !important;
+}
+
+[id$="-modal"] input,
+[id$="-modal"] select,
+[id$="-modal"] textarea,
+[role="dialog"] input,
+[role="dialog"] select,
+[role="dialog"] textarea {
+  background: var(--nm-surface-inset) !important;
+  color: var(--nm-text) !important;
+  border: 1px solid rgba(255, 255, 255, 0.7) !important;
+  border-radius: 12px !important;
+  box-shadow: var(--nm-shadow-in) !important;
+}
+
+[id$="-modal"] button:not(.primary):not(.doc-modal-close),
+[role="dialog"] button:not(.primary):not(.doc-modal-close),
+[role="alertdialog"] button:not(.primary) {
+  background: var(--nm-surface-elevated) !important;
   color: var(--nm-text) !important;
   border: 1px solid rgba(255, 255, 255, 0.85) !important;
+  border-radius: 12px !important;
+  box-shadow: var(--nm-shadow-out-sm) !important;
+}
+
+[id$="-modal"] .doc-modal-close,
+[role="dialog"] .doc-modal-close {
+  background: var(--nm-surface) !important;
+  color: var(--nm-text-muted) !important;
+  border: 1px solid rgba(255, 255, 255, 0.85) !important;
+  border-radius: 10px !important;
+  box-shadow: var(--nm-shadow-out-sm) !important;
+}
+
+/* ── 1. Pantallas de Carga de Proyecto y Arranque ─────────────────────────── */
+#ra-loading,
+#ra-loading-overlay,
+#ra-project-loading-overlay,
+#ra-project-loading-hud,
+.loading-overlay {
+  background: var(--nm-bg) !important;
+  background-image: radial-gradient(circle at 50% 35%, #f3f5f8 0%, #e7eaee 70%) !important;
+  color: var(--nm-text) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+}
+
+#ra-project-loading-hud > div,
+#ra-project-loading-overlay > div,
+#ra-loading-overlay > div,
+.loading-overlay > div {
+  background: var(--nm-surface-elevated) !important;
+  background-image: none !important;
+  color: var(--nm-text) !important;
+  border: 1px solid rgba(255, 255, 255, 0.9) !important;
   border-radius: 22px !important;
-  box-shadow: 0 24px 60px rgba(30, 36, 43, 0.22) !important;
+  box-shadow: 12px 12px 28px rgba(163, 177, 198, 0.5), -10px -10px 24px rgba(255, 255, 255, 0.95) !important;
+}
+
+#ra-project-loading-hud > div > div:first-child[style*="linear-gradient"] {
+  background: var(--nm-accent) !important;
+}
+
+#ra-project-loading-hud svg circle:first-child {
+  stroke: rgba(232, 74, 39, 0.18) !important;
+}
+
+#ra-project-loading-hud svg circle:last-child {
+  stroke: var(--nm-accent) !important;
+}
+
+#ra-project-loading-hud svg[viewBox="0 0 24 24"],
+#ra-load-hud-pct,
+#ra-load-hud-pct + span,
+#ra-project-loading-hud [style*="CARGANDO PROYECTO SOLAR"],
+#ra-project-loading-hud [style*="letter-spacing:0.12em"] {
+  color: var(--nm-accent) !important;
+  text-shadow: none !important;
+}
+
+#ra-load-hud-title,
+#ra-load-hud-status,
+#ra-loading .ld-sub,
+#ra-loading .ld-msg {
+  color: var(--nm-text) !important;
+}
+
+#ra-load-hud-detail,
+#ra-loading .ld-sub {
+  color: var(--nm-text-muted) !important;
+}
+
+#ra-loading .ld-track,
+#ra-project-loading-hud [style*="border-radius:999px"]:has(#ra-load-hud-bar),
+#ra-project-loading-overlay [class*="track"],
+#ra-loading-overlay [class*="track"],
+.loading-overlay [class*="track"] {
+  background: var(--nm-surface-inset) !important;
+  border: 1px solid rgba(255, 255, 255, 0.75) !important;
+  box-shadow: var(--nm-shadow-in) !important;
+}
+
+#ra-loading .ld-bar,
+#ra-load-hud-bar,
+#ra-project-loading-overlay [class*="bar"],
+#ra-loading-overlay [class*="bar"],
+.loading-overlay [class*="bar"] {
+  background: var(--nm-accent) !important;
+  background-image: linear-gradient(90deg, #e84a27, #f97316) !important;
+  box-shadow: 0 0 10px rgba(232, 74, 39, 0.4) !important;
+}
+
+/* ── 2. Credenciales Gate, Toasts, A11y, Benchmark, Status & Confirm Bar ──── */
+#ra-credentials-gate {
+  background: rgba(231, 234, 238, 0.85) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+}
+
+#ra-credentials-gate > div {
+  background: var(--nm-surface-elevated) !important;
+  color: var(--nm-text) !important;
+  border: 1px solid rgba(255, 255, 255, 0.9) !important;
+  border-radius: 22px !important;
+  box-shadow: 12px 12px 28px rgba(163, 177, 198, 0.52), -10px -10px 24px rgba(255, 255, 255, 0.95) !important;
+}
+
+#ra-credentials-gate h3 {
+  color: var(--nm-accent) !important;
+}
+
+#ra-credentials-gate p,
+#ra-credentials-gate label {
+  color: var(--nm-text) !important;
+}
+
+#ra-credentials-gate input {
+  background: var(--nm-surface-inset) !important;
+  color: var(--nm-text) !important;
+  border: 1px solid rgba(255, 255, 255, 0.75) !important;
+  border-radius: 12px !important;
+  box-shadow: var(--nm-shadow-in) !important;
+}
+
+#ra-credentials-gate #ra-cred-skip,
+#ra-credentials-gate #ra-cred-close {
+  background: var(--nm-surface) !important;
+  color: var(--nm-text-muted) !important;
+  border: 1px solid rgba(255, 255, 255, 0.85) !important;
+  box-shadow: var(--nm-shadow-out-sm) !important;
+}
+
+/* Toasts y notificaciones no bloqueantes */
+#ra-toast-container > div,
+.ra-toast,
+[id*="toast"]:not(#ra-toast-container):not(#ra-nonblocking-toast-host),
+#ra-nonblocking-toast-host > div,
+#ra-a11y-toast {
+  background: var(--nm-surface-elevated) !important;
+  background-image: none !important;
+  color: var(--nm-text) !important;
+  border: 1px solid rgba(255, 255, 255, 0.9) !important;
+  border-radius: 16px !important;
+  box-shadow: var(--nm-shadow-out) !important;
+}
+
+#ra-toast-container > div div,
+#ra-toast-container > div span,
+.ra-toast *,
+#ra-nonblocking-toast-host > div span,
+#ra-a11y-toast * {
+  color: var(--nm-text) !important;
+}
+
+/* Benchmark HUD */
+#ra-benchmark-pill,
+#ra-benchmark-panel {
+  background: rgba(243, 245, 248, 0.94) !important;
+  color: var(--nm-text) !important;
+  border: 1px solid rgba(255, 255, 255, 0.9) !important;
+  box-shadow: var(--nm-shadow-out) !important;
+}
+
+#ra-benchmark-pill {
+  border-radius: 9999px !important;
+}
+
+#ra-benchmark-panel {
+  border-radius: 18px !important;
+}
+
+#ra-benchmark-pill span:not(#ra-bm-fps):not(#ra-bm-state),
+#ra-benchmark-panel span:not(#ra-bm-draw-mode):not(#ra-bm-fps-avg) {
+  color: var(--nm-text) !important;
+}
+
+#ra-bm-state {
+  background: var(--nm-accent-soft) !important;
+  color: var(--nm-accent) !important;
+}
+
+#ra-bm-sparkline {
+  background: var(--nm-surface-inset) !important;
+  box-shadow: var(--nm-shadow-in) !important;
+  border-radius: 8px !important;
+}
+
+/* Status flotante y Barra de Confirmación CAD */
+#ra-status {
+  background: rgba(243, 245, 248, 0.94) !important;
+  color: var(--nm-text) !important;
+  border: 1px solid rgba(255, 255, 255, 0.9) !important;
+  border-radius: 16px !important;
+  box-shadow: var(--nm-shadow-out) !important;
+}
+
+#ra-confirm-bar {
+  background: rgba(235, 237, 240, 0.96) !important;
+  color: var(--nm-text) !important;
+  border: 1px solid rgba(255, 255, 255, 0.9) !important;
+  border-radius: 18px !important;
+  box-shadow: var(--nm-shadow-out) !important;
+}
+
+#ra-confirm-bar span,
+#ra-confirm-bar div {
+  color: var(--nm-text) !important;
+}
+
+/* HUD Energía Dropdown y Tooltips */
+#ra-hud-pill,
+#ra-hud-dropdown,
+#ra-hud-energy .tooltip-content {
+  background: rgba(243, 245, 248, 0.96) !important;
+  color: var(--nm-text) !important;
+  border: 1px solid rgba(255, 255, 255, 0.9) !important;
+  box-shadow: var(--nm-shadow-out) !important;
+}
+
+#ra-hud-energy:hover #ra-hud-pill {
+  background: var(--nm-surface-elevated) !important;
+  border-color: var(--nm-accent) !important;
+}
+
+/* Tarjetas dinámicas de project-config y electrical-ui-bridge */
+#ra-sidebar [id*="summary"],
+#ra-sidebar [id*="explain"],
+#ra-sidebar [id*="notice"],
+#ra-sidebar [id*="card"],
+#ra-sidebar .doc-mini-btn {
+  background: var(--nm-surface) !important;
+  color: var(--nm-text) !important;
+  border-color: rgba(163, 177, 198, 0.35) !important;
+}
+
+/* ── 3. Reglas Globales Anti-Oscuro Inline (Excluyendo Visor 3D Cesium) ───── */
+body :is(
+  [style*="0f172a"], [style*="0F172A"],
+  [style*="1e293b"], [style*="1E293B"],
+  [style*="0b1120"], [style*="0B1120"],
+  [style*="020617"],
+  [style*="15, 23, 42"], [style*="15,23,42"],
+  [style*="30, 41, 59"], [style*="30,41,59"],
+  [style*="8, 14, 26"], [style*="8,14,26"],
+  [style*="2, 6, 23"], [style*="2,6,23"]
+):not(#cesiumContainer):not(#cesiumContainer *):not(.cesium-viewer):not(.cesium-viewer *):not(canvas) {
+  background: var(--nm-surface-elevated) !important;
+  background-image: none !important;
+  color: var(--nm-text) !important;
+  border-color: rgba(163, 177, 198, 0.38) !important;
+}
+
+body :is(
+  [style*="color:#fff"], [style*="color: #fff"],
+  [style*="color:#FFF"], [style*="color: #FFF"],
+  [style*="color:#ffffff"], [style*="color: #ffffff"],
+  [style*="color:#FFFFFF"], [style*="color: #FFFFFF"],
+  [style*="color:#f8fafc"], [style*="color: #f8fafc"],
+  [style*="color:#F8FAFC"], [style*="color: #F8FAFC"],
+  [style*="color:#e2e8f0"], [style*="color: #e2e8f0"],
+  [style*="color:#E2E8F0"], [style*="color: #E2E8F0"],
+  [style*="color:#f1f5f9"], [style*="color: #f1f5f9"],
+  [style*="color:#F1F5F9"], [style*="color: #F1F5F9"]
+):not(#cesiumContainer):not(#cesiumContainer *):not(.cesium-viewer):not(.cesium-viewer *):not(canvas):not(button.primary):not(.primary):not(#ra-cred-save):not(#ra-bm-stress-btn):not([style*="background:#e84a27"]):not([style*="background: #e84a27"]):not([style*="background:#0284c7"]):not([style*="background: #0284c7"]):not([style*="background:#2563eb"]):not([style*="background: #2563eb"]):not([style*="background: linear-gradient"]):not([style*="background:linear-gradient"]) {
+  color: var(--nm-text) !important;
+}
+
+/* ── 4. Botones Primarios Coral y Barras de Progreso / Sliders ────────────── */
+button.primary,
+.btn-primary,
+#ra-cred-save,
+#ra-bm-stress-btn,
+#ra-sidebar button.primary,
+#ra-sidebar button[style*="background:#0284c7"],
+#ra-sidebar button[style*="background: #0284c7"],
+#ra-sidebar button[style*="background:#2563eb"],
+#ra-sidebar button[style*="background: #2563eb"],
+#ra-sidebar button[style*="background:#e84a27"],
+#ra-sidebar button[style*="background: #e84a27"],
+#ra-sidebar button[style*="background: linear-gradient"],
+[id$="-modal"] button.primary,
+[role="dialog"] button.primary,
+[role="alertdialog"] button.primary {
+  background: var(--nm-accent) !important;
+  background-image: linear-gradient(135deg, #e84a27, #d63d1b) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  box-shadow: 4px 4px 10px rgba(232, 74, 39, 0.35), -2px -2px 6px rgba(255, 255, 255, 0.75) !important;
+}
+
+button.primary *,
+.btn-primary *,
+#ra-cred-save *,
+#ra-bm-stress-btn * {
+  color: #ffffff !important;
+}
+
+/* Sliders y Barras de Progreso */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--nm-surface-inset) !important;
+  border-radius: 999px !important;
+  height: 7px !important;
+  box-shadow: var(--nm-shadow-in) !important;
+  accent-color: var(--nm-accent) !important;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--nm-accent) !important;
+  border: 2px solid #ffffff !important;
+  box-shadow: 2px 2px 6px rgba(163, 177, 198, 0.6), -1px -1px 4px rgba(255, 255, 255, 0.9) !important;
+  cursor: pointer;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--nm-accent) !important;
+  border: 2px solid #ffffff !important;
+  box-shadow: 2px 2px 6px rgba(163, 177, 198, 0.6) !important;
+  cursor: pointer;
+}
+
+progress,
+[role="progressbar"] {
+  background: var(--nm-surface-inset) !important;
+  border-radius: 999px !important;
+  box-shadow: var(--nm-shadow-in) !important;
+  accent-color: var(--nm-accent) !important;
+}
+
+progress::-webkit-progress-bar {
+  background: var(--nm-surface-inset) !important;
+  border-radius: 999px !important;
+}
+
+progress::-webkit-progress-value {
+  background: var(--nm-accent) !important;
+  border-radius: 999px !important;
+}
+
+progress::-moz-progress-bar {
+  background: var(--nm-accent) !important;
+  border-radius: 999px !important;
 }
 
 /* ── Responsive Móvil y Tablet (<= 1024px) ────────────────────────────────── */

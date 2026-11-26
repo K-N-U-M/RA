@@ -164,7 +164,7 @@
           <div class="outliner-empty-state">
             <span style="font-size:18px;">🏛️</span>
             <span style="font-weight:700;">Escena sin elementos.</span>
-            <span style="font-size: 10px;color:#94a3b8;">Dibuja un edificio 3D o define un plano en el Paso 1.</span>
+            <span style="font-size: 10px;color:#57606a;">Dibuja un edificio 3D o define un plano en el Paso 1.</span>
           </div>
         `;
         return;
@@ -566,17 +566,17 @@
           width: 320px;
           height: auto;
           max-height: calc(100vh - 230px);
-          background: rgba(15, 23, 42, 0.94);
+          background: rgba(243, 245, 248, 0.94);
           backdrop-filter: blur(14px);
           -webkit-backdrop-filter: blur(14px);
-          border: 1px solid rgba(56, 189, 248, 0.45);
-          border-radius: 12px;
-          box-shadow: 0 10px 32px rgba(0, 0, 0, 0.75), 0 0 16px rgba(56, 189, 248, 0.20);
+          border: 1px solid rgba(255, 255, 255, 0.75);
+          border-radius: 14px;
+          box-shadow: 8px 8px 20px rgba(163, 173, 188, 0.45), -8px -8px 20px rgba(255, 255, 255, 0.85);
           display: flex;
           flex-direction: column;
           z-index: 9600;
           font-family: 'Inter', -apple-system, sans-serif;
-          color: #f8fafc;
+          color: #1e242b;
           overflow: hidden;
           transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
@@ -586,8 +586,8 @@
           justify-content: space-between;
           align-items: center;
           padding: 8px 12px;
-          background: rgba(30, 41, 59, 0.90);
-          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+          background: #ebedf0;
+          border-bottom: 1px solid #dfe3e8;
           cursor: pointer;
           user-select: none;
         }
@@ -596,7 +596,7 @@
           font-size: 10px;
           font-weight: 900;
           letter-spacing: 0.6px;
-          color: #38bdf8;
+          color: #e84a27;
         }
 
         .outliner-badge {
@@ -604,15 +604,15 @@
           font-weight: 800;
           padding: 2px 6px;
           border-radius: 4px;
-          background: rgba(56, 189, 248, 0.18);
-          color: #38bdf8;
-          border: 1px solid rgba(56, 189, 248, 0.3);
+          background: rgba(232, 74, 39, 0.12);
+          color: #e84a27;
+          border: 1px solid rgba(232, 74, 39, 0.3);
         }
 
         .outliner-toggle-btn {
           background: transparent;
           border: none;
-          color: #94a3b8;
+          color: #57606a;
           font-size: 10px;
           cursor: pointer;
           padding: 2px 4px;
@@ -631,10 +631,11 @@
         .outliner-accordion-group {
           display: flex;
           flex-direction: column;
-          border: 1px solid rgba(255, 255, 255, 0.08);
+          border: 1px solid rgba(255, 255, 255, 0.65);
           border-radius: 8px;
           overflow: hidden;
-          background: rgba(15, 23, 42, 0.45);
+          background: #ebedf0;
+          box-shadow: inset 1px 1px 3px rgba(163, 173, 188, 0.3), inset -1px -1px 3px rgba(255, 255, 255, 0.7);
         }
 
         .outliner-group-header {
@@ -642,24 +643,24 @@
           justify-content: space-between;
           align-items: center;
           padding: 6px 8px;
-          background: rgba(30, 41, 59, 0.65);
+          background: #f3f5f8;
           cursor: pointer;
           user-select: none;
           font-size: 10px;
           font-weight: 800;
-          color: #94a3b8;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+          color: #57606a;
+          border-bottom: 1px solid #dfe3e8;
           transition: background 0.15s ease, color 0.15s ease;
         }
 
         .outliner-group-header:hover {
-          background: rgba(56, 189, 248, 0.15);
-          color: #38bdf8;
+          background: rgba(232, 74, 39, 0.1);
+          color: #e84a27;
         }
 
         .outliner-chevron {
           font-size: 8px;
-          color: #38bdf8;
+          color: #e84a27;
           width: 12px;
           display: inline-block;
           text-align: center;
@@ -667,8 +668,8 @@
 
         .outliner-group-count {
           font-size: 9px;
-          background: rgba(255, 255, 255, 0.1);
-          color: #cbd5e1;
+          background: #dfe3e8;
+          color: #1e242b;
           padding: 1px 5px;
           border-radius: 10px;
         }
@@ -696,29 +697,30 @@
           padding: 16px 8px;
           text-align: center;
           font-size: 10px;
-          color: #94a3b8;
+          color: #57606a;
         }
 
         .outliner-group-title {
           font-size: 10px;
           font-weight: 900;
           letter-spacing: 0.5px;
-          color: #94a3b8;
+          color: #57606a;
           padding: 4px 2px 2px 2px;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+          border-bottom: 1px solid #dfe3e8;
         }
 
         .outliner-bld-card, .outliner-plane-card {
-          background: rgba(0, 0, 0, 0.35);
-          border: 1px solid rgba(255, 255, 255, 0.07);
+          background: #f3f5f8;
+          border: 1px solid rgba(255, 255, 255, 0.7);
           border-radius: 6px;
           overflow: hidden;
+          box-shadow: 2px 2px 5px rgba(163, 173, 188, 0.3), -2px -2px 5px rgba(255, 255, 255, 0.75);
           transition: border-color 0.2s ease;
         }
 
         .outliner-bld-card.active-node, .outliner-plane-card.active-node {
-          border-color: rgba(245, 158, 11, 0.7);
-          box-shadow: 0 0 10px rgba(245, 158, 11, 0.2);
+          border-color: rgba(232, 74, 39, 0.65);
+          box-shadow: 0 0 8px rgba(232, 74, 39, 0.18);
         }
 
         .outliner-bld-header, .outliner-plane-header {
@@ -726,12 +728,12 @@
           justify-content: space-between;
           align-items: center;
           padding: 6px 8px;
-          background: rgba(255, 255, 255, 0.03);
+          background: rgba(235, 237, 240, 0.6);
           cursor: pointer;
         }
 
         .outliner-bld-header:hover, .outliner-plane-header:hover {
-          background: rgba(255, 255, 255, 0.06);
+          background: #dfe3e8;
         }
 
         .outliner-nested-container {
@@ -739,19 +741,19 @@
           flex-direction: column;
           gap: 4px;
           padding: 4px 6px 6px 10px;
-          background: rgba(0, 0, 0, 0.15);
+          background: #ebedf0;
         }
 
         .outliner-plane-sub-card {
-          background: rgba(255, 255, 255, 0.02);
-          border: 1px dashed rgba(255, 255, 255, 0.1);
+          background: #f3f5f8;
+          border: 1px dashed rgba(87, 96, 106, 0.28);
           border-radius: 4px;
           overflow: hidden;
         }
 
         .outliner-plane-sub-card.active-plane-sub {
-          border-color: rgba(56, 189, 248, 0.5);
-          background: rgba(56, 189, 248, 0.06);
+          border-color: rgba(232, 74, 39, 0.5);
+          background: rgba(232, 74, 39, 0.06);
         }
 
         .outliner-sub-header {
@@ -764,7 +766,7 @@
 
         .outliner-hint-row {
           font-size: 10px;
-          color: #94a3b8;
+          color: #57606a;
           font-style: italic;
           padding: 3px 6px;
         }
@@ -772,7 +774,7 @@
         .outliner-sub-label {
           font-size: 10px;
           font-weight: 700;
-          color: #cbd5e1;
+          color: #57606a;
           margin-top: 4px;
           padding-left: 4px;
         }
@@ -786,21 +788,21 @@
         }
 
         .bld-name, .plane-name {
-          color: #f8fafc;
+          color: #1e242b;
         }
 
         .sub-plane-name {
-          color: #38bdf8;
+          color: #e84a27;
           font-size: 10px;
         }
 
         .poly-name {
-          color: #e2e8f0;
+          color: #1e242b;
           font-size: 10px;
         }
 
         .obs-name {
-          color: #fbbf24;
+          color: #b45309;
           font-size: 10px;
         }
 
@@ -812,16 +814,16 @@
 
         .badge-angle {
           font-size: 10px;
-          color: #f59e0b;
-          background: rgba(245, 158, 11, 0.12);
+          color: #b45309;
+          background: rgba(217, 119, 6, 0.12);
           padding: 1px 4px;
           border-radius: 3px;
         }
 
         .badge-stats {
           font-size: 10px;
-          color: #10b981;
-          background: rgba(16, 185, 129, 0.12);
+          color: #059669;
+          background: rgba(5, 150, 105, 0.12);
           padding: 1px 4px;
           border-radius: 3px;
           font-weight: 700;
@@ -829,8 +831,8 @@
 
         .badge-dim {
           font-size: 10px;
-          color: #94a3b8;
-          background: rgba(255, 255, 255, 0.05);
+          color: #57606a;
+          background: #dfe3e8;
           padding: 1px 4px;
           border-radius: 3px;
         }
@@ -858,7 +860,7 @@
 
         .outliner-no-poly {
           font-size: 10px;
-          color: #64748b;
+          color: #57606a;
           font-style: italic;
           padding: 2px 4px;
         }
@@ -875,29 +877,29 @@
           align-items: center;
           padding: 3px 6px;
           border-radius: 4px;
-          background: rgba(255, 255, 255, 0.02);
+          background: rgba(243, 245, 248, 0.75);
           cursor: pointer;
           border: 1px solid transparent;
           transition: background 0.15s ease, opacity 0.15s ease;
         }
 
         .outliner-panels-item {
-          background: rgba(16, 185, 129, 0.04);
-          border-left: 2px solid rgba(16, 185, 129, 0.35);
+          background: rgba(5, 150, 105, 0.06);
+          border-left: 2px solid rgba(5, 150, 105, 0.45);
           margin-left: 6px;
         }
 
         .outliner-poly-item:hover, .outliner-obs-item:hover, .outliner-panels-item:hover {
-          background: rgba(255, 255, 255, 0.06);
+          background: #dfe3e8;
         }
 
         .outliner-panels-item:hover {
-          background: rgba(16, 185, 129, 0.12);
-          border-color: rgba(16, 185, 129, 0.45);
+          background: rgba(5, 150, 105, 0.14);
+          border-color: rgba(5, 150, 105, 0.45);
         }
 
         .panels-node-name {
-          color: #6ee7b7;
+          color: #059669;
           font-size: 10px;
         }
 
@@ -907,19 +909,19 @@
 
         .is-deactivated-node {
           opacity: 0.58;
-          border-left-color: #ef4444 !important;
-          background: rgba(239, 68, 68, 0.05) !important;
+          border-left-color: #dc2626 !important;
+          background: rgba(220, 38, 38, 0.06) !important;
         }
 
         .is-deactivated-node .panels-node-name {
-          color: #fca5a5 !important;
+          color: #dc2626 !important;
           text-decoration: line-through;
         }
 
         .badge-stats.is-deactivated {
-          background: rgba(239, 68, 68, 0.15) !important;
-          color: #f87171 !important;
-          border: 1px solid rgba(239, 68, 68, 0.35) !important;
+          background: rgba(220, 38, 38, 0.12) !important;
+          color: #dc2626 !important;
+          border: 1px solid rgba(220, 38, 38, 0.35) !important;
         }
 
         .toggle-active-btn {
@@ -928,13 +930,13 @@
         }
 
         .outliner-poly-item.selected-poly {
-          border-color: #38bdf8;
-          background: rgba(56, 189, 248, 0.12);
+          border-color: #e84a27;
+          background: rgba(232, 74, 39, 0.1);
         }
 
         .outliner-obs-item.selected-obs {
-          border-color: #f59e0b;
-          background: rgba(245, 158, 11, 0.12);
+          border-color: #d97706;
+          background: rgba(217, 119, 6, 0.1);
         }
       `;
       document.head.appendChild(style);

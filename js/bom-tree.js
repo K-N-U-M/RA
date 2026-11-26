@@ -1257,8 +1257,8 @@
           </div>
           <div id="bom-roof-${i}" class="bom-node-children" style="display:none; padding-left:14px;">
             <div class="bom-subitem">📐 <b>Estructura:</b> ${r.structure.manufacturer ? r.structure.manufacturer + ' · ' : ''}${r.structure.type ? r.structure.type.toUpperCase() : 'ESTÁNDAR'} (${r.structure.tiltDeg}°) · <b>${r.structure.costEur} €</b></div>
-            ${r.structure.profileMeters ? `<div class="bom-subitem" style="font-size: 10px;color:#94a3b8;padding-left:12px;">• Perfil aluminio: <b>${r.structure.profileMeters} m</b> (${r.structure.standardBarsCount} barras 3.15m + ${r.structure.railSplicesCount} empalmes)</div>` : ''}
-            ${r.structure.fixingsCount ? `<div class="bom-subitem" style="font-size: 10px;color:#94a3b8;padding-left:12px;">• Fijaciones: <b>${r.structure.fixingsCount}x</b> ${r.structure.fixingsType}</div>` : ''}
+            ${r.structure.profileMeters ? `<div class="bom-subitem" style="font-size: 10px;color:#57606a;padding-left:12px;">• Perfil aluminio: <b>${r.structure.profileMeters} m</b> (${r.structure.standardBarsCount} barras 3.15m + ${r.structure.railSplicesCount} empalmes)</div>` : ''}
+            ${r.structure.fixingsCount ? `<div class="bom-subitem" style="font-size: 10px;color:#57606a;padding-left:12px;">• Fijaciones: <b>${r.structure.fixingsCount}x</b> ${r.structure.fixingsType}</div>` : ''}
             <div class="bom-subitem">🔩 <b>Grapas (Clamps):</b> ${r.clamps.midCount} intermedias + ${r.clamps.endCount} finales · <b>${r.clamps.costEur} €</b></div>
             ${r.ballast.blocksCount > 0 ? `<div class="bom-subitem">🧱 <b>Lastres hormigón:</b> ${r.ballast.blocksCount} bloques (${r.ballast.totalWeightKg} kg)</div>` : ''}
           </div>
@@ -1273,7 +1273,7 @@
             ? tree.electrical.microinverters.map(mi => `
                 <div class="bom-subitem">⚡ ${mi.count}x ${mi.brand} ${mi.model} (${mi.kwNominal} kW) · <b>${mi.totalPriceEur.toLocaleString('es-ES')} €</b></div>
               `).join('')
-            : '<div class="bom-subitem" style="color:var(--text-muted, #94a3b8); font-style:italic;">Sin inversores asignados</div>');
+            : '<div class="bom-subitem" style="color:var(--text-muted, #57606a); font-style:italic;">Sin inversores asignados</div>');
 
       let batteriesHtml = (tree.electrical.batteries && tree.electrical.batteries.length > 0)
         ? tree.electrical.batteries.map(bat => `
@@ -1291,10 +1291,10 @@
         ? tree.obstacles.map(obs => `
             <div class="bom-subitem bom-interactive-item" onclick="BOMTreeEngine.flyToObstacle('${obs.id}')" style="cursor:pointer; display:flex; justify-content:space-between; align-items:center;" title="Clic para enfocar cámara">
               <span>🛑 ${obs.name} (${obs.type})</span>
-              <span style="font-size: 10px; color:#94a3b8;">${obs.dimensions}</span>
+              <span style="font-size: 10px; color:#57606a;">${obs.dimensions}</span>
             </div>
           `).join('')
-        : '<div class="bom-subitem" style="color:var(--text-muted, #94a3b8); font-style:italic;">No hay obstáculos en la escena</div>';
+        : '<div class="bom-subitem" style="color:var(--text-muted, #57606a); font-style:italic;">No hay obstáculos en la escena</div>';
 
       const isEmptyProject = (tree.summary.totalPanels === 0 && tree.summary.totalWindTurbines === 0);
 
@@ -1302,7 +1302,7 @@
         <div class="bom-hud-header">
           <div class="bom-hud-title">
             <span class="bom-hud-icon" style="display:inline-flex;align-items:center;justify-content:center;">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#34D399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
                 <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
                 <line x1="12" y1="22.08" x2="12" y2="12"></line>
@@ -1334,18 +1334,18 @@
             <div class="bom-kpi"><span>POTENCIA:</span> <b>${tree.summary.totalKwp} kWp</b></div>
             <div class="bom-kpi"><span>AC NOMINAL:</span> <b>${tree.summary.totalAcKw} kW</b></div>
             <div class="bom-kpi"><span>MÓDULOS:</span> <b>${tree.summary.totalPanels} u.</b></div>
-            ${tree.summary.totalStorageKwh > 0 ? `<div class="bom-kpi" style="border-color:rgba(52,211,153,0.3);background:rgba(52,211,153,0.1);"><span style="color:#34D399;">BATERÍA:</span> <b style="color:#34D399;">${tree.summary.totalStorageKwh} kWh</b></div>` : ''}
-            ${tree.summary.totalWindTurbines > 0 ? `<div class="bom-kpi" style="border-color:rgba(56,189,248,0.3);background:rgba(56,189,248,0.1);"><span style="color:#38BDF8;">EÓLICA:</span> <b style="color:#38BDF8;">${tree.summary.totalWindTurbines}x (${tree.summary.totalWindKw} kW)</b></div>` : ''}
+            ${tree.summary.totalStorageKwh > 0 ? `<div class="bom-kpi" style="border-color:rgba(5,150,105,0.3);background:rgba(5,150,105,0.1);"><span style="color:#059669;">BATERÍA:</span> <b style="color:#059669;">${tree.summary.totalStorageKwh} kWh</b></div>` : ''}
+            ${tree.summary.totalWindTurbines > 0 ? `<div class="bom-kpi" style="border-color:rgba(232,74,39,0.3);background:rgba(232,74,39,0.1);"><span style="color:#e84a27;">EÓLICA:</span> <b style="color:#e84a27;">${tree.summary.totalWindTurbines}x (${tree.summary.totalWindKw} kW)</b></div>` : ''}
           </div>
           
           
           
           ${!isEmptyProject ? `
           <div class="bom-section-title" style="margin-top: 12px;">PRODUCCIÓN &amp; BALANCE ENERGÉTICO ANUAL</div>
-          <div style="background:rgba(0,0,0,0.35);border:1px solid rgba(16,185,129,0.25);border-radius:6px;padding:10px;margin-bottom:12px;margin-top:6px;">
+          <div style="background:#dfe3e8;border:1px solid rgba(255,255,255,0.65);box-shadow:inset 2px 2px 5px rgba(163,173,188,0.4),inset -2px -2px 5px rgba(255,255,255,0.75);border-radius:8px;padding:10px;margin-bottom:12px;margin-top:6px;">
             <div class="chart-head-bar" style="display:flex;justify-content:space-between;align-items:flex-start;font-size:11px;margin-bottom:8px;min-height:28px;">
-              <span style="color:var(--emerald-400);font-weight:bold;width:45%;line-height:1.2;display:block;">BALANCE ENERGÉTICO<br>(GENERACIÓN VS CONSUMO)</span>
-              <span id="bom-chart-hover-info" style="color:var(--text-slate-400);text-align:right;width:55%;line-height:1.2;display:flex;flex-direction:column;">PASA EL RATÓN<br>POR LAS BARRAS</span>
+              <span style="color:#059669;font-weight:bold;width:45%;line-height:1.2;display:block;">BALANCE ENERGÉTICO<br>(GENERACIÓN VS CONSUMO)</span>
+              <span id="bom-chart-hover-info" style="color:var(--text-slate-400, #57606a);text-align:right;width:55%;line-height:1.2;display:flex;flex-direction:column;">PASA EL RATÓN<br>POR LAS BARRAS</span>
             </div>
             <div id="bom-chart-placeholder">
               <!-- Placeholder for chart -->
@@ -1354,13 +1354,13 @@
           ` : ''}
 
           ${isEmptyProject ? `
-            <div style="padding: 24px 16px; text-align: center; color: var(--text-muted, #94a3b8);">
+            <div style="padding: 24px 16px; text-align: center; color: var(--text-muted, #57606a);">
               <div style="margin-bottom: 8px; display: flex; justify-content: center;">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#57606a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <path d="M2 22 22 2M16 2l6 6M10 8l6 6M4 14l6 6"/>
                 </svg>
               </div>
-              <div style="font-size: 12px; font-weight: 600; color: var(--text-primary, #f1f5f9);">PROYECTO VACÍO</div>
+              <div style="font-size: 12px; font-weight: 600; color: var(--text-primary, #1e242b);">PROYECTO VACÍO</div>
               <div style="font-size: 11px; margin-top: 4px; line-height: 1.4;">
                 Traza un faldón en el <b>Paso 1</b> y genera la malla de paneles en el <b>Paso 2</b> para computar automáticamente el metrado BIM y presupuesto en tiempo real.
               </div>
@@ -1401,8 +1401,8 @@
             <div class="bom-section-title">INSTALACIÓN, INGENIERÍA & MEDIOS</div>
             ${tree.laborAndSoftCosts && tree.laborAndSoftCosts.length > 0 ? tree.laborAndSoftCosts.map(item => `
               <div class="bom-subitem" style="display:flex;justify-content:space-between;align-items:center;padding:2px 0;">
-                <span style="font-size: 10px;color:#CBD5E1;">${item.description}</span>
-                <b style="font-size: 10px;color:#F8FAFC;margin-left:6px;">${item.totalEur.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</b>
+                <span style="font-size: 10px;color:#57606a;">${item.description}</span>
+                <b style="font-size: 10px;color:#1e242b;margin-left:6px;">${item.totalEur.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</b>
               </div>
             `).join('') : ''}
           `}
@@ -1411,7 +1411,7 @@
               <span>COSTE DIRECTO PEC (BOM + M.O.):</span>
               <span class="bom-total-price">${tree.summary.subtotalEur.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</span>
             </div>
-            ${tree.summary.municipalTaxesEur > 0 ? `<div style="display:flex;justify-content:space-between;align-items:center;font-size:9.5px;color:#94a3b8;font-weight:500;"><span>Tasas Municipales / ICIO est. (informativo):</span><span>${tree.summary.municipalTaxesEur.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</span></div>` : ''}
+            ${tree.summary.municipalTaxesEur > 0 ? `<div style="display:flex;justify-content:space-between;align-items:center;font-size:9.5px;color:#57606a;font-weight:500;"><span>Tasas Municipales / ICIO est. (informativo):</span><span>${tree.summary.municipalTaxesEur.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</span></div>` : ''}
           </div>
         </div>
       `;
@@ -1428,7 +1428,7 @@
         if (placeholder) {
           const wrap = document.createElement('div');
           wrap.className = 'solar-chart-wrap';
-          wrap.style.cssText = 'background:rgba(15,23,42,0.6);border-radius:4px;padding:6px;border:1px solid rgba(255,255,255,0.05);';
+          wrap.style.cssText = 'background:#ebedf0;border-radius:6px;padding:6px;border:1px solid rgba(255,255,255,0.65);box-shadow:inset 1px 1px 3px rgba(163,173,188,0.35),inset -1px -1px 3px rgba(255,255,255,0.75);';
           
           const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
           svg.setAttribute('class', 'solar-bar-chart');

@@ -110,15 +110,15 @@
             'left:50%',
             'transform:translateX(-50%)',
             'z-index:950',
-            'background:rgba(15,23,42,0.92)',
+            'background:#f3f5f8',
             'backdrop-filter:blur(10px)',
-            'border:1px solid rgba(56,189,248,0.35)',
-            'border-radius:12px',
+            'border:1px solid rgba(255,255,255,0.75)',
+            'border-radius:14px',
             'padding:12px 16px',
-            'color:#e2e8f0',
+            'color:#1e242b',
             'font-family:system-ui,-apple-system,sans-serif',
             'font-size:13px',
-            'box-shadow:0 10px 28px rgba(0,0,0,0.45)',
+            'box-shadow:8px 8px 18px rgba(163,173,188,0.45),-8px -8px 18px rgba(255,255,255,0.85)',
             'display:flex',
             'align-items:center',
             'gap:10px',
@@ -126,10 +126,10 @@
         ].join(';');
 
         card.innerHTML = [
-            '<span style="font-weight:600;color:#f8fafc;margin-right:4px;">Empieza tu proyecto:</span>',
-            '<button type="button" data-ra-onb="search" style="background:#1e293b;color:#38bdf8;border:1px solid rgba(56,189,248,0.4);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;font-weight:500;">1. Buscar dirección</button>',
-            '<button type="button" data-ra-onb="draw" style="background:#0284c7;color:#ffffff;border:none;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;font-weight:600;">2. Dibujar cubierta</button>',
-            '<button type="button" data-ra-onb="close" style="background:transparent;color:#94a3b8;border:1px solid #334155;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;">Cerrar</button>'
+            '<span style="font-weight:600;color:#1e242b;margin-right:4px;">Empieza tu proyecto:</span>',
+            '<button type="button" data-ra-onb="search" style="background:#ebedf0;color:#1e242b;border:1px solid rgba(255,255,255,0.7);box-shadow:3px 3px 6px rgba(163,173,188,0.4),-3px -3px 6px rgba(255,255,255,0.85);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;font-weight:600;">1. Buscar dirección</button>',
+            '<button type="button" data-ra-onb="draw" style="background:#e84a27;color:#ffffff;border:none;box-shadow:3px 3px 8px rgba(232,74,39,0.3);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;font-weight:600;">2. Dibujar cubierta</button>',
+            '<button type="button" data-ra-onb="close" style="background:#dfe3e8;color:#57606a;border:1px solid rgba(255,255,255,0.6);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;">Cerrar</button>'
         ].join('');
 
         card.addEventListener('click', function (ev) {

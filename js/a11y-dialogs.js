@@ -282,15 +282,15 @@
       document.body.appendChild(host);
     }
     var card = document.createElement('div');
-    var borderCol = level === 'error' ? '#ef4444' : (level === 'warning' ? '#f59e0b' : '#10b981');
-    card.style.cssText = 'pointer-events:auto;background:#0f172a;color:#f8fafc;border:1px solid ' + borderCol + ';border-left:4px solid ' + borderCol + ';padding:10px 14px;border-radius:8px;font-size:12px;line-height:1.4;box-shadow:0 12px 30px rgba(0,0,0,0.45);display:flex;align-items:flex-start;justify-content:space-between;gap:10px;';
+    var borderCol = level === 'error' ? '#dc2626' : (level === 'warning' ? '#d97706' : '#059669');
+    card.style.cssText = 'pointer-events:auto;background:#f3f5f8;color:#1e242b;border:1px solid rgba(255,255,255,0.75);border-left:4px solid ' + borderCol + ';padding:10px 14px;border-radius:10px;font-size:12px;line-height:1.4;box-shadow:6px 6px 14px rgba(163,173,188,0.45),-6px -6px 14px rgba(255,255,255,0.85);display:flex;align-items:flex-start;justify-content:space-between;gap:10px;';
     var msgSpan = document.createElement('span');
     msgSpan.textContent = text;
     var closeBtn = document.createElement('button');
     closeBtn.type = 'button';
     closeBtn.setAttribute('aria-label', 'Cerrar notificación');
     closeBtn.textContent = '×';
-    closeBtn.style.cssText = 'background:transparent;border:none;color:#94a3b8;font-size:16px;line-height:1;cursor:pointer;padding:0 2px;';
+    closeBtn.style.cssText = 'background:transparent;border:none;color:#57606a;font-size:16px;line-height:1;cursor:pointer;padding:0 2px;';
     closeBtn.onclick = function() { card.remove(); };
     card.appendChild(msgSpan);
     card.appendChild(closeBtn);
@@ -327,20 +327,20 @@
       overlay.setAttribute('aria-modal', 'true');
       overlay.setAttribute('aria-labelledby', 'ra-confirm-title');
       overlay.setAttribute('aria-describedby', 'ra-confirm-msg');
-      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(2,6,23,0.78);backdrop-filter:blur(6px);z-index:1000020;display:flex;align-items:center;justify-content:center;padding:16px;';
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(231,234,238,0.78);backdrop-filter:blur(6px);z-index:1000020;display:flex;align-items:center;justify-content:center;padding:16px;';
 
       var box = document.createElement('div');
-      box.style.cssText = 'background:#0f172a;border:1px solid rgba(56,189,248,0.35);border-radius:12px;max-width:440px;width:100%;padding:20px;box-shadow:0 24px 60px rgba(0,0,0,0.7);color:#f8fafc;font-family:Inter,system-ui,sans-serif;';
+      box.style.cssText = 'background:#f3f5f8;border:1px solid rgba(255,255,255,0.75);border-radius:16px;max-width:440px;width:100%;padding:20px;box-shadow:10px 10px 24px rgba(163,173,188,0.48),-10px -10px 24px rgba(255,255,255,0.9);color:#1e242b;font-family:Inter,system-ui,sans-serif;';
 
       var h3 = document.createElement('h3');
       h3.id = 'ra-confirm-title';
       h3.textContent = title;
-      h3.style.cssText = 'margin:0 0 10px 0;font-size:15px;font-weight:800;color:#fff;';
+      h3.style.cssText = 'margin:0 0 10px 0;font-size:15px;font-weight:800;color:#1e242b;';
 
       var p = document.createElement('p');
       p.id = 'ra-confirm-msg';
       p.textContent = String(message || '');
-      p.style.cssText = 'margin:0 0 18px 0;font-size:13px;line-height:1.5;color:#cbd5e1;white-space:pre-line;';
+      p.style.cssText = 'margin:0 0 18px 0;font-size:13px;line-height:1.5;color:#57606a;white-space:pre-line;';
 
       var actions = document.createElement('div');
       actions.style.cssText = 'display:flex;justify-content:flex-end;gap:10px;';
@@ -348,13 +348,13 @@
       var btnCancel = document.createElement('button');
       btnCancel.type = 'button';
       btnCancel.textContent = cancelLabel;
-      btnCancel.style.cssText = 'padding:8px 14px;border-radius:7px;background:#1e293b;border:1px solid #475569;color:#e2e8f0;font-size:12px;font-weight:700;cursor:pointer;';
+      btnCancel.style.cssText = 'padding:8px 14px;border-radius:8px;background:#ebedf0;border:1px solid rgba(255,255,255,0.7);box-shadow:3px 3px 6px rgba(163,173,188,0.35),-3px -3px 6px rgba(255,255,255,0.8);color:#57606a;font-size:12px;font-weight:700;cursor:pointer;';
       btnCancel.onclick = function() { finish(false); };
 
       var btnOk = document.createElement('button');
       btnOk.type = 'button';
       btnOk.textContent = confirmLabel;
-      btnOk.style.cssText = 'padding:8px 16px;border-radius:7px;background:#059669;border:1px solid #10b981;color:#fff;font-size:12px;font-weight:800;cursor:pointer;';
+      btnOk.style.cssText = 'padding:8px 16px;border-radius:8px;background:#e84a27;border:none;box-shadow:3px 3px 8px rgba(232,74,39,0.3);color:#fff;font-size:12px;font-weight:800;cursor:pointer;';
       btnOk.onclick = function() { finish(true); };
 
       overlay._raCancel = function() { finish(false); };
