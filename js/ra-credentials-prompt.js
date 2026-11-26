@@ -121,7 +121,7 @@
   if (typeof document !== 'undefined') {
     var checkAndPrompt = function () {
       if (!hasRequiredCredentials()) {
-        setTimeout(openModal, 450);
+        openModal();
       }
     };
     if (document.readyState === 'loading') {
@@ -129,6 +129,7 @@
     } else {
       checkAndPrompt();
     }
+    global.addEventListener('load', checkAndPrompt);
   }
 
   global.RACredentials = {
