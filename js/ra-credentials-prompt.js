@@ -47,7 +47,7 @@
 
   function openModal() {
     if (typeof document === 'undefined' || !document.body) return;
-    var existing = document.getElementById('ra-credentials-modal');
+    var existing = document.getElementById('ra-credentials-gate');
     if (existing) {
       existing.style.display = 'flex';
       return;
@@ -55,12 +55,12 @@
 
     var env = global.RA_ENV || {};
     var overlay = document.createElement('div');
-    overlay.id = 'ra-credentials-modal';
+    overlay.id = 'ra-credentials-gate';
     overlay.setAttribute('role', 'dialog');
     overlay.setAttribute('aria-modal', 'true');
     overlay.setAttribute('aria-label', 'Configurar credenciales del visor 3D');
     overlay.style.cssText = [
-      'position:fixed', 'inset:0', 'z-index:2147483647',
+      'position:fixed', 'inset:0', 'z-index:2147483647 !important',
       'background:rgba(2,6,23,0.82)', 'backdrop-filter:blur(8px)',
       'display:flex', 'align-items:center', 'justify-content:center', 'padding:16px',
       'font-family:var(--font-sans, Inter, system-ui, sans-serif)'
